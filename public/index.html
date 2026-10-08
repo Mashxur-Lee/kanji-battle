@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kanji Battle</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <section id="menu">
+    <h1>漢字 <span>Battle</span></h1>
+    <p class="sub">Type the reading in romaji faster than your opponent.</p>
+    <input id="name" maxlength="16" placeholder="Your name" autocomplete="off">
+    <button id="create">Create room</button>
+    <div class="or">or join a friend</div>
+    <div class="row">
+      <input id="joinCode" maxlength="4" placeholder="CODE" autocomplete="off">
+      <button id="join" class="alt">Join</button>
+    </div>
+    <p id="error" class="error"></p>
+  </section>
+
+  <section id="lobby" hidden>
+    <p class="sub">Share this code with your opponent</p>
+    <div id="code" class="code"></div>
+    <p class="sub">Waiting for opponent…</p>
+  </section>
+
+  <section id="game" hidden>
+    <div id="fighters" class="fighters"></div>
+    <div id="roundInfo" class="sub"></div>
+    <div id="kanji" class="kanji"></div>
+    <div class="timer"><div id="timerBar"></div></div>
+    <input id="answer" placeholder="type the reading in romaji, press Enter" autocomplete="off" autocapitalize="off" spellcheck="false" disabled>
+    <p id="feedback" class="feedback"></p>
+  </section>
+
+  <section id="results" hidden>
+    <h2 id="resultTitle"></h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>#</th><th>Kanji</th><th>Reading</th><th>Meaning</th><th id="thYou">You</th><th id="thOpp">Opponent</th></tr></thead>
+        <tbody id="resultRows"></tbody>
+      </table>
+    </div>
+    <button id="again">Play again</button>
+  </section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

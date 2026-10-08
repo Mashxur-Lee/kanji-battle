@@ -1,0 +1,30 @@
+:root { --bg:#12141c; --card:#1c2030; --text:#eef0f6; --muted:#8b92a8; --accent:#ff5c7a; --good:#3ddc97; --bad:#ff5c5c; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font-family: system-ui, "Hiragino Sans", "Noto Sans JP", sans-serif; display:grid; place-items:center; min-height:100vh; }
+main { width:min(640px, 94vw); background:var(--card); border-radius:20px; padding:32px; text-align:center; }
+[hidden] { display:none !important; }
+h1 { font-size:2.6rem; margin:0 0 4px; } h1 span { color:var(--accent); }
+.sub { color:var(--muted); margin:6px 0 18px; }
+input { width:100%; padding:14px; margin:6px 0; border-radius:12px; border:2px solid #2c3250; background:#12141c; color:var(--text); font-size:1.05rem; text-align:center; }
+input:focus { outline:none; border-color:var(--accent); }
+button { width:100%; padding:14px; margin:6px 0; border:0; border-radius:12px; background:var(--accent); color:#fff; font-size:1.05rem; font-weight:600; cursor:pointer; }
+button.alt { background:#2c3250; }
+.row { display:flex; gap:10px; } .row input { text-transform:uppercase; letter-spacing:.3em; }
+.or { color:var(--muted); margin:14px 0 4px; font-size:.9rem; }
+.error { color:var(--bad); min-height:1.2em; }
+.code { font-size:4rem; letter-spacing:.3em; font-weight:800; color:var(--accent); }
+.fighters { display:flex; gap:16px; margin-bottom:12px; }
+.fighter { flex:1; text-align:left; } .fighter.me .name { color:var(--accent); }
+.name { font-weight:600; margin-bottom:6px; }
+.hp { height:16px; background:#12141c; border-radius:8px; overflow:hidden; }
+.hp > div { height:100%; background:var(--good); transition:width .4s; }
+.hpnum { color:var(--muted); font-size:.85rem; margin-top:4px; }
+.kanji { font-size:8rem; line-height:1.2; margin:8px 0; }
+.timer { height:6px; background:#12141c; border-radius:3px; margin-bottom:16px; overflow:hidden; }
+#timerBar { height:100%; width:100%; background:var(--accent); }
+.feedback { min-height:1.5em; font-weight:600; } .feedback.good { color:var(--good); } .feedback.bad { color:var(--bad); }
+.tablewrap { max-height:55vh; overflow:auto; margin-bottom:12px; }
+table { width:100%; border-collapse:collapse; text-align:left; }
+th, td { padding:8px 10px; border-bottom:1px solid #2c3250; }
+td.k { font-size:1.6rem; } td small { color:var(--muted); display:block; }
+.ok { color:var(--good); font-weight:700; } .no { color:var(--bad); font-weight:700; }
