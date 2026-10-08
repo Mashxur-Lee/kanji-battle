@@ -46,7 +46,7 @@ test('study phase shows the pool, then hides it; battle starts when both are rea
   tick(100);
   assert.equal(of('challenge').length, 2, 'each player gets their own challenge');
   // challenges only carry the kanji — never the reading or meaning
-  assert.deepEqual(Object.keys(of('challenge')[0]).sort(), ['answer', 'id', 'kanji', 'playerId', 'timeLimitMs', 'type']);
+  assert.deepEqual(Object.keys(of('challenge')[0]).sort(), ['answerMode', 'id', 'kanji', 'playerId', 'timeLimitMs', 'type']);
 });
 
 test('study phase ends on its own timer', () => {
@@ -183,7 +183,7 @@ test('hiragana practice: shown as kana, answered in romaji only', () => {
   const ka = VOCAB.find((v) => v.level === 'KANA' && v.kanji === 'か')!;
   const { game, of, challengeFor } = setup([ka]);
   game.start(); game.markReady('A'); game.markReady('B'); tick(100);
-  assert.equal(challengeFor('A').answer, 'romaji');
+  assert.equal(challengeFor('A').answerMode, 'romaji');
   game.submit('A', challengeFor('A').id, 'か'); // typing the kana back is not allowed
   assert.equal(of('answer_result').at(-1)!.correct, false);
   assert.equal(of('answer_result').at(-1)!.entry.romaji, 'ka');
