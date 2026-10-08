@@ -8,43 +8,89 @@
 </head>
 <body>
 <main>
-  <section id="menu">
-    <h1>漢字 <span>Battle</span></h1>
-    <p class="sub">Type the reading in romaji faster than your opponent.</p>
-    <input id="name" maxlength="16" placeholder="Your name" autocomplete="off">
+  <!-- MENU -->
+  <section id="menu" class="panel narrow">
+    <h1><span class="jp">漢字</span> Battle</h1>
+    <p class="sub">Study ten spells. Then cast them from memory.</p>
+    <label class="field"><span>Your name</span><input id="name" maxlength="16" placeholder="Name" autocomplete="off"></label>
     <button id="create">Create room</button>
     <div class="or">or join a friend</div>
     <div class="row">
-      <input id="joinCode" maxlength="4" placeholder="CODE" autocomplete="off">
+      <input id="joinCode" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Room code">
       <button id="join" class="alt">Join</button>
     </div>
-    <p id="error" class="error"></p>
+    <p id="error" class="error" role="alert"></p>
   </section>
 
-  <section id="lobby" hidden>
-    <p class="sub">Share this code with your opponent</p>
+  <!-- LOBBY -->
+  <section id="lobby" class="panel narrow" hidden>
+    <p class="sub">Room code — share it with your opponent</p>
     <div id="code" class="code"></div>
-    <p class="sub">Waiting for opponent…</p>
+    <ul id="lobbyPlayers" class="players"></ul>
+    <fieldset id="levels" class="levels">
+      <legend>Vocabulary levels</legend>
+      <div id="levelChips" class="chips"></div>
+      <p id="levelsHint" class="hint"></p>
+    </fieldset>
+    <button id="start" hidden>Start battle</button>
+    <p id="lobbyStatus" class="sub"></p>
   </section>
 
-  <section id="game" hidden>
-    <div id="fighters" class="fighters"></div>
-    <div id="roundInfo" class="sub"></div>
-    <div id="kanji" class="kanji"></div>
-    <div class="timer"><div id="timerBar"></div></div>
-    <input id="answer" placeholder="type the reading in romaji, press Enter" autocomplete="off" autocapitalize="off" spellcheck="false" disabled>
-    <p id="feedback" class="feedback"></p>
+  <!-- PREPARATION -->
+  <section id="prep" class="panel wide" hidden>
+    <header class="prephead">
+      <div>
+        <h2>Preparation</h2>
+        <p class="sub">Memorise the readings. They vanish when the battle starts.</p>
+      </div>
+      <div id="prepClock" class="clock" aria-live="off"></div>
+    </header>
+    <div class="timer"><div id="prepBar"></div></div>
+    <div id="studyGrid" class="grid"></div>
+    <button id="ready">I'm ready</button>
+    <p id="readyStatus" class="sub"></p>
   </section>
 
-  <section id="results" hidden>
-    <h2 id="resultTitle"></h2>
+  <!-- BATTLE -->
+  <section id="battle" class="panel wide" hidden>
+    <div class="arena-top">
+      <div id="meCard" class="fighter me"></div>
+      <div id="battleClock" class="clock small"></div>
+      <div id="oppCard" class="fighter opp"></div>
+    </div>
+    <div class="stage">
+      <div id="countdown" class="countdown" hidden></div>
+      <div id="challenge" class="challenge">
+        <div id="kanji" class="kanji" lang="ja"></div>
+        <div class="timer thin"><div id="challengeBar"></div></div>
+        <input id="answer" lang="ja" placeholder="reading — かな or romaji, then Enter" autocomplete="off" autocapitalize="off" spellcheck="false" disabled>
+        <div id="feedback" class="feedback" aria-live="polite"></div>
+      </div>
+    </div>
+    <div id="log" class="log" aria-live="polite"></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="results" class="panel wide" hidden>
+    <h2 id="resultTitle" class="result-title"></h2>
+    <p id="resultReason" class="sub"></p>
+    <div id="statCompare" class="compare"></div>
+    <div id="struggledBox" class="struggled">
+      <h3>Review — you struggled with</h3>
+      <div id="struggled" class="grid small"></div>
+    </div>
+    <h3>Vocabulary performance</h3>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>#</th><th>Kanji</th><th>Reading</th><th>Meaning</th><th id="thYou">You</th><th id="thOpp">Opponent</th></tr></thead>
-        <tbody id="resultRows"></tbody>
+        <thead><tr><th>Word</th><th>Reading</th><th>Meaning</th><th>Result</th><th>Avg time</th></tr></thead>
+        <tbody id="wordRows"></tbody>
       </table>
     </div>
-    <button id="again">Play again</button>
+    <div class="row">
+      <button id="rematch">Rematch</button>
+      <button id="leave" class="alt">Leave</button>
+    </div>
+    <p id="rematchStatus" class="sub"></p>
   </section>
 </main>
 <script src="/app.js"></script>

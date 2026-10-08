@@ -8,7 +8,8 @@
     "build:server": "tsc -p tsconfig.json",
     "build": "npm run build:client && npm run build:server",
     "dev": "npm run build:client && tsx src/server/index.ts",
-    "start": "node dist/server/index.js"
+    "start": "node dist/server/index.js",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": { "ws": "^8.18.0" },
   "devDependencies": {
