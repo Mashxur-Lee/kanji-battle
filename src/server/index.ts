@@ -21,7 +21,7 @@ const server = createServer(async (req, res) => {
 });
 
 const rooms = new RoomManager();
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, maxPayload: 4 * 1024 }); // clients only send tiny JSON messages
 wss.on('connection', (ws) => {
   const session = new Session(rooms, (json) => ws.readyState === ws.OPEN && ws.send(json));
   ws.on('message', (data) => session.onRaw(data.toString()));
