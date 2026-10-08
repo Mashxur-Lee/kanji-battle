@@ -1,11 +1,11 @@
-import { isCorrectReading } from '../shared/kana';
+import { isCorrectReading, isRomajiInput } from '../shared/kana';
 import type {
-  BattleEvent, GameOverReason, PlayerId, PlayerStats, StudyItem, VocabEntry, WordStat,
+  AnswerMode, BattleEvent, GameOverReason, PlayerId, PlayerStats, StudyItem, VocabEntry, WordStat,
 } from '../shared/protocol';
+import { displayReading } from '../shared/vocab';
 import { ChallengeDeck, type Rng } from './VocabPool';
 
 export interface GameConfig {
-  maxHp: number;
   prepMs: number; // study phase
   countdownMs: number; // "3, 2, 1" between study and first challenge
   battleMs: number; // hard cap; highest HP wins when it runs out
@@ -19,7 +19,6 @@ export interface GameConfig {
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
-  maxHp: 1000,
   prepMs: 60_000,
   countdownMs: 3_000,
   battleMs: 5 * 60_000,
@@ -43,12 +42,12 @@ export function computeDamage(difficulty: number, responseMs: number, combo: num
 }
 
 export type GameEvent =
-  | { type: 'prep'; pool: StudyItem[]; durationMs: number }
+  | { type: 'prep'; playerId: PlayerId; pool: StudyItem[]; durationMs: number }
   | { type: 'prep_ready'; readyIds: PlayerId[] }
   | { type: 'battle_start'; durationMs: number; countdownMs: number }
-  | { type: 'challenge'; playerId: PlayerId; id: number; kanji: string; timeLimitMs: number }
+  | { type: 'challenge'; playerId: PlayerId; id: number; kanji: string; answer: AnswerMode; timeLimitMs: number }
   | {
-      type: 'answer_result'; playerId: PlayerId; challengeId: number; correct: boolean; timedOut: boolean;
+      type: 'answer_result'; playerId: PlayerId; challengeId: number; correct: boolean; timedOut: boolean; skipped: boolean;
       entry: VocabEntry; damage: number; combo: number; responseMs: number | null; nextInMs: number;
     }
   | { type: 'battle_update'; event: BattleEvent }
@@ -67,13 +66,20 @@ class PlayerState {
   current: Challenge | null = null;
   timer?: ReturnType<typeof setTimeout>;
   readonly words = new Map<string, WordTally>();
-  constructor(readonly id: PlayerId, readonly deck: ChallengeDeck, maxHp: number) { this.hp = maxHp; }
+  readonly deck: ChallengeDeck;
+  constructor(readonly id: PlayerId, readonly pool: readonly VocabEntry[], readonly maxHp: number, rng: Rng) {
+    this.hp = maxHp;
+    this.deck = new ChallengeDeck(pool, rng);
+  }
   get alive() { return this.hp > 0; }
 }
 
+/** Each player brings their own word pool (their chosen levels) and their own max HP (see Balance.ts). */
+export interface PlayerSetup { id: PlayerId; pool: readonly VocabEntry[]; maxHp: number }
+
 /**
  * Pure game rules: study phase → battle → result. Knows nothing about sockets or rooms; it just emits
- * events. Each player answers their own stream of challenges drawn from the shared pool.
+ * events. Each player answers their own stream of challenges drawn from their own pool.
  * Written for N players so 2v2 / free-for-all can be added by changing targeting, not the engine.
  */
 export class Game {
@@ -84,30 +90,34 @@ export class Game {
   private nextChallengeId = 1;
 
   constructor(
-    ids: readonly PlayerId[],
-    private readonly pool: readonly VocabEntry[],
+    setups: readonly PlayerSetup[],
     private readonly emit: (e: GameEvent) => void,
     private readonly cfg: GameConfig = DEFAULT_CONFIG,
     rng: Rng = Math.random,
     private readonly now: () => number = Date.now,
   ) {
-    if (ids.length < 2) throw new Error('Game needs at least 2 players');
-    if (pool.length === 0) throw new Error('Game needs a non-empty pool');
-    for (const id of ids) this.players.set(id, new PlayerState(id, new ChallengeDeck(pool, rng), cfg.maxHp));
+    if (setups.length < 2) throw new Error('Game needs at least 2 players');
+    for (const s of setups) {
+      if (s.pool.length === 0) throw new Error('Every player needs a non-empty pool');
+      this.players.set(s.id, new PlayerState(s.id, s.pool, s.maxHp, rng));
+    }
   }
 
   get isOver() { return this.phase === 'over'; }
-  get maxHp() { return this.cfg.maxHp; }
   getHp(id: PlayerId) { return this.players.get(id)?.hp ?? 0; }
+  getMaxHp(id: PlayerId) { return this.players.get(id)?.maxHp ?? 0; }
   getCombo(id: PlayerId) { return this.players.get(id)?.combo ?? 0; }
 
   start() {
     this.phase = 'prep';
-    this.emit({
-      type: 'prep',
-      pool: this.pool.map(({ kanji, reading, meaning, jlpt }) => ({ kanji, reading, meaning, jlpt })),
-      durationMs: this.cfg.prepMs,
-    });
+    for (const p of this.players.values()) {
+      this.emit({
+        type: 'prep',
+        playerId: p.id,
+        pool: p.pool.map((v) => ({ kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level })),
+        durationMs: this.cfg.prepMs,
+      });
+    }
     this.phaseTimer = setTimeout(() => this.beginBattle(), this.cfg.prepMs);
   }
 
@@ -123,8 +133,17 @@ export class Game {
     const p = this.players.get(id);
     if (this.phase !== 'battle' || !p?.alive || !p.current || p.current.id !== challengeId) return;
     const responseMs = this.now() - p.current.issuedAt;
-    if (isCorrectReading(text, [p.current.entry.reading, ...(p.current.entry.altReadings ?? [])])) this.hit(p, responseMs);
-    else this.miss(p, false, responseMs);
+    const { entry } = p.current;
+    const formatOk = !entry.romaji || isRomajiInput(text);
+    if (formatOk && isCorrectReading(text, [entry.reading, ...(entry.altReadings ?? [])])) this.hit(p, responseMs);
+    else this.miss(p, 'wrong', responseMs);
+  }
+
+  /** "I don't know" — counts as a miss: no damage, combo reset, answer shown. */
+  skip(id: PlayerId, challengeId: number) {
+    const p = this.players.get(id);
+    if (this.phase !== 'battle' || !p?.alive || !p.current || p.current.id !== challengeId) return;
+    this.miss(p, 'skipped', this.now() - p.current.issuedAt);
   }
 
   /** Player left mid-game. */
@@ -178,10 +197,13 @@ export class Game {
     if (this.phase !== 'battle' || !p.alive) return;
     const entry = p.deck.draw();
     p.current = { id: this.nextChallengeId++, entry, issuedAt: this.now() };
-    this.emit({ type: 'challenge', playerId: p.id, id: p.current.id, kanji: entry.kanji, timeLimitMs: this.cfg.challengeMs });
+    this.emit({
+      type: 'challenge', playerId: p.id, id: p.current.id, kanji: entry.kanji,
+      answer: entry.romaji ? 'romaji' : 'reading', timeLimitMs: this.cfg.challengeMs,
+    });
     const cid = p.current.id;
     this.schedule(p, () => {
-      if (p.current?.id === cid) this.miss(p, true, null);
+      if (p.current?.id === cid) this.miss(p, 'timeout', null);
     }, this.cfg.challengeMs);
   }
 
@@ -198,7 +220,7 @@ export class Game {
     this.tally(p, entry, true, responseMs);
 
     this.emit({
-      type: 'answer_result', playerId: p.id, challengeId, correct: true, timedOut: false,
+      type: 'answer_result', playerId: p.id, challengeId, correct: true, timedOut: false, skipped: false,
       entry, damage, combo: p.combo, responseMs, nextInMs: this.cfg.nextDelayMs,
     });
     this.emit({ type: 'battle_update', event: { kind: 'hit', playerId: p.id, targetId: target?.id ?? p.id, kanji: entry.kanji, damage, combo: p.combo } });
@@ -211,7 +233,7 @@ export class Game {
     this.schedule(p, () => this.issueChallenge(p), this.cfg.nextDelayMs);
   }
 
-  private miss(p: PlayerState, timedOut: boolean, responseMs: number | null) {
+  private miss(p: PlayerState, why: 'wrong' | 'timeout' | 'skipped', responseMs: number | null) {
     const entry = p.current!.entry;
     const challengeId = p.current!.id;
     p.current = null;
@@ -220,7 +242,8 @@ export class Game {
     this.tally(p, entry, false, 0);
 
     this.emit({
-      type: 'answer_result', playerId: p.id, challengeId, correct: false, timedOut,
+      type: 'answer_result', playerId: p.id, challengeId, correct: false,
+      timedOut: why === 'timeout', skipped: why === 'skipped',
       entry, damage: 0, combo: 0, responseMs, nextInMs: this.cfg.missPenaltyMs,
     });
     this.emit({ type: 'battle_update', event: { kind: 'miss', playerId: p.id, kanji: entry.kanji } });
@@ -260,10 +283,10 @@ export class Game {
     const attempts = tallies.reduce((s, t) => s + t.attempts, 0);
     const correct = tallies.reduce((s, t) => s + t.correct, 0);
     const totalMs = tallies.reduce((s, t) => s + t.totalMs, 0);
-    const words: WordStat[] = this.pool.map((entry) => {
+    const words: WordStat[] = p.pool.map((entry) => {
       const t = p.words.get(entry.id);
       return {
-        kanji: entry.kanji, reading: entry.reading, meaning: entry.meaning,
+        kanji: entry.kanji, reading: displayReading(entry), meaning: entry.meaning,
         attempts: t?.attempts ?? 0, correct: t?.correct ?? 0,
         avgMs: t && t.correct > 0 ? Math.round(t.totalMs / t.correct) : null,
       };

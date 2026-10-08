@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { isCorrectReading, normalizeAnswer, romajiToHiragana } from '../src/shared/kana';
 import { VOCAB } from '../src/shared/vocab';
+import { LEVELS } from '../src/shared/protocol';
 
 test('romaji → hiragana covers Hepburn, Kunrei and IME-style typing', () => {
   const cases: Record<string, string> = {
@@ -38,5 +39,6 @@ test('every vocab reading is pure hiragana and reachable by romaji typing', () =
     ids.add(v.id);
     assert.ok(v.difficulty > 0 && v.difficulty <= 100);
   }
-  assert.ok(VOCAB.length >= 100);
+  assert.ok(VOCAB.length >= 400);
+  for (const lv of LEVELS) assert.ok(VOCAB.filter((v) => v.level === lv).length >= 50, `${lv} has 50+ words`);
 });

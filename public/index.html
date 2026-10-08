@@ -7,6 +7,10 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<div class="audio-ctl" role="group" aria-label="Audio">
+  <button id="radioBtn" class="pill" aria-pressed="true">♪ Radio</button>
+  <button id="sfxBtn" class="pill" aria-pressed="true">🔊 Sounds</button>
+</div>
 <main>
   <!-- MENU -->
   <section id="menu" class="panel narrow">
@@ -24,13 +28,14 @@
 
   <!-- LOBBY -->
   <section id="lobby" class="panel narrow" hidden>
+    <button id="leaveLobby" class="back">← Leave room</button>
     <p class="sub">Room code — share it with your opponent</p>
     <div id="code" class="code"></div>
     <ul id="lobbyPlayers" class="players"></ul>
     <fieldset id="levels" class="levels">
-      <legend>Vocabulary levels</legend>
+      <legend>Your levels</legend>
       <div id="levelChips" class="chips"></div>
-      <p id="levelsHint" class="hint"></p>
+      <p class="hint">Each player picks their own. かな = hiragana, answered in romaji. Harder levels hit harder — so your opponent gets more HP.</p>
     </fieldset>
     <button id="start" hidden>Start battle</button>
     <p id="lobbyStatus" class="sub"></p>
@@ -58,14 +63,22 @@
       <div id="battleClock" class="clock small"></div>
       <div id="oppCard" class="fighter opp"></div>
     </div>
-    <div class="stage">
-      <div id="countdown" class="countdown" hidden></div>
-      <div id="challenge" class="challenge">
-        <div id="kanji" class="kanji" lang="ja"></div>
-        <div class="timer thin"><div id="challengeBar"></div></div>
-        <input id="answer" lang="ja" placeholder="reading — かな or romaji, then Enter" autocomplete="off" autocapitalize="off" spellcheck="false" disabled>
-        <div id="feedback" class="feedback" aria-live="polite"></div>
+    <div id="arena" class="arena">
+      <div id="wizMe" class="wizard me"><div class="sprite"></div><div class="ground"></div></div>
+      <div class="stage">
+        <div id="countdown" class="countdown" hidden></div>
+        <div id="challenge" class="challenge">
+          <div id="kanji" class="kanji" lang="ja"></div>
+          <div class="timer thin"><div id="challengeBar"></div></div>
+          <input id="answer" lang="ja" placeholder="かな or romaji, then Enter" autocomplete="off" autocapitalize="off" spellcheck="false" disabled>
+          <div class="under-input">
+            <span id="inputHint" class="hint"></span>
+            <button id="skip" class="pill" disabled title="Counts as a miss and shows the answer">Skip <kbd>Esc</kbd></button>
+          </div>
+          <div id="feedback" class="feedback" aria-live="polite"></div>
+        </div>
       </div>
+      <div id="wizOpp" class="wizard opp"><div class="sprite"></div><div class="ground"></div></div>
     </div>
     <div id="log" class="log" aria-live="polite"></div>
   </section>
