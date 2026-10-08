@@ -15,8 +15,8 @@ export function shuffle<T>(a: T[], rng: Rng = Math.random): T[] {
  * Strategy point for "what goes into a battle pool". Today: random words from the chosen levels.
  * Later: weakness battles, player-built spell decks with a power budget, daily challenges.
  */
-export function pickPool(levels: readonly Level[], size: number, rng: Rng = Math.random, source = VOCAB): VocabEntry[] {
-  const eligible = source.filter((v) => levels.includes(v.level));
+export function pickPool(levels: readonly Level[], size: number, rng: Rng = Math.random, source = VOCAB, filter: (v: VocabEntry) => boolean = () => true): VocabEntry[] {
+  const eligible = source.filter((v) => levels.includes(v.level) && filter(v));
   return shuffle([...eligible], rng).slice(0, size);
 }
 

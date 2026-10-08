@@ -66,16 +66,31 @@ function noise(at: number, dur: number, gain: number, cutoff: number) {
   src.start(at);
 }
 
+/** A deep "bum": sine with a falling pitch, a click for punch and a sub-octave for weight. */
+function boom(at: number, freq: number, dur: number, gain: number) {
+  tone(freq * 2.2, at, dur, { gain, to: freq * 0.55, attack: 0.004 });
+  tone(freq, at, dur * 1.2, { gain: gain * 0.7, to: freq * 0.6, attack: 0.004 });
+  noise(at, 0.035, gain * 0.5, 3500); // transient click
+}
+
 const sfxOk = () => prefs.sfx && ensure() !== null && ctx!.state === 'running';
 
 export const sfx = {
-  /** Spell cast — bright rising chime. */
+  /**
+   * Spell cast. Escalates with the combo like a multi-kill: bum → buum → buuum → buuuum, getting
+   * deeper and longer, then from ×5 on a punchy "bam-bam  bam-bam" that stays.
+   */
   correct(combo = 1) {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    const lift = Math.min(combo - 1, 6); // climbs with the combo
-    [76, 83, 88].forEach((n, i) => tone(midi(n + lift), t + i * 0.06, 0.45, { type: 'triangle', gain: 0.22 }));
-    tone(midi(100 + lift), t + 0.12, 0.3, { gain: 0.06 });
+    if (combo >= 5) {
+      [0, 0.12, 0.36, 0.48].forEach((dt) => boom(t + dt, 70, 0.22, 0.75));
+      tone(midi(88), t, 0.25, { type: 'triangle', gain: 0.06 });
+      return;
+    }
+    const step = Math.max(1, combo) - 1; // 0..3
+    boom(t, 95 - step * 13, 0.28 + step * 0.22, 0.55 + step * 0.1);
+    tone(midi(84 - step * 2), t, 0.18, { type: 'triangle', gain: 0.05 }); // tiny sparkle so it still reads as "correct"
   },
   /** Miss / skip / timeout — soft descending buzz. */
   wrong() {
@@ -95,6 +110,26 @@ export const sfx = {
   impact() {
     if (!sfxOk()) return;
     noise(ctx!.currentTime, 0.12, 0.15, 2500);
+  },
+  /** Dragon draws breath before the fire. */
+  inhale() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    tone(55, t, 2.6, { type: 'sawtooth', gain: 0.08, to: 110, attack: 1.5 });
+  },
+  /** Fire breath roar. */
+  fire() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    noise(t, 1.2, 0.5, 1400);
+    tone(70, t, 1.1, { type: 'sawtooth', gain: 0.12, to: 40 });
+  },
+  /** Claw swipe on a mistake. */
+  claw() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    noise(t, 0.18, 0.4, 6000);
+    tone(160, t + 0.05, 0.2, { gain: 0.3, to: 60 });
   },
   tick() { if (sfxOk()) tone(880, ctx!.currentTime, 0.08, { gain: 0.12 }); },
   go() { if (sfxOk()) tone(1320, ctx!.currentTime, 0.25, { type: 'triangle', gain: 0.18 }); },

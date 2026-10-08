@@ -1,15 +1,23 @@
-import { LEVELS, type Level, type PlayerId, type PlayerView, type ServerMessage } from '../shared/protocol';
+import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
+import { api, ApiError, getToken, setToken } from './api';
 import * as audio from './audio';
 import { GameSocket } from './net';
+import { HandwritingPad } from './pad';
 import * as ui from './ui';
 
+// ── state ────────────────────────────────────────────────────────────────────
+let user: PublicUser | null = null;
 let you: PlayerId = '';
 let code = '';
+let mode: GameMode = 'reading';
 let players: PlayerView[] = [];
+let minPlayers = 2;
 let challengeId = 0;
-let readyIds: PlayerId[] = [];
+let inRoom = false;
+// writing mode
+let charCount = 0;
+let written: DrawnChar[] = [];
 
-// ── remembered per-browser preferences ──────────────────────────────────────
 const store = {
   get(key: string) { try { return localStorage.getItem(key); } catch { return null; } },
   set(key: string, v: string) { try { localStorage.setItem(key, v); } catch { /* ignore */ } },
@@ -22,12 +30,52 @@ const savedLevels = (): Level[] => {
   } catch { return ['N3', 'N2']; }
 };
 
-const socket = new GameSocket(onMessage, () => {
-  ui.setError('Disconnected from server — refresh to play again.');
-  ui.show('menu');
+const socket = new GameSocket(onMessage, (s) => {
+  ui.setNetStatus(s === 'reconnecting' ? 'Reconnecting…' : null);
 });
 
+/** Who is this player on screen? You are always on the left; in boss mode the other player is your ally. */
+const actorOf = (id: PlayerId | 'boss') => (id === 'boss' ? 'boss' : id === you ? 'me' : mode === 'boss' ? 'ally' : 'opp') as 'me' | 'opp' | 'ally' | 'boss';
+const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Someone';
+
+// ── session lifecycle ────────────────────────────────────────────────────────
+async function boot() {
+  ui.paintScenes();
+  ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn());
+  if (!getToken()) return showAuth();
+  try {
+    const { user: u } = await api.me();
+    signedIn(u);
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 401 || e.status === 403)) { setToken(''); showAuth(e.status === 403 ? e.message : ''); }
+    else { ui.show('auth'); ui.$('authError').textContent = 'Server unreachable — try again in a moment.'; }
+  }
+}
+
+function signedIn(u: PublicUser) {
+  user = u;
+  ui.setUser(u);
+  socket.start(getToken());
+  if (!inRoom) ui.show('menu');
+}
+
+function showAuth(message = '') {
+  user = null;
+  inRoom = false;
+  ui.setUser(null);
+  ui.setAuthTab(authTab);
+  ui.show('auth');
+  ui.$('authError').textContent = message;
+}
+
+function logout(message = '') {
+  setToken('');
+  socket.stop();
+  showAuth(message);
+}
+
 function backToMenu() {
+  inRoom = false;
   you = '';
   code = '';
   players = [];
@@ -35,11 +83,27 @@ function backToMenu() {
   ui.show('menu');
 }
 
+// ── server messages ──────────────────────────────────────────────────────────
 function onMessage(msg: ServerMessage) {
   switch (msg.type) {
+    case 'welcome':
+      user = msg.user;
+      ui.setUser(msg.user);
+      break;
+    case 'auth_error':
+      logout(msg.message);
+      break;
+    case 'kicked':
+      socket.stop();
+      if (/banned/i.test(msg.message)) return logout(msg.message);
+      backToMenu();
+      ui.setError(`${msg.message} Refresh this page to play here.`);
+      break;
     case 'joined':
       you = msg.you;
       code = msg.code;
+      mode = msg.mode;
+      inRoom = true;
       ui.setError('');
       break;
     case 'left':
@@ -47,93 +111,168 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'lobby':
       players = msg.players;
-      ui.showLobby(code, msg.players, you, msg.hostId, msg.maxPlayers);
+      mode = msg.mode;
+      minPlayers = msg.minPlayers;
+      ui.showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers);
       break;
     case 'prep':
-      readyIds = [];
-      ui.showPrep(msg.pool, msg.durationMs);
-      ui.setReady(0, players.length, false);
+      players = msg.players;
+      ui.showPrep(msg.pool, msg.durationMs, mode);
+      ui.setReady(msg.readyIds.length, players.length, msg.readyIds.includes(you));
       break;
     case 'prep_ready':
-      readyIds = msg.readyIds;
-      ui.setReady(readyIds.length, players.length, readyIds.includes(you));
+      ui.setReady(msg.readyIds.length, players.length, msg.readyIds.includes(you));
       break;
     case 'battle_start':
       players = msg.players;
-      ui.showBattle(players, you, msg.countdownMs, msg.durationMs, (n) => (n > 0 ? audio.sfx.tick() : audio.sfx.go()));
+      mode = msg.mode;
+      ui.showBattle(msg.mode, players, msg.boss, you, msg.countdownMs, msg.durationMs, (n) => (n > 0 ? audio.sfx.tick() : audio.sfx.go()));
       break;
     case 'challenge':
       challengeId = msg.id;
-      ui.showChallenge(msg.kanji, msg.answer, msg.timeLimitMs);
+      ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, charCount: msg.charCount, flashMs: msg.flashMs });
+      if (msg.answer === 'writing') {
+        charCount = msg.charCount ?? 1;
+        written = [];
+        pad.clear();
+        ui.setCharSlots(charCount, [], true);
+      }
       break;
     case 'answer_result':
       if (msg.challengeId !== challengeId) break;
       ui.lockInput();
+      if (mode === 'writing') ui.setCharSlots(charCount, written.map(() => ''), false);
       ui.setFeedback(msg);
       if (msg.correct) audio.sfx.correct(msg.combo);
       else audio.sfx.wrong();
       break;
-    case 'battle_update': {
+    case 'battle_update':
       players = msg.players;
-      const e = msg.event;
-      const mine = e.playerId === you;
-      if (e.kind === 'hit') {
-        // HP bars update when the spell lands, not before.
-        void ui.castSpell(mine, e.kanji, e.damage).then(() => {
-          ui.renderFighters(players, you);
-          if (mine) audio.sfx.impact();
-          else audio.sfx.hurt();
-        });
-      } else {
-        ui.fizzle(mine);
-        ui.renderFighters(players, you);
-      }
-      if (!mine) {
-        const name = players.find((p) => p.id === e.playerId)?.name ?? 'Opponent';
-        if (e.kind === 'hit') ui.logOpponent(`${name} cast for ${e.damage}${e.combo >= 2 ? ` (×${e.combo})` : ''}:`, e.kanji);
-        else ui.logOpponent(`${name} fumbled:`, e.kanji);
-      }
+      onBattleEvent(msg);
       break;
-    }
     case 'game_over': {
       players = msg.players;
       ui.lockInput();
-      const delay = msg.reason === 'forfeit' ? 300 : 1800;
       setTimeout(() => {
-        ui.renderFighters(players, you);
-        if (msg.reason === 'ko') for (const p of players) if (p.hp <= 0) ui.knockOut(p.id === you);
+        ui.renderFighters(players, you, msg.boss);
+        if (msg.mode === 'boss' && msg.teamWon) ui.knockOut('boss');
+        if (msg.reason !== 'forfeit') for (const p of players) if (p.hp <= 0) ui.knockOut(actorOf(p.id));
       }, 450);
       setTimeout(() => {
-        if (msg.winnerId === you) audio.sfx.win();
-        else if (msg.winnerId) audio.sfx.lose();
-        ui.showResults(msg.players, you, msg.winnerId, msg.reason, msg.stats);
-      }, delay);
+        const won = msg.mode === 'boss' ? msg.teamWon : msg.winnerId === you;
+        if (won) audio.sfx.win();
+        else if (msg.mode === 'boss' || msg.winnerId) audio.sfx.lose();
+        ui.showResults(msg.mode, msg.players, you, msg.winnerId, msg.teamWon, msg.reason, msg.stats);
+      }, msg.reason === 'forfeit' ? 300 : 2000);
       break;
     }
     case 'rematch_status':
-      ui.setRematchStatus(msg.votes, you, players.length);
+      ui.setRematchStatus(msg.votes, you, players.length, minPlayers);
       break;
     case 'error':
-      if (you) ui.$('lobbyStatus').textContent = msg.message;
-      else ui.setError(msg.message);
+      if (inRoom) ui.$('lobbyStatus').textContent = msg.message;
+      else { ui.setError(msg.message); ui.show('menu'); }
       break;
   }
 }
 
-// ── menu ────────────────────────────────────────────────────────────────────
-const nameValue = () => ui.$<HTMLInputElement>('name').value.trim() || 'Player';
-ui.$<HTMLInputElement>('name').value = store.get('kb:name') ?? '';
-const rememberName = () => store.set('kb:name', nameValue());
+function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
+  const e = msg.event;
+  const render = () => ui.renderFighters(players, you, msg.boss);
+  switch (e.kind) {
+    case 'hit': {
+      const caster = actorOf(e.playerId);
+      const target = actorOf(e.targetId);
+      const friendly = caster !== 'opp';
+      void ui.castSpell(caster, target, e.kanji, e.damage, friendly).then(() => {
+        render(); // HP bars update when the spell lands
+        if (target === 'me') audio.sfx.hurt();
+        else if (caster === 'me') audio.sfx.impact();
+      });
+      if (e.playerId !== you) ui.logLine(`${nameOf(e.playerId)} cast for ${e.damage}${e.combo >= 2 ? ` (×${e.combo})` : ''}:`, e.kanji);
+      break;
+    }
+    case 'miss':
+      ui.fizzle(actorOf(e.playerId));
+      render();
+      if (e.playerId !== you) ui.logLine(`${nameOf(e.playerId)} fumbled:`, e.kanji);
+      break;
+    case 'claw':
+      ui.clawHit(actorOf(e.playerId), e.damage);
+      if (e.playerId === you) audio.sfx.claw();
+      setTimeout(render, 200);
+      if (e.playerId !== you) ui.logLine(`The dragon claws ${nameOf(e.playerId)} for ${e.damage}`);
+      break;
+    case 'breath_warning':
+      ui.breathWarning(e.inMs);
+      audio.sfx.inhale();
+      break;
+    case 'breath': {
+      const victims = players.filter((p) => p.hp > 0 || p.hp + e.damage > 0).map((p) => actorOf(p.id));
+      ui.breathFire(e.damage, victims);
+      audio.sfx.fire();
+      setTimeout(render, 450);
+      ui.logLine(`🔥 Fire breath! Everyone takes ${e.damage}`);
+      break;
+    }
+  }
+}
 
-ui.$('create').onclick = () => { rememberName(); socket.send({ type: 'create', name: nameValue(), levels: savedLevels() }); };
+// ── auth screen ──────────────────────────────────────────────────────────────
+let authTab: 'login' | 'register' = 'login';
+ui.$('tabLogin').onclick = () => { authTab = 'login'; ui.setAuthTab('login'); };
+ui.$('tabRegister').onclick = () => { authTab = 'register'; ui.setAuthTab('register'); };
+ui.$('authForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = ui.$<HTMLInputElement>('authUser').value.trim();
+  const password = ui.$<HTMLInputElement>('authPass').value;
+  const btn = ui.$<HTMLButtonElement>('authSubmit');
+  btn.disabled = true;
+  ui.$('authError').textContent = '';
+  try {
+    const res = authTab === 'login' ? await api.login(username, password) : await api.register(username, password);
+    setToken(res.token);
+    ui.$<HTMLInputElement>('authPass').value = '';
+    signedIn(res.user);
+  } catch (err) {
+    ui.$('authError').textContent = err instanceof Error ? err.message : 'Something went wrong';
+  } finally {
+    btn.disabled = false;
+  }
+});
+ui.$('logout').onclick = () => logout();
+
+// ── menu ─────────────────────────────────────────────────────────────────────
+ui.$('create').onclick = () => { ui.setError(''); ui.show('modes'); };
+for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {
+  card.onclick = () => socket.send({ type: 'create', mode: card.dataset.mode as GameMode, levels: savedLevels() });
+}
+ui.$('modesBack').onclick = () => ui.show('menu');
 const join = () => {
-  rememberName();
-  socket.send({ type: 'join', code: ui.$<HTMLInputElement>('joinCode').value, name: nameValue(), levels: savedLevels() });
+  const c = ui.$<HTMLInputElement>('joinCode').value.trim();
+  if (c.length !== 4) return ui.setError('Room codes have 4 letters');
+  socket.send({ type: 'join', code: c, levels: savedLevels() });
 };
 ui.$('join').onclick = join;
 ui.$<HTMLInputElement>('joinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
+ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
 
-// ── lobby ───────────────────────────────────────────────────────────────────
+// ── admin ────────────────────────────────────────────────────────────────────
+async function openAdmin() {
+  try {
+    const { users } = await api.users();
+    ui.showAdmin(users, user!, async (u) => {
+      try { await api.setBanned(u.id, !u.banned); await openAdmin(); } catch (e) { ui.$('adminInfo').textContent = (e as Error).message; }
+    });
+  } catch (e) {
+    ui.setError((e as Error).message);
+  }
+}
+ui.$('adminBtn').onclick = () => void openAdmin();
+ui.$('adminRefresh').onclick = () => void openAdmin();
+ui.$('adminBack').onclick = () => ui.show('menu');
+
+// ── lobby ────────────────────────────────────────────────────────────────────
 ui.$('levelChips').addEventListener('change', (e) => {
   const levels = ui.selectedLevels();
   if (levels.length === 0) { (e.target as HTMLInputElement).checked = true; return; } // keep at least one
@@ -142,25 +281,28 @@ ui.$('levelChips').addEventListener('change', (e) => {
 });
 ui.$('leaveLobby').onclick = () => socket.send({ type: 'leave' });
 ui.$('start').onclick = () => socket.send({ type: 'start' });
+ui.$('copyCode').onclick = async () => {
+  try { await navigator.clipboard.writeText(code); ui.$('copyCode').textContent = 'Copied!'; } catch { ui.$('copyCode').textContent = code; }
+  setTimeout(() => (ui.$('copyCode').textContent = 'Copy'), 1500);
+};
 
-// ── prep / battle ───────────────────────────────────────────────────────────
+// ── prep / battle ────────────────────────────────────────────────────────────
 ui.$('ready').onclick = () => socket.send({ type: 'ready' });
 
 const skip = () => {
-  const input = ui.$<HTMLInputElement>('answer');
-  if (input.disabled) return;
   socket.send({ type: 'skip', challengeId });
   ui.lockInput();
 };
-ui.$('skip').onclick = skip;
+ui.$('skip').onclick = () => { if (!ui.$<HTMLInputElement>('answer').disabled) skip(); };
 
 ui.$<HTMLInputElement>('answer').addEventListener('keydown', (e) => {
+  const input = e.currentTarget as HTMLInputElement;
+  if (input.disabled) return;
   if (e.key === 'Escape' && !e.isComposing) { e.preventDefault(); return skip(); }
   // With a Japanese IME, the first Enter confirms the conversion — don't submit on that one.
   if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
-  const input = e.currentTarget as HTMLInputElement;
   const text = input.value.trim();
-  if (!text || input.disabled) return;
+  if (!text) return;
   if (ui.currentAnswerMode() === 'romaji' && !/^[a-z' -]+$/i.test(text.normalize('NFKC'))) {
     ui.setInputHint('Use romaji for hiragana spells (switch your IME off)', true);
     return; // don't burn the attempt on a format slip
@@ -169,15 +311,48 @@ ui.$<HTMLInputElement>('answer').addEventListener('keydown', (e) => {
   ui.lockInput(); // one attempt per challenge
 });
 
-// ── results ─────────────────────────────────────────────────────────────────
+// handwriting
+const pad = new HandwritingPad(ui.$<HTMLCanvasElement>('pad'));
+ui.$('padUndo').onclick = () => pad.undo();
+ui.$('padClear').onclick = () => pad.clear();
+ui.$('padSkip').onclick = () => skip();
+ui.$('padNext').onclick = () => {
+  if (pad.strokeCount === 0) return;
+  written.push(pad.take());
+  pad.clear();
+  if (written.length >= charCount) {
+    socket.send({ type: 'write', challengeId, chars: written });
+    ui.lockInput();
+  } else {
+    ui.setCharSlots(charCount, written.map(() => ''), true);
+  }
+};
+addEventListener('keydown', (e) => {
+  if (mode !== 'writing' || ui.$('battle').hidden || ui.$<HTMLButtonElement>('padNext').disabled) return;
+  if (e.key === 'Enter') ui.$('padNext').click();
+  else if (e.key === 'Escape') skip();
+  else if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); pad.undo(); }
+});
+
+// Forfeit needs a second tap (no blocking confirm() dialogs)
+let forfeitArmed = 0;
+ui.$('forfeit').onclick = () => {
+  if (Date.now() - forfeitArmed < 3000) { socket.send({ type: 'leave' }); return; }
+  forfeitArmed = Date.now();
+  ui.$('forfeit').textContent = 'Tap again to forfeit';
+  setTimeout(() => (ui.$('forfeit').textContent = '🏳 Forfeit'), 3000);
+};
+
+// ── results ──────────────────────────────────────────────────────────────────
 ui.$('rematch').onclick = () => socket.send({ type: 'rematch' });
 ui.$('leave').onclick = () => socket.send({ type: 'leave' });
 
-// ── audio ───────────────────────────────────────────────────────────────────
-ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn());
+// ── audio ────────────────────────────────────────────────────────────────────
 ui.$('radioBtn').onclick = () => { audio.setRadio(!audio.isRadioOn()); ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn()); };
 ui.$('sfxBtn').onclick = () => { audio.setSfx(!audio.isSfxOn()); ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn()); };
 // Browsers only allow sound after a user gesture.
 const firstGesture = () => audio.unlock();
 addEventListener('pointerdown', firstGesture, { once: true });
 addEventListener('keydown', firstGesture, { once: true });
+
+void boot();

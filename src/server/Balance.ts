@@ -22,3 +22,14 @@ export function hpAgainst(opponentLevels: readonly Level[], cfg: BalanceConfig =
   const raw = cfg.base + cfg.perAvgDamage * averageBaseDamage(opponentLevels);
   return Math.min(cfg.max, Math.max(cfg.min, Math.round(raw / 10) * 10));
 }
+
+/**
+ * Boss HP scales with the party: roughly 45 average hits per player (≈3 minutes of good play),
+ * so a strong party and a beginner party both get a real fight.
+ */
+export const BOSS_HITS_PER_PLAYER = 45;
+export function bossHp(partyLevels: ReadonlyArray<readonly Level[]>): number {
+  const total = partyLevels.reduce((s, lv) => s + averageBaseDamage(lv) * 1.15 * BOSS_HITS_PER_PLAYER, 0);
+  return Math.max(300, Math.round(total / 50) * 50);
+}
+export const BOSS_PLAYER_HP = 1000;
