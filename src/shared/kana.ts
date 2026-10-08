@@ -92,3 +92,6 @@ export function isCorrectReading(input: string, readings: readonly string[]): bo
   const answer = normalizeAnswer(input);
   return answer.length > 0 && readings.some((r) => katakanaToHiragana(r) === answer);
 }
+
+/** Hiragana practice must be answered in romaji (typing the shown kana back via IME would be trivial). */
+export const isRomajiInput = (input: string) => /^[a-z' \-]+$/i.test(input.normalize('NFKC').trim());

@@ -1,26 +1,37 @@
 // Single source of truth for everything that crosses the wire.
 export type PlayerId = string;
 
-export const JLPT_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const;
-export type JlptLevel = (typeof JLPT_LEVELS)[number];
+/** KANA = hiragana practice (answered in romaji); N5–N1 = JLPT vocabulary (answered with the reading). */
+export const LEVELS = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
+export type Level = (typeof LEVELS)[number];
+export const LEVEL_LABEL: Record<Level, string> = { KANA: 'かな', N5: 'N5', N4: 'N4', N3: 'N3', N2: 'N2', N1: 'N1' };
 
-/** The primary learning unit: a vocabulary item (single kanji or compound). */
+/** How a word must be answered: its kana reading (IME or romaji), or romaji only (hiragana practice). */
+export type AnswerMode = 'reading' | 'romaji';
+
+/** The primary learning unit: a vocabulary item (single kanji, compound, or kana). */
 export interface VocabEntry {
   id: string;
-  kanji: string;
-  reading: string; // hiragana
+  kanji: string; // what is shown (kanji, or the kana itself for hiragana practice)
+  reading: string; // hiragana — what the answer is checked against
+  romaji?: string; // set for hiragana practice: shown as the "reading", and answers must be typed in romaji
   meaning: string;
-  jlpt: JlptLevel; // a filter/category, NOT the difficulty measure
+  level: Level; // a filter/category, NOT the difficulty measure
   difficulty: number; // 0–100, drives damage; tune later from real player data
   altReadings?: string[];
 }
 
 /** What the client sees during the study phase. Never sent during battle. */
-export type StudyItem = Pick<VocabEntry, 'kanji' | 'reading' | 'meaning' | 'jlpt'>;
+export interface StudyItem { kanji: string; reading: string; meaning: string; level: Level }
 
-export interface RoomSettings { levels: JlptLevel[] }
-
-export interface PlayerView { id: PlayerId; name: string; hp: number; maxHp: number; combo: number }
+export interface PlayerView {
+  id: PlayerId;
+  name: string;
+  hp: number;
+  maxHp: number;
+  combo: number;
+  levels: Level[];
+}
 
 export interface WordStat {
   kanji: string;
@@ -50,26 +61,30 @@ export type BattleEvent =
   | { kind: 'miss'; playerId: PlayerId; kanji: string };
 
 export type ClientMessage =
-  | { type: 'create'; name: string }
-  | { type: 'join'; code: string; name: string }
-  | { type: 'settings'; levels: JlptLevel[] }
+  | { type: 'create'; name: string; levels?: Level[] }
+  | { type: 'join'; code: string; name: string; levels?: Level[] }
+  | { type: 'levels'; levels: Level[] }
+  | { type: 'leave' }
   | { type: 'start' }
   | { type: 'ready' }
   | { type: 'answer'; challengeId: number; text: string }
+  | { type: 'skip'; challengeId: number }
   | { type: 'rematch' };
 
 export type ServerMessage =
   | { type: 'joined'; code: string; you: PlayerId }
-  | { type: 'lobby'; players: PlayerView[]; hostId: PlayerId; settings: RoomSettings; maxPlayers: number }
+  | { type: 'left' }
+  | { type: 'lobby'; players: PlayerView[]; hostId: PlayerId; maxPlayers: number }
   | { type: 'prep'; pool: StudyItem[]; durationMs: number }
   | { type: 'prep_ready'; readyIds: PlayerId[] }
   | { type: 'battle_start'; players: PlayerView[]; durationMs: number; countdownMs: number }
-  | { type: 'challenge'; id: number; kanji: string; timeLimitMs: number }
+  | { type: 'challenge'; id: number; kanji: string; answer: AnswerMode; timeLimitMs: number }
   | {
       type: 'answer_result';
       challengeId: number;
       correct: boolean;
       timedOut: boolean;
+      skipped: boolean;
       kanji: string;
       reading: string;
       meaning: string;

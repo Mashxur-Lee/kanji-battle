@@ -1,4 +1,4 @@
-import type { JlptLevel, VocabEntry } from '../shared/protocol';
+import type { Level, VocabEntry } from '../shared/protocol';
 import { VOCAB } from '../shared/vocab';
 
 export type Rng = () => number;
@@ -15,8 +15,8 @@ export function shuffle<T>(a: T[], rng: Rng = Math.random): T[] {
  * Strategy point for "what goes into a battle pool". Today: random words from the chosen levels.
  * Later: weakness battles, player-built spell decks with a power budget, daily challenges.
  */
-export function pickPool(levels: readonly JlptLevel[], size: number, rng: Rng = Math.random, source = VOCAB): VocabEntry[] {
-  const eligible = source.filter((v) => levels.includes(v.jlpt));
+export function pickPool(levels: readonly Level[], size: number, rng: Rng = Math.random, source = VOCAB): VocabEntry[] {
+  const eligible = source.filter((v) => levels.includes(v.level));
   return shuffle([...eligible], rng).slice(0, size);
 }
 

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { JlptLevel, PlayerId, PlayerView, RoomSettings, ServerMessage } from '../shared/protocol';
+import type { Level, PlayerId, PlayerView, ServerMessage } from '../shared/protocol';
+import { hpAgainst } from './Balance';
 import { DEFAULT_CONFIG, Game, type GameConfig, type GameEvent } from './Game';
 import { pickPool } from './VocabPool';
 
@@ -12,15 +13,16 @@ export interface RoomOptions {
   game: GameConfig;
 }
 export const DEFAULT_ROOM_OPTIONS: RoomOptions = { maxPlayers: 2, poolSize: 10, game: DEFAULT_CONFIG };
+export const DEFAULT_LEVELS: Level[] = ['N3', 'N2'];
 
 type Phase = 'lobby' | 'game' | 'results';
+interface Member { id: PlayerId; name: string; levels: Level[] }
 
-/** Lobby → game → results → (rematch) game … Owns who is in the room and who the host is. */
+/** Lobby → game → results → (rematch) game … Owns who is in the room, who is host, and who picked which levels. */
 export class Room {
-  private roster: Array<{ id: PlayerId; name: string }> = [];
+  private roster: Member[] = [];
   private clients = new Map<PlayerId, Client>();
   private hostId: PlayerId | null = null;
-  private settings: RoomSettings = { levels: ['N3', 'N2'] };
   private phase: Phase = 'lobby';
   private game?: Game;
   private rematchVotes = new Set<PlayerId>();
@@ -31,11 +33,11 @@ export class Room {
     private readonly opts: RoomOptions = DEFAULT_ROOM_OPTIONS,
   ) {}
 
-  join(name: string, client: Client): { ok: true; id: PlayerId } | { ok: false; error: string } {
+  join(name: string, client: Client, levels?: Level[]): { ok: true; id: PlayerId } | { ok: false; error: string } {
     if (this.phase !== 'lobby') return { ok: false, error: 'That battle has already started' };
     if (this.roster.length >= this.opts.maxPlayers) return { ok: false, error: 'Room is full' };
     const id = randomUUID();
-    this.roster.push({ id, name: name.trim().slice(0, 16) || 'Player' });
+    this.roster.push({ id, name: name.trim().slice(0, 16) || 'Player', levels: levels?.length ? levels : [...DEFAULT_LEVELS] });
     this.clients.set(id, client);
     this.hostId ??= id;
     client.send({ type: 'joined', code: this.code, you: id });
@@ -43,10 +45,12 @@ export class Room {
     return { ok: true, id };
   }
 
-  updateSettings(by: PlayerId, levels: JlptLevel[]) {
-    if (by !== this.hostId || this.phase !== 'lobby' || levels.length === 0) return;
-    this.settings = { levels };
-    this.broadcastLobby();
+  /** Every player picks their own levels — they decide their own words and how hard they hit. */
+  setLevels(id: PlayerId, levels: Level[]) {
+    const m = this.roster.find((p) => p.id === id);
+    if (!m || this.phase === 'game' || levels.length === 0) return;
+    m.levels = levels;
+    if (this.phase === 'lobby') this.broadcastLobby();
   }
 
   start(by: PlayerId) {
@@ -56,8 +60,8 @@ export class Room {
   }
 
   ready(id: PlayerId) { this.game?.markReady(id); }
-
   answer(id: PlayerId, challengeId: number, text: string) { this.game?.submit(id, challengeId, text); }
+  skip(id: PlayerId, challengeId: number) { this.game?.skip(id, challengeId); }
 
   rematch(id: PlayerId) {
     if (this.phase !== 'results') return;
@@ -93,30 +97,37 @@ export class Room {
 
   // ── internals ─────────────────────────────────────────────────────────────
 
+  /** Your HP is set by how hard your opponents hit (their levels). */
+  private hpFor(id: PlayerId): number {
+    const opponents = this.roster.filter((p) => p.id !== id);
+    if (opponents.length === 0) return hpAgainst(DEFAULT_LEVELS);
+    return Math.round(opponents.reduce((s, o) => s + hpAgainst(o.levels), 0) / opponents.length);
+  }
+
   private startGame() {
     this.game?.dispose();
     this.rematchVotes.clear();
-    const pool = pickPool(this.settings.levels, this.opts.poolSize);
     this.phase = 'game';
-    this.game = new Game(this.roster.map((p) => p.id), pool, (e) => this.onGameEvent(e), this.opts.game);
+    const setups = this.roster.map((p) => ({ id: p.id, pool: pickPool(p.levels, this.opts.poolSize), maxHp: this.hpFor(p.id) }));
+    this.game = new Game(setups, (e) => this.onGameEvent(e), this.opts.game);
     this.game.start();
   }
 
   private onGameEvent(e: GameEvent) {
     switch (e.type) {
       case 'prep':
-        return this.broadcast({ type: 'prep', pool: e.pool, durationMs: e.durationMs });
+        return this.clients.get(e.playerId)?.send({ type: 'prep', pool: e.pool, durationMs: e.durationMs });
       case 'prep_ready':
         return this.broadcast({ type: 'prep_ready', readyIds: e.readyIds });
       case 'battle_start':
         return this.broadcast({ type: 'battle_start', players: this.view(), durationMs: e.durationMs, countdownMs: e.countdownMs });
       case 'challenge':
-        return this.clients.get(e.playerId)?.send({ type: 'challenge', id: e.id, kanji: e.kanji, timeLimitMs: e.timeLimitMs });
+        return this.clients.get(e.playerId)?.send({ type: 'challenge', id: e.id, kanji: e.kanji, answer: e.answer, timeLimitMs: e.timeLimitMs });
       case 'answer_result': {
         const { entry } = e;
         return this.clients.get(e.playerId)?.send({
-          type: 'answer_result', challengeId: e.challengeId, correct: e.correct, timedOut: e.timedOut,
-          kanji: entry.kanji, reading: entry.reading, meaning: entry.meaning,
+          type: 'answer_result', challengeId: e.challengeId, correct: e.correct, timedOut: e.timedOut, skipped: e.skipped,
+          kanji: entry.kanji, reading: entry.romaji ?? entry.reading, meaning: entry.meaning,
           damage: e.damage, combo: e.combo, responseMs: e.responseMs, nextInMs: e.nextInMs,
         });
       }
@@ -129,19 +140,23 @@ export class Room {
   }
 
   private view(): PlayerView[] {
-    const maxHp = this.opts.game.maxHp;
-    return this.roster.map((p) => ({
-      id: p.id,
-      name: p.name,
-      hp: this.phase === 'lobby' ? maxHp : (this.game?.getHp(p.id) ?? maxHp),
-      maxHp,
-      combo: this.game?.getCombo(p.id) ?? 0,
-    }));
+    const inGame = this.game && this.phase !== 'lobby';
+    return this.roster.map((p) => {
+      const maxHp = inGame ? this.game!.getMaxHp(p.id) || this.hpFor(p.id) : this.hpFor(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        hp: inGame ? this.game!.getHp(p.id) : maxHp,
+        maxHp,
+        combo: inGame ? this.game!.getCombo(p.id) : 0,
+        levels: p.levels,
+      };
+    });
   }
 
   private broadcastLobby() {
     if (!this.hostId) return;
-    this.broadcast({ type: 'lobby', players: this.view(), hostId: this.hostId, settings: this.settings, maxPlayers: this.opts.maxPlayers });
+    this.broadcast({ type: 'lobby', players: this.view(), hostId: this.hostId, maxPlayers: this.opts.maxPlayers });
   }
 
   private broadcast(msg: ServerMessage) {
