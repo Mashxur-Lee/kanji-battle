@@ -351,3 +351,115 @@ test('boss HP grows with the party size', async () => {
   const one = bossHp([['N3']]), four = bossHp([['N3'], ['N3'], ['N3'], ['N3']]);
   assert.ok(four > one * 3.5 && four < one * 4.5, `${one} → ${four}`);
 });
+
+test('boss: a player on fire (5+ combo) is immune to the fire breath', () => {
+  const ev: GameEvent[] = [];
+  const g = new Game([{ id: 'A', pool: [word('懸念')], maxHp: 1000 }, { id: 'B', pool: [word('懸念')], maxHp: 1000 }], (e) => ev.push(e),
+    { ...CFG, boss: { breathEveryMs: 60_000, breathWarnMs: 3_000, breathDamage: 110, clawDamage: 45 } }, () => 0.99, () => clock, { mode: 'boss', boss: { name: 'D', maxHp: 99_999 } });
+  g.start(); g.markReady('A'); g.markReady('B'); tick(100);
+  for (let i = 0; i < 5; i++) {
+    const c = ev.filter((e) => e.type === 'challenge' && e.playerId === 'A').at(-1) as any;
+    g.submit('A', c.id, 'けねん');
+    tick(CFG.nextDelayMs);
+  }
+  assert.equal(g.getCombo('A'), 5);
+  tick(60_000);
+  const breath = ev.filter((e) => e.type === 'battle_update' && (e as any).event.kind === 'breath').at(-1) as any;
+  assert.deepEqual(breath.event.immune, ['A']);
+  assert.equal(g.getHp('A'), 1000);
+  assert.equal(g.getHp('B') < 1000, true);
+  g.forfeit('A'); g.forfeit('B');
+});
+
+// ── AI players ───────────────────────────────────────────────────────────────
+test('AI accuracy table (N5 AI … N1 AI) and kana counts as N5', async () => {
+  const { botChance } = await import('../src/server/Bot');
+  assert.deepEqual(['N5', 'N4', 'N3', 'N2', 'N1'].map((w) => botChance('N5', w as any)), [0.9, 0.5, 0.2, 0.1, 0.05]);
+  assert.deepEqual(['N5', 'N4', 'N3', 'N2', 'N1'].map((w) => botChance('N3', w as any)), [0.95, 0.85, 0.7, 0.3, 0.18]);
+  assert.deepEqual(['N5', 'N4', 'N3', 'N2', 'N1'].map((w) => botChance('N1', w as any)), [1, 0.95, 0.87, 0.7, 0.6]);
+  assert.equal(botChance('N4', 'KANA'), 0.92);
+});
+
+test('AI opponent in a reading duel: readies, answers, and the host can remove it in the lobby', () => {
+  const room = new Room('AIAI', 'reading', { onEmpty: () => {} }, OPTS);
+  const a = client();
+  room.join('a', 'A', a);
+  room.addBot('a', 'N1');
+  const bot = a.last('lobby')!.players.find((p) => p.bot)!;
+  assert.equal(bot.bot, 'N1');
+  assert.match(bot.name, /AI N1/);
+  room.removeBot('a', bot.id);
+  assert.equal(a.last('lobby')!.players.length, 1);
+  room.addBot('a', 'N1');
+  const botId = a.last('lobby')!.players.find((p) => p.bot)!.id;
+  room.start('a');
+  room.ready('a');
+  tick(7_000); // the AI presses ready within 2–6 s
+  tick(200);
+  for (let i = 0; i < 30; i++) tick(1_000);
+  const acts = a.msgs.filter((m) => m.type === 'battle_update' && ((m as any).event.playerId === botId)).map((m: any) => m.event.kind);
+  assert.ok(acts.includes('hit') || acts.includes('miss'), `the AI played: ${acts.join(',')}`);
+  room.forfeit('a');
+});
+
+test('AI teammates in boss mode; a room with only AI left closes', () => {
+  let empty = false;
+  const room = new Room('AIBS', 'boss', { onEmpty: () => { empty = true; } }, OPTS);
+  const a = client();
+  room.join('a', 'A', a);
+  room.addBot('a', 'N3'); room.addBot('a', 'N5'); room.addBot('a', 'N2');
+  room.addBot('a', 'N1'); // full at 4
+  assert.equal(a.last('lobby')!.players.length, 4);
+  room.start('a'); room.ready('a');
+  tick(7_000); tick(200);
+  for (let i = 0; i < 20; i++) tick(1_000);
+  const ids = a.last('lobby')!.players.filter((p) => p.bot).map((p) => p.id);
+  const hits = a.msgs.filter((m) => m.type === 'battle_update' && (m as any).event.kind === 'hit' && ids.includes((m as any).event.playerId));
+  assert.ok(hits.length > 0, 'the AI party hits the dragon');
+  room.leave('a');
+  assert.equal(empty, true);
+});
+
+test('Deck Duel against the AI: it picks a hero, drafts and plays its turns', () => {
+  const room = new Room('AIDK', 'deck', { onEmpty: () => {}, judgeWriting: () => ({ correct: true, recognized: '' }) }, OPTS);
+  const a = client();
+  room.join('a', 'A', a);
+  room.addBot('a', 'N2');
+  room.setLobbyReady('a', true);
+  assert.equal(a.last('deck_state')!.view.phase, 'characters', 'AI is always ready');
+  room.deckCharacter('a', 'knight');
+  tick(3_000);
+  for (let i = 0; i < 60 && a.last('deck_state')!.view.phase === 'draft'; i++) {
+    const v = a.last('deck_state')!.view;
+    if (v.draft!.picker === 'a') room.deckPick('a', v.draft!.pool.find((c) => !c.takenBy)!.cardId);
+    else tick(2_000);
+  }
+  assert.equal(a.last('deck_state')!.view.phase, 'battle');
+  // let a few turns pass: when it's ours we just let the clock run out
+  for (let i = 0; i < 90; i++) tick(1_000);
+  const casts = a.msgs.filter((m) => m.type === 'deck_event' && (m as any).event.kind === 'cast' && (m as any).event.playerId !== 'a');
+  const resolves = a.msgs.filter((m) => m.type === 'deck_event' && (m as any).event.kind === 'resolve' && (m as any).event.playerId !== 'a');
+  assert.ok(casts.length >= 1, 'the AI cast cards');
+  assert.ok(resolves.length >= 1, 'and wrote them');
+  room.forfeit('a');
+});
+
+test('matches with an AI give half XP', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const { MemoryStore } = await import('../src/server/db/Store');
+  const store = new MemoryStore();
+  const u = await store.create({ username: 'vsai', passwordHash: 'h', role: 'user' } as any);
+  const study = new StudyService(store);
+  assert.equal((await study.recordMatch(u.id, 'win', 1, 'reading', [], false, true)).gained, 200);
+  assert.equal((await study.recordMatch(u.id, 'win', 1, 'deck', [], false, true)).gained, 2000);
+});
+
+test('boss with AI teammates: when the only human forfeits, the match ends', () => {
+  const room = new Room('AIFF', 'boss', { onEmpty: () => {} }, OPTS);
+  const a = client();
+  room.join('a', 'A', a); room.addBot('a', 'N1'); room.addBot('a', 'N2');
+  room.start('a'); room.ready('a'); tick(7_000); tick(200);
+  room.forfeit('a');
+  assert.ok(a.last('game_over'), 'results screen');
+  assert.equal(a.last('game_over')!.reason, 'forfeit');
+});

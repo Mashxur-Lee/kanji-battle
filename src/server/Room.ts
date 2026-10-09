@@ -1,3 +1,5 @@
+import { Bot, botName, isBotLevel, type BotHost } from './Bot';
+import { CRIT_BASE } from '../shared/progress';
 import { CHAT_MAX_LENGTH, type BossView, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
 import { BOSS_PARTY_SIZE, BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
@@ -30,7 +32,7 @@ export const BOSS_NAME = 'Black Dragon';
 export interface MemberProfile { crit: number; xp: number }
 
 /** `forfeited`: someone gave up or left — nobody gets XP (stops win-trading between accounts). */
-export interface MatchResult { id: PlayerId; outcome: MatchOutcome; accuracy: number; missed: string[]; forfeited: boolean }
+export interface MatchResult { id: PlayerId; outcome: MatchOutcome; accuracy: number; missed: string[]; forfeited: boolean; vsAi: boolean }
 export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number }>>;
 
 /** Things the Room needs from the outside world. */
@@ -39,6 +41,8 @@ export interface RoomDeps {
   onMemberLeft?: (id: PlayerId) => void;
   onMatchEnd?: MatchEndHook;
   judgeWriting?: WritingJudge;
+  /** Deck Duel's extra-forgiving judge (falls back to judgeWriting) */
+  judgeDeck?: WritingJudge;
   writableFilter?: (v: VocabEntry) => boolean;
 }
 
@@ -47,6 +51,7 @@ interface Member {
   id: PlayerId; name: string; levels: Level[]; online: boolean; profile: MemberProfile; ready: boolean;
   graceTimer?: ReturnType<typeof setTimeout>;
   rtt?: number; // last measured round trip (ms)
+  bot?: Bot; // an AI player (no socket)
   lastChatAt?: number;
 }
 
@@ -144,6 +149,41 @@ export class Room {
 
   ready(id: PlayerId) { this.game?.markReady(id); }
 
+  // ── AI players ────────────────────────────────────────────────────────────
+  private nextBot = 0;
+  /** Host adds an AI player (knowledge N5–N1) to the lobby: an opponent in duels, a teammate vs the dragon. */
+  addBot(by: PlayerId, level: unknown) {
+    if (by !== this.hostId || this.phase !== 'lobby' || !isBotLevel(level)) return;
+    if (this.roster.length >= this.maxPlayers) return this.clients.get(by)?.send({ type: 'error', message: 'Room is full' });
+    const id = `ai-${this.code}-${++this.nextBot}`;
+    const bot = new Bot(id, level, this.botHost());
+    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: [level], online: true, profile: { crit: CRIT_BASE, xp: 0 }, ready: true, rtt: 1, bot });
+    this.broadcastLobby();
+    this.broadcastNet();
+  }
+  removeBot(by: PlayerId, botId: unknown) {
+    const m = this.roster.find((p) => p.id === botId && p.bot);
+    if (by !== this.hostId || this.phase !== 'lobby' || !m) return;
+    m.bot!.dispose();
+    this.roster = this.roster.filter((p) => p !== m);
+    this.broadcastLobby();
+  }
+  private botHost(): BotHost {
+    return {
+      mode: () => this.mode,
+      peek: (id) => this.game?.peek(id) ?? null,
+      deckView: (id) => (this.game instanceof DeckGame ? this.game.viewFor(id) : null),
+      ready: (id) => this.ready(id),
+      answer: (id, cid, text) => this.answer(id, cid, text),
+      skip: (id, cid) => this.skip(id, cid),
+      deckCharacter: (id, ch) => this.deckCharacter(id, ch),
+      deckPick: (id, c) => this.deckPick(id, c),
+      deckPlay: (id, c) => this.deckPlay(id, c),
+      deckAbility: (id) => this.deckAbility(id),
+    };
+  }
+  private get humans() { return this.roster.filter((p) => !p.bot); }
+
   /** Connection quality for everyone in the room (shown as signal bars next to names). */
   setRtt(id: PlayerId, rtt: number) {
     const m = this.roster.find((p) => p.id === id);
@@ -186,7 +226,12 @@ export class Room {
 
   /** Give up the battle but stay in the room: everyone goes to the results screen (mistakes + rematch). */
   forfeit(id: PlayerId) {
-    if (this.phase === 'game' && this.has(id)) this.game?.forfeit(id);
+    if (this.phase !== 'game' || !this.has(id)) return;
+    this.game?.forfeit(id);
+    // boss mode: once every human has given up (or fallen), the AI teammates give up too
+    if (this.game && !this.game.isOver && this.humans.every((h) => this.game!.getHp(h.id) <= 0)) {
+      for (const p of this.roster) if (p.bot) this.game.forfeit(p.id);
+    }
   }
 
   /** "Back" during the study phase: the match is called off and everyone returns to the lobby. */
@@ -196,6 +241,7 @@ export class Room {
     const early = this.game instanceof DeckGame ? this.game.canReturnToLobby() : this.game.snapshot(id).phase === 'prep';
     if (!early) return;
     this.game.dispose();
+    for (const p of this.roster) p.bot?.dispose();
     this.game = undefined;
     this.phase = 'lobby';
     const name = this.roster.find((p) => p.id === id)?.name ?? 'Someone';
@@ -212,6 +258,7 @@ export class Room {
       return this.broadcastLobby();
     }
     this.rematchVotes.add(id);
+    for (const p of this.roster) if (p.bot) this.rematchVotes.add(p.id); // AI is always up for another round
     this.broadcast({ type: 'rematch_status', votes: [...this.rematchVotes] });
     if (this.rematchVotes.size === this.roster.length) this.startGame();
   }
@@ -226,10 +273,13 @@ export class Room {
     if (wasInGame) this.game?.forfeit(id);
     this.roster = this.roster.filter((p) => p.id !== id);
     this.rematchVotes.delete(id);
-    if (this.hostId === id) this.hostId = this.roster[0]?.id ?? null;
+    if (this.hostId === id) this.hostId = this.humans[0]?.id ?? null;
     this.deps.onMemberLeft?.(id);
 
-    if (this.roster.length === 0) {
+    if (this.humans.length === 0) {
+      // only AI left: close the room
+      for (const p of this.roster) p.bot?.dispose();
+      this.roster = [];
       this.game?.dispose();
       return this.deps.onEmpty();
     }
@@ -255,13 +305,14 @@ export class Room {
     this.game?.dispose();
     this.rematchVotes.clear();
     this.lastGameOver = undefined;
-    for (const p of this.roster) p.ready = false;
+    for (const p of this.roster) p.ready = !!p.bot; // AI is always ready
     const emit = (e: GameEvent) => this.onGameEvent(e);
     if (this.mode === 'deck') {
-      if (!this.deps.judgeWriting) return;
+      const judge = this.deps.judgeDeck ?? this.deps.judgeWriting;
+      if (!judge) return;
       const writable = this.deps.writableFilter ?? (() => true);
       this.phase = 'game';
-      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit })), () => buildDraftPool(VOCAB, writable, Math.random), emit, this.deps.judgeWriting);
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge);
       this.game.start();
       return;
     }
@@ -315,6 +366,7 @@ export class Room {
   }
 
   private onGameEvent(e: GameEvent) {
+    for (const p of this.roster) p.bot?.onEvent(e); // AI players react (always with a delay)
     switch (e.type) {
       case 'prep':
         return this.clients.get(e.playerId)?.send({ type: 'prep', pool: e.pool, durationMs: e.durationMs, readyIds: [], players: this.view() });
@@ -359,12 +411,14 @@ export class Room {
   /** XP for everyone (win/loss + accuracy), missed words into each player's "Struggling spells". */
   private async awardProgress(e: Extract<GameEvent, { type: 'game_over' }>) {
     if (!this.deps.onMatchEnd) return;
-    const results: MatchResult[] = this.roster.filter((p) => e.stats[p.id]).map((p) => ({
+    const vsAi = this.roster.some((p) => p.bot);
+    const results: MatchResult[] = this.roster.filter((p) => e.stats[p.id] && !p.bot).map((p) => ({
       id: p.id,
       outcome: e.teamWon !== null ? (e.teamWon ? 'win' : 'loss') : e.winnerId === null ? 'draw' : e.winnerId === p.id ? 'win' : 'loss',
       accuracy: e.stats[p.id].accuracy,
       missed: e.missed[p.id] ?? [],
       forfeited: e.reason === 'forfeit',
+      vsAi,
     }));
     try {
       const out = await this.deps.onMatchEnd(this.mode, results);
@@ -396,6 +450,7 @@ export class Room {
         avatar: avatarFor(p.levels),
         crit: p.profile.crit,
         level: levelOf(p.profile.xp),
+        bot: p.bot?.level ?? null,
         ready: p.ready,
       };
     });

@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.6.1
+# Kanji Wizards · v0.6.3
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -8,7 +8,7 @@ Real-time kanji battles in the browser. Five modes:
 |---|---|
 | **1v1 Kanji Reading** | Study 10 words for 60 s, then see the kanji and type its reading (IME kana or romaji). |
 | **1v1 Kanji Writing** | The kanji flashes for 3.5 s, then the reading + meaning stay. Type the kanji with a Japanese IME or draw it on the pad. Only kanji count (kana only at the かな level). |
-| **Boss Elimination** | 1–4 players vs the Black Dragon (its HP grows with the party). Correct answers hit it; a mistake gets you clawed; fire breath every 30 s hits everyone. |
+| **Boss Elimination** | 1–4 players vs the Black Dragon (its HP grows with the party). Correct answers hit it; a mistake gets you clawed; fire breath every 30 s hits everyone who isn't on fire (5+ combo = immune). |
 | **1v1 Rapid** | Both players get the same kanji. First correct reading (kana or romaji) deals the damage. |
 | **Deck Duel** | Pick a hero, draft 10 kanji cards, then spend mana to cast them by writing the kanji. 1000 HP each. |
 
@@ -62,6 +62,23 @@ registrations disappear. Neon has a free Postgres plan:
 The connection string is a password: keep it only in Render's environment, never in the code (the
 browser only talks to this server, never to the database).
 
+## AI players
+
+The host can add AI players in the lobby (🤖 Add AI) and pick how much they know, N5 to N1. They fill an
+opponent's seat in the duels, Rapid and Deck Duel, or join your party against the dragon (up to 3 AI). The
+chance that an AI gets a word right (`src/server/Bot.ts`):
+
+| AI knows → / word level ↓ | N5 | N4 | N3 | N2 | N1 |
+|---|---|---|---|---|---|
+| **AI N5** | 90 % | 50 % | 20 % | 10 % | 5 % |
+| **AI N4** | 92 % | 75 % | 35 % | 15 % | 10 % |
+| **AI N3** | 95 % | 85 % | 70 % | 30 % | 18 % |
+| **AI N2** | 99 % | 90 % | 80 % | 60 % | 30 % |
+| **AI N1** | 100 % | 95 % | 87 % | 70 % | 60 % |
+
+(Hiragana words count as N5.) AI players answer after a human-like pause, always vote for a rematch and are
+always Ready. Matches with an AI give half XP; a room with only AI left closes.
+
 ## Progress
 
 - **XP**: win = 300 + accuracy %, loss = 50 + accuracy %. Deck Duel: win 4000, loss 1500. A forfeited match
@@ -73,11 +90,11 @@ browser only talks to this server, never to the database).
 - **Study spells**: *All spells* — tick levels and 25 new words are added each day. *Struggling spells* —
   words you missed in battles. Anki-style cards (Again / Hard / Okay / Easy, SM-2 scheduling,
   `src/shared/srs.ts`).
-- **Crit**: every learned card (graduated from learning) adds 0.1 % crit chance, max 50 %. A crit hits ×1.5.
+- **Crit (daily)**: every day starts at 1 %; each spell learned today (a flashcard passed with Hard/Okay/Easy, once per card per day) adds +1 %, max 50 %. It drops back to 1 % at your local midnight. A crit hits ×1.5.
 
 ## Deck Duel
 
-Heroes (one ability button per match, lasts 2 of your turns): **Goblin** casts 2 cards in a row,
+Heroes (power button bottom-left: costs 100 mana, then rests for 4 of your turns; effects last 2 turns): **Goblin** casts 2 cards in a row,
 **Knight** −30 % damage taken and +30 % healing, **Witch** sees your hand's spells and readings and the
 kanji stays visible; **Wizard** is passive (2 random cards when out of cards, or +30 mana when out of
 mana, once each).
@@ -87,7 +104,7 @@ duel starts. Hero pick and the first draft can still go **← Back to lobby**. I
 while your opponent plays you can read the list of kanji in your hand (sorted, so you can't tell which card
 is which). A card's mana is paid when you play it, even if you then write it wrong.
 
-Draft: 20 cards (4 per colour), coin flip, picks of 2 until each player has 10. Colours, ranked by word
+Draft: 20 cards (4 per colour), coin flip, picks of 2 (one 20 s clock for both) until each player has 10. Colours, ranked by word
 difficulty (JLPT level, stroke count and word length):
 
 | Colour | Effect | Mana |
@@ -98,8 +115,9 @@ difficulty (JLPT level, stroke count and word length):
 | Blue | 120 damage | 25 |
 | Light blue | 100 damage | 10 |
 
-Mana starts at 150/150, +10 each turn. You get 15 s to choose a card, then 20 s to write it (after the kanji's 3.5 s flash): the kanji flashes for 3.5 s, the reading and meaning
-stay, and you write it. Wrong or too slow → the card rips. Out of cards → a new draft round
+Mana starts at 200/200, +10 each turn. You get 15 s to choose a card, then the kanji flashes for 3.5 s (the reading and meaning
+stay) and you have 35 s to write it. Writing is judged extra forgivingly here: besides stroke matching, the overall
+shape is compared with all ~2,300 characters (`src/server/handwriting/shape.ts`), and one shaky character in a word is forgiven. Wrong or too slow → the card rips. Out of cards → a new draft round
 (Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
 match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime: the remaining cards are shown one by one and the first correct writer
 uses it.

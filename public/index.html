@@ -16,7 +16,7 @@
     <span class="avatar" aria-hidden="true">✦</span>
     <span class="who-text">
       <span class="who-line"><span id="whoName" class="who-name"></span><span id="whoRole" class="tag" hidden>admin</span></span>
-      <span class="who-line small"><span id="whoLevel">Lv 0</span> · <span id="whoCrit" title="Crit chance from learned spells">✦ 0% crit</span></span>
+      <span class="who-line small"><span id="whoLevel">Lv 0</span> · <span id="whoCrit" title="Crit chance today">✦ 1% crit</span></span>
       <span class="xpbar" title="XP to next level"><span id="whoXp"></span></span>
     </span>
     <button id="logout" class="link" aria-label="Log out"><span class="lbl">Log out</span><span class="ico" aria-hidden="true">⎋</span></button>
@@ -77,7 +77,7 @@
   <section id="study" class="screen" hidden>
     <button id="studyBack" class="back">← Menu</button>
     <div class="page-head"><h2>Study spells</h2><span id="studyCrit" class="tag"></span></div>
-    <p class="sub">Spaced repetition like Anki. Every spell you learn adds <b>0.1% crit chance</b> in battle (×1.5 damage, up to 50%).</p>
+    <p class="sub">Spaced repetition like Anki. Your crit chance starts every day at <b>1%</b>; every spell you learn today adds <b>+1%</b> (×1.5 damage, max 50%). It resets at midnight.</p>
     <div id="studyNotice" class="notice" hidden></div>
     <div class="study-decks">
       <div class="deck-card">
@@ -186,6 +186,17 @@
         <button id="copyCode" class="pill">Copy</button>
       </div>
       <ul id="lobbyPlayers" class="players"></ul>
+      <div id="addBot" class="add-bot" hidden>
+        <label for="botLevel">🤖 Add an AI player</label>
+        <select id="botLevel" title="How much the AI knows">
+          <option value="N5">N5 — beginner</option>
+          <option value="N4">N4</option>
+          <option value="N3" selected>N3 — intermediate</option>
+          <option value="N2">N2</option>
+          <option value="N1">N1 — expert</option>
+        </select>
+        <button id="addBotBtn" class="pill primary">+ Add AI</button>
+      </div>
       <button id="start" class="big" hidden>Start battle</button>
       <button id="readyBtn" class="big" hidden>Ready</button>
       <p id="lobbyStatus" class="sub"></p>
@@ -197,6 +208,7 @@
         <div id="levelChips" class="chips"></div>
         <p id="levelsHint" class="hint"></p>
       </fieldset>
+      <div id="modeGuide" class="mode-guide"></div>
     </div>
   </section>
 
@@ -358,13 +370,13 @@
         </ul>
       </li>
       <li><b>Fast + correct = more damage.</b> Combos build up to ×1.5 (5 in a row sets you on fire 🔥). <b>Skip</b> (Esc) shows the answer.</li>
-      <li><b>Study spells</b> — Anki-style flashcards. Missed words go to <i>Struggling spells</i>. Each learned spell = +0.1% crit (×1.5 damage).</li>
+      <li><b>Study spells</b> — Anki-style flashcards. Missed words go to <i>Struggling spells</i>. Crit: 1% + 1% per spell learned today (max 50%, resets daily; a crit hits ×1.5).</li>
       <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds in <i>Customize</i>.</li>
     </ol>
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.6.1</div>
+<div id="version" class="version">v0.6.3</div>
 <script src="/app.js"></script>
 </body>
 </html>

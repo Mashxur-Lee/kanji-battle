@@ -13,6 +13,8 @@ export interface SrsCard {
   ease: number; // permille, 2500 = 250%
   intervalDays: number;
   due: number; // epoch ms
+  /** YYYY-MM-DD this card last counted toward the daily crit (once per card per day) */
+  critDay?: string | null;
   reps: number;
   lapses: number;
   struggling: boolean; // missed in a battle → shows up in "Struggling spells"

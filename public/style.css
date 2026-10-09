@@ -651,3 +651,27 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
   #arena[data-party="3"] .wizard .sprite, #arena[data-party="4"] .wizard .sprite { width: 44px; }
 }
 .arena-top:has(.fighter.party) { grid-template-columns: minmax(0, 1fr) auto; }
+
+.float.immune { color: #ffb347; font-size: 1.3rem; text-shadow: 0 0 8px #ff6a00, 0 2px 6px #000; }
+
+.dk-ability .ab-cd { position: absolute; inset: 0; display: grid; place-items: center; font-size: 2rem; font-weight: 900; color: #fff; text-shadow: 0 2px 6px #000; background: rgba(10,8,30,.55); border-radius: 50%; }
+
+/* AI players */
+.add-bot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 14px; }
+.add-bot label { font-weight: 700; font-size: .9rem; }
+.add-bot select { flex: 1; min-width: 140px; padding: 8px 10px; border-radius: 10px; background: var(--field); color: var(--text); border: 1px solid var(--line); font: inherit; }
+.tag.ai { color: #9ae7ff; }
+.rm-bot { margin-left: auto; padding: 2px 10px; }
+
+/* mini guides under the level picker */
+.mode-guide { margin-top: 14px; background: rgba(16, 14, 44, .9); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; }
+.mode-guide h3 { margin: 0 0 10px; font-size: 1.05rem; }
+.g-pic { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); }
+.g-tile { font-family: var(--jp); font-size: 1.5rem; font-weight: 700; padding: 4px 12px; border-radius: 10px; background: #f6f3e8; color: #1b1530; }
+.g-tile.ok { background: rgba(78, 230, 166, .15); color: var(--good); border: 1px solid #2f7d5e; font-size: 1.1rem; }
+.g-arrow { font-size: 1.4rem; color: var(--gold); } .g-or { color: var(--muted); font-size: .85rem; }
+.g-hint { font-family: var(--jp); color: var(--accent2); font-weight: 700; }
+.g-pad { display: inline-flex; gap: 0; border: 2px dashed #d8d2bd; border-radius: 10px; background: #f6f3e8; }
+.g-pad .g-tile { background: transparent; }
+.g-emoji { font-size: 1.8rem; letter-spacing: -.1em; }
+.g-foot { margin: 10px 0 0; font-size: .78rem; color: var(--muted); }

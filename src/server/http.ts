@@ -75,7 +75,8 @@ export function createApiHandler(auth: AuthService, study: StudyService) {
       } else if (req.method === 'POST' && url === '/api/study/review') {
         const u = await auth.authenticate(bearer(req));
         const body = await readJson(req);
-        send(res, 200, await study.review(u, body.vocabId, body.rating));
+        const tz = Number(body.tz);
+        send(res, 200, await study.review(u, body.vocabId, body.rating, Date.now(), resolveToday(body.today), Number.isFinite(tz) && Math.abs(tz) <= 840 ? tz : 0));
       } else if (req.method === 'GET' && url === '/api/admin/users') {
         await auth.requireAdmin(bearer(req));
         send(res, 200, await study.adminStats(await auth.listUsers()));

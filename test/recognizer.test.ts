@@ -83,3 +83,19 @@ test('a whole-word drawing may have more strokes than one character', () => {
   assert.ok(sanitizeDrawing([big], 8), 'one group of 70 strokes is a word');
   assert.equal(sanitizeDrawing([big, big], 8), null, 'but not per character');
 });
+
+test('Deck Duel judge is more forgiving: a badly drawn kanji still counts, a different one does not', () => {
+  const normal = createWritingJudge(rec), lenient = createWritingJudge(rec, { lenient: true });
+  // a sloppy 語: squashed, slanted, and two strokes run together into one
+  const ref = refs.find((x) => x[0] === '語')![2];
+  const squash = ref.map((s) => s.map(([x, y]): [number, number] => [x * 1.35 + y * 0.25, y * 0.75 + 30]));
+  const merged = [squash[0].concat(squash[1]), ...squash.slice(2, -1)]; // and the last stroke forgotten
+  const word = { ...VOCAB[0], kanji: '語' };
+  assert.equal(lenient(word, [merged]).correct, true, 'deck: counts');
+  // a completely different kanji is still wrong
+  assert.equal(lenient(word, [drawn('山')]).correct, false);
+  assert.equal(normal(word, [drawn('語')]).correct, true);
+  const t0 = Date.now();
+  for (let i = 0; i < 5; i++) rec.shapeRank(merged, '語');
+  assert.ok((Date.now() - t0) / 5 < 200, 'fast enough to judge live');
+});

@@ -81,7 +81,7 @@ function renderGuide(el: HTMLElement) {
   const flow = h('ol', 'g-flow');
   for (const [icon, t] of [
     ['🦸', 'Pick a hero (30 s).'],
-    ['🪙', 'Coin flip, then draft: take 2 face-down cards at a time until you each have 10. You see colours, not kanji.'],
+    ['🪙', 'Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji.'],
     ['🃏', `Your turn: ${DECK_RULES.chooseMs / 1000} s to choose a card. Its mana is paid right away — even if you then miss.`],
     ['✍️', `The kanji shows for ${DECK_RULES.castFlashMs / 1000} s, then only the reading + meaning stay. Write it (pad or Japanese keyboard) within ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1000} s.`],
     ['✅', 'Right → the spell hits / heals / gives mana. Wrong or too slow → the card rips.'],
@@ -94,7 +94,7 @@ function renderGuide(el: HTMLElement) {
     sec('Goal', p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. Holding cards you can't pay for = you lose.`)),
     sec('Cards', cards),
     sec('A turn', flow),
-    sec('Heroes — power button bottom-left, once per match', heroes),
+    sec(`Heroes — power button bottom-left: ${DECK_RULES.abilityCost} mana, then ${DECK_RULES.abilityCooldown} turns cooldown`, heroes),
     sec('Rewards', p('Win 4000 XP · lose 1500 XP · forfeit 0 XP.')),
   );
 }
@@ -195,11 +195,13 @@ export function renderDeck(v: DeckView) {
   const ab = $<HTMLButtonElement>('dkAbility');
   const ch = me.character;
   ab.innerHTML = ch ? heroSvg(ch, 'me') : '';
-  ab.append(h('span', 'ab-name', ch ? (CHARACTER_INFO[ch].passive ? 'Passive' : me.abilityUsed ? 'Used' : 'Power') : ''));
+  const cd = me.abilityCooldown;
+  ab.append(h('span', 'ab-name', ch ? (CHARACTER_INFO[ch].passive ? 'Passive' : cd > 0 ? `Ready in ${cd} turn${cd === 1 ? '' : 's'}` : `Power · ${DECK_RULES.abilityCost}◆`) : ''));
+  if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h('span', 'ab-cd', String(cd)));
   ab.title = ch ? CHARACTER_INFO[ch].power : '';
   ab.classList.toggle('passive', !!ch && !!CHARACTER_INFO[ch].passive);
   ab.classList.toggle('active', me.abilityActive > 0);
-  ab.disabled = !ch || !!CHARACTER_INFO[ch].passive || me.abilityUsed || !myTurn || !!v.casting;
+  ab.disabled = !ch || !!CHARACTER_INFO[ch].passive || cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting;
 
   // the card being cast
   renderCast(v);
@@ -273,7 +275,7 @@ function renderCharacters(v: DeckView, me: DeckPlayerView, opp: DeckPlayerView) 
     b.onclick = () => hooks.send({ type: 'deck_character', character: c });
     grid.append(b);
   }
-  overlay.replaceChildren(backButton(v), title, grid, h('p', 'sub', 'Same HP (1000) for both. 150 mana, +10 every turn. 15 s to choose a card (its mana is paid right away), then the kanji shows for 3.5 s and you have 20 s to write it. Out of cards → a new draft round. Cards: light blue 100 dmg (10◆) · blue 120 (25◆) · yellow +60◆ · green heal 100 (40◆) · red 250 (70◆).'));
+  overlay.replaceChildren(backButton(v), title, grid, h('p', 'sub', `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1000} s to choose a card (its mana is paid right away), then the kanji shows for ${DECK_RULES.castFlashMs / 1000} s and you have ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1000} s to write it. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards → a new draft round. Cards: light blue 100 dmg (10◆) · blue 120 (25◆) · yellow +60◆ · green heal 100 (40◆) · red 250 (70◆).`));
 }
 
 let coinShown = false;

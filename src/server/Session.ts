@@ -116,6 +116,8 @@ export class Session implements Client {
       case 'start': return room.start(user.id);
       case 'ready': return room.ready(user.id);
       case 'lobby_ready': return room.setLobbyReady(user.id, !!msg.ready);
+      case 'add_bot': return room.addBot(user.id, msg.level);
+      case 'remove_bot': return room.removeBot(user.id, msg.id);
       case 'chat':
         if (typeof msg.text === 'string') room.chat(user.id, msg.text.slice(0, CHAT_MAX_LENGTH * 2));
         break;

@@ -17,9 +17,11 @@ export interface UserRecord {
   studyLevels: Level[]; // "All spells": which levels feed the daily new cards
   lastNewDate: string | null; // YYYY-MM-DD of the last daily batch
   newNotice: number; // new cards added that the player hasn't been told about yet
+  critCount: number; // spells learned today (daily crit)
+  critExpires: number; // epoch ms of the player's next local midnight; after it the crit is back to 1%
 }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -46,7 +48,7 @@ export interface Store {
 
 export class UsernameTakenError extends Error {}
 
-const blankProgress = () => ({ xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0 });
+const blankProgress = () => ({ xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0 });
 
 /** In-memory store (tests); FileStore persists the same data as JSON. */
 export class MemoryStore implements Store {

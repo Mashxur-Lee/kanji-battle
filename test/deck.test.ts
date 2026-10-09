@@ -77,9 +77,9 @@ test('casting: mana cost, damage, heal, mana card; wrong writing rips the card',
   const spec = CARD_SPECS[attack.color];
   const pa = s.view(a).players.find((p) => p.id === a)!, pb = s.view(a).players.find((p) => p.id === b)!;
   assert.equal(pb.hp, 1000 - spec.amount);
-  assert.equal(pa.mana, 150 - spec.cost);
+  assert.equal(pa.mana, RULES.maxMana - spec.cost);
   assert.equal(s.view(a).turn!.active, b, 'turn passes');
-  assert.equal(s.view(b).players.find((p) => p.id === b)!.mana, 150, 'mana is capped at 150');
+  assert.equal(s.view(b).players.find((p) => p.id === b)!.mana, RULES.maxMana, 'mana is capped at the max');
   // b writes wrong → card rips, nothing happens
   const bc = s.view(b).hand.find((c) => CARD_SPECS[c.color].cost > 0)!;
   const manaBefore = s.view(b).players.find((p) => p.id === b)!.mana;
@@ -154,7 +154,7 @@ test('overtime: remaining cards shown one by one, first correct writer uses it',
   assert.deepEqual([r.ok, r.playerId], [true, 'A']);
   assert.notEqual(s.view('A').casting!.castId, c.castId, 'next card');
   // run the pile out
-  for (let i = 0; i < 25 && !s.g.isOver; i++) tick(15_000);
+  for (let i = 0; i < 25 && !s.g.isOver; i++) tick(RULES.overtimeCardMs);
   assert.ok(s.g.isOver);
   const over = s.events.find((e) => e.type === 'game_over') as any;
   assert.ok(over.stats.A && over.stats.B);
@@ -166,7 +166,7 @@ test('separate clocks: 15 s to choose a card, then 20 s to write it', () => {
   const first = s.view('A').turn!;
   assert.deepEqual([first.stage, first.deadlineMs], ['choose', RULES.chooseMs]);
   tick(5000);
-  const card = s.view(first.active).hand.find((c) => CARD_SPECS[c.color].cost <= 150)!;
+  const card = s.view(first.active).hand.find((c) => CARD_SPECS[c.color].cost <= RULES.maxMana)!;
   s.g.play(first.active, card.cardId);
   const t = s.view('A').turn!;
   assert.deepEqual([t.stage, t.deadlineMs, s.view('A').casting!.deadlineMs], ['cast', RULES.castMs, RULES.castMs], 'writing gets a fresh clock');
@@ -227,4 +227,41 @@ test('hero pick and first draft can go back to the lobby; a started battle canno
   assert.equal(s.g.canReturnToLobby(), true, 'draft round 1');
   draftAll(s);
   assert.equal(s.g.canReturnToLobby(), false);
+});
+
+test('one 20 s clock covers both draft picks; running out picks both', () => {
+  const s = setup();
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight');
+  const d = s.view('A').draft!;
+  const picker = d.picker!;
+  tick(15_000);
+  s.g.pick(picker, s.view('A').draft!.pool.find((c) => !c.takenBy)!.cardId);
+  assert.equal(s.view('A').draft!.picker, picker, 'still their turn for the 2nd card');
+  assert.ok(s.view('A').draft!.deadlineMs <= 5_000, 'the clock did not restart');
+  tick(5_000);
+  const after = s.view('A').draft!;
+  assert.notEqual(after.picker, picker, 'time up: the 2nd card was picked for them');
+  assert.equal(after.pool.filter((c) => c.takenBy === picker).length, 2);
+  // and a full timeout picks both
+  const next = after.picker!;
+  tick(20_000);
+  assert.equal(s.view('A').draft!.pool.filter((c) => c.takenBy === next).length, 2);
+});
+
+test('hero power: 100 mana, then 4 turns cooldown; mana starts at 200', () => {
+  const s = setup();
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
+  const p = s.view('A').turn!.active;
+  const me = () => s.view(p).players.find((x) => x.id === p)!;
+  assert.equal(me().mana, 200);
+  s.g.ability(p);
+  assert.deepEqual([me().mana, me().abilityCooldown, me().abilityActive], [100, 4, 2]);
+  s.g.ability(p); // on cooldown: nothing happens
+  assert.equal(me().mana, 100);
+  // let turns pass (both players just let the choose clock run out)
+  const cds: number[] = [];
+  for (let i = 0; i < 8; i++) { tick(RULES.chooseMs); if (s.view('A').turn!.active === p) cds.push(me().abilityCooldown); }
+  assert.deepEqual(cds, [3, 2, 1, 0], 'ready again on the 4th turn after');
+  s.g.ability(p);
+  assert.equal(me().abilityCooldown, 4, 'can use it again');
 });
