@@ -19,7 +19,7 @@ export const CHARACTER_INFO: Record<DeckCharacter, { name: string; power: string
   goblin: { name: 'Goblin', power: 'Frenzy: play 2 cards in a row this turn.' },
   knight: { name: 'Knight', power: 'Bulwark: take 30% less damage and heal 30% more for 2 turns.' },
   witch: { name: 'Witch', power: 'Sight: see the kanji and reading of all your cards for 2 turns (and the kanji stays visible while casting).' },
-  wizard: { name: 'Wizard', power: 'Arcane reserve (passive): out of cards → draw 2 random cards; out of mana → +30 mana. Once each.', passive: true },
+  wizard: { name: 'Wizard', power: 'Arcane reserve (passive): out of cards → draw 2 random cards before a new draft; out of mana → +30 mana. Once each.', passive: true },
 };
 
 export const DECK_RULES = {
@@ -31,7 +31,8 @@ export const DECK_RULES = {
   picksPerTurn: 2,
   pickMs: 20_000,
   characterMs: 30_000,
-  turnMs: 25_000, // choose a card + write it
+  chooseMs: 15_000, // pick which card to play
+  castMs: 20_000, // then write its kanji (includes the 1 s flash)
   castFlashMs: 1000,
   matchMs: 8 * 60_000, // then overtime
   overtimeCardMs: 15_000,
@@ -85,14 +86,17 @@ export interface DeckView {
   players: DeckPlayerView[];
   hand: DeckCardView[]; // your cards (hidden faces unless revealed)
   draft: { pool: Array<{ cardId: string; color: CardColor; takenBy: string | null }>; picker: string | null; picksLeft: number; coinWinner: string | null; deadlineMs: number } | null;
-  turn: { active: string; castsLeft: number; deadlineMs: number } | null;
+  turn: { active: string; castsLeft: number; deadlineMs: number; stage: 'choose' | 'cast' } | null;
+  /** 1 for the opening draft; +1 every time someone runs out of cards and a new draft starts */
+  round: number;
   casting: DeckCastView | null;
   matchLeftMs: number;
   overtimeLeft: number; // cards left in overtime
 }
 
 export type DeckEvent =
-  | { kind: 'coin'; winner: string }
+  | { kind: 'coin'; winner: string; round: number }
+  | { kind: 'redraft'; playerId: string; round: number }
   | { kind: 'pick'; playerId: string; color: CardColor }
   | { kind: 'ability'; playerId: string; character: DeckCharacter }
   | { kind: 'wizard'; playerId: string; what: 'cards' | 'mana' }

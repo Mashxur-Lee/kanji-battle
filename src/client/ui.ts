@@ -3,7 +3,7 @@ import {
   type Level, type PlayerId, type PlayerStats, type PlayerView, type PublicUser, type StudyItem,
 } from '../shared/protocol';
 import { avatarSvg, dragonSvg, wizardSvg } from './wizard';
-import { critText, levelOf, levelProgress } from '../shared/progress';
+import { critText, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -57,10 +57,11 @@ export function stopCountdown(slot?: string) {
 export interface ProfileView { xp: number; level: number; crit: number; learned: number }
 export function setProfile(p: ProfileView | null) {
   if (!p) return;
-  $('whoLevel').textContent = `Lv ${levelOf(p.xp)}`;
+  const lx = levelXp(p.xp);
+  $('whoLevel').textContent = `Lv ${lx.level} · ${lx.into.toLocaleString()}/${lx.need.toLocaleString()} XP`;
   $('whoCrit').textContent = `✦ ${critText(p.crit)} crit`;
   $('whoXp').style.width = `${levelProgress(p.xp) * 100}%`;
-  $('whoXp').parentElement!.title = `${p.xp % 1000} / 1000 XP to level ${levelOf(p.xp) + 1}`;
+  $('whoXp').parentElement!.title = `${lx.into} / ${lx.need} XP to level ${lx.level + 1}`;
 }
 
 let toastTimer = 0;
@@ -157,7 +158,8 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       if (p.crit > 0) li.append(h('span', 'critv', `✦ ${critText(p.crit)} crit`));
       if (p.id === hostId) li.append(h('span', 'tag', 'host'));
       if (!p.online) li.append(h('span', 'tag off', 'away — seat kept'));
-      li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `❤ ${p.maxHp} HP`)));
+      if (mode === 'deck') li.append(h('span', 'tag ' + (p.ready ? 'ready' : 'notready'), p.ready ? '✓ Ready' : 'Not ready'));
+      else li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `❤ ${p.maxHp} HP`)));
       return li;
     }),
     ...Array.from({ length: Math.max(0, maxPlayers - players.length) }, () =>
@@ -186,6 +188,22 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       : 'Each player picks their own. かな = hiragana, answered in romaji. Harder levels hit harder — so your opponent gets more HP.';
   const isHost = you === hostId;
   const canStart = players.length >= minPlayers;
+  const deck = mode === 'deck';
+  $('levels').hidden = deck; // Deck Duel deals cards from every level — nothing to pick
+  $('lobby').classList.toggle('no-side', deck);
+  const meReady = !!players.find((p) => p.id === you)?.ready;
+  $('readyBtn').hidden = !deck;
+  $('readyBtn').textContent = meReady ? 'Not ready' : 'Ready';
+  $('readyBtn').classList.toggle('is-ready', meReady);
+  $('readyBtn').dataset.ready = meReady ? '1' : '';
+  if (deck) {
+    $('start').hidden = true;
+    $('lobbyStatus').textContent = !canStart
+      ? 'Share the code — press Ready once your opponent joins. The duel starts when both are ready.'
+      : meReady ? 'Waiting for your opponent to be ready…' : 'Press Ready — the duel starts when both players are ready.';
+    show('lobby');
+    return;
+  }
   $('start').hidden = !isHost;
   $<HTMLButtonElement>('start').disabled = !canStart;
   $('start').textContent = mode === 'boss' && players.length < maxPlayers ? 'Start solo' : 'Start battle';
@@ -572,7 +590,7 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
 export function showXp(gained: number, level: number, levelUp: boolean) {
   const el = $('xpLine');
   el.hidden = false;
-  el.replaceChildren(h('span', '', `+${gained} XP`));
+  el.replaceChildren(h('span', '', gained > 0 ? `+${gained} XP` : 'No XP — the match was forfeited'));
   if (levelUp) el.append(h('span', 'lvup', `⬆ Level ${level}!`));
 }
 

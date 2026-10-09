@@ -29,7 +29,8 @@ export const BOSS_NAME = 'Black Dragon';
 /** Per-player progress the room shows and uses (crit chance, account level). */
 export interface MemberProfile { crit: number; xp: number }
 
-export interface MatchResult { id: PlayerId; outcome: MatchOutcome; accuracy: number; missed: string[] }
+/** `forfeited`: someone gave up or left — nobody gets XP (stops win-trading between accounts). */
+export interface MatchResult { id: PlayerId; outcome: MatchOutcome; accuracy: number; missed: string[]; forfeited: boolean }
 export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number }>>;
 
 /** Things the Room needs from the outside world. */
@@ -43,7 +44,7 @@ export interface RoomDeps {
 
 type Phase = 'lobby' | 'game' | 'results';
 interface Member {
-  id: PlayerId; name: string; levels: Level[]; online: boolean; profile: MemberProfile;
+  id: PlayerId; name: string; levels: Level[]; online: boolean; profile: MemberProfile; ready: boolean;
   graceTimer?: ReturnType<typeof setTimeout>;
 }
 
@@ -75,7 +76,7 @@ export class Room {
     if (this.has(id)) { this.setProfile(id, profile); this.reconnect(id, client); return { ok: true }; }
     if (this.phase !== 'lobby') return { ok: false, error: 'That battle has already started' };
     if (this.roster.length >= this.opts.maxPlayers) return { ok: false, error: 'Room is full' };
-    this.roster.push({ id, name: name.slice(0, 32) || 'Player', levels: levels?.length ? levels : [...DEFAULT_LEVELS], online: true, profile });
+    this.roster.push({ id, name: name.slice(0, 32) || 'Player', levels: levels?.length ? levels : [...DEFAULT_LEVELS], online: true, profile, ready: false });
     this.clients.set(id, client);
     this.hostId ??= id;
     client.send({ type: 'joined', code: this.code, you: id, mode: this.mode });
@@ -125,12 +126,21 @@ export class Room {
   }
 
   start(by: PlayerId) {
-    if (by !== this.hostId || this.phase !== 'lobby') return;
+    if (by !== this.hostId || this.phase !== 'lobby' || this.mode === 'deck') return; // Deck Duel starts on Ready
     if (this.roster.length < this.minPlayers) return this.clients.get(by)?.send({ type: 'error', message: 'Waiting for an opponent' });
     this.startGame();
   }
 
   ready(id: PlayerId) { this.game?.markReady(id); }
+
+  /** Deck Duel lobby: no levels to pick, just Ready / Not ready. Starts once everyone is ready. */
+  setLobbyReady(id: PlayerId, ready: boolean) {
+    const m = this.roster.find((p) => p.id === id);
+    if (!m || this.phase !== 'lobby' || this.mode !== 'deck') return;
+    m.ready = !!ready;
+    if (this.roster.length >= this.minPlayers && this.roster.every((p) => p.ready)) return this.startGame();
+    this.broadcastLobby();
+  }
   deckCharacter(id: PlayerId, ch: unknown) { if (this.game instanceof DeckGame) this.game.chooseCharacter(id, ch); }
   deckPick(id: PlayerId, cardId: unknown) { if (this.game instanceof DeckGame) this.game.pick(id, cardId); }
   deckPlay(id: PlayerId, cardId: unknown) { if (this.game instanceof DeckGame) this.game.play(id, cardId); }
@@ -207,12 +217,13 @@ export class Room {
     this.game?.dispose();
     this.rematchVotes.clear();
     this.lastGameOver = undefined;
+    for (const p of this.roster) p.ready = false;
     const emit = (e: GameEvent) => this.onGameEvent(e);
     if (this.mode === 'deck') {
       if (!this.deps.judgeWriting) return;
       const writable = this.deps.writableFilter ?? (() => true);
       this.phase = 'game';
-      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit })), buildDraftPool(VOCAB, writable, Math.random), emit, this.deps.judgeWriting);
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit })), () => buildDraftPool(VOCAB, writable, Math.random), emit, this.deps.judgeWriting);
       this.game.start();
       return;
     }
@@ -315,6 +326,7 @@ export class Room {
       outcome: e.teamWon !== null ? (e.teamWon ? 'win' : 'loss') : e.winnerId === null ? 'draw' : e.winnerId === p.id ? 'win' : 'loss',
       accuracy: e.stats[p.id].accuracy,
       missed: e.missed[p.id] ?? [],
+      forfeited: e.reason === 'forfeit',
     }));
     try {
       const out = await this.deps.onMatchEnd(this.mode, results);
@@ -346,6 +358,7 @@ export class Room {
         avatar: avatarFor(p.levels),
         crit: p.profile.crit,
         level: levelOf(p.profile.xp),
+        ready: p.ready,
       };
     });
   }

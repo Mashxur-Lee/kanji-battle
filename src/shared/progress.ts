@@ -1,10 +1,27 @@
 import type { Avatar, Level } from './protocol';
 
 // ── XP & levels ────────────────────────────────────────────────────────────────
-/** Level n is reached at n × 1000 XP (1000 → level 1, 2000 → level 2, …). */
+/**
+ * Each level costs 1000 XP more than the last: 1000 to reach Lv 1, then 2000 more for Lv 2, 3000 more
+ * for Lv 3 … so reaching level n takes 1000 × n(n+1)/2 XP in total (Lv 5 = 15k, Lv 10 = 55k, Lv 20 = 210k).
+ */
 export const XP_PER_LEVEL = 1000;
-export const levelOf = (xp: number) => Math.floor(Math.max(0, xp) / XP_PER_LEVEL);
-export const levelProgress = (xp: number) => (Math.max(0, xp) % XP_PER_LEVEL) / XP_PER_LEVEL;
+/** XP needed to go from level n to n+1. */
+export const xpToNext = (level: number) => XP_PER_LEVEL * (level + 1);
+/** Total XP at which level n starts. */
+export const xpForLevel = (level: number) => (XP_PER_LEVEL * level * (level + 1)) / 2;
+export function levelOf(xp: number) {
+  let n = Math.floor((Math.sqrt(1 + (8 * Math.max(0, xp)) / XP_PER_LEVEL) - 1) / 2);
+  while (xpForLevel(n + 1) <= xp) n++; // guard against float rounding at exact thresholds
+  while (n > 0 && xpForLevel(n) > xp) n--;
+  return n;
+}
+/** XP earned inside the current level, and how much that level needs. */
+export function levelXp(xp: number) {
+  const level = levelOf(xp);
+  return { level, into: Math.max(0, xp) - xpForLevel(level), need: xpToNext(level) };
+}
+export const levelProgress = (xp: number) => { const l = levelXp(xp); return l.into / l.need; };
 
 export type MatchOutcome = 'win' | 'loss' | 'draw';
 /** Win: 300 + accuracy%; loss: 50 + accuracy%; draw in between. Deck mode pays more (spec). */

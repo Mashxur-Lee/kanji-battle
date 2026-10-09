@@ -27,7 +27,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   countdownMs: 3_000,
   battleMs: 5 * 60_000,
   challengeMs: 10_000,
-  nextDelayMs: 700,
+  nextDelayMs: 2_500, // same pause as a miss, so guessing fast and wrong is never quicker than being right
   missPenaltyMs: 2_500,
   damagePerDifficulty: 2 / 3, // N5≈10 … N2≈40 … N1≈50+
   speed: { fastMs: 1_000, slowMs: 8_000, fastMult: 1.1, slowMult: 0.8 },

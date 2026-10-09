@@ -392,6 +392,7 @@ ui.$('levelChips').addEventListener('change', (e) => {
 });
 ui.$('leaveLobby').onclick = () => socket.send({ type: 'leave' });
 ui.$('start').onclick = () => socket.send({ type: 'start' });
+ui.$('readyBtn').onclick = () => socket.send({ type: 'lobby_ready', ready: !ui.$('readyBtn').dataset.ready });
 ui.$('copyCode').onclick = async () => {
   try { await navigator.clipboard.writeText(code); ui.$('copyCode').textContent = 'Copied!'; } catch { ui.$('copyCode').textContent = code; }
   setTimeout(() => (ui.$('copyCode').textContent = 'Copy'), 1500);

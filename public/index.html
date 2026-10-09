@@ -121,7 +121,7 @@
   <section id="customize" class="screen" hidden>
     <button id="customizeBack" class="back">← Menu</button>
     <h2>Customize</h2>
-    <p class="sub">Backgrounds unlock as you level up. Win battles to earn XP (1000 XP per level).</p>
+    <p class="sub">Backgrounds unlock as you level up. Win battles to earn XP (each level needs 1000 more than the last).</p>
     <div id="bgGrid" class="bg-grid"></div>
   </section>
 
@@ -186,6 +186,7 @@
       </div>
       <ul id="lobbyPlayers" class="players"></ul>
       <button id="start" class="big" hidden>Start battle</button>
+      <button id="readyBtn" class="big" hidden>Ready</button>
       <p id="lobbyStatus" class="sub"></p>
     </div>
     <div class="col-side">
@@ -336,12 +337,12 @@
           <li><b>Rapid</b> — no study; both get the same kanji, first correct reading hits.</li>
           <li><b>Writing</b> — the kanji flashes, then write it on the pad or type the kanji with a Japanese keyboard. Messy is fine.</li>
           <li><b>Boss</b> — team up against the Black Dragon. Mistakes get you clawed; fire breath every 30 s.</li>
-          <li><b>Deck Duel</b> — pick a hero, draft cards by colour, then cast them by writing their kanji. Light blue 100 dmg (10 mana), blue 120 (25), yellow +60 mana, green heal 100 (40), red 250 (70). You get +10 mana each turn. If you can't play any card, you lose. When time runs out: overtime — cards are shown one by one, first to write it uses it.</li>
+          <li><b>Deck Duel</b> — pick a hero, draft cards by colour, then cast them by writing their kanji. Light blue 100 dmg (10 mana), blue 120 (25), yellow +60 mana, green heal 100 (40), red 250 (70). Both players press Ready to start. 15 s to choose a card, then 20 s to write it. You get +10 mana each turn. Out of cards → a new draft round (HP and mana stay). Cards left but no mana to play any → you lose. When time runs out: overtime — cards are shown one by one, first to write it uses it.</li>
         </ul>
       </li>
       <li><b>Fast + correct = more damage.</b> Combos build up to ×1.5 (5 in a row sets you on fire 🔥). <b>Skip</b> (Esc) shows the answer.</li>
       <li><b>Study spells</b> — Anki-style flashcards. Missed words go to <i>Struggling spells</i>. Each learned spell = +0.1% crit (×1.5 damage).</li>
-      <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. 1000 XP per level unlocks backgrounds in <i>Customize</i>.</li>
+      <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds in <i>Customize</i>.</li>
     </ol>
     <button value="close" class="big">Got it</button>
   </form>

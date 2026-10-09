@@ -73,6 +73,10 @@ kbd { font-family: var(--ui); font-size: .7rem; border: 1px solid var(--line); b
 .row { display: flex; gap: 10px; } .row > * { flex: 1; }
 .tag { font-size: .72rem; color: var(--gold); border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; }
 .tag.off { color: var(--muted); }
+.tag.ready { color: var(--good); }
+.round-tag { display: inline-block; margin: 0 0 6px; padding: 4px 12px; border-radius: 999px; background: rgba(255, 210, 74, .15); color: #ffd24a; font-weight: 800; }
+.tag.notready { color: var(--muted); }
+#readyBtn.is-ready { background: transparent; color: var(--good); border: 2px solid var(--good); }
 .field { display: block; } .field span { font-size: .85rem; color: var(--muted); }
 
 /* ── auth ────────────────────────────────────────────────────────────────── */
@@ -447,7 +451,7 @@ body::before { z-index: 0; }
 .dk-player.opp .dk-av svg { transform: scaleX(-1); }
 .dk-player .dk-name { font-weight: 800; display: flex; gap: 8px; align-items: center; }
 .manabar { height: 10px; background: var(--field); border-radius: 5px; overflow: hidden; border: 1px solid var(--line); }
-.manabar > div { height: 100%; background: linear-gradient(90deg, #2a6be0, #6ee7ff); transition: width .35s; }
+.manabar > div { height: 100%; background: linear-gradient(90deg, #e0a800, #ffd24a); box-shadow: 0 0 8px rgba(255, 210, 74, .55); transition: width .35s; }
 .dk-counts { display: flex; gap: 6px; flex-wrap: wrap; font-size: .8rem; }
 .dk-counts .cc { display: inline-flex; align-items: center; gap: 4px; }
 .dk-counts .dot { width: 12px; height: 16px; border-radius: 3px; display: inline-block; }

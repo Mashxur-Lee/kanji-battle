@@ -53,6 +53,7 @@ export interface PlayerView {
   avatar: Avatar; // decided by the hardest level picked
   crit: number; // 0–0.5, from learned flashcards
   level: number; // account level (XP)
+  ready: boolean; // Deck Duel lobby: starts when everyone is ready
 }
 
 export interface BossView { name: string; hp: number; maxHp: number }
@@ -104,6 +105,7 @@ export type ClientMessage =
   | { type: 'back_to_lobby' }
   | { type: 'start' }
   | { type: 'ready' }
+  | { type: 'lobby_ready'; ready: boolean }
   | { type: 'answer'; challengeId: number; text: string }
   | { type: 'write'; challengeId: number; chars: DrawnChar[] }
   | { type: 'skip'; challengeId: number }

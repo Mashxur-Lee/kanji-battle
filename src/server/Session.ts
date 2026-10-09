@@ -98,6 +98,7 @@ export class Session implements Client {
       case 'back_to_lobby': return room.backToLobby(user.id);
       case 'start': return room.start(user.id);
       case 'ready': return room.ready(user.id);
+      case 'lobby_ready': return room.setLobbyReady(user.id, !!msg.ready);
       case 'answer':
         if (typeof msg.challengeId === 'number' && typeof msg.text === 'string') {
           room.answer(user.id, msg.challengeId, msg.text.slice(0, MAX_ANSWER_LENGTH));
