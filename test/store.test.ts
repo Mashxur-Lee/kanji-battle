@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { PgStore } from '../src/server/db/PgStore';
+import { PgStore, cleanUrl } from '../src/server/db/PgStore';
 import { FileStore, MemoryStore, type Store } from '../src/server/db/Store';
 import { newCard } from '../src/shared/srs';
 
@@ -12,7 +12,7 @@ const stores: Array<[string, () => Store]> = [
   ['memory', () => new MemoryStore()],
   ['file', () => new FileStore(path.join(mkdtempSync(path.join(tmpdir(), 'kw-')), 'db.json'))],
 ];
-if (process.env.TEST_DATABASE_URL) stores.push(['postgres', () => new PgStore(process.env.TEST_DATABASE_URL!)]);
+if (process.env.TEST_DATABASE_URL) stores.push(['postgres', () => new PgStore(process.env.TEST_DATABASE_URL! + (process.env.TEST_DATABASE_URL!.includes('?') ? '&' : '?') + 'channel_binding=require')]);
 
 for (const [name, make] of stores) {
   test(`store contract: ${name}`, async () => {
@@ -56,4 +56,9 @@ test('file store survives a restart', async () => {
   const b = new FileStore(file);
   assert.equal((await b.findById(u.id))!.xp, 1500);
   assert.equal((await b.cards(u.id)).length, 1);
+});
+
+test('cleanUrl drops libpq-only options from a Neon connection string', () => {
+  const u = cleanUrl('postgresql://neondb_owner:pw@ep-x.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require');
+  assert.equal(u, 'postgresql://neondb_owner:pw@ep-x.us-west-2.aws.neon.tech/neondb?sslmode=require');
 });

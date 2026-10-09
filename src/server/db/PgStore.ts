@@ -32,11 +32,25 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
 };
 
+/**
+ * Neon's copy-paste string ends in `&channel_binding=require`, a libpq-only option. postgres.js would
+ * send it to the server as a setting and the server refuses to connect, so drop such options.
+ */
+const LIBPQ_ONLY = ['channel_binding', 'gssencmode', 'target_session_attrs'];
+export function cleanUrl(raw: string): string {
+  try {
+    const u = new URL(raw.trim());
+    for (const k of LIBPQ_ONLY) u.searchParams.delete(k);
+    return u.toString();
+  } catch { return raw.trim(); }
+}
+
 export class PgStore implements Store {
   readonly name = 'postgres';
   private readonly sql: postgres.Sql;
 
-  constructor(url: string) {
+  constructor(rawUrl: string) {
+    const url = cleanUrl(rawUrl);
     const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
     this.sql = postgres(url, { ssl: local ? false : 'require', max: 5, idle_timeout: 20, onnotice: () => {} });
   }
