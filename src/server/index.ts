@@ -3,31 +3,46 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
 import { AuthService } from './auth/AuthService';
-import { SupabaseUserStore } from './auth/SupabaseUserStore';
 import { TokenSigner } from './auth/tokens';
-import { FileUserStore, type UserStore } from './auth/UserStore';
+import { PgStore } from './db/PgStore';
+import { FileStore, type Store } from './db/Store';
 import { createWritingJudge, isWritable } from './handwriting/judge';
 import { Recognizer } from './handwriting/recognizer';
 import { createApiHandler } from './http';
+import { StudyService } from './study/StudyService';
 import { RoomManager } from './RoomManager';
 import { Session, SessionHub } from './Session';
 
 const PUBLIC_DIR = path.resolve(__dirname, '../../public');
-const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css' };
+const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 
 // ── accounts ──────────────────────────────────────────────────────────────────
-function makeStore(): UserStore {
-  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
-  if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) return new SupabaseUserStore(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  return new FileUserStore(process.env.USERS_FILE ?? path.resolve(__dirname, '../../.data/users.json'));
+/** Neon / any Postgres when DATABASE_URL is set; otherwise a local JSON file (wiped on Render's free disk!). */
+function makeStore(): Store {
+  if (process.env.DATABASE_URL) return new PgStore(process.env.DATABASE_URL);
+  return new FileStore(process.env.USERS_FILE ?? path.resolve(__dirname, '../../.data/users.json'));
 }
+const store = makeStore();
 const tokens = new TokenSigner();
-const auth = new AuthService(makeStore(), tokens);
-const api = createApiHandler(auth);
+const auth = new AuthService(store, tokens);
+const study = new StudyService(store);
+const api = createApiHandler(auth, study);
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const recognizer = Recognizer.fromFile();
-const rooms = new RoomManager({ judgeWriting: createWritingJudge(recognizer), writableFilter: isWritable(recognizer) });
+const rooms = new RoomManager({
+  judgeWriting: createWritingJudge(recognizer),
+  writableFilter: isWritable(recognizer),
+  // after every match: XP + missed words into each player's "Struggling spells"
+  onMatchEnd: async (mode, results) => {
+    const out: Record<string, { gained: number; xp: number; crit: number }> = {};
+    for (const r of results) {
+      const { gained, xp } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed);
+      out[r.id] = { gained, xp, crit: await study.crit(r.id) };
+    }
+    return out;
+  },
+});
 const hub = new SessionHub();
 auth.onBan((userId) => hub.kick(userId, 'This account has been banned.'));
 
@@ -47,22 +62,22 @@ const server = createServer(async (req, res) => {
 // Handwriting answers carry stroke data, so allow bigger frames than plain JSON messages.
 const wss = new WebSocketServer({ server, maxPayload: 96 * 1024 });
 wss.on('connection', (ws) => {
-  const session = new Session(rooms, auth, hub, (json) => ws.readyState === ws.OPEN && ws.send(json), () => ws.close());
+  const session = new Session(rooms, auth, hub, study, (json) => ws.readyState === ws.OPEN && ws.send(json), () => ws.close());
   ws.on('message', (data) => void session.onRaw(data.toString()));
   ws.on('close', () => session.onClose());
 });
 
 const port = Number(process.env.PORT ?? 3000);
-auth.seed([
+store.init().then(() => auth.seed([
   { username: 'user', password: process.env.USER_PASSWORD ?? 'user123', role: 'user' },
   { username: 'admin', password: process.env.ADMIN_PASSWORD ?? 'adminn123', role: 'admin' },
-]).then(() => {
+])).then(() => {
   server.listen(port, () => {
     console.log(`Kanji Battle running on http://localhost:${port}`);
     console.log(`Accounts: ${auth.store.name}${tokens.ephemeral ? ' · AUTH_SECRET not set: logins reset on restart' : ''}`);
     if (!process.env.ADMIN_PASSWORD) console.warn('ADMIN_PASSWORD not set: the admin account uses the default password from the README');
   });
 }).catch((e) => {
-  console.error('Could not start (account storage unreachable?)', e);
+  console.error('Could not start (database unreachable? check DATABASE_URL)', e);
   process.exit(1);
 });

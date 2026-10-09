@@ -1,0 +1,147 @@
+import postgres from 'postgres';
+import type { Level, Role } from '../../shared/protocol';
+import type { BackgroundId } from '../../shared/progress';
+import type { CardState, SrsCard } from '../../shared/srs';
+import { UsernameTakenError, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+
+/**
+ * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
+ * Uses postgres.js (zero dependencies); all queries are parameterised by the tagged template.
+ */
+interface UserRow {
+  id: string; username: string; password_hash: string; role: Role; banned: boolean; created_at: Date;
+  xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
+}
+interface CardRow {
+  vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
+  reps: number; lapses: number; struggling: boolean;
+}
+
+const toUser = (r: UserRow): UserRecord => ({
+  id: r.id, username: r.username, passwordHash: r.password_hash, role: r.role, banned: r.banned,
+  createdAt: new Date(r.created_at).toISOString(), xp: r.xp, background: r.background,
+  studyLevels: r.study_levels ?? [], lastNewDate: r.last_new_date, newNotice: r.new_notice,
+});
+const toCard = (r: CardRow): SrsCard => ({
+  vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
+  due: Number(r.due), reps: r.reps, lapses: r.lapses, struggling: r.struggling,
+});
+
+const COLUMNS: Record<keyof UserPatch, string> = {
+  banned: 'banned', passwordHash: 'password_hash', background: 'background',
+  studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
+};
+
+export class PgStore implements Store {
+  readonly name = 'postgres';
+  private readonly sql: postgres.Sql;
+
+  constructor(url: string) {
+    const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
+    this.sql = postgres(url, { ssl: local ? false : 'require', max: 5, idle_timeout: 20, onnotice: () => {} });
+  }
+
+  async init() {
+    await this.sql`
+      create table if not exists kw_users (
+        id uuid primary key default gen_random_uuid(),
+        username text not null unique,
+        password_hash text not null,
+        role text not null default 'user' check (role in ('user', 'admin')),
+        banned boolean not null default false,
+        created_at timestamptz not null default now(),
+        xp integer not null default 0,
+        background text not null default 'forest',
+        study_levels text[] not null default '{}',
+        last_new_date text,
+        new_notice integer not null default 0
+      )`;
+    await this.sql`
+      create table if not exists kw_cards (
+        user_id uuid not null references kw_users(id) on delete cascade,
+        vocab_id text not null,
+        state text not null,
+        step integer not null,
+        ease integer not null,
+        interval_days integer not null,
+        due bigint not null,
+        reps integer not null,
+        lapses integer not null,
+        struggling boolean not null default false,
+        primary key (user_id, vocab_id)
+      )`;
+    await this.sql`create index if not exists kw_cards_due on kw_cards (user_id, due)`;
+  }
+
+  async findByUsername(username: string) {
+    const [r] = await this.sql<UserRow[]>`select * from kw_users where username = ${username.toLowerCase()}`;
+    return r ? toUser(r) : null;
+  }
+  async findById(id: string) {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return null; // not a uuid → no such user (avoids a cast error)
+    const [r] = await this.sql<UserRow[]>`select * from kw_users where id = ${id}`;
+    return r ? toUser(r) : null;
+  }
+  async create(u: NewUser) {
+    try {
+      const [r] = await this.sql<UserRow[]>`
+        insert into kw_users (username, password_hash, role) values (${u.username.toLowerCase()}, ${u.passwordHash}, ${u.role})
+        returning *`;
+      return toUser(r);
+    } catch (e) {
+      if ((e as { code?: string }).code === '23505') throw new UsernameTakenError();
+      throw e;
+    }
+  }
+  async list() { return (await this.sql<UserRow[]>`select * from kw_users order by created_at`).map(toUser); }
+  async update(id: string, patch: UserPatch) {
+    const set: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(patch)) if (v !== undefined) set[COLUMNS[k as keyof UserPatch]] = v;
+    if (Object.keys(set).length === 0) return this.findById(id);
+    const [r] = await this.sql<UserRow[]>`update kw_users set ${this.sql(set)} where id = ${id} returning *`;
+    return r ? toUser(r) : null;
+  }
+  async addXp(id: string, delta: number) {
+    const [r] = await this.sql<{ xp: number }[]>`update kw_users set xp = greatest(0, xp + ${Math.round(delta)}) where id = ${id} returning xp`;
+    return r?.xp ?? 0;
+  }
+  async cards(userId: string) {
+    return (await this.sql<CardRow[]>`select * from kw_cards where user_id = ${userId}`).map(toCard);
+  }
+  async card(userId: string, vocabId: string) {
+    const [r] = await this.sql<CardRow[]>`select * from kw_cards where user_id = ${userId} and vocab_id = ${vocabId}`;
+    return r ? toCard(r) : null;
+  }
+  private row(userId: string, c: SrsCard) {
+    return {
+      user_id: userId, vocab_id: c.vocabId, state: c.state, step: c.step, ease: c.ease, interval_days: c.intervalDays,
+      due: c.due, reps: c.reps, lapses: c.lapses, struggling: c.struggling,
+    };
+  }
+  async saveCard(userId: string, c: SrsCard) {
+    const row = this.row(userId, c);
+    await this.sql`
+      insert into kw_cards ${this.sql(row)}
+      on conflict (user_id, vocab_id) do update set
+        state = excluded.state, step = excluded.step, ease = excluded.ease, interval_days = excluded.interval_days,
+        due = excluded.due, reps = excluded.reps, lapses = excluded.lapses, struggling = excluded.struggling`;
+  }
+  async addCards(userId: string, cards: SrsCard[]) {
+    if (cards.length === 0) return 0;
+    const rows = cards.map((c) => this.row(userId, c));
+    const res = await this.sql`insert into kw_cards ${this.sql(rows)} on conflict do nothing`;
+    return res.count;
+  }
+  async markStruggling(userId: string, vocabIds: string[], now: number) {
+    if (vocabIds.length === 0) return;
+    const rows = vocabIds.map((id) => ({
+      user_id: userId, vocab_id: id, state: 'new', step: 0, ease: 2500, interval_days: 0, due: now, reps: 0, lapses: 0, struggling: true,
+    }));
+    await this.sql`insert into kw_cards ${this.sql(rows)} on conflict (user_id, vocab_id) do update set struggling = true, due = least(kw_cards.due, excluded.due)`;
+  }
+  async learnedCount(userId: string) {
+    const [r] = await this.sql<{ n: string }[]>`select count(*) as n from kw_cards where user_id = ${userId} and state = 'review'`;
+    return Number(r.n);
+  }
+  async close() { await this.sql.end({ timeout: 5 }); }
+}

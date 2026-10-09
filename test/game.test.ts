@@ -3,7 +3,7 @@ import { beforeEach, afterEach, mock, test } from 'node:test';
 import { computeDamage, DEFAULT_CONFIG, Game, type GameConfig, type GameEvent } from '../src/server/Game';
 import { ChallengeDeck, pickPool } from '../src/server/VocabPool';
 import type { VocabEntry } from '../src/shared/protocol';
-import { VOCAB } from '../src/shared/vocab';
+import { VOCAB } from '../src/server/vocab';
 
 const CFG: GameConfig = { ...DEFAULT_CONFIG, prepMs: 1000, countdownMs: 100, battleMs: 60_000, challengeMs: 5000, nextDelayMs: 10, missPenaltyMs: 50 };
 const byKanji = (k: string) => VOCAB.find((v) => v.kanji === k)!;

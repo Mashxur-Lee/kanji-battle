@@ -1,5 +1,5 @@
 import type { Level } from '../shared/protocol';
-import { VOCAB } from '../shared/vocab';
+import { VOCAB } from './vocab';
 import { DEFAULT_CONFIG } from './Game';
 
 /**
@@ -33,3 +33,8 @@ export function bossHp(partyLevels: ReadonlyArray<readonly Level[]>): number {
   return Math.max(300, Math.round(total / 50) * 50);
 }
 export const BOSS_PLAYER_HP = 1000;
+
+/** Rapid: both players race on the same words, so both get the same HP (~10 round wins to KO). */
+export function rapidHp(levels: readonly Level[]): number {
+  return Math.max(150, Math.round((averageBaseDamage(levels) * 1.15 * 10) / 10) * 10);
+}

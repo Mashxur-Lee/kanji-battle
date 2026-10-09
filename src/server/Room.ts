@@ -1,8 +1,9 @@
-import type { BossView, GameMode, Level, PlayerId, PlayerView, ServerMessage } from '../shared/protocol';
-import { BOSS_PLAYER_HP, bossHp, hpAgainst } from './Balance';
-import { DEFAULT_CONFIG, Game, WRITING_CONFIG, type GameConfig, type GameEvent, type WritingJudge } from './Game';
+import type { BossView, DrawnChar, GameMode, Level, PlayerId, PlayerView, ServerMessage, VocabEntry } from '../shared/protocol';
+import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
+import { BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
+import { DEFAULT_CONFIG, Game, WRITING_CONFIG, type GameConfig, type GameEvent, type Match, type WritingJudge } from './Game';
+import { RapidGame } from './RapidGame';
 import { pickPool } from './VocabPool';
-import type { VocabEntry } from '../shared/protocol';
 
 /** Transport-agnostic: Room only needs something it can send messages to. */
 export interface Client { send(msg: ServerMessage): void }
@@ -23,16 +24,26 @@ export const DEFAULT_ROOM_OPTIONS: RoomOptions = {
 export const DEFAULT_LEVELS: Level[] = ['N3', 'N2'];
 export const BOSS_NAME = 'Black Dragon';
 
-/** Things the Room needs from the outside world (writing judge, word filter, lifecycle hooks). */
+/** Per-player progress the room shows and uses (crit chance, account level). */
+export interface MemberProfile { crit: number; xp: number }
+
+export interface MatchResult { id: PlayerId; outcome: MatchOutcome; accuracy: number; missed: string[] }
+export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number }>>;
+
+/** Things the Room needs from the outside world. */
 export interface RoomDeps {
   onEmpty: () => void;
   onMemberLeft?: (id: PlayerId) => void;
+  onMatchEnd?: MatchEndHook;
   judgeWriting?: WritingJudge;
   writableFilter?: (v: VocabEntry) => boolean;
 }
 
 type Phase = 'lobby' | 'game' | 'results';
-interface Member { id: PlayerId; name: string; levels: Level[]; online: boolean; graceTimer?: ReturnType<typeof setTimeout> }
+interface Member {
+  id: PlayerId; name: string; levels: Level[]; online: boolean; profile: MemberProfile;
+  graceTimer?: ReturnType<typeof setTimeout>;
+}
 
 /**
  * Lobby → game → results → (rematch) game … Owns who is in the room, who is host, who picked which
@@ -44,7 +55,7 @@ export class Room {
   private clients = new Map<PlayerId, Client>();
   private hostId: PlayerId | null = null;
   private phase: Phase = 'lobby';
-  private game?: Game;
+  private game?: Match;
   private rematchVotes = new Set<PlayerId>();
   private lastGameOver?: ServerMessage;
 
@@ -58,16 +69,21 @@ export class Room {
   get minPlayers() { return this.mode === 'boss' ? 1 : this.opts.maxPlayers; }
   has(id: PlayerId) { return this.roster.some((m) => m.id === id); }
 
-  join(id: PlayerId, name: string, client: Client, levels?: Level[]): { ok: true } | { ok: false; error: string } {
-    if (this.has(id)) { this.reconnect(id, client); return { ok: true }; }
+  join(id: PlayerId, name: string, client: Client, levels?: Level[], profile: MemberProfile = { crit: 0, xp: 0 }): { ok: true } | { ok: false; error: string } {
+    if (this.has(id)) { this.setProfile(id, profile); this.reconnect(id, client); return { ok: true }; }
     if (this.phase !== 'lobby') return { ok: false, error: 'That battle has already started' };
     if (this.roster.length >= this.opts.maxPlayers) return { ok: false, error: 'Room is full' };
-    this.roster.push({ id, name: name.slice(0, 16) || 'Player', levels: levels?.length ? levels : [...DEFAULT_LEVELS], online: true });
+    this.roster.push({ id, name: name.slice(0, 32) || 'Player', levels: levels?.length ? levels : [...DEFAULT_LEVELS], online: true, profile });
     this.clients.set(id, client);
     this.hostId ??= id;
     client.send({ type: 'joined', code: this.code, you: id, mode: this.mode });
     this.broadcastLobby();
     return { ok: true };
+  }
+
+  setProfile(id: PlayerId, profile: MemberProfile) {
+    const m = this.roster.find((p) => p.id === id);
+    if (m) m.profile = profile;
   }
 
   /** Same account came back (new socket): hand them the seat and catch them up. */
@@ -114,8 +130,24 @@ export class Room {
 
   ready(id: PlayerId) { this.game?.markReady(id); }
   answer(id: PlayerId, challengeId: number, text: string) { this.game?.submit(id, challengeId, text); }
-  write(id: PlayerId, challengeId: number, chars: Parameters<Game['submitWriting']>[2]) { this.game?.submitWriting(id, challengeId, chars); }
+  write(id: PlayerId, challengeId: number, chars: DrawnChar[]) { this.game?.submitWriting(id, challengeId, chars); }
   skip(id: PlayerId, challengeId: number) { this.game?.skip(id, challengeId); }
+
+  /** Give up the battle but stay in the room: everyone goes to the results screen (mistakes + rematch). */
+  forfeit(id: PlayerId) {
+    if (this.phase === 'game' && this.has(id)) this.game?.forfeit(id);
+  }
+
+  /** "Back" during the study phase: the match is called off and everyone returns to the lobby. */
+  backToLobby(id: PlayerId) {
+    if (this.phase !== 'game' || !this.game || this.game.snapshot(id).phase !== 'prep') return;
+    this.game.dispose();
+    this.game = undefined;
+    this.phase = 'lobby';
+    const name = this.roster.find((p) => p.id === id)?.name ?? 'Someone';
+    this.broadcastLobby();
+    this.broadcast({ type: 'notice', message: `${name} went back to the lobby.` });
+  }
 
   rematch(id: PlayerId) {
     if (this.phase !== 'results') return;
@@ -147,7 +179,7 @@ export class Room {
       this.game?.dispose();
       return this.deps.onEmpty();
     }
-    if (wasInGame) return;
+    if (wasInGame && this.phase !== 'lobby') return;
     if (this.phase === 'lobby') this.broadcastLobby();
     else this.broadcast({ type: 'rematch_status', votes: [...this.rematchVotes] });
   }
@@ -157,33 +189,41 @@ export class Room {
   /** Duels: your HP is set by how hard your opponents hit (their levels). Boss mode: everyone has 1000. */
   private hpFor(id: PlayerId): number {
     if (this.mode === 'boss') return BOSS_PLAYER_HP;
+    if (this.mode === 'rapid') return rapidHp(this.unionLevels());
     const opponents = this.roster.filter((p) => p.id !== id);
     if (opponents.length === 0) return hpAgainst(DEFAULT_LEVELS);
     return Math.round(opponents.reduce((s, o) => s + hpAgainst(o.levels), 0) / opponents.length);
   }
 
+  private unionLevels(): Level[] { return [...new Set(this.roster.flatMap((p) => p.levels))]; }
+
   private startGame() {
     this.game?.dispose();
     this.rematchVotes.clear();
     this.lastGameOver = undefined;
-    this.phase = 'game';
+    const emit = (e: GameEvent) => this.onGameEvent(e);
+    if (this.mode === 'rapid') {
+      const pool = pickPool(this.unionLevels(), 40);
+      this.phase = 'game';
+      this.game = new RapidGame(this.roster.map((p) => ({ id: p.id, maxHp: this.hpFor(p.id), crit: p.profile.crit })), pool, emit, this.opts.game);
+      this.game.start();
+      return;
+    }
     const filter = this.mode === 'writing' ? this.deps.writableFilter : undefined;
-    const setups = this.roster.map((p) => ({ id: p.id, pool: pickPool(p.levels, this.opts.poolSize, Math.random, undefined, filter), maxHp: this.hpFor(p.id) }));
+    const setups = this.roster.map((p) => ({ id: p.id, pool: pickPool(p.levels, this.opts.poolSize, Math.random, undefined, filter), maxHp: this.hpFor(p.id), crit: p.profile.crit }));
     // a level combination with no writable words would leave someone with an empty pool
     for (const s of setups) {
       if (s.pool.length === 0) {
-        this.phase = 'lobby';
         const name = this.roster.find((p) => p.id === s.id)?.name;
         this.broadcast({ type: 'error', message: `${name}'s levels have no words for this mode — pick other levels` });
         return;
       }
     }
+    this.phase = 'game';
     this.game = new Game(
-      setups,
-      (e) => this.onGameEvent(e),
+      setups, emit,
       this.mode === 'writing' ? this.opts.writingGame : this.opts.game,
-      Math.random,
-      Date.now,
+      Math.random, Date.now,
       {
         mode: this.mode,
         boss: this.mode === 'boss' ? { name: BOSS_NAME, maxHp: bossHp(this.roster.map((p) => p.levels)) } : undefined,
@@ -205,7 +245,7 @@ export class Room {
       });
       if (snap.challenge) {
         const c = snap.challenge;
-        client.send({ type: 'challenge', id: c.id, kanji: c.kanji, answer: c.answerMode, timeLimitMs: c.timeLimitMs, meaning: c.meaning, charCount: c.charCount, flashMs: c.flashMs });
+        client.send({ type: 'challenge', id: c.id, kanji: c.kanji, answer: c.answerMode, timeLimitMs: c.timeLimitMs, meaning: c.meaning, reading: c.reading, charCount: c.charCount, flashMs: c.flashMs });
       }
     }
   }
@@ -221,7 +261,7 @@ export class Room {
       case 'challenge':
         return this.clients.get(e.playerId)?.send({
           type: 'challenge', id: e.id, kanji: e.kanji, answer: e.answerMode, timeLimitMs: e.timeLimitMs,
-          meaning: e.meaning, charCount: e.charCount, flashMs: e.flashMs,
+          meaning: e.meaning, reading: e.reading, charCount: e.charCount, flashMs: e.flashMs,
         });
       case 'answer_result': {
         const { entry } = e;
@@ -229,6 +269,7 @@ export class Room {
           type: 'answer_result', challengeId: e.challengeId, correct: e.correct, timedOut: e.timedOut, skipped: e.skipped,
           kanji: entry.kanji, reading: entry.romaji ?? entry.reading, meaning: entry.meaning,
           damage: e.damage, combo: e.combo, responseMs: e.responseMs, nextInMs: e.nextInMs, recognized: e.recognized,
+          crit: e.crit, retry: e.retry, beaten: e.beaten,
         });
       }
       case 'battle_update':
@@ -240,8 +281,32 @@ export class Room {
           players: this.view(), boss: this.bossView(), stats: e.stats,
         };
         this.lastGameOver = msg;
-        return this.broadcast(msg);
+        this.broadcast(msg);
+        void this.awardProgress(e);
+        return;
       }
+    }
+  }
+
+  /** XP for everyone (win/loss + accuracy), missed words into each player's "Struggling spells". */
+  private async awardProgress(e: Extract<GameEvent, { type: 'game_over' }>) {
+    if (!this.deps.onMatchEnd) return;
+    const results: MatchResult[] = this.roster.filter((p) => e.stats[p.id]).map((p) => ({
+      id: p.id,
+      outcome: e.teamWon !== null ? (e.teamWon ? 'win' : 'loss') : e.winnerId === null ? 'draw' : e.winnerId === p.id ? 'win' : 'loss',
+      accuracy: e.stats[p.id].accuracy,
+      missed: e.missed[p.id] ?? [],
+    }));
+    try {
+      const out = await this.deps.onMatchEnd(this.mode, results);
+      for (const [id, r] of Object.entries(out)) {
+        const m = this.roster.find((p) => p.id === id);
+        const before = m ? levelOf(m.profile.xp) : 0;
+        if (m) m.profile = { crit: r.crit, xp: r.xp };
+        this.clients.get(id)?.send({ type: 'progress', gained: r.gained, xp: r.xp, level: levelOf(r.xp), levelUp: levelOf(r.xp) > before, crit: r.crit });
+      }
+    } catch (err) {
+      console.error('could not save match results', err);
     }
   }
 
@@ -259,6 +324,9 @@ export class Room {
         combo: inGame ? this.game!.getCombo(p.id) : 0,
         levels: p.levels,
         online: p.online,
+        avatar: avatarFor(p.levels),
+        crit: p.profile.crit,
+        level: levelOf(p.profile.xp),
       };
     });
   }

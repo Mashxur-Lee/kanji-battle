@@ -2,8 +2,9 @@ import { LEVELS, MODES, type ClientMessage, type GameMode, type Level, type Publ
 import type { AuthService } from './auth/AuthService';
 import { toPublic } from './auth/AuthService';
 import { sanitizeDrawing } from './handwriting/judge';
-import type { Client, Room } from './Room';
+import type { Client, MemberProfile, Room } from './Room';
 import type { RoomManager } from './RoomManager';
+import type { StudyService } from './study/StudyService';
 
 const MAX_ANSWER_LENGTH = 40;
 const MAX_WRITTEN_CHARS = 8;
@@ -34,6 +35,7 @@ export class Session implements Client {
     private readonly rooms: RoomManager,
     private readonly auth: AuthService,
     private readonly hub: SessionHub,
+    private readonly study: StudyService,
     private readonly out: (json: string) => void,
     private readonly close: () => void,
   ) {}
@@ -66,13 +68,13 @@ export class Session implements Client {
     if (msg.type === 'create') {
       if (this.room) return;
       const mode: GameMode = MODES.includes(msg.mode as GameMode) ? (msg.mode as GameMode) : 'reading';
-      return this.enter(this.rooms.create(mode), parseLevels(msg.levels));
+      return await this.enter(this.rooms.create(mode), parseLevels(msg.levels));
     }
     if (msg.type === 'join') {
       if (this.room) return;
       const room = this.rooms.get(String(msg.code ?? ''));
       if (!room) return this.send({ type: 'error', message: 'Room not found' });
-      return this.enter(room, parseLevels(msg.levels));
+      return await this.enter(room, parseLevels(msg.levels));
     }
 
     const room = this.room;
@@ -88,6 +90,8 @@ export class Session implements Client {
         this.room = undefined;
         this.send({ type: 'left' });
         break;
+      case 'forfeit': return room.forfeit(user.id);
+      case 'back_to_lobby': return room.backToLobby(user.id);
       case 'start': return room.start(user.id);
       case 'ready': return room.ready(user.id);
       case 'answer':
@@ -121,7 +125,7 @@ export class Session implements Client {
       this.send({ type: 'welcome', user: this.user });
       // Back from the background / a refresh: take the seat back.
       const room = this.rooms.roomOf(rec.id);
-      if (room) { this.room = room; room.reconnect(rec.id, this); }
+      if (room) { this.room = room; room.setProfile(rec.id, await this.profile()); room.reconnect(rec.id, this); }
     } catch (e) {
       this.send({ type: 'auth_error', message: (e as Error).message });
     }
@@ -132,9 +136,15 @@ export class Session implements Client {
     this.room = undefined;
   }
 
-  private enter(room: Room, levels: Level[]) {
+  /** Crit chance and XP shown in rooms (crit comes from learned flashcards). */
+  private async profile(): Promise<MemberProfile> {
+    const rec = await this.auth.store.findById(this.user!.id);
+    return { crit: await this.study.crit(this.user!.id), xp: rec?.xp ?? 0 };
+  }
+
+  private async enter(room: Room, levels: Level[]) {
     const user = this.user!;
-    const result = room.join(user.id, user.username, this, levels);
+    const result = room.join(user.id, user.username, this, levels, await this.profile());
     if (!result.ok) return this.send({ type: 'error', message: result.error });
     this.room = room;
     this.rooms.seat(user.id, room);

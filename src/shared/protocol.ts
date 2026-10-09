@@ -6,12 +6,14 @@ export const LEVELS = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
 export type Level = (typeof LEVELS)[number];
 export const LEVEL_LABEL: Record<Level, string> = { KANA: 'かな', N5: 'N5', N4: 'N4', N3: 'N3', N2: 'N2', N1: 'N1' };
 
-export const MODES = ['reading', 'writing', 'boss'] as const;
+export const MODES = ['reading', 'writing', 'boss', 'rapid', 'deck'] as const;
 export type GameMode = (typeof MODES)[number];
 export const MODE_LABEL: Record<GameMode, string> = {
   reading: '1v1 Kanji Reading',
   writing: '1v1 Kanji Writing',
   boss: 'Boss Elimination',
+  rapid: '1v1 Rapid',
+  deck: 'Deck Duel',
 };
 
 /** How a word must be answered: kana reading (IME or romaji), romaji only (hiragana practice), or handwriting. */
@@ -25,7 +27,8 @@ export interface VocabEntry {
   romaji?: string; // set for hiragana practice: shown as the "reading", and answers must be typed in romaji
   meaning: string;
   level: Level; // a filter/category, NOT the difficulty measure
-  difficulty: number; // 0–100, drives damage; tune later from real player data
+  difficulty: number; // 0–100, drives damage; level + stroke count + word length (scripts/build-vocab.ts)
+  strokes?: number; // total stroke count of the kanji in the word
   altReadings?: string[];
 }
 
@@ -36,6 +39,8 @@ export type Role = 'user' | 'admin';
 export interface PublicUser { id: string; username: string; role: Role }
 export interface AdminUserRow extends PublicUser { banned: boolean; createdAt: string }
 
+export type Avatar = 'goblin' | 'kid' | 'human' | 'knight' | 'wizard';
+
 export interface PlayerView {
   id: PlayerId;
   name: string;
@@ -44,6 +49,9 @@ export interface PlayerView {
   combo: number;
   levels: Level[];
   online: boolean;
+  avatar: Avatar; // decided by the hardest level picked
+  crit: number; // 0–0.5, from learned flashcards
+  level: number; // account level (XP)
 }
 
 export interface BossView { name: string; hp: number; maxHp: number }
@@ -72,7 +80,7 @@ export type GameOverReason = 'ko' | 'time' | 'forfeit' | 'boss_slain' | 'party_w
 
 /** Broadcast so everyone sees what happened on the field. targetId 'boss' = the dragon. */
 export type BattleEvent =
-  | { kind: 'hit'; playerId: PlayerId; targetId: PlayerId | 'boss'; kanji: string; damage: number; combo: number }
+  | { kind: 'hit'; playerId: PlayerId; targetId: PlayerId | 'boss'; kanji: string; damage: number; combo: number; crit?: boolean }
   | { kind: 'miss'; playerId: PlayerId; kanji: string }
   | { kind: 'claw'; playerId: PlayerId; damage: number }
   | { kind: 'breath_warning'; inMs: number }
@@ -87,6 +95,8 @@ export type ClientMessage =
   | { type: 'join'; code: string; levels?: Level[] }
   | { type: 'levels'; levels: Level[] }
   | { type: 'leave' }
+  | { type: 'forfeit' }
+  | { type: 'back_to_lobby' }
   | { type: 'start' }
   | { type: 'ready' }
   | { type: 'answer'; challengeId: number; text: string }
@@ -100,8 +110,9 @@ export interface ChallengeMsg {
   kanji: string;
   answer: AnswerMode;
   timeLimitMs: number;
-  /** writing mode: the kanji is flashed briefly, then only the meaning stays */
+  /** writing mode: the kanji is flashed briefly, then only the reading + meaning stay */
   meaning?: string;
+  reading?: string;
   charCount?: number;
   flashMs?: number;
 }
@@ -139,6 +150,9 @@ export type ServerMessage =
       nextInMs: number;
       /** writing mode: what the recogniser read for each character (best guess) */
       recognized?: string;
+      crit?: boolean;
+      retry?: boolean; // rapid: wrong guess, keep trying
+      beaten?: boolean; // rapid: the opponent answered first
     }
   | { type: 'battle_update'; players: PlayerView[]; boss: BossView | null; event: BattleEvent }
   | {
@@ -152,4 +166,6 @@ export type ServerMessage =
       stats: Record<PlayerId, PlayerStats>;
     }
   | { type: 'rematch_status'; votes: PlayerId[] }
+  | { type: 'progress'; gained: number; xp: number; level: number; levelUp: boolean; crit: number }
+  | { type: 'notice'; message: string }
   | { type: 'error'; message: string };

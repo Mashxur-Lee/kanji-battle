@@ -236,8 +236,33 @@ export class Recognizer {
   /** Whether this character can be recognised at all. */
   knows(ch: string) { return this.byChar.has(ch); }
 
+  private readonly index = new Map<string, number>();
+
+  /** Fine distance between a drawing and one specific character (no stroke-count filter). */
+  distanceTo(raw: Pattern, ch: string): number {
+    const strokes = raw.filter((s) => s.length > 0);
+    const i = this.refIndex(ch);
+    if (strokes.length === 0 || i < 0) return Infinity;
+    const input = extractFeatures(momentNormalize(strokes), 20);
+    const ref = this.refs[i][2];
+    const map = completeMap(ref, input, wholeWholeDistance, getMap(ref, input, initialDistance));
+    const d = computeWholeDistanceWeighted(ref, input, map) / Math.min(ref.length, input.length);
+    // stroke-count mismatch is common with a mouse (strokes run together), so penalise it only mildly
+    return d * (1 + 0.06 * Math.abs(ref.length - input.length));
+  }
+
+  private refIndex(ch: string) {
+    if (this.index.size === 0) this.refs.forEach((r, i) => this.index.set(r[0], i));
+    return this.index.get(ch) ?? -1;
+  }
+
   /** Top candidates for a raw drawn character (any coordinate space), best first. */
   recognize(raw: Pattern, top = 10): string[] {
+    return this.recognizeScored(raw, top).map((c) => c.ch);
+  }
+
+  /** Like recognize(), with distances (lower = closer). */
+  recognizeScored(raw: Pattern, top = 10): Array<{ ch: string; dist: number }> {
     const strokes = raw.filter((s) => s.length > 0);
     if (strokes.length === 0) return [];
     const input = extractFeatures(momentNormalize(strokes), 20);
@@ -267,6 +292,6 @@ export class Recognizer {
       fine.push([i, dist]);
     }
     fine.sort((a, b) => a[1] - b[1]);
-    return fine.slice(0, top).map(([i]) => this.refs[i][0]);
+    return fine.slice(0, top).map(([i, dist]) => ({ ch: this.refs[i][0], dist }));
   }
 }

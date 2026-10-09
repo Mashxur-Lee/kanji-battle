@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { AuthError, type AuthService } from './auth/AuthService';
+import { AuthError, toPublic, type AuthService } from './auth/AuthService';
+import { resolveToday, StudyError, type StudyService } from './study/StudyService';
 
 const MAX_BODY = 4 * 1024;
 
@@ -38,11 +39,12 @@ const send = (res: ServerResponse, status: number, body: unknown) =>
 const bearer = (req: IncomingMessage) => (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
 
 /** Handles /api/*; returns false for any other path so static files can be served. */
-export function createApiHandler(auth: AuthService) {
+export function createApiHandler(auth: AuthService, study: StudyService) {
   const limiter = new RateLimiter(20, 60_000);
 
   return async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
-    const url = (req.url ?? '/').split('?')[0];
+    const [url, qs] = (req.url ?? '/').split('?');
+    const query = new URLSearchParams(qs ?? '');
     if (!url.startsWith('/api/')) return false;
     const ip = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '').split(',')[0].trim();
     try {
@@ -53,7 +55,27 @@ export function createApiHandler(auth: AuthService) {
         send(res, 200, result);
       } else if (req.method === 'GET' && url === '/api/me') {
         const u = await auth.authenticate(bearer(req));
-        send(res, 200, { user: { id: u.id, username: u.username, role: u.role } });
+        send(res, 200, { user: toPublic(u), profile: await study.profile(u) });
+      } else if (req.method === 'PUT' && url === '/api/me/background') {
+        const u = await auth.authenticate(bearer(req));
+        await study.setBackground(u, (await readJson(req)).background);
+        send(res, 200, { profile: await study.profile((await auth.authenticate(bearer(req)))) });
+      } else if (req.method === 'GET' && url === '/api/study') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, await study.summary(u, resolveToday(query.get('today'))));
+      } else if (req.method === 'PUT' && url === '/api/study/levels') {
+        const u = await auth.authenticate(bearer(req));
+        const body = await readJson(req);
+        await study.setStudyLevels(u, body.levels, resolveToday(body.today));
+        send(res, 200, await study.summary(await auth.authenticate(bearer(req)), resolveToday(body.today)));
+      } else if (req.method === 'GET' && url === '/api/study/queue') {
+        const u = await auth.authenticate(bearer(req));
+        const deck = query.get('deck') === 'struggling' ? 'struggling' : 'all';
+        send(res, 200, { cards: await study.queue(u, deck) });
+      } else if (req.method === 'POST' && url === '/api/study/review') {
+        const u = await auth.authenticate(bearer(req));
+        const body = await readJson(req);
+        send(res, 200, await study.review(u, body.vocabId, body.rating));
       } else if (req.method === 'GET' && url === '/api/admin/users') {
         await auth.requireAdmin(bearer(req));
         send(res, 200, { users: await auth.listUsers() });
@@ -66,7 +88,7 @@ export function createApiHandler(auth: AuthService) {
         send(res, 404, { error: 'Not found' });
       }
     } catch (e) {
-      if (e instanceof AuthError) send(res, e.status, { error: e.message });
+      if (e instanceof AuthError || e instanceof StudyError) send(res, e.status, { error: e.message });
       else { console.error(e); send(res, 500, { error: 'Server error' }); }
     }
     return true;

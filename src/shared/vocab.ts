@@ -139,21 +139,13 @@ const KANA: Row[] = [
   ['がっこう', 'gakkou', 'school', 11], ['にほん', 'nihon', 'Japan', 10], ['ありがとう', 'arigatou', 'thank you', 12], ['おはよう', 'ohayou', 'good morning', 12],
 ];
 
-const LISTS: Record<Level, Row[]> = { KANA, N5, N4, N3, N2, N1 };
+/** Hand-written lists. The full vocabulary (data/vocab.json) = these + the open JLPT lists; see scripts/build-vocab.ts. */
+export const CURATED: Record<Level, Row[]> = { KANA, N5, N4, N3, N2, N1 };
 
 // Hiragana with two common romanisations of the same sound (ぢ/じ, づ/ず).
-const KANA_ALT: Record<string, string[]> = { ぢ: ['じ'], づ: ['ず'] };
+export const KANA_ALT: Record<string, string[]> = { ぢ: ['じ'], づ: ['ず'] };
 
-// Add or edit words in the lists above — nothing else in the codebase needs to change.
-export const VOCAB: readonly VocabEntry[] = (Object.keys(LISTS) as Level[]).flatMap((level) =>
-  LISTS[level].map(([kanji, second, meaning, difficulty]): VocabEntry => {
-    const base = { kanji, meaning, level, difficulty: difficulty ?? LEVEL_DIFFICULTY[level] };
-    if (level === 'KANA') {
-      return { ...base, id: `kana:${kanji}`, reading: kanji, romaji: second, altReadings: KANA_ALT[kanji] };
-    }
-    return { ...base, id: `${kanji}:${second}`, reading: second }; // stable across reordering; a DB key in Phase 3
-  }),
-);
+export type { Row as CuratedRow };
 
 /** What players should see as "the reading": romaji for hiragana practice, kana otherwise. */
 export const displayReading = (v: Pick<VocabEntry, 'reading' | 'romaji'>) => v.romaji ?? v.reading;

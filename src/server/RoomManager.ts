@@ -1,10 +1,10 @@
 import type { GameMode, PlayerId, VocabEntry } from '../shared/protocol';
 import type { WritingJudge } from './Game';
-import { DEFAULT_ROOM_OPTIONS, Room, type RoomOptions } from './Room';
+import { DEFAULT_ROOM_OPTIONS, Room, type MatchEndHook, type RoomOptions } from './Room';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-export interface ManagerDeps { judgeWriting?: WritingJudge; writableFilter?: (v: VocabEntry) => boolean }
+export interface ManagerDeps { judgeWriting?: WritingJudge; writableFilter?: (v: VocabEntry) => boolean; onMatchEnd?: MatchEndHook }
 
 /** Owns all rooms and remembers which room each account is sitting in (for reconnects). */
 export class RoomManager {
@@ -23,6 +23,7 @@ export class RoomManager {
       onMemberLeft: (id) => { if (this.seatOf.get(id) === room) this.seatOf.delete(id); },
       judgeWriting: this.deps.judgeWriting,
       writableFilter: this.deps.writableFilter,
+      onMatchEnd: this.deps.onMatchEnd,
     }, this.opts);
     this.rooms.set(code, room);
     return room;
