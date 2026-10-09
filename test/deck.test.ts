@@ -121,7 +121,7 @@ test('witch sight reveals your cards and the kanji stays visible', () => {
   assert.equal(s.view(a).casting!.flashMs, null);
 });
 
-test('no usable cards = instant loss (wizard is saved once by +30 mana)', () => {
+test('cards you cannot pay for = instant loss (wizard is saved once by +30 mana)', () => {
   const s = setup(() => 0.1, { ...RULES, maxMana: 20, manaPerTurn: 0 });
   s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'wizard'); draftAll(s);
   // with 20 max mana, blue/green/red are unaffordable; cards get used up quickly
@@ -155,4 +155,51 @@ test('overtime: remaining cards shown one by one, first correct writer uses it',
   assert.ok(s.g.isOver);
   const over = s.events.find((e) => e.type === 'game_over') as any;
   assert.ok(over.stats.A && over.stats.B);
+});
+
+test('separate clocks: 15 s to choose a card, then 20 s to write it', () => {
+  const s = setup();
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
+  const first = s.view('A').turn!;
+  assert.deepEqual([first.stage, first.deadlineMs], ['choose', RULES.chooseMs]);
+  tick(5000);
+  const card = s.view(first.active).hand.find((c) => CARD_SPECS[c.color].cost <= 150)!;
+  s.g.play(first.active, card.cardId);
+  const t = s.view('A').turn!;
+  assert.deepEqual([t.stage, t.deadlineMs, s.view('A').casting!.deadlineMs], ['cast', RULES.castMs, RULES.castMs], 'writing gets a fresh clock');
+  tick(RULES.castMs);
+  assert.notEqual(s.view('A').turn!.active, first.active, 'too slow → card rips, turn passes');
+  // not choosing at all also passes the turn
+  const second = s.view('A').turn!.active;
+  tick(RULES.chooseMs);
+  assert.notEqual(s.view('A').turn!.active, second);
+});
+
+test('out of cards → round 2 draft; HP, mana, powers and the other hand stay; same turn resumes', () => {
+  const s = setup(() => 0.1, { ...RULES, handSize: 2 });
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'goblin'); draftAll(s);
+  // B opens. B casts both cards; A just lets the choose clock run out each time.
+  for (let i = 0; i < 2; i++) {
+    const b = s.view('B');
+    assert.equal(b.turn!.active, 'B');
+    s.g.play('B', b.hand.find((c) => CARD_SPECS[c.color].cost <= b.players[1].mana)!.cardId); writeRight(s, 'B');
+    tick(RULES.chooseMs); // A's turn passes
+  }
+  const v = s.view('A');
+  assert.equal(v.phase, 'draft');
+  assert.equal(v.round, 2);
+  assert.ok(s.devents().some((e) => e.kind === 'redraft' && e.playerId === 'B' && e.round === 2));
+  assert.ok(!s.devents().some((e) => e.kind === 'stuck'), 'running out of cards is no longer a loss');
+  const [hpA, manaB, kept] = [v.players[0].hp, v.players[1].mana, v.hand.length];
+  assert.equal(kept, 2, "A's unplayed cards are kept");
+  const clockLeft = v.matchLeftMs;
+  tick(3000);
+  assert.equal(s.view('A').matchLeftMs, clockLeft, 'match clock pauses during the draft');
+  draftAll(s);
+  const after = s.view('A');
+  assert.equal(after.phase, 'battle');
+  assert.equal(after.turn!.active, 'B', "B's interrupted turn resumes");
+  assert.deepEqual([after.players[0].hp, after.players[1].mana], [hpA, manaB], 'no extra mana, HP untouched');
+  assert.deepEqual([after.hand.length, s.view('B').hand.length], [4, 2]);
+  assert.equal(after.players[1].character, 'goblin');
 });

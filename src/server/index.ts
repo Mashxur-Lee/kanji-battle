@@ -37,7 +37,7 @@ const rooms = new RoomManager({
   onMatchEnd: async (mode, results) => {
     const out: Record<string, { gained: number; xp: number; crit: number }> = {};
     for (const r of results) {
-      const { gained, xp } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed);
+      const { gained, xp } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited);
       out[r.id] = { gained, xp, crit: await study.crit(r.id) };
     }
     return out;

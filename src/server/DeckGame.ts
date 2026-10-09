@@ -8,6 +8,7 @@ import type { GameEvent, GameSnapshot, Match, WritingJudge } from './Game';
 import { shuffle, type Rng } from './VocabPool';
 
 type Rules = typeof DECK_RULES;
+type DraftPool = Array<{ entry: VocabEntry; color: CardColor }>;
 
 interface Card { cardId: string; color: CardColor; entry: VocabEntry; revealed: boolean }
 interface DPlayer {
@@ -52,10 +53,16 @@ export class DeckGame implements Match {
   private timer?: ReturnType<typeof setTimeout>;
   private matchTimer?: ReturnType<typeof setTimeout>;
   private firstTurn = true;
+  private round = 1;
+  private roundPicks = new Map<PlayerId, number>();
+  /** set while a new draft interrupts the battle: whose turn resumes, and the match time that was left */
+  private resume: { playerId: PlayerId; matchLeftMs: number } | null = null;
+  private readonly makePool: () => DraftPool;
+  private pool: DraftPool;
 
   constructor(
     setups: ReadonlyArray<{ id: PlayerId; name: string; crit?: number }>,
-    private readonly pool: Array<{ entry: VocabEntry; color: CardColor }>,
+    pool: DraftPool | (() => DraftPool),
     private readonly emit: (e: GameEvent) => void,
     private readonly judge: WritingJudge,
     private readonly rng: Rng = Math.random,
@@ -63,6 +70,9 @@ export class DeckGame implements Match {
     private readonly rules: Rules = DECK_RULES,
   ) {
     if (setups.length !== 2) throw new Error('Deck Duel needs exactly 2 players');
+    const fixed = typeof pool === 'function' ? null : pool;
+    this.makePool = typeof pool === 'function' ? pool : () => fixed!;
+    this.pool = this.makePool();
     this.players = setups.map((s) => ({
       id: s.id, name: s.name, hp: rules.hp, mana: rules.maxMana, crit: s.crit ?? 0, character: null, abilityUsed: false, abilityActive: 0,
       hand: [], wizardCardsUsed: false, wizardManaUsed: false, casts: 0, hits: 0, totalMs: 0, damage: 0, words: new Map(),
@@ -124,6 +134,7 @@ export class DeckGame implements Match {
     card.revealed = true;
     const witchSight = p.character === 'witch' && p.abilityActive > 0;
     this.cast = { castId: this.nextCast++, card, ownerId: id, startedAt: this.now(), flashMs: witchSight ? null : this.rules.castFlashMs, tried: new Set() };
+    this.setTimer(this.rules.castMs, () => this.turnTimeout()); // its own clock for writing
     this.emitEvent({ kind: 'cast', playerId: id, color: card.color, kanji: card.entry.kanji });
     this.broadcastState();
   }
@@ -167,7 +178,8 @@ export class DeckGame implements Match {
       draft: this.phase === 'draft'
         ? { pool: this.draft.map((d) => ({ cardId: d.card.cardId, color: d.card.color, takenBy: d.takenBy })), picker: this.picker, picksLeft: this.picksLeft, coinWinner: this.coinWinner, deadlineMs: left }
         : null,
-      turn: this.phase === 'battle' && this.active ? { active: this.active, castsLeft: this.castsLeft, deadlineMs: left } : null,
+      turn: this.phase === 'battle' && this.active ? { active: this.active, castsLeft: this.castsLeft, deadlineMs: left, stage: this.cast ? 'cast' : 'choose' } : null,
+      round: this.round,
       casting: this.cast ? {
         castId: this.cast.castId, ownerId: this.cast.ownerId ?? '',
         card: { ...this.cardView(this.cast.card, true), kanji: this.cast.card.entry.kanji, reading: displayReading(this.cast.card.entry), meaning: this.cast.card.entry.meaning },
@@ -175,7 +187,7 @@ export class DeckGame implements Match {
         deadlineMs: left,
         overtime: this.phase === 'overtime',
       } : null,
-      matchLeftMs: this.phase === 'battle' ? Math.max(0, this.matchEndsAt - now) : 0,
+      matchLeftMs: this.phase === 'battle' ? Math.max(0, this.matchEndsAt - now) : this.resume ? this.resume.matchLeftMs : 0,
       overtimeLeft: this.overtimeQueue.length + (this.phase === 'overtime' && this.cast ? 1 : 0),
     };
   }
@@ -184,17 +196,27 @@ export class DeckGame implements Match {
 
   private beginDraft() {
     if (this.phase !== 'characters') return;
+    this.startDraftRound();
+  }
+
+  /** A draft round: 20 fresh cards, coin flip, picks of 2 until both players took 10 more. */
+  private startDraftRound() {
     this.phase = 'draft';
-    this.draft = this.pool.map((x, i) => ({ card: { cardId: `c${i + 1}`, color: x.color, entry: x.entry, revealed: false }, takenBy: null }));
+    if (this.round > 1) this.pool = this.makePool();
+    const prefix = this.round === 1 ? 'c' : `r${this.round}c`;
+    this.draft = this.pool.map((x, i) => ({ card: { cardId: `${prefix}${i + 1}`, color: x.color, entry: x.entry, revealed: false }, takenBy: null }));
     shuffle(this.draft, this.rng);
+    this.roundPicks = new Map(this.players.map((p) => [p.id, 0]));
     this.coinWinner = this.players[this.rng() < 0.5 ? 0 : 1].id;
-    this.emitEvent({ kind: 'coin', winner: this.coinWinner });
+    this.emitEvent({ kind: 'coin', winner: this.coinWinner, round: this.round });
     this.nextPicker(this.coinWinner);
   }
 
+  private picksDone(id: PlayerId) { return (this.roundPicks.get(id) ?? 0) >= this.rules.handSize; }
+
   private nextPicker(id: PlayerId) {
     this.picker = id;
-    this.picksLeft = Math.min(this.rules.picksPerTurn, this.rules.handSize - this.p(id)!.hand.length);
+    this.picksLeft = Math.min(this.rules.picksPerTurn, this.rules.handSize - (this.roundPicks.get(id) ?? 0));
     this.setTimer(this.rules.pickMs, () => this.autoPick());
     this.broadcastState();
   }
@@ -207,17 +229,31 @@ export class DeckGame implements Match {
   private takeDraft(id: PlayerId, slot: { card: Card; takenBy: PlayerId | null }) {
     const p = this.p(id)!;
     slot.takenBy = id;
+    if (p.character === 'witch' && p.abilityActive > 0) slot.card.revealed = true; // Sight still running
     p.hand.push(slot.card);
+    this.roundPicks.set(id, (this.roundPicks.get(id) ?? 0) + 1);
     this.picksLeft--;
     this.emitEvent({ kind: 'pick', playerId: id, color: slot.card.color });
-    if (this.players.every((x) => x.hand.length >= this.rules.handSize) || this.draft.every((d) => d.takenBy)) return this.beginBattle();
+    if (this.players.every((x) => this.picksDone(x.id)) || this.draft.every((d) => d.takenBy)) return this.endDraft();
     const other = this.other(id);
-    if (this.picksLeft > 0 && p.hand.length < this.rules.handSize) {
+    if (this.picksLeft > 0 && !this.picksDone(id)) {
       // same player's second pick: just restart the pick timer
       this.setTimer(this.rules.pickMs, () => this.autoPick());
       return this.broadcastState();
     }
-    this.nextPicker(other.hand.length < this.rules.handSize ? other.id : id);
+    this.nextPicker(!this.picksDone(other.id) ? other.id : id);
+  }
+
+  private endDraft() {
+    this.picker = null;
+    if (!this.resume) return this.beginBattle();
+    // back to the battle exactly where it stopped: same turn, same HP/mana/powers, match clock unpaused
+    const { playerId, matchLeftMs } = this.resume;
+    this.resume = null;
+    this.phase = 'battle';
+    this.matchEndsAt = this.now() + matchLeftMs;
+    this.matchTimer = setTimeout(() => this.beginOvertime(), matchLeftMs);
+    this.beginTurn(playerId, true);
   }
 
   // ── battle ────────────────────────────────────────────────────────────────
@@ -231,13 +267,13 @@ export class DeckGame implements Match {
     this.beginTurn(this.other(this.coinWinner!).id);
   }
 
-  private beginTurn(id: PlayerId) {
+  private beginTurn(id: PlayerId, resumed = false) {
     if (this.phase !== 'battle') return;
     const p = this.p(id)!;
     this.active = id;
     this.castsLeft = 1;
     this.cast = null;
-    if (!this.firstTurn) p.mana = Math.min(this.rules.maxMana, p.mana + this.rules.manaPerTurn); // restores after the enemy's turn
+    if (!this.firstTurn && !resumed) p.mana = Math.min(this.rules.maxMana, p.mana + this.rules.manaPerTurn); // restores after the enemy's turn
     this.firstTurn = false;
     // can this player still act? (Wizard's passive saves them once each)
     if (p.hand.length === 0 && p.character === 'wizard' && !p.wizardCardsUsed) {
@@ -252,13 +288,24 @@ export class DeckGame implements Match {
       p.mana = Math.min(this.rules.maxMana, p.mana + this.rules.wizardBonusMana);
       this.emitEvent({ kind: 'wizard', playerId: id, what: 'mana' });
     }
-    if (p.hand.length === 0 || !this.canAfford(p)) {
-      this.emitEvent({ kind: 'stuck', playerId: id, why: p.hand.length === 0 ? 'no_cards' : 'no_mana' });
-      p.hp = 0; // can't use any card → instant loss
+    if (p.hand.length === 0) return this.redraft(id); // out of cards → round 2 draft
+    if (!this.canAfford(p)) {
+      this.emitEvent({ kind: 'stuck', playerId: id, why: 'no_mana' });
+      p.hp = 0; // has cards but can't pay for any → instant loss
       return this.finish('ko');
     }
-    this.setTimer(this.rules.turnMs, () => this.turnTimeout());
+    this.setTimer(this.rules.chooseMs, () => this.turnTimeout());
     this.broadcastState();
+  }
+
+  /** Someone ran out of cards: pause the match clock and draft again. Nothing else changes. */
+  private redraft(playerId: PlayerId) {
+    clearTimeout(this.matchTimer);
+    this.resume = { playerId, matchLeftMs: Math.max(0, this.matchEndsAt - this.now()) };
+    this.active = null;
+    this.round++;
+    this.emitEvent({ kind: 'redraft', playerId, round: this.round });
+    this.startDraftRound();
   }
 
   private turnTimeout() {
@@ -332,7 +379,7 @@ export class DeckGame implements Match {
     if (this.phase === 'overtime') return this.nextOvertimeCard();
     this.castsLeft--;
     if (this.castsLeft > 0 && caster && caster.hand.length > 0 && this.canAfford(caster)) {
-      this.setTimer(this.rules.turnMs, () => this.turnTimeout()); // Goblin's second card
+      this.setTimer(this.rules.chooseMs, () => this.turnTimeout()); // Goblin's second card
       return this.broadcastState();
     }
     this.endTurn();

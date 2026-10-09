@@ -82,8 +82,13 @@ export function renderDeck(v: DeckView) {
   playerPanel($('dkOpp'), opp, false);
   const overlay = $('dkOverlay');
 
-  if (v.phase === 'characters') return renderCharacters(v, me, opp);
-  if (v.phase === 'draft') return renderDraft(v, me);
+  if (v.phase === 'characters' || v.phase === 'draft') {
+    // a new draft round can interrupt the battle: clear the board's cast, pad and turn clock first
+    renderCast(v);
+    ui.stopCountdown('dkTurn');
+    $('dkBanner').textContent = '';
+    return v.phase === 'characters' ? renderCharacters(v, me, opp) : renderDraft(v, me);
+  }
   overlay.hidden = true;
 
   // clocks & banner
@@ -99,7 +104,9 @@ export function renderDeck(v: DeckView) {
   const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
   const label = v.phase === 'overtime'
     ? 'Overtime! First to write it uses the card'
-    : myTurn ? (v.casting ? 'Write the kanji!' : `Your turn — pick a card${v.turn!.castsLeft > 1 ? ' (Frenzy: 2 cards)' : ''}`) : `${opp.name}'s turn`;
+    : myTurn
+      ? (v.casting ? 'Write the kanji!' : `Your turn — choose a card${v.turn!.castsLeft > 1 ? ' (Frenzy: 2 cards)' : ''}`)
+      : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
   ui.countdown('dkTurn', deadline, (left) => (banner.textContent = `${label} · ${Math.ceil(left / 1000)}s`));
 
   // hands
@@ -172,7 +179,7 @@ function renderCharacters(v: DeckView, me: DeckPlayerView, opp: DeckPlayerView) 
     b.onclick = () => hooks.send({ type: 'deck_character', character: c });
     grid.append(b);
   }
-  overlay.replaceChildren(title, grid, h('p', 'sub', 'Same HP (1000) for both. 150 mana, +10 every turn. Cards: light blue 100 dmg (10◆) · blue 120 (25◆) · yellow +60◆ · green heal 100 (40◆) · red 250 (70◆).'));
+  overlay.replaceChildren(title, grid, h('p', 'sub', 'Same HP (1000) for both. 150 mana, +10 every turn. 15 s to choose a card, 20 s to write it. Out of cards → a new draft round. Cards: light blue 100 dmg (10◆) · blue 120 (25◆) · yellow +60◆ · green heal 100 (40◆) · red 250 (70◆).'));
 }
 
 let coinShown = false;
@@ -183,9 +190,12 @@ function renderDraft(v: DeckView, me: DeckPlayerView) {
   const mine = d.picker === v.you;
   const head = h('div', 'center');
   if (!coinShown) { coinShown = true; head.append(h('div', 'coin', '🪙')); }
+  if (v.round > 1) head.append(h('p', 'round-tag', `Round ${v.round} — new cards! HP, mana and powers stay as they are.`));
   head.append(h('h2', '', d.coinWinner === v.you ? 'You won the coin flip — you pick first' : 'Your opponent won the coin flip'));
   const status = h('p', 'sub');
-  ui.countdown('dkDraft', d.deadlineMs, (left) => (status.textContent = `${mine ? `Your pick — ${d.picksLeft} left` : 'Opponent is picking'} · ${Math.ceil(left / 1000)}s · you have ${me.handSize}/10`));
+  const pickedNow = d.pool.filter((c) => c.takenBy === v.you).length;
+  const kept = me.handSize - pickedNow;
+  ui.countdown('dkDraft', d.deadlineMs, (left) => (status.textContent = `${mine ? `Your pick — ${d.picksLeft} left` : 'Opponent is picking'} · ${Math.ceil(left / 1000)}s · picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ''}`));
   const board = h('div', 'draft-board');
   for (const c of d.pool) {
     const el = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
@@ -203,6 +213,7 @@ export function deckEvent(e: DeckEvent) {
   const name = (id: string) => view!.players.find((p) => p.id === id)?.name ?? 'Someone';
   switch (e.kind) {
     case 'coin': coinShown = false; break;
+    case 'redraft': ui.toast(`${e.playerId === me ? 'You are' : `${name(e.playerId)} is`} out of cards — Round ${e.round} draft!`, 4000); break;
     case 'ability': ui.toast(`${e.playerId === me ? 'You' : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(':')[0]}!`); break;
     case 'wizard': ui.toast(`${e.playerId === me ? 'Your' : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === 'cards' ? '+2 cards' : '+30 mana'}`); break;
     case 'stuck': ui.toast(`${e.playerId === me ? 'You have' : `${name(e.playerId)} has`} no usable cards!`); break;

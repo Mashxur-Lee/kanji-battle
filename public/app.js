@@ -529,7 +529,7 @@
     goblin: { name: "Goblin", power: "Frenzy: play 2 cards in a row this turn." },
     knight: { name: "Knight", power: "Bulwark: take 30% less damage and heal 30% more for 2 turns." },
     witch: { name: "Witch", power: "Sight: see the kanji and reading of all your cards for 2 turns (and the kanji stays visible while casting)." },
-    wizard: { name: "Wizard", power: "Arcane reserve (passive): out of cards \u2192 draw 2 random cards; out of mana \u2192 +30 mana. Once each.", passive: true }
+    wizard: { name: "Wizard", power: "Arcane reserve (passive): out of cards \u2192 draw 2 random cards before a new draft; out of mana \u2192 +30 mana. Once each.", passive: true }
   };
   var DECK_RULES = {
     hp: 1e3,
@@ -540,8 +540,10 @@
     picksPerTurn: 2,
     pickMs: 2e4,
     characterMs: 3e4,
-    turnMs: 25e3,
-    // choose a card + write it
+    chooseMs: 15e3,
+    // pick which card to play
+    castMs: 2e4,
+    // then write its kanji (includes the 1 s flash)
     castFlashMs: 1e3,
     matchMs: 8 * 6e4,
     // then overtime
@@ -761,8 +763,22 @@
 
   // src/shared/progress.ts
   var XP_PER_LEVEL = 1e3;
-  var levelOf = (xp) => Math.floor(Math.max(0, xp) / XP_PER_LEVEL);
-  var levelProgress = (xp) => Math.max(0, xp) % XP_PER_LEVEL / XP_PER_LEVEL;
+  var xpToNext = (level) => XP_PER_LEVEL * (level + 1);
+  var xpForLevel = (level) => XP_PER_LEVEL * level * (level + 1) / 2;
+  function levelOf(xp) {
+    let n = Math.floor((Math.sqrt(1 + 8 * Math.max(0, xp) / XP_PER_LEVEL) - 1) / 2);
+    while (xpForLevel(n + 1) <= xp) n++;
+    while (n > 0 && xpForLevel(n) > xp) n--;
+    return n;
+  }
+  function levelXp(xp) {
+    const level = levelOf(xp);
+    return { level, into: Math.max(0, xp) - xpForLevel(level), need: xpToNext(level) };
+  }
+  var levelProgress = (xp) => {
+    const l = levelXp(xp);
+    return l.into / l.need;
+  };
   var critText = (crit) => `${(crit * 100).toFixed(1).replace(/\.0$/, "")}%`;
   var BACKGROUNDS = [
     { id: "forest", name: "Forest", level: 0 },
@@ -824,10 +840,11 @@
   }
   function setProfile(p) {
     if (!p) return;
-    $("whoLevel").textContent = `Lv ${levelOf(p.xp)}`;
+    const lx = levelXp(p.xp);
+    $("whoLevel").textContent = `Lv ${lx.level} \xB7 ${lx.into.toLocaleString()}/${lx.need.toLocaleString()} XP`;
     $("whoCrit").textContent = `\u2726 ${critText(p.crit)} crit`;
     $("whoXp").style.width = `${levelProgress(p.xp) * 100}%`;
-    $("whoXp").parentElement.title = `${p.xp % 1e3} / 1000 XP to level ${levelOf(p.xp) + 1}`;
+    $("whoXp").parentElement.title = `${lx.into} / ${lx.need} XP to level ${lx.level + 1}`;
   }
   var toastTimer = 0;
   function toast(text, ms = 3500) {
@@ -914,7 +931,8 @@
         if (p.crit > 0) li.append(h("span", "critv", `\u2726 ${critText(p.crit)} crit`));
         if (p.id === hostId) li.append(h("span", "tag", "host"));
         if (!p.online) li.append(h("span", "tag off", "away \u2014 seat kept"));
-        li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `\u2764 ${p.maxHp} HP`)));
+        if (mode2 === "deck") li.append(h("span", "tag " + (p.ready ? "ready" : "notready"), p.ready ? "\u2713 Ready" : "Not ready"));
+        else li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `\u2764 ${p.maxHp} HP`)));
         return li;
       }),
       ...Array.from({ length: Math.max(0, maxPlayers - players2.length) }, () => h("li", "empty", mode2 === "boss" ? "Waiting for a teammate (optional)\u2026" : "Waiting for opponent\u2026"))
@@ -933,6 +951,20 @@
     $("levelsHint").textContent = mode2 === "deck" ? "Deck Duel draws cards from every level (N5\u2013N1). Your level picks only change your character here." : mode2 === "rapid" ? "Both players race on the same kanji, drawn from everyone's levels together." : mode2 === "boss" ? "Each player picks their own. The dragon gets tougher when the party picks harder levels." : mode2 === "writing" ? "Each player picks their own. You will write these words by hand. Harder levels hit harder \u2014 so your opponent gets more HP." : "Each player picks their own. \u304B\u306A = hiragana, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.";
     const isHost = you2 === hostId;
     const canStart = players2.length >= minPlayers2;
+    const deck2 = mode2 === "deck";
+    $("levels").hidden = deck2;
+    $("lobby").classList.toggle("no-side", deck2);
+    const meReady = !!players2.find((p) => p.id === you2)?.ready;
+    $("readyBtn").hidden = !deck2;
+    $("readyBtn").textContent = meReady ? "Not ready" : "Ready";
+    $("readyBtn").classList.toggle("is-ready", meReady);
+    $("readyBtn").dataset.ready = meReady ? "1" : "";
+    if (deck2) {
+      $("start").hidden = true;
+      $("lobbyStatus").textContent = !canStart ? "Share the code \u2014 press Ready once your opponent joins. The duel starts when both are ready." : meReady ? "Waiting for your opponent to be ready\u2026" : "Press Ready \u2014 the duel starts when both players are ready.";
+      show("lobby");
+      return;
+    }
     $("start").hidden = !isHost;
     $("start").disabled = !canStart;
     $("start").textContent = mode2 === "boss" && players2.length < maxPlayers ? "Start solo" : "Start battle";
@@ -1287,7 +1319,7 @@
   function showXp(gained, level, levelUp) {
     const el = $("xpLine");
     el.hidden = false;
-    el.replaceChildren(h("span", "", `+${gained} XP`));
+    el.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
     if (levelUp) el.append(h("span", "lvup", `\u2B06 Level ${level}!`));
   }
   function setRematchStatus(votes, you2, playerCount, minPlayers2) {
@@ -1374,8 +1406,12 @@
     playerPanel($2("dkMe"), me, true);
     playerPanel($2("dkOpp"), opp, false);
     const overlay = $2("dkOverlay");
-    if (v.phase === "characters") return renderCharacters(v, me, opp);
-    if (v.phase === "draft") return renderDraft(v, me);
+    if (v.phase === "characters" || v.phase === "draft") {
+      renderCast(v);
+      stopCountdown("dkTurn");
+      $2("dkBanner").textContent = "";
+      return v.phase === "characters" ? renderCharacters(v, me, opp) : renderDraft(v, me);
+    }
     overlay.hidden = true;
     if (v.phase === "overtime") {
       stopCountdown("dkMatch");
@@ -1387,7 +1423,7 @@
     const myTurn = v.turn?.active === v.you;
     banner.classList.toggle("mine", myTurn || v.phase === "overtime");
     const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
-    const label = v.phase === "overtime" ? "Overtime! First to write it uses the card" : myTurn ? v.casting ? "Write the kanji!" : `Your turn \u2014 pick a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : `${opp.name}'s turn`;
+    const label = v.phase === "overtime" ? "Overtime! First to write it uses the card" : myTurn ? v.casting ? "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
     countdown("dkTurn", deadline, (left) => banner.textContent = `${label} \xB7 ${Math.ceil(left / 1e3)}s`);
     const canPlay = myTurn && !v.casting;
     $2("dkHand").replaceChildren(...v.hand.map((c) => {
@@ -1461,7 +1497,7 @@
       b.onclick = () => hooks.send({ type: "deck_character", character: c });
       grid.append(b);
     }
-    overlay.replaceChildren(title, grid, h2("p", "sub", "Same HP (1000) for both. 150 mana, +10 every turn. Cards: light blue 100 dmg (10\u25C6) \xB7 blue 120 (25\u25C6) \xB7 yellow +60\u25C6 \xB7 green heal 100 (40\u25C6) \xB7 red 250 (70\u25C6)."));
+    overlay.replaceChildren(title, grid, h2("p", "sub", "Same HP (1000) for both. 150 mana, +10 every turn. 15 s to choose a card, 20 s to write it. Out of cards \u2192 a new draft round. Cards: light blue 100 dmg (10\u25C6) \xB7 blue 120 (25\u25C6) \xB7 yellow +60\u25C6 \xB7 green heal 100 (40\u25C6) \xB7 red 250 (70\u25C6)."));
   }
   var coinShown = false;
   function renderDraft(v, me) {
@@ -1474,9 +1510,12 @@
       coinShown = true;
       head.append(h2("div", "coin", "\u{1FA99}"));
     }
+    if (v.round > 1) head.append(h2("p", "round-tag", `Round ${v.round} \u2014 new cards! HP, mana and powers stay as they are.`));
     head.append(h2("h2", "", d.coinWinner === v.you ? "You won the coin flip \u2014 you pick first" : "Your opponent won the coin flip"));
     const status = h2("p", "sub");
-    countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 you have ${me.handSize}/10`);
+    const pickedNow = d.pool.filter((c) => c.takenBy === v.you).length;
+    const kept = me.handSize - pickedNow;
+    countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ""}`);
     const board = h2("div", "draft-board");
     for (const c of d.pool) {
       const el = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
@@ -1496,6 +1535,9 @@
     switch (e.kind) {
       case "coin":
         coinShown = false;
+        break;
+      case "redraft":
+        toast(`${e.playerId === me ? "You are" : `${name(e.playerId)} is`} out of cards \u2014 Round ${e.round} draft!`, 4e3);
         break;
       case "ability":
         toast(`${e.playerId === me ? "You" : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(":")[0]}!`);
@@ -2308,6 +2350,7 @@
   });
   $("leaveLobby").onclick = () => socket.send({ type: "leave" });
   $("start").onclick = () => socket.send({ type: "start" });
+  $("readyBtn").onclick = () => socket.send({ type: "lobby_ready", ready: !$("readyBtn").dataset.ready });
   $("copyCode").onclick = async () => {
     try {
       await navigator.clipboard.writeText(code);

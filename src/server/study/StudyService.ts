@@ -98,9 +98,9 @@ export class StudyService {
   }
 
   /** After a match: XP and the words you missed go to "Struggling spells". */
-  async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[]) {
-    const gained = xpFor(outcome, accuracy, mode);
-    const xp = await this.store.addXp(userId, gained);
+  async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false) {
+    const gained = forfeited ? 0 : xpFor(outcome, accuracy, mode);
+    const xp = gained ? await this.store.addXp(userId, gained) : (await this.store.findById(userId))?.xp ?? 0;
     const words = missedIds.filter((id) => VOCAB_BY_ID.has(id));
     if (words.length) await this.store.markStruggling(userId, words, Date.now());
     return { gained, xp };

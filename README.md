@@ -64,8 +64,10 @@ browser only talks to this server, never to the database).
 
 ## Progress
 
-- **XP**: win = 300 + accuracy %, loss = 50 + accuracy %. Deck Duel: win 4000, loss 1500.
-  Every 1000 XP is a level (1000 → Lv 1, 2000 → Lv 2 …).
+- **XP**: win = 300 + accuracy %, loss = 50 + accuracy %. Deck Duel: win 4000, loss 1500. A forfeited match
+  (someone gave up or left) gives nobody XP.
+- **Levels** get steeper: 1000 XP for Lv 1, then 2000 more for Lv 2, 3000 more for Lv 3 … (Lv 5 = 15,000 total,
+  Lv 10 = 55,000, Lv 20 = 210,000).
 - **Customize**: backgrounds unlock at Lv 0 forest, 5 swamp, 10 plains, 15 castle, 20 world tree.
 - **Fighters** depend on the levels you play: goblin (かな), kid (N5), human (N4), knight (N3), wizard (N2/N1).
 - **Study spells**: *All spells* — tick levels and 25 new words are added each day. *Struggling spells* —
@@ -80,6 +82,8 @@ Heroes (one ability button per match, lasts 2 of your turns): **Goblin** casts 2
 kanji stays visible; **Wizard** is passive (2 random cards when out of cards, or +30 mana when out of
 mana, once each).
 
+The lobby has no level picker: both players press **Ready** and the duel starts.
+
 Draft: 20 cards (4 per colour), coin flip, picks of 2 until each player has 10. Colours, ranked by word
 difficulty (JLPT level, stroke count and word length):
 
@@ -91,9 +95,10 @@ difficulty (JLPT level, stroke count and word length):
 | Blue | 120 damage | 25 |
 | Light blue | 100 damage | 10 |
 
-Mana starts at 150/150, +10 each turn. A turn is 25 s: the kanji flashes for 1 s, the reading and meaning
-stay, and you write it. Wrong or too slow → the card rips. Having no card you can afford, or no cards, is a
-loss. After 8 minutes, overtime: the remaining cards are shown one by one and the first correct writer
+Mana starts at 150/150, +10 each turn. You get 15 s to choose a card, then 20 s to cast it: the kanji flashes for 1 s, the reading and meaning
+stay, and you write it. Wrong or too slow → the card rips. Out of cards → a new draft round
+(Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
+match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime: the remaining cards are shown one by one and the first correct writer
 uses it.
 
 ## Gameplay details
@@ -102,7 +107,8 @@ uses it.
   words with kanji in them. Built by `scripts/build-vocab.ts` from
   [open-anki-jlpt-decks](https://github.com/jamsinclair/open-anki-jlpt-decks) (MIT), which is based on
   Jonathan Waller's JLPT lists ([tanos.co.uk](http://www.tanos.co.uk/jlpt/), CC BY). Licence in `data/sources/`.
-- **Damage** = difficulty × ⅔ × speed × combo. Numbers in `DEFAULT_CONFIG` (`src/server/Game.ts`).
+- **Damage** = difficulty × ⅔ × speed × combo. After every answer, right or wrong, there's the same 2.5 s pause
+  (the answer is shown), so guessing fast is never quicker than knowing it. Numbers in `DEFAULT_CONFIG` (`src/server/Game.ts`).
 - **Fair HP in duels**: your HP depends on how hard your opponent hits (`src/server/Balance.ts`).
 - **Handwriting** is checked on the server by a TypeScript port of
   [KanjiCanvas](https://github.com/asdfjkl/kanjicanvas) (MIT, `src/server/handwriting/KANJICANVAS-LICENSE.txt`).

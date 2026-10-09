@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { answer, formatInterval, newCard, previewIntervals } from '../src/shared/srs';
-import { avatarFor, critFor, levelOf, unlocked, xpFor } from '../src/shared/progress';
+import { avatarFor, critFor, levelOf, levelXp, unlocked, xpFor, xpForLevel } from '../src/shared/progress';
 
 const T = 1_700_000_000_000, MIN = 60_000, DAY = 86_400_000;
 
@@ -32,9 +32,13 @@ test('progress: XP, levels, crit, backgrounds, characters', () => {
   assert.equal(xpFor('loss', 0.5, 'boss'), 100);
   assert.equal(xpFor('win', 1, 'deck'), 4000);
   assert.equal(xpFor('loss', 1, 'deck'), 1500);
-  assert.deepEqual([levelOf(999), levelOf(1000), levelOf(2500)], [0, 1, 2]);
+  // each level costs 1000 more: 1000 → Lv 1, +2000 → Lv 2 (3000), +3000 → Lv 3 (6000) …
+  assert.deepEqual([levelOf(999), levelOf(1000), levelOf(2999), levelOf(3000), levelOf(5999), levelOf(6000)], [0, 1, 1, 2, 2, 3]);
+  assert.deepEqual(levelXp(1500), { level: 1, into: 500, need: 2000 });
+  assert.deepEqual([xpForLevel(5), xpForLevel(20)], [15_000, 210_000]);
+  for (let n = 0; n <= 60; n++) assert.equal(levelOf(xpForLevel(n)), n);
   assert.equal(critFor(37), 0.037);
   assert.equal(critFor(5000), 0.5, 'capped');
-  assert.ok(unlocked('forest', 0) && !unlocked('swamp', 4999) && unlocked('swamp', 5000));
+  assert.ok(unlocked('forest', 0) && !unlocked('swamp', 14_999) && unlocked('swamp', 15_000));
   assert.deepEqual([avatarFor(['KANA']), avatarFor(['N5', 'KANA']), avatarFor(['N4']), avatarFor(['N3', 'N5']), avatarFor(['N1'])], ['goblin', 'kid', 'human', 'knight', 'wizard']);
 });

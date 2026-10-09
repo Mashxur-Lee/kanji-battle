@@ -258,8 +258,33 @@ test('match end awards XP to everyone and reports level-ups', async () => {
   room.start('a'); room.ready('a'); room.ready('b'); tick(100);
   room.forfeit('b');
   await new Promise((r) => setImmediate(r));
-  assert.deepEqual(calls[0].results.map((r: any) => [r.id, r.outcome]), [['a', 'win'], ['b', 'loss']]);
+  assert.deepEqual(calls[0].results.map((r: any) => [r.id, r.outcome, r.forfeited]), [['a', 'win', true], ['b', 'loss', true]]);
   const pa = a.last('progress')!;
   assert.deepEqual([pa.gained, pa.level, pa.levelUp], [350, 1, true]);
   assert.equal(b.last('progress')!.levelUp, false);
+});
+
+test('forfeited matches give nobody XP (no farming), normal ones do', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const { MemoryStore } = await import('../src/server/db/Store');
+  const store = new MemoryStore();
+  const u = await store.create({ username: 'farmer', passwordHash: 'x', role: 'user' } as any);
+  const study = new StudyService(store);
+  assert.deepEqual(await study.recordMatch(u.id, 'win', 1, 'deck', [], true), { gained: 0, xp: 0 });
+  assert.deepEqual(await study.recordMatch(u.id, 'win', 1, 'deck', [], false), { gained: 4000, xp: 4000 });
+});
+
+test('deck lobby: no Start button — the duel begins when both players are ready', () => {
+  const room = new Room('DECK', 'deck', { onEmpty: () => {}, judgeWriting: () => ({ correct: true, recognized: '' }) }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a); room.join('b', 'B', b);
+  room.start('a');
+  assert.equal(a.last('deck_state'), undefined, 'host Start does nothing in Deck Duel');
+  room.setLobbyReady('a', true);
+  assert.deepEqual(b.last('lobby')!.players.map((p) => p.ready), [true, false]);
+  room.setLobbyReady('a', false);
+  assert.deepEqual(b.last('lobby')!.players.map((p) => p.ready), [false, false]);
+  room.setLobbyReady('a', true); room.setLobbyReady('b', true);
+  assert.equal(a.last('deck_state')!.view.phase, 'characters');
+  room.forfeit('a');
 });
