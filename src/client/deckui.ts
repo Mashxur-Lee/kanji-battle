@@ -1,6 +1,7 @@
-import { CARD_SPECS, CHARACTER_INFO, DECK_CHARACTERS, type CardColor, type DeckCardView, type DeckEvent, type DeckPlayerView, type DeckView } from '../shared/deck';
+import { CARD_COLORS, CARD_SPECS, CHARACTER_INFO, DECK_CHARACTERS, DECK_RULES, type CardColor, type DeckCardView, type DeckEvent, type DeckPlayerView, type DeckView } from '../shared/deck';
 import * as audio from './audio';
 import * as ui from './ui';
+import type { ChatMessage } from '../shared/protocol';
 import { heroSvg } from './wizard';
 
 const $ = ui.$;
@@ -14,7 +15,9 @@ function h(tag: string, cls = '', text?: string | number): HTMLElement {
 }
 
 export interface DeckHooks {
-  send: (msg: { type: 'deck_character'; character: string } | { type: 'deck_pick'; cardId: string } | { type: 'deck_play'; cardId: string } | { type: 'deck_ability' }) => void;
+  send: (msg: { type: 'deck_character'; character: string } | { type: 'deck_pick'; cardId: string } | { type: 'deck_play'; cardId: string } | { type: 'deck_ability' } | { type: 'chat'; text: string } | { type: 'back_to_lobby' }) => void;
+  /** your player id (chat arrives before the first deck view) */
+  me: () => string;
   /** It's your turn to write this card: set up the pad/IME. */
   beginWriting: (castId: number, kanji: string) => void;
   stopWriting: () => void;
@@ -26,9 +29,74 @@ let lastCastId = 0;
 let writingCastId = 0;
 let flashTimer = 0;
 
-export function initDeck(h: DeckHooks) {
-  hooks = h;
+export function initDeck(hk: DeckHooks) {
+  hooks = hk;
   $('dkAbility').onclick = () => hooks.send({ type: 'deck_ability' });
+  $('dkChatForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = $<HTMLInputElement>('dkChatInput');
+    const text = input.value.trim();
+    if (text) hooks.send({ type: 'chat', text });
+    input.value = '';
+  });
+  renderGuide($('deckGuide'));
+}
+
+// ── chat ────────────────────────────────────────────────────────────────────
+const seenChat = new Set<number>();
+export function chatMessages(msgs: ChatMessage[]) {
+  const log = $('dkChatLog');
+  for (const m of msgs) {
+    if (seenChat.has(m.id)) continue;
+    seenChat.add(m.id);
+    const line = h('div', 'chat-line' + (m.from === hooks.me() ? ' mine' : ''));
+    line.append(h('b', '', m.from === hooks.me() ? 'You' : m.name), h('span', '', m.text)); // textContent: never HTML
+    log.append(line);
+    if (m.from !== hooks.me() && view && view.phase !== 'over') audio.sfx.flip();
+  }
+  while (log.children.length > 60) log.firstElementChild!.remove();
+  log.scrollTop = log.scrollHeight;
+}
+export function clearChat() { seenChat.clear(); $('dkChatLog').replaceChildren(); }
+
+// ── lobby guide ─────────────────────────────────────────────────────────────
+function renderGuide(el: HTMLElement) {
+  const sec = (title: string, ...kids: (Node | string)[]) => { const s = h('section', 'g-sec'); s.append(h('h4', '', title), ...kids); return s; };
+  const p = (t: string) => h('p', '', t);
+  const heroes = h('div', 'g-heroes');
+  for (const c of DECK_CHARACTERS) {
+    const row = h('div', 'g-hero');
+    const av = h('div', 'g-av'); av.innerHTML = heroSvg(c, 'me');
+    const txt = h('div'); txt.append(h('b', '', CHARACTER_INFO[c].name), h('span', '', CHARACTER_INFO[c].power));
+    row.append(av, txt);
+    heroes.append(row);
+  }
+  const cards = h('div', 'g-cards');
+  for (const col of CARD_COLORS) {
+    const spec = CARD_SPECS[col];
+    const fig = h('div', 'g-card');
+    fig.append(cardEl({ cardId: '', color: col }), h('span', '', `${spec.kind === 'attack' ? `${spec.amount} damage` : spec.kind === 'heal' ? `heals ${spec.amount}` : `+${spec.amount} mana`} · ${spec.cost ? `${spec.cost} mana` : 'free'}`));
+    cards.append(fig);
+  }
+  const flow = h('ol', 'g-flow');
+  for (const [icon, t] of [
+    ['🦸', 'Pick a hero (30 s).'],
+    ['🪙', 'Coin flip, then draft: take 2 face-down cards at a time until you each have 10. You see colours, not kanji.'],
+    ['🃏', `Your turn: ${DECK_RULES.chooseMs / 1000} s to choose a card. Its mana is paid right away — even if you then miss.`],
+    ['✍️', `The kanji shows for ${DECK_RULES.castFlashMs / 1000} s, then only the reading + meaning stay. Write it (pad or Japanese keyboard) within ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1000} s.`],
+    ['✅', 'Right → the spell hits / heals / gives mana. Wrong or too slow → the card rips.'],
+    ['📜', 'While your opponent plays, you can read the list of kanji in your hand (not which card is which).'],
+    ['🔄', 'Out of cards → Round 2 draft. HP, mana and powers stay.'],
+    ['⏰', `After ${DECK_RULES.matchMs / 60000} min: overtime — the leftover cards are shown one by one, first to write it uses it.`],
+  ] as const) { const li = h('li'); li.append(h('span', 'g-ic', icon), h('span', '', t)); flow.append(li); }
+  el.replaceChildren(
+    h('h3', '', 'How Deck Duel works'),
+    sec('Goal', p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. Holding cards you can't pay for = you lose.`)),
+    sec('Cards', cards),
+    sec('A turn', flow),
+    sec('Heroes — power button bottom-left, once per match', heroes),
+    sec('Rewards', p('Win 4000 XP · lose 1500 XP · forfeit 0 XP.')),
+  );
 }
 
 /** A face-down or face-up card. */
@@ -56,12 +124,17 @@ function playerPanel(el: HTMLElement, p: DeckPlayerView, mine: boolean) {
   name.append(h('span', '', mine ? `${p.name} (you)` : p.name));
   if (p.character) name.append(h('span', 'tag', CHARACTER_INFO[p.character].name));
   if (p.abilityActive > 0 && p.character !== 'wizard') name.append(h('span', 'tag', `${p.character === 'goblin' ? 'Frenzy' : CHARACTER_INFO[p.character!].power.split(':')[0]} ×${p.abilityActive}`));
-  const hp = h('div', 'hp' + (p.hp / p.maxHp <= 0.25 ? ' low' : ''));
-  const hpFill = h('div'); hpFill.style.width = `${(p.hp / p.maxHp) * 100}%`; hp.append(hpFill);
-  const mana = h('div', 'manabar');
-  const manaFill = h('div'); manaFill.style.width = `${(p.mana / p.maxMana) * 100}%`; mana.append(manaFill);
-  const nums = h('div', 'hpnum', `♥ ${p.hp}/${p.maxHp} · ◆ ${p.mana}/${p.maxMana} · ${p.handSize} cards`);
+  name.append(ui.netBars(p.id));
+  const bar = (cls: string, value: number, max: number, text: string) => {
+    const b = h('div', `dkbar ${cls}`);
+    const fill = h('div', 'fill'); fill.style.width = `${Math.max(0, Math.min(1, value / max)) * 100}%`;
+    b.append(fill, h('span', 'dkbar-txt', text));
+    return b;
+  };
+  const hp = bar('hp-bar' + (p.hp / p.maxHp <= 0.25 ? ' low' : ''), p.hp, p.maxHp, `♥ ${p.hp} / ${p.maxHp}`);
+  const mana = bar('mana-bar', p.mana, p.maxMana, `◆ ${p.mana} / ${p.maxMana}`);
   const counts = h('div', 'dk-counts');
+  counts.append(h('span', 'cc total', `${p.handSize} card${p.handSize === 1 ? '' : 's'}`));
   for (const col of Object.keys(p.handCounts) as CardColor[]) {
     if (!p.handCounts[col]) continue;
     const cc = h('span', 'cc');
@@ -69,7 +142,7 @@ function playerPanel(el: HTMLElement, p: DeckPlayerView, mine: boolean) {
     cc.append(dot, `×${p.handCounts[col]}`);
     counts.append(cc);
   }
-  el.replaceChildren(av, name, hp, mana, nums, counts);
+  el.replaceChildren(av, name, hp, mana, counts);
 }
 
 /** Whole-screen render from the server's view of the duel. */
@@ -130,7 +203,28 @@ export function renderDeck(v: DeckView) {
 
   // the card being cast
   renderCast(v);
+  renderList(v);
 }
+
+/** Off-turn study list: the kanji in your hand, sorted, without colours. */
+function renderList(v: DeckView) {
+  const box = $('dkList');
+  const head = h('h4', '', 'Your kanji');
+  if (!v.deckList) {
+    box.replaceChildren(head, h('p', 'hint', v.phase === 'overtime' ? 'Overtime — all cards are on the table.' : 'Hidden on your turn. While your opponent plays, the kanji in your hand show up here.'));
+    return;
+  }
+  const ul = h('ul', 'kanji-list');
+  for (const k of v.deckList) {
+    const li = h('li');
+    const kj = h('span', 'kl-k', k.kanji); kj.lang = 'ja';
+    const rd = h('span', 'kl-r', k.reading); rd.lang = 'ja';
+    li.append(kj, rd, h('span', 'kl-m', k.meaning));
+    ul.append(li);
+  }
+  box.replaceChildren(append(head, h('small', '', ` · ${v.deckList.length}`)), h('p', 'hint', "Which card is which stays secret."), ul);
+}
+const append = (el: HTMLElement, ...kids: Node[]) => { el.append(...kids); return el; };
 
 function renderCast(v: DeckView) {
   const box = $('dkCast');
@@ -179,7 +273,7 @@ function renderCharacters(v: DeckView, me: DeckPlayerView, opp: DeckPlayerView) 
     b.onclick = () => hooks.send({ type: 'deck_character', character: c });
     grid.append(b);
   }
-  overlay.replaceChildren(title, grid, h('p', 'sub', 'Same HP (1000) for both. 150 mana, +10 every turn. 15 s to choose a card, 20 s to write it. Out of cards → a new draft round. Cards: light blue 100 dmg (10◆) · blue 120 (25◆) · yellow +60◆ · green heal 100 (40◆) · red 250 (70◆).'));
+  overlay.replaceChildren(backButton(v), title, grid, h('p', 'sub', 'Same HP (1000) for both. 150 mana, +10 every turn. 15 s to choose a card (its mana is paid right away), then the kanji shows for 3.5 s and you have 20 s to write it. Out of cards → a new draft round. Cards: light blue 100 dmg (10◆) · blue 120 (25◆) · yellow +60◆ · green heal 100 (40◆) · red 250 (70◆).'));
 }
 
 let coinShown = false;
@@ -203,7 +297,15 @@ function renderDraft(v: DeckView, me: DeckPlayerView) {
     el.onclick = () => { audio.sfx.flip(); hooks.send({ type: 'deck_pick', cardId: c.cardId }); };
     board.append(el);
   }
-  overlay.replaceChildren(head, status, board, h('p', 'hint', 'You only see the colour — the kanji stays hidden until the card is played.'));
+  overlay.replaceChildren(backButton(v), head, status, board, h('p', 'hint', 'You only see the colour — the kanji stays hidden until the card is played.'));
+}
+
+/** Hero pick and the first draft can still be called off: everyone goes back to the lobby. */
+function backButton(v: DeckView): HTMLElement {
+  const b = h('button', 'back dk-back', '← Back to lobby') as HTMLButtonElement;
+  b.hidden = v.round > 1; // a later draft happens mid-match: use Forfeit instead
+  b.onclick = () => hooks.send({ type: 'back_to_lobby' });
+  return b;
 }
 
 /** Animations for what just happened (the next state render redraws the board). */

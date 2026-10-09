@@ -1,8 +1,11 @@
 import type { DrawnChar, VocabEntry } from '../../shared/protocol';
 import type { WritingJudge } from '../Game';
 import type { Recognizer } from './recognizer';
+import { segmentCandidates } from './segment';
 
 export const MAX_STROKES_PER_CHAR = 40;
+/** a whole word drawn on one wide pad arrives as a single group */
+export const MAX_STROKES_PER_WORD = 120;
 export const MAX_POINTS_PER_STROKE = 64;
 
 /**
@@ -23,16 +26,32 @@ export function judgeChar(recognizer: Recognizer, drawn: DrawnChar, target: stri
 }
 
 export function createWritingJudge(recognizer: Recognizer): WritingJudge {
-  return (entry: VocabEntry, chars: DrawnChar[]) => {
-    const target = [...entry.kanji];
+  const judgeGroups = (target: string[], chars: DrawnChar[]) => {
     let recognized = '';
-    let correct = chars.length === target.length;
+    let ok = 0;
     for (let i = 0; i < chars.length; i++) {
       const r = judgeChar(recognizer, chars[i], target[i] ?? '');
       recognized += r.read;
-      if (!r.ok) correct = false;
+      if (r.ok) ok++;
     }
-    return { correct, recognized };
+    return { correct: chars.length === target.length && ok === target.length, recognized, ok };
+  };
+  return (entry: VocabEntry, chars: DrawnChar[]) => {
+    const target = [...entry.kanji];
+    // The whole word written on one pad: try the most likely ways to split it into characters.
+    if (chars.length === 1 && target.length > 1) {
+      const splits = segmentCandidates(chars[0], target.length);
+      if (splits.length === 0) return { correct: false, recognized: '' };
+      let best = judgeGroups(target, splits[0]);
+      for (const s of splits) {
+        const r = judgeGroups(target, s);
+        if (r.correct) return { correct: true, recognized: r.recognized };
+        if (r.ok > best.ok) best = r;
+      }
+      return { correct: false, recognized: best.recognized };
+    }
+    const r = judgeGroups(target, chars);
+    return { correct: r.correct, recognized: r.recognized };
   };
 }
 
@@ -41,7 +60,7 @@ export function sanitizeDrawing(raw: unknown, maxChars: number): DrawnChar[] | n
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > maxChars) return null;
   const out: DrawnChar[] = [];
   for (const ch of raw) {
-    if (!Array.isArray(ch) || ch.length === 0 || ch.length > MAX_STROKES_PER_CHAR) return null;
+    if (!Array.isArray(ch) || ch.length === 0 || ch.length > (raw.length === 1 ? MAX_STROKES_PER_WORD : MAX_STROKES_PER_CHAR)) return null;
     const strokes: DrawnChar = [];
     for (const st of ch) {
       if (!Array.isArray(st) || st.length === 0 || st.length > MAX_POINTS_PER_STROKE) return null;

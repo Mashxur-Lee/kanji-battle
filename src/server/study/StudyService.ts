@@ -1,3 +1,4 @@
+import type { AdminUserRow } from '../../shared/protocol';
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
 import { BACKGROUNDS, critFor, isBackground, levelOf, unlocked, xpFor, type BackgroundId, type MatchOutcome } from '../../shared/progress';
@@ -98,6 +99,16 @@ export class StudyService {
   }
 
   /** After a match: XP and the words you missed go to "Struggling spells". */
+  /** Admin page: XP, level, crit and study-set size for every account, plus where it's all saved. */
+  async adminStats(rows: AdminUserRow[]): Promise<{ users: AdminUserRow[]; storage: string; persistent: boolean }> {
+    const stats = await this.store.cardStats();
+    const users = rows.map((u) => {
+      const s = stats[u.id] ?? { cards: 0, learned: 0 };
+      const xp = u.xp ?? 0;
+      return { ...u, xp, level: levelOf(xp), crit: critFor(s.learned), learned: s.learned, cards: s.cards };
+    });
+    return { users, storage: this.store.name, persistent: this.store.name === 'postgres' || !process.env.RENDER };
+  }
   async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false) {
     const gained = forfeited ? 0 : xpFor(outcome, accuracy, mode);
     const xp = gained ? await this.store.addXp(userId, gained) : (await this.store.findById(userId))?.xp ?? 0;

@@ -32,10 +32,10 @@ export const DECK_RULES = {
   pickMs: 20_000,
   characterMs: 30_000,
   chooseMs: 15_000, // pick which card to play
-  castMs: 20_000, // then write its kanji (includes the 1 s flash)
-  castFlashMs: 1000,
+  castMs: 23_500, // then write its kanji: 3.5 s flash + 20 s
+  castFlashMs: 3500,
   matchMs: 8 * 60_000, // then overtime
-  overtimeCardMs: 15_000,
+  overtimeCardMs: 18_500, // 3.5 s flash + 15 s
   knightDamageTaken: 0.7,
   knightHealBonus: 1.3,
   abilityTurns: 2,
@@ -89,6 +89,8 @@ export interface DeckView {
   turn: { active: string; castsLeft: number; deadlineMs: number; stage: 'choose' | 'cast' } | null;
   /** 1 for the opening draft; +1 every time someone runs out of cards and a new draft starts */
   round: number;
+  /** While it's NOT your turn: the kanji in your hand, sorted (so you can't tell which card is which). */
+  deckList: Array<{ kanji: string; reading: string; meaning: string }> | null;
   casting: DeckCastView | null;
   matchLeftMs: number;
   overtimeLeft: number; // cards left in overtime

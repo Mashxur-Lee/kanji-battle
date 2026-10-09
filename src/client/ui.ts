@@ -53,6 +53,31 @@ export function stopCountdown(slot?: string) {
   for (const [k, id] of timers) if (!slot || k === slot) { cancelAnimationFrame(id); timers.delete(k); }
 }
 
+// ── connection bars ─────────────────────────────────────────────────────────
+const rtts = new Map<string, number | null>();
+/** 3 green bars = good (<150 ms), 2 yellow = medium (<400 ms), 1 red = poor, grey = offline. */
+export function netQuality(rtt: number | null | undefined): 0 | 1 | 2 | 3 {
+  if (rtt === null || rtt === undefined) return 0;
+  return rtt < 150 ? 3 : rtt < 400 ? 2 : 1;
+}
+function paintNet(el: HTMLElement) {
+  const rtt = rtts.get(el.dataset.net ?? '');
+  const q = netQuality(rtt);
+  el.className = `net q${q}`;
+  el.title = rtt == null ? 'Connection: offline / measuring…' : `Connection: ${['', 'poor', 'medium', 'good'][q]} (${rtt} ms)`;
+}
+export function netBars(playerId: string): HTMLElement {
+  const el = h('span', 'net');
+  el.dataset.net = playerId;
+  el.innerHTML = '<i></i><i></i><i></i>';
+  paintNet(el);
+  return el;
+}
+export function setNet(map: Record<string, number | null>) {
+  for (const [id, rtt] of Object.entries(map)) rtts.set(id, rtt);
+  document.querySelectorAll<HTMLElement>('.net[data-net]').forEach(paintNet);
+}
+
 // ── top bar ──────────────────────────────────────────────────────────────────
 export interface ProfileView { xp: number; level: number; crit: number; learned: number }
 export function setProfile(p: ProfileView | null) {
@@ -105,9 +130,18 @@ export function paintScenes() {
       w.append(s, h('div', 'ground'));
       scene.append(w);
     }
-    scene.append(h('div', 'orb'), h('div', 'orb b'));
+    // the spells they throw are kanji, a new random one every cast
+    for (const cls of ['orb', 'orb b']) {
+      const orb = h('div', cls, randomSpellKanji());
+      orb.lang = 'ja';
+      orb.addEventListener('animationiteration', () => { orb.textContent = randomSpellKanji(); });
+      scene.append(orb);
+    }
   }
 }
+
+const SPELL_KANJI = [...'火水木金土日月山川雷風光闇炎氷剣魔力星空雲雪花龍神雨海森石鉄竜鬼夢命心刀弓盾王天地波嵐霧影'];
+const randomSpellKanji = () => SPELL_KANJI[Math.floor(Math.random() * SPELL_KANJI.length)];
 
 // ── auth ─────────────────────────────────────────────────────────────────────
 export function setAuthTab(tab: 'login' | 'register') {
@@ -123,9 +157,16 @@ export function setAuthTab(tab: 'login' | 'register') {
 }
 
 // ── admin ────────────────────────────────────────────────────────────────────
-export function showAdmin(users: AdminUserRow[], me: PublicUser, onToggle: (u: AdminUserRow) => void) {
+export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: string; persistent: boolean }, onToggle: (u: AdminUserRow) => void) {
   const banned = users.filter((u) => u.banned).length;
   $('adminInfo').textContent = `${users.length} accounts · ${banned} banned`;
+  const st = $('adminStorage');
+  st.className = 'storage ' + (db.persistent ? 'ok' : 'warn');
+  st.textContent = db.storage === 'postgres'
+    ? '✓ Accounts, XP and study sets are saved in the Postgres database — updates and restarts keep them.'
+    : db.persistent
+      ? `Saved to a local file (${db.storage}).`
+      : '⚠ No database connected: accounts, XP and study sets are saved on the server disk, which Render wipes on every deploy and restart. Set DATABASE_URL (Neon) in Render → Environment.';
   $('userRows').replaceChildren(
     ...users.map((u) => {
       const action = h('td');
@@ -137,6 +178,10 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, onToggle: (u: A
       return append(h('tr'),
         h('td', '', u.username + (u.id === me.id ? ' (you)' : '')),
         h('td', '', u.role),
+        h('td', 'num', `Lv ${u.level ?? 0}`),
+        h('td', 'num', (u.xp ?? 0).toLocaleString()),
+        h('td', 'num', `${u.learned ?? 0} / ${u.cards ?? 0}`),
+        h('td', 'num', critText(u.crit ?? 0)),
         h('td', '', new Date(u.createdAt).toLocaleDateString()),
         h('td', u.banned ? 'status-ban' : 'status-ok', u.banned ? 'Banned' : 'Active'),
         action);
@@ -154,7 +199,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       const li = h('li');
       const av = h('span', 'who-av');
       av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp');
-      li.append(av, h('span', 'who', p.id === you ? `${p.name} (you)` : p.name), h('span', 'lv', `Lv ${p.level}`));
+      li.append(av, h('span', 'who', p.id === you ? `${p.name} (you)` : p.name), netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
       if (p.crit > 0) li.append(h('span', 'critv', `✦ ${critText(p.crit)} crit`));
       if (p.id === hostId) li.append(h('span', 'tag', 'host'));
       if (!p.online) li.append(h('span', 'tag off', 'away — seat kept'));
@@ -190,7 +235,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   const canStart = players.length >= minPlayers;
   const deck = mode === 'deck';
   $('levels').hidden = deck; // Deck Duel deals cards from every level — nothing to pick
-  $('lobby').classList.toggle('no-side', deck);
+  $('deckGuide').hidden = !deck;
   const meReady = !!players.find((p) => p.id === you)?.ready;
   $('readyBtn').hidden = !deck;
   $('readyBtn').textContent = meReady ? 'Not ready' : 'Ready';
@@ -254,7 +299,7 @@ function hpBar(hp: number, max: number, label: string) {
 
 function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, emptyText: string) {
   if (!p) { el.replaceChildren(h('div', 'name', emptyText)); return; }
-  const name = append(h('div', 'name'), append(h('span', 'n', label), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo${p.combo >= 5 ? ' 🔥' : ''}` : ''));
+  const name = append(h('div', 'name'), append(h('span', 'n', label), netBars(p.id), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo${p.combo >= 5 ? ' 🔥' : ''}` : ''));
   el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h('div', 'hpnum', `${p.hp} / ${p.maxHp} HP`), h('span', 'lvs', `· ${levelsText(p.levels)}${p.online ? '' : ' · away'}`)));
 }
 
@@ -473,11 +518,9 @@ export function setInputHint(text: string, warn = false) {
 }
 
 /** Writing mode: show which character you're on. */
-export function setCharSlots(total: number, written: string[], active: boolean) {
-  $('charSlots').replaceChildren(
-    ...Array.from({ length: total }, (_, i) => h('div', 'slot' + (i < written.length ? ' done' : i === written.length && active ? ' now' : ''), i < written.length ? '✓' : String(i + 1))),
-  );
-  $('padNext').textContent = written.length >= total - 1 ? 'Cast ✦' : 'Next →';
+export function setCharSlots(total: number, _written: string[], active: boolean) {
+  $('charSlots').replaceChildren(h('span', 'slots-hint', total > 1 ? `Write all ${total} characters, left to right` : 'Write the character'));
+  $('padNext').textContent = 'Cast ✦';
   for (const id of ['padUndo', 'padClear', 'padSkip', 'padNext']) $<HTMLButtonElement>(id).disabled = !active;
 }
 

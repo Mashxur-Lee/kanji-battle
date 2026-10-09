@@ -131,6 +131,7 @@ export class DeckGame implements Match {
     const card = p.hand.find((c) => c.cardId === cardId);
     if (!card || CARD_SPECS[card.color].cost > p.mana) return;
     p.hand = p.hand.filter((c) => c !== card);
+    p.mana -= CARD_SPECS[card.color].cost; // paid up front: a ripped card still costs its mana
     card.revealed = true;
     const witchSight = p.character === 'witch' && p.abilityActive > 0;
     this.cast = { castId: this.nextCast++, card, ownerId: id, startedAt: this.now(), flashMs: witchSight ? null : this.rules.castFlashMs, tried: new Set() };
@@ -163,6 +164,9 @@ export class DeckGame implements Match {
     this.finish('forfeit');
   }
 
+  /** Hero pick or the first draft: nothing has been played yet, so the room may go back to the lobby. */
+  canReturnToLobby() { return this.phase === 'characters' || (this.phase === 'draft' && this.round === 1); }
+
   dispose() { clearTimeout(this.timer); clearTimeout(this.matchTimer); }
 
   /** Full state as one player sees it (sent after every change, and on reconnect). */
@@ -180,6 +184,9 @@ export class DeckGame implements Match {
         : null,
       turn: this.phase === 'battle' && this.active ? { active: this.active, castsLeft: this.castsLeft, deadlineMs: left, stage: this.cast ? 'cast' : 'choose' } : null,
       round: this.round,
+      deckList: this.phase === 'battle' && me && this.active !== id
+        ? me.hand.map((c) => ({ kanji: c.entry.kanji, reading: displayReading(c.entry), meaning: c.entry.meaning })).sort((a, b) => a.kanji.localeCompare(b.kanji, 'ja'))
+        : null,
       casting: this.cast ? {
         castId: this.cast.castId, ownerId: this.cast.ownerId ?? '',
         card: { ...this.cardView(this.cast.card, true), kanji: this.cast.card.entry.kanji, reading: displayReading(this.cast.card.entry), meaning: this.cast.card.entry.meaning },
@@ -351,7 +358,6 @@ export class DeckGame implements Match {
     if (caster) this.tally(caster, c.card.entry, result.correct, ms);
     if (caster && result.correct) {
       const foe = this.other(caster.id);
-      if (this.phase === 'battle') caster.mana = Math.max(0, caster.mana - spec.cost);
       if (spec.kind === 'attack') {
         const crit = caster.crit > 0 && this.rng() < caster.crit;
         const bulwark = foe.character === 'knight' && foe.abilityActive > 0 ? this.rules.knightDamageTaken : 1;

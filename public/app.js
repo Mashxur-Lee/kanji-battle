@@ -4,6 +4,9 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
+  // src/shared/version.ts
+  var VERSION = "0.5.1";
+
   // src/shared/protocol.ts
   var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
   var LEVEL_LABEL = { KANA: "\u304B\u306A", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
@@ -517,6 +520,7 @@
   }
 
   // src/shared/deck.ts
+  var CARD_COLORS = ["lightblue", "blue", "yellow", "green", "red"];
   var CARD_SPECS = {
     lightblue: { label: "Bolt", kind: "attack", amount: 100, cost: 10 },
     blue: { label: "Frost", kind: "attack", amount: 120, cost: 25 },
@@ -542,12 +546,13 @@
     characterMs: 3e4,
     chooseMs: 15e3,
     // pick which card to play
-    castMs: 2e4,
-    // then write its kanji (includes the 1 s flash)
-    castFlashMs: 1e3,
+    castMs: 23500,
+    // then write its kanji: 3.5 s flash + 20 s
+    castFlashMs: 3500,
     matchMs: 8 * 6e4,
     // then overtime
-    overtimeCardMs: 15e3,
+    overtimeCardMs: 18500,
+    // 3.5 s flash + 15 s
     knightDamageTaken: 0.7,
     knightHealBonus: 1.3,
     abilityTurns: 2,
@@ -838,6 +843,28 @@
       timers.delete(k);
     }
   }
+  var rtts = /* @__PURE__ */ new Map();
+  function netQuality(rtt) {
+    if (rtt === null || rtt === void 0) return 0;
+    return rtt < 150 ? 3 : rtt < 400 ? 2 : 1;
+  }
+  function paintNet(el) {
+    const rtt = rtts.get(el.dataset.net ?? "");
+    const q = netQuality(rtt);
+    el.className = `net q${q}`;
+    el.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
+  }
+  function netBars(playerId) {
+    const el = h("span", "net");
+    el.dataset.net = playerId;
+    el.innerHTML = "<i></i><i></i><i></i>";
+    paintNet(el);
+    return el;
+  }
+  function setNet(map) {
+    for (const [id, rtt] of Object.entries(map)) rtts.set(id, rtt);
+    document.querySelectorAll(".net[data-net]").forEach(paintNet);
+  }
   function setProfile(p) {
     if (!p) return;
     const lx = levelXp(p.xp);
@@ -882,9 +909,18 @@
         w.append(s, h("div", "ground"));
         scene3.append(w);
       }
-      scene3.append(h("div", "orb"), h("div", "orb b"));
+      for (const cls of ["orb", "orb b"]) {
+        const orb = h("div", cls, randomSpellKanji());
+        orb.lang = "ja";
+        orb.addEventListener("animationiteration", () => {
+          orb.textContent = randomSpellKanji();
+        });
+        scene3.append(orb);
+      }
     }
   }
+  var SPELL_KANJI = [..."\u706B\u6C34\u6728\u91D1\u571F\u65E5\u6708\u5C71\u5DDD\u96F7\u98A8\u5149\u95C7\u708E\u6C37\u5263\u9B54\u529B\u661F\u7A7A\u96F2\u96EA\u82B1\u9F8D\u795E\u96E8\u6D77\u68EE\u77F3\u9244\u7ADC\u9B3C\u5922\u547D\u5FC3\u5200\u5F13\u76FE\u738B\u5929\u5730\u6CE2\u5D50\u9727\u5F71"];
+  var randomSpellKanji = () => SPELL_KANJI[Math.floor(Math.random() * SPELL_KANJI.length)];
   function setAuthTab(tab) {
     const login = tab === "login";
     $("tabLogin").classList.toggle("on", login);
@@ -896,9 +932,12 @@
     $("authHint").textContent = login ? "" : "Login: 3\u201316 letters, numbers or _. Password: at least 6 characters.";
     $("authError").textContent = "";
   }
-  function showAdmin(users, me, onToggle) {
+  function showAdmin(users, me, db, onToggle) {
     const banned = users.filter((u) => u.banned).length;
     $("adminInfo").textContent = `${users.length} accounts \xB7 ${banned} banned`;
+    const st = $("adminStorage");
+    st.className = "storage " + (db.persistent ? "ok" : "warn");
+    st.textContent = db.storage === "postgres" ? "\u2713 Accounts, XP and study sets are saved in the Postgres database \u2014 updates and restarts keep them." : db.persistent ? `Saved to a local file (${db.storage}).` : "\u26A0 No database connected: accounts, XP and study sets are saved on the server disk, which Render wipes on every deploy and restart. Set DATABASE_URL (Neon) in Render \u2192 Environment.";
     $("userRows").replaceChildren(
       ...users.map((u) => {
         const action = h("td");
@@ -911,6 +950,10 @@
           h("tr"),
           h("td", "", u.username + (u.id === me.id ? " (you)" : "")),
           h("td", "", u.role),
+          h("td", "num", `Lv ${u.level ?? 0}`),
+          h("td", "num", (u.xp ?? 0).toLocaleString()),
+          h("td", "num", `${u.learned ?? 0} / ${u.cards ?? 0}`),
+          h("td", "num", critText(u.crit ?? 0)),
           h("td", "", new Date(u.createdAt).toLocaleDateString()),
           h("td", u.banned ? "status-ban" : "status-ok", u.banned ? "Banned" : "Active"),
           action
@@ -927,7 +970,7 @@
         const li = h("li");
         const av = h("span", "who-av");
         av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp");
-        li.append(av, h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name), h("span", "lv", `Lv ${p.level}`));
+        li.append(av, h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name), netBars(p.id), h("span", "lv", `Lv ${p.level}`));
         if (p.crit > 0) li.append(h("span", "critv", `\u2726 ${critText(p.crit)} crit`));
         if (p.id === hostId) li.append(h("span", "tag", "host"));
         if (!p.online) li.append(h("span", "tag off", "away \u2014 seat kept"));
@@ -953,7 +996,7 @@
     const canStart = players2.length >= minPlayers2;
     const deck2 = mode2 === "deck";
     $("levels").hidden = deck2;
-    $("lobby").classList.toggle("no-side", deck2);
+    $("deckGuide").hidden = !deck2;
     const meReady = !!players2.find((p) => p.id === you2)?.ready;
     $("readyBtn").hidden = !deck2;
     $("readyBtn").textContent = meReady ? "Not ready" : "Ready";
@@ -1004,7 +1047,7 @@
       el.replaceChildren(h("div", "name", emptyText));
       return;
     }
-    const name = append(h("div", "name"), append(h("span", "n", label), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo${p.combo >= 5 ? " \u{1F525}" : ""}` : ""));
+    const name = append(h("div", "name"), append(h("span", "n", label), netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo${p.combo >= 5 ? " \u{1F525}" : ""}` : ""));
     el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
@@ -1206,11 +1249,9 @@
     el.textContent = text;
     el.classList.toggle("warn", warn);
   }
-  function setCharSlots(total, written2, active) {
-    $("charSlots").replaceChildren(
-      ...Array.from({ length: total }, (_, i) => h("div", "slot" + (i < written2.length ? " done" : i === written2.length && active ? " now" : ""), i < written2.length ? "\u2713" : String(i + 1)))
-    );
-    $("padNext").textContent = written2.length >= total - 1 ? "Cast \u2726" : "Next \u2192";
+  function setCharSlots(total, _written, active) {
+    $("charSlots").replaceChildren(h("span", "slots-hint", total > 1 ? `Write all ${total} characters, left to right` : "Write the character"));
+    $("padNext").textContent = "Cast \u2726";
     for (const id of ["padUndo", "padClear", "padSkip", "padNext"]) $(id).disabled = !active;
   }
   function lockInput() {
@@ -1347,9 +1388,83 @@
   var lastCastId = 0;
   var writingCastId = 0;
   var flashTimer = 0;
-  function initDeck(h3) {
-    hooks = h3;
+  function initDeck(hk) {
+    hooks = hk;
     $2("dkAbility").onclick = () => hooks.send({ type: "deck_ability" });
+    $2("dkChatForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = $2("dkChatInput");
+      const text = input.value.trim();
+      if (text) hooks.send({ type: "chat", text });
+      input.value = "";
+    });
+    renderGuide($2("deckGuide"));
+  }
+  var seenChat = /* @__PURE__ */ new Set();
+  function chatMessages(msgs) {
+    const log = $2("dkChatLog");
+    for (const m of msgs) {
+      if (seenChat.has(m.id)) continue;
+      seenChat.add(m.id);
+      const line = h2("div", "chat-line" + (m.from === hooks.me() ? " mine" : ""));
+      line.append(h2("b", "", m.from === hooks.me() ? "You" : m.name), h2("span", "", m.text));
+      log.append(line);
+      if (m.from !== hooks.me() && view && view.phase !== "over") sfx.flip();
+    }
+    while (log.children.length > 60) log.firstElementChild.remove();
+    log.scrollTop = log.scrollHeight;
+  }
+  function clearChat() {
+    seenChat.clear();
+    $2("dkChatLog").replaceChildren();
+  }
+  function renderGuide(el) {
+    const sec = (title, ...kids) => {
+      const s = h2("section", "g-sec");
+      s.append(h2("h4", "", title), ...kids);
+      return s;
+    };
+    const p = (t) => h2("p", "", t);
+    const heroes = h2("div", "g-heroes");
+    for (const c of DECK_CHARACTERS) {
+      const row = h2("div", "g-hero");
+      const av = h2("div", "g-av");
+      av.innerHTML = heroSvg(c, "me");
+      const txt = h2("div");
+      txt.append(h2("b", "", CHARACTER_INFO[c].name), h2("span", "", CHARACTER_INFO[c].power));
+      row.append(av, txt);
+      heroes.append(row);
+    }
+    const cards = h2("div", "g-cards");
+    for (const col of CARD_COLORS) {
+      const spec = CARD_SPECS[col];
+      const fig = h2("div", "g-card");
+      fig.append(cardEl({ cardId: "", color: col }), h2("span", "", `${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heals ${spec.amount}` : `+${spec.amount} mana`} \xB7 ${spec.cost ? `${spec.cost} mana` : "free"}`));
+      cards.append(fig);
+    }
+    const flow = h2("ol", "g-flow");
+    for (const [icon, t] of [
+      ["\u{1F9B8}", "Pick a hero (30 s)."],
+      ["\u{1FA99}", "Coin flip, then draft: take 2 face-down cards at a time until you each have 10. You see colours, not kanji."],
+      ["\u{1F0CF}", `Your turn: ${DECK_RULES.chooseMs / 1e3} s to choose a card. Its mana is paid right away \u2014 even if you then miss.`],
+      ["\u270D\uFE0F", `The kanji shows for ${DECK_RULES.castFlashMs / 1e3} s, then only the reading + meaning stay. Write it (pad or Japanese keyboard) within ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1e3} s.`],
+      ["\u2705", "Right \u2192 the spell hits / heals / gives mana. Wrong or too slow \u2192 the card rips."],
+      ["\u{1F4DC}", "While your opponent plays, you can read the list of kanji in your hand (not which card is which)."],
+      ["\u{1F504}", "Out of cards \u2192 Round 2 draft. HP, mana and powers stay."],
+      ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the leftover cards are shown one by one, first to write it uses it.`]
+    ]) {
+      const li = h2("li");
+      li.append(h2("span", "g-ic", icon), h2("span", "", t));
+      flow.append(li);
+    }
+    el.replaceChildren(
+      h2("h3", "", "How Deck Duel works"),
+      sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. Holding cards you can't pay for = you lose.`)),
+      sec("Cards", cards),
+      sec("A turn", flow),
+      sec("Heroes \u2014 power button bottom-left, once per match", heroes),
+      sec("Rewards", p("Win 4000 XP \xB7 lose 1500 XP \xB7 forfeit 0 XP."))
+    );
   }
   function cardEl(c, opts = {}) {
     const spec = CARD_SPECS[c.color];
@@ -1376,16 +1491,18 @@
     name.append(h2("span", "", mine ? `${p.name} (you)` : p.name));
     if (p.character) name.append(h2("span", "tag", CHARACTER_INFO[p.character].name));
     if (p.abilityActive > 0 && p.character !== "wizard") name.append(h2("span", "tag", `${p.character === "goblin" ? "Frenzy" : CHARACTER_INFO[p.character].power.split(":")[0]} \xD7${p.abilityActive}`));
-    const hp = h2("div", "hp" + (p.hp / p.maxHp <= 0.25 ? " low" : ""));
-    const hpFill = h2("div");
-    hpFill.style.width = `${p.hp / p.maxHp * 100}%`;
-    hp.append(hpFill);
-    const mana = h2("div", "manabar");
-    const manaFill = h2("div");
-    manaFill.style.width = `${p.mana / p.maxMana * 100}%`;
-    mana.append(manaFill);
-    const nums = h2("div", "hpnum", `\u2665 ${p.hp}/${p.maxHp} \xB7 \u25C6 ${p.mana}/${p.maxMana} \xB7 ${p.handSize} cards`);
+    name.append(netBars(p.id));
+    const bar = (cls, value, max, text) => {
+      const b = h2("div", `dkbar ${cls}`);
+      const fill = h2("div", "fill");
+      fill.style.width = `${Math.max(0, Math.min(1, value / max)) * 100}%`;
+      b.append(fill, h2("span", "dkbar-txt", text));
+      return b;
+    };
+    const hp = bar("hp-bar" + (p.hp / p.maxHp <= 0.25 ? " low" : ""), p.hp, p.maxHp, `\u2665 ${p.hp} / ${p.maxHp}`);
+    const mana = bar("mana-bar", p.mana, p.maxMana, `\u25C6 ${p.mana} / ${p.maxMana}`);
     const counts2 = h2("div", "dk-counts");
+    counts2.append(h2("span", "cc total", `${p.handSize} card${p.handSize === 1 ? "" : "s"}`));
     for (const col of Object.keys(p.handCounts)) {
       if (!p.handCounts[col]) continue;
       const cc = h2("span", "cc");
@@ -1396,7 +1513,7 @@
       cc.append(dot, `\xD7${p.handCounts[col]}`);
       counts2.append(cc);
     }
-    el.replaceChildren(av, name, hp, mana, nums, counts2);
+    el.replaceChildren(av, name, hp, mana, counts2);
   }
   function renderDeck(v) {
     view = v;
@@ -1444,7 +1561,31 @@
     ab.classList.toggle("active", me.abilityActive > 0);
     ab.disabled = !ch || !!CHARACTER_INFO[ch].passive || me.abilityUsed || !myTurn || !!v.casting;
     renderCast(v);
+    renderList(v);
   }
+  function renderList(v) {
+    const box = $2("dkList");
+    const head = h2("h4", "", "Your kanji");
+    if (!v.deckList) {
+      box.replaceChildren(head, h2("p", "hint", v.phase === "overtime" ? "Overtime \u2014 all cards are on the table." : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
+      return;
+    }
+    const ul = h2("ul", "kanji-list");
+    for (const k of v.deckList) {
+      const li = h2("li");
+      const kj = h2("span", "kl-k", k.kanji);
+      kj.lang = "ja";
+      const rd = h2("span", "kl-r", k.reading);
+      rd.lang = "ja";
+      li.append(kj, rd, h2("span", "kl-m", k.meaning));
+      ul.append(li);
+    }
+    box.replaceChildren(append2(head, h2("small", "", ` \xB7 ${v.deckList.length}`)), h2("p", "hint", "Which card is which stays secret."), ul);
+  }
+  var append2 = (el, ...kids) => {
+    el.append(...kids);
+    return el;
+  };
   function renderCast(v) {
     const box = $2("dkCast");
     const c = v.casting;
@@ -1497,7 +1638,7 @@
       b.onclick = () => hooks.send({ type: "deck_character", character: c });
       grid.append(b);
     }
-    overlay.replaceChildren(title, grid, h2("p", "sub", "Same HP (1000) for both. 150 mana, +10 every turn. 15 s to choose a card, 20 s to write it. Out of cards \u2192 a new draft round. Cards: light blue 100 dmg (10\u25C6) \xB7 blue 120 (25\u25C6) \xB7 yellow +60\u25C6 \xB7 green heal 100 (40\u25C6) \xB7 red 250 (70\u25C6)."));
+    overlay.replaceChildren(backButton(v), title, grid, h2("p", "sub", "Same HP (1000) for both. 150 mana, +10 every turn. 15 s to choose a card (its mana is paid right away), then the kanji shows for 3.5 s and you have 20 s to write it. Out of cards \u2192 a new draft round. Cards: light blue 100 dmg (10\u25C6) \xB7 blue 120 (25\u25C6) \xB7 yellow +60\u25C6 \xB7 green heal 100 (40\u25C6) \xB7 red 250 (70\u25C6)."));
   }
   var coinShown = false;
   function renderDraft(v, me) {
@@ -1526,7 +1667,13 @@
       };
       board.append(el);
     }
-    overlay.replaceChildren(head, status, board, h2("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
+    overlay.replaceChildren(backButton(v), head, status, board, h2("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
+  }
+  function backButton(v) {
+    const b = h2("button", "back dk-back", "\u2190 Back to lobby");
+    b.hidden = v.round > 1;
+    b.onclick = () => hooks.send({ type: "back_to_lobby" });
+    return b;
   }
   function deckEvent(e) {
     if (!view) return;
@@ -1701,6 +1848,7 @@
       __publicField(this, "strokes", []);
       __publicField(this, "current", null);
       __publicField(this, "ctx");
+      __publicField(this, "cells", 1);
       this.ctx = canvas.getContext("2d");
       canvas.addEventListener("pointerdown", (e) => this.down(e));
       canvas.addEventListener("pointermove", (e) => this.move(e));
@@ -1710,6 +1858,15 @@
     }
     get strokeCount() {
       return this.strokes.length;
+    }
+    /** Resize for a word of n characters (capped at 4 cells wide; longer words just write smaller). */
+    setCells(n) {
+      this.cells = Math.max(1, Math.min(4, n));
+      this.canvas.width = 600 * this.cells;
+      this.canvas.height = 600;
+      this.canvas.style.setProperty("--cols", String(this.cells));
+      this.canvas.classList.toggle("multi", this.cells > 1);
+      this.clear();
     }
     /** The finished character, in canvas pixels (the server normalises size and position). */
     take() {
@@ -1756,9 +1913,35 @@
     redraw() {
       const { ctx: ctx2, canvas } = this;
       ctx2.clearRect(0, 0, canvas.width, canvas.height);
+      if (this.cells > 1) {
+        ctx2.save();
+        ctx2.strokeStyle = "rgba(60, 50, 110, .28)";
+        ctx2.lineWidth = 3;
+        ctx2.setLineDash([18, 14]);
+        for (let i = 1; i < this.cells; i++) {
+          ctx2.beginPath();
+          ctx2.moveTo(i * 600, 20);
+          ctx2.lineTo(i * 600, 580);
+          ctx2.stroke();
+        }
+        ctx2.setLineDash([]);
+        ctx2.strokeStyle = "rgba(60, 50, 110, .1)";
+        ctx2.lineWidth = 2;
+        ctx2.beginPath();
+        ctx2.moveTo(0, 300);
+        ctx2.lineTo(canvas.width, 300);
+        ctx2.stroke();
+        for (let i = 0; i < this.cells; i++) {
+          ctx2.beginPath();
+          ctx2.moveTo(i * 600 + 300, 0);
+          ctx2.lineTo(i * 600 + 300, 600);
+          ctx2.stroke();
+        }
+        ctx2.restore();
+      }
       ctx2.lineCap = "round";
       ctx2.lineJoin = "round";
-      ctx2.lineWidth = canvas.width / 30;
+      ctx2.lineWidth = canvas.height / 30;
       ctx2.strokeStyle = "#1b1530";
       for (const s of [...this.strokes, ...this.current ? [this.current] : []]) {
         ctx2.beginPath();
@@ -2047,11 +2230,21 @@
     players = [];
     stopWriting();
     resetDeck();
+    clearChat();
     stopCountdown();
     show("menu");
   }
   function onMessage(msg) {
     switch (msg.type) {
+      case "ping":
+        socket.send({ type: "pong", t: msg.t });
+        break;
+      case "net":
+        setNet(msg.rtt);
+        break;
+      case "chat":
+        chatMessages(msg.messages);
+        break;
       case "welcome":
         user = msg.user;
         setUser(msg.user);
@@ -2221,7 +2414,7 @@
     writing = true;
     charCount = [...kanji].length;
     written = [];
-    pad.clear();
+    pad.setCells(charCount);
     if (mode === "deck") mountWriteArea("dkWrite");
     setCharSlots(charCount, [], true);
     const ime = $("imeInput");
@@ -2243,10 +2436,8 @@
   $("padSkip").onclick = () => skip();
   $("padNext").onclick = () => {
     if (pad.strokeCount === 0) return;
-    written.push(pad.take());
-    pad.clear();
-    if (written.length >= charCount) submitDrawing();
-    else setCharSlots(charCount, written.map(() => ""), true);
+    written = [pad.take()];
+    submitDrawing();
   };
   $("imeInput").addEventListener("keydown", (e) => {
     const input = e.currentTarget;
@@ -2323,8 +2514,8 @@
   $("customizeBack").onclick = () => show("menu");
   async function openAdmin() {
     try {
-      const { users } = await api.users();
-      showAdmin(users, user, async (u) => {
+      const { users, storage, persistent } = await api.users();
+      showAdmin(users, user, { storage, persistent }, async (u) => {
         try {
           await api.setBanned(u.id, !u.banned);
           await openAdmin();
@@ -2401,8 +2592,10 @@
   }
   armForfeit("forfeit");
   armForfeit("dkForfeit");
+  $("version").textContent = `v${VERSION}`;
   initDeck({
     send: (m) => socket.send(m),
+    me: () => you,
     beginWriting: (castId, kanji) => {
       mode = "deck";
       beginWriting(castId, kanji);

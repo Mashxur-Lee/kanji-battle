@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Level, Role } from '../../shared/protocol';
-import type { BackgroundId } from '../../shared/progress';
+import { legacyXpToCurrent, type BackgroundId } from '../../shared/progress';
 import type { SrsCard } from '../../shared/srs';
 
 export interface UserRecord {
@@ -38,6 +38,8 @@ export interface Store {
   addCards(userId: string, cards: SrsCard[]): Promise<number>;
   /** Flag words as struggling (creating new cards if needed). */
   markStruggling(userId: string, vocabIds: string[], now: number): Promise<void>;
+  /** Per user: study-set size and learned (graduated) cards — for the admin page. */
+  cardStats(): Promise<Record<string, { cards: number; learned: number }>>;
   learnedCount(userId: string): Promise<number>;
   close?(): Promise<void>;
 }
@@ -106,6 +108,9 @@ export class MemoryStore implements Store {
     this.persist();
   }
   async learnedCount(userId: string) { return [...this.deck(userId).values()].filter((c) => c.state === 'review').length; }
+  async cardStats() {
+    return Object.fromEntries([...this.srs].map(([uid, d]) => [uid, { cards: d.size, learned: [...d.values()].filter((c) => c.state === 'review').length }]));
+  }
   protected persist() { /* memory only */ }
 }
 
@@ -118,7 +123,8 @@ export class FileStore extends MemoryStore {
     if (existsSync(file)) {
       const data = JSON.parse(readFileSync(file, 'utf8'));
       const users: UserRecord[] = Array.isArray(data) ? data : data.users; // older files were a plain user array
-      for (const r of users) this.users.set(r.id, { ...blankProgress(), ...r });
+      const legacy = Array.isArray(data) || data.xpScheme !== 2; // saved before the steeper levels
+      for (const r of users) this.users.set(r.id, { ...blankProgress(), ...r, xp: legacy ? legacyXpToCurrent(r.xp ?? 0) : r.xp ?? 0 });
       for (const [uid, cards] of Object.entries((data.srs ?? {}) as Record<string, SrsCard[]>)) {
         this.srs.set(uid, new Map(cards.map((c) => [c.vocabId, c])));
       }
@@ -128,7 +134,7 @@ export class FileStore extends MemoryStore {
     mkdirSync(path.dirname(this.file), { recursive: true });
     const tmp = `${this.file}.tmp`;
     const srs = Object.fromEntries([...this.srs].map(([uid, d]) => [uid, [...d.values()]]));
-    writeFileSync(tmp, JSON.stringify({ users: [...this.users.values()], srs }));
+    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs }));
     renameSync(tmp, this.file); // atomic replace
   }
 }

@@ -1,4 +1,4 @@
-import type { BossView, DrawnChar, GameMode, Level, PlayerId, PlayerView, ServerMessage, VocabEntry } from '../shared/protocol';
+import { CHAT_MAX_LENGTH, type BossView, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
 import { BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
 import { DEFAULT_CONFIG, Game, WRITING_CONFIG, type GameConfig, type GameEvent, type Match, type WritingJudge } from './Game';
@@ -46,6 +46,8 @@ type Phase = 'lobby' | 'game' | 'results';
 interface Member {
   id: PlayerId; name: string; levels: Level[]; online: boolean; profile: MemberProfile; ready: boolean;
   graceTimer?: ReturnType<typeof setTimeout>;
+  rtt?: number; // last measured round trip (ms)
+  lastChatAt?: number;
 }
 
 /**
@@ -60,6 +62,8 @@ export class Room {
   private phase: Phase = 'lobby';
   private game?: Match;
   private rematchVotes = new Set<PlayerId>();
+  private chatLog: ChatMessage[] = [];
+  private nextChatId = 1;
   private lastGameOver?: ServerMessage;
 
   constructor(
@@ -80,7 +84,9 @@ export class Room {
     this.clients.set(id, client);
     this.hostId ??= id;
     client.send({ type: 'joined', code: this.code, you: id, mode: this.mode });
+    if (this.chatLog.length) client.send({ type: 'chat', messages: this.chatLog });
     this.broadcastLobby();
+    this.broadcastNet();
     return { ok: true };
   }
 
@@ -97,6 +103,8 @@ export class Room {
     m.online = true;
     this.clients.set(id, client);
     client.send({ type: 'joined', code: this.code, you: id, mode: this.mode });
+    if (this.chatLog.length) client.send({ type: 'chat', messages: this.chatLog });
+    this.broadcastNet();
     if (this.phase === 'lobby') return this.broadcastLobby();
     if (this.phase === 'results') {
       if (this.lastGameOver) client.send(this.lastGameOver);
@@ -114,6 +122,7 @@ export class Room {
     m.online = false;
     const grace = this.phase === 'game' ? this.opts.graceGameMs : this.opts.graceLobbyMs;
     m.graceTimer = setTimeout(() => this.leave(id), grace);
+    this.broadcastNet();
     if (this.phase === 'lobby') this.broadcastLobby();
   }
 
@@ -132,6 +141,30 @@ export class Room {
   }
 
   ready(id: PlayerId) { this.game?.markReady(id); }
+
+  /** Connection quality for everyone in the room (shown as signal bars next to names). */
+  setRtt(id: PlayerId, rtt: number) {
+    const m = this.roster.find((p) => p.id === id);
+    if (!m) return;
+    m.rtt = Math.round(rtt);
+    this.broadcastNet();
+  }
+  private broadcastNet() {
+    this.broadcast({ type: 'net', rtt: Object.fromEntries(this.roster.map((p) => [p.id, p.online && p.rtt !== undefined ? p.rtt : null])) });
+  }
+
+  /** Room chat (shown in Deck Duel). Plain text only, short, and at most ~1 message per 0.7 s per player. */
+  chat(id: PlayerId, raw: string, now = Date.now()) {
+    const m = this.roster.find((p) => p.id === id);
+    if (!m) return;
+    const text = raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX_LENGTH);
+    if (!text || (m.lastChatAt !== undefined && now - m.lastChatAt < 700)) return;
+    m.lastChatAt = now;
+    const msg: ChatMessage = { id: this.nextChatId++, from: id, name: m.name, text, at: now };
+    this.chatLog.push(msg);
+    if (this.chatLog.length > 50) this.chatLog.shift();
+    this.broadcast({ type: 'chat', messages: [msg] });
+  }
 
   /** Deck Duel lobby: no levels to pick, just Ready / Not ready. Starts once everyone is ready. */
   setLobbyReady(id: PlayerId, ready: boolean) {
@@ -156,7 +189,10 @@ export class Room {
 
   /** "Back" during the study phase: the match is called off and everyone returns to the lobby. */
   backToLobby(id: PlayerId) {
-    if (this.phase !== 'game' || !this.game || this.game.snapshot(id).phase !== 'prep') return;
+    if (this.phase !== 'game' || !this.game) return;
+    // study phase of the classic modes, or hero pick / first draft of a Deck Duel (nothing played yet)
+    const early = this.game instanceof DeckGame ? this.game.canReturnToLobby() : this.game.snapshot(id).phase === 'prep';
+    if (!early) return;
     this.game.dispose();
     this.game = undefined;
     this.phase = 'lobby';

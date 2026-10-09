@@ -71,7 +71,7 @@ test('casting: mana cost, damage, heal, mana card; wrong writing rips the card',
   const attack = s.view(a).hand.find((c) => CARD_SPECS[c.color].kind === 'attack')!;
   s.g.play(a, attack.cardId);
   const cast = s.view(b).casting!;
-  assert.equal(cast.card.kanji.length > 0 && cast.flashMs === 1000, true, 'opponent sees the card being cast');
+  assert.equal(cast.card.kanji.length > 0 && cast.flashMs === 3500, true, 'opponent sees the card being cast');
   s.g.submit(b, cast.castId, cast.card.kanji); // the opponent can't write it
   writeRight(s, a);
   const spec = CARD_SPECS[attack.color];
@@ -81,12 +81,15 @@ test('casting: mana cost, damage, heal, mana card; wrong writing rips the card',
   assert.equal(s.view(a).turn!.active, b, 'turn passes');
   assert.equal(s.view(b).players.find((p) => p.id === b)!.mana, 150, 'mana is capped at 150');
   // b writes wrong → card rips, nothing happens
-  const bc = s.view(b).hand[0];
+  const bc = s.view(b).hand.find((c) => CARD_SPECS[c.color].cost > 0)!;
+  const manaBefore = s.view(b).players.find((p) => p.id === b)!.mana;
   s.g.play(b, bc.cardId);
+  assert.equal(s.view(b).players.find((p) => p.id === b)!.mana, manaBefore - CARD_SPECS[bc.color].cost, 'mana is paid when the card is played');
   s.g.submit(b, s.view(b).casting!.castId, 'ちがう');
   const last = s.devents().at(-1);
   assert.deepEqual([last.kind, last.ok], ['resolve', false]);
   assert.equal(s.view(b).hand.length, 9);
+  assert.equal(s.view(a).players.find((p) => p.id === b)!.mana, manaBefore - CARD_SPECS[bc.color].cost, 'a ripped card still cost its mana');
   assert.equal(s.view(b).players.find((p) => p.id === a)!.hp, 1000);
 });
 
@@ -202,4 +205,26 @@ test('out of cards → round 2 draft; HP, mana, powers and the other hand stay; 
   assert.deepEqual([after.players[0].hp, after.players[1].mana], [hpA, manaB], 'no extra mana, HP untouched');
   assert.deepEqual([after.hand.length, s.view('B').hand.length], [4, 2]);
   assert.equal(after.players[1].character, 'goblin');
+});
+
+test('off-turn kanji list: only while the opponent plays, sorted, no colours', () => {
+  const s = setup();
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
+  const active = s.view('A').turn!.active, waiting = active === 'A' ? 'B' : 'A';
+  assert.equal(s.view(active).deckList, null, 'hidden on your own turn');
+  const list = s.view(waiting).deckList!;
+  assert.equal(list.length, 10);
+  assert.deepEqual(list.map((k) => k.kanji), [...list.map((k) => k.kanji)].sort((a, b) => a.localeCompare(b, 'ja')));
+  assert.ok(list.every((k) => !('color' in k)), 'no colour → no telling which card is which');
+  assert.ok(s.view(waiting).hand.every((c) => c.kanji === undefined), 'hand cards stay face-down');
+});
+
+test('hero pick and first draft can go back to the lobby; a started battle cannot', () => {
+  const s = setup();
+  s.g.start();
+  assert.equal(s.g.canReturnToLobby(), true);
+  s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight');
+  assert.equal(s.g.canReturnToLobby(), true, 'draft round 1');
+  draftAll(s);
+  assert.equal(s.g.canReturnToLobby(), false);
 });

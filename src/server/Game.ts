@@ -33,7 +33,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   speed: { fastMs: 1_000, slowMs: 8_000, fastMult: 1.1, slowMult: 0.8 },
   comboMultipliers: [1.0, 1.1, 1.2, 1.3, 1.5],
   missRequeueGap: 2,
-  writingFlashMs: 500,
+  writingFlashMs: 3_500,
   boss: { breathEveryMs: 30_000, breathWarnMs: 3_000, breathDamage: 110, clawDamage: 45 },
 };
 
@@ -41,7 +41,7 @@ export const DEFAULT_CONFIG: GameConfig = {
 export const WRITING_CONFIG: GameConfig = {
   ...DEFAULT_CONFIG,
   challengeMs: 40_000,
-  speed: { fastMs: 4_000, slowMs: 25_000, fastMult: 1.1, slowMult: 0.8 },
+  speed: { fastMs: 6_000, slowMs: 28_000, fastMult: 1.1, slowMult: 0.8 }, // the kanji is shown for the first 3.5 s
 };
 
 /** damage = base × speed × combo (spec §13). Accuracy is binary here, so it is omitted. */

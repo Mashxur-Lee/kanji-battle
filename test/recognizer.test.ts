@@ -56,3 +56,30 @@ test('handwriting is forgiving: tilted, stretched, strokes run together still co
   assert.equal(judgeChar(rec, sloppy('山'), '念').ok, false);
   assert.equal(judgeChar(rec, drawn('海'), '念').ok, false);
 });
+
+test('whole word on one pad: the strokes are split into characters', () => {
+  const judge = createWritingJudge(rec);
+  const words = VOCAB.filter((v) => [...v.kanji].length >= 2 && [...v.kanji].length <= 3 && isWritable(rec)(v)).filter((_, i) => i % 97 === 0).slice(0, 25);
+  assert.ok(words.length >= 20);
+  // written left to right in one go, cells ~300px wide, a bit uneven
+  const wordDrawing = (kanji: string) => [...kanji].flatMap((ch, i) => drawn(ch).map((s) => s.map(([x, y]): [number, number] => [x + i * (290 + (i % 2) * 25), y + (i % 2) * 18])));
+  let ok = 0;
+  for (const w of words) if (judge(w, [wordDrawing(w.kanji)]).correct) ok++;
+  assert.ok(ok >= words.length - 1, `${ok}/${words.length} words recognised when written whole`);
+  // a different word of the same length is still wrong
+  const [a, b] = words.filter((w) => [...w.kanji].length === 2);
+  assert.equal(judge(a, [wordDrawing(b.kanji)]).correct, false);
+  // a dot added at the very end (stroke order out of sequence) still splits correctly
+  const strokes = wordDrawing(a.kanji);
+  const firstLen = drawn([...a.kanji][0]).length;
+  if (firstLen > 2) {
+    const moved = [...strokes.slice(0, firstLen - 1), ...strokes.slice(firstLen), strokes[firstLen - 1]];
+    assert.equal(judge(a, [moved]).correct, true);
+  }
+});
+
+test('a whole-word drawing may have more strokes than one character', () => {
+  const big = Array.from({ length: 70 }, (_, i) => [[i, 0], [i, 10]]);
+  assert.ok(sanitizeDrawing([big], 8), 'one group of 70 strokes is a word');
+  assert.equal(sanitizeDrawing([big, big], 8), null, 'but not per character');
+});

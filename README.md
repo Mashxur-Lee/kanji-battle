@@ -1,4 +1,4 @@
-# Kanji Wizards
+# Kanji Wizards · v0.5.1
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -7,7 +7,7 @@ Real-time kanji battles in the browser. Five modes:
 | Mode | How you cast |
 |---|---|
 | **1v1 Kanji Reading** | Study 10 words for 60 s, then see the kanji and type its reading (IME kana or romaji). |
-| **1v1 Kanji Writing** | The kanji flashes for 0.5 s, then the reading + meaning stay. Type the kanji with a Japanese IME or draw it on the pad. Only kanji count (kana only at the かな level). |
+| **1v1 Kanji Writing** | The kanji flashes for 3.5 s, then the reading + meaning stay. Type the kanji with a Japanese IME or draw it on the pad. Only kanji count (kana only at the かな level). |
 | **Boss Elimination** | 1–2 players vs the Black Dragon. Correct answers hit it; a mistake gets you clawed; fire breath every 30 s hits everyone. |
 | **1v1 Rapid** | Both players get the same kanji. First correct reading (kana or romaji) deals the damage. |
 | **Deck Duel** | Pick a hero, draft 10 kanji cards, then spend mana to cast them by writing the kanji. 1000 HP each. |
@@ -82,7 +82,10 @@ Heroes (one ability button per match, lasts 2 of your turns): **Goblin** casts 2
 kanji stays visible; **Wizard** is passive (2 random cards when out of cards, or +30 mana when out of
 mana, once each).
 
-The lobby has no level picker: both players press **Ready** and the duel starts.
+The lobby has no level picker (it shows an illustrated guide instead): both players press **Ready** and the
+duel starts. Hero pick and the first draft can still go **← Back to lobby**. In battle there's a chat, and
+while your opponent plays you can read the list of kanji in your hand (sorted, so you can't tell which card
+is which). A card's mana is paid when you play it, even if you then write it wrong.
 
 Draft: 20 cards (4 per colour), coin flip, picks of 2 until each player has 10. Colours, ranked by word
 difficulty (JLPT level, stroke count and word length):
@@ -95,7 +98,7 @@ difficulty (JLPT level, stroke count and word length):
 | Blue | 120 damage | 25 |
 | Light blue | 100 damage | 10 |
 
-Mana starts at 150/150, +10 each turn. You get 15 s to choose a card, then 20 s to cast it: the kanji flashes for 1 s, the reading and meaning
+Mana starts at 150/150, +10 each turn. You get 15 s to choose a card, then 20 s to write it (after the kanji's 3.5 s flash): the kanji flashes for 3.5 s, the reading and meaning
 stay, and you write it. Wrong or too slow → the card rips. Out of cards → a new draft round
 (Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
 match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime: the remaining cards are shown one by one and the first correct writer
@@ -114,6 +117,14 @@ uses it.
   [KanjiCanvas](https://github.com/asdfjkl/kanjicanvas) (MIT, `src/server/handwriting/KANJICANVAS-LICENSE.txt`).
   It's forgiving: a character counts if it's in the top 10 guesses or close to the best guess
   (`JUDGE` in `src/server/handwriting/judge.ts`).
+- **Handwriting a word**: write the whole word on one wide pad, left to right (faint dividers mark each
+  character). The server tries the most likely ways to split the strokes into characters and keeps the one
+  that reads best (`src/server/handwriting/segment.ts`).
+- **Connection bars** next to every player: 3 green < 150 ms, 2 yellow < 400 ms, 1 red slower (app-level ping
+  every 3 s).
+- **Saved progress**: accounts, XP and study sets live in Postgres and are never reset by an update. XP saved
+  before the steeper level curve was converted once so nobody lost a level. The admin **Users** page shows each
+  player's level, XP, learned spells / study-set size and crit, and warns if no database is connected.
 - **Forfeit** goes to the results screen; in the preparation phase **← Lobby** returns everyone to the lobby.
 - **Audio** is synthesised in the browser (no files): a chime that gets deeper and longer with the combo,
   win/lose jingles, and fantasy music in the menu and lobby only. It pauses when the tab is hidden.

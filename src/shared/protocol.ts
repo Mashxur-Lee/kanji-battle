@@ -38,7 +38,10 @@ export interface StudyItem { kanji: string; reading: string; meaning: string; le
 
 export type Role = 'user' | 'admin';
 export interface PublicUser { id: string; username: string; role: Role }
-export interface AdminUserRow extends PublicUser { banned: boolean; createdAt: string }
+export interface AdminUserRow extends PublicUser {
+  banned: boolean; createdAt: string;
+  xp?: number; level?: number; crit?: number; learned?: number; cards?: number;
+}
 
 export type Avatar = 'goblin' | 'kid' | 'human' | 'knight' | 'wizard';
 
@@ -55,6 +58,9 @@ export interface PlayerView {
   level: number; // account level (XP)
   ready: boolean; // Deck Duel lobby: starts when everyone is ready
 }
+
+export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number }
+export const CHAT_MAX_LENGTH = 140;
 
 export interface BossView { name: string; hp: number; maxHp: number }
 
@@ -106,6 +112,8 @@ export type ClientMessage =
   | { type: 'start' }
   | { type: 'ready' }
   | { type: 'lobby_ready'; ready: boolean }
+  | { type: 'chat'; text: string }
+  | { type: 'pong'; t: number }
   | { type: 'answer'; challengeId: number; text: string }
   | { type: 'write'; challengeId: number; chars: DrawnChar[] }
   | { type: 'skip'; challengeId: number }
@@ -126,6 +134,10 @@ export interface ChallengeMsg {
 
 export type ServerMessage =
   | { type: 'welcome'; user: PublicUser }
+  | { type: 'ping'; t: number }
+  /** round-trip times in ms per player in your room (null = offline) */
+  | { type: 'net'; rtt: Record<PlayerId, number | null> }
+  | { type: 'chat'; messages: ChatMessage[] }
   | { type: 'auth_error'; message: string }
   | { type: 'kicked'; message: string }
   | { type: 'joined'; code: string; you: PlayerId; mode: GameMode }
