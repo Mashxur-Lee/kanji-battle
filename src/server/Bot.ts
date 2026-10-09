@@ -37,6 +37,8 @@ export interface BotHost {
   deckPick: (id: PlayerId, cardId: string) => void;
   deckPlay: (id: PlayerId, cardId: string) => void;
   deckAbility: (id: PlayerId) => void;
+  deckCastReady: (id: PlayerId, castId: number) => void;
+  deckCastGo: (id: PlayerId, castId: number) => void;
 }
 
 const WRONG = '×'; // never a valid answer in any mode
@@ -119,8 +121,16 @@ export class Bot {
       return;
     }
     const cast = v.casting;
+    if (cast && cast.ownerId === this.id && cast.stage === 'read') {
+      this.later(`ready:${cast.castId}`, this.between(2_000, 6_000), () => this.host.deckCastReady(this.id, cast.castId)); // reads the meaning…
+      return;
+    }
+    if (cast && cast.ownerId === this.id && cast.stage === 'look') {
+      this.later(`go:${cast.castId}`, this.between(1_500, 4_000), () => this.host.deckCastGo(this.id, cast.castId)); // …studies the kanji…
+      return;
+    }
     if (cast && (cast.ownerId === this.id || (cast.overtime && cast.ownerId === ''))) {
-      this.writeCast(cast.castId, cast.overtime);
+      this.writeCast(cast.castId, cast.overtime); // …and writes it
       return;
     }
     if (v.phase === 'battle' && v.turn?.active === this.id && !cast) {
@@ -151,7 +161,7 @@ export class Bot {
   }
 
   private writeCast(castId: number, overtime: boolean) {
-    this.later(`cast:${castId}`, DECK_RULES.castFlashMs + this.between(overtime ? 3_000 : 4_000, overtime ? 14_000 : 15_000), () => {
+    this.later(`cast:${castId}`, (overtime ? DECK_RULES.castFlashMs : 0) + this.between(overtime ? 3_000 : 4_000, overtime ? 14_000 : 15_000), () => {
       const peek = this.host.peek(this.id);
       if (!peek || peek.challengeId !== castId) return;
       const right = this.rng() < botChance(this.level, peek.entry.level);

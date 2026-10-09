@@ -1248,7 +1248,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.7.5";
+  var VERSION = "0.7.6";
 
   // src/client/api.ts
   var today = () => {
@@ -2229,8 +2229,11 @@
     characterMs: 3e4,
     chooseMs: 15e3,
     // pick which card to play
-    castMs: 38500,
-    // then write its kanji: 3.5 s flash + 35 s
+    // casting your card, in three steps: read the meaning → see the kanji → write it from memory
+    castMs: 6e4,
+    // one minute for all three steps
+    castReadMs: 15e3,
+    // reading + meaning only; press Ready (or after 15 s) to see the kanji
     castFlashMs: 3500,
     matchMs: 8 * 6e4,
     // then overtime
@@ -2329,7 +2332,8 @@
       ["\u{1F9B8}", "Pick a hero (30 s)."],
       ["\u{1FA99}", "Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji."],
       ["\u{1F0CF}", `Your turn: ${DECK_RULES.chooseMs / 1e3} s to choose a card. Its mana is paid right away \u2014 even if you then miss.`],
-      ["\u270D\uFE0F", `The kanji shows for ${DECK_RULES.castFlashMs / 1e3} s, then only the reading + meaning stay. Write it (pad or Japanese keyboard) within ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1e3} s.`],
+      ["\u{1F4D6}", `The card flips: read its reading and meaning (up to ${DECK_RULES.castReadMs / 1e3} s), then press Ready to see the kanji.`],
+      ["\u270D\uFE0F", `Press CAST! \u2014 the kanji disappears and you write it (pad or Japanese keyboard). One minute for the whole spell.`],
       ["\u2705", `Right \u2192 the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow \u2192 the card rips.`],
       ["\u{1F4DC}", "While your opponent plays, you can read the list of kanji in your hand (not which card is which)."],
       ["\u{1F504}", "Out of cards \u2192 Round 2 draft. HP, mana and powers stay."],
@@ -2422,7 +2426,7 @@
     const myTurn = v.turn?.active === v.you;
     banner.classList.toggle("mine", myTurn || v.phase === "overtime");
     const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
-    const label = v.phase === "overtime" ? "Overtime! First to write it uses the card" : myTurn ? v.casting ? "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
+    const label = v.phase === "overtime" ? "Overtime! First to write it uses the card" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
     countdown("dkTurn", deadline, (left) => banner.textContent = `${label} \xB7 ${Math.ceil(left / 1e3)}s`);
     const canPlay = myTurn && !v.casting;
     $2("dkHand").replaceChildren(...v.hand.map((c) => {
@@ -2470,11 +2474,14 @@
     el.append(...kids);
     return el;
   };
+  var castKey = "";
   function renderCast(v) {
     const box = $2("dkCast");
     const c = v.casting;
     if (!c) {
       box.replaceChildren();
+      castKey = "";
+      stopCountdown("dkRead");
       if (writingCastId) {
         hooks.stopWriting();
         writingCastId = 0;
@@ -2482,11 +2489,16 @@
       $2("dkFeedback").replaceChildren();
       return;
     }
-    if (c.castId !== lastCastId) {
+    const mine = v.phase === "overtime" || c.ownerId === v.you;
+    const key = `${c.castId}:${c.stage}:${c.card.kanji ? 1 : 0}`;
+    if (key !== castKey) {
+      const fresh = c.castId !== lastCastId;
       lastCastId = c.castId;
+      castKey = key;
       const card = cardEl(c.card, { big: true });
+      if (!fresh) card.style.animation = "none";
       const top = h2("div", "dkc-half");
-      const k = h2("span", "dkc-k", c.card.kanji);
+      const k = h2("span", "dkc-k" + (c.card.kanji ? "" : " unknown"), c.card.kanji ?? "\uFF1F".repeat(Math.min(c.chars, 3)));
       k.lang = "ja";
       top.append(k);
       const bottom = h2("div", "dkc-half bottom");
@@ -2494,16 +2506,39 @@
       r2.lang = "ja";
       bottom.append(r2, h2("span", "dkc-m", c.card.meaning));
       card.append(top, bottom);
-      box.replaceChildren(card);
+      const actions = h2("div", "cast-actions");
+      if (!v.casting.overtime && mine && c.stage === "read") {
+        const t = h2("div", "cast-timer");
+        countdown("dkRead", c.readLeftMs ?? 0, (left) => t.textContent = `Read the meaning \u2014 the kanji shows in ${Math.ceil(left / 1e3)} s`);
+        const b = h2("button", "big cast-btn", "Ready \u25B8");
+        b.onclick = () => {
+          b.disabled = true;
+          hooks.send({ type: "deck_cast_ready", castId: c.castId });
+        };
+        actions.append(t, b);
+      } else if (!v.casting.overtime && mine && c.stage === "look") {
+        stopCountdown("dkRead");
+        const b = h2("button", "big cast-btn go", "CAST! \u2726");
+        b.onclick = () => {
+          b.disabled = true;
+          sfx.flip();
+          hooks.send({ type: "deck_cast_go", castId: c.castId });
+        };
+        actions.append(h2("div", "cast-timer", "Memorise it \u2014 it disappears when you cast"), b);
+      } else if (!mine) {
+        stopCountdown("dkRead");
+        actions.append(h2("div", "cast-timer", c.stage === "read" ? "Reading the spell\u2026" : c.stage === "look" ? "Studying the kanji\u2026" : "Writing the kanji\u2026"));
+      } else stopCountdown("dkRead");
+      box.replaceChildren(card, actions);
       clearTimeout(flashTimer);
-      if (c.flashMs !== null) flashTimer = window.setTimeout(() => k.classList.add("gone"), c.flashMs);
-      $2("dkFeedback").replaceChildren();
+      if (c.overtime && c.flashMs !== null && c.card.kanji) flashTimer = window.setTimeout(() => k.classList.add("gone"), c.flashMs);
+      if (fresh) $2("dkFeedback").replaceChildren();
     }
-    const mine = v.phase === "overtime" || c.ownerId === v.you;
-    if (mine && writingCastId !== c.castId) {
+    const writeNow = mine && (c.overtime || c.stage === "write");
+    if (writeNow && writingCastId !== c.castId) {
       writingCastId = c.castId;
-      hooks.beginWriting(c.castId, c.card.kanji);
-    } else if (!mine && writingCastId) {
+      hooks.beginWriting(c.castId, "\u25A1".repeat(c.chars));
+    } else if (!writeNow && writingCastId) {
       hooks.stopWriting();
       writingCastId = 0;
     }
@@ -2522,7 +2557,7 @@
       b.onclick = () => hooks.send({ type: "deck_character", character: c });
       grid.append(b);
     }
-    overlay.replaceChildren(backButton(v), title, grid, h2("p", "sub", `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1e3} s to choose a card (its mana is paid right away), then the kanji shows for ${DECK_RULES.castFlashMs / 1e3} s and you have ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1e3} s to write it. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards \u2192 a new draft round. Cards: light blue 100 dmg (10\u25C6) \xB7 blue 120 (25\u25C6) \xB7 yellow +60\u25C6 \xB7 green heal 100 (40\u25C6) \xB7 red 250 (70\u25C6).`));
+    overlay.replaceChildren(backButton(v), title, grid, h2("p", "sub", `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1e3} s to choose a card (its mana is paid right away), then read the meaning, press Ready to see the kanji and CAST! to write it \u2014 ${DECK_RULES.castMs / 1e3} s for the whole spell. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards \u2192 a new draft round. Cards: light blue 100 dmg (10\u25C6) \xB7 blue 120 (25\u25C6) \xB7 yellow +60\u25C6 \xB7 green heal 100 (40\u25C6) \xB7 red 250 (70\u25C6).`));
   }
   var coinShown = false;
   function renderDraft(v, me) {
@@ -2584,7 +2619,7 @@
         break;
       case "resolve":
         animateResolve(e, me);
-        if (e.ok) setTimeout(() => say(e.reading), 250);
+        if (e.ok) setTimeout(() => say(e.reading), 1100);
         break;
     }
   }
@@ -3224,7 +3259,7 @@
         if (msg.correct) {
           sfx.correct(msg.combo);
           const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
-          setTimeout(() => say(kana), 250);
+          setTimeout(() => say(kana), 1100);
         } else sfx.wrong();
         break;
       case "battle_update":

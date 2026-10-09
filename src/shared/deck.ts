@@ -32,7 +32,9 @@ export const DECK_RULES = {
   pickMs: 20_000,
   characterMs: 30_000,
   chooseMs: 15_000, // pick which card to play
-  castMs: 38_500, // then write its kanji: 3.5 s flash + 35 s
+  // casting your card, in three steps: read the meaning → see the kanji → write it from memory
+  castMs: 60_000, // one minute for all three steps
+  castReadMs: 15_000, // reading + meaning only; press Ready (or after 15 s) to see the kanji
   castFlashMs: 3500,
   matchMs: 8 * 60_000, // then overtime
   overtimeCardMs: 38_500, // 3.5 s flash + 35 s
@@ -76,12 +78,17 @@ export interface DeckPlayerView {
   pic: string | null;
 }
 
+export type CastStage = 'read' | 'look' | 'write';
 export interface DeckCastView {
   castId: number;
   ownerId: string;
-  card: DeckCardView & { kanji: string; reading: string; meaning: string };
-  flashMs: number | null; // ms the kanji stays visible; null = stays (Witch's Sight)
-  deadlineMs: number; // time left
+  /** kanji is only sent while it may be seen (the "look" step, Witch's Sight, or the overtime flash) */
+  card: DeckCardView & { kanji?: string; reading: string; meaning: string };
+  stage: CastStage;
+  chars: number; // how many characters to write
+  flashMs: number | null; // overtime: ms the kanji stays visible (null = no flash timer)
+  deadlineMs: number; // time left for the whole cast (1 minute)
+  readLeftMs: number | null; // "read" step: time until the kanji shows by itself
   overtime: boolean;
 }
 
@@ -107,7 +114,7 @@ export type DeckEvent =
   | { kind: 'pick'; playerId: string; color: CardColor }
   | { kind: 'ability'; playerId: string; character: DeckCharacter }
   | { kind: 'wizard'; playerId: string; what: 'cards' | 'mana' }
-  | { kind: 'cast'; playerId: string; color: CardColor; kanji: string }
+  | { kind: 'cast'; playerId: string; color: CardColor }
   | { kind: 'resolve'; playerId: string; color: CardColor; kanji: string; reading: string; meaning: string; ok: boolean; amount: number; targetId: string; refund?: number; recognized?: string; overtime: boolean }
   | { kind: 'overtime' }
   | { kind: 'stuck'; playerId: string; why: 'no_cards' | 'no_mana' };

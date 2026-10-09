@@ -133,6 +133,8 @@ export class Session implements Client {
       case 'deck_pick': return room.deckPick(user.id, msg.cardId);
       case 'deck_play': return room.deckPlay(user.id, msg.cardId);
       case 'deck_ability': return room.deckAbility(user.id);
+      case 'deck_cast_ready': return room.deckCastReady(user.id, msg.castId);
+      case 'deck_cast_go': return room.deckCastGo(user.id, msg.castId);
       case 'back_to_lobby': return room.backToLobby(user.id);
       case 'start': return room.start(user.id);
       case 'ready': return room.ready(user.id);

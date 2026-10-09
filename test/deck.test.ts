@@ -28,7 +28,11 @@ function draftAll(s: ReturnType<typeof setup>) {
 }
 const writeRight = (s: ReturnType<typeof setup>, id: string) => {
   const c = s.view(id).casting!;
-  s.g.submit(id, c.castId, c.card.kanji);
+  if (!c.overtime) {
+    if (s.view(id).casting!.stage === 'read') s.g.castReady(id, c.castId);
+    if (s.view(id).casting!.stage === 'look') s.g.castGo(id, c.castId);
+  }
+  s.g.submit(id, c.castId, s.g.peek(id)!.entry.kanji);
 };
 
 test('draft pool: 20 cards, 4 per level, coloured by difficulty rank', () => {
@@ -71,8 +75,8 @@ test('casting: mana cost, damage, heal, mana card; wrong writing rips the card',
   const attack = s.view(a).hand.find((c) => CARD_SPECS[c.color].kind === 'attack')!;
   s.g.play(a, attack.cardId);
   const cast = s.view(b).casting!;
-  assert.equal(cast.card.kanji.length > 0 && cast.flashMs === 3500, true, 'opponent sees the card being cast');
-  s.g.submit(b, cast.castId, cast.card.kanji); // the opponent can't write it
+  assert.deepEqual([cast.stage, cast.card.meaning.length > 0], ['read', true], 'opponent sees the card being cast');
+  s.g.submit(b, cast.castId, s.g.peek(a)!.entry.kanji); // the opponent can't write it
   writeRight(s, a);
   const spec = CARD_SPECS[attack.color];
   const pa = s.view(a).players.find((p) => p.id === a)!, pb = s.view(a).players.find((p) => p.id === b)!;
@@ -86,7 +90,7 @@ test('casting: mana cost, damage, heal, mana card; wrong writing rips the card',
   const manaBefore = s.view(b).players.find((p) => p.id === b)!.mana;
   s.g.play(b, bc.cardId);
   assert.equal(s.view(b).players.find((p) => p.id === b)!.mana, manaBefore - CARD_SPECS[bc.color].cost, 'mana is paid when the card is played');
-  s.g.submit(b, s.view(b).casting!.castId, 'ちがう');
+  { const id = s.view(b).casting!.castId; s.g.castReady(b, id); s.g.castGo(b, id); s.g.submit(b, id, 'ちがう'); }
   const last = s.devents().at(-1);
   assert.deepEqual([last.kind, last.ok], ['resolve', false]);
   assert.equal(s.view(b).hand.length, 9);
@@ -161,7 +165,7 @@ test('overtime: remaining cards shown one by one, first correct writer uses it',
   assert.ok(over.stats.A && over.stats.B);
 });
 
-test('separate clocks: 15 s to choose a card, then 20 s to write it', () => {
+test('separate clocks: 15 s to choose a card, then one minute to cast it', () => {
   const s = setup();
   s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
   const first = s.view('A').turn!;
@@ -265,4 +269,47 @@ test('hero power: 100 mana, then 4 turns cooldown; mana starts at 200', () => {
   assert.deepEqual(cds, [3, 2, 1, 0], 'ready again on the 4th turn after');
   s.g.ability(p);
   assert.equal(me().abilityCooldown, 4, 'can use it again');
+});
+
+test('casting steps: read (15 s, kanji hidden) → Ready → look (kanji shown) → CAST! → write (kanji hidden); one minute in all', () => {
+  const s = setup();
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
+  const a = s.view('A').turn!.active, b = a === 'A' ? 'B' : 'A';
+  const card = s.view(a).hand.find((c) => CARD_SPECS[c.color].cost <= RULES.maxMana)!;
+  s.g.play(a, card.cardId);
+  let c = s.view(a).casting!;
+  assert.deepEqual([c.stage, c.card.kanji, c.readLeftMs, c.deadlineMs], ['read', undefined, RULES.castReadMs, RULES.castMs]);
+  const kanji = s.g.peek(a)!.entry.kanji;
+  s.g.submit(a, c.castId, kanji); // can't write before seeing it
+  assert.equal(s.view(a).casting?.castId, c.castId, 'nothing happens while reading');
+  s.g.castGo(a, c.castId); // CAST! is not available yet
+  assert.equal(s.view(a).casting!.stage, 'read');
+  s.g.castReady(b, c.castId); // only the caster presses Ready
+  assert.equal(s.view(a).casting!.stage, 'read');
+  tick(RULES.castReadMs); // the kanji shows on its own after 15 s
+  c = s.view(a).casting!;
+  assert.deepEqual([c.stage, c.card.kanji], ['look', kanji]);
+  assert.equal(s.view(b).casting!.card.kanji, kanji, 'the opponent sees it too');
+  tick(5000);
+  s.g.castGo(a, c.castId);
+  c = s.view(a).casting!;
+  assert.deepEqual([c.stage, c.card.kanji], ['write', undefined], 'the kanji disappears when you cast');
+  assert.equal(c.deadlineMs, RULES.castMs - RULES.castReadMs - 5000, 'one clock for the whole spell');
+  tick(c.deadlineMs);
+  const r = s.devents().filter((e) => e.kind === 'resolve').at(-1);
+  assert.equal(r.ok, false, 'too slow → the card rips');
+  assert.equal(s.view(a).turn!.active, b);
+});
+
+test('Ready before the 15 s are up shows the kanji at once', () => {
+  const s = setup();
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
+  const a = s.view('A').turn!.active;
+  s.g.play(a, s.view(a).hand.find((c) => CARD_SPECS[c.color].cost <= RULES.maxMana)!.cardId);
+  const id = s.view(a).casting!.castId;
+  tick(2000);
+  s.g.castReady(a, id);
+  assert.equal(s.view(a).casting!.stage, 'look');
+  tick(RULES.castReadMs); // the old read timer must not fire again
+  assert.equal(s.view(a).casting!.stage, 'look');
 });

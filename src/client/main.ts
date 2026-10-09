@@ -207,7 +207,7 @@ function onMessage(msg: ServerMessage) {
         audio.sfx.correct(msg.combo);
         // say the word (romaji answers at the kana level: say the kana itself)
         const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
-        setTimeout(() => voice.say(kana), 250);
+        setTimeout(() => voice.say(kana), 1100);
       } else audio.sfx.wrong();
       break;
     case 'battle_update':
