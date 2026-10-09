@@ -4,91 +4,6 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
-  // src/client/cursor.ts
-  var G = 32;
-  var COLORS = {
-    k: "#1b1530",
-    // outline
-    s: "#f3c9a1",
-    // skin
-    S: "#d99f74",
-    // skin shade / finger creases
-    w: "#8a5a2b",
-    // handle
-    W: "#c08a4a",
-    // handle highlight
-    m: "#c9ced8",
-    // metal ferrule
-    b: "#2a2230",
-    // bristles
-    B: "#000000",
-    // wet ink tip
-    c: "#3b5bdb",
-    // sleeve
-    C: "#9fb4ff"
-    // sleeve cuff
-  };
-  function draw() {
-    const g = Array.from({ length: G }, () => Array(G).fill(null));
-    const set = (x, y, c) => {
-      if (x >= 0 && y >= 0 && x < G && y < G) g[y][x] = c;
-    };
-    for (let t = 0; t <= 25; t++) {
-      const x = 1 + t, y = 30 - t;
-      if (t <= 1) set(x, y, "B");
-      else if (t <= 7) {
-        set(x, y, "b");
-        set(x + 1, y, "b");
-        if (t >= 4 && t <= 6) set(x, y - 1, "b");
-      } else if (t <= 9) {
-        set(x, y, "m");
-        set(x + 1, y, "m");
-        set(x, y - 1, "m");
-      } else {
-        set(x, y, "w");
-        set(x + 1, y, "W");
-        set(x, y - 1, "w");
-      }
-    }
-    const hx = (y) => 31 - y;
-    for (let f = 0; f < 4; f++) {
-      const y0 = 11 + 2 * f;
-      for (const y of [y0, y0 + 1]) {
-        const x0 = hx(y) - 2, x1 = hx(y) + 6;
-        for (let x = x0; x <= x1; x++) {
-          if (y === y0 + 1 && x === x0) continue;
-          set(x, y, y === y0 + 1 && x > x0 + 1 ? "S" : "s");
-        }
-      }
-    }
-    for (let y = 10; y <= 18; y++) for (let x = hx(y) + 7; x <= Math.min(31, hx(y) + 11); x++) set(x, y, x >= hx(y) + 10 ? "S" : "s");
-    for (let x = hx(9) - 2; x <= hx(9) + 4; x++) set(x, 9, "s");
-    for (let x = hx(10) - 3; x <= hx(10) + 2; x++) set(x, 10, x <= hx(10) - 1 ? "s" : "S");
-    for (let x = hx(8) + 1; x <= hx(8) + 5; x++) set(x, 8, "s");
-    for (let y = 3; y <= 16; y++) for (let x = hx(y) + 12; x <= 31; x++) if (x - (hx(y) + 12) < 4) set(x, y, x === hx(y) + 12 ? "C" : "c");
-    const filled = g.map((row) => row.map((c) => c !== null));
-    for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
-      if (filled[y][x]) continue;
-      if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => filled[y + dy]?.[x + dx])) g[y][x] = "k";
-    }
-    return g;
-  }
-  var css = "";
-  function brushCursor() {
-    if (css) return css;
-    const g = draw();
-    let rects = "";
-    g.forEach((row, y) => row.forEach((c, x) => {
-      if (c) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${COLORS[c]}"/>`;
-    }));
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 ${G} ${G}" shape-rendering="crispEdges">${rects}</svg>`;
-    css = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 61, crosshair`;
-    return css;
-  }
-
-  // src/shared/version.ts
-  var VERSION = "0.6.3";
-
   // src/shared/protocol.ts
   var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
   var LEVEL_LABEL = { KANA: "\u304B\u306A", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
@@ -98,553 +13,6 @@
     boss: "Boss Elimination",
     rapid: "1v1 Rapid",
     deck: "Deck Duel"
-  };
-
-  // src/client/api.ts
-  var today = () => {
-    const d = /* @__PURE__ */ new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-  var TOKEN_KEY = "kb:token";
-  var getToken = () => {
-    try {
-      return localStorage.getItem(TOKEN_KEY) ?? "";
-    } catch {
-      return "";
-    }
-  };
-  var setToken = (t) => {
-    try {
-      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
-    } catch {
-    }
-  };
-  var ApiError = class extends Error {
-    constructor(message, status) {
-      super(message);
-      __publicField(this, "status", status);
-    }
-  };
-  async function call(method, url, body) {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
-      body: body === void 0 ? void 0 : JSON.stringify(body)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
-    return data;
-  }
-  var api = {
-    login: (username, password) => call("POST", "/api/login", { username, password }),
-    register: (username, password) => call("POST", "/api/register", { username, password }),
-    me: () => call("GET", "/api/me"),
-    setBackground: (background) => call("PUT", "/api/me/background", { background }),
-    study: () => call("GET", `/api/study?today=${today()}`),
-    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
-    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
-    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
-    users: () => call("GET", "/api/admin/users"),
-    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
-  };
-
-  // src/client/audio.ts
-  var PREFS_KEY = "kb:audio";
-  var prefs = (() => {
-    try {
-      return { radio: true, sfx: true, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
-    } catch {
-      return { radio: true, sfx: true };
-    }
-  })();
-  var savePrefs = () => {
-    try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
-    } catch {
-    }
-  };
-  var ctx = null;
-  var sfxBus;
-  var musicBus;
-  var reverb;
-  var scene = "menu";
-  function ensure() {
-    if (ctx) return ctx;
-    const AC = window.AudioContext ?? window.webkitAudioContext;
-    if (!AC) return null;
-    ctx = new AC();
-    const comp = ctx.createDynamicsCompressor();
-    comp.connect(ctx.destination);
-    sfxBus = ctx.createGain();
-    sfxBus.gain.value = 0.55;
-    sfxBus.connect(comp);
-    musicBus = ctx.createGain();
-    musicBus.gain.value = 0;
-    musicBus.connect(comp);
-    reverb = ctx.createConvolver();
-    const len = ctx.sampleRate * 2.6;
-    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-      const d = ir.getChannelData(ch);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
-    }
-    reverb.buffer = ir;
-    const wet = ctx.createGain();
-    wet.gain.value = 0.35;
-    reverb.connect(wet).connect(comp);
-    return ctx;
-  }
-  document.addEventListener("visibilitychange", () => {
-    if (!ctx) return;
-    if (document.visibilityState === "hidden") void ctx.suspend();
-    else void ctx.resume().then(() => syncMusic());
-  });
-  function unlock() {
-    const c = ensure();
-    if (!c) return;
-    if (c.state === "suspended" && document.visibilityState === "visible") void c.resume();
-    syncMusic();
-  }
-  function setScene(s) {
-    scene = s;
-    syncMusic();
-  }
-  function syncMusic() {
-    if (!ctx) return;
-    if (prefs.radio && scene === "menu" && document.visibilityState === "visible") radio.start();
-    else radio.stop();
-  }
-  var midi = (n) => 440 * 2 ** ((n - 69) / 12);
-  function tone(freq, at, dur, opts = {}) {
-    const c = ctx;
-    const o = c.createOscillator();
-    const g = c.createGain();
-    o.type = opts.type ?? "sine";
-    o.frequency.setValueAtTime(freq, at);
-    if (opts.detune) o.detune.value = opts.detune;
-    if (opts.to) o.frequency.exponentialRampToValueAtTime(opts.to, at + dur);
-    const peak = opts.gain ?? 0.3;
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(peak, at + (opts.attack ?? 8e-3));
-    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
-    o.connect(g).connect(opts.bus ?? sfxBus);
-    if (opts.send) {
-      const s = c.createGain();
-      s.gain.value = opts.send;
-      g.connect(s).connect(reverb);
-    }
-    o.start(at);
-    o.stop(at + dur + 0.05);
-  }
-  function bell(freq, at, dur, gain, bus = sfxBus) {
-    tone(freq, at, dur, { gain, bus, send: 0.6, attack: 3e-3 });
-    tone(freq * 2.76, at, dur * 0.4, { gain: gain * 0.25, bus, send: 0.6, attack: 2e-3 });
-    tone(freq * 5.4, at, dur * 0.18, { gain: gain * 0.08, bus, send: 0.6, attack: 2e-3 });
-  }
-  function noise(at, dur, gain, cutoff, type = "lowpass") {
-    const c = ctx;
-    const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-    const src = c.createBufferSource();
-    src.buffer = buf;
-    const f = c.createBiquadFilter();
-    f.type = type;
-    f.frequency.value = cutoff;
-    const g = c.createGain();
-    g.gain.value = gain;
-    src.connect(f).connect(g).connect(sfxBus);
-    src.start(at);
-  }
-  var sfxOk = () => prefs.sfx && ensure() !== null && ctx.state === "running";
-  var sfx = {
-    /**
-     * Spell cast: a magical chime. Each combo step makes it deeper and longer (like a multi-kill
-     * sound), from ×5 on it stays at its deepest, fullest version.
-     */
-    correct(combo = 1) {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      const step = Math.min(Math.max(combo, 1), 5) - 1;
-      const root = 88 - step * 5;
-      const ring = 0.7 + step * 0.45;
-      const notes = [0, 7, 12, 16].map((i) => root + i);
-      notes.forEach((n, i) => bell(midi(n), t + i * (0.045 + step * 0.012), ring, 0.16 + step * 0.015));
-      if (step >= 1) tone(midi(root - 24), t, ring * 1.2, { gain: 0.12 + step * 0.05, send: 0.3, attack: 0.01 });
-      if (step >= 4) [0.16, 0.32].forEach((dt) => bell(midi(root + 12), t + dt, 1.2, 0.1));
-      noise(t, 0.25, 0.05, 6e3, "highpass");
-    },
-    /** Miss / skip / timeout — soft descending fizzle. */
-    wrong() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      tone(330, t, 0.3, { type: "triangle", gain: 0.14, to: 140 });
-      tone(311, t + 0.03, 0.3, { type: "triangle", gain: 0.08, to: 130 });
-      noise(t, 0.2, 0.06, 900);
-    },
-    /** You took damage — thump. */
-    hurt() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      tone(140, t, 0.22, { gain: 0.35, to: 50 });
-      noise(t, 0.15, 0.25, 900);
-    },
-    /** Your spell lands on the opponent. */
-    impact() {
-      if (sfxOk()) noise(ctx.currentTime, 0.12, 0.15, 2500);
-    },
-    heal() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      [72, 76, 79, 84].forEach((n, i) => bell(midi(n), t + i * 0.08, 0.9, 0.1));
-    },
-    mana() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      for (let i = 0; i < 6; i++) bell(midi(84 + i * 5 % 12), t + i * 0.05, 0.5, 0.06);
-    },
-    rip() {
-      if (!sfxOk()) return;
-      noise(ctx.currentTime, 0.35, 0.3, 3e3, "bandpass");
-    },
-    flip() {
-      if (sfxOk()) noise(ctx.currentTime, 0.08, 0.12, 4e3, "highpass");
-    },
-    inhale() {
-      if (sfxOk()) tone(55, ctx.currentTime, 2.6, { type: "sawtooth", gain: 0.08, to: 110, attack: 1.5 });
-    },
-    fire() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      noise(t, 1.2, 0.5, 1400);
-      tone(70, t, 1.1, { type: "sawtooth", gain: 0.12, to: 40 });
-    },
-    claw() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      noise(t, 0.18, 0.4, 6e3);
-      tone(160, t + 0.05, 0.2, { gain: 0.3, to: 60 });
-    },
-    tick() {
-      if (sfxOk()) bell(1320, ctx.currentTime, 0.25, 0.08);
-    },
-    go() {
-      if (sfxOk()) bell(midi(88), ctx.currentTime, 0.8, 0.14);
-    },
-    /** Victory: a bright fanfare (major, rising, with harmony and a final bell). */
-    win() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      const brass = (n, at, dur) => {
-        tone(midi(n), t + at, dur, { type: "sawtooth", gain: 0.07, attack: 0.03, send: 0.4 });
-        tone(midi(n), t + at, dur, { type: "triangle", gain: 0.12, attack: 0.02, send: 0.4, detune: 6 });
-      };
-      [[67, 0], [72, 0.14], [76, 0.28]].forEach(([n, at]) => brass(n, at, 0.22));
-      brass(79, 0.44, 0.9);
-      brass(76, 0.44, 0.9);
-      brass(72, 0.44, 0.9);
-      bell(midi(91), t + 0.44, 1.8, 0.12);
-      tone(midi(48), t + 0.44, 1.2, { gain: 0.2, send: 0.3 });
-    },
-    /** Defeat: slow, falling minor phrase. */
-    lose() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      [[69, 0], [68, 0.38], [67, 0.76], [62, 1.14]].forEach(([n, at]) => {
-        tone(midi(n), t + at, 0.7, { type: "triangle", gain: 0.13, attack: 0.04, send: 0.5 });
-      });
-      tone(midi(38), t + 1.14, 1.8, { gain: 0.16, send: 0.4, attack: 0.05 });
-    }
-  };
-  var radio = (() => {
-    const BPM = 84;
-    const STEP = 60 / BPM / 2;
-    const PROG = [
-      [50, 57, 62, 65],
-      [46, 53, 58, 62],
-      [41, 48, 53, 57],
-      [48, 55, 60, 64],
-      [50, 57, 62, 65],
-      [43, 50, 55, 58],
-      [45, 52, 57, 61],
-      [50, 57, 62, 65]
-    ];
-    const MELODY = [
-      [74, 0, 77, 0, 76, 74, 72, 0],
-      [74, 0, 0, 70, 72, 0, 74, 0],
-      [72, 0, 69, 0, 72, 74, 77, 0],
-      [76, 0, 74, 72, 74, 0, 0, 0],
-      [74, 0, 77, 0, 81, 0, 79, 77],
-      [79, 0, 77, 0, 74, 0, 70, 0],
-      [73, 0, 76, 0, 79, 77, 76, 73],
-      [74, 0, 0, 0, 0, 0, 0, 0]
-    ];
-    let timer;
-    let nextTime = 0;
-    let step = 0;
-    function strings(notes, at, dur) {
-      const c = ctx;
-      const lp = c.createBiquadFilter();
-      lp.type = "lowpass";
-      lp.frequency.value = 1100;
-      const g = c.createGain();
-      g.gain.setValueAtTime(1e-4, at);
-      g.gain.exponentialRampToValueAtTime(0.035, at + 0.9);
-      g.gain.setValueAtTime(0.035, at + dur - 0.6);
-      g.gain.exponentialRampToValueAtTime(1e-4, at + dur + 0.5);
-      lp.connect(g).connect(musicBus);
-      const s = c.createGain();
-      s.gain.value = 0.5;
-      g.connect(s).connect(reverb);
-      for (const n of notes) for (const d of [-7, 7]) {
-        const o = c.createOscillator();
-        o.type = "sawtooth";
-        o.frequency.value = midi(n);
-        o.detune.value = d;
-        o.connect(lp);
-        o.start(at);
-        o.stop(at + dur + 0.6);
-      }
-    }
-    function harp(n, at) {
-      tone(midi(n), at, 1.4, { type: "triangle", gain: 0.05, bus: musicBus, send: 0.5, attack: 3e-3 });
-      tone(midi(n + 12), at, 0.5, { gain: 0.015, bus: musicBus, send: 0.5, attack: 3e-3 });
-    }
-    function flute(n, at, dur) {
-      const c = ctx;
-      const o = c.createOscillator();
-      const vib = c.createOscillator();
-      const vg = c.createGain();
-      vib.frequency.value = 5.2;
-      vg.gain.value = 4;
-      vib.connect(vg).connect(o.frequency);
-      o.type = "sine";
-      o.frequency.value = midi(n);
-      const g = c.createGain();
-      g.gain.setValueAtTime(1e-4, at);
-      g.gain.exponentialRampToValueAtTime(0.045, at + 0.06);
-      g.gain.setValueAtTime(0.04, at + dur * 0.7);
-      g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
-      o.connect(g).connect(musicBus);
-      const s = c.createGain();
-      s.gain.value = 0.7;
-      g.connect(s).connect(reverb);
-      o.start(at);
-      vib.start(at);
-      o.stop(at + dur + 0.05);
-      vib.stop(at + dur + 0.05);
-    }
-    function drum(at, accent) {
-      tone(accent ? 62 : 55, at, 0.45, { gain: accent ? 0.16 : 0.09, to: 38, bus: musicBus, attack: 4e-3 });
-    }
-    function schedule() {
-      const c = ctx;
-      while (nextTime < c.currentTime + 0.5) {
-        const bar = Math.floor(step / 8) % PROG.length;
-        const inBar = step % 8;
-        const chord = PROG[bar];
-        const loop = Math.floor(step / (8 * PROG.length));
-        if (inBar === 0) {
-          strings(chord.slice(1), nextTime, STEP * 8);
-          tone(midi(chord[0] - 12), nextTime, STEP * 7, { gain: 0.07, bus: musicBus, attack: 0.05 });
-        }
-        const arp = [0, 1, 2, 3, 2, 1, 2, 3][inBar];
-        harp(chord[arp] + 12, nextTime);
-        if (inBar === 0 || inBar === 3 || inBar === 6) drum(nextTime, inBar === 0);
-        if (loop % 3 !== 0) {
-          const n = MELODY[bar][inBar];
-          if (n) {
-            let len = 1;
-            while (inBar + len < 8 && MELODY[bar][inBar + len] === 0) len++;
-            flute(n, nextTime, STEP * Math.min(len, 4) * 0.95);
-          }
-        }
-        nextTime += STEP;
-        step++;
-      }
-    }
-    return {
-      start() {
-        if (!ctx || timer !== void 0) return;
-        nextTime = ctx.currentTime + 0.15;
-        musicBus.gain.cancelScheduledValues(ctx.currentTime);
-        musicBus.gain.setTargetAtTime(0.7, ctx.currentTime, 0.8);
-        schedule();
-        timer = window.setInterval(schedule, 150);
-      },
-      stop() {
-        if (!ctx || timer === void 0) return;
-        clearInterval(timer);
-        timer = void 0;
-        musicBus.gain.setTargetAtTime(0, ctx.currentTime, 0.25);
-      }
-    };
-  })();
-  var isRadioOn = () => prefs.radio;
-  var isSfxOn = () => prefs.sfx;
-  function setRadio(on) {
-    prefs.radio = on;
-    savePrefs();
-    ensure();
-    if (on && ctx?.state === "suspended") void ctx.resume();
-    syncMusic();
-  }
-  function setSfx(on) {
-    prefs.sfx = on;
-    savePrefs();
-  }
-
-  // src/client/backgrounds.ts
-  var seed = 1;
-  var rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
-  var W = 1600;
-  var H = 900;
-  function sky(id, stops) {
-    return `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join("")}</linearGradient>`;
-  }
-  function stars(n, maxY, color = "#fff") {
-    let s = "";
-    for (let i = 0; i < n; i++) s += `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(rnd() * maxY).toFixed(0)}" r="${(rnd() * 1.6 + 0.4).toFixed(1)}" fill="${color}" opacity="${(rnd() * 0.6 + 0.3).toFixed(2)}"/>`;
-    return s;
-  }
-  function pines(y, count, minH, maxH, color) {
-    let s = "";
-    for (let i = 0; i < count; i++) {
-      const x = i / count * W + rnd() * (W / count) - 20;
-      const h3 = minH + rnd() * (maxH - minH);
-      const w = h3 * 0.38;
-      s += `<polygon points="${x},${y} ${x + w / 2},${y - h3} ${x + w},${y}" fill="${color}"/>`;
-      s += `<polygon points="${x + w * 0.12},${y - h3 * 0.35} ${x + w / 2},${y - h3 * 1.02} ${x + w * 0.88},${y - h3 * 0.35}" fill="${color}"/>`;
-    }
-    return s + `<rect x="0" y="${y}" width="${W}" height="${H - y}" fill="${color}"/>`;
-  }
-  function hills(y, amp, color, phase = 0) {
-    let d = `M0 ${H} L0 ${y}`;
-    for (let x = 0; x <= W; x += 40) d += ` L${x} ${(y + Math.sin(x / 210 + phase) * amp + Math.sin(x / 90 + phase * 2) * amp * 0.25).toFixed(1)}`;
-    return `<path d="${d} L${W} ${H} Z" fill="${color}"/>`;
-  }
-  function deadTree(x, y, h3, color) {
-    const b = (x1, y1, x2, y2, w) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`;
-    return b(x, y, x + 6, y - h3, 14) + b(x + 4, y - h3 * 0.55, x - h3 * 0.35, y - h3 * 0.85, 7) + b(x + 5, y - h3 * 0.7, x + h3 * 0.4, y - h3 * 0.95, 6) + b(x - h3 * 0.2, y - h3 * 0.75, x - h3 * 0.3, y - h3, 4) + b(x + 6, y - h3, x + 30, y - h3 * 1.15, 4);
-  }
-  var SCENES = {
-    forest: () => `
-    <defs>${sky("sk", [[0, "#0b1d2a"], [0.55, "#1f4a4a"], [1, "#3d6b52"]])}</defs>
-    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(70, 380)}
-    <circle cx="1220" cy="170" r="70" fill="#f1edd0" opacity=".9"/><circle cx="1220" cy="170" r="120" fill="#f1edd0" opacity=".06"/>
-    ${pines(640, 22, 260, 420, "#173c35")}${pines(720, 18, 200, 330, "#0f2a25")}${pines(820, 14, 160, 260, "#081a17")}`,
-    swamp: () => `
-    <defs>${sky("sk", [[0, "#14121f"], [0.5, "#2c3a2e"], [1, "#4b5a3a"]])}
-      <linearGradient id="wt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f3d2c"/><stop offset="1" stop-color="#121a12"/></linearGradient></defs>
-    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(40, 300, "#cfe8b0")}
-    <circle cx="380" cy="190" r="55" fill="#d9e6a6" opacity=".55"/>
-    ${hills(560, 26, "#1d2a1e")}
-    ${[160, 520, 980, 1380].map((x, i) => deadTree(x, 640, 260 + i * 25, "#141c14")).join("")}
-    <rect x="0" y="640" width="${W}" height="260" fill="url(#wt)"/>
-    ${Array.from({ length: 14 }, () => `<ellipse cx="${(rnd() * W).toFixed(0)}" cy="${(660 + rnd() * 200).toFixed(0)}" rx="${(20 + rnd() * 30).toFixed(0)}" ry="7" fill="#3f6b33" opacity=".8"/>`).join("")}
-    ${Array.from({ length: 26 }, () => `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(380 + rnd() * 380).toFixed(0)}" r="2.5" fill="#d8ff7a" opacity=".85"/>`).join("")}
-    <rect y="560" width="${W}" height="120" fill="#a8b89a" opacity=".07"/>`,
-    plains: () => `
-    <defs>${sky("sk", [[0, "#2a1a45"], [0.45, "#a8506a"], [0.75, "#f0a060"], [1, "#f6d08a"]])}</defs>
-    <rect width="${W}" height="${H}" fill="url(#sk)"/>
-    <circle cx="800" cy="560" r="120" fill="#ffe2a0" opacity=".9"/>
-    ${Array.from({ length: 6 }, (_, i) => `<ellipse cx="${200 + i * 260}" cy="${150 + i % 3 * 50}" rx="${90 + i % 2 * 40}" ry="18" fill="#f7c7b0" opacity=".35"/>`).join("")}
-    ${hills(600, 30, "#6a4a6a", 0.5)}${hills(660, 34, "#4a5a3a", 1.7)}${hills(740, 26, "#33472b", 3)}
-    <rect x="1180" y="560" width="14" height="110" fill="#2a2a2a"/><g transform="translate(1187 560)" fill="#2a2a2a">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-80" width="8" height="80" transform="rotate(${a + 20})"/>`).join("")}</g>
-    ${Array.from({ length: 70 }, () => {
-      const x = rnd() * W, y = 760 + rnd() * 140;
-      return `<line x1="${x.toFixed(0)}" y1="${y.toFixed(0)}" x2="${(x + 4).toFixed(0)}" y2="${(y - 18).toFixed(0)}" stroke="#23331d" stroke-width="3"/>`;
-    }).join("")}`,
-    castle: () => {
-      const tower = (x, w, h3) => `<rect x="${x}" y="${640 - h3}" width="${w}" height="${h3}" fill="#141327"/><polygon points="${x - 10},${640 - h3} ${x + w / 2},${560 - h3} ${x + w + 10},${640 - h3}" fill="#1b1a33"/>` + Array.from({ length: Math.floor(h3 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h3 + 40 + i * 70}" width="12" height="20" fill="#ffcf6a" opacity="${rnd() > 0.35 ? 0.9 : 0.15}"/>`).join("");
-      return `
-    <defs>${sky("sk", [[0, "#070a1e"], [0.6, "#1c2554"], [1, "#3a3f78"]])}</defs>
-    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(120, 450)}
-    <circle cx="300" cy="150" r="60" fill="#e8e6ff" opacity=".85"/>
-    ${hills(640, 18, "#10122a")}
-    <rect x="560" y="430" width="480" height="210" fill="#141327"/>
-    ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="#141327"/>`).join("")}
-    ${tower(500, 90, 330)}${tower(1010, 90, 330)}${tower(740, 120, 420)}
-    <polygon points="760,640 800,560 840,640" fill="#2a2140"/>
-    <line x1="800" y1="140" x2="800" y2="96" stroke="#141327" stroke-width="4"/><polygon points="800,96 840,106 800,116" fill="#c2364d"/>
-    ${hills(760, 14, "#0b0c1c", 2)}`;
-    },
-    worldtree: () => {
-      const leaves = (y, n, rmin, rmax, col, op) => Array.from({ length: n }, (_, i) => `<circle cx="${(i / n * W + rnd() * 80).toFixed(0)}" cy="${(y + rnd() * 50).toFixed(0)}" r="${(rmin + rnd() * (rmax - rmin)).toFixed(0)}" fill="${col}" opacity="${op}"/>`).join("");
-      return `
-    <defs>${sky("sk", [[0, "#0b0626"], [0.45, "#2a1260"], [0.8, "#1d4f78"], [1, "#2c8a8a"]])}
-      <radialGradient id="glow"><stop offset="0" stop-color="#9ff5c8" stop-opacity=".5"/><stop offset="1" stop-color="#9ff5c8" stop-opacity="0"/></radialGradient></defs>
-    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(170, 560, "#d7ccff")}
-    <circle cx="1240" cy="170" r="54" fill="#fff4d6" opacity=".9"/><circle cx="1240" cy="170" r="130" fill="#fff4d6" opacity=".07"/>
-    <ellipse cx="800" cy="620" rx="900" ry="200" fill="url(#glow)"/>
-    ${Array.from({ length: 10 }, (_, i) => `<ellipse cx="${i * 180}" cy="${600 + i % 3 * 22}" rx="220" ry="40" fill="#efeaff" opacity=".22"/>`).join("")}
-    ${leaves(640, 26, 50, 90, "#14402f", 1)}
-    ${leaves(690, 30, 45, 80, "#1b5a3c", 1)}
-    <path d="M-40 800 C 300 730, 650 760, 820 740 S 1300 735, 1640 780 L1640 900 L-40 900 Z" fill="#3a2418"/>
-    <path d="M-40 840 C 400 800, 760 820, 940 800 S 1400 810, 1640 840 L1640 900 L-40 900 Z" fill="#2b190f"/>
-    ${leaves(760, 22, 26, 46, "#2f9e6a", 0.9)}
-    ${Array.from({ length: 60 }, () => `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(600 + rnd() * 220).toFixed(0)}" r="${(2 + rnd() * 3).toFixed(1)}" fill="${rnd() > 0.5 ? "#b9ffd8" : "#9ae7ff"}" opacity=".9"/>`).join("")}
-    ${Array.from({ length: 30 }, () => `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(80 + rnd() * 500).toFixed(0)}" r="2" fill="#bff8ff" opacity=".8"/>`).join("")}`;
-    }
-  };
-  var cache = /* @__PURE__ */ new Map();
-  function scene2(id) {
-    seed = [...id].reduce((s, c) => s + c.charCodeAt(0) * 97, 1);
-    return SCENES[id]().replace(/id="(\w+)"/g, `id="${id}-$1"`).replace(/url\(#(\w+)\)/g, `url(#${id}-$1)`);
-  }
-  function paintBackground(el, id) {
-    if (!cache.has(id)) cache.set(id, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene2(id)}</svg>`);
-    el.innerHTML = cache.get(id);
-    el.dataset.bg = id;
-  }
-  function backgroundThumb(id) {
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${scene2(id)}</svg>`;
-  }
-
-  // src/shared/deck.ts
-  var CARD_COLORS = ["lightblue", "blue", "yellow", "green", "red"];
-  var CARD_SPECS = {
-    lightblue: { label: "Bolt", kind: "attack", amount: 100, cost: 10 },
-    blue: { label: "Frost", kind: "attack", amount: 120, cost: 25 },
-    yellow: { label: "Mana", kind: "mana", amount: 60, cost: 0 },
-    green: { label: "Heal", kind: "heal", amount: 100, cost: 40 },
-    red: { label: "Inferno", kind: "attack", amount: 250, cost: 70 }
-  };
-  var DECK_CHARACTERS = ["goblin", "knight", "witch", "wizard"];
-  var CHARACTER_INFO = {
-    goblin: { name: "Goblin", power: "Frenzy: play 2 cards in a row this turn. 100 mana, then 4 turns cooldown." },
-    knight: { name: "Knight", power: "Bulwark: take 30% less damage and heal 30% more for 2 turns. 100 mana, then 4 turns cooldown." },
-    witch: { name: "Witch", power: "Sight: see the kanji and reading of all your cards for 2 turns (and the kanji stays visible while casting). 100 mana, then 4 turns cooldown." },
-    wizard: { name: "Wizard", power: "Arcane reserve (passive): out of cards \u2192 draw 2 random cards before a new draft; out of mana \u2192 +30 mana. Once each.", passive: true }
-  };
-  var DECK_RULES = {
-    hp: 1e3,
-    maxMana: 200,
-    // and you start full
-    manaPerTurn: 10,
-    handSize: 10,
-    cardsPerLevel: 4,
-    picksPerTurn: 2,
-    pickMs: 2e4,
-    characterMs: 3e4,
-    chooseMs: 15e3,
-    // pick which card to play
-    castMs: 38500,
-    // then write its kanji: 3.5 s flash + 35 s
-    castFlashMs: 3500,
-    matchMs: 8 * 6e4,
-    // then overtime
-    overtimeCardMs: 38500,
-    // 3.5 s flash + 35 s
-    knightDamageTaken: 0.7,
-    knightHealBonus: 1.3,
-    abilityTurns: 2,
-    abilityCost: 100,
-    // mana to fire your hero's power
-    abilityCooldown: 4,
-    // your turns until it can be used again
-    wizardBonusCards: 2,
-    wizardBonusMana: 30
   };
 
   // src/client/wizard.ts
@@ -893,12 +261,13 @@
     parent.append(...kids);
     return parent;
   };
-  var SCREENS = ["auth", "menu", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "customize", "deck"];
+  var SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "customize", "deck"];
   var screenListener = () => {
   };
   var onScreen = (fn) => {
     screenListener = fn;
   };
+  var currentScreen = () => SCREENS.find((s) => !$(s).hidden);
   var show = (screen) => {
     SCREENS.forEach((s) => $(s).hidden = s !== screen);
     scrollTo(0, 0);
@@ -917,12 +286,12 @@
   function countdown(slot, durationMs, onFrame, totalMs = durationMs) {
     stopCountdown(slot);
     const end = performance.now() + durationMs;
-    const tick = () => {
+    const tick2 = () => {
       const left = Math.max(0, end - performance.now());
       onFrame(left, totalMs > 0 ? left / totalMs : 0);
-      if (left > 0) timers.set(slot, requestAnimationFrame(tick));
+      if (left > 0) timers.set(slot, requestAnimationFrame(tick2));
     };
-    tick();
+    tick2();
   }
   function stopCountdown(slot) {
     for (const [k, id] of timers) if (!slot || k === slot) {
@@ -979,12 +348,12 @@
     $("netStatus").hidden = !text;
     $("netStatus").textContent = text ?? "";
   }
-  function setAudioButtons(radio2, sfx2) {
+  function setAudioButtons(radio, sfx2) {
     const set = (id, on, icon, label) => {
       $(id).setAttribute("aria-pressed", String(on));
       $(id).replaceChildren(h("span", "ico", icon), h("span", "lbl", ` ${label} ${on ? "on" : "off"}`));
     };
-    set("radioBtn", radio2, "\u266A", "Music");
+    set("radioBtn", radio, "\u266A", "Music");
     set("sfxBtn", sfx2, sfx2 ? "\u{1F50A}" : "\u{1F507}", "Sounds");
   }
   function paintScenes() {
@@ -1575,6 +944,861 @@
     else $("rematchStatus").textContent = youVoted ? "Waiting for the others to accept\u2026" : "Rematch requested!";
   }
 
+  // src/client/queue.ts
+  var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
+  var KEY = "kb:queue";
+  var load = () => {
+    try {
+      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
+    } catch {
+      return { modes: ["reading", "rapid"], levels: ["N5"] };
+    }
+  };
+  var save = (s) => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(s));
+    } catch {
+    }
+  };
+  var send = () => {
+  };
+  var tick = 0;
+  var searching = false;
+  function chip(value, label, on, group) {
+    const l = document.createElement("label");
+    l.className = "chip" + (on ? " on" : "");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = value;
+    box.checked = on;
+    box.name = group;
+    box.onchange = () => {
+      l.classList.toggle("on", box.checked);
+      remember();
+    };
+    l.append(box, label);
+    return l;
+  }
+  var picked = (id) => [...document.querySelectorAll(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
+  function remember() {
+    save({ modes: picked("qModes"), levels: picked("qLevels") });
+  }
+  function initQueue(sender) {
+    send = sender;
+    $("queueBack").onclick = () => {
+      if (searching) send({ type: "queue_cancel" });
+      stopSearching();
+      show("menu");
+    };
+    $("qFind").onclick = () => {
+      const modes = picked("qModes"), levels = picked("qLevels");
+      if (!modes.length) return toast("Tick at least one mode");
+      if (!levels.length) return toast("Tick at least one level");
+      send({ type: "queue", modes, levels });
+    };
+    $("qDeck").onclick = () => send({ type: "queue", modes: ["deck"] });
+    $("qCancel").onclick = () => send({ type: "queue_cancel" });
+  }
+  function openQueue() {
+    const s = load();
+    $("qModes").replaceChildren(...QUEUE_MODES.map((m) => chip(m, MODE_LABEL[m], s.modes.includes(m), "qm")));
+    $("qLevels").replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), "ql")));
+    if (!searching) {
+      $("queuePick").hidden = false;
+      $("qSearching").hidden = true;
+    }
+    show("queue");
+  }
+  function stopSearching() {
+    searching = false;
+    clearInterval(tick);
+    $("queuePick").hidden = false;
+    $("qSearching").hidden = true;
+  }
+  function onQueue(msg) {
+    if (msg.state === "idle") return stopSearching();
+    $("queuePick").hidden = true;
+    $("qSearching").hidden = false;
+    if (currentScreen() !== "queue") show("queue");
+    if (msg.state === "matched") {
+      searching = false;
+      clearInterval(tick);
+      $("qTitle").textContent = `Player found \u2014 ${MODE_LABEL[msg.mode]}!`;
+      $("qInfo").textContent = "Starting\u2026";
+      $("qCancel").hidden = true;
+      return;
+    }
+    $("qCancel").hidden = false;
+    $("qTitle").textContent = "Searching for a player\u2026";
+    const started = Date.now() - ((msg.now ?? 0) - (msg.since ?? 0));
+    const others = (msg.searching ?? 1) - 1;
+    $("qInfo").textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(" \xB7 ")} \u2014 ${others > 0 ? `${others} other player${others === 1 ? "" : "s"} searching` : "no one else searching yet"}`;
+    if (!searching) {
+      searching = true;
+      clearInterval(tick);
+      const paint = () => {
+        const s = Math.floor((Date.now() - started) / 1e3);
+        $("qTimer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+      };
+      paint();
+      tick = window.setInterval(paint, 500);
+    }
+  }
+  function resetQueue() {
+    stopSearching();
+    $("qCancel").hidden = false;
+  }
+
+  // src/client/cursor.ts
+  var G = 32;
+  var COLORS = {
+    k: "#1b1530",
+    // outline
+    s: "#f3c9a1",
+    // skin
+    S: "#d99f74",
+    // skin shade / finger creases
+    w: "#8a5a2b",
+    // handle
+    W: "#c08a4a",
+    // handle highlight
+    m: "#c9ced8",
+    // metal ferrule
+    b: "#2a2230",
+    // bristles
+    B: "#000000",
+    // wet ink tip
+    c: "#3b5bdb",
+    // sleeve
+    C: "#9fb4ff"
+    // sleeve cuff
+  };
+  function draw() {
+    const g = Array.from({ length: G }, () => Array(G).fill(null));
+    const set = (x, y, c) => {
+      if (x >= 0 && y >= 0 && x < G && y < G) g[y][x] = c;
+    };
+    for (let t = 0; t <= 25; t++) {
+      const x = 1 + t, y = 30 - t;
+      if (t <= 1) set(x, y, "B");
+      else if (t <= 7) {
+        set(x, y, "b");
+        set(x + 1, y, "b");
+        if (t >= 4 && t <= 6) set(x, y - 1, "b");
+      } else if (t <= 9) {
+        set(x, y, "m");
+        set(x + 1, y, "m");
+        set(x, y - 1, "m");
+      } else {
+        set(x, y, "w");
+        set(x + 1, y, "W");
+        set(x, y - 1, "w");
+      }
+    }
+    const hx = (y) => 31 - y;
+    for (let f = 0; f < 4; f++) {
+      const y0 = 11 + 2 * f;
+      for (const y of [y0, y0 + 1]) {
+        const x0 = hx(y) - 2, x1 = hx(y) + 6;
+        for (let x = x0; x <= x1; x++) {
+          if (y === y0 + 1 && x === x0) continue;
+          set(x, y, y === y0 + 1 && x > x0 + 1 ? "S" : "s");
+        }
+      }
+    }
+    for (let y = 10; y <= 18; y++) for (let x = hx(y) + 7; x <= Math.min(31, hx(y) + 11); x++) set(x, y, x >= hx(y) + 10 ? "S" : "s");
+    for (let x = hx(9) - 2; x <= hx(9) + 4; x++) set(x, 9, "s");
+    for (let x = hx(10) - 3; x <= hx(10) + 2; x++) set(x, 10, x <= hx(10) - 1 ? "s" : "S");
+    for (let x = hx(8) + 1; x <= hx(8) + 5; x++) set(x, 8, "s");
+    for (let y = 3; y <= 16; y++) for (let x = hx(y) + 12; x <= 31; x++) if (x - (hx(y) + 12) < 4) set(x, y, x === hx(y) + 12 ? "C" : "c");
+    const filled = g.map((row) => row.map((c) => c !== null));
+    for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
+      if (filled[y][x]) continue;
+      if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => filled[y + dy]?.[x + dx])) g[y][x] = "k";
+    }
+    return g;
+  }
+  var css = "";
+  function brushCursor() {
+    if (css) return css;
+    const g = draw();
+    let rects = "";
+    g.forEach((row, y) => row.forEach((c, x) => {
+      if (c) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${COLORS[c]}"/>`;
+    }));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 ${G} ${G}" shape-rendering="crispEdges">${rects}</svg>`;
+    css = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 61, crosshair`;
+    return css;
+  }
+
+  // src/shared/version.ts
+  var VERSION = "0.7";
+
+  // src/client/api.ts
+  var today = () => {
+    const d = /* @__PURE__ */ new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  var TOKEN_KEY = "kb:token";
+  var getToken = () => {
+    try {
+      return localStorage.getItem(TOKEN_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  };
+  var setToken = (t) => {
+    try {
+      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+    } catch {
+    }
+  };
+  var ApiError = class extends Error {
+    constructor(message, status) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  async function call(method, url, body) {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+      body: body === void 0 ? void 0 : JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
+    return data;
+  }
+  var api = {
+    login: (username, password) => call("POST", "/api/login", { username, password }),
+    register: (username, password) => call("POST", "/api/register", { username, password }),
+    me: () => call("GET", "/api/me"),
+    setBackground: (background) => call("PUT", "/api/me/background", { background }),
+    study: () => call("GET", `/api/study?today=${today()}`),
+    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
+    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
+    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    users: () => call("GET", "/api/admin/users"),
+    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
+  };
+
+  // src/client/audio.ts
+  var PREFS_KEY = "kb:audio";
+  var DEFAULTS = { radio: true, sfx: true, musicVol: 0.7, sfxVol: 0.8 };
+  var prefs = (() => {
+    try {
+      return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
+    } catch {
+      return { ...DEFAULTS };
+    }
+  })();
+  var clamp01 = (v) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+  var sfxGain = () => 0.7 * prefs.sfxVol * prefs.sfxVol * 1.4;
+  var musicGain = () => 0.9 * prefs.musicVol * prefs.musicVol * 1.3;
+  var savePrefs = () => {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } catch {
+    }
+  };
+  var ctx = null;
+  var sfxBus;
+  var musicBus;
+  var menuBus;
+  var battleBus;
+  var reverb;
+  var scene = "menu";
+  function ensure() {
+    if (ctx) return ctx;
+    const AC = window.AudioContext ?? window.webkitAudioContext;
+    if (!AC) return null;
+    ctx = new AC();
+    const comp = ctx.createDynamicsCompressor();
+    comp.connect(ctx.destination);
+    sfxBus = ctx.createGain();
+    sfxBus.gain.value = sfxGain();
+    sfxBus.connect(comp);
+    musicBus = ctx.createGain();
+    musicBus.gain.value = musicGain();
+    musicBus.connect(comp);
+    menuBus = ctx.createGain();
+    menuBus.gain.value = 0;
+    menuBus.connect(musicBus);
+    battleBus = ctx.createGain();
+    battleBus.gain.value = 0;
+    battleBus.connect(musicBus);
+    reverb = ctx.createConvolver();
+    const len = ctx.sampleRate * 2.6;
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
+    }
+    reverb.buffer = ir;
+    const wet = ctx.createGain();
+    wet.gain.value = 0.35;
+    reverb.connect(wet).connect(comp);
+    return ctx;
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!ctx) return;
+    if (document.visibilityState === "hidden") void ctx.suspend();
+    else void ctx.resume().then(() => syncMusic());
+  });
+  function unlock() {
+    const c = ensure();
+    if (!c) return;
+    if (c.state === "suspended" && document.visibilityState === "visible") void c.resume();
+    syncMusic();
+  }
+  function setScene(s) {
+    scene = s;
+    syncMusic();
+  }
+  function syncMusic() {
+    if (!ctx) return;
+    const on = prefs.radio && prefs.musicVol > 0 && document.visibilityState === "visible";
+    const want = on ? scene === "menu" ? menuTheme : battleTheme : null;
+    for (const t of [menuTheme, battleTheme]) t === want ? t.fadeIn() : t.fadeOut();
+  }
+  var midi = (n) => 440 * 2 ** ((n - 69) / 12);
+  function tone(freq, at, dur, opts = {}) {
+    const c = ctx;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = opts.type ?? "sine";
+    o.frequency.setValueAtTime(freq, at);
+    if (opts.detune) o.detune.value = opts.detune;
+    if (opts.to) o.frequency.exponentialRampToValueAtTime(opts.to, at + dur);
+    const peak = opts.gain ?? 0.3;
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + (opts.attack ?? 8e-3));
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
+    o.connect(g).connect(opts.bus ?? sfxBus);
+    if (opts.send) {
+      const s = c.createGain();
+      s.gain.value = opts.send;
+      g.connect(s).connect(reverb);
+    }
+    o.start(at);
+    o.stop(at + dur + 0.05);
+  }
+  function bell(freq, at, dur, gain, bus = sfxBus) {
+    tone(freq, at, dur, { gain, bus, send: 0.6, attack: 3e-3 });
+    tone(freq * 2.76, at, dur * 0.4, { gain: gain * 0.25, bus, send: 0.6, attack: 2e-3 });
+    tone(freq * 5.4, at, dur * 0.18, { gain: gain * 0.08, bus, send: 0.6, attack: 2e-3 });
+  }
+  function noise(at, dur, gain, cutoff, type = "lowpass", bus = sfxBus, swell = false) {
+    const c = ctx;
+    const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (swell ? (i / data.length) ** 2 : 1 - i / data.length);
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const f = c.createBiquadFilter();
+    f.type = type;
+    f.frequency.value = cutoff;
+    const g = c.createGain();
+    g.gain.value = gain;
+    src.connect(f).connect(g).connect(bus);
+    src.start(at);
+  }
+  var sfxOk = () => prefs.sfx && ensure() !== null && ctx.state === "running";
+  var sfx = {
+    /**
+     * Spell cast: a magical chime. Each combo step makes it deeper and longer (like a multi-kill
+     * sound), from ×5 on it stays at its deepest, fullest version.
+     */
+    correct(combo = 1) {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      const step = Math.min(Math.max(combo, 1), 5) - 1;
+      const root = 88 - step * 5;
+      const ring = 0.7 + step * 0.45;
+      const notes = [0, 7, 12, 16].map((i) => root + i);
+      notes.forEach((n, i) => bell(midi(n), t + i * (0.045 + step * 0.012), ring, 0.16 + step * 0.015));
+      if (step >= 1) tone(midi(root - 24), t, ring * 1.2, { gain: 0.12 + step * 0.05, send: 0.3, attack: 0.01 });
+      if (step >= 4) [0.16, 0.32].forEach((dt) => bell(midi(root + 12), t + dt, 1.2, 0.1));
+      noise(t, 0.25, 0.05, 6e3, "highpass");
+    },
+    /** Miss / skip / timeout — soft descending fizzle. */
+    wrong() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      tone(330, t, 0.3, { type: "triangle", gain: 0.14, to: 140 });
+      tone(311, t + 0.03, 0.3, { type: "triangle", gain: 0.08, to: 130 });
+      noise(t, 0.2, 0.06, 900);
+    },
+    /** You took damage — thump. */
+    hurt() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      tone(140, t, 0.22, { gain: 0.35, to: 50 });
+      noise(t, 0.15, 0.25, 900);
+    },
+    /** Your spell lands on the opponent. */
+    impact() {
+      if (sfxOk()) noise(ctx.currentTime, 0.12, 0.15, 2500);
+    },
+    heal() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      [72, 76, 79, 84].forEach((n, i) => bell(midi(n), t + i * 0.08, 0.9, 0.1));
+    },
+    mana() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      for (let i = 0; i < 6; i++) bell(midi(84 + i * 5 % 12), t + i * 0.05, 0.5, 0.06);
+    },
+    rip() {
+      if (!sfxOk()) return;
+      noise(ctx.currentTime, 0.35, 0.3, 3e3, "bandpass");
+    },
+    flip() {
+      if (sfxOk()) noise(ctx.currentTime, 0.08, 0.12, 4e3, "highpass");
+    },
+    inhale() {
+      if (sfxOk()) tone(55, ctx.currentTime, 2.6, { type: "sawtooth", gain: 0.08, to: 110, attack: 1.5 });
+    },
+    fire() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      noise(t, 1.2, 0.5, 1400);
+      tone(70, t, 1.1, { type: "sawtooth", gain: 0.12, to: 40 });
+    },
+    claw() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      noise(t, 0.18, 0.4, 6e3);
+      tone(160, t + 0.05, 0.2, { gain: 0.3, to: 60 });
+    },
+    tick() {
+      if (sfxOk()) bell(1320, ctx.currentTime, 0.25, 0.08);
+    },
+    go() {
+      if (sfxOk()) bell(midi(88), ctx.currentTime, 0.8, 0.14);
+    },
+    /** Victory: a bright fanfare (major, rising, with harmony and a final bell). */
+    win() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      const brass = (n, at, dur) => {
+        tone(midi(n), t + at, dur, { type: "sawtooth", gain: 0.07, attack: 0.03, send: 0.4 });
+        tone(midi(n), t + at, dur, { type: "triangle", gain: 0.12, attack: 0.02, send: 0.4, detune: 6 });
+      };
+      [[67, 0], [72, 0.14], [76, 0.28]].forEach(([n, at]) => brass(n, at, 0.22));
+      brass(79, 0.44, 0.9);
+      brass(76, 0.44, 0.9);
+      brass(72, 0.44, 0.9);
+      bell(midi(91), t + 0.44, 1.8, 0.12);
+      tone(midi(48), t + 0.44, 1.2, { gain: 0.2, send: 0.3 });
+    },
+    /** Defeat: slow, falling minor phrase. */
+    lose() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      [[69, 0], [68, 0.38], [67, 0.76], [62, 1.14]].forEach(([n, at]) => {
+        tone(midi(n), t + at, 0.7, { type: "triangle", gain: 0.13, attack: 0.04, send: 0.5 });
+      });
+      tone(midi(38), t + 1.14, 1.8, { gain: 0.16, send: 0.4, attack: 0.05 });
+    }
+  };
+  function makeTrack(bpm, bus, play) {
+    const STEP = 60 / bpm / 2;
+    let timer;
+    let stopTimer;
+    let nextTime = 0;
+    let step = 0;
+    const schedule = () => {
+      const c = ctx;
+      while (nextTime < c.currentTime + 0.5) {
+        play(step, nextTime);
+        nextTime += STEP;
+        step++;
+      }
+    };
+    return {
+      STEP,
+      fadeIn() {
+        if (!ctx) return;
+        clearTimeout(stopTimer);
+        stopTimer = void 0;
+        bus().gain.cancelScheduledValues(ctx.currentTime);
+        bus().gain.setTargetAtTime(1, ctx.currentTime, 0.9);
+        if (timer !== void 0) return;
+        nextTime = ctx.currentTime + 0.12;
+        step = 0;
+        schedule();
+        timer = window.setInterval(schedule, 150);
+      },
+      fadeOut() {
+        if (!ctx || timer === void 0 || stopTimer !== void 0) return;
+        bus().gain.cancelScheduledValues(ctx.currentTime);
+        bus().gain.setTargetAtTime(0, ctx.currentTime, 0.45);
+        stopTimer = window.setTimeout(() => {
+          clearInterval(timer);
+          timer = void 0;
+          stopTimer = void 0;
+        }, 2200);
+      }
+    };
+  }
+  function strings(notes, at, dur, bus, level = 0.035, cutoff = 1100) {
+    const c = ctx;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = cutoff;
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(level, at + 0.9);
+    g.gain.setValueAtTime(level, at + dur - 0.6);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur + 0.5);
+    lp.connect(g).connect(bus);
+    const s = c.createGain();
+    s.gain.value = 0.5;
+    g.connect(s).connect(reverb);
+    for (const n of notes) for (const d of [-7, 7]) {
+      const o = c.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = midi(n);
+      o.detune.value = d;
+      o.connect(lp);
+      o.start(at);
+      o.stop(at + dur + 0.6);
+    }
+  }
+  function flute(n, at, dur, bus) {
+    const c = ctx;
+    const o = c.createOscillator();
+    const vib = c.createOscillator();
+    const vg = c.createGain();
+    vib.frequency.value = 5.2;
+    vg.gain.value = 4;
+    vib.connect(vg).connect(o.frequency);
+    o.type = "sine";
+    o.frequency.value = midi(n);
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(0.045, at + 0.06);
+    g.gain.setValueAtTime(0.04, at + dur * 0.7);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
+    o.connect(g).connect(bus);
+    const s = c.createGain();
+    s.gain.value = 0.7;
+    g.connect(s).connect(reverb);
+    o.start(at);
+    vib.start(at);
+    o.stop(at + dur + 0.05);
+    vib.stop(at + dur + 0.05);
+  }
+  function horn(n, at, dur, bus, level = 0.05) {
+    const c = ctx;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(350, at);
+    lp.frequency.linearRampToValueAtTime(1300, at + Math.min(0.5, dur * 0.5));
+    lp.frequency.linearRampToValueAtTime(600, at + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(level, at + 0.12);
+    g.gain.setValueAtTime(level * 0.85, at + dur * 0.75);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
+    lp.connect(g).connect(bus);
+    const s = c.createGain();
+    s.gain.value = 0.45;
+    g.connect(s).connect(reverb);
+    for (const d of [-9, 9]) {
+      const o = c.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = midi(n);
+      o.detune.value = d;
+      o.connect(lp);
+      o.start(at);
+      o.stop(at + dur + 0.05);
+    }
+  }
+  var menuTheme = (() => {
+    const PROG = [
+      [50, 57, 62, 65],
+      [46, 53, 58, 62],
+      [41, 48, 53, 57],
+      [48, 55, 60, 64],
+      [50, 57, 62, 65],
+      [43, 50, 55, 58],
+      [45, 52, 57, 61],
+      [50, 57, 62, 65]
+    ];
+    const MELODY = [
+      [74, 0, 77, 0, 76, 74, 72, 0],
+      [74, 0, 0, 70, 72, 0, 74, 0],
+      [72, 0, 69, 0, 72, 74, 77, 0],
+      [76, 0, 74, 72, 74, 0, 0, 0],
+      [74, 0, 77, 0, 81, 0, 79, 77],
+      [79, 0, 77, 0, 74, 0, 70, 0],
+      [73, 0, 76, 0, 79, 77, 76, 73],
+      [74, 0, 0, 0, 0, 0, 0, 0]
+    ];
+    const track = makeTrack(84, () => menuBus, (step, at) => {
+      const STEP = track.STEP;
+      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
+      const loop = Math.floor(step / (8 * PROG.length));
+      if (inBar === 0) {
+        strings(chord.slice(1), at, STEP * 8, menuBus);
+        tone(midi(chord[0] - 12), at, STEP * 7, { gain: 0.07, bus: menuBus, attack: 0.05 });
+      }
+      const arp = [0, 1, 2, 3, 2, 1, 2, 3][inBar];
+      tone(midi(chord[arp] + 12), at, 1.4, { type: "triangle", gain: 0.05, bus: menuBus, send: 0.5, attack: 3e-3 });
+      tone(midi(chord[arp] + 24), at, 0.5, { gain: 0.015, bus: menuBus, send: 0.5, attack: 3e-3 });
+      if (inBar === 0 || inBar === 3 || inBar === 6) tone(inBar === 0 ? 62 : 55, at, 0.45, { gain: inBar === 0 ? 0.16 : 0.09, to: 38, bus: menuBus, attack: 4e-3 });
+      if (loop % 3 !== 0) {
+        const n = MELODY[bar][inBar];
+        if (n) {
+          let len = 1;
+          while (inBar + len < 8 && MELODY[bar][inBar + len] === 0) len++;
+          flute(n, at, STEP * Math.min(len, 4) * 0.95, menuBus);
+        }
+      }
+    });
+    return track;
+  })();
+  var battleTheme = (() => {
+    const PROG = [
+      [38, 50, 53, 57],
+      [39, 51, 55, 58],
+      [38, 50, 53, 57],
+      [36, 48, 52, 55],
+      [38, 50, 53, 57],
+      [34, 46, 50, 53],
+      [31, 43, 46, 50],
+      [33, 45, 49, 52]
+    ];
+    const HORN = [
+      [62, 0, 0, 0, 63, 0, 62, 0],
+      [63, 0, 0, 0, 0, 0, 58, 0],
+      [62, 0, 0, 65, 0, 0, 62, 0],
+      [60, 0, 0, 0, 0, 0, 0, 0],
+      [62, 0, 0, 0, 65, 0, 69, 0],
+      [70, 0, 0, 0, 69, 0, 65, 0],
+      [67, 0, 0, 0, 70, 0, 69, 67],
+      [69, 0, 0, 0, 0, 0, 0, 0]
+    ];
+    const DRUM = [1, 0, 0, 0.6, 0.8, 0, 0.5, 0.5];
+    const track = makeTrack(100, () => battleBus, (step, at) => {
+      const STEP = track.STEP;
+      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
+      const loop = Math.floor(step / (8 * PROG.length));
+      const accent = inBar === 0 || inBar === 3 || inBar === 6;
+      for (const n of [chord[0] + 12, chord[1]]) tone(midi(n), at, STEP * 0.8, { type: "sawtooth", gain: accent ? 0.022 : 0.012, bus: battleBus, attack: 5e-3 });
+      if (inBar === 0) {
+        strings(chord.slice(1), at, STEP * 8, battleBus, 0.022, 800);
+        tone(midi(chord[0]), at, STEP * 7.5, { gain: 0.09, bus: battleBus, attack: 0.04 });
+      }
+      const d = DRUM[inBar];
+      if (d) {
+        tone(inBar === 0 ? 58 : 66, at, 0.5, { gain: 0.2 * d, to: 34, bus: battleBus, attack: 3e-3 });
+        noise(at, 0.12, 0.05 * d, 900, "lowpass", battleBus);
+      }
+      if (loop >= 1) {
+        const n = HORN[bar][inBar];
+        if (n) {
+          let len = 1;
+          while (inBar + len < 8 && HORN[bar][inBar + len] === 0) len++;
+          horn(n - 12, at, STEP * len * 0.97, battleBus);
+        }
+      }
+      if (loop % 2 === 1 && bar >= 4) tone(midi(chord[2] + 24 + (bar === 7 ? 1 : 0)), at, STEP * 0.45, { type: "sawtooth", gain: 8e-3, bus: battleBus, send: 0.5, attack: 0.01 });
+      if (inBar === 4 && bar % 4 === 3) noise(at, STEP * 4, 0.035, 6e3, "highpass", battleBus, true);
+    });
+    return track;
+  })();
+  var isRadioOn = () => prefs.radio;
+  var isSfxOn = () => prefs.sfx;
+  var getVolumes = () => ({ music: prefs.musicVol, sfx: prefs.sfxVol });
+  function setRadio(on) {
+    prefs.radio = on;
+    savePrefs();
+    ensure();
+    if (on && ctx?.state === "suspended") void ctx.resume();
+    syncMusic();
+  }
+  function setSfx(on) {
+    prefs.sfx = on;
+    savePrefs();
+  }
+  function setMusicVolume(v) {
+    prefs.musicVol = clamp01(v);
+    if (prefs.musicVol > 0) prefs.radio = true;
+    savePrefs();
+    ensure();
+    if (ctx) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05);
+    syncMusic();
+  }
+  function setSfxVolume(v) {
+    prefs.sfxVol = clamp01(v);
+    if (prefs.sfxVol > 0) prefs.sfx = true;
+    savePrefs();
+    ensure();
+    if (ctx) sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05);
+  }
+  function previewSfx() {
+    if (sfxOk()) bell(midi(76), ctx.currentTime, 0.8, 0.18);
+  }
+
+  // src/client/backgrounds.ts
+  var seed = 1;
+  var rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+  var W = 1600;
+  var H = 900;
+  function sky(id, stops) {
+    return `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join("")}</linearGradient>`;
+  }
+  function stars(n, maxY, color = "#fff") {
+    let s = "";
+    for (let i = 0; i < n; i++) s += `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(rnd() * maxY).toFixed(0)}" r="${(rnd() * 1.6 + 0.4).toFixed(1)}" fill="${color}" opacity="${(rnd() * 0.6 + 0.3).toFixed(2)}"/>`;
+    return s;
+  }
+  function pines(y, count, minH, maxH, color) {
+    let s = "";
+    for (let i = 0; i < count; i++) {
+      const x = i / count * W + rnd() * (W / count) - 20;
+      const h3 = minH + rnd() * (maxH - minH);
+      const w = h3 * 0.38;
+      s += `<polygon points="${x},${y} ${x + w / 2},${y - h3} ${x + w},${y}" fill="${color}"/>`;
+      s += `<polygon points="${x + w * 0.12},${y - h3 * 0.35} ${x + w / 2},${y - h3 * 1.02} ${x + w * 0.88},${y - h3 * 0.35}" fill="${color}"/>`;
+    }
+    return s + `<rect x="0" y="${y}" width="${W}" height="${H - y}" fill="${color}"/>`;
+  }
+  function hills(y, amp, color, phase = 0) {
+    let d = `M0 ${H} L0 ${y}`;
+    for (let x = 0; x <= W; x += 40) d += ` L${x} ${(y + Math.sin(x / 210 + phase) * amp + Math.sin(x / 90 + phase * 2) * amp * 0.25).toFixed(1)}`;
+    return `<path d="${d} L${W} ${H} Z" fill="${color}"/>`;
+  }
+  function deadTree(x, y, h3, color) {
+    const b = (x1, y1, x2, y2, w) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`;
+    return b(x, y, x + 6, y - h3, 14) + b(x + 4, y - h3 * 0.55, x - h3 * 0.35, y - h3 * 0.85, 7) + b(x + 5, y - h3 * 0.7, x + h3 * 0.4, y - h3 * 0.95, 6) + b(x - h3 * 0.2, y - h3 * 0.75, x - h3 * 0.3, y - h3, 4) + b(x + 6, y - h3, x + 30, y - h3 * 1.15, 4);
+  }
+  var SCENES = {
+    forest: () => `
+    <defs>${sky("sk", [[0, "#0b1d2a"], [0.55, "#1f4a4a"], [1, "#3d6b52"]])}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(70, 380)}
+    <circle cx="1220" cy="170" r="70" fill="#f1edd0" opacity=".9"/><circle cx="1220" cy="170" r="120" fill="#f1edd0" opacity=".06"/>
+    ${pines(640, 22, 260, 420, "#173c35")}${pines(720, 18, 200, 330, "#0f2a25")}${pines(820, 14, 160, 260, "#081a17")}`,
+    swamp: () => `
+    <defs>${sky("sk", [[0, "#14121f"], [0.5, "#2c3a2e"], [1, "#4b5a3a"]])}
+      <linearGradient id="wt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f3d2c"/><stop offset="1" stop-color="#121a12"/></linearGradient></defs>
+    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(40, 300, "#cfe8b0")}
+    <circle cx="380" cy="190" r="55" fill="#d9e6a6" opacity=".55"/>
+    ${hills(560, 26, "#1d2a1e")}
+    ${[160, 520, 980, 1380].map((x, i) => deadTree(x, 640, 260 + i * 25, "#141c14")).join("")}
+    <rect x="0" y="640" width="${W}" height="260" fill="url(#wt)"/>
+    ${Array.from({ length: 14 }, () => `<ellipse cx="${(rnd() * W).toFixed(0)}" cy="${(660 + rnd() * 200).toFixed(0)}" rx="${(20 + rnd() * 30).toFixed(0)}" ry="7" fill="#3f6b33" opacity=".8"/>`).join("")}
+    ${Array.from({ length: 26 }, () => `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(380 + rnd() * 380).toFixed(0)}" r="2.5" fill="#d8ff7a" opacity=".85"/>`).join("")}
+    <rect y="560" width="${W}" height="120" fill="#a8b89a" opacity=".07"/>`,
+    plains: () => `
+    <defs>${sky("sk", [[0, "#2a1a45"], [0.45, "#a8506a"], [0.75, "#f0a060"], [1, "#f6d08a"]])}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sk)"/>
+    <circle cx="800" cy="560" r="120" fill="#ffe2a0" opacity=".9"/>
+    ${Array.from({ length: 6 }, (_, i) => `<ellipse cx="${200 + i * 260}" cy="${150 + i % 3 * 50}" rx="${90 + i % 2 * 40}" ry="18" fill="#f7c7b0" opacity=".35"/>`).join("")}
+    ${hills(600, 30, "#6a4a6a", 0.5)}${hills(660, 34, "#4a5a3a", 1.7)}${hills(740, 26, "#33472b", 3)}
+    <rect x="1180" y="560" width="14" height="110" fill="#2a2a2a"/><g transform="translate(1187 560)" fill="#2a2a2a">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-80" width="8" height="80" transform="rotate(${a + 20})"/>`).join("")}</g>
+    ${Array.from({ length: 70 }, () => {
+      const x = rnd() * W, y = 760 + rnd() * 140;
+      return `<line x1="${x.toFixed(0)}" y1="${y.toFixed(0)}" x2="${(x + 4).toFixed(0)}" y2="${(y - 18).toFixed(0)}" stroke="#23331d" stroke-width="3"/>`;
+    }).join("")}`,
+    castle: () => {
+      const tower = (x, w, h3) => `<rect x="${x}" y="${640 - h3}" width="${w}" height="${h3}" fill="#141327"/><polygon points="${x - 10},${640 - h3} ${x + w / 2},${560 - h3} ${x + w + 10},${640 - h3}" fill="#1b1a33"/>` + Array.from({ length: Math.floor(h3 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h3 + 40 + i * 70}" width="12" height="20" fill="#ffcf6a" opacity="${rnd() > 0.35 ? 0.9 : 0.15}"/>`).join("");
+      return `
+    <defs>${sky("sk", [[0, "#070a1e"], [0.6, "#1c2554"], [1, "#3a3f78"]])}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(120, 450)}
+    <circle cx="300" cy="150" r="60" fill="#e8e6ff" opacity=".85"/>
+    ${hills(640, 18, "#10122a")}
+    <rect x="560" y="430" width="480" height="210" fill="#141327"/>
+    ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="#141327"/>`).join("")}
+    ${tower(500, 90, 330)}${tower(1010, 90, 330)}${tower(740, 120, 420)}
+    <polygon points="760,640 800,560 840,640" fill="#2a2140"/>
+    <line x1="800" y1="140" x2="800" y2="96" stroke="#141327" stroke-width="4"/><polygon points="800,96 840,106 800,116" fill="#c2364d"/>
+    ${hills(760, 14, "#0b0c1c", 2)}`;
+    },
+    worldtree: () => {
+      const leaves = (y, n, rmin, rmax, col, op) => Array.from({ length: n }, (_, i) => `<circle cx="${(i / n * W + rnd() * 80).toFixed(0)}" cy="${(y + rnd() * 50).toFixed(0)}" r="${(rmin + rnd() * (rmax - rmin)).toFixed(0)}" fill="${col}" opacity="${op}"/>`).join("");
+      return `
+    <defs>${sky("sk", [[0, "#0b0626"], [0.45, "#2a1260"], [0.8, "#1d4f78"], [1, "#2c8a8a"]])}
+      <radialGradient id="glow"><stop offset="0" stop-color="#9ff5c8" stop-opacity=".5"/><stop offset="1" stop-color="#9ff5c8" stop-opacity="0"/></radialGradient></defs>
+    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(170, 560, "#d7ccff")}
+    <circle cx="1240" cy="170" r="54" fill="#fff4d6" opacity=".9"/><circle cx="1240" cy="170" r="130" fill="#fff4d6" opacity=".07"/>
+    <ellipse cx="800" cy="620" rx="900" ry="200" fill="url(#glow)"/>
+    ${Array.from({ length: 10 }, (_, i) => `<ellipse cx="${i * 180}" cy="${600 + i % 3 * 22}" rx="220" ry="40" fill="#efeaff" opacity=".22"/>`).join("")}
+    ${leaves(640, 26, 50, 90, "#14402f", 1)}
+    ${leaves(690, 30, 45, 80, "#1b5a3c", 1)}
+    <path d="M-40 800 C 300 730, 650 760, 820 740 S 1300 735, 1640 780 L1640 900 L-40 900 Z" fill="#3a2418"/>
+    <path d="M-40 840 C 400 800, 760 820, 940 800 S 1400 810, 1640 840 L1640 900 L-40 900 Z" fill="#2b190f"/>
+    ${leaves(760, 22, 26, 46, "#2f9e6a", 0.9)}
+    ${Array.from({ length: 60 }, () => `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(600 + rnd() * 220).toFixed(0)}" r="${(2 + rnd() * 3).toFixed(1)}" fill="${rnd() > 0.5 ? "#b9ffd8" : "#9ae7ff"}" opacity=".9"/>`).join("")}
+    ${Array.from({ length: 30 }, () => `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(80 + rnd() * 500).toFixed(0)}" r="2" fill="#bff8ff" opacity=".8"/>`).join("")}`;
+    }
+  };
+  var cache = /* @__PURE__ */ new Map();
+  function scene2(id) {
+    seed = [...id].reduce((s, c) => s + c.charCodeAt(0) * 97, 1);
+    return SCENES[id]().replace(/id="(\w+)"/g, `id="${id}-$1"`).replace(/url\(#(\w+)\)/g, `url(#${id}-$1)`);
+  }
+  function paintBackground(el, id) {
+    if (!cache.has(id)) cache.set(id, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene2(id)}</svg>`);
+    el.innerHTML = cache.get(id);
+    el.dataset.bg = id;
+  }
+  function backgroundThumb(id) {
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${scene2(id)}</svg>`;
+  }
+
+  // src/shared/deck.ts
+  var CARD_COLORS = ["lightblue", "blue", "yellow", "green", "red"];
+  var CARD_SPECS = {
+    lightblue: { label: "Bolt", kind: "attack", amount: 100, cost: 10 },
+    blue: { label: "Frost", kind: "attack", amount: 120, cost: 25 },
+    yellow: { label: "Mana", kind: "mana", amount: 60, cost: 0 },
+    green: { label: "Heal", kind: "heal", amount: 100, cost: 40 },
+    red: { label: "Inferno", kind: "attack", amount: 250, cost: 70 }
+  };
+  var DECK_CHARACTERS = ["goblin", "knight", "witch", "wizard"];
+  var CHARACTER_INFO = {
+    goblin: { name: "Goblin", power: "Frenzy: play 2 cards in a row this turn. 100 mana, then 4 turns cooldown." },
+    knight: { name: "Knight", power: "Bulwark: take 30% less damage and heal 30% more for 2 turns. 100 mana, then 4 turns cooldown." },
+    witch: { name: "Witch", power: "Sight: see the kanji and reading of all your cards for 2 turns (and the kanji stays visible while casting). 100 mana, then 4 turns cooldown." },
+    wizard: { name: "Wizard", power: "Arcane reserve (passive): out of cards \u2192 draw 2 random cards before a new draft; out of mana \u2192 +30 mana. Once each.", passive: true }
+  };
+  var DECK_RULES = {
+    hp: 1e3,
+    maxMana: 200,
+    // and you start full
+    manaPerTurn: 10,
+    handSize: 10,
+    cardsPerLevel: 4,
+    picksPerTurn: 2,
+    pickMs: 2e4,
+    characterMs: 3e4,
+    chooseMs: 15e3,
+    // pick which card to play
+    castMs: 38500,
+    // then write its kanji: 3.5 s flash + 35 s
+    castFlashMs: 3500,
+    matchMs: 8 * 6e4,
+    // then overtime
+    overtimeCardMs: 38500,
+    // 3.5 s flash + 35 s
+    knightDamageTaken: 0.7,
+    knightHealBonus: 1.3,
+    abilityTurns: 2,
+    manaRefund: 0.5,
+    // a successful spell gives back half its mana cost
+    abilityCost: 100,
+    // mana to fire your hero's power
+    abilityCooldown: 4,
+    // your turns until it can be used again
+    wizardBonusCards: 2,
+    wizardBonusMana: 30
+  };
+
   // src/client/deckui.ts
   var $2 = $;
   var COLOR_NAME = { lightblue: "Light blue", blue: "Blue", yellow: "Yellow", green: "Green", red: "Red" };
@@ -1649,7 +1873,7 @@
       ["\u{1FA99}", "Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji."],
       ["\u{1F0CF}", `Your turn: ${DECK_RULES.chooseMs / 1e3} s to choose a card. Its mana is paid right away \u2014 even if you then miss.`],
       ["\u270D\uFE0F", `The kanji shows for ${DECK_RULES.castFlashMs / 1e3} s, then only the reading + meaning stay. Write it (pad or Japanese keyboard) within ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1e3} s.`],
-      ["\u2705", "Right \u2192 the spell hits / heals / gives mana. Wrong or too slow \u2192 the card rips."],
+      ["\u2705", `Right \u2192 the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow \u2192 the card rips.`],
       ["\u{1F4DC}", "While your opponent plays, you can read the list of kanji in your hand (not which card is which)."],
       ["\u{1F504}", "Out of cards \u2192 Round 2 draft. HP, mana and powers stay."],
       ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the leftover cards are shown one by one, first to write it uses it.`]
@@ -1921,6 +2145,7 @@
     }
     fb.className = "feedback good";
     fb.replaceChildren(h2("span", "big", `\u2713 ${who}: ${spec.label} ${spec.kind === "attack" ? `\u2212${e.amount}` : spec.kind === "heal" ? `+${e.amount} \u2665` : `+${e.amount} \u25C6`}`));
+    if (e.refund) fb.append(h2("span", "refund", ` +${e.refund}\u25C6 back`));
     if (!card) return;
     const ghost = card.cloneNode(true);
     const r = card.getBoundingClientRect();
@@ -2372,7 +2597,7 @@
   });
   var actorOf = (id) => id === "boss" ? "boss" : id === you ? "me" : mode === "boss" ? `ally:${id}` : "opp";
   var nameOf = (id) => players.find((p) => p.id === id)?.name ?? "Someone";
-  var GAME_SCREENS = /* @__PURE__ */ new Set(["prep", "battle", "deck", "results"]);
+  var GAME_SCREENS = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
   onScreen((s) => setScene(GAME_SCREENS.has(s) ? "game" : "menu"));
   function applyProfile(p) {
     profile = p;
@@ -2439,6 +2664,9 @@
   }
   function onMessage(msg) {
     switch (msg.type) {
+      case "queue":
+        onQueue(msg);
+        break;
       case "ping":
         socket.send({ type: "pong", t: msg.t });
         break;
@@ -2462,6 +2690,7 @@
         setError(`${msg.message} Refresh this page to play here.`);
         break;
       case "joined":
+        resetQueue();
         you = msg.you;
         code = msg.code;
         mode = msg.mode;
@@ -2563,7 +2792,8 @@
         if (inRoom) {
           $("lobbyStatus").textContent = msg.message;
           toast(msg.message);
-        } else {
+        } else if (currentScreen() === "queue") toast(msg.message);
+        else {
           setError(msg.message);
           show("menu");
         }
@@ -2696,6 +2926,11 @@
     setError("");
     show("modes");
   };
+  $("queueBtn").onclick = () => {
+    setError("");
+    openQueue();
+  };
+  initQueue((m) => socket.send(m));
   for (const card of document.querySelectorAll(".mode-card")) {
     card.onclick = () => socket.send({ type: "create", mode: card.dataset.mode, levels: savedLevels() });
   }
@@ -2823,6 +3058,36 @@
     setSfx(!isSfxOn());
     setAudioButtons(isRadioOn(), isSfxOn());
   };
+  {
+    const panel = $("volPanel");
+    const music = $("musicVol"), fx = $("sfxVol");
+    const show2 = () => {
+      const v = getVolumes();
+      music.value = String(Math.round(v.music * 100));
+      fx.value = String(Math.round(v.sfx * 100));
+      $("musicVolVal").textContent = `${music.value}%`;
+      $("sfxVolVal").textContent = `${fx.value}%`;
+      setAudioButtons(isRadioOn(), isSfxOn());
+    };
+    $("volBtn").onclick = (e) => {
+      e.stopPropagation();
+      panel.hidden = !panel.hidden;
+      $("volBtn").setAttribute("aria-expanded", String(!panel.hidden));
+      show2();
+    };
+    music.oninput = () => {
+      setMusicVolume(Number(music.value) / 100);
+      show2();
+    };
+    fx.oninput = () => {
+      setSfxVolume(Number(fx.value) / 100);
+      show2();
+    };
+    fx.onchange = () => previewSfx();
+    addEventListener("click", (e) => {
+      if (!panel.hidden && !panel.contains(e.target)) panel.hidden = true;
+    });
+  }
   var firstGesture = () => unlock();
   addEventListener("pointerdown", firstGesture, { once: true });
   addEventListener("keydown", firstGesture, { once: true });

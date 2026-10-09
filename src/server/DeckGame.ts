@@ -368,9 +368,16 @@ export class DeckGame implements Match {
     const spec = CARD_SPECS[c.card.color];
     const ms = this.now() - c.startedAt;
     let amount = 0;
+    let refund = 0;
     let targetId = casterId ?? '';
     if (caster) this.tally(caster, c.card.entry, result.correct, ms);
     if (caster && result.correct) {
+      // a successful spell gives back half its mana (paid when the card was played)
+      if (this.phase === 'battle' && spec.cost > 0) {
+        const before = caster.mana;
+        caster.mana = Math.min(this.rules.maxMana, caster.mana + Math.floor(spec.cost * this.rules.manaRefund));
+        refund = caster.mana - before;
+      }
       const foe = this.other(caster.id);
       if (spec.kind === 'attack') {
         const crit = caster.crit > 0 && this.rng() < caster.crit;
@@ -392,7 +399,7 @@ export class DeckGame implements Match {
     }
     this.emitEvent({
       kind: 'resolve', playerId: casterId ?? '', color: c.card.color, kanji: c.card.entry.kanji, reading: displayReading(c.card.entry),
-      meaning: c.card.entry.meaning, ok: result.correct, amount, targetId, recognized: timedOut ? undefined : result.recognized, overtime: this.phase === 'overtime',
+      meaning: c.card.entry.meaning, ok: result.correct, amount, targetId, refund, recognized: timedOut ? undefined : result.recognized, overtime: this.phase === 'overtime',
     });
     this.cast = null;
     if (this.players.some((p) => p.hp <= 0)) return this.finish('ko');

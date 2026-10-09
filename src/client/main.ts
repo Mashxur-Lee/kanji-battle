@@ -1,3 +1,4 @@
+import { initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
@@ -46,7 +47,8 @@ const actorOf = (id: PlayerId | 'boss'): ui.Actor => (id === 'boss' ? 'boss' : i
 const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Someone';
 
 // Music only in menus (not during study phase, battles or the deck duel).
-const GAME_SCREENS = new Set(['prep', 'battle', 'deck', 'results']);
+// battle theme while playing (study phase, battle, Deck Duel); the calm theme returns on the results screen and in menus
+const GAME_SCREENS = new Set(['prep', 'battle', 'deck']);
 ui.onScreen((s) => audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu'));
 
 function applyProfile(p: Profile) {
@@ -115,6 +117,9 @@ function backToMenu() {
 // ── server messages ──────────────────────────────────────────────────────────
 function onMessage(msg: ServerMessage) {
   switch (msg.type) {
+    case 'queue':
+      onQueue(msg);
+      break;
     case 'ping':
       socket.send({ type: 'pong', t: msg.t });
       break;
@@ -138,6 +143,7 @@ function onMessage(msg: ServerMessage) {
       ui.setError(`${msg.message} Refresh this page to play here.`);
       break;
     case 'joined':
+      resetQueue();
       you = msg.you;
       code = msg.code;
       mode = msg.mode;
@@ -233,6 +239,7 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'error':
       if (inRoom) { ui.$('lobbyStatus').textContent = msg.message; ui.toast(msg.message); }
+      else if (ui.currentScreen() === 'queue') ui.toast(msg.message);
       else { ui.setError(msg.message); ui.show('menu'); }
       break;
   }
@@ -363,6 +370,8 @@ ui.$('logout').onclick = () => logout();
 
 // ── menu ─────────────────────────────────────────────────────────────────────
 ui.$('create').onclick = () => { ui.setError(''); ui.show('modes'); };
+ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
+initQueue((m) => socket.send(m));
 for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {
   card.onclick = () => socket.send({ type: 'create', mode: card.dataset.mode as GameMode, levels: savedLevels() });
 }
@@ -473,6 +482,22 @@ ui.$('leave').onclick = () => socket.send({ type: 'leave' });
 // ── audio ────────────────────────────────────────────────────────────────────
 ui.$('radioBtn').onclick = () => { audio.setRadio(!audio.isRadioOn()); ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn()); };
 ui.$('sfxBtn').onclick = () => { audio.setSfx(!audio.isSfxOn()); ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn()); };
+// volume sliders (saved in this browser)
+{
+  const panel = ui.$('volPanel');
+  const music = ui.$<HTMLInputElement>('musicVol'), fx = ui.$<HTMLInputElement>('sfxVol');
+  const show = () => {
+    const v = audio.getVolumes();
+    music.value = String(Math.round(v.music * 100)); fx.value = String(Math.round(v.sfx * 100));
+    ui.$('musicVolVal').textContent = `${music.value}%`; ui.$('sfxVolVal').textContent = `${fx.value}%`;
+    ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn());
+  };
+  ui.$('volBtn').onclick = (e) => { e.stopPropagation(); panel.hidden = !panel.hidden; ui.$('volBtn').setAttribute('aria-expanded', String(!panel.hidden)); show(); };
+  music.oninput = () => { audio.setMusicVolume(Number(music.value) / 100); show(); };
+  fx.oninput = () => { audio.setSfxVolume(Number(fx.value) / 100); show(); };
+  fx.onchange = () => audio.previewSfx();
+  addEventListener('click', (e) => { if (!panel.hidden && !panel.contains(e.target as Node)) panel.hidden = true; });
+}
 // Browsers only allow sound after a user gesture.
 const firstGesture = () => audio.unlock();
 addEventListener('pointerdown', firstGesture, { once: true });

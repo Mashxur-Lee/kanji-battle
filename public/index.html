@@ -25,6 +25,11 @@
   <div class="audio-ctl" role="group" aria-label="Audio">
     <button id="radioBtn" class="pill" aria-pressed="true" aria-label="Music"></button>
     <button id="sfxBtn" class="pill" aria-pressed="true" aria-label="Sounds"></button>
+    <button id="volBtn" class="pill" aria-label="Volume" aria-expanded="false" title="Volume"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 2v12M8 2v12M13 2v12"/><circle cx="3" cy="10" r="1.8" fill="currentColor"/><circle cx="8" cy="5" r="1.8" fill="currentColor"/><circle cx="13" cy="11" r="1.8" fill="currentColor"/></svg></button>
+    <div id="volPanel" class="vol-panel" hidden>
+      <label>♪ Music <span id="musicVolVal"></span><input id="musicVol" type="range" min="0" max="100" step="1"></label>
+      <label>🔊 Effects <span id="sfxVolVal"></span><input id="sfxVol" type="range" min="0" max="100" step="1"></label>
+    </div>
   </div>
 </header>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -50,13 +55,43 @@
     <div class="col-scene"><div class="scene duel-scene" aria-hidden="true"></div></div>
   </section>
 
+  <!-- ONLINE QUEUE -->
+  <section id="queue" class="screen" hidden>
+    <button id="queueBack" class="back">← Menu</button>
+    <div class="page-head"><h2>Online queue</h2></div>
+    <p class="sub">Tick what you'd like to play. You'll be matched with the first player who wants the same, and the game starts straight away.</p>
+    <div id="queuePick" class="queue-grid">
+      <div class="queue-card">
+        <h3>Battle modes</h3>
+        <div id="qModes" class="chips"></div>
+        <h4>Your levels</h4>
+        <div id="qLevels" class="chips"></div>
+        <button id="qFind" class="big">Find match</button>
+      </div>
+      <div class="queue-card deck">
+        <h3>Deck Duel</h3>
+        <p class="sub">Queued on its own. No levels to pick: the cards come from N5 to N1.</p>
+        <div class="q-deck-pic" aria-hidden="true"><span class="dkc c-red"></span><span class="dkc c-green"></span><span class="dkc c-yellow"></span><span class="dkc c-blue"></span><span class="dkc c-lightblue"></span></div>
+        <button id="qDeck" class="big">Find Deck Duel</button>
+      </div>
+    </div>
+    <div id="qSearching" class="queue-searching" hidden>
+      <div class="q-orbit" aria-hidden="true"><span>漢</span><span>字</span></div>
+      <div id="qTitle" class="q-title">Searching for a player…</div>
+      <div id="qTimer" class="q-timer">0:00</div>
+      <div id="qInfo" class="sub"></div>
+      <button id="qCancel" class="pill">Cancel</button>
+    </div>
+  </section>
+
   <!-- MENU -->
   <section id="menu" class="screen split" hidden>
     <div class="col-main">
       <h1 class="title"><span class="jp">漢字</span> Wizards</h1>
       <p class="sub">Study ten spells. Then cast them from memory.</p>
       <div class="menu-actions">
-        <button id="create" class="big">Create room</button>
+        <button id="queueBtn" class="big queue-btn">⚔ Online queue</button>
+        <button id="create" class="big alt">Create room</button>
         <div class="join-row">
           <input id="joinCode" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Room code">
           <button id="join" class="alt big">Join</button>
@@ -376,7 +411,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.6.3</div>
+<div id="version" class="version">v0.7</div>
 <script src="/app.js"></script>
 </body>
 </html>

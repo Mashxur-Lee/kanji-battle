@@ -115,6 +115,8 @@ export type ClientMessage =
   | { type: 'ready' }
   | { type: 'lobby_ready'; ready: boolean }
   | { type: 'add_bot'; level: string }
+  | { type: 'queue'; modes: string[]; levels?: string[] }
+  | { type: 'queue_cancel' }
   | { type: 'remove_bot'; id: string }
   | { type: 'chat'; text: string }
   | { type: 'pong'; t: number }
@@ -139,6 +141,8 @@ export interface ChallengeMsg {
 export type ServerMessage =
   | { type: 'welcome'; user: PublicUser }
   | { type: 'ping'; t: number }
+  /** online queue: searching (since = server time it started), matched (a room is being made), idle */
+  | { type: 'queue'; state: 'searching' | 'matched' | 'idle'; modes?: GameMode[]; since?: number; now?: number; searching?: number; mode?: GameMode }
   /** round-trip times in ms per player in your room (null = offline) */
   | { type: 'net'; rtt: Record<PlayerId, number | null> }
   | { type: 'chat'; messages: ChatMessage[] }

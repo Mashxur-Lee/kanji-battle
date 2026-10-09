@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.6.3
+# Kanji Wizards · v0.7
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -62,6 +62,13 @@ registrations disappear. Neon has a free Postgres plan:
 The connection string is a password: keep it only in Render's environment, never in the code (the
 browser only talks to this server, never to the database).
 
+## Online queue
+
+**⚔ Online queue** on the main menu: tick the modes you'd play (Reading, Writing, Rapid, Boss) and the levels you
+bring, then **Find match** — or queue for **Deck Duel** on its own. A timer counts while it searches; as soon
+as another player wants a mode you ticked, a room is made for both of you and the game starts right away
+(same as joining by code and pressing Start). First come, first served (`src/server/Matchmaker.ts`).
+
 ## AI players
 
 The host can add AI players in the lobby (🤖 Add AI) and pick how much they know, N5 to N1. They fill an
@@ -116,7 +123,7 @@ difficulty (JLPT level, stroke count and word length):
 | Light blue | 100 damage | 10 |
 
 Mana starts at 200/200, +10 each turn. You get 15 s to choose a card, then the kanji flashes for 3.5 s (the reading and meaning
-stay) and you have 35 s to write it. Writing is judged extra forgivingly here: besides stroke matching, the overall
+stay) and you have 35 s to write it. A successful spell gives back half its mana. Writing is judged extra forgivingly here: besides stroke matching, the overall
 shape is compared with all ~2,300 characters (`src/server/handwriting/shape.ts`), and one shaky character in a word is forgiven. Wrong or too slow → the card rips. Out of cards → a new draft round
 (Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
 match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime: the remaining cards are shown one by one and the first correct writer
@@ -145,7 +152,9 @@ uses it.
   player's level, XP, learned spells / study-set size and crit, and warns if no database is connected.
 - **Forfeit** goes to the results screen; in the preparation phase **← Lobby** returns everyone to the lobby.
 - **Audio** is synthesised in the browser (no files): a chime that gets deeper and longer with the combo,
-  win/lose jingles, and fantasy music in the menu and lobby only. It pauses when the tab is hidden.
+  win/lose jingles, a calm dark-fantasy theme in menus and a tenser battle theme (driving strings, war drums,
+  horns) while you play — they crossfade. Music and effects have their own volume sliders (🎚, saved per
+  browser). It pauses when the tab is hidden.
 
 ## Structure
 

@@ -84,7 +84,7 @@ function renderGuide(el: HTMLElement) {
     ['🪙', 'Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji.'],
     ['🃏', `Your turn: ${DECK_RULES.chooseMs / 1000} s to choose a card. Its mana is paid right away — even if you then miss.`],
     ['✍️', `The kanji shows for ${DECK_RULES.castFlashMs / 1000} s, then only the reading + meaning stay. Write it (pad or Japanese keyboard) within ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1000} s.`],
-    ['✅', 'Right → the spell hits / heals / gives mana. Wrong or too slow → the card rips.'],
+    ['✅', `Right → the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow → the card rips.`],
     ['📜', 'While your opponent plays, you can read the list of kanji in your hand (not which card is which).'],
     ['🔄', 'Out of cards → Round 2 draft. HP, mana and powers stay.'],
     ['⏰', `After ${DECK_RULES.matchMs / 60000} min: overtime — the leftover cards are shown one by one, first to write it uses it.`],
@@ -341,6 +341,7 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) 
   }
   fb.className = 'feedback good';
   fb.replaceChildren(h('span', 'big', `✓ ${who}: ${spec.label} ${spec.kind === 'attack' ? `−${e.amount}` : spec.kind === 'heal' ? `+${e.amount} ♥` : `+${e.amount} ◆`}`));
+  if (e.refund) fb.append(h('span', 'refund', ` +${e.refund}◆ back`));
   if (!card) return;
   const ghost = card.cloneNode(true) as HTMLElement;
   const r = card.getBoundingClientRect();

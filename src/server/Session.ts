@@ -3,6 +3,7 @@ import type { AuthService } from './auth/AuthService';
 import { toPublic } from './auth/AuthService';
 import { sanitizeDrawing } from './handwriting/judge';
 import type { Client, MemberProfile, Room } from './Room';
+import type { Matchmaker } from './Matchmaker';
 import type { RoomManager } from './RoomManager';
 import type { StudyService } from './study/StudyService';
 
@@ -39,7 +40,16 @@ export class Session implements Client {
     private readonly study: StudyService,
     private readonly out: (json: string) => void,
     private readonly close: () => void,
+    private readonly matchmaker?: Matchmaker,
   ) {}
+
+  /** Matchmaker seats a matched player (exactly like joining with the code). */
+  async joinMatched(room: Room, levels: Level[]): Promise<boolean> {
+    if (!this.user || this.room) return false;
+    await this.enter(room, levels);
+    return this.room === room;
+  }
+  inRoom() { return !!this.room; }
 
   send(msg: ServerMessage) { this.out(JSON.stringify(msg)); }
 
@@ -59,6 +69,7 @@ export class Session implements Client {
   }
 
   kick(message: string) {
+    if (this.user) this.matchmaker?.cancel(this.user.id, false);
     this.send({ type: 'kicked', message });
     this.detach();
     this.close();
@@ -82,13 +93,23 @@ export class Session implements Client {
     if (!user) return this.send({ type: 'auth_error', message: 'Please log in' });
     if (msg.type === 'pong') return this.onPong(msg.t);
 
+    if (msg.type === 'queue') {
+      if (!this.matchmaker) return;
+      const err = this.matchmaker.enqueue(user.id, this, msg.modes, msg.levels);
+      if (err) this.send({ type: 'error', message: err });
+      return;
+    }
+    if (msg.type === 'queue_cancel') return this.matchmaker?.cancel(user.id);
+
     if (msg.type === 'create') {
+      this.matchmaker?.cancel(user.id, false);
       if (this.room) return;
       const mode: GameMode = MODES.includes(msg.mode as GameMode) ? (msg.mode as GameMode) : 'reading';
       return await this.enter(this.rooms.create(mode), parseLevels(msg.levels));
     }
     if (msg.type === 'join') {
       if (this.room) return;
+      this.matchmaker?.cancel(user.id, false);
       const room = this.rooms.get(String(msg.code ?? ''));
       if (!room) return this.send({ type: 'error', message: 'Room not found' });
       return await this.enter(room, parseLevels(msg.levels));
@@ -141,6 +162,7 @@ export class Session implements Client {
   /** Socket closed: keep the seat for a grace period so the player can come back. */
   onClose() {
     clearInterval(this.pingTimer);
+    if (this.user) this.matchmaker?.cancel(this.user.id, false);
     if (this.user && this.room) this.room.disconnect(this.user.id, this);
     if (this.user) this.hub.release(this.user.id, this);
   }
