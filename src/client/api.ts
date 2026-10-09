@@ -1,4 +1,4 @@
-import type { AdminUserRow, Level, PublicUser } from '../shared/protocol';
+import type { AdminUserRow, Level, MatchDetail, MatchSummary, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId } from '../shared/progress';
 import type { CardState, Rating } from '../shared/srs';
 
@@ -37,6 +37,9 @@ export const api = {
   setStudyLevels: (levels: Level[]) => call<StudySummary>('PUT', '/api/study/levels', { levels, today: today() }),
   queue: (deck: 'all' | 'struggling') => call<{ cards: StudyCard[] }>('GET', `/api/study/queue?deck=${deck}`),
   review: (vocabId: string, rating: Rating) => call<{ crit: number }>('POST', '/api/study/review', { vocabId, rating, today: today(), tz: new Date().getTimezoneOffset() }),
+  matches: () => call<{ matches: MatchSummary[] }>('GET', '/api/matches'),
+  match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),
+  player: (id: string) => call<{ profile: PublicProfile }>('GET', `/api/users/${encodeURIComponent(id)}`),
   users: () => call<{ users: AdminUserRow[]; storage: string; persistent: boolean }>('GET', '/api/admin/users'),
   setBanned: (id: string, banned: boolean) => call<{ user: AdminUserRow }>('POST', `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned }),
 };

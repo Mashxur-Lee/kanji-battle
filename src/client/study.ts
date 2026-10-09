@@ -154,7 +154,7 @@ export function openCustomize(profile: Profile, isAdmin = false, onTimeChange: (
   $('bgTimes').replaceChildren(...TIMES.map((t) => {
     const b = document.createElement('button');
     b.className = 'pill' + (t.id === pref ? ' on' : '');
-    b.textContent = t.id === 'auto' ? `🕒 Auto (now: ${time})` : t.id === 'day' ? '☀️ Day' : t.id === 'sunset' ? '🌇 Sunset' : '🌙 Night';
+    b.textContent = t.id === 'auto' ? `🔄 Cycle (now: ${time})` : t.id === 'day' ? '☀️ Day' : t.id === 'sunset' ? '🌇 Sunset' : '🌙 Night';
     b.onclick = () => { setTimePref(t.id); onTimeChange(); openCustomize(profile, isAdmin, onTimeChange); };
     return b;
   }));

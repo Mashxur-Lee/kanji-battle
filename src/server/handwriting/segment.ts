@@ -9,6 +9,28 @@ import type { DrawnChar } from '../../shared/protocol';
  * go back to add a dot, in left-to-right order. The judge then recognises the best few splits and keeps
  * the one that reads best — so geometry only has to get the right answer into the shortlist.
  */
+/** Width of one character cell on the client's pad (canvas pixels). The pad has min(k, 4) cells. */
+export const PAD_CELL = 600;
+
+/**
+ * The split the player meant when they used the pad's cells: each stroke goes to the cell its centre is
+ * in. Only for words of up to 4 characters (longer words are written smaller across 4 cells), and only
+ * when every cell got at least one stroke.
+ */
+export function cellSplit(strokes: DrawnChar, k: number): DrawnChar[] | null {
+  const drawn = strokes.filter((s) => s.length > 0);
+  if (k < 2 || k > 4 || drawn.length < k) return null;
+  const xs = drawn.flat().map((p) => p[0]);
+  if (Math.min(...xs) < -PAD_CELL * 0.25 || Math.max(...xs) > PAD_CELL * (k + 0.25)) return null; // not our pad
+  const groups: DrawnChar[] = Array.from({ length: k }, () => []);
+  for (const s of drawn) {
+    const sx = s.map((p) => p[0]);
+    const c = Math.floor((Math.min(...sx) + Math.max(...sx)) / 2 / PAD_CELL);
+    groups[Math.max(0, Math.min(k - 1, c))].push(s);
+  }
+  return groups.every((g) => g.length) ? groups : null;
+}
+
 export function segmentCandidates(strokes: DrawnChar, k: number, limit = 6): DrawnChar[][] {
   const drawn = strokes.filter((s) => s.length > 0);
   if (k <= 1) return drawn.length ? [[drawn]] : [];
@@ -28,7 +50,15 @@ export function segmentCandidates(strokes: DrawnChar, k: number, limit = 6): Dra
       out.push(c);
     }
   }
-  return out.sort((a, b) => a.cost - b.cost).slice(0, limit).map((c) => c.groups);
+  const ranked = out.sort((a, b) => a.cost - b.cost).slice(0, limit).map((c) => c.groups);
+  // the pad's own cells come first: that is how most people write a word
+  const cells = cellSplit(drawn, k);
+  if (cells) {
+    const key = (g: DrawnChar[]) => g.map((x) => x.map((st) => drawn.indexOf(st)).sort((a, b) => a - b).join(',')).join('|');
+    const ck = key(cells);
+    return [cells, ...ranked.filter((g) => key(g) !== ck)];
+  }
+  return ranked;
 }
 
 interface Partial { cost: number; ends: number[]; lastMax: number }

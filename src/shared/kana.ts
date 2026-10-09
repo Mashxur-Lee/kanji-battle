@@ -95,3 +95,33 @@ export function isCorrectReading(input: string, readings: readonly string[]): bo
 
 /** Hiragana practice must be answered in romaji (typing the shown kana back via IME would be trivial). */
 export const isRomajiInput = (input: string) => /^[a-z' \-]+$/i.test(input.normalize('NFKC').trim());
+
+const HAN = /[\p{Script=Han}々〆ヶ]/u;
+
+/**
+ * A word typed with a Japanese IME. Besides the exact dictionary spelling, accept the spellings an IME
+ * commonly gives where some kanji are written in kana instead (朝御飯 → 朝ご飯, 御菓子 → お菓子), as
+ * long as at least one kanji is still written and the kana match the word's reading.
+ */
+export function isCorrectWriting(input: string, kanji: string, reading: string): boolean {
+  const typed = input.normalize('NFKC').replace(/\s+/g, '');
+  if (typed === kanji) return true;
+  if (!HAN.test(typed)) return false;
+  const T = [...kanji], X = [...katakanaToHiragana(typed)], R = [...katakanaToHiragana(reading)];
+  const hira = (s: string) => katakanaToHiragana(s);
+  const go = (ti: number, xi: number, ri: number): boolean => {
+    if (ti === T.length) return xi === X.length && ri === R.length;
+    const t = T[ti];
+    if (!HAN.test(t)) {
+      const k = hira(t);
+      return X[xi] === k && R[ri] === k && go(ti + 1, xi + 1, ri + 1);
+    }
+    // this kanji reads as R[ri .. ri+len): either it is written as itself, or as exactly that kana
+    for (let len = 1; ri + len <= R.length; len++) {
+      if (X[xi] === t && go(ti + 1, xi + 1, ri + len)) return true;
+      if (X.slice(xi, xi + len).join('') === R.slice(ri, ri + len).join('') && go(ti + 1, xi + len, ri + len)) return true;
+    }
+    return false;
+  };
+  return go(0, 0, 0);
+}

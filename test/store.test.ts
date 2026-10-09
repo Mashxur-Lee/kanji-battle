@@ -148,3 +148,31 @@ test('profile pictures: only small real PNG/JPEG/WebP files; admins have every b
   await study.setBackground(admin, 'castle');
   assert.equal((await s.findById(admin.id))!.background, 'castle');
 });
+
+for (const [name, make] of stores) {
+  test(`store: match history keeps the newest 50, list without the heavy parts, detail with them (${name})`, async () => {
+    const { MATCH_HISTORY_LIMIT } = await import('../src/server/db/Store');
+    const s = make();
+    await s.init();
+    const u = await s.create({ username: `hist-${name}-${Date.now()}`, passwordHash: 'h', role: 'user' });
+    const stats = { [u.id]: { damageDealt: 300, attempts: 4, correct: 3, accuracy: 0.75, avgResponseMs: 2100, bestCombo: 2, words: [], struggled: [] } };
+    for (let i = 0; i < MATCH_HISTORY_LIMIT + 3; i++) {
+      await s.addMatch(u.id, {
+        mode: i % 2 ? 'deck' : 'reading', outcome: i % 3 ? 'win' : 'loss', character: i % 2 ? 'witch' : 'kid', at: 1_700_000_000_000 + i,
+        opponents: [{ id: 'bot-1', name: 'Oni (AI N3)', bot: true, character: 'wizard' }],
+        you: u.id, players: [], winnerId: u.id, teamWon: null, reason: 'ko', stats,
+      });
+    }
+    const list = await s.matches(u.id, 100);
+    assert.equal(list.length, MATCH_HISTORY_LIMIT);
+    assert.equal(list[0].at, 1_700_000_000_000 + MATCH_HISTORY_LIMIT + 2, 'newest first');
+    assert.deepEqual([list[0].mode, list[0].character, list[0].opponents[0].name], ['reading', 'kid', 'Oni (AI N3)']);
+    assert.equal((list[0] as any).stats, undefined, 'the list stays small');
+    const d = (await s.match(u.id, list[0].id))!;
+    assert.equal(d.stats[u.id].correct, 3);
+    assert.equal(await s.match(u.id, 'nope'), null);
+    const other = await s.create({ username: `hist2-${name}-${Date.now()}`, passwordHash: 'h', role: 'user' });
+    assert.equal(await s.match(other.id, list[0].id), null, "someone else's match");
+    await s.close?.();
+  });
+}

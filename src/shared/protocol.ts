@@ -88,6 +88,28 @@ export interface PlayerStats {
 
 export type GameOverReason = 'ko' | 'time' | 'forfeit' | 'boss_slain' | 'party_wiped';
 
+/** Another player's public card (shown when you click their name). */
+export interface PublicProfile { id: string; name: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string }
+
+/** One line of your match history. `character`: Deck Duel hero, otherwise the wizard avatar you played. */
+export interface MatchSummary {
+  id: string;
+  mode: GameMode;
+  outcome: 'win' | 'loss' | 'draw';
+  character: string;
+  at: number; // epoch ms
+  opponents: Array<{ id: string; name: string; bot: boolean; character: string }>;
+}
+/** …and everything the results screen needs to show it again. */
+export interface MatchDetail extends MatchSummary {
+  you: PlayerId;
+  players: PlayerView[];
+  winnerId: PlayerId | null;
+  teamWon: boolean | null;
+  reason: GameOverReason;
+  stats: Record<PlayerId, PlayerStats>;
+}
+
 /** Broadcast so everyone sees what happened on the field. targetId 'boss' = the dragon. */
 export type BattleEvent =
   | { kind: 'hit'; playerId: PlayerId; targetId: PlayerId | 'boss'; kanji: string; damage: number; combo: number; crit?: boolean }

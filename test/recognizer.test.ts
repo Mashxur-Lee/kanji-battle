@@ -99,3 +99,23 @@ test('Deck Duel judge is more forgiving: a badly drawn kanji still counts, a dif
   for (let i = 0; i < 5; i++) rec.shapeRank(merged, '語');
   assert.ok((Date.now() - t0) / 5 < 200, 'fast enough to judge live');
 });
+
+test('typed with an IME: kana for some kanji is fine, as long as a kanji is written and the reading fits', async () => {
+  const { isCorrectWriting: w } = await import('../src/shared/kana');
+  assert.equal(w('朝ご飯', '朝御飯', 'あさごはん'), true);
+  assert.equal(w('朝ごはん', '朝御飯', 'あさごはん'), true);
+  assert.equal(w(' 映画館 ', '映画館', 'えいがかん'), true);
+  assert.equal(w('カタ仮名', '片仮名', 'かたかな'), true);
+  assert.equal(w('あさごはん', '朝御飯', 'あさごはん'), false, 'no kanji at all');
+  assert.equal(w('昼ご飯', '朝御飯', 'あさごはん'), false);
+  assert.equal(w('映画', '映画館', 'えいがかん'), false);
+});
+
+test('a word written in the pad cells is split by cell', async () => {
+  const { cellSplit } = await import('../src/server/handwriting/segment');
+  const stroke = (x: number): Array<[number, number]> => [[x, 100], [x + 40, 300]];
+  // a wide first character spilling a bit over the divider, a tiny last one
+  const g = cellSplit([stroke(80), stroke(560), stroke(700), stroke(1000), stroke(1250)], 3)!;
+  assert.deepEqual(g.map((x) => x.length), [2, 2, 1]);
+  assert.equal(cellSplit([stroke(80), stroke(700)], 3), null, 'an empty cell');
+});

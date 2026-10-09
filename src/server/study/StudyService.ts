@@ -1,4 +1,4 @@
-import type { AdminUserRow } from '../../shared/protocol';
+import type { AdminUserRow, MatchDetail, PublicProfile } from '../../shared/protocol';
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
 import { BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, isBackground, levelOf, nextLocalMidnight, unlocked, xpFor, type BackgroundId, type MatchOutcome } from '../../shared/progress';
@@ -51,6 +51,16 @@ export class StudyService {
     const u = await this.store.findById(userId);
     return u ? dailyCrit(u.critCount, u.critExpires, now) : CRIT_BASE;
   }
+
+  /** What other players see when they click your name. */
+  async publicProfile(id: string): Promise<PublicProfile | null> {
+    const u = await this.store.findById(id);
+    if (!u || u.banned) return null;
+    return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt };
+  }
+
+  matches(userId: string) { return this.store.matches(userId, 50); }
+  match(userId: string, id: string) { return this.store.match(userId, id); }
 
   /** Profile picture: a small PNG/JPEG/WebP (the browser resizes it to 128×128 before upload). null removes it. */
   async setAvatar(u: UserRecord, dataUrl: unknown) {
@@ -149,7 +159,8 @@ export class StudyService {
     return { users, storage: this.store.name, persistent: this.store.name === 'postgres' || !process.env.RENDER };
   }
   /** Forfeits give nobody XP; matches with AI players give half. */
-  async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false, vsAi = false) {
+  async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false, vsAi = false, record?: Omit<MatchDetail, 'id'>) {
+    if (record) await this.store.addMatch(userId, record);
     const gained = forfeited ? 0 : Math.round(xpFor(outcome, accuracy, mode) * (vsAi ? AI_XP_FACTOR : 1));
     const xp = gained ? await this.store.addXp(userId, gained) : (await this.store.findById(userId))?.xp ?? 0;
     await this.store.addResult(userId, outcome);

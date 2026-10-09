@@ -73,6 +73,17 @@ export function createApiHandler(auth: AuthService, study: StudyService) {
         const u = await auth.authenticate(bearer(req));
         await study.setBackground(u, (await readJson(req)).background);
         send(res, 200, { profile: await study.profile((await auth.authenticate(bearer(req)))) });
+      } else if (req.method === 'GET' && url === '/api/matches') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, { matches: await study.matches(u.id) });
+      } else if (req.method === 'GET' && /^\/api\/matches\/[\w-]+$/.test(url)) {
+        const u = await auth.authenticate(bearer(req));
+        const m = await study.match(u.id, url.split('/')[3]);
+        if (m) send(res, 200, { match: m }); else send(res, 404, { error: 'No such match' });
+      } else if (req.method === 'GET' && /^\/api\/users\/[\w-]+$/.test(url)) {
+        await auth.authenticate(bearer(req)); // players only
+        const p = await study.publicProfile(url.split('/')[3]);
+        if (p) send(res, 200, { profile: p }); else send(res, 404, { error: 'No such player' });
       } else if (req.method === 'GET' && url === '/api/study') {
         const u = await auth.authenticate(bearer(req));
         send(res, 200, await study.summary(u, resolveToday(query.get('today'))));

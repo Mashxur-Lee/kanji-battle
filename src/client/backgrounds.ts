@@ -7,15 +7,18 @@ import { spriteRects } from './wizard';
 export type TimeOfDay = 'day' | 'sunset' | 'night';
 export type TimePref = 'auto' | TimeOfDay;
 export const TIMES: Array<{ id: TimePref; name: string }> = [
-  { id: 'auto', name: 'Auto' }, { id: 'day', name: 'Day' }, { id: 'sunset', name: 'Sunset' }, { id: 'night', name: 'Night' },
+  { id: 'auto', name: 'Cycle' }, { id: 'day', name: 'Day' }, { id: 'sunset', name: 'Sunset' }, { id: 'night', name: 'Night' },
 ];
 
-/** Auto: follow the player's clock (day 7–17, sunset 17–20 and 5–7, night otherwise). */
-export function resolveTime(pref: TimePref, now = new Date()): TimeOfDay {
+/** Cycle ("auto"): day → sunset → night, 5 minutes each, then again. */
+export const CYCLE_STEP_MS = 5 * 60_000;
+const CYCLE: TimeOfDay[] = ['day', 'sunset', 'night'];
+export function resolveTime(pref: TimePref, now = Date.now()): TimeOfDay {
   if (pref !== 'auto') return pref;
-  const h = now.getHours();
-  return h >= 7 && h < 17 ? 'day' : (h >= 17 && h < 20) || (h >= 5 && h < 7) ? 'sunset' : 'night';
+  return CYCLE[Math.floor(now / CYCLE_STEP_MS) % CYCLE.length];
 }
+/** ms until the cycle moves on */
+export const untilNextStep = (now = Date.now()) => CYCLE_STEP_MS - (now % CYCLE_STEP_MS);
 
 const W = 1600, H = 900;
 let seed = 1;
@@ -270,12 +273,22 @@ function scene(id: BackgroundId, t: TimeOfDay) {
 }
 
 const cache = new Map<string, string>();
-/** Draws a background into the fixed #bg layer. */
-export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfDay = 'night') {
+/** Draws a background into the fixed #bg layer. `fade`: cross-fade from the current picture (time of day changing). */
+export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfDay = 'night', fade = false) {
   const key = `${id}-${time}`;
   if (el.dataset.key === key) return;
   if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time)}</svg>`);
-  el.innerHTML = cache.get(key)!;
+  const layer = document.createElement('div');
+  layer.className = 'bg-layer';
+  layer.innerHTML = cache.get(key)!;
+  const old = [...el.querySelectorAll<HTMLElement>('.bg-layer')];
+  if (fade && old.length && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    layer.classList.add('fading-in');
+    el.append(layer);
+    layer.addEventListener('animationend', () => { for (const o of old) o.remove(); layer.classList.remove('fading-in'); }, { once: true });
+  } else {
+    el.replaceChildren(layer);
+  }
   el.dataset.bg = id;
   el.dataset.time = time;
   el.dataset.key = key;

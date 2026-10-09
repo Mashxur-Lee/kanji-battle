@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { Level, Role } from '../../shared/protocol';
+import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
 import { legacyXpToCurrent, type BackgroundId } from '../../shared/progress';
 import type { SrsCard } from '../../shared/srs';
 
@@ -52,10 +52,17 @@ export interface Store {
   setAvatar(id: string, img: AvatarImage | null): Promise<number>;
   getAvatar(id: string): Promise<AvatarImage | null>;
   learnedCount(userId: string): Promise<number>;
+  /** Match history (the newest MATCH_HISTORY_LIMIT are kept per player). */
+  addMatch(userId: string, m: Omit<MatchDetail, 'id'>): Promise<void>;
+  matches(userId: string, limit: number): Promise<MatchSummary[]>;
+  match(userId: string, id: string): Promise<MatchDetail | null>;
   close?(): Promise<void>;
 }
 
 export class UsernameTakenError extends Error {}
+
+export const MATCH_HISTORY_LIMIT = 50;
+const summaryOf = (m: MatchDetail): MatchSummary => ({ id: m.id, mode: m.mode, outcome: m.outcome, character: m.character, at: m.at, opponents: m.opponents });
 
 const blankProgress = () => ({ xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0 });
 
@@ -137,6 +144,16 @@ export class MemoryStore implements Store {
   async cardStats() {
     return Object.fromEntries([...this.srs].map(([uid, d]) => [uid, { cards: d.size, learned: [...d.values()].filter((c) => c.state === 'review').length }]));
   }
+  protected history = new Map<string, MatchDetail[]>();
+  private nextMatch = 1;
+  async addMatch(userId: string, m: Omit<MatchDetail, 'id'>) {
+    const list = this.history.get(userId) ?? [];
+    list.unshift({ ...m, id: `${Date.now().toString(36)}${(this.nextMatch++).toString(36)}` });
+    this.history.set(userId, list.slice(0, MATCH_HISTORY_LIMIT));
+    this.persist();
+  }
+  async matches(userId: string, limit: number) { return (this.history.get(userId) ?? []).slice(0, limit).map(summaryOf); }
+  async match(userId: string, id: string) { return (this.history.get(userId) ?? []).find((m) => m.id === id) ?? null; }
   protected persist() { /* memory only */ }
 }
 
@@ -154,6 +171,7 @@ export class FileStore extends MemoryStore {
       for (const [uid, a] of Object.entries((data.avatars ?? {}) as Record<string, { mime: AvatarImage['mime']; b64: string }>)) {
         this.avatars.set(uid, { mime: a.mime, data: Buffer.from(a.b64, 'base64') });
       }
+      for (const [uid, list] of Object.entries((data.matches ?? {}) as Record<string, MatchDetail[]>)) this.history.set(uid, list);
       for (const [uid, cards] of Object.entries((data.srs ?? {}) as Record<string, SrsCard[]>)) {
         this.srs.set(uid, new Map(cards.map((c) => [c.vocabId, c])));
       }
@@ -164,7 +182,7 @@ export class FileStore extends MemoryStore {
     const tmp = `${this.file}.tmp`;
     const srs = Object.fromEntries([...this.srs].map(([uid, d]) => [uid, [...d.values()]]));
     const avatars = Object.fromEntries([...this.avatars].map(([uid, a]) => [uid, { mime: a.mime, b64: a.data.toString('base64') }]));
-    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars }));
+    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history) }));
     renameSync(tmp, this.file); // atomic replace
   }
 }

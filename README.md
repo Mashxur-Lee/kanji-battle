@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.7.6
+# Kanji Wizards · v0.7.7
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -70,7 +70,7 @@ and shown next to your name in lobbies and games (`GET /api/avatar/:id`, max 60 
 
 ## Backgrounds
 
-Five painted scenes, each in **day, sunset and night** (Customize → Auto follows your clock): a forest with
+Five painted scenes, each in **day, sunset and night** (Customize → Cycle: day → sunset → night, 5 minutes each with a slow cross-fade; it never changes during a game): a forest with
 comets and red eyes in the dark, a misty swamp with will-o'-wisps, plains with villages, a windmill and
 wandering goblins, a castle with the Black Dragon circling above and soldiers clashing at the sides, and the
 World Tree. Each has its own sounds in the menus (owls, frogs, goblin chatter, sword clashes, chimes) at the
@@ -82,6 +82,12 @@ music volume. Admins have every background unlocked.
 bring, then **Find match** — or queue for **Deck Duel** on its own. A timer counts while it searches; as soon
 as another player wants a mode you ticked, a room is made for both of you and the game starts right away
 (same as joining by code and pressing Start). First come, first served (`src/server/Matchmaker.ts`).
+
+## Match history & profiles
+
+**📜 Match history** on the main menu lists your last 50 games: the character you played, the mode's logo, VICTORY /
+DEFEAT and the date. Open one to see its results screen again. Click any player's name (lobby, battle, results,
+history) to see their profile: level, wins, losses, win rate and spells learned. Stored in `kw_matches` (Postgres).
 
 ## AI players
 
@@ -141,8 +147,9 @@ shows only its reading and meaning (15 s, or press **Ready**), then the kanji; p
 disappears while you write it from memory. A successful spell gives back half its mana. Writing is judged extra forgivingly here: besides stroke matching, the overall
 shape is compared with all ~2,300 characters (`src/server/handwriting/shape.ts`), and one shaky character in a word is forgiven. Wrong or too slow → the card rips. Out of cards → a new draft round
 (Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
-match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime: the remaining cards are shown one by one and the first correct writer
-uses it.
+match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime, played like Rapid: the remaining cards
+come up one by one in random order showing only the kanji (no reading or meaning), and the first player to type its reading
+(hiragana or romaji, wrong guesses may retry) uses the card's effect. 12 s per card.
 
 ## Gameplay details
 
