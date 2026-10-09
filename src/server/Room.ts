@@ -3,6 +3,8 @@ import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
 import { BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
 import { DEFAULT_CONFIG, Game, WRITING_CONFIG, type GameConfig, type GameEvent, type Match, type WritingJudge } from './Game';
 import { RapidGame } from './RapidGame';
+import { buildDraftPool, DeckGame } from './DeckGame';
+import { VOCAB } from './vocab';
 import { pickPool } from './VocabPool';
 
 /** Transport-agnostic: Room only needs something it can send messages to. */
@@ -129,6 +131,10 @@ export class Room {
   }
 
   ready(id: PlayerId) { this.game?.markReady(id); }
+  deckCharacter(id: PlayerId, ch: unknown) { if (this.game instanceof DeckGame) this.game.chooseCharacter(id, ch); }
+  deckPick(id: PlayerId, cardId: unknown) { if (this.game instanceof DeckGame) this.game.pick(id, cardId); }
+  deckPlay(id: PlayerId, cardId: unknown) { if (this.game instanceof DeckGame) this.game.play(id, cardId); }
+  deckAbility(id: PlayerId) { if (this.game instanceof DeckGame) this.game.ability(id); }
   answer(id: PlayerId, challengeId: number, text: string) { this.game?.submit(id, challengeId, text); }
   write(id: PlayerId, challengeId: number, chars: DrawnChar[]) { this.game?.submitWriting(id, challengeId, chars); }
   skip(id: PlayerId, challengeId: number) { this.game?.skip(id, challengeId); }
@@ -202,6 +208,14 @@ export class Room {
     this.rematchVotes.clear();
     this.lastGameOver = undefined;
     const emit = (e: GameEvent) => this.onGameEvent(e);
+    if (this.mode === 'deck') {
+      if (!this.deps.judgeWriting) return;
+      const writable = this.deps.writableFilter ?? (() => true);
+      this.phase = 'game';
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit })), buildDraftPool(VOCAB, writable, Math.random), emit, this.deps.judgeWriting);
+      this.game.start();
+      return;
+    }
     if (this.mode === 'rapid') {
       const pool = pickPool(this.unionLevels(), 40);
       this.phase = 'game';
@@ -235,6 +249,7 @@ export class Room {
 
   private sendSnapshot(id: PlayerId, client: Client) {
     if (!this.game) return;
+    if (this.game instanceof DeckGame) return client.send({ type: 'deck_state', view: this.game.viewFor(id) });
     const snap = this.game.snapshot(id);
     if (snap.prep) {
       client.send({ type: 'prep', pool: snap.prep.pool, durationMs: snap.prep.leftMs, readyIds: snap.prep.readyIds, players: this.view() });
@@ -272,6 +287,10 @@ export class Room {
           crit: e.crit, retry: e.retry, beaten: e.beaten,
         });
       }
+      case 'deck_state':
+        return this.clients.get(e.playerId)?.send({ type: 'deck_state', view: e.view });
+      case 'deck_event':
+        return this.broadcast({ type: 'deck_event', event: e.event });
       case 'battle_update':
         return this.broadcast({ type: 'battle_update', players: this.view(), boss: this.bossView(), event: e.event });
       case 'game_over': {

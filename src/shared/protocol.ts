@@ -1,3 +1,4 @@
+import type { DeckEvent, DeckView } from './deck';
 // Single source of truth for everything that crosses the wire.
 export type PlayerId = string; // = the player's account id
 
@@ -96,6 +97,10 @@ export type ClientMessage =
   | { type: 'levels'; levels: Level[] }
   | { type: 'leave' }
   | { type: 'forfeit' }
+  | { type: 'deck_character'; character: string }
+  | { type: 'deck_pick'; cardId: string }
+  | { type: 'deck_play'; cardId: string }
+  | { type: 'deck_ability' }
   | { type: 'back_to_lobby' }
   | { type: 'start' }
   | { type: 'ready' }
@@ -168,4 +173,6 @@ export type ServerMessage =
   | { type: 'rematch_status'; votes: PlayerId[] }
   | { type: 'progress'; gained: number; xp: number; level: number; levelUp: boolean; crit: number }
   | { type: 'notice'; message: string }
+  | { type: 'deck_state'; view: DeckView }
+  | { type: 'deck_event'; event: DeckEvent }
   | { type: 'error'; message: string };

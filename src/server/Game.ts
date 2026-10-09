@@ -1,5 +1,6 @@
 import { isCorrectReading, isRomajiInput } from '../shared/kana';
 import { CRIT_MULTIPLIER } from '../shared/progress';
+import type { DeckEvent, DeckView } from '../shared/deck';
 import type {
   BattleEvent, BossView, DrawnChar, GameMode, GameOverReason, PlayerId, PlayerStats, StudyItem, VocabEntry, WordStat,
 } from '../shared/protocol';
@@ -69,6 +70,8 @@ export type GameEvent =
       retry?: boolean; beaten?: boolean;
     }
   | { type: 'battle_update'; event: BattleEvent }
+  | { type: 'deck_state'; playerId: PlayerId; view: DeckView }
+  | { type: 'deck_event'; event: DeckEvent }
   | { type: 'game_over'; winnerId: PlayerId | null; teamWon: boolean | null; reason: GameOverReason; stats: Record<PlayerId, PlayerStats>; missed: Record<PlayerId, string[]> };
 
 type Phase = 'idle' | 'prep' | 'countdown' | 'battle' | 'over';
