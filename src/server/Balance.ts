@@ -33,6 +33,7 @@ export function bossHp(partyLevels: ReadonlyArray<readonly Level[]>): number {
   return Math.max(300, Math.round(total / 50) * 50);
 }
 export const BOSS_PLAYER_HP = 1000;
+export const BOSS_PARTY_SIZE = 4;
 
 /** Rapid: both players race on the same words, so both get the same HP (~10 round wins to KO). */
 export function rapidHp(levels: readonly Level[]): number {

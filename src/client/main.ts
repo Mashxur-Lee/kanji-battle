@@ -41,7 +41,7 @@ const socket = new GameSocket(onMessage, (s) => {
 });
 
 /** Who is this player on screen? You are always on the left; in boss mode the other player is your ally. */
-const actorOf = (id: PlayerId | 'boss') => (id === 'boss' ? 'boss' : id === you ? 'me' : mode === 'boss' ? 'ally' : 'opp') as 'me' | 'opp' | 'ally' | 'boss';
+const actorOf = (id: PlayerId | 'boss'): ui.Actor => (id === 'boss' ? 'boss' : id === you ? 'me' : mode === 'boss' ? `ally:${id}` : 'opp');
 const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Someone';
 
 // Music only in menus (not during study phase, battles or the deck duel).

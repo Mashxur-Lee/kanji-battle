@@ -1,6 +1,6 @@
 import { CHAT_MAX_LENGTH, type BossView, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
-import { BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
+import { BOSS_PARTY_SIZE, BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
 import { DEFAULT_CONFIG, Game, WRITING_CONFIG, type GameConfig, type GameEvent, type Match, type WritingJudge } from './Game';
 import { RapidGame } from './RapidGame';
 import { buildDraftPool, DeckGame } from './DeckGame';
@@ -73,13 +73,15 @@ export class Room {
     private readonly opts: RoomOptions = DEFAULT_ROOM_OPTIONS,
   ) {}
 
+  /** Boss mode is a party of up to 4 against the dragon; the duels are 1v1. */
+  get maxPlayers() { return this.mode === 'boss' ? BOSS_PARTY_SIZE : this.opts.maxPlayers; }
   get minPlayers() { return this.mode === 'boss' ? 1 : this.opts.maxPlayers; }
   has(id: PlayerId) { return this.roster.some((m) => m.id === id); }
 
   join(id: PlayerId, name: string, client: Client, levels?: Level[], profile: MemberProfile = { crit: 0, xp: 0 }): { ok: true } | { ok: false; error: string } {
     if (this.has(id)) { this.setProfile(id, profile); this.reconnect(id, client); return { ok: true }; }
     if (this.phase !== 'lobby') return { ok: false, error: 'That battle has already started' };
-    if (this.roster.length >= this.opts.maxPlayers) return { ok: false, error: 'Room is full' };
+    if (this.roster.length >= this.maxPlayers) return { ok: false, error: 'Room is full' };
     this.roster.push({ id, name: name.slice(0, 32) || 'Player', levels: levels?.length ? levels : [...DEFAULT_LEVELS], online: true, profile, ready: false });
     this.clients.set(id, client);
     this.hostId ??= id;
@@ -401,7 +403,7 @@ export class Room {
 
   private broadcastLobby() {
     if (!this.hostId) return;
-    this.broadcast({ type: 'lobby', players: this.view(), hostId: this.hostId, maxPlayers: this.opts.maxPlayers, minPlayers: this.minPlayers, mode: this.mode });
+    this.broadcast({ type: 'lobby', players: this.view(), hostId: this.hostId, maxPlayers: this.maxPlayers, minPlayers: this.minPlayers, mode: this.mode });
   }
 
   private broadcast(msg: ServerMessage) {

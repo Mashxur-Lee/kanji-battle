@@ -5,7 +5,7 @@
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
   // src/shared/version.ts
-  var VERSION = "0.5.1";
+  var VERSION = "0.6.1";
 
   // src/shared/protocol.ts
   var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
@@ -1010,8 +1010,8 @@
     }
     $("start").hidden = !isHost;
     $("start").disabled = !canStart;
-    $("start").textContent = mode2 === "boss" && players2.length < maxPlayers ? "Start solo" : "Start battle";
-    $("lobbyStatus").textContent = !canStart ? "Share the code \u2014 the battle can start once your opponent joins." : isHost ? mode2 === "boss" && players2.length < maxPlayers ? "Start now alone, or wait for a teammate." : "" : "Waiting for the host to start\u2026";
+    $("start").textContent = mode2 === "boss" ? players2.length === 1 ? "Start solo" : `Start \u2014 party of ${players2.length}` : "Start battle";
+    $("lobbyStatus").textContent = !canStart ? "Share the code \u2014 the battle can start once your opponent joins." : isHost ? mode2 === "boss" && players2.length < maxPlayers ? `Start now, or wait for more teammates (up to ${maxPlayers}).` : "" : "Waiting for the host to start\u2026";
     show("lobby");
   }
   var selectedLevels = () => [...document.querySelectorAll("#levelChips input")].filter((i) => i.checked).map((i) => i.value);
@@ -1042,6 +1042,29 @@
     bar.firstElementChild.style.width = `${pct}%`;
     return bar;
   }
+  function partyPanel(el, players2, you2) {
+    const ordered = [...players2].sort((a, b) => a.id === you2 ? -1 : b.id === you2 ? 1 : 0);
+    el.replaceChildren(...ordered.map((p) => {
+      const row = h("div", "party-row" + (p.id === you2 ? " me" : "") + (p.hp <= 0 ? " down" : ""));
+      const name = append(
+        h("div", "pname"),
+        h("span", "n", p.id === you2 ? `${p.name} (you)` : p.name),
+        netBars(p.id),
+        h("span", "lv", `Lv ${p.level}`),
+        h("span", "combo", p.combo >= 2 ? `\xD7${p.combo}${p.combo >= 5 ? " \u{1F525}" : ""}` : "")
+      );
+      row.append(name, thickBar(p.hp, p.maxHp, "ally", p.hp <= 0 ? "down" : `${p.hp} / ${p.maxHp}`));
+      return row;
+    }));
+  }
+  function thickBar(hp, max, side, text) {
+    const pct = max > 0 ? Math.max(0, Math.min(100, hp / max * 100)) : 0;
+    const bar = h("div", `tbar ${side}${pct <= 25 ? " low" : ""}`, void 0, { role: "meter", "aria-valuemin": "0", "aria-valuemax": String(max), "aria-valuenow": String(hp) });
+    const fill = h("div", "fill");
+    fill.style.width = `${pct}%`;
+    bar.append(fill, h("span", "tbar-txt", text));
+    return bar;
+  }
   function fighterCard(el, p, label, emptyText) {
     if (!p) {
       el.replaceChildren(h("div", "name", emptyText));
@@ -1054,18 +1077,22 @@
   function renderFighters(players2, you2, boss) {
     const me = players2.find((p) => p.id === you2);
     const other = players2.find((p) => p.id !== you2);
-    fighterCard($("meCard"), me, me ? `${me.name} (you)` : "", "");
+    $("meCard").classList.toggle("party", battleMode === "boss");
+    $("oppCard").hidden = battleMode === "boss";
     if (battleMode === "boss") {
-      fighterCard($("oppCard"), other, other ? `${other.name} (ally)` : "", "Solo run");
+      partyPanel($("meCard"), players2, you2);
       const bar = $("bossBar");
-      if (boss) bar.replaceChildren(h("div", "bname", `\u{1F409} ${boss.name}`), hpBar(boss.hp, boss.maxHp, `${boss.name} HP`), h("div", "hpnum", `${boss.hp} / ${boss.maxHp}`));
+      if (boss) bar.replaceChildren(h("div", "bname", `\u{1F409} ${boss.name}`), thickBar(boss.hp, boss.maxHp, "enemy", `${boss.hp} / ${boss.maxHp}`));
+      for (const p of players2) if (p.id !== you2) allyEl(p.id)?.classList.toggle("onfire", p.combo >= 5);
     } else {
+      fighterCard($("meCard"), me, me ? `${me.name} (you)` : "", "");
       fighterCard($("oppCard"), other, other?.name ?? "", "Opponent left");
+      $("wizOpp").classList.toggle("onfire", (other?.combo ?? 0) >= 5);
     }
     $("wizMe").classList.toggle("onfire", (me?.combo ?? 0) >= 5);
-    $(battleMode === "boss" ? "wizAlly" : "wizOpp").classList.toggle("onfire", (other?.combo ?? 0) >= 5);
   }
-  var actorEl = (a) => $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : a === "ally" ? "wizAlly" : "dragon");
+  var allyEl = (id) => document.querySelector(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
+  var actorEl = (a) => a.startsWith("ally:") ? allyEl(a.slice(5)) ?? $("wizMe") : $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : "dragon");
   function retrigger(el, cls, ms) {
     el.classList.remove(cls);
     void el.offsetWidth;
@@ -1075,17 +1102,24 @@
   function setupArena(mode2, players2, you2) {
     battleMode = mode2;
     const boss = mode2 === "boss";
-    const ally = players2.find((p) => p.id !== you2);
+    const others = players2.filter((p) => p.id !== you2);
     $("wizOpp").hidden = boss;
     $("dragon").hidden = !boss;
-    $("bossBar").hidden = !boss;
-    $("wizAlly").hidden = !boss || !ally;
     const meP = players2.find((p) => p.id === you2);
-    for (const [id, side, p] of [["wizMe", "me", meP], ["wizOpp", "opp", ally], ["wizAlly", "ally", ally]]) {
+    for (const [id, side, p] of [["wizMe", "me", meP], ["wizOpp", "opp", others[0]]]) {
       const w = $(id);
       w.className = `wizard ${side}`;
       w.querySelector(".sprite").innerHTML = avatarSvg(p?.avatar ?? "wizard", side);
     }
+    $("allies").replaceChildren(...(boss ? others : []).map((p) => {
+      const w = h("div", "wizard ally");
+      w.dataset.pid = p.id;
+      const sprite = h("div", "sprite");
+      sprite.innerHTML = avatarSvg(p.avatar, "ally");
+      w.append(h("div", "aura"), sprite, h("div", "ground"));
+      return w;
+    }));
+    $("arena").dataset.party = String(boss ? players2.length : 0);
     $("dragon").className = "dragon";
     $("dragon").querySelector(".sprite").innerHTML = dragonSvg();
     $("fire").hidden = true;
@@ -1328,8 +1362,18 @@
       ["Best combo", (s) => `\xD7${s.bestCombo}`]
     ];
     const cmp = $("statCompare");
-    cmp.replaceChildren(h("div", "h me", "You"), h("div"), h("div", "h r", other ? otherName : ""));
-    for (const [label, fmt] of rows) cmp.append(h("div", "v", fmt(me)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
+    const allies = Object.keys(stats).filter((id) => id !== you2);
+    cmp.classList.toggle("multi", allies.length > 1);
+    if (allies.length > 1) {
+      cmp.style.gridTemplateColumns = `auto repeat(${allies.length + 1}, minmax(0, 1fr))`;
+      const nameOf2 = (id) => players2.find((p) => p.id === id)?.name ?? "Ally";
+      cmp.replaceChildren(h("div"), h("div", "h me", "You"), ...allies.map((id) => h("div", "h", nameOf2(id))));
+      for (const [label, fmt] of rows) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
+    } else {
+      cmp.style.gridTemplateColumns = "";
+      cmp.replaceChildren(h("div", "h me", "You"), h("div"), h("div", "h r", other ? otherName : ""));
+      for (const [label, fmt] of rows) cmp.append(h("div", "v", fmt(me)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
+    }
     const byKanji = new Map(me.words.map((w) => [w.kanji, w]));
     $("struggledBox").hidden = me.struggled.length === 0;
     $("struggled").replaceChildren(
@@ -2167,7 +2211,7 @@
   var socket = new GameSocket(onMessage, (s) => {
     setNetStatus(s === "reconnecting" ? "Reconnecting\u2026" : null);
   });
-  var actorOf = (id) => id === "boss" ? "boss" : id === you ? "me" : mode === "boss" ? "ally" : "opp";
+  var actorOf = (id) => id === "boss" ? "boss" : id === you ? "me" : mode === "boss" ? `ally:${id}` : "opp";
   var nameOf = (id) => players.find((p) => p.id === id)?.name ?? "Someone";
   var GAME_SCREENS = /* @__PURE__ */ new Set(["prep", "battle", "deck", "results"]);
   onScreen((s) => setScene(GAME_SCREENS.has(s) ? "game" : "menu"));

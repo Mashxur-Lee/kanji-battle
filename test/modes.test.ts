@@ -326,3 +326,28 @@ test('connection quality is shared with the room', () => {
   room.disconnect('b', b);
   assert.deepEqual(a.last('net')!.rtt, { a: 80, b: null }, 'offline shows as no signal');
 });
+
+test('boss mode: a party of 4 vs the dragon (a 5th is turned away, duels stay 1v1)', () => {
+  const room = new Room('BOSS', 'boss', { onEmpty: () => {} }, OPTS);
+  const cs = ['a', 'b', 'c', 'd'].map(() => client());
+  ['a', 'b', 'c', 'd'].forEach((id, i) => assert.deepEqual(room.join(id, id.toUpperCase(), cs[i]), { ok: true }));
+  assert.equal(room.join('e', 'E', client()).ok, false, 'room is full at 4');
+  assert.equal(cs[0].last('lobby')!.maxPlayers, 4);
+  const hpParty = cs[0].last('lobby')!.players.length;
+  room.start('a');
+  for (const id of ['a', 'b', 'c', 'd']) room.ready(id);
+  tick(100);
+  const upd = cs[3].msgs.filter((m) => m.type === 'battle_start' || m.type === 'challenge');
+  assert.ok(upd.length > 0, 'the 4th player gets challenges too');
+  assert.equal(hpParty, 4);
+  const duel = new Room('DUEL', 'reading', { onEmpty: () => {} }, OPTS);
+  duel.join('a', 'A', client()); duel.join('b', 'B', client());
+  assert.equal(duel.join('c', 'C', client()).ok, false);
+  room.forfeit('a'); room.forfeit('b'); room.forfeit('c'); room.forfeit('d');
+});
+
+test('boss HP grows with the party size', async () => {
+  const { bossHp } = await import('../src/server/Balance');
+  const one = bossHp([['N3']]), four = bossHp([['N3'], ['N3'], ['N3'], ['N3']]);
+  assert.ok(four > one * 3.5 && four < one * 4.5, `${one} → ${four}`);
+});

@@ -615,3 +615,39 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pad.multi { --cell: min(260px, calc(92vw / var(--cols)), 34vh); background: #f6f3e8; }
 .slots-hint { font-size: .85rem; color: var(--muted); font-weight: 600; }
 @media (max-width: 640px) { .pad { --cell: min(280px, 78vw, 40vh); } .pad.multi { --cell: min(240px, calc(92vw / var(--cols)), 40vh); } }
+
+/* ── v0.6.1: enemies in red, boss party ─────────────────────────────────────── */
+.fighter.opp .hp > div { background: linear-gradient(90deg, #ff5c6c, #b8283f); }
+.dk-player.opp .hp-bar .fill { background: linear-gradient(90deg, #b8283f, #ff5c6c); }
+.tbar { position: relative; height: 24px; border-radius: 12px; background: rgba(10, 10, 30, .72); border: 1px solid var(--line); overflow: hidden; }
+.tbar .fill { position: absolute; inset: 0 auto 0 0; transition: width .35s ease-out; }
+.tbar.ally .fill { background: linear-gradient(90deg, #1fa577, var(--good)); }
+.tbar.ally.low .fill { background: linear-gradient(90deg, #c26a12, #ffb347); }
+.tbar.enemy .fill { background: linear-gradient(90deg, #8c1426, #ff4d5e); box-shadow: 0 0 12px rgba(255, 77, 94, .45); }
+.tbar-txt { position: relative; z-index: 1; display: flex; height: 100%; align-items: center; justify-content: center; font-weight: 900; font-size: .95rem;
+  color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #000, 0 0 6px rgba(0, 0, 0, .8); }
+/* party: everyone's HP stacked, you first */
+.fighter.party { display: flex; flex-direction: column; gap: 6px; max-width: 460px; }
+.party-row .pname { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: .9rem; margin-bottom: 2px; }
+.party-row.me .pname .n { color: var(--accent); }
+.party-row .combo { margin-left: auto; }
+.party-row.down { opacity: .5; }
+/* the dragon's HP: thick, red, right above its head */
+.dragon .boss-bar { width: 92%; margin: 0 0 8px; text-align: center; }
+.dragon .boss-bar .bname { font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #ff6b7a; font-size: .85rem; margin-bottom: 4px; text-shadow: 0 0 10px rgba(255, 77, 94, .5); }
+.dragon .boss-bar .tbar { height: 32px; border-radius: 16px; border: 2px solid rgba(255, 107, 129, .5); }
+.dragon .boss-bar .tbar-txt { font-size: 1.1rem; }
+/* up to 3 teammates stand next to you */
+.allies { display: flex; align-items: flex-end; gap: 2px; }
+#arena[data-party="3"] .wizard .sprite { width: clamp(70px, 8vw, 110px); }
+#arena[data-party="4"] .wizard .sprite { width: clamp(58px, 6.5vw, 92px); }
+.compare.multi .lbl { text-align: left; }
+.compare.multi .h, .compare.multi .v { text-align: center; }
+@media (max-width: 640px) {
+  .fighter.party { max-width: none; }
+  .party-row .pname { font-size: .8rem; }
+  .tbar { height: 20px; } .tbar-txt { font-size: .8rem; }
+  .dragon .boss-bar .tbar { height: 26px; }
+  #arena[data-party="3"] .wizard .sprite, #arena[data-party="4"] .wizard .sprite { width: 44px; }
+}
+.arena-top:has(.fighter.party) { grid-template-columns: minmax(0, 1fr) auto; }

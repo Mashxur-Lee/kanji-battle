@@ -165,7 +165,7 @@
       <button class="mode-card boss" data-mode="boss">
         <span class="mode-icon jp">竜</span>
         <span class="mode-name">Boss Elimination</span>
-        <span class="mode-desc">Team up against the Black Dragon. Mistakes get you clawed; it breathes fire every 30 s.</span>
+        <span class="mode-desc">Up to 4 players vs the Black Dragon. Mistakes get you clawed; it breathes fire every 30 s.</span>
       </button>
       <button class="mode-card deck" data-mode="deck">
         <span class="mode-icon jp">札</span>
@@ -228,11 +228,10 @@
       </div>
       <div id="oppCard" class="fighter opp"></div>
     </div>
-    <div id="bossBar" class="boss-bar" hidden></div>
     <div id="arena" class="arena">
       <div class="side left">
         <div id="wizMe" class="wizard me"><div class="aura"></div><div class="sprite"></div><div class="ground"></div></div>
-        <div id="wizAlly" class="wizard ally" hidden><div class="aura"></div><div class="sprite"></div><div class="ground"></div></div>
+        <div id="allies" class="allies"></div>
       </div>
       <div class="stage">
         <div id="countdown" class="countdown" hidden></div>
@@ -254,7 +253,7 @@
       </div>
       <div class="side right">
         <div id="wizOpp" class="wizard opp"><div class="aura"></div><div class="sprite"></div><div class="ground"></div></div>
-        <div id="dragon" class="dragon" hidden><div class="sprite"></div><div class="ground"></div></div>
+        <div id="dragon" class="dragon" hidden><div id="bossBar" class="boss-bar"></div><div class="sprite"></div><div class="ground"></div></div>
       </div>
       <div id="fire" class="fire" hidden></div>
     </div>
@@ -354,7 +353,7 @@
           <li><b>Reading</b> — study 10 words, then type each reading (かな or romaji).</li>
           <li><b>Rapid</b> — no study; both get the same kanji, first correct reading hits.</li>
           <li><b>Writing</b> — the kanji flashes, then write it on the pad or type the kanji with a Japanese keyboard. Messy is fine.</li>
-          <li><b>Boss</b> — team up against the Black Dragon. Mistakes get you clawed; fire breath every 30 s.</li>
+          <li><b>Boss</b> — 1 to 4 players team up against the Black Dragon (it gets tougher with every player). Mistakes get you clawed; fire breath every 30 s.</li>
           <li><b>Deck Duel</b> — pick a hero, draft cards by colour, then cast them by writing their kanji. Light blue 100 dmg (10 mana), blue 120 (25), yellow +60 mana, green heal 100 (40), red 250 (70). Both players press Ready to start. 15 s to choose a card, then 20 s to write it. You get +10 mana each turn. Out of cards → a new draft round (HP and mana stay). Cards left but no mana to play any → you lose. When time runs out: overtime — cards are shown one by one, first to write it uses it.</li>
         </ul>
       </li>
@@ -365,7 +364,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.5.1</div>
+<div id="version" class="version">v0.6.1</div>
 <script src="/app.js"></script>
 </body>
 </html>
