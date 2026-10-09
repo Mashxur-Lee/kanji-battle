@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.7.9
+# Kanji Wizards · v0.8.0
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -10,7 +10,7 @@ Real-time kanji battles in the browser. Five modes:
 | **1v1 Kanji Writing** | The kanji flashes for 3.5 s, then the reading + meaning stay. Type the kanji with a Japanese IME or draw it on the pad. Only kanji count (kana only at the かな level). |
 | **Boss Elimination** | 1–4 players vs the Black Dragon (its HP grows with the party). Correct answers hit it; a mistake gets you clawed; fire breath every 30 s hits everyone who isn't on fire (5+ combo = immune). |
 | **1v1 Rapid** | Both players get the same kanji. First correct reading (kana or romaji) deals the damage. |
-| **Deck Duel** | Pick a hero, draft 10 kanji cards, then spend mana to cast them by writing the kanji. 1000 HP each. |
+| **Deck Duel** | Pick a hero, draft 10 kanji cards, then spend mana to cast them by writing the kanji. 800 HP each. |
 
 ```
 npm install
@@ -123,9 +123,9 @@ always Ready. Matches with an AI give half XP; a room with only AI left closes.
 
 ## Deck Duel
 
-Heroes (power button bottom-left: costs 100 mana, then rests for 4 of your turns; effects last 2 turns): **Goblin** casts 2 cards in a row,
-**Knight** −30 % damage taken and +30 % healing, **Witch** sees your hand's spells and readings (the card she is
-writing still hides its kanji); **Wizard** is passive (2 random cards when out of cards, or +30 mana when out of
+Heroes (power button bottom-left: costs 100 mana, then rests for 4 of your turns — Goblin 5; effects last 2 turns): **Goblin** casts 2 cards in a row
+(the second costs 1.5× mana), **Knight** −45 % damage taken and +50 % healing, **Witch** sees your hand's spells and readings and her
+attacks hit 35 % harder (the card she is writing still hides its kanji); **Wizard** is passive (2 random cards when out of cards, or +30 mana when out of
 mana, once each).
 
 The lobby has no level picker (it shows an illustrated guide instead): both players press **Ready** and the
@@ -138,11 +138,11 @@ difficulty (JLPT level, stroke count and word length):
 
 | Colour | Effect | Mana |
 |---|---|---|
-| Red | 250 damage | 70 |
-| Green | heal 100 | 40 |
+| Red | 340 damage | 45 |
+| Green | heal 140 | 30 |
 | Yellow | +60 mana | 0 |
-| Blue | 120 damage | 25 |
-| Light blue | 100 damage | 10 |
+| Blue | 150 damage | 20 |
+| Light blue | 90 damage | 10 |
 
 Mana starts at 200/200, +10 each turn. You get 15 s to choose a card. Then one minute to cast it: the card flips and
 shows only its reading and meaning (15 s, or press **Ready**), then the kanji; press **CAST!** and the kanji
@@ -150,7 +150,7 @@ disappears while you write it from memory. Right or wrong, the card then turns o
 kanji with its reading and meaning for 2 s (nothing can be played meanwhile). A successful spell gives back half its mana. Writing is judged extra forgivingly here: besides stroke matching, the overall
 shape is compared with all ~2,300 characters (`src/server/handwriting/shape.ts`), and one shaky character in a word is forgiven. Wrong or too slow → the card rips. Out of cards → a new draft round
 (Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
-match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime: the cards are gone and the duel becomes a
+match clock pauses). Having cards but no mana for any of them skips your turn (−100 HP, like any skipped turn); mana keeps coming back. After 8 minutes, overtime: the cards are gone and the duel becomes a
 1v1 Rapid duel with the HP you have left — random kanji words (N5–N1, only the kanji shows), the first to type the reading
 (hiragana or romaji, wrong guesses may retry) hits: N5 60 · N4 80 · N3 100 · N2 130 · N1 170 damage (crits count). 12 s per word;
 after 3 minutes of overtime the higher HP wins. Letting the choose clock run out without playing a card costs 100 HP.

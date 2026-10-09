@@ -4,26 +4,30 @@ export const CARD_COLORS = ['lightblue', 'blue', 'yellow', 'green', 'red'] as co
 export type CardColor = (typeof CARD_COLORS)[number];
 
 export interface CardSpec { label: string; kind: 'attack' | 'heal' | 'mana'; amount: number; cost: number }
-/** Easiest words → light blue … hardest → red (rank by difficulty, which includes level + stroke count). */
+/**
+ * Easiest words → light blue … hardest → red (rank by difficulty, which includes level + stroke count).
+ * v0.8 balance (tuned with ~150k simulated duels): a harder card is worth more per card played, so
+ * drafting and writing hard kanji pays off.
+ */
 export const CARD_SPECS: Record<CardColor, CardSpec> = {
-  lightblue: { label: 'Bolt', kind: 'attack', amount: 100, cost: 10 },
-  blue: { label: 'Frost', kind: 'attack', amount: 120, cost: 25 },
+  lightblue: { label: 'Bolt', kind: 'attack', amount: 90, cost: 10 },
+  blue: { label: 'Frost', kind: 'attack', amount: 150, cost: 20 },
   yellow: { label: 'Mana', kind: 'mana', amount: 60, cost: 0 },
-  green: { label: 'Heal', kind: 'heal', amount: 100, cost: 40 },
-  red: { label: 'Inferno', kind: 'attack', amount: 250, cost: 70 },
+  green: { label: 'Heal', kind: 'heal', amount: 140, cost: 30 },
+  red: { label: 'Inferno', kind: 'attack', amount: 340, cost: 45 },
 };
 
 export const DECK_CHARACTERS = ['goblin', 'knight', 'witch', 'wizard'] as const;
 export type DeckCharacter = (typeof DECK_CHARACTERS)[number];
 export const CHARACTER_INFO: Record<DeckCharacter, { name: string; power: string; passive?: boolean }> = {
-  goblin: { name: 'Goblin', power: 'Frenzy: play 2 cards in a row this turn. 100 mana, then 4 turns cooldown.' },
-  knight: { name: 'Knight', power: 'Bulwark: take 30% less damage and heal 30% more for 2 turns. 100 mana, then 4 turns cooldown.' },
-  witch: { name: 'Witch', power: 'Sight: see the kanji and reading of all your cards for 2 turns (while writing it still hides like everyone else\'s). 100 mana, then 4 turns cooldown.' },
+  goblin: { name: 'Goblin', power: 'Frenzy: play 2 cards in a row this turn (the second costs 1.5× mana). 100 mana, then 5 turns cooldown.' },
+  knight: { name: 'Knight', power: 'Bulwark: take 45% less damage and heal 50% more for 2 turns. 100 mana, then 4 turns cooldown.' },
+  witch: { name: 'Witch', power: 'Sight: for 2 turns see the kanji and reading of all your cards, and your attacks hit 35% harder (the card you write still hides its kanji). 100 mana, then 4 turns cooldown.' },
   wizard: { name: 'Wizard', power: 'Arcane reserve (passive): out of cards → draw 2 random cards before a new draft; out of mana → +30 mana. Once each.', passive: true },
 };
 
 export const DECK_RULES = {
-  hp: 1000,
+  hp: 800,
   maxMana: 200, // and you start full
   manaPerTurn: 10,
   handSize: 10,
@@ -42,8 +46,11 @@ export const DECK_RULES = {
   overtimeCardMs: 12_000, // per kanji
   overtimeGapMs: 2_200, // the answer stays up before the next kanji
   overtimeMaxMs: 3 * 60_000, // then the higher HP wins
-  knightDamageTaken: 0.7,
-  knightHealBonus: 1.3,
+  witchSightDamage: 1.35, // Witch's attack spells hit harder while Sight is on
+  goblinSecondCost: 1.5, // Frenzy's second card costs this much more mana
+  goblinCooldown: 5, // Frenzy rests this many of your turns (the others: abilityCooldown)
+  knightDamageTaken: 0.55,
+  knightHealBonus: 1.5,
   abilityTurns: 2,
   manaRefund: 0.5, // a successful spell gives back half its mana cost
   abilityCost: 100, // mana to fire your hero's power
@@ -113,7 +120,8 @@ export interface DeckView {
   players: DeckPlayerView[];
   hand: DeckCardView[]; // your cards (hidden faces unless revealed)
   draft: { pool: Array<{ cardId: string; color: CardColor; takenBy: string | null }>; picker: string | null; picksLeft: number; coinWinner: string | null; deadlineMs: number } | null;
-  turn: { active: string; castsLeft: number; deadlineMs: number; stage: 'choose' | 'cast' } | null;
+  /** costFactor: what the next card costs compared to normal (Goblin's Frenzy second card: 1.5) */
+  turn: { active: string; castsLeft: number; deadlineMs: number; stage: 'choose' | 'cast'; costFactor: number } | null;
   /** 1 for the opening draft; +1 every time someone runs out of cards and a new draft starts */
   round: number;
   /** While it's NOT your turn: the kanji in your hand, sorted (so you can't tell which card is which). */
