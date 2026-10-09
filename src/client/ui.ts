@@ -3,6 +3,7 @@ import {
   type Level, type MatchSummary, type PlayerId, type PlayerStats, type PlayerView, type PublicProfile, type PublicUser, type StudyItem, type Avatar,
 } from '../shared/protocol';
 import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
+import { arena as arena3d, arenaForBattle } from './arena';
 import { critText, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -434,6 +435,8 @@ export function renderFighters(players: PlayerView[], you: PlayerId, boss: BossV
   }
   // 5+ in a row: the fighter is wreathed in flames
   $('wizMe').classList.toggle('onfire', (me?.combo ?? 0) >= 5);
+  const a3 = arena3d();
+  if (a3) for (const p of players) a3.onfire(p.id === you ? 'me' : battleMode === 'boss' ? `ally:${p.id}` : 'opp', p.combo >= 5);
 }
 
 // ── battle: wizards, dragon & spell effects ──────────────────────────────────
@@ -471,6 +474,7 @@ export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId)
     return w;
   }));
   $('arena').dataset.party = String(boss ? players.length : 0);
+  arenaForBattle(mode, players, you); // the 3D arena, when it's on
   $('dragon').className = 'dragon';
   $('dragon').querySelector('.sprite')!.innerHTML = dragonSvg();
   $('fire').hidden = true;
@@ -492,7 +496,9 @@ function floatText(target: HTMLElement, text: string, cls: string) {
 }
 
 /** The caster lunges, the kanji flies across as the spell, and the target flashes red on impact. */
-export function castSpell(caster: Actor, target: Actor, kanji: string, damage: number, friendly: boolean): Promise<void> {
+export function castSpell(caster: Actor, target: Actor, kanji: string, damage: number, friendly: boolean, crit = false): Promise<void> {
+  const a3 = arena3d();
+  if (a3) return a3.cast(caster, target, kanji, { damage, crit });
   const c = actorEl(caster), t = actorEl(target);
   retrigger(c, 'casting', 450);
   const arena = $('arena');
@@ -544,6 +550,7 @@ export function castSpell(caster: Actor, target: Actor, kanji: string, damage: n
 }
 
 export function fizzle(who: Actor) {
+  arena3d()?.fizzle(who);
   const w = actorEl(who);
   retrigger(w, 'fizzle', 650);
   const puff = h('div', 'puff', '💨');
@@ -552,6 +559,8 @@ export function fizzle(who: Actor) {
 }
 
 export function clawHit(victim: Actor, damage: number) {
+  const a3 = arena3d();
+  if (a3) return a3.claw(victim, damage);
   retrigger($('dragon'), 'claw', 520);
   setTimeout(() => {
     const v = actorEl(victim);
@@ -564,6 +573,7 @@ export function breathWarning(inMs: number) {
   const el = $('breathWarn');
   el.hidden = false;
   $('dragon').classList.add('inhale');
+  arena3d()?.inhale(true);
   countdown('breath', inMs, (left) => (el.textContent = `🔥 The dragon inhales… ${Math.ceil(left / 1000)}`));
 }
 
@@ -571,6 +581,8 @@ export function breathFire(damage: number, victims: Actor[], immune: Actor[] = [
   stopCountdown('breath');
   $('breathWarn').hidden = true;
   $('dragon').classList.remove('inhale');
+  const a3 = arena3d();
+  if (a3) { a3.breath(victims, damage); setTimeout(() => { for (const v of immune) a3.float(v, 'IMMUNE', '#ffd479'); }, 450); return; }
   const fire = $('fire');
   // the flame starts at the dragon's mouth (left edge of the sprite, ~37% down) and sweeps left
   const arena = $('arena').getBoundingClientRect();
@@ -594,6 +606,7 @@ export function breathFire(damage: number, victims: Actor[], immune: Actor[] = [
 }
 
 export function knockOut(who: Actor) {
+  arena3d()?.ko(who);
   actorEl(who).classList.add('ko');
 }
 

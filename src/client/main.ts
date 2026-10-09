@@ -2,6 +2,7 @@ import * as voice from './voice';
 import { initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
+import { arena, arenaPref, arenaScreen, arenaSupported, preloadArena, setArenaBackground, setArenaPref } from './arena';
 import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Profile } from './api';
 import * as audio from './audio';
@@ -52,6 +53,7 @@ const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Some
 const GAME_SCREENS = new Set(['prep', 'battle', 'deck']);
 ui.onScreen((s) => {
   audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu');
+  arenaScreen(s); // the 3D arena on battle screens
   if (!GAME_SCREENS.has(s)) setTimeout(() => applyBackground(true), 0); // catch up on the cycle after a game
 });
 
@@ -67,6 +69,7 @@ function applyBackground(fade = false) {
   const time = resolveTime(getTimePref());
   if (fade && NO_BG_CHANGE.has(ui.currentScreen() ?? '')) return;
   paintBackground(ui.$('bg'), bg, time, fade && shownTime !== '' && shownTime !== time);
+  setArenaBackground(bg, time);
   shownTime = time;
   audio.setAmbience(bg, time);
 }
@@ -79,6 +82,7 @@ function applyProfile(p: Profile) {
   profile = p;
   ui.setProfile(p);
   applyBackground();
+  preloadArena();
 }
 onProfileChange(applyProfile);
 
@@ -203,6 +207,7 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'challenge':
       challengeId = msg.id;
+      arena()?.channel(0);
       ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs });
       if (msg.answer === 'writing') beginWriting(msg.id, msg.kanji);
       break;
@@ -284,7 +289,7 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
       const caster = actorOf(e.playerId);
       const target = actorOf(e.targetId);
       const friendly = caster !== 'opp';
-      void ui.castSpell(caster, target, e.kanji, e.damage, friendly).then(() => {
+      void ui.castSpell(caster, target, e.kanji, e.damage, friendly, !!e.crit).then(() => {
         render(); // HP bars update when the spell lands
         if (target === 'me') audio.sfx.hurt();
         else if (caster === 'me') audio.sfx.impact();
@@ -322,7 +327,7 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
 
 // ── writing (handwriting pad + Japanese keyboard) ────────────────────────────
 const pad = new HandwritingPad(ui.$<HTMLCanvasElement>('pad'), () => shareInk());
-pad.onDraw = () => shareInk();
+pad.onDraw = () => { shareInk(); if (mode !== 'deck') arena()?.channel(Math.min(1, 0.45 + pad.strokeCount * 0.12)); };
 /** Deck Duel: the opponent watches your pad live (throttled, the last state always goes out). */
 let inkTimer = 0, inkAt = 0;
 function shareInk() {
@@ -339,6 +344,7 @@ function beginWriting(id: number, kanji: string) {
   charCount = [...kanji].length;
   written = [];
   pad.setCells(charCount); // write the whole word at once
+  arena()?.channel(0.35); // the staff starts to glow; brighter with every stroke
   if (mode === 'deck') ui.mountWriteArea('dkWrite');
   ui.setCharSlots(charCount, [], true);
   const ime = ui.$<HTMLInputElement>('imeInput');
@@ -348,6 +354,7 @@ function beginWriting(id: number, kanji: string) {
 
 function stopWriting() {
   writing = false;
+  if (mode !== 'deck') arena()?.channel(0);
   ui.lockInput();
   if (mode === 'deck') ui.hideWriteArea();
 }
@@ -360,6 +367,8 @@ function submitDrawing() {
 
 ui.$('padUndo').onclick = () => pad.undo();
 ui.$('padClear').onclick = () => pad.clear();
+// typing a reading: the staff glows a little more with each letter
+ui.$<HTMLInputElement>('answer').addEventListener('input', (e) => arena()?.channel(Math.min(0.8, (e.target as HTMLInputElement).value.length * 0.15)));
 ui.$('padSkip').onclick = () => skip();
 ui.$('padNext').onclick = () => {
   if (pad.strokeCount === 0) return;
@@ -513,6 +522,16 @@ armForfeit('dkForfeit');
 
 // ── deck duel ────────────────────────────────────────────────────────────────
 ui.$('version').textContent = `v${VERSION}`;
+document.documentElement.dataset.v = VERSION;
+// 3D arena switch (in the sound/settings panel)
+{
+  const t = ui.$<HTMLInputElement>('arena3dToggle');
+  t.checked = arenaPref();
+  t.disabled = !arenaSupported();
+  ui.$('arena3dInfo').textContent = arenaSupported() ? 'First-person duel arena (move the mouse to look around).' : 'Needs WebGL and a larger window — the classic 2D view is used.';
+  t.onchange = () => setArenaPref(t.checked);
+  ui.$('volBtn').addEventListener('click', () => { t.checked = arenaPref(); t.disabled = !arenaSupported(); });
+}
 ui.$('pad').style.cursor = brushCursor(); // pixel hand + brush; the ink tip draws
 
 initDeck({

@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.8.0
+# Kanji Wizards · v0.9.0
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -120,6 +120,16 @@ always Ready. Matches with an AI give half XP; a room with only AI left closes.
   words you missed in battles. Anki-style cards (Again / Hard / Okay / Easy, SM-2 scheduling,
   `src/shared/srs.ts`).
 - **Crit (daily)**: every day starts at 1 %; each spell learned today (a flashcard passed with Hard/Okay/Easy, once per card per day) adds +1 %, max 50 %. It drops back to 1 % at your local midnight. A crit hits ×1.5.
+
+## 3D arena
+
+Battles and Deck Duels are shown **first person** in a 3D arena (Three.js, `src/client/arena3d.ts`, loaded on demand
+as `public/arena3d.js`): your staff in the foreground glows while you write or type, the opponent (or the dragon and
+your party) stands across a stone arena with torches, your chosen background and time of day far behind. Move the
+mouse to look around a little (parallax). Spells are kanji that fly across with a trail; hits flash and shake the
+camera. The fighters are the same pixel characters, as billboards in 3D. Only the look changed — all rules are the
+same. Switch it off in the sound/settings panel (🏟 3D arena); phones, small windows and browsers without WebGL
+use the classic 2D view.
 
 ## Deck Duel
 

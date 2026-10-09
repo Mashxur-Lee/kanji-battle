@@ -4,6 +4,7 @@ import * as audio from './audio';
 import * as ui from './ui';
 import type { ChatMessage } from '../shared/protocol';
 import { heroSvg } from './wizard';
+import { arena, arenaForDeck, resetArenaDeck } from './arena';
 
 const $ = ui.$;
 const COLOR_NAME: Record<CardColor, string> = { lightblue: 'Light blue', blue: 'Blue', yellow: 'Yellow', green: 'Green', red: 'Red' };
@@ -183,6 +184,7 @@ export function renderDeck(v: DeckView) {
   view = v;
   const me = v.players.find((p) => p.id === v.you)!;
   const opp = v.players.find((p) => p.id !== v.you)!;
+  if (opp.character) arenaForDeck(v); // the 3D arena (when it's on) shows the opponent's hero
   ui.show('deck');
   playerPanel($('dkMe'), me, true);
   playerPanel($('dkOpp'), opp, false);
@@ -274,6 +276,8 @@ function renderCast(v: DeckView) {
   const box = $('dkCast');
   const c = v.casting;
   if (!c) {
+    arena()?.channel(0);
+    arena()?.oppChannel(false);
     castKey = '';
     ui.stopCountdown('dkRead');
     if (writingCastId) { hooks.stopWriting(); writingCastId = 0; }
@@ -352,6 +356,9 @@ function renderCast(v: DeckView) {
     if (fresh) $('dkFeedback').replaceChildren();
   }
   const writeNow = mine && !c.overtime && c.stage === 'write';
+  const a3 = arena();
+  a3?.channel(writeNow ? 1 : mine && c.stage === 'look' ? 0.4 : c.overtime ? 0.5 : 0);
+  a3?.oppChannel(!mine && c.stage === 'write');
   if (writeNow && writingCastId !== c.castId) {
     writingCastId = c.castId;
     hooks.beginWriting(c.castId, '□'.repeat(c.chars)); // the pad only needs the number of characters
@@ -453,8 +460,15 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) 
     fb.className = 'feedback bad';
     fb.replaceChildren(h('span', 'big', e.overtime ? '✗ Nobody got it' : e.playerId === me ? '✗ The spell fizzles' : `✗ ${who} missed`), h('span', 'sub2', `${e.kanji} · ${e.reading} · ${e.meaning}${e.recognized ? ` — read: ${e.recognized}` : ''}`));
     audio.sfx.rip();
+    arena()?.fizzle(e.playerId === me ? 'me' : 'opp');
     if (card) ripCard(card);
     return;
+  }
+  const a3 = arena();
+  if (a3) {
+    const from = e.playerId === me ? 'me' : 'opp';
+    const to = spec.kind === 'attack' ? (e.targetId === me ? 'me' : 'opp') : from;
+    void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind });
   }
   fb.className = 'feedback good';
   fb.replaceChildren(h('span', 'big', `✓ ${who}: ${spec.label} ${spec.kind === 'attack' ? `−${e.amount}` : spec.kind === 'heal' ? `+${e.amount} ♥` : `+${e.amount} ◆`}`));
@@ -524,4 +538,4 @@ function ripCard(card: HTMLElement) {
 }
 
 const clock = (ms: number) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-export const resetDeck = () => { view = null; lastCastId = 0; writingCastId = 0; coinShown = false; ui.stopCountdown('dkMatch'); ui.stopCountdown('dkTurn'); ui.stopCountdown('dkDraft'); };
+export const resetDeck = () => { resetArenaDeck(); view = null; lastCastId = 0; writingCastId = 0; coinShown = false; ui.stopCountdown('dkMatch'); ui.stopCountdown('dkTurn'); ui.stopCountdown('dkDraft'); };
