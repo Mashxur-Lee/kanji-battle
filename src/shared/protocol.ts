@@ -111,6 +111,8 @@ export type ClientMessage =
   | { type: 'deck_pick'; cardId: string }
   | { type: 'deck_play'; cardId: string }
   | { type: 'deck_ability' }
+  | { type: 'deck_cast_ready'; castId: number }
+  | { type: 'deck_cast_go'; castId: number }
   | { type: 'back_to_lobby' }
   | { type: 'start' }
   | { type: 'ready' }

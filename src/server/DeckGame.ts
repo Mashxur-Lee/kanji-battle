@@ -17,7 +17,7 @@ interface DPlayer {
   hand: Card[]; wizardCardsUsed: boolean; wizardManaUsed: boolean;
   casts: number; hits: number; totalMs: number; damage: number; words: Map<string, { entry: VocabEntry; attempts: number; correct: number; totalMs: number }>;
 }
-interface Cast { castId: number; card: Card; ownerId: PlayerId | null; startedAt: number; flashMs: number | null; tried: Set<PlayerId> }
+interface Cast { castId: number; card: Card; ownerId: PlayerId | null; startedAt: number; flashMs: number | null; tried: Set<PlayerId>; stage: 'read' | 'look' | 'write' }
 
 /** Picks the 20 draft cards: 4 writable words per JLPT level, coloured by difficulty rank. */
 export function buildDraftPool(vocab: readonly VocabEntry[], writable: (v: VocabEntry) => boolean, rng: Rng, perLevel = DECK_RULES.cardsPerLevel): Array<{ entry: VocabEntry; color: CardColor }> {
@@ -53,6 +53,8 @@ export class DeckGame implements Match {
   private timer?: ReturnType<typeof setTimeout>;
   private matchTimer?: ReturnType<typeof setTimeout>;
   private firstTurn = true;
+  private stageTimer?: ReturnType<typeof setTimeout>; // the 15 s "read" step of a cast
+  private stageEndsAt = 0;
   private round = 1;
   private roundPicks = new Map<PlayerId, number>();
   /** set while a new draft interrupts the battle: whose turn resumes, and the match time that was left */
@@ -135,10 +137,32 @@ export class DeckGame implements Match {
     p.hand = p.hand.filter((c) => c !== card);
     p.mana -= CARD_SPECS[card.color].cost; // paid up front: a ripped card still costs its mana
     card.revealed = true;
-    const witchSight = p.character === 'witch' && p.abilityActive > 0;
-    this.cast = { castId: this.nextCast++, card, ownerId: id, startedAt: this.now(), flashMs: witchSight ? null : this.rules.castFlashMs, tried: new Set() };
-    this.setTimer(this.rules.castMs, () => this.turnTimeout()); // its own clock for writing
-    this.emitEvent({ kind: 'cast', playerId: id, color: card.color, kanji: card.entry.kanji });
+    // step 1: read the meaning (the kanji isn't sent to anyone yet)
+    this.cast = { castId: this.nextCast++, card, ownerId: id, startedAt: this.now(), flashMs: null, tried: new Set(), stage: 'read' };
+    const castId = this.cast.castId;
+    this.setTimer(this.rules.castMs, () => this.turnTimeout()); // one minute for read → look → write
+    clearTimeout(this.stageTimer);
+    this.stageEndsAt = this.now() + this.rules.castReadMs;
+    this.stageTimer = setTimeout(() => this.castReady(id, castId), this.rules.castReadMs);
+    this.emitEvent({ kind: 'cast', playerId: id, color: card.color });
+    this.broadcastState();
+  }
+
+  /** "Ready": show the kanji (step 2). Also happens by itself when the reading time is up. */
+  castReady(id: PlayerId, castId: unknown) {
+    const c = this.cast;
+    if (this.phase !== 'battle' || !c || c.castId !== castId || c.ownerId !== id || c.stage !== 'read') return;
+    c.stage = 'look';
+    clearTimeout(this.stageTimer);
+    this.broadcastState();
+  }
+
+  /** "CAST!": hide the kanji and write it from memory (step 3). */
+  castGo(id: PlayerId, castId: unknown) {
+    const c = this.cast;
+    if (this.phase !== 'battle' || !c || c.castId !== castId || c.ownerId !== id || c.stage !== 'look') return;
+    c.stage = 'write';
+    c.startedAt = this.now(); // response time counts from here
     this.broadcastState();
   }
 
@@ -175,7 +199,7 @@ export class DeckGame implements Match {
   /** Hero pick or the first draft: nothing has been played yet, so the room may go back to the lobby. */
   canReturnToLobby() { return this.phase === 'characters' || (this.phase === 'draft' && this.round === 1); }
 
-  dispose() { clearTimeout(this.timer); clearTimeout(this.matchTimer); }
+  dispose() { clearTimeout(this.timer); clearTimeout(this.matchTimer); clearTimeout(this.stageTimer); }
 
   /** Full state as one player sees it (sent after every change, and on reconnect). */
   viewFor(id: PlayerId): DeckView {
@@ -195,13 +219,7 @@ export class DeckGame implements Match {
       deckList: this.phase === 'battle' && me && this.active !== id
         ? me.hand.map((c) => ({ kanji: c.entry.kanji, reading: displayReading(c.entry), meaning: c.entry.meaning })).sort((a, b) => a.kanji.localeCompare(b.kanji, 'ja'))
         : null,
-      casting: this.cast ? {
-        castId: this.cast.castId, ownerId: this.cast.ownerId ?? '',
-        card: { ...this.cardView(this.cast.card, true), kanji: this.cast.card.entry.kanji, reading: displayReading(this.cast.card.entry), meaning: this.cast.card.entry.meaning },
-        flashMs: this.cast.flashMs === null ? null : Math.max(0, this.cast.flashMs - (now - this.cast.startedAt)),
-        deadlineMs: left,
-        overtime: this.phase === 'overtime',
-      } : null,
+      casting: this.cast ? this.castView(this.cast, now, left) : null,
       matchLeftMs: this.phase === 'battle' ? Math.max(0, this.matchEndsAt - now) : this.resume ? this.resume.matchLeftMs : 0,
       overtimeLeft: this.overtimeQueue.length + (this.phase === 'overtime' && this.cast ? 1 : 0),
     };
@@ -346,7 +364,7 @@ export class DeckGame implements Match {
   private resolveAttempt(id: PlayerId, castId: number, judge: (e: VocabEntry) => { correct: boolean; recognized: string }) {
     const c = this.cast;
     if (!c || c.castId !== castId || c.tried.has(id)) return;
-    if (this.phase === 'battle' && c.ownerId !== id) return; // only the caster writes on their turn
+    if (this.phase === 'battle' && (c.ownerId !== id || c.stage !== 'write')) return; // only the caster, and only in the writing step
     if (this.phase !== 'battle' && this.phase !== 'overtime') return;
     const result = judge(c.card.entry);
     if (this.phase === 'overtime' && !result.correct) {
@@ -402,6 +420,7 @@ export class DeckGame implements Match {
       meaning: c.card.entry.meaning, ok: result.correct, amount, targetId, refund, recognized: timedOut ? undefined : result.recognized, overtime: this.phase === 'overtime',
     });
     this.cast = null;
+    clearTimeout(this.stageTimer);
     if (this.players.some((p) => p.hp <= 0)) return this.finish('ko');
     if (this.phase === 'overtime') return this.nextOvertimeCard();
     this.castsLeft--;
@@ -432,7 +451,7 @@ export class DeckGame implements Match {
     const card = this.overtimeQueue.shift();
     if (!card) return this.finish('time');
     card.revealed = true;
-    this.cast = { castId: this.nextCast++, card, ownerId: null, startedAt: this.now(), flashMs: this.rules.castFlashMs, tried: new Set() };
+    this.cast = { castId: this.nextCast++, card, ownerId: null, startedAt: this.now(), flashMs: this.rules.castFlashMs, tried: new Set(), stage: 'write' };
     this.setTimer(this.rules.overtimeCardMs, () => this.nextOvertimeCard());
     this.broadcastState();
   }
@@ -489,6 +508,22 @@ export class DeckGame implements Match {
     return reveal
       ? { cardId: c.cardId, color: c.color, kanji: c.entry.kanji, reading: displayReading(c.entry), meaning: c.entry.meaning }
       : { cardId: c.cardId, color: c.color };
+  }
+
+  private castView(c: Cast, now: number, left: number) {
+    const e = c.card.entry;
+    const owner = c.ownerId ? this.p(c.ownerId) : undefined;
+    const witchSight = owner?.character === 'witch' && owner.abilityActive > 0;
+    const showKanji = this.phase === 'overtime' || c.stage === 'look' || (c.stage === 'write' && witchSight);
+    return {
+      castId: c.castId, ownerId: c.ownerId ?? '',
+      card: { cardId: c.card.cardId, color: c.card.color, ...(showKanji ? { kanji: e.kanji } : {}), reading: displayReading(e), meaning: e.meaning },
+      stage: c.stage, chars: [...e.kanji].length,
+      readLeftMs: c.stage === 'read' ? Math.max(0, this.stageEndsAt - now) : null,
+      flashMs: c.flashMs === null ? null : Math.max(0, c.flashMs - (now - c.startedAt)),
+      deadlineMs: left,
+      overtime: this.phase === 'overtime',
+    };
   }
 
   private playerView(p: DPlayer): DeckPlayerView {

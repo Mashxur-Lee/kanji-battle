@@ -16,7 +16,7 @@ function h(tag: string, cls = '', text?: string | number): HTMLElement {
 }
 
 export interface DeckHooks {
-  send: (msg: { type: 'deck_character'; character: string } | { type: 'deck_pick'; cardId: string } | { type: 'deck_play'; cardId: string } | { type: 'deck_ability' } | { type: 'chat'; text: string } | { type: 'back_to_lobby' }) => void;
+  send: (msg: { type: 'deck_character'; character: string } | { type: 'deck_pick'; cardId: string } | { type: 'deck_play'; cardId: string } | { type: 'deck_ability' } | { type: 'chat'; text: string } | { type: 'back_to_lobby' } | { type: 'deck_cast_ready'; castId: number } | { type: 'deck_cast_go'; castId: number }) => void;
   /** your player id (chat arrives before the first deck view) */
   me: () => string;
   /** It's your turn to write this card: set up the pad/IME. */
@@ -92,7 +92,8 @@ function renderGuide(el: HTMLElement) {
     ['🦸', 'Pick a hero (30 s).'],
     ['🪙', 'Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji.'],
     ['🃏', `Your turn: ${DECK_RULES.chooseMs / 1000} s to choose a card. Its mana is paid right away — even if you then miss.`],
-    ['✍️', `The kanji shows for ${DECK_RULES.castFlashMs / 1000} s, then only the reading + meaning stay. Write it (pad or Japanese keyboard) within ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1000} s.`],
+    ['📖', `The card flips: read its reading and meaning (up to ${DECK_RULES.castReadMs / 1000} s), then press Ready to see the kanji.`],
+    ['✍️', `Press CAST! — the kanji disappears and you write it (pad or Japanese keyboard). One minute for the whole spell.`],
     ['✅', `Right → the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow → the card rips.`],
     ['📜', 'While your opponent plays, you can read the list of kanji in your hand (not which card is which).'],
     ['🔄', 'Out of cards → Round 2 draft. HP, mana and powers stay.'],
@@ -187,7 +188,7 @@ export function renderDeck(v: DeckView) {
   const label = v.phase === 'overtime'
     ? 'Overtime! First to write it uses the card'
     : myTurn
-      ? (v.casting ? 'Write the kanji!' : `Your turn — choose a card${v.turn!.castsLeft > 1 ? ' (Frenzy: 2 cards)' : ''}`)
+      ? (v.casting ? (v.casting.stage === 'read' ? 'Your spell — read it' : v.casting.stage === 'look' ? 'Your spell — memorise the kanji' : 'Write the kanji!') : `Your turn — choose a card${v.turn!.castsLeft > 1 ? ' (Frenzy: 2 cards)' : ''}`)
       : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
   ui.countdown('dkTurn', deadline, (left) => (banner.textContent = `${label} · ${Math.ceil(left / 1000)}s`));
 
@@ -237,35 +238,67 @@ function renderList(v: DeckView) {
 }
 const append = (el: HTMLElement, ...kids: Node[]) => { el.append(...kids); return el; };
 
+/**
+ * The card being cast. Your own cast goes in three steps within one minute:
+ *   1. read — the card shows its reading + meaning (15 s, or press Ready)
+ *   2. look — the kanji appears; study it and press CAST!
+ *   3. write — the kanji disappears and you write it (pad or Japanese keyboard)
+ * The opponent watches the same card (without being able to write).
+ */
+let castKey = '';
 function renderCast(v: DeckView) {
   const box = $('dkCast');
   const c = v.casting;
   if (!c) {
     box.replaceChildren();
+    castKey = '';
+    ui.stopCountdown('dkRead');
     if (writingCastId) { hooks.stopWriting(); writingCastId = 0; }
     $('dkFeedback').replaceChildren();
     return;
   }
-  if (c.castId !== lastCastId) {
+  const mine = v.phase === 'overtime' || c.ownerId === v.you;
+  const key = `${c.castId}:${c.stage}:${c.card.kanji ? 1 : 0}`;
+  if (key !== castKey) {
+    const fresh = c.castId !== lastCastId;
     lastCastId = c.castId;
+    castKey = key;
     const card = cardEl(c.card, { big: true });
+    if (!fresh) card.style.animation = 'none'; // only flip in once
     const top = h('div', 'dkc-half');
-    const k = h('span', 'dkc-k', c.card.kanji); k.lang = 'ja';
+    const k = h('span', 'dkc-k' + (c.card.kanji ? '' : ' unknown'), c.card.kanji ?? '？'.repeat(Math.min(c.chars, 3))); k.lang = 'ja';
     top.append(k);
     const bottom = h('div', 'dkc-half bottom');
     const r = h('span', 'dkc-r', c.card.reading); r.lang = 'ja';
     bottom.append(r, h('span', 'dkc-m', c.card.meaning));
     card.append(top, bottom);
-    box.replaceChildren(card);
+    const actions = h('div', 'cast-actions');
+    if (!v.casting!.overtime && mine && c.stage === 'read') {
+      const t = h('div', 'cast-timer');
+      ui.countdown('dkRead', c.readLeftMs ?? 0, (left) => (t.textContent = `Read the meaning — the kanji shows in ${Math.ceil(left / 1000)} s`));
+      const b = h('button', 'big cast-btn', 'Ready ▸') as HTMLButtonElement;
+      b.onclick = () => { b.disabled = true; hooks.send({ type: 'deck_cast_ready', castId: c.castId }); };
+      actions.append(t, b);
+    } else if (!v.casting!.overtime && mine && c.stage === 'look') {
+      ui.stopCountdown('dkRead');
+      const b = h('button', 'big cast-btn go', 'CAST! ✦') as HTMLButtonElement;
+      b.onclick = () => { b.disabled = true; audio.sfx.flip(); hooks.send({ type: 'deck_cast_go', castId: c.castId }); };
+      actions.append(h('div', 'cast-timer', 'Memorise it — it disappears when you cast'), b);
+    } else if (!mine) {
+      ui.stopCountdown('dkRead');
+      actions.append(h('div', 'cast-timer', c.stage === 'read' ? 'Reading the spell…' : c.stage === 'look' ? 'Studying the kanji…' : 'Writing the kanji…'));
+    } else ui.stopCountdown('dkRead');
+    box.replaceChildren(card, actions);
     clearTimeout(flashTimer);
-    if (c.flashMs !== null) flashTimer = window.setTimeout(() => k.classList.add('gone'), c.flashMs); // kanji flashes, reading + meaning stay
-    $('dkFeedback').replaceChildren();
+    // overtime: the kanji flashes, then only the reading + meaning stay
+    if (c.overtime && c.flashMs !== null && c.card.kanji) flashTimer = window.setTimeout(() => k.classList.add('gone'), c.flashMs);
+    if (fresh) $('dkFeedback').replaceChildren();
   }
-  const mine = v.phase === 'overtime' || c.ownerId === v.you;
-  if (mine && writingCastId !== c.castId) {
+  const writeNow = mine && (c.overtime || c.stage === 'write');
+  if (writeNow && writingCastId !== c.castId) {
     writingCastId = c.castId;
-    hooks.beginWriting(c.castId, c.card.kanji);
-  } else if (!mine && writingCastId) {
+    hooks.beginWriting(c.castId, '□'.repeat(c.chars)); // the pad only needs the number of characters
+  } else if (!writeNow && writingCastId) {
     hooks.stopWriting();
     writingCastId = 0;
   }
@@ -284,7 +317,7 @@ function renderCharacters(v: DeckView, me: DeckPlayerView, opp: DeckPlayerView) 
     b.onclick = () => hooks.send({ type: 'deck_character', character: c });
     grid.append(b);
   }
-  overlay.replaceChildren(backButton(v), title, grid, h('p', 'sub', `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1000} s to choose a card (its mana is paid right away), then the kanji shows for ${DECK_RULES.castFlashMs / 1000} s and you have ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1000} s to write it. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards → a new draft round. Cards: light blue 100 dmg (10◆) · blue 120 (25◆) · yellow +60◆ · green heal 100 (40◆) · red 250 (70◆).`));
+  overlay.replaceChildren(backButton(v), title, grid, h('p', 'sub', `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1000} s to choose a card (its mana is paid right away), then read the meaning, press Ready to see the kanji and CAST! to write it — ${DECK_RULES.castMs / 1000} s for the whole spell. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards → a new draft round. Cards: light blue 100 dmg (10◆) · blue 120 (25◆) · yellow +60◆ · green heal 100 (40◆) · red 250 (70◆).`));
 }
 
 let coinShown = false;
@@ -333,7 +366,7 @@ export function deckEvent(e: DeckEvent) {
     case 'overtime': ui.toast('⏰ Overtime! Cards are shown one by one — first to write it uses it.', 5000); break;
     case 'resolve':
       animateResolve(e, me);
-      if (e.ok) setTimeout(() => voice.say(e.reading), 250); // both players hear the spell's word
+      if (e.ok) setTimeout(() => voice.say(e.reading), 1100); // both players hear the spell's word
       break;
   }
 }

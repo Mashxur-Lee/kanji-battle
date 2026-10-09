@@ -572,7 +572,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .chat-form { display: flex; gap: 6px; }
 .chat-form input { flex: 1; min-width: 0; padding: 8px 10px; font-size: .9rem; }
 .chat-form .pill { padding: 6px 12px; }
-.dk-overlay .dk-back { align-self: flex-start; position: absolute; top: 18px; left: var(--gutter); z-index: 2; }
+.dk-overlay .dk-back { align-self: flex-start; position: absolute; top: 84px; left: var(--gutter); z-index: 2; }
 
 /* lobby guide (Deck Duel) */
 .deck-guide { background: rgba(16, 14, 44, .94); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; max-height: calc(100dvh - 140px); overflow: auto; }
@@ -704,7 +704,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .q-title { font-size: 1.3rem; font-weight: 800; }
 .q-timer { font-size: 3.2rem; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; }
 .q-orbit { position: relative; width: 90px; height: 90px; animation: qspin 2.4s linear infinite; }
-.q-orbit span { position: absolute; font-family: var(--jp); font-size: 1.6rem; font-weight: 900; color: #fff; text-shadow: 0 0 10px var(--accent2), 0 0 22px var(--accent2); }
+.q-orbit span { position: absolute; line-height: 30px; width: 30px; text-align: center; animation: qspin 2.4s linear infinite reverse; font-family: var(--jp); font-size: 1.6rem; font-weight: 900; color: #fff; text-shadow: 0 0 10px var(--accent2), 0 0 22px var(--accent2); }
 .q-orbit span:first-child { left: 0; top: 30px; } .q-orbit span:last-child { right: 0; top: 30px; text-shadow: 0 0 10px var(--gold), 0 0 22px #ff6b81; }
 @keyframes qspin { to { transform: rotate(360deg); } }
 @media (max-width: 760px) { .queue-grid { grid-template-columns: 1fr; } }
@@ -813,3 +813,12 @@ svg.still .bg-comet { opacity: 0; }
 
 .bg-times { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
 .bg-times .pill.on { border-color: var(--gold); color: var(--gold); }
+
+/* Deck Duel cast steps */
+.dk-cast { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.dkc.big .dkc-k.unknown { color: rgba(16, 16, 42, .35); letter-spacing: .1em; }
+.cast-actions { display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 2em; }
+.cast-timer { color: var(--muted); font-weight: 700; font-size: .9rem; text-align: center; }
+.cast-btn { min-width: 200px; }
+.cast-btn.go { background: linear-gradient(135deg, #ff7a59, #c2364d); box-shadow: 0 0 24px rgba(255, 106, 80, .45); animation: castPulse 1.2s ease-in-out infinite; }
+@keyframes castPulse { 50% { transform: scale(1.05); } }

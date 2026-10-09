@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.7.5
+# Kanji Wizards · v0.7.6
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -136,8 +136,9 @@ difficulty (JLPT level, stroke count and word length):
 | Blue | 120 damage | 25 |
 | Light blue | 100 damage | 10 |
 
-Mana starts at 200/200, +10 each turn. You get 15 s to choose a card, then the kanji flashes for 3.5 s (the reading and meaning
-stay) and you have 35 s to write it. A successful spell gives back half its mana. Writing is judged extra forgivingly here: besides stroke matching, the overall
+Mana starts at 200/200, +10 each turn. You get 15 s to choose a card. Then one minute to cast it: the card flips and
+shows only its reading and meaning (15 s, or press **Ready**), then the kanji; press **CAST!** and the kanji
+disappears while you write it from memory. A successful spell gives back half its mana. Writing is judged extra forgivingly here: besides stroke matching, the overall
 shape is compared with all ~2,300 characters (`src/server/handwriting/shape.ts`), and one shaky character in a word is forgiven. Wrong or too slow → the card rips. Out of cards → a new draft round
 (Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
 match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime: the remaining cards are shown one by one and the first correct writer

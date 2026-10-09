@@ -180,6 +180,8 @@ export class Room {
       deckPick: (id, c) => this.deckPick(id, c),
       deckPlay: (id, c) => this.deckPlay(id, c),
       deckAbility: (id) => this.deckAbility(id),
+      deckCastReady: (id, c) => this.deckCastReady(id, c),
+      deckCastGo: (id, c) => this.deckCastGo(id, c),
     };
   }
   private get humans() { return this.roster.filter((p) => !p.bot); }
@@ -220,6 +222,8 @@ export class Room {
   deckPick(id: PlayerId, cardId: unknown) { if (this.game instanceof DeckGame) this.game.pick(id, cardId); }
   deckPlay(id: PlayerId, cardId: unknown) { if (this.game instanceof DeckGame) this.game.play(id, cardId); }
   deckAbility(id: PlayerId) { if (this.game instanceof DeckGame) this.game.ability(id); }
+  deckCastReady(id: PlayerId, castId: unknown) { if (this.game instanceof DeckGame) this.game.castReady(id, castId); }
+  deckCastGo(id: PlayerId, castId: unknown) { if (this.game instanceof DeckGame) this.game.castGo(id, castId); }
   answer(id: PlayerId, challengeId: number, text: string) { this.game?.submit(id, challengeId, text); }
   write(id: PlayerId, challengeId: number, chars: DrawnChar[]) { this.game?.submitWriting(id, challengeId, chars); }
   skip(id: PlayerId, challengeId: number) { this.game?.skip(id, challengeId); }
