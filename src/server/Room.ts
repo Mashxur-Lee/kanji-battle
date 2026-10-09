@@ -91,7 +91,8 @@ export class Room {
     if (this.has(id)) { this.setProfile(id, profile); this.reconnect(id, client); return { ok: true }; }
     if (this.phase !== 'lobby') return { ok: false, error: 'That battle has already started' };
     if (this.roster.length >= this.maxPlayers) return { ok: false, error: 'Room is full' };
-    this.roster.push({ id, name: name.slice(0, 32) || 'Player', levels: levels?.length ? levels : [...DEFAULT_LEVELS], online: true, profile, ready: false });
+    const shared = this.mode === 'rapid' ? this.roster.find((p) => !p.bot)?.levels : undefined; // Rapid: join the room's levels
+    this.roster.push({ id, name: name.slice(0, 32) || 'Player', levels: shared ? [...shared] : levels?.length ? levels : [...DEFAULT_LEVELS], online: true, profile, ready: false });
     this.clients.set(id, client);
     this.hostId ??= id;
     client.send({ type: 'joined', code: this.code, you: id, mode: this.mode });
@@ -137,11 +138,17 @@ export class Room {
     if (this.phase === 'lobby') this.broadcastLobby();
   }
 
-  /** Every player picks their own levels — they decide their own words and how hard they hit. */
+  /**
+   * Every player picks their own levels — they decide their own words and how hard they hit.
+   * Rapid is the exception: both race on the same kanji, so the room has one shared set of levels
+   * (whoever changes it changes it for everyone).
+   */
   setLevels(id: PlayerId, levels: Level[]) {
     const m = this.roster.find((p) => p.id === id);
     if (!m || this.phase === 'game' || levels.length === 0) return;
-    m.levels = levels;
+    if (this.mode === 'rapid') {
+      for (const p of this.roster) if (!p.bot) p.levels = [...levels];
+    } else m.levels = levels;
     if (this.phase === 'lobby') this.broadcastLobby();
   }
 
@@ -317,7 +324,11 @@ export class Room {
     return Math.round(opponents.reduce((s, o) => s + hpAgainst(o.levels), 0) / opponents.length);
   }
 
-  private unionLevels(): Level[] { return [...new Set(this.roster.flatMap((p) => p.levels))]; }
+  /** Rapid's shared levels (AI players don't add their own: they only decide how much the AI knows). */
+  private unionLevels(): Level[] {
+    const humans = this.roster.filter((p) => !p.bot);
+    return [...new Set((humans.length ? humans : this.roster).flatMap((p) => p.levels))];
+  }
 
   private startGame() {
     this.game?.dispose();

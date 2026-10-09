@@ -118,7 +118,8 @@ export class Matchmaker {
       for (const t of [a, b]) t.client.send({ type: 'queue', state: 'matched', mode });
       const room = this.rooms.create(mode);
       const seated: Ticket[] = [];
-      for (const t of [a, b]) if (await t.client.joinMatched(room, t.levels.length ? t.levels : ['N5'])) seated.push(t);
+      const shared = mode === 'rapid' ? a.levels.filter((l) => b.levels.includes(l)) : null; // Rapid: only the levels both picked
+      for (const t of [a, b]) if (await t.client.joinMatched(room, shared ?? (t.levels.length ? t.levels : ['N5']))) seated.push(t);
       if (seated.length < 2) {
         // someone vanished while we were seating them: put the other back in the queue
         for (const t of seated) room.leave(t.id);
@@ -138,7 +139,8 @@ export class Matchmaker {
     for (let i = 0; i < this.tickets.length; i++) {
       for (let j = i + 1; j < this.tickets.length; j++) {
         const a = this.tickets[i], b = this.tickets[j];
-        const common = a.modes.filter((m) => b.modes.includes(m));
+        // Rapid races both players on the same kanji: only with a level in common
+        const common = a.modes.filter((m) => b.modes.includes(m) && (m !== 'rapid' || a.levels.some((l) => b.levels.includes(l))));
         if (common.length) return [a, b, common[Math.floor(this.rng() * common.length)]];
       }
     }

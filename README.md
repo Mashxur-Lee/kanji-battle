@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.0
+# Kanji Wizards · v0.9.1
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -9,7 +9,7 @@ Real-time kanji battles in the browser. Five modes:
 | **1v1 Kanji Reading** | Study 10 words for 60 s, then see the kanji and type its reading (IME kana or romaji). |
 | **1v1 Kanji Writing** | The kanji flashes for 3.5 s, then the reading + meaning stay. Type the kanji with a Japanese IME or draw it on the pad. Only kanji count (kana only at the かな level). |
 | **Boss Elimination** | 1–4 players vs the Black Dragon (its HP grows with the party). Correct answers hit it; a mistake gets you clawed; fire breath every 30 s hits everyone who isn't on fire (5+ combo = immune). |
-| **1v1 Rapid** | Both players get the same kanji. First correct reading (kana or romaji) deals the damage. |
+| **1v1 Rapid** | Both players get the same kanji. First correct reading (kana or romaji) deals the damage. Levels are shared: in a room one set for both, in the online queue only players with a level in common are matched. |
 | **Deck Duel** | Pick a hero, draft 10 kanji cards, then spend mana to cast them by writing the kanji. 800 HP each. |
 
 ```

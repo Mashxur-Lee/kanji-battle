@@ -541,7 +541,7 @@
     };
     clearTimeout(fadeTimer);
     el.querySelector(".bg-veil")?.remove();
-    if (!fade || !el.querySelector(".bg-layer") || matchMedia("(prefers-reduced-motion: reduce)").matches) return swap();
+    if (!fade || !el.querySelector(".bg-layer")) return swap();
     const veil = document.createElement("div");
     veil.className = "bg-veil";
     veil.style.animationDuration = `${BG_FADE_MS}ms`;
@@ -998,7 +998,7 @@
         return label;
       })
     );
-    $("levelsHint").textContent = mode2 === "deck" ? "Deck Duel draws cards from every level (N5\u2013N1). Your level picks only change your character here." : mode2 === "rapid" ? "Both players race on the same kanji, drawn from everyone's levels together." : mode2 === "boss" ? "Each player picks their own. The dragon gets tougher when the party picks harder levels." : mode2 === "writing" ? "Each player picks their own. You will write these words by hand. Harder levels hit harder \u2014 so your opponent gets more HP." : "Each player picks their own. \u304B\u306A = hiragana, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.";
+    $("levelsHint").textContent = mode2 === "deck" ? "Deck Duel draws cards from every level (N5\u2013N1). Your level picks only change your character here." : mode2 === "rapid" ? "Shared levels: both players race on the same kanji, so a change here changes it for everyone." : mode2 === "boss" ? "Each player picks their own. The dragon gets tougher when the party picks harder levels." : mode2 === "writing" ? "Each player picks their own. You will write these words by hand. Harder levels hit harder \u2014 so your opponent gets more HP." : "Each player picks their own. \u304B\u306A = hiragana, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.";
     const isHost = you2 === hostId;
     const canStart = players2.length >= minPlayers2;
     $("addBot").hidden = !isHost || players2.length >= maxPlayers;
@@ -2450,7 +2450,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.9.0";
+  var VERSION = "0.9.1";
 
   // src/client/api.ts
   var today = () => {
@@ -3976,7 +3976,7 @@
   $("studyBack").onclick = () => show("menu");
   $("customizeBtn").onclick = async () => {
     await refreshProfile();
-    if (profile) openCustomize(profile, user?.role === "admin", applyBackground);
+    if (profile) openCustomize(profile, user?.role === "admin", () => applyBackground(true));
   };
   $("customizeBack").onclick = () => show("menu");
   async function openAdmin() {
