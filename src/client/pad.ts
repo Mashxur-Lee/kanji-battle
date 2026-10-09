@@ -20,6 +20,9 @@ export class HandwritingPad {
   private current: Array<[number, number]> | null = null;
   private readonly ctx: CanvasRenderingContext2D;
 
+  /** onDraw: called while a stroke is being drawn (for live spectating) */
+  onDraw: () => void = () => {};
+
   constructor(private readonly canvas: HTMLCanvasElement, private readonly onChange: () => void = () => {}) {
     this.ctx = canvas.getContext('2d')!;
     canvas.addEventListener('pointerdown', (e) => this.down(e));
@@ -47,6 +50,14 @@ export class HandwritingPad {
     return this.strokes.map((s) => thin(s.map(([x, y]): [number, number] => [Math.round(x), Math.round(y)])));
   }
 
+  get cellCount() { return this.cells; }
+
+  /** Everything drawn so far, including the stroke in progress (for the opponent to watch). */
+  ink(): DrawnChar {
+    const all = this.current ? [...this.strokes, this.current] : this.strokes;
+    return all.map((s) => thin(s.map(([x, y]): [number, number] => [Math.round(x), Math.round(y)])));
+  }
+
   clear() { this.strokes = []; this.current = null; this.redraw(); this.onChange(); }
   undo() { this.strokes.pop(); this.redraw(); this.onChange(); }
 
@@ -70,6 +81,7 @@ export class HandwritingPad {
     if (Math.hypot(p[0] - last[0], p[1] - last[1]) < MIN_DIST) return;
     this.current.push(p);
     this.redraw();
+    this.onDraw();
   }
 
   private up() {

@@ -18,7 +18,7 @@ export type DeckCharacter = (typeof DECK_CHARACTERS)[number];
 export const CHARACTER_INFO: Record<DeckCharacter, { name: string; power: string; passive?: boolean }> = {
   goblin: { name: 'Goblin', power: 'Frenzy: play 2 cards in a row this turn. 100 mana, then 4 turns cooldown.' },
   knight: { name: 'Knight', power: 'Bulwark: take 30% less damage and heal 30% more for 2 turns. 100 mana, then 4 turns cooldown.' },
-  witch: { name: 'Witch', power: 'Sight: see the kanji and reading of all your cards for 2 turns (and the kanji stays visible while casting). 100 mana, then 4 turns cooldown.' },
+  witch: { name: 'Witch', power: 'Sight: see the kanji and reading of all your cards for 2 turns (while writing it still hides like everyone else\'s). 100 mana, then 4 turns cooldown.' },
   wizard: { name: 'Wizard', power: 'Arcane reserve (passive): out of cards → draw 2 random cards before a new draft; out of mana → +30 mana. Once each.', passive: true },
 };
 
@@ -36,10 +36,12 @@ export const DECK_RULES = {
   castMs: 60_000, // one minute for all three steps
   castReadMs: 15_000, // reading + meaning only; press Ready (or after 15 s) to see the kanji
   revealMs: 2_000, // after a cast the correct kanji shows; nothing can be played meanwhile
+  skipPenaltyHp: 100, // letting the choose clock run out without playing a card
   matchMs: 8 * 60_000, // then overtime
-  // overtime is a Rapid race: only the kanji shows; the first to type its reading uses the card
-  overtimeCardMs: 12_000,
-  overtimeGapMs: 2_200, // the answer stays up before the next card
+  // overtime is a 1v1 Rapid duel: the cards are gone; random kanji (N5–N1), first to type the reading hits
+  overtimeCardMs: 12_000, // per kanji
+  overtimeGapMs: 2_200, // the answer stays up before the next kanji
+  overtimeMaxMs: 3 * 60_000, // then the higher HP wins
   knightDamageTaken: 0.7,
   knightHealBonus: 1.3,
   abilityTurns: 2,
@@ -60,6 +62,11 @@ export interface DeckCardView {
   reading?: string;
   meaning?: string;
 }
+
+/** Overtime (Rapid duel): a harder word hits harder. The card shows the level's colour. */
+export const OVERTIME_DAMAGE = { N5: 60, N4: 80, N3: 100, N2: 130, N1: 170 } as const;
+export type OvertimeLevel = keyof typeof OVERTIME_DAMAGE;
+export const OVERTIME_COLOR: Record<OvertimeLevel, CardColor> = { N5: 'lightblue', N4: 'blue', N3: 'green', N2: 'yellow', N1: 'red' };
 
 export interface DeckPlayerView {
   id: string;
@@ -93,6 +100,8 @@ export interface DeckCastView {
   chars: number; // how many characters to write
   /** overtime: type the reading in kana (or romaji), or — for a kana word — in romaji only */
   answer: 'reading' | 'romaji' | null;
+  /** overtime: the word's level and how hard it hits */
+  rapid: { level: string; damage: number } | null;
   deadlineMs: number; // time left for the whole cast (1 minute)
   readLeftMs: number | null; // "read" step: time until the kanji shows by itself
   overtime: boolean;
@@ -111,7 +120,7 @@ export interface DeckView {
   deckList: Array<{ kanji: string; reading: string; meaning: string }> | null;
   casting: DeckCastView | null;
   matchLeftMs: number;
-  overtimeLeft: number; // cards left in overtime
+  overtimeLeft: number; // ms left in overtime (then the higher HP wins)
 }
 
 export type DeckEvent =
@@ -123,5 +132,6 @@ export type DeckEvent =
   | { kind: 'cast'; playerId: string; color: CardColor }
   | { kind: 'resolve'; playerId: string; color: CardColor; kanji: string; reading: string; meaning: string; ok: boolean; amount: number; targetId: string; refund?: number; recognized?: string; overtime: boolean }
   | { kind: 'overtime' }
+  | { kind: 'skip'; playerId: string; damage: number } // didn't play a card in time
   | { kind: 'ot_miss'; playerId: string } // overtime: a wrong guess (the player may try again)
   | { kind: 'stuck'; playerId: string; why: 'no_cards' | 'no_mana' };

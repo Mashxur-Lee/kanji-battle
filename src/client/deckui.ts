@@ -29,6 +29,24 @@ let hooks: DeckHooks;
 let lastCastId = 0;
 let writingCastId = 0;
 let otInput: HTMLInputElement | null = null; // overtime: the reading box
+let inkCanvas: HTMLCanvasElement | null = null; // the opponent's pad, watched live
+let inkCastId = 0;
+
+/** Strokes from the opponent's pad (their own cast, while they write it). */
+export function deckInk(castId: number, strokes: Array<Array<[number, number]>>, cells: number) {
+  if (!inkCanvas || castId !== inkCastId || !inkCanvas.isConnected) return;
+  if (inkCanvas.width !== 600 * cells) { inkCanvas.width = 600 * cells; inkCanvas.style.setProperty('--cols', String(cells)); }
+  paintInk(inkCanvas, strokes);
+}
+function paintInk(cv: HTMLCanvasElement, strokes: Array<Array<[number, number]>>) {
+  const ctx = cv.getContext('2d')!;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.strokeStyle = 'rgba(60, 50, 110, .25)'; ctx.lineWidth = 3; ctx.setLineDash([18, 14]);
+  for (let x = 600; x < cv.width; x += 600) { ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, 580); ctx.stroke(); }
+  ctx.setLineDash([]);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 20; ctx.strokeStyle = '#1b1530';
+  for (const s of strokes) { ctx.beginPath(); s.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); if (s.length === 1) ctx.lineTo(s[0][0] + 1, s[0][1] + 1); ctx.stroke(); }
+}
 
 export function initDeck(hk: DeckHooks) {
   hooks = hk;
@@ -97,7 +115,8 @@ function renderGuide(el: HTMLElement) {
     ['✅', `Right → the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow → the card rips.`],
     ['📜', 'While your opponent plays, you can read the list of kanji in your hand (not which card is which).'],
     ['🔄', 'Out of cards → Round 2 draft. HP, mana and powers stay.'],
-    ['⏰', `After ${DECK_RULES.matchMs / 60000} min: overtime — the leftover cards come up one by one, kanji only, and the first to type its reading (hiragana or romaji) uses it.`],
+    ['⏰', `After ${DECK_RULES.matchMs / 60000} min: overtime — the cards are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5–N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 60000} min, then the higher HP wins.`],
+    ['⌛', `Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`],
   ] as const) { const li = h('li'); li.append(h('span', 'g-ic', icon), h('span', '', t)); flow.append(li); }
   el.replaceChildren(
     h('h3', '', 'How Deck Duel works'),
@@ -178,8 +197,7 @@ export function renderDeck(v: DeckView) {
 
   // clocks & banner
   if (v.phase === 'overtime') {
-    ui.stopCountdown('dkMatch');
-    $('dkClock').textContent = `OVERTIME · ${v.overtimeLeft} cards`;
+    ui.countdown('dkMatch', v.overtimeLeft, (left) => ($('dkClock').textContent = `⚡ ${clock(left)}`));
   } else {
     ui.countdown('dkMatch', v.matchLeftMs, (left) => ($('dkClock').textContent = clock(left)));
   }
@@ -188,7 +206,7 @@ export function renderDeck(v: DeckView) {
   banner.classList.toggle('mine', myTurn || v.phase === 'overtime');
   const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
   const label = v.phase === 'overtime'
-    ? 'Overtime! First to type the reading uses the card'
+    ? 'Overtime — Rapid duel! First to type the reading hits'
     : myTurn
       ? (v.casting ? (v.casting.stage === 'read' ? 'Your spell — read it' : v.casting.stage === 'look' ? 'Your spell — memorise the kanji' : 'Write the kanji!') : `Your turn — choose a card${v.turn!.castsLeft > 1 ? ' (Frenzy: 2 cards)' : ''}`)
       : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
@@ -225,7 +243,7 @@ function renderList(v: DeckView) {
   const box = $('dkList');
   const head = h('h4', '', 'Your kanji');
   if (!v.deckList) {
-    box.replaceChildren(head, h('p', 'hint', v.phase === 'overtime' ? 'Overtime — all cards are on the table.' : 'Hidden on your turn. While your opponent plays, the kanji in your hand show up here.'));
+    box.replaceChildren(head, h('p', 'hint', v.phase === 'overtime' ? 'Overtime — the cards are gone: type the readings!' : 'Hidden on your turn. While your opponent plays, the kanji in your hand show up here.'));
     return;
   }
   const ul = h('ul', 'kanji-list');
@@ -276,7 +294,7 @@ function renderCast(v: DeckView) {
     const k = h('span', `dkc-k l${Math.min(4, [...shown].length)}` + (c.card.kanji ? '' : ' unknown'), shown); k.lang = 'ja';
     top.append(k);
     const bottom = h('div', 'dkc-half bottom');
-    if (c.overtime) bottom.append(h('span', 'dkc-m', 'Reading?'));
+    if (c.overtime) bottom.append(h('span', 'dkc-r', c.rapid ? c.rapid.level : ''), h('span', 'dkc-m', c.rapid ? `Reading? · ${c.rapid.damage} damage` : 'Reading?'));
     else {
       const r = h('span', 'dkc-r', c.card.reading ?? ''); r.lang = 'ja';
       bottom.append(r, h('span', 'dkc-m', c.card.meaning ?? ''));
@@ -299,7 +317,7 @@ function renderCast(v: DeckView) {
         if (text) hooks.send({ type: 'answer', challengeId: c.castId, text });
       });
       otInput = input;
-      actions.append(input, h('div', 'cast-timer', 'First to type its reading casts it · wrong? try again'));
+      actions.append(input, h('div', 'cast-timer', 'First to type its reading hits · wrong? try again'));
       setTimeout(() => input.focus(), 30);
     } else if (mine && c.stage === 'read') {
       const t = h('div', 'cast-timer');
@@ -314,7 +332,18 @@ function renderCast(v: DeckView) {
       actions.append(h('div', 'cast-timer', 'Memorise it — it disappears when you cast'), b);
     } else if (!mine) {
       ui.stopCountdown('dkRead');
-      actions.append(h('div', 'cast-timer', c.stage === 'read' ? 'Reading the spell…' : c.stage === 'look' ? 'Studying the kanji…' : 'Writing the kanji…'));
+      const who = v.players.find((p) => p.id === c.ownerId)?.name ?? 'Your opponent';
+      actions.append(h('div', 'cast-timer', c.stage === 'read' ? 'Reading the spell…' : c.stage === 'look' ? 'Studying the kanji…' : `${who} is writing…`));
+      if (c.stage === 'write') {
+        // watch their pad live
+        const cv = document.createElement('canvas');
+        cv.className = 'ink-view';
+        cv.width = 600 * Math.min(4, Math.max(1, c.chars)); cv.height = 600;
+        cv.style.setProperty('--cols', String(Math.min(4, Math.max(1, c.chars))));
+        inkCanvas = cv; inkCastId = c.castId;
+        paintInk(cv, []);
+        actions.append(cv);
+      }
     } else ui.stopCountdown('dkRead');
     box.replaceChildren(card, actions);
     if (fresh) $('dkFeedback').replaceChildren();
@@ -388,7 +417,11 @@ export function deckEvent(e: DeckEvent) {
     case 'ability': ui.toast(`${e.playerId === me ? 'You' : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(':')[0]}!`); break;
     case 'wizard': ui.toast(`${e.playerId === me ? 'Your' : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === 'cards' ? '+2 cards' : '+30 mana'}`); break;
     case 'stuck': ui.toast(`${e.playerId === me ? 'You have' : `${name(e.playerId)} has`} no usable cards!`); break;
-    case 'overtime': ui.toast('⏰ Overtime! The last cards come up one by one — first to type the reading uses it.', 5000); break;
+    case 'overtime': ui.toast('⏰ Overtime! The cards are gone — it\'s a Rapid duel now: first to type the reading hits.', 5000); break;
+    case 'skip':
+      audio.sfx.hurt();
+      ui.toast(`${e.playerId === me ? 'You' : name(e.playerId)} skipped the turn: −${e.damage} HP`);
+      break;
     case 'ot_miss':
       if (e.playerId === me && otInput) {
         audio.sfx.wrong();
@@ -408,7 +441,8 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) 
   const card = $('dkCast').querySelector('.dkc.big') as HTMLElement | null;
   const fb = $('dkFeedback');
   const who = e.playerId === me ? 'You' : view!.players.find((p) => p.id === e.playerId)?.name ?? '';
-  const spec = CARD_SPECS[e.color];
+  // overtime hits are plain attacks whatever colour the word's level has
+  const spec = e.overtime ? { label: 'Rapid hit', kind: 'attack' as const, amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
   if (!e.ok) {
     fb.className = 'feedback bad';
     fb.replaceChildren(h('span', 'big', e.overtime ? '✗ Nobody got it' : e.playerId === me ? '✗ The spell fizzles' : `✗ ${who} missed`), h('span', 'sub2', `${e.kanji} · ${e.reading} · ${e.meaning}${e.recognized ? ` — read: ${e.recognized}` : ''}`));

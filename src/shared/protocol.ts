@@ -135,6 +135,8 @@ export type ClientMessage =
   | { type: 'deck_ability' }
   | { type: 'deck_cast_ready'; castId: number }
   | { type: 'deck_cast_go'; castId: number }
+  /** Deck Duel: what you have drawn so far on the pad (the opponent watches it live) */
+  | { type: 'deck_ink'; castId: number; strokes: unknown; cells: number }
   | { type: 'back_to_lobby' }
   | { type: 'start' }
   | { type: 'ready' }
@@ -142,6 +144,7 @@ export type ClientMessage =
   | { type: 'add_bot'; level: string }
   | { type: 'queue'; modes: string[]; levels?: string[] }
   | { type: 'queue_cancel' }
+  | { type: 'queue_accept'; matchId: number }
   | { type: 'remove_bot'; id: string }
   | { type: 'chat'; text: string }
   | { type: 'pong'; t: number }
@@ -166,8 +169,13 @@ export interface ChallengeMsg {
 export type ServerMessage =
   | { type: 'welcome'; user: PublicUser }
   | { type: 'ping'; t: number }
-  /** online queue: searching (since = server time it started), matched (a room is being made), idle */
-  | { type: 'queue'; state: 'searching' | 'matched' | 'idle'; modes?: GameMode[]; since?: number; now?: number; searching?: number; mode?: GameMode }
+  /**
+   * online queue: searching (since = server time it started; requeued = the other player didn't accept),
+   * found (Match found box: accept within acceptMs), matched (a room is being made), idle (reason: you
+   * didn't accept in time / declined)
+   */
+  | { type: 'queue'; state: 'searching' | 'found' | 'matched' | 'idle'; modes?: GameMode[]; since?: number; now?: number; searching?: number; mode?: GameMode;
+      matchId?: number; acceptMs?: number; accepted?: PlayerId[]; requeued?: boolean; reason?: 'missed' | 'declined' }
   /** round-trip times in ms per player in your room (null = offline) */
   | { type: 'net'; rtt: Record<PlayerId, number | null> }
   | { type: 'chat'; messages: ChatMessage[] }
@@ -222,4 +230,5 @@ export type ServerMessage =
   | { type: 'notice'; message: string }
   | { type: 'deck_state'; view: DeckView }
   | { type: 'deck_event'; event: DeckEvent }
+  | { type: 'deck_ink'; castId: number; strokes: DrawnChar; cells: number }
   | { type: 'error'; message: string };

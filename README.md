@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.7.8
+# Kanji Wizards · v0.7.9
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -124,8 +124,8 @@ always Ready. Matches with an AI give half XP; a room with only AI left closes.
 ## Deck Duel
 
 Heroes (power button bottom-left: costs 100 mana, then rests for 4 of your turns; effects last 2 turns): **Goblin** casts 2 cards in a row,
-**Knight** −30 % damage taken and +30 % healing, **Witch** sees your hand's spells and readings and the
-kanji stays visible; **Wizard** is passive (2 random cards when out of cards, or +30 mana when out of
+**Knight** −30 % damage taken and +30 % healing, **Witch** sees your hand's spells and readings (the card she is
+writing still hides its kanji); **Wizard** is passive (2 random cards when out of cards, or +30 mana when out of
 mana, once each).
 
 The lobby has no level picker (it shows an illustrated guide instead): both players press **Ready** and the
@@ -150,9 +150,10 @@ disappears while you write it from memory. Right or wrong, the card then turns o
 kanji with its reading and meaning for 2 s (nothing can be played meanwhile). A successful spell gives back half its mana. Writing is judged extra forgivingly here: besides stroke matching, the overall
 shape is compared with all ~2,300 characters (`src/server/handwriting/shape.ts`), and one shaky character in a word is forgiven. Wrong or too slow → the card rips. Out of cards → a new draft round
 (Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
-match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime, played like Rapid: the remaining cards
-come up one by one in random order showing only the kanji (no reading or meaning), and the first player to type its reading
-(hiragana or romaji, wrong guesses may retry) uses the card's effect. 12 s per card.
+match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime: the cards are gone and the duel becomes a
+1v1 Rapid duel with the HP you have left — random kanji words (N5–N1, only the kanji shows), the first to type the reading
+(hiragana or romaji, wrong guesses may retry) hits: N5 60 · N4 80 · N3 100 · N2 130 · N1 170 damage (crits count). 12 s per word;
+after 3 minutes of overtime the higher HP wins. Letting the choose clock run out without playing a card costs 100 HP.
 
 ## Gameplay details
 

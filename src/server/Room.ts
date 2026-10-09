@@ -228,6 +228,16 @@ export class Room {
   deckAbility(id: PlayerId) { if (this.game instanceof DeckGame) this.game.ability(id); }
   deckCastReady(id: PlayerId, castId: unknown) { if (this.game instanceof DeckGame) this.game.castReady(id, castId); }
   deckCastGo(id: PlayerId, castId: unknown) { if (this.game instanceof DeckGame) this.game.castGo(id, castId); }
+  private lastInk = new Map<PlayerId, number>();
+  /** Relay a player's handwriting (in progress) to the others, so they can watch the spell being written. */
+  deckInk(id: PlayerId, castId: number, strokes: DrawnChar, cells: number) {
+    if (!(this.game instanceof DeckGame) || !this.game.canShareInk(id, castId)) return;
+    const now = Date.now();
+    if (now - (this.lastInk.get(id) ?? 0) < 80) return; // at most ~12 updates a second
+    this.lastInk.set(id, now);
+    const msg: ServerMessage = { type: 'deck_ink', castId, strokes, cells: Math.max(1, Math.min(4, Math.round(cells))) };
+    for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
+  }
   answer(id: PlayerId, challengeId: number, text: string) { this.game?.submit(id, challengeId, text); }
   write(id: PlayerId, challengeId: number, chars: DrawnChar[]) { this.game?.submitWriting(id, challengeId, chars); }
   skip(id: PlayerId, challengeId: number) { this.game?.skip(id, challengeId); }
