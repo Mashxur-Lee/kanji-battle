@@ -39,6 +39,7 @@ export const DECK_RULES = {
   knightDamageTaken: 0.7,
   knightHealBonus: 1.3,
   abilityTurns: 2,
+  manaRefund: 0.5, // a successful spell gives back half its mana cost
   abilityCost: 100, // mana to fire your hero's power
   abilityCooldown: 4, // your turns until it can be used again
   wizardBonusCards: 2,
@@ -106,6 +107,6 @@ export type DeckEvent =
   | { kind: 'ability'; playerId: string; character: DeckCharacter }
   | { kind: 'wizard'; playerId: string; what: 'cards' | 'mana' }
   | { kind: 'cast'; playerId: string; color: CardColor; kanji: string }
-  | { kind: 'resolve'; playerId: string; color: CardColor; kanji: string; reading: string; meaning: string; ok: boolean; amount: number; targetId: string; recognized?: string; overtime: boolean }
+  | { kind: 'resolve'; playerId: string; color: CardColor; kanji: string; reading: string; meaning: string; ok: boolean; amount: number; targetId: string; refund?: number; recognized?: string; overtime: boolean }
   | { kind: 'overtime' }
   | { kind: 'stuck'; playerId: string; why: 'no_cards' | 'no_mana' };

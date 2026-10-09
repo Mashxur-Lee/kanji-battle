@@ -13,6 +13,7 @@ import { createApiHandler } from './http';
 import { StudyService } from './study/StudyService';
 import { RoomManager } from './RoomManager';
 import { Session, SessionHub } from './Session';
+import { Matchmaker } from './Matchmaker';
 
 const PUBLIC_DIR = path.resolve(__dirname, '../../public');
 const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
@@ -46,6 +47,7 @@ const rooms = new RoomManager({
   },
 });
 const hub = new SessionHub();
+const matchmaker = new Matchmaker(rooms);
 auth.onBan((userId) => hub.kick(userId, 'This account has been banned.'));
 
 const server = createServer(async (req, res) => {
@@ -64,7 +66,7 @@ const server = createServer(async (req, res) => {
 // Handwriting answers carry stroke data, so allow bigger frames than plain JSON messages.
 const wss = new WebSocketServer({ server, maxPayload: 96 * 1024 });
 wss.on('connection', (ws) => {
-  const session = new Session(rooms, auth, hub, study, (json) => ws.readyState === ws.OPEN && ws.send(json), () => ws.close());
+  const session = new Session(rooms, auth, hub, study, (json) => ws.readyState === ws.OPEN && ws.send(json), () => ws.close(), matchmaker);
   ws.on('message', (data) => void session.onRaw(data.toString()));
   ws.on('close', () => session.onClose());
 });

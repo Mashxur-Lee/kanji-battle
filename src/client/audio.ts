@@ -1,18 +1,25 @@
 // All sound is synthesised with the Web Audio API: no audio files, no licensing questions.
 // Browsers only allow audio after a user gesture, so nothing plays until the first click/keypress.
 
-type Prefs = { radio: boolean; sfx: boolean };
+type Prefs = { radio: boolean; sfx: boolean; musicVol: number; sfxVol: number };
 const PREFS_KEY = 'kb:audio';
+const DEFAULTS: Prefs = { radio: true, sfx: true, musicVol: 0.7, sfxVol: 0.8 };
 const prefs: Prefs = (() => {
-  try { return { radio: true, sfx: true, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') }; } catch { return { radio: true, sfx: true }; }
+  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') }; } catch { return { ...DEFAULTS }; }
 })();
+const clamp01 = (v: number) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+/** Bus gains for a 0–1 slider (perceived loudness is roughly quadratic). */
+const sfxGain = () => 0.7 * prefs.sfxVol * prefs.sfxVol * 1.4;
+const musicGain = () => 0.9 * prefs.musicVol * prefs.musicVol * 1.3;
 const savePrefs = () => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* ignore */ } };
 
 let ctx: AudioContext | null = null;
 let sfxBus: GainNode;
-let musicBus: GainNode;
+let musicBus: GainNode; // master music volume
+let menuBus: GainNode; // the menu theme (crossfaded)
+let battleBus: GainNode; // the battle theme (crossfaded)
 let reverb: ConvolverNode;
-/** Music only plays on menu-type screens, never during a battle. */
+/** Menus play the calm theme; battles play the tense one. They crossfade. */
 let scene: 'menu' | 'game' = 'menu';
 
 function ensure(): AudioContext | null {
@@ -22,8 +29,10 @@ function ensure(): AudioContext | null {
   ctx = new AC();
   const comp = ctx.createDynamicsCompressor();
   comp.connect(ctx.destination);
-  sfxBus = ctx.createGain(); sfxBus.gain.value = 0.55; sfxBus.connect(comp);
-  musicBus = ctx.createGain(); musicBus.gain.value = 0; musicBus.connect(comp);
+  sfxBus = ctx.createGain(); sfxBus.gain.value = sfxGain(); sfxBus.connect(comp);
+  musicBus = ctx.createGain(); musicBus.gain.value = musicGain(); musicBus.connect(comp);
+  menuBus = ctx.createGain(); menuBus.gain.value = 0; menuBus.connect(musicBus);
+  battleBus = ctx.createGain(); battleBus.gain.value = 0; battleBus.connect(musicBus);
   // small hall reverb from generated noise (shared by music and chimes)
   reverb = ctx.createConvolver();
   const len = ctx.sampleRate * 2.6;
@@ -53,7 +62,7 @@ export function unlock() {
   syncMusic();
 }
 
-/** Tell the audio which kind of screen is showing: music plays in menus only. */
+/** Tell the audio which kind of screen is showing: menu theme or battle theme. */
 export function setScene(s: 'menu' | 'game') {
   scene = s;
   syncMusic();
@@ -61,8 +70,9 @@ export function setScene(s: 'menu' | 'game') {
 
 function syncMusic() {
   if (!ctx) return;
-  if (prefs.radio && scene === 'menu' && document.visibilityState === 'visible') radio.start();
-  else radio.stop();
+  const on = prefs.radio && prefs.musicVol > 0 && document.visibilityState === 'visible';
+  const want = on ? (scene === 'menu' ? menuTheme : battleTheme) : null;
+  for (const t of [menuTheme, battleTheme]) t === want ? t.fadeIn() : t.fadeOut();
 }
 
 const midi = (n: number) => 440 * 2 ** ((n - 69) / 12);
@@ -93,11 +103,11 @@ function bell(freq: number, at: number, dur: number, gain: number, bus: AudioNod
   tone(freq * 5.4, at, dur * 0.18, { gain: gain * 0.08, bus, send: 0.6, attack: 0.002 });
 }
 
-function noise(at: number, dur: number, gain: number, cutoff: number, type: BiquadFilterType = 'lowpass') {
+function noise(at: number, dur: number, gain: number, cutoff: number, type: BiquadFilterType = 'lowpass', bus: AudioNode = sfxBus, swell = false) {
   const c = ctx!;
   const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
   const data = buf.getChannelData(0);
-  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (swell ? (i / data.length) ** 2 : 1 - i / data.length);
   const src = c.createBufferSource();
   src.buffer = buf;
   const f = c.createBiquadFilter();
@@ -105,7 +115,7 @@ function noise(at: number, dur: number, gain: number, cutoff: number, type: Biqu
   f.frequency.value = cutoff;
   const g = c.createGain();
   g.gain.value = gain;
-  src.connect(f).connect(g).connect(sfxBus);
+  src.connect(f).connect(g).connect(bus);
   src.start(at);
 }
 
@@ -199,115 +209,181 @@ export const sfx = {
   },
 };
 
-// ── Radio: a composed dark-fantasy loop in D minor (harp, strings, flute, low drum) ──────────────
-const radio = (() => {
-  const BPM = 84;
-  const STEP = 60 / BPM / 2; // eighth notes
+// ── Music ─────────────────────────────────────────────────────────────────────
+/**
+ * A looping track: `play(step, at)` schedules one eighth note at time `at` (lookahead scheduler).
+ * fadeIn/fadeOut crossfade its bus; the scheduler stops once it's silent.
+ */
+function makeTrack(bpm: number, bus: () => GainNode, play: (step: number, at: number) => void) {
+  const STEP = 60 / bpm / 2;
+  let timer: number | undefined;
+  let stopTimer: number | undefined;
+  let nextTime = 0;
+  let step = 0;
+  const schedule = () => {
+    const c = ctx!;
+    while (nextTime < c.currentTime + 0.5) { play(step, nextTime); nextTime += STEP; step++; }
+  };
+  return {
+    STEP,
+    fadeIn() {
+      if (!ctx) return;
+      clearTimeout(stopTimer); stopTimer = undefined;
+      bus().gain.cancelScheduledValues(ctx.currentTime);
+      bus().gain.setTargetAtTime(1, ctx.currentTime, 0.9);
+      if (timer !== undefined) return;
+      nextTime = ctx.currentTime + 0.12;
+      step = 0;
+      schedule();
+      timer = window.setInterval(schedule, 150);
+    },
+    fadeOut() {
+      if (!ctx || timer === undefined || stopTimer !== undefined) return;
+      bus().gain.cancelScheduledValues(ctx.currentTime);
+      bus().gain.setTargetAtTime(0, ctx.currentTime, 0.45);
+      stopTimer = window.setTimeout(() => { clearInterval(timer); timer = undefined; stopTimer = undefined; }, 2200);
+    },
+  };
+}
+
+function strings(notes: number[], at: number, dur: number, bus: AudioNode, level = 0.035, cutoff = 1100) {
+  const c = ctx!;
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = cutoff;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(level, at + 0.9);
+  g.gain.setValueAtTime(level, at + dur - 0.6);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.5);
+  lp.connect(g).connect(bus);
+  const s = c.createGain(); s.gain.value = 0.5; g.connect(s).connect(reverb);
+  for (const n of notes) for (const d of [-7, 7]) {
+    const o = c.createOscillator();
+    o.type = 'sawtooth'; o.frequency.value = midi(n); o.detune.value = d;
+    o.connect(lp); o.start(at); o.stop(at + dur + 0.6);
+  }
+}
+
+function flute(n: number, at: number, dur: number, bus: AudioNode) {
+  const c = ctx!;
+  const o = c.createOscillator();
+  const vib = c.createOscillator(); const vg = c.createGain();
+  vib.frequency.value = 5.2; vg.gain.value = 4; vib.connect(vg).connect(o.frequency);
+  o.type = 'sine'; o.frequency.value = midi(n);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(0.045, at + 0.06);
+  g.gain.setValueAtTime(0.04, at + dur * 0.7);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(g).connect(bus);
+  const s = c.createGain(); s.gain.value = 0.7; g.connect(s).connect(reverb);
+  o.start(at); vib.start(at); o.stop(at + dur + 0.05); vib.stop(at + dur + 0.05);
+}
+
+/** A dark brass voice: two detuned saws through a lowpass that opens as the note swells. */
+function horn(n: number, at: number, dur: number, bus: AudioNode, level = 0.05) {
+  const c = ctx!;
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(350, at);
+  lp.frequency.linearRampToValueAtTime(1300, at + Math.min(0.5, dur * 0.5));
+  lp.frequency.linearRampToValueAtTime(600, at + dur);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(level, at + 0.12);
+  g.gain.setValueAtTime(level * 0.85, at + dur * 0.75);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  lp.connect(g).connect(bus);
+  const s = c.createGain(); s.gain.value = 0.45; g.connect(s).connect(reverb);
+  for (const d of [-9, 9]) {
+    const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = midi(n); o.detune.value = d;
+    o.connect(lp); o.start(at); o.stop(at + dur + 0.05);
+  }
+}
+
+// ── Menu theme: a calm dark-fantasy loop in D minor (harp, strings, flute, low drum) ────────────────
+const menuTheme = (() => {
   // i – VI – III – VII  (Dm – B♭ – F – C), then i – iv – V – i  (Dm – Gm – A – Dm)
   const PROG = [
     [50, 57, 62, 65], [46, 53, 58, 62], [41, 48, 53, 57], [48, 55, 60, 64],
     [50, 57, 62, 65], [43, 50, 55, 58], [45, 52, 57, 61], [50, 57, 62, 65],
   ];
-  // flute melody, one bar per chord (eighth-note slots; 0 = rest)
   const MELODY = [
     [74, 0, 77, 0, 76, 74, 72, 0], [74, 0, 0, 70, 72, 0, 74, 0], [72, 0, 69, 0, 72, 74, 77, 0], [76, 0, 74, 72, 74, 0, 0, 0],
     [74, 0, 77, 0, 81, 0, 79, 77], [79, 0, 77, 0, 74, 0, 70, 0], [73, 0, 76, 0, 79, 77, 76, 73], [74, 0, 0, 0, 0, 0, 0, 0],
   ];
-  let timer: number | undefined;
-  let nextTime = 0;
-  let step = 0;
-
-  function strings(notes: number[], at: number, dur: number) {
-    const c = ctx!;
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100;
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, at);
-    g.gain.exponentialRampToValueAtTime(0.035, at + 0.9);
-    g.gain.setValueAtTime(0.035, at + dur - 0.6);
-    g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.5);
-    lp.connect(g).connect(musicBus);
-    const s = c.createGain(); s.gain.value = 0.5; g.connect(s).connect(reverb);
-    for (const n of notes) for (const d of [-7, 7]) {
-      const o = c.createOscillator();
-      o.type = 'sawtooth'; o.frequency.value = midi(n); o.detune.value = d;
-      o.connect(lp); o.start(at); o.stop(at + dur + 0.6);
+  const track = makeTrack(84, () => menuBus, (step, at) => {
+    const STEP = track.STEP;
+    const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
+    const loop = Math.floor(step / (8 * PROG.length));
+    if (inBar === 0) {
+      strings(chord.slice(1), at, STEP * 8, menuBus);
+      tone(midi(chord[0] - 12), at, STEP * 7, { gain: 0.07, bus: menuBus, attack: 0.05 }); // bass
     }
-  }
-
-  function harp(n: number, at: number) {
-    tone(midi(n), at, 1.4, { type: 'triangle', gain: 0.05, bus: musicBus, send: 0.5, attack: 0.003 });
-    tone(midi(n + 12), at, 0.5, { gain: 0.015, bus: musicBus, send: 0.5, attack: 0.003 });
-  }
-
-  function flute(n: number, at: number, dur: number) {
-    const c = ctx!;
-    const o = c.createOscillator();
-    const vib = c.createOscillator(); const vg = c.createGain();
-    vib.frequency.value = 5.2; vg.gain.value = 4; vib.connect(vg).connect(o.frequency);
-    o.type = 'sine'; o.frequency.value = midi(n);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, at);
-    g.gain.exponentialRampToValueAtTime(0.045, at + 0.06);
-    g.gain.setValueAtTime(0.04, at + dur * 0.7);
-    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-    o.connect(g).connect(musicBus);
-    const s = c.createGain(); s.gain.value = 0.7; g.connect(s).connect(reverb);
-    o.start(at); vib.start(at); o.stop(at + dur + 0.05); vib.stop(at + dur + 0.05);
-  }
-
-  function drum(at: number, accent: boolean) {
-    tone(accent ? 62 : 55, at, 0.45, { gain: accent ? 0.16 : 0.09, to: 38, bus: musicBus, attack: 0.004 });
-  }
-
-  function schedule() {
-    const c = ctx!;
-    while (nextTime < c.currentTime + 0.5) {
-      const bar = Math.floor(step / 8) % PROG.length;
-      const inBar = step % 8;
-      const chord = PROG[bar];
-      const loop = Math.floor(step / (8 * PROG.length));
-      if (inBar === 0) {
-        strings(chord.slice(1), nextTime, STEP * 8);
-        tone(midi(chord[0] - 12), nextTime, STEP * 7, { gain: 0.07, bus: musicBus, attack: 0.05 }); // bass
+    const arp = [0, 1, 2, 3, 2, 1, 2, 3][inBar];
+    tone(midi(chord[arp] + 12), at, 1.4, { type: 'triangle', gain: 0.05, bus: menuBus, send: 0.5, attack: 0.003 }); // harp
+    tone(midi(chord[arp] + 24), at, 0.5, { gain: 0.015, bus: menuBus, send: 0.5, attack: 0.003 });
+    if (inBar === 0 || inBar === 3 || inBar === 6) tone(inBar === 0 ? 62 : 55, at, 0.45, { gain: inBar === 0 ? 0.16 : 0.09, to: 38, bus: menuBus, attack: 0.004 });
+    if (loop % 3 !== 0) {
+      const n = MELODY[bar][inBar];
+      if (n) {
+        let len = 1;
+        while (inBar + len < 8 && MELODY[bar][inBar + len] === 0) len++;
+        flute(n, at, STEP * Math.min(len, 4) * 0.95, menuBus);
       }
-      // harp arpeggio up and down the chord
-      const arp = [0, 1, 2, 3, 2, 1, 2, 3][inBar];
-      harp(chord[arp] + 12, nextTime);
-      if (inBar === 0 || inBar === 3 || inBar === 6) drum(nextTime, inBar === 0);
-      // melody from the second time round; first pass is just harp + strings
-      if (loop % 3 !== 0) {
-        const n = MELODY[bar][inBar];
-        if (n) {
-          let len = 1;
-          while (inBar + len < 8 && MELODY[bar][inBar + len] === 0) len++;
-          flute(n, nextTime, STEP * Math.min(len, 4) * 0.95);
-        }
-      }
-      nextTime += STEP;
-      step++;
     }
-  }
+  });
+  return track;
+})();
 
-  return {
-    start() {
-      if (!ctx || timer !== undefined) return;
-      nextTime = ctx.currentTime + 0.15;
-      musicBus.gain.cancelScheduledValues(ctx.currentTime);
-      musicBus.gain.setTargetAtTime(0.7, ctx.currentTime, 0.8);
-      schedule();
-      timer = window.setInterval(schedule, 150);
-    },
-    stop() {
-      if (!ctx || timer === undefined) return;
-      clearInterval(timer);
-      timer = undefined;
-      musicBus.gain.setTargetAtTime(0, ctx.currentTime, 0.25);
-    },
-  };
+// ── Battle theme: same dark-fantasy world, but tense — driving low strings, war drums, ominous horns ──
+const battleTheme = (() => {
+  // i – ♭II – i – ♭VII  (Dm – E♭ – Dm – C), then i – VI – iv – V  (Dm – B♭ – Gm – A): the ♭II is the menace
+  const PROG = [
+    [38, 50, 53, 57], [39, 51, 55, 58], [38, 50, 53, 57], [36, 48, 52, 55],
+    [38, 50, 53, 57], [34, 46, 50, 53], [31, 43, 46, 50], [33, 45, 49, 52],
+  ];
+  // horn calls (one bar each, eighths; 0 = hold/rest) — low and slow
+  const HORN = [
+    [62, 0, 0, 0, 63, 0, 62, 0], [63, 0, 0, 0, 0, 0, 58, 0], [62, 0, 0, 65, 0, 0, 62, 0], [60, 0, 0, 0, 0, 0, 0, 0],
+    [62, 0, 0, 0, 65, 0, 69, 0], [70, 0, 0, 0, 69, 0, 65, 0], [67, 0, 0, 0, 70, 0, 69, 67], [69, 0, 0, 0, 0, 0, 0, 0],
+  ];
+  // war drums per bar (eighths): big hit, push, double before the bar line
+  const DRUM = [1, 0, 0, 0.6, 0.8, 0, 0.5, 0.5];
+  const track = makeTrack(100, () => battleBus, (step, at) => {
+    const STEP = track.STEP;
+    const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
+    const loop = Math.floor(step / (8 * PROG.length));
+    // driving ostinato: low strings chugging every eighth, accents on 1 and the "and" of 2
+    const accent = inBar === 0 || inBar === 3 || inBar === 6;
+    for (const n of [chord[0] + 12, chord[1]]) tone(midi(n), at, STEP * 0.8, { type: 'sawtooth', gain: accent ? 0.022 : 0.012, bus: battleBus, attack: 0.005 });
+    if (inBar === 0) {
+      strings(chord.slice(1), at, STEP * 8, battleBus, 0.022, 800); // dark pad
+      tone(midi(chord[0]), at, STEP * 7.5, { gain: 0.09, bus: battleBus, attack: 0.04 }); // sub bass
+    }
+    const d = DRUM[inBar];
+    if (d) {
+      tone(inBar === 0 ? 58 : 66, at, 0.5, { gain: 0.2 * d, to: 34, bus: battleBus, attack: 0.003 });
+      noise(at, 0.12, 0.05 * d, 900, 'lowpass', battleBus);
+    }
+    // the first time round is just strings + drums; then the horns enter
+    if (loop >= 1) {
+      const n = HORN[bar][inBar];
+      if (n) {
+        let len = 1;
+        while (inBar + len < 8 && HORN[bar][inBar + len] === 0) len++;
+        horn(n - 12, at, STEP * len * 0.97, battleBus);
+      }
+    }
+    // rising tension: a trembling high string over the second half of every other loop
+    if (loop % 2 === 1 && bar >= 4) tone(midi(chord[2] + 24 + (bar === 7 ? 1 : 0)), at, STEP * 0.45, { type: 'sawtooth', gain: 0.008, bus: battleBus, send: 0.5, attack: 0.01 });
+    // a cymbal swell into every 4th bar
+    if (inBar === 4 && bar % 4 === 3) noise(at, STEP * 4, 0.035, 6000, 'highpass', battleBus, true);
+  });
+  return track;
 })();
 
 export const isRadioOn = () => prefs.radio;
 export const isSfxOn = () => prefs.sfx;
+export const getVolumes = () => ({ music: prefs.musicVol, sfx: prefs.sfxVol });
 
 export function setRadio(on: boolean) {
   prefs.radio = on;
@@ -321,3 +397,22 @@ export function setSfx(on: boolean) {
   prefs.sfx = on;
   savePrefs();
 }
+
+/** Volume sliders (0–1). Turning one up also switches that channel back on. */
+export function setMusicVolume(v: number) {
+  prefs.musicVol = clamp01(v);
+  if (prefs.musicVol > 0) prefs.radio = true;
+  savePrefs();
+  ensure();
+  if (ctx) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05);
+  syncMusic();
+}
+export function setSfxVolume(v: number) {
+  prefs.sfxVol = clamp01(v);
+  if (prefs.sfxVol > 0) prefs.sfx = true;
+  savePrefs();
+  ensure();
+  if (ctx) sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05);
+}
+/** A short chime so you can hear the effects volume you just picked. */
+export function previewSfx() { if (sfxOk()) bell(midi(76), ctx!.currentTime, 0.8, 0.18); }

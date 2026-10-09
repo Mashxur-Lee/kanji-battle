@@ -17,7 +17,7 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
 }
 const append = (parent: HTMLElement, ...kids: HTMLElement[]) => { parent.append(...kids); return parent; };
 
-const SCREENS = ['auth', 'menu', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'customize', 'deck'] as const;
+const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'customize', 'deck'] as const;
 export type Screen = (typeof SCREENS)[number];
 let screenListener: (s: Screen) => void = () => {};
 export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };

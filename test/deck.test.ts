@@ -77,7 +77,8 @@ test('casting: mana cost, damage, heal, mana card; wrong writing rips the card',
   const spec = CARD_SPECS[attack.color];
   const pa = s.view(a).players.find((p) => p.id === a)!, pb = s.view(a).players.find((p) => p.id === b)!;
   assert.equal(pb.hp, 1000 - spec.amount);
-  assert.equal(pa.mana, RULES.maxMana - spec.cost);
+  assert.equal(pa.mana, RULES.maxMana - spec.cost + Math.floor(spec.cost / 2), 'paid on play, half back on success');
+  assert.equal(s.devents().filter((e) => e.kind === 'resolve').at(-1).refund, Math.floor(spec.cost / 2));
   assert.equal(s.view(a).turn!.active, b, 'turn passes');
   assert.equal(s.view(b).players.find((p) => p.id === b)!.mana, RULES.maxMana, 'mana is capped at the max');
   // b writes wrong → card rips, nothing happens
