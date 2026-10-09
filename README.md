@@ -1,13 +1,16 @@
-# Kanji Battle
+# Kanji Wizards
 
-Real-time kanji battles in the browser. Study 10 words for 60 seconds, then the readings vanish and every
-word becomes a spell. Three modes:
+(The repository is still called `kanji-battle`; only the name in the game changed.)
+
+Real-time kanji battles in the browser. Five modes:
 
 | Mode | How you cast |
 |---|---|
-| **1v1 Kanji Reading** | See the kanji, type its reading (Japanese IME kana or romaji). |
-| **1v1 Kanji Writing** | The kanji flashes for 0.5 s, then only the meaning stays. Write it by hand on the pad. |
-| **Boss Elimination** | 1–2 players vs the Black Dragon. Correct answers hit it; a mistake gets you clawed (45); fire breath every 30 s hits everyone (110). |
+| **1v1 Kanji Reading** | Study 10 words for 60 s, then see the kanji and type its reading (IME kana or romaji). |
+| **1v1 Kanji Writing** | The kanji flashes for 0.5 s, then the reading + meaning stay. Type the kanji with a Japanese IME or draw it on the pad. Only kanji count (kana only at the かな level). |
+| **Boss Elimination** | 1–2 players vs the Black Dragon. Correct answers hit it; a mistake gets you clawed; fire breath every 30 s hits everyone. |
+| **1v1 Rapid** | Both players get the same kanji. First correct reading (kana or romaji) deals the damage. |
+| **Deck Duel** | Pick a hero, draft 10 kanji cards, then spend mana to cast them by writing the kanji. 1000 HP each. |
 
 ```
 npm install
@@ -15,11 +18,12 @@ npm run dev        # http://localhost:3000
 npm test           # unit tests
 ```
 
-Production: `npm run build && npm start` (`PORT` supported).
+Production: `npm run build && npm start` (`PORT` supported). On Render the build command must include
+`npm install` (e.g. `npm install && npm run build`) so the `postgres` package gets installed.
 
-## Accounts
+## Accounts and saving progress
 
-Players log in with a login + password. Two accounts are created on first start:
+Two accounts are created on first start:
 
 | Login | Password | Role |
 |---|---|---|
@@ -29,70 +33,89 @@ Players log in with a login + password. Two accounts are created on first start:
 > ⚠️ This repository is public, so these default passwords are public too. On the live site set
 > `ADMIN_PASSWORD` (and optionally `USER_PASSWORD`) — the server switches the account to it on start.
 
-Passwords are hashed with scrypt. Logins are signed tokens (30 days). Banned players are kicked from
-running games and can't log in.
+Passwords are hashed with scrypt; logins are signed tokens (30 days).
 
 ### Environment variables (Render → your service → Environment)
 
 | Variable | What it does |
 |---|---|
+| `DATABASE_URL` | **Needed on Render** to keep accounts, XP and study cards (Neon, see below). |
 | `AUTH_SECRET` | **Set this.** Any long random string. Without it, everyone is logged out whenever the server restarts. |
 | `ADMIN_PASSWORD` | **Set this.** Replaces the public default admin password. |
 | `USER_PASSWORD` | Optional: password for the demo `user` account. |
-| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | **Needed on Render** to keep accounts (see below). |
-| `USERS_FILE` | Local only: where the file store writes (default `.data/users.json`). |
+| `USERS_FILE` | Local only: where the file store writes when there is no database (default `.data/users.json`). |
 
-### Keeping accounts on Render (Supabase)
+### Keeping accounts on Render (Neon Postgres)
 
-Render's free plan wipes the server's disk on every deploy and restart, so the default file store would
-forget all registrations. Use a free Supabase database instead:
+Render's free plan wipes the server's disk on every deploy and restart, so without a database all
+registrations disappear. Neon has a free Postgres plan:
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. In **SQL Editor**, run:
-   ```sql
-   create table if not exists kb_users (
-     id uuid primary key default gen_random_uuid(),
-     username text not null unique,
-     password_hash text not null,
-     role text not null default 'user' check (role in ('user', 'admin')),
-     banned boolean not null default false,
-     created_at timestamptz not null default now()
-   );
-   alter table kb_users enable row level security;
-   ```
-3. In **Project Settings → API**, copy the **Project URL** and the **service_role** key.
-4. In Render, add them as `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, then redeploy.
-   The log line `Accounts: supabase` confirms it's in use.
+1. Sign up at [neon.tech](https://neon.tech) and create a project (any name, pick the region closest to
+   your Render service).
+2. On the project dashboard click **Connect**, and copy the connection string. It looks like
+   `postgresql://neondb_owner:…@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require`.
+3. In Render → your service → **Environment**, add `DATABASE_URL` with that string. Also add
+   `AUTH_SECRET` (any long random text) and `ADMIN_PASSWORD`. Save — Render redeploys.
+4. In Render's **Logs**, look for `Accounts: postgres`. The server creates its tables (`kw_users`,
+   `kw_cards`) by itself; no SQL needed.
 
-The service-role key bypasses row-level security, so it must only live in server env vars — never in
-client code (it isn't: the browser only talks to this server).
+The connection string is a password: keep it only in Render's environment, never in the code (the
+browser only talks to this server, never to the database).
+
+## Progress
+
+- **XP**: win = 300 + accuracy %, loss = 50 + accuracy %. Deck Duel: win 4000, loss 1500.
+  Every 1000 XP is a level (1000 → Lv 1, 2000 → Lv 2 …).
+- **Customize**: backgrounds unlock at Lv 0 forest, 5 swamp, 10 plains, 15 castle, 20 world tree.
+- **Fighters** depend on the levels you play: goblin (かな), kid (N5), human (N4), knight (N3), wizard (N2/N1).
+- **Study spells**: *All spells* — tick levels and 25 new words are added each day. *Struggling spells* —
+  words you missed in battles. Anki-style cards (Again / Hard / Okay / Easy, SM-2 scheduling,
+  `src/shared/srs.ts`).
+- **Crit**: every learned card (graduated from learning) adds 0.1 % crit chance, max 50 %. A crit hits ×1.5.
+
+## Deck Duel
+
+Heroes (one ability button per match, lasts 2 of your turns): **Goblin** casts 2 cards in a row,
+**Knight** −30 % damage taken and +30 % healing, **Witch** sees your hand's spells and readings and the
+kanji stays visible; **Wizard** is passive (2 random cards when out of cards, or +30 mana when out of
+mana, once each).
+
+Draft: 20 cards (4 per colour), coin flip, picks of 2 until each player has 10. Colours, ranked by word
+difficulty (JLPT level, stroke count and word length):
+
+| Colour | Effect | Mana |
+|---|---|---|
+| Red | 250 damage | 70 |
+| Green | heal 100 | 40 |
+| Yellow | +60 mana | 0 |
+| Blue | 120 damage | 25 |
+| Light blue | 100 damage | 10 |
+
+Mana starts at 150/150, +10 each turn. A turn is 25 s: the kanji flashes for 1 s, the reading and meaning
+stay, and you write it. Wrong or too slow → the card rips. Having no card you can afford, or no cards, is a
+loss. After 8 minutes, overtime: the remaining cards are shown one by one and the first correct writer
+uses it.
 
 ## Gameplay details
 
-- **Levels**: かな (hiragana, answered in romaji) and N5–N1, chosen per player. 409 words.
-- **Damage** = difficulty × ⅔ × speed (×1.1 fast … ×0.8 slow) × combo (×1.0 / 1.1 / 1.2 / 1.3 / 1.5).
-  All numbers live in `DEFAULT_CONFIG` (`src/server/Game.ts`).
-- **Fair HP in duels**: your HP depends on how hard your opponent hits —
-  `HP = 130 + 17 × opponent's average base damage` (N1+N2 opponent ≈ 920, N5 ≈ 290). `src/server/Balance.ts`.
-- **Boss HP** scales with the party's levels (≈45 hits per player). Players have 1000 HP each.
-- **Skip** (button or Esc) counts as a miss and shows the answer; missed words come back soon.
-- **Reconnects**: seats belong to accounts. If a phone drops the connection (e.g. switching apps to send
-  the room code), the seat is kept for 5 minutes in the lobby / 60 s mid-game, and the game reconnects
-  automatically when you come back. **Forfeit** (two taps) leaves a battle on purpose.
-- **Handwriting** is checked on the server (so it can't be faked) by a TypeScript port of
-  [KanjiCanvas](https://github.com/asdfjkl/kanjicanvas) (MIT, see `src/server/handwriting/KANJICANVAS-LICENSE.txt`).
-  It knows ~2,280 characters incl. hiragana; a character counts if it is in the top 5 guesses.
-  Writing mode only uses words whose characters it knows. Patterns: `data/kanji-patterns.json`
-  (hiragana added with `scripts/build-kana-patterns.ts`).
-- **Audio** is synthesised in the browser (no files): combo "booms" that deepen up to ×4 and become a
-  double-hit from ×5, dragon roars, and a generative background radio. Both can be switched off.
+- **Words**: 6,616 (N5 523 · N4 520 · N3 1832 · N2 1354 · N1 2285 · かな 102). N5/N4 lists only have ~520
+  words with kanji in them. Built by `scripts/build-vocab.ts` from
+  [open-anki-jlpt-decks](https://github.com/jamsinclair/open-anki-jlpt-decks) (MIT), which is based on
+  Jonathan Waller's JLPT lists ([tanos.co.uk](http://www.tanos.co.uk/jlpt/), CC BY). Licence in `data/sources/`.
+- **Damage** = difficulty × ⅔ × speed × combo. Numbers in `DEFAULT_CONFIG` (`src/server/Game.ts`).
+- **Fair HP in duels**: your HP depends on how hard your opponent hits (`src/server/Balance.ts`).
+- **Handwriting** is checked on the server by a TypeScript port of
+  [KanjiCanvas](https://github.com/asdfjkl/kanjicanvas) (MIT, `src/server/handwriting/KANJICANVAS-LICENSE.txt`).
+  It's forgiving: a character counts if it's in the top 10 guesses or close to the best guess
+  (`JUDGE` in `src/server/handwriting/judge.ts`).
+- **Forfeit** goes to the results screen; in the preparation phase **← Lobby** returns everyone to the lobby.
+- **Audio** is synthesised in the browser (no files): a chime that gets deeper and longer with the combo,
+  win/lose jingles, and fantasy music in the menu and lobby only. It pauses when the tab is hidden.
 
 ## Structure
 
-- `src/shared` protocol (typed messages) · vocab · kana normaliser
-- `src/server` `Game` (rules: duel + boss + writing) · `Balance` · `VocabPool` · `Room` (lobby, seats, grace periods) ·
-  `RoomManager` · `Session` (auth + validation) · `http` (REST API) · `auth/` (store, scrypt, tokens, Supabase) ·
-  `handwriting/` (recogniser + judge)
-- `src/client` `net` (auto-reconnecting socket) · `api` · `ui` · `pad` (handwriting) · `wizard` (pixel sprites incl. dragon) ·
-  `audio` · `main`
-- `test/` node:test suites
+- `src/shared` protocol · vocab helpers · progress (XP, crit, backgrounds) · srs · deck rules
+- `src/server` `Game` (reading, writing, boss) · `RapidGame` · `DeckGame` · `Balance` · `Room` · `RoomManager` ·
+  `Session` · `http` (REST API) · `db/` (memory, file and Postgres stores) · `auth/` · `study/` · `handwriting/`
+- `src/client` `net` · `api` · `ui` · `deckui` · `study` · `pad` · `wizard` (pixel sprites) · `backgrounds` · `audio` · `main`
+- `scripts/` vocab and handwriting data builders · `test/` node:test suites

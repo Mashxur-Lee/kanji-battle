@@ -4,36 +4,43 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b0a1c">
-  <title>Kanji Battle</title>
+  <title>Kanji Wizards</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<div id="bg" class="bg" aria-hidden="true"></div>
 <header class="topbar">
   <div id="whoami" class="whoami" hidden>
     <span class="avatar" aria-hidden="true">✦</span>
-    <span id="whoName" class="who-name"></span>
-    <span id="whoRole" class="tag" hidden>admin</span>
+    <span class="who-text">
+      <span class="who-line"><span id="whoName" class="who-name"></span><span id="whoRole" class="tag" hidden>admin</span></span>
+      <span class="who-line small"><span id="whoLevel">Lv 0</span> · <span id="whoCrit" title="Crit chance from learned spells">✦ 0% crit</span></span>
+      <span class="xpbar" title="XP to next level"><span id="whoXp"></span></span>
+    </span>
     <button id="logout" class="link" aria-label="Log out"><span class="lbl">Log out</span><span class="ico" aria-hidden="true">⎋</span></button>
   </div>
   <div id="netStatus" class="net-status" role="status" hidden></div>
   <div class="audio-ctl" role="group" aria-label="Audio">
-    <button id="radioBtn" class="pill" aria-pressed="true" aria-label="Radio"></button>
+    <button id="radioBtn" class="pill" aria-pressed="true" aria-label="Music"></button>
     <button id="sfxBtn" class="pill" aria-pressed="true" aria-label="Sounds"></button>
   </div>
 </header>
+<div id="toast" class="toast" role="status" hidden></div>
 
 <main>
   <!-- AUTH -->
   <section id="auth" class="screen split" hidden>
     <div class="col-main">
-      <h1 class="title"><span class="jp">漢字</span> Battle</h1>
+      <h1 class="title"><span class="jp">漢字</span> Wizards</h1>
       <p class="sub">Study ten spells. Then cast them from memory.</p>
       <div class="tabs" role="tablist">
         <button id="tabLogin" class="tab on" role="tab" aria-selected="true">Log in</button>
         <button id="tabRegister" class="tab" role="tab" aria-selected="false">Register</button>
       </div>
       <form id="authForm" class="form" autocomplete="on">
-        <label class="field"><span>Login</span><input id="authUser" name="username" autocomplete="username" maxlength="16" required></label>
+        <label class="field"><span>Login</span><input id="authUser" name="username" autocomplete="username" maxlength="32" required></label>
         <label class="field"><span>Password</span><input id="authPass" name="password" type="password" autocomplete="current-password" maxlength="72" required></label>
         <button id="authSubmit" type="submit">Log in</button>
         <p id="authError" class="error" role="alert"></p>
@@ -46,7 +53,7 @@
   <!-- MENU -->
   <section id="menu" class="screen split" hidden>
     <div class="col-main">
-      <h1 class="title"><span class="jp">漢字</span> Battle</h1>
+      <h1 class="title"><span class="jp">漢字</span> Wizards</h1>
       <p class="sub">Study ten spells. Then cast them from memory.</p>
       <div class="menu-actions">
         <button id="create" class="big">Create room</button>
@@ -54,12 +61,68 @@
           <input id="joinCode" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Room code">
           <button id="join" class="alt big">Join</button>
         </div>
+        <div class="menu-row">
+          <button id="studyBtn" class="alt">📖 Study spells <span id="studyBadge" class="badge" hidden></span></button>
+          <button id="customizeBtn" class="alt">🎨 Customize</button>
+        </div>
         <button id="adminBtn" class="alt" hidden>👥 Users</button>
         <p id="error" class="error" role="alert"></p>
       </div>
       <button id="howBtn" class="how-btn">How to play?</button>
     </div>
     <div class="col-scene"><div class="scene duel-scene" aria-hidden="true"></div></div>
+  </section>
+
+  <!-- STUDY: deck choice -->
+  <section id="study" class="screen" hidden>
+    <button id="studyBack" class="back">← Menu</button>
+    <div class="page-head"><h2>Study spells</h2><span id="studyCrit" class="tag"></span></div>
+    <p class="sub">Spaced repetition like Anki. Every spell you learn adds <b>0.1% crit chance</b> in battle (×1.5 damage, up to 50%).</p>
+    <div id="studyNotice" class="notice" hidden></div>
+    <div class="study-decks">
+      <div class="deck-card">
+        <h3>All spells</h3>
+        <p class="hint">Tick levels — 25 new random words are added every day.</p>
+        <div id="studyLevels" class="chips"></div>
+        <div id="countsAll" class="counts"></div>
+        <button id="studyAll" class="big">Study</button>
+      </div>
+      <div class="deck-card struggle">
+        <h3>Struggling spells</h3>
+        <p class="hint">Words you missed in battles land here automatically.</p>
+        <div id="countsStruggle" class="counts"></div>
+        <button id="studyStruggle" class="big">Study</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STUDY: flashcards -->
+  <section id="review" class="screen review" hidden>
+    <div class="page-head"><button id="reviewBack" class="back">← Study</button><span id="reviewLeft" class="tag"></span></div>
+    <div id="flash" class="flashcard" tabindex="0" aria-live="polite">
+      <div class="fc-front"><div id="fcKanji" class="fc-kanji" lang="ja"></div><div id="fcLevel" class="fc-level"></div></div>
+      <div id="fcBack" class="fc-back" hidden><div id="fcReading" class="fc-reading" lang="ja"></div><div id="fcMeaning" class="fc-meaning"></div></div>
+    </div>
+    <button id="showAnswer" class="big show-answer">Show answer <kbd>Space</kbd></button>
+    <div id="rateRow" class="rate-row" hidden>
+      <button class="rate again" data-rating="again"><span class="iv"></span>Again <kbd>1</kbd></button>
+      <button class="rate hard" data-rating="hard"><span class="iv"></span>Hard <kbd>2</kbd></button>
+      <button class="rate good" data-rating="good"><span class="iv"></span>Okay <kbd>3</kbd></button>
+      <button class="rate easy" data-rating="easy"><span class="iv"></span>Easy <kbd>4</kbd></button>
+    </div>
+    <div id="reviewDone" class="review-done" hidden>
+      <h2>🎉 All done for now</h2>
+      <p class="sub">Come back later — cards return when they are due.</p>
+      <button id="reviewDoneBack" class="big">Back to study</button>
+    </div>
+  </section>
+
+  <!-- CUSTOMIZE -->
+  <section id="customize" class="screen" hidden>
+    <button id="customizeBack" class="back">← Menu</button>
+    <h2>Customize</h2>
+    <p class="sub">Backgrounds unlock as you level up. Win battles to earn XP (1000 XP per level).</p>
+    <div id="bgGrid" class="bg-grid"></div>
   </section>
 
   <!-- ADMIN -->
@@ -86,17 +149,27 @@
       <button class="mode-card" data-mode="reading">
         <span class="mode-icon jp">読</span>
         <span class="mode-name">1v1 Kanji Reading</span>
-        <span class="mode-desc">See the kanji, type its reading. The classic duel.</span>
+        <span class="mode-desc">Study, then see the kanji and type its reading. Your own stream of spells.</span>
+      </button>
+      <button class="mode-card" data-mode="rapid">
+        <span class="mode-icon jp">速</span>
+        <span class="mode-name">1v1 Rapid</span>
+        <span class="mode-desc">No study. Same kanji for both — first to type the reading (かな or romaji) hits.</span>
       </button>
       <button class="mode-card" data-mode="writing">
         <span class="mode-icon jp">書</span>
         <span class="mode-name">1v1 Kanji Writing</span>
-        <span class="mode-desc">The kanji flashes for half a second, then only the meaning stays. Write it by hand.</span>
+        <span class="mode-desc">The kanji flashes for half a second; the reading and meaning stay. Write it by hand or type it with a Japanese keyboard.</span>
       </button>
       <button class="mode-card boss" data-mode="boss">
         <span class="mode-icon jp">竜</span>
         <span class="mode-name">Boss Elimination</span>
-        <span class="mode-desc">Team up against the Black Dragon. Every correct reading hits it. Mistakes get you clawed, and it breathes fire every 30 s.</span>
+        <span class="mode-desc">Team up against the Black Dragon. Mistakes get you clawed; it breathes fire every 30 s.</span>
+      </button>
+      <button class="mode-card deck" data-mode="deck">
+        <span class="mode-icon jp">札</span>
+        <span class="mode-name">Deck Duel</span>
+        <span class="mode-desc">Pick a hero, draft 10 face-down spell cards, then cast them turn by turn by writing their kanji. Mana, heals, powers.</span>
       </button>
     </div>
   </section>
@@ -119,13 +192,14 @@
       <fieldset id="levels" class="levels">
         <legend>Your levels</legend>
         <div id="levelChips" class="chips"></div>
-        <p id="levelsHint" class="hint">Each player picks their own. かな = hiragana, answered in romaji. Harder levels hit harder — so your opponent gets more HP.</p>
+        <p id="levelsHint" class="hint"></p>
       </fieldset>
     </div>
   </section>
 
   <!-- PREPARATION -->
   <section id="prep" class="screen" hidden>
+    <button id="prepBack" class="back">← Back to lobby</button>
     <header class="prephead">
       <div>
         <h2>Preparation</h2>
@@ -154,8 +228,8 @@
     <div id="bossBar" class="boss-bar" hidden></div>
     <div id="arena" class="arena">
       <div class="side left">
-        <div id="wizMe" class="wizard me"><div class="sprite"></div><div class="ground"></div></div>
-        <div id="wizAlly" class="wizard ally" hidden><div class="sprite"></div><div class="ground"></div></div>
+        <div id="wizMe" class="wizard me"><div class="aura"></div><div class="sprite"></div><div class="ground"></div></div>
+        <div id="wizAlly" class="wizard ally" hidden><div class="aura"></div><div class="sprite"></div><div class="ground"></div></div>
       </div>
       <div class="stage">
         <div id="countdown" class="countdown" hidden></div>
@@ -171,21 +245,12 @@
               <button id="skip" class="pill" disabled title="Counts as a miss and shows the answer">Skip <kbd>Esc</kbd></button>
             </div>
           </div>
-          <div id="writeArea" class="write-area" hidden>
-            <div id="charSlots" class="char-slots" lang="ja"></div>
-            <canvas id="pad" class="pad" width="600" height="600" aria-label="Handwriting pad"></canvas>
-            <div class="pad-tools">
-              <button id="padUndo" class="pill">↶ Undo</button>
-              <button id="padClear" class="pill">✕ Clear</button>
-              <button id="padSkip" class="pill">Skip</button>
-              <button id="padNext" class="pill primary">Next →</button>
-            </div>
-          </div>
+          <div id="writeSlot"></div>
           <div id="feedback" class="feedback" aria-live="polite"></div>
         </div>
       </div>
       <div class="side right">
-        <div id="wizOpp" class="wizard opp"><div class="sprite"></div><div class="ground"></div></div>
+        <div id="wizOpp" class="wizard opp"><div class="aura"></div><div class="sprite"></div><div class="ground"></div></div>
         <div id="dragon" class="dragon" hidden><div class="sprite"></div><div class="ground"></div></div>
       </div>
       <div id="fire" class="fire" hidden></div>
@@ -193,13 +258,55 @@
     <div id="log" class="log" aria-live="polite"></div>
   </section>
 
+  <!-- DECK DUEL -->
+  <section id="deck" class="screen deck-screen" hidden>
+    <div class="deck-top">
+      <div id="dkOpp" class="dk-player opp"></div>
+      <div class="clock-col">
+        <div id="dkClock" class="clock small"></div>
+        <button id="dkForfeit" class="link forfeit">🏳 Forfeit</button>
+      </div>
+    </div>
+    <div class="deck-middle">
+      <div id="dkOppHand" class="dk-hand opp"></div>
+      <div id="dkStage" class="dk-stage">
+        <div id="dkBanner" class="dk-banner"></div>
+        <div id="dkCast" class="dk-cast"></div>
+        <div id="dkWrite"></div>
+        <div id="dkFeedback" class="feedback"></div>
+      </div>
+    </div>
+    <div class="deck-bottom">
+      <button id="dkAbility" class="dk-ability" title="Character power"></button>
+      <div id="dkMe" class="dk-player me"></div>
+      <div id="dkHand" class="dk-hand me"></div>
+    </div>
+    <div id="dkOverlay" class="dk-overlay" hidden></div>
+  </section>
+
+  <!-- shared handwriting / IME area (moved between battle and deck) -->
+  <div id="writeArea" class="write-area" hidden>
+    <div id="charSlots" class="char-slots" lang="ja"></div>
+    <canvas id="pad" class="pad" width="600" height="600" aria-label="Handwriting pad"></canvas>
+    <div class="pad-tools">
+      <button id="padUndo" class="pill">↶ Undo</button>
+      <button id="padClear" class="pill">✕ Clear</button>
+      <button id="padSkip" class="pill">Skip</button>
+      <button id="padNext" class="pill primary">Next →</button>
+    </div>
+    <div class="ime-row">
+      <input id="imeInput" lang="ja" placeholder="…or type the kanji (Japanese keyboard), Enter" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+  </div>
+
   <!-- RESULTS -->
   <section id="results" class="screen" hidden>
     <h2 id="resultTitle" class="result-title"></h2>
     <p id="resultReason" class="sub center"></p>
+    <div id="xpLine" class="xp-line" hidden></div>
     <div id="statCompare" class="compare"></div>
     <div id="struggledBox" class="struggled">
-      <h3>Review — you struggled with</h3>
+      <h3>Review — you struggled with <small>(added to Struggling spells)</small></h3>
       <div id="struggled" class="grid small"></div>
     </div>
     <h3>Vocabulary performance</h3>
@@ -221,19 +328,20 @@
   <form method="dialog">
     <h2>How to play</h2>
     <ol>
-      <li><b>Create a room</b>, pick a mode, and send the 4-letter code to a friend. They tap <b>Join</b>. On a phone you can switch apps to send the code — your seat is kept for 5 minutes.</li>
-      <li><b>Pick your levels.</b> かな is hiragana (answer in romaji); N5 is easiest, N1 hardest. Harder words hit harder, so your opponent gets more HP — matches stay fair across levels.</li>
-      <li><b>Study.</b> You get 10 words and 60 seconds. Press <i>I'm ready</i> to start early.</li>
-      <li><b>Battle.</b> The readings vanish. Each word becomes a spell:
+      <li><b>Create a room</b>, pick a mode, and send the 4-letter code to a friend. On a phone you can switch apps to send it — your seat is kept for 5 minutes.</li>
+      <li><b>Pick your levels.</b> かな is hiragana (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (かな), Apprentice (N5), Adventurer (N4), Knight (N3), Wizard (N2/N1). Harder words hit harder, so your opponent gets more HP.</li>
+      <li><b>Modes</b>
         <ul>
-          <li><b>Reading</b> — type the reading with a Japanese keyboard (かな) or in romaji, then Enter.</li>
-          <li><b>Writing</b> — the kanji flashes for half a second, then only the meaning stays. Draw each character on the pad and press <i>Next</i>. Neat-ish is enough.</li>
-          <li><b>Boss</b> — you and a friend (or solo) fight the Black Dragon. Correct answers hit it. A mistake gets you clawed, and every 30 s it breathes fire on everyone.</li>
+          <li><b>Reading</b> — study 10 words, then type each reading (かな or romaji).</li>
+          <li><b>Rapid</b> — no study; both get the same kanji, first correct reading hits.</li>
+          <li><b>Writing</b> — the kanji flashes, then write it on the pad or type the kanji with a Japanese keyboard. Messy is fine.</li>
+          <li><b>Boss</b> — team up against the Black Dragon. Mistakes get you clawed; fire breath every 30 s.</li>
+          <li><b>Deck Duel</b> — pick a hero, draft cards by colour, then cast them by writing their kanji. Light blue 100 dmg (10 mana), blue 120 (25), yellow +60 mana, green heal 100 (40), red 250 (70). You get +10 mana each turn. If you can't play any card, you lose. When time runs out: overtime — cards are shown one by one, first to write it uses it.</li>
         </ul>
       </li>
-      <li><b>Fast + correct = more damage.</b> Answers in a row build a combo (up to ×1.5). A miss resets it.</li>
-      <li><b>Don't know it?</b> Press <i>Skip</i> (or Esc): it counts as a miss and shows you the answer, and that word comes back soon.</li>
-      <li>After the battle you'll see what you struggled with — that's your study list.</li>
+      <li><b>Fast + correct = more damage.</b> Combos build up to ×1.5 (5 in a row sets you on fire 🔥). <b>Skip</b> (Esc) shows the answer.</li>
+      <li><b>Study spells</b> — Anki-style flashcards. Missed words go to <i>Struggling spells</i>. Each learned spell = +0.1% crit (×1.5 damage).</li>
+      <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. 1000 XP per level unlocks backgrounds in <i>Customize</i>.</li>
     </ol>
     <button value="close" class="big">Got it</button>
   </form>
