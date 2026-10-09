@@ -97,6 +97,17 @@ if (process.env.TEST_DATABASE_URL) {
     assert.equal(after.xp, 15_000 + Math.round(0.4 * 6000));
     await s.init();
     assert.equal((await s.findById(u.id))!.xp, after.xp, 'only once');
+    // the SQL conversion matches legacyXpToCurrent exactly
+    const { legacyXpToCurrent } = await import('../src/shared/progress');
+    const samples = [0, 1, 499, 500, 999, 1000, 1001, 2500, 9999, 12345, 48_000];
+    const users = [];
+    for (const [i, xp] of samples.entries()) {
+      const v = await s.create({ username: `legacy${i}`, passwordHash: 'h', role: 'user' });
+      await (s as any).sql`update kw_users set xp = ${xp}, xp_scheme = 1 where id = ${v.id}`;
+      users.push(v.id);
+    }
+    await s.init();
+    for (const [i, id] of users.entries()) assert.equal((await s.findById(id))!.xp, legacyXpToCurrent(samples[i]), `xp ${samples[i]}`);
     assert.equal((await s.cards(u.id)).length, 1, 'study set untouched');
     await s.close!();
   });

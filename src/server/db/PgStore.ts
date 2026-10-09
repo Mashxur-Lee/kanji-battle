@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import type { Level, Role } from '../../shared/protocol';
-import { legacyXpToCurrent, type BackgroundId } from '../../shared/progress';
+import type { BackgroundId } from '../../shared/progress';
 import type { CardState, SrsCard } from '../../shared/srs';
 import { UsernameTakenError, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
@@ -88,11 +88,14 @@ export class PgStore implements Store {
     // v0.5 made levels steeper. Rows saved before that (xp_scheme 1) get their XP converted once, so
     // everyone keeps the level they had. Nothing is ever dropped or reset by an update.
     await this.sql`alter table kw_users add column if not exists xp_scheme integer not null default 1`;
-    await this.sql.begin(async (tx) => {
-      const old = await tx<{ id: string; xp: number }[]>`select id, xp from kw_users where xp_scheme < 2 for update`;
-      for (const r of old) await tx`update kw_users set xp = ${legacyXpToCurrent(r.xp)}, xp_scheme = 2 where id = ${r.id}`;
-      if (old.length) console.log(`Converted XP of ${old.length} account(s) to the new level curve`);
-    });
+    // one atomic statement (same maths as legacyXpToCurrent): level L = xp div 1000 keeps its progress
+    const converted = await this.sql`
+      update kw_users
+      set xp = 500 * (xp / 1000) * (xp / 1000 + 1) + round((xp % 1000)::numeric * (xp / 1000 + 1)),
+          xp_scheme = 2
+      where xp_scheme < 2
+      returning id`;
+    if (converted.length) console.log(`Converted XP of ${converted.length} account(s) to the new level curve`);
   }
 
   async findByUsername(username: string) {
