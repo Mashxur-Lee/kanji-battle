@@ -442,7 +442,7 @@ ui.$<HTMLInputElement>('joinCode').addEventListener('keydown', (e) => { if (e.ke
 ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
 ui.$('studyBtn').onclick = () => void openStudy();
 ui.$('studyBack').onclick = () => ui.show('menu');
-ui.$('customizeBtn').onclick = async () => { await refreshProfile(); if (profile) openCustomize(profile, user?.role === 'admin', applyBackground); };
+ui.$('customizeBtn').onclick = async () => { await refreshProfile(); if (profile) openCustomize(profile, user?.role === 'admin', () => applyBackground(true)); };
 ui.$('customizeBack').onclick = () => ui.show('menu');
 
 // ── admin ────────────────────────────────────────────────────────────────────

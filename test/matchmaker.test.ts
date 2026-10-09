@@ -97,3 +97,21 @@ test('queue: not accepting in 5 s stops your queue; the one who accepted keeps s
   assert.equal(a.last('queue')!.state, 'searching');
   assert.equal(a.room(), undefined);
 });
+
+test('queue: Rapid only matches players with a level in common, and plays just the shared levels', async () => {
+  const mm = new Matchmaker(new RoomManager());
+  const a = player('a'), b = player('b'), c = player('c');
+  mm.enqueue('a', a.client, ['rapid'], ['N4']);
+  mm.enqueue('b', b.client, ['rapid'], ['N3']);
+  await settle();
+  assert.equal(mm.size, 2, 'N4 and N3: no match');
+  assert.equal(a.last('queue')!.state, 'searching');
+  mm.enqueue('c', c.client, ['rapid'], ['N4', 'N5']);
+  await settle();
+  const id = a.last('queue')!.matchId;
+  assert.equal(c.last('queue')!.matchId, id, 'a (N4) and c (N4, N5) are matched');
+  mm.accept('a', id); mm.accept('c', id);
+  await settle();
+  const lobby = a.last('lobby') ?? c.last('lobby');
+  assert.ok(lobby!.players.every((p) => p.levels.join() === 'N4'), 'both play only N4');
+});

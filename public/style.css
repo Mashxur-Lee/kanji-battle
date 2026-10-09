@@ -812,7 +812,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 @keyframes bgAurora { from { opacity: .55; transform: translateX(-40px); } to { opacity: 1; transform: translateX(60px); } }
 svg.still * { animation: none !important; }
 svg.still .bg-comet { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { .bg svg * { animation: none !important; } .bg-comet { display: none; } }
+/* the background's living details are slow and gentle: they stay on even with "reduce motion" (Windows' animation effects off) */
 
 .bg-times { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
 .bg-times .pill.on { border-color: var(--gold); color: var(--gold); }
@@ -952,3 +952,9 @@ body.has-3d .dk-banner { text-shadow: 0 2px 10px rgba(0, 0, 0, .8); }
 .toggle-row { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; cursor: pointer; }
 body.has-3d #dragon { position: fixed; top: 76px; right: var(--gutter); width: min(42vw, 560px); z-index: 3; }
 body.has-3d #dragon .boss-bar { width: 100%; }
+/* mode colours on the "Create room" cards, as on the mode logos elsewhere */
+.mode-card[data-mode="reading"] .mode-icon { color: var(--accent2); text-shadow: 0 0 18px rgba(110, 231, 255, .5); }
+.mode-card[data-mode="reading"]:hover { border-color: var(--accent2); }
+.mode-card[data-mode="rapid"] .mode-icon { color: #ff9f5a; text-shadow: 0 0 18px rgba(255, 159, 90, .5); }
+.mode-card[data-mode="rapid"]:hover { border-color: #ff9f5a; }
+.g-card .dkc { align-self: center; margin: 0 auto; flex: none; } /* centred over its description */

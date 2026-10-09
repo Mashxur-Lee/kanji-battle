@@ -293,7 +293,7 @@ export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfD
   };
   clearTimeout(fadeTimer);
   el.querySelector('.bg-veil')?.remove();
-  if (!fade || !el.querySelector('.bg-layer') || matchMedia('(prefers-reduced-motion: reduce)').matches) return swap();
+  if (!fade || !el.querySelector('.bg-layer')) return swap(); // a fade is not motion: it plays even with "reduce motion"
   // a dark veil fades in, the scene changes behind it, and the veil fades away
   const veil = document.createElement('div');
   veil.className = 'bg-veil';

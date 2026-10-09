@@ -486,3 +486,19 @@ test('boss with AI teammates: when the only human forfeits, the match ends', () 
   assert.ok(a.last('game_over'), 'results screen');
   assert.equal(a.last('game_over')!.reason, 'forfeit');
 });
+
+test('rapid room: the levels are shared — a change by either player changes them for everyone', () => {
+  const room = new Room('RPDL', 'rapid', { onEmpty: () => {} }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a, ['N5']);
+  room.join('b', 'B', b, ['N1']);
+  assert.deepEqual(b.last('lobby')!.players.map((p) => p.levels), [['N5'], ['N5']], 'the joiner takes the room\'s levels');
+  room.setLevels('b', ['N3', 'N2']);
+  assert.deepEqual(a.last('lobby')!.players.map((p) => p.levels), [['N3', 'N2'], ['N3', 'N2']]);
+  // other modes: everyone keeps their own
+  const r2 = new Room('RDNG', 'reading', { onEmpty: () => {} }, OPTS);
+  const c = client(), d = client();
+  r2.join('c', 'C', c, ['N5']); r2.join('d', 'D', d, ['N1']);
+  r2.setLevels('d', ['N2']);
+  assert.deepEqual(c.last('lobby')!.players.map((p) => p.levels), [['N5'], ['N2']]);
+});

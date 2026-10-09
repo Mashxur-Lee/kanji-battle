@@ -310,7 +310,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   $('levelsHint').textContent = mode === 'deck'
     ? 'Deck Duel draws cards from every level (N5–N1). Your level picks only change your character here.'
     : mode === 'rapid'
-      ? 'Both players race on the same kanji, drawn from everyone\'s levels together.'
+      ? 'Shared levels: both players race on the same kanji, so a change here changes it for everyone.'
       : mode === 'boss'
     ? 'Each player picks their own. The dragon gets tougher when the party picks harder levels.'
     : mode === 'writing'
