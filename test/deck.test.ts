@@ -80,7 +80,7 @@ test('casting: mana cost, damage, heal, mana card; wrong writing rips the card',
   writeRight(s, a);
   const spec = CARD_SPECS[attack.color];
   const pa = s.view(a).players.find((p) => p.id === a)!, pb = s.view(a).players.find((p) => p.id === b)!;
-  assert.equal(pb.hp, 1000 - spec.amount);
+  assert.equal(pb.hp, RULES.hp - spec.amount);
   assert.equal(pa.mana, RULES.maxMana - spec.cost + Math.floor(spec.cost / 2), 'paid on play, half back on success');
   assert.equal(s.devents().filter((e) => e.kind === 'resolve').at(-1).refund, Math.floor(spec.cost / 2));
   assert.equal(s.view(a).turn!.active, b, 'turn passes');
@@ -95,10 +95,10 @@ test('casting: mana cost, damage, heal, mana card; wrong writing rips the card',
   assert.deepEqual([last.kind, last.ok], ['resolve', false]);
   assert.equal(s.view(b).hand.length, 9);
   assert.equal(s.view(a).players.find((p) => p.id === b)!.mana, manaBefore - CARD_SPECS[bc.color].cost, 'a ripped card still cost its mana');
-  assert.equal(s.view(b).players.find((p) => p.id === a)!.hp, 1000);
+  assert.equal(s.view(b).players.find((p) => p.id === a)!.hp, RULES.hp);
 });
 
-test('knight bulwark (−30% damage) and goblin frenzy (2 cards in a row)', () => {
+test('knight bulwark (less damage) and goblin frenzy (2 cards in a row, the second costs 1.5× mana)', () => {
   const s = setup();
   s.g.start(); s.g.chooseCharacter('A', 'goblin'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
   // make sure A acts when B's bulwark is up: play until it's B's turn
@@ -113,13 +113,18 @@ test('knight bulwark (−30% damage) and goblin frenzy (2 cards in a row)', () =
   const attacks = s.view('A').hand.filter((c) => CARD_SPECS[c.color].kind === 'attack' && CARD_SPECS[c.color].cost <= 70).slice(0, 2);
   s.g.play('A', attacks[0].cardId); writeRight(s, 'A');
   assert.equal(s.view('A').turn!.active, 'A', 'goblin keeps the turn');
-  s.g.play('A', attacks[1].cardId); writeRight(s, 'A');
-  const expected = attacks.reduce((sum, c) => sum + Math.round(CARD_SPECS[c.color].amount * 0.7), 0);
+  assert.equal(s.view('A').turn!.costFactor, RULES.goblinSecondCost);
+  const manaBefore = s.view('A').players.find((p) => p.id === 'A')!.mana;
+  s.g.play('A', attacks[1].cardId);
+  assert.equal(manaBefore - s.view('A').players.find((p) => p.id === 'A')!.mana, Math.ceil(CARD_SPECS[attacks[1].color].cost * RULES.goblinSecondCost), 'second card costs more');
+  writeRight(s, 'A');
+  const expected = attacks.reduce((sum, c) => sum + Math.round(CARD_SPECS[c.color].amount * RULES.knightDamageTaken), 0);
   assert.equal(hp0 - s.view('A').players.find((p) => p.id === 'B')!.hp, expected);
   assert.equal(s.view('A').turn!.active, 'B');
+  assert.equal(s.view('A').players.find((p) => p.id === 'A')!.abilityCooldown, RULES.goblinCooldown, 'Frenzy rests longer');
 });
 
-test('witch sight reveals your cards and the kanji stays visible', () => {
+test('witch sight reveals your hand and makes attacks hit harder, but not the kanji being written', () => {
   const s = setup();
   s.g.start(); s.g.chooseCharacter('A', 'witch'); s.g.chooseCharacter('B', 'witch'); draftAll(s);
   const a = s.view('A').turn!.active;
@@ -129,13 +134,21 @@ test('witch sight reveals your cards and the kanji stays visible', () => {
   const id = s.view(a).casting!.castId;
   s.g.castReady(a, id); s.g.castGo(a, id);
   assert.equal(s.view(a).casting!.card.kanji, undefined, 'Sight shows her hand, not the card she is writing');
+  // an attack while Sight is on
+  const s2 = setup();
+  s2.g.start(); s2.g.chooseCharacter('A', 'witch'); s2.g.chooseCharacter('B', 'witch'); draftAll(s2);
+  const w = s2.view('A').turn!.active, foe = w === 'A' ? 'B' : 'A';
+  s2.g.ability(w);
+  const atk = s2.view(w).hand.find((c) => CARD_SPECS[c.color].kind === 'attack' && CARD_SPECS[c.color].cost <= 100)!;
+  s2.g.play(w, atk.cardId); writeRight(s2, w);
+  assert.equal(RULES.hp - s2.view(w).players.find((p) => p.id === foe)!.hp, Math.round(CARD_SPECS[atk.color].amount * RULES.witchSightDamage));
 });
 
-test('cards you cannot pay for = instant loss (wizard is saved once by +30 mana)', () => {
+test('cards you cannot pay for: the turn is skipped (−100 HP), not lost; mana keeps coming back', () => {
   const s = setup(() => 0.1, { ...RULES, maxMana: 20, manaPerTurn: 0 });
-  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'wizard'); draftAll(s);
-  // with 20 max mana, blue/green/red are unaffordable; cards get used up quickly
-  for (let i = 0; i < 60 && !s.g.isOver; i++) {
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
+  // with 20 max mana, blue/green/red are unaffordable; the cheap cards get used up quickly
+  for (let i = 0; i < 60 && !s.g.isOver && !s.devents().some((e) => e.kind === 'stuck'); i++) {
     const t = s.view('A').turn;
     if (!t) break;
     const me = s.view(t.active);
@@ -143,8 +156,14 @@ test('cards you cannot pay for = instant loss (wizard is saved once by +30 mana)
     if (!playable) break;
     s.g.play(t.active, playable.cardId); writeRight(s, t.active);
   }
+  const ev = s.devents();
+  const stuck = ev.findIndex((e) => e.kind === 'stuck');
+  assert.ok(stuck >= 0, 'someone got stuck');
+  assert.deepEqual(ev[stuck + 1], { kind: 'skip', playerId: ev[stuck].playerId, damage: RULES.skipPenaltyHp });
+  assert.ok(s.view('A').players.find((p) => p.id === ev[stuck].playerId)!.hp < RULES.hp, 'it cost HP');
+  // stuck forever (no mana regen): skipped turns keep costing HP until someone falls
+  for (let i = 0; i < 200 && !s.g.isOver; i++) tick(RULES.chooseMs + RULES.revealMs);
   assert.ok(s.g.isOver);
-  assert.ok(s.devents().some((e) => e.kind === 'stuck'));
 });
 
 test('overtime turns into a 1v1 Rapid duel: cards gone, random kanji, first reading hits (harder words hit harder)', () => {
@@ -170,7 +189,7 @@ test('overtime turns into a 1v1 Rapid duel: cards gone, random kanji, first read
   s.g.submit('B', c.castId, entry.romaji ?? entry.reading); // …and B may try again
   const r = s.devents().filter((e) => e.kind === 'resolve').at(-1);
   assert.deepEqual([r.ok, r.playerId, r.targetId, r.reading.length > 0], [true, 'B', 'A', true]);
-  assert.equal(s.view('A').players.find((p) => p.id === 'A')!.hp, 1000 - r.amount);
+  assert.equal(s.view('A').players.find((p) => p.id === 'A')!.hp, RULES.hp - r.amount);
   assert.ok(r.amount === OVERTIME_DAMAGE[entry.level as 'N5'] || r.amount > OVERTIME_DAMAGE[entry.level as 'N5'], 'damage by level (or a crit)');
   assert.equal(s.view('A').casting, null, 'the answer stays up for a moment');
   tick(RULES.overtimeGapMs);
@@ -203,12 +222,12 @@ test('skipping a turn (choose clock runs out) costs 100 HP; a played card does n
   s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
   const a = s.view('A').turn!.active, b = a === 'A' ? 'B' : 'A';
   tick(RULES.chooseMs);
-  assert.equal(s.view(a).players.find((p) => p.id === a)!.hp, 1000 - RULES.skipPenaltyHp);
+  assert.equal(s.view(a).players.find((p) => p.id === a)!.hp, RULES.hp - RULES.skipPenaltyHp);
   assert.deepEqual(s.devents().at(-1), { kind: 'skip', playerId: a, damage: RULES.skipPenaltyHp });
   assert.equal(s.view(a).turn!.active, b);
   s.g.play(b, s.view(b).hand.find((c) => CARD_SPECS[c.color].cost <= RULES.maxMana)!.cardId);
   tick(RULES.castMs); // too slow: the card rips, but no skip penalty
-  assert.equal(s.view(b).players.find((p) => p.id === b)!.hp, 1000);
+  assert.equal(s.view(b).players.find((p) => p.id === b)!.hp, RULES.hp);
 });
 
 test('separate clocks: 15 s to choose a card, then one minute to cast it', () => {

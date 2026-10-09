@@ -153,7 +153,8 @@ export class Bot {
     }
     const after = this.host.deckView(this.id) ?? v;
     const mana = after.players.find((p) => p.id === this.id)!.mana;
-    const affordable = after.hand.filter((c) => CARD_SPECS[c.color].cost <= mana);
+    const f = after.turn?.costFactor ?? 1;
+    const affordable = after.hand.filter((c) => Math.ceil(CARD_SPECS[c.color].cost * f) <= mana);
     if (!affordable.length) return; // the server ends the turn / match
     const of = (color: string) => affordable.find((c) => c.color === color);
     const pick =

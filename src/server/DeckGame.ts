@@ -18,7 +18,7 @@ interface DPlayer {
   hand: Card[]; wizardCardsUsed: boolean; wizardManaUsed: boolean;
   casts: number; hits: number; totalMs: number; damage: number; otMisses: number; words: Map<string, { entry: VocabEntry; attempts: number; correct: number; totalMs: number }>;
 }
-interface Cast { castId: number; card: Card; ownerId: PlayerId | null; startedAt: number; tried: Set<PlayerId>; stage: 'read' | 'look' | 'write' }
+interface Cast { castId: number; card: Card; ownerId: PlayerId | null; startedAt: number; tried: Set<PlayerId>; stage: 'read' | 'look' | 'write'; paid?: number }
 
 /** Picks the 20 draft cards: 4 writable words per JLPT level, coloured by difficulty rank. */
 export function buildDraftPool(vocab: readonly VocabEntry[], writable: (v: VocabEntry) => boolean, rng: Rng, perLevel = DECK_RULES.cardsPerLevel): Array<{ entry: VocabEntry; color: CardColor }> {
@@ -126,7 +126,7 @@ export class DeckGame implements Match {
     if (this.phase !== 'battle' || this.active !== id || !p || p.cooldown > 0 || this.cast || !p.character || p.character === 'wizard' || this.now() < this.holdUntil) return;
     if (p.mana < this.rules.abilityCost) return;
     p.mana -= this.rules.abilityCost;
-    p.cooldown = this.rules.abilityCooldown;
+    p.cooldown = p.character === 'goblin' ? this.rules.goblinCooldown : this.rules.abilityCooldown;
     if (p.character === 'goblin') { this.castsLeft = 2; p.frenzy = true; }
     else p.abilityActive = this.rules.abilityTurns;
     if (p.character === 'witch') for (const c of p.hand) c.revealed = true;
@@ -139,13 +139,14 @@ export class DeckGame implements Match {
     const p = this.p(id);
     if (this.phase !== 'battle' || this.active !== id || !p || this.cast || this.now() < this.holdUntil) return;
     const card = p.hand.find((c) => c.cardId === cardId);
-    if (!card || CARD_SPECS[card.color].cost > p.mana) return;
+    if (!card || this.cost(p, card) > p.mana) return;
+    const paid = this.cost(p, card);
     p.hand = p.hand.filter((c) => c !== card);
     this.playedThisTurn = true;
-    p.mana -= CARD_SPECS[card.color].cost; // paid up front: a ripped card still costs its mana
+    p.mana -= paid; // paid up front: a ripped card still costs its mana
     card.revealed = true;
     // step 1: read the meaning (the kanji isn't sent to anyone yet)
-    this.cast = { castId: this.nextCast++, card, ownerId: id, startedAt: this.now(), tried: new Set(), stage: 'read' };
+    this.cast = { castId: this.nextCast++, card, ownerId: id, startedAt: this.now(), tried: new Set(), stage: 'read', paid };
     const castId = this.cast.castId;
     this.setTimer(this.rules.castMs, () => this.turnTimeout()); // one minute for read → look → write
     clearTimeout(this.stageTimer);
@@ -231,7 +232,7 @@ export class DeckGame implements Match {
       draft: this.phase === 'draft'
         ? { pool: this.draft.map((d) => ({ cardId: d.card.cardId, color: d.card.color, takenBy: d.takenBy })), picker: this.picker, picksLeft: this.picksLeft, coinWinner: this.coinWinner, deadlineMs: left }
         : null,
-      turn: this.phase === 'battle' && this.active ? { active: this.active, castsLeft: this.castsLeft, deadlineMs: left, stage: this.cast ? 'cast' : 'choose' } : null,
+      turn: this.phase === 'battle' && this.active ? { active: this.active, castsLeft: this.castsLeft, deadlineMs: left, stage: this.cast ? 'cast' : 'choose', costFactor: this.costFactor(this.p(this.active)!) } : null,
       round: this.round,
       deckList: this.phase === 'battle' && me && this.active !== id
         ? me.hand.map((c) => ({ kanji: c.entry.kanji, reading: displayReading(c.entry), meaning: c.entry.meaning })).sort((a, b) => a.kanji.localeCompare(b.kanji, 'ja'))
@@ -346,9 +347,13 @@ export class DeckGame implements Match {
     }
     if (p.hand.length === 0) return this.redraft(id); // out of cards → round 2 draft
     if (!this.canAfford(p)) {
+      // has cards but can't pay for any: the turn is skipped (with the skip penalty), mana keeps coming back
       this.emitEvent({ kind: 'stuck', playerId: id, why: 'no_mana' });
-      p.hp = 0; // has cards but can't pay for any → instant loss
-      return this.finish('ko');
+      p.hp = Math.max(0, p.hp - this.rules.skipPenaltyHp);
+      this.emitEvent({ kind: 'skip', playerId: id, damage: this.rules.skipPenaltyHp });
+      if (p.hp <= 0) return this.finish('ko');
+      this.holdUntil = Math.max(this.holdUntil, this.now() + this.rules.revealMs);
+      return this.endTurn();
     }
     // the choose clock starts once the last spell's answer has been shown
     this.setTimer(this.rules.chooseMs + Math.max(0, this.holdUntil - this.now()), () => this.turnTimeout());
@@ -419,16 +424,18 @@ export class DeckGame implements Match {
     if (caster) this.tally(caster, c.card.entry, result.correct, ms);
     if (caster && result.correct) {
       // a successful spell gives back half its mana (paid when the card was played)
-      if (this.phase === 'battle' && spec.cost > 0) {
+      const paid = c.paid ?? spec.cost;
+      if (this.phase === 'battle' && paid > 0) {
         const before = caster.mana;
-        caster.mana = Math.min(this.rules.maxMana, caster.mana + Math.floor(spec.cost * this.rules.manaRefund));
+        caster.mana = Math.min(this.rules.maxMana, caster.mana + Math.floor(paid * this.rules.manaRefund));
         refund = caster.mana - before;
       }
       const foe = this.other(caster.id);
       if (spec.kind === 'attack') {
         const crit = caster.crit > 0 && this.rng() < caster.crit;
         const bulwark = foe.character === 'knight' && foe.abilityActive > 0 ? this.rules.knightDamageTaken : 1;
-        amount = Math.round(spec.amount * (crit ? CRIT_MULTIPLIER : 1) * bulwark);
+        const sight = caster.character === 'witch' && caster.abilityActive > 0 ? this.rules.witchSightDamage : 1;
+        amount = Math.round(spec.amount * (crit ? CRIT_MULTIPLIER : 1) * bulwark * sight);
         foe.hp = Math.max(0, foe.hp - amount);
         caster.damage += amount;
         targetId = foe.id;
@@ -549,7 +556,10 @@ export class DeckGame implements Match {
 
   private p(id: PlayerId) { return this.players.find((x) => x.id === id); }
   private other(id: PlayerId) { return this.players.find((x) => x.id !== id)!; }
-  private canAfford(p: DPlayer) { return p.hand.some((c) => CARD_SPECS[c.color].cost <= p.mana); }
+  /** Goblin's Frenzy: the second card of the turn costs more. */
+  private costFactor(p: DPlayer) { return p.frenzy && this.active === p.id && this.castsLeft === 1 && this.playedThisTurn ? this.rules.goblinSecondCost : 1; }
+  private cost(p: DPlayer, c: Card) { return Math.ceil(CARD_SPECS[c.color].cost * this.costFactor(p)); }
+  private canAfford(p: DPlayer) { return p.hand.some((c) => this.cost(p, c) <= p.mana); }
 
   private setTimer(ms: number, fn: () => void) {
     clearTimeout(this.timer);

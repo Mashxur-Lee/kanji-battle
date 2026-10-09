@@ -2025,7 +2025,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.7.9";
+  var VERSION = "0.8.0";
 
   // src/client/api.ts
   var today = () => {
@@ -2375,21 +2375,21 @@
   // src/shared/deck.ts
   var CARD_COLORS = ["lightblue", "blue", "yellow", "green", "red"];
   var CARD_SPECS = {
-    lightblue: { label: "Bolt", kind: "attack", amount: 100, cost: 10 },
-    blue: { label: "Frost", kind: "attack", amount: 120, cost: 25 },
+    lightblue: { label: "Bolt", kind: "attack", amount: 90, cost: 10 },
+    blue: { label: "Frost", kind: "attack", amount: 150, cost: 20 },
     yellow: { label: "Mana", kind: "mana", amount: 60, cost: 0 },
-    green: { label: "Heal", kind: "heal", amount: 100, cost: 40 },
-    red: { label: "Inferno", kind: "attack", amount: 250, cost: 70 }
+    green: { label: "Heal", kind: "heal", amount: 140, cost: 30 },
+    red: { label: "Inferno", kind: "attack", amount: 340, cost: 45 }
   };
   var DECK_CHARACTERS = ["goblin", "knight", "witch", "wizard"];
   var CHARACTER_INFO = {
-    goblin: { name: "Goblin", power: "Frenzy: play 2 cards in a row this turn. 100 mana, then 4 turns cooldown." },
-    knight: { name: "Knight", power: "Bulwark: take 30% less damage and heal 30% more for 2 turns. 100 mana, then 4 turns cooldown." },
-    witch: { name: "Witch", power: "Sight: see the kanji and reading of all your cards for 2 turns (while writing it still hides like everyone else's). 100 mana, then 4 turns cooldown." },
+    goblin: { name: "Goblin", power: "Frenzy: play 2 cards in a row this turn (the second costs 1.5\xD7 mana). 100 mana, then 5 turns cooldown." },
+    knight: { name: "Knight", power: "Bulwark: take 45% less damage and heal 50% more for 2 turns. 100 mana, then 4 turns cooldown." },
+    witch: { name: "Witch", power: "Sight: for 2 turns see the kanji and reading of all your cards, and your attacks hit 35% harder (the card you write still hides its kanji). 100 mana, then 4 turns cooldown." },
     wizard: { name: "Wizard", power: "Arcane reserve (passive): out of cards \u2192 draw 2 random cards before a new draft; out of mana \u2192 +30 mana. Once each.", passive: true }
   };
   var DECK_RULES = {
-    hp: 1e3,
+    hp: 800,
     maxMana: 200,
     // and you start full
     manaPerTurn: 10,
@@ -2418,8 +2418,14 @@
     // the answer stays up before the next kanji
     overtimeMaxMs: 3 * 6e4,
     // then the higher HP wins
-    knightDamageTaken: 0.7,
-    knightHealBonus: 1.3,
+    witchSightDamage: 1.35,
+    // Witch's attack spells hit harder while Sight is on
+    goblinSecondCost: 1.5,
+    // Frenzy's second card costs this much more mana
+    goblinCooldown: 5,
+    // Frenzy rests this many of your turns (the others: abilityCooldown)
+    knightDamageTaken: 0.55,
+    knightHealBonus: 1.5,
     abilityTurns: 2,
     manaRefund: 0.5,
     // a successful spell gives back half its mana cost
@@ -2444,6 +2450,7 @@
   var hooks;
   var lastCastId = 0;
   var writingCastId = 0;
+  var stuckId = "";
   var otInput = null;
   var inkCanvas = null;
   var inkCastId = 0;
@@ -2567,7 +2574,8 @@
     );
   }
   function cardEl(c, opts = {}) {
-    const spec = CARD_SPECS[c.color];
+    const base = CARD_SPECS[c.color];
+    const spec = { ...base, cost: Math.ceil(base.cost * (opts.costFactor ?? 1)) };
     const el = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
     if (opts.button) el.disabled = !!opts.disabled;
     el.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
@@ -2645,7 +2653,8 @@
     countdown("dkTurn", deadline, (left) => banner.textContent = `${label} \xB7 ${Math.ceil(left / 1e3)}s`);
     const canPlay = myTurn && !v.casting && Date.now() >= revealUntil;
     $2("dkHand").replaceChildren(...v.hand.map((c) => {
-      const el = cardEl(c, { button: true, disabled: !canPlay || CARD_SPECS[c.color].cost > me2.mana });
+      const costFactor = myTurn ? v.turn.costFactor : 1;
+      const el = cardEl(c, { button: true, costFactor, disabled: !canPlay || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me2.mana });
       el.onclick = () => {
         sfx.flip();
         hooks.send({ type: "deck_play", cardId: c.cardId });
@@ -2806,7 +2815,10 @@
       b.onclick = () => hooks.send({ type: "deck_character", character: c });
       grid.append(b);
     }
-    overlay.replaceChildren(backButton(v), title, grid, h2("p", "sub", `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1e3} s to choose a card (its mana is paid right away), then read the meaning, press Ready to see the kanji and CAST! to write it \u2014 ${DECK_RULES.castMs / 1e3} s for the whole spell. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards \u2192 a new draft round. Cards: light blue 100 dmg (10\u25C6) \xB7 blue 120 (25\u25C6) \xB7 yellow +60\u25C6 \xB7 green heal 100 (40\u25C6) \xB7 red 250 (70\u25C6).`));
+    overlay.replaceChildren(backButton(v), title, grid, h2("p", "sub", `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1e3} s to choose a card (its mana is paid right away), then read the meaning, press Ready to see the kanji and CAST! to write it \u2014 ${DECK_RULES.castMs / 1e3} s for the whole spell. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards \u2192 a new draft round. Cards: ${CARD_COLORS.map((col) => {
+      const s = CARD_SPECS[col];
+      return `${COLOR_NAME[col].toLowerCase()} ${s.kind === "attack" ? `${s.amount} dmg` : s.kind === "heal" ? `heal ${s.amount}` : `+${s.amount}\u25C6`}${s.cost ? ` (${s.cost}\u25C6)` : ""}`;
+    }).join(" \xB7 ")}.`));
   }
   var coinShown = false;
   function renderDraft(v, me2) {
@@ -2861,14 +2873,16 @@
         toast(`${e.playerId === me2 ? "Your" : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === "cards" ? "+2 cards" : "+30 mana"}`);
         break;
       case "stuck":
-        toast(`${e.playerId === me2 ? "You have" : `${name(e.playerId)} has`} no usable cards!`);
+        stuckId = e.playerId;
         break;
+      // the 'skip' event right after explains it
       case "overtime":
         toast("\u23F0 Overtime! The cards are gone \u2014 it's a Rapid duel now: first to type the reading hits.", 5e3);
         break;
       case "skip":
         sfx.hurt();
-        toast(`${e.playerId === me2 ? "You" : name(e.playerId)} skipped the turn: \u2212${e.damage} HP`);
+        toast(stuckId === e.playerId ? `${e.playerId === me2 ? "You have" : `${name(e.playerId)} has`} no mana for any card \u2014 turn skipped: \u2212${e.damage} HP` : `${e.playerId === me2 ? "You" : name(e.playerId)} skipped the turn: \u2212${e.damage} HP`, 3500);
+        stuckId = "";
         break;
       case "ot_miss":
         if (e.playerId === me2 && otInput) {

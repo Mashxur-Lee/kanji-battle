@@ -28,6 +28,7 @@ let view: DeckView | null = null;
 let hooks: DeckHooks;
 let lastCastId = 0;
 let writingCastId = 0;
+let stuckId = '';
 let otInput: HTMLInputElement | null = null; // overtime: the reading box
 let inkCanvas: HTMLCanvasElement | null = null; // the opponent's pad, watched live
 let inkCastId = 0;
@@ -129,8 +130,9 @@ function renderGuide(el: HTMLElement) {
 }
 
 /** A face-down or face-up card. */
-function cardEl(c: DeckCardView, opts: { big?: boolean; button?: boolean; disabled?: boolean } = {}): HTMLElement {
-  const spec = CARD_SPECS[c.color];
+function cardEl(c: DeckCardView, opts: { big?: boolean; button?: boolean; disabled?: boolean; costFactor?: number } = {}): HTMLElement {
+  const base = CARD_SPECS[c.color];
+  const spec = { ...base, cost: Math.ceil(base.cost * (opts.costFactor ?? 1)) }; // Goblin's Frenzy: the second card costs more
   const el = h(opts.button ? 'button' : 'div', `dkc c-${c.color}${opts.big ? ' big' : ''}${!c.kanji && !opts.big ? ' back' : ''}`);
   if (opts.button) (el as HTMLButtonElement).disabled = !!opts.disabled;
   el.title = `${COLOR_NAME[c.color]} — ${spec.label}: ${spec.kind === 'attack' ? `${spec.amount} damage` : spec.kind === 'heal' ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ''}`;
@@ -215,7 +217,8 @@ export function renderDeck(v: DeckView) {
   // hands
   const canPlay = myTurn && !v.casting && Date.now() >= revealUntil;
   $('dkHand').replaceChildren(...v.hand.map((c) => {
-    const el = cardEl(c, { button: true, disabled: !canPlay || CARD_SPECS[c.color].cost > me.mana });
+    const costFactor = myTurn ? v.turn!.costFactor : 1;
+    const el = cardEl(c, { button: true, costFactor, disabled: !canPlay || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me.mana });
     el.onclick = () => { audio.sfx.flip(); hooks.send({ type: 'deck_play', cardId: c.cardId }); };
     return el;
   }));
@@ -371,7 +374,7 @@ function renderCharacters(v: DeckView, me: DeckPlayerView, opp: DeckPlayerView) 
     b.onclick = () => hooks.send({ type: 'deck_character', character: c });
     grid.append(b);
   }
-  overlay.replaceChildren(backButton(v), title, grid, h('p', 'sub', `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1000} s to choose a card (its mana is paid right away), then read the meaning, press Ready to see the kanji and CAST! to write it — ${DECK_RULES.castMs / 1000} s for the whole spell. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards → a new draft round. Cards: light blue 100 dmg (10◆) · blue 120 (25◆) · yellow +60◆ · green heal 100 (40◆) · red 250 (70◆).`));
+  overlay.replaceChildren(backButton(v), title, grid, h('p', 'sub', `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1000} s to choose a card (its mana is paid right away), then read the meaning, press Ready to see the kanji and CAST! to write it — ${DECK_RULES.castMs / 1000} s for the whole spell. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards → a new draft round. Cards: ${CARD_COLORS.map((col) => { const s = CARD_SPECS[col]; return `${COLOR_NAME[col].toLowerCase()} ${s.kind === 'attack' ? `${s.amount} dmg` : s.kind === 'heal' ? `heal ${s.amount}` : `+${s.amount}◆`}${s.cost ? ` (${s.cost}◆)` : ''}`; }).join(' · ')}.`));
 }
 
 let coinShown = false;
@@ -416,11 +419,14 @@ export function deckEvent(e: DeckEvent) {
     case 'redraft': ui.toast(`${e.playerId === me ? 'You are' : `${name(e.playerId)} is`} out of cards — Round ${e.round} draft!`, 4000); break;
     case 'ability': ui.toast(`${e.playerId === me ? 'You' : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(':')[0]}!`); break;
     case 'wizard': ui.toast(`${e.playerId === me ? 'Your' : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === 'cards' ? '+2 cards' : '+30 mana'}`); break;
-    case 'stuck': ui.toast(`${e.playerId === me ? 'You have' : `${name(e.playerId)} has`} no usable cards!`); break;
+    case 'stuck': stuckId = e.playerId; break; // the 'skip' event right after explains it
     case 'overtime': ui.toast('⏰ Overtime! The cards are gone — it\'s a Rapid duel now: first to type the reading hits.', 5000); break;
     case 'skip':
       audio.sfx.hurt();
-      ui.toast(`${e.playerId === me ? 'You' : name(e.playerId)} skipped the turn: −${e.damage} HP`);
+      ui.toast(stuckId === e.playerId
+        ? `${e.playerId === me ? 'You have' : `${name(e.playerId)} has`} no mana for any card — turn skipped: −${e.damage} HP`
+        : `${e.playerId === me ? 'You' : name(e.playerId)} skipped the turn: −${e.damage} HP`, 3500);
+      stuckId = '';
       break;
     case 'ot_miss':
       if (e.playerId === me && otInput) {
