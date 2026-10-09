@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, mock, test } from 'node:test';
 import { buildDraftPool, DeckGame } from '../src/server/DeckGame';
 import type { GameEvent } from '../src/server/Game';
-import { CARD_SPECS, DECK_RULES, type CardColor, type DeckView } from '../src/shared/deck';
+import { CARD_SPECS, DECK_RULES, OVERTIME_DAMAGE, type CardColor, type DeckView } from '../src/shared/deck';
 import { VOCAB } from '../src/server/vocab';
 
 let clock = 0;
@@ -128,7 +128,7 @@ test('witch sight reveals your cards and the kanji stays visible', () => {
   s.g.play(a, s.view(a).hand[0].cardId);
   const id = s.view(a).casting!.castId;
   s.g.castReady(a, id); s.g.castGo(a, id);
-  assert.ok(s.view(a).casting!.card.kanji, 'Witch keeps seeing the kanji while writing');
+  assert.equal(s.view(a).casting!.card.kanji, undefined, 'Sight shows her hand, not the card she is writing');
 });
 
 test('cards you cannot pay for = instant loss (wizard is saved once by +30 mana)', () => {
@@ -147,39 +147,68 @@ test('cards you cannot pay for = instant loss (wizard is saved once by +30 mana)
   assert.ok(s.devents().some((e) => e.kind === 'stuck'));
 });
 
-test('overtime is a Rapid race: kanji only, type the reading, wrong guesses retry, first right uses it', () => {
+test('overtime turns into a 1v1 Rapid duel: cards gone, random kanji, first reading hits (harder words hit harder)', () => {
   const s = setup(() => 0.1, { ...RULES, matchMs: 5000 });
   s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
   tick(5000);
-  assert.equal(s.view('A').phase, 'overtime');
-  const c = s.view('A').casting!;
+  const v = s.view('A');
+  assert.equal(v.phase, 'overtime');
+  assert.deepEqual([v.hand.length, v.players.map((p) => p.handSize)], [0, [0, 0]], 'the cards are gone');
+  assert.equal(v.overtimeLeft, RULES.overtimeMaxMs);
+  const c = v.casting!;
   assert.equal(c.overtime, true);
-  assert.equal(s.view('B').casting!.castId, c.castId, 'both see the same card');
+  assert.equal(s.view('B').casting!.castId, c.castId, 'both see the same kanji');
   assert.ok(c.card.kanji, 'the kanji shows');
   assert.deepEqual([c.card.reading, c.card.meaning], [undefined, undefined], 'but not its reading or meaning');
   const entry = s.g.peek('A')!.entry;
+  assert.deepEqual(c.rapid, { level: entry.level, damage: OVERTIME_DAMAGE[entry.level as 'N5'] });
   s.g.submitWriting('A', c.castId, [[[[0, 0], [1, 1]]]]); // no handwriting in overtime
   assert.equal(s.view('A').casting!.castId, c.castId);
   s.g.submit('B', c.castId, 'ちがう'); // B misses…
   assert.equal(s.devents().at(-1).kind, 'ot_miss');
-  assert.equal(s.view('A').casting!.castId, c.castId, 'the card stays up');
-  s.g.submit('A', c.castId, entry.kanji); // writing the kanji doesn't count: it's the reading
+  s.g.submit('A', c.castId, entry.kanji); // the kanji itself doesn't count: it's the reading
   s.g.submit('B', c.castId, entry.romaji ?? entry.reading); // …and B may try again
   const r = s.devents().filter((e) => e.kind === 'resolve').at(-1);
-  assert.deepEqual([r.ok, r.playerId, r.reading.length > 0], [true, 'B', true]);
+  assert.deepEqual([r.ok, r.playerId, r.targetId, r.reading.length > 0], [true, 'B', 'A', true]);
+  assert.equal(s.view('A').players.find((p) => p.id === 'A')!.hp, 1000 - r.amount);
+  assert.ok(r.amount === OVERTIME_DAMAGE[entry.level as 'N5'] || r.amount > OVERTIME_DAMAGE[entry.level as 'N5'], 'damage by level (or a crit)');
   assert.equal(s.view('A').casting, null, 'the answer stays up for a moment');
   tick(RULES.overtimeGapMs);
-  assert.notEqual(s.view('A').casting!.castId, c.castId, 'next card');
-  // nobody answers: the card is lost and the answer is shown
+  assert.notEqual(s.view('A').casting!.castId, c.castId, 'next kanji');
+  // nobody answers: nothing happens, the answer is shown
   tick(RULES.overtimeCardMs);
   const t = s.devents().filter((e) => e.kind === 'resolve').at(-1);
-  assert.deepEqual([t.ok, t.playerId], [false, '']);
-  // run the pile out
-  for (let i = 0; i < 40 && !s.g.isOver; i++) tick(RULES.overtimeCardMs + RULES.overtimeGapMs);
+  assert.deepEqual([t.ok, t.playerId, t.amount], [false, '', 0]);
+  // after the overtime clock the higher HP wins
+  tick(RULES.overtimeMaxMs);
   assert.ok(s.g.isOver);
   const over = s.events.find((e) => e.type === 'game_over') as any;
-  assert.ok(over.stats.A && over.stats.B);
-  assert.equal(over.stats.B.attempts >= 2, true, 'the miss and the hit both count');
+  assert.deepEqual([over.reason, over.winnerId], ['time', 'B']);
+});
+
+test('overtime ends early with a KO', () => {
+  const s = setup(() => 0.1, { ...RULES, matchMs: 5000, hp: 100 });
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
+  tick(5000);
+  const c = s.view('A').casting!;
+  const e = s.g.peek('A')!.entry;
+  s.g.submit('A', c.castId, e.romaji ?? e.reading);
+  if (!s.g.isOver) { tick(RULES.overtimeGapMs); const c2 = s.view('A').casting!; const e2 = s.g.peek('A')!.entry; s.g.submit('A', c2.castId, e2.romaji ?? e2.reading); }
+  assert.ok(s.g.isOver);
+  assert.equal((s.events.find((x) => x.type === 'game_over') as any).winnerId, 'A');
+});
+
+test('skipping a turn (choose clock runs out) costs 100 HP; a played card does not', () => {
+  const s = setup();
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
+  const a = s.view('A').turn!.active, b = a === 'A' ? 'B' : 'A';
+  tick(RULES.chooseMs);
+  assert.equal(s.view(a).players.find((p) => p.id === a)!.hp, 1000 - RULES.skipPenaltyHp);
+  assert.deepEqual(s.devents().at(-1), { kind: 'skip', playerId: a, damage: RULES.skipPenaltyHp });
+  assert.equal(s.view(a).turn!.active, b);
+  s.g.play(b, s.view(b).hand.find((c) => CARD_SPECS[c.color].cost <= RULES.maxMana)!.cardId);
+  tick(RULES.castMs); // too slow: the card rips, but no skip penalty
+  assert.equal(s.view(b).players.find((p) => p.id === b)!.hp, 1000);
 });
 
 test('separate clocks: 15 s to choose a card, then one minute to cast it', () => {

@@ -100,6 +100,7 @@ export class Session implements Client {
       return;
     }
     if (msg.type === 'queue_cancel') return this.matchmaker?.cancel(user.id);
+    if (msg.type === 'queue_accept') return this.matchmaker?.accept(user.id, msg.matchId);
 
     if (msg.type === 'create') {
       this.matchmaker?.cancel(user.id, false);
@@ -135,6 +136,12 @@ export class Session implements Client {
       case 'deck_ability': return room.deckAbility(user.id);
       case 'deck_cast_ready': return room.deckCastReady(user.id, msg.castId);
       case 'deck_cast_go': return room.deckCastGo(user.id, msg.castId);
+      case 'deck_ink': {
+        // the whole drawing so far, as one group (same limits as a submitted word)
+        const ink = Array.isArray(msg.strokes) && msg.strokes.length === 0 ? [[]] : sanitizeDrawing([msg.strokes], 1);
+        if (typeof msg.castId === 'number' && typeof msg.cells === 'number' && ink) room.deckInk(user.id, msg.castId, ink[0], msg.cells);
+        return;
+      }
       case 'back_to_lobby': return room.backToLobby(user.id);
       case 'start': return room.start(user.id);
       case 'ready': return room.ready(user.id);

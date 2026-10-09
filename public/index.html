@@ -53,6 +53,16 @@
 </header>
 <div id="toast" class="toast" role="status" hidden></div>
 <div id="otherPop" class="profile-pop other-pop" role="dialog" aria-label="Player profile" hidden></div>
+<div id="matchFound" class="mf-overlay" hidden>
+  <div class="mf-box" role="alertdialog" aria-labelledby="mfTitle" aria-describedby="mfMode">
+    <div id="mfBadge" class="mf-badge"></div>
+    <h2 id="mfTitle">Match found!</h2>
+    <p id="mfMode" class="mf-mode"></p>
+    <div class="mf-ring"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" class="track"/><circle id="mfArc" cx="50" cy="50" r="44" class="arc"/></svg><span id="mfSecs">5</span></div>
+    <button id="mfAccept" class="big mf-accept">Accept</button>
+    <p id="mfStatus" class="mf-status"></p>
+  </div>
+</div>
 
 <main>
   <!-- AUTH -->
@@ -454,7 +464,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.7.8</div>
+<div id="version" class="version">v0.7.9</div>
 <script src="/app.js"></script>
 </body>
 </html>

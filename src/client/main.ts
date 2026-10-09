@@ -6,7 +6,7 @@ import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type 
 import { api, ApiError, getToken, setToken, type Profile } from './api';
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
-import { chatMessages, clearChat, deckEvent, initDeck, renderDeck, resetDeck } from './deckui';
+import { chatMessages, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
 import { HandwritingPad } from './pad';
 import { onProfileChange, openCustomize, openStudy } from './study';
@@ -235,6 +235,9 @@ function onMessage(msg: ServerMessage) {
     case 'deck_event':
       deckEvent(msg.event);
       break;
+    case 'deck_ink':
+      deckInk(msg.castId, msg.strokes, msg.cells);
+      break;
     case 'game_over': {
       players = msg.players;
       ui.lockInput();
@@ -318,7 +321,17 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
 }
 
 // ── writing (handwriting pad + Japanese keyboard) ────────────────────────────
-const pad = new HandwritingPad(ui.$<HTMLCanvasElement>('pad'));
+const pad = new HandwritingPad(ui.$<HTMLCanvasElement>('pad'), () => shareInk());
+pad.onDraw = () => shareInk();
+/** Deck Duel: the opponent watches your pad live (throttled, the last state always goes out). */
+let inkTimer = 0, inkAt = 0;
+function shareInk() {
+  if (mode !== 'deck' || !writing) return;
+  const send = () => { inkTimer = 0; inkAt = Date.now(); socket.send({ type: 'deck_ink', castId: challengeId, strokes: pad.ink(), cells: pad.cellCount }); };
+  if (inkTimer) return;
+  const wait = 120 - (Date.now() - inkAt);
+  if (wait <= 0) send(); else inkTimer = window.setTimeout(send, wait);
+}
 
 function beginWriting(id: number, kanji: string) {
   challengeId = id;
@@ -405,7 +418,7 @@ ui.$('privateBtn').onclick = () => {
   if (!box.hidden && matchMedia('(pointer: fine)').matches) ui.$('joinCode').focus({ preventScroll: true }); // no surprise keyboard on phones
 };
 ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
-initQueue((m) => socket.send(m));
+initQueue((m) => socket.send(m), () => user?.id ?? '');
 for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {
   card.onclick = () => socket.send({ type: 'create', mode: card.dataset.mode as GameMode, levels: savedLevels() });
 }

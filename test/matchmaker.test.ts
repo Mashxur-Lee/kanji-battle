@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, mock, test } from 'node:test';
-import { Matchmaker } from '../src/server/Matchmaker';
+import { ACCEPT_MS, Matchmaker } from '../src/server/Matchmaker';
 import { RoomManager } from '../src/server/RoomManager';
 import type { Room } from '../src/server/Room';
 import type { Level, ServerMessage } from '../src/shared/protocol';
@@ -28,6 +28,13 @@ test('queue: two players with a common mode are put in a room and the game start
   assert.equal(a.last('queue')!.searching, 1);
   mm.enqueue('b', b.client, ['boss', 'writing'], ['N3']);
   await settle();
+  const found = a.last('queue')!;
+  assert.deepEqual([found.state, found.mode, found.acceptMs], ['found', 'boss', ACCEPT_MS], 'Match found box');
+  assert.equal(a.room(), undefined, 'nothing starts before both accept');
+  mm.accept('a', found.matchId);
+  assert.deepEqual(b.last('queue')!.accepted, ['a'], 'B sees that A accepted');
+  mm.accept('b', found.matchId);
+  await settle();
   assert.equal(a.last('queue')!.state, 'matched');
   assert.equal(a.last('queue')!.mode, 'boss', 'the only mode they share');
   assert.ok(a.room() && a.room() === b.room(), 'same room');
@@ -46,6 +53,9 @@ test('queue: no common mode → both keep searching; Deck Duel only matches Deck
   assert.equal(a.last('queue')!.searching, 3);
   mm.enqueue('d', d.client, ['deck'], []);
   await settle();
+  const id = c.last('queue')!.matchId;
+  mm.accept('c', id); mm.accept('d', id);
+  await settle();
   assert.equal(c.last('queue')!.mode, 'deck');
   assert.equal(c.last('deck_state')!.view.phase, 'characters', 'deck starts straight at the hero pick');
   assert.equal(mm.size, 2);
@@ -62,4 +72,28 @@ test('queue: cancel, bad requests, and players already in a room', async () => {
   assert.equal(mm.isQueued('a'), false);
   const busy = { ...player('z').client, inRoom: () => true };
   assert.match(mm.enqueue('z', busy, ['reading'], ['N5'])!, /room/);
+});
+
+test('queue: not accepting in 5 s stops your queue; the one who accepted keeps searching', async () => {
+  const mm = new Matchmaker(new RoomManager());
+  const a = player('a'), b = player('b'), c = player('c');
+  mm.enqueue('a', a.client, ['reading'], ['N5']);
+  mm.enqueue('b', b.client, ['reading'], ['N5']);
+  await settle();
+  const id = a.last('queue')!.matchId;
+  mm.accept('a', id);
+  mock.timers.tick(ACCEPT_MS);
+  assert.equal(a.last('queue')!.state, 'searching', 'A is back in the queue');
+  assert.ok(a.msgs.some((m) => m.type === 'queue' && m.requeued), 'and is told the opponent did not accept');
+  assert.deepEqual([b.last('queue')!.state, b.last('queue')!.reason], ['idle', 'missed'], "B's queue stopped");
+  assert.deepEqual([mm.isQueued('a'), mm.isQueued('b')], [true, false]);
+  // a new player arrives: A is matched again
+  mm.enqueue('c', c.client, ['reading'], ['N5']);
+  await settle();
+  assert.equal(c.last('queue')!.state, 'found');
+  // declining (cancel) ends it at once: the other goes back to searching
+  mm.cancel('c');
+  assert.equal(c.last('queue')!.state, 'idle');
+  assert.equal(a.last('queue')!.state, 'searching');
+  assert.equal(a.room(), undefined);
 });

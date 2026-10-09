@@ -465,7 +465,7 @@
     $("authHint").textContent = login ? "" : "Login: 3\u201316 letters, numbers or _. Password: at least 6 characters.";
     $("authError").textContent = "";
   }
-  function showAdmin(users, me, db, onToggle) {
+  function showAdmin(users, me2, db, onToggle) {
     const banned = users.filter((u) => u.banned).length;
     $("adminInfo").textContent = `${users.length} accounts \xB7 ${banned} banned`;
     const st = $("adminStorage");
@@ -474,14 +474,14 @@
     $("userRows").replaceChildren(
       ...users.map((u) => {
         const action = h("td");
-        if (u.role !== "admin" && u.id !== me.id) {
+        if (u.role !== "admin" && u.id !== me2.id) {
           const b = h("button", "pill" + (u.banned ? "" : " danger"), u.banned ? "Unban" : "Ban");
           b.onclick = () => onToggle(u);
           action.append(b);
         }
         return append(
           h("tr"),
-          h("td", "", u.username + (u.id === me.id ? " (you)" : "")),
+          h("td", "", u.username + (u.id === me2.id ? " (you)" : "")),
           h("td", "", u.role),
           h("td", "num", `Lv ${u.level ?? 0}`),
           h("td", "num", (u.xp ?? 0).toLocaleString()),
@@ -683,7 +683,7 @@
   }
   var battleMode = "reading";
   function renderFighters(players2, you2, boss) {
-    const me = players2.find((p) => p.id === you2);
+    const me2 = players2.find((p) => p.id === you2);
     const other = players2.find((p) => p.id !== you2);
     $("meCard").classList.toggle("party", battleMode === "boss");
     $("oppCard").hidden = battleMode === "boss";
@@ -693,11 +693,11 @@
       if (boss) bar.replaceChildren(h("div", "bname", `\u{1F409} ${boss.name}`), thickBar(boss.hp, boss.maxHp, "enemy", `${boss.hp} / ${boss.maxHp}`));
       for (const p of players2) if (p.id !== you2) allyEl(p.id)?.classList.toggle("onfire", p.combo >= 5);
     } else {
-      fighterCard($("meCard"), me, me ? `${me.name} (you)` : "", "");
+      fighterCard($("meCard"), me2, me2 ? `${me2.name} (you)` : "", "");
       fighterCard($("oppCard"), other, other?.name ?? "", "Opponent left");
       $("wizOpp").classList.toggle("onfire", (other?.combo ?? 0) >= 5);
     }
-    $("wizMe").classList.toggle("onfire", (me?.combo ?? 0) >= 5);
+    $("wizMe").classList.toggle("onfire", (me2?.combo ?? 0) >= 5);
   }
   var allyEl = (id) => document.querySelector(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
   var actorEl = (a) => a.startsWith("ally:") ? allyEl(a.slice(5)) ?? $("wizMe") : $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : "dragon");
@@ -981,7 +981,7 @@
     $("resultActions").hidden = !!opts.history;
     $("historyBackRow").hidden = !opts.history;
     const otherId = Object.keys(stats).find((id) => id !== you2);
-    const me = stats[you2];
+    const me2 = stats[you2];
     const other = otherId ? stats[otherId] : void 0;
     const otherName = players2.find((p) => p.id === otherId)?.name ?? (mode2 === "boss" ? "Ally" : "Opponent");
     const rows = [
@@ -1001,25 +1001,25 @@
         const el = h("div", "h", nameOf2(id));
         return p ? markProfile(el, p) : el;
       }));
-      for (const [label, fmt] of rows) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
+      for (const [label, fmt] of rows) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me2)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
     } else {
       cmp.style.gridTemplateColumns = "";
       const on = h("div", "h r", other ? otherName : "");
       const op = players2.find((p) => p.id === otherId);
       if (op) markProfile(on, op);
       cmp.replaceChildren(h("div", "h me", "You"), h("div"), on);
-      for (const [label, fmt] of rows) cmp.append(h("div", "v", fmt(me)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
+      for (const [label, fmt] of rows) cmp.append(h("div", "v", fmt(me2)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
     }
-    const byKanji = new Map(me.words.map((w) => [w.kanji, w]));
-    $("struggledBox").hidden = me.struggled.length === 0;
+    const byKanji = new Map(me2.words.map((w) => [w.kanji, w]));
+    $("struggledBox").hidden = me2.struggled.length === 0;
     $("struggled").replaceChildren(
-      ...me.struggled.map((k) => {
+      ...me2.struggled.map((k) => {
         const w = byKanji.get(k);
         return append(h("div", "card"), h("div", "k", w.kanji, { lang: "ja" }), h("div", "r", w.reading, { lang: "ja" }), h("div", "m", w.meaning));
       })
     );
     $("wordRows").replaceChildren(
-      ...me.words.map((w) => {
+      ...me2.words.map((w) => {
         const result = w.attempts === 0 ? h("span", "na", "not seen") : w.correct === w.attempts ? h("span", "ok", `\u2713 ${w.correct}/${w.attempts}`) : h("span", "no", `\u2717 ${w.correct}/${w.attempts}`);
         return append(
           h("tr"),
@@ -1138,270 +1138,6 @@
     }));
     show("history");
   }
-
-  // src/client/queue.ts
-  var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
-  var KEY2 = "kb:queue";
-  var load = () => {
-    try {
-      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY2) ?? "{}") };
-    } catch {
-      return { modes: ["reading", "rapid"], levels: ["N5"] };
-    }
-  };
-  var save2 = (s) => {
-    try {
-      localStorage.setItem(KEY2, JSON.stringify(s));
-    } catch {
-    }
-  };
-  var send = () => {
-  };
-  var tick = 0;
-  var searching = false;
-  function chip(value, label, on, group) {
-    const l = document.createElement("label");
-    l.className = "chip" + (on ? " on" : "");
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.value = value;
-    box.checked = on;
-    box.name = group;
-    box.onchange = () => {
-      l.classList.toggle("on", box.checked);
-      remember();
-    };
-    l.append(box, label);
-    return l;
-  }
-  var picked = (id) => [...document.querySelectorAll(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
-  var pick2 = "battle";
-  function remember() {
-    save2({ modes: picked("qModes"), levels: picked("qLevels"), pick: pick2 });
-  }
-  function choose(p) {
-    pick2 = p;
-    document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
-      const on = c.dataset.q === p;
-      c.classList.toggle("chosen", on);
-      c.setAttribute("aria-checked", String(on));
-    });
-    $("qStart").textContent = p === "deck" ? "\u2694 Start queue \u2014 Deck Duel" : "\u2694 Start queue";
-    remember();
-  }
-  function initQueue(sender) {
-    send = sender;
-    $("queueBack").onclick = () => {
-      if (searching) send({ type: "queue_cancel" });
-      stopSearching();
-      show("menu");
-    };
-    document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
-      c.addEventListener("click", () => choose(c.dataset.q));
-      c.addEventListener("keydown", (e) => {
-        if (e.key === " " || e.key === "Enter") {
-          e.preventDefault();
-          choose(c.dataset.q);
-        }
-      });
-    });
-    $("qStart").onclick = () => {
-      if (pick2 === "deck") return send({ type: "queue", modes: ["deck"] });
-      const modes = picked("qModes"), levels = picked("qLevels");
-      if (!modes.length) return toast("Tick at least one mode");
-      if (!levels.length) return toast("Tick at least one level");
-      send({ type: "queue", modes, levels });
-    };
-    $("qCancel").onclick = () => send({ type: "queue_cancel" });
-  }
-  function openQueue() {
-    const s = load();
-    $("qModes").replaceChildren(...QUEUE_MODES.map((m) => chip(m, MODE_LABEL[m], s.modes.includes(m), "qm")));
-    $("qLevels").replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), "ql")));
-    choose(s.pick ?? "battle");
-    if (!searching) {
-      $("queuePick").hidden = false;
-      $("qSearching").hidden = true;
-    }
-    show("queue");
-  }
-  function stopSearching() {
-    searching = false;
-    clearInterval(tick);
-    $("queuePick").hidden = false;
-    $("qSearching").hidden = true;
-  }
-  function onQueue(msg) {
-    if (msg.state === "idle") return stopSearching();
-    $("queuePick").hidden = true;
-    $("qSearching").hidden = false;
-    if (currentScreen() !== "queue") show("queue");
-    if (msg.state === "matched") {
-      searching = false;
-      clearInterval(tick);
-      $("qTitle").textContent = `Player found \u2014 ${MODE_LABEL[msg.mode]}!`;
-      $("qInfo").textContent = "Starting\u2026";
-      $("qCancel").hidden = true;
-      return;
-    }
-    $("qCancel").hidden = false;
-    $("qTitle").textContent = "Searching for a player\u2026";
-    const started = Date.now() - ((msg.now ?? 0) - (msg.since ?? 0));
-    const others = (msg.searching ?? 1) - 1;
-    $("qInfo").textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(" \xB7 ")} \u2014 ${others > 0 ? `${others} other player${others === 1 ? "" : "s"} searching` : "no one else searching yet"}`;
-    if (!searching) {
-      searching = true;
-      clearInterval(tick);
-      const paint = () => {
-        const s = Math.floor((Date.now() - started) / 1e3);
-        $("qTimer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-      };
-      paint();
-      tick = window.setInterval(paint, 500);
-    }
-  }
-  function resetQueue() {
-    stopSearching();
-    $("qCancel").hidden = false;
-  }
-
-  // src/client/cursor.ts
-  var G = 32;
-  var COLORS = {
-    k: "#1b1530",
-    // outline
-    s: "#f3c9a1",
-    // skin
-    S: "#d99f74",
-    // skin shade / finger creases
-    w: "#8a5a2b",
-    // handle
-    W: "#c08a4a",
-    // handle highlight
-    m: "#c9ced8",
-    // metal ferrule
-    b: "#2a2230",
-    // bristles
-    B: "#000000",
-    // wet ink tip
-    c: "#3b5bdb",
-    // sleeve
-    C: "#9fb4ff"
-    // sleeve cuff
-  };
-  function draw() {
-    const g = Array.from({ length: G }, () => Array(G).fill(null));
-    const set = (x, y, c) => {
-      if (x >= 0 && y >= 0 && x < G && y < G) g[y][x] = c;
-    };
-    for (let t = 0; t <= 25; t++) {
-      const x = 1 + t, y = 30 - t;
-      if (t <= 1) set(x, y, "B");
-      else if (t <= 7) {
-        set(x, y, "b");
-        set(x + 1, y, "b");
-        if (t >= 4 && t <= 6) set(x, y - 1, "b");
-      } else if (t <= 9) {
-        set(x, y, "m");
-        set(x + 1, y, "m");
-        set(x, y - 1, "m");
-      } else {
-        set(x, y, "w");
-        set(x + 1, y, "W");
-        set(x, y - 1, "w");
-      }
-    }
-    const hx = (y) => 31 - y;
-    for (let f2 = 0; f2 < 4; f2++) {
-      const y0 = 11 + 2 * f2;
-      for (const y of [y0, y0 + 1]) {
-        const x0 = hx(y) - 2, x1 = hx(y) + 6;
-        for (let x = x0; x <= x1; x++) {
-          if (y === y0 + 1 && x === x0) continue;
-          set(x, y, y === y0 + 1 && x > x0 + 1 ? "S" : "s");
-        }
-      }
-    }
-    for (let y = 10; y <= 18; y++) for (let x = hx(y) + 7; x <= Math.min(31, hx(y) + 11); x++) set(x, y, x >= hx(y) + 10 ? "S" : "s");
-    for (let x = hx(9) - 2; x <= hx(9) + 4; x++) set(x, 9, "s");
-    for (let x = hx(10) - 3; x <= hx(10) + 2; x++) set(x, 10, x <= hx(10) - 1 ? "s" : "S");
-    for (let x = hx(8) + 1; x <= hx(8) + 5; x++) set(x, 8, "s");
-    for (let y = 3; y <= 16; y++) for (let x = hx(y) + 12; x <= 31; x++) if (x - (hx(y) + 12) < 4) set(x, y, x === hx(y) + 12 ? "C" : "c");
-    const filled = g.map((row) => row.map((c) => c !== null));
-    for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
-      if (filled[y][x]) continue;
-      if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => filled[y + dy]?.[x + dx])) g[y][x] = "k";
-    }
-    return g;
-  }
-  var css = "";
-  function brushCursor() {
-    if (css) return css;
-    const g = draw();
-    let rects = "";
-    g.forEach((row, y) => row.forEach((c, x) => {
-      if (c) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${COLORS[c]}"/>`;
-    }));
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 ${G} ${G}" shape-rendering="crispEdges">${rects}</svg>`;
-    css = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 61, crosshair`;
-    return css;
-  }
-
-  // src/shared/version.ts
-  var VERSION = "0.7.8";
-
-  // src/client/api.ts
-  var today = () => {
-    const d = /* @__PURE__ */ new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-  var TOKEN_KEY = "kb:token";
-  var getToken = () => {
-    try {
-      return localStorage.getItem(TOKEN_KEY) ?? "";
-    } catch {
-      return "";
-    }
-  };
-  var setToken = (t) => {
-    try {
-      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
-    } catch {
-    }
-  };
-  var ApiError = class extends Error {
-    constructor(message, status) {
-      super(message);
-      __publicField(this, "status", status);
-    }
-  };
-  async function call(method, url, body) {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
-      body: body === void 0 ? void 0 : JSON.stringify(body)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
-    return data;
-  }
-  var api = {
-    login: (username, password) => call("POST", "/api/login", { username, password }),
-    register: (username, password) => call("POST", "/api/register", { username, password }),
-    me: () => call("GET", "/api/me"),
-    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
-    removeAvatar: () => call("DELETE", "/api/me/avatar"),
-    setBackground: (background) => call("PUT", "/api/me/background", { background }),
-    study: () => call("GET", `/api/study?today=${today()}`),
-    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
-    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
-    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
-    matches: () => call("GET", "/api/matches"),
-    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
-    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
-    users: () => call("GET", "/api/admin/users"),
-    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
-  };
 
   // src/client/audio.ts
   var PREFS_KEY = "kb:audio";
@@ -2034,6 +1770,316 @@
     for (let i = 0; i < 4; i++) bell(midi(notes[Math.floor(Math.random() * notes.length)]), at + i * 0.18, 1.4, 0.03, ambBus);
   }
 
+  // src/client/queue.ts
+  var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
+  var KEY2 = "kb:queue";
+  var load = () => {
+    try {
+      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY2) ?? "{}") };
+    } catch {
+      return { modes: ["reading", "rapid"], levels: ["N5"] };
+    }
+  };
+  var save2 = (s) => {
+    try {
+      localStorage.setItem(KEY2, JSON.stringify(s));
+    } catch {
+    }
+  };
+  var send = () => {
+  };
+  var me = () => "";
+  var tick = 0;
+  var searching = false;
+  function chip(value, label, on, group) {
+    const l = document.createElement("label");
+    l.className = "chip" + (on ? " on" : "");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = value;
+    box.checked = on;
+    box.name = group;
+    box.onchange = () => {
+      l.classList.toggle("on", box.checked);
+      remember();
+    };
+    l.append(box, label);
+    return l;
+  }
+  var picked = (id) => [...document.querySelectorAll(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
+  var pick2 = "battle";
+  function remember() {
+    save2({ modes: picked("qModes"), levels: picked("qLevels"), pick: pick2 });
+  }
+  function choose(p) {
+    pick2 = p;
+    document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
+      const on = c.dataset.q === p;
+      c.classList.toggle("chosen", on);
+      c.setAttribute("aria-checked", String(on));
+    });
+    $("qStart").textContent = p === "deck" ? "\u2694 Start queue \u2014 Deck Duel" : "\u2694 Start queue";
+    remember();
+  }
+  function initQueue(sender, myId) {
+    send = sender;
+    me = myId;
+    $("mfAccept").onclick = () => {
+      if (foundId) send({ type: "queue_accept", matchId: foundId });
+    };
+    $("queueBack").onclick = () => {
+      if (searching) send({ type: "queue_cancel" });
+      stopSearching();
+      show("menu");
+    };
+    document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
+      c.addEventListener("click", () => choose(c.dataset.q));
+      c.addEventListener("keydown", (e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          choose(c.dataset.q);
+        }
+      });
+    });
+    $("qStart").onclick = () => {
+      if (pick2 === "deck") return send({ type: "queue", modes: ["deck"] });
+      const modes = picked("qModes"), levels = picked("qLevels");
+      if (!modes.length) return toast("Tick at least one mode");
+      if (!levels.length) return toast("Tick at least one level");
+      send({ type: "queue", modes, levels });
+    };
+    $("qCancel").onclick = () => send({ type: "queue_cancel" });
+  }
+  function openQueue() {
+    const s = load();
+    $("qModes").replaceChildren(...QUEUE_MODES.map((m) => chip(m, MODE_LABEL[m], s.modes.includes(m), "qm")));
+    $("qLevels").replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), "ql")));
+    choose(s.pick ?? "battle");
+    if (!searching) {
+      $("queuePick").hidden = false;
+      $("qSearching").hidden = true;
+    }
+    show("queue");
+  }
+  function stopSearching() {
+    searching = false;
+    clearInterval(tick);
+    $("queuePick").hidden = false;
+    $("qSearching").hidden = true;
+  }
+  var foundId = 0;
+  var foundTimer = 0;
+  function showFound(msg) {
+    const box = $("matchFound");
+    if (foundId !== msg.matchId) {
+      foundId = msg.matchId;
+      $("mfBadge").replaceChildren(modeBadge(msg.mode));
+      $("mfMode").textContent = MODE_LABEL[msg.mode];
+      const until = Date.now() + (msg.acceptMs ?? 5e3), total = msg.acceptMs ?? 5e3;
+      const arc = $("mfArc");
+      clearInterval(foundTimer);
+      const paint = () => {
+        const left = Math.max(0, until - Date.now());
+        $("mfSecs").textContent = String(Math.ceil(left / 1e3));
+        arc.style.strokeDashoffset = String(276.5 * (1 - left / total));
+        if (left <= 0) clearInterval(foundTimer);
+      };
+      paint();
+      foundTimer = window.setInterval(paint, 100);
+      box.hidden = false;
+      sfx.go();
+      $("mfAccept").focus();
+    }
+    const accepted = msg.accepted ?? [];
+    const mine = accepted.includes(me());
+    const btn = $("mfAccept");
+    btn.disabled = mine;
+    btn.textContent = mine ? "\u2713 Accepted" : "Accept";
+    $("mfStatus").textContent = mine ? "Waiting for your opponent\u2026" : accepted.length ? "Your opponent accepted!" : "";
+  }
+  function hideFound() {
+    foundId = 0;
+    clearInterval(foundTimer);
+    $("matchFound").hidden = true;
+  }
+  function onQueue(msg) {
+    if (msg.state === "found") return showFound(msg);
+    if (foundId) {
+      hideFound();
+      if (msg.state === "searching" && msg.requeued) toast("Your opponent didn't accept \u2014 you're back in the queue.", 4e3);
+      if (msg.state === "idle" && msg.reason === "missed") toast("You didn't accept in time \u2014 the queue stopped.", 4e3);
+    }
+    if (msg.state === "idle") return stopSearching();
+    $("queuePick").hidden = true;
+    $("qSearching").hidden = false;
+    if (currentScreen() !== "queue") show("queue");
+    if (msg.state === "matched") {
+      searching = false;
+      clearInterval(tick);
+      $("qTitle").textContent = `Player found \u2014 ${MODE_LABEL[msg.mode]}!`;
+      $("qInfo").textContent = "Starting\u2026";
+      $("qCancel").hidden = true;
+      return;
+    }
+    $("qCancel").hidden = false;
+    $("qTitle").textContent = "Searching for a player\u2026";
+    const started = Date.now() - ((msg.now ?? 0) - (msg.since ?? 0));
+    const others = (msg.searching ?? 1) - 1;
+    $("qInfo").textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(" \xB7 ")} \u2014 ${others > 0 ? `${others} other player${others === 1 ? "" : "s"} searching` : "no one else searching yet"}`;
+    if (!searching) {
+      searching = true;
+      clearInterval(tick);
+      const paint = () => {
+        const s = Math.floor((Date.now() - started) / 1e3);
+        $("qTimer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+      };
+      paint();
+      tick = window.setInterval(paint, 500);
+    }
+  }
+  function resetQueue() {
+    stopSearching();
+    $("qCancel").hidden = false;
+  }
+
+  // src/client/cursor.ts
+  var G = 32;
+  var COLORS = {
+    k: "#1b1530",
+    // outline
+    s: "#f3c9a1",
+    // skin
+    S: "#d99f74",
+    // skin shade / finger creases
+    w: "#8a5a2b",
+    // handle
+    W: "#c08a4a",
+    // handle highlight
+    m: "#c9ced8",
+    // metal ferrule
+    b: "#2a2230",
+    // bristles
+    B: "#000000",
+    // wet ink tip
+    c: "#3b5bdb",
+    // sleeve
+    C: "#9fb4ff"
+    // sleeve cuff
+  };
+  function draw() {
+    const g = Array.from({ length: G }, () => Array(G).fill(null));
+    const set = (x, y, c) => {
+      if (x >= 0 && y >= 0 && x < G && y < G) g[y][x] = c;
+    };
+    for (let t = 0; t <= 25; t++) {
+      const x = 1 + t, y = 30 - t;
+      if (t <= 1) set(x, y, "B");
+      else if (t <= 7) {
+        set(x, y, "b");
+        set(x + 1, y, "b");
+        if (t >= 4 && t <= 6) set(x, y - 1, "b");
+      } else if (t <= 9) {
+        set(x, y, "m");
+        set(x + 1, y, "m");
+        set(x, y - 1, "m");
+      } else {
+        set(x, y, "w");
+        set(x + 1, y, "W");
+        set(x, y - 1, "w");
+      }
+    }
+    const hx = (y) => 31 - y;
+    for (let f2 = 0; f2 < 4; f2++) {
+      const y0 = 11 + 2 * f2;
+      for (const y of [y0, y0 + 1]) {
+        const x0 = hx(y) - 2, x1 = hx(y) + 6;
+        for (let x = x0; x <= x1; x++) {
+          if (y === y0 + 1 && x === x0) continue;
+          set(x, y, y === y0 + 1 && x > x0 + 1 ? "S" : "s");
+        }
+      }
+    }
+    for (let y = 10; y <= 18; y++) for (let x = hx(y) + 7; x <= Math.min(31, hx(y) + 11); x++) set(x, y, x >= hx(y) + 10 ? "S" : "s");
+    for (let x = hx(9) - 2; x <= hx(9) + 4; x++) set(x, 9, "s");
+    for (let x = hx(10) - 3; x <= hx(10) + 2; x++) set(x, 10, x <= hx(10) - 1 ? "s" : "S");
+    for (let x = hx(8) + 1; x <= hx(8) + 5; x++) set(x, 8, "s");
+    for (let y = 3; y <= 16; y++) for (let x = hx(y) + 12; x <= 31; x++) if (x - (hx(y) + 12) < 4) set(x, y, x === hx(y) + 12 ? "C" : "c");
+    const filled = g.map((row) => row.map((c) => c !== null));
+    for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
+      if (filled[y][x]) continue;
+      if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => filled[y + dy]?.[x + dx])) g[y][x] = "k";
+    }
+    return g;
+  }
+  var css = "";
+  function brushCursor() {
+    if (css) return css;
+    const g = draw();
+    let rects = "";
+    g.forEach((row, y) => row.forEach((c, x) => {
+      if (c) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${COLORS[c]}"/>`;
+    }));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 ${G} ${G}" shape-rendering="crispEdges">${rects}</svg>`;
+    css = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 61, crosshair`;
+    return css;
+  }
+
+  // src/shared/version.ts
+  var VERSION = "0.7.9";
+
+  // src/client/api.ts
+  var today = () => {
+    const d = /* @__PURE__ */ new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  var TOKEN_KEY = "kb:token";
+  var getToken = () => {
+    try {
+      return localStorage.getItem(TOKEN_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  };
+  var setToken = (t) => {
+    try {
+      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+    } catch {
+    }
+  };
+  var ApiError = class extends Error {
+    constructor(message, status) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  async function call(method, url, body) {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+      body: body === void 0 ? void 0 : JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
+    return data;
+  }
+  var api = {
+    login: (username, password) => call("POST", "/api/login", { username, password }),
+    register: (username, password) => call("POST", "/api/register", { username, password }),
+    me: () => call("GET", "/api/me"),
+    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
+    removeAvatar: () => call("DELETE", "/api/me/avatar"),
+    setBackground: (background) => call("PUT", "/api/me/background", { background }),
+    study: () => call("GET", `/api/study?today=${today()}`),
+    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
+    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
+    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    matches: () => call("GET", "/api/matches"),
+    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
+    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
+    users: () => call("GET", "/api/admin/users"),
+    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
+  };
+
   // src/client/backgrounds.ts
   var TIMES = [
     { id: "auto", name: "Cycle" },
@@ -2339,7 +2385,7 @@
   var CHARACTER_INFO = {
     goblin: { name: "Goblin", power: "Frenzy: play 2 cards in a row this turn. 100 mana, then 4 turns cooldown." },
     knight: { name: "Knight", power: "Bulwark: take 30% less damage and heal 30% more for 2 turns. 100 mana, then 4 turns cooldown." },
-    witch: { name: "Witch", power: "Sight: see the kanji and reading of all your cards for 2 turns (and the kanji stays visible while casting). 100 mana, then 4 turns cooldown." },
+    witch: { name: "Witch", power: "Sight: see the kanji and reading of all your cards for 2 turns (while writing it still hides like everyone else's). 100 mana, then 4 turns cooldown." },
     wizard: { name: "Wizard", power: "Arcane reserve (passive): out of cards \u2192 draw 2 random cards before a new draft; out of mana \u2192 +30 mana. Once each.", passive: true }
   };
   var DECK_RULES = {
@@ -2361,12 +2407,17 @@
     // reading + meaning only; press Ready (or after 15 s) to see the kanji
     revealMs: 2e3,
     // after a cast the correct kanji shows; nothing can be played meanwhile
+    skipPenaltyHp: 100,
+    // letting the choose clock run out without playing a card
     matchMs: 8 * 6e4,
     // then overtime
-    // overtime is a Rapid race: only the kanji shows; the first to type its reading uses the card
+    // overtime is a 1v1 Rapid duel: the cards are gone; random kanji (N5–N1), first to type the reading hits
     overtimeCardMs: 12e3,
+    // per kanji
     overtimeGapMs: 2200,
-    // the answer stays up before the next card
+    // the answer stays up before the next kanji
+    overtimeMaxMs: 3 * 6e4,
+    // then the higher HP wins
     knightDamageTaken: 0.7,
     knightHealBonus: 1.3,
     abilityTurns: 2,
@@ -2394,13 +2445,47 @@
   var lastCastId = 0;
   var writingCastId = 0;
   var otInput = null;
+  var inkCanvas = null;
+  var inkCastId = 0;
+  function deckInk(castId, strokes, cells) {
+    if (!inkCanvas || castId !== inkCastId || !inkCanvas.isConnected) return;
+    if (inkCanvas.width !== 600 * cells) {
+      inkCanvas.width = 600 * cells;
+      inkCanvas.style.setProperty("--cols", String(cells));
+    }
+    paintInk(inkCanvas, strokes);
+  }
+  function paintInk(cv, strokes) {
+    const ctx2 = cv.getContext("2d");
+    ctx2.clearRect(0, 0, cv.width, cv.height);
+    ctx2.strokeStyle = "rgba(60, 50, 110, .25)";
+    ctx2.lineWidth = 3;
+    ctx2.setLineDash([18, 14]);
+    for (let x = 600; x < cv.width; x += 600) {
+      ctx2.beginPath();
+      ctx2.moveTo(x, 20);
+      ctx2.lineTo(x, 580);
+      ctx2.stroke();
+    }
+    ctx2.setLineDash([]);
+    ctx2.lineCap = "round";
+    ctx2.lineJoin = "round";
+    ctx2.lineWidth = 20;
+    ctx2.strokeStyle = "#1b1530";
+    for (const s of strokes) {
+      ctx2.beginPath();
+      s.forEach(([x, y], i) => i ? ctx2.lineTo(x, y) : ctx2.moveTo(x, y));
+      if (s.length === 1) ctx2.lineTo(s[0][0] + 1, s[0][1] + 1);
+      ctx2.stroke();
+    }
+  }
   function initDeck(hk) {
     hooks = hk;
     $2("dkAbility").onclick = () => {
-      const me = view?.players.find((p) => p.id === view.you);
-      if (me?.character && CHARACTER_INFO[me.character].passive) {
-        const used = [me.wizardCardsUsed ? "cards used" : "+2 cards ready", me.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
-        return toast(`\u{1F9D9} ${CHARACTER_INFO[me.character].power} (${used})`, 6e3);
+      const me2 = view?.players.find((p) => p.id === view.you);
+      if (me2?.character && CHARACTER_INFO[me2.character].passive) {
+        const used = [me2.wizardCardsUsed ? "cards used" : "+2 cards ready", me2.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
+        return toast(`\u{1F9D9} ${CHARACTER_INFO[me2.character].power} (${used})`, 6e3);
       }
       hooks.send({ type: "deck_ability" });
     };
@@ -2465,7 +2550,8 @@
       ["\u2705", `Right \u2192 the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow \u2192 the card rips.`],
       ["\u{1F4DC}", "While your opponent plays, you can read the list of kanji in your hand (not which card is which)."],
       ["\u{1F504}", "Out of cards \u2192 Round 2 draft. HP, mana and powers stay."],
-      ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the leftover cards come up one by one, kanji only, and the first to type its reading (hiragana or romaji) uses it.`]
+      ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the cards are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5\u2013N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 6e4} min, then the higher HP wins.`],
+      ["\u231B", `Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`]
     ]) {
       const li = h2("li");
       li.append(h2("span", "g-ic", icon), h2("span", "", t));
@@ -2533,22 +2619,21 @@
   }
   function renderDeck(v) {
     view = v;
-    const me = v.players.find((p) => p.id === v.you);
+    const me2 = v.players.find((p) => p.id === v.you);
     const opp = v.players.find((p) => p.id !== v.you);
     show("deck");
-    playerPanel($2("dkMe"), me, true);
+    playerPanel($2("dkMe"), me2, true);
     playerPanel($2("dkOpp"), opp, false);
     const overlay = $2("dkOverlay");
     if (v.phase === "characters" || v.phase === "draft") {
       renderCast(v);
       stopCountdown("dkTurn");
       $2("dkBanner").textContent = "";
-      return v.phase === "characters" ? renderCharacters(v, me, opp) : renderDraft(v, me);
+      return v.phase === "characters" ? renderCharacters(v, me2, opp) : renderDraft(v, me2);
     }
     overlay.hidden = true;
     if (v.phase === "overtime") {
-      stopCountdown("dkMatch");
-      $2("dkClock").textContent = `OVERTIME \xB7 ${v.overtimeLeft} cards`;
+      countdown("dkMatch", v.overtimeLeft, (left) => $2("dkClock").textContent = `\u26A1 ${clock(left)}`);
     } else {
       countdown("dkMatch", v.matchLeftMs, (left) => $2("dkClock").textContent = clock(left));
     }
@@ -2556,11 +2641,11 @@
     const myTurn = v.turn?.active === v.you;
     banner.classList.toggle("mine", myTurn || v.phase === "overtime");
     const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
-    const label = v.phase === "overtime" ? "Overtime! First to type the reading uses the card" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
+    const label = v.phase === "overtime" ? "Overtime \u2014 Rapid duel! First to type the reading hits" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
     countdown("dkTurn", deadline, (left) => banner.textContent = `${label} \xB7 ${Math.ceil(left / 1e3)}s`);
     const canPlay = myTurn && !v.casting && Date.now() >= revealUntil;
     $2("dkHand").replaceChildren(...v.hand.map((c) => {
-      const el = cardEl(c, { button: true, disabled: !canPlay || CARD_SPECS[c.color].cost > me.mana });
+      const el = cardEl(c, { button: true, disabled: !canPlay || CARD_SPECS[c.color].cost > me2.mana });
       el.onclick = () => {
         sfx.flip();
         hooks.send({ type: "deck_play", cardId: c.cardId });
@@ -2569,15 +2654,15 @@
     }));
     $2("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
     const ab = $2("dkAbility");
-    const ch = me.character;
+    const ch = me2.character;
     ab.innerHTML = ch ? heroSvg(ch, "me") : "";
-    const cd = me.abilityCooldown;
+    const cd = me2.abilityCooldown;
     ab.append(h2("span", "ab-name", ch ? CHARACTER_INFO[ch].passive ? "Passive \xB7 tap" : cd > 0 ? `Ready in ${cd} turn${cd === 1 ? "" : "s"}` : `Power \xB7 ${DECK_RULES.abilityCost}\u25C6` : ""));
     if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h2("span", "ab-cd", String(cd)));
     ab.title = ch ? CHARACTER_INFO[ch].power : "";
     ab.classList.toggle("passive", !!ch && !!CHARACTER_INFO[ch].passive);
-    ab.classList.toggle("active", me.abilityActive > 0);
-    ab.disabled = !ch || !CHARACTER_INFO[ch].passive && (cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting || Date.now() < revealUntil);
+    ab.classList.toggle("active", me2.abilityActive > 0);
+    ab.disabled = !ch || !CHARACTER_INFO[ch].passive && (cd > 0 || me2.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting || Date.now() < revealUntil);
     renderCast(v);
     renderList(v);
   }
@@ -2585,7 +2670,7 @@
     const box = $2("dkList");
     const head = h2("h4", "", "Your kanji");
     if (!v.deckList) {
-      box.replaceChildren(head, h2("p", "hint", v.phase === "overtime" ? "Overtime \u2014 all cards are on the table." : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
+      box.replaceChildren(head, h2("p", "hint", v.phase === "overtime" ? "Overtime \u2014 the cards are gone: type the readings!" : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
       return;
     }
     const ul = h2("ul", "kanji-list");
@@ -2636,7 +2721,7 @@
       k.lang = "ja";
       top.append(k);
       const bottom = h2("div", "dkc-half bottom");
-      if (c.overtime) bottom.append(h2("span", "dkc-m", "Reading?"));
+      if (c.overtime) bottom.append(h2("span", "dkc-r", c.rapid ? c.rapid.level : ""), h2("span", "dkc-m", c.rapid ? `Reading? \xB7 ${c.rapid.damage} damage` : "Reading?"));
       else {
         const r2 = h2("span", "dkc-r", c.card.reading ?? "");
         r2.lang = "ja";
@@ -2659,7 +2744,7 @@
           if (text) hooks.send({ type: "answer", challengeId: c.castId, text });
         });
         otInput = input;
-        actions.append(input, h2("div", "cast-timer", "First to type its reading casts it \xB7 wrong? try again"));
+        actions.append(input, h2("div", "cast-timer", "First to type its reading hits \xB7 wrong? try again"));
         setTimeout(() => input.focus(), 30);
       } else if (mine && c.stage === "read") {
         const t = h2("div", "cast-timer");
@@ -2681,7 +2766,19 @@
         actions.append(h2("div", "cast-timer", "Memorise it \u2014 it disappears when you cast"), b);
       } else if (!mine) {
         stopCountdown("dkRead");
-        actions.append(h2("div", "cast-timer", c.stage === "read" ? "Reading the spell\u2026" : c.stage === "look" ? "Studying the kanji\u2026" : "Writing the kanji\u2026"));
+        const who = v.players.find((p) => p.id === c.ownerId)?.name ?? "Your opponent";
+        actions.append(h2("div", "cast-timer", c.stage === "read" ? "Reading the spell\u2026" : c.stage === "look" ? "Studying the kanji\u2026" : `${who} is writing\u2026`));
+        if (c.stage === "write") {
+          const cv = document.createElement("canvas");
+          cv.className = "ink-view";
+          cv.width = 600 * Math.min(4, Math.max(1, c.chars));
+          cv.height = 600;
+          cv.style.setProperty("--cols", String(Math.min(4, Math.max(1, c.chars))));
+          inkCanvas = cv;
+          inkCastId = c.castId;
+          paintInk(cv, []);
+          actions.append(cv);
+        }
       } else stopCountdown("dkRead");
       box.replaceChildren(card, actions);
       if (fresh) $2("dkFeedback").replaceChildren();
@@ -2695,14 +2792,14 @@
       writingCastId = 0;
     }
   }
-  function renderCharacters(v, me, opp) {
+  function renderCharacters(v, me2, opp) {
     const overlay = $2("dkOverlay");
     overlay.hidden = false;
-    const title = h2("h2", "", me.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
+    const title = h2("h2", "", me2.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
     const grid = h2("div", "char-pick");
     for (const c of DECK_CHARACTERS) {
-      const b = h2("button", "char-card" + (me.character === c ? " on" : ""));
-      b.disabled = !!me.character;
+      const b = h2("button", "char-card" + (me2.character === c ? " on" : ""));
+      b.disabled = !!me2.character;
       const av = h2("div", "ch-av");
       av.innerHTML = heroSvg(c, "me");
       b.append(av, h2("span", "ch-name", CHARACTER_INFO[c].name), h2("span", "ch-power", CHARACTER_INFO[c].power));
@@ -2712,7 +2809,7 @@
     overlay.replaceChildren(backButton(v), title, grid, h2("p", "sub", `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1e3} s to choose a card (its mana is paid right away), then read the meaning, press Ready to see the kanji and CAST! to write it \u2014 ${DECK_RULES.castMs / 1e3} s for the whole spell. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards \u2192 a new draft round. Cards: light blue 100 dmg (10\u25C6) \xB7 blue 120 (25\u25C6) \xB7 yellow +60\u25C6 \xB7 green heal 100 (40\u25C6) \xB7 red 250 (70\u25C6).`));
   }
   var coinShown = false;
-  function renderDraft(v, me) {
+  function renderDraft(v, me2) {
     const d = v.draft;
     const overlay = $2("dkOverlay");
     overlay.hidden = false;
@@ -2726,7 +2823,7 @@
     head.append(h2("h2", "", d.coinWinner === v.you ? "You won the coin flip \u2014 you pick first" : "Your opponent won the coin flip"));
     const status = h2("p", "sub");
     const pickedNow = d.pool.filter((c) => c.takenBy === v.you).length;
-    const kept = me.handSize - pickedNow;
+    const kept = me2.handSize - pickedNow;
     countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ""}`);
     const board = h2("div", "draft-board");
     for (const c of d.pool) {
@@ -2748,29 +2845,33 @@
   }
   function deckEvent(e) {
     if (!view) return;
-    const me = view.you;
+    const me2 = view.you;
     const name = (id) => view.players.find((p) => p.id === id)?.name ?? "Someone";
     switch (e.kind) {
       case "coin":
         coinShown = false;
         break;
       case "redraft":
-        toast(`${e.playerId === me ? "You are" : `${name(e.playerId)} is`} out of cards \u2014 Round ${e.round} draft!`, 4e3);
+        toast(`${e.playerId === me2 ? "You are" : `${name(e.playerId)} is`} out of cards \u2014 Round ${e.round} draft!`, 4e3);
         break;
       case "ability":
-        toast(`${e.playerId === me ? "You" : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(":")[0]}!`);
+        toast(`${e.playerId === me2 ? "You" : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(":")[0]}!`);
         break;
       case "wizard":
-        toast(`${e.playerId === me ? "Your" : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === "cards" ? "+2 cards" : "+30 mana"}`);
+        toast(`${e.playerId === me2 ? "Your" : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === "cards" ? "+2 cards" : "+30 mana"}`);
         break;
       case "stuck":
-        toast(`${e.playerId === me ? "You have" : `${name(e.playerId)} has`} no usable cards!`);
+        toast(`${e.playerId === me2 ? "You have" : `${name(e.playerId)} has`} no usable cards!`);
         break;
       case "overtime":
-        toast("\u23F0 Overtime! The last cards come up one by one \u2014 first to type the reading uses it.", 5e3);
+        toast("\u23F0 Overtime! The cards are gone \u2014 it's a Rapid duel now: first to type the reading hits.", 5e3);
+        break;
+      case "skip":
+        sfx.hurt();
+        toast(`${e.playerId === me2 ? "You" : name(e.playerId)} skipped the turn: \u2212${e.damage} HP`);
         break;
       case "ot_miss":
-        if (e.playerId === me && otInput) {
+        if (e.playerId === me2 && otInput) {
           sfx.wrong();
           otInput.classList.remove("shake");
           void otInput.offsetWidth;
@@ -2779,20 +2880,20 @@
         }
         break;
       case "resolve":
-        animateResolve(e, me);
+        animateResolve(e, me2);
         showReveal(e);
         if (e.ok) setTimeout(() => say(e.reading), 1100);
         break;
     }
   }
-  function animateResolve(e, me) {
+  function animateResolve(e, me2) {
     const card = $2("dkCast").querySelector(".dkc.big");
     const fb = $2("dkFeedback");
-    const who = e.playerId === me ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
-    const spec = CARD_SPECS[e.color];
+    const who = e.playerId === me2 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
+    const spec = e.overtime ? { label: "Rapid hit", kind: "attack", amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
     if (!e.ok) {
       fb.className = "feedback bad";
-      fb.replaceChildren(h2("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h2("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
+      fb.replaceChildren(h2("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me2 ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h2("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
       sfx.rip();
       if (card) ripCard(card);
       return;
@@ -2810,7 +2911,7 @@
       sfx.mana();
       ghost.classList.add("sparkle");
     } else {
-      const towardsMe = spec.kind === "heal" ? e.playerId === me : e.targetId === me;
+      const towardsMe = spec.kind === "heal" ? e.playerId === me2 : e.targetId === me2;
       const target = $2(towardsMe ? "dkMe" : "dkOpp").getBoundingClientRect();
       ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
@@ -2958,6 +3059,9 @@
       __publicField(this, "strokes", []);
       __publicField(this, "current", null);
       __publicField(this, "ctx");
+      /** onDraw: called while a stroke is being drawn (for live spectating) */
+      __publicField(this, "onDraw", () => {
+      });
       __publicField(this, "cells", 1);
       this.ctx = canvas.getContext("2d");
       canvas.addEventListener("pointerdown", (e) => this.down(e));
@@ -2981,6 +3085,14 @@
     /** The finished character, in canvas pixels (the server normalises size and position). */
     take() {
       return this.strokes.map((s) => thin(s.map(([x, y]) => [Math.round(x), Math.round(y)])));
+    }
+    get cellCount() {
+      return this.cells;
+    }
+    /** Everything drawn so far, including the stroke in progress (for the opponent to watch). */
+    ink() {
+      const all = this.current ? [...this.strokes, this.current] : this.strokes;
+      return all.map((s) => thin(s.map(([x, y]) => [Math.round(x), Math.round(y)])));
     }
     clear() {
       this.strokes = [];
@@ -3011,6 +3123,7 @@
       if (Math.hypot(p[0] - last[0], p[1] - last[1]) < MIN_DIST) return;
       this.current.push(p);
       this.redraw();
+      this.onDraw();
     }
     up() {
       if (!this.current) return;
@@ -3475,6 +3588,9 @@
       case "deck_event":
         deckEvent(msg.event);
         break;
+      case "deck_ink":
+        deckInk(msg.castId, msg.strokes, msg.cells);
+        break;
       case "game_over": {
         players = msg.players;
         lockInput();
@@ -3562,7 +3678,22 @@
       }
     }
   }
-  var pad = new HandwritingPad($("pad"));
+  var pad = new HandwritingPad($("pad"), () => shareInk());
+  pad.onDraw = () => shareInk();
+  var inkTimer = 0;
+  var inkAt = 0;
+  function shareInk() {
+    if (mode !== "deck" || !writing) return;
+    const send2 = () => {
+      inkTimer = 0;
+      inkAt = Date.now();
+      socket.send({ type: "deck_ink", castId: challengeId, strokes: pad.ink(), cells: pad.cellCount });
+    };
+    if (inkTimer) return;
+    const wait = 120 - (Date.now() - inkAt);
+    if (wait <= 0) send2();
+    else inkTimer = window.setTimeout(send2, wait);
+  }
   function beginWriting(id, kanji) {
     challengeId = id;
     writing = true;
@@ -3655,7 +3786,7 @@
     setError("");
     openQueue();
   };
-  initQueue((m) => socket.send(m));
+  initQueue((m) => socket.send(m), () => user?.id ?? "");
   for (const card of document.querySelectorAll(".mode-card")) {
     card.onclick = () => socket.send({ type: "create", mode: card.dataset.mode, levels: savedLevels() });
   }
