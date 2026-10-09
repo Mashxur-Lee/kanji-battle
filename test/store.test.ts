@@ -62,3 +62,42 @@ test('cleanUrl drops libpq-only options from a Neon connection string', () => {
   const u = cleanUrl('postgresql://neondb_owner:pw@ep-x.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require');
   assert.equal(u, 'postgresql://neondb_owner:pw@ep-x.us-west-2.aws.neon.tech/neondb?sslmode=require');
 });
+
+test('XP saved before the steeper levels is converted once, so nobody drops a level', async () => {
+  const { writeFileSync } = await import('node:fs');
+  const { levelOf } = await import('../src/shared/progress');
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'kw-')), 'db.json');
+  // a v0.4-era file: 5,400 XP meant level 5
+  writeFileSync(file, JSON.stringify({ users: [{ id: 'u1', username: 'old', passwordHash: 'h', role: 'user', banned: false, createdAt: '2026-01-01', xp: 5400 }], srs: {} }));
+  const a = new FileStore(file);
+  const u = (await a.findById('u1'))!;
+  assert.equal(levelOf(u.xp), 5);
+  await a.addXp('u1', 0); // saves in the new format
+  assert.equal((await new FileStore(file).findById('u1'))!.xp, u.xp, 'converted only once');
+});
+
+test('admin card stats: study-set size and learned cards per user', async () => {
+  const s = new MemoryStore();
+  const u = await s.create({ username: 'x', passwordHash: 'h', role: 'user' });
+  await s.addCards(u.id, [newCard('a', 0), newCard('b', 0)]);
+  await s.saveCard(u.id, { ...newCard('a', 0), state: 'review' });
+  assert.deepEqual((await s.cardStats())[u.id], { cards: 2, learned: 1 });
+});
+
+if (process.env.TEST_DATABASE_URL) {
+  test('postgres: old XP rows are converted once on start, study cards are kept', async () => {
+    const s = new PgStore(process.env.TEST_DATABASE_URL!);
+    await s.init();
+    await (s as any).sql`truncate kw_users cascade`;
+    const u = await s.create({ username: 'veteran', passwordHash: 'h', role: 'user' });
+    await s.addCards(u.id, [newCard('v1', 0)]);
+    await (s as any).sql`update kw_users set xp = 5400, xp_scheme = 1 where id = ${u.id}`;
+    await s.init(); // what a deploy does
+    const after = (await s.findById(u.id))!;
+    assert.equal(after.xp, 15_000 + Math.round(0.4 * 6000));
+    await s.init();
+    assert.equal((await s.findById(u.id))!.xp, after.xp, 'only once');
+    assert.equal((await s.cards(u.id)).length, 1, 'study set untouched');
+    await s.close!();
+  });
+}

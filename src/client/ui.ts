@@ -53,6 +53,31 @@ export function stopCountdown(slot?: string) {
   for (const [k, id] of timers) if (!slot || k === slot) { cancelAnimationFrame(id); timers.delete(k); }
 }
 
+// ── connection bars ─────────────────────────────────────────────────────────
+const rtts = new Map<string, number | null>();
+/** 3 green bars = good (<150 ms), 2 yellow = medium (<400 ms), 1 red = poor, grey = offline. */
+export function netQuality(rtt: number | null | undefined): 0 | 1 | 2 | 3 {
+  if (rtt === null || rtt === undefined) return 0;
+  return rtt < 150 ? 3 : rtt < 400 ? 2 : 1;
+}
+function paintNet(el: HTMLElement) {
+  const rtt = rtts.get(el.dataset.net ?? '');
+  const q = netQuality(rtt);
+  el.className = `net q${q}`;
+  el.title = rtt == null ? 'Connection: offline / measuring…' : `Connection: ${['', 'poor', 'medium', 'good'][q]} (${rtt} ms)`;
+}
+export function netBars(playerId: string): HTMLElement {
+  const el = h('span', 'net');
+  el.dataset.net = playerId;
+  el.innerHTML = '<i></i><i></i><i></i>';
+  paintNet(el);
+  return el;
+}
+export function setNet(map: Record<string, number | null>) {
+  for (const [id, rtt] of Object.entries(map)) rtts.set(id, rtt);
+  document.querySelectorAll<HTMLElement>('.net[data-net]').forEach(paintNet);
+}
+
 // ── top bar ──────────────────────────────────────────────────────────────────
 export interface ProfileView { xp: number; level: number; crit: number; learned: number }
 export function setProfile(p: ProfileView | null) {
@@ -105,9 +130,18 @@ export function paintScenes() {
       w.append(s, h('div', 'ground'));
       scene.append(w);
     }
-    scene.append(h('div', 'orb'), h('div', 'orb b'));
+    // the spells they throw are kanji, a new random one every cast
+    for (const cls of ['orb', 'orb b']) {
+      const orb = h('div', cls, randomSpellKanji());
+      orb.lang = 'ja';
+      orb.addEventListener('animationiteration', () => { orb.textContent = randomSpellKanji(); });
+      scene.append(orb);
+    }
   }
 }
+
+const SPELL_KANJI = [...'火水木金土日月山川雷風光闇炎氷剣魔力星空雲雪花龍神雨海森石鉄竜鬼夢命心刀弓盾王天地波嵐霧影'];
+const randomSpellKanji = () => SPELL_KANJI[Math.floor(Math.random() * SPELL_KANJI.length)];
 
 // ── auth ─────────────────────────────────────────────────────────────────────
 export function setAuthTab(tab: 'login' | 'register') {
@@ -123,9 +157,16 @@ export function setAuthTab(tab: 'login' | 'register') {
 }
 
 // ── admin ────────────────────────────────────────────────────────────────────
-export function showAdmin(users: AdminUserRow[], me: PublicUser, onToggle: (u: AdminUserRow) => void) {
+export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: string; persistent: boolean }, onToggle: (u: AdminUserRow) => void) {
   const banned = users.filter((u) => u.banned).length;
   $('adminInfo').textContent = `${users.length} accounts · ${banned} banned`;
+  const st = $('adminStorage');
+  st.className = 'storage ' + (db.persistent ? 'ok' : 'warn');
+  st.textContent = db.storage === 'postgres'
+    ? '✓ Accounts, XP and study sets are saved in the Postgres database — updates and restarts keep them.'
+    : db.persistent
+      ? `Saved to a local file (${db.storage}).`
+      : '⚠ No database connected: accounts, XP and study sets are saved on the server disk, which Render wipes on every deploy and restart. Set DATABASE_URL (Neon) in Render → Environment.';
   $('userRows').replaceChildren(
     ...users.map((u) => {
       const action = h('td');
@@ -137,6 +178,10 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, onToggle: (u: A
       return append(h('tr'),
         h('td', '', u.username + (u.id === me.id ? ' (you)' : '')),
         h('td', '', u.role),
+        h('td', 'num', `Lv ${u.level ?? 0}`),
+        h('td', 'num', (u.xp ?? 0).toLocaleString()),
+        h('td', 'num', `${u.learned ?? 0} / ${u.cards ?? 0}`),
+        h('td', 'num', critText(u.crit ?? 0)),
         h('td', '', new Date(u.createdAt).toLocaleDateString()),
         h('td', u.banned ? 'status-ban' : 'status-ok', u.banned ? 'Banned' : 'Active'),
         action);
@@ -154,7 +199,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       const li = h('li');
       const av = h('span', 'who-av');
       av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp');
-      li.append(av, h('span', 'who', p.id === you ? `${p.name} (you)` : p.name), h('span', 'lv', `Lv ${p.level}`));
+      li.append(av, h('span', 'who', p.id === you ? `${p.name} (you)` : p.name), netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
       if (p.crit > 0) li.append(h('span', 'critv', `✦ ${critText(p.crit)} crit`));
       if (p.id === hostId) li.append(h('span', 'tag', 'host'));
       if (!p.online) li.append(h('span', 'tag off', 'away — seat kept'));
@@ -190,7 +235,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   const canStart = players.length >= minPlayers;
   const deck = mode === 'deck';
   $('levels').hidden = deck; // Deck Duel deals cards from every level — nothing to pick
-  $('lobby').classList.toggle('no-side', deck);
+  $('deckGuide').hidden = !deck;
   const meReady = !!players.find((p) => p.id === you)?.ready;
   $('readyBtn').hidden = !deck;
   $('readyBtn').textContent = meReady ? 'Not ready' : 'Ready';
@@ -206,10 +251,10 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   }
   $('start').hidden = !isHost;
   $<HTMLButtonElement>('start').disabled = !canStart;
-  $('start').textContent = mode === 'boss' && players.length < maxPlayers ? 'Start solo' : 'Start battle';
+  $('start').textContent = mode === 'boss' ? (players.length === 1 ? 'Start solo' : `Start — party of ${players.length}`) : 'Start battle';
   $('lobbyStatus').textContent = !canStart
     ? 'Share the code — the battle can start once your opponent joins.'
-    : isHost ? (mode === 'boss' && players.length < maxPlayers ? 'Start now alone, or wait for a teammate.' : '') : 'Waiting for the host to start…';
+    : isHost ? (mode === 'boss' && players.length < maxPlayers ? `Start now, or wait for more teammates (up to ${maxPlayers}).` : '') : 'Waiting for the host to start…';
   show('lobby');
 }
 
@@ -252,9 +297,30 @@ function hpBar(hp: number, max: number, label: string) {
   return bar;
 }
 
+/** Boss mode: the whole party's HP, stacked one above the other (you first). */
+function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
+  const ordered = [...players].sort((a, b) => (a.id === you ? -1 : b.id === you ? 1 : 0));
+  el.replaceChildren(...ordered.map((p) => {
+    const row = h('div', 'party-row' + (p.id === you ? ' me' : '') + (p.hp <= 0 ? ' down' : ''));
+    const name = append(h('div', 'pname'), h('span', 'n', p.id === you ? `${p.name} (you)` : p.name), netBars(p.id), h('span', 'lv', `Lv ${p.level}`),
+      h('span', 'combo', p.combo >= 2 ? `×${p.combo}${p.combo >= 5 ? ' 🔥' : ''}` : ''));
+    row.append(name, thickBar(p.hp, p.maxHp, 'ally', p.hp <= 0 ? 'down' : `${p.hp} / ${p.maxHp}`));
+    return row;
+  }));
+}
+
+/** A thick HP bar with the number inside it. side: ally = green, enemy = red. */
+function thickBar(hp: number, max: number, side: 'ally' | 'enemy', text: string) {
+  const pct = max > 0 ? Math.max(0, Math.min(100, (hp / max) * 100)) : 0;
+  const bar = h('div', `tbar ${side}${pct <= 25 ? ' low' : ''}`, undefined, { role: 'meter', 'aria-valuemin': '0', 'aria-valuemax': String(max), 'aria-valuenow': String(hp) });
+  const fill = h('div', 'fill'); fill.style.width = `${pct}%`;
+  bar.append(fill, h('span', 'tbar-txt', text));
+  return bar;
+}
+
 function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, emptyText: string) {
   if (!p) { el.replaceChildren(h('div', 'name', emptyText)); return; }
-  const name = append(h('div', 'name'), append(h('span', 'n', label), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo${p.combo >= 5 ? ' 🔥' : ''}` : ''));
+  const name = append(h('div', 'name'), append(h('span', 'n', label), netBars(p.id), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo${p.combo >= 5 ? ' 🔥' : ''}` : ''));
   el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h('div', 'hpnum', `${p.hp} / ${p.maxHp} HP`), h('span', 'lvs', `· ${levelsText(p.levels)}${p.online ? '' : ' · away'}`)));
 }
 
@@ -263,22 +329,27 @@ let battleMode: GameMode = 'reading';
 export function renderFighters(players: PlayerView[], you: PlayerId, boss: BossView | null) {
   const me = players.find((p) => p.id === you);
   const other = players.find((p) => p.id !== you);
-  fighterCard($('meCard'), me, me ? `${me.name} (you)` : '', '');
+  $('meCard').classList.toggle('party', battleMode === 'boss');
+  $('oppCard').hidden = battleMode === 'boss';
   if (battleMode === 'boss') {
-    fighterCard($('oppCard'), other, other ? `${other.name} (ally)` : '', 'Solo run');
+    partyPanel($('meCard'), players, you);
     const bar = $('bossBar');
-    if (boss) bar.replaceChildren(h('div', 'bname', `🐉 ${boss.name}`), hpBar(boss.hp, boss.maxHp, `${boss.name} HP`), h('div', 'hpnum', `${boss.hp} / ${boss.maxHp}`));
+    if (boss) bar.replaceChildren(h('div', 'bname', `🐉 ${boss.name}`), thickBar(boss.hp, boss.maxHp, 'enemy', `${boss.hp} / ${boss.maxHp}`));
+    for (const p of players) if (p.id !== you) allyEl(p.id)?.classList.toggle('onfire', p.combo >= 5);
   } else {
+    fighterCard($('meCard'), me, me ? `${me.name} (you)` : '', '');
     fighterCard($('oppCard'), other, other?.name ?? '', 'Opponent left');
+    $('wizOpp').classList.toggle('onfire', (other?.combo ?? 0) >= 5);
   }
   // 5+ in a row: the fighter is wreathed in flames
   $('wizMe').classList.toggle('onfire', (me?.combo ?? 0) >= 5);
-  $(battleMode === 'boss' ? 'wizAlly' : 'wizOpp').classList.toggle('onfire', (other?.combo ?? 0) >= 5);
 }
 
 // ── battle: wizards, dragon & spell effects ──────────────────────────────────
-type Actor = 'me' | 'opp' | 'ally' | 'boss';
-const actorEl = (a: Actor) => $(a === 'me' ? 'wizMe' : a === 'opp' ? 'wizOpp' : a === 'ally' ? 'wizAlly' : 'dragon');
+/** 'ally:<playerId>' = a party member in boss mode (up to 3 next to you). */
+export type Actor = 'me' | 'opp' | 'boss' | `ally:${string}`;
+const allyEl = (id: string) => document.querySelector<HTMLElement>(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
+const actorEl = (a: Actor): HTMLElement => a.startsWith('ally:') ? allyEl(a.slice(5)) ?? $('wizMe') : $(a === 'me' ? 'wizMe' : a === 'opp' ? 'wizOpp' : 'dragon');
 
 function retrigger(el: HTMLElement, cls: string, ms: number) {
   el.classList.remove(cls);
@@ -290,17 +361,25 @@ function retrigger(el: HTMLElement, cls: string, ms: number) {
 export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId) {
   battleMode = mode;
   const boss = mode === 'boss';
-  const ally = players.find((p) => p.id !== you);
+  const others = players.filter((p) => p.id !== you);
   $('wizOpp').hidden = boss;
   $('dragon').hidden = !boss;
-  $('bossBar').hidden = !boss;
-  $('wizAlly').hidden = !boss || !ally;
   const meP = players.find((p) => p.id === you);
-  for (const [id, side, p] of [['wizMe', 'me', meP], ['wizOpp', 'opp', ally], ['wizAlly', 'ally', ally]] as const) {
+  for (const [id, side, p] of [['wizMe', 'me', meP], ['wizOpp', 'opp', others[0]]] as const) {
     const w = $(id);
     w.className = `wizard ${side}`;
     w.querySelector('.sprite')!.innerHTML = avatarSvg(p?.avatar ?? 'wizard', side);
   }
+  // boss mode: every teammate stands next to you
+  $('allies').replaceChildren(...(boss ? others : []).map((p) => {
+    const w = h('div', 'wizard ally');
+    w.dataset.pid = p.id;
+    const sprite = h('div', 'sprite');
+    sprite.innerHTML = avatarSvg(p.avatar, 'ally');
+    w.append(h('div', 'aura'), sprite, h('div', 'ground'));
+    return w;
+  }));
+  $('arena').dataset.party = String(boss ? players.length : 0);
   $('dragon').className = 'dragon';
   $('dragon').querySelector('.sprite')!.innerHTML = dragonSvg();
   $('fire').hidden = true;
@@ -473,11 +552,9 @@ export function setInputHint(text: string, warn = false) {
 }
 
 /** Writing mode: show which character you're on. */
-export function setCharSlots(total: number, written: string[], active: boolean) {
-  $('charSlots').replaceChildren(
-    ...Array.from({ length: total }, (_, i) => h('div', 'slot' + (i < written.length ? ' done' : i === written.length && active ? ' now' : ''), i < written.length ? '✓' : String(i + 1))),
-  );
-  $('padNext').textContent = written.length >= total - 1 ? 'Cast ✦' : 'Next →';
+export function setCharSlots(total: number, _written: string[], active: boolean) {
+  $('charSlots').replaceChildren(h('span', 'slots-hint', total > 1 ? `Write all ${total} characters, left to right` : 'Write the character'));
+  $('padNext').textContent = 'Cast ✦';
   for (const id of ['padUndo', 'padClear', 'padSkip', 'padNext']) $<HTMLButtonElement>(id).disabled = !active;
 }
 
@@ -557,8 +634,19 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
     ['Best combo', (s) => `×${s.bestCombo}`],
   ];
   const cmp = $('statCompare');
-  cmp.replaceChildren(h('div', 'h me', 'You'), h('div'), h('div', 'h r', other ? otherName : ''));
-  for (const [label, fmt] of rows) cmp.append(h('div', 'v', fmt(me)), h('div', 'lbl', label), h('div', 'v r', other ? fmt(other) : ''));
+  const allies = Object.keys(stats).filter((id) => id !== you);
+  cmp.classList.toggle('multi', allies.length > 1);
+  if (allies.length > 1) {
+    // a bigger boss party: one column per player, labels on the left
+    cmp.style.gridTemplateColumns = `auto repeat(${allies.length + 1}, minmax(0, 1fr))`;
+    const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? 'Ally';
+    cmp.replaceChildren(h('div'), h('div', 'h me', 'You'), ...allies.map((id) => h('div', 'h', nameOf(id))));
+    for (const [label, fmt] of rows) cmp.append(h('div', 'lbl', label), h('div', 'v', fmt(me)), ...allies.map((id) => h('div', 'v', fmt(stats[id]))));
+  } else {
+    cmp.style.gridTemplateColumns = '';
+    cmp.replaceChildren(h('div', 'h me', 'You'), h('div'), h('div', 'h r', other ? otherName : ''));
+    for (const [label, fmt] of rows) cmp.append(h('div', 'v', fmt(me)), h('div', 'lbl', label), h('div', 'v r', other ? fmt(other) : ''));
+  }
 
   const byKanji = new Map(me.words.map((w) => [w.kanji, w]));
   $('struggledBox').hidden = me.struggled.length === 0;

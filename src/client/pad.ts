@@ -11,7 +11,10 @@ function thin(points: Array<[number, number]>): Array<[number, number]> {
   return out;
 }
 
-/** A square canvas you draw one character on with mouse, finger or pen. */
+/**
+ * The drawing pad. A word is written in one go, left to right: the pad is one square cell per
+ * character (faint dividers help spacing) and the server splits the strokes into characters.
+ */
 export class HandwritingPad {
   private strokes: DrawnChar = [];
   private current: Array<[number, number]> | null = null;
@@ -27,6 +30,17 @@ export class HandwritingPad {
   }
 
   get strokeCount() { return this.strokes.length; }
+
+  private cells = 1;
+  /** Resize for a word of n characters (capped at 4 cells wide; longer words just write smaller). */
+  setCells(n: number) {
+    this.cells = Math.max(1, Math.min(4, n));
+    this.canvas.width = 600 * this.cells;
+    this.canvas.height = 600;
+    this.canvas.style.setProperty('--cols', String(this.cells));
+    this.canvas.classList.toggle('multi', this.cells > 1);
+    this.clear();
+  }
 
   /** The finished character, in canvas pixels (the server normalises size and position). */
   take(): DrawnChar {
@@ -70,9 +84,23 @@ export class HandwritingPad {
   private redraw() {
     const { ctx, canvas } = this;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (this.cells > 1) {
+      // guides: a dashed divider between characters and a faint centre cross in each cell
+      ctx.save();
+      ctx.strokeStyle = 'rgba(60, 50, 110, .28)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([18, 14]);
+      for (let i = 1; i < this.cells; i++) { ctx.beginPath(); ctx.moveTo(i * 600, 20); ctx.lineTo(i * 600, 580); ctx.stroke(); }
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(60, 50, 110, .1)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, 300); ctx.lineTo(canvas.width, 300); ctx.stroke();
+      for (let i = 0; i < this.cells; i++) { ctx.beginPath(); ctx.moveTo(i * 600 + 300, 0); ctx.lineTo(i * 600 + 300, 600); ctx.stroke(); }
+      ctx.restore();
+    }
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.lineWidth = canvas.width / 30;
+    ctx.lineWidth = canvas.height / 30;
     ctx.strokeStyle = '#1b1530';
     for (const s of [...this.strokes, ...(this.current ? [this.current] : [])]) {
       ctx.beginPath();

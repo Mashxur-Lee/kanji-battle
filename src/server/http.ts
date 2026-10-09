@@ -78,7 +78,7 @@ export function createApiHandler(auth: AuthService, study: StudyService) {
         send(res, 200, await study.review(u, body.vocabId, body.rating));
       } else if (req.method === 'GET' && url === '/api/admin/users') {
         await auth.requireAdmin(bearer(req));
-        send(res, 200, { users: await auth.listUsers() });
+        send(res, 200, await study.adminStats(await auth.listUsers()));
       } else if (req.method === 'POST' && /^\/api\/admin\/users\/[\w-]+\/ban$/.test(url)) {
         const admin = await auth.requireAdmin(bearer(req));
         const body = await readJson(req);

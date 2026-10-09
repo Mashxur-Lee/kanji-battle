@@ -98,7 +98,7 @@ test('writing: kanji flashes, reading + meaning stay; typed kanji (IME) or handw
   game.start(); game.markReady('A'); game.markReady('B'); tick(100);
   const last = () => events.filter((e) => e.type === 'challenge' && e.playerId === 'A').at(-1) as any;
   let c = last();
-  assert.deepEqual([c.answerMode, c.flashMs, c.charCount], ['writing', 500, 2]);
+  assert.deepEqual([c.answerMode, c.flashMs, c.charCount], ['writing', 3500, 2]);
   assert.ok(c.meaning && c.reading, 'reading and meaning are shown');
   const entry = () => POOL.find((v) => v.kanji === last().kanji)!;
   game.submit('A', c.id, entry().reading); // typing the kana is not writing the kanji
@@ -287,4 +287,67 @@ test('deck lobby: no Start button — the duel begins when both players are read
   room.setLobbyReady('a', true); room.setLobbyReady('b', true);
   assert.equal(a.last('deck_state')!.view.phase, 'characters');
   room.forfeit('a');
+});
+
+test('deck room: back to the lobby from the hero pick', () => {
+  const room = new Room('DKBK', 'deck', { onEmpty: () => {}, judgeWriting: () => ({ correct: true, recognized: '' }) }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a); room.join('b', 'B', b);
+  room.setLobbyReady('a', true); room.setLobbyReady('b', true);
+  assert.equal(b.last('deck_state')!.view.phase, 'characters');
+  const lobbies = b.msgs.filter((m) => m.type === 'lobby').length;
+  room.backToLobby('b');
+  assert.equal(b.msgs.filter((m) => m.type === 'lobby').length, lobbies + 1);
+  assert.deepEqual(b.last('lobby')!.players.map((p) => p.ready), [false, false], 'everyone presses Ready again');
+});
+
+test('room chat: plain text, trimmed, rate-limited, history for late joiners', () => {
+  const room = new Room('CHAT', 'deck', { onEmpty: () => {} }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'Aki', a);
+  room.chat('a', '  hello\n<b>there</b>  ', 1000);
+  room.chat('a', 'spam', 1200); // too soon
+  room.chat('a', '   ', 5000); // empty
+  room.chat('a', 'x'.repeat(500), 6000);
+  room.join('b', 'Ben', b);
+  const history = b.last('chat')!.messages;
+  assert.deepEqual(history.map((m) => m.text), ['hello <b>there</b>', 'x'.repeat(140)]);
+  assert.equal(history[0].name, 'Aki');
+  room.chat('b', 'hi!', 7000);
+  assert.equal(a.last('chat')!.messages[0].text, 'hi!');
+});
+
+test('connection quality is shared with the room', () => {
+  const room = new Room('PING', 'reading', { onEmpty: () => {} }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a); room.join('b', 'B', b);
+  room.setRtt('a', 80.4); room.setRtt('b', 520);
+  assert.deepEqual(a.last('net')!.rtt, { a: 80, b: 520 });
+  room.disconnect('b', b);
+  assert.deepEqual(a.last('net')!.rtt, { a: 80, b: null }, 'offline shows as no signal');
+});
+
+test('boss mode: a party of 4 vs the dragon (a 5th is turned away, duels stay 1v1)', () => {
+  const room = new Room('BOSS', 'boss', { onEmpty: () => {} }, OPTS);
+  const cs = ['a', 'b', 'c', 'd'].map(() => client());
+  ['a', 'b', 'c', 'd'].forEach((id, i) => assert.deepEqual(room.join(id, id.toUpperCase(), cs[i]), { ok: true }));
+  assert.equal(room.join('e', 'E', client()).ok, false, 'room is full at 4');
+  assert.equal(cs[0].last('lobby')!.maxPlayers, 4);
+  const hpParty = cs[0].last('lobby')!.players.length;
+  room.start('a');
+  for (const id of ['a', 'b', 'c', 'd']) room.ready(id);
+  tick(100);
+  const upd = cs[3].msgs.filter((m) => m.type === 'battle_start' || m.type === 'challenge');
+  assert.ok(upd.length > 0, 'the 4th player gets challenges too');
+  assert.equal(hpParty, 4);
+  const duel = new Room('DUEL', 'reading', { onEmpty: () => {} }, OPTS);
+  duel.join('a', 'A', client()); duel.join('b', 'B', client());
+  assert.equal(duel.join('c', 'C', client()).ok, false);
+  room.forfeit('a'); room.forfeit('b'); room.forfeit('c'); room.forfeit('d');
+});
+
+test('boss HP grows with the party size', async () => {
+  const { bossHp } = await import('../src/server/Balance');
+  const one = bossHp([['N3']]), four = bossHp([['N3'], ['N3'], ['N3'], ['N3']]);
+  assert.ok(four > one * 3.5 && four < one * 4.5, `${one} → ${four}`);
 });

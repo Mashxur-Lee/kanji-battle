@@ -1,8 +1,9 @@
+import { VERSION } from '../shared/version';
 import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Profile } from './api';
 import * as audio from './audio';
 import { paintBackground } from './backgrounds';
-import { deckEvent, initDeck, renderDeck, resetDeck } from './deckui';
+import { chatMessages, clearChat, deckEvent, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
 import { HandwritingPad } from './pad';
 import { onProfileChange, openCustomize, openStudy } from './study';
@@ -40,7 +41,7 @@ const socket = new GameSocket(onMessage, (s) => {
 });
 
 /** Who is this player on screen? You are always on the left; in boss mode the other player is your ally. */
-const actorOf = (id: PlayerId | 'boss') => (id === 'boss' ? 'boss' : id === you ? 'me' : mode === 'boss' ? 'ally' : 'opp') as 'me' | 'opp' | 'ally' | 'boss';
+const actorOf = (id: PlayerId | 'boss'): ui.Actor => (id === 'boss' ? 'boss' : id === you ? 'me' : mode === 'boss' ? `ally:${id}` : 'opp');
 const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Someone';
 
 // Music only in menus (not during study phase, battles or the deck duel).
@@ -105,6 +106,7 @@ function backToMenu() {
   players = [];
   stopWriting();
   resetDeck();
+  clearChat();
   ui.stopCountdown();
   ui.show('menu');
 }
@@ -112,6 +114,15 @@ function backToMenu() {
 // ── server messages ──────────────────────────────────────────────────────────
 function onMessage(msg: ServerMessage) {
   switch (msg.type) {
+    case 'ping':
+      socket.send({ type: 'pong', t: msg.t });
+      break;
+    case 'net':
+      ui.setNet(msg.rtt);
+      break;
+    case 'chat':
+      chatMessages(msg.messages);
+      break;
     case 'welcome':
       user = msg.user;
       ui.setUser(msg.user);
@@ -276,7 +287,7 @@ function beginWriting(id: number, kanji: string) {
   writing = true;
   charCount = [...kanji].length;
   written = [];
-  pad.clear();
+  pad.setCells(charCount); // write the whole word at once
   if (mode === 'deck') ui.mountWriteArea('dkWrite');
   ui.setCharSlots(charCount, [], true);
   const ime = ui.$<HTMLInputElement>('imeInput');
@@ -301,10 +312,8 @@ ui.$('padClear').onclick = () => pad.clear();
 ui.$('padSkip').onclick = () => skip();
 ui.$('padNext').onclick = () => {
   if (pad.strokeCount === 0) return;
-  written.push(pad.take());
-  pad.clear();
-  if (written.length >= charCount) submitDrawing();
-  else ui.setCharSlots(charCount, written.map(() => ''), true);
+  written = [pad.take()]; // the whole word; the server splits it into characters
+  submitDrawing();
 };
 // typed kanji with a Japanese IME (the first Enter confirms the conversion, the next one sends)
 ui.$<HTMLInputElement>('imeInput').addEventListener('keydown', (e) => {
@@ -371,8 +380,8 @@ ui.$('customizeBack').onclick = () => ui.show('menu');
 // ── admin ────────────────────────────────────────────────────────────────────
 async function openAdmin() {
   try {
-    const { users } = await api.users();
-    ui.showAdmin(users, user!, async (u) => {
+    const { users, storage, persistent } = await api.users();
+    ui.showAdmin(users, user!, { storage, persistent }, async (u) => {
       try { await api.setBanned(u.id, !u.banned); await openAdmin(); } catch (e) { ui.$('adminInfo').textContent = (e as Error).message; }
     });
   } catch (e) {
@@ -439,8 +448,11 @@ armForfeit('forfeit');
 armForfeit('dkForfeit');
 
 // ── deck duel ────────────────────────────────────────────────────────────────
+ui.$('version').textContent = `v${VERSION}`;
+
 initDeck({
   send: (m) => socket.send(m),
+  me: () => you,
   beginWriting: (castId, kanji) => { mode = 'deck'; beginWriting(castId, kanji); },
   stopWriting: () => stopWriting(),
 });

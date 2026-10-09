@@ -16,6 +16,15 @@ export function levelOf(xp: number) {
   while (n > 0 && xpForLevel(n) > xp) n--;
   return n;
 }
+/**
+ * Before v0.5 every level cost a flat 1000 XP. Saved XP from then is converted once so nobody loses the
+ * level (and the progress inside it) they had already earned.
+ */
+export function legacyXpToCurrent(xp: number) {
+  const level = Math.floor(Math.max(0, xp) / XP_PER_LEVEL);
+  const frac = (Math.max(0, xp) % XP_PER_LEVEL) / XP_PER_LEVEL;
+  return xpForLevel(level) + Math.round(frac * xpToNext(level));
+}
 /** XP earned inside the current level, and how much that level needs. */
 export function levelXp(xp: number) {
   const level = levelOf(xp);

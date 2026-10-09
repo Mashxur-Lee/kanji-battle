@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import type { Level, Role } from '../../shared/protocol';
-import type { BackgroundId } from '../../shared/progress';
+import { legacyXpToCurrent, type BackgroundId } from '../../shared/progress';
 import type { CardState, SrsCard } from '../../shared/srs';
 import { UsernameTakenError, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
@@ -85,6 +85,14 @@ export class PgStore implements Store {
         primary key (user_id, vocab_id)
       )`;
     await this.sql`create index if not exists kw_cards_due on kw_cards (user_id, due)`;
+    // v0.5 made levels steeper. Rows saved before that (xp_scheme 1) get their XP converted once, so
+    // everyone keeps the level they had. Nothing is ever dropped or reset by an update.
+    await this.sql`alter table kw_users add column if not exists xp_scheme integer not null default 1`;
+    await this.sql.begin(async (tx) => {
+      const old = await tx<{ id: string; xp: number }[]>`select id, xp from kw_users where xp_scheme < 2 for update`;
+      for (const r of old) await tx`update kw_users set xp = ${legacyXpToCurrent(r.xp)}, xp_scheme = 2 where id = ${r.id}`;
+      if (old.length) console.log(`Converted XP of ${old.length} account(s) to the new level curve`);
+    });
   }
 
   async findByUsername(username: string) {
@@ -99,7 +107,7 @@ export class PgStore implements Store {
   async create(u: NewUser) {
     try {
       const [r] = await this.sql<UserRow[]>`
-        insert into kw_users (username, password_hash, role) values (${u.username.toLowerCase()}, ${u.passwordHash}, ${u.role})
+        insert into kw_users (username, password_hash, role, xp_scheme) values (${u.username.toLowerCase()}, ${u.passwordHash}, ${u.role}, 2)
         returning *`;
       return toUser(r);
     } catch (e) {
@@ -156,6 +164,11 @@ export class PgStore implements Store {
   async learnedCount(userId: string) {
     const [r] = await this.sql<{ n: string }[]>`select count(*) as n from kw_cards where user_id = ${userId} and state = 'review'`;
     return Number(r.n);
+  }
+  async cardStats() {
+    const rows = await this.sql<{ user_id: string; cards: string; learned: string }[]>`
+      select user_id, count(*) as cards, count(*) filter (where state = 'review') as learned from kw_cards group by user_id`;
+    return Object.fromEntries(rows.map((r) => [r.user_id, { cards: Number(r.cards), learned: Number(r.learned) }]));
   }
   async close() { await this.sql.end({ timeout: 5 }); }
 }

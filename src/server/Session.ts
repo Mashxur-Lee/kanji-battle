@@ -1,4 +1,4 @@
-import { LEVELS, MODES, type ClientMessage, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
+import { CHAT_MAX_LENGTH, LEVELS, MODES, type ClientMessage, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
 import type { AuthService } from './auth/AuthService';
 import { toPublic } from './auth/AuthService';
 import { sanitizeDrawing } from './handwriting/judge';
@@ -8,6 +8,7 @@ import type { StudyService } from './study/StudyService';
 
 const MAX_ANSWER_LENGTH = 40;
 const MAX_WRITTEN_CHARS = 8;
+const PING_EVERY_MS = 3_000;
 
 /** Keep only known levels, in canonical order. */
 function parseLevels(raw: unknown): Level[] {
@@ -42,6 +43,21 @@ export class Session implements Client {
 
   send(msg: ServerMessage) { this.out(JSON.stringify(msg)); }
 
+  /** Connection quality: ping every few seconds, the room shows everyone's round-trip time. */
+  private pingTimer?: ReturnType<typeof setInterval>;
+  private startPings() {
+    clearInterval(this.pingTimer);
+    const ping = () => this.send({ type: 'ping', t: Date.now() });
+    ping();
+    this.pingTimer = setInterval(ping, PING_EVERY_MS);
+    this.pingTimer.unref?.();
+  }
+  private onPong(t: unknown) {
+    const rtt = Date.now() - Number(t);
+    if (!Number.isFinite(rtt) || rtt < 0 || rtt > 60_000) return;
+    if (this.user && this.room) this.room.setRtt(this.user.id, rtt);
+  }
+
   kick(message: string) {
     this.send({ type: 'kicked', message });
     this.detach();
@@ -64,6 +80,7 @@ export class Session implements Client {
     if (msg.type === 'hello') return this.hello(msg.token);
     const user = this.user;
     if (!user) return this.send({ type: 'auth_error', message: 'Please log in' });
+    if (msg.type === 'pong') return this.onPong(msg.t);
 
     if (msg.type === 'create') {
       if (this.room) return;
@@ -99,6 +116,9 @@ export class Session implements Client {
       case 'start': return room.start(user.id);
       case 'ready': return room.ready(user.id);
       case 'lobby_ready': return room.setLobbyReady(user.id, !!msg.ready);
+      case 'chat':
+        if (typeof msg.text === 'string') room.chat(user.id, msg.text.slice(0, CHAT_MAX_LENGTH * 2));
+        break;
       case 'answer':
         if (typeof msg.challengeId === 'number' && typeof msg.text === 'string') {
           room.answer(user.id, msg.challengeId, msg.text.slice(0, MAX_ANSWER_LENGTH));
@@ -118,6 +138,7 @@ export class Session implements Client {
 
   /** Socket closed: keep the seat for a grace period so the player can come back. */
   onClose() {
+    clearInterval(this.pingTimer);
     if (this.user && this.room) this.room.disconnect(this.user.id, this);
     if (this.user) this.hub.release(this.user.id, this);
   }
@@ -128,6 +149,7 @@ export class Session implements Client {
       this.user = toPublic(rec);
       this.hub.claim(rec.id, this);
       this.send({ type: 'welcome', user: this.user });
+      this.startPings();
       // Back from the background / a refresh: take the seat back.
       const room = this.rooms.roomOf(rec.id);
       if (room) { this.room = room; room.setProfile(rec.id, await this.profile()); room.reconnect(rec.id, this); }

@@ -133,9 +133,10 @@
       <button id="adminRefresh" class="pill">↻ Refresh</button>
     </div>
     <p id="adminInfo" class="sub"></p>
+    <p id="adminStorage" class="storage"></p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Login</th><th>Role</th><th>Registered</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Login</th><th>Role</th><th>Level</th><th>XP</th><th title="Learned spells / study set size">Spells</th><th>Crit</th><th>Registered</th><th>Status</th><th></th></tr></thead>
         <tbody id="userRows"></tbody>
       </table>
     </div>
@@ -164,7 +165,7 @@
       <button class="mode-card boss" data-mode="boss">
         <span class="mode-icon jp">竜</span>
         <span class="mode-name">Boss Elimination</span>
-        <span class="mode-desc">Team up against the Black Dragon. Mistakes get you clawed; it breathes fire every 30 s.</span>
+        <span class="mode-desc">Up to 4 players vs the Black Dragon. Mistakes get you clawed; it breathes fire every 30 s.</span>
       </button>
       <button class="mode-card deck" data-mode="deck">
         <span class="mode-icon jp">札</span>
@@ -190,6 +191,7 @@
       <p id="lobbyStatus" class="sub"></p>
     </div>
     <div class="col-side">
+      <div id="deckGuide" class="deck-guide" hidden></div>
       <fieldset id="levels" class="levels">
         <legend>Your levels</legend>
         <div id="levelChips" class="chips"></div>
@@ -226,11 +228,10 @@
       </div>
       <div id="oppCard" class="fighter opp"></div>
     </div>
-    <div id="bossBar" class="boss-bar" hidden></div>
     <div id="arena" class="arena">
       <div class="side left">
         <div id="wizMe" class="wizard me"><div class="aura"></div><div class="sprite"></div><div class="ground"></div></div>
-        <div id="wizAlly" class="wizard ally" hidden><div class="aura"></div><div class="sprite"></div><div class="ground"></div></div>
+        <div id="allies" class="allies"></div>
       </div>
       <div class="stage">
         <div id="countdown" class="countdown" hidden></div>
@@ -252,7 +253,7 @@
       </div>
       <div class="side right">
         <div id="wizOpp" class="wizard opp"><div class="aura"></div><div class="sprite"></div><div class="ground"></div></div>
-        <div id="dragon" class="dragon" hidden><div class="sprite"></div><div class="ground"></div></div>
+        <div id="dragon" class="dragon" hidden><div id="bossBar" class="boss-bar"></div><div class="sprite"></div><div class="ground"></div></div>
       </div>
       <div id="fire" class="fire" hidden></div>
     </div>
@@ -261,26 +262,42 @@
 
   <!-- DECK DUEL -->
   <section id="deck" class="screen deck-screen" hidden>
+    <!-- the opponent sits across the table: their stats on top of their cards, mirroring yours -->
     <div class="deck-top">
-      <div id="dkOpp" class="dk-player opp"></div>
+      <div class="dk-spacer"></div>
+      <div class="dk-seat">
+        <div id="dkOpp" class="dk-player opp"></div>
+        <div id="dkOppHand" class="dk-hand opp"></div>
+      </div>
       <div class="clock-col">
         <div id="dkClock" class="clock small"></div>
         <button id="dkForfeit" class="link forfeit">🏳 Forfeit</button>
       </div>
     </div>
     <div class="deck-middle">
-      <div id="dkOppHand" class="dk-hand opp"></div>
+      <aside id="dkList" class="dk-panel dk-list"></aside>
       <div id="dkStage" class="dk-stage">
         <div id="dkBanner" class="dk-banner"></div>
         <div id="dkCast" class="dk-cast"></div>
         <div id="dkWrite"></div>
         <div id="dkFeedback" class="feedback"></div>
       </div>
+      <aside class="dk-panel dk-chat">
+        <h4>Chat</h4>
+        <div id="dkChatLog" class="chat-log" aria-live="polite"></div>
+        <form id="dkChatForm" class="chat-form" autocomplete="off">
+          <input id="dkChatInput" maxlength="140" placeholder="Say something…" enterkeyhint="send">
+          <button class="pill primary">Send</button>
+        </form>
+      </aside>
     </div>
     <div class="deck-bottom">
       <button id="dkAbility" class="dk-ability" title="Character power"></button>
-      <div id="dkMe" class="dk-player me"></div>
-      <div id="dkHand" class="dk-hand me"></div>
+      <div class="dk-seat">
+        <div id="dkMe" class="dk-player me"></div>
+        <div id="dkHand" class="dk-hand me"></div>
+      </div>
+      <div class="dk-spacer"></div>
     </div>
     <div id="dkOverlay" class="dk-overlay" hidden></div>
   </section>
@@ -293,7 +310,7 @@
       <button id="padUndo" class="pill">↶ Undo</button>
       <button id="padClear" class="pill">✕ Clear</button>
       <button id="padSkip" class="pill">Skip</button>
-      <button id="padNext" class="pill primary">Next →</button>
+      <button id="padNext" class="pill primary">Cast ✦</button>
     </div>
     <div class="ime-row">
       <input id="imeInput" lang="ja" placeholder="…or type the kanji (Japanese keyboard), Enter" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -336,7 +353,7 @@
           <li><b>Reading</b> — study 10 words, then type each reading (かな or romaji).</li>
           <li><b>Rapid</b> — no study; both get the same kanji, first correct reading hits.</li>
           <li><b>Writing</b> — the kanji flashes, then write it on the pad or type the kanji with a Japanese keyboard. Messy is fine.</li>
-          <li><b>Boss</b> — team up against the Black Dragon. Mistakes get you clawed; fire breath every 30 s.</li>
+          <li><b>Boss</b> — 1 to 4 players team up against the Black Dragon (it gets tougher with every player). Mistakes get you clawed; fire breath every 30 s.</li>
           <li><b>Deck Duel</b> — pick a hero, draft cards by colour, then cast them by writing their kanji. Light blue 100 dmg (10 mana), blue 120 (25), yellow +60 mana, green heal 100 (40), red 250 (70). Both players press Ready to start. 15 s to choose a card, then 20 s to write it. You get +10 mana each turn. Out of cards → a new draft round (HP and mana stay). Cards left but no mana to play any → you lose. When time runs out: overtime — cards are shown one by one, first to write it uses it.</li>
         </ul>
       </li>
@@ -347,6 +364,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
+<div id="version" class="version">v0.6.1</div>
 <script src="/app.js"></script>
 </body>
 </html>
