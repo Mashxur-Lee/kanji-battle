@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { isCorrectReading, normalizeAnswer, romajiToHiragana } from '../src/shared/kana';
-import { VOCAB } from '../src/shared/vocab';
+import { VOCAB } from '../src/server/vocab';
 import { LEVELS } from '../src/shared/protocol';
 
 test('romaji → hiragana covers Hepburn, Kunrei and IME-style typing', () => {

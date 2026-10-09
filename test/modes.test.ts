@@ -3,7 +3,7 @@ import { afterEach, beforeEach, mock, test } from 'node:test';
 import { DEFAULT_CONFIG, Game, type GameConfig, type GameEvent } from '../src/server/Game';
 import { Room, DEFAULT_ROOM_OPTIONS } from '../src/server/Room';
 import type { ServerMessage, VocabEntry } from '../src/shared/protocol';
-import { VOCAB } from '../src/shared/vocab';
+import { VOCAB } from '../src/server/vocab';
 
 const CFG: GameConfig = {
   ...DEFAULT_CONFIG, prepMs: 1000, countdownMs: 100, battleMs: 300_000, challengeMs: 1_000_000, nextDelayMs: 10, missPenaltyMs: 50,
@@ -88,7 +88,7 @@ test('boss: a knocked-out player stops getting challenges; teammate fights on', 
   assert.equal(b.of('challenge').filter((c) => c.playerId === 'A').length, n);
 });
 
-test('writing: challenge flashes the kanji and keeps the meaning; judge decides; typing is ignored', () => {
+test('writing: kanji flashes, reading + meaning stay; typed kanji (IME) or handwriting count, kana does not', () => {
   const events: GameEvent[] = [];
   const seen: string[] = [];
   const game = new Game([{ id: 'A', pool: POOL, maxHp: 500 }, { id: 'B', pool: POOL, maxHp: 500 }], (e) => events.push(e), CFG, Math.random, () => clock, {
@@ -96,19 +96,33 @@ test('writing: challenge flashes the kanji and keeps the meaning; judge decides;
     judgeWriting: (entry, chars) => { seen.push(entry.kanji); return { correct: chars.length === 2, recognized: chars.length === 2 ? entry.kanji : '?' }; },
   });
   game.start(); game.markReady('A'); game.markReady('B'); tick(100);
-  const c = events.filter((e) => e.type === 'challenge' && e.playerId === 'A').at(-1) as any;
-  assert.equal(c.answerMode, 'writing');
-  assert.equal(c.flashMs, 500);
-  assert.equal(c.charCount, 2);
-  assert.ok(c.meaning);
-  game.submit('A', c.id, POOL.find((v) => v.kanji === c.kanji)!.reading); // typed answers don't count here
+  const last = () => events.filter((e) => e.type === 'challenge' && e.playerId === 'A').at(-1) as any;
+  let c = last();
+  assert.deepEqual([c.answerMode, c.flashMs, c.charCount], ['writing', 500, 2]);
+  assert.ok(c.meaning && c.reading, 'reading and meaning are shown');
+  const entry = () => POOL.find((v) => v.kanji === last().kanji)!;
+  game.submit('A', c.id, entry().reading); // typing the kana is not writing the kanji
   assert.equal(game.getHp('B'), 500);
+  tick(50); c = last();
+  game.submit('A', c.id, ` ${entry().kanji} `); // IME-typed kanji
+  const hp1 = game.getHp('B');
+  assert.ok(hp1 < 500);
+  tick(10); c = last();
   const stroke = [[[0, 0], [10, 10]]] as any;
   game.submitWriting('A', c.id, [stroke, stroke]);
-  assert.ok(game.getHp('B') < 500);
+  assert.ok(game.getHp('B') < hp1);
   assert.deepEqual(seen, [c.kanji]);
-  const r = events.filter((e) => e.type === 'answer_result').at(-1) as any;
-  assert.equal(r.recognized, c.kanji);
+  assert.equal((events.filter((e) => e.type === 'answer_result').at(-1) as any).recognized, c.kanji);
+});
+
+test('crit: a player with 100% crit hits ×1.5', () => {
+  const ev: GameEvent[] = [];
+  const g = new Game([{ id: 'A', pool: [word('懸念')], maxHp: 1000, crit: 1 }, { id: 'B', pool: [word('懸念')], maxHp: 1000 }], (e) => ev.push(e), CFG, () => 0, () => clock);
+  g.start(); g.markReady('A'); g.markReady('B'); tick(100); clock += 1100;
+  const c = ev.filter((e) => e.type === 'challenge' && e.playerId === 'A').at(-1) as any;
+  g.submit('A', c.id, 'けねん');
+  const r = ev.filter((e) => e.type === 'answer_result').at(-1) as any;
+  assert.deepEqual([r.crit, r.damage], [true, Math.round(43 * 1.5)]);
 });
 
 // ── Room: reconnects ─────────────────────────────────────────────────────────
@@ -184,4 +198,68 @@ test('room: boss mode can start solo; writing mode refuses levels with no writab
   w.join('x', 'X', x); w.join('y', 'Y', y);
   w.start('x');
   assert.match(x.last('error')!.message, /no words/);
+});
+
+// ── Rapid, forfeit, back-to-lobby, XP ───────────────────────────────────────
+test('rapid: same kanji for both, first correct wins the round; wrong guesses can retry', () => {
+  const room = new Room('RAPD', 'rapid', { onEmpty: () => {} }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a, ['N5']); room.join('b', 'B', b, ['N5']);
+  room.start('a');
+  assert.ok(a.last('battle_start') && !a.last('prep'), 'no study phase');
+  tick(3000);
+  const ca = a.last('challenge')!, cb = b.last('challenge')!;
+  assert.equal(ca.id, cb.id);
+  assert.equal(ca.kanji, cb.kanji);
+  const hp0 = b.last('battle_start')!.players.find((p) => p.id === 'b')!.hp;
+  room.answer('b', cb.id, 'zzz');
+  assert.equal(b.last('answer_result')!.retry, true);
+  const reading = VOCAB.find((v) => v.kanji === ca.kanji && v.level === 'N5')!.reading;
+  room.answer('a', ca.id, reading);
+  assert.equal(a.last('answer_result')!.correct, true);
+  assert.equal(b.last('answer_result')!.beaten, true);
+  assert.ok(b.last('battle_update')!.players.find((p) => p.id === 'b')!.hp < hp0);
+  room.answer('b', cb.id, reading); // too late
+  assert.equal(b.last('answer_result')!.beaten, true);
+});
+
+test('forfeit: both players land on the results screen and can rematch', () => {
+  const room = new Room('FFFF', 'reading', { onEmpty: () => {} }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a); room.join('b', 'B', b);
+  room.start('a'); room.ready('a'); room.ready('b'); tick(100);
+  room.forfeit('a');
+  assert.deepEqual([a.last('game_over')!.winnerId, a.last('game_over')!.reason], ['b', 'forfeit']);
+  assert.ok(b.last('game_over'));
+  room.rematch('a'); room.rematch('b');
+  assert.ok(a.msgs.filter((m) => m.type === 'prep').length === 2, 'rematch started');
+});
+
+test('back during preparation returns everyone to the lobby', () => {
+  const room = new Room('BACK', 'reading', { onEmpty: () => {} }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a); room.join('b', 'B', b);
+  room.start('a');
+  room.backToLobby('b');
+  assert.equal(a.msgs.at(-1)!.type, 'notice');
+  assert.ok(a.last('lobby') && b.last('lobby'));
+  room.start('a');
+  assert.equal(a.msgs.filter((m) => m.type === 'prep').length, 2, 'can start again');
+});
+
+test('match end awards XP to everyone and reports level-ups', async () => {
+  const calls: any[] = [];
+  const room = new Room('XPXP', 'reading', {
+    onEmpty: () => {},
+    onMatchEnd: async (mode, results) => { calls.push({ mode, results }); return Object.fromEntries(results.map((r) => [r.id, { gained: r.outcome === 'win' ? 350 : 60, xp: r.outcome === 'win' ? 1100 : 60, crit: 0.01 }])); },
+  }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a, undefined, { crit: 0, xp: 900 }); room.join('b', 'B', b);
+  room.start('a'); room.ready('a'); room.ready('b'); tick(100);
+  room.forfeit('b');
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(calls[0].results.map((r: any) => [r.id, r.outcome]), [['a', 'win'], ['b', 'loss']]);
+  const pa = a.last('progress')!;
+  assert.deepEqual([pa.gained, pa.level, pa.levelUp], [350, 1, true]);
+  assert.equal(b.last('progress')!.levelUp, false);
 });

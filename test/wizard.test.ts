@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DRAGON_MAP, dragonSvg, PALETTES, WIZARD_MAP, wizardSvg } from '../src/client/wizard';
+import { avatarSvg, CHARACTER_MAPS, DRAGON_MAP, dragonSvg, PALETTES, WIZARD_MAP, wizardSvg } from '../src/client/wizard';
 
 test('wizard sprite map is a clean 16×20 grid with a colour for every symbol', () => {
   assert.equal(WIZARD_MAP.length, 20);
@@ -17,4 +17,13 @@ test('dragon sprite is a clean 40×30 grid with glowing eyes', () => {
   const svg = dragonSvg();
   assert.ok(svg.includes('class="eye"') && !svg.includes('undefined'));
   assert.ok(wizardSvg('ally').includes('#3aa57c'));
+});
+
+test('every level character is a clean 16×20 sprite', () => {
+  for (const [name, map] of Object.entries(CHARACTER_MAPS)) {
+    assert.equal(map.length, 20, name);
+    for (const row of map) assert.equal(row.length, 16, `${name}: ${row}`);
+    const svg = avatarSvg(name as any, 'me');
+    assert.ok(svg.startsWith('<svg') && !svg.includes('undefined'), name);
+  }
 });

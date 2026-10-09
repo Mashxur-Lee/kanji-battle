@@ -1,4 +1,6 @@
 import { isCorrectReading, isRomajiInput } from '../shared/kana';
+import { CRIT_MULTIPLIER } from '../shared/progress';
+import type { DeckEvent, DeckView } from '../shared/deck';
 import type {
   BattleEvent, BossView, DrawnChar, GameMode, GameOverReason, PlayerId, PlayerStats, StudyItem, VocabEntry, WordStat,
 } from '../shared/protocol';
@@ -55,7 +57,7 @@ export function computeDamage(difficulty: number, responseMs: number, combo: num
 /** Judges a handwritten answer: true if every drawn character matches. `recognized` is shown to the player. */
 export type WritingJudge = (entry: VocabEntry, chars: DrawnChar[]) => { correct: boolean; recognized: string };
 
-export interface ChallengeInfo { id: number; kanji: string; answerMode: 'reading' | 'romaji' | 'writing'; timeLimitMs: number; meaning?: string; charCount?: number; flashMs?: number }
+export interface ChallengeInfo { id: number; kanji: string; answerMode: 'reading' | 'romaji' | 'writing'; timeLimitMs: number; meaning?: string; reading?: string; charCount?: number; flashMs?: number }
 
 export type GameEvent =
   | { type: 'prep'; playerId: PlayerId; pool: StudyItem[]; durationMs: number }
@@ -64,10 +66,13 @@ export type GameEvent =
   | ({ type: 'challenge'; playerId: PlayerId } & ChallengeInfo)
   | {
       type: 'answer_result'; playerId: PlayerId; challengeId: number; correct: boolean; timedOut: boolean; skipped: boolean;
-      entry: VocabEntry; damage: number; combo: number; responseMs: number | null; nextInMs: number; recognized?: string;
+      entry: VocabEntry; damage: number; combo: number; responseMs: number | null; nextInMs: number; recognized?: string; crit?: boolean;
+      retry?: boolean; beaten?: boolean;
     }
   | { type: 'battle_update'; event: BattleEvent }
-  | { type: 'game_over'; winnerId: PlayerId | null; teamWon: boolean | null; reason: GameOverReason; stats: Record<PlayerId, PlayerStats> };
+  | { type: 'deck_state'; playerId: PlayerId; view: DeckView }
+  | { type: 'deck_event'; event: DeckEvent }
+  | { type: 'game_over'; winnerId: PlayerId | null; teamWon: boolean | null; reason: GameOverReason; stats: Record<PlayerId, PlayerStats>; missed: Record<PlayerId, string[]> };
 
 type Phase = 'idle' | 'prep' | 'countdown' | 'battle' | 'over';
 
@@ -83,15 +88,33 @@ class PlayerState {
   timer?: ReturnType<typeof setTimeout>;
   readonly words = new Map<string, WordTally>();
   readonly deck: ChallengeDeck;
-  constructor(readonly id: PlayerId, readonly pool: readonly VocabEntry[], readonly maxHp: number, rng: Rng) {
+  constructor(readonly id: PlayerId, readonly pool: readonly VocabEntry[], readonly maxHp: number, rng: Rng, readonly crit = 0) {
     this.hp = maxHp;
     this.deck = new ChallengeDeck(pool, rng);
   }
   get alive() { return this.hp > 0; }
 }
 
+/** What a Room needs from any match engine (Game, RapidGame, …). */
+export interface Match {
+  readonly mode: GameMode;
+  readonly isOver: boolean;
+  start(): void;
+  markReady(id: PlayerId): void;
+  submit(id: PlayerId, challengeId: number, text: string): void;
+  submitWriting(id: PlayerId, challengeId: number, chars: DrawnChar[]): void;
+  skip(id: PlayerId, challengeId: number): void;
+  forfeit(id: PlayerId): void;
+  snapshot(id: PlayerId): GameSnapshot;
+  dispose(): void;
+  getHp(id: PlayerId): number;
+  getMaxHp(id: PlayerId): number;
+  getCombo(id: PlayerId): number;
+  bossView(): BossView | null;
+}
+
 /** Each player brings their own word pool (their chosen levels) and their own max HP (see Balance.ts). */
-export interface PlayerSetup { id: PlayerId; pool: readonly VocabEntry[]; maxHp: number }
+export interface PlayerSetup { id: PlayerId; pool: readonly VocabEntry[]; maxHp: number; crit?: number }
 
 export interface GameOptions {
   mode: GameMode;
@@ -113,7 +136,7 @@ export interface GameSnapshot {
  * Modes: 'reading' / 'writing' are duels (players hit each other); 'boss' is co-op against a dragon
  * that claws whoever misses and breathes fire on everyone every 30 seconds.
  */
-export class Game {
+export class Game implements Match {
   private phase: Phase = 'idle';
   private readonly players = new Map<PlayerId, PlayerState>();
   private readonly ready = new Set<PlayerId>();
@@ -128,7 +151,7 @@ export class Game {
     setups: readonly PlayerSetup[],
     private readonly emit: (e: GameEvent) => void,
     private readonly cfg: GameConfig = DEFAULT_CONFIG,
-    rng: Rng = Math.random,
+    private readonly rng: Rng = Math.random,
     private readonly now: () => number = Date.now,
     private readonly opts: GameOptions = { mode: 'reading' },
   ) {
@@ -138,7 +161,7 @@ export class Game {
     if (opts.mode === 'writing' && !opts.judgeWriting) throw new Error('Writing mode needs a judge');
     for (const s of setups) {
       if (s.pool.length === 0) throw new Error('Every player needs a non-empty pool');
-      this.players.set(s.id, new PlayerState(s.id, s.pool, s.maxHp, rng));
+      this.players.set(s.id, new PlayerState(s.id, s.pool, s.maxHp, rng, s.crit ?? 0));
     }
     this.boss = opts.boss ? { name: opts.boss.name, hp: opts.boss.maxHp, maxHp: opts.boss.maxHp } : null;
   }
@@ -169,9 +192,15 @@ export class Game {
 
   submit(id: PlayerId, challengeId: number, text: string) {
     const p = this.active(id, challengeId);
-    if (!p || this.opts.mode === 'writing') return;
+    if (!p) return;
     const responseMs = this.now() - p.current!.issuedAt;
     const { entry } = p.current!;
+    if (this.opts.mode === 'writing') {
+      // typed with a Japanese IME: must be the kanji itself (kana/romaji only for hiragana practice)
+      const typed = text.normalize('NFKC').replace(/\s+/g, '');
+      const ok = typed === entry.kanji || (!!entry.romaji && isCorrectReading(text, [entry.reading]));
+      return ok ? this.hit(p, responseMs, typed) : this.miss(p, 'wrong', responseMs, typed);
+    }
     const formatOk = !entry.romaji || isRomajiInput(text);
     if (formatOk && isCorrectReading(text, [entry.reading, ...(entry.altReadings ?? [])])) this.hit(p, responseMs);
     else this.miss(p, 'wrong', responseMs);
@@ -281,8 +310,12 @@ export class Game {
     this.phase = 'over';
     this.dispose();
     const stats: Record<PlayerId, PlayerStats> = {};
-    for (const p of this.players.values()) stats[p.id] = this.statsFor(p);
-    this.emit({ type: 'game_over', winnerId, teamWon, reason, stats });
+    const missed: Record<PlayerId, string[]> = {};
+    for (const p of this.players.values()) {
+      stats[p.id] = this.statsFor(p);
+      missed[p.id] = [...p.words.values()].filter((t) => t.correct < t.attempts).map((t) => t.entry.id);
+    }
+    this.emit({ type: 'game_over', winnerId, teamWon, reason, stats, missed });
   }
 
   // ── challenges ────────────────────────────────────────────────────────────
@@ -292,7 +325,7 @@ export class Game {
     if (this.opts.mode === 'writing') {
       return {
         id: c.id, kanji: entry.kanji, answerMode: 'writing', timeLimitMs: limitMs,
-        meaning: entry.meaning, charCount: [...entry.kanji].length, flashMs: this.cfg.writingFlashMs,
+        meaning: entry.meaning, reading: displayReading(entry), charCount: [...entry.kanji].length, flashMs: this.cfg.writingFlashMs,
       };
     }
     return { id: c.id, kanji: entry.kanji, answerMode: entry.romaji ? 'romaji' : 'reading', timeLimitMs: limitMs };
@@ -320,7 +353,8 @@ export class Game {
     p.current = null;
     p.combo += 1;
     p.bestCombo = Math.max(p.bestCombo, p.combo);
-    const damage = computeDamage(entry.difficulty, responseMs, p.combo, this.cfg);
+    const crit = p.crit > 0 && this.rng() < p.crit;
+    const damage = Math.round(computeDamage(entry.difficulty, responseMs, p.combo, this.cfg) * (crit ? CRIT_MULTIPLIER : 1));
     p.damageDealt += damage;
     this.tally(p, entry, true, responseMs);
 
@@ -337,9 +371,9 @@ export class Game {
 
     this.emit({
       type: 'answer_result', playerId: p.id, challengeId, correct: true, timedOut: false, skipped: false,
-      entry, damage, combo: p.combo, responseMs, nextInMs: this.cfg.nextDelayMs, recognized,
+      entry, damage, combo: p.combo, responseMs, nextInMs: this.cfg.nextDelayMs, recognized, crit,
     });
-    this.emit({ type: 'battle_update', event: { kind: 'hit', playerId: p.id, targetId, kanji: entry.kanji, damage, combo: p.combo } });
+    this.emit({ type: 'battle_update', event: { kind: 'hit', playerId: p.id, targetId, kanji: entry.kanji, damage, combo: p.combo, crit } });
 
     if (target && !target.alive) this.stopPlayer(target);
     if (this.checkEnd('ko')) return;

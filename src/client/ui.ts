@@ -2,7 +2,8 @@ import {
   LEVEL_LABEL, LEVELS, MODE_LABEL, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
   type Level, type PlayerId, type PlayerStats, type PlayerView, type PublicUser, type StudyItem,
 } from '../shared/protocol';
-import { dragonSvg, wizardSvg } from './wizard';
+import { avatarSvg, dragonSvg, wizardSvg } from './wizard';
+import { critText, levelOf, levelProgress } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -16,11 +17,15 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
 }
 const append = (parent: HTMLElement, ...kids: HTMLElement[]) => { parent.append(...kids); return parent; };
 
-const SCREENS = ['auth', 'menu', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results'] as const;
+const SCREENS = ['auth', 'menu', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'customize', 'deck'] as const;
 export type Screen = (typeof SCREENS)[number];
+let screenListener: (s: Screen) => void = () => {};
+export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };
+export const currentScreen = () => SCREENS.find((s) => !$(s).hidden);
 export const show = (screen: Screen) => {
   SCREENS.forEach((s) => ($(s).hidden = s !== screen));
   scrollTo(0, 0);
+  screenListener(screen);
 };
 
 export const setError = (text: string) => { $('error').textContent = text; };
@@ -49,6 +54,24 @@ export function stopCountdown(slot?: string) {
 }
 
 // ── top bar ──────────────────────────────────────────────────────────────────
+export interface ProfileView { xp: number; level: number; crit: number; learned: number }
+export function setProfile(p: ProfileView | null) {
+  if (!p) return;
+  $('whoLevel').textContent = `Lv ${levelOf(p.xp)}`;
+  $('whoCrit').textContent = `✦ ${critText(p.crit)} crit`;
+  $('whoXp').style.width = `${levelProgress(p.xp) * 100}%`;
+  $('whoXp').parentElement!.title = `${p.xp % 1000} / 1000 XP to level ${levelOf(p.xp) + 1}`;
+}
+
+let toastTimer = 0;
+export function toast(text: string, ms = 3500) {
+  const el = $('toast');
+  el.textContent = text;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => (el.hidden = true), ms);
+}
+
 export function setUser(user: PublicUser | null) {
   $('whoami').hidden = !user;
   $('whoName').textContent = user?.username ?? '';
@@ -66,7 +89,7 @@ export function setAudioButtons(radio: boolean, sfx: boolean) {
     $(id).setAttribute('aria-pressed', String(on));
     $(id).replaceChildren(h('span', 'ico', icon), h('span', 'lbl', ` ${label} ${on ? 'on' : 'off'}`));
   };
-  set('radioBtn', radio, '♪', 'Radio');
+  set('radioBtn', radio, '♪', 'Music');
   set('sfxBtn', sfx, sfx ? '🔊' : '🔇', 'Sounds');
 }
 
@@ -128,7 +151,10 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   $('lobbyPlayers').replaceChildren(
     ...players.map((p) => {
       const li = h('li');
-      li.append(h('span', 'who', p.id === you ? `${p.name} (you)` : p.name));
+      const av = h('span', 'who-av');
+      av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp');
+      li.append(av, h('span', 'who', p.id === you ? `${p.name} (you)` : p.name), h('span', 'lv', `Lv ${p.level}`));
+      if (p.crit > 0) li.append(h('span', 'critv', `✦ ${critText(p.crit)} crit`));
       if (p.id === hostId) li.append(h('span', 'tag', 'host'));
       if (!p.online) li.append(h('span', 'tag off', 'away — seat kept'));
       li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `❤ ${p.maxHp} HP`)));
@@ -149,7 +175,11 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       return label;
     }),
   );
-  $('levelsHint').textContent = mode === 'boss'
+  $('levelsHint').textContent = mode === 'deck'
+    ? 'Deck Duel draws cards from every level (N5–N1). Your level picks only change your character here.'
+    : mode === 'rapid'
+      ? 'Both players race on the same kanji, drawn from everyone\'s levels together.'
+      : mode === 'boss'
     ? 'Each player picks their own. The dragon gets tougher when the party picks harder levels.'
     : mode === 'writing'
       ? 'Each player picks their own. You will write these words by hand. Harder levels hit harder — so your opponent gets more HP.'
@@ -206,7 +236,7 @@ function hpBar(hp: number, max: number, label: string) {
 
 function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, emptyText: string) {
   if (!p) { el.replaceChildren(h('div', 'name', emptyText)); return; }
-  const name = append(h('div', 'name'), h('span', 'n', label), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo` : ''));
+  const name = append(h('div', 'name'), append(h('span', 'n', label), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo${p.combo >= 5 ? ' 🔥' : ''}` : ''));
   el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h('div', 'hpnum', `${p.hp} / ${p.maxHp} HP`), h('span', 'lvs', `· ${levelsText(p.levels)}${p.online ? '' : ' · away'}`)));
 }
 
@@ -223,6 +253,9 @@ export function renderFighters(players: PlayerView[], you: PlayerId, boss: BossV
   } else {
     fighterCard($('oppCard'), other, other?.name ?? '', 'Opponent left');
   }
+  // 5+ in a row: the fighter is wreathed in flames
+  $('wizMe').classList.toggle('onfire', (me?.combo ?? 0) >= 5);
+  $(battleMode === 'boss' ? 'wizAlly' : 'wizOpp').classList.toggle('onfire', (other?.combo ?? 0) >= 5);
 }
 
 // ── battle: wizards, dragon & spell effects ──────────────────────────────────
@@ -244,17 +277,18 @@ export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId)
   $('dragon').hidden = !boss;
   $('bossBar').hidden = !boss;
   $('wizAlly').hidden = !boss || !ally;
-  for (const [id, side] of [['wizMe', 'me'], ['wizOpp', 'opp'], ['wizAlly', 'ally']] as const) {
+  const meP = players.find((p) => p.id === you);
+  for (const [id, side, p] of [['wizMe', 'me', meP], ['wizOpp', 'opp', ally], ['wizAlly', 'ally', ally]] as const) {
     const w = $(id);
     w.className = `wizard ${side}`;
-    w.querySelector('.sprite')!.innerHTML = wizardSvg(side);
+    w.querySelector('.sprite')!.innerHTML = avatarSvg(p?.avatar ?? 'wizard', side);
   }
   $('dragon').className = 'dragon';
   $('dragon').querySelector('.sprite')!.innerHTML = dragonSvg();
   $('fire').hidden = true;
   $('breathWarn').hidden = true;
   $('typeArea').hidden = mode === 'writing';
-  $('writeArea').hidden = mode !== 'writing';
+  if (mode === 'writing') mountWriteArea('writeSlot'); else $('writeArea').hidden = true;
   $('meaningPrompt').hidden = true;
 }
 
@@ -289,7 +323,7 @@ export function castSpell(caster: Actor, target: Actor, kanji: string, damage: n
       { transform: `translate(${(from.x + to.x) / 2}px, ${Math.min(from.y, to.y) - 40}px) scale(1.1)`, opacity: 1, offset: 0.5 },
       { transform: `translate(${to.x}px, ${to.y}px) scale(1.3)`, opacity: 1 },
     ],
-    { duration: reduced ? 1 : 420, easing: 'ease-in' },
+    { duration: reduced ? 300 : 420, easing: 'ease-in' }, // always animate: it shows who hit whom
   );
   return new Promise((resolve) => {
     anim.onfinish = () => {
@@ -383,7 +417,7 @@ export function showBattle(mode: GameMode, players: PlayerView[], boss: BossView
 let answerMode: AnswerMode = 'reading';
 export const currentAnswerMode = () => answerMode;
 
-export interface ChallengeView { kanji: string; answer: AnswerMode; timeLimitMs: number; meaning?: string; charCount?: number; flashMs?: number }
+export interface ChallengeView { kanji: string; answer: AnswerMode; timeLimitMs: number; meaning?: string; reading?: string; charCount?: number; flashMs?: number }
 
 export function showChallenge(c: ChallengeView) {
   answerMode = c.answer;
@@ -397,7 +431,10 @@ export function showChallenge(c: ChallengeView) {
     // flash the kanji, then only the meaning remains
     const mp = $('meaningPrompt');
     mp.hidden = false;
-    mp.replaceChildren(h('span', '', c.meaning ?? ''), h('small', '', `write ${c.charCount} character${c.charCount === 1 ? '' : 's'}`));
+    mp.replaceChildren(h('span', 'mp-reading', c.reading ?? '', { lang: 'ja' }), h('span', '', ` — ${c.meaning ?? ''}`), h('small', '', `write the kanji: ${c.charCount} character${c.charCount === 1 ? '' : 's'}`));
+    const ime = $<HTMLInputElement>('imeInput');
+    ime.value = '';
+    ime.disabled = false;
     setTimeout(() => { if (k.textContent === c.kanji) { k.classList.add('gone'); } }, c.flashMs ?? 500);
     return;
   }
@@ -431,11 +468,20 @@ export function lockInput() {
   $<HTMLInputElement>('answer').disabled = true;
   $<HTMLButtonElement>('skip').disabled = true;
   for (const id of ['padUndo', 'padClear', 'padSkip', 'padNext']) $<HTMLButtonElement>(id).disabled = true;
+  $<HTMLInputElement>('imeInput').disabled = true;
 }
+
+/** The handwriting/IME panel is shared between the writing battle and Deck Duel. */
+export function mountWriteArea(slotId: 'writeSlot' | 'dkWrite') {
+  const area = $('writeArea');
+  if (area.parentElement?.id !== slotId) $(slotId).append(area);
+  area.hidden = false;
+}
+export const hideWriteArea = () => { $('writeArea').hidden = true; };
 
 interface Feedback {
   correct: boolean; timedOut: boolean; skipped: boolean; kanji: string; reading: string; meaning: string;
-  damage: number; combo: number; responseMs: number | null; recognized?: string;
+  damage: number; combo: number; responseMs: number | null; recognized?: string; crit?: boolean; retry?: boolean; beaten?: boolean;
 }
 export function setFeedback(f: Feedback | null) {
   const el = $('feedback');
@@ -449,9 +495,11 @@ export function setFeedback(f: Feedback | null) {
   if (f.correct) {
     $('kanji').classList.add('cast');
     const combo = f.combo >= 2 ? ` · ×${f.combo} combo` : '';
-    el.replaceChildren(h('span', 'big', `✓ CAST! ${f.damage} damage`), word('mean'), h('span', 'sub2', `${secs(f.responseMs ?? 0)}${combo}`));
+    const big = h('span', 'big' + (f.crit ? ' crit' : ''), f.crit ? `✦ CRIT! ${f.damage} damage` : `✓ CAST! ${f.damage} damage`);
+    el.replaceChildren(big, word('mean'), h('span', 'sub2', `${secs(f.responseMs ?? 0)}${combo}`));
   } else {
-    const title = f.skipped ? '↷ Skipped' : f.timedOut ? '✗ Too slow!' : '✗ MISS!';
+    if (f.retry) { el.replaceChildren(h('span', 'big', '✗ Not quite — try again!')); return; }
+    const title = f.beaten ? '⚡ Opponent was faster!' : f.skipped ? '↷ Skipped' : f.timedOut ? '✗ Too slow!' : '✗ MISS!';
     const kids = [h('span', 'big', title), word('reveal')];
     if (f.recognized && !f.skipped && !f.timedOut) kids.push(h('span', 'sub2', `The pad read: ${f.recognized}`));
     el.replaceChildren(...kids);
@@ -514,10 +562,18 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
         append(h('td'), result), h('td', '', w.avgMs !== null ? secs(w.avgMs) : '—'));
     }),
   );
+  $('xpLine').hidden = true;
   $<HTMLButtonElement>('rematch').disabled = false;
   $('rematch').textContent = 'Rematch';
   $('rematchStatus').textContent = '';
   show('results');
+}
+
+export function showXp(gained: number, level: number, levelUp: boolean) {
+  const el = $('xpLine');
+  el.hidden = false;
+  el.replaceChildren(h('span', '', `+${gained} XP`));
+  if (levelUp) el.append(h('span', 'lvup', `⬆ Level ${level}!`));
 }
 
 export function setRematchStatus(votes: PlayerId[], you: PlayerId, playerCount: number, minPlayers: number) {

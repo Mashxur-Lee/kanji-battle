@@ -1,12 +1,16 @@
 import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
-import { api, ApiError, getToken, setToken } from './api';
+import { api, ApiError, getToken, setToken, type Profile } from './api';
 import * as audio from './audio';
+import { paintBackground } from './backgrounds';
+import { deckEvent, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
 import { HandwritingPad } from './pad';
+import { onProfileChange, openCustomize, openStudy } from './study';
 import * as ui from './ui';
 
 // ── state ────────────────────────────────────────────────────────────────────
 let user: PublicUser | null = null;
+let profile: Profile | null = null;
 let you: PlayerId = '';
 let code = '';
 let mode: GameMode = 'reading';
@@ -14,7 +18,8 @@ let players: PlayerView[] = [];
 let minPlayers = 2;
 let challengeId = 0;
 let inRoom = false;
-// writing mode
+// writing (battle writing mode and Deck Duel casts)
+let writing = false;
 let charCount = 0;
 let written: DrawnChar[] = [];
 
@@ -38,13 +43,30 @@ const socket = new GameSocket(onMessage, (s) => {
 const actorOf = (id: PlayerId | 'boss') => (id === 'boss' ? 'boss' : id === you ? 'me' : mode === 'boss' ? 'ally' : 'opp') as 'me' | 'opp' | 'ally' | 'boss';
 const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Someone';
 
+// Music only in menus (not during study phase, battles or the deck duel).
+const GAME_SCREENS = new Set(['prep', 'battle', 'deck', 'results']);
+ui.onScreen((s) => audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu'));
+
+function applyProfile(p: Profile) {
+  profile = p;
+  ui.setProfile(p);
+  paintBackground(ui.$('bg'), p.background);
+}
+onProfileChange(applyProfile);
+
+async function refreshProfile() {
+  try { applyProfile((await api.me()).profile); } catch { /* offline: keep what we have */ }
+}
+
 // ── session lifecycle ────────────────────────────────────────────────────────
 async function boot() {
+  paintBackground(ui.$('bg'), 'forest');
   ui.paintScenes();
   ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn());
   if (!getToken()) return showAuth();
   try {
-    const { user: u } = await api.me();
+    const { user: u, profile: p } = await api.me();
+    applyProfile(p);
     signedIn(u);
   } catch (e) {
     if (e instanceof ApiError && (e.status === 401 || e.status === 403)) { setToken(''); showAuth(e.status === 403 ? e.message : ''); }
@@ -57,10 +79,12 @@ function signedIn(u: PublicUser) {
   ui.setUser(u);
   socket.start(getToken());
   if (!inRoom) ui.show('menu');
+  if (!profile) void refreshProfile();
 }
 
 function showAuth(message = '') {
   user = null;
+  profile = null;
   inRoom = false;
   ui.setUser(null);
   ui.setAuthTab(authTab);
@@ -79,6 +103,8 @@ function backToMenu() {
   you = '';
   code = '';
   players = [];
+  stopWriting();
+  resetDeck();
   ui.stopCountdown();
   ui.show('menu');
 }
@@ -109,10 +135,15 @@ function onMessage(msg: ServerMessage) {
     case 'left':
       backToMenu();
       break;
+    case 'notice':
+      ui.toast(msg.message);
+      break;
     case 'lobby':
       players = msg.players;
       mode = msg.mode;
       minPlayers = msg.minPlayers;
+      stopWriting();
+      resetDeck();
       ui.showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers);
       break;
     case 'prep':
@@ -130,16 +161,18 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'challenge':
       challengeId = msg.id;
-      ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, charCount: msg.charCount, flashMs: msg.flashMs });
-      if (msg.answer === 'writing') {
-        charCount = msg.charCount ?? 1;
-        written = [];
-        pad.clear();
-        ui.setCharSlots(charCount, [], true);
-      }
+      ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs });
+      if (msg.answer === 'writing') beginWriting(msg.id, msg.kanji);
       break;
     case 'answer_result':
       if (msg.challengeId !== challengeId) break;
+      if (msg.retry) { // rapid: wrong, keep going
+        ui.setFeedback(msg);
+        audio.sfx.wrong();
+        const input = ui.$<HTMLInputElement>('answer');
+        input.disabled = false; input.value = ''; input.focus();
+        break;
+      }
       ui.lockInput();
       if (mode === 'writing') ui.setCharSlots(charCount, written.map(() => ''), false);
       ui.setFeedback(msg);
@@ -150,27 +183,44 @@ function onMessage(msg: ServerMessage) {
       players = msg.players;
       onBattleEvent(msg);
       break;
+    case 'deck_state':
+      renderDeck(msg.view);
+      break;
+    case 'deck_event':
+      deckEvent(msg.event);
+      break;
     case 'game_over': {
       players = msg.players;
       ui.lockInput();
-      setTimeout(() => {
-        ui.renderFighters(players, you, msg.boss);
-        if (msg.mode === 'boss' && msg.teamWon) ui.knockOut('boss');
-        if (msg.reason !== 'forfeit') for (const p of players) if (p.hp <= 0) ui.knockOut(actorOf(p.id));
-      }, 450);
+      stopWriting();
+      if (msg.mode !== 'deck') {
+        setTimeout(() => {
+          ui.renderFighters(players, you, msg.boss);
+          if (msg.mode === 'boss' && msg.teamWon) ui.knockOut('boss');
+          if (msg.reason !== 'forfeit') for (const p of players) if (p.hp <= 0) ui.knockOut(actorOf(p.id));
+        }, 450);
+      }
       setTimeout(() => {
         const won = msg.mode === 'boss' ? msg.teamWon : msg.winnerId === you;
         if (won) audio.sfx.win();
         else if (msg.mode === 'boss' || msg.winnerId) audio.sfx.lose();
+        resetDeck();
         ui.showResults(msg.mode, msg.players, you, msg.winnerId, msg.teamWon, msg.reason, msg.stats);
-      }, msg.reason === 'forfeit' ? 300 : 2000);
+      }, msg.reason === 'forfeit' ? 400 : 2000);
       break;
     }
+    case 'progress':
+      setTimeout(() => {
+        ui.showXp(msg.gained, msg.level, msg.levelUp);
+        if (msg.levelUp) ui.toast(`⬆ Level ${msg.level}! Check Customize for new backgrounds.`, 5000);
+      }, 2100);
+      void refreshProfile();
+      break;
     case 'rematch_status':
       ui.setRematchStatus(msg.votes, you, players.length, minPlayers);
       break;
     case 'error':
-      if (inRoom) ui.$('lobbyStatus').textContent = msg.message;
+      if (inRoom) { ui.$('lobbyStatus').textContent = msg.message; ui.toast(msg.message); }
       else { ui.setError(msg.message); ui.show('menu'); }
       break;
   }
@@ -189,7 +239,7 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
         if (target === 'me') audio.sfx.hurt();
         else if (caster === 'me') audio.sfx.impact();
       });
-      if (e.playerId !== you) ui.logLine(`${nameOf(e.playerId)} cast for ${e.damage}${e.combo >= 2 ? ` (×${e.combo})` : ''}:`, e.kanji);
+      if (e.playerId !== you) ui.logLine(`${nameOf(e.playerId)} cast for ${e.damage}${e.crit ? ' (CRIT!)' : ''}${e.combo >= 2 ? ` (×${e.combo})` : ''}:`, e.kanji);
       break;
     }
     case 'miss':
@@ -218,6 +268,62 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
   }
 }
 
+// ── writing (handwriting pad + Japanese keyboard) ────────────────────────────
+const pad = new HandwritingPad(ui.$<HTMLCanvasElement>('pad'));
+
+function beginWriting(id: number, kanji: string) {
+  challengeId = id;
+  writing = true;
+  charCount = [...kanji].length;
+  written = [];
+  pad.clear();
+  if (mode === 'deck') ui.mountWriteArea('dkWrite');
+  ui.setCharSlots(charCount, [], true);
+  const ime = ui.$<HTMLInputElement>('imeInput');
+  ime.value = '';
+  ime.disabled = false;
+}
+
+function stopWriting() {
+  writing = false;
+  ui.lockInput();
+  if (mode === 'deck') ui.hideWriteArea();
+}
+
+function submitDrawing() {
+  socket.send({ type: 'write', challengeId, chars: written });
+  ui.lockInput();
+  writing = false;
+}
+
+ui.$('padUndo').onclick = () => pad.undo();
+ui.$('padClear').onclick = () => pad.clear();
+ui.$('padSkip').onclick = () => skip();
+ui.$('padNext').onclick = () => {
+  if (pad.strokeCount === 0) return;
+  written.push(pad.take());
+  pad.clear();
+  if (written.length >= charCount) submitDrawing();
+  else ui.setCharSlots(charCount, written.map(() => ''), true);
+};
+// typed kanji with a Japanese IME (the first Enter confirms the conversion, the next one sends)
+ui.$<HTMLInputElement>('imeInput').addEventListener('keydown', (e) => {
+  const input = e.currentTarget as HTMLInputElement;
+  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || input.disabled) return;
+  e.stopPropagation();
+  const text = input.value.trim();
+  if (!text) return;
+  socket.send({ type: 'answer', challengeId, text });
+  ui.lockInput();
+  writing = false;
+});
+addEventListener('keydown', (e) => {
+  if (!writing || e.target === ui.$('imeInput') || ui.$<HTMLButtonElement>('padNext').disabled) return;
+  if (e.key === 'Enter') ui.$('padNext').click();
+  else if (e.key === 'Escape') skip();
+  else if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); pad.undo(); }
+});
+
 // ── auth screen ──────────────────────────────────────────────────────────────
 let authTab: 'login' | 'register' = 'login';
 ui.$('tabLogin').onclick = () => { authTab = 'login'; ui.setAuthTab('login'); };
@@ -234,6 +340,7 @@ ui.$('authForm').addEventListener('submit', async (e) => {
     setToken(res.token);
     ui.$<HTMLInputElement>('authPass').value = '';
     signedIn(res.user);
+    void refreshProfile();
   } catch (err) {
     ui.$('authError').textContent = err instanceof Error ? err.message : 'Something went wrong';
   } finally {
@@ -256,6 +363,10 @@ const join = () => {
 ui.$('join').onclick = join;
 ui.$<HTMLInputElement>('joinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
 ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
+ui.$('studyBtn').onclick = () => void openStudy();
+ui.$('studyBack').onclick = () => ui.show('menu');
+ui.$('customizeBtn').onclick = async () => { await refreshProfile(); if (profile) openCustomize(profile); };
+ui.$('customizeBack').onclick = () => ui.show('menu');
 
 // ── admin ────────────────────────────────────────────────────────────────────
 async function openAdmin() {
@@ -288,11 +399,13 @@ ui.$('copyCode').onclick = async () => {
 
 // ── prep / battle ────────────────────────────────────────────────────────────
 ui.$('ready').onclick = () => socket.send({ type: 'ready' });
+ui.$('prepBack').onclick = () => socket.send({ type: 'back_to_lobby' });
 
-const skip = () => {
+function skip() {
   socket.send({ type: 'skip', challengeId });
   ui.lockInput();
-};
+  writing = false;
+}
 ui.$('skip').onclick = () => { if (!ui.$<HTMLInputElement>('answer').disabled) skip(); };
 
 ui.$<HTMLInputElement>('answer').addEventListener('keydown', (e) => {
@@ -308,40 +421,28 @@ ui.$<HTMLInputElement>('answer').addEventListener('keydown', (e) => {
     return; // don't burn the attempt on a format slip
   }
   socket.send({ type: 'answer', challengeId, text: input.value });
-  ui.lockInput(); // one attempt per challenge
+  ui.lockInput(); // one attempt per challenge (rapid re-enables it on a wrong guess)
 });
 
-// handwriting
-const pad = new HandwritingPad(ui.$<HTMLCanvasElement>('pad'));
-ui.$('padUndo').onclick = () => pad.undo();
-ui.$('padClear').onclick = () => pad.clear();
-ui.$('padSkip').onclick = () => skip();
-ui.$('padNext').onclick = () => {
-  if (pad.strokeCount === 0) return;
-  written.push(pad.take());
-  pad.clear();
-  if (written.length >= charCount) {
-    socket.send({ type: 'write', challengeId, chars: written });
-    ui.lockInput();
-  } else {
-    ui.setCharSlots(charCount, written.map(() => ''), true);
-  }
-};
-addEventListener('keydown', (e) => {
-  if (mode !== 'writing' || ui.$('battle').hidden || ui.$<HTMLButtonElement>('padNext').disabled) return;
-  if (e.key === 'Enter') ui.$('padNext').click();
-  else if (e.key === 'Escape') skip();
-  else if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); pad.undo(); }
-});
+// Forfeit (two taps; no blocking confirm() dialogs) → everyone goes to the results screen
+function armForfeit(btnId: string) {
+  let armed = 0;
+  ui.$(btnId).onclick = () => {
+    if (Date.now() - armed < 3000) { socket.send({ type: 'forfeit' }); return; }
+    armed = Date.now();
+    ui.$(btnId).textContent = 'Tap again to forfeit';
+    setTimeout(() => (ui.$(btnId).textContent = '🏳 Forfeit'), 3000);
+  };
+}
+armForfeit('forfeit');
+armForfeit('dkForfeit');
 
-// Forfeit needs a second tap (no blocking confirm() dialogs)
-let forfeitArmed = 0;
-ui.$('forfeit').onclick = () => {
-  if (Date.now() - forfeitArmed < 3000) { socket.send({ type: 'leave' }); return; }
-  forfeitArmed = Date.now();
-  ui.$('forfeit').textContent = 'Tap again to forfeit';
-  setTimeout(() => (ui.$('forfeit').textContent = '🏳 Forfeit'), 3000);
-};
+// ── deck duel ────────────────────────────────────────────────────────────────
+initDeck({
+  send: (m) => socket.send(m),
+  beginWriting: (castId, kanji) => { mode = 'deck'; beginWriting(castId, kanji); },
+  stopWriting: () => stopWriting(),
+});
 
 // ── results ──────────────────────────────────────────────────────────────────
 ui.$('rematch').onclick = () => socket.send({ type: 'rematch' });

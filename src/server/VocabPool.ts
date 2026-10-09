@@ -1,5 +1,5 @@
 import type { Level, VocabEntry } from '../shared/protocol';
-import { VOCAB } from '../shared/vocab';
+import { VOCAB } from './vocab';
 
 export type Rng = () => number;
 

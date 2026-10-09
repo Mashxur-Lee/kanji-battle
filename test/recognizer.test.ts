@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Recognizer } from '../src/server/handwriting/recognizer';
-import { createWritingJudge, isWritable, sanitizeDrawing } from '../src/server/handwriting/judge';
-import { VOCAB } from '../src/shared/vocab';
+import { createWritingJudge, isWritable, judgeChar, sanitizeDrawing } from '../src/server/handwriting/judge';
+import { VOCAB } from '../src/server/vocab';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -43,4 +43,16 @@ test('stroke data from the client is validated', () => {
   assert.equal(sanitizeDrawing([[[[1, 'a']]]], 4), null);
   assert.equal(sanitizeDrawing([[[[1, Infinity]]]], 4), null);
   assert.equal(sanitizeDrawing(Array(9).fill([[[1, 2]]]), 8), null);
+});
+
+test('handwriting is forgiving: tilted, stretched, strokes run together still counts; a different kanji does not', () => {
+  const sloppy = (ch: string) => {
+    const s = drawn(ch).map((st) => st.map(([x, y]): [number, number] => [x * 1.15 + y * 0.12 + 7, y * 0.9 - x * 0.05 + 3]));
+    // a mouse user drags two strokes into one
+    return [s[0].concat(s[1]), ...s.slice(2)];
+  };
+  assert.equal(judgeChar(rec, sloppy('念'), '念').ok, true);
+  assert.equal(judgeChar(rec, sloppy('語'), '語').ok, true);
+  assert.equal(judgeChar(rec, sloppy('山'), '念').ok, false);
+  assert.equal(judgeChar(rec, drawn('海'), '念').ok, false);
 });
