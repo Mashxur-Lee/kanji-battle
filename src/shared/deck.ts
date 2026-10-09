@@ -73,6 +73,7 @@ export interface DeckPlayerView {
   handSize: number;
   wizardCardsUsed: boolean;
   wizardManaUsed: boolean;
+  pic: string | null;
 }
 
 export interface DeckCastView {

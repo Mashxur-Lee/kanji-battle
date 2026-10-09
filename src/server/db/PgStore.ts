@@ -2,7 +2,7 @@ import postgres from 'postgres';
 import type { Level, Role } from '../../shared/protocol';
 import type { BackgroundId } from '../../shared/progress';
 import type { CardState, SrsCard } from '../../shared/srs';
-import { UsernameTakenError, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+import { UsernameTakenError, type AvatarImage, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
 /**
  * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
@@ -11,7 +11,7 @@ import { UsernameTakenError, type NewUser, type Store, type UserPatch, type User
 interface UserRow {
   id: string; username: string; password_hash: string; role: Role; banned: boolean; created_at: Date;
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
-  crit_count: number; crit_expires: string | number;
+  crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
@@ -23,6 +23,7 @@ const toUser = (r: UserRow): UserRecord => ({
   createdAt: new Date(r.created_at).toISOString(), xp: r.xp, background: r.background,
   studyLevels: r.study_levels ?? [], lastNewDate: r.last_new_date, newNotice: r.new_notice,
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
+  wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0,
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
@@ -95,6 +96,16 @@ export class PgStore implements Store {
     await this.sql`alter table kw_users add column if not exists crit_count integer not null default 0`;
     await this.sql`alter table kw_users add column if not exists crit_expires bigint not null default 0`;
     await this.sql`alter table kw_cards add column if not exists crit_day text`;
+    // v0.7.5 wins/losses and profile pictures (pictures in their own table so user lookups stay small)
+    await this.sql`alter table kw_users add column if not exists wins integer not null default 0`;
+    await this.sql`alter table kw_users add column if not exists losses integer not null default 0`;
+    await this.sql`alter table kw_users add column if not exists avatar_v integer not null default 0`;
+    await this.sql`
+      create table if not exists kw_avatars (
+        user_id uuid primary key references kw_users(id) on delete cascade,
+        mime text not null,
+        data bytea not null
+      )`;
     // one atomic statement (same maths as legacyXpToCurrent): level L = xp div 1000 keeps its progress
     const converted = await this.sql`
       update kw_users
@@ -179,6 +190,26 @@ export class PgStore implements Store {
     const rows = await this.sql<{ user_id: string; cards: string; learned: string }[]>`
       select user_id, count(*) as cards, count(*) filter (where state = 'review') as learned from kw_cards group by user_id`;
     return Object.fromEntries(rows.map((r) => [r.user_id, { cards: Number(r.cards), learned: Number(r.learned) }]));
+  }
+  async addResult(id: string, outcome: 'win' | 'loss' | 'draw') {
+    if (outcome === 'win') await this.sql`update kw_users set wins = wins + 1 where id = ${id}`;
+    else if (outcome === 'loss') await this.sql`update kw_users set losses = losses + 1 where id = ${id}`;
+  }
+  async setAvatar(id: string, img: AvatarImage | null) {
+    if (!img) {
+      await this.sql`delete from kw_avatars where user_id = ${id}`;
+      await this.sql`update kw_users set avatar_v = 0 where id = ${id}`;
+      return 0;
+    }
+    await this.sql`insert into kw_avatars (user_id, mime, data) values (${id}, ${img.mime}, ${img.data})
+      on conflict (user_id) do update set mime = excluded.mime, data = excluded.data`;
+    const [r] = await this.sql<{ avatar_v: number }[]>`update kw_users set avatar_v = avatar_v + 1 where id = ${id} returning avatar_v`;
+    return r?.avatar_v ?? 0;
+  }
+  async getAvatar(id: string) {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+    const [r] = await this.sql<{ mime: AvatarImage['mime']; data: Buffer }[]>`select mime, data from kw_avatars where user_id = ${id}`;
+    return r ? { mime: r.mime, data: Buffer.from(r.data) } : null;
   }
   async close() { await this.sql.end({ timeout: 5 }); }
 }

@@ -1,10 +1,11 @@
+import * as voice from './voice';
 import { initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Profile } from './api';
 import * as audio from './audio';
-import { paintBackground } from './backgrounds';
+import { getTimePref, paintBackground, resolveTime } from './backgrounds';
 import { chatMessages, clearChat, deckEvent, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
 import { HandwritingPad } from './pad';
@@ -51,10 +52,18 @@ const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Some
 const GAME_SCREENS = new Set(['prep', 'battle', 'deck']);
 ui.onScreen((s) => audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu'));
 
+/** Paint the chosen background at the chosen (or current) time of day, with its ambient sounds. */
+function applyBackground() {
+  const bg = profile?.background ?? 'forest';
+  paintBackground(ui.$('bg'), bg, resolveTime(getTimePref()));
+  audio.setAmbience(bg, resolveTime(getTimePref()));
+}
+setInterval(applyBackground, 5 * 60_000); // "Auto" follows the clock
+
 function applyProfile(p: Profile) {
   profile = p;
   ui.setProfile(p);
-  paintBackground(ui.$('bg'), p.background);
+  applyBackground();
 }
 onProfileChange(applyProfile);
 
@@ -64,7 +73,7 @@ async function refreshProfile() {
 
 // ── session lifecycle ────────────────────────────────────────────────────────
 async function boot() {
-  paintBackground(ui.$('bg'), 'forest');
+  applyBackground();
   ui.paintScenes();
   ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn());
   if (!getToken()) return showAuth();
@@ -194,8 +203,12 @@ function onMessage(msg: ServerMessage) {
       ui.lockInput();
       if (mode === 'writing') ui.setCharSlots(charCount, written.map(() => ''), false);
       ui.setFeedback(msg);
-      if (msg.correct) audio.sfx.correct(msg.combo);
-      else audio.sfx.wrong();
+      if (msg.correct) {
+        audio.sfx.correct(msg.combo);
+        // say the word (romaji answers at the kana level: say the kana itself)
+        const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
+        setTimeout(() => voice.say(kana), 250);
+      } else audio.sfx.wrong();
       break;
     case 'battle_update':
       players = msg.players;
@@ -386,7 +399,7 @@ ui.$<HTMLInputElement>('joinCode').addEventListener('keydown', (e) => { if (e.ke
 ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
 ui.$('studyBtn').onclick = () => void openStudy();
 ui.$('studyBack').onclick = () => ui.show('menu');
-ui.$('customizeBtn').onclick = async () => { await refreshProfile(); if (profile) openCustomize(profile); };
+ui.$('customizeBtn').onclick = async () => { await refreshProfile(); if (profile) openCustomize(profile, user?.role === 'admin', applyBackground); };
 ui.$('customizeBack').onclick = () => ui.show('menu');
 
 // ── admin ────────────────────────────────────────────────────────────────────
@@ -482,11 +495,49 @@ ui.$('leave').onclick = () => socket.send({ type: 'leave' });
 // ── audio ────────────────────────────────────────────────────────────────────
 ui.$('radioBtn').onclick = () => { audio.setRadio(!audio.isRadioOn()); ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn()); };
 ui.$('sfxBtn').onclick = () => { audio.setSfx(!audio.isSfxOn()); ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn()); };
+// profile chip → stats popover, profile picture
+{
+  const pop = ui.$('profilePop');
+  ui.$('whoBtn').onclick = (e) => { e.stopPropagation(); pop.hidden = !pop.hidden; ui.$('whoBtn').setAttribute('aria-expanded', String(!pop.hidden)); if (!pop.hidden) void refreshProfile(); };
+  addEventListener('click', (e) => { if (!pop.hidden && !pop.contains(e.target as Node) && !ui.$('whoBtn').contains(e.target as Node)) pop.hidden = true; });
+  ui.$<HTMLInputElement>('picInput').onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    (e.target as HTMLInputElement).value = '';
+    if (!file) return;
+    try {
+      const { profile } = await api.setAvatar(await squarePicture(file));
+      ui.setProfile(profile);
+      ui.toast('Profile picture updated');
+    } catch (err) { ui.toast((err as Error).message || 'Could not use that picture'); }
+  };
+  ui.$('picRemove').onclick = async () => { try { ui.setProfile((await api.removeAvatar()).profile); } catch (err) { ui.toast((err as Error).message); } };
+}
+
+/** Crop to a centred square and shrink to 128×128 (WebP, or JPEG where WebP can't be encoded). */
+async function squarePicture(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('Please pick an image');
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise<void>((ok, fail) => { img.onload = () => ok(); img.onerror = () => fail(new Error('Could not read that image')); img.src = url; });
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    c.getContext('2d')!.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 128, 128);
+    const webp = c.toDataURL('image/webp', 0.85);
+    return webp.startsWith('data:image/webp') ? webp : c.toDataURL('image/jpeg', 0.85);
+  } finally { URL.revokeObjectURL(url); }
+}
+
 // volume sliders (saved in this browser)
 {
   const panel = ui.$('volPanel');
-  const music = ui.$<HTMLInputElement>('musicVol'), fx = ui.$<HTMLInputElement>('sfxVol');
+  const music = ui.$<HTMLInputElement>('musicVol'), fx = ui.$<HTMLInputElement>('sfxVol'), vo = ui.$<HTMLInputElement>('voiceVol');
   const show = () => {
+    const vp = voice.getVoicePrefs();
+    vo.value = String(Math.round(vp.vol * 100));
+    ui.$('voiceVolVal').textContent = `${vo.value}%`;
+    ui.$('voiceInfo').textContent = !voice.voiceAvailable() ? 'This browser has no speech voice.' : vp.name ? `Voice: ${vp.name}${vp.male ? '' : ' (pitched down)'}` : 'No Japanese voice found on this device.';
     const v = audio.getVolumes();
     music.value = String(Math.round(v.music * 100)); fx.value = String(Math.round(v.sfx * 100));
     ui.$('musicVolVal').textContent = `${music.value}%`; ui.$('sfxVolVal').textContent = `${fx.value}%`;
@@ -496,6 +547,8 @@ ui.$('sfxBtn').onclick = () => { audio.setSfx(!audio.isSfxOn()); ui.setAudioButt
   music.oninput = () => { audio.setMusicVolume(Number(music.value) / 100); show(); };
   fx.oninput = () => { audio.setSfxVolume(Number(fx.value) / 100); show(); };
   fx.onchange = () => audio.previewSfx();
+  vo.oninput = () => { voice.setVoiceVolume(Number(vo.value) / 100); show(); };
+  vo.onchange = () => voice.say('かんじ');
   addEventListener('click', (e) => { if (!panel.hidden && !panel.contains(e.target as Node)) panel.hidden = true; });
 }
 // Browsers only allow sound after a user gesture.

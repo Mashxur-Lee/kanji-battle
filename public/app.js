@@ -4,6 +4,57 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
+  // src/client/voice.ts
+  var KEY = "kb:voice";
+  var prefs = (() => {
+    try {
+      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
+    } catch {
+      return { on: true, vol: 0.9 };
+    }
+  })();
+  var save = () => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(prefs));
+    } catch {
+    }
+  };
+  var MALE = /ichiro|keita|otoya|hattori|daichi|naoki|takumi|male|男/i;
+  var synth = typeof speechSynthesis !== "undefined" ? speechSynthesis : null;
+  var voice = null;
+  var male = false;
+  function pick() {
+    if (!synth) return;
+    const ja = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith("ja"));
+    const m = ja.find((v) => MALE.test(v.name));
+    voice = m ?? ja.find((v) => v.localService) ?? ja[0] ?? null;
+    male = !!m;
+  }
+  if (synth) {
+    pick();
+    synth.addEventListener?.("voiceschanged", pick);
+  }
+  var voiceAvailable = () => !!synth;
+  var getVoicePrefs = () => ({ ...prefs, name: voice?.name ?? null, male });
+  function setVoiceVolume(v) {
+    prefs.vol = Math.max(0, Math.min(1, v));
+    prefs.on = prefs.vol > 0;
+    save();
+  }
+  function say(kana) {
+    if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== "visible") return;
+    if (!voice) pick();
+    if (!voice && !synth.getVoices().length) return;
+    const u = new SpeechSynthesisUtterance(kana);
+    u.lang = "ja-JP";
+    if (voice) u.voice = voice;
+    u.rate = 0.95;
+    u.pitch = male ? 1 : 0.6;
+    u.volume = prefs.vol;
+    synth.cancel();
+    synth.speak(u);
+  }
+
   // src/shared/protocol.ts
   var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
   var LEVEL_LABEL = { KANA: "\u304B\u306A", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
@@ -220,6 +271,12 @@
   function dragonSvg() {
     return pixelSvg(DRAGON_MAP, DRAGON_PALETTE, { E: "eye" });
   }
+  function spriteRects(kind) {
+    const map = kind === "goblin" ? GOBLIN_MAP : DRAGON_MAP;
+    const pal = kind === "goblin" ? GOBLIN_PAL : DRAGON_PALETTE;
+    const svg = pixelSvg(map, pal, kind === "dragon" ? { E: "eye" } : {});
+    return { rects: svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, ""), w: map[0].length, h: map.length };
+  }
 
   // src/shared/progress.ts
   var XP_PER_LEVEL = 1e3;
@@ -321,11 +378,29 @@
     for (const [id, rtt] of Object.entries(map)) rtts.set(id, rtt);
     document.querySelectorAll(".net[data-net]").forEach(paintNet);
   }
+  function picEl(url, cls = "pic") {
+    if (!url) return "";
+    const img = h("img", cls, void 0, { src: url, alt: "", loading: "lazy", decoding: "async" });
+    img.onerror = () => img.remove();
+    return img;
+  }
   function setProfile(p) {
     if (!p) return;
     const lx = levelXp(p.xp);
-    $("whoLevel").textContent = `Lv ${lx.level} \xB7 ${lx.into.toLocaleString()}/${lx.need.toLocaleString()} XP`;
-    $("whoCrit").textContent = `\u2726 ${critText(p.crit)} crit`;
+    $("whoLevel").textContent = `Lv ${lx.level} \xB7 ${lx.into.toLocaleString()} / ${lx.need.toLocaleString()} XP`;
+    $("whoCrit").textContent = critText(p.crit);
+    $("ppWins").textContent = String(p.wins ?? 0);
+    $("ppLosses").textContent = String(p.losses ?? 0);
+    const games = (p.wins ?? 0) + (p.losses ?? 0);
+    $("ppRate").textContent = games ? `${Math.round((p.wins ?? 0) / games * 100)}%` : "\u2014";
+    $("ppLearned").textContent = String(p.learned);
+    $("ppToday").textContent = String(p.learnedToday ?? 0);
+    for (const id of ["whoPic", "ppPic"]) {
+      const el = $(id);
+      el.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
+      el.classList.toggle("has-pic", !!p.pic);
+    }
+    $("picRemove").hidden = !p.pic;
     $("whoCrit").title = "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.";
     $("whoXp").style.width = `${levelProgress(p.xp) * 100}%`;
     $("whoXp").parentElement.title = `${lx.into} / ${lx.need} XP to level ${lx.level + 1}`;
@@ -341,6 +416,7 @@
   function setUser(user2) {
     $("whoami").hidden = !user2;
     $("whoName").textContent = user2?.username ?? "";
+    $("ppName").textContent = user2?.username ?? "";
     $("whoRole").hidden = user2?.role !== "admin";
     $("adminBtn").hidden = user2?.role !== "admin";
   }
@@ -484,7 +560,7 @@
         const li = h("li");
         const av = h("span", "who-av");
         av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp");
-        li.append(av, h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name));
+        li.append(av, picEl(p.pic), h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name));
         if (p.bot) li.append(h("span", "tag ai", `\u{1F916} AI \xB7 knows ${p.bot}`));
         else li.append(netBars(p.id), h("span", "lv", `Lv ${p.level}`));
         if (p.bot && you2 === hostId) {
@@ -573,6 +649,7 @@
       const row = h("div", "party-row" + (p.id === you2 ? " me" : "") + (p.hp <= 0 ? " down" : ""));
       const name = append(
         h("div", "pname"),
+        picEl(p.pic),
         h("span", "n", p.id === you2 ? `${p.name} (you)` : p.name),
         netBars(p.id),
         h("span", "lv", `Lv ${p.level}`),
@@ -595,7 +672,7 @@
       el.replaceChildren(h("div", "name", emptyText));
       return;
     }
-    const name = append(h("div", "name"), append(h("span", "n", label), netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo${p.combo >= 5 ? " \u{1F525}" : ""}` : ""));
+    const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), h("span", "n", label), netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo${p.combo >= 5 ? " \u{1F525}" : ""}` : ""));
     el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
@@ -658,11 +735,11 @@
     const arena = $("arena");
     const a = arena.getBoundingClientRect();
     const t = target.getBoundingClientRect();
-    const f = h("div", "float " + cls, text);
-    f.style.left = `${t.left - a.left + t.width / 2 - 20}px`;
-    f.style.top = `${t.top - a.top}px`;
-    arena.append(f);
-    setTimeout(() => f.remove(), 1e3);
+    const f2 = h("div", "float " + cls, text);
+    f2.style.left = `${t.left - a.left + t.width / 2 - 20}px`;
+    f2.style.top = `${t.top - a.top}px`;
+    arena.append(f2);
+    setTimeout(() => f2.remove(), 1e3);
   }
   function castSpell(caster, target, kanji, damage, friendly) {
     const c = actorEl(caster), t = actorEl(target);
@@ -677,19 +754,37 @@
     const from = { x: fromRight ? cr.left - a.left - 10 : cr.right - a.left - 30, y: cr.top - a.top + cr.height * 0.15 };
     const to = { x: tr.left - a.left + tr.width / 2 - 20, y: tr.top - a.top + tr.height * 0.4 };
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const dur = reduced ? 400 : 850;
+    const mid = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 70 };
     const anim = spell.animate(
       [
-        { transform: `translate(${from.x}px, ${from.y}px) scale(.6)`, opacity: 0.2 },
-        { transform: `translate(${(from.x + to.x) / 2}px, ${Math.min(from.y, to.y) - 40}px) scale(1.1)`, opacity: 1, offset: 0.5 },
-        { transform: `translate(${to.x}px, ${to.y}px) scale(1.3)`, opacity: 1 }
+        { transform: `translate(${from.x}px, ${from.y}px) scale(.5)`, opacity: 0.2 },
+        { transform: `translate(${from.x + (mid.x - from.x) * 0.3}px, ${from.y + (mid.y - from.y) * 0.6}px) scale(1.35)`, opacity: 1, offset: 0.18 },
+        { transform: `translate(${mid.x}px, ${mid.y}px) scale(1.6)`, opacity: 1, offset: 0.55 },
+        { transform: `translate(${to.x}px, ${to.y}px) scale(2)`, opacity: 1 }
       ],
-      { duration: reduced ? 300 : 420, easing: "ease-in" }
-      // always animate: it shows who hit whom
+      { duration: dur, easing: "cubic-bezier(.45,.05,.75,.4)" }
+      // gentle start, quickening into the hit
     );
+    const trail = reduced ? 0 : window.setInterval(() => {
+      const r2 = spell.getBoundingClientRect();
+      const dot = h("div", "spell-trail" + (friendly ? "" : " foe"));
+      dot.style.left = `${r2.left - a.left + r2.width / 2}px`;
+      dot.style.top = `${r2.top - a.top + r2.height / 2}px`;
+      arena.append(dot);
+      setTimeout(() => dot.remove(), 500);
+    }, 40);
     return new Promise((resolve) => {
       anim.onfinish = () => {
+        clearInterval(trail);
         spell.remove();
-        retrigger(t, "hurt", 520);
+        const burst = h("div", "spell-burst" + (friendly ? "" : " foe"));
+        burst.style.left = `${to.x + 20}px`;
+        burst.style.top = `${to.y + 20}px`;
+        arena.append(burst);
+        setTimeout(() => burst.remove(), 600);
+        retrigger(t, "hurt", 700);
+        if (!reduced) retrigger(arena, "shake", 350);
         floatText(t, `\u2212${damage}`, friendly ? "" : "taken");
         resolve();
       };
@@ -829,30 +924,30 @@
   var hideWriteArea = () => {
     $("writeArea").hidden = true;
   };
-  function setFeedback(f) {
+  function setFeedback(f2) {
     const el = $("feedback");
-    if (!f) {
+    if (!f2) {
       el.replaceChildren();
       el.className = "feedback";
       return;
     }
-    el.className = "feedback " + (f.correct ? "good" : "bad");
+    el.className = "feedback " + (f2.correct ? "good" : "bad");
     $("kanji").classList.remove("gone");
     $("meaningPrompt").hidden = true;
-    const word = (cls) => append(h("span", cls), h("span", "rk", f.kanji, { lang: "ja" }), h("span", "rr", f.reading, { lang: "ja" }), h("span", "", f.meaning));
-    if (f.correct) {
+    const word = (cls) => append(h("span", cls), h("span", "rk", f2.kanji, { lang: "ja" }), h("span", "rr", f2.reading, { lang: "ja" }), h("span", "", f2.meaning));
+    if (f2.correct) {
       $("kanji").classList.add("cast");
-      const combo = f.combo >= 2 ? ` \xB7 \xD7${f.combo} combo` : "";
-      const big = h("span", "big" + (f.crit ? " crit" : ""), f.crit ? `\u2726 CRIT! ${f.damage} damage` : `\u2713 CAST! ${f.damage} damage`);
-      el.replaceChildren(big, word("mean"), h("span", "sub2", `${secs(f.responseMs ?? 0)}${combo}`));
+      const combo = f2.combo >= 2 ? ` \xB7 \xD7${f2.combo} combo` : "";
+      const big = h("span", "big" + (f2.crit ? " crit" : ""), f2.crit ? `\u2726 CRIT! ${f2.damage} damage` : `\u2713 CAST! ${f2.damage} damage`);
+      el.replaceChildren(big, word("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
     } else {
-      if (f.retry) {
+      if (f2.retry) {
         el.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
         return;
       }
-      const title = f.beaten ? "\u26A1 Opponent was faster!" : f.skipped ? "\u21B7 Skipped" : f.timedOut ? "\u2717 Too slow!" : "\u2717 MISS!";
+      const title = f2.beaten ? "\u26A1 Opponent was faster!" : f2.skipped ? "\u21B7 Skipped" : f2.timedOut ? "\u2717 Too slow!" : "\u2717 MISS!";
       const kids = [h("span", "big", title), word("reveal")];
-      if (f.recognized && !f.skipped && !f.timedOut) kids.push(h("span", "sub2", `The pad read: ${f.recognized}`));
+      if (f2.recognized && !f2.skipped && !f2.timedOut) kids.push(h("span", "sub2", `The pad read: ${f2.recognized}`));
       el.replaceChildren(...kids);
     }
   }
@@ -946,17 +1041,17 @@
 
   // src/client/queue.ts
   var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
-  var KEY = "kb:queue";
+  var KEY2 = "kb:queue";
   var load = () => {
     try {
-      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
+      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY2) ?? "{}") };
     } catch {
       return { modes: ["reading", "rapid"], levels: ["N5"] };
     }
   };
-  var save = (s) => {
+  var save2 = (s) => {
     try {
-      localStorage.setItem(KEY, JSON.stringify(s));
+      localStorage.setItem(KEY2, JSON.stringify(s));
     } catch {
     }
   };
@@ -980,8 +1075,19 @@
     return l;
   }
   var picked = (id) => [...document.querySelectorAll(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
+  var pick2 = "battle";
   function remember() {
-    save({ modes: picked("qModes"), levels: picked("qLevels") });
+    save2({ modes: picked("qModes"), levels: picked("qLevels"), pick: pick2 });
+  }
+  function choose(p) {
+    pick2 = p;
+    document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
+      const on = c.dataset.q === p;
+      c.classList.toggle("chosen", on);
+      c.setAttribute("aria-checked", String(on));
+    });
+    $("qStart").textContent = p === "deck" ? "\u2694 Start queue \u2014 Deck Duel" : "\u2694 Start queue";
+    remember();
   }
   function initQueue(sender) {
     send = sender;
@@ -990,19 +1096,29 @@
       stopSearching();
       show("menu");
     };
-    $("qFind").onclick = () => {
+    document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
+      c.addEventListener("click", () => choose(c.dataset.q));
+      c.addEventListener("keydown", (e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          choose(c.dataset.q);
+        }
+      });
+    });
+    $("qStart").onclick = () => {
+      if (pick2 === "deck") return send({ type: "queue", modes: ["deck"] });
       const modes = picked("qModes"), levels = picked("qLevels");
       if (!modes.length) return toast("Tick at least one mode");
       if (!levels.length) return toast("Tick at least one level");
       send({ type: "queue", modes, levels });
     };
-    $("qDeck").onclick = () => send({ type: "queue", modes: ["deck"] });
     $("qCancel").onclick = () => send({ type: "queue_cancel" });
   }
   function openQueue() {
     const s = load();
     $("qModes").replaceChildren(...QUEUE_MODES.map((m) => chip(m, MODE_LABEL[m], s.modes.includes(m), "qm")));
     $("qLevels").replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), "ql")));
+    choose(s.pick ?? "battle");
     if (!searching) {
       $("queuePick").hidden = false;
       $("qSearching").hidden = true;
@@ -1096,8 +1212,8 @@
       }
     }
     const hx = (y) => 31 - y;
-    for (let f = 0; f < 4; f++) {
-      const y0 = 11 + 2 * f;
+    for (let f2 = 0; f2 < 4; f2++) {
+      const y0 = 11 + 2 * f2;
       for (const y of [y0, y0 + 1]) {
         const x0 = hx(y) - 2, x1 = hx(y) + 6;
         for (let x = x0; x <= x1; x++) {
@@ -1132,7 +1248,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.7";
+  var VERSION = "0.7.5";
 
   // src/client/api.ts
   var today = () => {
@@ -1173,6 +1289,8 @@
     login: (username, password) => call("POST", "/api/login", { username, password }),
     register: (username, password) => call("POST", "/api/register", { username, password }),
     me: () => call("GET", "/api/me"),
+    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
+    removeAvatar: () => call("DELETE", "/api/me/avatar"),
     setBackground: (background) => call("PUT", "/api/me/background", { background }),
     study: () => call("GET", `/api/study?today=${today()}`),
     setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
@@ -1185,7 +1303,7 @@
   // src/client/audio.ts
   var PREFS_KEY = "kb:audio";
   var DEFAULTS = { radio: true, sfx: true, musicVol: 0.7, sfxVol: 0.8 };
-  var prefs = (() => {
+  var prefs2 = (() => {
     try {
       return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
     } catch {
@@ -1193,11 +1311,11 @@
     }
   })();
   var clamp01 = (v) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
-  var sfxGain = () => 0.7 * prefs.sfxVol * prefs.sfxVol * 1.4;
-  var musicGain = () => 0.9 * prefs.musicVol * prefs.musicVol * 1.3;
+  var sfxGain = () => 0.7 * prefs2.sfxVol * prefs2.sfxVol * 1.4;
+  var musicGain = () => 0.9 * prefs2.musicVol * prefs2.musicVol * 1.3;
   var savePrefs = () => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs2));
     } catch {
     }
   };
@@ -1206,6 +1324,7 @@
   var musicBus;
   var menuBus;
   var battleBus;
+  var ambBus;
   var reverb;
   var scene = "menu";
   function ensure() {
@@ -1227,6 +1346,9 @@
     battleBus = ctx.createGain();
     battleBus.gain.value = 0;
     battleBus.connect(musicBus);
+    ambBus = ctx.createGain();
+    ambBus.gain.value = 0.9;
+    ambBus.connect(musicBus);
     reverb = ctx.createConvolver();
     const len = ctx.sampleRate * 2.6;
     const ir = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -1257,9 +1379,10 @@
   }
   function syncMusic() {
     if (!ctx) return;
-    const on = prefs.radio && prefs.musicVol > 0 && document.visibilityState === "visible";
+    const on = prefs2.radio && prefs2.musicVol > 0 && document.visibilityState === "visible";
     const want = on ? scene === "menu" ? menuTheme : battleTheme : null;
     for (const t of [menuTheme, battleTheme]) t === want ? t.fadeIn() : t.fadeOut();
+    syncAmbience();
   }
   var midi = (n) => 440 * 2 ** ((n - 69) / 12);
   function tone(freq, at, dur, opts = {}) {
@@ -1295,15 +1418,15 @@
     for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (swell ? (i / data.length) ** 2 : 1 - i / data.length);
     const src = c.createBufferSource();
     src.buffer = buf;
-    const f = c.createBiquadFilter();
-    f.type = type;
-    f.frequency.value = cutoff;
+    const f2 = c.createBiquadFilter();
+    f2.type = type;
+    f2.frequency.value = cutoff;
     const g = c.createGain();
     g.gain.value = gain;
-    src.connect(f).connect(g).connect(bus);
+    src.connect(f2).connect(g).connect(bus);
     src.start(at);
   }
-  var sfxOk = () => prefs.sfx && ensure() !== null && ctx.state === "running";
+  var sfxOk = () => prefs2.sfx && ensure() !== null && ctx.state === "running";
   var sfx = {
     /**
      * Spell cast: a magical chime. Each combo step makes it deeper and longer (like a multi-kill
@@ -1611,31 +1734,31 @@
     });
     return track;
   })();
-  var isRadioOn = () => prefs.radio;
-  var isSfxOn = () => prefs.sfx;
-  var getVolumes = () => ({ music: prefs.musicVol, sfx: prefs.sfxVol });
+  var isRadioOn = () => prefs2.radio;
+  var isSfxOn = () => prefs2.sfx;
+  var getVolumes = () => ({ music: prefs2.musicVol, sfx: prefs2.sfxVol });
   function setRadio(on) {
-    prefs.radio = on;
+    prefs2.radio = on;
     savePrefs();
     ensure();
     if (on && ctx?.state === "suspended") void ctx.resume();
     syncMusic();
   }
   function setSfx(on) {
-    prefs.sfx = on;
+    prefs2.sfx = on;
     savePrefs();
   }
   function setMusicVolume(v) {
-    prefs.musicVol = clamp01(v);
-    if (prefs.musicVol > 0) prefs.radio = true;
+    prefs2.musicVol = clamp01(v);
+    if (prefs2.musicVol > 0) prefs2.radio = true;
     savePrefs();
     ensure();
     if (ctx) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05);
     syncMusic();
   }
   function setSfxVolume(v) {
-    prefs.sfxVol = clamp01(v);
-    if (prefs.sfxVol > 0) prefs.sfx = true;
+    prefs2.sfxVol = clamp01(v);
+    if (prefs2.sfxVol > 0) prefs2.sfx = true;
     savePrefs();
     ensure();
     if (ctx) sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05);
@@ -1643,112 +1766,439 @@
   function previewSfx() {
     if (sfxOk()) bell(midi(76), ctx.currentTime, 0.8, 0.18);
   }
+  var ambBg = null;
+  var ambTime = "night";
+  var ambTimer;
+  function setAmbience(bg, time) {
+    const changed = bg !== ambBg;
+    ambBg = bg;
+    ambTime = time;
+    if (changed) syncAmbience();
+  }
+  function syncAmbience() {
+    clearTimeout(ambTimer);
+    ambTimer = void 0;
+    if (!ctx || !ambBg || !prefs2.radio || prefs2.musicVol <= 0 || scene !== "menu" || document.visibilityState !== "visible") return;
+    const next2 = (first) => {
+      ambTimer = window.setTimeout(() => {
+        if (ctx?.state === "running") ambientCall(ambBg, ambTime);
+        next2(false);
+      }, (first ? 4e3 : 12e3) + Math.random() * 16e3);
+    };
+    next2(true);
+  }
+  function ambientCall(bg, time) {
+    const t = ctx.currentTime + 0.05;
+    if (bg === "forest") time === "day" ? birds(t) : owl(t);
+    else if (bg === "swamp") frogs(t);
+    else if (bg === "plains") goblins(t);
+    else if (bg === "castle") {
+      clash(t);
+      if (Math.random() < 0.6) clash(t + 0.32 + Math.random() * 0.2);
+      if (Math.random() < 0.25) roar(t + 1.4);
+    } else if (bg === "worldtree") sparkle(t);
+  }
+  function owl(at) {
+    const hoot = (t0, dur, f02) => {
+      const c = ctx;
+      const o = c.createOscillator();
+      o.type = "sine";
+      o.frequency.setValueAtTime(f02, t0);
+      o.frequency.exponentialRampToValueAtTime(f02 * 0.88, t0 + dur);
+      const vib = c.createOscillator();
+      const vg = c.createGain();
+      vib.frequency.value = 7;
+      vg.gain.value = 6;
+      vib.connect(vg).connect(o.frequency);
+      const g = c.createGain();
+      g.gain.setValueAtTime(1e-4, t0);
+      g.gain.exponentialRampToValueAtTime(0.09, t0 + 0.06);
+      g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = f02;
+      bp.Q.value = 2;
+      o.connect(bp).connect(g).connect(ambBus);
+      const s = c.createGain();
+      s.gain.value = 0.8;
+      g.connect(s).connect(reverb);
+      o.start(t0);
+      vib.start(t0);
+      o.stop(t0 + dur + 0.05);
+      vib.stop(t0 + dur + 0.05);
+    };
+    const f0 = 360 + Math.random() * 40;
+    hoot(at, 0.32, f0);
+    hoot(at + 0.75, 0.18, f0 * 1.04);
+    hoot(at + 1, 0.75, f0 * 1.06);
+  }
+  function birds(at) {
+    for (let i = 0; i < 3 + Math.floor(Math.random() * 3); i++) {
+      const t = at + i * 0.16 + Math.random() * 0.05, f0 = 2600 + Math.random() * 900;
+      tone(f0, t, 0.09, { gain: 0.02, to: f0 * 1.35, bus: ambBus, send: 0.4, attack: 5e-3 });
+    }
+  }
+  function frogs(at) {
+    const ribbit = (t0, k) => {
+      const c = ctx;
+      for (const [off, len, pitch] of [[0, 0.11, 1], [0.17, 0.14, 1.12]]) {
+        const o = c.createOscillator();
+        o.type = "square";
+        o.frequency.value = 190 * k * pitch;
+        const bp = c.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.value = 850 * k;
+        bp.Q.value = 3;
+        const g = c.createGain();
+        g.gain.setValueAtTime(1e-4, t0 + off);
+        for (let p = 0; p < len / 0.025; p++) {
+          const tp = t0 + off + p * 0.025;
+          g.gain.setValueAtTime(1e-4, tp);
+          g.gain.linearRampToValueAtTime(0.05, tp + 6e-3);
+          g.gain.linearRampToValueAtTime(1e-4, tp + 0.02);
+        }
+        o.connect(bp).connect(g).connect(ambBus);
+        const s = c.createGain();
+        s.gain.value = 0.35;
+        g.connect(s).connect(reverb);
+        o.start(t0 + off);
+        o.stop(t0 + off + len + 0.03);
+      }
+    };
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) ribbit(at + Math.random() * 1.6, 0.85 + Math.random() * 0.5);
+  }
+  function goblins(at) {
+    const c = ctx;
+    const syll = (t0, f0, dur, formant, level = 0.035) => {
+      const o = c.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.setValueAtTime(f0, t0);
+      o.frequency.linearRampToValueAtTime(f0 * (0.85 + Math.random() * 0.4), t0 + dur);
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = formant;
+      bp.Q.value = 5;
+      const g = c.createGain();
+      g.gain.setValueAtTime(1e-4, t0);
+      g.gain.exponentialRampToValueAtTime(level, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+      o.connect(bp).connect(g).connect(ambBus);
+      const s = c.createGain();
+      s.gain.value = 0.4;
+      g.connect(s).connect(reverb);
+      o.start(t0);
+      o.stop(t0 + dur + 0.02);
+    };
+    let t = at;
+    const n = 5 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < n; i++) {
+      const d = 0.06 + Math.random() * 0.06;
+      syll(t, 520 + Math.random() * 420, d, [700, 1100, 1500, 2100][Math.floor(Math.random() * 4)]);
+      t += d + 0.02;
+    }
+    if (Math.random() < 0.7) for (let i = 0; i < 4; i++) syll(t + 0.15 + i * 0.11, 900 + i * 40, 0.07, 1800, 0.04);
+  }
+  function clash(at) {
+    for (const [f0, dur, g] of [[1760, 0.7, 0.035], [2730, 0.55, 0.025], [3980, 0.4, 0.02], [5560, 0.3, 0.012]]) {
+      const fr = f0 * (0.97 + Math.random() * 0.06);
+      tone(fr, at, dur, { gain: g, bus: ambBus, send: 0.6, attack: 2e-3 });
+    }
+    noise(at, 0.07, 0.05, 2600, "highpass", ambBus);
+  }
+  function roar(at) {
+    const c = ctx;
+    const o = c.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(95, at);
+    o.frequency.exponentialRampToValueAtTime(55, at + 1.5);
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 420;
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(0.05, at + 0.3);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + 1.6);
+    o.connect(lp).connect(g).connect(ambBus);
+    const s = c.createGain();
+    s.gain.value = 0.9;
+    g.connect(s).connect(reverb);
+    o.start(at);
+    o.stop(at + 1.7);
+  }
+  function sparkle(at) {
+    const notes = [79, 81, 84, 86, 88, 91];
+    for (let i = 0; i < 4; i++) bell(midi(notes[Math.floor(Math.random() * notes.length)]), at + i * 0.18, 1.4, 0.03, ambBus);
+  }
 
   // src/client/backgrounds.ts
-  var seed = 1;
-  var rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+  var TIMES = [
+    { id: "auto", name: "Auto" },
+    { id: "day", name: "Day" },
+    { id: "sunset", name: "Sunset" },
+    { id: "night", name: "Night" }
+  ];
+  function resolveTime(pref, now = /* @__PURE__ */ new Date()) {
+    if (pref !== "auto") return pref;
+    const h3 = now.getHours();
+    return h3 >= 7 && h3 < 17 ? "day" : h3 >= 17 && h3 < 20 || h3 >= 5 && h3 < 7 ? "sunset" : "night";
+  }
   var W = 1600;
   var H = 900;
-  function sky(id, stops) {
-    return `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join("")}</linearGradient>`;
-  }
+  var seed = 1;
+  var rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+  var r = (a, b) => a + rnd() * (b - a);
+  var f = (n) => n.toFixed(1);
+  var stopsOf = (stops) => stops.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}"${a !== void 0 ? ` stop-opacity="${a}"` : ""}/>`).join("");
+  var grad = (id, stops, vertical = true) => `<linearGradient id="${id}" x1="0" y1="0" x2="${vertical ? 0 : 1}" y2="${vertical ? 1 : 0}">${stopsOf(stops)}</linearGradient>`;
+  var radial = (id, stops) => `<radialGradient id="${id}">${stopsOf(stops)}</radialGradient>`;
+  var DEFS = `<linearGradient id="haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity="0"/><stop offset=".55" stop-color="currentColor" stop-opacity=".9"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient><filter id="blur20" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="20"/></filter><filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
   function stars(n, maxY, color = "#fff") {
-    let s = "";
-    for (let i = 0; i < n; i++) s += `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(rnd() * maxY).toFixed(0)}" r="${(rnd() * 1.6 + 0.4).toFixed(1)}" fill="${color}" opacity="${(rnd() * 0.6 + 0.3).toFixed(2)}"/>`;
-    return s;
+    const one = () => `<circle cx="${f(r(0, W))}" cy="${f(r(0, maxY))}" r="${f(r(0.5, 1.9))}" fill="${color}" opacity="${f(r(0.35, 0.95))}"/>`;
+    return `<g class="bg-twinkle">${Array.from({ length: n >> 1 }, one).join("")}</g><g class="bg-twinkle b">${Array.from({ length: n >> 1 }, one).join("")}</g>`;
   }
-  function pines(y, count, minH, maxH, color) {
-    let s = "";
-    for (let i = 0; i < count; i++) {
-      const x = i / count * W + rnd() * (W / count) - 20;
-      const h3 = minH + rnd() * (maxH - minH);
-      const w = h3 * 0.38;
-      s += `<polygon points="${x},${y} ${x + w / 2},${y - h3} ${x + w},${y}" fill="${color}"/>`;
-      s += `<polygon points="${x + w * 0.12},${y - h3 * 0.35} ${x + w / 2},${y - h3 * 1.02} ${x + w * 0.88},${y - h3 * 0.35}" fill="${color}"/>`;
-    }
-    return s + `<rect x="0" y="${y}" width="${W}" height="${H - y}" fill="${color}"/>`;
+  function moon(cx, cy, rad, tint = "#f3efd6") {
+    return `<circle cx="${cx}" cy="${cy}" r="${rad * 3.2}" fill="${tint}" opacity=".06"/><circle cx="${cx}" cy="${cy}" r="${rad * 1.7}" fill="${tint}" opacity=".1"/>
+    <circle cx="${cx}" cy="${cy}" r="${rad}" fill="${tint}"/>
+    <circle cx="${cx - rad * 0.3}" cy="${cy - rad * 0.2}" r="${rad * 0.18}" fill="#000" opacity=".07"/><circle cx="${cx + rad * 0.25}" cy="${cy + rad * 0.3}" r="${rad * 0.12}" fill="#000" opacity=".06"/><circle cx="${cx + rad * 0.35}" cy="${cy - rad * 0.35}" r="${rad * 0.08}" fill="#000" opacity=".06"/>`;
+  }
+  function sun(cx, cy, rad, core, halo) {
+    return `<circle cx="${cx}" cy="${cy}" r="${rad * 5}" fill="${halo}" opacity=".10"/><circle cx="${cx}" cy="${cy}" r="${rad * 2.4}" fill="${halo}" opacity=".18"/><circle cx="${cx}" cy="${cy}" r="${rad}" fill="${core}"/>`;
+  }
+  function rays(cx, cy, color, op) {
+    return `<g class="bg-rays" opacity="${op}" filter="url(#blur20)">${Array.from({ length: 7 }, (_, i) => {
+      const a = -0.95 + i * 0.32 + r(-0.06, 0.06), w = r(0.03, 0.07), len = 1300;
+      const p = (ang) => `${f(cx + Math.sin(ang) * len)},${f(cy + Math.cos(ang) * len)}`;
+      return `<polygon points="${cx},${cy} ${p(a - w)} ${p(a + w)}" fill="${color}"/>`;
+    }).join("")}</g>`;
+  }
+  function milkyWay() {
+    return `<g opacity=".55" filter="url(#blur20)"><path d="M-100 420 C 300 260, 800 220, 1700 40 L1700 120 C 900 300, 400 330, -100 520 Z" fill="#8a9cff" opacity=".2"/><path d="M-100 450 C 400 300, 900 250, 1700 90" stroke="#d8dcff" stroke-width="40" opacity=".14" fill="none"/></g>`;
+  }
+  function horizonGlow(y, color) {
+    return `<ellipse cx="800" cy="${y}" rx="1000" ry="130" fill="${color}" opacity=".4" filter="url(#blur20)"/>`;
+  }
+  function haze(y, color, op) {
+    return `<rect x="0" y="${y - 260}" width="${W}" height="${H - y + 260}" fill="url(#haze)" opacity="${op}" style="color:${color}"/>`;
+  }
+  function clouds(n, yMin, yMax, color, op, cls = "bg-drift") {
+    return `<g class="${cls}" opacity="${op}">${Array.from({ length: n }, () => {
+      const x = r(-100, W), y = r(yMin, yMax), s = r(0.6, 1.4);
+      return `<g transform="translate(${f(x)} ${f(y)}) scale(${f(s)})" fill="${color}"><ellipse cx="0" cy="0" rx="90" ry="22"/><ellipse cx="-40" cy="-12" rx="46" ry="26"/><ellipse cx="30" cy="-18" rx="52" ry="30"/><ellipse cx="70" cy="-4" rx="40" ry="18"/></g>`;
+    }).join("")}</g>`;
+  }
+  function mountains(y, amp, color, jag = 1) {
+    let d = `M0 ${H} L0 ${y}`;
+    for (let x = 0; x <= W + 60; x += 60) d += ` L${x} ${f(y - Math.abs(Math.sin(x / 260 + jag) * amp) - r(0, amp * 0.25))}`;
+    return `<path d="${d} L${W} ${H} Z" fill="${color}"/>`;
   }
   function hills(y, amp, color, phase = 0) {
     let d = `M0 ${H} L0 ${y}`;
-    for (let x = 0; x <= W; x += 40) d += ` L${x} ${(y + Math.sin(x / 210 + phase) * amp + Math.sin(x / 90 + phase * 2) * amp * 0.25).toFixed(1)}`;
+    for (let x = 0; x <= W; x += 40) d += ` L${x} ${f(y + Math.sin(x / 210 + phase) * amp + Math.sin(x / 90 + phase * 2) * amp * 0.25)}`;
     return `<path d="${d} L${W} ${H} Z" fill="${color}"/>`;
   }
-  function deadTree(x, y, h3, color) {
-    const b = (x1, y1, x2, y2, w) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`;
-    return b(x, y, x + 6, y - h3, 14) + b(x + 4, y - h3 * 0.55, x - h3 * 0.35, y - h3 * 0.85, 7) + b(x + 5, y - h3 * 0.7, x + h3 * 0.4, y - h3 * 0.95, 6) + b(x - h3 * 0.2, y - h3 * 0.75, x - h3 * 0.3, y - h3, 4) + b(x + 6, y - h3, x + 30, y - h3 * 1.15, 4);
-  }
-  var SCENES = {
-    forest: () => `
-    <defs>${sky("sk", [[0, "#0b1d2a"], [0.55, "#1f4a4a"], [1, "#3d6b52"]])}</defs>
-    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(70, 380)}
-    <circle cx="1220" cy="170" r="70" fill="#f1edd0" opacity=".9"/><circle cx="1220" cy="170" r="120" fill="#f1edd0" opacity=".06"/>
-    ${pines(640, 22, 260, 420, "#173c35")}${pines(720, 18, 200, 330, "#0f2a25")}${pines(820, 14, 160, 260, "#081a17")}`,
-    swamp: () => `
-    <defs>${sky("sk", [[0, "#14121f"], [0.5, "#2c3a2e"], [1, "#4b5a3a"]])}
-      <linearGradient id="wt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f3d2c"/><stop offset="1" stop-color="#121a12"/></linearGradient></defs>
-    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(40, 300, "#cfe8b0")}
-    <circle cx="380" cy="190" r="55" fill="#d9e6a6" opacity=".55"/>
-    ${hills(560, 26, "#1d2a1e")}
-    ${[160, 520, 980, 1380].map((x, i) => deadTree(x, 640, 260 + i * 25, "#141c14")).join("")}
-    <rect x="0" y="640" width="${W}" height="260" fill="url(#wt)"/>
-    ${Array.from({ length: 14 }, () => `<ellipse cx="${(rnd() * W).toFixed(0)}" cy="${(660 + rnd() * 200).toFixed(0)}" rx="${(20 + rnd() * 30).toFixed(0)}" ry="7" fill="#3f6b33" opacity=".8"/>`).join("")}
-    ${Array.from({ length: 26 }, () => `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(380 + rnd() * 380).toFixed(0)}" r="2.5" fill="#d8ff7a" opacity=".85"/>`).join("")}
-    <rect y="560" width="${W}" height="120" fill="#a8b89a" opacity=".07"/>`,
-    plains: () => `
-    <defs>${sky("sk", [[0, "#2a1a45"], [0.45, "#a8506a"], [0.75, "#f0a060"], [1, "#f6d08a"]])}</defs>
-    <rect width="${W}" height="${H}" fill="url(#sk)"/>
-    <circle cx="800" cy="560" r="120" fill="#ffe2a0" opacity=".9"/>
-    ${Array.from({ length: 6 }, (_, i) => `<ellipse cx="${200 + i * 260}" cy="${150 + i % 3 * 50}" rx="${90 + i % 2 * 40}" ry="18" fill="#f7c7b0" opacity=".35"/>`).join("")}
-    ${hills(600, 30, "#6a4a6a", 0.5)}${hills(660, 34, "#4a5a3a", 1.7)}${hills(740, 26, "#33472b", 3)}
-    <rect x="1180" y="560" width="14" height="110" fill="#2a2a2a"/><g transform="translate(1187 560)" fill="#2a2a2a">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-80" width="8" height="80" transform="rotate(${a + 20})"/>`).join("")}</g>
-    ${Array.from({ length: 70 }, () => {
-      const x = rnd() * W, y = 760 + rnd() * 140;
-      return `<line x1="${x.toFixed(0)}" y1="${y.toFixed(0)}" x2="${(x + 4).toFixed(0)}" y2="${(y - 18).toFixed(0)}" stroke="#23331d" stroke-width="3"/>`;
-    }).join("")}`,
-    castle: () => {
-      const tower = (x, w, h3) => `<rect x="${x}" y="${640 - h3}" width="${w}" height="${h3}" fill="#141327"/><polygon points="${x - 10},${640 - h3} ${x + w / 2},${560 - h3} ${x + w + 10},${640 - h3}" fill="#1b1a33"/>` + Array.from({ length: Math.floor(h3 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h3 + 40 + i * 70}" width="12" height="20" fill="#ffcf6a" opacity="${rnd() > 0.35 ? 0.9 : 0.15}"/>`).join("");
-      return `
-    <defs>${sky("sk", [[0, "#070a1e"], [0.6, "#1c2554"], [1, "#3a3f78"]])}</defs>
-    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(120, 450)}
-    <circle cx="300" cy="150" r="60" fill="#e8e6ff" opacity=".85"/>
-    ${hills(640, 18, "#10122a")}
-    <rect x="560" y="430" width="480" height="210" fill="#141327"/>
-    ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="#141327"/>`).join("")}
-    ${tower(500, 90, 330)}${tower(1010, 90, 330)}${tower(740, 120, 420)}
-    <polygon points="760,640 800,560 840,640" fill="#2a2140"/>
-    <line x1="800" y1="140" x2="800" y2="96" stroke="#141327" stroke-width="4"/><polygon points="800,96 840,106 800,116" fill="#c2364d"/>
-    ${hills(760, 14, "#0b0c1c", 2)}`;
-    },
-    worldtree: () => {
-      const leaves = (y, n, rmin, rmax, col, op) => Array.from({ length: n }, (_, i) => `<circle cx="${(i / n * W + rnd() * 80).toFixed(0)}" cy="${(y + rnd() * 50).toFixed(0)}" r="${(rmin + rnd() * (rmax - rmin)).toFixed(0)}" fill="${col}" opacity="${op}"/>`).join("");
-      return `
-    <defs>${sky("sk", [[0, "#0b0626"], [0.45, "#2a1260"], [0.8, "#1d4f78"], [1, "#2c8a8a"]])}
-      <radialGradient id="glow"><stop offset="0" stop-color="#9ff5c8" stop-opacity=".5"/><stop offset="1" stop-color="#9ff5c8" stop-opacity="0"/></radialGradient></defs>
-    <rect width="${W}" height="${H}" fill="url(#sk)"/>${stars(170, 560, "#d7ccff")}
-    <circle cx="1240" cy="170" r="54" fill="#fff4d6" opacity=".9"/><circle cx="1240" cy="170" r="130" fill="#fff4d6" opacity=".07"/>
-    <ellipse cx="800" cy="620" rx="900" ry="200" fill="url(#glow)"/>
-    ${Array.from({ length: 10 }, (_, i) => `<ellipse cx="${i * 180}" cy="${600 + i % 3 * 22}" rx="220" ry="40" fill="#efeaff" opacity=".22"/>`).join("")}
-    ${leaves(640, 26, 50, 90, "#14402f", 1)}
-    ${leaves(690, 30, 45, 80, "#1b5a3c", 1)}
-    <path d="M-40 800 C 300 730, 650 760, 820 740 S 1300 735, 1640 780 L1640 900 L-40 900 Z" fill="#3a2418"/>
-    <path d="M-40 840 C 400 800, 760 820, 940 800 S 1400 810, 1640 840 L1640 900 L-40 900 Z" fill="#2b190f"/>
-    ${leaves(760, 22, 26, 46, "#2f9e6a", 0.9)}
-    ${Array.from({ length: 60 }, () => `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(600 + rnd() * 220).toFixed(0)}" r="${(2 + rnd() * 3).toFixed(1)}" fill="${rnd() > 0.5 ? "#b9ffd8" : "#9ae7ff"}" opacity=".9"/>`).join("")}
-    ${Array.from({ length: 30 }, () => `<circle cx="${(rnd() * W).toFixed(0)}" cy="${(80 + rnd() * 500).toFixed(0)}" r="2" fill="#bff8ff" opacity=".8"/>`).join("")}`;
+  function pine(x, base, h3, color) {
+    const w = h3 * 0.42;
+    let s = `<rect x="${f(x - w * 0.04)}" y="${f(base - h3 * 0.12)}" width="${f(w * 0.08)}" height="${f(h3 * 0.14)}" fill="${color}"/>`;
+    for (let t = 0; t < 4; t++) {
+      const top = base - h3 * (0.35 + t * 0.21), bw = w * (1 - t * 0.2), by = base - h3 * (0.08 + t * 0.2);
+      s += `<polygon points="${f(x - bw / 2)},${f(by)} ${f(x - bw * 0.3)},${f(by - 6)} ${f(x)},${f(top)} ${f(x + bw * 0.3)},${f(by - 6)} ${f(x + bw / 2)},${f(by)}" fill="${color}"/>`;
     }
-  };
+    return s;
+  }
+  function forestRow(base, count, minH, maxH, color) {
+    let s = "";
+    for (let i = 0; i < count; i++) s += pine(i / count * W + r(-20, W / count), base + r(-6, 6), r(minH, maxH), color);
+    return s + `<rect x="0" y="${base}" width="${W}" height="${H - base}" fill="${color}"/>`;
+  }
+  function eyes(n, yMin, yMax, op) {
+    return Array.from({ length: n }, () => {
+      const x = r(60, W - 60), y = r(yMin, yMax), gap = r(7, 12), s = r(2, 3.4);
+      return `<g class="bg-blink" style="animation-delay:${f(r(0, 9))}s;animation-duration:${f(r(5, 11))}s" opacity="${op}" filter="url(#glow)"><ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(s)}" ry="${f(s * 0.7)}" fill="#ff2a2a"/><ellipse cx="${f(x + gap)}" cy="${f(y)}" rx="${f(s)}" ry="${f(s * 0.7)}" fill="#ff2a2a"/></g>`;
+    }).join("");
+  }
+  function fireflies(n, yMin, yMax, color) {
+    return `<g class="bg-float">${Array.from({ length: n }, () => `<circle cx="${f(r(0, W))}" cy="${f(r(yMin, yMax))}" r="${f(r(1.5, 3))}" fill="${color}" filter="url(#glow)" class="bg-flicker" style="animation-delay:${f(r(0, 4))}s"/>`).join("")}</g>`;
+  }
+  function comets(n) {
+    return Array.from({ length: n }, (_, i) => {
+      const y = r(40, 260), len = r(140, 220);
+      return `<g class="bg-comet" style="animation-delay:${f(i * 7 + r(0, 4))}s;--cy:${f(y)}px"><line x1="0" y1="0" x2="${f(-len)}" y2="${f(-len * 0.32)}" stroke="url(#cometTail)" stroke-width="3" stroke-linecap="round"/><circle r="3.2" fill="#fff" filter="url(#glow)"/></g>`;
+    }).join("");
+  }
+  function mist(y, color, op) {
+    return `<g class="bg-mist" opacity="${op}" filter="url(#blur20)">${Array.from({ length: 6 }, (_, i) => `<ellipse cx="${f(i * 300 + r(-60, 60))}" cy="${f(y + r(-20, 20))}" rx="${f(r(220, 340))}" ry="${f(r(26, 46))}" fill="${color}"/>`).join("")}</g>`;
+  }
+  var pick3 = (t, day, sunset, night) => t === "day" ? day : t === "sunset" ? sunset : night;
+  function forest(t) {
+    const sky = pick3(t, [[0, "#4f95d0"], [0.5, "#9fd0ea"], [1, "#e6f2d8"]], [[0, "#22163f"], [0.4, "#7a3a68"], [0.7, "#e2774f"], [1, "#ffcf8a"]], [[0, "#040914"], [0.55, "#0c1e33"], [1, "#183a3c"]]);
+    const rows = pick3(t, ["#5f8f86", "#3e6e5d", "#24503f", "#123222"], ["#5a3d5c", "#3f2c48", "#2a1e33", "#140f1c"], ["#1a3b3d", "#11292b", "#0a1c1d", "#040f10"]);
+    return `<defs>${grad("sk", sky)}${grad("cometTail", [[0, "#fff", 0.9], [1, "#9fd8ff", 0]], false)}${DEFS}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sk)"/>
+    ${t === "night" ? milkyWay() + stars(180, 520) + comets(3) + moon(1220, 160, 58) : t === "sunset" ? stars(30, 200, "#ffe7c4") + horizonGlow(560, "#ff8a4a") + sun(1080, 560, 70, "#ffd9a0", "#ff9a5a") : sun(1260, 150, 46, "#fff6d8", "#fff2b0") + clouds(6, 80, 260, "#ffffff", 0.75)}
+    ${mountains(520, 90, pick3(t, "#86aac0", "#6b4a72", "#132a3a"), 0.4)}
+    ${haze(560, pick3(t, "#dff0f4", "#ffb08a", "#2a4a5a"), 0.6)}
+    ${mist(560, pick3(t, "#e8f4f0", "#ffcfb0", "#4e7a86"), pick3(t, 0.5, 0.35, 0.3))}
+    ${forestRow(620, 24, 240, 400, rows[0])}
+    ${haze(640, pick3(t, "#cfe6dc", "#c87a6a", "#1c3a40"), 0.45)}
+    ${t !== "night" ? rays(t === "day" ? 1260 : 1080, t === "day" ? 150 : 560, pick3(t, "#fffbe0", "#ffd39a", "#000"), pick3(t, 0.22, 0.3, 0)) : ""}
+    ${forestRow(700, 20, 200, 330, rows[1])}
+    ${t !== "day" ? fireflies(t === "night" ? 26 : 12, 520, 820, "#e8ff9a") : ""}
+    ${forestRow(780, 16, 160, 270, rows[2])}
+    ${eyes(t === "night" ? 7 : t === "sunset" ? 4 : 2, 700, 800, t === "day" ? 0.35 : 1)}
+    ${forestRow(860, 12, 120, 210, rows[3])}
+    ${mist(860, pick3(t, "#ffffff", "#ffd8b8", "#2a4f56"), 0.25)}`;
+  }
+  function swamp(t) {
+    const sky = pick3(t, [[0, "#7fa59a"], [0.55, "#c1d2b4"], [1, "#e2e6c8"]], [[0, "#2a1838"], [0.45, "#7a4058"], [0.75, "#d0835a"], [1, "#e8b86e"]], [[0, "#07080f"], [0.5, "#141f22"], [1, "#1f3426"]]);
+    const tree = pick3(t, "#2f3d2c", "#24182a", "#080d0a");
+    const water = pick3(t, ["#6d8a73", "#33493a"], ["#7a4e4e", "#2a1a22"], ["#1b2b22", "#060b08"]);
+    const deadTree = (x, y, h3) => {
+      const b = (x1, y1, x2, y2, w) => `<path d="M${f(x1)} ${f(y1)} Q ${f((x1 + x2) / 2 + r(-15, 15))} ${f((y1 + y2) / 2)} ${f(x2)} ${f(y2)}" stroke="${tree}" stroke-width="${w}" stroke-linecap="round" fill="none"/>`;
+      let s = b(x, y, x + 8, y - h3, 18) + b(x + 4, y - h3 * 0.55, x - h3 * 0.38, y - h3 * 0.86, 8) + b(x + 6, y - h3 * 0.72, x + h3 * 0.42, y - h3 * 0.98, 7) + b(x - h3 * 0.2, y - h3 * 0.74, x - h3 * 0.32, y - h3 * 1.02, 4) + b(x + 8, y - h3, x + 34, y - h3 * 1.16, 4);
+      for (let i = 0; i < 6; i++) {
+        const mx = x + r(-h3 * 0.35, h3 * 0.4), my = y - h3 * r(0.7, 1);
+        s += `<path class="bg-sway" d="M${f(mx)} ${f(my)} q 4 ${f(r(20, 40))} -2 ${f(r(40, 80))}" stroke="${pick3(t, "#5e7a4a", "#4c3a3a", "#2a3e26")}" stroke-width="3" fill="none" opacity=".85"/>`;
+      }
+      return s;
+    };
+    const trees = [140, 470, 980, 1380].map((x, i) => deadTree(x, 650, 250 + i * 28)).join("");
+    return `<defs>${grad("sk", sky)}${grad("wt", [[0, water[0]], [1, water[1]]])}${radial("wisp", [[0, "#cfff9a", 0.9], [1, "#cfff9a", 0]])}${DEFS}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sk)"/>
+    ${t === "night" ? stars(70, 320, "#cfe8b0") + moon(380, 170, 48, "#dfe9a8") : t === "sunset" ? horizonGlow(560, "#ff7a5a") + sun(420, 520, 60, "#ffcf96", "#ff8a60") : sun(380, 140, 40, "#fbfbe6", "#ffffff") + clouds(4, 90, 220, "#f4f6ea", 0.55)}
+    ${hills(560, 24, pick3(t, "#56715a", "#3c2a3c", "#132018"))}
+    ${haze(600, pick3(t, "#eef4e6", "#e8a088", "#2e4a3a"), 0.55)}
+    ${mist(580, pick3(t, "#f0f4e6", "#f2c2a6", "#6c8a6a"), pick3(t, 0.55, 0.4, 0.35))}
+    ${trees}
+    <rect x="0" y="640" width="${W}" height="260" fill="url(#wt)"/>
+    <g opacity=".25" transform="translate(0 1290) scale(1 -1)">${trees}</g>
+    ${Array.from({ length: 14 }, () => `<ellipse cx="${f(r(0, W))}" cy="${f(r(680, 880))}" rx="${f(r(20, 46))}" ry="7" fill="${pick3(t, "#4f7a3c", "#5a4a30", "#1f3a1a")}" opacity=".9"/>`).join("")}
+    ${Array.from({ length: 22 }, () => {
+      const x = r(0, W), y = r(640, 700);
+      return `<line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-4, 4))}" y2="${f(y - r(40, 90))}" stroke="${tree}" stroke-width="3"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - r(60, 90))}" rx="4" ry="11" fill="${pick3(t, "#4a3a22", "#2a1a14", "#0a0a06")}"/>`;
+    }).join("")}
+    ${Array.from({ length: 6 }, () => {
+      const x = r(80, W - 80), y = r(700, 860);
+      return `<g fill="${pick3(t, "#3d5a2a", "#2c2418", "#0c1408")}"><ellipse cx="${f(x)}" cy="${f(y)}" rx="11" ry="7"/><circle cx="${f(x - 6)}" cy="${f(y - 6)}" r="3.5"/><circle cx="${f(x + 6)}" cy="${f(y - 6)}" r="3.5"/></g>${t === "night" ? `<g class="bg-flicker slow"><circle cx="${f(x - 6)}" cy="${f(y - 6)}" r="1.4" fill="#e8ff7a"/><circle cx="${f(x + 6)}" cy="${f(y - 6)}" r="1.4" fill="#e8ff7a"/></g>` : ""}`;
+    }).join("")}
+    ${t !== "day" ? `<g class="bg-float">${Array.from({ length: t === "night" ? 7 : 3 }, () => `<circle cx="${f(r(100, W - 100))}" cy="${f(r(480, 760))}" r="${f(r(14, 24))}" fill="url(#wisp)" class="bg-flicker" style="animation-delay:${f(r(0, 3))}s"/>`).join("")}</g>` : ""}
+    ${fireflies(t === "night" ? 30 : 10, 420, 760, "#d8ff7a")}
+    ${mist(700, pick3(t, "#ffffff", "#ffd8c0", "#9ab89a"), pick3(t, 0.35, 0.28, 0.22))}`;
+  }
+  function plains(t) {
+    const sky = pick3(t, [[0, "#3f86d6"], [0.55, "#8fc4ee"], [1, "#dff0fb"]], [[0, "#2a1a45"], [0.45, "#a8506a"], [0.75, "#f0a060"], [1, "#f6d08a"]], [[0, "#050a1c"], [0.6, "#16224a"], [1, "#2a2f58"]]);
+    const lit = t !== "day";
+    const house = (x, y, s, wall2, roof2) => {
+      const w = 46 * s, h3 = 30 * s;
+      const win = lit ? `<rect x="${f(x + w * 0.2)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#ffcf6a" class="bg-flicker slow"/><rect x="${f(x + w * 0.6)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#ffcf6a"/>` : `<rect x="${f(x + w * 0.2)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#2a3040" opacity=".6"/>`;
+      const smoke = `<g class="bg-smoke" style="animation-delay:${f(r(0, 4))}s">${[0, 1, 2].map((i) => `<circle cx="${f(x + w * 0.78 + i * 4)}" cy="${f(y - h3 - 26 * s - i * 14)}" r="${f(4 + i * 3)}" fill="${pick3(t, "#ffffff", "#f2d4c2", "#8a8fa8")}" opacity="${f(0.5 - i * 0.12)}"/>`).join("")}</g>`;
+      return `${smoke}<rect x="${f(x)}" y="${f(y - h3)}" width="${f(w)}" height="${f(h3)}" fill="${wall2}"/><polygon points="${f(x - 5 * s)},${f(y - h3)} ${f(x + w / 2)},${f(y - h3 - 22 * s)} ${f(x + w + 5 * s)},${f(y - h3)}" fill="${roof2}"/><rect x="${f(x + w * 0.72)}" y="${f(y - h3 - 24 * s)}" width="${f(6 * s)}" height="${f(14 * s)}" fill="${roof2}"/>${win}`;
+    };
+    const wall = pick3(t, "#e8dcc0", "#c99a7a", "#3a3550"), roof = pick3(t, "#a04a3a", "#6e2e3a", "#1f1a30");
+    const village = (x, y, s) => Array.from({ length: 5 }, (_, i) => house(x + i * 58 * s + r(-8, 8), y + r(-4, 6), s * r(0.85, 1.1), wall, roof)).join("");
+    const gob = spriteRects("goblin");
+    const goblin = (x, y, s, delay) => `<g class="bg-walk" style="animation-delay:${delay}s"><g transform="translate(${f(x)} ${f(y - gob.h * s)}) scale(${s})" opacity="${t === "night" ? 0.8 : 0.95}">${gob.rects}</g></g>`;
+    return `<defs>${grad("sk", sky)}${DEFS}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sk)"/>
+    ${t === "night" ? milkyWay() + stars(150, 480) + moon(260, 140, 44) : t === "sunset" ? horizonGlow(580, "#ffa060") + sun(820, 560, 110, "#ffe2a0", "#ffb070") + clouds(6, 120, 320, "#f7c7b0", 0.5) : sun(1300, 130, 50, "#fffbe0", "#fff6c0") + clouds(8, 70, 300, "#ffffff", 0.85)}
+    ${mountains(560, 70, pick3(t, "#7d98b8", "#6a4a6a", "#1c2240"), 2)}
+    ${haze(600, pick3(t, "#e6f0fa", "#ffb890", "#2a3060"), 0.55)}
+    ${hills(600, 30, pick3(t, "#7aa060", "#7a5a5a", "#1e2a2a"), 0.5)}
+    ${village(260, 612, 0.7)}${village(1040, 604, 0.6)}
+    <g transform="translate(1180 560)"><rect x="-7" y="0" width="14" height="110" fill="${pick3(t, "#cbb79a", "#5a3a3a", "#1a1a28")}"/><g class="bg-spin">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-84" width="8" height="84" fill="${pick3(t, "#8a6a4a", "#3a2228", "#141420")}" transform="rotate(${a + 20})"/>`).join("")}</g></g>
+    ${hills(660, 34, pick3(t, "#5f8f45", "#4a5a3a", "#162418"), 1.7)}
+    ${goblin(300, 692, 2.6, 0)}${goblin(400, 698, 2.3, 6)}${goblin(1240, 702, 2.5, 3)}
+    ${t === "night" ? `<g class="bg-flicker" filter="url(#glow)"><polygon points="1380,742 1392,712 1404,742" fill="#ffb347"/><polygon points="1386,742 1392,722 1398,742" fill="#fff0a0"/></g>${goblin(1330, 744, 2.2, 9)}${goblin(1420, 744, 2.2, 12)}` : ""}
+    ${hills(740, 26, pick3(t, "#4a7a35", "#33472b", "#0e180e"), 3)}
+    ${Array.from({ length: 80 }, () => {
+      const x = r(0, W), y = r(760, 900);
+      return `<line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-3, 6))}" y2="${f(y - r(12, 26))}" stroke="${pick3(t, "#2f5a22", "#23331d", "#08100a")}" stroke-width="3" class="bg-sway"/>`;
+    }).join("")}
+    ${t === "night" ? fireflies(14, 640, 860, "#fff2a0") : ""}`;
+  }
+  function castle(t) {
+    const sky = pick3(t, [[0, "#4a78b8"], [0.6, "#9ab8dc"], [1, "#d8e4ee"]], [[0, "#1a0a1e"], [0.4, "#6a1a2a"], [0.72, "#c2452a"], [1, "#f08a3a"]], [[0, "#03051a"], [0.6, "#141d4a"], [1, "#2c3270"]]);
+    const stone = pick3(t, "#5a5a6e", "#2a1a24", "#121126"), roof = pick3(t, "#3a3a58", "#1a0e18", "#1b1a33");
+    const lit = t !== "day";
+    const tower = (x, w, h3) => `<rect x="${x}" y="${640 - h3}" width="${w}" height="${h3}" fill="${stone}"/><polygon points="${x - 10},${640 - h3} ${x + w / 2},${560 - h3} ${x + w + 10},${640 - h3}" fill="${roof}"/>` + Array.from({ length: Math.floor(h3 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h3 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h3}" x2="${x + w / 2}" y2="${520 - h3}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h3} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
+    const dragon = spriteRects("dragon");
+    const soldier = (x, y, s, flip2, weapon) => {
+      const c = pick3(t, "#2c3038", "#1a0c10", "#06070e");
+      const g = `<circle cx="0" cy="-58" r="7"/><path d="M-7 -62 q7 -14 14 0 z"/><rect x="-8" y="-50" width="16" height="30" rx="4"/><rect x="-8" y="-22" width="6" height="22"/><rect x="2" y="-22" width="6" height="22"/><ellipse cx="-11" cy="-36" rx="7" ry="11"/>` + (weapon === "spear" ? `<line x1="10" y1="-10" x2="16" y2="-92" stroke="${c}" stroke-width="3"/><polygon points="13,-92 16,-104 19,-92"/>` : `<g class="bg-swing"><line x1="8" y1="-40" x2="34" y2="-70" stroke="${c}" stroke-width="3"/></g>`);
+      return `<g transform="translate(${x} ${y}) scale(${flip2 ? -s : s} ${s})" fill="${c}" opacity="${pick3(t, 0.55, 0.75, 0.8)}">${g}</g>`;
+    };
+    const left = [soldier(70, 860, 1.5, false, "spear"), soldier(140, 868, 1.4, false, "spear"), soldier(230, 856, 1.6, false, "sword")];
+    const right = [soldier(1530, 860, 1.5, true, "spear"), soldier(1460, 868, 1.4, true, "spear"), soldier(1370, 856, 1.6, true, "sword")];
+    return `<defs>${grad("sk", sky)}${DEFS}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sk)"/>
+    ${t === "night" ? milkyWay() + stars(160, 480) + moon(300, 150, 52, "#e8e6ff") : t === "sunset" ? horizonGlow(560, "#ff5a2a") + sun(1250, 520, 90, "#ffb070", "#ff5a3a") + clouds(5, 120, 300, "#ff9a7a", 0.35) : sun(1280, 140, 44, "#fffbe6", "#ffffff") + clouds(7, 80, 280, "#ffffff", 0.8)}
+    ${mountains(600, 110, pick3(t, "#6c7a96", "#3a1622", "#0e1030"), 1.3)}
+    ${haze(620, pick3(t, "#dfe8f4", "#ff7a5a", "#1a2050"), 0.5)}
+    <g class="bg-dragon"><g transform="scale(${f(170 / dragon.w)})">${dragon.rects}</g></g>
+    ${hills(640, 18, pick3(t, "#4a5a48", "#1a0a12", "#10122a"))}
+    <rect x="560" y="430" width="480" height="210" fill="${stone}"/>
+    ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="${stone}"/>`).join("")}
+    ${tower(500, 90, 330)}${tower(1010, 90, 330)}${tower(740, 120, 420)}
+    <path d="M760 640 L760 590 Q800 548 840 590 L840 640 Z" fill="${pick3(t, "#2a2a38", "#0c0408", "#05050f")}"/>
+    ${Array.from({ length: 5 }, (_, i) => `<line x1="${768 + i * 16}" y1="${i === 0 || i === 4 ? 600 : 568}" x2="${768 + i * 16}" y2="640" stroke="${pick3(t, "#4a4a5a", "#2a1418", "#14142a")}" stroke-width="3"/>`).join("")}
+    <rect x="0" y="650" width="${W}" height="16" fill="${pick3(t, "#5a7a9a", "#5a1a1a", "#10183a")}" opacity=".55"/>
+    <polygon points="740,640 860,640 900,700 700,700" fill="${pick3(t, "#6a5a48", "#2a1810", "#14121e")}"/>
+    ${lit ? `<g class="bg-flicker" filter="url(#glow)"><circle cx="740" cy="600" r="6" fill="#ffb347"/><circle cx="860" cy="600" r="6" fill="#ffb347"/></g>` : ""}
+    ${hills(780, 22, pick3(t, "#3a4a38", "#14080c", "#0b0c1c"), 2)}
+    ${left.join("")}${right.join("")}
+    <g class="bg-spark" filter="url(#glow)"><circle cx="262" cy="788" r="5" fill="#fff6c0"/><circle cx="1338" cy="788" r="5" fill="#fff6c0" style="animation-delay:2.7s"/></g>
+    ${t === "night" ? fireflies(8, 520, 700, "#ffcf6a") : ""}`;
+  }
+  function worldtree(t) {
+    const sky = pick3(t, [[0, "#4a8ad8"], [0.5, "#9cd0f2"], [0.85, "#e8f6ff"], [1, "#ffffff"]], [[0, "#2a1450"], [0.45, "#b04a78"], [0.8, "#f4a060"], [1, "#ffe0a0"]], [[0, "#0b0626"], [0.45, "#2a1260"], [0.8, "#1d4f78"], [1, "#2c8a8a"]]);
+    const leaves = (y, n, rmin, rmax, col, op) => Array.from({ length: n }, (_, i) => `<circle cx="${f(i / n * W + r(0, 80))}" cy="${f(y + r(0, 50))}" r="${f(r(rmin, rmax))}" fill="${col}" opacity="${op}"/>`).join("");
+    const leafA = pick3(t, "#3f9a5a", "#7a5a3a", "#14402f"), leafB = pick3(t, "#56b86a", "#a0703a", "#1b5a3c"), leafC = pick3(t, "#7ad68a", "#e0a050", "#2f9e6a");
+    return `<defs>${grad("sk", sky)}${radial("glow2", [[0, pick3(t, "#ffffff", "#ffe0a0", "#9ff5c8"), 0.55], [1, "#ffffff", 0]])}${grad("aurora", [[0, "#7affc8", 0], [0.5, "#7affc8", 0.35], [1, "#b07aff", 0]], false)}${DEFS}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sk)"/>
+    ${t === "night" ? stars(200, 560, "#d7ccff") + `<g class="bg-aurora" filter="url(#blur20)"><path d="M-100 200 C 300 80, 700 260, 1100 140 S 1600 120, 1800 200 L1800 280 C 1300 200, 900 340, 500 240 S 0 260, -100 300 Z" fill="url(#aurora)"/></g>` + moon(1240, 170, 54, "#fff4d6") : t === "sunset" ? horizonGlow(500, "#ffb070") + sun(380, 470, 80, "#fff0c0", "#ffb070") : sun(1240, 150, 50, "#ffffff", "#fff8d0") + rays(1240, 150, "#ffffff", 0.18)}
+    <ellipse cx="800" cy="640" rx="900" ry="200" fill="url(#glow2)"/>
+    ${clouds(10, 590, 660, pick3(t, "#ffffff", "#ffd8c0", "#efeaff"), pick3(t, 0.85, 0.6, 0.22), "bg-drift slow")}
+    ${leaves(640, 26, 50, 90, leafA, 1)}
+    ${leaves(690, 30, 45, 80, leafB, 1)}
+    <path d="M-40 800 C 300 730, 650 760, 820 740 S 1300 735, 1640 780 L1640 900 L-40 900 Z" fill="${pick3(t, "#5a3a24", "#4a2a18", "#3a2418")}"/>
+    <path d="M-40 840 C 400 800, 760 820, 940 800 S 1400 810, 1640 840 L1640 900 L-40 900 Z" fill="${pick3(t, "#462c1a", "#36200f", "#2b190f")}"/>
+    ${leaves(760, 22, 26, 46, leafC, 0.9)}
+    ${fireflies(t === "night" ? 60 : 24, 560, 820, pick3(t, "#ffffff", "#fff0b0", "#b9ffd8"))}
+    ${t === "night" ? fireflies(30, 80, 560, "#bff8ff") : ""}`;
+  }
+  var SCENES = { forest, swamp, plains, castle, worldtree };
+  function scene2(id, t) {
+    seed = [...id + t].reduce((s, c) => s + c.charCodeAt(0) * 97, 7);
+    const key = `${id}-${t}`;
+    return SCENES[id](t).replace(/id="(\w+)"/g, `id="${key}-$1"`).replace(/url\(#(\w+)\)/g, `url(#${key}-$1)`);
+  }
   var cache = /* @__PURE__ */ new Map();
-  function scene2(id) {
-    seed = [...id].reduce((s, c) => s + c.charCodeAt(0) * 97, 1);
-    return SCENES[id]().replace(/id="(\w+)"/g, `id="${id}-$1"`).replace(/url\(#(\w+)\)/g, `url(#${id}-$1)`);
-  }
-  function paintBackground(el, id) {
-    if (!cache.has(id)) cache.set(id, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene2(id)}</svg>`);
-    el.innerHTML = cache.get(id);
+  function paintBackground(el, id, time = "night") {
+    const key = `${id}-${time}`;
+    if (el.dataset.key === key) return;
+    if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene2(id, time)}</svg>`);
+    el.innerHTML = cache.get(key);
     el.dataset.bg = id;
+    el.dataset.time = time;
+    el.dataset.key = key;
   }
-  function backgroundThumb(id) {
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${scene2(id)}</svg>`;
+  function backgroundThumb(id, time = "night") {
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="still">${scene2(id, time)}</svg>`;
+  }
+  var TIME_KEY = "kb:bgtime";
+  function getTimePref() {
+    try {
+      const v = localStorage.getItem(TIME_KEY);
+      return v === "day" || v === "sunset" || v === "night" ? v : "auto";
+    } catch {
+      return "auto";
+    }
+  }
+  function setTimePref(t) {
+    try {
+      localStorage.setItem(TIME_KEY, t);
+    } catch {
+    }
   }
 
   // src/shared/deck.ts
@@ -1815,7 +2265,14 @@
   var flashTimer = 0;
   function initDeck(hk) {
     hooks = hk;
-    $2("dkAbility").onclick = () => hooks.send({ type: "deck_ability" });
+    $2("dkAbility").onclick = () => {
+      const me = view?.players.find((p) => p.id === view.you);
+      if (me?.character && CHARACTER_INFO[me.character].passive) {
+        const used = [me.wizardCardsUsed ? "cards used" : "+2 cards ready", me.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
+        return toast(`\u{1F9D9} ${CHARACTER_INFO[me.character].power} (${used})`, 6e3);
+      }
+      hooks.send({ type: "deck_ability" });
+    };
     $2("dkChatForm").addEventListener("submit", (e) => {
       e.preventDefault();
       const input = $2("dkChatInput");
@@ -1901,9 +2358,9 @@
     if (c.kanji) {
       const k = h2("span", "dkc-k", c.kanji);
       k.lang = "ja";
-      const r = h2("span", "dkc-r", c.reading ?? "");
-      r.lang = "ja";
-      el.append(k, r);
+      const r2 = h2("span", "dkc-r", c.reading ?? "");
+      r2.lang = "ja";
+      el.append(k, r2);
     } else {
       el.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
     }
@@ -1913,7 +2370,7 @@
     const av = h2("div", "dk-av");
     av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp") : "";
     const name = h2("div", "dk-name");
-    name.append(h2("span", "", mine ? `${p.name} (you)` : p.name));
+    name.append(picEl(p.pic), h2("span", "", mine ? `${p.name} (you)` : p.name));
     if (p.character) name.append(h2("span", "tag", CHARACTER_INFO[p.character].name));
     if (p.abilityActive > 0 && p.character !== "wizard") name.append(h2("span", "tag", `${p.character === "goblin" ? "Frenzy" : CHARACTER_INFO[p.character].power.split(":")[0]} \xD7${p.abilityActive}`));
     name.append(netBars(p.id));
@@ -1981,12 +2438,12 @@
     const ch = me.character;
     ab.innerHTML = ch ? heroSvg(ch, "me") : "";
     const cd = me.abilityCooldown;
-    ab.append(h2("span", "ab-name", ch ? CHARACTER_INFO[ch].passive ? "Passive" : cd > 0 ? `Ready in ${cd} turn${cd === 1 ? "" : "s"}` : `Power \xB7 ${DECK_RULES.abilityCost}\u25C6` : ""));
+    ab.append(h2("span", "ab-name", ch ? CHARACTER_INFO[ch].passive ? "Passive \xB7 tap" : cd > 0 ? `Ready in ${cd} turn${cd === 1 ? "" : "s"}` : `Power \xB7 ${DECK_RULES.abilityCost}\u25C6` : ""));
     if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h2("span", "ab-cd", String(cd)));
     ab.title = ch ? CHARACTER_INFO[ch].power : "";
     ab.classList.toggle("passive", !!ch && !!CHARACTER_INFO[ch].passive);
     ab.classList.toggle("active", me.abilityActive > 0);
-    ab.disabled = !ch || !!CHARACTER_INFO[ch].passive || cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting;
+    ab.disabled = !ch || !CHARACTER_INFO[ch].passive && (cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting);
     renderCast(v);
     renderList(v);
   }
@@ -2033,9 +2490,9 @@
       k.lang = "ja";
       top.append(k);
       const bottom = h2("div", "dkc-half bottom");
-      const r = h2("span", "dkc-r", c.card.reading);
-      r.lang = "ja";
-      bottom.append(r, h2("span", "dkc-m", c.card.meaning));
+      const r2 = h2("span", "dkc-r", c.card.reading);
+      r2.lang = "ja";
+      bottom.append(r2, h2("span", "dkc-m", c.card.meaning));
       card.append(top, bottom);
       box.replaceChildren(card);
       clearTimeout(flashTimer);
@@ -2127,6 +2584,7 @@
         break;
       case "resolve":
         animateResolve(e, me);
+        if (e.ok) setTimeout(() => say(e.reading), 250);
         break;
     }
   }
@@ -2148,8 +2606,8 @@
     if (e.refund) fb.append(h2("span", "refund", ` +${e.refund}\u25C6 back`));
     if (!card) return;
     const ghost = card.cloneNode(true);
-    const r = card.getBoundingClientRect();
-    Object.assign(ghost.style, { position: "fixed", left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: "30", margin: "0" });
+    const r2 = card.getBoundingClientRect();
+    Object.assign(ghost.style, { position: "fixed", left: `${r2.left}px`, top: `${r2.top}px`, width: `${r2.width}px`, height: `${r2.height}px`, zIndex: "30", margin: "0" });
     document.body.append(ghost);
     if (spec.kind === "mana") {
       sfx.mana();
@@ -2157,7 +2615,7 @@
     } else {
       const towardsMe = spec.kind === "heal" ? e.playerId === me : e.targetId === me;
       const target = $2(towardsMe ? "dkMe" : "dkOpp").getBoundingClientRect();
-      ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r.top + r.height / 2)}px`);
+      ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
       if (spec.kind === "heal") sfx.heal();
       else sfx.correct(1);
@@ -2169,9 +2627,9 @@
     setTimeout(() => ghost.remove(), 900);
   }
   function ripCard(card) {
-    const r = card.getBoundingClientRect();
+    const r2 = card.getBoundingClientRect();
     const wrap = h2("div", "rip");
-    Object.assign(wrap.style, { position: "fixed", left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: "30" });
+    Object.assign(wrap.style, { position: "fixed", left: `${r2.left}px`, top: `${r2.top}px`, width: `${r2.width}px`, height: `${r2.height}px`, zIndex: "30" });
     for (const side of ["l", "r"]) {
       const half = card.cloneNode(true);
       half.classList.add("rip-half", side);
@@ -2312,8 +2770,8 @@
       this.onChange();
     }
     point(e) {
-      const r = this.canvas.getBoundingClientRect();
-      return [(e.clientX - r.left) / r.width * this.canvas.width, (e.clientY - r.top) / r.height * this.canvas.height];
+      const r2 = this.canvas.getBoundingClientRect();
+      return [(e.clientX - r2.left) / r2.width * this.canvas.width, (e.clientY - r2.top) / r2.height * this.canvas.height];
     }
     down(e) {
       if (e.button !== 0 && e.pointerType === "mouse") return;
@@ -2492,15 +2950,15 @@
     $3("showAnswer").hidden = true;
     $3("rateRow").hidden = false;
   }
-  async function rate(r) {
+  async function rate(r2) {
     if (!current || !flipped || busy) return;
     busy = true;
     const card = current;
     try {
-      const res = await api.review(card.vocabId, r);
+      const res = await api.review(card.vocabId, r2);
       $3("whoCrit").textContent = `\u2726 ${critText(res.crit)} crit`;
-      if (r === "again") queue.splice(Math.min(3, queue.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
-      else if (r === "hard" && card.state !== "review") queue.splice(Math.min(6, queue.length), 0, card);
+      if (r2 === "again") queue.splice(Math.min(3, queue.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
+      else if (r2 === "hard" && card.state !== "review") queue.splice(Math.min(6, queue.length), 0, card);
     } catch (e) {
       toast(e.message);
     }
@@ -2523,13 +2981,27 @@
   $3("studyStruggle").onclick = () => void startSession("struggling");
   $3("reviewBack").onclick = () => void openStudy();
   $3("reviewDoneBack").onclick = () => void openStudy();
-  function openCustomize(profile2) {
+  function openCustomize(profile2, isAdmin = false, onTimeChange = () => {
+  }) {
     const lvl = levelOf(profile2.xp);
+    const pref = getTimePref();
+    const time = resolveTime(pref);
+    $3("bgTimes").replaceChildren(...TIMES.map((t) => {
+      const b = document.createElement("button");
+      b.className = "pill" + (t.id === pref ? " on" : "");
+      b.textContent = t.id === "auto" ? `\u{1F552} Auto (now: ${time})` : t.id === "day" ? "\u2600\uFE0F Day" : t.id === "sunset" ? "\u{1F307} Sunset" : "\u{1F319} Night";
+      b.onclick = () => {
+        setTimePref(t.id);
+        onTimeChange();
+        openCustomize(profile2, isAdmin, onTimeChange);
+      };
+      return b;
+    }));
     $3("bgGrid").replaceChildren(...BACKGROUNDS.map((b) => {
-      const locked = lvl < b.level;
+      const locked = !isAdmin && lvl < b.level;
       const tile2 = document.createElement("button");
       tile2.className = "bg-tile" + (profile2.background === b.id ? " on" : "") + (locked ? " locked" : "");
-      tile2.innerHTML = backgroundThumb(b.id);
+      tile2.innerHTML = backgroundThumb(b.id, time);
       const name = document.createElement("div");
       name.className = "bg-name";
       name.textContent = `${b.name}${profile2.background === b.id ? " \u2713" : ""}`;
@@ -2545,7 +3017,7 @@
         try {
           const { profile: p } = await api.setBackground(b.id);
           onProfile(p);
-          openCustomize(p);
+          openCustomize(p, isAdmin, onTimeChange);
         } catch (e) {
           toast(e.message);
         }
@@ -2599,10 +3071,16 @@
   var nameOf = (id) => players.find((p) => p.id === id)?.name ?? "Someone";
   var GAME_SCREENS = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
   onScreen((s) => setScene(GAME_SCREENS.has(s) ? "game" : "menu"));
+  function applyBackground() {
+    const bg = profile?.background ?? "forest";
+    paintBackground($("bg"), bg, resolveTime(getTimePref()));
+    setAmbience(bg, resolveTime(getTimePref()));
+  }
+  setInterval(applyBackground, 5 * 6e4);
   function applyProfile(p) {
     profile = p;
     setProfile(p);
-    paintBackground($("bg"), p.background);
+    applyBackground();
   }
   onProfileChange(applyProfile);
   async function refreshProfile() {
@@ -2612,7 +3090,7 @@
     }
   }
   async function boot() {
-    paintBackground($("bg"), "forest");
+    applyBackground();
     paintScenes();
     setAudioButtons(isRadioOn(), isSfxOn());
     if (!getToken()) return showAuth();
@@ -2743,8 +3221,11 @@
         lockInput();
         if (mode === "writing") setCharSlots(charCount, written.map(() => ""), false);
         setFeedback(msg);
-        if (msg.correct) sfx.correct(msg.combo);
-        else sfx.wrong();
+        if (msg.correct) {
+          sfx.correct(msg.combo);
+          const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
+          setTimeout(() => say(kana), 250);
+        } else sfx.wrong();
         break;
       case "battle_update":
         players = msg.players;
@@ -2949,7 +3430,7 @@
   $("studyBack").onclick = () => show("menu");
   $("customizeBtn").onclick = async () => {
     await refreshProfile();
-    if (profile) openCustomize(profile);
+    if (profile) openCustomize(profile, user?.role === "admin", applyBackground);
   };
   $("customizeBack").onclick = () => show("menu");
   async function openAdmin() {
@@ -3059,9 +3540,64 @@
     setAudioButtons(isRadioOn(), isSfxOn());
   };
   {
+    const pop = $("profilePop");
+    $("whoBtn").onclick = (e) => {
+      e.stopPropagation();
+      pop.hidden = !pop.hidden;
+      $("whoBtn").setAttribute("aria-expanded", String(!pop.hidden));
+      if (!pop.hidden) void refreshProfile();
+    };
+    addEventListener("click", (e) => {
+      if (!pop.hidden && !pop.contains(e.target) && !$("whoBtn").contains(e.target)) pop.hidden = true;
+    });
+    $("picInput").onchange = async (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file) return;
+      try {
+        const { profile: profile2 } = await api.setAvatar(await squarePicture(file));
+        setProfile(profile2);
+        toast("Profile picture updated");
+      } catch (err) {
+        toast(err.message || "Could not use that picture");
+      }
+    };
+    $("picRemove").onclick = async () => {
+      try {
+        setProfile((await api.removeAvatar()).profile);
+      } catch (err) {
+        toast(err.message);
+      }
+    };
+  }
+  async function squarePicture(file) {
+    if (!file.type.startsWith("image/")) throw new Error("Please pick an image");
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      await new Promise((ok, fail) => {
+        img.onload = () => ok();
+        img.onerror = () => fail(new Error("Could not read that image"));
+        img.src = url;
+      });
+      const side = Math.min(img.naturalWidth, img.naturalHeight);
+      const c = document.createElement("canvas");
+      c.width = c.height = 128;
+      c.getContext("2d").drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 128, 128);
+      const webp = c.toDataURL("image/webp", 0.85);
+      return webp.startsWith("data:image/webp") ? webp : c.toDataURL("image/jpeg", 0.85);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  {
     const panel = $("volPanel");
-    const music = $("musicVol"), fx = $("sfxVol");
+    const music = $("musicVol"), fx = $("sfxVol"), vo = $("voiceVol");
     const show2 = () => {
+      const vp = getVoicePrefs();
+      vo.value = String(Math.round(vp.vol * 100));
+      $("voiceVolVal").textContent = `${vo.value}%`;
+      $("voiceInfo").textContent = !voiceAvailable() ? "This browser has no speech voice." : vp.name ? `Voice: ${vp.name}${vp.male ? "" : " (pitched down)"}` : "No Japanese voice found on this device.";
       const v = getVolumes();
       music.value = String(Math.round(v.music * 100));
       fx.value = String(Math.round(v.sfx * 100));
@@ -3084,6 +3620,11 @@
       show2();
     };
     fx.onchange = () => previewSfx();
+    vo.oninput = () => {
+      setVoiceVolume(Number(vo.value) / 100);
+      show2();
+    };
+    vo.onchange = () => say("\u304B\u3093\u3058");
     addEventListener("click", (e) => {
       if (!panel.hidden && !panel.contains(e.target)) panel.hidden = true;
     });

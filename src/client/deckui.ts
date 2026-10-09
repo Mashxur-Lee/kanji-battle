@@ -1,3 +1,4 @@
+import * as voice from './voice';
 import { CARD_COLORS, CARD_SPECS, CHARACTER_INFO, DECK_CHARACTERS, DECK_RULES, type CardColor, type DeckCardView, type DeckEvent, type DeckPlayerView, type DeckView } from '../shared/deck';
 import * as audio from './audio';
 import * as ui from './ui';
@@ -31,7 +32,15 @@ let flashTimer = 0;
 
 export function initDeck(hk: DeckHooks) {
   hooks = hk;
-  $('dkAbility').onclick = () => hooks.send({ type: 'deck_ability' });
+  $('dkAbility').onclick = () => {
+    const me = view?.players.find((p) => p.id === view!.you);
+    // the Wizard's power is passive: the button explains it instead of firing anything
+    if (me?.character && CHARACTER_INFO[me.character].passive) {
+      const used = [me.wizardCardsUsed ? 'cards used' : '+2 cards ready', me.wizardManaUsed ? 'mana used' : '+30 mana ready'].join(' · ');
+      return ui.toast(`🧙 ${CHARACTER_INFO[me.character].power} (${used})`, 6000);
+    }
+    hooks.send({ type: 'deck_ability' });
+  };
   $('dkChatForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = $<HTMLInputElement>('dkChatInput');
@@ -121,7 +130,7 @@ function playerPanel(el: HTMLElement, p: DeckPlayerView, mine: boolean) {
   const av = h('div', 'dk-av');
   av.innerHTML = p.character ? heroSvg(p.character, mine ? 'me' : 'opp') : '';
   const name = h('div', 'dk-name');
-  name.append(h('span', '', mine ? `${p.name} (you)` : p.name));
+  name.append(ui.picEl(p.pic), h('span', '', mine ? `${p.name} (you)` : p.name));
   if (p.character) name.append(h('span', 'tag', CHARACTER_INFO[p.character].name));
   if (p.abilityActive > 0 && p.character !== 'wizard') name.append(h('span', 'tag', `${p.character === 'goblin' ? 'Frenzy' : CHARACTER_INFO[p.character!].power.split(':')[0]} ×${p.abilityActive}`));
   name.append(ui.netBars(p.id));
@@ -196,12 +205,12 @@ export function renderDeck(v: DeckView) {
   const ch = me.character;
   ab.innerHTML = ch ? heroSvg(ch, 'me') : '';
   const cd = me.abilityCooldown;
-  ab.append(h('span', 'ab-name', ch ? (CHARACTER_INFO[ch].passive ? 'Passive' : cd > 0 ? `Ready in ${cd} turn${cd === 1 ? '' : 's'}` : `Power · ${DECK_RULES.abilityCost}◆`) : ''));
+  ab.append(h('span', 'ab-name', ch ? (CHARACTER_INFO[ch].passive ? 'Passive · tap' : cd > 0 ? `Ready in ${cd} turn${cd === 1 ? '' : 's'}` : `Power · ${DECK_RULES.abilityCost}◆`) : ''));
   if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h('span', 'ab-cd', String(cd)));
   ab.title = ch ? CHARACTER_INFO[ch].power : '';
   ab.classList.toggle('passive', !!ch && !!CHARACTER_INFO[ch].passive);
   ab.classList.toggle('active', me.abilityActive > 0);
-  ab.disabled = !ch || !!CHARACTER_INFO[ch].passive || cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting;
+  ab.disabled = !ch || (!CHARACTER_INFO[ch].passive && (cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting));
 
   // the card being cast
   renderCast(v);
@@ -322,7 +331,10 @@ export function deckEvent(e: DeckEvent) {
     case 'wizard': ui.toast(`${e.playerId === me ? 'Your' : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === 'cards' ? '+2 cards' : '+30 mana'}`); break;
     case 'stuck': ui.toast(`${e.playerId === me ? 'You have' : `${name(e.playerId)} has`} no usable cards!`); break;
     case 'overtime': ui.toast('⏰ Overtime! Cards are shown one by one — first to write it uses it.', 5000); break;
-    case 'resolve': animateResolve(e, me); break;
+    case 'resolve':
+      animateResolve(e, me);
+      if (e.ok) setTimeout(() => voice.say(e.reading), 250); // both players hear the spell's word
+      break;
   }
 }
 

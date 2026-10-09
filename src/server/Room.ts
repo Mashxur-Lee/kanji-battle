@@ -29,7 +29,7 @@ export const DEFAULT_LEVELS: Level[] = ['N3', 'N2'];
 export const BOSS_NAME = 'Black Dragon';
 
 /** Per-player progress the room shows and uses (crit chance, account level). */
-export interface MemberProfile { crit: number; xp: number }
+export interface MemberProfile { crit: number; xp: number; pic?: string | null }
 
 /** `forfeited`: someone gave up or left — nobody gets XP (stops win-trading between accounts). */
 export interface MatchResult { id: PlayerId; outcome: MatchOutcome; accuracy: number; missed: string[]; forfeited: boolean; vsAi: boolean }
@@ -312,7 +312,7 @@ export class Room {
       if (!judge) return;
       const writable = this.deps.writableFilter ?? (() => true);
       this.phase = 'game';
-      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge);
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit, pic: p.profile.pic ?? null })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge);
       this.game.start();
       return;
     }
@@ -425,7 +425,7 @@ export class Room {
       for (const [id, r] of Object.entries(out)) {
         const m = this.roster.find((p) => p.id === id);
         const before = m ? levelOf(m.profile.xp) : 0;
-        if (m) m.profile = { crit: r.crit, xp: r.xp };
+        if (m) m.profile = { ...m.profile, crit: r.crit, xp: r.xp };
         this.clients.get(id)?.send({ type: 'progress', gained: r.gained, xp: r.xp, level: levelOf(r.xp), levelUp: levelOf(r.xp) > before, crit: r.crit });
       }
     } catch (err) {
@@ -451,6 +451,7 @@ export class Room {
         crit: p.profile.crit,
         level: levelOf(p.profile.xp),
         bot: p.bot?.level ?? null,
+        pic: p.profile.pic ?? null,
         ready: p.ready,
       };
     });

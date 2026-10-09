@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.7
+# Kanji Wizards · v0.7.5
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -61,6 +61,20 @@ registrations disappear. Neon has a free Postgres plan:
 
 The connection string is a password: keep it only in Render's environment, never in the code (the
 browser only talks to this server, never to the database).
+
+## Profile
+
+Click your name (top left) for your stats: level and XP, today's crit, wins, losses, win rate and spells
+learned. You can upload a profile picture there; it's cropped to a square, shrunk to 128×128 in your browser
+and shown next to your name in lobbies and games (`GET /api/avatar/:id`, max 60 KB, PNG/JPEG/WebP only).
+
+## Backgrounds
+
+Five painted scenes, each in **day, sunset and night** (Customize → Auto follows your clock): a forest with
+comets and red eyes in the dark, a misty swamp with will-o'-wisps, plains with villages, a windmill and
+wandering goblins, a castle with the Black Dragon circling above and soldiers clashing at the sides, and the
+World Tree. Each has its own sounds in the menus (owls, frogs, goblin chatter, sword clashes, chimes) at the
+music volume. Admins have every background unlocked.
 
 ## Online queue
 
@@ -142,6 +156,10 @@ uses it.
   [KanjiCanvas](https://github.com/asdfjkl/kanjicanvas) (MIT, `src/server/handwriting/KANJICANVAS-LICENSE.txt`).
   It's forgiving: a character counts if it's in the top 10 guesses or close to the best guess
   (`JUDGE` in `src/server/handwriting/judge.ts`).
+- **Pronunciation**: after a correct cast the word is spoken (its kana reading) with the browser's Japanese
+  text-to-speech, preferring a male voice when the device has one (Windows Ichiro/Keita, Apple Otoya/Hattori);
+  otherwise the default voice is pitched down. Open recordings (Kanji alive, Lingua Libre) only cover a small
+  part of the 6,600 words, so they weren't used. Voice volume is in the 🎚 panel.
 - **Handwriting a word**: write the whole word on one wide pad, left to right (faint dividers mark each
   character). The server tries the most likely ways to split the strokes into characters and keeps the one
   that reads best (`src/server/handwriting/segment.ts`).

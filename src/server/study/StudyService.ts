@@ -13,7 +13,11 @@ export const DAILY_NEW = 25;
 export const AI_XP_FACTOR = 0.5;
 export type Deck = 'all' | 'struggling';
 
-export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[] }
+export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null }
+
+/** Public URL of a profile picture (versioned, so browsers can cache it forever). */
+export const picUrl = (u: { id: string; avatarV: number }) => (u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null);
+const MAX_AVATAR_BYTES = 60 * 1024;
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudyItem {
   vocabId: string; kanji: string; reading: string; meaning: string; level: Level;
@@ -36,7 +40,10 @@ export class StudyService {
   async profile(u: UserRecord, now = Date.now()): Promise<Profile> {
     const learned = await this.store.learnedCount(u.id);
     const learnedToday = now < u.critExpires ? u.critCount : 0;
-    return { xp: u.xp, level: levelOf(u.xp), crit: dailyCrit(u.critCount, u.critExpires, now), learned, learnedToday, background: u.background, studyLevels: u.studyLevels };
+    return {
+      xp: u.xp, level: levelOf(u.xp), crit: dailyCrit(u.critCount, u.critExpires, now), learned, learnedToday, background: u.background,
+      studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u),
+    };
   }
 
   /** Today's crit chance (1% + 1% per spell learned today, max 50%; back to 1% at the player's midnight). */
@@ -45,9 +52,24 @@ export class StudyService {
     return u ? dailyCrit(u.critCount, u.critExpires, now) : CRIT_BASE;
   }
 
+  /** Profile picture: a small PNG/JPEG/WebP (the browser resizes it to 128×128 before upload). null removes it. */
+  async setAvatar(u: UserRecord, dataUrl: unknown) {
+    if (dataUrl === null) { await this.store.setAvatar(u.id, null); return; }
+    const m = typeof dataUrl === 'string' ? /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl) : null;
+    if (!m) throw new StudyError('Pictures must be PNG, JPEG or WebP');
+    const data = Buffer.from(m[2], 'base64');
+    if (data.length > MAX_AVATAR_BYTES) throw new StudyError('Picture is too large');
+    const magic = m[1] === 'image/png' ? data.subarray(0, 4).toString('hex') === '89504e47'
+      : m[1] === 'image/jpeg' ? data.subarray(0, 3).toString('hex') === 'ffd8ff'
+      : data.subarray(0, 4).toString('latin1') === 'RIFF' && data.subarray(8, 12).toString('latin1') === 'WEBP';
+    if (!magic) throw new StudyError('That file is not a valid picture');
+    await this.store.setAvatar(u.id, { mime: m[1] as 'image/png', data });
+  }
+  avatar(id: string) { return this.store.getAvatar(id); }
+
   async setBackground(u: UserRecord, bg: unknown) {
     if (!isBackground(bg)) throw new StudyError('Unknown background');
-    if (!unlocked(bg, u.xp)) throw new StudyError(`Unlocks at level ${BACKGROUNDS.find((b) => b.id === bg)!.level}`, 403);
+    if (u.role !== 'admin' && !unlocked(bg, u.xp)) throw new StudyError(`Unlocks at level ${BACKGROUNDS.find((b) => b.id === bg)!.level}`, 403);
     await this.store.update(u.id, { background: bg });
   }
 
@@ -130,6 +152,7 @@ export class StudyService {
   async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false, vsAi = false) {
     const gained = forfeited ? 0 : Math.round(xpFor(outcome, accuracy, mode) * (vsAi ? AI_XP_FACTOR : 1));
     const xp = gained ? await this.store.addXp(userId, gained) : (await this.store.findById(userId))?.xp ?? 0;
+    await this.store.addResult(userId, outcome);
     const words = missedIds.filter((id) => VOCAB_BY_ID.has(id));
     if (words.length) await this.store.markStruggling(userId, words, Date.now());
     return { gained, xp };

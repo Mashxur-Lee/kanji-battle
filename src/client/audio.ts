@@ -18,6 +18,7 @@ let sfxBus: GainNode;
 let musicBus: GainNode; // master music volume
 let menuBus: GainNode; // the menu theme (crossfaded)
 let battleBus: GainNode; // the battle theme (crossfaded)
+let ambBus: GainNode; // background ambience (owls, frogs, goblins, clashes)
 let reverb: ConvolverNode;
 /** Menus play the calm theme; battles play the tense one. They crossfade. */
 let scene: 'menu' | 'game' = 'menu';
@@ -33,6 +34,7 @@ function ensure(): AudioContext | null {
   musicBus = ctx.createGain(); musicBus.gain.value = musicGain(); musicBus.connect(comp);
   menuBus = ctx.createGain(); menuBus.gain.value = 0; menuBus.connect(musicBus);
   battleBus = ctx.createGain(); battleBus.gain.value = 0; battleBus.connect(musicBus);
+  ambBus = ctx.createGain(); ambBus.gain.value = 0.9; ambBus.connect(musicBus);
   // small hall reverb from generated noise (shared by music and chimes)
   reverb = ctx.createConvolver();
   const len = ctx.sampleRate * 2.6;
@@ -73,6 +75,7 @@ function syncMusic() {
   const on = prefs.radio && prefs.musicVol > 0 && document.visibilityState === 'visible';
   const want = on ? (scene === 'menu' ? menuTheme : battleTheme) : null;
   for (const t of [menuTheme, battleTheme]) t === want ? t.fadeIn() : t.fadeOut();
+  syncAmbience();
 }
 
 const midi = (n: number) => 440 * 2 ** ((n - 69) / 12);
@@ -416,3 +419,118 @@ export function setSfxVolume(v: number) {
 }
 /** A short chime so you can hear the effects volume you just picked. */
 export function previewSfx() { if (sfxOk()) bell(midi(76), ctx!.currentTime, 0.8, 0.18); }
+
+// ── Ambience: each background has its own occasional sounds (menus only, follows the music volume) ──
+let ambBg: string | null = null;
+let ambTime: 'day' | 'sunset' | 'night' = 'night';
+let ambTimer: number | undefined;
+
+export function setAmbience(bg: string | null, time: 'day' | 'sunset' | 'night') {
+  const changed = bg !== ambBg;
+  ambBg = bg; ambTime = time;
+  if (changed) syncAmbience();
+}
+function syncAmbience() {
+  clearTimeout(ambTimer);
+  ambTimer = undefined;
+  if (!ctx || !ambBg || !prefs.radio || prefs.musicVol <= 0 || scene !== 'menu' || document.visibilityState !== 'visible') return;
+  const next = (first: boolean) => {
+    ambTimer = window.setTimeout(() => {
+      if (ctx?.state === 'running') ambientCall(ambBg!, ambTime);
+      next(false);
+    }, (first ? 4_000 : 12_000) + Math.random() * 16_000);
+  };
+  next(true);
+}
+
+function ambientCall(bg: string, time: 'day' | 'sunset' | 'night') {
+  const t = ctx!.currentTime + 0.05;
+  if (bg === 'forest') time === 'day' ? birds(t) : owl(t);
+  else if (bg === 'swamp') frogs(t);
+  else if (bg === 'plains') goblins(t);
+  else if (bg === 'castle') { clash(t); if (Math.random() < 0.6) clash(t + 0.32 + Math.random() * 0.2); if (Math.random() < 0.25) roar(t + 1.4); }
+  else if (bg === 'worldtree') sparkle(t);
+}
+
+/** "Hoo — hoo-hoooo": a tawny owl, soft and far away. */
+function owl(at: number) {
+  const hoot = (t0: number, dur: number, f0: number) => {
+    const c = ctx!;
+    const o = c.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f0 * 0.88, t0 + dur);
+    const vib = c.createOscillator(); const vg = c.createGain(); vib.frequency.value = 7; vg.gain.value = 6; vib.connect(vg).connect(o.frequency);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.09, t0 + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f0; bp.Q.value = 2;
+    o.connect(bp).connect(g).connect(ambBus);
+    const s = c.createGain(); s.gain.value = 0.8; g.connect(s).connect(reverb);
+    o.start(t0); vib.start(t0); o.stop(t0 + dur + 0.05); vib.stop(t0 + dur + 0.05);
+  };
+  const f0 = 360 + Math.random() * 40;
+  hoot(at, 0.32, f0); hoot(at + 0.75, 0.18, f0 * 1.04); hoot(at + 1.0, 0.75, f0 * 1.06);
+}
+function birds(at: number) {
+  for (let i = 0; i < 3 + Math.floor(Math.random() * 3); i++) {
+    const t = at + i * 0.16 + Math.random() * 0.05, f0 = 2600 + Math.random() * 900;
+    tone(f0, t, 0.09, { gain: 0.02, to: f0 * 1.35, bus: ambBus, send: 0.4, attack: 0.005 });
+  }
+}
+/** A few frogs answering each other: "rib-bit". */
+function frogs(at: number) {
+  const ribbit = (t0: number, k: number) => {
+    const c = ctx!;
+    for (const [off, len, pitch] of [[0, 0.11, 1], [0.17, 0.14, 1.12]] as const) {
+      const o = c.createOscillator(); o.type = 'square'; o.frequency.value = 190 * k * pitch;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 850 * k; bp.Q.value = 3;
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, t0 + off);
+      // the croak is a fast train of pulses
+      for (let p = 0; p < len / 0.025; p++) {
+        const tp = t0 + off + p * 0.025;
+        g.gain.setValueAtTime(0.0001, tp); g.gain.linearRampToValueAtTime(0.05, tp + 0.006); g.gain.linearRampToValueAtTime(0.0001, tp + 0.02);
+      }
+      o.connect(bp).connect(g).connect(ambBus);
+      const s = c.createGain(); s.gain.value = 0.35; g.connect(s).connect(reverb);
+      o.start(t0 + off); o.stop(t0 + off + len + 0.03);
+    }
+  };
+  const n = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < n; i++) ribbit(at + Math.random() * 1.6, 0.85 + Math.random() * 0.5);
+}
+/** Goblin gibberish and a cackle, from somewhere across the fields. */
+function goblins(at: number) {
+  const c = ctx!;
+  const syll = (t0: number, f0: number, dur: number, formant: number, level = 0.035) => {
+    const o = c.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, t0); o.frequency.linearRampToValueAtTime(f0 * (0.85 + Math.random() * 0.4), t0 + dur);
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = formant; bp.Q.value = 5;
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(level, t0 + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(bp).connect(g).connect(ambBus);
+    const s = c.createGain(); s.gain.value = 0.4; g.connect(s).connect(reverb);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  };
+  let t = at;
+  const n = 5 + Math.floor(Math.random() * 5);
+  for (let i = 0; i < n; i++) { const d = 0.06 + Math.random() * 0.06; syll(t, 520 + Math.random() * 420, d, [700, 1100, 1500, 2100][Math.floor(Math.random() * 4)]); t += d + 0.02; }
+  if (Math.random() < 0.7) for (let i = 0; i < 4; i++) syll(t + 0.15 + i * 0.11, 900 + i * 40, 0.07, 1800, 0.04); // "he-he-he-he"
+}
+/** Steel on steel: a few bright, inharmonic partials and a scrape of noise. */
+function clash(at: number) {
+  for (const [f0, dur, g] of [[1760, 0.7, 0.035], [2730, 0.55, 0.025], [3980, 0.4, 0.02], [5560, 0.3, 0.012]] as const) {
+    const fr = f0 * (0.97 + Math.random() * 0.06);
+    tone(fr, at, dur, { gain: g, bus: ambBus, send: 0.6, attack: 0.002 });
+  }
+  noise(at, 0.07, 0.05, 2600, 'highpass', ambBus);
+}
+function roar(at: number) {
+  const c = ctx!;
+  const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(95, at); o.frequency.exponentialRampToValueAtTime(55, at + 1.5);
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
+  const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.05, at + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, at + 1.6);
+  o.connect(lp).connect(g).connect(ambBus);
+  const s = c.createGain(); s.gain.value = 0.9; g.connect(s).connect(reverb);
+  o.start(at); o.stop(at + 1.7);
+}
+function sparkle(at: number) {
+  const notes = [79, 81, 84, 86, 88, 91];
+  for (let i = 0; i < 4; i++) bell(midi(notes[Math.floor(Math.random() * notes.length)]), at + i * 0.18, 1.4, 0.03, ambBus);
+}

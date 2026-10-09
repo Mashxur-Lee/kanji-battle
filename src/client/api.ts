@@ -2,7 +2,7 @@ import type { AdminUserRow, Level, PublicUser } from '../shared/protocol';
 import type { BackgroundId } from '../shared/progress';
 import type { CardState, Rating } from '../shared/srs';
 
-export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[] }
+export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; wins: number; losses: number; pic: string | null; background: BackgroundId; studyLevels: Level[] }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudySummary { studyLevels: Level[]; notice: number; decks: { all: DeckCounts; struggling: DeckCounts }; profile: Profile }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string> }
@@ -30,6 +30,8 @@ export const api = {
   login: (username: string, password: string) => call<{ token: string; user: PublicUser }>('POST', '/api/login', { username, password }),
   register: (username: string, password: string) => call<{ token: string; user: PublicUser }>('POST', '/api/register', { username, password }),
   me: () => call<{ user: PublicUser; profile: Profile }>('GET', '/api/me'),
+  setAvatar: (image: string) => call<{ profile: Profile }>('PUT', '/api/me/avatar', { image }),
+  removeAvatar: () => call<{ profile: Profile }>('DELETE', '/api/me/avatar'),
   setBackground: (background: BackgroundId) => call<{ profile: Profile }>('PUT', '/api/me/background', { background }),
   study: () => call<StudySummary>('GET', `/api/study?today=${today()}`),
   setStudyLevels: (levels: Level[]) => call<StudySummary>('PUT', '/api/study/levels', { levels, today: today() }),

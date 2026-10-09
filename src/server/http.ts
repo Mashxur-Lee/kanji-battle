@@ -17,13 +17,13 @@ class RateLimiter {
   }
 }
 
-function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
+function readJson(req: IncomingMessage, maxBody = MAX_BODY): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => {
       size += c.length;
-      if (size > MAX_BODY) { reject(new AuthError('Request too large', 413)); req.destroy(); return; }
+      if (size > maxBody) { reject(new AuthError('Request too large', 413)); req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', () => {
@@ -56,6 +56,19 @@ export function createApiHandler(auth: AuthService, study: StudyService) {
       } else if (req.method === 'GET' && url === '/api/me') {
         const u = await auth.authenticate(bearer(req));
         send(res, 200, { user: toPublic(u), profile: await study.profile(u) });
+      } else if (req.method === 'GET' && /^\/api\/avatar\/[\w-]+$/.test(url)) {
+        // profile pictures are public (shown next to names in games); versioned URLs → cache forever
+        const img = await study.avatar(url.split('/')[3]);
+        if (!img) { send(res, 404, { error: 'No picture' }); return true; }
+        res.writeHead(200, { 'Content-Type': img.mime, 'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Length': img.data.length }).end(img.data);
+      } else if (req.method === 'PUT' && url === '/api/me/avatar') {
+        const u = await auth.authenticate(bearer(req));
+        await study.setAvatar(u, (await readJson(req, 120 * 1024)).image);
+        send(res, 200, { profile: await study.profile((await auth.authenticate(bearer(req)))) });
+      } else if (req.method === 'DELETE' && url === '/api/me/avatar') {
+        const u = await auth.authenticate(bearer(req));
+        await study.setAvatar(u, null);
+        send(res, 200, { profile: await study.profile((await auth.authenticate(bearer(req)))) });
       } else if (req.method === 'PUT' && url === '/api/me/background') {
         const u = await auth.authenticate(bearer(req));
         await study.setBackground(u, (await readJson(req)).background);

@@ -5,7 +5,7 @@ import * as ui from './ui';
 
 const QUEUE_MODES: GameMode[] = ['reading', 'writing', 'rapid', 'boss'];
 const KEY = 'kb:queue';
-type Saved = { modes: GameMode[]; levels: Level[] };
+type Saved = { modes: GameMode[]; levels: Level[]; pick?: 'battle' | 'deck' };
 const load = (): Saved => { try { return { modes: ['reading', 'rapid'], levels: ['N5'], ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return { modes: ['reading', 'rapid'], levels: ['N5'] }; } };
 const save = (s: Saved) => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private mode */ } };
 
@@ -23,18 +23,34 @@ function chip(value: string, label: string, on: boolean, group: string) {
   return l;
 }
 const picked = (id: string) => [...document.querySelectorAll<HTMLInputElement>(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
-function remember() { save({ modes: picked('qModes') as GameMode[], levels: picked('qLevels') as Level[] }); }
+let pick: 'battle' | 'deck' = 'battle';
+function remember() { save({ modes: picked('qModes') as GameMode[], levels: picked('qLevels') as Level[], pick }); }
+/** Exactly one box is chosen: battle modes or Deck Duel. */
+function choose(p: 'battle' | 'deck') {
+  pick = p;
+  document.querySelectorAll<HTMLElement>('#queuePick .queue-card').forEach((c) => {
+    const on = c.dataset.q === p;
+    c.classList.toggle('chosen', on);
+    c.setAttribute('aria-checked', String(on));
+  });
+  ui.$('qStart').textContent = p === 'deck' ? '⚔ Start queue — Deck Duel' : '⚔ Start queue';
+  remember();
+}
 
 export function initQueue(sender: typeof send) {
   send = sender;
   ui.$('queueBack').onclick = () => { if (searching) send({ type: 'queue_cancel' }); stopSearching(); ui.show('menu'); };
-  ui.$('qFind').onclick = () => {
+  document.querySelectorAll<HTMLElement>('#queuePick .queue-card').forEach((c) => {
+    c.addEventListener('click', () => choose(c.dataset.q as 'battle' | 'deck'));
+    c.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); choose(c.dataset.q as 'battle' | 'deck'); } });
+  });
+  ui.$('qStart').onclick = () => {
+    if (pick === 'deck') return send({ type: 'queue', modes: ['deck'] });
     const modes = picked('qModes'), levels = picked('qLevels');
     if (!modes.length) return ui.toast('Tick at least one mode');
     if (!levels.length) return ui.toast('Tick at least one level');
     send({ type: 'queue', modes, levels });
   };
-  ui.$('qDeck').onclick = () => send({ type: 'queue', modes: ['deck'] });
   ui.$('qCancel').onclick = () => send({ type: 'queue_cancel' });
 }
 
@@ -42,6 +58,7 @@ export function openQueue() {
   const s = load();
   ui.$('qModes').replaceChildren(...QUEUE_MODES.map((m) => chip(m, MODE_LABEL[m], s.modes.includes(m), 'qm')));
   ui.$('qLevels').replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), 'ql')));
+  choose(s.pick ?? 'battle');
   if (!searching) { ui.$('queuePick').hidden = false; ui.$('qSearching').hidden = true; }
   ui.show('queue');
 }

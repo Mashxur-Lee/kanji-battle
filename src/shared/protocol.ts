@@ -58,6 +58,7 @@ export interface PlayerView {
   level: number; // account level (XP)
   ready: boolean; // Deck Duel lobby: starts when everyone is ready
   bot: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | null; // AI player and its knowledge level
+  pic: string | null; // profile picture URL
 }
 
 export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number }

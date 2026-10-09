@@ -211,3 +211,11 @@ const DRAGON_PALETTE: Palette = {
 export function dragonSvg(): string {
   return pixelSvg(DRAGON_MAP, DRAGON_PALETTE, { E: 'eye' });
 }
+
+/** Raw pixel rects of a sprite (no <svg> wrapper), to place inside other scenes such as backgrounds. */
+export function spriteRects(kind: 'goblin' | 'dragon'): { rects: string; w: number; h: number } {
+  const map = kind === 'goblin' ? GOBLIN_MAP : DRAGON_MAP;
+  const pal = kind === 'goblin' ? GOBLIN_PAL : DRAGON_PALETTE;
+  const svg = pixelSvg(map, pal, kind === 'dragon' ? { E: 'eye' } : {});
+  return { rects: svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, ''), w: map[0].length, h: map.length };
+}

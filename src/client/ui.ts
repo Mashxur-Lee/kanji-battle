@@ -15,7 +15,7 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
   return el;
 }
-const append = (parent: HTMLElement, ...kids: HTMLElement[]) => { parent.append(...kids); return parent; };
+const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { parent.append(...kids); return parent; };
 
 const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'customize', 'deck'] as const;
 export type Screen = (typeof SCREENS)[number];
@@ -79,12 +79,31 @@ export function setNet(map: Record<string, number | null>) {
 }
 
 // ── top bar ──────────────────────────────────────────────────────────────────
-export interface ProfileView { xp: number; level: number; crit: number; learned: number }
+export interface ProfileView { xp: number; level: number; crit: number; learned: number; learnedToday?: number; wins?: number; losses?: number; pic?: string | null }
+/** A round profile picture (or nothing). */
+export function picEl(url: string | null | undefined, cls = 'pic'): HTMLElement | '' {
+  if (!url) return '';
+  const img = h('img', cls, undefined, { src: url, alt: '', loading: 'lazy', decoding: 'async' }) as HTMLImageElement;
+  img.onerror = () => img.remove();
+  return img;
+}
 export function setProfile(p: ProfileView | null) {
   if (!p) return;
   const lx = levelXp(p.xp);
-  $('whoLevel').textContent = `Lv ${lx.level} · ${lx.into.toLocaleString()}/${lx.need.toLocaleString()} XP`;
-  $('whoCrit').textContent = `✦ ${critText(p.crit)} crit`;
+  $('whoLevel').textContent = `Lv ${lx.level} · ${lx.into.toLocaleString()} / ${lx.need.toLocaleString()} XP`;
+  $('whoCrit').textContent = critText(p.crit);
+  $('ppWins').textContent = String(p.wins ?? 0);
+  $('ppLosses').textContent = String(p.losses ?? 0);
+  const games = (p.wins ?? 0) + (p.losses ?? 0);
+  $('ppRate').textContent = games ? `${Math.round(((p.wins ?? 0) / games) * 100)}%` : '—';
+  $('ppLearned').textContent = String(p.learned);
+  $('ppToday').textContent = String(p.learnedToday ?? 0);
+  for (const id of ['whoPic', 'ppPic']) {
+    const el = $(id);
+    el.replaceChildren(p.pic ? picEl(p.pic, 'pic fill') : '✦');
+    el.classList.toggle('has-pic', !!p.pic);
+  }
+  $('picRemove').hidden = !p.pic;
   $('whoCrit').title = 'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.';
   $('whoXp').style.width = `${levelProgress(p.xp) * 100}%`;
   $('whoXp').parentElement!.title = `${lx.into} / ${lx.need} XP to level ${lx.level + 1}`;
@@ -102,6 +121,7 @@ export function toast(text: string, ms = 3500) {
 export function setUser(user: PublicUser | null) {
   $('whoami').hidden = !user;
   $('whoName').textContent = user?.username ?? '';
+  $('ppName').textContent = user?.username ?? '';
   $('whoRole').hidden = user?.role !== 'admin';
   $('adminBtn').hidden = user?.role !== 'admin';
 }
@@ -257,7 +277,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       const li = h('li');
       const av = h('span', 'who-av');
       av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp');
-      li.append(av, h('span', 'who', p.id === you ? `${p.name} (you)` : p.name));
+      li.append(av, picEl(p.pic), h('span', 'who', p.id === you ? `${p.name} (you)` : p.name));
       if (p.bot) li.append(h('span', 'tag ai', `🤖 AI · knows ${p.bot}`));
       else li.append(netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
       if (p.bot && you === hostId) { const x = h('button', 'pill rm-bot', '✕', { title: 'Remove this AI' }); x.dataset.removeBot = p.id; li.append(x); }
@@ -367,7 +387,7 @@ function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
   const ordered = [...players].sort((a, b) => (a.id === you ? -1 : b.id === you ? 1 : 0));
   el.replaceChildren(...ordered.map((p) => {
     const row = h('div', 'party-row' + (p.id === you ? ' me' : '') + (p.hp <= 0 ? ' down' : ''));
-    const name = append(h('div', 'pname'), h('span', 'n', p.id === you ? `${p.name} (you)` : p.name), netBars(p.id), h('span', 'lv', `Lv ${p.level}`),
+    const name = append(h('div', 'pname'), picEl(p.pic), h('span', 'n', p.id === you ? `${p.name} (you)` : p.name), netBars(p.id), h('span', 'lv', `Lv ${p.level}`),
       h('span', 'combo', p.combo >= 2 ? `×${p.combo}${p.combo >= 5 ? ' 🔥' : ''}` : ''));
     row.append(name, thickBar(p.hp, p.maxHp, 'ally', p.hp <= 0 ? 'down' : `${p.hp} / ${p.maxHp}`));
     return row;
@@ -385,7 +405,7 @@ function thickBar(hp: number, max: number, side: 'ally' | 'enemy', text: string)
 
 function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, emptyText: string) {
   if (!p) { el.replaceChildren(h('div', 'name', emptyText)); return; }
-  const name = append(h('div', 'name'), append(h('span', 'n', label), netBars(p.id), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo${p.combo >= 5 ? ' 🔥' : ''}` : ''));
+  const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic), h('span', 'n', label), netBars(p.id), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo${p.combo >= 5 ? ' 🔥' : ''}` : ''));
   el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h('div', 'hpnum', `${p.hp} / ${p.maxHp} HP`), h('span', 'lvs', `· ${levelsText(p.levels)}${p.online ? '' : ' · away'}`)));
 }
 
@@ -479,18 +499,38 @@ export function castSpell(caster: Actor, target: Actor, kanji: string, damage: n
   const from = { x: fromRight ? cr.left - a.left - 10 : cr.right - a.left - 30, y: cr.top - a.top + cr.height * 0.15 };
   const to = { x: tr.left - a.left + tr.width / 2 - 20, y: tr.top - a.top + tr.height * 0.4 };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // a slower, bigger flight with a glowing trail, so you can follow who hit whom
+  const dur = reduced ? 400 : 850;
+  const mid = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 70 };
   const anim = spell.animate(
     [
-      { transform: `translate(${from.x}px, ${from.y}px) scale(.6)`, opacity: 0.2 },
-      { transform: `translate(${(from.x + to.x) / 2}px, ${Math.min(from.y, to.y) - 40}px) scale(1.1)`, opacity: 1, offset: 0.5 },
-      { transform: `translate(${to.x}px, ${to.y}px) scale(1.3)`, opacity: 1 },
+      { transform: `translate(${from.x}px, ${from.y}px) scale(.5)`, opacity: 0.2 },
+      { transform: `translate(${from.x + (mid.x - from.x) * 0.3}px, ${from.y + (mid.y - from.y) * 0.6}px) scale(1.35)`, opacity: 1, offset: 0.18 },
+      { transform: `translate(${mid.x}px, ${mid.y}px) scale(1.6)`, opacity: 1, offset: 0.55 },
+      { transform: `translate(${to.x}px, ${to.y}px) scale(2)`, opacity: 1 },
     ],
-    { duration: reduced ? 300 : 420, easing: 'ease-in' }, // always animate: it shows who hit whom
+    { duration: dur, easing: 'cubic-bezier(.45,.05,.75,.4)' }, // gentle start, quickening into the hit
   );
+  const trail = reduced ? 0 : window.setInterval(() => {
+    const r = spell.getBoundingClientRect();
+    const dot = h('div', 'spell-trail' + (friendly ? '' : ' foe'));
+    dot.style.left = `${r.left - a.left + r.width / 2}px`;
+    dot.style.top = `${r.top - a.top + r.height / 2}px`;
+    arena.append(dot);
+    setTimeout(() => dot.remove(), 500);
+  }, 40);
   return new Promise((resolve) => {
     anim.onfinish = () => {
+      clearInterval(trail);
       spell.remove();
-      retrigger(t, 'hurt', 520);
+      // impact: a burst ring on the target, a longer red flash and a small screen shake
+      const burst = h('div', 'spell-burst' + (friendly ? '' : ' foe'));
+      burst.style.left = `${to.x + 20}px`;
+      burst.style.top = `${to.y + 20}px`;
+      arena.append(burst);
+      setTimeout(() => burst.remove(), 600);
+      retrigger(t, 'hurt', 700);
+      if (!reduced) retrigger(arena, 'shake', 350);
       floatText(t, `−${damage}`, friendly ? '' : 'taken');
       resolve();
     };
