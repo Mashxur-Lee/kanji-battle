@@ -2,7 +2,7 @@ import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
 import { BACKGROUNDS, critText, levelOf, type BackgroundId } from '../shared/progress';
 import type { Rating } from '../shared/srs';
 import { api, type DeckCounts, type Profile, type StudyCard } from './api';
-import { backgroundThumb } from './backgrounds';
+import { backgroundThumb, getTimePref, resolveTime, setTimePref, TIMES } from './backgrounds';
 import * as ui from './ui';
 
 const $ = ui.$;
@@ -146,13 +146,23 @@ $('reviewBack').onclick = () => void openStudy();
 $('reviewDoneBack').onclick = () => void openStudy();
 
 // ── customize: backgrounds unlocked by level ────────────────────────────────
-export function openCustomize(profile: Profile) {
+/** Backgrounds unlock by level (admins have them all); the time of day is a per-browser choice. */
+export function openCustomize(profile: Profile, isAdmin = false, onTimeChange: () => void = () => {}) {
   const lvl = levelOf(profile.xp);
+  const pref = getTimePref();
+  const time = resolveTime(pref);
+  $('bgTimes').replaceChildren(...TIMES.map((t) => {
+    const b = document.createElement('button');
+    b.className = 'pill' + (t.id === pref ? ' on' : '');
+    b.textContent = t.id === 'auto' ? `🕒 Auto (now: ${time})` : t.id === 'day' ? '☀️ Day' : t.id === 'sunset' ? '🌇 Sunset' : '🌙 Night';
+    b.onclick = () => { setTimePref(t.id); onTimeChange(); openCustomize(profile, isAdmin, onTimeChange); };
+    return b;
+  }));
   $('bgGrid').replaceChildren(...BACKGROUNDS.map((b) => {
-    const locked = lvl < b.level;
+    const locked = !isAdmin && lvl < b.level;
     const tile = document.createElement('button');
     tile.className = 'bg-tile' + (profile.background === b.id ? ' on' : '') + (locked ? ' locked' : '');
-    tile.innerHTML = backgroundThumb(b.id);
+    tile.innerHTML = backgroundThumb(b.id, time);
     const name = document.createElement('div');
     name.className = 'bg-name';
     name.textContent = `${b.name}${profile.background === b.id ? ' ✓' : ''}`;
@@ -168,7 +178,7 @@ export function openCustomize(profile: Profile) {
       try {
         const { profile: p } = await api.setBackground(b.id as BackgroundId);
         onProfile(p);
-        openCustomize(p);
+        openCustomize(p, isAdmin, onTimeChange);
       } catch (e) { ui.toast((e as Error).message); }
     };
     return tile;

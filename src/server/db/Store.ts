@@ -19,7 +19,11 @@ export interface UserRecord {
   newNotice: number; // new cards added that the player hasn't been told about yet
   critCount: number; // spells learned today (daily crit)
   critExpires: number; // epoch ms of the player's next local midnight; after it the crit is back to 1%
+  wins: number;
+  losses: number;
+  avatarV: number; // profile picture version (0 = none); the picture itself is stored separately
 }
+export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
 export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires'>>;
 
@@ -42,13 +46,18 @@ export interface Store {
   markStruggling(userId: string, vocabIds: string[], now: number): Promise<void>;
   /** Per user: study-set size and learned (graduated) cards — for the admin page. */
   cardStats(): Promise<Record<string, { cards: number; learned: number }>>;
+  /** Count a finished match (draws aren't counted). */
+  addResult(id: string, outcome: 'win' | 'loss' | 'draw'): Promise<void>;
+  /** Set or remove (null) the profile picture; returns the new version (0 = none). */
+  setAvatar(id: string, img: AvatarImage | null): Promise<number>;
+  getAvatar(id: string): Promise<AvatarImage | null>;
   learnedCount(userId: string): Promise<number>;
   close?(): Promise<void>;
 }
 
 export class UsernameTakenError extends Error {}
 
-const blankProgress = () => ({ xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0 });
+const blankProgress = () => ({ xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0 });
 
 /** In-memory store (tests); FileStore persists the same data as JSON. */
 export class MemoryStore implements Store {
@@ -110,6 +119,21 @@ export class MemoryStore implements Store {
     this.persist();
   }
   async learnedCount(userId: string) { return [...this.deck(userId).values()].filter((c) => c.state === 'review').length; }
+  protected avatars = new Map<string, AvatarImage>();
+  async addResult(id: string, outcome: 'win' | 'loss' | 'draw') {
+    const r = this.users.get(id);
+    if (!r || outcome === 'draw') return;
+    if (outcome === 'win') r.wins++; else r.losses++;
+    this.persist();
+  }
+  async setAvatar(id: string, img: AvatarImage | null) {
+    const r = this.users.get(id);
+    if (!r) return 0;
+    if (img) { this.avatars.set(id, img); r.avatarV = (r.avatarV || 0) + 1; } else { this.avatars.delete(id); r.avatarV = 0; }
+    this.persist();
+    return r.avatarV;
+  }
+  async getAvatar(id: string) { return this.avatars.get(id) ?? null; }
   async cardStats() {
     return Object.fromEntries([...this.srs].map(([uid, d]) => [uid, { cards: d.size, learned: [...d.values()].filter((c) => c.state === 'review').length }]));
   }
@@ -127,6 +151,9 @@ export class FileStore extends MemoryStore {
       const users: UserRecord[] = Array.isArray(data) ? data : data.users; // older files were a plain user array
       const legacy = Array.isArray(data) || data.xpScheme !== 2; // saved before the steeper levels
       for (const r of users) this.users.set(r.id, { ...blankProgress(), ...r, xp: legacy ? legacyXpToCurrent(r.xp ?? 0) : r.xp ?? 0 });
+      for (const [uid, a] of Object.entries((data.avatars ?? {}) as Record<string, { mime: AvatarImage['mime']; b64: string }>)) {
+        this.avatars.set(uid, { mime: a.mime, data: Buffer.from(a.b64, 'base64') });
+      }
       for (const [uid, cards] of Object.entries((data.srs ?? {}) as Record<string, SrsCard[]>)) {
         this.srs.set(uid, new Map(cards.map((c) => [c.vocabId, c])));
       }
@@ -136,7 +163,8 @@ export class FileStore extends MemoryStore {
     mkdirSync(path.dirname(this.file), { recursive: true });
     const tmp = `${this.file}.tmp`;
     const srs = Object.fromEntries([...this.srs].map(([uid, d]) => [uid, [...d.values()]]));
-    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs }));
+    const avatars = Object.fromEntries([...this.avatars].map(([uid, a]) => [uid, { mime: a.mime, b64: a.data.toString('base64') }]));
+    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars }));
     renameSync(tmp, this.file); // atomic replace
   }
 }

@@ -13,13 +13,30 @@
 <div id="bg" class="bg" aria-hidden="true"></div>
 <header class="topbar">
   <div id="whoami" class="whoami" hidden>
-    <span class="avatar" aria-hidden="true">✦</span>
-    <span class="who-text">
-      <span class="who-line"><span id="whoName" class="who-name"></span><span id="whoRole" class="tag" hidden>admin</span></span>
-      <span class="who-line small"><span id="whoLevel">Lv 0</span> · <span id="whoCrit" title="Crit chance today">✦ 1% crit</span></span>
-      <span class="xpbar" title="XP to next level"><span id="whoXp"></span></span>
-    </span>
-    <button id="logout" class="link" aria-label="Log out"><span class="lbl">Log out</span><span class="ico" aria-hidden="true">⎋</span></button>
+    <button id="whoBtn" class="who-btn" aria-expanded="false" aria-controls="profilePop" title="Your profile">
+      <span id="whoPic" class="avatar" aria-hidden="true">✦</span>
+      <span id="whoName" class="who-name"></span><span id="whoRole" class="tag" hidden>admin</span>
+    </button>
+    <div id="profilePop" class="profile-pop" hidden>
+      <div class="pp-head">
+        <div id="ppPic" class="pp-pic">✦</div>
+        <div><div id="ppName" class="pp-name"></div><div id="whoLevel" class="pp-level">Lv 0</div></div>
+      </div>
+      <div class="xpbar" title="XP to next level"><span id="whoXp"></span></div>
+      <div class="pp-stats">
+        <div><b id="whoCrit">1%</b><span>crit today</span></div>
+        <div><b id="ppWins">0</b><span>wins</span></div>
+        <div><b id="ppLosses">0</b><span>losses</span></div>
+        <div><b id="ppRate">—</b><span>win rate</span></div>
+        <div><b id="ppLearned">0</b><span>spells learned</span></div>
+        <div><b id="ppToday">0</b><span>learned today</span></div>
+      </div>
+      <div class="pp-actions">
+        <label class="pill" title="PNG, JPEG or WebP">📷 Change picture<input id="picInput" type="file" accept="image/png,image/jpeg,image/webp,image/*" hidden></label>
+        <button id="picRemove" class="pill">Remove picture</button>
+        <button id="logout" class="pill danger">⎋ Log out</button>
+      </div>
+    </div>
   </div>
   <div id="netStatus" class="net-status" role="status" hidden></div>
   <div class="audio-ctl" role="group" aria-label="Audio">
@@ -29,6 +46,8 @@
     <div id="volPanel" class="vol-panel" hidden>
       <label>♪ Music <span id="musicVolVal"></span><input id="musicVol" type="range" min="0" max="100" step="1"></label>
       <label>🔊 Effects <span id="sfxVolVal"></span><input id="sfxVol" type="range" min="0" max="100" step="1"></label>
+      <label>🗣 Voice (word on a correct cast) <span id="voiceVolVal"></span><input id="voiceVol" type="range" min="0" max="100" step="1"></label>
+      <p id="voiceInfo" class="hint"></p>
     </div>
   </div>
 </header>
@@ -60,20 +79,23 @@
     <button id="queueBack" class="back">← Menu</button>
     <div class="page-head"><h2>Online queue</h2></div>
     <p class="sub">Tick what you'd like to play. You'll be matched with the first player who wants the same, and the game starts straight away.</p>
-    <div id="queuePick" class="queue-grid">
-      <div class="queue-card">
+    <div id="queuePick" class="queue-pick">
+    <div class="queue-grid" role="radiogroup" aria-label="What to queue for">
+      <div class="queue-card" data-q="battle" role="radio" tabindex="0">
+        <span class="q-radio" aria-hidden="true"></span>
         <h3>Battle modes</h3>
         <div id="qModes" class="chips"></div>
         <h4>Your levels</h4>
         <div id="qLevels" class="chips"></div>
-        <button id="qFind" class="big">Find match</button>
       </div>
-      <div class="queue-card deck">
+      <div class="queue-card deck" data-q="deck" role="radio" tabindex="0">
+        <span class="q-radio" aria-hidden="true"></span>
         <h3>Deck Duel</h3>
         <p class="sub">Queued on its own. No levels to pick: the cards come from N5 to N1.</p>
         <div class="q-deck-pic" aria-hidden="true"><span class="dkc c-red"></span><span class="dkc c-green"></span><span class="dkc c-yellow"></span><span class="dkc c-blue"></span><span class="dkc c-lightblue"></span></div>
-        <button id="qDeck" class="big">Find Deck Duel</button>
       </div>
+    </div>
+    <button id="qStart" class="big q-start">⚔ Start queue</button>
     </div>
     <div id="qSearching" class="queue-searching" hidden>
       <div class="q-orbit" aria-hidden="true"><span>漢</span><span>字</span></div>
@@ -87,6 +109,7 @@
   <!-- MENU -->
   <section id="menu" class="screen split" hidden>
     <div class="col-main">
+      <div class="menu-stack">
       <h1 class="title"><span class="jp">漢字</span> Wizards</h1>
       <p class="sub">Study ten spells. Then cast them from memory.</p>
       <div class="menu-actions">
@@ -102,6 +125,7 @@
         </div>
         <button id="adminBtn" class="alt" hidden>👥 Users</button>
         <p id="error" class="error" role="alert"></p>
+      </div>
       </div>
       <button id="howBtn" class="how-btn">How to play?</button>
     </div>
@@ -156,7 +180,8 @@
   <section id="customize" class="screen" hidden>
     <button id="customizeBack" class="back">← Menu</button>
     <h2>Customize</h2>
-    <p class="sub">Backgrounds unlock as you level up. Win battles to earn XP (each level needs 1000 more than the last).</p>
+    <p class="sub">Backgrounds unlock as you level up. Win battles to earn XP (each level needs 1000 more than the last). Each one has its own sounds in the menus.</p>
+    <div id="bgTimes" class="bg-times" role="group" aria-label="Time of day"></div>
     <div id="bgGrid" class="bg-grid"></div>
   </section>
 
@@ -411,7 +436,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.7</div>
+<div id="version" class="version">v0.7.5</div>
 <script src="/app.js"></script>
 </body>
 </html>

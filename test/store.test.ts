@@ -112,3 +112,39 @@ if (process.env.TEST_DATABASE_URL) {
     await s.close!();
   });
 }
+
+for (const [name, make] of stores) {
+  test(`store: wins/losses and profile pictures (${name})`, async () => {
+    const s = make();
+    await s.init();
+    const u = await s.create({ username: `pic-${name}-${Date.now()}`, passwordHash: 'h', role: 'user' });
+    await s.addResult(u.id, 'win'); await s.addResult(u.id, 'win'); await s.addResult(u.id, 'loss'); await s.addResult(u.id, 'draw');
+    const rec = (await s.findById(u.id))!;
+    assert.deepEqual([rec.wins, rec.losses, rec.avatarV], [2, 1, 0]);
+    const png = Buffer.from('89504e470d0a1a0a0000', 'hex');
+    assert.equal(await s.setAvatar(u.id, { mime: 'image/png', data: png }), 1);
+    assert.deepEqual(await s.getAvatar(u.id), { mime: 'image/png', data: png });
+    assert.equal(await s.setAvatar(u.id, null), 0);
+    assert.equal(await s.getAvatar(u.id), null);
+    await s.close?.();
+  });
+}
+
+test('profile pictures: only small real PNG/JPEG/WebP files; admins have every background', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const s = new MemoryStore();
+  const study = new StudyService(s);
+  const u = await s.create({ username: 'p', passwordHash: 'h', role: 'user' });
+  const png = 'data:image/png;base64,' + Buffer.from('89504e470d0a1a0a00000000', 'hex').toString('base64');
+  await study.setAvatar(u, png);
+  const prof = await study.profile((await s.findById(u.id))!);
+  assert.equal(prof.pic, `/api/avatar/${u.id}?v=1`);
+  await assert.rejects(study.setAvatar(u, 'data:image/svg+xml;base64,PHN2Zz4='), /PNG, JPEG or WebP/);
+  await assert.rejects(study.setAvatar(u, 'data:image/png;base64,' + Buffer.from('not a png').toString('base64')), /not a valid picture/);
+  await assert.rejects(study.setAvatar(u, 'data:image/jpeg;base64,' + Buffer.alloc(70_000, 0xff).toString('base64')), /too large/);
+  // backgrounds: a level-0 user can't pick the castle, an admin can
+  await assert.rejects(study.setBackground(u, 'castle'), /Unlocks at level/);
+  const admin = await s.create({ username: 'boss', passwordHash: 'h', role: 'admin' });
+  await study.setBackground(admin, 'castle');
+  assert.equal((await s.findById(admin.id))!.background, 'castle');
+});

@@ -5,7 +5,7 @@ import { sanitizeDrawing } from './handwriting/judge';
 import type { Client, MemberProfile, Room } from './Room';
 import type { Matchmaker } from './Matchmaker';
 import type { RoomManager } from './RoomManager';
-import type { StudyService } from './study/StudyService';
+import { picUrl, type StudyService } from './study/StudyService';
 
 const MAX_ANSWER_LENGTH = 40;
 const MAX_WRITTEN_CHARS = 8;
@@ -190,7 +190,7 @@ export class Session implements Client {
   /** Crit chance and XP shown in rooms (crit comes from learned flashcards). */
   private async profile(): Promise<MemberProfile> {
     const rec = await this.auth.store.findById(this.user!.id);
-    return { crit: await this.study.crit(this.user!.id), xp: rec?.xp ?? 0 };
+    return { crit: await this.study.crit(this.user!.id), xp: rec?.xp ?? 0, pic: rec ? picUrl(rec) : null };
   }
 
   private async enter(room: Room, levels: Level[]) {

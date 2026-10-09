@@ -12,7 +12,7 @@ type DraftPool = Array<{ entry: VocabEntry; color: CardColor }>;
 
 interface Card { cardId: string; color: CardColor; entry: VocabEntry; revealed: boolean }
 interface DPlayer {
-  id: PlayerId; name: string; hp: number; mana: number; crit: number;
+  id: PlayerId; name: string; hp: number; mana: number; crit: number; pic: string | null;
   character: DeckCharacter | null; cooldown: number; frenzy: boolean; abilityActive: number;
   hand: Card[]; wizardCardsUsed: boolean; wizardManaUsed: boolean;
   casts: number; hits: number; totalMs: number; damage: number; words: Map<string, { entry: VocabEntry; attempts: number; correct: number; totalMs: number }>;
@@ -61,7 +61,7 @@ export class DeckGame implements Match {
   private pool: DraftPool;
 
   constructor(
-    setups: ReadonlyArray<{ id: PlayerId; name: string; crit?: number }>,
+    setups: ReadonlyArray<{ id: PlayerId; name: string; crit?: number; pic?: string | null }>,
     pool: DraftPool | (() => DraftPool),
     private readonly emit: (e: GameEvent) => void,
     private readonly judge: WritingJudge,
@@ -74,7 +74,7 @@ export class DeckGame implements Match {
     this.makePool = typeof pool === 'function' ? pool : () => fixed!;
     this.pool = this.makePool();
     this.players = setups.map((s) => ({
-      id: s.id, name: s.name, hp: rules.hp, mana: rules.maxMana, crit: s.crit ?? 0, character: null, cooldown: 0, frenzy: false, abilityActive: 0,
+      id: s.id, name: s.name, hp: rules.hp, mana: rules.maxMana, crit: s.crit ?? 0, pic: s.pic ?? null, character: null, cooldown: 0, frenzy: false, abilityActive: 0,
       hand: [], wizardCardsUsed: false, wizardManaUsed: false, casts: 0, hits: 0, totalMs: 0, damage: 0, words: new Map(),
     }));
   }
@@ -498,7 +498,7 @@ export class DeckGame implements Match {
       character: p.character,
       abilityCooldown: p.cooldown,
       abilityActive: p.character === 'goblin' ? (this.active === p.id && p.frenzy ? this.castsLeft : 0) : p.abilityActive,
-      handCounts, handSize: p.hand.length, wizardCardsUsed: p.wizardCardsUsed, wizardManaUsed: p.wizardManaUsed,
+      handCounts, handSize: p.hand.length, wizardCardsUsed: p.wizardCardsUsed, wizardManaUsed: p.wizardManaUsed, pic: p.pic,
     };
   }
 
