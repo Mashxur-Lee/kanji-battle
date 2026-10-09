@@ -16,15 +16,15 @@ export const CARD_SPECS: Record<CardColor, CardSpec> = {
 export const DECK_CHARACTERS = ['goblin', 'knight', 'witch', 'wizard'] as const;
 export type DeckCharacter = (typeof DECK_CHARACTERS)[number];
 export const CHARACTER_INFO: Record<DeckCharacter, { name: string; power: string; passive?: boolean }> = {
-  goblin: { name: 'Goblin', power: 'Frenzy: play 2 cards in a row this turn.' },
-  knight: { name: 'Knight', power: 'Bulwark: take 30% less damage and heal 30% more for 2 turns.' },
-  witch: { name: 'Witch', power: 'Sight: see the kanji and reading of all your cards for 2 turns (and the kanji stays visible while casting).' },
+  goblin: { name: 'Goblin', power: 'Frenzy: play 2 cards in a row this turn. 100 mana, then 4 turns cooldown.' },
+  knight: { name: 'Knight', power: 'Bulwark: take 30% less damage and heal 30% more for 2 turns. 100 mana, then 4 turns cooldown.' },
+  witch: { name: 'Witch', power: 'Sight: see the kanji and reading of all your cards for 2 turns (and the kanji stays visible while casting). 100 mana, then 4 turns cooldown.' },
   wizard: { name: 'Wizard', power: 'Arcane reserve (passive): out of cards → draw 2 random cards before a new draft; out of mana → +30 mana. Once each.', passive: true },
 };
 
 export const DECK_RULES = {
   hp: 1000,
-  maxMana: 150,
+  maxMana: 200, // and you start full
   manaPerTurn: 10,
   handSize: 10,
   cardsPerLevel: 4,
@@ -32,13 +32,15 @@ export const DECK_RULES = {
   pickMs: 20_000,
   characterMs: 30_000,
   chooseMs: 15_000, // pick which card to play
-  castMs: 23_500, // then write its kanji: 3.5 s flash + 20 s
+  castMs: 38_500, // then write its kanji: 3.5 s flash + 35 s
   castFlashMs: 3500,
   matchMs: 8 * 60_000, // then overtime
-  overtimeCardMs: 18_500, // 3.5 s flash + 15 s
+  overtimeCardMs: 38_500, // 3.5 s flash + 35 s
   knightDamageTaken: 0.7,
   knightHealBonus: 1.3,
   abilityTurns: 2,
+  abilityCost: 100, // mana to fire your hero's power
+  abilityCooldown: 4, // your turns until it can be used again
   wizardBonusCards: 2,
   wizardBonusMana: 30,
 };
@@ -62,7 +64,8 @@ export interface DeckPlayerView {
   mana: number;
   maxMana: number;
   character: DeckCharacter | null;
-  abilityUsed: boolean;
+  /** your turns until the hero power is ready again (0 = ready) */
+  abilityCooldown: number;
   /** turns left on Knight's Bulwark / Witch's Sight; Goblin: casts left this turn */
   abilityActive: number;
   handCounts: Record<CardColor, number>;

@@ -2,7 +2,7 @@ import type { AdminUserRow, Level, PublicUser } from '../shared/protocol';
 import type { BackgroundId } from '../shared/progress';
 import type { CardState, Rating } from '../shared/srs';
 
-export interface Profile { xp: number; level: number; crit: number; learned: number; background: BackgroundId; studyLevels: Level[] }
+export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[] }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudySummary { studyLevels: Level[]; notice: number; decks: { all: DeckCounts; struggling: DeckCounts }; profile: Profile }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string> }
@@ -34,7 +34,7 @@ export const api = {
   study: () => call<StudySummary>('GET', `/api/study?today=${today()}`),
   setStudyLevels: (levels: Level[]) => call<StudySummary>('PUT', '/api/study/levels', { levels, today: today() }),
   queue: (deck: 'all' | 'struggling') => call<{ cards: StudyCard[] }>('GET', `/api/study/queue?deck=${deck}`),
-  review: (vocabId: string, rating: Rating) => call<{ crit: number }>('POST', '/api/study/review', { vocabId, rating }),
+  review: (vocabId: string, rating: Rating) => call<{ crit: number }>('POST', '/api/study/review', { vocabId, rating, today: today(), tz: new Date().getTimezoneOffset() }),
   users: () => call<{ users: AdminUserRow[]; storage: string; persistent: boolean }>('GET', '/api/admin/users'),
   setBanned: (id: string, banned: boolean) => call<{ user: AdminUserRow }>('POST', `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned }),
 };

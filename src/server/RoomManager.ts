@@ -4,7 +4,7 @@ import { DEFAULT_ROOM_OPTIONS, Room, type MatchEndHook, type RoomOptions } from 
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-export interface ManagerDeps { judgeWriting?: WritingJudge; writableFilter?: (v: VocabEntry) => boolean; onMatchEnd?: MatchEndHook }
+export interface ManagerDeps { judgeWriting?: WritingJudge; judgeDeck?: WritingJudge; writableFilter?: (v: VocabEntry) => boolean; onMatchEnd?: MatchEndHook }
 
 /** Owns all rooms and remembers which room each account is sitting in (for reconnects). */
 export class RoomManager {
@@ -22,6 +22,7 @@ export class RoomManager {
       onEmpty: () => this.rooms.delete(code),
       onMemberLeft: (id) => { if (this.seatOf.get(id) === room) this.seatOf.delete(id); },
       judgeWriting: this.deps.judgeWriting,
+      judgeDeck: this.deps.judgeDeck,
       writableFilter: this.deps.writableFilter,
       onMatchEnd: this.deps.onMatchEnd,
     }, this.opts);

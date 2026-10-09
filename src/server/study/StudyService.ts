@@ -1,7 +1,7 @@
 import type { AdminUserRow } from '../../shared/protocol';
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
-import { BACKGROUNDS, critFor, isBackground, levelOf, unlocked, xpFor, type BackgroundId, type MatchOutcome } from '../../shared/progress';
+import { BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, isBackground, levelOf, nextLocalMidnight, unlocked, xpFor, type BackgroundId, type MatchOutcome } from '../../shared/progress';
 import { answer, isDue, newCard, previewIntervals, RATINGS, type Rating, type SrsCard } from '../../shared/srs';
 import { displayReading } from '../../shared/vocab';
 import type { Store, UserRecord } from '../db/Store';
@@ -9,9 +9,11 @@ import { shuffle } from '../VocabPool';
 import { VOCAB, VOCAB_BY_ID } from '../vocab';
 
 export const DAILY_NEW = 25;
+/** Matches with an AI player give half XP (an easy AI shouldn't be an XP farm). */
+export const AI_XP_FACTOR = 0.5;
 export type Deck = 'all' | 'struggling';
 
-export interface Profile { xp: number; level: number; crit: number; learned: number; background: BackgroundId; studyLevels: Level[] }
+export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[] }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudyItem {
   vocabId: string; kanji: string; reading: string; meaning: string; level: Level;
@@ -31,12 +33,17 @@ export function resolveToday(clientToday: unknown, now = Date.now()): string {
 export class StudyService {
   constructor(private readonly store: Store, private readonly rng: () => number = Math.random) {}
 
-  async profile(u: UserRecord): Promise<Profile> {
+  async profile(u: UserRecord, now = Date.now()): Promise<Profile> {
     const learned = await this.store.learnedCount(u.id);
-    return { xp: u.xp, level: levelOf(u.xp), crit: critFor(learned), learned, background: u.background, studyLevels: u.studyLevels };
+    const learnedToday = now < u.critExpires ? u.critCount : 0;
+    return { xp: u.xp, level: levelOf(u.xp), crit: dailyCrit(u.critCount, u.critExpires, now), learned, learnedToday, background: u.background, studyLevels: u.studyLevels };
   }
 
-  async crit(userId: string) { return critFor(await this.store.learnedCount(userId)); }
+  /** Today's crit chance (1% + 1% per spell learned today, max 50%; back to 1% at the player's midnight). */
+  async crit(userId: string, now = Date.now()) {
+    const u = await this.store.findById(userId);
+    return u ? dailyCrit(u.critCount, u.critExpires, now) : CRIT_BASE;
+  }
 
   async setBackground(u: UserRecord, bg: unknown) {
     if (!isBackground(bg)) throw new StudyError('Unknown background');
@@ -87,15 +94,25 @@ export class StudyService {
       .map((c) => this.item(c, now));
   }
 
-  async review(u: UserRecord, vocabId: unknown, rating: unknown, now = Date.now()) {
+  async review(u: UserRecord, vocabId: unknown, rating: unknown, now = Date.now(), today = resolveToday(undefined, now), tzOffsetMin = 0) {
     if (typeof vocabId !== 'string' || !RATINGS.includes(rating as Rating)) throw new StudyError('Bad review');
     const card = await this.store.card(u.id, vocabId);
     if (!card) throw new StudyError('No such card', 404);
     const next = answer(card, rating as Rating, now);
     // a struggling word stops counting as struggling once it graduates with "Good"/"Easy"
     if (next.state === 'review' && (rating === 'good' || rating === 'easy')) next.struggling = false;
+    // daily crit: a passed card (anything but Again) counts once per day
+    if (rating !== 'again' && card.critDay !== today) {
+      next.critDay = today;
+      const fresh = (await this.store.findById(u.id)) ?? u;
+      const newDay = now >= fresh.critExpires;
+      await this.store.update(u.id, {
+        critCount: newDay ? 1 : fresh.critCount + 1,
+        critExpires: newDay ? nextLocalMidnight(today, tzOffsetMin) : fresh.critExpires,
+      });
+    }
     await this.store.saveCard(u.id, next);
-    return { card: next, crit: await this.crit(u.id) };
+    return { card: next, crit: await this.crit(u.id, now) };
   }
 
   /** After a match: XP and the words you missed go to "Struggling spells". */
@@ -105,12 +122,13 @@ export class StudyService {
     const users = rows.map((u) => {
       const s = stats[u.id] ?? { cards: 0, learned: 0 };
       const xp = u.xp ?? 0;
-      return { ...u, xp, level: levelOf(xp), crit: critFor(s.learned), learned: s.learned, cards: s.cards };
+      return { ...u, xp, level: levelOf(xp), crit: u.crit ?? CRIT_BASE, learned: s.learned, cards: s.cards };
     });
     return { users, storage: this.store.name, persistent: this.store.name === 'postgres' || !process.env.RENDER };
   }
-  async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false) {
-    const gained = forfeited ? 0 : xpFor(outcome, accuracy, mode);
+  /** Forfeits give nobody XP; matches with AI players give half. */
+  async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false, vsAi = false) {
+    const gained = forfeited ? 0 : Math.round(xpFor(outcome, accuracy, mode) * (vsAi ? AI_XP_FACTOR : 1));
     const xp = gained ? await this.store.addXp(userId, gained) : (await this.store.findById(userId))?.xp ?? 0;
     const words = missedIds.filter((id) => VOCAB_BY_ID.has(id));
     if (words.length) await this.store.markStruggling(userId, words, Date.now());

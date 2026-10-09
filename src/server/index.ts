@@ -33,12 +33,13 @@ const api = createApiHandler(auth, study);
 const recognizer = Recognizer.fromFile();
 const rooms = new RoomManager({
   judgeWriting: createWritingJudge(recognizer),
+  judgeDeck: createWritingJudge(recognizer, { lenient: true }), // Deck Duel: extra forgiving
   writableFilter: isWritable(recognizer),
   // after every match: XP + missed words into each player's "Struggling spells"
   onMatchEnd: async (mode, results) => {
     const out: Record<string, { gained: number; xp: number; crit: number }> = {};
     for (const r of results) {
-      const { gained, xp } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited);
+      const { gained, xp } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited, r.vsAi);
       out[r.id] = { gained, xp, crit: await study.crit(r.id) };
     }
     return out;

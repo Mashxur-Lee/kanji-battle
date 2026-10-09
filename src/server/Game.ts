@@ -44,6 +44,9 @@ export const WRITING_CONFIG: GameConfig = {
   speed: { fastMs: 6_000, slowMs: 28_000, fastMult: 1.1, slowMult: 0.8 }, // the kanji is shown for the first 3.5 s
 };
 
+/** At this combo a fighter is wreathed in flames (and immune to the dragon's fire breath). */
+export const FIRE_COMBO = 5;
+
 /** damage = base × speed × combo (spec §13). Accuracy is binary here, so it is omitted. */
 export function computeDamage(difficulty: number, responseMs: number, combo: number, cfg: GameConfig = DEFAULT_CONFIG): number {
   const base = difficulty * cfg.damagePerDifficulty;
@@ -111,6 +114,8 @@ export interface Match {
   getMaxHp(id: PlayerId): number;
   getCombo(id: PlayerId): number;
   bossView(): BossView | null;
+  /** For AI players: the challenge (or card) this player is answering right now. */
+  peek(id: PlayerId): { challengeId: number; entry: VocabEntry } | null;
 }
 
 /** Each player brings their own word pool (their chosen levels) and their own max HP (see Balance.ts). */
@@ -167,6 +172,10 @@ export class Game implements Match {
   }
 
   get mode() { return this.opts.mode; }
+  peek(id: PlayerId) {
+    const p = this.players.get(id);
+    return this.phase === 'battle' && p?.alive && p.current ? { challengeId: p.current.id, entry: p.current.entry } : null;
+  }
   get isOver() { return this.phase === 'over'; }
   getHp(id: PlayerId) { return this.players.get(id)?.hp ?? 0; }
   getMaxHp(id: PlayerId) { return this.players.get(id)?.maxHp ?? 0; }
@@ -277,8 +286,10 @@ export class Game implements Match {
     this.breathTimers.push(setTimeout(() => {
       if (this.phase !== 'battle') return;
       this.breathTimers = [];
-      for (const p of this.players.values()) if (p.alive) p.hp = Math.max(0, p.hp - breathDamage);
-      this.emit({ type: 'battle_update', event: { kind: 'breath', damage: breathDamage } });
+      // a player on fire (5+ combo) is immune to dragon fire
+      const immune = [...this.players.values()].filter((p) => p.alive && p.combo >= FIRE_COMBO).map((p) => p.id);
+      for (const p of this.players.values()) if (p.alive && !immune.includes(p.id)) p.hp = Math.max(0, p.hp - breathDamage);
+      this.emit({ type: 'battle_update', event: { kind: 'breath', damage: breathDamage, immune } });
       for (const p of this.players.values()) if (!p.alive) this.stopPlayer(p);
       if (!this.checkEnd('party_wiped')) this.scheduleBreath();
     }, breathEveryMs));

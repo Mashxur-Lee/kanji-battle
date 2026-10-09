@@ -1,3 +1,4 @@
+import { dailyCrit } from '../../shared/progress';
 import type { AdminUserRow, PublicUser, Role } from '../../shared/protocol';
 import { hashPassword, verifyPassword } from './passwords';
 import type { TokenSigner } from './tokens';
@@ -65,7 +66,7 @@ export class AuthService {
   }
 
   async listUsers(): Promise<AdminUserRow[]> {
-    return (await this.store.list()).map((u) => ({ ...toPublic(u), banned: u.banned, createdAt: u.createdAt, xp: u.xp }));
+    return (await this.store.list()).map((u) => ({ ...toPublic(u), banned: u.banned, createdAt: u.createdAt, xp: u.xp, crit: dailyCrit(u.critCount, u.critExpires) }));
   }
 
   async setBanned(admin: UserRecord, targetId: string, banned: boolean): Promise<AdminUserRow> {

@@ -4,8 +4,90 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
+  // src/client/cursor.ts
+  var G = 32;
+  var COLORS = {
+    k: "#1b1530",
+    // outline
+    s: "#f3c9a1",
+    // skin
+    S: "#d99f74",
+    // skin shade / finger creases
+    w: "#8a5a2b",
+    // handle
+    W: "#c08a4a",
+    // handle highlight
+    m: "#c9ced8",
+    // metal ferrule
+    b: "#2a2230",
+    // bristles
+    B: "#000000",
+    // wet ink tip
+    c: "#3b5bdb",
+    // sleeve
+    C: "#9fb4ff"
+    // sleeve cuff
+  };
+  function draw() {
+    const g = Array.from({ length: G }, () => Array(G).fill(null));
+    const set = (x, y, c) => {
+      if (x >= 0 && y >= 0 && x < G && y < G) g[y][x] = c;
+    };
+    for (let t = 0; t <= 25; t++) {
+      const x = 1 + t, y = 30 - t;
+      if (t <= 1) set(x, y, "B");
+      else if (t <= 7) {
+        set(x, y, "b");
+        set(x + 1, y, "b");
+        if (t >= 4 && t <= 6) set(x, y - 1, "b");
+      } else if (t <= 9) {
+        set(x, y, "m");
+        set(x + 1, y, "m");
+        set(x, y - 1, "m");
+      } else {
+        set(x, y, "w");
+        set(x + 1, y, "W");
+        set(x, y - 1, "w");
+      }
+    }
+    const hx = (y) => 31 - y;
+    for (let f = 0; f < 4; f++) {
+      const y0 = 11 + 2 * f;
+      for (const y of [y0, y0 + 1]) {
+        const x0 = hx(y) - 2, x1 = hx(y) + 6;
+        for (let x = x0; x <= x1; x++) {
+          if (y === y0 + 1 && x === x0) continue;
+          set(x, y, y === y0 + 1 && x > x0 + 1 ? "S" : "s");
+        }
+      }
+    }
+    for (let y = 10; y <= 18; y++) for (let x = hx(y) + 7; x <= Math.min(31, hx(y) + 11); x++) set(x, y, x >= hx(y) + 10 ? "S" : "s");
+    for (let x = hx(9) - 2; x <= hx(9) + 4; x++) set(x, 9, "s");
+    for (let x = hx(10) - 3; x <= hx(10) + 2; x++) set(x, 10, x <= hx(10) - 1 ? "s" : "S");
+    for (let x = hx(8) + 1; x <= hx(8) + 5; x++) set(x, 8, "s");
+    for (let y = 3; y <= 16; y++) for (let x = hx(y) + 12; x <= 31; x++) if (x - (hx(y) + 12) < 4) set(x, y, x === hx(y) + 12 ? "C" : "c");
+    const filled = g.map((row) => row.map((c) => c !== null));
+    for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
+      if (filled[y][x]) continue;
+      if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => filled[y + dy]?.[x + dx])) g[y][x] = "k";
+    }
+    return g;
+  }
+  var css = "";
+  function brushCursor() {
+    if (css) return css;
+    const g = draw();
+    let rects = "";
+    g.forEach((row, y) => row.forEach((c, x) => {
+      if (c) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${COLORS[c]}"/>`;
+    }));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 ${G} ${G}" shape-rendering="crispEdges">${rects}</svg>`;
+    css = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 61, crosshair`;
+    return css;
+  }
+
   // src/shared/version.ts
-  var VERSION = "0.6.1";
+  var VERSION = "0.6.3";
 
   // src/shared/protocol.ts
   var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
@@ -61,7 +143,7 @@
     study: () => call("GET", `/api/study?today=${today()}`),
     setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
     queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
-    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating }),
+    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
     users: () => call("GET", "/api/admin/users"),
     setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
   };
@@ -530,14 +612,15 @@
   };
   var DECK_CHARACTERS = ["goblin", "knight", "witch", "wizard"];
   var CHARACTER_INFO = {
-    goblin: { name: "Goblin", power: "Frenzy: play 2 cards in a row this turn." },
-    knight: { name: "Knight", power: "Bulwark: take 30% less damage and heal 30% more for 2 turns." },
-    witch: { name: "Witch", power: "Sight: see the kanji and reading of all your cards for 2 turns (and the kanji stays visible while casting)." },
+    goblin: { name: "Goblin", power: "Frenzy: play 2 cards in a row this turn. 100 mana, then 4 turns cooldown." },
+    knight: { name: "Knight", power: "Bulwark: take 30% less damage and heal 30% more for 2 turns. 100 mana, then 4 turns cooldown." },
+    witch: { name: "Witch", power: "Sight: see the kanji and reading of all your cards for 2 turns (and the kanji stays visible while casting). 100 mana, then 4 turns cooldown." },
     wizard: { name: "Wizard", power: "Arcane reserve (passive): out of cards \u2192 draw 2 random cards before a new draft; out of mana \u2192 +30 mana. Once each.", passive: true }
   };
   var DECK_RULES = {
     hp: 1e3,
-    maxMana: 150,
+    maxMana: 200,
+    // and you start full
     manaPerTurn: 10,
     handSize: 10,
     cardsPerLevel: 4,
@@ -546,16 +629,20 @@
     characterMs: 3e4,
     chooseMs: 15e3,
     // pick which card to play
-    castMs: 23500,
-    // then write its kanji: 3.5 s flash + 20 s
+    castMs: 38500,
+    // then write its kanji: 3.5 s flash + 35 s
     castFlashMs: 3500,
     matchMs: 8 * 6e4,
     // then overtime
-    overtimeCardMs: 18500,
-    // 3.5 s flash + 15 s
+    overtimeCardMs: 38500,
+    // 3.5 s flash + 35 s
     knightDamageTaken: 0.7,
     knightHealBonus: 1.3,
     abilityTurns: 2,
+    abilityCost: 100,
+    // mana to fire your hero's power
+    abilityCooldown: 4,
+    // your turns until it can be used again
     wizardBonusCards: 2,
     wizardBonusMana: 30
   };
@@ -870,6 +957,7 @@
     const lx = levelXp(p.xp);
     $("whoLevel").textContent = `Lv ${lx.level} \xB7 ${lx.into.toLocaleString()}/${lx.need.toLocaleString()} XP`;
     $("whoCrit").textContent = `\u2726 ${critText(p.crit)} crit`;
+    $("whoCrit").title = "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.";
     $("whoXp").style.width = `${levelProgress(p.xp) * 100}%`;
     $("whoXp").parentElement.title = `${lx.into} / ${lx.need} XP to level ${lx.level + 1}`;
   }
@@ -962,6 +1050,63 @@
     );
     show("admin");
   }
+  var tile = (k, cls = "") => h("span", "g-tile " + cls, k, { lang: "ja" });
+  var GUIDES = {
+    reading: {
+      title: "How Kanji Reading works",
+      pic: () => append(h("div", "g-pic"), tile("\u6F22\u5B57"), h("span", "g-arrow", "\u2192"), tile("\u304B\u3093\u3058", "ok"), h("span", "g-or", "or"), h("span", "g-tile ok", "kanji")),
+      steps: [
+        ["\u{1F4D6}", "60 s to study your 10 words (reading + meaning). Then they disappear."],
+        ["\u2328\uFE0F", "A kanji appears: type its reading in kana or romaji, Enter."],
+        ["\u2694\uFE0F", "Right = a spell at your opponent. Faster and in a row = more damage (combo up to \xD71.5; 5 in a row sets you on fire \u{1F525})."],
+        ["\u{1F4A8}", "Wrong or Skip (Esc) = a miss; the answer is shown and the word comes back later."],
+        ["\u2764\uFE0F", "Your HP depends on how hard your opponent hits (their levels). Most HP after 5 min wins."]
+      ]
+    },
+    writing: {
+      title: "How Kanji Writing works",
+      pic: () => append(h("div", "g-pic"), h("span", "g-hint", "\u304B\u3093\u3058 \u2014 kanji"), h("span", "g-arrow", "\u2192"), append(h("span", "g-pad"), tile("\u6F22"), tile("\u5B57"))),
+      steps: [
+        ["\u{1F441}\uFE0F", "The kanji flashes for 3.5 s, then only its reading + meaning stay."],
+        ["\u{1F58C}\uFE0F", "Write the whole word on the pad, left to right (one cell per character) \u2014 or type it with a Japanese keyboard."],
+        ["\u2705", "Only kanji count (kana only at the \u304B\u306A level). Messy is fine \u2014 it\u2019s judged by shape."],
+        ["\u2694\uFE0F", "Right = damage, with the same combo and speed bonus as Reading."]
+      ]
+    },
+    boss: {
+      title: "How Boss Elimination works",
+      pic: () => append(h("div", "g-pic"), h("span", "g-emoji", "\u{1F9D9}\u{1F9D9}\u{1F9D9}\u{1F9D9}"), h("span", "g-arrow", "\u2694"), h("span", "g-emoji", "\u{1F409}")),
+      steps: [
+        ["\u{1F465}", "Up to 4 players (friends or AI) against the Black Dragon. Its HP grows with the party."],
+        ["\u2328\uFE0F", "Each of you gets your own kanji: type the reading. Right answers hit the dragon."],
+        ["\u{1F9B4}", "A mistake gets you clawed (\u221245)."],
+        ["\u{1F525}", "Every 30 s it breathes fire on everyone (\u2212110) \u2014 unless you are on fire yourself (5 in a row): then you are immune."],
+        ["\u{1F3C6}", "Slay it within 5 minutes. If everyone falls, the dragon wins."]
+      ]
+    },
+    rapid: {
+      title: "How 1v1 Rapid works",
+      pic: () => append(h("div", "g-pic"), tile("\u65E9\u3044"), h("span", "g-arrow", "\u2192"), h("span", "g-tile ok", "\u306F\u3084\u3044 \u26A1")),
+      steps: [
+        ["\u{1F3AF}", "Both players get the same kanji \u2014 no study phase."],
+        ["\u26A1", "First correct reading (kana or romaji) hits the other player."],
+        ["\u{1F501}", "Wrong? Try again until the 12 s round ends."],
+        ["\u2764\uFE0F", "Same HP for both. Last wizard standing wins."]
+      ]
+    }
+  };
+  function renderModeGuide(mode2) {
+    if (mode2 === "deck") return;
+    const g = GUIDES[mode2];
+    const ol = h("ol", "g-flow");
+    for (const [icon, text] of g.steps) ol.append(append(h("li"), h("span", "g-ic", icon), h("span", "", text)));
+    $("modeGuide").replaceChildren(
+      h("h3", "", g.title),
+      g.pic(),
+      ol,
+      h("p", "g-foot", "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.")
+    );
+  }
   function showLobby(code2, mode2, players2, you2, hostId, maxPlayers, minPlayers2) {
     $("code").textContent = code2;
     $("lobbyMode").textContent = MODE_LABEL[mode2];
@@ -970,12 +1115,20 @@
         const li = h("li");
         const av = h("span", "who-av");
         av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp");
-        li.append(av, h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name), netBars(p.id), h("span", "lv", `Lv ${p.level}`));
-        if (p.crit > 0) li.append(h("span", "critv", `\u2726 ${critText(p.crit)} crit`));
+        li.append(av, h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name));
+        if (p.bot) li.append(h("span", "tag ai", `\u{1F916} AI \xB7 knows ${p.bot}`));
+        else li.append(netBars(p.id), h("span", "lv", `Lv ${p.level}`));
+        if (p.bot && you2 === hostId) {
+          const x = h("button", "pill rm-bot", "\u2715", { title: "Remove this AI" });
+          x.dataset.removeBot = p.id;
+          li.append(x);
+        }
+        if (p.crit > 0 && !p.bot) li.append(h("span", "critv", `\u2726 ${critText(p.crit)} crit`));
         if (p.id === hostId) li.append(h("span", "tag", "host"));
         if (!p.online) li.append(h("span", "tag off", "away \u2014 seat kept"));
         if (mode2 === "deck") li.append(h("span", "tag " + (p.ready ? "ready" : "notready"), p.ready ? "\u2713 Ready" : "Not ready"));
-        else li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `\u2764 ${p.maxHp} HP`)));
+        else if (p.bot) li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `\u2764 ${p.maxHp} HP`)));
+        else if (!p.bot) li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `\u2764 ${p.maxHp} HP`)));
         return li;
       }),
       ...Array.from({ length: Math.max(0, maxPlayers - players2.length) }, () => h("li", "empty", mode2 === "boss" ? "Waiting for a teammate (optional)\u2026" : "Waiting for opponent\u2026"))
@@ -994,9 +1147,12 @@
     $("levelsHint").textContent = mode2 === "deck" ? "Deck Duel draws cards from every level (N5\u2013N1). Your level picks only change your character here." : mode2 === "rapid" ? "Both players race on the same kanji, drawn from everyone's levels together." : mode2 === "boss" ? "Each player picks their own. The dragon gets tougher when the party picks harder levels." : mode2 === "writing" ? "Each player picks their own. You will write these words by hand. Harder levels hit harder \u2014 so your opponent gets more HP." : "Each player picks their own. \u304B\u306A = hiragana, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.";
     const isHost = you2 === hostId;
     const canStart = players2.length >= minPlayers2;
+    $("addBot").hidden = !isHost || players2.length >= maxPlayers;
     const deck2 = mode2 === "deck";
     $("levels").hidden = deck2;
     $("deckGuide").hidden = !deck2;
+    $("modeGuide").hidden = deck2;
+    if (!deck2) renderModeGuide(mode2);
     const meReady = !!players2.find((p) => p.id === you2)?.ready;
     $("readyBtn").hidden = !deck2;
     $("readyBtn").textContent = meReady ? "Not ready" : "Ready";
@@ -1004,14 +1160,14 @@
     $("readyBtn").dataset.ready = meReady ? "1" : "";
     if (deck2) {
       $("start").hidden = true;
-      $("lobbyStatus").textContent = !canStart ? "Share the code \u2014 press Ready once your opponent joins. The duel starts when both are ready." : meReady ? "Waiting for your opponent to be ready\u2026" : "Press Ready \u2014 the duel starts when both players are ready.";
+      $("lobbyStatus").textContent = !canStart ? "Share the code, or add an AI opponent \u2014 then press Ready. The duel starts when both are ready." : meReady ? "Waiting for your opponent to be ready\u2026" : "Press Ready \u2014 the duel starts when both players are ready.";
       show("lobby");
       return;
     }
     $("start").hidden = !isHost;
     $("start").disabled = !canStart;
     $("start").textContent = mode2 === "boss" ? players2.length === 1 ? "Start solo" : `Start \u2014 party of ${players2.length}` : "Start battle";
-    $("lobbyStatus").textContent = !canStart ? "Share the code \u2014 the battle can start once your opponent joins." : isHost ? mode2 === "boss" && players2.length < maxPlayers ? `Start now, or wait for more teammates (up to ${maxPlayers}).` : "" : "Waiting for the host to start\u2026";
+    $("lobbyStatus").textContent = !canStart ? "Share the code with a friend, or add an AI player to start." : isHost ? mode2 === "boss" && players2.length < maxPlayers ? `Start now, or wait for more teammates (up to ${maxPlayers}).` : "" : "Waiting for the host to start\u2026";
     show("lobby");
   }
   var selectedLevels = () => [...document.querySelectorAll("#levelChips input")].filter((i) => i.checked).map((i) => i.value);
@@ -1191,7 +1347,7 @@
     $("dragon").classList.add("inhale");
     countdown("breath", inMs, (left) => el.textContent = `\u{1F525} The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
   }
-  function breathFire(damage, victims) {
+  function breathFire(damage, victims, immune = []) {
     stopCountdown("breath");
     $("breathWarn").hidden = true;
     $("dragon").classList.remove("inhale");
@@ -1215,6 +1371,7 @@
         retrigger(actorEl(v), "hurt", 520);
         floatText(actorEl(v), `\u2212${damage}`, "taken");
       }
+      for (const v of immune) floatText(actorEl(v), "IMMUNE", "immune");
     }, 450);
   }
   function knockOut(who) {
@@ -1489,7 +1646,7 @@
     const flow = h2("ol", "g-flow");
     for (const [icon, t] of [
       ["\u{1F9B8}", "Pick a hero (30 s)."],
-      ["\u{1FA99}", "Coin flip, then draft: take 2 face-down cards at a time until you each have 10. You see colours, not kanji."],
+      ["\u{1FA99}", "Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji."],
       ["\u{1F0CF}", `Your turn: ${DECK_RULES.chooseMs / 1e3} s to choose a card. Its mana is paid right away \u2014 even if you then miss.`],
       ["\u270D\uFE0F", `The kanji shows for ${DECK_RULES.castFlashMs / 1e3} s, then only the reading + meaning stay. Write it (pad or Japanese keyboard) within ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1e3} s.`],
       ["\u2705", "Right \u2192 the spell hits / heals / gives mana. Wrong or too slow \u2192 the card rips."],
@@ -1506,7 +1663,7 @@
       sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. Holding cards you can't pay for = you lose.`)),
       sec("Cards", cards),
       sec("A turn", flow),
-      sec("Heroes \u2014 power button bottom-left, once per match", heroes),
+      sec(`Heroes \u2014 power button bottom-left: ${DECK_RULES.abilityCost} mana, then ${DECK_RULES.abilityCooldown} turns cooldown`, heroes),
       sec("Rewards", p("Win 4000 XP \xB7 lose 1500 XP \xB7 forfeit 0 XP."))
     );
   }
@@ -1599,11 +1756,13 @@
     const ab = $2("dkAbility");
     const ch = me.character;
     ab.innerHTML = ch ? heroSvg(ch, "me") : "";
-    ab.append(h2("span", "ab-name", ch ? CHARACTER_INFO[ch].passive ? "Passive" : me.abilityUsed ? "Used" : "Power" : ""));
+    const cd = me.abilityCooldown;
+    ab.append(h2("span", "ab-name", ch ? CHARACTER_INFO[ch].passive ? "Passive" : cd > 0 ? `Ready in ${cd} turn${cd === 1 ? "" : "s"}` : `Power \xB7 ${DECK_RULES.abilityCost}\u25C6` : ""));
+    if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h2("span", "ab-cd", String(cd)));
     ab.title = ch ? CHARACTER_INFO[ch].power : "";
     ab.classList.toggle("passive", !!ch && !!CHARACTER_INFO[ch].passive);
     ab.classList.toggle("active", me.abilityActive > 0);
-    ab.disabled = !ch || !!CHARACTER_INFO[ch].passive || me.abilityUsed || !myTurn || !!v.casting;
+    ab.disabled = !ch || !!CHARACTER_INFO[ch].passive || cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting;
     renderCast(v);
     renderList(v);
   }
@@ -1682,7 +1841,7 @@
       b.onclick = () => hooks.send({ type: "deck_character", character: c });
       grid.append(b);
     }
-    overlay.replaceChildren(backButton(v), title, grid, h2("p", "sub", "Same HP (1000) for both. 150 mana, +10 every turn. 15 s to choose a card (its mana is paid right away), then the kanji shows for 3.5 s and you have 20 s to write it. Out of cards \u2192 a new draft round. Cards: light blue 100 dmg (10\u25C6) \xB7 blue 120 (25\u25C6) \xB7 yellow +60\u25C6 \xB7 green heal 100 (40\u25C6) \xB7 red 250 (70\u25C6)."));
+    overlay.replaceChildren(backButton(v), title, grid, h2("p", "sub", `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1e3} s to choose a card (its mana is paid right away), then the kanji shows for ${DECK_RULES.castFlashMs / 1e3} s and you have ${(DECK_RULES.castMs - DECK_RULES.castFlashMs) / 1e3} s to write it. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards \u2192 a new draft round. Cards: light blue 100 dmg (10\u25C6) \xB7 blue 120 (25\u25C6) \xB7 yellow +60\u25C6 \xB7 green heal 100 (40\u25C6) \xB7 red 250 (70\u25C6).`));
   }
   var coinShown = false;
   function renderDraft(v, me) {
@@ -2039,7 +2198,7 @@
     levelChips(s.studyLevels);
     counts($3("countsAll"), s.decks.all);
     counts($3("countsStruggle"), s.decks.struggling);
-    $3("studyCrit").textContent = `\u2726 ${critText(s.profile.crit)} crit \xB7 ${s.profile.learned} learned`;
+    $3("studyCrit").textContent = `\u2726 ${critText(s.profile.crit)} crit today \xB7 ${s.profile.learnedToday} learned today (+1% each, max 50%) \xB7 ${s.profile.learned} learned in total`;
     const notice = $3("studyNotice");
     notice.hidden = !s.notice;
     notice.textContent = s.notice ? `\u2728 ${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
@@ -2143,20 +2302,20 @@
     const lvl = levelOf(profile2.xp);
     $3("bgGrid").replaceChildren(...BACKGROUNDS.map((b) => {
       const locked = lvl < b.level;
-      const tile = document.createElement("button");
-      tile.className = "bg-tile" + (profile2.background === b.id ? " on" : "") + (locked ? " locked" : "");
-      tile.innerHTML = backgroundThumb(b.id);
+      const tile2 = document.createElement("button");
+      tile2.className = "bg-tile" + (profile2.background === b.id ? " on" : "") + (locked ? " locked" : "");
+      tile2.innerHTML = backgroundThumb(b.id);
       const name = document.createElement("div");
       name.className = "bg-name";
       name.textContent = `${b.name}${profile2.background === b.id ? " \u2713" : ""}`;
-      tile.append(name);
+      tile2.append(name);
       if (locked) {
         const lock = document.createElement("div");
         lock.className = "lock";
         lock.textContent = `\u{1F512} Level ${b.level}`;
-        tile.append(lock);
+        tile2.append(lock);
       }
-      tile.onclick = async () => {
+      tile2.onclick = async () => {
         if (locked) return toast(`Reach level ${b.level} to unlock ${b.name}`);
         try {
           const { profile: p } = await api.setBackground(b.id);
@@ -2166,7 +2325,7 @@
           toast(e.message);
         }
       };
-      return tile;
+      return tile2;
     }));
     show("customize");
   }
@@ -2443,11 +2602,13 @@
         sfx.inhale();
         break;
       case "breath": {
-        const victims = players.filter((p) => p.hp > 0 || p.hp + e.damage > 0).map((p) => actorOf(p.id));
-        breathFire(e.damage, victims);
+        const immune = e.immune ?? [];
+        const victims = players.filter((p) => !immune.includes(p.id) && (p.hp > 0 || p.hp + e.damage > 0)).map((p) => actorOf(p.id));
+        breathFire(e.damage, victims, immune.map((id) => actorOf(id)));
+        if (immune.includes(you)) toast("\u{1F525} You are on fire \u2014 immune to dragon breath!");
         sfx.fire();
         setTimeout(render2, 450);
-        logLine(`\u{1F525} Fire breath! Everyone takes ${e.damage}`);
+        logLine(immune.length ? `\u{1F525} Fire breath! ${e.damage} damage \u2014 ${immune.map(nameOf).join(", ")} immune (on fire)` : `\u{1F525} Fire breath! Everyone takes ${e.damage}`);
         break;
       }
     }
@@ -2585,6 +2746,11 @@
   });
   $("leaveLobby").onclick = () => socket.send({ type: "leave" });
   $("start").onclick = () => socket.send({ type: "start" });
+  $("addBotBtn").onclick = () => socket.send({ type: "add_bot", level: $("botLevel").value });
+  $("lobbyPlayers").addEventListener("click", (e) => {
+    const id = e.target.closest("[data-remove-bot]")?.dataset.removeBot;
+    if (id) socket.send({ type: "remove_bot", id });
+  });
   $("readyBtn").onclick = () => socket.send({ type: "lobby_ready", ready: !$("readyBtn").dataset.ready });
   $("copyCode").onclick = async () => {
     try {
@@ -2637,6 +2803,7 @@
   armForfeit("forfeit");
   armForfeit("dkForfeit");
   $("version").textContent = `v${VERSION}`;
+  $("pad").style.cursor = brushCursor();
   initDeck({
     send: (m) => socket.send(m),
     me: () => you,

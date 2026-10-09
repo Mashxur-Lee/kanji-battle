@@ -112,6 +112,11 @@ export class RapidGame implements Match {
     if ([...this.players.values()].every((x) => x.gaveUp)) this.endRoundNoWinner(false);
   }
 
+  peek(id: PlayerId) {
+    const p = this.players.get(id);
+    return this.current && p && !p.gaveUp ? { challengeId: this.current.id, entry: this.current.entry } : null;
+  }
+
   forfeit(id: PlayerId) {
     const p = this.players.get(id);
     if (!p || this.isOver) return;

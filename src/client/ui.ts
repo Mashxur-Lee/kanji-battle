@@ -85,6 +85,7 @@ export function setProfile(p: ProfileView | null) {
   const lx = levelXp(p.xp);
   $('whoLevel').textContent = `Lv ${lx.level} · ${lx.into.toLocaleString()}/${lx.need.toLocaleString()} XP`;
   $('whoCrit').textContent = `✦ ${critText(p.crit)} crit`;
+  $('whoCrit').title = 'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.';
   $('whoXp').style.width = `${levelProgress(p.xp) * 100}%`;
   $('whoXp').parentElement!.title = `${lx.into} / ${lx.need} XP to level ${lx.level + 1}`;
 }
@@ -190,6 +191,63 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
   show('admin');
 }
 
+// ── lobby: mini guides ──────────────────────────────────────────────────────
+const tile = (k: string, cls = '') => h('span', 'g-tile ' + cls, k, { lang: 'ja' });
+const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTMLElement; steps: Array<[string, string]> }> = {
+  reading: {
+    title: 'How Kanji Reading works',
+    pic: () => append(h('div', 'g-pic'), tile('漢字'), h('span', 'g-arrow', '→'), tile('かんじ', 'ok'), h('span', 'g-or', 'or'), h('span', 'g-tile ok', 'kanji')),
+    steps: [
+      ['📖', '60 s to study your 10 words (reading + meaning). Then they disappear.'],
+      ['⌨️', 'A kanji appears: type its reading in kana or romaji, Enter.'],
+      ['⚔️', 'Right = a spell at your opponent. Faster and in a row = more damage (combo up to ×1.5; 5 in a row sets you on fire 🔥).'],
+      ['💨', 'Wrong or Skip (Esc) = a miss; the answer is shown and the word comes back later.'],
+      ['❤️', 'Your HP depends on how hard your opponent hits (their levels). Most HP after 5 min wins.'],
+    ],
+  },
+  writing: {
+    title: 'How Kanji Writing works',
+    pic: () => append(h('div', 'g-pic'), h('span', 'g-hint', 'かんじ — kanji'), h('span', 'g-arrow', '→'), append(h('span', 'g-pad'), tile('漢'), tile('字'))),
+    steps: [
+      ['👁️', 'The kanji flashes for 3.5 s, then only its reading + meaning stay.'],
+      ['🖌️', 'Write the whole word on the pad, left to right (one cell per character) — or type it with a Japanese keyboard.'],
+      ['✅', 'Only kanji count (kana only at the かな level). Messy is fine — it’s judged by shape.'],
+      ['⚔️', 'Right = damage, with the same combo and speed bonus as Reading.'],
+    ],
+  },
+  boss: {
+    title: 'How Boss Elimination works',
+    pic: () => append(h('div', 'g-pic'), h('span', 'g-emoji', '🧙🧙🧙🧙'), h('span', 'g-arrow', '⚔'), h('span', 'g-emoji', '🐉')),
+    steps: [
+      ['👥', 'Up to 4 players (friends or AI) against the Black Dragon. Its HP grows with the party.'],
+      ['⌨️', 'Each of you gets your own kanji: type the reading. Right answers hit the dragon.'],
+      ['🦴', 'A mistake gets you clawed (−45).'],
+      ['🔥', 'Every 30 s it breathes fire on everyone (−110) — unless you are on fire yourself (5 in a row): then you are immune.'],
+      ['🏆', 'Slay it within 5 minutes. If everyone falls, the dragon wins.'],
+    ],
+  },
+  rapid: {
+    title: 'How 1v1 Rapid works',
+    pic: () => append(h('div', 'g-pic'), tile('早い'), h('span', 'g-arrow', '→'), h('span', 'g-tile ok', 'はやい ⚡')),
+    steps: [
+      ['🎯', 'Both players get the same kanji — no study phase.'],
+      ['⚡', 'First correct reading (kana or romaji) hits the other player.'],
+      ['🔁', 'Wrong? Try again until the 12 s round ends.'],
+      ['❤️', 'Same HP for both. Last wizard standing wins.'],
+    ],
+  },
+};
+function renderModeGuide(mode: GameMode) {
+  if (mode === 'deck') return;
+  const g = GUIDES[mode];
+  const ol = h('ol', 'g-flow');
+  for (const [icon, text] of g.steps) ol.append(append(h('li'), h('span', 'g-ic', icon), h('span', '', text)));
+  $('modeGuide').replaceChildren(
+    h('h3', '', g.title), g.pic(), ol,
+    h('p', 'g-foot', 'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.'),
+  );
+}
+
 // ── lobby ───────────────────────────────────────────────────────────────────
 export function showLobby(code: string, mode: GameMode, players: PlayerView[], you: PlayerId, hostId: PlayerId, maxPlayers: number, minPlayers: number) {
   $('code').textContent = code;
@@ -199,12 +257,16 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       const li = h('li');
       const av = h('span', 'who-av');
       av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp');
-      li.append(av, h('span', 'who', p.id === you ? `${p.name} (you)` : p.name), netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
-      if (p.crit > 0) li.append(h('span', 'critv', `✦ ${critText(p.crit)} crit`));
+      li.append(av, h('span', 'who', p.id === you ? `${p.name} (you)` : p.name));
+      if (p.bot) li.append(h('span', 'tag ai', `🤖 AI · knows ${p.bot}`));
+      else li.append(netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
+      if (p.bot && you === hostId) { const x = h('button', 'pill rm-bot', '✕', { title: 'Remove this AI' }); x.dataset.removeBot = p.id; li.append(x); }
+      if (p.crit > 0 && !p.bot) li.append(h('span', 'critv', `✦ ${critText(p.crit)} crit`));
       if (p.id === hostId) li.append(h('span', 'tag', 'host'));
       if (!p.online) li.append(h('span', 'tag off', 'away — seat kept'));
       if (mode === 'deck') li.append(h('span', 'tag ' + (p.ready ? 'ready' : 'notready'), p.ready ? '✓ Ready' : 'Not ready'));
-      else li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `❤ ${p.maxHp} HP`)));
+      else if (p.bot) li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `❤ ${p.maxHp} HP`)));
+      else if (!p.bot) li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `❤ ${p.maxHp} HP`)));
       return li;
     }),
     ...Array.from({ length: Math.max(0, maxPlayers - players.length) }, () =>
@@ -233,9 +295,12 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       : 'Each player picks their own. かな = hiragana, answered in romaji. Harder levels hit harder — so your opponent gets more HP.';
   const isHost = you === hostId;
   const canStart = players.length >= minPlayers;
+  $('addBot').hidden = !isHost || players.length >= maxPlayers;
   const deck = mode === 'deck';
   $('levels').hidden = deck; // Deck Duel deals cards from every level — nothing to pick
   $('deckGuide').hidden = !deck;
+  $('modeGuide').hidden = deck;
+  if (!deck) renderModeGuide(mode);
   const meReady = !!players.find((p) => p.id === you)?.ready;
   $('readyBtn').hidden = !deck;
   $('readyBtn').textContent = meReady ? 'Not ready' : 'Ready';
@@ -244,7 +309,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   if (deck) {
     $('start').hidden = true;
     $('lobbyStatus').textContent = !canStart
-      ? 'Share the code — press Ready once your opponent joins. The duel starts when both are ready.'
+      ? 'Share the code, or add an AI opponent — then press Ready. The duel starts when both are ready.'
       : meReady ? 'Waiting for your opponent to be ready…' : 'Press Ready — the duel starts when both players are ready.';
     show('lobby');
     return;
@@ -253,7 +318,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   $<HTMLButtonElement>('start').disabled = !canStart;
   $('start').textContent = mode === 'boss' ? (players.length === 1 ? 'Start solo' : `Start — party of ${players.length}`) : 'Start battle';
   $('lobbyStatus').textContent = !canStart
-    ? 'Share the code — the battle can start once your opponent joins.'
+    ? 'Share the code with a friend, or add an AI player to start.'
     : isHost ? (mode === 'boss' && players.length < maxPlayers ? `Start now, or wait for more teammates (up to ${maxPlayers}).` : '') : 'Waiting for the host to start…';
   show('lobby');
 }
@@ -456,7 +521,7 @@ export function breathWarning(inMs: number) {
   countdown('breath', inMs, (left) => (el.textContent = `🔥 The dragon inhales… ${Math.ceil(left / 1000)}`));
 }
 
-export function breathFire(damage: number, victims: Actor[]) {
+export function breathFire(damage: number, victims: Actor[], immune: Actor[] = []) {
   stopCountdown('breath');
   $('breathWarn').hidden = true;
   $('dragon').classList.remove('inhale');
@@ -478,6 +543,7 @@ export function breathFire(damage: number, victims: Actor[]) {
   setTimeout(() => (fire.hidden = true), 1100);
   setTimeout(() => {
     for (const v of victims) { retrigger(actorEl(v), 'hurt', 520); floatText(actorEl(v), `−${damage}`, 'taken'); }
+    for (const v of immune) floatText(actorEl(v), 'IMMUNE', 'immune');
   }, 450);
 }
 

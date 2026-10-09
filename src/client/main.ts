@@ -1,3 +1,4 @@
+import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Profile } from './api';
@@ -269,11 +270,13 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
       audio.sfx.inhale();
       break;
     case 'breath': {
-      const victims = players.filter((p) => p.hp > 0 || p.hp + e.damage > 0).map((p) => actorOf(p.id));
-      ui.breathFire(e.damage, victims);
+      const immune = e.immune ?? [];
+      const victims = players.filter((p) => !immune.includes(p.id) && (p.hp > 0 || p.hp + e.damage > 0)).map((p) => actorOf(p.id));
+      ui.breathFire(e.damage, victims, immune.map((id) => actorOf(id)));
+      if (immune.includes(you)) ui.toast('🔥 You are on fire — immune to dragon breath!');
       audio.sfx.fire();
       setTimeout(render, 450);
-      ui.logLine(`🔥 Fire breath! Everyone takes ${e.damage}`);
+      ui.logLine(immune.length ? `🔥 Fire breath! ${e.damage} damage — ${immune.map(nameOf).join(', ')} immune (on fire)` : `🔥 Fire breath! Everyone takes ${e.damage}`);
       break;
     }
   }
@@ -401,6 +404,11 @@ ui.$('levelChips').addEventListener('change', (e) => {
 });
 ui.$('leaveLobby').onclick = () => socket.send({ type: 'leave' });
 ui.$('start').onclick = () => socket.send({ type: 'start' });
+ui.$('addBotBtn').onclick = () => socket.send({ type: 'add_bot', level: ui.$<HTMLSelectElement>('botLevel').value });
+ui.$('lobbyPlayers').addEventListener('click', (e) => {
+  const id = (e.target as HTMLElement).closest<HTMLElement>('[data-remove-bot]')?.dataset.removeBot;
+  if (id) socket.send({ type: 'remove_bot', id });
+});
 ui.$('readyBtn').onclick = () => socket.send({ type: 'lobby_ready', ready: !ui.$('readyBtn').dataset.ready });
 ui.$('copyCode').onclick = async () => {
   try { await navigator.clipboard.writeText(code); ui.$('copyCode').textContent = 'Copied!'; } catch { ui.$('copyCode').textContent = code; }
@@ -449,6 +457,7 @@ armForfeit('dkForfeit');
 
 // ── deck duel ────────────────────────────────────────────────────────────────
 ui.$('version').textContent = `v${VERSION}`;
+ui.$('pad').style.cursor = brushCursor(); // pixel hand + brush; the ink tip draws
 
 initDeck({
   send: (m) => socket.send(m),

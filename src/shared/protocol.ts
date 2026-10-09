@@ -57,6 +57,7 @@ export interface PlayerView {
   crit: number; // 0–0.5, from learned flashcards
   level: number; // account level (XP)
   ready: boolean; // Deck Duel lobby: starts when everyone is ready
+  bot: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | null; // AI player and its knowledge level
 }
 
 export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number }
@@ -92,7 +93,8 @@ export type BattleEvent =
   | { kind: 'miss'; playerId: PlayerId; kanji: string }
   | { kind: 'claw'; playerId: PlayerId; damage: number }
   | { kind: 'breath_warning'; inMs: number }
-  | { kind: 'breath'; damage: number };
+  /** immune: players on fire (5+ combo) shrug the flames off */
+  | { kind: 'breath'; damage: number; immune: PlayerId[] };
 
 /** One handwritten character = list of strokes, each a list of [x, y] points. */
 export type DrawnChar = Array<Array<[number, number]>>;
@@ -112,6 +114,8 @@ export type ClientMessage =
   | { type: 'start' }
   | { type: 'ready' }
   | { type: 'lobby_ready'; ready: boolean }
+  | { type: 'add_bot'; level: string }
+  | { type: 'remove_bot'; id: string }
   | { type: 'chat'; text: string }
   | { type: 'pong'; t: number }
   | { type: 'answer'; challengeId: number; text: string }

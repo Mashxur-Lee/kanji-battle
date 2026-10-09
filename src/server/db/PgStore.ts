@@ -11,25 +11,28 @@ import { UsernameTakenError, type NewUser, type Store, type UserPatch, type User
 interface UserRow {
   id: string; username: string; password_hash: string; role: Role; banned: boolean; created_at: Date;
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
+  crit_count: number; crit_expires: string | number;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
-  reps: number; lapses: number; struggling: boolean;
+  reps: number; lapses: number; struggling: boolean; crit_day: string | null;
 }
 
 const toUser = (r: UserRow): UserRecord => ({
   id: r.id, username: r.username, passwordHash: r.password_hash, role: r.role, banned: r.banned,
   createdAt: new Date(r.created_at).toISOString(), xp: r.xp, background: r.background,
   studyLevels: r.study_levels ?? [], lastNewDate: r.last_new_date, newNotice: r.new_notice,
+  critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
-  due: Number(r.due), reps: r.reps, lapses: r.lapses, struggling: r.struggling,
+  due: Number(r.due), reps: r.reps, lapses: r.lapses, struggling: r.struggling, critDay: r.crit_day ?? null,
 });
 
 const COLUMNS: Record<keyof UserPatch, string> = {
   banned: 'banned', passwordHash: 'password_hash', background: 'background',
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
+  critCount: 'crit_count', critExpires: 'crit_expires',
 };
 
 /**
@@ -88,6 +91,10 @@ export class PgStore implements Store {
     // v0.5 made levels steeper. Rows saved before that (xp_scheme 1) get their XP converted once, so
     // everyone keeps the level they had. Nothing is ever dropped or reset by an update.
     await this.sql`alter table kw_users add column if not exists xp_scheme integer not null default 1`;
+    // v0.6.3 daily crit (added columns only; existing data untouched)
+    await this.sql`alter table kw_users add column if not exists crit_count integer not null default 0`;
+    await this.sql`alter table kw_users add column if not exists crit_expires bigint not null default 0`;
+    await this.sql`alter table kw_cards add column if not exists crit_day text`;
     // one atomic statement (same maths as legacyXpToCurrent): level L = xp div 1000 keeps its progress
     const converted = await this.sql`
       update kw_users
@@ -140,7 +147,7 @@ export class PgStore implements Store {
   private row(userId: string, c: SrsCard) {
     return {
       user_id: userId, vocab_id: c.vocabId, state: c.state, step: c.step, ease: c.ease, interval_days: c.intervalDays,
-      due: c.due, reps: c.reps, lapses: c.lapses, struggling: c.struggling,
+      due: c.due, reps: c.reps, lapses: c.lapses, struggling: c.struggling, crit_day: c.critDay ?? null,
     };
   }
   async saveCard(userId: string, c: SrsCard) {
@@ -149,7 +156,7 @@ export class PgStore implements Store {
       insert into kw_cards ${this.sql(row)}
       on conflict (user_id, vocab_id) do update set
         state = excluded.state, step = excluded.step, ease = excluded.ease, interval_days = excluded.interval_days,
-        due = excluded.due, reps = excluded.reps, lapses = excluded.lapses, struggling = excluded.struggling`;
+        due = excluded.due, reps = excluded.reps, lapses = excluded.lapses, struggling = excluded.struggling, crit_day = excluded.crit_day`;
   }
   async addCards(userId: string, cards: SrsCard[]) {
     if (cards.length === 0) return 0;

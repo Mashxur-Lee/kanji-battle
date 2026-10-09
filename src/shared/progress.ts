@@ -41,12 +41,24 @@ export function xpFor(outcome: MatchOutcome, accuracy: number, mode: string): nu
 }
 
 // ── crit ───────────────────────────────────────────────────────────────────────
-/** Every learned spell (graduated flashcard) adds 0.1% crit, capped at 50%. Crits hit ×1.5. */
-export const CRIT_PER_WORD = 0.001;
+/**
+ * Daily crit: everyone starts the day at 1%. Every spell learned today (a flashcard passed — Hard, Okay
+ * or Easy — counted once per card per day) adds +1%, up to 50%. At local midnight it drops back to 1%.
+ * A crit hits ×1.5.
+ */
+export const CRIT_BASE = 0.01;
+export const CRIT_PER_WORD = 0.01;
 export const CRIT_CAP = 0.5;
 export const CRIT_MULTIPLIER = 1.5;
-export const critFor = (learnedWords: number) => Math.min(CRIT_CAP, Math.max(0, learnedWords) * CRIT_PER_WORD);
+export const critFor = (learnedToday: number) => Math.min(CRIT_CAP, CRIT_BASE + Math.max(0, learnedToday) * CRIT_PER_WORD);
+/** Today's crit from the stored counter (`expiresAt` = the player's next local midnight). */
+export const dailyCrit = (count: number, expiresAt: number, now = Date.now()) => (now < expiresAt ? critFor(count) : CRIT_BASE);
 export const critText = (crit: number) => `${(crit * 100).toFixed(1).replace(/\.0$/, '')}%`;
+/** The UTC instant of the next local midnight, from the player's YYYY-MM-DD and getTimezoneOffset(). */
+export function nextLocalMidnight(today: string, tzOffsetMin: number): number {
+  const [y, m, d] = today.split('-').map(Number);
+  return Date.UTC(y, m - 1, d + 1) + tzOffsetMin * 60_000;
+}
 
 // ── backgrounds ────────────────────────────────────────────────────────────────
 export const BACKGROUNDS = [

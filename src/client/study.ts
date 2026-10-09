@@ -49,7 +49,7 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
   levelChips(s.studyLevels);
   counts($('countsAll'), s.decks.all);
   counts($('countsStruggle'), s.decks.struggling);
-  $('studyCrit').textContent = `✦ ${critText(s.profile.crit)} crit · ${s.profile.learned} learned`;
+  $('studyCrit').textContent = `✦ ${critText(s.profile.crit)} crit today · ${s.profile.learnedToday} learned today (+1% each, max 50%) · ${s.profile.learned} learned in total`;
   const notice = $('studyNotice');
   notice.hidden = !s.notice;
   notice.textContent = s.notice ? `✨ ${s.notice} new spell${s.notice === 1 ? '' : 's'} added to “All spells” — happy studying!` : '';

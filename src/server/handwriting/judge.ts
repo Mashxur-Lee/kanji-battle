@@ -16,6 +16,14 @@ export const MAX_POINTS_PER_STROKE = 64;
  */
 export const JUDGE = { topK: 10, ratio: 1.5, absolute: 58 };
 
+/**
+ * Deck Duel is extra forgiving (a "real IME" feel): a character also counts when its overall shape is
+ * among the 100 closest of ~2,300 characters. In a word, one shaky character is forgiven if its shape
+ * is still among the closest 250. Measured on very sloppy drawings (tilted, stretched, wobbly, strokes
+ * merged or missing): accepts ~88% of correct characters (normal judge: 70%), ~10% of wrong ones.
+ */
+export const LENIENT = { shapeRank: 100, forgiveOneShapeRank: 250 };
+
 export function judgeChar(recognizer: Recognizer, drawn: DrawnChar, target: string): { ok: boolean; read: string } {
   const cands = recognizer.recognizeScored(drawn, JUDGE.topK);
   const best = cands[0];
@@ -25,16 +33,25 @@ export function judgeChar(recognizer: Recognizer, drawn: DrawnChar, target: stri
   return { ok, read: ok ? target : best?.ch ?? '?' };
 }
 
-export function createWritingJudge(recognizer: Recognizer): WritingJudge {
+export function createWritingJudge(recognizer: Recognizer, opts: { lenient?: boolean } = {}): WritingJudge {
   const judgeGroups = (target: string[], chars: DrawnChar[]) => {
     let recognized = '';
     let ok = 0;
+    let forgivable = 0;
     for (let i = 0; i < chars.length; i++) {
       const r = judgeChar(recognizer, chars[i], target[i] ?? '');
-      recognized += r.read;
-      if (r.ok) ok++;
+      let pass = r.ok;
+      if (!pass && opts.lenient && target[i]) {
+        const shape = recognizer.shapeRank(chars[i], target[i]);
+        pass = shape < LENIENT.shapeRank;
+        if (!pass && shape < LENIENT.forgiveOneShapeRank) forgivable++;
+      }
+      recognized += pass ? target[i] : r.read;
+      if (pass) ok++;
     }
-    return { correct: chars.length === target.length && ok === target.length, recognized, ok };
+    const n = target.length;
+    const correct = chars.length === n && (ok === n || (opts.lenient === true && n >= 2 && ok === n - 1 && forgivable === 1));
+    return { correct, recognized: correct ? target.join('') : recognized, ok };
   };
   return (entry: VocabEntry, chars: DrawnChar[]) => {
     const target = [...entry.kanji];

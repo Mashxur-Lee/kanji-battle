@@ -5,6 +5,7 @@
 //
 // Reference patterns live in data/kanji-patterns.json as [char, strokeCount, features].
 
+import { ShapeIndex } from './shape';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -231,6 +232,13 @@ export class Recognizer {
 
   static fromFile(file = path.resolve(__dirname, '../../../data/kanji-patterns.json')): Recognizer {
     return new Recognizer(JSON.parse(readFileSync(file, 'utf8')) as RefPattern[]);
+  }
+
+  private shapes?: ShapeIndex;
+  /** Shape-only rank of `ch` for this drawing (see shape.ts). */
+  shapeRank(raw: Pattern, ch: string): number {
+    this.shapes ??= new ShapeIndex(this.refs);
+    return this.shapes.rank(raw, ch);
   }
 
   /** Whether this character can be recognised at all. */

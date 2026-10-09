@@ -13,7 +13,7 @@ type DraftPool = Array<{ entry: VocabEntry; color: CardColor }>;
 interface Card { cardId: string; color: CardColor; entry: VocabEntry; revealed: boolean }
 interface DPlayer {
   id: PlayerId; name: string; hp: number; mana: number; crit: number;
-  character: DeckCharacter | null; abilityUsed: boolean; abilityActive: number;
+  character: DeckCharacter | null; cooldown: number; frenzy: boolean; abilityActive: number;
   hand: Card[]; wizardCardsUsed: boolean; wizardManaUsed: boolean;
   casts: number; hits: number; totalMs: number; damage: number; words: Map<string, { entry: VocabEntry; attempts: number; correct: number; totalMs: number }>;
 }
@@ -74,7 +74,7 @@ export class DeckGame implements Match {
     this.makePool = typeof pool === 'function' ? pool : () => fixed!;
     this.pool = this.makePool();
     this.players = setups.map((s) => ({
-      id: s.id, name: s.name, hp: rules.hp, mana: rules.maxMana, crit: s.crit ?? 0, character: null, abilityUsed: false, abilityActive: 0,
+      id: s.id, name: s.name, hp: rules.hp, mana: rules.maxMana, crit: s.crit ?? 0, character: null, cooldown: 0, frenzy: false, abilityActive: 0,
       hand: [], wizardCardsUsed: false, wizardManaUsed: false, casts: 0, hits: 0, totalMs: 0, damage: 0, words: new Map(),
     }));
   }
@@ -112,12 +112,14 @@ export class DeckGame implements Match {
     this.takeDraft(id, slot);
   }
 
-  /** Activate the character power (Wizard is passive). Once per match, on your turn, before casting. */
+  /** Hero power (Wizard is passive): costs 100 mana, then rests for 4 of your turns. On your turn, before casting. */
   ability(id: PlayerId) {
     const p = this.p(id);
-    if (this.phase !== 'battle' || this.active !== id || !p || p.abilityUsed || this.cast || !p.character || p.character === 'wizard') return;
-    p.abilityUsed = true;
-    if (p.character === 'goblin') this.castsLeft = 2;
+    if (this.phase !== 'battle' || this.active !== id || !p || p.cooldown > 0 || this.cast || !p.character || p.character === 'wizard') return;
+    if (p.mana < this.rules.abilityCost) return;
+    p.mana -= this.rules.abilityCost;
+    p.cooldown = this.rules.abilityCooldown;
+    if (p.character === 'goblin') { this.castsLeft = 2; p.frenzy = true; }
     else p.abilityActive = this.rules.abilityTurns;
     if (p.character === 'witch') for (const c of p.hand) c.revealed = true;
     this.emitEvent({ kind: 'ability', playerId: id, character: p.character });
@@ -162,6 +164,12 @@ export class DeckGame implements Match {
     if (!p || this.isOver) return;
     p.hp = 0;
     this.finish('forfeit');
+  }
+
+  peek(id: PlayerId) {
+    const c = this.cast;
+    if (!c || c.tried.has(id) || (this.phase === 'battle' && c.ownerId !== id)) return null;
+    return { challengeId: c.castId, entry: c.card.entry };
   }
 
   /** Hero pick or the first draft: nothing has been played yet, so the room may go back to the lobby. */
@@ -228,9 +236,14 @@ export class DeckGame implements Match {
     this.broadcastState();
   }
 
+  /** Pick timer ran out: take random cards for every pick still left this turn. */
   private autoPick() {
-    const free = this.draft.filter((d) => !d.takenBy);
-    if (this.picker && free.length) this.takeDraft(this.picker, free[Math.floor(this.rng() * free.length)]);
+    const id = this.picker;
+    for (let n = this.picksLeft; n > 0 && this.phase === 'draft' && this.picker === id && id; n--) {
+      const free = this.draft.filter((d) => !d.takenBy);
+      if (!free.length) return;
+      this.takeDraft(id, free[Math.floor(this.rng() * free.length)]);
+    }
   }
 
   private takeDraft(id: PlayerId, slot: { card: Card; takenBy: PlayerId | null }) {
@@ -244,8 +257,7 @@ export class DeckGame implements Match {
     if (this.players.every((x) => this.picksDone(x.id)) || this.draft.every((d) => d.takenBy)) return this.endDraft();
     const other = this.other(id);
     if (this.picksLeft > 0 && !this.picksDone(id)) {
-      // same player's second pick: just restart the pick timer
-      this.setTimer(this.rules.pickMs, () => this.autoPick());
+      // same player's second pick: the same 20 s clock keeps running (one timer for both cards)
       return this.broadcastState();
     }
     this.nextPicker(!this.picksDone(other.id) ? other.id : id);
@@ -280,6 +292,7 @@ export class DeckGame implements Match {
     this.active = id;
     this.castsLeft = 1;
     this.cast = null;
+    if (!resumed && p.cooldown > 0) p.cooldown--; // hero power recharges one step each of your turns
     if (!this.firstTurn && !resumed) p.mana = Math.min(this.rules.maxMana, p.mana + this.rules.manaPerTurn); // restores after the enemy's turn
     this.firstTurn = false;
     // can this player still act? (Wizard's passive saves them once each)
@@ -322,6 +335,7 @@ export class DeckGame implements Match {
 
   private endTurn() {
     const p = this.p(this.active!)!;
+    p.frenzy = false;
     if (p.abilityActive > 0 && p.character !== 'goblin') {
       p.abilityActive--;
       if (p.character === 'witch' && p.abilityActive === 0) for (const c of p.hand) c.revealed = false;
@@ -475,8 +489,8 @@ export class DeckGame implements Match {
     return {
       id: p.id, name: p.name, hp: p.hp, maxHp: this.rules.hp, mana: p.mana, maxMana: this.rules.maxMana,
       character: p.character,
-      abilityUsed: p.abilityUsed,
-      abilityActive: p.character === 'goblin' ? (this.active === p.id && p.abilityUsed ? this.castsLeft : 0) : p.abilityActive,
+      abilityCooldown: p.cooldown,
+      abilityActive: p.character === 'goblin' ? (this.active === p.id && p.frenzy ? this.castsLeft : 0) : p.abilityActive,
       handCounts, handSize: p.hand.length, wizardCardsUsed: p.wizardCardsUsed, wizardManaUsed: p.wizardManaUsed,
     };
   }
