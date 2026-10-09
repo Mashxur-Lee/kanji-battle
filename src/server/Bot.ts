@@ -138,7 +138,7 @@ export class Bot {
       return;
     }
     if (v.phase === 'battle' && v.turn?.active === this.id && !cast) {
-      this.later(`turn:${v.turn.active}:${v.turn.castsLeft}:${me.handSize}:${v.matchLeftMs > 0 ? Math.round(v.matchLeftMs / 1000) : 0}`, this.between(1_500, 3_500), () => this.playTurn());
+      this.later(`turn:${v.turn.active}:${v.turn.castsLeft}:${me.handSize}:${v.matchLeftMs > 0 ? Math.round(v.matchLeftMs / 1000) : 0}`, DECK_RULES.revealMs + this.between(400, 2_500), () => this.playTurn()); // after the last spell's answer
     }
   }
 

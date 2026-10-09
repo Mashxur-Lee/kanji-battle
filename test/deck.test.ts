@@ -10,7 +10,7 @@ beforeEach(() => { clock = 0; mock.timers.enable({ apis: ['setTimeout'] }); });
 afterEach(() => mock.timers.reset());
 const tick = (ms: number) => { for (let l = ms; l > 0; l -= 1000) { const d = Math.min(1000, l); clock += d; mock.timers.tick(d); } };
 
-const RULES = { ...DECK_RULES };
+const RULES = { ...DECK_RULES, revealMs: 0 }; // most tests skip the 2 s answer reveal (tested on its own below)
 function setup(rng = () => 0.1, rules = RULES) {
   const events: GameEvent[] = [];
   const pool = buildDraftPool(VOCAB, () => true, () => 0.42);
@@ -329,4 +329,24 @@ test('Ready before the 15 s are up shows the kanji at once', () => {
   assert.equal(s.view(a).casting!.stage, 'look');
   tick(RULES.castReadMs); // the old read timer must not fire again
   assert.equal(s.view(a).casting!.stage, 'look');
+});
+
+test('after a cast the correct kanji is shown for 2 s: nothing can be played meanwhile, and the next choose clock waits', () => {
+  const rules = { ...DECK_RULES };
+  const s = setup(() => 0.1, rules);
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
+  const a = s.view('A').turn!.active, b = a === 'A' ? 'B' : 'A';
+  s.g.play(a, s.view(a).hand.find((c) => CARD_SPECS[c.color].cost <= rules.maxMana)!.cardId);
+  const id = s.view(a).casting!.castId;
+  s.g.castReady(a, id); s.g.castGo(a, id);
+  s.g.submit(a, id, 'ちがう');
+  const r = s.devents().filter((e) => e.kind === 'resolve').at(-1);
+  assert.equal(r.kanji.length > 0 && r.reading.length > 0, true, 'the event carries the correct kanji');
+  assert.deepEqual([s.view(b).turn!.active, s.view(b).turn!.deadlineMs], [b, rules.chooseMs + rules.revealMs]);
+  const card = s.view(b).hand.find((c) => CARD_SPECS[c.color].cost <= rules.maxMana)!;
+  s.g.play(b, card.cardId);
+  assert.equal(s.view(b).casting, null, 'too early: the answer is still showing');
+  tick(rules.revealMs);
+  s.g.play(b, card.cardId);
+  assert.equal(s.view(b).casting!.ownerId, b);
 });

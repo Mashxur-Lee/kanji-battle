@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.7.7
+# Kanji Wizards · v0.7.8
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -70,13 +70,15 @@ and shown next to your name in lobbies and games (`GET /api/avatar/:id`, max 60 
 
 ## Backgrounds
 
-Five painted scenes, each in **day, sunset and night** (Customize → Cycle: day → sunset → night, 5 minutes each with a slow cross-fade; it never changes during a game): a forest with
+Five painted scenes, each in **day, sunset and night** (Customize → Cycle: day → sunset → night, 3 minutes each, fading out and back in; it never changes during a game): a forest with
 comets and red eyes in the dark, a misty swamp with will-o'-wisps, plains with villages, a windmill and
 wandering goblins, a castle with the Black Dragon circling above and soldiers clashing at the sides, and the
 World Tree. Each has its own sounds in the menus (owls, frogs, goblin chatter, sword clashes, chimes) at the
 music volume. Admins have every background unlocked.
 
 ## Online queue
+
+**🔒 Private game** (main menu, under the queue) opens *Create room* and *Join by code* for playing with friends.
 
 **⚔ Online queue** on the main menu: tick the modes you'd play (Reading, Writing, Rapid, Boss) and the levels you
 bring, then **Find match** — or queue for **Deck Duel** on its own. A timer counts while it searches; as soon
@@ -144,7 +146,8 @@ difficulty (JLPT level, stroke count and word length):
 
 Mana starts at 200/200, +10 each turn. You get 15 s to choose a card. Then one minute to cast it: the card flips and
 shows only its reading and meaning (15 s, or press **Ready**), then the kanji; press **CAST!** and the kanji
-disappears while you write it from memory. A successful spell gives back half its mana. Writing is judged extra forgivingly here: besides stroke matching, the overall
+disappears while you write it from memory. Right or wrong, the card then turns over to show the correct
+kanji with its reading and meaning for 2 s (nothing can be played meanwhile). A successful spell gives back half its mana. Writing is judged extra forgivingly here: besides stroke matching, the overall
 shape is compared with all ~2,300 characters (`src/server/handwriting/shape.ts`), and one shaky character in a word is forgiven. Wrong or too slow → the card rips. Out of cards → a new draft round
 (Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
 match clock pauses). Having cards but no mana for any of them is a loss. After 8 minutes, overtime, played like Rapid: the remaining cards
