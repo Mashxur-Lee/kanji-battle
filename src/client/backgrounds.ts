@@ -305,6 +305,11 @@ export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfD
   }, BG_FADE_MS / 2);
 }
 
+/** The whole scene as standalone SVG markup (the 3D arena paints it far behind the fighters). */
+export function sceneSvg(id: BackgroundId, time: TimeOfDay): string {
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${scene(id, time)}</svg>`;
+}
+
 export function backgroundThumb(id: BackgroundId, time: TimeOfDay = 'night'): string {
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="still">${scene(id, time)}</svg>`;
 }

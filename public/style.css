@@ -923,3 +923,32 @@ svg.still .bg-comet { opacity: 0; }
 @keyframes mfPop { from { transform: scale(.8); opacity: 0; } }
 /* watching the opponent write */
 .ink-view { width: min(calc(150px * var(--cols, 1)), 86vw); aspect-ratio: calc(var(--cols, 1)) / 1; height: auto; background: #f6f1e4; border-radius: 12px; box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+
+/* ── v0.9: the 3D arena (first person) behind the battle screens ─────────── */
+.arena3d { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; display: none; }
+.arena3d.on { display: block; }
+body.has-3d #bg { visibility: hidden; }
+/* the 2D fighters are replaced by the 3D ones (HP bars, the boss bar and all panels stay) */
+body.has-3d #arena .wizard, body.has-3d #dragon > .sprite, body.has-3d #dragon > .ground, body.has-3d #fire { display: none !important; }
+body.has-3d #arena .side { min-height: 0; }
+/* glassy panels over the arena */
+body.has-3d .fighter, body.has-3d .boss-bar, body.has-3d .dk-player, body.has-3d .dk-panel {
+  background: rgba(14, 12, 36, .52); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border-color: rgba(255, 255, 255, .12); }
+body.has-3d .challenge { background: rgba(12, 10, 32, .5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, .12); border-radius: 22px; padding: 18px 22px; box-shadow: 0 18px 50px rgba(0, 0, 0, .35); }
+body.has-3d .challenge .kanji { text-shadow: 0 0 24px rgba(169, 139, 255, .6), 0 4px 12px rgba(0, 0, 0, .6); }
+body.has-3d .log { background: rgba(12, 10, 32, .45); backdrop-filter: blur(4px); border-radius: 12px; }
+body.has-3d .dk-banner { text-shadow: 0 2px 10px rgba(0, 0, 0, .8); }
+/* getting hit: a coloured vignette; numbers rise from the bottom of the screen */
+.arena3d-hit { position: fixed; inset: 0; z-index: 25; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(var(--hit, 255, 40, 60), .55) 100%); }
+.arena3d-hit.on { animation: hitFlash .55s ease-out; }
+.arena3d-hit.claw::after { content: ""; position: absolute; inset: 20% 30%; background:
+  linear-gradient(115deg, transparent 44%, rgba(255, 70, 90, .9) 46%, transparent 48%),
+  linear-gradient(115deg, transparent 52%, rgba(255, 70, 90, .9) 54%, transparent 56%),
+  linear-gradient(115deg, transparent 60%, rgba(255, 70, 90, .9) 62%, transparent 64%); animation: hitFlash .5s ease-out; }
+@keyframes hitFlash { 0% { opacity: 1; } 100% { opacity: 0; } }
+.arena3d-float { position: fixed; bottom: 22vh; z-index: 26; pointer-events: none; font-weight: 900; font-size: 2.6rem; text-shadow: 0 3px 10px #000; animation: rise3d 1.2s ease-out forwards; }
+@keyframes rise3d { from { opacity: 1; transform: translateY(0) scale(1.15); } to { opacity: 0; transform: translateY(-80px) scale(1); } }
+.toggle-row { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; cursor: pointer; }
+body.has-3d #dragon { position: fixed; top: 76px; right: var(--gutter); width: min(42vw, 560px); z-index: 3; }
+body.has-3d #dragon .boss-bar { width: 100%; }
