@@ -46,6 +46,8 @@ export class DeckGame implements Match {
   private active: PlayerId | null = null;
   private castsLeft = 0;
   private cast: Cast | null = null;
+  /** after a cast the correct kanji is shown; no card or power until then */
+  private holdUntil = 0;
   private overtimeQueue: Card[] = [];
   private nextCast = 1;
   private deadline = 0;
@@ -117,7 +119,7 @@ export class DeckGame implements Match {
   /** Hero power (Wizard is passive): costs 100 mana, then rests for 4 of your turns. On your turn, before casting. */
   ability(id: PlayerId) {
     const p = this.p(id);
-    if (this.phase !== 'battle' || this.active !== id || !p || p.cooldown > 0 || this.cast || !p.character || p.character === 'wizard') return;
+    if (this.phase !== 'battle' || this.active !== id || !p || p.cooldown > 0 || this.cast || !p.character || p.character === 'wizard' || this.now() < this.holdUntil) return;
     if (p.mana < this.rules.abilityCost) return;
     p.mana -= this.rules.abilityCost;
     p.cooldown = this.rules.abilityCooldown;
@@ -131,7 +133,7 @@ export class DeckGame implements Match {
   /** Choose a card from your hand to cast this turn. */
   play(id: PlayerId, cardId: unknown) {
     const p = this.p(id);
-    if (this.phase !== 'battle' || this.active !== id || !p || this.cast) return;
+    if (this.phase !== 'battle' || this.active !== id || !p || this.cast || this.now() < this.holdUntil) return;
     const card = p.hand.find((c) => c.cardId === cardId);
     if (!card || CARD_SPECS[card.color].cost > p.mana) return;
     p.hand = p.hand.filter((c) => c !== card);
@@ -336,7 +338,8 @@ export class DeckGame implements Match {
       p.hp = 0; // has cards but can't pay for any → instant loss
       return this.finish('ko');
     }
-    this.setTimer(this.rules.chooseMs, () => this.turnTimeout());
+    // the choose clock starts once the last spell's answer has been shown
+    this.setTimer(this.rules.chooseMs + Math.max(0, this.holdUntil - this.now()), () => this.turnTimeout());
     this.broadcastState();
   }
 
@@ -430,6 +433,7 @@ export class DeckGame implements Match {
     this.cast = null;
     clearTimeout(this.stageTimer);
     if (this.players.some((p) => p.hp <= 0)) return this.finish('ko');
+    if (this.phase === 'battle') this.holdUntil = this.now() + this.rules.revealMs;
     if (this.phase === 'overtime') {
       // the answer stays up for a moment, then the next card
       this.setTimer(this.rules.overtimeGapMs, () => this.nextOvertimeCard());
@@ -437,7 +441,7 @@ export class DeckGame implements Match {
     }
     this.castsLeft--;
     if (this.castsLeft > 0 && caster && caster.hand.length > 0 && this.canAfford(caster)) {
-      this.setTimer(this.rules.chooseMs, () => this.turnTimeout()); // Goblin's second card
+      this.setTimer(this.rules.chooseMs + this.rules.revealMs, () => this.turnTimeout()); // Goblin's second card
       return this.broadcastState();
     }
     this.endTurn();

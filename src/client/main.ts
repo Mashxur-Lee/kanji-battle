@@ -398,6 +398,12 @@ ui.$('logout').onclick = () => logout();
 
 // ── menu ─────────────────────────────────────────────────────────────────────
 ui.$('create').onclick = () => { ui.setError(''); ui.show('modes'); };
+ui.$('privateBtn').onclick = () => {
+  const box = ui.$('privateBox');
+  box.hidden = !box.hidden;
+  ui.$('privateBtn').setAttribute('aria-expanded', String(!box.hidden));
+  if (!box.hidden && matchMedia('(pointer: fine)').matches) ui.$('joinCode').focus({ preventScroll: true }); // no surprise keyboard on phones
+};
 ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
 initQueue((m) => socket.send(m));
 for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {

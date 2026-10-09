@@ -1348,7 +1348,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.7.7";
+  var VERSION = "0.7.8";
 
   // src/client/api.ts
   var today = () => {
@@ -2041,7 +2041,7 @@
     { id: "sunset", name: "Sunset" },
     { id: "night", name: "Night" }
   ];
-  var CYCLE_STEP_MS = 5 * 6e4;
+  var CYCLE_STEP_MS = 3 * 6e4;
   var CYCLE = ["day", "sunset", "night"];
   function resolveTime(pref, now = Date.now()) {
     if (pref !== "auto") return pref;
@@ -2278,27 +2278,34 @@
     return SCENES[id](t).replace(/id="(\w+)"/g, `id="${key}-$1"`).replace(/url\(#(\w+)\)/g, `url(#${key}-$1)`);
   }
   var cache = /* @__PURE__ */ new Map();
+  var BG_FADE_MS = 3200;
+  var fadeTimer = 0;
   function paintBackground(el, id, time = "night", fade = false) {
     const key = `${id}-${time}`;
     if (el.dataset.key === key) return;
-    if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene2(id, time)}</svg>`);
-    const layer = document.createElement("div");
-    layer.className = "bg-layer";
-    layer.innerHTML = cache.get(key);
-    const old = [...el.querySelectorAll(".bg-layer")];
-    if (fade && old.length && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      layer.classList.add("fading-in");
-      el.append(layer);
-      layer.addEventListener("animationend", () => {
-        for (const o of old) o.remove();
-        layer.classList.remove("fading-in");
-      }, { once: true });
-    } else {
-      el.replaceChildren(layer);
-    }
-    el.dataset.bg = id;
-    el.dataset.time = time;
     el.dataset.key = key;
+    if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene2(id, time)}</svg>`);
+    const swap = () => {
+      const layer = document.createElement("div");
+      layer.className = "bg-layer";
+      layer.innerHTML = cache.get(key);
+      const old = el.querySelector(".bg-layer");
+      if (old) old.replaceWith(layer);
+      else el.prepend(layer);
+      el.dataset.bg = id;
+      el.dataset.time = time;
+    };
+    clearTimeout(fadeTimer);
+    el.querySelector(".bg-veil")?.remove();
+    if (!fade || !el.querySelector(".bg-layer") || matchMedia("(prefers-reduced-motion: reduce)").matches) return swap();
+    const veil = document.createElement("div");
+    veil.className = "bg-veil";
+    veil.style.animationDuration = `${BG_FADE_MS}ms`;
+    el.append(veil);
+    fadeTimer = window.setTimeout(() => {
+      swap();
+      fadeTimer = window.setTimeout(() => veil.remove(), BG_FADE_MS / 2 + 100);
+    }, BG_FADE_MS / 2);
   }
   function backgroundThumb(id, time = "night") {
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="still">${scene2(id, time)}</svg>`;
@@ -2352,6 +2359,8 @@
     // one minute for all three steps
     castReadMs: 15e3,
     // reading + meaning only; press Ready (or after 15 s) to see the kanji
+    revealMs: 2e3,
+    // after a cast the correct kanji shows; nothing can be played meanwhile
     matchMs: 8 * 6e4,
     // then overtime
     // overtime is a Rapid race: only the kanji shows; the first to type its reading uses the card
@@ -2549,7 +2558,7 @@
     const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
     const label = v.phase === "overtime" ? "Overtime! First to type the reading uses the card" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
     countdown("dkTurn", deadline, (left) => banner.textContent = `${label} \xB7 ${Math.ceil(left / 1e3)}s`);
-    const canPlay = myTurn && !v.casting;
+    const canPlay = myTurn && !v.casting && Date.now() >= revealUntil;
     $2("dkHand").replaceChildren(...v.hand.map((c) => {
       const el = cardEl(c, { button: true, disabled: !canPlay || CARD_SPECS[c.color].cost > me.mana });
       el.onclick = () => {
@@ -2568,7 +2577,7 @@
     ab.title = ch ? CHARACTER_INFO[ch].power : "";
     ab.classList.toggle("passive", !!ch && !!CHARACTER_INFO[ch].passive);
     ab.classList.toggle("active", me.abilityActive > 0);
-    ab.disabled = !ch || !CHARACTER_INFO[ch].passive && (cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting);
+    ab.disabled = !ch || !CHARACTER_INFO[ch].passive && (cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting || Date.now() < revealUntil);
     renderCast(v);
     renderList(v);
   }
@@ -2600,16 +2609,19 @@
     const box = $2("dkCast");
     const c = v.casting;
     if (!c) {
-      box.replaceChildren();
       castKey = "";
       stopCountdown("dkRead");
       if (writingCastId) {
         hooks.stopWriting();
         writingCastId = 0;
       }
+      if (Date.now() < revealUntil) return;
+      box.replaceChildren();
       $2("dkFeedback").replaceChildren();
       return;
     }
+    revealUntil = 0;
+    clearTimeout(revealTimer);
     const mine = v.phase === "overtime" || c.ownerId === v.you;
     const key = `${c.castId}:${c.stage}:${c.card.kanji ? 1 : 0}`;
     if (key !== castKey) {
@@ -2619,7 +2631,8 @@
       const card = cardEl(c.card, { big: true });
       if (!fresh) card.style.animation = "none";
       const top = h2("div", "dkc-half");
-      const k = h2("span", "dkc-k" + (c.card.kanji ? "" : " unknown"), c.card.kanji ?? "\uFF1F".repeat(Math.min(c.chars, 3)));
+      const shown = c.card.kanji ?? "\uFF1F".repeat(Math.min(c.chars, 3));
+      const k = h2("span", `dkc-k l${Math.min(4, [...shown].length)}` + (c.card.kanji ? "" : " unknown"), shown);
       k.lang = "ja";
       top.append(k);
       const bottom = h2("div", "dkc-half bottom");
@@ -2767,6 +2780,7 @@
         break;
       case "resolve":
         animateResolve(e, me);
+        showReveal(e);
         if (e.ok) setTimeout(() => say(e.reading), 1100);
         break;
     }
@@ -2808,6 +2822,33 @@
     }
     card.style.visibility = "hidden";
     setTimeout(() => ghost.remove(), 900);
+  }
+  var REVEAL_MS = 2e3;
+  var revealUntil = 0;
+  var revealTimer = 0;
+  function showReveal(e) {
+    const card = h2("div", `dkc c-${e.color} big reveal ${e.ok ? "ok" : "bad"}`);
+    const top = h2("div", "dkc-half");
+    const k = h2("span", `dkc-k l${Math.min(4, [...e.kanji].length)}`, e.kanji);
+    k.lang = "ja";
+    top.append(k);
+    const bottom = h2("div", "dkc-half bottom");
+    const r2 = h2("span", "dkc-r", e.reading);
+    r2.lang = "ja";
+    bottom.append(r2, h2("span", "dkc-m", e.meaning));
+    card.append(h2("span", "reveal-badge", e.ok ? "\u2713" : "\u2717"), top, bottom);
+    const label = h2("div", "cast-timer", e.ok ? "Correct!" : "The correct kanji");
+    $2("dkCast").replaceChildren(card, label);
+    revealUntil = Date.now() + REVEAL_MS;
+    clearTimeout(revealTimer);
+    revealTimer = window.setTimeout(() => {
+      revealUntil = 0;
+      if (!view?.casting) {
+        $2("dkCast").replaceChildren();
+        $2("dkFeedback").replaceChildren();
+      }
+      if (view) renderDeck(view);
+    }, REVEAL_MS);
   }
   function ripCard(card) {
     const r2 = card.getBoundingClientRect();
@@ -3603,6 +3644,12 @@
   $("create").onclick = () => {
     setError("");
     show("modes");
+  };
+  $("privateBtn").onclick = () => {
+    const box = $("privateBox");
+    box.hidden = !box.hidden;
+    $("privateBtn").setAttribute("aria-expanded", String(!box.hidden));
+    if (!box.hidden && matchMedia("(pointer: fine)").matches) $("joinCode").focus({ preventScroll: true });
   };
   $("queueBtn").onclick = () => {
     setError("");

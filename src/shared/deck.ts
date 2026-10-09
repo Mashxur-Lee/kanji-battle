@@ -35,6 +35,7 @@ export const DECK_RULES = {
   // casting your card, in three steps: read the meaning → see the kanji → write it from memory
   castMs: 60_000, // one minute for all three steps
   castReadMs: 15_000, // reading + meaning only; press Ready (or after 15 s) to see the kanji
+  revealMs: 2_000, // after a cast the correct kanji shows; nothing can be played meanwhile
   matchMs: 8 * 60_000, // then overtime
   // overtime is a Rapid race: only the kanji shows; the first to type its reading uses the card
   overtimeCardMs: 12_000,

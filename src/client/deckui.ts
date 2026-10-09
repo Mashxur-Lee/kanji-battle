@@ -195,7 +195,7 @@ export function renderDeck(v: DeckView) {
   ui.countdown('dkTurn', deadline, (left) => (banner.textContent = `${label} · ${Math.ceil(left / 1000)}s`));
 
   // hands
-  const canPlay = myTurn && !v.casting;
+  const canPlay = myTurn && !v.casting && Date.now() >= revealUntil;
   $('dkHand').replaceChildren(...v.hand.map((c) => {
     const el = cardEl(c, { button: true, disabled: !canPlay || CARD_SPECS[c.color].cost > me.mana });
     el.onclick = () => { audio.sfx.flip(); hooks.send({ type: 'deck_play', cardId: c.cardId }); };
@@ -213,7 +213,7 @@ export function renderDeck(v: DeckView) {
   ab.title = ch ? CHARACTER_INFO[ch].power : '';
   ab.classList.toggle('passive', !!ch && !!CHARACTER_INFO[ch].passive);
   ab.classList.toggle('active', me.abilityActive > 0);
-  ab.disabled = !ch || (!CHARACTER_INFO[ch].passive && (cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting));
+  ab.disabled = !ch || (!CHARACTER_INFO[ch].passive && (cd > 0 || me.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting || Date.now() < revealUntil));
 
   // the card being cast
   renderCast(v);
@@ -253,13 +253,16 @@ function renderCast(v: DeckView) {
   const box = $('dkCast');
   const c = v.casting;
   if (!c) {
-    box.replaceChildren();
     castKey = '';
     ui.stopCountdown('dkRead');
     if (writingCastId) { hooks.stopWriting(); writingCastId = 0; }
+    if (Date.now() < revealUntil) return; // the correct kanji is still being shown
+    box.replaceChildren();
     $('dkFeedback').replaceChildren();
     return;
   }
+  revealUntil = 0;
+  clearTimeout(revealTimer);
   const mine = v.phase === 'overtime' || c.ownerId === v.you;
   const key = `${c.castId}:${c.stage}:${c.card.kanji ? 1 : 0}`;
   if (key !== castKey) {
@@ -269,7 +272,8 @@ function renderCast(v: DeckView) {
     const card = cardEl(c.card, { big: true });
     if (!fresh) card.style.animation = 'none'; // only flip in once
     const top = h('div', 'dkc-half');
-    const k = h('span', 'dkc-k' + (c.card.kanji ? '' : ' unknown'), c.card.kanji ?? '？'.repeat(Math.min(c.chars, 3))); k.lang = 'ja';
+    const shown = c.card.kanji ?? '？'.repeat(Math.min(c.chars, 3));
+    const k = h('span', `dkc-k l${Math.min(4, [...shown].length)}` + (c.card.kanji ? '' : ' unknown'), shown); k.lang = 'ja';
     top.append(k);
     const bottom = h('div', 'dkc-half bottom');
     if (c.overtime) bottom.append(h('span', 'dkc-m', 'Reading?'));
@@ -394,6 +398,7 @@ export function deckEvent(e: DeckEvent) {
       break;
     case 'resolve':
       animateResolve(e, me);
+      showReveal(e);
       if (e.ok) setTimeout(() => voice.say(e.reading), 1100); // both players hear the spell's word
       break;
   }
@@ -434,6 +439,33 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) 
   }
   card.style.visibility = 'hidden';
   setTimeout(() => ghost.remove(), 900);
+}
+
+/**
+ * After every cast — right or wrong — the card turns over to show the correct kanji with its reading and
+ * meaning for 2 s (unless the next card is played sooner).
+ */
+export const REVEAL_MS = 2000;
+let revealUntil = 0;
+let revealTimer = 0;
+function showReveal(e: Extract<DeckEvent, { kind: 'resolve' }>) {
+  const card = h('div', `dkc c-${e.color} big reveal ${e.ok ? 'ok' : 'bad'}`);
+  const top = h('div', 'dkc-half');
+  const k = h('span', `dkc-k l${Math.min(4, [...e.kanji].length)}`, e.kanji); k.lang = 'ja';
+  top.append(k);
+  const bottom = h('div', 'dkc-half bottom');
+  const r = h('span', 'dkc-r', e.reading); r.lang = 'ja';
+  bottom.append(r, h('span', 'dkc-m', e.meaning));
+  card.append(h('span', 'reveal-badge', e.ok ? '✓' : '✗'), top, bottom);
+  const label = h('div', 'cast-timer', e.ok ? 'Correct!' : 'The correct kanji');
+  $('dkCast').replaceChildren(card, label);
+  revealUntil = Date.now() + REVEAL_MS;
+  clearTimeout(revealTimer);
+  revealTimer = window.setTimeout(() => {
+    revealUntil = 0;
+    if (!view?.casting) { $('dkCast').replaceChildren(); $('dkFeedback').replaceChildren(); }
+    if (view) renderDeck(view); // your cards become playable again
+  }, REVEAL_MS);
 }
 
 function ripCard(card: HTMLElement) {

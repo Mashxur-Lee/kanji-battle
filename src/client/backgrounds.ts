@@ -10,8 +10,8 @@ export const TIMES: Array<{ id: TimePref; name: string }> = [
   { id: 'auto', name: 'Cycle' }, { id: 'day', name: 'Day' }, { id: 'sunset', name: 'Sunset' }, { id: 'night', name: 'Night' },
 ];
 
-/** Cycle ("auto"): day → sunset → night, 5 minutes each, then again. */
-export const CYCLE_STEP_MS = 5 * 60_000;
+/** Cycle ("auto"): day → sunset → night, 3 minutes each, then again. */
+export const CYCLE_STEP_MS = 3 * 60_000;
 const CYCLE: TimeOfDay[] = ['day', 'sunset', 'night'];
 export function resolveTime(pref: TimePref, now = Date.now()): TimeOfDay {
   if (pref !== 'auto') return pref;
@@ -273,25 +273,36 @@ function scene(id: BackgroundId, t: TimeOfDay) {
 }
 
 const cache = new Map<string, string>();
-/** Draws a background into the fixed #bg layer. `fade`: cross-fade from the current picture (time of day changing). */
+/** How long the time-of-day change takes: the scene fades out to dusk-dark, swaps, and fades back in. */
+export const BG_FADE_MS = 3200;
+let fadeTimer = 0;
+/** Draws a background into the fixed #bg layer. `fade`: fade out and back in (the time of day changing). */
 export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfDay = 'night', fade = false) {
   const key = `${id}-${time}`;
   if (el.dataset.key === key) return;
-  if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time)}</svg>`);
-  const layer = document.createElement('div');
-  layer.className = 'bg-layer';
-  layer.innerHTML = cache.get(key)!;
-  const old = [...el.querySelectorAll<HTMLElement>('.bg-layer')];
-  if (fade && old.length && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    layer.classList.add('fading-in');
-    el.append(layer);
-    layer.addEventListener('animationend', () => { for (const o of old) o.remove(); layer.classList.remove('fading-in'); }, { once: true });
-  } else {
-    el.replaceChildren(layer);
-  }
-  el.dataset.bg = id;
-  el.dataset.time = time;
   el.dataset.key = key;
+  if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time)}</svg>`);
+  const swap = () => {
+    const layer = document.createElement('div');
+    layer.className = 'bg-layer';
+    layer.innerHTML = cache.get(key)!;
+    const old = el.querySelector('.bg-layer');
+    if (old) old.replaceWith(layer); else el.prepend(layer);
+    el.dataset.bg = id;
+    el.dataset.time = time;
+  };
+  clearTimeout(fadeTimer);
+  el.querySelector('.bg-veil')?.remove();
+  if (!fade || !el.querySelector('.bg-layer') || matchMedia('(prefers-reduced-motion: reduce)').matches) return swap();
+  // a dark veil fades in, the scene changes behind it, and the veil fades away
+  const veil = document.createElement('div');
+  veil.className = 'bg-veil';
+  veil.style.animationDuration = `${BG_FADE_MS}ms`;
+  el.append(veil);
+  fadeTimer = window.setTimeout(() => {
+    swap();
+    fadeTimer = window.setTimeout(() => veil.remove(), BG_FADE_MS / 2 + 100);
+  }, BG_FADE_MS / 2);
 }
 
 export function backgroundThumb(id: BackgroundId, time: TimeOfDay = 'night'): string {
