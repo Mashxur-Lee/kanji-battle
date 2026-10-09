@@ -1,8 +1,8 @@
 import {
   LEVEL_LABEL, LEVELS, MODE_LABEL, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
-  type Level, type PlayerId, type PlayerStats, type PlayerView, type PublicUser, type StudyItem,
+  type Level, type MatchSummary, type PlayerId, type PlayerStats, type PlayerView, type PublicProfile, type PublicUser, type StudyItem, type Avatar,
 } from '../shared/protocol';
-import { avatarSvg, dragonSvg, wizardSvg } from './wizard';
+import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
 import { critText, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -17,7 +17,7 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
 }
 const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { parent.append(...kids); return parent; };
 
-const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'customize', 'deck'] as const;
+const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'customize', 'deck', 'history'] as const;
 export type Screen = (typeof SCREENS)[number];
 let screenListener: (s: Screen) => void = () => {};
 export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };
@@ -277,7 +277,9 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       const li = h('li');
       const av = h('span', 'who-av');
       av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp');
-      li.append(av, picEl(p.pic), h('span', 'who', p.id === you ? `${p.name} (you)` : p.name));
+      const who = h('span', 'who', p.id === you ? `${p.name} (you)` : p.name);
+      if (p.id !== you) markProfile(who, p);
+      li.append(av, picEl(p.pic), who);
       if (p.bot) li.append(h('span', 'tag ai', `🤖 AI · knows ${p.bot}`));
       else li.append(netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
       if (p.bot && you === hostId) { const x = h('button', 'pill rm-bot', '✕', { title: 'Remove this AI' }); x.dataset.removeBot = p.id; li.append(x); }
@@ -387,7 +389,9 @@ function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
   const ordered = [...players].sort((a, b) => (a.id === you ? -1 : b.id === you ? 1 : 0));
   el.replaceChildren(...ordered.map((p) => {
     const row = h('div', 'party-row' + (p.id === you ? ' me' : '') + (p.hp <= 0 ? ' down' : ''));
-    const name = append(h('div', 'pname'), picEl(p.pic), h('span', 'n', p.id === you ? `${p.name} (you)` : p.name), netBars(p.id), h('span', 'lv', `Lv ${p.level}`),
+    const pn = h('span', 'n', p.id === you ? `${p.name} (you)` : p.name);
+    if (p.id !== you) markProfile(pn, p);
+    const name = append(h('div', 'pname'), picEl(p.pic), pn, netBars(p.id), h('span', 'lv', `Lv ${p.level}`),
       h('span', 'combo', p.combo >= 2 ? `×${p.combo}${p.combo >= 5 ? ' 🔥' : ''}` : ''));
     row.append(name, thickBar(p.hp, p.maxHp, 'ally', p.hp <= 0 ? 'down' : `${p.hp} / ${p.maxHp}`));
     return row;
@@ -405,7 +409,9 @@ function thickBar(hp: number, max: number, side: 'ally' | 'enemy', text: string)
 
 function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, emptyText: string) {
   if (!p) { el.replaceChildren(h('div', 'name', emptyText)); return; }
-  const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic), h('span', 'n', label), netBars(p.id), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo${p.combo >= 5 ? ' 🔥' : ''}` : ''));
+  const nameEl = h('span', 'n', label);
+  if (!label.endsWith('(you)')) markProfile(nameEl, p);
+  const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic), nameEl, netBars(p.id), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo${p.combo >= 5 ? ' 🔥' : ''}` : ''));
   el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h('div', 'hpnum', `${p.hp} / ${p.maxHp} HP`), h('span', 'lvs', `· ${levelsText(p.levels)}${p.online ? '' : ' · away'}`)));
 }
 
@@ -719,15 +725,18 @@ const REASONS: Record<GameOverReason, string> = {
   boss_slain: 'The Black Dragon has fallen', party_wiped: 'The party was burned to ash',
 };
 
-export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId, winnerId: PlayerId | null, teamWon: boolean | null, reason: GameOverReason, stats: Record<PlayerId, PlayerStats>) {
+/** `history`: shown again from Match history (no rematch, a way back to the list instead). */
+export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId, winnerId: PlayerId | null, teamWon: boolean | null, reason: GameOverReason, stats: Record<PlayerId, PlayerStats>, opts: { history?: { at: number } } = {}) {
   stopCountdown();
-  if (mode === 'boss') {
-    $('resultTitle').textContent = teamWon ? '🐉 Dragon slain!' : '🔥 Defeat';
-    $('resultReason').textContent = teamWon ? REASONS.boss_slain : reason === 'time' ? 'Time up — the dragon survived' : REASONS[reason];
-  } else {
-    $('resultTitle').textContent = winnerId === null ? 'Draw' : winnerId === you ? '🏆 Victory' : 'Defeat';
-    $('resultReason').textContent = reason === 'time' ? 'Time up — most HP left wins' : REASONS[reason];
-  }
+  const outcome = mode === 'boss' ? (teamWon ? 'win' : 'loss') : winnerId === null ? 'draw' : winnerId === you ? 'win' : 'loss';
+  $('resultMode').replaceChildren(modeBadge(mode), h('span', 'rm-name', MODE_LABEL[mode]), ...(opts.history ? [h('span', 'rm-date', dateTime(opts.history.at))] : []));
+  const title = $('resultTitle');
+  title.className = `result-title ${outcome}`;
+  title.textContent = outcome === 'win' ? 'VICTORY' : outcome === 'loss' ? 'DEFEAT' : 'DRAW';
+  if (mode === 'boss') $('resultReason').textContent = teamWon ? REASONS.boss_slain : reason === 'time' ? 'Time up — the dragon survived' : REASONS[reason];
+  else $('resultReason').textContent = reason === 'time' ? 'Time up — most HP left wins' : REASONS[reason];
+  $('resultActions').hidden = !!opts.history;
+  $('historyBackRow').hidden = !opts.history;
 
   const otherId = Object.keys(stats).find((id) => id !== you);
   const me = stats[you];
@@ -746,11 +755,14 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
     // a bigger boss party: one column per player, labels on the left
     cmp.style.gridTemplateColumns = `auto repeat(${allies.length + 1}, minmax(0, 1fr))`;
     const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? 'Ally';
-    cmp.replaceChildren(h('div'), h('div', 'h me', 'You'), ...allies.map((id) => h('div', 'h', nameOf(id))));
+    cmp.replaceChildren(h('div'), h('div', 'h me', 'You'), ...allies.map((id) => { const p = players.find((x) => x.id === id); const el = h('div', 'h', nameOf(id)); return p ? markProfile(el, p) : el; }));
     for (const [label, fmt] of rows) cmp.append(h('div', 'lbl', label), h('div', 'v', fmt(me)), ...allies.map((id) => h('div', 'v', fmt(stats[id]))));
   } else {
     cmp.style.gridTemplateColumns = '';
-    cmp.replaceChildren(h('div', 'h me', 'You'), h('div'), h('div', 'h r', other ? otherName : ''));
+    const on = h('div', 'h r', other ? otherName : '');
+    const op = players.find((p) => p.id === otherId);
+    if (op) markProfile(on, op);
+    cmp.replaceChildren(h('div', 'h me', 'You'), h('div'), on);
     for (const [label, fmt] of rows) cmp.append(h('div', 'v', fmt(me)), h('div', 'lbl', label), h('div', 'v r', other ? fmt(other) : ''));
   }
 
@@ -797,4 +809,97 @@ export function setRematchStatus(votes: PlayerId[], you: PlayerId, playerCount: 
     $('rematchStatus').textContent = 'Your opponent left.';
   } else if (votes.length === 0) $('rematchStatus').textContent = '';
   else $('rematchStatus').textContent = youVoted ? 'Waiting for the others to accept…' : 'Rematch requested!';
+}
+
+// ── modes, characters, other players' profiles, match history ────────────────
+export const MODE_ICON: Record<GameMode, string> = { reading: '読', rapid: '速', writing: '書', boss: '竜', deck: '札' };
+
+/** The mode's logo (the same kanji as on the mode cards). */
+export function modeBadge(mode: GameMode): HTMLElement {
+  return h('span', `mode-badge ${mode}`, MODE_ICON[mode], { lang: 'ja', title: MODE_LABEL[mode], 'aria-label': MODE_LABEL[mode] });
+}
+
+/** The character someone played: a Deck Duel hero, otherwise their level's wizard. */
+export function characterEl(character: string, mode: GameMode, side: 'me' | 'opp' = 'me'): HTMLElement {
+  const el = h('span', 'char-sprite');
+  const heroes = ['goblin', 'knight', 'witch', 'wizard'];
+  el.innerHTML = mode === 'deck' && heroes.includes(character)
+    ? heroSvg(character as 'goblin', side)
+    : avatarSvg((['goblin', 'kid', 'human', 'knight', 'wizard'].includes(character) ? character : 'wizard') as Avatar, side);
+  el.title = character[0].toUpperCase() + character.slice(1);
+  return el;
+}
+
+/** Clicking this name shows the player's profile card. */
+export function markProfile(el: HTMLElement, p: { id: string; bot?: string | null; name?: string }) {
+  el.dataset.profile = p.id;
+  if (p.bot) el.dataset.bot = p.bot;
+  if (p.name) el.dataset.name = p.name;
+  el.classList.add('plink');
+  el.setAttribute('role', 'button');
+  el.tabIndex = 0;
+  el.title = 'View profile';
+  return el;
+}
+
+export const dateTime = (at: number) => new Date(at).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+/** A small floating card next to the clicked name. */
+export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing') {
+  const pop = $('otherPop');
+  const body: HTMLElement[] = [];
+  if (p === 'loading') body.push(h('p', 'hint', 'Loading…'));
+  else if (p === 'missing') body.push(h('p', 'hint', 'This player can no longer be viewed.'));
+  else if ('bot' in p) {
+    body.push(append(h('div', 'pp-head'), h('div', 'pp-pic', '🤖'), append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `AI player · knows ${p.bot}`))),
+      h('p', 'hint', 'A computer opponent. It gets words right about as often as a learner of its level would.'));
+  } else {
+    const pic = h('div', 'pp-pic' + (p.pic ? ' has-pic' : ''), p.pic ? '' : p.name.slice(0, 1).toUpperCase());
+    const img = picEl(p.pic, 'pic fill');
+    if (img) pic.append(img);
+    const games = p.wins + p.losses;
+    body.push(
+      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `Lv ${p.level}`))),
+      append(h('div', 'pp-stats'),
+        append(h('div'), h('b', '', p.wins), h('span', '', 'wins')),
+        append(h('div'), h('b', '', p.losses), h('span', '', 'losses')),
+        append(h('div'), h('b', '', games ? `${Math.round((100 * p.wins) / games)}%` : '—'), h('span', '', 'win rate')),
+        append(h('div'), h('b', '', p.learned), h('span', '', 'spells learned')),
+      ),
+      h('p', 'hint', `Playing since ${new Date(p.since).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`),
+    );
+  }
+  pop.replaceChildren(...body);
+  pop.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  const w = Math.min(300, innerWidth - 24);
+  pop.style.width = `${w}px`;
+  pop.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w / 2))}px`;
+  const below = r.bottom + 8;
+  pop.style.top = `${below + 240 > innerHeight ? Math.max(12, r.top - 8 - pop.offsetHeight) : below}px`;
+}
+export const hideProfileCard = () => { $('otherPop').hidden = true; };
+
+/** Match history: one row per game, newest first. */
+export function showHistory(list: MatchSummary[] | null, onOpen: (id: string) => void) {
+  const box = $('historyList');
+  if (!list) box.replaceChildren(h('p', 'hint center', 'Loading…'));
+  else if (!list.length) box.replaceChildren(h('p', 'hint center', 'No matches yet — your finished games will show up here.'));
+  else box.replaceChildren(...list.map((m) => {
+    const row = h('button', `hist-row ${m.outcome}`);
+    const vs = h('span', 'hist-vs');
+    m.opponents.forEach((o, i) => {
+      if (i) vs.append(', ');
+      vs.append(markProfile(h('span', '', o.name), { id: o.id, bot: o.bot ? (o.name.match(/AI (N\d)/)?.[1] ?? 'AI') : null, name: o.name }));
+    });
+    row.append(
+      characterEl(m.character, m.mode),
+      append(h('span', 'hist-mode'), modeBadge(m.mode), append(h('span', 'hist-mode-text'), h('span', 'hist-mode-name', MODE_LABEL[m.mode]), m.opponents.length ? append(h('span', 'hist-vs-line'), 'vs ', vs) : h('span', 'hist-vs-line', 'solo'))),
+      h('span', 'hist-result', m.outcome === 'win' ? 'VICTORY' : m.outcome === 'loss' ? 'DEFEAT' : 'DRAW'),
+      h('span', 'hist-date', dateTime(m.at)),
+    );
+    row.onclick = (e) => { if (!(e.target as HTMLElement).closest('[data-profile]')) onOpen(m.id); };
+    return row;
+  }));
+  show('history');
 }

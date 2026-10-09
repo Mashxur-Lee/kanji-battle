@@ -5,7 +5,7 @@ import { VERSION } from '../shared/version';
 import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Profile } from './api';
 import * as audio from './audio';
-import { getTimePref, paintBackground, resolveTime } from './backgrounds';
+import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
 import { chatMessages, clearChat, deckEvent, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
 import { HandwritingPad } from './pad';
@@ -50,15 +50,30 @@ const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Some
 // Music only in menus (not during study phase, battles or the deck duel).
 // battle theme while playing (study phase, battle, Deck Duel); the calm theme returns on the results screen and in menus
 const GAME_SCREENS = new Set(['prep', 'battle', 'deck']);
-ui.onScreen((s) => audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu'));
+ui.onScreen((s) => {
+  audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu');
+  if (!GAME_SCREENS.has(s)) setTimeout(() => applyBackground(true), 0); // catch up on the cycle after a game
+});
 
-/** Paint the chosen background at the chosen (or current) time of day, with its ambient sounds. */
-function applyBackground() {
+/**
+ * Paint the chosen background at the chosen time of day, with its ambient sounds. "Cycle" goes
+ * day → sunset → night (5 min each) with a cross-fade — but never during a game (it would distract);
+ * the picture catches up once the game is over.
+ */
+const NO_BG_CHANGE = new Set(['prep', 'battle', 'deck']);
+let shownTime = '';
+function applyBackground(fade = false) {
   const bg = profile?.background ?? 'forest';
-  paintBackground(ui.$('bg'), bg, resolveTime(getTimePref()));
-  audio.setAmbience(bg, resolveTime(getTimePref()));
+  const time = resolveTime(getTimePref());
+  if (fade && NO_BG_CHANGE.has(ui.currentScreen() ?? '')) return;
+  paintBackground(ui.$('bg'), bg, time, fade && shownTime !== '' && shownTime !== time);
+  shownTime = time;
+  audio.setAmbience(bg, time);
 }
-setInterval(applyBackground, 5 * 60_000); // "Auto" follows the clock
+function scheduleCycle() {
+  setTimeout(() => { applyBackground(true); scheduleCycle(); }, untilNextStep() + 50);
+}
+scheduleCycle();
 
 function applyProfile(p: Profile) {
   profile = p;
@@ -491,6 +506,50 @@ initDeck({
 // ── results ──────────────────────────────────────────────────────────────────
 ui.$('rematch').onclick = () => socket.send({ type: 'rematch' });
 ui.$('leave').onclick = () => socket.send({ type: 'leave' });
+
+// ── match history ────────────────────────────────────────────────────────────
+async function openHistory() {
+  ui.showHistory(null, openMatch);
+  try { ui.showHistory((await api.matches()).matches, openMatch); }
+  catch (err) { ui.toast((err as Error).message); ui.show('menu'); }
+}
+async function openMatch(id: string) {
+  try {
+    const m = (await api.match(id)).match;
+    ui.showResults(m.mode, m.players, m.you, m.winnerId, m.teamWon, m.reason, m.stats, { history: { at: m.at } });
+  } catch (err) { ui.toast((err as Error).message); }
+}
+ui.$('historyBtn').onclick = () => void openHistory();
+ui.$('historyBack').onclick = () => ui.show('menu');
+ui.$('resultHistoryBack').onclick = () => void openHistory();
+
+// ── other players' profiles: click (or Enter on) any name marked with data-profile ──
+{
+  let shownFor = '';
+  const open = async (el: HTMLElement) => {
+    const id = el.dataset.profile!;
+    if (shownFor === id && !ui.$('otherPop').hidden) { ui.hideProfileCard(); shownFor = ''; return; }
+    shownFor = id;
+    const name = el.dataset.name ?? el.textContent ?? '';
+    const bot = el.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
+    if (bot) return ui.showProfileCard(el, { bot, name });
+    ui.showProfileCard(el, 'loading');
+    try {
+      const { profile } = await api.player(id);
+      if (shownFor === id) ui.showProfileCard(el, profile);
+    } catch { if (shownFor === id) ui.showProfileCard(el, 'missing'); }
+  };
+  addEventListener('click', (e) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-profile]');
+    if (el) { e.stopPropagation(); void open(el); return; }
+    if (!ui.$('otherPop').contains(e.target as Node)) { ui.hideProfileCard(); shownFor = ''; }
+  }, true);
+  addEventListener('keydown', (e) => {
+    const el = (e.target as HTMLElement).closest?.<HTMLElement>('[data-profile]');
+    if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); void open(el); }
+    else if (e.key === 'Escape') ui.hideProfileCard();
+  });
+}
 
 // ── audio ────────────────────────────────────────────────────────────────────
 ui.$('radioBtn').onclick = () => { audio.setRadio(!audio.isRadioOn()); ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn()); };

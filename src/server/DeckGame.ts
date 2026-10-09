@@ -1,6 +1,6 @@
 import { CARD_COLORS, CARD_SPECS, DECK_RULES, type CardColor, type DeckCardView, type DeckCharacter, type DeckEvent, type DeckPhase, type DeckPlayerView, type DeckView } from '../shared/deck';
 import { DECK_CHARACTERS } from '../shared/deck';
-import { isCorrectReading } from '../shared/kana';
+import { isCorrectReading, isCorrectWriting, isRomajiInput } from '../shared/kana';
 import { CRIT_MULTIPLIER } from '../shared/progress';
 import type { BossView, DrawnChar, PlayerId, PlayerStats, VocabEntry, WordStat } from '../shared/protocol';
 import { displayReading } from '../shared/vocab';
@@ -15,9 +15,9 @@ interface DPlayer {
   id: PlayerId; name: string; hp: number; mana: number; crit: number; pic: string | null;
   character: DeckCharacter | null; cooldown: number; frenzy: boolean; abilityActive: number;
   hand: Card[]; wizardCardsUsed: boolean; wizardManaUsed: boolean;
-  casts: number; hits: number; totalMs: number; damage: number; words: Map<string, { entry: VocabEntry; attempts: number; correct: number; totalMs: number }>;
+  casts: number; hits: number; totalMs: number; damage: number; otMisses: number; words: Map<string, { entry: VocabEntry; attempts: number; correct: number; totalMs: number }>;
 }
-interface Cast { castId: number; card: Card; ownerId: PlayerId | null; startedAt: number; flashMs: number | null; tried: Set<PlayerId>; stage: 'read' | 'look' | 'write' }
+interface Cast { castId: number; card: Card; ownerId: PlayerId | null; startedAt: number; tried: Set<PlayerId>; stage: 'read' | 'look' | 'write' }
 
 /** Picks the 20 draft cards: 4 writable words per JLPT level, coloured by difficulty rank. */
 export function buildDraftPool(vocab: readonly VocabEntry[], writable: (v: VocabEntry) => boolean, rng: Rng, perLevel = DECK_RULES.cardsPerLevel): Array<{ entry: VocabEntry; color: CardColor }> {
@@ -77,7 +77,7 @@ export class DeckGame implements Match {
     this.pool = this.makePool();
     this.players = setups.map((s) => ({
       id: s.id, name: s.name, hp: rules.hp, mana: rules.maxMana, crit: s.crit ?? 0, pic: s.pic ?? null, character: null, cooldown: 0, frenzy: false, abilityActive: 0,
-      hand: [], wizardCardsUsed: false, wizardManaUsed: false, casts: 0, hits: 0, totalMs: 0, damage: 0, words: new Map(),
+      hand: [], wizardCardsUsed: false, wizardManaUsed: false, casts: 0, hits: 0, totalMs: 0, damage: 0, otMisses: 0, words: new Map(),
     }));
   }
 
@@ -138,7 +138,7 @@ export class DeckGame implements Match {
     p.mana -= CARD_SPECS[card.color].cost; // paid up front: a ripped card still costs its mana
     card.revealed = true;
     // step 1: read the meaning (the kanji isn't sent to anyone yet)
-    this.cast = { castId: this.nextCast++, card, ownerId: id, startedAt: this.now(), flashMs: null, tried: new Set(), stage: 'read' };
+    this.cast = { castId: this.nextCast++, card, ownerId: id, startedAt: this.now(), tried: new Set(), stage: 'read' };
     const castId = this.cast.castId;
     this.setTimer(this.rules.castMs, () => this.turnTimeout()); // one minute for read → look → write
     clearTimeout(this.stageTimer);
@@ -167,14 +167,16 @@ export class DeckGame implements Match {
   }
 
   submit(id: PlayerId, castId: number, text: string) {
+    if (this.phase === 'overtime') return this.submitOvertime(id, castId, text);
     const typed = text.normalize('NFKC').replace(/\s+/g, '');
     this.resolveAttempt(id, castId, (entry) => {
-      const ok = typed === entry.kanji || (!!entry.romaji && isCorrectReading(text, [entry.reading]));
+      const ok = isCorrectWriting(text, entry.kanji, entry.reading) || (!!entry.romaji && isCorrectReading(text, [entry.reading]));
       return { correct: ok, recognized: typed };
     });
   }
 
   submitWriting(id: PlayerId, castId: number, chars: DrawnChar[]) {
+    if (this.phase === 'overtime') return; // overtime is typed (readings), not written
     this.resolveAttempt(id, castId, (entry) => this.judge(entry, chars));
   }
 
@@ -189,6 +191,8 @@ export class DeckGame implements Match {
     p.hp = 0;
     this.finish('forfeit');
   }
+
+  heroOf(id: PlayerId) { return this.p(id)?.character ?? null; }
 
   peek(id: PlayerId) {
     const c = this.cast;
@@ -364,19 +368,23 @@ export class DeckGame implements Match {
   private resolveAttempt(id: PlayerId, castId: number, judge: (e: VocabEntry) => { correct: boolean; recognized: string }) {
     const c = this.cast;
     if (!c || c.castId !== castId || c.tried.has(id)) return;
-    if (this.phase === 'battle' && (c.ownerId !== id || c.stage !== 'write')) return; // only the caster, and only in the writing step
-    if (this.phase !== 'battle' && this.phase !== 'overtime') return;
-    const result = judge(c.card.entry);
-    if (this.phase === 'overtime' && !result.correct) {
-      // overtime race: one try each; the card is lost when both miss
-      c.tried.add(id);
-      this.tally(this.p(id)!, c.card.entry, false, 0);
-      this.emitEvent({ kind: 'resolve', playerId: id, color: c.card.color, kanji: c.card.entry.kanji, reading: displayReading(c.card.entry), meaning: c.card.entry.meaning, ok: false, amount: 0, targetId: id, recognized: result.recognized, overtime: true });
-      if (this.players.every((p) => c.tried.has(p.id))) this.nextOvertimeCard();
-      else this.broadcastState();
-      return;
+    if (this.phase !== 'battle' || c.ownerId !== id || c.stage !== 'write') return; // only the caster, and only in the writing step
+    this.resolve(c, id, judge(c.card.entry), false);
+  }
+
+  /** Overtime (Rapid style): type the reading; a wrong guess may try again until the card's time is up. */
+  private submitOvertime(id: PlayerId, castId: number, text: string) {
+    const c = this.cast;
+    const p = this.p(id);
+    if (!c || !p || c.castId !== castId || c.ownerId !== null) return;
+    const e = c.card.entry;
+    const formatOk = !e.romaji || isRomajiInput(text);
+    if (formatOk && isCorrectReading(text, [e.reading, ...(e.altReadings ?? [])])) {
+      for (const o of this.players) if (o.otMisses) this.tally(o, e, false, 0); // wrong guesses count as misses
+      return this.resolve(c, id, { correct: true, recognized: text }, false);
     }
-    this.resolve(c, id, result, false);
+    p.otMisses++;
+    this.emitEvent({ kind: 'ot_miss', playerId: id }); // no answer in it: the other player is still guessing
   }
 
   /** Apply (or rip) the card being cast. */
@@ -422,7 +430,11 @@ export class DeckGame implements Match {
     this.cast = null;
     clearTimeout(this.stageTimer);
     if (this.players.some((p) => p.hp <= 0)) return this.finish('ko');
-    if (this.phase === 'overtime') return this.nextOvertimeCard();
+    if (this.phase === 'overtime') {
+      // the answer stays up for a moment, then the next card
+      this.setTimer(this.rules.overtimeGapMs, () => this.nextOvertimeCard());
+      return this.broadcastState();
+    }
     this.castsLeft--;
     if (this.castsLeft > 0 && caster && caster.hand.length > 0 && this.canAfford(caster)) {
       this.setTimer(this.rules.chooseMs, () => this.turnTimeout()); // Goblin's second card
@@ -446,13 +458,19 @@ export class DeckGame implements Match {
     this.nextOvertimeCard();
   }
 
-  /** Overtime: cards are shown one at a time; whoever writes it first uses it. */
+  /** Overtime: the remaining cards come up one at a time (shuffled); whoever types the reading first uses it. */
   private nextOvertimeCard() {
     const card = this.overtimeQueue.shift();
     if (!card) return this.finish('time');
     card.revealed = true;
-    this.cast = { castId: this.nextCast++, card, ownerId: null, startedAt: this.now(), flashMs: this.rules.castFlashMs, tried: new Set(), stage: 'write' };
-    this.setTimer(this.rules.overtimeCardMs, () => this.nextOvertimeCard());
+    const c: Cast = { castId: this.nextCast++, card, ownerId: null, startedAt: this.now(), tried: new Set(), stage: 'write' };
+    this.cast = c;
+    this.setTimer(this.rules.overtimeCardMs, () => {
+      // nobody got it: show the answer, the card is lost; the guesses count as misses
+      for (const p of this.players) if (p.otMisses) this.tally(p, card.entry, false, 0);
+      this.resolve(c, null, { correct: false, recognized: '' }, true);
+    });
+    for (const p of this.players) p.otMisses = 0;
     this.broadcastState();
   }
 
@@ -514,13 +532,14 @@ export class DeckGame implements Match {
     const e = c.card.entry;
     const owner = c.ownerId ? this.p(c.ownerId) : undefined;
     const witchSight = owner?.character === 'witch' && owner.abilityActive > 0;
-    const showKanji = this.phase === 'overtime' || c.stage === 'look' || (c.stage === 'write' && witchSight);
+    const ot = this.phase === 'overtime';
+    const showKanji = ot || c.stage === 'look' || (c.stage === 'write' && witchSight);
     return {
       castId: c.castId, ownerId: c.ownerId ?? '',
-      card: { cardId: c.card.cardId, color: c.card.color, ...(showKanji ? { kanji: e.kanji } : {}), reading: displayReading(e), meaning: e.meaning },
+      card: { cardId: c.card.cardId, color: c.card.color, ...(showKanji ? { kanji: e.kanji } : {}), ...(ot ? {} : { reading: displayReading(e), meaning: e.meaning }) },
       stage: c.stage, chars: [...e.kanji].length,
       readLeftMs: c.stage === 'read' ? Math.max(0, this.stageEndsAt - now) : null,
-      flashMs: c.flashMs === null ? null : Math.max(0, c.flashMs - (now - c.startedAt)),
+      answer: ot ? (e.romaji ? 'romaji' as const : 'reading' as const) : null,
       deadlineMs: left,
       overtime: this.phase === 'overtime',
     };

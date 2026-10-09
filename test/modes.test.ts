@@ -1,3 +1,4 @@
+import { levelOf as levelOfXp } from '../src/shared/progress';
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, mock, test } from 'node:test';
 import { DEFAULT_CONFIG, Game, type GameConfig, type GameEvent } from '../src/server/Game';
@@ -262,6 +263,28 @@ test('match end awards XP to everyone and reports level-ups', async () => {
   const pa = a.last('progress')!;
   assert.deepEqual([pa.gained, pa.level, pa.levelUp], [350, 1, true]);
   assert.equal(b.last('progress')!.levelUp, false);
+  // each player gets a match-history record with their own side of the result screen
+  const ra = calls[0].results[0].record, rb = calls[0].results[1].record;
+  assert.deepEqual([ra.mode, ra.outcome, ra.you, ra.opponents.map((o: any) => o.name), rb.outcome, rb.you], ['reading', 'win', 'a', ['B'], 'loss', 'b']);
+  assert.ok(ra.stats.a && ra.stats.b && ra.players.length === 2 && ra.character);
+});
+
+test('match history and public profiles via the study service', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const { MemoryStore } = await import('../src/server/db/Store');
+  const store = new MemoryStore();
+  const u = await store.create({ username: 'hana', passwordHash: 'x', role: 'user' } as any);
+  const study = new StudyService(store);
+  const record = { mode: 'deck' as const, outcome: 'win' as const, character: 'witch', at: 5, opponents: [], you: u.id, players: [], winnerId: u.id, teamWon: null, reason: 'ko' as const, stats: {} };
+  await study.recordMatch(u.id, 'win', 1, 'deck', [], false, false, record);
+  const [m] = await study.matches(u.id);
+  assert.deepEqual([m.mode, m.character, m.outcome], ['deck', 'witch', 'win']);
+  assert.equal((await study.match(u.id, m.id))!.reason, 'ko');
+  const p = (await study.publicProfile(u.id))!;
+  assert.deepEqual([p.name, p.wins, p.losses, p.level], ['hana', 1, 0, levelOfXp(4000)]);
+  assert.equal((p as any).passwordHash, undefined, 'nothing private');
+  await store.update(u.id, { banned: true });
+  assert.equal(await study.publicProfile(u.id), null);
 });
 
 test('forfeited matches give nobody XP (no farming), normal ones do', async () => {

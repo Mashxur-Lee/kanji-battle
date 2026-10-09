@@ -35,9 +35,10 @@ export const DECK_RULES = {
   // casting your card, in three steps: read the meaning → see the kanji → write it from memory
   castMs: 60_000, // one minute for all three steps
   castReadMs: 15_000, // reading + meaning only; press Ready (or after 15 s) to see the kanji
-  castFlashMs: 3500,
   matchMs: 8 * 60_000, // then overtime
-  overtimeCardMs: 38_500, // 3.5 s flash + 35 s
+  // overtime is a Rapid race: only the kanji shows; the first to type its reading uses the card
+  overtimeCardMs: 12_000,
+  overtimeGapMs: 2_200, // the answer stays up before the next card
   knightDamageTaken: 0.7,
   knightHealBonus: 1.3,
   abilityTurns: 2,
@@ -82,11 +83,15 @@ export type CastStage = 'read' | 'look' | 'write';
 export interface DeckCastView {
   castId: number;
   ownerId: string;
-  /** kanji is only sent while it may be seen (the "look" step, Witch's Sight, or the overtime flash) */
-  card: DeckCardView & { kanji?: string; reading: string; meaning: string };
+  /**
+   * kanji is only sent while it may be seen (the "look" step, Witch's Sight, overtime);
+   * in overtime the reading and meaning are not sent (that's what you have to type)
+   */
+  card: DeckCardView & { kanji?: string; reading?: string; meaning?: string };
   stage: CastStage;
   chars: number; // how many characters to write
-  flashMs: number | null; // overtime: ms the kanji stays visible (null = no flash timer)
+  /** overtime: type the reading in kana (or romaji), or — for a kana word — in romaji only */
+  answer: 'reading' | 'romaji' | null;
   deadlineMs: number; // time left for the whole cast (1 minute)
   readLeftMs: number | null; // "read" step: time until the kanji shows by itself
   overtime: boolean;
@@ -117,4 +122,5 @@ export type DeckEvent =
   | { kind: 'cast'; playerId: string; color: CardColor }
   | { kind: 'resolve'; playerId: string; color: CardColor; kanji: string; reading: string; meaning: string; ok: boolean; amount: number; targetId: string; refund?: number; recognized?: string; overtime: boolean }
   | { kind: 'overtime' }
+  | { kind: 'ot_miss'; playerId: string } // overtime: a wrong guess (the player may try again)
   | { kind: 'stuck'; playerId: string; why: 'no_cards' | 'no_mana' };

@@ -318,7 +318,7 @@
     parent.append(...kids);
     return parent;
   };
-  var SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "customize", "deck"];
+  var SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "customize", "deck", "history"];
   var screenListener = () => {
   };
   var onScreen = (fn) => {
@@ -560,7 +560,9 @@
         const li = h("li");
         const av = h("span", "who-av");
         av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp");
-        li.append(av, picEl(p.pic), h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name));
+        const who = h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name);
+        if (p.id !== you2) markProfile(who, p);
+        li.append(av, picEl(p.pic), who);
         if (p.bot) li.append(h("span", "tag ai", `\u{1F916} AI \xB7 knows ${p.bot}`));
         else li.append(netBars(p.id), h("span", "lv", `Lv ${p.level}`));
         if (p.bot && you2 === hostId) {
@@ -647,10 +649,12 @@
     const ordered = [...players2].sort((a, b) => a.id === you2 ? -1 : b.id === you2 ? 1 : 0);
     el.replaceChildren(...ordered.map((p) => {
       const row = h("div", "party-row" + (p.id === you2 ? " me" : "") + (p.hp <= 0 ? " down" : ""));
+      const pn = h("span", "n", p.id === you2 ? `${p.name} (you)` : p.name);
+      if (p.id !== you2) markProfile(pn, p);
       const name = append(
         h("div", "pname"),
         picEl(p.pic),
-        h("span", "n", p.id === you2 ? `${p.name} (you)` : p.name),
+        pn,
         netBars(p.id),
         h("span", "lv", `Lv ${p.level}`),
         h("span", "combo", p.combo >= 2 ? `\xD7${p.combo}${p.combo >= 5 ? " \u{1F525}" : ""}` : "")
@@ -672,7 +676,9 @@
       el.replaceChildren(h("div", "name", emptyText));
       return;
     }
-    const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), h("span", "n", label), netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo${p.combo >= 5 ? " \u{1F525}" : ""}` : ""));
+    const nameEl = h("span", "n", label);
+    if (!label.endsWith("(you)")) markProfile(nameEl, p);
+    const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo${p.combo >= 5 ? " \u{1F525}" : ""}` : ""));
     el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
@@ -963,15 +969,17 @@
     boss_slain: "The Black Dragon has fallen",
     party_wiped: "The party was burned to ash"
   };
-  function showResults(mode2, players2, you2, winnerId, teamWon, reason, stats) {
+  function showResults(mode2, players2, you2, winnerId, teamWon, reason, stats, opts = {}) {
     stopCountdown();
-    if (mode2 === "boss") {
-      $("resultTitle").textContent = teamWon ? "\u{1F409} Dragon slain!" : "\u{1F525} Defeat";
-      $("resultReason").textContent = teamWon ? REASONS.boss_slain : reason === "time" ? "Time up \u2014 the dragon survived" : REASONS[reason];
-    } else {
-      $("resultTitle").textContent = winnerId === null ? "Draw" : winnerId === you2 ? "\u{1F3C6} Victory" : "Defeat";
-      $("resultReason").textContent = reason === "time" ? "Time up \u2014 most HP left wins" : REASONS[reason];
-    }
+    const outcome = mode2 === "boss" ? teamWon ? "win" : "loss" : winnerId === null ? "draw" : winnerId === you2 ? "win" : "loss";
+    $("resultMode").replaceChildren(modeBadge(mode2), h("span", "rm-name", MODE_LABEL[mode2]), ...opts.history ? [h("span", "rm-date", dateTime(opts.history.at))] : []);
+    const title = $("resultTitle");
+    title.className = `result-title ${outcome}`;
+    title.textContent = outcome === "win" ? "VICTORY" : outcome === "loss" ? "DEFEAT" : "DRAW";
+    if (mode2 === "boss") $("resultReason").textContent = teamWon ? REASONS.boss_slain : reason === "time" ? "Time up \u2014 the dragon survived" : REASONS[reason];
+    else $("resultReason").textContent = reason === "time" ? "Time up \u2014 most HP left wins" : REASONS[reason];
+    $("resultActions").hidden = !!opts.history;
+    $("historyBackRow").hidden = !opts.history;
     const otherId = Object.keys(stats).find((id) => id !== you2);
     const me = stats[you2];
     const other = otherId ? stats[otherId] : void 0;
@@ -988,11 +996,18 @@
     if (allies.length > 1) {
       cmp.style.gridTemplateColumns = `auto repeat(${allies.length + 1}, minmax(0, 1fr))`;
       const nameOf2 = (id) => players2.find((p) => p.id === id)?.name ?? "Ally";
-      cmp.replaceChildren(h("div"), h("div", "h me", "You"), ...allies.map((id) => h("div", "h", nameOf2(id))));
+      cmp.replaceChildren(h("div"), h("div", "h me", "You"), ...allies.map((id) => {
+        const p = players2.find((x) => x.id === id);
+        const el = h("div", "h", nameOf2(id));
+        return p ? markProfile(el, p) : el;
+      }));
       for (const [label, fmt] of rows) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
     } else {
       cmp.style.gridTemplateColumns = "";
-      cmp.replaceChildren(h("div", "h me", "You"), h("div"), h("div", "h r", other ? otherName : ""));
+      const on = h("div", "h r", other ? otherName : "");
+      const op = players2.find((p) => p.id === otherId);
+      if (op) markProfile(on, op);
+      cmp.replaceChildren(h("div", "h me", "You"), h("div"), on);
       for (const [label, fmt] of rows) cmp.append(h("div", "v", fmt(me)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
     }
     const byKanji = new Map(me.words.map((w) => [w.kanji, w]));
@@ -1037,6 +1052,91 @@
       $("rematchStatus").textContent = "Your opponent left.";
     } else if (votes.length === 0) $("rematchStatus").textContent = "";
     else $("rematchStatus").textContent = youVoted ? "Waiting for the others to accept\u2026" : "Rematch requested!";
+  }
+  var MODE_ICON = { reading: "\u8AAD", rapid: "\u901F", writing: "\u66F8", boss: "\u7ADC", deck: "\u672D" };
+  function modeBadge(mode2) {
+    return h("span", `mode-badge ${mode2}`, MODE_ICON[mode2], { lang: "ja", title: MODE_LABEL[mode2], "aria-label": MODE_LABEL[mode2] });
+  }
+  function characterEl(character, mode2, side = "me") {
+    const el = h("span", "char-sprite");
+    const heroes = ["goblin", "knight", "witch", "wizard"];
+    el.innerHTML = mode2 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "wizard"].includes(character) ? character : "wizard", side);
+    el.title = character[0].toUpperCase() + character.slice(1);
+    return el;
+  }
+  function markProfile(el, p) {
+    el.dataset.profile = p.id;
+    if (p.bot) el.dataset.bot = p.bot;
+    if (p.name) el.dataset.name = p.name;
+    el.classList.add("plink");
+    el.setAttribute("role", "button");
+    el.tabIndex = 0;
+    el.title = "View profile";
+    return el;
+  }
+  var dateTime = (at) => new Date(at).toLocaleString(void 0, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  function showProfileCard(anchor, p) {
+    const pop = $("otherPop");
+    const body = [];
+    if (p === "loading") body.push(h("p", "hint", "Loading\u2026"));
+    else if (p === "missing") body.push(h("p", "hint", "This player can no longer be viewed."));
+    else if ("bot" in p) {
+      body.push(
+        append(h("div", "pp-head"), h("div", "pp-pic", "\u{1F916}"), append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `AI player \xB7 knows ${p.bot}`))),
+        h("p", "hint", "A computer opponent. It gets words right about as often as a learner of its level would.")
+      );
+    } else {
+      const pic = h("div", "pp-pic" + (p.pic ? " has-pic" : ""), p.pic ? "" : p.name.slice(0, 1).toUpperCase());
+      const img = picEl(p.pic, "pic fill");
+      if (img) pic.append(img);
+      const games = p.wins + p.losses;
+      body.push(
+        append(h("div", "pp-head"), pic, append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `Lv ${p.level}`))),
+        append(
+          h("div", "pp-stats"),
+          append(h("div"), h("b", "", p.wins), h("span", "", "wins")),
+          append(h("div"), h("b", "", p.losses), h("span", "", "losses")),
+          append(h("div"), h("b", "", games ? `${Math.round(100 * p.wins / games)}%` : "\u2014"), h("span", "", "win rate")),
+          append(h("div"), h("b", "", p.learned), h("span", "", "spells learned"))
+        ),
+        h("p", "hint", `Playing since ${new Date(p.since).toLocaleDateString(void 0, { year: "numeric", month: "short", day: "numeric" })}`)
+      );
+    }
+    pop.replaceChildren(...body);
+    pop.hidden = false;
+    const r2 = anchor.getBoundingClientRect();
+    const w = Math.min(300, innerWidth - 24);
+    pop.style.width = `${w}px`;
+    pop.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, r2.left + r2.width / 2 - w / 2))}px`;
+    const below = r2.bottom + 8;
+    pop.style.top = `${below + 240 > innerHeight ? Math.max(12, r2.top - 8 - pop.offsetHeight) : below}px`;
+  }
+  var hideProfileCard = () => {
+    $("otherPop").hidden = true;
+  };
+  function showHistory(list, onOpen) {
+    const box = $("historyList");
+    if (!list) box.replaceChildren(h("p", "hint center", "Loading\u2026"));
+    else if (!list.length) box.replaceChildren(h("p", "hint center", "No matches yet \u2014 your finished games will show up here."));
+    else box.replaceChildren(...list.map((m) => {
+      const row = h("button", `hist-row ${m.outcome}`);
+      const vs = h("span", "hist-vs");
+      m.opponents.forEach((o, i) => {
+        if (i) vs.append(", ");
+        vs.append(markProfile(h("span", "", o.name), { id: o.id, bot: o.bot ? o.name.match(/AI (N\d)/)?.[1] ?? "AI" : null, name: o.name }));
+      });
+      row.append(
+        characterEl(m.character, m.mode),
+        append(h("span", "hist-mode"), modeBadge(m.mode), append(h("span", "hist-mode-text"), h("span", "hist-mode-name", MODE_LABEL[m.mode]), m.opponents.length ? append(h("span", "hist-vs-line"), "vs ", vs) : h("span", "hist-vs-line", "solo"))),
+        h("span", "hist-result", m.outcome === "win" ? "VICTORY" : m.outcome === "loss" ? "DEFEAT" : "DRAW"),
+        h("span", "hist-date", dateTime(m.at))
+      );
+      row.onclick = (e) => {
+        if (!e.target.closest("[data-profile]")) onOpen(m.id);
+      };
+      return row;
+    }));
+    show("history");
   }
 
   // src/client/queue.ts
@@ -1248,7 +1348,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.7.6";
+  var VERSION = "0.7.7";
 
   // src/client/api.ts
   var today = () => {
@@ -1296,6 +1396,9 @@
     setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
     queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
     review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    matches: () => call("GET", "/api/matches"),
+    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
+    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
     users: () => call("GET", "/api/admin/users"),
     setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
   };
@@ -1933,16 +2036,18 @@
 
   // src/client/backgrounds.ts
   var TIMES = [
-    { id: "auto", name: "Auto" },
+    { id: "auto", name: "Cycle" },
     { id: "day", name: "Day" },
     { id: "sunset", name: "Sunset" },
     { id: "night", name: "Night" }
   ];
-  function resolveTime(pref, now = /* @__PURE__ */ new Date()) {
+  var CYCLE_STEP_MS = 5 * 6e4;
+  var CYCLE = ["day", "sunset", "night"];
+  function resolveTime(pref, now = Date.now()) {
     if (pref !== "auto") return pref;
-    const h3 = now.getHours();
-    return h3 >= 7 && h3 < 17 ? "day" : h3 >= 17 && h3 < 20 || h3 >= 5 && h3 < 7 ? "sunset" : "night";
+    return CYCLE[Math.floor(now / CYCLE_STEP_MS) % CYCLE.length];
   }
+  var untilNextStep = (now = Date.now()) => CYCLE_STEP_MS - now % CYCLE_STEP_MS;
   var W = 1600;
   var H = 900;
   var seed = 1;
@@ -2173,11 +2278,24 @@
     return SCENES[id](t).replace(/id="(\w+)"/g, `id="${key}-$1"`).replace(/url\(#(\w+)\)/g, `url(#${key}-$1)`);
   }
   var cache = /* @__PURE__ */ new Map();
-  function paintBackground(el, id, time = "night") {
+  function paintBackground(el, id, time = "night", fade = false) {
     const key = `${id}-${time}`;
     if (el.dataset.key === key) return;
     if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene2(id, time)}</svg>`);
-    el.innerHTML = cache.get(key);
+    const layer = document.createElement("div");
+    layer.className = "bg-layer";
+    layer.innerHTML = cache.get(key);
+    const old = [...el.querySelectorAll(".bg-layer")];
+    if (fade && old.length && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      layer.classList.add("fading-in");
+      el.append(layer);
+      layer.addEventListener("animationend", () => {
+        for (const o of old) o.remove();
+        layer.classList.remove("fading-in");
+      }, { once: true });
+    } else {
+      el.replaceChildren(layer);
+    }
     el.dataset.bg = id;
     el.dataset.time = time;
     el.dataset.key = key;
@@ -2234,11 +2352,12 @@
     // one minute for all three steps
     castReadMs: 15e3,
     // reading + meaning only; press Ready (or after 15 s) to see the kanji
-    castFlashMs: 3500,
     matchMs: 8 * 6e4,
     // then overtime
-    overtimeCardMs: 38500,
-    // 3.5 s flash + 35 s
+    // overtime is a Rapid race: only the kanji shows; the first to type its reading uses the card
+    overtimeCardMs: 12e3,
+    overtimeGapMs: 2200,
+    // the answer stays up before the next card
     knightDamageTaken: 0.7,
     knightHealBonus: 1.3,
     abilityTurns: 2,
@@ -2265,7 +2384,7 @@
   var hooks;
   var lastCastId = 0;
   var writingCastId = 0;
-  var flashTimer = 0;
+  var otInput = null;
   function initDeck(hk) {
     hooks = hk;
     $2("dkAbility").onclick = () => {
@@ -2337,7 +2456,7 @@
       ["\u2705", `Right \u2192 the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow \u2192 the card rips.`],
       ["\u{1F4DC}", "While your opponent plays, you can read the list of kanji in your hand (not which card is which)."],
       ["\u{1F504}", "Out of cards \u2192 Round 2 draft. HP, mana and powers stay."],
-      ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the leftover cards are shown one by one, first to write it uses it.`]
+      ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the leftover cards come up one by one, kanji only, and the first to type its reading (hiragana or romaji) uses it.`]
     ]) {
       const li = h2("li");
       li.append(h2("span", "g-ic", icon), h2("span", "", t));
@@ -2374,7 +2493,9 @@
     const av = h2("div", "dk-av");
     av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp") : "";
     const name = h2("div", "dk-name");
-    name.append(picEl(p.pic), h2("span", "", mine ? `${p.name} (you)` : p.name));
+    const nm = h2("span", "", mine ? `${p.name} (you)` : p.name);
+    if (!mine) markProfile(nm, { id: p.id, name: p.name, bot: /\(AI (N\d)\)$/.exec(p.name)?.[1] ?? null });
+    name.append(picEl(p.pic), nm);
     if (p.character) name.append(h2("span", "tag", CHARACTER_INFO[p.character].name));
     if (p.abilityActive > 0 && p.character !== "wizard") name.append(h2("span", "tag", `${p.character === "goblin" ? "Frenzy" : CHARACTER_INFO[p.character].power.split(":")[0]} \xD7${p.abilityActive}`));
     name.append(netBars(p.id));
@@ -2426,7 +2547,7 @@
     const myTurn = v.turn?.active === v.you;
     banner.classList.toggle("mine", myTurn || v.phase === "overtime");
     const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
-    const label = v.phase === "overtime" ? "Overtime! First to write it uses the card" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
+    const label = v.phase === "overtime" ? "Overtime! First to type the reading uses the card" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
     countdown("dkTurn", deadline, (left) => banner.textContent = `${label} \xB7 ${Math.ceil(left / 1e3)}s`);
     const canPlay = myTurn && !v.casting;
     $2("dkHand").replaceChildren(...v.hand.map((c) => {
@@ -2502,12 +2623,32 @@
       k.lang = "ja";
       top.append(k);
       const bottom = h2("div", "dkc-half bottom");
-      const r2 = h2("span", "dkc-r", c.card.reading);
-      r2.lang = "ja";
-      bottom.append(r2, h2("span", "dkc-m", c.card.meaning));
+      if (c.overtime) bottom.append(h2("span", "dkc-m", "Reading?"));
+      else {
+        const r2 = h2("span", "dkc-r", c.card.reading ?? "");
+        r2.lang = "ja";
+        bottom.append(r2, h2("span", "dkc-m", c.card.meaning ?? ""));
+      }
       card.append(top, bottom);
       const actions = h2("div", "cast-actions");
-      if (!v.casting.overtime && mine && c.stage === "read") {
+      otInput = null;
+      if (c.overtime) {
+        stopCountdown("dkRead");
+        const input = h2("input", "ot-input");
+        input.lang = "ja";
+        input.autocomplete = "off";
+        input.spellcheck = false;
+        input.placeholder = c.answer === "romaji" ? "Type it in romaji\u2026" : "Reading (kana or romaji)\u2026";
+        input.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;
+          e.preventDefault();
+          const text = input.value.trim();
+          if (text) hooks.send({ type: "answer", challengeId: c.castId, text });
+        });
+        otInput = input;
+        actions.append(input, h2("div", "cast-timer", "First to type its reading casts it \xB7 wrong? try again"));
+        setTimeout(() => input.focus(), 30);
+      } else if (mine && c.stage === "read") {
         const t = h2("div", "cast-timer");
         countdown("dkRead", c.readLeftMs ?? 0, (left) => t.textContent = `Read the meaning \u2014 the kanji shows in ${Math.ceil(left / 1e3)} s`);
         const b = h2("button", "big cast-btn", "Ready \u25B8");
@@ -2516,7 +2657,7 @@
           hooks.send({ type: "deck_cast_ready", castId: c.castId });
         };
         actions.append(t, b);
-      } else if (!v.casting.overtime && mine && c.stage === "look") {
+      } else if (mine && c.stage === "look") {
         stopCountdown("dkRead");
         const b = h2("button", "big cast-btn go", "CAST! \u2726");
         b.onclick = () => {
@@ -2530,11 +2671,9 @@
         actions.append(h2("div", "cast-timer", c.stage === "read" ? "Reading the spell\u2026" : c.stage === "look" ? "Studying the kanji\u2026" : "Writing the kanji\u2026"));
       } else stopCountdown("dkRead");
       box.replaceChildren(card, actions);
-      clearTimeout(flashTimer);
-      if (c.overtime && c.flashMs !== null && c.card.kanji) flashTimer = window.setTimeout(() => k.classList.add("gone"), c.flashMs);
       if (fresh) $2("dkFeedback").replaceChildren();
     }
-    const writeNow = mine && (c.overtime || c.stage === "write");
+    const writeNow = mine && !c.overtime && c.stage === "write";
     if (writeNow && writingCastId !== c.castId) {
       writingCastId = c.castId;
       hooks.beginWriting(c.castId, "\u25A1".repeat(c.chars));
@@ -2615,7 +2754,16 @@
         toast(`${e.playerId === me ? "You have" : `${name(e.playerId)} has`} no usable cards!`);
         break;
       case "overtime":
-        toast("\u23F0 Overtime! Cards are shown one by one \u2014 first to write it uses it.", 5e3);
+        toast("\u23F0 Overtime! The last cards come up one by one \u2014 first to type the reading uses it.", 5e3);
+        break;
+      case "ot_miss":
+        if (e.playerId === me && otInput) {
+          sfx.wrong();
+          otInput.classList.remove("shake");
+          void otInput.offsetWidth;
+          otInput.classList.add("shake");
+          otInput.select();
+        }
         break;
       case "resolve":
         animateResolve(e, me);
@@ -2629,9 +2777,8 @@
     const who = e.playerId === me ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
     const spec = CARD_SPECS[e.color];
     if (!e.ok) {
-      if (e.overtime && e.playerId !== me) return;
       fb.className = "feedback bad";
-      fb.replaceChildren(h2("span", "big", e.playerId === me ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h2("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
+      fb.replaceChildren(h2("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h2("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
       sfx.rip();
       if (card) ripCard(card);
       return;
@@ -2639,6 +2786,7 @@
     fb.className = "feedback good";
     fb.replaceChildren(h2("span", "big", `\u2713 ${who}: ${spec.label} ${spec.kind === "attack" ? `\u2212${e.amount}` : spec.kind === "heal" ? `+${e.amount} \u2665` : `+${e.amount} \u25C6`}`));
     if (e.refund) fb.append(h2("span", "refund", ` +${e.refund}\u25C6 back`));
+    if (e.overtime) fb.append(h2("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}`));
     if (!card) return;
     const ghost = card.cloneNode(true);
     const r2 = card.getBoundingClientRect();
@@ -3024,7 +3172,7 @@
     $3("bgTimes").replaceChildren(...TIMES.map((t) => {
       const b = document.createElement("button");
       b.className = "pill" + (t.id === pref ? " on" : "");
-      b.textContent = t.id === "auto" ? `\u{1F552} Auto (now: ${time})` : t.id === "day" ? "\u2600\uFE0F Day" : t.id === "sunset" ? "\u{1F307} Sunset" : "\u{1F319} Night";
+      b.textContent = t.id === "auto" ? `\u{1F504} Cycle (now: ${time})` : t.id === "day" ? "\u2600\uFE0F Day" : t.id === "sunset" ? "\u{1F307} Sunset" : "\u{1F319} Night";
       b.onclick = () => {
         setTimePref(t.id);
         onTimeChange();
@@ -3105,13 +3253,27 @@
   var actorOf = (id) => id === "boss" ? "boss" : id === you ? "me" : mode === "boss" ? `ally:${id}` : "opp";
   var nameOf = (id) => players.find((p) => p.id === id)?.name ?? "Someone";
   var GAME_SCREENS = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
-  onScreen((s) => setScene(GAME_SCREENS.has(s) ? "game" : "menu"));
-  function applyBackground() {
+  onScreen((s) => {
+    setScene(GAME_SCREENS.has(s) ? "game" : "menu");
+    if (!GAME_SCREENS.has(s)) setTimeout(() => applyBackground(true), 0);
+  });
+  var NO_BG_CHANGE = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
+  var shownTime = "";
+  function applyBackground(fade = false) {
     const bg = profile?.background ?? "forest";
-    paintBackground($("bg"), bg, resolveTime(getTimePref()));
-    setAmbience(bg, resolveTime(getTimePref()));
+    const time = resolveTime(getTimePref());
+    if (fade && NO_BG_CHANGE.has(currentScreen() ?? "")) return;
+    paintBackground($("bg"), bg, time, fade && shownTime !== "" && shownTime !== time);
+    shownTime = time;
+    setAmbience(bg, time);
   }
-  setInterval(applyBackground, 5 * 6e4);
+  function scheduleCycle() {
+    setTimeout(() => {
+      applyBackground(true);
+      scheduleCycle();
+    }, untilNextStep() + 50);
+  }
+  scheduleCycle();
   function applyProfile(p) {
     profile = p;
     setProfile(p);
@@ -3566,6 +3728,67 @@
   });
   $("rematch").onclick = () => socket.send({ type: "rematch" });
   $("leave").onclick = () => socket.send({ type: "leave" });
+  async function openHistory() {
+    showHistory(null, openMatch);
+    try {
+      showHistory((await api.matches()).matches, openMatch);
+    } catch (err) {
+      toast(err.message);
+      show("menu");
+    }
+  }
+  async function openMatch(id) {
+    try {
+      const m = (await api.match(id)).match;
+      showResults(m.mode, m.players, m.you, m.winnerId, m.teamWon, m.reason, m.stats, { history: { at: m.at } });
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+  $("historyBtn").onclick = () => void openHistory();
+  $("historyBack").onclick = () => show("menu");
+  $("resultHistoryBack").onclick = () => void openHistory();
+  {
+    let shownFor = "";
+    const open = async (el) => {
+      const id = el.dataset.profile;
+      if (shownFor === id && !$("otherPop").hidden) {
+        hideProfileCard();
+        shownFor = "";
+        return;
+      }
+      shownFor = id;
+      const name = el.dataset.name ?? el.textContent ?? "";
+      const bot = el.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
+      if (bot) return showProfileCard(el, { bot, name });
+      showProfileCard(el, "loading");
+      try {
+        const { profile: profile2 } = await api.player(id);
+        if (shownFor === id) showProfileCard(el, profile2);
+      } catch {
+        if (shownFor === id) showProfileCard(el, "missing");
+      }
+    };
+    addEventListener("click", (e) => {
+      const el = e.target.closest("[data-profile]");
+      if (el) {
+        e.stopPropagation();
+        void open(el);
+        return;
+      }
+      if (!$("otherPop").contains(e.target)) {
+        hideProfileCard();
+        shownFor = "";
+      }
+    }, true);
+    addEventListener("keydown", (e) => {
+      const el = e.target.closest?.("[data-profile]");
+      if (el && (e.key === "Enter" || e.key === " ")) {
+        e.preventDefault();
+        void open(el);
+      } else if (e.key === "Escape") hideProfileCard();
+    });
+  }
   $("radioBtn").onclick = () => {
     setRadio(!isRadioOn());
     setAudioButtons(isRadioOn(), isSfxOn());

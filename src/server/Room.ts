@@ -1,6 +1,6 @@
 import { Bot, botName, isBotLevel, type BotHost } from './Bot';
 import { CRIT_BASE } from '../shared/progress';
-import { CHAT_MAX_LENGTH, type BossView, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
+import { CHAT_MAX_LENGTH, type BossView, type MatchDetail, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
 import { BOSS_PARTY_SIZE, BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
 import { DEFAULT_CONFIG, Game, WRITING_CONFIG, type GameConfig, type GameEvent, type Match, type WritingJudge } from './Game';
@@ -32,7 +32,11 @@ export const BOSS_NAME = 'Black Dragon';
 export interface MemberProfile { crit: number; xp: number; pic?: string | null }
 
 /** `forfeited`: someone gave up or left — nobody gets XP (stops win-trading between accounts). */
-export interface MatchResult { id: PlayerId; outcome: MatchOutcome; accuracy: number; missed: string[]; forfeited: boolean; vsAi: boolean }
+export interface MatchResult {
+  id: PlayerId; outcome: MatchOutcome; accuracy: number; missed: string[]; forfeited: boolean; vsAi: boolean;
+  /** what goes into the player's match history */
+  record?: Omit<MatchDetail, 'id'>;
+}
 export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number }>>;
 
 /** Things the Room needs from the outside world. */
@@ -416,14 +420,25 @@ export class Room {
   private async awardProgress(e: Extract<GameEvent, { type: 'game_over' }>) {
     if (!this.deps.onMatchEnd) return;
     const vsAi = this.roster.some((p) => p.bot);
-    const results: MatchResult[] = this.roster.filter((p) => e.stats[p.id] && !p.bot).map((p) => ({
-      id: p.id,
-      outcome: e.teamWon !== null ? (e.teamWon ? 'win' : 'loss') : e.winnerId === null ? 'draw' : e.winnerId === p.id ? 'win' : 'loss',
-      accuracy: e.stats[p.id].accuracy,
-      missed: e.missed[p.id] ?? [],
-      forfeited: e.reason === 'forfeit',
-      vsAi,
-    }));
+    const players = this.view();
+    const at = Date.now();
+    const characterOf = (id: PlayerId) => this.game?.heroOf?.(id) ?? players.find((v) => v.id === id)?.avatar ?? 'wizard';
+    const results: MatchResult[] = this.roster.filter((p) => e.stats[p.id] && !p.bot).map((p) => {
+      const outcome: MatchOutcome = e.teamWon !== null ? (e.teamWon ? 'win' : 'loss') : e.winnerId === null ? 'draw' : e.winnerId === p.id ? 'win' : 'loss';
+      return {
+        id: p.id,
+        outcome,
+        accuracy: e.stats[p.id].accuracy,
+        missed: e.missed[p.id] ?? [],
+        forfeited: e.reason === 'forfeit',
+        vsAi,
+        record: {
+          mode: this.mode, outcome, character: characterOf(p.id), at,
+          opponents: this.roster.filter((o) => o.id !== p.id).map((o) => ({ id: o.id, name: o.name, bot: !!o.bot, character: characterOf(o.id) })),
+          you: p.id, players, winnerId: e.winnerId, teamWon: e.teamWon, reason: e.reason, stats: e.stats,
+        },
+      };
+    });
     try {
       const out = await this.deps.onMatchEnd(this.mode, results);
       for (const [id, r] of Object.entries(out)) {

@@ -241,6 +241,9 @@ export class Recognizer {
     return this.shapes.rank(raw, ch);
   }
 
+  /** Stroke count of a reference character (0 if unknown). */
+  strokeCount(ch: string) { const i = this.refIndex(ch); return i < 0 ? 0 : this.refs[i][1]; }
+
   /** Whether this character can be recognised at all. */
   knows(ch: string) { return this.byChar.has(ch); }
 

@@ -129,8 +129,12 @@ export class Bot {
       this.later(`go:${cast.castId}`, this.between(1_500, 4_000), () => this.host.deckCastGo(this.id, cast.castId)); // …studies the kanji…
       return;
     }
-    if (cast && (cast.ownerId === this.id || (cast.overtime && cast.ownerId === ''))) {
-      this.writeCast(cast.castId, cast.overtime); // …and writes it
+    if (cast && cast.overtime) {
+      this.overtimeGuess(cast.castId); // overtime: a Rapid race on the reading
+      return;
+    }
+    if (cast && cast.ownerId === this.id) {
+      this.writeCast(cast.castId); // …and writes it
       return;
     }
     if (v.phase === 'battle' && v.turn?.active === this.id && !cast) {
@@ -160,8 +164,17 @@ export class Bot {
     this.host.deckPlay(this.id, pick.cardId);
   }
 
-  private writeCast(castId: number, overtime: boolean) {
-    this.later(`cast:${castId}`, (overtime ? DECK_RULES.castFlashMs : 0) + this.between(overtime ? 3_000 : 4_000, overtime ? 14_000 : 15_000), () => {
+  private overtimeGuess(castId: number) {
+    this.later(`ot:${castId}`, this.between(2_200, 7_500), () => {
+      const now = this.host.peek(this.id);
+      if (now?.challengeId !== castId) return;
+      // doesn't know it: stays quiet and lets the clock run
+      if (this.rng() < botChance(this.level, now.entry.level)) this.host.answer(this.id, castId, now.entry.romaji ?? now.entry.reading);
+    });
+  }
+
+  private writeCast(castId: number) {
+    this.later(`cast:${castId}`, this.between(4_000, 15_000), () => {
       const peek = this.host.peek(this.id);
       if (!peek || peek.challengeId !== castId) return;
       const right = this.rng() < botChance(this.level, peek.entry.level);

@@ -126,7 +126,9 @@ test('witch sight reveals your cards and the kanji stays visible', () => {
   s.g.ability(a);
   assert.ok(s.view(a).hand.every((c) => c.kanji && c.reading));
   s.g.play(a, s.view(a).hand[0].cardId);
-  assert.equal(s.view(a).casting!.flashMs, null);
+  const id = s.view(a).casting!.castId;
+  s.g.castReady(a, id); s.g.castGo(a, id);
+  assert.ok(s.view(a).casting!.card.kanji, 'Witch keeps seeing the kanji while writing');
 });
 
 test('cards you cannot pay for = instant loss (wizard is saved once by +30 mana)', () => {
@@ -145,7 +147,7 @@ test('cards you cannot pay for = instant loss (wizard is saved once by +30 mana)
   assert.ok(s.devents().some((e) => e.kind === 'stuck'));
 });
 
-test('overtime: remaining cards shown one by one, first correct writer uses it', () => {
+test('overtime is a Rapid race: kanji only, type the reading, wrong guesses retry, first right uses it', () => {
   const s = setup(() => 0.1, { ...RULES, matchMs: 5000 });
   s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
   tick(5000);
@@ -153,16 +155,31 @@ test('overtime: remaining cards shown one by one, first correct writer uses it',
   const c = s.view('A').casting!;
   assert.equal(c.overtime, true);
   assert.equal(s.view('B').casting!.castId, c.castId, 'both see the same card');
-  s.g.submit('B', c.castId, 'ちがう'); // B misses; A can still take it
-  s.g.submit('A', c.castId, c.card.kanji);
+  assert.ok(c.card.kanji, 'the kanji shows');
+  assert.deepEqual([c.card.reading, c.card.meaning], [undefined, undefined], 'but not its reading or meaning');
+  const entry = s.g.peek('A')!.entry;
+  s.g.submitWriting('A', c.castId, [[[[0, 0], [1, 1]]]]); // no handwriting in overtime
+  assert.equal(s.view('A').casting!.castId, c.castId);
+  s.g.submit('B', c.castId, 'ちがう'); // B misses…
+  assert.equal(s.devents().at(-1).kind, 'ot_miss');
+  assert.equal(s.view('A').casting!.castId, c.castId, 'the card stays up');
+  s.g.submit('A', c.castId, entry.kanji); // writing the kanji doesn't count: it's the reading
+  s.g.submit('B', c.castId, entry.romaji ?? entry.reading); // …and B may try again
   const r = s.devents().filter((e) => e.kind === 'resolve').at(-1);
-  assert.deepEqual([r.ok, r.playerId], [true, 'A']);
+  assert.deepEqual([r.ok, r.playerId, r.reading.length > 0], [true, 'B', true]);
+  assert.equal(s.view('A').casting, null, 'the answer stays up for a moment');
+  tick(RULES.overtimeGapMs);
   assert.notEqual(s.view('A').casting!.castId, c.castId, 'next card');
+  // nobody answers: the card is lost and the answer is shown
+  tick(RULES.overtimeCardMs);
+  const t = s.devents().filter((e) => e.kind === 'resolve').at(-1);
+  assert.deepEqual([t.ok, t.playerId], [false, '']);
   // run the pile out
-  for (let i = 0; i < 25 && !s.g.isOver; i++) tick(RULES.overtimeCardMs);
+  for (let i = 0; i < 40 && !s.g.isOver; i++) tick(RULES.overtimeCardMs + RULES.overtimeGapMs);
   assert.ok(s.g.isOver);
   const over = s.events.find((e) => e.type === 'game_over') as any;
   assert.ok(over.stats.A && over.stats.B);
+  assert.equal(over.stats.B.attempts >= 2, true, 'the miss and the hit both count');
 });
 
 test('separate clocks: 15 s to choose a card, then one minute to cast it', () => {

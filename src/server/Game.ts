@@ -1,4 +1,4 @@
-import { isCorrectReading, isRomajiInput } from '../shared/kana';
+import { isCorrectReading, isRomajiInput, isCorrectWriting } from '../shared/kana';
 import { CRIT_MULTIPLIER } from '../shared/progress';
 import type { DeckEvent, DeckView } from '../shared/deck';
 import type {
@@ -116,6 +116,8 @@ export interface Match {
   bossView(): BossView | null;
   /** For AI players: the challenge (or card) this player is answering right now. */
   peek(id: PlayerId): { challengeId: number; entry: VocabEntry } | null;
+  /** Deck Duel: the hero a player picked. */
+  heroOf?(id: PlayerId): string | null;
 }
 
 /** Each player brings their own word pool (their chosen levels) and their own max HP (see Balance.ts). */
@@ -207,7 +209,7 @@ export class Game implements Match {
     if (this.opts.mode === 'writing') {
       // typed with a Japanese IME: must be the kanji itself (kana/romaji only for hiragana practice)
       const typed = text.normalize('NFKC').replace(/\s+/g, '');
-      const ok = typed === entry.kanji || (!!entry.romaji && isCorrectReading(text, [entry.reading]));
+      const ok = isCorrectWriting(text, entry.kanji, entry.reading) || (!!entry.romaji && isCorrectReading(text, [entry.reading]));
       return ok ? this.hit(p, responseMs, typed) : this.miss(p, 'wrong', responseMs, typed);
     }
     const formatOk = !entry.romaji || isRomajiInput(text);

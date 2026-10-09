@@ -1,8 +1,8 @@
 import postgres from 'postgres';
-import type { Level, Role } from '../../shared/protocol';
+import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
 import type { BackgroundId } from '../../shared/progress';
 import type { CardState, SrsCard } from '../../shared/srs';
-import { UsernameTakenError, type AvatarImage, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+import { MATCH_HISTORY_LIMIT, UsernameTakenError, type AvatarImage, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
 /**
  * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
@@ -106,6 +106,15 @@ export class PgStore implements Store {
         mime text not null,
         data bytea not null
       )`;
+    // v0.7.7 match history (one row per player per match; the result screen is kept as JSON)
+    await this.sql`
+      create table if not exists kw_matches (
+        id bigserial primary key,
+        user_id uuid not null references kw_users(id) on delete cascade,
+        played_at bigint not null,
+        data jsonb not null
+      )`;
+    await this.sql`create index if not exists kw_matches_user on kw_matches (user_id, id desc)`;
     // one atomic statement (same maths as legacyXpToCurrent): level L = xp div 1000 keeps its progress
     const converted = await this.sql`
       update kw_users
@@ -210,6 +219,21 @@ export class PgStore implements Store {
     if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
     const [r] = await this.sql<{ mime: AvatarImage['mime']; data: Buffer }[]>`select mime, data from kw_avatars where user_id = ${id}`;
     return r ? { mime: r.mime, data: Buffer.from(r.data) } : null;
+  }
+  async addMatch(userId: string, m: Omit<MatchDetail, 'id'>) {
+    await this.sql`insert into kw_matches (user_id, played_at, data) values (${userId}, ${m.at}, ${this.sql.json(m as never)})`;
+    await this.sql`delete from kw_matches where user_id = ${userId} and id not in (
+      select id from kw_matches where user_id = ${userId} order by id desc limit ${MATCH_HISTORY_LIMIT})`;
+  }
+  async matches(userId: string, limit: number): Promise<MatchSummary[]> {
+    const rows = await this.sql<{ id: string; data: MatchSummary }[]>`
+      select id, data - 'players' - 'stats' as data from kw_matches where user_id = ${userId} order by id desc limit ${limit}`;
+    return rows.map((r) => ({ ...r.data, id: String(r.id) }));
+  }
+  async match(userId: string, id: string): Promise<MatchDetail | null> {
+    if (!/^\d{1,18}$/.test(id)) return null;
+    const [r] = await this.sql<{ id: string; data: MatchDetail }[]>`select id, data from kw_matches where user_id = ${userId} and id = ${id}`;
+    return r ? { ...r.data, id: String(r.id) } : null;
   }
   async close() { await this.sql.end({ timeout: 5 }); }
 }

@@ -16,7 +16,7 @@ function h(tag: string, cls = '', text?: string | number): HTMLElement {
 }
 
 export interface DeckHooks {
-  send: (msg: { type: 'deck_character'; character: string } | { type: 'deck_pick'; cardId: string } | { type: 'deck_play'; cardId: string } | { type: 'deck_ability' } | { type: 'chat'; text: string } | { type: 'back_to_lobby' } | { type: 'deck_cast_ready'; castId: number } | { type: 'deck_cast_go'; castId: number }) => void;
+  send: (msg: { type: 'deck_character'; character: string } | { type: 'deck_pick'; cardId: string } | { type: 'deck_play'; cardId: string } | { type: 'deck_ability' } | { type: 'chat'; text: string } | { type: 'back_to_lobby' } | { type: 'deck_cast_ready'; castId: number } | { type: 'deck_cast_go'; castId: number } | { type: 'answer'; challengeId: number; text: string }) => void;
   /** your player id (chat arrives before the first deck view) */
   me: () => string;
   /** It's your turn to write this card: set up the pad/IME. */
@@ -28,7 +28,7 @@ let view: DeckView | null = null;
 let hooks: DeckHooks;
 let lastCastId = 0;
 let writingCastId = 0;
-let flashTimer = 0;
+let otInput: HTMLInputElement | null = null; // overtime: the reading box
 
 export function initDeck(hk: DeckHooks) {
   hooks = hk;
@@ -97,7 +97,7 @@ function renderGuide(el: HTMLElement) {
     ['✅', `Right → the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow → the card rips.`],
     ['📜', 'While your opponent plays, you can read the list of kanji in your hand (not which card is which).'],
     ['🔄', 'Out of cards → Round 2 draft. HP, mana and powers stay.'],
-    ['⏰', `After ${DECK_RULES.matchMs / 60000} min: overtime — the leftover cards are shown one by one, first to write it uses it.`],
+    ['⏰', `After ${DECK_RULES.matchMs / 60000} min: overtime — the leftover cards come up one by one, kanji only, and the first to type its reading (hiragana or romaji) uses it.`],
   ] as const) { const li = h('li'); li.append(h('span', 'g-ic', icon), h('span', '', t)); flow.append(li); }
   el.replaceChildren(
     h('h3', '', 'How Deck Duel works'),
@@ -131,7 +131,9 @@ function playerPanel(el: HTMLElement, p: DeckPlayerView, mine: boolean) {
   const av = h('div', 'dk-av');
   av.innerHTML = p.character ? heroSvg(p.character, mine ? 'me' : 'opp') : '';
   const name = h('div', 'dk-name');
-  name.append(ui.picEl(p.pic), h('span', '', mine ? `${p.name} (you)` : p.name));
+  const nm = h('span', '', mine ? `${p.name} (you)` : p.name);
+  if (!mine) ui.markProfile(nm, { id: p.id, name: p.name, bot: /\(AI (N\d)\)$/.exec(p.name)?.[1] ?? null });
+  name.append(ui.picEl(p.pic), nm);
   if (p.character) name.append(h('span', 'tag', CHARACTER_INFO[p.character].name));
   if (p.abilityActive > 0 && p.character !== 'wizard') name.append(h('span', 'tag', `${p.character === 'goblin' ? 'Frenzy' : CHARACTER_INFO[p.character!].power.split(':')[0]} ×${p.abilityActive}`));
   name.append(ui.netBars(p.id));
@@ -186,7 +188,7 @@ export function renderDeck(v: DeckView) {
   banner.classList.toggle('mine', myTurn || v.phase === 'overtime');
   const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
   const label = v.phase === 'overtime'
-    ? 'Overtime! First to write it uses the card'
+    ? 'Overtime! First to type the reading uses the card'
     : myTurn
       ? (v.casting ? (v.casting.stage === 'read' ? 'Your spell — read it' : v.casting.stage === 'look' ? 'Your spell — memorise the kanji' : 'Write the kanji!') : `Your turn — choose a card${v.turn!.castsLeft > 1 ? ' (Frenzy: 2 cards)' : ''}`)
       : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
@@ -244,6 +246,7 @@ const append = (el: HTMLElement, ...kids: Node[]) => { el.append(...kids); retur
  *   2. look — the kanji appears; study it and press CAST!
  *   3. write — the kanji disappears and you write it (pad or Japanese keyboard)
  * The opponent watches the same card (without being able to write).
+ * Overtime is a Rapid race instead: only the kanji shows, both players type its reading.
  */
 let castKey = '';
 function renderCast(v: DeckView) {
@@ -269,17 +272,38 @@ function renderCast(v: DeckView) {
     const k = h('span', 'dkc-k' + (c.card.kanji ? '' : ' unknown'), c.card.kanji ?? '？'.repeat(Math.min(c.chars, 3))); k.lang = 'ja';
     top.append(k);
     const bottom = h('div', 'dkc-half bottom');
-    const r = h('span', 'dkc-r', c.card.reading); r.lang = 'ja';
-    bottom.append(r, h('span', 'dkc-m', c.card.meaning));
+    if (c.overtime) bottom.append(h('span', 'dkc-m', 'Reading?'));
+    else {
+      const r = h('span', 'dkc-r', c.card.reading ?? ''); r.lang = 'ja';
+      bottom.append(r, h('span', 'dkc-m', c.card.meaning ?? ''));
+    }
     card.append(top, bottom);
     const actions = h('div', 'cast-actions');
-    if (!v.casting!.overtime && mine && c.stage === 'read') {
+    otInput = null;
+    if (c.overtime) {
+      ui.stopCountdown('dkRead');
+      const input = h('input', 'ot-input') as HTMLInputElement;
+      input.lang = 'ja';
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.placeholder = c.answer === 'romaji' ? 'Type it in romaji…' : 'Reading (kana or romaji)…';
+      input.addEventListener('keydown', (e) => {
+        // with a Japanese IME the first Enter confirms the conversion — don't send on that one
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        const text = input.value.trim();
+        if (text) hooks.send({ type: 'answer', challengeId: c.castId, text });
+      });
+      otInput = input;
+      actions.append(input, h('div', 'cast-timer', 'First to type its reading casts it · wrong? try again'));
+      setTimeout(() => input.focus(), 30);
+    } else if (mine && c.stage === 'read') {
       const t = h('div', 'cast-timer');
       ui.countdown('dkRead', c.readLeftMs ?? 0, (left) => (t.textContent = `Read the meaning — the kanji shows in ${Math.ceil(left / 1000)} s`));
       const b = h('button', 'big cast-btn', 'Ready ▸') as HTMLButtonElement;
       b.onclick = () => { b.disabled = true; hooks.send({ type: 'deck_cast_ready', castId: c.castId }); };
       actions.append(t, b);
-    } else if (!v.casting!.overtime && mine && c.stage === 'look') {
+    } else if (mine && c.stage === 'look') {
       ui.stopCountdown('dkRead');
       const b = h('button', 'big cast-btn go', 'CAST! ✦') as HTMLButtonElement;
       b.onclick = () => { b.disabled = true; audio.sfx.flip(); hooks.send({ type: 'deck_cast_go', castId: c.castId }); };
@@ -289,12 +313,9 @@ function renderCast(v: DeckView) {
       actions.append(h('div', 'cast-timer', c.stage === 'read' ? 'Reading the spell…' : c.stage === 'look' ? 'Studying the kanji…' : 'Writing the kanji…'));
     } else ui.stopCountdown('dkRead');
     box.replaceChildren(card, actions);
-    clearTimeout(flashTimer);
-    // overtime: the kanji flashes, then only the reading + meaning stay
-    if (c.overtime && c.flashMs !== null && c.card.kanji) flashTimer = window.setTimeout(() => k.classList.add('gone'), c.flashMs);
     if (fresh) $('dkFeedback').replaceChildren();
   }
-  const writeNow = mine && (c.overtime || c.stage === 'write');
+  const writeNow = mine && !c.overtime && c.stage === 'write';
   if (writeNow && writingCastId !== c.castId) {
     writingCastId = c.castId;
     hooks.beginWriting(c.castId, '□'.repeat(c.chars)); // the pad only needs the number of characters
@@ -363,7 +384,14 @@ export function deckEvent(e: DeckEvent) {
     case 'ability': ui.toast(`${e.playerId === me ? 'You' : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(':')[0]}!`); break;
     case 'wizard': ui.toast(`${e.playerId === me ? 'Your' : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === 'cards' ? '+2 cards' : '+30 mana'}`); break;
     case 'stuck': ui.toast(`${e.playerId === me ? 'You have' : `${name(e.playerId)} has`} no usable cards!`); break;
-    case 'overtime': ui.toast('⏰ Overtime! Cards are shown one by one — first to write it uses it.', 5000); break;
+    case 'overtime': ui.toast('⏰ Overtime! The last cards come up one by one — first to type the reading uses it.', 5000); break;
+    case 'ot_miss':
+      if (e.playerId === me && otInput) {
+        audio.sfx.wrong();
+        otInput.classList.remove('shake'); void otInput.offsetWidth; otInput.classList.add('shake');
+        otInput.select();
+      }
+      break;
     case 'resolve':
       animateResolve(e, me);
       if (e.ok) setTimeout(() => voice.say(e.reading), 1100); // both players hear the spell's word
@@ -377,9 +405,8 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) 
   const who = e.playerId === me ? 'You' : view!.players.find((p) => p.id === e.playerId)?.name ?? '';
   const spec = CARD_SPECS[e.color];
   if (!e.ok) {
-    if (e.overtime && e.playerId !== me) return; // opponent missed in overtime; the card stays up
     fb.className = 'feedback bad';
-    fb.replaceChildren(h('span', 'big', e.playerId === me ? '✗ The spell fizzles' : `✗ ${who} missed`), h('span', 'sub2', `${e.kanji} · ${e.reading} · ${e.meaning}${e.recognized ? ` — read: ${e.recognized}` : ''}`));
+    fb.replaceChildren(h('span', 'big', e.overtime ? '✗ Nobody got it' : e.playerId === me ? '✗ The spell fizzles' : `✗ ${who} missed`), h('span', 'sub2', `${e.kanji} · ${e.reading} · ${e.meaning}${e.recognized ? ` — read: ${e.recognized}` : ''}`));
     audio.sfx.rip();
     if (card) ripCard(card);
     return;
@@ -387,6 +414,7 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) 
   fb.className = 'feedback good';
   fb.replaceChildren(h('span', 'big', `✓ ${who}: ${spec.label} ${spec.kind === 'attack' ? `−${e.amount}` : spec.kind === 'heal' ? `+${e.amount} ♥` : `+${e.amount} ◆`}`));
   if (e.refund) fb.append(h('span', 'refund', ` +${e.refund}◆ back`));
+  if (e.overtime) fb.append(h('span', 'sub2', `${e.kanji} · ${e.reading} · ${e.meaning}`));
   if (!card) return;
   const ghost = card.cloneNode(true) as HTMLElement;
   const r = card.getBoundingClientRect();

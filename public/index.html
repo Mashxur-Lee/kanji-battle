@@ -52,6 +52,7 @@
   </div>
 </header>
 <div id="toast" class="toast" role="status" hidden></div>
+<div id="otherPop" class="profile-pop other-pop" role="dialog" aria-label="Player profile" hidden></div>
 
 <main>
   <!-- AUTH -->
@@ -123,6 +124,7 @@
           <button id="studyBtn" class="alt">📖 Study spells <span id="studyBadge" class="badge" hidden></span></button>
           <button id="customizeBtn" class="alt">🎨 Customize</button>
         </div>
+        <button id="historyBtn" class="alt">📜 Match history</button>
         <button id="adminBtn" class="alt" hidden>👥 Users</button>
         <p id="error" class="error" role="alert"></p>
       </div>
@@ -130,6 +132,14 @@
       <button id="howBtn" class="how-btn">How to play?</button>
     </div>
     <div class="col-scene"><div class="scene duel-scene" aria-hidden="true"></div></div>
+  </section>
+
+  <!-- MATCH HISTORY -->
+  <section id="history" class="screen" hidden>
+    <button id="historyBack" class="back">← Menu</button>
+    <div class="page-head"><h2>Match history</h2></div>
+    <p class="sub">Your last 50 games. Open one to see its results again; click a name to see that player's profile.</p>
+    <div id="historyList" class="history-list"></div>
   </section>
 
   <!-- STUDY: deck choice -->
@@ -391,6 +401,7 @@
 
   <!-- RESULTS -->
   <section id="results" class="screen" hidden>
+    <div id="resultMode" class="result-mode"></div>
     <h2 id="resultTitle" class="result-title"></h2>
     <p id="resultReason" class="sub center"></p>
     <div id="xpLine" class="xp-line" hidden></div>
@@ -406,11 +417,14 @@
         <tbody id="wordRows"></tbody>
       </table>
     </div>
-    <div class="row">
-      <button id="rematch">Rematch</button>
-      <button id="leave" class="alt">Leave</button>
+    <div id="resultActions">
+      <div class="row">
+        <button id="rematch">Rematch</button>
+        <button id="leave" class="alt">Leave</button>
+      </div>
+      <p id="rematchStatus" class="sub center"></p>
     </div>
-    <p id="rematchStatus" class="sub center"></p>
+    <div id="historyBackRow" class="row" hidden><button id="resultHistoryBack" class="alt">← Back to match history</button></div>
   </section>
 </main>
 
@@ -436,7 +450,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.7.6</div>
+<div id="version" class="version">v0.7.7</div>
 <script src="/app.js"></script>
 </body>
 </html>
