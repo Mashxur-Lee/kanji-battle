@@ -80,7 +80,7 @@ export function setNet(map: Record<string, number | null>) {
 }
 
 // ── top bar ──────────────────────────────────────────────────────────────────
-export interface ProfileView { xp: number; level: number; crit: number; learned: number; learnedToday?: number; wins?: number; losses?: number; pic?: string | null }
+export interface ProfileView { xp: number; level: number; crit: number; learned: number; learnedToday?: number; wins?: number; losses?: number; pic?: string | null; streak?: number; bestStreak?: number }
 /** A round profile picture (or nothing). */
 export function picEl(url: string | null | undefined, cls = 'pic'): HTMLElement | '' {
   if (!url) return '';
@@ -88,6 +88,8 @@ export function picEl(url: string | null | undefined, cls = 'pic'): HTMLElement 
   img.onerror = () => img.remove();
   return img;
 }
+/** "🔥 5-day streak · best 9" */
+export const streakText = (n: number, best: number) => n > 0 ? `🔥 ${n}-day login streak${best > n ? ` · best ${best}` : ''}` : best ? `No streak right now · best ${best} days` : '';
 export function setProfile(p: ProfileView | null) {
   if (!p) return;
   const lx = levelXp(p.xp);
@@ -99,6 +101,7 @@ export function setProfile(p: ProfileView | null) {
   $('ppRate').textContent = games ? `${Math.round(((p.wins ?? 0) / games) * 100)}%` : '—';
   $('ppLearned').textContent = String(p.learned);
   $('ppToday').textContent = String(p.learnedToday ?? 0);
+  $('ppStreak').textContent = streakText(p.streak ?? 0, p.bestStreak ?? 0);
   for (const id of ['whoPic', 'ppPic']) {
     const el = $(id);
     el.replaceChildren(p.pic ? picEl(p.pic, 'pic fill') : '✦');
@@ -258,15 +261,16 @@ const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTML
     ],
   },
 };
-function renderModeGuide(mode: GameMode) {
-  if (mode === 'deck') return;
+/** The mini instructions of a battle mode (lobby, and the online queue on hover). */
+export function modeGuideNodes(mode: Exclude<GameMode, 'deck'>): HTMLElement[] {
   const g = GUIDES[mode];
   const ol = h('ol', 'g-flow');
   for (const [icon, text] of g.steps) ol.append(append(h('li'), h('span', 'g-ic', icon), h('span', '', text)));
-  $('modeGuide').replaceChildren(
-    h('h3', '', g.title), g.pic(), ol,
-    h('p', 'g-foot', 'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.'),
-  );
+  return [h('h3', '', g.title), g.pic(), ol, h('p', 'g-foot', 'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.')];
+}
+function renderModeGuide(mode: GameMode) {
+  if (mode === 'deck') return;
+  $('modeGuide').replaceChildren(...modeGuideNodes(mode));
 }
 
 // ── lobby ───────────────────────────────────────────────────────────────────
@@ -874,7 +878,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
     if (img) pic.append(img);
     const games = p.wins + p.losses;
     body.push(
-      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `Lv ${p.level}`))),
+      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `Lv ${p.level}`), h('div', 'pp-streak', streakText(p.streak ?? 0, p.bestStreak ?? 0)))),
       append(h('div', 'pp-stats'),
         append(h('div'), h('b', '', p.wins), h('span', '', 'wins')),
         append(h('div'), h('b', '', p.losses), h('span', '', 'losses')),

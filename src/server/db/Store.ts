@@ -23,10 +23,13 @@ export interface UserRecord {
   losses: number;
   avatarV: number; // profile picture version (0 = none); the picture itself is stored separately
   flame: FlameId; // colour of your combo flames
+  loginDay: string | null; // YYYY-MM-DD (the player's local date) of the last day they played
+  streak: number; // days in a row with a login
+  bestStreak: number;
 }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'loginDay' | 'streak' | 'bestStreak'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -62,10 +65,10 @@ export interface Store {
 
 export class UsernameTakenError extends Error {}
 
-export const MATCH_HISTORY_LIMIT = 50;
+export const MATCH_HISTORY_LIMIT = 15; // older games are deleted
 const summaryOf = (m: MatchDetail): MatchSummary => ({ id: m.id, mode: m.mode, outcome: m.outcome, character: m.character, at: m.at, opponents: m.opponents });
 
-const blankProgress = () => ({ xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: 'blue' as FlameId });
+const blankProgress = () => ({ xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: 'blue' as FlameId, loginDay: null as string | null, streak: 0, bestStreak: 0 });
 
 /** In-memory store (tests); FileStore persists the same data as JSON. */
 export class MemoryStore implements Store {

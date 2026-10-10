@@ -4,7 +4,7 @@ import { LEVELS } from '../../shared/protocol';
 import { BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome } from '../../shared/progress';
 import { answer, isDue, newCard, previewIntervals, RATINGS, type Rating, type SrsCard } from '../../shared/srs';
 import { displayReading } from '../../shared/vocab';
-import type { Store, UserRecord } from '../db/Store';
+import { MATCH_HISTORY_LIMIT, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { VOCAB, VOCAB_BY_ID } from '../vocab';
 
@@ -13,7 +13,7 @@ export const DAILY_NEW = 25;
 export const AI_XP_FACTOR = 0.5;
 export type Deck = 'all' | 'struggling';
 
-export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; strugglingDue: number }
+export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; strugglingDue: number; streak: number; bestStreak: number }
 
 /** Public URL of a profile picture (versioned, so browsers can cache it forever). */
 export const picUrl = (u: { id: string; avatarV: number }) => (u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null);
@@ -43,7 +43,18 @@ export class StudyService {
     return {
       xp: u.xp, level: levelOf(u.xp), crit: dailyCrit(u.critCount, u.critExpires, now), learned, learnedToday, background: u.background,
       studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u), flame: u.flame ?? 'blue', strugglingDue: await this.strugglingDue(u.id, now),
+      streak: liveStreak(u, new Date(now).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0,
     };
+  }
+
+  /**
+   * Daily login streak: called when the app opens (with the player's local date). Same day: nothing;
+   * the day after: +1; a gap: back to 1.
+   */
+  async touchLogin(u: UserRecord, today: string): Promise<UserRecord> {
+    if (u.loginDay === today) return u;
+    const streak = u.loginDay === dayBefore(today) ? (u.streak ?? 0) + 1 : 1;
+    return (await this.store.update(u.id, { loginDay: today, streak, bestStreak: Math.max(u.bestStreak ?? 0, streak) })) ?? u;
   }
 
   /** Struggling spells waiting to be studied (new, learning or due). */
@@ -76,10 +87,10 @@ export class StudyService {
   async publicProfile(id: string): Promise<PublicProfile | null> {
     const u = await this.store.findById(id);
     if (!u || u.banned) return null;
-    return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt };
+    return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date().toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0 };
   }
 
-  matches(userId: string) { return this.store.matches(userId, 50); }
+  matches(userId: string) { return this.store.matches(userId, MATCH_HISTORY_LIMIT); }
   match(userId: string, id: string) { return this.store.match(userId, id); }
 
   /** Profile picture: a small PNG/JPEG/WebP (the browser resizes it to 128×128 before upload). null removes it. */
@@ -193,6 +204,13 @@ export class StudyService {
     const v = VOCAB_BY_ID.get(c.vocabId)!;
     return { vocabId: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, state: c.state, intervals: previewIntervals(c, now) };
   }
+}
+
+const dayBefore = (d: string) => new Date(Date.parse(d) - 86_400_000).toISOString().slice(0, 10);
+/** A streak still counts if the last login was today or yesterday (a day of slack for time zones). */
+function liveStreak(u: UserRecord, today: string) {
+  if (!u.loginDay) return 0;
+  return u.loginDay >= dayBefore(dayBefore(today)) ? u.streak ?? 0 : 0;
 }
 
 function counts(cards: SrsCard[], now: number): DeckCounts {

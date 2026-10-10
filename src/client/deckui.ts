@@ -90,6 +90,8 @@ export function chatMessages(msgs: ChatMessage[]) {
 export function clearChat() { seenChat.clear(); $('dkChatLog').replaceChildren(); }
 
 // ── lobby guide ─────────────────────────────────────────────────────────────
+/** The Deck Duel instructions (lobby, and the online queue's "?"). */
+export const renderDeckGuide = (el: HTMLElement) => renderGuide(el);
 function renderGuide(el: HTMLElement) {
   const sec = (title: string, ...kids: (Node | string)[]) => { const s = h('section', 'g-sec'); s.append(h('h4', '', title), ...kids); return s; };
   const p = (t: string) => h('p', '', t);
@@ -123,7 +125,7 @@ function renderGuide(el: HTMLElement) {
   ] as const) { const li = h('li'); li.append(h('span', 'g-ic', icon), h('span', '', t)); flow.append(li); }
   el.replaceChildren(
     h('h3', '', 'How Deck Duel works'),
-    sec('Goal', p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. Holding cards you can't pay for = you lose.`)),
+    sec('Goal', p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (−${DECK_RULES.skipPenaltyHp} HP).`)),
     sec('Cards', cards),
     sec('A turn', flow),
     sec(`Heroes — power button bottom-left: ${DECK_RULES.abilityCost} mana, then ${DECK_RULES.abilityCooldown} turns cooldown`, heroes),
@@ -343,7 +345,7 @@ function renderCast(v: DeckView) {
     } else if (mine && c.stage === 'look') {
       ui.stopCountdown('dkRead');
       const b = h('button', 'big cast-btn go', 'CAST! ✦') as HTMLButtonElement;
-      b.onclick = () => { b.disabled = true; audio.sfx.flip(); hooks.send({ type: 'deck_cast_go', castId: c.castId }); };
+      b.onclick = () => { b.disabled = true; audio.sfx.flip(); arena()?.thrust(); hooks.send({ type: 'deck_cast_go', castId: c.castId }); };
       actions.append(h('div', 'cast-timer', 'Memorise it — it disappears when you cast'), b);
     } else if (!mine) {
       ui.stopCountdown('dkRead');
@@ -451,9 +453,9 @@ export function deckEvent(e: DeckEvent) {
       }
       break;
     case 'resolve':
-      animateResolve(e, me);
+      // both players hear the spell's word first, then the spell's sound
+      animateResolve(e, me, e.ok ? voice.speak(e.reading) : Promise.resolve());
       showReveal(e);
-      if (e.ok) setTimeout(() => voice.say(e.reading), 1100); // both players hear the spell's word
       break;
   }
 }
@@ -461,7 +463,7 @@ export function deckEvent(e: DeckEvent) {
 /** Bolt strikes with lightning, Frost freezes the target blue, Inferno sets it on fire. */
 const CARD_FX: Partial<Record<CardColor, 'bolt' | 'frost' | 'fire'>> = { lightblue: 'bolt', blue: 'frost', red: 'fire' };
 
-function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) {
+function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string, spoken: Promise<void> = Promise.resolve()) {
   const card = $('dkCast').querySelector('.dkc.big') as HTMLElement | null;
   const fb = $('dkFeedback');
   const who = e.playerId === me ? 'You' : view!.players.find((p) => p.id === e.playerId)?.name ?? '';
@@ -499,7 +501,7 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) 
   Object.assign(ghost.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: '30', margin: '0' });
   document.body.append(ghost);
   if (spec.kind === 'mana') {
-    audio.sfx.mana();
+    void spoken.then(() => audio.sfx.mana());
     ghost.classList.add('sparkle');
   } else {
     // attack flies to the target, heal flies back to its user
@@ -507,7 +509,7 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) 
     const target = $(towardsMe ? 'dkMe' : 'dkOpp').getBoundingClientRect();
     ghost.style.setProperty('--fy', `${target.top + target.height / 2 - (r.top + r.height / 2)}px`);
     ghost.classList.add('fly-out');
-    if (spec.kind === 'heal') audio.sfx.heal(); else audio.sfx.correct(1);
+    void spoken.then(() => { if (spec.kind === 'heal') audio.sfx.heal(); else audio.sfx.correct(1); });
     setTimeout(() => { if (spec.kind === 'attack') towardsMe ? audio.sfx.hurt() : audio.sfx.impact(); }, 500);
   }
   card.style.visibility = 'hidden';

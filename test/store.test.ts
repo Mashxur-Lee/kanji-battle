@@ -150,7 +150,7 @@ test('profile pictures: only small real PNG/JPEG/WebP files; admins have every b
 });
 
 for (const [name, make] of stores) {
-  test(`store: match history keeps the newest 50, list without the heavy parts, detail with them (${name})`, async () => {
+  test(`store: match history keeps only the newest 15, list without the heavy parts, detail with them (${name})`, async () => {
     const { MATCH_HISTORY_LIMIT } = await import('../src/server/db/Store');
     const s = make();
     await s.init();
@@ -166,7 +166,9 @@ for (const [name, make] of stores) {
     const list = await s.matches(u.id, 100);
     assert.equal(list.length, MATCH_HISTORY_LIMIT);
     assert.equal(list[0].at, 1_700_000_000_000 + MATCH_HISTORY_LIMIT + 2, 'newest first');
-    assert.deepEqual([list[0].mode, list[0].character, list[0].opponents[0].name], ['reading', 'kid', 'Oni (AI N3)']);
+    const newest = MATCH_HISTORY_LIMIT + 2;
+    assert.deepEqual([list[0].mode, list[0].character, list[0].opponents[0].name], [newest % 2 ? 'deck' : 'reading', newest % 2 ? 'witch' : 'kid', 'Oni (AI N3)']);
+    assert.equal(MATCH_HISTORY_LIMIT, 15);
     assert.equal((list[0] as any).stats, undefined, 'the list stays small');
     const d = (await s.match(u.id, list[0].id))!;
     assert.equal(d.stats[u.id].correct, 3);

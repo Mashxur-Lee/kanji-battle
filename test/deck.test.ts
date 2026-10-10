@@ -398,3 +398,14 @@ test('after a cast the correct kanji is shown for 2 s: nothing can be played mea
   s.g.play(b, card.cardId);
   assert.equal(s.view(b).casting!.ownerId, b);
 });
+
+test('overtime switches hero powers off (and their looks)', () => {
+  const s = setup(() => 0.1, { ...RULES, matchMs: 5000 });
+  s.g.start(); s.g.chooseCharacter('A', 'knight'); s.g.chooseCharacter('B', 'knight'); draftAll(s);
+  const a = s.view('A').turn!.active;
+  s.g.ability(a);
+  assert.equal(s.view(a).players.find((p) => p.id === a)!.abilityActive, RULES.abilityTurns);
+  tick(5000);
+  assert.equal(s.view('A').phase, 'overtime');
+  assert.ok(s.view('A').players.every((p) => p.abilityActive === 0));
+});
