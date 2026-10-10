@@ -33,8 +33,8 @@ const RU: Record<string, string> = {
   'Profile picture updated': 'Фото профиля обновлено', 'Could not use that picture': 'Не удалось использовать это фото',
   'Please pick an image': 'Выберите изображение', 'Could not read that image': 'Не удалось прочитать изображение',
   'Your browser has no WebGL — the classic 2D view is used.': 'В браузере нет WebGL — используется классический 2D-вид.',
-  'First-person duel arena (move the mouse to look around). Lite is lighter on phones and older computers.': 'Арена от первого лица (двигайте мышь, чтобы осмотреться). «Лёгкая» — для телефонов и старых компьютеров.',
-  'Turn your phone sideways during a game for the 3D arena (upright shows the 2D view).': 'Поверните телефон горизонтально во время игры для 3D-арены (вертикально — 2D-вид).',
+  'First-person duel arena (move the mouse to look around). On a phone held upright it is a band above the question. Lite is lighter on phones and older computers.': 'Арена от первого лица (двигайте мышь, чтобы осмотреться). На телефоне в вертикальном положении — полоса над вопросом. «Лёгкая» — для телефонов и старых компьютеров.',
+  'This screen is too small for the 3D arena — the classic 2D view is used.': 'Экран слишком мал для 3D-арены — используется классический 2D-вид.',
   '3D was slow — lowered its resolution. Settings → 3D arena → Off for the 2D view.': '3D тормозило — разрешение снижено. Настройки → 3D-арена → Выкл. для 2D-вида.',
   '3D was slow on this device — switched to Lite (Settings → 3D arena).': '3D тормозило на этом устройстве — включена лёгкая версия (Настройки → 3D-арена).',
 

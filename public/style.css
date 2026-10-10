@@ -1291,3 +1291,18 @@ tr.is-online td { background: rgba(78, 230, 166, .05); }
   .fighter .lvs, .fighter .critv { display: none; }
 }
 .daily-main h3 { justify-content: center; }
+
+/* ── 0.9.7.1: phones held upright — the 3D arena is a band where the 2D fighters stand ── */
+.dk-band { display: none; }
+body.band-3d .arena3d { z-index: 1; border-radius: 14px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 8px 24px rgba(0, 0, 0, .35); }
+body.band-3d .screen { position: relative; z-index: 2; }
+body.band-3d #arena .wizard, body.band-3d #dragon > .sprite, body.band-3d #dragon > .ground, body.band-3d #fire, body.band-3d #allies { visibility: hidden; }
+/* a taller band than the 2D sprites need, but it shrinks when the keyboard takes the space */
+body.band-3d #arena .side { min-height: clamp(140px, calc(30 * var(--dvh)), 280px); }
+body.band-3d .dk-band { display: block; width: 100%; height: clamp(130px, calc(26 * var(--dvh)), 240px); flex: none; }
+/* phones: the hero picker starts under the top bar and the mode name, and scrolls (no cut-off title) */
+@media (max-width: 700px) {
+  .dk-overlay { justify-content: safe center; padding-top: 88px; }
+  .dk-overlay .dk-back { position: static; }
+}
+body.band-3d #arena .side.right { align-items: flex-start; } /* the dragon's HP bar along the top of the band, not over its head */
