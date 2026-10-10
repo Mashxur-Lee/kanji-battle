@@ -10,6 +10,7 @@ import type { BackgroundId } from '../shared/progress';
 import { sceneSvg, type TimeOfDay } from './backgrounds';
 import { dragonSvg } from './wizard';
 import { flameColor } from '../shared/progress';
+import { viewH, viewW } from './zoom';
 
 export type { Who };
 const KEY = 'kb:3d';
@@ -92,8 +93,19 @@ async function activate() {
   if (!a || !onScreen || !wanted()) return;
   if (pending) { a.setup({ ...pending, bgSvg: sceneSvg(bg.id, bg.time), bgKey: `${bg.id}-${bg.time}`, time: bg.time }); pending = null; }
   document.body.classList.add('has-3d');
+  sizeCanvas();
   a.setActive(true);
 }
+
+/** The canvas always covers the whole screen, whatever the UI size: under CSS zoom, viewport units
+ *  don't scale the same in every browser (at 70% Android Chrome left a strip on the right). */
+function sizeCanvas() {
+  const c = document.getElementById('arena3d');
+  if (!c) return;
+  c.style.width = `${Math.ceil(viewW())}px`;
+  c.style.height = `${Math.ceil(viewH())}px`;
+}
+addEventListener('resize', () => { if (onScreen) sizeCanvas(); });
 
 /** Called on every screen change. */
 export function arenaScreen(screen: string) {

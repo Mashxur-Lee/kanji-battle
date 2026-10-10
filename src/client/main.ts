@@ -1,3 +1,5 @@
+import { gameKbAvailable, gameKbPref, gameKbReset, setGameKb, setGameKbPref } from './gamekb';
+import { celebrate, celebrateNew, comboMilestone } from './achievements';
 import { railScreen, refreshRail, setRailUser } from './friendrail';
 import { writeTargets, writeTemplate } from '../shared/kana';
 import { initI18n, lang, setLang } from './i18n';
@@ -78,6 +80,7 @@ ui.onScreen((s) => {
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (s !== 'lobby') void renderLobbyInvites(false);
   railScreen(s);
+  setGameKb(s === 'battle' && mode !== 'writing'); // phones: the compact battle keyboard
   tutorialScreen(s);
   if (!GAME_SCREENS.has(s)) setTimeout(() => applyBackground(true), 0); // catch up on the cycle after a game
 });
@@ -110,6 +113,7 @@ let prevStaff: string | null = null; // the staff the menu wizards hold // invit
 function applyProfile(p: Profile) {
   // a monthly reward just unlocked → say so
   const before = profile?.unlocks ?? null;
+  if (user) celebrateNew(user.id, p.unlocks);
   if (before) for (const r of p.unlocks ?? []) if (!before.includes(r) && !r.startsWith('flag:')) {
     const [kind, id] = r.split(':');
     const name = kind === 'flame' ? `${ALL_FLAMES.find((f) => f.id === id)?.name} flames` : ALL_STAFFS.find((x) => x.id === id)?.name;
@@ -274,6 +278,8 @@ function onMessage(msg: ServerMessage) {
       challengeId = msg.id;
       arena()?.channel(0);
       ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs });
+      gameKbReset();
+      arena()?.oppChannel(true); // the others are always working on a word in a battle: their staffs trace ∞
       if (msg.answer === 'writing') { flashMs = msg.flashMs ?? 3500; beginWriting(msg.id, msg.kanji); }
       break;
     case 'answer_result':
@@ -293,6 +299,7 @@ function onMessage(msg: ServerMessage) {
         // say the word first (romaji answers at the kana level: say the kana itself), then the success chime
         const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
         void voice.speak(kana).then(() => audio.sfx.correct(msg.combo));
+        if (mode !== 'deck') comboMilestone(msg.combo, profile?.unlocks); // "On Fire" / "Inferno" / "Unstoppable" right away
       } else { audio.sfx.wrong(); arena()?.fizzle('me'); }
       break;
     case 'battle_update':
@@ -332,6 +339,7 @@ function onMessage(msg: ServerMessage) {
       setTimeout(() => {
         ui.showXp(msg.gained, msg.level, msg.levelUp);
         if (msg.levelUp) ui.toast(`Level ${msg.level}! Check Customize for new unlocks.`, 5000);
+        for (const id of msg.achievements ?? []) celebrate(id);
       }, 2100);
       void refreshProfile();
       break;
@@ -414,6 +422,11 @@ function beginWriting(id: number, kanji: string) {
   writing = true;
   charCount = writeTargets(kanji).length; // only the kanji: the kana around them are written for you
   writeShape = writeTemplate(kanji);
+  // the kana that are written for you, big, beside the typing box: お□ → [お][ input ], □ず → [ input ][ず]
+  const m = /^([^□]*)□+([^□]*)$/.exec(writeShape);
+  const pre = m ? m[1] : '', post = m ? m[2] : writeShape.includes('□') && /[^□]/.test(writeShape) ? `(${writeShape})` : '';
+  ui.$('imePre').textContent = pre; ui.$('imePre').hidden = !pre;
+  ui.$('imePost').textContent = post; ui.$('imePost').hidden = !post;
   written = [];
   pad.setCells(charCount); // write the whole word at once
   setEraser(false);
@@ -534,8 +547,7 @@ for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {
 }
 // new menu pages
 ui.$('dailyBtn').onclick = () => { if (user) void openDaily(user.id); };
-ui.$('progressBtn').onclick = () => void openProgress();
-ui.$('friendsBtn').onclick = () => void openFriends();
+ui.$('progressBtn').onclick = () => void openProgress(profile?.unlocks ?? []);
 initFriends({
   send: (m) => socket.send(m),
   join: (c) => {
@@ -666,6 +678,13 @@ document.documentElement.dataset.v = VERSION;
     sync();
   });
   ui.$('volBtn').addEventListener('click', sync);
+}
+// Phones: the compact battle keyboard, or the phone's own
+{
+  const sel = ui.$<HTMLSelectElement>('gameKbSel');
+  ui.$('gameKbRow').hidden = !gameKbAvailable();
+  sel.value = gameKbPref() ? 'game' : 'system';
+  sel.onchange = () => { setGameKbPref(sel.value === 'game'); setGameKb(ui.currentScreen() === 'battle' && mode !== 'writing'); };
 }
 // "I've mastered hiragana": opens N5–N1 for a player who started as a かな beginner
 ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {

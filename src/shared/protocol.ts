@@ -238,7 +238,7 @@ export type ServerMessage =
       stats: Record<PlayerId, PlayerStats>;
     }
   | { type: 'rematch_status'; votes: PlayerId[] }
-  | { type: 'progress'; gained: number; xp: number; level: number; levelUp: boolean; crit: number }
+  | { type: 'progress'; gained: number; xp: number; level: number; levelUp: boolean; crit: number; achievements?: string[] }
   | { type: 'notice'; message: string }
   | { type: 'deck_state'; view: DeckView }
   | { type: 'deck_event'; event: DeckEvent }

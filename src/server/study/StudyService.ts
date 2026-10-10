@@ -1,6 +1,7 @@
 import type { AdminUserRow, MatchDetail, PublicProfile } from '../../shared/protocol';
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
+import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
 import { isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
 import { answer, isDue, newCard, previewIntervals, RATINGS, type Rating, type SrsCard } from '../../shared/srs';
 import { displayReading } from '../../shared/vocab';
@@ -43,6 +44,8 @@ export class StudyService {
   }
 
   async profile(u: UserRecord, now = Date.now()): Promise<Profile> {
+    // achievements earned outside a match (streaks, spells learned, friends, level, monthly rewards)
+    if ((await this.grantAchievements(u.id)).length) u = (await this.store.findById(u.id)) ?? u;
     const learned = await this.store.learnedCount(u.id);
     const learnedToday = now < u.critExpires ? u.critCount : 0;
     return {
@@ -143,6 +146,7 @@ export class StudyService {
   async setKanaMastered(u: UserRecord, mastered: boolean) {
     const rest = (u.unlocks ?? []).filter((x) => x !== KANA_BEGINNER);
     await this.store.update(u.id, { unlocks: mastered ? rest : [...rest, KANA_BEGINNER] });
+    if (mastered && isKanaBeginner(u.unlocks)) await this.grantAchievements(u.id, undefined, ['graduate']);
     // a beginner studies かな
     if (!mastered) await this.store.update(u.id, { studyLevels: ['KANA'] });
   }
@@ -233,7 +237,24 @@ export class StudyService {
       const u = added ? await this.store.findById(userId) : null;
       if (u) await this.store.update(userId, { newNotice: u.newNotice + added });
     }
-    return { gained, xp };
+    const st = record?.stats[userId];
+    const achievements = await this.grantAchievements(userId, { mode, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited });
+    return { gained, xp, achievements };
+  }
+
+  /** Grants every achievement the player has now earned (plus `extra`); returns the new ones. */
+  async grantAchievements(userId: string, match?: AchFacts['match'], extra: string[] = []): Promise<string[]> {
+    const u = await this.store.findById(userId);
+    if (!u) return [];
+    const unlocks = u.unlocks ?? [];
+    const facts: AchFacts = {
+      wins: u.wins, level: levelOf(u.xp), bestStreak: u.bestStreak ?? 0, learned: await this.store.learnedCount(userId),
+      friends: (await this.store.friends(userId)).filter((f) => f.status === 'accepted').length,
+      seasonal: unlocks.filter((x) => x.startsWith('flame:') || x.startsWith('staff:')).length, match,
+    };
+    const fresh = [...new Set([...earnedAchievements(facts), ...extra])].filter((id) => !unlocks.includes(ACH_PREFIX + id));
+    if (fresh.length) await this.store.update(userId, { unlocks: [...unlocks, ...fresh.map((id) => ACH_PREFIX + id)] });
+    return fresh;
   }
 
   private item(c: SrsCard, now: number): StudyItem {

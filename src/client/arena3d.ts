@@ -846,10 +846,12 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
         m.body.rotation.x = Math.max(0, thrust) * 0.2;
         m.staffPivot.rotation.x = thrust * 1.9;
         // the staff arm: raised to cast, held forward while writing, with little random moves as you write
-        const writing = key === 'me' ? channelShown : key === 'opp' && oppChannelOn ? 0.7 : 0;
-        const ax = -0.15 - writing * 0.75 - Math.max(0, thrust) * 0.9 + (key === 'me' ? twitchRot.x : 0);
+        const writing = key === 'me' ? channelShown : (key === 'opp' || key.startsWith('ally:')) && oppChannelOn ? (layout === 'deck' ? 0.7 : 0.45) : 0;
+        // while they type or write, the staff traces a figure-eight (∞) in the air — like yours
+        const inf = key === 'me' ? 0 : writing * (1 - Math.max(0, thrust));
+        const ax = -0.15 - writing * 0.75 - Math.max(0, thrust) * 0.9 + (key === 'me' ? twitchRot.x : 0) + Math.sin(time * 4.4) * 0.22 * inf;
         m.arm.rotation.x += (ax - m.arm.rotation.x) * Math.min(1, dt * 10);
-        m.arm.rotation.z = -0.35 + (key === 'me' ? twitchRot.z : 0) + (writing ? Math.sin(time * 9) * 0.05 * writing : 0);
+        m.arm.rotation.z = -0.35 + (key === 'me' ? twitchRot.z : 0) + Math.sin(time * 2.2) * 0.32 * inf;
         m.arm.rotation.y = key === 'me' ? twitchRot.y : 0;
         const glowLevel = key === 'me' ? channelShown : writing;
         m.crystalMat.emissiveIntensity = 1.2 + glowLevel * (3 + pulse * 2) + lunge * 3;
@@ -857,7 +859,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
         (m.glow.material as THREE.SpriteMaterial).opacity = 0.45 + glowLevel * 0.5;
         m.crystal.rotation.y += dt * (0.8 + glowLevel * 6);
         m.staff.update(time, dt, glowLevel);
-        if (glowLevel > 0.3 && Math.random() < glowLevel * 0.6) {
+        if (glowLevel > 0.5 && Math.random() < glowLevel * 0.6) {
           m.crystal.getWorldPosition(tmp);
           spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), m.staff.color.getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
         }
@@ -865,7 +867,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
         f.sprite.position.y = still ? 0 : Math.abs(Math.sin(time * 2)) * 0.05;
         f.sprite.position.z = lunge * 0.4;
       }
-      const auraOn = (key === 'opp' && oppChannelOn) || (key === 'boss' && inhaling);
+      const auraOn = (key === 'opp' && oppChannelOn && layout === 'deck') || (key === 'boss' && inhaling);
       const am = f.aura.material as THREE.SpriteMaterial;
       am.opacity += ((auraOn ? 0.55 + 0.2 * Math.sin(time * 5) : f.flame ? 0.35 : 0) - am.opacity) * Math.min(1, dt * 5);
       am.color.copy(key === 'boss' ? new THREE.Color(0xff7a2a) : f.flame ?? new THREE.Color(0xb48cff));

@@ -54,6 +54,8 @@ export class DailyService {
   private attempts = new Map<string, Attempt>(); // userId → today's run in progress
   private cache: { day: string; words: VocabEntry[] } | null = null;
 
+  /** 10 / 10: the 'Perfect Day' achievement (set in index.ts) */
+  onPerfect?: (userId: string) => Promise<unknown>;
   constructor(private readonly store: Store, private readonly progress: ProgressService, private readonly now: () => number = Date.now) {}
 
   today() { return new Date(this.now()).toISOString().slice(0, 10); }
@@ -122,6 +124,7 @@ export class DailyService {
       await this.store.addXp(u.id, xp);
       await this.progress.record(u.id, playerDay(u, this.now()), { xp });
     }
+    if (saved && a.correct === DAILY_WORDS) await this.onPerfect?.(u.id);
     const rank = (await this.store.dailyBetter(a.day, a.correct, a.ms)) + 1;
     const players = (await this.store.dailyBoard(a.day, 100_000)).length;
     return { correct: a.correct, ms: a.ms, rank, players, xp };

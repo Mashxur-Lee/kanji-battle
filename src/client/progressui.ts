@@ -6,6 +6,7 @@ import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
 import { FLAMES, isoWeek, STAFFS } from '../shared/progress';
 import { api, today, type DayActivity, type MonthProgress, type ProgressPage } from './api';
 import * as ui from './ui';
+import { renderAchievements } from './achievements';
 import { pixelStaffSvg } from './pixelstaffs';
 import { wizardSvg } from './wizard';
 
@@ -29,7 +30,9 @@ const MASTERY = [
 let page: ProgressPage | null = null;
 let level: Level = 'N5';
 
-export async function openProgress() {
+let unlocks: readonly string[] = [];
+export async function openProgress(myUnlocks: readonly string[] = []) {
+  unlocks = myUnlocks;
   ui.show('progress');
   $('progGrid').replaceChildren(el('p', 'hint', 'Loading…'));
   try { page = await api.progress(); } catch (e) { ui.toast((e as Error).message); return; }
@@ -44,6 +47,7 @@ function render() {
   renderWeek(page.activity);
   $('progMonth').replaceChildren(...monthNodes(page.month));
   renderHeatmap(page.activity);
+  renderAchievements($('progAch'), unlocks);
   renderMastery();
 }
 

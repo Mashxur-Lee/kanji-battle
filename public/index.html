@@ -60,6 +60,7 @@
       <label class="toggle-row">UI size <select id="uiZoom" aria-label="UI size"></select></label>
       <label id="kanaRow" class="toggle-row" hidden><input id="kanaMastered" type="checkbox"> I've mastered hiragana</label>
       <p id="kanaInfo" class="hint" hidden>Unlocks the kanji levels (N5–N1) for studying and battles.</p>
+      <label id="gameKbRow" class="toggle-row" hidden>Battle keyboard <select id="gameKbSel" aria-label="Battle keyboard"><option value="game">Game keyboard</option><option value="system">Phone keyboard</option></select></label>
       <label class="toggle-row">Language <select id="langSel" aria-label="Language" data-no-i18n><option value="en">English</option><option value="ru">Русский</option></select></label>
     </div>
   </div>
@@ -77,12 +78,15 @@
     <button id="railReq" class="fr-btn" title="Friend requests" aria-label="Friend requests"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg><span>Requests</span><i id="railReqBadge" class="badge" hidden></i></button>
   </div>
 </aside>
+<button id="railFab" class="rail-fab" aria-label="Friends" aria-controls="friendRail" aria-expanded="false" hidden><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 14.5c3 0 6 1.8 6 5"/></svg><b id="railFabCount">0</b></button>
 <dialog id="friendDialog" class="friend-dialog" aria-label="Friends">
   <div class="fd-tabs"><button data-ftab="add" class="cust-tab">Add friend</button><button data-ftab="requests" class="cust-tab">Friend requests</button><button id="fdClose" class="pill fd-close" type="button">Close</button></div>
   <form id="fdAdd" class="friend-add"><input id="fdName" placeholder="Player name" autocomplete="off" maxlength="24" aria-label="Player name"><button class="big" type="submit">Add friend</button></form>
   <p id="fdMsg" class="hint" role="status"></p>
   <div id="fdRequests"><div id="fdReqList" class="fd-list"></div></div>
 </dialog>
+<div id="gameKb" class="game-kb" role="group" aria-label="Keyboard" hidden></div>
+<div id="achPop" class="ach-pop" role="status" aria-live="polite" hidden></div>
 <div id="inviteBox" class="invite-box" role="alertdialog" aria-live="assertive" hidden></div>
 <div id="tutorial" class="tutorial-overlay" role="dialog" aria-modal="true" aria-label="Welcome" hidden></div>
 <div id="coach" class="coach-tip" role="status" hidden></div>
@@ -180,9 +184,8 @@
         </div>
         <div class="menu-row">
           <button id="progressBtn" class="alt">Progress</button>
-          <button id="friendsBtn" class="alt">Friends <span id="friendsBadge" class="badge" hidden></span></button>
+          <button id="historyBtn" class="alt">Match history</button>
         </div>
-        <button id="historyBtn" class="alt">Match history</button>
         <button id="adminBtn" class="alt" hidden>Users</button>
         <p id="error" class="error" role="alert"></p>
       </div>
@@ -201,8 +204,13 @@
       <div id="progMonth" class="prog-card"></div>
     </div>
     <div class="prog-card">
-      <h3>Activity <small id="progHeatSub" class="hint"></small></h3>
-      <div id="progHeat" class="heatmap" role="img" aria-label="Activity calendar"></div>
+      <div class="act-row">
+        <div class="act-cal">
+          <h3>Activity <small id="progHeatSub" class="hint"></small></h3>
+          <div id="progHeat" class="heatmap" role="img" aria-label="Activity calendar"></div>
+        </div>
+        <div id="progAch" class="ach-box"></div>
+      </div>
     </div>
     <div class="prog-card">
       <h3>Spell mastery <small class="hint">every word of each level — hover a square to see it</small></h3>
@@ -522,7 +530,9 @@
       <button id="padNext" class="pill primary">Cast ✦</button>
     </div>
     <div class="ime-row">
+      <span id="imePre" class="ime-kana" lang="ja" hidden></span>
       <input id="imeInput" lang="ja" placeholder="…or type the kanji (Japanese keyboard), Enter" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <span id="imePost" class="ime-kana" lang="ja" hidden></span>
     </div>
   </div>
 
@@ -583,7 +593,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.8</div>
+<div id="version" class="version">v0.9.8.1</div>
 <script src="/app.js"></script>
 </body>
 </html>

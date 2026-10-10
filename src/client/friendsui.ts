@@ -29,7 +29,8 @@ async function refresh(force = false) {
 }
 function updateBadge() {
   const n = friends.filter((f) => f.status === 'incoming').length;
-  const b = $('friendsBadge');
+  const b = document.getElementById('friendsBadge'); // (the menu button gave way to the friends list on the right)
+  if (!b) return;
   b.hidden = n === 0;
   b.textContent = String(n);
 }
