@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.8
+# Kanji Wizards · v0.9.8.1
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -141,7 +141,8 @@ them. The goals panel shows the reward itself (the pixel staff, or a little wiza
 
 **Friends rail** (right edge of the menus, like Valorant's): pictures only; hover it and it opens with names,
 levels and what everyone is doing (online / offline groups). Click a friend for their profile. **Add friend** and
-**Requests** at the bottom open a small window. Hidden in games and on narrow screens.
+**Requests** at the bottom open a small window. Hidden in games. On phones a round **Friends** button (bottom-right,
+with the online count) slides the same list in from the right. The menu no longer has a Friends button.
 
 **Friends** (main menu): add players by name, accept or decline requests, see who is online and what they are
 doing. In a room's lobby your online friends appear with an **Invite** button; they get a card with Join /
@@ -252,6 +253,27 @@ with the Japanese keyboard's candidate list open); change it in the settings pan
 Settings → **Language**: English or Русский. Dates and times always follow the chosen language (not the browser's).
 Russian is a translation layer over the English interface (`src/client/i18n.ts`: exact strings plus patterns for texts
 with numbers and names); Japanese text and word meanings stay as they are.
+
+## Achievements
+
+Twenty badges on the Progress page, beside the activity calendar: hexagons with their own icon and colour, one to
+three dots for how hard they are; locked ones are dimmed, and hovering one says how to earn it. First Victory,
+Veteran (25 wins), Champion (100), On Fire / Inferno / Unstoppable (5× / 10× / 20× combo), Flawless (a win at 100%
+with 10+ answers), Dragon Slayer, Card Sage, Calligrapher, Quickdraw (a win in Boss / Deck Duel / Writing / Rapid),
+Scholar (100 spells learned), Archmage (1,000), Kana Graduate, Devoted (7-day streak), Eternal Flame (30), Perfect
+Day (10/10 daily), Fellowship (a friend), Seasonal (a monthly reward), Grand Wizard (level 10). They are checked on the
+server after every match and whenever the profile loads, and stored as `ach:<id>` in the account's `unlocks`
+(`src/shared/achievements.ts`). Earning one plays an "Achievement unlocked!" animation — combo badges the moment the
+combo happens in the battle.
+
+## Battle keyboard (phones)
+
+In Reading, Rapid and Boss on a touch screen, a compact keyboard (letters, -, n', ⌫, Skip, Cast) replaces the phone's
+own: about a third of the height, it never pops in and out, and it shows the typed romaji as kana above the keys.
+Settings → **Battle keyboard** switches back to the phone keyboard. Writing modes keep the phone keyboard (for the
+Japanese IME), with the pre-written kana shown big beside the typing box (お□ → お [ ], □ず → [ ] ず). On phones the
+party's HP in Boss fights is two compact columns. The 3D canvas is sized from the zoom-corrected viewport, so it
+covers the screen at every UI size. Opponents (and your party) trace the ∞ with their staffs while they work on a word.
 
 ## Levels follow stroke count
 

@@ -22,17 +22,30 @@ let collapsed: Record<'online' | 'offline', boolean> = { online: false, offline:
 
 export function setRailUser(on: boolean) {
   signedIn = on;
-  if (!on) { $('friendRail').hidden = true; clearInterval(timer); }
+  if (!on) { $('friendRail').hidden = true; $('railFab').hidden = true; clearInterval(timer); }
 }
 
 /** Called on every screen change. */
 export function railScreen(screen: string) {
   const show = signedIn && RAIL_SCREENS.has(screen);
   $('friendRail').hidden = !show;
+  $('railFab').hidden = !show;
+  setOpen(false);
   document.body.classList.toggle('has-rail', show);
   clearInterval(timer);
   if (show) { void refreshRail(); timer = window.setInterval(() => void refreshRail(), 20_000); }
 }
+
+// phones: no hover — a round Friends button (bottom-right) slides the list in and out
+function setOpen(on: boolean) {
+  $('friendRail').classList.toggle('open', on);
+  $('railFab').setAttribute('aria-expanded', String(on));
+}
+$('railFab').onclick = (e) => { e.stopPropagation(); setOpen(!$('friendRail').classList.contains('open')); };
+document.addEventListener('pointerdown', (e) => {
+  const t = e.target as HTMLElement;
+  if ($('friendRail').classList.contains('open') && !t.closest('#friendRail, #railFab, #friendDialog, #otherPop')) setOpen(false);
+});
 
 export async function refreshRail() {
   try { friends = (await api.friends()).friends; } catch { return; }
@@ -74,6 +87,8 @@ function render() {
     ...(accepted.length ? [] : [el('p', 'fr-empty', 'No friends yet — add someone below.')]),
   );
   $('railOnline').textContent = String(online.length);
+  $('railFabCount').textContent = String(online.length);
+  $('railFab').classList.toggle('alert', incoming > 0);
   const badge = $('railReqBadge');
   badge.hidden = incoming === 0;
   badge.textContent = String(incoming);

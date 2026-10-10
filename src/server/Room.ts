@@ -39,7 +39,7 @@ export interface MatchResult {
   /** what goes into the player's match history */
   record?: Omit<MatchDetail, 'id'>;
 }
-export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number }>>;
+export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number; achievements?: string[] }>>;
 
 /** Things the Room needs from the outside world. */
 export interface RoomDeps {
@@ -471,7 +471,7 @@ export class Room {
         const m = this.roster.find((p) => p.id === id);
         const before = m ? levelOf(m.profile.xp) : 0;
         if (m) m.profile = { ...m.profile, crit: r.crit, xp: r.xp };
-        this.clients.get(id)?.send({ type: 'progress', gained: r.gained, xp: r.xp, level: levelOf(r.xp), levelUp: levelOf(r.xp) > before, crit: r.crit });
+        this.clients.get(id)?.send({ type: 'progress', gained: r.gained, xp: r.xp, level: levelOf(r.xp), levelUp: levelOf(r.xp) > before, crit: r.crit, achievements: r.achievements ?? [] });
       }
     } catch (err) {
       console.error('could not save match results', err);

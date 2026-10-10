@@ -4,72 +4,230 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
-  // src/client/api.ts
-  var today = () => {
-    const d = /* @__PURE__ */ new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  // src/shared/kana.ts
+  var BASE = {
+    a: "\u3042",
+    i: "\u3044",
+    u: "\u3046",
+    e: "\u3048",
+    o: "\u304A",
+    ka: "\u304B",
+    ki: "\u304D",
+    ku: "\u304F",
+    ke: "\u3051",
+    ko: "\u3053",
+    sa: "\u3055",
+    si: "\u3057",
+    shi: "\u3057",
+    su: "\u3059",
+    se: "\u305B",
+    so: "\u305D",
+    ta: "\u305F",
+    ti: "\u3061",
+    chi: "\u3061",
+    tu: "\u3064",
+    tsu: "\u3064",
+    te: "\u3066",
+    to: "\u3068",
+    na: "\u306A",
+    ni: "\u306B",
+    nu: "\u306C",
+    ne: "\u306D",
+    no: "\u306E",
+    ha: "\u306F",
+    hi: "\u3072",
+    hu: "\u3075",
+    fu: "\u3075",
+    he: "\u3078",
+    ho: "\u307B",
+    ma: "\u307E",
+    mi: "\u307F",
+    mu: "\u3080",
+    me: "\u3081",
+    mo: "\u3082",
+    ya: "\u3084",
+    yu: "\u3086",
+    yo: "\u3088",
+    ra: "\u3089",
+    ri: "\u308A",
+    ru: "\u308B",
+    re: "\u308C",
+    ro: "\u308D",
+    la: "\u3089",
+    li: "\u308A",
+    lu: "\u308B",
+    le: "\u308C",
+    lo: "\u308D",
+    wa: "\u308F",
+    wo: "\u3092",
+    wi: "\u3046\u3043",
+    we: "\u3046\u3047",
+    ga: "\u304C",
+    gi: "\u304E",
+    gu: "\u3050",
+    ge: "\u3052",
+    go: "\u3054",
+    za: "\u3056",
+    zi: "\u3058",
+    ji: "\u3058",
+    zu: "\u305A",
+    ze: "\u305C",
+    zo: "\u305E",
+    da: "\u3060",
+    di: "\u3062",
+    du: "\u3065",
+    de: "\u3067",
+    do: "\u3069",
+    ba: "\u3070",
+    bi: "\u3073",
+    bu: "\u3076",
+    be: "\u3079",
+    bo: "\u307C",
+    pa: "\u3071",
+    pi: "\u3074",
+    pu: "\u3077",
+    pe: "\u307A",
+    po: "\u307D",
+    va: "\u3094\u3041",
+    vi: "\u3094\u3043",
+    vu: "\u3094",
+    ve: "\u3094\u3047",
+    vo: "\u3094\u3049",
+    fa: "\u3075\u3041",
+    fi: "\u3075\u3043",
+    fe: "\u3075\u3047",
+    fo: "\u3075\u3049",
+    xa: "\u3041",
+    xi: "\u3043",
+    xu: "\u3045",
+    xe: "\u3047",
+    xo: "\u3049",
+    xya: "\u3083",
+    xyu: "\u3085",
+    xyo: "\u3087",
+    lya: "\u3083",
+    lyu: "\u3085",
+    lyo: "\u3087",
+    xtu: "\u3063",
+    ltu: "\u3063",
+    xtsu: "\u3063",
+    ltsu: "\u3063",
+    "-": "\u30FC"
   };
-  var TOKEN_KEY = "kb:token";
-  var getToken = () => {
-    try {
-      return localStorage.getItem(TOKEN_KEY) ?? "";
-    } catch {
-      return "";
+  var YOON = [
+    [["ky"], "\u304D"],
+    [["gy"], "\u304E"],
+    [["sh", "sy"], "\u3057"],
+    [["j", "jy", "zy"], "\u3058"],
+    [["ch", "ty", "cy"], "\u3061"],
+    [["dy"], "\u3062"],
+    [["ny"], "\u306B"],
+    [["hy"], "\u3072"],
+    [["by"], "\u3073"],
+    [["py"], "\u3074"],
+    [["my"], "\u307F"],
+    [["ry", "ly"], "\u308A"]
+  ];
+  var SMALL = { a: "\u3083", u: "\u3085", o: "\u3087" };
+  var _a, _b;
+  for (const [prefixes, kana] of YOON) {
+    for (const p of prefixes) {
+      for (const [v, small] of Object.entries(SMALL)) BASE[_a = p + v] ?? (BASE[_a] = kana + small);
+      if (p === "sh" || p === "ch" || p === "j") BASE[_b = p + "e"] ?? (BASE[_b] = kana + "\u3047");
     }
-  };
-  var setToken = (t) => {
-    try {
-      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
-    } catch {
-    }
-  };
-  var ApiError = class extends Error {
-    constructor(message, status) {
-      super(message);
-      __publicField(this, "status", status);
-    }
-  };
-  async function call(method, url, body) {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
-      body: body === void 0 ? void 0 : JSON.stringify(body)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
-    return data;
   }
-  var api = {
-    login: (username, password) => call("POST", "/api/login", { username, password }),
-    register: (username, password) => call("POST", "/api/register", { username, password }),
-    me: () => call("GET", `/api/me?today=${today()}`),
-    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
-    removeAvatar: () => call("DELETE", "/api/me/avatar"),
-    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
-    setStaff: (staff) => call("PUT", "/api/me/staff", { staff }),
-    setBackground: (background) => call("PUT", "/api/me/background", { background }),
-    study: () => call("GET", `/api/study?today=${today()}`),
-    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
-    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
-    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
-    matches: () => call("GET", "/api/matches"),
-    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
-    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
-    users: () => call("GET", "/api/admin/users"),
-    tutorialDone: () => call("PUT", "/api/me/tutorial"),
-    setKana: (mastered) => call("PUT", "/api/me/kana", { mastered }),
-    progress: () => call("GET", `/api/progress?today=${today()}`),
-    strokes: (chars) => call("GET", `/api/strokes?k=${encodeURIComponent(chars)}`),
-    daily: () => call("GET", "/api/daily"),
-    dailyStart: () => call("POST", "/api/daily/start"),
-    dailyAnswer: (text) => call("POST", "/api/daily/answer", { text }),
-    dailyFinish: () => call("POST", "/api/daily/finish"),
-    friends: () => call("GET", "/api/friends"),
-    addFriend: (username) => call("POST", "/api/friends", { username }),
-    acceptFriend: (id) => call("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
-    removeFriend: (id) => call("DELETE", `/api/friends/${encodeURIComponent(id)}`),
-    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
+  var VOWELS = /* @__PURE__ */ new Set(["a", "i", "u", "e", "o"]);
+  function romajiToHiragana(input2) {
+    const s = input2.toLowerCase();
+    let out = "";
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      const next3 = s[i + 1];
+      if (c === "n") {
+        if (next3 === "'") {
+          out += "\u3093";
+          i += 2;
+          continue;
+        }
+        if (next3 === void 0) {
+          out += "\u3093";
+          i += 1;
+          continue;
+        }
+        if (next3 === "n") {
+          const after = s[i + 2];
+          out += "\u3093";
+          i += after !== void 0 && (VOWELS.has(after) || after === "y") ? 1 : 2;
+          continue;
+        }
+        if (!VOWELS.has(next3) && next3 !== "y") {
+          out += "\u3093";
+          i += 1;
+          continue;
+        }
+      }
+      if (c >= "a" && c <= "z" && !VOWELS.has(c) && (next3 === c || c === "t" && next3 === "c")) {
+        out += "\u3063";
+        i += 1;
+        continue;
+      }
+      let matched = false;
+      for (let len = 4; len >= 1; len--) {
+        const kana = BASE[s.slice(i, i + len)];
+        if (kana) {
+          out += kana;
+          i += len;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        out += c;
+        i += 1;
+      }
+    }
+    return out;
+  }
+  var katakanaToHiragana = (s) => s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 96));
+  function normalizeAnswer(input2) {
+    const halfWidth = input2.normalize("NFKC");
+    const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
+    return romajiToHiragana(katakanaToHiragana(cleaned));
+  }
+  function isCorrectReading(input2, readings) {
+    const answer = normalizeAnswer(input2);
+    if (!answer.length) return false;
+    return readings.some((raw) => {
+      const r2 = katakanaToHiragana(raw);
+      if (r2 === answer) return true;
+      if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer) return true;
+      return longVowelSlip(r2, answer);
+    });
+  }
+  function longVowelSlip(r2, a) {
+    const LONG = "\u3046\u304A";
+    if (a.length === r2.length - 1) {
+      for (let i = 1; i < r2.length; i++) if (LONG.includes(r2[i]) && r2.slice(0, i) + r2.slice(i + 1) === a) return true;
+      return false;
+    }
+    if (a.length === r2.length) {
+      let diff = -1;
+      for (let i = 0; i < r2.length; i++) if (r2[i] !== a[i]) {
+        if (diff >= 0) return false;
+        diff = i;
+      }
+      return diff > 0 && LONG.includes(r2[diff]) && LONG.includes(a[diff]);
+    }
+    return false;
+  }
+  var WRITE = /[\p{Script=Han}々〆ヶ□]/u;
+  var writeTargets = (word2) => {
+    const all = [...word2];
+    const k = all.filter((c) => WRITE.test(c));
+    return k.length ? k : all;
   };
+  var writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -314,6 +472,55 @@
     "Activity calendar": "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u0438",
     "Previous month": "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0438\u0439 \u043C\u0435\u0441\u044F\u0446",
     "Next month": "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u043C\u0435\u0441\u044F\u0446",
+    // 0.9.8.1 — achievements, battle keyboard
+    "Achievement unlocked!": "\u0414\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0435 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E!",
+    "Locked": "\u0417\u0430\u043A\u0440\u044B\u0442\u043E",
+    "Unlocked \u2713": "\u041F\u043E\u043B\u0443\u0447\u0435\u043D\u043E \u2713",
+    "Achievements": "\u0414\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u044F",
+    "Battle keyboard": "\u041A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u0430 \u0432 \u0431\u043E\u044E",
+    "Game keyboard": "\u0418\u0433\u0440\u043E\u0432\u0430\u044F",
+    "Phone keyboard": "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u043D\u0430\u044F",
+    "Cast \u23CE": "\u041A\u043E\u043B\u0434\u043E\u0432\u0430\u0442\u044C \u23CE",
+    "First Victory": "\u041F\u0435\u0440\u0432\u0430\u044F \u043F\u043E\u0431\u0435\u0434\u0430",
+    "Win a battle.": "\u0412\u044B\u0438\u0433\u0440\u0430\u0439\u0442\u0435 \u0431\u043E\u0439.",
+    "Veteran": "\u0412\u0435\u0442\u0435\u0440\u0430\u043D",
+    "Win 25 battles.": "\u0412\u044B\u0438\u0433\u0440\u0430\u0439\u0442\u0435 25 \u0431\u043E\u0451\u0432.",
+    "Champion": "\u0427\u0435\u043C\u043F\u0438\u043E\u043D",
+    "Win 100 battles.": "\u0412\u044B\u0438\u0433\u0440\u0430\u0439\u0442\u0435 100 \u0431\u043E\u0451\u0432.",
+    "On Fire": "\u0412 \u043E\u0433\u043D\u0435",
+    "Cast 5 correct spells in a row in a battle.": "\u0421\u043E\u0442\u0432\u043E\u0440\u0438\u0442\u0435 5 \u0432\u0435\u0440\u043D\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043F\u043E\u0434\u0440\u044F\u0434 \u0432 \u0431\u043E\u044E.",
+    "Inferno": "\u0418\u043D\u0444\u0435\u0440\u043D\u043E",
+    "Reach a 10\xD7 combo in a battle.": "\u041D\u0430\u0431\u0435\u0440\u0438\u0442\u0435 \u043A\u043E\u043C\u0431\u043E \xD710 \u0432 \u0431\u043E\u044E.",
+    "Unstoppable": "\u041D\u0435\u0443\u0434\u0435\u0440\u0436\u0438\u043C\u044B\u0439",
+    "Reach a 20\xD7 combo in a battle.": "\u041D\u0430\u0431\u0435\u0440\u0438\u0442\u0435 \u043A\u043E\u043C\u0431\u043E \xD720 \u0432 \u0431\u043E\u044E.",
+    "Flawless": "\u0411\u0435\u0437\u0443\u043F\u0440\u0435\u0447\u043D\u043E",
+    "Win a battle with 100% accuracy (at least 10 answers).": "\u0412\u044B\u0438\u0433\u0440\u0430\u0439\u0442\u0435 \u0431\u043E\u0439 \u0441\u043E 100% \u0442\u043E\u0447\u043D\u043E\u0441\u0442\u044C\u044E (\u043C\u0438\u043D\u0438\u043C\u0443\u043C 10 \u043E\u0442\u0432\u0435\u0442\u043E\u0432).",
+    "Dragon Slayer": "\u0423\u0431\u0438\u0439\u0446\u0430 \u0434\u0440\u0430\u043A\u043E\u043D\u0430",
+    "Defeat the Black Dragon in Boss Elimination.": "\u041F\u043E\u0431\u0435\u0434\u0438\u0442\u0435 \u0427\u0451\u0440\u043D\u043E\u0433\u043E \u0434\u0440\u0430\u043A\u043E\u043D\u0430 \u0432 \u0411\u0438\u0442\u0432\u0435 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C.",
+    "Card Sage": "\u041C\u0443\u0434\u0440\u0435\u0446 \u043A\u0430\u0440\u0442",
+    "Win a Deck Duel.": "\u0412\u044B\u0438\u0433\u0440\u0430\u0439\u0442\u0435 \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434.",
+    "Calligrapher": "\u041A\u0430\u043B\u043B\u0438\u0433\u0440\u0430\u0444",
+    "Win a Kanji Writing duel.": "\u0412\u044B\u0438\u0433\u0440\u0430\u0439\u0442\u0435 \u0434\u0443\u044D\u043B\u044C \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438.",
+    "Quickdraw": "\u0411\u044B\u0441\u0442\u0440\u0430\u044F \u0440\u0443\u043A\u0430",
+    "Win a Rapid duel.": "\u0412\u044B\u0438\u0433\u0440\u0430\u0439\u0442\u0435 \u0434\u0443\u044D\u043B\u044C \u0411\u043B\u0438\u0446.",
+    "Scholar": "\u0423\u0447\u0451\u043D\u044B\u0439",
+    "Learn 100 spells in Study spells.": "\u0412\u044B\u0443\u0447\u0438\u0442\u0435 100 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0432 \xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB.",
+    "Archmage": "\u0410\u0440\u0445\u0438\u043C\u0430\u0433",
+    "Learn 1,000 spells.": "\u0412\u044B\u0443\u0447\u0438\u0442\u0435 1000 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439.",
+    "Kana Graduate": "\u0412\u044B\u043F\u0443\u0441\u043A\u043D\u0438\u043A \u043A\u0430\u043D\u044B",
+    'Start as a \u304B\u306A beginner, then tick "I\'ve mastered hiragana" in Settings.': "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u043D\u043E\u0432\u0438\u0447\u043A\u043E\u043C \u304B\u306A, \u0437\u0430\u0442\u0435\u043C \u043E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445.",
+    "Devoted": "\u041F\u0440\u0435\u0434\u0430\u043D\u043D\u044B\u0439",
+    "Log in 7 days in a row.": "\u0417\u0430\u0445\u043E\u0434\u0438\u0442\u0435 7 \u0434\u043D\u0435\u0439 \u043F\u043E\u0434\u0440\u044F\u0434.",
+    "Eternal Flame": "\u0412\u0435\u0447\u043D\u043E\u0435 \u043F\u043B\u0430\u043C\u044F",
+    "Log in 30 days in a row.": "\u0417\u0430\u0445\u043E\u0434\u0438\u0442\u0435 30 \u0434\u043D\u0435\u0439 \u043F\u043E\u0434\u0440\u044F\u0434.",
+    "Perfect Day": "\u0418\u0434\u0435\u0430\u043B\u044C\u043D\u044B\u0439 \u0434\u0435\u043D\u044C",
+    "Get 10 / 10 in the Daily challenge.": "\u041D\u0430\u0431\u0435\u0440\u0438\u0442\u0435 10 / 10 \u0432 \u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u043C \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0438.",
+    "Fellowship": "\u0411\u0440\u0430\u0442\u0441\u0442\u0432\u043E",
+    "Make a friend.": "\u0417\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u0430.",
+    "Seasonal": "\u0421\u0435\u0437\u043E\u043D\u043D\u044B\u0439",
+    "Complete a month's goals and earn its reward.": "\u0412\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0446\u0435\u043B\u0438 \u043C\u0435\u0441\u044F\u0446\u0430 \u0438 \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u0435 \u043D\u0430\u0433\u0440\u0430\u0434\u0443.",
+    "Grand Wizard": "\u0412\u0435\u043B\u0438\u043A\u0438\u0439 \u043C\u0430\u0433",
+    "Reach level 10.": "\u0414\u043E\u0441\u0442\u0438\u0433\u043D\u0438\u0442\u0435 10 \u0443\u0440\u043E\u0432\u043D\u044F.",
     // admin
     "Role": "\u0420\u043E\u043B\u044C",
     "Level": "\u0423\u0440\u043E\u0432\u0435\u043D\u044C",
@@ -715,6 +922,73 @@
   var viewW = () => innerWidth / scale;
   var viewH = () => innerHeight / scale;
 
+  // src/client/api.ts
+  var today = () => {
+    const d = /* @__PURE__ */ new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  var TOKEN_KEY = "kb:token";
+  var getToken = () => {
+    try {
+      return localStorage.getItem(TOKEN_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  };
+  var setToken = (t) => {
+    try {
+      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+    } catch {
+    }
+  };
+  var ApiError = class extends Error {
+    constructor(message, status) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  async function call(method, url, body) {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+      body: body === void 0 ? void 0 : JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
+    return data;
+  }
+  var api = {
+    login: (username, password) => call("POST", "/api/login", { username, password }),
+    register: (username, password) => call("POST", "/api/register", { username, password }),
+    me: () => call("GET", `/api/me?today=${today()}`),
+    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
+    removeAvatar: () => call("DELETE", "/api/me/avatar"),
+    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
+    setStaff: (staff) => call("PUT", "/api/me/staff", { staff }),
+    setBackground: (background) => call("PUT", "/api/me/background", { background }),
+    study: () => call("GET", `/api/study?today=${today()}`),
+    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
+    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
+    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    matches: () => call("GET", "/api/matches"),
+    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
+    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
+    users: () => call("GET", "/api/admin/users"),
+    tutorialDone: () => call("PUT", "/api/me/tutorial"),
+    setKana: (mastered) => call("PUT", "/api/me/kana", { mastered }),
+    progress: () => call("GET", `/api/progress?today=${today()}`),
+    strokes: (chars) => call("GET", `/api/strokes?k=${encodeURIComponent(chars)}`),
+    daily: () => call("GET", "/api/daily"),
+    dailyStart: () => call("POST", "/api/daily/start"),
+    dailyAnswer: (text) => call("POST", "/api/daily/answer", { text }),
+    dailyFinish: () => call("POST", "/api/daily/finish"),
+    friends: () => call("GET", "/api/friends"),
+    addFriend: (username) => call("POST", "/api/friends", { username }),
+    acceptFriend: (id) => call("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
+    removeFriend: (id) => call("DELETE", `/api/friends/${encodeURIComponent(id)}`),
+    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
+  };
+
   // src/client/strokes.ts
   var cache = /* @__PURE__ */ new Map();
   async function load(chars) {
@@ -860,10 +1134,10 @@
     { id: "harvest", name: "Harvest", level: 0, color: "#ff8a2a", season: 10 },
     { id: "starlight", name: "Starlight", level: 0, color: "#fff0a0", season: 12 }
   ];
-  var flameUnlocked = (f2, xp, unlocks = []) => {
+  var flameUnlocked = (f2, xp, unlocks2 = []) => {
     const d = FLAMES.find((x) => x.id === f2);
     if (!d) return false;
-    return d.season ? unlocks.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
+    return d.season ? unlocks2.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
   };
   var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
   function flameShades(f2) {
@@ -893,10 +1167,10 @@
     { id: "moon", name: "Moon Staff", streak: 0, season: 9, base: "verdant", tint: "#f2f0ff", gem: "#fff6c8", blurb: "September reward. Silver light of the harvest moon." },
     { id: "maple", name: "Maple Staff", streak: 0, season: 11, base: "ember", tint: "#ff5a3a", gem: "#ff3a2a", blurb: "November reward. Burning red like autumn leaves." }
   ];
-  var staffUnlocked = (s, bestStreak, unlocks = []) => {
+  var staffUnlocked = (s, bestStreak, unlocks2 = []) => {
     const d = STAFFS.find((x) => x.id === s);
     if (!d) return false;
-    return d.season ? unlocks.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
+    return d.season ? unlocks2.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
   };
   var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
   var MODE_LEVEL = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 2 };
@@ -909,7 +1183,7 @@
     return AVATAR_BY_LEVEL[top];
   }
   var KANA_BEGINNER = "flag:kana-beginner";
-  var isKanaBeginner = (unlocks) => !!unlocks?.includes(KANA_BEGINNER);
+  var isKanaBeginner = (unlocks2) => !!unlocks2?.includes(KANA_BEGINNER);
   function isoWeek(day) {
     const d = /* @__PURE__ */ new Date(`${day}T00:00:00Z`);
     const dow = d.getUTCDay() || 7;
@@ -1677,8 +1951,18 @@
       pending = null;
     }
     document.body.classList.add("has-3d");
+    sizeCanvas();
     a.setActive(true);
   }
+  function sizeCanvas() {
+    const c = document.getElementById("arena3d");
+    if (!c) return;
+    c.style.width = `${Math.ceil(viewW())}px`;
+    c.style.height = `${Math.ceil(viewH())}px`;
+  }
+  addEventListener("resize", () => {
+    if (onScreen) sizeCanvas();
+  });
   function arenaScreen(screen2) {
     onScreen = GAME_SCREENS.has(screen2);
     if (onScreen) void activate();
@@ -2399,22 +2683,22 @@
       $("castGo").hidden = false;
       return;
     }
-    const input = $("answer");
-    input.disabled = false;
+    const input2 = $("answer");
+    input2.disabled = false;
     setAnswerLocked(false);
-    input.value = "";
-    input.placeholder = c.answer === "romaji" ? "romaji, then Enter" : "\u304B\u306A or romaji, then Enter";
-    input.lang = c.answer === "romaji" ? "en" : "ja";
+    input2.value = "";
+    input2.placeholder = c.answer === "romaji" ? "romaji, then Enter" : "\u304B\u306A or romaji, then Enter";
+    input2.lang = c.answer === "romaji" ? "en" : "ja";
     setInputHint(c.answer === "romaji" ? "Hiragana spell \u2014 answer in romaji" : "");
     $("skip").disabled = false;
-    input.focus();
+    input2.focus();
   }
   function setInputHint(text, warn = false) {
     const el8 = $("inputHint");
     el8.textContent = text;
     el8.classList.toggle("warn", warn);
   }
-  function setCharSlots(total, _written, active, shape = "") {
+  function setCharSlots(total, _written, active2, shape = "") {
     const kana = shape.replace(/□/g, "");
     const hint = h("span", "slots-hint", total > 1 ? `Write all ${total} kanji, left to right` : "Write the kanji");
     const parts = [hint];
@@ -2426,7 +2710,7 @@
     }
     $("charSlots").replaceChildren(...parts);
     $("padNext").textContent = "Cast \u2726";
-    for (const id of ["padUndo", "padClear", "padSkip", "padNext"]) $(id).disabled = !active;
+    for (const id of ["padUndo", "padClear", "padSkip", "padNext"]) $(id).disabled = !active2;
   }
   function startWritingStep() {
     $("kanji").classList.add("gone");
@@ -2436,10 +2720,10 @@
     ime.disabled = false;
   }
   function setAnswerLocked(on) {
-    const input = $("answer");
-    input.classList.toggle("locked", on);
-    if (on) input.dataset.locked = "1";
-    else delete input.dataset.locked;
+    const input2 = $("answer");
+    input2.classList.toggle("locked", on);
+    if (on) input2.dataset.locked = "1";
+    else delete input2.dataset.locked;
   }
   var answerLocked = () => {
     const i = $("answer");
@@ -2702,495 +2986,130 @@
     flameShades(flame).forEach((c, i) => el8.style.setProperty(`--f${i}`, c));
   }
 
-  // src/client/friendrail.ts
-  var $2 = $;
-  var el2 = (tag, cls = "", text) => {
-    const e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (text !== void 0) e.textContent = String(text);
-    return e;
-  };
-  var RAIL_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "customize", "history", "progress", "daily", "friends"]);
-  var friends = [];
-  var signedIn = false;
-  var timer = 0;
-  var collapsed = { online: false, offline: true };
-  function setRailUser(on) {
-    signedIn = on;
-    if (!on) {
-      $2("friendRail").hidden = true;
-      clearInterval(timer);
-    }
-  }
-  function railScreen(screen2) {
-    const show3 = signedIn && RAIL_SCREENS.has(screen2);
-    $2("friendRail").hidden = !show3;
-    document.body.classList.toggle("has-rail", show3);
-    clearInterval(timer);
-    if (show3) {
-      void refreshRail();
-      timer = window.setInterval(() => void refreshRail(), 2e4);
-    }
-  }
-  async function refreshRail() {
+  // src/client/gamekb.ts
+  var KEY4 = "kb:gamekb";
+  var ROWS = ["qwertyuiop", "asdfghjkl-", "zxcvbnm"];
+  var touch = () => matchMedia("(pointer: coarse)").matches;
+  var gameKbPref = () => {
     try {
-      friends = (await api.friends()).friends;
+      return localStorage.getItem(KEY4) !== "system";
     } catch {
-      return;
+      return true;
     }
-    render();
-  }
-  var avatar = (f2) => {
-    const a = el2("span", "fr-av");
-    if (f2.pic) {
-      const img = el2("img");
-      img.src = f2.pic;
-      img.alt = "";
-      a.append(img);
-    } else a.textContent = f2.username.slice(0, 1).toUpperCase();
-    a.append(el2("i", "fr-dot"));
-    return a;
   };
-  function render() {
-    const accepted = friends.filter((f2) => f2.status === "accepted").sort((a, b) => a.username.localeCompare(b.username));
-    const online = accepted.filter((f2) => f2.online), offline = accepted.filter((f2) => !f2.online);
-    const incoming = friends.filter((f2) => f2.status === "incoming").length;
-    const section = (key, title, list2) => {
-      const head = el2("button", "fr-sec", "");
-      head.append(el2("b", "fr-count", list2.length), el2("span", "fr-sec-name", title), el2("span", "fr-chev", collapsed[key] ? "\u25BE" : "\u25B4"));
-      head.setAttribute("aria-expanded", String(!collapsed[key]));
-      head.onclick = () => {
-        collapsed[key] = !collapsed[key];
-        render();
-      };
-      const rows = collapsed[key] ? [] : list2.map((f2) => {
-        const r2 = el2("div", "fr-row" + (f2.online ? " online" : ""));
-        markProfile(r2, { id: f2.id, name: f2.username, bot: null });
-        r2.title = `${f2.username} \u2014 view profile`;
-        const txt = el2("span", "fr-txt");
-        txt.append(el2("span", "fr-name", f2.username), el2("small", "fr-status", f2.online ? f2.activity ?? "Online" : "Offline"));
-        r2.append(avatar(f2), txt, el2("span", "fr-lv", `Lv ${f2.level ?? 0}`));
-        return r2;
+  function setGameKbPref(on) {
+    try {
+      localStorage.setItem(KEY4, on ? "game" : "system");
+    } catch {
+    }
+  }
+  var gameKbAvailable = touch;
+  var active = false;
+  function input() {
+    return $("answer");
+  }
+  function preview() {
+    const v = input().value;
+    $("gkPreview").textContent = currentAnswerMode() === "romaji" || !v ? v : romajiToHiragana(v);
+  }
+  function type(ch) {
+    const i = input();
+    if (answerLocked()) return;
+    i.value += ch;
+    i.dispatchEvent(new Event("input", { bubbles: true }));
+    preview();
+  }
+  function build() {
+    const kb = $("gameKb");
+    const key = (label, cls, fn) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `gk ${cls}`;
+      b.textContent = label;
+      b.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        fn();
+        b.classList.add("down");
+        setTimeout(() => b.classList.remove("down"), 90);
       });
-      return [head, ...rows];
-    };
-    const list = $2("railList");
-    list.replaceChildren(
-      ...section("online", "Online", online),
-      ...section("offline", "Offline", offline),
-      ...accepted.length ? [] : [el2("p", "fr-empty", "No friends yet \u2014 add someone below.")]
-    );
-    $2("railOnline").textContent = String(online.length);
-    const badge = $2("railReqBadge");
-    badge.hidden = incoming === 0;
-    badge.textContent = String(incoming);
-  }
-  function openDialog(tab) {
-    const d = $2("friendDialog");
-    for (const b of d.querySelectorAll("[data-ftab]")) b.classList.toggle("on", b.dataset.ftab === tab);
-    $2("fdAdd").hidden = tab !== "add";
-    $2("fdRequests").hidden = tab !== "requests";
-    $2("fdMsg").textContent = "";
-    renderRequests();
-    if (!d.open) d.showModal();
-    if (tab === "add") setTimeout(() => $2("fdName").focus(), 30);
-  }
-  function renderRequests() {
-    const box = $2("fdReqList");
-    const incoming = friends.filter((f2) => f2.status === "incoming");
-    const outgoing = friends.filter((f2) => f2.status === "outgoing");
-    const act = (text, cls, fn) => {
-      const b = el2("button", `pill ${cls}`, text);
-      b.onclick = async () => {
-        b.disabled = true;
-        try {
-          friends = (await fn()).friends;
-          render();
-          renderRequests();
-        } catch (e) {
-          toast(e.message);
-          b.disabled = false;
-        }
-      };
       return b;
     };
-    const row = (f2, buttons, note) => {
-      const r2 = el2("div", "fd-row");
-      const t = el2("span", "fr-txt");
-      t.append(el2("span", "fr-name", f2.username), el2("small", "fr-status", note));
-      r2.append(avatar(f2), t, ...buttons);
-      return r2;
-    };
-    box.replaceChildren(
-      ...incoming.length ? [el2("h4", "", `Requests (${incoming.length})`), ...incoming.map((f2) => row(f2, [act("Accept", "primary", () => api.acceptFriend(f2.id)), act("Decline", "", () => api.removeFriend(f2.id))], "wants to be friends"))] : [el2("p", "hint", "No friend requests right now.")],
-      ...outgoing.length ? [el2("h4", "", "Sent requests"), ...outgoing.map((f2) => row(f2, [act("Cancel", "", () => api.removeFriend(f2.id))], "request sent"))] : []
+    const rows = ROWS.map((r2, i) => {
+      const row = document.createElement("div");
+      row.className = "gk-row";
+      for (const c of r2) row.append(key(c, "ch", () => type(c)));
+      if (i === 2) row.append(key("\u232B", "wide back", () => {
+        const el8 = input();
+        el8.value = el8.value.slice(0, -1);
+        el8.dispatchEvent(new Event("input", { bubbles: true }));
+        preview();
+      }));
+      return row;
+    });
+    const last = document.createElement("div");
+    last.className = "gk-row";
+    last.append(
+      key("Skip", "wide skip", () => $("skip").click()),
+      key("n'", "ch", () => type("'")),
+      key("Cast \u23CE", "wide enter", () => {
+        input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        preview();
+      })
     );
+    const pv = document.createElement("div");
+    pv.id = "gkPreview";
+    pv.className = "gk-preview";
+    pv.lang = "ja";
+    kb.replaceChildren(pv, ...rows, last);
   }
-  $2("railAdd").onclick = () => openDialog("add");
-  $2("railReq").onclick = () => openDialog("requests");
-  for (const b of document.querySelectorAll("#friendDialog [data-ftab]")) b.onclick = () => openDialog(b.dataset.ftab);
-  $2("fdClose").onclick = () => $2("friendDialog").close();
-  $2("fdAdd").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const input = $2("fdName");
-    const name = input.value.trim();
-    if (!name) return;
-    try {
-      const r2 = await api.addFriend(name);
-      friends = r2.friends;
-      $2("fdMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
-      input.value = "";
-      render();
-    } catch (err) {
-      $2("fdMsg").textContent = err.message;
-    }
+  function setGameKb(on) {
+    on = on && touch() && gameKbPref();
+    if (on && !$("gameKb").childElementCount) build();
+    active = on;
+    $("gameKb").hidden = !on;
+    document.body.classList.toggle("game-kb", on);
+    const i = input();
+    i.inputMode = on ? "none" : "";
+    if (on) preview();
+  }
+  $("answer").addEventListener("input", () => {
+    if (active) preview();
   });
-  $2("railList").addEventListener("click", () => $2("friendDialog").close());
+  function gameKbReset() {
+    if (active) preview();
+  }
 
-  // src/shared/kana.ts
-  var BASE = {
-    a: "\u3042",
-    i: "\u3044",
-    u: "\u3046",
-    e: "\u3048",
-    o: "\u304A",
-    ka: "\u304B",
-    ki: "\u304D",
-    ku: "\u304F",
-    ke: "\u3051",
-    ko: "\u3053",
-    sa: "\u3055",
-    si: "\u3057",
-    shi: "\u3057",
-    su: "\u3059",
-    se: "\u305B",
-    so: "\u305D",
-    ta: "\u305F",
-    ti: "\u3061",
-    chi: "\u3061",
-    tu: "\u3064",
-    tsu: "\u3064",
-    te: "\u3066",
-    to: "\u3068",
-    na: "\u306A",
-    ni: "\u306B",
-    nu: "\u306C",
-    ne: "\u306D",
-    no: "\u306E",
-    ha: "\u306F",
-    hi: "\u3072",
-    hu: "\u3075",
-    fu: "\u3075",
-    he: "\u3078",
-    ho: "\u307B",
-    ma: "\u307E",
-    mi: "\u307F",
-    mu: "\u3080",
-    me: "\u3081",
-    mo: "\u3082",
-    ya: "\u3084",
-    yu: "\u3086",
-    yo: "\u3088",
-    ra: "\u3089",
-    ri: "\u308A",
-    ru: "\u308B",
-    re: "\u308C",
-    ro: "\u308D",
-    la: "\u3089",
-    li: "\u308A",
-    lu: "\u308B",
-    le: "\u308C",
-    lo: "\u308D",
-    wa: "\u308F",
-    wo: "\u3092",
-    wi: "\u3046\u3043",
-    we: "\u3046\u3047",
-    ga: "\u304C",
-    gi: "\u304E",
-    gu: "\u3050",
-    ge: "\u3052",
-    go: "\u3054",
-    za: "\u3056",
-    zi: "\u3058",
-    ji: "\u3058",
-    zu: "\u305A",
-    ze: "\u305C",
-    zo: "\u305E",
-    da: "\u3060",
-    di: "\u3062",
-    du: "\u3065",
-    de: "\u3067",
-    do: "\u3069",
-    ba: "\u3070",
-    bi: "\u3073",
-    bu: "\u3076",
-    be: "\u3079",
-    bo: "\u307C",
-    pa: "\u3071",
-    pi: "\u3074",
-    pu: "\u3077",
-    pe: "\u307A",
-    po: "\u307D",
-    va: "\u3094\u3041",
-    vi: "\u3094\u3043",
-    vu: "\u3094",
-    ve: "\u3094\u3047",
-    vo: "\u3094\u3049",
-    fa: "\u3075\u3041",
-    fi: "\u3075\u3043",
-    fe: "\u3075\u3047",
-    fo: "\u3075\u3049",
-    xa: "\u3041",
-    xi: "\u3043",
-    xu: "\u3045",
-    xe: "\u3047",
-    xo: "\u3049",
-    xya: "\u3083",
-    xyu: "\u3085",
-    xyo: "\u3087",
-    lya: "\u3083",
-    lyu: "\u3085",
-    lyo: "\u3087",
-    xtu: "\u3063",
-    ltu: "\u3063",
-    xtsu: "\u3063",
-    ltsu: "\u3063",
-    "-": "\u30FC"
-  };
-  var YOON = [
-    [["ky"], "\u304D"],
-    [["gy"], "\u304E"],
-    [["sh", "sy"], "\u3057"],
-    [["j", "jy", "zy"], "\u3058"],
-    [["ch", "ty", "cy"], "\u3061"],
-    [["dy"], "\u3062"],
-    [["ny"], "\u306B"],
-    [["hy"], "\u3072"],
-    [["by"], "\u3073"],
-    [["py"], "\u3074"],
-    [["my"], "\u307F"],
-    [["ry", "ly"], "\u308A"]
+  // src/shared/achievements.ts
+  var ACHIEVEMENTS = [
+    { id: "first-win", name: "First Victory", how: "Win a battle.", icon: "sword", color: "#ff6b6b", tier: 1 },
+    { id: "veteran", name: "Veteran", how: "Win 25 battles.", icon: "swords", color: "#ff8f5a", tier: 2 },
+    { id: "champion", name: "Champion", how: "Win 100 battles.", icon: "crown", color: "#ffd479", tier: 3 },
+    { id: "combo-5", name: "On Fire", how: "Cast 5 correct spells in a row in a battle.", icon: "flame", color: "#6ee7ff", tier: 1 },
+    { id: "combo-10", name: "Inferno", how: "Reach a 10\xD7 combo in a battle.", icon: "flame2", color: "#b26bff", tier: 2 },
+    { id: "combo-20", name: "Unstoppable", how: "Reach a 20\xD7 combo in a battle.", icon: "comet", color: "#ff4fd8", tier: 3 },
+    { id: "flawless", name: "Flawless", how: "Win a battle with 100% accuracy (at least 10 answers).", icon: "target", color: "#3ddc84", tier: 2 },
+    { id: "dragon-slayer", name: "Dragon Slayer", how: "Defeat the Black Dragon in Boss Elimination.", icon: "dragon", color: "#ff5a3a", tier: 2 },
+    { id: "card-sage", name: "Card Sage", how: "Win a Deck Duel.", icon: "cards", color: "#5aa8e8", tier: 2 },
+    { id: "calligrapher", name: "Calligrapher", how: "Win a Kanji Writing duel.", icon: "brush", color: "#e8d5a8", tier: 1 },
+    { id: "quickdraw", name: "Quickdraw", how: "Win a Rapid duel.", icon: "bolt", color: "#ffe14d", tier: 1 },
+    { id: "scholar", name: "Scholar", how: "Learn 100 spells in Study spells.", icon: "book", color: "#7fd1ff", tier: 1 },
+    { id: "archmage", name: "Archmage", how: "Learn 1,000 spells.", icon: "tome", color: "#a98bff", tier: 3 },
+    { id: "graduate", name: "Kana Graduate", how: `Start as a \u304B\u306A beginner, then tick "I've mastered hiragana" in Settings.`, icon: "kana", color: "#ff9ec7", tier: 1 },
+    { id: "devoted", name: "Devoted", how: "Log in 7 days in a row.", icon: "sun", color: "#ffb84d", tier: 1 },
+    { id: "eternal", name: "Eternal Flame", how: "Log in 30 days in a row.", icon: "moon", color: "#ff7a1a", tier: 3 },
+    { id: "perfect-day", name: "Perfect Day", how: "Get 10 / 10 in the Daily challenge.", icon: "calendar", color: "#4dd6c8", tier: 2 },
+    { id: "fellowship", name: "Fellowship", how: "Make a friend.", icon: "people", color: "#8be37a", tier: 1 },
+    { id: "seasonal", name: "Seasonal", how: "Complete a month's goals and earn its reward.", icon: "leaf", color: "#ff8ccf", tier: 2 },
+    { id: "grand-wizard", name: "Grand Wizard", how: "Reach level 10.", icon: "star", color: "#ffd479", tier: 3 }
   ];
-  var SMALL = { a: "\u3083", u: "\u3085", o: "\u3087" };
-  var _a, _b;
-  for (const [prefixes, kana] of YOON) {
-    for (const p of prefixes) {
-      for (const [v, small] of Object.entries(SMALL)) BASE[_a = p + v] ?? (BASE[_a] = kana + small);
-      if (p === "sh" || p === "ch" || p === "j") BASE[_b = p + "e"] ?? (BASE[_b] = kana + "\u3047");
-    }
-  }
-  var VOWELS = /* @__PURE__ */ new Set(["a", "i", "u", "e", "o"]);
-  function romajiToHiragana(input) {
-    const s = input.toLowerCase();
-    let out = "";
-    let i = 0;
-    while (i < s.length) {
-      const c = s[i];
-      const next2 = s[i + 1];
-      if (c === "n") {
-        if (next2 === "'") {
-          out += "\u3093";
-          i += 2;
-          continue;
-        }
-        if (next2 === void 0) {
-          out += "\u3093";
-          i += 1;
-          continue;
-        }
-        if (next2 === "n") {
-          const after = s[i + 2];
-          out += "\u3093";
-          i += after !== void 0 && (VOWELS.has(after) || after === "y") ? 1 : 2;
-          continue;
-        }
-        if (!VOWELS.has(next2) && next2 !== "y") {
-          out += "\u3093";
-          i += 1;
-          continue;
-        }
-      }
-      if (c >= "a" && c <= "z" && !VOWELS.has(c) && (next2 === c || c === "t" && next2 === "c")) {
-        out += "\u3063";
-        i += 1;
-        continue;
-      }
-      let matched = false;
-      for (let len = 4; len >= 1; len--) {
-        const kana = BASE[s.slice(i, i + len)];
-        if (kana) {
-          out += kana;
-          i += len;
-          matched = true;
-          break;
-        }
-      }
-      if (!matched) {
-        out += c;
-        i += 1;
-      }
-    }
-    return out;
-  }
-  var katakanaToHiragana = (s) => s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 96));
-  function normalizeAnswer(input) {
-    const halfWidth = input.normalize("NFKC");
-    const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
-    return romajiToHiragana(katakanaToHiragana(cleaned));
-  }
-  function isCorrectReading(input, readings) {
-    const answer = normalizeAnswer(input);
-    if (!answer.length) return false;
-    return readings.some((raw) => {
-      const r2 = katakanaToHiragana(raw);
-      if (r2 === answer) return true;
-      if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer) return true;
-      return longVowelSlip(r2, answer);
-    });
-  }
-  function longVowelSlip(r2, a) {
-    const LONG = "\u3046\u304A";
-    if (a.length === r2.length - 1) {
-      for (let i = 1; i < r2.length; i++) if (LONG.includes(r2[i]) && r2.slice(0, i) + r2.slice(i + 1) === a) return true;
-      return false;
-    }
-    if (a.length === r2.length) {
-      let diff = -1;
-      for (let i = 0; i < r2.length; i++) if (r2[i] !== a[i]) {
-        if (diff >= 0) return false;
-        diff = i;
-      }
-      return diff > 0 && LONG.includes(r2[diff]) && LONG.includes(a[diff]);
-    }
-    return false;
-  }
-  var WRITE = /[\p{Script=Han}々〆ヶ□]/u;
-  var writeTargets = (word2) => {
-    const all = [...word2];
-    const k = all.filter((c) => WRITE.test(c));
-    return k.length ? k : all;
-  };
-  var writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
-
-  // src/client/voice.ts
-  var KEY4 = "kb:voice";
-  var prefs = (() => {
-    try {
-      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY4) ?? "{}") };
-    } catch {
-      return { on: true, vol: 0.9 };
-    }
-  })();
-  var save = () => {
-    try {
-      localStorage.setItem(KEY4, JSON.stringify(prefs));
-    } catch {
-    }
-  };
-  var MALE = /ichiro|keita|otoya|hattori|daichi|naoki|takumi|male|男/i;
-  var synth = typeof speechSynthesis !== "undefined" ? speechSynthesis : null;
-  var voice = null;
-  var male = false;
-  function pick2() {
-    if (!synth) return;
-    const ja = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith("ja"));
-    const m = ja.find((v) => MALE.test(v.name));
-    voice = m ?? ja.find((v) => v.localService) ?? ja[0] ?? null;
-    male = !!m;
-  }
-  if (synth) {
-    pick2();
-    synth.addEventListener?.("voiceschanged", pick2);
-  }
-  var voiceAvailable = () => !!synth;
-  var getVoicePrefs = () => ({ ...prefs, name: voice?.name ?? null, male });
-  function setVoiceVolume(v) {
-    prefs.vol = Math.max(0, Math.min(1, v));
-    prefs.on = prefs.vol > 0;
-    save();
-  }
-  function say(kana) {
-    if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== "visible") return;
-    if (!voice) pick2();
-    if (!voice && !synth.getVoices().length) return;
-    const u = new SpeechSynthesisUtterance(kana);
-    u.lang = "ja-JP";
-    if (voice) u.voice = voice;
-    u.rate = 0.95;
-    u.pitch = male ? 1 : 0.6;
-    u.volume = prefs.vol;
-    synth.cancel();
-    synth.speak(u);
-  }
-  function speak(kana) {
-    if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== "visible") return Promise.resolve();
-    if (!voice) pick2();
-    if (!voice && !synth.getVoices().length) return Promise.resolve();
-    return new Promise((done) => {
-      const u = new SpeechSynthesisUtterance(kana);
-      u.lang = "ja-JP";
-      if (voice) u.voice = voice;
-      u.rate = 0.95;
-      u.pitch = male ? 1 : 0.6;
-      u.volume = prefs.vol;
-      let finished = false;
-      const end = () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      };
-      u.onend = end;
-      u.onerror = end;
-      setTimeout(end, Math.min(2600, 500 + [...kana].length * 220));
-      synth.cancel();
-      synth.speak(u);
-    });
-  }
-
-  // src/client/notify.ts
-  var blink = 0;
-  var baseTitle = document.title;
-  function askNotifyPermission() {
-    try {
-      if ("Notification" in window && Notification.permission === "default") void Notification.requestPermission();
-    } catch {
-    }
-  }
-  function attention(title, body = "") {
-    if (!document.hidden && document.hasFocus()) return;
-    clearInterval(blink);
-    baseTitle = document.title.startsWith("\u25CF ") ? baseTitle : document.title;
-    let on = false;
-    blink = window.setInterval(() => {
-      on = !on;
-      document.title = on ? `\u25CF ${title}` : baseTitle;
-    }, 900);
-    try {
-      if ("Notification" in window && Notification.permission === "granted") {
-        const n = new Notification(title, { body, icon: "/favicon.svg", tag: "kanji-wizards", renotify: true });
-        n.onclick = () => {
-          window.focus();
-          n.close();
-        };
-      }
-    } catch {
-    }
-  }
-  function stop() {
-    clearInterval(blink);
-    blink = 0;
-    if (document.title.startsWith("\u25CF ")) document.title = baseTitle;
-  }
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) stop();
-  });
-  addEventListener("focus", stop);
+  var ACH_PREFIX = "ach:";
+  var achById = (id) => ACHIEVEMENTS.find((a) => a.id === id);
+  var COMBO_ACHIEVEMENTS = [[5, "combo-5"], [10, "combo-10"], [20, "combo-20"]];
 
   // src/client/audio.ts
   var PREFS_KEY = "kb:audio";
   var DEFAULTS = { radio: true, sfx: true, musicVol: 0.7, sfxVol: 0.8 };
-  var prefs2 = (() => {
+  var prefs = (() => {
     try {
       return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
     } catch {
@@ -3198,11 +3117,11 @@
     }
   })();
   var clamp01 = (v) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
-  var sfxGain = () => 0.7 * prefs2.sfxVol * prefs2.sfxVol * 1.4;
-  var musicGain = () => 0.9 * prefs2.musicVol * prefs2.musicVol * 1.3;
+  var sfxGain = () => 0.7 * prefs.sfxVol * prefs.sfxVol * 1.4;
+  var musicGain = () => 0.9 * prefs.musicVol * prefs.musicVol * 1.3;
   var savePrefs = () => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs2));
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
     } catch {
     }
   };
@@ -3266,7 +3185,7 @@
   }
   function syncMusic() {
     if (!ctx) return;
-    const on = prefs2.radio && prefs2.musicVol > 0 && document.visibilityState === "visible";
+    const on = prefs.radio && prefs.musicVol > 0 && document.visibilityState === "visible";
     const want = on ? scene2 === "menu" ? menuTheme : battleTheme : null;
     for (const t of [menuTheme, battleTheme]) t === want ? t.fadeIn() : t.fadeOut();
     syncAmbience();
@@ -3298,7 +3217,7 @@
     tone(freq * 2.76, at, dur * 0.4, { gain: gain * 0.25, bus, send: 0.6, attack: 2e-3 });
     tone(freq * 5.4, at, dur * 0.18, { gain: gain * 0.08, bus, send: 0.6, attack: 2e-3 });
   }
-  function noise(at, dur, gain, cutoff, type = "lowpass", bus = sfxBus, swell = false) {
+  function noise(at, dur, gain, cutoff, type2 = "lowpass", bus = sfxBus, swell = false) {
     const c = ctx;
     const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
     const data = buf.getChannelData(0);
@@ -3306,14 +3225,14 @@
     const src = c.createBufferSource();
     src.buffer = buf;
     const f2 = c.createBiquadFilter();
-    f2.type = type;
+    f2.type = type2;
     f2.frequency.value = cutoff;
     const g = c.createGain();
     g.gain.value = gain;
     src.connect(f2).connect(g).connect(bus);
     src.start(at);
   }
-  var sfxOk = () => prefs2.sfx && ensure() !== null && ctx.state === "running";
+  var sfxOk = () => prefs.sfx && ensure() !== null && ctx.state === "running";
   var sfx = {
     /**
      * Spell cast: a magical chime. Each combo step makes it deeper and longer (like a multi-kill
@@ -3628,31 +3547,31 @@
     });
     return track;
   })();
-  var isRadioOn = () => prefs2.radio;
-  var isSfxOn = () => prefs2.sfx;
-  var getVolumes = () => ({ music: prefs2.musicVol, sfx: prefs2.sfxVol });
+  var isRadioOn = () => prefs.radio;
+  var isSfxOn = () => prefs.sfx;
+  var getVolumes = () => ({ music: prefs.musicVol, sfx: prefs.sfxVol });
   function setRadio(on) {
-    prefs2.radio = on;
+    prefs.radio = on;
     savePrefs();
     ensure();
     if (on && ctx?.state === "suspended") void ctx.resume();
     syncMusic();
   }
   function setSfx(on) {
-    prefs2.sfx = on;
+    prefs.sfx = on;
     savePrefs();
   }
   function setMusicVolume(v) {
-    prefs2.musicVol = clamp01(v);
-    if (prefs2.musicVol > 0) prefs2.radio = true;
+    prefs.musicVol = clamp01(v);
+    if (prefs.musicVol > 0) prefs.radio = true;
     savePrefs();
     ensure();
     if (ctx) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05);
     syncMusic();
   }
   function setSfxVolume(v) {
-    prefs2.sfxVol = clamp01(v);
-    if (prefs2.sfxVol > 0) prefs2.sfx = true;
+    prefs.sfxVol = clamp01(v);
+    if (prefs.sfxVol > 0) prefs.sfx = true;
     savePrefs();
     ensure();
     if (ctx) sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05);
@@ -3672,14 +3591,14 @@
   function syncAmbience() {
     clearTimeout(ambTimer);
     ambTimer = void 0;
-    if (!ctx || !ambBg || !prefs2.radio || prefs2.musicVol <= 0 || scene2 !== "menu" || document.visibilityState !== "visible") return;
-    const next2 = (first) => {
+    if (!ctx || !ambBg || !prefs.radio || prefs.musicVol <= 0 || scene2 !== "menu" || document.visibilityState !== "visible") return;
+    const next3 = (first) => {
       ambTimer = window.setTimeout(() => {
         if (ctx?.state === "running") ambientCall(ambBg, ambTime);
-        next2(false);
+        next3(false);
       }, (first ? 4e3 : 12e3) + Math.random() * 16e3);
     };
-    next2(true);
+    next3(true);
   }
   function ambientCall(bg2, time) {
     const t = ctx.currentTime + 0.05;
@@ -3825,6 +3744,406 @@
     for (let i = 0; i < 4; i++) bell(midi(notes[Math.floor(Math.random() * notes.length)]), at + i * 0.18, 1.4, 0.03, ambBus);
   }
 
+  // src/client/achievements.ts
+  var GLYPH = {
+    sword: '<path d="M14.5 4.5h5v5l-9 9-5-5z"/><path d="M5 15l4 4M3 21l3-3"/>',
+    swords: '<path d="M4 4l11 11M20 4L9 15M5 19l-2 2M19 19l2 2M7 17l-2-2M17 17l2-2"/>',
+    crown: '<path d="M4 8l4 4 4-6 4 6 4-4-2 10H6z"/><path d="M5 21h14"/>',
+    flame: '<path d="M12 3c3 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-7 1 2 2 3 3 3 0-3-1-5 0-7z"/>',
+    flame2: '<path d="M12 3c3 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-7 1 2 2 3 3 3 0-3-1-5 0-7z"/><path d="M12 13c1 1.5 2 2.5 2 4a2 2 0 0 1-4 0c0-1.5 1-2.5 2-4z"/>',
+    comet: '<circle cx="7" cy="17" r="3.2"/><path d="M20 4L9.5 14.5M16 3.5l-6 6M20.5 8l-6 6"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
+    dragon: '<path d="M3 18c2-6 6-9 12-10l4-3-1 5c1 3 0 6-3 8l2 3-5-2c-3 1-6 0-9-1z"/><circle cx="15.5" cy="10.5" r=".8"/>',
+    cards: '<rect x="4" y="6" width="9" height="13" rx="1.5"/><path d="M14 6.5l5.5 1.5-3 12-5-1.4"/>',
+    brush: '<path d="M18 3l3 3-9 9-3-3z"/><path d="M9 12c-3 0-5 2-5 5 0 1-1 2-2 2 3 2 9 1 9-4"/>',
+    bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+    book: '<path d="M4 5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2z"/><path d="M4 20V5M8 7h7"/>',
+    tome: '<path d="M5 3h12a2 2 0 0 1 2 2v16H7a2 2 0 0 1-2-2z"/><path d="M12 7l1.2 2.5 2.8.4-2 2 .5 2.8-2.5-1.3-2.5 1.3.5-2.8-2-2 2.8-.4z"/>',
+    kana: '<text x="12" y="17.5" text-anchor="middle" font-size="15" font-weight="900" stroke="none" fill="currentColor" font-family="sans-serif">\u3042</text>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+    moon: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4"/>',
+    people: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 14.5c3 0 6 1.8 6 5"/>',
+    leaf: '<path d="M5 19C5 9 11 4 20 4c0 9-5 15-15 15z"/><path d="M5 19l8-8"/>',
+    star: '<path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/>'
+  };
+  function badgeSvg(a, locked) {
+    const c = a.color;
+    const id = `g${a.id.replace(/\W/g, "")}${locked ? "l" : ""}`;
+    return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${locked ? "#2a2840" : "#2b2160"}"/><stop offset="1" stop-color="${locked ? "#16152a" : "#120c34"}"/></linearGradient></defs><path d="M32 3l25 14.5v29L32 61 7 46.5v-29z" fill="url(#${id})" stroke="${c}" stroke-width="3"/><path d="M32 9.5l19.5 11.3v22.4L32 54.5 12.5 43.2V20.8z" fill="none" stroke="${c}" stroke-opacity=".35" stroke-width="1.2"/><g transform="translate(20 20)" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" color="${c}"><g transform="scale(1)">${GLYPH[a.icon]}</g></g>${Array.from({ length: a.tier }, (_, i) => `<circle cx="${32 + (i - (a.tier - 1) / 2) * 7}" cy="52" r="2.2" fill="${c}"/>`).join("")}</svg>`;
+  }
+  var has = (unlocks2, id) => !!unlocks2?.includes(ACH_PREFIX + id);
+  function renderAchievements(box, unlocks2 = []) {
+    const earned = ACHIEVEMENTS.filter((a) => has(unlocks2, a.id)).length;
+    const grid = document.createElement("div");
+    grid.className = "ach-grid";
+    for (const a of ACHIEVEMENTS) {
+      const locked = !has(unlocks2, a.id);
+      const b = document.createElement("div");
+      b.className = "ach" + (locked ? " locked" : "");
+      b.tabIndex = 0;
+      b.style.setProperty("--ac", a.color);
+      b.setAttribute("aria-label", `${a.name}: ${locked ? "locked \u2014 " : ""}${a.how}`);
+      b.innerHTML = badgeSvg(a, locked);
+      const tip = document.createElement("div");
+      tip.className = "ach-tip";
+      const t = document.createElement("b");
+      t.textContent = a.name;
+      const s = document.createElement("span");
+      s.textContent = a.how;
+      const st = document.createElement("small");
+      st.textContent = locked ? "Locked" : "Unlocked \u2713";
+      tip.append(t, s, st);
+      b.append(tip);
+      grid.append(b);
+    }
+    const head = document.createElement("h3");
+    head.append("Achievements ");
+    const sm = document.createElement("small");
+    sm.className = "hint";
+    sm.textContent = `${earned} / ${ACHIEVEMENTS.length}`;
+    head.append(sm);
+    box.replaceChildren(head, grid);
+  }
+  var shown = /* @__PURE__ */ new Set();
+  var queue = [];
+  var playing = false;
+  function celebrate(id) {
+    if (shown.has(id) || !achById(id)) return;
+    shown.add(id);
+    queue.push(id);
+    if (!playing) next();
+  }
+  function next() {
+    const id = queue.shift();
+    const box = $("achPop");
+    if (!id) {
+      playing = false;
+      box.hidden = true;
+      return;
+    }
+    playing = true;
+    const a = achById(id);
+    box.style.setProperty("--ac", a.color);
+    box.innerHTML = "";
+    const rays2 = document.createElement("div");
+    rays2.className = "ach-rays";
+    const badge = document.createElement("div");
+    badge.className = "ach-badge";
+    badge.innerHTML = badgeSvg(a, false);
+    const txt = document.createElement("div");
+    txt.className = "ach-text";
+    const k = document.createElement("small");
+    k.textContent = "Achievement unlocked!";
+    const n = document.createElement("b");
+    n.textContent = a.name;
+    const h3 = document.createElement("span");
+    h3.textContent = a.how;
+    txt.append(k, n, h3);
+    box.append(rays2, badge, txt);
+    box.hidden = false;
+    box.classList.remove("go");
+    void box.offsetWidth;
+    box.classList.add("go");
+    sfx.go();
+    setTimeout(next, 3800);
+  }
+  function celebrateNew(userId, unlocks2) {
+    const key = `kb:ach:${userId}`;
+    const ids = (unlocks2 ?? []).filter((u) => u.startsWith(ACH_PREFIX)).map((u) => u.slice(ACH_PREFIX.length));
+    let seen = null;
+    try {
+      seen = JSON.parse(localStorage.getItem(key) ?? "null");
+    } catch {
+    }
+    if (!Array.isArray(seen)) ids.forEach((id) => shown.add(id));
+    else for (const id of ids) if (!seen.includes(id)) celebrate(id);
+    try {
+      localStorage.setItem(key, JSON.stringify(ids));
+    } catch {
+    }
+  }
+  function comboMilestone(combo, unlocks2) {
+    for (const [n, id] of COMBO_ACHIEVEMENTS) if (combo >= n && !has(unlocks2, id)) celebrate(id);
+  }
+
+  // src/client/friendrail.ts
+  var $2 = $;
+  var el2 = (tag, cls = "", text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = String(text);
+    return e;
+  };
+  var RAIL_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "customize", "history", "progress", "daily", "friends"]);
+  var friends = [];
+  var signedIn = false;
+  var timer = 0;
+  var collapsed = { online: false, offline: true };
+  function setRailUser(on) {
+    signedIn = on;
+    if (!on) {
+      $2("friendRail").hidden = true;
+      $2("railFab").hidden = true;
+      clearInterval(timer);
+    }
+  }
+  function railScreen(screen2) {
+    const show3 = signedIn && RAIL_SCREENS.has(screen2);
+    $2("friendRail").hidden = !show3;
+    $2("railFab").hidden = !show3;
+    setOpen(false);
+    document.body.classList.toggle("has-rail", show3);
+    clearInterval(timer);
+    if (show3) {
+      void refreshRail();
+      timer = window.setInterval(() => void refreshRail(), 2e4);
+    }
+  }
+  function setOpen(on) {
+    $2("friendRail").classList.toggle("open", on);
+    $2("railFab").setAttribute("aria-expanded", String(on));
+  }
+  $2("railFab").onclick = (e) => {
+    e.stopPropagation();
+    setOpen(!$2("friendRail").classList.contains("open"));
+  };
+  document.addEventListener("pointerdown", (e) => {
+    const t = e.target;
+    if ($2("friendRail").classList.contains("open") && !t.closest("#friendRail, #railFab, #friendDialog, #otherPop")) setOpen(false);
+  });
+  async function refreshRail() {
+    try {
+      friends = (await api.friends()).friends;
+    } catch {
+      return;
+    }
+    render();
+  }
+  var avatar = (f2) => {
+    const a = el2("span", "fr-av");
+    if (f2.pic) {
+      const img = el2("img");
+      img.src = f2.pic;
+      img.alt = "";
+      a.append(img);
+    } else a.textContent = f2.username.slice(0, 1).toUpperCase();
+    a.append(el2("i", "fr-dot"));
+    return a;
+  };
+  function render() {
+    const accepted = friends.filter((f2) => f2.status === "accepted").sort((a, b) => a.username.localeCompare(b.username));
+    const online = accepted.filter((f2) => f2.online), offline = accepted.filter((f2) => !f2.online);
+    const incoming = friends.filter((f2) => f2.status === "incoming").length;
+    const section = (key, title, list2) => {
+      const head = el2("button", "fr-sec", "");
+      head.append(el2("b", "fr-count", list2.length), el2("span", "fr-sec-name", title), el2("span", "fr-chev", collapsed[key] ? "\u25BE" : "\u25B4"));
+      head.setAttribute("aria-expanded", String(!collapsed[key]));
+      head.onclick = () => {
+        collapsed[key] = !collapsed[key];
+        render();
+      };
+      const rows = collapsed[key] ? [] : list2.map((f2) => {
+        const r2 = el2("div", "fr-row" + (f2.online ? " online" : ""));
+        markProfile(r2, { id: f2.id, name: f2.username, bot: null });
+        r2.title = `${f2.username} \u2014 view profile`;
+        const txt = el2("span", "fr-txt");
+        txt.append(el2("span", "fr-name", f2.username), el2("small", "fr-status", f2.online ? f2.activity ?? "Online" : "Offline"));
+        r2.append(avatar(f2), txt, el2("span", "fr-lv", `Lv ${f2.level ?? 0}`));
+        return r2;
+      });
+      return [head, ...rows];
+    };
+    const list = $2("railList");
+    list.replaceChildren(
+      ...section("online", "Online", online),
+      ...section("offline", "Offline", offline),
+      ...accepted.length ? [] : [el2("p", "fr-empty", "No friends yet \u2014 add someone below.")]
+    );
+    $2("railOnline").textContent = String(online.length);
+    $2("railFabCount").textContent = String(online.length);
+    $2("railFab").classList.toggle("alert", incoming > 0);
+    const badge = $2("railReqBadge");
+    badge.hidden = incoming === 0;
+    badge.textContent = String(incoming);
+  }
+  function openDialog(tab) {
+    const d = $2("friendDialog");
+    for (const b of d.querySelectorAll("[data-ftab]")) b.classList.toggle("on", b.dataset.ftab === tab);
+    $2("fdAdd").hidden = tab !== "add";
+    $2("fdRequests").hidden = tab !== "requests";
+    $2("fdMsg").textContent = "";
+    renderRequests();
+    if (!d.open) d.showModal();
+    if (tab === "add") setTimeout(() => $2("fdName").focus(), 30);
+  }
+  function renderRequests() {
+    const box = $2("fdReqList");
+    const incoming = friends.filter((f2) => f2.status === "incoming");
+    const outgoing = friends.filter((f2) => f2.status === "outgoing");
+    const act = (text, cls, fn) => {
+      const b = el2("button", `pill ${cls}`, text);
+      b.onclick = async () => {
+        b.disabled = true;
+        try {
+          friends = (await fn()).friends;
+          render();
+          renderRequests();
+        } catch (e) {
+          toast(e.message);
+          b.disabled = false;
+        }
+      };
+      return b;
+    };
+    const row = (f2, buttons, note) => {
+      const r2 = el2("div", "fd-row");
+      const t = el2("span", "fr-txt");
+      t.append(el2("span", "fr-name", f2.username), el2("small", "fr-status", note));
+      r2.append(avatar(f2), t, ...buttons);
+      return r2;
+    };
+    box.replaceChildren(
+      ...incoming.length ? [el2("h4", "", `Requests (${incoming.length})`), ...incoming.map((f2) => row(f2, [act("Accept", "primary", () => api.acceptFriend(f2.id)), act("Decline", "", () => api.removeFriend(f2.id))], "wants to be friends"))] : [el2("p", "hint", "No friend requests right now.")],
+      ...outgoing.length ? [el2("h4", "", "Sent requests"), ...outgoing.map((f2) => row(f2, [act("Cancel", "", () => api.removeFriend(f2.id))], "request sent"))] : []
+    );
+  }
+  $2("railAdd").onclick = () => openDialog("add");
+  $2("railReq").onclick = () => openDialog("requests");
+  for (const b of document.querySelectorAll("#friendDialog [data-ftab]")) b.onclick = () => openDialog(b.dataset.ftab);
+  $2("fdClose").onclick = () => $2("friendDialog").close();
+  $2("fdAdd").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input2 = $2("fdName");
+    const name = input2.value.trim();
+    if (!name) return;
+    try {
+      const r2 = await api.addFriend(name);
+      friends = r2.friends;
+      $2("fdMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      input2.value = "";
+      render();
+    } catch (err) {
+      $2("fdMsg").textContent = err.message;
+    }
+  });
+  $2("railList").addEventListener("click", () => $2("friendDialog").close());
+
+  // src/client/voice.ts
+  var KEY5 = "kb:voice";
+  var prefs2 = (() => {
+    try {
+      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY5) ?? "{}") };
+    } catch {
+      return { on: true, vol: 0.9 };
+    }
+  })();
+  var save = () => {
+    try {
+      localStorage.setItem(KEY5, JSON.stringify(prefs2));
+    } catch {
+    }
+  };
+  var MALE = /ichiro|keita|otoya|hattori|daichi|naoki|takumi|male|男/i;
+  var synth = typeof speechSynthesis !== "undefined" ? speechSynthesis : null;
+  var voice = null;
+  var male = false;
+  function pick2() {
+    if (!synth) return;
+    const ja = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith("ja"));
+    const m = ja.find((v) => MALE.test(v.name));
+    voice = m ?? ja.find((v) => v.localService) ?? ja[0] ?? null;
+    male = !!m;
+  }
+  if (synth) {
+    pick2();
+    synth.addEventListener?.("voiceschanged", pick2);
+  }
+  var voiceAvailable = () => !!synth;
+  var getVoicePrefs = () => ({ ...prefs2, name: voice?.name ?? null, male });
+  function setVoiceVolume(v) {
+    prefs2.vol = Math.max(0, Math.min(1, v));
+    prefs2.on = prefs2.vol > 0;
+    save();
+  }
+  function say(kana) {
+    if (!synth || !prefs2.on || prefs2.vol <= 0 || document.visibilityState !== "visible") return;
+    if (!voice) pick2();
+    if (!voice && !synth.getVoices().length) return;
+    const u = new SpeechSynthesisUtterance(kana);
+    u.lang = "ja-JP";
+    if (voice) u.voice = voice;
+    u.rate = 0.95;
+    u.pitch = male ? 1 : 0.6;
+    u.volume = prefs2.vol;
+    synth.cancel();
+    synth.speak(u);
+  }
+  function speak(kana) {
+    if (!synth || !prefs2.on || prefs2.vol <= 0 || document.visibilityState !== "visible") return Promise.resolve();
+    if (!voice) pick2();
+    if (!voice && !synth.getVoices().length) return Promise.resolve();
+    return new Promise((done) => {
+      const u = new SpeechSynthesisUtterance(kana);
+      u.lang = "ja-JP";
+      if (voice) u.voice = voice;
+      u.rate = 0.95;
+      u.pitch = male ? 1 : 0.6;
+      u.volume = prefs2.vol;
+      let finished = false;
+      const end = () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      };
+      u.onend = end;
+      u.onerror = end;
+      setTimeout(end, Math.min(2600, 500 + [...kana].length * 220));
+      synth.cancel();
+      synth.speak(u);
+    });
+  }
+
+  // src/client/notify.ts
+  var blink = 0;
+  var baseTitle = document.title;
+  function askNotifyPermission() {
+    try {
+      if ("Notification" in window && Notification.permission === "default") void Notification.requestPermission();
+    } catch {
+    }
+  }
+  function attention(title, body = "") {
+    if (!document.hidden && document.hasFocus()) return;
+    clearInterval(blink);
+    baseTitle = document.title.startsWith("\u25CF ") ? baseTitle : document.title;
+    let on = false;
+    blink = window.setInterval(() => {
+      on = !on;
+      document.title = on ? `\u25CF ${title}` : baseTitle;
+    }, 900);
+    try {
+      if ("Notification" in window && Notification.permission === "granted") {
+        const n = new Notification(title, { body, icon: "/favicon.svg", tag: "kanji-wizards", renotify: true });
+        n.onclick = () => {
+          window.focus();
+          n.close();
+        };
+      }
+    } catch {
+    }
+  }
+  function stop() {
+    clearInterval(blink);
+    blink = 0;
+    if (document.title.startsWith("\u25CF ")) document.title = baseTitle;
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) stop();
+  });
+  addEventListener("focus", stop);
+
   // src/client/tutorial.ts
   var $3 = $;
   var el3 = (tag, cls = "", text) => {
@@ -3868,15 +4187,15 @@
     const box = el3("div", "tut-try");
     const k = el3("span", "tut-k", "\u5C71");
     k.lang = "ja";
-    const input = el3("input");
-    input.placeholder = "type its reading: yama";
-    input.lang = "ja";
-    input.autocomplete = "off";
+    const input2 = el3("input");
+    input2.placeholder = "type its reading: yama";
+    input2.lang = "ja";
+    input2.autocomplete = "off";
     const msg = el3("span", "hint", "Mountain \u2014 try it!");
-    input.addEventListener("keydown", (e) => {
+    input2.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" || e.isComposing) return;
       e.stopPropagation();
-      if (isCorrectReading(input.value, ["\u3084\u307E"])) {
+      if (isCorrectReading(input2.value, ["\u3084\u307E"])) {
         msg.textContent = "\u2713 \u3084\u307E \u2014 a spell!";
         msg.className = "ok";
         sfx.correct(1);
@@ -3886,8 +4205,8 @@
         sfx.wrong();
       }
     });
-    box.append(k, input, msg);
-    setTimeout(() => input.focus(), 50);
+    box.append(k, input2, msg);
+    setTimeout(() => input2.focus(), 50);
     return box;
   }
   function startTutorial() {
@@ -3903,7 +4222,7 @@
     const card = el3("div", "tut-card");
     const actions = el3("div", "tut-actions");
     const last = i === CARDS.length - 1;
-    const next2 = el3("button", "big", last ? "Fight a beginner AI" : "Next");
+    const next3 = el3("button", "big", last ? "Fight a beginner AI" : "Next");
     const skip2 = el3("button", "pill", last ? "Maybe later" : "Skip tutorial");
     if (c.choice) {
       const yes = el3("button", "big", "Yes \u2014 I know hiragana");
@@ -3914,21 +4233,21 @@
       };
       yes.onclick = () => pickKana(true);
       no.onclick = () => pickKana(false);
-      next2.hidden = true;
+      next3.hidden = true;
       queueMicrotask(() => actions.append(no, yes));
     }
-    next2.onclick = () => {
+    next3.onclick = () => {
       if (!last) return show2(i + 1);
       stage = "battle";
       box.hidden = true;
       hooks.firstBattle();
     };
     skip2.onclick = () => finish();
-    actions.append(skip2, next2);
+    actions.append(skip2, next3);
     card.append(dots, el3("h2", "", c.title), el3("p", "", c.body), ...c.extra ? [c.extra()] : [], actions);
     box.replaceChildren(card);
     box.hidden = false;
-    next2.focus();
+    next3.focus();
   }
   function finish() {
     stage = "off";
@@ -4087,10 +4406,10 @@
     };
     $4("dkChatForm").addEventListener("submit", (e) => {
       e.preventDefault();
-      const input = $4("dkChatInput");
-      const text = input.value.trim();
+      const input2 = $4("dkChatInput");
+      const text = input2.value.trim();
       if (text) hooks2.send({ type: "chat", text });
-      input.value = "";
+      input2.value = "";
     });
     renderGuide($4("deckGuide"));
   }
@@ -4333,8 +4652,8 @@
       const card = cardEl(c.card, { big: true });
       if (!fresh) card.style.animation = "none";
       const top = h2("div", "dkc-half");
-      const shown = c.card.kanji ?? "\uFF1F".repeat(Math.min(c.chars, 3));
-      const k = h2("span", `dkc-k l${Math.min(4, [...shown].length)}` + (c.card.kanji ? "" : " unknown"), shown);
+      const shown2 = c.card.kanji ?? "\uFF1F".repeat(Math.min(c.chars, 3));
+      const k = h2("span", `dkc-k l${Math.min(4, [...shown2].length)}` + (c.card.kanji ? "" : " unknown"), shown2);
       k.lang = "ja";
       top.append(k);
       const bottom = h2("div", "dkc-half bottom");
@@ -4349,21 +4668,21 @@
       otInput = null;
       if (c.overtime) {
         stopCountdown("dkRead");
-        const input = h2("input", "ot-input");
-        input.lang = "ja";
-        input.autocomplete = "off";
-        input.spellcheck = false;
-        input.placeholder = c.answer === "romaji" ? "Type it in romaji\u2026" : "Reading (kana or romaji)\u2026";
-        input.addEventListener("input", () => arena()?.twitch());
-        input.addEventListener("keydown", (e) => {
+        const input2 = h2("input", "ot-input");
+        input2.lang = "ja";
+        input2.autocomplete = "off";
+        input2.spellcheck = false;
+        input2.placeholder = c.answer === "romaji" ? "Type it in romaji\u2026" : "Reading (kana or romaji)\u2026";
+        input2.addEventListener("input", () => arena()?.twitch());
+        input2.addEventListener("keydown", (e) => {
           if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;
           e.preventDefault();
-          const text = input.value.trim();
+          const text = input2.value.trim();
           if (text) hooks2.send({ type: "answer", challengeId: c.castId, text });
         });
-        otInput = input;
-        actions.append(input, h2("div", "cast-timer", "First to type its reading hits \xB7 wrong? try again"));
-        setTimeout(() => input.focus(), 30);
+        otInput = input2;
+        actions.append(input2, h2("div", "cast-timer", "First to type its reading hits \xB7 wrong? try again"));
+        setTimeout(() => input2.focus(), 30);
       } else if (mine && c.stage === "read") {
         const t = h2("div", "cast-timer");
         countdown("dkRead", c.readLeftMs ?? 0, (left) => t.textContent = `Read the meaning \u2014 the kanji shows in ${Math.ceil(left / 1e3)} s`);
@@ -4629,17 +4948,17 @@
 
   // src/client/queue.ts
   var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
-  var KEY5 = "kb:queue";
+  var KEY6 = "kb:queue";
   var load3 = () => {
     try {
-      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY5) ?? "{}") };
+      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY6) ?? "{}") };
     } catch {
       return { modes: ["reading", "rapid"], levels: ["N5"] };
     }
   };
   var save2 = (s) => {
     try {
-      localStorage.setItem(KEY5, JSON.stringify(s));
+      localStorage.setItem(KEY6, JSON.stringify(s));
     } catch {
     }
   };
@@ -4928,7 +5247,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.9.8";
+  var VERSION = "0.9.8.1";
 
   // src/client/net.ts
   var GameSocket = class {
@@ -5202,11 +5521,11 @@
     box.replaceChildren(...LEVELS.map((lv) => {
       const label = document.createElement("label");
       label.className = "chip" + (selected.includes(lv) ? " on" : "");
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.value = lv;
-      input.checked = selected.includes(lv);
-      label.append(input, LEVEL_LABEL[lv]);
+      const input2 = document.createElement("input");
+      input2.type = "checkbox";
+      input2.value = lv;
+      input2.checked = selected.includes(lv);
+      label.append(input2, LEVEL_LABEL[lv]);
       return lockLevelChip(label, lv);
     }));
   }
@@ -5231,9 +5550,9 @@
       notice.hidden = false;
       notice.textContent = "Tick one or more levels under \u201CAll spells\u201D to get 25 new spells today (and every day).";
     }
-    const has = (c) => c.new + c.learning + c.due > 0;
-    $5("studyAll").disabled = !has(s.decks.all);
-    $5("studyStruggle").disabled = !has(s.decks.struggling);
+    const has2 = (c) => c.new + c.learning + c.due > 0;
+    $5("studyAll").disabled = !has2(s.decks.all);
+    $5("studyStruggle").disabled = !has2(s.decks.struggling);
     onProfile(s.profile);
   }
   $5("studyLevels").addEventListener("change", async () => {
@@ -5244,7 +5563,7 @@
       toast(e.message);
     }
   });
-  var queue = [];
+  var queue2 = [];
   var deck = "all";
   var current = null;
   var flipped = false;
@@ -5254,22 +5573,22 @@
     show("review");
     $5("reviewDone").hidden = true;
     try {
-      queue = (await api.queue(d)).cards;
+      queue2 = (await api.queue(d)).cards;
     } catch (e) {
       toast(e.message);
-      queue = [];
+      queue2 = [];
     }
-    next();
+    next2();
   }
-  function next() {
-    current = queue.shift() ?? null;
+  function next2() {
+    current = queue2.shift() ?? null;
     flipped = false;
     const done = !current;
     $5("flash").hidden = done;
     $5("showAnswer").hidden = done;
     $5("rateRow").hidden = true;
     $5("reviewDone").hidden = !done;
-    $5("reviewLeft").textContent = done ? "" : `${queue.length + 1} left \xB7 ${deck === "all" ? "All spells" : "Struggling"}`;
+    $5("reviewLeft").textContent = done ? "" : `${queue2.length + 1} left \xB7 ${deck === "all" ? "All spells" : "Struggling"}`;
     if (!current) return;
     $5("fcKanji").textContent = current.kanji;
     $5("fcLevel").textContent = LEVEL_LABEL[current.level] + (current.state === "new" ? " \xB7 new" : "");
@@ -5312,13 +5631,13 @@
     try {
       const res = await api.review(card.vocabId, r2);
       $5("whoCrit").textContent = `\u2726 ${critText(res.crit)} crit`;
-      if (r2 === "again") queue.splice(Math.min(3, queue.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
-      else if (r2 === "hard" && card.state !== "review") queue.splice(Math.min(6, queue.length), 0, card);
+      if (r2 === "again") queue2.splice(Math.min(3, queue2.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
+      else if (r2 === "hard" && card.state !== "review") queue2.splice(Math.min(6, queue2.length), 0, card);
     } catch (e) {
       toast(e.message);
     }
     busy = false;
-    next();
+    next2();
   }
   $5("showAnswer").onclick = flip;
   $5("flash").onclick = flip;
@@ -5340,7 +5659,7 @@
   var custTab = "staff";
   var picked2 = {};
   var cust = null;
-  var preview = null;
+  var preview2 = null;
   var previewTried = false;
   var staffThumbs = {};
   var el4 = (tag, cls = "", text) => {
@@ -5362,8 +5681,8 @@
       return;
     }
     previewTried = true;
-    preview = await staffPreview($5("staffCanvas"));
-    if (preview) staffThumbs = Object.fromEntries(preview.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
+    preview2 = await staffPreview($5("staffCanvas"));
+    if (preview2) staffThumbs = Object.fromEntries(preview2.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
     renderCustomize();
   }
   for (const b of document.querySelectorAll("#custTabs .cust-tab")) {
@@ -5492,12 +5811,12 @@
     }));
     const canvas = $5("staffCanvas");
     const stage2 = $5("custStage2");
-    const showCanvas = custTab === "staff" && !!preview;
+    const showCanvas = custTab === "staff" && !!preview2;
     canvas.hidden = !showCanvas;
     stage2.hidden = showCanvas;
     $5("custStage").dataset.tab = custTab;
     if (custTab === "staff") {
-      if (preview) preview.show(sel.id);
+      if (preview2) preview2.show(sel.id);
       else {
         const g = el4("div", "pixel-staff big");
         g.innerHTML = pixelStaffSvg(sel.id);
@@ -5552,7 +5871,9 @@
   ];
   var page = null;
   var level = "N5";
-  async function openProgress() {
+  var unlocks = [];
+  async function openProgress(myUnlocks = []) {
+    unlocks = myUnlocks;
     show("progress");
     $6("progGrid").replaceChildren(el5("p", "hint", "Loading\u2026"));
     try {
@@ -5570,6 +5891,7 @@
     renderWeek(page.activity);
     $6("progMonth").replaceChildren(...monthNodes(page.month));
     renderHeatmap(page.activity);
+    renderAchievements($6("progAch"), unlocks);
     renderMastery();
   }
   function renderWeek(activity) {
@@ -5659,25 +5981,25 @@
     const box = $6("progHeat");
     const oldest = shift(t, -182).slice(0, 7);
     const prev = el5("button", "pill cal-nav", "\u2039");
-    const next2 = el5("button", "pill cal-nav", "\u203A");
+    const next3 = el5("button", "pill cal-nav", "\u203A");
     const step = (n) => {
       const d = new Date(Date.UTC(y, m - 1 + n, 15));
       calMonth = d.toISOString().slice(0, 7);
       renderCalendar();
     };
     prev.disabled = calMonth <= oldest;
-    next2.disabled = calMonth >= t.slice(0, 7);
+    next3.disabled = calMonth >= t.slice(0, 7);
     prev.onclick = () => step(-1);
-    next2.onclick = () => step(1);
+    next3.onclick = () => step(1);
     prev.setAttribute("aria-label", "Previous month");
-    next2.setAttribute("aria-label", "Next month");
+    next3.setAttribute("aria-label", "Next month");
     const title = el5("b", "cal-title", new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(locale(), { month: "long", year: "numeric", timeZone: "UTC" }));
     const head = el5("div", "cal-head");
-    head.append(prev, title, next2);
+    head.append(prev, title, next3);
     const grid = el5("div", "cal-grid");
     grid.append(el5("span", "cal-wd wk", "Wk"));
     for (let i = 0; i < 7; i++) grid.append(el5("span", "cal-wd", new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(locale(), { weekday: "short", timeZone: "UTC" })));
-    let active = 0;
+    let active2 = 0;
     const cells = lead + days2, rows = Math.ceil(cells / 7);
     for (let r2 = 0; r2 < rows; r2++) {
       const firstOfRow = shift(first, r2 * 7 - lead);
@@ -5694,7 +6016,7 @@
         else {
           const a = byDay.get(day);
           const sc = score(a);
-          if (sc > 0) active++;
+          if (sc > 0) active2++;
           cell.dataset.l = String(sc === 0 ? 0 : Math.min(4, 1 + Math.floor(sc / max * 3.999)));
           cell.title = `${(/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric" })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ""}` : "no activity"}`;
         }
@@ -5703,7 +6025,7 @@
       }
     }
     box.replaceChildren(head, grid);
-    $6("progHeatSub").textContent = `${active} active days this month`;
+    $6("progHeatSub").textContent = `${active2} active days this month`;
   }
   function renderMastery() {
     if (!page) return;
@@ -5846,12 +6168,12 @@
     const bar = el6("div", "timer thin");
     const fill = el6("div");
     bar.append(fill);
-    const input = el6("input", "daily-input");
-    input.lang = "ja";
-    input.autocomplete = "off";
-    input.spellcheck = false;
-    input.placeholder = "reading (\u304B\u306A or romaji)";
-    input.addEventListener("paste", (e) => e.preventDefault());
+    const input2 = el6("input", "daily-input");
+    input2.lang = "ja";
+    input2.autocomplete = "off";
+    input2.spellcheck = false;
+    input2.placeholder = "reading (\u304B\u306A or romaji)";
+    input2.addEventListener("paste", (e) => e.preventDefault());
     const skip2 = el6("button", "pill", "Skip");
     const fb = el6("div", "daily-fb");
     if (last) {
@@ -5862,8 +6184,8 @@
       rr.lang = "ja";
       fb.append(el6("b", "", last.correct ? "\u2713" : "\u2717"), kk, rr, el6("span", "", last.meaning));
     }
-    main.replaceChildren(el6("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input, skip2, fb);
-    input.focus();
+    main.replaceChildren(el6("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input2, skip2, fb);
+    input2.focus();
     const t0 = performance.now(), limit = word.timeLimitMs;
     clearInterval(timer2);
     timer2 = window.setInterval(() => {
@@ -5871,8 +6193,8 @@
       fill.style.width = `${left / limit * 100}%`;
       if (left <= 0) void submit("");
     }, 100);
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) void submit(input.value);
+    input2.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) void submit(input2.value);
     });
     skip2.onclick = () => void submit("");
   }
@@ -5937,7 +6259,8 @@
   }
   function updateBadge() {
     const n = friends2.filter((f2) => f2.status === "incoming").length;
-    const b = $8("friendsBadge");
+    const b = document.getElementById("friendsBadge");
+    if (!b) return;
     b.hidden = n === 0;
     b.textContent = String(n);
   }
@@ -5994,15 +6317,15 @@
   }
   $8("friendAdd").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const input = $8("friendName");
-    const name = input.value.trim();
+    const input2 = $8("friendName");
+    const name = input2.value.trim();
     if (!name) return;
     try {
       const r2 = await api.addFriend(name);
       friends2 = r2.friends;
       fetchedAt = Date.now();
       $8("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
-      input.value = "";
+      input2.value = "";
       render4();
     } catch (err) {
       $8("friendMsg").textContent = err.message;
@@ -6029,12 +6352,12 @@
     let soonest = Infinity;
     box.replaceChildren(el7("h4", "", "Invite friends"), ...online.map((f2) => {
       const r2 = el7("div", "li-row");
-      const playing = !!f2.activity?.startsWith("Playing");
+      const playing2 = !!f2.activity?.startsWith("Playing");
       const wait = INVITE_COOLDOWN_MS - (Date.now() - (invitedAt.get(f2.id) ?? 0));
       if (wait > 0) soonest = Math.min(soonest, wait);
-      const b = el7("button", "pill primary", playing ? "In a game" : wait > 0 ? `Invited \xB7 ${Math.ceil(wait / 1e3)}s` : invitedAt.has(f2.id) ? "Invite again" : "Invite");
-      b.disabled = playing || wait > 0;
-      b.title = playing ? "They are playing \u2014 invite them when their game is over" : "";
+      const b = el7("button", "pill primary", playing2 ? "In a game" : wait > 0 ? `Invited \xB7 ${Math.ceil(wait / 1e3)}s` : invitedAt.has(f2.id) ? "Invite again" : "Invite");
+      b.disabled = playing2 || wait > 0;
+      b.title = playing2 ? "They are playing \u2014 invite them when their game is over" : "";
       b.onclick = () => {
         hooks3.send({ type: "invite", friendId: f2.id });
         invitedAt.set(f2.id, Date.now());
@@ -6130,6 +6453,7 @@
     if (s === "menu" && profile) void refreshProfile();
     if (s !== "lobby") void renderLobbyInvites(false);
     railScreen(s);
+    setGameKb(s === "battle" && mode2 !== "writing");
     tutorialScreen(s);
     if (!GAME_SCREENS2.has(s)) setTimeout(() => applyBackground(true), 0);
   });
@@ -6157,6 +6481,7 @@
   var prevStaff = null;
   function applyProfile(p) {
     const before = profile?.unlocks ?? null;
+    if (user) celebrateNew(user.id, p.unlocks);
     if (before) {
       for (const r2 of p.unlocks ?? []) if (!before.includes(r2) && !r2.startsWith("flag:")) {
         const [kind, id] = r2.split(":");
@@ -6331,6 +6656,8 @@
         challengeId = msg.id;
         arena()?.channel(0);
         showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs });
+        gameKbReset();
+        arena()?.oppChannel(true);
         if (msg.answer === "writing") {
           flashMs = msg.flashMs ?? 3500;
           beginWriting(msg.id, msg.kanji);
@@ -6342,10 +6669,10 @@
           setFeedback(msg);
           sfx.wrong();
           arena()?.fizzle("me");
-          const input = $("answer");
+          const input2 = $("answer");
           setAnswerLocked(false);
-          input.value = "";
-          input.focus();
+          input2.value = "";
+          input2.focus();
           break;
         }
         lockInput();
@@ -6354,6 +6681,7 @@
         if (msg.correct) {
           const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
           void speak(kana).then(() => sfx.correct(msg.combo));
+          if (mode2 !== "deck") comboMilestone(msg.combo, profile?.unlocks);
         } else {
           sfx.wrong();
           arena()?.fizzle("me");
@@ -6398,6 +6726,7 @@
         setTimeout(() => {
           showXp(msg.gained, msg.level, msg.levelUp);
           if (msg.levelUp) toast(`Level ${msg.level}! Check Customize for new unlocks.`, 5e3);
+          for (const id of msg.achievements ?? []) celebrate(id);
         }, 2100);
         void refreshProfile();
         break;
@@ -6489,6 +6818,12 @@
     writing = true;
     charCount = writeTargets(kanji).length;
     writeShape = writeTemplate(kanji);
+    const m = /^([^□]*)□+([^□]*)$/.exec(writeShape);
+    const pre = m ? m[1] : "", post = m ? m[2] : writeShape.includes("\u25A1") && /[^□]/.test(writeShape) ? `(${writeShape})` : "";
+    $("imePre").textContent = pre;
+    $("imePre").hidden = !pre;
+    $("imePost").textContent = post;
+    $("imePost").hidden = !post;
     written = [];
     pad.setCells(charCount);
     setEraser(false);
@@ -6557,10 +6892,10 @@
     });
   }
   $("imeInput").addEventListener("keydown", (e) => {
-    const input = e.currentTarget;
-    if (e.key !== "Enter" || e.isComposing || e.keyCode === 229 || input.disabled) return;
+    const input2 = e.currentTarget;
+    if (e.key !== "Enter" || e.isComposing || e.keyCode === 229 || input2.disabled) return;
     e.stopPropagation();
-    const text = input.value.trim();
+    const text = input2.value.trim();
     if (!text) return;
     socket.send({ type: "answer", challengeId, text });
     lockInput();
@@ -6636,8 +6971,7 @@
   $("dailyBtn").onclick = () => {
     if (user) void openDaily(user.id);
   };
-  $("progressBtn").onclick = () => void openProgress();
-  $("friendsBtn").onclick = () => void openFriends();
+  $("progressBtn").onclick = () => void openProgress(profile?.unlocks ?? []);
   initFriends({
     send: (m) => socket.send(m),
     join: (c) => {
@@ -6735,7 +7069,7 @@
     if (!answerLocked()) skip();
   };
   $("answer").addEventListener("keydown", (e) => {
-    const input = e.currentTarget;
+    const input2 = e.currentTarget;
     if (answerLocked()) {
       if (e.key === "Enter") e.preventDefault();
       return;
@@ -6745,13 +7079,13 @@
       return skip();
     }
     if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;
-    const text = input.value.trim();
+    const text = input2.value.trim();
     if (!text) return;
     if (currentAnswerMode() === "romaji" && !/^[a-z' -]+$/i.test(text.normalize("NFKC"))) {
       setInputHint("Use romaji for hiragana spells (switch your IME off)", true);
       return;
     }
-    socket.send({ type: "answer", challengeId, text: input.value });
+    socket.send({ type: "answer", challengeId, text: input2.value });
     lockInput();
   });
   function armForfeit(btnId) {
@@ -6788,6 +7122,15 @@
       sync();
     });
     $("volBtn").addEventListener("click", sync);
+  }
+  {
+    const sel = $("gameKbSel");
+    $("gameKbRow").hidden = !gameKbAvailable();
+    sel.value = gameKbPref() ? "game" : "system";
+    sel.onchange = () => {
+      setGameKbPref(sel.value === "game");
+      setGameKb(currentScreen() === "battle" && mode2 !== "writing");
+    };
   }
   $("kanaMastered").onchange = async (e) => {
     const box = e.target;

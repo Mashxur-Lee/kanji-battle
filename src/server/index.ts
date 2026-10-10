@@ -32,6 +32,7 @@ const auth = new AuthService(store, tokens);
 const study = new StudyService(store);
 const hub = new SessionHub();
 const daily = new DailyService(store, study.progress);
+daily.onPerfect = (id) => study.grantAchievements(id, undefined, ['perfect-day']);
 const social = new SocialService(store, hub);
 const recognizer = Recognizer.fromFile();
 const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch) });
@@ -43,10 +44,10 @@ const rooms = new RoomManager({
   writableFilter: isWritable(recognizer),
   // after every match: XP + missed words into each player's "Struggling spells"
   onMatchEnd: async (mode, results) => {
-    const out: Record<string, { gained: number; xp: number; crit: number }> = {};
+    const out: Record<string, { gained: number; xp: number; crit: number; achievements: string[] }> = {};
     for (const r of results) {
-      const { gained, xp } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited, r.vsAi, r.record, r.seen);
-      out[r.id] = { gained, xp, crit: await study.crit(r.id) };
+      const { gained, xp, achievements } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited, r.vsAi, r.record, r.seen);
+      out[r.id] = { gained, xp, crit: await study.crit(r.id), achievements };
     }
     return out;
   },

@@ -293,8 +293,11 @@ test('forfeited matches give nobody XP (no farming), normal ones do', async () =
   const store = new MemoryStore();
   const u = await store.create({ username: 'farmer', passwordHash: 'x', role: 'user' } as any);
   const study = new StudyService(store);
-  assert.deepEqual(await study.recordMatch(u.id, 'win', 1, 'deck', [], true), { gained: 0, xp: 0 });
-  assert.deepEqual(await study.recordMatch(u.id, 'win', 1, 'deck', [], false), { gained: 4000, xp: 4000 });
+  const xpOf = (r: { gained: number; xp: number }) => ({ gained: r.gained, xp: r.xp });
+  assert.deepEqual(xpOf(await study.recordMatch(u.id, 'win', 1, 'deck', [], true)), { gained: 0, xp: 0 });
+  const won = await study.recordMatch(u.id, 'win', 1, 'deck', [], false);
+  assert.deepEqual(xpOf(won), { gained: 4000, xp: 4000 });
+  assert.ok(won.achievements.includes('card-sage'), 'a Deck Duel win earns Card Sage');
 });
 
 test('deck lobby: no Start button — the duel begins when both players are ready', () => {
