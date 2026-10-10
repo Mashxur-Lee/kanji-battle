@@ -1,4 +1,5 @@
 import { viewH, viewW, zrect } from './zoom';
+import { showStrokeOrder } from './strokes';
 import {
   LEVEL_LABEL, LEVELS, MODE_LABEL, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
   type Level, type MatchSummary, type PlayerId, type PlayerStats, type PlayerView, type PublicProfile, type PublicUser, type StudyItem, type Avatar,
@@ -19,7 +20,7 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
 }
 const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { parent.append(...kids); return parent; };
 
-const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'customize', 'deck', 'history'] as const;
+const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'customize', 'deck', 'history', 'progress', 'daily', 'friends'] as const;
 export type Screen = (typeof SCREENS)[number];
 let screenListener: (s: Screen) => void = () => {};
 export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };
@@ -771,7 +772,27 @@ export function setFeedback(f: Feedback | null) {
     const kids = [h('span', 'big', title), word('reveal')];
     if (f.recognized && !f.skipped && !f.timedOut) kids.push(h('span', 'sub2', `The pad read: ${f.recognized}`));
     el.replaceChildren(...kids);
+    if (answerMode === 'writing' && !f.beaten) showWrongStrokes(el, f.kanji);
   }
+}
+
+/** A word's stroke order in a dialog (results, match history). */
+export function openStrokeDialog(word: string, reading: string, meaning: string) {
+  const d = $<HTMLDialogElement>('strokeDialog');
+  $('sdWord').textContent = word;
+  $('sdInfo').textContent = `${reading} — ${meaning}`;
+  void showStrokeOrder($('sdBox'), word);
+  if (!d.open) d.showModal();
+}
+$('sdClose').onclick = () => $<HTMLDialogElement>('strokeDialog').close();
+
+/** Kanji Writing / Deck Duel: after a wrong or missed write, the correct strokes play quickly. */
+export function showWrongStrokes(box: HTMLElement, word: string) {
+  if (!/[\p{Script=Han}々]/u.test(word)) return;
+  const div = h('div', 'fb-strokes');
+  box.append(div);
+  const strokes = [...word].length;
+  void showStrokeOrder(div, word, { stepMs: Math.max(90, Math.min(220, 2200 / (strokes * 6))), caption: 'How to write it' });
 }
 
 export function logLine(text: string, kanji?: string) {
@@ -832,7 +853,9 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
   $('struggled').replaceChildren(
     ...me.struggled.map((k) => {
       const w = byKanji.get(k)!;
-      return append(h('div', 'card'), h('div', 'k', w.kanji, { lang: 'ja' }), h('div', 'r', w.reading, { lang: 'ja' }), h('div', 'm', w.meaning));
+      const card = append(h('div', 'card clickable', undefined, { tabindex: '0', title: 'Stroke order' }), h('div', 'k', w.kanji, { lang: 'ja' }), h('div', 'r', w.reading, { lang: 'ja' }), h('div', 'm', w.meaning));
+      card.onclick = () => openStrokeDialog(w.kanji, w.reading, w.meaning);
+      return card;
     }),
   );
 
@@ -842,8 +865,10 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
         w.attempts === 0 ? h('span', 'na', 'not seen')
         : w.correct === w.attempts ? h('span', 'ok', `✓ ${w.correct}/${w.attempts}`)
         : h('span', 'no', `✗ ${w.correct}/${w.attempts}`);
+      const k = h('td', 'k clickable', w.kanji, { lang: 'ja', title: 'Stroke order' });
+      k.onclick = () => openStrokeDialog(w.kanji, w.reading, w.meaning);
       return append(h('tr'),
-        h('td', 'k', w.kanji, { lang: 'ja' }), h('td', 'rd', w.reading, { lang: 'ja' }), h('td', '', w.meaning),
+        k, h('td', 'rd', w.reading, { lang: 'ja' }), h('td', '', w.meaning),
         append(h('td'), result), h('td', '', w.avgMs !== null ? secs(w.avgMs) : '—'));
     }),
   );

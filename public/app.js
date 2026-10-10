@@ -36,8 +36,8 @@
     const vfix = r2.height > 0 ? innerHeight / r2.height : 1;
     root.style.setProperty("--vfix", String(Math.round(vfix * 1e3) / 1e3));
   }
-  function zrect(el2) {
-    const r2 = el2.getBoundingClientRect();
+  function zrect(el7) {
+    const r2 = el7.getBoundingClientRect();
     const s = scale;
     return { left: r2.left / s, top: r2.top / s, right: r2.right / s, bottom: r2.bottom / s, width: r2.width / s, height: r2.height / s };
   }
@@ -131,10 +131,49 @@
     deck: "Deck Duel"
   };
 
+  // src/client/notify.ts
+  var blink = 0;
+  var baseTitle = document.title;
+  function askNotifyPermission() {
+    try {
+      if ("Notification" in window && Notification.permission === "default") void Notification.requestPermission();
+    } catch {
+    }
+  }
+  function attention(title, body = "") {
+    if (!document.hidden && document.hasFocus()) return;
+    clearInterval(blink);
+    baseTitle = document.title.startsWith("\u25CF ") ? baseTitle : document.title;
+    let on = false;
+    blink = window.setInterval(() => {
+      on = !on;
+      document.title = on ? `\u25CF ${title}` : baseTitle;
+    }, 900);
+    try {
+      if ("Notification" in window && Notification.permission === "granted") {
+        const n = new Notification(title, { body, icon: "/favicon.svg", tag: "kanji-wizards", renotify: true });
+        n.onclick = () => {
+          window.focus();
+          n.close();
+        };
+      }
+    } catch {
+    }
+  }
+  function stop() {
+    clearInterval(blink);
+    blink = 0;
+    if (document.title.startsWith("\u25CF ")) document.title = baseTitle;
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) stop();
+  });
+  addEventListener("focus", stop);
+
   // src/shared/progress.ts
   var XP_PER_LEVEL = 1e3;
-  var xpToNext = (level) => XP_PER_LEVEL * (level + 1);
-  var xpForLevel = (level) => XP_PER_LEVEL * level * (level + 1) / 2;
+  var xpToNext = (level2) => XP_PER_LEVEL * (level2 + 1);
+  var xpForLevel = (level2) => XP_PER_LEVEL * level2 * (level2 + 1) / 2;
   function levelOf(xp) {
     let n = Math.floor((Math.sqrt(1 + 8 * Math.max(0, xp) / XP_PER_LEVEL) - 1) / 2);
     while (xpForLevel(n + 1) <= xp) n++;
@@ -142,8 +181,8 @@
     return n;
   }
   function levelXp(xp) {
-    const level = levelOf(xp);
-    return { level, into: Math.max(0, xp) - xpForLevel(level), need: xpToNext(level) };
+    const level2 = levelOf(xp);
+    return { level: level2, into: Math.max(0, xp) - xpForLevel(level2), need: xpToNext(level2) };
   }
   var levelProgress = (xp) => {
     const l = levelXp(xp);
@@ -159,23 +198,1045 @@
   ];
   var FLAMES = [
     { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
-    { id: "purple", name: "Purple", level: 5, color: "#b26bff" }
+    { id: "purple", name: "Purple", level: 5, color: "#b26bff" },
+    { id: "sakura", name: "Sakura", level: 0, color: "#ff8ccf", season: 2 },
+    { id: "rain", name: "Rain", level: 0, color: "#3fd9c4", season: 4 },
+    { id: "sun", name: "Sun", level: 0, color: "#ffd23f", season: 6 },
+    { id: "thunder", name: "Thunder", level: 0, color: "#e8e2ff", season: 8 },
+    { id: "harvest", name: "Harvest", level: 0, color: "#ff8a2a", season: 10 },
+    { id: "starlight", name: "Starlight", level: 0, color: "#fff0a0", season: 12 }
   ];
+  var flameUnlocked = (f2, xp, unlocks = []) => {
+    const d = FLAMES.find((x) => x.id === f2);
+    if (!d) return false;
+    return d.season ? unlocks.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
+  };
   var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
   var STAFFS = [
     { id: "verdant", name: "Verdant Staff", streak: 0, gem: "#6dff6a", blurb: "Carved from an ancient tree. It channels the natural energy of the earth and life." },
     { id: "ember", name: "Ember Staff", streak: 5, gem: "#ff7a1a", blurb: "Forged from volcanic rock and blessed by fire spirits." },
     { id: "tide", name: "Tide Staff", streak: 10, gem: "#3fb8ff", blurb: "Crafted from crystal and oceanic runes. It flows with the tides." },
     { id: "storm", name: "Storm Staff", streak: 15, gem: "#b26bff", blurb: "A relic of the sky temples. It channels lightning." },
-    { id: "void", name: "Void Staff", streak: 20, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." }
+    { id: "void", name: "Void Staff", streak: 20, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." },
+    { id: "frost", name: "Frost Staff", streak: 0, season: 1, base: "tide", tint: "#d8f4ff", gem: "#bfefff", blurb: "January reward. Rimed with ice that never melts." },
+    { id: "blossom", name: "Blossom Staff", streak: 0, season: 3, base: "verdant", tint: "#ffb8d8", gem: "#ff7ab8", blurb: "March reward. A branch that flowers whenever it casts." },
+    { id: "jade", name: "Jade Staff", streak: 0, season: 5, base: "storm", tint: "#7dffb0", gem: "#3dff8a", blurb: "May reward. Carved from one piece of temple jade." },
+    { id: "abyss", name: "Abyss Staff", streak: 0, season: 7, base: "tide", tint: "#3a5cff", gem: "#2a4dff", blurb: "July reward. Pulled from the deepest trench of the sea." },
+    { id: "moon", name: "Moon Staff", streak: 0, season: 9, base: "void", tint: "#f2f0ff", gem: "#fff6c8", blurb: "September reward. Silver light of the harvest moon." },
+    { id: "maple", name: "Maple Staff", streak: 0, season: 11, base: "ember", tint: "#ff5a3a", gem: "#ff3a2a", blurb: "November reward. Burning red like autumn leaves." }
   ];
+  var staffUnlocked = (s, bestStreak, unlocks = []) => {
+    const d = STAFFS.find((x) => x.id === s);
+    if (!d) return false;
+    return d.season ? unlocks.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
+  };
   var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
+  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 2 };
+  var modeUnlocked = (mode2, xp, admin = false) => admin || levelOf(xp) >= (MODE_LEVEL[mode2] ?? 0);
   var STUDY_LOCK = 100;
   var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
   var ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
   function avatarFor(levels) {
     const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? "N5";
     return AVATAR_BY_LEVEL[top];
+  }
+
+  // src/shared/kana.ts
+  var BASE = {
+    a: "\u3042",
+    i: "\u3044",
+    u: "\u3046",
+    e: "\u3048",
+    o: "\u304A",
+    ka: "\u304B",
+    ki: "\u304D",
+    ku: "\u304F",
+    ke: "\u3051",
+    ko: "\u3053",
+    sa: "\u3055",
+    si: "\u3057",
+    shi: "\u3057",
+    su: "\u3059",
+    se: "\u305B",
+    so: "\u305D",
+    ta: "\u305F",
+    ti: "\u3061",
+    chi: "\u3061",
+    tu: "\u3064",
+    tsu: "\u3064",
+    te: "\u3066",
+    to: "\u3068",
+    na: "\u306A",
+    ni: "\u306B",
+    nu: "\u306C",
+    ne: "\u306D",
+    no: "\u306E",
+    ha: "\u306F",
+    hi: "\u3072",
+    hu: "\u3075",
+    fu: "\u3075",
+    he: "\u3078",
+    ho: "\u307B",
+    ma: "\u307E",
+    mi: "\u307F",
+    mu: "\u3080",
+    me: "\u3081",
+    mo: "\u3082",
+    ya: "\u3084",
+    yu: "\u3086",
+    yo: "\u3088",
+    ra: "\u3089",
+    ri: "\u308A",
+    ru: "\u308B",
+    re: "\u308C",
+    ro: "\u308D",
+    la: "\u3089",
+    li: "\u308A",
+    lu: "\u308B",
+    le: "\u308C",
+    lo: "\u308D",
+    wa: "\u308F",
+    wo: "\u3092",
+    wi: "\u3046\u3043",
+    we: "\u3046\u3047",
+    ga: "\u304C",
+    gi: "\u304E",
+    gu: "\u3050",
+    ge: "\u3052",
+    go: "\u3054",
+    za: "\u3056",
+    zi: "\u3058",
+    ji: "\u3058",
+    zu: "\u305A",
+    ze: "\u305C",
+    zo: "\u305E",
+    da: "\u3060",
+    di: "\u3062",
+    du: "\u3065",
+    de: "\u3067",
+    do: "\u3069",
+    ba: "\u3070",
+    bi: "\u3073",
+    bu: "\u3076",
+    be: "\u3079",
+    bo: "\u307C",
+    pa: "\u3071",
+    pi: "\u3074",
+    pu: "\u3077",
+    pe: "\u307A",
+    po: "\u307D",
+    va: "\u3094\u3041",
+    vi: "\u3094\u3043",
+    vu: "\u3094",
+    ve: "\u3094\u3047",
+    vo: "\u3094\u3049",
+    fa: "\u3075\u3041",
+    fi: "\u3075\u3043",
+    fe: "\u3075\u3047",
+    fo: "\u3075\u3049",
+    xa: "\u3041",
+    xi: "\u3043",
+    xu: "\u3045",
+    xe: "\u3047",
+    xo: "\u3049",
+    xya: "\u3083",
+    xyu: "\u3085",
+    xyo: "\u3087",
+    lya: "\u3083",
+    lyu: "\u3085",
+    lyo: "\u3087",
+    xtu: "\u3063",
+    ltu: "\u3063",
+    xtsu: "\u3063",
+    ltsu: "\u3063",
+    "-": "\u30FC"
+  };
+  var YOON = [
+    [["ky"], "\u304D"],
+    [["gy"], "\u304E"],
+    [["sh", "sy"], "\u3057"],
+    [["j", "jy", "zy"], "\u3058"],
+    [["ch", "ty", "cy"], "\u3061"],
+    [["dy"], "\u3062"],
+    [["ny"], "\u306B"],
+    [["hy"], "\u3072"],
+    [["by"], "\u3073"],
+    [["py"], "\u3074"],
+    [["my"], "\u307F"],
+    [["ry", "ly"], "\u308A"]
+  ];
+  var SMALL = { a: "\u3083", u: "\u3085", o: "\u3087" };
+  var _a, _b;
+  for (const [prefixes, kana] of YOON) {
+    for (const p of prefixes) {
+      for (const [v, small] of Object.entries(SMALL)) BASE[_a = p + v] ?? (BASE[_a] = kana + small);
+      if (p === "sh" || p === "ch" || p === "j") BASE[_b = p + "e"] ?? (BASE[_b] = kana + "\u3047");
+    }
+  }
+  var VOWELS = /* @__PURE__ */ new Set(["a", "i", "u", "e", "o"]);
+  function romajiToHiragana(input) {
+    const s = input.toLowerCase();
+    let out = "";
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      const next2 = s[i + 1];
+      if (c === "n") {
+        if (next2 === "'") {
+          out += "\u3093";
+          i += 2;
+          continue;
+        }
+        if (next2 === void 0) {
+          out += "\u3093";
+          i += 1;
+          continue;
+        }
+        if (next2 === "n") {
+          const after = s[i + 2];
+          out += "\u3093";
+          i += after !== void 0 && (VOWELS.has(after) || after === "y") ? 1 : 2;
+          continue;
+        }
+        if (!VOWELS.has(next2) && next2 !== "y") {
+          out += "\u3093";
+          i += 1;
+          continue;
+        }
+      }
+      if (c >= "a" && c <= "z" && !VOWELS.has(c) && (next2 === c || c === "t" && next2 === "c")) {
+        out += "\u3063";
+        i += 1;
+        continue;
+      }
+      let matched = false;
+      for (let len = 4; len >= 1; len--) {
+        const kana = BASE[s.slice(i, i + len)];
+        if (kana) {
+          out += kana;
+          i += len;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        out += c;
+        i += 1;
+      }
+    }
+    return out;
+  }
+  var katakanaToHiragana = (s) => s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 96));
+  function normalizeAnswer(input) {
+    const halfWidth = input.normalize("NFKC");
+    const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
+    return romajiToHiragana(katakanaToHiragana(cleaned));
+  }
+  function isCorrectReading(input, readings) {
+    const answer = normalizeAnswer(input);
+    return answer.length > 0 && readings.some((r2) => katakanaToHiragana(r2) === answer);
+  }
+
+  // src/client/api.ts
+  var today = () => {
+    const d = /* @__PURE__ */ new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  var TOKEN_KEY = "kb:token";
+  var getToken = () => {
+    try {
+      return localStorage.getItem(TOKEN_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  };
+  var setToken = (t) => {
+    try {
+      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+    } catch {
+    }
+  };
+  var ApiError = class extends Error {
+    constructor(message, status) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  async function call(method, url, body) {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+      body: body === void 0 ? void 0 : JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
+    return data;
+  }
+  var api = {
+    login: (username, password) => call("POST", "/api/login", { username, password }),
+    register: (username, password) => call("POST", "/api/register", { username, password }),
+    me: () => call("GET", `/api/me?today=${today()}`),
+    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
+    removeAvatar: () => call("DELETE", "/api/me/avatar"),
+    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
+    setStaff: (staff) => call("PUT", "/api/me/staff", { staff }),
+    setBackground: (background) => call("PUT", "/api/me/background", { background }),
+    study: () => call("GET", `/api/study?today=${today()}`),
+    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
+    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
+    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    matches: () => call("GET", "/api/matches"),
+    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
+    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
+    users: () => call("GET", "/api/admin/users"),
+    tutorialDone: () => call("PUT", "/api/me/tutorial"),
+    progress: () => call("GET", `/api/progress?today=${today()}`),
+    strokes: (chars) => call("GET", `/api/strokes?k=${encodeURIComponent(chars)}`),
+    daily: () => call("GET", "/api/daily"),
+    dailyStart: () => call("POST", "/api/daily/start"),
+    dailyAnswer: (text) => call("POST", "/api/daily/answer", { text }),
+    dailyFinish: () => call("POST", "/api/daily/finish"),
+    friends: () => call("GET", "/api/friends"),
+    addFriend: (username) => call("POST", "/api/friends", { username }),
+    acceptFriend: (id) => call("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
+    removeFriend: (id) => call("DELETE", `/api/friends/${encodeURIComponent(id)}`),
+    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
+  };
+
+  // src/client/audio.ts
+  var PREFS_KEY = "kb:audio";
+  var DEFAULTS = { radio: true, sfx: true, musicVol: 0.7, sfxVol: 0.8 };
+  var prefs2 = (() => {
+    try {
+      return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
+    } catch {
+      return { ...DEFAULTS };
+    }
+  })();
+  var clamp01 = (v) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+  var sfxGain = () => 0.7 * prefs2.sfxVol * prefs2.sfxVol * 1.4;
+  var musicGain = () => 0.9 * prefs2.musicVol * prefs2.musicVol * 1.3;
+  var savePrefs = () => {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs2));
+    } catch {
+    }
+  };
+  var ctx = null;
+  var sfxBus;
+  var musicBus;
+  var menuBus;
+  var battleBus;
+  var ambBus;
+  var reverb;
+  var scene = "menu";
+  function ensure() {
+    if (ctx) return ctx;
+    const AC = window.AudioContext ?? window.webkitAudioContext;
+    if (!AC) return null;
+    ctx = new AC();
+    const comp = ctx.createDynamicsCompressor();
+    comp.connect(ctx.destination);
+    sfxBus = ctx.createGain();
+    sfxBus.gain.value = sfxGain();
+    sfxBus.connect(comp);
+    musicBus = ctx.createGain();
+    musicBus.gain.value = musicGain();
+    musicBus.connect(comp);
+    menuBus = ctx.createGain();
+    menuBus.gain.value = 0;
+    menuBus.connect(musicBus);
+    battleBus = ctx.createGain();
+    battleBus.gain.value = 0;
+    battleBus.connect(musicBus);
+    ambBus = ctx.createGain();
+    ambBus.gain.value = 0.9;
+    ambBus.connect(musicBus);
+    reverb = ctx.createConvolver();
+    const len = ctx.sampleRate * 2.6;
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
+    }
+    reverb.buffer = ir;
+    const wet = ctx.createGain();
+    wet.gain.value = 0.35;
+    reverb.connect(wet).connect(comp);
+    return ctx;
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!ctx) return;
+    if (document.visibilityState === "hidden") void ctx.suspend();
+    else void ctx.resume().then(() => syncMusic());
+  });
+  function unlock() {
+    const c = ensure();
+    if (!c) return;
+    if (c.state === "suspended" && document.visibilityState === "visible") void c.resume();
+    syncMusic();
+  }
+  function setScene(s) {
+    scene = s;
+    syncMusic();
+  }
+  function syncMusic() {
+    if (!ctx) return;
+    const on = prefs2.radio && prefs2.musicVol > 0 && document.visibilityState === "visible";
+    const want = on ? scene === "menu" ? menuTheme : battleTheme : null;
+    for (const t of [menuTheme, battleTheme]) t === want ? t.fadeIn() : t.fadeOut();
+    syncAmbience();
+  }
+  var midi = (n) => 440 * 2 ** ((n - 69) / 12);
+  function tone(freq, at, dur, opts = {}) {
+    const c = ctx;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = opts.type ?? "sine";
+    o.frequency.setValueAtTime(freq, at);
+    if (opts.detune) o.detune.value = opts.detune;
+    if (opts.to) o.frequency.exponentialRampToValueAtTime(opts.to, at + dur);
+    const peak = opts.gain ?? 0.3;
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + (opts.attack ?? 8e-3));
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
+    o.connect(g).connect(opts.bus ?? sfxBus);
+    if (opts.send) {
+      const s = c.createGain();
+      s.gain.value = opts.send;
+      g.connect(s).connect(reverb);
+    }
+    o.start(at);
+    o.stop(at + dur + 0.05);
+  }
+  function bell(freq, at, dur, gain, bus = sfxBus) {
+    tone(freq, at, dur, { gain, bus, send: 0.6, attack: 3e-3 });
+    tone(freq * 2.76, at, dur * 0.4, { gain: gain * 0.25, bus, send: 0.6, attack: 2e-3 });
+    tone(freq * 5.4, at, dur * 0.18, { gain: gain * 0.08, bus, send: 0.6, attack: 2e-3 });
+  }
+  function noise(at, dur, gain, cutoff, type = "lowpass", bus = sfxBus, swell = false) {
+    const c = ctx;
+    const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (swell ? (i / data.length) ** 2 : 1 - i / data.length);
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const f2 = c.createBiquadFilter();
+    f2.type = type;
+    f2.frequency.value = cutoff;
+    const g = c.createGain();
+    g.gain.value = gain;
+    src.connect(f2).connect(g).connect(bus);
+    src.start(at);
+  }
+  var sfxOk = () => prefs2.sfx && ensure() !== null && ctx.state === "running";
+  var sfx = {
+    /**
+     * Spell cast: a magical chime. Each combo step makes it deeper and longer (like a multi-kill
+     * sound), from ×5 on it stays at its deepest, fullest version.
+     */
+    correct(combo = 1) {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      const step = Math.min(Math.max(combo, 1), 5) - 1;
+      const root = 88 - step * 5;
+      const ring = 0.7 + step * 0.45;
+      const notes = [0, 7, 12, 16].map((i) => root + i);
+      notes.forEach((n, i) => bell(midi(n), t + i * (0.045 + step * 0.012), ring, 0.16 + step * 0.015));
+      if (step >= 1) tone(midi(root - 24), t, ring * 1.2, { gain: 0.12 + step * 0.05, send: 0.3, attack: 0.01 });
+      if (step >= 4) [0.16, 0.32].forEach((dt) => bell(midi(root + 12), t + dt, 1.2, 0.1));
+      noise(t, 0.25, 0.05, 6e3, "highpass");
+    },
+    /** Miss / skip / timeout — soft descending fizzle. */
+    wrong() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      tone(330, t, 0.3, { type: "triangle", gain: 0.14, to: 140 });
+      tone(311, t + 0.03, 0.3, { type: "triangle", gain: 0.08, to: 130 });
+      noise(t, 0.2, 0.06, 900);
+    },
+    /** You took damage — thump. */
+    hurt() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      tone(140, t, 0.22, { gain: 0.35, to: 50 });
+      noise(t, 0.15, 0.25, 900);
+    },
+    /** Your spell lands on the opponent. */
+    impact() {
+      if (sfxOk()) noise(ctx.currentTime, 0.12, 0.15, 2500);
+    },
+    heal() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      [72, 76, 79, 84].forEach((n, i) => bell(midi(n), t + i * 0.08, 0.9, 0.1));
+    },
+    mana() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      for (let i = 0; i < 6; i++) bell(midi(84 + i * 5 % 12), t + i * 0.05, 0.5, 0.06);
+    },
+    rip() {
+      if (!sfxOk()) return;
+      noise(ctx.currentTime, 0.35, 0.3, 3e3, "bandpass");
+    },
+    flip() {
+      if (sfxOk()) noise(ctx.currentTime, 0.08, 0.12, 4e3, "highpass");
+    },
+    inhale() {
+      if (sfxOk()) tone(55, ctx.currentTime, 2.6, { type: "sawtooth", gain: 0.08, to: 110, attack: 1.5 });
+    },
+    fire() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      noise(t, 1.2, 0.5, 1400);
+      tone(70, t, 1.1, { type: "sawtooth", gain: 0.12, to: 40 });
+    },
+    claw() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      noise(t, 0.18, 0.4, 6e3);
+      tone(160, t + 0.05, 0.2, { gain: 0.3, to: 60 });
+    },
+    tick() {
+      if (sfxOk()) bell(1320, ctx.currentTime, 0.25, 0.08);
+    },
+    go() {
+      if (sfxOk()) bell(midi(88), ctx.currentTime, 0.8, 0.14);
+    },
+    /** Deck Duel: your turn — two bright rising bells. */
+    yourTurn() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      bell(midi(81), t, 0.5, 0.11);
+      bell(midi(88), t + 0.14, 0.7, 0.13);
+    },
+    /** Victory: a bright fanfare (major, rising, with harmony and a final bell). */
+    win() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      const brass = (n, at, dur) => {
+        tone(midi(n), t + at, dur, { type: "sawtooth", gain: 0.07, attack: 0.03, send: 0.4 });
+        tone(midi(n), t + at, dur, { type: "triangle", gain: 0.12, attack: 0.02, send: 0.4, detune: 6 });
+      };
+      [[67, 0], [72, 0.14], [76, 0.28]].forEach(([n, at]) => brass(n, at, 0.22));
+      brass(79, 0.44, 0.9);
+      brass(76, 0.44, 0.9);
+      brass(72, 0.44, 0.9);
+      bell(midi(91), t + 0.44, 1.8, 0.12);
+      tone(midi(48), t + 0.44, 1.2, { gain: 0.2, send: 0.3 });
+    },
+    /** Defeat: slow, falling minor phrase. */
+    lose() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      [[69, 0], [68, 0.38], [67, 0.76], [62, 1.14]].forEach(([n, at]) => {
+        tone(midi(n), t + at, 0.7, { type: "triangle", gain: 0.13, attack: 0.04, send: 0.5 });
+      });
+      tone(midi(38), t + 1.14, 1.8, { gain: 0.16, send: 0.4, attack: 0.05 });
+    }
+  };
+  function makeTrack(bpm, bus, play) {
+    const STEP = 60 / bpm / 2;
+    let timer2;
+    let stopTimer;
+    let nextTime = 0;
+    let step = 0;
+    const schedule = () => {
+      const c = ctx;
+      while (nextTime < c.currentTime + 0.5) {
+        play(step, nextTime);
+        nextTime += STEP;
+        step++;
+      }
+    };
+    return {
+      STEP,
+      fadeIn() {
+        if (!ctx) return;
+        clearTimeout(stopTimer);
+        stopTimer = void 0;
+        bus().gain.cancelScheduledValues(ctx.currentTime);
+        bus().gain.setTargetAtTime(1, ctx.currentTime, 0.9);
+        if (timer2 !== void 0) return;
+        nextTime = ctx.currentTime + 0.12;
+        step = 0;
+        schedule();
+        timer2 = window.setInterval(schedule, 150);
+      },
+      fadeOut() {
+        if (!ctx || timer2 === void 0 || stopTimer !== void 0) return;
+        bus().gain.cancelScheduledValues(ctx.currentTime);
+        bus().gain.setTargetAtTime(0, ctx.currentTime, 0.45);
+        stopTimer = window.setTimeout(() => {
+          clearInterval(timer2);
+          timer2 = void 0;
+          stopTimer = void 0;
+        }, 2200);
+      }
+    };
+  }
+  function strings(notes, at, dur, bus, level2 = 0.035, cutoff = 1100) {
+    const c = ctx;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = cutoff;
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(level2, at + 0.9);
+    g.gain.setValueAtTime(level2, at + dur - 0.6);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur + 0.5);
+    lp.connect(g).connect(bus);
+    const s = c.createGain();
+    s.gain.value = 0.5;
+    g.connect(s).connect(reverb);
+    for (const n of notes) for (const d of [-7, 7]) {
+      const o = c.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = midi(n);
+      o.detune.value = d;
+      o.connect(lp);
+      o.start(at);
+      o.stop(at + dur + 0.6);
+    }
+  }
+  function flute(n, at, dur, bus) {
+    const c = ctx;
+    const o = c.createOscillator();
+    const vib = c.createOscillator();
+    const vg = c.createGain();
+    vib.frequency.value = 5.2;
+    vg.gain.value = 4;
+    vib.connect(vg).connect(o.frequency);
+    o.type = "sine";
+    o.frequency.value = midi(n);
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(0.045, at + 0.06);
+    g.gain.setValueAtTime(0.04, at + dur * 0.7);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
+    o.connect(g).connect(bus);
+    const s = c.createGain();
+    s.gain.value = 0.7;
+    g.connect(s).connect(reverb);
+    o.start(at);
+    vib.start(at);
+    o.stop(at + dur + 0.05);
+    vib.stop(at + dur + 0.05);
+  }
+  function horn(n, at, dur, bus, level2 = 0.05) {
+    const c = ctx;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(350, at);
+    lp.frequency.linearRampToValueAtTime(1300, at + Math.min(0.5, dur * 0.5));
+    lp.frequency.linearRampToValueAtTime(600, at + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(level2, at + 0.12);
+    g.gain.setValueAtTime(level2 * 0.85, at + dur * 0.75);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
+    lp.connect(g).connect(bus);
+    const s = c.createGain();
+    s.gain.value = 0.45;
+    g.connect(s).connect(reverb);
+    for (const d of [-9, 9]) {
+      const o = c.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = midi(n);
+      o.detune.value = d;
+      o.connect(lp);
+      o.start(at);
+      o.stop(at + dur + 0.05);
+    }
+  }
+  var menuTheme = (() => {
+    const PROG = [
+      [50, 57, 62, 65],
+      [46, 53, 58, 62],
+      [41, 48, 53, 57],
+      [48, 55, 60, 64],
+      [50, 57, 62, 65],
+      [43, 50, 55, 58],
+      [45, 52, 57, 61],
+      [50, 57, 62, 65]
+    ];
+    const MELODY = [
+      [74, 0, 77, 0, 76, 74, 72, 0],
+      [74, 0, 0, 70, 72, 0, 74, 0],
+      [72, 0, 69, 0, 72, 74, 77, 0],
+      [76, 0, 74, 72, 74, 0, 0, 0],
+      [74, 0, 77, 0, 81, 0, 79, 77],
+      [79, 0, 77, 0, 74, 0, 70, 0],
+      [73, 0, 76, 0, 79, 77, 76, 73],
+      [74, 0, 0, 0, 0, 0, 0, 0]
+    ];
+    const track = makeTrack(84, () => menuBus, (step, at) => {
+      const STEP = track.STEP;
+      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
+      const loop = Math.floor(step / (8 * PROG.length));
+      if (inBar === 0) {
+        strings(chord.slice(1), at, STEP * 8, menuBus);
+        tone(midi(chord[0] - 12), at, STEP * 7, { gain: 0.07, bus: menuBus, attack: 0.05 });
+      }
+      const arp = [0, 1, 2, 3, 2, 1, 2, 3][inBar];
+      tone(midi(chord[arp] + 12), at, 1.4, { type: "triangle", gain: 0.05, bus: menuBus, send: 0.5, attack: 3e-3 });
+      tone(midi(chord[arp] + 24), at, 0.5, { gain: 0.015, bus: menuBus, send: 0.5, attack: 3e-3 });
+      if (inBar === 0 || inBar === 3 || inBar === 6) tone(inBar === 0 ? 62 : 55, at, 0.45, { gain: inBar === 0 ? 0.16 : 0.09, to: 38, bus: menuBus, attack: 4e-3 });
+      if (loop % 3 !== 0) {
+        const n = MELODY[bar][inBar];
+        if (n) {
+          let len = 1;
+          while (inBar + len < 8 && MELODY[bar][inBar + len] === 0) len++;
+          flute(n, at, STEP * Math.min(len, 4) * 0.95, menuBus);
+        }
+      }
+    });
+    return track;
+  })();
+  var battleTheme = (() => {
+    const PROG = [
+      [38, 50, 53, 57],
+      [39, 51, 55, 58],
+      [38, 50, 53, 57],
+      [36, 48, 52, 55],
+      [38, 50, 53, 57],
+      [34, 46, 50, 53],
+      [31, 43, 46, 50],
+      [33, 45, 49, 52]
+    ];
+    const HORN = [
+      [62, 0, 0, 0, 63, 0, 62, 0],
+      [63, 0, 0, 0, 0, 0, 58, 0],
+      [62, 0, 0, 65, 0, 0, 62, 0],
+      [60, 0, 0, 0, 0, 0, 0, 0],
+      [62, 0, 0, 0, 65, 0, 69, 0],
+      [70, 0, 0, 0, 69, 0, 65, 0],
+      [67, 0, 0, 0, 70, 0, 69, 67],
+      [69, 0, 0, 0, 0, 0, 0, 0]
+    ];
+    const DRUM = [1, 0, 0, 0.6, 0.8, 0, 0.5, 0.5];
+    const track = makeTrack(100, () => battleBus, (step, at) => {
+      const STEP = track.STEP;
+      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
+      const loop = Math.floor(step / (8 * PROG.length));
+      const accent = inBar === 0 || inBar === 3 || inBar === 6;
+      for (const n of [chord[0] + 12, chord[1]]) tone(midi(n), at, STEP * 0.8, { type: "sawtooth", gain: accent ? 0.022 : 0.012, bus: battleBus, attack: 5e-3 });
+      if (inBar === 0) {
+        strings(chord.slice(1), at, STEP * 8, battleBus, 0.022, 800);
+        tone(midi(chord[0]), at, STEP * 7.5, { gain: 0.09, bus: battleBus, attack: 0.04 });
+      }
+      const d = DRUM[inBar];
+      if (d) {
+        tone(inBar === 0 ? 58 : 66, at, 0.5, { gain: 0.2 * d, to: 34, bus: battleBus, attack: 3e-3 });
+        noise(at, 0.12, 0.05 * d, 900, "lowpass", battleBus);
+      }
+      if (loop >= 1) {
+        const n = HORN[bar][inBar];
+        if (n) {
+          let len = 1;
+          while (inBar + len < 8 && HORN[bar][inBar + len] === 0) len++;
+          horn(n - 12, at, STEP * len * 0.97, battleBus);
+        }
+      }
+      if (loop % 2 === 1 && bar >= 4) tone(midi(chord[2] + 24 + (bar === 7 ? 1 : 0)), at, STEP * 0.45, { type: "sawtooth", gain: 8e-3, bus: battleBus, send: 0.5, attack: 0.01 });
+      if (inBar === 4 && bar % 4 === 3) noise(at, STEP * 4, 0.035, 6e3, "highpass", battleBus, true);
+    });
+    return track;
+  })();
+  var isRadioOn = () => prefs2.radio;
+  var isSfxOn = () => prefs2.sfx;
+  var getVolumes = () => ({ music: prefs2.musicVol, sfx: prefs2.sfxVol });
+  function setRadio(on) {
+    prefs2.radio = on;
+    savePrefs();
+    ensure();
+    if (on && ctx?.state === "suspended") void ctx.resume();
+    syncMusic();
+  }
+  function setSfx(on) {
+    prefs2.sfx = on;
+    savePrefs();
+  }
+  function setMusicVolume(v) {
+    prefs2.musicVol = clamp01(v);
+    if (prefs2.musicVol > 0) prefs2.radio = true;
+    savePrefs();
+    ensure();
+    if (ctx) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05);
+    syncMusic();
+  }
+  function setSfxVolume(v) {
+    prefs2.sfxVol = clamp01(v);
+    if (prefs2.sfxVol > 0) prefs2.sfx = true;
+    savePrefs();
+    ensure();
+    if (ctx) sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05);
+  }
+  function previewSfx() {
+    if (sfxOk()) bell(midi(76), ctx.currentTime, 0.8, 0.18);
+  }
+  var ambBg = null;
+  var ambTime = "night";
+  var ambTimer;
+  function setAmbience(bg2, time) {
+    const changed = bg2 !== ambBg;
+    ambBg = bg2;
+    ambTime = time;
+    if (changed) syncAmbience();
+  }
+  function syncAmbience() {
+    clearTimeout(ambTimer);
+    ambTimer = void 0;
+    if (!ctx || !ambBg || !prefs2.radio || prefs2.musicVol <= 0 || scene !== "menu" || document.visibilityState !== "visible") return;
+    const next2 = (first) => {
+      ambTimer = window.setTimeout(() => {
+        if (ctx?.state === "running") ambientCall(ambBg, ambTime);
+        next2(false);
+      }, (first ? 4e3 : 12e3) + Math.random() * 16e3);
+    };
+    next2(true);
+  }
+  function ambientCall(bg2, time) {
+    const t = ctx.currentTime + 0.05;
+    if (bg2 === "forest") time === "day" ? birds(t) : owl(t);
+    else if (bg2 === "swamp") frogs(t);
+    else if (bg2 === "plains") goblins(t);
+    else if (bg2 === "castle") {
+      clash(t);
+      if (Math.random() < 0.6) clash(t + 0.32 + Math.random() * 0.2);
+      if (Math.random() < 0.25) roar(t + 1.4);
+    } else if (bg2 === "worldtree") sparkle(t);
+  }
+  function owl(at) {
+    const hoot = (t0, dur, f02) => {
+      const c = ctx;
+      const o = c.createOscillator();
+      o.type = "sine";
+      o.frequency.setValueAtTime(f02, t0);
+      o.frequency.exponentialRampToValueAtTime(f02 * 0.88, t0 + dur);
+      const vib = c.createOscillator();
+      const vg = c.createGain();
+      vib.frequency.value = 7;
+      vg.gain.value = 6;
+      vib.connect(vg).connect(o.frequency);
+      const g = c.createGain();
+      g.gain.setValueAtTime(1e-4, t0);
+      g.gain.exponentialRampToValueAtTime(0.09, t0 + 0.06);
+      g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = f02;
+      bp.Q.value = 2;
+      o.connect(bp).connect(g).connect(ambBus);
+      const s = c.createGain();
+      s.gain.value = 0.8;
+      g.connect(s).connect(reverb);
+      o.start(t0);
+      vib.start(t0);
+      o.stop(t0 + dur + 0.05);
+      vib.stop(t0 + dur + 0.05);
+    };
+    const f0 = 360 + Math.random() * 40;
+    hoot(at, 0.32, f0);
+    hoot(at + 0.75, 0.18, f0 * 1.04);
+    hoot(at + 1, 0.75, f0 * 1.06);
+  }
+  function birds(at) {
+    for (let i = 0; i < 3 + Math.floor(Math.random() * 3); i++) {
+      const t = at + i * 0.16 + Math.random() * 0.05, f0 = 2600 + Math.random() * 900;
+      tone(f0, t, 0.09, { gain: 0.02, to: f0 * 1.35, bus: ambBus, send: 0.4, attack: 5e-3 });
+    }
+  }
+  function frogs(at) {
+    const ribbit = (t0, k) => {
+      const c = ctx;
+      for (const [off, len, pitch] of [[0, 0.11, 1], [0.17, 0.14, 1.12]]) {
+        const o = c.createOscillator();
+        o.type = "square";
+        o.frequency.value = 190 * k * pitch;
+        const bp = c.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.value = 850 * k;
+        bp.Q.value = 3;
+        const g = c.createGain();
+        g.gain.setValueAtTime(1e-4, t0 + off);
+        for (let p = 0; p < len / 0.025; p++) {
+          const tp = t0 + off + p * 0.025;
+          g.gain.setValueAtTime(1e-4, tp);
+          g.gain.linearRampToValueAtTime(0.05, tp + 6e-3);
+          g.gain.linearRampToValueAtTime(1e-4, tp + 0.02);
+        }
+        o.connect(bp).connect(g).connect(ambBus);
+        const s = c.createGain();
+        s.gain.value = 0.35;
+        g.connect(s).connect(reverb);
+        o.start(t0 + off);
+        o.stop(t0 + off + len + 0.03);
+      }
+    };
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) ribbit(at + Math.random() * 1.6, 0.85 + Math.random() * 0.5);
+  }
+  function goblins(at) {
+    const c = ctx;
+    const syll = (t0, f0, dur, formant, level2 = 0.035) => {
+      const o = c.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.setValueAtTime(f0, t0);
+      o.frequency.linearRampToValueAtTime(f0 * (0.85 + Math.random() * 0.4), t0 + dur);
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = formant;
+      bp.Q.value = 5;
+      const g = c.createGain();
+      g.gain.setValueAtTime(1e-4, t0);
+      g.gain.exponentialRampToValueAtTime(level2, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+      o.connect(bp).connect(g).connect(ambBus);
+      const s = c.createGain();
+      s.gain.value = 0.4;
+      g.connect(s).connect(reverb);
+      o.start(t0);
+      o.stop(t0 + dur + 0.02);
+    };
+    let t = at;
+    const n = 5 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < n; i++) {
+      const d = 0.06 + Math.random() * 0.06;
+      syll(t, 520 + Math.random() * 420, d, [700, 1100, 1500, 2100][Math.floor(Math.random() * 4)]);
+      t += d + 0.02;
+    }
+    if (Math.random() < 0.7) for (let i = 0; i < 4; i++) syll(t + 0.15 + i * 0.11, 900 + i * 40, 0.07, 1800, 0.04);
+  }
+  function clash(at) {
+    for (const [f0, dur, g] of [[1760, 0.7, 0.035], [2730, 0.55, 0.025], [3980, 0.4, 0.02], [5560, 0.3, 0.012]]) {
+      const fr = f0 * (0.97 + Math.random() * 0.06);
+      tone(fr, at, dur, { gain: g, bus: ambBus, send: 0.6, attack: 2e-3 });
+    }
+    noise(at, 0.07, 0.05, 2600, "highpass", ambBus);
+  }
+  function roar(at) {
+    const c = ctx;
+    const o = c.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(95, at);
+    o.frequency.exponentialRampToValueAtTime(55, at + 1.5);
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 420;
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(0.05, at + 0.3);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + 1.6);
+    o.connect(lp).connect(g).connect(ambBus);
+    const s = c.createGain();
+    s.gain.value = 0.9;
+    g.connect(s).connect(reverb);
+    o.start(at);
+    o.stop(at + 1.7);
+  }
+  function sparkle(at) {
+    const notes = [79, 81, 84, 86, 88, 91];
+    for (let i = 0; i < 4; i++) bell(midi(notes[Math.floor(Math.random() * notes.length)]), at + i * 0.18, 1.4, 0.03, ambBus);
+  }
+
+  // src/client/strokes.ts
+  var cache = /* @__PURE__ */ new Map();
+  async function load(chars) {
+    const missing = [...new Set(chars)].filter((c) => !cache.has(c));
+    if (!missing.length) return;
+    try {
+      const { strokes: strokes2 } = await api.strokes(missing.join(""));
+      for (const c of missing) cache.set(c, strokes2[c] ?? null);
+    } catch {
+      for (const c of missing) cache.set(c, null);
+    }
+  }
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  var el = (tag, attrs = {}) => {
+    const e = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+    return e;
+  };
+  function pathOf(pts) {
+    if (pts.length < 3) return `M${pts.map((p) => p.join(" ")).join(" L")}`;
+    let d = `M${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
+      d += ` Q${pts[i][0]} ${pts[i][1]} ${mx.toFixed(1)} ${my.toFixed(1)}`;
+    }
+    const last = pts[pts.length - 1];
+    return `${d} L${last[0]} ${last[1]}`;
+  }
+  function diagram(ch, strokes2, stepMs, delay) {
+    if (!strokes2 || !strokes2.length) {
+      const s = el("svg", { viewBox: "0 0 100 100", class: "so-svg" });
+      s.append(gridLines());
+      const t = el("text", { x: 50, y: 52, "text-anchor": "middle", "dominant-baseline": "central", class: "so-glyph" });
+      t.textContent = ch;
+      s.append(t);
+      return s;
+    }
+    const all = strokes2.flat();
+    const xs = all.map((p) => p[0]), ys = all.map((p) => p[1]);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const scale2 = 76 / Math.max(x1 - x0, y1 - y0, 1);
+    const ox = 50 - (x0 + x1) / 2 * scale2, oy = 50 - (y0 + y1) / 2 * scale2;
+    const fit = (s) => s.map(([x, y]) => [+(x * scale2 + ox).toFixed(1), +(y * scale2 + oy).toFixed(1)]);
+    const svg = el("svg", { viewBox: "0 0 100 100", class: "so-svg" });
+    svg.append(gridLines());
+    const ghost = el("g", { class: "so-ghost" });
+    const ink = el("g", { class: "so-ink" });
+    const nums = el("g", { class: "so-nums" });
+    strokes2.forEach((raw, i) => {
+      const pts = fit(raw);
+      const d = pathOf(pts);
+      ghost.append(el("path", { d }));
+      const p = el("path", { d, pathLength: 1, style: `animation-delay:${delay + i * stepMs}ms;animation-duration:${stepMs * 0.85}ms` });
+      ink.append(p);
+      const n = el("text", { x: pts[0][0] - 4, y: pts[0][1] - 3, style: `animation-delay:${delay + i * stepMs}ms` });
+      n.textContent = String(i + 1);
+      nums.append(n);
+    });
+    svg.append(ghost, ink, nums);
+    return svg;
+  }
+  function gridLines() {
+    const g = el("g", { class: "so-grid" });
+    g.append(el("line", { x1: 50, y1: 4, x2: 50, y2: 96 }), el("line", { x1: 4, y1: 50, x2: 96, y2: 50 }), el("rect", { x: 2, y: 2, width: 96, height: 96, rx: 6 }));
+    return g;
+  }
+  async function showStrokeOrder(box, word2, o = {}) {
+    const chars = [...word2];
+    const stepMs = o.stepMs ?? 520;
+    box.classList.add("stroke-order");
+    box.replaceChildren(Object.assign(document.createElement("div"), { className: "so-loading", textContent: "\u2026" }));
+    await load(chars.filter((c) => /[\p{Script=Han}々]/u.test(c)));
+    const row = document.createElement("div");
+    row.className = "so-row";
+    let delay = 0;
+    for (const ch of chars) {
+      const strokes2 = /[\p{Script=Han}々]/u.test(ch) ? cache.get(ch) ?? null : null;
+      const cell = document.createElement("div");
+      cell.className = "so-cell";
+      cell.append(diagram(ch, strokes2, stepMs, delay));
+      row.append(cell);
+      delay += (strokes2?.length ?? 0) * stepMs + (strokes2 ? 250 : 0);
+    }
+    const foot = document.createElement("div");
+    foot.className = "so-foot";
+    if (o.caption) foot.append(Object.assign(document.createElement("span"), { textContent: o.caption }));
+    const replay = Object.assign(document.createElement("button"), { className: "pill so-replay", type: "button", textContent: "\u21BB Replay" });
+    replay.onclick = () => {
+      for (const n of row.querySelectorAll(".so-ink path, .so-nums text")) {
+        n.style.animationName = "none";
+        void n.offsetWidth;
+        n.style.animationName = "";
+      }
+    };
+    foot.append(replay);
+    box.replaceChildren(row, foot);
   }
 
   // src/client/pixelstaffs.ts
@@ -301,9 +1362,18 @@
     storm: { w: "#2a2440", s: "#8c86a8", r: "#b26bff", O: "#d6b0ff" },
     void: { w: "#5a6688", s: "#e4e8f2", c: "#8fc8ff", O: "#4a7dff", "*": "#ffffff" }
   };
+  function mix(a, b, t) {
+    const p = (h3) => [1, 3, 5].map((i) => parseInt(h3.slice(i, i + 2), 16));
+    const [x, y] = [p(a), p(b)];
+    return `#${x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join("")}`;
+  }
   function staffPixels(id) {
-    const skin = staffOf(id).id;
-    const map = MAPS[skin], pal = PALS[skin];
+    const def = staffOf(id);
+    const shape = def.base ?? def.id;
+    const map = MAPS[shape];
+    const pal = { ...PALS[shape] };
+    if (def.tint) for (const k of Object.keys(pal)) pal[k] = mix(pal[k], def.tint, k === "O" ? 0 : 0.55);
+    if (def.tint) pal.O = def.gem;
     const out = [];
     map.forEach((row, y) => [...row].forEach((ch, x) => {
       if (ch !== ".") out.push([x, y, pal[ch], ch === "O"]);
@@ -781,46 +1851,46 @@
     ${t === "night" ? fireflies(30, 80, 560, "#bff8ff") : ""}`;
   }
   var SCENES = { forest, swamp, plains, castle, worldtree };
-  function scene(id, t) {
+  function scene2(id, t) {
     seed = [...id + t].reduce((s, c) => s + c.charCodeAt(0) * 97, 7);
     const key = `${id}-${t}`;
     return SCENES[id](t).replace(/id="(\w+)"/g, `id="${key}-$1"`).replace(/url\(#(\w+)\)/g, `url(#${key}-$1)`);
   }
-  var cache = /* @__PURE__ */ new Map();
+  var cache2 = /* @__PURE__ */ new Map();
   var BG_FADE_MS = 3200;
   var fadeTimer = 0;
-  function paintBackground(el2, id, time = "night", fade = false) {
+  function paintBackground(el7, id, time = "night", fade = false) {
     const key = `${id}-${time}`;
-    if (el2.dataset.key === key) return;
-    el2.dataset.key = key;
-    if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time)}</svg>`);
+    if (el7.dataset.key === key) return;
+    el7.dataset.key = key;
+    if (!cache2.has(key)) cache2.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene2(id, time)}</svg>`);
     const swap = () => {
       const layer = document.createElement("div");
       layer.className = "bg-layer";
-      layer.innerHTML = cache.get(key);
-      const old = el2.querySelector(".bg-layer");
+      layer.innerHTML = cache2.get(key);
+      const old = el7.querySelector(".bg-layer");
       if (old) old.replaceWith(layer);
-      else el2.prepend(layer);
-      el2.dataset.bg = id;
-      el2.dataset.time = time;
+      else el7.prepend(layer);
+      el7.dataset.bg = id;
+      el7.dataset.time = time;
     };
     clearTimeout(fadeTimer);
-    el2.querySelector(".bg-veil")?.remove();
-    if (!fade || !el2.querySelector(".bg-layer")) return swap();
+    el7.querySelector(".bg-veil")?.remove();
+    if (!fade || !el7.querySelector(".bg-layer")) return swap();
     const veil = document.createElement("div");
     veil.className = "bg-veil";
     veil.style.animationDuration = `${BG_FADE_MS}ms`;
-    el2.append(veil);
+    el7.append(veil);
     fadeTimer = window.setTimeout(() => {
       swap();
       fadeTimer = window.setTimeout(() => veil.remove(), BG_FADE_MS / 2 + 100);
     }, BG_FADE_MS / 2);
   }
   function sceneSvg(id, time) {
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${scene(id, time)}</svg>`;
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${scene2(id, time)}</svg>`;
   }
   function backgroundThumb(id, time = "night") {
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="still">${scene(id, time)}</svg>`;
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="still">${scene2(id, time)}</svg>`;
   }
   var TIME_KEY = "kb:bgtime";
   function getTimePref() {
@@ -841,7 +1911,7 @@
   // src/client/arena.ts
   var KEY3 = "kb:3d";
   var GAME_SCREENS = /* @__PURE__ */ new Set(["battle", "deck"]);
-  var api = null;
+  var api2 = null;
   var loading = null;
   var onScreen = false;
   var bg = { id: "forest", time: "night" };
@@ -854,26 +1924,33 @@
       return false;
     }
   })();
-  var arenaSupported = () => webgl && innerWidth >= 900 && innerHeight >= 560;
-  function arenaPref() {
+  var arenaSupported = () => webgl && innerWidth >= 640 && innerHeight >= 340 && innerWidth > innerHeight;
+  var smallOrTouch = () => innerWidth < 900 || innerHeight < 560 || matchMedia("(pointer: coarse)").matches;
+  function arenaQuality() {
+    let v = null;
     try {
-      return localStorage.getItem(KEY3) !== "off";
+      v = localStorage.getItem(KEY3);
     } catch {
-      return true;
     }
+    const q = v === "off" ? "off" : v === "lite" ? "lite" : v === "on" || v === "full" ? "full" : smallOrTouch() ? "lite" : "full";
+    return q === "full" && smallOrTouch() && innerWidth < 900 ? "lite" : q;
   }
-  function setArenaPref(on) {
+  var arenaPref = () => arenaQuality() !== "off";
+  function setArenaQuality(q) {
     try {
-      localStorage.setItem(KEY3, on ? "on" : "off");
+      localStorage.setItem(KEY3, q === "full" ? "on" : q);
     } catch {
     }
-    if (!on) {
-      api?.setActive(false);
+    if (q === "off") {
+      api2?.setActive(false);
       document.body.classList.remove("has-3d");
-    } else if (onScreen) void activate();
+      return;
+    }
+    api2?.setLite(q === "lite");
+    if (onScreen) void activate();
   }
   var wanted = () => arenaPref() && arenaSupported();
-  var arena = () => api && onScreen && wanted() ? api : null;
+  var arena = () => api2 && onScreen && wanted() ? api2 : null;
   var bundle = null;
   function loadBundle() {
     bundle ?? (bundle = new Promise((resolve) => {
@@ -888,14 +1965,14 @@
     }));
     return bundle;
   }
-  function load() {
-    if (api) return Promise.resolve(api);
+  function load2() {
+    if (api2) return Promise.resolve(api2);
     loading ?? (loading = loadBundle().then((ok) => {
       const create = globalThis.KWArena3D;
-      api = ok ? create?.(document.getElementById("arena3d")) ?? null : null;
-      if (api && location.search.includes("debug3d")) globalThis.__arena = api;
-      if (!api) loading = null;
-      return api;
+      api2 = ok ? create?.(document.getElementById("arena3d"), { lite: arenaQuality() === "lite" }) ?? null : null;
+      if (api2 && location.search.includes("debug3d")) globalThis.__arena = api2;
+      if (!api2) loading = null;
+      return api2;
     }));
     return loading;
   }
@@ -905,11 +1982,11 @@
     return create?.(canvas) ?? null;
   }
   function preloadArena() {
-    if (wanted()) setTimeout(() => void load(), 1500);
+    if (wanted()) setTimeout(() => void load2(), 1500);
   }
   async function activate() {
     if (!wanted()) return;
-    const a = await load();
+    const a = await load2();
     if (!a || !onScreen || !wanted()) return;
     if (pending) {
       a.setup({ ...pending, bgSvg: sceneSvg(bg.id, bg.time), bgKey: `${bg.id}-${bg.time}`, time: bg.time });
@@ -922,7 +1999,7 @@
     onScreen = GAME_SCREENS.has(screen);
     if (onScreen) void activate();
     else {
-      api?.setActive(false);
+      api2?.setActive(false);
       document.body.classList.remove("has-3d");
     }
   }
@@ -931,15 +2008,15 @@
   }
   function configure(s) {
     pending = s;
-    if (api && onScreen && wanted()) void activate();
+    if (api2 && onScreen && wanted()) void activate();
   }
   function arenaForBattle(mode2, players2, you2) {
-    const me2 = players2.find((p) => p.id === you2);
+    const me3 = players2.find((p) => p.id === you2);
     const others = players2.filter((p) => p.id !== you2);
     const art = (p) => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff });
     configure({
       layout: "battle",
-      me: me2 ? art(me2) : { id: you2, character: "wizard" },
+      me: me3 ? art(me3) : { id: you2, character: "wizard" },
       opp: mode2 === "boss" || !others[0] ? null : art(others[0]),
       allies: mode2 === "boss" ? others.map(art) : [],
       boss: mode2 === "boss" ? { id: "boss", svg: dragonSvg() } : null
@@ -947,14 +2024,14 @@
   }
   var deckKey = "";
   function arenaForDeck(v) {
-    const me2 = v.players.find((p) => p.id === v.you);
+    const me3 = v.players.find((p) => p.id === v.you);
     const opp = v.players.find((p) => p.id !== v.you);
-    const key = `${me2?.id}:${me2?.character}:${me2?.staff}:${opp?.id}:${opp?.character}:${opp?.staff}`;
-    if (key === deckKey && (!api || pending === null)) return;
+    const key = `${me3?.id}:${me3?.character}:${me3?.staff}:${opp?.id}:${opp?.character}:${opp?.staff}`;
+    if (key === deckKey && (!api2 || pending === null)) return;
     deckKey = key;
     configure({
       layout: "deck",
-      me: { id: v.you, name: me2?.name, character: me2?.character ?? "wizard", flame: flameColor(me2?.flame), staff: me2?.staff },
+      me: { id: v.you, name: me3?.name, character: me3?.character ?? "wizard", flame: flameColor(me3?.flame), staff: me3?.staff },
       opp: opp ? { id: opp.id, name: opp.name, character: opp.character ?? "wizard", flame: flameColor(opp.flame), staff: opp.staff } : null,
       allies: [],
       boss: null
@@ -967,17 +2044,17 @@
   // src/client/ui.ts
   var $ = (id) => document.getElementById(id);
   function h(tag, cls = "", text, attrs = {}) {
-    const el2 = document.createElement(tag);
-    if (cls) el2.className = cls;
-    if (text !== void 0) el2.textContent = String(text);
-    for (const [k, v] of Object.entries(attrs)) el2.setAttribute(k, v);
-    return el2;
+    const el7 = document.createElement(tag);
+    if (cls) el7.className = cls;
+    if (text !== void 0) el7.textContent = String(text);
+    for (const [k, v] of Object.entries(attrs)) el7.setAttribute(k, v);
+    return el7;
   }
   var append = (parent, ...kids) => {
     parent.append(...kids);
     return parent;
   };
-  var SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "customize", "deck", "history"];
+  var SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "customize", "deck", "history", "progress", "daily", "friends"];
   var screenListener = () => {
   };
   var onScreen2 = (fn) => {
@@ -1020,18 +2097,18 @@
     if (rtt === null || rtt === void 0) return 0;
     return rtt < 150 ? 3 : rtt < 400 ? 2 : 1;
   }
-  function paintNet(el2) {
-    const rtt = rtts.get(el2.dataset.net ?? "");
+  function paintNet(el7) {
+    const rtt = rtts.get(el7.dataset.net ?? "");
     const q = netQuality(rtt);
-    el2.className = `net q${q}`;
-    el2.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
+    el7.className = `net q${q}`;
+    el7.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
   }
   function netBars(playerId) {
-    const el2 = h("span", "net");
-    el2.dataset.net = playerId;
-    el2.innerHTML = "<i></i><i></i><i></i>";
-    paintNet(el2);
-    return el2;
+    const el7 = h("span", "net");
+    el7.dataset.net = playerId;
+    el7.innerHTML = "<i></i><i></i><i></i>";
+    paintNet(el7);
+    return el7;
   }
   function setNet(map) {
     for (const [id, rtt] of Object.entries(map)) rtts.set(id, rtt);
@@ -1057,9 +2134,9 @@
     $("ppStreak").textContent = String(p.streak ?? 0);
     $("ppBestStreak").textContent = String(Math.max(p.bestStreak ?? 0, p.streak ?? 0));
     for (const id of ["whoPic", "ppPic"]) {
-      const el2 = $(id);
-      el2.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
-      el2.classList.toggle("has-pic", !!p.pic);
+      const el7 = $(id);
+      el7.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
+      el7.classList.toggle("has-pic", !!p.pic);
     }
     $("picRemove").hidden = !p.pic;
     $("whoCrit").title = "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.";
@@ -1068,11 +2145,11 @@
   }
   var toastTimer = 0;
   function toast(text, ms = 3500) {
-    const el2 = $("toast");
-    el2.textContent = text;
-    el2.hidden = false;
+    const el7 = $("toast");
+    el7.textContent = text;
+    el7.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => el2.hidden = true, ms);
+    toastTimer = window.setTimeout(() => el7.hidden = true, ms);
   }
   function setUser(user2) {
     $("whoami").hidden = !user2;
@@ -1130,7 +2207,7 @@
     const m = Math.max(0, Math.round((Date.now() - t) / 6e4));
     return m < 60 ? `${m} min` : m < 60 * 24 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`;
   }
-  function showAdmin(users, me2, db, onToggle) {
+  function showAdmin(users, me3, db, onToggle) {
     const banned = users.filter((u) => u.banned).length;
     const online = users.filter((u) => u.online).length;
     $("adminInfo").textContent = `${online} online now \xB7 ${users.length} accounts \xB7 ${banned} banned`;
@@ -1141,7 +2218,7 @@
     $("userRows").replaceChildren(
       ...users.map((u) => {
         const action = h("td");
-        if (u.role !== "admin" && u.id !== me2.id) {
+        if (u.role !== "admin" && u.id !== me3.id) {
           const b = h("button", "pill" + (u.banned ? "" : " danger"), u.banned ? "Unban" : "Ban");
           b.onclick = () => onToggle(u);
           action.append(b);
@@ -1158,7 +2235,7 @@
         return append(
           h("tr", u.online ? "is-online" : ""),
           presence,
-          h("td", "", u.username + (u.id === me2.id ? " (you)" : "")),
+          h("td", "", u.username + (u.id === me3.id ? " (you)" : "")),
           h("td", "", u.role),
           h("td", "num", `Lv ${u.level ?? 0}`),
           h("td", "num", (u.xp ?? 0).toLocaleString()),
@@ -1320,9 +2397,9 @@
     bar.firstElementChild.style.width = `${pct}%`;
     return bar;
   }
-  function partyPanel(el2, players2, you2) {
+  function partyPanel(el7, players2, you2) {
     const ordered = [...players2].sort((a, b) => a.id === you2 ? -1 : b.id === you2 ? 1 : 0);
-    el2.replaceChildren(...ordered.map((p) => {
+    el7.replaceChildren(...ordered.map((p) => {
       const row = h("div", "party-row" + (p.id === you2 ? " me" : "") + (p.hp <= 0 ? " down" : ""));
       const pn = h("span", "n", p.id === you2 ? `${p.name} (you)` : p.name);
       if (p.id !== you2) markProfile(pn, p);
@@ -1346,19 +2423,19 @@
     bar.append(fill, h("span", "tbar-txt", text));
     return bar;
   }
-  function fighterCard(el2, p, label, emptyText) {
+  function fighterCard(el7, p, label, emptyText) {
     if (!p) {
-      el2.replaceChildren(h("div", "name", emptyText));
+      el7.replaceChildren(h("div", "name", emptyText));
       return;
     }
     const nameEl = h("span", "n", label);
     if (!label.endsWith("(you)")) markProfile(nameEl, p);
     const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo` : ""));
-    el2.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
+    el7.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
   function renderFighters(players2, you2, boss) {
-    const me2 = players2.find((p) => p.id === you2);
+    const me3 = players2.find((p) => p.id === you2);
     const other = players2.find((p) => p.id !== you2);
     $("meCard").classList.toggle("party", battleMode === "boss");
     $("oppCard").hidden = battleMode === "boss";
@@ -1368,30 +2445,30 @@
       if (boss) bar.replaceChildren(h("div", "bname", boss.name), thickBar(boss.hp, boss.maxHp, "enemy", `${boss.hp} / ${boss.maxHp}`));
       for (const p of players2) if (p.id !== you2) allyEl(p.id)?.classList.toggle("onfire", p.combo >= 5);
     } else {
-      fighterCard($("meCard"), me2, me2 ? `${me2.name} (you)` : "", "");
+      fighterCard($("meCard"), me3, me3 ? `${me3.name} (you)` : "", "");
       fighterCard($("oppCard"), other, other?.name ?? "", "Opponent left");
       $("wizOpp").classList.toggle("onfire", (other?.combo ?? 0) >= 5);
     }
-    $("wizMe").classList.toggle("onfire", (me2?.combo ?? 0) >= 5);
+    $("wizMe").classList.toggle("onfire", (me3?.combo ?? 0) >= 5);
     const a3 = arena();
     if (a3) for (const p of players2) a3.onfire(p.id === you2 ? "me" : battleMode === "boss" ? `ally:${p.id}` : "opp", p.combo >= 5 && p.hp > 0, flameColor(p.flame));
     if (battleMode === "boss") {
       for (const p of players2) if (p.hp <= 0) knockOut(p.id === you2 ? "me" : `ally:${p.id}`);
     }
-    const combo = me2 && me2.hp > 0 ? me2.combo : 0;
+    const combo = me3 && me3.hp > 0 ? me3.combo : 0;
     const hud = $("comboHud");
     hud.hidden = combo < 2;
     hud.classList.toggle("hot", combo >= 5);
-    hud.style.setProperty("--flame", flameColor(me2?.flame));
+    hud.style.setProperty("--flame", flameColor(me3?.flame));
     if (combo >= 2) hud.replaceChildren(h("b", "", `\xD7${combo}`), h("span", "", "COMBO"));
   }
   var allyEl = (id) => document.querySelector(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
   var actorEl = (a) => a.startsWith("ally:") ? allyEl(a.slice(5)) ?? $("wizMe") : $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : "dragon");
-  function retrigger(el2, cls, ms) {
-    el2.classList.remove(cls);
-    void el2.offsetWidth;
-    el2.classList.add(cls);
-    setTimeout(() => el2.classList.remove(cls), ms);
+  function retrigger(el7, cls, ms) {
+    el7.classList.remove(cls);
+    void el7.offsetWidth;
+    el7.classList.add(cls);
+    setTimeout(() => el7.classList.remove(cls), ms);
   }
   function setupArena(mode2, players2, you2) {
     battleMode = mode2;
@@ -1510,11 +2587,11 @@
     }, 180);
   }
   function breathWarning(inMs) {
-    const el2 = $("breathWarn");
-    el2.hidden = false;
+    const el7 = $("breathWarn");
+    el7.hidden = false;
     $("dragon").classList.add("inhale");
     arena()?.inhale(true);
-    countdown("breath", inMs, (left) => el2.textContent = `The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
+    countdown("breath", inMs, (left) => el7.textContent = `The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
   }
   function breathFire(damage, victims, immune = []) {
     stopCountdown("breath");
@@ -1552,11 +2629,11 @@
     }, 450);
   }
   function knockOut(who) {
-    const el2 = actorEl(who);
-    if (el2.classList.contains("ko")) return;
+    const el7 = actorEl(who);
+    if (el7.classList.contains("ko")) return;
     arena()?.ko(who);
-    el2.classList.add("ko");
-    el2.classList.remove("onfire");
+    el7.classList.add("ko");
+    el7.classList.remove("onfire");
   }
   function showBattle(mode2, players2, boss, you2, countdownMs, battleMs, onTick) {
     clearStudy();
@@ -1614,9 +2691,9 @@
     input.focus();
   }
   function setInputHint(text, warn = false) {
-    const el2 = $("inputHint");
-    el2.textContent = text;
-    el2.classList.toggle("warn", warn);
+    const el7 = $("inputHint");
+    el7.textContent = text;
+    el7.classList.toggle("warn", warn);
   }
   function setCharSlots(total, _written, active) {
     $("charSlots").replaceChildren(h("span", "slots-hint", total > 1 ? `Write all ${total} characters, left to right` : "Write the character"));
@@ -1647,36 +2724,52 @@
     $("writeArea").hidden = true;
   };
   function setFeedback(f2) {
-    const el2 = $("feedback");
+    const el7 = $("feedback");
     if (!f2) {
-      el2.replaceChildren();
-      el2.className = "feedback";
+      el7.replaceChildren();
+      el7.className = "feedback";
       return;
     }
-    el2.className = "feedback " + (f2.correct ? "good" : "bad");
+    el7.className = "feedback " + (f2.correct ? "good" : "bad");
     $("kanji").classList.remove("gone");
     $("meaningPrompt").hidden = true;
-    const word = (cls) => append(h("span", cls), h("span", "rk", f2.kanji, { lang: "ja" }), h("span", "rr", f2.reading, { lang: "ja" }), h("span", "", f2.meaning));
+    const word2 = (cls) => append(h("span", cls), h("span", "rk", f2.kanji, { lang: "ja" }), h("span", "rr", f2.reading, { lang: "ja" }), h("span", "", f2.meaning));
     if (f2.correct) {
       $("kanji").classList.add("cast");
       const combo = f2.combo >= 2 ? ` \xB7 \xD7${f2.combo} combo` : "";
       const big = h("span", "big" + (f2.crit ? " crit" : ""), f2.crit ? `\u2726 CRIT! ${f2.damage} damage` : `\u2713 CAST! ${f2.damage} damage`);
-      el2.replaceChildren(big, word("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
+      el7.replaceChildren(big, word2("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
     } else {
       if (f2.retry) {
-        el2.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
+        el7.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
         return;
       }
       const title = f2.beaten ? "Opponent was faster!" : f2.skipped ? "\u21B7 Skipped" : f2.timedOut ? "\u2717 Too slow!" : "\u2717 MISS!";
-      const kids = [h("span", "big", title), word("reveal")];
+      const kids = [h("span", "big", title), word2("reveal")];
       if (f2.recognized && !f2.skipped && !f2.timedOut) kids.push(h("span", "sub2", `The pad read: ${f2.recognized}`));
-      el2.replaceChildren(...kids);
+      el7.replaceChildren(...kids);
+      if (answerMode === "writing" && !f2.beaten) showWrongStrokes(el7, f2.kanji);
     }
   }
+  function openStrokeDialog(word2, reading, meaning) {
+    const d = $("strokeDialog");
+    $("sdWord").textContent = word2;
+    $("sdInfo").textContent = `${reading} \u2014 ${meaning}`;
+    void showStrokeOrder($("sdBox"), word2);
+    if (!d.open) d.showModal();
+  }
+  $("sdClose").onclick = () => $("strokeDialog").close();
+  function showWrongStrokes(box, word2) {
+    if (!/[\p{Script=Han}々]/u.test(word2)) return;
+    const div = h("div", "fb-strokes");
+    box.append(div);
+    const strokes2 = [...word2].length;
+    void showStrokeOrder(div, word2, { stepMs: Math.max(90, Math.min(220, 2200 / (strokes2 * 6))), caption: "How to write it" });
+  }
   function logLine(text, kanji) {
-    const el2 = $("log");
-    el2.replaceChildren(h("span", "", text));
-    if (kanji) el2.append(h("span", "k", ` ${kanji}`, { lang: "ja" }));
+    const el7 = $("log");
+    el7.replaceChildren(h("span", "", text));
+    if (kanji) el7.append(h("span", "k", ` ${kanji}`, { lang: "ja" }));
   }
   var REASONS = {
     ko: "Knock-out",
@@ -1697,7 +2790,7 @@
     $("resultActions").hidden = !!opts.history;
     $("historyBackRow").hidden = !opts.history;
     const otherId = Object.keys(stats).find((id) => id !== you2);
-    const me2 = stats[you2];
+    const me3 = stats[you2];
     const other = otherId ? stats[otherId] : void 0;
     const otherName = players2.find((p) => p.id === otherId)?.name ?? (mode2 === "boss" ? "Ally" : "Opponent");
     const rows = [
@@ -1714,32 +2807,36 @@
       const nameOf2 = (id) => players2.find((p) => p.id === id)?.name ?? "Ally";
       cmp.replaceChildren(h("div"), h("div", "h me", "You"), ...allies.map((id) => {
         const p = players2.find((x) => x.id === id);
-        const el2 = h("div", "h", nameOf2(id));
-        return p ? markProfile(el2, p) : el2;
+        const el7 = h("div", "h", nameOf2(id));
+        return p ? markProfile(el7, p) : el7;
       }));
-      for (const [label, fmt] of rows) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me2)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
+      for (const [label, fmt] of rows) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me3)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
     } else {
       cmp.style.gridTemplateColumns = "";
       const on = h("div", "h r", other ? otherName : "");
       const op = players2.find((p) => p.id === otherId);
       if (op) markProfile(on, op);
       cmp.replaceChildren(h("div", "h me", "You"), h("div"), on);
-      for (const [label, fmt] of rows) cmp.append(h("div", "v", fmt(me2)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
+      for (const [label, fmt] of rows) cmp.append(h("div", "v", fmt(me3)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
     }
-    const byKanji = new Map(me2.words.map((w) => [w.kanji, w]));
-    $("struggledBox").hidden = me2.struggled.length === 0;
+    const byKanji = new Map(me3.words.map((w) => [w.kanji, w]));
+    $("struggledBox").hidden = me3.struggled.length === 0;
     $("struggled").replaceChildren(
-      ...me2.struggled.map((k) => {
+      ...me3.struggled.map((k) => {
         const w = byKanji.get(k);
-        return append(h("div", "card"), h("div", "k", w.kanji, { lang: "ja" }), h("div", "r", w.reading, { lang: "ja" }), h("div", "m", w.meaning));
+        const card = append(h("div", "card clickable", void 0, { tabindex: "0", title: "Stroke order" }), h("div", "k", w.kanji, { lang: "ja" }), h("div", "r", w.reading, { lang: "ja" }), h("div", "m", w.meaning));
+        card.onclick = () => openStrokeDialog(w.kanji, w.reading, w.meaning);
+        return card;
       })
     );
     $("wordRows").replaceChildren(
-      ...me2.words.map((w) => {
+      ...me3.words.map((w) => {
         const result = w.attempts === 0 ? h("span", "na", "not seen") : w.correct === w.attempts ? h("span", "ok", `\u2713 ${w.correct}/${w.attempts}`) : h("span", "no", `\u2717 ${w.correct}/${w.attempts}`);
+        const k = h("td", "k clickable", w.kanji, { lang: "ja", title: "Stroke order" });
+        k.onclick = () => openStrokeDialog(w.kanji, w.reading, w.meaning);
         return append(
           h("tr"),
-          h("td", "k", w.kanji, { lang: "ja" }),
+          k,
           h("td", "rd", w.reading, { lang: "ja" }),
           h("td", "", w.meaning),
           append(h("td"), result),
@@ -1753,11 +2850,11 @@
     $("rematchStatus").textContent = "";
     show("results");
   }
-  function showXp(gained, level, levelUp) {
-    const el2 = $("xpLine");
-    el2.hidden = false;
-    el2.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
-    if (levelUp) el2.append(h("span", "lvup", `Level ${level}!`));
+  function showXp(gained, level2, levelUp) {
+    const el7 = $("xpLine");
+    el7.hidden = false;
+    el7.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
+    if (levelUp) el7.append(h("span", "lvup", `Level ${level2}!`));
   }
   function setRematchStatus(votes, you2, playerCount, minPlayers2) {
     const youVoted = votes.includes(you2);
@@ -1774,21 +2871,21 @@
     return h("span", `mode-badge ${mode2}`, MODE_ICON[mode2], { lang: "ja", title: MODE_LABEL[mode2], "aria-label": MODE_LABEL[mode2] });
   }
   function characterEl(character, mode2, side = "me") {
-    const el2 = h("span", "char-sprite");
+    const el7 = h("span", "char-sprite");
     const heroes = ["goblin", "knight", "witch", "wizard"];
-    el2.innerHTML = mode2 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
-    el2.title = character[0].toUpperCase() + character.slice(1);
-    return el2;
+    el7.innerHTML = mode2 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
+    el7.title = character[0].toUpperCase() + character.slice(1);
+    return el7;
   }
-  function markProfile(el2, p) {
-    el2.dataset.profile = p.id;
-    if (p.bot) el2.dataset.bot = p.bot;
-    if (p.name) el2.dataset.name = p.name;
-    el2.classList.add("plink");
-    el2.setAttribute("role", "button");
-    el2.tabIndex = 0;
-    el2.title = "View profile";
-    return el2;
+  function markProfile(el7, p) {
+    el7.dataset.profile = p.id;
+    if (p.bot) el7.dataset.bot = p.bot;
+    if (p.name) el7.dataset.name = p.name;
+    el7.classList.add("plink");
+    el7.setAttribute("role", "button");
+    el7.tabIndex = 0;
+    el7.title = "View profile";
+    return el7;
   }
   var dateTime = (at) => new Date(at).toLocaleString(void 0, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   function showProfileCard(anchor, p) {
@@ -1860,635 +2957,125 @@
     show("history");
   }
 
-  // src/client/audio.ts
-  var PREFS_KEY = "kb:audio";
-  var DEFAULTS = { radio: true, sfx: true, musicVol: 0.7, sfxVol: 0.8 };
-  var prefs2 = (() => {
-    try {
-      return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
-    } catch {
-      return { ...DEFAULTS };
-    }
-  })();
-  var clamp01 = (v) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
-  var sfxGain = () => 0.7 * prefs2.sfxVol * prefs2.sfxVol * 1.4;
-  var musicGain = () => 0.9 * prefs2.musicVol * prefs2.musicVol * 1.3;
-  var savePrefs = () => {
-    try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs2));
-    } catch {
-    }
+  // src/client/tutorial.ts
+  var $2 = $;
+  var el2 = (tag, cls = "", text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = String(text);
+    return e;
   };
-  var ctx = null;
-  var sfxBus;
-  var musicBus;
-  var menuBus;
-  var battleBus;
-  var ambBus;
-  var reverb;
-  var scene2 = "menu";
-  function ensure() {
-    if (ctx) return ctx;
-    const AC = window.AudioContext ?? window.webkitAudioContext;
-    if (!AC) return null;
-    ctx = new AC();
-    const comp = ctx.createDynamicsCompressor();
-    comp.connect(ctx.destination);
-    sfxBus = ctx.createGain();
-    sfxBus.gain.value = sfxGain();
-    sfxBus.connect(comp);
-    musicBus = ctx.createGain();
-    musicBus.gain.value = musicGain();
-    musicBus.connect(comp);
-    menuBus = ctx.createGain();
-    menuBus.gain.value = 0;
-    menuBus.connect(musicBus);
-    battleBus = ctx.createGain();
-    battleBus.gain.value = 0;
-    battleBus.connect(musicBus);
-    ambBus = ctx.createGain();
-    ambBus.gain.value = 0.9;
-    ambBus.connect(musicBus);
-    reverb = ctx.createConvolver();
-    const len = ctx.sampleRate * 2.6;
-    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-      const d = ir.getChannelData(ch);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
-    }
-    reverb.buffer = ir;
-    const wet = ctx.createGain();
-    wet.gain.value = 0.35;
-    reverb.connect(wet).connect(comp);
-    return ctx;
-  }
-  document.addEventListener("visibilitychange", () => {
-    if (!ctx) return;
-    if (document.visibilityState === "hidden") void ctx.suspend();
-    else void ctx.resume().then(() => syncMusic());
-  });
-  function unlock() {
-    const c = ensure();
-    if (!c) return;
-    if (c.state === "suspended" && document.visibilityState === "visible") void c.resume();
-    syncMusic();
-  }
-  function setScene(s) {
-    scene2 = s;
-    syncMusic();
-  }
-  function syncMusic() {
-    if (!ctx) return;
-    const on = prefs2.radio && prefs2.musicVol > 0 && document.visibilityState === "visible";
-    const want = on ? scene2 === "menu" ? menuTheme : battleTheme : null;
-    for (const t of [menuTheme, battleTheme]) t === want ? t.fadeIn() : t.fadeOut();
-    syncAmbience();
-  }
-  var midi = (n) => 440 * 2 ** ((n - 69) / 12);
-  function tone(freq, at, dur, opts = {}) {
-    const c = ctx;
-    const o = c.createOscillator();
-    const g = c.createGain();
-    o.type = opts.type ?? "sine";
-    o.frequency.setValueAtTime(freq, at);
-    if (opts.detune) o.detune.value = opts.detune;
-    if (opts.to) o.frequency.exponentialRampToValueAtTime(opts.to, at + dur);
-    const peak = opts.gain ?? 0.3;
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(peak, at + (opts.attack ?? 8e-3));
-    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
-    o.connect(g).connect(opts.bus ?? sfxBus);
-    if (opts.send) {
-      const s = c.createGain();
-      s.gain.value = opts.send;
-      g.connect(s).connect(reverb);
-    }
-    o.start(at);
-    o.stop(at + dur + 0.05);
-  }
-  function bell(freq, at, dur, gain, bus = sfxBus) {
-    tone(freq, at, dur, { gain, bus, send: 0.6, attack: 3e-3 });
-    tone(freq * 2.76, at, dur * 0.4, { gain: gain * 0.25, bus, send: 0.6, attack: 2e-3 });
-    tone(freq * 5.4, at, dur * 0.18, { gain: gain * 0.08, bus, send: 0.6, attack: 2e-3 });
-  }
-  function noise(at, dur, gain, cutoff, type = "lowpass", bus = sfxBus, swell = false) {
-    const c = ctx;
-    const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (swell ? (i / data.length) ** 2 : 1 - i / data.length);
-    const src = c.createBufferSource();
-    src.buffer = buf;
-    const f2 = c.createBiquadFilter();
-    f2.type = type;
-    f2.frequency.value = cutoff;
-    const g = c.createGain();
-    g.gain.value = gain;
-    src.connect(f2).connect(g).connect(bus);
-    src.start(at);
-  }
-  var sfxOk = () => prefs2.sfx && ensure() !== null && ctx.state === "running";
-  var sfx = {
-    /**
-     * Spell cast: a magical chime. Each combo step makes it deeper and longer (like a multi-kill
-     * sound), from ×5 on it stays at its deepest, fullest version.
-     */
-    correct(combo = 1) {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      const step = Math.min(Math.max(combo, 1), 5) - 1;
-      const root = 88 - step * 5;
-      const ring = 0.7 + step * 0.45;
-      const notes = [0, 7, 12, 16].map((i) => root + i);
-      notes.forEach((n, i) => bell(midi(n), t + i * (0.045 + step * 0.012), ring, 0.16 + step * 0.015));
-      if (step >= 1) tone(midi(root - 24), t, ring * 1.2, { gain: 0.12 + step * 0.05, send: 0.3, attack: 0.01 });
-      if (step >= 4) [0.16, 0.32].forEach((dt) => bell(midi(root + 12), t + dt, 1.2, 0.1));
-      noise(t, 0.25, 0.05, 6e3, "highpass");
-    },
-    /** Miss / skip / timeout — soft descending fizzle. */
-    wrong() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      tone(330, t, 0.3, { type: "triangle", gain: 0.14, to: 140 });
-      tone(311, t + 0.03, 0.3, { type: "triangle", gain: 0.08, to: 130 });
-      noise(t, 0.2, 0.06, 900);
-    },
-    /** You took damage — thump. */
-    hurt() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      tone(140, t, 0.22, { gain: 0.35, to: 50 });
-      noise(t, 0.15, 0.25, 900);
-    },
-    /** Your spell lands on the opponent. */
-    impact() {
-      if (sfxOk()) noise(ctx.currentTime, 0.12, 0.15, 2500);
-    },
-    heal() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      [72, 76, 79, 84].forEach((n, i) => bell(midi(n), t + i * 0.08, 0.9, 0.1));
-    },
-    mana() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      for (let i = 0; i < 6; i++) bell(midi(84 + i * 5 % 12), t + i * 0.05, 0.5, 0.06);
-    },
-    rip() {
-      if (!sfxOk()) return;
-      noise(ctx.currentTime, 0.35, 0.3, 3e3, "bandpass");
-    },
-    flip() {
-      if (sfxOk()) noise(ctx.currentTime, 0.08, 0.12, 4e3, "highpass");
-    },
-    inhale() {
-      if (sfxOk()) tone(55, ctx.currentTime, 2.6, { type: "sawtooth", gain: 0.08, to: 110, attack: 1.5 });
-    },
-    fire() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      noise(t, 1.2, 0.5, 1400);
-      tone(70, t, 1.1, { type: "sawtooth", gain: 0.12, to: 40 });
-    },
-    claw() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      noise(t, 0.18, 0.4, 6e3);
-      tone(160, t + 0.05, 0.2, { gain: 0.3, to: 60 });
-    },
-    tick() {
-      if (sfxOk()) bell(1320, ctx.currentTime, 0.25, 0.08);
-    },
-    go() {
-      if (sfxOk()) bell(midi(88), ctx.currentTime, 0.8, 0.14);
-    },
-    /** Victory: a bright fanfare (major, rising, with harmony and a final bell). */
-    win() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      const brass = (n, at, dur) => {
-        tone(midi(n), t + at, dur, { type: "sawtooth", gain: 0.07, attack: 0.03, send: 0.4 });
-        tone(midi(n), t + at, dur, { type: "triangle", gain: 0.12, attack: 0.02, send: 0.4, detune: 6 });
-      };
-      [[67, 0], [72, 0.14], [76, 0.28]].forEach(([n, at]) => brass(n, at, 0.22));
-      brass(79, 0.44, 0.9);
-      brass(76, 0.44, 0.9);
-      brass(72, 0.44, 0.9);
-      bell(midi(91), t + 0.44, 1.8, 0.12);
-      tone(midi(48), t + 0.44, 1.2, { gain: 0.2, send: 0.3 });
-    },
-    /** Defeat: slow, falling minor phrase. */
-    lose() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      [[69, 0], [68, 0.38], [67, 0.76], [62, 1.14]].forEach(([n, at]) => {
-        tone(midi(n), t + at, 0.7, { type: "triangle", gain: 0.13, attack: 0.04, send: 0.5 });
-      });
-      tone(midi(38), t + 1.14, 1.8, { gain: 0.16, send: 0.4, attack: 0.05 });
-    }
-  };
-  function makeTrack(bpm, bus, play) {
-    const STEP = 60 / bpm / 2;
-    let timer;
-    let stopTimer;
-    let nextTime = 0;
-    let step = 0;
-    const schedule = () => {
-      const c = ctx;
-      while (nextTime < c.currentTime + 0.5) {
-        play(step, nextTime);
-        nextTime += STEP;
-        step++;
-      }
-    };
-    return {
-      STEP,
-      fadeIn() {
-        if (!ctx) return;
-        clearTimeout(stopTimer);
-        stopTimer = void 0;
-        bus().gain.cancelScheduledValues(ctx.currentTime);
-        bus().gain.setTargetAtTime(1, ctx.currentTime, 0.9);
-        if (timer !== void 0) return;
-        nextTime = ctx.currentTime + 0.12;
-        step = 0;
-        schedule();
-        timer = window.setInterval(schedule, 150);
-      },
-      fadeOut() {
-        if (!ctx || timer === void 0 || stopTimer !== void 0) return;
-        bus().gain.cancelScheduledValues(ctx.currentTime);
-        bus().gain.setTargetAtTime(0, ctx.currentTime, 0.45);
-        stopTimer = window.setTimeout(() => {
-          clearInterval(timer);
-          timer = void 0;
-          stopTimer = void 0;
-        }, 2200);
-      }
-    };
-  }
-  function strings(notes, at, dur, bus, level = 0.035, cutoff = 1100) {
-    const c = ctx;
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = cutoff;
-    const g = c.createGain();
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(level, at + 0.9);
-    g.gain.setValueAtTime(level, at + dur - 0.6);
-    g.gain.exponentialRampToValueAtTime(1e-4, at + dur + 0.5);
-    lp.connect(g).connect(bus);
-    const s = c.createGain();
-    s.gain.value = 0.5;
-    g.connect(s).connect(reverb);
-    for (const n of notes) for (const d of [-7, 7]) {
-      const o = c.createOscillator();
-      o.type = "sawtooth";
-      o.frequency.value = midi(n);
-      o.detune.value = d;
-      o.connect(lp);
-      o.start(at);
-      o.stop(at + dur + 0.6);
+  var access = { level: 0, admin: false };
+  function setModeAccess(level2, admin) {
+    access = { level: level2, admin };
+    for (const card of document.querySelectorAll(".mode-card[data-mode]")) {
+      const mode2 = card.dataset.mode;
+      const locked = !canPlay(mode2);
+      card.classList.toggle("locked", locked);
+      card.dataset.lock = locked ? `Unlocks at level ${MODE_LEVEL[mode2]}` : "";
     }
   }
-  function flute(n, at, dur, bus) {
-    const c = ctx;
-    const o = c.createOscillator();
-    const vib = c.createOscillator();
-    const vg = c.createGain();
-    vib.frequency.value = 5.2;
-    vg.gain.value = 4;
-    vib.connect(vg).connect(o.frequency);
-    o.type = "sine";
-    o.frequency.value = midi(n);
-    const g = c.createGain();
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(0.045, at + 0.06);
-    g.gain.setValueAtTime(0.04, at + dur * 0.7);
-    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
-    o.connect(g).connect(bus);
-    const s = c.createGain();
-    s.gain.value = 0.7;
-    g.connect(s).connect(reverb);
-    o.start(at);
-    vib.start(at);
-    o.stop(at + dur + 0.05);
-    vib.stop(at + dur + 0.05);
+  var canPlay = (mode2) => modeUnlocked(mode2, xpForLevel(access.level), access.admin);
+  var lockText = (mode2) => `${MODE_LABEL[mode2]} unlocks at level ${MODE_LEVEL[mode2]} \u2014 win a few games first. (A friend can still invite you.)`;
+  var stage = "off";
+  var hooks;
+  function initTutorial(h3) {
+    hooks = h3;
   }
-  function horn(n, at, dur, bus, level = 0.05) {
-    const c = ctx;
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.setValueAtTime(350, at);
-    lp.frequency.linearRampToValueAtTime(1300, at + Math.min(0.5, dur * 0.5));
-    lp.frequency.linearRampToValueAtTime(600, at + dur);
-    const g = c.createGain();
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(level, at + 0.12);
-    g.gain.setValueAtTime(level * 0.85, at + dur * 0.75);
-    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
-    lp.connect(g).connect(bus);
-    const s = c.createGain();
-    s.gain.value = 0.45;
-    g.connect(s).connect(reverb);
-    for (const d of [-9, 9]) {
-      const o = c.createOscillator();
-      o.type = "sawtooth";
-      o.frequency.value = midi(n);
-      o.detune.value = d;
-      o.connect(lp);
-      o.start(at);
-      o.stop(at + dur + 0.05);
-    }
-  }
-  var menuTheme = (() => {
-    const PROG = [
-      [50, 57, 62, 65],
-      [46, 53, 58, 62],
-      [41, 48, 53, 57],
-      [48, 55, 60, 64],
-      [50, 57, 62, 65],
-      [43, 50, 55, 58],
-      [45, 52, 57, 61],
-      [50, 57, 62, 65]
-    ];
-    const MELODY = [
-      [74, 0, 77, 0, 76, 74, 72, 0],
-      [74, 0, 0, 70, 72, 0, 74, 0],
-      [72, 0, 69, 0, 72, 74, 77, 0],
-      [76, 0, 74, 72, 74, 0, 0, 0],
-      [74, 0, 77, 0, 81, 0, 79, 77],
-      [79, 0, 77, 0, 74, 0, 70, 0],
-      [73, 0, 76, 0, 79, 77, 76, 73],
-      [74, 0, 0, 0, 0, 0, 0, 0]
-    ];
-    const track = makeTrack(84, () => menuBus, (step, at) => {
-      const STEP = track.STEP;
-      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
-      const loop = Math.floor(step / (8 * PROG.length));
-      if (inBar === 0) {
-        strings(chord.slice(1), at, STEP * 8, menuBus);
-        tone(midi(chord[0] - 12), at, STEP * 7, { gain: 0.07, bus: menuBus, attack: 0.05 });
-      }
-      const arp = [0, 1, 2, 3, 2, 1, 2, 3][inBar];
-      tone(midi(chord[arp] + 12), at, 1.4, { type: "triangle", gain: 0.05, bus: menuBus, send: 0.5, attack: 3e-3 });
-      tone(midi(chord[arp] + 24), at, 0.5, { gain: 0.015, bus: menuBus, send: 0.5, attack: 3e-3 });
-      if (inBar === 0 || inBar === 3 || inBar === 6) tone(inBar === 0 ? 62 : 55, at, 0.45, { gain: inBar === 0 ? 0.16 : 0.09, to: 38, bus: menuBus, attack: 4e-3 });
-      if (loop % 3 !== 0) {
-        const n = MELODY[bar][inBar];
-        if (n) {
-          let len = 1;
-          while (inBar + len < 8 && MELODY[bar][inBar + len] === 0) len++;
-          flute(n, at, STEP * Math.min(len, 4) * 0.95, menuBus);
-        }
+  var inTutorialBattle = () => stage === "battle";
+  var CARDS = [
+    { title: "Welcome, apprentice", body: "In Kanji Wizards every spell is a Japanese word. Learn a word \u2014 and you can cast it at your opponent." },
+    {
+      title: "Cast by reading",
+      body: "A kanji appears; type how it is read \u2014 in hiragana, or in romaji with a normal keyboard \u2014 and press Enter. Fast and right in a row hits harder.",
+      extra: tryIt
+    },
+    { title: "Study makes you stronger", body: "Study spells is a flashcard deck. Every spell you learn today raises your critical-hit chance, and words you miss in battle come back there to review." },
+    { title: "More to unlock", body: "You start with Kanji Reading and Rapid. Kanji Writing and the Boss fight unlock at level 1, Deck Duel at level 2. There is also a Daily challenge, Progress, Friends \u2014 and monthly goals with rewards." },
+    { title: "Your first battle", body: "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them." }
+  ];
+  function tryIt() {
+    const box = el2("div", "tut-try");
+    const k = el2("span", "tut-k", "\u5C71");
+    k.lang = "ja";
+    const input = el2("input");
+    input.placeholder = "type its reading: yama";
+    input.lang = "ja";
+    input.autocomplete = "off";
+    const msg = el2("span", "hint", "Mountain \u2014 try it!");
+    input.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || e.isComposing) return;
+      e.stopPropagation();
+      if (isCorrectReading(input.value, ["\u3084\u307E"])) {
+        msg.textContent = "\u2713 \u3084\u307E \u2014 a spell!";
+        msg.className = "ok";
+        sfx.correct(1);
+      } else {
+        msg.textContent = "Not quite \u2014 it's \u3084\u307E (yama)";
+        msg.className = "no";
+        sfx.wrong();
       }
     });
-    return track;
-  })();
-  var battleTheme = (() => {
-    const PROG = [
-      [38, 50, 53, 57],
-      [39, 51, 55, 58],
-      [38, 50, 53, 57],
-      [36, 48, 52, 55],
-      [38, 50, 53, 57],
-      [34, 46, 50, 53],
-      [31, 43, 46, 50],
-      [33, 45, 49, 52]
-    ];
-    const HORN = [
-      [62, 0, 0, 0, 63, 0, 62, 0],
-      [63, 0, 0, 0, 0, 0, 58, 0],
-      [62, 0, 0, 65, 0, 0, 62, 0],
-      [60, 0, 0, 0, 0, 0, 0, 0],
-      [62, 0, 0, 0, 65, 0, 69, 0],
-      [70, 0, 0, 0, 69, 0, 65, 0],
-      [67, 0, 0, 0, 70, 0, 69, 67],
-      [69, 0, 0, 0, 0, 0, 0, 0]
-    ];
-    const DRUM = [1, 0, 0, 0.6, 0.8, 0, 0.5, 0.5];
-    const track = makeTrack(100, () => battleBus, (step, at) => {
-      const STEP = track.STEP;
-      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
-      const loop = Math.floor(step / (8 * PROG.length));
-      const accent = inBar === 0 || inBar === 3 || inBar === 6;
-      for (const n of [chord[0] + 12, chord[1]]) tone(midi(n), at, STEP * 0.8, { type: "sawtooth", gain: accent ? 0.022 : 0.012, bus: battleBus, attack: 5e-3 });
-      if (inBar === 0) {
-        strings(chord.slice(1), at, STEP * 8, battleBus, 0.022, 800);
-        tone(midi(chord[0]), at, STEP * 7.5, { gain: 0.09, bus: battleBus, attack: 0.04 });
-      }
-      const d = DRUM[inBar];
-      if (d) {
-        tone(inBar === 0 ? 58 : 66, at, 0.5, { gain: 0.2 * d, to: 34, bus: battleBus, attack: 3e-3 });
-        noise(at, 0.12, 0.05 * d, 900, "lowpass", battleBus);
-      }
-      if (loop >= 1) {
-        const n = HORN[bar][inBar];
-        if (n) {
-          let len = 1;
-          while (inBar + len < 8 && HORN[bar][inBar + len] === 0) len++;
-          horn(n - 12, at, STEP * len * 0.97, battleBus);
-        }
-      }
-      if (loop % 2 === 1 && bar >= 4) tone(midi(chord[2] + 24 + (bar === 7 ? 1 : 0)), at, STEP * 0.45, { type: "sawtooth", gain: 8e-3, bus: battleBus, send: 0.5, attack: 0.01 });
-      if (inBar === 4 && bar % 4 === 3) noise(at, STEP * 4, 0.035, 6e3, "highpass", battleBus, true);
+    box.append(k, input, msg);
+    setTimeout(() => input.focus(), 50);
+    return box;
+  }
+  function startTutorial() {
+    if (stage !== "off") return;
+    stage = "cards";
+    show2(0);
+  }
+  function show2(i) {
+    const c = CARDS[i];
+    const box = $2("tutorial");
+    const dots = el2("div", "tut-dots");
+    CARDS.forEach((_, j) => dots.append(el2("i", j === i ? "on" : "")));
+    const card = el2("div", "tut-card");
+    const actions = el2("div", "tut-actions");
+    const last = i === CARDS.length - 1;
+    const next2 = el2("button", "big", last ? "Fight a beginner AI" : "Next");
+    const skip2 = el2("button", "pill", last ? "Maybe later" : "Skip tutorial");
+    next2.onclick = () => {
+      if (!last) return show2(i + 1);
+      stage = "battle";
+      box.hidden = true;
+      hooks.firstBattle();
+    };
+    skip2.onclick = () => finish();
+    actions.append(skip2, next2);
+    card.append(dots, el2("h2", "", c.title), el2("p", "", c.body), ...c.extra ? [c.extra()] : [], actions);
+    box.replaceChildren(card);
+    box.hidden = false;
+    next2.focus();
+  }
+  function finish() {
+    stage = "off";
+    $2("tutorial").hidden = true;
+    coach(null);
+    void api.tutorialDone().catch(() => {
     });
-    return track;
-  })();
-  var isRadioOn = () => prefs2.radio;
-  var isSfxOn = () => prefs2.sfx;
-  var getVolumes = () => ({ music: prefs2.musicVol, sfx: prefs2.sfxVol });
-  function setRadio(on) {
-    prefs2.radio = on;
-    savePrefs();
-    ensure();
-    if (on && ctx?.state === "suspended") void ctx.resume();
-    syncMusic();
   }
-  function setSfx(on) {
-    prefs2.sfx = on;
-    savePrefs();
+  function tutorialScreen(screen) {
+    if (stage !== "battle") return;
+    if (screen === "prep") coach("Read the 10 words \u2014 reading and meaning. When the battle starts, they come back as kanji only. Press Ready when you're done.");
+    else if (screen === "battle") coach("Type the reading of the kanji (hiragana or romaji) and press Enter. Don't know it? Esc skips. Keep your HP above the AI's!");
+    else if (screen === "results") {
+      coach("Well cast! Words you missed are now in Study spells \u2192 Struggling. Level up to unlock Writing, Boss and Deck Duel.");
+      setTimeout(finish, 12e3);
+    } else if (screen === "menu") finish();
   }
-  function setMusicVolume(v) {
-    prefs2.musicVol = clamp01(v);
-    if (prefs2.musicVol > 0) prefs2.radio = true;
-    savePrefs();
-    ensure();
-    if (ctx) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05);
-    syncMusic();
-  }
-  function setSfxVolume(v) {
-    prefs2.sfxVol = clamp01(v);
-    if (prefs2.sfxVol > 0) prefs2.sfx = true;
-    savePrefs();
-    ensure();
-    if (ctx) sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05);
-  }
-  function previewSfx() {
-    if (sfxOk()) bell(midi(76), ctx.currentTime, 0.8, 0.18);
-  }
-  var ambBg = null;
-  var ambTime = "night";
-  var ambTimer;
-  function setAmbience(bg2, time) {
-    const changed = bg2 !== ambBg;
-    ambBg = bg2;
-    ambTime = time;
-    if (changed) syncAmbience();
-  }
-  function syncAmbience() {
-    clearTimeout(ambTimer);
-    ambTimer = void 0;
-    if (!ctx || !ambBg || !prefs2.radio || prefs2.musicVol <= 0 || scene2 !== "menu" || document.visibilityState !== "visible") return;
-    const next2 = (first) => {
-      ambTimer = window.setTimeout(() => {
-        if (ctx?.state === "running") ambientCall(ambBg, ambTime);
-        next2(false);
-      }, (first ? 4e3 : 12e3) + Math.random() * 16e3);
-    };
-    next2(true);
-  }
-  function ambientCall(bg2, time) {
-    const t = ctx.currentTime + 0.05;
-    if (bg2 === "forest") time === "day" ? birds(t) : owl(t);
-    else if (bg2 === "swamp") frogs(t);
-    else if (bg2 === "plains") goblins(t);
-    else if (bg2 === "castle") {
-      clash(t);
-      if (Math.random() < 0.6) clash(t + 0.32 + Math.random() * 0.2);
-      if (Math.random() < 0.25) roar(t + 1.4);
-    } else if (bg2 === "worldtree") sparkle(t);
-  }
-  function owl(at) {
-    const hoot = (t0, dur, f02) => {
-      const c = ctx;
-      const o = c.createOscillator();
-      o.type = "sine";
-      o.frequency.setValueAtTime(f02, t0);
-      o.frequency.exponentialRampToValueAtTime(f02 * 0.88, t0 + dur);
-      const vib = c.createOscillator();
-      const vg = c.createGain();
-      vib.frequency.value = 7;
-      vg.gain.value = 6;
-      vib.connect(vg).connect(o.frequency);
-      const g = c.createGain();
-      g.gain.setValueAtTime(1e-4, t0);
-      g.gain.exponentialRampToValueAtTime(0.09, t0 + 0.06);
-      g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
-      const bp = c.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.value = f02;
-      bp.Q.value = 2;
-      o.connect(bp).connect(g).connect(ambBus);
-      const s = c.createGain();
-      s.gain.value = 0.8;
-      g.connect(s).connect(reverb);
-      o.start(t0);
-      vib.start(t0);
-      o.stop(t0 + dur + 0.05);
-      vib.stop(t0 + dur + 0.05);
-    };
-    const f0 = 360 + Math.random() * 40;
-    hoot(at, 0.32, f0);
-    hoot(at + 0.75, 0.18, f0 * 1.04);
-    hoot(at + 1, 0.75, f0 * 1.06);
-  }
-  function birds(at) {
-    for (let i = 0; i < 3 + Math.floor(Math.random() * 3); i++) {
-      const t = at + i * 0.16 + Math.random() * 0.05, f0 = 2600 + Math.random() * 900;
-      tone(f0, t, 0.09, { gain: 0.02, to: f0 * 1.35, bus: ambBus, send: 0.4, attack: 5e-3 });
+  function coach(text) {
+    const c = $2("coach");
+    if (!text) {
+      c.hidden = true;
+      return;
     }
-  }
-  function frogs(at) {
-    const ribbit = (t0, k) => {
-      const c = ctx;
-      for (const [off, len, pitch] of [[0, 0.11, 1], [0.17, 0.14, 1.12]]) {
-        const o = c.createOscillator();
-        o.type = "square";
-        o.frequency.value = 190 * k * pitch;
-        const bp = c.createBiquadFilter();
-        bp.type = "bandpass";
-        bp.frequency.value = 850 * k;
-        bp.Q.value = 3;
-        const g = c.createGain();
-        g.gain.setValueAtTime(1e-4, t0 + off);
-        for (let p = 0; p < len / 0.025; p++) {
-          const tp = t0 + off + p * 0.025;
-          g.gain.setValueAtTime(1e-4, tp);
-          g.gain.linearRampToValueAtTime(0.05, tp + 6e-3);
-          g.gain.linearRampToValueAtTime(1e-4, tp + 0.02);
-        }
-        o.connect(bp).connect(g).connect(ambBus);
-        const s = c.createGain();
-        s.gain.value = 0.35;
-        g.connect(s).connect(reverb);
-        o.start(t0 + off);
-        o.stop(t0 + off + len + 0.03);
-      }
+    const close = el2("button", "pill", "Got it");
+    close.onclick = () => {
+      c.hidden = true;
     };
-    const n = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < n; i++) ribbit(at + Math.random() * 1.6, 0.85 + Math.random() * 0.5);
-  }
-  function goblins(at) {
-    const c = ctx;
-    const syll = (t0, f0, dur, formant, level = 0.035) => {
-      const o = c.createOscillator();
-      o.type = "sawtooth";
-      o.frequency.setValueAtTime(f0, t0);
-      o.frequency.linearRampToValueAtTime(f0 * (0.85 + Math.random() * 0.4), t0 + dur);
-      const bp = c.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.value = formant;
-      bp.Q.value = 5;
-      const g = c.createGain();
-      g.gain.setValueAtTime(1e-4, t0);
-      g.gain.exponentialRampToValueAtTime(level, t0 + 0.012);
-      g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
-      o.connect(bp).connect(g).connect(ambBus);
-      const s = c.createGain();
-      s.gain.value = 0.4;
-      g.connect(s).connect(reverb);
-      o.start(t0);
-      o.stop(t0 + dur + 0.02);
-    };
-    let t = at;
-    const n = 5 + Math.floor(Math.random() * 5);
-    for (let i = 0; i < n; i++) {
-      const d = 0.06 + Math.random() * 0.06;
-      syll(t, 520 + Math.random() * 420, d, [700, 1100, 1500, 2100][Math.floor(Math.random() * 4)]);
-      t += d + 0.02;
-    }
-    if (Math.random() < 0.7) for (let i = 0; i < 4; i++) syll(t + 0.15 + i * 0.11, 900 + i * 40, 0.07, 1800, 0.04);
-  }
-  function clash(at) {
-    for (const [f0, dur, g] of [[1760, 0.7, 0.035], [2730, 0.55, 0.025], [3980, 0.4, 0.02], [5560, 0.3, 0.012]]) {
-      const fr = f0 * (0.97 + Math.random() * 0.06);
-      tone(fr, at, dur, { gain: g, bus: ambBus, send: 0.6, attack: 2e-3 });
-    }
-    noise(at, 0.07, 0.05, 2600, "highpass", ambBus);
-  }
-  function roar(at) {
-    const c = ctx;
-    const o = c.createOscillator();
-    o.type = "sawtooth";
-    o.frequency.setValueAtTime(95, at);
-    o.frequency.exponentialRampToValueAtTime(55, at + 1.5);
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 420;
-    const g = c.createGain();
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(0.05, at + 0.3);
-    g.gain.exponentialRampToValueAtTime(1e-4, at + 1.6);
-    o.connect(lp).connect(g).connect(ambBus);
-    const s = c.createGain();
-    s.gain.value = 0.9;
-    g.connect(s).connect(reverb);
-    o.start(at);
-    o.stop(at + 1.7);
-  }
-  function sparkle(at) {
-    const notes = [79, 81, 84, 86, 88, 91];
-    for (let i = 0; i < 4; i++) bell(midi(notes[Math.floor(Math.random() * notes.length)]), at + i * 0.18, 1.4, 0.03, ambBus);
+    c.replaceChildren(el2("b", "", "Tip"), el2("span", "", text), close);
+    c.hidden = false;
   }
 
   // src/shared/deck.ts
@@ -2557,31 +3144,32 @@
   };
 
   // src/client/deckui.ts
-  var $2 = $;
+  var $3 = $;
   var COLOR_NAME = { lightblue: "Light blue", blue: "Blue", yellow: "Yellow", green: "Green", red: "Red" };
   function h2(tag, cls = "", text) {
-    const el2 = document.createElement(tag);
-    if (cls) el2.className = cls;
-    if (text !== void 0) el2.textContent = String(text);
-    return el2;
+    const el7 = document.createElement(tag);
+    if (cls) el7.className = cls;
+    if (text !== void 0) el7.textContent = String(text);
+    return el7;
   }
   var view = null;
-  var hooks;
+  var hooks2;
+  var wasMyTurn = false;
   var lastCastId = 0;
   var writingCastId = 0;
   var stuckId = "";
   var otInput = null;
   var inkCanvas = null;
   var inkCastId = 0;
-  function deckInk(castId, strokes, cells) {
+  function deckInk(castId, strokes2, cells) {
     if (!inkCanvas || castId !== inkCastId || !inkCanvas.isConnected) return;
     if (inkCanvas.width !== 600 * cells) {
       inkCanvas.width = 600 * cells;
       inkCanvas.style.setProperty("--cols", String(cells));
     }
-    paintInk(inkCanvas, strokes);
+    paintInk(inkCanvas, strokes2);
   }
-  function paintInk(cv, strokes) {
+  function paintInk(cv, strokes2) {
     const ctx2 = cv.getContext("2d");
     ctx2.clearRect(0, 0, cv.width, cv.height);
     ctx2.strokeStyle = "rgba(60, 50, 110, .25)";
@@ -2598,7 +3186,7 @@
     ctx2.lineJoin = "round";
     ctx2.lineWidth = 20;
     ctx2.strokeStyle = "#1b1530";
-    for (const s of strokes) {
+    for (const s of strokes2) {
       ctx2.beginPath();
       s.forEach(([x, y], i) => i ? ctx2.lineTo(x, y) : ctx2.moveTo(x, y));
       if (s.length === 1) ctx2.lineTo(s[0][0] + 1, s[0][1] + 1);
@@ -2606,44 +3194,44 @@
     }
   }
   function initDeck(hk) {
-    hooks = hk;
-    $2("dkAbility").onclick = () => {
-      const me2 = view?.players.find((p) => p.id === view.you);
-      if (me2?.character && CHARACTER_INFO[me2.character].passive) {
-        const used = [me2.wizardCardsUsed ? "cards used" : "+2 cards ready", me2.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
-        return toast(`${CHARACTER_INFO[me2.character].power} (${used})`, 6e3);
+    hooks2 = hk;
+    $3("dkAbility").onclick = () => {
+      const me3 = view?.players.find((p) => p.id === view.you);
+      if (me3?.character && CHARACTER_INFO[me3.character].passive) {
+        const used = [me3.wizardCardsUsed ? "cards used" : "+2 cards ready", me3.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
+        return toast(`${CHARACTER_INFO[me3.character].power} (${used})`, 6e3);
       }
-      hooks.send({ type: "deck_ability" });
+      hooks2.send({ type: "deck_ability" });
     };
-    $2("dkChatForm").addEventListener("submit", (e) => {
+    $3("dkChatForm").addEventListener("submit", (e) => {
       e.preventDefault();
-      const input = $2("dkChatInput");
+      const input = $3("dkChatInput");
       const text = input.value.trim();
-      if (text) hooks.send({ type: "chat", text });
+      if (text) hooks2.send({ type: "chat", text });
       input.value = "";
     });
-    renderGuide($2("deckGuide"));
+    renderGuide($3("deckGuide"));
   }
   var seenChat = /* @__PURE__ */ new Set();
   function chatMessages(msgs) {
-    const log = $2("dkChatLog");
+    const log = $3("dkChatLog");
     for (const m of msgs) {
       if (seenChat.has(m.id)) continue;
       seenChat.add(m.id);
-      const line = h2("div", "chat-line" + (m.from === hooks.me() ? " mine" : ""));
-      line.append(h2("b", "", m.from === hooks.me() ? "You" : m.name), h2("span", "", m.text));
+      const line = h2("div", "chat-line" + (m.from === hooks2.me() ? " mine" : ""));
+      line.append(h2("b", "", m.from === hooks2.me() ? "You" : m.name), h2("span", "", m.text));
       log.append(line);
-      if (m.from !== hooks.me() && view && view.phase !== "over") sfx.flip();
+      if (m.from !== hooks2.me() && view && view.phase !== "over") sfx.flip();
     }
     while (log.children.length > 60) log.firstElementChild.remove();
     log.scrollTop = log.scrollHeight;
   }
   function clearChat() {
     seenChat.clear();
-    $2("dkChatLog").replaceChildren();
+    $3("dkChatLog").replaceChildren();
   }
-  var renderDeckGuide = (el2) => renderGuide(el2);
-  function renderGuide(el2) {
+  var renderDeckGuide = (el7) => renderGuide(el7);
+  function renderGuide(el7) {
     const sec = (title, ...kids) => {
       const s = h2("section", "g-sec");
       s.append(h2("h4", "", title), ...kids);
@@ -2685,7 +3273,7 @@
       li.append(h2("span", "g-ic", icon), h2("span", "", t));
       flow.append(li);
     }
-    el2.replaceChildren(
+    el7.replaceChildren(
       h2("h3", "", "How Deck Duel works"),
       sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (\u2212${DECK_RULES.skipPenaltyHp} HP).`)),
       sec("Cards", cards),
@@ -2697,26 +3285,26 @@
   function cardEl(c, opts = {}) {
     const base = CARD_SPECS[c.color];
     const spec = { ...base, cost: Math.ceil(base.cost * (opts.costFactor ?? 1)) };
-    const el2 = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
-    if (opts.button) el2.disabled = !!opts.disabled;
-    el2.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
-    if (opts.big) return el2;
-    el2.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
+    const el7 = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
+    if (opts.button) el7.disabled = !!opts.disabled;
+    el7.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
+    if (opts.big) return el7;
+    el7.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
     if (c.kanji) {
       const k = h2("span", "dkc-k", c.kanji);
       k.lang = "ja";
       const r2 = h2("span", "dkc-r", c.reading ?? "");
       r2.lang = "ja";
-      el2.append(k, r2);
+      el7.append(k, r2);
     } else {
-      el2.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
+      el7.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
     }
-    return el2;
+    return el7;
   }
   var powered = (p) => !!p.character && p.character !== "wizard" && p.abilityActive > 0;
-  function playerPanel(el2, p, mine) {
-    el2.dataset.flame = p.flame ?? "blue";
-    el2.classList.toggle("powered", powered(p));
+  function playerPanel(el7, p, mine) {
+    el7.dataset.flame = p.flame ?? "blue";
+    el7.classList.toggle("powered", powered(p));
     arena()?.onfire(mine ? "me" : "opp", powered(p), flameColor(p.flame));
     const av = h2("div", "dk-av");
     av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp", p.staff) : "";
@@ -2748,50 +3336,56 @@
       cc.append(dot, `\xD7${p.handCounts[col]}`);
       counts2.append(cc);
     }
-    el2.replaceChildren(av, name, hp, mana, counts2);
+    el7.replaceChildren(av, name, hp, mana, counts2);
   }
   function renderDeck(v) {
     view = v;
-    const me2 = v.players.find((p) => p.id === v.you);
+    const me3 = v.players.find((p) => p.id === v.you);
     const opp = v.players.find((p) => p.id !== v.you);
     if (opp.character) arenaForDeck(v);
     show("deck");
-    playerPanel($2("dkMe"), me2, true);
-    playerPanel($2("dkOpp"), opp, false);
-    const overlay = $2("dkOverlay");
+    playerPanel($3("dkMe"), me3, true);
+    playerPanel($3("dkOpp"), opp, false);
+    const overlay = $3("dkOverlay");
     if (v.phase === "characters" || v.phase === "draft") {
       renderCast(v);
       stopCountdown("dkTurn");
-      $2("dkBanner").textContent = "";
-      return v.phase === "characters" ? renderCharacters(v, me2, opp) : renderDraft(v, me2);
+      $3("dkBanner").textContent = "";
+      return v.phase === "characters" ? renderCharacters(v, me3, opp) : renderDraft(v, me3);
     }
     overlay.hidden = true;
     if (v.phase === "overtime") {
-      countdown("dkMatch", v.overtimeLeft, (left) => $2("dkClock").textContent = `OT ${clock(left)}`);
+      countdown("dkMatch", v.overtimeLeft, (left) => $3("dkClock").textContent = `OT ${clock(left)}`);
     } else {
-      countdown("dkMatch", v.matchLeftMs, (left) => $2("dkClock").textContent = clock(left));
+      countdown("dkMatch", v.matchLeftMs, (left) => $3("dkClock").textContent = clock(left));
     }
-    const banner = $2("dkBanner");
+    const banner = $3("dkBanner");
     const myTurn = v.turn?.active === v.you;
+    if (myTurn && !v.casting && !wasMyTurn && v.phase !== "over") {
+      sfx.yourTurn();
+      attention("Your turn!", "Deck Duel \u2014 choose a card");
+    }
+    if (!myTurn) wasMyTurn = false;
+    else if (!v.casting) wasMyTurn = true;
     banner.classList.toggle("mine", myTurn || v.phase === "overtime");
     const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
     const label = v.phase === "overtime" ? "Overtime \u2014 Rapid duel! First to type the reading hits" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
     countdown("dkTurn", deadline, (left) => banner.textContent = `${label} \xB7 ${Math.ceil(left / 1e3)}s`);
-    const canPlay = myTurn && !v.casting && Date.now() >= revealUntil;
-    $2("dkHand").replaceChildren(...v.hand.map((c) => {
+    const canPlay2 = myTurn && !v.casting && Date.now() >= revealUntil;
+    $3("dkHand").replaceChildren(...v.hand.map((c) => {
       const costFactor = myTurn ? v.turn.costFactor : 1;
-      const el2 = cardEl(c, { button: true, costFactor, disabled: !canPlay || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me2.mana });
-      el2.onclick = () => {
+      const el7 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me3.mana });
+      el7.onclick = () => {
         sfx.flip();
-        hooks.send({ type: "deck_play", cardId: c.cardId });
+        hooks2.send({ type: "deck_play", cardId: c.cardId });
       };
-      return el2;
+      return el7;
     }));
-    $2("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
-    const ab = $2("dkAbility");
-    const ch = me2.character;
-    ab.innerHTML = ch ? heroSvg(ch, "me", me2.staff) : "";
-    const cd = me2.abilityCooldown;
+    $3("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
+    const ab = $3("dkAbility");
+    const ch = me3.character;
+    ab.innerHTML = ch ? heroSvg(ch, "me", me3.staff) : "";
+    const cd = me3.abilityCooldown;
     if (ch) {
       const label2 = h2("span", "ab-name");
       label2.append(h2("b", "", "Omnipotence"), h2("small", "", CHARACTER_INFO[ch].passive ? "passive \xB7 tap for info" : cd > 0 ? `ready in ${cd} turn${cd === 1 ? "" : "s"}` : `${DECK_RULES.abilityCost}\u25C6`));
@@ -2800,13 +3394,13 @@
     if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h2("span", "ab-cd", String(cd)));
     ab.title = ch ? CHARACTER_INFO[ch].power : "";
     ab.classList.toggle("passive", !!ch && !!CHARACTER_INFO[ch].passive);
-    ab.classList.toggle("active", me2.abilityActive > 0);
-    ab.disabled = !ch || !CHARACTER_INFO[ch].passive && (cd > 0 || me2.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting || Date.now() < revealUntil);
+    ab.classList.toggle("active", me3.abilityActive > 0);
+    ab.disabled = !ch || !CHARACTER_INFO[ch].passive && (cd > 0 || me3.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting || Date.now() < revealUntil);
     renderCast(v);
     renderList(v);
   }
   function renderList(v) {
-    const box = $2("dkList");
+    const box = $3("dkList");
     const head = h2("h4", "", "Your kanji");
     if (!v.deckList) {
       box.replaceChildren(head, h2("p", "hint", v.phase === "overtime" ? "Overtime \u2014 the cards are gone: type the readings!" : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
@@ -2824,13 +3418,13 @@
     }
     box.replaceChildren(append2(head, h2("small", "", ` \xB7 ${v.deckList.length}`)), h2("p", "hint", "Which card is which stays secret."), ul);
   }
-  var append2 = (el2, ...kids) => {
-    el2.append(...kids);
-    return el2;
+  var append2 = (el7, ...kids) => {
+    el7.append(...kids);
+    return el7;
   };
   var castKey = "";
   function renderCast(v) {
-    const box = $2("dkCast");
+    const box = $3("dkCast");
     const c = v.casting;
     if (!c) {
       arena()?.channel(0);
@@ -2838,12 +3432,12 @@
       castKey = "";
       stopCountdown("dkRead");
       if (writingCastId) {
-        hooks.stopWriting();
+        hooks2.stopWriting();
         writingCastId = 0;
       }
       if (Date.now() < revealUntil) return;
       box.replaceChildren();
-      $2("dkFeedback").replaceChildren();
+      $3("dkFeedback").replaceChildren();
       return;
     }
     revealUntil = 0;
@@ -2883,7 +3477,7 @@
           if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;
           e.preventDefault();
           const text = input.value.trim();
-          if (text) hooks.send({ type: "answer", challengeId: c.castId, text });
+          if (text) hooks2.send({ type: "answer", challengeId: c.castId, text });
         });
         otInput = input;
         actions.append(input, h2("div", "cast-timer", "First to type its reading hits \xB7 wrong? try again"));
@@ -2894,7 +3488,7 @@
         const b = h2("button", "big cast-btn", "Ready \u25B8");
         b.onclick = () => {
           b.disabled = true;
-          hooks.send({ type: "deck_cast_ready", castId: c.castId });
+          hooks2.send({ type: "deck_cast_ready", castId: c.castId });
         };
         actions.append(t, b);
       } else if (mine && c.stage === "look") {
@@ -2904,7 +3498,7 @@
           b.disabled = true;
           sfx.flip();
           arena()?.thrust();
-          hooks.send({ type: "deck_cast_go", castId: c.castId });
+          hooks2.send({ type: "deck_cast_go", castId: c.castId });
         };
         actions.append(h2("div", "cast-timer", "Memorise it \u2014 it disappears when you cast"), b);
       } else if (!mine) {
@@ -2924,7 +3518,7 @@
         }
       } else stopCountdown("dkRead");
       box.replaceChildren(card, actions);
-      if (fresh) $2("dkFeedback").replaceChildren();
+      if (fresh) $3("dkFeedback").replaceChildren();
     }
     const writeNow = mine && !c.overtime && c.stage === "write";
     const a3 = arena();
@@ -2932,24 +3526,24 @@
     a3?.oppChannel(!mine && c.stage === "write");
     if (writeNow && writingCastId !== c.castId) {
       writingCastId = c.castId;
-      hooks.beginWriting(c.castId, "\u25A1".repeat(c.chars));
+      hooks2.beginWriting(c.castId, "\u25A1".repeat(c.chars));
     } else if (!writeNow && writingCastId) {
-      hooks.stopWriting();
+      hooks2.stopWriting();
       writingCastId = 0;
     }
   }
-  function renderCharacters(v, me2, opp) {
-    const overlay = $2("dkOverlay");
+  function renderCharacters(v, me3, opp) {
+    const overlay = $3("dkOverlay");
     overlay.hidden = false;
-    const title = h2("h2", "", me2.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
+    const title = h2("h2", "", me3.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
     const grid = h2("div", "char-pick");
     for (const c of DECK_CHARACTERS) {
-      const b = h2("button", "char-card" + (me2.character === c ? " on" : ""));
-      b.disabled = !!me2.character;
+      const b = h2("button", "char-card" + (me3.character === c ? " on" : ""));
+      b.disabled = !!me3.character;
       const av = h2("div", "ch-av");
       av.innerHTML = heroSvg(c, "me");
       b.append(av, h2("span", "ch-name", CHARACTER_INFO[c].name), h2("span", "ch-power", CHARACTER_INFO[c].power));
-      b.onclick = () => hooks.send({ type: "deck_character", character: c });
+      b.onclick = () => hooks2.send({ type: "deck_character", character: c });
       grid.append(b);
     }
     overlay.replaceChildren(backButton(v), title, grid, h2("p", "sub", `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1e3} s to choose a card (its mana is paid right away), then read the meaning, press Ready to see the kanji and CAST! to write it \u2014 ${DECK_RULES.castMs / 1e3} s for the whole spell. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards \u2192 a new draft round. Cards: ${CARD_COLORS.map((col) => {
@@ -2958,9 +3552,9 @@
     }).join(" \xB7 ")}.`));
   }
   var coinShown = false;
-  function renderDraft(v, me2) {
+  function renderDraft(v, me3) {
     const d = v.draft;
-    const overlay = $2("dkOverlay");
+    const overlay = $3("dkOverlay");
     overlay.hidden = false;
     const mine = d.picker === v.you;
     const head = h2("div", "center");
@@ -2972,42 +3566,42 @@
     head.append(h2("h2", "", d.coinWinner === v.you ? "You won the coin flip \u2014 you pick first" : "Your opponent won the coin flip"));
     const status = h2("p", "sub");
     const pickedNow = d.pool.filter((c) => c.takenBy === v.you).length;
-    const kept = me2.handSize - pickedNow;
+    const kept = me3.handSize - pickedNow;
     countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ""}`);
     const board = h2("div", "draft-board");
     for (const c of d.pool) {
-      const el2 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
-      if (c.takenBy) el2.classList.add("taken");
-      el2.onclick = () => {
+      const el7 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
+      if (c.takenBy) el7.classList.add("taken");
+      el7.onclick = () => {
         sfx.flip();
-        hooks.send({ type: "deck_pick", cardId: c.cardId });
+        hooks2.send({ type: "deck_pick", cardId: c.cardId });
       };
-      board.append(el2);
+      board.append(el7);
     }
     overlay.replaceChildren(backButton(v), head, status, board, h2("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
   }
   function backButton(v) {
     const b = h2("button", "back dk-back", "\u2190 Back to lobby");
     b.hidden = v.round > 1;
-    b.onclick = () => hooks.send({ type: "back_to_lobby" });
+    b.onclick = () => hooks2.send({ type: "back_to_lobby" });
     return b;
   }
   function deckEvent(e) {
     if (!view) return;
-    const me2 = view.you;
+    const me3 = view.you;
     const name = (id) => view.players.find((p) => p.id === id)?.name ?? "Someone";
     switch (e.kind) {
       case "coin":
         coinShown = false;
         break;
       case "redraft":
-        toast(`${e.playerId === me2 ? "You are" : `${name(e.playerId)} is`} out of cards \u2014 Round ${e.round} draft!`, 4e3);
+        toast(`${e.playerId === me3 ? "You are" : `${name(e.playerId)} is`} out of cards \u2014 Round ${e.round} draft!`, 4e3);
         break;
       case "ability":
-        toast(`${e.playerId === me2 ? "You" : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(":")[0]}!`);
+        toast(`${e.playerId === me3 ? "You" : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(":")[0]}!`);
         break;
       case "wizard":
-        toast(`${e.playerId === me2 ? "Your" : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === "cards" ? "+2 cards" : "+30 mana"}`);
+        toast(`${e.playerId === me3 ? "Your" : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === "cards" ? "+2 cards" : "+30 mana"}`);
         break;
       case "stuck":
         stuckId = e.playerId;
@@ -3018,11 +3612,11 @@
         break;
       case "skip":
         sfx.hurt();
-        toast(stuckId === e.playerId ? `${e.playerId === me2 ? "You have" : `${name(e.playerId)} has`} no mana for any card \u2014 turn skipped: \u2212${e.damage} HP` : `${e.playerId === me2 ? "You" : name(e.playerId)} skipped the turn: \u2212${e.damage} HP`, 3500);
+        toast(stuckId === e.playerId ? `${e.playerId === me3 ? "You have" : `${name(e.playerId)} has`} no mana for any card \u2014 turn skipped: \u2212${e.damage} HP` : `${e.playerId === me3 ? "You" : name(e.playerId)} skipped the turn: \u2212${e.damage} HP`, 3500);
         stuckId = "";
         break;
       case "ot_miss":
-        if (e.playerId === me2 && otInput) {
+        if (e.playerId === me3 && otInput) {
           sfx.wrong();
           otInput.classList.remove("shake");
           void otInput.offsetWidth;
@@ -3031,32 +3625,32 @@
         }
         break;
       case "resolve":
-        animateResolve(e, me2, e.ok ? speak(e.reading) : Promise.resolve());
+        animateResolve(e, me3, e.ok ? speak(e.reading) : Promise.resolve());
         showReveal(e);
         break;
     }
   }
   var CARD_FX = { lightblue: "bolt", blue: "frost", red: "fire" };
-  function animateResolve(e, me2, spoken = Promise.resolve()) {
-    const card = $2("dkCast").querySelector(".dkc.big");
-    const fb = $2("dkFeedback");
-    const who = e.playerId === me2 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
+  function animateResolve(e, me3, spoken = Promise.resolve()) {
+    const card = $3("dkCast").querySelector(".dkc.big");
+    const fb = $3("dkFeedback");
+    const who = e.playerId === me3 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
     const spec = e.overtime ? { label: "Rapid hit", kind: "attack", amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
     if (!e.ok) {
       fb.className = "feedback bad";
-      fb.replaceChildren(h2("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me2 ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h2("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
+      fb.replaceChildren(h2("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me3 ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h2("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
       sfx.rip();
-      arena()?.fizzle(e.playerId === me2 ? "me" : "opp");
+      arena()?.fizzle(e.playerId === me3 ? "me" : "opp");
       if (card) ripCard(card);
       return;
     }
     const a3 = arena();
     if (a3) {
-      const from = e.playerId === me2 ? "me" : "opp";
-      const to = spec.kind === "attack" ? e.targetId === me2 ? "me" : "opp" : from;
+      const from = e.playerId === me3 ? "me" : "opp";
+      const to = spec.kind === "attack" ? e.targetId === me3 ? "me" : "opp" : from;
       void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind, fx: e.overtime ? void 0 : CARD_FX[e.color] });
     } else if (spec.kind === "attack" && !e.overtime && CARD_FX[e.color]) {
-      const panel = $2(e.targetId === me2 ? "dkMe" : "dkOpp");
+      const panel = $3(e.targetId === me3 ? "dkMe" : "dkOpp");
       setTimeout(() => {
         panel.classList.remove("fx-bolt", "fx-frost", "fx-fire");
         void panel.offsetWidth;
@@ -3077,8 +3671,8 @@
       void spoken.then(() => sfx.mana());
       ghost.classList.add("sparkle");
     } else {
-      const towardsMe = spec.kind === "heal" ? e.playerId === me2 : e.targetId === me2;
-      const target = zrect($2(towardsMe ? "dkMe" : "dkOpp"));
+      const towardsMe = spec.kind === "heal" ? e.playerId === me3 : e.targetId === me3;
+      const target = zrect($3(towardsMe ? "dkMe" : "dkOpp"));
       ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
       void spoken.then(() => {
@@ -3107,14 +3701,16 @@
     bottom.append(r2, h2("span", "dkc-m", e.meaning));
     card.append(h2("span", "reveal-badge", e.ok ? "\u2713" : "\u2717"), top, bottom);
     const label = h2("div", "cast-timer", e.ok ? "Correct!" : "The correct kanji");
-    $2("dkCast").replaceChildren(card, label);
+    const strokesBox = h2("div", "dk-reveal-strokes");
+    $3("dkCast").replaceChildren(card, label, strokesBox);
+    if (!e.ok && e.playerId === hooks2.me()) showWrongStrokes(strokesBox, e.kanji);
     revealUntil = Date.now() + REVEAL_MS;
     clearTimeout(revealTimer);
     revealTimer = window.setTimeout(() => {
       revealUntil = 0;
       if (!view?.casting) {
-        $2("dkCast").replaceChildren();
-        $2("dkFeedback").replaceChildren();
+        $3("dkCast").replaceChildren();
+        $3("dkFeedback").replaceChildren();
       }
       if (view) renderDeck(view);
     }, REVEAL_MS);
@@ -3138,6 +3734,7 @@
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   };
   var resetDeck = () => {
+    wasMyTurn = false;
     resetArenaDeck();
     view = null;
     lastCastId = 0;
@@ -3151,7 +3748,7 @@
   // src/client/queue.ts
   var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
   var KEY4 = "kb:queue";
-  var load2 = () => {
+  var load3 = () => {
     try {
       return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY4) ?? "{}") };
     } catch {
@@ -3169,12 +3766,12 @@
   var me = () => "";
   var tick = 0;
   var searching = false;
-  function guideHover(el2, mode2) {
+  function guideHover(el7, mode2) {
     const pop = $("guidePop");
     const open = () => {
       pop.replaceChildren(...modeGuideNodes(mode2));
       pop.hidden = false;
-      const r2 = zrect(el2);
+      const r2 = zrect(el7);
       const w = Math.min(380, viewW() - 24);
       pop.style.width = `${w}px`;
       pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r2.left))}px`;
@@ -3184,10 +3781,10 @@
     const close = () => {
       pop.hidden = true;
     };
-    el2.addEventListener("mouseenter", open);
-    el2.addEventListener("mouseleave", close);
-    el2.addEventListener("focusin", open);
-    el2.addEventListener("focusout", close);
+    el7.addEventListener("mouseenter", open);
+    el7.addEventListener("mouseleave", close);
+    el7.addEventListener("focusin", open);
+    el7.addEventListener("focusout", close);
   }
   function chip(value, label, on, group) {
     const l = document.createElement("label");
@@ -3209,7 +3806,11 @@
   function remember() {
     save2({ modes: picked("qModes"), levels: picked("qLevels"), pick: pick3 });
   }
-  function choose(p) {
+  function choose(p, silent = false) {
+    if (p === "deck" && !canPlay("deck")) {
+      if (!silent) toast(lockText("deck"), 5e3);
+      p = "battle";
+    }
     pick3 = p;
     document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
       const on = c.dataset.q === p;
@@ -3246,6 +3847,7 @@
       });
     });
     $("qStart").onclick = () => {
+      askNotifyPermission();
       if (pick3 === "deck") return send({ type: "queue", modes: ["deck"] });
       const modes = picked("qModes"), levels = picked("qLevels");
       if (!modes.length) return toast("Tick at least one mode");
@@ -3255,14 +3857,22 @@
     $("qCancel").onclick = () => send({ type: "queue_cancel" });
   }
   function openQueue() {
-    const s = load2();
+    const s = load3();
     $("qModes").replaceChildren(...QUEUE_MODES.map((m) => {
-      const c = chip(m, MODE_LABEL[m], s.modes.includes(m), "qm");
+      const open = canPlay(m);
+      const c = chip(m, MODE_LABEL[m] + (open ? "" : " \xB7 locked"), open && s.modes.includes(m), "qm");
+      if (!open) {
+        c.classList.add("locked");
+        c.querySelector("input").disabled = true;
+        c.title = lockText(m);
+      }
       guideHover(c, m);
       return c;
     }));
+    const deckCard = document.querySelector('#queuePick .queue-card[data-q="deck"]');
+    deckCard.classList.toggle("locked", !canPlay("deck"));
     $("qLevels").replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), "ql")));
-    choose(s.pick ?? "battle");
+    choose(s.pick ?? "battle", true);
     if (!searching) {
       $("queuePick").hidden = false;
       $("qSearching").hidden = true;
@@ -3281,6 +3891,7 @@
     const box = $("matchFound");
     if (foundId !== msg.matchId) {
       foundId = msg.matchId;
+      attention("Match found!", `${MODE_LABEL[msg.mode]} \u2014 press Accept`);
       $("mfBadge").replaceChildren(modeBadge(msg.mode));
       $("mfMode").textContent = MODE_LABEL[msg.mode];
       const until = Date.now() + (msg.acceptMs ?? 5e3), total = msg.acceptMs ?? 5e3;
@@ -3435,62 +4046,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.9.5.2";
-
-  // src/client/api.ts
-  var today = () => {
-    const d = /* @__PURE__ */ new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-  var TOKEN_KEY = "kb:token";
-  var getToken = () => {
-    try {
-      return localStorage.getItem(TOKEN_KEY) ?? "";
-    } catch {
-      return "";
-    }
-  };
-  var setToken = (t) => {
-    try {
-      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
-    } catch {
-    }
-  };
-  var ApiError = class extends Error {
-    constructor(message, status) {
-      super(message);
-      __publicField(this, "status", status);
-    }
-  };
-  async function call(method, url, body) {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
-      body: body === void 0 ? void 0 : JSON.stringify(body)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
-    return data;
-  }
-  var api2 = {
-    login: (username, password) => call("POST", "/api/login", { username, password }),
-    register: (username, password) => call("POST", "/api/register", { username, password }),
-    me: () => call("GET", `/api/me?today=${today()}`),
-    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
-    removeAvatar: () => call("DELETE", "/api/me/avatar"),
-    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
-    setStaff: (staff) => call("PUT", "/api/me/staff", { staff }),
-    setBackground: (background) => call("PUT", "/api/me/background", { background }),
-    study: () => call("GET", `/api/study?today=${today()}`),
-    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
-    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
-    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
-    matches: () => call("GET", "/api/matches"),
-    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
-    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
-    users: () => call("GET", "/api/admin/users"),
-    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
-  };
+  var VERSION = "0.9.6";
 
   // src/client/net.ts
   var GameSocket = class {
@@ -3742,25 +4298,25 @@
   };
 
   // src/client/study.ts
-  var $3 = $;
+  var $4 = $;
   var onProfile = () => {
   };
   var onProfileChange = (fn) => {
     onProfile = fn;
   };
-  function counts(el2, c) {
-    el2.innerHTML = "";
+  function counts(el7, c) {
+    el7.innerHTML = "";
     for (const [cls, n, label] of [["c-new", c.new, "new"], ["c-learn", c.learning, "learning"], ["c-due", c.due, "to review"]]) {
       const s = document.createElement("span");
       s.className = cls;
       const b = document.createElement("b");
       b.textContent = String(n);
       s.append(b, label);
-      el2.append(s);
+      el7.append(s);
     }
   }
   function levelChips(selected) {
-    const box = $3("studyLevels");
+    const box = $4("studyLevels");
     box.replaceChildren(...LEVELS.map((lv) => {
       const label = document.createElement("label");
       label.className = "chip" + (selected.includes(lv) ? " on" : "");
@@ -3775,7 +4331,7 @@
   async function openStudy() {
     show("study");
     try {
-      const s = await api2.study();
+      const s = await api.study();
       render(s);
     } catch (e) {
       toast(e.message);
@@ -3783,10 +4339,10 @@
   }
   function render(s) {
     levelChips(s.studyLevels);
-    counts($3("countsAll"), s.decks.all);
-    counts($3("countsStruggle"), s.decks.struggling);
-    $3("studyCrit").textContent = `\u2726 ${critText(s.profile.crit)} crit today \xB7 ${s.profile.learnedToday} learned today (+1% each, max 50%) \xB7 ${s.profile.learned} learned in total`;
-    const notice = $3("studyNotice");
+    counts($4("countsAll"), s.decks.all);
+    counts($4("countsStruggle"), s.decks.struggling);
+    $4("studyCrit").textContent = `\u2726 ${critText(s.profile.crit)} crit today \xB7 ${s.profile.learnedToday} learned today (+1% each, max 50%) \xB7 ${s.profile.learned} learned in total`;
+    const notice = $4("studyNotice");
     notice.hidden = !s.notice;
     notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
     if (!s.studyLevels.length && !s.decks.all.total) {
@@ -3794,14 +4350,14 @@
       notice.textContent = "Tick one or more levels under \u201CAll spells\u201D to get 25 new spells today (and every day).";
     }
     const has = (c) => c.new + c.learning + c.due > 0;
-    $3("studyAll").disabled = !has(s.decks.all);
-    $3("studyStruggle").disabled = !has(s.decks.struggling);
+    $4("studyAll").disabled = !has(s.decks.all);
+    $4("studyStruggle").disabled = !has(s.decks.struggling);
     onProfile(s.profile);
   }
-  $3("studyLevels").addEventListener("change", async () => {
+  $4("studyLevels").addEventListener("change", async () => {
     const levels = [...document.querySelectorAll("#studyLevels input")].filter((i) => i.checked).map((i) => i.value);
     try {
-      render(await api2.setStudyLevels(levels));
+      render(await api.setStudyLevels(levels));
     } catch (e) {
       toast(e.message);
     }
@@ -3814,9 +4370,9 @@
   async function startSession(d) {
     deck = d;
     show("review");
-    $3("reviewDone").hidden = true;
+    $4("reviewDone").hidden = true;
     try {
-      queue = (await api2.queue(d)).cards;
+      queue = (await api.queue(d)).cards;
     } catch (e) {
       toast(e.message);
       queue = [];
@@ -3827,18 +4383,20 @@
     current = queue.shift() ?? null;
     flipped = false;
     const done = !current;
-    $3("flash").hidden = done;
-    $3("showAnswer").hidden = done;
-    $3("rateRow").hidden = true;
-    $3("reviewDone").hidden = !done;
-    $3("reviewLeft").textContent = done ? "" : `${queue.length + 1} left \xB7 ${deck === "all" ? "All spells" : "Struggling"}`;
+    $4("flash").hidden = done;
+    $4("showAnswer").hidden = done;
+    $4("rateRow").hidden = true;
+    $4("reviewDone").hidden = !done;
+    $4("reviewLeft").textContent = done ? "" : `${queue.length + 1} left \xB7 ${deck === "all" ? "All spells" : "Struggling"}`;
     if (!current) return;
-    $3("fcKanji").textContent = current.kanji;
-    $3("fcLevel").textContent = LEVEL_LABEL[current.level] + (current.state === "new" ? " \xB7 new" : "");
-    $3("fcReading").textContent = current.reading;
-    $3("fcMeaning").textContent = current.meaning;
-    $3("fcBack").hidden = true;
-    const card = $3("flash");
+    $4("fcKanji").textContent = current.kanji;
+    $4("fcLevel").textContent = LEVEL_LABEL[current.level] + (current.state === "new" ? " \xB7 new" : "");
+    $4("fcReading").textContent = current.reading;
+    $4("fcMeaning").textContent = current.meaning;
+    $4("fcBack").hidden = true;
+    $4("fcStrokes").hidden = true;
+    $4("fcStrokeBox").hidden = true;
+    const card = $4("flash");
     card.style.animation = "none";
     void card.offsetWidth;
     card.style.animation = "";
@@ -3850,17 +4408,28 @@
   function flip() {
     if (!current || flipped) return;
     flipped = true;
-    $3("fcBack").hidden = false;
-    $3("showAnswer").hidden = true;
-    $3("rateRow").hidden = false;
+    $4("fcBack").hidden = false;
+    $4("showAnswer").hidden = true;
+    $4("rateRow").hidden = false;
+    $4("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
   }
+  function strokes() {
+    if (!current || !flipped || $4("fcStrokes").hidden) return;
+    const box = $4("fcStrokeBox");
+    box.hidden = false;
+    void showStrokeOrder(box, current.kanji);
+  }
+  $4("fcStrokes").onclick = (e) => {
+    e.stopPropagation();
+    strokes();
+  };
   async function rate(r2) {
     if (!current || !flipped || busy) return;
     busy = true;
     const card = current;
     try {
-      const res = await api2.review(card.vocabId, r2);
-      $3("whoCrit").textContent = `\u2726 ${critText(res.crit)} crit`;
+      const res = await api.review(card.vocabId, r2);
+      $4("whoCrit").textContent = `\u2726 ${critText(res.crit)} crit`;
       if (r2 === "again") queue.splice(Math.min(3, queue.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
       else if (r2 === "hard" && card.state !== "review") queue.splice(Math.min(6, queue.length), 0, card);
     } catch (e) {
@@ -3869,29 +4438,30 @@
     busy = false;
     next();
   }
-  $3("showAnswer").onclick = flip;
-  $3("flash").onclick = flip;
+  $4("showAnswer").onclick = flip;
+  $4("flash").onclick = flip;
   for (const b of document.querySelectorAll("#rateRow .rate")) b.onclick = () => void rate(b.dataset.rating);
   addEventListener("keydown", (e) => {
-    if ($3("review").hidden || e.target instanceof HTMLInputElement) return;
+    if ($4("review").hidden || e.target instanceof HTMLInputElement) return;
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       flipped ? void rate("good") : flip();
     }
     const n = ["1", "2", "3", "4"].indexOf(e.key);
     if (n >= 0 && flipped) void rate(["again", "hard", "good", "easy"][n]);
+    if ((e.key === "s" || e.key === "S") && flipped) strokes();
   });
-  $3("studyAll").onclick = () => void startSession("all");
-  $3("studyStruggle").onclick = () => void startSession("struggling");
-  $3("reviewBack").onclick = () => void openStudy();
-  $3("reviewDoneBack").onclick = () => void openStudy();
+  $4("studyAll").onclick = () => void startSession("all");
+  $4("studyStruggle").onclick = () => void startSession("struggling");
+  $4("reviewBack").onclick = () => void openStudy();
+  $4("reviewDoneBack").onclick = () => void openStudy();
   var custTab = "staff";
   var picked2 = {};
   var cust = null;
   var preview = null;
   var previewTried = false;
   var staffThumbs = {};
-  var el = (tag, cls = "", text) => {
+  var el3 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -3910,7 +4480,7 @@
       return;
     }
     previewTried = true;
-    preview = await staffPreview($3("staffCanvas"));
+    preview = await staffPreview($4("staffCanvas"));
     if (preview) staffThumbs = Object.fromEntries(preview.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
     renderCustomize();
   }
@@ -3920,18 +4490,20 @@
       renderCustomize();
     };
   }
+  var thisMonth = () => (/* @__PURE__ */ new Date()).getMonth() + 1;
+  var monthName = (m) => new Date(2026, m - 1, 15).toLocaleDateString(void 0, { month: "long" });
   function custItems(profile2, isAdmin) {
     const lvl = levelOf(profile2.xp);
     const best = Math.max(profile2.bestStreak ?? 0, profile2.streak ?? 0);
     const time = resolveTime(getTimePref());
     if (custTab === "staff") {
-      return STAFFS.map((s) => ({
+      return STAFFS.filter((s) => !s.season || isAdmin || staffUnlocked(s.id, best, profile2.unlocks) || s.season === thisMonth()).map((s) => ({
         id: s.id,
         name: s.name,
         blurb: s.blurb,
-        locked: !isAdmin && best < s.streak,
-        lock: s.streak ? `${s.streak}-day streak` : "",
-        lockedToast: `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
+        locked: !isAdmin && !staffUnlocked(s.id, best, profile2.unlocks),
+        lock: s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : "",
+        lockedToast: s.season ? `Complete this month's goals (see Progress) to unlock the ${s.name}` : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
         equipped: (profile2.staff ?? "verdant") === s.id,
         tile: () => {
           if (staffThumbs[s.id]) {
@@ -3940,11 +4512,11 @@
             img.alt = "";
             return img;
           }
-          const g = el("div", "pixel-staff");
+          const g = el3("div", "pixel-staff");
           g.innerHTML = pixelStaffSvg(s.id);
           return g;
         },
-        equip: () => api2.setStaff(s.id)
+        equip: () => api.setStaff(s.id)
       }));
     }
     if (custTab === "arena") {
@@ -3957,32 +4529,32 @@
         lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
         equipped: profile2.background === b.id,
         tile: () => {
-          const d = el("div", "bg-thumb");
+          const d = el3("div", "bg-thumb");
           d.innerHTML = backgroundThumb(b.id, time);
           return d;
         },
-        equip: () => api2.setBackground(b.id)
+        equip: () => api.setBackground(b.id)
       }));
     }
-    return FLAMES.map((f2) => ({
+    return FLAMES.filter((f2) => !f2.season || isAdmin || flameUnlocked(f2.id, profile2.xp, profile2.unlocks) || f2.season === thisMonth()).map((f2) => ({
       id: f2.id,
       name: `${f2.name} flames`,
-      blurb: "Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.",
-      locked: !isAdmin && lvl < f2.level,
-      lock: `Level ${f2.level}`,
-      lockedToast: `Reach level ${f2.level} to unlock ${f2.name} flames`,
+      blurb: f2.season ? `${monthName(f2.season)} reward: complete that month's goals (Progress page). Wraps you at 5 in a row and during your Omnipotence.` : "Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.",
+      locked: !isAdmin && !flameUnlocked(f2.id, profile2.xp, profile2.unlocks),
+      lock: f2.season ? `${monthName(f2.season)} goals` : `Level ${f2.level}`,
+      lockedToast: f2.season ? `Complete this month's goals (see Progress) to unlock ${f2.name} flames` : `Reach level ${f2.level} to unlock ${f2.name} flames`,
       equipped: (profile2.flame ?? "blue") === f2.id,
       tile: () => {
-        const d = el("span", "flame-dot big");
+        const d = el3("span", "flame-dot big");
         d.style.setProperty("--c", f2.color);
         return d;
       },
-      equip: () => api2.setFlame(f2.id)
+      equip: () => api.setFlame(f2.id)
     }));
   }
   var days = (n) => `${n} day${n === 1 ? "" : "s"}`;
   var CUST_SUB = {
-    staff: (p) => `The staff in your hand in the 3D arena (other players see it too). Staffs unlock with your login streak \u2014 open the game on days in a row. Your best streak: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}.`,
+    staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak \u2014 your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
     arena: () => "The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).",
     omni: () => "Omnipotence: the flames of a 5\xD7 combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up."
   };
@@ -3996,13 +4568,13 @@
     }
     const items = custItems(profile2, isAdmin);
     const sel = items.find((i) => i.id === picked2[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
-    $3("custSub").textContent = CUST_SUB[custTab](profile2);
-    const times = $3("bgTimes");
+    $4("custSub").textContent = CUST_SUB[custTab](profile2);
+    const times = $4("bgTimes");
     times.hidden = custTab !== "arena";
     if (custTab === "arena") {
       const pref = getTimePref();
       times.replaceChildren(...TIMES.map((t) => {
-        const b = el("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "Day" : t.id === "sunset" ? "Sunset" : "Night");
+        const b = el3("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "Day" : t.id === "sunset" ? "Sunset" : "Night");
         b.onclick = () => {
           setTimePref(t.id);
           onTimeChange();
@@ -4022,13 +4594,13 @@
         toast(e.message);
       }
     };
-    $3("custGrid").className = `cust-grid ${custTab}`;
-    $3("custGrid").replaceChildren(...items.map((it) => {
-      const b = el("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
+    $4("custGrid").className = `cust-grid ${custTab}`;
+    $4("custGrid").replaceChildren(...items.map((it) => {
+      const b = el3("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
       b.setAttribute("aria-pressed", String(it === sel));
-      const pic = el("div", "ci-pic");
+      const pic = el3("div", "ci-pic");
       pic.append(it.tile());
-      b.append(pic, el("div", "ci-name", it.name), el("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? `Locked \xB7 ${it.lock}` : "Unlocked"));
+      b.append(pic, el3("div", "ci-name", it.name), el3("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? `Locked \xB7 ${it.lock}` : "Unlocked"));
       b.onclick = () => {
         picked2[custTab] = it.id;
         renderCustomize();
@@ -4036,47 +4608,533 @@
       b.ondblclick = () => void equip(it);
       return b;
     }));
-    const canvas = $3("staffCanvas");
-    const stage2 = $3("custStage2");
+    const canvas = $4("staffCanvas");
+    const stage2 = $4("custStage2");
     const showCanvas = custTab === "staff" && !!preview;
     canvas.hidden = !showCanvas;
     stage2.hidden = showCanvas;
-    $3("custStage").dataset.tab = custTab;
+    $4("custStage").dataset.tab = custTab;
     if (custTab === "staff") {
       if (preview) preview.show(sel.id);
       else {
-        const g = el("div", "pixel-staff big");
+        const g = el3("div", "pixel-staff big");
         g.innerHTML = pixelStaffSvg(sel.id);
         stage2.replaceChildren(g);
       }
     } else if (custTab === "arena") {
       stage2.innerHTML = backgroundThumb(sel.id, resolveTime(getTimePref()));
     } else {
-      const w = el("div", "wizard me onfire");
+      const w = el3("div", "wizard me onfire");
       w.dataset.flame = sel.id;
-      const sprite = el("div", "sprite");
+      const sprite = el3("div", "sprite");
       sprite.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", profile2.staff);
-      w.append(el("div", "aura"), sprite);
-      const badge = el("div", "combo-hud hot omni-badge");
+      w.append(el3("div", "aura"), sprite);
+      const badge = el3("div", "combo-hud hot omni-badge");
       badge.style.setProperty("--flame", FLAMES.find((f2) => f2.id === sel.id).color);
-      badge.append(el("b", "", "\xD75"), el("span", "", "COMBO"));
+      badge.append(el3("b", "", "\xD75"), el3("span", "", "COMBO"));
       stage2.replaceChildren(w, badge);
     }
-    const btn = el("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? `Unlocks at ${sel.lock.toLowerCase().startsWith("level") ? sel.lock.replace("Level", "level") : `a ${sel.lock}`}` : "Equip");
+    const btn = el3("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? `Unlocks at ${sel.lock.toLowerCase().startsWith("level") ? sel.lock.replace("Level", "level") : `a ${sel.lock}`}` : "Equip");
     btn.disabled = sel.equipped;
     btn.classList.toggle("locked", sel.locked);
     btn.onclick = () => void equip(sel);
-    const info = [el("h3", "", sel.name), el("p", "sub", sel.blurb)];
+    const info = [el3("h3", "", sel.name), el3("p", "sub", sel.blurb)];
     if (custTab === "staff") {
-      const row = el("div", "cust-2d");
-      const who = el("div", "c2-char");
+      const row = el3("div", "cust-2d");
+      const who = el3("div", "c2-char");
       who.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", sel.id);
-      const st = el("div", "pixel-staff");
+      const st = el3("div", "pixel-staff");
       st.innerHTML = pixelStaffSvg(sel.id);
-      row.append(who, st, el("span", "hint", "2D arena"));
+      row.append(who, st, el3("span", "hint", "2D arena"));
       info.push(row);
     }
-    $3("custInfo").replaceChildren(...info, btn);
+    $4("custInfo").replaceChildren(...info, btn);
+  }
+
+  // src/client/progressui.ts
+  var $5 = $;
+  var el4 = (tag, cls = "", text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = String(text);
+    return e;
+  };
+  var DAY_MS = 864e5;
+  var shift = (day, n) => new Date(Date.parse(day) + n * DAY_MS).toISOString().slice(0, 10);
+  var MASTERY = [
+    { cls: "m0", label: "Not in your spells yet" },
+    { cls: "m1", label: "New" },
+    { cls: "m2", label: "Learning" },
+    { cls: "m3", label: "Learned" },
+    { cls: "m4", label: "Mastered (3+ weeks)" }
+  ];
+  var page = null;
+  var level = "N5";
+  async function openProgress() {
+    show("progress");
+    $5("progGrid").replaceChildren(el4("p", "hint", "Loading\u2026"));
+    try {
+      page = await api.progress();
+    } catch (e) {
+      toast(e.message);
+      return;
+    }
+    const busiest = LEVELS.map((l) => [l, page.mastery[l].filter(([, m]) => m > 0).length]).sort((a, b) => b[1] - a[1])[0];
+    if (busiest && busiest[1] > 0) level = busiest[0];
+    render2();
+  }
+  function render2() {
+    if (!page) return;
+    renderWeek(page.activity);
+    $5("progMonth").replaceChildren(...monthNodes(page.month));
+    renderHeatmap(page.activity);
+    renderMastery();
+  }
+  function renderWeek(activity) {
+    const t = today();
+    const sum = (from, to) => {
+      const days2 = activity.filter((a) => a.day > shift(t, -from) && a.day <= shift(t, -to));
+      return {
+        days: days2.filter((a) => a.login || a.games || a.reviews).length,
+        reviews: days2.reduce((n, a) => n + a.reviews, 0),
+        games: days2.reduce((n, a) => n + a.games, 0),
+        wins: days2.reduce((n, a) => n + a.wins, 0),
+        xp: days2.reduce((n, a) => n + a.xp, 0)
+      };
+    };
+    const now = sum(7, 0), before = sum(14, 7);
+    const stat = (label, v, prev) => {
+      const d = v - prev;
+      const box = el4("div", "pw-stat");
+      box.append(
+        el4("b", "", v.toLocaleString()),
+        el4("span", "", label),
+        el4("small", d > 0 ? "up" : d < 0 ? "down" : "", prev || v ? `${d > 0 ? "+" : ""}${d.toLocaleString()} vs last week` : "\u2014")
+      );
+      return box;
+    };
+    const grid = el4("div", "pw-grid");
+    grid.append(stat("days active", now.days, before.days), stat("cards passed", now.reviews, before.reviews), stat("games", now.games, before.games), stat("wins", now.wins, before.wins), stat("XP", now.xp, before.xp));
+    const bars = el4("div", "pw-bars");
+    const max = Math.max(1, ...Array.from({ length: 7 }, (_, i) => score(activity.find((a) => a.day === shift(t, i - 6)))));
+    for (let i = -6; i <= 0; i++) {
+      const day = shift(t, i);
+      const a = activity.find((x) => x.day === day);
+      const bar = el4("div", "pw-bar");
+      const fill = el4("i");
+      fill.style.height = `${Math.round(score(a) / max * 100)}%`;
+      bar.title = `${day}: ${a ? `${a.reviews} cards, ${a.games} games` : "nothing"}`;
+      bar.append(fill, el4("span", "", (/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(void 0, { weekday: "narrow" })));
+      bars.append(bar);
+    }
+    $5("progWeek").replaceChildren(el4("h3", "", "This week"), grid, bars);
+  }
+  var score = (a) => a ? a.reviews + a.games * 5 + (a.login ? 1 : 0) : 0;
+  function monthNodes(m) {
+    const [kind, id] = m.reward.split(":");
+    const reward = kind === "flame" ? FLAMES.find((f2) => f2.id === id) : STAFFS.find((s) => s.id === id);
+    const sw = el4("span", "reward-swatch");
+    sw.style.setProperty("--c", kind === "flame" ? reward.color : reward.gem);
+    const monthName2 = (/* @__PURE__ */ new Date(`${m.month}-15T12:00:00`)).toLocaleDateString(void 0, { month: "long" });
+    const head = el4("h3", "", `${monthName2}: ${m.name} season`);
+    const rw = el4("div", "reward-line");
+    rw.append(sw, el4("span", "", m.unlocked ? `Unlocked: ${reward?.name}${kind === "flame" ? " flames" : ""} \u2014 equip it in Customize` : `Reward: ${reward?.name}${kind === "flame" ? " flames" : ""} (only this month)`));
+    const goals = el4("div", "goals");
+    for (const g of m.goals) {
+      const row = el4("div", "goal" + (g.value >= g.target ? " done" : ""));
+      const bar = el4("div", "goal-bar");
+      const fill = el4("i");
+      fill.style.width = `${Math.round(g.value / g.target * 100)}%`;
+      bar.append(fill);
+      row.append(el4("span", "goal-label", `${g.value >= g.target ? "\u2713 " : ""}${g.label}`), el4("span", "goal-num", `${g.value} / ${g.target}`), bar);
+      goals.append(row);
+    }
+    return [head, rw, goals];
+  }
+  function renderHeatmap(activity) {
+    const t = today();
+    const byDay = new Map(activity.map((a) => [a.day, a]));
+    const box = $5("progHeat");
+    box.replaceChildren();
+    const dow = ((/* @__PURE__ */ new Date(`${t}T12:00:00`)).getDay() + 6) % 7;
+    const start = shift(t, -(25 * 7 + dow));
+    const max = Math.max(1, ...activity.map(score));
+    let active = 0;
+    for (let w = 0; w < 26; w++) {
+      const col = el4("div", "hm-col");
+      for (let d = 0; d < 7; d++) {
+        const day = shift(start, w * 7 + d);
+        const cell = el4("div", "hm-cell");
+        if (day > t) {
+          cell.classList.add("future");
+          col.append(cell);
+          continue;
+        }
+        const a = byDay.get(day);
+        const s = score(a);
+        if (s > 0) active++;
+        cell.dataset.l = String(s === 0 ? 0 : Math.min(4, 1 + Math.floor(s / max * 3.999)));
+        cell.title = `${(/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(void 0, { weekday: "short", month: "short", day: "numeric" })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ""}` : "no activity"}`;
+        if (day === t) cell.classList.add("today");
+        col.append(cell);
+      }
+      box.append(col);
+    }
+    $5("progHeatSub").textContent = `${active} active days in the last 6 months`;
+  }
+  function renderMastery() {
+    if (!page) return;
+    const tabs = $5("progLevels");
+    tabs.replaceChildren(...LEVELS.map((l) => {
+      const words2 = page.mastery[l];
+      const known = words2.filter(([, m]) => m >= 3).length;
+      const b = el4("button", "cust-tab" + (l === level ? " on" : ""), `${LEVEL_LABEL[l]} \xB7 ${known}/${words2.length}`);
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", String(l === level));
+      b.onclick = () => {
+        level = l;
+        renderMastery();
+      };
+      return b;
+    }));
+    const words = page.mastery[level];
+    const counts2 = [0, 0, 0, 0, 0];
+    for (const [, m] of words) counts2[m]++;
+    $5("progLegend").replaceChildren(...MASTERY.map((m, i) => {
+      const item = el4("span", "ml-item");
+      item.append(el4("i", m.cls), el4("span", "", `${m.label} \xB7 ${counts2[i]}`));
+      return item;
+    }));
+    const grid = $5("progGrid");
+    const frag = document.createDocumentFragment();
+    for (const [kanji, m] of words) {
+      const c = el4("span", `mg ${MASTERY[m].cls}`);
+      c.title = `${kanji} \u2014 ${MASTERY[m].label}`;
+      frag.append(c);
+    }
+    grid.replaceChildren(frag);
+  }
+  $5("progressBack").onclick = () => show("menu");
+
+  // src/client/dailyui.ts
+  var $6 = $;
+  var el5 = (tag, cls = "", text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = String(text);
+    return e;
+  };
+  var secs2 = (ms) => `${(ms / 1e3).toFixed(1)} s`;
+  var nextReset = () => {
+    const d = /* @__PURE__ */ new Date();
+    d.setUTCHours(24, 0, 0, 0);
+    return `at ${d.toLocaleTimeString(void 0, { hour: "2-digit", minute: "2-digit" })} your time`;
+  };
+  var me2 = "";
+  var word = null;
+  var timer = 0;
+  var busy2 = false;
+  var results = [];
+  async function dailyPending() {
+    try {
+      return !(await api.daily()).mine;
+    } catch {
+      return false;
+    }
+  }
+  async function openDaily(userId) {
+    me2 = userId;
+    show("daily");
+    $6("dailyMain").replaceChildren(el5("p", "hint", "Loading\u2026"));
+    try {
+      renderOverview(await api.daily());
+    } catch (e) {
+      toast(e.message);
+    }
+  }
+  function renderBoard(o) {
+    const list = $6("dailyBoard");
+    if (!o.board.length) {
+      list.replaceChildren(el5("li", "hint", "Nobody has played today yet \u2014 be the first!"));
+      return;
+    }
+    list.replaceChildren(...o.board.map((r2, i) => {
+      const li = el5("li", r2.id === me2 ? "me" : "");
+      li.append(el5("span", "db-rank", i + 1), el5("span", "db-name", r2.name), el5("span", "db-score", `${r2.correct}/${o.total}`), el5("span", "db-time", secs2(r2.ms)));
+      return li;
+    }));
+  }
+  function renderOverview(o) {
+    renderBoard(o);
+    const main = $6("dailyMain");
+    const date = `Challenge of ${(/* @__PURE__ */ new Date(`${o.day}T12:00:00Z`)).toLocaleDateString(void 0, { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}`;
+    if (o.mine) {
+      const words = el5("div", "daily-words");
+      for (const w of o.words ?? []) {
+        const row = el5("div", "dw");
+        const k = el5("span", "dw-k", w.kanji);
+        k.lang = "ja";
+        const r2 = el5("span", "dw-r", w.reading);
+        r2.lang = "ja";
+        row.append(el5("span", "dw-l", LEVEL_LABEL[w.level]), k, r2, el5("span", "dw-m", w.meaning));
+        words.append(row);
+      }
+      main.replaceChildren(
+        el5("p", "sub", date),
+        el5("div", "daily-score", `${o.mine.correct} / ${o.total}`),
+        el5("p", "center", `${secs2(o.mine.ms)} \xB7 rank ${o.rank} today`),
+        el5("p", "hint center", `10 new words ${nextReset()}.`),
+        el5("h4", "", "Today's words"),
+        words
+      );
+      return;
+    }
+    const start = el5("button", "big", o.inProgress ? "Continue" : "Start");
+    start.onclick = () => void begin();
+    main.replaceChildren(
+      el5("p", "sub", date),
+      el5("h3", "", "Ten words, the same for everyone today"),
+      el5("p", "", `Two words each from N5 to N1, easiest first. Type the reading (kana or romaji) and press Enter \u2014 ${o.wordMs / 1e3} s per word. One try a day: most correct wins, then fastest.`),
+      el5("p", "hint", `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
+      start
+    );
+  }
+  async function begin() {
+    if (busy2) return;
+    busy2 = true;
+    results = [];
+    try {
+      word = (await api.dailyStart()).word;
+    } catch (e) {
+      toast(e.message);
+      busy2 = false;
+      return void openDaily(me2);
+    }
+    busy2 = false;
+    renderPlay(null);
+  }
+  function renderPlay(last) {
+    if (!word) return;
+    const main = $6("dailyMain");
+    const dots = el5("div", "daily-dots");
+    for (let i = 0; i < word.total; i++) dots.append(el5("i", i < results.length ? results[i] ? "ok" : "no" : i === word.index ? "now" : ""));
+    const k = el5("div", "daily-kanji", word.kanji);
+    k.lang = "ja";
+    const bar = el5("div", "timer thin");
+    const fill = el5("div");
+    bar.append(fill);
+    const input = el5("input", "daily-input");
+    input.lang = "ja";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.placeholder = "reading (\u304B\u306A or romaji)";
+    input.addEventListener("paste", (e) => e.preventDefault());
+    const skip2 = el5("button", "pill", "Skip");
+    const fb = el5("div", "daily-fb");
+    if (last) {
+      fb.className = `daily-fb ${last.correct ? "ok" : "no"}`;
+      const kk = el5("span", "rk", last.kanji);
+      kk.lang = "ja";
+      const rr = el5("span", "rr", last.reading);
+      rr.lang = "ja";
+      fb.append(el5("b", "", last.correct ? "\u2713" : "\u2717"), kk, rr, el5("span", "", last.meaning));
+    }
+    main.replaceChildren(el5("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input, skip2, fb);
+    input.focus();
+    const t0 = performance.now(), limit = word.timeLimitMs;
+    clearInterval(timer);
+    timer = window.setInterval(() => {
+      const left = Math.max(0, limit - (performance.now() - t0));
+      fill.style.width = `${left / limit * 100}%`;
+      if (left <= 0) void submit("");
+    }, 100);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) void submit(input.value);
+    });
+    skip2.onclick = () => void submit("");
+  }
+  async function submit(text) {
+    if (busy2 || !word) return;
+    busy2 = true;
+    clearInterval(timer);
+    try {
+      const r2 = await api.dailyAnswer(text);
+      results.push(r2.correct);
+      if (r2.correct) sfx.correct(1);
+      else sfx.wrong();
+      if (r2.next) {
+        word = r2.next;
+        busy2 = false;
+        renderPlay(r2);
+        return;
+      }
+      word = null;
+      busy2 = false;
+      const o = await api.daily();
+      renderOverview(o);
+      if (r2.done) {
+        toast(`Daily challenge: ${r2.done.correct}/10 \xB7 rank ${r2.done.rank} of ${r2.done.players}${r2.done.xp ? ` \xB7 +${r2.done.xp} XP` : ""}`, 6e3);
+        if (r2.done.correct === 10) sfx.go();
+      }
+    } catch (e) {
+      busy2 = false;
+      toast(e.message);
+      void openDaily(me2);
+    }
+  }
+  $6("dailyBack").onclick = () => {
+    clearInterval(timer);
+    word = null;
+    show("menu");
+  };
+
+  // src/client/friendsui.ts
+  var $7 = $;
+  var el6 = (tag, cls = "", text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = String(text);
+    return e;
+  };
+  var friends = [];
+  var fetchedAt = 0;
+  var hooks3;
+  function initFriends(h3) {
+    hooks3 = h3;
+  }
+  async function refresh(force = false) {
+    if (!force && Date.now() - fetchedAt < 8e3) return friends;
+    try {
+      friends = (await api.friends()).friends;
+      fetchedAt = Date.now();
+    } catch {
+    }
+    updateBadge();
+    return friends;
+  }
+  function updateBadge() {
+    const n = friends.filter((f2) => f2.status === "incoming").length;
+    const b = $7("friendsBadge");
+    b.hidden = n === 0;
+    b.textContent = String(n);
+  }
+  var refreshFriendsBadge = () => void refresh(true);
+  async function openFriends() {
+    show("friends");
+    $7("friendMsg").textContent = "";
+    await refresh(true);
+    render3();
+  }
+  function render3() {
+    const list = $7("friendList");
+    const incoming = friends.filter((f2) => f2.status === "incoming");
+    const accepted = friends.filter((f2) => f2.status === "accepted").sort((a, b) => Number(b.online) - Number(a.online) || a.username.localeCompare(b.username));
+    const outgoing = friends.filter((f2) => f2.status === "outgoing");
+    const section = (title, rows) => {
+      if (!rows.length) return [];
+      const s = el6("div", "fl-section");
+      s.append(el6("h3", "", title), ...rows);
+      return [s];
+    };
+    const row = (f2, actions) => {
+      const r2 = el6("div", "fl-row" + (f2.online ? " online" : ""));
+      const who = el6("div", "fl-who");
+      const name = el6("span", "fl-name", f2.username);
+      markProfile(name, { id: f2.id, name: f2.username, bot: null });
+      who.append(el6("i", "dot"), name, el6("small", "", f2.status === "accepted" ? f2.online ? f2.activity ?? "Online" : "Offline" : f2.status === "incoming" ? "wants to be friends" : "request sent"));
+      r2.append(who, el6("div", "fl-actions"));
+      r2.lastElementChild.append(...actions);
+      return r2;
+    };
+    const btn = (text, cls, fn) => {
+      const b = el6("button", `pill ${cls}`, text);
+      b.onclick = async () => {
+        b.disabled = true;
+        try {
+          friends = (await fn()).friends;
+          fetchedAt = Date.now();
+          updateBadge();
+          render3();
+        } catch (e) {
+          toast(e.message);
+          b.disabled = false;
+        }
+      };
+      return b;
+    };
+    const nodes = [
+      ...section(`Requests (${incoming.length})`, incoming.map((f2) => row(f2, [btn("Accept", "primary", () => api.acceptFriend(f2.id)), btn("Decline", "", () => api.removeFriend(f2.id))]))),
+      ...section(`Friends (${accepted.length}) \xB7 ${accepted.filter((f2) => f2.online).length} online`, accepted.map((f2) => row(f2, [btn("Remove", "danger", () => api.removeFriend(f2.id))]))),
+      ...section("Sent requests", outgoing.map((f2) => row(f2, [btn("Cancel", "", () => api.removeFriend(f2.id))])))
+    ];
+    list.replaceChildren(...nodes.length ? nodes : [el6("p", "hint", "No friends yet \u2014 add someone by their player name above.")]);
+  }
+  $7("friendAdd").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = $7("friendName");
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      const r2 = await api.addFriend(name);
+      friends = r2.friends;
+      fetchedAt = Date.now();
+      $7("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      input.value = "";
+      render3();
+    } catch (err) {
+      $7("friendMsg").textContent = err.message;
+    }
+  });
+  $7("friendsBack").onclick = () => show("menu");
+  $7("friendsRefresh").onclick = () => void openFriends();
+  async function renderLobbyInvites(isLobby) {
+    const box = $7("lobbyInvite");
+    if (!isLobby) {
+      box.hidden = true;
+      return;
+    }
+    await refresh();
+    const online = friends.filter((f2) => f2.status === "accepted" && f2.online);
+    box.hidden = online.length === 0;
+    if (!online.length) return;
+    box.replaceChildren(el6("h4", "", "Invite friends"), ...online.map((f2) => {
+      const r2 = el6("div", "li-row");
+      const b = el6("button", "pill primary", "Invite");
+      b.onclick = () => {
+        hooks3.send({ type: "invite", friendId: f2.id });
+        b.textContent = "Invited \u2713";
+        b.disabled = true;
+      };
+      r2.append(el6("i", "dot"), el6("span", "", f2.username), el6("small", "hint", f2.activity ?? ""), b);
+      return r2;
+    }));
+  }
+  function onInvite(msg) {
+    const box = $7("inviteBox");
+    const join2 = el6("button", "big", "Join");
+    const no = el6("button", "pill", "Decline");
+    const close = () => {
+      box.hidden = true;
+      clearTimeout(t);
+    };
+    join2.onclick = () => {
+      close();
+      if (hooks3.inRoom()) return toast("Leave your current room first");
+      hooks3.join(msg.code);
+    };
+    no.onclick = close;
+    box.replaceChildren(el6("b", "", `${msg.from} invites you`), el6("span", "", `to ${MODE_LABEL[msg.mode]} \u2014 room ${msg.code}`), el6("div", "ib-actions"));
+    box.lastElementChild.append(join2, no);
+    box.hidden = false;
+    sfx.go();
+    attention(`${msg.from} invites you`, `Join their ${MODE_LABEL[msg.mode]} room`);
+    const t = window.setTimeout(close, 6e4);
+  }
+  function onFriendEvent(msg) {
+    toast(msg.event === "request" ? `${msg.from} wants to be your friend \u2014 see Friends` : `${msg.from} accepted your friend request`, 5e3);
+    void refresh(true).then(() => {
+      if (currentScreen() === "friends") render3();
+    });
   }
 
   // src/client/main.ts
@@ -4130,6 +5188,8 @@
     title.hidden = !["prep", "battle", "deck"].includes(s);
     if (!title.hidden) title.replaceChildren(modeBadge(s === "deck" ? "deck" : mode), document.createTextNode(MODE_LABEL[s === "deck" ? "deck" : mode]));
     if (s === "menu" && profile) void refreshProfile();
+    if (s !== "lobby") void renderLobbyInvites(false);
+    tutorialScreen(s);
     if (!GAME_SCREENS2.has(s)) setTimeout(() => applyBackground(true), 0);
   });
   var NO_BG_CHANGE = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
@@ -4150,9 +5210,27 @@
     }, untilNextStep() + 50);
   }
   scheduleCycle();
+  var tutorialShown = false;
   function applyProfile(p) {
+    const before = profile?.unlocks ?? null;
+    if (before) {
+      for (const r2 of p.unlocks ?? []) if (!before.includes(r2)) {
+        const [kind, id] = r2.split(":");
+        const name = kind === "flame" ? `${FLAMES.find((f2) => f2.id === id)?.name} flames` : STAFFS.find((x) => x.id === id)?.name;
+        toast(`Monthly goals complete! ${name} unlocked \u2014 equip it in Customize.`, 7e3);
+      }
+    }
     profile = p;
     setProfile(p);
+    setModeAccess(p.level, user?.role === "admin");
+    if (!p.tutorialDone && !tutorialShown && user && !inRoom) {
+      tutorialShown = true;
+      startTutorial();
+    }
+    void dailyPending().then((open) => {
+      $("dailyBadge").hidden = !open;
+    });
+    refreshFriendsBadge();
     const locked = user?.role !== "admin" && (p.strugglingDue ?? 0) > STUDY_LOCK;
     $("menu").classList.toggle("locked", locked);
     $("studyLock").hidden = !locked;
@@ -4163,7 +5241,7 @@
   onProfileChange(applyProfile);
   async function refreshProfile() {
     try {
-      applyProfile((await api2.me()).profile);
+      applyProfile((await api.me()).profile);
     } catch {
     }
   }
@@ -4173,7 +5251,7 @@
     setAudioButtons(isRadioOn(), isSfxOn());
     if (!getToken()) return showAuth();
     try {
-      const { user: u, profile: p } = await api2.me();
+      const { user: u, profile: p } = await api.me();
       applyProfile(p);
       signedIn(u);
     } catch (e) {
@@ -4192,6 +5270,7 @@
     socket.start(getToken());
     if (!inRoom) show("menu");
     if (!profile) void refreshProfile();
+    else applyProfile(profile);
   }
   function showAuth(message = "") {
     user = null;
@@ -4259,6 +5338,12 @@
       case "notice":
         toast(msg.message);
         break;
+      case "friend":
+        onFriendEvent(msg);
+        break;
+      case "invite":
+        onInvite(msg);
+        break;
       case "lobby":
         players = msg.players;
         mode = msg.mode;
@@ -4266,6 +5351,11 @@
         stopWriting();
         resetDeck();
         showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers);
+        void renderLobbyInvites(true);
+        if (inTutorialBattle() && msg.hostId === you) {
+          if (msg.players.length < 2) socket.send({ type: "add_bot", level: "N5" });
+          else socket.send({ type: "start" });
+        }
         break;
       case "prep":
         players = msg.players;
@@ -4371,14 +5461,14 @@
   }
   function onBattleEvent(msg) {
     const e = msg.event;
-    const render2 = () => renderFighters(players, you, msg.boss);
+    const render4 = () => renderFighters(players, you, msg.boss);
     switch (e.kind) {
       case "hit": {
         const caster = actorOf(e.playerId);
         const target = actorOf(e.targetId);
         const friendly = caster !== "opp";
         void castSpell(caster, target, e.kanji, e.damage, friendly, !!e.crit).then(() => {
-          render2();
+          render4();
           if (target === "me") sfx.hurt();
           else if (caster === "me") sfx.impact();
         });
@@ -4387,13 +5477,13 @@
       }
       case "miss":
         fizzle(actorOf(e.playerId));
-        render2();
+        render4();
         if (e.playerId !== you) logLine(`${nameOf(e.playerId)} fumbled:`, e.kanji);
         break;
       case "claw":
         clawHit(actorOf(e.playerId), e.damage);
         if (e.playerId === you) sfx.claw();
-        setTimeout(render2, 200);
+        setTimeout(render4, 200);
         if (e.playerId !== you) logLine(`The dragon claws ${nameOf(e.playerId)} for ${e.damage}`);
         break;
       case "breath_warning":
@@ -4406,7 +5496,7 @@
         breathFire(e.damage, victims, immune.map((id) => actorOf(id)));
         if (immune.includes(you)) toast("You are on fire \u2014 immune to dragon breath!");
         sfx.fire();
-        setTimeout(render2, 450);
+        setTimeout(render4, 450);
         logLine(immune.length ? `Fire breath! ${e.damage} damage \u2014 ${immune.map(nameOf).join(", ")} immune (on fire)` : `Fire breath! Everyone takes ${e.damage}`);
         break;
       }
@@ -4549,7 +5639,7 @@
     btn.disabled = true;
     $("authError").textContent = "";
     try {
-      const res = authTab === "login" ? await api2.login(username, password) : await api2.register(username, password);
+      const res = authTab === "login" ? await api.login(username, password) : await api.register(username, password);
       setToken(res.token);
       $("authPass").value = "";
       signedIn(res.user);
@@ -4578,8 +5668,27 @@
   };
   initQueue((m) => socket.send(m), () => user?.id ?? "");
   for (const card of document.querySelectorAll(".mode-card")) {
-    card.onclick = () => socket.send({ type: "create", mode: card.dataset.mode, levels: savedLevels() });
+    card.onclick = () => {
+      const m = card.dataset.mode;
+      if (!canPlay(m)) return toast(lockText(m), 5e3);
+      if (m === "deck") askNotifyPermission();
+      socket.send({ type: "create", mode: m, levels: savedLevels() });
+    };
   }
+  $("dailyBtn").onclick = () => {
+    if (user) void openDaily(user.id);
+  };
+  $("progressBtn").onclick = () => void openProgress();
+  $("friendsBtn").onclick = () => void openFriends();
+  initFriends({
+    send: (m) => socket.send(m),
+    join: (c) => {
+      askNotifyPermission();
+      socket.send({ type: "join", code: c, levels: savedLevels() });
+    },
+    inRoom: () => inRoom
+  });
+  initTutorial({ firstBattle: () => socket.send({ type: "create", mode: "reading", levels: ["N5"] }) });
   $("modesBack").onclick = () => show("menu");
   var join = () => {
     const c = $("joinCode").value.trim();
@@ -4600,10 +5709,10 @@
   $("customizeBack").onclick = () => show("menu");
   async function openAdmin() {
     try {
-      const { users, storage, persistent } = await api2.users();
+      const { users, storage, persistent } = await api.users();
       showAdmin(users, user, { storage, persistent }, async (u) => {
         try {
-          await api2.setBanned(u.id, !u.banned);
+          await api.setBanned(u.id, !u.banned);
           await openAdmin();
         } catch (e) {
           $("adminInfo").textContent = e.message;
@@ -4689,15 +5798,15 @@
   $("version").textContent = `v${VERSION}`;
   document.documentElement.dataset.v = VERSION;
   {
-    const t = $("arena3dToggle");
-    t.checked = arenaPref();
-    t.disabled = !arenaSupported();
-    $("arena3dInfo").textContent = arenaSupported() ? "First-person duel arena (move the mouse to look around)." : "Needs WebGL and a larger window \u2014 the classic 2D view is used.";
-    t.onchange = () => setArenaPref(t.checked);
-    $("volBtn").addEventListener("click", () => {
-      t.checked = arenaPref();
+    const t = $("arena3dMode");
+    const sync = () => {
+      t.value = arenaQuality();
       t.disabled = !arenaSupported();
-    });
+      $("arena3dInfo").textContent = arenaSupported() ? "First-person duel arena (move the mouse to look around). Lite is lighter on phones and older computers." : "Needs WebGL and a landscape screen \u2014 the classic 2D view is used (turn your phone sideways for 3D).";
+    };
+    sync();
+    t.onchange = () => setArenaQuality(t.value);
+    $("volBtn").addEventListener("click", sync);
   }
   {
     const sel = $("uiZoom");
@@ -4720,7 +5829,7 @@
   async function openHistory() {
     showHistory(null, openMatch);
     try {
-      showHistory((await api2.matches()).matches, openMatch);
+      showHistory((await api.matches()).matches, openMatch);
     } catch (err) {
       toast(err.message);
       show("menu");
@@ -4728,7 +5837,7 @@
   }
   async function openMatch(id) {
     try {
-      const m = (await api2.match(id)).match;
+      const m = (await api.match(id)).match;
       showResults(m.mode, m.players, m.you, m.winnerId, m.teamWon, m.reason, m.stats, { history: { at: m.at } });
     } catch (err) {
       toast(err.message);
@@ -4739,30 +5848,30 @@
   $("resultHistoryBack").onclick = () => void openHistory();
   {
     let shownFor = "";
-    const open = async (el2) => {
-      const id = el2.dataset.profile;
+    const open = async (el7) => {
+      const id = el7.dataset.profile;
       if (shownFor === id && !$("otherPop").hidden) {
         hideProfileCard();
         shownFor = "";
         return;
       }
       shownFor = id;
-      const name = el2.dataset.name ?? el2.textContent ?? "";
-      const bot = el2.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
-      if (bot) return showProfileCard(el2, { bot, name });
-      showProfileCard(el2, "loading");
+      const name = el7.dataset.name ?? el7.textContent ?? "";
+      const bot = el7.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
+      if (bot) return showProfileCard(el7, { bot, name });
+      showProfileCard(el7, "loading");
       try {
-        const { profile: profile2 } = await api2.player(id);
-        if (shownFor === id) showProfileCard(el2, profile2);
+        const { profile: profile2 } = await api.player(id);
+        if (shownFor === id) showProfileCard(el7, profile2);
       } catch {
-        if (shownFor === id) showProfileCard(el2, "missing");
+        if (shownFor === id) showProfileCard(el7, "missing");
       }
     };
     addEventListener("click", (e) => {
-      const el2 = e.target.closest("[data-profile]");
-      if (el2) {
+      const el7 = e.target.closest("[data-profile]");
+      if (el7) {
         e.stopPropagation();
-        void open(el2);
+        void open(el7);
         return;
       }
       if (!$("otherPop").contains(e.target)) {
@@ -4771,10 +5880,10 @@
       }
     }, true);
     addEventListener("keydown", (e) => {
-      const el2 = e.target.closest?.("[data-profile]");
-      if (el2 && (e.key === "Enter" || e.key === " ")) {
+      const el7 = e.target.closest?.("[data-profile]");
+      if (el7 && (e.key === "Enter" || e.key === " ")) {
         e.preventDefault();
-        void open(el2);
+        void open(el7);
       } else if (e.key === "Escape") hideProfileCard();
     });
   }
@@ -4802,7 +5911,7 @@
       e.target.value = "";
       if (!file) return;
       try {
-        const { profile: profile2 } = await api2.setAvatar(await squarePicture(file));
+        const { profile: profile2 } = await api.setAvatar(await squarePicture(file));
         setProfile(profile2);
         toast("Profile picture updated");
       } catch (err) {
@@ -4811,7 +5920,7 @@
     };
     $("picRemove").onclick = async () => {
       try {
-        setProfile((await api2.removeAvatar()).profile);
+        setProfile((await api.removeAvatar()).profile);
       } catch (err) {
         toast(err.message);
       }
@@ -4840,7 +5949,7 @@
   {
     const panel = $("volPanel");
     const music = $("musicVol"), fx = $("sfxVol"), vo = $("voiceVol");
-    const show2 = () => {
+    const show3 = () => {
       const vp = getVoicePrefs();
       vo.value = String(Math.round(vp.vol * 100));
       $("voiceVolVal").textContent = `${vo.value}%`;
@@ -4856,20 +5965,20 @@
       e.stopPropagation();
       panel.hidden = !panel.hidden;
       $("volBtn").setAttribute("aria-expanded", String(!panel.hidden));
-      show2();
+      show3();
     };
     music.oninput = () => {
       setMusicVolume(Number(music.value) / 100);
-      show2();
+      show3();
     };
     fx.oninput = () => {
       setSfxVolume(Number(fx.value) / 100);
-      show2();
+      show3();
     };
     fx.onchange = () => previewSfx();
     vo.oninput = () => {
       setVoiceVolume(Number(vo.value) / 100);
-      show2();
+      show3();
     };
     vo.onchange = () => say("\u304B\u3093\u3058");
     addEventListener("click", (e) => {

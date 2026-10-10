@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.5.2
+# Kanji Wizards · v0.9.6
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -104,6 +104,57 @@ history) to see their profile: level, wins, losses, win rate and spells learned.
 Opening the game on consecutive days builds a 🔥 login streak (by your own calendar day); your current and best
 streak have their own boxes in your profile and on your profile card for others. Your **best** streak unlocks magic
 staffs (so a broken streak never takes one away): Verdant (everyone), Ember 5 days, Tide 10, Storm 15, Void 20.
+
+## New players: tutorial and unlocks
+
+New accounts get a short first-run tutorial (a "try it" box: 山 → yama), then a guided first battle against a
+beginner AI with tips on each screen. Modes unlock with levels: **Kanji Reading** and **Rapid** from the start,
+**Kanji Writing** and **Boss** at level 1, **Deck Duel** at level 2 — for creating rooms and the online queue
+(checked on the server). Joining a friend's room by code or invite always works. Accounts from before 0.9.6
+skip the tutorial.
+
+## Daily challenge
+
+The same 10 words for everyone each day (UTC), two each from N5 up to N1. Type each reading (kana or romaji)
+within 15 s; answers are checked one at a time on the server and the clock runs there too (leaving a word
+open counts it as missed). One try a day, ranked by correct answers then total time; 30 XP per correct word
+(+100 for 10/10). After playing you see the words with their readings (`src/server/study/DailyService.ts`).
+
+## Progress page and monthly goals
+
+**Progress** (main menu): this week vs last week (days active, cards passed, games, wins, XP), a 26-week
+activity heatmap, and a mastery grid for every word of each level (not yet in your spells / new / learning /
+learned / mastered = review interval of 3+ weeks). Activity is logged per player per local day (`kw_activity`).
+
+Every month has the same three goals — play on 12 days, win 10 games, pass 150 flashcards — and a seasonal
+reward: even months a flame colour (Sakura, Rain, Sun, Thunder, Harvest, Starlight), odd months a staff
+(Frost, Blossom, Jade, Abyss, Moon, Maple — recoloured classic staffs, in 3D and pixel art). Rewards are kept
+forever once earned; a reward only shows in Customize while its month is on, or once you have it.
+
+## Friends and invites
+
+**Friends** (main menu): add players by name, accept or decline requests, see who is online and what they are
+doing. In a room's lobby your online friends appear with an **Invite** button; they get a card with Join /
+Decline (and a notification if the tab is in the background). Stored in `kw_friends`.
+
+## Stroke order
+
+Study spells: after flipping a card, **Stroke order** (or S) draws each stroke of the kanji in order, numbered.
+After a wrong or missed write in Kanji Writing or Deck Duel the correct strokes play right away, and on the
+results screen every word opens its stroke order. The strokes are the handwriting recogniser's reference data
+(`/api/strokes`).
+
+## Alerts
+
+Deck Duel plays a chime when your turn starts; "Your turn", "Match found" and invites blink the tab title and
+show a system notification while the game is in the background (the browser asks for permission once, when you
+start queueing or create a Deck Duel).
+
+## Phones
+
+The 3D arena now has **Full / Lite / Off** (settings panel). Lite (default on phones and small screens) uses less
+grass and particles, no anti-aliasing and a lower resolution; turn a phone sideways to get 3D. Upright phones use
+the 2D layout with a bigger writing pad, a compact top bar and stacked pages.
 
 ## Customize
 

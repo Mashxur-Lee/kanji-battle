@@ -1,5 +1,6 @@
 import * as voice from './voice';
 import { zrect } from './zoom';
+import { attention } from './notify';
 import { CARD_COLORS, CARD_SPECS, CHARACTER_INFO, DECK_CHARACTERS, DECK_RULES, type CardColor, type DeckCardView, type DeckEvent, type DeckPlayerView, type DeckView } from '../shared/deck';
 import * as audio from './audio';
 import * as ui from './ui';
@@ -29,6 +30,7 @@ export interface DeckHooks {
 
 let view: DeckView | null = null;
 let hooks: DeckHooks;
+let wasMyTurn = false;
 let lastCastId = 0;
 let writingCastId = 0;
 let stuckId = '';
@@ -218,6 +220,9 @@ export function renderDeck(v: DeckView) {
   }
   const banner = $('dkBanner');
   const myTurn = v.turn?.active === v.you;
+  // your turn starts: a chime, and a blinking tab / notification if you're looking elsewhere
+  if (myTurn && !v.casting && !wasMyTurn && v.phase !== 'over') { audio.sfx.yourTurn(); attention('Your turn!', 'Deck Duel — choose a card'); }
+  if (!myTurn) wasMyTurn = false; else if (!v.casting) wasMyTurn = true;
   banner.classList.toggle('mine', myTurn || v.phase === 'overtime');
   const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
   const label = v.phase === 'overtime'
@@ -539,7 +544,11 @@ function showReveal(e: Extract<DeckEvent, { kind: 'resolve' }>) {
   bottom.append(r, h('span', 'dkc-m', e.meaning));
   card.append(h('span', 'reveal-badge', e.ok ? '✓' : '✗'), top, bottom);
   const label = h('div', 'cast-timer', e.ok ? 'Correct!' : 'The correct kanji');
-  $('dkCast').replaceChildren(card, label);
+  const strokesBox = h('div', 'dk-reveal-strokes');
+  $('dkCast').replaceChildren(card, label, strokesBox);
+  // your own miss: the correct strokes play right away
+  if (!e.ok && e.playerId === hooks.me()) ui.showWrongStrokes(strokesBox, e.kanji);
+
   revealUntil = Date.now() + REVEAL_MS;
   clearTimeout(revealTimer);
   revealTimer = window.setTimeout(() => {
@@ -565,4 +574,4 @@ function ripCard(card: HTMLElement) {
 }
 
 const clock = (ms: number) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-export const resetDeck = () => { resetArenaDeck(); view = null; lastCastId = 0; writingCastId = 0; coinShown = false; ui.stopCountdown('dkMatch'); ui.stopCountdown('dkTurn'); ui.stopCountdown('dkDraft'); };
+export const resetDeck = () => { wasMyTurn = false; resetArenaDeck(); view = null; lastCastId = 0; writingCastId = 0; coinShown = false; ui.stopCountdown('dkMatch'); ui.stopCountdown('dkTurn'); ui.stopCountdown('dkDraft'); };

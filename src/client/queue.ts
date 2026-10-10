@@ -1,5 +1,7 @@
 import { LEVELS, LEVEL_LABEL, MODE_LABEL, type GameMode, type Level, type ServerMessage } from '../shared/protocol';
 import { viewH, viewW, zrect } from './zoom';
+import { askNotifyPermission, attention } from './notify';
+import { canPlay, lockText } from './tutorial';
 import * as ui from './ui';
 import * as audio from './audio';
 import { renderDeckGuide } from './deckui';
@@ -50,7 +52,8 @@ const picked = (id: string) => [...document.querySelectorAll<HTMLInputElement>(`
 let pick: 'battle' | 'deck' = 'battle';
 function remember() { save({ modes: picked('qModes') as GameMode[], levels: picked('qLevels') as Level[], pick }); }
 /** Exactly one box is chosen: battle modes or Deck Duel. */
-function choose(p: 'battle' | 'deck') {
+function choose(p: 'battle' | 'deck', silent = false) {
+  if (p === 'deck' && !canPlay('deck')) { if (!silent) ui.toast(lockText('deck'), 5000); p = 'battle'; }
   pick = p;
   document.querySelectorAll<HTMLElement>('#queuePick .queue-card').forEach((c) => {
     const on = c.dataset.q === p;
@@ -78,6 +81,7 @@ export function initQueue(sender: typeof send, myId: () => string) {
     c.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); choose(c.dataset.q as 'battle' | 'deck'); } });
   });
   ui.$('qStart').onclick = () => {
+    askNotifyPermission(); // so a found match can reach you in another tab
     if (pick === 'deck') return send({ type: 'queue', modes: ['deck'] });
     const modes = picked('qModes'), levels = picked('qLevels');
     if (!modes.length) return ui.toast('Tick at least one mode');
@@ -89,9 +93,17 @@ export function initQueue(sender: typeof send, myId: () => string) {
 
 export function openQueue() {
   const s = load();
-  ui.$('qModes').replaceChildren(...QUEUE_MODES.map((m) => { const c = chip(m, MODE_LABEL[m], s.modes.includes(m), 'qm'); guideHover(c, m as Exclude<GameMode, 'deck'>); return c; }));
+  ui.$('qModes').replaceChildren(...QUEUE_MODES.map((m) => {
+    const open = canPlay(m);
+    const c = chip(m, MODE_LABEL[m] + (open ? '' : ' · locked'), open && s.modes.includes(m), 'qm');
+    if (!open) { c.classList.add('locked'); c.querySelector('input')!.disabled = true; c.title = lockText(m); }
+    guideHover(c, m as Exclude<GameMode, 'deck'>);
+    return c;
+  }));
+  const deckCard = document.querySelector<HTMLElement>('#queuePick .queue-card[data-q="deck"]')!;
+  deckCard.classList.toggle('locked', !canPlay('deck'));
   ui.$('qLevels').replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), 'ql')));
-  choose(s.pick ?? 'battle');
+  choose(s.pick ?? 'battle', true);
   if (!searching) { ui.$('queuePick').hidden = false; ui.$('qSearching').hidden = true; }
   ui.show('queue');
 }
@@ -111,6 +123,7 @@ function showFound(msg: Extract<ServerMessage, { type: 'queue' }>) {
   if (foundId !== msg.matchId) {
     // a fresh match: start the 5 s ring
     foundId = msg.matchId!;
+    attention('Match found!', `${MODE_LABEL[msg.mode!]} — press Accept`);
     ui.$('mfBadge').replaceChildren(ui.modeBadge(msg.mode!));
     ui.$('mfMode').textContent = MODE_LABEL[msg.mode!];
     const until = Date.now() + (msg.acceptMs ?? 5000), total = msg.acceptMs ?? 5000;

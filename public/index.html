@@ -54,13 +54,20 @@
       <label>Effects <span id="sfxVolVal"></span><input id="sfxVol" type="range" min="0" max="100" step="1"></label>
       <label>Voice (word on a correct cast) <span id="voiceVolVal"></span><input id="voiceVol" type="range" min="0" max="100" step="1"></label>
       <p id="voiceInfo" class="hint"></p>
-      <label class="toggle-row"><input id="arena3dToggle" type="checkbox"> 3D arena</label>
+      <label class="toggle-row">3D arena <select id="arena3dMode" aria-label="3D arena"><option value="full">Full</option><option value="lite">Lite (phones, older PCs)</option><option value="off">Off (2D)</option></select></label>
       <p id="arena3dInfo" class="hint"></p>
       <label class="toggle-row">UI size <select id="uiZoom" aria-label="UI size"></select></label>
     </div>
   </div>
 </header>
 <div id="toast" class="toast" role="status" hidden></div>
+ <dialog id="strokeDialog" class="stroke-dialog" aria-label="Stroke order">
+  <div class="sd-head"><b id="sdWord" lang="ja"></b><span id="sdInfo" class="hint"></span><button id="sdClose" class="pill" type="button">Close</button></div>
+  <div id="sdBox"></div>
+</dialog>
+<div id="inviteBox" class="invite-box" role="alertdialog" aria-live="assertive" hidden></div>
+<div id="tutorial" class="tutorial-overlay" role="dialog" aria-modal="true" aria-label="Welcome" hidden></div>
+<div id="coach" class="coach-tip" role="status" hidden></div>
 <div id="otherPop" class="profile-pop other-pop" role="dialog" aria-label="Player profile" hidden></div>
 <div id="matchFound" class="mf-overlay" hidden>
   <div class="mf-box" role="alertdialog" aria-labelledby="mfTitle" aria-describedby="mfMode">
@@ -148,9 +155,14 @@
             <button id="join" class="alt big">Join</button>
           </div>
         </div>
+        <button id="dailyBtn" class="alt daily-btn">Daily challenge <span id="dailyBadge" class="badge" hidden>new</span></button>
         <div class="menu-row">
           <button id="studyBtn" class="alt">Study spells <span id="studyBadge" class="badge" hidden></span></button>
           <button id="customizeBtn" class="alt">Customize</button>
+        </div>
+        <div class="menu-row">
+          <button id="progressBtn" class="alt">Progress</button>
+          <button id="friendsBtn" class="alt">Friends <span id="friendsBadge" class="badge" hidden></span></button>
         </div>
         <button id="historyBtn" class="alt">Match history</button>
         <button id="adminBtn" class="alt" hidden>Users</button>
@@ -160,6 +172,52 @@
       <button id="howBtn" class="how-btn">How to play?</button>
     </div>
     <div class="col-scene"><div class="scene duel-scene" aria-hidden="true"></div></div>
+  </section>
+
+  <!-- PROGRESS -->
+  <section id="progress" class="screen" hidden>
+    <button id="progressBack" class="back">← Menu</button>
+    <div class="page-head"><h2>Progress</h2></div>
+    <div class="prog-top">
+      <div id="progWeek" class="prog-card"></div>
+      <div id="progMonth" class="prog-card"></div>
+    </div>
+    <div class="prog-card">
+      <h3>Activity <small id="progHeatSub" class="hint"></small></h3>
+      <div id="progHeat" class="heatmap" role="img" aria-label="Activity over the last 26 weeks"></div>
+    </div>
+    <div class="prog-card">
+      <h3>Spell mastery <small class="hint">every word of each level — hover a square to see it</small></h3>
+      <div id="progLevels" class="cust-tabs" role="tablist" aria-label="Level"></div>
+      <div id="progLegend" class="mastery-legend"></div>
+      <div id="progGrid" class="mastery-grid" lang="ja"></div>
+    </div>
+  </section>
+
+  <!-- DAILY CHALLENGE -->
+  <section id="daily" class="screen" hidden>
+    <button id="dailyBack" class="back">← Menu</button>
+    <div class="page-head"><h2>Daily challenge</h2></div>
+    <div class="daily-body">
+      <div id="dailyMain" class="daily-main prog-card"></div>
+      <div class="prog-card daily-side">
+        <h3>Today's leaderboard</h3>
+        <ol id="dailyBoard" class="daily-board"></ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- FRIENDS -->
+  <section id="friends" class="screen" hidden>
+    <button id="friendsBack" class="back">← Menu</button>
+    <div class="page-head"><h2>Friends</h2><button id="friendsRefresh" class="pill">↻ Refresh</button></div>
+    <p class="sub">Add players by name. When you're in a room's lobby, you can invite online friends straight in — even to modes they haven't unlocked yet.</p>
+    <form id="friendAdd" class="friend-add">
+      <input id="friendName" placeholder="Player name" autocomplete="off" maxlength="24" aria-label="Player name">
+      <button class="big" type="submit">Add friend</button>
+    </form>
+    <p id="friendMsg" class="hint" role="status"></p>
+    <div id="friendList" class="friend-list"></div>
   </section>
 
   <!-- MATCH HISTORY -->
@@ -200,6 +258,8 @@
       <div class="fc-front"><div id="fcKanji" class="fc-kanji" lang="ja"></div><div id="fcLevel" class="fc-level"></div></div>
       <div id="fcBack" class="fc-back" hidden><div id="fcReading" class="fc-reading" lang="ja"></div><div id="fcMeaning" class="fc-meaning"></div></div>
     </div>
+    <button id="fcStrokes" class="pill fc-strokes" hidden title="How to write it (S)">Stroke order <kbd>S</kbd></button>
+    <div id="fcStrokeBox" class="fc-stroke-box" hidden></div>
     <button id="showAnswer" class="big show-answer">Show answer <kbd>Space</kbd></button>
     <div id="rateRow" class="rate-row" hidden>
       <button class="rate again" data-rating="again"><span class="iv"></span>Again <kbd>1</kbd></button>
@@ -274,7 +334,7 @@
       <button class="mode-card" data-mode="writing">
         <span class="mode-icon jp">書</span>
         <span class="mode-name">1v1 Kanji Writing</span>
-        <span class="mode-desc">Look at the kanji, press CAST! — it vanishes, and you write it from memory (pad or Japanese keyboard). Write it by hand or type it with a Japanese keyboard.</span>
+        <span class="mode-desc">Look at the kanji, press CAST! — it vanishes, and you write it from memory, by hand on the pad or with a Japanese keyboard.</span>
       </button>
       <button class="mode-card boss" data-mode="boss">
         <span class="mode-icon jp">竜</span>
@@ -311,6 +371,7 @@
         </select>
         <button id="addBotBtn" class="pill primary">+ Add AI</button>
       </div>
+      <div id="lobbyInvite" class="lobby-invite" hidden></div>
       <button id="start" class="big" hidden>Start battle</button>
       <button id="readyBtn" class="big" hidden>Ready</button>
       <p id="lobbyStatus" class="sub"></p>
@@ -454,7 +515,7 @@
     <div id="xpLine" class="xp-line" hidden></div>
     <div id="statCompare" class="compare"></div>
     <div id="struggledBox" class="struggled">
-      <h3>Review — you struggled with <small>(added to Struggling spells)</small></h3>
+      <h3>Review — you struggled with <small>(added to Struggling spells · click a word for its stroke order)</small></h3>
       <div id="struggled" class="grid small"></div>
     </div>
     <h3>Vocabulary performance</h3>
@@ -503,7 +564,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.5.2</div>
+<div id="version" class="version">v0.9.6</div>
 <script src="/app.js"></script>
 </body>
 </html>

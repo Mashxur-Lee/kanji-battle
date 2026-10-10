@@ -1,9 +1,10 @@
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
-import { avatarFor, BACKGROUNDS, critText, levelOf, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
+import { avatarFor, BACKGROUNDS, critText, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
 import { staffPreview } from './arena';
 import type { StaffPreview } from './staffpreview';
 import { avatarSvg } from './wizard';
 import { pixelStaffSvg } from './pixelstaffs';
+import { showStrokeOrder } from './strokes';
 import type { Rating } from '../shared/srs';
 import { api, type DeckCounts, type Profile, type StudyCard } from './api';
 import { backgroundThumb, getTimePref, resolveTime, setTimePref, TIMES } from './backgrounds';
@@ -104,6 +105,8 @@ function next() {
   $('fcReading').textContent = current.reading;
   $('fcMeaning').textContent = current.meaning;
   $('fcBack').hidden = true;
+  $('fcStrokes').hidden = true;
+  $('fcStrokeBox').hidden = true;
   const card = $('flash');
   card.style.animation = 'none'; void card.offsetWidth; card.style.animation = '';
   for (const b of document.querySelectorAll<HTMLButtonElement>('#rateRow .rate')) {
@@ -118,7 +121,16 @@ function flip() {
   $('fcBack').hidden = false;
   $('showAnswer').hidden = true;
   $('rateRow').hidden = false;
+  $('fcStrokes').hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
 }
+/** How to write the word: animated stroke order under the card. */
+function strokes() {
+  if (!current || !flipped || $('fcStrokes').hidden) return;
+  const box = $('fcStrokeBox');
+  box.hidden = false;
+  void showStrokeOrder(box, current.kanji);
+}
+$('fcStrokes').onclick = (e) => { e.stopPropagation(); strokes(); };
 
 async function rate(r: Rating) {
   if (!current || !flipped || busy) return;
@@ -143,6 +155,7 @@ addEventListener('keydown', (e) => {
   if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipped ? void rate('good') : flip(); }
   const n = ['1', '2', '3', '4'].indexOf(e.key);
   if (n >= 0 && flipped) void rate((['again', 'hard', 'good', 'easy'] as Rating[])[n]);
+  if ((e.key === 's' || e.key === 'S') && flipped) strokes();
 });
 $('studyAll').onclick = () => void startSession('all');
 $('studyStruggle').onclick = () => void startSession('struggling');
@@ -189,16 +202,20 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('#custTabs .cust-ta
   b.onclick = () => { custTab = b.dataset.tab as CustTab; renderCustomize(); };
 }
 
+const thisMonth = () => new Date().getMonth() + 1;
+const monthName = (m: number) => new Date(2026, m - 1, 15).toLocaleDateString(undefined, { month: 'long' });
+
 function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
   const lvl = levelOf(profile.xp);
   const best = Math.max(profile.bestStreak ?? 0, profile.streak ?? 0);
   const time = resolveTime(getTimePref());
   if (custTab === 'staff') {
-    return STAFFS.map((s) => ({
+    // a seasonal staff shows only once it's yours, or while its month is on
+    return STAFFS.filter((s) => !s.season || isAdmin || staffUnlocked(s.id, best, profile.unlocks) || s.season === thisMonth()).map((s) => ({
       id: s.id, name: s.name, blurb: s.blurb,
-      locked: !isAdmin && best < s.streak,
-      lock: s.streak ? `${s.streak}-day streak` : '',
-      lockedToast: `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
+      locked: !isAdmin && !staffUnlocked(s.id, best, profile.unlocks),
+      lock: s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : '',
+      lockedToast: s.season ? `Complete this month's goals (see Progress) to unlock the ${s.name}` : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
       equipped: (profile.staff ?? 'verdant') === s.id,
       tile: () => {
         if (staffThumbs[s.id]) { const img = document.createElement('img'); img.src = staffThumbs[s.id]; img.alt = ''; return img; }
@@ -217,10 +234,10 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
       equip: () => api.setBackground(b.id as BackgroundId),
     }));
   }
-  return FLAMES.map((f) => ({
-    id: f.id, name: `${f.name} flames`, blurb: 'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.',
-    locked: !isAdmin && lvl < f.level, lock: `Level ${f.level}`,
-    lockedToast: `Reach level ${f.level} to unlock ${f.name} flames`,
+  return FLAMES.filter((f) => !f.season || isAdmin || flameUnlocked(f.id, profile.xp, profile.unlocks) || f.season === thisMonth()).map((f) => ({
+    id: f.id, name: `${f.name} flames`, blurb: f.season ? `${monthName(f.season)} reward: complete that month's goals (Progress page). Wraps you at 5 in a row and during your Omnipotence.` : 'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.',
+    locked: !isAdmin && !flameUnlocked(f.id, profile.xp, profile.unlocks), lock: f.season ? `${monthName(f.season)} goals` : `Level ${f.level}`,
+    lockedToast: f.season ? `Complete this month's goals (see Progress) to unlock ${f.name} flames` : `Reach level ${f.level} to unlock ${f.name} flames`,
     equipped: (profile.flame ?? 'blue') === f.id,
     tile: () => { const d = el('span', 'flame-dot big'); d.style.setProperty('--c', f.color); return d; },
     equip: () => api.setFlame(f.id),
@@ -229,7 +246,7 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
 
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
-  staff: (p) => `The staff in your hand in the 3D arena (other players see it too). Staffs unlock with your login streak — open the game on days in a row. Your best streak: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}.`,
+  staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak — your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
   arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
   omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up.',
 };

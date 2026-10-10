@@ -62,7 +62,7 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
     return s;
   };
 
-  switch (skin.id) {
+  switch (skin.base ?? skin.id) { // seasonal staffs are a classic staff, recoloured (below)
     case 'verdant': {
       const wood = mat(0x6b4a2a, { rough: 0.95 }), vine = mat(0x3f8f34), leaf = mat(0x6ad04e, { rough: 0.6 });
       add(new THREE.CylinderGeometry(0.03, 0.042, 1.85, 7), wood, 0, 0.08, 0);
@@ -160,8 +160,15 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
     }
   }
 
+  if (skin.tint) {
+    const tint = new THREE.Color(skin.tint);
+    for (const m of materials) {
+      m.color.lerp(tint, 0.55);
+      if (m.emissive.getHex() !== 0) m.emissive.lerp(tint, 0.7);
+    }
+  }
   // the gem: the same shape on every staff, in the staff's colour
-  const gemMat = new THREE.MeshStandardMaterial({ color: skin.id === 'void' ? 0x223a9a : color, emissive: color, emissiveIntensity: 1.2, roughness: 0.15, metalness: 0.1, flatShading: true });
+  const gemMat = new THREE.MeshStandardMaterial({ color: (skin.base ?? skin.id) === 'void' && !skin.tint ? 0x223a9a : color, emissive: color, emissiveIntensity: 1.2, roughness: 0.15, metalness: 0.1, flatShading: true });
   const gem = add(new THREE.OctahedronGeometry(0.085, 0), gemMat, 0, GEM_Y, 0);
   gem.scale.set(1, 1.5, 1);
   const glow = sprite(color.getHex(), 0.45, 0.5);

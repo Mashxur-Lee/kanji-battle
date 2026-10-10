@@ -150,6 +150,8 @@ export type ClientMessage =
   | { type: 'queue_cancel' }
   | { type: 'queue_accept'; matchId: number }
   | { type: 'remove_bot'; id: string }
+  /** invite a friend into the room you're in (lobby) */
+  | { type: 'invite'; friendId: string }
   | { type: 'chat'; text: string }
   | { type: 'pong'; t: number }
   | { type: 'answer'; challengeId: number; text: string }
@@ -183,6 +185,10 @@ export type ServerMessage =
       /** players in the found match; boss: how many are queued for Boss (it needs 4) */ players?: number; boss?: number }
   /** round-trip times in ms per player in your room (null = offline) */
   | { type: 'net'; rtt: Record<PlayerId, number | null> }
+  /** friends: someone sent you a request / accepted yours */
+  | { type: 'friend'; event: 'request' | 'accepted'; from: string }
+  /** a friend invites you to their room */
+  | { type: 'invite'; fromId: string; from: string; code: string; mode: GameMode }
   | { type: 'chat'; messages: ChatMessage[] }
   | { type: 'auth_error'; message: string }
   | { type: 'kicked'; message: string }

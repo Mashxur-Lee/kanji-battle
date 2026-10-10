@@ -22,13 +22,26 @@ let bg: { id: BackgroundId; time: TimeOfDay } = { id: 'forest', time: 'night' };
 let pending: Omit<ArenaSetup, 'bgSvg' | 'bgKey' | 'time'> | null = null;
 
 const webgl = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } })();
-/** 3D needs WebGL and some room (phones keep the 2D layout). */
-export const arenaSupported = () => webgl && innerWidth >= 900 && innerHeight >= 560;
-export function arenaPref(): boolean { try { return localStorage.getItem(KEY) !== 'off'; } catch { return true; } }
-export function setArenaPref(on: boolean) {
-  try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch { /* private mode */ }
-  if (!on) { api?.setActive(false); document.body.classList.remove('has-3d'); }
-  else if (onScreen) void activate();
+/**
+ * 3D needs WebGL and a landscape screen of some size (phones held upright keep the 2D layout). Small
+ * screens, touch devices and the "Lite" setting get the lighter version (less grass and particles,
+ * no anti-aliasing, lower resolution).
+ */
+export const arenaSupported = () => webgl && innerWidth >= 640 && innerHeight >= 340 && innerWidth > innerHeight;
+export type ArenaQuality = 'full' | 'lite' | 'off';
+const smallOrTouch = () => innerWidth < 900 || innerHeight < 560 || matchMedia('(pointer: coarse)').matches;
+export function arenaQuality(): ArenaQuality {
+  let v: string | null = null;
+  try { v = localStorage.getItem(KEY); } catch { /* private mode */ }
+  const q: ArenaQuality = v === 'off' ? 'off' : v === 'lite' ? 'lite' : v === 'on' || v === 'full' ? 'full' : smallOrTouch() ? 'lite' : 'full';
+  return q === 'full' && smallOrTouch() && innerWidth < 900 ? 'lite' : q;
+}
+export const arenaPref = () => arenaQuality() !== 'off';
+export function setArenaQuality(q: ArenaQuality) {
+  try { localStorage.setItem(KEY, q === 'full' ? 'on' : q); } catch { /* private mode */ }
+  if (q === 'off') { api?.setActive(false); document.body.classList.remove('has-3d'); return; }
+  api?.setLite(q === 'lite');
+  if (onScreen) void activate();
 }
 const wanted = () => arenaPref() && arenaSupported();
 
@@ -50,8 +63,8 @@ function loadBundle(): Promise<boolean> {
 function load(): Promise<ArenaApi | null> {
   if (api) return Promise.resolve(api);
   loading ??= loadBundle().then((ok) => {
-    const create = (globalThis as unknown as { KWArena3D?: (c: HTMLCanvasElement) => ArenaApi | null }).KWArena3D;
-    api = ok ? create?.(document.getElementById('arena3d') as HTMLCanvasElement) ?? null : null;
+    const create = (globalThis as unknown as { KWArena3D?: (c: HTMLCanvasElement, o?: { lite?: boolean }) => ArenaApi | null }).KWArena3D;
+    api = ok ? create?.(document.getElementById('arena3d') as HTMLCanvasElement, { lite: arenaQuality() === 'lite' }) ?? null : null;
     if (api && location.search.includes('debug3d')) (globalThis as unknown as { __arena: ArenaApi }).__arena = api; // for testing
     if (!api) loading = null;
     return api;

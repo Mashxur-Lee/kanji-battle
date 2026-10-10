@@ -72,29 +72,81 @@ export type BackgroundId = (typeof BACKGROUNDS)[number]['id'];
 export const isBackground = (x: unknown): x is BackgroundId => BACKGROUNDS.some((b) => b.id === x);
 export const unlocked = (bg: BackgroundId, xp: number) => levelOf(xp) >= BACKGROUNDS.find((b) => b.id === bg)!.level;
 
-// ── combo flames (5+ in a row, and Deck Duel powers) ──────────────────────────
-export const FLAMES = [
+// ── seasons: each month has goals; completing them unlocks that month's reward (a flame or a staff) ──
+/** Twelve themes, one per calendar month; even months give a flame, odd months a staff. */
+export const SEASONS = [
+  { month: 1, name: 'Frost', reward: 'staff:frost' },
+  { month: 2, name: 'Sakura', reward: 'flame:sakura' },
+  { month: 3, name: 'Blossom', reward: 'staff:blossom' },
+  { month: 4, name: 'Rain', reward: 'flame:rain' },
+  { month: 5, name: 'Jade', reward: 'staff:jade' },
+  { month: 6, name: 'Sun', reward: 'flame:sun' },
+  { month: 7, name: 'Abyss', reward: 'staff:abyss' },
+  { month: 8, name: 'Thunder', reward: 'flame:thunder' },
+  { month: 9, name: 'Moon', reward: 'staff:moon' },
+  { month: 10, name: 'Harvest', reward: 'flame:harvest' },
+  { month: 11, name: 'Maple', reward: 'staff:maple' },
+  { month: 12, name: 'Starlight', reward: 'flame:starlight' },
+] as const;
+/** The same three goals every month (counted on the player's own calendar days). */
+export const MONTH_GOALS = [
+  { id: 'days', label: 'Play on 12 different days', target: 12 },
+  { id: 'wins', label: 'Win 10 games', target: 10 },
+  { id: 'reviews', label: 'Pass 150 flashcards in Study spells', target: 150 },
+] as const;
+export type MonthGoalId = (typeof MONTH_GOALS)[number]['id'];
+export const seasonOf = (day: string) => SEASONS[Number(day.slice(5, 7)) - 1] ?? SEASONS[0];
+
+// ── combo flames (5+ in a row, and Deck Duel powers): by level, or a month's reward ───────────────
+export interface FlameDef { id: string; name: string; level: number; color: string; season?: number }
+export const FLAMES: readonly FlameDef[] = [
   { id: 'blue', name: 'Light blue', level: 0, color: '#6ee7ff' },
   { id: 'purple', name: 'Purple', level: 5, color: '#b26bff' },
-] as const;
-export type FlameId = (typeof FLAMES)[number]['id'];
+  { id: 'sakura', name: 'Sakura', level: 0, color: '#ff8ccf', season: 2 },
+  { id: 'rain', name: 'Rain', level: 0, color: '#3fd9c4', season: 4 },
+  { id: 'sun', name: 'Sun', level: 0, color: '#ffd23f', season: 6 },
+  { id: 'thunder', name: 'Thunder', level: 0, color: '#e8e2ff', season: 8 },
+  { id: 'harvest', name: 'Harvest', level: 0, color: '#ff8a2a', season: 10 },
+  { id: 'starlight', name: 'Starlight', level: 0, color: '#fff0a0', season: 12 },
+];
+export type FlameId = string;
 export const isFlame = (x: unknown): x is FlameId => FLAMES.some((f) => f.id === x);
-export const flameUnlocked = (f: FlameId, xp: number) => levelOf(xp) >= FLAMES.find((x) => x.id === f)!.level;
+export const flameUnlocked = (f: FlameId, xp: number, unlocks: readonly string[] = []) => {
+  const d = FLAMES.find((x) => x.id === f);
+  if (!d) return false;
+  return d.season ? unlocks.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
+};
 export const flameColor = (f: string | null | undefined) => (FLAMES.find((x) => x.id === f) ?? FLAMES[0]).color;
 
-// ── magic staffs (unlocked by your best login streak) ─────────────────────────
-export const STAFFS = [
+// ── magic staffs: by best login streak, or a month's reward (a recoloured classic staff) ──────────
+export interface StaffDef { id: string; name: string; streak: number; gem: string; blurb: string; season?: number; base?: string; tint?: string }
+export const STAFFS: readonly StaffDef[] = [
   { id: 'verdant', name: 'Verdant Staff', streak: 0, gem: '#6dff6a', blurb: 'Carved from an ancient tree. It channels the natural energy of the earth and life.' },
   { id: 'ember', name: 'Ember Staff', streak: 5, gem: '#ff7a1a', blurb: 'Forged from volcanic rock and blessed by fire spirits.' },
   { id: 'tide', name: 'Tide Staff', streak: 10, gem: '#3fb8ff', blurb: 'Crafted from crystal and oceanic runes. It flows with the tides.' },
   { id: 'storm', name: 'Storm Staff', streak: 15, gem: '#b26bff', blurb: 'A relic of the sky temples. It channels lightning.' },
   { id: 'void', name: 'Void Staff', streak: 20, gem: '#4a7dff', blurb: 'An ancient, otherworldly artifact. It bends reality and commands the unknown.' },
-] as const;
-export type StaffId = (typeof STAFFS)[number]['id'];
+  { id: 'frost', name: 'Frost Staff', streak: 0, season: 1, base: 'tide', tint: '#d8f4ff', gem: '#bfefff', blurb: 'January reward. Rimed with ice that never melts.' },
+  { id: 'blossom', name: 'Blossom Staff', streak: 0, season: 3, base: 'verdant', tint: '#ffb8d8', gem: '#ff7ab8', blurb: 'March reward. A branch that flowers whenever it casts.' },
+  { id: 'jade', name: 'Jade Staff', streak: 0, season: 5, base: 'storm', tint: '#7dffb0', gem: '#3dff8a', blurb: 'May reward. Carved from one piece of temple jade.' },
+  { id: 'abyss', name: 'Abyss Staff', streak: 0, season: 7, base: 'tide', tint: '#3a5cff', gem: '#2a4dff', blurb: 'July reward. Pulled from the deepest trench of the sea.' },
+  { id: 'moon', name: 'Moon Staff', streak: 0, season: 9, base: 'void', tint: '#f2f0ff', gem: '#fff6c8', blurb: 'September reward. Silver light of the harvest moon.' },
+  { id: 'maple', name: 'Maple Staff', streak: 0, season: 11, base: 'ember', tint: '#ff5a3a', gem: '#ff3a2a', blurb: 'November reward. Burning red like autumn leaves.' },
+];
+export type StaffId = string;
 export const isStaff = (x: unknown): x is StaffId => STAFFS.some((s) => s.id === x);
-/** Staffs unlock by your best login streak, so a broken streak never takes one away. */
-export const staffUnlocked = (s: StaffId, bestStreak: number) => (bestStreak ?? 0) >= STAFFS.find((x) => x.id === s)!.streak;
+/** Classic staffs unlock by your best login streak (a broken streak never takes one away); seasonal ones by monthly goals. */
+export const staffUnlocked = (s: StaffId, bestStreak: number, unlocks: readonly string[] = []) => {
+  const d = STAFFS.find((x) => x.id === s);
+  if (!d) return false;
+  return d.season ? unlocks.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
+};
 export const staffOf = (s: string | null | undefined) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
+
+// ── gradual unlocks: new players start with Reading and Rapid ──────────────────────────────────
+/** Level needed to create a room or queue for a mode (joining a friend's room by code or invite is always allowed). */
+export const MODE_LEVEL: Record<string, number> = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 2 };
+export const modeUnlocked = (mode: string, xp: number, admin = false) => admin || levelOf(xp) >= (MODE_LEVEL[mode] ?? 0);
 
 /** More "Struggling spells" waiting than this → the game modes lock until you study them. */
 export const STUDY_LOCK = 100;

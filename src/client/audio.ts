@@ -188,6 +188,13 @@ export const sfx = {
   },
   tick() { if (sfxOk()) bell(1320, ctx!.currentTime, 0.25, 0.08); },
   go() { if (sfxOk()) bell(midi(88), ctx!.currentTime, 0.8, 0.14); },
+  /** Deck Duel: your turn — two bright rising bells. */
+  yourTurn() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    bell(midi(81), t, 0.5, 0.11);
+    bell(midi(88), t + 0.14, 0.7, 0.13);
+  },
   /** Victory: a bright fanfare (major, rising, with harmony and a final bell). */
   win() {
     if (!sfxOk()) return;

@@ -4,7 +4,7 @@ import { initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
-import { arena, arenaPref, arenaScreen, arenaSupported, preloadArena, setArenaBackground, setArenaPref } from './arena';
+import { arena, arenaQuality, arenaScreen, arenaSupported, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
 import { LEVELS, MODE_LABEL, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Profile } from './api';
 import * as audio from './audio';
@@ -14,6 +14,12 @@ import { GameSocket } from './net';
 import { HandwritingPad } from './pad';
 import { onProfileChange, openCustomize, openStudy } from './study';
 import * as ui from './ui';
+import { openProgress } from './progressui';
+import { dailyPending, openDaily } from './dailyui';
+import { initFriends, onFriendEvent, onInvite, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
+import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
+import { askNotifyPermission } from './notify';
+import { FLAMES as ALL_FLAMES, STAFFS as ALL_STAFFS } from '../shared/progress';
 
 applyUiZoom(); // before anything is laid out
 
@@ -63,6 +69,8 @@ ui.onScreen((s) => {
   title.hidden = !['prep', 'battle', 'deck'].includes(s);
   if (!title.hidden) title.replaceChildren(ui.modeBadge(s === 'deck' ? 'deck' : mode), document.createTextNode(MODE_LABEL[s === 'deck' ? 'deck' : mode]));
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
+  if (s !== 'lobby') void renderLobbyInvites(false);
+  tutorialScreen(s);
   if (!GAME_SCREENS.has(s)) setTimeout(() => applyBackground(true), 0); // catch up on the cycle after a game
 });
 
@@ -87,9 +95,21 @@ function scheduleCycle() {
 }
 scheduleCycle();
 
+let tutorialShown = false;
 function applyProfile(p: Profile) {
+  // a monthly reward just unlocked → say so
+  const before = profile?.unlocks ?? null;
+  if (before) for (const r of p.unlocks ?? []) if (!before.includes(r)) {
+    const [kind, id] = r.split(':');
+    const name = kind === 'flame' ? `${ALL_FLAMES.find((f) => f.id === id)?.name} flames` : ALL_STAFFS.find((x) => x.id === id)?.name;
+    ui.toast(`Monthly goals complete! ${name} unlocked — equip it in Customize.`, 7000);
+  }
   profile = p;
   ui.setProfile(p);
+  setModeAccess(p.level, user?.role === 'admin');
+  if (!p.tutorialDone && !tutorialShown && user && !inRoom) { tutorialShown = true; startTutorial(); }
+  void dailyPending().then((open) => { ui.$('dailyBadge').hidden = !open; });
+  refreshFriendsBadge();
   // too many struggling spells waiting → the game modes are locked until you study (the server checks too)
   const locked = user?.role !== 'admin' && (p.strugglingDue ?? 0) > STUDY_LOCK;
   ui.$('menu').classList.toggle('locked', locked);
@@ -126,6 +146,7 @@ function signedIn(u: PublicUser) {
   socket.start(getToken());
   if (!inRoom) ui.show('menu');
   if (!profile) void refreshProfile();
+  else applyProfile(profile); // now that we know who you are (admin? tutorial?)
 }
 
 function showAuth(message = '') {
@@ -198,6 +219,12 @@ function onMessage(msg: ServerMessage) {
     case 'notice':
       ui.toast(msg.message);
       break;
+    case 'friend':
+      onFriendEvent(msg);
+      break;
+    case 'invite':
+      onInvite(msg);
+      break;
     case 'lobby':
       players = msg.players;
       mode = msg.mode;
@@ -205,6 +232,12 @@ function onMessage(msg: ServerMessage) {
       stopWriting();
       resetDeck();
       ui.showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers);
+      void renderLobbyInvites(true);
+      // the tutorial's first battle: add a beginner AI, then start
+      if (inTutorialBattle() && msg.hostId === you) {
+        if (msg.players.length < 2) socket.send({ type: 'add_bot', level: 'N5' });
+        else socket.send({ type: 'start' });
+      }
       break;
     case 'prep':
       players = msg.players;
@@ -473,8 +506,23 @@ ui.$('privateBtn').onclick = () => {
 ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
 initQueue((m) => socket.send(m), () => user?.id ?? '');
 for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {
-  card.onclick = () => socket.send({ type: 'create', mode: card.dataset.mode as GameMode, levels: savedLevels() });
+  card.onclick = () => {
+    const m = card.dataset.mode as GameMode;
+    if (!canPlay(m)) return ui.toast(lockText(m), 5000);
+    if (m === 'deck') askNotifyPermission(); // "your turn" while you look at another tab
+    socket.send({ type: 'create', mode: m, levels: savedLevels() });
+  };
 }
+// new menu pages
+ui.$('dailyBtn').onclick = () => { if (user) void openDaily(user.id); };
+ui.$('progressBtn').onclick = () => void openProgress();
+ui.$('friendsBtn').onclick = () => void openFriends();
+initFriends({
+  send: (m) => socket.send(m),
+  join: (c) => { askNotifyPermission(); socket.send({ type: 'join', code: c, levels: savedLevels() }); },
+  inRoom: () => inRoom,
+});
+initTutorial({ firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ['N5'] }) });
 ui.$('modesBack').onclick = () => ui.show('menu');
 const join = () => {
   const c = ui.$<HTMLInputElement>('joinCode').value.trim();
@@ -571,12 +619,15 @@ ui.$('version').textContent = `v${VERSION}`;
 document.documentElement.dataset.v = VERSION;
 // 3D arena switch (in the sound/settings panel)
 {
-  const t = ui.$<HTMLInputElement>('arena3dToggle');
-  t.checked = arenaPref();
-  t.disabled = !arenaSupported();
-  ui.$('arena3dInfo').textContent = arenaSupported() ? 'First-person duel arena (move the mouse to look around).' : 'Needs WebGL and a larger window — the classic 2D view is used.';
-  t.onchange = () => setArenaPref(t.checked);
-  ui.$('volBtn').addEventListener('click', () => { t.checked = arenaPref(); t.disabled = !arenaSupported(); });
+  const t = ui.$<HTMLSelectElement>('arena3dMode');
+  const sync = () => {
+    t.value = arenaQuality();
+    t.disabled = !arenaSupported();
+    ui.$('arena3dInfo').textContent = arenaSupported() ? 'First-person duel arena (move the mouse to look around). Lite is lighter on phones and older computers.' : 'Needs WebGL and a landscape screen — the classic 2D view is used (turn your phone sideways for 3D).';
+  };
+  sync();
+  t.onchange = () => setArenaQuality(t.value as ArenaQuality);
+  ui.$('volBtn').addEventListener('click', sync);
 }
 // UI size (default 80% on computers)
 {
