@@ -3,6 +3,7 @@
 // classic 2D field is used.
 
 import type { ArenaApi, ArenaSetup, FighterArt, Who } from './arena3d';
+import type { StaffPreview } from './staffpreview';
 import type { GameMode, PlayerId, PlayerView } from '../shared/protocol';
 import type { DeckView } from '../shared/deck';
 import type { BackgroundId } from '../shared/progress';
@@ -34,21 +35,34 @@ const wanted = () => arenaPref() && arenaSupported();
 /** The arena, only while it is showing (so effects fall back to 2D otherwise). */
 export const arena = (): ArenaApi | null => (api && onScreen && wanted() ? api : null);
 
-function load(): Promise<ArenaApi | null> {
-  if (api) return Promise.resolve(api);
-  loading ??= new Promise((resolve) => {
+let bundle: Promise<boolean> | null = null;
+/** The 3D bundle (Three.js + the arena + the staff preview), loaded once on demand. */
+function loadBundle(): Promise<boolean> {
+  bundle ??= new Promise((resolve) => {
     const s = document.createElement('script');
     s.src = `/arena3d.js?v=${encodeURIComponent(document.documentElement.dataset.v ?? '')}`;
-    s.onload = () => {
-      const create = (globalThis as unknown as { KWArena3D?: (c: HTMLCanvasElement) => ArenaApi | null }).KWArena3D;
-      api = create?.(document.getElementById('arena3d') as HTMLCanvasElement) ?? null;
-      if (api && location.search.includes('debug3d')) (globalThis as unknown as { __arena: ArenaApi }).__arena = api; // for testing
-      resolve(api);
-    };
-    s.onerror = () => resolve(null);
+    s.onload = () => resolve(true);
+    s.onerror = () => { bundle = null; resolve(false); };
     document.head.append(s);
   });
+  return bundle;
+}
+function load(): Promise<ArenaApi | null> {
+  if (api) return Promise.resolve(api);
+  loading ??= loadBundle().then((ok) => {
+    const create = (globalThis as unknown as { KWArena3D?: (c: HTMLCanvasElement) => ArenaApi | null }).KWArena3D;
+    api = ok ? create?.(document.getElementById('arena3d') as HTMLCanvasElement) ?? null : null;
+    if (api && location.search.includes('debug3d')) (globalThis as unknown as { __arena: ArenaApi }).__arena = api; // for testing
+    if (!api) loading = null;
+    return api;
+  });
   return loading;
+}
+/** Customize → Magic staff: a 3D preview on the given canvas (null without WebGL). */
+export async function staffPreview(canvas: HTMLCanvasElement): Promise<StaffPreview | null> {
+  if (!webgl || !(await loadBundle())) return null;
+  const create = (globalThis as unknown as { KWStaffPreview?: (c: HTMLCanvasElement) => StaffPreview | null }).KWStaffPreview;
+  return create?.(canvas) ?? null;
 }
 /** Start loading early (after login) so the first battle doesn't wait. */
 export function preloadArena() { if (wanted()) setTimeout(() => void load(), 1500); }
@@ -81,7 +95,7 @@ function configure(s: Omit<ArenaSetup, 'bgSvg' | 'bgKey' | 'time'>) {
 export function arenaForBattle(mode: GameMode, players: PlayerView[], you: PlayerId) {
   const me = players.find((p) => p.id === you);
   const others = players.filter((p) => p.id !== you);
-  const art = (p: PlayerView): FighterArt => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame) });
+  const art = (p: PlayerView): FighterArt => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff });
   configure({
     layout: 'battle',
     me: me ? art(me) : { id: you, character: 'wizard' },
@@ -96,13 +110,13 @@ let deckKey = '';
 export function arenaForDeck(v: DeckView) {
   const me = v.players.find((p) => p.id === v.you);
   const opp = v.players.find((p) => p.id !== v.you);
-  const key = `${me?.id}:${me?.character}:${opp?.id}:${opp?.character}`;
+  const key = `${me?.id}:${me?.character}:${me?.staff}:${opp?.id}:${opp?.character}:${opp?.staff}`;
   if (key === deckKey && (!api || pending === null)) return;
   deckKey = key;
   configure({
     layout: 'deck',
-    me: { id: v.you, name: me?.name, character: me?.character ?? 'wizard', flame: flameColor(me?.flame) },
-    opp: opp ? { id: opp.id, name: opp.name, character: opp.character ?? 'wizard', flame: flameColor(opp.flame) } : null,
+    me: { id: v.you, name: me?.name, character: me?.character ?? 'wizard', flame: flameColor(me?.flame), staff: me?.staff },
+    opp: opp ? { id: opp.id, name: opp.name, character: opp.character ?? 'wizard', flame: flameColor(opp.flame), staff: opp.staff } : null,
     allies: [],
     boss: null,
   });

@@ -75,7 +75,7 @@ export type GameEvent =
   | { type: 'battle_update'; event: BattleEvent }
   | { type: 'deck_state'; playerId: PlayerId; view: DeckView }
   | { type: 'deck_event'; event: DeckEvent }
-  | { type: 'game_over'; winnerId: PlayerId | null; teamWon: boolean | null; reason: GameOverReason; stats: Record<PlayerId, PlayerStats>; missed: Record<PlayerId, string[]> };
+  | { type: 'game_over'; winnerId: PlayerId | null; teamWon: boolean | null; reason: GameOverReason; stats: Record<PlayerId, PlayerStats>; missed: Record<PlayerId, string[]>; /** Deck Duel: every word met, added to All spells */ seen?: string[] };
 
 type Phase = 'idle' | 'prep' | 'countdown' | 'battle' | 'over';
 

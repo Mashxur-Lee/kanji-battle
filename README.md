@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.3
+# Kanji Wizards · v0.9.5
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -94,7 +94,17 @@ history) to see their profile: level, wins, losses, win rate and spells learned.
 ## Login streaks
 
 Opening the game on consecutive days builds a 🔥 login streak (by your own calendar day); your current and best
-streak show in your profile and on your profile card for others.
+streak have their own boxes in your profile and on your profile card for others. Your **best** streak unlocks magic
+staffs (so a broken streak never takes one away): Verdant (everyone), Ember 5 days, Tide 10, Storm 15, Void 20.
+
+## Customize
+
+Three sections, each with a live preview and an **Equip** button:
+- **🪄 Magic staff** — the staff in your hand in the 3D arena (and in your character's hand for everyone else);
+  turning 3D preview (`src/client/staffpreview.ts`, models in `src/client/staffs3d.ts`). Unlocked by login streak.
+- **🏟 Arena** — the background and time of day (unlocked by level).
+- **✨ Omnipotence** — the flames of a 5× combo (Reading, Writing, Rapid, Boss) and of your hero power in Deck Duel
+  (there is no combo in Deck Duel). Colours unlock by level.
 
 ## Combo flames & study lock
 
@@ -128,7 +138,8 @@ always Ready. Matches with an AI give half XP; a room with only AI left closes.
   Lv 10 = 55,000, Lv 20 = 210,000).
 - **Customize**: backgrounds unlock at Lv 0 forest, 5 swamp, 10 plains, 15 castle, 20 world tree.
 - **Fighters** depend on the levels you play: goblin (かな), kid (N5), human (N4), knight (N3), wizard (N2/N1).
-- **Study spells**: *All spells* — tick levels and 25 new words are added each day. *Struggling spells* —
+- **Study spells**: *All spells* — tick levels and 25 new words are added each day; after a Deck Duel every kanji
+  cast in it is added too. *Struggling spells* —
   words you missed in battles. Anki-style cards (Again / Hard / Okay / Easy, SM-2 scheduling,
   `src/shared/srs.ts`).
 - **Crit (daily)**: every day starts at 1 %; each spell learned today (a flashcard passed with Hard/Okay/Easy, once per card per day) adds +1 %, max 50 %. It drops back to 1 % at your local midnight. A crit hits ×1.5.
@@ -136,16 +147,23 @@ always Ready. Matches with an AI give half XP; a room with only AI left closes.
 ## 3D arena
 
 Battles and Deck Duels are shown **first person** in a 3D arena (Three.js, `src/client/arena3d.ts`, loaded on demand
-as `public/arena3d.js`): your staff in the foreground glows while you write or type, the opponent (or the dragon and
-your party) stands across a stone arena with torches, your chosen background and time of day far behind. Move the
+as `public/arena3d.js`): your hand holding your staff in the foreground, the opponent (or the dragon and your party)
+across a stone arena with torches, your chosen background and time of day far behind. Move the
 mouse to look around a little (parallax). Spells are kanji that fly across with a trail; hits flash and shake the
-camera. You play in first person: your hand and staff (styled after your character) — while you write or type the
-staff tilts back and charges, and when you cast it thrusts forward and its gem launches with the spell. The others
+camera. You play in first person: your hand (sleeve and skin after your character) and your staff skin — while you
+write or type the staff tilts back, charges and traces a figure-eight (∞) in the air; when you cast it thrusts forward
+and its gem flies off with the spell. The gem is gone until you start writing or typing again, when a new one builds
+up. A 5× combo sets your staff and the bottom of the screen on fire, with a big combo counter. In Boss fights, downed
+teammates lie on the ground (and you lose your staff). The others
 are low-poly 3D characters holding staffs (wizard, witch, goblin, knight, apprentice, adventurer — their level's
 avatar, or their Deck Duel hero). Deck Duel cards hit with their own effect: Bolt → lightning, Frost → the target turns see-through
 icy blue for a second, Inferno → it burns. The dragon stays a pixel sprite. Only the look changed — all rules are the
 same. Switch it off in the sound/settings panel (🏟 3D arena); phones, small windows and browsers without WebGL
 use the classic 2D view.
+
+**UI size**: the interface is drawn at 80% by default on computers (so Deck Duel's HP and mana stay on screen even
+with the Japanese keyboard's candidate list open); change it in the settings panel (70–100%, saved per browser;
+`src/client/zoom.ts`). Phones and small windows stay at 100%.
 
 ## Deck Duel
 

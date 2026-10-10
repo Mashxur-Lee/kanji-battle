@@ -5,6 +5,7 @@
 // The right arm is on a pivot at the shoulder, so the game can raise it to cast and wiggle it while you write.
 
 import * as THREE from 'three';
+import { buildStaff, type Staff } from './staffs3d';
 
 export type CharKind = 'wizard' | 'witch' | 'goblin' | 'knight' | 'kid' | 'human';
 export type Side = 'me' | 'opp' | 'ally';
@@ -16,13 +17,14 @@ export interface Character {
   crystal: THREE.Mesh;
   crystalMat: THREE.MeshStandardMaterial;
   glow: THREE.Sprite;
+  staff: Staff;
   height: number;
   materials: Array<{ mat: THREE.MeshStandardMaterial; color: THREE.Color; emissive: THREE.Color }>;
 }
 
 const ROBES: Record<Side, number> = { me: 0x3d5ad6, opp: 0xc23a4c, ally: 0x2f9f74 };
 
-export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Texture): Character {
+export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Texture, staffSkin?: string): Character {
   const materials: Character['materials'] = [];
   const mat = (color: number, o: { metal?: number; rough?: number; emissive?: number; ei?: number } = {}) => {
     // transparent from the start (opacity 1), so Frost can fade the model without a shader recompile hitch
@@ -113,20 +115,16 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
   const arm = new THREE.Group(); arm.position.set(0.3, 1.34, 0.02); arm.rotation.z = -0.35; body.add(arm);
   arm.add(mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.5, 6), sleeveM, 0, -0.22, 0.05).rotateX(-0.5));
   const hand = mesh(new THREE.SphereGeometry(0.07, 6, 4), skin, 0, -0.42, 0.22); arm.add(hand);
-  // the staff: through the hand, leaning out a little so its crystal shows beside the head
-  const staff = new THREE.Group(); staff.position.set(0, -0.42, 0.22); staff.rotation.z = 0.28; arm.add(staff);
-  staff.add(mesh(new THREE.CylinderGeometry(0.025, 0.035, 2.0, 7), mat(0x6b4423), 0, 0.32, 0));
-  staff.add(mesh(new THREE.TorusGeometry(0.07, 0.016, 5, 12), trim, 0, 1.33, 0));
-  const crystalColor = side === 'opp' ? 0xff6b8a : side === 'ally' ? 0x6dffb0 : 0xb48cff;
-  const crystalMat = new THREE.MeshStandardMaterial({ color: crystalColor, emissive: crystalColor, emissiveIntensity: 1.2, roughness: 0.15, metalness: 0.1, flatShading: true });
-  const crystal = mesh(new THREE.OctahedronGeometry(0.1, 0), crystalMat, 0, 1.45, 0); crystal.scale.set(1, 1.5, 1);
-  staff.add(crystal);
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: crystalColor, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.5 }));
-  glow.position.copy(crystal.position); glow.scale.setScalar(0.45);
-  staff.add(glow);
+  // the staff (the player's chosen skin): through the hand, leaning out a little so its gem shows beside the head
+  const staffPivot = new THREE.Group(); staffPivot.position.set(0, -0.42, 0.22); staffPivot.rotation.z = 0.28; arm.add(staffPivot);
+  const staff = buildStaff(staffSkin, glowTex);
+  staff.group.position.y = 0.3; // held a little below the middle
+  staffPivot.add(staff.group);
+  for (const m of staff.materials) materials.push({ mat: m, color: m.color.clone(), emissive: m.emissive.clone() });
+  const { gem: crystal, gemMat: crystalMat, glow } = staff;
 
   root.scale.setScalar(s);
-  return { root, body, arm, crystal, crystalMat, glow, height: 1.95 * s, materials };
+  return { root, body, arm, crystal, crystalMat, glow, staff, height: 1.95 * s, materials };
 }
 
 /** Which model a player gets: Deck Duel heroes, or the level avatar in the other modes. */

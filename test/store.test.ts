@@ -180,13 +180,16 @@ for (const [name, make] of stores) {
 }
 
 for (const [name, make] of stores) {
-  test(`store: the combo flame colour is saved (${name})`, async () => {
+  test(`store: the combo flame colour and staff skin are saved (${name})`, async () => {
     const s = make();
     await s.init();
     const u = await s.create({ username: `flm-${name}-${Date.now()}`, passwordHash: 'h', role: 'user' });
     assert.equal(u.flame, 'blue');
     assert.equal((await s.update(u.id, { flame: 'purple' }))!.flame, 'purple');
     assert.equal((await s.findById(u.id))!.flame, 'purple');
+    assert.equal(u.staff, 'verdant');
+    assert.equal((await s.update(u.id, { staff: 'storm' }))!.staff, 'storm');
+    assert.equal((await s.findById(u.id))!.staff, 'storm');
     await s.close?.();
   });
 }

@@ -1,7 +1,7 @@
 import type { AdminUserRow, MatchDetail, PublicProfile } from '../../shared/protocol';
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
-import { BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome } from '../../shared/progress';
+import { BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
 import { answer, isDue, newCard, previewIntervals, RATINGS, type Rating, type SrsCard } from '../../shared/srs';
 import { displayReading } from '../../shared/vocab';
 import { MATCH_HISTORY_LIMIT, type Store, type UserRecord } from '../db/Store';
@@ -13,7 +13,7 @@ export const DAILY_NEW = 25;
 export const AI_XP_FACTOR = 0.5;
 export type Deck = 'all' | 'struggling';
 
-export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; strugglingDue: number; streak: number; bestStreak: number }
+export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number }
 
 /** Public URL of a profile picture (versioned, so browsers can cache it forever). */
 export const picUrl = (u: { id: string; avatarV: number }) => (u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null);
@@ -42,7 +42,7 @@ export class StudyService {
     const learnedToday = now < u.critExpires ? u.critCount : 0;
     return {
       xp: u.xp, level: levelOf(u.xp), crit: dailyCrit(u.critCount, u.critExpires, now), learned, learnedToday, background: u.background,
-      studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u), flame: u.flame ?? 'blue', strugglingDue: await this.strugglingDue(u.id, now),
+      studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u), flame: u.flame ?? 'blue', staff: u.staff ?? 'verdant', strugglingDue: await this.strugglingDue(u.id, now),
       streak: liveStreak(u, new Date(now).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0,
     };
   }
@@ -75,6 +75,13 @@ export class StudyService {
     if (!isFlame(f)) throw new StudyError('Unknown flame');
     if (u.role !== 'admin' && !flameUnlocked(f, u.xp)) throw new StudyError(`Unlocks at level ${FLAMES.find((x) => x.id === f)!.level}`, 403);
     await this.store.update(u.id, { flame: f });
+  }
+
+  /** Magic staff skin (unlocked by your best login streak; admins have all). */
+  async setStaff(u: UserRecord, s: unknown) {
+    if (!isStaff(s)) throw new StudyError('Unknown staff');
+    if (u.role !== 'admin' && !staffUnlocked(s, u.bestStreak ?? 0)) throw new StudyError(`Unlocks with a ${STAFFS.find((x) => x.id === s)!.streak}-day login streak`, 403);
+    await this.store.update(u.id, { staff: s });
   }
 
   /** Today's crit chance (1% + 1% per spell learned today, max 50%; back to 1% at the player's midnight). */
@@ -190,13 +197,20 @@ export class StudyService {
     return { users, storage: this.store.name, persistent: this.store.name === 'postgres' || !process.env.RENDER };
   }
   /** Forfeits give nobody XP; matches with AI players give half. */
-  async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false, vsAi = false, record?: Omit<MatchDetail, 'id'>) {
+  async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false, vsAi = false, record?: Omit<MatchDetail, 'id'>, seen: string[] = []) {
     if (record) await this.store.addMatch(userId, record);
     const gained = forfeited ? 0 : Math.round(xpFor(outcome, accuracy, mode) * (vsAi ? AI_XP_FACTOR : 1));
     const xp = gained ? await this.store.addXp(userId, gained) : (await this.store.findById(userId))?.xp ?? 0;
     await this.store.addResult(userId, outcome);
     const words = missedIds.filter((id) => VOCAB_BY_ID.has(id));
     if (words.length) await this.store.markStruggling(userId, words, Date.now());
+    // Deck Duel: every kanji of the duel joins All spells as a new card (cards you already have are left alone)
+    const met = seen.filter((id) => VOCAB_BY_ID.has(id));
+    if (met.length) {
+      const added = await this.store.addCards(userId, met.map((id) => newCard(id, Date.now())));
+      const u = added ? await this.store.findById(userId) : null;
+      if (u) await this.store.update(userId, { newNotice: u.newNotice + added });
+    }
     return { gained, xp };
   }
 

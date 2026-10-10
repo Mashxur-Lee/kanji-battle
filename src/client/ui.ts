@@ -1,3 +1,4 @@
+import { viewH, viewW, zrect } from './zoom';
 import {
   LEVEL_LABEL, LEVELS, MODE_LABEL, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
   type Level, type MatchSummary, type PlayerId, type PlayerStats, type PlayerView, type PublicProfile, type PublicUser, type StudyItem, type Avatar,
@@ -88,8 +89,6 @@ export function picEl(url: string | null | undefined, cls = 'pic'): HTMLElement 
   img.onerror = () => img.remove();
   return img;
 }
-/** "🔥 5-day streak · best 9" */
-export const streakText = (n: number, best: number) => n > 0 ? `🔥 ${n}-day login streak${best > n ? ` · best ${best}` : ''}` : best ? `No streak right now · best ${best} days` : '';
 export function setProfile(p: ProfileView | null) {
   if (!p) return;
   const lx = levelXp(p.xp);
@@ -101,7 +100,8 @@ export function setProfile(p: ProfileView | null) {
   $('ppRate').textContent = games ? `${Math.round(((p.wins ?? 0) / games) * 100)}%` : '—';
   $('ppLearned').textContent = String(p.learned);
   $('ppToday').textContent = String(p.learnedToday ?? 0);
-  $('ppStreak').textContent = streakText(p.streak ?? 0, p.bestStreak ?? 0);
+  $('ppStreak').textContent = String(p.streak ?? 0);
+  $('ppBestStreak').textContent = String(Math.max(p.bestStreak ?? 0, p.streak ?? 0));
   for (const id of ['whoPic', 'ppPic']) {
     const el = $(id);
     el.replaceChildren(p.pic ? picEl(p.pic, 'pic fill') : '✦');
@@ -440,7 +440,16 @@ export function renderFighters(players: PlayerView[], you: PlayerId, boss: BossV
   // 5+ in a row: the fighter is wreathed in flames
   $('wizMe').classList.toggle('onfire', (me?.combo ?? 0) >= 5);
   const a3 = arena3d();
-  if (a3) for (const p of players) a3.onfire(p.id === you ? 'me' : battleMode === 'boss' ? `ally:${p.id}` : 'opp', p.combo >= 5, flameColor(p.flame));
+  if (a3) for (const p of players) a3.onfire(p.id === you ? 'me' : battleMode === 'boss' ? `ally:${p.id}` : 'opp', p.combo >= 5 && p.hp > 0, flameColor(p.flame));
+  // boss fight: downed teammates lie on the ground (you lose your staff) for the rest of the fight
+  if (battleMode === 'boss') for (const p of players) if (p.hp <= 0) knockOut(p.id === you ? 'me' : `ally:${p.id}`);
+  // your combo, big enough to notice (3D arena)
+  const combo = me && me.hp > 0 ? me.combo : 0;
+  const hud = $('comboHud');
+  hud.hidden = combo < 2;
+  hud.classList.toggle('hot', combo >= 5);
+  hud.style.setProperty('--flame', flameColor(me?.flame));
+  if (combo >= 2) hud.replaceChildren(h('b', '', `×${combo}`), h('span', '', combo >= 5 ? 'COMBO 🔥' : 'COMBO'));
 }
 
 // ── battle: wizards, dragon & spell effects ──────────────────────────────────
@@ -492,8 +501,8 @@ export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId)
 
 function floatText(target: HTMLElement, text: string, cls: string) {
   const arena = $('arena');
-  const a = arena.getBoundingClientRect();
-  const t = target.getBoundingClientRect();
+  const a = zrect(arena);
+  const t = zrect(target);
   const f = h('div', 'float ' + cls, text);
   f.style.left = `${t.left - a.left + t.width / 2 - 20}px`;
   f.style.top = `${t.top - a.top}px`;
@@ -508,9 +517,9 @@ export function castSpell(caster: Actor, target: Actor, kanji: string, damage: n
   const c = actorEl(caster), t = actorEl(target);
   retrigger(c, 'casting', 450);
   const arena = $('arena');
-  const a = arena.getBoundingClientRect();
-  const cr = c.getBoundingClientRect();
-  const tr = t.getBoundingClientRect();
+  const a = zrect(arena);
+  const cr = zrect(c);
+  const tr = zrect(t);
   const spell = h('div', 'spell' + (friendly ? '' : ' foe'), kanji, { lang: 'ja' });
   arena.append(spell);
   const fromRight = cr.left > tr.left;
@@ -530,7 +539,7 @@ export function castSpell(caster: Actor, target: Actor, kanji: string, damage: n
     { duration: dur, easing: 'cubic-bezier(.45,.05,.75,.4)' }, // gentle start, quickening into the hit
   );
   const trail = reduced ? 0 : window.setInterval(() => {
-    const r = spell.getBoundingClientRect();
+    const r = zrect(spell);
     const dot = h('div', 'spell-trail' + (friendly ? '' : ' foe'));
     dot.style.left = `${r.left - a.left + r.width / 2}px`;
     dot.style.top = `${r.top - a.top + r.height / 2}px`;
@@ -591,8 +600,8 @@ export function breathFire(damage: number, victims: Actor[], immune: Actor[] = [
   if (a3) { a3.breath(victims, damage); setTimeout(() => { for (const v of immune) a3.float(v, 'IMMUNE', '#ffd479'); }, 450); return; }
   const fire = $('fire');
   // the flame starts at the dragon's mouth (left edge of the sprite, ~37% down) and sweeps left
-  const arena = $('arena').getBoundingClientRect();
-  const d = $('dragon').getBoundingClientRect();
+  const arena = zrect($('arena'));
+  const d = zrect($('dragon'));
   const mouthX = d.left - arena.left + d.width * 0.08;
   const mouthY = d.top - arena.top + d.height * 0.37;
   const height = Math.max(160, arena.height * 0.7);
@@ -612,8 +621,11 @@ export function breathFire(damage: number, victims: Actor[], immune: Actor[] = [
 }
 
 export function knockOut(who: Actor) {
+  const el = actorEl(who);
+  if (el.classList.contains('ko')) return;
   arena3d()?.ko(who);
-  actorEl(who).classList.add('ko');
+  el.classList.add('ko');
+  el.classList.remove('onfire');
 }
 
 // ── battle: flow ─────────────────────────────────────────────────────────────
@@ -878,24 +890,28 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
     if (img) pic.append(img);
     const games = p.wins + p.losses;
     body.push(
-      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `Lv ${p.level}`), h('div', 'pp-streak', streakText(p.streak ?? 0, p.bestStreak ?? 0)))),
+      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `Lv ${p.level}`))),
       append(h('div', 'pp-stats'),
         append(h('div'), h('b', '', p.wins), h('span', '', 'wins')),
         append(h('div'), h('b', '', p.losses), h('span', '', 'losses')),
         append(h('div'), h('b', '', games ? `${Math.round((100 * p.wins) / games)}%` : '—'), h('span', '', 'win rate')),
         append(h('div'), h('b', '', p.learned), h('span', '', 'spells learned')),
       ),
+      append(h('div', 'pp-stats pp-streaks'),
+        append(h('div', 'streak-box'), h('b', '', p.streak ?? 0), h('span', '', '🔥 login streak (days)')),
+        append(h('div', 'streak-box best'), h('b', '', Math.max(p.bestStreak ?? 0, p.streak ?? 0)), h('span', '', '🏆 best streak (days)')),
+      ),
       h('p', 'hint', `Playing since ${new Date(p.since).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`),
     );
   }
   pop.replaceChildren(...body);
   pop.hidden = false;
-  const r = anchor.getBoundingClientRect();
-  const w = Math.min(300, innerWidth - 24);
+  const r = zrect(anchor);
+  const w = Math.min(300, viewW() - 24);
   pop.style.width = `${w}px`;
-  pop.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w / 2))}px`;
+  pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r.left + r.width / 2 - w / 2))}px`;
   const below = r.bottom + 8;
-  pop.style.top = `${below + 240 > innerHeight ? Math.max(12, r.top - 8 - pop.offsetHeight) : below}px`;
+  pop.style.top = `${below + 240 > viewH() ? Math.max(12, r.top - 8 - pop.offsetHeight) : below}px`;
 }
 export const hideProfileCard = () => { $('otherPop').hidden = true; };
 

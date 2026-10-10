@@ -21,7 +21,7 @@
     <div id="profilePop" class="profile-pop" hidden>
       <div class="pp-head">
         <div id="ppPic" class="pp-pic">✦</div>
-        <div><div id="ppName" class="pp-name"></div><div id="whoLevel" class="pp-level">Lv 0</div><div id="ppStreak" class="pp-streak"></div></div>
+        <div><div id="ppName" class="pp-name"></div><div id="whoLevel" class="pp-level">Lv 0</div></div>
       </div>
       <div class="xpbar" title="XP to next level"><span id="whoXp"></span></div>
       <div class="pp-stats">
@@ -31,6 +31,10 @@
         <div><b id="ppRate">—</b><span>win rate</span></div>
         <div><b id="ppLearned">0</b><span>spells learned</span></div>
         <div><b id="ppToday">0</b><span>learned today</span></div>
+      </div>
+      <div class="pp-stats pp-streaks">
+        <div class="streak-box"><b id="ppStreak">0</b><span>🔥 login streak (days)</span></div>
+        <div class="streak-box best"><b id="ppBestStreak">0</b><span>🏆 best streak (days)</span></div>
       </div>
       <div class="pp-actions">
         <label class="pill" title="PNG, JPEG or WebP">📷 Change picture<input id="picInput" type="file" accept="image/png,image/jpeg,image/webp,image/*" hidden></label>
@@ -52,6 +56,7 @@
       <p id="voiceInfo" class="hint"></p>
       <label class="toggle-row"><input id="arena3dToggle" type="checkbox"> 🏟 3D arena</label>
       <p id="arena3dInfo" class="hint"></p>
+      <label class="toggle-row">🔍 UI size <select id="uiZoom" aria-label="UI size"></select></label>
     </div>
   </div>
 </header>
@@ -213,13 +218,25 @@
   <section id="customize" class="screen" hidden>
     <button id="customizeBack" class="back">← Menu</button>
     <h2>Customize</h2>
-    <p class="sub">Backgrounds unlock as you level up. Win battles to earn XP (each level needs 1000 more than the last). Each one has its own sounds in the menus.</p>
-    <h3>Combo flames</h3>
-    <p class="sub">The flames around you at 5 correct casts in a row (and when you use your hero power in Deck Duel). Everyone sees your colour.</p>
-    <div id="flameRow" class="flame-row" role="group" aria-label="Combo flame colour"></div>
-    <h3>Background</h3>
-    <div id="bgTimes" class="bg-times" role="group" aria-label="Time of day"></div>
-    <div id="bgGrid" class="bg-grid"></div>
+    <div id="custTabs" class="cust-tabs" role="tablist" aria-label="What to customize">
+      <button role="tab" data-tab="staff" class="cust-tab">🪄 Magic staff</button>
+      <button role="tab" data-tab="arena" class="cust-tab">🏟 Arena</button>
+      <button role="tab" data-tab="omni" class="cust-tab">✨ Omnipotence</button>
+    </div>
+    <div class="cust-body">
+      <div class="cust-preview">
+        <div id="custStage" class="cust-stage">
+          <canvas id="staffCanvas" class="staff-canvas" aria-label="Staff preview"></canvas>
+          <div id="custStage2" class="cust-stage2"></div>
+        </div>
+        <div id="custInfo" class="cust-info"></div>
+      </div>
+      <div class="cust-list">
+        <p id="custSub" class="sub"></p>
+        <div id="bgTimes" class="bg-times" role="group" aria-label="Time of day"></div>
+        <div id="custGrid" class="cust-grid"></div>
+      </div>
+    </div>
   </section>
 
   <!-- ADMIN -->
@@ -367,6 +384,7 @@
       <div id="fire" class="fire" hidden></div>
     </div>
     <div id="log" class="log" aria-live="polite"></div>
+    <div id="comboHud" class="combo-hud" hidden aria-live="polite"></div>
   </section>
 
   <!-- DECK DUEL -->
@@ -473,17 +491,18 @@
           <li><b>Rapid</b> — no study; both get the same kanji, first correct reading hits.</li>
           <li><b>Writing</b> — the kanji flashes, then write it on the pad or type the kanji with a Japanese keyboard. Messy is fine.</li>
           <li><b>Boss</b> — 1 to 4 players team up against the Black Dragon (it gets tougher with every player). Mistakes get you clawed; fire breath every 30 s.</li>
-          <li><b>Deck Duel</b> — pick a hero, draft cards by colour, then cast them by writing their kanji. Light blue 100 dmg (10 mana), blue 120 (25), yellow +60 mana, green heal 100 (40), red 250 (70). Both players press Ready to start. 15 s to choose a card, then 20 s to write it. You get +10 mana each turn. Out of cards → a new draft round (HP and mana stay). Cards left but no mana to play any → you lose. When time runs out: overtime — cards are shown one by one, first to write it uses it.</li>
+          <li><b>Deck Duel</b> — pick a hero, draft cards by colour, then cast them by writing their kanji. Bolt 90 dmg (10 mana), Frost 150 (20), Mana +60, Heal 140 (30), Inferno 340 (45). 15 s to choose a card, then 1 minute to read its meaning, look at the kanji and write it. +10 mana each turn. Out of cards → a new draft round (HP and mana stay). No mana for any of your cards → your turn is skipped (−100 HP). When time runs out: overtime, a Rapid duel. Every kanji of the duel joins your <i>All spells</i>.</li>
         </ul>
       </li>
       <li><b>Fast + correct = more damage.</b> Combos build up to ×1.5 (5 in a row sets you on fire 🔥). <b>Skip</b> (Esc) shows the answer.</li>
       <li><b>Study spells</b> — Anki-style flashcards. Missed words go to <i>Struggling spells</i>. Crit: 1% + 1% per spell learned today (max 50%, resets daily; a crit hits ×1.5).</li>
-      <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds in <i>Customize</i>.</li>
+      <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
+      <li><b>Login streak</b> — open the game on days in a row. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 5 days, Tide at 10, Storm at 15, Void at 20.</li>
     </ol>
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.3</div>
+<div id="version" class="version">v0.9.5</div>
 <script src="/app.js"></script>
 </body>
 </html>

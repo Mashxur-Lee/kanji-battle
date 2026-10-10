@@ -557,3 +557,41 @@ test('daily login streak: +1 the next day, same day no change, a gap starts over
   const p = (await study.publicProfile(u.id))!;
   assert.equal(p.bestStreak, 3);
 });
+
+test('after a Deck Duel every kanji of the duel joins All spells (cards you have are left alone)', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const { MemoryStore } = await import('../src/server/db/Store');
+  const { VOCAB } = await import('../src/server/vocab');
+  const store = new MemoryStore();
+  const u = await store.create({ username: 'decker', passwordHash: 'x', role: 'user' } as any);
+  const study = new StudyService(store);
+  const [a, b, c] = VOCAB.slice(0, 3).map((v) => v.id);
+  await store.markStruggling(u.id, [a], Date.now());
+  await study.recordMatch(u.id, 'win', 1, 'deck', [b], false, false, undefined, [a, b, c, 'not-a-word']);
+  const cards = await store.cards(u.id);
+  assert.deepEqual(cards.map((x) => x.vocabId).sort(), [a, b, c].sort());
+  assert.equal(cards.find((x) => x.vocabId === c)!.struggling, false, 'new, not struggling');
+  assert.equal(cards.find((x) => x.vocabId === b)!.struggling, true, 'missed words still go to Struggling');
+  assert.equal((await store.findById(u.id))!.newNotice, 1, 'the study screen tells you about the new spell');
+});
+
+test('magic staffs unlock by best login streak (5/10/15/20 days; admins: all); others see your staff', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const { MemoryStore } = await import('../src/server/db/Store');
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const u = await store.create({ username: 'staffy', passwordHash: 'x', role: 'user' } as any);
+  assert.equal((await study.profile(u)).staff, 'verdant');
+  await assert.rejects(study.setStaff(u, 'ember'), /5-day/);
+  await assert.rejects(study.setStaff(u, 'banana'), /Unknown/);
+  await store.update(u.id, { bestStreak: 12, streak: 0 }); // a broken streak keeps what you unlocked
+  await study.setStaff((await store.findById(u.id))!, 'tide');
+  await assert.rejects(study.setStaff((await store.findById(u.id))!, 'storm'), /15-day/);
+  assert.equal((await study.profile((await store.findById(u.id))!)).staff, 'tide');
+  const admin = await store.create({ username: 'boss2', passwordHash: 'x', role: 'admin' } as any);
+  await study.setStaff(admin, 'void');
+  const room = new Room('STAF', 'reading', { onEmpty: () => {} }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a, undefined, { crit: 0, xp: 0, staff: 'void' }); room.join('b', 'B', b);
+  assert.deepEqual(b.last('lobby')!.players.map((p) => p.staff), ['void', 'verdant']);
+});

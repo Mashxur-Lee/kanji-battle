@@ -1,5 +1,8 @@
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
-import { BACKGROUNDS, critText, levelOf, type BackgroundId, FLAMES } from '../shared/progress';
+import { avatarFor, BACKGROUNDS, critText, levelOf, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
+import { staffPreview } from './arena';
+import type { StaffPreview } from './staffpreview';
+import { avatarSvg } from './wizard';
 import type { Rating } from '../shared/srs';
 import { api, type DeckCounts, type Profile, type StudyCard } from './api';
 import { backgroundThumb, getTimePref, resolveTime, setTimePref, TIMES } from './backgrounds';
@@ -145,60 +148,161 @@ $('studyStruggle').onclick = () => void startSession('struggling');
 $('reviewBack').onclick = () => void openStudy();
 $('reviewDoneBack').onclick = () => void openStudy();
 
-// ── customize: backgrounds unlocked by level ────────────────────────────────
-/** Backgrounds unlock by level (admins have them all); the time of day is a per-browser choice. */
+// ── customize: magic staff (login streak) · arena (level) · omnipotence (level) ──────────────────
+type CustTab = 'staff' | 'arena' | 'omni';
+interface CustItem {
+  id: string; name: string; blurb: string; locked: boolean; lock: string; equipped: boolean;
+  tile: () => Node; equip: () => Promise<{ profile: Profile }>; lockedToast: string;
+}
+let custTab: CustTab = 'staff';
+const picked: Partial<Record<CustTab, string>> = {};
+let cust: { profile: Profile; isAdmin: boolean; onTimeChange: () => void } | null = null;
+let preview: StaffPreview | null = null;
+let previewTried = false;
+let staffThumbs: Record<string, string> = {};
+
+const el = (tag: string, cls = '', text?: string | number) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = String(text);
+  return e;
+};
+
+/** Staffs unlock by login streak, backgrounds and flames by level; admins have everything. */
 export function openCustomize(profile: Profile, isAdmin = false, onTimeChange: () => void = () => {}) {
-  const lvl = levelOf(profile.xp);
-  const pref = getTimePref();
-  const time = resolveTime(pref);
-  $('bgTimes').replaceChildren(...TIMES.map((t) => {
-    const b = document.createElement('button');
-    b.className = 'pill' + (t.id === pref ? ' on' : '');
-    b.textContent = t.id === 'auto' ? `🔄 Cycle (now: ${time})` : t.id === 'day' ? '☀️ Day' : t.id === 'sunset' ? '🌇 Sunset' : '🌙 Night';
-    b.onclick = () => { setTimePref(t.id); onTimeChange(); openCustomize(profile, isAdmin, onTimeChange); };
-    return b;
-  }));
-  $('flameRow').replaceChildren(...FLAMES.map((f) => {
-    const locked = !isAdmin && lvl < f.level;
-    const b = document.createElement('button');
-    b.className = 'flame-pick' + ((profile.flame ?? 'blue') === f.id ? ' on' : '') + (locked ? ' locked' : '');
-    const dot = document.createElement('span');
-    dot.className = 'flame-dot'; dot.style.setProperty('--c', f.color);
-    b.append(dot, locked ? `${f.name} · 🔒 Level ${f.level}` : `${f.name}${(profile.flame ?? 'blue') === f.id ? ' ✓' : ''}`);
-    b.onclick = async () => {
-      if (locked) return ui.toast(`Reach level ${f.level} to unlock ${f.name} flames`);
-      try {
-        const { profile: p } = await api.setFlame(f.id);
-        onProfile(p);
-        openCustomize(p, isAdmin, onTimeChange);
-      } catch (e) { ui.toast((e as Error).message); }
-    };
-    return b;
-  }));
-  $('bgGrid').replaceChildren(...BACKGROUNDS.map((b) => {
-    const locked = !isAdmin && lvl < b.level;
-    const tile = document.createElement('button');
-    tile.className = 'bg-tile' + (profile.background === b.id ? ' on' : '') + (locked ? ' locked' : '');
-    tile.innerHTML = backgroundThumb(b.id, time);
-    const name = document.createElement('div');
-    name.className = 'bg-name';
-    name.textContent = `${b.name}${profile.background === b.id ? ' ✓' : ''}`;
-    tile.append(name);
-    if (locked) {
-      const lock = document.createElement('div');
-      lock.className = 'lock';
-      lock.textContent = `🔒 Level ${b.level}`;
-      tile.append(lock);
-    }
-    tile.onclick = async () => {
-      if (locked) return ui.toast(`Reach level ${b.level} to unlock ${b.name}`);
-      try {
-        const { profile: p } = await api.setBackground(b.id as BackgroundId);
-        onProfile(p);
-        openCustomize(p, isAdmin, onTimeChange);
-      } catch (e) { ui.toast((e as Error).message); }
-    };
-    return tile;
-  }));
+  cust = { profile, isAdmin, onTimeChange };
+  renderCustomize();
   ui.show('customize');
+  void ensurePreview();
+}
+
+async function ensurePreview() {
+  if (previewTried) { if (custTab === 'staff') renderCustomize(); return; }
+  previewTried = true;
+  preview = await staffPreview($<HTMLCanvasElement>('staffCanvas'));
+  if (preview) staffThumbs = Object.fromEntries(preview.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
+  renderCustomize();
+}
+
+for (const b of document.querySelectorAll<HTMLButtonElement>('#custTabs .cust-tab')) {
+  b.onclick = () => { custTab = b.dataset.tab as CustTab; renderCustomize(); };
+}
+
+function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
+  const lvl = levelOf(profile.xp);
+  const best = Math.max(profile.bestStreak ?? 0, profile.streak ?? 0);
+  const time = resolveTime(getTimePref());
+  if (custTab === 'staff') {
+    return STAFFS.map((s) => ({
+      id: s.id, name: s.name, blurb: s.blurb,
+      locked: !isAdmin && best < s.streak,
+      lock: s.streak ? `🔒 ${s.streak}-day streak` : '',
+      lockedToast: `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
+      equipped: (profile.staff ?? 'verdant') === s.id,
+      tile: () => {
+        if (staffThumbs[s.id]) { const img = document.createElement('img'); img.src = staffThumbs[s.id]; img.alt = ''; return img; }
+        const g = el('div', 'gem-fallback'); g.style.setProperty('--c', s.gem); return g;
+      },
+      equip: () => api.setStaff(s.id),
+    }));
+  }
+  if (custTab === 'arena') {
+    return BACKGROUNDS.map((b) => ({
+      id: b.id, name: b.name, blurb: 'The scene behind every battle (and its sounds in the menus).',
+      locked: !isAdmin && lvl < b.level, lock: `🔒 Level ${b.level}`,
+      lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
+      equipped: profile.background === b.id,
+      tile: () => { const d = el('div', 'bg-thumb'); d.innerHTML = backgroundThumb(b.id, time); return d; },
+      equip: () => api.setBackground(b.id as BackgroundId),
+    }));
+  }
+  return FLAMES.map((f) => ({
+    id: f.id, name: `${f.name} flames`, blurb: 'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your hero power is active in Deck Duel. Everyone sees your colour.',
+    locked: !isAdmin && lvl < f.level, lock: `🔒 Level ${f.level}`,
+    lockedToast: `Reach level ${f.level} to unlock ${f.name} flames`,
+    equipped: (profile.flame ?? 'blue') === f.id,
+    tile: () => { const d = el('span', 'flame-dot big'); d.style.setProperty('--c', f.color); return d; },
+    equip: () => api.setFlame(f.id),
+  }));
+}
+
+const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
+  staff: (p) => `The staff in your hand in the 3D arena (other players see it too). Staffs unlock with your login streak — open the game on days in a row. Your best streak: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}.`,
+  arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
+  omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your hero power in Deck Duel. More colours unlock as you level up.',
+};
+
+function renderCustomize() {
+  if (!cust) return;
+  const { profile, isAdmin, onTimeChange } = cust;
+  for (const b of document.querySelectorAll<HTMLButtonElement>('#custTabs .cust-tab')) {
+    const on = b.dataset.tab === custTab;
+    b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on));
+  }
+  const items = custItems(profile, isAdmin);
+  const sel = items.find((i) => i.id === picked[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
+  $('custSub').textContent = CUST_SUB[custTab](profile);
+
+  // time of day (arena only)
+  const times = $('bgTimes');
+  times.hidden = custTab !== 'arena';
+  if (custTab === 'arena') {
+    const pref = getTimePref();
+    times.replaceChildren(...TIMES.map((t) => {
+      const b = el('button', 'pill' + (t.id === pref ? ' on' : ''), t.id === 'auto' ? `🔄 Cycle (now: ${resolveTime(pref)})` : t.id === 'day' ? '☀️ Day' : t.id === 'sunset' ? '🌇 Sunset' : '🌙 Night');
+      b.onclick = () => { setTimePref(t.id); onTimeChange(); renderCustomize(); };
+      return b;
+    }));
+  }
+
+  const equip = async (it: CustItem) => {
+    if (it.locked) return ui.toast(it.lockedToast);
+    try {
+      const { profile: p } = await it.equip();
+      cust!.profile = p;
+      onProfile(p);
+      renderCustomize();
+    } catch (e) { ui.toast((e as Error).message); }
+  };
+
+  $('custGrid').className = `cust-grid ${custTab}`;
+  $('custGrid').replaceChildren(...items.map((it) => {
+    const b = el('button', 'cust-item' + (it === sel ? ' sel' : '') + (it.equipped ? ' equipped' : '') + (it.locked ? ' locked' : ''));
+    b.setAttribute('aria-pressed', String(it === sel));
+    const pic = el('div', 'ci-pic'); pic.append(it.tile());
+    b.append(pic, el('div', 'ci-name', it.name), el('div', 'ci-state', it.equipped ? '✓ Equipped' : it.locked ? it.lock : 'Unlocked'));
+    b.onclick = () => { picked[custTab] = it.id; renderCustomize(); };
+    b.ondblclick = () => void equip(it);
+    return b;
+  }));
+
+  // the preview
+  const canvas = $<HTMLCanvasElement>('staffCanvas');
+  const stage2 = $('custStage2');
+  const showCanvas = custTab === 'staff' && !!preview;
+  canvas.hidden = !showCanvas;
+  stage2.hidden = showCanvas;
+  $('custStage').dataset.tab = custTab;
+  if (custTab === 'staff') {
+    if (preview) preview.show(sel.id);
+    else { const g = el('div', 'gem-fallback big'); g.style.setProperty('--c', STAFFS.find((s) => s.id === sel.id)!.gem); stage2.replaceChildren(g); }
+  } else if (custTab === 'arena') {
+    stage2.innerHTML = backgroundThumb(sel.id as BackgroundId, resolveTime(getTimePref()));
+  } else {
+    const w = el('div', 'wizard me onfire');
+    w.dataset.flame = sel.id;
+    const sprite = el('div', 'sprite'); sprite.innerHTML = avatarSvg(avatarFor(profile.studyLevels), 'me');
+    w.append(el('div', 'aura'), sprite);
+    const badge = el('div', 'combo-hud hot omni-badge'); badge.style.setProperty('--flame', FLAMES.find((f) => f.id === sel.id)!.color);
+    badge.append(el('b', '', '×5'), el('span', '', 'COMBO 🔥'));
+    stage2.replaceChildren(w, badge);
+  }
+
+  // name, description, Equip
+  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? sel.lock.replace('🔒 ', '🔒 Unlocks at ') : 'Equip') as HTMLButtonElement;
+  btn.disabled = sel.equipped;
+  btn.classList.toggle('locked', sel.locked);
+  btn.onclick = () => void equip(sel);
+  $('custInfo').replaceChildren(el('h3', '', sel.name), el('p', 'sub', sel.blurb), btn);
 }

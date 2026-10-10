@@ -29,11 +29,13 @@ export const DEFAULT_LEVELS: Level[] = ['N3', 'N2'];
 export const BOSS_NAME = 'Black Dragon';
 
 /** Per-player progress the room shows and uses (crit chance, account level). */
-export interface MemberProfile { crit: number; xp: number; pic?: string | null; flame?: string }
+export interface MemberProfile { crit: number; xp: number; pic?: string | null; flame?: string; staff?: string }
 
 /** `forfeited`: someone gave up or left — nobody gets XP (stops win-trading between accounts). */
 export interface MatchResult {
   id: PlayerId; outcome: MatchOutcome; accuracy: number; missed: string[]; forfeited: boolean; vsAi: boolean;
+  /** words met in the match that join the player's All spells (Deck Duel) */
+  seen?: string[];
   /** what goes into the player's match history */
   record?: Omit<MatchDetail, 'id'>;
 }
@@ -341,7 +343,7 @@ export class Room {
       if (!judge) return;
       const writable = this.deps.writableFilter ?? (() => true);
       this.phase = 'game';
-      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit, pic: p.profile.pic ?? null, flame: p.bot ? 'purple' : p.profile.flame ?? 'blue' })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge);
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit, pic: p.profile.pic ?? null, flame: p.bot ? 'purple' : p.profile.flame ?? 'blue', staff: p.bot ? 'storm' : p.profile.staff ?? 'verdant' })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge);
       this.game.start();
       return;
     }
@@ -451,6 +453,7 @@ export class Room {
         outcome,
         accuracy: e.stats[p.id].accuracy,
         missed: e.missed[p.id] ?? [],
+        seen: e.seen ?? [],
         forfeited: e.reason === 'forfeit',
         vsAi,
         record: {
@@ -493,6 +496,7 @@ export class Room {
         bot: p.bot?.level ?? null,
         pic: p.profile.pic ?? null,
         flame: p.bot ? 'purple' : p.profile.flame ?? 'blue',
+        staff: p.bot ? 'storm' : p.profile.staff ?? 'verdant',
         ready: p.ready,
       };
     });

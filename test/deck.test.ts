@@ -214,7 +214,9 @@ test('overtime ends early with a KO', () => {
   s.g.submit('A', c.castId, e.romaji ?? e.reading);
   if (!s.g.isOver) { tick(RULES.overtimeGapMs); const c2 = s.view('A').casting!; const e2 = s.g.peek('A')!.entry; s.g.submit('A', c2.castId, e2.romaji ?? e2.reading); }
   assert.ok(s.g.isOver);
-  assert.equal((s.events.find((x) => x.type === 'game_over') as any).winnerId, 'A');
+  const over = s.events.find((x) => x.type === 'game_over') as any;
+  assert.equal(over.winnerId, 'A');
+  assert.ok(over.seen.includes(e.id), 'every kanji of the duel is listed for All spells');
 });
 
 test('skipping a turn (choose clock runs out) costs 100 HP; a played card does not', () => {
