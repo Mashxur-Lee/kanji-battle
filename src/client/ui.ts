@@ -7,7 +7,7 @@ import {
 } from '../shared/protocol';
 import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
 import { arena as arena3d, arenaForBattle } from './arena';
-import { critText, flameColor, flameShades, levelOf, levelProgress, levelXp } from '../shared/progress';
+import { critText, flameColor, flameShades, isKanaBeginner, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -83,7 +83,7 @@ export function setNet(map: Record<string, number | null>) {
 }
 
 // ── top bar ──────────────────────────────────────────────────────────────────
-export interface ProfileView { xp: number; level: number; crit: number; learned: number; learnedToday?: number; wins?: number; losses?: number; pic?: string | null; streak?: number; bestStreak?: number }
+export interface ProfileView { xp: number; level: number; crit: number; learned: number; learnedToday?: number; wins?: number; losses?: number; pic?: string | null; streak?: number; bestStreak?: number; unlocks?: string[] }
 /** A round profile picture (or nothing). */
 export function picEl(url: string | null | undefined, cls = 'pic'): HTMLElement | '' {
   if (!url) return '';
@@ -91,9 +91,24 @@ export function picEl(url: string | null | undefined, cls = 'pic'): HTMLElement 
   img.onerror = () => img.remove();
   return img;
 }
+let beginnerFlag = false;
+/** A hiragana beginner: only かな until "I've mastered hiragana" is ticked in Settings. */
+export const kanaBeginner = () => beginnerFlag;
+export const BEGINNER_LOCK = 'Master hiragana first (Study spells → かな), then tick "I\'ve mastered hiragana" in Settings';
+/** Locks a level chip a beginner can't pick yet (everything but かな). */
+export function lockLevelChip(label: HTMLElement, lv: string) {
+  if (!beginnerFlag || lv === 'KANA') return label;
+  label.classList.add('locked'); label.classList.remove('on');
+  const i = label.querySelector('input'); if (i) { i.disabled = true; i.checked = false; }
+  label.title = BEGINNER_LOCK;
+  return label;
+}
+
 export function setProfile(p: ProfileView | null) {
   if (!p) return;
+  beginnerFlag = isKanaBeginner(p.unlocks);
   const lx = levelXp(p.xp);
+  $('whoLv').textContent = String(lx.level);
   $('whoLevel').textContent = `Lv ${lx.level} · ${lx.into.toLocaleString()} / ${lx.need.toLocaleString()} XP`;
   $('whoCrit').textContent = critText(p.crit);
   $('ppWins').textContent = String(p.wins ?? 0);
@@ -328,7 +343,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       const box = h('input', '', undefined, { type: 'checkbox', value: lv }) as HTMLInputElement;
       box.checked = on;
       label.prepend(box);
-      return label;
+      return lockLevelChip(label, lv);
     }),
   );
   $('levelsHint').textContent = mode === 'deck'
@@ -697,7 +712,7 @@ export function showChallenge(c: ChallengeView) {
     // flash the kanji, then only the meaning remains
     const mp = $('meaningPrompt');
     mp.hidden = false;
-    mp.replaceChildren(h('span', 'mp-reading', c.reading ?? '', { lang: 'ja' }), h('span', '', ` — ${c.meaning ?? ''}`), h('small', '', `write the kanji: ${c.charCount} character${c.charCount === 1 ? '' : 's'}`));
+    mp.replaceChildren(h('span', 'mp-reading', c.reading ?? '', { lang: 'ja' }), h('span', '', ` — ${c.meaning ?? ''}`), h('small', '', `write ${c.charCount} kanji`));
     // look at the kanji, then CAST!: it disappears and only then the pad / keyboard appear (main.ts)
     const ime = $<HTMLInputElement>('imeInput');
     ime.value = '';
@@ -708,6 +723,7 @@ export function showChallenge(c: ChallengeView) {
   }
   const input = $<HTMLInputElement>('answer');
   input.disabled = false;
+  setAnswerLocked(false);
   input.value = '';
   input.placeholder = c.answer === 'romaji' ? 'romaji, then Enter' : 'かな or romaji, then Enter';
   input.lang = c.answer === 'romaji' ? 'en' : 'ja';
@@ -723,8 +739,18 @@ export function setInputHint(text: string, warn = false) {
 }
 
 /** Writing mode: show which character you're on. */
-export function setCharSlots(total: number, _written: string[], active: boolean) {
-  $('charSlots').replaceChildren(h('span', 'slots-hint', total > 1 ? `Write all ${total} characters, left to right` : 'Write the character'));
+export function setCharSlots(total: number, _written: string[], active: boolean, shape = '') {
+  const kana = shape.replace(/□/g, '');
+  const hint = h('span', 'slots-hint', total > 1 ? `Write all ${total} kanji, left to right` : 'Write the kanji');
+  // the kana of the word are written for you: □ず → write only 必
+  const parts: Node[] = [hint];
+  if (kana) {
+    const sh = h('span', 'slots-shape', '', { lang: 'ja' });
+    sh.title = 'the kana is written for you';
+    for (const c of shape) sh.append(c === '□' ? h('i', 'slot-box') : h('b', '', c));
+    parts.push(sh);
+  }
+  $('charSlots').replaceChildren(...parts);
   $('padNext').textContent = 'Cast ✦';
   for (const id of ['padUndo', 'padClear', 'padSkip', 'padNext']) $<HTMLButtonElement>(id).disabled = !active;
 }
@@ -738,10 +764,22 @@ export function startWritingStep() {
   ime.disabled = false;
 }
 
+/**
+ * The answer box is locked between words but never disabled: disabling it closes a phone's keyboard,
+ * which then pops up again for the next word (and the screen jumps). Locked, it ignores typing.
+ */
+export function setAnswerLocked(on: boolean) {
+  const input = $<HTMLInputElement>('answer');
+  input.classList.toggle('locked', on);
+  if (on) input.dataset.locked = '1'; else delete input.dataset.locked;
+}
+export const answerLocked = () => { const i = $<HTMLInputElement>('answer'); return i.disabled || i.dataset.locked === '1'; };
+$('answer').addEventListener('beforeinput', (e) => { if ($('answer').dataset.locked === '1') e.preventDefault(); });
+
 export function lockInput() {
   stopCountdown('challenge');
   $('castGo').hidden = true;
-  $<HTMLInputElement>('answer').disabled = true;
+  setAnswerLocked(true);
   $<HTMLButtonElement>('skip').disabled = true;
   for (const id of ['padUndo', 'padClear', 'padSkip', 'padNext']) $<HTMLButtonElement>(id).disabled = true;
   $<HTMLInputElement>('imeInput').disabled = true;

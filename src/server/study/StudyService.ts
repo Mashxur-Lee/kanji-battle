@@ -1,7 +1,7 @@
 import type { AdminUserRow, MatchDetail, PublicProfile } from '../../shared/protocol';
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
-import { BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
+import { isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
 import { answer, isDue, newCard, previewIntervals, RATINGS, type Rating, type SrsCard } from '../../shared/srs';
 import { displayReading } from '../../shared/vocab';
 import { MATCH_HISTORY_LIMIT, type Store, type UserRecord } from '../db/Store';
@@ -133,9 +133,18 @@ export class StudyService {
 
   /** "All spells": pick the levels that feed the daily new cards. Picking levels adds today's batch right away. */
   async setStudyLevels(u: UserRecord, raw: unknown, today: string) {
-    const levels = Array.isArray(raw) ? LEVELS.filter((l) => raw.includes(l)) : [];
+    const picked = Array.isArray(raw) ? LEVELS.filter((l) => raw.includes(l)) : [];
+    const levels = isKanaBeginner(u.unlocks) && u.role !== 'admin' && picked.length ? levelsFor(picked, true) : picked;
     const rec = (await this.store.update(u.id, { studyLevels: levels, lastNewDate: levels.length ? u.lastNewDate : null }))!;
     if (levels.length && rec.lastNewDate !== today) await this.addDaily(rec, today);
+  }
+
+  /** "I've mastered hiragana" (Settings) — or, for a new player who says they're a beginner, not yet. */
+  async setKanaMastered(u: UserRecord, mastered: boolean) {
+    const rest = (u.unlocks ?? []).filter((x) => x !== KANA_BEGINNER);
+    await this.store.update(u.id, { unlocks: mastered ? rest : [...rest, KANA_BEGINNER] });
+    // a beginner studies かな
+    if (!mastered) await this.store.update(u.id, { studyLevels: ['KANA'] });
   }
 
   /** Adds up to 25 new random words from the chosen levels, once per day. */

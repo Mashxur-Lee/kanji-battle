@@ -4,6 +4,73 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
+  // src/client/api.ts
+  var today = () => {
+    const d = /* @__PURE__ */ new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  var TOKEN_KEY = "kb:token";
+  var getToken = () => {
+    try {
+      return localStorage.getItem(TOKEN_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  };
+  var setToken = (t) => {
+    try {
+      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+    } catch {
+    }
+  };
+  var ApiError = class extends Error {
+    constructor(message, status) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  async function call(method, url, body) {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+      body: body === void 0 ? void 0 : JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
+    return data;
+  }
+  var api = {
+    login: (username, password) => call("POST", "/api/login", { username, password }),
+    register: (username, password) => call("POST", "/api/register", { username, password }),
+    me: () => call("GET", `/api/me?today=${today()}`),
+    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
+    removeAvatar: () => call("DELETE", "/api/me/avatar"),
+    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
+    setStaff: (staff) => call("PUT", "/api/me/staff", { staff }),
+    setBackground: (background) => call("PUT", "/api/me/background", { background }),
+    study: () => call("GET", `/api/study?today=${today()}`),
+    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
+    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
+    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    matches: () => call("GET", "/api/matches"),
+    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
+    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
+    users: () => call("GET", "/api/admin/users"),
+    tutorialDone: () => call("PUT", "/api/me/tutorial"),
+    setKana: (mastered) => call("PUT", "/api/me/kana", { mastered }),
+    progress: () => call("GET", `/api/progress?today=${today()}`),
+    strokes: (chars) => call("GET", `/api/strokes?k=${encodeURIComponent(chars)}`),
+    daily: () => call("GET", "/api/daily"),
+    dailyStart: () => call("POST", "/api/daily/start"),
+    dailyAnswer: (text) => call("POST", "/api/daily/answer", { text }),
+    dailyFinish: () => call("POST", "/api/daily/finish"),
+    friends: () => call("GET", "/api/friends"),
+    addFriend: (username) => call("POST", "/api/friends", { username }),
+    acceptFriend: (id) => call("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
+    removeFriend: (id) => call("DELETE", `/api/friends/${encodeURIComponent(id)}`),
+    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
+  };
+
   // src/client/i18n.ts
   var KEY = "kb:lang";
   function lang() {
@@ -223,6 +290,30 @@
     "July reward. Pulled from the deepest trench of the sea.": "\u041D\u0430\u0433\u0440\u0430\u0434\u0430 \u0438\u044E\u043B\u044F. \u041F\u043E\u0434\u043D\u044F\u0442 \u0441\u043E \u0434\u043D\u0430 \u0433\u043B\u0443\u0431\u043E\u0447\u0430\u0439\u0448\u0435\u0439 \u043C\u043E\u0440\u0441\u043A\u043E\u0439 \u0432\u043F\u0430\u0434\u0438\u043D\u044B.",
     "September reward. Silver light of the harvest moon.": "\u041D\u0430\u0433\u0440\u0430\u0434\u0430 \u0441\u0435\u043D\u0442\u044F\u0431\u0440\u044F. \u0421\u0435\u0440\u0435\u0431\u0440\u044F\u043D\u044B\u0439 \u0441\u0432\u0435\u0442 \u043E\u0441\u0435\u043D\u043D\u0435\u0439 \u043B\u0443\u043D\u044B.",
     "November reward. Burning red like autumn leaves.": "\u041D\u0430\u0433\u0440\u0430\u0434\u0430 \u043D\u043E\u044F\u0431\u0440\u044F. \u0413\u043E\u0440\u0438\u0442 \u043A\u0440\u0430\u0441\u043D\u044B\u043C, \u043A\u0430\u043A \u043E\u0441\u0435\u043D\u043D\u0438\u0435 \u043B\u0438\u0441\u0442\u044C\u044F.",
+    // 0.9.8
+    "I've mastered hiragana": "\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443",
+    "Unlocks the kanji levels (N5\u2013N1) for studying and battles.": "\u041E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 (N5\u2013N1) \u0434\u043B\u044F \u0443\u0447\u0451\u0431\u044B \u0438 \u0431\u043E\u0451\u0432.",
+    "Do you know hiragana?": "\u0412\u044B \u0437\u043D\u0430\u0435\u0442\u0435 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443?",
+    "Yes \u2014 I know hiragana": "\u0414\u0430 \u2014 \u044F \u0437\u043D\u0430\u044E \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443",
+    "I'm a beginner": "\u042F \u043D\u043E\u0432\u0438\u0447\u043E\u043A",
+    'Kanji are read with hiragana (\u304B\u306A). If you can already read all of it, you start with kanji (N5 to N1). If not, you start with \u304B\u306A only \u2014 the kanji levels open once you tick "I\'ve mastered hiragana" in Settings.': "\u041A\u0430\u043D\u0434\u0437\u0438 \u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u043E\u0439 (\u304B\u306A). \u0415\u0441\u043B\u0438 \u0432\u044B \u0443\u0436\u0435 \u0447\u0438\u0442\u0430\u0435\u0442\u0435 \u0435\u0451 \u0432\u0441\u044E \u2014 \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0435 \u0441 \u043A\u0430\u043D\u0434\u0437\u0438 (N5\u2013N1). \u0415\u0441\u043B\u0438 \u043D\u0435\u0442 \u2014 \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u0442\u043E\u043B\u044C\u043A\u043E \u304B\u306A; \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 \u043E\u0442\u043A\u0440\u043E\u044E\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B \u043E\u0442\u043C\u0435\u0442\u0438\u0442\u0435 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445.",
+    "\u304B\u306A first, then kanji": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u304B\u306A, \u043F\u043E\u0442\u043E\u043C \u043A\u0430\u043D\u0434\u0437\u0438",
+    'Beginners: study \u304B\u306A in Study spells until you know it by heart. Then tick "I\'ve mastered hiragana" in Settings (the sliders button, top-right) \u2014 and the kanji levels N5 to N1 open for studying and battles.': "\u041D\u043E\u0432\u0438\u0447\u043A\u0430\u043C: \u0443\u0447\u0438\u0442\u0435 \u304B\u306A \u0432 \xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB, \u043F\u043E\u043A\u0430 \u043D\u0435 \u0432\u044B\u0443\u0447\u0438\u0442\u0435 \u043D\u0430\u0438\u0437\u0443\u0441\u0442\u044C. \u0417\u0430\u0442\u0435\u043C \u043E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 (\u043A\u043D\u043E\u043F\u043A\u0430 \u0441 \u043F\u043E\u043B\u0437\u0443\u043D\u043A\u0430\u043C\u0438 \u0441\u043F\u0440\u0430\u0432\u0430 \u0432\u0432\u0435\u0440\u0445\u0443) \u2014 \u0438 \u043E\u0442\u043A\u0440\u043E\u044E\u0442\u0441\u044F \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 N5\u2013N1 \u0434\u043B\u044F \u0443\u0447\u0451\u0431\u044B \u0438 \u0431\u043E\u0451\u0432.",
+    'Master hiragana first (Study spells \u2192 \u304B\u306A), then tick "I\'ve mastered hiragana" in Settings': "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0441\u0432\u043E\u0439\u0442\u0435 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443 (\xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2192 \u304B\u306A), \u0437\u0430\u0442\u0435\u043C \u043E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445",
+    "Kanji levels unlocked \u2014 pick N5 in Study spells to start!": "\u0423\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 \u043E\u0442\u043A\u0440\u044B\u0442\u044B \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 N5 \u0432 \xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB!",
+    "Back to \u304B\u306A only: kanji levels are locked.": "\u0421\u043D\u043E\u0432\u0430 \u0442\u043E\u043B\u044C\u043A\u043E \u304B\u306A: \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 \u0437\u0430\u043A\u0440\u044B\u0442\u044B.",
+    "Write the kanji": "\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043A\u0430\u043D\u0434\u0437\u0438",
+    "the kana is written for you": "\u043A\u0430\u043D\u0430 \u0443\u0436\u0435 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0430 \u0437\u0430 \u0432\u0430\u0441",
+    "Wk": "\u041D\u0435\u0434.",
+    "online": "\u0432 \u0441\u0435\u0442\u0438",
+    "Requests": "\u0417\u0430\u043F\u0440\u043E\u0441\u044B",
+    "Friend requests": "\u0417\u0430\u043F\u0440\u043E\u0441\u044B \u0432 \u0434\u0440\u0443\u0437\u044C\u044F",
+    "No friend requests right now.": "\u0421\u0435\u0439\u0447\u0430\u0441 \u043D\u0435\u0442 \u0437\u0430\u043F\u0440\u043E\u0441\u043E\u0432 \u0432 \u0434\u0440\u0443\u0437\u044C\u044F.",
+    "No friends yet \u2014 add someone below.": "\u0414\u0440\u0443\u0437\u0435\u0439 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u2014 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u043A\u043E\u0433\u043E-\u043D\u0438\u0431\u0443\u0434\u044C \u043D\u0438\u0436\u0435.",
+    "Your level": "\u0412\u0430\u0448 \u0443\u0440\u043E\u0432\u0435\u043D\u044C",
+    "Activity calendar": "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u0438",
+    "Previous month": "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0438\u0439 \u043C\u0435\u0441\u044F\u0446",
+    "Next month": "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u043C\u0435\u0441\u044F\u0446",
     // admin
     "Role": "\u0420\u043E\u043B\u044C",
     "Level": "\u0423\u0440\u043E\u0432\u0435\u043D\u044C",
@@ -445,6 +536,9 @@
   };
   var PATTERNS = [
     [/^Lv (\d+)$/, "\u0423\u0440. $1"],
+    [/^Write all (\d+) kanji, left to right$/, "\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0432\u0441\u0435 \u043A\u0430\u043D\u0434\u0437\u0438 ($1) \u0441\u043B\u0435\u0432\u0430 \u043D\u0430\u043F\u0440\u0430\u0432\u043E"],
+    [/^(\d+) active days this month$/, (_, n) => `${n} ${plural(+n, "\u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0439 \u0434\u0435\u043D\u044C", "\u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0445 \u0434\u043D\u044F", "\u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0445 \u0434\u043D\u0435\u0439")} \u0432 \u044D\u0442\u043E\u043C \u043C\u0435\u0441\u044F\u0446\u0435`],
+    [/^(.+) — view profile$/, "$1 \u2014 \u043F\u0440\u043E\u0444\u0438\u043B\u044C"],
     [/^The staff in your hand \(other players see it too\)\. Classic staffs unlock with your login streak — your best: (.+)\. Seasonal staffs are monthly rewards \(see Progress\)\.$/, (_, d) => `\u041F\u043E\u0441\u043E\u0445 \u0432 \u0432\u0430\u0448\u0435\u0439 \u0440\u0443\u043A\u0435 (\u0435\u0433\u043E \u0432\u0438\u0434\u044F\u0442 \u0438 \u0434\u0440\u0443\u0433\u0438\u0435 \u0438\u0433\u0440\u043E\u043A\u0438). \u041A\u043B\u0430\u0441\u0441\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u043E\u0441\u043E\u0445\u0438 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u0441\u0435\u0440\u0438\u0435\u0439 \u0432\u0445\u043E\u0434\u043E\u0432 \u2014 \u0432\u0430\u0448 \u0440\u0435\u043A\u043E\u0440\u0434: ${d.replace(/(\d+) days?/, (_m, n) => `${n} ${plural(+n, "\u0434\u0435\u043D\u044C", "\u0434\u043D\u044F", "\u0434\u043D\u0435\u0439")}`)}. \u0421\u0435\u0437\u043E\u043D\u043D\u044B\u0435 \u043F\u043E\u0441\u043E\u0445\u0438 \u2014 \u043D\u0430\u0433\u0440\u0430\u0434\u044B \u043C\u0435\u0441\u044F\u0446\u0430 (\u0441\u043C. \xAB\u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441\xBB).`],
     [/^(\w+) reward: complete that month's goals \(Progress page\)\. Wraps you at 5 in a row and during your Omnipotence\.$/, "\u041D\u0430\u0433\u0440\u0430\u0434\u0430 \u043C\u0435\u0441\u044F\u0446\u0430 ($1): \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0446\u0435\u043B\u0438 \u044D\u0442\u043E\u0433\u043E \u043C\u0435\u0441\u044F\u0446\u0430 (\u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430 \xAB\u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441\xBB). \u041E\u043A\u0443\u0442\u044B\u0432\u0430\u0435\u0442 \u0432\u0430\u0441 \u043F\u0440\u0438 5 \u043F\u043E\u0434\u0440\u044F\u0434 \u0438 \u0432\u043E \u0432\u0440\u0435\u043C\u044F \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u0430."],
     [/^Unlocks at a (\d+)-day streak$/, (_, n) => `\u041E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u0435\u0440\u0438\u0438 ${n} ${plural(+n, "\u0434\u0435\u043D\u044C", "\u0434\u043D\u044F", "\u0434\u043D\u0435\u0439")}`],
@@ -491,7 +585,7 @@
     [/^The dragon inhales… (\d+)$/, "\u0414\u0440\u0430\u043A\u043E\u043D \u043D\u0430\u0431\u0438\u0440\u0430\u0435\u0442 \u0432\u043E\u0437\u0434\u0443\u0445\u2026 $1"],
     [/^Fire breath! Everyone takes (\d+)$/, "\u041E\u0433\u043D\u0435\u043D\u043D\u043E\u0435 \u0434\u044B\u0445\u0430\u043D\u0438\u0435! \u0412\u0441\u0435 \u043F\u043E\u043B\u0443\u0447\u0430\u044E\u0442 $1"],
     [/^The dragon claws (.+) for (\d+)$/, "\u0414\u0440\u0430\u043A\u043E\u043D \u0431\u044C\u0451\u0442 \u043A\u043E\u0433\u0442\u044F\u043C\u0438 $1 \u043D\u0430 $2"],
-    [/^write the kanji: (\d+) characters?$/, (_, n) => `\u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043A\u0430\u043D\u0434\u0437\u0438: ${n} ${plural(+n, "\u0437\u043D\u0430\u043A", "\u0437\u043D\u0430\u043A\u0430", "\u0437\u043D\u0430\u043A\u043E\u0432")}`],
+    [/^write (\d+) kanji$/, "\u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043A\u0430\u043D\u0434\u0437\u0438: $1"],
     [/^Write all (\d+) characters, left to right$/, "\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0432\u0441\u0435 $1 \u0437\u043D\u0430\u043A\u0430(\u043E\u0432) \u0441\u043B\u0435\u0432\u0430 \u043D\u0430\u043F\u0440\u0430\u0432\u043E"],
     [/^The pad read: (.+)$/, "\u041F\u0430\u043D\u0435\u043B\u044C \u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043B\u0430: $1"],
     [/^Monthly goals complete! (.+) unlocked — equip it in Customize\.$/, "\u041C\u0435\u0441\u044F\u0447\u043D\u044B\u0435 \u0446\u0435\u043B\u0438 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u044B! \u041E\u0442\u043A\u0440\u044B\u0442\u043E: $1 \u2014 \u043D\u0430\u0434\u0435\u043D\u044C\u0442\u0435 \u0432 \xAB\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0435\xBB."],
@@ -546,23 +640,23 @@
     const t = tr(s);
     if (t !== s) node.data = raw.replace(s, t);
   }
-  function translateAttrs(el7) {
-    if (el7.closest(SKIP)) return;
+  function translateAttrs(el8) {
+    if (el8.closest(SKIP)) return;
     for (const a of ATTRS) {
-      const v = el7.getAttribute(a);
+      const v = el8.getAttribute(a);
       if (v && /[A-Za-z]/.test(v)) {
         const t = tr(v.trim());
-        if (t !== v.trim()) el7.setAttribute(a, t);
+        if (t !== v.trim()) el8.setAttribute(a, t);
       }
     }
   }
   function walk(root) {
     if (root.nodeType === Node.TEXT_NODE) return translateText(root);
     if (root.nodeType !== Node.ELEMENT_NODE) return;
-    const el7 = root;
-    if (el7.matches(SKIP)) return;
-    translateAttrs(el7);
-    const it = document.createTreeWalker(el7, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    const el8 = root;
+    if (el8.matches(SKIP)) return;
+    translateAttrs(el8);
+    const it = document.createTreeWalker(el8, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
     for (let n = it.nextNode(); n; n = it.nextNode()) {
       if (n.nodeType === Node.TEXT_NODE) translateText(n);
       else translateAttrs(n);
@@ -585,7 +679,6 @@
   var KEY2 = "kb:uizoom";
   var UI_ZOOMS = [0.7, 0.8, 0.9, 1];
   var scale = 1;
-  var uiScale = () => scale;
   function uiZoomPref() {
     try {
       const v = Number(localStorage.getItem(KEY2));
@@ -614,1146 +707,13 @@
     const vfix = r2.height > 0 ? innerHeight / r2.height : 1;
     root.style.setProperty("--vfix", String(Math.round(vfix * 1e3) / 1e3));
   }
-  function zrect(el7) {
-    const r2 = el7.getBoundingClientRect();
+  function zrect(el8) {
+    const r2 = el8.getBoundingClientRect();
     const s = scale;
     return { left: r2.left / s, top: r2.top / s, right: r2.right / s, bottom: r2.bottom / s, width: r2.width / s, height: r2.height / s };
   }
   var viewW = () => innerWidth / scale;
   var viewH = () => innerHeight / scale;
-
-  // src/client/voice.ts
-  var KEY3 = "kb:voice";
-  var prefs = (() => {
-    try {
-      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY3) ?? "{}") };
-    } catch {
-      return { on: true, vol: 0.9 };
-    }
-  })();
-  var save = () => {
-    try {
-      localStorage.setItem(KEY3, JSON.stringify(prefs));
-    } catch {
-    }
-  };
-  var MALE = /ichiro|keita|otoya|hattori|daichi|naoki|takumi|male|男/i;
-  var synth = typeof speechSynthesis !== "undefined" ? speechSynthesis : null;
-  var voice = null;
-  var male = false;
-  function pick() {
-    if (!synth) return;
-    const ja = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith("ja"));
-    const m = ja.find((v) => MALE.test(v.name));
-    voice = m ?? ja.find((v) => v.localService) ?? ja[0] ?? null;
-    male = !!m;
-  }
-  if (synth) {
-    pick();
-    synth.addEventListener?.("voiceschanged", pick);
-  }
-  var voiceAvailable = () => !!synth;
-  var getVoicePrefs = () => ({ ...prefs, name: voice?.name ?? null, male });
-  function setVoiceVolume(v) {
-    prefs.vol = Math.max(0, Math.min(1, v));
-    prefs.on = prefs.vol > 0;
-    save();
-  }
-  function say(kana) {
-    if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== "visible") return;
-    if (!voice) pick();
-    if (!voice && !synth.getVoices().length) return;
-    const u = new SpeechSynthesisUtterance(kana);
-    u.lang = "ja-JP";
-    if (voice) u.voice = voice;
-    u.rate = 0.95;
-    u.pitch = male ? 1 : 0.6;
-    u.volume = prefs.vol;
-    synth.cancel();
-    synth.speak(u);
-  }
-  function speak(kana) {
-    if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== "visible") return Promise.resolve();
-    if (!voice) pick();
-    if (!voice && !synth.getVoices().length) return Promise.resolve();
-    return new Promise((done) => {
-      const u = new SpeechSynthesisUtterance(kana);
-      u.lang = "ja-JP";
-      if (voice) u.voice = voice;
-      u.rate = 0.95;
-      u.pitch = male ? 1 : 0.6;
-      u.volume = prefs.vol;
-      let finished = false;
-      const end = () => {
-        if (!finished) {
-          finished = true;
-          done();
-        }
-      };
-      u.onend = end;
-      u.onerror = end;
-      setTimeout(end, Math.min(2600, 500 + [...kana].length * 220));
-      synth.cancel();
-      synth.speak(u);
-    });
-  }
-
-  // src/shared/protocol.ts
-  var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
-  var LEVEL_LABEL = { KANA: "\u304B\u306A", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
-  var MODE_LABEL = {
-    reading: "1v1 Kanji Reading",
-    writing: "1v1 Kanji Writing",
-    boss: "Boss Elimination",
-    rapid: "1v1 Rapid",
-    deck: "Deck Duel"
-  };
-
-  // src/client/notify.ts
-  var blink = 0;
-  var baseTitle = document.title;
-  function askNotifyPermission() {
-    try {
-      if ("Notification" in window && Notification.permission === "default") void Notification.requestPermission();
-    } catch {
-    }
-  }
-  function attention(title, body = "") {
-    if (!document.hidden && document.hasFocus()) return;
-    clearInterval(blink);
-    baseTitle = document.title.startsWith("\u25CF ") ? baseTitle : document.title;
-    let on = false;
-    blink = window.setInterval(() => {
-      on = !on;
-      document.title = on ? `\u25CF ${title}` : baseTitle;
-    }, 900);
-    try {
-      if ("Notification" in window && Notification.permission === "granted") {
-        const n = new Notification(title, { body, icon: "/favicon.svg", tag: "kanji-wizards", renotify: true });
-        n.onclick = () => {
-          window.focus();
-          n.close();
-        };
-      }
-    } catch {
-    }
-  }
-  function stop() {
-    clearInterval(blink);
-    blink = 0;
-    if (document.title.startsWith("\u25CF ")) document.title = baseTitle;
-  }
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) stop();
-  });
-  addEventListener("focus", stop);
-
-  // src/shared/progress.ts
-  var XP_PER_LEVEL = 1e3;
-  var xpToNext = (level2) => XP_PER_LEVEL * (level2 + 1);
-  var xpForLevel = (level2) => XP_PER_LEVEL * level2 * (level2 + 1) / 2;
-  function levelOf(xp) {
-    let n = Math.floor((Math.sqrt(1 + 8 * Math.max(0, xp) / XP_PER_LEVEL) - 1) / 2);
-    while (xpForLevel(n + 1) <= xp) n++;
-    while (n > 0 && xpForLevel(n) > xp) n--;
-    return n;
-  }
-  function levelXp(xp) {
-    const level2 = levelOf(xp);
-    return { level: level2, into: Math.max(0, xp) - xpForLevel(level2), need: xpToNext(level2) };
-  }
-  var levelProgress = (xp) => {
-    const l = levelXp(xp);
-    return l.into / l.need;
-  };
-  var critText = (crit) => `${(crit * 100).toFixed(1).replace(/\.0$/, "")}%`;
-  var BACKGROUNDS = [
-    { id: "forest", name: "Forest", level: 0 },
-    { id: "swamp", name: "Swamp", level: 5 },
-    { id: "plains", name: "Plains", level: 10 },
-    { id: "castle", name: "Castle", level: 15 },
-    { id: "worldtree", name: "World Tree", level: 20 }
-  ];
-  var FLAMES = [
-    { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
-    { id: "purple", name: "Purple", level: 5, color: "#b26bff" },
-    { id: "sakura", name: "Sakura", level: 0, color: "#ff8ccf", season: 2 },
-    { id: "rain", name: "Rain", level: 0, color: "#3fd9c4", season: 4 },
-    { id: "sun", name: "Sun", level: 0, color: "#ffd23f", season: 6 },
-    { id: "thunder", name: "Thunder", level: 0, color: "#e8e2ff", season: 8 },
-    { id: "harvest", name: "Harvest", level: 0, color: "#ff8a2a", season: 10 },
-    { id: "starlight", name: "Starlight", level: 0, color: "#fff0a0", season: 12 }
-  ];
-  var flameUnlocked = (f2, xp, unlocks = []) => {
-    const d = FLAMES.find((x) => x.id === f2);
-    if (!d) return false;
-    return d.season ? unlocks.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
-  };
-  var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
-  function flameShades(f2) {
-    const hex = flameColor(f2).slice(1);
-    const [r2, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-    const max = Math.max(r2, g, b), min = Math.min(r2, g, b), l = (max + min) / 2, d = max - min;
-    const h3 = d === 0 ? 0 : max === r2 ? ((g - b) / d + 6) % 6 : max === g ? (b - r2) / d + 2 : (r2 - g) / d + 4;
-    const hue = h3 * 60;
-    const pale = l > 0.85;
-    const rgb = (s, li) => {
-      const c = (1 - Math.abs(2 * li - 1)) * s, x = c * (1 - Math.abs(hue / 60 % 2 - 1)), m = li - c / 2;
-      const [a, bb, cc] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
-      return [a, bb, cc].map((v) => Math.round((v + m) * 255)).join(",");
-    };
-    return pale ? [rgb(1, 0.97), rgb(1, 0.86), rgb(0.85, 0.7), rgb(0.7, 0.45)] : [rgb(1, 0.93), rgb(1, 0.72), rgb(0.9, 0.55), rgb(0.85, 0.36)];
-  }
-  var STAFFS = [
-    { id: "verdant", name: "Verdant Staff", streak: 0, gem: "#6dff6a", blurb: "Carved from an ancient tree. It channels the natural energy of the earth and life." },
-    { id: "ember", name: "Ember Staff", streak: 5, gem: "#ff7a1a", blurb: "Forged from volcanic rock and blessed by fire spirits." },
-    { id: "tide", name: "Tide Staff", streak: 10, gem: "#3fb8ff", blurb: "Crafted from crystal and oceanic runes. It flows with the tides." },
-    { id: "storm", name: "Storm Staff", streak: 15, gem: "#b26bff", blurb: "A relic of the sky temples. It channels lightning." },
-    { id: "void", name: "Void Staff", streak: 20, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." },
-    { id: "frost", name: "Frost Staff", streak: 0, season: 1, base: "tide", tint: "#d8f4ff", gem: "#bfefff", blurb: "January reward. Rimed with ice that never melts." },
-    { id: "blossom", name: "Blossom Staff", streak: 0, season: 3, base: "verdant", tint: "#ffb8d8", gem: "#ff7ab8", blurb: "March reward. A branch that flowers whenever it casts." },
-    { id: "jade", name: "Jade Staff", streak: 0, season: 5, base: "storm", tint: "#7dffb0", gem: "#3dff8a", blurb: "May reward. Carved from one piece of temple jade." },
-    { id: "abyss", name: "Abyss Staff", streak: 0, season: 7, base: "tide", tint: "#3a5cff", gem: "#2a4dff", blurb: "July reward. Pulled from the deepest trench of the sea." },
-    { id: "moon", name: "Moon Staff", streak: 0, season: 9, base: "void", tint: "#f2f0ff", gem: "#fff6c8", blurb: "September reward. Silver light of the harvest moon." },
-    { id: "maple", name: "Maple Staff", streak: 0, season: 11, base: "ember", tint: "#ff5a3a", gem: "#ff3a2a", blurb: "November reward. Burning red like autumn leaves." }
-  ];
-  var staffUnlocked = (s, bestStreak, unlocks = []) => {
-    const d = STAFFS.find((x) => x.id === s);
-    if (!d) return false;
-    return d.season ? unlocks.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
-  };
-  var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
-  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 2 };
-  var modeUnlocked = (mode3, xp, admin = false) => admin || levelOf(xp) >= (MODE_LEVEL[mode3] ?? 0);
-  var STUDY_LOCK = 100;
-  var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
-  var ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
-  function avatarFor(levels) {
-    const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? "N5";
-    return AVATAR_BY_LEVEL[top];
-  }
-
-  // src/shared/kana.ts
-  var BASE = {
-    a: "\u3042",
-    i: "\u3044",
-    u: "\u3046",
-    e: "\u3048",
-    o: "\u304A",
-    ka: "\u304B",
-    ki: "\u304D",
-    ku: "\u304F",
-    ke: "\u3051",
-    ko: "\u3053",
-    sa: "\u3055",
-    si: "\u3057",
-    shi: "\u3057",
-    su: "\u3059",
-    se: "\u305B",
-    so: "\u305D",
-    ta: "\u305F",
-    ti: "\u3061",
-    chi: "\u3061",
-    tu: "\u3064",
-    tsu: "\u3064",
-    te: "\u3066",
-    to: "\u3068",
-    na: "\u306A",
-    ni: "\u306B",
-    nu: "\u306C",
-    ne: "\u306D",
-    no: "\u306E",
-    ha: "\u306F",
-    hi: "\u3072",
-    hu: "\u3075",
-    fu: "\u3075",
-    he: "\u3078",
-    ho: "\u307B",
-    ma: "\u307E",
-    mi: "\u307F",
-    mu: "\u3080",
-    me: "\u3081",
-    mo: "\u3082",
-    ya: "\u3084",
-    yu: "\u3086",
-    yo: "\u3088",
-    ra: "\u3089",
-    ri: "\u308A",
-    ru: "\u308B",
-    re: "\u308C",
-    ro: "\u308D",
-    la: "\u3089",
-    li: "\u308A",
-    lu: "\u308B",
-    le: "\u308C",
-    lo: "\u308D",
-    wa: "\u308F",
-    wo: "\u3092",
-    wi: "\u3046\u3043",
-    we: "\u3046\u3047",
-    ga: "\u304C",
-    gi: "\u304E",
-    gu: "\u3050",
-    ge: "\u3052",
-    go: "\u3054",
-    za: "\u3056",
-    zi: "\u3058",
-    ji: "\u3058",
-    zu: "\u305A",
-    ze: "\u305C",
-    zo: "\u305E",
-    da: "\u3060",
-    di: "\u3062",
-    du: "\u3065",
-    de: "\u3067",
-    do: "\u3069",
-    ba: "\u3070",
-    bi: "\u3073",
-    bu: "\u3076",
-    be: "\u3079",
-    bo: "\u307C",
-    pa: "\u3071",
-    pi: "\u3074",
-    pu: "\u3077",
-    pe: "\u307A",
-    po: "\u307D",
-    va: "\u3094\u3041",
-    vi: "\u3094\u3043",
-    vu: "\u3094",
-    ve: "\u3094\u3047",
-    vo: "\u3094\u3049",
-    fa: "\u3075\u3041",
-    fi: "\u3075\u3043",
-    fe: "\u3075\u3047",
-    fo: "\u3075\u3049",
-    xa: "\u3041",
-    xi: "\u3043",
-    xu: "\u3045",
-    xe: "\u3047",
-    xo: "\u3049",
-    xya: "\u3083",
-    xyu: "\u3085",
-    xyo: "\u3087",
-    lya: "\u3083",
-    lyu: "\u3085",
-    lyo: "\u3087",
-    xtu: "\u3063",
-    ltu: "\u3063",
-    xtsu: "\u3063",
-    ltsu: "\u3063",
-    "-": "\u30FC"
-  };
-  var YOON = [
-    [["ky"], "\u304D"],
-    [["gy"], "\u304E"],
-    [["sh", "sy"], "\u3057"],
-    [["j", "jy", "zy"], "\u3058"],
-    [["ch", "ty", "cy"], "\u3061"],
-    [["dy"], "\u3062"],
-    [["ny"], "\u306B"],
-    [["hy"], "\u3072"],
-    [["by"], "\u3073"],
-    [["py"], "\u3074"],
-    [["my"], "\u307F"],
-    [["ry", "ly"], "\u308A"]
-  ];
-  var SMALL = { a: "\u3083", u: "\u3085", o: "\u3087" };
-  var _a, _b;
-  for (const [prefixes, kana] of YOON) {
-    for (const p of prefixes) {
-      for (const [v, small] of Object.entries(SMALL)) BASE[_a = p + v] ?? (BASE[_a] = kana + small);
-      if (p === "sh" || p === "ch" || p === "j") BASE[_b = p + "e"] ?? (BASE[_b] = kana + "\u3047");
-    }
-  }
-  var VOWELS = /* @__PURE__ */ new Set(["a", "i", "u", "e", "o"]);
-  function romajiToHiragana(input) {
-    const s = input.toLowerCase();
-    let out = "";
-    let i = 0;
-    while (i < s.length) {
-      const c = s[i];
-      const next2 = s[i + 1];
-      if (c === "n") {
-        if (next2 === "'") {
-          out += "\u3093";
-          i += 2;
-          continue;
-        }
-        if (next2 === void 0) {
-          out += "\u3093";
-          i += 1;
-          continue;
-        }
-        if (next2 === "n") {
-          const after = s[i + 2];
-          out += "\u3093";
-          i += after !== void 0 && (VOWELS.has(after) || after === "y") ? 1 : 2;
-          continue;
-        }
-        if (!VOWELS.has(next2) && next2 !== "y") {
-          out += "\u3093";
-          i += 1;
-          continue;
-        }
-      }
-      if (c >= "a" && c <= "z" && !VOWELS.has(c) && (next2 === c || c === "t" && next2 === "c")) {
-        out += "\u3063";
-        i += 1;
-        continue;
-      }
-      let matched = false;
-      for (let len = 4; len >= 1; len--) {
-        const kana = BASE[s.slice(i, i + len)];
-        if (kana) {
-          out += kana;
-          i += len;
-          matched = true;
-          break;
-        }
-      }
-      if (!matched) {
-        out += c;
-        i += 1;
-      }
-    }
-    return out;
-  }
-  var katakanaToHiragana = (s) => s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 96));
-  function normalizeAnswer(input) {
-    const halfWidth = input.normalize("NFKC");
-    const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
-    return romajiToHiragana(katakanaToHiragana(cleaned));
-  }
-  function isCorrectReading(input, readings) {
-    const answer = normalizeAnswer(input);
-    if (!answer.length) return false;
-    return readings.some((raw) => {
-      const r2 = katakanaToHiragana(raw);
-      if (r2 === answer) return true;
-      if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer) return true;
-      return longVowelSlip(r2, answer);
-    });
-  }
-  function longVowelSlip(r2, a) {
-    const LONG = "\u3046\u304A";
-    if (a.length === r2.length - 1) {
-      for (let i = 1; i < r2.length; i++) if (LONG.includes(r2[i]) && r2.slice(0, i) + r2.slice(i + 1) === a) return true;
-      return false;
-    }
-    if (a.length === r2.length) {
-      let diff = -1;
-      for (let i = 0; i < r2.length; i++) if (r2[i] !== a[i]) {
-        if (diff >= 0) return false;
-        diff = i;
-      }
-      return diff > 0 && LONG.includes(r2[diff]) && LONG.includes(a[diff]);
-    }
-    return false;
-  }
-
-  // src/client/api.ts
-  var today = () => {
-    const d = /* @__PURE__ */ new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-  var TOKEN_KEY = "kb:token";
-  var getToken = () => {
-    try {
-      return localStorage.getItem(TOKEN_KEY) ?? "";
-    } catch {
-      return "";
-    }
-  };
-  var setToken = (t) => {
-    try {
-      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
-    } catch {
-    }
-  };
-  var ApiError = class extends Error {
-    constructor(message, status) {
-      super(message);
-      __publicField(this, "status", status);
-    }
-  };
-  async function call(method, url, body) {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
-      body: body === void 0 ? void 0 : JSON.stringify(body)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
-    return data;
-  }
-  var api = {
-    login: (username, password) => call("POST", "/api/login", { username, password }),
-    register: (username, password) => call("POST", "/api/register", { username, password }),
-    me: () => call("GET", `/api/me?today=${today()}`),
-    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
-    removeAvatar: () => call("DELETE", "/api/me/avatar"),
-    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
-    setStaff: (staff) => call("PUT", "/api/me/staff", { staff }),
-    setBackground: (background) => call("PUT", "/api/me/background", { background }),
-    study: () => call("GET", `/api/study?today=${today()}`),
-    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
-    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
-    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
-    matches: () => call("GET", "/api/matches"),
-    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
-    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
-    users: () => call("GET", "/api/admin/users"),
-    tutorialDone: () => call("PUT", "/api/me/tutorial"),
-    progress: () => call("GET", `/api/progress?today=${today()}`),
-    strokes: (chars) => call("GET", `/api/strokes?k=${encodeURIComponent(chars)}`),
-    daily: () => call("GET", "/api/daily"),
-    dailyStart: () => call("POST", "/api/daily/start"),
-    dailyAnswer: (text) => call("POST", "/api/daily/answer", { text }),
-    dailyFinish: () => call("POST", "/api/daily/finish"),
-    friends: () => call("GET", "/api/friends"),
-    addFriend: (username) => call("POST", "/api/friends", { username }),
-    acceptFriend: (id) => call("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
-    removeFriend: (id) => call("DELETE", `/api/friends/${encodeURIComponent(id)}`),
-    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
-  };
-
-  // src/client/audio.ts
-  var PREFS_KEY = "kb:audio";
-  var DEFAULTS = { radio: true, sfx: true, musicVol: 0.7, sfxVol: 0.8 };
-  var prefs2 = (() => {
-    try {
-      return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
-    } catch {
-      return { ...DEFAULTS };
-    }
-  })();
-  var clamp01 = (v) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
-  var sfxGain = () => 0.7 * prefs2.sfxVol * prefs2.sfxVol * 1.4;
-  var musicGain = () => 0.9 * prefs2.musicVol * prefs2.musicVol * 1.3;
-  var savePrefs = () => {
-    try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs2));
-    } catch {
-    }
-  };
-  var ctx = null;
-  var sfxBus;
-  var musicBus;
-  var menuBus;
-  var battleBus;
-  var ambBus;
-  var reverb;
-  var scene = "menu";
-  function ensure() {
-    if (ctx) return ctx;
-    const AC = window.AudioContext ?? window.webkitAudioContext;
-    if (!AC) return null;
-    ctx = new AC();
-    const comp = ctx.createDynamicsCompressor();
-    comp.connect(ctx.destination);
-    sfxBus = ctx.createGain();
-    sfxBus.gain.value = sfxGain();
-    sfxBus.connect(comp);
-    musicBus = ctx.createGain();
-    musicBus.gain.value = musicGain();
-    musicBus.connect(comp);
-    menuBus = ctx.createGain();
-    menuBus.gain.value = 0;
-    menuBus.connect(musicBus);
-    battleBus = ctx.createGain();
-    battleBus.gain.value = 0;
-    battleBus.connect(musicBus);
-    ambBus = ctx.createGain();
-    ambBus.gain.value = 0.9;
-    ambBus.connect(musicBus);
-    reverb = ctx.createConvolver();
-    const len = ctx.sampleRate * 2.6;
-    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-      const d = ir.getChannelData(ch);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
-    }
-    reverb.buffer = ir;
-    const wet = ctx.createGain();
-    wet.gain.value = 0.35;
-    reverb.connect(wet).connect(comp);
-    return ctx;
-  }
-  document.addEventListener("visibilitychange", () => {
-    if (!ctx) return;
-    if (document.visibilityState === "hidden") void ctx.suspend();
-    else void ctx.resume().then(() => syncMusic());
-  });
-  function unlock() {
-    const c = ensure();
-    if (!c) return;
-    if (c.state === "suspended" && document.visibilityState === "visible") void c.resume();
-    syncMusic();
-  }
-  function setScene(s) {
-    scene = s;
-    syncMusic();
-  }
-  function syncMusic() {
-    if (!ctx) return;
-    const on = prefs2.radio && prefs2.musicVol > 0 && document.visibilityState === "visible";
-    const want = on ? scene === "menu" ? menuTheme : battleTheme : null;
-    for (const t of [menuTheme, battleTheme]) t === want ? t.fadeIn() : t.fadeOut();
-    syncAmbience();
-  }
-  var midi = (n) => 440 * 2 ** ((n - 69) / 12);
-  function tone(freq, at, dur, opts = {}) {
-    const c = ctx;
-    const o = c.createOscillator();
-    const g = c.createGain();
-    o.type = opts.type ?? "sine";
-    o.frequency.setValueAtTime(freq, at);
-    if (opts.detune) o.detune.value = opts.detune;
-    if (opts.to) o.frequency.exponentialRampToValueAtTime(opts.to, at + dur);
-    const peak = opts.gain ?? 0.3;
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(peak, at + (opts.attack ?? 8e-3));
-    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
-    o.connect(g).connect(opts.bus ?? sfxBus);
-    if (opts.send) {
-      const s = c.createGain();
-      s.gain.value = opts.send;
-      g.connect(s).connect(reverb);
-    }
-    o.start(at);
-    o.stop(at + dur + 0.05);
-  }
-  function bell(freq, at, dur, gain, bus = sfxBus) {
-    tone(freq, at, dur, { gain, bus, send: 0.6, attack: 3e-3 });
-    tone(freq * 2.76, at, dur * 0.4, { gain: gain * 0.25, bus, send: 0.6, attack: 2e-3 });
-    tone(freq * 5.4, at, dur * 0.18, { gain: gain * 0.08, bus, send: 0.6, attack: 2e-3 });
-  }
-  function noise(at, dur, gain, cutoff, type = "lowpass", bus = sfxBus, swell = false) {
-    const c = ctx;
-    const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (swell ? (i / data.length) ** 2 : 1 - i / data.length);
-    const src = c.createBufferSource();
-    src.buffer = buf;
-    const f2 = c.createBiquadFilter();
-    f2.type = type;
-    f2.frequency.value = cutoff;
-    const g = c.createGain();
-    g.gain.value = gain;
-    src.connect(f2).connect(g).connect(bus);
-    src.start(at);
-  }
-  var sfxOk = () => prefs2.sfx && ensure() !== null && ctx.state === "running";
-  var sfx = {
-    /**
-     * Spell cast: a magical chime. Each combo step makes it deeper and longer (like a multi-kill
-     * sound), from ×5 on it stays at its deepest, fullest version.
-     */
-    correct(combo = 1) {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      const step = Math.min(Math.max(combo, 1), 5) - 1;
-      const root = 88 - step * 5;
-      const ring = 0.7 + step * 0.45;
-      const notes = [0, 7, 12, 16].map((i) => root + i);
-      notes.forEach((n, i) => bell(midi(n), t + i * (0.045 + step * 0.012), ring, 0.16 + step * 0.015));
-      if (step >= 1) tone(midi(root - 24), t, ring * 1.2, { gain: 0.12 + step * 0.05, send: 0.3, attack: 0.01 });
-      if (step >= 4) [0.16, 0.32].forEach((dt) => bell(midi(root + 12), t + dt, 1.2, 0.1));
-      noise(t, 0.25, 0.05, 6e3, "highpass");
-    },
-    /** Miss / skip / timeout — soft descending fizzle. */
-    wrong() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      tone(330, t, 0.3, { type: "triangle", gain: 0.14, to: 140 });
-      tone(311, t + 0.03, 0.3, { type: "triangle", gain: 0.08, to: 130 });
-      noise(t, 0.2, 0.06, 900);
-    },
-    /** You took damage — thump. */
-    hurt() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      tone(140, t, 0.22, { gain: 0.35, to: 50 });
-      noise(t, 0.15, 0.25, 900);
-    },
-    /** Your spell lands on the opponent. */
-    impact() {
-      if (sfxOk()) noise(ctx.currentTime, 0.12, 0.15, 2500);
-    },
-    heal() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      [72, 76, 79, 84].forEach((n, i) => bell(midi(n), t + i * 0.08, 0.9, 0.1));
-    },
-    mana() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      for (let i = 0; i < 6; i++) bell(midi(84 + i * 5 % 12), t + i * 0.05, 0.5, 0.06);
-    },
-    rip() {
-      if (!sfxOk()) return;
-      noise(ctx.currentTime, 0.35, 0.3, 3e3, "bandpass");
-    },
-    flip() {
-      if (sfxOk()) noise(ctx.currentTime, 0.08, 0.12, 4e3, "highpass");
-    },
-    inhale() {
-      if (sfxOk()) tone(55, ctx.currentTime, 2.6, { type: "sawtooth", gain: 0.08, to: 110, attack: 1.5 });
-    },
-    fire() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      noise(t, 1.2, 0.5, 1400);
-      tone(70, t, 1.1, { type: "sawtooth", gain: 0.12, to: 40 });
-    },
-    claw() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      noise(t, 0.18, 0.4, 6e3);
-      tone(160, t + 0.05, 0.2, { gain: 0.3, to: 60 });
-    },
-    tick() {
-      if (sfxOk()) bell(1320, ctx.currentTime, 0.25, 0.08);
-    },
-    go() {
-      if (sfxOk()) bell(midi(88), ctx.currentTime, 0.8, 0.14);
-    },
-    /** Deck Duel: your turn — two bright rising bells. */
-    yourTurn() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      bell(midi(81), t, 0.5, 0.11);
-      bell(midi(88), t + 0.14, 0.7, 0.13);
-    },
-    /** Victory: a bright fanfare (major, rising, with harmony and a final bell). */
-    win() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      const brass = (n, at, dur) => {
-        tone(midi(n), t + at, dur, { type: "sawtooth", gain: 0.07, attack: 0.03, send: 0.4 });
-        tone(midi(n), t + at, dur, { type: "triangle", gain: 0.12, attack: 0.02, send: 0.4, detune: 6 });
-      };
-      [[67, 0], [72, 0.14], [76, 0.28]].forEach(([n, at]) => brass(n, at, 0.22));
-      brass(79, 0.44, 0.9);
-      brass(76, 0.44, 0.9);
-      brass(72, 0.44, 0.9);
-      bell(midi(91), t + 0.44, 1.8, 0.12);
-      tone(midi(48), t + 0.44, 1.2, { gain: 0.2, send: 0.3 });
-    },
-    /** Defeat: slow, falling minor phrase. */
-    lose() {
-      if (!sfxOk()) return;
-      const t = ctx.currentTime;
-      [[69, 0], [68, 0.38], [67, 0.76], [62, 1.14]].forEach(([n, at]) => {
-        tone(midi(n), t + at, 0.7, { type: "triangle", gain: 0.13, attack: 0.04, send: 0.5 });
-      });
-      tone(midi(38), t + 1.14, 1.8, { gain: 0.16, send: 0.4, attack: 0.05 });
-    }
-  };
-  function makeTrack(bpm, bus, play) {
-    const STEP = 60 / bpm / 2;
-    let timer2;
-    let stopTimer;
-    let nextTime = 0;
-    let step = 0;
-    const schedule = () => {
-      const c = ctx;
-      while (nextTime < c.currentTime + 0.5) {
-        play(step, nextTime);
-        nextTime += STEP;
-        step++;
-      }
-    };
-    return {
-      STEP,
-      fadeIn() {
-        if (!ctx) return;
-        clearTimeout(stopTimer);
-        stopTimer = void 0;
-        bus().gain.cancelScheduledValues(ctx.currentTime);
-        bus().gain.setTargetAtTime(1, ctx.currentTime, 0.9);
-        if (timer2 !== void 0) return;
-        nextTime = ctx.currentTime + 0.12;
-        step = 0;
-        schedule();
-        timer2 = window.setInterval(schedule, 150);
-      },
-      fadeOut() {
-        if (!ctx || timer2 === void 0 || stopTimer !== void 0) return;
-        bus().gain.cancelScheduledValues(ctx.currentTime);
-        bus().gain.setTargetAtTime(0, ctx.currentTime, 0.45);
-        stopTimer = window.setTimeout(() => {
-          clearInterval(timer2);
-          timer2 = void 0;
-          stopTimer = void 0;
-        }, 2200);
-      }
-    };
-  }
-  function strings(notes, at, dur, bus, level2 = 0.035, cutoff = 1100) {
-    const c = ctx;
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = cutoff;
-    const g = c.createGain();
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(level2, at + 0.9);
-    g.gain.setValueAtTime(level2, at + dur - 0.6);
-    g.gain.exponentialRampToValueAtTime(1e-4, at + dur + 0.5);
-    lp.connect(g).connect(bus);
-    const s = c.createGain();
-    s.gain.value = 0.5;
-    g.connect(s).connect(reverb);
-    for (const n of notes) for (const d of [-7, 7]) {
-      const o = c.createOscillator();
-      o.type = "sawtooth";
-      o.frequency.value = midi(n);
-      o.detune.value = d;
-      o.connect(lp);
-      o.start(at);
-      o.stop(at + dur + 0.6);
-    }
-  }
-  function flute(n, at, dur, bus) {
-    const c = ctx;
-    const o = c.createOscillator();
-    const vib = c.createOscillator();
-    const vg = c.createGain();
-    vib.frequency.value = 5.2;
-    vg.gain.value = 4;
-    vib.connect(vg).connect(o.frequency);
-    o.type = "sine";
-    o.frequency.value = midi(n);
-    const g = c.createGain();
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(0.045, at + 0.06);
-    g.gain.setValueAtTime(0.04, at + dur * 0.7);
-    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
-    o.connect(g).connect(bus);
-    const s = c.createGain();
-    s.gain.value = 0.7;
-    g.connect(s).connect(reverb);
-    o.start(at);
-    vib.start(at);
-    o.stop(at + dur + 0.05);
-    vib.stop(at + dur + 0.05);
-  }
-  function horn(n, at, dur, bus, level2 = 0.05) {
-    const c = ctx;
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.setValueAtTime(350, at);
-    lp.frequency.linearRampToValueAtTime(1300, at + Math.min(0.5, dur * 0.5));
-    lp.frequency.linearRampToValueAtTime(600, at + dur);
-    const g = c.createGain();
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(level2, at + 0.12);
-    g.gain.setValueAtTime(level2 * 0.85, at + dur * 0.75);
-    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
-    lp.connect(g).connect(bus);
-    const s = c.createGain();
-    s.gain.value = 0.45;
-    g.connect(s).connect(reverb);
-    for (const d of [-9, 9]) {
-      const o = c.createOscillator();
-      o.type = "sawtooth";
-      o.frequency.value = midi(n);
-      o.detune.value = d;
-      o.connect(lp);
-      o.start(at);
-      o.stop(at + dur + 0.05);
-    }
-  }
-  var menuTheme = (() => {
-    const PROG = [
-      [50, 57, 62, 65],
-      [46, 53, 58, 62],
-      [41, 48, 53, 57],
-      [48, 55, 60, 64],
-      [50, 57, 62, 65],
-      [43, 50, 55, 58],
-      [45, 52, 57, 61],
-      [50, 57, 62, 65]
-    ];
-    const MELODY = [
-      [74, 0, 77, 0, 76, 74, 72, 0],
-      [74, 0, 0, 70, 72, 0, 74, 0],
-      [72, 0, 69, 0, 72, 74, 77, 0],
-      [76, 0, 74, 72, 74, 0, 0, 0],
-      [74, 0, 77, 0, 81, 0, 79, 77],
-      [79, 0, 77, 0, 74, 0, 70, 0],
-      [73, 0, 76, 0, 79, 77, 76, 73],
-      [74, 0, 0, 0, 0, 0, 0, 0]
-    ];
-    const track = makeTrack(84, () => menuBus, (step, at) => {
-      const STEP = track.STEP;
-      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
-      const loop = Math.floor(step / (8 * PROG.length));
-      if (inBar === 0) {
-        strings(chord.slice(1), at, STEP * 8, menuBus);
-        tone(midi(chord[0] - 12), at, STEP * 7, { gain: 0.07, bus: menuBus, attack: 0.05 });
-      }
-      const arp = [0, 1, 2, 3, 2, 1, 2, 3][inBar];
-      tone(midi(chord[arp] + 12), at, 1.4, { type: "triangle", gain: 0.05, bus: menuBus, send: 0.5, attack: 3e-3 });
-      tone(midi(chord[arp] + 24), at, 0.5, { gain: 0.015, bus: menuBus, send: 0.5, attack: 3e-3 });
-      if (inBar === 0 || inBar === 3 || inBar === 6) tone(inBar === 0 ? 62 : 55, at, 0.45, { gain: inBar === 0 ? 0.16 : 0.09, to: 38, bus: menuBus, attack: 4e-3 });
-      if (loop % 3 !== 0) {
-        const n = MELODY[bar][inBar];
-        if (n) {
-          let len = 1;
-          while (inBar + len < 8 && MELODY[bar][inBar + len] === 0) len++;
-          flute(n, at, STEP * Math.min(len, 4) * 0.95, menuBus);
-        }
-      }
-    });
-    return track;
-  })();
-  var battleTheme = (() => {
-    const PROG = [
-      [38, 50, 53, 57],
-      [39, 51, 55, 58],
-      [38, 50, 53, 57],
-      [36, 48, 52, 55],
-      [38, 50, 53, 57],
-      [34, 46, 50, 53],
-      [31, 43, 46, 50],
-      [33, 45, 49, 52]
-    ];
-    const HORN = [
-      [62, 0, 0, 0, 63, 0, 62, 0],
-      [63, 0, 0, 0, 0, 0, 58, 0],
-      [62, 0, 0, 65, 0, 0, 62, 0],
-      [60, 0, 0, 0, 0, 0, 0, 0],
-      [62, 0, 0, 0, 65, 0, 69, 0],
-      [70, 0, 0, 0, 69, 0, 65, 0],
-      [67, 0, 0, 0, 70, 0, 69, 67],
-      [69, 0, 0, 0, 0, 0, 0, 0]
-    ];
-    const DRUM = [1, 0, 0, 0.6, 0.8, 0, 0.5, 0.5];
-    const track = makeTrack(100, () => battleBus, (step, at) => {
-      const STEP = track.STEP;
-      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
-      const loop = Math.floor(step / (8 * PROG.length));
-      const accent = inBar === 0 || inBar === 3 || inBar === 6;
-      for (const n of [chord[0] + 12, chord[1]]) tone(midi(n), at, STEP * 0.8, { type: "sawtooth", gain: accent ? 0.022 : 0.012, bus: battleBus, attack: 5e-3 });
-      if (inBar === 0) {
-        strings(chord.slice(1), at, STEP * 8, battleBus, 0.022, 800);
-        tone(midi(chord[0]), at, STEP * 7.5, { gain: 0.09, bus: battleBus, attack: 0.04 });
-      }
-      const d = DRUM[inBar];
-      if (d) {
-        tone(inBar === 0 ? 58 : 66, at, 0.5, { gain: 0.2 * d, to: 34, bus: battleBus, attack: 3e-3 });
-        noise(at, 0.12, 0.05 * d, 900, "lowpass", battleBus);
-      }
-      if (loop >= 1) {
-        const n = HORN[bar][inBar];
-        if (n) {
-          let len = 1;
-          while (inBar + len < 8 && HORN[bar][inBar + len] === 0) len++;
-          horn(n - 12, at, STEP * len * 0.97, battleBus);
-        }
-      }
-      if (loop % 2 === 1 && bar >= 4) tone(midi(chord[2] + 24 + (bar === 7 ? 1 : 0)), at, STEP * 0.45, { type: "sawtooth", gain: 8e-3, bus: battleBus, send: 0.5, attack: 0.01 });
-      if (inBar === 4 && bar % 4 === 3) noise(at, STEP * 4, 0.035, 6e3, "highpass", battleBus, true);
-    });
-    return track;
-  })();
-  var isRadioOn = () => prefs2.radio;
-  var isSfxOn = () => prefs2.sfx;
-  var getVolumes = () => ({ music: prefs2.musicVol, sfx: prefs2.sfxVol });
-  function setRadio(on) {
-    prefs2.radio = on;
-    savePrefs();
-    ensure();
-    if (on && ctx?.state === "suspended") void ctx.resume();
-    syncMusic();
-  }
-  function setSfx(on) {
-    prefs2.sfx = on;
-    savePrefs();
-  }
-  function setMusicVolume(v) {
-    prefs2.musicVol = clamp01(v);
-    if (prefs2.musicVol > 0) prefs2.radio = true;
-    savePrefs();
-    ensure();
-    if (ctx) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05);
-    syncMusic();
-  }
-  function setSfxVolume(v) {
-    prefs2.sfxVol = clamp01(v);
-    if (prefs2.sfxVol > 0) prefs2.sfx = true;
-    savePrefs();
-    ensure();
-    if (ctx) sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05);
-  }
-  function previewSfx() {
-    if (sfxOk()) bell(midi(76), ctx.currentTime, 0.8, 0.18);
-  }
-  var ambBg = null;
-  var ambTime = "night";
-  var ambTimer;
-  function setAmbience(bg2, time) {
-    const changed = bg2 !== ambBg;
-    ambBg = bg2;
-    ambTime = time;
-    if (changed) syncAmbience();
-  }
-  function syncAmbience() {
-    clearTimeout(ambTimer);
-    ambTimer = void 0;
-    if (!ctx || !ambBg || !prefs2.radio || prefs2.musicVol <= 0 || scene !== "menu" || document.visibilityState !== "visible") return;
-    const next2 = (first) => {
-      ambTimer = window.setTimeout(() => {
-        if (ctx?.state === "running") ambientCall(ambBg, ambTime);
-        next2(false);
-      }, (first ? 4e3 : 12e3) + Math.random() * 16e3);
-    };
-    next2(true);
-  }
-  function ambientCall(bg2, time) {
-    const t = ctx.currentTime + 0.05;
-    if (bg2 === "forest") time === "day" ? birds(t) : owl(t);
-    else if (bg2 === "swamp") frogs(t);
-    else if (bg2 === "plains") goblins(t);
-    else if (bg2 === "castle") {
-      clash(t);
-      if (Math.random() < 0.6) clash(t + 0.32 + Math.random() * 0.2);
-      if (Math.random() < 0.25) roar(t + 1.4);
-    } else if (bg2 === "worldtree") sparkle(t);
-  }
-  function owl(at) {
-    const hoot = (t0, dur, f02) => {
-      const c = ctx;
-      const o = c.createOscillator();
-      o.type = "sine";
-      o.frequency.setValueAtTime(f02, t0);
-      o.frequency.exponentialRampToValueAtTime(f02 * 0.88, t0 + dur);
-      const vib = c.createOscillator();
-      const vg = c.createGain();
-      vib.frequency.value = 7;
-      vg.gain.value = 6;
-      vib.connect(vg).connect(o.frequency);
-      const g = c.createGain();
-      g.gain.setValueAtTime(1e-4, t0);
-      g.gain.exponentialRampToValueAtTime(0.09, t0 + 0.06);
-      g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
-      const bp = c.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.value = f02;
-      bp.Q.value = 2;
-      o.connect(bp).connect(g).connect(ambBus);
-      const s = c.createGain();
-      s.gain.value = 0.8;
-      g.connect(s).connect(reverb);
-      o.start(t0);
-      vib.start(t0);
-      o.stop(t0 + dur + 0.05);
-      vib.stop(t0 + dur + 0.05);
-    };
-    const f0 = 360 + Math.random() * 40;
-    hoot(at, 0.32, f0);
-    hoot(at + 0.75, 0.18, f0 * 1.04);
-    hoot(at + 1, 0.75, f0 * 1.06);
-  }
-  function birds(at) {
-    for (let i = 0; i < 3 + Math.floor(Math.random() * 3); i++) {
-      const t = at + i * 0.16 + Math.random() * 0.05, f0 = 2600 + Math.random() * 900;
-      tone(f0, t, 0.09, { gain: 0.02, to: f0 * 1.35, bus: ambBus, send: 0.4, attack: 5e-3 });
-    }
-  }
-  function frogs(at) {
-    const ribbit = (t0, k) => {
-      const c = ctx;
-      for (const [off, len, pitch] of [[0, 0.11, 1], [0.17, 0.14, 1.12]]) {
-        const o = c.createOscillator();
-        o.type = "square";
-        o.frequency.value = 190 * k * pitch;
-        const bp = c.createBiquadFilter();
-        bp.type = "bandpass";
-        bp.frequency.value = 850 * k;
-        bp.Q.value = 3;
-        const g = c.createGain();
-        g.gain.setValueAtTime(1e-4, t0 + off);
-        for (let p = 0; p < len / 0.025; p++) {
-          const tp = t0 + off + p * 0.025;
-          g.gain.setValueAtTime(1e-4, tp);
-          g.gain.linearRampToValueAtTime(0.05, tp + 6e-3);
-          g.gain.linearRampToValueAtTime(1e-4, tp + 0.02);
-        }
-        o.connect(bp).connect(g).connect(ambBus);
-        const s = c.createGain();
-        s.gain.value = 0.35;
-        g.connect(s).connect(reverb);
-        o.start(t0 + off);
-        o.stop(t0 + off + len + 0.03);
-      }
-    };
-    const n = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < n; i++) ribbit(at + Math.random() * 1.6, 0.85 + Math.random() * 0.5);
-  }
-  function goblins(at) {
-    const c = ctx;
-    const syll = (t0, f0, dur, formant, level2 = 0.035) => {
-      const o = c.createOscillator();
-      o.type = "sawtooth";
-      o.frequency.setValueAtTime(f0, t0);
-      o.frequency.linearRampToValueAtTime(f0 * (0.85 + Math.random() * 0.4), t0 + dur);
-      const bp = c.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.value = formant;
-      bp.Q.value = 5;
-      const g = c.createGain();
-      g.gain.setValueAtTime(1e-4, t0);
-      g.gain.exponentialRampToValueAtTime(level2, t0 + 0.012);
-      g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
-      o.connect(bp).connect(g).connect(ambBus);
-      const s = c.createGain();
-      s.gain.value = 0.4;
-      g.connect(s).connect(reverb);
-      o.start(t0);
-      o.stop(t0 + dur + 0.02);
-    };
-    let t = at;
-    const n = 5 + Math.floor(Math.random() * 5);
-    for (let i = 0; i < n; i++) {
-      const d = 0.06 + Math.random() * 0.06;
-      syll(t, 520 + Math.random() * 420, d, [700, 1100, 1500, 2100][Math.floor(Math.random() * 4)]);
-      t += d + 0.02;
-    }
-    if (Math.random() < 0.7) for (let i = 0; i < 4; i++) syll(t + 0.15 + i * 0.11, 900 + i * 40, 0.07, 1800, 0.04);
-  }
-  function clash(at) {
-    for (const [f0, dur, g] of [[1760, 0.7, 0.035], [2730, 0.55, 0.025], [3980, 0.4, 0.02], [5560, 0.3, 0.012]]) {
-      const fr = f0 * (0.97 + Math.random() * 0.06);
-      tone(fr, at, dur, { gain: g, bus: ambBus, send: 0.6, attack: 2e-3 });
-    }
-    noise(at, 0.07, 0.05, 2600, "highpass", ambBus);
-  }
-  function roar(at) {
-    const c = ctx;
-    const o = c.createOscillator();
-    o.type = "sawtooth";
-    o.frequency.setValueAtTime(95, at);
-    o.frequency.exponentialRampToValueAtTime(55, at + 1.5);
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 420;
-    const g = c.createGain();
-    g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(0.05, at + 0.3);
-    g.gain.exponentialRampToValueAtTime(1e-4, at + 1.6);
-    o.connect(lp).connect(g).connect(ambBus);
-    const s = c.createGain();
-    s.gain.value = 0.9;
-    g.connect(s).connect(reverb);
-    o.start(at);
-    o.stop(at + 1.7);
-  }
-  function sparkle(at) {
-    const notes = [79, 81, 84, 86, 88, 91];
-    for (let i = 0; i < 4; i++) bell(midi(notes[Math.floor(Math.random() * notes.length)]), at + i * 0.18, 1.4, 0.03, ambBus);
-  }
 
   // src/client/strokes.ts
   var cache = /* @__PURE__ */ new Map();
@@ -1851,6 +811,111 @@
     };
     foot.append(replay);
     box.replaceChildren(row, foot);
+  }
+
+  // src/shared/protocol.ts
+  var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  var LEVEL_LABEL = { KANA: "\u304B\u306A", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
+  var MODE_LABEL = {
+    reading: "1v1 Kanji Reading",
+    writing: "1v1 Kanji Writing",
+    boss: "Boss Elimination",
+    rapid: "1v1 Rapid",
+    deck: "Deck Duel"
+  };
+
+  // src/shared/progress.ts
+  var XP_PER_LEVEL = 1e3;
+  var xpToNext = (level2) => XP_PER_LEVEL * (level2 + 1);
+  var xpForLevel = (level2) => XP_PER_LEVEL * level2 * (level2 + 1) / 2;
+  function levelOf(xp) {
+    let n = Math.floor((Math.sqrt(1 + 8 * Math.max(0, xp) / XP_PER_LEVEL) - 1) / 2);
+    while (xpForLevel(n + 1) <= xp) n++;
+    while (n > 0 && xpForLevel(n) > xp) n--;
+    return n;
+  }
+  function levelXp(xp) {
+    const level2 = levelOf(xp);
+    return { level: level2, into: Math.max(0, xp) - xpForLevel(level2), need: xpToNext(level2) };
+  }
+  var levelProgress = (xp) => {
+    const l = levelXp(xp);
+    return l.into / l.need;
+  };
+  var critText = (crit) => `${(crit * 100).toFixed(1).replace(/\.0$/, "")}%`;
+  var BACKGROUNDS = [
+    { id: "forest", name: "Forest", level: 0 },
+    { id: "swamp", name: "Swamp", level: 5 },
+    { id: "plains", name: "Plains", level: 10 },
+    { id: "castle", name: "Castle", level: 15 },
+    { id: "worldtree", name: "World Tree", level: 20 }
+  ];
+  var FLAMES = [
+    { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
+    { id: "purple", name: "Purple", level: 5, color: "#b26bff" },
+    { id: "sakura", name: "Sakura", level: 0, color: "#ff8ccf", season: 2 },
+    { id: "rain", name: "Rain", level: 0, color: "#3fd9c4", season: 4 },
+    { id: "sun", name: "Sun", level: 0, color: "#ffd23f", season: 6 },
+    { id: "thunder", name: "Thunder", level: 0, color: "#e8e2ff", season: 8 },
+    { id: "harvest", name: "Harvest", level: 0, color: "#ff8a2a", season: 10 },
+    { id: "starlight", name: "Starlight", level: 0, color: "#fff0a0", season: 12 }
+  ];
+  var flameUnlocked = (f2, xp, unlocks = []) => {
+    const d = FLAMES.find((x) => x.id === f2);
+    if (!d) return false;
+    return d.season ? unlocks.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
+  };
+  var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
+  function flameShades(f2) {
+    const hex = flameColor(f2).slice(1);
+    const [r2, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const max = Math.max(r2, g, b), min = Math.min(r2, g, b), l = (max + min) / 2, d = max - min;
+    const h3 = d === 0 ? 0 : max === r2 ? ((g - b) / d + 6) % 6 : max === g ? (b - r2) / d + 2 : (r2 - g) / d + 4;
+    const hue = h3 * 60;
+    const pale = l > 0.85;
+    const rgb = (s, li) => {
+      const c = (1 - Math.abs(2 * li - 1)) * s, x = c * (1 - Math.abs(hue / 60 % 2 - 1)), m = li - c / 2;
+      const [a, bb, cc] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
+      return [a, bb, cc].map((v) => Math.round((v + m) * 255)).join(",");
+    };
+    return pale ? [rgb(1, 0.97), rgb(1, 0.86), rgb(0.85, 0.7), rgb(0.7, 0.45)] : [rgb(1, 0.93), rgb(1, 0.72), rgb(0.9, 0.55), rgb(0.85, 0.36)];
+  }
+  var STAFFS = [
+    { id: "verdant", name: "Verdant Staff", streak: 0, gem: "#6dff6a", blurb: "Carved from an ancient tree. It channels the natural energy of the earth and life." },
+    { id: "ember", name: "Ember Staff", streak: 5, gem: "#ff7a1a", blurb: "Forged from volcanic rock and blessed by fire spirits." },
+    { id: "tide", name: "Tide Staff", streak: 10, gem: "#3fb8ff", blurb: "Crafted from crystal and oceanic runes. It flows with the tides." },
+    { id: "storm", name: "Storm Staff", streak: 15, gem: "#b26bff", blurb: "A relic of the sky temples. It channels lightning." },
+    { id: "void", name: "Void Staff", streak: 20, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." },
+    { id: "frost", name: "Frost Staff", streak: 0, season: 1, base: "tide", tint: "#d8f4ff", gem: "#bfefff", blurb: "January reward. Rimed with ice that never melts." },
+    { id: "blossom", name: "Blossom Staff", streak: 0, season: 3, base: "verdant", tint: "#ffb8d8", gem: "#ff7ab8", blurb: "March reward. A branch that flowers whenever it casts." },
+    { id: "jade", name: "Jade Staff", streak: 0, season: 5, base: "ember", tint: "#7dffb0", gem: "#3dff8a", blurb: "May reward. Carved from one piece of temple jade." },
+    { id: "abyss", name: "Abyss Staff", streak: 0, season: 7, base: "tide", tint: "#3a5cff", gem: "#2a4dff", blurb: "July reward. Pulled from the deepest trench of the sea." },
+    { id: "moon", name: "Moon Staff", streak: 0, season: 9, base: "verdant", tint: "#f2f0ff", gem: "#fff6c8", blurb: "September reward. Silver light of the harvest moon." },
+    { id: "maple", name: "Maple Staff", streak: 0, season: 11, base: "ember", tint: "#ff5a3a", gem: "#ff3a2a", blurb: "November reward. Burning red like autumn leaves." }
+  ];
+  var staffUnlocked = (s, bestStreak, unlocks = []) => {
+    const d = STAFFS.find((x) => x.id === s);
+    if (!d) return false;
+    return d.season ? unlocks.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
+  };
+  var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
+  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 2 };
+  var modeUnlocked = (mode3, xp, admin = false) => admin || levelOf(xp) >= (MODE_LEVEL[mode3] ?? 0);
+  var STUDY_LOCK = 100;
+  var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
+  var ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  function avatarFor(levels) {
+    const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? "N5";
+    return AVATAR_BY_LEVEL[top];
+  }
+  var KANA_BEGINNER = "flag:kana-beginner";
+  var isKanaBeginner = (unlocks) => !!unlocks?.includes(KANA_BEGINNER);
+  function isoWeek(day) {
+    const d = /* @__PURE__ */ new Date(`${day}T00:00:00Z`);
+    const dow = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dow);
+    const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
+    return Math.ceil(((d.getTime() - yearStart) / 864e5 + 1) / 7);
   }
 
   // src/client/pixelstaffs.ts
@@ -2155,8 +1220,8 @@
   function heroSvg(hero, side, staff) {
     return avatarSvg(hero, side, staff);
   }
-  function avatarSvg(avatar, side, staff) {
-    switch (avatar) {
+  function avatarSvg(avatar2, side, staff) {
+    switch (avatar2) {
       case "goblin":
         return holding("goblin", GOBLIN_MAP, GOBLIN_PAL, staff);
       case "kid":
@@ -2327,36 +1392,36 @@
   function mist(y, color, op) {
     return `<g class="bg-mist" opacity="${op}" filter="url(#blur20)">${Array.from({ length: 6 }, (_, i) => `<ellipse cx="${f(i * 300 + r(-60, 60))}" cy="${f(y + r(-20, 20))}" rx="${f(r(220, 340))}" ry="${f(r(26, 46))}" fill="${color}"/>`).join("")}</g>`;
   }
-  var pick2 = (t, day, sunset, night) => t === "day" ? day : t === "sunset" ? sunset : night;
+  var pick = (t, day, sunset, night) => t === "day" ? day : t === "sunset" ? sunset : night;
   function forest(t) {
-    const sky = pick2(t, [[0, "#4f95d0"], [0.5, "#9fd0ea"], [1, "#e6f2d8"]], [[0, "#22163f"], [0.4, "#7a3a68"], [0.7, "#e2774f"], [1, "#ffcf8a"]], [[0, "#040914"], [0.55, "#0c1e33"], [1, "#183a3c"]]);
-    const rows = pick2(t, ["#5f8f86", "#3e6e5d", "#24503f", "#123222"], ["#5a3d5c", "#3f2c48", "#2a1e33", "#140f1c"], ["#1a3b3d", "#11292b", "#0a1c1d", "#040f10"]);
+    const sky = pick(t, [[0, "#4f95d0"], [0.5, "#9fd0ea"], [1, "#e6f2d8"]], [[0, "#22163f"], [0.4, "#7a3a68"], [0.7, "#e2774f"], [1, "#ffcf8a"]], [[0, "#040914"], [0.55, "#0c1e33"], [1, "#183a3c"]]);
+    const rows = pick(t, ["#5f8f86", "#3e6e5d", "#24503f", "#123222"], ["#5a3d5c", "#3f2c48", "#2a1e33", "#140f1c"], ["#1a3b3d", "#11292b", "#0a1c1d", "#040f10"]);
     return `<defs>${grad("sk", sky)}${grad("cometTail", [[0, "#fff", 0.9], [1, "#9fd8ff", 0]], false)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === "night" ? milkyWay() + stars(180, 520) + comets(3) + moon(1220, 160, 58) : t === "sunset" ? stars(30, 200, "#ffe7c4") + horizonGlow(560, "#ff8a4a") + sun(1080, 560, 70, "#ffd9a0", "#ff9a5a") : sun(1260, 150, 46, "#fff6d8", "#fff2b0") + clouds(6, 80, 260, "#ffffff", 0.75)}
-    ${mountains(520, 90, pick2(t, "#86aac0", "#6b4a72", "#132a3a"), 0.4)}
-    ${haze(560, pick2(t, "#dff0f4", "#ffb08a", "#2a4a5a"), 0.6)}
-    ${mist(560, pick2(t, "#e8f4f0", "#ffcfb0", "#4e7a86"), pick2(t, 0.5, 0.35, 0.3))}
+    ${mountains(520, 90, pick(t, "#86aac0", "#6b4a72", "#132a3a"), 0.4)}
+    ${haze(560, pick(t, "#dff0f4", "#ffb08a", "#2a4a5a"), 0.6)}
+    ${mist(560, pick(t, "#e8f4f0", "#ffcfb0", "#4e7a86"), pick(t, 0.5, 0.35, 0.3))}
     ${forestRow(620, 24, 240, 400, rows[0])}
-    ${haze(640, pick2(t, "#cfe6dc", "#c87a6a", "#1c3a40"), 0.45)}
-    ${t !== "night" ? rays(t === "day" ? 1260 : 1080, t === "day" ? 150 : 560, pick2(t, "#fffbe0", "#ffd39a", "#000"), pick2(t, 0.22, 0.3, 0)) : ""}
+    ${haze(640, pick(t, "#cfe6dc", "#c87a6a", "#1c3a40"), 0.45)}
+    ${t !== "night" ? rays(t === "day" ? 1260 : 1080, t === "day" ? 150 : 560, pick(t, "#fffbe0", "#ffd39a", "#000"), pick(t, 0.22, 0.3, 0)) : ""}
     ${forestRow(700, 20, 200, 330, rows[1])}
     ${t !== "day" ? fireflies(t === "night" ? 26 : 12, 520, 820, "#e8ff9a") : ""}
     ${forestRow(780, 16, 160, 270, rows[2])}
     ${eyes(t === "night" ? 7 : t === "sunset" ? 4 : 2, 700, 800, t === "day" ? 0.35 : 1)}
     ${forestRow(860, 12, 120, 210, rows[3])}
-    ${mist(860, pick2(t, "#ffffff", "#ffd8b8", "#2a4f56"), 0.25)}`;
+    ${mist(860, pick(t, "#ffffff", "#ffd8b8", "#2a4f56"), 0.25)}`;
   }
   function swamp(t) {
-    const sky = pick2(t, [[0, "#7fa59a"], [0.55, "#c1d2b4"], [1, "#e2e6c8"]], [[0, "#2a1838"], [0.45, "#7a4058"], [0.75, "#d0835a"], [1, "#e8b86e"]], [[0, "#07080f"], [0.5, "#141f22"], [1, "#1f3426"]]);
-    const tree = pick2(t, "#2f3d2c", "#24182a", "#080d0a");
-    const water = pick2(t, ["#6d8a73", "#33493a"], ["#7a4e4e", "#2a1a22"], ["#1b2b22", "#060b08"]);
+    const sky = pick(t, [[0, "#7fa59a"], [0.55, "#c1d2b4"], [1, "#e2e6c8"]], [[0, "#2a1838"], [0.45, "#7a4058"], [0.75, "#d0835a"], [1, "#e8b86e"]], [[0, "#07080f"], [0.5, "#141f22"], [1, "#1f3426"]]);
+    const tree = pick(t, "#2f3d2c", "#24182a", "#080d0a");
+    const water = pick(t, ["#6d8a73", "#33493a"], ["#7a4e4e", "#2a1a22"], ["#1b2b22", "#060b08"]);
     const deadTree = (x, y, h3) => {
       const b = (x1, y1, x2, y2, w) => `<path d="M${f(x1)} ${f(y1)} Q ${f((x1 + x2) / 2 + r(-15, 15))} ${f((y1 + y2) / 2)} ${f(x2)} ${f(y2)}" stroke="${tree}" stroke-width="${w}" stroke-linecap="round" fill="none"/>`;
       let s = b(x, y, x + 8, y - h3, 18) + b(x + 4, y - h3 * 0.55, x - h3 * 0.38, y - h3 * 0.86, 8) + b(x + 6, y - h3 * 0.72, x + h3 * 0.42, y - h3 * 0.98, 7) + b(x - h3 * 0.2, y - h3 * 0.74, x - h3 * 0.32, y - h3 * 1.02, 4) + b(x + 8, y - h3, x + 34, y - h3 * 1.16, 4);
       for (let i = 0; i < 6; i++) {
         const mx = x + r(-h3 * 0.35, h3 * 0.4), my = y - h3 * r(0.7, 1);
-        s += `<path class="bg-sway" d="M${f(mx)} ${f(my)} q 4 ${f(r(20, 40))} -2 ${f(r(40, 80))}" stroke="${pick2(t, "#5e7a4a", "#4c3a3a", "#2a3e26")}" stroke-width="3" fill="none" opacity=".85"/>`;
+        s += `<path class="bg-sway" d="M${f(mx)} ${f(my)} q 4 ${f(r(20, 40))} -2 ${f(r(40, 80))}" stroke="${pick(t, "#5e7a4a", "#4c3a3a", "#2a3e26")}" stroke-width="3" fill="none" opacity=".85"/>`;
       }
       return s;
     };
@@ -2364,108 +1429,108 @@
     return `<defs>${grad("sk", sky)}${grad("wt", [[0, water[0]], [1, water[1]]])}${radial("wisp", [[0, "#cfff9a", 0.9], [1, "#cfff9a", 0]])}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === "night" ? stars(70, 320, "#cfe8b0") + moon(380, 170, 48, "#dfe9a8") : t === "sunset" ? horizonGlow(560, "#ff7a5a") + sun(420, 520, 60, "#ffcf96", "#ff8a60") : sun(380, 140, 40, "#fbfbe6", "#ffffff") + clouds(4, 90, 220, "#f4f6ea", 0.55)}
-    ${hills(560, 24, pick2(t, "#56715a", "#3c2a3c", "#132018"))}
-    ${haze(600, pick2(t, "#eef4e6", "#e8a088", "#2e4a3a"), 0.55)}
-    ${mist(580, pick2(t, "#f0f4e6", "#f2c2a6", "#6c8a6a"), pick2(t, 0.55, 0.4, 0.35))}
+    ${hills(560, 24, pick(t, "#56715a", "#3c2a3c", "#132018"))}
+    ${haze(600, pick(t, "#eef4e6", "#e8a088", "#2e4a3a"), 0.55)}
+    ${mist(580, pick(t, "#f0f4e6", "#f2c2a6", "#6c8a6a"), pick(t, 0.55, 0.4, 0.35))}
     ${trees}
     <rect x="0" y="640" width="${W}" height="260" fill="url(#wt)"/>
     <g opacity=".25" transform="translate(0 1290) scale(1 -1)">${trees}</g>
-    ${Array.from({ length: 14 }, () => `<ellipse cx="${f(r(0, W))}" cy="${f(r(680, 880))}" rx="${f(r(20, 46))}" ry="7" fill="${pick2(t, "#4f7a3c", "#5a4a30", "#1f3a1a")}" opacity=".9"/>`).join("")}
+    ${Array.from({ length: 14 }, () => `<ellipse cx="${f(r(0, W))}" cy="${f(r(680, 880))}" rx="${f(r(20, 46))}" ry="7" fill="${pick(t, "#4f7a3c", "#5a4a30", "#1f3a1a")}" opacity=".9"/>`).join("")}
     ${Array.from({ length: 22 }, () => {
       const x = r(0, W), y = r(640, 700);
-      return `<line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-4, 4))}" y2="${f(y - r(40, 90))}" stroke="${tree}" stroke-width="3"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - r(60, 90))}" rx="4" ry="11" fill="${pick2(t, "#4a3a22", "#2a1a14", "#0a0a06")}"/>`;
+      return `<line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-4, 4))}" y2="${f(y - r(40, 90))}" stroke="${tree}" stroke-width="3"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - r(60, 90))}" rx="4" ry="11" fill="${pick(t, "#4a3a22", "#2a1a14", "#0a0a06")}"/>`;
     }).join("")}
     ${Array.from({ length: 6 }, () => {
       const x = r(80, W - 80), y = r(700, 860);
-      return `<g fill="${pick2(t, "#3d5a2a", "#2c2418", "#0c1408")}"><ellipse cx="${f(x)}" cy="${f(y)}" rx="11" ry="7"/><circle cx="${f(x - 6)}" cy="${f(y - 6)}" r="3.5"/><circle cx="${f(x + 6)}" cy="${f(y - 6)}" r="3.5"/></g>${t === "night" ? `<g class="bg-flicker slow"><circle cx="${f(x - 6)}" cy="${f(y - 6)}" r="1.4" fill="#e8ff7a"/><circle cx="${f(x + 6)}" cy="${f(y - 6)}" r="1.4" fill="#e8ff7a"/></g>` : ""}`;
+      return `<g fill="${pick(t, "#3d5a2a", "#2c2418", "#0c1408")}"><ellipse cx="${f(x)}" cy="${f(y)}" rx="11" ry="7"/><circle cx="${f(x - 6)}" cy="${f(y - 6)}" r="3.5"/><circle cx="${f(x + 6)}" cy="${f(y - 6)}" r="3.5"/></g>${t === "night" ? `<g class="bg-flicker slow"><circle cx="${f(x - 6)}" cy="${f(y - 6)}" r="1.4" fill="#e8ff7a"/><circle cx="${f(x + 6)}" cy="${f(y - 6)}" r="1.4" fill="#e8ff7a"/></g>` : ""}`;
     }).join("")}
     ${t !== "day" ? `<g class="bg-float">${Array.from({ length: t === "night" ? 7 : 3 }, () => `<circle cx="${f(r(100, W - 100))}" cy="${f(r(480, 760))}" r="${f(r(14, 24))}" fill="url(#wisp)" class="bg-flicker" style="animation-delay:${f(r(0, 3))}s"/>`).join("")}</g>` : ""}
     ${fireflies(t === "night" ? 30 : 10, 420, 760, "#d8ff7a")}
-    ${mist(700, pick2(t, "#ffffff", "#ffd8c0", "#9ab89a"), pick2(t, 0.35, 0.28, 0.22))}`;
+    ${mist(700, pick(t, "#ffffff", "#ffd8c0", "#9ab89a"), pick(t, 0.35, 0.28, 0.22))}`;
   }
   function plains(t) {
-    const sky = pick2(t, [[0, "#3f86d6"], [0.55, "#8fc4ee"], [1, "#dff0fb"]], [[0, "#2a1a45"], [0.45, "#a8506a"], [0.75, "#f0a060"], [1, "#f6d08a"]], [[0, "#050a1c"], [0.6, "#16224a"], [1, "#2a2f58"]]);
+    const sky = pick(t, [[0, "#3f86d6"], [0.55, "#8fc4ee"], [1, "#dff0fb"]], [[0, "#2a1a45"], [0.45, "#a8506a"], [0.75, "#f0a060"], [1, "#f6d08a"]], [[0, "#050a1c"], [0.6, "#16224a"], [1, "#2a2f58"]]);
     const lit = t !== "day";
     const house = (x, y, s, wall2, roof2) => {
       const w = 46 * s, h3 = 30 * s;
       const win = lit ? `<rect x="${f(x + w * 0.2)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#ffcf6a" class="bg-flicker slow"/><rect x="${f(x + w * 0.6)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#ffcf6a"/>` : `<rect x="${f(x + w * 0.2)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#2a3040" opacity=".6"/>`;
-      const smoke = `<g class="bg-smoke" style="animation-delay:${f(r(0, 4))}s">${[0, 1, 2].map((i) => `<circle cx="${f(x + w * 0.78 + i * 4)}" cy="${f(y - h3 - 26 * s - i * 14)}" r="${f(4 + i * 3)}" fill="${pick2(t, "#ffffff", "#f2d4c2", "#8a8fa8")}" opacity="${f(0.5 - i * 0.12)}"/>`).join("")}</g>`;
+      const smoke = `<g class="bg-smoke" style="animation-delay:${f(r(0, 4))}s">${[0, 1, 2].map((i) => `<circle cx="${f(x + w * 0.78 + i * 4)}" cy="${f(y - h3 - 26 * s - i * 14)}" r="${f(4 + i * 3)}" fill="${pick(t, "#ffffff", "#f2d4c2", "#8a8fa8")}" opacity="${f(0.5 - i * 0.12)}"/>`).join("")}</g>`;
       return `${smoke}<rect x="${f(x)}" y="${f(y - h3)}" width="${f(w)}" height="${f(h3)}" fill="${wall2}"/><polygon points="${f(x - 5 * s)},${f(y - h3)} ${f(x + w / 2)},${f(y - h3 - 22 * s)} ${f(x + w + 5 * s)},${f(y - h3)}" fill="${roof2}"/><rect x="${f(x + w * 0.72)}" y="${f(y - h3 - 24 * s)}" width="${f(6 * s)}" height="${f(14 * s)}" fill="${roof2}"/>${win}`;
     };
-    const wall = pick2(t, "#e8dcc0", "#c99a7a", "#3a3550"), roof = pick2(t, "#a04a3a", "#6e2e3a", "#1f1a30");
+    const wall = pick(t, "#e8dcc0", "#c99a7a", "#3a3550"), roof = pick(t, "#a04a3a", "#6e2e3a", "#1f1a30");
     const village = (x, y, s) => Array.from({ length: 5 }, (_, i) => house(x + i * 58 * s + r(-8, 8), y + r(-4, 6), s * r(0.85, 1.1), wall, roof)).join("");
     const gob = spriteRects("goblin");
     const goblin = (x, y, s, delay) => `<g class="bg-walk" style="animation-delay:${delay}s"><g transform="translate(${f(x)} ${f(y - gob.h * s)}) scale(${s})" opacity="${t === "night" ? 0.8 : 0.95}">${gob.rects}</g></g>`;
     return `<defs>${grad("sk", sky)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === "night" ? milkyWay() + stars(150, 480) + moon(260, 140, 44) : t === "sunset" ? horizonGlow(580, "#ffa060") + sun(820, 560, 110, "#ffe2a0", "#ffb070") + clouds(6, 120, 320, "#f7c7b0", 0.5) : sun(1300, 130, 50, "#fffbe0", "#fff6c0") + clouds(8, 70, 300, "#ffffff", 0.85)}
-    ${mountains(560, 70, pick2(t, "#7d98b8", "#6a4a6a", "#1c2240"), 2)}
-    ${haze(600, pick2(t, "#e6f0fa", "#ffb890", "#2a3060"), 0.55)}
-    ${hills(600, 30, pick2(t, "#7aa060", "#7a5a5a", "#1e2a2a"), 0.5)}
+    ${mountains(560, 70, pick(t, "#7d98b8", "#6a4a6a", "#1c2240"), 2)}
+    ${haze(600, pick(t, "#e6f0fa", "#ffb890", "#2a3060"), 0.55)}
+    ${hills(600, 30, pick(t, "#7aa060", "#7a5a5a", "#1e2a2a"), 0.5)}
     ${village(260, 612, 0.7)}${village(1040, 604, 0.6)}
-    <g transform="translate(1180 560)"><rect x="-7" y="0" width="14" height="110" fill="${pick2(t, "#cbb79a", "#5a3a3a", "#1a1a28")}"/><g class="bg-spin">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-84" width="8" height="84" fill="${pick2(t, "#8a6a4a", "#3a2228", "#141420")}" transform="rotate(${a + 20})"/>`).join("")}</g></g>
-    ${hills(660, 34, pick2(t, "#5f8f45", "#4a5a3a", "#162418"), 1.7)}
+    <g transform="translate(1180 560)"><rect x="-7" y="0" width="14" height="110" fill="${pick(t, "#cbb79a", "#5a3a3a", "#1a1a28")}"/><g class="bg-spin">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-84" width="8" height="84" fill="${pick(t, "#8a6a4a", "#3a2228", "#141420")}" transform="rotate(${a + 20})"/>`).join("")}</g></g>
+    ${hills(660, 34, pick(t, "#5f8f45", "#4a5a3a", "#162418"), 1.7)}
     ${goblin(300, 692, 2.6, 0)}${goblin(400, 698, 2.3, 6)}${goblin(1240, 702, 2.5, 3)}
     ${t === "night" ? `<g class="bg-flicker" filter="url(#glow)"><polygon points="1380,742 1392,712 1404,742" fill="#ffb347"/><polygon points="1386,742 1392,722 1398,742" fill="#fff0a0"/></g>${goblin(1330, 744, 2.2, 9)}${goblin(1420, 744, 2.2, 12)}` : ""}
-    ${hills(740, 26, pick2(t, "#4a7a35", "#33472b", "#0e180e"), 3)}
+    ${hills(740, 26, pick(t, "#4a7a35", "#33472b", "#0e180e"), 3)}
     ${Array.from({ length: 80 }, () => {
       const x = r(0, W), y = r(760, 900);
-      return `<line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-3, 6))}" y2="${f(y - r(12, 26))}" stroke="${pick2(t, "#2f5a22", "#23331d", "#08100a")}" stroke-width="3" class="bg-sway"/>`;
+      return `<line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-3, 6))}" y2="${f(y - r(12, 26))}" stroke="${pick(t, "#2f5a22", "#23331d", "#08100a")}" stroke-width="3" class="bg-sway"/>`;
     }).join("")}
     ${t === "night" ? fireflies(14, 640, 860, "#fff2a0") : ""}`;
   }
   function castle(t) {
-    const sky = pick2(t, [[0, "#4a78b8"], [0.6, "#9ab8dc"], [1, "#d8e4ee"]], [[0, "#1a0a1e"], [0.4, "#6a1a2a"], [0.72, "#c2452a"], [1, "#f08a3a"]], [[0, "#03051a"], [0.6, "#141d4a"], [1, "#2c3270"]]);
-    const stone = pick2(t, "#5a5a6e", "#2a1a24", "#121126"), roof = pick2(t, "#3a3a58", "#1a0e18", "#1b1a33");
+    const sky = pick(t, [[0, "#4a78b8"], [0.6, "#9ab8dc"], [1, "#d8e4ee"]], [[0, "#1a0a1e"], [0.4, "#6a1a2a"], [0.72, "#c2452a"], [1, "#f08a3a"]], [[0, "#03051a"], [0.6, "#141d4a"], [1, "#2c3270"]]);
+    const stone = pick(t, "#5a5a6e", "#2a1a24", "#121126"), roof = pick(t, "#3a3a58", "#1a0e18", "#1b1a33");
     const lit = t !== "day";
     const tower = (x, w, h3) => `<rect x="${x}" y="${640 - h3}" width="${w}" height="${h3}" fill="${stone}"/><polygon points="${x - 10},${640 - h3} ${x + w / 2},${560 - h3} ${x + w + 10},${640 - h3}" fill="${roof}"/>` + Array.from({ length: Math.floor(h3 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h3 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h3}" x2="${x + w / 2}" y2="${520 - h3}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h3} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
     const dragon = spriteRects("dragon");
     const soldier = (x, y, s, flip2, weapon) => {
-      const c = pick2(t, "#2c3038", "#1a0c10", "#06070e");
+      const c = pick(t, "#2c3038", "#1a0c10", "#06070e");
       const g = `<circle cx="0" cy="-58" r="7"/><path d="M-7 -62 q7 -14 14 0 z"/><rect x="-8" y="-50" width="16" height="30" rx="4"/><rect x="-8" y="-22" width="6" height="22"/><rect x="2" y="-22" width="6" height="22"/><ellipse cx="-11" cy="-36" rx="7" ry="11"/>` + (weapon === "spear" ? `<line x1="10" y1="-10" x2="16" y2="-92" stroke="${c}" stroke-width="3"/><polygon points="13,-92 16,-104 19,-92"/>` : `<g class="bg-swing"><line x1="8" y1="-40" x2="34" y2="-70" stroke="${c}" stroke-width="3"/></g>`);
-      return `<g transform="translate(${x} ${y}) scale(${flip2 ? -s : s} ${s})" fill="${c}" opacity="${pick2(t, 0.55, 0.75, 0.8)}">${g}</g>`;
+      return `<g transform="translate(${x} ${y}) scale(${flip2 ? -s : s} ${s})" fill="${c}" opacity="${pick(t, 0.55, 0.75, 0.8)}">${g}</g>`;
     };
     const left = [soldier(70, 860, 1.5, false, "spear"), soldier(140, 868, 1.4, false, "spear"), soldier(230, 856, 1.6, false, "sword")];
     const right = [soldier(1530, 860, 1.5, true, "spear"), soldier(1460, 868, 1.4, true, "spear"), soldier(1370, 856, 1.6, true, "sword")];
     return `<defs>${grad("sk", sky)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === "night" ? milkyWay() + stars(160, 480) + moon(300, 150, 52, "#e8e6ff") : t === "sunset" ? horizonGlow(560, "#ff5a2a") + sun(1250, 520, 90, "#ffb070", "#ff5a3a") + clouds(5, 120, 300, "#ff9a7a", 0.35) : sun(1280, 140, 44, "#fffbe6", "#ffffff") + clouds(7, 80, 280, "#ffffff", 0.8)}
-    ${mountains(600, 110, pick2(t, "#6c7a96", "#3a1622", "#0e1030"), 1.3)}
-    ${haze(620, pick2(t, "#dfe8f4", "#ff7a5a", "#1a2050"), 0.5)}
+    ${mountains(600, 110, pick(t, "#6c7a96", "#3a1622", "#0e1030"), 1.3)}
+    ${haze(620, pick(t, "#dfe8f4", "#ff7a5a", "#1a2050"), 0.5)}
     <g class="bg-dragon"><g transform="scale(${f(170 / dragon.w)})">${dragon.rects}</g></g>
-    ${hills(640, 18, pick2(t, "#4a5a48", "#1a0a12", "#10122a"))}
+    ${hills(640, 18, pick(t, "#4a5a48", "#1a0a12", "#10122a"))}
     <rect x="560" y="430" width="480" height="210" fill="${stone}"/>
     ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="${stone}"/>`).join("")}
     ${tower(500, 90, 330)}${tower(1010, 90, 330)}${tower(740, 120, 420)}
-    <path d="M760 640 L760 590 Q800 548 840 590 L840 640 Z" fill="${pick2(t, "#2a2a38", "#0c0408", "#05050f")}"/>
-    ${Array.from({ length: 5 }, (_, i) => `<line x1="${768 + i * 16}" y1="${i === 0 || i === 4 ? 600 : 568}" x2="${768 + i * 16}" y2="640" stroke="${pick2(t, "#4a4a5a", "#2a1418", "#14142a")}" stroke-width="3"/>`).join("")}
-    <rect x="0" y="650" width="${W}" height="16" fill="${pick2(t, "#5a7a9a", "#5a1a1a", "#10183a")}" opacity=".55"/>
-    <polygon points="740,640 860,640 900,700 700,700" fill="${pick2(t, "#6a5a48", "#2a1810", "#14121e")}"/>
+    <path d="M760 640 L760 590 Q800 548 840 590 L840 640 Z" fill="${pick(t, "#2a2a38", "#0c0408", "#05050f")}"/>
+    ${Array.from({ length: 5 }, (_, i) => `<line x1="${768 + i * 16}" y1="${i === 0 || i === 4 ? 600 : 568}" x2="${768 + i * 16}" y2="640" stroke="${pick(t, "#4a4a5a", "#2a1418", "#14142a")}" stroke-width="3"/>`).join("")}
+    <rect x="0" y="650" width="${W}" height="16" fill="${pick(t, "#5a7a9a", "#5a1a1a", "#10183a")}" opacity=".55"/>
+    <polygon points="740,640 860,640 900,700 700,700" fill="${pick(t, "#6a5a48", "#2a1810", "#14121e")}"/>
     ${lit ? `<g class="bg-flicker" filter="url(#glow)"><circle cx="740" cy="600" r="6" fill="#ffb347"/><circle cx="860" cy="600" r="6" fill="#ffb347"/></g>` : ""}
-    ${hills(780, 22, pick2(t, "#3a4a38", "#14080c", "#0b0c1c"), 2)}
+    ${hills(780, 22, pick(t, "#3a4a38", "#14080c", "#0b0c1c"), 2)}
     ${left.join("")}${right.join("")}
     <g class="bg-spark" filter="url(#glow)"><circle cx="262" cy="788" r="5" fill="#fff6c0"/><circle cx="1338" cy="788" r="5" fill="#fff6c0" style="animation-delay:2.7s"/></g>
     ${t === "night" ? fireflies(8, 520, 700, "#ffcf6a") : ""}`;
   }
   function worldtree(t) {
-    const sky = pick2(t, [[0, "#4a8ad8"], [0.5, "#9cd0f2"], [0.85, "#e8f6ff"], [1, "#ffffff"]], [[0, "#2a1450"], [0.45, "#b04a78"], [0.8, "#f4a060"], [1, "#ffe0a0"]], [[0, "#0b0626"], [0.45, "#2a1260"], [0.8, "#1d4f78"], [1, "#2c8a8a"]]);
+    const sky = pick(t, [[0, "#4a8ad8"], [0.5, "#9cd0f2"], [0.85, "#e8f6ff"], [1, "#ffffff"]], [[0, "#2a1450"], [0.45, "#b04a78"], [0.8, "#f4a060"], [1, "#ffe0a0"]], [[0, "#0b0626"], [0.45, "#2a1260"], [0.8, "#1d4f78"], [1, "#2c8a8a"]]);
     const leaves = (y, n, rmin, rmax, col, op) => Array.from({ length: n }, (_, i) => `<circle cx="${f(i / n * W + r(0, 80))}" cy="${f(y + r(0, 50))}" r="${f(r(rmin, rmax))}" fill="${col}" opacity="${op}"/>`).join("");
-    const leafA = pick2(t, "#3f9a5a", "#7a5a3a", "#14402f"), leafB = pick2(t, "#56b86a", "#a0703a", "#1b5a3c"), leafC = pick2(t, "#7ad68a", "#e0a050", "#2f9e6a");
-    return `<defs>${grad("sk", sky)}${radial("glow2", [[0, pick2(t, "#ffffff", "#ffe0a0", "#9ff5c8"), 0.55], [1, "#ffffff", 0]])}${grad("aurora", [[0, "#7affc8", 0], [0.5, "#7affc8", 0.35], [1, "#b07aff", 0]], false)}${DEFS}</defs>
+    const leafA = pick(t, "#3f9a5a", "#7a5a3a", "#14402f"), leafB = pick(t, "#56b86a", "#a0703a", "#1b5a3c"), leafC = pick(t, "#7ad68a", "#e0a050", "#2f9e6a");
+    return `<defs>${grad("sk", sky)}${radial("glow2", [[0, pick(t, "#ffffff", "#ffe0a0", "#9ff5c8"), 0.55], [1, "#ffffff", 0]])}${grad("aurora", [[0, "#7affc8", 0], [0.5, "#7affc8", 0.35], [1, "#b07aff", 0]], false)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === "night" ? stars(200, 560, "#d7ccff") + `<g class="bg-aurora" filter="url(#blur20)"><path d="M-100 200 C 300 80, 700 260, 1100 140 S 1600 120, 1800 200 L1800 280 C 1300 200, 900 340, 500 240 S 0 260, -100 300 Z" fill="url(#aurora)"/></g>` + moon(1240, 170, 54, "#fff4d6") : t === "sunset" ? horizonGlow(500, "#ffb070") + sun(380, 470, 80, "#fff0c0", "#ffb070") : sun(1240, 150, 50, "#ffffff", "#fff8d0") + rays(1240, 150, "#ffffff", 0.18)}
     <ellipse cx="800" cy="640" rx="900" ry="200" fill="url(#glow2)"/>
-    ${clouds(10, 590, 660, pick2(t, "#ffffff", "#ffd8c0", "#efeaff"), pick2(t, 0.85, 0.6, 0.22), "bg-drift slow")}
+    ${clouds(10, 590, 660, pick(t, "#ffffff", "#ffd8c0", "#efeaff"), pick(t, 0.85, 0.6, 0.22), "bg-drift slow")}
     ${leaves(640, 26, 50, 90, leafA, 1)}
     ${leaves(690, 30, 45, 80, leafB, 1)}
-    <path d="M-40 800 C 300 730, 650 760, 820 740 S 1300 735, 1640 780 L1640 900 L-40 900 Z" fill="${pick2(t, "#5a3a24", "#4a2a18", "#3a2418")}"/>
-    <path d="M-40 840 C 400 800, 760 820, 940 800 S 1400 810, 1640 840 L1640 900 L-40 900 Z" fill="${pick2(t, "#462c1a", "#36200f", "#2b190f")}"/>
+    <path d="M-40 800 C 300 730, 650 760, 820 740 S 1300 735, 1640 780 L1640 900 L-40 900 Z" fill="${pick(t, "#5a3a24", "#4a2a18", "#3a2418")}"/>
+    <path d="M-40 840 C 400 800, 760 820, 940 800 S 1400 810, 1640 840 L1640 900 L-40 900 Z" fill="${pick(t, "#462c1a", "#36200f", "#2b190f")}"/>
     ${leaves(760, 22, 26, 46, leafC, 0.9)}
-    ${fireflies(t === "night" ? 60 : 24, 560, 820, pick2(t, "#ffffff", "#fff0b0", "#b9ffd8"))}
+    ${fireflies(t === "night" ? 60 : 24, 560, 820, pick(t, "#ffffff", "#fff0b0", "#b9ffd8"))}
     ${t === "night" ? fireflies(30, 80, 560, "#bff8ff") : ""}`;
   }
   var SCENES = { forest, swamp, plains, castle, worldtree };
-  function scene2(id, t) {
+  function scene(id, t) {
     seed = [...id + t].reduce((s, c) => s + c.charCodeAt(0) * 97, 7);
     const key = `${id}-${t}`;
     return SCENES[id](t).replace(/id="(\w+)"/g, `id="${key}-$1"`).replace(/url\(#(\w+)\)/g, `url(#${key}-$1)`);
@@ -2473,38 +1538,38 @@
   var cache2 = /* @__PURE__ */ new Map();
   var BG_FADE_MS = 3200;
   var fadeTimer = 0;
-  function paintBackground(el7, id, time = "night", fade = false) {
+  function paintBackground(el8, id, time = "night", fade = false) {
     const key = `${id}-${time}`;
-    if (el7.dataset.key === key) return;
-    el7.dataset.key = key;
-    if (!cache2.has(key)) cache2.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene2(id, time)}</svg>`);
+    if (el8.dataset.key === key) return;
+    el8.dataset.key = key;
+    if (!cache2.has(key)) cache2.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time)}</svg>`);
     const swap = () => {
       const layer = document.createElement("div");
       layer.className = "bg-layer";
       layer.innerHTML = cache2.get(key);
-      const old = el7.querySelector(".bg-layer");
+      const old = el8.querySelector(".bg-layer");
       if (old) old.replaceWith(layer);
-      else el7.prepend(layer);
-      el7.dataset.bg = id;
-      el7.dataset.time = time;
+      else el8.prepend(layer);
+      el8.dataset.bg = id;
+      el8.dataset.time = time;
     };
     clearTimeout(fadeTimer);
-    el7.querySelector(".bg-veil")?.remove();
-    if (!fade || !el7.querySelector(".bg-layer")) return swap();
+    el8.querySelector(".bg-veil")?.remove();
+    if (!fade || !el8.querySelector(".bg-layer")) return swap();
     const veil = document.createElement("div");
     veil.className = "bg-veil";
     veil.style.animationDuration = `${BG_FADE_MS}ms`;
-    el7.append(veil);
+    el8.append(veil);
     fadeTimer = window.setTimeout(() => {
       swap();
       fadeTimer = window.setTimeout(() => veil.remove(), BG_FADE_MS / 2 + 100);
     }, BG_FADE_MS / 2);
   }
   function sceneSvg(id, time) {
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${scene2(id, time)}</svg>`;
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${scene(id, time)}</svg>`;
   }
   function backgroundThumb(id, time = "night") {
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="still">${scene2(id, time)}</svg>`;
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="still">${scene(id, time)}</svg>`;
   }
   var TIME_KEY = "kb:bgtime";
   function getTimePref() {
@@ -2523,7 +1588,7 @@
   }
 
   // src/client/arena.ts
-  var KEY4 = "kb:3d";
+  var KEY3 = "kb:3d";
   var GAME_SCREENS = /* @__PURE__ */ new Set(["battle", "deck"]);
   var api2 = null;
   var loading = null;
@@ -2545,7 +1610,7 @@
   function arenaQuality() {
     let v = null;
     try {
-      v = localStorage.getItem(KEY4);
+      v = localStorage.getItem(KEY3);
     } catch {
     }
     const q = v === "off" ? "off" : v === "lite" ? "lite" : v === "on" || v === "full" ? "full" : smallOrTouch() ? "lite" : "full";
@@ -2554,7 +1619,7 @@
   var arenaPref = () => arenaQuality() !== "off";
   function setArenaQuality(q) {
     try {
-      localStorage.setItem(KEY4, q === "full" ? "on" : q);
+      localStorage.setItem(KEY3, q === "full" ? "on" : q);
     } catch {
     }
     if (q === "off") {
@@ -2599,15 +1664,9 @@
   function preloadArena() {
     if (wanted()) setTimeout(() => void load2(), 1500);
   }
-  var screenName = "";
-  var band = false;
-  var bandTimer = 0;
   function deactivate() {
     api2?.setActive(false);
-    document.body.classList.remove("has-3d", "band-3d");
-    clearInterval(bandTimer);
-    const c = document.getElementById("arena3d");
-    if (c) c.removeAttribute("style");
+    document.body.classList.remove("has-3d");
   }
   async function activate() {
     if (!wanted()) return;
@@ -2617,43 +1676,10 @@
       a.setup({ ...pending, bgSvg: sceneSvg(bg.id, bg.time), bgKey: `${bg.id}-${bg.time}`, time: bg.time });
       pending = null;
     }
-    band = upright();
-    document.body.classList.toggle("has-3d", !band);
-    document.body.classList.toggle("band-3d", band);
-    a.setBand(band);
-    clearInterval(bandTimer);
-    if (band) {
-      placeBand();
-      bandTimer = window.setInterval(placeBand, 300);
-    } else document.getElementById("arena3d")?.removeAttribute("style");
+    document.body.classList.add("has-3d");
     a.setActive(true);
   }
-  function placeBand() {
-    const c = document.getElementById("arena3d");
-    if (!c || !band) return;
-    let top = 0, bottom = 0;
-    if (screenName === "deck") {
-      const r2 = document.getElementById("dkBand")?.getBoundingClientRect();
-      if (r2) {
-        top = r2.top;
-        bottom = r2.bottom;
-      }
-    } else {
-      const sides = [...document.querySelectorAll("#arena .side")].map((e) => e.getBoundingClientRect()).filter((r2) => r2.height > 0);
-      if (sides.length) {
-        top = Math.min(...sides.map((r2) => r2.top));
-        bottom = Math.max(...sides.map((r2) => r2.bottom));
-      }
-    }
-    const z = uiScale();
-    const css2 = `position:absolute;left:0;top:${Math.round((top + scrollY) / z)}px;width:100%;height:${Math.max(0, Math.round((bottom - top) / z))}px`;
-    if (c.getAttribute("style") !== css2) c.setAttribute("style", css2);
-  }
-  addEventListener("scroll", () => {
-    if (band) placeBand();
-  }, { passive: true });
   function arenaScreen(screen2) {
-    screenName = screen2;
     onScreen = GAME_SCREENS.has(screen2);
     if (onScreen) void activate();
     else deactivate();
@@ -2711,11 +1737,11 @@
   // src/client/ui.ts
   var $ = (id) => document.getElementById(id);
   function h(tag, cls = "", text, attrs = {}) {
-    const el7 = document.createElement(tag);
-    if (cls) el7.className = cls;
-    if (text !== void 0) el7.textContent = String(text);
-    for (const [k, v] of Object.entries(attrs)) el7.setAttribute(k, v);
-    return el7;
+    const el8 = document.createElement(tag);
+    if (cls) el8.className = cls;
+    if (text !== void 0) el8.textContent = String(text);
+    for (const [k, v] of Object.entries(attrs)) el8.setAttribute(k, v);
+    return el8;
   }
   var append = (parent, ...kids) => {
     parent.append(...kids);
@@ -2764,18 +1790,18 @@
     if (rtt === null || rtt === void 0) return 0;
     return rtt < 150 ? 3 : rtt < 400 ? 2 : 1;
   }
-  function paintNet(el7) {
-    const rtt = rtts.get(el7.dataset.net ?? "");
+  function paintNet(el8) {
+    const rtt = rtts.get(el8.dataset.net ?? "");
     const q = netQuality(rtt);
-    el7.className = `net q${q}`;
-    el7.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
+    el8.className = `net q${q}`;
+    el8.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
   }
   function netBars(playerId) {
-    const el7 = h("span", "net");
-    el7.dataset.net = playerId;
-    el7.innerHTML = "<i></i><i></i><i></i>";
-    paintNet(el7);
-    return el7;
+    const el8 = h("span", "net");
+    el8.dataset.net = playerId;
+    el8.innerHTML = "<i></i><i></i><i></i>";
+    paintNet(el8);
+    return el8;
   }
   function setNet(map) {
     for (const [id, rtt] of Object.entries(map)) rtts.set(id, rtt);
@@ -2787,9 +1813,26 @@
     img.onerror = () => img.remove();
     return img;
   }
+  var beginnerFlag = false;
+  var kanaBeginner = () => beginnerFlag;
+  var BEGINNER_LOCK = `Master hiragana first (Study spells \u2192 \u304B\u306A), then tick "I've mastered hiragana" in Settings`;
+  function lockLevelChip(label, lv) {
+    if (!beginnerFlag || lv === "KANA") return label;
+    label.classList.add("locked");
+    label.classList.remove("on");
+    const i = label.querySelector("input");
+    if (i) {
+      i.disabled = true;
+      i.checked = false;
+    }
+    label.title = BEGINNER_LOCK;
+    return label;
+  }
   function setProfile(p) {
     if (!p) return;
+    beginnerFlag = isKanaBeginner(p.unlocks);
     const lx = levelXp(p.xp);
+    $("whoLv").textContent = String(lx.level);
     $("whoLevel").textContent = `Lv ${lx.level} \xB7 ${lx.into.toLocaleString()} / ${lx.need.toLocaleString()} XP`;
     $("whoCrit").textContent = critText(p.crit);
     $("ppWins").textContent = String(p.wins ?? 0);
@@ -2801,9 +1844,9 @@
     $("ppStreak").textContent = String(p.streak ?? 0);
     $("ppBestStreak").textContent = String(Math.max(p.bestStreak ?? 0, p.streak ?? 0));
     for (const id of ["whoPic", "ppPic"]) {
-      const el7 = $(id);
-      el7.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
-      el7.classList.toggle("has-pic", !!p.pic);
+      const el8 = $(id);
+      el8.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
+      el8.classList.toggle("has-pic", !!p.pic);
     }
     $("picRemove").hidden = !p.pic;
     $("whoCrit").title = "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.";
@@ -2812,11 +1855,11 @@
   }
   var toastTimer = 0;
   function toast(text, ms = 3500) {
-    const el7 = $("toast");
-    el7.textContent = text;
-    el7.hidden = false;
+    const el8 = $("toast");
+    el8.textContent = text;
+    el8.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => el7.hidden = true, ms);
+    toastTimer = window.setTimeout(() => el8.hidden = true, ms);
   }
   function setUser(user2) {
     $("whoami").hidden = !user2;
@@ -3015,7 +2058,7 @@
         const box = h("input", "", void 0, { type: "checkbox", value: lv });
         box.checked = on;
         label.prepend(box);
-        return label;
+        return lockLevelChip(label, lv);
       })
     );
     $("levelsHint").textContent = mode3 === "deck" ? "Deck Duel draws cards from every level (N5\u2013N1). Your level picks only change your character here." : mode3 === "rapid" ? "Shared levels: both players race on the same kanji, so a change here changes it for everyone." : mode3 === "boss" ? "Each player picks their own. The dragon gets tougher when the party picks harder levels." : mode3 === "writing" ? "Each player picks their own. You will write these words by hand. Harder levels hit harder \u2014 so your opponent gets more HP." : "Each player picks their own. \u304B\u306A = hiragana, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.";
@@ -3072,9 +2115,9 @@
     bar.firstElementChild.style.width = `${pct}%`;
     return bar;
   }
-  function partyPanel(el7, players2, you2) {
+  function partyPanel(el8, players2, you2) {
     const ordered = [...players2].sort((a, b) => a.id === you2 ? -1 : b.id === you2 ? 1 : 0);
-    el7.replaceChildren(...ordered.map((p) => {
+    el8.replaceChildren(...ordered.map((p) => {
       const row = h("div", "party-row" + (p.id === you2 ? " me" : "") + (p.hp <= 0 ? " down" : ""));
       const pn = h("span", "n", p.id === you2 ? `${p.name} (you)` : p.name);
       if (p.id !== you2) markProfile(pn, p);
@@ -3098,15 +2141,15 @@
     bar.append(fill, h("span", "tbar-txt", text));
     return bar;
   }
-  function fighterCard(el7, p, label, emptyText) {
+  function fighterCard(el8, p, label, emptyText) {
     if (!p) {
-      el7.replaceChildren(h("div", "name", emptyText));
+      el8.replaceChildren(h("div", "name", emptyText));
       return;
     }
     const nameEl = h("span", "n", label);
     if (!label.endsWith("(you)")) markProfile(nameEl, p);
     const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo` : ""));
-    el7.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
+    el8.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
   function renderFighters(players2, you2, boss) {
@@ -3139,11 +2182,11 @@
   }
   var allyEl = (id) => document.querySelector(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
   var actorEl = (a) => a.startsWith("ally:") ? allyEl(a.slice(5)) ?? $("wizMe") : $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : "dragon");
-  function retrigger(el7, cls, ms) {
-    el7.classList.remove(cls);
-    void el7.offsetWidth;
-    el7.classList.add(cls);
-    setTimeout(() => el7.classList.remove(cls), ms);
+  function retrigger(el8, cls, ms) {
+    el8.classList.remove(cls);
+    void el8.offsetWidth;
+    el8.classList.add(cls);
+    setTimeout(() => el8.classList.remove(cls), ms);
   }
   function setupArena(mode3, players2, you2) {
     battleMode = mode3;
@@ -3262,11 +2305,11 @@
     }, 180);
   }
   function breathWarning(inMs) {
-    const el7 = $("breathWarn");
-    el7.hidden = false;
+    const el8 = $("breathWarn");
+    el8.hidden = false;
     $("dragon").classList.add("inhale");
     arena()?.inhale(true);
-    countdown("breath", inMs, (left) => el7.textContent = `The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
+    countdown("breath", inMs, (left) => el8.textContent = `The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
   }
   function breathFire(damage, victims, immune = []) {
     stopCountdown("breath");
@@ -3304,11 +2347,11 @@
     }, 450);
   }
   function knockOut(who) {
-    const el7 = actorEl(who);
-    if (el7.classList.contains("ko")) return;
+    const el8 = actorEl(who);
+    if (el8.classList.contains("ko")) return;
     arena()?.ko(who);
-    el7.classList.add("ko");
-    el7.classList.remove("onfire");
+    el8.classList.add("ko");
+    el8.classList.remove("onfire");
   }
   function showBattle(mode3, players2, boss, you2, countdownMs, battleMs, onTick) {
     clearStudy();
@@ -3348,7 +2391,7 @@
     if (c.answer === "writing") {
       const mp = $("meaningPrompt");
       mp.hidden = false;
-      mp.replaceChildren(h("span", "mp-reading", c.reading ?? "", { lang: "ja" }), h("span", "", ` \u2014 ${c.meaning ?? ""}`), h("small", "", `write the kanji: ${c.charCount} character${c.charCount === 1 ? "" : "s"}`));
+      mp.replaceChildren(h("span", "mp-reading", c.reading ?? "", { lang: "ja" }), h("span", "", ` \u2014 ${c.meaning ?? ""}`), h("small", "", `write ${c.charCount} kanji`));
       const ime = $("imeInput");
       ime.value = "";
       ime.disabled = true;
@@ -3358,6 +2401,7 @@
     }
     const input = $("answer");
     input.disabled = false;
+    setAnswerLocked(false);
     input.value = "";
     input.placeholder = c.answer === "romaji" ? "romaji, then Enter" : "\u304B\u306A or romaji, then Enter";
     input.lang = c.answer === "romaji" ? "en" : "ja";
@@ -3366,12 +2410,21 @@
     input.focus();
   }
   function setInputHint(text, warn = false) {
-    const el7 = $("inputHint");
-    el7.textContent = text;
-    el7.classList.toggle("warn", warn);
+    const el8 = $("inputHint");
+    el8.textContent = text;
+    el8.classList.toggle("warn", warn);
   }
-  function setCharSlots(total, _written, active) {
-    $("charSlots").replaceChildren(h("span", "slots-hint", total > 1 ? `Write all ${total} characters, left to right` : "Write the character"));
+  function setCharSlots(total, _written, active, shape = "") {
+    const kana = shape.replace(/□/g, "");
+    const hint = h("span", "slots-hint", total > 1 ? `Write all ${total} kanji, left to right` : "Write the kanji");
+    const parts = [hint];
+    if (kana) {
+      const sh = h("span", "slots-shape", "", { lang: "ja" });
+      sh.title = "the kana is written for you";
+      for (const c of shape) sh.append(c === "\u25A1" ? h("i", "slot-box") : h("b", "", c));
+      parts.push(sh);
+    }
+    $("charSlots").replaceChildren(...parts);
     $("padNext").textContent = "Cast \u2726";
     for (const id of ["padUndo", "padClear", "padSkip", "padNext"]) $(id).disabled = !active;
   }
@@ -3382,10 +2435,23 @@
     const ime = $("imeInput");
     ime.disabled = false;
   }
+  function setAnswerLocked(on) {
+    const input = $("answer");
+    input.classList.toggle("locked", on);
+    if (on) input.dataset.locked = "1";
+    else delete input.dataset.locked;
+  }
+  var answerLocked = () => {
+    const i = $("answer");
+    return i.disabled || i.dataset.locked === "1";
+  };
+  $("answer").addEventListener("beforeinput", (e) => {
+    if ($("answer").dataset.locked === "1") e.preventDefault();
+  });
   function lockInput() {
     stopCountdown("challenge");
     $("castGo").hidden = true;
-    $("answer").disabled = true;
+    setAnswerLocked(true);
     $("skip").disabled = true;
     for (const id of ["padUndo", "padClear", "padSkip", "padNext"]) $(id).disabled = true;
     $("imeInput").disabled = true;
@@ -3399,13 +2465,13 @@
     $("writeArea").hidden = true;
   };
   function setFeedback(f2) {
-    const el7 = $("feedback");
+    const el8 = $("feedback");
     if (!f2) {
-      el7.replaceChildren();
-      el7.className = "feedback";
+      el8.replaceChildren();
+      el8.className = "feedback";
       return;
     }
-    el7.className = "feedback " + (f2.correct ? "good" : "bad");
+    el8.className = "feedback " + (f2.correct ? "good" : "bad");
     $("kanji").classList.remove("gone");
     $("meaningPrompt").hidden = true;
     const word2 = (cls) => append(h("span", cls), h("span", "rk", f2.kanji, { lang: "ja" }), h("span", "rr", f2.reading, { lang: "ja" }), h("span", "", f2.meaning));
@@ -3413,17 +2479,17 @@
       $("kanji").classList.add("cast");
       const combo = f2.combo >= 2 ? ` \xB7 \xD7${f2.combo} combo` : "";
       const big = h("span", "big" + (f2.crit ? " crit" : ""), f2.crit ? `\u2726 CRIT! ${f2.damage} damage` : `\u2713 CAST! ${f2.damage} damage`);
-      el7.replaceChildren(big, word2("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
+      el8.replaceChildren(big, word2("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
     } else {
       if (f2.retry) {
-        el7.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
+        el8.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
         return;
       }
       const title = f2.beaten ? "Opponent was faster!" : f2.skipped ? "\u21B7 Skipped" : f2.timedOut ? "\u2717 Too slow!" : "\u2717 MISS!";
       const kids = [h("span", "big", title), word2("reveal")];
       if (f2.recognized && !f2.skipped && !f2.timedOut) kids.push(h("span", "sub2", `The pad read: ${f2.recognized}`));
-      el7.replaceChildren(...kids);
-      if (answerMode === "writing" && !f2.beaten) showWrongStrokes(el7, f2.kanji);
+      el8.replaceChildren(...kids);
+      if (answerMode === "writing" && !f2.beaten) showWrongStrokes(el8, f2.kanji);
     }
   }
   function openStrokeDialog(word2, reading, meaning) {
@@ -3442,9 +2508,9 @@
     void showStrokeOrder(div, word2, { stepMs: Math.max(90, Math.min(220, 2200 / (strokes2 * 6))), caption: "How to write it" });
   }
   function logLine(text, kanji) {
-    const el7 = $("log");
-    el7.replaceChildren(h("span", "", text));
-    if (kanji) el7.append(h("span", "k", ` ${kanji}`, { lang: "ja" }));
+    const el8 = $("log");
+    el8.replaceChildren(h("span", "", text));
+    if (kanji) el8.append(h("span", "k", ` ${kanji}`, { lang: "ja" }));
   }
   var REASONS = {
     ko: "Knock-out",
@@ -3482,8 +2548,8 @@
       const nameOf2 = (id) => players2.find((p) => p.id === id)?.name ?? "Ally";
       cmp.replaceChildren(h("div"), h("div", "h me", "You"), ...allies.map((id) => {
         const p = players2.find((x) => x.id === id);
-        const el7 = h("div", "h", nameOf2(id));
-        return p ? markProfile(el7, p) : el7;
+        const el8 = h("div", "h", nameOf2(id));
+        return p ? markProfile(el8, p) : el8;
       }));
       for (const [label, fmt] of rows) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me3)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
     } else {
@@ -3526,10 +2592,10 @@
     show("results");
   }
   function showXp(gained, level2, levelUp) {
-    const el7 = $("xpLine");
-    el7.hidden = false;
-    el7.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
-    if (levelUp) el7.append(h("span", "lvup", `Level ${level2}!`));
+    const el8 = $("xpLine");
+    el8.hidden = false;
+    el8.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
+    if (levelUp) el8.append(h("span", "lvup", `Level ${level2}!`));
   }
   function setRematchStatus(votes, you2, playerCount, minPlayers2) {
     const youVoted = votes.includes(you2);
@@ -3546,21 +2612,21 @@
     return h("span", `mode-badge ${mode3}`, MODE_ICON[mode3], { lang: "ja", title: MODE_LABEL[mode3], "aria-label": MODE_LABEL[mode3] });
   }
   function characterEl(character, mode3, side = "me") {
-    const el7 = h("span", "char-sprite");
+    const el8 = h("span", "char-sprite");
     const heroes = ["goblin", "knight", "witch", "wizard"];
-    el7.innerHTML = mode3 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
-    el7.title = character[0].toUpperCase() + character.slice(1);
-    return el7;
+    el8.innerHTML = mode3 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
+    el8.title = character[0].toUpperCase() + character.slice(1);
+    return el8;
   }
-  function markProfile(el7, p) {
-    el7.dataset.profile = p.id;
-    if (p.bot) el7.dataset.bot = p.bot;
-    if (p.name) el7.dataset.name = p.name;
-    el7.classList.add("plink");
-    el7.setAttribute("role", "button");
-    el7.tabIndex = 0;
-    el7.title = "View profile";
-    return el7;
+  function markProfile(el8, p) {
+    el8.dataset.profile = p.id;
+    if (p.bot) el8.dataset.bot = p.bot;
+    if (p.name) el8.dataset.name = p.name;
+    el8.classList.add("plink");
+    el8.setAttribute("role", "button");
+    el8.tabIndex = 0;
+    el8.title = "View profile";
+    return el8;
   }
   var dateTime = (at) => new Date(at).toLocaleString(locale(), { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   function showProfileCard(anchor, p) {
@@ -3631,14 +2697,1137 @@
     }));
     show("history");
   }
-  function paintFlame(el7, flame) {
-    el7.dataset.flame = flame ?? "blue";
-    flameShades(flame).forEach((c, i) => el7.style.setProperty(`--f${i}`, c));
+  function paintFlame(el8, flame) {
+    el8.dataset.flame = flame ?? "blue";
+    flameShades(flame).forEach((c, i) => el8.style.setProperty(`--f${i}`, c));
+  }
+
+  // src/client/friendrail.ts
+  var $2 = $;
+  var el2 = (tag, cls = "", text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = String(text);
+    return e;
+  };
+  var RAIL_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "customize", "history", "progress", "daily", "friends"]);
+  var friends = [];
+  var signedIn = false;
+  var timer = 0;
+  var collapsed = { online: false, offline: true };
+  function setRailUser(on) {
+    signedIn = on;
+    if (!on) {
+      $2("friendRail").hidden = true;
+      clearInterval(timer);
+    }
+  }
+  function railScreen(screen2) {
+    const show3 = signedIn && RAIL_SCREENS.has(screen2);
+    $2("friendRail").hidden = !show3;
+    document.body.classList.toggle("has-rail", show3);
+    clearInterval(timer);
+    if (show3) {
+      void refreshRail();
+      timer = window.setInterval(() => void refreshRail(), 2e4);
+    }
+  }
+  async function refreshRail() {
+    try {
+      friends = (await api.friends()).friends;
+    } catch {
+      return;
+    }
+    render();
+  }
+  var avatar = (f2) => {
+    const a = el2("span", "fr-av");
+    if (f2.pic) {
+      const img = el2("img");
+      img.src = f2.pic;
+      img.alt = "";
+      a.append(img);
+    } else a.textContent = f2.username.slice(0, 1).toUpperCase();
+    a.append(el2("i", "fr-dot"));
+    return a;
+  };
+  function render() {
+    const accepted = friends.filter((f2) => f2.status === "accepted").sort((a, b) => a.username.localeCompare(b.username));
+    const online = accepted.filter((f2) => f2.online), offline = accepted.filter((f2) => !f2.online);
+    const incoming = friends.filter((f2) => f2.status === "incoming").length;
+    const section = (key, title, list2) => {
+      const head = el2("button", "fr-sec", "");
+      head.append(el2("b", "fr-count", list2.length), el2("span", "fr-sec-name", title), el2("span", "fr-chev", collapsed[key] ? "\u25BE" : "\u25B4"));
+      head.setAttribute("aria-expanded", String(!collapsed[key]));
+      head.onclick = () => {
+        collapsed[key] = !collapsed[key];
+        render();
+      };
+      const rows = collapsed[key] ? [] : list2.map((f2) => {
+        const r2 = el2("div", "fr-row" + (f2.online ? " online" : ""));
+        markProfile(r2, { id: f2.id, name: f2.username, bot: null });
+        r2.title = `${f2.username} \u2014 view profile`;
+        const txt = el2("span", "fr-txt");
+        txt.append(el2("span", "fr-name", f2.username), el2("small", "fr-status", f2.online ? f2.activity ?? "Online" : "Offline"));
+        r2.append(avatar(f2), txt, el2("span", "fr-lv", `Lv ${f2.level ?? 0}`));
+        return r2;
+      });
+      return [head, ...rows];
+    };
+    const list = $2("railList");
+    list.replaceChildren(
+      ...section("online", "Online", online),
+      ...section("offline", "Offline", offline),
+      ...accepted.length ? [] : [el2("p", "fr-empty", "No friends yet \u2014 add someone below.")]
+    );
+    $2("railOnline").textContent = String(online.length);
+    const badge = $2("railReqBadge");
+    badge.hidden = incoming === 0;
+    badge.textContent = String(incoming);
+  }
+  function openDialog(tab) {
+    const d = $2("friendDialog");
+    for (const b of d.querySelectorAll("[data-ftab]")) b.classList.toggle("on", b.dataset.ftab === tab);
+    $2("fdAdd").hidden = tab !== "add";
+    $2("fdRequests").hidden = tab !== "requests";
+    $2("fdMsg").textContent = "";
+    renderRequests();
+    if (!d.open) d.showModal();
+    if (tab === "add") setTimeout(() => $2("fdName").focus(), 30);
+  }
+  function renderRequests() {
+    const box = $2("fdReqList");
+    const incoming = friends.filter((f2) => f2.status === "incoming");
+    const outgoing = friends.filter((f2) => f2.status === "outgoing");
+    const act = (text, cls, fn) => {
+      const b = el2("button", `pill ${cls}`, text);
+      b.onclick = async () => {
+        b.disabled = true;
+        try {
+          friends = (await fn()).friends;
+          render();
+          renderRequests();
+        } catch (e) {
+          toast(e.message);
+          b.disabled = false;
+        }
+      };
+      return b;
+    };
+    const row = (f2, buttons, note) => {
+      const r2 = el2("div", "fd-row");
+      const t = el2("span", "fr-txt");
+      t.append(el2("span", "fr-name", f2.username), el2("small", "fr-status", note));
+      r2.append(avatar(f2), t, ...buttons);
+      return r2;
+    };
+    box.replaceChildren(
+      ...incoming.length ? [el2("h4", "", `Requests (${incoming.length})`), ...incoming.map((f2) => row(f2, [act("Accept", "primary", () => api.acceptFriend(f2.id)), act("Decline", "", () => api.removeFriend(f2.id))], "wants to be friends"))] : [el2("p", "hint", "No friend requests right now.")],
+      ...outgoing.length ? [el2("h4", "", "Sent requests"), ...outgoing.map((f2) => row(f2, [act("Cancel", "", () => api.removeFriend(f2.id))], "request sent"))] : []
+    );
+  }
+  $2("railAdd").onclick = () => openDialog("add");
+  $2("railReq").onclick = () => openDialog("requests");
+  for (const b of document.querySelectorAll("#friendDialog [data-ftab]")) b.onclick = () => openDialog(b.dataset.ftab);
+  $2("fdClose").onclick = () => $2("friendDialog").close();
+  $2("fdAdd").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = $2("fdName");
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      const r2 = await api.addFriend(name);
+      friends = r2.friends;
+      $2("fdMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      input.value = "";
+      render();
+    } catch (err) {
+      $2("fdMsg").textContent = err.message;
+    }
+  });
+  $2("railList").addEventListener("click", () => $2("friendDialog").close());
+
+  // src/shared/kana.ts
+  var BASE = {
+    a: "\u3042",
+    i: "\u3044",
+    u: "\u3046",
+    e: "\u3048",
+    o: "\u304A",
+    ka: "\u304B",
+    ki: "\u304D",
+    ku: "\u304F",
+    ke: "\u3051",
+    ko: "\u3053",
+    sa: "\u3055",
+    si: "\u3057",
+    shi: "\u3057",
+    su: "\u3059",
+    se: "\u305B",
+    so: "\u305D",
+    ta: "\u305F",
+    ti: "\u3061",
+    chi: "\u3061",
+    tu: "\u3064",
+    tsu: "\u3064",
+    te: "\u3066",
+    to: "\u3068",
+    na: "\u306A",
+    ni: "\u306B",
+    nu: "\u306C",
+    ne: "\u306D",
+    no: "\u306E",
+    ha: "\u306F",
+    hi: "\u3072",
+    hu: "\u3075",
+    fu: "\u3075",
+    he: "\u3078",
+    ho: "\u307B",
+    ma: "\u307E",
+    mi: "\u307F",
+    mu: "\u3080",
+    me: "\u3081",
+    mo: "\u3082",
+    ya: "\u3084",
+    yu: "\u3086",
+    yo: "\u3088",
+    ra: "\u3089",
+    ri: "\u308A",
+    ru: "\u308B",
+    re: "\u308C",
+    ro: "\u308D",
+    la: "\u3089",
+    li: "\u308A",
+    lu: "\u308B",
+    le: "\u308C",
+    lo: "\u308D",
+    wa: "\u308F",
+    wo: "\u3092",
+    wi: "\u3046\u3043",
+    we: "\u3046\u3047",
+    ga: "\u304C",
+    gi: "\u304E",
+    gu: "\u3050",
+    ge: "\u3052",
+    go: "\u3054",
+    za: "\u3056",
+    zi: "\u3058",
+    ji: "\u3058",
+    zu: "\u305A",
+    ze: "\u305C",
+    zo: "\u305E",
+    da: "\u3060",
+    di: "\u3062",
+    du: "\u3065",
+    de: "\u3067",
+    do: "\u3069",
+    ba: "\u3070",
+    bi: "\u3073",
+    bu: "\u3076",
+    be: "\u3079",
+    bo: "\u307C",
+    pa: "\u3071",
+    pi: "\u3074",
+    pu: "\u3077",
+    pe: "\u307A",
+    po: "\u307D",
+    va: "\u3094\u3041",
+    vi: "\u3094\u3043",
+    vu: "\u3094",
+    ve: "\u3094\u3047",
+    vo: "\u3094\u3049",
+    fa: "\u3075\u3041",
+    fi: "\u3075\u3043",
+    fe: "\u3075\u3047",
+    fo: "\u3075\u3049",
+    xa: "\u3041",
+    xi: "\u3043",
+    xu: "\u3045",
+    xe: "\u3047",
+    xo: "\u3049",
+    xya: "\u3083",
+    xyu: "\u3085",
+    xyo: "\u3087",
+    lya: "\u3083",
+    lyu: "\u3085",
+    lyo: "\u3087",
+    xtu: "\u3063",
+    ltu: "\u3063",
+    xtsu: "\u3063",
+    ltsu: "\u3063",
+    "-": "\u30FC"
+  };
+  var YOON = [
+    [["ky"], "\u304D"],
+    [["gy"], "\u304E"],
+    [["sh", "sy"], "\u3057"],
+    [["j", "jy", "zy"], "\u3058"],
+    [["ch", "ty", "cy"], "\u3061"],
+    [["dy"], "\u3062"],
+    [["ny"], "\u306B"],
+    [["hy"], "\u3072"],
+    [["by"], "\u3073"],
+    [["py"], "\u3074"],
+    [["my"], "\u307F"],
+    [["ry", "ly"], "\u308A"]
+  ];
+  var SMALL = { a: "\u3083", u: "\u3085", o: "\u3087" };
+  var _a, _b;
+  for (const [prefixes, kana] of YOON) {
+    for (const p of prefixes) {
+      for (const [v, small] of Object.entries(SMALL)) BASE[_a = p + v] ?? (BASE[_a] = kana + small);
+      if (p === "sh" || p === "ch" || p === "j") BASE[_b = p + "e"] ?? (BASE[_b] = kana + "\u3047");
+    }
+  }
+  var VOWELS = /* @__PURE__ */ new Set(["a", "i", "u", "e", "o"]);
+  function romajiToHiragana(input) {
+    const s = input.toLowerCase();
+    let out = "";
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      const next2 = s[i + 1];
+      if (c === "n") {
+        if (next2 === "'") {
+          out += "\u3093";
+          i += 2;
+          continue;
+        }
+        if (next2 === void 0) {
+          out += "\u3093";
+          i += 1;
+          continue;
+        }
+        if (next2 === "n") {
+          const after = s[i + 2];
+          out += "\u3093";
+          i += after !== void 0 && (VOWELS.has(after) || after === "y") ? 1 : 2;
+          continue;
+        }
+        if (!VOWELS.has(next2) && next2 !== "y") {
+          out += "\u3093";
+          i += 1;
+          continue;
+        }
+      }
+      if (c >= "a" && c <= "z" && !VOWELS.has(c) && (next2 === c || c === "t" && next2 === "c")) {
+        out += "\u3063";
+        i += 1;
+        continue;
+      }
+      let matched = false;
+      for (let len = 4; len >= 1; len--) {
+        const kana = BASE[s.slice(i, i + len)];
+        if (kana) {
+          out += kana;
+          i += len;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        out += c;
+        i += 1;
+      }
+    }
+    return out;
+  }
+  var katakanaToHiragana = (s) => s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 96));
+  function normalizeAnswer(input) {
+    const halfWidth = input.normalize("NFKC");
+    const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
+    return romajiToHiragana(katakanaToHiragana(cleaned));
+  }
+  function isCorrectReading(input, readings) {
+    const answer = normalizeAnswer(input);
+    if (!answer.length) return false;
+    return readings.some((raw) => {
+      const r2 = katakanaToHiragana(raw);
+      if (r2 === answer) return true;
+      if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer) return true;
+      return longVowelSlip(r2, answer);
+    });
+  }
+  function longVowelSlip(r2, a) {
+    const LONG = "\u3046\u304A";
+    if (a.length === r2.length - 1) {
+      for (let i = 1; i < r2.length; i++) if (LONG.includes(r2[i]) && r2.slice(0, i) + r2.slice(i + 1) === a) return true;
+      return false;
+    }
+    if (a.length === r2.length) {
+      let diff = -1;
+      for (let i = 0; i < r2.length; i++) if (r2[i] !== a[i]) {
+        if (diff >= 0) return false;
+        diff = i;
+      }
+      return diff > 0 && LONG.includes(r2[diff]) && LONG.includes(a[diff]);
+    }
+    return false;
+  }
+  var WRITE = /[\p{Script=Han}々〆ヶ□]/u;
+  var writeTargets = (word2) => {
+    const all = [...word2];
+    const k = all.filter((c) => WRITE.test(c));
+    return k.length ? k : all;
+  };
+  var writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
+
+  // src/client/voice.ts
+  var KEY4 = "kb:voice";
+  var prefs = (() => {
+    try {
+      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY4) ?? "{}") };
+    } catch {
+      return { on: true, vol: 0.9 };
+    }
+  })();
+  var save = () => {
+    try {
+      localStorage.setItem(KEY4, JSON.stringify(prefs));
+    } catch {
+    }
+  };
+  var MALE = /ichiro|keita|otoya|hattori|daichi|naoki|takumi|male|男/i;
+  var synth = typeof speechSynthesis !== "undefined" ? speechSynthesis : null;
+  var voice = null;
+  var male = false;
+  function pick2() {
+    if (!synth) return;
+    const ja = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith("ja"));
+    const m = ja.find((v) => MALE.test(v.name));
+    voice = m ?? ja.find((v) => v.localService) ?? ja[0] ?? null;
+    male = !!m;
+  }
+  if (synth) {
+    pick2();
+    synth.addEventListener?.("voiceschanged", pick2);
+  }
+  var voiceAvailable = () => !!synth;
+  var getVoicePrefs = () => ({ ...prefs, name: voice?.name ?? null, male });
+  function setVoiceVolume(v) {
+    prefs.vol = Math.max(0, Math.min(1, v));
+    prefs.on = prefs.vol > 0;
+    save();
+  }
+  function say(kana) {
+    if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== "visible") return;
+    if (!voice) pick2();
+    if (!voice && !synth.getVoices().length) return;
+    const u = new SpeechSynthesisUtterance(kana);
+    u.lang = "ja-JP";
+    if (voice) u.voice = voice;
+    u.rate = 0.95;
+    u.pitch = male ? 1 : 0.6;
+    u.volume = prefs.vol;
+    synth.cancel();
+    synth.speak(u);
+  }
+  function speak(kana) {
+    if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== "visible") return Promise.resolve();
+    if (!voice) pick2();
+    if (!voice && !synth.getVoices().length) return Promise.resolve();
+    return new Promise((done) => {
+      const u = new SpeechSynthesisUtterance(kana);
+      u.lang = "ja-JP";
+      if (voice) u.voice = voice;
+      u.rate = 0.95;
+      u.pitch = male ? 1 : 0.6;
+      u.volume = prefs.vol;
+      let finished = false;
+      const end = () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      };
+      u.onend = end;
+      u.onerror = end;
+      setTimeout(end, Math.min(2600, 500 + [...kana].length * 220));
+      synth.cancel();
+      synth.speak(u);
+    });
+  }
+
+  // src/client/notify.ts
+  var blink = 0;
+  var baseTitle = document.title;
+  function askNotifyPermission() {
+    try {
+      if ("Notification" in window && Notification.permission === "default") void Notification.requestPermission();
+    } catch {
+    }
+  }
+  function attention(title, body = "") {
+    if (!document.hidden && document.hasFocus()) return;
+    clearInterval(blink);
+    baseTitle = document.title.startsWith("\u25CF ") ? baseTitle : document.title;
+    let on = false;
+    blink = window.setInterval(() => {
+      on = !on;
+      document.title = on ? `\u25CF ${title}` : baseTitle;
+    }, 900);
+    try {
+      if ("Notification" in window && Notification.permission === "granted") {
+        const n = new Notification(title, { body, icon: "/favicon.svg", tag: "kanji-wizards", renotify: true });
+        n.onclick = () => {
+          window.focus();
+          n.close();
+        };
+      }
+    } catch {
+    }
+  }
+  function stop() {
+    clearInterval(blink);
+    blink = 0;
+    if (document.title.startsWith("\u25CF ")) document.title = baseTitle;
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) stop();
+  });
+  addEventListener("focus", stop);
+
+  // src/client/audio.ts
+  var PREFS_KEY = "kb:audio";
+  var DEFAULTS = { radio: true, sfx: true, musicVol: 0.7, sfxVol: 0.8 };
+  var prefs2 = (() => {
+    try {
+      return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
+    } catch {
+      return { ...DEFAULTS };
+    }
+  })();
+  var clamp01 = (v) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+  var sfxGain = () => 0.7 * prefs2.sfxVol * prefs2.sfxVol * 1.4;
+  var musicGain = () => 0.9 * prefs2.musicVol * prefs2.musicVol * 1.3;
+  var savePrefs = () => {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs2));
+    } catch {
+    }
+  };
+  var ctx = null;
+  var sfxBus;
+  var musicBus;
+  var menuBus;
+  var battleBus;
+  var ambBus;
+  var reverb;
+  var scene2 = "menu";
+  function ensure() {
+    if (ctx) return ctx;
+    const AC = window.AudioContext ?? window.webkitAudioContext;
+    if (!AC) return null;
+    ctx = new AC();
+    const comp = ctx.createDynamicsCompressor();
+    comp.connect(ctx.destination);
+    sfxBus = ctx.createGain();
+    sfxBus.gain.value = sfxGain();
+    sfxBus.connect(comp);
+    musicBus = ctx.createGain();
+    musicBus.gain.value = musicGain();
+    musicBus.connect(comp);
+    menuBus = ctx.createGain();
+    menuBus.gain.value = 0;
+    menuBus.connect(musicBus);
+    battleBus = ctx.createGain();
+    battleBus.gain.value = 0;
+    battleBus.connect(musicBus);
+    ambBus = ctx.createGain();
+    ambBus.gain.value = 0.9;
+    ambBus.connect(musicBus);
+    reverb = ctx.createConvolver();
+    const len = ctx.sampleRate * 2.6;
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
+    }
+    reverb.buffer = ir;
+    const wet = ctx.createGain();
+    wet.gain.value = 0.35;
+    reverb.connect(wet).connect(comp);
+    return ctx;
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!ctx) return;
+    if (document.visibilityState === "hidden") void ctx.suspend();
+    else void ctx.resume().then(() => syncMusic());
+  });
+  function unlock() {
+    const c = ensure();
+    if (!c) return;
+    if (c.state === "suspended" && document.visibilityState === "visible") void c.resume();
+    syncMusic();
+  }
+  function setScene(s) {
+    scene2 = s;
+    syncMusic();
+  }
+  function syncMusic() {
+    if (!ctx) return;
+    const on = prefs2.radio && prefs2.musicVol > 0 && document.visibilityState === "visible";
+    const want = on ? scene2 === "menu" ? menuTheme : battleTheme : null;
+    for (const t of [menuTheme, battleTheme]) t === want ? t.fadeIn() : t.fadeOut();
+    syncAmbience();
+  }
+  var midi = (n) => 440 * 2 ** ((n - 69) / 12);
+  function tone(freq, at, dur, opts = {}) {
+    const c = ctx;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = opts.type ?? "sine";
+    o.frequency.setValueAtTime(freq, at);
+    if (opts.detune) o.detune.value = opts.detune;
+    if (opts.to) o.frequency.exponentialRampToValueAtTime(opts.to, at + dur);
+    const peak = opts.gain ?? 0.3;
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + (opts.attack ?? 8e-3));
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
+    o.connect(g).connect(opts.bus ?? sfxBus);
+    if (opts.send) {
+      const s = c.createGain();
+      s.gain.value = opts.send;
+      g.connect(s).connect(reverb);
+    }
+    o.start(at);
+    o.stop(at + dur + 0.05);
+  }
+  function bell(freq, at, dur, gain, bus = sfxBus) {
+    tone(freq, at, dur, { gain, bus, send: 0.6, attack: 3e-3 });
+    tone(freq * 2.76, at, dur * 0.4, { gain: gain * 0.25, bus, send: 0.6, attack: 2e-3 });
+    tone(freq * 5.4, at, dur * 0.18, { gain: gain * 0.08, bus, send: 0.6, attack: 2e-3 });
+  }
+  function noise(at, dur, gain, cutoff, type = "lowpass", bus = sfxBus, swell = false) {
+    const c = ctx;
+    const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (swell ? (i / data.length) ** 2 : 1 - i / data.length);
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const f2 = c.createBiquadFilter();
+    f2.type = type;
+    f2.frequency.value = cutoff;
+    const g = c.createGain();
+    g.gain.value = gain;
+    src.connect(f2).connect(g).connect(bus);
+    src.start(at);
+  }
+  var sfxOk = () => prefs2.sfx && ensure() !== null && ctx.state === "running";
+  var sfx = {
+    /**
+     * Spell cast: a magical chime. Each combo step makes it deeper and longer (like a multi-kill
+     * sound), from ×5 on it stays at its deepest, fullest version.
+     */
+    correct(combo = 1) {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      const step = Math.min(Math.max(combo, 1), 5) - 1;
+      const root = 88 - step * 5;
+      const ring = 0.7 + step * 0.45;
+      const notes = [0, 7, 12, 16].map((i) => root + i);
+      notes.forEach((n, i) => bell(midi(n), t + i * (0.045 + step * 0.012), ring, 0.16 + step * 0.015));
+      if (step >= 1) tone(midi(root - 24), t, ring * 1.2, { gain: 0.12 + step * 0.05, send: 0.3, attack: 0.01 });
+      if (step >= 4) [0.16, 0.32].forEach((dt) => bell(midi(root + 12), t + dt, 1.2, 0.1));
+      noise(t, 0.25, 0.05, 6e3, "highpass");
+    },
+    /** Miss / skip / timeout — soft descending fizzle. */
+    wrong() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      tone(330, t, 0.3, { type: "triangle", gain: 0.14, to: 140 });
+      tone(311, t + 0.03, 0.3, { type: "triangle", gain: 0.08, to: 130 });
+      noise(t, 0.2, 0.06, 900);
+    },
+    /** You took damage — thump. */
+    hurt() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      tone(140, t, 0.22, { gain: 0.35, to: 50 });
+      noise(t, 0.15, 0.25, 900);
+    },
+    /** Your spell lands on the opponent. */
+    impact() {
+      if (sfxOk()) noise(ctx.currentTime, 0.12, 0.15, 2500);
+    },
+    heal() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      [72, 76, 79, 84].forEach((n, i) => bell(midi(n), t + i * 0.08, 0.9, 0.1));
+    },
+    mana() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      for (let i = 0; i < 6; i++) bell(midi(84 + i * 5 % 12), t + i * 0.05, 0.5, 0.06);
+    },
+    rip() {
+      if (!sfxOk()) return;
+      noise(ctx.currentTime, 0.35, 0.3, 3e3, "bandpass");
+    },
+    flip() {
+      if (sfxOk()) noise(ctx.currentTime, 0.08, 0.12, 4e3, "highpass");
+    },
+    inhale() {
+      if (sfxOk()) tone(55, ctx.currentTime, 2.6, { type: "sawtooth", gain: 0.08, to: 110, attack: 1.5 });
+    },
+    fire() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      noise(t, 1.2, 0.5, 1400);
+      tone(70, t, 1.1, { type: "sawtooth", gain: 0.12, to: 40 });
+    },
+    claw() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      noise(t, 0.18, 0.4, 6e3);
+      tone(160, t + 0.05, 0.2, { gain: 0.3, to: 60 });
+    },
+    tick() {
+      if (sfxOk()) bell(1320, ctx.currentTime, 0.25, 0.08);
+    },
+    go() {
+      if (sfxOk()) bell(midi(88), ctx.currentTime, 0.8, 0.14);
+    },
+    /** Deck Duel: your turn — two bright rising bells. */
+    yourTurn() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      bell(midi(81), t, 0.5, 0.11);
+      bell(midi(88), t + 0.14, 0.7, 0.13);
+    },
+    /** Victory: a bright fanfare (major, rising, with harmony and a final bell). */
+    win() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      const brass = (n, at, dur) => {
+        tone(midi(n), t + at, dur, { type: "sawtooth", gain: 0.07, attack: 0.03, send: 0.4 });
+        tone(midi(n), t + at, dur, { type: "triangle", gain: 0.12, attack: 0.02, send: 0.4, detune: 6 });
+      };
+      [[67, 0], [72, 0.14], [76, 0.28]].forEach(([n, at]) => brass(n, at, 0.22));
+      brass(79, 0.44, 0.9);
+      brass(76, 0.44, 0.9);
+      brass(72, 0.44, 0.9);
+      bell(midi(91), t + 0.44, 1.8, 0.12);
+      tone(midi(48), t + 0.44, 1.2, { gain: 0.2, send: 0.3 });
+    },
+    /** Defeat: slow, falling minor phrase. */
+    lose() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      [[69, 0], [68, 0.38], [67, 0.76], [62, 1.14]].forEach(([n, at]) => {
+        tone(midi(n), t + at, 0.7, { type: "triangle", gain: 0.13, attack: 0.04, send: 0.5 });
+      });
+      tone(midi(38), t + 1.14, 1.8, { gain: 0.16, send: 0.4, attack: 0.05 });
+    }
+  };
+  function makeTrack(bpm, bus, play) {
+    const STEP = 60 / bpm / 2;
+    let timer3;
+    let stopTimer;
+    let nextTime = 0;
+    let step = 0;
+    const schedule = () => {
+      const c = ctx;
+      while (nextTime < c.currentTime + 0.5) {
+        play(step, nextTime);
+        nextTime += STEP;
+        step++;
+      }
+    };
+    return {
+      STEP,
+      fadeIn() {
+        if (!ctx) return;
+        clearTimeout(stopTimer);
+        stopTimer = void 0;
+        bus().gain.cancelScheduledValues(ctx.currentTime);
+        bus().gain.setTargetAtTime(1, ctx.currentTime, 0.9);
+        if (timer3 !== void 0) return;
+        nextTime = ctx.currentTime + 0.12;
+        step = 0;
+        schedule();
+        timer3 = window.setInterval(schedule, 150);
+      },
+      fadeOut() {
+        if (!ctx || timer3 === void 0 || stopTimer !== void 0) return;
+        bus().gain.cancelScheduledValues(ctx.currentTime);
+        bus().gain.setTargetAtTime(0, ctx.currentTime, 0.45);
+        stopTimer = window.setTimeout(() => {
+          clearInterval(timer3);
+          timer3 = void 0;
+          stopTimer = void 0;
+        }, 2200);
+      }
+    };
+  }
+  function strings(notes, at, dur, bus, level2 = 0.035, cutoff = 1100) {
+    const c = ctx;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = cutoff;
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(level2, at + 0.9);
+    g.gain.setValueAtTime(level2, at + dur - 0.6);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur + 0.5);
+    lp.connect(g).connect(bus);
+    const s = c.createGain();
+    s.gain.value = 0.5;
+    g.connect(s).connect(reverb);
+    for (const n of notes) for (const d of [-7, 7]) {
+      const o = c.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = midi(n);
+      o.detune.value = d;
+      o.connect(lp);
+      o.start(at);
+      o.stop(at + dur + 0.6);
+    }
+  }
+  function flute(n, at, dur, bus) {
+    const c = ctx;
+    const o = c.createOscillator();
+    const vib = c.createOscillator();
+    const vg = c.createGain();
+    vib.frequency.value = 5.2;
+    vg.gain.value = 4;
+    vib.connect(vg).connect(o.frequency);
+    o.type = "sine";
+    o.frequency.value = midi(n);
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(0.045, at + 0.06);
+    g.gain.setValueAtTime(0.04, at + dur * 0.7);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
+    o.connect(g).connect(bus);
+    const s = c.createGain();
+    s.gain.value = 0.7;
+    g.connect(s).connect(reverb);
+    o.start(at);
+    vib.start(at);
+    o.stop(at + dur + 0.05);
+    vib.stop(at + dur + 0.05);
+  }
+  function horn(n, at, dur, bus, level2 = 0.05) {
+    const c = ctx;
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(350, at);
+    lp.frequency.linearRampToValueAtTime(1300, at + Math.min(0.5, dur * 0.5));
+    lp.frequency.linearRampToValueAtTime(600, at + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(level2, at + 0.12);
+    g.gain.setValueAtTime(level2 * 0.85, at + dur * 0.75);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
+    lp.connect(g).connect(bus);
+    const s = c.createGain();
+    s.gain.value = 0.45;
+    g.connect(s).connect(reverb);
+    for (const d of [-9, 9]) {
+      const o = c.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = midi(n);
+      o.detune.value = d;
+      o.connect(lp);
+      o.start(at);
+      o.stop(at + dur + 0.05);
+    }
+  }
+  var menuTheme = (() => {
+    const PROG = [
+      [50, 57, 62, 65],
+      [46, 53, 58, 62],
+      [41, 48, 53, 57],
+      [48, 55, 60, 64],
+      [50, 57, 62, 65],
+      [43, 50, 55, 58],
+      [45, 52, 57, 61],
+      [50, 57, 62, 65]
+    ];
+    const MELODY = [
+      [74, 0, 77, 0, 76, 74, 72, 0],
+      [74, 0, 0, 70, 72, 0, 74, 0],
+      [72, 0, 69, 0, 72, 74, 77, 0],
+      [76, 0, 74, 72, 74, 0, 0, 0],
+      [74, 0, 77, 0, 81, 0, 79, 77],
+      [79, 0, 77, 0, 74, 0, 70, 0],
+      [73, 0, 76, 0, 79, 77, 76, 73],
+      [74, 0, 0, 0, 0, 0, 0, 0]
+    ];
+    const track = makeTrack(84, () => menuBus, (step, at) => {
+      const STEP = track.STEP;
+      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
+      const loop = Math.floor(step / (8 * PROG.length));
+      if (inBar === 0) {
+        strings(chord.slice(1), at, STEP * 8, menuBus);
+        tone(midi(chord[0] - 12), at, STEP * 7, { gain: 0.07, bus: menuBus, attack: 0.05 });
+      }
+      const arp = [0, 1, 2, 3, 2, 1, 2, 3][inBar];
+      tone(midi(chord[arp] + 12), at, 1.4, { type: "triangle", gain: 0.05, bus: menuBus, send: 0.5, attack: 3e-3 });
+      tone(midi(chord[arp] + 24), at, 0.5, { gain: 0.015, bus: menuBus, send: 0.5, attack: 3e-3 });
+      if (inBar === 0 || inBar === 3 || inBar === 6) tone(inBar === 0 ? 62 : 55, at, 0.45, { gain: inBar === 0 ? 0.16 : 0.09, to: 38, bus: menuBus, attack: 4e-3 });
+      if (loop % 3 !== 0) {
+        const n = MELODY[bar][inBar];
+        if (n) {
+          let len = 1;
+          while (inBar + len < 8 && MELODY[bar][inBar + len] === 0) len++;
+          flute(n, at, STEP * Math.min(len, 4) * 0.95, menuBus);
+        }
+      }
+    });
+    return track;
+  })();
+  var battleTheme = (() => {
+    const PROG = [
+      [38, 50, 53, 57],
+      [39, 51, 55, 58],
+      [38, 50, 53, 57],
+      [36, 48, 52, 55],
+      [38, 50, 53, 57],
+      [34, 46, 50, 53],
+      [31, 43, 46, 50],
+      [33, 45, 49, 52]
+    ];
+    const HORN = [
+      [62, 0, 0, 0, 63, 0, 62, 0],
+      [63, 0, 0, 0, 0, 0, 58, 0],
+      [62, 0, 0, 65, 0, 0, 62, 0],
+      [60, 0, 0, 0, 0, 0, 0, 0],
+      [62, 0, 0, 0, 65, 0, 69, 0],
+      [70, 0, 0, 0, 69, 0, 65, 0],
+      [67, 0, 0, 0, 70, 0, 69, 67],
+      [69, 0, 0, 0, 0, 0, 0, 0]
+    ];
+    const DRUM = [1, 0, 0, 0.6, 0.8, 0, 0.5, 0.5];
+    const track = makeTrack(100, () => battleBus, (step, at) => {
+      const STEP = track.STEP;
+      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
+      const loop = Math.floor(step / (8 * PROG.length));
+      const accent = inBar === 0 || inBar === 3 || inBar === 6;
+      for (const n of [chord[0] + 12, chord[1]]) tone(midi(n), at, STEP * 0.8, { type: "sawtooth", gain: accent ? 0.022 : 0.012, bus: battleBus, attack: 5e-3 });
+      if (inBar === 0) {
+        strings(chord.slice(1), at, STEP * 8, battleBus, 0.022, 800);
+        tone(midi(chord[0]), at, STEP * 7.5, { gain: 0.09, bus: battleBus, attack: 0.04 });
+      }
+      const d = DRUM[inBar];
+      if (d) {
+        tone(inBar === 0 ? 58 : 66, at, 0.5, { gain: 0.2 * d, to: 34, bus: battleBus, attack: 3e-3 });
+        noise(at, 0.12, 0.05 * d, 900, "lowpass", battleBus);
+      }
+      if (loop >= 1) {
+        const n = HORN[bar][inBar];
+        if (n) {
+          let len = 1;
+          while (inBar + len < 8 && HORN[bar][inBar + len] === 0) len++;
+          horn(n - 12, at, STEP * len * 0.97, battleBus);
+        }
+      }
+      if (loop % 2 === 1 && bar >= 4) tone(midi(chord[2] + 24 + (bar === 7 ? 1 : 0)), at, STEP * 0.45, { type: "sawtooth", gain: 8e-3, bus: battleBus, send: 0.5, attack: 0.01 });
+      if (inBar === 4 && bar % 4 === 3) noise(at, STEP * 4, 0.035, 6e3, "highpass", battleBus, true);
+    });
+    return track;
+  })();
+  var isRadioOn = () => prefs2.radio;
+  var isSfxOn = () => prefs2.sfx;
+  var getVolumes = () => ({ music: prefs2.musicVol, sfx: prefs2.sfxVol });
+  function setRadio(on) {
+    prefs2.radio = on;
+    savePrefs();
+    ensure();
+    if (on && ctx?.state === "suspended") void ctx.resume();
+    syncMusic();
+  }
+  function setSfx(on) {
+    prefs2.sfx = on;
+    savePrefs();
+  }
+  function setMusicVolume(v) {
+    prefs2.musicVol = clamp01(v);
+    if (prefs2.musicVol > 0) prefs2.radio = true;
+    savePrefs();
+    ensure();
+    if (ctx) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05);
+    syncMusic();
+  }
+  function setSfxVolume(v) {
+    prefs2.sfxVol = clamp01(v);
+    if (prefs2.sfxVol > 0) prefs2.sfx = true;
+    savePrefs();
+    ensure();
+    if (ctx) sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05);
+  }
+  function previewSfx() {
+    if (sfxOk()) bell(midi(76), ctx.currentTime, 0.8, 0.18);
+  }
+  var ambBg = null;
+  var ambTime = "night";
+  var ambTimer;
+  function setAmbience(bg2, time) {
+    const changed = bg2 !== ambBg;
+    ambBg = bg2;
+    ambTime = time;
+    if (changed) syncAmbience();
+  }
+  function syncAmbience() {
+    clearTimeout(ambTimer);
+    ambTimer = void 0;
+    if (!ctx || !ambBg || !prefs2.radio || prefs2.musicVol <= 0 || scene2 !== "menu" || document.visibilityState !== "visible") return;
+    const next2 = (first) => {
+      ambTimer = window.setTimeout(() => {
+        if (ctx?.state === "running") ambientCall(ambBg, ambTime);
+        next2(false);
+      }, (first ? 4e3 : 12e3) + Math.random() * 16e3);
+    };
+    next2(true);
+  }
+  function ambientCall(bg2, time) {
+    const t = ctx.currentTime + 0.05;
+    if (bg2 === "forest") time === "day" ? birds(t) : owl(t);
+    else if (bg2 === "swamp") frogs(t);
+    else if (bg2 === "plains") goblins(t);
+    else if (bg2 === "castle") {
+      clash(t);
+      if (Math.random() < 0.6) clash(t + 0.32 + Math.random() * 0.2);
+      if (Math.random() < 0.25) roar(t + 1.4);
+    } else if (bg2 === "worldtree") sparkle(t);
+  }
+  function owl(at) {
+    const hoot = (t0, dur, f02) => {
+      const c = ctx;
+      const o = c.createOscillator();
+      o.type = "sine";
+      o.frequency.setValueAtTime(f02, t0);
+      o.frequency.exponentialRampToValueAtTime(f02 * 0.88, t0 + dur);
+      const vib = c.createOscillator();
+      const vg = c.createGain();
+      vib.frequency.value = 7;
+      vg.gain.value = 6;
+      vib.connect(vg).connect(o.frequency);
+      const g = c.createGain();
+      g.gain.setValueAtTime(1e-4, t0);
+      g.gain.exponentialRampToValueAtTime(0.09, t0 + 0.06);
+      g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = f02;
+      bp.Q.value = 2;
+      o.connect(bp).connect(g).connect(ambBus);
+      const s = c.createGain();
+      s.gain.value = 0.8;
+      g.connect(s).connect(reverb);
+      o.start(t0);
+      vib.start(t0);
+      o.stop(t0 + dur + 0.05);
+      vib.stop(t0 + dur + 0.05);
+    };
+    const f0 = 360 + Math.random() * 40;
+    hoot(at, 0.32, f0);
+    hoot(at + 0.75, 0.18, f0 * 1.04);
+    hoot(at + 1, 0.75, f0 * 1.06);
+  }
+  function birds(at) {
+    for (let i = 0; i < 3 + Math.floor(Math.random() * 3); i++) {
+      const t = at + i * 0.16 + Math.random() * 0.05, f0 = 2600 + Math.random() * 900;
+      tone(f0, t, 0.09, { gain: 0.02, to: f0 * 1.35, bus: ambBus, send: 0.4, attack: 5e-3 });
+    }
+  }
+  function frogs(at) {
+    const ribbit = (t0, k) => {
+      const c = ctx;
+      for (const [off, len, pitch] of [[0, 0.11, 1], [0.17, 0.14, 1.12]]) {
+        const o = c.createOscillator();
+        o.type = "square";
+        o.frequency.value = 190 * k * pitch;
+        const bp = c.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.value = 850 * k;
+        bp.Q.value = 3;
+        const g = c.createGain();
+        g.gain.setValueAtTime(1e-4, t0 + off);
+        for (let p = 0; p < len / 0.025; p++) {
+          const tp = t0 + off + p * 0.025;
+          g.gain.setValueAtTime(1e-4, tp);
+          g.gain.linearRampToValueAtTime(0.05, tp + 6e-3);
+          g.gain.linearRampToValueAtTime(1e-4, tp + 0.02);
+        }
+        o.connect(bp).connect(g).connect(ambBus);
+        const s = c.createGain();
+        s.gain.value = 0.35;
+        g.connect(s).connect(reverb);
+        o.start(t0 + off);
+        o.stop(t0 + off + len + 0.03);
+      }
+    };
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) ribbit(at + Math.random() * 1.6, 0.85 + Math.random() * 0.5);
+  }
+  function goblins(at) {
+    const c = ctx;
+    const syll = (t0, f0, dur, formant, level2 = 0.035) => {
+      const o = c.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.setValueAtTime(f0, t0);
+      o.frequency.linearRampToValueAtTime(f0 * (0.85 + Math.random() * 0.4), t0 + dur);
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = formant;
+      bp.Q.value = 5;
+      const g = c.createGain();
+      g.gain.setValueAtTime(1e-4, t0);
+      g.gain.exponentialRampToValueAtTime(level2, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+      o.connect(bp).connect(g).connect(ambBus);
+      const s = c.createGain();
+      s.gain.value = 0.4;
+      g.connect(s).connect(reverb);
+      o.start(t0);
+      o.stop(t0 + dur + 0.02);
+    };
+    let t = at;
+    const n = 5 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < n; i++) {
+      const d = 0.06 + Math.random() * 0.06;
+      syll(t, 520 + Math.random() * 420, d, [700, 1100, 1500, 2100][Math.floor(Math.random() * 4)]);
+      t += d + 0.02;
+    }
+    if (Math.random() < 0.7) for (let i = 0; i < 4; i++) syll(t + 0.15 + i * 0.11, 900 + i * 40, 0.07, 1800, 0.04);
+  }
+  function clash(at) {
+    for (const [f0, dur, g] of [[1760, 0.7, 0.035], [2730, 0.55, 0.025], [3980, 0.4, 0.02], [5560, 0.3, 0.012]]) {
+      const fr = f0 * (0.97 + Math.random() * 0.06);
+      tone(fr, at, dur, { gain: g, bus: ambBus, send: 0.6, attack: 2e-3 });
+    }
+    noise(at, 0.07, 0.05, 2600, "highpass", ambBus);
+  }
+  function roar(at) {
+    const c = ctx;
+    const o = c.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(95, at);
+    o.frequency.exponentialRampToValueAtTime(55, at + 1.5);
+    const lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 420;
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(0.05, at + 0.3);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + 1.6);
+    o.connect(lp).connect(g).connect(ambBus);
+    const s = c.createGain();
+    s.gain.value = 0.9;
+    g.connect(s).connect(reverb);
+    o.start(at);
+    o.stop(at + 1.7);
+  }
+  function sparkle(at) {
+    const notes = [79, 81, 84, 86, 88, 91];
+    for (let i = 0; i < 4; i++) bell(midi(notes[Math.floor(Math.random() * notes.length)]), at + i * 0.18, 1.4, 0.03, ambBus);
   }
 
   // src/client/tutorial.ts
-  var $2 = $;
-  var el2 = (tag, cls = "", text) => {
+  var $3 = $;
+  var el3 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -3664,6 +3853,7 @@
   var inTutorialBattle = () => stage === "battle";
   var CARDS = [
     { title: "Welcome, apprentice", body: "In Kanji Wizards every spell is a Japanese word. Learn a word \u2014 and you can cast it at your opponent." },
+    { title: "Do you know hiragana?", body: `Kanji are read with hiragana (\u304B\u306A). If you can already read all of it, you start with kanji (N5 to N1). If not, you start with \u304B\u306A only \u2014 the kanji levels open once you tick "I've mastered hiragana" in Settings.`, choice: true },
     {
       title: "Cast by reading",
       body: "A kanji appears; type how it is read \u2014 in hiragana, or in romaji with a normal keyboard \u2014 and press Enter. Fast and right in a row hits harder.",
@@ -3671,17 +3861,18 @@
     },
     { title: "Study makes you stronger", body: "Study spells is a flashcard deck. Every spell you learn today raises your critical-hit chance, and words you miss in battle come back there to review." },
     { title: "More to unlock", body: "You start with Kanji Reading and Rapid. Kanji Writing and the Boss fight unlock at level 1, Deck Duel at level 2. There is also a Daily challenge, Progress, Friends \u2014 and monthly goals with rewards." },
+    { title: "\u304B\u306A first, then kanji", body: `Beginners: study \u304B\u306A in Study spells until you know it by heart. Then tick "I've mastered hiragana" in Settings (the sliders button, top-right) \u2014 and the kanji levels N5 to N1 open for studying and battles.` },
     { title: "Your first battle", body: "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them." }
   ];
   function tryIt() {
-    const box = el2("div", "tut-try");
-    const k = el2("span", "tut-k", "\u5C71");
+    const box = el3("div", "tut-try");
+    const k = el3("span", "tut-k", "\u5C71");
     k.lang = "ja";
-    const input = el2("input");
+    const input = el3("input");
     input.placeholder = "type its reading: yama";
     input.lang = "ja";
     input.autocomplete = "off";
-    const msg = el2("span", "hint", "Mountain \u2014 try it!");
+    const msg = el3("span", "hint", "Mountain \u2014 try it!");
     input.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" || e.isComposing) return;
       e.stopPropagation();
@@ -3706,14 +3897,26 @@
   }
   function show2(i) {
     const c = CARDS[i];
-    const box = $2("tutorial");
-    const dots = el2("div", "tut-dots");
-    CARDS.forEach((_, j) => dots.append(el2("i", j === i ? "on" : "")));
-    const card = el2("div", "tut-card");
-    const actions = el2("div", "tut-actions");
+    const box = $3("tutorial");
+    const dots = el3("div", "tut-dots");
+    CARDS.forEach((_, j) => dots.append(el3("i", j === i ? "on" : "")));
+    const card = el3("div", "tut-card");
+    const actions = el3("div", "tut-actions");
     const last = i === CARDS.length - 1;
-    const next2 = el2("button", "big", last ? "Fight a beginner AI" : "Next");
-    const skip2 = el2("button", "pill", last ? "Maybe later" : "Skip tutorial");
+    const next2 = el3("button", "big", last ? "Fight a beginner AI" : "Next");
+    const skip2 = el3("button", "pill", last ? "Maybe later" : "Skip tutorial");
+    if (c.choice) {
+      const yes = el3("button", "big", "Yes \u2014 I know hiragana");
+      const no = el3("button", "big alt", "I'm a beginner");
+      const pickKana = (mastered) => {
+        yes.disabled = no.disabled = true;
+        void hooks.kana(mastered).finally(() => show2(i + 1));
+      };
+      yes.onclick = () => pickKana(true);
+      no.onclick = () => pickKana(false);
+      next2.hidden = true;
+      queueMicrotask(() => actions.append(no, yes));
+    }
     next2.onclick = () => {
       if (!last) return show2(i + 1);
       stage = "battle";
@@ -3722,14 +3925,14 @@
     };
     skip2.onclick = () => finish();
     actions.append(skip2, next2);
-    card.append(dots, el2("h2", "", c.title), el2("p", "", c.body), ...c.extra ? [c.extra()] : [], actions);
+    card.append(dots, el3("h2", "", c.title), el3("p", "", c.body), ...c.extra ? [c.extra()] : [], actions);
     box.replaceChildren(card);
     box.hidden = false;
     next2.focus();
   }
   function finish() {
     stage = "off";
-    $2("tutorial").hidden = true;
+    $3("tutorial").hidden = true;
     coach(null);
     void api.tutorialDone().catch(() => {
     });
@@ -3744,16 +3947,16 @@
     } else if (screen2 === "menu") finish();
   }
   function coach(text) {
-    const c = $2("coach");
+    const c = $3("coach");
     if (!text) {
       c.hidden = true;
       return;
     }
-    const close = el2("button", "pill", "Got it");
+    const close = el3("button", "pill", "Got it");
     close.onclick = () => {
       c.hidden = true;
     };
-    c.replaceChildren(el2("b", "", "Tip"), el2("span", "", text), close);
+    c.replaceChildren(el3("b", "", "Tip"), el3("span", "", text), close);
     c.hidden = false;
   }
 
@@ -3823,13 +4026,13 @@
   };
 
   // src/client/deckui.ts
-  var $3 = $;
+  var $4 = $;
   var COLOR_NAME = { lightblue: "Light blue", blue: "Blue", yellow: "Yellow", green: "Green", red: "Red" };
   function h2(tag, cls = "", text) {
-    const el7 = document.createElement(tag);
-    if (cls) el7.className = cls;
-    if (text !== void 0) el7.textContent = String(text);
-    return el7;
+    const el8 = document.createElement(tag);
+    if (cls) el8.className = cls;
+    if (text !== void 0) el8.textContent = String(text);
+    return el8;
   }
   var view = null;
   var hooks2;
@@ -3874,7 +4077,7 @@
   }
   function initDeck(hk) {
     hooks2 = hk;
-    $3("dkAbility").onclick = () => {
+    $4("dkAbility").onclick = () => {
       const me3 = view?.players.find((p) => p.id === view.you);
       if (me3?.character && CHARACTER_INFO[me3.character].passive) {
         const used = [me3.wizardCardsUsed ? "cards used" : "+2 cards ready", me3.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
@@ -3882,18 +4085,18 @@
       }
       hooks2.send({ type: "deck_ability" });
     };
-    $3("dkChatForm").addEventListener("submit", (e) => {
+    $4("dkChatForm").addEventListener("submit", (e) => {
       e.preventDefault();
-      const input = $3("dkChatInput");
+      const input = $4("dkChatInput");
       const text = input.value.trim();
       if (text) hooks2.send({ type: "chat", text });
       input.value = "";
     });
-    renderGuide($3("deckGuide"));
+    renderGuide($4("deckGuide"));
   }
   var seenChat = /* @__PURE__ */ new Set();
   function chatMessages(msgs) {
-    const log = $3("dkChatLog");
+    const log = $4("dkChatLog");
     for (const m of msgs) {
       if (seenChat.has(m.id)) continue;
       seenChat.add(m.id);
@@ -3907,10 +4110,10 @@
   }
   function clearChat() {
     seenChat.clear();
-    $3("dkChatLog").replaceChildren();
+    $4("dkChatLog").replaceChildren();
   }
-  var renderDeckGuide = (el7) => renderGuide(el7);
-  function renderGuide(el7) {
+  var renderDeckGuide = (el8) => renderGuide(el8);
+  function renderGuide(el8) {
     const sec = (title, ...kids) => {
       const s = h2("section", "g-sec");
       s.append(h2("h4", "", title), ...kids);
@@ -3952,7 +4155,7 @@
       li.append(h2("span", "g-ic", icon), h2("span", "", t));
       flow.append(li);
     }
-    el7.replaceChildren(
+    el8.replaceChildren(
       h2("h3", "", "How Deck Duel works"),
       sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (\u2212${DECK_RULES.skipPenaltyHp} HP).`)),
       sec("Cards", cards),
@@ -3964,26 +4167,26 @@
   function cardEl(c, opts = {}) {
     const base = CARD_SPECS[c.color];
     const spec = { ...base, cost: Math.ceil(base.cost * (opts.costFactor ?? 1)) };
-    const el7 = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
-    if (opts.button) el7.disabled = !!opts.disabled;
-    el7.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
-    if (opts.big) return el7;
-    el7.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
+    const el8 = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
+    if (opts.button) el8.disabled = !!opts.disabled;
+    el8.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
+    if (opts.big) return el8;
+    el8.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
     if (c.kanji) {
       const k = h2("span", "dkc-k", c.kanji);
       k.lang = "ja";
       const r2 = h2("span", "dkc-r", c.reading ?? "");
       r2.lang = "ja";
-      el7.append(k, r2);
+      el8.append(k, r2);
     } else {
-      el7.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
+      el8.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
     }
-    return el7;
+    return el8;
   }
   var powered = (p) => !!p.character && p.character !== "wizard" && p.abilityActive > 0;
-  function playerPanel(el7, p, mine) {
-    paintFlame(el7, p.flame);
-    el7.classList.toggle("powered", powered(p));
+  function playerPanel(el8, p, mine) {
+    paintFlame(el8, p.flame);
+    el8.classList.toggle("powered", powered(p));
     arena()?.onfire(mine ? "me" : "opp", powered(p), flameColor(p.flame));
     const av = h2("div", "dk-av");
     av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp", p.staff) : "";
@@ -4015,7 +4218,7 @@
       cc.append(dot, `\xD7${p.handCounts[col]}`);
       counts2.append(cc);
     }
-    el7.replaceChildren(av, name, hp, mana, counts2);
+    el8.replaceChildren(av, name, hp, mana, counts2);
   }
   function renderDeck(v) {
     view = v;
@@ -4023,22 +4226,22 @@
     const opp = v.players.find((p) => p.id !== v.you);
     if (opp.character) arenaForDeck(v);
     show("deck");
-    playerPanel($3("dkMe"), me3, true);
-    playerPanel($3("dkOpp"), opp, false);
-    const overlay = $3("dkOverlay");
+    playerPanel($4("dkMe"), me3, true);
+    playerPanel($4("dkOpp"), opp, false);
+    const overlay = $4("dkOverlay");
     if (v.phase === "characters" || v.phase === "draft") {
       renderCast(v);
       stopCountdown("dkTurn");
-      $3("dkBanner").textContent = "";
+      $4("dkBanner").textContent = "";
       return v.phase === "characters" ? renderCharacters(v, me3, opp) : renderDraft(v, me3);
     }
     overlay.hidden = true;
     if (v.phase === "overtime") {
-      countdown("dkMatch", v.overtimeLeft, (left) => $3("dkClock").textContent = `OT ${clock(left)}`);
+      countdown("dkMatch", v.overtimeLeft, (left) => $4("dkClock").textContent = `OT ${clock(left)}`);
     } else {
-      countdown("dkMatch", v.matchLeftMs, (left) => $3("dkClock").textContent = clock(left));
+      countdown("dkMatch", v.matchLeftMs, (left) => $4("dkClock").textContent = clock(left));
     }
-    const banner = $3("dkBanner");
+    const banner = $4("dkBanner");
     const myTurn = v.turn?.active === v.you;
     if (myTurn && !v.casting && !wasMyTurn && v.phase !== "over") {
       sfx.yourTurn();
@@ -4051,17 +4254,17 @@
     const label = v.phase === "overtime" ? "Overtime \u2014 Rapid duel! First to type the reading hits" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
     countdown("dkTurn", deadline, (left) => banner.textContent = `${label} \xB7 ${Math.ceil(left / 1e3)}s`);
     const canPlay2 = myTurn && !v.casting && Date.now() >= revealUntil;
-    $3("dkHand").replaceChildren(...v.hand.map((c) => {
+    $4("dkHand").replaceChildren(...v.hand.map((c) => {
       const costFactor = myTurn ? v.turn.costFactor : 1;
-      const el7 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me3.mana });
-      el7.onclick = () => {
+      const el8 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me3.mana });
+      el8.onclick = () => {
         sfx.flip();
         hooks2.send({ type: "deck_play", cardId: c.cardId });
       };
-      return el7;
+      return el8;
     }));
-    $3("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
-    const ab = $3("dkAbility");
+    $4("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
+    const ab = $4("dkAbility");
     const ch = me3.character;
     ab.innerHTML = ch ? heroSvg(ch, "me", me3.staff) : "";
     const cd = me3.abilityCooldown;
@@ -4079,7 +4282,7 @@
     renderList(v);
   }
   function renderList(v) {
-    const box = $3("dkList");
+    const box = $4("dkList");
     const head = h2("h4", "", "Your kanji");
     if (!v.deckList) {
       box.replaceChildren(head, h2("p", "hint", v.phase === "overtime" ? "Overtime \u2014 the cards are gone: type the readings!" : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
@@ -4097,13 +4300,13 @@
     }
     box.replaceChildren(append2(head, h2("small", "", ` \xB7 ${v.deckList.length}`)), h2("p", "hint", "Which card is which stays secret."), ul);
   }
-  var append2 = (el7, ...kids) => {
-    el7.append(...kids);
-    return el7;
+  var append2 = (el8, ...kids) => {
+    el8.append(...kids);
+    return el8;
   };
   var castKey = "";
   function renderCast(v) {
-    const box = $3("dkCast");
+    const box = $4("dkCast");
     const c = v.casting;
     if (!c) {
       arena()?.channel(0);
@@ -4116,7 +4319,7 @@
       }
       if (Date.now() < revealUntil) return;
       box.replaceChildren();
-      $3("dkFeedback").replaceChildren();
+      $4("dkFeedback").replaceChildren();
       return;
     }
     revealUntil = 0;
@@ -4197,7 +4400,7 @@
         }
       } else stopCountdown("dkRead");
       box.replaceChildren(card, actions);
-      if (fresh) $3("dkFeedback").replaceChildren();
+      if (fresh) $4("dkFeedback").replaceChildren();
     }
     const writeNow = mine && !c.overtime && c.stage === "write";
     const a3 = arena();
@@ -4205,14 +4408,14 @@
     a3?.oppChannel(!mine && c.stage === "write");
     if (writeNow && writingCastId !== c.castId) {
       writingCastId = c.castId;
-      hooks2.beginWriting(c.castId, "\u25A1".repeat(c.chars));
+      hooks2.beginWriting(c.castId, c.template ?? "\u25A1".repeat(c.chars));
     } else if (!writeNow && writingCastId) {
       hooks2.stopWriting();
       writingCastId = 0;
     }
   }
   function renderCharacters(v, me3, opp) {
-    const overlay = $3("dkOverlay");
+    const overlay = $4("dkOverlay");
     overlay.hidden = false;
     const title = h2("h2", "", me3.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
     const grid = h2("div", "char-pick");
@@ -4233,7 +4436,7 @@
   var coinShown = false;
   function renderDraft(v, me3) {
     const d = v.draft;
-    const overlay = $3("dkOverlay");
+    const overlay = $4("dkOverlay");
     overlay.hidden = false;
     const mine = d.picker === v.you;
     const head = h2("div", "center");
@@ -4249,13 +4452,13 @@
     countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ""}`);
     const board = h2("div", "draft-board");
     for (const c of d.pool) {
-      const el7 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
-      if (c.takenBy) el7.classList.add("taken");
-      el7.onclick = () => {
+      const el8 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
+      if (c.takenBy) el8.classList.add("taken");
+      el8.onclick = () => {
         sfx.flip();
         hooks2.send({ type: "deck_pick", cardId: c.cardId });
       };
-      board.append(el7);
+      board.append(el8);
     }
     overlay.replaceChildren(backButton(v), head, status, board, h2("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
   }
@@ -4311,8 +4514,8 @@
   }
   var CARD_FX = { lightblue: "bolt", blue: "frost", red: "fire" };
   function animateResolve(e, me3, spoken = Promise.resolve()) {
-    const card = $3("dkCast").querySelector(".dkc.big");
-    const fb = $3("dkFeedback");
+    const card = $4("dkCast").querySelector(".dkc.big");
+    const fb = $4("dkFeedback");
     const who = e.playerId === me3 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
     const spec = e.overtime ? { label: "Rapid hit", kind: "attack", amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
     if (!e.ok) {
@@ -4329,7 +4532,7 @@
       const to = spec.kind === "attack" ? e.targetId === me3 ? "me" : "opp" : from;
       void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind, fx: e.overtime ? void 0 : CARD_FX[e.color] });
     } else if (spec.kind === "attack" && !e.overtime && CARD_FX[e.color]) {
-      const panel = $3(e.targetId === me3 ? "dkMe" : "dkOpp");
+      const panel = $4(e.targetId === me3 ? "dkMe" : "dkOpp");
       setTimeout(() => {
         panel.classList.remove("fx-bolt", "fx-frost", "fx-fire");
         void panel.offsetWidth;
@@ -4351,7 +4554,7 @@
       ghost.classList.add("sparkle");
     } else {
       const towardsMe = spec.kind === "heal" ? e.playerId === me3 : e.targetId === me3;
-      const target = zrect($3(towardsMe ? "dkMe" : "dkOpp"));
+      const target = zrect($4(towardsMe ? "dkMe" : "dkOpp"));
       ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
       void spoken.then(() => {
@@ -4381,15 +4584,15 @@
     card.append(h2("span", "reveal-badge", e.ok ? "\u2713" : "\u2717"), top, bottom);
     const label = h2("div", "cast-timer", e.ok ? "Correct!" : "The correct kanji");
     const strokesBox = h2("div", "dk-reveal-strokes");
-    $3("dkCast").replaceChildren(card, label, strokesBox);
+    $4("dkCast").replaceChildren(card, label, strokesBox);
     if (!e.ok && e.playerId === hooks2.me()) showWrongStrokes(strokesBox, e.kanji);
     revealUntil = Date.now() + REVEAL_MS;
     clearTimeout(revealTimer);
     revealTimer = window.setTimeout(() => {
       revealUntil = 0;
       if (!view?.casting) {
-        $3("dkCast").replaceChildren();
-        $3("dkFeedback").replaceChildren();
+        $4("dkCast").replaceChildren();
+        $4("dkFeedback").replaceChildren();
       }
       if (view) renderDeck(view);
     }, REVEAL_MS);
@@ -4445,12 +4648,12 @@
   var me = () => "";
   var tick = 0;
   var searching = false;
-  function guideHover(el7, mode3) {
+  function guideHover(el8, mode3) {
     const pop = $("guidePop");
     const open = () => {
       pop.replaceChildren(...modeGuideNodes(mode3));
       pop.hidden = false;
-      const r2 = zrect(el7);
+      const r2 = zrect(el8);
       const w = Math.min(380, viewW() - 24);
       pop.style.width = `${w}px`;
       pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r2.left))}px`;
@@ -4460,10 +4663,10 @@
     const close = () => {
       pop.hidden = true;
     };
-    el7.addEventListener("mouseenter", open);
-    el7.addEventListener("mouseleave", close);
-    el7.addEventListener("focusin", open);
-    el7.addEventListener("focusout", close);
+    el8.addEventListener("mouseenter", open);
+    el8.addEventListener("mouseleave", close);
+    el8.addEventListener("focusin", open);
+    el8.addEventListener("focusout", close);
   }
   function chip(value, label, on, group) {
     const l = document.createElement("label");
@@ -4550,7 +4753,7 @@
     }));
     const deckCard = document.querySelector('#queuePick .queue-card[data-q="deck"]');
     deckCard.classList.toggle("locked", !canPlay("deck"));
-    $("qLevels").replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), "ql")));
+    $("qLevels").replaceChildren(...LEVELS.map((l) => lockLevelChip(chip(l, LEVEL_LABEL[l], s.levels.includes(l) && (!kanaBeginner() || l === "KANA"), "ql"), l)));
     choose(s.pick ?? "battle", true);
     if (!searching) {
       $("queuePick").hidden = false;
@@ -4725,7 +4928,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.9.7.1";
+  var VERSION = "0.9.8";
 
   // src/client/net.ts
   var GameSocket = class {
@@ -4977,25 +5180,25 @@
   };
 
   // src/client/study.ts
-  var $4 = $;
+  var $5 = $;
   var onProfile = () => {
   };
   var onProfileChange = (fn) => {
     onProfile = fn;
   };
-  function counts(el7, c) {
-    el7.innerHTML = "";
+  function counts(el8, c) {
+    el8.innerHTML = "";
     for (const [cls, n, label] of [["c-new", c.new, "new"], ["c-learn", c.learning, "learning"], ["c-due", c.due, "to review"]]) {
       const s = document.createElement("span");
       s.className = cls;
       const b = document.createElement("b");
       b.textContent = String(n);
       s.append(b, label);
-      el7.append(s);
+      el8.append(s);
     }
   }
   function levelChips(selected) {
-    const box = $4("studyLevels");
+    const box = $5("studyLevels");
     box.replaceChildren(...LEVELS.map((lv) => {
       const label = document.createElement("label");
       label.className = "chip" + (selected.includes(lv) ? " on" : "");
@@ -5004,24 +5207,24 @@
       input.value = lv;
       input.checked = selected.includes(lv);
       label.append(input, LEVEL_LABEL[lv]);
-      return label;
+      return lockLevelChip(label, lv);
     }));
   }
   async function openStudy() {
     show("study");
     try {
       const s = await api.study();
-      render(s);
+      render2(s);
     } catch (e) {
       toast(e.message);
     }
   }
-  function render(s) {
+  function render2(s) {
     levelChips(s.studyLevels);
-    counts($4("countsAll"), s.decks.all);
-    counts($4("countsStruggle"), s.decks.struggling);
-    $4("studyCrit").textContent = `\u2726 ${critText(s.profile.crit)} crit today \xB7 ${s.profile.learnedToday} learned today (+1% each, max 50%) \xB7 ${s.profile.learned} learned in total`;
-    const notice = $4("studyNotice");
+    counts($5("countsAll"), s.decks.all);
+    counts($5("countsStruggle"), s.decks.struggling);
+    $5("studyCrit").textContent = `\u2726 ${critText(s.profile.crit)} crit today \xB7 ${s.profile.learnedToday} learned today (+1% each, max 50%) \xB7 ${s.profile.learned} learned in total`;
+    const notice = $5("studyNotice");
     notice.hidden = !s.notice;
     notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
     if (!s.studyLevels.length && !s.decks.all.total) {
@@ -5029,14 +5232,14 @@
       notice.textContent = "Tick one or more levels under \u201CAll spells\u201D to get 25 new spells today (and every day).";
     }
     const has = (c) => c.new + c.learning + c.due > 0;
-    $4("studyAll").disabled = !has(s.decks.all);
-    $4("studyStruggle").disabled = !has(s.decks.struggling);
+    $5("studyAll").disabled = !has(s.decks.all);
+    $5("studyStruggle").disabled = !has(s.decks.struggling);
     onProfile(s.profile);
   }
-  $4("studyLevels").addEventListener("change", async () => {
+  $5("studyLevels").addEventListener("change", async () => {
     const levels = [...document.querySelectorAll("#studyLevels input")].filter((i) => i.checked).map((i) => i.value);
     try {
-      render(await api.setStudyLevels(levels));
+      render2(await api.setStudyLevels(levels));
     } catch (e) {
       toast(e.message);
     }
@@ -5049,7 +5252,7 @@
   async function startSession(d) {
     deck = d;
     show("review");
-    $4("reviewDone").hidden = true;
+    $5("reviewDone").hidden = true;
     try {
       queue = (await api.queue(d)).cards;
     } catch (e) {
@@ -5062,20 +5265,20 @@
     current = queue.shift() ?? null;
     flipped = false;
     const done = !current;
-    $4("flash").hidden = done;
-    $4("showAnswer").hidden = done;
-    $4("rateRow").hidden = true;
-    $4("reviewDone").hidden = !done;
-    $4("reviewLeft").textContent = done ? "" : `${queue.length + 1} left \xB7 ${deck === "all" ? "All spells" : "Struggling"}`;
+    $5("flash").hidden = done;
+    $5("showAnswer").hidden = done;
+    $5("rateRow").hidden = true;
+    $5("reviewDone").hidden = !done;
+    $5("reviewLeft").textContent = done ? "" : `${queue.length + 1} left \xB7 ${deck === "all" ? "All spells" : "Struggling"}`;
     if (!current) return;
-    $4("fcKanji").textContent = current.kanji;
-    $4("fcLevel").textContent = LEVEL_LABEL[current.level] + (current.state === "new" ? " \xB7 new" : "");
-    $4("fcReading").textContent = current.reading;
-    $4("fcMeaning").textContent = current.meaning;
-    $4("fcBack").hidden = true;
-    $4("fcStrokes").hidden = true;
-    $4("fcStrokeBox").hidden = true;
-    const card = $4("flash");
+    $5("fcKanji").textContent = current.kanji;
+    $5("fcLevel").textContent = LEVEL_LABEL[current.level] + (current.state === "new" ? " \xB7 new" : "");
+    $5("fcReading").textContent = current.reading;
+    $5("fcMeaning").textContent = current.meaning;
+    $5("fcBack").hidden = true;
+    $5("fcStrokes").hidden = true;
+    $5("fcStrokeBox").hidden = true;
+    const card = $5("flash");
     card.style.animation = "none";
     void card.offsetWidth;
     card.style.animation = "";
@@ -5087,18 +5290,18 @@
   function flip() {
     if (!current || flipped) return;
     flipped = true;
-    $4("fcBack").hidden = false;
-    $4("showAnswer").hidden = true;
-    $4("rateRow").hidden = false;
-    $4("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
+    $5("fcBack").hidden = false;
+    $5("showAnswer").hidden = true;
+    $5("rateRow").hidden = false;
+    $5("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
   }
   function strokes() {
-    if (!current || !flipped || $4("fcStrokes").hidden) return;
-    const box = $4("fcStrokeBox");
+    if (!current || !flipped || $5("fcStrokes").hidden) return;
+    const box = $5("fcStrokeBox");
     box.hidden = false;
     void showStrokeOrder(box, current.kanji);
   }
-  $4("fcStrokes").onclick = (e) => {
+  $5("fcStrokes").onclick = (e) => {
     e.stopPropagation();
     strokes();
   };
@@ -5108,7 +5311,7 @@
     const card = current;
     try {
       const res = await api.review(card.vocabId, r2);
-      $4("whoCrit").textContent = `\u2726 ${critText(res.crit)} crit`;
+      $5("whoCrit").textContent = `\u2726 ${critText(res.crit)} crit`;
       if (r2 === "again") queue.splice(Math.min(3, queue.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
       else if (r2 === "hard" && card.state !== "review") queue.splice(Math.min(6, queue.length), 0, card);
     } catch (e) {
@@ -5117,11 +5320,11 @@
     busy = false;
     next();
   }
-  $4("showAnswer").onclick = flip;
-  $4("flash").onclick = flip;
+  $5("showAnswer").onclick = flip;
+  $5("flash").onclick = flip;
   for (const b of document.querySelectorAll("#rateRow .rate")) b.onclick = () => void rate(b.dataset.rating);
   addEventListener("keydown", (e) => {
-    if ($4("review").hidden || e.target instanceof HTMLInputElement) return;
+    if ($5("review").hidden || e.target instanceof HTMLInputElement) return;
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       flipped ? void rate("good") : flip();
@@ -5130,17 +5333,17 @@
     if (n >= 0 && flipped) void rate(["again", "hard", "good", "easy"][n]);
     if ((e.key === "s" || e.key === "S") && flipped) strokes();
   });
-  $4("studyAll").onclick = () => void startSession("all");
-  $4("studyStruggle").onclick = () => void startSession("struggling");
-  $4("reviewBack").onclick = () => void openStudy();
-  $4("reviewDoneBack").onclick = () => void openStudy();
+  $5("studyAll").onclick = () => void startSession("all");
+  $5("studyStruggle").onclick = () => void startSession("struggling");
+  $5("reviewBack").onclick = () => void openStudy();
+  $5("reviewDoneBack").onclick = () => void openStudy();
   var custTab = "staff";
   var picked2 = {};
   var cust = null;
   var preview = null;
   var previewTried = false;
   var staffThumbs = {};
-  var el3 = (tag, cls = "", text) => {
+  var el4 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -5159,7 +5362,7 @@
       return;
     }
     previewTried = true;
-    preview = await staffPreview($4("staffCanvas"));
+    preview = await staffPreview($5("staffCanvas"));
     if (preview) staffThumbs = Object.fromEntries(preview.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
     renderCustomize();
   }
@@ -5191,7 +5394,7 @@
             img.alt = "";
             return img;
           }
-          const g = el3("div", "pixel-staff");
+          const g = el4("div", "pixel-staff");
           g.innerHTML = pixelStaffSvg(s.id);
           return g;
         },
@@ -5208,7 +5411,7 @@
         lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
         equipped: profile2.background === b.id,
         tile: () => {
-          const d = el3("div", "bg-thumb");
+          const d = el4("div", "bg-thumb");
           d.innerHTML = backgroundThumb(b.id, time);
           return d;
         },
@@ -5224,7 +5427,7 @@
       lockedToast: f2.season ? `${f2.name} flames are the ${monthName(f2.season)} reward \u2014 complete that month's goals (see Progress)${f2.season === thisMonth() ? " \u2014 it's on now!" : ""}` : `Reach level ${f2.level} to unlock ${f2.name} flames`,
       equipped: (profile2.flame ?? "blue") === f2.id,
       tile: () => {
-        const d = el3("span", "flame-dot big");
+        const d = el4("span", "flame-dot big");
         d.style.setProperty("--c", f2.color);
         return d;
       },
@@ -5247,13 +5450,13 @@
     }
     const items = custItems(profile2, isAdmin);
     const sel = items.find((i) => i.id === picked2[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
-    $4("custSub").textContent = CUST_SUB[custTab](profile2);
-    const times = $4("bgTimes");
+    $5("custSub").textContent = CUST_SUB[custTab](profile2);
+    const times = $5("bgTimes");
     times.hidden = custTab !== "arena";
     if (custTab === "arena") {
       const pref = getTimePref();
       times.replaceChildren(...TIMES.map((t) => {
-        const b = el3("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "Day" : t.id === "sunset" ? "Sunset" : "Night");
+        const b = el4("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "Day" : t.id === "sunset" ? "Sunset" : "Night");
         b.onclick = () => {
           setTimePref(t.id);
           onTimeChange();
@@ -5273,13 +5476,13 @@
         toast(e.message);
       }
     };
-    $4("custGrid").className = `cust-grid ${custTab}`;
-    $4("custGrid").replaceChildren(...items.map((it) => {
-      const b = el3("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
+    $5("custGrid").className = `cust-grid ${custTab}`;
+    $5("custGrid").replaceChildren(...items.map((it) => {
+      const b = el4("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
       b.setAttribute("aria-pressed", String(it === sel));
-      const pic = el3("div", "ci-pic");
+      const pic = el4("div", "ci-pic");
       pic.append(it.tile());
-      b.append(pic, el3("div", "ci-name", it.name), el3("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? `Locked \xB7 ${it.lock}` : "Unlocked"));
+      b.append(pic, el4("div", "ci-name", it.name), el4("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? `Locked \xB7 ${it.lock}` : "Unlocked"));
       b.onclick = () => {
         picked2[custTab] = it.id;
         renderCustomize();
@@ -5287,52 +5490,52 @@
       b.ondblclick = () => void equip(it);
       return b;
     }));
-    const canvas = $4("staffCanvas");
-    const stage2 = $4("custStage2");
+    const canvas = $5("staffCanvas");
+    const stage2 = $5("custStage2");
     const showCanvas = custTab === "staff" && !!preview;
     canvas.hidden = !showCanvas;
     stage2.hidden = showCanvas;
-    $4("custStage").dataset.tab = custTab;
+    $5("custStage").dataset.tab = custTab;
     if (custTab === "staff") {
       if (preview) preview.show(sel.id);
       else {
-        const g = el3("div", "pixel-staff big");
+        const g = el4("div", "pixel-staff big");
         g.innerHTML = pixelStaffSvg(sel.id);
         stage2.replaceChildren(g);
       }
     } else if (custTab === "arena") {
       stage2.innerHTML = backgroundThumb(sel.id, resolveTime(getTimePref()));
     } else {
-      const w = el3("div", "wizard me onfire");
+      const w = el4("div", "wizard me onfire");
       paintFlame(w, sel.id);
-      const sprite = el3("div", "sprite");
+      const sprite = el4("div", "sprite");
       sprite.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", profile2.staff);
-      w.append(el3("div", "aura"), sprite);
-      const badge = el3("div", "combo-hud hot omni-badge");
+      w.append(el4("div", "aura"), sprite);
+      const badge = el4("div", "combo-hud hot omni-badge");
       badge.style.setProperty("--flame", FLAMES.find((f2) => f2.id === sel.id).color);
-      badge.append(el3("b", "", "\xD75"), el3("span", "", "COMBO"));
+      badge.append(el4("b", "", "\xD75"), el4("span", "", "COMBO"));
       stage2.replaceChildren(w, badge);
     }
-    const btn = el3("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? sel.lock.startsWith("Level") ? `Unlocks at ${sel.lock.replace("Level", "level")}` : sel.lock.endsWith("goals") ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}` : "Equip");
+    const btn = el4("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? sel.lock.startsWith("Level") ? `Unlocks at ${sel.lock.replace("Level", "level")}` : sel.lock.endsWith("goals") ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}` : "Equip");
     btn.disabled = sel.equipped;
     btn.classList.toggle("locked", sel.locked);
     btn.onclick = () => void equip(sel);
-    const info = [el3("h3", "", sel.name), el3("p", "sub", sel.blurb)];
+    const info = [el4("h3", "", sel.name), el4("p", "sub", sel.blurb)];
     if (custTab === "staff") {
-      const row = el3("div", "cust-2d");
-      const who = el3("div", "c2-char");
+      const row = el4("div", "cust-2d");
+      const who = el4("div", "c2-char");
       who.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", sel.id);
-      const st = el3("div", "pixel-staff");
+      const st = el4("div", "pixel-staff");
       st.innerHTML = pixelStaffSvg(sel.id);
-      row.append(who, st, el3("span", "hint", "2D arena"));
+      row.append(who, st, el4("span", "hint", "2D arena"));
       info.push(row);
     }
-    $4("custInfo").replaceChildren(...info, btn);
+    $5("custInfo").replaceChildren(...info, btn);
   }
 
   // src/client/progressui.ts
-  var $5 = $;
-  var el4 = (tag, cls = "", text) => {
+  var $6 = $;
+  var el5 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -5351,7 +5554,7 @@
   var level = "N5";
   async function openProgress() {
     show("progress");
-    $5("progGrid").replaceChildren(el4("p", "hint", "Loading\u2026"));
+    $6("progGrid").replaceChildren(el5("p", "hint", "Loading\u2026"));
     try {
       page = await api.progress();
     } catch (e) {
@@ -5360,12 +5563,12 @@
     }
     const busiest = LEVELS.map((l) => [l, page.mastery[l].filter(([, m]) => m > 0).length]).sort((a, b) => b[1] - a[1])[0];
     if (busiest && busiest[1] > 0) level = busiest[0];
-    render2();
+    render3();
   }
-  function render2() {
+  function render3() {
     if (!page) return;
     renderWeek(page.activity);
-    $5("progMonth").replaceChildren(...monthNodes(page.month));
+    $6("progMonth").replaceChildren(...monthNodes(page.month));
     renderHeatmap(page.activity);
     renderMastery();
   }
@@ -5384,98 +5587,131 @@
     const now = sum(7, 0), before = sum(14, 7);
     const stat = (label, v, prev) => {
       const d = v - prev;
-      const box = el4("div", "pw-stat");
+      const box = el5("div", "pw-stat");
       box.append(
-        el4("b", "", v.toLocaleString()),
-        el4("span", "", label),
-        el4("small", d > 0 ? "up" : d < 0 ? "down" : "", prev || v ? `${d > 0 ? "+" : ""}${d.toLocaleString()} vs last week` : "\u2014")
+        el5("b", "", v.toLocaleString()),
+        el5("span", "", label),
+        el5("small", d > 0 ? "up" : d < 0 ? "down" : "", prev || v ? `${d > 0 ? "+" : ""}${d.toLocaleString()} vs last week` : "\u2014")
       );
       return box;
     };
-    const grid = el4("div", "pw-grid");
+    const grid = el5("div", "pw-grid");
     grid.append(stat("days active", now.days, before.days), stat("cards passed", now.reviews, before.reviews), stat("games", now.games, before.games), stat("wins", now.wins, before.wins), stat("XP", now.xp, before.xp));
-    const bars = el4("div", "pw-bars");
+    const bars = el5("div", "pw-bars");
     const max = Math.max(1, ...Array.from({ length: 7 }, (_, i) => score(activity.find((a) => a.day === shift(t, i - 6)))));
     for (let i = -6; i <= 0; i++) {
       const day = shift(t, i);
       const a = activity.find((x) => x.day === day);
-      const bar = el4("div", "pw-bar");
-      const fill = el4("i");
+      const bar = el5("div", "pw-bar");
+      const fill = el5("i");
       fill.style.height = `${Math.round(score(a) / max * 100)}%`;
       bar.title = `${day}: ${a ? `${a.reviews} cards, ${a.games} games` : "nothing"}`;
-      bar.append(fill, el4("span", "", (/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "narrow" })));
+      bar.append(fill, el5("span", "", (/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "narrow" })));
       bars.append(bar);
     }
-    $5("progWeek").replaceChildren(el4("h3", "", "This week"), grid, bars);
+    $6("progWeek").replaceChildren(el5("h3", "", "This week"), grid, bars);
   }
   var score = (a) => a ? a.reviews + a.games * 5 + (a.login ? 1 : 0) : 0;
   function monthNodes(m) {
     const [kind, id] = m.reward.split(":");
     const reward = kind === "flame" ? FLAMES.find((f2) => f2.id === id) : STAFFS.find((s) => s.id === id);
-    const sw = el4("span", `reward-img ${kind}`);
+    const sw = el5("span", `reward-img ${kind}`);
     if (kind === "flame") {
-      const w = el4("div", "wizard me onfire");
+      const w = el5("div", "wizard me onfire");
       paintFlame(w, id);
-      const sprite = el4("div", "sprite");
+      const sprite = el5("div", "sprite");
       sprite.innerHTML = wizardSvg("me");
-      w.append(el4("div", "aura"), sprite);
+      w.append(el5("div", "aura"), sprite);
       sw.append(w);
     } else sw.innerHTML = pixelStaffSvg(id);
     sw.title = `${reward?.name}${kind === "flame" ? " flames" : ""}`;
     const monthName2 = (/* @__PURE__ */ new Date(`${m.month}-15T12:00:00`)).toLocaleDateString(locale(), { month: "long" });
-    const head = el4("h3", "", `${monthName2}: ${m.name} season`);
-    const rw = el4("div", "reward-line");
-    rw.append(sw, el4("span", "", m.unlocked ? `Unlocked: ${reward?.name}${kind === "flame" ? " flames" : ""} \u2014 equip it in Customize` : `Reward: ${reward?.name}${kind === "flame" ? " flames" : ""} (only this month)`));
-    const goals = el4("div", "goals");
+    const head = el5("h3", "", `${monthName2}: ${m.name} season`);
+    const rw = el5("div", "reward-line");
+    rw.append(sw, el5("span", "", m.unlocked ? `Unlocked: ${reward?.name}${kind === "flame" ? " flames" : ""} \u2014 equip it in Customize` : `Reward: ${reward?.name}${kind === "flame" ? " flames" : ""} (only this month)`));
+    const goals = el5("div", "goals");
     for (const g of m.goals) {
-      const row = el4("div", "goal" + (g.value >= g.target ? " done" : ""));
-      const bar = el4("div", "goal-bar");
-      const fill = el4("i");
+      const row = el5("div", "goal" + (g.value >= g.target ? " done" : ""));
+      const bar = el5("div", "goal-bar");
+      const fill = el5("i");
       fill.style.width = `${Math.round(g.value / g.target * 100)}%`;
       bar.append(fill);
-      row.append(el4("span", "goal-label", `${g.value >= g.target ? "\u2713 " : ""}${g.label}`), el4("span", "goal-num", `${g.value} / ${g.target}`), bar);
+      row.append(el5("span", "goal-label", `${g.value >= g.target ? "\u2713 " : ""}${g.label}`), el5("span", "goal-num", `${g.value} / ${g.target}`), bar);
       goals.append(row);
     }
     return [head, rw, goals];
   }
+  var calMonth = "";
+  var calActivity = [];
   function renderHeatmap(activity) {
+    calActivity = activity;
+    calMonth || (calMonth = today().slice(0, 7));
+    renderCalendar();
+  }
+  function renderCalendar() {
     const t = today();
-    const byDay = new Map(activity.map((a) => [a.day, a]));
-    const box = $5("progHeat");
-    box.replaceChildren();
-    const dow = ((/* @__PURE__ */ new Date(`${t}T12:00:00`)).getDay() + 6) % 7;
-    const start = shift(t, -(25 * 7 + dow));
-    const max = Math.max(1, ...activity.map(score));
+    const byDay = new Map(calActivity.map((a) => [a.day, a]));
+    const max = Math.max(1, ...calActivity.map(score));
+    const [y, m] = calMonth.split("-").map(Number);
+    const first = `${calMonth}-01`;
+    const days2 = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const lead = ((/* @__PURE__ */ new Date(`${first}T12:00:00Z`)).getUTCDay() + 6) % 7;
+    const box = $6("progHeat");
+    const oldest = shift(t, -182).slice(0, 7);
+    const prev = el5("button", "pill cal-nav", "\u2039");
+    const next2 = el5("button", "pill cal-nav", "\u203A");
+    const step = (n) => {
+      const d = new Date(Date.UTC(y, m - 1 + n, 15));
+      calMonth = d.toISOString().slice(0, 7);
+      renderCalendar();
+    };
+    prev.disabled = calMonth <= oldest;
+    next2.disabled = calMonth >= t.slice(0, 7);
+    prev.onclick = () => step(-1);
+    next2.onclick = () => step(1);
+    prev.setAttribute("aria-label", "Previous month");
+    next2.setAttribute("aria-label", "Next month");
+    const title = el5("b", "cal-title", new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(locale(), { month: "long", year: "numeric", timeZone: "UTC" }));
+    const head = el5("div", "cal-head");
+    head.append(prev, title, next2);
+    const grid = el5("div", "cal-grid");
+    grid.append(el5("span", "cal-wd wk", "Wk"));
+    for (let i = 0; i < 7; i++) grid.append(el5("span", "cal-wd", new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(locale(), { weekday: "short", timeZone: "UTC" })));
     let active = 0;
-    for (let w = 0; w < 26; w++) {
-      const col = el4("div", "hm-col");
-      for (let d = 0; d < 7; d++) {
-        const day = shift(start, w * 7 + d);
-        const cell = el4("div", "hm-cell");
-        if (day > t) {
-          cell.classList.add("future");
-          col.append(cell);
+    const cells = lead + days2, rows = Math.ceil(cells / 7);
+    for (let r2 = 0; r2 < rows; r2++) {
+      const firstOfRow = shift(first, r2 * 7 - lead);
+      grid.append(el5("span", "cal-wk", isoWeek(firstOfRow)));
+      for (let c = 0; c < 7; c++) {
+        const i = r2 * 7 + c - lead;
+        if (i < 0 || i >= days2) {
+          grid.append(el5("span", "cal-day blank"));
           continue;
         }
-        const a = byDay.get(day);
-        const s = score(a);
-        if (s > 0) active++;
-        cell.dataset.l = String(s === 0 ? 0 : Math.min(4, 1 + Math.floor(s / max * 3.999)));
-        cell.title = `${(/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric" })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ""}` : "no activity"}`;
+        const day = shift(first, i);
+        const cell = el5("span", "cal-day", i + 1);
+        if (day > t) cell.classList.add("future");
+        else {
+          const a = byDay.get(day);
+          const sc = score(a);
+          if (sc > 0) active++;
+          cell.dataset.l = String(sc === 0 ? 0 : Math.min(4, 1 + Math.floor(sc / max * 3.999)));
+          cell.title = `${(/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric" })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ""}` : "no activity"}`;
+        }
         if (day === t) cell.classList.add("today");
-        col.append(cell);
+        grid.append(cell);
       }
-      box.append(col);
     }
-    $5("progHeatSub").textContent = `${active} active days in the last 6 months`;
+    box.replaceChildren(head, grid);
+    $6("progHeatSub").textContent = `${active} active days this month`;
   }
   function renderMastery() {
     if (!page) return;
-    const tabs = $5("progLevels");
+    const tabs = $6("progLevels");
     tabs.replaceChildren(...LEVELS.map((l) => {
       const words2 = page.mastery[l];
       const known = words2.filter(([, m]) => m >= 3).length;
-      const b = el4("button", "cust-tab" + (l === level ? " on" : ""), `${LEVEL_LABEL[l]} \xB7 ${known}/${words2.length}`);
+      const b = el5("button", "cust-tab" + (l === level ? " on" : ""), `${LEVEL_LABEL[l]} \xB7 ${known}/${words2.length}`);
       b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", String(l === level));
       b.onclick = () => {
@@ -5487,25 +5723,25 @@
     const words = page.mastery[level];
     const counts2 = [0, 0, 0, 0, 0];
     for (const [, m] of words) counts2[m]++;
-    $5("progLegend").replaceChildren(...MASTERY.map((m, i) => {
-      const item = el4("span", "ml-item");
-      item.append(el4("i", m.cls), el4("span", "", `${m.label} \xB7 ${counts2[i]}`));
+    $6("progLegend").replaceChildren(...MASTERY.map((m, i) => {
+      const item = el5("span", "ml-item");
+      item.append(el5("i", m.cls), el5("span", "", `${m.label} \xB7 ${counts2[i]}`));
       return item;
     }));
-    const grid = $5("progGrid");
+    const grid = $6("progGrid");
     const frag = document.createDocumentFragment();
     for (const [kanji, m] of words) {
-      const c = el4("span", `mg ${MASTERY[m].cls}`);
+      const c = el5("span", `mg ${MASTERY[m].cls}`);
       c.title = `${kanji} \u2014 ${MASTERY[m].label}`;
       frag.append(c);
     }
     grid.replaceChildren(frag);
   }
-  $5("progressBack").onclick = () => show("menu");
+  $6("progressBack").onclick = () => show("menu");
 
   // src/client/dailyui.ts
-  var $6 = $;
-  var el5 = (tag, cls = "", text) => {
+  var $7 = $;
+  var el6 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -5519,7 +5755,7 @@
   };
   var me2 = "";
   var word = null;
-  var timer = 0;
+  var timer2 = 0;
   var busy2 = false;
   var results = [];
   async function dailyPending() {
@@ -5532,7 +5768,7 @@
   async function openDaily(userId) {
     me2 = userId;
     show("daily");
-    $6("dailyMain").replaceChildren(el5("p", "hint", "Loading\u2026"));
+    $7("dailyMain").replaceChildren(el6("p", "hint", "Loading\u2026"));
     try {
       renderOverview(await api.daily());
     } catch (e) {
@@ -5540,49 +5776,49 @@
     }
   }
   function renderBoard(o) {
-    const list = $6("dailyBoard");
+    const list = $7("dailyBoard");
     if (!o.board.length) {
-      list.replaceChildren(el5("li", "hint", "Nobody has played today yet \u2014 be the first!"));
+      list.replaceChildren(el6("li", "hint", "Nobody has played today yet \u2014 be the first!"));
       return;
     }
     list.replaceChildren(...o.board.map((r2, i) => {
-      const li = el5("li", r2.id === me2 ? "me" : "");
-      li.append(el5("span", "db-rank", i + 1), el5("span", "db-name", r2.name), el5("span", "db-score", `${r2.correct}/${o.total}`), el5("span", "db-time", secs2(r2.ms)));
+      const li = el6("li", r2.id === me2 ? "me" : "");
+      li.append(el6("span", "db-rank", i + 1), el6("span", "db-name", r2.name), el6("span", "db-score", `${r2.correct}/${o.total}`), el6("span", "db-time", secs2(r2.ms)));
       return li;
     }));
   }
   function renderOverview(o) {
     renderBoard(o);
-    const main = $6("dailyMain");
+    const main = $7("dailyMain");
     const date = `Challenge of ${(/* @__PURE__ */ new Date(`${o.day}T12:00:00Z`)).toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}`;
     if (o.mine) {
-      const words = el5("div", "daily-words");
+      const words = el6("div", "daily-words");
       for (const w of o.words ?? []) {
-        const row = el5("div", "dw");
-        const k = el5("span", "dw-k", w.kanji);
+        const row = el6("div", "dw");
+        const k = el6("span", "dw-k", w.kanji);
         k.lang = "ja";
-        const r2 = el5("span", "dw-r", w.reading);
+        const r2 = el6("span", "dw-r", w.reading);
         r2.lang = "ja";
-        row.append(el5("span", "dw-l", LEVEL_LABEL[w.level]), k, r2, el5("span", "dw-m", w.meaning));
+        row.append(el6("span", "dw-l", LEVEL_LABEL[w.level]), k, r2, el6("span", "dw-m", w.meaning));
         words.append(row);
       }
       main.replaceChildren(
-        el5("p", "sub", date),
-        el5("div", "daily-score", `${o.mine.correct} / ${o.total}`),
-        el5("p", "center", `${secs2(o.mine.ms)} \xB7 rank ${o.rank} today`),
-        el5("p", "hint center", `10 new words ${nextReset()}.`),
-        el5("h4", "", "Today's words"),
+        el6("p", "sub", date),
+        el6("div", "daily-score", `${o.mine.correct} / ${o.total}`),
+        el6("p", "center", `${secs2(o.mine.ms)} \xB7 rank ${o.rank} today`),
+        el6("p", "hint center", `10 new words ${nextReset()}.`),
+        el6("h4", "", "Today's words"),
         words
       );
       return;
     }
-    const start = el5("button", "big", o.inProgress ? "Continue" : "Start");
+    const start = el6("button", "big", o.inProgress ? "Continue" : "Start");
     start.onclick = () => void begin();
     main.replaceChildren(
-      el5("p", "sub", date),
-      el5("h3", "", "Ten words, the same for everyone today"),
-      el5("p", "", `Two words each from N5 to N1, easiest first. Type the reading (kana or romaji) and press Enter \u2014 ${o.wordMs / 1e3} s per word. One try a day: most correct wins, then fastest.`),
-      el5("p", "hint", `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
+      el6("p", "sub", date),
+      el6("h3", "", "Ten words, the same for everyone today"),
+      el6("p", "", `Two words each from N5 to N1, easiest first. Type the reading (kana or romaji) and press Enter \u2014 ${o.wordMs / 1e3} s per word. One try a day: most correct wins, then fastest.`),
+      el6("p", "hint", `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
       start
     );
   }
@@ -5602,35 +5838,35 @@
   }
   function renderPlay(last) {
     if (!word) return;
-    const main = $6("dailyMain");
-    const dots = el5("div", "daily-dots");
-    for (let i = 0; i < word.total; i++) dots.append(el5("i", i < results.length ? results[i] ? "ok" : "no" : i === word.index ? "now" : ""));
-    const k = el5("div", "daily-kanji", word.kanji);
+    const main = $7("dailyMain");
+    const dots = el6("div", "daily-dots");
+    for (let i = 0; i < word.total; i++) dots.append(el6("i", i < results.length ? results[i] ? "ok" : "no" : i === word.index ? "now" : ""));
+    const k = el6("div", "daily-kanji", word.kanji);
     k.lang = "ja";
-    const bar = el5("div", "timer thin");
-    const fill = el5("div");
+    const bar = el6("div", "timer thin");
+    const fill = el6("div");
     bar.append(fill);
-    const input = el5("input", "daily-input");
+    const input = el6("input", "daily-input");
     input.lang = "ja";
     input.autocomplete = "off";
     input.spellcheck = false;
     input.placeholder = "reading (\u304B\u306A or romaji)";
     input.addEventListener("paste", (e) => e.preventDefault());
-    const skip2 = el5("button", "pill", "Skip");
-    const fb = el5("div", "daily-fb");
+    const skip2 = el6("button", "pill", "Skip");
+    const fb = el6("div", "daily-fb");
     if (last) {
       fb.className = `daily-fb ${last.correct ? "ok" : "no"}`;
-      const kk = el5("span", "rk", last.kanji);
+      const kk = el6("span", "rk", last.kanji);
       kk.lang = "ja";
-      const rr = el5("span", "rr", last.reading);
+      const rr = el6("span", "rr", last.reading);
       rr.lang = "ja";
-      fb.append(el5("b", "", last.correct ? "\u2713" : "\u2717"), kk, rr, el5("span", "", last.meaning));
+      fb.append(el6("b", "", last.correct ? "\u2713" : "\u2717"), kk, rr, el6("span", "", last.meaning));
     }
-    main.replaceChildren(el5("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input, skip2, fb);
+    main.replaceChildren(el6("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input, skip2, fb);
     input.focus();
     const t0 = performance.now(), limit = word.timeLimitMs;
-    clearInterval(timer);
-    timer = window.setInterval(() => {
+    clearInterval(timer2);
+    timer2 = window.setInterval(() => {
       const left = Math.max(0, limit - (performance.now() - t0));
       fill.style.width = `${left / limit * 100}%`;
       if (left <= 0) void submit("");
@@ -5643,7 +5879,7 @@
   async function submit(text) {
     if (busy2 || !word) return;
     busy2 = true;
-    clearInterval(timer);
+    clearInterval(timer2);
     try {
       const r2 = await api.dailyAnswer(text);
       results.push(r2.correct);
@@ -5669,79 +5905,79 @@
       void openDaily(me2);
     }
   }
-  $6("dailyBack").onclick = () => {
-    clearInterval(timer);
+  $7("dailyBack").onclick = () => {
+    clearInterval(timer2);
     word = null;
     show("menu");
   };
 
   // src/client/friendsui.ts
-  var $7 = $;
-  var el6 = (tag, cls = "", text) => {
+  var $8 = $;
+  var el7 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
     return e;
   };
-  var friends = [];
+  var friends2 = [];
   var fetchedAt = 0;
   var hooks3;
   function initFriends(h3) {
     hooks3 = h3;
   }
   async function refresh(force = false) {
-    if (!force && Date.now() - fetchedAt < 8e3) return friends;
+    if (!force && Date.now() - fetchedAt < 8e3) return friends2;
     try {
-      friends = (await api.friends()).friends;
+      friends2 = (await api.friends()).friends;
       fetchedAt = Date.now();
     } catch {
     }
     updateBadge();
-    return friends;
+    return friends2;
   }
   function updateBadge() {
-    const n = friends.filter((f2) => f2.status === "incoming").length;
-    const b = $7("friendsBadge");
+    const n = friends2.filter((f2) => f2.status === "incoming").length;
+    const b = $8("friendsBadge");
     b.hidden = n === 0;
     b.textContent = String(n);
   }
   var refreshFriendsBadge = () => void refresh(true);
   async function openFriends() {
     show("friends");
-    $7("friendMsg").textContent = "";
+    $8("friendMsg").textContent = "";
     await refresh(true);
-    render3();
+    render4();
   }
-  function render3() {
-    const list = $7("friendList");
-    const incoming = friends.filter((f2) => f2.status === "incoming");
-    const accepted = friends.filter((f2) => f2.status === "accepted").sort((a, b) => Number(b.online) - Number(a.online) || a.username.localeCompare(b.username));
-    const outgoing = friends.filter((f2) => f2.status === "outgoing");
+  function render4() {
+    const list = $8("friendList");
+    const incoming = friends2.filter((f2) => f2.status === "incoming");
+    const accepted = friends2.filter((f2) => f2.status === "accepted").sort((a, b) => Number(b.online) - Number(a.online) || a.username.localeCompare(b.username));
+    const outgoing = friends2.filter((f2) => f2.status === "outgoing");
     const section = (title, rows) => {
       if (!rows.length) return [];
-      const s = el6("div", "fl-section");
-      s.append(el6("h3", "", title), ...rows);
+      const s = el7("div", "fl-section");
+      s.append(el7("h3", "", title), ...rows);
       return [s];
     };
     const row = (f2, actions) => {
-      const r2 = el6("div", "fl-row" + (f2.online ? " online" : ""));
-      const who = el6("div", "fl-who");
-      const name = el6("span", "fl-name", f2.username);
+      const r2 = el7("div", "fl-row" + (f2.online ? " online" : ""));
+      const who = el7("div", "fl-who");
+      const name = el7("span", "fl-name", f2.username);
       markProfile(name, { id: f2.id, name: f2.username, bot: null });
-      who.append(el6("i", "dot"), name, el6("small", "", f2.status === "accepted" ? f2.online ? f2.activity ?? "Online" : "Offline" : f2.status === "incoming" ? "wants to be friends" : "request sent"));
-      r2.append(who, el6("div", "fl-actions"));
+      who.append(el7("i", "dot"), name, el7("small", "", f2.status === "accepted" ? f2.online ? f2.activity ?? "Online" : "Offline" : f2.status === "incoming" ? "wants to be friends" : "request sent"));
+      r2.append(who, el7("div", "fl-actions"));
       r2.lastElementChild.append(...actions);
       return r2;
     };
     const btn = (text, cls, fn) => {
-      const b = el6("button", `pill ${cls}`, text);
+      const b = el7("button", `pill ${cls}`, text);
       b.onclick = async () => {
         b.disabled = true;
         try {
-          friends = (await fn()).friends;
+          friends2 = (await fn()).friends;
           fetchedAt = Date.now();
           updateBadge();
-          render3();
+          render4();
         } catch (e) {
           toast(e.message);
           b.disabled = false;
@@ -5754,32 +5990,32 @@
       ...section(`Friends (${accepted.length}) \xB7 ${accepted.filter((f2) => f2.online).length} online`, accepted.map((f2) => row(f2, [btn("Remove", "danger", () => api.removeFriend(f2.id))]))),
       ...section("Sent requests", outgoing.map((f2) => row(f2, [btn("Cancel", "", () => api.removeFriend(f2.id))])))
     ];
-    list.replaceChildren(...nodes.length ? nodes : [el6("p", "hint", "No friends yet \u2014 add someone by their player name above.")]);
+    list.replaceChildren(...nodes.length ? nodes : [el7("p", "hint", "No friends yet \u2014 add someone by their player name above.")]);
   }
-  $7("friendAdd").addEventListener("submit", async (e) => {
+  $8("friendAdd").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const input = $7("friendName");
+    const input = $8("friendName");
     const name = input.value.trim();
     if (!name) return;
     try {
       const r2 = await api.addFriend(name);
-      friends = r2.friends;
+      friends2 = r2.friends;
       fetchedAt = Date.now();
-      $7("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      $8("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
       input.value = "";
-      render3();
+      render4();
     } catch (err) {
-      $7("friendMsg").textContent = err.message;
+      $8("friendMsg").textContent = err.message;
     }
   });
-  $7("friendsBack").onclick = () => show("menu");
-  $7("friendsRefresh").onclick = () => void openFriends();
+  $8("friendsBack").onclick = () => show("menu");
+  $8("friendsRefresh").onclick = () => void openFriends();
   var INVITE_COOLDOWN_MS = 1e4;
   var invitedAt = /* @__PURE__ */ new Map();
   var lobbyIds = [];
   var cooldownTimer = 0;
   async function renderLobbyInvites(isLobby, inRoom2 = lobbyIds) {
-    const box = $7("lobbyInvite");
+    const box = $8("lobbyInvite");
     lobbyIds = inRoom2;
     clearTimeout(cooldownTimer);
     if (!isLobby) {
@@ -5787,16 +6023,16 @@
       return;
     }
     await refresh();
-    const online = friends.filter((f2) => f2.status === "accepted" && f2.online && !lobbyIds.includes(f2.id));
+    const online = friends2.filter((f2) => f2.status === "accepted" && f2.online && !lobbyIds.includes(f2.id));
     box.hidden = online.length === 0;
     if (!online.length) return;
     let soonest = Infinity;
-    box.replaceChildren(el6("h4", "", "Invite friends"), ...online.map((f2) => {
-      const r2 = el6("div", "li-row");
+    box.replaceChildren(el7("h4", "", "Invite friends"), ...online.map((f2) => {
+      const r2 = el7("div", "li-row");
       const playing = !!f2.activity?.startsWith("Playing");
       const wait = INVITE_COOLDOWN_MS - (Date.now() - (invitedAt.get(f2.id) ?? 0));
       if (wait > 0) soonest = Math.min(soonest, wait);
-      const b = el6("button", "pill primary", playing ? "In a game" : wait > 0 ? `Invited \xB7 ${Math.ceil(wait / 1e3)}s` : invitedAt.has(f2.id) ? "Invite again" : "Invite");
+      const b = el7("button", "pill primary", playing ? "In a game" : wait > 0 ? `Invited \xB7 ${Math.ceil(wait / 1e3)}s` : invitedAt.has(f2.id) ? "Invite again" : "Invite");
       b.disabled = playing || wait > 0;
       b.title = playing ? "They are playing \u2014 invite them when their game is over" : "";
       b.onclick = () => {
@@ -5804,7 +6040,7 @@
         invitedAt.set(f2.id, Date.now());
         void renderLobbyInvites(true);
       };
-      r2.append(el6("i", "dot"), el6("span", "", f2.username), el6("small", "hint", f2.activity ?? ""), b);
+      r2.append(el7("i", "dot"), el7("span", "", f2.username), el7("small", "hint", f2.activity ?? ""), b);
       return r2;
     }));
     if (soonest < Infinity) cooldownTimer = window.setTimeout(() => {
@@ -5812,9 +6048,9 @@
     }, Math.min(1e3, soonest));
   }
   function onInvite(msg) {
-    const box = $7("inviteBox");
-    const join2 = el6("button", "big", "Join");
-    const no = el6("button", "pill", "Decline");
+    const box = $8("inviteBox");
+    const join2 = el7("button", "big", "Join");
+    const no = el7("button", "pill", "Decline");
     const close = () => {
       box.hidden = true;
       clearTimeout(t);
@@ -5824,7 +6060,7 @@
       hooks3.join(msg.code);
     };
     no.onclick = close;
-    box.replaceChildren(el6("b", "", `${msg.from} invites you`), el6("span", "", `to ${MODE_LABEL[msg.mode]} \u2014 room ${msg.code}`), el6("div", "ib-actions"));
+    box.replaceChildren(el7("b", "", `${msg.from} invites you`), el7("span", "", `to ${MODE_LABEL[msg.mode]} \u2014 room ${msg.code}`), el7("div", "ib-actions"));
     box.lastElementChild.append(join2, no);
     box.hidden = false;
     sfx.go();
@@ -5834,7 +6070,7 @@
   function onFriendEvent(msg) {
     toast(msg.event === "request" ? `${msg.from} wants to be your friend \u2014 see Friends` : `${msg.from} accepted your friend request`, 5e3);
     void refresh(true).then(() => {
-      if (currentScreen() === "friends") render3();
+      if (currentScreen() === "friends") render4();
     });
   }
 
@@ -5871,9 +6107,10 @@
     try {
       const raw = JSON.parse(store.get("kb:levels") ?? "[]");
       const lv = LEVELS.filter((l) => Array.isArray(raw) && raw.includes(l));
+      if (kanaBeginner()) return ["KANA"];
       return lv.length ? lv : ["N3", "N2"];
     } catch {
-      return ["N3", "N2"];
+      return kanaBeginner() ? ["KANA"] : ["N3", "N2"];
     }
   };
   var socket = new GameSocket(onMessage, (s) => {
@@ -5888,9 +6125,11 @@
     const title = $("modeTitle");
     title.hidden = !["prep", "battle", "deck"].includes(s);
     document.body.classList.toggle("mode-shown", !title.hidden);
+    if (s !== "battle" && document.activeElement?.id === "answer") document.activeElement.blur();
     if (!title.hidden) title.replaceChildren(modeBadge(s === "deck" ? "deck" : mode2), document.createTextNode(MODE_LABEL[s === "deck" ? "deck" : mode2]));
     if (s === "menu" && profile) void refreshProfile();
     if (s !== "lobby") void renderLobbyInvites(false);
+    railScreen(s);
     tutorialScreen(s);
     if (!GAME_SCREENS2.has(s)) setTimeout(() => applyBackground(true), 0);
   });
@@ -5914,11 +6153,12 @@
   scheduleCycle();
   var tutorialShown = false;
   var pendingJoin = "";
+  var writeShape = "";
   var prevStaff = null;
   function applyProfile(p) {
     const before = profile?.unlocks ?? null;
     if (before) {
-      for (const r2 of p.unlocks ?? []) if (!before.includes(r2)) {
+      for (const r2 of p.unlocks ?? []) if (!before.includes(r2) && !r2.startsWith("flag:")) {
         const [kind, id] = r2.split(":");
         const name = kind === "flame" ? `${FLAMES.find((f2) => f2.id === id)?.name} flames` : STAFFS.find((x) => x.id === id)?.name;
         toast(`Monthly goals complete! ${name} unlocked \u2014 equip it in Customize.`, 7e3);
@@ -5926,6 +6166,8 @@
     }
     profile = p;
     setProfile(p);
+    $("kanaRow").hidden = $("kanaInfo").hidden = false;
+    $("kanaMastered").checked = !kanaBeginner();
     setModeAccess(p.level, user?.role === "admin");
     if (!p.tutorialDone && !tutorialShown && user && !inRoom) {
       tutorialShown = true;
@@ -5961,7 +6203,7 @@
     try {
       const { user: u, profile: p } = await api.me();
       applyProfile(p);
-      signedIn(u);
+      signedIn2(u);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         setToken("");
@@ -5972,9 +6214,10 @@
       }
     }
   }
-  function signedIn(u) {
+  function signedIn2(u) {
     user = u;
     setUser(u);
+    setRailUser(true);
     socket.start(getToken());
     if (!inRoom) show("menu");
     if (!profile) void refreshProfile();
@@ -5985,6 +6228,7 @@
     profile = null;
     inRoom = false;
     setUser(null);
+    setRailUser(false);
     setAuthTab(authTab);
     show("auth");
     $("authError").textContent = message;
@@ -6052,6 +6296,7 @@
         break;
       case "friend":
         onFriendEvent(msg);
+        void refreshRail();
         break;
       case "invite":
         onInvite(msg);
@@ -6098,13 +6343,13 @@
           sfx.wrong();
           arena()?.fizzle("me");
           const input = $("answer");
-          input.disabled = false;
+          setAnswerLocked(false);
           input.value = "";
           input.focus();
           break;
         }
         lockInput();
-        if (mode2 === "writing") setCharSlots(charCount, written.map(() => ""), false);
+        if (mode2 === "writing") setCharSlots(charCount, written.map(() => ""), false, writeShape);
         setFeedback(msg);
         if (msg.correct) {
           const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
@@ -6173,14 +6418,14 @@
   }
   function onBattleEvent(msg) {
     const e = msg.event;
-    const render4 = () => renderFighters(players, you, msg.boss);
+    const render5 = () => renderFighters(players, you, msg.boss);
     switch (e.kind) {
       case "hit": {
         const caster = actorOf(e.playerId);
         const target = actorOf(e.targetId);
         const friendly = caster !== "opp";
         void castSpell(caster, target, e.kanji, e.damage, friendly, !!e.crit).then(() => {
-          render4();
+          render5();
           if (target === "me") sfx.hurt();
           else if (caster === "me") sfx.impact();
         });
@@ -6189,13 +6434,13 @@
       }
       case "miss":
         fizzle(actorOf(e.playerId));
-        render4();
+        render5();
         if (e.playerId !== you) logLine(`${nameOf(e.playerId)} fumbled:`, e.kanji);
         break;
       case "claw":
         clawHit(actorOf(e.playerId), e.damage);
         if (e.playerId === you) sfx.claw();
-        setTimeout(render4, 200);
+        setTimeout(render5, 200);
         if (e.playerId !== you) logLine(`The dragon claws ${nameOf(e.playerId)} for ${e.damage}`);
         break;
       case "breath_warning":
@@ -6208,7 +6453,7 @@
         breathFire(e.damage, victims, immune.map((id) => actorOf(id)));
         if (immune.includes(you)) toast("You are on fire \u2014 immune to dragon breath!");
         sfx.fire();
-        setTimeout(render4, 450);
+        setTimeout(render5, 450);
         logLine(immune.length ? `Fire breath! ${e.damage} damage \u2014 ${immune.map(nameOf).join(", ")} immune (on fire)` : `Fire breath! Everyone takes ${e.damage}`);
         break;
       }
@@ -6242,13 +6487,14 @@
   function beginWriting(id, kanji) {
     challengeId = id;
     writing = true;
-    charCount = [...kanji].length;
+    charCount = writeTargets(kanji).length;
+    writeShape = writeTemplate(kanji);
     written = [];
     pad.setCells(charCount);
     setEraser(false);
     arena()?.channel(0.35);
     if (mode2 === "deck") mountWriteArea("dkWrite");
-    setCharSlots(charCount, [], true);
+    setCharSlots(charCount, [], true, writeShape);
     const ime = $("imeInput");
     ime.value = "";
     if (mode2 === "deck") {
@@ -6354,7 +6600,7 @@
       const res = authTab === "login" ? await api.login(username, password) : await api.register(username, password);
       setToken(res.token);
       $("authPass").value = "";
-      signedIn(res.user);
+      signedIn2(res.user);
       void refreshProfile();
     } catch (err) {
       $("authError").textContent = err instanceof Error ? err.message : "Something went wrong";
@@ -6402,7 +6648,17 @@
     },
     inRoom: () => inRoom
   });
-  initTutorial({ firstBattle: () => socket.send({ type: "create", mode: "reading", levels: ["KANA", "N5"], tutorial: true }) });
+  initTutorial({
+    firstBattle: () => socket.send({ type: "create", mode: "reading", levels: kanaBeginner() ? ["KANA"] : ["KANA", "N5"], tutorial: true }),
+    kana: async (mastered) => {
+      try {
+        applyProfile((await api.setKana(mastered)).profile);
+      } catch (e) {
+        toast(e.message);
+      }
+      if (!mastered) store.set("kb:levels", JSON.stringify(["KANA"]));
+    }
+  });
   $("modesBack").onclick = () => show("menu");
   var join = () => {
     const c = $("joinCode").value.trim();
@@ -6476,11 +6732,14 @@
     writing = false;
   }
   $("skip").onclick = () => {
-    if (!$("answer").disabled) skip();
+    if (!answerLocked()) skip();
   };
   $("answer").addEventListener("keydown", (e) => {
     const input = e.currentTarget;
-    if (input.disabled) return;
+    if (answerLocked()) {
+      if (e.key === "Enter") e.preventDefault();
+      return;
+    }
     if (e.key === "Escape" && !e.isComposing) {
       e.preventDefault();
       return skip();
@@ -6530,6 +6789,17 @@
     });
     $("volBtn").addEventListener("click", sync);
   }
+  $("kanaMastered").onchange = async (e) => {
+    const box = e.target;
+    try {
+      applyProfile((await api.setKana(box.checked)).profile);
+      toast(box.checked ? "Kanji levels unlocked \u2014 pick N5 in Study spells to start!" : "Back to \u304B\u306A only: kanji levels are locked.", 5e3);
+      if (!box.checked) store.set("kb:levels", JSON.stringify(["KANA"]));
+    } catch (err) {
+      box.checked = !box.checked;
+      toast(err.message);
+    }
+  };
   {
     const sel = $("langSel");
     sel.value = lang();
@@ -6575,30 +6845,30 @@
   $("resultHistoryBack").onclick = () => void openHistory();
   {
     let shownFor = "";
-    const open = async (el7) => {
-      const id = el7.dataset.profile;
+    const open = async (el8) => {
+      const id = el8.dataset.profile;
       if (shownFor === id && !$("otherPop").hidden) {
         hideProfileCard();
         shownFor = "";
         return;
       }
       shownFor = id;
-      const name = el7.dataset.name ?? el7.textContent ?? "";
-      const bot = el7.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
-      if (bot) return showProfileCard(el7, { bot, name });
-      showProfileCard(el7, "loading");
+      const name = el8.dataset.name ?? el8.textContent ?? "";
+      const bot = el8.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
+      if (bot) return showProfileCard(el8, { bot, name });
+      showProfileCard(el8, "loading");
       try {
         const { profile: profile2 } = await api.player(id);
-        if (shownFor === id) showProfileCard(el7, profile2);
+        if (shownFor === id) showProfileCard(el8, profile2);
       } catch {
-        if (shownFor === id) showProfileCard(el7, "missing");
+        if (shownFor === id) showProfileCard(el8, "missing");
       }
     };
     addEventListener("click", (e) => {
-      const el7 = e.target.closest("[data-profile]");
-      if (el7) {
+      const el8 = e.target.closest("[data-profile]");
+      if (el8) {
         e.stopPropagation();
-        void open(el7);
+        void open(el8);
         return;
       }
       if (!$("otherPop").contains(e.target)) {
@@ -6607,10 +6877,10 @@
       }
     }, true);
     addEventListener("keydown", (e) => {
-      const el7 = e.target.closest?.("[data-profile]");
-      if (el7 && (e.key === "Enter" || e.key === " ")) {
+      const el8 = e.target.closest?.("[data-profile]");
+      if (el8 && (e.key === "Enter" || e.key === " ")) {
         e.preventDefault();
-        void open(el7);
+        void open(el8);
       } else if (e.key === "Escape") hideProfileCard();
     });
   }

@@ -1,3 +1,5 @@
+import { railScreen, refreshRail, setRailUser } from './friendrail';
+import { writeTargets, writeTemplate } from '../shared/kana';
 import { initI18n, lang, setLang } from './i18n';
 import { applyUiZoom, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
 import * as voice from './voice';
@@ -47,8 +49,9 @@ const savedLevels = (): Level[] => {
   try {
     const raw = JSON.parse(store.get('kb:levels') ?? '[]');
     const lv = LEVELS.filter((l) => Array.isArray(raw) && raw.includes(l));
+    if (ui.kanaBeginner()) return ['KANA']; // hiragana first
     return lv.length ? lv : ['N3', 'N2'];
-  } catch { return ['N3', 'N2']; }
+  } catch { return ui.kanaBeginner() ? ['KANA'] : ['N3', 'N2']; }
 };
 
 const socket = new GameSocket(onMessage, (s) => {
@@ -69,9 +72,12 @@ ui.onScreen((s) => {
   const title = ui.$('modeTitle');
   title.hidden = !['prep', 'battle', 'deck'].includes(s);
   document.body.classList.toggle('mode-shown', !title.hidden);
+  // leaving the battle: let go of the answer box (it stays enabled between words so the phone keyboard stays up)
+  if (s !== 'battle' && document.activeElement?.id === 'answer') (document.activeElement as HTMLElement).blur();
   if (!title.hidden) title.replaceChildren(ui.modeBadge(s === 'deck' ? 'deck' : mode), document.createTextNode(MODE_LABEL[s === 'deck' ? 'deck' : mode]));
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (s !== 'lobby') void renderLobbyInvites(false);
+  railScreen(s);
   tutorialScreen(s);
   if (!GAME_SCREENS.has(s)) setTimeout(() => applyBackground(true), 0); // catch up on the cycle after a game
 });
@@ -99,17 +105,20 @@ scheduleCycle();
 
 let tutorialShown = false;
 let pendingJoin = '';
+let writeShape = ''; // the word being written with its kanji hidden: 必ず → □ず
 let prevStaff: string | null = null; // the staff the menu wizards hold // invited while in another room: join after leaving it
 function applyProfile(p: Profile) {
   // a monthly reward just unlocked → say so
   const before = profile?.unlocks ?? null;
-  if (before) for (const r of p.unlocks ?? []) if (!before.includes(r)) {
+  if (before) for (const r of p.unlocks ?? []) if (!before.includes(r) && !r.startsWith('flag:')) {
     const [kind, id] = r.split(':');
     const name = kind === 'flame' ? `${ALL_FLAMES.find((f) => f.id === id)?.name} flames` : ALL_STAFFS.find((x) => x.id === id)?.name;
     ui.toast(`Monthly goals complete! ${name} unlocked — equip it in Customize.`, 7000);
   }
   profile = p;
   ui.setProfile(p);
+  ui.$('kanaRow').hidden = ui.$('kanaInfo').hidden = false;
+  ui.$<HTMLInputElement>('kanaMastered').checked = !ui.kanaBeginner();
   setModeAccess(p.level, user?.role === 'admin');
   if (!p.tutorialDone && !tutorialShown && user && !inRoom) { tutorialShown = true; startTutorial(); }
   void dailyPending().then((open) => { ui.$('dailyBadge').hidden = !open; });
@@ -148,6 +157,7 @@ async function boot() {
 function signedIn(u: PublicUser) {
   user = u;
   ui.setUser(u);
+  setRailUser(true);
   socket.start(getToken());
   if (!inRoom) ui.show('menu');
   if (!profile) void refreshProfile();
@@ -159,6 +169,7 @@ function showAuth(message = '') {
   profile = null;
   inRoom = false;
   ui.setUser(null);
+  setRailUser(false);
   ui.setAuthTab(authTab);
   ui.show('auth');
   ui.$('authError').textContent = message;
@@ -227,6 +238,7 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'friend':
       onFriendEvent(msg);
+      void refreshRail();
       break;
     case 'invite':
       onInvite(msg);
@@ -271,11 +283,11 @@ function onMessage(msg: ServerMessage) {
         audio.sfx.wrong();
         arena()?.fizzle('me'); // the gem shatters; typing again builds a new one
         const input = ui.$<HTMLInputElement>('answer');
-        input.disabled = false; input.value = ''; input.focus();
+        ui.setAnswerLocked(false); input.value = ''; input.focus();
         break;
       }
       ui.lockInput();
-      if (mode === 'writing') ui.setCharSlots(charCount, written.map(() => ''), false);
+      if (mode === 'writing') ui.setCharSlots(charCount, written.map(() => ''), false, writeShape);
       ui.setFeedback(msg);
       if (msg.correct) {
         // say the word first (romaji answers at the kana level: say the kana itself), then the success chime
@@ -400,13 +412,14 @@ function shareInk() {
 function beginWriting(id: number, kanji: string) {
   challengeId = id;
   writing = true;
-  charCount = [...kanji].length;
+  charCount = writeTargets(kanji).length; // only the kanji: the kana around them are written for you
+  writeShape = writeTemplate(kanji);
   written = [];
   pad.setCells(charCount); // write the whole word at once
   setEraser(false);
   arena()?.channel(0.35); // the staff starts to glow; brighter with every stroke
   if (mode === 'deck') ui.mountWriteArea('dkWrite');
-  ui.setCharSlots(charCount, [], true);
+  ui.setCharSlots(charCount, [], true, writeShape);
   const ime = ui.$<HTMLInputElement>('imeInput');
   ime.value = '';
   if (mode === 'deck') { ime.disabled = false; return; }
@@ -534,7 +547,13 @@ initFriends({
   },
   inRoom: () => inRoom,
 });
-initTutorial({ firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ['KANA', 'N5'], tutorial: true }) });
+initTutorial({
+  firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ui.kanaBeginner() ? ['KANA'] : ['KANA', 'N5'], tutorial: true }),
+  kana: async (mastered) => {
+    try { applyProfile((await api.setKana(mastered)).profile); } catch (e) { ui.toast((e as Error).message); }
+    if (!mastered) store.set('kb:levels', JSON.stringify(['KANA']));
+  },
+});
 ui.$('modesBack').onclick = () => ui.show('menu');
 const join = () => {
   const c = ui.$<HTMLInputElement>('joinCode').value.trim();
@@ -595,11 +614,11 @@ function skip() {
   ui.lockInput();
   writing = false;
 }
-ui.$('skip').onclick = () => { if (!ui.$<HTMLInputElement>('answer').disabled) skip(); };
+ui.$('skip').onclick = () => { if (!ui.answerLocked()) skip(); };
 
 ui.$<HTMLInputElement>('answer').addEventListener('keydown', (e) => {
   const input = e.currentTarget as HTMLInputElement;
-  if (input.disabled) return;
+  if (ui.answerLocked()) { if (e.key === 'Enter') e.preventDefault(); return; }
   if (e.key === 'Escape' && !e.isComposing) { e.preventDefault(); return skip(); }
   // With a Japanese IME, the first Enter confirms the conversion — don't submit on that one.
   if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
@@ -648,6 +667,15 @@ document.documentElement.dataset.v = VERSION;
   });
   ui.$('volBtn').addEventListener('click', sync);
 }
+// "I've mastered hiragana": opens N5–N1 for a player who started as a かな beginner
+ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {
+  const box = e.target as HTMLInputElement;
+  try {
+    applyProfile((await api.setKana(box.checked)).profile);
+    ui.toast(box.checked ? 'Kanji levels unlocked — pick N5 in Study spells to start!' : 'Back to かな only: kanji levels are locked.', 5000);
+    if (!box.checked) store.set('kb:levels', JSON.stringify(['KANA']));
+  } catch (err) { box.checked = !box.checked; ui.toast((err as Error).message); }
+};
 // Language (English / Russian): reloads the page in the new language
 {
   const sel = ui.$<HTMLSelectElement>('langSel');

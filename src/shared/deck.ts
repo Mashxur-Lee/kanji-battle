@@ -106,7 +106,8 @@ export interface DeckCastView {
    */
   card: DeckCardView & { kanji?: string; reading?: string; meaning?: string };
   stage: CastStage;
-  chars: number; // how many characters to write
+  chars: number; // how many characters to write (only the kanji: the kana are written for you)
+  template?: string; // the word with its kanji hidden: 必ず → □ず
   /** overtime: type the reading in kana (or romaji), or — for a kana word — in romaji only */
   answer: 'reading' | 'romaji' | null;
   /** overtime: the word's level and how hard it hits */

@@ -145,9 +145,9 @@ export const STAFFS: readonly StaffDef[] = [
   { id: 'void', name: 'Void Staff', streak: 20, gem: '#4a7dff', blurb: 'An ancient, otherworldly artifact. It bends reality and commands the unknown.' },
   { id: 'frost', name: 'Frost Staff', streak: 0, season: 1, base: 'tide', tint: '#d8f4ff', gem: '#bfefff', blurb: 'January reward. Rimed with ice that never melts.' },
   { id: 'blossom', name: 'Blossom Staff', streak: 0, season: 3, base: 'verdant', tint: '#ffb8d8', gem: '#ff7ab8', blurb: 'March reward. A branch that flowers whenever it casts.' },
-  { id: 'jade', name: 'Jade Staff', streak: 0, season: 5, base: 'storm', tint: '#7dffb0', gem: '#3dff8a', blurb: 'May reward. Carved from one piece of temple jade.' },
+  { id: 'jade', name: 'Jade Staff', streak: 0, season: 5, base: 'ember', tint: '#7dffb0', gem: '#3dff8a', blurb: 'May reward. Carved from one piece of temple jade.' },
   { id: 'abyss', name: 'Abyss Staff', streak: 0, season: 7, base: 'tide', tint: '#3a5cff', gem: '#2a4dff', blurb: 'July reward. Pulled from the deepest trench of the sea.' },
-  { id: 'moon', name: 'Moon Staff', streak: 0, season: 9, base: 'void', tint: '#f2f0ff', gem: '#fff6c8', blurb: 'September reward. Silver light of the harvest moon.' },
+  { id: 'moon', name: 'Moon Staff', streak: 0, season: 9, base: 'verdant', tint: '#f2f0ff', gem: '#fff6c8', blurb: 'September reward. Silver light of the harvest moon.' },
   { id: 'maple', name: 'Maple Staff', streak: 0, season: 11, base: 'ember', tint: '#ff5a3a', gem: '#ff3a2a', blurb: 'November reward. Burning red like autumn leaves.' },
 ];
 export type StaffId = string;
@@ -178,3 +178,21 @@ export function avatarFor(levels: readonly Level[]): Avatar {
   return AVATAR_BY_LEVEL[top];
 }
 export const AVATAR_LABEL: Record<Avatar, string> = { goblin: 'Goblin', kid: 'Apprentice', human: 'Adventurer', knight: 'Knight', witch: 'Witch', wizard: 'Wizard' };
+
+// ── hiragana first: a new player who hasn't mastered かな yet only gets かな words (Settings → "I've mastered hiragana") ──
+export const KANA_BEGINNER = 'flag:kana-beginner';
+export const isKanaBeginner = (unlocks?: readonly string[] | null) => !!unlocks?.includes(KANA_BEGINNER);
+/** A beginner's levels: only かな (and at least かな). */
+export function levelsFor<T extends string>(levels: readonly T[], beginner: boolean): T[] {
+  if (!beginner) return [...levels];
+  return ['KANA' as T];
+}
+
+/** ISO week number of a day ('YYYY-MM-DD'): weeks start on Monday, week 1 holds the year's first Thursday. */
+export function isoWeek(day: string): number {
+  const d = new Date(`${day}T00:00:00Z`);
+  const dow = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dow); // the Thursday of this week decides the year
+  const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
+  return Math.ceil(((d.getTime() - yearStart) / 86_400_000 + 1) / 7);
+}

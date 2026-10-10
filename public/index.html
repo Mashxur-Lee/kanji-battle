@@ -15,6 +15,7 @@
 <header class="topbar">
   <div id="whoami" class="whoami" hidden>
     <button id="whoBtn" class="who-btn" aria-expanded="false" aria-controls="profilePop" title="Your profile">
+      <span id="whoLv" class="who-lv" title="Your level">0</span>
       <span id="whoPic" class="avatar" aria-hidden="true">✦</span>
       <span id="whoName" class="who-name"></span><span id="whoRole" class="tag" hidden>admin</span>
     </button>
@@ -57,6 +58,8 @@
       <label class="toggle-row">3D arena <select id="arena3dMode" aria-label="3D arena"><option value="full">Full</option><option value="lite">Lite (phones, older PCs)</option><option value="off">Off (2D)</option></select></label>
       <p id="arena3dInfo" class="hint"></p>
       <label class="toggle-row">UI size <select id="uiZoom" aria-label="UI size"></select></label>
+      <label id="kanaRow" class="toggle-row" hidden><input id="kanaMastered" type="checkbox"> I've mastered hiragana</label>
+      <p id="kanaInfo" class="hint" hidden>Unlocks the kanji levels (N5–N1) for studying and battles.</p>
       <label class="toggle-row">Language <select id="langSel" aria-label="Language" data-no-i18n><option value="en">English</option><option value="ru">Русский</option></select></label>
     </div>
   </div>
@@ -65,6 +68,20 @@
  <dialog id="strokeDialog" class="stroke-dialog" aria-label="Stroke order">
   <div class="sd-head"><b id="sdWord" lang="ja"></b><span id="sdInfo" class="hint"></span><button id="sdClose" class="pill" type="button">Close</button></div>
   <div id="sdBox"></div>
+</dialog>
+<aside id="friendRail" class="friend-rail" aria-label="Friends" hidden>
+  <div class="fr-head"><span class="fr-title">Friends</span><span class="fr-online"><i class="fr-dot"></i><b id="railOnline">0</b><span class="fr-online-word"> online</span></span></div>
+  <div id="railList" class="fr-list"></div>
+  <div class="fr-foot">
+    <button id="railAdd" class="fr-btn" title="Add friend" aria-label="Add friend"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M19 8v6M16 11h6"/></svg><span>Add friend</span></button>
+    <button id="railReq" class="fr-btn" title="Friend requests" aria-label="Friend requests"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg><span>Requests</span><i id="railReqBadge" class="badge" hidden></i></button>
+  </div>
+</aside>
+<dialog id="friendDialog" class="friend-dialog" aria-label="Friends">
+  <div class="fd-tabs"><button data-ftab="add" class="cust-tab">Add friend</button><button data-ftab="requests" class="cust-tab">Friend requests</button><button id="fdClose" class="pill fd-close" type="button">Close</button></div>
+  <form id="fdAdd" class="friend-add"><input id="fdName" placeholder="Player name" autocomplete="off" maxlength="24" aria-label="Player name"><button class="big" type="submit">Add friend</button></form>
+  <p id="fdMsg" class="hint" role="status"></p>
+  <div id="fdRequests"><div id="fdReqList" class="fd-list"></div></div>
 </dialog>
 <div id="inviteBox" class="invite-box" role="alertdialog" aria-live="assertive" hidden></div>
 <div id="tutorial" class="tutorial-overlay" role="dialog" aria-modal="true" aria-label="Welcome" hidden></div>
@@ -185,7 +202,7 @@
     </div>
     <div class="prog-card">
       <h3>Activity <small id="progHeatSub" class="hint"></small></h3>
-      <div id="progHeat" class="heatmap" role="img" aria-label="Activity over the last 26 weeks"></div>
+      <div id="progHeat" class="heatmap" role="img" aria-label="Activity calendar"></div>
     </div>
     <div class="prog-card">
       <h3>Spell mastery <small class="hint">every word of each level — hover a square to see it</small></h3>
@@ -468,7 +485,6 @@
     <div class="deck-middle">
       <aside id="dkList" class="dk-panel dk-list"></aside>
       <div id="dkStage" class="dk-stage">
-        <div id="dkBand" class="dk-band" aria-hidden="true"></div>
         <div id="dkBanner" class="dk-banner"></div>
         <div id="dkCast" class="dk-cast"></div>
         <div id="dkWrite"></div>
@@ -567,7 +583,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.7.1</div>
+<div id="version" class="version">v0.9.8</div>
 <script src="/app.js"></script>
 </body>
 </html>

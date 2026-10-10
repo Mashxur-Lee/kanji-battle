@@ -1,4 +1,4 @@
-import { isCorrectReading, isRomajiInput, isCorrectWriting } from '../shared/kana';
+import { isCorrectReading, isRomajiInput, isCorrectWriting, writeTargets } from '../shared/kana';
 import { CRIT_MULTIPLIER } from '../shared/progress';
 import type { DeckEvent, DeckView } from '../shared/deck';
 import type {
@@ -338,7 +338,7 @@ export class Game implements Match {
     if (this.opts.mode === 'writing') {
       return {
         id: c.id, kanji: entry.kanji, answerMode: 'writing', timeLimitMs: limitMs,
-        meaning: entry.meaning, reading: displayReading(entry), charCount: [...entry.kanji].length, flashMs: this.cfg.writingFlashMs,
+        meaning: entry.meaning, reading: displayReading(entry), charCount: writeTargets(entry.kanji).length, flashMs: this.cfg.writingFlashMs,
       };
     }
     return { id: c.id, kanji: entry.kanji, answerMode: entry.romaji ? 'romaji' : 'reading', timeLimitMs: limitMs };

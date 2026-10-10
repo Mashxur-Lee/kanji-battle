@@ -123,7 +123,7 @@ test('crit: a player with 100% crit hits ×1.5', () => {
   const c = ev.filter((e) => e.type === 'challenge' && e.playerId === 'A').at(-1) as any;
   g.submit('A', c.id, 'けねん');
   const r = ev.filter((e) => e.type === 'answer_result').at(-1) as any;
-  assert.deepEqual([r.crit, r.damage], [true, Math.round(43 * 1.5)]);
+  assert.deepEqual([r.crit, r.damage], [true, Math.round(59 * 1.5)]);
 });
 
 // ── Room: reconnects ─────────────────────────────────────────────────────────

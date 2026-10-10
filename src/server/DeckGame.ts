@@ -1,6 +1,6 @@
 import { CARD_COLORS, CARD_SPECS, DECK_RULES, OVERTIME_COLOR, OVERTIME_DAMAGE, type OvertimeLevel, type CardColor, type DeckCardView, type DeckCharacter, type DeckEvent, type DeckPhase, type DeckPlayerView, type DeckView } from '../shared/deck';
 import { DECK_CHARACTERS } from '../shared/deck';
-import { isCorrectReading, isCorrectWriting, isRomajiInput } from '../shared/kana';
+import { isCorrectReading, isCorrectWriting, isRomajiInput, writeTargets, writeTemplate } from '../shared/kana';
 import { CRIT_MULTIPLIER } from '../shared/progress';
 import type { BossView, DrawnChar, PlayerId, PlayerStats, VocabEntry, WordStat } from '../shared/protocol';
 import { displayReading } from '../shared/vocab';
@@ -593,7 +593,7 @@ export class DeckGame implements Match {
     return {
       castId: c.castId, ownerId: c.ownerId ?? '',
       card: { cardId: c.card.cardId, color: c.card.color, ...(showKanji ? { kanji: e.kanji } : {}), ...(ot ? {} : { reading: displayReading(e), meaning: e.meaning }) },
-      stage: c.stage, chars: [...e.kanji].length,
+      stage: c.stage, chars: writeTargets(e.kanji).length, template: writeTemplate(e.kanji),
       readLeftMs: c.stage === 'read' ? Math.max(0, this.stageEndsAt - now) : null,
       answer: ot ? (e.romaji ? 'romaji' as const : 'reading' as const) : null,
       rapid: ot ? { level: e.level, damage: OVERTIME_DAMAGE[e.level as OvertimeLevel] ?? 0 } : null,

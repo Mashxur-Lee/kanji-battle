@@ -10,7 +10,6 @@ import type { BackgroundId } from '../shared/progress';
 import { sceneSvg, type TimeOfDay } from './backgrounds';
 import { dragonSvg } from './wizard';
 import { flameColor } from '../shared/progress';
-import { uiScale } from './zoom';
 
 export type { Who };
 const KEY = 'kb:3d';
@@ -24,10 +23,9 @@ let pending: Omit<ArenaSetup, 'bgSvg' | 'bgKey' | 'time'> | null = null;
 
 const webgl = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } })();
 /**
- * 3D needs WebGL. On a landscape screen it fills the window (first person: your hand and staff in front).
- * On a phone held upright it is a band across the screen where the 2D fighters stand — only the opponent
- * (or the dragon and your party) and the arena, cropped at the sides — so the keyboard never covers it.
- * Small screens, touch devices and the "Lite" setting get the lighter version.
+ * 3D needs WebGL. It fills the screen, also on a phone held upright (the view is cropped at the sides and
+ * your hand and staff move in to stay on screen). Small screens, touch devices and the "Lite" setting get
+ * the lighter version.
  */
 export const hasWebgl = () => webgl;
 const upright = () => innerWidth <= innerHeight || innerWidth < 560;
@@ -84,52 +82,21 @@ export async function staffPreview(canvas: HTMLCanvasElement): Promise<StaffPrev
 /** Start loading early (after login) so the first battle doesn't wait. */
 export function preloadArena() { if (wanted()) setTimeout(() => void load(), 1500); }
 
-let screenName = '';
-let band = false;
-let bandTimer = 0;
 function deactivate() {
   api?.setActive(false);
-  document.body.classList.remove('has-3d', 'band-3d');
-  clearInterval(bandTimer);
-  const c = document.getElementById('arena3d');
-  if (c) c.removeAttribute('style');
+  document.body.classList.remove('has-3d');
 }
 async function activate() {
   if (!wanted()) return;
   const a = await load();
   if (!a || !onScreen || !wanted()) return;
   if (pending) { a.setup({ ...pending, bgSvg: sceneSvg(bg.id, bg.time), bgKey: `${bg.id}-${bg.time}`, time: bg.time }); pending = null; }
-  band = upright();
-  document.body.classList.toggle('has-3d', !band);
-  document.body.classList.toggle('band-3d', band);
-  a.setBand(band);
-  clearInterval(bandTimer);
-  if (band) { placeBand(); bandTimer = window.setInterval(placeBand, 300); } // follows the layout (keyboard, allies…)
-  else document.getElementById('arena3d')?.removeAttribute('style');
+  document.body.classList.add('has-3d');
   a.setActive(true);
 }
 
-/** Upright phones: lay the canvas over the row where the 2D fighters stand (Deck Duel: its own slot). */
-function placeBand() {
-  const c = document.getElementById('arena3d');
-  if (!c || !band) return;
-  let top = 0, bottom = 0;
-  if (screenName === 'deck') {
-    const r = document.getElementById('dkBand')?.getBoundingClientRect();
-    if (r) { top = r.top; bottom = r.bottom; }
-  } else {
-    const sides = [...document.querySelectorAll('#arena .side')].map((e) => e.getBoundingClientRect()).filter((r) => r.height > 0);
-    if (sides.length) { top = Math.min(...sides.map((r) => r.top)); bottom = Math.max(...sides.map((r) => r.bottom)); }
-  }
-  const z = uiScale();
-  const css = `position:absolute;left:0;top:${Math.round((top + scrollY) / z)}px;width:100%;height:${Math.max(0, Math.round((bottom - top) / z))}px`;
-  if (c.getAttribute('style') !== css) c.setAttribute('style', css);
-}
-addEventListener('scroll', () => { if (band) placeBand(); }, { passive: true });
-
 /** Called on every screen change. */
 export function arenaScreen(screen: string) {
-  screenName = screen;
   onScreen = GAME_SCREENS.has(screen);
   if (onScreen) void activate();
   else deactivate();
