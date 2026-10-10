@@ -57,7 +57,7 @@ function choose(p: 'battle' | 'deck') {
     c.classList.toggle('chosen', on);
     c.setAttribute('aria-checked', String(on));
   });
-  ui.$('qStart').textContent = p === 'deck' ? '⚔ Start queue — Deck Duel' : '⚔ Start queue';
+  ui.$('qStart').textContent = p === 'deck' ? 'Start queue — Deck Duel' : 'Start queue';
   remember();
 }
 
@@ -133,7 +133,10 @@ function showFound(msg: Extract<ServerMessage, { type: 'queue' }>) {
   const btn = ui.$<HTMLButtonElement>('mfAccept');
   btn.disabled = mine;
   btn.textContent = mine ? '✓ Accepted' : 'Accept';
-  ui.$('mfStatus').textContent = mine ? 'Waiting for your opponent…' : accepted.length ? 'Your opponent accepted!' : '';
+  const n = msg.players ?? 2;
+  ui.$('mfStatus').textContent = n > 2
+    ? `${accepted.length} / ${n} accepted${mine ? ' — waiting for the others…' : ''}`
+    : mine ? 'Waiting for your opponent…' : accepted.length ? 'Your opponent accepted!' : '';
 }
 function hideFound() {
   foundId = 0;
@@ -166,7 +169,8 @@ export function onQueue(msg: Extract<ServerMessage, { type: 'queue' }>) {
   ui.$('qTitle').textContent = 'Searching for a player…';
   const started = Date.now() - ((msg.now ?? 0) - (msg.since ?? 0));
   const others = (msg.searching ?? 1) - 1;
-  ui.$('qInfo').textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(' · ')} — ${others > 0 ? `${others} other player${others === 1 ? '' : 's'} searching` : 'no one else searching yet'}`;
+  const boss = (msg.modes ?? []).includes('boss') ? ` · Boss needs 4 players: ${Math.min(4, msg.boss ?? 1)} / 4 queued` : '';
+  ui.$('qInfo').textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(' · ')} — ${others > 0 ? `${others} other player${others === 1 ? '' : 's'} searching` : 'no one else searching yet'}${boss}`;
   if (!searching) {
     searching = true;
     clearInterval(tick);

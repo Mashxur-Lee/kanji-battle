@@ -424,6 +424,54 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
   let myFlame: THREE.Color | null = null;
   let meDown = false;
 
+  // ── your flames (5× combo / Omnipotence): mana fire flowing along the bottom of the screen ──
+  const fireU = {
+    uTime: { value: 0 }, uAmount: { value: 0 },
+    uC0: { value: new THREE.Color() }, uC1: { value: new THREE.Color() }, uC2: { value: new THREE.Color() }, uC3: { value: new THREE.Color() },
+  };
+  const fireBand = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+    uniforms: fireU, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `
+      uniform float uTime, uAmount; uniform vec3 uC0, uC1, uC2, uC3; varying vec2 vUv;
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }
+      float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }
+      void main() {
+        vec2 uv = vUv;
+        // tongues of fire licking upwards, and a current of mana running sideways along the bottom
+        float tongues = fbm(vec2(uv.x * 9.0, uv.y * 1.6 - uTime * 2.3));
+        float flow = fbm(vec2(uv.x * 4.0 - uTime * 1.2, uv.y * 2.2 - uTime * 0.9));
+        float wisps = fbm(vec2(uv.x * 16.0 + uTime * 0.5, uv.y * 4.0 - uTime * 3.0));
+        float f = (1.0 - uv.y) * 1.6 + (tongues - 0.5) * 1.6 + (flow - 0.5) * 0.9 + (wisps - 0.5) * 0.5 - 0.38;
+        f = smoothstep(0.0, 0.85, f);
+        float heat = f * (0.6 + 0.4 * tongues); // brighter in the tongues, not a flat band
+        vec3 col = mix(uC3, uC2, smoothstep(0.0, 0.35, heat));
+        col = mix(col, uC1, smoothstep(0.3, 0.6, heat));
+        col = mix(col, uC0, smoothstep(0.7, 0.95, heat));
+        gl_FragColor = vec4(col * min(f, 0.8) * uAmount * 0.85, 1.0); // added on top of the scene: glows, never hides it
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  }));
+  fireBand.renderOrder = 30;
+  fireBand.frustumCulled = false;
+  camera.add(fireBand);
+  function placeFireBand() {
+    const d = 1.2, halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * d;
+    const h = halfH * 0.85; // the lower ~40% of the screen
+    fireBand.scale.set(halfH * camera.aspect * 2.05, h, 1);
+    fireBand.position.set(0, -halfH + h / 2, -d);
+  }
+  function setFireColor(c: THREE.Color) {
+    const hsl = { h: 0, s: 0, l: 0 }; c.getHSL(hsl);
+    fireU.uC0.value.setHSL(hsl.h, 1, 0.82); // bright tips
+    fireU.uC1.value.setHSL(hsl.h, 1, 0.6);
+    fireU.uC2.value.setHSL(hsl.h, 0.95, 0.45);
+    fireU.uC3.value.setHSL((hsl.h + 0.03) % 1, 0.9, 0.22); // deep base
+  }
+
   const tmp = new THREE.Vector3();
   function pointOf(who: Who, part: 'chest' | 'head' | 'staff' | 'mouth' = 'chest'): THREE.Vector3 {
     if (who === 'me') {
@@ -618,6 +666,7 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
     camera.fov = camera.aspect < 1.3 ? 66 : 55;
     camera.updateProjectionMatrix();
     placeFighters();
+    placeFireBand();
   }
   addEventListener('resize', resize);
 
@@ -652,7 +701,8 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
   let active = false, raf = 0, last = performance.now(), time = 0;
   function frame(nowMs: number) {
     raf = requestAnimationFrame(frame);
-    const dt = Math.min(0.05, (nowMs - last) / 1000); last = nowMs; time += dt;
+    const realDt = Math.min(1, Math.max(0, (nowMs - last) / 1000));
+    const dt = Math.min(0.05, realDt); last = nowMs; time += dt;
     const now = performance.now();
     const still = reduced();
 
@@ -724,17 +774,16 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
         }
       }
       if (myFlame && !still && fp.visible) {
-        // combo / power: your staff and hand burn, and flames rise along the bottom of the screen
+        // combo / Omnipotence: your staff and hand burn (and the mana fire below)
         for (let k = 0; k < 2; k++) {
           const p = staffGroup.localToWorld(new THREE.Vector3(rnd(-0.05, 0.05), rnd(-0.15, 1.3), rnd(-0.05, 0.05)));
           spark(p, myFlame, { size: rnd(0.05, 0.12), vel: new THREE.Vector3(rnd(-0.05, 0.05), rnd(0.35, 0.8), 0), life: rnd(0.25, 0.45), solid: Math.random() < 0.4, opacity: 0.9 });
         }
-        const d = 1.5, hh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * d;
-        for (let k = 0; k < 2; k++) {
-          const p = camera.localToWorld(new THREE.Vector3(rnd(-hh * camera.aspect, hh * camera.aspect), -hh * rnd(0.88, 1), -d));
-          spark(p, myFlame, { size: rnd(0.08, 0.2), vel: new THREE.Vector3(0, rnd(0.4, 0.9), 0), life: rnd(0.3, 0.55), solid: Math.random() < 0.5, opacity: 0.85 });
-        }
       }
+      // the mana fire along the bottom of the screen fades in and out
+      fireU.uTime.value = still ? 0 : time;
+      fireU.uAmount.value += ((myFlame && fp.visible ? 1 : 0) - fireU.uAmount.value) * Math.min(1, realDt * 3);
+      fireBand.visible = fireU.uAmount.value > 0.01;
     }
 
     for (const [key, f] of fighters) {
@@ -902,8 +951,16 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
     },
     fizzle(who) {
       const at = pointOf(who, who === 'boss' ? 'head' : 'staff');
-      for (let i = 0; i < 14; i++) spark(at, 0x9a9aa8, { size: rnd(0.1, 0.25), vel: new THREE.Vector3(rnd(-0.6, 0.6), rnd(0.3, 1), rnd(-0.3, 0.3)), life: 0.8, opacity: 0.6 });
-      if (who === 'me') channelShown = 0;
+      if (who !== 'me') for (let i = 0; i < 14; i++) spark(at, 0x9a9aa8, { size: rnd(0.1, 0.25), vel: new THREE.Vector3(rnd(-0.6, 0.6), rnd(0.3, 1), rnd(-0.3, 0.3)), life: 0.8, opacity: 0.6 });
+      if (who === 'me') {
+        channelShown = 0;
+        // a miss shatters your gem: it's gone until you start writing / typing again
+        if (gemState !== 'gone' && fp.visible) {
+          staff.gem.getWorldPosition(tmp);
+          for (let i = 0; i < 16; i++) spark(tmp.clone(), Math.random() < 0.5 ? staff.color : 0x9a9aa8, { size: rnd(0.02, 0.05), vel: new THREE.Vector3(rnd(-0.8, 0.8), rnd(-0.2, 0.9), rnd(-0.5, 0.5)), life: rnd(0.4, 0.7), gravity: -2.5 });
+        }
+        gemState = 'gone';
+      }
     },
     ko(who) {
       if (who === 'me') {
@@ -933,7 +990,11 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       burst(pointOf(who), 0xffffff, 40, 3, 0.25);
     },
     onfire(who, on, color) {
-      if (who === 'me') { myFlame = on && !meDown ? new THREE.Color(color ?? '#6ee7ff') : null; return; }
+      if (who === 'me') {
+        myFlame = on && !meDown ? new THREE.Color(color ?? '#6ee7ff') : null;
+        if (myFlame) setFireColor(myFlame);
+        return;
+      }
       const f = fighters.get(who);
       if (f) f.flame = on ? new THREE.Color(color ?? '#6ee7ff') : null;
     },

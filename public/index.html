@@ -33,11 +33,11 @@
         <div><b id="ppToday">0</b><span>learned today</span></div>
       </div>
       <div class="pp-stats pp-streaks">
-        <div class="streak-box"><b id="ppStreak">0</b><span>🔥 login streak (days)</span></div>
-        <div class="streak-box best"><b id="ppBestStreak">0</b><span>🏆 best streak (days)</span></div>
+        <div class="streak-box"><b id="ppStreak">0</b><span>login streak (days)</span></div>
+        <div class="streak-box best"><b id="ppBestStreak">0</b><span>best streak (days)</span></div>
       </div>
       <div class="pp-actions">
-        <label class="pill" title="PNG, JPEG or WebP">📷 Change picture<input id="picInput" type="file" accept="image/png,image/jpeg,image/webp,image/*" hidden></label>
+        <label class="pill" title="PNG, JPEG or WebP">Change picture<input id="picInput" type="file" accept="image/png,image/jpeg,image/webp,image/*" hidden></label>
         <button id="picRemove" class="pill">Remove picture</button>
         <button id="logout" class="pill danger">⎋ Log out</button>
       </div>
@@ -51,12 +51,12 @@
     <button id="volBtn" class="pill" aria-label="Volume" aria-expanded="false" title="Volume"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 2v12M8 2v12M13 2v12"/><circle cx="3" cy="10" r="1.8" fill="currentColor"/><circle cx="8" cy="5" r="1.8" fill="currentColor"/><circle cx="13" cy="11" r="1.8" fill="currentColor"/></svg></button>
     <div id="volPanel" class="vol-panel" hidden>
       <label>♪ Music <span id="musicVolVal"></span><input id="musicVol" type="range" min="0" max="100" step="1"></label>
-      <label>🔊 Effects <span id="sfxVolVal"></span><input id="sfxVol" type="range" min="0" max="100" step="1"></label>
-      <label>🗣 Voice (word on a correct cast) <span id="voiceVolVal"></span><input id="voiceVol" type="range" min="0" max="100" step="1"></label>
+      <label>Effects <span id="sfxVolVal"></span><input id="sfxVol" type="range" min="0" max="100" step="1"></label>
+      <label>Voice (word on a correct cast) <span id="voiceVolVal"></span><input id="voiceVol" type="range" min="0" max="100" step="1"></label>
       <p id="voiceInfo" class="hint"></p>
-      <label class="toggle-row"><input id="arena3dToggle" type="checkbox"> 🏟 3D arena</label>
+      <label class="toggle-row"><input id="arena3dToggle" type="checkbox"> 3D arena</label>
       <p id="arena3dInfo" class="hint"></p>
-      <label class="toggle-row">🔍 UI size <select id="uiZoom" aria-label="UI size"></select></label>
+      <label class="toggle-row">UI size <select id="uiZoom" aria-label="UI size"></select></label>
     </div>
   </div>
 </header>
@@ -98,7 +98,7 @@
   <section id="queue" class="screen" hidden>
     <button id="queueBack" class="back">← Menu</button>
     <div class="page-head"><h2>Online queue</h2></div>
-    <p class="sub">Tick what you'd like to play. You'll be matched with the first player who wants the same, and the game starts straight away.</p>
+    <p class="sub">Tick what you'd like to play. You'll be matched with the first player who wants the same, and the game starts straight away. Boss Elimination waits for a full party of 4.</p>
     <div id="queuePick" class="queue-pick">
     <div class="queue-grid" role="radiogroup" aria-label="What to queue for">
       <div class="queue-card" data-q="battle" role="radio" tabindex="0">
@@ -116,7 +116,7 @@
         <div class="q-deck-pic" aria-hidden="true"><span class="dkc c-red"></span><span class="dkc c-green"></span><span class="dkc c-yellow"></span><span class="dkc c-blue"></span><span class="dkc c-lightblue"></span></div>
       </div>
     </div>
-    <button id="qStart" class="big q-start">⚔ Start queue</button>
+    <button id="qStart" class="big q-start">Start queue</button>
     </div>
     <div id="qSearching" class="queue-searching" hidden>
       <div class="q-orbit" aria-hidden="true"><span>漢</span><span>字</span></div>
@@ -135,11 +135,11 @@
       <p class="sub">Study ten spells. Then cast them from memory.</p>
       <div class="menu-actions">
         <div id="studyLock" class="study-lock" hidden>
-          <span>📖 <b id="studyLockText"></b></span>
+          <span><b id="studyLockText"></b></span>
           <button id="studyLockBtn" class="big">Study struggling spells</button>
         </div>
-        <button id="queueBtn" class="big queue-btn">⚔ Online queue</button>
-        <button id="privateBtn" class="big alt private-btn" aria-expanded="false" aria-controls="privateBox">🔒 Private game <span class="chev" aria-hidden="true">▾</span></button>
+        <button id="queueBtn" class="big queue-btn">Online queue</button>
+        <button id="privateBtn" class="big alt private-btn" aria-expanded="false" aria-controls="privateBox">Private game <span class="chev" aria-hidden="true">▾</span></button>
         <div id="privateBox" class="private-box" hidden>
           <p class="hint">Play with friends: create a room and share its code, or enter a friend's code.</p>
           <button id="create" class="big">Create room</button>
@@ -149,11 +149,11 @@
           </div>
         </div>
         <div class="menu-row">
-          <button id="studyBtn" class="alt">📖 Study spells <span id="studyBadge" class="badge" hidden></span></button>
-          <button id="customizeBtn" class="alt">🎨 Customize</button>
+          <button id="studyBtn" class="alt">Study spells <span id="studyBadge" class="badge" hidden></span></button>
+          <button id="customizeBtn" class="alt">Customize</button>
         </div>
-        <button id="historyBtn" class="alt">📜 Match history</button>
-        <button id="adminBtn" class="alt" hidden>👥 Users</button>
+        <button id="historyBtn" class="alt">Match history</button>
+        <button id="adminBtn" class="alt" hidden>Users</button>
         <p id="error" class="error" role="alert"></p>
       </div>
       </div>
@@ -208,7 +208,7 @@
       <button class="rate easy" data-rating="easy"><span class="iv"></span>Easy <kbd>4</kbd></button>
     </div>
     <div id="reviewDone" class="review-done" hidden>
-      <h2>🎉 All done for now</h2>
+      <h2>All done for now</h2>
       <p class="sub">Come back later — cards return when they are due.</p>
       <button id="reviewDoneBack" class="big">Back to study</button>
     </div>
@@ -219,9 +219,9 @@
     <button id="customizeBack" class="back">← Menu</button>
     <h2>Customize</h2>
     <div id="custTabs" class="cust-tabs" role="tablist" aria-label="What to customize">
-      <button role="tab" data-tab="staff" class="cust-tab">🪄 Magic staff</button>
-      <button role="tab" data-tab="arena" class="cust-tab">🏟 Arena</button>
-      <button role="tab" data-tab="omni" class="cust-tab">✨ Omnipotence</button>
+      <button role="tab" data-tab="staff" class="cust-tab">Magic staff</button>
+      <button role="tab" data-tab="arena" class="cust-tab">Arena</button>
+      <button role="tab" data-tab="omni" class="cust-tab">Omnipotence</button>
     </div>
     <div class="cust-body">
       <div class="cust-preview">
@@ -274,7 +274,7 @@
       <button class="mode-card" data-mode="writing">
         <span class="mode-icon jp">書</span>
         <span class="mode-name">1v1 Kanji Writing</span>
-        <span class="mode-desc">The kanji flashes for half a second; the reading and meaning stay. Write it by hand or type it with a Japanese keyboard.</span>
+        <span class="mode-desc">The kanji shows for 3.5 seconds; then only the reading and meaning stay. Write it by hand or type it with a Japanese keyboard.</span>
       </button>
       <button class="mode-card boss" data-mode="boss">
         <span class="mode-icon jp">竜</span>
@@ -284,7 +284,7 @@
       <button class="mode-card deck" data-mode="deck">
         <span class="mode-icon jp">札</span>
         <span class="mode-name">Deck Duel</span>
-        <span class="mode-desc">Pick a hero, draft 10 face-down spell cards, then cast them turn by turn by writing their kanji. Mana, heals, powers.</span>
+        <span class="mode-desc">Pick a hero, draft 10 face-down spell cards, then cast them turn by turn: read the meaning, look at the kanji, write it from memory. Mana, heals and your hero's Omnipotence.</span>
       </button>
     </div>
   </section>
@@ -301,7 +301,7 @@
       </div>
       <ul id="lobbyPlayers" class="players"></ul>
       <div id="addBot" class="add-bot" hidden>
-        <label for="botLevel">🤖 Add an AI player</label>
+        <label for="botLevel">Add an AI player</label>
         <select id="botLevel" title="How much the AI knows">
           <option value="N5">N5 — beginner</option>
           <option value="N4">N4</option>
@@ -350,7 +350,7 @@
       <div id="meCard" class="fighter me"></div>
       <div class="clock-col">
         <div id="battleClock" class="clock small"></div>
-        <button id="forfeit" class="link forfeit">🏳 Forfeit</button>
+        <button id="forfeit" class="link forfeit">Forfeit</button>
       </div>
       <div id="oppCard" class="fighter opp"></div>
     </div>
@@ -398,7 +398,7 @@
       </div>
       <div class="clock-col">
         <div id="dkClock" class="clock small"></div>
-        <button id="dkForfeit" class="link forfeit">🏳 Forfeit</button>
+        <button id="dkForfeit" class="link forfeit">Forfeit</button>
       </div>
     </div>
     <div class="deck-middle">
@@ -484,7 +484,7 @@
     <h2>How to play</h2>
     <ol>
       <li><b>Create a room</b>, pick a mode, and send the 4-letter code to a friend. On a phone you can switch apps to send it — your seat is kept for 5 minutes.</li>
-      <li><b>Pick your levels.</b> かな is hiragana (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (かな), Apprentice (N5), Adventurer (N4), Knight (N3), Wizard (N2/N1). Harder words hit harder, so your opponent gets more HP.</li>
+      <li><b>Pick your levels.</b> かな is hiragana (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (かな), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.</li>
       <li><b>Modes</b>
         <ul>
           <li><b>Reading</b> — study 10 words, then type each reading (かな or romaji).</li>
@@ -502,7 +502,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.5</div>
+<div id="version" class="version">v0.9.5.1</div>
 <script src="/app.js"></script>
 </body>
 </html>

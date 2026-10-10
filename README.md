@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.5
+# Kanji Wizards · v0.9.5.1
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -78,12 +78,14 @@ music volume. Admins have every background unlocked.
 
 ## Online queue
 
-**🔒 Private game** (main menu, under the queue) opens *Create room* and *Join by code* for playing with friends.
+**Private game** (main menu, under the queue) opens *Create room* and *Join by code* for playing with friends.
 
-**⚔ Online queue** on the main menu: tick the modes you'd play (Reading, Writing, Rapid, Boss) and the levels you
+**Online queue** on the main menu: tick the modes you'd play (Reading, Writing, Rapid, Boss) and the levels you
 bring, then **Find match** — or queue for **Deck Duel** on its own. A timer counts while it searches; as soon
-as another player wants a mode you ticked, a room is made for both of you and the game starts right away
-(same as joining by code and pressing Start). First come, first served (`src/server/Matchmaker.ts`).
+as another player wants a mode you ticked, everyone accepts, a room is made and the game starts right away
+(same as joining by code and pressing Start). **Boss Elimination waits for a full party of 4** (always 4 vs the
+dragon in the queue — never 1, 2 or 3); the search screen shows how many are queued for it. First come, first
+served (`src/server/Matchmaker.ts`).
 
 ## Match history & profiles
 
@@ -103,12 +105,12 @@ Three sections, each with a live preview and an **Equip** button:
 - **🪄 Magic staff** — the staff in your hand in the 3D arena (and in your character's hand for everyone else);
   turning 3D preview (`src/client/staffpreview.ts`, models in `src/client/staffs3d.ts`). Unlocked by login streak.
 - **🏟 Arena** — the background and time of day (unlocked by level).
-- **✨ Omnipotence** — the flames of a 5× combo (Reading, Writing, Rapid, Boss) and of your hero power in Deck Duel
+- **✨ Omnipotence** — the flames of a 5× combo (Reading, Writing, Rapid, Boss) and of your Omnipotence (hero ultimate) in Deck Duel
   (there is no combo in Deck Duel). Colours unlock by level.
 
 ## Combo flames & study lock
 
-At 5 correct casts in a row you are wrapped in flames — and in Deck Duel while your hero power is active. The colour
+At 5 correct casts in a row you are wrapped in flames — and in Deck Duel while your Omnipotence (hero power) is active. The colour
 is yours to pick in **Customize**: light blue (default) or purple (from level 5; admins have everything), and
 everyone sees it. If more than **100 Struggling spells** are waiting (new, learning or due), the game modes lock
 until you study them down to 100 (checked on the server too; admins are never locked).
@@ -137,7 +139,7 @@ always Ready. Matches with an AI give half XP; a room with only AI left closes.
 - **Levels** get steeper: 1000 XP for Lv 1, then 2000 more for Lv 2, 3000 more for Lv 3 … (Lv 5 = 15,000 total,
   Lv 10 = 55,000, Lv 20 = 210,000).
 - **Customize**: backgrounds unlock at Lv 0 forest, 5 swamp, 10 plains, 15 castle, 20 world tree.
-- **Fighters** depend on the levels you play: goblin (かな), kid (N5), human (N4), knight (N3), wizard (N2/N1).
+- **Fighters** depend on the levels you play: goblin (かな), kid (N5), human (N4), knight (N3), witch (N2), wizard (N1) — each holding the staff you equipped (pixel versions of the 3D staffs).
 - **Study spells**: *All spells* — tick levels and 25 new words are added each day; after a Deck Duel every kanji
   cast in it is added too. *Struggling spells* —
   words you missed in battles. Anki-style cards (Again / Hard / Okay / Easy, SM-2 scheduling,
@@ -153,7 +155,9 @@ mouse to look around a little (parallax). Spells are kanji that fly across with 
 camera. You play in first person: your hand (sleeve and skin after your character) and your staff skin — while you
 write or type the staff tilts back, charges and traces a figure-eight (∞) in the air; when you cast it thrusts forward
 and its gem flies off with the spell. The gem is gone until you start writing or typing again, when a new one builds
-up. A 5× combo sets your staff and the bottom of the screen on fire, with a big combo counter. In Boss fights, downed
+up — a miss or a wrong answer shatters it the same way (also in 2D). A 5× combo (or your Omnipotence in Deck
+Duel) sets your staff on fire and sends mana fire in your flame colour flowing along the bottom of the screen (a
+shader), with a big combo counter. In Boss fights, downed
 teammates lie on the ground (and you lose your staff). The others
 are low-poly 3D characters holding staffs (wizard, witch, goblin, knight, apprentice, adventurer — their level's
 avatar, or their Deck Duel hero). Deck Duel cards hit with their own effect: Bolt → lightning, Frost → the target turns see-through
@@ -167,7 +171,7 @@ with the Japanese keyboard's candidate list open); change it in the settings pan
 
 ## Deck Duel
 
-Heroes (power button bottom-left: costs 100 mana, then rests for 4 of your turns — Goblin 5; effects last 2 turns): **Goblin** casts 2 cards in a row
+Heroes (their ultimate is **Omnipotence**, button bottom-left: costs 100 mana, then rests for 4 of your turns — Goblin 5; effects last 2 turns): **Goblin** casts 2 cards in a row
 (the second costs 1.5× mana), **Knight** −45 % damage taken and +50 % healing, **Witch** sees your hand's spells and readings and her
 attacks hit 35 % harder (the card she is writing still hides its kanji); **Wizard** is passive (2 random cards when out of cards, or +30 mana when out of
 mana, once each).

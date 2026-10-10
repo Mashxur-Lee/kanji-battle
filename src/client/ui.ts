@@ -140,8 +140,8 @@ export function setAudioButtons(radio: boolean, sfx: boolean) {
     $(id).setAttribute('aria-pressed', String(on));
     $(id).replaceChildren(h('span', 'ico', icon), h('span', 'lbl', ` ${label} ${on ? 'on' : 'off'}`));
   };
-  set('radioBtn', radio, '♪', 'Music');
-  set('sfxBtn', sfx, sfx ? '🔊' : '🔇', 'Sounds');
+  set('radioBtn', radio, '', 'Music');
+  set('sfxBtn', sfx, '', 'Sounds');
 }
 
 /** Two wizards duelling in slow motion (menu / login backdrop). */
@@ -191,7 +191,7 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
     ? '✓ Accounts, XP and study sets are saved in the Postgres database — updates and restarts keep them.'
     : db.persistent
       ? `Saved to a local file (${db.storage}).`
-      : '⚠ No database connected: accounts, XP and study sets are saved on the server disk, which Render wipes on every deploy and restart. Set DATABASE_URL (Neon) in Render → Environment.';
+      : 'No database connected: accounts, XP and study sets are saved on the server disk, which Render wipes on every deploy and restart. Set DATABASE_URL (Neon) in Render → Environment.';
   $('userRows').replaceChildren(
     ...users.map((u) => {
       const action = h('td');
@@ -243,7 +243,7 @@ const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTML
     title: 'How Boss Elimination works',
     pic: () => append(h('div', 'g-pic'), h('span', 'g-emoji', '🧙🧙🧙🧙'), h('span', 'g-arrow', '⚔'), h('span', 'g-emoji', '🐉')),
     steps: [
-      ['👥', 'Up to 4 players (friends or AI) against the Black Dragon. Its HP grows with the party.'],
+      ['👥', 'Up to 4 players (friends or AI) against the Black Dragon; the online queue always makes a full party of 4. Its HP grows with the party.'],
       ['⌨️', 'Each of you gets your own kanji: type the reading. Right answers hit the dragon.'],
       ['🦴', 'A mistake gets you clawed (−45).'],
       ['🔥', 'Every 30 s it breathes fire on everyone (−110) — unless you are on fire yourself (5 in a row): then you are immune.'],
@@ -281,19 +281,19 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
     ...players.map((p) => {
       const li = h('li');
       const av = h('span', 'who-av');
-      av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp');
+      av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp', p.staff);
       const who = h('span', 'who', p.id === you ? `${p.name} (you)` : p.name);
       if (p.id !== you) markProfile(who, p);
       li.append(av, picEl(p.pic), who);
-      if (p.bot) li.append(h('span', 'tag ai', `🤖 AI · knows ${p.bot}`));
+      if (p.bot) li.append(h('span', 'tag ai', `AI · knows ${p.bot}`));
       else li.append(netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
       if (p.bot && you === hostId) { const x = h('button', 'pill rm-bot', '✕', { title: 'Remove this AI' }); x.dataset.removeBot = p.id; li.append(x); }
       if (p.crit > 0 && !p.bot) li.append(h('span', 'critv', `✦ ${critText(p.crit)} crit`));
       if (p.id === hostId) li.append(h('span', 'tag', 'host'));
       if (!p.online) li.append(h('span', 'tag off', 'away — seat kept'));
       if (mode === 'deck') li.append(h('span', 'tag ' + (p.ready ? 'ready' : 'notready'), p.ready ? '✓ Ready' : 'Not ready'));
-      else if (p.bot) li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `❤ ${p.maxHp} HP`)));
-      else if (!p.bot) li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `❤ ${p.maxHp} HP`)));
+      else if (p.bot) li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `${p.maxHp} HP`)));
+      else if (!p.bot) li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `${p.maxHp} HP`)));
       return li;
     }),
     ...Array.from({ length: Math.max(0, maxPlayers - players.length) }, () =>
@@ -397,7 +397,7 @@ function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
     const pn = h('span', 'n', p.id === you ? `${p.name} (you)` : p.name);
     if (p.id !== you) markProfile(pn, p);
     const name = append(h('div', 'pname'), picEl(p.pic), pn, netBars(p.id), h('span', 'lv', `Lv ${p.level}`),
-      h('span', 'combo', p.combo >= 2 ? `×${p.combo}${p.combo >= 5 ? ' 🔥' : ''}` : ''));
+      h('span', 'combo', p.combo >= 2 ? `×${p.combo}` : ''));
     row.append(name, thickBar(p.hp, p.maxHp, 'ally', p.hp <= 0 ? 'down' : `${p.hp} / ${p.maxHp}`));
     return row;
   }));
@@ -416,7 +416,7 @@ function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, 
   if (!p) { el.replaceChildren(h('div', 'name', emptyText)); return; }
   const nameEl = h('span', 'n', label);
   if (!label.endsWith('(you)')) markProfile(nameEl, p);
-  const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic), nameEl, netBars(p.id), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo${p.combo >= 5 ? ' 🔥' : ''}` : ''));
+  const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic), nameEl, netBars(p.id), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo` : ''));
   el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h('div', 'hpnum', `${p.hp} / ${p.maxHp} HP`), h('span', 'lvs', `· ${levelsText(p.levels)}${p.online ? '' : ' · away'}`)));
 }
 
@@ -430,7 +430,7 @@ export function renderFighters(players: PlayerView[], you: PlayerId, boss: BossV
   if (battleMode === 'boss') {
     partyPanel($('meCard'), players, you);
     const bar = $('bossBar');
-    if (boss) bar.replaceChildren(h('div', 'bname', `🐉 ${boss.name}`), thickBar(boss.hp, boss.maxHp, 'enemy', `${boss.hp} / ${boss.maxHp}`));
+    if (boss) bar.replaceChildren(h('div', 'bname', boss.name), thickBar(boss.hp, boss.maxHp, 'enemy', `${boss.hp} / ${boss.maxHp}`));
     for (const p of players) if (p.id !== you) allyEl(p.id)?.classList.toggle('onfire', p.combo >= 5);
   } else {
     fighterCard($('meCard'), me, me ? `${me.name} (you)` : '', '');
@@ -449,7 +449,7 @@ export function renderFighters(players: PlayerView[], you: PlayerId, boss: BossV
   hud.hidden = combo < 2;
   hud.classList.toggle('hot', combo >= 5);
   hud.style.setProperty('--flame', flameColor(me?.flame));
-  if (combo >= 2) hud.replaceChildren(h('b', '', `×${combo}`), h('span', '', combo >= 5 ? 'COMBO 🔥' : 'COMBO'));
+  if (combo >= 2) hud.replaceChildren(h('b', '', `×${combo}`), h('span', '', 'COMBO'));
 }
 
 // ── battle: wizards, dragon & spell effects ──────────────────────────────────
@@ -476,7 +476,7 @@ export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId)
     const w = $(id);
     w.className = `wizard ${side}`;
     w.dataset.flame = p?.flame ?? 'blue';
-    w.querySelector('.sprite')!.innerHTML = avatarSvg(p?.avatar ?? 'wizard', side);
+    w.querySelector('.sprite')!.innerHTML = avatarSvg(p?.avatar ?? 'wizard', side, p?.staff);
   }
   // boss mode: every teammate stands next to you
   $('allies').replaceChildren(...(boss ? others : []).map((p) => {
@@ -484,7 +484,7 @@ export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId)
     w.dataset.pid = p.id;
     w.dataset.flame = p.flame ?? 'blue';
     const sprite = h('div', 'sprite');
-    sprite.innerHTML = avatarSvg(p.avatar, 'ally');
+    sprite.innerHTML = avatarSvg(p.avatar, 'ally', p.staff);
     w.append(h('div', 'aura'), sprite, h('div', 'ground'));
     return w;
   }));
@@ -512,6 +512,7 @@ function floatText(target: HTMLElement, text: string, cls: string) {
 
 /** The caster lunges, the kanji flies across as the spell, and the target flashes red on impact. */
 export function castSpell(caster: Actor, target: Actor, kanji: string, damage: number, friendly: boolean, crit = false): Promise<void> {
+  if (caster === 'me') gemGone();
   const a3 = arena3d();
   if (a3) return a3.cast(caster, target, kanji, { damage, crit });
   const c = actorEl(caster), t = actorEl(target);
@@ -564,11 +565,16 @@ export function castSpell(caster: Actor, target: Actor, kanji: string, damage: n
   });
 }
 
+/** 2D: your gem is gone after a cast or a miss, and grows back as soon as you write or type again. */
+export const gemGone = () => $('wizMe').classList.add('gemless');
+export const gemBack = () => $('wizMe').classList.remove('gemless');
+
 export function fizzle(who: Actor) {
+  if (who === 'me') gemGone();
   arena3d()?.fizzle(who);
   const w = actorEl(who);
   retrigger(w, 'fizzle', 650);
-  const puff = h('div', 'puff', '💨');
+  const puff = h('div', 'puff');
   w.append(puff);
   setTimeout(() => puff.remove(), 1000);
 }
@@ -589,7 +595,7 @@ export function breathWarning(inMs: number) {
   el.hidden = false;
   $('dragon').classList.add('inhale');
   arena3d()?.inhale(true);
-  countdown('breath', inMs, (left) => (el.textContent = `🔥 The dragon inhales… ${Math.ceil(left / 1000)}`));
+  countdown('breath', inMs, (left) => (el.textContent = `The dragon inhales… ${Math.ceil(left / 1000)}`));
 }
 
 export function breathFire(damage: number, victims: Actor[], immune: Actor[] = []) {
@@ -737,7 +743,7 @@ export function setFeedback(f: Feedback | null) {
     el.replaceChildren(big, word('mean'), h('span', 'sub2', `${secs(f.responseMs ?? 0)}${combo}`));
   } else {
     if (f.retry) { el.replaceChildren(h('span', 'big', '✗ Not quite — try again!')); return; }
-    const title = f.beaten ? '⚡ Opponent was faster!' : f.skipped ? '↷ Skipped' : f.timedOut ? '✗ Too slow!' : '✗ MISS!';
+    const title = f.beaten ? 'Opponent was faster!' : f.skipped ? '↷ Skipped' : f.timedOut ? '✗ Too slow!' : '✗ MISS!';
     const kids = [h('span', 'big', title), word('reveal')];
     if (f.recognized && !f.skipped && !f.timedOut) kids.push(h('span', 'sub2', `The pad read: ${f.recognized}`));
     el.replaceChildren(...kids);
@@ -828,7 +834,7 @@ export function showXp(gained: number, level: number, levelUp: boolean) {
   const el = $('xpLine');
   el.hidden = false;
   el.replaceChildren(h('span', '', gained > 0 ? `+${gained} XP` : 'No XP — the match was forfeited'));
-  if (levelUp) el.append(h('span', 'lvup', `⬆ Level ${level}!`));
+  if (levelUp) el.append(h('span', 'lvup', `Level ${level}!`));
 }
 
 export function setRematchStatus(votes: PlayerId[], you: PlayerId, playerCount: number, minPlayers: number) {
@@ -856,7 +862,7 @@ export function characterEl(character: string, mode: GameMode, side: 'me' | 'opp
   const heroes = ['goblin', 'knight', 'witch', 'wizard'];
   el.innerHTML = mode === 'deck' && heroes.includes(character)
     ? heroSvg(character as 'goblin', side)
-    : avatarSvg((['goblin', 'kid', 'human', 'knight', 'wizard'].includes(character) ? character : 'wizard') as Avatar, side);
+    : avatarSvg((['goblin', 'kid', 'human', 'knight', 'witch', 'wizard'].includes(character) ? character : 'wizard') as Avatar, side);
   el.title = character[0].toUpperCase() + character.slice(1);
   return el;
 }
@@ -882,7 +888,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
   if (p === 'loading') body.push(h('p', 'hint', 'Loading…'));
   else if (p === 'missing') body.push(h('p', 'hint', 'This player can no longer be viewed.'));
   else if ('bot' in p) {
-    body.push(append(h('div', 'pp-head'), h('div', 'pp-pic', '🤖'), append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `AI player · knows ${p.bot}`))),
+    body.push(append(h('div', 'pp-head'), h('div', 'pp-pic', 'AI'), append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `AI player · knows ${p.bot}`))),
       h('p', 'hint', 'A computer opponent. It gets words right about as often as a learner of its level would.'));
   } else {
     const pic = h('div', 'pp-pic' + (p.pic ? ' has-pic' : ''), p.pic ? '' : p.name.slice(0, 1).toUpperCase());
@@ -898,8 +904,8 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
         append(h('div'), h('b', '', p.learned), h('span', '', 'spells learned')),
       ),
       append(h('div', 'pp-stats pp-streaks'),
-        append(h('div', 'streak-box'), h('b', '', p.streak ?? 0), h('span', '', '🔥 login streak (days)')),
-        append(h('div', 'streak-box best'), h('b', '', Math.max(p.bestStreak ?? 0, p.streak ?? 0)), h('span', '', '🏆 best streak (days)')),
+        append(h('div', 'streak-box'), h('b', '', p.streak ?? 0), h('span', '', 'login streak (days)')),
+        append(h('div', 'streak-box best'), h('b', '', Math.max(p.bestStreak ?? 0, p.streak ?? 0)), h('span', '', 'best streak (days)')),
       ),
       h('p', 'hint', `Playing since ${new Date(p.since).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`),
     );

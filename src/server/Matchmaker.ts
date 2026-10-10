@@ -15,13 +15,17 @@ export interface QueueClient {
 }
 
 interface Ticket { id: PlayerId; client: QueueClient; modes: GameMode[]; levels: Level[]; since: number }
-/** Two players found for each other: both must press Accept within ACCEPT_MS. */
-interface Pending { matchId: number; tickets: [Ticket, Ticket]; mode: GameMode; accepted: Set<PlayerId>; timer: ReturnType<typeof setTimeout> }
+/** Players found for each other: all must press Accept within ACCEPT_MS. */
+interface Pending { matchId: number; tickets: Ticket[]; mode: GameMode; accepted: Set<PlayerId>; timer: ReturnType<typeof setTimeout> }
 export const ACCEPT_MS = 5_000;
+/** How many players a queued match needs: Boss is always a full party of 4 against the dragon. */
+export const QUEUE_SIZE: Partial<Record<GameMode, number>> = { boss: 4 };
+const sizeOf = (m: GameMode) => QUEUE_SIZE[m] ?? 2;
 
 /**
  * Online queue: players tick the modes they'd play (or Deck Duel on its own) and the levels they bring.
- * As soon as two tickets share a mode, a room is created, both are seated and the game starts at once.
+ * As soon as enough tickets share a mode (2, or 4 for Boss), everyone is asked to accept; then a room is
+ * created, they are seated and the game starts at once.
  */
 export class Matchmaker {
   private tickets: Ticket[] = [];
@@ -66,11 +70,11 @@ export class Matchmaker {
     const p = this.pending.get(matchId as number);
     if (!p || !p.tickets.some((t) => t.id === id) || p.accepted.has(id)) return;
     p.accepted.add(id);
-    for (const t of p.tickets) t.client.send({ type: 'queue', state: 'found', mode: p.mode, matchId: p.matchId, acceptMs: 0, accepted: [...p.accepted] });
-    if (p.accepted.size < 2) return;
+    for (const t of p.tickets) t.client.send({ type: 'queue', state: 'found', mode: p.mode, matchId: p.matchId, acceptMs: 0, accepted: [...p.accepted], players: p.tickets.length });
+    if (p.accepted.size < p.tickets.length) return;
     clearTimeout(p.timer);
     this.pending.delete(p.matchId);
-    void this.seat(p.tickets[0], p.tickets[1], p.mode);
+    void this.seat(p.tickets, p.mode);
   }
 
   /**
@@ -84,7 +88,7 @@ export class Matchmaker {
       const back = decliner === null ? p.accepted.has(t.id) : t.id !== decliner;
       if (back) {
         this.tickets.push(t);
-        t.client.send({ type: 'queue', state: 'searching', modes: t.modes, since: t.since, now: this.now(), searching: this.tickets.length, requeued: true });
+        t.client.send({ type: 'queue', state: 'searching', modes: t.modes, since: t.since, now: this.now(), searching: this.tickets.length, boss: this.tickets.filter((x) => x.modes.includes('boss')).length, requeued: true });
       } else if (notify || t.id !== decliner) {
         t.client.send({ type: 'queue', state: 'idle', reason: decliner === null ? 'missed' : 'declined' });
       }
@@ -95,32 +99,32 @@ export class Matchmaker {
   }
   get size() { return this.tickets.length; }
 
-  /** Pair the oldest compatible tickets (first come, first served) and ask both to accept. */
+  /** Group the oldest compatible tickets (first come, first served) and ask them all to accept. */
   private async match() {
     for (;;) {
-      const pair = this.findPair();
-      if (!pair) break;
-      const [a, b, mode] = pair;
-      this.tickets = this.tickets.filter((t) => t !== a && t !== b);
+      const group = this.findGroup();
+      if (!group) break;
+      const [tickets, mode] = group;
+      this.tickets = this.tickets.filter((t) => !tickets.includes(t));
       const matchId = this.nextMatch++;
-      const p: Pending = { matchId, tickets: [a, b], mode, accepted: new Set(), timer: setTimeout(() => this.endPending(p, null), ACCEPT_MS) };
+      const p: Pending = { matchId, tickets, mode, accepted: new Set(), timer: setTimeout(() => this.endPending(p, null), ACCEPT_MS) };
       this.pending.set(matchId, p);
-      for (const t of [a, b]) t.client.send({ type: 'queue', state: 'found', mode, matchId, acceptMs: ACCEPT_MS, accepted: [] });
+      for (const t of tickets) t.client.send({ type: 'queue', state: 'found', mode, matchId, acceptMs: ACCEPT_MS, accepted: [], players: tickets.length });
     }
     this.broadcast();
   }
 
-  /** Both accepted: make the room, seat them and start. */
-  private async seat(a: Ticket, b: Ticket, mode: GameMode) {
+  /** Everyone accepted: make the room, seat them and start. */
+  private async seat(group: Ticket[], mode: GameMode) {
     while (this.busy) await new Promise((r) => setTimeout(r, 5));
     this.busy = true;
     try {
-      for (const t of [a, b]) t.client.send({ type: 'queue', state: 'matched', mode });
+      for (const t of group) t.client.send({ type: 'queue', state: 'matched', mode });
       const room = this.rooms.create(mode);
       const seated: Ticket[] = [];
-      const shared = mode === 'rapid' ? a.levels.filter((l) => b.levels.includes(l)) : null; // Rapid: only the levels both picked
-      for (const t of [a, b]) if (await t.client.joinMatched(room, shared ?? (t.levels.length ? t.levels : ['N5']))) seated.push(t);
-      if (seated.length < 2) {
+      const shared = mode === 'rapid' ? group[0].levels.filter((l) => group.every((t) => t.levels.includes(l))) : null; // Rapid: only the levels all picked
+      for (const t of group) if (await t.client.joinMatched(room, shared ?? (t.levels.length ? t.levels : ['N5']))) seated.push(t);
+      if (seated.length < group.length) {
         // someone vanished while we were seating them: put the other back in the queue
         for (const t of seated) room.leave(t.id);
         for (const t of seated) this.tickets.unshift(t);
@@ -135,14 +139,19 @@ export class Matchmaker {
     }
   }
 
-  private findPair(): [Ticket, Ticket, GameMode] | null {
+  /**
+   * The oldest ticket that can form a full group: for each of its modes, the earliest others who want it
+   * too (Rapid: with a level in common). Several modes possible → one at random.
+   */
+  private findGroup(): [Ticket[], GameMode] | null {
     for (let i = 0; i < this.tickets.length; i++) {
-      for (let j = i + 1; j < this.tickets.length; j++) {
-        const a = this.tickets[i], b = this.tickets[j];
-        // Rapid races both players on the same kanji: only with a level in common
-        const common = a.modes.filter((m) => b.modes.includes(m) && (m !== 'rapid' || a.levels.some((l) => b.levels.includes(l))));
-        if (common.length) return [a, b, common[Math.floor(this.rng() * common.length)]];
+      const a = this.tickets[i];
+      const options: Array<[Ticket[], GameMode]> = [];
+      for (const m of a.modes) {
+        const others = this.tickets.slice(i + 1).filter((b) => b.modes.includes(m) && (m !== 'rapid' || a.levels.some((l) => b.levels.includes(l))));
+        if (others.length >= sizeOf(m) - 1) options.push([[a, ...others.slice(0, sizeOf(m) - 1)], m]);
       }
+      if (options.length) return options[Math.floor(this.rng() * options.length)];
     }
     return null;
   }
@@ -150,7 +159,7 @@ export class Matchmaker {
   /** Everyone searching sees how long they've waited and how many others are looking. */
   private broadcast() {
     for (const t of this.tickets) {
-      t.client.send({ type: 'queue', state: 'searching', modes: t.modes, since: t.since, now: this.now(), searching: this.tickets.length });
+      t.client.send({ type: 'queue', state: 'searching', modes: t.modes, since: t.since, now: this.now(), searching: this.tickets.length, boss: this.tickets.filter((x) => x.modes.includes('boss')).length });
     }
   }
 }

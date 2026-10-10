@@ -23,20 +23,20 @@ const settle = () => new Promise((r) => setImmediate(r));
 test('queue: two players with a common mode are put in a room and the game starts at once', async () => {
   const mm = new Matchmaker(new RoomManager(), () => 0);
   const a = player('a'), b = player('b');
-  assert.equal(mm.enqueue('a', a.client, ['reading', 'boss'], ['N5', 'N4']), null);
+  assert.equal(mm.enqueue('a', a.client, ['reading', 'rapid'], ['N5', 'N4']), null);
   assert.equal(a.last('queue')!.state, 'searching');
   assert.equal(a.last('queue')!.searching, 1);
-  mm.enqueue('b', b.client, ['boss', 'writing'], ['N3']);
+  mm.enqueue('b', b.client, ['boss', 'reading'], ['N3']);
   await settle();
   const found = a.last('queue')!;
-  assert.deepEqual([found.state, found.mode, found.acceptMs], ['found', 'boss', ACCEPT_MS], 'Match found box');
+  assert.deepEqual([found.state, found.mode, found.acceptMs], ['found', 'reading', ACCEPT_MS], 'Match found box');
   assert.equal(a.room(), undefined, 'nothing starts before both accept');
   mm.accept('a', found.matchId);
   assert.deepEqual(b.last('queue')!.accepted, ['a'], 'B sees that A accepted');
   mm.accept('b', found.matchId);
   await settle();
   assert.equal(a.last('queue')!.state, 'matched');
-  assert.equal(a.last('queue')!.mode, 'boss', 'the only mode they share');
+  assert.equal(a.last('queue')!.mode, 'reading', 'the only mode they share (Rapid needs a common level)');
   assert.ok(a.room() && a.room() === b.room(), 'same room');
   assert.ok(a.last('prep') && b.last('prep'), 'the game started (study phase), no lobby wait');
   assert.equal(mm.size, 0);
@@ -114,4 +114,35 @@ test('queue: Rapid only matches players with a level in common, and plays just t
   await settle();
   const lobby = a.last('lobby') ?? c.last('lobby');
   assert.ok(lobby!.players.every((p) => p.levels.join() === 'N4'), 'both play only N4');
+});
+
+test('queue: Boss waits for a full party of 4 (no 1v1, 2v1 or 3v1), then all 4 accept and fight together', async () => {
+  const mm = new Matchmaker(new RoomManager(), () => 0);
+  const ps = ['a', 'b', 'c', 'd'].map(player);
+  for (const p of ps.slice(0, 3)) mm.enqueue(p.id, p.client, ['boss'], ['N5']);
+  await settle();
+  assert.equal(mm.size, 3, 'three is not enough');
+  assert.equal(ps[0].last('queue')!.state, 'searching');
+  assert.equal(ps[0].last('queue')!.boss, 3);
+  mm.enqueue('d', ps[3].client, ['boss'], ['N4']);
+  await settle();
+  const found = ps[0].last('queue')!;
+  assert.deepEqual([found.state, found.mode, found.players], ['found', 'boss', 4]);
+  for (const p of ps.slice(0, 3)) mm.accept(p.id, found.matchId);
+  await settle();
+  assert.equal(ps[0].room(), undefined, 'waits for the 4th accept');
+  mm.accept('d', found.matchId);
+  await settle();
+  const room = ps[0].room();
+  assert.ok(room && ps.every((p) => p.room() === room), 'one room, four players');
+  assert.ok(ps.every((p) => p.last('prep')), 'the fight started');
+});
+
+test('queue: someone who queued Boss and Reading still gets a Reading duel right away', async () => {
+  const mm = new Matchmaker(new RoomManager(), () => 0);
+  const a = player('a'), b = player('b');
+  mm.enqueue('a', a.client, ['boss', 'reading'], ['N5']);
+  mm.enqueue('b', b.client, ['boss', 'reading'], ['N5']);
+  await settle();
+  assert.equal(a.last('queue')!.mode, 'reading');
 });

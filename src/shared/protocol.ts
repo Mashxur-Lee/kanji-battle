@@ -43,7 +43,7 @@ export interface AdminUserRow extends PublicUser {
   xp?: number; level?: number; crit?: number; learned?: number; cards?: number;
 }
 
-export type Avatar = 'goblin' | 'kid' | 'human' | 'knight' | 'wizard';
+export type Avatar = 'goblin' | 'kid' | 'human' | 'knight' | 'witch' | 'wizard';
 
 export interface PlayerView {
   id: PlayerId;
@@ -177,7 +177,8 @@ export type ServerMessage =
    * didn't accept in time / declined)
    */
   | { type: 'queue'; state: 'searching' | 'found' | 'matched' | 'idle'; modes?: GameMode[]; since?: number; now?: number; searching?: number; mode?: GameMode;
-      matchId?: number; acceptMs?: number; accepted?: PlayerId[]; requeued?: boolean; reason?: 'missed' | 'declined' }
+      matchId?: number; acceptMs?: number; accepted?: PlayerId[]; requeued?: boolean; reason?: 'missed' | 'declined';
+      /** players in the found match; boss: how many are queued for Boss (it needs 4) */ players?: number; boss?: number }
   /** round-trip times in ms per player in your room (null = offline) */
   | { type: 'net'; rtt: Record<PlayerId, number | null> }
   | { type: 'chat'; messages: ChatMessage[] }

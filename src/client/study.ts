@@ -3,6 +3,7 @@ import { avatarFor, BACKGROUNDS, critText, levelOf, type BackgroundId, FLAMES, S
 import { staffPreview } from './arena';
 import type { StaffPreview } from './staffpreview';
 import { avatarSvg } from './wizard';
+import { pixelStaffSvg } from './pixelstaffs';
 import type { Rating } from '../shared/srs';
 import { api, type DeckCounts, type Profile, type StudyCard } from './api';
 import { backgroundThumb, getTimePref, resolveTime, setTimePref, TIMES } from './backgrounds';
@@ -55,7 +56,7 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
   $('studyCrit').textContent = `✦ ${critText(s.profile.crit)} crit today · ${s.profile.learnedToday} learned today (+1% each, max 50%) · ${s.profile.learned} learned in total`;
   const notice = $('studyNotice');
   notice.hidden = !s.notice;
-  notice.textContent = s.notice ? `✨ ${s.notice} new spell${s.notice === 1 ? '' : 's'} added to “All spells” — happy studying!` : '';
+  notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? '' : 's'} added to “All spells” — happy studying!` : '';
   if (!s.studyLevels.length && !s.decks.all.total) {
     notice.hidden = false;
     notice.textContent = 'Tick one or more levels under “All spells” to get 25 new spells today (and every day).';
@@ -196,12 +197,12 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
     return STAFFS.map((s) => ({
       id: s.id, name: s.name, blurb: s.blurb,
       locked: !isAdmin && best < s.streak,
-      lock: s.streak ? `🔒 ${s.streak}-day streak` : '',
+      lock: s.streak ? `${s.streak}-day streak` : '',
       lockedToast: `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
       equipped: (profile.staff ?? 'verdant') === s.id,
       tile: () => {
         if (staffThumbs[s.id]) { const img = document.createElement('img'); img.src = staffThumbs[s.id]; img.alt = ''; return img; }
-        const g = el('div', 'gem-fallback'); g.style.setProperty('--c', s.gem); return g;
+        const g = el('div', 'pixel-staff'); g.innerHTML = pixelStaffSvg(s.id); return g;
       },
       equip: () => api.setStaff(s.id),
     }));
@@ -209,7 +210,7 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
   if (custTab === 'arena') {
     return BACKGROUNDS.map((b) => ({
       id: b.id, name: b.name, blurb: 'The scene behind every battle (and its sounds in the menus).',
-      locked: !isAdmin && lvl < b.level, lock: `🔒 Level ${b.level}`,
+      locked: !isAdmin && lvl < b.level, lock: `Level ${b.level}`,
       lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
       equipped: profile.background === b.id,
       tile: () => { const d = el('div', 'bg-thumb'); d.innerHTML = backgroundThumb(b.id, time); return d; },
@@ -217,8 +218,8 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
     }));
   }
   return FLAMES.map((f) => ({
-    id: f.id, name: `${f.name} flames`, blurb: 'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your hero power is active in Deck Duel. Everyone sees your colour.',
-    locked: !isAdmin && lvl < f.level, lock: `🔒 Level ${f.level}`,
+    id: f.id, name: `${f.name} flames`, blurb: 'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.',
+    locked: !isAdmin && lvl < f.level, lock: `Level ${f.level}`,
     lockedToast: `Reach level ${f.level} to unlock ${f.name} flames`,
     equipped: (profile.flame ?? 'blue') === f.id,
     tile: () => { const d = el('span', 'flame-dot big'); d.style.setProperty('--c', f.color); return d; },
@@ -230,7 +231,7 @@ const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
   staff: (p) => `The staff in your hand in the 3D arena (other players see it too). Staffs unlock with your login streak — open the game on days in a row. Your best streak: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}.`,
   arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
-  omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your hero power in Deck Duel. More colours unlock as you level up.',
+  omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up.',
 };
 
 function renderCustomize() {
@@ -250,7 +251,7 @@ function renderCustomize() {
   if (custTab === 'arena') {
     const pref = getTimePref();
     times.replaceChildren(...TIMES.map((t) => {
-      const b = el('button', 'pill' + (t.id === pref ? ' on' : ''), t.id === 'auto' ? `🔄 Cycle (now: ${resolveTime(pref)})` : t.id === 'day' ? '☀️ Day' : t.id === 'sunset' ? '🌇 Sunset' : '🌙 Night');
+      const b = el('button', 'pill' + (t.id === pref ? ' on' : ''), t.id === 'auto' ? `Cycle (now: ${resolveTime(pref)})` : t.id === 'day' ? 'Day' : t.id === 'sunset' ? 'Sunset' : 'Night');
       b.onclick = () => { setTimePref(t.id); onTimeChange(); renderCustomize(); };
       return b;
     }));
@@ -271,7 +272,7 @@ function renderCustomize() {
     const b = el('button', 'cust-item' + (it === sel ? ' sel' : '') + (it.equipped ? ' equipped' : '') + (it.locked ? ' locked' : ''));
     b.setAttribute('aria-pressed', String(it === sel));
     const pic = el('div', 'ci-pic'); pic.append(it.tile());
-    b.append(pic, el('div', 'ci-name', it.name), el('div', 'ci-state', it.equipped ? '✓ Equipped' : it.locked ? it.lock : 'Unlocked'));
+    b.append(pic, el('div', 'ci-name', it.name), el('div', 'ci-state', it.equipped ? '✓ Equipped' : it.locked ? `Locked · ${it.lock}` : 'Unlocked'));
     b.onclick = () => { picked[custTab] = it.id; renderCustomize(); };
     b.ondblclick = () => void equip(it);
     return b;
@@ -286,23 +287,32 @@ function renderCustomize() {
   $('custStage').dataset.tab = custTab;
   if (custTab === 'staff') {
     if (preview) preview.show(sel.id);
-    else { const g = el('div', 'gem-fallback big'); g.style.setProperty('--c', STAFFS.find((s) => s.id === sel.id)!.gem); stage2.replaceChildren(g); }
+    else { const g = el('div', 'pixel-staff big'); g.innerHTML = pixelStaffSvg(sel.id); stage2.replaceChildren(g); }
   } else if (custTab === 'arena') {
     stage2.innerHTML = backgroundThumb(sel.id as BackgroundId, resolveTime(getTimePref()));
   } else {
     const w = el('div', 'wizard me onfire');
     w.dataset.flame = sel.id;
-    const sprite = el('div', 'sprite'); sprite.innerHTML = avatarSvg(avatarFor(profile.studyLevels), 'me');
+    const sprite = el('div', 'sprite'); sprite.innerHTML = avatarSvg(avatarFor(profile.studyLevels), 'me', profile.staff);
     w.append(el('div', 'aura'), sprite);
     const badge = el('div', 'combo-hud hot omni-badge'); badge.style.setProperty('--flame', FLAMES.find((f) => f.id === sel.id)!.color);
-    badge.append(el('b', '', '×5'), el('span', '', 'COMBO 🔥'));
+    badge.append(el('b', '', '×5'), el('span', '', 'COMBO'));
     stage2.replaceChildren(w, badge);
   }
 
   // name, description, Equip
-  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? sel.lock.replace('🔒 ', '🔒 Unlocks at ') : 'Equip') as HTMLButtonElement;
+  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? `Unlocks at ${sel.lock.toLowerCase().startsWith('level') ? sel.lock.replace('Level', 'level') : `a ${sel.lock}`}` : 'Equip') as HTMLButtonElement;
   btn.disabled = sel.equipped;
   btn.classList.toggle('locked', sel.locked);
   btn.onclick = () => void equip(sel);
-  $('custInfo').replaceChildren(el('h3', '', sel.name), el('p', 'sub', sel.blurb), btn);
+  const info: Node[] = [el('h3', '', sel.name), el('p', 'sub', sel.blurb)];
+  if (custTab === 'staff') {
+    // the pixel version: what the 2D arena shows, in your character's hand
+    const row = el('div', 'cust-2d');
+    const who = el('div', 'c2-char'); who.innerHTML = avatarSvg(avatarFor(profile.studyLevels), 'me', sel.id);
+    const st = el('div', 'pixel-staff'); st.innerHTML = pixelStaffSvg(sel.id);
+    row.append(who, st, el('span', 'hint', '2D arena'));
+    info.push(row);
+  }
+  $('custInfo').replaceChildren(...info, btn);
 }

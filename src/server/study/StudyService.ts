@@ -67,7 +67,7 @@ export class StudyService {
   async playLock(u: { id: string; role: string }): Promise<string | null> {
     if (u.role === 'admin') return null;
     const n = await this.strugglingDue(u.id);
-    return n > STUDY_LOCK ? `You have ${n} struggling spells waiting — study them down to ${STUDY_LOCK} to play again (📖 Study spells → Struggling).` : null;
+    return n > STUDY_LOCK ? `You have ${n} struggling spells waiting — study them down to ${STUDY_LOCK} to play again (Study spells → Struggling).` : null;
   }
 
   /** Colour of the combo flames (Purple from level 5; admins have all). */

@@ -230,6 +230,7 @@ function onMessage(msg: ServerMessage) {
       if (msg.retry) { // rapid: wrong, keep going
         ui.setFeedback(msg);
         audio.sfx.wrong();
+        arena()?.fizzle('me'); // the gem shatters; typing again builds a new one
         const input = ui.$<HTMLInputElement>('answer');
         input.disabled = false; input.value = ''; input.focus();
         break;
@@ -241,7 +242,7 @@ function onMessage(msg: ServerMessage) {
         // say the word first (romaji answers at the kana level: say the kana itself), then the success chime
         const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
         void voice.speak(kana).then(() => audio.sfx.correct(msg.combo));
-      } else audio.sfx.wrong();
+      } else { audio.sfx.wrong(); arena()?.fizzle('me'); }
       break;
     case 'battle_update':
       players = msg.players;
@@ -279,7 +280,7 @@ function onMessage(msg: ServerMessage) {
     case 'progress':
       setTimeout(() => {
         ui.showXp(msg.gained, msg.level, msg.levelUp);
-        if (msg.levelUp) ui.toast(`⬆ Level ${msg.level}! Check Customize for new backgrounds.`, 5000);
+        if (msg.levelUp) ui.toast(`Level ${msg.level}! Check Customize for new unlocks.`, 5000);
       }, 2100);
       void refreshProfile();
       break;
@@ -329,10 +330,10 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
       const immune = e.immune ?? [];
       const victims = players.filter((p) => !immune.includes(p.id) && (p.hp > 0 || p.hp + e.damage > 0)).map((p) => actorOf(p.id));
       ui.breathFire(e.damage, victims, immune.map((id) => actorOf(id)));
-      if (immune.includes(you)) ui.toast('🔥 You are on fire — immune to dragon breath!');
+      if (immune.includes(you)) ui.toast('You are on fire — immune to dragon breath!');
       audio.sfx.fire();
       setTimeout(render, 450);
-      ui.logLine(immune.length ? `🔥 Fire breath! ${e.damage} damage — ${immune.map(nameOf).join(', ')} immune (on fire)` : `🔥 Fire breath! Everyone takes ${e.damage}`);
+      ui.logLine(immune.length ? `Fire breath! ${e.damage} damage — ${immune.map(nameOf).join(', ')} immune (on fire)` : `Fire breath! Everyone takes ${e.damage}`);
       break;
     }
   }
@@ -344,6 +345,7 @@ let twitchAt = 0;
 pad.onDraw = () => {
   shareInk();
   if (mode !== 'deck') arena()?.channel(Math.min(1, 0.45 + pad.strokeCount * 0.12));
+  ui.gemBack();
   if (Date.now() - twitchAt > 140) { twitchAt = Date.now(); arena()?.twitch(); } // the staff moves as you write
 };
 /** Deck Duel: the opponent watches your pad live (throttled, the last state always goes out). */
@@ -389,8 +391,8 @@ const setEraser = (on: boolean) => { pad.setEraser(on); ui.$('padErase').setAttr
 ui.$('padErase').onclick = () => setEraser(!pad.eraser);
 ui.$('padClear').onclick = () => pad.clear();
 // typing a reading: the staff glows a little more with each letter
-ui.$<HTMLInputElement>('answer').addEventListener('input', (e) => { arena()?.channel(Math.min(0.8, (e.target as HTMLInputElement).value.length * 0.15)); arena()?.twitch(); });
-ui.$<HTMLInputElement>('imeInput').addEventListener('input', () => { arena()?.channel(0.6); arena()?.twitch(); });
+ui.$<HTMLInputElement>('answer').addEventListener('input', (e) => { arena()?.channel(Math.min(0.8, (e.target as HTMLInputElement).value.length * 0.15)); arena()?.twitch(); ui.gemBack(); });
+ui.$<HTMLInputElement>('imeInput').addEventListener('input', () => { arena()?.channel(0.6); arena()?.twitch(); ui.gemBack(); });
 ui.$('padSkip').onclick = () => skip();
 ui.$('padNext').onclick = () => {
   if (pad.strokeCount === 0) return;
@@ -538,7 +540,7 @@ function armForfeit(btnId: string) {
     if (Date.now() - armed < 3000) { socket.send({ type: 'forfeit' }); return; }
     armed = Date.now();
     ui.$(btnId).textContent = 'Tap again to forfeit';
-    setTimeout(() => (ui.$(btnId).textContent = '🏳 Forfeit'), 3000);
+    setTimeout(() => (ui.$(btnId).textContent = 'Forfeit'), 3000);
   };
 }
 armForfeit('forfeit');
