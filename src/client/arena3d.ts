@@ -1,38 +1,46 @@
-// The 2.5D arena: a first-person view of the duel, drawn with Three.js behind the normal game UI.
+// The 2.5D arena: the duel seen from just behind your character, drawn with Three.js behind the normal
+// game UI.
 //
-// You see the fight through your wizard's eyes: your staff in the foreground (it glows while you write),
-// the opponent standing across a stone arena, your chosen background far behind, torches, drifting
-// embers and fireflies. The camera follows the mouse a little (parallax), spells are kanji that fly
-// across with a trail, hits shake the camera. The fighters are the same pixel characters as in 2D,
-// as billboards in the 3D space (the classic "2.5D" look).
+// Your character (a low-poly 3D model holding a magic staff — wizard, witch, goblin, knight, apprentice or
+// adventurer) stands in the foreground; the opponent faces you across a torch-lit stone arena; your chosen
+// background is painted far behind, with grass and trees bridging it to the ground. The camera follows the
+// mouse a little (parallax). Your staff glows and moves while you write or type. Spells are kanji that fly
+// across with a trail; hits flash and shake the camera; Deck Duel cards have their own effects (lightning,
+// frost, fire).
 //
 // This file is bundled on its own (public/arena3d.js) and only loaded when the 3D arena is switched on,
 // so the menus stay light. It knows nothing about the game rules: the UI calls the effects below.
 
 import * as THREE from 'three';
+import { buildCharacter, kindFor, type Character } from './models3d';
 
 export type Who = 'me' | 'opp' | 'boss' | `ally:${string}`;
 export type TimeOfDay = 'day' | 'sunset' | 'night';
-export interface FighterArt { id: string; svg: string; name?: string }
+/** A fighter: a 3D character model (character = deck hero or level avatar), or a pixel sprite (the dragon). */
+export interface FighterArt { id: string; name?: string; character?: string; svg?: string; flame?: string }
 export interface ArenaSetup {
-  /** where the opponent stands on screen: battle screens keep it right of the centre panel, Deck Duel a bit nearer the middle */
+  /** battle screens: you stand left, the opponent right of the centre panel; Deck Duel: you bottom-right */
   layout: 'battle' | 'deck';
   bgSvg: string; // the chosen background (full SVG markup), shown far behind the arena
   bgKey: string;
   time: TimeOfDay;
+  me: FighterArt;
   opp: FighterArt | null;
   allies: FighterArt[];
   boss: FighterArt | null; // the dragon
-  robe: string; // colour of your sleeve
 }
+export type SpellFx = 'bolt' | 'frost' | 'fire';
 export interface ArenaApi {
   setup(s: ArenaSetup): void;
   setActive(on: boolean): void;
-  cast(from: Who, to: Who, kanji: string, o?: { damage?: number; crit?: boolean; kind?: 'attack' | 'heal' | 'mana' }): Promise<void>;
+  cast(from: Who, to: Who, kanji: string, o?: { damage?: number; crit?: boolean; kind?: 'attack' | 'heal' | 'mana'; fx?: SpellFx }): Promise<void>;
   fizzle(who: Who): void;
   ko(who: Who): void;
-  onfire(who: Who, on: boolean): void;
+  /** combo flames (5+ in a row) or a Deck Duel power: flames in the player's colour around them */
+  onfire(who: Who, on: boolean, color?: string): void;
   channel(level: number): void;
+  /** you drew a stroke / typed a letter: the staff moves */
+  twitch(): void;
   oppChannel(on: boolean): void;
   inhale(on: boolean): void;
   breath(victims: Who[], damage: number): void;
@@ -163,8 +171,23 @@ const LIGHT: Record<TimeOfDay, { sky: number; ground: number; hemi: number; sun:
   night: { sky: 0x5a6cc0, ground: 0x10101c, hemi: 0.55, sun: 0x9fb4ff, sunInt: 0.8, sunPos: [-6, 10, -8], spriteTint: 0xb9c2e8, torch: 26, motes: 0xd8ff8a, bloom: '200,255,150' },
 };
 
-interface Fighter { group: THREE.Group; sprite: THREE.Sprite; mat: THREE.SpriteMaterial; height: number; baseY: number; ko: boolean; fire: THREE.Group | null; aura: THREE.Sprite; hurtUntil: number; lungeUntil: number }
+
+interface Fighter {
+  key: string;
+  group: THREE.Group; // position on the floor
+  model: Character | null; // 3D character …
+  sprite: THREE.Sprite | null; // … or a pixel sprite (the dragon)
+  spriteMat: THREE.SpriteMaterial | null;
+  height: number;
+  ko: boolean;
+  flame: THREE.Color | null; // combo flames / power aura
+  aura: THREE.Sprite;
+  hurtUntil: number; lungeUntil: number; frostUntil: number; burnUntil: number;
+  frosted: boolean;
+}
 interface Particle { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max: number; grow: number; gravity: number }
+
+const TREE_BGS = ['forest', 'swamp', 'worldtree'];
 
 export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
   let renderer: THREE.WebGLRenderer;
@@ -176,54 +199,101 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
   renderer.toneMappingExposure = 1.05;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x1a1630, 18, 46);
+  scene.fog = new THREE.Fog(0x1a1630, 20, 58);
   const camera = new THREE.PerspectiveCamera(55, 16 / 9, 0.05, 200);
   const CAM = new THREE.Vector3(0, 1.75, 7.2);
   const LOOK = new THREE.Vector3(0, 1.45, 0);
   camera.position.copy(CAM);
-  scene.add(camera); // the staff is attached to the camera
+  scene.add(camera);
 
-  // lights
   const hemi = new THREE.HemisphereLight(0xffffff, 0x222222, 1);
   const sun = new THREE.DirectionalLight(0xffffff, 1);
   scene.add(hemi, sun);
+  const fill = new THREE.PointLight(0xffffff, 6, 9, 2); // lights your character from the camera side
+  fill.position.set(0, 3, 7.5);
+  scene.add(fill);
 
-  // far background: the player's chosen scene, on a huge slightly curved screen
-  const bgMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
-  const bgMesh = new THREE.Mesh(new THREE.CylinderGeometry(60, 60, 60, 48, 1, true, Math.PI - 0.95, 1.9), bgMat);
-  bgMesh.scale.set(-1, 1, 1); // look at the inside
-  bgMesh.position.set(0, 20.5, 6);
-  bgMat.side = THREE.BackSide;
+  // ── far background: the player's chosen scene on a huge curved screen, its own ground at the horizon ──
+  const bgMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, side: THREE.DoubleSide });
+  const bgMesh = new THREE.Mesh(new THREE.CylinderGeometry(70, 70, 66, 48, 1, true, Math.PI - 0.95, 1.9), bgMat);
+  bgMesh.scale.set(-1, 1, 1);
+  bgMesh.position.set(0, 13, 6);
   scene.add(bgMesh);
 
-  // the ground far away (fades into the background with the fog), and the stone arena
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0x23202e, roughness: 1 });
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(80, 48), groundMat);
+  // ── ground: grass all around the arena, fading into the fog ──
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x2a3a24, roughness: 1 });
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(90, 48), groundMat);
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02;
   scene.add(ground);
+  const grassMat = new THREE.MeshStandardMaterial({ color: 0x4f7a3a, roughness: 0.9, flatShading: true });
+  const GRASS = 2600;
+  const grass = new THREE.InstancedMesh(new THREE.ConeGeometry(0.05, 0.42, 3), grassMat, GRASS);
+  {
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+    const col = new THREE.Color();
+    for (let i = 0; i < GRASS; i++) {
+      const r = 9.9 + Math.pow(Math.random(), 0.7) * 30, a = Math.random() * Math.PI * 2;
+      v.set(Math.cos(a) * r, 0.18, Math.sin(a) * r - 1);
+      e.set(rnd(-0.25, 0.25), Math.random() * 3, rnd(-0.25, 0.25)); q.setFromEuler(e);
+      const k = rnd(0.7, 1.6); sc.set(k, k * rnd(0.8, 1.5), k);
+      m.compose(v, q, sc); grass.setMatrixAt(i, m);
+      grass.setColorAt(i, col.setHSL(rnd(0.22, 0.32), rnd(0.35, 0.6), rnd(0.3, 0.5)));
+    }
+  }
+  scene.add(grass);
+  // trees / bushes / rocks between the grass and the painted background, so nothing seems to float
+  const propsGroup = new THREE.Group();
+  scene.add(propsGroup);
+  const treeMat = new THREE.MeshStandardMaterial({ color: 0x1e3b2a, roughness: 1, flatShading: true });
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 1 });
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x5c5866, roughness: 1, flatShading: true });
+  function buildProps(bgId: string) {
+    propsGroup.clear();
+    const trees = TREE_BGS.includes(bgId);
+    const n = trees ? 70 : 34;
+    for (let i = 0; i < n; i++) {
+      const a = rnd(Math.PI * 1.08, Math.PI * 1.92); // the far side (in view)
+      const r = rnd(24, 48);
+      const x = Math.cos(a) * r, z = Math.sin(a) * r - 1;
+      if (trees) {
+        const h = rnd(6, 13);
+        const t = new THREE.Group();
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.4, h * 0.3, 6), trunkMat); trunk.position.y = h * 0.15;
+        t.add(trunk);
+        for (let k = 0; k < 3; k++) { const c = new THREE.Mesh(new THREE.ConeGeometry(h * (0.32 - k * 0.07), h * 0.5, 7), treeMat); c.position.y = h * (0.42 + k * 0.2); t.add(c); }
+        t.position.set(x, 0, z);
+        propsGroup.add(t);
+      } else {
+        const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(rnd(0.8, 2.6), 0), Math.random() < 0.5 ? rockMat : treeMat);
+        rock.position.set(x, 0.3, z); rock.scale.y = rnd(0.5, 0.9); rock.rotation.y = Math.random() * 3;
+        propsGroup.add(rock);
+      }
+    }
+  }
+
+  // ── the stone arena ──
   const floor = new THREE.Mesh(new THREE.CircleGeometry(9.5, 64), new THREE.MeshStandardMaterial({ map: floorTexture(), roughness: 0.92, metalness: 0.02 }));
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(9.5, 0.16, 8, 96), new THREE.MeshStandardMaterial({ color: 0x4b4656, roughness: 0.85 }));
-  rim.rotation.x = Math.PI / 2; rim.position.y = 0.04;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(9.5, 0.18, 8, 96), new THREE.MeshStandardMaterial({ color: 0x4b4656, roughness: 0.85 }));
+  rim.rotation.x = Math.PI / 2; rim.position.y = 0.05;
   scene.add(rim);
-  // a big glowing rune circle in the middle of the arena
   const rune = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), new THREE.MeshBasicMaterial({ map: ringTexture('#a98bff'), transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false }));
-  rune.rotation.x = -Math.PI / 2; rune.position.y = 0.03; rune.scale.x = -1; // readable from where you stand
+  rune.rotation.x = -Math.PI / 2; rune.position.y = 0.03; rune.scale.x = -1;
   scene.add(rune);
 
-  // pillars with torches around the back half of the arena
+  // pillars with torches around the far half
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0x5a5466, roughness: 0.9 });
-  const glow = glowTexture('rgba(255,170,80,1)', 'rgba(255,120,40,0)');
+  const fireGlow = glowTexture('rgba(255,170,80,1)', 'rgba(255,120,40,0)');
   const torches: Array<{ light: THREE.PointLight; flame: THREE.Sprite; base: number; phase: number }> = [];
   for (const a of [-2.35, -1.65, -1.15, 1.15, 1.65, 2.35]) {
-    const ang = a - Math.PI / 2; // spread around the far side
+    const ang = a - Math.PI / 2;
     const x = Math.cos(ang) * 10.4, z = Math.sin(ang) * 10.4 - 1.5;
     const p = new THREE.Group();
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 4.2, 10), pillarMat); shaft.position.y = 2.1;
     const cap = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 1.2), pillarMat); cap.position.y = 4.35;
     const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.22, 0.3, 10), new THREE.MeshStandardMaterial({ color: 0x2d2a33, metalness: 0.6, roughness: 0.4 })); bowl.position.y = 4.65;
-    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireGlow, color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
     flame.position.y = 5.05; flame.scale.set(1.3, 1.8, 1);
     const light = new THREE.PointLight(0xff9a4a, 10, 14, 2); light.position.y = 5.1;
     p.add(shaft, cap, bowl, flame, light);
@@ -232,7 +302,7 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
     torches.push({ light, flame, base: 1, phase: Math.random() * 10 });
   }
 
-  // drifting motes (dust by day, embers at sunset, fireflies at night)
+  // drifting motes
   const MOTES = 260;
   const moteGeo = new THREE.BufferGeometry();
   const motePos = new Float32Array(MOTES * 3), moteSeed = new Float32Array(MOTES);
@@ -241,56 +311,41 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
   const moteMat = new THREE.PointsMaterial({ size: 0.12, map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffffff, sizeAttenuation: true });
   scene.add(new THREE.Points(moteGeo, moteMat));
 
-  // ── your staff and sleeve, in front of the camera ───────────────────────────
-  const hand = new THREE.Group();
-  const wood = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.75 });
-  const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.04, 1.9, 10), wood);
-  staff.position.set(0, -0.15, 0);
-  const crown = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.016, 6, 16), new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.8, roughness: 0.3 }));
-  crown.position.set(0, 0.84, 0); crown.rotation.y = Math.PI / 2;
-  const crystalMat = new THREE.MeshStandardMaterial({ color: 0xb48cff, emissive: 0x8a5cff, emissiveIntensity: 1.2, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.92 });
-  const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.085, 0), crystalMat);
-  crystal.position.set(0, 0.95, 0); crystal.scale.set(1, 1.5, 1);
-  const crystalGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(190,150,255,1)', 'rgba(140,90,255,0)'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55 }));
-  crystalGlow.position.copy(crystal.position); crystalGlow.scale.setScalar(0.5);
-  const crystalLight = new THREE.PointLight(0xa070ff, 0.6, 4, 2); crystalLight.position.copy(crystal.position);
-  const robeMat = new THREE.MeshStandardMaterial({ color: 0x3d4fb8, roughness: 0.9 });
-  const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 0.9, 12, 1, true), robeMat);
-  sleeve.material.side = THREE.DoubleSide;
-  sleeve.position.set(0.16, -0.55, 0.12); sleeve.rotation.z = 0.75; sleeve.rotation.x = -0.25;
-  const fist = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), new THREE.MeshStandardMaterial({ color: 0xf0c9a0, roughness: 0.8 }));
-  fist.position.set(0, -0.2, 0.02); fist.scale.set(1, 1.25, 1);
-  hand.add(staff, crown, crystal, crystalGlow, crystalLight, sleeve, fist);
-  const HAND_BATTLE = new THREE.Vector3(0.78, -0.86, -1.6);
-  const HAND_DECK = new THREE.Vector3(1.02, -1.16, -1.6); // Deck Duel: below the chat panel
-  const HAND_POS = HAND_BATTLE.clone();
-  hand.position.copy(HAND_POS);
-  hand.scale.setScalar(0.8);
-  hand.rotation.set(0.1, 0, -0.18);
-  camera.add(hand);
-  const handLight = new THREE.PointLight(0xffffff, 1.2, 3, 2); handLight.position.set(0.3, 0.2, -0.4); camera.add(handLight);
-
-  // ── fighters (billboards of the pixel characters) ──────────────────────────
+  // ── fighters ───────────────────────────────────────────────────────────────
+  const sparkTex = glowTexture();
   const shadowTex = glowTexture('rgba(0,0,0,0.75)', 'rgba(0,0,0,0)');
   const auraTex = glowTexture('rgba(150,120,255,1)', 'rgba(120,80,255,0)');
-  const fighters = new Map<string, Fighter>(); // 'opp', 'boss', 'ally:<id>'
-  function makeFighter(art: FighterArt, height: number, pos: THREE.Vector3, key: string): Fighter {
+  const fighters = new Map<string, Fighter>(); // 'me', 'opp', 'boss', 'ally:<id>'
+  function makeFighter(key: string, art: FighterArt): Fighter {
     const group = new THREE.Group();
-    const mat = new THREE.SpriteMaterial({ transparent: true, alphaTest: 0.5, color: 0xffffff });
-    const sprite = new THREE.Sprite(mat);
-    sprite.center.set(0.5, 0);
-    sprite.scale.set(height * 0.8, height, 1);
-    svgTexture(art.svg, (t, aspect) => { mat.map = t; mat.needsUpdate = true; sprite.scale.set(height * aspect, height, 1); });
-    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(height * 0.9, height * 0.32), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
+    let model: Character | null = null, sprite: THREE.Sprite | null = null, spriteMat: THREE.SpriteMaterial | null = null;
+    let height = 1.95;
+    if (art.svg) {
+      height = 4.6;
+      spriteMat = new THREE.SpriteMaterial({ transparent: true, alphaTest: 0.05 });
+      sprite = new THREE.Sprite(spriteMat);
+      sprite.center.set(0.5, 0);
+      sprite.scale.set(height * 1.33, height, 1);
+      svgTexture(art.svg, (t, aspect) => { spriteMat!.map = t; spriteMat!.needsUpdate = true; sprite!.scale.set(height * aspect, height, 1); });
+      group.add(sprite);
+    } else {
+      model = buildCharacter(kindFor(art.character ?? 'wizard'), key === 'me' ? 'me' : key.startsWith('ally:') ? 'ally' : 'opp', sparkTex);
+      height = model.height;
+      group.add(model.root);
+    }
+    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(height * 0.7, height * 0.32), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
     shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.02;
-    const circle = new THREE.Mesh(new THREE.PlaneGeometry(height * 1.1, height * 1.1), new THREE.MeshBasicMaterial({ map: ringTexture(key === 'boss' ? '#5dff8a' : '#ff8a8a'), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
-    circle.rotation.x = -Math.PI / 2; circle.position.y = 0.04; circle.name = 'circle';
+    group.add(shadow);
+    if (key !== 'me') {
+      const circle = new THREE.Mesh(new THREE.PlaneGeometry(height * 1.1, height * 1.1), new THREE.MeshBasicMaterial({ map: ringTexture(key === 'boss' ? '#5dff8a' : '#ff8a8a'), transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
+      circle.rotation.x = -Math.PI / 2; circle.position.y = 0.04; circle.name = 'circle';
+      group.add(circle);
+    }
     const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: auraTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
     aura.scale.set(height * 1.2, height * 1.2, 1); aura.position.y = height * 0.5;
-    group.add(shadow, circle, aura, sprite);
-    group.position.copy(pos);
+    group.add(aura);
     scene.add(group);
-    const f: Fighter = { group, sprite, mat, height, baseY: pos.y, ko: false, fire: null, aura, hurtUntil: 0, lungeUntil: 0 };
+    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false };
     fighters.set(key, f);
     return f;
   }
@@ -302,25 +357,22 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
     fighters.clear();
   }
 
-  // where something is, in the world
   const tmp = new THREE.Vector3();
-  function pointOf(who: Who, part: 'chest' | 'head' | 'mouth' = 'chest'): THREE.Vector3 {
-    if (who === 'me') {
-      if (part === 'chest') return camera.localToWorld(new THREE.Vector3(0, -0.15, -0.9));
-      crystal.getWorldPosition(tmp); return tmp.clone();
-    }
+  function pointOf(who: Who, part: 'chest' | 'head' | 'staff' | 'mouth' = 'chest'): THREE.Vector3 {
     const f = fighters.get(who);
-    if (!f) return new THREE.Vector3(0, 1.4, -3);
+    if (!f) return who === 'me' ? camera.localToWorld(new THREE.Vector3(0, -0.2, -1.2)) : new THREE.Vector3(0, 1.4, -3);
+    if (f.model && part === 'staff') { f.model.crystal.getWorldPosition(tmp); return tmp.clone(); }
     const p = f.group.position.clone();
+    const h = f.height * f.group.scale.y;
     if (who === 'boss' && part === 'mouth') return p.add(new THREE.Vector3(-f.height * 0.55, f.height * 0.62, 0.3));
-    return p.add(new THREE.Vector3(0, f.height * (part === 'head' ? 0.85 : 0.55), 0.2));
+    return p.add(new THREE.Vector3(0, h * (part === 'head' ? 0.85 : 0.6), 0));
   }
 
   // ── short-lived effects ─────────────────────────────────────────────────────
   const particles: Particle[] = [];
-  const sparkTex = glowTexture();
-  function spark(at: THREE.Vector3, color: THREE.ColorRepresentation, o: { size?: number; vel?: THREE.Vector3; life?: number; grow?: number; gravity?: number; opacity?: number } = {}) {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: o.opacity ?? 1 }));
+  function spark(at: THREE.Vector3, color: THREE.ColorRepresentation, o: { size?: number; vel?: THREE.Vector3; life?: number; grow?: number; gravity?: number; opacity?: number; solid?: boolean } = {}) {
+    // solid: normal blending (shows on bright daylight scenes); otherwise an additive glow
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, color, blending: o.solid ? THREE.NormalBlending : THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: o.opacity ?? 1 }));
     s.position.copy(at); s.scale.setScalar(o.size ?? 0.25);
     scene.add(s);
     particles.push({ sprite: s, vel: o.vel ?? new THREE.Vector3(), life: 0, max: o.life ?? 0.6, grow: o.grow ?? 0, gravity: o.gravity ?? 0 });
@@ -330,33 +382,68 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       const v = new THREE.Vector3(rnd(-1, 1), rnd(-0.6, 1.2), rnd(-1, 1)).normalize().multiplyScalar(rnd(speed * 0.4, speed));
       spark(at, color, { vel: v, size: rnd(size * 0.6, size * 1.4), life: rnd(0.4, 0.9), gravity: -3 });
     }
-    spark(at, color, { size: 0.6, grow: 6, life: 0.35, opacity: 0.9 }); // flash
+    spark(at, color, { size: 0.6, grow: 6, life: 0.35, opacity: 0.9 });
+  }
+  /** flames rising around a fighter (combo / power / Inferno) */
+  function flames(f: Fighter, color: THREE.ColorRepresentation, amount = 1) {
+    const base = f.group.position;
+    const w = f.model ? 0.45 : f.height * 0.35;
+    for (let i = 0; i < amount; i++) {
+      const k = f.group.scale.y;
+      // tongues of flame: big soft blobs that rise, shrink and fade, with bright sparks in between
+      spark(new THREE.Vector3(base.x + rnd(-w, w) * k, base.y + rnd(0.05, f.height * 0.45) * k, base.z + rnd(-w, w) * 0.5 * k), color,
+        { size: rnd(0.35, 0.7) * k, vel: new THREE.Vector3(rnd(-0.1, 0.1), rnd(1.4, 2.6), 0), life: rnd(0.35, 0.65), grow: -0.9, opacity: 0.75, solid: true });
+      spark(new THREE.Vector3(base.x + rnd(-w, w) * 0.6 * k, base.y + rnd(0.05, f.height * 0.35) * k, base.z), color, { size: rnd(0.3, 0.5) * k, vel: new THREE.Vector3(0, rnd(1.2, 2), 0), life: 0.4, grow: -1 });
+      if (Math.random() < 0.5) spark(new THREE.Vector3(base.x + rnd(-w, w) * k, base.y + rnd(0.2, f.height * 0.9) * k, base.z), 0xffffff, { size: rnd(0.05, 0.1) * k, vel: new THREE.Vector3(0, rnd(1.5, 3), 0), life: 0.5 });
+    }
+  }
+  // lightning bolts (Bolt card)
+  const bolts: Array<{ line: THREE.Line; life: number }> = [];
+  function lightning(to: THREE.Vector3) {
+    for (let k = 0; k < 2; k++) {
+      const pts: THREE.Vector3[] = [];
+      const top = to.clone().add(new THREE.Vector3(rnd(-1.5, 1.5), 9, rnd(-1, 1)));
+      for (let i = 0; i <= 12; i++) {
+        const p = top.clone().lerp(to, i / 12);
+        if (i > 0 && i < 12) p.add(new THREE.Vector3(rnd(-0.45, 0.45), rnd(-0.2, 0.2), rnd(-0.3, 0.3)));
+        pts.push(p);
+      }
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: k ? 0xffffff : 0x9fd8ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      scene.add(line);
+      bolts.push({ line, life: 0 });
+      // lines are 1 px in WebGL: glowing beads along the bolt give it body
+      for (let i = 0; i < pts.length - 1; i++) {
+        const seg = pts[i].distanceTo(pts[i + 1]);
+        for (let d = 0; d < seg; d += 0.09) {
+          spark(pts[i].clone().lerp(pts[i + 1], d / seg), k ? 0xffffff : 0x8fd0ff, { size: k ? 0.12 : 0.3, life: 0.28, opacity: k ? 1 : 0.7 });
+        }
+      }
+    }
+    const flash = new THREE.PointLight(0xbfe6ff, 60, 16, 2); flash.position.copy(to).add(new THREE.Vector3(0, 2, 1));
+    scene.add(flash);
+    setTimeout(() => scene.remove(flash), 160);
+    burst(to, 0xbfe6ff, 30, 4, 0.18);
   }
   const floats: Array<{ sprite: THREE.Sprite; life: number }> = [];
   function float(who: Who, text: string, color = '#ffd479') {
-    if (who === 'me') { domFloat(text, color); return; }
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: numberTexture(text, color), transparent: true, depthWrite: false, depthTest: false }));
-    s.position.copy(pointOf(who, 'head')).add(new THREE.Vector3(rnd(-0.3, 0.3), 0.3, 0.4));
-    s.scale.set(1.3, 0.65, 1);
+    s.position.copy(pointOf(who, 'head')).add(new THREE.Vector3(rnd(-0.3, 0.3), 0.4, 0.3));
+    const sc = who === 'me' ? 0.9 : 1.3;
+    s.scale.set(sc, sc / 2, 1);
     s.renderOrder = 10;
     scene.add(s);
     floats.push({ sprite: s, life: 0 });
   }
 
-  // screen overlays for hits on you (red vignette, numbers near the bottom)
+  // screen overlays for hits on you
   const overlay = document.createElement('div');
   overlay.className = 'arena3d-hit';
   document.body.append(overlay);
-  function domFloat(text: string, color: string) {
-    const el = document.createElement('div');
-    el.className = 'arena3d-float'; el.textContent = text; el.style.color = color;
-    el.style.left = `${45 + rnd(-6, 6)}%`;
-    document.body.append(el);
-    setTimeout(() => el.remove(), 1200);
-  }
-  function screenHit(color = '255,40,60') {
+  function screenHit(color = '255,40,60', cls = '') {
     overlay.style.setProperty('--hit', color);
-    overlay.classList.remove('on'); void overlay.offsetWidth; overlay.classList.add('on');
+    overlay.className = 'arena3d-hit';
+    void overlay.offsetWidth;
+    overlay.className = `arena3d-hit on ${cls}`;
   }
   let shake = 0;
   const kick = (amount: number) => { if (!reduced()) shake = Math.max(shake, amount); };
@@ -366,7 +453,7 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
   const flights: Flight[] = [];
   function fly(from: THREE.Vector3, to: THREE.Vector3, kanji: string, color: string, size: number, dur: number): Promise<void> {
     const { tex, aspect } = textTexture(kanji, color);
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.NormalBlending }));
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
     s.scale.set(size * aspect * 0.4, size * 0.4, 1);
     s.position.copy(from);
     s.renderOrder = 5;
@@ -379,55 +466,70 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
   let layout: ArenaSetup['layout'] = 'battle';
   let bgKey = '';
   let channelLevel = 0, channelShown = 0;
+  let twitchAmp = 0;
+  const twitchRot = new THREE.Euler(), twitchTarget = new THREE.Euler();
   let oppChannelOn = false;
   let inhaling = false;
-  let myFire: THREE.Group | null = null;
   let spriteTint = new THREE.Color(0xffffff);
   let current: ArenaSetup | null = null;
 
-  /** Where the opponent stands: a fixed spot on screen (beside the centre panel), whatever the window size. */
   function screenSpot(fx: number, depthZ: number) {
     const dist = CAM.z - depthZ;
     const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * dist;
     return fx * halfH * camera.aspect;
   }
+  /** Places everyone (and turns them to face their foe), whatever the window size. */
   function placeFighters() {
     if (!current) return;
     const s = current;
+    const me = fighters.get('me');
+    if (me) {
+      if (s.layout === 'deck') me.group.position.set(screenSpot(0.8, 3.3), -0.62, 3.3); // bottom-right, below the chat
+      else me.group.position.set(screenSpot(-0.6, 2.6), 0, 2.6); // the left side of the field
+    }
     const opp = fighters.get('opp');
-    if (opp) opp.group.position.set(screenSpot(s.layout === 'deck' ? 0.36 : 0.56, -2.2), 0, -2.2);
+    if (opp?.model) opp.group.scale.setScalar(1.3); // across the arena: a little larger than life, so you can see them
+    if (opp) opp.group.position.set(screenSpot(s.layout === 'deck' ? 0.36 : 0.58, -2.2), 0, -2.2);
     const boss = fighters.get('boss');
-    if (boss) boss.group.position.set(screenSpot(0.42, -4.5), 0, -4.5);
+    if (boss) boss.group.position.set(screenSpot(0.5, -5.5), 0, -5.5);
     s.allies.forEach((a, i) => {
       const f = fighters.get(`ally:${a.id}`);
-      if (f) f.group.position.set(screenSpot(-0.66 + i * 0.16, -0.6 - i * 0.9), 0, -0.6 - i * 0.9);
+      if (f) f.group.position.set(screenSpot(-0.36 + i * 0.13, -0.6 - i * 1.1), 0, -0.6 - i * 1.1);
     });
+    // everyone faces their target: you face the opponent / dragon, the opponent faces you
+    const foe = (boss ?? opp)?.group.position;
+    for (const [key, f] of fighters) {
+      if (!f.model) continue;
+      const target = key === 'opp' ? (me?.group.position ?? CAM) : foe ?? new THREE.Vector3(0, 0, -3);
+      f.model.root.rotation.y = Math.atan2(target.x - f.group.position.x, target.z - f.group.position.z);
+    }
   }
 
   function setup(s: ArenaSetup) {
     current = s;
     layout = s.layout;
-    HAND_POS.copy(layout === 'deck' ? HAND_DECK : HAND_BATTLE);
     clearFighters();
-    if (myFire) { camera.remove(myFire); myFire = null; }
-    if (s.opp) makeFighter(s.opp, 2.3, new THREE.Vector3(2, 0, -2.2), 'opp');
-    if (s.boss) makeFighter(s.boss, 4.4, new THREE.Vector3(2, 0, -4.5), 'boss');
-    for (const a of s.allies) makeFighter(a, 1.7, new THREE.Vector3(-3, 0, -1), `ally:${a.id}`);
+    makeFighter('me', s.me);
+    if (s.opp) makeFighter('opp', s.opp);
+    if (s.boss) makeFighter('boss', s.boss);
+    for (const a of s.allies) makeFighter(`ally:${a.id}`, a);
     placeFighters();
-    robeMat.color.set(s.robe);
     const L = LIGHT[s.time];
     hemi.color.set(L.sky); hemi.groundColor.set(L.ground); hemi.intensity = L.hemi;
     sun.color.set(L.sun); sun.intensity = L.sunInt; sun.position.set(...L.sunPos);
+    fill.intensity = s.time === 'night' ? 9 : 5;
     for (const t of torches) t.base = L.torch;
     moteMat.color.set(L.motes);
     spriteTint = new THREE.Color(L.spriteTint);
-    for (const f of fighters.values()) f.mat.color.copy(spriteTint);
     if (bgKey !== s.bgKey) {
       bgKey = s.bgKey;
+      buildProps(s.bgKey.split('-')[0]);
       backgroundTexture(s.bgSvg, (tex, groundCol, skyCol) => {
         bgMat.map?.dispose(); bgMat.map = tex; bgMat.needsUpdate = true;
-        (scene.fog as THREE.Fog).color.copy(groundCol).lerp(skyCol, 0.25);
-        groundMat.color.copy(groundCol).multiplyScalar(0.8);
+        (scene.fog as THREE.Fog).color.copy(groundCol).lerp(skyCol, 0.35);
+        groundMat.color.copy(groundCol).multiplyScalar(0.9);
+        grassMat.color.copy(groundCol).lerp(new THREE.Color(0x4f8a3a), 0.45).multiplyScalar(1.15);
+        treeMat.color.copy(groundCol).lerp(new THREE.Color(0x173a24), 0.5);
         renderer.setClearColor(skyCol);
       });
     }
@@ -437,89 +539,115 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
   const mouse = new THREE.Vector2(), look = new THREE.Vector2();
   const onMove = (e: PointerEvent) => { mouse.set((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1); };
   addEventListener('pointermove', onMove, { passive: true });
-
   function resize() {
     const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    // narrower windows: step back so the arena still fits
     camera.fov = camera.aspect < 1.3 ? 66 : 55;
     camera.updateProjectionMatrix();
     placeFighters();
   }
   addEventListener('resize', resize);
 
+  // ── materials on a model: hurt flash, frost, burning ───────────────────────
+  const RED = new THREE.Color(0xff2a2a), ICE = new THREE.Color(0x8fdcff), ICE_GLOW = new THREE.Color(0x2a7cff), BURN = new THREE.Color(0xff6a1a);
+  function tintModel(f: Fighter, now: number) {
+    const hurt = now < f.hurtUntil, frost = now < f.frostUntil, burn = now < f.burnUntil;
+    if (f.model) {
+      if (frost !== f.frosted) {
+        f.frosted = frost;
+        for (const m of f.model.materials) { m.mat.opacity = frost ? 0.5 : 1; m.mat.depthWrite = !frost; }
+      }
+      for (const m of f.model.materials) {
+        m.mat.color.copy(m.color);
+        if (frost) m.mat.color.lerp(ICE, 0.75);
+        if (hurt) { m.mat.emissive.copy(RED); m.mat.emissiveIntensity = 0.6; }
+        else if (frost) { m.mat.emissive.copy(ICE_GLOW); m.mat.emissiveIntensity = 0.45; }
+        else if (burn) { m.mat.color.lerp(BURN, 0.35); m.mat.emissive.copy(BURN); m.mat.emissiveIntensity = 0.55 + 0.3 * Math.sin(now / 40); }
+        else { m.mat.emissive.copy(m.emissive); m.mat.emissiveIntensity = 1; }
+      }
+    } else if (f.spriteMat) {
+      f.spriteMat.color.copy(hurt ? new THREE.Color(1, 0.35, 0.35) : frost ? ICE : burn ? new THREE.Color(1, 0.7, 0.5) : spriteTint);
+      f.spriteMat.opacity = frost ? 0.6 : f.ko ? f.spriteMat.opacity : 1;
+    }
+  }
+
   // ── the frame loop ─────────────────────────────────────────────────────────
   let active = false, raf = 0, last = performance.now(), time = 0;
-  function frame(now: number) {
+  function frame(nowMs: number) {
     raf = requestAnimationFrame(frame);
-    const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
+    const dt = Math.min(0.05, (nowMs - last) / 1000); last = nowMs; time += dt;
+    const now = performance.now();
     const still = reduced();
 
-    // camera: parallax + breathing + shake
     look.lerp(mouse, still ? 1 : 0.05);
     const sway = still ? 0 : Math.sin(time * 0.7) * 0.025;
     camera.position.set(CAM.x + look.x * 0.45, CAM.y - look.y * 0.22 + sway, CAM.z);
-    const target = LOOK.clone().add(new THREE.Vector3(look.x * 0.25, -look.y * 0.1, 0));
-    camera.lookAt(target);
+    camera.lookAt(LOOK.clone().add(new THREE.Vector3(look.x * 0.25, -look.y * 0.1, 0)));
     if (shake > 0) {
       camera.position.add(new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), 0).multiplyScalar(shake));
       camera.rotation.z += rnd(-1, 1) * shake * 0.15;
       shake = Math.max(0, shake - dt * 1.1);
     }
-    // the staff sways with the mouse (closer things move more)
-    hand.position.set(HAND_POS.x - look.x * 0.04, HAND_POS.y + look.y * 0.03 + Math.sin(time * 1.6) * 0.008, HAND_POS.z);
-    channelShown += (channelLevel - channelShown) * Math.min(1, dt * 6);
-    const pulse = 0.5 + 0.5 * Math.sin(time * 6);
-    crystalMat.emissiveIntensity = 1.2 + channelShown * (3 + pulse * 2);
-    crystalLight.intensity = 0.6 + channelShown * 6;
-    crystalGlow.scale.setScalar(0.45 + channelShown * (0.5 + pulse * 0.25));
-    (crystalGlow.material as THREE.SpriteMaterial).opacity = 0.45 + channelShown * 0.5;
-    crystal.rotation.y += dt * (0.8 + channelShown * 5);
-    if (channelShown > 0.3 && Math.random() < channelShown * 0.6) {
-      const p = pointOf('me', 'head');
-      spark(p.clone().add(new THREE.Vector3(rnd(-0.12, 0.12), rnd(-0.1, 0.1), rnd(-0.12, 0.12))), 0xb48cff, { size: rnd(0.03, 0.07), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
-    }
 
-    // fighters: bob, hurt flash, lunge, auras, magic circles
+    channelShown += (channelLevel - channelShown) * Math.min(1, dt * 6);
+    twitchAmp = Math.max(0, twitchAmp - dt * 2.2);
+    twitchRot.x += (twitchTarget.x - twitchRot.x) * Math.min(1, dt * 14);
+    twitchRot.y += (twitchTarget.y - twitchRot.y) * Math.min(1, dt * 14);
+    twitchRot.z += (twitchTarget.z - twitchRot.z) * Math.min(1, dt * 14);
+    if (twitchAmp <= 0) twitchTarget.set(0, 0, 0);
+    const pulse = 0.5 + 0.5 * Math.sin(time * 6);
+
     for (const [key, f] of fighters) {
       const circle = f.group.getObjectByName('circle');
       if (circle) circle.rotation.z += dt * 0.4;
+      tintModel(f, now);
       if (f.ko) continue;
-      const bob = still ? 0 : Math.abs(Math.sin(time * 2 + f.height)) * 0.05;
-      f.sprite.position.y = bob;
-      const hurt = now < f.hurtUntil;
-      f.mat.color.copy(hurt ? new THREE.Color(1, 0.35, 0.35) : spriteTint);
       const lunge = Math.max(0, f.lungeUntil - now) / 450;
-      f.sprite.position.z = lunge * 0.4;
+      if (f.model) {
+        const m = f.model;
+        m.body.position.y = still ? 0 : Math.sin(time * 2 + f.height * 3) * 0.02;
+        m.body.rotation.x = lunge * 0.18;
+        // the staff arm: raised to cast, held forward while writing, with little random moves as you write
+        const writing = key === 'me' ? channelShown : key === 'opp' && oppChannelOn ? 0.7 : 0;
+        const ax = -0.15 - writing * 0.75 - lunge * 1.2 + (key === 'me' ? twitchRot.x : 0);
+        m.arm.rotation.x += (ax - m.arm.rotation.x) * Math.min(1, dt * 10);
+        m.arm.rotation.z = -0.35 + (key === 'me' ? twitchRot.z : 0) + (writing ? Math.sin(time * 9) * 0.05 * writing : 0);
+        m.arm.rotation.y = key === 'me' ? twitchRot.y : 0;
+        const glowLevel = key === 'me' ? channelShown : writing;
+        m.crystalMat.emissiveIntensity = 1.2 + glowLevel * (3 + pulse * 2) + lunge * 3;
+        m.glow.scale.setScalar(0.45 + glowLevel * (0.5 + pulse * 0.3) + lunge * 0.6);
+        (m.glow.material as THREE.SpriteMaterial).opacity = 0.45 + glowLevel * 0.5;
+        m.crystal.rotation.y += dt * (0.8 + glowLevel * 6);
+        if (glowLevel > 0.3 && Math.random() < glowLevel * 0.6) {
+          m.crystal.getWorldPosition(tmp);
+          spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), (m.crystalMat.color as THREE.Color).getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
+        }
+      } else if (f.sprite) {
+        f.sprite.position.y = still ? 0 : Math.abs(Math.sin(time * 2)) * 0.05;
+        f.sprite.position.z = lunge * 0.4;
+      }
       const auraOn = (key === 'opp' && oppChannelOn) || (key === 'boss' && inhaling);
       const am = f.aura.material as THREE.SpriteMaterial;
-      am.opacity += ((auraOn ? 0.55 + 0.2 * Math.sin(time * 5) : 0) - am.opacity) * Math.min(1, dt * 5);
-      am.color.set(key === 'boss' ? 0xff7a2a : 0xb48cff);
-      if (f.fire && Math.random() < 0.7) {
-        const base = f.group.position;
-        spark(new THREE.Vector3(base.x + rnd(-0.5, 0.5) * f.height * 0.35, rnd(0.1, f.height * 0.6), base.z + 0.2), Math.random() < 0.5 ? 0xff7a2a : 0xffc04a, { size: rnd(0.15, 0.35), vel: new THREE.Vector3(0, rnd(1.2, 2.4), 0), life: rnd(0.4, 0.8) });
-      }
+      am.opacity += ((auraOn ? 0.55 + 0.2 * Math.sin(time * 5) : f.flame ? 0.35 : 0) - am.opacity) * Math.min(1, dt * 5);
+      am.color.copy(key === 'boss' ? new THREE.Color(0xff7a2a) : f.flame ?? new THREE.Color(0xb48cff));
+      if (f.flame) flames(f, f.flame, 2);
+      if (now < f.burnUntil) flames(f, Math.random() < 0.5 ? 0xff5a1a : 0xffb030, 3);
+      if (now < f.frostUntil && Math.random() < 0.3) flames(f, 0xcff2ff, 1);
       if (key === 'boss' && inhaling && Math.random() < 0.8) {
-        const m = pointOf('boss', 'mouth');
-        const from = m.clone().add(new THREE.Vector3(rnd(-1.5, 1.5), rnd(-1, 1), rnd(-1, 1)));
-        spark(from, 0xff9a3a, { size: 0.12, vel: m.clone().sub(from).multiplyScalar(1.6), life: 0.55 });
+        const mo = pointOf('boss', 'mouth');
+        const from = mo.clone().add(new THREE.Vector3(rnd(-1.5, 1.5), rnd(-1, 1), rnd(-1, 1)));
+        spark(from, 0xff9a3a, { size: 0.12, vel: mo.clone().sub(from).multiplyScalar(1.6), life: 0.55 });
       }
-    }
-    if (myFire && Math.random() < 0.8) {
-      const p = camera.localToWorld(new THREE.Vector3(rnd(-1.4, 1.4), -0.95, -1.4));
-      spark(p, Math.random() < 0.5 ? 0xff7a2a : 0xffc04a, { size: rnd(0.12, 0.3), vel: new THREE.Vector3(0, rnd(0.8, 1.6), 0), life: rnd(0.3, 0.6) });
     }
 
-    // torches flicker
     for (const t of torches) {
-      const f = 0.85 + 0.15 * Math.sin(time * 9 + t.phase) + 0.08 * Math.sin(time * 23 + t.phase * 2);
-      t.light.intensity = t.base * f;
-      t.flame.scale.set(1.2 * f, 1.8 * (0.9 + 0.2 * f), 1);
+      const k = 0.85 + 0.15 * Math.sin(time * 9 + t.phase) + 0.08 * Math.sin(time * 23 + t.phase * 2);
+      t.light.intensity = t.base * k;
+      t.flame.scale.set(1.2 * k, 1.8 * (0.9 + 0.2 * k), 1);
     }
     rune.rotation.z += dt * 0.05;
 
-    // motes drift up and wander
     const pos = moteGeo.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < MOTES; i++) {
       let y = pos.getY(i) + dt * (0.12 + (moteSeed[i] % 1) * 0.2);
@@ -530,17 +658,17 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
     pos.needsUpdate = true;
     moteMat.opacity = 0.55 + 0.35 * Math.sin(time * 1.3);
 
-    // spells
     for (let i = flights.length - 1; i >= 0; i--) {
       const fl = flights[i];
       fl.t += dt / fl.dur;
       const t = Math.min(1, fl.t);
-      const e = t * t * (1.6 - 0.6 * t); // speeds up into the hit
+      const e = t * t * (1.6 - 0.6 * t);
       const a = fl.from.clone().lerp(fl.mid, e), b = fl.mid.clone().lerp(fl.to, e);
       fl.sprite.position.copy(a.lerp(b, e));
       const grow = 0.55 + e * 0.8;
       const mat = fl.sprite.material as THREE.SpriteMaterial;
-      const asp = mat.map ? (mat.map.image as HTMLCanvasElement).width / (mat.map.image as HTMLCanvasElement).height : 1;
+      const img = mat.map?.image as HTMLCanvasElement | undefined;
+      const asp = img ? img.width / img.height : 1;
       fl.sprite.scale.set(fl.size * asp * 0.4 * grow, fl.size * 0.4 * grow, 1);
       fl.trailAt -= dt;
       if (fl.trailAt <= 0 && !still) {
@@ -553,7 +681,6 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
         fl.done();
       }
     }
-    // particles
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       p.life += dt;
@@ -563,6 +690,12 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       if (p.grow) p.sprite.scale.multiplyScalar(1 + p.grow * dt);
       (p.sprite.material as THREE.SpriteMaterial).opacity = 1 - p.life / p.max;
     }
+    for (let i = bolts.length - 1; i >= 0; i--) {
+      const b = bolts[i];
+      b.life += dt;
+      (b.line.material as THREE.LineBasicMaterial).opacity = b.life < 0.08 || (b.life > 0.14 && b.life < 0.2) ? 1 : 0.15;
+      if (b.life > 0.32) { scene.remove(b.line); b.line.geometry.dispose(); (b.line.material as THREE.Material).dispose(); bolts.splice(i, 1); }
+    }
     for (let i = floats.length - 1; i >= 0; i--) {
       const f = floats[i];
       f.life += dt;
@@ -571,6 +704,15 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       if (f.life > 1.1) { scene.remove(f.sprite); (f.sprite.material as THREE.SpriteMaterial).map?.dispose(); (f.sprite.material as THREE.Material).dispose(); floats.splice(i, 1); }
     }
     renderer.render(scene, camera);
+  }
+
+  /** what a Deck Duel card does to its target, on impact */
+  function cardEffect(to: Who, fx: SpellFx | undefined, at: THREE.Vector3) {
+    const t = fighters.get(to);
+    const now = performance.now();
+    if (fx === 'bolt') { lightning(t ? pointOf(to, 'head') : at); if (to === 'me') screenHit('190,230,255', 'bolt'); }
+    if (fx === 'frost') { if (t) t.frostUntil = now + 1100; burst(at, 0xcff2ff, 30, 2.5, 0.16); if (to === 'me') screenHit('140,210,255', 'frost'); }
+    if (fx === 'fire') { if (t) t.burnUntil = now + 1100; burst(at, 0xff7a2a, 36, 3.4, 0.24); if (to === 'me') screenHit('255,120,30', 'fire'); }
   }
 
   const api: ArenaApi = {
@@ -585,29 +727,31 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
     async cast(from, to, kanji, o = {}) {
       const kind = o.kind ?? 'attack';
       const friendly = from === 'me' || from.startsWith('ally:');
-      const color = kind === 'heal' ? '#5dffa8' : kind === 'mana' ? '#ffd479' : friendly ? '#a98bff' : '#ff6b6b';
+      const color = kind === 'heal' ? '#5dffa8' : kind === 'mana' ? '#ffd479' : o.fx === 'bolt' ? '#bfe6ff' : o.fx === 'frost' ? '#8fdcff' : o.fx === 'fire' ? '#ff8a3a' : friendly ? '#a98bff' : '#ff6b6b';
       const caster = fighters.get(from);
       if (caster) caster.lungeUntil = performance.now() + 450;
-      if (from === 'me') channelShown = Math.max(channelShown, 1.6); // the crystal flares
+      if (from === 'me') channelShown = Math.max(channelShown, 1.6);
       if (kind !== 'attack') {
-        // heals and mana: a rising swirl on the caster
         const at = pointOf(from);
-        for (let i = 0; i < 30; i++) spark(at.clone().add(new THREE.Vector3(rnd(-0.6, 0.6), rnd(-0.8, 0.2), rnd(-0.3, 0.3))), color, { size: rnd(0.08, 0.2), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.8, 1.8), 0), life: rnd(0.6, 1.1) });
+        for (let i = 0; i < 30; i++) spark(at.clone().add(new THREE.Vector3(rnd(-0.5, 0.5), rnd(-0.8, 0.2), rnd(-0.3, 0.3))), color, { size: rnd(0.08, 0.2), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.8, 1.8), 0), life: rnd(0.6, 1.1) });
         if (from === 'me') screenHit(kind === 'heal' ? '80,255,160' : '255,212,121');
         if (o.damage) float(from, `+${o.damage}`, color);
         return;
       }
-      const start = pointOf(from, from === 'me' ? 'head' : from === 'boss' ? 'mouth' : 'chest');
-      const end = to === 'me' ? camera.localToWorld(new THREE.Vector3(rnd(-0.2, 0.2), 0.05, -1.3)) : pointOf(to);
-      const size = (o.crit ? 1.5 : 1) * (to === 'me' ? 1.3 : 1.15);
+      const start = pointOf(from, from === 'boss' ? 'mouth' : 'staff');
+      const end = pointOf(to, 'chest');
+      const size = (o.crit ? 1.5 : 1) * 1.15;
       await fly(start, end, kanji, color, size, 0.85);
-      burst(end, color, o.crit ? 46 : 28, o.crit ? 4.4 : 3.2, to === 'me' ? 0.12 : 0.22);
-      if (to === 'me') { screenHit(); kick(o.crit ? 0.18 : 0.11); }
-      else { const t = fighters.get(to); if (t) t.hurtUntil = performance.now() + 450; kick(o.crit ? 0.07 : 0.035); }
+      burst(end, color, o.crit ? 46 : 28, o.crit ? 4.4 : 3.2, 0.2);
+      const t = fighters.get(to);
+      if (t) t.hurtUntil = performance.now() + 450;
+      cardEffect(to, o.fx, end);
+      if (to === 'me') { if (!o.fx) screenHit(); kick(o.crit ? 0.16 : 0.09); }
+      else kick(o.crit ? 0.07 : 0.035);
       if (o.damage) float(to, `−${o.damage}${o.crit ? '!' : ''}`, to === 'me' ? '#ff6b81' : o.crit ? '#ff9a3a' : '#ffd479');
     },
     fizzle(who) {
-      const at = pointOf(who, 'head');
+      const at = pointOf(who, who === 'boss' ? 'head' : 'staff');
       for (let i = 0; i < 14; i++) spark(at, 0x9a9aa8, { size: rnd(0.1, 0.25), vel: new THREE.Vector3(rnd(-0.6, 0.6), rnd(0.3, 1), rnd(-0.3, 0.3)), life: 0.8, opacity: 0.6 });
       if (who === 'me') channelShown = 0;
     },
@@ -618,47 +762,49 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       const start = performance.now();
       const fall = () => {
         const t = Math.min(1, (performance.now() - start) / 700);
-        f.mat.rotation = (Math.PI / 2) * t * (who === 'boss' ? -1 : 1);
-        f.mat.opacity = 1 - t * 0.6;
-        f.sprite.position.y = -t * f.height * 0.2;
+        if (f.model) f.model.root.rotation.x = -(Math.PI / 2) * t * 0.95;
+        else if (f.spriteMat) { f.spriteMat.rotation = (Math.PI / 2) * t * -1; f.spriteMat.opacity = 1 - t * 0.6; }
         if (t < 1) requestAnimationFrame(fall);
       };
       fall();
       burst(pointOf(who), 0xffffff, 40, 3, 0.25);
     },
-    onfire(who, on) {
-      if (who === 'me') {
-        if (on && !myFire) { myFire = new THREE.Group(); camera.add(myFire); }
-        else if (!on && myFire) { camera.remove(myFire); myFire = null; }
-        return;
-      }
+    onfire(who, on, color) {
       const f = fighters.get(who);
-      if (f) f.fire = on ? (f.fire ?? new THREE.Group()) : null;
+      if (f) f.flame = on ? new THREE.Color(color ?? '#6ee7ff') : null;
     },
     channel(level) { channelLevel = Math.max(0, Math.min(1, level)); },
+    twitch() {
+      if (reduced()) return;
+      twitchAmp = 0.35;
+      twitchTarget.set(rnd(-0.35, 0.25), rnd(-0.25, 0.25), rnd(-0.3, 0.3));
+      const me = fighters.get('me');
+      if (me?.model && Math.random() < 0.6) { me.model.crystal.getWorldPosition(tmp); spark(tmp.clone(), 0xd8c4ff, { size: rnd(0.08, 0.16), vel: new THREE.Vector3(rnd(-0.6, 0.6), rnd(0.2, 0.9), rnd(-0.3, 0.3)), life: 0.5 }); }
+    },
     oppChannel(on) { oppChannelOn = on; },
     inhale(on) { inhaling = on; },
     breath(victims, damage) {
       inhaling = false;
-      const m = pointOf('boss', 'mouth');
-      const dest = camera.localToWorld(new THREE.Vector3(0, -0.2, -1));
+      const mo = pointOf('boss', 'mouth');
       for (let i = 0; i < 160; i++) {
         setTimeout(() => {
-          const v = dest.clone().add(new THREE.Vector3(rnd(-2.5, 2.5), rnd(-1, 1), 0)).sub(m).normalize().multiplyScalar(rnd(7, 11));
-          spark(m, Math.random() < 0.4 ? 0xffd25a : 0xff5a1a, { size: rnd(0.3, 0.7), vel: v, life: rnd(0.6, 0.9), grow: 1.2 });
+          const target = victims.length ? pointOf(victims[i % victims.length]) : camera.localToWorld(new THREE.Vector3(0, -0.2, -1));
+          const v = target.clone().add(new THREE.Vector3(rnd(-1.5, 1.5), rnd(-0.8, 0.8), 0)).sub(mo).normalize().multiplyScalar(rnd(7, 11));
+          spark(mo, Math.random() < 0.4 ? 0xffd25a : 0xff5a1a, { size: rnd(0.3, 0.7), vel: v, life: rnd(0.6, 0.9), grow: 1.2 });
         }, i * 5);
       }
       setTimeout(() => {
-        if (victims.includes('me')) { screenHit('255,120,30'); kick(0.16); float('me', `−${damage}`, '#ff9a3a'); }
-        for (const v of victims) if (v !== 'me') { const f = fighters.get(v); if (f) f.hurtUntil = performance.now() + 500; float(v, `−${damage}`, '#ff9a3a'); }
+        for (const v of victims) { const f = fighters.get(v); if (f) { f.hurtUntil = performance.now() + 500; f.burnUntil = performance.now() + 900; } float(v, `−${damage}`, '#ff9a3a'); }
+        if (victims.includes('me')) { screenHit('255,120,30'); kick(0.16); }
       }, 450);
     },
     claw(victim, damage) {
       const b = fighters.get('boss');
       if (b) b.lungeUntil = performance.now() + 450;
       setTimeout(() => {
-        if (victim === 'me') { screenHit(); kick(0.13); overlay.classList.add('claw'); setTimeout(() => overlay.classList.remove('claw'), 500); }
-        else { const f = fighters.get(victim); if (f) f.hurtUntil = performance.now() + 450; }
+        const f = fighters.get(victim);
+        if (f) f.hurtUntil = performance.now() + 450;
+        if (victim === 'me') { screenHit('255,40,60', 'claw'); kick(0.13); }
         float(victim, `−${damage}`, '#ff6b81');
       }, 200);
     },

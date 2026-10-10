@@ -3,11 +3,12 @@
 // classic 2D field is used.
 
 import type { ArenaApi, ArenaSetup, FighterArt, Who } from './arena3d';
-import type { Avatar, GameMode, PlayerId, PlayerView } from '../shared/protocol';
-import type { DeckCharacter, DeckView } from '../shared/deck';
+import type { GameMode, PlayerId, PlayerView } from '../shared/protocol';
+import type { DeckView } from '../shared/deck';
 import type { BackgroundId } from '../shared/progress';
 import { sceneSvg, type TimeOfDay } from './backgrounds';
-import { avatarSvg, dragonSvg, heroSvg } from './wizard';
+import { dragonSvg } from './wizard';
+import { flameColor } from '../shared/progress';
 
 export type { Who };
 const KEY = 'kb:3d';
@@ -41,6 +42,7 @@ function load(): Promise<ArenaApi | null> {
     s.onload = () => {
       const create = (globalThis as unknown as { KWArena3D?: (c: HTMLCanvasElement) => ArenaApi | null }).KWArena3D;
       api = create?.(document.getElementById('arena3d') as HTMLCanvasElement) ?? null;
+      if (api && location.search.includes('debug3d')) (globalThis as unknown as { __arena: ArenaApi }).__arena = api; // for testing
       resolve(api);
     };
     s.onerror = () => resolve(null);
@@ -75,24 +77,22 @@ function configure(s: Omit<ArenaSetup, 'bgSvg' | 'bgKey' | 'time'>) {
   if (api && onScreen && wanted()) void activate();
 }
 
-const ROBE: Record<string, string> = { wizard: '#3d4fb8', goblin: '#4f8a3a', knight: '#8a93a6', witch: '#5b2a86', kid: '#d35d3a', human: '#a0522d' };
-
-/** Reading / Writing / Rapid / Boss: the opponent (or the dragon and your party). */
+/** Reading / Writing / Rapid / Boss: you, the opponent (or the dragon and your party). */
 export function arenaForBattle(mode: GameMode, players: PlayerView[], you: PlayerId) {
   const me = players.find((p) => p.id === you);
   const others = players.filter((p) => p.id !== you);
-  const art = (p: PlayerView, side: 'opp' | 'ally'): FighterArt => ({ id: p.id, name: p.name, svg: avatarSvg(p.avatar as Avatar, side) });
+  const art = (p: PlayerView): FighterArt => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame) });
   configure({
     layout: 'battle',
-    opp: mode === 'boss' || !others[0] ? null : art(others[0], 'opp'),
-    allies: mode === 'boss' ? others.map((p) => art(p, 'ally')) : [],
+    me: me ? art(me) : { id: you, character: 'wizard' },
+    opp: mode === 'boss' || !others[0] ? null : art(others[0]),
+    allies: mode === 'boss' ? others.map(art) : [],
     boss: mode === 'boss' ? { id: 'boss', svg: dragonSvg() } : null,
-    robe: ROBE[me?.avatar ?? 'wizard'] ?? ROBE.wizard,
   });
 }
 
 let deckKey = '';
-/** Deck Duel: the opponent's hero across the arena (once per match / hero pick). */
+/** Deck Duel: you and the opponent as your heroes (set again when the heroes are picked). */
 export function arenaForDeck(v: DeckView) {
   const me = v.players.find((p) => p.id === v.you);
   const opp = v.players.find((p) => p.id !== v.you);
@@ -101,10 +101,10 @@ export function arenaForDeck(v: DeckView) {
   deckKey = key;
   configure({
     layout: 'deck',
-    opp: opp ? { id: opp.id, name: opp.name, svg: heroSvg((opp.character ?? 'wizard') as DeckCharacter, 'opp') } : null,
+    me: { id: v.you, name: me?.name, character: me?.character ?? 'wizard', flame: flameColor(me?.flame) },
+    opp: opp ? { id: opp.id, name: opp.name, character: opp.character ?? 'wizard', flame: flameColor(opp.flame) } : null,
     allies: [],
     boss: null,
-    robe: ROBE[me?.character ?? 'wizard'] ?? ROBE.wizard,
   });
 }
 export const resetArenaDeck = () => { deckKey = ''; };

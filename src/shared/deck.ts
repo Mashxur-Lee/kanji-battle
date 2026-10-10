@@ -92,6 +92,7 @@ export interface DeckPlayerView {
   wizardCardsUsed: boolean;
   wizardManaUsed: boolean;
   pic: string | null;
+  flame: string;
 }
 
 export type CastStage = 'read' | 'look' | 'write';

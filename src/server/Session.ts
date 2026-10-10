@@ -93,6 +93,11 @@ export class Session implements Client {
     if (!user) return this.send({ type: 'auth_error', message: 'Please log in' });
     if (msg.type === 'pong') return this.onPong(msg.t);
 
+    // too many struggling spells waiting: study first (checked on the server, so it can't be skipped)
+    if (msg.type === 'queue' || msg.type === 'create' || msg.type === 'join') {
+      const lock = await this.study.playLock(user);
+      if (lock) return this.send({ type: 'error', message: lock });
+    }
     if (msg.type === 'queue') {
       if (!this.matchmaker) return;
       const err = this.matchmaker.enqueue(user.id, this, msg.modes, msg.levels);
@@ -199,7 +204,7 @@ export class Session implements Client {
   /** Crit chance and XP shown in rooms (crit comes from learned flashcards). */
   private async profile(): Promise<MemberProfile> {
     const rec = await this.auth.store.findById(this.user!.id);
-    return { crit: await this.study.crit(this.user!.id), xp: rec?.xp ?? 0, pic: rec ? picUrl(rec) : null };
+    return { crit: await this.study.crit(this.user!.id), xp: rec?.xp ?? 0, pic: rec ? picUrl(rec) : null, flame: rec?.flame ?? 'blue' };
   }
 
   private async enter(room: Room, levels: Level[]) {

@@ -573,6 +573,39 @@
     }
   }
 
+  // src/shared/progress.ts
+  var XP_PER_LEVEL = 1e3;
+  var xpToNext = (level) => XP_PER_LEVEL * (level + 1);
+  var xpForLevel = (level) => XP_PER_LEVEL * level * (level + 1) / 2;
+  function levelOf(xp) {
+    let n = Math.floor((Math.sqrt(1 + 8 * Math.max(0, xp) / XP_PER_LEVEL) - 1) / 2);
+    while (xpForLevel(n + 1) <= xp) n++;
+    while (n > 0 && xpForLevel(n) > xp) n--;
+    return n;
+  }
+  function levelXp(xp) {
+    const level = levelOf(xp);
+    return { level, into: Math.max(0, xp) - xpForLevel(level), need: xpToNext(level) };
+  }
+  var levelProgress = (xp) => {
+    const l = levelXp(xp);
+    return l.into / l.need;
+  };
+  var critText = (crit) => `${(crit * 100).toFixed(1).replace(/\.0$/, "")}%`;
+  var BACKGROUNDS = [
+    { id: "forest", name: "Forest", level: 0 },
+    { id: "swamp", name: "Swamp", level: 5 },
+    { id: "plains", name: "Plains", level: 10 },
+    { id: "castle", name: "Castle", level: 15 },
+    { id: "worldtree", name: "World Tree", level: 20 }
+  ];
+  var FLAMES = [
+    { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
+    { id: "purple", name: "Purple", level: 5, color: "#b26bff" }
+  ];
+  var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
+  var STUDY_LOCK = 100;
+
   // src/client/arena.ts
   var KEY2 = "kb:3d";
   var GAME_SCREENS = /* @__PURE__ */ new Set(["battle", "deck"]);
@@ -617,6 +650,7 @@
       s.onload = () => {
         const create = globalThis.KWArena3D;
         api = create?.(document.getElementById("arena3d")) ?? null;
+        if (api && location.search.includes("debug3d")) globalThis.__arena = api;
         resolve(api);
       };
       s.onerror = () => resolve(null);
@@ -653,17 +687,16 @@
     pending = s;
     if (api && onScreen && wanted()) void activate();
   }
-  var ROBE = { wizard: "#3d4fb8", goblin: "#4f8a3a", knight: "#8a93a6", witch: "#5b2a86", kid: "#d35d3a", human: "#a0522d" };
   function arenaForBattle(mode2, players2, you2) {
     const me2 = players2.find((p) => p.id === you2);
     const others = players2.filter((p) => p.id !== you2);
-    const art = (p, side) => ({ id: p.id, name: p.name, svg: avatarSvg(p.avatar, side) });
+    const art = (p) => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame) });
     configure({
       layout: "battle",
-      opp: mode2 === "boss" || !others[0] ? null : art(others[0], "opp"),
-      allies: mode2 === "boss" ? others.map((p) => art(p, "ally")) : [],
-      boss: mode2 === "boss" ? { id: "boss", svg: dragonSvg() } : null,
-      robe: ROBE[me2?.avatar ?? "wizard"] ?? ROBE.wizard
+      me: me2 ? art(me2) : { id: you2, character: "wizard" },
+      opp: mode2 === "boss" || !others[0] ? null : art(others[0]),
+      allies: mode2 === "boss" ? others.map(art) : [],
+      boss: mode2 === "boss" ? { id: "boss", svg: dragonSvg() } : null
     });
   }
   var deckKey = "";
@@ -675,42 +708,15 @@
     deckKey = key;
     configure({
       layout: "deck",
-      opp: opp ? { id: opp.id, name: opp.name, svg: heroSvg(opp.character ?? "wizard", "opp") } : null,
+      me: { id: v.you, name: me2?.name, character: me2?.character ?? "wizard", flame: flameColor(me2?.flame) },
+      opp: opp ? { id: opp.id, name: opp.name, character: opp.character ?? "wizard", flame: flameColor(opp.flame) } : null,
       allies: [],
-      boss: null,
-      robe: ROBE[me2?.character ?? "wizard"] ?? ROBE.wizard
+      boss: null
     });
   }
   var resetArenaDeck = () => {
     deckKey = "";
   };
-
-  // src/shared/progress.ts
-  var XP_PER_LEVEL = 1e3;
-  var xpToNext = (level) => XP_PER_LEVEL * (level + 1);
-  var xpForLevel = (level) => XP_PER_LEVEL * level * (level + 1) / 2;
-  function levelOf(xp) {
-    let n = Math.floor((Math.sqrt(1 + 8 * Math.max(0, xp) / XP_PER_LEVEL) - 1) / 2);
-    while (xpForLevel(n + 1) <= xp) n++;
-    while (n > 0 && xpForLevel(n) > xp) n--;
-    return n;
-  }
-  function levelXp(xp) {
-    const level = levelOf(xp);
-    return { level, into: Math.max(0, xp) - xpForLevel(level), need: xpToNext(level) };
-  }
-  var levelProgress = (xp) => {
-    const l = levelXp(xp);
-    return l.into / l.need;
-  };
-  var critText = (crit) => `${(crit * 100).toFixed(1).replace(/\.0$/, "")}%`;
-  var BACKGROUNDS = [
-    { id: "forest", name: "Forest", level: 0 },
-    { id: "swamp", name: "Swamp", level: 5 },
-    { id: "plains", name: "Plains", level: 10 },
-    { id: "castle", name: "Castle", level: 15 },
-    { id: "worldtree", name: "World Tree", level: 20 }
-  ];
 
   // src/client/ui.ts
   var $ = (id) => document.getElementById(id);
@@ -1106,7 +1112,7 @@
     }
     $("wizMe").classList.toggle("onfire", (me2?.combo ?? 0) >= 5);
     const a3 = arena();
-    if (a3) for (const p of players2) a3.onfire(p.id === you2 ? "me" : battleMode === "boss" ? `ally:${p.id}` : "opp", p.combo >= 5);
+    if (a3) for (const p of players2) a3.onfire(p.id === you2 ? "me" : battleMode === "boss" ? `ally:${p.id}` : "opp", p.combo >= 5, flameColor(p.flame));
   }
   var allyEl = (id) => document.querySelector(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
   var actorEl = (a) => a.startsWith("ally:") ? allyEl(a.slice(5)) ?? $("wizMe") : $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : "dragon");
@@ -1126,11 +1132,13 @@
     for (const [id, side, p] of [["wizMe", "me", meP], ["wizOpp", "opp", others[0]]]) {
       const w = $(id);
       w.className = `wizard ${side}`;
+      w.dataset.flame = p?.flame ?? "blue";
       w.querySelector(".sprite").innerHTML = avatarSvg(p?.avatar ?? "wizard", side);
     }
     $("allies").replaceChildren(...(boss ? others : []).map((p) => {
       const w = h("div", "wizard ally");
       w.dataset.pid = p.id;
+      w.dataset.flame = p.flame ?? "blue";
       const sprite = h("div", "sprite");
       sprite.innerHTML = avatarSvg(p.avatar, "ally");
       w.append(h("div", "aura"), sprite, h("div", "ground"));
@@ -2450,7 +2458,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.9.1";
+  var VERSION = "0.9.2";
 
   // src/client/api.ts
   var today = () => {
@@ -2493,6 +2501,7 @@
     me: () => call("GET", "/api/me"),
     setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
     removeAvatar: () => call("DELETE", "/api/me/avatar"),
+    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
     setBackground: (background) => call("PUT", "/api/me/background", { background }),
     study: () => call("GET", `/api/study?today=${today()}`),
     setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
@@ -2725,7 +2734,11 @@
     }
     return el;
   }
+  var powered = (p) => !!p.character && p.character !== "wizard" && p.abilityActive > 0;
   function playerPanel(el, p, mine) {
+    el.dataset.flame = p.flame ?? "blue";
+    el.classList.toggle("powered", powered(p));
+    arena()?.onfire(mine ? "me" : "opp", powered(p), flameColor(p.flame));
     const av = h2("div", "dk-av");
     av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp") : "";
     const name = h2("div", "dk-name");
@@ -2882,6 +2895,7 @@
         input.autocomplete = "off";
         input.spellcheck = false;
         input.placeholder = c.answer === "romaji" ? "Type it in romaji\u2026" : "Reading (kana or romaji)\u2026";
+        input.addEventListener("input", () => arena()?.twitch());
         input.addEventListener("keydown", (e) => {
           if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;
           e.preventDefault();
@@ -3039,6 +3053,7 @@
         break;
     }
   }
+  var CARD_FX = { lightblue: "bolt", blue: "frost", red: "fire" };
   function animateResolve(e, me2) {
     const card = $2("dkCast").querySelector(".dkc.big");
     const fb = $2("dkFeedback");
@@ -3056,7 +3071,15 @@
     if (a3) {
       const from = e.playerId === me2 ? "me" : "opp";
       const to = spec.kind === "attack" ? e.targetId === me2 ? "me" : "opp" : from;
-      void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind });
+      void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind, fx: e.overtime ? void 0 : CARD_FX[e.color] });
+    } else if (spec.kind === "attack" && !e.overtime && CARD_FX[e.color]) {
+      const panel = $2(e.targetId === me2 ? "dkMe" : "dkOpp");
+      setTimeout(() => {
+        panel.classList.remove("fx-bolt", "fx-frost", "fx-fire");
+        void panel.offsetWidth;
+        panel.classList.add(`fx-${CARD_FX[e.color]}`);
+        setTimeout(() => panel.classList.remove(`fx-${CARD_FX[e.color]}`), 1100);
+      }, 500);
     }
     fb.className = "feedback good";
     fb.replaceChildren(h2("span", "big", `\u2713 ${who}: ${spec.label} ${spec.kind === "attack" ? `\u2212${e.amount}` : spec.kind === "heal" ? `+${e.amount} \u2665` : `+${e.amount} \u25C6`}`));
@@ -3495,6 +3518,26 @@
       };
       return b;
     }));
+    $3("flameRow").replaceChildren(...FLAMES.map((f2) => {
+      const locked = !isAdmin && lvl < f2.level;
+      const b = document.createElement("button");
+      b.className = "flame-pick" + ((profile2.flame ?? "blue") === f2.id ? " on" : "") + (locked ? " locked" : "");
+      const dot = document.createElement("span");
+      dot.className = "flame-dot";
+      dot.style.setProperty("--c", f2.color);
+      b.append(dot, locked ? `${f2.name} \xB7 \u{1F512} Level ${f2.level}` : `${f2.name}${(profile2.flame ?? "blue") === f2.id ? " \u2713" : ""}`);
+      b.onclick = async () => {
+        if (locked) return toast(`Reach level ${f2.level} to unlock ${f2.name} flames`);
+        try {
+          const { profile: p } = await api2.setFlame(f2.id);
+          onProfile(p);
+          openCustomize(p, isAdmin, onTimeChange);
+        } catch (e) {
+          toast(e.message);
+        }
+      };
+      return b;
+    }));
     $3("bgGrid").replaceChildren(...BACKGROUNDS.map((b) => {
       const locked = !isAdmin && lvl < b.level;
       const tile2 = document.createElement("button");
@@ -3571,6 +3614,7 @@
   onScreen2((s) => {
     setScene(GAME_SCREENS2.has(s) ? "game" : "menu");
     arenaScreen(s);
+    if (s === "menu" && profile) void refreshProfile();
     if (!GAME_SCREENS2.has(s)) setTimeout(() => applyBackground(true), 0);
   });
   var NO_BG_CHANGE = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
@@ -3594,6 +3638,10 @@
   function applyProfile(p) {
     profile = p;
     setProfile(p);
+    const locked = user?.role !== "admin" && (p.strugglingDue ?? 0) > STUDY_LOCK;
+    $("menu").classList.toggle("locked", locked);
+    $("studyLock").hidden = !locked;
+    $("studyLockText").textContent = locked ? `${p.strugglingDue} struggling spells are waiting. Study them down to ${STUDY_LOCK} to unlock the game modes.` : "";
     applyBackground();
     preloadArena();
   }
@@ -3844,9 +3892,14 @@
     }
   }
   var pad = new HandwritingPad($("pad"), () => shareInk());
+  var twitchAt = 0;
   pad.onDraw = () => {
     shareInk();
     if (mode !== "deck") arena()?.channel(Math.min(1, 0.45 + pad.strokeCount * 0.12));
+    if (Date.now() - twitchAt > 140) {
+      twitchAt = Date.now();
+      arena()?.twitch();
+    }
   };
   var inkTimer = 0;
   var inkAt = 0;
@@ -3888,7 +3941,14 @@
   }
   $("padUndo").onclick = () => pad.undo();
   $("padClear").onclick = () => pad.clear();
-  $("answer").addEventListener("input", (e) => arena()?.channel(Math.min(0.8, e.target.value.length * 0.15)));
+  $("answer").addEventListener("input", (e) => {
+    arena()?.channel(Math.min(0.8, e.target.value.length * 0.15));
+    arena()?.twitch();
+  });
+  $("imeInput").addEventListener("input", () => {
+    arena()?.channel(0.6);
+    arena()?.twitch();
+  });
   $("padSkip").onclick = () => skip();
   $("padNext").onclick = () => {
     if (pad.strokeCount === 0) return;
@@ -3943,6 +4003,7 @@
     }
   });
   $("logout").onclick = () => logout();
+  $("studyLockBtn").onclick = () => void openStudy();
   $("create").onclick = () => {
     setError("");
     show("modes");

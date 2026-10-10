@@ -502,3 +502,40 @@ test('rapid room: the levels are shared — a change by either player changes th
   r2.setLevels('d', ['N2']);
   assert.deepEqual(c.last('lobby')!.players.map((p) => p.levels), [['N5'], ['N2']]);
 });
+
+test('combo flame colour: light blue by default, purple from level 5 (admins: all); shown to others', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const { MemoryStore } = await import('../src/server/db/Store');
+  const store = new MemoryStore();
+  const u = await store.create({ username: 'flamey', passwordHash: 'x', role: 'user' } as any);
+  const study = new StudyService(store);
+  assert.equal((await study.profile(u)).flame, 'blue');
+  await assert.rejects(study.setFlame(u, 'purple'), /level 5/);
+  await assert.rejects(study.setFlame(u, 'green'), /Unknown/);
+  await store.addXp(u.id, 20_000); // well past level 5
+  await study.setFlame((await store.findById(u.id))!, 'purple');
+  assert.equal((await study.profile((await store.findById(u.id))!)).flame, 'purple');
+  const admin = await store.create({ username: 'boss', passwordHash: 'x', role: 'admin' } as any);
+  await study.setFlame(admin, 'purple');
+  // in a room, everyone sees your colour
+  const room = new Room('FLAM', 'reading', { onEmpty: () => {} }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a, undefined, { crit: 0, xp: 0, flame: 'purple' }); room.join('b', 'B', b);
+  assert.deepEqual(b.last('lobby')!.players.map((p) => p.flame), ['purple', 'blue']);
+});
+
+test('more than 100 struggling spells waiting locks the game modes (admins never)', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const { MemoryStore } = await import('../src/server/db/Store');
+  const { VOCAB } = await import('../src/server/vocab');
+  const { STUDY_LOCK } = await import('../src/shared/progress');
+  const store = new MemoryStore();
+  const u = await store.create({ username: 'crammer', passwordHash: 'x', role: 'user' } as any);
+  const study = new StudyService(store);
+  await store.markStruggling(u.id, VOCAB.slice(0, STUDY_LOCK).map((v) => v.id), Date.now());
+  assert.equal(await study.playLock(u), null, 'exactly 100 is still fine');
+  assert.equal((await study.profile(u)).strugglingDue, STUDY_LOCK);
+  await store.markStruggling(u.id, [VOCAB[STUDY_LOCK].id], Date.now());
+  assert.match((await study.playLock(u))!, /101 struggling spells/);
+  assert.equal(await study.playLock({ id: u.id, role: 'admin' }), null);
+});

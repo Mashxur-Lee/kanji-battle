@@ -29,7 +29,7 @@ export const DEFAULT_LEVELS: Level[] = ['N3', 'N2'];
 export const BOSS_NAME = 'Black Dragon';
 
 /** Per-player progress the room shows and uses (crit chance, account level). */
-export interface MemberProfile { crit: number; xp: number; pic?: string | null }
+export interface MemberProfile { crit: number; xp: number; pic?: string | null; flame?: string }
 
 /** `forfeited`: someone gave up or left — nobody gets XP (stops win-trading between accounts). */
 export interface MatchResult {
@@ -341,7 +341,7 @@ export class Room {
       if (!judge) return;
       const writable = this.deps.writableFilter ?? (() => true);
       this.phase = 'game';
-      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit, pic: p.profile.pic ?? null })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge);
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit, pic: p.profile.pic ?? null, flame: p.bot ? 'purple' : p.profile.flame ?? 'blue' })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge);
       this.game.start();
       return;
     }
@@ -492,6 +492,7 @@ export class Room {
         level: levelOf(p.profile.xp),
         bot: p.bot?.level ?? null,
         pic: p.profile.pic ?? null,
+        flame: p.bot ? 'purple' : p.profile.flame ?? 'blue',
         ready: p.ready,
       };
     });

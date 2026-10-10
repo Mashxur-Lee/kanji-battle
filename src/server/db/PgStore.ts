@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
-import type { BackgroundId } from '../../shared/progress';
+import type { BackgroundId, FlameId } from '../../shared/progress';
 import type { CardState, SrsCard } from '../../shared/srs';
 import { MATCH_HISTORY_LIMIT, UsernameTakenError, type AvatarImage, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
@@ -11,7 +11,7 @@ import { MATCH_HISTORY_LIMIT, UsernameTakenError, type AvatarImage, type NewUser
 interface UserRow {
   id: string; username: string; password_hash: string; role: Role; banned: boolean; created_at: Date;
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
-  crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number;
+  crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
@@ -23,7 +23,7 @@ const toUser = (r: UserRow): UserRecord => ({
   createdAt: new Date(r.created_at).toISOString(), xp: r.xp, background: r.background,
   studyLevels: r.study_levels ?? [], lastNewDate: r.last_new_date, newNotice: r.new_notice,
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
-  wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0,
+  wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue',
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
@@ -33,7 +33,7 @@ const toCard = (r: CardRow): SrsCard => ({
 const COLUMNS: Record<keyof UserPatch, string> = {
   banned: 'banned', passwordHash: 'password_hash', background: 'background',
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
-  critCount: 'crit_count', critExpires: 'crit_expires',
+  critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame',
 };
 
 /**
@@ -106,6 +106,8 @@ export class PgStore implements Store {
         mime text not null,
         data bytea not null
       )`;
+    // v0.9.2 colour of the combo flames
+    await this.sql`alter table kw_users add column if not exists flame text not null default 'blue'`;
     // v0.7.7 match history (one row per player per match; the result screen is kept as JSON)
     await this.sql`
       create table if not exists kw_matches (

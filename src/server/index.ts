@@ -52,7 +52,8 @@ auth.onBan((userId) => hub.kick(userId, 'This account has been banned.'));
 
 const server = createServer(async (req, res) => {
   if (await api(req, res)) return;
-  const url = req.url === '/' ? '/index.html' : (req.url ?? '/').split('?')[0];
+  const pathOnly = (req.url ?? '/').split('?')[0];
+  const url = pathOnly === '/' ? '/index.html' : pathOnly; // '/?anything' is the app too
   const file = path.join(PUBLIC_DIR, path.normalize(url));
   if (!file.startsWith(PUBLIC_DIR)) { res.writeHead(403).end(); return; }
   try {
