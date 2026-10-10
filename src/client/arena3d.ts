@@ -923,6 +923,26 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       if (caster) caster.lungeUntil = performance.now() + 450;
       if (from === 'me') { channelShown = 0; channelLevel = 0; }
       if (kind !== 'attack') {
+        if (from === 'me' && gemState !== 'gone' && fp.visible) {
+          // heal / mana: the gem lifts off the staff and flies into you, then it's used up
+          thrustAt = performance.now(); gemState = 'gone';
+          const g = new THREE.Mesh(staff.gem.geometry, staff.gemMat);
+          const a0 = pointOf('me', 'staff'), a1 = pointOf('me', 'chest');
+          const mid = a0.clone().lerp(a1, 0.5).add(new THREE.Vector3(0, 0.35, 0));
+          g.position.copy(a0); g.scale.set(1.3, 1.95, 1.3);
+          scene.add(g);
+          const t0 = performance.now();
+          await new Promise<void>((done) => {
+            const step = () => {
+              const t = Math.min(1, (performance.now() - t0) / (reduced() ? 150 : 520));
+              const p = a0.clone().lerp(mid, t).lerp(mid.clone().lerp(a1, t), t);
+              g.position.copy(p); g.rotation.y += 0.3; g.scale.setScalar(1.3 * (1 - t * 0.7)); g.scale.y *= 1.5;
+              if (!reduced() && Math.random() < 0.8) spark(p.clone(), color, { size: rnd(0.03, 0.07), life: 0.35, opacity: 0.9 });
+              if (t < 1) requestAnimationFrame(step); else { scene.remove(g); done(); }
+            };
+            step();
+          });
+        }
         const at = pointOf(from);
         for (let i = 0; i < 30; i++) spark(at.clone().add(new THREE.Vector3(rnd(-0.5, 0.5), rnd(-0.8, 0.2), rnd(-0.3, 0.3))), color, { size: rnd(0.08, 0.2), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.8, 1.8), 0), life: rnd(0.6, 1.1) });
         if (from === 'me') screenHit(kind === 'heal' ? '80,255,160' : '255,212,121');

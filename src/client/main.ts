@@ -223,7 +223,7 @@ function onMessage(msg: ServerMessage) {
       challengeId = msg.id;
       arena()?.channel(0);
       ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs });
-      if (msg.answer === 'writing') beginWriting(msg.id, msg.kanji);
+      if (msg.answer === 'writing') { flashMs = msg.flashMs ?? 3500; beginWriting(msg.id, msg.kanji); }
       break;
     case 'answer_result':
       if (msg.challengeId !== challengeId) break;
@@ -370,8 +370,22 @@ function beginWriting(id: number, kanji: string) {
   ui.setCharSlots(charCount, [], true);
   const ime = ui.$<HTMLInputElement>('imeInput');
   ime.value = '';
-  ime.disabled = false;
+  if (mode === 'deck') { ime.disabled = false; return; }
+  // Kanji Writing: look at the kanji, then CAST! (or the look time runs out) → it vanishes, then you write
+  clearTimeout(castGoTimer);
+  castGoTimer = window.setTimeout(castGo, flashMs);
+  ui.$('castGo').focus();
 }
+let castGoTimer = 0;
+let flashMs = 3500;
+function castGo() {
+  clearTimeout(castGoTimer);
+  if (!writing || ui.$('castGo').hidden) return;
+  ui.startWritingStep();
+  arena()?.thrust();
+  ui.$<HTMLInputElement>('imeInput').focus();
+}
+ui.$('castGo').onclick = () => castGo();
 
 function stopWriting() {
   writing = false;
@@ -400,6 +414,9 @@ ui.$('padNext').onclick = () => {
   submitDrawing();
 };
 // typed kanji with a Japanese IME (the first Enter confirms the conversion, the next one sends)
+for (const id of ['imeInput', 'answer']) {
+  for (const ev of ['paste', 'drop'] as const) ui.$(id).addEventListener(ev, (e) => { e.preventDefault(); ui.toast('Pasting is off — write it yourself!'); });
+}
 ui.$<HTMLInputElement>('imeInput').addEventListener('keydown', (e) => {
   const input = e.currentTarget as HTMLInputElement;
   if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || input.disabled) return;
@@ -411,6 +428,7 @@ ui.$<HTMLInputElement>('imeInput').addEventListener('keydown', (e) => {
   writing = false;
 });
 addEventListener('keydown', (e) => {
+  if (writing && !ui.$('castGo').hidden && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); castGo(); return; }
   if (!writing || e.target === ui.$('imeInput') || ui.$<HTMLButtonElement>('padNext').disabled) return;
   if (e.key === 'Enter') ui.$('padNext').click();
   else if (e.key === 'Escape') skip();
@@ -484,6 +502,8 @@ async function openAdmin() {
 }
 ui.$('adminBtn').onclick = () => void openAdmin();
 ui.$('adminRefresh').onclick = () => void openAdmin();
+// the Users page keeps itself up to date (who is online) while it's open
+setInterval(() => { if (ui.currentScreen() === 'admin' && user?.role === 'admin') void openAdmin(); }, 15_000);
 ui.$('adminBack').onclick = () => ui.show('menu');
 
 // ── lobby ────────────────────────────────────────────────────────────────────

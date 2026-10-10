@@ -250,7 +250,7 @@
     <p id="adminStorage" class="storage"></p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Login</th><th>Role</th><th>Level</th><th>XP</th><th title="Learned spells / study set size">Spells</th><th>Crit</th><th>Registered</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Online</th><th>Login</th><th>Role</th><th>Level</th><th>XP</th><th title="Learned spells / study set size">Spells</th><th>Crit</th><th>Registered</th><th>Status</th><th></th></tr></thead>
         <tbody id="userRows"></tbody>
       </table>
     </div>
@@ -274,7 +274,7 @@
       <button class="mode-card" data-mode="writing">
         <span class="mode-icon jp">書</span>
         <span class="mode-name">1v1 Kanji Writing</span>
-        <span class="mode-desc">The kanji shows for 3.5 seconds; then only the reading and meaning stay. Write it by hand or type it with a Japanese keyboard.</span>
+        <span class="mode-desc">Look at the kanji, press CAST! — it vanishes, and you write it from memory (pad or Japanese keyboard). Write it by hand or type it with a Japanese keyboard.</span>
       </button>
       <button class="mode-card boss" data-mode="boss">
         <span class="mode-icon jp">竜</span>
@@ -365,6 +365,7 @@
         <div id="challenge" class="challenge">
           <div id="kanji" class="kanji" lang="ja"></div>
           <div id="meaningPrompt" class="meaning-prompt" hidden></div>
+          <button id="castGo" class="big cast-btn go" hidden title="Hide the kanji and write it (Enter)">CAST!</button>
           <div class="timer thin"><div id="challengeBar"></div></div>
           <div id="typeArea">
             <input id="answer" lang="ja" placeholder="かな or romaji, then Enter" autocomplete="off" autocapitalize="off" spellcheck="false" disabled>
@@ -489,7 +490,7 @@
         <ul>
           <li><b>Reading</b> — study 10 words, then type each reading (かな or romaji).</li>
           <li><b>Rapid</b> — no study; both get the same kanji, first correct reading hits.</li>
-          <li><b>Writing</b> — the kanji flashes, then write it on the pad or type the kanji with a Japanese keyboard. Messy is fine.</li>
+          <li><b>Writing</b> — look at the kanji, press CAST! (up to 3.5 s), then write it from memory on the pad or type it with a Japanese keyboard. Messy is fine.</li>
           <li><b>Boss</b> — 1 to 4 players team up against the Black Dragon (it gets tougher with every player). Mistakes get you clawed; fire breath every 30 s.</li>
           <li><b>Deck Duel</b> — pick a hero, draft cards by colour, then cast them by writing their kanji. Bolt 90 dmg (10 mana), Frost 150 (20), Mana +60, Heal 140 (30), Inferno 340 (45). 15 s to choose a card, then 1 minute to read its meaning, look at the kanji and write it. +10 mana each turn. Out of cards → a new draft round (HP and mana stay). No mana for any of your cards → your turn is skipped (−100 HP). When time runs out: overtime, a Rapid duel. Every kanji of the duel joins your <i>All spells</i>.</li>
         </ul>
@@ -502,7 +503,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.5.1</div>
+<div id="version" class="version">v0.9.5.2</div>
 <script src="/app.js"></script>
 </body>
 </html>

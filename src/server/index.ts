@@ -28,7 +28,8 @@ const store = makeStore();
 const tokens = new TokenSigner();
 const auth = new AuthService(store, tokens);
 const study = new StudyService(store);
-const api = createApiHandler(auth, study);
+const hub = new SessionHub();
+const api = createApiHandler(auth, study, (id) => hub.presence(id));
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const recognizer = Recognizer.fromFile();
@@ -46,7 +47,6 @@ const rooms = new RoomManager({
     return out;
   },
 });
-const hub = new SessionHub();
 const matchmaker = new Matchmaker(rooms);
 auth.onBan((userId) => hub.kick(userId, 'This account has been banned.'));
 

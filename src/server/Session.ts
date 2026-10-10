@@ -1,4 +1,4 @@
-import { CHAT_MAX_LENGTH, LEVELS, MODES, type ClientMessage, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
+import { CHAT_MAX_LENGTH, LEVELS, MODE_LABEL, MODES, type ClientMessage, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
 import type { AuthService } from './auth/AuthService';
 import { toPublic } from './auth/AuthService';
 import { sanitizeDrawing } from './handwriting/judge';
@@ -17,14 +17,31 @@ function parseLevels(raw: unknown): Level[] {
 }
 
 /** Tracks the one live session per account (newest wins), so we can kick on ban / second tab. */
+export interface Presence { online: boolean; activity?: string; since?: number; lastSeen?: number }
+
 export class SessionHub {
   private byUser = new Map<string, Session>();
+  private onlineSince = new Map<string, number>();
+  private lastSeen = new Map<string, number>(); // since the server started
+  /** Admin → Users: is this player connected right now, and what are they doing? */
+  presence(userId: string): Presence {
+    const s = this.byUser.get(userId);
+    if (!s) return { online: false, lastSeen: this.lastSeen.get(userId) };
+    return { online: true, activity: s.activity(), since: this.onlineSince.get(userId) };
+  }
+  get onlineCount() { return this.byUser.size; }
   claim(userId: string, s: Session) {
     const old = this.byUser.get(userId);
     this.byUser.set(userId, s);
+    if (!old) this.onlineSince.set(userId, Date.now());
     if (old && old !== s) old.kick('You opened Kanji Battle somewhere else.');
   }
-  release(userId: string, s: Session) { if (this.byUser.get(userId) === s) this.byUser.delete(userId); }
+  release(userId: string, s: Session) {
+    if (this.byUser.get(userId) !== s) return;
+    this.byUser.delete(userId);
+    this.onlineSince.delete(userId);
+    this.lastSeen.set(userId, Date.now());
+  }
   kick(userId: string, message: string) { this.byUser.get(userId)?.kick(message); }
 }
 
@@ -199,6 +216,16 @@ export class Session implements Client {
   private detach() {
     if (this.user && this.room) this.room.disconnect(this.user.id, this);
     this.room = undefined;
+  }
+
+  /** What the player is doing (for admins): menus, searching, or in a room of some mode. */
+  activity(): string {
+    if (this.room) {
+      const mode = MODE_LABEL[this.room.mode] ?? this.room.mode;
+      return this.room.stage === 'game' ? `Playing ${mode}` : this.room.stage === 'results' ? `Results · ${mode}` : `Lobby · ${mode}`;
+    }
+    if (this.user && this.matchmaker?.isQueued(this.user.id)) return 'In the online queue';
+    return 'In the menus';
   }
 
   /** Crit chance and XP shown in rooms (crit comes from learned flashcards). */

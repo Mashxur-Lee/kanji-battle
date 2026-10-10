@@ -66,7 +66,7 @@ export class AuthService {
   }
 
   async listUsers(): Promise<AdminUserRow[]> {
-    return (await this.store.list()).map((u) => ({ ...toPublic(u), banned: u.banned, createdAt: u.createdAt, xp: u.xp, crit: dailyCrit(u.critCount, u.critExpires) }));
+    return (await this.store.list()).map((u) => ({ ...toPublic(u), banned: u.banned, createdAt: u.createdAt, xp: u.xp, crit: dailyCrit(u.critCount, u.critExpires), loginDay: u.loginDay ?? null }));
   }
 
   async setBanned(admin: UserRecord, targetId: string, banned: boolean): Promise<AdminUserRow> {

@@ -41,6 +41,8 @@ export interface PublicUser { id: string; username: string; role: Role }
 export interface AdminUserRow extends PublicUser {
   banned: boolean; createdAt: string;
   xp?: number; level?: number; crit?: number; learned?: number; cards?: number;
+  /** connected right now; what they're doing; since when (or, offline: last seen since the server started) */
+  online?: boolean; activity?: string; onlineSince?: number; lastSeen?: number; loginDay?: string | null;
 }
 
 export type Avatar = 'goblin' | 'kid' | 'human' | 'knight' | 'witch' | 'wizard';
