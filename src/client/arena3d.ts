@@ -52,9 +52,6 @@ export interface ArenaApi {
   float(who: Who, text: string, color?: string): void;
   /** lighter rendering for small screens / phones (less grass and particles, lower resolution) */
   setLite(on: boolean): void;
-  /** phones held upright: the arena is a band across the screen showing only the opponent / party and
-   *  the arena (your hand and staff are left out) */
-  setBand(on: boolean): void;
   dispose(): void;
 }
 
@@ -377,10 +374,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
 
   // ── you, in first person: your hand holding your staff (sleeve and skin after your character) ──
   const fp = new THREE.Group();
-  let bandView = false;
-  const fpRoot = new THREE.Group(); // hidden in the phone band (only the opponent and the arena show there)
-  fpRoot.add(fp);
-  camera.add(fpRoot);
+  camera.add(fp);
   // Deck Duel: smaller, in the free corner under the chat
   const FP_BATTLE = new THREE.Vector3(1.08, -0.52, -1.6), FP_DECK = new THREE.Vector3(1.14, -0.6, -1.6);
   fp.scale.setScalar(0.72);
@@ -622,9 +616,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     const s = current;
     const opp = fighters.get('opp');
     if (opp?.model) opp.group.scale.setScalar(1.3); // across the arena: a little larger than life, so you can see them
-    if (opp) opp.group.position.set(screenSpot(bandView ? 0.12 : s.layout === 'deck' ? 0.36 : 0.46, -2.2), 0, -2.2); // the band has no hand on the right: more central
+    if (opp) opp.group.position.set(screenSpot(camera.aspect < 1 ? 0.08 : s.layout === 'deck' ? 0.36 : 0.46, -2.2), 0, -2.2); // upright phone: near the middle, clear of your hand
     const boss = fighters.get('boss');
-    if (boss) boss.group.position.set(screenSpot(bandView ? 0.2 : 0.5, -5.5), 0, -5.5);
+    if (boss) boss.group.position.set(screenSpot(camera.aspect < 1 ? 0.15 : 0.5, -5.5), 0, -5.5);
     s.allies.forEach((a, i) => {
       const f = fighters.get(`ally:${a.id}`);
       if (f) f.group.position.set(screenSpot(-0.36 + i * 0.13, -0.6 - i * 1.1), 0, -0.6 - i * 1.1);
@@ -645,8 +639,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     const hand = HANDS[kindFor(s.me.character ?? 'wizard')] ?? HANDS.wizard;
     sleeveMat.color.set(hand.sleeve); skinMat.color.set(hand.skin);
     skinMat.metalness = s.me.character === 'knight' ? 0.3 : 0; // a gauntlet
-    fpBase.copy(s.layout === 'deck' ? FP_DECK : FP_BATTLE);
-    fp.scale.setScalar(s.layout === 'deck' ? 0.56 : 0.72);
+    placeHand();
     setStaffSkin(s.me.staff ?? 'verdant');
     meDown = false; fp.visible = true; gemState = 'ready';
     myFlame = null; fireU.uAmount.value = 0; fireBand.visible = false; // a new game starts without last game's flames
@@ -678,19 +671,28 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
 
   // ── input: the camera follows the mouse a little ───────────────────────────
   const mouse = new THREE.Vector2(), look = new THREE.Vector2();
-  const onMove = (e: PointerEvent) => { mouse.set((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1); };
+  const onMove = (e: PointerEvent) => { if (e.pointerType !== 'mouse') return; /* not while drawing on a phone */ mouse.set((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1); };
   addEventListener('pointermove', onMove, { passive: true });
+  /** Your hand and staff, bottom-right — moved in on a narrow (upright phone) screen so they stay in view. */
+  function placeHand() {
+    const base = layout === 'deck' ? FP_DECK : FP_BATTLE, size = layout === 'deck' ? 0.56 : 0.72;
+    if (camera.aspect >= 1.2) { fpBase.copy(base); fp.scale.setScalar(size); return; }
+    const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * -base.z, halfW = halfH * camera.aspect;
+    fpBase.set(halfW * 0.78, -halfH * 0.62, base.z);
+    fp.scale.setScalar(size * Math.max(0.5, Math.min(1, camera.aspect * 0.9)));
+  }
   function resize() {
     const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = bandView ? 40 : camera.aspect < 1.3 ? 66 : 55; // the phone band: zoomed in on the opponent / dragon
+    camera.fov = camera.aspect < 1 ? 60 : camera.aspect < 1.3 ? 66 : 55; // upright phone: the sides are cropped, the arena a bit closer
     camera.updateProjectionMatrix();
     placeFighters();
     placeFireBand();
+    placeHand();
   }
   addEventListener('resize', resize);
-  // the canvas also changes size on its own (the phone band follows the page layout)
+  // the canvas can also change size on its own (phone keyboard, browser bars)
   let lastW = 0, lastH = 0;
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => {
     if (!active || (canvas.clientWidth === lastW && canvas.clientHeight === lastH)) return;
@@ -750,8 +752,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
 
     look.lerp(mouse, still ? 1 : 0.05);
     const sway = still ? 0 : Math.sin(time * 0.7) * 0.025;
-    camera.position.set(CAM.x + look.x * 0.45, CAM.y - look.y * 0.22 + sway, CAM.z);
-    camera.lookAt(LOOK.clone().add(new THREE.Vector3(look.x * 0.25, -look.y * 0.1, 0)));
+    // mouse look: the camera turns towards the mouse (right → looks right, up → looks up), a little
+    camera.position.set(CAM.x + look.x * 0.12, CAM.y - look.y * 0.05 + sway, CAM.z);
+    camera.lookAt(LOOK.clone().add(new THREE.Vector3(look.x * 1.5, -look.y * 0.75, 0)));
     if (shake > 0) {
       camera.position.add(new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), 0).multiplyScalar(shake));
       camera.rotation.z += rnd(-1, 1) * shake * 0.15;
@@ -1109,11 +1112,6 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       renderer.setPixelRatio(pixelRatio());
       grass.count = on ? 900 : GRASS;
       moteGeo.setDrawRange(0, on ? 90 : MOTES);
-      resize();
-    },
-    setBand(on) {
-      bandView = on;
-      fpRoot.visible = !on;
       resize();
     },
     dispose() {

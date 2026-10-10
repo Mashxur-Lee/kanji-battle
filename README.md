@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.7.1
+# Kanji Wizards · v0.9.8
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -113,6 +113,10 @@ beginner AI with tips on each screen — a quick one (30 s of study, a 2-minute 
 (checked on the server). Joining a friend's room by code or invite always works. Accounts from before 0.9.6
 skip the tutorial.
 
+**Hiragana first**: the tutorial asks whether you know hiragana. Beginners get only かな — for studying, rooms
+and the queue (checked on the server) — until they tick **I've mastered hiragana** in Settings; then N5–N1 open.
+Stored as a flag in the account's `unlocks`.
+
 ## Daily challenge
 
 The same 10 words for everyone each day (UTC), two each from N5 up to N1. Type each reading (kana or romaji)
@@ -122,17 +126,22 @@ open counts it as missed). One try a day, ranked by correct answers then total t
 
 ## Progress page and monthly goals
 
-**Progress** (main menu): this week vs last week (days active, cards passed, games, wins, XP), a 26-week
-activity heatmap, and a mastery grid for every word of each level (not yet in your spells / new / learning /
+**Progress** (main menu): this week vs last week (days active, cards passed, games, wins, XP), an activity
+calendar (one month, Monday first, ISO week numbers, ‹ › back up to six months), and a mastery grid for every word of each level (not yet in your spells / new / learning /
 learned / mastered = review interval of 3+ weeks). Activity is logged per player per local day (`kw_activity`).
 
 Every month has the same three goals — play on 12 days, win 10 games, pass 150 flashcards — and a seasonal
 reward: even months a flame colour (Sakura, Rain, Sun, Thunder, Harvest, Starlight), odd months a staff
-(Frost, Blossom, Jade, Abyss, Moon, Maple — recoloured classic staffs, in 3D and pixel art). Rewards are kept
+(Frost, Blossom, Jade, Abyss, Moon, Maple — recoloured Verdant, Ember and Tide staffs, in 3D and pixel art; Storm
+and Void stay exclusive to long login streaks). Rewards are kept
 forever once earned. Customize lists every seasonal staff and flame — locked ones show which month's goals unlock
 them. The goals panel shows the reward itself (the pixel staff, or a little wizard in the flames).
 
 ## Friends and invites
+
+**Friends rail** (right edge of the menus, like Valorant's): pictures only; hover it and it opens with names,
+levels and what everyone is doing (online / offline groups). Click a friend for their profile. **Add friend** and
+**Requests** at the bottom open a small window. Hidden in games and on narrow screens.
 
 **Friends** (main menu): add players by name, accept or decline requests, see who is online and what they are
 doing. In a room's lobby your online friends appear with an **Invite** button; they get a card with Join /
@@ -157,10 +166,11 @@ start queueing or create a Deck Duel).
 ## Phones
 
 The 3D arena now has **Full / Lite / Off** (settings panel). Lite (default on phones and small screens) uses less
-grass and particles, no anti-aliasing and a lower resolution. On a phone held upright the 3D arena is a band
-across the screen where the 2D fighters stand: only the opponent (or the dragon and your party) and the arena,
-zoomed in and cropped at the sides, without your hand — the question and the keyboard stay below it, and the page
-shrinks with the keyboard (`interactive-widget=resizes-content`). Sideways it fills the screen as on a computer. If 3D runs slowly the arena drops to
+grass and particles, no anti-aliasing and a lower resolution. On a phone held upright the 3D arena fills the
+screen too: cropped at the sides, your hand and staff moved in so they stay in view, and the profile and settings
+buttons hidden while you play (they return after the game). The page shrinks with the keyboard
+(`interactive-widget=resizes-content`), and the answer box stays enabled between words (locked, not disabled), so the
+keyboard stays up instead of closing and reopening on every word. Sideways it fills the screen as on a computer. If 3D runs slowly the arena drops to
 Lite by itself (then to a lower resolution) and says so. On phones the mode's name sits under the top bar. Upright phones use
 the 2D layout with a bigger writing pad, a compact top bar and stacked pages.
 
@@ -218,7 +228,7 @@ always Ready. Matches with an AI give half XP; a room with only AI left closes.
 Battles and Deck Duels are shown **first person** in a 3D arena (Three.js, `src/client/arena3d.ts`, loaded on demand
 as `public/arena3d.js`): your hand holding your staff in the foreground, the opponent (or the dragon and your party)
 across a stone arena with torches, your chosen background and time of day far behind. Move the
-mouse to look around a little (parallax). Spells are kanji that fly across with a trail; hits flash and shake the
+mouse to look around a little — the camera turns towards the mouse. Spells are kanji that fly across with a trail; hits flash and shake the
 camera. You play in first person: your hand (sleeve and skin after your character) and your staff skin — while you
 write or type the staff tilts back, charges and traces a figure-eight (∞) in the air; when you cast it thrusts forward
 and its gem flies off with the spell. The gem is gone until you start writing or typing again, when a new one builds
@@ -242,6 +252,19 @@ with the Japanese keyboard's candidate list open); change it in the settings pan
 Settings → **Language**: English or Русский. Dates and times always follow the chosen language (not the browser's).
 Russian is a translation layer over the English interface (`src/client/i18n.ts`: exact strings plus patterns for texts
 with numbers and names); Japanese text and word meanings stay as they are.
+
+## Levels follow stroke count
+
+Since 0.9.8 the levels N5 → N1 are re-sorted by how complex a word looks — the total stroke count of its kanji — so
+an "N5" word is never harder to write than an "N1" one (study sets, battles and Deck Duel). Each level keeps its size;
+a word's JLPT list is kept as `jlpt` (`rebinByStrokes` in `src/server/vocab.ts`). かな is unchanged.
+
+## Writing only the kanji
+
+In Kanji Writing and Deck Duel you write only the kanji: the kana of the word are filled in (必ず → write 必; the pad
+shows □ず). Writing the whole word still counts. Words of 2+ kanji forgive one shaky character (4+: two) if it has
+about the right number of strokes and shape; with a Japanese keyboard, the kanji alone count, and in words of 3+
+kanji one wrongly picked kanji is forgiven (`writeTargets` / `isCorrectWriting` in `src/shared/kana.ts`).
 
 ## Readings: small slips are forgiven
 

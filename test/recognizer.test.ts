@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { Recognizer } from '../src/server/handwriting/recognizer';
 import { createWritingJudge, isWritable, judgeChar, sanitizeDrawing } from '../src/server/handwriting/judge';
 import { VOCAB } from '../src/server/vocab';
+import { writeTargets } from '../src/shared/kana';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -62,7 +63,7 @@ test('whole word on one pad: the strokes are split into characters', () => {
   const words = VOCAB.filter((v) => [...v.kanji].length >= 2 && [...v.kanji].length <= 3 && isWritable(rec)(v)).filter((_, i) => i % 97 === 0).slice(0, 25);
   assert.ok(words.length >= 20);
   // written left to right in one go, cells ~300px wide, a bit uneven
-  const wordDrawing = (kanji: string) => [...kanji].flatMap((ch, i) => drawn(ch).map((s) => s.map(([x, y]): [number, number] => [x + i * (290 + (i % 2) * 25), y + (i % 2) * 18])));
+  const wordDrawing = (kanji: string) => writeTargets(kanji).flatMap((ch, i) => drawn(ch).map((s) => s.map(([x, y]): [number, number] => [x + i * (290 + (i % 2) * 25), y + (i % 2) * 18])));
   let ok = 0;
   for (const w of words) if (judge(w, [wordDrawing(w.kanji)]).correct) ok++;
   assert.ok(ok >= words.length - 1, `${ok}/${words.length} words recognised when written whole`);

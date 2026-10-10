@@ -2,6 +2,7 @@ import type { DrawnChar, VocabEntry } from '../../shared/protocol';
 import type { WritingJudge } from '../Game';
 import type { Recognizer } from './recognizer';
 import { segmentCandidates } from './segment';
+import { writeTargets } from '../../shared/kana';
 
 export const MAX_STROKES_PER_CHAR = 40;
 /** a whole word drawn on one wide pad arrives as a single group */
@@ -25,11 +26,12 @@ export const JUDGE = { topK: 10, ratio: 1.5, absolute: 58 };
 export const LENIENT = { shapeRank: 100, forgiveOneShapeRank: 250 };
 
 /**
- * Normal writing duels: in a word of 2+ characters, one shaky character is forgiven when its overall
- * shape is still among the closest 60 (every character must pass on its own, so long words used to
- * fail far more often than single kanji).
+ * Normal writing duels: in a word of 2+ kanji, one shaky character is forgiven (two in words of 4+)
+ * when it has about the right number of strokes and its overall shape is still among the closest 100
+ * (every character must pass on its own, so long words used to fail far more often than single kanji).
+ * Only the kanji are written: the kana of the word are filled in for you (`writeTargets`).
  */
-export const FORGIVE_ONE = { shapeRank: 60, fewerStrokes: 4, moreStrokes: 2 };
+export const FORGIVE_ONE = { shapeRank: 100, fewerStrokes: 4, moreStrokes: 3 };
 
 export function judgeChar(recognizer: Recognizer, drawn: DrawnChar, target: string): { ok: boolean; read: string } {
   const cands = recognizer.recognizeScored(drawn, JUDGE.topK);
@@ -51,7 +53,8 @@ export function createWritingJudge(recognizer: Recognizer, opts: { lenient?: boo
       if (!pass && target[i] && (target.length >= 2 || opts.lenient)) {
         const shape = recognizer.shapeRank(chars[i], target[i]);
         if (opts.lenient) pass = shape < LENIENT.shapeRank;
-        // normal duels: only a near miss — about the right number of strokes (a mouse merges some), right shape
+        // normal duels: only a near miss — about the right number of strokes (a mouse merges some), right shape;
+        // since 0.9.8 the shape may be a little further off (words of 2+ kanji were much harder than single ones)
         const n = chars[i].length, want = recognizer.strokeCount(target[i]);
         const near = opts.lenient || (n >= want - FORGIVE_ONE.fewerStrokes && n <= want + FORGIVE_ONE.moreStrokes);
         if (!pass && near && shape < (opts.lenient ? LENIENT.forgiveOneShapeRank : FORGIVE_ONE.shapeRank)) forgivable++;
@@ -60,11 +63,19 @@ export function createWritingJudge(recognizer: Recognizer, opts: { lenient?: boo
       if (pass) ok++;
     }
     const n = target.length;
-    const correct = chars.length === n && (ok === n || (n >= 2 && ok === n - 1 && forgivable === 1));
+    // 2+ kanji: one shaky character is forgiven; 4+ kanji: two
+    const spare = n >= 4 ? 2 : n >= 2 ? 1 : 0;
+    const correct = chars.length === n && (ok === n || (ok >= n - spare && forgivable >= n - ok));
     return { correct, recognized: correct ? target.join('') : recognized, ok };
   };
-  return (entry: VocabEntry, chars: DrawnChar[]) => {
-    const target = [...entry.kanji];
+  const judgeWord = (entry: VocabEntry, chars: DrawnChar[]) => {
+    const target = writeTargets(entry.kanji); // only the kanji: the kana are written for you
+    const r = judgeTarget(target, chars);
+    // written whole out of habit (kana too)? that counts as well
+    if (!r.correct && target.length < [...entry.kanji].length) { const w = judgeTarget([...entry.kanji], chars); if (w.correct) return w; }
+    return r;
+  };
+  const judgeTarget = (target: string[], chars: DrawnChar[]) => {
     // The whole word written on one pad: try the most likely ways to split it into characters.
     if (chars.length === 1 && target.length > 1) {
       const splits = segmentCandidates(chars[0], target.length);
@@ -80,6 +91,7 @@ export function createWritingJudge(recognizer: Recognizer, opts: { lenient?: boo
     const r = judgeGroups(target, chars);
     return { correct: r.correct, recognized: r.recognized };
   };
+  return judgeWord;
 }
 
 /** Validate untrusted stroke data from the client; returns null if malformed. */

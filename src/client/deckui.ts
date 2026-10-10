@@ -382,7 +382,7 @@ function renderCast(v: DeckView) {
   a3?.oppChannel(!mine && c.stage === 'write');
   if (writeNow && writingCastId !== c.castId) {
     writingCastId = c.castId;
-    hooks.beginWriting(c.castId, '□'.repeat(c.chars)); // the pad only needs the number of characters
+    hooks.beginWriting(c.castId, c.template ?? '□'.repeat(c.chars)); // the kanji stay hidden: □ず
   } else if (!writeNow && writingCastId) {
     hooks.stopWriting();
     writingCastId = 0;

@@ -125,6 +125,20 @@ export const isRomajiInput = (input: string) => /^[a-z' \-]+$/i.test(input.norma
 const HAN = /[\p{Script=Han}々〆ヶ]/u;
 
 /**
+ * What you actually write in Kanji Writing and Deck Duel: only the kanji — the kana around them
+ * (必ず → ず, 食べる → べる) are written for you. Hiragana practice words (no kanji) are written whole.
+ * '□' stands for a hidden kanji (Deck Duel shows only the shape of the word).
+ */
+const WRITE = /[\p{Script=Han}々〆ヶ□]/u;
+export const writeTargets = (word: string): string[] => {
+  const all = [...word];
+  const k = all.filter((c) => WRITE.test(c));
+  return k.length ? k : all;
+};
+/** The word with its kanji hidden: 必ず → □ず (what Deck Duel and the pad show). */
+export const writeTemplate = (word: string): string => [...word].map((c) => (WRITE.test(c) ? '□' : c)).join('');
+
+/**
  * A word typed with a Japanese IME. Besides the exact dictionary spelling, accept the spellings an IME
  * commonly gives where some kanji are written in kana instead (朝御飯 → 朝ご飯, 御菓子 → お菓子), as
  * long as at least one kanji is still written and the kana match the word's reading.
@@ -133,6 +147,12 @@ export function isCorrectWriting(input: string, kanji: string, reading: string):
   const typed = input.normalize('NFKC').replace(/\s+/g, '');
   if (typed === kanji) return true;
   if (!HAN.test(typed)) return false;
+  // only the kanji typed (the kana are written for you): 必 for 必ず
+  const only = writeTargets(kanji).join('');
+  if (only !== kanji && typed === only) return true;
+  // longer words (3+ kanji): one kanji picked wrong from the IME list is forgiven
+  const tk = [...typed], kk = [...kanji];
+  if (writeTargets(kanji).length >= 3 && tk.length === kk.length && tk.filter((c, i) => c !== kk[i]).length === 1 && tk.every((c, i) => c === kk[i] || (HAN.test(c) && HAN.test(kk[i])))) return true;
   const T = [...kanji], X = [...katakanaToHiragana(typed)], R = [...katakanaToHiragana(reading)];
   const hira = (s: string) => katakanaToHiragana(s);
   const go = (ti: number, xi: number, ri: number): boolean => {

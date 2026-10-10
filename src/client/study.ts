@@ -38,7 +38,7 @@ function levelChips(selected: Level[]) {
     const input = document.createElement('input');
     input.type = 'checkbox'; input.value = lv; input.checked = selected.includes(lv);
     label.append(input, LEVEL_LABEL[lv]);
-    return label;
+    return ui.lockLevelChip(label, lv);
   }));
 }
 

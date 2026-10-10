@@ -33,12 +33,13 @@ export const lockText = (mode: GameMode) => `${MODE_LABEL[mode]} unlocks at leve
 // ── the tutorial ────────────────────────────────────────────────────────────
 type Stage = 'off' | 'cards' | 'battle';
 let stage: Stage = 'off';
-let hooks: { firstBattle: () => void };
+let hooks: { firstBattle: () => void; kana: (mastered: boolean) => Promise<void> };
 export function initTutorial(h: typeof hooks) { hooks = h; }
 export const inTutorialBattle = () => stage === 'battle';
 
-const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement }> = [
+const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement; choice?: true }> = [
   { title: 'Welcome, apprentice', body: 'In Kanji Wizards every spell is a Japanese word. Learn a word — and you can cast it at your opponent.' },
+  { title: 'Do you know hiragana?', body: 'Kanji are read with hiragana (かな). If you can already read all of it, you start with kanji (N5 to N1). If not, you start with かな only — the kanji levels open once you tick "I\'ve mastered hiragana" in Settings.', choice: true },
   {
     title: 'Cast by reading',
     body: 'A kanji appears; type how it is read — in hiragana, or in romaji with a normal keyboard — and press Enter. Fast and right in a row hits harder.',
@@ -46,6 +47,7 @@ const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement }> =
   },
   { title: 'Study makes you stronger', body: 'Study spells is a flashcard deck. Every spell you learn today raises your critical-hit chance, and words you miss in battle come back there to review.' },
   { title: 'More to unlock', body: 'You start with Kanji Reading and Rapid. Kanji Writing and the Boss fight unlock at level 1, Deck Duel at level 2. There is also a Daily challenge, Progress, Friends — and monthly goals with rewards.' },
+  { title: 'かな first, then kanji', body: 'Beginners: study かな in Study spells until you know it by heart. Then tick "I\'ve mastered hiragana" in Settings (the sliders button, top-right) — and the kanji levels N5 to N1 open for studying and battles.' },
   { title: 'Your first battle', body: 'Ready? You\'ll study 10 easy words for a minute, then duel a beginner AI with them.' },
 ];
 
@@ -83,6 +85,16 @@ function show(i: number) {
   const last = i === CARDS.length - 1;
   const next = el('button', 'big', last ? 'Fight a beginner AI' : 'Next') as HTMLButtonElement;
   const skip = el('button', 'pill', last ? 'Maybe later' : 'Skip tutorial') as HTMLButtonElement;
+  if (c.choice) {
+    // two answers instead of Next: they decide which levels this player starts with
+    const yes = el('button', 'big', 'Yes — I know hiragana') as HTMLButtonElement;
+    const no = el('button', 'big alt', 'I\'m a beginner') as HTMLButtonElement;
+    const pickKana = (mastered: boolean) => { yes.disabled = no.disabled = true; void hooks.kana(mastered).finally(() => show(i + 1)); };
+    yes.onclick = () => pickKana(true);
+    no.onclick = () => pickKana(false);
+    next.hidden = true;
+    queueMicrotask(() => actions.append(no, yes)); // after "Skip tutorial"
+  }
   next.onclick = () => {
     if (!last) return show(i + 1);
     stage = 'battle';

@@ -102,7 +102,7 @@ export function openQueue() {
   }));
   const deckCard = document.querySelector<HTMLElement>('#queuePick .queue-card[data-q="deck"]')!;
   deckCard.classList.toggle('locked', !canPlay('deck'));
-  ui.$('qLevels').replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), 'ql')));
+  ui.$('qLevels').replaceChildren(...LEVELS.map((l) => ui.lockLevelChip(chip(l, LEVEL_LABEL[l], s.levels.includes(l) && (!ui.kanaBeginner() || l === 'KANA'), 'ql'), l)));
   choose(s.pick ?? 'battle', true);
   if (!searching) { ui.$('queuePick').hidden = false; ui.$('qSearching').hidden = true; }
   ui.show('queue');

@@ -1,9 +1,9 @@
 // Progress: this week at a glance, this month's goals (and their seasonal reward), a 26-week activity
-// heatmap, and a mastery grid with every word of each level coloured by how well you know it.
+// month calendar, and a mastery grid with every word of each level coloured by how well you know it.
 
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
-import { FLAMES, STAFFS } from '../shared/progress';
+import { FLAMES, isoWeek, STAFFS } from '../shared/progress';
 import { api, today, type DayActivity, type MonthProgress, type ProgressPage } from './api';
 import * as ui from './ui';
 import { pixelStaffSvg } from './pixelstaffs';
@@ -118,33 +118,60 @@ export function monthNodes(m: MonthProgress): HTMLElement[] {
   return [head, rw, goals];
 }
 
+let calMonth = ''; // 'YYYY-MM' shown in the activity calendar
+let calActivity: DayActivity[] = [];
+/** Activity: a month calendar (Monday first) with week numbers; ‹ › go back up to 6 months. */
 function renderHeatmap(activity: DayActivity[]) {
+  calActivity = activity;
+  calMonth ||= today().slice(0, 7);
+  renderCalendar();
+}
+function renderCalendar() {
   const t = today();
-  const byDay = new Map(activity.map((a) => [a.day, a]));
+  const byDay = new Map(calActivity.map((a) => [a.day, a]));
+  const max = Math.max(1, ...calActivity.map(score));
+  const [y, m] = calMonth.split('-').map(Number);
+  const first = `${calMonth}-01`;
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const lead = (new Date(`${first}T12:00:00Z`).getUTCDay() + 6) % 7;
   const box = $('progHeat');
-  box.replaceChildren();
-  // 26 columns (weeks, Monday first), today in the last one
-  const dow = (new Date(`${t}T12:00:00`).getDay() + 6) % 7;
-  const start = shift(t, -(25 * 7 + dow));
-  const max = Math.max(1, ...activity.map(score));
+  const oldest = shift(t, -182).slice(0, 7);
+  const prev = el('button', 'pill cal-nav', '‹') as HTMLButtonElement;
+  const next = el('button', 'pill cal-nav', '›') as HTMLButtonElement;
+  const step = (n: number) => { const d = new Date(Date.UTC(y, m - 1 + n, 15)); calMonth = d.toISOString().slice(0, 7); renderCalendar(); };
+  prev.disabled = calMonth <= oldest; next.disabled = calMonth >= t.slice(0, 7);
+  prev.onclick = () => step(-1); next.onclick = () => step(1);
+  prev.setAttribute('aria-label', 'Previous month'); next.setAttribute('aria-label', 'Next month');
+  const title = el('b', 'cal-title', new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(locale(), { month: 'long', year: 'numeric', timeZone: 'UTC' }));
+  const head = el('div', 'cal-head');
+  head.append(prev, title, next);
+  const grid = el('div', 'cal-grid');
+  grid.append(el('span', 'cal-wd wk', 'Wk'));
+  for (let i = 0; i < 7; i++) grid.append(el('span', 'cal-wd', new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(locale(), { weekday: 'short', timeZone: 'UTC' }))); // 2024-01-01 was a Monday
   let active = 0;
-  for (let w = 0; w < 26; w++) {
-    const col = el('div', 'hm-col');
-    for (let d = 0; d < 7; d++) {
-      const day = shift(start, w * 7 + d);
-      const cell = el('div', 'hm-cell');
-      if (day > t) { cell.classList.add('future'); col.append(cell); continue; }
-      const a = byDay.get(day);
-      const s = score(a);
-      if (s > 0) active++;
-      cell.dataset.l = String(s === 0 ? 0 : Math.min(4, 1 + Math.floor((s / max) * 3.999)));
-      cell.title = `${new Date(`${day}T12:00:00`).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ''}` : 'no activity'}`;
+  const cells = lead + days, rows = Math.ceil(cells / 7);
+  for (let r = 0; r < rows; r++) {
+    const firstOfRow = shift(first, r * 7 - lead);
+    grid.append(el('span', 'cal-wk', isoWeek(firstOfRow)));
+    for (let c = 0; c < 7; c++) {
+      const i = r * 7 + c - lead;
+      if (i < 0 || i >= days) { grid.append(el('span', 'cal-day blank')); continue; }
+      const day = shift(first, i);
+      const cell = el('span', 'cal-day', i + 1);
+      if (day > t) cell.classList.add('future');
+      else {
+        const a = byDay.get(day);
+        const sc = score(a);
+        if (sc > 0) active++;
+        cell.dataset.l = String(sc === 0 ? 0 : Math.min(4, 1 + Math.floor((sc / max) * 3.999)));
+        cell.title = `${new Date(`${day}T12:00:00`).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ''}` : 'no activity'}`;
+      }
       if (day === t) cell.classList.add('today');
-      col.append(cell);
+      grid.append(cell);
     }
-    box.append(col);
   }
-  $('progHeatSub').textContent = `${active} active days in the last 6 months`;
+  box.replaceChildren(head, grid);
+  $('progHeatSub').textContent = `${active} active days this month`;
 }
 
 function renderMastery() {

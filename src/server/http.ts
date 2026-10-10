@@ -93,6 +93,10 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
         const u = await auth.authenticate(bearer(req));
         await study.setStaff(u, (await readJson(req)).staff);
         send(res, 200, { profile: await study.profile((await auth.authenticate(bearer(req)))) });
+      } else if (req.method === 'PUT' && url === '/api/me/kana') {
+        const u = await auth.authenticate(bearer(req));
+        await study.setKanaMastered(u, (await readJson(req)).mastered === true);
+        send(res, 200, { profile: await study.profile(await auth.authenticate(bearer(req))) });
       } else if (req.method === 'PUT' && url === '/api/me/tutorial') {
         const u = await auth.authenticate(bearer(req));
         await auth.store.update(u.id, { tutorialDone: true });

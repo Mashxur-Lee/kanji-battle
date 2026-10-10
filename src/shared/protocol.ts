@@ -31,6 +31,7 @@ export interface VocabEntry {
   difficulty: number; // 0–100, drives damage; level + stroke count + word length (scripts/build-vocab.ts)
   strokes?: number; // total stroke count of the kanji in the word
   altReadings?: string[];
+  jlpt?: Level; // the word's JLPT list (its `level` is re-sorted by stroke count, src/server/vocab.ts)
 }
 
 /** What the client sees during the study phase. Never sent during battle. */

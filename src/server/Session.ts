@@ -7,7 +7,7 @@ import type { Matchmaker } from './Matchmaker';
 import type { RoomManager } from './RoomManager';
 import { picUrl, type StudyService } from './study/StudyService';
 import type { SocialService } from './study/SocialService';
-import { MODE_LEVEL, modeUnlocked } from '../shared/progress';
+import { isKanaBeginner, levelsFor, MODE_LEVEL, modeUnlocked } from '../shared/progress';
 
 const MAX_ANSWER_LENGTH = 40;
 const MAX_WRITTEN_CHARS = 8;
@@ -85,6 +85,13 @@ export class Session implements Client {
     return locked ? `${MODE_LABEL[locked]} unlocks at level ${MODE_LEVEL[locked]} — win a few games first (or join a friend's room).` : null;
   }
 
+  /** Levels this player may play: a hiragana beginner gets only かな (Settings → "I've mastered hiragana"). */
+  private async allowedLevels(levels: Level[]): Promise<Level[]> {
+    if (this.user?.role === 'admin') return levels;
+    const rec = await this.auth.store.findById(this.user!.id);
+    return isKanaBeginner(rec?.unlocks) ? levelsFor(levels, true) : levels;
+  }
+
   /** Matchmaker seats a matched player (exactly like joining with the code). */
   async joinMatched(room: Room, levels: Level[]): Promise<boolean> {
     if (!this.user || this.room) return false;
@@ -145,7 +152,7 @@ export class Session implements Client {
       const wanted = (Array.isArray(msg.modes) ? msg.modes : []).filter((m): m is GameMode => MODES.includes(m as GameMode));
       const lock = await this.modeLock(wanted);
       if (lock) return this.send({ type: 'error', message: lock });
-      const err = this.matchmaker.enqueue(user.id, this, msg.modes, msg.levels);
+      const err = this.matchmaker.enqueue(user.id, this, msg.modes, await this.allowedLevels(parseLevels(msg.levels)));
       if (err) this.send({ type: 'error', message: err });
       return;
     }
@@ -182,7 +189,7 @@ export class Session implements Client {
     }
     switch (msg.type) {
       case 'levels': {
-        const levels = parseLevels(msg.levels);
+        const levels = await this.allowedLevels(parseLevels(msg.levels));
         if (levels.length > 0) room.setLevels(user.id, levels);
         break;
       }
@@ -276,7 +283,7 @@ export class Session implements Client {
 
   private async enter(room: Room, levels: Level[]) {
     const user = this.user!;
-    const result = room.join(user.id, user.username, this, levels, await this.profile());
+    const result = room.join(user.id, user.username, this, levels.length ? await this.allowedLevels(levels) : levels, await this.profile());
     if (!result.ok) return this.send({ type: 'error', message: result.error });
     this.room = room;
     this.rooms.seat(user.id, room);

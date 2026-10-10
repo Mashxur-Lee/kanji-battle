@@ -127,6 +127,22 @@ const RU: Record<string, string> = {
   'September reward. Silver light of the harvest moon.': 'Награда сентября. Серебряный свет осенней луны.',
   'November reward. Burning red like autumn leaves.': 'Награда ноября. Горит красным, как осенние листья.',
 
+  // 0.9.8
+  "I've mastered hiragana": 'Я освоил хирагану', 'Unlocks the kanji levels (N5–N1) for studying and battles.': 'Открывает уровни кандзи (N5–N1) для учёбы и боёв.',
+  'Do you know hiragana?': 'Вы знаете хирагану?', 'Yes — I know hiragana': 'Да — я знаю хирагану', "I'm a beginner": 'Я новичок',
+  'Kanji are read with hiragana (かな). If you can already read all of it, you start with kanji (N5 to N1). If not, you start with かな only — the kanji levels open once you tick "I\'ve mastered hiragana" in Settings.':
+    'Кандзи читаются хираганой (かな). Если вы уже читаете её всю — начинаете с кандзи (N5–N1). Если нет — сначала только かな; уровни кандзи откроются, когда вы отметите «Я освоил хирагану» в настройках.',
+  'かな first, then kanji': 'Сначала かな, потом кандзи',
+  'Beginners: study かな in Study spells until you know it by heart. Then tick "I\'ve mastered hiragana" in Settings (the sliders button, top-right) — and the kanji levels N5 to N1 open for studying and battles.':
+    'Новичкам: учите かな в «Изучать заклинания», пока не выучите наизусть. Затем отметьте «Я освоил хирагану» в настройках (кнопка с ползунками справа вверху) — и откроются уровни кандзи N5–N1 для учёбы и боёв.',
+  'Master hiragana first (Study spells → かな), then tick "I\'ve mastered hiragana" in Settings': 'Сначала освойте хирагану («Изучать заклинания» → かな), затем отметьте «Я освоил хирагану» в настройках',
+  'Kanji levels unlocked — pick N5 in Study spells to start!': 'Уровни кандзи открыты — выберите N5 в «Изучать заклинания»!',
+  'Back to かな only: kanji levels are locked.': 'Снова только かな: уровни кандзи закрыты.',
+  'Write the kanji': 'Напишите кандзи', 'the kana is written for you': 'кана уже написана за вас', 'Wk': 'Нед.',
+  'online': 'в сети', 'Requests': 'Запросы', 'Friend requests': 'Запросы в друзья',
+  'No friend requests right now.': 'Сейчас нет запросов в друзья.', 'No friends yet — add someone below.': 'Друзей пока нет — добавьте кого-нибудь ниже.',
+  'Your level': 'Ваш уровень', 'Activity calendar': 'Календарь активности', 'Previous month': 'Предыдущий месяц', 'Next month': 'Следующий месяц',
+
   // admin
   'Role': 'Роль', 'Level': 'Уровень', 'XP': 'Опыт', 'Spells': 'Заклинания', 'Crit': 'Крит', 'Registered': 'Регистрация', 'Status': 'Статус',
   'never logged in': 'ни разу не входил',
@@ -247,6 +263,9 @@ const plural = (n: number, one: string, few: string, many: string) => {
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Lv (\d+)$/, 'Ур. $1'],
+  [/^Write all (\d+) kanji, left to right$/, 'Напишите все кандзи ($1) слева направо'],
+  [/^(\d+) active days this month$/, (_, n) => `${n} ${plural(+n, 'активный день', 'активных дня', 'активных дней')} в этом месяце`],
+  [/^(.+) — view profile$/, '$1 — профиль'],
   [/^The staff in your hand \(other players see it too\)\. Classic staffs unlock with your login streak — your best: (.+)\. Seasonal staffs are monthly rewards \(see Progress\)\.$/, (_, d) => `Посох в вашей руке (его видят и другие игроки). Классические посохи открываются серией входов — ваш рекорд: ${d.replace(/(\d+) days?/, (_m: string, n: string) => `${n} ${plural(+n, 'день', 'дня', 'дней')}`)}. Сезонные посохи — награды месяца (см. «Прогресс»).`],
   [/^(\w+) reward: complete that month's goals \(Progress page\)\. Wraps you at 5 in a row and during your Omnipotence\.$/, 'Награда месяца ($1): выполните цели этого месяца (страница «Прогресс»). Окутывает вас при 5 подряд и во время Всемогущества.'],
   [/^Unlocks at a (\d+)-day streak$/, (_, n) => `Откроется при серии ${n} ${plural(+n, 'день', 'дня', 'дней')}`],
@@ -293,7 +312,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^The dragon inhales… (\d+)$/, 'Дракон набирает воздух… $1'],
   [/^Fire breath! Everyone takes (\d+)$/, 'Огненное дыхание! Все получают $1'],
   [/^The dragon claws (.+) for (\d+)$/, 'Дракон бьёт когтями $1 на $2'],
-  [/^write the kanji: (\d+) characters?$/, (_, n) => `напишите кандзи: ${n} ${plural(+n, 'знак', 'знака', 'знаков')}`],
+  [/^write (\d+) kanji$/, 'напишите кандзи: $1'],
   [/^Write all (\d+) characters, left to right$/, 'Напишите все $1 знака(ов) слева направо'],
   [/^The pad read: (.+)$/, 'Панель распознала: $1'],
   [/^Monthly goals complete! (.+) unlocked — equip it in Customize\.$/, 'Месячные цели выполнены! Открыто: $1 — наденьте в «Настройке».'],

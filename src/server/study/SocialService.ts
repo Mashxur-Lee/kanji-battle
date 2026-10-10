@@ -1,6 +1,8 @@
 import type { AuthService } from '../auth/AuthService';
 import type { FriendLink, Store } from '../db/Store';
 import type { SessionHub } from '../Session';
+import { levelOf } from '../../shared/progress';
+import { picUrl } from './StudyService';
 
 export class SocialError extends Error { constructor(message: string, readonly status = 400) { super(message); } }
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -11,10 +13,11 @@ export class SocialService {
 
   async list(userId: string) {
     const links = await this.store.friends(userId);
-    return links.map((f) => {
+    return Promise.all(links.map(async (f) => {
       const p = f.status === 'accepted' ? this.hub.presence(f.id) : { online: false };
-      return { ...f, online: p.online, activity: p.online ? p.activity : undefined };
-    });
+      const rec = await this.store.findById(f.id); // picture and level for the friends rail
+      return { ...f, online: p.online, activity: p.online ? p.activity : undefined, pic: rec ? picUrl(rec) : null, level: levelOf(rec?.xp ?? 0) };
+    }));
   }
 
   async request(userId: string, myName: string, rawName: unknown): Promise<'requested' | 'accepted' | 'exists'> {

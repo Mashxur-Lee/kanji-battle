@@ -62,7 +62,7 @@ test('correct answer damages the opponent and builds combo; wrong answer resets 
 
   tick(1100);
   answerCorrectly('A');
-  assert.equal(game.getHp('B'), 1000 - 43);
+  assert.equal(game.getHp('B'), 1000 - 59); // 懸念: 28 strokes → N1 since 0.9.8
   assert.equal(game.getHp('A'), 1000);
   assert.equal(game.getCombo('A'), 1);
 
