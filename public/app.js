@@ -4,18 +4,58 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
+  // src/client/zoom.ts
+  var KEY = "kb:uizoom";
+  var UI_ZOOMS = [0.7, 0.8, 0.9, 1];
+  var scale = 1;
+  function uiZoomPref() {
+    try {
+      const v = Number(localStorage.getItem(KEY));
+      if (UI_ZOOMS.includes(v)) return v;
+    } catch {
+    }
+    return innerWidth >= 900 ? 0.8 : 1;
+  }
+  function setUiZoomPref(z) {
+    try {
+      localStorage.setItem(KEY, String(z));
+    } catch {
+    }
+    applyUiZoom(z);
+  }
+  function applyUiZoom(z = uiZoomPref()) {
+    const root = document.documentElement;
+    root.style.setProperty("--ui-zoom", String(z));
+    root.style.setProperty("--vfix", "1");
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:absolute;left:0;top:0;width:100px;height:100vh;visibility:hidden;pointer-events:none";
+    document.body.append(probe);
+    const r2 = probe.getBoundingClientRect();
+    probe.remove();
+    scale = r2.width > 0 ? r2.width / 100 : 1;
+    const vfix = r2.height > 0 ? innerHeight / r2.height : 1;
+    root.style.setProperty("--vfix", String(Math.round(vfix * 1e3) / 1e3));
+  }
+  function zrect(el2) {
+    const r2 = el2.getBoundingClientRect();
+    const s = scale;
+    return { left: r2.left / s, top: r2.top / s, right: r2.right / s, bottom: r2.bottom / s, width: r2.width / s, height: r2.height / s };
+  }
+  var viewW = () => innerWidth / scale;
+  var viewH = () => innerHeight / scale;
+
   // src/client/voice.ts
-  var KEY = "kb:voice";
+  var KEY2 = "kb:voice";
   var prefs = (() => {
     try {
-      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
+      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY2) ?? "{}") };
     } catch {
       return { on: true, vol: 0.9 };
     }
   })();
   var save = () => {
     try {
-      localStorage.setItem(KEY, JSON.stringify(prefs));
+      localStorage.setItem(KEY2, JSON.stringify(prefs));
     } catch {
     }
   };
@@ -549,28 +589,28 @@
   var cache = /* @__PURE__ */ new Map();
   var BG_FADE_MS = 3200;
   var fadeTimer = 0;
-  function paintBackground(el, id, time = "night", fade = false) {
+  function paintBackground(el2, id, time = "night", fade = false) {
     const key = `${id}-${time}`;
-    if (el.dataset.key === key) return;
-    el.dataset.key = key;
+    if (el2.dataset.key === key) return;
+    el2.dataset.key = key;
     if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time)}</svg>`);
     const swap = () => {
       const layer = document.createElement("div");
       layer.className = "bg-layer";
       layer.innerHTML = cache.get(key);
-      const old = el.querySelector(".bg-layer");
+      const old = el2.querySelector(".bg-layer");
       if (old) old.replaceWith(layer);
-      else el.prepend(layer);
-      el.dataset.bg = id;
-      el.dataset.time = time;
+      else el2.prepend(layer);
+      el2.dataset.bg = id;
+      el2.dataset.time = time;
     };
     clearTimeout(fadeTimer);
-    el.querySelector(".bg-veil")?.remove();
-    if (!fade || !el.querySelector(".bg-layer")) return swap();
+    el2.querySelector(".bg-veil")?.remove();
+    if (!fade || !el2.querySelector(".bg-layer")) return swap();
     const veil = document.createElement("div");
     veil.className = "bg-veil";
     veil.style.animationDuration = `${BG_FADE_MS}ms`;
-    el.append(veil);
+    el2.append(veil);
     fadeTimer = window.setTimeout(() => {
       swap();
       fadeTimer = window.setTimeout(() => veil.remove(), BG_FADE_MS / 2 + 100);
@@ -629,10 +669,23 @@
     { id: "purple", name: "Purple", level: 5, color: "#b26bff" }
   ];
   var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
+  var STAFFS = [
+    { id: "verdant", name: "Verdant Staff", streak: 0, gem: "#6dff6a", blurb: "Carved from an ancient tree. It channels the natural energy of the earth and life." },
+    { id: "ember", name: "Ember Staff", streak: 5, gem: "#ff7a1a", blurb: "Forged from volcanic rock and blessed by fire spirits." },
+    { id: "tide", name: "Tide Staff", streak: 10, gem: "#3fb8ff", blurb: "Crafted from crystal and oceanic runes. It flows with the tides." },
+    { id: "storm", name: "Storm Staff", streak: 15, gem: "#b26bff", blurb: "A relic of the sky temples. It channels lightning." },
+    { id: "void", name: "Void Staff", streak: 20, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." }
+  ];
   var STUDY_LOCK = 100;
+  var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "wizard", N1: "wizard" };
+  var ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  function avatarFor(levels) {
+    const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? "N5";
+    return AVATAR_BY_LEVEL[top];
+  }
 
   // src/client/arena.ts
-  var KEY2 = "kb:3d";
+  var KEY3 = "kb:3d";
   var GAME_SCREENS = /* @__PURE__ */ new Set(["battle", "deck"]);
   var api = null;
   var loading = null;
@@ -650,14 +703,14 @@
   var arenaSupported = () => webgl && innerWidth >= 900 && innerHeight >= 560;
   function arenaPref() {
     try {
-      return localStorage.getItem(KEY2) !== "off";
+      return localStorage.getItem(KEY3) !== "off";
     } catch {
       return true;
     }
   }
   function setArenaPref(on) {
     try {
-      localStorage.setItem(KEY2, on ? "on" : "off");
+      localStorage.setItem(KEY3, on ? "on" : "off");
     } catch {
     }
     if (!on) {
@@ -667,21 +720,35 @@
   }
   var wanted = () => arenaPref() && arenaSupported();
   var arena = () => api && onScreen && wanted() ? api : null;
-  function load() {
-    if (api) return Promise.resolve(api);
-    loading ?? (loading = new Promise((resolve) => {
+  var bundle = null;
+  function loadBundle() {
+    bundle ?? (bundle = new Promise((resolve) => {
       const s = document.createElement("script");
       s.src = `/arena3d.js?v=${encodeURIComponent(document.documentElement.dataset.v ?? "")}`;
-      s.onload = () => {
-        const create = globalThis.KWArena3D;
-        api = create?.(document.getElementById("arena3d")) ?? null;
-        if (api && location.search.includes("debug3d")) globalThis.__arena = api;
-        resolve(api);
+      s.onload = () => resolve(true);
+      s.onerror = () => {
+        bundle = null;
+        resolve(false);
       };
-      s.onerror = () => resolve(null);
       document.head.append(s);
     }));
+    return bundle;
+  }
+  function load() {
+    if (api) return Promise.resolve(api);
+    loading ?? (loading = loadBundle().then((ok) => {
+      const create = globalThis.KWArena3D;
+      api = ok ? create?.(document.getElementById("arena3d")) ?? null : null;
+      if (api && location.search.includes("debug3d")) globalThis.__arena = api;
+      if (!api) loading = null;
+      return api;
+    }));
     return loading;
+  }
+  async function staffPreview(canvas) {
+    if (!webgl || !await loadBundle()) return null;
+    const create = globalThis.KWStaffPreview;
+    return create?.(canvas) ?? null;
   }
   function preloadArena() {
     if (wanted()) setTimeout(() => void load(), 1500);
@@ -715,7 +782,7 @@
   function arenaForBattle(mode2, players2, you2) {
     const me2 = players2.find((p) => p.id === you2);
     const others = players2.filter((p) => p.id !== you2);
-    const art = (p) => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame) });
+    const art = (p) => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff });
     configure({
       layout: "battle",
       me: me2 ? art(me2) : { id: you2, character: "wizard" },
@@ -728,13 +795,13 @@
   function arenaForDeck(v) {
     const me2 = v.players.find((p) => p.id === v.you);
     const opp = v.players.find((p) => p.id !== v.you);
-    const key = `${me2?.id}:${me2?.character}:${opp?.id}:${opp?.character}`;
+    const key = `${me2?.id}:${me2?.character}:${me2?.staff}:${opp?.id}:${opp?.character}:${opp?.staff}`;
     if (key === deckKey && (!api || pending === null)) return;
     deckKey = key;
     configure({
       layout: "deck",
-      me: { id: v.you, name: me2?.name, character: me2?.character ?? "wizard", flame: flameColor(me2?.flame) },
-      opp: opp ? { id: opp.id, name: opp.name, character: opp.character ?? "wizard", flame: flameColor(opp.flame) } : null,
+      me: { id: v.you, name: me2?.name, character: me2?.character ?? "wizard", flame: flameColor(me2?.flame), staff: me2?.staff },
+      opp: opp ? { id: opp.id, name: opp.name, character: opp.character ?? "wizard", flame: flameColor(opp.flame), staff: opp.staff } : null,
       allies: [],
       boss: null
     });
@@ -746,11 +813,11 @@
   // src/client/ui.ts
   var $ = (id) => document.getElementById(id);
   function h(tag, cls = "", text, attrs = {}) {
-    const el = document.createElement(tag);
-    if (cls) el.className = cls;
-    if (text !== void 0) el.textContent = String(text);
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-    return el;
+    const el2 = document.createElement(tag);
+    if (cls) el2.className = cls;
+    if (text !== void 0) el2.textContent = String(text);
+    for (const [k, v] of Object.entries(attrs)) el2.setAttribute(k, v);
+    return el2;
   }
   var append = (parent, ...kids) => {
     parent.append(...kids);
@@ -799,18 +866,18 @@
     if (rtt === null || rtt === void 0) return 0;
     return rtt < 150 ? 3 : rtt < 400 ? 2 : 1;
   }
-  function paintNet(el) {
-    const rtt = rtts.get(el.dataset.net ?? "");
+  function paintNet(el2) {
+    const rtt = rtts.get(el2.dataset.net ?? "");
     const q = netQuality(rtt);
-    el.className = `net q${q}`;
-    el.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
+    el2.className = `net q${q}`;
+    el2.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
   }
   function netBars(playerId) {
-    const el = h("span", "net");
-    el.dataset.net = playerId;
-    el.innerHTML = "<i></i><i></i><i></i>";
-    paintNet(el);
-    return el;
+    const el2 = h("span", "net");
+    el2.dataset.net = playerId;
+    el2.innerHTML = "<i></i><i></i><i></i>";
+    paintNet(el2);
+    return el2;
   }
   function setNet(map) {
     for (const [id, rtt] of Object.entries(map)) rtts.set(id, rtt);
@@ -822,7 +889,6 @@
     img.onerror = () => img.remove();
     return img;
   }
-  var streakText = (n, best) => n > 0 ? `\u{1F525} ${n}-day login streak${best > n ? ` \xB7 best ${best}` : ""}` : best ? `No streak right now \xB7 best ${best} days` : "";
   function setProfile(p) {
     if (!p) return;
     const lx = levelXp(p.xp);
@@ -834,11 +900,12 @@
     $("ppRate").textContent = games ? `${Math.round((p.wins ?? 0) / games * 100)}%` : "\u2014";
     $("ppLearned").textContent = String(p.learned);
     $("ppToday").textContent = String(p.learnedToday ?? 0);
-    $("ppStreak").textContent = streakText(p.streak ?? 0, p.bestStreak ?? 0);
+    $("ppStreak").textContent = String(p.streak ?? 0);
+    $("ppBestStreak").textContent = String(Math.max(p.bestStreak ?? 0, p.streak ?? 0));
     for (const id of ["whoPic", "ppPic"]) {
-      const el = $(id);
-      el.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
-      el.classList.toggle("has-pic", !!p.pic);
+      const el2 = $(id);
+      el2.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
+      el2.classList.toggle("has-pic", !!p.pic);
     }
     $("picRemove").hidden = !p.pic;
     $("whoCrit").title = "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.";
@@ -847,11 +914,11 @@
   }
   var toastTimer = 0;
   function toast(text, ms = 3500) {
-    const el = $("toast");
-    el.textContent = text;
-    el.hidden = false;
+    const el2 = $("toast");
+    el2.textContent = text;
+    el2.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => el.hidden = true, ms);
+    toastTimer = window.setTimeout(() => el2.hidden = true, ms);
   }
   function setUser(user2) {
     $("whoami").hidden = !user2;
@@ -1083,9 +1150,9 @@
     bar.firstElementChild.style.width = `${pct}%`;
     return bar;
   }
-  function partyPanel(el, players2, you2) {
+  function partyPanel(el2, players2, you2) {
     const ordered = [...players2].sort((a, b) => a.id === you2 ? -1 : b.id === you2 ? 1 : 0);
-    el.replaceChildren(...ordered.map((p) => {
+    el2.replaceChildren(...ordered.map((p) => {
       const row = h("div", "party-row" + (p.id === you2 ? " me" : "") + (p.hp <= 0 ? " down" : ""));
       const pn = h("span", "n", p.id === you2 ? `${p.name} (you)` : p.name);
       if (p.id !== you2) markProfile(pn, p);
@@ -1109,15 +1176,15 @@
     bar.append(fill, h("span", "tbar-txt", text));
     return bar;
   }
-  function fighterCard(el, p, label, emptyText) {
+  function fighterCard(el2, p, label, emptyText) {
     if (!p) {
-      el.replaceChildren(h("div", "name", emptyText));
+      el2.replaceChildren(h("div", "name", emptyText));
       return;
     }
     const nameEl = h("span", "n", label);
     if (!label.endsWith("(you)")) markProfile(nameEl, p);
     const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo${p.combo >= 5 ? " \u{1F525}" : ""}` : ""));
-    el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
+    el2.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
   function renderFighters(players2, you2, boss) {
@@ -1137,15 +1204,24 @@
     }
     $("wizMe").classList.toggle("onfire", (me2?.combo ?? 0) >= 5);
     const a3 = arena();
-    if (a3) for (const p of players2) a3.onfire(p.id === you2 ? "me" : battleMode === "boss" ? `ally:${p.id}` : "opp", p.combo >= 5, flameColor(p.flame));
+    if (a3) for (const p of players2) a3.onfire(p.id === you2 ? "me" : battleMode === "boss" ? `ally:${p.id}` : "opp", p.combo >= 5 && p.hp > 0, flameColor(p.flame));
+    if (battleMode === "boss") {
+      for (const p of players2) if (p.hp <= 0) knockOut(p.id === you2 ? "me" : `ally:${p.id}`);
+    }
+    const combo = me2 && me2.hp > 0 ? me2.combo : 0;
+    const hud = $("comboHud");
+    hud.hidden = combo < 2;
+    hud.classList.toggle("hot", combo >= 5);
+    hud.style.setProperty("--flame", flameColor(me2?.flame));
+    if (combo >= 2) hud.replaceChildren(h("b", "", `\xD7${combo}`), h("span", "", combo >= 5 ? "COMBO \u{1F525}" : "COMBO"));
   }
   var allyEl = (id) => document.querySelector(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
   var actorEl = (a) => a.startsWith("ally:") ? allyEl(a.slice(5)) ?? $("wizMe") : $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : "dragon");
-  function retrigger(el, cls, ms) {
-    el.classList.remove(cls);
-    void el.offsetWidth;
-    el.classList.add(cls);
-    setTimeout(() => el.classList.remove(cls), ms);
+  function retrigger(el2, cls, ms) {
+    el2.classList.remove(cls);
+    void el2.offsetWidth;
+    el2.classList.add(cls);
+    setTimeout(() => el2.classList.remove(cls), ms);
   }
   function setupArena(mode2, players2, you2) {
     battleMode = mode2;
@@ -1182,8 +1258,8 @@
   }
   function floatText(target, text, cls) {
     const arena2 = $("arena");
-    const a = arena2.getBoundingClientRect();
-    const t = target.getBoundingClientRect();
+    const a = zrect(arena2);
+    const t = zrect(target);
     const f2 = h("div", "float " + cls, text);
     f2.style.left = `${t.left - a.left + t.width / 2 - 20}px`;
     f2.style.top = `${t.top - a.top}px`;
@@ -1196,9 +1272,9 @@
     const c = actorEl(caster), t = actorEl(target);
     retrigger(c, "casting", 450);
     const arena2 = $("arena");
-    const a = arena2.getBoundingClientRect();
-    const cr = c.getBoundingClientRect();
-    const tr = t.getBoundingClientRect();
+    const a = zrect(arena2);
+    const cr = zrect(c);
+    const tr = zrect(t);
     const spell = h("div", "spell" + (friendly ? "" : " foe"), kanji, { lang: "ja" });
     arena2.append(spell);
     const fromRight = cr.left > tr.left;
@@ -1218,7 +1294,7 @@
       // gentle start, quickening into the hit
     );
     const trail = reduced ? 0 : window.setInterval(() => {
-      const r2 = spell.getBoundingClientRect();
+      const r2 = zrect(spell);
       const dot = h("div", "spell-trail" + (friendly ? "" : " foe"));
       dot.style.left = `${r2.left - a.left + r2.width / 2}px`;
       dot.style.top = `${r2.top - a.top + r2.height / 2}px`;
@@ -1260,11 +1336,11 @@
     }, 180);
   }
   function breathWarning(inMs) {
-    const el = $("breathWarn");
-    el.hidden = false;
+    const el2 = $("breathWarn");
+    el2.hidden = false;
     $("dragon").classList.add("inhale");
     arena()?.inhale(true);
-    countdown("breath", inMs, (left) => el.textContent = `\u{1F525} The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
+    countdown("breath", inMs, (left) => el2.textContent = `\u{1F525} The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
   }
   function breathFire(damage, victims, immune = []) {
     stopCountdown("breath");
@@ -1279,8 +1355,8 @@
       return;
     }
     const fire = $("fire");
-    const arena2 = $("arena").getBoundingClientRect();
-    const d = $("dragon").getBoundingClientRect();
+    const arena2 = zrect($("arena"));
+    const d = zrect($("dragon"));
     const mouthX = d.left - arena2.left + d.width * 0.08;
     const mouthY = d.top - arena2.top + d.height * 0.37;
     const height = Math.max(160, arena2.height * 0.7);
@@ -1302,8 +1378,11 @@
     }, 450);
   }
   function knockOut(who) {
+    const el2 = actorEl(who);
+    if (el2.classList.contains("ko")) return;
     arena()?.ko(who);
-    actorEl(who).classList.add("ko");
+    el2.classList.add("ko");
+    el2.classList.remove("onfire");
   }
   function showBattle(mode2, players2, boss, you2, countdownMs, battleMs, onTick) {
     clearStudy();
@@ -1364,9 +1443,9 @@
     input.focus();
   }
   function setInputHint(text, warn = false) {
-    const el = $("inputHint");
-    el.textContent = text;
-    el.classList.toggle("warn", warn);
+    const el2 = $("inputHint");
+    el2.textContent = text;
+    el2.classList.toggle("warn", warn);
   }
   function setCharSlots(total, _written, active) {
     $("charSlots").replaceChildren(h("span", "slots-hint", total > 1 ? `Write all ${total} characters, left to right` : "Write the character"));
@@ -1389,13 +1468,13 @@
     $("writeArea").hidden = true;
   };
   function setFeedback(f2) {
-    const el = $("feedback");
+    const el2 = $("feedback");
     if (!f2) {
-      el.replaceChildren();
-      el.className = "feedback";
+      el2.replaceChildren();
+      el2.className = "feedback";
       return;
     }
-    el.className = "feedback " + (f2.correct ? "good" : "bad");
+    el2.className = "feedback " + (f2.correct ? "good" : "bad");
     $("kanji").classList.remove("gone");
     $("meaningPrompt").hidden = true;
     const word = (cls) => append(h("span", cls), h("span", "rk", f2.kanji, { lang: "ja" }), h("span", "rr", f2.reading, { lang: "ja" }), h("span", "", f2.meaning));
@@ -1403,22 +1482,22 @@
       $("kanji").classList.add("cast");
       const combo = f2.combo >= 2 ? ` \xB7 \xD7${f2.combo} combo` : "";
       const big = h("span", "big" + (f2.crit ? " crit" : ""), f2.crit ? `\u2726 CRIT! ${f2.damage} damage` : `\u2713 CAST! ${f2.damage} damage`);
-      el.replaceChildren(big, word("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
+      el2.replaceChildren(big, word("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
     } else {
       if (f2.retry) {
-        el.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
+        el2.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
         return;
       }
       const title = f2.beaten ? "\u26A1 Opponent was faster!" : f2.skipped ? "\u21B7 Skipped" : f2.timedOut ? "\u2717 Too slow!" : "\u2717 MISS!";
       const kids = [h("span", "big", title), word("reveal")];
       if (f2.recognized && !f2.skipped && !f2.timedOut) kids.push(h("span", "sub2", `The pad read: ${f2.recognized}`));
-      el.replaceChildren(...kids);
+      el2.replaceChildren(...kids);
     }
   }
   function logLine(text, kanji) {
-    const el = $("log");
-    el.replaceChildren(h("span", "", text));
-    if (kanji) el.append(h("span", "k", ` ${kanji}`, { lang: "ja" }));
+    const el2 = $("log");
+    el2.replaceChildren(h("span", "", text));
+    if (kanji) el2.append(h("span", "k", ` ${kanji}`, { lang: "ja" }));
   }
   var REASONS = {
     ko: "Knock-out",
@@ -1456,8 +1535,8 @@
       const nameOf2 = (id) => players2.find((p) => p.id === id)?.name ?? "Ally";
       cmp.replaceChildren(h("div"), h("div", "h me", "You"), ...allies.map((id) => {
         const p = players2.find((x) => x.id === id);
-        const el = h("div", "h", nameOf2(id));
-        return p ? markProfile(el, p) : el;
+        const el2 = h("div", "h", nameOf2(id));
+        return p ? markProfile(el2, p) : el2;
       }));
       for (const [label, fmt] of rows) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me2)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
     } else {
@@ -1496,10 +1575,10 @@
     show("results");
   }
   function showXp(gained, level, levelUp) {
-    const el = $("xpLine");
-    el.hidden = false;
-    el.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
-    if (levelUp) el.append(h("span", "lvup", `\u2B06 Level ${level}!`));
+    const el2 = $("xpLine");
+    el2.hidden = false;
+    el2.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
+    if (levelUp) el2.append(h("span", "lvup", `\u2B06 Level ${level}!`));
   }
   function setRematchStatus(votes, you2, playerCount, minPlayers2) {
     const youVoted = votes.includes(you2);
@@ -1516,21 +1595,21 @@
     return h("span", `mode-badge ${mode2}`, MODE_ICON[mode2], { lang: "ja", title: MODE_LABEL[mode2], "aria-label": MODE_LABEL[mode2] });
   }
   function characterEl(character, mode2, side = "me") {
-    const el = h("span", "char-sprite");
+    const el2 = h("span", "char-sprite");
     const heroes = ["goblin", "knight", "witch", "wizard"];
-    el.innerHTML = mode2 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "wizard"].includes(character) ? character : "wizard", side);
-    el.title = character[0].toUpperCase() + character.slice(1);
-    return el;
+    el2.innerHTML = mode2 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "wizard"].includes(character) ? character : "wizard", side);
+    el2.title = character[0].toUpperCase() + character.slice(1);
+    return el2;
   }
-  function markProfile(el, p) {
-    el.dataset.profile = p.id;
-    if (p.bot) el.dataset.bot = p.bot;
-    if (p.name) el.dataset.name = p.name;
-    el.classList.add("plink");
-    el.setAttribute("role", "button");
-    el.tabIndex = 0;
-    el.title = "View profile";
-    return el;
+  function markProfile(el2, p) {
+    el2.dataset.profile = p.id;
+    if (p.bot) el2.dataset.bot = p.bot;
+    if (p.name) el2.dataset.name = p.name;
+    el2.classList.add("plink");
+    el2.setAttribute("role", "button");
+    el2.tabIndex = 0;
+    el2.title = "View profile";
+    return el2;
   }
   var dateTime = (at) => new Date(at).toLocaleString(void 0, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   function showProfileCard(anchor, p) {
@@ -1549,7 +1628,7 @@
       if (img) pic.append(img);
       const games = p.wins + p.losses;
       body.push(
-        append(h("div", "pp-head"), pic, append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `Lv ${p.level}`), h("div", "pp-streak", streakText(p.streak ?? 0, p.bestStreak ?? 0)))),
+        append(h("div", "pp-head"), pic, append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `Lv ${p.level}`))),
         append(
           h("div", "pp-stats"),
           append(h("div"), h("b", "", p.wins), h("span", "", "wins")),
@@ -1557,17 +1636,22 @@
           append(h("div"), h("b", "", games ? `${Math.round(100 * p.wins / games)}%` : "\u2014"), h("span", "", "win rate")),
           append(h("div"), h("b", "", p.learned), h("span", "", "spells learned"))
         ),
+        append(
+          h("div", "pp-stats pp-streaks"),
+          append(h("div", "streak-box"), h("b", "", p.streak ?? 0), h("span", "", "\u{1F525} login streak (days)")),
+          append(h("div", "streak-box best"), h("b", "", Math.max(p.bestStreak ?? 0, p.streak ?? 0)), h("span", "", "\u{1F3C6} best streak (days)"))
+        ),
         h("p", "hint", `Playing since ${new Date(p.since).toLocaleDateString(void 0, { year: "numeric", month: "short", day: "numeric" })}`)
       );
     }
     pop.replaceChildren(...body);
     pop.hidden = false;
-    const r2 = anchor.getBoundingClientRect();
-    const w = Math.min(300, innerWidth - 24);
+    const r2 = zrect(anchor);
+    const w = Math.min(300, viewW() - 24);
     pop.style.width = `${w}px`;
-    pop.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, r2.left + r2.width / 2 - w / 2))}px`;
+    pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r2.left + r2.width / 2 - w / 2))}px`;
     const below = r2.bottom + 8;
-    pop.style.top = `${below + 240 > innerHeight ? Math.max(12, r2.top - 8 - pop.offsetHeight) : below}px`;
+    pop.style.top = `${below + 240 > viewH() ? Math.max(12, r2.top - 8 - pop.offsetHeight) : below}px`;
   }
   var hideProfileCard = () => {
     $("otherPop").hidden = true;
@@ -2297,10 +2381,10 @@
   var $2 = $;
   var COLOR_NAME = { lightblue: "Light blue", blue: "Blue", yellow: "Yellow", green: "Green", red: "Red" };
   function h2(tag, cls = "", text) {
-    const el = document.createElement(tag);
-    if (cls) el.className = cls;
-    if (text !== void 0) el.textContent = String(text);
-    return el;
+    const el2 = document.createElement(tag);
+    if (cls) el2.className = cls;
+    if (text !== void 0) el2.textContent = String(text);
+    return el2;
   }
   var view = null;
   var hooks;
@@ -2379,8 +2463,8 @@
     seenChat.clear();
     $2("dkChatLog").replaceChildren();
   }
-  var renderDeckGuide = (el) => renderGuide(el);
-  function renderGuide(el) {
+  var renderDeckGuide = (el2) => renderGuide(el2);
+  function renderGuide(el2) {
     const sec = (title, ...kids) => {
       const s = h2("section", "g-sec");
       s.append(h2("h4", "", title), ...kids);
@@ -2415,13 +2499,14 @@
       ["\u{1F4DC}", "While your opponent plays, you can read the list of kanji in your hand (not which card is which)."],
       ["\u{1F504}", "Out of cards \u2192 Round 2 draft. HP, mana and powers stay."],
       ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the cards are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5\u2013N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 6e4} min, then the higher HP wins.`],
-      ["\u231B", `Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`]
+      ["\u231B", `Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`],
+      ["\u{1F4DA}", "After the duel, every kanji that was cast joins your All spells (Study spells), so you can learn them."]
     ]) {
       const li = h2("li");
       li.append(h2("span", "g-ic", icon), h2("span", "", t));
       flow.append(li);
     }
-    el.replaceChildren(
+    el2.replaceChildren(
       h2("h3", "", "How Deck Duel works"),
       sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (\u2212${DECK_RULES.skipPenaltyHp} HP).`)),
       sec("Cards", cards),
@@ -2433,26 +2518,26 @@
   function cardEl(c, opts = {}) {
     const base = CARD_SPECS[c.color];
     const spec = { ...base, cost: Math.ceil(base.cost * (opts.costFactor ?? 1)) };
-    const el = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
-    if (opts.button) el.disabled = !!opts.disabled;
-    el.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
-    if (opts.big) return el;
-    el.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
+    const el2 = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
+    if (opts.button) el2.disabled = !!opts.disabled;
+    el2.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
+    if (opts.big) return el2;
+    el2.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
     if (c.kanji) {
       const k = h2("span", "dkc-k", c.kanji);
       k.lang = "ja";
       const r2 = h2("span", "dkc-r", c.reading ?? "");
       r2.lang = "ja";
-      el.append(k, r2);
+      el2.append(k, r2);
     } else {
-      el.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
+      el2.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
     }
-    return el;
+    return el2;
   }
   var powered = (p) => !!p.character && p.character !== "wizard" && p.abilityActive > 0;
-  function playerPanel(el, p, mine) {
-    el.dataset.flame = p.flame ?? "blue";
-    el.classList.toggle("powered", powered(p));
+  function playerPanel(el2, p, mine) {
+    el2.dataset.flame = p.flame ?? "blue";
+    el2.classList.toggle("powered", powered(p));
     arena()?.onfire(mine ? "me" : "opp", powered(p), flameColor(p.flame));
     const av = h2("div", "dk-av");
     av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp") : "";
@@ -2484,7 +2569,7 @@
       cc.append(dot, `\xD7${p.handCounts[col]}`);
       counts2.append(cc);
     }
-    el.replaceChildren(av, name, hp, mana, counts2);
+    el2.replaceChildren(av, name, hp, mana, counts2);
   }
   function renderDeck(v) {
     view = v;
@@ -2516,12 +2601,12 @@
     const canPlay = myTurn && !v.casting && Date.now() >= revealUntil;
     $2("dkHand").replaceChildren(...v.hand.map((c) => {
       const costFactor = myTurn ? v.turn.costFactor : 1;
-      const el = cardEl(c, { button: true, costFactor, disabled: !canPlay || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me2.mana });
-      el.onclick = () => {
+      const el2 = cardEl(c, { button: true, costFactor, disabled: !canPlay || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me2.mana });
+      el2.onclick = () => {
         sfx.flip();
         hooks.send({ type: "deck_play", cardId: c.cardId });
       };
-      return el;
+      return el2;
     }));
     $2("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
     const ab = $2("dkAbility");
@@ -2556,9 +2641,9 @@
     }
     box.replaceChildren(append2(head, h2("small", "", ` \xB7 ${v.deckList.length}`)), h2("p", "hint", "Which card is which stays secret."), ul);
   }
-  var append2 = (el, ...kids) => {
-    el.append(...kids);
-    return el;
+  var append2 = (el2, ...kids) => {
+    el2.append(...kids);
+    return el2;
   };
   var castKey = "";
   function renderCast(v) {
@@ -2708,13 +2793,13 @@
     countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ""}`);
     const board = h2("div", "draft-board");
     for (const c of d.pool) {
-      const el = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
-      if (c.takenBy) el.classList.add("taken");
-      el.onclick = () => {
+      const el2 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
+      if (c.takenBy) el2.classList.add("taken");
+      el2.onclick = () => {
         sfx.flip();
         hooks.send({ type: "deck_pick", cardId: c.cardId });
       };
-      board.append(el);
+      board.append(el2);
     }
     overlay.replaceChildren(backButton(v), head, status, board, h2("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
   }
@@ -2802,7 +2887,7 @@
     if (e.overtime) fb.append(h2("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}`));
     if (!card) return;
     const ghost = card.cloneNode(true);
-    const r2 = card.getBoundingClientRect();
+    const r2 = zrect(card);
     Object.assign(ghost.style, { position: "fixed", left: `${r2.left}px`, top: `${r2.top}px`, width: `${r2.width}px`, height: `${r2.height}px`, zIndex: "30", margin: "0" });
     document.body.append(ghost);
     if (spec.kind === "mana") {
@@ -2810,7 +2895,7 @@
       ghost.classList.add("sparkle");
     } else {
       const towardsMe = spec.kind === "heal" ? e.playerId === me2 : e.targetId === me2;
-      const target = $2(towardsMe ? "dkMe" : "dkOpp").getBoundingClientRect();
+      const target = zrect($2(towardsMe ? "dkMe" : "dkOpp"));
       ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
       void spoken.then(() => {
@@ -2852,7 +2937,7 @@
     }, REVEAL_MS);
   }
   function ripCard(card) {
-    const r2 = card.getBoundingClientRect();
+    const r2 = zrect(card);
     const wrap = h2("div", "rip");
     Object.assign(wrap.style, { position: "fixed", left: `${r2.left}px`, top: `${r2.top}px`, width: `${r2.width}px`, height: `${r2.height}px`, zIndex: "30" });
     for (const side of ["l", "r"]) {
@@ -2882,17 +2967,17 @@
 
   // src/client/queue.ts
   var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
-  var KEY3 = "kb:queue";
+  var KEY4 = "kb:queue";
   var load2 = () => {
     try {
-      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY3) ?? "{}") };
+      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY4) ?? "{}") };
     } catch {
       return { modes: ["reading", "rapid"], levels: ["N5"] };
     }
   };
   var save2 = (s) => {
     try {
-      localStorage.setItem(KEY3, JSON.stringify(s));
+      localStorage.setItem(KEY4, JSON.stringify(s));
     } catch {
     }
   };
@@ -2901,25 +2986,25 @@
   var me = () => "";
   var tick = 0;
   var searching = false;
-  function guideHover(el, mode2) {
+  function guideHover(el2, mode2) {
     const pop = $("guidePop");
     const open = () => {
       pop.replaceChildren(...modeGuideNodes(mode2));
       pop.hidden = false;
-      const r2 = el.getBoundingClientRect();
-      const w = Math.min(380, innerWidth - 24);
+      const r2 = zrect(el2);
+      const w = Math.min(380, viewW() - 24);
       pop.style.width = `${w}px`;
-      pop.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, r2.left))}px`;
+      pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r2.left))}px`;
       const below = r2.bottom + 10;
-      pop.style.top = `${below + pop.offsetHeight > innerHeight - 8 ? Math.max(8, r2.top - 10 - pop.offsetHeight) : below}px`;
+      pop.style.top = `${below + pop.offsetHeight > viewH() - 8 ? Math.max(8, r2.top - 10 - pop.offsetHeight) : below}px`;
     };
     const close = () => {
       pop.hidden = true;
     };
-    el.addEventListener("mouseenter", open);
-    el.addEventListener("mouseleave", close);
-    el.addEventListener("focusin", open);
-    el.addEventListener("focusout", close);
+    el2.addEventListener("mouseenter", open);
+    el2.addEventListener("mouseleave", close);
+    el2.addEventListener("focusin", open);
+    el2.addEventListener("focusout", close);
   }
   function chip(value, label, on, group) {
     const l = document.createElement("label");
@@ -3165,7 +3250,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.9.3";
+  var VERSION = "0.9.5";
 
   // src/client/api.ts
   var today = () => {
@@ -3209,6 +3294,7 @@
     setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
     removeAvatar: () => call("DELETE", "/api/me/avatar"),
     setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
+    setStaff: (staff) => call("PUT", "/api/me/staff", { staff }),
     setBackground: (background) => call("PUT", "/api/me/background", { background }),
     study: () => call("GET", `/api/study?today=${today()}`),
     setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
@@ -3477,15 +3563,15 @@
   var onProfileChange = (fn) => {
     onProfile = fn;
   };
-  function counts(el, c) {
-    el.innerHTML = "";
+  function counts(el2, c) {
+    el2.innerHTML = "";
     for (const [cls, n, label] of [["c-new", c.new, "new"], ["c-learn", c.learning, "learning"], ["c-due", c.due, "to review"]]) {
       const s = document.createElement("span");
       s.className = cls;
       const b = document.createElement("b");
       b.textContent = String(n);
       s.append(b, label);
-      el.append(s);
+      el2.append(s);
     }
   }
   function levelChips(selected) {
@@ -3614,73 +3700,192 @@
   $3("studyStruggle").onclick = () => void startSession("struggling");
   $3("reviewBack").onclick = () => void openStudy();
   $3("reviewDoneBack").onclick = () => void openStudy();
+  var custTab = "staff";
+  var picked2 = {};
+  var cust = null;
+  var preview = null;
+  var previewTried = false;
+  var staffThumbs = {};
+  var el = (tag, cls = "", text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = String(text);
+    return e;
+  };
   function openCustomize(profile2, isAdmin = false, onTimeChange = () => {
   }) {
-    const lvl = levelOf(profile2.xp);
-    const pref = getTimePref();
-    const time = resolveTime(pref);
-    $3("bgTimes").replaceChildren(...TIMES.map((t) => {
-      const b = document.createElement("button");
-      b.className = "pill" + (t.id === pref ? " on" : "");
-      b.textContent = t.id === "auto" ? `\u{1F504} Cycle (now: ${time})` : t.id === "day" ? "\u2600\uFE0F Day" : t.id === "sunset" ? "\u{1F307} Sunset" : "\u{1F319} Night";
-      b.onclick = () => {
-        setTimePref(t.id);
-        onTimeChange();
-        openCustomize(profile2, isAdmin, onTimeChange);
-      };
-      return b;
-    }));
-    $3("flameRow").replaceChildren(...FLAMES.map((f2) => {
-      const locked = !isAdmin && lvl < f2.level;
-      const b = document.createElement("button");
-      b.className = "flame-pick" + ((profile2.flame ?? "blue") === f2.id ? " on" : "") + (locked ? " locked" : "");
-      const dot = document.createElement("span");
-      dot.className = "flame-dot";
-      dot.style.setProperty("--c", f2.color);
-      b.append(dot, locked ? `${f2.name} \xB7 \u{1F512} Level ${f2.level}` : `${f2.name}${(profile2.flame ?? "blue") === f2.id ? " \u2713" : ""}`);
-      b.onclick = async () => {
-        if (locked) return toast(`Reach level ${f2.level} to unlock ${f2.name} flames`);
-        try {
-          const { profile: p } = await api2.setFlame(f2.id);
-          onProfile(p);
-          openCustomize(p, isAdmin, onTimeChange);
-        } catch (e) {
-          toast(e.message);
-        }
-      };
-      return b;
-    }));
-    $3("bgGrid").replaceChildren(...BACKGROUNDS.map((b) => {
-      const locked = !isAdmin && lvl < b.level;
-      const tile2 = document.createElement("button");
-      tile2.className = "bg-tile" + (profile2.background === b.id ? " on" : "") + (locked ? " locked" : "");
-      tile2.innerHTML = backgroundThumb(b.id, time);
-      const name = document.createElement("div");
-      name.className = "bg-name";
-      name.textContent = `${b.name}${profile2.background === b.id ? " \u2713" : ""}`;
-      tile2.append(name);
-      if (locked) {
-        const lock = document.createElement("div");
-        lock.className = "lock";
-        lock.textContent = `\u{1F512} Level ${b.level}`;
-        tile2.append(lock);
-      }
-      tile2.onclick = async () => {
-        if (locked) return toast(`Reach level ${b.level} to unlock ${b.name}`);
-        try {
-          const { profile: p } = await api2.setBackground(b.id);
-          onProfile(p);
-          openCustomize(p, isAdmin, onTimeChange);
-        } catch (e) {
-          toast(e.message);
-        }
-      };
-      return tile2;
-    }));
+    cust = { profile: profile2, isAdmin, onTimeChange };
+    renderCustomize();
     show("customize");
+    void ensurePreview();
+  }
+  async function ensurePreview() {
+    if (previewTried) {
+      if (custTab === "staff") renderCustomize();
+      return;
+    }
+    previewTried = true;
+    preview = await staffPreview($3("staffCanvas"));
+    if (preview) staffThumbs = Object.fromEntries(preview.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
+    renderCustomize();
+  }
+  for (const b of document.querySelectorAll("#custTabs .cust-tab")) {
+    b.onclick = () => {
+      custTab = b.dataset.tab;
+      renderCustomize();
+    };
+  }
+  function custItems(profile2, isAdmin) {
+    const lvl = levelOf(profile2.xp);
+    const best = Math.max(profile2.bestStreak ?? 0, profile2.streak ?? 0);
+    const time = resolveTime(getTimePref());
+    if (custTab === "staff") {
+      return STAFFS.map((s) => ({
+        id: s.id,
+        name: s.name,
+        blurb: s.blurb,
+        locked: !isAdmin && best < s.streak,
+        lock: s.streak ? `\u{1F512} ${s.streak}-day streak` : "",
+        lockedToast: `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
+        equipped: (profile2.staff ?? "verdant") === s.id,
+        tile: () => {
+          if (staffThumbs[s.id]) {
+            const img = document.createElement("img");
+            img.src = staffThumbs[s.id];
+            img.alt = "";
+            return img;
+          }
+          const g = el("div", "gem-fallback");
+          g.style.setProperty("--c", s.gem);
+          return g;
+        },
+        equip: () => api2.setStaff(s.id)
+      }));
+    }
+    if (custTab === "arena") {
+      return BACKGROUNDS.map((b) => ({
+        id: b.id,
+        name: b.name,
+        blurb: "The scene behind every battle (and its sounds in the menus).",
+        locked: !isAdmin && lvl < b.level,
+        lock: `\u{1F512} Level ${b.level}`,
+        lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
+        equipped: profile2.background === b.id,
+        tile: () => {
+          const d = el("div", "bg-thumb");
+          d.innerHTML = backgroundThumb(b.id, time);
+          return d;
+        },
+        equip: () => api2.setBackground(b.id)
+      }));
+    }
+    return FLAMES.map((f2) => ({
+      id: f2.id,
+      name: `${f2.name} flames`,
+      blurb: "Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your hero power is active in Deck Duel. Everyone sees your colour.",
+      locked: !isAdmin && lvl < f2.level,
+      lock: `\u{1F512} Level ${f2.level}`,
+      lockedToast: `Reach level ${f2.level} to unlock ${f2.name} flames`,
+      equipped: (profile2.flame ?? "blue") === f2.id,
+      tile: () => {
+        const d = el("span", "flame-dot big");
+        d.style.setProperty("--c", f2.color);
+        return d;
+      },
+      equip: () => api2.setFlame(f2.id)
+    }));
+  }
+  var days = (n) => `${n} day${n === 1 ? "" : "s"}`;
+  var CUST_SUB = {
+    staff: (p) => `The staff in your hand in the 3D arena (other players see it too). Staffs unlock with your login streak \u2014 open the game on days in a row. Your best streak: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}.`,
+    arena: () => "The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).",
+    omni: () => "Omnipotence: the flames of a 5\xD7 combo in battle, and of your hero power in Deck Duel. More colours unlock as you level up."
+  };
+  function renderCustomize() {
+    if (!cust) return;
+    const { profile: profile2, isAdmin, onTimeChange } = cust;
+    for (const b of document.querySelectorAll("#custTabs .cust-tab")) {
+      const on = b.dataset.tab === custTab;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", String(on));
+    }
+    const items = custItems(profile2, isAdmin);
+    const sel = items.find((i) => i.id === picked2[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
+    $3("custSub").textContent = CUST_SUB[custTab](profile2);
+    const times = $3("bgTimes");
+    times.hidden = custTab !== "arena";
+    if (custTab === "arena") {
+      const pref = getTimePref();
+      times.replaceChildren(...TIMES.map((t) => {
+        const b = el("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `\u{1F504} Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "\u2600\uFE0F Day" : t.id === "sunset" ? "\u{1F307} Sunset" : "\u{1F319} Night");
+        b.onclick = () => {
+          setTimePref(t.id);
+          onTimeChange();
+          renderCustomize();
+        };
+        return b;
+      }));
+    }
+    const equip = async (it) => {
+      if (it.locked) return toast(it.lockedToast);
+      try {
+        const { profile: p } = await it.equip();
+        cust.profile = p;
+        onProfile(p);
+        renderCustomize();
+      } catch (e) {
+        toast(e.message);
+      }
+    };
+    $3("custGrid").className = `cust-grid ${custTab}`;
+    $3("custGrid").replaceChildren(...items.map((it) => {
+      const b = el("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
+      b.setAttribute("aria-pressed", String(it === sel));
+      const pic = el("div", "ci-pic");
+      pic.append(it.tile());
+      b.append(pic, el("div", "ci-name", it.name), el("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? it.lock : "Unlocked"));
+      b.onclick = () => {
+        picked2[custTab] = it.id;
+        renderCustomize();
+      };
+      b.ondblclick = () => void equip(it);
+      return b;
+    }));
+    const canvas = $3("staffCanvas");
+    const stage2 = $3("custStage2");
+    const showCanvas = custTab === "staff" && !!preview;
+    canvas.hidden = !showCanvas;
+    stage2.hidden = showCanvas;
+    $3("custStage").dataset.tab = custTab;
+    if (custTab === "staff") {
+      if (preview) preview.show(sel.id);
+      else {
+        const g = el("div", "gem-fallback big");
+        g.style.setProperty("--c", STAFFS.find((s) => s.id === sel.id).gem);
+        stage2.replaceChildren(g);
+      }
+    } else if (custTab === "arena") {
+      stage2.innerHTML = backgroundThumb(sel.id, resolveTime(getTimePref()));
+    } else {
+      const w = el("div", "wizard me onfire");
+      w.dataset.flame = sel.id;
+      const sprite = el("div", "sprite");
+      sprite.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me");
+      w.append(el("div", "aura"), sprite);
+      const badge = el("div", "combo-hud hot omni-badge");
+      badge.style.setProperty("--flame", FLAMES.find((f2) => f2.id === sel.id).color);
+      badge.append(el("b", "", "\xD75"), el("span", "", "COMBO \u{1F525}"));
+      stage2.replaceChildren(w, badge);
+    }
+    const btn = el("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? sel.lock.replace("\u{1F512} ", "\u{1F512} Unlocks at ") : "Equip");
+    btn.disabled = sel.equipped;
+    btn.classList.toggle("locked", sel.locked);
+    btn.onclick = () => void equip(sel);
+    $3("custInfo").replaceChildren(el("h3", "", sel.name), el("p", "sub", sel.blurb), btn);
   }
 
   // src/client/main.ts
+  applyUiZoom();
   var user = null;
   var profile = null;
   var you = "";
@@ -4259,6 +4464,12 @@
       t.disabled = !arenaSupported();
     });
   }
+  {
+    const sel = $("uiZoom");
+    sel.replaceChildren(...UI_ZOOMS.map((z) => new Option(`${Math.round(z * 100)}%${z === 0.8 ? " (default)" : ""}`, String(z))));
+    sel.value = String(uiZoomPref());
+    sel.onchange = () => setUiZoomPref(Number(sel.value));
+  }
   $("pad").style.cursor = brushCursor();
   initDeck({
     send: (m) => socket.send(m),
@@ -4293,30 +4504,30 @@
   $("resultHistoryBack").onclick = () => void openHistory();
   {
     let shownFor = "";
-    const open = async (el) => {
-      const id = el.dataset.profile;
+    const open = async (el2) => {
+      const id = el2.dataset.profile;
       if (shownFor === id && !$("otherPop").hidden) {
         hideProfileCard();
         shownFor = "";
         return;
       }
       shownFor = id;
-      const name = el.dataset.name ?? el.textContent ?? "";
-      const bot = el.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
-      if (bot) return showProfileCard(el, { bot, name });
-      showProfileCard(el, "loading");
+      const name = el2.dataset.name ?? el2.textContent ?? "";
+      const bot = el2.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
+      if (bot) return showProfileCard(el2, { bot, name });
+      showProfileCard(el2, "loading");
       try {
         const { profile: profile2 } = await api2.player(id);
-        if (shownFor === id) showProfileCard(el, profile2);
+        if (shownFor === id) showProfileCard(el2, profile2);
       } catch {
-        if (shownFor === id) showProfileCard(el, "missing");
+        if (shownFor === id) showProfileCard(el2, "missing");
       }
     };
     addEventListener("click", (e) => {
-      const el = e.target.closest("[data-profile]");
-      if (el) {
+      const el2 = e.target.closest("[data-profile]");
+      if (el2) {
         e.stopPropagation();
-        void open(el);
+        void open(el2);
         return;
       }
       if (!$("otherPop").contains(e.target)) {
@@ -4325,10 +4536,10 @@
       }
     }, true);
     addEventListener("keydown", (e) => {
-      const el = e.target.closest?.("[data-profile]");
-      if (el && (e.key === "Enter" || e.key === " ")) {
+      const el2 = e.target.closest?.("[data-profile]");
+      if (el2 && (e.key === "Enter" || e.key === " ")) {
         e.preventDefault();
-        void open(el);
+        void open(el2);
       } else if (e.key === "Escape") hideProfileCard();
     });
   }

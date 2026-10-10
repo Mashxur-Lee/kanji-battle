@@ -1,6 +1,6 @@
 import postgres from 'postgres';
 import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
-import type { BackgroundId, FlameId } from '../../shared/progress';
+import type { BackgroundId, FlameId, StaffId } from '../../shared/progress';
 import type { CardState, SrsCard } from '../../shared/srs';
 import { MATCH_HISTORY_LIMIT, UsernameTakenError, type AvatarImage, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
@@ -11,7 +11,7 @@ import { MATCH_HISTORY_LIMIT, UsernameTakenError, type AvatarImage, type NewUser
 interface UserRow {
   id: string; username: string; password_hash: string; role: Role; banned: boolean; created_at: Date;
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
-  crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null;
+  crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null;
   login_day: string | null; streak: number | null; best_streak: number | null;
 }
 interface CardRow {
@@ -24,7 +24,7 @@ const toUser = (r: UserRow): UserRecord => ({
   createdAt: new Date(r.created_at).toISOString(), xp: r.xp, background: r.background,
   studyLevels: r.study_levels ?? [], lastNewDate: r.last_new_date, newNotice: r.new_notice,
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
-  wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue',
+  wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant',
   loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0,
 });
 const toCard = (r: CardRow): SrsCard => ({
@@ -35,7 +35,7 @@ const toCard = (r: CardRow): SrsCard => ({
 const COLUMNS: Record<keyof UserPatch, string> = {
   banned: 'banned', passwordHash: 'password_hash', background: 'background',
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
-  critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame',
+  critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff',
   loginDay: 'login_day', streak: 'streak', bestStreak: 'best_streak',
 };
 
@@ -115,6 +115,8 @@ export class PgStore implements Store {
     await this.sql`alter table kw_users add column if not exists login_day text`;
     await this.sql`alter table kw_users add column if not exists streak integer not null default 0`;
     await this.sql`alter table kw_users add column if not exists best_streak integer not null default 0`;
+    // v0.9.5 magic staff skin
+    await this.sql`alter table kw_users add column if not exists staff text not null default 'verdant'`;
     // v0.7.7 match history (one row per player per match; the result screen is kept as JSON)
     await this.sql`
       create table if not exists kw_matches (

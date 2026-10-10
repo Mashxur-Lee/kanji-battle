@@ -1,8 +1,8 @@
 import type { AdminUserRow, Level, MatchDetail, MatchSummary, PublicProfile, PublicUser } from '../shared/protocol';
-import type { BackgroundId, FlameId } from '../shared/progress';
+import type { BackgroundId, FlameId, StaffId } from '../shared/progress';
 import type { CardState, Rating } from '../shared/srs';
 
-export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; wins: number; losses: number; pic: string | null; background: BackgroundId; studyLevels: Level[]; flame: FlameId; strugglingDue: number; streak: number; bestStreak: number }
+export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; wins: number; losses: number; pic: string | null; background: BackgroundId; studyLevels: Level[]; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudySummary { studyLevels: Level[]; notice: number; decks: { all: DeckCounts; struggling: DeckCounts }; profile: Profile }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string> }
@@ -33,6 +33,7 @@ export const api = {
   setAvatar: (image: string) => call<{ profile: Profile }>('PUT', '/api/me/avatar', { image }),
   removeAvatar: () => call<{ profile: Profile }>('DELETE', '/api/me/avatar'),
   setFlame: (flame: FlameId) => call<{ profile: Profile }>('PUT', '/api/me/flame', { flame }),
+  setStaff: (staff: StaffId) => call<{ profile: Profile }>('PUT', '/api/me/staff', { staff }),
   setBackground: (background: BackgroundId) => call<{ profile: Profile }>('PUT', '/api/me/background', { background }),
   study: () => call<StudySummary>('GET', `/api/study?today=${today()}`),
   setStudyLevels: (levels: Level[]) => call<StudySummary>('PUT', '/api/study/levels', { levels, today: today() }),

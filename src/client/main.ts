@@ -1,3 +1,4 @@
+import { applyUiZoom, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
 import * as voice from './voice';
 import { initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
@@ -13,6 +14,8 @@ import { GameSocket } from './net';
 import { HandwritingPad } from './pad';
 import { onProfileChange, openCustomize, openStudy } from './study';
 import * as ui from './ui';
+
+applyUiZoom(); // before anything is laid out
 
 // ── state ────────────────────────────────────────────────────────────────────
 let user: PublicUser | null = null;
@@ -552,6 +555,13 @@ document.documentElement.dataset.v = VERSION;
   ui.$('arena3dInfo').textContent = arenaSupported() ? 'First-person duel arena (move the mouse to look around).' : 'Needs WebGL and a larger window — the classic 2D view is used.';
   t.onchange = () => setArenaPref(t.checked);
   ui.$('volBtn').addEventListener('click', () => { t.checked = arenaPref(); t.disabled = !arenaSupported(); });
+}
+// UI size (default 80% on computers)
+{
+  const sel = ui.$<HTMLSelectElement>('uiZoom');
+  sel.replaceChildren(...UI_ZOOMS.map((z) => new Option(`${Math.round(z * 100)}%${z === 0.8 ? ' (default)' : ''}`, String(z))));
+  sel.value = String(uiZoomPref());
+  sel.onchange = () => setUiZoomPref(Number(sel.value));
 }
 ui.$('pad').style.cursor = brushCursor(); // pixel hand + brush; the ink tip draws
 

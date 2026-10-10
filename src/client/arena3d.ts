@@ -1,23 +1,24 @@
-// The 2.5D arena: the duel seen from just behind your character, drawn with Three.js behind the normal
-// game UI.
+// The 3D arena, in first person, drawn with Three.js behind the normal game UI.
 //
-// Your character (a low-poly 3D model holding a magic staff — wizard, witch, goblin, knight, apprentice or
-// adventurer) stands in the foreground; the opponent faces you across a torch-lit stone arena; your chosen
-// background is painted far behind, with grass and trees bridging it to the ground. The camera follows the
-// mouse a little (parallax). Your staff glows and moves while you write or type. Spells are kanji that fly
-// across with a trail; hits flash and shake the camera; Deck Duel cards have their own effects (lightning,
-// frost, fire).
+// You see your own hand holding your magic staff (your chosen skin); the opponent (a low-poly 3D model —
+// wizard, witch, goblin, knight, apprentice or adventurer — holding their staff) faces you across a
+// torch-lit stone arena; your chosen background is painted far behind, with grass and trees bridging it to
+// the ground. The camera follows the mouse a little (parallax). While you write or type, the staff charges
+// and traces a figure-eight; a cast launches its gem with the spell. Spells are kanji that fly across with a
+// trail; hits flash and shake the camera; Deck Duel cards have their own effects (lightning, frost, fire).
 //
 // This file is bundled on its own (public/arena3d.js) and only loaded when the 3D arena is switched on,
 // so the menus stay light. It knows nothing about the game rules: the UI calls the effects below.
 
 import * as THREE from 'three';
 import { buildCharacter, kindFor, type Character } from './models3d';
+import { buildStaff, GEM_Y, type Staff } from './staffs3d';
+import { createStaffPreview } from './staffpreview';
 
 export type Who = 'me' | 'opp' | 'boss' | `ally:${string}`;
 export type TimeOfDay = 'day' | 'sunset' | 'night';
 /** A fighter: a 3D character model (character = deck hero or level avatar), or a pixel sprite (the dragon). */
-export interface FighterArt { id: string; name?: string; character?: string; svg?: string; flame?: string }
+export interface FighterArt { id: string; name?: string; character?: string; svg?: string; flame?: string; staff?: string }
 export interface ArenaSetup {
   /** battle screens: you stand left, the opponent right of the centre panel; Deck Duel: you bottom-right */
   layout: 'battle' | 'deck';
@@ -35,6 +36,7 @@ export interface ArenaApi {
   setActive(on: boolean): void;
   cast(from: Who, to: Who, kanji: string, o?: { damage?: number; crit?: boolean; kind?: 'attack' | 'heal' | 'mana'; fx?: SpellFx }): Promise<void>;
   fizzle(who: Who): void;
+  /** knocked out: lies down (you, in first person: your staff is gone) */
   ko(who: Who): void;
   /** combo flames (5+ in a row) or a Deck Duel power: flames in the player's colour around them */
   onfire(who: Who, on: boolean, color?: string): void;
@@ -331,7 +333,7 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       svgTexture(art.svg, (t, aspect) => { spriteMat!.map = t; spriteMat!.needsUpdate = true; sprite!.scale.set(height * aspect, height, 1); });
       group.add(sprite);
     } else {
-      model = buildCharacter(kindFor(art.character ?? 'wizard'), key === 'me' ? 'me' : key.startsWith('ally:') ? 'ally' : 'opp', sparkTex);
+      model = buildCharacter(kindFor(art.character ?? 'wizard'), key === 'me' ? 'me' : key.startsWith('ally:') ? 'ally' : 'opp', sparkTex, art.staff);
       height = model.height;
       group.add(model.root);
     }
@@ -359,44 +361,73 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
     fighters.clear();
   }
 
-  // ── you, in first person: your hand and staff (styled after your character) ──
+  // ── you, in first person: your hand holding your staff (sleeve and skin after your character) ──
   const fp = new THREE.Group();
   camera.add(fp);
-  const FP_BATTLE = new THREE.Vector3(0.95, -0.92, -1.65), FP_DECK = new THREE.Vector3(1.05, -1.2, -1.65); // Deck Duel: below the chat
-  fp.scale.setScalar(0.78);
+  // Deck Duel: smaller, in the free corner under the chat
+  const FP_BATTLE = new THREE.Vector3(1.08, -0.52, -1.6), FP_DECK = new THREE.Vector3(1.14, -0.6, -1.6);
+  fp.scale.setScalar(0.72);
   const fpBase = FP_BATTLE.clone();
-  const wood = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.75, flatShading: true });
-  const gold = new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.3, roughness: 0.35 });
-  const gemMat = new THREE.MeshStandardMaterial({ color: 0xb48cff, emissive: 0x8a5cff, emissiveIntensity: 1.2, roughness: 0.15, flatShading: true });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.3, roughness: 0.35, flatShading: true });
   const sleeveMat = new THREE.MeshStandardMaterial({ color: 0x3d5ad6, roughness: 0.9, flatShading: true, side: THREE.DoubleSide });
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xf0c49a, roughness: 0.8, flatShading: true });
-  const staffGroup = new THREE.Group(); // pivots at the hand
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xf0c49a, roughness: 0.75, flatShading: true });
+  const staffGroup = new THREE.Group(); // pivots at the hand: the staff and the fingers around it
   fp.add(staffGroup);
-  const staffMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.04, 1.9, 8), wood); staffMesh.position.y = 0.15;
-  const crown = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.015, 6, 16), gold); crown.position.y = 1.02; crown.rotation.y = Math.PI / 2;
-  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.085, 0), gemMat); gem.position.y = 1.13; gem.scale.set(1, 1.5, 1);
-  const gemGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, color: 0xb48cff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.5 }));
-  gemGlow.position.copy(gem.position); gemGlow.scale.setScalar(0.45);
-  const gemLight = new THREE.PointLight(0xa070ff, 0.6, 4, 2); gemLight.position.copy(gem.position);
-  const fist = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), skinMat); fist.scale.set(1, 1.25, 1); fist.position.set(0, -0.02, 0.03);
-  const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.19, 0.95, 10, 1, true), sleeveMat);
-  sleeve.position.set(0.2, -0.42, 0.18); sleeve.rotation.set(-0.3, 0, 0.8);
-  const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.03, 6, 14), gold); cuff.position.set(0.03, -0.1, 0.05); cuff.rotation.set(Math.PI / 2 - 0.3, 0.8, 0);
-  staffGroup.add(staffMesh, crown, gem, gemGlow, gemLight, fist);
-  fp.add(sleeve, cuff);
+  let staff: Staff = buildStaff('verdant', sparkTex);
+  let staffSkin = 'verdant';
+  staffGroup.add(staff.group);
+  const gemLight = new THREE.PointLight(staff.color, 0.6, 4, 2); gemLight.position.y = GEM_Y;
+  staffGroup.add(gemLight);
+  function setStaffSkin(id: string) {
+    if (id === staffSkin) return;
+    staffSkin = id;
+    staffGroup.remove(staff.group);
+    staff.group.traverse((o) => { (o as THREE.Mesh).geometry?.dispose?.(); });
+    staff = buildStaff(id, sparkTex);
+    staffGroup.add(staff.group);
+    gemLight.color.copy(staff.color);
+  }
+  {
+    // the hand: the back of the hand on the right of the staff, four fingers curled round it (tips towards
+    // you), the thumb over them
+    const part = (g: THREE.BufferGeometry, m: THREE.Material, parent: THREE.Object3D, x: number, y: number, z: number) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); parent.add(o); return o; };
+    const palm = part(new THREE.CapsuleGeometry(0.046, 0.075, 4, 10), skinMat, staffGroup, 0.066, -0.004, 0.014);
+    palm.scale.set(0.82, 1, 1.12); palm.rotation.set(0, 0.25, -0.08);
+    [0.052, 0.018, -0.016, -0.048].forEach((y, i) => {
+      const r = 0.05 - i * 0.002;
+      const finger = part(new THREE.TorusGeometry(r, 0.019 - i * 0.001, 6, 14, Math.PI * 1.32), skinMat, staffGroup, 0, y, 0);
+      finger.rotation.x = -Math.PI / 2; // from the palm round the far side, the tip comes back towards you
+      const a = Math.PI * 1.32;
+      part(new THREE.SphereGeometry(0.019 - i * 0.001, 6, 5), skinMat, staffGroup, Math.cos(a) * r, y, -Math.sin(a) * r); // fingertip
+    });
+    const thumb = part(new THREE.CapsuleGeometry(0.021, 0.075, 4, 8), skinMat, staffGroup, 0.022, 0.074, 0.05);
+    thumb.rotation.set(0.3, 0, 1.25);
+    // the forearm runs from the wrist down to the bottom-right corner (it doesn't turn with the staff)
+    const arm = new THREE.Group(); arm.position.set(0.09, -0.08, 0.03); arm.rotation.set(-0.55, 0, 0.62); fp.add(arm);
+    part(new THREE.CylinderGeometry(0.05, 0.062, 0.2, 10), skinMat, arm, 0, -0.08, 0); // wrist
+    part(new THREE.CylinderGeometry(0.1, 0.16, 0.95, 10, 1, true), sleeveMat, arm, 0, -0.6, 0); // sleeve
+    part(new THREE.TorusGeometry(0.1, 0.028, 6, 14), gold, arm, 0, -0.14, 0).rotation.x = Math.PI / 2; // cuff
+  }
   const handLight = new THREE.PointLight(0xffffff, 1.4, 3, 2); handLight.position.set(0.3, 0.3, -0.5); camera.add(handLight);
   const HANDS: Record<string, { sleeve: number; skin: number }> = {
     wizard: { sleeve: 0x3d5ad6, skin: 0xf0c49a }, witch: { sleeve: 0x5b2a86, skin: 0x9ad07a }, goblin: { sleeve: 0x7a5a2e, skin: 0x6fbf4a },
     knight: { sleeve: 0xc4ccd8, skin: 0xb8c0cc }, kid: { sleeve: 0xd8662f, skin: 0xf0c49a }, human: { sleeve: 0x8a5a33, skin: 0xf0c49a },
   };
-  // launching the gem: the staff thrusts forward and its gem flies off with the spell, then grows back
-  let thrustAt = -1e9, gemGoneAt = -1e9;
+  // the gem: launched with each spell, then gone until you start writing / typing again, when it builds up
+  let thrustAt = -1e9;
+  let gemState: 'ready' | 'gone' | 'growing' = 'ready';
+  let growAt = 0;
+  const GROW_MS = 900;
+  const wantGem = () => { if (gemState === 'gone') { gemState = 'growing'; growAt = performance.now(); } };
+  // the figure-eight (∞) the staff traces while you cast
+  let eightAmp = 0, eightPhase = 0;
   let myFlame: THREE.Color | null = null;
+  let meDown = false;
 
   const tmp = new THREE.Vector3();
   function pointOf(who: Who, part: 'chest' | 'head' | 'staff' | 'mouth' = 'chest'): THREE.Vector3 {
     if (who === 'me') {
-      if (part === 'staff' || part === 'head') { gem.getWorldPosition(tmp); return tmp.clone(); }
+      if (part === 'staff' || part === 'head') { staff.gem.getWorldPosition(tmp); return tmp.clone(); }
       return camera.localToWorld(new THREE.Vector3(rnd(-0.15, 0.15), -0.1, -1.4)); // spells at you fly at the camera
     }
     const f = fighters.get(who);
@@ -524,7 +555,7 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
     const s = current;
     const opp = fighters.get('opp');
     if (opp?.model) opp.group.scale.setScalar(1.3); // across the arena: a little larger than life, so you can see them
-    if (opp) opp.group.position.set(screenSpot(s.layout === 'deck' ? 0.36 : 0.58, -2.2), 0, -2.2);
+    if (opp) opp.group.position.set(screenSpot(s.layout === 'deck' ? 0.36 : 0.46, -2.2), 0, -2.2);
     const boss = fighters.get('boss');
     if (boss) boss.group.position.set(screenSpot(0.5, -5.5), 0, -5.5);
     s.allies.forEach((a, i) => {
@@ -548,6 +579,9 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
     sleeveMat.color.set(hand.sleeve); skinMat.color.set(hand.skin);
     skinMat.metalness = s.me.character === 'knight' ? 0.3 : 0; // a gauntlet
     fpBase.copy(s.layout === 'deck' ? FP_DECK : FP_BATTLE);
+    fp.scale.setScalar(s.layout === 'deck' ? 0.56 : 0.72);
+    setStaffSkin(s.me.staff ?? 'verdant');
+    meDown = false; fp.visible = true; gemState = 'ready';
     if (s.opp) makeFighter('opp', s.opp);
     if (s.boss) makeFighter('boss', s.boss);
     for (const a of s.allies) makeFighter(`ally:${a.id}`, a);
@@ -588,9 +622,13 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
   addEventListener('resize', resize);
 
   // ── materials on a model: hurt flash, frost, burning ───────────────────────
-  const RED = new THREE.Color(0xff2a2a), ICE = new THREE.Color(0x8fdcff), ICE_GLOW = new THREE.Color(0x2a7cff), BURN = new THREE.Color(0xff6a1a);
+  const KO_GREY = new THREE.Color(0x6a6a78), RED = new THREE.Color(0xff2a2a), ICE = new THREE.Color(0x8fdcff), ICE_GLOW = new THREE.Color(0x2a7cff), BURN = new THREE.Color(0xff6a1a);
   function tintModel(f: Fighter, now: number) {
     const hurt = now < f.hurtUntil, frost = now < f.frostUntil, burn = now < f.burnUntil;
+    if (f.model && f.ko) {
+      for (const m of f.model.materials) { m.mat.color.copy(m.color).lerp(KO_GREY, 0.55); m.mat.emissive.setRGB(0, 0, 0); }
+      return;
+    }
     if (f.model) {
       if (frost !== f.frosted) {
         f.frosted = frost;
@@ -636,34 +674,66 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
     if (twitchAmp <= 0) twitchTarget.set(0, 0, 0);
     const pulse = 0.5 + 0.5 * Math.sin(time * 6);
 
-    // your hand and staff: charging (writing / typing) tilts the staff back and makes the gem glow;
-    // a cast thrusts it forward and launches the gem; little random moves while you write
+    // your hand and staff: writing / typing charges it (tilted back a little, the gem glowing) and the staff
+    // traces a figure-eight (∞) in the air; a cast thrusts it forward and launches the gem
     {
       const th = Math.max(0, 1 - (now - thrustAt) / 380); // 1 → 0 after a thrust
       const thrust = th > 0 ? Math.sin(th * Math.PI) : 0;
       const charge = Math.min(1, channelShown);
-      fp.position.set(fpBase.x - look.x * 0.04, fpBase.y + look.y * 0.03 + (still ? 0 : Math.sin(time * 1.6) * 0.008) + charge * 0.04, fpBase.z - thrust * 0.35);
-      staffGroup.rotation.set(
-        charge * 0.38 - thrust * 0.75 + twitchRot.x * 0.6 + (charge > 0.3 && !still ? Math.sin(time * 11) * 0.015 * charge : 0),
-        twitchRot.y * 0.6,
-        -0.2 + twitchRot.z * 0.6 + charge * 0.06,
+      eightAmp += ((charge > 0.05 && !still ? Math.min(1, 0.5 + charge * 0.6) : 0) - eightAmp) * Math.min(1, dt * 3);
+      eightPhase += dt * (2.6 + charge * 1.4);
+      const ex = Math.sin(eightPhase), ey = Math.sin(eightPhase * 2) / 2;
+      fp.position.set(
+        fpBase.x - look.x * 0.04 + ex * 0.06 * eightAmp,
+        fpBase.y + look.y * 0.03 + (still ? 0 : Math.sin(time * 1.6) * 0.008) + charge * 0.03 + ey * 0.11 * eightAmp,
+        fpBase.z - thrust * 0.35,
       );
-      const regrow = Math.min(1, Math.max(0, (now - gemGoneAt - 250) / 550));
-      gem.scale.set(regrow, 1.5 * regrow, regrow);
-      gemMat.emissiveIntensity = 1.2 + charge * (3 + pulse * 2) + thrust * 4;
-      gemLight.intensity = 0.6 + charge * 6 + thrust * 8;
-      gemGlow.scale.setScalar((0.45 + charge * (0.55 + pulse * 0.3) + thrust * 0.8) * Math.max(0.3, regrow));
-      (gemGlow.material as THREE.SpriteMaterial).opacity = 0.45 + charge * 0.5;
-      gem.rotation.y += dt * (0.8 + charge * 6);
-      if (charge > 0.2 && regrow > 0.9 && !still && Math.random() < charge * 0.9) {
-        // energy gathering into the gem
-        gem.getWorldPosition(tmp);
-        const from = tmp.clone().add(new THREE.Vector3(rnd(-0.35, 0.35), rnd(-0.35, 0.35), rnd(-0.35, 0.35)));
-        spark(from, 0xc8a8ff, { size: rnd(0.02, 0.05), vel: tmp.clone().sub(from).multiplyScalar(2.6), life: 0.38 });
+      staffGroup.rotation.set(
+        charge * 0.25 - thrust * 0.75 + twitchRot.x * 0.3 + ey * 0.18 * eightAmp,
+        twitchRot.y * 0.3,
+        0.2 - ex * 0.24 * eightAmp + twitchRot.z * 0.3,
+      );
+      let gemScale = gemState === 'ready' ? 1 : 0;
+      if (gemState === 'growing') {
+        const t = Math.min(1, (now - growAt) / GROW_MS);
+        gemScale = t * t * (3 - 2 * t);
+        if (t >= 1) gemState = 'ready';
+        else if (!still) {
+          // energy gathering into the new gem
+          staff.gem.getWorldPosition(tmp);
+          for (let k = 0; k < 2; k++) {
+            const from = tmp.clone().add(new THREE.Vector3(rnd(-0.4, 0.4), rnd(-0.4, 0.4), rnd(-0.4, 0.4)));
+            spark(from, staff.color, { size: rnd(0.025, 0.06), vel: tmp.clone().sub(from).multiplyScalar(2.8), life: 0.36 });
+          }
+        }
       }
-      if (myFlame && !still && Math.random() < 0.9) {
-        const p = camera.localToWorld(new THREE.Vector3(rnd(-1.5, 1.5), -0.98, -1.5));
-        spark(p, myFlame, { size: rnd(0.12, 0.3), vel: new THREE.Vector3(0, rnd(0.8, 1.6), 0), life: rnd(0.3, 0.6), solid: Math.random() < 0.5, opacity: 0.85 });
+      staff.gem.scale.set(gemScale, 1.5 * gemScale, gemScale);
+      staff.gemMat.emissiveIntensity = 0.7 + charge * (1.6 + pulse * 1.2) + thrust * 3;
+      gemLight.intensity = (0.5 + charge * 4 + thrust * 6) * gemScale;
+      staff.glow.scale.setScalar((0.3 + charge * (0.32 + pulse * 0.18) + thrust * 0.6) * gemScale);
+      (staff.glow.material as THREE.SpriteMaterial).opacity = 0.3 + charge * 0.35;
+      staff.gem.rotation.y += dt * (0.8 + charge * 6);
+      staff.update(time, dt, charge);
+      if (gemScale > 0.9 && !still && fp.visible) {
+        staff.gem.getWorldPosition(tmp);
+        // the ∞ drawn in the air by the gem
+        if (eightAmp > 0.25) spark(tmp.clone(), staff.color, { size: rnd(0.03, 0.05), life: 0.55, opacity: 0.9 });
+        if (charge > 0.2 && Math.random() < charge * 0.8) {
+          const from = tmp.clone().add(new THREE.Vector3(rnd(-0.35, 0.35), rnd(-0.35, 0.35), rnd(-0.35, 0.35)));
+          spark(from, staff.color.clone().lerp(new THREE.Color(0xffffff), 0.4), { size: rnd(0.02, 0.05), vel: tmp.clone().sub(from).multiplyScalar(2.6), life: 0.38 });
+        }
+      }
+      if (myFlame && !still && fp.visible) {
+        // combo / power: your staff and hand burn, and flames rise along the bottom of the screen
+        for (let k = 0; k < 2; k++) {
+          const p = staffGroup.localToWorld(new THREE.Vector3(rnd(-0.05, 0.05), rnd(-0.15, 1.3), rnd(-0.05, 0.05)));
+          spark(p, myFlame, { size: rnd(0.05, 0.12), vel: new THREE.Vector3(rnd(-0.05, 0.05), rnd(0.35, 0.8), 0), life: rnd(0.25, 0.45), solid: Math.random() < 0.4, opacity: 0.9 });
+        }
+        const d = 1.5, hh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * d;
+        for (let k = 0; k < 2; k++) {
+          const p = camera.localToWorld(new THREE.Vector3(rnd(-hh * camera.aspect, hh * camera.aspect), -hh * rnd(0.88, 1), -d));
+          spark(p, myFlame, { size: rnd(0.08, 0.2), vel: new THREE.Vector3(0, rnd(0.4, 0.9), 0), life: rnd(0.3, 0.55), solid: Math.random() < 0.5, opacity: 0.85 });
+        }
       }
     }
 
@@ -688,9 +758,10 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
         m.glow.scale.setScalar(0.45 + glowLevel * (0.5 + pulse * 0.3) + lunge * 0.6);
         (m.glow.material as THREE.SpriteMaterial).opacity = 0.45 + glowLevel * 0.5;
         m.crystal.rotation.y += dt * (0.8 + glowLevel * 6);
+        m.staff.update(time, dt, glowLevel);
         if (glowLevel > 0.3 && Math.random() < glowLevel * 0.6) {
           m.crystal.getWorldPosition(tmp);
-          spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), (m.crystalMat.color as THREE.Color).getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
+          spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), m.staff.color.getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
         }
       } else if (f.sprite) {
         f.sprite.position.y = still ? 0 : Math.abs(Math.sin(time * 2)) * 0.05;
@@ -814,9 +885,9 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       const size = (o.crit ? 1.5 : 1) * 1.15;
       const flight = fly(start, end, kanji, color, size, 0.85);
       if (from === 'me') {
-        // your staff thrusts and its gem launches forward with the spell (a new one grows back)
-        thrustAt = performance.now(); gemGoneAt = thrustAt;
-        const g = new THREE.Mesh(gem.geometry, gemMat); g.scale.set(1.4, 2.1, 1.4); g.position.copy(start);
+        // your staff thrusts and its gem launches forward with the spell; a new one builds up when you next write
+        thrustAt = performance.now(); gemState = 'gone';
+        const g = new THREE.Mesh(staff.gem.geometry, staff.gemMat); g.scale.set(1.4, 2.1, 1.4); g.position.copy(start);
         scene.add(g);
         flights[flights.length - 1].gem = g;
       }
@@ -835,13 +906,26 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       if (who === 'me') channelShown = 0;
     },
     ko(who) {
+      if (who === 'me') {
+        // you're down: your staff falls out of your hand
+        if (meDown) return;
+        meDown = true; myFlame = null;
+        staff.gem.getWorldPosition(tmp);
+        burst(tmp.clone(), 0x9a9aa8, 18, 1.6, 0.1);
+        fp.visible = false;
+        return;
+      }
       const f = fighters.get(who);
       if (!f || f.ko) return;
       f.ko = true;
+      f.flame = null;
+      (f.aura.material as THREE.SpriteMaterial).opacity = 0;
       const start = performance.now();
       const fall = () => {
         const t = Math.min(1, (performance.now() - start) / 700);
-        if (f.model) f.model.root.rotation.x = -(Math.PI / 2) * t * 0.95;
+        const e = t * t;
+        // falls over sideways and lies on the ground
+        if (f.model) { f.model.root.rotation.z = (Math.PI / 2) * e; f.model.root.position.y = 0.24 * e; }
         else if (f.spriteMat) { f.spriteMat.rotation = (Math.PI / 2) * t * -1; f.spriteMat.opacity = 1 - t * 0.6; }
         if (t < 1) requestAnimationFrame(fall);
       };
@@ -849,21 +933,22 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       burst(pointOf(who), 0xffffff, 40, 3, 0.25);
     },
     onfire(who, on, color) {
-      if (who === 'me') { myFlame = on ? new THREE.Color(color ?? '#6ee7ff') : null; return; }
+      if (who === 'me') { myFlame = on && !meDown ? new THREE.Color(color ?? '#6ee7ff') : null; return; }
       const f = fighters.get(who);
       if (f) f.flame = on ? new THREE.Color(color ?? '#6ee7ff') : null;
     },
     channel(level) { channelLevel = Math.max(0, Math.min(1, level)); },
     twitch() {
+      wantGem();
       if (reduced()) return;
       twitchAmp = 0.35;
       twitchTarget.set(rnd(-0.35, 0.25), rnd(-0.25, 0.25), rnd(-0.3, 0.3));
-      if (Math.random() < 0.6) { gem.getWorldPosition(tmp); spark(tmp.clone(), 0xd8c4ff, { size: rnd(0.04, 0.09), vel: new THREE.Vector3(rnd(-0.6, 0.6), rnd(0.2, 0.9), rnd(-0.3, 0.3)), life: 0.5 }); }
+      if (Math.random() < 0.6 && gemState === 'ready') { staff.gem.getWorldPosition(tmp); spark(tmp.clone(), staff.color.clone().lerp(new THREE.Color(0xffffff), 0.5), { size: rnd(0.04, 0.09), vel: new THREE.Vector3(rnd(-0.6, 0.6), rnd(0.2, 0.9), rnd(-0.3, 0.3)), life: 0.5 }); }
     },
     thrust() {
       thrustAt = performance.now();
-      gem.getWorldPosition(tmp);
-      burst(tmp.clone(), 0xc8a8ff, 18, 1.6, 0.08);
+      staff.gem.getWorldPosition(tmp);
+      burst(tmp.clone(), staff.color, 18, 1.6, 0.08);
     },
     oppChannel(on) { oppChannelOn = on; },
     inhale(on) { inhaling = on; },
@@ -907,3 +992,4 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
 
 // The bundle is loaded with a <script> tag; main.ts picks this up.
 (globalThis as unknown as { KWArena3D: typeof createArena }).KWArena3D = createArena;
+(globalThis as unknown as { KWStaffPreview: typeof createStaffPreview }).KWStaffPreview = createStaffPreview;

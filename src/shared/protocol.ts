@@ -60,6 +60,7 @@ export interface PlayerView {
   bot: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | null; // AI player and its knowledge level
   pic: string | null; // profile picture URL
   flame: string; // colour of their combo flames ('blue' | 'purple')
+  staff?: string; // magic staff skin
 }
 
 export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number }

@@ -1,4 +1,5 @@
 import * as voice from './voice';
+import { zrect } from './zoom';
 import { CARD_COLORS, CARD_SPECS, CHARACTER_INFO, DECK_CHARACTERS, DECK_RULES, type CardColor, type DeckCardView, type DeckEvent, type DeckPlayerView, type DeckView } from '../shared/deck';
 import * as audio from './audio';
 import * as ui from './ui';
@@ -122,6 +123,7 @@ function renderGuide(el: HTMLElement) {
     ['🔄', 'Out of cards → Round 2 draft. HP, mana and powers stay.'],
     ['⏰', `After ${DECK_RULES.matchMs / 60000} min: overtime — the cards are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5–N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 60000} min, then the higher HP wins.`],
     ['⌛', `Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`],
+    ['📚', 'After the duel, every kanji that was cast joins your All spells (Study spells), so you can learn them.'],
   ] as const) { const li = h('li'); li.append(h('span', 'g-ic', icon), h('span', '', t)); flow.append(li); }
   el.replaceChildren(
     h('h3', '', 'How Deck Duel works'),
@@ -497,7 +499,7 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string, 
   if (e.overtime) fb.append(h('span', 'sub2', `${e.kanji} · ${e.reading} · ${e.meaning}`));
   if (!card) return;
   const ghost = card.cloneNode(true) as HTMLElement;
-  const r = card.getBoundingClientRect();
+  const r = zrect(card);
   Object.assign(ghost.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: '30', margin: '0' });
   document.body.append(ghost);
   if (spec.kind === 'mana') {
@@ -506,7 +508,7 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string, 
   } else {
     // attack flies to the target, heal flies back to its user
     const towardsMe = spec.kind === 'heal' ? e.playerId === me : e.targetId === me;
-    const target = $(towardsMe ? 'dkMe' : 'dkOpp').getBoundingClientRect();
+    const target = zrect($(towardsMe ? 'dkMe' : 'dkOpp'));
     ghost.style.setProperty('--fy', `${target.top + target.height / 2 - (r.top + r.height / 2)}px`);
     ghost.classList.add('fly-out');
     void spoken.then(() => { if (spec.kind === 'heal') audio.sfx.heal(); else audio.sfx.correct(1); });
@@ -544,7 +546,7 @@ function showReveal(e: Extract<DeckEvent, { kind: 'resolve' }>) {
 }
 
 function ripCard(card: HTMLElement) {
-  const r = card.getBoundingClientRect();
+  const r = zrect(card);
   const wrap = h('div', 'rip');
   Object.assign(wrap.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: '30' });
   for (const side of ['l', 'r']) {

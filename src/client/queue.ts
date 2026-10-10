@@ -1,4 +1,5 @@
 import { LEVELS, LEVEL_LABEL, MODE_LABEL, type GameMode, type Level, type ServerMessage } from '../shared/protocol';
+import { viewH, viewW, zrect } from './zoom';
 import * as ui from './ui';
 import * as audio from './audio';
 import { renderDeckGuide } from './deckui';
@@ -22,12 +23,12 @@ function guideHover(el: HTMLElement, mode: Exclude<GameMode, 'deck'>) {
   const open = () => {
     pop.replaceChildren(...ui.modeGuideNodes(mode));
     pop.hidden = false;
-    const r = el.getBoundingClientRect();
-    const w = Math.min(380, innerWidth - 24);
+    const r = zrect(el);
+    const w = Math.min(380, viewW() - 24);
     pop.style.width = `${w}px`;
-    pop.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, r.left))}px`;
+    pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r.left))}px`;
     const below = r.bottom + 10;
-    pop.style.top = `${below + pop.offsetHeight > innerHeight - 8 ? Math.max(8, r.top - 10 - pop.offsetHeight) : below}px`;
+    pop.style.top = `${below + pop.offsetHeight > viewH() - 8 ? Math.max(8, r.top - 10 - pop.offsetHeight) : below}px`;
   };
   const close = () => { pop.hidden = true; };
   el.addEventListener('mouseenter', open);

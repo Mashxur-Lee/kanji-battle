@@ -82,6 +82,20 @@ export const isFlame = (x: unknown): x is FlameId => FLAMES.some((f) => f.id ===
 export const flameUnlocked = (f: FlameId, xp: number) => levelOf(xp) >= FLAMES.find((x) => x.id === f)!.level;
 export const flameColor = (f: string | null | undefined) => (FLAMES.find((x) => x.id === f) ?? FLAMES[0]).color;
 
+// ── magic staffs (unlocked by your best login streak) ─────────────────────────
+export const STAFFS = [
+  { id: 'verdant', name: 'Verdant Staff', streak: 0, gem: '#6dff6a', blurb: 'Carved from an ancient tree. It channels the natural energy of the earth and life.' },
+  { id: 'ember', name: 'Ember Staff', streak: 5, gem: '#ff7a1a', blurb: 'Forged from volcanic rock and blessed by fire spirits.' },
+  { id: 'tide', name: 'Tide Staff', streak: 10, gem: '#3fb8ff', blurb: 'Crafted from crystal and oceanic runes. It flows with the tides.' },
+  { id: 'storm', name: 'Storm Staff', streak: 15, gem: '#b26bff', blurb: 'A relic of the sky temples. It channels lightning.' },
+  { id: 'void', name: 'Void Staff', streak: 20, gem: '#4a7dff', blurb: 'An ancient, otherworldly artifact. It bends reality and commands the unknown.' },
+] as const;
+export type StaffId = (typeof STAFFS)[number]['id'];
+export const isStaff = (x: unknown): x is StaffId => STAFFS.some((s) => s.id === x);
+/** Staffs unlock by your best login streak, so a broken streak never takes one away. */
+export const staffUnlocked = (s: StaffId, bestStreak: number) => (bestStreak ?? 0) >= STAFFS.find((x) => x.id === s)!.streak;
+export const staffOf = (s: string | null | undefined) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
+
 /** More "Struggling spells" waiting than this → the game modes lock until you study them. */
 export const STUDY_LOCK = 100;
 

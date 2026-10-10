@@ -78,6 +78,10 @@ export function createApiHandler(auth: AuthService, study: StudyService) {
         const u = await auth.authenticate(bearer(req));
         await study.setFlame(u, (await readJson(req)).flame);
         send(res, 200, { profile: await study.profile((await auth.authenticate(bearer(req)))) });
+      } else if (req.method === 'PUT' && url === '/api/me/staff') {
+        const u = await auth.authenticate(bearer(req));
+        await study.setStaff(u, (await readJson(req)).staff);
+        send(res, 200, { profile: await study.profile((await auth.authenticate(bearer(req)))) });
       } else if (req.method === 'GET' && url === '/api/matches') {
         const u = await auth.authenticate(bearer(req));
         send(res, 200, { matches: await study.matches(u.id) });
