@@ -253,7 +253,7 @@ button.danger { background: #5a1a2a; border-color: #8a2a40; }
 @keyframes knock-opp { 20% { transform: translateX(8px); } 45% { transform: translateX(-6px); } 70% { transform: translateX(3px); } }
 .wizard.fizzle .sprite svg { animation: fizzle .6s; }
 @keyframes fizzle { 0%, 100% { filter: none; } 30%, 70% { filter: grayscale(1) brightness(.7); } }
-.wizard .puff { position: absolute; top: 18%; font-size: 1.4rem; animation: rise 1s ease-out forwards; pointer-events: none; }
+.wizard .puff { position: absolute; top: 18%; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle, rgba(220, 220, 235, .9), rgba(160, 160, 180, .4) 55%, transparent 70%); animation: rise 1s ease-out forwards; pointer-events: none; }
 .wizard.me .puff, .wizard.ally .puff { right: 4px; } .wizard.opp .puff { left: 4px; }
 .wizard.ko .sprite { animation: none; transform: rotate(90deg) translate(30%, 10%); filter: grayscale(.8); opacity: .7; transition: transform .6s ease-in, opacity .6s; }
 .wizard.opp.ko .sprite { transform: rotate(-90deg) translate(-30%, 10%); }
@@ -506,7 +506,8 @@ body::before { z-index: 0; }
 .dk-ability { width: 84px; height: 84px; border-radius: 50%; padding: 0; display: grid; place-items: center; background: radial-gradient(circle, #3a2f7a, #1b1640); border: 2px solid var(--accent); font-size: 2rem; position: relative; }
 .dk-ability:disabled { filter: grayscale(.8); opacity: .55; }
 .dk-ability.passive { border-style: dashed; cursor: help; }
-.dk-ability .ab-name { position: absolute; bottom: -18px; font-size: .7rem; white-space: nowrap; color: var(--muted); }
+.dk-ability .ab-name { position: absolute; top: calc(100% + 4px); display: flex; flex-direction: column; align-items: center; line-height: 1.15; white-space: nowrap; color: var(--muted); font-size: .68rem; }
+.dk-ability .ab-name b { color: var(--accent); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
 .dk-ability.active { box-shadow: 0 0 24px var(--accent2); }
 .dk-overlay { position: fixed; inset: 0; z-index: 25; background: rgba(8,6,24,.82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 70px var(--gutter) 20px; overflow: auto; }
 .char-pick { display: grid; grid-template-columns: repeat(4, minmax(0, 200px)); gap: 12px; }
@@ -516,7 +517,7 @@ body::before { z-index: 0; }
 .char-card .ch-name { font-size: 1.15rem; font-weight: 800; }
 .char-card .ch-power { font-size: .82rem; color: var(--muted); font-weight: 500; }
 .draft-board { display: grid; grid-template-columns: repeat(10, minmax(0, 74px)); gap: 8px; justify-content: center; }
-.coin { font-size: 2.6rem; animation: coin 1s ease-out; }
+.coin { width: 44px; height: 44px; margin: 0 auto; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3c4, #ffd479 40%, #b8862a 75%); box-shadow: inset 0 0 0 3px #a8761c, 0 0 14px rgba(255, 212, 121, .6); animation: coin 1s ease-out; }
 @keyframes coin { from { transform: rotateY(1440deg) scale(.4); } }
 @media (max-width: 860px) {
   .study-decks { grid-template-columns: 1fr; }
@@ -1082,3 +1083,16 @@ body:not(.has-3d) #comboHud { display: none; }
 .vol-panel .toggle-row input[type=checkbox] { width: auto; flex: none; margin: 0; accent-color: var(--accent); }
 .vol-panel .toggle-row select { margin-left: auto; width: auto; padding: 4px 8px; border-radius: 8px; background: var(--field); color: var(--text); border: 1px solid var(--line); font: inherit; }
 .vol-panel .toggle-row { white-space: nowrap; }
+
+.audio-ctl .ico:empty { display: none; }
+.pixel-staff { height: 80%; aspect-ratio: 5 / 20; display: grid; }
+.pixel-staff svg { width: 100%; height: 100%; display: block; }
+.pixel-staff.big { height: 82%; }
+.cust-2d { display: flex; align-items: flex-end; gap: 12px; margin: 0 0 12px; padding: 8px 12px; border-radius: 12px; background: rgba(0, 0, 0, .25); }
+.cust-2d .c2-char { width: 64px; aspect-ratio: 16 / 20; }
+.cust-2d .c2-char svg { width: 100%; height: 100%; display: block; }
+.cust-2d .pixel-staff { height: 80px; }
+.cust-2d .hint { margin-left: auto; align-self: center; }
+/* 2D: the gem leaves with each cast (or shatters on a miss) and grows back when you write or type */
+.wizard .sprite svg .orb { transition: opacity .35s, transform .35s; transform-box: fill-box; transform-origin: center; }
+.wizard.gemless .sprite svg .orb { opacity: 0; transform: scale(.2); }

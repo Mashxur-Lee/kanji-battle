@@ -82,7 +82,7 @@ store.init().then(() => auth.seed([
     console.log(`Kanji Wizards v${VERSION}`);
     console.log(`Accounts: ${auth.store.name}${tokens.ephemeral ? ' · AUTH_SECRET not set: logins reset on restart' : ''}`);
     if (process.env.RENDER && !process.env.DATABASE_URL) {
-      console.warn('⚠ DATABASE_URL is not set: accounts, XP and study sets live on Render\'s disk and are wiped on every deploy. Add your Neon connection string in Render → Environment.');
+      console.warn('DATABASE_URL is not set: accounts, XP and study sets live on Render\'s disk and are wiped on every deploy. Add your Neon connection string in Render → Environment.');
     }
     if (!process.env.ADMIN_PASSWORD) console.warn('ADMIN_PASSWORD not set: the admin account uses the default password from the README');
   });

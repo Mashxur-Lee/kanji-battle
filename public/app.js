@@ -131,6 +131,190 @@
     deck: "Deck Duel"
   };
 
+  // src/shared/progress.ts
+  var XP_PER_LEVEL = 1e3;
+  var xpToNext = (level) => XP_PER_LEVEL * (level + 1);
+  var xpForLevel = (level) => XP_PER_LEVEL * level * (level + 1) / 2;
+  function levelOf(xp) {
+    let n = Math.floor((Math.sqrt(1 + 8 * Math.max(0, xp) / XP_PER_LEVEL) - 1) / 2);
+    while (xpForLevel(n + 1) <= xp) n++;
+    while (n > 0 && xpForLevel(n) > xp) n--;
+    return n;
+  }
+  function levelXp(xp) {
+    const level = levelOf(xp);
+    return { level, into: Math.max(0, xp) - xpForLevel(level), need: xpToNext(level) };
+  }
+  var levelProgress = (xp) => {
+    const l = levelXp(xp);
+    return l.into / l.need;
+  };
+  var critText = (crit) => `${(crit * 100).toFixed(1).replace(/\.0$/, "")}%`;
+  var BACKGROUNDS = [
+    { id: "forest", name: "Forest", level: 0 },
+    { id: "swamp", name: "Swamp", level: 5 },
+    { id: "plains", name: "Plains", level: 10 },
+    { id: "castle", name: "Castle", level: 15 },
+    { id: "worldtree", name: "World Tree", level: 20 }
+  ];
+  var FLAMES = [
+    { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
+    { id: "purple", name: "Purple", level: 5, color: "#b26bff" }
+  ];
+  var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
+  var STAFFS = [
+    { id: "verdant", name: "Verdant Staff", streak: 0, gem: "#6dff6a", blurb: "Carved from an ancient tree. It channels the natural energy of the earth and life." },
+    { id: "ember", name: "Ember Staff", streak: 5, gem: "#ff7a1a", blurb: "Forged from volcanic rock and blessed by fire spirits." },
+    { id: "tide", name: "Tide Staff", streak: 10, gem: "#3fb8ff", blurb: "Crafted from crystal and oceanic runes. It flows with the tides." },
+    { id: "storm", name: "Storm Staff", streak: 15, gem: "#b26bff", blurb: "A relic of the sky temples. It channels lightning." },
+    { id: "void", name: "Void Staff", streak: 20, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." }
+  ];
+  var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
+  var STUDY_LOCK = 100;
+  var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
+  var ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  function avatarFor(levels) {
+    const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? "N5";
+    return AVATAR_BY_LEVEL[top];
+  }
+
+  // src/client/pixelstaffs.ts
+  var STAFF_W = 5;
+  var STAFF_H = 20;
+  var GRIP = 10;
+  var MAPS = {
+    verdant: [
+      ".l.l.",
+      "b.l.b",
+      "b.O.b",
+      "bOOOb",
+      ".bOb.",
+      "..w..",
+      ".vwl.",
+      "..wv.",
+      ".vw..",
+      "..wv.",
+      "..w..",
+      ".vw..",
+      "..wv.",
+      ".lw..",
+      "..wv.",
+      ".vw..",
+      "..w..",
+      "..wl.",
+      "..w..",
+      "..d.."
+    ],
+    ember: [
+      "..F..",
+      ".F.F.",
+      "F.O.F",
+      "fOOOf",
+      ".dOd.",
+      "..d..",
+      "..w..",
+      ".fw..",
+      "..wf.",
+      ".fw..",
+      "..w..",
+      "..wf.",
+      ".fw..",
+      "..wf.",
+      ".fw..",
+      "..w..",
+      "..wf.",
+      "..w..",
+      "..d..",
+      "..f.."
+    ],
+    tide: [
+      ".ccc.",
+      "c...c",
+      "c.O..",
+      "cOOO.",
+      "c.O.c",
+      ".ccc.",
+      "..w..",
+      "..wc.",
+      ".cw..",
+      "..ws.",
+      "..w..",
+      ".sw..",
+      "..wc.",
+      ".cw..",
+      "..ws.",
+      "..w..",
+      "..w..",
+      ".ccc.",
+      "..c..",
+      "..c.."
+    ],
+    storm: [
+      "..s..",
+      "r.s.r",
+      "s.O.s",
+      "sOOOs",
+      "r.O.r",
+      ".sss.",
+      "..w..",
+      "..r..",
+      "..w..",
+      ".sws.",
+      "..w..",
+      "..r..",
+      "..w..",
+      ".sws.",
+      "..w..",
+      "..r..",
+      "..w..",
+      "..w..",
+      ".rrr.",
+      "..r.."
+    ],
+    void: [
+      "*.c.*",
+      "..c..",
+      "s.O.s",
+      "sOOOs",
+      ".cOc.",
+      "s.c.s",
+      ".sws.",
+      "..wc.",
+      ".sw..",
+      "..ws.",
+      ".cw..",
+      "..ws.",
+      ".sw..",
+      "..wc.",
+      ".sw..",
+      "..ws.",
+      "..w..",
+      ".ccc.",
+      "..c..",
+      "..c.."
+    ]
+  };
+  var PALS = {
+    verdant: { w: "#7a4e2d", d: "#4f311b", b: "#8a5a33", v: "#3f9a3a", l: "#6ad04e", O: "#6dff6a" },
+    ember: { w: "#2e1e1a", d: "#160c0a", f: "#ff5a1a", F: "#ffb347", O: "#ff7a1a" },
+    tide: { w: "#3a4250", s: "#c8d4e4", c: "#6fd0ff", O: "#3fb8ff" },
+    storm: { w: "#2a2440", s: "#8c86a8", r: "#b26bff", O: "#d6b0ff" },
+    void: { w: "#5a6688", s: "#e4e8f2", c: "#8fc8ff", O: "#4a7dff", "*": "#ffffff" }
+  };
+  function staffPixels(id) {
+    const skin = staffOf(id).id;
+    const map = MAPS[skin], pal = PALS[skin];
+    const out = [];
+    map.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch !== ".") out.push([x, y, pal[ch], ch === "O"]);
+    }));
+    return out;
+  }
+  function pixelStaffSvg(id) {
+    const rects = staffPixels(id).map(([x, y, c, gem]) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"${gem ? ' class="orb"' : ""}/>`);
+    return `<svg viewBox="0 0 ${STAFF_W} ${STAFF_H}" shape-rendering="crispEdges" aria-hidden="true">${rects.join("")}</svg>`;
+  }
+
   // src/client/wizard.ts
   var WIZARD_MAP = [
     "......H.........",
@@ -159,7 +343,7 @@
     me: { ...COMMON, H: "#2f6fe0", h: "#1d47a6", R: "#3b82f6", r: "#1e4fb8", O: "#6ee7ff" },
     opp: { ...COMMON, H: "#c2364d", h: "#7d1a2e", R: "#d6445c", r: "#8a1f34", O: "#ffb36b" }
   };
-  function pixelSvg(map, pal, classes = {}) {
+  function pixelSvg(map, pal, classes = {}, extra = []) {
     const rects = [];
     map.forEach((row, y) => {
       for (let x = 0; x < row.length; ) {
@@ -170,11 +354,26 @@
         x += w;
       }
     });
-    return `<svg viewBox="0 0 ${map[0].length} ${map.length}" shape-rendering="crispEdges" aria-hidden="true">${rects.join("")}</svg>`;
+    return `<svg viewBox="0 0 ${map[0].length} ${map.length}" shape-rendering="crispEdges" aria-hidden="true">${rects.join("")}${extra.join("")}</svg>`;
+  }
+  var HOLD = {
+    wizard: { erase: "TO", cx: 13, gy: 10, hand: "S" },
+    goblin: { erase: "C", cx: 13, gy: 11, hand: "G" },
+    kid: { erase: "YT", cx: 13, gy: 11, hand: "S" },
+    human: { erase: "VY", cx: 13, gy: 11, hand: "S" },
+    knight: { erase: "AY", cx: 13, gy: 11, hand: "M" }
+  };
+  function holding(kind, map, pal, staff, classes = {}) {
+    const h3 = HOLD[kind];
+    const base = map.map((row) => [...row].map((ch, x) => x >= 11 && h3.erase.includes(ch) ? "." : ch).join(""));
+    const ox = h3.cx - 2, oy = h3.gy - GRIP;
+    const extra = staffPixels(staff).filter(([x, y]) => y + oy >= 0 && y + oy < map.length).map(([x, y, c, gem]) => `<rect x="${x + ox}" y="${y + oy}" width="1" height="1" fill="${c}"${gem ? ' class="orb"' : ""}/>`);
+    extra.push(`<rect x="${h3.cx}" y="${h3.gy}" width="1" height="1" fill="${pal[h3.hand]}"/>`, `<rect x="${h3.cx - 1}" y="${h3.gy}" width="1" height="1" fill="${pal[h3.hand]}"/>`);
+    return pixelSvg(base, pal, classes, extra);
   }
   var PALETTES_ALLY = { ...COMMON, H: "#2f8f6b", h: "#1c5c44", R: "#3aa57c", r: "#22684e", O: "#c6ff7a" };
-  function wizardSvg(side) {
-    return pixelSvg(WIZARD_MAP, side === "ally" ? PALETTES_ALLY : PALETTES[side], { O: "orb" });
+  function wizardSvg(side, staff) {
+    return holding("wizard", WIZARD_MAP, side === "ally" ? PALETTES_ALLY : PALETTES[side], staff);
   }
   var GOBLIN_MAP = [
     "................",
@@ -269,22 +468,23 @@
   ];
   var KNIGHT_PAL = { P: "#d64545", M: "#b8c0cc", m: "#6e7686", E: "#14121c", A: "#3d5ca8", Y: "#ffd479", S: "#f2c79e", K: "#2a2440" };
   var WITCH_PAL = { ...COMMON, H: "#2a1f3d", h: "#140e20", Y: "#9b59ff", S: "#a8d88a", E: "#2a1430", B: "#3a2a4a", R: "#5b2a86", r: "#3d1a5c", O: "#b6ff5a" };
-  function heroSvg(hero, side) {
-    if (hero === "witch") return pixelSvg(WIZARD_MAP, WITCH_PAL, { O: "orb" });
-    return avatarSvg(hero, side);
+  function heroSvg(hero, side, staff) {
+    return avatarSvg(hero, side, staff);
   }
-  function avatarSvg(avatar, side) {
+  function avatarSvg(avatar, side, staff) {
     switch (avatar) {
       case "goblin":
-        return pixelSvg(GOBLIN_MAP, GOBLIN_PAL);
+        return holding("goblin", GOBLIN_MAP, GOBLIN_PAL, staff);
       case "kid":
-        return pixelSvg(KID_MAP, KID_PAL, { Y: "orb" });
+        return holding("kid", KID_MAP, KID_PAL, staff);
       case "human":
-        return pixelSvg(HUMAN_MAP, HUMAN_PAL, { V: "orb" });
+        return holding("human", HUMAN_MAP, HUMAN_PAL, staff);
       case "knight":
-        return pixelSvg(KNIGHT_MAP, KNIGHT_PAL, { Y: "orb" });
+        return holding("knight", KNIGHT_MAP, KNIGHT_PAL, staff);
+      case "witch":
+        return holding("wizard", WIZARD_MAP, WITCH_PAL, staff);
       default:
-        return wizardSvg(side);
+        return wizardSvg(side, staff);
     }
   }
   var DRAGON_MAP = [
@@ -638,52 +838,6 @@
     }
   }
 
-  // src/shared/progress.ts
-  var XP_PER_LEVEL = 1e3;
-  var xpToNext = (level) => XP_PER_LEVEL * (level + 1);
-  var xpForLevel = (level) => XP_PER_LEVEL * level * (level + 1) / 2;
-  function levelOf(xp) {
-    let n = Math.floor((Math.sqrt(1 + 8 * Math.max(0, xp) / XP_PER_LEVEL) - 1) / 2);
-    while (xpForLevel(n + 1) <= xp) n++;
-    while (n > 0 && xpForLevel(n) > xp) n--;
-    return n;
-  }
-  function levelXp(xp) {
-    const level = levelOf(xp);
-    return { level, into: Math.max(0, xp) - xpForLevel(level), need: xpToNext(level) };
-  }
-  var levelProgress = (xp) => {
-    const l = levelXp(xp);
-    return l.into / l.need;
-  };
-  var critText = (crit) => `${(crit * 100).toFixed(1).replace(/\.0$/, "")}%`;
-  var BACKGROUNDS = [
-    { id: "forest", name: "Forest", level: 0 },
-    { id: "swamp", name: "Swamp", level: 5 },
-    { id: "plains", name: "Plains", level: 10 },
-    { id: "castle", name: "Castle", level: 15 },
-    { id: "worldtree", name: "World Tree", level: 20 }
-  ];
-  var FLAMES = [
-    { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
-    { id: "purple", name: "Purple", level: 5, color: "#b26bff" }
-  ];
-  var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
-  var STAFFS = [
-    { id: "verdant", name: "Verdant Staff", streak: 0, gem: "#6dff6a", blurb: "Carved from an ancient tree. It channels the natural energy of the earth and life." },
-    { id: "ember", name: "Ember Staff", streak: 5, gem: "#ff7a1a", blurb: "Forged from volcanic rock and blessed by fire spirits." },
-    { id: "tide", name: "Tide Staff", streak: 10, gem: "#3fb8ff", blurb: "Crafted from crystal and oceanic runes. It flows with the tides." },
-    { id: "storm", name: "Storm Staff", streak: 15, gem: "#b26bff", blurb: "A relic of the sky temples. It channels lightning." },
-    { id: "void", name: "Void Staff", streak: 20, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." }
-  ];
-  var STUDY_LOCK = 100;
-  var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "wizard", N1: "wizard" };
-  var ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
-  function avatarFor(levels) {
-    const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? "N5";
-    return AVATAR_BY_LEVEL[top];
-  }
-
   // src/client/arena.ts
   var KEY3 = "kb:3d";
   var GAME_SCREENS = /* @__PURE__ */ new Set(["battle", "deck"]);
@@ -936,8 +1090,8 @@
       $(id).setAttribute("aria-pressed", String(on));
       $(id).replaceChildren(h("span", "ico", icon), h("span", "lbl", ` ${label} ${on ? "on" : "off"}`));
     };
-    set("radioBtn", radio, "\u266A", "Music");
-    set("sfxBtn", sfx2, sfx2 ? "\u{1F50A}" : "\u{1F507}", "Sounds");
+    set("radioBtn", radio, "", "Music");
+    set("sfxBtn", sfx2, "", "Sounds");
   }
   function paintScenes() {
     for (const scene3 of document.querySelectorAll(".duel-scene")) {
@@ -977,7 +1131,7 @@
     $("adminInfo").textContent = `${users.length} accounts \xB7 ${banned} banned`;
     const st = $("adminStorage");
     st.className = "storage " + (db.persistent ? "ok" : "warn");
-    st.textContent = db.storage === "postgres" ? "\u2713 Accounts, XP and study sets are saved in the Postgres database \u2014 updates and restarts keep them." : db.persistent ? `Saved to a local file (${db.storage}).` : "\u26A0 No database connected: accounts, XP and study sets are saved on the server disk, which Render wipes on every deploy and restart. Set DATABASE_URL (Neon) in Render \u2192 Environment.";
+    st.textContent = db.storage === "postgres" ? "\u2713 Accounts, XP and study sets are saved in the Postgres database \u2014 updates and restarts keep them." : db.persistent ? `Saved to a local file (${db.storage}).` : "No database connected: accounts, XP and study sets are saved on the server disk, which Render wipes on every deploy and restart. Set DATABASE_URL (Neon) in Render \u2192 Environment.";
     $("userRows").replaceChildren(
       ...users.map((u) => {
         const action = h("td");
@@ -1029,7 +1183,7 @@
       title: "How Boss Elimination works",
       pic: () => append(h("div", "g-pic"), h("span", "g-emoji", "\u{1F9D9}\u{1F9D9}\u{1F9D9}\u{1F9D9}"), h("span", "g-arrow", "\u2694"), h("span", "g-emoji", "\u{1F409}")),
       steps: [
-        ["\u{1F465}", "Up to 4 players (friends or AI) against the Black Dragon. Its HP grows with the party."],
+        ["\u{1F465}", "Up to 4 players (friends or AI) against the Black Dragon; the online queue always makes a full party of 4. Its HP grows with the party."],
         ["\u2328\uFE0F", "Each of you gets your own kanji: type the reading. Right answers hit the dragon."],
         ["\u{1F9B4}", "A mistake gets you clawed (\u221245)."],
         ["\u{1F525}", "Every 30 s it breathes fire on everyone (\u2212110) \u2014 unless you are on fire yourself (5 in a row): then you are immune."],
@@ -1064,11 +1218,11 @@
       ...players2.map((p) => {
         const li = h("li");
         const av = h("span", "who-av");
-        av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp");
+        av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp", p.staff);
         const who = h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name);
         if (p.id !== you2) markProfile(who, p);
         li.append(av, picEl(p.pic), who);
-        if (p.bot) li.append(h("span", "tag ai", `\u{1F916} AI \xB7 knows ${p.bot}`));
+        if (p.bot) li.append(h("span", "tag ai", `AI \xB7 knows ${p.bot}`));
         else li.append(netBars(p.id), h("span", "lv", `Lv ${p.level}`));
         if (p.bot && you2 === hostId) {
           const x = h("button", "pill rm-bot", "\u2715", { title: "Remove this AI" });
@@ -1079,8 +1233,8 @@
         if (p.id === hostId) li.append(h("span", "tag", "host"));
         if (!p.online) li.append(h("span", "tag off", "away \u2014 seat kept"));
         if (mode2 === "deck") li.append(h("span", "tag " + (p.ready ? "ready" : "notready"), p.ready ? "\u2713 Ready" : "Not ready"));
-        else if (p.bot) li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `\u2764 ${p.maxHp} HP`)));
-        else if (!p.bot) li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `\u2764 ${p.maxHp} HP`)));
+        else if (p.bot) li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `${p.maxHp} HP`)));
+        else if (!p.bot) li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `${p.maxHp} HP`)));
         return li;
       }),
       ...Array.from({ length: Math.max(0, maxPlayers - players2.length) }, () => h("li", "empty", mode2 === "boss" ? "Waiting for a teammate (optional)\u2026" : "Waiting for opponent\u2026"))
@@ -1162,7 +1316,7 @@
         pn,
         netBars(p.id),
         h("span", "lv", `Lv ${p.level}`),
-        h("span", "combo", p.combo >= 2 ? `\xD7${p.combo}${p.combo >= 5 ? " \u{1F525}" : ""}` : "")
+        h("span", "combo", p.combo >= 2 ? `\xD7${p.combo}` : "")
       );
       row.append(name, thickBar(p.hp, p.maxHp, "ally", p.hp <= 0 ? "down" : `${p.hp} / ${p.maxHp}`));
       return row;
@@ -1183,7 +1337,7 @@
     }
     const nameEl = h("span", "n", label);
     if (!label.endsWith("(you)")) markProfile(nameEl, p);
-    const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo${p.combo >= 5 ? " \u{1F525}" : ""}` : ""));
+    const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo` : ""));
     el2.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
@@ -1195,7 +1349,7 @@
     if (battleMode === "boss") {
       partyPanel($("meCard"), players2, you2);
       const bar = $("bossBar");
-      if (boss) bar.replaceChildren(h("div", "bname", `\u{1F409} ${boss.name}`), thickBar(boss.hp, boss.maxHp, "enemy", `${boss.hp} / ${boss.maxHp}`));
+      if (boss) bar.replaceChildren(h("div", "bname", boss.name), thickBar(boss.hp, boss.maxHp, "enemy", `${boss.hp} / ${boss.maxHp}`));
       for (const p of players2) if (p.id !== you2) allyEl(p.id)?.classList.toggle("onfire", p.combo >= 5);
     } else {
       fighterCard($("meCard"), me2, me2 ? `${me2.name} (you)` : "", "");
@@ -1213,7 +1367,7 @@
     hud.hidden = combo < 2;
     hud.classList.toggle("hot", combo >= 5);
     hud.style.setProperty("--flame", flameColor(me2?.flame));
-    if (combo >= 2) hud.replaceChildren(h("b", "", `\xD7${combo}`), h("span", "", combo >= 5 ? "COMBO \u{1F525}" : "COMBO"));
+    if (combo >= 2) hud.replaceChildren(h("b", "", `\xD7${combo}`), h("span", "", "COMBO"));
   }
   var allyEl = (id) => document.querySelector(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
   var actorEl = (a) => a.startsWith("ally:") ? allyEl(a.slice(5)) ?? $("wizMe") : $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : "dragon");
@@ -1234,14 +1388,14 @@
       const w = $(id);
       w.className = `wizard ${side}`;
       w.dataset.flame = p?.flame ?? "blue";
-      w.querySelector(".sprite").innerHTML = avatarSvg(p?.avatar ?? "wizard", side);
+      w.querySelector(".sprite").innerHTML = avatarSvg(p?.avatar ?? "wizard", side, p?.staff);
     }
     $("allies").replaceChildren(...(boss ? others : []).map((p) => {
       const w = h("div", "wizard ally");
       w.dataset.pid = p.id;
       w.dataset.flame = p.flame ?? "blue";
       const sprite = h("div", "sprite");
-      sprite.innerHTML = avatarSvg(p.avatar, "ally");
+      sprite.innerHTML = avatarSvg(p.avatar, "ally", p.staff);
       w.append(h("div", "aura"), sprite, h("div", "ground"));
       return w;
     }));
@@ -1267,6 +1421,7 @@
     setTimeout(() => f2.remove(), 1e3);
   }
   function castSpell(caster, target, kanji, damage, friendly, crit = false) {
+    if (caster === "me") gemGone();
     const a3 = arena();
     if (a3) return a3.cast(caster, target, kanji, { damage, crit });
     const c = actorEl(caster), t = actorEl(target);
@@ -1317,11 +1472,14 @@
       };
     });
   }
+  var gemGone = () => $("wizMe").classList.add("gemless");
+  var gemBack = () => $("wizMe").classList.remove("gemless");
   function fizzle(who) {
+    if (who === "me") gemGone();
     arena()?.fizzle(who);
     const w = actorEl(who);
     retrigger(w, "fizzle", 650);
-    const puff = h("div", "puff", "\u{1F4A8}");
+    const puff = h("div", "puff");
     w.append(puff);
     setTimeout(() => puff.remove(), 1e3);
   }
@@ -1340,7 +1498,7 @@
     el2.hidden = false;
     $("dragon").classList.add("inhale");
     arena()?.inhale(true);
-    countdown("breath", inMs, (left) => el2.textContent = `\u{1F525} The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
+    countdown("breath", inMs, (left) => el2.textContent = `The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
   }
   function breathFire(damage, victims, immune = []) {
     stopCountdown("breath");
@@ -1488,7 +1646,7 @@
         el2.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
         return;
       }
-      const title = f2.beaten ? "\u26A1 Opponent was faster!" : f2.skipped ? "\u21B7 Skipped" : f2.timedOut ? "\u2717 Too slow!" : "\u2717 MISS!";
+      const title = f2.beaten ? "Opponent was faster!" : f2.skipped ? "\u21B7 Skipped" : f2.timedOut ? "\u2717 Too slow!" : "\u2717 MISS!";
       const kids = [h("span", "big", title), word("reveal")];
       if (f2.recognized && !f2.skipped && !f2.timedOut) kids.push(h("span", "sub2", `The pad read: ${f2.recognized}`));
       el2.replaceChildren(...kids);
@@ -1578,7 +1736,7 @@
     const el2 = $("xpLine");
     el2.hidden = false;
     el2.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
-    if (levelUp) el2.append(h("span", "lvup", `\u2B06 Level ${level}!`));
+    if (levelUp) el2.append(h("span", "lvup", `Level ${level}!`));
   }
   function setRematchStatus(votes, you2, playerCount, minPlayers2) {
     const youVoted = votes.includes(you2);
@@ -1597,7 +1755,7 @@
   function characterEl(character, mode2, side = "me") {
     const el2 = h("span", "char-sprite");
     const heroes = ["goblin", "knight", "witch", "wizard"];
-    el2.innerHTML = mode2 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "wizard"].includes(character) ? character : "wizard", side);
+    el2.innerHTML = mode2 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
     el2.title = character[0].toUpperCase() + character.slice(1);
     return el2;
   }
@@ -1619,7 +1777,7 @@
     else if (p === "missing") body.push(h("p", "hint", "This player can no longer be viewed."));
     else if ("bot" in p) {
       body.push(
-        append(h("div", "pp-head"), h("div", "pp-pic", "\u{1F916}"), append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `AI player \xB7 knows ${p.bot}`))),
+        append(h("div", "pp-head"), h("div", "pp-pic", "AI"), append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `AI player \xB7 knows ${p.bot}`))),
         h("p", "hint", "A computer opponent. It gets words right about as often as a learner of its level would.")
       );
     } else {
@@ -1638,8 +1796,8 @@
         ),
         append(
           h("div", "pp-stats pp-streaks"),
-          append(h("div", "streak-box"), h("b", "", p.streak ?? 0), h("span", "", "\u{1F525} login streak (days)")),
-          append(h("div", "streak-box best"), h("b", "", Math.max(p.bestStreak ?? 0, p.streak ?? 0)), h("span", "", "\u{1F3C6} best streak (days)"))
+          append(h("div", "streak-box"), h("b", "", p.streak ?? 0), h("span", "", "login streak (days)")),
+          append(h("div", "streak-box best"), h("b", "", Math.max(p.bestStreak ?? 0, p.streak ?? 0)), h("span", "", "best streak (days)"))
         ),
         h("p", "hint", `Playing since ${new Date(p.since).toLocaleDateString(void 0, { year: "numeric", month: "short", day: "numeric" })}`)
       );
@@ -2432,7 +2590,7 @@
       const me2 = view?.players.find((p) => p.id === view.you);
       if (me2?.character && CHARACTER_INFO[me2.character].passive) {
         const used = [me2.wizardCardsUsed ? "cards used" : "+2 cards ready", me2.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
-        return toast(`\u{1F9D9} ${CHARACTER_INFO[me2.character].power} (${used})`, 6e3);
+        return toast(`${CHARACTER_INFO[me2.character].power} (${used})`, 6e3);
       }
       hooks.send({ type: "deck_ability" });
     };
@@ -2493,14 +2651,14 @@
       ["\u{1F9B8}", "Pick a hero (30 s)."],
       ["\u{1FA99}", "Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji."],
       ["\u{1F0CF}", `Your turn: ${DECK_RULES.chooseMs / 1e3} s to choose a card. Its mana is paid right away \u2014 even if you then miss.`],
-      ["\u{1F4D6}", `The card flips: read its reading and meaning (up to ${DECK_RULES.castReadMs / 1e3} s), then press Ready to see the kanji.`],
-      ["\u270D\uFE0F", `Press CAST! \u2014 the kanji disappears and you write it (pad or Japanese keyboard). One minute for the whole spell.`],
-      ["\u2705", `Right \u2192 the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow \u2192 the card rips.`],
+      ["\u{1F4D6}", `The card flips: read its reading and meaning (up to ${DECK_RULES.castReadMs / 1e3} s), then press Ready to look at the kanji.`],
+      ["\u270D\uFE0F", `Press CAST! \u2014 the kanji disappears and you write it from memory (pad with eraser, or Japanese keyboard). ${DECK_RULES.castMs / 6e4} minute for all three steps. Your opponent watches you write.`],
+      ["\u2705", `Right \u2192 the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow \u2192 the card rips. Either way the correct kanji shows for ${DECK_RULES.revealMs / 1e3} s.`],
       ["\u{1F4DC}", "While your opponent plays, you can read the list of kanji in your hand (not which card is which)."],
       ["\u{1F504}", "Out of cards \u2192 Round 2 draft. HP, mana and powers stay."],
-      ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the cards are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5\u2013N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 6e4} min, then the higher HP wins.`],
-      ["\u231B", `Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`],
-      ["\u{1F4DA}", "After the duel, every kanji that was cast joins your All spells (Study spells), so you can learn them."]
+      ["\u26A1", "Omnipotence: once per cooldown, fire your hero's ultimate power with the button bottom-left. While it's active you burn in your flame colour (Customize \u2192 Omnipotence)."],
+      ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the cards and Omnipotence are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5\u2013N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 6e4} min, then the higher HP wins.`],
+      ["\u231B", `Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`]
     ]) {
       const li = h2("li");
       li.append(h2("span", "g-ic", icon), h2("span", "", t));
@@ -2511,8 +2669,8 @@
       sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (\u2212${DECK_RULES.skipPenaltyHp} HP).`)),
       sec("Cards", cards),
       sec("A turn", flow),
-      sec(`Heroes \u2014 power button bottom-left: ${DECK_RULES.abilityCost} mana, then ${DECK_RULES.abilityCooldown} turns cooldown`, heroes),
-      sec("Rewards", p("Win 4000 XP \xB7 lose 1500 XP \xB7 forfeit 0 XP."))
+      sec(`Heroes and their Omnipotence \u2014 ${DECK_RULES.abilityCost} mana, then ${DECK_RULES.abilityCooldown} turns cooldown (Goblin ${DECK_RULES.goblinCooldown})`, heroes),
+      sec("Rewards", p("Win 4000 XP \xB7 draw 2500 \xB7 lose 1500 \xB7 forfeit 0 (half against AI). Every kanji of the duel joins your All spells."))
     );
   }
   function cardEl(c, opts = {}) {
@@ -2540,7 +2698,7 @@
     el2.classList.toggle("powered", powered(p));
     arena()?.onfire(mine ? "me" : "opp", powered(p), flameColor(p.flame));
     const av = h2("div", "dk-av");
-    av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp") : "";
+    av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp", p.staff) : "";
     const name = h2("div", "dk-name");
     const nm = h2("span", "", mine ? `${p.name} (you)` : p.name);
     if (!mine) markProfile(nm, { id: p.id, name: p.name, bot: /\(AI (N\d)\)$/.exec(p.name)?.[1] ?? null });
@@ -2588,7 +2746,7 @@
     }
     overlay.hidden = true;
     if (v.phase === "overtime") {
-      countdown("dkMatch", v.overtimeLeft, (left) => $2("dkClock").textContent = `\u26A1 ${clock(left)}`);
+      countdown("dkMatch", v.overtimeLeft, (left) => $2("dkClock").textContent = `OT ${clock(left)}`);
     } else {
       countdown("dkMatch", v.matchLeftMs, (left) => $2("dkClock").textContent = clock(left));
     }
@@ -2611,9 +2769,13 @@
     $2("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
     const ab = $2("dkAbility");
     const ch = me2.character;
-    ab.innerHTML = ch ? heroSvg(ch, "me") : "";
+    ab.innerHTML = ch ? heroSvg(ch, "me", me2.staff) : "";
     const cd = me2.abilityCooldown;
-    ab.append(h2("span", "ab-name", ch ? CHARACTER_INFO[ch].passive ? "Passive \xB7 tap" : cd > 0 ? `Ready in ${cd} turn${cd === 1 ? "" : "s"}` : `Power \xB7 ${DECK_RULES.abilityCost}\u25C6` : ""));
+    if (ch) {
+      const label2 = h2("span", "ab-name");
+      label2.append(h2("b", "", "Omnipotence"), h2("small", "", CHARACTER_INFO[ch].passive ? "passive \xB7 tap for info" : cd > 0 ? `ready in ${cd} turn${cd === 1 ? "" : "s"}` : `${DECK_RULES.abilityCost}\u25C6`));
+      ab.append(label2);
+    }
     if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h2("span", "ab-cd", String(cd)));
     ab.title = ch ? CHARACTER_INFO[ch].power : "";
     ab.classList.toggle("passive", !!ch && !!CHARACTER_INFO[ch].passive);
@@ -2783,7 +2945,7 @@
     const head = h2("div", "center");
     if (!coinShown) {
       coinShown = true;
-      head.append(h2("div", "coin", "\u{1FA99}"));
+      head.append(h2("div", "coin"));
     }
     if (v.round > 1) head.append(h2("p", "round-tag", `Round ${v.round} \u2014 new cards! HP, mana and powers stay as they are.`));
     head.append(h2("h2", "", d.coinWinner === v.you ? "You won the coin flip \u2014 you pick first" : "Your opponent won the coin flip"));
@@ -2831,7 +2993,7 @@
         break;
       // the 'skip' event right after explains it
       case "overtime":
-        toast("\u23F0 Overtime! The cards are gone \u2014 it's a Rapid duel now: first to type the reading hits.", 5e3);
+        toast("Overtime! The cards are gone \u2014 it's a Rapid duel now: first to type the reading hits.", 5e3);
         break;
       case "skip":
         sfx.hurt();
@@ -3033,7 +3195,7 @@
       c.classList.toggle("chosen", on);
       c.setAttribute("aria-checked", String(on));
     });
-    $("qStart").textContent = p === "deck" ? "\u2694 Start queue \u2014 Deck Duel" : "\u2694 Start queue";
+    $("qStart").textContent = p === "deck" ? "Start queue \u2014 Deck Duel" : "Start queue";
     remember();
   }
   function initQueue(sender, myId) {
@@ -3120,7 +3282,8 @@
     const btn = $("mfAccept");
     btn.disabled = mine;
     btn.textContent = mine ? "\u2713 Accepted" : "Accept";
-    $("mfStatus").textContent = mine ? "Waiting for your opponent\u2026" : accepted.length ? "Your opponent accepted!" : "";
+    const n = msg.players ?? 2;
+    $("mfStatus").textContent = n > 2 ? `${accepted.length} / ${n} accepted${mine ? " \u2014 waiting for the others\u2026" : ""}` : mine ? "Waiting for your opponent\u2026" : accepted.length ? "Your opponent accepted!" : "";
   }
   function hideFound() {
     foundId = 0;
@@ -3150,7 +3313,8 @@
     $("qTitle").textContent = "Searching for a player\u2026";
     const started = Date.now() - ((msg.now ?? 0) - (msg.since ?? 0));
     const others = (msg.searching ?? 1) - 1;
-    $("qInfo").textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(" \xB7 ")} \u2014 ${others > 0 ? `${others} other player${others === 1 ? "" : "s"} searching` : "no one else searching yet"}`;
+    const boss = (msg.modes ?? []).includes("boss") ? ` \xB7 Boss needs 4 players: ${Math.min(4, msg.boss ?? 1)} / 4 queued` : "";
+    $("qInfo").textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(" \xB7 ")} \u2014 ${others > 0 ? `${others} other player${others === 1 ? "" : "s"} searching` : "no one else searching yet"}${boss}`;
     if (!searching) {
       searching = true;
       clearInterval(tick);
@@ -3250,7 +3414,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.9.5";
+  var VERSION = "0.9.5.1";
 
   // src/client/api.ts
   var today = () => {
@@ -3603,7 +3767,7 @@
     $3("studyCrit").textContent = `\u2726 ${critText(s.profile.crit)} crit today \xB7 ${s.profile.learnedToday} learned today (+1% each, max 50%) \xB7 ${s.profile.learned} learned in total`;
     const notice = $3("studyNotice");
     notice.hidden = !s.notice;
-    notice.textContent = s.notice ? `\u2728 ${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
+    notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
     if (!s.studyLevels.length && !s.decks.all.total) {
       notice.hidden = false;
       notice.textContent = "Tick one or more levels under \u201CAll spells\u201D to get 25 new spells today (and every day).";
@@ -3745,7 +3909,7 @@
         name: s.name,
         blurb: s.blurb,
         locked: !isAdmin && best < s.streak,
-        lock: s.streak ? `\u{1F512} ${s.streak}-day streak` : "",
+        lock: s.streak ? `${s.streak}-day streak` : "",
         lockedToast: `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
         equipped: (profile2.staff ?? "verdant") === s.id,
         tile: () => {
@@ -3755,8 +3919,8 @@
             img.alt = "";
             return img;
           }
-          const g = el("div", "gem-fallback");
-          g.style.setProperty("--c", s.gem);
+          const g = el("div", "pixel-staff");
+          g.innerHTML = pixelStaffSvg(s.id);
           return g;
         },
         equip: () => api2.setStaff(s.id)
@@ -3768,7 +3932,7 @@
         name: b.name,
         blurb: "The scene behind every battle (and its sounds in the menus).",
         locked: !isAdmin && lvl < b.level,
-        lock: `\u{1F512} Level ${b.level}`,
+        lock: `Level ${b.level}`,
         lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
         equipped: profile2.background === b.id,
         tile: () => {
@@ -3782,9 +3946,9 @@
     return FLAMES.map((f2) => ({
       id: f2.id,
       name: `${f2.name} flames`,
-      blurb: "Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your hero power is active in Deck Duel. Everyone sees your colour.",
+      blurb: "Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.",
       locked: !isAdmin && lvl < f2.level,
-      lock: `\u{1F512} Level ${f2.level}`,
+      lock: `Level ${f2.level}`,
       lockedToast: `Reach level ${f2.level} to unlock ${f2.name} flames`,
       equipped: (profile2.flame ?? "blue") === f2.id,
       tile: () => {
@@ -3799,7 +3963,7 @@
   var CUST_SUB = {
     staff: (p) => `The staff in your hand in the 3D arena (other players see it too). Staffs unlock with your login streak \u2014 open the game on days in a row. Your best streak: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}.`,
     arena: () => "The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).",
-    omni: () => "Omnipotence: the flames of a 5\xD7 combo in battle, and of your hero power in Deck Duel. More colours unlock as you level up."
+    omni: () => "Omnipotence: the flames of a 5\xD7 combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up."
   };
   function renderCustomize() {
     if (!cust) return;
@@ -3817,7 +3981,7 @@
     if (custTab === "arena") {
       const pref = getTimePref();
       times.replaceChildren(...TIMES.map((t) => {
-        const b = el("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `\u{1F504} Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "\u2600\uFE0F Day" : t.id === "sunset" ? "\u{1F307} Sunset" : "\u{1F319} Night");
+        const b = el("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "Day" : t.id === "sunset" ? "Sunset" : "Night");
         b.onclick = () => {
           setTimePref(t.id);
           onTimeChange();
@@ -3843,7 +4007,7 @@
       b.setAttribute("aria-pressed", String(it === sel));
       const pic = el("div", "ci-pic");
       pic.append(it.tile());
-      b.append(pic, el("div", "ci-name", it.name), el("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? it.lock : "Unlocked"));
+      b.append(pic, el("div", "ci-name", it.name), el("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? `Locked \xB7 ${it.lock}` : "Unlocked"));
       b.onclick = () => {
         picked2[custTab] = it.id;
         renderCustomize();
@@ -3860,8 +4024,8 @@
     if (custTab === "staff") {
       if (preview) preview.show(sel.id);
       else {
-        const g = el("div", "gem-fallback big");
-        g.style.setProperty("--c", STAFFS.find((s) => s.id === sel.id).gem);
+        const g = el("div", "pixel-staff big");
+        g.innerHTML = pixelStaffSvg(sel.id);
         stage2.replaceChildren(g);
       }
     } else if (custTab === "arena") {
@@ -3870,18 +4034,28 @@
       const w = el("div", "wizard me onfire");
       w.dataset.flame = sel.id;
       const sprite = el("div", "sprite");
-      sprite.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me");
+      sprite.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", profile2.staff);
       w.append(el("div", "aura"), sprite);
       const badge = el("div", "combo-hud hot omni-badge");
       badge.style.setProperty("--flame", FLAMES.find((f2) => f2.id === sel.id).color);
-      badge.append(el("b", "", "\xD75"), el("span", "", "COMBO \u{1F525}"));
+      badge.append(el("b", "", "\xD75"), el("span", "", "COMBO"));
       stage2.replaceChildren(w, badge);
     }
-    const btn = el("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? sel.lock.replace("\u{1F512} ", "\u{1F512} Unlocks at ") : "Equip");
+    const btn = el("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? `Unlocks at ${sel.lock.toLowerCase().startsWith("level") ? sel.lock.replace("Level", "level") : `a ${sel.lock}`}` : "Equip");
     btn.disabled = sel.equipped;
     btn.classList.toggle("locked", sel.locked);
     btn.onclick = () => void equip(sel);
-    $3("custInfo").replaceChildren(el("h3", "", sel.name), el("p", "sub", sel.blurb), btn);
+    const info = [el("h3", "", sel.name), el("p", "sub", sel.blurb)];
+    if (custTab === "staff") {
+      const row = el("div", "cust-2d");
+      const who = el("div", "c2-char");
+      who.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", sel.id);
+      const st = el("div", "pixel-staff");
+      st.innerHTML = pixelStaffSvg(sel.id);
+      row.append(who, st, el("span", "hint", "2D arena"));
+      info.push(row);
+    }
+    $3("custInfo").replaceChildren(...info, btn);
   }
 
   // src/client/main.ts
@@ -4096,6 +4270,7 @@
         if (msg.retry) {
           setFeedback(msg);
           sfx.wrong();
+          arena()?.fizzle("me");
           const input = $("answer");
           input.disabled = false;
           input.value = "";
@@ -4108,7 +4283,10 @@
         if (msg.correct) {
           const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
           void speak(kana).then(() => sfx.correct(msg.combo));
-        } else sfx.wrong();
+        } else {
+          sfx.wrong();
+          arena()?.fizzle("me");
+        }
         break;
       case "battle_update":
         players = msg.players;
@@ -4148,7 +4326,7 @@
       case "progress":
         setTimeout(() => {
           showXp(msg.gained, msg.level, msg.levelUp);
-          if (msg.levelUp) toast(`\u2B06 Level ${msg.level}! Check Customize for new backgrounds.`, 5e3);
+          if (msg.levelUp) toast(`Level ${msg.level}! Check Customize for new unlocks.`, 5e3);
         }, 2100);
         void refreshProfile();
         break;
@@ -4202,10 +4380,10 @@
         const immune = e.immune ?? [];
         const victims = players.filter((p) => !immune.includes(p.id) && (p.hp > 0 || p.hp + e.damage > 0)).map((p) => actorOf(p.id));
         breathFire(e.damage, victims, immune.map((id) => actorOf(id)));
-        if (immune.includes(you)) toast("\u{1F525} You are on fire \u2014 immune to dragon breath!");
+        if (immune.includes(you)) toast("You are on fire \u2014 immune to dragon breath!");
         sfx.fire();
         setTimeout(render2, 450);
-        logLine(immune.length ? `\u{1F525} Fire breath! ${e.damage} damage \u2014 ${immune.map(nameOf).join(", ")} immune (on fire)` : `\u{1F525} Fire breath! Everyone takes ${e.damage}`);
+        logLine(immune.length ? `Fire breath! ${e.damage} damage \u2014 ${immune.map(nameOf).join(", ")} immune (on fire)` : `Fire breath! Everyone takes ${e.damage}`);
         break;
       }
     }
@@ -4215,6 +4393,7 @@
   pad.onDraw = () => {
     shareInk();
     if (mode !== "deck") arena()?.channel(Math.min(1, 0.45 + pad.strokeCount * 0.12));
+    gemBack();
     if (Date.now() - twitchAt > 140) {
       twitchAt = Date.now();
       arena()?.twitch();
@@ -4270,10 +4449,12 @@
   $("answer").addEventListener("input", (e) => {
     arena()?.channel(Math.min(0.8, e.target.value.length * 0.15));
     arena()?.twitch();
+    gemBack();
   });
   $("imeInput").addEventListener("input", () => {
     arena()?.channel(0.6);
     arena()?.twitch();
+    gemBack();
   });
   $("padSkip").onclick = () => skip();
   $("padNext").onclick = () => {
@@ -4446,7 +4627,7 @@
       }
       armed = Date.now();
       $(btnId).textContent = "Tap again to forfeit";
-      setTimeout(() => $(btnId).textContent = "\u{1F3F3} Forfeit", 3e3);
+      setTimeout(() => $(btnId).textContent = "Forfeit", 3e3);
     };
   }
   armForfeit("forfeit");
