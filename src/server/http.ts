@@ -39,7 +39,7 @@ const send = (res: ServerResponse, status: number, body: unknown) =>
 const bearer = (req: IncomingMessage) => (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
 
 /** Handles /api/*; returns false for any other path so static files can be served. */
-export function createApiHandler(auth: AuthService, study: StudyService) {
+export function createApiHandler(auth: AuthService, study: StudyService, presence?: (userId: string) => { online: boolean; activity?: string; since?: number; lastSeen?: number }) {
   const limiter = new RateLimiter(20, 60_000);
 
   return async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
@@ -112,7 +112,12 @@ export function createApiHandler(auth: AuthService, study: StudyService) {
         send(res, 200, await study.review(u, body.vocabId, body.rating, Date.now(), resolveToday(body.today), Number.isFinite(tz) && Math.abs(tz) <= 840 ? tz : 0));
       } else if (req.method === 'GET' && url === '/api/admin/users') {
         await auth.requireAdmin(bearer(req));
-        send(res, 200, await study.adminStats(await auth.listUsers()));
+        const stats = await study.adminStats(await auth.listUsers());
+        const users = stats.users.map((u) => {
+          const p = presence?.(u.id);
+          return p ? { ...u, online: p.online, activity: p.activity, onlineSince: p.since, lastSeen: p.lastSeen } : u;
+        });
+        send(res, 200, { ...stats, users });
       } else if (req.method === 'POST' && /^\/api\/admin\/users\/[\w-]+\/ban$/.test(url)) {
         const admin = await auth.requireAdmin(bearer(req));
         const body = await readJson(req);

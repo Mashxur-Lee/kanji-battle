@@ -182,9 +182,17 @@ export function setAuthTab(tab: 'login' | 'register') {
 }
 
 // ── admin ────────────────────────────────────────────────────────────────────
+/** "5 min", "2 h", "3 d" since a time */
+function ago(t: number) {
+  const m = Math.max(0, Math.round((Date.now() - t) / 60_000));
+  return m < 60 ? `${m} min` : m < 60 * 24 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`;
+}
 export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: string; persistent: boolean }, onToggle: (u: AdminUserRow) => void) {
   const banned = users.filter((u) => u.banned).length;
-  $('adminInfo').textContent = `${users.length} accounts · ${banned} banned`;
+  const online = users.filter((u) => u.online).length;
+  $('adminInfo').textContent = `${online} online now · ${users.length} accounts · ${banned} banned`;
+  // online players first, then everyone else by when they were last around
+  users = [...users].sort((a, b) => Number(!!b.online) - Number(!!a.online) || (b.lastSeen ?? 0) - (a.lastSeen ?? 0) || String(b.loginDay ?? '').localeCompare(String(a.loginDay ?? '')));
   const st = $('adminStorage');
   st.className = 'storage ' + (db.persistent ? 'ok' : 'warn');
   st.textContent = db.storage === 'postgres'
@@ -200,7 +208,11 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
         b.onclick = () => onToggle(u);
         action.append(b);
       }
-      return append(h('tr'),
+      const presence = append(h('td', 'presence ' + (u.online ? 'on' : 'off')), h('span', 'dot'),
+        append(h('span', 'pr-txt'), h('b', '', u.online ? 'Online' : 'Offline'),
+          h('small', '', u.online ? `${u.activity ?? ''}${u.onlineSince ? ` · ${ago(u.onlineSince)}` : ''}` : u.lastSeen ? `seen ${ago(u.lastSeen)} ago` : u.loginDay ? `last day: ${u.loginDay}` : 'never logged in')));
+      return append(h('tr', u.online ? 'is-online' : ''),
+        presence,
         h('td', '', u.username + (u.id === me.id ? ' (you)' : '')),
         h('td', '', u.role),
         h('td', 'num', `Lv ${u.level ?? 0}`),
@@ -233,7 +245,7 @@ const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTML
     title: 'How Kanji Writing works',
     pic: () => append(h('div', 'g-pic'), h('span', 'g-hint', 'かんじ — kanji'), h('span', 'g-arrow', '→'), append(h('span', 'g-pad'), tile('漢'), tile('字'))),
     steps: [
-      ['👁️', 'The kanji flashes for 3.5 s, then only its reading + meaning stay.'],
+      ['👁️', 'Look at the kanji (up to 3.5 s), then press CAST! (or Enter): it vanishes and the pad and keyboard appear. Pasting is off.'],
       ['🖌️', 'Write the whole word on the pad, left to right (one cell per character) — or type it with a Japanese keyboard.'],
       ['✅', 'Only kanji count (kana only at the かな level). Messy is fine — it’s judged by shape.'],
       ['⚔️', 'Right = damage, with the same combo and speed bonus as Reading.'],
@@ -678,10 +690,12 @@ export function showChallenge(c: ChallengeView) {
     const mp = $('meaningPrompt');
     mp.hidden = false;
     mp.replaceChildren(h('span', 'mp-reading', c.reading ?? '', { lang: 'ja' }), h('span', '', ` — ${c.meaning ?? ''}`), h('small', '', `write the kanji: ${c.charCount} character${c.charCount === 1 ? '' : 's'}`));
+    // look at the kanji, then CAST!: it disappears and only then the pad / keyboard appear (main.ts)
     const ime = $<HTMLInputElement>('imeInput');
     ime.value = '';
-    ime.disabled = false;
-    setTimeout(() => { if (k.textContent === c.kanji) { k.classList.add('gone'); } }, c.flashMs ?? 500);
+    ime.disabled = true;
+    $('writeArea').hidden = true;
+    $('castGo').hidden = false;
     return;
   }
   const input = $<HTMLInputElement>('answer');
@@ -707,8 +721,18 @@ export function setCharSlots(total: number, _written: string[], active: boolean)
   for (const id of ['padUndo', 'padClear', 'padSkip', 'padNext']) $<HTMLButtonElement>(id).disabled = !active;
 }
 
+/** Writing mode: the kanji vanishes and the pad / Japanese keyboard appear. */
+export function startWritingStep() {
+  $('kanji').classList.add('gone');
+  $('castGo').hidden = true;
+  mountWriteArea('writeSlot');
+  const ime = $<HTMLInputElement>('imeInput');
+  ime.disabled = false;
+}
+
 export function lockInput() {
   stopCountdown('challenge');
+  $('castGo').hidden = true;
   $<HTMLInputElement>('answer').disabled = true;
   $<HTMLButtonElement>('skip').disabled = true;
   for (const id of ['padUndo', 'padClear', 'padSkip', 'padNext']) $<HTMLButtonElement>(id).disabled = true;

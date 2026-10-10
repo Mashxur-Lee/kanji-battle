@@ -1096,3 +1096,17 @@ body:not(.has-3d) #comboHud { display: none; }
 /* 2D: the gem leaves with each cast (or shatters on a miss) and grows back when you write or type */
 .wizard .sprite svg .orb { transition: opacity .35s, transform .35s; transform-box: fill-box; transform-origin: center; }
 .wizard.gemless .sprite svg .orb { opacity: 0; transform: scale(.2); }
+
+/* the kanji can't be selected (and so copied) while it shows */
+.kanji, .dkc .dkc-k { user-select: none; -webkit-user-select: none; }
+#castGo { display: block; margin: 10px auto 0; }
+#castGo[hidden] { display: none; }
+
+/* admin: who is online */
+.presence { white-space: nowrap; }
+.presence .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; background: #5a5670; }
+.presence.on .dot { background: #4ee6a6; box-shadow: 0 0 8px #4ee6a6; }
+.presence .pr-txt { display: inline-flex; flex-direction: column; vertical-align: middle; line-height: 1.15; }
+.presence small { color: var(--muted); font-size: .72rem; }
+.presence.on b { color: var(--good); }
+tr.is-online td { background: rgba(78, 230, 166, .05); }

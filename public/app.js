@@ -1126,9 +1126,15 @@
     $("authHint").textContent = login ? "" : "Login: 3\u201316 letters, numbers or _. Password: at least 6 characters.";
     $("authError").textContent = "";
   }
+  function ago(t) {
+    const m = Math.max(0, Math.round((Date.now() - t) / 6e4));
+    return m < 60 ? `${m} min` : m < 60 * 24 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`;
+  }
   function showAdmin(users, me2, db, onToggle) {
     const banned = users.filter((u) => u.banned).length;
-    $("adminInfo").textContent = `${users.length} accounts \xB7 ${banned} banned`;
+    const online = users.filter((u) => u.online).length;
+    $("adminInfo").textContent = `${online} online now \xB7 ${users.length} accounts \xB7 ${banned} banned`;
+    users = [...users].sort((a, b) => Number(!!b.online) - Number(!!a.online) || (b.lastSeen ?? 0) - (a.lastSeen ?? 0) || String(b.loginDay ?? "").localeCompare(String(a.loginDay ?? "")));
     const st = $("adminStorage");
     st.className = "storage " + (db.persistent ? "ok" : "warn");
     st.textContent = db.storage === "postgres" ? "\u2713 Accounts, XP and study sets are saved in the Postgres database \u2014 updates and restarts keep them." : db.persistent ? `Saved to a local file (${db.storage}).` : "No database connected: accounts, XP and study sets are saved on the server disk, which Render wipes on every deploy and restart. Set DATABASE_URL (Neon) in Render \u2192 Environment.";
@@ -1140,8 +1146,18 @@
           b.onclick = () => onToggle(u);
           action.append(b);
         }
+        const presence = append(
+          h("td", "presence " + (u.online ? "on" : "off")),
+          h("span", "dot"),
+          append(
+            h("span", "pr-txt"),
+            h("b", "", u.online ? "Online" : "Offline"),
+            h("small", "", u.online ? `${u.activity ?? ""}${u.onlineSince ? ` \xB7 ${ago(u.onlineSince)}` : ""}` : u.lastSeen ? `seen ${ago(u.lastSeen)} ago` : u.loginDay ? `last day: ${u.loginDay}` : "never logged in")
+          )
+        );
         return append(
-          h("tr"),
+          h("tr", u.online ? "is-online" : ""),
+          presence,
           h("td", "", u.username + (u.id === me2.id ? " (you)" : "")),
           h("td", "", u.role),
           h("td", "num", `Lv ${u.level ?? 0}`),
@@ -1173,7 +1189,7 @@
       title: "How Kanji Writing works",
       pic: () => append(h("div", "g-pic"), h("span", "g-hint", "\u304B\u3093\u3058 \u2014 kanji"), h("span", "g-arrow", "\u2192"), append(h("span", "g-pad"), tile("\u6F22"), tile("\u5B57"))),
       steps: [
-        ["\u{1F441}\uFE0F", "The kanji flashes for 3.5 s, then only its reading + meaning stay."],
+        ["\u{1F441}\uFE0F", "Look at the kanji (up to 3.5 s), then press CAST! (or Enter): it vanishes and the pad and keyboard appear. Pasting is off."],
         ["\u{1F58C}\uFE0F", "Write the whole word on the pad, left to right (one cell per character) \u2014 or type it with a Japanese keyboard."],
         ["\u2705", "Only kanji count (kana only at the \u304B\u306A level). Messy is fine \u2014 it\u2019s judged by shape."],
         ["\u2694\uFE0F", "Right = damage, with the same combo and speed bonus as Reading."]
@@ -1583,12 +1599,9 @@
       mp.replaceChildren(h("span", "mp-reading", c.reading ?? "", { lang: "ja" }), h("span", "", ` \u2014 ${c.meaning ?? ""}`), h("small", "", `write the kanji: ${c.charCount} character${c.charCount === 1 ? "" : "s"}`));
       const ime = $("imeInput");
       ime.value = "";
-      ime.disabled = false;
-      setTimeout(() => {
-        if (k.textContent === c.kanji) {
-          k.classList.add("gone");
-        }
-      }, c.flashMs ?? 500);
+      ime.disabled = true;
+      $("writeArea").hidden = true;
+      $("castGo").hidden = false;
       return;
     }
     const input = $("answer");
@@ -1610,8 +1623,16 @@
     $("padNext").textContent = "Cast \u2726";
     for (const id of ["padUndo", "padClear", "padSkip", "padNext"]) $(id).disabled = !active;
   }
+  function startWritingStep() {
+    $("kanji").classList.add("gone");
+    $("castGo").hidden = true;
+    mountWriteArea("writeSlot");
+    const ime = $("imeInput");
+    ime.disabled = false;
+  }
   function lockInput() {
     stopCountdown("challenge");
+    $("castGo").hidden = true;
     $("answer").disabled = true;
     $("skip").disabled = true;
     for (const id of ["padUndo", "padClear", "padSkip", "padNext"]) $(id).disabled = true;
@@ -3414,7 +3435,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.9.5.1";
+  var VERSION = "0.9.5.2";
 
   // src/client/api.ts
   var today = () => {
@@ -4263,7 +4284,10 @@
         challengeId = msg.id;
         arena()?.channel(0);
         showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs });
-        if (msg.answer === "writing") beginWriting(msg.id, msg.kanji);
+        if (msg.answer === "writing") {
+          flashMs = msg.flashMs ?? 3500;
+          beginWriting(msg.id, msg.kanji);
+        }
         break;
       case "answer_result":
         if (msg.challengeId !== challengeId) break;
@@ -4425,8 +4449,24 @@
     setCharSlots(charCount, [], true);
     const ime = $("imeInput");
     ime.value = "";
-    ime.disabled = false;
+    if (mode === "deck") {
+      ime.disabled = false;
+      return;
+    }
+    clearTimeout(castGoTimer);
+    castGoTimer = window.setTimeout(castGo, flashMs);
+    $("castGo").focus();
   }
+  var castGoTimer = 0;
+  var flashMs = 3500;
+  function castGo() {
+    clearTimeout(castGoTimer);
+    if (!writing || $("castGo").hidden) return;
+    startWritingStep();
+    arena()?.thrust();
+    $("imeInput").focus();
+  }
+  $("castGo").onclick = () => castGo();
   function stopWriting() {
     writing = false;
     if (mode !== "deck") arena()?.channel(0);
@@ -4462,6 +4502,12 @@
     written = [pad.take()];
     submitDrawing();
   };
+  for (const id of ["imeInput", "answer"]) {
+    for (const ev of ["paste", "drop"]) $(id).addEventListener(ev, (e) => {
+      e.preventDefault();
+      toast("Pasting is off \u2014 write it yourself!");
+    });
+  }
   $("imeInput").addEventListener("keydown", (e) => {
     const input = e.currentTarget;
     if (e.key !== "Enter" || e.isComposing || e.keyCode === 229 || input.disabled) return;
@@ -4473,6 +4519,11 @@
     writing = false;
   });
   addEventListener("keydown", (e) => {
+    if (writing && !$("castGo").hidden && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      castGo();
+      return;
+    }
     if (!writing || e.target === $("imeInput") || $("padNext").disabled) return;
     if (e.key === "Enter") $("padNext").click();
     else if (e.key === "Escape") skip();
@@ -4564,6 +4615,9 @@
   }
   $("adminBtn").onclick = () => void openAdmin();
   $("adminRefresh").onclick = () => void openAdmin();
+  setInterval(() => {
+    if (currentScreen() === "admin" && user?.role === "admin") void openAdmin();
+  }, 15e3);
   $("adminBack").onclick = () => show("menu");
   $("levelChips").addEventListener("change", (e) => {
     const levels = selectedLevels();

@@ -71,6 +71,8 @@ export class Room {
   private clients = new Map<PlayerId, Client>();
   private hostId: PlayerId | null = null;
   private phase: Phase = 'lobby';
+  /** lobby / game / results — for the admin's "who is online" view */
+  get stage(): string { return this.phase; }
   private game?: Match;
   private rematchVotes = new Set<PlayerId>();
   private chatLog: ChatMessage[] = [];
