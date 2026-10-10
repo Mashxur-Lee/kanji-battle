@@ -13,7 +13,8 @@ export class RoomManager {
 
   constructor(private readonly deps: ManagerDeps = {}, private readonly opts: RoomOptions = DEFAULT_ROOM_OPTIONS) {}
 
-  create(mode: GameMode): Room {
+  /** quick: the tutorial's first battle — 30 s of study, a 2-minute fight. */
+  create(mode: GameMode, quick = false): Room {
     let code: string;
     do {
       code = Array.from({ length: 4 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join('');
@@ -25,7 +26,7 @@ export class RoomManager {
       judgeDeck: this.deps.judgeDeck,
       writableFilter: this.deps.writableFilter,
       onMatchEnd: this.deps.onMatchEnd,
-    }, this.opts);
+    }, quick ? { ...this.opts, game: { ...this.opts.game, prepMs: 30_000, battleMs: 120_000 } } : this.opts);
     this.rooms.set(code, room);
     return room;
   }

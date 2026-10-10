@@ -1,3 +1,4 @@
+import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
 import { avatarFor, BACKGROUNDS, critText, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
 import { staffPreview } from './arena';
@@ -203,19 +204,19 @@ for (const b of document.querySelectorAll<HTMLButtonElement>('#custTabs .cust-ta
 }
 
 const thisMonth = () => new Date().getMonth() + 1;
-const monthName = (m: number) => new Date(2026, m - 1, 15).toLocaleDateString(undefined, { month: 'long' });
+const monthName = (m: number) => new Date(2026, m - 1, 15).toLocaleDateString(locale(), { month: 'long' });
 
 function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
   const lvl = levelOf(profile.xp);
   const best = Math.max(profile.bestStreak ?? 0, profile.streak ?? 0);
   const time = resolveTime(getTimePref());
   if (custTab === 'staff') {
-    // a seasonal staff shows only once it's yours, or while its month is on
-    return STAFFS.filter((s) => !s.season || isAdmin || staffUnlocked(s.id, best, profile.unlocks) || s.season === thisMonth()).map((s) => ({
+    // every staff is listed — seasonal ones stay locked until you complete their month's goals
+    return STAFFS.map((s) => ({
       id: s.id, name: s.name, blurb: s.blurb,
       locked: !isAdmin && !staffUnlocked(s.id, best, profile.unlocks),
       lock: s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : '',
-      lockedToast: s.season ? `Complete this month's goals (see Progress) to unlock the ${s.name}` : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
+      lockedToast: s.season ? `The ${s.name} is the ${monthName(s.season)} reward — complete that month's goals (see Progress)${s.season === thisMonth() ? ' — it\'s on now!' : ''}` : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
       equipped: (profile.staff ?? 'verdant') === s.id,
       tile: () => {
         if (staffThumbs[s.id]) { const img = document.createElement('img'); img.src = staffThumbs[s.id]; img.alt = ''; return img; }
@@ -234,10 +235,10 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
       equip: () => api.setBackground(b.id as BackgroundId),
     }));
   }
-  return FLAMES.filter((f) => !f.season || isAdmin || flameUnlocked(f.id, profile.xp, profile.unlocks) || f.season === thisMonth()).map((f) => ({
+  return FLAMES.map((f) => ({
     id: f.id, name: `${f.name} flames`, blurb: f.season ? `${monthName(f.season)} reward: complete that month's goals (Progress page). Wraps you at 5 in a row and during your Omnipotence.` : 'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.',
     locked: !isAdmin && !flameUnlocked(f.id, profile.xp, profile.unlocks), lock: f.season ? `${monthName(f.season)} goals` : `Level ${f.level}`,
-    lockedToast: f.season ? `Complete this month's goals (see Progress) to unlock ${f.name} flames` : `Reach level ${f.level} to unlock ${f.name} flames`,
+    lockedToast: f.season ? `${f.name} flames are the ${monthName(f.season)} reward — complete that month's goals (see Progress)${f.season === thisMonth() ? ' — it\'s on now!' : ''}` : `Reach level ${f.level} to unlock ${f.name} flames`,
     equipped: (profile.flame ?? 'blue') === f.id,
     tile: () => { const d = el('span', 'flame-dot big'); d.style.setProperty('--c', f.color); return d; },
     equip: () => api.setFlame(f.id),
@@ -309,7 +310,7 @@ function renderCustomize() {
     stage2.innerHTML = backgroundThumb(sel.id as BackgroundId, resolveTime(getTimePref()));
   } else {
     const w = el('div', 'wizard me onfire');
-    w.dataset.flame = sel.id;
+    ui.paintFlame(w, sel.id);
     const sprite = el('div', 'sprite'); sprite.innerHTML = avatarSvg(avatarFor(profile.studyLevels), 'me', profile.staff);
     w.append(el('div', 'aura'), sprite);
     const badge = el('div', 'combo-hud hot omni-badge'); badge.style.setProperty('--flame', FLAMES.find((f) => f.id === sel.id)!.color);
@@ -318,7 +319,7 @@ function renderCustomize() {
   }
 
   // name, description, Equip
-  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? `Unlocks at ${sel.lock.toLowerCase().startsWith('level') ? sel.lock.replace('Level', 'level') : `a ${sel.lock}`}` : 'Equip') as HTMLButtonElement;
+  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? (sel.lock.startsWith('Level') ? `Unlocks at ${sel.lock.replace('Level', 'level')}` : sel.lock.endsWith('goals') ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}`) : 'Equip') as HTMLButtonElement;
   btn.disabled = sel.equipped;
   btn.classList.toggle('locked', sel.locked);
   btn.onclick = () => void equip(sel);

@@ -143,7 +143,9 @@ button.danger { background: #5a1a2a; border-color: #8a2a40; }
 .players .meta .hpv { color: var(--good); font-variant-numeric: tabular-nums; }
 #lobby #start { max-width: 460px; }
 .levels { border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px 18px; margin: 0; background: var(--card); max-width: 460px; width: 100%; }
-.levels legend { color: var(--muted); font-size: .85rem; padding: 0 6px; }
+/* the legend sits inside the box (on the border it got clipped by the card above it) */
+.levels legend { color: var(--muted); font-size: .85rem; padding: 0; float: left; width: 100%; margin: 0 0 10px; }
+.levels legend + * { clear: both; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 999px; border: 2px solid var(--line); cursor: pointer; font-weight: 700; user-select: none; }
 .chip input { display: none; }
@@ -694,7 +696,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* volume panel */
 .audio-ctl { position: relative; }
-.vol-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 230px; display: flex; flex-direction: column; gap: 12px;
+.vol-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 230px; max-height: calc(calc(100 * var(--dvh)) - 70px); overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px;
   background: rgba(16, 14, 44, .97); border: 1px solid var(--line); border-radius: 14px; padding: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
 .vol-panel label { display: grid; grid-template-columns: 1fr auto; gap: 6px; font-size: .85rem; font-weight: 700; }
 .vol-panel label span { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -1022,7 +1024,12 @@ body.has-3d .deck-screen .dk-chat .chat-log { min-height: 0; flex: 1; }
 .mode-title { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 31; display: flex; align-items: center; gap: 8px;
   padding: 6px 16px; border-radius: 999px; background: rgba(16, 14, 44, .78); border: 1px solid var(--line); font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
 .mode-title .mode-badge { font-size: 1.3rem; }
-@media (max-width: 700px) { .mode-title { top: 60px; font-size: .85rem; } }
+/* phones: a slim pill just under the top bar, and the game screen moves down to make room for it */
+@media (max-width: 700px) {
+  .mode-title { top: 50px; font-size: .78rem; padding: 3px 12px; gap: 6px; z-index: 29; }
+  .mode-title .mode-badge { font-size: 1rem; }
+  body.mode-shown .screen { padding-top: 84px; }
+}
 
 /* ── v0.9.5 combo counter in the 3D arena ── */
 .combo-hud { --flame: #6ee7ff; display: flex; flex-direction: column; align-items: center; line-height: 1; pointer-events: none; font-weight: 900; letter-spacing: .06em; color: #fff;
@@ -1066,7 +1073,11 @@ body:not(.has-3d) #comboHud { display: none; }
   background: radial-gradient(ellipse at 50% 45%, rgba(185, 147, 255, .18), transparent 70%), #120f2e; }
 .cust-grid.arena .ci-pic { aspect-ratio: 16 / 9; }
 .cust-item .ci-pic img, .cust-item .bg-thumb, .cust-item .bg-thumb svg { width: 100%; height: 100%; display: block; object-fit: cover; }
-.cust-item.locked .ci-pic > * { filter: grayscale(1) brightness(.45); }
+/* locked: still in colour (so you can see what you'd get), just dimmer, with a lock */
+.cust-item.locked .ci-pic > * { filter: saturate(.75) brightness(.62); }
+.cust-item.locked .ci-pic { position: relative; }
+.cust-item.locked .ci-pic::after { content: ""; position: absolute; right: 6px; top: 6px; width: 16px; height: 16px; opacity: .85;
+  background: no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='7' width='10' height='8' rx='1.5' fill='%23ffd479'/%3E%3Cpath d='M5 7V5a3 3 0 0 1 6 0v2' fill='none' stroke='%23ffd479' stroke-width='1.8'/%3E%3C/svg%3E"); }
 .cust-item .ci-name { font-weight: 800; }
 .cust-item .ci-state { font-size: .78rem; color: var(--muted); }
 .cust-item.equipped .ci-state { color: var(--gold); font-weight: 700; }
@@ -1083,7 +1094,7 @@ body:not(.has-3d) #comboHud { display: none; }
 #custSub { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: rgba(12, 10, 32, .62); color: var(--text); backdrop-filter: blur(6px); }
 #comboHud[hidden] { display: none; }
 .vol-panel .toggle-row input[type=checkbox] { width: auto; flex: none; margin: 0; accent-color: var(--accent); }
-.vol-panel .toggle-row select { margin-left: auto; width: auto; padding: 4px 8px; border-radius: 8px; background: var(--field); color: var(--text); border: 1px solid var(--line); font: inherit; }
+.vol-panel .toggle-row select { margin-left: auto; width: auto; min-width: 0; max-width: 62%; padding: 4px 8px; border-radius: 8px; background: var(--field); color: var(--text); border: 1px solid var(--line); font: inherit; }
 .vol-panel .toggle-row { white-space: nowrap; }
 
 .audio-ctl .ico:empty { display: none; }
@@ -1137,7 +1148,10 @@ tr.is-online td { background: rgba(78, 230, 166, .05); }
 .pw-bar i { width: 100%; max-width: 34px; min-height: 3px; border-radius: 6px 6px 2px 2px; background: linear-gradient(var(--accent2), var(--accent)); }
 .pw-bar span { font-size: .7rem; color: var(--muted); }
 .reward-line { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-weight: 700; }
-.reward-swatch { --c: #fff; width: 22px; height: 30px; border-radius: 50% 50% 40% 40% / 70% 70% 30% 30%; background: radial-gradient(ellipse at 50% 85%, #fff, var(--c) 45%, transparent 75%); filter: drop-shadow(0 0 8px var(--c)); flex: none; }
+.reward-img { flex: none; width: 64px; height: 78px; display: grid; place-items: end center; overflow: visible; }
+.reward-img.staff svg { height: 74px; width: auto; display: block; filter: drop-shadow(0 0 6px rgba(255, 255, 255, .25)); }
+.reward-img .wizard .sprite { width: 58px; animation: none; }
+.reward-img .wizard .aura { transform: scale(.9); transform-origin: 50% 100%; }
 .goals { display: flex; flex-direction: column; gap: 10px; }
 .goal { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: .9rem; }
 .goal-num { font-variant-numeric: tabular-nums; color: var(--muted); }
@@ -1266,7 +1280,6 @@ tr.is-online td { background: rgba(78, 230, 166, .05); }
 .invite-box .ib-actions .pill { flex: none; }
 /* small phones (portrait): compact top bar and fighter cards */
 @media (max-width: 480px) {
-  .mode-title { display: none !important; }
   .audio-ctl { gap: 4px; }
   .audio-ctl .lbl { display: none; }
   #radioBtn::before { content: "♪"; font-weight: 800; }

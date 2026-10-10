@@ -1,4 +1,4 @@
-import { Bot, botName, isBotLevel, type BotHost } from './Bot';
+import { Bot, botLevels, botName, isBotLevel, type BotHost } from './Bot';
 import { CRIT_BASE } from '../shared/progress';
 import { CHAT_MAX_LENGTH, type BossView, type MatchDetail, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
@@ -172,7 +172,7 @@ export class Room {
     if (this.roster.length >= this.maxPlayers) return this.clients.get(by)?.send({ type: 'error', message: 'Room is full' });
     const id = `ai-${this.code}-${++this.nextBot}`;
     const bot = new Bot(id, level, this.botHost());
-    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: [level], online: true, profile: { crit: CRIT_BASE, xp: 0 }, ready: true, rtt: 1, bot });
+    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: botLevels(level), online: true, profile: { crit: CRIT_BASE, xp: 0 }, ready: true, rtt: 1, bot });
     this.broadcastLobby();
     this.broadcastNet();
   }
