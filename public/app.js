@@ -57,8 +57,8 @@
     "Please pick an image": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435",
     "Could not read that image": "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435",
     "Your browser has no WebGL \u2014 the classic 2D view is used.": "\u0412 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435 \u043D\u0435\u0442 WebGL \u2014 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0441\u044F \u043A\u043B\u0430\u0441\u0441\u0438\u0447\u0435\u0441\u043A\u0438\u0439 2D-\u0432\u0438\u0434.",
-    "First-person duel arena (move the mouse to look around). Lite is lighter on phones and older computers.": "\u0410\u0440\u0435\u043D\u0430 \u043E\u0442 \u043F\u0435\u0440\u0432\u043E\u0433\u043E \u043B\u0438\u0446\u0430 (\u0434\u0432\u0438\u0433\u0430\u0439\u0442\u0435 \u043C\u044B\u0448\u044C, \u0447\u0442\u043E\u0431\u044B \u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C\u0441\u044F). \xAB\u041B\u0451\u0433\u043A\u0430\u044F\xBB \u2014 \u0434\u043B\u044F \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u043E\u0432 \u0438 \u0441\u0442\u0430\u0440\u044B\u0445 \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\u043E\u0432.",
-    "Turn your phone sideways during a game for the 3D arena (upright shows the 2D view).": "\u041F\u043E\u0432\u0435\u0440\u043D\u0438\u0442\u0435 \u0442\u0435\u043B\u0435\u0444\u043E\u043D \u0433\u043E\u0440\u0438\u0437\u043E\u043D\u0442\u0430\u043B\u044C\u043D\u043E \u0432\u043E \u0432\u0440\u0435\u043C\u044F \u0438\u0433\u0440\u044B \u0434\u043B\u044F 3D-\u0430\u0440\u0435\u043D\u044B (\u0432\u0435\u0440\u0442\u0438\u043A\u0430\u043B\u044C\u043D\u043E \u2014 2D-\u0432\u0438\u0434).",
+    "First-person duel arena (move the mouse to look around). On a phone held upright it is a band above the question. Lite is lighter on phones and older computers.": "\u0410\u0440\u0435\u043D\u0430 \u043E\u0442 \u043F\u0435\u0440\u0432\u043E\u0433\u043E \u043B\u0438\u0446\u0430 (\u0434\u0432\u0438\u0433\u0430\u0439\u0442\u0435 \u043C\u044B\u0448\u044C, \u0447\u0442\u043E\u0431\u044B \u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C\u0441\u044F). \u041D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435 \u0432 \u0432\u0435\u0440\u0442\u0438\u043A\u0430\u043B\u044C\u043D\u043E\u043C \u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0438 \u2014 \u043F\u043E\u043B\u043E\u0441\u0430 \u043D\u0430\u0434 \u0432\u043E\u043F\u0440\u043E\u0441\u043E\u043C. \xAB\u041B\u0451\u0433\u043A\u0430\u044F\xBB \u2014 \u0434\u043B\u044F \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u043E\u0432 \u0438 \u0441\u0442\u0430\u0440\u044B\u0445 \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\u043E\u0432.",
+    "This screen is too small for the 3D arena \u2014 the classic 2D view is used.": "\u042D\u043A\u0440\u0430\u043D \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B \u0434\u043B\u044F 3D-\u0430\u0440\u0435\u043D\u044B \u2014 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0441\u044F \u043A\u043B\u0430\u0441\u0441\u0438\u0447\u0435\u0441\u043A\u0438\u0439 2D-\u0432\u0438\u0434.",
     "3D was slow \u2014 lowered its resolution. Settings \u2192 3D arena \u2192 Off for the 2D view.": "3D \u0442\u043E\u0440\u043C\u043E\u0437\u0438\u043B\u043E \u2014 \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u0435 \u0441\u043D\u0438\u0436\u0435\u043D\u043E. \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 3D-\u0430\u0440\u0435\u043D\u0430 \u2192 \u0412\u044B\u043A\u043B. \u0434\u043B\u044F 2D-\u0432\u0438\u0434\u0430.",
     "3D was slow on this device \u2014 switched to Lite (Settings \u2192 3D arena).": "3D \u0442\u043E\u0440\u043C\u043E\u0437\u0438\u043B\u043E \u043D\u0430 \u044D\u0442\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435 \u2014 \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u0430 \u043B\u0451\u0433\u043A\u0430\u044F \u0432\u0435\u0440\u0441\u0438\u044F (\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 3D-\u0430\u0440\u0435\u043D\u0430).",
     // auth
@@ -585,6 +585,7 @@
   var KEY2 = "kb:uizoom";
   var UI_ZOOMS = [0.7, 0.8, 0.9, 1];
   var scale = 1;
+  var uiScale = () => scale;
   function uiZoomPref() {
     try {
       const v = Number(localStorage.getItem(KEY2));
@@ -2538,7 +2539,8 @@
     }
   })();
   var hasWebgl = () => webgl;
-  var arenaSupported = () => webgl && innerWidth >= 560 && innerHeight >= 260 && innerWidth > innerHeight;
+  var upright = () => innerWidth <= innerHeight || innerWidth < 560;
+  var arenaSupported = () => webgl && (upright() ? innerWidth >= 280 : innerHeight >= 260);
   var smallOrTouch = () => innerWidth < 900 || innerHeight < 560 || matchMedia("(pointer: coarse)").matches;
   function arenaQuality() {
     let v = null;
@@ -2556,8 +2558,7 @@
     } catch {
     }
     if (q === "off") {
-      api2?.setActive(false);
-      document.body.classList.remove("has-3d");
+      deactivate();
       return;
     }
     api2?.setLite(q === "lite");
@@ -2598,6 +2599,16 @@
   function preloadArena() {
     if (wanted()) setTimeout(() => void load2(), 1500);
   }
+  var screenName = "";
+  var band = false;
+  var bandTimer = 0;
+  function deactivate() {
+    api2?.setActive(false);
+    document.body.classList.remove("has-3d", "band-3d");
+    clearInterval(bandTimer);
+    const c = document.getElementById("arena3d");
+    if (c) c.removeAttribute("style");
+  }
   async function activate() {
     if (!wanted()) return;
     const a = await load2();
@@ -2606,16 +2617,46 @@
       a.setup({ ...pending, bgSvg: sceneSvg(bg.id, bg.time), bgKey: `${bg.id}-${bg.time}`, time: bg.time });
       pending = null;
     }
+    band = upright();
+    document.body.classList.toggle("has-3d", !band);
+    document.body.classList.toggle("band-3d", band);
+    a.setBand(band);
+    clearInterval(bandTimer);
+    if (band) {
+      placeBand();
+      bandTimer = window.setInterval(placeBand, 300);
+    } else document.getElementById("arena3d")?.removeAttribute("style");
     a.setActive(true);
-    document.body.classList.add("has-3d");
   }
+  function placeBand() {
+    const c = document.getElementById("arena3d");
+    if (!c || !band) return;
+    let top = 0, bottom = 0;
+    if (screenName === "deck") {
+      const r2 = document.getElementById("dkBand")?.getBoundingClientRect();
+      if (r2) {
+        top = r2.top;
+        bottom = r2.bottom;
+      }
+    } else {
+      const sides = [...document.querySelectorAll("#arena .side")].map((e) => e.getBoundingClientRect()).filter((r2) => r2.height > 0);
+      if (sides.length) {
+        top = Math.min(...sides.map((r2) => r2.top));
+        bottom = Math.max(...sides.map((r2) => r2.bottom));
+      }
+    }
+    const z = uiScale();
+    const css2 = `position:absolute;left:0;top:${Math.round((top + scrollY) / z)}px;width:100%;height:${Math.max(0, Math.round((bottom - top) / z))}px`;
+    if (c.getAttribute("style") !== css2) c.setAttribute("style", css2);
+  }
+  addEventListener("scroll", () => {
+    if (band) placeBand();
+  }, { passive: true });
   function arenaScreen(screen2) {
+    screenName = screen2;
     onScreen = GAME_SCREENS.has(screen2);
     if (onScreen) void activate();
-    else {
-      api2?.setActive(false);
-      document.body.classList.remove("has-3d");
-    }
+    else deactivate();
   }
   var reflowTimer = 0;
   function reflow() {
@@ -2623,10 +2664,7 @@
     reflowTimer = window.setTimeout(() => {
       if (!onScreen) return;
       if (wanted()) void activate();
-      else {
-        api2?.setActive(false);
-        document.body.classList.remove("has-3d");
-      }
+      else deactivate();
     }, 250);
   }
   addEventListener("resize", reflow);
@@ -4687,7 +4725,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.9.7";
+  var VERSION = "0.9.7.1";
 
   // src/client/net.ts
   var GameSocket = class {
@@ -6478,7 +6516,7 @@
     const sync = () => {
       t.value = arenaQuality();
       t.disabled = !hasWebgl();
-      $("arena3dInfo").textContent = !hasWebgl() ? "Your browser has no WebGL \u2014 the classic 2D view is used." : arenaSupported() ? "First-person duel arena (move the mouse to look around). Lite is lighter on phones and older computers." : "Turn your phone sideways during a game for the 3D arena (upright shows the 2D view).";
+      $("arena3dInfo").textContent = !hasWebgl() ? "Your browser has no WebGL \u2014 the classic 2D view is used." : arenaSupported() ? "First-person duel arena (move the mouse to look around). On a phone held upright it is a band above the question. Lite is lighter on phones and older computers." : "This screen is too small for the 3D arena \u2014 the classic 2D view is used.";
     };
     sync();
     t.onchange = () => {

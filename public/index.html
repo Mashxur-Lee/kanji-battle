@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#0b0a1c">
   <title>Kanji Wizards</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -468,6 +468,7 @@
     <div class="deck-middle">
       <aside id="dkList" class="dk-panel dk-list"></aside>
       <div id="dkStage" class="dk-stage">
+        <div id="dkBand" class="dk-band" aria-hidden="true"></div>
         <div id="dkBanner" class="dk-banner"></div>
         <div id="dkCast" class="dk-cast"></div>
         <div id="dkWrite"></div>
@@ -566,7 +567,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.7</div>
+<div id="version" class="version">v0.9.7.1</div>
 <script src="/app.js"></script>
 </body>
 </html>

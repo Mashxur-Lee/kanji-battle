@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.7
+# Kanji Wizards · v0.9.7.1
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -157,8 +157,10 @@ start queueing or create a Deck Duel).
 ## Phones
 
 The 3D arena now has **Full / Lite / Off** (settings panel). Lite (default on phones and small screens) uses less
-grass and particles, no anti-aliasing and a lower resolution; turn a phone sideways to get 3D (it switches on
-the fly, and the setting can be changed while holding the phone upright). If 3D runs slowly the arena drops to
+grass and particles, no anti-aliasing and a lower resolution. On a phone held upright the 3D arena is a band
+across the screen where the 2D fighters stand: only the opponent (or the dragon and your party) and the arena,
+zoomed in and cropped at the sides, without your hand — the question and the keyboard stay below it, and the page
+shrinks with the keyboard (`interactive-widget=resizes-content`). Sideways it fills the screen as on a computer. If 3D runs slowly the arena drops to
 Lite by itself (then to a lower resolution) and says so. On phones the mode's name sits under the top bar. Upright phones use
 the 2D layout with a bigger writing pad, a compact top bar and stacked pages.
 
@@ -223,7 +225,7 @@ and its gem flies off with the spell. The gem is gone until you start writing or
 up — a miss or a wrong answer shatters it the same way (also in 2D). A 5× combo (or your Omnipotence in Deck
 Duel) sets your staff on fire and sends mana fire in your flame colour flowing along the bottom of the screen (a
 shader, a soft animated band over the lower quarter of the screen), with a big combo counter. The flames end with the
-game. Ambient motion (fire, sway, the gem) runs even with the system's "reduce motion" on; only camera shake follows it. In Boss fights, downed
+game. Ambient motion (fire, sway, the gem) runs even with the system's "reduce motion" on; only camera shake follows it. Opponents and teammates cast the same way: a short wind-up, then the staff thrust forward at the target. In Boss fights, downed
 teammates lie on the ground (and you lose your staff). The others
 are low-poly 3D characters holding staffs (wizard, witch, goblin, knight, apprentice, adventurer — their level's
 avatar, or their Deck Duel hero). Deck Duel cards hit with their own effect: Bolt → lightning, Frost → the target turns see-through

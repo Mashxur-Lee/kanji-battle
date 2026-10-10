@@ -52,6 +52,9 @@ export interface ArenaApi {
   float(who: Who, text: string, color?: string): void;
   /** lighter rendering for small screens / phones (less grass and particles, lower resolution) */
   setLite(on: boolean): void;
+  /** phones held upright: the arena is a band across the screen showing only the opponent / party and
+   *  the arena (your hand and staff are left out) */
+  setBand(on: boolean): void;
   dispose(): void;
 }
 
@@ -175,8 +178,8 @@ function backgroundTexture(svg: string, onReady: (t: THREE.Texture, ground: THRE
 // ── lighting presets per time of day ────────────────────────────────────────
 const LIGHT: Record<TimeOfDay, { sky: number; ground: number; hemi: number; sun: number; sunInt: number; sunPos: [number, number, number]; spriteTint: number; torch: number; motes: number; bloom: string }> = {
   day: { sky: 0xdbe9ff, ground: 0x5a4a38, hemi: 1.6, sun: 0xfff1d6, sunInt: 2.2, sunPos: [6, 12, 4], spriteTint: 0xffffff, torch: 6, motes: 0xfff6d8, bloom: '255,250,230' },
-  sunset: { sky: 0xffb38a, ground: 0x3a2440, hemi: 1.15, sun: 0xff9a5c, sunInt: 2.0, sunPos: [-10, 4, -6], spriteTint: 0xffe2cc, torch: 14, motes: 0xffc27a, bloom: '255,190,120' },
-  night: { sky: 0x5a6cc0, ground: 0x10101c, hemi: 0.55, sun: 0x9fb4ff, sunInt: 0.8, sunPos: [-6, 10, -8], spriteTint: 0xb9c2e8, torch: 26, motes: 0xd8ff8a, bloom: '200,255,150' },
+  sunset: { sky: 0xffb38a, ground: 0x3a2440, hemi: 1.15, sun: 0xff9a5c, sunInt: 2.0, sunPos: [-10, 4, -6], spriteTint: 0xffeadb, torch: 14, motes: 0xffc27a, bloom: '255,190,120' },
+  night: { sky: 0x5a6cc0, ground: 0x10101c, hemi: 0.55, sun: 0x9fb4ff, sunInt: 0.8, sunPos: [-6, 10, -8], spriteTint: 0xd0d6f2, torch: 26, motes: 0xd8ff8a, bloom: '200,255,150' },
 };
 
 
@@ -207,7 +210,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   const pixelRatio = () => (lowRes ? 0.75 : lite ? 1 : Math.min(devicePixelRatio || 1, 1.5));
   renderer.setPixelRatio(pixelRatio());
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.15; // 0.9.7.1: a little brighter
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0x1a1630, 20, 58);
@@ -223,6 +226,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   const fill = new THREE.PointLight(0xffffff, 6, 9, 2); // lights your character from the camera side
   fill.position.set(0, 3, 7.5);
   scene.add(fill);
+  // a soft stage light from the front, so the opponent, your party and the dragon read clearly (strongest at night)
+  const stage = new THREE.DirectionalLight(0xfff4e6, 0.8);
+  stage.position.set(1.5, 5, 9); stage.target.position.set(0, 1, -3);
+  scene.add(stage, stage.target);
 
   // ── far background: the player's chosen scene on a huge curved screen, its own ground at the horizon ──
   const bgMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, side: THREE.DoubleSide });
@@ -370,7 +377,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
 
   // ── you, in first person: your hand holding your staff (sleeve and skin after your character) ──
   const fp = new THREE.Group();
-  camera.add(fp);
+  let bandView = false;
+  const fpRoot = new THREE.Group(); // hidden in the phone band (only the opponent and the arena show there)
+  fpRoot.add(fp);
+  camera.add(fpRoot);
   // Deck Duel: smaller, in the free corner under the chat
   const FP_BATTLE = new THREE.Vector3(1.08, -0.52, -1.6), FP_DECK = new THREE.Vector3(1.14, -0.6, -1.6);
   fp.scale.setScalar(0.72);
@@ -612,9 +622,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     const s = current;
     const opp = fighters.get('opp');
     if (opp?.model) opp.group.scale.setScalar(1.3); // across the arena: a little larger than life, so you can see them
-    if (opp) opp.group.position.set(screenSpot(s.layout === 'deck' ? 0.36 : 0.46, -2.2), 0, -2.2);
+    if (opp) opp.group.position.set(screenSpot(bandView ? 0.12 : s.layout === 'deck' ? 0.36 : 0.46, -2.2), 0, -2.2); // the band has no hand on the right: more central
     const boss = fighters.get('boss');
-    if (boss) boss.group.position.set(screenSpot(0.5, -5.5), 0, -5.5);
+    if (boss) boss.group.position.set(screenSpot(bandView ? 0.2 : 0.5, -5.5), 0, -5.5);
     s.allies.forEach((a, i) => {
       const f = fighters.get(`ally:${a.id}`);
       if (f) f.group.position.set(screenSpot(-0.36 + i * 0.13, -0.6 - i * 1.1), 0, -0.6 - i * 1.1);
@@ -645,7 +655,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     for (const a of s.allies) makeFighter(`ally:${a.id}`, a);
     placeFighters();
     const L = LIGHT[s.time];
-    hemi.color.set(L.sky); hemi.groundColor.set(L.ground); hemi.intensity = L.hemi;
+    hemi.color.set(L.sky); hemi.groundColor.set(L.ground); hemi.intensity = L.hemi * 1.25;
+    stage.intensity = s.time === 'night' ? 1.3 : s.time === 'sunset' ? 1 : 0.7;
     sun.color.set(L.sun); sun.intensity = L.sunInt; sun.position.set(...L.sunPos);
     fill.intensity = s.time === 'night' ? 9 : 5;
     for (const t of torches) t.base = L.torch;
@@ -673,12 +684,19 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = camera.aspect < 1.3 ? 66 : 55;
+    camera.fov = bandView ? 40 : camera.aspect < 1.3 ? 66 : 55; // the phone band: zoomed in on the opponent / dragon
     camera.updateProjectionMatrix();
     placeFighters();
     placeFireBand();
   }
   addEventListener('resize', resize);
+  // the canvas also changes size on its own (the phone band follows the page layout)
+  let lastW = 0, lastH = 0;
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => {
+    if (!active || (canvas.clientWidth === lastW && canvas.clientHeight === lastH)) return;
+    lastW = canvas.clientWidth; lastH = canvas.clientHeight; resize();
+  }) : null;
+  ro?.observe(canvas);
 
   // ── materials on a model: hurt flash, frost, burning ───────────────────────
   const KO_GREY = new THREE.Color(0x6a6a78), RED = new THREE.Color(0xff2a2a), ICE = new THREE.Color(0x8fdcff), ICE_GLOW = new THREE.Color(0x2a7cff), BURN = new THREE.Color(0xff6a1a);
@@ -819,10 +837,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       if (f.model) {
         const m = f.model;
         m.body.position.y = still ? 0 : Math.sin(time * 2 + f.height * 3) * 0.02;
-        m.body.rotation.x = lunge * 0.18;
+        // casting: a short wind-up (staff tip back), then the staff is thrust forward at the target — like yours
+        const p = 1 - lunge; // 0 → 1 over the cast
+        const thrust = lunge <= 0 ? 0 : p < 0.18 ? -0.35 * (p / 0.18) : p < 0.4 ? -0.35 + 1.35 * ((p - 0.18) / 0.22) : 1 - ((p - 0.4) / 0.6) ** 2;
+        m.body.rotation.x = Math.max(0, thrust) * 0.2;
+        m.staffPivot.rotation.x = thrust * 1.9;
         // the staff arm: raised to cast, held forward while writing, with little random moves as you write
         const writing = key === 'me' ? channelShown : key === 'opp' && oppChannelOn ? 0.7 : 0;
-        const ax = -0.15 - writing * 0.75 - lunge * 1.2 + (key === 'me' ? twitchRot.x : 0);
+        const ax = -0.15 - writing * 0.75 - Math.max(0, thrust) * 0.9 + (key === 'me' ? twitchRot.x : 0);
         m.arm.rotation.x += (ax - m.arm.rotation.x) * Math.min(1, dt * 10);
         m.arm.rotation.z = -0.35 + (key === 'me' ? twitchRot.z : 0) + (writing ? Math.sin(time * 9) * 0.05 * writing : 0);
         m.arm.rotation.y = key === 'me' ? twitchRot.y : 0;
@@ -1089,8 +1111,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       moteGeo.setDrawRange(0, on ? 90 : MOTES);
       resize();
     },
+    setBand(on) {
+      bandView = on;
+      fpRoot.visible = !on;
+      resize();
+    },
     dispose() {
       api.setActive(false);
+      ro?.disconnect();
       removeEventListener('pointermove', onMove);
       removeEventListener('resize', resize);
       overlay.remove();

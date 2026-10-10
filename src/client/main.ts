@@ -636,8 +636,8 @@ document.documentElement.dataset.v = VERSION;
     t.value = arenaQuality();
     t.disabled = !hasWebgl(); // you can pick it while holding a phone upright: it applies once you turn it sideways
     ui.$('arena3dInfo').textContent = !hasWebgl() ? 'Your browser has no WebGL — the classic 2D view is used.'
-      : arenaSupported() ? 'First-person duel arena (move the mouse to look around). Lite is lighter on phones and older computers.'
-      : 'Turn your phone sideways during a game for the 3D arena (upright shows the 2D view).';
+      : arenaSupported() ? 'First-person duel arena (move the mouse to look around). On a phone held upright it is a band above the question. Lite is lighter on phones and older computers.'
+      : 'This screen is too small for the 3D arena — the classic 2D view is used.';
   };
   sync();
   t.onchange = () => { setArenaQuality(t.value as ArenaQuality); sync(); };
