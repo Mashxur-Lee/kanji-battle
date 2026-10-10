@@ -54,7 +54,8 @@ export function createApiHandler(auth: AuthService, study: StudyService) {
         const result = url === '/api/register' ? await auth.register(body.username, body.password) : await auth.login(body.username, body.password);
         send(res, 200, result);
       } else if (req.method === 'GET' && url === '/api/me') {
-        const u = await auth.authenticate(bearer(req));
+        let u = await auth.authenticate(bearer(req));
+        if (query.get('today')) u = await study.touchLogin(u, resolveToday(query.get('today'))); // daily login streak
         send(res, 200, { user: toPublic(u), profile: await study.profile(u) });
       } else if (req.method === 'GET' && /^\/api\/avatar\/[\w-]+$/.test(url)) {
         // profile pictures are public (shown next to names in games); versioned URLs → cache forever

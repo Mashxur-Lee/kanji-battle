@@ -54,6 +54,31 @@
     synth.cancel();
     synth.speak(u);
   }
+  function speak(kana) {
+    if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== "visible") return Promise.resolve();
+    if (!voice) pick();
+    if (!voice && !synth.getVoices().length) return Promise.resolve();
+    return new Promise((done) => {
+      const u = new SpeechSynthesisUtterance(kana);
+      u.lang = "ja-JP";
+      if (voice) u.voice = voice;
+      u.rate = 0.95;
+      u.pitch = male ? 1 : 0.6;
+      u.volume = prefs.vol;
+      let finished = false;
+      const end = () => {
+        if (!finished) {
+          finished = true;
+          done();
+        }
+      };
+      u.onend = end;
+      u.onerror = end;
+      setTimeout(end, Math.min(2600, 500 + [...kana].length * 220));
+      synth.cancel();
+      synth.speak(u);
+    });
+  }
 
   // src/shared/protocol.ts
   var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
@@ -797,6 +822,7 @@
     img.onerror = () => img.remove();
     return img;
   }
+  var streakText = (n, best) => n > 0 ? `\u{1F525} ${n}-day login streak${best > n ? ` \xB7 best ${best}` : ""}` : best ? `No streak right now \xB7 best ${best} days` : "";
   function setProfile(p) {
     if (!p) return;
     const lx = levelXp(p.xp);
@@ -808,6 +834,7 @@
     $("ppRate").textContent = games ? `${Math.round((p.wins ?? 0) / games * 100)}%` : "\u2014";
     $("ppLearned").textContent = String(p.learned);
     $("ppToday").textContent = String(p.learnedToday ?? 0);
+    $("ppStreak").textContent = streakText(p.streak ?? 0, p.bestStreak ?? 0);
     for (const id of ["whoPic", "ppPic"]) {
       const el = $(id);
       el.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
@@ -953,17 +980,15 @@
       ]
     }
   };
-  function renderModeGuide(mode2) {
-    if (mode2 === "deck") return;
+  function modeGuideNodes(mode2) {
     const g = GUIDES[mode2];
     const ol = h("ol", "g-flow");
     for (const [icon, text] of g.steps) ol.append(append(h("li"), h("span", "g-ic", icon), h("span", "", text)));
-    $("modeGuide").replaceChildren(
-      h("h3", "", g.title),
-      g.pic(),
-      ol,
-      h("p", "g-foot", "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.")
-    );
+    return [h("h3", "", g.title), g.pic(), ol, h("p", "g-foot", "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.")];
+  }
+  function renderModeGuide(mode2) {
+    if (mode2 === "deck") return;
+    $("modeGuide").replaceChildren(...modeGuideNodes(mode2));
   }
   function showLobby(code2, mode2, players2, you2, hostId, maxPlayers, minPlayers2) {
     $("code").textContent = code2;
@@ -1524,7 +1549,7 @@
       if (img) pic.append(img);
       const games = p.wins + p.losses;
       body.push(
-        append(h("div", "pp-head"), pic, append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `Lv ${p.level}`))),
+        append(h("div", "pp-head"), pic, append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `Lv ${p.level}`), h("div", "pp-streak", streakText(p.streak ?? 0, p.bestStreak ?? 0)))),
         append(
           h("div", "pp-stats"),
           append(h("div"), h("b", "", p.wins), h("span", "", "wins")),
@@ -2203,317 +2228,6 @@
     for (let i = 0; i < 4; i++) bell(midi(notes[Math.floor(Math.random() * notes.length)]), at + i * 0.18, 1.4, 0.03, ambBus);
   }
 
-  // src/client/queue.ts
-  var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
-  var KEY3 = "kb:queue";
-  var load2 = () => {
-    try {
-      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY3) ?? "{}") };
-    } catch {
-      return { modes: ["reading", "rapid"], levels: ["N5"] };
-    }
-  };
-  var save2 = (s) => {
-    try {
-      localStorage.setItem(KEY3, JSON.stringify(s));
-    } catch {
-    }
-  };
-  var send = () => {
-  };
-  var me = () => "";
-  var tick = 0;
-  var searching = false;
-  function chip(value, label, on, group) {
-    const l = document.createElement("label");
-    l.className = "chip" + (on ? " on" : "");
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.value = value;
-    box.checked = on;
-    box.name = group;
-    box.onchange = () => {
-      l.classList.toggle("on", box.checked);
-      remember();
-    };
-    l.append(box, label);
-    return l;
-  }
-  var picked = (id) => [...document.querySelectorAll(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
-  var pick3 = "battle";
-  function remember() {
-    save2({ modes: picked("qModes"), levels: picked("qLevels"), pick: pick3 });
-  }
-  function choose(p) {
-    pick3 = p;
-    document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
-      const on = c.dataset.q === p;
-      c.classList.toggle("chosen", on);
-      c.setAttribute("aria-checked", String(on));
-    });
-    $("qStart").textContent = p === "deck" ? "\u2694 Start queue \u2014 Deck Duel" : "\u2694 Start queue";
-    remember();
-  }
-  function initQueue(sender, myId) {
-    send = sender;
-    me = myId;
-    $("mfAccept").onclick = () => {
-      if (foundId) send({ type: "queue_accept", matchId: foundId });
-    };
-    $("queueBack").onclick = () => {
-      if (searching) send({ type: "queue_cancel" });
-      stopSearching();
-      show("menu");
-    };
-    document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
-      c.addEventListener("click", () => choose(c.dataset.q));
-      c.addEventListener("keydown", (e) => {
-        if (e.key === " " || e.key === "Enter") {
-          e.preventDefault();
-          choose(c.dataset.q);
-        }
-      });
-    });
-    $("qStart").onclick = () => {
-      if (pick3 === "deck") return send({ type: "queue", modes: ["deck"] });
-      const modes = picked("qModes"), levels = picked("qLevels");
-      if (!modes.length) return toast("Tick at least one mode");
-      if (!levels.length) return toast("Tick at least one level");
-      send({ type: "queue", modes, levels });
-    };
-    $("qCancel").onclick = () => send({ type: "queue_cancel" });
-  }
-  function openQueue() {
-    const s = load2();
-    $("qModes").replaceChildren(...QUEUE_MODES.map((m) => chip(m, MODE_LABEL[m], s.modes.includes(m), "qm")));
-    $("qLevels").replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), "ql")));
-    choose(s.pick ?? "battle");
-    if (!searching) {
-      $("queuePick").hidden = false;
-      $("qSearching").hidden = true;
-    }
-    show("queue");
-  }
-  function stopSearching() {
-    searching = false;
-    clearInterval(tick);
-    $("queuePick").hidden = false;
-    $("qSearching").hidden = true;
-  }
-  var foundId = 0;
-  var foundTimer = 0;
-  function showFound(msg) {
-    const box = $("matchFound");
-    if (foundId !== msg.matchId) {
-      foundId = msg.matchId;
-      $("mfBadge").replaceChildren(modeBadge(msg.mode));
-      $("mfMode").textContent = MODE_LABEL[msg.mode];
-      const until = Date.now() + (msg.acceptMs ?? 5e3), total = msg.acceptMs ?? 5e3;
-      const arc = $("mfArc");
-      clearInterval(foundTimer);
-      const paint = () => {
-        const left = Math.max(0, until - Date.now());
-        $("mfSecs").textContent = String(Math.ceil(left / 1e3));
-        arc.style.strokeDashoffset = String(276.5 * (1 - left / total));
-        if (left <= 0) clearInterval(foundTimer);
-      };
-      paint();
-      foundTimer = window.setInterval(paint, 100);
-      box.hidden = false;
-      sfx.go();
-      $("mfAccept").focus();
-    }
-    const accepted = msg.accepted ?? [];
-    const mine = accepted.includes(me());
-    const btn = $("mfAccept");
-    btn.disabled = mine;
-    btn.textContent = mine ? "\u2713 Accepted" : "Accept";
-    $("mfStatus").textContent = mine ? "Waiting for your opponent\u2026" : accepted.length ? "Your opponent accepted!" : "";
-  }
-  function hideFound() {
-    foundId = 0;
-    clearInterval(foundTimer);
-    $("matchFound").hidden = true;
-  }
-  function onQueue(msg) {
-    if (msg.state === "found") return showFound(msg);
-    if (foundId) {
-      hideFound();
-      if (msg.state === "searching" && msg.requeued) toast("Your opponent didn't accept \u2014 you're back in the queue.", 4e3);
-      if (msg.state === "idle" && msg.reason === "missed") toast("You didn't accept in time \u2014 the queue stopped.", 4e3);
-    }
-    if (msg.state === "idle") return stopSearching();
-    $("queuePick").hidden = true;
-    $("qSearching").hidden = false;
-    if (currentScreen() !== "queue") show("queue");
-    if (msg.state === "matched") {
-      searching = false;
-      clearInterval(tick);
-      $("qTitle").textContent = `Player found \u2014 ${MODE_LABEL[msg.mode]}!`;
-      $("qInfo").textContent = "Starting\u2026";
-      $("qCancel").hidden = true;
-      return;
-    }
-    $("qCancel").hidden = false;
-    $("qTitle").textContent = "Searching for a player\u2026";
-    const started = Date.now() - ((msg.now ?? 0) - (msg.since ?? 0));
-    const others = (msg.searching ?? 1) - 1;
-    $("qInfo").textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(" \xB7 ")} \u2014 ${others > 0 ? `${others} other player${others === 1 ? "" : "s"} searching` : "no one else searching yet"}`;
-    if (!searching) {
-      searching = true;
-      clearInterval(tick);
-      const paint = () => {
-        const s = Math.floor((Date.now() - started) / 1e3);
-        $("qTimer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-      };
-      paint();
-      tick = window.setInterval(paint, 500);
-    }
-  }
-  function resetQueue() {
-    stopSearching();
-    $("qCancel").hidden = false;
-  }
-
-  // src/client/cursor.ts
-  var G = 32;
-  var COLORS = {
-    k: "#1b1530",
-    // outline
-    s: "#f3c9a1",
-    // skin
-    S: "#d99f74",
-    // skin shade / finger creases
-    w: "#8a5a2b",
-    // handle
-    W: "#c08a4a",
-    // handle highlight
-    m: "#c9ced8",
-    // metal ferrule
-    b: "#2a2230",
-    // bristles
-    B: "#000000",
-    // wet ink tip
-    c: "#3b5bdb",
-    // sleeve
-    C: "#9fb4ff"
-    // sleeve cuff
-  };
-  function draw() {
-    const g = Array.from({ length: G }, () => Array(G).fill(null));
-    const set = (x, y, c) => {
-      if (x >= 0 && y >= 0 && x < G && y < G) g[y][x] = c;
-    };
-    for (let t = 0; t <= 25; t++) {
-      const x = 1 + t, y = 30 - t;
-      if (t <= 1) set(x, y, "B");
-      else if (t <= 7) {
-        set(x, y, "b");
-        set(x + 1, y, "b");
-        if (t >= 4 && t <= 6) set(x, y - 1, "b");
-      } else if (t <= 9) {
-        set(x, y, "m");
-        set(x + 1, y, "m");
-        set(x, y - 1, "m");
-      } else {
-        set(x, y, "w");
-        set(x + 1, y, "W");
-        set(x, y - 1, "w");
-      }
-    }
-    const hx = (y) => 31 - y;
-    for (let f2 = 0; f2 < 4; f2++) {
-      const y0 = 11 + 2 * f2;
-      for (const y of [y0, y0 + 1]) {
-        const x0 = hx(y) - 2, x1 = hx(y) + 6;
-        for (let x = x0; x <= x1; x++) {
-          if (y === y0 + 1 && x === x0) continue;
-          set(x, y, y === y0 + 1 && x > x0 + 1 ? "S" : "s");
-        }
-      }
-    }
-    for (let y = 10; y <= 18; y++) for (let x = hx(y) + 7; x <= Math.min(31, hx(y) + 11); x++) set(x, y, x >= hx(y) + 10 ? "S" : "s");
-    for (let x = hx(9) - 2; x <= hx(9) + 4; x++) set(x, 9, "s");
-    for (let x = hx(10) - 3; x <= hx(10) + 2; x++) set(x, 10, x <= hx(10) - 1 ? "s" : "S");
-    for (let x = hx(8) + 1; x <= hx(8) + 5; x++) set(x, 8, "s");
-    for (let y = 3; y <= 16; y++) for (let x = hx(y) + 12; x <= 31; x++) if (x - (hx(y) + 12) < 4) set(x, y, x === hx(y) + 12 ? "C" : "c");
-    const filled = g.map((row) => row.map((c) => c !== null));
-    for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
-      if (filled[y][x]) continue;
-      if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => filled[y + dy]?.[x + dx])) g[y][x] = "k";
-    }
-    return g;
-  }
-  var css = "";
-  function brushCursor() {
-    if (css) return css;
-    const g = draw();
-    let rects = "";
-    g.forEach((row, y) => row.forEach((c, x) => {
-      if (c) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${COLORS[c]}"/>`;
-    }));
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 ${G} ${G}" shape-rendering="crispEdges">${rects}</svg>`;
-    css = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 61, crosshair`;
-    return css;
-  }
-
-  // src/shared/version.ts
-  var VERSION = "0.9.2";
-
-  // src/client/api.ts
-  var today = () => {
-    const d = /* @__PURE__ */ new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-  var TOKEN_KEY = "kb:token";
-  var getToken = () => {
-    try {
-      return localStorage.getItem(TOKEN_KEY) ?? "";
-    } catch {
-      return "";
-    }
-  };
-  var setToken = (t) => {
-    try {
-      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
-    } catch {
-    }
-  };
-  var ApiError = class extends Error {
-    constructor(message, status) {
-      super(message);
-      __publicField(this, "status", status);
-    }
-  };
-  async function call(method, url, body) {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
-      body: body === void 0 ? void 0 : JSON.stringify(body)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
-    return data;
-  }
-  var api2 = {
-    login: (username, password) => call("POST", "/api/login", { username, password }),
-    register: (username, password) => call("POST", "/api/register", { username, password }),
-    me: () => call("GET", "/api/me"),
-    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
-    removeAvatar: () => call("DELETE", "/api/me/avatar"),
-    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
-    setBackground: (background) => call("PUT", "/api/me/background", { background }),
-    study: () => call("GET", `/api/study?today=${today()}`),
-    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
-    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
-    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
-    matches: () => call("GET", "/api/matches"),
-    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
-    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
-    users: () => call("GET", "/api/admin/users"),
-    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
-  };
-
   // src/shared/deck.ts
   var CARD_COLORS = ["lightblue", "blue", "yellow", "green", "red"];
   var CARD_SPECS = {
@@ -2665,6 +2379,7 @@
     seenChat.clear();
     $2("dkChatLog").replaceChildren();
   }
+  var renderDeckGuide = (el) => renderGuide(el);
   function renderGuide(el) {
     const sec = (title, ...kids) => {
       const s = h2("section", "g-sec");
@@ -2708,7 +2423,7 @@
     }
     el.replaceChildren(
       h2("h3", "", "How Deck Duel works"),
-      sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. Holding cards you can't pay for = you lose.`)),
+      sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (\u2212${DECK_RULES.skipPenaltyHp} HP).`)),
       sec("Cards", cards),
       sec("A turn", flow),
       sec(`Heroes \u2014 power button bottom-left: ${DECK_RULES.abilityCost} mana, then ${DECK_RULES.abilityCooldown} turns cooldown`, heroes),
@@ -2920,6 +2635,7 @@
         b.onclick = () => {
           b.disabled = true;
           sfx.flip();
+          arena()?.thrust();
           hooks.send({ type: "deck_cast_go", castId: c.castId });
         };
         actions.append(h2("div", "cast-timer", "Memorise it \u2014 it disappears when you cast"), b);
@@ -3047,14 +2763,13 @@
         }
         break;
       case "resolve":
-        animateResolve(e, me2);
+        animateResolve(e, me2, e.ok ? speak(e.reading) : Promise.resolve());
         showReveal(e);
-        if (e.ok) setTimeout(() => say(e.reading), 1100);
         break;
     }
   }
   var CARD_FX = { lightblue: "bolt", blue: "frost", red: "fire" };
-  function animateResolve(e, me2) {
+  function animateResolve(e, me2, spoken = Promise.resolve()) {
     const card = $2("dkCast").querySelector(".dkc.big");
     const fb = $2("dkFeedback");
     const who = e.playerId === me2 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
@@ -3091,15 +2806,17 @@
     Object.assign(ghost.style, { position: "fixed", left: `${r2.left}px`, top: `${r2.top}px`, width: `${r2.width}px`, height: `${r2.height}px`, zIndex: "30", margin: "0" });
     document.body.append(ghost);
     if (spec.kind === "mana") {
-      sfx.mana();
+      void spoken.then(() => sfx.mana());
       ghost.classList.add("sparkle");
     } else {
       const towardsMe = spec.kind === "heal" ? e.playerId === me2 : e.targetId === me2;
       const target = $2(towardsMe ? "dkMe" : "dkOpp").getBoundingClientRect();
       ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
-      if (spec.kind === "heal") sfx.heal();
-      else sfx.correct(1);
+      void spoken.then(() => {
+        if (spec.kind === "heal") sfx.heal();
+        else sfx.correct(1);
+      });
       setTimeout(() => {
         if (spec.kind === "attack") towardsMe ? sfx.hurt() : sfx.impact();
       }, 500);
@@ -3161,6 +2878,347 @@
     stopCountdown("dkMatch");
     stopCountdown("dkTurn");
     stopCountdown("dkDraft");
+  };
+
+  // src/client/queue.ts
+  var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
+  var KEY3 = "kb:queue";
+  var load2 = () => {
+    try {
+      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY3) ?? "{}") };
+    } catch {
+      return { modes: ["reading", "rapid"], levels: ["N5"] };
+    }
+  };
+  var save2 = (s) => {
+    try {
+      localStorage.setItem(KEY3, JSON.stringify(s));
+    } catch {
+    }
+  };
+  var send = () => {
+  };
+  var me = () => "";
+  var tick = 0;
+  var searching = false;
+  function guideHover(el, mode2) {
+    const pop = $("guidePop");
+    const open = () => {
+      pop.replaceChildren(...modeGuideNodes(mode2));
+      pop.hidden = false;
+      const r2 = el.getBoundingClientRect();
+      const w = Math.min(380, innerWidth - 24);
+      pop.style.width = `${w}px`;
+      pop.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, r2.left))}px`;
+      const below = r2.bottom + 10;
+      pop.style.top = `${below + pop.offsetHeight > innerHeight - 8 ? Math.max(8, r2.top - 10 - pop.offsetHeight) : below}px`;
+    };
+    const close = () => {
+      pop.hidden = true;
+    };
+    el.addEventListener("mouseenter", open);
+    el.addEventListener("mouseleave", close);
+    el.addEventListener("focusin", open);
+    el.addEventListener("focusout", close);
+  }
+  function chip(value, label, on, group) {
+    const l = document.createElement("label");
+    l.className = "chip" + (on ? " on" : "");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = value;
+    box.checked = on;
+    box.name = group;
+    box.onchange = () => {
+      l.classList.toggle("on", box.checked);
+      remember();
+    };
+    l.append(box, label);
+    return l;
+  }
+  var picked = (id) => [...document.querySelectorAll(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
+  var pick3 = "battle";
+  function remember() {
+    save2({ modes: picked("qModes"), levels: picked("qLevels"), pick: pick3 });
+  }
+  function choose(p) {
+    pick3 = p;
+    document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
+      const on = c.dataset.q === p;
+      c.classList.toggle("chosen", on);
+      c.setAttribute("aria-checked", String(on));
+    });
+    $("qStart").textContent = p === "deck" ? "\u2694 Start queue \u2014 Deck Duel" : "\u2694 Start queue";
+    remember();
+  }
+  function initQueue(sender, myId) {
+    send = sender;
+    me = myId;
+    $("qDeckHelp").addEventListener("click", (e) => {
+      e.stopPropagation();
+      renderDeckGuide($("guideBody"));
+      $("guideDialog").showModal();
+    });
+    $("qDeckHelp").addEventListener("keydown", (e) => e.stopPropagation());
+    $("mfAccept").onclick = () => {
+      if (foundId) send({ type: "queue_accept", matchId: foundId });
+    };
+    $("queueBack").onclick = () => {
+      if (searching) send({ type: "queue_cancel" });
+      stopSearching();
+      show("menu");
+    };
+    document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
+      c.addEventListener("click", () => choose(c.dataset.q));
+      c.addEventListener("keydown", (e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          choose(c.dataset.q);
+        }
+      });
+    });
+    $("qStart").onclick = () => {
+      if (pick3 === "deck") return send({ type: "queue", modes: ["deck"] });
+      const modes = picked("qModes"), levels = picked("qLevels");
+      if (!modes.length) return toast("Tick at least one mode");
+      if (!levels.length) return toast("Tick at least one level");
+      send({ type: "queue", modes, levels });
+    };
+    $("qCancel").onclick = () => send({ type: "queue_cancel" });
+  }
+  function openQueue() {
+    const s = load2();
+    $("qModes").replaceChildren(...QUEUE_MODES.map((m) => {
+      const c = chip(m, MODE_LABEL[m], s.modes.includes(m), "qm");
+      guideHover(c, m);
+      return c;
+    }));
+    $("qLevels").replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), "ql")));
+    choose(s.pick ?? "battle");
+    if (!searching) {
+      $("queuePick").hidden = false;
+      $("qSearching").hidden = true;
+    }
+    show("queue");
+  }
+  function stopSearching() {
+    searching = false;
+    clearInterval(tick);
+    $("queuePick").hidden = false;
+    $("qSearching").hidden = true;
+  }
+  var foundId = 0;
+  var foundTimer = 0;
+  function showFound(msg) {
+    const box = $("matchFound");
+    if (foundId !== msg.matchId) {
+      foundId = msg.matchId;
+      $("mfBadge").replaceChildren(modeBadge(msg.mode));
+      $("mfMode").textContent = MODE_LABEL[msg.mode];
+      const until = Date.now() + (msg.acceptMs ?? 5e3), total = msg.acceptMs ?? 5e3;
+      const arc = $("mfArc");
+      clearInterval(foundTimer);
+      const paint = () => {
+        const left = Math.max(0, until - Date.now());
+        $("mfSecs").textContent = String(Math.ceil(left / 1e3));
+        arc.style.strokeDashoffset = String(276.5 * (1 - left / total));
+        if (left <= 0) clearInterval(foundTimer);
+      };
+      paint();
+      foundTimer = window.setInterval(paint, 100);
+      box.hidden = false;
+      sfx.go();
+      $("mfAccept").focus();
+    }
+    const accepted = msg.accepted ?? [];
+    const mine = accepted.includes(me());
+    const btn = $("mfAccept");
+    btn.disabled = mine;
+    btn.textContent = mine ? "\u2713 Accepted" : "Accept";
+    $("mfStatus").textContent = mine ? "Waiting for your opponent\u2026" : accepted.length ? "Your opponent accepted!" : "";
+  }
+  function hideFound() {
+    foundId = 0;
+    clearInterval(foundTimer);
+    $("matchFound").hidden = true;
+  }
+  function onQueue(msg) {
+    if (msg.state === "found") return showFound(msg);
+    if (foundId) {
+      hideFound();
+      if (msg.state === "searching" && msg.requeued) toast("Your opponent didn't accept \u2014 you're back in the queue.", 4e3);
+      if (msg.state === "idle" && msg.reason === "missed") toast("You didn't accept in time \u2014 the queue stopped.", 4e3);
+    }
+    if (msg.state === "idle") return stopSearching();
+    $("queuePick").hidden = true;
+    $("qSearching").hidden = false;
+    if (currentScreen() !== "queue") show("queue");
+    if (msg.state === "matched") {
+      searching = false;
+      clearInterval(tick);
+      $("qTitle").textContent = `Player found \u2014 ${MODE_LABEL[msg.mode]}!`;
+      $("qInfo").textContent = "Starting\u2026";
+      $("qCancel").hidden = true;
+      return;
+    }
+    $("qCancel").hidden = false;
+    $("qTitle").textContent = "Searching for a player\u2026";
+    const started = Date.now() - ((msg.now ?? 0) - (msg.since ?? 0));
+    const others = (msg.searching ?? 1) - 1;
+    $("qInfo").textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(" \xB7 ")} \u2014 ${others > 0 ? `${others} other player${others === 1 ? "" : "s"} searching` : "no one else searching yet"}`;
+    if (!searching) {
+      searching = true;
+      clearInterval(tick);
+      const paint = () => {
+        const s = Math.floor((Date.now() - started) / 1e3);
+        $("qTimer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+      };
+      paint();
+      tick = window.setInterval(paint, 500);
+    }
+  }
+  function resetQueue() {
+    stopSearching();
+    $("qCancel").hidden = false;
+  }
+
+  // src/client/cursor.ts
+  var G = 32;
+  var COLORS = {
+    k: "#1b1530",
+    // outline
+    s: "#f3c9a1",
+    // skin
+    S: "#d99f74",
+    // skin shade / finger creases
+    w: "#8a5a2b",
+    // handle
+    W: "#c08a4a",
+    // handle highlight
+    m: "#c9ced8",
+    // metal ferrule
+    b: "#2a2230",
+    // bristles
+    B: "#000000",
+    // wet ink tip
+    c: "#3b5bdb",
+    // sleeve
+    C: "#9fb4ff"
+    // sleeve cuff
+  };
+  function draw() {
+    const g = Array.from({ length: G }, () => Array(G).fill(null));
+    const set = (x, y, c) => {
+      if (x >= 0 && y >= 0 && x < G && y < G) g[y][x] = c;
+    };
+    for (let t = 0; t <= 25; t++) {
+      const x = 1 + t, y = 30 - t;
+      if (t <= 1) set(x, y, "B");
+      else if (t <= 7) {
+        set(x, y, "b");
+        set(x + 1, y, "b");
+        if (t >= 4 && t <= 6) set(x, y - 1, "b");
+      } else if (t <= 9) {
+        set(x, y, "m");
+        set(x + 1, y, "m");
+        set(x, y - 1, "m");
+      } else {
+        set(x, y, "w");
+        set(x + 1, y, "W");
+        set(x, y - 1, "w");
+      }
+    }
+    const hx = (y) => 31 - y;
+    for (let f2 = 0; f2 < 4; f2++) {
+      const y0 = 11 + 2 * f2;
+      for (const y of [y0, y0 + 1]) {
+        const x0 = hx(y) - 2, x1 = hx(y) + 6;
+        for (let x = x0; x <= x1; x++) {
+          if (y === y0 + 1 && x === x0) continue;
+          set(x, y, y === y0 + 1 && x > x0 + 1 ? "S" : "s");
+        }
+      }
+    }
+    for (let y = 10; y <= 18; y++) for (let x = hx(y) + 7; x <= Math.min(31, hx(y) + 11); x++) set(x, y, x >= hx(y) + 10 ? "S" : "s");
+    for (let x = hx(9) - 2; x <= hx(9) + 4; x++) set(x, 9, "s");
+    for (let x = hx(10) - 3; x <= hx(10) + 2; x++) set(x, 10, x <= hx(10) - 1 ? "s" : "S");
+    for (let x = hx(8) + 1; x <= hx(8) + 5; x++) set(x, 8, "s");
+    for (let y = 3; y <= 16; y++) for (let x = hx(y) + 12; x <= 31; x++) if (x - (hx(y) + 12) < 4) set(x, y, x === hx(y) + 12 ? "C" : "c");
+    const filled = g.map((row) => row.map((c) => c !== null));
+    for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
+      if (filled[y][x]) continue;
+      if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => filled[y + dy]?.[x + dx])) g[y][x] = "k";
+    }
+    return g;
+  }
+  var css = "";
+  function brushCursor() {
+    if (css) return css;
+    const g = draw();
+    let rects = "";
+    g.forEach((row, y) => row.forEach((c, x) => {
+      if (c) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${COLORS[c]}"/>`;
+    }));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 ${G} ${G}" shape-rendering="crispEdges">${rects}</svg>`;
+    css = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 61, crosshair`;
+    return css;
+  }
+
+  // src/shared/version.ts
+  var VERSION = "0.9.3";
+
+  // src/client/api.ts
+  var today = () => {
+    const d = /* @__PURE__ */ new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  var TOKEN_KEY = "kb:token";
+  var getToken = () => {
+    try {
+      return localStorage.getItem(TOKEN_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  };
+  var setToken = (t) => {
+    try {
+      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+    } catch {
+    }
+  };
+  var ApiError = class extends Error {
+    constructor(message, status) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  async function call(method, url, body) {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+      body: body === void 0 ? void 0 : JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
+    return data;
+  }
+  var api2 = {
+    login: (username, password) => call("POST", "/api/login", { username, password }),
+    register: (username, password) => call("POST", "/api/register", { username, password }),
+    me: () => call("GET", `/api/me?today=${today()}`),
+    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
+    removeAvatar: () => call("DELETE", "/api/me/avatar"),
+    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
+    setBackground: (background) => call("PUT", "/api/me/background", { background }),
+    study: () => call("GET", `/api/study?today=${today()}`),
+    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
+    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
+    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    matches: () => call("GET", "/api/matches"),
+    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
+    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
+    users: () => call("GET", "/api/admin/users"),
+    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
   };
 
   // src/client/net.ts
@@ -3246,7 +3304,11 @@
       /** onDraw: called while a stroke is being drawn (for live spectating) */
       __publicField(this, "onDraw", () => {
       });
+      /** Eraser: rubbing over strokes removes them (whole strokes, so the drawing stays easy to read). */
+      __publicField(this, "erasing", false);
+      __publicField(this, "eraserAt", null);
       __publicField(this, "cells", 1);
+      __publicField(this, "rubbing", false);
       this.ctx = canvas.getContext("2d");
       canvas.addEventListener("pointerdown", (e) => this.down(e));
       canvas.addEventListener("pointermove", (e) => this.move(e));
@@ -3256,6 +3318,31 @@
     }
     get strokeCount() {
       return this.strokes.length;
+    }
+    get eraser() {
+      return this.erasing;
+    }
+    setEraser(on) {
+      this.erasing = on;
+      this.canvas.classList.toggle("erasing", on);
+      this.eraserAt = null;
+      this.redraw();
+    }
+    eraseAt(p) {
+      const r2 = this.canvas.height / 16;
+      const before = this.strokes.length;
+      this.strokes = this.strokes.filter((s) => {
+        for (let i = 0; i < s.length; i++) {
+          const a = s[i], b = s[Math.min(i + 1, s.length - 1)];
+          const dx = b[0] - a[0], dy = b[1] - a[1];
+          const t = dx || dy ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy))) : 0;
+          if (Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy)) < r2) return false;
+        }
+        return true;
+      });
+      this.eraserAt = p;
+      this.redraw();
+      if (this.strokes.length !== before) this.onChange();
     }
     /** Resize for a word of n characters (capped at 4 cells wide; longer words just write smaller). */
     setCells(n) {
@@ -3297,10 +3384,23 @@
       if (e.button !== 0 && e.pointerType === "mouse") return;
       e.preventDefault();
       this.canvas.setPointerCapture(e.pointerId);
+      if (this.erasing) {
+        this.rubbing = true;
+        this.eraseAt(this.point(e));
+        return;
+      }
       this.current = [this.point(e)];
       this.redraw();
     }
     move(e) {
+      if (this.erasing) {
+        if (this.rubbing) this.eraseAt(this.point(e));
+        else {
+          this.eraserAt = this.point(e);
+          this.redraw();
+        }
+        return;
+      }
       if (!this.current) return;
       const p = this.point(e);
       const last = this.current[this.current.length - 1];
@@ -3310,6 +3410,7 @@
       this.onDraw();
     }
     up() {
+      this.rubbing = false;
       if (!this.current) return;
       if (this.current.length === 1) this.current.push([this.current[0][0] + 1, this.current[0][1] + 1]);
       this.strokes.push(this.current);
@@ -3354,6 +3455,17 @@
         ctx2.beginPath();
         s.forEach(([x, y], i) => i ? ctx2.lineTo(x, y) : ctx2.moveTo(x, y));
         ctx2.stroke();
+      }
+      if (this.erasing && this.eraserAt) {
+        ctx2.save();
+        ctx2.strokeStyle = "rgba(214, 69, 90, .8)";
+        ctx2.fillStyle = "rgba(214, 69, 90, .12)";
+        ctx2.lineWidth = 3;
+        ctx2.beginPath();
+        ctx2.arc(this.eraserAt[0], this.eraserAt[1], canvas.height / 16, 0, Math.PI * 2);
+        ctx2.fill();
+        ctx2.stroke();
+        ctx2.restore();
       }
     }
   };
@@ -3614,6 +3726,9 @@
   onScreen2((s) => {
     setScene(GAME_SCREENS2.has(s) ? "game" : "menu");
     arenaScreen(s);
+    const title = $("modeTitle");
+    title.hidden = !["prep", "battle", "deck"].includes(s);
+    if (!title.hidden) title.replaceChildren(modeBadge(s === "deck" ? "deck" : mode), document.createTextNode(MODE_LABEL[s === "deck" ? "deck" : mode]));
     if (s === "menu" && profile) void refreshProfile();
     if (!GAME_SCREENS2.has(s)) setTimeout(() => applyBackground(true), 0);
   });
@@ -3786,9 +3901,8 @@
         if (mode === "writing") setCharSlots(charCount, written.map(() => ""), false);
         setFeedback(msg);
         if (msg.correct) {
-          sfx.correct(msg.combo);
           const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
-          setTimeout(() => say(kana), 1100);
+          void speak(kana).then(() => sfx.correct(msg.combo));
         } else sfx.wrong();
         break;
       case "battle_update":
@@ -3921,6 +4035,7 @@
     charCount = [...kanji].length;
     written = [];
     pad.setCells(charCount);
+    setEraser(false);
     arena()?.channel(0.35);
     if (mode === "deck") mountWriteArea("dkWrite");
     setCharSlots(charCount, [], true);
@@ -3940,6 +4055,12 @@
     writing = false;
   }
   $("padUndo").onclick = () => pad.undo();
+  var setEraser = (on) => {
+    pad.setEraser(on);
+    $("padErase").setAttribute("aria-pressed", String(on));
+    $("padErase").classList.toggle("on", on);
+  };
+  $("padErase").onclick = () => setEraser(!pad.eraser);
   $("padClear").onclick = () => pad.clear();
   $("answer").addEventListener("input", (e) => {
     arena()?.channel(Math.min(0.8, e.target.value.length * 0.15));
@@ -3972,7 +4093,7 @@
     else if ((e.ctrlKey || e.metaKey) && e.key === "z") {
       e.preventDefault();
       pad.undo();
-    }
+    } else if (e.key === "e" || e.key === "E") setEraser(!pad.eraser);
   });
   var authTab = "login";
   $("tabLogin").onclick = () => {

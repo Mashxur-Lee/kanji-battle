@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.2
+# Kanji Wizards · v0.9.3
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -87,9 +87,14 @@ as another player wants a mode you ticked, a room is made for both of you and th
 
 ## Match history & profiles
 
-**📜 Match history** on the main menu lists your last 50 games: the character you played, the mode's logo, VICTORY /
+**📜 Match history** on the main menu lists your last 15 games (older ones are deleted): the character you played, the mode's logo, VICTORY /
 DEFEAT and the date. Open one to see its results screen again. Click any player's name (lobby, battle, results,
 history) to see their profile: level, wins, losses, win rate and spells learned. Stored in `kw_matches` (Postgres).
+
+## Login streaks
+
+Opening the game on consecutive days builds a 🔥 login streak (by your own calendar day); your current and best
+streak show in your profile and on your profile card for others.
 
 ## Combo flames & study lock
 
@@ -134,9 +139,10 @@ Battles and Deck Duels are shown **first person** in a 3D arena (Three.js, `src/
 as `public/arena3d.js`): your staff in the foreground glows while you write or type, the opponent (or the dragon and
 your party) stands across a stone arena with torches, your chosen background and time of day far behind. Move the
 mouse to look around a little (parallax). Spells are kanji that fly across with a trail; hits flash and shake the
-camera. Everyone is a low-poly 3D character holding a staff (wizard, witch, goblin, knight, apprentice, adventurer —
-your level's avatar, or your Deck Duel hero); you see your own from just behind, and its staff arm moves as you
-write or type. Deck Duel cards hit with their own effect: Bolt → lightning, Frost → the target turns see-through
+camera. You play in first person: your hand and staff (styled after your character) — while you write or type the
+staff tilts back and charges, and when you cast it thrusts forward and its gem launches with the spell. The others
+are low-poly 3D characters holding staffs (wizard, witch, goblin, knight, apprentice, adventurer — their level's
+avatar, or their Deck Duel hero). Deck Duel cards hit with their own effect: Bolt → lightning, Frost → the target turns see-through
 icy blue for a second, Inferno → it burns. The dragon stays a pixel sprite. Only the look changed — all rules are the
 same. Switch it off in the sound/settings panel (🏟 3D arena); phones, small windows and browsers without WebGL
 use the classic 2D view.

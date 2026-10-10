@@ -34,6 +34,34 @@ export class HandwritingPad {
 
   get strokeCount() { return this.strokes.length; }
 
+  /** Eraser: rubbing over strokes removes them (whole strokes, so the drawing stays easy to read). */
+  private erasing = false;
+  private eraserAt: [number, number] | null = null;
+  get eraser() { return this.erasing; }
+  setEraser(on: boolean) {
+    this.erasing = on;
+    this.canvas.classList.toggle('erasing', on);
+    this.eraserAt = null;
+    this.redraw();
+  }
+  private eraseAt(p: [number, number]) {
+    const r = this.canvas.height / 16; // reach of the eraser
+    const before = this.strokes.length;
+    this.strokes = this.strokes.filter((s) => {
+      for (let i = 0; i < s.length; i++) {
+        const a = s[i], b = s[Math.min(i + 1, s.length - 1)];
+        // distance from p to the segment a–b
+        const dx = b[0] - a[0], dy = b[1] - a[1];
+        const t = dx || dy ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy))) : 0;
+        if (Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy)) < r) return false;
+      }
+      return true;
+    });
+    this.eraserAt = p;
+    this.redraw();
+    if (this.strokes.length !== before) this.onChange();
+  }
+
   private cells = 1;
   /** Resize for a word of n characters (capped at 4 cells wide; longer words just write smaller). */
   setCells(n: number) {
@@ -66,15 +94,22 @@ export class HandwritingPad {
     return [((e.clientX - r.left) / r.width) * this.canvas.width, ((e.clientY - r.top) / r.height) * this.canvas.height];
   }
 
+  private rubbing = false;
   private down(e: PointerEvent) {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     this.canvas.setPointerCapture(e.pointerId);
+    if (this.erasing) { this.rubbing = true; this.eraseAt(this.point(e)); return; }
     this.current = [this.point(e)];
     this.redraw();
   }
 
   private move(e: PointerEvent) {
+    if (this.erasing) {
+      if (this.rubbing) this.eraseAt(this.point(e));
+      else { this.eraserAt = this.point(e); this.redraw(); }
+      return;
+    }
     if (!this.current) return;
     const p = this.point(e);
     const last = this.current[this.current.length - 1];
@@ -85,6 +120,7 @@ export class HandwritingPad {
   }
 
   private up() {
+    this.rubbing = false;
     if (!this.current) return;
     if (this.current.length === 1) this.current.push([this.current[0][0] + 1, this.current[0][1] + 1]); // a dot
     this.strokes.push(this.current);
@@ -118,6 +154,12 @@ export class HandwritingPad {
       ctx.beginPath();
       s.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
       ctx.stroke();
+    }
+    if (this.erasing && this.eraserAt) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(214, 69, 90, .8)'; ctx.fillStyle = 'rgba(214, 69, 90, .12)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(this.eraserAt[0], this.eraserAt[1], canvas.height / 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.restore();
     }
   }
 }

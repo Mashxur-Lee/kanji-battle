@@ -90,7 +90,7 @@ export interface PlayerStats {
 export type GameOverReason = 'ko' | 'time' | 'forfeit' | 'boss_slain' | 'party_wiped';
 
 /** Another player's public card (shown when you click their name). */
-export interface PublicProfile { id: string; name: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string }
+export interface PublicProfile { id: string; name: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string; streak: number; bestStreak: number }
 
 /** One line of your match history. `character`: Deck Duel hero, otherwise the wizard avatar you played. */
 export interface MatchSummary {

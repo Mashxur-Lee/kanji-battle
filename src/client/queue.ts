@@ -1,6 +1,7 @@
 import { LEVELS, LEVEL_LABEL, MODE_LABEL, type GameMode, type Level, type ServerMessage } from '../shared/protocol';
 import * as ui from './ui';
 import * as audio from './audio';
+import { renderDeckGuide } from './deckui';
 
 // The online queue screen: pick modes + levels (or Deck Duel on its own) and search for a player.
 
@@ -14,6 +15,26 @@ let send: (m: { type: 'queue'; modes: string[]; levels?: string[] } | { type: 'q
 let me: () => string = () => '';
 let tick = 0;
 let searching = false;
+
+/** Hovering (or focusing) a battle mode shows its mini instructions, like in a room's lobby. */
+function guideHover(el: HTMLElement, mode: Exclude<GameMode, 'deck'>) {
+  const pop = ui.$('guidePop');
+  const open = () => {
+    pop.replaceChildren(...ui.modeGuideNodes(mode));
+    pop.hidden = false;
+    const r = el.getBoundingClientRect();
+    const w = Math.min(380, innerWidth - 24);
+    pop.style.width = `${w}px`;
+    pop.style.left = `${Math.max(12, Math.min(innerWidth - w - 12, r.left))}px`;
+    const below = r.bottom + 10;
+    pop.style.top = `${below + pop.offsetHeight > innerHeight - 8 ? Math.max(8, r.top - 10 - pop.offsetHeight) : below}px`;
+  };
+  const close = () => { pop.hidden = true; };
+  el.addEventListener('mouseenter', open);
+  el.addEventListener('mouseleave', close);
+  el.addEventListener('focusin', open);
+  el.addEventListener('focusout', close);
+}
 
 function chip(value: string, label: string, on: boolean, group: string) {
   const l = document.createElement('label');
@@ -42,6 +63,13 @@ function choose(p: 'battle' | 'deck') {
 export function initQueue(sender: typeof send, myId: () => string) {
   send = sender;
   me = myId;
+  // "?" on Deck Duel: the same instructions as in a Deck Duel room
+  ui.$('qDeckHelp').addEventListener('click', (e) => {
+    e.stopPropagation();
+    renderDeckGuide(ui.$('guideBody'));
+    ui.$<HTMLDialogElement>('guideDialog').showModal();
+  });
+  ui.$('qDeckHelp').addEventListener('keydown', (e) => e.stopPropagation());
   ui.$('mfAccept').onclick = () => { if (foundId) send({ type: 'queue_accept', matchId: foundId }); };
   ui.$('queueBack').onclick = () => { if (searching) send({ type: 'queue_cancel' }); stopSearching(); ui.show('menu'); };
   document.querySelectorAll<HTMLElement>('#queuePick .queue-card').forEach((c) => {
@@ -60,7 +88,7 @@ export function initQueue(sender: typeof send, myId: () => string) {
 
 export function openQueue() {
   const s = load();
-  ui.$('qModes').replaceChildren(...QUEUE_MODES.map((m) => chip(m, MODE_LABEL[m], s.modes.includes(m), 'qm')));
+  ui.$('qModes').replaceChildren(...QUEUE_MODES.map((m) => { const c = chip(m, MODE_LABEL[m], s.modes.includes(m), 'qm'); guideHover(c, m as Exclude<GameMode, 'deck'>); return c; }));
   ui.$('qLevels').replaceChildren(...LEVELS.map((l) => chip(l, LEVEL_LABEL[l], s.levels.includes(l), 'ql')));
   choose(s.pick ?? 'battle');
   if (!searching) { ui.$('queuePick').hidden = false; ui.$('qSearching').hidden = true; }

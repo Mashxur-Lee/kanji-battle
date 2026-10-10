@@ -539,3 +539,21 @@ test('more than 100 struggling spells waiting locks the game modes (admins never
   assert.match((await study.playLock(u))!, /101 struggling spells/);
   assert.equal(await study.playLock({ id: u.id, role: 'admin' }), null);
 });
+
+test('daily login streak: +1 the next day, same day no change, a gap starts over; shown on public profiles', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const { MemoryStore } = await import('../src/server/db/Store');
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  let u = await store.create({ username: 'daily', passwordHash: 'x', role: 'user' } as any);
+  u = await study.touchLogin(u, '2026-10-01');
+  u = await study.touchLogin(u, '2026-10-01');
+  assert.deepEqual([u.streak, u.bestStreak], [1, 1]);
+  u = await study.touchLogin(u, '2026-10-02');
+  u = await study.touchLogin(u, '2026-10-03');
+  assert.deepEqual([u.streak, u.bestStreak], [3, 3]);
+  u = await study.touchLogin(u, '2026-10-07'); // missed days
+  assert.deepEqual([u.streak, u.bestStreak], [1, 3]);
+  const p = (await study.publicProfile(u.id))!;
+  assert.equal(p.bestStreak, 3);
+});

@@ -996,3 +996,21 @@ body.has-3d #dragon .boss-bar { width: 100%; }
 body.has-3d .deck-screen .dk-chat { max-height: 230px; align-self: start; }
 body.has-3d .deck-screen .dk-chat { max-height: none; height: 250px; }
 body.has-3d .deck-screen .dk-chat .chat-log { min-height: 0; flex: 1; }
+.pp-streak { color: #ffb36b; font-weight: 800; font-size: .82rem; }
+.pp-streak:empty { display: none; }
+/* the pad's eraser */
+#padErase.on { background: #d6455a; color: #fff; border-color: #d6455a; }
+.pad.erasing { cursor: none; }
+/* online queue: the Deck Duel "?" and the battle modes' hover guides */
+.queue-card .q-help { position: absolute; right: 14px; bottom: 14px; width: 34px; height: 34px; border-radius: 50%; padding: 0; font-weight: 900; font-size: 1.05rem; background: rgba(255, 210, 74, .15); color: #ffd24a; border: 1px solid rgba(255, 210, 74, .55); }
+.queue-card .q-help:hover { background: rgba(255, 210, 74, .3); }
+.guide-pop { position: fixed; z-index: 95; margin: 0; pointer-events: none; box-shadow: 0 12px 34px rgba(0, 0, 0, .55); }
+.guide-dialog { max-width: min(760px, calc(100vw - 32px)); width: 100%; background: transparent; border: 0; padding: 0; color: var(--text); }
+.guide-dialog::backdrop { background: rgba(4, 3, 16, .6); }
+.guide-dialog .deck-guide { max-height: calc(100dvh - 160px); }
+.guide-dialog form { display: flex; justify-content: center; margin-top: 10px; }
+/* the mode's name at the very top centre while playing */
+.mode-title { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 31; display: flex; align-items: center; gap: 8px;
+  padding: 6px 16px; border-radius: 999px; background: rgba(16, 14, 44, .78); border: 1px solid var(--line); font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+.mode-title .mode-badge { font-size: 1.3rem; }
+@media (max-width: 700px) { .mode-title { top: 60px; font-size: .85rem; } }

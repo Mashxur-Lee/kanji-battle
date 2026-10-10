@@ -472,8 +472,9 @@ export class DeckGame implements Match {
     if (this.phase !== 'battle') return;
     this.phase = 'overtime';
     this.active = null;
-    // time's up for the cards: they're gone, and the duel turns into 1v1 Rapid with the HP you have left
-    for (const p of this.players) p.hand = [];
+    // time's up for the cards: they're gone, and the duel turns into 1v1 Rapid with the HP you have left.
+    // Hero powers end too (no Bulwark / Sight / Frenzy in the Rapid duel, and their looks go away).
+    for (const p of this.players) { p.hand = []; p.abilityActive = 0; p.frenzy = false; }
     this.cast = null;
     clearTimeout(this.stageTimer);
     this.overtimeEndsAt = this.now() + this.rules.overtimeMaxMs;

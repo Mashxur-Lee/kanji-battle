@@ -43,3 +43,27 @@ export function say(kana: string) {
   synth.cancel();
   synth.speak(u);
 }
+
+/**
+ * Say the word and resolve when it has been said (so the success chime can follow it). Resolves at once
+ * when there's no voice or it's switched off; never waits longer than the word could take.
+ */
+export function speak(kana: string): Promise<void> {
+  if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== 'visible') return Promise.resolve();
+  if (!voice) pick();
+  if (!voice && !synth.getVoices().length) return Promise.resolve();
+  return new Promise((done) => {
+    const u = new SpeechSynthesisUtterance(kana);
+    u.lang = 'ja-JP';
+    if (voice) u.voice = voice;
+    u.rate = 0.95;
+    u.pitch = male ? 1 : 0.6;
+    u.volume = prefs.vol;
+    let finished = false;
+    const end = () => { if (!finished) { finished = true; done(); } };
+    u.onend = end; u.onerror = end;
+    setTimeout(end, Math.min(2600, 500 + [...kana].length * 220)); // some browsers never fire onend
+    synth.cancel();
+    synth.speak(u);
+  });
+}

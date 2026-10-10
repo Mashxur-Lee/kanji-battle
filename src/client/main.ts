@@ -4,7 +4,7 @@ import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
 import { arena, arenaPref, arenaScreen, arenaSupported, preloadArena, setArenaBackground, setArenaPref } from './arena';
-import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
+import { LEVELS, MODE_LABEL, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Profile } from './api';
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
@@ -55,6 +55,10 @@ const GAME_SCREENS = new Set(['prep', 'battle', 'deck']);
 ui.onScreen((s) => {
   audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu');
   arenaScreen(s); // the 3D arena on battle screens
+  // the mode's name at the very top while playing
+  const title = ui.$('modeTitle');
+  title.hidden = !['prep', 'battle', 'deck'].includes(s);
+  if (!title.hidden) title.replaceChildren(ui.modeBadge(s === 'deck' ? 'deck' : mode), document.createTextNode(MODE_LABEL[s === 'deck' ? 'deck' : mode]));
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (!GAME_SCREENS.has(s)) setTimeout(() => applyBackground(true), 0); // catch up on the cycle after a game
 });
@@ -231,10 +235,9 @@ function onMessage(msg: ServerMessage) {
       if (mode === 'writing') ui.setCharSlots(charCount, written.map(() => ''), false);
       ui.setFeedback(msg);
       if (msg.correct) {
-        audio.sfx.correct(msg.combo);
-        // say the word (romaji answers at the kana level: say the kana itself)
+        // say the word first (romaji answers at the kana level: say the kana itself), then the success chime
         const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
-        setTimeout(() => voice.say(kana), 1100);
+        void voice.speak(kana).then(() => audio.sfx.correct(msg.combo));
       } else audio.sfx.wrong();
       break;
     case 'battle_update':
@@ -356,6 +359,7 @@ function beginWriting(id: number, kanji: string) {
   charCount = [...kanji].length;
   written = [];
   pad.setCells(charCount); // write the whole word at once
+  setEraser(false);
   arena()?.channel(0.35); // the staff starts to glow; brighter with every stroke
   if (mode === 'deck') ui.mountWriteArea('dkWrite');
   ui.setCharSlots(charCount, [], true);
@@ -378,6 +382,8 @@ function submitDrawing() {
 }
 
 ui.$('padUndo').onclick = () => pad.undo();
+const setEraser = (on: boolean) => { pad.setEraser(on); ui.$('padErase').setAttribute('aria-pressed', String(on)); ui.$('padErase').classList.toggle('on', on); };
+ui.$('padErase').onclick = () => setEraser(!pad.eraser);
 ui.$('padClear').onclick = () => pad.clear();
 // typing a reading: the staff glows a little more with each letter
 ui.$<HTMLInputElement>('answer').addEventListener('input', (e) => { arena()?.channel(Math.min(0.8, (e.target as HTMLInputElement).value.length * 0.15)); arena()?.twitch(); });
@@ -404,6 +410,7 @@ addEventListener('keydown', (e) => {
   if (e.key === 'Enter') ui.$('padNext').click();
   else if (e.key === 'Escape') skip();
   else if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); pad.undo(); }
+  else if (e.key === 'e' || e.key === 'E') setEraser(!pad.eraser);
 });
 
 // ── auth screen ──────────────────────────────────────────────────────────────
