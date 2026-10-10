@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.6
+# Kanji Wizards · v0.9.7
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -108,7 +108,7 @@ staffs (so a broken streak never takes one away): Verdant (everyone), Ember 5 da
 ## New players: tutorial and unlocks
 
 New accounts get a short first-run tutorial (a "try it" box: 山 → yama), then a guided first battle against a
-beginner AI with tips on each screen. Modes unlock with levels: **Kanji Reading** and **Rapid** from the start,
+beginner AI with tips on each screen — a quick one (30 s of study, a 2-minute fight) with かな and N5 words. Modes unlock with levels: **Kanji Reading** and **Rapid** from the start,
 **Kanji Writing** and **Boss** at level 1, **Deck Duel** at level 2 — for creating rooms and the online queue
 (checked on the server). Joining a friend's room by code or invite always works. Accounts from before 0.9.6
 skip the tutorial.
@@ -129,13 +129,17 @@ learned / mastered = review interval of 3+ weeks). Activity is logged per player
 Every month has the same three goals — play on 12 days, win 10 games, pass 150 flashcards — and a seasonal
 reward: even months a flame colour (Sakura, Rain, Sun, Thunder, Harvest, Starlight), odd months a staff
 (Frost, Blossom, Jade, Abyss, Moon, Maple — recoloured classic staffs, in 3D and pixel art). Rewards are kept
-forever once earned; a reward only shows in Customize while its month is on, or once you have it.
+forever once earned. Customize lists every seasonal staff and flame — locked ones show which month's goals unlock
+them. The goals panel shows the reward itself (the pixel staff, or a little wizard in the flames).
 
 ## Friends and invites
 
 **Friends** (main menu): add players by name, accept or decline requests, see who is online and what they are
 doing. In a room's lobby your online friends appear with an **Invite** button; they get a card with Join /
-Decline (and a notification if the tab is in the background). Stored in `kw_friends`.
+Decline (and a notification if the tab is in the background). Stored in `kw_friends`. Friends already in your room
+aren't listed, friends in a game show **In a game** (no invites mid-game), and the same friend can be invited
+again after 10 s (checked on the server too). Accepting an invite while you're in another room's lobby or results
+leaves that room and joins the new one.
 
 ## Stroke order
 
@@ -153,7 +157,9 @@ start queueing or create a Deck Duel).
 ## Phones
 
 The 3D arena now has **Full / Lite / Off** (settings panel). Lite (default on phones and small screens) uses less
-grass and particles, no anti-aliasing and a lower resolution; turn a phone sideways to get 3D. Upright phones use
+grass and particles, no anti-aliasing and a lower resolution; turn a phone sideways to get 3D (it switches on
+the fly, and the setting can be changed while holding the phone upright). If 3D runs slowly the arena drops to
+Lite by itself (then to a lower resolution) and says so. On phones the mode's name sits under the top bar. Upright phones use
 the 2D layout with a bigger writing pad, a compact top bar and stacked pages.
 
 ## Customize
@@ -174,12 +180,14 @@ until you study them down to 100 (checked on the server too; admins are never lo
 
 ## AI players
 
-The host can add AI players in the lobby (🤖 Add AI) and pick how much they know, N5 to N1. They fill an
+The host can add AI players in the lobby (🤖 Add AI) and pick how much they know: **Beginner** (かな + N5 words,
+slow, wrong about half the time — the tutorial's opponent) or N5 to N1. They fill an
 opponent's seat in the duels, Rapid and Deck Duel, or join your party against the dragon (up to 3 AI). The
 chance that an AI gets a word right (`src/server/Bot.ts`):
 
 | AI knows → / word level ↓ | N5 | N4 | N3 | N2 | N1 |
 |---|---|---|---|---|---|
+| **AI Beginner** | 55 % | 30 % | 15 % | 5 % | 2 % |
 | **AI N5** | 90 % | 50 % | 20 % | 10 % | 5 % |
 | **AI N4** | 92 % | 75 % | 35 % | 15 % | 10 % |
 | **AI N3** | 95 % | 85 % | 70 % | 30 % | 18 % |
@@ -214,7 +222,8 @@ write or type the staff tilts back, charges and traces a figure-eight (∞) in t
 and its gem flies off with the spell. The gem is gone until you start writing or typing again, when a new one builds
 up — a miss or a wrong answer shatters it the same way (also in 2D). A 5× combo (or your Omnipotence in Deck
 Duel) sets your staff on fire and sends mana fire in your flame colour flowing along the bottom of the screen (a
-shader), with a big combo counter. In Boss fights, downed
+shader, a soft animated band over the lower quarter of the screen), with a big combo counter. The flames end with the
+game. Ambient motion (fire, sway, the gem) runs even with the system's "reduce motion" on; only camera shake follows it. In Boss fights, downed
 teammates lie on the ground (and you lose your staff). The others
 are low-poly 3D characters holding staffs (wizard, witch, goblin, knight, apprentice, adventurer — their level's
 avatar, or their Deck Duel hero). Deck Duel cards hit with their own effect: Bolt → lightning, Frost → the target turns see-through
@@ -225,6 +234,17 @@ use the classic 2D view.
 **UI size**: the interface is drawn at 80% by default on computers (so Deck Duel's HP and mana stay on screen even
 with the Japanese keyboard's candidate list open); change it in the settings panel (70–100%, saved per browser;
 `src/client/zoom.ts`). Phones and small windows stay at 100%.
+
+## Language
+
+Settings → **Language**: English or Русский. Dates and times always follow the chosen language (not the browser's).
+Russian is a translation layer over the English interface (`src/client/i18n.ts`: exact strings plus patterns for texts
+with numbers and names); Japanese text and word meanings stay as they are.
+
+## Readings: small slips are forgiven
+
+Typed readings accept one missing or swapped long vowel (おう / うう / おお: *kyoto* for きょうと, *benkyo* for べんきょう)
+and a missing する at the end (*seikatsu* for せいかつする) — `isCorrectReading` in `src/shared/kana.ts`.
 
 ## Deck Duel
 

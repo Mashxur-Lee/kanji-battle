@@ -160,7 +160,7 @@ function cardEl(c: DeckCardView, opts: { big?: boolean; button?: boolean; disabl
 const powered = (p: DeckPlayerView) => !!p.character && p.character !== 'wizard' && p.abilityActive > 0;
 
 function playerPanel(el: HTMLElement, p: DeckPlayerView, mine: boolean) {
-  el.dataset.flame = p.flame ?? 'blue';
+  ui.paintFlame(el, p.flame);
   el.classList.toggle('powered', powered(p));
   arena()?.onfire(mine ? 'me' : 'opp', powered(p), flameColor(p.flame));
   const av = h('div', 'dk-av');

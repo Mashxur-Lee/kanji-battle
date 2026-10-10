@@ -3,7 +3,7 @@ import type { GameMode, Level, PlayerId, VocabEntry } from '../shared/protocol';
 import type { GameEvent } from './Game';
 
 /** AI knowledge levels a host can pick in the lobby. */
-export const BOT_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const;
+export const BOT_LEVELS = ['BEGINNER', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
 export type BotLevel = (typeof BOT_LEVELS)[number];
 export const isBotLevel = (x: unknown): x is BotLevel => BOT_LEVELS.includes(x as BotLevel);
 
@@ -12,6 +12,8 @@ export const isBotLevel = (x: unknown): x is BotLevel => BOT_LEVELS.includes(x a
  * (Hiragana words count as N5.)
  */
 export const BOT_ACCURACY: Record<BotLevel, Record<'N5' | 'N4' | 'N3' | 'N2' | 'N1', number>> = {
+  // the tutorial's first opponent (and "Beginner" in the lobby): often wrong, and slow
+  BEGINNER: { N5: 0.55, N4: 0.3, N3: 0.15, N2: 0.05, N1: 0.02 },
   N5: { N5: 0.90, N4: 0.50, N3: 0.20, N2: 0.10, N1: 0.05 },
   N4: { N5: 0.92, N4: 0.75, N3: 0.35, N2: 0.15, N1: 0.10 },
   N3: { N5: 0.95, N4: 0.85, N3: 0.70, N2: 0.30, N1: 0.18 },
@@ -23,7 +25,9 @@ export function botChance(bot: BotLevel, word: Level): number {
 }
 
 const NAMES = ['Kitsune', 'Tanuki', 'Tengu', 'Kappa', 'Oni', 'Yuki', 'Ryu', 'Neko'];
-export const botName = (i: number, level: BotLevel) => `${NAMES[i % NAMES.length]} (AI ${level})`;
+export const botName = (i: number, level: BotLevel) => `${NAMES[i % NAMES.length]} (AI ${level === 'BEGINNER' ? 'Beginner' : level})`;
+/** The levels a bot plays with (a beginner brings かな and N5, so the words are easy). */
+export const botLevels = (level: BotLevel): Level[] => (level === 'BEGINNER' ? ['KANA', 'N5'] : [level]);
 
 /** What the bot may do — the same actions a player's socket can trigger. */
 export interface BotHost {
@@ -92,7 +96,7 @@ export class Bot {
     const right = this.rng() < botChance(this.level, peek.entry.level);
     // writing takes longer than typing a reading; a wrong answer usually comes a bit later
     const [lo, hi] = mode === 'writing' ? [5_000, 13_000] : mode === 'rapid' ? [1_800, 6_500] : [1_800, 5_500];
-    const delay = this.between(lo, hi) * (right ? 1 : 1.25);
+    const delay = this.between(lo, hi) * (right ? 1 : 1.25) * (this.level === 'BEGINNER' ? 1.7 : 1);
     this.later(`ch:${challengeId}`, delay, () => {
       const now = this.host.peek(this.id);
       if (!now || now.challengeId !== challengeId) return; // someone else won the round, or time ran out

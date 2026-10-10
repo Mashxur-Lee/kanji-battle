@@ -1,10 +1,11 @@
+import { initI18n, lang, setLang } from './i18n';
 import { applyUiZoom, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
 import * as voice from './voice';
 import { initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
-import { arena, arenaQuality, arenaScreen, arenaSupported, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
+import { arena, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
 import { LEVELS, MODE_LABEL, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Profile } from './api';
 import * as audio from './audio';
@@ -67,6 +68,7 @@ ui.onScreen((s) => {
   // the mode's name at the very top while playing
   const title = ui.$('modeTitle');
   title.hidden = !['prep', 'battle', 'deck'].includes(s);
+  document.body.classList.toggle('mode-shown', !title.hidden);
   if (!title.hidden) title.replaceChildren(ui.modeBadge(s === 'deck' ? 'deck' : mode), document.createTextNode(MODE_LABEL[s === 'deck' ? 'deck' : mode]));
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (s !== 'lobby') void renderLobbyInvites(false);
@@ -96,6 +98,8 @@ function scheduleCycle() {
 scheduleCycle();
 
 let tutorialShown = false;
+let pendingJoin = '';
+let prevStaff: string | null = null; // the staff the menu wizards hold // invited while in another room: join after leaving it
 function applyProfile(p: Profile) {
   // a monthly reward just unlocked → say so
   const before = profile?.unlocks ?? null;
@@ -116,6 +120,7 @@ function applyProfile(p: Profile) {
   ui.$('studyLock').hidden = !locked;
   ui.$('studyLockText').textContent = locked ? `${p.strugglingDue} struggling spells are waiting. Study them down to ${STUDY_LOCK} to unlock the game modes.` : '';
   applyBackground();
+  if ((p.staff ?? null) !== prevStaff) { prevStaff = p.staff ?? null; ui.paintScenes(prevStaff); }
   preloadArena();
 }
 onProfileChange(applyProfile);
@@ -215,6 +220,7 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'left':
       backToMenu();
+      if (pendingJoin) { socket.send({ type: 'join', code: pendingJoin, levels: savedLevels() }); pendingJoin = ''; }
       break;
     case 'notice':
       ui.toast(msg.message);
@@ -232,10 +238,10 @@ function onMessage(msg: ServerMessage) {
       stopWriting();
       resetDeck();
       ui.showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers);
-      void renderLobbyInvites(true);
+      void renderLobbyInvites(true, msg.players.map((p) => p.id));
       // the tutorial's first battle: add a beginner AI, then start
       if (inTutorialBattle() && msg.hostId === you) {
-        if (msg.players.length < 2) socket.send({ type: 'add_bot', level: 'N5' });
+        if (msg.players.length < 2) socket.send({ type: 'add_bot', level: 'BEGINNER' });
         else socket.send({ type: 'start' });
       }
       break;
@@ -519,10 +525,16 @@ ui.$('progressBtn').onclick = () => void openProgress();
 ui.$('friendsBtn').onclick = () => void openFriends();
 initFriends({
   send: (m) => socket.send(m),
-  join: (c) => { askNotifyPermission(); socket.send({ type: 'join', code: c, levels: savedLevels() }); },
+  join: (c) => {
+    askNotifyPermission();
+    if (!inRoom) return socket.send({ type: 'join', code: c, levels: savedLevels() });
+    // in another room's lobby / results: leave it, then join (when the server says we've left)
+    pendingJoin = c;
+    socket.send({ type: 'leave' });
+  },
   inRoom: () => inRoom,
 });
-initTutorial({ firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ['N5'] }) });
+initTutorial({ firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ['KANA', 'N5'], tutorial: true }) });
 ui.$('modesBack').onclick = () => ui.show('menu');
 const join = () => {
   const c = ui.$<HTMLInputElement>('joinCode').value.trim();
@@ -622,12 +634,25 @@ document.documentElement.dataset.v = VERSION;
   const t = ui.$<HTMLSelectElement>('arena3dMode');
   const sync = () => {
     t.value = arenaQuality();
-    t.disabled = !arenaSupported();
-    ui.$('arena3dInfo').textContent = arenaSupported() ? 'First-person duel arena (move the mouse to look around). Lite is lighter on phones and older computers.' : 'Needs WebGL and a landscape screen — the classic 2D view is used (turn your phone sideways for 3D).';
+    t.disabled = !hasWebgl(); // you can pick it while holding a phone upright: it applies once you turn it sideways
+    ui.$('arena3dInfo').textContent = !hasWebgl() ? 'Your browser has no WebGL — the classic 2D view is used.'
+      : arenaSupported() ? 'First-person duel arena (move the mouse to look around). Lite is lighter on phones and older computers.'
+      : 'Turn your phone sideways during a game for the 3D arena (upright shows the 2D view).';
   };
   sync();
-  t.onchange = () => setArenaQuality(t.value as ArenaQuality);
+  t.onchange = () => { setArenaQuality(t.value as ArenaQuality); sync(); };
+  addEventListener('kw:arena-lite', (e) => {
+    const { lowRes } = (e as CustomEvent<{ lowRes: boolean }>).detail;
+    ui.toast(lowRes ? '3D was slow — lowered its resolution. Settings → 3D arena → Off for the 2D view.' : '3D was slow on this device — switched to Lite (Settings → 3D arena).', 5000);
+    sync();
+  });
   ui.$('volBtn').addEventListener('click', sync);
+}
+// Language (English / Russian): reloads the page in the new language
+{
+  const sel = ui.$<HTMLSelectElement>('langSel');
+  sel.value = lang();
+  sel.onchange = () => setLang(sel.value === 'ru' ? 'ru' : 'en');
 }
 // UI size (default 80% on computers)
 {
@@ -757,4 +782,5 @@ const firstGesture = () => audio.unlock();
 addEventListener('pointerdown', firstGesture, { once: true });
 addEventListener('keydown', firstGesture, { once: true });
 
+initI18n();
 void boot();

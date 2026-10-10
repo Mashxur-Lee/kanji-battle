@@ -88,9 +88,35 @@ export function normalizeAnswer(input: string): string {
   return romajiToHiragana(katakanaToHiragana(cleaned));
 }
 
+/**
+ * Forgiving reading check: besides the exact reading, one small slip is accepted —
+ *  - one long-vowel う or お left out or swapped (せいかつ for せいかつ, きょと for きょうと, おうきい for おおきい),
+ *  - a verb's する left off (せいかつ for せいかつする).
+ */
 export function isCorrectReading(input: string, readings: readonly string[]): boolean {
   const answer = normalizeAnswer(input);
-  return answer.length > 0 && readings.some((r) => katakanaToHiragana(r) === answer);
+  if (!answer.length) return false;
+  return readings.some((raw) => {
+    const r = katakanaToHiragana(raw);
+    if (r === answer) return true;
+    if (r.length > 3 && r.endsWith('する') && r.slice(0, -2) === answer) return true;
+    return longVowelSlip(r, answer);
+  });
+}
+
+/** Exactly one う/お missing (not the first sound), or one う↔お swapped. */
+function longVowelSlip(r: string, a: string): boolean {
+  const LONG = 'うお';
+  if (a.length === r.length - 1) {
+    for (let i = 1; i < r.length; i++) if (LONG.includes(r[i]) && r.slice(0, i) + r.slice(i + 1) === a) return true;
+    return false;
+  }
+  if (a.length === r.length) {
+    let diff = -1;
+    for (let i = 0; i < r.length; i++) if (r[i] !== a[i]) { if (diff >= 0) return false; diff = i; }
+    return diff > 0 && LONG.includes(r[diff]) && LONG.includes(a[diff]);
+  }
+  return false;
 }
 
 /** Hiragana practice must be answered in romaji (typing the shown kana back via IME would be trivial). */

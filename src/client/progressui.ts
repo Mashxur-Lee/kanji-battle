@@ -1,10 +1,13 @@
 // Progress: this week at a glance, this month's goals (and their seasonal reward), a 26-week activity
 // heatmap, and a mastery grid with every word of each level coloured by how well you know it.
 
+import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
 import { FLAMES, STAFFS } from '../shared/progress';
 import { api, today, type DayActivity, type MonthProgress, type ProgressPage } from './api';
 import * as ui from './ui';
+import { pixelStaffSvg } from './pixelstaffs';
+import { wizardSvg } from './wizard';
 
 const $ = ui.$;
 const el = (tag: string, cls = '', text?: string | number) => {
@@ -76,7 +79,7 @@ function renderWeek(activity: DayActivity[]) {
     const fill = el('i');
     fill.style.height = `${Math.round((score(a) / max) * 100)}%`;
     bar.title = `${day}: ${a ? `${a.reviews} cards, ${a.games} games` : 'nothing'}`;
-    bar.append(fill, el('span', '', new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' })));
+    bar.append(fill, el('span', '', new Date(`${day}T12:00:00`).toLocaleDateString(locale(), { weekday: 'narrow' })));
     bars.append(bar);
   }
   $('progWeek').replaceChildren(el('h3', '', 'This week'), grid, bars);
@@ -88,9 +91,17 @@ const score = (a?: DayActivity) => (a ? a.reviews + a.games * 5 + (a.login ? 1 :
 export function monthNodes(m: MonthProgress): HTMLElement[] {
   const [kind, id] = m.reward.split(':');
   const reward = kind === 'flame' ? FLAMES.find((f) => f.id === id) : STAFFS.find((s) => s.id === id);
-  const sw = el('span', 'reward-swatch');
-  sw.style.setProperty('--c', kind === 'flame' ? (reward as { color: string }).color : (reward as { gem: string }).gem);
-  const monthName = new Date(`${m.month}-15T12:00:00`).toLocaleDateString(undefined, { month: 'long' });
+  // the reward itself: the staff (pixel art), or a little wizard wrapped in the flames
+  const sw = el('span', `reward-img ${kind}`);
+  if (kind === 'flame') {
+    const w = el('div', 'wizard me onfire');
+    ui.paintFlame(w, id);
+    const sprite = el('div', 'sprite'); sprite.innerHTML = wizardSvg('me');
+    w.append(el('div', 'aura'), sprite);
+    sw.append(w);
+  } else sw.innerHTML = pixelStaffSvg(id);
+  sw.title = `${reward?.name}${kind === 'flame' ? ' flames' : ''}`;
+  const monthName = new Date(`${m.month}-15T12:00:00`).toLocaleDateString(locale(), { month: 'long' });
   const head = el('h3', '', `${monthName}: ${m.name} season`);
   const rw = el('div', 'reward-line');
   rw.append(sw, el('span', '', m.unlocked ? `Unlocked: ${reward?.name}${kind === 'flame' ? ' flames' : ''} — equip it in Customize` : `Reward: ${reward?.name}${kind === 'flame' ? ' flames' : ''} (only this month)`));
@@ -127,7 +138,7 @@ function renderHeatmap(activity: DayActivity[]) {
       const s = score(a);
       if (s > 0) active++;
       cell.dataset.l = String(s === 0 ? 0 : Math.min(4, 1 + Math.floor((s / max) * 3.999)));
-      cell.title = `${new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ''}` : 'no activity'}`;
+      cell.title = `${new Date(`${day}T12:00:00`).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ''}` : 'no activity'}`;
       if (day === t) cell.classList.add('today');
       col.append(cell);
     }

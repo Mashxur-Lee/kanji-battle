@@ -50,8 +50,20 @@ export class SessionHub {
 }
 
 /** One per socket connection: authenticates, validates untrusted input, routes it to the right Room. */
+/** Why a friend can't be invited right now (null = go ahead): already here, mid-game, or just invited. */
+export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; now: number }): string | null {
+  if (o.inRoom) return 'Your friend is already in this room';
+  if (o.activity?.startsWith('Playing')) return 'Your friend is in a game right now — invite them when it\'s over';
+  const wait = INVITE_COOLDOWN_MS - (o.now - (o.lastAt ?? -Infinity));
+  if (wait > 0) return `Wait ${Math.ceil(wait / 1000)} s before inviting them again`;
+  return null;
+}
+/** A host can invite the same friend again after this long (e.g. they missed it, or left another room first). */
+export const INVITE_COOLDOWN_MS = 10_000;
+
 export class Session implements Client {
   private user?: PublicUser;
+  private invitedAt = new Map<string, number>();
   private room?: Room;
 
   constructor(
@@ -146,7 +158,7 @@ export class Session implements Client {
       const mode: GameMode = MODES.includes(msg.mode as GameMode) ? (msg.mode as GameMode) : 'reading';
       const lock = await this.modeLock([mode]);
       if (lock) return this.send({ type: 'error', message: lock });
-      return await this.enter(this.rooms.create(mode), parseLevels(msg.levels));
+      return await this.enter(this.rooms.create(mode, msg.tutorial === true && mode === 'reading'), parseLevels(msg.levels));
     }
     if (msg.type === 'join') {
       if (this.room) return;
@@ -162,6 +174,9 @@ export class Session implements Client {
       const friendId = String(msg.friendId ?? '');
       if (room.stage !== 'lobby') return this.send({ type: 'error', message: 'Invite friends from the lobby' });
       if (!this.social || !(await this.social.areFriends(user.id, friendId))) return this.send({ type: 'error', message: 'You can only invite friends' });
+      const refused = inviteRefusal({ inRoom: room.has(friendId), activity: this.hub.presence(friendId).activity, lastAt: this.invitedAt.get(friendId), now: Date.now() });
+      if (refused) return this.send({ type: 'notice', message: refused });
+      this.invitedAt.set(friendId, Date.now());
       if (!this.hub.sendTo(friendId, { type: 'invite', fromId: user.id, from: user.username, code: room.code, mode: room.mode })) return this.send({ type: 'error', message: 'Your friend is offline' });
       return;
     }

@@ -57,6 +57,7 @@
       <label class="toggle-row">3D arena <select id="arena3dMode" aria-label="3D arena"><option value="full">Full</option><option value="lite">Lite (phones, older PCs)</option><option value="off">Off (2D)</option></select></label>
       <p id="arena3dInfo" class="hint"></p>
       <label class="toggle-row">UI size <select id="uiZoom" aria-label="UI size"></select></label>
+      <label class="toggle-row">Language <select id="langSel" aria-label="Language" data-no-i18n><option value="en">English</option><option value="ru">Русский</option></select></label>
     </div>
   </div>
 </header>
@@ -363,7 +364,8 @@
       <div id="addBot" class="add-bot" hidden>
         <label for="botLevel">Add an AI player</label>
         <select id="botLevel" title="How much the AI knows">
-          <option value="N5">N5 — beginner</option>
+          <option value="BEGINNER">Beginner — slow, makes mistakes</option>
+          <option value="N5">N5</option>
           <option value="N4">N4</option>
           <option value="N3" selected>N3 — intermediate</option>
           <option value="N2">N2</option>
@@ -564,7 +566,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.6</div>
+<div id="version" class="version">v0.9.7</div>
 <script src="/app.js"></script>
 </body>
 </html>

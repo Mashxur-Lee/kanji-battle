@@ -59,7 +59,7 @@ export interface PlayerView {
   crit: number; // 0–0.5, from learned flashcards
   level: number; // account level (XP)
   ready: boolean; // Deck Duel lobby: starts when everyone is ready
-  bot: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | null; // AI player and its knowledge level
+  bot: 'BEGINNER' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | null; // AI player and its knowledge level
   pic: string | null; // profile picture URL
   flame: string; // colour of their combo flames ('blue' | 'purple')
   staff?: string; // magic staff skin
@@ -128,7 +128,7 @@ export type DrawnChar = Array<Array<[number, number]>>;
 
 export type ClientMessage =
   | { type: 'hello'; token: string }
-  | { type: 'create'; mode: GameMode; levels?: Level[] }
+  | { type: 'create'; mode: GameMode; levels?: Level[]; /** the tutorial's short first battle */ tutorial?: boolean }
   | { type: 'join'; code: string; levels?: Level[] }
   | { type: 'levels'; levels: Level[] }
   | { type: 'leave' }

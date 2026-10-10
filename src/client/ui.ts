@@ -1,3 +1,4 @@
+import { locale } from './i18n';
 import { viewH, viewW, zrect } from './zoom';
 import { showStrokeOrder } from './strokes';
 import {
@@ -6,7 +7,7 @@ import {
 } from '../shared/protocol';
 import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
 import { arena as arena3d, arenaForBattle } from './arena';
-import { critText, flameColor, levelOf, levelProgress, levelXp } from '../shared/progress';
+import { critText, flameColor, flameShades, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -146,13 +147,19 @@ export function setAudioButtons(radio: boolean, sfx: boolean) {
 }
 
 /** Two wizards duelling in slow motion (menu / login backdrop). */
-export function paintScenes() {
+let sceneStaff: string | null = null;
+/** The menu's duelling wizards — both hold the staff you have equipped. */
+export function paintScenes(staff: string | null = sceneStaff) {
+  sceneStaff = staff;
   for (const scene of document.querySelectorAll<HTMLElement>('.duel-scene')) {
-    scene.innerHTML = '';
+    if (scene.childElementCount) { // already drawn: just swap the staffs
+      for (const side of ['me', 'opp'] as const) { const s = scene.querySelector(`.wizard.${side} .sprite`); if (s) s.innerHTML = wizardSvg(side, staff); }
+      continue;
+    }
     for (const side of ['me', 'opp'] as const) {
       const w = h('div', `wizard ${side}`);
       const s = h('div', 'sprite');
-      s.innerHTML = wizardSvg(side);
+      s.innerHTML = wizardSvg(side, staff);
       w.append(s, h('div', 'ground'));
       scene.append(w);
     }
@@ -220,7 +227,7 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
         h('td', 'num', (u.xp ?? 0).toLocaleString()),
         h('td', 'num', `${u.learned ?? 0} / ${u.cards ?? 0}`),
         h('td', 'num', critText(u.crit ?? 0)),
-        h('td', '', new Date(u.createdAt).toLocaleDateString()),
+        h('td', '', new Date(u.createdAt).toLocaleDateString(locale())),
         h('td', u.banned ? 'status-ban' : 'status-ok', u.banned ? 'Banned' : 'Active'),
         action);
     }),
@@ -298,7 +305,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       const who = h('span', 'who', p.id === you ? `${p.name} (you)` : p.name);
       if (p.id !== you) markProfile(who, p);
       li.append(av, picEl(p.pic), who);
-      if (p.bot) li.append(h('span', 'tag ai', `AI · knows ${p.bot}`));
+      if (p.bot) li.append(h('span', 'tag ai', p.bot === 'BEGINNER' ? 'AI · beginner' : `AI · knows ${p.bot}`));
       else li.append(netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
       if (p.bot && you === hostId) { const x = h('button', 'pill rm-bot', '✕', { title: 'Remove this AI' }); x.dataset.removeBot = p.id; li.append(x); }
       if (p.crit > 0 && !p.bot) li.append(h('span', 'critv', `✦ ${critText(p.crit)} crit`));
@@ -488,14 +495,14 @@ export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId)
   for (const [id, side, p] of [['wizMe', 'me', meP], ['wizOpp', 'opp', others[0]]] as const) {
     const w = $(id);
     w.className = `wizard ${side}`;
-    w.dataset.flame = p?.flame ?? 'blue';
+    paintFlame(w, p?.flame);
     w.querySelector('.sprite')!.innerHTML = avatarSvg(p?.avatar ?? 'wizard', side, p?.staff);
   }
   // boss mode: every teammate stands next to you
   $('allies').replaceChildren(...(boss ? others : []).map((p) => {
     const w = h('div', 'wizard ally');
     w.dataset.pid = p.id;
-    w.dataset.flame = p.flame ?? 'blue';
+    paintFlame(w, p.flame);
     const sprite = h('div', 'sprite');
     sprite.innerHTML = avatarSvg(p.avatar, 'ally', p.staff);
     w.append(h('div', 'aura'), sprite, h('div', 'ground'));
@@ -928,7 +935,7 @@ export function markProfile(el: HTMLElement, p: { id: string; bot?: string | nul
   return el;
 }
 
-export const dateTime = (at: number) => new Date(at).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+export const dateTime = (at: number) => new Date(at).toLocaleString(locale(), { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /** A small floating card next to the clicked name. */
 export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing') {
@@ -937,7 +944,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
   if (p === 'loading') body.push(h('p', 'hint', 'Loading…'));
   else if (p === 'missing') body.push(h('p', 'hint', 'This player can no longer be viewed.'));
   else if ('bot' in p) {
-    body.push(append(h('div', 'pp-head'), h('div', 'pp-pic', 'AI'), append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `AI player · knows ${p.bot}`))),
+    body.push(append(h('div', 'pp-head'), h('div', 'pp-pic', 'AI'), append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', p.bot === 'BEGINNER' ? 'AI player · beginner' : `AI player · knows ${p.bot}`))),
       h('p', 'hint', 'A computer opponent. It gets words right about as often as a learner of its level would.'));
   } else {
     const pic = h('div', 'pp-pic' + (p.pic ? ' has-pic' : ''), p.pic ? '' : p.name.slice(0, 1).toUpperCase());
@@ -956,7 +963,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
         append(h('div', 'streak-box'), h('b', '', p.streak ?? 0), h('span', '', 'login streak (days)')),
         append(h('div', 'streak-box best'), h('b', '', Math.max(p.bestStreak ?? 0, p.streak ?? 0)), h('span', '', 'best streak (days)')),
       ),
-      h('p', 'hint', `Playing since ${new Date(p.since).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`),
+      h('p', 'hint', `Playing since ${new Date(p.since).toLocaleDateString(locale(), { year: 'numeric', month: 'short', day: 'numeric' })}`),
     );
   }
   pop.replaceChildren(...body);
@@ -992,4 +999,10 @@ export function showHistory(list: MatchSummary[] | null, onOpen: (id: string) =>
     return row;
   }));
   show('history');
+}
+
+/** Colour an element's combo / Omnipotence flames (sets --f0..--f3 from the flame's colour). */
+export function paintFlame(el: HTMLElement, flame: string | null | undefined) {
+  el.dataset.flame = flame ?? 'blue';
+  flameShades(flame).forEach((c, i) => el.style.setProperty(`--f${i}`, c));
 }

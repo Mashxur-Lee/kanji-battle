@@ -92,21 +92,35 @@ $('friendAdd').addEventListener('submit', async (e) => {
 $('friendsBack').onclick = () => ui.show('menu');
 $('friendsRefresh').onclick = () => void openFriends();
 
-/** Lobby: your online friends with an Invite button. */
-export async function renderLobbyInvites(isLobby: boolean) {
+const INVITE_COOLDOWN_MS = 10_000;
+const invitedAt = new Map<string, number>();
+let lobbyIds: string[] = [];
+let cooldownTimer = 0;
+/** Lobby: your online friends (not already in the room) with an Invite button — again after 10 s. */
+export async function renderLobbyInvites(isLobby: boolean, inRoom: string[] = lobbyIds) {
   const box = $('lobbyInvite');
+  lobbyIds = inRoom;
+  clearTimeout(cooldownTimer);
   if (!isLobby) { box.hidden = true; return; }
   await refresh();
-  const online = friends.filter((f) => f.status === 'accepted' && f.online);
+  const online = friends.filter((f) => f.status === 'accepted' && f.online && !lobbyIds.includes(f.id));
   box.hidden = online.length === 0;
   if (!online.length) return;
+  let soonest = Infinity;
   box.replaceChildren(el('h4', '', 'Invite friends'), ...online.map((f) => {
     const r = el('div', 'li-row');
-    const b = el('button', 'pill primary', 'Invite') as HTMLButtonElement;
-    b.onclick = () => { hooks.send({ type: 'invite', friendId: f.id }); b.textContent = 'Invited ✓'; b.disabled = true; };
+    const playing = !!f.activity?.startsWith('Playing');
+    const wait = INVITE_COOLDOWN_MS - (Date.now() - (invitedAt.get(f.id) ?? 0));
+    if (wait > 0) soonest = Math.min(soonest, wait);
+    const b = el('button', 'pill primary', playing ? 'In a game' : wait > 0 ? `Invited · ${Math.ceil(wait / 1000)}s` : invitedAt.has(f.id) ? 'Invite again' : 'Invite') as HTMLButtonElement;
+    b.disabled = playing || wait > 0;
+    b.title = playing ? 'They are playing — invite them when their game is over' : '';
+    b.onclick = () => { hooks.send({ type: 'invite', friendId: f.id }); invitedAt.set(f.id, Date.now()); void renderLobbyInvites(true); };
     r.append(el('i', 'dot'), el('span', '', f.username), el('small', 'hint', f.activity ?? ''), b);
     return r;
   }));
+  // tick the countdown on the buttons
+  if (soonest < Infinity) cooldownTimer = window.setTimeout(() => { if (!box.hidden) void renderLobbyInvites(true); }, Math.min(1000, soonest));
 }
 
 /** A friend invites you: a card with Join / Decline (and an alert if the tab is in the background). */
@@ -117,8 +131,7 @@ export function onInvite(msg: { fromId: string; from: string; code: string; mode
   const close = () => { box.hidden = true; clearTimeout(t); };
   join.onclick = () => {
     close();
-    if (hooks.inRoom()) return ui.toast('Leave your current room first');
-    hooks.join(msg.code);
+    hooks.join(msg.code); // leaves the room you're in first (lobby / results)
   };
   no.onclick = close;
   box.replaceChildren(el('b', '', `${msg.from} invites you`), el('span', '', `to ${MODE_LABEL[msg.mode]} — room ${msg.code}`), el('div', 'ib-actions'));

@@ -2,6 +2,7 @@
 // (kana or romaji) within 15 s — checked on the server, one word at a time. One try a day; the board
 // ranks by correct answers, then total time.
 
+import { locale } from './i18n';
 import { LEVEL_LABEL } from '../shared/protocol';
 import { api, type DailyAnswer, type DailyOverview, type DailyWord } from './api';
 import * as audio from './audio';
@@ -18,7 +19,7 @@ const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 /** The words change at midnight UTC: say when that is for this player. */
 const nextReset = () => {
   const d = new Date(); d.setUTCHours(24, 0, 0, 0);
-  return `at ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} your time`;
+  return `at ${d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })} your time`;
 };
 
 let me = '';
@@ -52,7 +53,7 @@ function renderBoard(o: DailyOverview) {
 function renderOverview(o: DailyOverview) {
   renderBoard(o);
   const main = $('dailyMain');
-  const date = `Challenge of ${new Date(`${o.day}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })}`;
+  const date = `Challenge of ${new Date(`${o.day}T12:00:00Z`).toLocaleDateString(locale(), { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })}`;
   if (o.mine) {
     const words = el('div', 'daily-words');
     for (const w of o.words ?? []) {

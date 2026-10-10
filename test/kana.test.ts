@@ -26,7 +26,15 @@ test('normalizeAnswer accepts IME kana, katakana, full-width and stray whitespac
 test('isCorrectReading', () => {
   assert.ok(isCorrectReading('ちゅうちょ', ['ちゅうちょ']));
   assert.ok(isCorrectReading('chuucho', ['ちゅうちょ']));
-  assert.ok(!isCorrectReading('chucho', ['ちゅうちょ']));
+  assert.ok(isCorrectReading('chucho', ['ちゅうちょ']), 'one long う left out is forgiven');
+  assert.ok(!isCorrectReading('chucho', ['ちゅうちょう']), 'two left out is not');
+  assert.ok(isCorrectReading('seikatsu', ['せいかつする']), 'a verb\'s する may be left off');
+  assert.ok(isCorrectReading('kyoto', ['きょうと']));
+  assert.ok(isCorrectReading('ouki', ['おおき']), 'う/お swapped once');
+  assert.ok(isCorrectReading('benkyou', ['べんきょうする']));
+  assert.ok(!isCorrectReading('benkyo', ['べんきょうする']), 'only one slip at a time');
+  assert.ok(!isCorrectReading('ki', ['おき']), 'the first sound must be there');
+  assert.ok(!isCorrectReading('kaki', ['かさ']));
   assert.ok(!isCorrectReading('', ['ちゅうちょ']));
   assert.ok(!isCorrectReading('躊躇', ['ちゅうちょ'])); // typing the kanji itself is not the reading
 });

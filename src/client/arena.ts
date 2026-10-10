@@ -27,7 +27,8 @@ const webgl = (() => { try { const c = document.createElement('canvas'); return 
  * screens, touch devices and the "Lite" setting get the lighter version (less grass and particles,
  * no anti-aliasing, lower resolution).
  */
-export const arenaSupported = () => webgl && innerWidth >= 640 && innerHeight >= 340 && innerWidth > innerHeight;
+export const hasWebgl = () => webgl;
+export const arenaSupported = () => webgl && innerWidth >= 560 && innerHeight >= 260 && innerWidth > innerHeight;
 export type ArenaQuality = 'full' | 'lite' | 'off';
 const smallOrTouch = () => innerWidth < 900 || innerHeight < 560 || matchMedia('(pointer: coarse)').matches;
 export function arenaQuality(): ArenaQuality {
@@ -95,6 +96,20 @@ export function arenaScreen(screen: string) {
   if (onScreen) void activate();
   else { api?.setActive(false); document.body.classList.remove('has-3d'); }
 }
+
+// turning a phone sideways (or resizing the window) switches between the 3D arena and the 2D field
+let reflowTimer = 0;
+function reflow() {
+  clearTimeout(reflowTimer);
+  reflowTimer = window.setTimeout(() => {
+    if (!onScreen) return;
+    if (wanted()) void activate();
+    else { api?.setActive(false); document.body.classList.remove('has-3d'); }
+  }, 250);
+}
+addEventListener('resize', reflow);
+addEventListener('orientationchange', reflow);
+screen.orientation?.addEventListener?.('change', reflow);
 
 /** The background the player chose (and the time of day): shown far behind the arena. */
 export function setArenaBackground(id: BackgroundId, time: TimeOfDay) { bg = { id, time }; }

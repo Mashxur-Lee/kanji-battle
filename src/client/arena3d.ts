@@ -56,6 +56,8 @@ export interface ArenaApi {
 }
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+// Only screen shake follows the system's reduce-motion setting: with Windows "animation effects" off the
+// whole arena (fire, sway, gem) used to freeze, which read as broken rather than calm.
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ── textures drawn on canvases ──────────────────────────────────────────────
@@ -201,7 +203,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: !lite, powerPreference: lite ? 'default' : 'high-performance' });
   } catch { return null; }
-  const pixelRatio = () => (lite ? 1 : Math.min(devicePixelRatio || 1, 1.5));
+  let lowRes = false; // slow even in Lite: render at ¾ resolution
+  const pixelRatio = () => (lowRes ? 0.75 : lite ? 1 : Math.min(devicePixelRatio || 1, 1.5));
   renderer.setPixelRatio(pixelRatio());
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
@@ -454,7 +457,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
         vec3 col = mix(uC3, uC2, smoothstep(0.0, 0.35, heat));
         col = mix(col, uC1, smoothstep(0.3, 0.6, heat));
         col = mix(col, uC0, smoothstep(0.7, 0.95, heat));
-        gl_FragColor = vec4(col * min(f, 0.8) * uAmount * 0.85, 1.0); // added on top of the scene: glows, never hides it
+        gl_FragColor = vec4(col * min(f, 0.75) * uAmount * 0.55, 1.0); // added on top of the scene: glows, never hides it
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
@@ -464,7 +467,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   camera.add(fireBand);
   function placeFireBand() {
     const d = 1.2, halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * d;
-    const h = halfH * 0.85; // the lower ~40% of the screen
+    const h = halfH * 0.55; // the lower ~quarter of the screen
     fireBand.scale.set(halfH * camera.aspect * 2.05, h, 1);
     fireBand.position.set(0, -halfH + h / 2, -d);
   }
@@ -584,7 +587,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     s.renderOrder = 5;
     scene.add(s);
     const mid = from.clone().lerp(to, 0.5).add(new THREE.Vector3(rnd(-0.6, 0.6), 1.2 + from.distanceTo(to) * 0.08, 0));
-    return new Promise((done) => flights.push({ sprite: s, from, to, mid, t: 0, dur: reduced() ? 0.4 : dur, color: new THREE.Color(color), size, done, trailAt: 0 }));
+    return new Promise((done) => flights.push({ sprite: s, from, to, mid, t: 0, dur, color: new THREE.Color(color), size, done, trailAt: 0 }));
   }
 
   // ── state set by the game ───────────────────────────────────────────────────
@@ -636,6 +639,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     fp.scale.setScalar(s.layout === 'deck' ? 0.56 : 0.72);
     setStaffSkin(s.me.staff ?? 'verdant');
     meDown = false; fp.visible = true; gemState = 'ready';
+    myFlame = null; fireU.uAmount.value = 0; fireBand.visible = false; // a new game starts without last game's flames
     if (s.opp) makeFighter('opp', s.opp);
     if (s.boss) makeFighter('boss', s.boss);
     for (const a of s.allies) makeFighter(`ally:${a.id}`, a);
@@ -705,12 +709,26 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
 
   // ── the frame loop ─────────────────────────────────────────────────────────
   let active = false, raf = 0, last = performance.now(), time = 0;
+  // adaptive quality: a slow machine drops to Lite (then lower resolution) by itself, instead of lagging
+  let perfFrames = 0, perfTime = 0, perfSkip = 0;
+  function watchPerf(ms: number) {
+    if (lowRes || document.hidden) return;
+    if (perfSkip < 45) { perfSkip++; return; } // the first frames compile shaders, upload textures
+    perfFrames++; perfTime += ms;
+    if (perfTime < 2500) return;
+    const fps = (perfFrames * 1000) / perfTime;
+    perfFrames = 0; perfTime = 0;
+    if (fps >= (lite ? 22 : 34)) return;
+    if (!lite) api.setLite(true); else { lowRes = true; renderer.setPixelRatio(pixelRatio()); resize(); }
+    dispatchEvent(new CustomEvent('kw:arena-lite', { detail: { fps: Math.round(fps), lowRes } }));
+  }
   function frame(nowMs: number) {
     raf = requestAnimationFrame(frame);
+    watchPerf(nowMs - last);
     const realDt = Math.min(1, Math.max(0, (nowMs - last) / 1000));
     const dt = Math.min(0.05, realDt); last = nowMs; time += dt;
     const now = performance.now();
-    const still = reduced();
+    const still = false; // ambient motion always runs (see `reduced`)
 
     look.lerp(mouse, still ? 1 : 0.05);
     const sway = still ? 0 : Math.sin(time * 0.7) * 0.025;
@@ -918,7 +936,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       if (on === active) return;
       active = on;
       canvas.classList.toggle('on', on);
-      if (on) { resize(); last = performance.now(); raf = requestAnimationFrame(frame); }
+      if (on) { resize(); last = performance.now(); perfSkip = 0; perfFrames = 0; perfTime = 0; raf = requestAnimationFrame(frame); }
       else cancelAnimationFrame(raf);
     },
     async cast(from, to, kanji, o = {}) {
@@ -940,10 +958,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
           const t0 = performance.now();
           await new Promise<void>((done) => {
             const step = () => {
-              const t = Math.min(1, (performance.now() - t0) / (reduced() ? 150 : 520));
+              const t = Math.min(1, (performance.now() - t0) / 520);
               const p = a0.clone().lerp(mid, t).lerp(mid.clone().lerp(a1, t), t);
               g.position.copy(p); g.rotation.y += 0.3; g.scale.setScalar(1.3 * (1 - t * 0.7)); g.scale.y *= 1.5;
-              if (!reduced() && Math.random() < 0.8) spark(p.clone(), color, { size: rnd(0.03, 0.07), life: 0.35, opacity: 0.9 });
+              if (Math.random() < 0.8) spark(p.clone(), color, { size: rnd(0.03, 0.07), life: 0.35, opacity: 0.9 });
               if (t < 1) requestAnimationFrame(step); else { scene.remove(g); done(); }
             };
             step();
@@ -1027,7 +1045,6 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     channel(level) { channelLevel = Math.max(0, Math.min(1, level)); },
     twitch() {
       wantGem();
-      if (reduced()) return;
       twitchAmp = 0.35;
       twitchTarget.set(rnd(-0.35, 0.25), rnd(-0.25, 0.25), rnd(-0.3, 0.3));
       if (Math.random() < 0.6 && gemState === 'ready') { staff.gem.getWorldPosition(tmp); spark(tmp.clone(), staff.color.clone().lerp(new THREE.Color(0xffffff), 0.5), { size: rnd(0.04, 0.09), vel: new THREE.Vector3(rnd(-0.6, 0.6), rnd(0.2, 0.9), rnd(-0.3, 0.3)), life: 0.5 }); }
@@ -1082,6 +1099,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   };
   if (lite) api.setLite(true);
   resize();
+  // compile every shader now (while you're in the menu), not in the first second of your first battle
+  try { renderer.compile(scene, camera); } catch { /* fine — compiled on first draw */ }
   return api;
 }
 

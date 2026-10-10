@@ -117,6 +117,23 @@ export const flameUnlocked = (f: FlameId, xp: number, unlocks: readonly string[]
   return d.season ? unlocks.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
 };
 export const flameColor = (f: string | null | undefined) => (FLAMES.find((x) => x.id === f) ?? FLAMES[0]).color;
+/** The four fire shades (tips → base, "r,g,b") the 2D flames are drawn with, from a flame's colour. */
+export function flameShades(f: string | null | undefined): [string, string, string, string] {
+  const hex = flameColor(f).slice(1);
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  const h = d === 0 ? 0 : max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  const hue = h * 60;
+  const pale = l > 0.85; // starlight / thunder: a whiter fire
+  const rgb = (s: number, li: number) => {
+    const c = (1 - Math.abs(2 * li - 1)) * s, x = c * (1 - Math.abs(((hue / 60) % 2) - 1)), m = li - c / 2;
+    const [a, bb, cc] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
+    return [a, bb, cc].map((v) => Math.round((v + m) * 255)).join(',');
+  };
+  return pale
+    ? [rgb(1, 0.97), rgb(1, 0.86), rgb(0.85, 0.7), rgb(0.7, 0.45)]
+    : [rgb(1, 0.93), rgb(1, 0.72), rgb(0.9, 0.55), rgb(0.85, 0.36)];
+}
 
 // ── magic staffs: by best login streak, or a month's reward (a recoloured classic staff) ──────────
 export interface StaffDef { id: string; name: string; streak: number; gem: string; blurb: string; season?: number; base?: string; tint?: string }
