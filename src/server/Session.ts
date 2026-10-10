@@ -6,6 +6,8 @@ import type { Client, MemberProfile, Room } from './Room';
 import type { Matchmaker } from './Matchmaker';
 import type { RoomManager } from './RoomManager';
 import { picUrl, type StudyService } from './study/StudyService';
+import type { SocialService } from './study/SocialService';
+import { MODE_LEVEL, modeUnlocked } from '../shared/progress';
 
 const MAX_ANSWER_LENGTH = 40;
 const MAX_WRITTEN_CHARS = 8;
@@ -43,6 +45,8 @@ export class SessionHub {
     this.lastSeen.set(userId, Date.now());
   }
   kick(userId: string, message: string) { this.byUser.get(userId)?.kick(message); }
+  /** A message to one player, if they're connected (friend requests, invites). */
+  sendTo(userId: string, msg: ServerMessage) { const s = this.byUser.get(userId); if (s) s.send(msg); return !!s; }
 }
 
 /** One per socket connection: authenticates, validates untrusted input, routes it to the right Room. */
@@ -58,7 +62,16 @@ export class Session implements Client {
     private readonly out: (json: string) => void,
     private readonly close: () => void,
     private readonly matchmaker?: Matchmaker,
+    private readonly social?: SocialService,
   ) {}
+
+  /** New players start with Reading and Rapid; the other modes unlock with levels (to create or queue). */
+  private async modeLock(modes: GameMode[]): Promise<string | null> {
+    if (this.user?.role === 'admin') return null;
+    const rec = await this.auth.store.findById(this.user!.id);
+    const locked = modes.find((m) => !modeUnlocked(m, rec?.xp ?? 0));
+    return locked ? `${MODE_LABEL[locked]} unlocks at level ${MODE_LEVEL[locked]} — win a few games first (or join a friend's room).` : null;
+  }
 
   /** Matchmaker seats a matched player (exactly like joining with the code). */
   async joinMatched(room: Room, levels: Level[]): Promise<boolean> {
@@ -117,6 +130,9 @@ export class Session implements Client {
     }
     if (msg.type === 'queue') {
       if (!this.matchmaker) return;
+      const wanted = (Array.isArray(msg.modes) ? msg.modes : []).filter((m): m is GameMode => MODES.includes(m as GameMode));
+      const lock = await this.modeLock(wanted);
+      if (lock) return this.send({ type: 'error', message: lock });
       const err = this.matchmaker.enqueue(user.id, this, msg.modes, msg.levels);
       if (err) this.send({ type: 'error', message: err });
       return;
@@ -128,6 +144,8 @@ export class Session implements Client {
       this.matchmaker?.cancel(user.id, false);
       if (this.room) return;
       const mode: GameMode = MODES.includes(msg.mode as GameMode) ? (msg.mode as GameMode) : 'reading';
+      const lock = await this.modeLock([mode]);
+      if (lock) return this.send({ type: 'error', message: lock });
       return await this.enter(this.rooms.create(mode), parseLevels(msg.levels));
     }
     if (msg.type === 'join') {
@@ -140,6 +158,13 @@ export class Session implements Client {
 
     const room = this.room;
     if (!room) return;
+    if (msg.type === 'invite') {
+      const friendId = String(msg.friendId ?? '');
+      if (room.stage !== 'lobby') return this.send({ type: 'error', message: 'Invite friends from the lobby' });
+      if (!this.social || !(await this.social.areFriends(user.id, friendId))) return this.send({ type: 'error', message: 'You can only invite friends' });
+      if (!this.hub.sendTo(friendId, { type: 'invite', fromId: user.id, from: user.username, code: room.code, mode: room.mode })) return this.send({ type: 'error', message: 'Your friend is offline' });
+      return;
+    }
     switch (msg.type) {
       case 'levels': {
         const levels = parseLevels(msg.levels);

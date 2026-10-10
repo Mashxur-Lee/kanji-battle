@@ -11,6 +11,8 @@ import { createWritingJudge, isWritable } from './handwriting/judge';
 import { Recognizer } from './handwriting/recognizer';
 import { createApiHandler } from './http';
 import { StudyService } from './study/StudyService';
+import { DailyService } from './study/DailyService';
+import { SocialService } from './study/SocialService';
 import { RoomManager } from './RoomManager';
 import { Session, SessionHub } from './Session';
 import { Matchmaker } from './Matchmaker';
@@ -29,10 +31,12 @@ const tokens = new TokenSigner();
 const auth = new AuthService(store, tokens);
 const study = new StudyService(store);
 const hub = new SessionHub();
-const api = createApiHandler(auth, study, (id) => hub.presence(id));
+const daily = new DailyService(store, study.progress);
+const social = new SocialService(store, hub);
+const recognizer = Recognizer.fromFile();
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch) });
 
 // ── game ──────────────────────────────────────────────────────────────────────
-const recognizer = Recognizer.fromFile();
 const rooms = new RoomManager({
   judgeWriting: createWritingJudge(recognizer),
   judgeDeck: createWritingJudge(recognizer, { lenient: true }), // Deck Duel: extra forgiving
@@ -67,7 +71,7 @@ const server = createServer(async (req, res) => {
 // Handwriting answers carry stroke data, so allow bigger frames than plain JSON messages.
 const wss = new WebSocketServer({ server, maxPayload: 96 * 1024 });
 wss.on('connection', (ws) => {
-  const session = new Session(rooms, auth, hub, study, (json) => ws.readyState === ws.OPEN && ws.send(json), () => ws.close(), matchmaker);
+  const session = new Session(rooms, auth, hub, study, (json) => ws.readyState === ws.OPEN && ws.send(json), () => ws.close(), matchmaker, social);
   ws.on('message', (data) => void session.onRaw(data.toString()));
   ws.on('close', () => session.onClose());
 });

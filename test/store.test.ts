@@ -193,3 +193,47 @@ for (const [name, make] of stores) {
     await s.close?.();
   });
 }
+
+for (const [name, make] of stores) {
+  test(`store: activity, daily challenge results, friends, tutorial and unlocks (${name})`, async () => {
+    const s = make();
+    await s.init();
+    const tag = `${name}-${Date.now().toString(36)}`;
+    const a = await s.create({ username: `act-a-${tag}`, passwordHash: 'h', role: 'user' });
+    const b = await s.create({ username: `act-b-${tag}`, passwordHash: 'h', role: 'user' });
+    const c = await s.create({ username: `act-c-${tag}`, passwordHash: 'h', role: 'user' });
+    assert.equal(a.tutorialDone, false, 'new accounts get the tutorial');
+    assert.deepEqual(a.unlocks, []);
+    assert.equal((await s.update(a.id, { tutorialDone: true, unlocks: ['flame:harvest'] }))!.unlocks[0], 'flame:harvest');
+    // activity adds up per day
+    await s.addActivity(a.id, '2026-10-01', { login: true });
+    await s.addActivity(a.id, '2026-10-01', { reviews: 3, games: 1, wins: 1, xp: 300 });
+    await s.addActivity(a.id, '2026-10-02', { reviews: 2 });
+    const act = await s.activity(a.id, '2026-10-01');
+    assert.deepEqual(act.map((d) => [d.day, d.login, d.reviews, d.games, d.wins, d.xp]), [['2026-10-01', true, 3, 1, 1, 300], ['2026-10-02', false, 2, 0, 0, 0]]);
+    assert.equal((await s.activity(a.id, '2026-10-02')).length, 1);
+    // daily challenge: one result per player per day, best first
+    const day = `2099-01-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`;
+    if (s instanceof PgStore) await (s as any).sql`delete from kw_daily where day = ${day}`;
+    assert.equal(await s.saveDaily(day, a.id, 7, 50_000), true);
+    assert.equal(await s.saveDaily(day, a.id, 10, 1), false, 'only one try');
+    await s.saveDaily(day, b.id, 7, 40_000);
+    await s.saveDaily(day, c.id, 9, 90_000);
+    assert.deepEqual((await s.dailyBoard(day, 10)).map((r) => r.userId), [c.id, b.id, a.id]);
+    assert.equal(await s.dailyBetter(day, 7, 50_000), 2);
+    assert.deepEqual(await s.daily(day, a.id), { correct: 7, ms: 50_000 });
+    // friends: request → incoming / outgoing → accept; a mutual request accepts at once; remove
+    assert.equal(await s.requestFriend(a.id, b.id), 'requested');
+    assert.equal(await s.requestFriend(a.id, b.id), 'exists');
+    assert.deepEqual((await s.friends(a.id)).map((f) => [f.id, f.status]), [[b.id, 'outgoing']]);
+    assert.deepEqual((await s.friends(b.id)).map((f) => [f.id, f.status]), [[a.id, 'incoming']]);
+    assert.equal(await s.acceptFriend(b.id, a.id), true);
+    assert.deepEqual((await s.friends(b.id)).map((f) => f.status), ['accepted']);
+    await s.requestFriend(c.id, a.id);
+    assert.equal(await s.requestFriend(a.id, c.id), 'accepted', 'both asked: friends');
+    assert.equal((await s.friends(a.id)).filter((f) => f.status === 'accepted').length, 2);
+    await s.removeFriend(a.id, b.id);
+    assert.deepEqual((await s.friends(b.id)), []);
+    await s.close?.();
+  });
+}

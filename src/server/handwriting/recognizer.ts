@@ -244,6 +244,9 @@ export class Recognizer {
   /** Stroke count of a reference character (0 if unknown). */
   strokeCount(ch: string) { const i = this.refIndex(ch); return i < 0 ? 0 : this.refs[i][1]; }
 
+  /** The reference strokes of a character, in stroke order (for the stroke-order animation), or null. */
+  strokes(ch: string) { const i = this.refIndex(ch); return i < 0 ? null : this.refs[i][2]; }
+
   /** Whether this character can be recognised at all. */
   knows(ch: string) { return this.byChar.has(ch); }
 

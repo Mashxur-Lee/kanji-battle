@@ -1,6 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { AuthError, toPublic, type AuthService } from './auth/AuthService';
 import { resolveToday, StudyError, type StudyService } from './study/StudyService';
+import { DailyError, type DailyService } from './study/DailyService';
+import { SocialError, type SocialService } from './study/SocialService';
+import { playerDay } from './study/ProgressService';
 
 const MAX_BODY = 4 * 1024;
 
@@ -39,7 +42,15 @@ const send = (res: ServerResponse, status: number, body: unknown) =>
 const bearer = (req: IncomingMessage) => (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
 
 /** Handles /api/*; returns false for any other path so static files can be served. */
-export function createApiHandler(auth: AuthService, study: StudyService, presence?: (userId: string) => { online: boolean; activity?: string; since?: number; lastSeen?: number }) {
+export interface ApiExtras {
+  presence?: (userId: string) => { online: boolean; activity?: string; since?: number; lastSeen?: number };
+  daily?: DailyService;
+  social?: SocialService;
+  /** reference strokes of a character in stroke order (stroke-order hints) */
+  strokes?: (ch: string) => unknown;
+}
+export function createApiHandler(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
+  const { presence, daily, social, strokes } = extras;
   const limiter = new RateLimiter(20, 60_000);
 
   return async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
@@ -82,6 +93,44 @@ export function createApiHandler(auth: AuthService, study: StudyService, presenc
         const u = await auth.authenticate(bearer(req));
         await study.setStaff(u, (await readJson(req)).staff);
         send(res, 200, { profile: await study.profile((await auth.authenticate(bearer(req)))) });
+      } else if (req.method === 'PUT' && url === '/api/me/tutorial') {
+        const u = await auth.authenticate(bearer(req));
+        await auth.store.update(u.id, { tutorialDone: true });
+        send(res, 200, { ok: true });
+      } else if (req.method === 'GET' && url === '/api/progress') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, await study.progress.page(u, query.get('today') ? resolveToday(query.get('today')) : playerDay(u)));
+      } else if (req.method === 'GET' && url === '/api/strokes') {
+        // stroke order for up to 8 characters (public data: reference strokes from the recogniser)
+        const chars = [...(query.get('k') ?? '')].slice(0, 8);
+        send(res, 200, { strokes: Object.fromEntries(chars.map((c) => [c, strokes?.(c) ?? null])) });
+      } else if (daily && req.method === 'GET' && url === '/api/daily') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, await daily.overview(u));
+      } else if (daily && req.method === 'POST' && url === '/api/daily/start') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, { word: await daily.start(u) });
+      } else if (daily && req.method === 'POST' && url === '/api/daily/answer') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, await daily.answer(u, (await readJson(req)).text));
+      } else if (daily && req.method === 'POST' && url === '/api/daily/finish') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, { done: await daily.finishStale(u) });
+      } else if (social && req.method === 'GET' && url === '/api/friends') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, { friends: await social.list(u.id) });
+      } else if (social && req.method === 'POST' && url === '/api/friends') {
+        const u = await auth.authenticate(bearer(req));
+        const result = await social.request(u.id, u.username, (await readJson(req)).username);
+        send(res, 200, { result, friends: await social.list(u.id) });
+      } else if (social && req.method === 'POST' && /^\/api\/friends\/[\w-]+\/accept$/.test(url)) {
+        const u = await auth.authenticate(bearer(req));
+        await social.accept(u.id, u.username, url.split('/')[3]);
+        send(res, 200, { friends: await social.list(u.id) });
+      } else if (social && req.method === 'DELETE' && /^\/api\/friends\/[\w-]+$/.test(url)) {
+        const u = await auth.authenticate(bearer(req));
+        await social.remove(u.id, url.split('/')[3]);
+        send(res, 200, { friends: await social.list(u.id) });
       } else if (req.method === 'GET' && url === '/api/matches') {
         const u = await auth.authenticate(bearer(req));
         send(res, 200, { matches: await study.matches(u.id) });
@@ -127,7 +176,7 @@ export function createApiHandler(auth: AuthService, study: StudyService, presenc
         send(res, 404, { error: 'Not found' });
       }
     } catch (e) {
-      if (e instanceof AuthError || e instanceof StudyError) send(res, e.status, { error: e.message });
+      if (e instanceof AuthError || e instanceof StudyError || e instanceof DailyError || e instanceof SocialError) send(res, e.status, { error: e.message });
       else { console.error(e); send(res, 500, { error: 'Server error' }); }
     }
     return true;

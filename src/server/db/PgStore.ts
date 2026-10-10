@@ -2,7 +2,7 @@ import postgres from 'postgres';
 import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
 import type { BackgroundId, FlameId, StaffId } from '../../shared/progress';
 import type { CardState, SrsCard } from '../../shared/srs';
-import { MATCH_HISTORY_LIMIT, UsernameTakenError, type AvatarImage, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+import { MATCH_HISTORY_LIMIT, UsernameTakenError, type ActivityDelta, type AvatarImage, type DailyResult, type DayActivity, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
 /**
  * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
@@ -11,7 +11,7 @@ import { MATCH_HISTORY_LIMIT, UsernameTakenError, type AvatarImage, type NewUser
 interface UserRow {
   id: string; username: string; password_hash: string; role: Role; banned: boolean; created_at: Date;
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
-  crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null;
+  crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null; tutorial_done: boolean | null; unlocks: string[] | null;
   login_day: string | null; streak: number | null; best_streak: number | null;
 }
 interface CardRow {
@@ -24,7 +24,7 @@ const toUser = (r: UserRow): UserRecord => ({
   createdAt: new Date(r.created_at).toISOString(), xp: r.xp, background: r.background,
   studyLevels: r.study_levels ?? [], lastNewDate: r.last_new_date, newNotice: r.new_notice,
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
-  wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant',
+  wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant', tutorialDone: r.tutorial_done ?? true, unlocks: r.unlocks ?? [],
   loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0,
 });
 const toCard = (r: CardRow): SrsCard => ({
@@ -35,7 +35,7 @@ const toCard = (r: CardRow): SrsCard => ({
 const COLUMNS: Record<keyof UserPatch, string> = {
   banned: 'banned', passwordHash: 'password_hash', background: 'background',
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
-  critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff',
+  critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff', tutorialDone: 'tutorial_done', unlocks: 'unlocks',
   loginDay: 'login_day', streak: 'streak', bestStreak: 'best_streak',
 };
 
@@ -117,6 +117,36 @@ export class PgStore implements Store {
     await this.sql`alter table kw_users add column if not exists best_streak integer not null default 0`;
     // v0.9.5 magic staff skin
     await this.sql`alter table kw_users add column if not exists staff text not null default 'verdant'`;
+    // v0.9.6 first-run tutorial (existing accounts count as done), seasonal unlocks, activity, daily challenge, friends
+    await this.sql`alter table kw_users add column if not exists tutorial_done boolean not null default true`;
+    await this.sql`alter table kw_users add column if not exists unlocks text[] not null default '{}'`;
+    await this.sql`
+      create table if not exists kw_activity (
+        user_id uuid not null references kw_users(id) on delete cascade,
+        day text not null,
+        login boolean not null default false,
+        reviews integer not null default 0,
+        games integer not null default 0,
+        wins integer not null default 0,
+        xp integer not null default 0,
+        primary key (user_id, day)
+      )`;
+    await this.sql`
+      create table if not exists kw_daily (
+        day text not null,
+        user_id uuid not null references kw_users(id) on delete cascade,
+        correct integer not null,
+        ms integer not null,
+        primary key (day, user_id)
+      )`;
+    await this.sql`create index if not exists kw_daily_rank on kw_daily (day, correct desc, ms asc)`;
+    await this.sql`
+      create table if not exists kw_friends (
+        user_id uuid not null references kw_users(id) on delete cascade,
+        friend_id uuid not null references kw_users(id) on delete cascade,
+        status text not null check (status in ('pending', 'accepted')),
+        primary key (user_id, friend_id)
+      )`;
     // v0.7.7 match history (one row per player per match; the result screen is kept as JSON)
     await this.sql`
       create table if not exists kw_matches (
@@ -152,7 +182,7 @@ export class PgStore implements Store {
   async create(u: NewUser) {
     try {
       const [r] = await this.sql<UserRow[]>`
-        insert into kw_users (username, password_hash, role, xp_scheme) values (${u.username.toLowerCase()}, ${u.passwordHash}, ${u.role}, 2)
+        insert into kw_users (username, password_hash, role, xp_scheme, tutorial_done) values (${u.username.toLowerCase()}, ${u.passwordHash}, ${u.role}, 2, false)
         returning *`;
       return toUser(r);
     } catch (e) {
@@ -249,6 +279,67 @@ export class PgStore implements Store {
     if (!/^\d{1,18}$/.test(id)) return null;
     const [r] = await this.sql<{ id: string; data: MatchDetail }[]>`select id, data from kw_matches where user_id = ${userId} and id = ${id}`;
     return r ? { ...r.data, id: String(r.id) } : null;
+  }
+  async addActivity(userId: string, day: string, d: ActivityDelta) {
+    await this.sql`
+      insert into kw_activity (user_id, day, login, reviews, games, wins, xp)
+      values (${userId}, ${day}, ${!!d.login}, ${d.reviews ?? 0}, ${d.games ?? 0}, ${d.wins ?? 0}, ${d.xp ?? 0})
+      on conflict (user_id, day) do update set
+        login = kw_activity.login or excluded.login,
+        reviews = kw_activity.reviews + excluded.reviews, games = kw_activity.games + excluded.games,
+        wins = kw_activity.wins + excluded.wins, xp = kw_activity.xp + excluded.xp`;
+  }
+  async activity(userId: string, fromDay: string): Promise<DayActivity[]> {
+    return this.sql<DayActivity[]>`select day, login, reviews, games, wins, xp from kw_activity where user_id = ${userId} and day >= ${fromDay} order by day`;
+  }
+  async saveDaily(day: string, userId: string, correct: number, ms: number) {
+    const r = await this.sql`insert into kw_daily (day, user_id, correct, ms) values (${day}, ${userId}, ${correct}, ${ms}) on conflict do nothing returning day`;
+    return r.length > 0;
+  }
+  async daily(day: string, userId: string) {
+    const [r] = await this.sql<{ correct: number; ms: number }[]>`select correct, ms from kw_daily where day = ${day} and user_id = ${userId}`;
+    return r ? { correct: r.correct, ms: r.ms } : null;
+  }
+  async dailyBoard(day: string, limit: number): Promise<DailyResult[]> {
+    const rows = await this.sql<{ user_id: string; username: string; correct: number; ms: number }[]>`
+      select d.user_id, u.username, d.correct, d.ms from kw_daily d join kw_users u on u.id = d.user_id
+      where d.day = ${day} order by d.correct desc, d.ms asc limit ${limit}`;
+    return rows.map((r) => ({ userId: r.user_id, username: r.username, correct: r.correct, ms: r.ms }));
+  }
+  async dailyBetter(day: string, correct: number, ms: number) {
+    const [r] = await this.sql<{ n: string }[]>`select count(*) as n from kw_daily where day = ${day} and (correct > ${correct} or (correct = ${correct} and ms < ${ms}))`;
+    return Number(r.n);
+  }
+  async friends(userId: string): Promise<FriendLink[]> {
+    const rows = await this.sql<{ id: string; username: string; status: FriendLink['status'] }[]>`
+      select f.friend_id as id, u.username, case when f.status = 'accepted' then 'accepted' else 'outgoing' end as status
+        from kw_friends f join kw_users u on u.id = f.friend_id where f.user_id = ${userId}
+      union all
+      select f.user_id as id, u.username, 'incoming' as status
+        from kw_friends f join kw_users u on u.id = f.user_id where f.friend_id = ${userId} and f.status = 'pending'
+      order by username`;
+    return rows.map((r) => ({ id: r.id, username: r.username, status: r.status }));
+  }
+  async requestFriend(from: string, to: string) {
+    const [mine] = await this.sql`select 1 from kw_friends where user_id = ${from} and friend_id = ${to}`;
+    if (mine) return 'exists' as const;
+    const [theirs] = await this.sql<{ status: string }[]>`select status from kw_friends where user_id = ${to} and friend_id = ${from}`;
+    if (theirs?.status === 'pending') {
+      await this.sql`update kw_friends set status = 'accepted' where user_id = ${to} and friend_id = ${from}`;
+      await this.sql`insert into kw_friends (user_id, friend_id, status) values (${from}, ${to}, 'accepted') on conflict do nothing`;
+      return 'accepted' as const;
+    }
+    await this.sql`insert into kw_friends (user_id, friend_id, status) values (${from}, ${to}, 'pending') on conflict do nothing`;
+    return 'requested' as const;
+  }
+  async acceptFriend(userId: string, fromId: string) {
+    const r = await this.sql`update kw_friends set status = 'accepted' where user_id = ${fromId} and friend_id = ${userId} and status = 'pending' returning 1`;
+    if (!r.length) return false;
+    await this.sql`insert into kw_friends (user_id, friend_id, status) values (${userId}, ${fromId}, 'accepted') on conflict (user_id, friend_id) do update set status = 'accepted'`;
+    return true;
+  }
+  async removeFriend(userId: string, otherId: string) {
+    await this.sql`delete from kw_friends where (user_id = ${userId} and friend_id = ${otherId}) or (user_id = ${otherId} and friend_id = ${userId})`;
   }
   async close() { await this.sql.end({ timeout: 5 }); }
 }

@@ -126,10 +126,21 @@ const PALS: Record<string, Record<string, string>> = {
   void: { w: '#5a6688', s: '#e4e8f2', c: '#8fc8ff', O: '#4a7dff', '*': '#ffffff' },
 };
 
+/** #rrggbb blended towards another colour */
+function mix(a: string, b: string, t: number) {
+  const p = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return `#${x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
+}
+
 /** The staff as coloured pixels: [x, y, colour, isGem]. */
 export function staffPixels(id: string | null | undefined): Array<[number, number, string, boolean]> {
-  const skin = staffOf(id).id;
-  const map = MAPS[skin], pal = PALS[skin];
+  const def = staffOf(id);
+  const shape = def.base ?? def.id;
+  const map = MAPS[shape];
+  const pal: Record<string, string> = { ...PALS[shape] };
+  if (def.tint) for (const k of Object.keys(pal)) pal[k] = mix(pal[k], def.tint, k === 'O' ? 0 : 0.55);
+  if (def.tint) pal.O = def.gem;
   const out: Array<[number, number, string, boolean]> = [];
   map.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== '.') out.push([x, y, pal[ch], ch === 'O']); }));
   return out;

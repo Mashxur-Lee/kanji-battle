@@ -50,6 +50,8 @@ export interface ArenaApi {
   breath(victims: Who[], damage: number): void;
   claw(victim: Who, damage: number): void;
   float(who: Who, text: string, color?: string): void;
+  /** lighter rendering for small screens / phones (less grass and particles, lower resolution) */
+  setLite(on: boolean): void;
   dispose(): void;
 }
 
@@ -193,12 +195,14 @@ interface Particle { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max
 
 const TREE_BGS = ['forest', 'swamp', 'worldtree'];
 
-export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
+export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } = {}): ArenaApi | null {
   let renderer: THREE.WebGLRenderer;
+  let lite = !!opts.lite;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: !lite, powerPreference: lite ? 'default' : 'high-performance' });
   } catch { return null; }
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+  const pixelRatio = () => (lite ? 1 : Math.min(devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(pixelRatio());
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
 
@@ -489,7 +493,9 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
 
   // ── short-lived effects ─────────────────────────────────────────────────────
   const particles: Particle[] = [];
+  let sparkN = 0;
   function spark(at: THREE.Vector3, color: THREE.ColorRepresentation, o: { size?: number; vel?: THREE.Vector3; life?: number; grow?: number; gravity?: number; opacity?: number; solid?: boolean } = {}) {
+    if (lite && (sparkN++ & 1)) return; // Lite: half the particles
     // solid: normal blending (shows on bright daylight scenes); otherwise an additive glow
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, color, blending: o.solid ? THREE.NormalBlending : THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: o.opacity ?? 1 }));
     s.position.copy(at); s.scale.setScalar(o.size ?? 0.25);
@@ -1059,6 +1065,13 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       }, 200);
     },
     float,
+    setLite(on) {
+      lite = on;
+      renderer.setPixelRatio(pixelRatio());
+      grass.count = on ? 900 : GRASS;
+      moteGeo.setDrawRange(0, on ? 90 : MOTES);
+      resize();
+    },
     dispose() {
       api.setActive(false);
       removeEventListener('pointermove', onMove);
@@ -1067,6 +1080,7 @@ export function createArena(canvas: HTMLCanvasElement): ArenaApi | null {
       renderer.dispose();
     },
   };
+  if (lite) api.setLite(true);
   resize();
   return api;
 }

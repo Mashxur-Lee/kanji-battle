@@ -7,13 +7,15 @@ import { displayReading } from '../../shared/vocab';
 import { MATCH_HISTORY_LIMIT, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { VOCAB, VOCAB_BY_ID } from '../vocab';
+import { playerDay, ProgressService, type MonthProgress } from './ProgressService';
 
 export const DAILY_NEW = 25;
 /** Matches with an AI player give half XP (an easy AI shouldn't be an XP farm). */
 export const AI_XP_FACTOR = 0.5;
 export type Deck = 'all' | 'struggling';
 
-export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number }
+export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
+  tutorialDone: boolean; unlocks: string[]; month: MonthProgress }
 
 /** Public URL of a profile picture (versioned, so browsers can cache it forever). */
 export const picUrl = (u: { id: string; avatarV: number }) => (u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null);
@@ -35,7 +37,10 @@ export function resolveToday(clientToday: unknown, now = Date.now()): string {
 }
 
 export class StudyService {
-  constructor(private readonly store: Store, private readonly rng: () => number = Math.random) {}
+  readonly progress: ProgressService;
+  constructor(private readonly store: Store, private readonly rng: () => number = Math.random) {
+    this.progress = new ProgressService(store);
+  }
 
   async profile(u: UserRecord, now = Date.now()): Promise<Profile> {
     const learned = await this.store.learnedCount(u.id);
@@ -44,6 +49,7 @@ export class StudyService {
       xp: u.xp, level: levelOf(u.xp), crit: dailyCrit(u.critCount, u.critExpires, now), learned, learnedToday, background: u.background,
       studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u), flame: u.flame ?? 'blue', staff: u.staff ?? 'verdant', strugglingDue: await this.strugglingDue(u.id, now),
       streak: liveStreak(u, new Date(now).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0,
+      tutorialDone: u.tutorialDone ?? true, unlocks: u.unlocks ?? [], month: await this.progress.month(u, playerDay(u, now)),
     };
   }
 
@@ -54,7 +60,9 @@ export class StudyService {
   async touchLogin(u: UserRecord, today: string): Promise<UserRecord> {
     if (u.loginDay === today) return u;
     const streak = u.loginDay === dayBefore(today) ? (u.streak ?? 0) + 1 : 1;
-    return (await this.store.update(u.id, { loginDay: today, streak, bestStreak: Math.max(u.bestStreak ?? 0, streak) })) ?? u;
+    const rec = (await this.store.update(u.id, { loginDay: today, streak, bestStreak: Math.max(u.bestStreak ?? 0, streak) })) ?? u;
+    await this.progress.record(u.id, today, { login: true });
+    return (await this.store.findById(u.id)) ?? rec;
   }
 
   /** Struggling spells waiting to be studied (new, learning or due). */
@@ -73,14 +81,16 @@ export class StudyService {
   /** Colour of the combo flames (Purple from level 5; admins have all). */
   async setFlame(u: UserRecord, f: unknown) {
     if (!isFlame(f)) throw new StudyError('Unknown flame');
-    if (u.role !== 'admin' && !flameUnlocked(f, u.xp)) throw new StudyError(`Unlocks at level ${FLAMES.find((x) => x.id === f)!.level}`, 403);
+    const def = FLAMES.find((x) => x.id === f)!;
+    if (u.role !== 'admin' && !flameUnlocked(f, u.xp, u.unlocks)) throw new StudyError(def.season ? 'A monthly reward: complete that month\'s goals' : `Unlocks at level ${def.level}`, 403);
     await this.store.update(u.id, { flame: f });
   }
 
   /** Magic staff skin (unlocked by your best login streak; admins have all). */
   async setStaff(u: UserRecord, s: unknown) {
     if (!isStaff(s)) throw new StudyError('Unknown staff');
-    if (u.role !== 'admin' && !staffUnlocked(s, u.bestStreak ?? 0)) throw new StudyError(`Unlocks with a ${STAFFS.find((x) => x.id === s)!.streak}-day login streak`, 403);
+    const def = STAFFS.find((x) => x.id === s)!;
+    if (u.role !== 'admin' && !staffUnlocked(s, u.bestStreak ?? 0, u.unlocks)) throw new StudyError(def.season ? 'A monthly reward: complete that month\'s goals' : `Unlocks with a ${def.streak}-day login streak`, 403);
     await this.store.update(u.id, { staff: s });
   }
 
@@ -182,6 +192,7 @@ export class StudyService {
       });
     }
     await this.store.saveCard(u.id, next);
+    if (rating !== 'again') await this.progress.record(u.id, today, { reviews: 1 });
     return { card: next, crit: await this.crit(u.id, now) };
   }
 
@@ -202,6 +213,8 @@ export class StudyService {
     const gained = forfeited ? 0 : Math.round(xpFor(outcome, accuracy, mode) * (vsAi ? AI_XP_FACTOR : 1));
     const xp = gained ? await this.store.addXp(userId, gained) : (await this.store.findById(userId))?.xp ?? 0;
     await this.store.addResult(userId, outcome);
+    const who = await this.store.findById(userId);
+    if (who) await this.progress.record(userId, playerDay(who), { games: 1, wins: outcome === 'win' ? 1 : 0, xp: gained });
     const words = missedIds.filter((id) => VOCAB_BY_ID.has(id));
     if (words.length) await this.store.markStruggling(userId, words, Date.now());
     // Deck Duel: every kanji of the duel joins All spells as a new card (cards you already have are left alone)
