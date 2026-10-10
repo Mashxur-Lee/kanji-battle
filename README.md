@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.1
+# Kanji Wizards · v0.9.2
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -91,6 +91,13 @@ as another player wants a mode you ticked, a room is made for both of you and th
 DEFEAT and the date. Open one to see its results screen again. Click any player's name (lobby, battle, results,
 history) to see their profile: level, wins, losses, win rate and spells learned. Stored in `kw_matches` (Postgres).
 
+## Combo flames & study lock
+
+At 5 correct casts in a row you are wrapped in flames — and in Deck Duel while your hero power is active. The colour
+is yours to pick in **Customize**: light blue (default) or purple (from level 5; admins have everything), and
+everyone sees it. If more than **100 Struggling spells** are waiting (new, learning or due), the game modes lock
+until you study them down to 100 (checked on the server too; admins are never locked).
+
 ## AI players
 
 The host can add AI players in the lobby (🤖 Add AI) and pick how much they know, N5 to N1. They fill an
@@ -127,7 +134,10 @@ Battles and Deck Duels are shown **first person** in a 3D arena (Three.js, `src/
 as `public/arena3d.js`): your staff in the foreground glows while you write or type, the opponent (or the dragon and
 your party) stands across a stone arena with torches, your chosen background and time of day far behind. Move the
 mouse to look around a little (parallax). Spells are kanji that fly across with a trail; hits flash and shake the
-camera. The fighters are the same pixel characters, as billboards in 3D. Only the look changed — all rules are the
+camera. Everyone is a low-poly 3D character holding a staff (wizard, witch, goblin, knight, apprentice, adventurer —
+your level's avatar, or your Deck Duel hero); you see your own from just behind, and its staff arm moves as you
+write or type. Deck Duel cards hit with their own effect: Bolt → lightning, Frost → the target turns see-through
+icy blue for a second, Inferno → it burns. The dragon stays a pixel sprite. Only the look changed — all rules are the
 same. Switch it off in the sound/settings panel (🏟 3D arena); phones, small windows and browsers without WebGL
 use the classic 2D view.
 

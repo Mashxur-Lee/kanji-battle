@@ -5,6 +5,7 @@ import * as ui from './ui';
 import type { ChatMessage } from '../shared/protocol';
 import { heroSvg } from './wizard';
 import { arena, arenaForDeck, resetArenaDeck } from './arena';
+import { flameColor } from '../shared/progress';
 
 const $ = ui.$;
 const COLOR_NAME: Record<CardColor, string> = { lightblue: 'Light blue', blue: 'Blue', yellow: 'Yellow', green: 'Green', red: 'Red' };
@@ -149,7 +150,13 @@ function cardEl(c: DeckCardView, opts: { big?: boolean; button?: boolean; disabl
   return el;
 }
 
+/** A hero power in use (Bulwark, Sight, Frenzy): the hero is wrapped in their combo flames. */
+const powered = (p: DeckPlayerView) => !!p.character && p.character !== 'wizard' && p.abilityActive > 0;
+
 function playerPanel(el: HTMLElement, p: DeckPlayerView, mine: boolean) {
+  el.dataset.flame = p.flame ?? 'blue';
+  el.classList.toggle('powered', powered(p));
+  arena()?.onfire(mine ? 'me' : 'opp', powered(p), flameColor(p.flame));
   const av = h('div', 'dk-av');
   av.innerHTML = p.character ? heroSvg(p.character, mine ? 'me' : 'opp') : '';
   const name = h('div', 'dk-name');
@@ -316,6 +323,7 @@ function renderCast(v: DeckView) {
       input.autocomplete = 'off';
       input.spellcheck = false;
       input.placeholder = c.answer === 'romaji' ? 'Type it in romaji…' : 'Reading (kana or romaji)…';
+      input.addEventListener('input', () => arena()?.twitch());
       input.addEventListener('keydown', (e) => {
         // with a Japanese IME the first Enter confirms the conversion — don't send on that one
         if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
@@ -450,6 +458,9 @@ export function deckEvent(e: DeckEvent) {
   }
 }
 
+/** Bolt strikes with lightning, Frost freezes the target blue, Inferno sets it on fire. */
+const CARD_FX: Partial<Record<CardColor, 'bolt' | 'frost' | 'fire'>> = { lightblue: 'bolt', blue: 'frost', red: 'fire' };
+
 function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) {
   const card = $('dkCast').querySelector('.dkc.big') as HTMLElement | null;
   const fb = $('dkFeedback');
@@ -468,7 +479,15 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string) 
   if (a3) {
     const from = e.playerId === me ? 'me' : 'opp';
     const to = spec.kind === 'attack' ? (e.targetId === me ? 'me' : 'opp') : from;
-    void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind });
+    void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind, fx: e.overtime ? undefined : CARD_FX[e.color] });
+  } else if (spec.kind === 'attack' && !e.overtime && CARD_FX[e.color]) {
+    // 2D: the target's panel lights up with the card's effect
+    const panel = $(e.targetId === me ? 'dkMe' : 'dkOpp');
+    setTimeout(() => {
+      panel.classList.remove('fx-bolt', 'fx-frost', 'fx-fire'); void panel.offsetWidth;
+      panel.classList.add(`fx-${CARD_FX[e.color]}`);
+      setTimeout(() => panel.classList.remove(`fx-${CARD_FX[e.color]}`), 1100);
+    }, 500);
   }
   fb.className = 'feedback good';
   fb.replaceChildren(h('span', 'big', `✓ ${who}: ${spec.label} ${spec.kind === 'attack' ? `−${e.amount}` : spec.kind === 'heal' ? `+${e.amount} ♥` : `+${e.amount} ◆`}`));

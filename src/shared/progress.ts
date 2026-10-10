@@ -72,6 +72,19 @@ export type BackgroundId = (typeof BACKGROUNDS)[number]['id'];
 export const isBackground = (x: unknown): x is BackgroundId => BACKGROUNDS.some((b) => b.id === x);
 export const unlocked = (bg: BackgroundId, xp: number) => levelOf(xp) >= BACKGROUNDS.find((b) => b.id === bg)!.level;
 
+// ── combo flames (5+ in a row, and Deck Duel powers) ──────────────────────────
+export const FLAMES = [
+  { id: 'blue', name: 'Light blue', level: 0, color: '#6ee7ff' },
+  { id: 'purple', name: 'Purple', level: 5, color: '#b26bff' },
+] as const;
+export type FlameId = (typeof FLAMES)[number]['id'];
+export const isFlame = (x: unknown): x is FlameId => FLAMES.some((f) => f.id === x);
+export const flameUnlocked = (f: FlameId, xp: number) => levelOf(xp) >= FLAMES.find((x) => x.id === f)!.level;
+export const flameColor = (f: string | null | undefined) => (FLAMES.find((x) => x.id === f) ?? FLAMES[0]).color;
+
+/** More "Struggling spells" waiting than this → the game modes lock until you study them. */
+export const STUDY_LOCK = 100;
+
 // ── characters ─────────────────────────────────────────────────────────────────
 export type { Avatar };
 const AVATAR_BY_LEVEL: Record<Level, Avatar> = { KANA: 'goblin', N5: 'kid', N4: 'human', N3: 'knight', N2: 'wizard', N1: 'wizard' };

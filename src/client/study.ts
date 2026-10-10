@@ -1,5 +1,5 @@
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
-import { BACKGROUNDS, critText, levelOf, type BackgroundId } from '../shared/progress';
+import { BACKGROUNDS, critText, levelOf, type BackgroundId, FLAMES } from '../shared/progress';
 import type { Rating } from '../shared/srs';
 import { api, type DeckCounts, type Profile, type StudyCard } from './api';
 import { backgroundThumb, getTimePref, resolveTime, setTimePref, TIMES } from './backgrounds';
@@ -156,6 +156,23 @@ export function openCustomize(profile: Profile, isAdmin = false, onTimeChange: (
     b.className = 'pill' + (t.id === pref ? ' on' : '');
     b.textContent = t.id === 'auto' ? `🔄 Cycle (now: ${time})` : t.id === 'day' ? '☀️ Day' : t.id === 'sunset' ? '🌇 Sunset' : '🌙 Night';
     b.onclick = () => { setTimePref(t.id); onTimeChange(); openCustomize(profile, isAdmin, onTimeChange); };
+    return b;
+  }));
+  $('flameRow').replaceChildren(...FLAMES.map((f) => {
+    const locked = !isAdmin && lvl < f.level;
+    const b = document.createElement('button');
+    b.className = 'flame-pick' + ((profile.flame ?? 'blue') === f.id ? ' on' : '') + (locked ? ' locked' : '');
+    const dot = document.createElement('span');
+    dot.className = 'flame-dot'; dot.style.setProperty('--c', f.color);
+    b.append(dot, locked ? `${f.name} · 🔒 Level ${f.level}` : `${f.name}${(profile.flame ?? 'blue') === f.id ? ' ✓' : ''}`);
+    b.onclick = async () => {
+      if (locked) return ui.toast(`Reach level ${f.level} to unlock ${f.name} flames`);
+      try {
+        const { profile: p } = await api.setFlame(f.id);
+        onProfile(p);
+        openCustomize(p, isAdmin, onTimeChange);
+      } catch (e) { ui.toast((e as Error).message); }
+    };
     return b;
   }));
   $('bgGrid').replaceChildren(...BACKGROUNDS.map((b) => {

@@ -59,6 +59,7 @@ export interface PlayerView {
   ready: boolean; // Deck Duel lobby: starts when everyone is ready
   bot: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | null; // AI player and its knowledge level
   pic: string | null; // profile picture URL
+  flame: string; // colour of their combo flames ('blue' | 'purple')
 }
 
 export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number }

@@ -1,7 +1,7 @@
 import type { AdminUserRow, MatchDetail, PublicProfile } from '../../shared/protocol';
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
-import { BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, isBackground, levelOf, nextLocalMidnight, unlocked, xpFor, type BackgroundId, type MatchOutcome } from '../../shared/progress';
+import { BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome } from '../../shared/progress';
 import { answer, isDue, newCard, previewIntervals, RATINGS, type Rating, type SrsCard } from '../../shared/srs';
 import { displayReading } from '../../shared/vocab';
 import type { Store, UserRecord } from '../db/Store';
@@ -13,7 +13,7 @@ export const DAILY_NEW = 25;
 export const AI_XP_FACTOR = 0.5;
 export type Deck = 'all' | 'struggling';
 
-export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null }
+export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; strugglingDue: number }
 
 /** Public URL of a profile picture (versioned, so browsers can cache it forever). */
 export const picUrl = (u: { id: string; avatarV: number }) => (u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null);
@@ -42,8 +42,28 @@ export class StudyService {
     const learnedToday = now < u.critExpires ? u.critCount : 0;
     return {
       xp: u.xp, level: levelOf(u.xp), crit: dailyCrit(u.critCount, u.critExpires, now), learned, learnedToday, background: u.background,
-      studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u),
+      studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u), flame: u.flame ?? 'blue', strugglingDue: await this.strugglingDue(u.id, now),
     };
+  }
+
+  /** Struggling spells waiting to be studied (new, learning or due). */
+  async strugglingDue(userId: string, now = Date.now()) {
+    const c = counts((await this.store.cards(userId)).filter((x) => x.struggling && VOCAB_BY_ID.has(x.vocabId)), now);
+    return c.new + c.learning + c.due;
+  }
+
+  /** null, or why this player may not start a game right now (too many struggling spells waiting). Admins are never locked. */
+  async playLock(u: { id: string; role: string }): Promise<string | null> {
+    if (u.role === 'admin') return null;
+    const n = await this.strugglingDue(u.id);
+    return n > STUDY_LOCK ? `You have ${n} struggling spells waiting — study them down to ${STUDY_LOCK} to play again (📖 Study spells → Struggling).` : null;
+  }
+
+  /** Colour of the combo flames (Purple from level 5; admins have all). */
+  async setFlame(u: UserRecord, f: unknown) {
+    if (!isFlame(f)) throw new StudyError('Unknown flame');
+    if (u.role !== 'admin' && !flameUnlocked(f, u.xp)) throw new StudyError(`Unlocks at level ${FLAMES.find((x) => x.id === f)!.level}`, 403);
+    await this.store.update(u.id, { flame: f });
   }
 
   /** Today's crit chance (1% + 1% per spell learned today, max 50%; back to 1% at the player's midnight). */

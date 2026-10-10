@@ -4,7 +4,7 @@ import {
 } from '../shared/protocol';
 import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
 import { arena as arena3d, arenaForBattle } from './arena';
-import { critText, levelOf, levelProgress, levelXp } from '../shared/progress';
+import { critText, flameColor, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -436,7 +436,7 @@ export function renderFighters(players: PlayerView[], you: PlayerId, boss: BossV
   // 5+ in a row: the fighter is wreathed in flames
   $('wizMe').classList.toggle('onfire', (me?.combo ?? 0) >= 5);
   const a3 = arena3d();
-  if (a3) for (const p of players) a3.onfire(p.id === you ? 'me' : battleMode === 'boss' ? `ally:${p.id}` : 'opp', p.combo >= 5);
+  if (a3) for (const p of players) a3.onfire(p.id === you ? 'me' : battleMode === 'boss' ? `ally:${p.id}` : 'opp', p.combo >= 5, flameColor(p.flame));
 }
 
 // ── battle: wizards, dragon & spell effects ──────────────────────────────────
@@ -462,12 +462,14 @@ export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId)
   for (const [id, side, p] of [['wizMe', 'me', meP], ['wizOpp', 'opp', others[0]]] as const) {
     const w = $(id);
     w.className = `wizard ${side}`;
+    w.dataset.flame = p?.flame ?? 'blue';
     w.querySelector('.sprite')!.innerHTML = avatarSvg(p?.avatar ?? 'wizard', side);
   }
   // boss mode: every teammate stands next to you
   $('allies').replaceChildren(...(boss ? others : []).map((p) => {
     const w = h('div', 'wizard ally');
     w.dataset.pid = p.id;
+    w.dataset.flame = p.flame ?? 'blue';
     const sprite = h('div', 'sprite');
     sprite.innerHTML = avatarSvg(p.avatar, 'ally');
     w.append(h('div', 'aura'), sprite, h('div', 'ground'));

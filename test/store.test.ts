@@ -176,3 +176,15 @@ for (const [name, make] of stores) {
     await s.close?.();
   });
 }
+
+for (const [name, make] of stores) {
+  test(`store: the combo flame colour is saved (${name})`, async () => {
+    const s = make();
+    await s.init();
+    const u = await s.create({ username: `flm-${name}-${Date.now()}`, passwordHash: 'h', role: 'user' });
+    assert.equal(u.flame, 'blue');
+    assert.equal((await s.update(u.id, { flame: 'purple' }))!.flame, 'purple');
+    assert.equal((await s.findById(u.id))!.flame, 'purple');
+    await s.close?.();
+  });
+}

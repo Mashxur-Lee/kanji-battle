@@ -127,6 +127,10 @@
       <h1 class="title"><span class="jp">漢字</span> Wizards</h1>
       <p class="sub">Study ten spells. Then cast them from memory.</p>
       <div class="menu-actions">
+        <div id="studyLock" class="study-lock" hidden>
+          <span>📖 <b id="studyLockText"></b></span>
+          <button id="studyLockBtn" class="big">Study struggling spells</button>
+        </div>
         <button id="queueBtn" class="big queue-btn">⚔ Online queue</button>
         <button id="privateBtn" class="big alt private-btn" aria-expanded="false" aria-controls="privateBox">🔒 Private game <span class="chev" aria-hidden="true">▾</span></button>
         <div id="privateBox" class="private-box" hidden>
@@ -208,6 +212,10 @@
     <button id="customizeBack" class="back">← Menu</button>
     <h2>Customize</h2>
     <p class="sub">Backgrounds unlock as you level up. Win battles to earn XP (each level needs 1000 more than the last). Each one has its own sounds in the menus.</p>
+    <h3>Combo flames</h3>
+    <p class="sub">The flames around you at 5 correct casts in a row (and when you use your hero power in Deck Duel). Everyone sees your colour.</p>
+    <div id="flameRow" class="flame-row" role="group" aria-label="Combo flame colour"></div>
+    <h3>Background</h3>
     <div id="bgTimes" class="bg-times" role="group" aria-label="Time of day"></div>
     <div id="bgGrid" class="bg-grid"></div>
   </section>
@@ -467,7 +475,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.1</div>
+<div id="version" class="version">v0.9.2</div>
 <script src="/app.js"></script>
 </body>
 </html>

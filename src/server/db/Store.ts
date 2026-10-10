@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
-import { legacyXpToCurrent, type BackgroundId } from '../../shared/progress';
+import { legacyXpToCurrent, type BackgroundId, type FlameId } from '../../shared/progress';
 import type { SrsCard } from '../../shared/srs';
 
 export interface UserRecord {
@@ -22,10 +22,11 @@ export interface UserRecord {
   wins: number;
   losses: number;
   avatarV: number; // profile picture version (0 = none); the picture itself is stored separately
+  flame: FlameId; // colour of your combo flames
 }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -64,7 +65,7 @@ export class UsernameTakenError extends Error {}
 export const MATCH_HISTORY_LIMIT = 50;
 const summaryOf = (m: MatchDetail): MatchSummary => ({ id: m.id, mode: m.mode, outcome: m.outcome, character: m.character, at: m.at, opponents: m.opponents });
 
-const blankProgress = () => ({ xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0 });
+const blankProgress = () => ({ xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: 'blue' as FlameId });
 
 /** In-memory store (tests); FileStore persists the same data as JSON. */
 export class MemoryStore implements Store {

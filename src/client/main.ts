@@ -2,6 +2,7 @@ import * as voice from './voice';
 import { initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
+import { STUDY_LOCK } from '../shared/progress';
 import { arena, arenaPref, arenaScreen, arenaSupported, preloadArena, setArenaBackground, setArenaPref } from './arena';
 import { LEVELS, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Profile } from './api';
@@ -54,6 +55,7 @@ const GAME_SCREENS = new Set(['prep', 'battle', 'deck']);
 ui.onScreen((s) => {
   audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu');
   arenaScreen(s); // the 3D arena on battle screens
+  if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (!GAME_SCREENS.has(s)) setTimeout(() => applyBackground(true), 0); // catch up on the cycle after a game
 });
 
@@ -81,6 +83,11 @@ scheduleCycle();
 function applyProfile(p: Profile) {
   profile = p;
   ui.setProfile(p);
+  // too many struggling spells waiting → the game modes are locked until you study (the server checks too)
+  const locked = user?.role !== 'admin' && (p.strugglingDue ?? 0) > STUDY_LOCK;
+  ui.$('menu').classList.toggle('locked', locked);
+  ui.$('studyLock').hidden = !locked;
+  ui.$('studyLockText').textContent = locked ? `${p.strugglingDue} struggling spells are waiting. Study them down to ${STUDY_LOCK} to unlock the game modes.` : '';
   applyBackground();
   preloadArena();
 }
@@ -327,7 +334,12 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
 
 // ── writing (handwriting pad + Japanese keyboard) ────────────────────────────
 const pad = new HandwritingPad(ui.$<HTMLCanvasElement>('pad'), () => shareInk());
-pad.onDraw = () => { shareInk(); if (mode !== 'deck') arena()?.channel(Math.min(1, 0.45 + pad.strokeCount * 0.12)); };
+let twitchAt = 0;
+pad.onDraw = () => {
+  shareInk();
+  if (mode !== 'deck') arena()?.channel(Math.min(1, 0.45 + pad.strokeCount * 0.12));
+  if (Date.now() - twitchAt > 140) { twitchAt = Date.now(); arena()?.twitch(); } // the staff moves as you write
+};
 /** Deck Duel: the opponent watches your pad live (throttled, the last state always goes out). */
 let inkTimer = 0, inkAt = 0;
 function shareInk() {
@@ -368,7 +380,8 @@ function submitDrawing() {
 ui.$('padUndo').onclick = () => pad.undo();
 ui.$('padClear').onclick = () => pad.clear();
 // typing a reading: the staff glows a little more with each letter
-ui.$<HTMLInputElement>('answer').addEventListener('input', (e) => arena()?.channel(Math.min(0.8, (e.target as HTMLInputElement).value.length * 0.15)));
+ui.$<HTMLInputElement>('answer').addEventListener('input', (e) => { arena()?.channel(Math.min(0.8, (e.target as HTMLInputElement).value.length * 0.15)); arena()?.twitch(); });
+ui.$<HTMLInputElement>('imeInput').addEventListener('input', () => { arena()?.channel(0.6); arena()?.twitch(); });
 ui.$('padSkip').onclick = () => skip();
 ui.$('padNext').onclick = () => {
   if (pad.strokeCount === 0) return;
@@ -419,6 +432,7 @@ ui.$('authForm').addEventListener('submit', async (e) => {
 ui.$('logout').onclick = () => logout();
 
 // ── menu ─────────────────────────────────────────────────────────────────────
+ui.$('studyLockBtn').onclick = () => void openStudy();
 ui.$('create').onclick = () => { ui.setError(''); ui.show('modes'); };
 ui.$('privateBtn').onclick = () => {
   const box = ui.$('privateBox');
