@@ -1,3 +1,6 @@
+import './support'; // error reporting first, so early errors are caught too
+import { refreshOnline } from './support';
+import { adminTab, refreshInboxBadge, setAdminTab } from './adminui';
 import { gameKbAvailable, gameKbPref, gameKbReset, setGameKb, setGameKbPref } from './gamekb';
 import { celebrate, celebrateNew, comboMilestone } from './achievements';
 import { railScreen, refreshRail, setRailUser } from './friendrail';
@@ -80,6 +83,7 @@ ui.onScreen((s) => {
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (s !== 'lobby') void renderLobbyInvites(false);
   railScreen(s);
+  if (s === 'menu' || s === 'queue') void refreshOnline();
   for (const b of document.querySelectorAll<HTMLElement>('[data-pause]')) b.hidden = !(soloVsAi && ['prep', 'battle', 'deck'].includes(s));
   if (!['prep', 'battle', 'deck'].includes(s)) setPaused(false);
   setGameKb(s === 'battle' && mode !== 'writing'); // phones: the compact battle keyboard
@@ -130,6 +134,7 @@ function applyProfile(p: Profile) {
   if (!p.tutorialDone && !tutorialShown && user && !inRoom) { tutorialShown = true; startTutorial(); }
   void dailyPending().then((open) => { ui.$('dailyBadge').hidden = !open; });
   refreshFriendsBadge();
+  if (user?.role === 'admin') void refreshInboxBadge(); // new bug reports / suggestions
   // too many struggling spells waiting → the game modes are locked until you study (the server checks too)
   const locked = user?.role !== 'admin' && (p.strugglingDue ?? 0) > STUDY_LOCK;
   ui.$('menu').classList.toggle('locked', locked);
@@ -218,6 +223,7 @@ function onMessage(msg: ServerMessage) {
     case 'welcome':
       user = msg.user;
       ui.setUser(msg.user);
+      void refreshOnline(); // now this player counts too
       break;
     case 'auth_error':
       logout(msg.message);
@@ -601,10 +607,10 @@ async function openAdmin() {
     ui.setError((e as Error).message);
   }
 }
-ui.$('adminBtn').onclick = () => void openAdmin();
-ui.$('adminRefresh').onclick = () => void openAdmin();
+ui.$('adminBtn').onclick = () => { setAdminTab('users'); void openAdmin(); void refreshInboxBadge(); };
+ui.$('adminRefresh').onclick = () => { if (adminTab() === 'users') void openAdmin(); else setAdminTab(adminTab()); };
 // the Users page keeps itself up to date (who is online) while it's open
-setInterval(() => { if (ui.currentScreen() === 'admin' && user?.role === 'admin') void openAdmin(); }, 15_000);
+setInterval(() => { if (ui.currentScreen() === 'admin' && user?.role === 'admin' && adminTab() === 'users') void openAdmin(); }, 15_000);
 ui.$('adminBack').onclick = () => ui.show('menu');
 
 // ── lobby ────────────────────────────────────────────────────────────────────

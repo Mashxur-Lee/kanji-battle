@@ -75,6 +75,7 @@ function tryIt() {
 export function startTutorial() {
   if (stage !== 'off') return;
   stage = 'cards';
+  void api.event('tutorial_start');
   show(0);
 }
 
@@ -92,7 +93,7 @@ function show(i: number) {
     // two answers instead of Next: they decide which levels this player starts with
     const yes = el('button', 'big', 'Yes — I know hiragana') as HTMLButtonElement;
     const no = el('button', 'big alt', 'I\'m a beginner') as HTMLButtonElement;
-    const pickKana = (mastered: boolean) => { yes.disabled = no.disabled = true; void hooks.kana(mastered).finally(() => show(i + 1)); };
+    const pickKana = (mastered: boolean) => { yes.disabled = no.disabled = true; void api.event(mastered ? 'tutorial_kana_yes' : 'tutorial_kana_no'); void hooks.kana(mastered).finally(() => show(i + 1)); };
     yes.onclick = () => pickKana(true);
     no.onclick = () => pickKana(false);
     next.hidden = true;
@@ -102,9 +103,10 @@ function show(i: number) {
     if (!last) return show(i + 1);
     stage = 'battle';
     box.hidden = true;
+    void api.event('tutorial_battle');
     hooks.firstBattle();
   };
-  skip.onclick = () => finish();
+  skip.onclick = () => { void api.event('tutorial_skip'); finish(); };
   actions.append(skip, next);
   card.append(dots, el('h2', '', c.title), el('p', '', c.body), ...(c.extra ? [c.extra()] : []), actions);
   box.replaceChildren(card);
@@ -125,7 +127,7 @@ export function tutorialScreen(screen: string) {
   if (stage !== 'battle') return;
   if (screen === 'prep') coach('Read the 10 words — reading and meaning. When the battle starts, they come back as kanji only. Press Ready when you\'re done.');
   else if (screen === 'battle') coach('Type the reading of the kanji (hiragana or romaji) and press Enter. Don\'t know it? Esc skips. Keep your HP above the AI\'s!');
-  else if (screen === 'results') { coach('Well cast! Words you missed are now in Study spells → Struggling. Level up to unlock Writing, Boss and Deck Duel.'); setTimeout(finish, 12_000); }
+  else if (screen === 'results') { void api.event('tutorial_done'); coach('Well cast! Words you missed are now in Study spells → Struggling. Level up to unlock Writing, Boss and Deck Duel.'); setTimeout(finish, 12_000); }
   else if (screen === 'menu') finish();
 }
 

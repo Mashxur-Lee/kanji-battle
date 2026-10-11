@@ -1,3 +1,5 @@
+import { reportServerError } from './errors';
+import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/InsightsService';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { AuthError, toPublic, type AuthService } from './auth/AuthService';
 import { resolveToday, StudyError, type StudyService } from './study/StudyService';
@@ -48,10 +50,13 @@ export interface ApiExtras {
   social?: SocialService;
   /** reference strokes of a character in stroke order (stroke-order hints) */
   strokes?: (ch: string) => unknown;
+  insights?: InsightsService;
+  onlineCount?: () => number;
 }
 export function createApiHandler(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const { presence, daily, social, strokes } = extras;
+  const { presence, daily, social, strokes, insights, onlineCount } = extras;
   const limiter = new RateLimiter(20, 60_000);
+  const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
 
   return async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
     const [url, qs] = (req.url ?? '/').split('?');
@@ -63,7 +68,41 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
         if (!limiter.allow(ip)) throw new AuthError('Too many attempts — wait a minute', 429);
         const body = await readJson(req);
         const result = url === '/api/register' ? await auth.register(body.username, body.password) : await auth.login(body.username, body.password);
+        if (url === '/api/register') void insights?.event(result.user.id, 'signup');
         send(res, 200, result);
+      } else if (req.method === 'GET' && url === '/api/online') {
+        send(res, 200, { online: onlineCount?.() ?? 0 });
+      } else if (req.method === 'POST' && url === '/api/errors') {
+        // the browser reports its own crashes (signed in or not)
+        if (!errorLimiter.allow(ip)) return send(res, 429, { ok: false }), true;
+        const body = await readJson(req);
+        const who = await auth.authenticate(bearer(req)).catch(() => null);
+        await insights?.error(`[browser] ${String(body.message ?? '')}`, String(body.details ?? ''), who);
+        send(res, 200, { ok: true });
+      } else if (req.method === 'POST' && url === '/api/feedback') {
+        const u = await auth.authenticate(bearer(req));
+        const body = await readJson(req);
+        await insights?.feedback(u, body.kind, body.text, body.meta);
+        send(res, 200, { ok: true });
+      } else if (req.method === 'POST' && url === '/api/event') {
+        const u = await auth.authenticate(bearer(req));
+        const name = String((await readJson(req)).name ?? '');
+        if ((CLIENT_EVENTS as readonly string[]).includes(name)) await insights?.event(u.id, name);
+        send(res, 200, { ok: true });
+      } else if (req.method === 'GET' && url === '/api/admin/inbox') {
+        await auth.requireAdmin(bearer(req));
+        send(res, 200, { reports: insights ? await auth.store.reports(300) : [] });
+      } else if (req.method === 'POST' && /^\/api\/admin\/inbox\/[\w-]+$/.test(url)) {
+        await auth.requireAdmin(bearer(req));
+        await auth.store.setReportDone(url.split('/')[4], (await readJson(req)).done === true);
+        send(res, 200, { ok: true });
+      } else if (req.method === 'DELETE' && /^\/api\/admin\/inbox\/[\w-]+$/.test(url)) {
+        await auth.requireAdmin(bearer(req));
+        await auth.store.deleteReport(url.split('/')[4]);
+        send(res, 200, { ok: true });
+      } else if (req.method === 'GET' && url === '/api/admin/stats') {
+        await auth.requireAdmin(bearer(req));
+        send(res, 200, insights ? await insights.stats(await auth.store.list(), onlineCount?.() ?? 0) : {});
       } else if (req.method === 'GET' && url === '/api/me') {
         let u = await auth.authenticate(bearer(req));
         if (query.get('today')) u = await study.touchLogin(u, resolveToday(query.get('today'))); // daily login streak
@@ -180,8 +219,8 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
         send(res, 404, { error: 'Not found' });
       }
     } catch (e) {
-      if (e instanceof AuthError || e instanceof StudyError || e instanceof DailyError || e instanceof SocialError) send(res, e.status, { error: e.message });
-      else { console.error(e); send(res, 500, { error: 'Server error' }); }
+      if (e instanceof AuthError || e instanceof StudyError || e instanceof DailyError || e instanceof SocialError || e instanceof InsightsError) send(res, e.status, { error: e.message });
+      else { reportServerError(`${req.method} ${url}`, e); send(res, 500, { error: 'Server error' }); }
     }
     return true;
   };

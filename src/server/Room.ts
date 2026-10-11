@@ -47,6 +47,8 @@ export interface RoomDeps {
   onEmpty: () => void;
   onMemberLeft?: (id: PlayerId) => void;
   onMatchEnd?: MatchEndHook;
+  /** measurement: a game began (the human players) */
+  onGameStart?: (mode: GameMode, playerIds: PlayerId[]) => void;
   judgeWriting?: WritingJudge;
   /** Deck Duel's extra-forgiving judge (falls back to judgeWriting) */
   judgeDeck?: WritingJudge;
@@ -345,7 +347,8 @@ export class Room {
     for (const p of this.roster) p.ready = !!p.bot; // AI is always ready
     const emit = (e: GameEvent) => this.onGameEvent(e);
     this.clock.dispose();
-    const clock = (this.clock = new PausableClock()); // a fresh game clock (pausable against the AI)
+    const clock = (this.clock = new PausableClock());
+    this.deps.onGameStart?.(this.mode, this.roster.filter((p) => !p.bot).map((p) => p.id)); // a fresh game clock (pausable against the AI)
     if (this.mode === 'deck') {
       const judge = this.deps.judgeDeck ?? this.deps.judgeWriting;
       if (!judge) return;

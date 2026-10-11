@@ -1482,3 +1482,43 @@ body.game-kb #answer { caret-color: var(--accent2); }
 .pause-box h2 { font-size: 2rem; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 6px; }
 .pause-box .big { margin-top: 14px; min-width: 200px; }
 body.game-kb #comboHud { bottom: calc(var(--kb-h, 0px) + 6%); left: 4%; transform: scale(.8); transform-origin: left bottom; }
+
+/* ── 0.9.8.5: players online, feedback, about, admin inbox and stats ── */
+.online-pill { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; padding: 2px 9px; border-radius: 999px; background: rgba(0, 0, 0, .25); font-size: .78rem; font-weight: 800; vertical-align: middle; }
+.online-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #3ddc84; box-shadow: 0 0 6px #3ddc84; }
+.menu-foot { position: absolute; left: 0; bottom: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+.menu-foot .how-btn { position: static; }
+@media (max-width: 900px) { .menu-foot { position: static; margin-top: 18px; } }
+.feedback-dialog form { display: flex; flex-direction: column; gap: 10px; }
+.feedback-dialog h3, .about-dialog h3 { margin: 0 0 4px; }
+.fb-kinds { display: flex; gap: 8px; }
+.fb-kinds input { display: none; }
+#fbText { width: 100%; box-sizing: border-box; resize: vertical; min-height: 120px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--field); color: var(--text); font: inherit; }
+.fb-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+.fb-actions .big { width: auto; min-width: 140px; }
+.about-dialog { width: min(560px, calc(100vw - 32px)); }
+.about-dialog .credits { padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: .9rem; }
+.about-dialog a { color: var(--accent2); }
+.admin-tabs { margin: 6px 0 14px; }
+.inbox-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.inbox-filters input[type=radio] { display: none; }
+.inbox-done { margin-left: auto; font-size: .9rem; white-space: nowrap; }
+.inbox-list { display: flex; flex-direction: column; gap: 10px; max-width: 900px; }
+.inbox-item { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; padding: 10px 14px; background: var(--card); }
+.inbox-item.k-bug { border-left-color: #ff6b6b; } .inbox-item.k-suggestion { border-left-color: #3ddc84; } .inbox-item.k-error { border-left-color: #ffb84d; }
+.inbox-item.done { opacity: .55; }
+.ii-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ii-kind { font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, .08); }
+.ii-kind.k-bug { color: #ff8b8b; } .ii-kind.k-suggestion { color: #6fe3a1; } .ii-kind.k-error { color: #ffc56e; }
+.ii-sp { flex: 1; }
+.ii-text { margin: 8px 0 4px; white-space: pre-wrap; word-break: break-word; }
+.ii-meta pre { white-space: pre-wrap; font-size: .75rem; color: var(--muted); max-height: 200px; overflow: auto; }
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.stat-tile { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--card); display: flex; flex-direction: column; gap: 2px; }
+.stat-tile b { font-size: 1.6rem; } .stat-tile span { color: var(--muted); font-size: .85rem; }
+.stat-chart { display: grid; grid-template-columns: repeat(14, 1fr); gap: 6px; align-items: end; height: 170px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); margin-bottom: 18px; max-width: 900px; }
+.sc-col { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; font-size: .7rem; color: var(--muted); }
+.sc-bar { width: 70%; min-height: 2px; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--accent2), #3c74b0); }
+.sc-n { color: var(--text); font-size: .72rem; } .sc-new { color: #3ddc84; font-weight: 800; min-height: 1em; }
+.stat-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; max-width: 900px; }
+.stat-table { width: 100%; border-collapse: collapse; } .stat-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); } .stat-table .num { text-align: right; font-variant-numeric: tabular-nums; }

@@ -4,230 +4,82 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
-  // src/shared/kana.ts
-  var BASE = {
-    a: "\u3042",
-    i: "\u3044",
-    u: "\u3046",
-    e: "\u3048",
-    o: "\u304A",
-    ka: "\u304B",
-    ki: "\u304D",
-    ku: "\u304F",
-    ke: "\u3051",
-    ko: "\u3053",
-    sa: "\u3055",
-    si: "\u3057",
-    shi: "\u3057",
-    su: "\u3059",
-    se: "\u305B",
-    so: "\u305D",
-    ta: "\u305F",
-    ti: "\u3061",
-    chi: "\u3061",
-    tu: "\u3064",
-    tsu: "\u3064",
-    te: "\u3066",
-    to: "\u3068",
-    na: "\u306A",
-    ni: "\u306B",
-    nu: "\u306C",
-    ne: "\u306D",
-    no: "\u306E",
-    ha: "\u306F",
-    hi: "\u3072",
-    hu: "\u3075",
-    fu: "\u3075",
-    he: "\u3078",
-    ho: "\u307B",
-    ma: "\u307E",
-    mi: "\u307F",
-    mu: "\u3080",
-    me: "\u3081",
-    mo: "\u3082",
-    ya: "\u3084",
-    yu: "\u3086",
-    yo: "\u3088",
-    ra: "\u3089",
-    ri: "\u308A",
-    ru: "\u308B",
-    re: "\u308C",
-    ro: "\u308D",
-    la: "\u3089",
-    li: "\u308A",
-    lu: "\u308B",
-    le: "\u308C",
-    lo: "\u308D",
-    wa: "\u308F",
-    wo: "\u3092",
-    wi: "\u3046\u3043",
-    we: "\u3046\u3047",
-    ga: "\u304C",
-    gi: "\u304E",
-    gu: "\u3050",
-    ge: "\u3052",
-    go: "\u3054",
-    za: "\u3056",
-    zi: "\u3058",
-    ji: "\u3058",
-    zu: "\u305A",
-    ze: "\u305C",
-    zo: "\u305E",
-    da: "\u3060",
-    di: "\u3062",
-    du: "\u3065",
-    de: "\u3067",
-    do: "\u3069",
-    ba: "\u3070",
-    bi: "\u3073",
-    bu: "\u3076",
-    be: "\u3079",
-    bo: "\u307C",
-    pa: "\u3071",
-    pi: "\u3074",
-    pu: "\u3077",
-    pe: "\u307A",
-    po: "\u307D",
-    va: "\u3094\u3041",
-    vi: "\u3094\u3043",
-    vu: "\u3094",
-    ve: "\u3094\u3047",
-    vo: "\u3094\u3049",
-    fa: "\u3075\u3041",
-    fi: "\u3075\u3043",
-    fe: "\u3075\u3047",
-    fo: "\u3075\u3049",
-    xa: "\u3041",
-    xi: "\u3043",
-    xu: "\u3045",
-    xe: "\u3047",
-    xo: "\u3049",
-    xya: "\u3083",
-    xyu: "\u3085",
-    xyo: "\u3087",
-    lya: "\u3083",
-    lyu: "\u3085",
-    lyo: "\u3087",
-    xtu: "\u3063",
-    ltu: "\u3063",
-    xtsu: "\u3063",
-    ltsu: "\u3063",
-    "-": "\u30FC"
+  // src/client/api.ts
+  var today = () => {
+    const d = /* @__PURE__ */ new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
-  var YOON = [
-    [["ky"], "\u304D"],
-    [["gy"], "\u304E"],
-    [["sh", "sy"], "\u3057"],
-    [["j", "jy", "zy"], "\u3058"],
-    [["ch", "ty", "cy"], "\u3061"],
-    [["dy"], "\u3062"],
-    [["ny"], "\u306B"],
-    [["hy"], "\u3072"],
-    [["by"], "\u3073"],
-    [["py"], "\u3074"],
-    [["my"], "\u307F"],
-    [["ry", "ly"], "\u308A"]
-  ];
-  var SMALL = { a: "\u3083", u: "\u3085", o: "\u3087" };
-  var _a, _b;
-  for (const [prefixes, kana] of YOON) {
-    for (const p of prefixes) {
-      for (const [v, small] of Object.entries(SMALL)) BASE[_a = p + v] ?? (BASE[_a] = kana + small);
-      if (p === "sh" || p === "ch" || p === "j") BASE[_b = p + "e"] ?? (BASE[_b] = kana + "\u3047");
+  var TOKEN_KEY = "kb:token";
+  var getToken = () => {
+    try {
+      return localStorage.getItem(TOKEN_KEY) ?? "";
+    } catch {
+      return "";
     }
-  }
-  var VOWELS = /* @__PURE__ */ new Set(["a", "i", "u", "e", "o"]);
-  function romajiToHiragana(input2) {
-    const s = input2.toLowerCase();
-    let out = "";
-    let i = 0;
-    while (i < s.length) {
-      const c = s[i];
-      const next3 = s[i + 1];
-      if (c === "n") {
-        if (next3 === "'") {
-          out += "\u3093";
-          i += 2;
-          continue;
-        }
-        if (next3 === void 0) {
-          out += "\u3093";
-          i += 1;
-          continue;
-        }
-        if (next3 === "n") {
-          const after = s[i + 2];
-          out += "\u3093";
-          i += after !== void 0 && (VOWELS.has(after) || after === "y") ? 1 : 2;
-          continue;
-        }
-        if (!VOWELS.has(next3) && next3 !== "y") {
-          out += "\u3093";
-          i += 1;
-          continue;
-        }
-      }
-      if (c >= "a" && c <= "z" && !VOWELS.has(c) && (next3 === c || c === "t" && next3 === "c")) {
-        out += "\u3063";
-        i += 1;
-        continue;
-      }
-      let matched = false;
-      for (let len = 4; len >= 1; len--) {
-        const kana = BASE[s.slice(i, i + len)];
-        if (kana) {
-          out += kana;
-          i += len;
-          matched = true;
-          break;
-        }
-      }
-      if (!matched) {
-        out += c;
-        i += 1;
-      }
+  };
+  var setToken = (t) => {
+    try {
+      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+    } catch {
     }
-    return out;
-  }
-  var katakanaToHiragana = (s) => s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 96));
-  function normalizeAnswer(input2) {
-    const halfWidth = input2.normalize("NFKC");
-    const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
-    return romajiToHiragana(katakanaToHiragana(cleaned));
-  }
-  function isCorrectReading(input2, readings) {
-    const answer = normalizeAnswer(input2);
-    if (!answer.length) return false;
-    return readings.some((raw) => {
-      const r2 = katakanaToHiragana(raw);
-      if (r2 === answer) return true;
-      if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer) return true;
-      return longVowelSlip(r2, answer);
+  };
+  var ApiError = class extends Error {
+    constructor(message, status) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  async function call(method, url, body) {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+      body: body === void 0 ? void 0 : JSON.stringify(body)
     });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
+    return data;
   }
-  function longVowelSlip(r2, a) {
-    const LONG = "\u3046\u304A";
-    if (a.length === r2.length - 1) {
-      for (let i = 1; i < r2.length; i++) if (LONG.includes(r2[i]) && r2.slice(0, i) + r2.slice(i + 1) === a) return true;
-      return false;
-    }
-    if (a.length === r2.length) {
-      let diff = -1;
-      for (let i = 0; i < r2.length; i++) if (r2[i] !== a[i]) {
-        if (diff >= 0) return false;
-        diff = i;
-      }
-      return diff > 0 && LONG.includes(r2[diff]) && LONG.includes(a[diff]);
-    }
-    return false;
-  }
-  var WRITE = /[\p{Script=Han}々〆ヶ□]/u;
-  var writeTargets = (word2) => {
-    const all = [...word2];
-    const k = all.filter((c) => WRITE.test(c));
-    return k.length ? k : all;
+  var api = {
+    login: (username, password) => call("POST", "/api/login", { username, password }),
+    register: (username, password) => call("POST", "/api/register", { username, password }),
+    me: () => call("GET", `/api/me?today=${today()}`),
+    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
+    removeAvatar: () => call("DELETE", "/api/me/avatar"),
+    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
+    setStaff: (staff) => call("PUT", "/api/me/staff", { staff }),
+    setBackground: (background) => call("PUT", "/api/me/background", { background }),
+    study: () => call("GET", `/api/study?today=${today()}`),
+    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
+    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
+    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    matches: () => call("GET", "/api/matches"),
+    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
+    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
+    users: () => call("GET", "/api/admin/users"),
+    inbox: () => call("GET", "/api/admin/inbox"),
+    inboxDone: (id, done) => call("POST", `/api/admin/inbox/${encodeURIComponent(id)}`, { done }),
+    inboxDelete: (id) => call("DELETE", `/api/admin/inbox/${encodeURIComponent(id)}`),
+    adminStats: () => call("GET", "/api/admin/stats"),
+    feedback: (kind, text, meta) => call("POST", "/api/feedback", { kind, text, meta }),
+    event: (name) => call("POST", "/api/event", { name }).catch(() => ({ ok: false })),
+    online: () => call("GET", "/api/online"),
+    tutorialDone: () => call("PUT", "/api/me/tutorial"),
+    setKana: (mastered) => call("PUT", "/api/me/kana", { mastered }),
+    progress: () => call("GET", `/api/progress?today=${today()}`),
+    strokes: (chars) => call("GET", `/api/strokes?k=${encodeURIComponent(chars)}`),
+    daily: () => call("GET", "/api/daily"),
+    dailyStart: () => call("POST", "/api/daily/start"),
+    dailyAnswer: (text) => call("POST", "/api/daily/answer", { text }),
+    dailyFinish: () => call("POST", "/api/daily/finish"),
+    friends: () => call("GET", "/api/friends"),
+    addFriend: (username) => call("POST", "/api/friends", { username }),
+    acceptFriend: (id) => call("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
+    removeFriend: (id) => call("DELETE", `/api/friends/${encodeURIComponent(id)}`),
+    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
   };
-  var writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
+
+  // src/shared/version.ts
+  var VERSION = "0.9.8.5";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -579,6 +431,63 @@
     "Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review.": "\xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2014 \u043A\u043E\u043B\u043E\u0434\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A: \u0447\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0441\u043B\u043E\u0432 \u0432\u044B \u0437\u043D\u0430\u0435\u0442\u0435, \u0442\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043E\u0442\u0432\u043E\u0440\u0438\u0442\u044C. \u0421\u043B\u043E\u0432\u0430, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0432\u044B \u043E\u0448\u0438\u0431\u043B\u0438\u0441\u044C \u0432 \u0431\u043E\u044E, \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E\u0442\u0441\u044F \u0442\u0443\u0434\u0430 \u043D\u0430 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u0435.",
     "Spaced repetition like Anki: each card comes back just before you would forget it.": "\u0418\u043D\u0442\u0435\u0440\u0432\u0430\u043B\u044C\u043D\u044B\u0435 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044F, \u043A\u0430\u043A \u0432 Anki: \u043A\u0430\u0436\u0434\u0430\u044F \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0441\u044F \u043A\u0430\u043A \u0440\u0430\u0437 \u043F\u0435\u0440\u0435\u0434 \u0442\u0435\u043C, \u043A\u0430\u043A \u0432\u044B \u0431\u044B \u0435\u0451 \u0437\u0430\u0431\u044B\u043B\u0438.",
     "Playing with AI gives half XP; a forfeit gives none.": "\u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
+    // feedback, about, admin inbox & stats (0.9.8.5)
+    "Feedback": "\u041E\u0442\u0437\u044B\u0432",
+    "About": "\u041E\u0431 \u0438\u0433\u0440\u0435",
+    "Bug report": "\u0421\u043E\u043E\u0431\u0449\u0438\u0442\u044C \u043E\u0431 \u043E\u0448\u0438\u0431\u043A\u0435",
+    "Suggestion": "\u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
+    "What is it?": "\u0427\u0442\u043E \u044D\u0442\u043E?",
+    "Your message": "\u0412\u0430\u0448\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435",
+    "What happened, or what would make the game better?": "\u0427\u0442\u043E \u0441\u043B\u0443\u0447\u0438\u043B\u043E\u0441\u044C \u0438\u043B\u0438 \u0447\u0442\u043E \u0441\u0434\u0435\u043B\u0430\u043B\u043E \u0431\u044B \u0438\u0433\u0440\u0443 \u043B\u0443\u0447\u0448\u0435?",
+    "Your player name, the game version and your device type are sent with it. Thank you!": "\u0412\u043C\u0435\u0441\u0442\u0435 \u0441 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435\u043C \u043E\u0442\u043F\u0440\u0430\u0432\u044F\u0442\u0441\u044F \u0432\u0430\u0448\u0435 \u0438\u043C\u044F \u0438\u0433\u0440\u043E\u043A\u0430, \u0432\u0435\u0440\u0441\u0438\u044F \u0438\u0433\u0440\u044B \u0438 \u0442\u0438\u043F \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0430. \u0421\u043F\u0430\u0441\u0438\u0431\u043E!",
+    "Write a few words first.": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043F\u0430\u0440\u0443 \u0441\u043B\u043E\u0432.",
+    "Write a few words first": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043F\u0430\u0440\u0443 \u0441\u043B\u043E\u0432",
+    "Thanks! That's a lot at once \u2014 try again in a few minutes": "\u0421\u043F\u0430\u0441\u0438\u0431\u043E! \u042D\u0442\u043E \u043C\u043D\u043E\u0433\u043E \u0437\u0430 \u0440\u0430\u0437 \u2014 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430 \u0447\u0435\u0440\u0435\u0437 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043C\u0438\u043D\u0443\u0442",
+    "Bug report sent \u2014 thank you!": "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u043E\u0431 \u043E\u0448\u0438\u0431\u043A\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E \u2014 \u0441\u043F\u0430\u0441\u0438\u0431\u043E!",
+    "Suggestion sent \u2014 thank you!": "\u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E \u2014 \u0441\u043F\u0430\u0441\u0438\u0431\u043E!",
+    "A game for learning Japanese: study words with spaced repetition, then cast them as spells.": "\u0418\u0433\u0440\u0430 \u0434\u043B\u044F \u0438\u0437\u0443\u0447\u0435\u043D\u0438\u044F \u044F\u043F\u043E\u043D\u0441\u043A\u043E\u0433\u043E: \u0443\u0447\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u0430 \u0441 \u0438\u043D\u0442\u0435\u0440\u0432\u0430\u043B\u044C\u043D\u044B\u043C \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u0435\u043C, \u0430 \u0437\u0430\u0442\u0435\u043C \u043F\u0440\u043E\u0438\u0437\u043D\u043E\u0441\u0438\u0442\u0435 \u0438\u0445 \u043A\u0430\u043A \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F.",
+    "Credits": "\u0411\u043B\u0430\u0433\u043E\u0434\u0430\u0440\u043D\u043E\u0441\u0442\u0438",
+    "Privacy": "\u041A\u043E\u043D\u0444\u0438\u0434\u0435\u043D\u0446\u0438\u0430\u043B\u044C\u043D\u043E\u0441\u0442\u044C",
+    "Word lists and English meanings:": "\u0421\u043F\u0438\u0441\u043A\u0438 \u0441\u043B\u043E\u0432 \u0438 \u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F:",
+    "(MIT), based on Jonathan Waller's JLPT lists (": "(MIT), \u043D\u0430 \u043E\u0441\u043D\u043E\u0432\u0435 \u0441\u043F\u0438\u0441\u043A\u043E\u0432 JLPT \u0414\u0436\u043E\u043D\u0430\u0442\u0430\u043D\u0430 \u0423\u043E\u043B\u043B\u0435\u0440\u0430 (",
+    ", CC BY). Those lists draw on": ", CC BY). \u042D\u0442\u0438 \u0441\u043F\u0438\u0441\u043A\u0438 \u043E\u043F\u0438\u0440\u0430\u044E\u0442\u0441\u044F \u043D\u0430",
+    "by the Electronic Dictionary Research and Development Group, used under": "\u043E\u0442 Electronic Dictionary Research and Development Group, \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0441\u044F \u043F\u043E \u043B\u0438\u0446\u0435\u043D\u0437\u0438\u0438",
+    "Handwriting recognition:": "\u0420\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u0432\u0430\u043D\u0438\u0435 \u043F\u043E\u0447\u0435\u0440\u043A\u0430:",
+    "by Dominik Klein (MIT); its reference strokes come from": "\u0414\u043E\u043C\u0438\u043D\u0438\u043A\u0430 \u041A\u043B\u044F\u0439\u043D\u0430 (MIT); \u044D\u0442\u0430\u043B\u043E\u043D\u043D\u044B\u0435 \u0447\u0435\u0440\u0442\u044B \u0432\u0437\u044F\u0442\u044B \u0438\u0437",
+    "by Ulrich Apel (CC BY-SA 3.0).": "\u0423\u043B\u044C\u0440\u0438\u0445\u0430 \u0410\u043F\u0435\u043B\u044F (CC BY-SA 3.0).",
+    "3D:": "3D:",
+    "Russian word meanings: translated for this game from the English meanings.": "\u0420\u0443\u0441\u0441\u043A\u0438\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0441\u043B\u043E\u0432: \u043F\u0435\u0440\u0435\u0432\u0435\u0434\u0435\u043D\u044B \u0434\u043B\u044F \u044D\u0442\u043E\u0439 \u0438\u0433\u0440\u044B \u0441 \u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438\u0445 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0439.",
+    "We store your player name, a scrambled (hashed) password, your progress, match history, friends and \u2014 if you upload one \u2014 your profile picture. Bug reports and suggestions you send are kept with your player name; errors include your browser type. Nothing is sold or shared. Ask the admin to delete your account and all of it is removed.": "\u041C\u044B \u0445\u0440\u0430\u043D\u0438\u043C \u0432\u0430\u0448\u0435 \u0438\u043C\u044F \u0438\u0433\u0440\u043E\u043A\u0430, \u0437\u0430\u0448\u0438\u0444\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439 (\u0445\u0435\u0448\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439) \u043F\u0430\u0440\u043E\u043B\u044C, \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441, \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043C\u0430\u0442\u0447\u0435\u0439, \u0434\u0440\u0443\u0437\u0435\u0439 \u0438 \u2014 \u0435\u0441\u043B\u0438 \u0432\u044B \u0435\u0433\u043E \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u043B\u0438 \u2014 \u0444\u043E\u0442\u043E \u043F\u0440\u043E\u0444\u0438\u043B\u044F. \u0412\u0430\u0448\u0438 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u043E\u0431 \u043E\u0448\u0438\u0431\u043A\u0430\u0445 \u0438 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u0445\u0440\u0430\u043D\u044F\u0442\u0441\u044F \u0441 \u0432\u0430\u0448\u0438\u043C \u0438\u043C\u0435\u043D\u0435\u043C \u0438\u0433\u0440\u043E\u043A\u0430; \u043A \u043E\u0448\u0438\u0431\u043A\u0430\u043C \u043F\u0440\u0438\u043A\u043B\u0430\u0434\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u0438\u043F \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430. \u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043F\u0440\u043E\u0434\u0430\u0451\u0442\u0441\u044F \u0438 \u043D\u0435 \u043F\u0435\u0440\u0435\u0434\u0430\u0451\u0442\u0441\u044F. \u041F\u043E\u043F\u0440\u043E\u0441\u0438\u0442\u0435 \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430 \u0443\u0434\u0430\u043B\u0438\u0442\u044C \u0430\u043A\u043A\u0430\u0443\u043D\u0442 \u2014 \u0438 \u0432\u0441\u0451 \u044D\u0442\u043E \u0431\u0443\u0434\u0435\u0442 \u0443\u0434\u0430\u043B\u0435\u043D\u043E.",
+    "Inbox": "\u0412\u0445\u043E\u0434\u044F\u0449\u0438\u0435",
+    "Stats": "\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430",
+    "All": "\u0412\u0441\u0435",
+    "Bug reports": "\u041E\u0448\u0438\u0431\u043A\u0438",
+    "Suggestions": "\u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F",
+    "Errors": "\u0421\u0431\u043E\u0438",
+    "Show done": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0440\u0435\u0448\u0451\u043D\u043D\u044B\u0435",
+    "Error": "\u0421\u0431\u043E\u0439",
+    "Reopen": "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0441\u043D\u043E\u0432\u0430",
+    "\u2713 Done": "\u2713 \u0413\u043E\u0442\u043E\u0432\u043E",
+    "Details": "\u041F\u043E\u0434\u0440\u043E\u0431\u043D\u043E\u0441\u0442\u0438",
+    "Nothing here.": "\u0417\u0434\u0435\u0441\u044C \u043F\u0443\u0441\u0442\u043E.",
+    "game": "\u0438\u0433\u0440\u0430",
+    "Signed up": "\u0417\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u043B\u0438\u0441\u044C",
+    "Started the tutorial": "\u041D\u0430\u0447\u0430\u043B\u0438 \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u0435",
+    "Knows hiragana": "\u0417\u043D\u0430\u044E\u0442 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443",
+    "Hiragana beginner": "\u041D\u043E\u0432\u0438\u0447\u043A\u0438 \u0432 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0435",
+    "Started the first battle": "\u041D\u0430\u0447\u0430\u043B\u0438 \u043F\u0435\u0440\u0432\u044B\u0439 \u0431\u043E\u0439",
+    "Finished the tutorial": "\u0417\u0430\u043A\u043E\u043D\u0447\u0438\u043B\u0438 \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u0435",
+    "Skipped the tutorial": "\u041F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u043B\u0438 \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u0435",
+    "online now": "\u0441\u0435\u0439\u0447\u0430\u0441 \u0432 \u0441\u0435\u0442\u0438",
+    "active today": "\u0430\u043A\u0442\u0438\u0432\u043D\u044B \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
+    "accounts": "\u0430\u043A\u043A\u0430\u0443\u043D\u0442\u044B",
+    "back on day 1": "\u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u043D\u0430 1-\u0439 \u0434\u0435\u043D\u044C",
+    "back on day 7": "\u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u043D\u0430 7-\u0439 \u0434\u0435\u043D\u044C",
+    "Active players (bars) and new players (+n), last 14 days": "\u0410\u043A\u0442\u0438\u0432\u043D\u044B\u0435 \u0438\u0433\u0440\u043E\u043A\u0438 (\u0441\u0442\u043E\u043B\u0431\u0446\u044B) \u0438 \u043D\u043E\u0432\u044B\u0435 \u0438\u0433\u0440\u043E\u043A\u0438 (+n) \u0437\u0430 14 \u0434\u043D\u0435\u0439",
+    "Tutorial funnel (last 30 days)": "\u0412\u043E\u0440\u043E\u043D\u043A\u0430 \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u044F (\u0437\u0430 30 \u0434\u043D\u0435\u0439)",
+    "Games this week": "\u0418\u0433\u0440\u044B \u0437\u0430 \u043D\u0435\u0434\u0435\u043B\u044E",
+    "No games yet.": "\u0418\u0433\u0440 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442.",
+    "The game is updating \u2014 you'll be reconnected in a moment.": "\u0418\u0433\u0440\u0430 \u043E\u0431\u043D\u043E\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u2014 \u0432\u044B \u043F\u0435\u0440\u0435\u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u0441\u044C \u0447\u0435\u0440\u0435\u0437 \u043C\u0433\u043D\u043E\u0432\u0435\u043D\u0438\u0435.",
     // admin
     "Role": "\u0420\u043E\u043B\u044C",
     "Level": "\u0423\u0440\u043E\u0432\u0435\u043D\u044C",
@@ -801,6 +710,13 @@
   };
   var PATTERNS = [
     [/^Lv (\d+)$/, "\u0423\u0440. $1"],
+    [/^(\d+) online$/, "$1 \u0432 \u0441\u0435\u0442\u0438"],
+    [/^(\d+) of (\d+) \(last 30 days\)$/, "$1 \u0438\u0437 $2 (\u0437\u0430 30 \u0434\u043D\u0435\u0439)"],
+    [/^(\d+) of (\d+)$/, "$1 \u0438\u0437 $2"],
+    [/^(\d+) started$/, "\u043D\u0430\u0447\u0430\u0442\u043E: $1"],
+    [/^(\d+) finished$/, "\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E: $1"],
+    [/^(\d{4}-\d\d-\d\d): (\d+) active, (\d+) new$/, "$1: \u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0445 $2, \u043D\u043E\u0432\u044B\u0445 $3"],
+    [/^write (\d+) kanji$/, "\u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043A\u0430\u043D\u0434\u0437\u0438: $1"],
     [/^(\d+) damage · (\d+) mana$/, "$1 \u0443\u0440\u043E\u043D\u0430 \xB7 $2 \u043C\u0430\u043D\u044B"],
     [/^heals (\d+) · (\d+) mana$/, "\u043B\u0435\u0447\u0438\u0442 $1 \xB7 $2 \u043C\u0430\u043D\u044B"],
     [/^\+(\d+) mana · free$/, "+$1 \u043C\u0430\u043D\u044B \xB7 \u0431\u0435\u0441\u043F\u043B\u0430\u0442\u043D\u043E"],
@@ -887,9 +803,23 @@
     [/^last day: (.+)$/, "\u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u0434\u0435\u043D\u044C: $1"],
     [/^(\d+) learned today · (\d+) learned in total$/, "\u0432\u044B\u0443\u0447\u0435\u043D\u043E \u0441\u0435\u0433\u043E\u0434\u043D\u044F: $1 \xB7 \u0432\u0441\u0435\u0433\u043E: $2"]
   ];
+  var MEANINGS = null;
+  var meaning = (s) => MEANINGS?.[s];
+  function trMeaning(s) {
+    if (!MEANINGS) return void 0;
+    const m0 = meaning(s);
+    if (m0) return m0;
+    let m = /^— (.+)$/.exec(s);
+    if (m && meaning(m[1])) return `\u2014 ${meaning(m[1])}`;
+    m = /^(.+ · .+ · )(.+?)( — read: .+)?$/.exec(s);
+    if (m && meaning(m[2])) return `${m[1]}${meaning(m[2])}${m[3] ? m[3].replace(" \u2014 read: ", " \u2014 \u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D\u043E: ") : ""}`;
+    m = /^([^A-Za-z]+) — (.+)$/.exec(s);
+    if (m && meaning(m[2])) return `${m[1]} \u2014 ${meaning(m[2])}`;
+    return void 0;
+  }
   function tr(s) {
     if (lang() !== "ru") return s;
-    const exact = RU[s];
+    const exact = RU[s] ?? trMeaning(s);
     if (exact) return exact;
     for (const [re, rep] of PATTERNS) {
       if (!re.test(s)) continue;
@@ -898,7 +828,7 @@
     }
     return s;
   }
-  var SKIP = 'script, style, svg, textarea, [lang="ja"], [data-no-i18n], .k, .kanji, .meaning-prompt, .chat-log';
+  var SKIP = 'script, style, svg, textarea, [lang="ja"], [data-no-i18n], .k, .kanji, .chat-log';
   var ATTRS = ["placeholder", "title", "aria-label"];
   function translateText(node) {
     const raw = node.data;
@@ -909,23 +839,23 @@
     const t = tr(s);
     if (t !== s) node.data = raw.replace(s, t);
   }
-  function translateAttrs(el8) {
-    if (el8.closest(SKIP)) return;
+  function translateAttrs(el9) {
+    if (el9.closest(SKIP)) return;
     for (const a of ATTRS) {
-      const v = el8.getAttribute(a);
+      const v = el9.getAttribute(a);
       if (v && /[A-Za-z]/.test(v)) {
         const t = tr(v.trim());
-        if (t !== v.trim()) el8.setAttribute(a, t);
+        if (t !== v.trim()) el9.setAttribute(a, t);
       }
     }
   }
   function walk(root) {
     if (root.nodeType === Node.TEXT_NODE) return translateText(root);
     if (root.nodeType !== Node.ELEMENT_NODE) return;
-    const el8 = root;
-    if (el8.matches(SKIP)) return;
-    translateAttrs(el8);
-    const it = document.createTreeWalker(el8, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    const el9 = root;
+    if (el9.matches(SKIP)) return;
+    translateAttrs(el9);
+    const it = document.createTreeWalker(el9, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
     for (let n = it.nextNode(); n; n = it.nextNode()) {
       if (n.nodeType === Node.TEXT_NODE) translateText(n);
       else translateAttrs(n);
@@ -935,6 +865,13 @@
     document.documentElement.lang = lang();
     if (lang() !== "ru") return;
     walk(document.body);
+    fetch("/meanings-ru.json").then((r2) => r2.ok ? r2.json() : null).then((m) => {
+      if (m) {
+        MEANINGS = m;
+        walk(document.body);
+      }
+    }).catch(() => {
+    });
     new MutationObserver((list) => {
       for (const m of list) {
         if (m.type === "characterData") translateText(m.target);
@@ -977,80 +914,13 @@
     const vfix = r2.height > 0 ? innerHeight / r2.height : 1;
     root.style.setProperty("--vfix", String(Math.round(vfix * 1e3) / 1e3));
   }
-  function zrect(el8) {
-    const r2 = el8.getBoundingClientRect();
+  function zrect(el9) {
+    const r2 = el9.getBoundingClientRect();
     const s = scale;
     return { left: r2.left / s, top: r2.top / s, right: r2.right / s, bottom: r2.bottom / s, width: r2.width / s, height: r2.height / s };
   }
   var viewW = () => innerWidth / scale;
   var viewH = () => innerHeight / scale;
-
-  // src/client/api.ts
-  var today = () => {
-    const d = /* @__PURE__ */ new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-  var TOKEN_KEY = "kb:token";
-  var getToken = () => {
-    try {
-      return localStorage.getItem(TOKEN_KEY) ?? "";
-    } catch {
-      return "";
-    }
-  };
-  var setToken = (t) => {
-    try {
-      t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
-    } catch {
-    }
-  };
-  var ApiError = class extends Error {
-    constructor(message, status) {
-      super(message);
-      __publicField(this, "status", status);
-    }
-  };
-  async function call(method, url, body) {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
-      body: body === void 0 ? void 0 : JSON.stringify(body)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
-    return data;
-  }
-  var api = {
-    login: (username, password) => call("POST", "/api/login", { username, password }),
-    register: (username, password) => call("POST", "/api/register", { username, password }),
-    me: () => call("GET", `/api/me?today=${today()}`),
-    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
-    removeAvatar: () => call("DELETE", "/api/me/avatar"),
-    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
-    setStaff: (staff) => call("PUT", "/api/me/staff", { staff }),
-    setBackground: (background) => call("PUT", "/api/me/background", { background }),
-    study: () => call("GET", `/api/study?today=${today()}`),
-    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
-    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
-    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
-    matches: () => call("GET", "/api/matches"),
-    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
-    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
-    users: () => call("GET", "/api/admin/users"),
-    tutorialDone: () => call("PUT", "/api/me/tutorial"),
-    setKana: (mastered) => call("PUT", "/api/me/kana", { mastered }),
-    progress: () => call("GET", `/api/progress?today=${today()}`),
-    strokes: (chars) => call("GET", `/api/strokes?k=${encodeURIComponent(chars)}`),
-    daily: () => call("GET", "/api/daily"),
-    dailyStart: () => call("POST", "/api/daily/start"),
-    dailyAnswer: (text) => call("POST", "/api/daily/answer", { text }),
-    dailyFinish: () => call("POST", "/api/daily/finish"),
-    friends: () => call("GET", "/api/friends"),
-    addFriend: (username) => call("POST", "/api/friends", { username }),
-    acceptFriend: (id) => call("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
-    removeFriend: (id) => call("DELETE", `/api/friends/${encodeURIComponent(id)}`),
-    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
-  };
 
   // src/client/strokes.ts
   var cache = /* @__PURE__ */ new Map();
@@ -1874,28 +1744,28 @@
   var cache2 = /* @__PURE__ */ new Map();
   var BG_FADE_MS = 3200;
   var fadeTimer = 0;
-  function paintBackground(el8, id, time = "night", fade = false) {
+  function paintBackground(el9, id, time = "night", fade = false) {
     const key = `${id}-${time}`;
-    if (el8.dataset.key === key) return;
-    el8.dataset.key = key;
+    if (el9.dataset.key === key) return;
+    el9.dataset.key = key;
     if (!cache2.has(key)) cache2.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time)}</svg>`);
     const swap = () => {
       const layer = document.createElement("div");
       layer.className = "bg-layer";
       layer.innerHTML = cache2.get(key);
-      const old = el8.querySelector(".bg-layer");
+      const old = el9.querySelector(".bg-layer");
       if (old) old.replaceWith(layer);
-      else el8.prepend(layer);
-      el8.dataset.bg = id;
-      el8.dataset.time = time;
+      else el9.prepend(layer);
+      el9.dataset.bg = id;
+      el9.dataset.time = time;
     };
     clearTimeout(fadeTimer);
-    el8.querySelector(".bg-veil")?.remove();
-    if (!fade || !el8.querySelector(".bg-layer")) return swap();
+    el9.querySelector(".bg-veil")?.remove();
+    if (!fade || !el9.querySelector(".bg-layer")) return swap();
     const veil = document.createElement("div");
     veil.className = "bg-veil";
     veil.style.animationDuration = `${BG_FADE_MS}ms`;
-    el8.append(veil);
+    el9.append(veil);
     fadeTimer = window.setTimeout(() => {
       swap();
       fadeTimer = window.setTimeout(() => veil.remove(), BG_FADE_MS / 2 + 100);
@@ -2084,11 +1954,11 @@
   // src/client/ui.ts
   var $ = (id) => document.getElementById(id);
   function h(tag, cls = "", text, attrs = {}) {
-    const el8 = document.createElement(tag);
-    if (cls) el8.className = cls;
-    if (text !== void 0) el8.textContent = String(text);
-    for (const [k, v] of Object.entries(attrs)) el8.setAttribute(k, v);
-    return el8;
+    const el9 = document.createElement(tag);
+    if (cls) el9.className = cls;
+    if (text !== void 0) el9.textContent = String(text);
+    for (const [k, v] of Object.entries(attrs)) el9.setAttribute(k, v);
+    return el9;
   }
   var append = (parent, ...kids) => {
     parent.append(...kids);
@@ -2137,18 +2007,18 @@
     if (rtt === null || rtt === void 0) return 0;
     return rtt < 150 ? 3 : rtt < 400 ? 2 : 1;
   }
-  function paintNet(el8) {
-    const rtt = rtts.get(el8.dataset.net ?? "");
+  function paintNet(el9) {
+    const rtt = rtts.get(el9.dataset.net ?? "");
     const q = netQuality(rtt);
-    el8.className = `net q${q}`;
-    el8.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
+    el9.className = `net q${q}`;
+    el9.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
   }
   function netBars(playerId) {
-    const el8 = h("span", "net");
-    el8.dataset.net = playerId;
-    el8.innerHTML = "<i></i><i></i><i></i>";
-    paintNet(el8);
-    return el8;
+    const el9 = h("span", "net");
+    el9.dataset.net = playerId;
+    el9.innerHTML = "<i></i><i></i><i></i>";
+    paintNet(el9);
+    return el9;
   }
   function setNet(map) {
     for (const [id, rtt] of Object.entries(map)) rtts.set(id, rtt);
@@ -2190,9 +2060,9 @@
     $("ppStreak").textContent = String(p.streak ?? 0);
     $("ppBestStreak").textContent = String(Math.max(p.bestStreak ?? 0, p.streak ?? 0));
     for (const id of ["whoPic", "ppPic"]) {
-      const el8 = $(id);
-      el8.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
-      el8.classList.toggle("has-pic", !!p.pic);
+      const el9 = $(id);
+      el9.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
+      el9.classList.toggle("has-pic", !!p.pic);
     }
     $("picRemove").hidden = !p.pic;
     $("whoXp").style.width = `${levelProgress(p.xp) * 100}%`;
@@ -2200,11 +2070,11 @@
   }
   var toastTimer = 0;
   function toast(text, ms = 3500) {
-    const el8 = $("toast");
-    el8.textContent = text;
-    el8.hidden = false;
+    const el9 = $("toast");
+    el9.textContent = text;
+    el9.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => el8.hidden = true, ms);
+    toastTimer = window.setTimeout(() => el9.hidden = true, ms);
   }
   function setUser(user2) {
     $("whoami").hidden = !user2;
@@ -2255,8 +2125,8 @@
   }
   var SPELL_KANJI = [..."\u706B\u6C34\u6728\u91D1\u571F\u65E5\u6708\u5C71\u5DDD\u96F7\u98A8\u5149\u95C7\u708E\u6C37\u5263\u9B54\u529B\u661F\u7A7A\u96F2\u96EA\u82B1\u9F8D\u795E\u96E8\u6D77\u68EE\u77F3\u9244\u7ADC\u9B3C\u5922\u547D\u5FC3\u5200\u5F13\u76FE\u738B\u5929\u5730\u6CE2\u5D50\u9727\u5F71"];
   var randomSpellKanji = () => SPELL_KANJI[Math.floor(Math.random() * SPELL_KANJI.length)];
-  function setAuthTab(tab) {
-    const login = tab === "login";
+  function setAuthTab(tab2) {
+    const login = tab2 === "login";
     $("tabLogin").classList.toggle("on", login);
     $("tabRegister").classList.toggle("on", !login);
     $("tabLogin").setAttribute("aria-selected", String(login));
@@ -2453,14 +2323,14 @@
     $("studyGrid").replaceChildren();
   }
   function hpBar(hp, max, label) {
-    const pct = max > 0 ? hp / max * 100 : 0;
-    const bar = append(h("div", "hp" + (pct <= 25 ? " low" : ""), void 0, { role: "meter", "aria-valuemin": "0", "aria-valuemax": String(max), "aria-valuenow": String(hp), "aria-label": label }), h("div"));
-    bar.firstElementChild.style.width = `${pct}%`;
+    const pct2 = max > 0 ? hp / max * 100 : 0;
+    const bar = append(h("div", "hp" + (pct2 <= 25 ? " low" : ""), void 0, { role: "meter", "aria-valuemin": "0", "aria-valuemax": String(max), "aria-valuenow": String(hp), "aria-label": label }), h("div"));
+    bar.firstElementChild.style.width = `${pct2}%`;
     return bar;
   }
-  function partyPanel(el8, players2, you2) {
+  function partyPanel(el9, players2, you2) {
     const ordered = [...players2].sort((a, b) => a.id === you2 ? -1 : b.id === you2 ? 1 : 0);
-    el8.replaceChildren(...ordered.map((p) => {
+    el9.replaceChildren(...ordered.map((p) => {
       const row = h("div", "party-row" + (p.id === you2 ? " me" : "") + (p.hp <= 0 ? " down" : ""));
       const pn = h("span", "n", p.id === you2 ? `${p.name} (you)` : p.name);
       if (p.id !== you2) markProfile(pn, p);
@@ -2477,22 +2347,22 @@
     }));
   }
   function thickBar(hp, max, side, text) {
-    const pct = max > 0 ? Math.max(0, Math.min(100, hp / max * 100)) : 0;
-    const bar = h("div", `tbar ${side}${pct <= 25 ? " low" : ""}`, void 0, { role: "meter", "aria-valuemin": "0", "aria-valuemax": String(max), "aria-valuenow": String(hp) });
+    const pct2 = max > 0 ? Math.max(0, Math.min(100, hp / max * 100)) : 0;
+    const bar = h("div", `tbar ${side}${pct2 <= 25 ? " low" : ""}`, void 0, { role: "meter", "aria-valuemin": "0", "aria-valuemax": String(max), "aria-valuenow": String(hp) });
     const fill = h("div", "fill");
-    fill.style.width = `${pct}%`;
+    fill.style.width = `${pct2}%`;
     bar.append(fill, h("span", "tbar-txt", text));
     return bar;
   }
-  function fighterCard(el8, p, label, emptyText) {
+  function fighterCard(el9, p, label, emptyText) {
     if (!p) {
-      el8.replaceChildren(h("div", "name", emptyText));
+      el9.replaceChildren(h("div", "name", emptyText));
       return;
     }
     const nameEl = h("span", "n", label);
     if (!label.endsWith("(you)")) markProfile(nameEl, p);
     const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`)), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo` : ""));
-    el8.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
+    el9.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
   function renderFighters(players2, you2, boss) {
@@ -2525,11 +2395,11 @@
   }
   var allyEl = (id) => document.querySelector(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
   var actorEl = (a) => a.startsWith("ally:") ? allyEl(a.slice(5)) ?? $("wizMe") : $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : "dragon");
-  function retrigger(el8, cls, ms) {
-    el8.classList.remove(cls);
-    void el8.offsetWidth;
-    el8.classList.add(cls);
-    setTimeout(() => el8.classList.remove(cls), ms);
+  function retrigger(el9, cls, ms) {
+    el9.classList.remove(cls);
+    void el9.offsetWidth;
+    el9.classList.add(cls);
+    setTimeout(() => el9.classList.remove(cls), ms);
   }
   function setupArena(mode3, players2, you2) {
     battleMode = mode3;
@@ -2648,11 +2518,11 @@
     }, 180);
   }
   function breathWarning(inMs) {
-    const el8 = $("breathWarn");
-    el8.hidden = false;
+    const el9 = $("breathWarn");
+    el9.hidden = false;
     $("dragon").classList.add("inhale");
     arena()?.inhale(true);
-    countdown("breath", inMs, (left) => el8.textContent = `The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
+    countdown("breath", inMs, (left) => el9.textContent = `The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
   }
   function breathFire(damage, victims, immune = []) {
     stopCountdown("breath");
@@ -2690,11 +2560,11 @@
     }, 450);
   }
   function knockOut(who) {
-    const el8 = actorEl(who);
-    if (el8.classList.contains("ko")) return;
+    const el9 = actorEl(who);
+    if (el9.classList.contains("ko")) return;
     arena()?.ko(who);
-    el8.classList.add("ko");
-    el8.classList.remove("onfire");
+    el9.classList.add("ko");
+    el9.classList.remove("onfire");
   }
   function showBattle(mode3, players2, boss, you2, countdownMs, battleMs, onTick) {
     clearStudy();
@@ -2753,9 +2623,9 @@
     input2.focus();
   }
   function setInputHint(text, warn = false) {
-    const el8 = $("inputHint");
-    el8.textContent = text;
-    el8.classList.toggle("warn", warn);
+    const el9 = $("inputHint");
+    el9.textContent = text;
+    el9.classList.toggle("warn", warn);
   }
   function setCharSlots(total, _written, active2, shape = "") {
     const kana = shape.replace(/□/g, "");
@@ -2808,13 +2678,13 @@
     $("writeArea").hidden = true;
   };
   function setFeedback(f2) {
-    const el8 = $("feedback");
+    const el9 = $("feedback");
     if (!f2) {
-      el8.replaceChildren();
-      el8.className = "feedback";
+      el9.replaceChildren();
+      el9.className = "feedback";
       return;
     }
-    el8.className = "feedback " + (f2.correct ? "good" : "bad");
+    el9.className = "feedback " + (f2.correct ? "good" : "bad");
     $("kanji").classList.remove("gone");
     $("meaningPrompt").hidden = true;
     const word2 = (cls) => append(h("span", cls), h("span", "rk", f2.kanji, { lang: "ja" }), h("span", "rr", f2.reading, { lang: "ja" }), h("span", "", f2.meaning));
@@ -2822,23 +2692,23 @@
       $("kanji").classList.add("cast");
       const combo = f2.combo >= 2 ? ` \xB7 \xD7${f2.combo} combo` : "";
       const big = h("span", "big" + (f2.crit ? " crit" : ""), f2.crit ? `\u2726 CRIT! ${f2.damage} damage` : `\u2713 CAST! ${f2.damage} damage`);
-      el8.replaceChildren(big, word2("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
+      el9.replaceChildren(big, word2("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
     } else {
       if (f2.retry) {
-        el8.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
+        el9.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
         return;
       }
       const title = f2.beaten ? "Opponent was faster!" : f2.skipped ? "\u21B7 Skipped" : f2.timedOut ? "\u2717 Too slow!" : "\u2717 MISS!";
       const kids = [h("span", "big", title), word2("reveal")];
       if (f2.recognized && !f2.skipped && !f2.timedOut) kids.push(h("span", "sub2", `The pad read: ${f2.recognized}`));
-      el8.replaceChildren(...kids);
-      if (answerMode === "writing" && !f2.beaten) showWrongStrokes(el8, f2.kanji);
+      el9.replaceChildren(...kids);
+      if (answerMode === "writing" && !f2.beaten) showWrongStrokes(el9, f2.kanji);
     }
   }
-  function openStrokeDialog(word2, reading, meaning) {
+  function openStrokeDialog(word2, reading, meaning2) {
     const d = $("strokeDialog");
     $("sdWord").textContent = word2;
-    $("sdInfo").textContent = `${reading} \u2014 ${meaning}`;
+    $("sdInfo").textContent = `${reading} \u2014 ${meaning2}`;
     void showStrokeOrder($("sdBox"), word2);
     if (!d.open) d.showModal();
   }
@@ -2851,9 +2721,9 @@
     void showStrokeOrder(div, word2, { stepMs: Math.max(90, Math.min(220, 2200 / (strokes2 * 6))), caption: "How to write it" });
   }
   function logLine(text, kanji) {
-    const el8 = $("log");
-    el8.replaceChildren(h("span", "", text));
-    if (kanji) el8.append(h("span", "k", ` ${kanji}`, { lang: "ja" }));
+    const el9 = $("log");
+    el9.replaceChildren(h("span", "", text));
+    if (kanji) el9.append(h("span", "k", ` ${kanji}`, { lang: "ja" }));
   }
   var REASONS = {
     ko: "Knock-out",
@@ -2891,8 +2761,8 @@
       const nameOf2 = (id) => players2.find((p) => p.id === id)?.name ?? "Ally";
       cmp.replaceChildren(h("div"), h("div", "h me", "You"), ...allies.map((id) => {
         const p = players2.find((x) => x.id === id);
-        const el8 = h("div", "h", nameOf2(id));
-        return p ? markProfile(el8, p) : el8;
+        const el9 = h("div", "h", nameOf2(id));
+        return p ? markProfile(el9, p) : el9;
       }));
       for (const [label, fmt] of rows) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me3)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
     } else {
@@ -2935,10 +2805,10 @@
     show("results");
   }
   function showXp(gained, level2, levelUp) {
-    const el8 = $("xpLine");
-    el8.hidden = false;
-    el8.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
-    if (levelUp) el8.append(h("span", "lvup", `Level ${level2}!`));
+    const el9 = $("xpLine");
+    el9.hidden = false;
+    el9.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
+    if (levelUp) el9.append(h("span", "lvup", `Level ${level2}!`));
   }
   function setRematchStatus(votes, you2, playerCount, minPlayers2) {
     const youVoted = votes.includes(you2);
@@ -2955,21 +2825,21 @@
     return h("span", `mode-badge ${mode3}`, MODE_ICON[mode3], { lang: "ja", title: MODE_LABEL[mode3], "aria-label": MODE_LABEL[mode3] });
   }
   function characterEl(character, mode3, side = "me") {
-    const el8 = h("span", "char-sprite");
+    const el9 = h("span", "char-sprite");
     const heroes = ["goblin", "knight", "witch", "wizard"];
-    el8.innerHTML = mode3 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
-    el8.title = character[0].toUpperCase() + character.slice(1);
-    return el8;
+    el9.innerHTML = mode3 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
+    el9.title = character[0].toUpperCase() + character.slice(1);
+    return el9;
   }
-  function markProfile(el8, p) {
-    el8.dataset.profile = p.id;
-    if (p.bot) el8.dataset.bot = p.bot;
-    if (p.name) el8.dataset.name = p.name;
-    el8.classList.add("plink");
-    el8.setAttribute("role", "button");
-    el8.tabIndex = 0;
-    el8.title = "View profile";
-    return el8;
+  function markProfile(el9, p) {
+    el9.dataset.profile = p.id;
+    if (p.bot) el9.dataset.bot = p.bot;
+    if (p.name) el9.dataset.name = p.name;
+    el9.classList.add("plink");
+    el9.setAttribute("role", "button");
+    el9.tabIndex = 0;
+    el9.title = "View profile";
+    return el9;
   }
   var dateTime = (at) => new Date(at).toLocaleString(locale(), { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   function showProfileCard(anchor, p) {
@@ -3040,10 +2910,470 @@
     }));
     show("history");
   }
-  function paintFlame(el8, flame) {
-    el8.dataset.flame = flame ?? "blue";
-    flameShades(flame).forEach((c, i) => el8.style.setProperty(`--f${i}`, c));
+  function paintFlame(el9, flame) {
+    el9.dataset.flame = flame ?? "blue";
+    flameShades(flame).forEach((c, i) => el9.style.setProperty(`--f${i}`, c));
   }
+
+  // src/client/support.ts
+  var $2 = $;
+  var device = () => `${navigator.userAgent} \xB7 ${innerWidth}\xD7${innerHeight} \xB7 zoom ${getComputedStyle(document.documentElement).getPropertyValue("--ui-zoom") || "1"}`;
+  var sent = 0;
+  var seen = /* @__PURE__ */ new Set();
+  function report(message, stack = "") {
+    if (sent >= 8 || seen.has(message)) return;
+    seen.add(message);
+    sent++;
+    const details = `v${VERSION} \xB7 screen ${currentScreen() ?? "?"}
+${device()}
+${stack}`.slice(0, 2e3);
+    void fetch("/api/errors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+      body: JSON.stringify({ message, details }),
+      keepalive: true
+    }).catch(() => {
+    });
+  }
+  addEventListener("error", (e) => {
+    if (!e.message || /ResizeObserver loop/.test(e.message)) return;
+    report(e.message, e.error?.stack ?? `${e.filename}:${e.lineno}:${e.colno}`);
+  });
+  addEventListener("unhandledrejection", (e) => {
+    const r2 = e.reason;
+    const msg = r2?.message ?? String(e.reason);
+    if (/Failed to fetch|NetworkError|Load failed/.test(msg)) return;
+    report(msg, r2?.stack ?? "");
+  });
+  function openFeedback(kind = "bug") {
+    const d = $2("feedbackDialog");
+    for (const i of d.querySelectorAll('input[name="fbKind"]')) {
+      i.checked = i.value === kind;
+      i.closest("label")?.classList.toggle("on", i.checked);
+    }
+    $2("fbMsg").textContent = "";
+    $2("fbSend").disabled = false;
+    d.showModal();
+    setTimeout(() => $2("fbText").focus(), 30);
+  }
+  for (const i of document.querySelectorAll('input[name="fbKind"]')) {
+    i.addEventListener("change", () => {
+      for (const x of document.querySelectorAll('input[name="fbKind"]')) x.closest("label")?.classList.toggle("on", x.checked);
+    });
+  }
+  $2("feedbackForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const kind = document.querySelector('input[name="fbKind"]:checked')?.value === "suggestion" ? "suggestion" : "bug";
+    const text = $2("fbText").value.trim();
+    if (text.length < 3) {
+      $2("fbMsg").textContent = "Write a few words first.";
+      return;
+    }
+    $2("fbSend").disabled = true;
+    try {
+      await api.feedback(kind, text, `v${VERSION} \xB7 ${device()}`);
+      $2("fbText").value = "";
+      $2("feedbackDialog").close();
+      toast(kind === "bug" ? "Bug report sent \u2014 thank you!" : "Suggestion sent \u2014 thank you!", 4e3);
+    } catch (err) {
+      $2("fbMsg").textContent = err.message;
+      $2("fbSend").disabled = false;
+    }
+  });
+  $2("fbCancel").onclick = () => $2("feedbackDialog").close();
+  $2("feedbackBtn").onclick = () => openFeedback();
+  $2("aboutBtn").onclick = () => {
+    $2("aboutVersion").textContent = `v${VERSION}`;
+    $2("aboutDialog").showModal();
+  };
+  async function refreshOnline() {
+    try {
+      const { online } = await api.online();
+      const pill = $2("onlineCount");
+      pill.hidden = online < 1;
+      pill.textContent = `${online} online`;
+    } catch {
+    }
+  }
+  setInterval(() => {
+    if (getToken() && ["menu", "queue"].includes(currentScreen() ?? "")) void refreshOnline();
+  }, 3e4);
+
+  // src/client/adminui.ts
+  var $3 = $;
+  var el2 = (tag, cls = "", text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = String(text);
+    return e;
+  };
+  var tab = "users";
+  var reports = [];
+  var adminTab = () => tab;
+  function setAdminTab(t) {
+    tab = t;
+    for (const b of document.querySelectorAll("#adminTabs [data-atab]")) b.classList.toggle("on", b.dataset.atab === t);
+    $3("adminUsers").hidden = t !== "users";
+    $3("adminInbox").hidden = t !== "inbox";
+    $3("adminStats").hidden = t !== "stats";
+    if (t === "inbox") void loadInbox();
+    if (t === "stats") void loadStats();
+  }
+  async function refreshInboxBadge() {
+    try {
+      reports = (await api.inbox()).reports;
+    } catch {
+      return;
+    }
+    const open = reports.filter((r2) => !r2.done && r2.kind !== "error").length;
+    for (const id of ["inboxBadge", "adminBadge"]) {
+      $3(id).hidden = open === 0;
+      $3(id).textContent = String(open);
+    }
+  }
+  async function loadInbox() {
+    await refreshInboxBadge();
+    renderInbox();
+  }
+  var KIND_LABEL = { bug: "Bug report", suggestion: "Suggestion", error: "Error" };
+  function renderInbox() {
+    const kind = document.querySelector('input[name="inboxKind"]:checked')?.value ?? "all";
+    const showDone = $3("inboxShowDone").checked;
+    const list = reports.filter((r2) => (kind === "all" || r2.kind === kind) && (showDone || !r2.done));
+    $3("inboxList").replaceChildren(...list.length ? list.map((r2) => {
+      const card = el2("article", `inbox-item k-${r2.kind}${r2.done ? " done" : ""}`);
+      const head = el2("div", "ii-head");
+      head.append(el2("span", `ii-kind k-${r2.kind}`, KIND_LABEL[r2.kind]), el2("b", "", r2.username || (r2.kind === "error" ? "game" : "?")), el2("small", "hint", dateTime(r2.at)));
+      const done = el2("button", "pill", r2.done ? "Reopen" : "\u2713 Done");
+      done.onclick = async () => {
+        await api.inboxDone(r2.id, !r2.done);
+        r2.done = !r2.done;
+        renderInbox();
+        void refreshInboxBadge();
+      };
+      const del = el2("button", "pill danger", "Delete");
+      del.onclick = async () => {
+        await api.inboxDelete(r2.id);
+        reports = reports.filter((x) => x.id !== r2.id);
+        renderInbox();
+        void refreshInboxBadge();
+      };
+      head.append(el2("span", "ii-sp"), done, del);
+      const text = el2("p", "ii-text", r2.text);
+      card.append(head, text);
+      if (r2.meta) {
+        const m = el2("details", "ii-meta");
+        m.append(el2("summary", "", "Details"), el2("pre", "", r2.meta));
+        card.append(m);
+      }
+      return card;
+    }) : [el2("p", "hint", "Nothing here.")]);
+  }
+  for (const i of document.querySelectorAll('input[name="inboxKind"]')) {
+    i.addEventListener("change", () => {
+      for (const l of document.querySelectorAll("#adminInbox .inbox-filters .chip")) l.classList.toggle("on", !!l.querySelector("input:checked"));
+      renderInbox();
+    });
+  }
+  $3("inboxShowDone").addEventListener("change", renderInbox);
+  for (const b of document.querySelectorAll("#adminTabs [data-atab]")) b.onclick = () => setAdminTab(b.dataset.atab);
+  var pct = (a, b) => b ? `${Math.round(a / b * 100)}%` : "\u2014";
+  var FUNNEL_LABEL = {
+    signup: "Signed up",
+    tutorial_start: "Started the tutorial",
+    tutorial_kana_yes: "Knows hiragana",
+    tutorial_kana_no: "Hiragana beginner",
+    tutorial_battle: "Started the first battle",
+    tutorial_done: "Finished the tutorial",
+    tutorial_skip: "Skipped the tutorial"
+  };
+  async function loadStats() {
+    const box = $3("adminStats");
+    box.replaceChildren(el2("p", "hint", "Loading\u2026"));
+    let s;
+    try {
+      s = await api.adminStats();
+    } catch (e) {
+      box.replaceChildren(el2("p", "error", e.message));
+      return;
+    }
+    const tiles = el2("div", "stat-tiles");
+    const tile2 = (n, label, sub = "") => {
+      const t = el2("div", "stat-tile");
+      t.append(el2("b", "", n), el2("span", "", label));
+      if (sub) t.append(el2("small", "hint", sub));
+      return t;
+    };
+    const today2 = s.daily[s.daily.length - 1];
+    tiles.append(
+      tile2(s.onlineNow, "online now"),
+      tile2(today2?.active ?? 0, "active today"),
+      tile2(s.players, "accounts"),
+      tile2(pct(s.day1.returned, s.day1.players), "back on day 1", `${s.day1.returned} of ${s.day1.players} (last 30 days)`),
+      tile2(pct(s.day7.returned, s.day7.players), "back on day 7", `${s.day7.returned} of ${s.day7.players}`)
+    );
+    const max = Math.max(1, ...s.daily.map((d) => d.active));
+    const chart = el2("div", "stat-chart");
+    for (const d of s.daily) {
+      const col = el2("div", "sc-col");
+      const bar = el2("i", "sc-bar");
+      bar.style.height = `${d.active / max * 100}%`;
+      col.title = `${d.day}: ${d.active} active, ${d.signups} new`;
+      col.append(el2("b", "sc-n", d.active || ""), bar, el2("span", "sc-new", d.signups ? `+${d.signups}` : ""), el2("small", "", d.day.slice(8)));
+      chart.append(col);
+    }
+    const funnel = el2("table", "stat-table");
+    const signups = s.funnel.find((f2) => f2.name === "signup")?.players ?? 0;
+    funnel.append(...s.funnel.map((f2) => {
+      const tr2 = el2("tr");
+      tr2.append(el2("td", "", FUNNEL_LABEL[f2.name] ?? f2.name), el2("td", "num", f2.players), el2("td", "num hint", pct(f2.players, signups)));
+      return tr2;
+    }));
+    const modes = el2("table", "stat-table");
+    const rows = Object.entries(s.modes);
+    modes.append(...rows.length ? rows.map(([m, v]) => {
+      const tr2 = el2("tr");
+      tr2.append(el2("td", "", m), el2("td", "num", `${v.started} started`), el2("td", "num", `${v.finished} finished`));
+      return tr2;
+    }) : [el2("tr")]);
+    box.replaceChildren(
+      tiles,
+      el2("h3", "", "Active players (bars) and new players (+n), last 14 days"),
+      chart,
+      el2("div", "stat-cols")
+    );
+    const cols = box.lastElementChild;
+    const c1 = el2("section");
+    c1.append(el2("h3", "", "Tutorial funnel (last 30 days)"), funnel);
+    const c2 = el2("section");
+    c2.append(el2("h3", "", "Games this week"), rows.length ? modes : el2("p", "hint", "No games yet."));
+    cols.append(c1, c2);
+  }
+
+  // src/shared/kana.ts
+  var BASE = {
+    a: "\u3042",
+    i: "\u3044",
+    u: "\u3046",
+    e: "\u3048",
+    o: "\u304A",
+    ka: "\u304B",
+    ki: "\u304D",
+    ku: "\u304F",
+    ke: "\u3051",
+    ko: "\u3053",
+    sa: "\u3055",
+    si: "\u3057",
+    shi: "\u3057",
+    su: "\u3059",
+    se: "\u305B",
+    so: "\u305D",
+    ta: "\u305F",
+    ti: "\u3061",
+    chi: "\u3061",
+    tu: "\u3064",
+    tsu: "\u3064",
+    te: "\u3066",
+    to: "\u3068",
+    na: "\u306A",
+    ni: "\u306B",
+    nu: "\u306C",
+    ne: "\u306D",
+    no: "\u306E",
+    ha: "\u306F",
+    hi: "\u3072",
+    hu: "\u3075",
+    fu: "\u3075",
+    he: "\u3078",
+    ho: "\u307B",
+    ma: "\u307E",
+    mi: "\u307F",
+    mu: "\u3080",
+    me: "\u3081",
+    mo: "\u3082",
+    ya: "\u3084",
+    yu: "\u3086",
+    yo: "\u3088",
+    ra: "\u3089",
+    ri: "\u308A",
+    ru: "\u308B",
+    re: "\u308C",
+    ro: "\u308D",
+    la: "\u3089",
+    li: "\u308A",
+    lu: "\u308B",
+    le: "\u308C",
+    lo: "\u308D",
+    wa: "\u308F",
+    wo: "\u3092",
+    wi: "\u3046\u3043",
+    we: "\u3046\u3047",
+    ga: "\u304C",
+    gi: "\u304E",
+    gu: "\u3050",
+    ge: "\u3052",
+    go: "\u3054",
+    za: "\u3056",
+    zi: "\u3058",
+    ji: "\u3058",
+    zu: "\u305A",
+    ze: "\u305C",
+    zo: "\u305E",
+    da: "\u3060",
+    di: "\u3062",
+    du: "\u3065",
+    de: "\u3067",
+    do: "\u3069",
+    ba: "\u3070",
+    bi: "\u3073",
+    bu: "\u3076",
+    be: "\u3079",
+    bo: "\u307C",
+    pa: "\u3071",
+    pi: "\u3074",
+    pu: "\u3077",
+    pe: "\u307A",
+    po: "\u307D",
+    va: "\u3094\u3041",
+    vi: "\u3094\u3043",
+    vu: "\u3094",
+    ve: "\u3094\u3047",
+    vo: "\u3094\u3049",
+    fa: "\u3075\u3041",
+    fi: "\u3075\u3043",
+    fe: "\u3075\u3047",
+    fo: "\u3075\u3049",
+    xa: "\u3041",
+    xi: "\u3043",
+    xu: "\u3045",
+    xe: "\u3047",
+    xo: "\u3049",
+    xya: "\u3083",
+    xyu: "\u3085",
+    xyo: "\u3087",
+    lya: "\u3083",
+    lyu: "\u3085",
+    lyo: "\u3087",
+    xtu: "\u3063",
+    ltu: "\u3063",
+    xtsu: "\u3063",
+    ltsu: "\u3063",
+    "-": "\u30FC"
+  };
+  var YOON = [
+    [["ky"], "\u304D"],
+    [["gy"], "\u304E"],
+    [["sh", "sy"], "\u3057"],
+    [["j", "jy", "zy"], "\u3058"],
+    [["ch", "ty", "cy"], "\u3061"],
+    [["dy"], "\u3062"],
+    [["ny"], "\u306B"],
+    [["hy"], "\u3072"],
+    [["by"], "\u3073"],
+    [["py"], "\u3074"],
+    [["my"], "\u307F"],
+    [["ry", "ly"], "\u308A"]
+  ];
+  var SMALL = { a: "\u3083", u: "\u3085", o: "\u3087" };
+  var _a, _b;
+  for (const [prefixes, kana] of YOON) {
+    for (const p of prefixes) {
+      for (const [v, small] of Object.entries(SMALL)) BASE[_a = p + v] ?? (BASE[_a] = kana + small);
+      if (p === "sh" || p === "ch" || p === "j") BASE[_b = p + "e"] ?? (BASE[_b] = kana + "\u3047");
+    }
+  }
+  var VOWELS = /* @__PURE__ */ new Set(["a", "i", "u", "e", "o"]);
+  function romajiToHiragana(input2) {
+    const s = input2.toLowerCase();
+    let out = "";
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      const next3 = s[i + 1];
+      if (c === "n") {
+        if (next3 === "'") {
+          out += "\u3093";
+          i += 2;
+          continue;
+        }
+        if (next3 === void 0) {
+          out += "\u3093";
+          i += 1;
+          continue;
+        }
+        if (next3 === "n") {
+          const after = s[i + 2];
+          out += "\u3093";
+          i += after !== void 0 && (VOWELS.has(after) || after === "y") ? 1 : 2;
+          continue;
+        }
+        if (!VOWELS.has(next3) && next3 !== "y") {
+          out += "\u3093";
+          i += 1;
+          continue;
+        }
+      }
+      if (c >= "a" && c <= "z" && !VOWELS.has(c) && (next3 === c || c === "t" && next3 === "c")) {
+        out += "\u3063";
+        i += 1;
+        continue;
+      }
+      let matched = false;
+      for (let len = 4; len >= 1; len--) {
+        const kana = BASE[s.slice(i, i + len)];
+        if (kana) {
+          out += kana;
+          i += len;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        out += c;
+        i += 1;
+      }
+    }
+    return out;
+  }
+  var katakanaToHiragana = (s) => s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 96));
+  function normalizeAnswer(input2) {
+    const halfWidth = input2.normalize("NFKC");
+    const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
+    return romajiToHiragana(katakanaToHiragana(cleaned));
+  }
+  function isCorrectReading(input2, readings) {
+    const answer = normalizeAnswer(input2);
+    if (!answer.length) return false;
+    return readings.some((raw) => {
+      const r2 = katakanaToHiragana(raw);
+      if (r2 === answer) return true;
+      if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer) return true;
+      return longVowelSlip(r2, answer);
+    });
+  }
+  function longVowelSlip(r2, a) {
+    const LONG = "\u3046\u304A";
+    if (a.length === r2.length - 1) {
+      for (let i = 1; i < r2.length; i++) if (LONG.includes(r2[i]) && r2.slice(0, i) + r2.slice(i + 1) === a) return true;
+      return false;
+    }
+    if (a.length === r2.length) {
+      let diff = -1;
+      for (let i = 0; i < r2.length; i++) if (r2[i] !== a[i]) {
+        if (diff >= 0) return false;
+        diff = i;
+      }
+      return diff > 0 && LONG.includes(r2[diff]) && LONG.includes(a[diff]);
+    }
+    return false;
+  }
+  var WRITE = /[\p{Script=Han}々〆ヶ□]/u;
+  var writeTargets = (word2) => {
+    const all = [...word2];
+    const k = all.filter((c) => WRITE.test(c));
+    return k.length ? k : all;
+  };
+  var writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
 
   // src/client/gamekb.ts
   var KEY4 = "kb:gamekb";
@@ -3098,9 +3428,9 @@
       row.className = "gk-row";
       for (const c of r2) row.append(key(c, "ch", () => type(c)));
       if (i === 2) row.append(key("\u232B", "wide back", () => {
-        const el8 = input();
-        el8.value = el8.value.slice(0, -1);
-        el8.dispatchEvent(new Event("input", { bubbles: true }));
+        const el9 = input();
+        el9.value = el9.value.slice(0, -1);
+        el9.dispatchEvent(new Event("input", { bubbles: true }));
         preview();
       }));
       return row;
@@ -3915,13 +4245,13 @@
   function celebrateNew(userId, unlocks2) {
     const key = `kb:ach:${userId}`;
     const ids = (unlocks2 ?? []).filter((u) => u.startsWith(ACH_PREFIX)).map((u) => u.slice(ACH_PREFIX.length));
-    let seen = null;
+    let seen2 = null;
     try {
-      seen = JSON.parse(localStorage.getItem(key) ?? "null");
+      seen2 = JSON.parse(localStorage.getItem(key) ?? "null");
     } catch {
     }
-    if (!Array.isArray(seen)) ids.forEach((id) => shown.add(id));
-    else for (const id of ids) if (!seen.includes(id)) celebrate(id);
+    if (!Array.isArray(seen2)) ids.forEach((id) => shown.add(id));
+    else for (const id of ids) if (!seen2.includes(id)) celebrate(id);
     try {
       localStorage.setItem(key, JSON.stringify(ids));
     } catch {
@@ -3932,8 +4262,8 @@
   }
 
   // src/client/friendrail.ts
-  var $2 = $;
-  var el2 = (tag, cls = "", text) => {
+  var $4 = $;
+  var el3 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -3947,15 +4277,15 @@
   function setRailUser(on) {
     signedIn = on;
     if (!on) {
-      $2("friendRail").hidden = true;
-      $2("railFab").hidden = true;
+      $4("friendRail").hidden = true;
+      $4("railFab").hidden = true;
       clearInterval(timer);
     }
   }
   function railScreen(screen2) {
     const show3 = signedIn && RAIL_SCREENS.has(screen2);
-    $2("friendRail").hidden = !show3;
-    $2("railFab").hidden = !show3;
+    $4("friendRail").hidden = !show3;
+    $4("railFab").hidden = !show3;
     setOpen(false);
     document.body.classList.toggle("has-rail", show3);
     clearInterval(timer);
@@ -3965,16 +4295,16 @@
     }
   }
   function setOpen(on) {
-    $2("friendRail").classList.toggle("open", on);
-    $2("railFab").setAttribute("aria-expanded", String(on));
+    $4("friendRail").classList.toggle("open", on);
+    $4("railFab").setAttribute("aria-expanded", String(on));
   }
-  $2("railFab").onclick = (e) => {
+  $4("railFab").onclick = (e) => {
     e.stopPropagation();
-    setOpen(!$2("friendRail").classList.contains("open"));
+    setOpen(!$4("friendRail").classList.contains("open"));
   };
   document.addEventListener("pointerdown", (e) => {
     const t = e.target;
-    if ($2("friendRail").classList.contains("open") && !t.closest("#friendRail, #railFab, #friendDialog, #otherPop")) setOpen(false);
+    if ($4("friendRail").classList.contains("open") && !t.closest("#friendRail, #railFab, #friendDialog, #otherPop")) setOpen(false);
   });
   async function refreshRail() {
     try {
@@ -3985,14 +4315,14 @@
     render();
   }
   var avatar = (f2) => {
-    const a = el2("span", "fr-av");
+    const a = el3("span", "fr-av");
     if (f2.pic) {
-      const img = el2("img");
+      const img = el3("img");
       img.src = f2.pic;
       img.alt = "";
       a.append(img);
     } else a.textContent = f2.username.slice(0, 1).toUpperCase();
-    a.append(el2("i", "fr-dot"));
+    a.append(el3("i", "fr-dot"));
     return a;
   };
   function render() {
@@ -4000,53 +4330,53 @@
     const online = accepted.filter((f2) => f2.online), offline = accepted.filter((f2) => !f2.online);
     const incoming = friends.filter((f2) => f2.status === "incoming").length;
     const section = (key, title, list2) => {
-      const head = el2("button", "fr-sec", "");
-      head.append(el2("b", "fr-count", list2.length), el2("span", "fr-sec-name", title), el2("span", "fr-chev", collapsed[key] ? "\u25BE" : "\u25B4"));
+      const head = el3("button", "fr-sec", "");
+      head.append(el3("b", "fr-count", list2.length), el3("span", "fr-sec-name", title), el3("span", "fr-chev", collapsed[key] ? "\u25BE" : "\u25B4"));
       head.setAttribute("aria-expanded", String(!collapsed[key]));
       head.onclick = () => {
         collapsed[key] = !collapsed[key];
         render();
       };
       const rows = collapsed[key] ? [] : list2.map((f2) => {
-        const r2 = el2("div", "fr-row" + (f2.online ? " online" : ""));
+        const r2 = el3("div", "fr-row" + (f2.online ? " online" : ""));
         markProfile(r2, { id: f2.id, name: f2.username, bot: null });
         r2.title = `${f2.username} \u2014 view profile`;
-        const txt = el2("span", "fr-txt");
-        txt.append(el2("span", "fr-name", f2.username), el2("small", "fr-status", f2.online ? f2.activity ?? "Online" : "Offline"));
-        r2.append(avatar(f2), txt, el2("span", "fr-lv", `Lv ${f2.level ?? 0}`));
+        const txt = el3("span", "fr-txt");
+        txt.append(el3("span", "fr-name", f2.username), el3("small", "fr-status", f2.online ? f2.activity ?? "Online" : "Offline"));
+        r2.append(avatar(f2), txt, el3("span", "fr-lv", `Lv ${f2.level ?? 0}`));
         return r2;
       });
       return [head, ...rows];
     };
-    const list = $2("railList");
+    const list = $4("railList");
     list.replaceChildren(
       ...section("online", "Online", online),
       ...section("offline", "Offline", offline),
-      ...accepted.length ? [] : [el2("p", "fr-empty", "No friends yet \u2014 add someone below.")]
+      ...accepted.length ? [] : [el3("p", "fr-empty", "No friends yet \u2014 add someone below.")]
     );
-    $2("railOnline").textContent = String(online.length);
-    $2("railFabCount").textContent = String(online.length);
-    $2("railFab").classList.toggle("alert", incoming > 0);
-    const badge = $2("railReqBadge");
+    $4("railOnline").textContent = String(online.length);
+    $4("railFabCount").textContent = String(online.length);
+    $4("railFab").classList.toggle("alert", incoming > 0);
+    const badge = $4("railReqBadge");
     badge.hidden = incoming === 0;
     badge.textContent = String(incoming);
   }
-  function openDialog(tab) {
-    const d = $2("friendDialog");
-    for (const b of d.querySelectorAll("[data-ftab]")) b.classList.toggle("on", b.dataset.ftab === tab);
-    $2("fdAdd").hidden = tab !== "add";
-    $2("fdRequests").hidden = tab !== "requests";
-    $2("fdMsg").textContent = "";
+  function openDialog(tab2) {
+    const d = $4("friendDialog");
+    for (const b of d.querySelectorAll("[data-ftab]")) b.classList.toggle("on", b.dataset.ftab === tab2);
+    $4("fdAdd").hidden = tab2 !== "add";
+    $4("fdRequests").hidden = tab2 !== "requests";
+    $4("fdMsg").textContent = "";
     renderRequests();
     if (!d.open) d.showModal();
-    if (tab === "add") setTimeout(() => $2("fdName").focus(), 30);
+    if (tab2 === "add") setTimeout(() => $4("fdName").focus(), 30);
   }
   function renderRequests() {
-    const box = $2("fdReqList");
+    const box = $4("fdReqList");
     const incoming = friends.filter((f2) => f2.status === "incoming");
     const outgoing = friends.filter((f2) => f2.status === "outgoing");
     const act = (text, cls, fn) => {
-      const b = el2("button", `pill ${cls}`, text);
+      const b = el3("button", `pill ${cls}`, text);
       b.onclick = async () => {
         b.disabled = true;
         try {
@@ -4061,37 +4391,37 @@
       return b;
     };
     const row = (f2, buttons, note) => {
-      const r2 = el2("div", "fd-row");
-      const t = el2("span", "fr-txt");
-      t.append(el2("span", "fr-name", f2.username), el2("small", "fr-status", note));
+      const r2 = el3("div", "fd-row");
+      const t = el3("span", "fr-txt");
+      t.append(el3("span", "fr-name", f2.username), el3("small", "fr-status", note));
       r2.append(avatar(f2), t, ...buttons);
       return r2;
     };
     box.replaceChildren(
-      ...incoming.length ? [el2("h4", "", `Requests (${incoming.length})`), ...incoming.map((f2) => row(f2, [act("Accept", "primary", () => api.acceptFriend(f2.id)), act("Decline", "", () => api.removeFriend(f2.id))], "wants to be friends"))] : [el2("p", "hint", "No friend requests right now.")],
-      ...outgoing.length ? [el2("h4", "", "Sent requests"), ...outgoing.map((f2) => row(f2, [act("Cancel", "", () => api.removeFriend(f2.id))], "request sent"))] : []
+      ...incoming.length ? [el3("h4", "", `Requests (${incoming.length})`), ...incoming.map((f2) => row(f2, [act("Accept", "primary", () => api.acceptFriend(f2.id)), act("Decline", "", () => api.removeFriend(f2.id))], "wants to be friends"))] : [el3("p", "hint", "No friend requests right now.")],
+      ...outgoing.length ? [el3("h4", "", "Sent requests"), ...outgoing.map((f2) => row(f2, [act("Cancel", "", () => api.removeFriend(f2.id))], "request sent"))] : []
     );
   }
-  $2("railAdd").onclick = () => openDialog("add");
-  $2("railReq").onclick = () => openDialog("requests");
+  $4("railAdd").onclick = () => openDialog("add");
+  $4("railReq").onclick = () => openDialog("requests");
   for (const b of document.querySelectorAll("#friendDialog [data-ftab]")) b.onclick = () => openDialog(b.dataset.ftab);
-  $2("fdClose").onclick = () => $2("friendDialog").close();
-  $2("fdAdd").addEventListener("submit", async (e) => {
+  $4("fdClose").onclick = () => $4("friendDialog").close();
+  $4("fdAdd").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const input2 = $2("fdName");
+    const input2 = $4("fdName");
     const name = input2.value.trim();
     if (!name) return;
     try {
       const r2 = await api.addFriend(name);
       friends = r2.friends;
-      $2("fdMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      $4("fdMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
       input2.value = "";
       render();
     } catch (err) {
-      $2("fdMsg").textContent = err.message;
+      $4("fdMsg").textContent = err.message;
     }
   });
-  $2("railList").addEventListener("click", () => $2("friendDialog").close());
+  $4("railList").addEventListener("click", () => $4("friendDialog").close());
 
   // src/client/voice.ts
   var KEY5 = "kb:voice";
@@ -4209,8 +4539,8 @@
   addEventListener("focus", stop);
 
   // src/client/tutorial.ts
-  var $3 = $;
-  var el3 = (tag, cls = "", text) => {
+  var $5 = $;
+  var el4 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -4249,14 +4579,14 @@
     { title: "Your first battle", body: "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them." }
   ];
   function tryIt() {
-    const box = el3("div", "tut-try");
-    const k = el3("span", "tut-k", "\u5C71");
+    const box = el4("div", "tut-try");
+    const k = el4("span", "tut-k", "\u5C71");
     k.lang = "ja";
-    const input2 = el3("input");
+    const input2 = el4("input");
     input2.placeholder = "type its reading: yama";
     input2.lang = "ja";
     input2.autocomplete = "off";
-    const msg = el3("span", "hint", "Mountain \u2014 try it!");
+    const msg = el4("span", "hint", "Mountain \u2014 try it!");
     input2.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" || e.isComposing) return;
       e.stopPropagation();
@@ -4277,23 +4607,25 @@
   function startTutorial() {
     if (stage !== "off") return;
     stage = "cards";
+    void api.event("tutorial_start");
     show2(0);
   }
   function show2(i) {
     const c = CARDS[i];
-    const box = $3("tutorial");
-    const dots = el3("div", "tut-dots");
-    CARDS.forEach((_, j) => dots.append(el3("i", j === i ? "on" : "")));
-    const card = el3("div", "tut-card");
-    const actions = el3("div", "tut-actions");
+    const box = $5("tutorial");
+    const dots = el4("div", "tut-dots");
+    CARDS.forEach((_, j) => dots.append(el4("i", j === i ? "on" : "")));
+    const card = el4("div", "tut-card");
+    const actions = el4("div", "tut-actions");
     const last = i === CARDS.length - 1;
-    const next3 = el3("button", "big", last ? "Fight a beginner AI" : "Next");
-    const skip2 = el3("button", "pill", last ? "Maybe later" : "Skip tutorial");
+    const next3 = el4("button", "big", last ? "Fight a beginner AI" : "Next");
+    const skip2 = el4("button", "pill", last ? "Maybe later" : "Skip tutorial");
     if (c.choice) {
-      const yes = el3("button", "big", "Yes \u2014 I know hiragana");
-      const no = el3("button", "big alt", "I'm a beginner");
+      const yes = el4("button", "big", "Yes \u2014 I know hiragana");
+      const no = el4("button", "big alt", "I'm a beginner");
       const pickKana = (mastered) => {
         yes.disabled = no.disabled = true;
+        void api.event(mastered ? "tutorial_kana_yes" : "tutorial_kana_no");
         void hooks.kana(mastered).finally(() => show2(i + 1));
       };
       yes.onclick = () => pickKana(true);
@@ -4305,18 +4637,22 @@
       if (!last) return show2(i + 1);
       stage = "battle";
       box.hidden = true;
+      void api.event("tutorial_battle");
       hooks.firstBattle();
     };
-    skip2.onclick = () => finish();
+    skip2.onclick = () => {
+      void api.event("tutorial_skip");
+      finish();
+    };
     actions.append(skip2, next3);
-    card.append(dots, el3("h2", "", c.title), el3("p", "", c.body), ...c.extra ? [c.extra()] : [], actions);
+    card.append(dots, el4("h2", "", c.title), el4("p", "", c.body), ...c.extra ? [c.extra()] : [], actions);
     box.replaceChildren(card);
     box.hidden = false;
     next3.focus();
   }
   function finish() {
     stage = "off";
-    $3("tutorial").hidden = true;
+    $5("tutorial").hidden = true;
     coach(null);
     void api.tutorialDone().catch(() => {
     });
@@ -4326,21 +4662,22 @@
     if (screen2 === "prep") coach("Read the 10 words \u2014 reading and meaning. When the battle starts, they come back as kanji only. Press Ready when you're done.");
     else if (screen2 === "battle") coach("Type the reading of the kanji (hiragana or romaji) and press Enter. Don't know it? Esc skips. Keep your HP above the AI's!");
     else if (screen2 === "results") {
+      void api.event("tutorial_done");
       coach("Well cast! Words you missed are now in Study spells \u2192 Struggling. Level up to unlock Writing, Boss and Deck Duel.");
       setTimeout(finish, 12e3);
     } else if (screen2 === "menu") finish();
   }
   function coach(text) {
-    const c = $3("coach");
+    const c = $5("coach");
     if (!text) {
       c.hidden = true;
       return;
     }
-    const close = el3("button", "pill", "Got it");
+    const close = el4("button", "pill", "Got it");
     close.onclick = () => {
       c.hidden = true;
     };
-    c.replaceChildren(el3("b", "", "Tip"), el3("span", "", text), close);
+    c.replaceChildren(el4("b", "", "Tip"), el4("span", "", text), close);
     c.hidden = false;
   }
 
@@ -4410,13 +4747,13 @@
   };
 
   // src/client/deckui.ts
-  var $4 = $;
+  var $6 = $;
   var COLOR_NAME = { lightblue: "Light blue", blue: "Blue", yellow: "Yellow", green: "Green", red: "Red" };
   function h2(tag, cls = "", text) {
-    const el8 = document.createElement(tag);
-    if (cls) el8.className = cls;
-    if (text !== void 0) el8.textContent = String(text);
-    return el8;
+    const el9 = document.createElement(tag);
+    if (cls) el9.className = cls;
+    if (text !== void 0) el9.textContent = String(text);
+    return el9;
   }
   var view = null;
   var hooks2;
@@ -4461,7 +4798,7 @@
   }
   function initDeck(hk) {
     hooks2 = hk;
-    $4("dkAbility").onclick = () => {
+    $6("dkAbility").onclick = () => {
       const me3 = view?.players.find((p) => p.id === view.you);
       if (me3?.character && CHARACTER_INFO[me3.character].passive) {
         const used = [me3.wizardCardsUsed ? "cards used" : "+2 cards ready", me3.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
@@ -4469,18 +4806,18 @@
       }
       hooks2.send({ type: "deck_ability" });
     };
-    $4("dkChatForm").addEventListener("submit", (e) => {
+    $6("dkChatForm").addEventListener("submit", (e) => {
       e.preventDefault();
-      const input2 = $4("dkChatInput");
+      const input2 = $6("dkChatInput");
       const text = input2.value.trim();
       if (text) hooks2.send({ type: "chat", text });
       input2.value = "";
     });
-    renderGuide($4("deckGuide"));
+    renderGuide($6("deckGuide"));
   }
   var seenChat = /* @__PURE__ */ new Set();
   function chatMessages(msgs) {
-    const log = $4("dkChatLog");
+    const log = $6("dkChatLog");
     for (const m of msgs) {
       if (seenChat.has(m.id)) continue;
       seenChat.add(m.id);
@@ -4494,10 +4831,10 @@
   }
   function clearChat() {
     seenChat.clear();
-    $4("dkChatLog").replaceChildren();
+    $6("dkChatLog").replaceChildren();
   }
-  var renderDeckGuide = (el8) => renderGuide(el8);
-  function renderGuide(el8) {
+  var renderDeckGuide = (el9) => renderGuide(el9);
+  function renderGuide(el9) {
     const sec = (title, ...kids) => {
       const s = h2("section", "g-sec");
       s.append(h2("h4", "", title), ...kids);
@@ -4539,7 +4876,7 @@
       li.append(h2("span", "g-ic", icon), h2("span", "", t));
       flow.append(li);
     }
-    el8.replaceChildren(
+    el9.replaceChildren(
       h2("h3", "", "How Deck Duel works"),
       sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (\u2212${DECK_RULES.skipPenaltyHp} HP).`)),
       sec("Cards", cards),
@@ -4551,26 +4888,26 @@
   function cardEl(c, opts = {}) {
     const base = CARD_SPECS[c.color];
     const spec = { ...base, cost: Math.ceil(base.cost * (opts.costFactor ?? 1)) };
-    const el8 = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
-    if (opts.button) el8.disabled = !!opts.disabled;
-    el8.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
-    if (opts.big) return el8;
-    el8.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
+    const el9 = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
+    if (opts.button) el9.disabled = !!opts.disabled;
+    el9.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
+    if (opts.big) return el9;
+    el9.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
     if (c.kanji) {
       const k = h2("span", "dkc-k", c.kanji);
       k.lang = "ja";
       const r2 = h2("span", "dkc-r", c.reading ?? "");
       r2.lang = "ja";
-      el8.append(k, r2);
+      el9.append(k, r2);
     } else {
-      el8.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
+      el9.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
     }
-    return el8;
+    return el9;
   }
   var powered = (p) => !!p.character && p.character !== "wizard" && p.abilityActive > 0;
-  function playerPanel(el8, p, mine) {
-    paintFlame(el8, p.flame);
-    el8.classList.toggle("powered", powered(p));
+  function playerPanel(el9, p, mine) {
+    paintFlame(el9, p.flame);
+    el9.classList.toggle("powered", powered(p));
     arena()?.onfire(mine ? "me" : "opp", powered(p), flameColor(p.flame));
     const av = h2("div", "dk-av");
     av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp", p.staff) : "";
@@ -4602,7 +4939,7 @@
       cc.append(dot, `\xD7${p.handCounts[col]}`);
       counts2.append(cc);
     }
-    el8.replaceChildren(av, name, hp, mana, counts2);
+    el9.replaceChildren(av, name, hp, mana, counts2);
   }
   function renderDeck(v) {
     view = v;
@@ -4610,22 +4947,22 @@
     const opp = v.players.find((p) => p.id !== v.you);
     if (opp.character) arenaForDeck(v);
     show("deck");
-    playerPanel($4("dkMe"), me3, true);
-    playerPanel($4("dkOpp"), opp, false);
-    const overlay = $4("dkOverlay");
+    playerPanel($6("dkMe"), me3, true);
+    playerPanel($6("dkOpp"), opp, false);
+    const overlay = $6("dkOverlay");
     if (v.phase === "characters" || v.phase === "draft") {
       renderCast(v);
       stopCountdown("dkTurn");
-      $4("dkBanner").textContent = "";
+      $6("dkBanner").textContent = "";
       return v.phase === "characters" ? renderCharacters(v, me3, opp) : renderDraft(v, me3);
     }
     overlay.hidden = true;
     if (v.phase === "overtime") {
-      countdown("dkMatch", v.overtimeLeft, (left) => $4("dkClock").textContent = `OT ${clock(left)}`);
+      countdown("dkMatch", v.overtimeLeft, (left) => $6("dkClock").textContent = `OT ${clock(left)}`);
     } else {
-      countdown("dkMatch", v.matchLeftMs, (left) => $4("dkClock").textContent = clock(left));
+      countdown("dkMatch", v.matchLeftMs, (left) => $6("dkClock").textContent = clock(left));
     }
-    const banner = $4("dkBanner");
+    const banner = $6("dkBanner");
     const myTurn = v.turn?.active === v.you;
     if (myTurn && !v.casting && !wasMyTurn && v.phase !== "over") {
       sfx.yourTurn();
@@ -4638,17 +4975,17 @@
     const label = v.phase === "overtime" ? "Overtime \u2014 Rapid duel! First to type the reading hits" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
     countdown("dkTurn", deadline, (left) => banner.textContent = `${label} \xB7 ${Math.ceil(left / 1e3)}s`);
     const canPlay2 = myTurn && !v.casting && Date.now() >= revealUntil;
-    $4("dkHand").replaceChildren(...v.hand.map((c) => {
+    $6("dkHand").replaceChildren(...v.hand.map((c) => {
       const costFactor = myTurn ? v.turn.costFactor : 1;
-      const el8 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me3.mana });
-      el8.onclick = () => {
+      const el9 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me3.mana });
+      el9.onclick = () => {
         sfx.flip();
         hooks2.send({ type: "deck_play", cardId: c.cardId });
       };
-      return el8;
+      return el9;
     }));
-    $4("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
-    const ab = $4("dkAbility");
+    $6("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
+    const ab = $6("dkAbility");
     const ch = me3.character;
     ab.innerHTML = ch ? heroSvg(ch, "me", me3.staff) : "";
     const cd = me3.abilityCooldown;
@@ -4666,7 +5003,7 @@
     renderList(v);
   }
   function renderList(v) {
-    const box = $4("dkList");
+    const box = $6("dkList");
     const head = h2("h4", "", "Your kanji");
     if (!v.deckList) {
       box.replaceChildren(head, h2("p", "hint", v.phase === "overtime" ? "Overtime \u2014 the cards are gone: type the readings!" : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
@@ -4684,13 +5021,13 @@
     }
     box.replaceChildren(append2(head, h2("small", "", ` \xB7 ${v.deckList.length}`)), h2("p", "hint", "Which card is which stays secret."), ul);
   }
-  var append2 = (el8, ...kids) => {
-    el8.append(...kids);
-    return el8;
+  var append2 = (el9, ...kids) => {
+    el9.append(...kids);
+    return el9;
   };
   var castKey = "";
   function renderCast(v) {
-    const box = $4("dkCast");
+    const box = $6("dkCast");
     const c = v.casting;
     if (!c) {
       arena()?.channel(0);
@@ -4703,7 +5040,7 @@
       }
       if (Date.now() < revealUntil) return;
       box.replaceChildren();
-      $4("dkFeedback").replaceChildren();
+      $6("dkFeedback").replaceChildren();
       return;
     }
     revealUntil = 0;
@@ -4784,7 +5121,7 @@
         }
       } else stopCountdown("dkRead");
       box.replaceChildren(card, actions);
-      if (fresh) $4("dkFeedback").replaceChildren();
+      if (fresh) $6("dkFeedback").replaceChildren();
     }
     const writeNow = mine && !c.overtime && c.stage === "write";
     const a3 = arena();
@@ -4799,7 +5136,7 @@
     }
   }
   function renderCharacters(v, me3, opp) {
-    const overlay = $4("dkOverlay");
+    const overlay = $6("dkOverlay");
     overlay.hidden = false;
     const title = h2("h2", "", me3.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
     const grid = h2("div", "char-pick");
@@ -4817,7 +5154,7 @@
   var coinShown = false;
   function renderDraft(v, me3) {
     const d = v.draft;
-    const overlay = $4("dkOverlay");
+    const overlay = $6("dkOverlay");
     overlay.hidden = false;
     const mine = d.picker === v.you;
     const head = h2("div", "center");
@@ -4833,13 +5170,13 @@
     countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ""}`);
     const board = h2("div", "draft-board");
     for (const c of d.pool) {
-      const el8 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
-      if (c.takenBy) el8.classList.add("taken");
-      el8.onclick = () => {
+      const el9 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
+      if (c.takenBy) el9.classList.add("taken");
+      el9.onclick = () => {
         sfx.flip();
         hooks2.send({ type: "deck_pick", cardId: c.cardId });
       };
-      board.append(el8);
+      board.append(el9);
     }
     overlay.replaceChildren(backButton(v), head, status, board, h2("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
   }
@@ -4895,8 +5232,8 @@
   }
   var CARD_FX = { lightblue: "bolt", blue: "frost", red: "fire" };
   function animateResolve(e, me3, spoken = Promise.resolve()) {
-    const card = $4("dkCast").querySelector(".dkc.big");
-    const fb = $4("dkFeedback");
+    const card = $6("dkCast").querySelector(".dkc.big");
+    const fb = $6("dkFeedback");
     const who = e.playerId === me3 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
     const spec = e.overtime ? { label: "Rapid hit", kind: "attack", amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
     if (!e.ok) {
@@ -4913,7 +5250,7 @@
       const to = spec.kind === "attack" ? e.targetId === me3 ? "me" : "opp" : from;
       void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind, fx: e.overtime ? void 0 : CARD_FX[e.color] });
     } else if (spec.kind === "attack" && !e.overtime && CARD_FX[e.color]) {
-      const panel = $4(e.targetId === me3 ? "dkMe" : "dkOpp");
+      const panel = $6(e.targetId === me3 ? "dkMe" : "dkOpp");
       setTimeout(() => {
         panel.classList.remove("fx-bolt", "fx-frost", "fx-fire");
         void panel.offsetWidth;
@@ -4935,7 +5272,7 @@
       ghost.classList.add("sparkle");
     } else {
       const towardsMe = spec.kind === "heal" ? e.playerId === me3 : e.targetId === me3;
-      const target = zrect($4(towardsMe ? "dkMe" : "dkOpp"));
+      const target = zrect($6(towardsMe ? "dkMe" : "dkOpp"));
       ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
       void spoken.then(() => {
@@ -4965,15 +5302,15 @@
     card.append(h2("span", "reveal-badge", e.ok ? "\u2713" : "\u2717"), top, bottom);
     const label = h2("div", "cast-timer", e.ok ? "Correct!" : "The correct kanji");
     const strokesBox = h2("div", "dk-reveal-strokes");
-    $4("dkCast").replaceChildren(card, label, strokesBox);
+    $6("dkCast").replaceChildren(card, label, strokesBox);
     if (!e.ok && e.playerId === hooks2.me()) showWrongStrokes(strokesBox, e.kanji);
     revealUntil = Date.now() + REVEAL_MS;
     clearTimeout(revealTimer);
     revealTimer = window.setTimeout(() => {
       revealUntil = 0;
       if (!view?.casting) {
-        $4("dkCast").replaceChildren();
-        $4("dkFeedback").replaceChildren();
+        $6("dkCast").replaceChildren();
+        $6("dkFeedback").replaceChildren();
       }
       if (view) renderDeck(view);
     }, REVEAL_MS);
@@ -5029,12 +5366,12 @@
   var me = () => "";
   var tick = 0;
   var searching = false;
-  function guideHover(el8, mode3) {
+  function guideHover(el9, mode3) {
     const pop = $("guidePop");
     const open = () => {
       pop.replaceChildren(...modeGuideNodes(mode3));
       pop.hidden = false;
-      const r2 = zrect(el8);
+      const r2 = zrect(el9);
       const w = Math.min(380, viewW() - 24);
       pop.style.width = `${w}px`;
       pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r2.left))}px`;
@@ -5044,10 +5381,10 @@
     const close = () => {
       pop.hidden = true;
     };
-    el8.addEventListener("mouseenter", open);
-    el8.addEventListener("mouseleave", close);
-    el8.addEventListener("focusin", open);
-    el8.addEventListener("focusout", close);
+    el9.addEventListener("mouseenter", open);
+    el9.addEventListener("mouseleave", close);
+    el9.addEventListener("focusin", open);
+    el9.addEventListener("focusout", close);
   }
   function chip(value, label, on, group) {
     const l = document.createElement("label");
@@ -5307,9 +5644,6 @@
     css = `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 61, crosshair`;
     return css;
   }
-
-  // src/shared/version.ts
-  var VERSION = "0.9.8.3";
 
   // src/client/net.ts
   var GameSocket = class {
@@ -5587,25 +5921,25 @@
   };
 
   // src/client/study.ts
-  var $5 = $;
+  var $7 = $;
   var onProfile = () => {
   };
   var onProfileChange = (fn) => {
     onProfile = fn;
   };
-  function counts(el8, c) {
-    el8.innerHTML = "";
+  function counts(el9, c) {
+    el9.innerHTML = "";
     for (const [cls, n, label] of [["c-new", c.new, "new"], ["c-learn", c.learning, "learning"], ["c-due", c.due, "to review"]]) {
       const s = document.createElement("span");
       s.className = cls;
       const b = document.createElement("b");
       b.textContent = String(n);
       s.append(b, label);
-      el8.append(s);
+      el9.append(s);
     }
   }
   function levelChips(selected) {
-    const box = $5("studyLevels");
+    const box = $7("studyLevels");
     box.replaceChildren(...LEVELS.map((lv) => {
       const label = document.createElement("label");
       label.className = "chip" + (selected.includes(lv) ? " on" : "");
@@ -5628,10 +5962,10 @@
   }
   function render2(s) {
     levelChips(s.studyLevels);
-    counts($5("countsAll"), s.decks.all);
-    counts($5("countsStruggle"), s.decks.struggling);
-    $5("studyCrit").textContent = `${s.profile.learnedToday} learned today \xB7 ${s.profile.learned} learned in total`;
-    const notice = $5("studyNotice");
+    counts($7("countsAll"), s.decks.all);
+    counts($7("countsStruggle"), s.decks.struggling);
+    $7("studyCrit").textContent = `${s.profile.learnedToday} learned today \xB7 ${s.profile.learned} learned in total`;
+    const notice = $7("studyNotice");
     notice.hidden = !s.notice;
     notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
     if (!s.studyLevels.length && !s.decks.all.total) {
@@ -5639,11 +5973,11 @@
       notice.textContent = "Tick one or more levels under \u201CAll spells\u201D to get 25 new spells today (and every day).";
     }
     const has2 = (c) => c.new + c.learning + c.due > 0;
-    $5("studyAll").disabled = !has2(s.decks.all);
-    $5("studyStruggle").disabled = !has2(s.decks.struggling);
+    $7("studyAll").disabled = !has2(s.decks.all);
+    $7("studyStruggle").disabled = !has2(s.decks.struggling);
     onProfile(s.profile);
   }
-  $5("studyLevels").addEventListener("change", async () => {
+  $7("studyLevels").addEventListener("change", async () => {
     const levels = [...document.querySelectorAll("#studyLevels input")].filter((i) => i.checked).map((i) => i.value);
     try {
       render2(await api.setStudyLevels(levels));
@@ -5659,7 +5993,7 @@
   async function startSession(d) {
     deck = d;
     show("review");
-    $5("reviewDone").hidden = true;
+    $7("reviewDone").hidden = true;
     try {
       queue2 = (await api.queue(d)).cards;
     } catch (e) {
@@ -5672,20 +6006,20 @@
     current = queue2.shift() ?? null;
     flipped = false;
     const done = !current;
-    $5("flash").hidden = done;
-    $5("showAnswer").hidden = done;
-    $5("rateRow").hidden = true;
-    $5("reviewDone").hidden = !done;
-    $5("reviewLeft").textContent = done ? "" : `${queue2.length + 1} left \xB7 ${deck === "all" ? "All spells" : "Struggling"}`;
+    $7("flash").hidden = done;
+    $7("showAnswer").hidden = done;
+    $7("rateRow").hidden = true;
+    $7("reviewDone").hidden = !done;
+    $7("reviewLeft").textContent = done ? "" : `${queue2.length + 1} left \xB7 ${deck === "all" ? "All spells" : "Struggling"}`;
     if (!current) return;
-    $5("fcKanji").textContent = current.kanji;
-    $5("fcLevel").textContent = LEVEL_LABEL[current.level] + (current.state === "new" ? " \xB7 new" : "");
-    $5("fcReading").textContent = current.reading;
-    $5("fcMeaning").textContent = current.meaning;
-    $5("fcBack").hidden = true;
-    $5("fcStrokes").hidden = true;
-    $5("fcStrokeBox").hidden = true;
-    const card = $5("flash");
+    $7("fcKanji").textContent = current.kanji;
+    $7("fcLevel").textContent = LEVEL_LABEL[current.level] + (current.state === "new" ? " \xB7 new" : "");
+    $7("fcReading").textContent = current.reading;
+    $7("fcMeaning").textContent = current.meaning;
+    $7("fcBack").hidden = true;
+    $7("fcStrokes").hidden = true;
+    $7("fcStrokeBox").hidden = true;
+    const card = $7("flash");
     card.style.animation = "none";
     void card.offsetWidth;
     card.style.animation = "";
@@ -5697,18 +6031,18 @@
   function flip() {
     if (!current || flipped) return;
     flipped = true;
-    $5("fcBack").hidden = false;
-    $5("showAnswer").hidden = true;
-    $5("rateRow").hidden = false;
-    $5("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
+    $7("fcBack").hidden = false;
+    $7("showAnswer").hidden = true;
+    $7("rateRow").hidden = false;
+    $7("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
   }
   function strokes() {
-    if (!current || !flipped || $5("fcStrokes").hidden) return;
-    const box = $5("fcStrokeBox");
+    if (!current || !flipped || $7("fcStrokes").hidden) return;
+    const box = $7("fcStrokeBox");
     box.hidden = false;
     void showStrokeOrder(box, current.kanji);
   }
-  $5("fcStrokes").onclick = (e) => {
+  $7("fcStrokes").onclick = (e) => {
     e.stopPropagation();
     strokes();
   };
@@ -5726,11 +6060,11 @@
     busy = false;
     next2();
   }
-  $5("showAnswer").onclick = flip;
-  $5("flash").onclick = flip;
+  $7("showAnswer").onclick = flip;
+  $7("flash").onclick = flip;
   for (const b of document.querySelectorAll("#rateRow .rate")) b.onclick = () => void rate(b.dataset.rating);
   addEventListener("keydown", (e) => {
-    if ($5("review").hidden || e.target instanceof HTMLInputElement) return;
+    if ($7("review").hidden || e.target instanceof HTMLInputElement) return;
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       flipped ? void rate("good") : flip();
@@ -5739,17 +6073,17 @@
     if (n >= 0 && flipped) void rate(["again", "hard", "good", "easy"][n]);
     if ((e.key === "s" || e.key === "S") && flipped) strokes();
   });
-  $5("studyAll").onclick = () => void startSession("all");
-  $5("studyStruggle").onclick = () => void startSession("struggling");
-  $5("reviewBack").onclick = () => void openStudy();
-  $5("reviewDoneBack").onclick = () => void openStudy();
+  $7("studyAll").onclick = () => void startSession("all");
+  $7("studyStruggle").onclick = () => void startSession("struggling");
+  $7("reviewBack").onclick = () => void openStudy();
+  $7("reviewDoneBack").onclick = () => void openStudy();
   var custTab = "staff";
   var picked2 = {};
   var cust = null;
   var preview2 = null;
   var previewTried = false;
   var staffThumbs = {};
-  var el4 = (tag, cls = "", text) => {
+  var el5 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -5768,7 +6102,7 @@
       return;
     }
     previewTried = true;
-    preview2 = await staffPreview($5("staffCanvas"));
+    preview2 = await staffPreview($7("staffCanvas"));
     if (preview2) staffThumbs = Object.fromEntries(preview2.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
     renderCustomize();
   }
@@ -5800,7 +6134,7 @@
             img.alt = "";
             return img;
           }
-          const g = el4("div", "pixel-staff");
+          const g = el5("div", "pixel-staff");
           g.innerHTML = pixelStaffSvg(s.id);
           return g;
         },
@@ -5817,7 +6151,7 @@
         lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
         equipped: profile2.background === b.id,
         tile: () => {
-          const d = el4("div", "bg-thumb");
+          const d = el5("div", "bg-thumb");
           d.innerHTML = backgroundThumb(b.id, time);
           return d;
         },
@@ -5833,7 +6167,7 @@
       lockedToast: f2.season ? `${f2.name} flames are the ${monthName(f2.season)} reward \u2014 complete that month's goals (see Progress)${f2.season === thisMonth() ? " \u2014 it's on now!" : ""}` : `Reach level ${f2.level} to unlock ${f2.name} flames`,
       equipped: (profile2.flame ?? "blue") === f2.id,
       tile: () => {
-        const d = el4("span", "flame-dot big");
+        const d = el5("span", "flame-dot big");
         d.style.setProperty("--c", f2.color);
         return d;
       },
@@ -5856,13 +6190,13 @@
     }
     const items = custItems(profile2, isAdmin);
     const sel = items.find((i) => i.id === picked2[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
-    $5("custSub").textContent = CUST_SUB[custTab](profile2);
-    const times = $5("bgTimes");
+    $7("custSub").textContent = CUST_SUB[custTab](profile2);
+    const times = $7("bgTimes");
     times.hidden = custTab !== "arena";
     if (custTab === "arena") {
       const pref = getTimePref();
       times.replaceChildren(...TIMES.map((t) => {
-        const b = el4("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "Day" : t.id === "sunset" ? "Sunset" : "Night");
+        const b = el5("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "Day" : t.id === "sunset" ? "Sunset" : "Night");
         b.onclick = () => {
           setTimePref(t.id);
           onTimeChange();
@@ -5882,13 +6216,13 @@
         toast(e.message);
       }
     };
-    $5("custGrid").className = `cust-grid ${custTab}`;
-    $5("custGrid").replaceChildren(...items.map((it) => {
-      const b = el4("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
+    $7("custGrid").className = `cust-grid ${custTab}`;
+    $7("custGrid").replaceChildren(...items.map((it) => {
+      const b = el5("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
       b.setAttribute("aria-pressed", String(it === sel));
-      const pic = el4("div", "ci-pic");
+      const pic = el5("div", "ci-pic");
       pic.append(it.tile());
-      b.append(pic, el4("div", "ci-name", it.name), el4("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? `Locked \xB7 ${it.lock}` : "Unlocked"));
+      b.append(pic, el5("div", "ci-name", it.name), el5("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? `Locked \xB7 ${it.lock}` : "Unlocked"));
       b.onclick = () => {
         picked2[custTab] = it.id;
         renderCustomize();
@@ -5896,52 +6230,52 @@
       b.ondblclick = () => void equip(it);
       return b;
     }));
-    const canvas = $5("staffCanvas");
-    const stage2 = $5("custStage2");
+    const canvas = $7("staffCanvas");
+    const stage2 = $7("custStage2");
     const showCanvas = custTab === "staff" && !!preview2;
     canvas.hidden = !showCanvas;
     stage2.hidden = showCanvas;
-    $5("custStage").dataset.tab = custTab;
+    $7("custStage").dataset.tab = custTab;
     if (custTab === "staff") {
       if (preview2) preview2.show(sel.id);
       else {
-        const g = el4("div", "pixel-staff big");
+        const g = el5("div", "pixel-staff big");
         g.innerHTML = pixelStaffSvg(sel.id);
         stage2.replaceChildren(g);
       }
     } else if (custTab === "arena") {
       stage2.innerHTML = backgroundThumb(sel.id, resolveTime(getTimePref()));
     } else {
-      const w = el4("div", "wizard me onfire");
+      const w = el5("div", "wizard me onfire");
       paintFlame(w, sel.id);
-      const sprite = el4("div", "sprite");
+      const sprite = el5("div", "sprite");
       sprite.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", profile2.staff);
-      w.append(el4("div", "aura"), sprite);
-      const badge = el4("div", "combo-hud hot omni-badge");
+      w.append(el5("div", "aura"), sprite);
+      const badge = el5("div", "combo-hud hot omni-badge");
       badge.style.setProperty("--flame", FLAMES.find((f2) => f2.id === sel.id).color);
-      badge.append(el4("b", "", "\xD75"), el4("span", "", "COMBO"));
+      badge.append(el5("b", "", "\xD75"), el5("span", "", "COMBO"));
       stage2.replaceChildren(w, badge);
     }
-    const btn = el4("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? sel.lock.startsWith("Level") ? `Unlocks at ${sel.lock.replace("Level", "level")}` : sel.lock.endsWith("goals") ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}` : "Equip");
+    const btn = el5("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? sel.lock.startsWith("Level") ? `Unlocks at ${sel.lock.replace("Level", "level")}` : sel.lock.endsWith("goals") ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}` : "Equip");
     btn.disabled = sel.equipped;
     btn.classList.toggle("locked", sel.locked);
     btn.onclick = () => void equip(sel);
-    const info = [el4("h3", "", sel.name), el4("p", "sub", sel.blurb)];
+    const info = [el5("h3", "", sel.name), el5("p", "sub", sel.blurb)];
     if (custTab === "staff") {
-      const row = el4("div", "cust-2d");
-      const who = el4("div", "c2-char");
+      const row = el5("div", "cust-2d");
+      const who = el5("div", "c2-char");
       who.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", sel.id);
-      const st = el4("div", "pixel-staff");
+      const st = el5("div", "pixel-staff");
       st.innerHTML = pixelStaffSvg(sel.id);
-      row.append(who, st, el4("span", "hint", "2D arena"));
+      row.append(who, st, el5("span", "hint", "2D arena"));
       info.push(row);
     }
-    $5("custInfo").replaceChildren(...info, btn);
+    $7("custInfo").replaceChildren(...info, btn);
   }
 
   // src/client/progressui.ts
-  var $6 = $;
-  var el5 = (tag, cls = "", text) => {
+  var $8 = $;
+  var el6 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -5962,7 +6296,7 @@
   async function openProgress(myUnlocks = []) {
     unlocks = myUnlocks;
     show("progress");
-    $6("progGrid").replaceChildren(el5("p", "hint", "Loading\u2026"));
+    $8("progGrid").replaceChildren(el6("p", "hint", "Loading\u2026"));
     try {
       page = await api.progress();
     } catch (e) {
@@ -5976,9 +6310,9 @@
   function render3() {
     if (!page) return;
     renderWeek(page.activity);
-    $6("progMonth").replaceChildren(...monthNodes(page.month));
+    $8("progMonth").replaceChildren(...monthNodes(page.month));
     renderHeatmap(page.activity);
-    renderAchievements($6("progAch"), unlocks);
+    renderAchievements($8("progAch"), unlocks);
     renderMastery();
   }
   function renderWeek(activity) {
@@ -5996,56 +6330,56 @@
     const now = sum(7, 0), before = sum(14, 7);
     const stat = (label, v, prev) => {
       const d = v - prev;
-      const box = el5("div", "pw-stat");
+      const box = el6("div", "pw-stat");
       box.append(
-        el5("b", "", v.toLocaleString()),
-        el5("span", "", label),
-        el5("small", d > 0 ? "up" : d < 0 ? "down" : "", prev || v ? `${d > 0 ? "+" : ""}${d.toLocaleString()} vs last week` : "\u2014")
+        el6("b", "", v.toLocaleString()),
+        el6("span", "", label),
+        el6("small", d > 0 ? "up" : d < 0 ? "down" : "", prev || v ? `${d > 0 ? "+" : ""}${d.toLocaleString()} vs last week` : "\u2014")
       );
       return box;
     };
-    const grid = el5("div", "pw-grid");
+    const grid = el6("div", "pw-grid");
     grid.append(stat("days active", now.days, before.days), stat("cards passed", now.reviews, before.reviews), stat("games", now.games, before.games), stat("wins", now.wins, before.wins), stat("XP", now.xp, before.xp));
-    const bars = el5("div", "pw-bars");
+    const bars = el6("div", "pw-bars");
     const max = Math.max(1, ...Array.from({ length: 7 }, (_, i) => score(activity.find((a) => a.day === shift(t, i - 6)))));
     for (let i = -6; i <= 0; i++) {
       const day = shift(t, i);
       const a = activity.find((x) => x.day === day);
-      const bar = el5("div", "pw-bar");
-      const fill = el5("i");
+      const bar = el6("div", "pw-bar");
+      const fill = el6("i");
       fill.style.height = `${Math.round(score(a) / max * 100)}%`;
       bar.title = `${day}: ${a ? `${a.reviews} cards, ${a.games} games` : "nothing"}`;
-      bar.append(fill, el5("span", "", (/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "narrow" })));
+      bar.append(fill, el6("span", "", (/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "narrow" })));
       bars.append(bar);
     }
-    $6("progWeek").replaceChildren(el5("h3", "", "This week"), grid, bars);
+    $8("progWeek").replaceChildren(el6("h3", "", "This week"), grid, bars);
   }
   var score = (a) => a ? a.reviews + a.games * 5 + (a.login ? 1 : 0) : 0;
   function monthNodes(m) {
     const [kind, id] = m.reward.split(":");
     const reward = kind === "flame" ? FLAMES.find((f2) => f2.id === id) : STAFFS.find((s) => s.id === id);
-    const sw = el5("span", `reward-img ${kind}`);
+    const sw = el6("span", `reward-img ${kind}`);
     if (kind === "flame") {
-      const w = el5("div", "wizard me onfire");
+      const w = el6("div", "wizard me onfire");
       paintFlame(w, id);
-      const sprite = el5("div", "sprite");
+      const sprite = el6("div", "sprite");
       sprite.innerHTML = wizardSvg("me");
-      w.append(el5("div", "aura"), sprite);
+      w.append(el6("div", "aura"), sprite);
       sw.append(w);
     } else sw.innerHTML = pixelStaffSvg(id);
     sw.title = `${reward?.name}${kind === "flame" ? " flames" : ""}`;
     const monthName2 = (/* @__PURE__ */ new Date(`${m.month}-15T12:00:00`)).toLocaleDateString(locale(), { month: "long" });
-    const head = el5("h3", "", `${monthName2}: ${m.name} season`);
-    const rw = el5("div", "reward-line");
-    rw.append(sw, el5("span", "", m.unlocked ? `Unlocked: ${reward?.name}${kind === "flame" ? " flames" : ""} \u2014 equip it in Customize` : `Reward: ${reward?.name}${kind === "flame" ? " flames" : ""} (only this month)`));
-    const goals = el5("div", "goals");
+    const head = el6("h3", "", `${monthName2}: ${m.name} season`);
+    const rw = el6("div", "reward-line");
+    rw.append(sw, el6("span", "", m.unlocked ? `Unlocked: ${reward?.name}${kind === "flame" ? " flames" : ""} \u2014 equip it in Customize` : `Reward: ${reward?.name}${kind === "flame" ? " flames" : ""} (only this month)`));
+    const goals = el6("div", "goals");
     for (const g of m.goals) {
-      const row = el5("div", "goal" + (g.value >= g.target ? " done" : ""));
-      const bar = el5("div", "goal-bar");
-      const fill = el5("i");
+      const row = el6("div", "goal" + (g.value >= g.target ? " done" : ""));
+      const bar = el6("div", "goal-bar");
+      const fill = el6("i");
       fill.style.width = `${Math.round(g.value / g.target * 100)}%`;
       bar.append(fill);
-      row.append(el5("span", "goal-label", `${g.value >= g.target ? "\u2713 " : ""}${g.label}`), el5("span", "goal-num", `${g.value} / ${g.target}`), bar);
+      row.append(el6("span", "goal-label", `${g.value >= g.target ? "\u2713 " : ""}${g.label}`), el6("span", "goal-num", `${g.value} / ${g.target}`), bar);
       goals.append(row);
     }
     return [head, rw, goals];
@@ -6065,10 +6399,10 @@
     const first = `${calMonth}-01`;
     const days2 = new Date(Date.UTC(y, m, 0)).getUTCDate();
     const lead = ((/* @__PURE__ */ new Date(`${first}T12:00:00Z`)).getUTCDay() + 6) % 7;
-    const box = $6("progHeat");
+    const box = $8("progHeat");
     const oldest = shift(t, -182).slice(0, 7);
-    const prev = el5("button", "pill cal-nav", "\u2039");
-    const next3 = el5("button", "pill cal-nav", "\u203A");
+    const prev = el6("button", "pill cal-nav", "\u2039");
+    const next3 = el6("button", "pill cal-nav", "\u203A");
     const step = (n) => {
       const d = new Date(Date.UTC(y, m - 1 + n, 15));
       calMonth = d.toISOString().slice(0, 7);
@@ -6080,25 +6414,25 @@
     next3.onclick = () => step(1);
     prev.setAttribute("aria-label", "Previous month");
     next3.setAttribute("aria-label", "Next month");
-    const title = el5("b", "cal-title", new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(locale(), { month: "long", year: "numeric", timeZone: "UTC" }));
-    const head = el5("div", "cal-head");
+    const title = el6("b", "cal-title", new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(locale(), { month: "long", year: "numeric", timeZone: "UTC" }));
+    const head = el6("div", "cal-head");
     head.append(prev, title, next3);
-    const grid = el5("div", "cal-grid");
-    grid.append(el5("span", "cal-wd wk", "Wk"));
-    for (let i = 0; i < 7; i++) grid.append(el5("span", "cal-wd", new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(locale(), { weekday: "short", timeZone: "UTC" })));
+    const grid = el6("div", "cal-grid");
+    grid.append(el6("span", "cal-wd wk", "Wk"));
+    for (let i = 0; i < 7; i++) grid.append(el6("span", "cal-wd", new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(locale(), { weekday: "short", timeZone: "UTC" })));
     let active2 = 0;
     const cells = lead + days2, rows = Math.ceil(cells / 7);
     for (let r2 = 0; r2 < rows; r2++) {
       const firstOfRow = shift(first, r2 * 7 - lead);
-      grid.append(el5("span", "cal-wk", isoWeek(firstOfRow)));
+      grid.append(el6("span", "cal-wk", isoWeek(firstOfRow)));
       for (let c = 0; c < 7; c++) {
         const i = r2 * 7 + c - lead;
         if (i < 0 || i >= days2) {
-          grid.append(el5("span", "cal-day blank"));
+          grid.append(el6("span", "cal-day blank"));
           continue;
         }
         const day = shift(first, i);
-        const cell = el5("span", "cal-day", i + 1);
+        const cell = el6("span", "cal-day", i + 1);
         if (day > t) cell.classList.add("future");
         else {
           const a = byDay.get(day);
@@ -6112,15 +6446,15 @@
       }
     }
     box.replaceChildren(head, grid);
-    $6("progHeatSub").textContent = `${active2} active days this month`;
+    $8("progHeatSub").textContent = `${active2} active days this month`;
   }
   function renderMastery() {
     if (!page) return;
-    const tabs = $6("progLevels");
+    const tabs = $8("progLevels");
     tabs.replaceChildren(...LEVELS.map((l) => {
       const words2 = page.mastery[l];
       const known = words2.filter(([, m]) => m >= 3).length;
-      const b = el5("button", "cust-tab" + (l === level ? " on" : ""), `${LEVEL_LABEL[l]} \xB7 ${known}/${words2.length}`);
+      const b = el6("button", "cust-tab" + (l === level ? " on" : ""), `${LEVEL_LABEL[l]} \xB7 ${known}/${words2.length}`);
       b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", String(l === level));
       b.onclick = () => {
@@ -6132,25 +6466,25 @@
     const words = page.mastery[level];
     const counts2 = [0, 0, 0, 0, 0];
     for (const [, m] of words) counts2[m]++;
-    $6("progLegend").replaceChildren(...MASTERY.map((m, i) => {
-      const item = el5("span", "ml-item");
-      item.append(el5("i", m.cls), el5("span", "", `${m.label} \xB7 ${counts2[i]}`));
+    $8("progLegend").replaceChildren(...MASTERY.map((m, i) => {
+      const item = el6("span", "ml-item");
+      item.append(el6("i", m.cls), el6("span", "", `${m.label} \xB7 ${counts2[i]}`));
       return item;
     }));
-    const grid = $6("progGrid");
+    const grid = $8("progGrid");
     const frag = document.createDocumentFragment();
     for (const [kanji, m] of words) {
-      const c = el5("span", `mg ${MASTERY[m].cls}`);
+      const c = el6("span", `mg ${MASTERY[m].cls}`);
       c.title = `${kanji} \u2014 ${MASTERY[m].label}`;
       frag.append(c);
     }
     grid.replaceChildren(frag);
   }
-  $6("progressBack").onclick = () => show("menu");
+  $8("progressBack").onclick = () => show("menu");
 
   // src/client/dailyui.ts
-  var $7 = $;
-  var el6 = (tag, cls = "", text) => {
+  var $9 = $;
+  var el7 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -6177,7 +6511,7 @@
   async function openDaily(userId) {
     me2 = userId;
     show("daily");
-    $7("dailyMain").replaceChildren(el6("p", "hint", "Loading\u2026"));
+    $9("dailyMain").replaceChildren(el7("p", "hint", "Loading\u2026"));
     try {
       renderOverview(await api.daily());
     } catch (e) {
@@ -6185,52 +6519,52 @@
     }
   }
   function renderBoard(o) {
-    const list = $7("dailyBoard");
+    const list = $9("dailyBoard");
     if (!o.board.length) {
-      list.replaceChildren(el6("li", "hint", "Nobody has played today yet \u2014 be the first!"));
+      list.replaceChildren(el7("li", "hint", "Nobody has played today yet \u2014 be the first!"));
       return;
     }
     list.replaceChildren(...o.board.map((r2, i) => {
-      const li = el6("li", r2.id === me2 ? "me" : "");
-      li.append(el6("span", "db-rank", i + 1), el6("span", "db-name", r2.name), el6("span", "db-score", `${r2.correct}/${o.total}`), el6("span", "db-time", secs2(r2.ms)));
+      const li = el7("li", r2.id === me2 ? "me" : "");
+      li.append(el7("span", "db-rank", i + 1), el7("span", "db-name", r2.name), el7("span", "db-score", `${r2.correct}/${o.total}`), el7("span", "db-time", secs2(r2.ms)));
       return li;
     }));
   }
   function renderOverview(o) {
     renderBoard(o);
-    const main = $7("dailyMain");
+    const main = $9("dailyMain");
     const date = `Challenge of ${(/* @__PURE__ */ new Date(`${o.day}T12:00:00Z`)).toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}`;
     if (o.mine) {
-      const words = el6("div", "daily-words");
+      const words = el7("div", "daily-words");
       for (const w of o.words ?? []) {
-        const row = el6("div", "dw" + (w.ok === true ? " ok" : w.ok === false ? " no" : ""));
-        const k = el6("span", "dw-k", w.kanji);
+        const row = el7("div", "dw" + (w.ok === true ? " ok" : w.ok === false ? " no" : ""));
+        const k = el7("span", "dw-k", w.kanji);
         k.lang = "ja";
-        const r2 = el6("span", "dw-r", w.reading);
+        const r2 = el7("span", "dw-r", w.reading);
         r2.lang = "ja";
-        const lv = el6("span", "dw-l", LEVEL_LABEL[w.level]);
-        if (w.ok !== null) lv.prepend(el6("b", "dw-mark", w.ok ? "\u2713 " : "\u2717 "));
-        row.append(lv, k, r2, el6("span", "dw-m", w.meaning));
+        const lv = el7("span", "dw-l", LEVEL_LABEL[w.level]);
+        if (w.ok !== null) lv.prepend(el7("b", "dw-mark", w.ok ? "\u2713 " : "\u2717 "));
+        row.append(lv, k, r2, el7("span", "dw-m", w.meaning));
         words.append(row);
       }
       main.replaceChildren(
-        el6("p", "sub", date),
-        el6("div", "daily-score", `${o.mine.correct} / ${o.total}`),
-        el6("p", "center", `${secs2(o.mine.ms)} \xB7 rank ${o.rank} today`),
-        el6("p", "hint center", `10 new words ${nextReset()}.`),
-        el6("h4", "", "Today's words"),
+        el7("p", "sub", date),
+        el7("div", "daily-score", `${o.mine.correct} / ${o.total}`),
+        el7("p", "center", `${secs2(o.mine.ms)} \xB7 rank ${o.rank} today`),
+        el7("p", "hint center", `10 new words ${nextReset()}.`),
+        el7("h4", "", "Today's words"),
         words,
-        ...o.words?.some((w) => w.ok === false) ? [el6("p", "hint center", "The words you missed are now in Study spells \u2192 Struggling spells.")] : []
+        ...o.words?.some((w) => w.ok === false) ? [el7("p", "hint center", "The words you missed are now in Study spells \u2192 Struggling spells.")] : []
       );
       return;
     }
-    const start = el6("button", "big", o.inProgress ? "Continue" : "Start");
+    const start = el7("button", "big", o.inProgress ? "Continue" : "Start");
     start.onclick = () => void begin();
     main.replaceChildren(
-      el6("p", "sub", date),
-      el6("h3", "", "Ten words, the same for everyone today"),
-      el6("p", "", `Two words each from N5 to N1, easiest first. Type the reading (kana or romaji) and press Enter \u2014 ${o.wordMs / 1e3} s per word. One try a day: most correct wins, then fastest.`),
-      el6("p", "hint", `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
+      el7("p", "sub", date),
+      el7("h3", "", "Ten words, the same for everyone today"),
+      el7("p", "", `Two words each from N5 to N1, easiest first. Type the reading (kana or romaji) and press Enter \u2014 ${o.wordMs / 1e3} s per word. One try a day: most correct wins, then fastest.`),
+      el7("p", "hint", `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
       start
     );
   }
@@ -6250,31 +6584,31 @@
   }
   function renderPlay(last) {
     if (!word) return;
-    const main = $7("dailyMain");
-    const dots = el6("div", "daily-dots");
-    for (let i = 0; i < word.total; i++) dots.append(el6("i", i < results.length ? results[i] ? "ok" : "no" : i === word.index ? "now" : ""));
-    const k = el6("div", "daily-kanji", word.kanji);
+    const main = $9("dailyMain");
+    const dots = el7("div", "daily-dots");
+    for (let i = 0; i < word.total; i++) dots.append(el7("i", i < results.length ? results[i] ? "ok" : "no" : i === word.index ? "now" : ""));
+    const k = el7("div", "daily-kanji", word.kanji);
     k.lang = "ja";
-    const bar = el6("div", "timer thin");
-    const fill = el6("div");
+    const bar = el7("div", "timer thin");
+    const fill = el7("div");
     bar.append(fill);
-    const input2 = el6("input", "daily-input");
+    const input2 = el7("input", "daily-input");
     input2.lang = "ja";
     input2.autocomplete = "off";
     input2.spellcheck = false;
     input2.placeholder = "reading (\u304B\u306A or romaji)";
     input2.addEventListener("paste", (e) => e.preventDefault());
-    const skip2 = el6("button", "pill", "Skip");
-    const fb = el6("div", "daily-fb");
+    const skip2 = el7("button", "pill", "Skip");
+    const fb = el7("div", "daily-fb");
     if (last) {
       fb.className = `daily-fb ${last.correct ? "ok" : "no"}`;
-      const kk = el6("span", "rk", last.kanji);
+      const kk = el7("span", "rk", last.kanji);
       kk.lang = "ja";
-      const rr = el6("span", "rr", last.reading);
+      const rr = el7("span", "rr", last.reading);
       rr.lang = "ja";
-      fb.append(el6("b", "", last.correct ? "\u2713" : "\u2717"), kk, rr, el6("span", "", last.meaning));
+      fb.append(el7("b", "", last.correct ? "\u2713" : "\u2717"), kk, rr, el7("span", "", last.meaning));
     }
-    main.replaceChildren(el6("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input2, skip2, fb);
+    main.replaceChildren(el7("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input2, skip2, fb);
     input2.focus();
     const t0 = performance.now(), limit = word.timeLimitMs;
     clearInterval(timer2);
@@ -6317,15 +6651,15 @@
       void openDaily(me2);
     }
   }
-  $7("dailyBack").onclick = () => {
+  $9("dailyBack").onclick = () => {
     clearInterval(timer2);
     word = null;
     show("menu");
   };
 
   // src/client/friendsui.ts
-  var $8 = $;
-  var el7 = (tag, cls = "", text) => {
+  var $10 = $;
+  var el8 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -6357,33 +6691,33 @@
   var refreshFriendsBadge = () => void refresh(true);
   async function openFriends() {
     show("friends");
-    $8("friendMsg").textContent = "";
+    $10("friendMsg").textContent = "";
     await refresh(true);
     render4();
   }
   function render4() {
-    const list = $8("friendList");
+    const list = $10("friendList");
     const incoming = friends2.filter((f2) => f2.status === "incoming");
     const accepted = friends2.filter((f2) => f2.status === "accepted").sort((a, b) => Number(b.online) - Number(a.online) || a.username.localeCompare(b.username));
     const outgoing = friends2.filter((f2) => f2.status === "outgoing");
     const section = (title, rows) => {
       if (!rows.length) return [];
-      const s = el7("div", "fl-section");
-      s.append(el7("h3", "", title), ...rows);
+      const s = el8("div", "fl-section");
+      s.append(el8("h3", "", title), ...rows);
       return [s];
     };
     const row = (f2, actions) => {
-      const r2 = el7("div", "fl-row" + (f2.online ? " online" : ""));
-      const who = el7("div", "fl-who");
-      const name = el7("span", "fl-name", f2.username);
+      const r2 = el8("div", "fl-row" + (f2.online ? " online" : ""));
+      const who = el8("div", "fl-who");
+      const name = el8("span", "fl-name", f2.username);
       markProfile(name, { id: f2.id, name: f2.username, bot: null });
-      who.append(el7("i", "dot"), name, el7("small", "", f2.status === "accepted" ? f2.online ? f2.activity ?? "Online" : "Offline" : f2.status === "incoming" ? "wants to be friends" : "request sent"));
-      r2.append(who, el7("div", "fl-actions"));
+      who.append(el8("i", "dot"), name, el8("small", "", f2.status === "accepted" ? f2.online ? f2.activity ?? "Online" : "Offline" : f2.status === "incoming" ? "wants to be friends" : "request sent"));
+      r2.append(who, el8("div", "fl-actions"));
       r2.lastElementChild.append(...actions);
       return r2;
     };
     const btn = (text, cls, fn) => {
-      const b = el7("button", `pill ${cls}`, text);
+      const b = el8("button", `pill ${cls}`, text);
       b.onclick = async () => {
         b.disabled = true;
         try {
@@ -6403,32 +6737,32 @@
       ...section(`Friends (${accepted.length}) \xB7 ${accepted.filter((f2) => f2.online).length} online`, accepted.map((f2) => row(f2, [btn("Remove", "danger", () => api.removeFriend(f2.id))]))),
       ...section("Sent requests", outgoing.map((f2) => row(f2, [btn("Cancel", "", () => api.removeFriend(f2.id))])))
     ];
-    list.replaceChildren(...nodes.length ? nodes : [el7("p", "hint", "No friends yet \u2014 add someone by their player name above.")]);
+    list.replaceChildren(...nodes.length ? nodes : [el8("p", "hint", "No friends yet \u2014 add someone by their player name above.")]);
   }
-  $8("friendAdd").addEventListener("submit", async (e) => {
+  $10("friendAdd").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const input2 = $8("friendName");
+    const input2 = $10("friendName");
     const name = input2.value.trim();
     if (!name) return;
     try {
       const r2 = await api.addFriend(name);
       friends2 = r2.friends;
       fetchedAt = Date.now();
-      $8("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      $10("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
       input2.value = "";
       render4();
     } catch (err) {
-      $8("friendMsg").textContent = err.message;
+      $10("friendMsg").textContent = err.message;
     }
   });
-  $8("friendsBack").onclick = () => show("menu");
-  $8("friendsRefresh").onclick = () => void openFriends();
+  $10("friendsBack").onclick = () => show("menu");
+  $10("friendsRefresh").onclick = () => void openFriends();
   var INVITE_COOLDOWN_MS = 1e4;
   var invitedAt = /* @__PURE__ */ new Map();
   var lobbyIds = [];
   var cooldownTimer = 0;
   async function renderLobbyInvites(isLobby, inRoom2 = lobbyIds) {
-    const box = $8("lobbyInvite");
+    const box = $10("lobbyInvite");
     lobbyIds = inRoom2;
     clearTimeout(cooldownTimer);
     if (!isLobby) {
@@ -6440,12 +6774,12 @@
     box.hidden = online.length === 0;
     if (!online.length) return;
     let soonest = Infinity;
-    box.replaceChildren(el7("h4", "", "Invite friends"), ...online.map((f2) => {
-      const r2 = el7("div", "li-row");
+    box.replaceChildren(el8("h4", "", "Invite friends"), ...online.map((f2) => {
+      const r2 = el8("div", "li-row");
       const playing2 = !!f2.activity?.startsWith("Playing");
       const wait = INVITE_COOLDOWN_MS - (Date.now() - (invitedAt.get(f2.id) ?? 0));
       if (wait > 0) soonest = Math.min(soonest, wait);
-      const b = el7("button", "pill primary", playing2 ? "In a game" : wait > 0 ? `Invited \xB7 ${Math.ceil(wait / 1e3)}s` : invitedAt.has(f2.id) ? "Invite again" : "Invite");
+      const b = el8("button", "pill primary", playing2 ? "In a game" : wait > 0 ? `Invited \xB7 ${Math.ceil(wait / 1e3)}s` : invitedAt.has(f2.id) ? "Invite again" : "Invite");
       b.disabled = playing2 || wait > 0;
       b.title = playing2 ? "They are playing \u2014 invite them when their game is over" : "";
       b.onclick = () => {
@@ -6453,7 +6787,7 @@
         invitedAt.set(f2.id, Date.now());
         void renderLobbyInvites(true);
       };
-      r2.append(el7("i", "dot"), el7("span", "", f2.username), el7("small", "hint", f2.activity ?? ""), b);
+      r2.append(el8("i", "dot"), el8("span", "", f2.username), el8("small", "hint", f2.activity ?? ""), b);
       return r2;
     }));
     if (soonest < Infinity) cooldownTimer = window.setTimeout(() => {
@@ -6461,9 +6795,9 @@
     }, Math.min(1e3, soonest));
   }
   function onInvite(msg) {
-    const box = $8("inviteBox");
-    const join2 = el7("button", "big", "Join");
-    const no = el7("button", "pill", "Decline");
+    const box = $10("inviteBox");
+    const join2 = el8("button", "big", "Join");
+    const no = el8("button", "pill", "Decline");
     const close = () => {
       box.hidden = true;
       clearTimeout(t);
@@ -6473,7 +6807,7 @@
       hooks3.join(msg.code);
     };
     no.onclick = close;
-    box.replaceChildren(el7("b", "", `${msg.from} invites you`), el7("span", "", `to ${MODE_LABEL[msg.mode]} \u2014 room ${msg.code}`), el7("div", "ib-actions"));
+    box.replaceChildren(el8("b", "", `${msg.from} invites you`), el8("span", "", `to ${MODE_LABEL[msg.mode]} \u2014 room ${msg.code}`), el8("div", "ib-actions"));
     box.lastElementChild.append(join2, no);
     box.hidden = false;
     sfx.go();
@@ -6543,6 +6877,7 @@
     if (s === "menu" && profile) void refreshProfile();
     if (s !== "lobby") void renderLobbyInvites(false);
     railScreen(s);
+    if (s === "menu" || s === "queue") void refreshOnline();
     for (const b of document.querySelectorAll("[data-pause]")) b.hidden = !(soloVsAi && ["prep", "battle", "deck"].includes(s));
     if (!["prep", "battle", "deck"].includes(s)) setPaused(false);
     setGameKb(s === "battle" && mode2 !== "writing");
@@ -6595,6 +6930,7 @@
       $("dailyBadge").hidden = !open;
     });
     refreshFriendsBadge();
+    if (user?.role === "admin") void refreshInboxBadge();
     const locked = user?.role !== "admin" && (p.strugglingDue ?? 0) > STUDY_LOCK;
     $("menu").classList.toggle("locked", locked);
     $("studyLock").hidden = !locked;
@@ -6684,6 +7020,7 @@
       case "welcome":
         user = msg.user;
         setUser(msg.user);
+        void refreshOnline();
         break;
       case "auth_error":
         logout(msg.message);
@@ -7125,10 +7462,17 @@
       setError(e.message);
     }
   }
-  $("adminBtn").onclick = () => void openAdmin();
-  $("adminRefresh").onclick = () => void openAdmin();
+  $("adminBtn").onclick = () => {
+    setAdminTab("users");
+    void openAdmin();
+    void refreshInboxBadge();
+  };
+  $("adminRefresh").onclick = () => {
+    if (adminTab() === "users") void openAdmin();
+    else setAdminTab(adminTab());
+  };
   setInterval(() => {
-    if (currentScreen() === "admin" && user?.role === "admin") void openAdmin();
+    if (currentScreen() === "admin" && user?.role === "admin" && adminTab() === "users") void openAdmin();
   }, 15e3);
   $("adminBack").onclick = () => show("menu");
   $("levelChips").addEventListener("change", (e) => {
@@ -7293,30 +7637,30 @@
   $("resultHistoryBack").onclick = () => void openHistory();
   {
     let shownFor = "";
-    const open = async (el8) => {
-      const id = el8.dataset.profile;
+    const open = async (el9) => {
+      const id = el9.dataset.profile;
       if (shownFor === id && !$("otherPop").hidden) {
         hideProfileCard();
         shownFor = "";
         return;
       }
       shownFor = id;
-      const name = el8.dataset.name ?? el8.textContent ?? "";
-      const bot = el8.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
-      if (bot) return showProfileCard(el8, { bot, name });
-      showProfileCard(el8, "loading");
+      const name = el9.dataset.name ?? el9.textContent ?? "";
+      const bot = el9.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
+      if (bot) return showProfileCard(el9, { bot, name });
+      showProfileCard(el9, "loading");
       try {
         const { profile: profile2 } = await api.player(id);
-        if (shownFor === id) showProfileCard(el8, profile2);
+        if (shownFor === id) showProfileCard(el9, profile2);
       } catch {
-        if (shownFor === id) showProfileCard(el8, "missing");
+        if (shownFor === id) showProfileCard(el9, "missing");
       }
     };
     addEventListener("click", (e) => {
-      const el8 = e.target.closest("[data-profile]");
-      if (el8) {
+      const el9 = e.target.closest("[data-profile]");
+      if (el9) {
         e.stopPropagation();
-        void open(el8);
+        void open(el9);
         return;
       }
       if (!$("otherPop").contains(e.target)) {
@@ -7325,10 +7669,10 @@
       }
     }, true);
     addEventListener("keydown", (e) => {
-      const el8 = e.target.closest?.("[data-profile]");
-      if (el8 && (e.key === "Enter" || e.key === " ")) {
+      const el9 = e.target.closest?.("[data-profile]");
+      if (el9 && (e.key === "Enter" || e.key === " ")) {
         e.preventDefault();
-        void open(el8);
+        void open(el9);
       } else if (e.key === "Escape") hideProfileCard();
     });
   }

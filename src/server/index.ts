@@ -1,6 +1,7 @@
 import { VERSION } from '../shared/version';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { gzipSync } from 'node:zlib';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
 import { AuthService } from './auth/AuthService';
@@ -16,9 +17,11 @@ import { SocialService } from './study/SocialService';
 import { RoomManager } from './RoomManager';
 import { Session, SessionHub } from './Session';
 import { Matchmaker } from './Matchmaker';
+import { InsightsService } from './study/InsightsService';
+import { onServerError, reportServerError } from './errors';
 
 const PUBLIC_DIR = path.resolve(__dirname, '../../public');
-const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
+const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8' };
 
 // ── accounts ──────────────────────────────────────────────────────────────────
 /** Neon / any Postgres when DATABASE_URL is set; otherwise a local JSON file (wiped on Render's free disk!). */
@@ -35,7 +38,9 @@ const daily = new DailyService(store, study.progress);
 daily.onPerfect = (id) => study.grantAchievements(id, undefined, ['perfect-day']);
 const social = new SocialService(store, hub);
 const recognizer = Recognizer.fromFile();
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch) });
+const insights = new InsightsService(store);
+onServerError((message, details) => void insights.error(message, details, null));
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const rooms = new RoomManager({
@@ -43,7 +48,9 @@ const rooms = new RoomManager({
   judgeDeck: createWritingJudge(recognizer, { lenient: true }), // Deck Duel: extra forgiving
   writableFilter: isWritable(recognizer),
   // after every match: XP + missed words into each player's "Struggling spells"
+  onGameStart: (mode, playerIds) => { for (const id of playerIds) void insights.event(id, `game_start:${mode}`); },
   onMatchEnd: async (mode, results) => {
+    for (const r of results) void insights.event(r.id, `game_end:${mode}`);
     const out: Record<string, { gained: number; xp: number; crit: number; achievements: string[] }> = {};
     for (const r of results) {
       const { gained, xp, achievements } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited, r.vsAi, r.record, r.seen);
@@ -55,6 +62,7 @@ const rooms = new RoomManager({
 const matchmaker = new Matchmaker(rooms);
 auth.onBan((userId) => hub.kick(userId, 'This account has been banned.'));
 
+const GZ = new Map<string, Buffer>();
 const server = createServer(async (req, res) => {
   if (await api(req, res)) return;
   const pathOnly = (req.url ?? '/').split('?')[0];
@@ -63,7 +71,16 @@ const server = createServer(async (req, res) => {
   if (!file.startsWith(PUBLIC_DIR)) { res.writeHead(403).end(); return; }
   try {
     const data = await readFile(file);
-    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream' }).end(data);
+    const type = TYPES[path.extname(file)] ?? 'application/octet-stream';
+    // text files go out gzipped (app.js, arena3d.js and the Russian meanings are large); cached per build
+    if (/text|json|javascript|svg/.test(type) && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? '')) && data.length > 1024) {
+      const key = `${file}:${data.length}`;
+      let gz = GZ.get(key);
+      if (!gz) { gz = gzipSync(data); GZ.set(key, gz); }
+      res.writeHead(200, { 'Content-Type': type, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }).end(gz);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': type }).end(data);
   } catch {
     res.writeHead(404).end('Not found');
   }
@@ -76,6 +93,20 @@ wss.on('connection', (ws) => {
   ws.on('message', (data) => void session.onRaw(data.toString()));
   ws.on('close', () => session.onClose());
 });
+
+// stability: an unexpected error is logged and reported, and the server keeps running for everyone else
+process.on('uncaughtException', (e) => reportServerError('uncaught exception', e));
+process.on('unhandledRejection', (e) => reportServerError('unhandled rejection', e));
+// a restart (deploy): tell everyone, then close — the browsers reconnect by themselves
+let stopping = false;
+for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(sig, () => {
+    if (stopping) return;
+    stopping = true;
+    hub.broadcast({ type: 'notice', message: 'The game is updating — you\'ll be reconnected in a moment.' });
+    setTimeout(() => { server.close(); void store.close?.(); process.exit(0); }, 1200).unref();
+  });
+}
 
 const port = Number(process.env.PORT ?? 3000);
 store.init().then(() => auth.seed([
