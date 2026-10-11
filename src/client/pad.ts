@@ -63,9 +63,24 @@ export class HandwritingPad {
   }
 
   private cells = 1;
+  /** Cells that already hold a kana (written for you), by index → the kana. */
+  private printed = new Map<number, string>();
+  /**
+   * The word's shape: □ = a kanji to write, anything else = a kana written for you, shown in its own cell
+   * (必ず → [ ][ず], 売り場 → [ ][り][ ]). Up to 6 cells.
+   */
+  setLayout(shape: string) {
+    const cells = [...shape].slice(0, 6);
+    this.printed = new Map(cells.flatMap((c, i) => (c === '□' ? [] : [[i, c] as [number, string]])));
+    this.resize(cells.length);
+  }
   /** Resize for a word of n characters (capped at 4 cells wide; longer words just write smaller). */
   setCells(n: number) {
-    this.cells = Math.max(1, Math.min(4, n));
+    this.printed = new Map();
+    this.resize(Math.min(4, n));
+  }
+  private resize(n: number) {
+    this.cells = Math.max(1, n);
     this.canvas.width = 600 * this.cells;
     this.canvas.height = 600;
     this.canvas.style.setProperty('--cols', String(this.cells));
@@ -132,6 +147,17 @@ export class HandwritingPad {
   private redraw() {
     const { ctx, canvas } = this;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // the kana written for you, in their own (shaded) cells
+    for (const [i, kana] of this.printed) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(110, 90, 200, .1)';
+      ctx.fillRect(i * 600, 0, 600, 600);
+      ctx.fillStyle = 'rgba(60, 45, 130, .55)';
+      ctx.font = '700 380px "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(kana, i * 600 + 300, 320);
+      ctx.restore();
+    }
     if (this.cells > 1) {
       // guides: a dashed divider between characters and a faint centre cross in each cell
       ctx.save();

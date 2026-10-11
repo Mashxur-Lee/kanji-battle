@@ -1,6 +1,6 @@
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
-import { avatarFor, BACKGROUNDS, critText, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
+import { avatarFor, BACKGROUNDS, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
 import { staffPreview } from './arena';
 import type { StaffPreview } from './staffpreview';
 import { avatarSvg } from './wizard';
@@ -55,7 +55,7 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
   levelChips(s.studyLevels);
   counts($('countsAll'), s.decks.all);
   counts($('countsStruggle'), s.decks.struggling);
-  $('studyCrit').textContent = `✦ ${critText(s.profile.crit)} crit today · ${s.profile.learnedToday} learned today (+1% each, max 50%) · ${s.profile.learned} learned in total`;
+  $('studyCrit').textContent = `${s.profile.learnedToday} learned today · ${s.profile.learned} learned in total`;
   const notice = $('studyNotice');
   notice.hidden = !s.notice;
   notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? '' : 's'} added to “All spells” — happy studying!` : '';
@@ -139,7 +139,6 @@ async function rate(r: Rating) {
   const card = current;
   try {
     const res = await api.review(card.vocabId, r);
-    $('whoCrit').textContent = `✦ ${critText(res.crit)} crit`;
     // Anki shows "again" cards again in the same session once their short step is up
     if (r === 'again') queue.splice(Math.min(3, queue.length), 0, { ...card, state: 'learning', intervals: { again: '1m', hard: '6m', good: '10m', easy: '4d' } });
     else if (r === 'hard' && card.state !== 'review') queue.splice(Math.min(6, queue.length), 0, card);

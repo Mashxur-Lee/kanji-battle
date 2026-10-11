@@ -7,7 +7,7 @@ import {
 } from '../shared/protocol';
 import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
 import { arena as arena3d, arenaForBattle } from './arena';
-import { critText, flameColor, flameShades, isKanaBeginner, levelOf, levelProgress, levelXp } from '../shared/progress';
+import { flameColor, flameShades, isKanaBeginner, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -110,7 +110,6 @@ export function setProfile(p: ProfileView | null) {
   const lx = levelXp(p.xp);
   $('whoLv').textContent = String(lx.level);
   $('whoLevel').textContent = `Lv ${lx.level} · ${lx.into.toLocaleString()} / ${lx.need.toLocaleString()} XP`;
-  $('whoCrit').textContent = critText(p.crit);
   $('ppWins').textContent = String(p.wins ?? 0);
   $('ppLosses').textContent = String(p.losses ?? 0);
   const games = (p.wins ?? 0) + (p.losses ?? 0);
@@ -125,7 +124,6 @@ export function setProfile(p: ProfileView | null) {
     el.classList.toggle('has-pic', !!p.pic);
   }
   $('picRemove').hidden = !p.pic;
-  $('whoCrit').title = 'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.';
   $('whoXp').style.width = `${levelProgress(p.xp) * 100}%`;
   $('whoXp').parentElement!.title = `${lx.into} / ${lx.need} XP to level ${lx.level + 1}`;
 }
@@ -241,7 +239,6 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
         h('td', 'num', `Lv ${u.level ?? 0}`),
         h('td', 'num', (u.xp ?? 0).toLocaleString()),
         h('td', 'num', `${u.learned ?? 0} / ${u.cards ?? 0}`),
-        h('td', 'num', critText(u.crit ?? 0)),
         h('td', '', new Date(u.createdAt).toLocaleDateString(locale())),
         h('td', u.banned ? 'status-ban' : 'status-ok', u.banned ? 'Banned' : 'Active'),
         action);
@@ -301,7 +298,7 @@ export function modeGuideNodes(mode: Exclude<GameMode, 'deck'>): HTMLElement[] {
   const g = GUIDES[mode];
   const ol = h('ol', 'g-flow');
   for (const [icon, text] of g.steps) ol.append(append(h('li'), h('span', 'g-ic', icon), h('span', '', text)));
-  return [h('h3', '', g.title), g.pic(), ol, h('p', 'g-foot', 'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.')];
+  return [h('h3', '', g.title), g.pic(), ol, h('p', 'g-foot', 'Playing with AI gives half XP; a forfeit gives none.')];
 }
 function renderModeGuide(mode: GameMode) {
   if (mode === 'deck') return;
@@ -323,7 +320,6 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       if (p.bot) li.append(h('span', 'tag ai', p.bot === 'BEGINNER' ? 'AI · beginner' : `AI · knows ${p.bot}`));
       else li.append(netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
       if (p.bot && you === hostId) { const x = h('button', 'pill rm-bot', '✕', { title: 'Remove this AI' }); x.dataset.removeBot = p.id; li.append(x); }
-      if (p.crit > 0 && !p.bot) li.append(h('span', 'critv', `✦ ${critText(p.crit)} crit`));
       if (p.id === hostId) li.append(h('span', 'tag', 'host'));
       if (!p.online) li.append(h('span', 'tag off', 'away — seat kept'));
       if (mode === 'deck') li.append(h('span', 'tag ' + (p.ready ? 'ready' : 'notready'), p.ready ? '✓ Ready' : 'Not ready'));
@@ -451,7 +447,7 @@ function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, 
   if (!p) { el.replaceChildren(h('div', 'name', emptyText)); return; }
   const nameEl = h('span', 'n', label);
   if (!label.endsWith('(you)')) markProfile(nameEl, p);
-  const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic), nameEl, netBars(p.id), h('span', 'lv', `Lv ${p.level}`), h('span', 'critv', p.crit > 0 ? ` ✦${critText(p.crit)}` : '')), h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo` : ''));
+  const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic), nameEl, netBars(p.id), h('span', 'lv', `Lv ${p.level}`)) , h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo` : ''));
   el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h('div', 'hpnum', `${p.hp} / ${p.maxHp} HP`), h('span', 'lvs', `· ${levelsText(p.levels)}${p.online ? '' : ' · away'}`)));
 }
 
