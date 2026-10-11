@@ -140,6 +140,7 @@ export class PgStore implements Store {
         primary key (day, user_id)
       )`;
     await this.sql`create index if not exists kw_daily_rank on kw_daily (day, correct desc, ms asc)`;
+    await this.sql`alter table kw_daily add column if not exists marks text not null default ''`;
     await this.sql`
       create table if not exists kw_friends (
         user_id uuid not null references kw_users(id) on delete cascade,
@@ -292,13 +293,13 @@ export class PgStore implements Store {
   async activity(userId: string, fromDay: string): Promise<DayActivity[]> {
     return this.sql<DayActivity[]>`select day, login, reviews, games, wins, xp from kw_activity where user_id = ${userId} and day >= ${fromDay} order by day`;
   }
-  async saveDaily(day: string, userId: string, correct: number, ms: number) {
-    const r = await this.sql`insert into kw_daily (day, user_id, correct, ms) values (${day}, ${userId}, ${correct}, ${ms}) on conflict do nothing returning day`;
+  async saveDaily(day: string, userId: string, correct: number, ms: number, marks = '') {
+    const r = await this.sql`insert into kw_daily (day, user_id, correct, ms, marks) values (${day}, ${userId}, ${correct}, ${ms}, ${marks}) on conflict do nothing returning day`;
     return r.length > 0;
   }
   async daily(day: string, userId: string) {
-    const [r] = await this.sql<{ correct: number; ms: number }[]>`select correct, ms from kw_daily where day = ${day} and user_id = ${userId}`;
-    return r ? { correct: r.correct, ms: r.ms } : null;
+    const [r] = await this.sql<{ correct: number; ms: number; marks: string }[]>`select correct, ms, marks from kw_daily where day = ${day} and user_id = ${userId}`;
+    return r ? { correct: r.correct, ms: r.ms, marks: r.marks } : null;
   }
   async dailyBoard(day: string, limit: number): Promise<DailyResult[]> {
     const rows = await this.sql<{ user_id: string; username: string; correct: number; ms: number }[]>`

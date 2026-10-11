@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.8.1
+# Kanji Wizards · v0.9.8.2
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -114,7 +114,7 @@ beginner AI with tips on each screen — a quick one (30 s of study, a 2-minute 
 skip the tutorial.
 
 **Hiragana first**: the tutorial asks whether you know hiragana. Beginners get only かな — for studying, rooms
-and the queue (checked on the server) — until they tick **I've mastered hiragana** in Settings; then N5–N1 open.
+and the queue (checked on the server), and no Deck Duel (it is all kanji) — until they tick **I've mastered hiragana** in Settings; then N5–N1 open.
 Stored as a flag in the account's `unlocks`.
 
 ## Daily challenge
@@ -122,7 +122,8 @@ Stored as a flag in the account's `unlocks`.
 The same 10 words for everyone each day (UTC), two each from N5 up to N1. Type each reading (kana or romaji)
 within 15 s; answers are checked one at a time on the server and the clock runs there too (leaving a word
 open counts it as missed). One try a day, ranked by correct answers then total time; 30 XP per correct word
-(+100 for 10/10). After playing you see the words with their readings (`src/server/study/DailyService.ts`).
+(+100 for 10/10). After playing you see the words with their readings, each marked ✓ or ✗, and the missed ones go to
+Struggling spells (`src/server/study/DailyService.ts`; per-word marks in `kw_daily.marks`).
 
 ## Progress page and monthly goals
 
@@ -266,11 +267,19 @@ server after every match and whenever the profile loads, and stored as `ach:<id>
 (`src/shared/achievements.ts`). Earning one plays an "Achievement unlocked!" animation — combo badges the moment the
 combo happens in the battle.
 
+## Pause (against the AI)
+
+In a private game where you are the only human (against AI players, or a solo Boss run), **❚❚ Pause** (under the
+clock) stops the game: the server's game clock stands still (`PausableClock`, `src/server/clock.ts` — timers, AI moves,
+dragon breath, Deck Duel turns), answers are ignored, and Resume sends everyone the clocks again. Not available when
+another human is in the room.
+
 ## Battle keyboard (phones)
 
 In Reading, Rapid and Boss on a touch screen, a compact keyboard (letters, -, n', ⌫, Skip, Cast) replaces the phone's
 own: about a third of the height, it never pops in and out, and it shows the typed romaji as kana above the keys.
-Settings → **Battle keyboard** switches back to the phone keyboard. Writing modes keep the phone keyboard (for the
+Settings → **Battle keyboard** switches back to the phone keyboard. The 3D arena then fills only the space above the
+keyboard, so your staff, combo counter and flames stay in view. Writing modes keep the phone keyboard (for the
 Japanese IME), with the pre-written kana shown big beside the typing box (お□ → お [ ], □ず → [ ] ず). On phones the
 party's HP in Boss fights is two compact columns. The 3D canvas is sized from the zoom-corrected viewport, so it
 covers the screen at every UI size. Opponents (and your party) trace the ∞ with their staffs while they work on a word.

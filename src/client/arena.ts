@@ -10,7 +10,7 @@ import type { BackgroundId } from '../shared/progress';
 import { sceneSvg, type TimeOfDay } from './backgrounds';
 import { dragonSvg } from './wizard';
 import { flameColor } from '../shared/progress';
-import { viewH, viewW } from './zoom';
+import { uiScale, viewH, viewW } from './zoom';
 
 export type { Who };
 const KEY = 'kb:3d';
@@ -102,8 +102,10 @@ async function activate() {
 function sizeCanvas() {
   const c = document.getElementById('arena3d');
   if (!c) return;
+  // phones with the battle keyboard: only the space above it (so your staff, combo and flames stay in view)
+  const kb = document.body.classList.contains('game-kb') ? (document.getElementById('gameKb')?.getBoundingClientRect().height ?? 0) / uiScale() : 0;
   c.style.width = `${Math.ceil(viewW())}px`;
-  c.style.height = `${Math.ceil(viewH())}px`;
+  c.style.height = `${Math.ceil(viewH() - kb)}px`;
 }
 addEventListener('resize', () => { if (onScreen) sizeCanvas(); });
 

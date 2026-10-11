@@ -1,3 +1,4 @@
+import { REAL_TIMERS, type TimerHandle, type Timers } from './clock';
 import { isCorrectReading, isRomajiInput, isCorrectWriting, writeTargets } from '../shared/kana';
 import { CRIT_MULTIPLIER } from '../shared/progress';
 import type { DeckEvent, DeckView } from '../shared/deck';
@@ -88,7 +89,7 @@ class PlayerState {
   bestCombo = 0;
   damageDealt = 0;
   current: Challenge | null = null;
-  timer?: ReturnType<typeof setTimeout>;
+  timer?: TimerHandle;
   readonly words = new Map<string, WordTally>();
   readonly deck: ChallengeDeck;
   constructor(readonly id: PlayerId, readonly pool: readonly VocabEntry[], readonly maxHp: number, rng: Rng, readonly crit = 0) {
@@ -147,8 +148,8 @@ export class Game implements Match {
   private phase: Phase = 'idle';
   private readonly players = new Map<PlayerId, PlayerState>();
   private readonly ready = new Set<PlayerId>();
-  private phaseTimer?: ReturnType<typeof setTimeout>;
-  private breathTimers: Array<ReturnType<typeof setTimeout>> = [];
+  private phaseTimer?: TimerHandle;
+  private breathTimers: Array<TimerHandle> = [];
   private phaseEndsAt = 0;
   private battleEndsAt = 0;
   private nextChallengeId = 1;
@@ -161,6 +162,7 @@ export class Game implements Match {
     private readonly rng: Rng = Math.random,
     private readonly now: () => number = Date.now,
     private readonly opts: GameOptions = { mode: 'reading' },
+    private readonly timers: Timers = REAL_TIMERS,
   ) {
     const minPlayers = opts.mode === 'boss' ? 1 : 2;
     if (setups.length < minPlayers) throw new Error(`Game needs at least ${minPlayers} player(s)`);
@@ -190,7 +192,7 @@ export class Game implements Match {
     for (const p of this.players.values()) {
       this.emit({ type: 'prep', playerId: p.id, pool: this.studyList(p), durationMs: this.cfg.prepMs });
     }
-    this.phaseTimer = setTimeout(() => this.beginBattle(), this.cfg.prepMs);
+    this.phaseTimer = this.timers.setTimeout(() => this.beginBattle(), this.cfg.prepMs);
   }
 
   /** A player is done studying. When everyone is, the battle starts early. */
@@ -257,8 +259,8 @@ export class Game implements Match {
   }
 
   dispose() {
-    clearTimeout(this.phaseTimer);
-    for (const t of this.breathTimers) clearTimeout(t);
+    this.timers.clearTimeout(this.phaseTimer);
+    for (const t of this.breathTimers) this.timers.clearTimeout(t);
     this.breathTimers = [];
     for (const p of this.players.values()) this.stopPlayer(p);
   }
@@ -267,25 +269,25 @@ export class Game implements Match {
 
   private beginBattle() {
     if (this.phase !== 'prep') return;
-    clearTimeout(this.phaseTimer);
+    this.timers.clearTimeout(this.phaseTimer);
     this.phase = 'countdown';
     this.phaseEndsAt = this.now() + this.cfg.countdownMs;
     this.emit({ type: 'battle_start', durationMs: this.cfg.battleMs, countdownMs: this.cfg.countdownMs });
-    this.phaseTimer = setTimeout(() => {
+    this.phaseTimer = this.timers.setTimeout(() => {
       this.phase = 'battle';
       this.battleEndsAt = this.now() + this.cfg.battleMs;
       for (const p of this.players.values()) this.issueChallenge(p);
-      this.phaseTimer = setTimeout(() => this.timeUp(), this.cfg.battleMs);
+      this.phaseTimer = this.timers.setTimeout(() => this.timeUp(), this.cfg.battleMs);
       if (this.boss) this.scheduleBreath();
     }, this.cfg.countdownMs);
   }
 
   private scheduleBreath() {
     const { breathEveryMs, breathWarnMs, breathDamage } = this.cfg.boss;
-    this.breathTimers.push(setTimeout(() => {
+    this.breathTimers.push(this.timers.setTimeout(() => {
       if (this.phase === 'battle') this.emit({ type: 'battle_update', event: { kind: 'breath_warning', inMs: breathWarnMs } });
     }, breathEveryMs - breathWarnMs));
-    this.breathTimers.push(setTimeout(() => {
+    this.breathTimers.push(this.timers.setTimeout(() => {
       if (this.phase !== 'battle') return;
       this.breathTimers = [];
       // a player on fire (5+ combo) is immune to dragon fire
@@ -433,12 +435,12 @@ export class Game implements Match {
   }
 
   private schedule(p: PlayerState, fn: () => void, ms: number) {
-    clearTimeout(p.timer);
-    p.timer = setTimeout(fn, ms);
+    this.timers.clearTimeout(p.timer);
+    p.timer = this.timers.setTimeout(fn, ms);
   }
 
   private stopPlayer(p: PlayerState) {
-    clearTimeout(p.timer);
+    this.timers.clearTimeout(p.timer);
     p.current = null;
   }
 

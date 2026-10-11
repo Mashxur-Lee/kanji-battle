@@ -10,7 +10,7 @@ export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, 
 export interface DailyWord { index: number; total: number; kanji: string; level: Level; timeLimitMs: number }
 export interface DailyDone { correct: number; ms: number; rank: number; players: number; xp: number }
 export interface DailyOverview { day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
-  board: Array<{ id: string; name: string; correct: number; ms: number }>; words: Array<{ kanji: string; reading: string; meaning: string; level: Level }> | null }
+  board: Array<{ id: string; name: string; correct: number; ms: number }>; words: Array<{ kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
 export interface Friend { id: string; username: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; activity?: string; pic?: string | null; level?: number }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }

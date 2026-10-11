@@ -1,3 +1,4 @@
+import { REAL_TIMERS, type TimerHandle, type Timers } from './clock';
 import { isCorrectReading, isRomajiInput } from '../shared/kana';
 import { CRIT_MULTIPLIER } from '../shared/progress';
 import type { BossView, DrawnChar, PlayerId, PlayerStats, VocabEntry, WordStat } from '../shared/protocol';
@@ -24,9 +25,9 @@ export class RapidGame implements Match {
   private readonly deck: ChallengeDeck;
   private current: { id: number; entry: VocabEntry; issuedAt: number } | null = null;
   private nextId = 1;
-  private timer?: ReturnType<typeof setTimeout>;
-  private roundTimer?: ReturnType<typeof setTimeout>;
-  private capTimer?: ReturnType<typeof setTimeout>;
+  private timer?: TimerHandle;
+  private roundTimer?: TimerHandle;
+  private capTimer?: TimerHandle;
   private battleEndsAt = 0;
   private phaseEndsAt = 0;
 
@@ -37,6 +38,7 @@ export class RapidGame implements Match {
     private readonly cfg: GameConfig = DEFAULT_CONFIG,
     private readonly rng: Rng = Math.random,
     private readonly now: () => number = Date.now,
+    private readonly timers: Timers = REAL_TIMERS,
   ) {
     if (setups.length < 2) throw new Error('Rapid needs 2 players');
     if (pool.length === 0) throw new Error('Rapid needs words');
@@ -59,11 +61,11 @@ export class RapidGame implements Match {
     this.phase = 'countdown';
     this.phaseEndsAt = this.now() + this.cfg.countdownMs;
     this.emit({ type: 'battle_start', durationMs: this.cfg.battleMs, countdownMs: this.cfg.countdownMs });
-    this.timer = setTimeout(() => {
+    this.timer = this.timers.setTimeout(() => {
       this.phase = 'battle';
       this.battleEndsAt = this.now() + this.cfg.battleMs;
       this.nextRound();
-      this.capTimer = setTimeout(() => this.timeUp(), this.cfg.battleMs);
+      this.capTimer = this.timers.setTimeout(() => this.timeUp(), this.cfg.battleMs);
     }, this.cfg.countdownMs);
   }
 
@@ -88,7 +90,7 @@ export class RapidGame implements Match {
     const damage = Math.round(computeDamage(c.entry.difficulty, ms, p.combo, this.cfg) * (crit ? CRIT_MULTIPLIER : 1));
     p.damageDealt += damage;
     this.current = null;
-    clearTimeout(this.roundTimer);
+    this.timers.clearTimeout(this.roundTimer);
     for (const o of this.players.values()) {
       if (o === p) continue;
       o.hp = Math.max(0, o.hp - damage);
@@ -97,7 +99,7 @@ export class RapidGame implements Match {
       this.emit({ type: 'battle_update', event: { kind: 'hit', playerId: p.id, targetId: o.id, kanji: c.entry.kanji, damage, combo: p.combo, crit } });
     }
     this.emit({ type: 'answer_result', playerId: id, challengeId, correct: true, timedOut: false, skipped: false, entry: c.entry, damage, combo: p.combo, responseMs: ms, nextInMs: RAPID.revealMs, crit });
-    if (!this.checkEnd()) this.timer = setTimeout(() => this.nextRound(), RAPID.revealMs);
+    if (!this.checkEnd()) this.timer = this.timers.setTimeout(() => this.nextRound(), RAPID.revealMs);
   }
 
   /** Give up on this round. When everyone has, the answer is revealed. */
@@ -136,7 +138,7 @@ export class RapidGame implements Match {
     return snap;
   }
 
-  dispose() { clearTimeout(this.timer); clearTimeout(this.roundTimer); clearTimeout(this.capTimer); }
+  dispose() { this.timers.clearTimeout(this.timer); this.timers.clearTimeout(this.roundTimer); this.timers.clearTimeout(this.capTimer); }
 
   // ── internals ─────────────────────────────────────────────────────────────
 
@@ -149,20 +151,20 @@ export class RapidGame implements Match {
       this.emit({ type: 'challenge', playerId: p.id, id: this.current.id, kanji: entry.kanji, answerMode: entry.romaji ? 'romaji' : 'reading', timeLimitMs: RAPID.roundMs });
     }
     const cid = this.current.id;
-    this.roundTimer = setTimeout(() => { if (this.current?.id === cid) this.endRoundNoWinner(true); }, RAPID.roundMs);
+    this.roundTimer = this.timers.setTimeout(() => { if (this.current?.id === cid) this.endRoundNoWinner(true); }, RAPID.roundMs);
   }
 
   private endRoundNoWinner(timedOut: boolean) {
     const c = this.current;
     if (!c) return;
     this.current = null;
-    clearTimeout(this.roundTimer);
+    this.timers.clearTimeout(this.roundTimer);
     for (const p of this.players.values()) {
       if (timedOut) { p.combo = 0; if (!p.gaveUp) this.word(p, c.entry).attempts++; }
       if (timedOut || !p.gaveUp) this.emit({ type: 'answer_result', playerId: p.id, challengeId: c.id, correct: false, timedOut, skipped: !timedOut, entry: c.entry, damage: 0, combo: 0, responseMs: null, nextInMs: RAPID.revealMs });
     }
     this.deck.requeue(c.entry, 3);
-    this.timer = setTimeout(() => this.nextRound(), RAPID.revealMs);
+    this.timer = this.timers.setTimeout(() => this.nextRound(), RAPID.revealMs);
   }
 
   private timeUp() {

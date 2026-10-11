@@ -1,3 +1,4 @@
+import { PausableClock } from './clock';
 import { Bot, botLevels, botName, isBotLevel, type BotHost } from './Bot';
 import { CRIT_BASE } from '../shared/progress';
 import { CHAT_MAX_LENGTH, type BossView, type MatchDetail, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
@@ -74,6 +75,7 @@ export class Room {
   /** lobby / game / results — for the admin's "who is online" view */
   get stage(): string { return this.phase; }
   private game?: Match;
+  private clock = new PausableClock();
   private rematchVotes = new Set<PlayerId>();
   private chatLog: ChatMessage[] = [];
   private nextChatId = 1;
@@ -197,6 +199,7 @@ export class Room {
       deckAbility: (id) => this.deckAbility(id),
       deckCastReady: (id, c) => this.deckCastReady(id, c),
       deckCastGo: (id, c) => this.deckCastGo(id, c),
+      timers: () => this.clock,
     };
   }
   private get humans() { return this.roster.filter((p) => !p.bot); }
@@ -233,12 +236,12 @@ export class Room {
     if (this.roster.length >= this.minPlayers && this.roster.every((p) => p.ready)) return this.startGame();
     this.broadcastLobby();
   }
-  deckCharacter(id: PlayerId, ch: unknown) { if (this.game instanceof DeckGame) this.game.chooseCharacter(id, ch); }
-  deckPick(id: PlayerId, cardId: unknown) { if (this.game instanceof DeckGame) this.game.pick(id, cardId); }
-  deckPlay(id: PlayerId, cardId: unknown) { if (this.game instanceof DeckGame) this.game.play(id, cardId); }
-  deckAbility(id: PlayerId) { if (this.game instanceof DeckGame) this.game.ability(id); }
-  deckCastReady(id: PlayerId, castId: unknown) { if (this.game instanceof DeckGame) this.game.castReady(id, castId); }
-  deckCastGo(id: PlayerId, castId: unknown) { if (this.game instanceof DeckGame) this.game.castGo(id, castId); }
+  deckCharacter(id: PlayerId, ch: unknown) { if (!this.clock.paused && this.game instanceof DeckGame) this.game.chooseCharacter(id, ch); }
+  deckPick(id: PlayerId, cardId: unknown) { if (!this.clock.paused && this.game instanceof DeckGame) this.game.pick(id, cardId); }
+  deckPlay(id: PlayerId, cardId: unknown) { if (!this.clock.paused && this.game instanceof DeckGame) this.game.play(id, cardId); }
+  deckAbility(id: PlayerId) { if (!this.clock.paused && this.game instanceof DeckGame) this.game.ability(id); }
+  deckCastReady(id: PlayerId, castId: unknown) { if (!this.clock.paused && this.game instanceof DeckGame) this.game.castReady(id, castId); }
+  deckCastGo(id: PlayerId, castId: unknown) { if (!this.clock.paused && this.game instanceof DeckGame) this.game.castGo(id, castId); }
   private lastInk = new Map<PlayerId, number>();
   /** Relay a player's handwriting (in progress) to the others, so they can watch the spell being written. */
   deckInk(id: PlayerId, castId: number, strokes: DrawnChar, cells: number) {
@@ -249,12 +252,13 @@ export class Room {
     const msg: ServerMessage = { type: 'deck_ink', castId, strokes, cells: Math.max(1, Math.min(4, Math.round(cells))) };
     for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
   }
-  answer(id: PlayerId, challengeId: number, text: string) { this.game?.submit(id, challengeId, text); }
-  write(id: PlayerId, challengeId: number, chars: DrawnChar[]) { this.game?.submitWriting(id, challengeId, chars); }
-  skip(id: PlayerId, challengeId: number) { this.game?.skip(id, challengeId); }
+  answer(id: PlayerId, challengeId: number, text: string) { if (this.clock.paused) return; this.game?.submit(id, challengeId, text); }
+  write(id: PlayerId, challengeId: number, chars: DrawnChar[]) { if (this.clock.paused) return; this.game?.submitWriting(id, challengeId, chars); }
+  skip(id: PlayerId, challengeId: number) { if (this.clock.paused) return; this.game?.skip(id, challengeId); }
 
   /** Give up the battle but stay in the room: everyone goes to the results screen (mistakes + rematch). */
   forfeit(id: PlayerId) {
+    if (this.clock.paused) { this.clock.resume(); this.broadcast({ type: 'paused', on: false }); } // giving up ends the pause
     if (this.phase !== 'game' || !this.has(id)) return;
     this.game?.forfeit(id);
     // boss mode: once every human has given up (or fallen), the AI teammates give up too
@@ -340,19 +344,21 @@ export class Room {
     this.lastGameOver = undefined;
     for (const p of this.roster) p.ready = !!p.bot; // AI is always ready
     const emit = (e: GameEvent) => this.onGameEvent(e);
+    this.clock.dispose();
+    const clock = (this.clock = new PausableClock()); // a fresh game clock (pausable against the AI)
     if (this.mode === 'deck') {
       const judge = this.deps.judgeDeck ?? this.deps.judgeWriting;
       if (!judge) return;
       const writable = this.deps.writableFilter ?? (() => true);
       this.phase = 'game';
-      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit, pic: p.profile.pic ?? null, flame: p.bot ? 'purple' : p.profile.flame ?? 'blue', staff: p.bot ? 'storm' : p.profile.staff ?? 'verdant' })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge);
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit, pic: p.profile.pic ?? null, flame: p.bot ? 'purple' : p.profile.flame ?? 'blue', staff: p.bot ? 'storm' : p.profile.staff ?? 'verdant' })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge, Math.random, clock.now, undefined, clock);
       this.game.start();
       return;
     }
     if (this.mode === 'rapid') {
       const pool = pickPool(this.unionLevels(), 40);
       this.phase = 'game';
-      this.game = new RapidGame(this.roster.map((p) => ({ id: p.id, maxHp: this.hpFor(p.id), crit: p.profile.crit })), pool, emit, this.opts.game);
+      this.game = new RapidGame(this.roster.map((p) => ({ id: p.id, maxHp: this.hpFor(p.id), crit: p.profile.crit })), pool, emit, this.opts.game, Math.random, clock.now, clock);
       this.game.start();
       return;
     }
@@ -370,14 +376,32 @@ export class Room {
     this.game = new Game(
       setups, emit,
       this.mode === 'writing' ? this.opts.writingGame : this.opts.game,
-      Math.random, Date.now,
+      Math.random, clock.now,
       {
         mode: this.mode,
         boss: this.mode === 'boss' ? { name: BOSS_NAME, maxHp: bossHp(this.roster.map((p) => p.levels)) } : undefined,
         judgeWriting: this.deps.judgeWriting,
       },
+      clock,
     );
     this.game.start();
+  }
+
+  /** Pausing: only when you are the one human in the room (against the AI, or a solo Boss run). */
+  canPause(id: PlayerId) {
+    const humans = this.roster.filter((p) => !p.bot);
+    return this.phase === 'game' && !!this.game && humans.length === 1 && humans[0].id === id;
+  }
+  get paused() { return this.clock.paused; }
+  setPaused(id: PlayerId, on: boolean): string | null {
+    if (!this.canPause(id)) return 'You can pause only a private game against the AI (or a solo Boss run)';
+    if (on === this.clock.paused) return null;
+    if (on) this.clock.pause();
+    else this.clock.resume();
+    this.broadcast({ type: 'paused', on });
+    // back from the pause: everyone gets the clocks again (they stood still on the server)
+    if (!on) for (const [pid, client] of this.clients) this.sendSnapshot(pid, client);
+    return null;
   }
 
   private sendSnapshot(id: PlayerId, client: Client) {

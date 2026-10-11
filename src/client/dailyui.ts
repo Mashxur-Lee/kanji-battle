@@ -57,10 +57,13 @@ function renderOverview(o: DailyOverview) {
   if (o.mine) {
     const words = el('div', 'daily-words');
     for (const w of o.words ?? []) {
-      const row = el('div', 'dw');
+      // right ✓ / wrong ✗ (older results without marks show neither)
+      const row = el('div', 'dw' + (w.ok === true ? ' ok' : w.ok === false ? ' no' : ''));
       const k = el('span', 'dw-k', w.kanji); k.lang = 'ja';
       const r = el('span', 'dw-r', w.reading); r.lang = 'ja';
-      row.append(el('span', 'dw-l', LEVEL_LABEL[w.level]), k, r, el('span', 'dw-m', w.meaning));
+      const lv = el('span', 'dw-l', LEVEL_LABEL[w.level]);
+      if (w.ok !== null) lv.prepend(el('b', 'dw-mark', w.ok ? '✓ ' : '✗ '));
+      row.append(lv, k, r, el('span', 'dw-m', w.meaning));
       words.append(row);
     }
     main.replaceChildren(
@@ -69,6 +72,7 @@ function renderOverview(o: DailyOverview) {
       el('p', 'center', `${secs(o.mine.ms)} · rank ${o.rank} today`),
       el('p', 'hint center', `10 new words ${nextReset()}.`),
       el('h4', '', "Today's words"), words,
+      ...(o.words?.some((w) => w.ok === false) ? [el('p', 'hint center', 'The words you missed are now in Study spells → Struggling spells.')] : []),
     );
     return;
   }

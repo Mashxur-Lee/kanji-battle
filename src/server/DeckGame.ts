@@ -1,3 +1,4 @@
+import { REAL_TIMERS, type TimerHandle, type Timers } from './clock';
 import { CARD_COLORS, CARD_SPECS, DECK_RULES, OVERTIME_COLOR, OVERTIME_DAMAGE, type OvertimeLevel, type CardColor, type DeckCardView, type DeckCharacter, type DeckEvent, type DeckPhase, type DeckPlayerView, type DeckView } from '../shared/deck';
 import { DECK_CHARACTERS } from '../shared/deck';
 import { isCorrectReading, isCorrectWriting, isRomajiInput, writeTargets, writeTemplate } from '../shared/kana';
@@ -51,15 +52,15 @@ export class DeckGame implements Match {
   private holdUntil = 0;
   private playedThisTurn = false;
   private overtimeEndsAt = 0;
-  private overtimeTimer?: ReturnType<typeof setTimeout>;
+  private overtimeTimer?: TimerHandle;
   private overtimeUsed = new Set<string>();
   private nextCast = 1;
   private deadline = 0;
   private matchEndsAt = 0;
-  private timer?: ReturnType<typeof setTimeout>;
-  private matchTimer?: ReturnType<typeof setTimeout>;
+  private timer?: TimerHandle;
+  private matchTimer?: TimerHandle;
   private firstTurn = true;
-  private stageTimer?: ReturnType<typeof setTimeout>; // the 15 s "read" step of a cast
+  private stageTimer?: TimerHandle; // the 15 s "read" step of a cast
   private stageEndsAt = 0;
   private round = 1;
   private roundPicks = new Map<PlayerId, number>();
@@ -76,6 +77,7 @@ export class DeckGame implements Match {
     private readonly rng: Rng = Math.random,
     private readonly now: () => number = Date.now,
     private readonly rules: Rules = DECK_RULES,
+    private readonly timers: Timers = REAL_TIMERS,
   ) {
     if (setups.length !== 2) throw new Error('Deck Duel needs exactly 2 players');
     const fixed = typeof pool === 'function' ? null : pool;
@@ -149,9 +151,9 @@ export class DeckGame implements Match {
     this.cast = { castId: this.nextCast++, card, ownerId: id, startedAt: this.now(), tried: new Set(), stage: 'read', paid };
     const castId = this.cast.castId;
     this.setTimer(this.rules.castMs, () => this.turnTimeout()); // one minute for read → look → write
-    clearTimeout(this.stageTimer);
+    this.timers.clearTimeout(this.stageTimer);
     this.stageEndsAt = this.now() + this.rules.castReadMs;
-    this.stageTimer = setTimeout(() => this.castReady(id, castId), this.rules.castReadMs);
+    this.stageTimer = this.timers.setTimeout(() => this.castReady(id, castId), this.rules.castReadMs);
     this.emitEvent({ kind: 'cast', playerId: id, color: card.color });
     this.broadcastState();
   }
@@ -161,7 +163,7 @@ export class DeckGame implements Match {
     const c = this.cast;
     if (this.phase !== 'battle' || !c || c.castId !== castId || c.ownerId !== id || c.stage !== 'read') return;
     c.stage = 'look';
-    clearTimeout(this.stageTimer);
+    this.timers.clearTimeout(this.stageTimer);
     this.broadcastState();
   }
 
@@ -217,7 +219,7 @@ export class DeckGame implements Match {
   /** Hero pick or the first draft: nothing has been played yet, so the room may go back to the lobby. */
   canReturnToLobby() { return this.phase === 'characters' || (this.phase === 'draft' && this.round === 1); }
 
-  dispose() { clearTimeout(this.timer); clearTimeout(this.matchTimer); clearTimeout(this.stageTimer); clearTimeout(this.overtimeTimer); }
+  dispose() { this.timers.clearTimeout(this.timer); this.timers.clearTimeout(this.matchTimer); this.timers.clearTimeout(this.stageTimer); this.timers.clearTimeout(this.overtimeTimer); }
 
   /** Full state as one player sees it (sent after every change, and on reconnect). */
   viewFor(id: PlayerId): DeckView {
@@ -307,7 +309,7 @@ export class DeckGame implements Match {
     this.resume = null;
     this.phase = 'battle';
     this.matchEndsAt = this.now() + matchLeftMs;
-    this.matchTimer = setTimeout(() => this.beginOvertime(), matchLeftMs);
+    this.matchTimer = this.timers.setTimeout(() => this.beginOvertime(), matchLeftMs);
     this.beginTurn(playerId, true);
   }
 
@@ -317,7 +319,7 @@ export class DeckGame implements Match {
     this.phase = 'battle';
     this.picker = null;
     this.matchEndsAt = this.now() + this.rules.matchMs;
-    this.matchTimer = setTimeout(() => this.beginOvertime(), this.rules.matchMs);
+    this.matchTimer = this.timers.setTimeout(() => this.beginOvertime(), this.rules.matchMs);
     // the coin-flip winner drafted first, so the other player opens the battle
     this.beginTurn(this.other(this.coinWinner!).id);
   }
@@ -362,7 +364,7 @@ export class DeckGame implements Match {
 
   /** Someone ran out of cards: pause the match clock and draft again. Nothing else changes. */
   private redraft(playerId: PlayerId) {
-    clearTimeout(this.matchTimer);
+    this.timers.clearTimeout(this.matchTimer);
     this.resume = { playerId, matchLeftMs: Math.max(0, this.matchEndsAt - this.now()) };
     this.active = null;
     this.round++;
@@ -455,7 +457,7 @@ export class DeckGame implements Match {
       meaning: c.card.entry.meaning, ok: result.correct, amount, targetId, refund, recognized: timedOut ? undefined : result.recognized, overtime: false,
     });
     this.cast = null;
-    clearTimeout(this.stageTimer);
+    this.timers.clearTimeout(this.stageTimer);
     if (this.players.some((p) => p.hp <= 0)) return this.finish('ko');
     this.holdUntil = this.now() + this.rules.revealMs;
     this.castsLeft--;
@@ -476,9 +478,9 @@ export class DeckGame implements Match {
     // Hero powers end too (no Bulwark / Sight / Frenzy in the Rapid duel, and their looks go away).
     for (const p of this.players) { p.hand = []; p.abilityActive = 0; p.frenzy = false; }
     this.cast = null;
-    clearTimeout(this.stageTimer);
+    this.timers.clearTimeout(this.stageTimer);
     this.overtimeEndsAt = this.now() + this.rules.overtimeMaxMs;
-    this.overtimeTimer = setTimeout(() => this.finish('time'), this.rules.overtimeMaxMs);
+    this.overtimeTimer = this.timers.setTimeout(() => this.finish('time'), this.rules.overtimeMaxMs);
     this.emitEvent({ kind: 'overtime' });
     this.nextOvertimeCard();
   }
@@ -565,9 +567,9 @@ export class DeckGame implements Match {
   private canAfford(p: DPlayer) { return p.hand.some((c) => this.cost(p, c) <= p.mana); }
 
   private setTimer(ms: number, fn: () => void) {
-    clearTimeout(this.timer);
+    this.timers.clearTimeout(this.timer);
     this.deadline = this.now() + ms;
-    this.timer = setTimeout(fn, ms);
+    this.timer = this.timers.setTimeout(fn, ms);
   }
 
   private tally(p: DPlayer, entry: VocabEntry, correct: boolean, ms: number) {

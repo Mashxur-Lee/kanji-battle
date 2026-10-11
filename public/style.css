@@ -1467,3 +1467,15 @@ body.has-rail .screen { padding-right: calc(var(--gutter) + 64px); }
 .gk-preview { min-height: 26px; text-align: center; font-size: 1.25rem; font-weight: 800; color: var(--accent2); font-family: var(--jp); letter-spacing: .05em; }
 body.game-kb #battle { padding-bottom: 230px; }
 body.game-kb #answer { caret-color: var(--accent2); }
+
+/* 0.9.8.2: daily result — which words were right */
+.dw.ok { border-left: 3px solid #3ddc84; } .dw.no { border-left: 3px solid #ff4d5e; }
+.dw-mark { grid-column: auto; font-size: 1.05rem; } .dw.ok .dw-mark { color: #3ddc84; } .dw.no .dw-mark { color: #ff4d5e; }
+
+/* ── 0.9.8.2: pause (private games against the AI) ── */
+.pause-btn { font-size: .8rem; color: var(--muted); }
+.pause-overlay { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(6, 5, 20, .72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.pause-box { text-align: center; padding: 28px 36px; border-radius: 20px; border: 1px solid var(--line); background: rgba(18, 15, 48, .95); box-shadow: 0 16px 40px rgba(0, 0, 0, .6); }
+.pause-box h2 { font-size: 2rem; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 6px; }
+.pause-box .big { margin-top: 14px; min-width: 200px; }
+body.game-kb #comboHud { bottom: calc(var(--kb-h, 0px) + 6%); left: 4%; transform: scale(.8); transform-origin: left bottom; }
