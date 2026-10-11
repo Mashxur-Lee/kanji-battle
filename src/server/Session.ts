@@ -1,3 +1,4 @@
+import { reportServerError } from './errors';
 import { CHAT_MAX_LENGTH, LEVELS, MODE_LABEL, MODES, type ClientMessage, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
 import type { AuthService } from './auth/AuthService';
 import { toPublic } from './auth/AuthService';
@@ -47,6 +48,8 @@ export class SessionHub {
   kick(userId: string, message: string) { this.byUser.get(userId)?.kick(message); }
   /** A message to one player, if they're connected (friend requests, invites). */
   sendTo(userId: string, msg: ServerMessage) { const s = this.byUser.get(userId); if (s) s.send(msg); return !!s; }
+  /** A message to everyone connected (e.g. "the game is updating"). */
+  broadcast(msg: ServerMessage) { for (const s of this.byUser.values()) s.send(msg); }
 }
 
 /** One per socket connection: authenticates, validates untrusted input, routes it to the right Room. */
@@ -130,7 +133,7 @@ export class Session implements Client {
 
   /** Messages are handled strictly in order (login is async, and later messages depend on it). */
   onRaw(raw: string): Promise<void> {
-    this.queue = this.queue.then(() => this.handle(raw)).catch((e) => console.error('session error', e));
+    this.queue = this.queue.then(() => this.handle(raw)).catch((e) => reportServerError('session error', e));
     return this.queue;
   }
 

@@ -4,8 +4,8 @@
 // Russian works as a translation layer over the English UI: every text node (and placeholder / title /
 // aria-label) that matches a known English string — exactly, or by a pattern for texts with numbers
 // and names in them — is swapped for its Russian version, also as the page changes. Japanese text
-// (lang="ja") and the words' English meanings are left alone. Anything not in the dictionary stays
-// English, so a missing line never breaks the page.
+// (lang="ja") is left alone; the words' English meanings are swapped from public/meanings-ru.json.
+// Anything not in the dictionary stays English, so a missing line never breaks the page.
 
 export type Lang = 'en' | 'ru';
 const KEY = 'kb:lang';
@@ -249,6 +249,32 @@ const RU: Record<string, string> = {
   'Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review.': '«Изучать заклинания» — колода карточек: чем больше слов вы знаете, тем больше заклинаний можете сотворить. Слова, на которых вы ошиблись в бою, возвращаются туда на повторение.',
   'Spaced repetition like Anki: each card comes back just before you would forget it.': 'Интервальные повторения, как в Anki: каждая карточка возвращается как раз перед тем, как вы бы её забыли.',
   'Playing with AI gives half XP; a forfeit gives none.': 'Игра с ИИ даёт половину опыта; сдача — ничего.',
+  // feedback, about, admin inbox & stats (0.9.8.5)
+  'Feedback': 'Отзыв', 'About': 'Об игре', 'Bug report': 'Сообщить об ошибке', 'Suggestion': 'Предложение',
+  'What is it?': 'Что это?', 'Your message': 'Ваше сообщение',
+  'What happened, or what would make the game better?': 'Что случилось или что сделало бы игру лучше?',
+  'Your player name, the game version and your device type are sent with it. Thank you!': 'Вместе с сообщением отправятся ваше имя игрока, версия игры и тип устройства. Спасибо!',
+  'Write a few words first.': 'Сначала напишите пару слов.', 'Write a few words first': 'Сначала напишите пару слов',
+  "Thanks! That's a lot at once — try again in a few minutes": 'Спасибо! Это много за раз — попробуйте снова через несколько минут',
+  'Bug report sent — thank you!': 'Сообщение об ошибке отправлено — спасибо!', 'Suggestion sent — thank you!': 'Предложение отправлено — спасибо!',
+  'A game for learning Japanese: study words with spaced repetition, then cast them as spells.': 'Игра для изучения японского: учите слова с интервальным повторением, а затем произносите их как заклинания.',
+  'Credits': 'Благодарности', 'Privacy': 'Конфиденциальность',
+  'Word lists and English meanings:': 'Списки слов и английские значения:', '(MIT), based on Jonathan Waller\'s JLPT lists (': '(MIT), на основе списков JLPT Джонатана Уоллера (',
+  ', CC BY). Those lists draw on': ', CC BY). Эти списки опираются на', 'by the Electronic Dictionary Research and Development Group, used under': 'от Electronic Dictionary Research and Development Group, используется по лицензии',
+  'Handwriting recognition:': 'Распознавание почерка:', 'by Dominik Klein (MIT); its reference strokes come from': 'Доминика Кляйна (MIT); эталонные черты взяты из',
+  'by Ulrich Apel (CC BY-SA 3.0).': 'Ульриха Апеля (CC BY-SA 3.0).', '3D:': '3D:',
+  'Russian word meanings: translated for this game from the English meanings.': 'Русские значения слов: переведены для этой игры с английских значений.',
+  'We store your player name, a scrambled (hashed) password, your progress, match history, friends and — if you upload one — your profile picture. Bug reports and suggestions you send are kept with your player name; errors include your browser type. Nothing is sold or shared. Ask the admin to delete your account and all of it is removed.':
+    'Мы храним ваше имя игрока, зашифрованный (хешированный) пароль, прогресс, историю матчей, друзей и — если вы его загрузили — фото профиля. Ваши сообщения об ошибках и предложения хранятся с вашим именем игрока; к ошибкам прикладывается тип браузера. Ничего не продаётся и не передаётся. Попросите администратора удалить аккаунт — и всё это будет удалено.',
+  'Inbox': 'Входящие', 'Stats': 'Статистика', 'All': 'Все',
+  'Bug reports': 'Ошибки', 'Suggestions': 'Предложения', 'Errors': 'Сбои', 'Show done': 'Показать решённые', 'Error': 'Сбой',
+  'Reopen': 'Открыть снова', '✓ Done': '✓ Готово', 'Details': 'Подробности', 'Nothing here.': 'Здесь пусто.', 'game': 'игра',
+  'Signed up': 'Зарегистрировались', 'Started the tutorial': 'Начали обучение', 'Knows hiragana': 'Знают хирагану', 'Hiragana beginner': 'Новички в хирагане',
+  'Started the first battle': 'Начали первый бой', 'Finished the tutorial': 'Закончили обучение', 'Skipped the tutorial': 'Пропустили обучение',
+  'online now': 'сейчас в сети', 'active today': 'активны сегодня', 'accounts': 'аккаунты', 'back on day 1': 'вернулись на 1-й день', 'back on day 7': 'вернулись на 7-й день',
+  'Active players (bars) and new players (+n), last 14 days': 'Активные игроки (столбцы) и новые игроки (+n) за 14 дней',
+  'Tutorial funnel (last 30 days)': 'Воронка обучения (за 30 дней)', 'Games this week': 'Игры за неделю', 'No games yet.': 'Игр пока нет.',
+  "The game is updating — you'll be reconnected in a moment.": 'Игра обновляется — вы переподключитесь через мгновение.',
   // admin
   'Role': 'Роль', 'Level': 'Уровень', 'XP': 'Опыт', 'Spells': 'Заклинания', 'Crit': 'Крит', 'Registered': 'Регистрация', 'Status': 'Статус',
   'never logged in': 'ни разу не входил',
@@ -369,6 +395,12 @@ const plural = (n: number, one: string, few: string, many: string) => {
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Lv (\d+)$/, 'Ур. $1'],
+  [/^(\d+) online$/, '$1 в сети'],
+  [/^(\d+) of (\d+) \(last 30 days\)$/, '$1 из $2 (за 30 дней)'],
+  [/^(\d+) of (\d+)$/, '$1 из $2'],
+  [/^(\d+) started$/, 'начато: $1'], [/^(\d+) finished$/, 'завершено: $1'],
+  [/^(\d{4}-\d\d-\d\d): (\d+) active, (\d+) new$/, '$1: активных $2, новых $3'],
+  [/^write (\d+) kanji$/, 'напишите кандзи: $1'],
   [/^(\d+) damage · (\d+) mana$/, '$1 урона · $2 маны'],
   [/^heals (\d+) · (\d+) mana$/, 'лечит $1 · $2 маны'],
   [/^\+(\d+) mana · free$/, '+$1 маны · бесплатно'],
@@ -456,9 +488,31 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^(\d+) learned today · (\d+) learned in total$/, 'выучено сегодня: $1 · всего: $2'],
 ];
 
+// ── word meanings ───────────────────────────────────────────────────────────
+// The vocabulary's English meanings, translated once for the whole word list (public/meanings-ru.json,
+// English meaning → Russian). Loaded only in Russian; until it arrives meanings stay English, then the
+// page is walked again.
+let MEANINGS: Record<string, string> | null = null;
+const meaning = (s: string): string | undefined => MEANINGS?.[s];
+
+/** A text that is, or ends with, a word's meaning: "meaning", "— meaning", "reading — meaning",
+ *  "kanji · reading · meaning" (optionally "— read: …"). */
+function trMeaning(s: string): string | undefined {
+  if (!MEANINGS) return undefined;
+  const m0 = meaning(s);
+  if (m0) return m0;
+  let m = /^— (.+)$/.exec(s);
+  if (m && meaning(m[1])) return `— ${meaning(m[1])}`;
+  m = /^(.+ · .+ · )(.+?)( — read: .+)?$/.exec(s);
+  if (m && meaning(m[2])) return `${m[1]}${meaning(m[2])}${m[3] ? m[3].replace(' — read: ', ' — распознано: ') : ''}`;
+  m = /^([^A-Za-z]+) — (.+)$/.exec(s);
+  if (m && meaning(m[2])) return `${m[1]} — ${meaning(m[2])}`;
+  return undefined;
+}
+
 export function tr(s: string): string {
   if (lang() !== 'ru') return s;
-  const exact = RU[s];
+  const exact = RU[s] ?? trMeaning(s);
   if (exact) return exact;
   for (const [re, rep] of PATTERNS) {
     if (!re.test(s)) continue;
@@ -469,7 +523,7 @@ export function tr(s: string): string {
 }
 
 // ── applying it to the page ─────────────────────────────────────────────────
-const SKIP = 'script, style, svg, textarea, [lang="ja"], [data-no-i18n], .k, .kanji, .meaning-prompt, .chat-log';
+const SKIP = 'script, style, svg, textarea, [lang="ja"], [data-no-i18n], .k, .kanji, .chat-log';
 const ATTRS = ['placeholder', 'title', 'aria-label'] as const;
 
 function translateText(node: Text) {
@@ -506,6 +560,10 @@ export function initI18n() {
   document.documentElement.lang = lang();
   if (lang() !== 'ru') return;
   walk(document.body);
+  fetch('/meanings-ru.json')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((m: Record<string, string> | null) => { if (m) { MEANINGS = m; walk(document.body); } })
+    .catch(() => { /* meanings stay English */ });
   new MutationObserver((list) => {
     for (const m of list) {
       if (m.type === 'characterData') translateText(m.target as Text);

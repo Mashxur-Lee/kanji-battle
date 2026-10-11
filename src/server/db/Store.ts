@@ -79,8 +79,23 @@ export interface Store {
   requestFriend(from: string, to: string): Promise<'requested' | 'accepted' | 'exists'>;
   acceptFriend(userId: string, fromId: string): Promise<boolean>;
   removeFriend(userId: string, otherId: string): Promise<void>;
+  /** Bug reports and suggestions from players, and errors from the game (admin → Inbox). */
+  addReport(r: Omit<Report, 'id' | 'done'>): Promise<void>;
+  reports(limit: number): Promise<Report[]>;
+  setReportDone(id: string, done: boolean): Promise<void>;
+  deleteReport(id: string): Promise<void>;
+  /** Measurement: one row per event (tutorial steps, games started / finished …). */
+  addEvent(userId: string | null, name: string, at?: number): Promise<void>;
+  events(since: number): Promise<GameEventRow[]>;
+  /** Everyone's sign-up day and the days they were active (admin → Stats: retention). */
+  activityAll(fromDay: string): Promise<Array<{ userId: string; day: string; games: number }>>;
   close?(): Promise<void>;
 }
+
+export type ReportKind = 'bug' | 'suggestion' | 'error';
+export interface Report { id: string; kind: ReportKind; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean }
+export interface GameEventRow { userId: string | null; name: string; at: number }
+export const REPORTS_KEPT = 500; // the newest; errors beyond that are dropped
 
 export class UsernameTakenError extends Error {}
 
@@ -247,6 +262,23 @@ export class MemoryStore implements Store {
     return true;
   }
   async removeFriend(userId: string, otherId: string) { this.setLink(userId, otherId, null); this.setLink(otherId, userId, null); this.persist(); }
+  protected reportList: Report[] = [];
+  async addReport(r: Omit<Report, 'id' | 'done'>) {
+    this.reportList.unshift({ ...r, id: randomUUID(), done: false });
+    this.reportList.length = Math.min(this.reportList.length, REPORTS_KEPT);
+    this.persist();
+  }
+  async reports(limit: number) { return this.reportList.slice(0, limit).map((r) => ({ ...r })); }
+  async setReportDone(id: string, done: boolean) { const r = this.reportList.find((x) => x.id === id); if (r) { r.done = done; this.persist(); } }
+  async deleteReport(id: string) { this.reportList = this.reportList.filter((x) => x.id !== id); this.persist(); }
+  protected eventLog: GameEventRow[] = [];
+  async addEvent(userId: string | null, name: string, at = Date.now()) { this.eventLog.push({ userId, name, at }); if (this.eventLog.length > 50_000) this.eventLog.splice(0, 10_000); this.persist(); }
+  async events(since: number) { return this.eventLog.filter((e) => e.at >= since).map((e) => ({ ...e })); }
+  async activityAll(fromDay: string) {
+    const out: Array<{ userId: string; day: string; games: number }> = [];
+    for (const [userId, days] of this.activityLog) for (const a of days.values()) if (a.day >= fromDay) out.push({ userId, day: a.day, games: a.games });
+    return out;
+  }
   protected persist() { /* memory only */ }
 }
 
@@ -268,6 +300,8 @@ export class FileStore extends MemoryStore {
       for (const [uid, days] of Object.entries((data.activity ?? {}) as Record<string, DayActivity[]>)) this.activityLog.set(uid, new Map(days.map((a) => [a.day, a])));
       for (const [day, rows] of Object.entries((data.daily ?? {}) as Record<string, Record<string, { correct: number; ms: number }>>)) this.dailyResults.set(day, new Map(Object.entries(rows)));
       for (const [from, links] of Object.entries((data.friends ?? {}) as Record<string, Record<string, 'pending' | 'accepted'>>)) this.friendLinks.set(from, new Map(Object.entries(links)));
+      this.reportList = (data.reports ?? []) as Report[];
+      this.eventLog = (data.events ?? []) as GameEventRow[];
       for (const [uid, cards] of Object.entries((data.srs ?? {}) as Record<string, SrsCard[]>)) {
         this.srs.set(uid, new Map(cards.map((c) => [c.vocabId, c])));
       }
@@ -281,7 +315,7 @@ export class FileStore extends MemoryStore {
     const activity = Object.fromEntries([...this.activityLog].map(([uid, m]) => [uid, [...m.values()]]));
     const daily = Object.fromEntries([...this.dailyResults].map(([day, m]) => [day, Object.fromEntries(m)]));
     const friends = Object.fromEntries([...this.friendLinks].map(([uid, m]) => [uid, Object.fromEntries(m)]));
-    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history), activity, daily, friends }));
+    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history), activity, daily, friends, reports: this.reportList, events: this.eventLog }));
     renameSync(tmp, this.file); // atomic replace
   }
 }

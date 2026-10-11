@@ -85,6 +85,33 @@
   <div id="fdRequests"><div id="fdReqList" class="fd-list"></div></div>
 </dialog>
 <div id="gameKb" class="game-kb" role="group" aria-label="Keyboard" hidden></div>
+<dialog id="feedbackDialog" class="friend-dialog feedback-dialog" aria-label="Feedback">
+  <form id="feedbackForm" method="dialog">
+    <h3>Feedback</h3>
+    <div class="fb-kinds" role="radiogroup" aria-label="What is it?">
+      <label class="chip on"><input type="radio" name="fbKind" value="bug" checked> Bug report</label>
+      <label class="chip"><input type="radio" name="fbKind" value="suggestion"> Suggestion</label>
+    </div>
+    <textarea id="fbText" rows="6" maxlength="2000" placeholder="What happened, or what would make the game better?" aria-label="Your message"></textarea>
+    <p class="hint">Your player name, the game version and your device type are sent with it. Thank you!</p>
+    <p id="fbMsg" class="hint" role="status"></p>
+    <div class="fb-actions"><button id="fbCancel" type="button" class="pill">Close</button><button id="fbSend" type="submit" class="big">Send</button></div>
+  </form>
+</dialog>
+<dialog id="aboutDialog" class="friend-dialog about-dialog" aria-label="About">
+  <h3>Kanji Wizards <small id="aboutVersion" class="hint"></small></h3>
+  <p>A game for learning Japanese: study words with spaced repetition, then cast them as spells.</p>
+  <h4>Credits</h4>
+  <ul class="credits">
+    <li>Word lists and English meanings: <a href="https://github.com/jamsinclair/open-anki-jlpt-decks" target="_blank" rel="noopener">open-anki-jlpt-decks</a> (MIT), based on Jonathan Waller's JLPT lists (<a href="https://www.tanos.co.uk/jlpt/" target="_blank" rel="noopener">tanos.co.uk</a>, CC BY). Those lists draw on <a href="https://www.edrdg.org/jmdict/j_jmdict.html" target="_blank" rel="noopener">JMdict / EDICT</a> by the Electronic Dictionary Research and Development Group, used under <a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">CC BY-SA 4.0</a>.</li>
+    <li>Handwriting recognition: <a href="https://github.com/asdfjkl/kanjicanvas" target="_blank" rel="noopener">KanjiCanvas</a> by Dominik Klein (MIT); its reference strokes come from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> by Ulrich Apel (CC BY-SA 3.0).</li>
+    <li>3D: <a href="https://threejs.org/" target="_blank" rel="noopener">three.js</a> (MIT).</li>
+    <li>Russian word meanings: translated for this game from the English meanings.</li>
+  </ul>
+  <h4>Privacy</h4>
+  <p class="hint">We store your player name, a scrambled (hashed) password, your progress, match history, friends and — if you upload one — your profile picture. Bug reports and suggestions you send are kept with your player name; errors include your browser type. Nothing is sold or shared. Ask the admin to delete your account and all of it is removed.</p>
+  <form method="dialog" class="fb-actions"><button class="big">Close</button></form>
+</dialog>
 <div id="pauseOverlay" class="pause-overlay" role="dialog" aria-modal="true" aria-label="Paused" hidden>
   <div class="pause-box"><h2>Paused</h2><p class="sub">The clock, the AI and the dragon wait for you.</p><button id="resumeBtn" class="big">Resume</button></div>
 </div>
@@ -169,7 +196,7 @@
           <span><b id="studyLockText"></b></span>
           <button id="studyLockBtn" class="big">Study struggling spells</button>
         </div>
-        <button id="queueBtn" class="big queue-btn">Online queue</button>
+        <button id="queueBtn" class="big queue-btn">Online queue <span id="onlineCount" class="online-pill" hidden></span></button>
         <button id="privateBtn" class="big alt private-btn" aria-expanded="false" aria-controls="privateBox">Private game <span class="chev" aria-hidden="true">▾</span></button>
         <div id="privateBox" class="private-box" hidden>
           <p class="hint">Play with friends: create a room and share its code, or enter a friend's code.</p>
@@ -188,11 +215,15 @@
           <button id="progressBtn" class="alt">Progress</button>
           <button id="historyBtn" class="alt">Match history</button>
         </div>
-        <button id="adminBtn" class="alt" hidden>Users</button>
+        <button id="adminBtn" class="alt" hidden>Admin <span id="adminBadge" class="badge" hidden></span></button>
         <p id="error" class="error" role="alert"></p>
       </div>
       </div>
-      <button id="howBtn" class="how-btn">How to play?</button>
+      <div class="menu-foot">
+        <button id="howBtn" class="how-btn">How to play?</button>
+        <button id="feedbackBtn" class="how-btn">Feedback</button>
+        <button id="aboutBtn" class="how-btn">About</button>
+      </div>
     </div>
     <div class="col-scene"><div class="scene duel-scene" aria-hidden="true"></div></div>
   </section>
@@ -331,17 +362,35 @@
   <section id="admin" class="screen" hidden>
     <button id="adminBack" class="back">← Menu</button>
     <div class="page-head">
-      <h2>Users</h2>
+      <h2>Admin</h2>
       <button id="adminRefresh" class="pill">↻ Refresh</button>
     </div>
-    <p id="adminInfo" class="sub"></p>
-    <p id="adminStorage" class="storage"></p>
-    <div class="tablewrap">
-      <table>
-        <thead><tr><th>Online</th><th>Login</th><th>Role</th><th>Level</th><th>XP</th><th title="Learned spells / study set size">Spells</th><th>Registered</th><th>Status</th><th></th></tr></thead>
-        <tbody id="userRows"></tbody>
-      </table>
+    <div id="adminTabs" class="cust-tabs admin-tabs" role="tablist" aria-label="Admin">
+      <button role="tab" data-atab="users" class="cust-tab on">Users</button>
+      <button role="tab" data-atab="inbox" class="cust-tab">Inbox <span id="inboxBadge" class="badge" hidden></span></button>
+      <button role="tab" data-atab="stats" class="cust-tab">Stats</button>
     </div>
+    <div id="adminUsers">
+      <p id="adminInfo" class="sub"></p>
+      <p id="adminStorage" class="storage"></p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Online</th><th>Login</th><th>Role</th><th>Level</th><th>XP</th><th title="Learned spells / study set size">Spells</th><th>Registered</th><th>Status</th><th></th></tr></thead>
+          <tbody id="userRows"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="adminInbox" hidden>
+      <div class="inbox-filters" role="group" aria-label="Show">
+        <label class="chip on"><input type="radio" name="inboxKind" value="all" checked> All</label>
+        <label class="chip"><input type="radio" name="inboxKind" value="bug"> Bug reports</label>
+        <label class="chip"><input type="radio" name="inboxKind" value="suggestion"> Suggestions</label>
+        <label class="chip"><input type="radio" name="inboxKind" value="error"> Errors</label>
+        <label class="toggle-row inbox-done"><input id="inboxShowDone" type="checkbox"> Show done</label>
+      </div>
+      <div id="inboxList" class="inbox-list"></div>
+    </div>
+    <div id="adminStats" hidden></div>
   </section>
 
   <!-- MODE SELECT -->
@@ -595,7 +644,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.8.3</div>
+<div id="version" class="version">v0.9.8.5</div>
 <script src="/app.js"></script>
 </body>
 </html>

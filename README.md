@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.8.3
+# Kanji Wizards · v0.9.8.5
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -82,9 +82,20 @@ The **Users** page (admins only) shows who is **online right now** and what they
 queue, in a lobby, playing a mode), and for offline players when they were last seen (since the server started)
 or their last login day. Online players are listed first; the page refreshes itself every 15 s.
 
+**Inbox** collects what players send with **Feedback** (main menu): bug reports and suggestions, each with the
+player's name, the game version and the device type — plus **errors** caught automatically (a crash in a
+browser, or an unexpected server error; the same error is stored once a minute at most). Mark items done or delete
+them; the Admin button shows how many are open. Players can send 5 messages per 10 minutes.
+
+**Stats** shows players online, active today, accounts, how many came back on day 1 and day 7, a 14-day chart of
+active and new players, the tutorial funnel (signed up → started → kana question → first battle → finished or
+skipped) and games started/finished per mode this week (`src/server/study/InsightsService.ts`).
+
 ## Online queue
 
 **Private game** (main menu, under the queue) opens *Create room* and *Join by code* for playing with friends.
+
+The Online queue button shows **how many players are online**.
 
 **Online queue** on the main menu: tick the modes you'd play (Reading, Writing, Rapid, Boss) and the levels you
 bring, then **Find match** — or queue for **Deck Duel** on its own. A timer counts while it searches; as soon
@@ -253,7 +264,8 @@ with the Japanese keyboard's candidate list open); change it in the settings pan
 
 Settings → **Language**: English or Русский. Dates and times always follow the chosen language (not the browser's).
 Russian is a translation layer over the English interface (`src/client/i18n.ts`: exact strings plus patterns for texts
-with numbers and names); Japanese text and word meanings stay as they are.
+with numbers and names); Japanese text stays as it is. Word meanings are shown in Russian too, from
+`public/meanings-ru.json` (all 6,316 English meanings, translated for this game; loaded only in Russian).
 
 ## Achievements
 
@@ -289,6 +301,8 @@ covers the screen at every UI size. Opponents (and your party) trace the ∞ wit
 Since 0.9.8 the levels N5 → N1 are re-sorted by how complex a word looks — the total stroke count of its kanji — so
 an "N5" word is never harder to write than an "N1" one (study sets, battles and Deck Duel). Each level keeps its size;
 a word's JLPT list is kept as `jlpt` (`rebinByStrokes` in `src/server/vocab.ts`). かな is unchanged.
+Since 0.9.8.5 the JLPT list counts a little too: the sort score is strokes + 3 × JLPT step (N5 = 0 … N1 = 4), so
+stroke count still leads but an N1 word rarely lands in N5.
 
 ## Writing only the kanji
 
@@ -366,6 +380,18 @@ after 3 minutes of overtime the higher HP wins. Letting the choose clock run out
   win/lose jingles, a calm dark-fantasy theme in menus and a tenser battle theme (driving strings, war drums,
   horns) while you play — they crossfade. Music and effects have their own volume sliders (🎚, saved per
   browser). It pauses when the tab is hidden.
+
+## Stability
+
+Uncaught server errors are logged to the admin Inbox instead of going unnoticed. On a restart (deploy) the server
+tells everyone "The game is updating — you'll be reconnected in a moment." before closing. Static files are sent
+gzipped.
+
+## Credits & licences
+
+See **About** in the main menu and [CREDITS.md](CREDITS.md): word data from open-anki-jlpt-decks (MIT) / Jonathan
+Waller's JLPT lists (CC BY) / JMdict (EDRDG, CC BY-SA 4.0), handwriting recognition from KanjiCanvas (MIT) with
+KanjiVG data (CC BY-SA 3.0), three.js (MIT). The About box also has a short privacy note.
 
 ## Structure
 

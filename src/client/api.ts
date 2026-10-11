@@ -25,6 +25,12 @@ export const setToken = (t: string) => { try { t ? localStorage.setItem(TOKEN_KE
 
 export class ApiError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
+export interface AdminReport { id: string; kind: 'bug' | 'suggestion' | 'error'; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean }
+export interface AdminStats {
+  onlineNow: number; players: number; daily: Array<{ day: string; signups: number; active: number }>;
+  day1: { players: number; returned: number }; day7: { players: number; returned: number };
+  funnel: Array<{ name: string; players: number }>; modes: Record<string, { started: number; finished: number }>;
+}
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method,
@@ -53,6 +59,13 @@ export const api = {
   match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),
   player: (id: string) => call<{ profile: PublicProfile }>('GET', `/api/users/${encodeURIComponent(id)}`),
   users: () => call<{ users: AdminUserRow[]; storage: string; persistent: boolean }>('GET', '/api/admin/users'),
+  inbox: () => call<{ reports: AdminReport[] }>('GET', '/api/admin/inbox'),
+  inboxDone: (id: string, done: boolean) => call<{ ok: boolean }>('POST', `/api/admin/inbox/${encodeURIComponent(id)}`, { done }),
+  inboxDelete: (id: string) => call<{ ok: boolean }>('DELETE', `/api/admin/inbox/${encodeURIComponent(id)}`),
+  adminStats: () => call<AdminStats>('GET', '/api/admin/stats'),
+  feedback: (kind: 'bug' | 'suggestion', text: string, meta: string) => call<{ ok: boolean }>('POST', '/api/feedback', { kind, text, meta }),
+  event: (name: string) => call<{ ok: boolean }>('POST', '/api/event', { name }).catch(() => ({ ok: false })),
+  online: () => call<{ online: number }>('GET', '/api/online'),
   tutorialDone: () => call<{ ok: boolean }>('PUT', '/api/me/tutorial'),
   setKana: (mastered: boolean) => call<{ profile: Profile }>('PUT', '/api/me/kana', { mastered }),
   progress: () => call<ProgressPage>('GET', `/api/progress?today=${today()}`),

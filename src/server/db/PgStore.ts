@@ -2,7 +2,8 @@ import postgres from 'postgres';
 import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
 import type { BackgroundId, FlameId, StaffId } from '../../shared/progress';
 import type { CardState, SrsCard } from '../../shared/srs';
-import { MATCH_HISTORY_LIMIT, UsernameTakenError, type ActivityDelta, type AvatarImage, type DailyResult, type DayActivity, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+import { randomUUID } from 'node:crypto';
+import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, type ActivityDelta, type GameEventRow, type Report, type AvatarImage, type DailyResult, type DayActivity, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
 /**
  * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
@@ -141,6 +142,26 @@ export class PgStore implements Store {
       )`;
     await this.sql`create index if not exists kw_daily_rank on kw_daily (day, correct desc, ms asc)`;
     await this.sql`alter table kw_daily add column if not exists marks text not null default ''`;
+    // 0.9.8.5: player reports (bugs, suggestions), game errors, and measurement events
+    await this.sql`
+      create table if not exists kw_reports (
+        id uuid primary key,
+        kind text not null,
+        user_id uuid references kw_users(id) on delete set null,
+        username text not null default '',
+        text text not null,
+        meta text not null default '',
+        at bigint not null,
+        done boolean not null default false
+      )`;
+    await this.sql`create index if not exists kw_reports_at on kw_reports (at desc)`;
+    await this.sql`
+      create table if not exists kw_events (
+        user_id uuid references kw_users(id) on delete cascade,
+        name text not null,
+        at bigint not null
+      )`;
+    await this.sql`create index if not exists kw_events_at on kw_events (at)`;
     await this.sql`
       create table if not exists kw_friends (
         user_id uuid not null references kw_users(id) on delete cascade,
@@ -310,6 +331,26 @@ export class PgStore implements Store {
   async dailyBetter(day: string, correct: number, ms: number) {
     const [r] = await this.sql<{ n: string }[]>`select count(*) as n from kw_daily where day = ${day} and (correct > ${correct} or (correct = ${correct} and ms < ${ms}))`;
     return Number(r.n);
+  }
+  async addReport(r: Omit<Report, 'id' | 'done'>) {
+    await this.sql`insert into kw_reports (id, kind, user_id, username, text, meta, at) values (${randomUUID()}, ${r.kind}, ${r.userId}, ${r.username}, ${r.text}, ${r.meta}, ${r.at})`;
+    await this.sql`delete from kw_reports where id in (select id from kw_reports order by at desc offset ${REPORTS_KEPT})`;
+  }
+  async reports(limit: number): Promise<Report[]> {
+    const rows = await this.sql<{ id: string; kind: Report['kind']; user_id: string | null; username: string; text: string; meta: string; at: string; done: boolean }[]>`
+      select id, kind, user_id, username, text, meta, at, done from kw_reports order by at desc limit ${limit}`;
+    return rows.map((r) => ({ id: r.id, kind: r.kind, userId: r.user_id, username: r.username, text: r.text, meta: r.meta, at: Number(r.at), done: r.done }));
+  }
+  async setReportDone(id: string, done: boolean) { await this.sql`update kw_reports set done = ${done} where id = ${id}`; }
+  async deleteReport(id: string) { await this.sql`delete from kw_reports where id = ${id}`; }
+  async addEvent(userId: string | null, name: string, at = Date.now()) { await this.sql`insert into kw_events (user_id, name, at) values (${userId}, ${name}, ${at})`; }
+  async events(since: number): Promise<GameEventRow[]> {
+    const rows = await this.sql<{ user_id: string | null; name: string; at: string }[]>`select user_id, name, at from kw_events where at >= ${since}`;
+    return rows.map((r) => ({ userId: r.user_id, name: r.name, at: Number(r.at) }));
+  }
+  async activityAll(fromDay: string) {
+    const rows = await this.sql<{ user_id: string; day: string; games: number }[]>`select user_id, day, games from kw_activity where day >= ${fromDay}`;
+    return rows.map((r) => ({ userId: r.user_id, day: r.day, games: r.games }));
   }
   async friends(userId: string): Promise<FriendLink[]> {
     const rows = await this.sql<{ id: string; username: string; status: FriendLink['status'] }[]>`

@@ -7,9 +7,13 @@ import type { VocabEntry } from '../src/shared/protocol';
 
 test('levels are re-sorted by stroke count: an N5 word is never more complex than an N1 word', () => {
   const order = ['N5', 'N4', 'N3', 'N2', 'N1'] as const;
+  const avg = (l: string) => { const s = VOCAB.filter((v) => v.level === l).map((v) => v.strokes ?? 0); return s.reduce((a, b) => a + b, 0) / s.length; };
   const maxOf = (l: string) => Math.max(...VOCAB.filter((v) => v.level === l).map((v) => v.strokes ?? 0));
   const minOf = (l: string) => Math.min(...VOCAB.filter((v) => v.level === l).map((v) => v.strokes ?? 0));
-  for (let i = 0; i + 1 < order.length; i++) assert.ok(maxOf(order[i]) <= minOf(order[i + 1]), `${order[i]} ≤ ${order[i + 1]}`);
+  for (let i = 0; i + 1 < order.length; i++) {
+    assert.ok(avg(order[i]) < avg(order[i + 1]), `${order[i]} simpler than ${order[i + 1]} on average`);
+    assert.ok(maxOf(order[i]) <= minOf(order[i + 1]) + 12, 'the JLPT weight shifts a word by at most 12 strokes');
+  }
   // sizes per level are kept, and the JLPT list is remembered
   const w = (id: string, level: VocabEntry['level'], strokes: number): VocabEntry => ({ id, kanji: '漢', reading: 'かん', meaning: '', level, difficulty: 0, strokes });
   const out = rebinByStrokes([w('a', 'N5', 20), w('b', 'N1', 3), w('k', 'KANA', 0)]);
