@@ -86,6 +86,9 @@
   <div id="fdRequests"><div id="fdReqList" class="fd-list"></div></div>
 </dialog>
 <div id="gameKb" class="game-kb" role="group" aria-label="Keyboard" hidden></div>
+<div id="pauseOverlay" class="pause-overlay" role="dialog" aria-modal="true" aria-label="Paused" hidden>
+  <div class="pause-box"><h2>Paused</h2><p class="sub">The clock, the AI and the dragon wait for you.</p><button id="resumeBtn" class="big">Resume</button></div>
+</div>
 <div id="achPop" class="ach-pop" role="status" aria-live="polite" hidden></div>
 <div id="inviteBox" class="invite-box" role="alertdialog" aria-live="assertive" hidden></div>
 <div id="tutorial" class="tutorial-overlay" role="dialog" aria-modal="true" aria-label="Welcome" hidden></div>
@@ -439,6 +442,7 @@
       <div class="clock-col">
         <div id="battleClock" class="clock small"></div>
         <button id="forfeit" class="link forfeit">Forfeit</button>
+        <button class="link pause-btn" data-pause hidden>❚❚ Pause</button>
       </div>
       <div id="oppCard" class="fighter opp"></div>
     </div>
@@ -488,6 +492,7 @@
       <div class="clock-col">
         <div id="dkClock" class="clock small"></div>
         <button id="dkForfeit" class="link forfeit">Forfeit</button>
+        <button class="link pause-btn" data-pause hidden>❚❚ Pause</button>
       </div>
     </div>
     <div class="deck-middle">
@@ -593,7 +598,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.8.1</div>
+<div id="version" class="version">v0.9.8.2</div>
 <script src="/app.js"></script>
 </body>
 </html>

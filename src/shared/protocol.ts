@@ -133,6 +133,7 @@ export type ClientMessage =
   | { type: 'join'; code: string; levels?: Level[] }
   | { type: 'levels'; levels: Level[] }
   | { type: 'leave' }
+  | { type: 'pause'; on: boolean }
   | { type: 'forfeit' }
   | { type: 'deck_character'; character: string }
   | { type: 'deck_pick'; cardId: string }
@@ -238,6 +239,7 @@ export type ServerMessage =
       stats: Record<PlayerId, PlayerStats>;
     }
   | { type: 'rematch_status'; votes: PlayerId[] }
+  | { type: 'paused'; on: boolean }
   | { type: 'progress'; gained: number; xp: number; level: number; levelUp: boolean; crit: number; achievements?: string[] }
   | { type: 'notice'; message: string }
   | { type: 'deck_state'; view: DeckView }

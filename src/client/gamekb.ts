@@ -5,6 +5,7 @@
 
 import { romajiToHiragana } from '../shared/kana';
 import * as ui from './ui';
+import { uiScale } from './zoom';
 
 const KEY = 'kb:gamekb';
 const ROWS = ['qwertyuiop', 'asdfghjkl-', 'zxcvbnm'];
@@ -68,6 +69,12 @@ export function setGameKb(on: boolean) {
   const i = input();
   i.inputMode = on ? 'none' : ''; // no phone keyboard while ours is up
   if (on) preview();
+  // the 3D arena (hand, staff, combo, flames) fits in the space above the keyboard
+  requestAnimationFrame(() => {
+    const h = on ? ui.$('gameKb').getBoundingClientRect().height : 0;
+    document.documentElement.style.setProperty('--kb-h', `${Math.round(h / uiScale())}px`); // page px (the UI may be zoomed)
+    dispatchEvent(new Event('resize'));
+  });
 }
 export const gameKbActive = () => active;
 ui.$('answer').addEventListener('input', () => { if (active) preview(); });

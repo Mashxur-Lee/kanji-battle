@@ -402,7 +402,7 @@ function renderCharacters(v: DeckView, me: DeckPlayerView, opp: DeckPlayerView) 
     b.onclick = () => hooks.send({ type: 'deck_character', character: c });
     grid.append(b);
   }
-  overlay.replaceChildren(backButton(v), title, grid, h('p', 'sub', `Same HP (${DECK_RULES.hp}) for both. ${DECK_RULES.maxMana} mana, +${DECK_RULES.manaPerTurn} every turn. ${DECK_RULES.chooseMs / 1000} s to choose a card (its mana is paid right away), then read the meaning, press Ready to see the kanji and CAST! to write it — ${DECK_RULES.castMs / 1000} s for the whole spell. Hero power: ${DECK_RULES.abilityCost} mana, ${DECK_RULES.abilityCooldown} turns cooldown. Out of cards → a new draft round. Cards: ${CARD_COLORS.map((col) => { const s = CARD_SPECS[col]; return `${COLOR_NAME[col].toLowerCase()} ${s.kind === 'attack' ? `${s.amount} dmg` : s.kind === 'heal' ? `heal ${s.amount}` : `+${s.amount}◆`}${s.cost ? ` (${s.cost}◆)` : ''}`; }).join(' · ')}.`));
+  overlay.replaceChildren(backButton(v), title, grid); // the rules live in the Deck Duel guide, not here
 }
 
 let coinShown = false;

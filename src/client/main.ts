@@ -80,6 +80,8 @@ ui.onScreen((s) => {
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (s !== 'lobby') void renderLobbyInvites(false);
   railScreen(s);
+  for (const b of document.querySelectorAll<HTMLElement>('[data-pause]')) b.hidden = !(soloVsAi && ['prep', 'battle', 'deck'].includes(s));
+  if (!['prep', 'battle', 'deck'].includes(s)) setPaused(false);
   setGameKb(s === 'battle' && mode !== 'writing'); // phones: the compact battle keyboard
   tutorialScreen(s);
   if (!GAME_SCREENS.has(s)) setTimeout(() => applyBackground(true), 0); // catch up on the cycle after a game
@@ -108,6 +110,7 @@ scheduleCycle();
 
 let tutorialShown = false;
 let pendingJoin = '';
+let soloVsAi = false; // you are the only human in the room → Pause
 let writeShape = ''; // the word being written with its kanji hidden: 必ず → □ず
 let prevStaff: string | null = null; // the staff the menu wizards hold // invited while in another room: join after leaving it
 function applyProfile(p: Profile) {
@@ -123,7 +126,7 @@ function applyProfile(p: Profile) {
   ui.setProfile(p);
   ui.$('kanaRow').hidden = ui.$('kanaInfo').hidden = false;
   ui.$<HTMLInputElement>('kanaMastered').checked = !ui.kanaBeginner();
-  setModeAccess(p.level, user?.role === 'admin');
+  setModeAccess(p.level, user?.role === 'admin', ui.kanaBeginner());
   if (!p.tutorialDone && !tutorialShown && user && !inRoom) { tutorialShown = true; startTutorial(); }
   void dailyPending().then((open) => { ui.$('dailyBadge').hidden = !open; });
   refreshFriendsBadge();
@@ -249,6 +252,9 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'lobby':
       players = msg.players;
+      // only you against the AI (or a solo Boss run): the game can be paused
+      soloVsAi = msg.players.filter((p) => !p.bot).length === 1;
+      setPaused(false);
       mode = msg.mode;
       minPlayers = msg.minPlayers;
       stopWriting();
@@ -335,6 +341,9 @@ function onMessage(msg: ServerMessage) {
       }, msg.reason === 'forfeit' ? 400 : 2000);
       break;
     }
+    case 'paused':
+      setPaused(msg.on);
+      break;
     case 'progress':
       setTimeout(() => {
         ui.showXp(msg.gained, msg.level, msg.levelUp);
@@ -686,6 +695,13 @@ document.documentElement.dataset.v = VERSION;
   sel.value = gameKbPref() ? 'game' : 'system';
   sel.onchange = () => { setGameKbPref(sel.value === 'game'); setGameKb(ui.currentScreen() === 'battle' && mode !== 'writing'); };
 }
+// Pause (only you against the AI): the server stops the clock; the overlay waits for Resume
+function setPaused(on: boolean) {
+  ui.$('pauseOverlay').hidden = !on;
+  document.body.classList.toggle('paused', on);
+}
+for (const b of document.querySelectorAll<HTMLElement>('[data-pause]')) b.onclick = () => socket.send({ type: 'pause', on: true });
+ui.$('resumeBtn').onclick = () => socket.send({ type: 'pause', on: false });
 // "I've mastered hiragana": opens N5–N1 for a player who started as a かな beginner
 ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {
   const box = e.target as HTMLInputElement;

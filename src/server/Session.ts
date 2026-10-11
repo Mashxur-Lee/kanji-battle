@@ -81,6 +81,8 @@ export class Session implements Client {
   private async modeLock(modes: GameMode[]): Promise<string | null> {
     if (this.user?.role === 'admin') return null;
     const rec = await this.auth.store.findById(this.user!.id);
+    // Deck Duel is all kanji: not for a player who is still learning hiragana
+    if (modes.includes('deck') && isKanaBeginner(rec?.unlocks)) return 'Deck Duel is all kanji — tick "I\'ve mastered hiragana" in Settings first.';
     const locked = modes.find((m) => !modeUnlocked(m, rec?.xp ?? 0));
     return locked ? `${MODE_LABEL[locked]} unlocks at level ${MODE_LEVEL[locked]} — win a few games first (or join a friend's room).` : null;
   }
@@ -172,6 +174,7 @@ export class Session implements Client {
       this.matchmaker?.cancel(user.id, false);
       const room = this.rooms.get(String(msg.code ?? ''));
       if (!room) return this.send({ type: 'error', message: 'Room not found' });
+      if (room.mode === 'deck' && user.role !== 'admin' && isKanaBeginner((await this.auth.store.findById(user.id))?.unlocks)) return this.send({ type: 'error', message: 'Deck Duel is all kanji — tick "I\'ve mastered hiragana" in Settings first.' });
       return await this.enter(room, parseLevels(msg.levels));
     }
 
@@ -191,6 +194,11 @@ export class Session implements Client {
       case 'levels': {
         const levels = await this.allowedLevels(parseLevels(msg.levels));
         if (levels.length > 0) room.setLevels(user.id, levels);
+        break;
+      }
+      case 'pause': {
+        const err = room.setPaused(user.id, msg.on === true);
+        if (err) this.send({ type: 'error', message: err });
         break;
       }
       case 'leave':

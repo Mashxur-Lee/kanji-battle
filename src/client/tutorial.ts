@@ -17,18 +17,21 @@ const el = (tag: string, cls = '', text?: string | number) => {
 };
 
 // ── gradual unlocks ─────────────────────────────────────────────────────────
-let access = { level: 0, admin: false };
-export function setModeAccess(level: number, admin: boolean) {
-  access = { level, admin };
+let access = { level: 0, admin: false, beginner: false };
+export function setModeAccess(level: number, admin: boolean, beginner = false) {
+  access = { level, admin, beginner };
   for (const card of document.querySelectorAll<HTMLElement>('.mode-card[data-mode]')) {
     const mode = card.dataset.mode as GameMode;
     const locked = !canPlay(mode);
     card.classList.toggle('locked', locked);
-    card.dataset.lock = locked ? `Unlocks at level ${MODE_LEVEL[mode]}` : '';
+    card.dataset.lock = !locked ? '' : beginnerLocked(mode) ? 'Master hiragana first' : `Unlocks at level ${MODE_LEVEL[mode]}`;
   }
 }
-export const canPlay = (mode: GameMode) => modeUnlocked(mode, xpForLevel(access.level), access.admin);
-export const lockText = (mode: GameMode) => `${MODE_LABEL[mode]} unlocks at level ${MODE_LEVEL[mode]} — win a few games first. (A friend can still invite you.)`;
+const beginnerLocked = (mode: GameMode) => mode === 'deck' && access.beginner && !access.admin;
+export const canPlay = (mode: GameMode) => !beginnerLocked(mode) && modeUnlocked(mode, xpForLevel(access.level), access.admin);
+export const lockText = (mode: GameMode) => beginnerLocked(mode)
+  ? 'Deck Duel is all kanji — tick "I\'ve mastered hiragana" in Settings first.'
+  : `${MODE_LABEL[mode]} unlocks at level ${MODE_LEVEL[mode]} — win a few games first. (A friend can still invite you.)`;
 
 // ── the tutorial ────────────────────────────────────────────────────────────
 type Stage = 'off' | 'cards' | 'battle';

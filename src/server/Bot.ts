@@ -1,3 +1,4 @@
+import { REAL_TIMERS, type TimerHandle, type Timers } from './clock';
 import { CARD_SPECS, DECK_CHARACTERS, DECK_RULES, type DeckView } from '../shared/deck';
 import type { GameMode, Level, PlayerId, VocabEntry } from '../shared/protocol';
 import type { GameEvent } from './Game';
@@ -43,6 +44,8 @@ export interface BotHost {
   deckAbility: (id: PlayerId) => void;
   deckCastReady: (id: PlayerId, castId: number) => void;
   deckCastGo: (id: PlayerId, castId: number) => void;
+  /** the room's game clock (paused with the game) */
+  timers?: () => Timers;
 }
 
 const WRONG = '×'; // never a valid answer in any mode
@@ -53,7 +56,8 @@ const WRONG = '×'; // never a valid answer in any mode
  * answer it is "remembering").
  */
 export class Bot {
-  private timers = new Map<string, ReturnType<typeof setTimeout>>();
+  private timers = new Map<string, TimerHandle>();
+  private clock = () => this.host.timers?.() ?? REAL_TIMERS;
 
   constructor(
     readonly id: PlayerId,
@@ -63,7 +67,7 @@ export class Bot {
   ) {}
 
   dispose() {
-    for (const t of this.timers.values()) clearTimeout(t);
+    for (const t of this.timers.values()) this.clock().clearTimeout(t);
     this.timers.clear();
   }
 
@@ -194,8 +198,7 @@ export class Bot {
   /** One pending action per key (state broadcasts repeat; don't schedule the same move twice). */
   private later(key: string, ms: number, fn: () => void) {
     if (this.timers.has(key)) return;
-    const t = setTimeout(() => { this.timers.delete(key); fn(); }, ms);
-    t.unref?.();
+    const t = this.clock().setTimeout(() => { this.timers.delete(key); fn(); }, ms);
     this.timers.set(key, t);
   }
 }

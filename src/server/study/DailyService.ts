@@ -23,7 +23,7 @@ export interface DailyAnswer {
   next: DailyWordView | null;
   done: { correct: number; ms: number; rank: number; players: number; xp: number } | null;
 }
-interface Attempt { day: string; index: number; shownAt: number; correct: number; ms: number }
+interface Attempt { day: string; index: number; shownAt: number; correct: number; ms: number; marks: string }
 
 /** Mulberry32: a tiny seeded random generator (the same day → the same words). */
 function seeded(seed: number) {
@@ -70,7 +70,7 @@ export class DailyService {
     const mine = await this.store.daily(day, u.id);
     const board = await this.store.dailyBoard(day, 20);
     const rank = mine ? (await this.store.dailyBetter(day, mine.correct, mine.ms)) + 1 : null;
-    const words = mine ? this.words(day).map((v) => ({ kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level })) : null;
+    const words = mine ? this.words(day).map((v, i) => ({ kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === '1' : null })) : null;
     return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), words, inProgress: this.attempts.get(u.id)?.day === day };
   }
 
@@ -79,10 +79,10 @@ export class DailyService {
     const day = this.today();
     if (await this.store.daily(day, u.id)) throw new DailyError('You already played today\'s challenge — come back tomorrow!', 409);
     let a = this.attempts.get(u.id);
-    if (!a || a.day !== day) { a = { day, index: 0, shownAt: this.now(), correct: 0, ms: 0 }; this.attempts.set(u.id, a); }
+    if (!a || a.day !== day) { a = { day, index: 0, shownAt: this.now(), correct: 0, ms: 0, marks: '' }; this.attempts.set(u.id, a); }
     // a word left open too long (closed the tab to look it up?) counts as a miss
     while (a.index < DAILY_WORDS && this.now() - a.shownAt > DAILY_WORD_MS + GRACE_MS) {
-      a.ms += DAILY_WORD_MS; a.index++; a.shownAt = this.now();
+      a.ms += DAILY_WORD_MS; a.index++; a.marks += '0'; a.shownAt = this.now();
     }
     if (a.index >= DAILY_WORDS) throw new DailyError('Time ran out on the remaining words — send your answers to finish.', 409);
     return this.view(a);
@@ -101,6 +101,7 @@ export class DailyService {
     if (correct) a.correct++;
     a.ms += correct ? ms : DAILY_WORD_MS; // misses cost the full time
     a.index++;
+    a.marks += correct ? '1' : '0';
     a.shownAt = this.now();
     const base = { correct, kanji: word.kanji, reading: displayReading(word), meaning: word.meaning, ms };
     if (a.index < DAILY_WORDS) return { ...base, next: this.view(a), done: null };
@@ -112,13 +113,19 @@ export class DailyService {
     const a = this.attempts.get(u.id);
     if (!a || a.day !== this.today()) return null;
     a.ms += (DAILY_WORDS - a.index) * DAILY_WORD_MS;
+    a.marks = a.marks.padEnd(DAILY_WORDS, '0');
     a.index = DAILY_WORDS;
     return this.finish(u, a);
   }
 
   private async finish(u: UserRecord, a: Attempt) {
     this.attempts.delete(u.id);
-    const saved = await this.store.saveDaily(a.day, u.id, a.correct, a.ms);
+    const saved = await this.store.saveDaily(a.day, u.id, a.correct, a.ms, a.marks);
+    // the words you got wrong go to Struggling spells, like after a battle
+    if (saved) {
+      const missed = this.words(a.day).filter((_, i) => a.marks[i] !== '1').map((v) => v.id);
+      if (missed.length) await this.store.markStruggling(u.id, missed, this.now()); // (adds the card if you didn't have it)
+    }
     const xp = saved ? a.correct * XP_PER_CORRECT + (a.correct === DAILY_WORDS ? 100 : 0) : 0;
     if (xp) {
       await this.store.addXp(u.id, xp);

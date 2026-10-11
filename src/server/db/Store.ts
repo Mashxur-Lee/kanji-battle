@@ -67,8 +67,9 @@ export interface Store {
   addActivity(userId: string, day: string, delta: ActivityDelta): Promise<void>;
   activity(userId: string, fromDay: string): Promise<DayActivity[]>;
   /** Daily challenge: one result per player per day (false if they already have one). */
-  saveDaily(day: string, userId: string, correct: number, ms: number): Promise<boolean>;
-  daily(day: string, userId: string): Promise<{ correct: number; ms: number } | null>;
+  /** marks: one character per word, '1' right / '0' wrong (shown on the result) */
+  saveDaily(day: string, userId: string, correct: number, ms: number, marks?: string): Promise<boolean>;
+  daily(day: string, userId: string): Promise<{ correct: number; ms: number; marks?: string } | null>;
   /** Best first: most correct, then fastest. */
   dailyBoard(day: string, limit: number): Promise<DailyResult[]>;
   /** How many results beat this one (rank = that + 1). */
@@ -197,19 +198,19 @@ export class MemoryStore implements Store {
   async activity(userId: string, fromDay: string) {
     return [...(this.activityLog.get(userId)?.values() ?? [])].filter((a) => a.day >= fromDay).sort((a, b) => a.day.localeCompare(b.day)).map((a) => ({ ...a }));
   }
-  protected dailyResults = new Map<string, Map<string, { correct: number; ms: number }>>();
-  async saveDaily(day: string, userId: string, correct: number, ms: number) {
+  protected dailyResults = new Map<string, Map<string, { correct: number; ms: number; marks?: string }>>();
+  async saveDaily(day: string, userId: string, correct: number, ms: number, marks = '') {
     const d = this.dailyResults.get(day) ?? new Map();
     this.dailyResults.set(day, d);
     if (d.has(userId)) return false;
-    d.set(userId, { correct, ms });
+    d.set(userId, { correct, ms, marks });
     this.persist();
     return true;
   }
   async daily(day: string, userId: string) { const r = this.dailyResults.get(day)?.get(userId); return r ? { ...r } : null; }
   async dailyBoard(day: string, limit: number) {
     return [...(this.dailyResults.get(day) ?? new Map<string, { correct: number; ms: number }>())]
-      .map(([userId, r]) => ({ userId, username: this.users.get(userId)?.username ?? '?', ...r }))
+      .map(([userId, r]) => ({ userId, username: this.users.get(userId)?.username ?? '?', correct: r.correct, ms: r.ms }))
       .sort((a, b) => b.correct - a.correct || a.ms - b.ms).slice(0, limit);
   }
   async dailyBetter(day: string, correct: number, ms: number) {

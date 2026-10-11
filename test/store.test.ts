@@ -215,13 +215,13 @@ for (const [name, make] of stores) {
     // daily challenge: one result per player per day, best first
     const day = `2099-01-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`;
     if (s instanceof PgStore) await (s as any).sql`delete from kw_daily where day = ${day}`;
-    assert.equal(await s.saveDaily(day, a.id, 7, 50_000), true);
+    assert.equal(await s.saveDaily(day, a.id, 7, 50_000, '1110111011'), true);
     assert.equal(await s.saveDaily(day, a.id, 10, 1), false, 'only one try');
     await s.saveDaily(day, b.id, 7, 40_000);
     await s.saveDaily(day, c.id, 9, 90_000);
     assert.deepEqual((await s.dailyBoard(day, 10)).map((r) => r.userId), [c.id, b.id, a.id]);
     assert.equal(await s.dailyBetter(day, 7, 50_000), 2);
-    assert.deepEqual(await s.daily(day, a.id), { correct: 7, ms: 50_000 });
+    assert.deepEqual(await s.daily(day, a.id), { correct: 7, ms: 50_000, marks: '1110111011' });
     // friends: request → incoming / outgoing → accept; a mutual request accepts at once; remove
     assert.equal(await s.requestFriend(a.id, b.id), 'requested');
     assert.equal(await s.requestFriend(a.id, b.id), 'exists');
