@@ -26,7 +26,6 @@
       </div>
       <div class="xpbar" title="XP to next level"><span id="whoXp"></span></div>
       <div class="pp-stats">
-        <div><b id="whoCrit">1%</b><span>crit today</span></div>
         <div><b id="ppWins">0</b><span>wins</span></div>
         <div><b id="ppLosses">0</b><span>losses</span></div>
         <div><b id="ppRate">—</b><span>win rate</span></div>
@@ -261,7 +260,7 @@
   <section id="study" class="screen" hidden>
     <button id="studyBack" class="back">← Menu</button>
     <div class="page-head"><h2>Study spells</h2><span id="studyCrit" class="tag"></span></div>
-    <p class="sub">Spaced repetition like Anki. Your crit chance starts every day at <b>1%</b>; every spell you learn today adds <b>+1%</b> (×1.5 damage, max 50%). It resets at midnight.</p>
+    <p class="sub">Spaced repetition like Anki: each card comes back just before you would forget it.</p>
     <div id="studyNotice" class="notice" hidden></div>
     <div class="study-decks">
       <div class="deck-card">
@@ -339,7 +338,7 @@
     <p id="adminStorage" class="storage"></p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Online</th><th>Login</th><th>Role</th><th>Level</th><th>XP</th><th title="Learned spells / study set size">Spells</th><th>Crit</th><th>Registered</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Online</th><th>Login</th><th>Role</th><th>Level</th><th>XP</th><th title="Learned spells / study set size">Spells</th><th>Registered</th><th>Status</th><th></th></tr></thead>
         <tbody id="userRows"></tbody>
       </table>
     </div>
@@ -441,8 +440,7 @@
       <div id="meCard" class="fighter me"></div>
       <div class="clock-col">
         <div id="battleClock" class="clock small"></div>
-        <button id="forfeit" class="link forfeit">Forfeit</button>
-        <button class="link pause-btn" data-pause hidden>❚❚ Pause</button>
+        <div class="clock-btns"><button id="forfeit" class="link forfeit">Forfeit</button><button class="link pause-btn" data-pause hidden title="Pause">❚❚</button></div>
       </div>
       <div id="oppCard" class="fighter opp"></div>
     </div>
@@ -491,8 +489,7 @@
       </div>
       <div class="clock-col">
         <div id="dkClock" class="clock small"></div>
-        <button id="dkForfeit" class="link forfeit">Forfeit</button>
-        <button class="link pause-btn" data-pause hidden>❚❚ Pause</button>
+        <div class="clock-btns"><button id="dkForfeit" class="link forfeit">Forfeit</button><button class="link pause-btn" data-pause hidden title="Pause">❚❚</button></div>
       </div>
     </div>
     <div class="deck-middle">
@@ -591,14 +588,14 @@
         </ul>
       </li>
       <li><b>Fast + correct = more damage.</b> Combos build up to ×1.5 (5 in a row sets you on fire 🔥). <b>Skip</b> (Esc) shows the answer.</li>
-      <li><b>Study spells</b> — Anki-style flashcards. Missed words go to <i>Struggling spells</i>. Crit: 1% + 1% per spell learned today (max 50%, resets daily; a crit hits ×1.5).</li>
+      <li><b>Study spells</b> — Anki-style flashcards. Missed words go to <i>Struggling spells</i>.</li>
       <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
       <li><b>Login streak</b> — open the game on days in a row. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 5 days, Tide at 10, Storm at 15, Void at 20.</li>
     </ol>
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.8.2</div>
+<div id="version" class="version">v0.9.8.3</div>
 <script src="/app.js"></script>
 </body>
 </html>

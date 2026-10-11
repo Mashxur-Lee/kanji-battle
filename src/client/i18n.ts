@@ -242,10 +242,13 @@ const RU: Record<string, string> = {
   'Paused': 'Пауза',
   'The clock, the AI and the dragon wait for you.': 'Время, ИИ и дракон ждут вас.',
   'Resume': 'Продолжить',
-  '❚❚ Pause': '❚❚ Пауза',
+  '❚❚ Pause': '❚❚ Пауза', 'Pause': 'Пауза',
   'You can pause only a private game against the AI (or a solo Boss run)': 'Пауза доступна только в своей игре против ИИ (или в одиночной Битве с боссом)',
   'The words you missed are now in Study spells → Struggling spells.': 'Слова с ошибками теперь в «Изучать заклинания» → «Трудные заклинания».',
   'Today\'s words': 'Слова дня',
+  'Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review.': '«Изучать заклинания» — колода карточек: чем больше слов вы знаете, тем больше заклинаний можете сотворить. Слова, на которых вы ошиблись в бою, возвращаются туда на повторение.',
+  'Spaced repetition like Anki: each card comes back just before you would forget it.': 'Интервальные повторения, как в Anki: каждая карточка возвращается как раз перед тем, как вы бы её забыли.',
+  'Playing with AI gives half XP; a forfeit gives none.': 'Игра с ИИ даёт половину опыта; сдача — ничего.',
   // admin
   'Role': 'Роль', 'Level': 'Уровень', 'XP': 'Опыт', 'Spells': 'Заклинания', 'Crit': 'Крит', 'Registered': 'Регистрация', 'Status': 'Статус',
   'never logged in': 'ни разу не входил',
@@ -450,7 +453,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Playing since (.+)$/, 'Играет с $1'],
   [/^(\d+) online now · (\d+) accounts · (\d+) banned$/, 'Сейчас в сети: $1 · аккаунтов: $2 · заблокировано: $3'],
   [/^last day: (.+)$/, 'последний день: $1'],
-  [/^(\d+(?:\.\d+)?)% crit today$/, '$1% крит сегодня'],
+  [/^(\d+) learned today · (\d+) learned in total$/, 'выучено сегодня: $1 · всего: $2'],
 ];
 
 export function tr(s: string): string {

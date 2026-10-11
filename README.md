@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.8.2
+# Kanji Wizards · v0.9.8.3
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -64,7 +64,7 @@ browser only talks to this server, never to the database).
 
 ## Profile
 
-Click your name (top left) for your stats: level and XP, today's crit, wins, losses, win rate and spells
+Click your name (top left) for your stats: level and XP, wins, losses, win rate and spells
 learned. You can upload a profile picture there; it's cropped to a square, shrunk to 128×128 in your browser
 and shown next to your name in lobbies and games (`GET /api/avatar/:id`, max 60 KB, PNG/JPEG/WebP only).
 
@@ -195,7 +195,7 @@ until you study them down to 100 (checked on the server too; admins are never lo
 ## AI players
 
 The host can add AI players in the lobby (🤖 Add AI) and pick how much they know: **Beginner** (かな + N5 words,
-slow, wrong about half the time — the tutorial's opponent) or N5 to N1. They fill an
+slow, wrong about half the time — the tutorial's opponent) or N5 to N1. Each AI holds a random staff and flame colour. They fill an
 opponent's seat in the duels, Rapid and Deck Duel, or join your party against the dragon (up to 3 AI). The
 chance that an AI gets a word right (`src/server/Bot.ts`):
 
@@ -223,7 +223,7 @@ always Ready. Matches with an AI give half XP; a room with only AI left closes.
   cast in it is added too. *Struggling spells* —
   words you missed in battles. Anki-style cards (Again / Hard / Okay / Easy, SM-2 scheduling,
   `src/shared/srs.ts`).
-- **Crit (daily)**: every day starts at 1 %; each spell learned today (a flashcard passed with Hard/Okay/Easy, once per card per day) adds +1 %, max 50 %. It drops back to 1 % at your local midnight. A crit hits ×1.5.
+- **No critical hits** (removed in 0.9.8.3): damage comes from the word's difficulty, your speed and your combo.
 
 ## 3D arena
 
@@ -292,8 +292,8 @@ a word's JLPT list is kept as `jlpt` (`rebinByStrokes` in `src/server/vocab.ts`)
 
 ## Writing only the kanji
 
-In Kanji Writing and Deck Duel you write only the kanji: the kana of the word are filled in (必ず → write 必; the pad
-shows □ず). Writing the whole word still counts. Words of 2+ kanji forgive one shaky character (4+: two) if it has
+In Kanji Writing and Deck Duel you write only the kanji: the kana of the word are filled in — the pad shows them printed
+in their own shaded cells between and after the empty ones (必ず → [ ][ず], 売り場 → [ ][り][ ]). Writing the whole word still counts. Words of 2+ kanji forgive one shaky character (4+: two) if it has
 about the right number of strokes and shape; with a Japanese keyboard, the kanji alone count, and in words of 3+
 kanji one wrongly picked kanji is forgiven (`writeTargets` / `isCorrectWriting` in `src/shared/kana.ts`).
 
@@ -333,7 +333,7 @@ shape is compared with all ~2,300 characters (`src/server/handwriting/shape.ts`)
 (Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
 match clock pauses). Having cards but no mana for any of them skips your turn (−100 HP, like any skipped turn); mana keeps coming back. After 8 minutes, overtime: the cards are gone and the duel becomes a
 1v1 Rapid duel with the HP you have left — random kanji words (N5–N1, only the kanji shows), the first to type the reading
-(hiragana or romaji, wrong guesses may retry) hits: N5 60 · N4 80 · N3 100 · N2 130 · N1 170 damage (crits count). 12 s per word;
+(hiragana or romaji, wrong guesses may retry) hits: N5 60 · N4 80 · N3 100 · N2 130 · N1 170 damage. 12 s per word;
 after 3 minutes of overtime the higher HP wins. Letting the choose clock run out without playing a card costs 100 HP.
 
 ## Gameplay details
@@ -360,7 +360,7 @@ after 3 minutes of overtime the higher HP wins. Letting the choose clock run out
   every 3 s).
 - **Saved progress**: accounts, XP and study sets live in Postgres and are never reset by an update. XP saved
   before the steeper level curve was converted once so nobody lost a level. The admin **Users** page shows each
-  player's level, XP, learned spells / study-set size and crit, and warns if no database is connected.
+  player's level, XP, learned spells / study-set size, and warns if no database is connected.
 - **Forfeit** goes to the results screen; in the preparation phase **← Lobby** returns everyone to the lobby.
 - **Audio** is synthesised in the browser (no files): a chime that gets deeper and longer with the combo,
   win/lose jingles, a calm dark-fantasy theme in menus and a tenser battle theme (driving strings, war drums,
@@ -369,7 +369,7 @@ after 3 minutes of overtime the higher HP wins. Letting the choose clock run out
 
 ## Structure
 
-- `src/shared` protocol · vocab helpers · progress (XP, crit, backgrounds) · srs · deck rules
+- `src/shared` protocol · vocab helpers · progress (XP, backgrounds, achievements) · srs · deck rules
 - `src/server` `Game` (reading, writing, boss) · `RapidGame` · `DeckGame` · `Balance` · `Room` · `RoomManager` ·
   `Session` · `http` (REST API) · `db/` (memory, file and Postgres stores) · `auth/` · `study/` · `handwriting/`
 - `src/client` `net` · `api` · `ui` · `deckui` · `study` · `pad` · `wizard` (pixel sprites) · `backgrounds` · `audio` · `main`

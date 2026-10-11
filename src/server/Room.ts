@@ -1,6 +1,6 @@
 import { PausableClock } from './clock';
 import { Bot, botLevels, botName, isBotLevel, type BotHost } from './Bot';
-import { CRIT_BASE } from '../shared/progress';
+import { FLAMES, STAFFS } from '../shared/progress';
 import { CHAT_MAX_LENGTH, type BossView, type MatchDetail, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
 import { BOSS_PARTY_SIZE, BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
@@ -174,7 +174,7 @@ export class Room {
     if (this.roster.length >= this.maxPlayers) return this.clients.get(by)?.send({ type: 'error', message: 'Room is full' });
     const id = `ai-${this.code}-${++this.nextBot}`;
     const bot = new Bot(id, level, this.botHost());
-    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: botLevels(level), online: true, profile: { crit: CRIT_BASE, xp: 0 }, ready: true, rtt: 1, bot });
+    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: botLevels(level), online: true, profile: { crit: 0, xp: 0, staff: STAFFS[Math.floor(Math.random() * STAFFS.length)].id, flame: FLAMES[Math.floor(Math.random() * FLAMES.length)].id }, ready: true, rtt: 1, bot }); // each AI holds a random staff (and flame colour)
     this.broadcastLobby();
     this.broadcastNet();
   }
@@ -351,19 +351,20 @@ export class Room {
       if (!judge) return;
       const writable = this.deps.writableFilter ?? (() => true);
       this.phase = 'game';
-      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: p.profile.crit, pic: p.profile.pic ?? null, flame: p.bot ? 'purple' : p.profile.flame ?? 'blue', staff: p.bot ? 'storm' : p.profile.staff ?? 'verdant' })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge, Math.random, clock.now, undefined, clock);
+      // 0.9.8.3: no critical hits any more (crit: 0 for everyone)
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: 0, pic: p.profile.pic ?? null, flame: p.profile.flame ?? 'blue', staff: p.profile.staff ?? 'verdant' })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge, Math.random, clock.now, undefined, clock);
       this.game.start();
       return;
     }
     if (this.mode === 'rapid') {
       const pool = pickPool(this.unionLevels(), 40);
       this.phase = 'game';
-      this.game = new RapidGame(this.roster.map((p) => ({ id: p.id, maxHp: this.hpFor(p.id), crit: p.profile.crit })), pool, emit, this.opts.game, Math.random, clock.now, clock);
+      this.game = new RapidGame(this.roster.map((p) => ({ id: p.id, maxHp: this.hpFor(p.id), crit: 0 })), pool, emit, this.opts.game, Math.random, clock.now, clock);
       this.game.start();
       return;
     }
     const filter = this.mode === 'writing' ? this.deps.writableFilter : undefined;
-    const setups = this.roster.map((p) => ({ id: p.id, pool: pickPool(p.levels, this.opts.poolSize, Math.random, undefined, filter), maxHp: this.hpFor(p.id), crit: p.profile.crit }));
+    const setups = this.roster.map((p) => ({ id: p.id, pool: pickPool(p.levels, this.opts.poolSize, Math.random, undefined, filter), maxHp: this.hpFor(p.id), crit: 0 }));
     // a level combination with no writable words would leave someone with an empty pool
     for (const s of setups) {
       if (s.pool.length === 0) {
@@ -521,8 +522,8 @@ export class Room {
         level: levelOf(p.profile.xp),
         bot: p.bot?.level ?? null,
         pic: p.profile.pic ?? null,
-        flame: p.bot ? 'purple' : p.profile.flame ?? 'blue',
-        staff: p.bot ? 'storm' : p.profile.staff ?? 'verdant',
+        flame: p.profile.flame ?? 'blue',
+        staff: p.profile.staff ?? 'verdant',
         ready: p.ready,
       };
     });

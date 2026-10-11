@@ -437,7 +437,8 @@ function beginWriting(id: number, kanji: string) {
   ui.$('imePre').textContent = pre; ui.$('imePre').hidden = !pre;
   ui.$('imePost').textContent = post; ui.$('imePost').hidden = !post;
   written = [];
-  pad.setCells(charCount); // write the whole word at once
+  // write the whole word at once; the kana are already in their cells (□り□ → [ ][り][ ])
+  if (writeShape.includes('□') && /[^□]/.test(writeShape)) pad.setLayout(writeShape); else pad.setCells(charCount);
   setEraser(false);
   arena()?.channel(0.35); // the staff starts to glow; brighter with every stroke
   if (mode === 'deck') ui.mountWriteArea('dkWrite');

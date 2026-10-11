@@ -572,9 +572,13 @@
     "The clock, the AI and the dragon wait for you.": "\u0412\u0440\u0435\u043C\u044F, \u0418\u0418 \u0438 \u0434\u0440\u0430\u043A\u043E\u043D \u0436\u0434\u0443\u0442 \u0432\u0430\u0441.",
     "Resume": "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C",
     "\u275A\u275A Pause": "\u275A\u275A \u041F\u0430\u0443\u0437\u0430",
+    "Pause": "\u041F\u0430\u0443\u0437\u0430",
     "You can pause only a private game against the AI (or a solo Boss run)": "\u041F\u0430\u0443\u0437\u0430 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u0442\u043E\u043B\u044C\u043A\u043E \u0432 \u0441\u0432\u043E\u0435\u0439 \u0438\u0433\u0440\u0435 \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418 (\u0438\u043B\u0438 \u0432 \u043E\u0434\u0438\u043D\u043E\u0447\u043D\u043E\u0439 \u0411\u0438\u0442\u0432\u0435 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C)",
     "The words you missed are now in Study spells \u2192 Struggling spells.": "\u0421\u043B\u043E\u0432\u0430 \u0441 \u043E\u0448\u0438\u0431\u043A\u0430\u043C\u0438 \u0442\u0435\u043F\u0435\u0440\u044C \u0432 \xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2192 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB.",
     "Today's words": "\u0421\u043B\u043E\u0432\u0430 \u0434\u043D\u044F",
+    "Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review.": "\xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2014 \u043A\u043E\u043B\u043E\u0434\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A: \u0447\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0441\u043B\u043E\u0432 \u0432\u044B \u0437\u043D\u0430\u0435\u0442\u0435, \u0442\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043E\u0442\u0432\u043E\u0440\u0438\u0442\u044C. \u0421\u043B\u043E\u0432\u0430, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0432\u044B \u043E\u0448\u0438\u0431\u043B\u0438\u0441\u044C \u0432 \u0431\u043E\u044E, \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E\u0442\u0441\u044F \u0442\u0443\u0434\u0430 \u043D\u0430 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u0435.",
+    "Spaced repetition like Anki: each card comes back just before you would forget it.": "\u0418\u043D\u0442\u0435\u0440\u0432\u0430\u043B\u044C\u043D\u044B\u0435 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044F, \u043A\u0430\u043A \u0432 Anki: \u043A\u0430\u0436\u0434\u0430\u044F \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0441\u044F \u043A\u0430\u043A \u0440\u0430\u0437 \u043F\u0435\u0440\u0435\u0434 \u0442\u0435\u043C, \u043A\u0430\u043A \u0432\u044B \u0431\u044B \u0435\u0451 \u0437\u0430\u0431\u044B\u043B\u0438.",
+    "Playing with AI gives half XP; a forfeit gives none.": "\u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     // admin
     "Role": "\u0420\u043E\u043B\u044C",
     "Level": "\u0423\u0440\u043E\u0432\u0435\u043D\u044C",
@@ -881,7 +885,7 @@
     [/^Playing since (.+)$/, "\u0418\u0433\u0440\u0430\u0435\u0442 \u0441 $1"],
     [/^(\d+) online now · (\d+) accounts · (\d+) banned$/, "\u0421\u0435\u0439\u0447\u0430\u0441 \u0432 \u0441\u0435\u0442\u0438: $1 \xB7 \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u043E\u0432: $2 \xB7 \u0437\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u043E: $3"],
     [/^last day: (.+)$/, "\u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u0434\u0435\u043D\u044C: $1"],
-    [/^(\d+(?:\.\d+)?)% crit today$/, "$1% \u043A\u0440\u0438\u0442 \u0441\u0435\u0433\u043E\u0434\u043D\u044F"]
+    [/^(\d+) learned today · (\d+) learned in total$/, "\u0432\u044B\u0443\u0447\u0435\u043D\u043E \u0441\u0435\u0433\u043E\u0434\u043D\u044F: $1 \xB7 \u0432\u0441\u0435\u0433\u043E: $2"]
   ];
   function tr(s) {
     if (lang() !== "ru") return s;
@@ -1175,7 +1179,6 @@
     const l = levelXp(xp);
     return l.into / l.need;
   };
-  var critText = (crit) => `${(crit * 100).toFixed(1).replace(/\.0$/, "")}%`;
   var BACKGROUNDS = [
     { id: "forest", name: "Forest", level: 0 },
     { id: "swamp", name: "Swamp", level: 5 },
@@ -2178,7 +2181,6 @@
     const lx = levelXp(p.xp);
     $("whoLv").textContent = String(lx.level);
     $("whoLevel").textContent = `Lv ${lx.level} \xB7 ${lx.into.toLocaleString()} / ${lx.need.toLocaleString()} XP`;
-    $("whoCrit").textContent = critText(p.crit);
     $("ppWins").textContent = String(p.wins ?? 0);
     $("ppLosses").textContent = String(p.losses ?? 0);
     const games = (p.wins ?? 0) + (p.losses ?? 0);
@@ -2193,7 +2195,6 @@
       el8.classList.toggle("has-pic", !!p.pic);
     }
     $("picRemove").hidden = !p.pic;
-    $("whoCrit").title = "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.";
     $("whoXp").style.width = `${levelProgress(p.xp) * 100}%`;
     $("whoXp").parentElement.title = `${lx.into} / ${lx.need} XP to level ${lx.level + 1}`;
   }
@@ -2302,7 +2303,6 @@
           h("td", "num", `Lv ${u.level ?? 0}`),
           h("td", "num", (u.xp ?? 0).toLocaleString()),
           h("td", "num", `${u.learned ?? 0} / ${u.cards ?? 0}`),
-          h("td", "num", critText(u.crit ?? 0)),
           h("td", "", new Date(u.createdAt).toLocaleDateString(locale())),
           h("td", u.banned ? "status-ban" : "status-ok", u.banned ? "Banned" : "Active"),
           action
@@ -2360,7 +2360,7 @@
     const g = GUIDES[mode3];
     const ol = h("ol", "g-flow");
     for (const [icon, text] of g.steps) ol.append(append(h("li"), h("span", "g-ic", icon), h("span", "", text)));
-    return [h("h3", "", g.title), g.pic(), ol, h("p", "g-foot", "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.")];
+    return [h("h3", "", g.title), g.pic(), ol, h("p", "g-foot", "Playing with AI gives half XP; a forfeit gives none.")];
   }
   function renderModeGuide(mode3) {
     if (mode3 === "deck") return;
@@ -2384,7 +2384,6 @@
           x.dataset.removeBot = p.id;
           li.append(x);
         }
-        if (p.crit > 0 && !p.bot) li.append(h("span", "critv", `\u2726 ${critText(p.crit)} crit`));
         if (p.id === hostId) li.append(h("span", "tag", "host"));
         if (!p.online) li.append(h("span", "tag off", "away \u2014 seat kept"));
         if (mode3 === "deck") li.append(h("span", "tag " + (p.ready ? "ready" : "notready"), p.ready ? "\u2713 Ready" : "Not ready"));
@@ -2492,7 +2491,7 @@
     }
     const nameEl = h("span", "n", label);
     if (!label.endsWith("(you)")) markProfile(nameEl, p);
-    const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`), h("span", "critv", p.crit > 0 ? ` \u2726${critText(p.crit)}` : "")), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo` : ""));
+    const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`)), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo` : ""));
     el8.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
@@ -4244,7 +4243,7 @@
       body: "A kanji appears; type how it is read \u2014 in hiragana, or in romaji with a normal keyboard \u2014 and press Enter. Fast and right in a row hits harder.",
       extra: tryIt
     },
-    { title: "Study makes you stronger", body: "Study spells is a flashcard deck. Every spell you learn today raises your critical-hit chance, and words you miss in battle come back there to review." },
+    { title: "Study makes you stronger", body: "Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review." },
     { title: "More to unlock", body: "You start with Kanji Reading and Rapid. Kanji Writing and the Boss fight unlock at level 1, Deck Duel at level 2. There is also a Daily challenge, Progress, Friends \u2014 and monthly goals with rewards." },
     { title: "\u304B\u306A first, then kanji", body: `Beginners: study \u304B\u306A in Study spells until you know it by heart. Then tick "I've mastered hiragana" in Settings (the sliders button, top-right) \u2014 and the kanji levels N5 to N1 open for studying and battles.` },
     { title: "Your first battle", body: "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them." }
@@ -5310,7 +5309,7 @@
   }
 
   // src/shared/version.ts
-  var VERSION = "0.9.8.2";
+  var VERSION = "0.9.8.3";
 
   // src/client/net.ts
   var GameSocket = class {
@@ -5399,6 +5398,8 @@
       __publicField(this, "erasing", false);
       __publicField(this, "eraserAt", null);
       __publicField(this, "cells", 1);
+      /** Cells that already hold a kana (written for you), by index → the kana. */
+      __publicField(this, "printed", /* @__PURE__ */ new Map());
       __publicField(this, "rubbing", false);
       this.ctx = canvas.getContext("2d");
       canvas.addEventListener("pointerdown", (e) => this.down(e));
@@ -5435,9 +5436,22 @@
       this.redraw();
       if (this.strokes.length !== before) this.onChange();
     }
+    /**
+     * The word's shape: □ = a kanji to write, anything else = a kana written for you, shown in its own cell
+     * (必ず → [ ][ず], 売り場 → [ ][り][ ]). Up to 6 cells.
+     */
+    setLayout(shape) {
+      const cells = [...shape].slice(0, 6);
+      this.printed = new Map(cells.flatMap((c, i) => c === "\u25A1" ? [] : [[i, c]]));
+      this.resize(cells.length);
+    }
     /** Resize for a word of n characters (capped at 4 cells wide; longer words just write smaller). */
     setCells(n) {
-      this.cells = Math.max(1, Math.min(4, n));
+      this.printed = /* @__PURE__ */ new Map();
+      this.resize(Math.min(4, n));
+    }
+    resize(n) {
+      this.cells = Math.max(1, n);
       this.canvas.width = 600 * this.cells;
       this.canvas.height = 600;
       this.canvas.style.setProperty("--cols", String(this.cells));
@@ -5512,6 +5526,17 @@
     redraw() {
       const { ctx: ctx2, canvas } = this;
       ctx2.clearRect(0, 0, canvas.width, canvas.height);
+      for (const [i, kana] of this.printed) {
+        ctx2.save();
+        ctx2.fillStyle = "rgba(110, 90, 200, .1)";
+        ctx2.fillRect(i * 600, 0, 600, 600);
+        ctx2.fillStyle = "rgba(60, 45, 130, .55)";
+        ctx2.font = '700 380px "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif';
+        ctx2.textAlign = "center";
+        ctx2.textBaseline = "middle";
+        ctx2.fillText(kana, i * 600 + 300, 320);
+        ctx2.restore();
+      }
       if (this.cells > 1) {
         ctx2.save();
         ctx2.strokeStyle = "rgba(60, 50, 110, .28)";
@@ -5605,7 +5630,7 @@
     levelChips(s.studyLevels);
     counts($5("countsAll"), s.decks.all);
     counts($5("countsStruggle"), s.decks.struggling);
-    $5("studyCrit").textContent = `\u2726 ${critText(s.profile.crit)} crit today \xB7 ${s.profile.learnedToday} learned today (+1% each, max 50%) \xB7 ${s.profile.learned} learned in total`;
+    $5("studyCrit").textContent = `${s.profile.learnedToday} learned today \xB7 ${s.profile.learned} learned in total`;
     const notice = $5("studyNotice");
     notice.hidden = !s.notice;
     notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
@@ -5693,7 +5718,6 @@
     const card = current;
     try {
       const res = await api.review(card.vocabId, r2);
-      $5("whoCrit").textContent = `\u2726 ${critText(res.crit)} crit`;
       if (r2 === "again") queue2.splice(Math.min(3, queue2.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
       else if (r2 === "hard" && card.state !== "review") queue2.splice(Math.min(6, queue2.length), 0, card);
     } catch (e) {
@@ -6899,7 +6923,8 @@
     $("imePost").textContent = post;
     $("imePost").hidden = !post;
     written = [];
-    pad.setCells(charCount);
+    if (writeShape.includes("\u25A1") && /[^□]/.test(writeShape)) pad.setLayout(writeShape);
+    else pad.setCells(charCount);
     setEraser(false);
     arena()?.channel(0.35);
     if (mode2 === "deck") mountWriteArea("dkWrite");
