@@ -10,13 +10,15 @@ const PATCHES: Patch[] = [
     v: '0.9.9.1', date: '2026-10',
     en: [
       'Unlocks are earned again (the closed beta is over), but easier: Kanji Writing, the Boss fight and Deck Duel open at level 1; backgrounds at levels 3 / 5 / 8 / 10; staffs at a 3 / 5 / 8 / 10-day login streak.',
-      'A new Witch: a tall, low-poly witch after her concept art — wide hat with a crescent moon, long wavy hair, open coat with bell sleeves and a pointed hem, heeled boots.',
+      'A new Witch: a tall, low-poly witch after her concept art — a sculpted face with painted eyes, brows and lips, a wide hat with a crescent moon, long wavy hair, open coat with bell sleeves and a pointed hem, heeled boots.',
+      'Verdant staff: the branches now rise out of the shaft and curl in over the orb (no more cut end or tips sticking out).',
       'The rotating kanji circle is back under the fighters in every 3D arena; the orange V on the Plains is gone; the Castle’s warriors now fight each to their own rhythm.',
       '“← Menu” is a clear button at the top left of every page; the Study spells cards are centred; Back to lobby no longer covers the Preparation title; the Challenge mode list fits inside the profile card.',
     ],
     ru: [
       'Награды снова нужно заслужить (закрытый бета-тест окончен), но проще: Написание кандзи, Битва с боссом и Дуэль колод открываются на уровне 1; фоны — на уровнях 3 / 5 / 8 / 10; посохи — за серию входов 3 / 5 / 8 / 10 дней.',
-      'Новая Ведьма: высокая low-poly ведьма по концепт-арту — широкая шляпа с полумесяцем, длинные волнистые волосы, открытое пальто с рукавами-колоколами и зубчатым подолом, сапоги на каблуках.',
+      'Новая Ведьма: высокая low-poly ведьма по концепт-арту — вылепленное лицо с нарисованными глазами, бровями и губами, широкая шляпа с полумесяцем, длинные волнистые волосы, открытое пальто с рукавами-колоколами и зубчатым подолом, сапоги на каблуках.',
+      'Посох Листвы: ветви теперь растут из древка и загибаются над сферой (больше не торчат и не видно среза).',
       'Вращающийся круг с кандзи снова под бойцами на всех 3D-аренах; оранжевая «V» на Равнинах убрана; воины у Замка теперь сражаются каждый в своём ритме.',
       '«← Меню» — заметная кнопка слева вверху на каждой странице; карточки «Изучать заклинания» по центру; «Назад в лобби» больше не закрывает заголовок «Подготовка»; список режимов для вызова помещается в карточке профиля.',
     ],

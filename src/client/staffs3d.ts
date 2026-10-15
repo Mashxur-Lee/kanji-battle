@@ -138,7 +138,8 @@ function buildVerdant(k: Kit): Orb {
   const leaf = m.leaf(col(0.015, 0.14, 0.02), col(0.1, 0.34, 0.045));
   const W = 0.022, C = (z: number) => wave(z, W);
   const zs = [0, 0.14, 0.5, 0.95, 1.4, 1.85, 2.2, 2.42, 2.55], rs = [0.02, 0.052, 0.058, 0.05, 0.056, 0.05, 0.06, 0.072, 0.078];
-  k.stat(tubeGeo(zs.map((z) => [...C(z), z] as P3), rs, { radial: 8, per: 5 }), bark);
+  // (the shaft tapers away inside the branch bundle instead of ending in a flat cut that showed between the branches)
+  k.stat(tubeGeo([...zs, 2.66, 2.74].map((z) => [...C(z), z] as P3), [...rs, 0.05, 0.012], { radial: 8, per: 5 }), bark);
   for (let i = 0; i < 5; i++) { // roots at the foot
     const a = (2 * Math.PI * i) / 5 + rng.uniform(-0.3, 0.3), c = Math.cos(a), s = Math.sin(a);
     k.stat(tubeGeo([[0.03 * c, 0.03 * s, 0.3], [0.06 * c, 0.06 * s, 0.17], [0.1 * c, 0.1 * s, 0.07], [0.14 * c, 0.14 * s, 0.012]], [0.04, 0.026, 0.016, 0.006], { radial: 6 }), bark);
@@ -148,7 +149,8 @@ function buildVerdant(k: Kit): Orb {
     leaves.push({ p, rx: rng.uniform(0.2, 0.9), ry: rng.uniform(-0.3, 0.3), rz: out - Math.PI / 2 + rng.uniform(-0.5, 0.5), s, ph: rng.uniform(0, 6.28) });
   };
   // the twisting branch cradle round the orb
-  const rr = [0.02, 0.1, 0.21, 0.25, 0.2, 0.1], zz = [2.46, 2.62, 2.8, 3.02, 3.24, 3.38];
+  // the cradle: rising out of the shaft and curling in over the orb (the tips meet above it rather than poking out)
+  const rr = [0.015, 0.09, 0.2, 0.235, 0.185, 0.06], zz = [2.42, 2.6, 2.8, 3.02, 3.22, 3.33];
   for (let b = 0; b < 6; b++) {
     const a0 = (2 * Math.PI * b) / 6 + rng.uniform(-0.15, 0.15);
     const pts = rr.map((r, i) => { const a = a0 + 0.22 * i; return [r * Math.cos(a), r * Math.sin(a), zz[i] + rng.uniform(-0.02, 0.02)] as P3; });
