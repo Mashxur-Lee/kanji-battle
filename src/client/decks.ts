@@ -158,7 +158,9 @@ export function showMissedSave(missed: MissedWord[]) {
   const sync = async (id: string, on: boolean) => {
     try {
       if (on) { const r = await api.deckAdd(deck, [id]); r.added.forEach((x) => ours.add(x)); }
-      else if (ours.has(id)) { await api.deckRemove(deck, [id]); ours.delete(id); }
+      // untick: out of the deck again — always for Struggling (that is the point of unticking), and for the
+      // other decks only if this game put it there (never delete a word you had studied before)
+      else if (ours.has(id) || deck === 'struggling') { await api.deckRemove(deck, [id]); ours.delete(id); }
       say(`${ticked.size} of ${missed.length} in ${tr(DECK_LABEL[deck])}`);
     } catch (e) { say((e as Error).message); }
   };

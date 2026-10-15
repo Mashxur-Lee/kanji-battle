@@ -6,6 +6,9 @@
 
 import * as THREE from 'three';
 import { buildStaff, type Staff } from './staffs3d';
+import { buildWizard } from './wizard3d';
+import { buildKnight } from './knight3d';
+import { buildGoblin } from './goblin3d';
 import { buildWitch } from './witch3d';
 
 export type CharKind = 'wizard' | 'witch' | 'goblin' | 'knight' | 'kid' | 'human';
@@ -29,6 +32,11 @@ const ROBES: Record<Side, number> = { me: 0x3d5ad6, opp: 0xc23a4c, ally: 0x2f9f7
 
 export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Texture, staffSkin?: string): Character {
   if (kind === 'witch') return buildWitch(side, glowTex, staffSkin); // 0.9.9.1: the detailed low-poly witch (witch3d.ts)
+  // 0.9.9.2: the wizard, knight and goblin after their concept sheets (wizard3d / knight3d / goblin3d.ts)
+  if (kind === 'wizard') return buildWizard(side, glowTex, staffSkin);
+  if (kind === 'knight') return buildKnight(side, glowTex, staffSkin);
+  if (kind === 'goblin') return buildGoblin(side, glowTex, staffSkin);
+  kind = kind as CharKind; // the older primitive build below (the kid and the human) still shares the kinds' branches
   const materials: Character['materials'] = [];
   const mat = (color: number, o: { metal?: number; rough?: number; emissive?: number; ei?: number } = {}) => {
     // transparent from the start (opacity 1), so Frost can fade the model without a shader recompile hitch

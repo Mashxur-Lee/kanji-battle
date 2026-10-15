@@ -310,6 +310,7 @@ function onMessage(msg: ServerMessage) {
       players = msg.players;
       mode = msg.mode;
       if (msg.resume && ui.currentScreen() === 'battle') { ui.resumeBattle(players, msg.boss, you, msg.durationMs); break; }
+      pendingMissed = null;
       ui.showBattle(msg.mode, players, msg.boss, you, msg.countdownMs, msg.durationMs, (n) => (n > 0 ? audio.sfx.tick() : audio.sfx.go()));
       break;
     case 'challenge':
@@ -371,6 +372,7 @@ function onMessage(msg: ServerMessage) {
         else if (msg.mode === 'boss' || msg.winnerId) audio.sfx.lose();
         resetDeck();
         ui.showResults(msg.mode, msg.players, you, msg.winnerId, msg.teamWon, msg.reason, msg.stats);
+        if (pendingMissed) { showMissedSave(pendingMissed); pendingMissed = null; } // the words you missed: untick to keep them out of the deck
       }, msg.reason === 'forfeit' ? 400 : 2000);
       break;
     }
@@ -378,7 +380,8 @@ function onMessage(msg: ServerMessage) {
       setPaused(msg.on);
       break;
     case 'progress':
-      if (msg.missed?.length && ui.currentScreen() === 'results') showMissedSave(msg.missed);
+      // the server's report usually arrives before the results screen is up: keep it until then
+      if (msg.missed?.length) { if (ui.currentScreen() === 'results') showMissedSave(msg.missed); else pendingMissed = msg.missed; }
       setTimeout(() => {
         ui.showXp(msg.gained, msg.level, msg.levelUp);
         if (msg.levelUp) ui.toast(`Level ${msg.level}! Check Customize for new unlocks.`, 5000);
@@ -450,6 +453,8 @@ pad.onDraw = () => {
   ui.gemBack();
   if (Date.now() - twitchAt > 140) { twitchAt = Date.now(); arena()?.twitch(); } // the staff moves as you write
 };
+/** missed words reported before the results screen opened */
+let pendingMissed: import('../shared/protocol').MissedWord[] | null = null;
 // 3D mouse look: the arena tells us where you look (throttled there); the other players' models turn their heads
 addEventListener('kw:look', (e) => { const d = (e as CustomEvent<{ yaw: number; pitch: number }>).detail; socket.send({ type: 'look', yaw: d.yaw, pitch: d.pitch }); });
 /** Deck Duel: the opponent watches your pad live (throttled, the last state always goes out). */

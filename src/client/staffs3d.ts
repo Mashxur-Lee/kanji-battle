@@ -138,8 +138,8 @@ function buildVerdant(k: Kit): Orb {
   const leaf = m.leaf(col(0.015, 0.14, 0.02), col(0.1, 0.34, 0.045));
   const W = 0.022, C = (z: number) => wave(z, W);
   const zs = [0, 0.14, 0.5, 0.95, 1.4, 1.85, 2.2, 2.42, 2.55], rs = [0.02, 0.052, 0.058, 0.05, 0.056, 0.05, 0.06, 0.072, 0.078];
-  // (the shaft tapers away inside the branch bundle instead of ending in a flat cut that showed between the branches)
-  k.stat(tubeGeo([...zs, 2.66, 2.74].map((z) => [...C(z), z] as P3), [...rs, 0.05, 0.012], { radial: 8, per: 5 }), bark);
+  // (the shaft ends in a low dome inside the branch bundle — no flat cut and no spike between the branches)
+  k.stat(tubeGeo([...zs, 2.6, 2.63].map((z) => [...C(z), z] as P3), [...rs, 0.06, 0.015], { radial: 8, per: 5 }), bark); // a rounded top, hidden in the branches
   for (let i = 0; i < 5; i++) { // roots at the foot
     const a = (2 * Math.PI * i) / 5 + rng.uniform(-0.3, 0.3), c = Math.cos(a), s = Math.sin(a);
     k.stat(tubeGeo([[0.03 * c, 0.03 * s, 0.3], [0.06 * c, 0.06 * s, 0.17], [0.1 * c, 0.1 * s, 0.07], [0.14 * c, 0.14 * s, 0.012]], [0.04, 0.026, 0.016, 0.006], { radial: 6 }), bark);
