@@ -13,6 +13,7 @@ export type Side = 'me' | 'opp' | 'ally';
 export interface Character {
   root: THREE.Group; // stands on the floor at y = 0, faces +z
   body: THREE.Group; // everything above the feet (bobs, leans)
+  head: THREE.Group; // turns where the player looks (mouse look, sent over the network)
   arm: THREE.Group; // right arm pivot (shoulder), holds the staff
   staffPivot: THREE.Group; // the staff in the hand (tilted to thrust it forward when casting)
   crystal: THREE.Mesh;
@@ -125,7 +126,7 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
   const { gem: crystal, gemMat: crystalMat, glow } = staff;
 
   root.scale.setScalar(s);
-  return { root, body, arm, staffPivot, crystal, crystalMat, glow, staff, height: 1.95 * s, materials };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 1.95 * s, materials };
 }
 
 /** Which model a player gets: Deck Duel heroes, or the level avatar in the other modes. */

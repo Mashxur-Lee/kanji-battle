@@ -1,7 +1,7 @@
 import { PausableClock } from './clock';
 import { Bot, botLevels, botName, isBotLevel, type BotHost } from './Bot';
 import { FLAMES, STAFFS } from '../shared/progress';
-import { CHAT_MAX_LENGTH, type BossView, type MatchDetail, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
+import { CHAT_MAX_LENGTH, type BossView, type MatchDetail, type MissedWord, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
 import { BOSS_PARTY_SIZE, BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
 import { DEFAULT_CONFIG, Game, WRITING_CONFIG, type GameConfig, type GameEvent, type Match, type WritingJudge } from './Game';
@@ -40,7 +40,7 @@ export interface MatchResult {
   /** what goes into the player's match history */
   record?: Omit<MatchDetail, 'id'>;
 }
-export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number; achievements?: string[] }>>;
+export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number; achievements?: string[]; missed?: MissedWord[] }>>;
 
 /** Things the Room needs from the outside world. */
 export interface RoomDeps {
@@ -254,6 +254,16 @@ export class Room {
     const msg: ServerMessage = { type: 'deck_ink', castId, strokes, cells: Math.max(1, Math.min(4, Math.round(cells))) };
     for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
   }
+  /** 3D mouse look: relayed to the others in the room (a game must be on; at most ~8 a second per player) */
+  private lastLook = new Map<PlayerId, number>();
+  look(id: PlayerId, yaw: number, pitch: number, now = Date.now()) {
+    if (!this.game || !Number.isFinite(yaw) || !Number.isFinite(pitch)) return;
+    if (now - (this.lastLook.get(id) ?? 0) < 110) return;
+    this.lastLook.set(id, now);
+    const clamp = (v: number, m: number) => Math.round(Math.max(-m, Math.min(m, v)) * 1000) / 1000;
+    const msg: ServerMessage = { type: 'look', id, yaw: clamp(yaw, 0.5), pitch: clamp(pitch, 0.3) };
+    for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
+  }
   answer(id: PlayerId, challengeId: number, text: string) { if (this.clock.paused) return; this.game?.submit(id, challengeId, text); }
   write(id: PlayerId, challengeId: number, chars: DrawnChar[]) { if (this.clock.paused) return; this.game?.submitWriting(id, challengeId, chars); }
   skip(id: PlayerId, challengeId: number) { if (this.clock.paused) return; this.game?.skip(id, challengeId); }
@@ -271,6 +281,17 @@ export class Room {
 
   /** "Back" during the study phase: the match is called off and everyone returns to the lobby. */
   backToLobby(id: PlayerId) {
+    // results screen: the room goes back to its lobby (the others see a "Back to lobby" button, not a jump)
+    if (this.phase === 'results') {
+      this.phase = 'lobby';
+      this.rematchVotes.clear();
+      this.game?.dispose();
+      this.game = undefined;
+      this.broadcastLobby();
+      const who = this.roster.find((p) => p.id === id)?.name ?? 'Someone';
+      this.broadcast({ type: 'notice', message: `${who} went back to the lobby.` });
+      return;
+    }
     if (this.phase !== 'game' || !this.game) return;
     // study phase of the classic modes, or hero pick / first draft of a Deck Duel (nothing played yet)
     const early = this.game instanceof DeckGame ? this.game.canReturnToLobby() : this.game.snapshot(id).phase === 'prep';
@@ -404,11 +425,11 @@ export class Room {
     else this.clock.resume();
     this.broadcast({ type: 'paused', on });
     // back from the pause: everyone gets the clocks again (they stood still on the server)
-    if (!on) for (const [pid, client] of this.clients) this.sendSnapshot(pid, client);
+    if (!on) for (const [pid, client] of this.clients) this.sendSnapshot(pid, client, true);
     return null;
   }
 
-  private sendSnapshot(id: PlayerId, client: Client) {
+  private sendSnapshot(id: PlayerId, client: Client, resume = false) {
     if (!this.game) return;
     if (this.game instanceof DeckGame) return client.send({ type: 'deck_state', view: this.game.viewFor(id) });
     const snap = this.game.snapshot(id);
@@ -417,7 +438,7 @@ export class Room {
     } else if (snap.battle) {
       client.send({
         type: 'battle_start', mode: this.mode, players: this.view(), boss: this.bossView(),
-        durationMs: snap.battle.leftMs, countdownMs: snap.battle.countdownLeftMs,
+        durationMs: snap.battle.leftMs, countdownMs: snap.battle.countdownLeftMs, ...(resume ? { resume: true } : {}),
       });
       if (snap.challenge) {
         const c = snap.challenge;
@@ -499,7 +520,7 @@ export class Room {
         const m = this.roster.find((p) => p.id === id);
         const before = m ? levelOf(m.profile.xp) : 0;
         if (m) m.profile = { ...m.profile, crit: r.crit, xp: r.xp };
-        this.clients.get(id)?.send({ type: 'progress', gained: r.gained, xp: r.xp, level: levelOf(r.xp), levelUp: levelOf(r.xp) > before, crit: r.crit, achievements: r.achievements ?? [] });
+        this.clients.get(id)?.send({ type: 'progress', gained: r.gained, xp: r.xp, level: levelOf(r.xp), levelUp: levelOf(r.xp) > before, crit: r.crit, achievements: r.achievements ?? [], missed: r.missed ?? [] });
       }
     } catch (err) {
       console.error('could not save match results', err);

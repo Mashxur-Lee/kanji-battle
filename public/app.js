@@ -51,7 +51,15 @@
     study: () => call("GET", `/api/study?today=${today()}`),
     setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
     queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
-    review: (vocabId, rating) => call("POST", "/api/study/review", { vocabId, rating, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    review: (vocabId, rating, deck2 = "all") => call("POST", "/api/study/review", { vocabId, rating, deck: deck2, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    deckWords: (deck2) => call("GET", `/api/study/deck?deck=${deck2}`),
+    deckRemove: (deck2, ids) => call("POST", "/api/study/deck/remove", { deck: deck2, ids }),
+    deckAdd: (deck2, ids) => call("POST", "/api/study/deck/add", { deck: deck2, ids }),
+    searchWords: (q) => call("GET", `/api/study/search?q=${encodeURIComponent(q)}`),
+    addCustom: (w) => call("POST", "/api/study/custom", w),
+    quiz: (n = 10) => call("GET", `/api/study/quiz?n=${n}`),
+    setDailyNew: (n) => call("PUT", "/api/study/daily-new", { n, today: today() }),
+    setBadges: (badges2) => call("PUT", "/api/me/badges", { badges: badges2 }),
     matches: () => call("GET", "/api/matches"),
     match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
     player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
@@ -75,11 +83,12 @@
     addFriend: (username) => call("POST", "/api/friends", { username }),
     acceptFriend: (id) => call("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
     removeFriend: (id) => call("DELETE", `/api/friends/${encodeURIComponent(id)}`),
+    setRole: (id, role) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/role`, { role }),
     setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.8.5";
+  var VERSION = "0.9.9";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -488,6 +497,71 @@
     "Games this week": "\u0418\u0433\u0440\u044B \u0437\u0430 \u043D\u0435\u0434\u0435\u043B\u044E",
     "No games yet.": "\u0418\u0433\u0440 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442.",
     "The game is updating \u2014 you'll be reconnected in a moment.": "\u0418\u0433\u0440\u0430 \u043E\u0431\u043D\u043E\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u2014 \u0432\u044B \u043F\u0435\u0440\u0435\u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u0441\u044C \u0447\u0435\u0440\u0435\u0437 \u043C\u0433\u043D\u043E\u0432\u0435\u043D\u0438\u0435.",
+    // 0.9.9
+    "Tick levels \u2014 new random words are added every day.": "\u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u0443\u0440\u043E\u0432\u043D\u0438 \u2014 \u043A\u0430\u0436\u0434\u044B\u0439 \u0434\u0435\u043D\u044C \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u044E\u0442\u0441\u044F \u043D\u043E\u0432\u044B\u0435 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430.",
+    "New spells a day": "\u041D\u043E\u0432\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0432 \u0434\u0435\u043D\u044C",
+    "to review": "\u043A \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044E",
+    "Words you missed in games \u2014 you choose on the results screen.": "\u0421\u043B\u043E\u0432\u0430, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0432\u044B \u043E\u0448\u0438\u0431\u043B\u0438\u0441\u044C \u0432 \u0438\u0433\u0440\u0430\u0445, \u2014 \u0432\u044B \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442\u0435 \u0438\u0445 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u0438\u0442\u043E\u0433\u043E\u0432.",
+    "Custom spells": "\u0421\u0432\u043E\u0438 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F",
+    "Custom": "\u0421\u0432\u043E\u0438",
+    "Your own words: from the dictionary, or any word you type in.": "\u0412\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430: \u0438\u0437 \u0441\u043B\u043E\u0432\u0430\u0440\u044F \u0438\u043B\u0438 \u043B\u044E\u0431\u044B\u0435, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u0432\u044B \u0432\u0432\u0435\u0434\u0451\u0442\u0435.",
+    "+ Add words": "+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u043B\u043E\u0432\u0430",
+    "JLPT quiz": "\u0422\u0435\u0441\u0442 JLPT",
+    "Reading passage": "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F",
+    "A short story with your struggling words, each with its reading and meaning.": "\u041A\u043E\u0440\u043E\u0442\u043A\u0438\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0441 \u0432\u0430\u0448\u0438\u043C\u0438 \u0442\u0440\u0443\u0434\u043D\u044B\u043C\u0438 \u0441\u043B\u043E\u0432\u0430\u043C\u0438 \u2014 \u0441 \u0447\u0442\u0435\u043D\u0438\u0435\u043C \u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435\u043C \u043A\u0430\u0436\u0434\u043E\u0433\u043E.",
+    "10 questions from the spells you studied \u2014 readings, meanings and kanji, 4 choices each.": "10 \u0432\u043E\u043F\u0440\u043E\u0441\u043E\u0432 \u043F\u043E \u0438\u0437\u0443\u0447\u0435\u043D\u043D\u044B\u043C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u043C \u2014 \u0447\u0442\u0435\u043D\u0438\u044F, \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0438 \u043A\u0430\u043D\u0434\u0437\u0438, \u043F\u043E 4 \u0432\u0430\u0440\u0438\u0430\u043D\u0442\u0430.",
+    "No spells in this deck yet.": "\u0412 \u044D\u0442\u043E\u0439 \u043A\u043E\u043B\u043E\u0434\u0435 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439.",
+    "Select all": "\u0412\u044B\u0431\u0440\u0430\u0442\u044C \u0432\u0441\u0435",
+    "Remove selected": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0435",
+    "Remove from this deck": "\u0423\u0431\u0440\u0430\u0442\u044C \u0438\u0437 \u044D\u0442\u043E\u0439 \u043A\u043E\u043B\u043E\u0434\u044B",
+    "Words": "\u0421\u043B\u043E\u0432\u0430",
+    "Added": "\u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E",
+    "Spell": "\u0417\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435",
+    "Translation": "\u041F\u0435\u0440\u0435\u0432\u043E\u0434",
+    "or type your own:": "\u0438\u043B\u0438 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u0432\u043E\u0451:",
+    "No custom spells yet \u2014 search the dictionary above or type your own word.": "\u0421\u0432\u043E\u0438\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u2014 \u043D\u0430\u0439\u0434\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u043E \u0432 \u0441\u043B\u043E\u0432\u0430\u0440\u0435 \u0432\u044B\u0448\u0435 \u0438\u043B\u0438 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u0432\u043E\u0451.",
+    "Search: kanji, kana or meaning (e.g. \u9B54\u6CD5, \u307E\u307B\u3046, magic)": "\u041F\u043E\u0438\u0441\u043A: \u043A\u0430\u043D\u0434\u0437\u0438, \u043A\u0430\u043D\u0430 \u0438\u043B\u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 (\u043D\u0430\u043F\u0440. \u9B54\u6CD5, \u307E\u307B\u3046, \u043C\u0430\u0433\u0438\u044F)",
+    "Word (\u6F22\u5B57)": "\u0421\u043B\u043E\u0432\u043E (\u6F22\u5B57)",
+    "Reading (\u304B\u306A)": "\u0427\u0442\u0435\u043D\u0438\u0435 (\u304B\u306A)",
+    "Add": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C",
+    "+ Add": "+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C",
+    "\u2713 added": "\u2713 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E",
+    "Not in the dictionary \u2014 add it as your own word below.": "\u041D\u0435\u0442 \u0432 \u0441\u043B\u043E\u0432\u0430\u0440\u0435 \u2014 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0435\u0433\u043E \u043A\u0430\u043A \u0441\u0432\u043E\u0451 \u0441\u043B\u043E\u0432\u043E \u043D\u0438\u0436\u0435.",
+    "Study some spells first \u2014 the quiz uses the words you have studied.": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0443\u0447\u0438\u0442\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F \u2014 \u0442\u0435\u0441\u0442 \u0431\u0435\u0440\u0451\u0442 \u0438\u0437\u0443\u0447\u0435\u043D\u043D\u044B\u0435 \u0432\u0430\u043C\u0438 \u0441\u043B\u043E\u0432\u0430.",
+    "New quiz": "\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u0441\u0442",
+    "Choose the best meaning for the word.": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0441\u043B\u043E\u0432\u0430.",
+    "Choose the best reading for the word.": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E\u0435 \u0447\u0442\u0435\u043D\u0438\u0435 \u0441\u043B\u043E\u0432\u0430.",
+    "Choose the right kanji for the word.": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u044B\u0435 \u043A\u0430\u043D\u0434\u0437\u0438 \u0434\u043B\u044F \u0441\u043B\u043E\u0432\u0430.",
+    "\u2713 Correct!": "\u2713 \u0412\u0435\u0440\u043D\u043E!",
+    "\u2014 perfect!": "\u2014 \u0438\u0434\u0435\u0430\u043B\u044C\u043D\u043E!",
+    "Add the ones I missed": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0442\u0435, \u0433\u0434\u0435 \u044F \u043E\u0448\u0438\u0431\u0441\u044F",
+    "Save to": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0432",
+    "Save these words to": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u044D\u0442\u0438 \u0441\u043B\u043E\u0432\u0430 \u0432",
+    "Read them in a story": "\u041F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C \u0438\u0445 \u0432 \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0435",
+    "New story": "\u041D\u043E\u0432\u044B\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437",
+    "Words in this story": "\u0421\u043B\u043E\u0432\u0430 \u0432 \u044D\u0442\u043E\u043C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0435",
+    "Tap a highlighted word for its reading and meaning.": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0447\u0442\u0435\u043D\u0438\u0435 \u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435.",
+    "No words yet \u2014 the story uses your struggling spells (or the words you missed in a game).": "\u0421\u043B\u043E\u0432 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u2014 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0431\u0435\u0440\u0451\u0442 \u0432\u0430\u0448\u0438 \u0442\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F (\u0438\u043B\u0438 \u0441\u043B\u043E\u0432\u0430 \u0441 \u043E\u0448\u0438\u0431\u043A\u0430\u043C\u0438 \u0438\u0437 \u0438\u0433\u0440\u044B).",
+    "Filter\u2026": "\u0424\u0438\u043B\u044C\u0442\u0440\u2026",
+    "Main menu": "\u0413\u043B\u0430\u0432\u043D\u043E\u0435 \u043C\u0435\u043D\u044E",
+    "Finish your game first": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u0442\u0435 \u0438\u0433\u0440\u0443",
+    "\u2694 Challenge": "\u2694 \u0412\u044B\u0437\u043E\u0432",
+    "Challenge": "\u0412\u044B\u0437\u043E\u0432",
+    "\u2713 Friends": "\u2713 \u0414\u0440\u0443\u0437\u044C\u044F",
+    "\u2713 Request sent": "\u2713 \u0417\u0430\u043F\u0440\u043E\u0441 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D",
+    "\u2713 Accept friend request": "\u2713 \u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0437\u0430\u044F\u0432\u043A\u0443 \u0432 \u0434\u0440\u0443\u0437\u044C\u044F",
+    "Make admin": "\u0421\u0434\u0435\u043B\u0430\u0442\u044C \u0430\u0434\u043C\u0438\u043D\u043E\u043C",
+    "Remove admin": "\u0421\u043D\u044F\u0442\u044C \u0430\u0434\u043C\u0438\u043D\u0430",
+    "On your profile \u2713 \u2014 click to remove": "\u0412 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u2713 \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0443\u0431\u0440\u0430\u0442\u044C",
+    "Unlocked \u2713 \u2014 click to show on your profile": "\u041F\u043E\u043B\u0443\u0447\u0435\u043D\u043E \u2713 \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435",
+    "Everything is open": "\u0412\u0441\u0451 \u043E\u0442\u043A\u0440\u044B\u0442\u043E",
+    "What's new": "\u0427\u0442\u043E \u043D\u043E\u0432\u043E\u0433\u043E",
+    "Every mode is open from the start: Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards.": "\u0412\u0441\u0435 \u0440\u0435\u0436\u0438\u043C\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044B \u0441\u0440\u0430\u0437\u0443: \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u043B\u0438\u0446, \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u0438\u0442\u0432\u0430 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C \u0438 \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434. \u0415\u0449\u0451 \u0435\u0441\u0442\u044C \u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435, \u0442\u0435\u0441\u0442 JLPT, \u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441, \u0414\u0440\u0443\u0437\u044C\u044F \u2014 \u0438 \u0446\u0435\u043B\u0438 \u043C\u0435\u0441\u044F\u0446\u0430 \u0441 \u043D\u0430\u0433\u0440\u0430\u0434\u0430\u043C\u0438.",
+    "Turn log": "\u0416\u0443\u0440\u043D\u0430\u043B \u0445\u043E\u0434\u043E\u0432",
+    "Opponent": "\u0421\u043E\u043F\u0435\u0440\u043D\u0438\u043A",
+    "You": "\u0412\u044B",
+    "Someone": "\u041A\u0442\u043E-\u0442\u043E",
+    "Overtime! The cards are gone \u2014 first to type the reading hits": "\u041E\u0432\u0435\u0440\u0442\u0430\u0439\u043C! \u041A\u0430\u0440\u0442 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435\u0442 \u2014 \u043A\u0442\u043E \u043F\u0435\u0440\u0432\u044B\u043C \u0432\u0432\u0435\u0434\u0451\u0442 \u0447\u0442\u0435\u043D\u0438\u0435, \u0442\u043E\u0442 \u0438 \u0431\u044C\u0451\u0442",
     // admin
     "Role": "\u0420\u043E\u043B\u044C",
     "Level": "\u0423\u0440\u043E\u0432\u0435\u043D\u044C",
@@ -582,6 +656,7 @@
     "The Black Dragon has fallen": "\u0427\u0451\u0440\u043D\u044B\u0439 \u0434\u0440\u0430\u043A\u043E\u043D \u043F\u043E\u0432\u0435\u0440\u0436\u0435\u043D",
     "The party was burned to ash": "\u041E\u0442\u0440\u044F\u0434 \u0441\u043E\u0436\u0436\u0451\u043D \u0434\u043E\u0442\u043B\u0430",
     "Time up \u2014 the dragon survived": "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E \u2014 \u0434\u0440\u0430\u043A\u043E\u043D \u0432\u044B\u0436\u0438\u043B",
+    "Time up \u2014 you held the dragon off!": "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E \u2014 \u0432\u044B \u0441\u0434\u0435\u0440\u0436\u0430\u043B\u0438 \u0434\u0440\u0430\u043A\u043E\u043D\u0430!",
     "Time up \u2014 most HP left wins": "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E \u2014 \u043F\u043E\u0431\u0435\u0436\u0434\u0430\u0435\u0442 \u0442\u043E\u0442, \u0443 \u043A\u043E\u0433\u043E \u0431\u043E\u043B\u044C\u0448\u0435 HP",
     "Damage to dragon": "\u0423\u0440\u043E\u043D \u0434\u0440\u0430\u043A\u043E\u043D\u0443",
     "Damage dealt": "\u041D\u0430\u043D\u0435\u0441\u0435\u043D\u043E \u0443\u0440\u043E\u043D\u0430",
@@ -710,6 +785,20 @@
   };
   var PATTERNS = [
     [/^Lv (\d+)$/, "\u0423\u0440. $1"],
+    // Deck Duel turn log (0.9.9)
+    [/^(You|.+?) cast (\S+) ✓ — (.+)$/, (_, w, k, rest) => `${w === "You" ? "\u0412\u044B" : w} \u2014 ${k} \u2713 \u2014 ${rest.replace(/hit (.+?) for −(\d+) HP/, (_m, t, n) => `\u0443\u0434\u0430\u0440 \u043F\u043E \xAB${t === "you" ? "\u0432\u0430\u043C" : t}\xBB: \u2212${n} HP`).replace(/\+(\d+) HP/, "+$1 HP").replace(/\+(\d+)◆ mana/, "+$1\u25C6 \u043C\u0430\u043D\u044B")}`],
+    [/^(You|.+?) missed (\S+) — the (.+) fizzled$/, (_, w, k, l) => `${w === "You" ? "\u0412\u044B" : w}: \u043E\u0448\u0438\u0431\u043A\u0430 \u0432 ${k} \u2014 \xAB${tr(l)}\xBB \u0440\u0430\u0441\u0441\u0435\u044F\u043B\u043E\u0441\u044C`],
+    [/^(You|.+?) played a (.+?) card(.*)$/, (_, w, l, rest) => `${w === "You" ? "\u0412\u044B \u0441\u044B\u0433\u0440\u0430\u043B\u0438" : `${w} \u0441\u044B\u0433\u0440\u0430\u043B(\u0430)`} \u043A\u0430\u0440\u0442\u0443 \xAB${tr(l)}\xBB${rest.replace(/(\d+)◆/, "$1\u25C6")}`],
+    [/^(You|.+?) guessed wrong$/, (_, w) => w === "You" ? "\u0412\u044B \u043D\u0435 \u0443\u0433\u0430\u0434\u0430\u043B\u0438" : `${w} \u043D\u0435 \u0443\u0433\u0430\u0434\u0430\u043B(\u0430)`],
+    [/^(You|.+?) read (\S+) first — −(\d+) HP to (.+)$/, (_, w, k, n, t) => `${w === "You" ? "\u0412\u044B" : w} \u043F\u0435\u0440\u0432\u044B\u043C \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u043B(\u0430) ${k} \u2014 \u2212${n} HP: ${t === "you" ? "\u0432\u0430\u043C" : t}`],
+    [/^Nobody read (\S+) in time$/, "\u041D\u0438\u043A\u0442\u043E \u043D\u0435 \u0443\u0441\u043F\u0435\u043B \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C $1"],
+    [/^(You|.+?) (had no mana for any card|ran out of time) — turn skipped, −(\d+) HP$/, (_, w, why, n) => `${w === "You" ? "\u0412\u044B" : w}: ${why.startsWith("had") ? "\u043D\u0435\u0442 \u043C\u0430\u043D\u044B \u043D\u0438 \u043D\u0430 \u043E\u0434\u043D\u0443 \u043A\u0430\u0440\u0442\u0443" : "\u0432\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E"} \u2014 \u0445\u043E\u0434 \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D, \u2212${n} HP`],
+    [/^(You|.+?) skipped the turn: −(\d+) HP$/, (_, w, n) => `${w === "You" ? "\u0412\u044B \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u043B\u0438" : `${w} \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u043B(\u0430)`} \u0445\u043E\u0434: \u2212${n} HP`],
+    [/^(You|.+?) ran out of cards — Round (\d+) draft \(HP and mana stay\)$/, (_, w, r2) => `${w === "You" ? "\u0423 \u0432\u0430\u0441" : `\u0423 ${w}`} \u043A\u043E\u043D\u0447\u0438\u043B\u0438\u0441\u044C \u043A\u0430\u0440\u0442\u044B \u2014 \u0434\u0440\u0430\u0444\u0442 \u0440\u0430\u0443\u043D\u0434\u0430 ${r2} (HP \u0438 \u043C\u0430\u043D\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F)`],
+    [/^Round (\d+): (You|.+?) won the coin flip and picks? first$/, (_, r2, w) => `\u0420\u0430\u0443\u043D\u0434 ${r2}: ${w === "You" ? "\u0432\u044B \u0432\u044B\u0438\u0433\u0440\u0430\u043B\u0438" : `${w} \u0432\u044B\u0438\u0433\u0440\u0430\u043B(\u0430)`} \u0436\u0440\u0435\u0431\u0438\u0439 \u0438 \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442\u0435 \u043F\u0435\u0440\u0432\u044B\u043C`],
+    [/^(You|.+?) used Omnipotence — (.+)$/, (_, w, p) => `${w === "You" ? "\u0412\u044B \u043F\u0440\u0438\u043C\u0435\u043D\u0438\u043B\u0438" : `${w} \u043F\u0440\u0438\u043C\u0435\u043D\u0438\u043B(\u0430)`} \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E \u2014 ${p}`],
+    [/^(You|.+?): Arcane reserve — (\+2 random cards|\+30 mana)$/, (_, w, x) => `${w === "You" ? "\u0412\u044B" : w}: \u0422\u0430\u0439\u043D\u044B\u0439 \u0437\u0430\u043F\u0430\u0441 \u2014 ${x === "+30 mana" ? "+30 \u043C\u0430\u043D\u044B" : "+2 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0435 \u043A\u0430\u0440\u0442\u044B"}`],
+    [/^Turn (\d+)$/, "\u0425\u043E\u0434 $1"],
     [/^(\d+) online$/, "$1 \u0432 \u0441\u0435\u0442\u0438"],
     [/^(\d+) of (\d+) \(last 30 days\)$/, "$1 \u0438\u0437 $2 (\u0437\u0430 30 \u0434\u043D\u0435\u0439)"],
     [/^(\d+) of (\d+)$/, "$1 \u0438\u0437 $2"],
@@ -775,7 +864,7 @@
     [/^The pad read: (.+)$/, "\u041F\u0430\u043D\u0435\u043B\u044C \u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043B\u0430: $1"],
     [/^Monthly goals complete! (.+) unlocked — equip it in Customize\.$/, "\u041C\u0435\u0441\u044F\u0447\u043D\u044B\u0435 \u0446\u0435\u043B\u0438 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u044B! \u041E\u0442\u043A\u0440\u044B\u0442\u043E: $1 \u2014 \u043D\u0430\u0434\u0435\u043D\u044C\u0442\u0435 \u0432 \xAB\u041A\u0430\u0441\u0442\u043E\u043C\u0438\u0437\u0430\u0446\u0438\u0438\xBB."],
     [/^(\d+) struggling spells are waiting\. Study them down to (\d+) to unlock the game modes\.$/, "\u0416\u0434\u0443\u0442 \u0442\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F: $1. \u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u0438\u0445, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0441\u0442\u0430\u043D\u0435\u0442\u0441\u044F $2, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0440\u0435\u0436\u0438\u043C\u044B."],
-    [/^(\d+) left · (All spells|Struggling)$/, (_, n, d) => `\u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C ${n} \xB7 ${d === "All spells" ? "\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F" : "\u0422\u0440\u0443\u0434\u043D\u044B\u0435"}`],
+    [/^(\d+) left · (All spells|Struggling spells|Custom spells)$/, (_, n, d) => `\u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C ${n} \xB7 ${d === "All spells" ? "\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F" : d === "Custom spells" ? "\u0421\u0432\u043E\u0438 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F" : "\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F"}`],
     [/^(\d+)-day streak$/, (_, n) => `\u0441\u0435\u0440\u0438\u044F ${n} ${plural(+n, "\u0434\u0435\u043D\u044C", "\u0434\u043D\u044F", "\u0434\u043D\u0435\u0439")}`],
     [/^Unlocks at (?:a )?(\d+)-day streak$/, (_, n) => `\u041E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u0435\u0440\u0438\u0438 ${n} ${plural(+n, "\u0434\u0435\u043D\u044C", "\u0434\u043D\u044F", "\u0434\u043D\u0435\u0439")}`],
     [/^Unlocks at level (\d+)$/, "\u041E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u0435 $1"],
@@ -805,6 +894,7 @@
   ];
   var MEANINGS = null;
   var meaning = (s) => MEANINGS?.[s];
+  var meaningIn = (en) => lang() === "ru" ? MEANINGS?.[en] ?? en : en;
   function trMeaning(s) {
     if (!MEANINGS) return void 0;
     const m0 = meaning(s);
@@ -839,31 +929,40 @@
     const t = tr(s);
     if (t !== s) node.data = raw.replace(s, t);
   }
-  function translateAttrs(el9) {
-    if (el9.closest(SKIP)) return;
+  function translateAttrs(el11) {
+    if (el11.closest(SKIP)) return;
     for (const a of ATTRS) {
-      const v = el9.getAttribute(a);
+      const v = el11.getAttribute(a);
       if (v && /[A-Za-z]/.test(v)) {
         const t = tr(v.trim());
-        if (t !== v.trim()) el9.setAttribute(a, t);
+        if (t !== v.trim()) el11.setAttribute(a, t);
       }
     }
   }
   function walk(root) {
     if (root.nodeType === Node.TEXT_NODE) return translateText(root);
     if (root.nodeType !== Node.ELEMENT_NODE) return;
-    const el9 = root;
-    if (el9.matches(SKIP)) return;
-    translateAttrs(el9);
-    const it = document.createTreeWalker(el9, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    const el11 = root;
+    if (el11.matches(SKIP)) return;
+    translateAttrs(el11);
+    const it = document.createTreeWalker(el11, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
     for (let n = it.nextNode(); n; n = it.nextNode()) {
       if (n.nodeType === Node.TEXT_NODE) translateText(n);
       else translateAttrs(n);
     }
   }
+  var started = false;
+  function useRussianNow() {
+    try {
+      localStorage.setItem(KEY, "ru");
+    } catch {
+    }
+    initI18n();
+  }
   function initI18n() {
     document.documentElement.lang = lang();
-    if (lang() !== "ru") return;
+    if (lang() !== "ru" || started) return;
+    started = true;
     walk(document.body);
     fetch("/meanings-ru.json").then((r2) => r2.ok ? r2.json() : null).then((m) => {
       if (m) {
@@ -914,8 +1013,8 @@
     const vfix = r2.height > 0 ? innerHeight / r2.height : 1;
     root.style.setProperty("--vfix", String(Math.round(vfix * 1e3) / 1e3));
   }
-  function zrect(el9) {
-    const r2 = el9.getBoundingClientRect();
+  function zrect(el11) {
+    const r2 = el11.getBoundingClientRect();
     const s = scale;
     return { left: r2.left / s, top: r2.top / s, right: r2.right / s, bottom: r2.bottom / s, width: r2.width / s, height: r2.height / s };
   }
@@ -1049,6 +1148,7 @@
     const l = levelXp(xp);
     return l.into / l.need;
   };
+  var beta = { open: true };
   var BACKGROUNDS = [
     { id: "forest", name: "Forest", level: 0 },
     { id: "swamp", name: "Swamp", level: 5 },
@@ -1069,6 +1169,7 @@
   var flameUnlocked = (f2, xp, unlocks2 = []) => {
     const d = FLAMES.find((x) => x.id === f2);
     if (!d) return false;
+    if (beta.open) return true;
     return d.season ? unlocks2.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
   };
   var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
@@ -1102,11 +1203,12 @@
   var staffUnlocked = (s, bestStreak, unlocks2 = []) => {
     const d = STAFFS.find((x) => x.id === s);
     if (!d) return false;
+    if (beta.open) return true;
     return d.season ? unlocks2.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
   };
   var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
-  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 2 };
-  var modeUnlocked = (mode3, xp, admin = false) => admin || levelOf(xp) >= (MODE_LEVEL[mode3] ?? 0);
+  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 0, boss: 0, deck: 0 };
+  var modeUnlocked = (mode3, xp, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode3] ?? 0);
   var STUDY_LOCK = 100;
   var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
   var ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
@@ -1601,21 +1703,21 @@
   var pick = (t, day, sunset, night) => t === "day" ? day : t === "sunset" ? sunset : night;
   function forest(t) {
     const sky = pick(t, [[0, "#4f95d0"], [0.5, "#9fd0ea"], [1, "#e6f2d8"]], [[0, "#22163f"], [0.4, "#7a3a68"], [0.7, "#e2774f"], [1, "#ffcf8a"]], [[0, "#040914"], [0.55, "#0c1e33"], [1, "#183a3c"]]);
-    const rows = pick(t, ["#5f8f86", "#3e6e5d", "#24503f", "#123222"], ["#5a3d5c", "#3f2c48", "#2a1e33", "#140f1c"], ["#1a3b3d", "#11292b", "#0a1c1d", "#040f10"]);
+    const rows2 = pick(t, ["#5f8f86", "#3e6e5d", "#24503f", "#123222"], ["#5a3d5c", "#3f2c48", "#2a1e33", "#140f1c"], ["#1a3b3d", "#11292b", "#0a1c1d", "#040f10"]);
     return `<defs>${grad("sk", sky)}${grad("cometTail", [[0, "#fff", 0.9], [1, "#9fd8ff", 0]], false)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === "night" ? milkyWay() + stars(180, 520) + comets(3) + moon(1220, 160, 58) : t === "sunset" ? stars(30, 200, "#ffe7c4") + horizonGlow(560, "#ff8a4a") + sun(1080, 560, 70, "#ffd9a0", "#ff9a5a") : sun(1260, 150, 46, "#fff6d8", "#fff2b0") + clouds(6, 80, 260, "#ffffff", 0.75)}
     ${mountains(520, 90, pick(t, "#86aac0", "#6b4a72", "#132a3a"), 0.4)}
     ${haze(560, pick(t, "#dff0f4", "#ffb08a", "#2a4a5a"), 0.6)}
     ${mist(560, pick(t, "#e8f4f0", "#ffcfb0", "#4e7a86"), pick(t, 0.5, 0.35, 0.3))}
-    ${forestRow(620, 24, 240, 400, rows[0])}
+    ${forestRow(620, 24, 240, 400, rows2[0])}
     ${haze(640, pick(t, "#cfe6dc", "#c87a6a", "#1c3a40"), 0.45)}
     ${t !== "night" ? rays(t === "day" ? 1260 : 1080, t === "day" ? 150 : 560, pick(t, "#fffbe0", "#ffd39a", "#000"), pick(t, 0.22, 0.3, 0)) : ""}
-    ${forestRow(700, 20, 200, 330, rows[1])}
+    ${forestRow(700, 20, 200, 330, rows2[1])}
     ${t !== "day" ? fireflies(t === "night" ? 26 : 12, 520, 820, "#e8ff9a") : ""}
-    ${forestRow(780, 16, 160, 270, rows[2])}
+    ${forestRow(780, 16, 160, 270, rows2[2])}
     ${eyes(t === "night" ? 7 : t === "sunset" ? 4 : 2, 700, 800, t === "day" ? 0.35 : 1)}
-    ${forestRow(860, 12, 120, 210, rows[3])}
+    ${forestRow(860, 12, 120, 210, rows2[3])}
     ${mist(860, pick(t, "#ffffff", "#ffd8b8", "#2a4f56"), 0.25)}`;
   }
   function swamp(t) {
@@ -1744,28 +1846,28 @@
   var cache2 = /* @__PURE__ */ new Map();
   var BG_FADE_MS = 3200;
   var fadeTimer = 0;
-  function paintBackground(el9, id, time = "night", fade = false) {
+  function paintBackground(el11, id, time = "night", fade = false) {
     const key = `${id}-${time}`;
-    if (el9.dataset.key === key) return;
-    el9.dataset.key = key;
+    if (el11.dataset.key === key) return;
+    el11.dataset.key = key;
     if (!cache2.has(key)) cache2.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time)}</svg>`);
     const swap = () => {
       const layer = document.createElement("div");
       layer.className = "bg-layer";
       layer.innerHTML = cache2.get(key);
-      const old = el9.querySelector(".bg-layer");
+      const old = el11.querySelector(".bg-layer");
       if (old) old.replaceWith(layer);
-      else el9.prepend(layer);
-      el9.dataset.bg = id;
-      el9.dataset.time = time;
+      else el11.prepend(layer);
+      el11.dataset.bg = id;
+      el11.dataset.time = time;
     };
     clearTimeout(fadeTimer);
-    el9.querySelector(".bg-veil")?.remove();
-    if (!fade || !el9.querySelector(".bg-layer")) return swap();
+    el11.querySelector(".bg-veil")?.remove();
+    if (!fade || !el11.querySelector(".bg-layer")) return swap();
     const veil = document.createElement("div");
     veil.className = "bg-veil";
     veil.style.animationDuration = `${BG_FADE_MS}ms`;
-    el9.append(veil);
+    el11.append(veil);
     fadeTimer = window.setTimeout(() => {
       swap();
       fadeTimer = window.setTimeout(() => veil.remove(), BG_FADE_MS / 2 + 100);
@@ -1916,7 +2018,15 @@
   function setArenaBackground(id, time) {
     bg = { id, time };
   }
+  var whoById = /* @__PURE__ */ new Map();
+  function arenaLook(id, yaw, pitch) {
+    const who = whoById.get(id);
+    if (who) arena()?.look(who, yaw, pitch);
+  }
   function configure(s) {
+    whoById.clear();
+    if (s.opp) whoById.set(s.opp.id, "opp");
+    for (const a of s.allies) whoById.set(a.id, `ally:${a.id}`);
     pending = s;
     if (api2 && onScreen && wanted()) void activate();
   }
@@ -1954,17 +2064,17 @@
   // src/client/ui.ts
   var $ = (id) => document.getElementById(id);
   function h(tag, cls = "", text, attrs = {}) {
-    const el9 = document.createElement(tag);
-    if (cls) el9.className = cls;
-    if (text !== void 0) el9.textContent = String(text);
-    for (const [k, v] of Object.entries(attrs)) el9.setAttribute(k, v);
-    return el9;
+    const el11 = document.createElement(tag);
+    if (cls) el11.className = cls;
+    if (text !== void 0) el11.textContent = String(text);
+    for (const [k, v] of Object.entries(attrs)) el11.setAttribute(k, v);
+    return el11;
   }
   var append = (parent, ...kids) => {
     parent.append(...kids);
     return parent;
   };
-  var SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "customize", "deck", "history", "progress", "daily", "friends"];
+  var SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "quiz", "customize", "deck", "history", "progress", "daily", "friends"];
   var screenListener = () => {
   };
   var onScreen2 = (fn) => {
@@ -1996,6 +2106,27 @@
     };
     tick2();
   }
+  function bigTimer(slot, el11, leftMs, totalMs, warnMs = 5e3) {
+    if (!el11.querySelector(".tt-fg")) el11.innerHTML = '<svg viewBox="0 0 44 44" aria-hidden="true"><circle class="tt-bg" cx="22" cy="22" r="19"/><circle class="tt-fg" cx="22" cy="22" r="19"/></svg><b></b>';
+    const fg = el11.querySelector(".tt-fg"), b = el11.querySelector("b");
+    el11.hidden = false;
+    let shown2 = -1;
+    countdown(slot, leftMs, (left, frac) => {
+      const s = Math.ceil(left / 1e3);
+      if (s !== shown2) {
+        shown2 = s;
+        b.textContent = String(s);
+      }
+      fg.style.strokeDashoffset = String(119.4 * (1 - Math.max(0, Math.min(1, frac))));
+      el11.classList.toggle("low", left > 0 && left <= warnMs);
+      el11.classList.toggle("out", left <= 0);
+    }, totalMs);
+  }
+  function hideTimer(slot, el11) {
+    stopCountdown(slot);
+    el11.hidden = true;
+    el11.classList.remove("low", "out");
+  }
   function stopCountdown(slot) {
     for (const [k, id] of timers) if (!slot || k === slot) {
       cancelAnimationFrame(id);
@@ -2007,18 +2138,18 @@
     if (rtt === null || rtt === void 0) return 0;
     return rtt < 150 ? 3 : rtt < 400 ? 2 : 1;
   }
-  function paintNet(el9) {
-    const rtt = rtts.get(el9.dataset.net ?? "");
+  function paintNet(el11) {
+    const rtt = rtts.get(el11.dataset.net ?? "");
     const q = netQuality(rtt);
-    el9.className = `net q${q}`;
-    el9.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
+    el11.className = `net q${q}`;
+    el11.title = rtt == null ? "Connection: offline / measuring\u2026" : `Connection: ${["", "poor", "medium", "good"][q]} (${rtt} ms)`;
   }
   function netBars(playerId) {
-    const el9 = h("span", "net");
-    el9.dataset.net = playerId;
-    el9.innerHTML = "<i></i><i></i><i></i>";
-    paintNet(el9);
-    return el9;
+    const el11 = h("span", "net");
+    el11.dataset.net = playerId;
+    el11.innerHTML = "<i></i><i></i><i></i>";
+    paintNet(el11);
+    return el11;
   }
   function setNet(map) {
     for (const [id, rtt] of Object.entries(map)) rtts.set(id, rtt);
@@ -2045,8 +2176,16 @@
     label.title = BEGINNER_LOCK;
     return label;
   }
+  function setBadges(ids) {
+    $("ppBadges").replaceChildren(...[badgeRowFn?.(ids)].filter((x) => !!x));
+  }
+  var badgeRowFn = null;
+  var useBadgeRow = (fn) => {
+    badgeRowFn = fn;
+  };
   function setProfile(p) {
     if (!p) return;
+    setBadges(p.badges);
     beginnerFlag = isKanaBeginner(p.unlocks);
     const lx = levelXp(p.xp);
     $("whoLv").textContent = String(lx.level);
@@ -2060,9 +2199,9 @@
     $("ppStreak").textContent = String(p.streak ?? 0);
     $("ppBestStreak").textContent = String(Math.max(p.bestStreak ?? 0, p.streak ?? 0));
     for (const id of ["whoPic", "ppPic"]) {
-      const el9 = $(id);
-      el9.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
-      el9.classList.toggle("has-pic", !!p.pic);
+      const el11 = $(id);
+      el11.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
+      el11.classList.toggle("has-pic", !!p.pic);
     }
     $("picRemove").hidden = !p.pic;
     $("whoXp").style.width = `${levelProgress(p.xp) * 100}%`;
@@ -2070,11 +2209,11 @@
   }
   var toastTimer = 0;
   function toast(text, ms = 3500) {
-    const el9 = $("toast");
-    el9.textContent = text;
-    el9.hidden = false;
+    const el11 = $("toast");
+    el11.textContent = text;
+    el11.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => el9.hidden = true, ms);
+    toastTimer = window.setTimeout(() => el11.hidden = true, ms);
   }
   function setUser(user2) {
     $("whoami").hidden = !user2;
@@ -2140,7 +2279,7 @@
     const m = Math.max(0, Math.round((Date.now() - t) / 6e4));
     return m < 60 ? `${m} min` : m < 60 * 24 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`;
   }
-  function showAdmin(users, me3, db, onToggle) {
+  function showAdmin(users, me3, db, onToggle, onRole) {
     const banned = users.filter((u) => u.banned).length;
     const online = users.filter((u) => u.online).length;
     $("adminInfo").textContent = `${online} online now \xB7 ${users.length} accounts \xB7 ${banned} banned`;
@@ -2155,6 +2294,11 @@
           const b = h("button", "pill" + (u.banned ? "" : " danger"), u.banned ? "Unban" : "Ban");
           b.onclick = () => onToggle(u);
           action.append(b);
+        }
+        if (onRole && u.id !== me3.id && u.username.toLowerCase() !== "admin" && !u.banned) {
+          const r2 = h("button", "pill" + (u.role === "admin" ? "" : " promote"), u.role === "admin" ? "Remove admin" : "Make admin");
+          r2.onclick = () => onRole(u);
+          action.append(r2);
         }
         const presence = append(
           h("td", "presence " + (u.online ? "on" : "off")),
@@ -2328,9 +2472,9 @@
     bar.firstElementChild.style.width = `${pct2}%`;
     return bar;
   }
-  function partyPanel(el9, players2, you2) {
+  function partyPanel(el11, players2, you2) {
     const ordered = [...players2].sort((a, b) => a.id === you2 ? -1 : b.id === you2 ? 1 : 0);
-    el9.replaceChildren(...ordered.map((p) => {
+    el11.replaceChildren(...ordered.map((p) => {
       const row = h("div", "party-row" + (p.id === you2 ? " me" : "") + (p.hp <= 0 ? " down" : ""));
       const pn = h("span", "n", p.id === you2 ? `${p.name} (you)` : p.name);
       if (p.id !== you2) markProfile(pn, p);
@@ -2354,15 +2498,15 @@
     bar.append(fill, h("span", "tbar-txt", text));
     return bar;
   }
-  function fighterCard(el9, p, label, emptyText) {
+  function fighterCard(el11, p, label, emptyText) {
     if (!p) {
-      el9.replaceChildren(h("div", "name", emptyText));
+      el11.replaceChildren(h("div", "name", emptyText));
       return;
     }
     const nameEl = h("span", "n", label);
     if (!label.endsWith("(you)")) markProfile(nameEl, p);
     const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`)), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo` : ""));
-    el9.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
+    el11.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
   function renderFighters(players2, you2, boss) {
@@ -2395,11 +2539,11 @@
   }
   var allyEl = (id) => document.querySelector(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
   var actorEl = (a) => a.startsWith("ally:") ? allyEl(a.slice(5)) ?? $("wizMe") : $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : "dragon");
-  function retrigger(el9, cls, ms) {
-    el9.classList.remove(cls);
-    void el9.offsetWidth;
-    el9.classList.add(cls);
-    setTimeout(() => el9.classList.remove(cls), ms);
+  function retrigger(el11, cls, ms) {
+    el11.classList.remove(cls);
+    void el11.offsetWidth;
+    el11.classList.add(cls);
+    setTimeout(() => el11.classList.remove(cls), ms);
   }
   function setupArena(mode3, players2, you2) {
     battleMode = mode3;
@@ -2518,11 +2662,11 @@
     }, 180);
   }
   function breathWarning(inMs) {
-    const el9 = $("breathWarn");
-    el9.hidden = false;
+    const el11 = $("breathWarn");
+    el11.hidden = false;
     $("dragon").classList.add("inhale");
     arena()?.inhale(true);
-    countdown("breath", inMs, (left) => el9.textContent = `The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
+    countdown("breath", inMs, (left) => el11.textContent = `The dragon inhales\u2026 ${Math.ceil(left / 1e3)}`);
   }
   function breathFire(damage, victims, immune = []) {
     stopCountdown("breath");
@@ -2560,11 +2704,11 @@
     }, 450);
   }
   function knockOut(who) {
-    const el9 = actorEl(who);
-    if (el9.classList.contains("ko")) return;
+    const el11 = actorEl(who);
+    if (el11.classList.contains("ko")) return;
     arena()?.ko(who);
-    el9.classList.add("ko");
-    el9.classList.remove("onfire");
+    el11.classList.add("ko");
+    el11.classList.remove("onfire");
   }
   function showBattle(mode3, players2, boss, you2, countdownMs, battleMs, onTick) {
     clearStudy();
@@ -2592,6 +2736,11 @@
     } else cd.hidden = true;
     setTimeout(() => countdown("battle", battleMs, (left) => $("battleClock").textContent = clockText(left)), countdownMs);
   }
+  function resumeBattle(players2, boss, you2, battleMs) {
+    renderFighters(players2, you2, boss);
+    $("battleClock").textContent = clockText(battleMs);
+    countdown("battle", battleMs, (left) => $("battleClock").textContent = clockText(left));
+  }
   var answerMode = "reading";
   var currentAnswerMode = () => answerMode;
   function showChallenge(c) {
@@ -2601,6 +2750,7 @@
     k.textContent = c.kanji;
     setFeedback(null);
     countdown("challenge", c.timeLimitMs, (_l, frac) => $("challengeBar").style.width = `${frac * 100}%`);
+    bigTimer("challengeRing", $("turnTimer"), c.timeLimitMs, c.timeLimitMs, Math.min(5e3, c.timeLimitMs / 3));
     if (c.answer === "writing") {
       const mp = $("meaningPrompt");
       mp.hidden = false;
@@ -2623,9 +2773,9 @@
     input2.focus();
   }
   function setInputHint(text, warn = false) {
-    const el9 = $("inputHint");
-    el9.textContent = text;
-    el9.classList.toggle("warn", warn);
+    const el11 = $("inputHint");
+    el11.textContent = text;
+    el11.classList.toggle("warn", warn);
   }
   function setCharSlots(total, _written, active2, shape = "") {
     const kana = shape.replace(/□/g, "");
@@ -2663,6 +2813,7 @@
   });
   function lockInput() {
     stopCountdown("challenge");
+    hideTimer("challengeRing", $("turnTimer"));
     $("castGo").hidden = true;
     setAnswerLocked(true);
     $("skip").disabled = true;
@@ -2678,13 +2829,13 @@
     $("writeArea").hidden = true;
   };
   function setFeedback(f2) {
-    const el9 = $("feedback");
+    const el11 = $("feedback");
     if (!f2) {
-      el9.replaceChildren();
-      el9.className = "feedback";
+      el11.replaceChildren();
+      el11.className = "feedback";
       return;
     }
-    el9.className = "feedback " + (f2.correct ? "good" : "bad");
+    el11.className = "feedback " + (f2.correct ? "good" : "bad");
     $("kanji").classList.remove("gone");
     $("meaningPrompt").hidden = true;
     const word2 = (cls) => append(h("span", cls), h("span", "rk", f2.kanji, { lang: "ja" }), h("span", "rr", f2.reading, { lang: "ja" }), h("span", "", f2.meaning));
@@ -2692,17 +2843,17 @@
       $("kanji").classList.add("cast");
       const combo = f2.combo >= 2 ? ` \xB7 \xD7${f2.combo} combo` : "";
       const big = h("span", "big" + (f2.crit ? " crit" : ""), f2.crit ? `\u2726 CRIT! ${f2.damage} damage` : `\u2713 CAST! ${f2.damage} damage`);
-      el9.replaceChildren(big, word2("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
+      el11.replaceChildren(big, word2("mean"), h("span", "sub2", `${secs(f2.responseMs ?? 0)}${combo}`));
     } else {
       if (f2.retry) {
-        el9.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
+        el11.replaceChildren(h("span", "big", "\u2717 Not quite \u2014 try again!"));
         return;
       }
       const title = f2.beaten ? "Opponent was faster!" : f2.skipped ? "\u21B7 Skipped" : f2.timedOut ? "\u2717 Too slow!" : "\u2717 MISS!";
       const kids = [h("span", "big", title), word2("reveal")];
       if (f2.recognized && !f2.skipped && !f2.timedOut) kids.push(h("span", "sub2", `The pad read: ${f2.recognized}`));
-      el9.replaceChildren(...kids);
-      if (answerMode === "writing" && !f2.beaten) showWrongStrokes(el9, f2.kanji);
+      el11.replaceChildren(...kids);
+      if (answerMode === "writing" && !f2.beaten) showWrongStrokes(el11, f2.kanji);
     }
   }
   function openStrokeDialog(word2, reading, meaning2) {
@@ -2721,9 +2872,9 @@
     void showStrokeOrder(div, word2, { stepMs: Math.max(90, Math.min(220, 2200 / (strokes2 * 6))), caption: "How to write it" });
   }
   function logLine(text, kanji) {
-    const el9 = $("log");
-    el9.replaceChildren(h("span", "", text));
-    if (kanji) el9.append(h("span", "k", ` ${kanji}`, { lang: "ja" }));
+    const el11 = $("log");
+    el11.replaceChildren(h("span", "", text));
+    if (kanji) el11.append(h("span", "k", ` ${kanji}`, { lang: "ja" }));
   }
   var REASONS = {
     ko: "Knock-out",
@@ -2739,7 +2890,7 @@
     const title = $("resultTitle");
     title.className = `result-title ${outcome}`;
     title.textContent = outcome === "win" ? "VICTORY" : outcome === "loss" ? "DEFEAT" : "DRAW";
-    if (mode3 === "boss") $("resultReason").textContent = teamWon ? REASONS.boss_slain : reason === "time" ? "Time up \u2014 the dragon survived" : REASONS[reason];
+    if (mode3 === "boss") $("resultReason").textContent = reason === "time" && teamWon ? "Time up \u2014 you held the dragon off!" : teamWon ? REASONS.boss_slain : reason === "time" ? "Time up \u2014 you held the dragon off!" : REASONS[reason];
     else $("resultReason").textContent = reason === "time" ? "Time up \u2014 most HP left wins" : REASONS[reason];
     $("resultActions").hidden = !!opts.history;
     $("historyBackRow").hidden = !opts.history;
@@ -2747,7 +2898,7 @@
     const me3 = stats[you2];
     const other = otherId ? stats[otherId] : void 0;
     const otherName = players2.find((p) => p.id === otherId)?.name ?? (mode3 === "boss" ? "Ally" : "Opponent");
-    const rows = [
+    const rows2 = [
       [mode3 === "boss" ? "Damage to dragon" : "Damage dealt", (s) => String(s.damageDealt)],
       ["Accuracy", (s) => s.attempts ? `${Math.round(s.accuracy * 100)}% (${s.correct}/${s.attempts})` : "\u2014"],
       ["Avg response", (s) => s.avgResponseMs !== null ? secs(s.avgResponseMs) : "\u2014"],
@@ -2761,20 +2912,21 @@
       const nameOf2 = (id) => players2.find((p) => p.id === id)?.name ?? "Ally";
       cmp.replaceChildren(h("div"), h("div", "h me", "You"), ...allies.map((id) => {
         const p = players2.find((x) => x.id === id);
-        const el9 = h("div", "h", nameOf2(id));
-        return p ? markProfile(el9, p) : el9;
+        const el11 = h("div", "h", nameOf2(id));
+        return p ? markProfile(el11, p) : el11;
       }));
-      for (const [label, fmt] of rows) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me3)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
+      for (const [label, fmt] of rows2) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me3)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
     } else {
       cmp.style.gridTemplateColumns = "";
       const on = h("div", "h r", other ? otherName : "");
       const op = players2.find((p) => p.id === otherId);
       if (op) markProfile(on, op);
       cmp.replaceChildren(h("div", "h me", "You"), h("div"), on);
-      for (const [label, fmt] of rows) cmp.append(h("div", "v", fmt(me3)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
+      for (const [label, fmt] of rows2) cmp.append(h("div", "v", fmt(me3)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
     }
     const byKanji = new Map(me3.words.map((w) => [w.kanji, w]));
     $("struggledBox").hidden = me3.struggled.length === 0;
+    $("missedSave").hidden = true;
     $("struggled").replaceChildren(
       ...me3.struggled.map((k) => {
         const w = byKanji.get(k);
@@ -2805,10 +2957,10 @@
     show("results");
   }
   function showXp(gained, level2, levelUp) {
-    const el9 = $("xpLine");
-    el9.hidden = false;
-    el9.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
-    if (levelUp) el9.append(h("span", "lvup", `Level ${level2}!`));
+    const el11 = $("xpLine");
+    el11.hidden = false;
+    el11.replaceChildren(h("span", "", gained > 0 ? `+${gained} XP` : "No XP \u2014 the match was forfeited"));
+    if (levelUp) el11.append(h("span", "lvup", `Level ${level2}!`));
   }
   function setRematchStatus(votes, you2, playerCount, minPlayers2) {
     const youVoted = votes.includes(you2);
@@ -2825,24 +2977,24 @@
     return h("span", `mode-badge ${mode3}`, MODE_ICON[mode3], { lang: "ja", title: MODE_LABEL[mode3], "aria-label": MODE_LABEL[mode3] });
   }
   function characterEl(character, mode3, side = "me") {
-    const el9 = h("span", "char-sprite");
+    const el11 = h("span", "char-sprite");
     const heroes = ["goblin", "knight", "witch", "wizard"];
-    el9.innerHTML = mode3 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
-    el9.title = character[0].toUpperCase() + character.slice(1);
-    return el9;
+    el11.innerHTML = mode3 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
+    el11.title = character[0].toUpperCase() + character.slice(1);
+    return el11;
   }
-  function markProfile(el9, p) {
-    el9.dataset.profile = p.id;
-    if (p.bot) el9.dataset.bot = p.bot;
-    if (p.name) el9.dataset.name = p.name;
-    el9.classList.add("plink");
-    el9.setAttribute("role", "button");
-    el9.tabIndex = 0;
-    el9.title = "View profile";
-    return el9;
+  function markProfile(el11, p) {
+    el11.dataset.profile = p.id;
+    if (p.bot) el11.dataset.bot = p.bot;
+    if (p.name) el11.dataset.name = p.name;
+    el11.classList.add("plink");
+    el11.setAttribute("role", "button");
+    el11.tabIndex = 0;
+    el11.title = "View profile";
+    return el11;
   }
   var dateTime = (at) => new Date(at).toLocaleString(locale(), { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-  function showProfileCard(anchor, p) {
+  function showProfileCard(anchor, p, actions) {
     const pop = $("otherPop");
     const body = [];
     if (p === "loading") body.push(h("p", "hint", "Loading\u2026"));
@@ -2858,7 +3010,7 @@
       if (img) pic.append(img);
       const games = p.wins + p.losses;
       body.push(
-        append(h("div", "pp-head"), pic, append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `Lv ${p.level}`))),
+        append(h("div", "pp-head"), pic, append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `Lv ${p.level}`), ...[badgeRowFn?.(p.badges)].filter((x) => !!x))),
         append(
           h("div", "pp-stats"),
           append(h("div"), h("b", "", p.wins), h("span", "", "wins")),
@@ -2873,6 +3025,7 @@
         ),
         h("p", "hint", `Playing since ${new Date(p.since).toLocaleDateString(locale(), { year: "numeric", month: "short", day: "numeric" })}`)
       );
+      if (actions && actions.relation !== "self") body.push(profileActions(p, actions));
     }
     pop.replaceChildren(...body);
     pop.hidden = false;
@@ -2886,6 +3039,46 @@
   var hideProfileCard = () => {
     $("otherPop").hidden = true;
   };
+  function profileActions(p, a) {
+    const box = h("div", "pp-actions");
+    const msg = h("p", "hint pp-msg");
+    if (a.relation === "none" || a.relation === "incoming") {
+      const b = h("button", "pill primary", a.relation === "incoming" ? "\u2713 Accept friend request" : "+ Add friend");
+      b.onclick = async () => {
+        b.disabled = true;
+        try {
+          await (a.relation === "incoming" ? a.accept() : a.addFriend());
+          b.textContent = a.relation === "incoming" ? "\u2713 Friends" : "\u2713 Request sent";
+        } catch (e) {
+          msg.textContent = e.message;
+          b.disabled = false;
+        }
+      };
+      box.append(b);
+    } else if (a.relation === "outgoing") box.append(h("button", "pill", "\u2713 Request sent", { disabled: "" }));
+    if (a.relation === "friend") {
+      const c = h("button", "pill primary challenge-btn", "\u2694 Challenge");
+      const modes = h("div", "pp-modes");
+      modes.hidden = true;
+      for (const m of ["reading", "writing", "rapid", "boss", "deck"]) {
+        const mb = h("button", "pill pp-mode", MODE_LABEL[m]);
+        mb.prepend(modeBadge(m));
+        mb.onclick = () => {
+          a.challenge(m);
+          hideProfileCard();
+        };
+        modes.append(mb);
+      }
+      c.disabled = !a.canChallenge;
+      if (!a.canChallenge) c.title = "Finish your game first";
+      c.onclick = () => {
+        modes.hidden = !modes.hidden;
+      };
+      box.append(c, modes);
+    }
+    box.append(msg);
+    return box;
+  }
   function showHistory(list, onOpen) {
     const box = $("historyList");
     if (!list) box.replaceChildren(h("p", "hint center", "Loading\u2026"));
@@ -2910,9 +3103,9 @@
     }));
     show("history");
   }
-  function paintFlame(el9, flame) {
-    el9.dataset.flame = flame ?? "blue";
-    flameShades(flame).forEach((c, i) => el9.style.setProperty(`--f${i}`, c));
+  function paintFlame(el11, flame) {
+    el11.dataset.flame = flame ?? "blue";
+    flameShades(flame).forEach((c, i) => el11.style.setProperty(`--f${i}`, c));
   }
 
   // src/client/support.ts
@@ -2999,9 +3192,540 @@ ${stack}`.slice(0, 2e3);
     if (getToken() && ["menu", "queue"].includes(currentScreen() ?? "")) void refreshOnline();
   }, 3e4);
 
-  // src/client/adminui.ts
+  // src/client/decks.ts
   var $3 = $;
-  var el2 = (tag, cls = "", text) => {
+  var el2 = (tag, cls = "", text, attrs = {}) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = String(text);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+  var DECK_LABEL = { all: "All spells", struggling: "Struggling spells", custom: "Custom spells" };
+  var STATE_LABEL = { new: "new", learning: "learning", relearning: "learning", review: "learned" };
+  var onChanged = () => {
+  };
+  var backToStudy = () => {
+  };
+  var initDecks = (o) => {
+    onChanged = o.changed;
+    backToStudy = o.back;
+  };
+  var open = "all";
+  var rows = [];
+  var selected = /* @__PURE__ */ new Set();
+  async function openDeck(deck2, withAdd = false) {
+    open = deck2;
+    selected.clear();
+    $3("deckTitle").textContent = DECK_LABEL[deck2];
+    $3("customPanel").hidden = !(deck2 === "custom" && withAdd);
+    $3("deckFilter").value = "";
+    $3("customMsg").textContent = "";
+    $3("customHits").replaceChildren();
+    $3("deckDialog").showModal();
+    if (!$3("customPanel").hidden) $3("customSearch").focus();
+    await reload();
+  }
+  async function reload() {
+    try {
+      rows = (await api.deckWords(open)).words;
+    } catch (e) {
+      toast(e.message);
+      rows = [];
+    }
+    for (const id of [...selected]) if (!rows.some((r2) => r2.vocabId === id)) selected.delete(id);
+    render();
+  }
+  var dateOf = (t) => t ? new Date(t).toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric" }) : "\u2014";
+  function render() {
+    const f2 = $3("deckFilter").value.trim().toLowerCase();
+    const shown2 = rows.filter((r2) => !f2 || r2.kanji.includes(f2) || r2.reading.includes(f2) || r2.meaning.toLowerCase().includes(f2) || meaningIn(r2.meaning).toLowerCase().includes(f2));
+    $3("deckCount").textContent = `${rows.length} ${rows.length === 1 ? "spell" : "spells"}`;
+    $3("deckRows").replaceChildren(...shown2.slice(0, 400).map((r2) => {
+      const box = el2("input", "", void 0, { type: "checkbox", "aria-label": `Select ${r2.kanji}` });
+      box.checked = selected.has(r2.vocabId);
+      box.onchange = () => {
+        box.checked ? selected.add(r2.vocabId) : selected.delete(r2.vocabId);
+        tools();
+      };
+      const k = el2("td", "k clickable", r2.kanji, { lang: "ja", title: "Stroke order" });
+      k.onclick = () => openStrokeDialog(r2.kanji, r2.reading, r2.meaning);
+      const del = el2("button", "pill danger small", "\u2715", { title: "Remove from this deck", "aria-label": `Remove ${r2.kanji}` });
+      del.onclick = () => void remove([r2.vocabId]);
+      const tr_ = el2("tr");
+      const td = (n) => {
+        const c = el2("td");
+        c.append(n);
+        return c;
+      };
+      tr_.append(
+        td(box),
+        k,
+        el2("td", "rd", r2.reading, { lang: "ja" }),
+        el2("td", "m", r2.meaning),
+        el2("td", "dlv", r2.custom ? "Custom" : LEVEL_LABEL[r2.level]),
+        el2("td", "dt", dateOf(r2.addedAt)),
+        el2("td", `st st-${r2.state}`, STATE_LABEL[r2.state] ?? r2.state),
+        td(del)
+      );
+      return tr_;
+    }));
+    if (!rows.length) $3("deckRows").replaceChildren(el2("tr", "empty", void 0));
+    if (!rows.length) $3("deckRows").firstElementChild.append(Object.assign(el2("td", "hint", open === "custom" ? "No custom spells yet \u2014 search the dictionary above or type your own word." : "No spells in this deck yet."), { colSpan: 8 }));
+    tools();
+  }
+  function tools() {
+    $3("deckRemove").disabled = selected.size === 0;
+    $3("deckRemove").textContent = selected.size ? `Remove selected (${selected.size})` : "Remove selected";
+    $3("deckAllBox").checked = rows.length > 0 && selected.size === rows.length;
+  }
+  async function remove(ids) {
+    if (!ids.length) return;
+    if (ids.length > 1 && !confirm(`Remove ${ids.length} spells from ${DECK_LABEL[open]}? Their study progress in this deck is lost.`)) return;
+    try {
+      await api.deckRemove(open, ids);
+      ids.forEach((i) => selected.delete(i));
+      await reload();
+      onChanged();
+    } catch (e) {
+      toast(e.message);
+    }
+  }
+  $3("deckFilter").addEventListener("input", render);
+  $3("deckAllBox").addEventListener("change", () => {
+    if ($3("deckAllBox").checked) rows.forEach((r2) => selected.add(r2.vocabId));
+    else selected.clear();
+    render();
+  });
+  $3("deckRemove").onclick = () => void remove([...selected]);
+  $3("deckClose").onclick = () => $3("deckDialog").close();
+  for (const b of document.querySelectorAll(".deck-open")) b.onclick = () => void openDeck(b.dataset.deck);
+  $3("customAdd").onclick = () => void openDeck("custom", true);
+  var searchSeq = 0;
+  var searchTimer = 0;
+  $3("customSearch").addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(async () => {
+      const q = $3("customSearch").value.trim();
+      const seq = ++searchSeq;
+      if (!q) {
+        $3("customHits").replaceChildren();
+        return;
+      }
+      try {
+        const { words } = await api.searchWords(q);
+        if (seq !== searchSeq) return;
+        const have = new Set(rows.map((r2) => r2.vocabId));
+        $3("customHits").replaceChildren(...words.length ? words.map((w) => hit(w, have.has(w.id))) : [el2("p", "hint", "Not in the dictionary \u2014 add it as your own word below.")]);
+        if (!words.length) {
+          $3("cwKanji").value = /[一-鿿ぁ-ゟァ-ヿ]/.test(q) ? q : "";
+        }
+      } catch (e) {
+        toast(e.message);
+      }
+    }, 220);
+  });
+  function hit(w, have) {
+    const b = el2("button", "hit" + (have ? " have" : ""), void 0, { type: "button" });
+    b.append(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", w.meaning), el2("span", "lv", LEVEL_LABEL[w.level]), el2("span", "add", have ? "\u2713 added" : "+ Add"));
+    b.disabled = have;
+    b.onclick = async () => {
+      try {
+        const r2 = await api.addCustom({ vocabId: w.id });
+        b.classList.add("have");
+        b.disabled = true;
+        b.querySelector(".add").textContent = "\u2713 added";
+        $3("customMsg").textContent = r2.added ? `${w.kanji} added to Custom spells.` : `${w.kanji} is already in Custom spells.`;
+        await reload();
+        onChanged();
+      } catch (e) {
+        $3("customMsg").textContent = e.message;
+      }
+    };
+    return b;
+  }
+  $3("customForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const kanji = $3("cwKanji").value, reading = $3("cwReading").value, meaning2 = $3("cwMeaning").value;
+    try {
+      const r2 = await api.addCustom({ kanji, reading, meaning: meaning2 });
+      $3("customMsg").textContent = r2.added ? `${r2.word.kanji} (${r2.word.reading}) added to Custom spells.` : `${r2.word.kanji} is already in Custom spells.`;
+      for (const id of ["cwKanji", "cwReading", "cwMeaning"]) $3(id).value = "";
+      await reload();
+      onChanged();
+    } catch (err) {
+      $3("customMsg").textContent = err.message;
+    }
+  });
+  function showMissedSave(missed) {
+    const box = $3("missedSave");
+    if (!missed.length) {
+      box.hidden = true;
+      return;
+    }
+    let deck2 = "struggling";
+    const ticked = new Set(missed.map((m) => m.id));
+    let ours = new Set(missed.filter((m) => m.added).map((m) => m.id));
+    const status = el2("span", "ms-status hint");
+    const say2 = (t) => {
+      status.textContent = t;
+    };
+    const sync = async (id, on) => {
+      try {
+        if (on) {
+          const r2 = await api.deckAdd(deck2, [id]);
+          r2.added.forEach((x) => ours.add(x));
+        } else if (ours.has(id)) {
+          await api.deckRemove(deck2, [id]);
+          ours.delete(id);
+        }
+        say2(`${ticked.size} of ${missed.length} in ${tr(DECK_LABEL[deck2])}`);
+      } catch (e) {
+        say2(e.message);
+      }
+    };
+    const chips = missed.map((m) => {
+      const l = el2("label", "ms-word on");
+      const c = el2("input", "", void 0, { type: "checkbox" });
+      c.checked = true;
+      c.onchange = () => {
+        c.checked ? ticked.add(m.id) : ticked.delete(m.id);
+        l.classList.toggle("on", c.checked);
+        void sync(m.id, c.checked);
+      };
+      l.append(c, el2("b", "", m.kanji, { lang: "ja" }), el2("small", "", m.reading, { lang: "ja" }));
+      l.title = m.meaning;
+      return l;
+    });
+    const sel = el2("select", "ms-deck", void 0, { "aria-label": "Save to" });
+    for (const d of ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
+    sel.value = deck2;
+    sel.onchange = async () => {
+      const to = sel.value;
+      sel.disabled = true;
+      try {
+        if (ours.size) await api.deckRemove(deck2, [...ours]);
+        deck2 = to;
+        ours = new Set((await api.deckAdd(deck2, [...ticked])).added);
+        say2(`${ticked.size} of ${missed.length} in ${tr(DECK_LABEL[deck2])}`);
+      } catch (e) {
+        say2(e.message);
+      }
+      sel.disabled = false;
+    };
+    const story = el2("button", "pill", "Read them in a story");
+    story.onclick = () => openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning })));
+    const head = el2("div", "ms-head");
+    head.append(el2("span", "", "Save these words to"), sel, status, story);
+    box.replaceChildren(head, Object.assign(el2("div", "ms-words"), {}));
+    box.lastElementChild.append(...chips);
+    say2(`${ticked.size} of ${missed.length} in ${tr(DECK_LABEL[deck2])}`);
+    box.hidden = false;
+  }
+  var ASK = {
+    reading: ["\uFF3F\uFF3F\u306E\u3053\u3068\u3070\u306E\u8AAD\u307F\u65B9\u3068\u3057\u3066\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the best reading for the word."],
+    meaning: ["\u3053\u306E\u3053\u3068\u3070\u306E\u610F\u5473\u3068\u3057\u3066\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the best meaning for the word."],
+    kanji: ["\uFF3F\uFF3F\u306E\u3053\u3068\u3070\u3092\u6F22\u5B57\u3067\u66F8\u304F\u3068\u304D\u3001\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the right kanji for the word."]
+  };
+  var quiz = [];
+  var qi = 0;
+  var score = 0;
+  var answered = false;
+  var wrong = [];
+  async function startQuiz() {
+    show("quiz");
+    $3("quizDone").hidden = true;
+    $3("quizCard").hidden = false;
+    $3("quizPrompt").textContent = "\u2026";
+    try {
+      quiz = (await api.quiz(10)).questions;
+    } catch (e) {
+      toast(e.message);
+      quiz = [];
+    }
+    if (quiz.length < 1) {
+      $3("quizCard").hidden = true;
+      $3("quizDone").hidden = false;
+      $3("quizResult").textContent = "Study some spells first \u2014 the quiz uses the words you have studied.";
+      $3("quizMissed").replaceChildren();
+      return;
+    }
+    qi = 0;
+    score = 0;
+    wrong.length = 0;
+    question();
+  }
+  function question() {
+    const q = quiz[qi];
+    answered = false;
+    $3("quizProgress").textContent = `Question ${qi + 1} of ${quiz.length}`;
+    $3("quizScore").textContent = `${score} correct`;
+    const [ja, en] = ASK[q.kind];
+    $3("quizAsk").replaceChildren(el2("span", "ja", ja, { lang: "ja" }), el2("small", "", en));
+    $3("quizPrompt").textContent = q.prompt;
+    $3("quizPrompt").classList.toggle("underline", q.kind !== "meaning");
+    $3("quizSub").textContent = q.sub ? meaningIn(q.sub) : "";
+    $3("quizFeedback").textContent = "";
+    $3("quizFeedback").className = "quiz-feedback";
+    $3("quizNext").hidden = true;
+    $3("quizChoices").replaceChildren(...q.choices.map((c, i) => {
+      const b = el2("button", "quiz-choice", void 0, { type: "button" });
+      b.append(el2("span", "n", String(i + 1)), el2("span", "t", q.kind === "meaning" ? meaningIn(c) : c, q.kind === "meaning" ? {} : { lang: "ja" }));
+      b.onclick = () => choose(i);
+      return b;
+    }));
+  }
+  function choose(i) {
+    if (answered) return;
+    answered = true;
+    const q = quiz[qi];
+    const ok = i === q.answer;
+    if (ok) score++;
+    else wrong.push(q);
+    const btns = [...document.querySelectorAll("#quizChoices .quiz-choice")];
+    btns.forEach((b, j) => {
+      b.disabled = true;
+      b.classList.toggle("right", j === q.answer);
+      b.classList.toggle("wrong", j === i && !ok);
+    });
+    $3("quizFeedback").textContent = ok ? "\u2713 Correct!" : `\u2717 The answer is ${q.kind === "meaning" ? meaningIn(q.choices[q.answer]) : q.choices[q.answer]}`;
+    $3("quizFeedback").className = `quiz-feedback ${ok ? "ok" : "no"}`;
+    $3("quizScore").textContent = `${score} correct`;
+    $3("quizNext").hidden = false;
+    $3("quizNext").focus();
+  }
+  function nextQuestion() {
+    if (!answered) return;
+    qi++;
+    if (qi < quiz.length) return question();
+    $3("quizCard").hidden = true;
+    $3("quizDone").hidden = false;
+    $3("quizResult").textContent = `${score} / ${quiz.length} correct${score === quiz.length ? " \u2014 perfect!" : ""}`;
+    const box = $3("quizMissed");
+    if (!wrong.length) {
+      box.replaceChildren();
+      return;
+    }
+    const sel = el2("select", "ms-deck");
+    for (const d of ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
+    const save3 = el2("button", "pill", "Add the ones I missed");
+    const msg = el2("span", "hint");
+    save3.onclick = async () => {
+      try {
+        const r2 = await api.deckAdd(sel.value, wrong.map((q) => q.vocabId));
+        msg.textContent = `${r2.added.length} added to ${tr(DECK_LABEL[sel.value])}.`;
+        save3.disabled = true;
+        onChanged();
+      } catch (e) {
+        msg.textContent = e.message;
+      }
+    };
+    const head = el2("div", "ms-head");
+    head.append(el2("span", "", `You missed ${wrong.length}:`), sel, save3, msg);
+    const list = el2("div", "ms-words");
+    list.append(...wrong.map((q) => el2("span", "ms-word on", q.kind === "kanji" ? q.choices[q.answer] : q.prompt, { lang: "ja" })));
+    box.replaceChildren(head, list);
+  }
+  $3("quizNext").onclick = nextQuestion;
+  $3("quizAgain").onclick = () => void startQuiz();
+  $3("quizBack").onclick = () => backToStudy();
+  $3("quizDoneBack").onclick = () => backToStudy();
+  $3("quizBtn").onclick = () => void startQuiz();
+  addEventListener("keydown", (e) => {
+    if ($3("quiz").hidden || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    const n = ["1", "2", "3", "4"].indexOf(e.key);
+    if (n >= 0 && !answered) {
+      e.preventDefault();
+      choose(n);
+    } else if ((e.key === "Enter" || e.key === " ") && answered) {
+      e.preventDefault();
+      nextQuestion();
+    }
+  });
+  var OPEN = { ja: "[\u9B54\u6CD5|\u307E\u307B\u3046][\u5B66\u6821|\u304C\u3063\u3053\u3046]\u306E[\u4E00\u65E5|\u3044\u3061\u306B\u3061]\u3002", en: "A day at the school of magic.", ru: "\u041E\u0434\u0438\u043D \u0434\u0435\u043D\u044C \u0432 \u0448\u043A\u043E\u043B\u0435 \u043C\u0430\u0433\u0438\u0438." };
+  var LINES = [
+    { ja: "[\u898B\u7FD2|\u307F\u306A\u3089]\u3044[\u9B54\u6CD5\u4F7F|\u307E\u307B\u3046\u3064\u304B]\u3044\u306E\u30CF\u30EB\u306F\u3001[\u671D|\u3042\u3055]\u304B\u3089\u300C{w}\u300D\u3068\u3044\u3046[\u546A\u6587|\u3058\u3085\u3082\u3093]\u3092[\u7DF4\u7FD2|\u308C\u3093\u3057\u3085\u3046]\u3057\u3066\u3044\u305F\u3002", en: "Haru, an apprentice wizard, had been practising the spell \u201C{w}\u201D since morning.", ru: "\u0423\u0447\u0435\u043D\u0438\u0446\u0430-\u0432\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u0446\u0430 \u0425\u0430\u0440\u0443 \u0441 \u0441\u0430\u043C\u043E\u0433\u043E \u0443\u0442\u0440\u0430 \u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u0430\u043B\u0430 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 \xAB{w}\xBB." },
+    { ja: "[\u5E2B\u5320|\u3057\u3057\u3087\u3046]\u306F\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F[\u53E4|\u3075\u308B]\u3044[\u5DFB\u7269|\u307E\u304D\u3082\u306E]\u3092[\u673A|\u3064\u304F\u3048]\u306B[\u7F6E|\u304A]\u3044\u305F\u3002", en: "The master put an old scroll with \u201C{w}\u201D written on it on the desk.", ru: "\u0423\u0447\u0438\u0442\u0435\u043B\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u043B \u043D\u0430 \u0441\u0442\u043E\u043B \u0441\u0442\u0430\u0440\u044B\u0439 \u0441\u0432\u0438\u0442\u043E\u043A \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB{w}\xBB." },
+    { ja: "\u30CF\u30EB\u306F\u300C{w}\u300D\u306E[\u8AAD|\u3088]\u307F[\u65B9|\u304B\u305F]\u3092[\u4E09\u56DE|\u3055\u3093\u304B\u3044][\u58F0|\u3053\u3048]\u306B[\u51FA|\u3060]\u3057\u3066[\u8A00|\u3044]\u3063\u305F\u3002", en: "Haru said the reading of \u201C{w}\u201D out loud three times.", ru: "\u0425\u0430\u0440\u0443 \u0442\u0440\u0438\u0436\u0434\u044B \u043F\u0440\u043E\u0438\u0437\u043D\u0435\u0441\u043B\u0430 \u0432\u0441\u043B\u0443\u0445 \u0447\u0442\u0435\u043D\u0438\u0435 \u0441\u043B\u043E\u0432\u0430 \xAB{w}\xBB." },
+    { ja: "[\u53CB\u9054|\u3068\u3082\u3060\u3061]\u306E\u30B1\u30F3\u306F\u300C{w}\u300D\u3068\u3044\u3046[\u8A00\u8449|\u3053\u3068\u3070]\u3092\u307E\u3060[\u899A|\u304A\u307C]\u3048\u3066\u3044\u306A\u304B\u3063\u305F\u3002", en: "Her friend Ken still hadn\u2019t learned the word \u201C{w}\u201D.", ru: "\u0415\u0451 \u0434\u0440\u0443\u0433 \u041A\u0435\u043D \u0435\u0449\u0451 \u043D\u0435 \u0432\u044B\u0443\u0447\u0438\u043B \u0441\u043B\u043E\u0432\u043E \xAB{w}\xBB." },
+    { ja: "[\u56F3\u66F8\u9928|\u3068\u3057\u3087\u304B\u3093]\u306E[\u672C|\u307B\u3093]\u306B\u306F\u300C{w}\u300D\u306B\u3064\u3044\u3066\u306E[\u8A71|\u306F\u306A\u3057]\u304C\u305F\u304F\u3055\u3093\u3042\u3063\u305F\u3002", en: "The library books had many stories about \u201C{w}\u201D.", ru: "\u0412 \u0431\u0438\u0431\u043B\u0438\u043E\u0442\u0435\u0447\u043D\u044B\u0445 \u043A\u043D\u0438\u0433\u0430\u0445 \u0431\u044B\u043B\u043E \u043C\u043D\u043E\u0433\u043E \u0438\u0441\u0442\u043E\u0440\u0438\u0439 \u043E \xAB{w}\xBB." },
+    { ja: "\u300C{w}\u300D\u306E[\u610F\u5473|\u3044\u307F]\u3092[\u601D|\u304A\u3082]\u3044[\u51FA|\u3060]\u3059\u3068\u3001[\u6756|\u3064\u3048]\u306E[\u5B9D\u77F3|\u307B\u3046\u305B\u304D]\u304C[\u660E|\u3042\u304B]\u308B\u304F[\u5149|\u3072\u304B]\u3063\u305F\u3002", en: "When she remembered the meaning of \u201C{w}\u201D, the gem on her staff shone brightly.", ru: "\u041A\u043E\u0433\u0434\u0430 \u043E\u043D\u0430 \u0432\u0441\u043F\u043E\u043C\u043D\u0438\u043B\u0430 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \xAB{w}\xBB, \u043A\u0430\u043C\u0435\u043D\u044C \u043D\u0430 \u043F\u043E\u0441\u043E\u0445\u0435 \u044F\u0440\u043A\u043E \u0437\u0430\u0441\u0438\u044F\u043B." },
+    { ja: "[\u6226|\u305F\u305F\u304B]\u3044\u306E[\u4E2D|\u306A\u304B]\u3067\u3001\u30C9\u30E9\u30B4\u30F3\u306F\u300C{w}\u300D\u306E[\u546A\u6587|\u3058\u3085\u3082\u3093]\u306B[\u9A5A|\u304A\u3069\u308D]\u3044\u3066[\u5F8C|\u3046\u3057]\u308D\u3078[\u4E0B|\u3055]\u304C\u3063\u305F\u3002", en: "In the battle, the dragon was startled by the spell \u201C{w}\u201D and stepped back.", ru: "\u0412 \u0431\u043E\u044E \u0434\u0440\u0430\u043A\u043E\u043D \u0438\u0441\u043F\u0443\u0433\u0430\u043B\u0441\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F \xAB{w}\xBB \u0438 \u043E\u0442\u0441\u0442\u0443\u043F\u0438\u043B." },
+    { ja: "\u300C{w}\u300D\u3092[\u9593\u9055|\u307E\u3061\u304C]\u3048\u306A\u3044\u3088\u3046\u306B\u3001\u30CF\u30EB\u306F\u3086\u3063\u304F\u308A[\u7B54|\u3053\u305F]\u3048\u305F\u3002", en: "So as not to get \u201C{w}\u201D wrong, Haru answered slowly.", ru: "\u0427\u0442\u043E\u0431\u044B \u043D\u0435 \u043E\u0448\u0438\u0431\u0438\u0442\u044C\u0441\u044F \u0432 \xAB{w}\xBB, \u0425\u0430\u0440\u0443 \u043E\u0442\u0432\u0435\u0447\u0430\u043B\u0430 \u043C\u0435\u0434\u043B\u0435\u043D\u043D\u043E." },
+    { ja: "[\u591C|\u3088\u308B]\u306B\u306A\u3063\u3066\u3082\u3001\u30CF\u30EB\u306F\u30CE\u30FC\u30C8\u306B\u300C{w}\u300D\u3092[\u4F55\u5EA6|\u306A\u3093\u3069]\u3082[\u66F8|\u304B]\u3044\u305F\u3002", en: "Even at night, Haru wrote \u201C{w}\u201D in her notebook again and again.", ru: "\u0414\u0430\u0436\u0435 \u043D\u043E\u0447\u044C\u044E \u0425\u0430\u0440\u0443 \u0441\u043D\u043E\u0432\u0430 \u0438 \u0441\u043D\u043E\u0432\u0430 \u043F\u0438\u0441\u0430\u043B\u0430 \xAB{w}\xBB \u0432 \u0442\u0435\u0442\u0440\u0430\u0434\u0438." },
+    { ja: "[\u5E2B\u5320|\u3057\u3057\u3087\u3046]\u306F[\u7B11|\u308F\u3089]\u3063\u3066\u3001\u300C{w}\u300D\u306F\u3082\u3046[\u5927\u4E08\u592B|\u3060\u3044\u3058\u3087\u3046\u3076]\u3060\u306D\u3068[\u8A00|\u3044]\u3063\u305F\u3002", en: "The master smiled and said that \u201C{w}\u201D was fine now.", ru: "\u0423\u0447\u0438\u0442\u0435\u043B\u044C \u0443\u043B\u044B\u0431\u043D\u0443\u043B\u0441\u044F \u0438 \u0441\u043A\u0430\u0437\u0430\u043B, \u0447\u0442\u043E \u0441 \xAB{w}\xBB \u0442\u0435\u043F\u0435\u0440\u044C \u0432\u0441\u0451 \u0432 \u043F\u043E\u0440\u044F\u0434\u043A\u0435." },
+    { ja: "[\u6B21|\u3064\u304E]\u306E[\u65E5|\u3072]\u3001\u30CF\u30EB\u306F\u300C{w}\u300D\u3092[\u4F7F|\u3064\u304B]\u3063\u3066\u3001[\u95C7|\u3084\u307F]\u306E[\u9B54\u7269|\u307E\u3082\u306E]\u3092[\u5012|\u305F\u304A]\u3057\u305F\u3002", en: "The next day, Haru used \u201C{w}\u201D to defeat a shadow monster.", ru: "\u041D\u0430 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0434\u0435\u043D\u044C \u0425\u0430\u0440\u0443 \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \xAB{w}\xBB \u043F\u043E\u0431\u0435\u0434\u0438\u043B\u0430 \u0442\u0451\u043C\u043D\u043E\u0435 \u0447\u0443\u0434\u043E\u0432\u0438\u0449\u0435." },
+    { ja: "\u307F\u3093\u306A\u306E[\u524D|\u307E\u3048]\u3067\u300C{w}\u300D\u3068[\u5531|\u3068\u306A]\u3048\u308B\u3068\u3001[\u7A7A|\u305D\u3089]\u306B[\u8679|\u306B\u3058]\u304C[\u51FA|\u3067]\u305F\u3002", en: "When she chanted \u201C{w}\u201D in front of everyone, a rainbow appeared in the sky.", ru: "\u041A\u043E\u0433\u0434\u0430 \u043E\u043D\u0430 \u043F\u0440\u043E\u0438\u0437\u043D\u0435\u0441\u043B\u0430 \xAB{w}\xBB \u043F\u0435\u0440\u0435\u0434 \u0432\u0441\u0435\u043C\u0438, \u0432 \u043D\u0435\u0431\u0435 \u043F\u043E\u044F\u0432\u0438\u043B\u0430\u0441\u044C \u0440\u0430\u0434\u0443\u0433\u0430." }
+  ];
+  var CLOSE = { ja: "\u3053\u3046\u3057\u3066\u3001\u30CF\u30EB\u306E[\u9B54\u6CD5|\u307E\u307B\u3046]\u306F\u307E\u305F[\u5C11|\u3059\u3053]\u3057[\u5F37|\u3064\u3088]\u304F\u306A\u3063\u305F\u3002", en: "And so Haru\u2019s magic grew a little stronger again.", ru: "\u0422\u0430\u043A \u043C\u0430\u0433\u0438\u044F \u0425\u0430\u0440\u0443 \u0441\u0442\u0430\u043B\u0430 \u0435\u0449\u0451 \u043D\u0435\u043C\u043D\u043E\u0433\u043E \u0441\u0438\u043B\u044C\u043D\u0435\u0435." };
+  var passageWords = [];
+  function jaLine(line, w, i) {
+    const p = el2("span", "p-line");
+    const parts = line.ja.split(/(\[[^\]|]+\|[^\]]+\]|\{w\})/);
+    for (const part of parts) {
+      if (!part) continue;
+      const ruby = /^\[([^\]|]+)\|([^\]]+)\]$/.exec(part);
+      if (ruby) {
+        const r2 = el2("ruby");
+        r2.append(ruby[1], el2("rt", "", ruby[2]));
+        p.append(r2);
+        continue;
+      }
+      if (part === "{w}" && w) {
+        const b = el2("button", "p-word", void 0, { type: "button", "data-i": String(i) });
+        const r2 = el2("ruby");
+        r2.append(w.kanji, el2("rt", "", w.kanji === w.reading ? "" : w.reading));
+        b.append(r2);
+        b.onclick = () => gloss(w, b);
+        p.append(b);
+        continue;
+      }
+      p.append(part);
+    }
+    return p;
+  }
+  function gloss(w, at) {
+    document.querySelectorAll(".p-word.on").forEach((x) => x.classList.remove("on"));
+    at.classList.add("on");
+    const g = $3("passageGloss");
+    g.replaceChildren(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)));
+    g.hidden = false;
+  }
+  function openPassage(words) {
+    passageWords = words.filter((w) => w.kanji).slice(0, 40);
+    $3("passageDialog").showModal();
+    buildPassage();
+  }
+  function buildPassage() {
+    const pick4 = [...passageWords].sort(() => Math.random() - 0.5).slice(0, Math.min(8, LINES.length));
+    const lines = [...LINES.keys()].sort(() => Math.random() - 0.5).slice(0, pick4.length).sort((a, b) => a - b).map((i) => LINES[i]);
+    const text = $3("passageText");
+    text.replaceChildren(jaLine(OPEN, null, -1), ...lines.map((l, i) => jaLine(l, pick4[i], i)), jaLine(CLOSE, null, -1));
+    const ru = lang() === "ru";
+    const fill = (l, w) => (ru ? l.ru : l.en).replace("{w}", w ? `${w.kanji} \u2014 ${meaningIn(w.meaning)}` : "");
+    $3("passageTr").replaceChildren(...[fill(OPEN, null), ...lines.map((l, i) => fill(l, pick4[i])), fill(CLOSE, null)].map((t) => el2("p", "", t, { "data-no-i18n": "" })));
+    $3("passageWords").replaceChildren(el2("h4", "", "Words in this story"), ...pick4.map((w) => {
+      const row = el2("div", "pw");
+      row.append(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)));
+      return row;
+    }));
+    $3("passageGloss").hidden = true;
+    if (!pick4.length) text.replaceChildren(el2("p", "hint", "No words yet \u2014 the story uses your struggling spells (or the words you missed in a game)."));
+  }
+  $3("passageNew").onclick = buildPassage;
+  $3("passageClose").onclick = () => $3("passageDialog").close();
+  $3("passageBtn").onclick = async () => {
+    try {
+      let words = (await api.deckWords("struggling")).words;
+      if (words.length < 3) words = [...words, ...(await api.deckWords("all")).words.filter((w) => w.state !== "new")];
+      openPassage(words.slice(0, 40).map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning })));
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+
+  // src/client/whatsnew.ts
+  var PATCHES = [
+    {
+      v: "0.9.9",
+      date: "2026-10",
+      en: [
+        "Study: All, Struggling and Custom spells are three separate decks. Open any deck to see every word, when it was added, and remove words.",
+        "Custom spells: add words from the dictionary (search by kanji, kana or meaning) or type in your own word with its reading and meaning.",
+        "After a game you choose which deck the words you missed go to (pre-ticked: Struggling spells) \u2014 or untick them.",
+        "New in Study: a JLPT-style quiz from the spells you studied, and a reading passage \u2014 a short story with your struggling words, with furigana, readings and meanings.",
+        "New spells a day: pick 10\u2013150 (was always 25).",
+        "Deck Duel: a turn log under your kanji (who played what, hits, heals, misses, powers), a big turn timer that turns red, no more scrolling on smaller screens, and a longer look at the answer in overtime.",
+        "Big round turn timers in every mode, a red Forfeit button, and the same big \u201CBack to lobby\u201D button everywhere \u2014 plus Back to lobby and Main menu on the results screen.",
+        "Profiles: show up to 3 achievement badges under your name (Progress \u2192 click a badge). Add friend from anyone\u2019s profile, and Challenge a friend to any mode.",
+        "Boss Elimination: holding out until the time runs out is now a victory.",
+        "Fixes: pausing no longer revives downed teammates or loses your combo; the beginner AI fight no longer runs out of time (HP is balanced to ~18 hits at every level); Rapid in the online queue finds a partner even without a level in common; writing on iPhone no longer scrolls the page.",
+        "Closed beta: every mode, staff, flame and arena is open from level 1. Admins can make other players admins.",
+        "The tutorial starts by asking for your language, and its window is bigger.",
+        "New 3D magic staffs (Verdant, Ember, Tide, Storm, Void \u2014 each with its own animation) and five new 3D arenas: Forest, Swamp, Plains, Castle and World Tree, with painted skies, moving trees, water, flags and fireflies.",
+        "Full 3D: the mouse now turns your head instead of sliding the camera \u2014 and the other players see your character look where you look. Lite keeps the lighter parallax."
+      ],
+      ru: [
+        "\u0423\u0447\u0451\u0431\u0430: \xAB\u0412\u0441\u0435\xBB, \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435\xBB \u0438 \xAB\u0421\u0432\u043E\u0438\xBB \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F \u2014 \u0442\u0435\u043F\u0435\u0440\u044C \u0442\u0440\u0438 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u044B\u0435 \u043A\u043E\u043B\u043E\u0434\u044B. \u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043B\u044E\u0431\u0443\u044E, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0432\u0441\u0435 \u0441\u043B\u043E\u0432\u0430, \u0434\u0430\u0442\u0443 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0438 \u0443\u0434\u0430\u043B\u0438\u0442\u044C \u043B\u0438\u0448\u043D\u0438\u0435.",
+        "\u0421\u0432\u043E\u0438 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F: \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0439\u0442\u0435 \u0441\u043B\u043E\u0432\u0430 \u0438\u0437 \u0441\u043B\u043E\u0432\u0430\u0440\u044F (\u043F\u043E\u0438\u0441\u043A \u043F\u043E \u043A\u0430\u043D\u0434\u0437\u0438, \u043A\u0430\u043D\u0435 \u0438\u043B\u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044E) \u0438\u043B\u0438 \u0432\u0432\u043E\u0434\u0438\u0442\u0435 \u0441\u0432\u043E\u0451 \u0441\u043B\u043E\u0432\u043E \u0441 \u0447\u0442\u0435\u043D\u0438\u0435\u043C \u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435\u043C.",
+        "\u041F\u043E\u0441\u043B\u0435 \u0438\u0433\u0440\u044B \u0432\u044B \u0441\u0430\u043C\u0438 \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442\u0435, \u0432 \u043A\u0430\u043A\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443 \u043F\u043E\u0439\u0434\u0443\u0442 \u0441\u043B\u043E\u0432\u0430 \u0441 \u043E\u0448\u0438\u0431\u043A\u0430\u043C\u0438 (\u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u2014 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435\xBB), \u0438\u043B\u0438 \u0441\u043D\u0438\u043C\u0430\u0435\u0442\u0435 \u0433\u0430\u043B\u043E\u0447\u043A\u0438.",
+        "\u041D\u043E\u0432\u043E\u0435 \u0432 \u0443\u0447\u0451\u0431\u0435: \u0442\u0435\u0441\u0442 \u0432 \u0441\u0442\u0438\u043B\u0435 JLPT \u043F\u043E \u0438\u0437\u0443\u0447\u0435\u043D\u043D\u044B\u043C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u043C \u0438 \u0442\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F \u2014 \u043A\u043E\u0440\u043E\u0442\u043A\u0438\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0441 \u0432\u0430\u0448\u0438\u043C\u0438 \u0442\u0440\u0443\u0434\u043D\u044B\u043C\u0438 \u0441\u043B\u043E\u0432\u0430\u043C\u0438, \u0441 \u0444\u0443\u0440\u0438\u0433\u0430\u043D\u043E\u0439, \u0447\u0442\u0435\u043D\u0438\u044F\u043C\u0438 \u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F\u043C\u0438.",
+        "\u041D\u043E\u0432\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0432 \u0434\u0435\u043D\u044C: \u043E\u0442 10 \u0434\u043E 150 (\u0440\u0430\u043D\u044C\u0448\u0435 \u0432\u0441\u0435\u0433\u0434\u0430 25).",
+        "\u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434: \u0436\u0443\u0440\u043D\u0430\u043B \u0445\u043E\u0434\u043E\u0432 \u043F\u043E\u0434 \u0441\u043F\u0438\u0441\u043A\u043E\u043C \u043A\u0430\u043D\u0434\u0437\u0438 (\u043A\u0442\u043E \u0447\u0442\u043E \u0441\u044B\u0433\u0440\u0430\u043B, \u0443\u0434\u0430\u0440\u044B, \u043B\u0435\u0447\u0435\u043D\u0438\u0435, \u043F\u0440\u043E\u043C\u0430\u0445\u0438, \u0441\u0438\u043B\u044B), \u0431\u043E\u043B\u044C\u0448\u043E\u0439 \u0442\u0430\u0439\u043C\u0435\u0440 \u0445\u043E\u0434\u0430, \u043A\u0440\u0430\u0441\u043D\u0435\u044E\u0449\u0438\u0439 \u0432 \u043A\u043E\u043D\u0446\u0435, \u0431\u0435\u0437 \u043F\u0440\u043E\u043A\u0440\u0443\u0442\u043A\u0438 \u043D\u0430 \u043D\u0435\u0431\u043E\u043B\u044C\u0448\u0438\u0445 \u044D\u043A\u0440\u0430\u043D\u0430\u0445 \u0438 \u0431\u043E\u043B\u044C\u0448\u0435 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u043E\u0442\u0432\u0435\u0442 \u0432 \u043E\u0432\u0435\u0440\u0442\u0430\u0439\u043C\u0435.",
+        "\u0411\u043E\u043B\u044C\u0448\u0438\u0435 \u043A\u0440\u0443\u0433\u043B\u044B\u0435 \u0442\u0430\u0439\u043C\u0435\u0440\u044B \u0432\u043E \u0432\u0441\u0435\u0445 \u0440\u0435\u0436\u0438\u043C\u0430\u0445, \u043A\u0440\u0430\u0441\u043D\u0430\u044F \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u0421\u0434\u0430\u0442\u044C\u0441\u044F\xBB \u0438 \u043E\u0434\u0438\u043D\u0430\u043A\u043E\u0432\u0430\u044F \u0431\u043E\u043B\u044C\u0448\u0430\u044F \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u041D\u0430\u0437\u0430\u0434 \u0432 \u043B\u043E\u0431\u0431\u0438\xBB \u0432\u0435\u0437\u0434\u0435 \u2014 \u0430 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u0438\u0442\u043E\u0433\u043E\u0432 \u0435\u0449\u0451 \xAB\u041D\u0430\u0437\u0430\u0434 \u0432 \u043B\u043E\u0431\u0431\u0438\xBB \u0438 \xAB\u0413\u043B\u0430\u0432\u043D\u043E\u0435 \u043C\u0435\u043D\u044E\xBB.",
+        "\u041F\u0440\u043E\u0444\u0438\u043B\u0438: \u0434\u043E 3 \u0437\u043D\u0430\u0447\u043A\u043E\u0432 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0439 \u043F\u043E\u0434 \u0432\u0430\u0448\u0438\u043C \u0438\u043C\u0435\u043D\u0435\u043C (\u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u2192 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u0437\u043D\u0430\u0447\u043E\u043A). \xAB\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u0434\u0440\u0443\u0437\u044C\u044F\xBB \u0432 \u043B\u044E\u0431\u043E\u043C \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \xAB\u0412\u044B\u0437\u043E\u0432\xBB \u0434\u0440\u0443\u0433\u0443 \u0432 \u043B\u044E\u0431\u043E\u0439 \u0440\u0435\u0436\u0438\u043C.",
+        "\u0423\u0441\u0442\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u0431\u043E\u0441\u0441\u0430: \u043F\u0440\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C\u0441\u044F \u0434\u043E \u043A\u043E\u043D\u0446\u0430 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u2014 \u0442\u0435\u043F\u0435\u0440\u044C \u043F\u043E\u0431\u0435\u0434\u0430.",
+        "\u0418\u0441\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F: \u043F\u0430\u0443\u0437\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043F\u043E\u0434\u043D\u0438\u043C\u0430\u0435\u0442 \u043F\u0430\u0432\u0448\u0438\u0445 \u0441\u043E\u044E\u0437\u043D\u0438\u043A\u043E\u0432 \u0438 \u043D\u0435 \u0441\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442 \u043A\u043E\u043C\u0431\u043E; \u0431\u043E\u0439 \u0441 \u0418\u0418-\u043D\u043E\u0432\u0438\u0447\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043A\u043E\u043D\u0447\u0430\u0435\u0442\u0441\u044F \u043F\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438 (HP \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u0430\u043D\u043E \u043D\u0430 ~18 \u043F\u043E\u043F\u0430\u0434\u0430\u043D\u0438\u0439 \u043D\u0430 \u043B\u044E\u0431\u043E\u043C \u0443\u0440\u043E\u0432\u043D\u0435); \xAB\u0411\u043B\u0438\u0446\xBB \u0432 \u043E\u043D\u043B\u0430\u0439\u043D-\u043E\u0447\u0435\u0440\u0435\u0434\u0438 \u043D\u0430\u0445\u043E\u0434\u0438\u0442 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430 \u0434\u0430\u0436\u0435 \u0431\u0435\u0437 \u043E\u0431\u0449\u0435\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F; \u043F\u0438\u0441\u044C\u043C\u043E \u043D\u0430 iPhone \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043F\u0440\u043E\u043A\u0440\u0443\u0447\u0438\u0432\u0430\u0435\u0442 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0443.",
+        "\u0417\u0430\u043A\u0440\u044B\u0442\u044B\u0439 \u0431\u0435\u0442\u0430-\u0442\u0435\u0441\u0442: \u0432\u0441\u0435 \u0440\u0435\u0436\u0438\u043C\u044B, \u043F\u043E\u0441\u043E\u0445\u0438, \u043F\u043B\u0430\u043C\u044F \u0438 \u0430\u0440\u0435\u043D\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044B \u0441 1 \u0443\u0440\u043E\u0432\u043D\u044F. \u0410\u0434\u043C\u0438\u043D\u044B \u043C\u043E\u0433\u0443\u0442 \u043D\u0430\u0437\u043D\u0430\u0447\u0430\u0442\u044C \u0434\u0440\u0443\u0433\u0438\u0445 \u0430\u0434\u043C\u0438\u043D\u043E\u0432.",
+        "\u041E\u0431\u0443\u0447\u0435\u043D\u0438\u0435 \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F \u0441 \u0432\u044B\u0431\u043E\u0440\u0430 \u044F\u0437\u044B\u043A\u0430, \u0430 \u0435\u0433\u043E \u043E\u043A\u043D\u043E \u0441\u0442\u0430\u043B\u043E \u0431\u043E\u043B\u044C\u0448\u0435.",
+        "\u041D\u043E\u0432\u044B\u0435 3D-\u043F\u043E\u0441\u043E\u0445\u0438 (\u041B\u0438\u0441\u0442\u0432\u044B, \u0423\u0433\u043B\u0435\u0439, \u041F\u0440\u0438\u043B\u0438\u0432\u0430, \u0411\u0443\u0440\u0438, \u041F\u0443\u0441\u0442\u043E\u0442\u044B \u2014 \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0441\u0432\u043E\u044F \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u044F) \u0438 \u043F\u044F\u0442\u044C \u043D\u043E\u0432\u044B\u0445 3D-\u0430\u0440\u0435\u043D: \u041B\u0435\u0441, \u0411\u043E\u043B\u043E\u0442\u043E, \u0420\u0430\u0432\u043D\u0438\u043D\u044B, \u0417\u0430\u043C\u043E\u043A \u0438 \u041C\u0438\u0440\u043E\u0432\u043E\u0435 \u0434\u0440\u0435\u0432\u043E \u2014 \u0441 \u0440\u0438\u0441\u043E\u0432\u0430\u043D\u043D\u044B\u043C \u043D\u0435\u0431\u043E\u043C, \u043A\u0430\u0447\u0430\u044E\u0449\u0438\u043C\u0438\u0441\u044F \u0434\u0435\u0440\u0435\u0432\u044C\u044F\u043C\u0438, \u0432\u043E\u0434\u043E\u0439, \u0444\u043B\u0430\u0433\u0430\u043C\u0438 \u0438 \u0441\u0432\u0435\u0442\u043B\u044F\u0447\u043A\u0430\u043C\u0438.",
+        "\u041F\u043E\u043B\u043D\u043E\u0435 3D: \u043C\u044B\u0448\u044C \u0442\u0435\u043F\u0435\u0440\u044C \u043F\u043E\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442 \u0433\u043E\u043B\u043E\u0432\u0443, \u0430 \u043D\u0435 \u0441\u0434\u0432\u0438\u0433\u0430\u0435\u0442 \u043A\u0430\u043C\u0435\u0440\u0443, \u2014 \u0438 \u0434\u0440\u0443\u0433\u0438\u0435 \u0438\u0433\u0440\u043E\u043A\u0438 \u0432\u0438\u0434\u044F\u0442, \u043A\u0443\u0434\u0430 \u0441\u043C\u043E\u0442\u0440\u0438\u0442 \u0432\u0430\u0448 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436. \u0412 \u043B\u0451\u0433\u043A\u043E\u043C \u0440\u0435\u0436\u0438\u043C\u0435 \u043E\u0441\u0442\u0430\u0451\u0442\u0441\u044F \u043F\u0430\u0440\u0430\u043B\u043B\u0430\u043A\u0441."
+      ]
+    },
+    {
+      v: "0.9.8.5",
+      date: "2026-10",
+      en: ["Feedback button (bug reports and suggestions) and an admin Inbox; automatic error reports; admin Stats.", "\u201CN online\u201D on the Online queue button.", "Word meanings in Russian.", "Levels: stroke count first, JLPT level as a smaller weight.", "About: credits, licences and privacy."],
+      ru: ["\u041A\u043D\u043E\u043F\u043A\u0430 \xAB\u041E\u0442\u0437\u044B\u0432\xBB (\u043E\u0448\u0438\u0431\u043A\u0438 \u0438 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F) \u0438 \xAB\u0412\u0445\u043E\u0434\u044F\u0449\u0438\u0435\xBB \u0443 \u0430\u0434\u043C\u0438\u043D\u0430; \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043E\u0442\u0447\u0451\u0442\u044B \u043E\u0431 \u043E\u0448\u0438\u0431\u043A\u0430\u0445; \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430.", "\xABN \u0432 \u0441\u0435\u0442\u0438\xBB \u043D\u0430 \u043A\u043D\u043E\u043F\u043A\u0435 \u043E\u043D\u043B\u0430\u0439\u043D-\u043E\u0447\u0435\u0440\u0435\u0434\u0438.", "\u0417\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0441\u043B\u043E\u0432 \u043D\u0430 \u0440\u0443\u0441\u0441\u043A\u043E\u043C.", "\u0423\u0440\u043E\u0432\u043D\u0438: \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u0447\u0438\u0441\u043B\u043E \u0447\u0435\u0440\u0442, \u0443\u0440\u043E\u0432\u0435\u043D\u044C JLPT \u2014 \u0441 \u043C\u0435\u043D\u044C\u0448\u0438\u043C \u0432\u0435\u0441\u043E\u043C.", "\xAB\u041E\u0431 \u0438\u0433\u0440\u0435\xBB: \u0431\u043B\u0430\u0433\u043E\u0434\u0430\u0440\u043D\u043E\u0441\u0442\u0438, \u043B\u0438\u0446\u0435\u043D\u0437\u0438\u0438 \u0438 \u043A\u043E\u043D\u0444\u0438\u0434\u0435\u043D\u0446\u0438\u0430\u043B\u044C\u043D\u043E\u0441\u0442\u044C."]
+    },
+    {
+      v: "0.9.8.3",
+      date: "2026-10",
+      en: ["No more critical hits.", "Kana are printed in their own cells on the writing pad.", "AI players use random staffs and flames.", "Pause button next to Forfeit."],
+      ru: ["\u041A\u0440\u0438\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0445 \u0443\u0434\u0430\u0440\u043E\u0432 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435\u0442.", "\u041A\u0430\u043D\u0430 \u043F\u0435\u0447\u0430\u0442\u0430\u0435\u0442\u0441\u044F \u0432 \u0441\u0432\u043E\u0438\u0445 \u043A\u043B\u0435\u0442\u043A\u0430\u0445 \u043D\u0430 \u043F\u0430\u043D\u0435\u043B\u0438 \u043F\u0438\u0441\u044C\u043C\u0430.", "\u0418\u0418-\u0438\u0433\u0440\u043E\u043A\u0438 \u043F\u043E\u043B\u0443\u0447\u0430\u044E\u0442 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0435 \u043F\u043E\u0441\u043E\u0445\u0438 \u0438 \u043F\u043B\u0430\u043C\u044F.", "\u041A\u043D\u043E\u043F\u043A\u0430 \u043F\u0430\u0443\u0437\u044B \u0440\u044F\u0434\u043E\u043C \u0441 \xAB\u0421\u0434\u0430\u0442\u044C\u0441\u044F\xBB."]
+    },
+    {
+      v: "0.9.8.2",
+      date: "2026-10",
+      en: ["Pause games against the AI.", "Daily challenge results show right and wrong words; missed ones go to Struggling spells.", "The phone keyboard no longer hides the arena."],
+      ru: ["\u041F\u0430\u0443\u0437\u0430 \u0432 \u0438\u0433\u0440\u0430\u0445 \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418.", "\u0418\u0442\u043E\u0433\u0438 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0433\u043E \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u044F \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u044E\u0442 \u0432\u0435\u0440\u043D\u044B\u0435 \u0438 \u043D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430; \u043E\u0448\u0438\u0431\u043A\u0438 \u0438\u0434\u0443\u0442 \u0432 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435\xBB.", "\u041A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0430\u0440\u0435\u043D\u0443."]
+    },
+    {
+      v: "0.9.8.1",
+      date: "2026-10",
+      en: ["20 achievements with a celebration when you earn one.", "A battle keyboard for phones.", "Friends button on phones."],
+      ru: ["20 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0439 \u0441 \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0435\u0439 \u043F\u0440\u0438 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0438.", "\u0411\u043E\u0435\u0432\u0430\u044F \u043A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u0430 \u0434\u043B\u044F \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u043E\u0432.", "\u041A\u043D\u043E\u043F\u043A\u0430 \u0434\u0440\u0443\u0437\u0435\u0439 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430\u0445."]
+    }
+  ];
+  var SEEN = "kb:seenVersion";
+  var el3 = (tag, cls = "", text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = text;
+    return e;
+  };
+  function initWhatsNew() {
+    const dot = document.getElementById("newsDot");
+    let seen2 = "";
+    try {
+      seen2 = localStorage.getItem(SEEN) ?? "";
+    } catch {
+    }
+    dot.hidden = seen2 === VERSION;
+    document.getElementById("newsBtn").onclick = () => {
+      const ru = lang() === "ru";
+      document.getElementById("newsVersion").textContent = `v${VERSION}`;
+      document.getElementById("newsBody").replaceChildren(...PATCHES.map((p, i) => {
+        const sec = el3("section", "news-patch" + (i === 0 ? " latest" : ""));
+        const head = el3("h4", "", `${p.v}${p.v === VERSION ? ru ? " \u2014 \u0441\u0435\u0439\u0447\u0430\u0441" : " \u2014 current" : ""}`);
+        const ul = el3("ul");
+        for (const line of ru ? p.ru : p.en) ul.append(el3("li", "", line));
+        sec.append(head, ul);
+        return sec;
+      }));
+      document.getElementById("newsDialog").showModal();
+      try {
+        localStorage.setItem(SEEN, VERSION);
+      } catch {
+      }
+      dot.hidden = true;
+    };
+    document.getElementById("newsClose").onclick = () => document.getElementById("newsDialog").close();
+  }
+
+  // src/client/adminui.ts
+  var $4 = $;
+  var el4 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -3013,9 +3737,9 @@ ${stack}`.slice(0, 2e3);
   function setAdminTab(t) {
     tab = t;
     for (const b of document.querySelectorAll("#adminTabs [data-atab]")) b.classList.toggle("on", b.dataset.atab === t);
-    $3("adminUsers").hidden = t !== "users";
-    $3("adminInbox").hidden = t !== "inbox";
-    $3("adminStats").hidden = t !== "stats";
+    $4("adminUsers").hidden = t !== "users";
+    $4("adminInbox").hidden = t !== "inbox";
+    $4("adminStats").hidden = t !== "stats";
     if (t === "inbox") void loadInbox();
     if (t === "stats") void loadStats();
   }
@@ -3025,10 +3749,10 @@ ${stack}`.slice(0, 2e3);
     } catch {
       return;
     }
-    const open = reports.filter((r2) => !r2.done && r2.kind !== "error").length;
+    const open2 = reports.filter((r2) => !r2.done && r2.kind !== "error").length;
     for (const id of ["inboxBadge", "adminBadge"]) {
-      $3(id).hidden = open === 0;
-      $3(id).textContent = String(open);
+      $4(id).hidden = open2 === 0;
+      $4(id).textContent = String(open2);
     }
   }
   async function loadInbox() {
@@ -3038,36 +3762,36 @@ ${stack}`.slice(0, 2e3);
   var KIND_LABEL = { bug: "Bug report", suggestion: "Suggestion", error: "Error" };
   function renderInbox() {
     const kind = document.querySelector('input[name="inboxKind"]:checked')?.value ?? "all";
-    const showDone = $3("inboxShowDone").checked;
+    const showDone = $4("inboxShowDone").checked;
     const list = reports.filter((r2) => (kind === "all" || r2.kind === kind) && (showDone || !r2.done));
-    $3("inboxList").replaceChildren(...list.length ? list.map((r2) => {
-      const card = el2("article", `inbox-item k-${r2.kind}${r2.done ? " done" : ""}`);
-      const head = el2("div", "ii-head");
-      head.append(el2("span", `ii-kind k-${r2.kind}`, KIND_LABEL[r2.kind]), el2("b", "", r2.username || (r2.kind === "error" ? "game" : "?")), el2("small", "hint", dateTime(r2.at)));
-      const done = el2("button", "pill", r2.done ? "Reopen" : "\u2713 Done");
+    $4("inboxList").replaceChildren(...list.length ? list.map((r2) => {
+      const card = el4("article", `inbox-item k-${r2.kind}${r2.done ? " done" : ""}`);
+      const head = el4("div", "ii-head");
+      head.append(el4("span", `ii-kind k-${r2.kind}`, KIND_LABEL[r2.kind]), el4("b", "", r2.username || (r2.kind === "error" ? "game" : "?")), el4("small", "hint", dateTime(r2.at)));
+      const done = el4("button", "pill", r2.done ? "Reopen" : "\u2713 Done");
       done.onclick = async () => {
         await api.inboxDone(r2.id, !r2.done);
         r2.done = !r2.done;
         renderInbox();
         void refreshInboxBadge();
       };
-      const del = el2("button", "pill danger", "Delete");
+      const del = el4("button", "pill danger", "Delete");
       del.onclick = async () => {
         await api.inboxDelete(r2.id);
         reports = reports.filter((x) => x.id !== r2.id);
         renderInbox();
         void refreshInboxBadge();
       };
-      head.append(el2("span", "ii-sp"), done, del);
-      const text = el2("p", "ii-text", r2.text);
+      head.append(el4("span", "ii-sp"), done, del);
+      const text = el4("p", "ii-text", r2.text);
       card.append(head, text);
       if (r2.meta) {
-        const m = el2("details", "ii-meta");
-        m.append(el2("summary", "", "Details"), el2("pre", "", r2.meta));
+        const m = el4("details", "ii-meta");
+        m.append(el4("summary", "", "Details"), el4("pre", "", r2.meta));
         card.append(m);
       }
       return card;
-    }) : [el2("p", "hint", "Nothing here.")]);
+    }) : [el4("p", "hint", "Nothing here.")]);
   }
   for (const i of document.querySelectorAll('input[name="inboxKind"]')) {
     i.addEventListener("change", () => {
@@ -3075,7 +3799,7 @@ ${stack}`.slice(0, 2e3);
       renderInbox();
     });
   }
-  $3("inboxShowDone").addEventListener("change", renderInbox);
+  $4("inboxShowDone").addEventListener("change", renderInbox);
   for (const b of document.querySelectorAll("#adminTabs [data-atab]")) b.onclick = () => setAdminTab(b.dataset.atab);
   var pct = (a, b) => b ? `${Math.round(a / b * 100)}%` : "\u2014";
   var FUNNEL_LABEL = {
@@ -3088,20 +3812,20 @@ ${stack}`.slice(0, 2e3);
     tutorial_skip: "Skipped the tutorial"
   };
   async function loadStats() {
-    const box = $3("adminStats");
-    box.replaceChildren(el2("p", "hint", "Loading\u2026"));
+    const box = $4("adminStats");
+    box.replaceChildren(el4("p", "hint", "Loading\u2026"));
     let s;
     try {
       s = await api.adminStats();
     } catch (e) {
-      box.replaceChildren(el2("p", "error", e.message));
+      box.replaceChildren(el4("p", "error", e.message));
       return;
     }
-    const tiles = el2("div", "stat-tiles");
+    const tiles = el4("div", "stat-tiles");
     const tile2 = (n, label, sub = "") => {
-      const t = el2("div", "stat-tile");
-      t.append(el2("b", "", n), el2("span", "", label));
-      if (sub) t.append(el2("small", "hint", sub));
+      const t = el4("div", "stat-tile");
+      t.append(el4("b", "", n), el4("span", "", label));
+      if (sub) t.append(el4("small", "hint", sub));
       return t;
     };
     const today2 = s.daily[s.daily.length - 1];
@@ -3113,40 +3837,40 @@ ${stack}`.slice(0, 2e3);
       tile2(pct(s.day7.returned, s.day7.players), "back on day 7", `${s.day7.returned} of ${s.day7.players}`)
     );
     const max = Math.max(1, ...s.daily.map((d) => d.active));
-    const chart = el2("div", "stat-chart");
+    const chart = el4("div", "stat-chart");
     for (const d of s.daily) {
-      const col = el2("div", "sc-col");
-      const bar = el2("i", "sc-bar");
+      const col = el4("div", "sc-col");
+      const bar = el4("i", "sc-bar");
       bar.style.height = `${d.active / max * 100}%`;
       col.title = `${d.day}: ${d.active} active, ${d.signups} new`;
-      col.append(el2("b", "sc-n", d.active || ""), bar, el2("span", "sc-new", d.signups ? `+${d.signups}` : ""), el2("small", "", d.day.slice(8)));
+      col.append(el4("b", "sc-n", d.active || ""), bar, el4("span", "sc-new", d.signups ? `+${d.signups}` : ""), el4("small", "", d.day.slice(8)));
       chart.append(col);
     }
-    const funnel = el2("table", "stat-table");
+    const funnel = el4("table", "stat-table");
     const signups = s.funnel.find((f2) => f2.name === "signup")?.players ?? 0;
     funnel.append(...s.funnel.map((f2) => {
-      const tr2 = el2("tr");
-      tr2.append(el2("td", "", FUNNEL_LABEL[f2.name] ?? f2.name), el2("td", "num", f2.players), el2("td", "num hint", pct(f2.players, signups)));
+      const tr2 = el4("tr");
+      tr2.append(el4("td", "", FUNNEL_LABEL[f2.name] ?? f2.name), el4("td", "num", f2.players), el4("td", "num hint", pct(f2.players, signups)));
       return tr2;
     }));
-    const modes = el2("table", "stat-table");
-    const rows = Object.entries(s.modes);
-    modes.append(...rows.length ? rows.map(([m, v]) => {
-      const tr2 = el2("tr");
-      tr2.append(el2("td", "", m), el2("td", "num", `${v.started} started`), el2("td", "num", `${v.finished} finished`));
+    const modes = el4("table", "stat-table");
+    const rows2 = Object.entries(s.modes);
+    modes.append(...rows2.length ? rows2.map(([m, v]) => {
+      const tr2 = el4("tr");
+      tr2.append(el4("td", "", m), el4("td", "num", `${v.started} started`), el4("td", "num", `${v.finished} finished`));
       return tr2;
-    }) : [el2("tr")]);
+    }) : [el4("tr")]);
     box.replaceChildren(
       tiles,
-      el2("h3", "", "Active players (bars) and new players (+n), last 14 days"),
+      el4("h3", "", "Active players (bars) and new players (+n), last 14 days"),
       chart,
-      el2("div", "stat-cols")
+      el4("div", "stat-cols")
     );
     const cols = box.lastElementChild;
-    const c1 = el2("section");
-    c1.append(el2("h3", "", "Tutorial funnel (last 30 days)"), funnel);
-    const c2 = el2("section");
-    c2.append(el2("h3", "", "Games this week"), rows.length ? modes : el2("p", "hint", "No games yet."));
+    const c1 = el4("section");
+    c1.append(el4("h3", "", "Tutorial funnel (last 30 days)"), funnel);
+    const c2 = el4("section");
+    c2.append(el4("h3", "", "Games this week"), rows2.length ? modes : el4("p", "hint", "No games yet."));
     cols.append(c1, c2);
   }
 
@@ -3423,14 +4147,14 @@ ${stack}`.slice(0, 2e3);
       });
       return b;
     };
-    const rows = ROWS.map((r2, i) => {
+    const rows2 = ROWS.map((r2, i) => {
       const row = document.createElement("div");
       row.className = "gk-row";
       for (const c of r2) row.append(key(c, "ch", () => type(c)));
       if (i === 2) row.append(key("\u232B", "wide back", () => {
-        const el9 = input();
-        el9.value = el9.value.slice(0, -1);
-        el9.dispatchEvent(new Event("input", { bubbles: true }));
+        const el11 = input();
+        el11.value = el11.value.slice(0, -1);
+        el11.dispatchEvent(new Event("input", { bubbles: true }));
         preview();
       }));
       return row;
@@ -3449,7 +4173,7 @@ ${stack}`.slice(0, 2e3);
     pv.id = "gkPreview";
     pv.className = "gk-preview";
     pv.lang = "ja";
-    kb.replaceChildren(pv, ...rows, last);
+    kb.replaceChildren(pv, ...rows2, last);
   }
   function setGameKb(on) {
     on = on && touch() && gameKbPref();
@@ -4167,7 +4891,33 @@ ${stack}`.slice(0, 2e3);
     return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${locked ? "#2a2840" : "#2b2160"}"/><stop offset="1" stop-color="${locked ? "#16152a" : "#120c34"}"/></linearGradient></defs><path d="M32 3l25 14.5v29L32 61 7 46.5v-29z" fill="url(#${id})" stroke="${c}" stroke-width="3"/><path d="M32 9.5l19.5 11.3v22.4L32 54.5 12.5 43.2V20.8z" fill="none" stroke="${c}" stroke-opacity=".35" stroke-width="1.2"/><g transform="translate(20 20)" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" color="${c}"><g transform="scale(1)">${GLYPH[a.icon]}</g></g>${Array.from({ length: a.tier }, (_, i) => `<circle cx="${32 + (i - (a.tier - 1) / 2) * 7}" cy="52" r="2.2" fill="${c}"/>`).join("")}</svg>`;
   }
   var has = (unlocks2, id) => !!unlocks2?.includes(ACH_PREFIX + id);
-  function renderAchievements(box, unlocks2 = []) {
+  function badgeRow(ids) {
+    const list = (ids ?? []).map(achById).filter((a) => !!a);
+    if (!list.length) return "";
+    const row = document.createElement("div");
+    row.className = "badge-row";
+    for (const a of list) {
+      const b = document.createElement("span");
+      b.className = "ach mini";
+      b.tabIndex = 0;
+      b.style.setProperty("--ac", a.color);
+      b.setAttribute("aria-label", `${a.name}: ${a.how}`);
+      b.innerHTML = badgeSvg(a, false);
+      const tip = document.createElement("div");
+      tip.className = "ach-tip";
+      const t = document.createElement("b");
+      t.textContent = a.name;
+      const s = document.createElement("span");
+      s.textContent = a.how;
+      tip.append(t, s);
+      b.append(tip);
+      row.append(b);
+    }
+    return row;
+  }
+  var BADGES_MAX = 3;
+  useBadgeRow(badgeRow);
+  function renderAchievements(box, unlocks2 = [], badges2 = [], onBadges) {
     const earned = ACHIEVEMENTS.filter((a) => has(unlocks2, a.id)).length;
     const grid = document.createElement("div");
     grid.className = "ach-grid";
@@ -4185,10 +4935,36 @@ ${stack}`.slice(0, 2e3);
       t.textContent = a.name;
       const s = document.createElement("span");
       s.textContent = a.how;
+      const pinned = badges2.includes(a.id);
       const st = document.createElement("small");
-      st.textContent = locked ? "Locked" : "Unlocked \u2713";
+      st.textContent = locked ? "Locked" : pinned ? "On your profile \u2713 \u2014 click to remove" : onBadges ? "Unlocked \u2713 \u2014 click to show on your profile" : "Unlocked \u2713";
       tip.append(t, s, st);
       b.append(tip);
+      if (pinned) {
+        b.classList.add("pinned");
+        const pin = document.createElement("i");
+        pin.className = "ach-pin";
+        pin.textContent = "\u2605";
+        b.append(pin);
+      }
+      if (!locked && onBadges) {
+        b.classList.add("pickable");
+        const toggle = () => {
+          if (pinned) return onBadges(badges2.filter((x) => x !== a.id));
+          if (badges2.length >= BADGES_MAX) {
+            toast(`Up to ${BADGES_MAX} badges \u2014 click one with a \u2605 to remove it first.`);
+            return;
+          }
+          onBadges([...badges2, a.id]);
+        };
+        b.onclick = toggle;
+        b.onkeydown = (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggle();
+          }
+        };
+      }
       grid.append(b);
     }
     const head = document.createElement("h3");
@@ -4197,7 +4973,10 @@ ${stack}`.slice(0, 2e3);
     sm.className = "hint";
     sm.textContent = `${earned} / ${ACHIEVEMENTS.length}`;
     head.append(sm);
-    box.replaceChildren(head, grid);
+    const hint = document.createElement("p");
+    hint.className = "hint ach-hint";
+    hint.textContent = `Click an earned badge to show it under your name (\u2605 = on your profile, up to ${BADGES_MAX}).`;
+    box.replaceChildren(head, ...onBadges && earned ? [hint] : [], grid);
   }
   var shown = /* @__PURE__ */ new Set();
   var queue = [];
@@ -4262,8 +5041,8 @@ ${stack}`.slice(0, 2e3);
   }
 
   // src/client/friendrail.ts
-  var $4 = $;
-  var el3 = (tag, cls = "", text) => {
+  var $5 = $;
+  var el5 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -4277,15 +5056,15 @@ ${stack}`.slice(0, 2e3);
   function setRailUser(on) {
     signedIn = on;
     if (!on) {
-      $4("friendRail").hidden = true;
-      $4("railFab").hidden = true;
+      $5("friendRail").hidden = true;
+      $5("railFab").hidden = true;
       clearInterval(timer);
     }
   }
   function railScreen(screen2) {
     const show3 = signedIn && RAIL_SCREENS.has(screen2);
-    $4("friendRail").hidden = !show3;
-    $4("railFab").hidden = !show3;
+    $5("friendRail").hidden = !show3;
+    $5("railFab").hidden = !show3;
     setOpen(false);
     document.body.classList.toggle("has-rail", show3);
     clearInterval(timer);
@@ -4295,16 +5074,16 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function setOpen(on) {
-    $4("friendRail").classList.toggle("open", on);
-    $4("railFab").setAttribute("aria-expanded", String(on));
+    $5("friendRail").classList.toggle("open", on);
+    $5("railFab").setAttribute("aria-expanded", String(on));
   }
-  $4("railFab").onclick = (e) => {
+  $5("railFab").onclick = (e) => {
     e.stopPropagation();
-    setOpen(!$4("friendRail").classList.contains("open"));
+    setOpen(!$5("friendRail").classList.contains("open"));
   };
   document.addEventListener("pointerdown", (e) => {
     const t = e.target;
-    if ($4("friendRail").classList.contains("open") && !t.closest("#friendRail, #railFab, #friendDialog, #otherPop")) setOpen(false);
+    if ($5("friendRail").classList.contains("open") && !t.closest("#friendRail, #railFab, #friendDialog, #otherPop")) setOpen(false);
   });
   async function refreshRail() {
     try {
@@ -4312,76 +5091,76 @@ ${stack}`.slice(0, 2e3);
     } catch {
       return;
     }
-    render();
+    render2();
   }
   var avatar = (f2) => {
-    const a = el3("span", "fr-av");
+    const a = el5("span", "fr-av");
     if (f2.pic) {
-      const img = el3("img");
+      const img = el5("img");
       img.src = f2.pic;
       img.alt = "";
       a.append(img);
     } else a.textContent = f2.username.slice(0, 1).toUpperCase();
-    a.append(el3("i", "fr-dot"));
+    a.append(el5("i", "fr-dot"));
     return a;
   };
-  function render() {
+  function render2() {
     const accepted = friends.filter((f2) => f2.status === "accepted").sort((a, b) => a.username.localeCompare(b.username));
     const online = accepted.filter((f2) => f2.online), offline = accepted.filter((f2) => !f2.online);
     const incoming = friends.filter((f2) => f2.status === "incoming").length;
     const section = (key, title, list2) => {
-      const head = el3("button", "fr-sec", "");
-      head.append(el3("b", "fr-count", list2.length), el3("span", "fr-sec-name", title), el3("span", "fr-chev", collapsed[key] ? "\u25BE" : "\u25B4"));
+      const head = el5("button", "fr-sec", "");
+      head.append(el5("b", "fr-count", list2.length), el5("span", "fr-sec-name", title), el5("span", "fr-chev", collapsed[key] ? "\u25BE" : "\u25B4"));
       head.setAttribute("aria-expanded", String(!collapsed[key]));
       head.onclick = () => {
         collapsed[key] = !collapsed[key];
-        render();
+        render2();
       };
-      const rows = collapsed[key] ? [] : list2.map((f2) => {
-        const r2 = el3("div", "fr-row" + (f2.online ? " online" : ""));
+      const rows2 = collapsed[key] ? [] : list2.map((f2) => {
+        const r2 = el5("div", "fr-row" + (f2.online ? " online" : ""));
         markProfile(r2, { id: f2.id, name: f2.username, bot: null });
         r2.title = `${f2.username} \u2014 view profile`;
-        const txt = el3("span", "fr-txt");
-        txt.append(el3("span", "fr-name", f2.username), el3("small", "fr-status", f2.online ? f2.activity ?? "Online" : "Offline"));
-        r2.append(avatar(f2), txt, el3("span", "fr-lv", `Lv ${f2.level ?? 0}`));
+        const txt = el5("span", "fr-txt");
+        txt.append(el5("span", "fr-name", f2.username), el5("small", "fr-status", f2.online ? f2.activity ?? "Online" : "Offline"));
+        r2.append(avatar(f2), txt, el5("span", "fr-lv", `Lv ${f2.level ?? 0}`));
         return r2;
       });
-      return [head, ...rows];
+      return [head, ...rows2];
     };
-    const list = $4("railList");
+    const list = $5("railList");
     list.replaceChildren(
       ...section("online", "Online", online),
       ...section("offline", "Offline", offline),
-      ...accepted.length ? [] : [el3("p", "fr-empty", "No friends yet \u2014 add someone below.")]
+      ...accepted.length ? [] : [el5("p", "fr-empty", "No friends yet \u2014 add someone below.")]
     );
-    $4("railOnline").textContent = String(online.length);
-    $4("railFabCount").textContent = String(online.length);
-    $4("railFab").classList.toggle("alert", incoming > 0);
-    const badge = $4("railReqBadge");
+    $5("railOnline").textContent = String(online.length);
+    $5("railFabCount").textContent = String(online.length);
+    $5("railFab").classList.toggle("alert", incoming > 0);
+    const badge = $5("railReqBadge");
     badge.hidden = incoming === 0;
     badge.textContent = String(incoming);
   }
   function openDialog(tab2) {
-    const d = $4("friendDialog");
+    const d = $5("friendDialog");
     for (const b of d.querySelectorAll("[data-ftab]")) b.classList.toggle("on", b.dataset.ftab === tab2);
-    $4("fdAdd").hidden = tab2 !== "add";
-    $4("fdRequests").hidden = tab2 !== "requests";
-    $4("fdMsg").textContent = "";
+    $5("fdAdd").hidden = tab2 !== "add";
+    $5("fdRequests").hidden = tab2 !== "requests";
+    $5("fdMsg").textContent = "";
     renderRequests();
     if (!d.open) d.showModal();
-    if (tab2 === "add") setTimeout(() => $4("fdName").focus(), 30);
+    if (tab2 === "add") setTimeout(() => $5("fdName").focus(), 30);
   }
   function renderRequests() {
-    const box = $4("fdReqList");
+    const box = $5("fdReqList");
     const incoming = friends.filter((f2) => f2.status === "incoming");
     const outgoing = friends.filter((f2) => f2.status === "outgoing");
     const act = (text, cls, fn) => {
-      const b = el3("button", `pill ${cls}`, text);
+      const b = el5("button", `pill ${cls}`, text);
       b.onclick = async () => {
         b.disabled = true;
         try {
           friends = (await fn()).friends;
-          render();
+          render2();
           renderRequests();
         } catch (e) {
           toast(e.message);
@@ -4391,37 +5170,37 @@ ${stack}`.slice(0, 2e3);
       return b;
     };
     const row = (f2, buttons, note) => {
-      const r2 = el3("div", "fd-row");
-      const t = el3("span", "fr-txt");
-      t.append(el3("span", "fr-name", f2.username), el3("small", "fr-status", note));
+      const r2 = el5("div", "fd-row");
+      const t = el5("span", "fr-txt");
+      t.append(el5("span", "fr-name", f2.username), el5("small", "fr-status", note));
       r2.append(avatar(f2), t, ...buttons);
       return r2;
     };
     box.replaceChildren(
-      ...incoming.length ? [el3("h4", "", `Requests (${incoming.length})`), ...incoming.map((f2) => row(f2, [act("Accept", "primary", () => api.acceptFriend(f2.id)), act("Decline", "", () => api.removeFriend(f2.id))], "wants to be friends"))] : [el3("p", "hint", "No friend requests right now.")],
-      ...outgoing.length ? [el3("h4", "", "Sent requests"), ...outgoing.map((f2) => row(f2, [act("Cancel", "", () => api.removeFriend(f2.id))], "request sent"))] : []
+      ...incoming.length ? [el5("h4", "", `Requests (${incoming.length})`), ...incoming.map((f2) => row(f2, [act("Accept", "primary", () => api.acceptFriend(f2.id)), act("Decline", "", () => api.removeFriend(f2.id))], "wants to be friends"))] : [el5("p", "hint", "No friend requests right now.")],
+      ...outgoing.length ? [el5("h4", "", "Sent requests"), ...outgoing.map((f2) => row(f2, [act("Cancel", "", () => api.removeFriend(f2.id))], "request sent"))] : []
     );
   }
-  $4("railAdd").onclick = () => openDialog("add");
-  $4("railReq").onclick = () => openDialog("requests");
+  $5("railAdd").onclick = () => openDialog("add");
+  $5("railReq").onclick = () => openDialog("requests");
   for (const b of document.querySelectorAll("#friendDialog [data-ftab]")) b.onclick = () => openDialog(b.dataset.ftab);
-  $4("fdClose").onclick = () => $4("friendDialog").close();
-  $4("fdAdd").addEventListener("submit", async (e) => {
+  $5("fdClose").onclick = () => $5("friendDialog").close();
+  $5("fdAdd").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const input2 = $4("fdName");
+    const input2 = $5("fdName");
     const name = input2.value.trim();
     if (!name) return;
     try {
       const r2 = await api.addFriend(name);
       friends = r2.friends;
-      $4("fdMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      $5("fdMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
       input2.value = "";
-      render();
+      render2();
     } catch (err) {
-      $4("fdMsg").textContent = err.message;
+      $5("fdMsg").textContent = err.message;
     }
   });
-  $4("railList").addEventListener("click", () => $4("friendDialog").close());
+  $5("railList").addEventListener("click", () => $5("friendDialog").close());
 
   // src/client/voice.ts
   var KEY5 = "kb:voice";
@@ -4539,8 +5318,8 @@ ${stack}`.slice(0, 2e3);
   addEventListener("focus", stop);
 
   // src/client/tutorial.ts
-  var $5 = $;
-  var el4 = (tag, cls = "", text) => {
+  var $6 = $;
+  var el6 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -4566,6 +5345,7 @@ ${stack}`.slice(0, 2e3);
   }
   var inTutorialBattle = () => stage === "battle";
   var CARDS = [
+    { title: "Language \xB7 \u042F\u0437\u044B\u043A", body: "Choose the language for the game and this tutorial. \xB7 \u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u044F\u0437\u044B\u043A \u0438\u0433\u0440\u044B \u0438 \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u044F. (You can change it later in Settings.)", language: true },
     { title: "Welcome, apprentice", body: "In Kanji Wizards every spell is a Japanese word. Learn a word \u2014 and you can cast it at your opponent." },
     { title: "Do you know hiragana?", body: `Kanji are read with hiragana (\u304B\u306A). If you can already read all of it, you start with kanji (N5 to N1). If not, you start with \u304B\u306A only \u2014 the kanji levels open once you tick "I've mastered hiragana" in Settings.`, choice: true },
     {
@@ -4574,19 +5354,19 @@ ${stack}`.slice(0, 2e3);
       extra: tryIt
     },
     { title: "Study makes you stronger", body: "Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review." },
-    { title: "More to unlock", body: "You start with Kanji Reading and Rapid. Kanji Writing and the Boss fight unlock at level 1, Deck Duel at level 2. There is also a Daily challenge, Progress, Friends \u2014 and monthly goals with rewards." },
+    { title: "Everything is open", body: "Every mode is open from the start: Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards." },
     { title: "\u304B\u306A first, then kanji", body: `Beginners: study \u304B\u306A in Study spells until you know it by heart. Then tick "I've mastered hiragana" in Settings (the sliders button, top-right) \u2014 and the kanji levels N5 to N1 open for studying and battles.` },
     { title: "Your first battle", body: "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them." }
   ];
   function tryIt() {
-    const box = el4("div", "tut-try");
-    const k = el4("span", "tut-k", "\u5C71");
+    const box = el6("div", "tut-try");
+    const k = el6("span", "tut-k", "\u5C71");
     k.lang = "ja";
-    const input2 = el4("input");
+    const input2 = el6("input");
     input2.placeholder = "type its reading: yama";
     input2.lang = "ja";
     input2.autocomplete = "off";
-    const msg = el4("span", "hint", "Mountain \u2014 try it!");
+    const msg = el6("span", "hint", "Mountain \u2014 try it!");
     input2.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" || e.isComposing) return;
       e.stopPropagation();
@@ -4612,17 +5392,32 @@ ${stack}`.slice(0, 2e3);
   }
   function show2(i) {
     const c = CARDS[i];
-    const box = $5("tutorial");
-    const dots = el4("div", "tut-dots");
-    CARDS.forEach((_, j) => dots.append(el4("i", j === i ? "on" : "")));
-    const card = el4("div", "tut-card");
-    const actions = el4("div", "tut-actions");
+    const box = $6("tutorial");
+    const dots = el6("div", "tut-dots");
+    CARDS.forEach((_, j) => dots.append(el6("i", j === i ? "on" : "")));
+    const card = el6("div", "tut-card");
+    const actions = el6("div", "tut-actions");
     const last = i === CARDS.length - 1;
-    const next3 = el4("button", "big", last ? "Fight a beginner AI" : "Next");
-    const skip2 = el4("button", "pill", last ? "Maybe later" : "Skip tutorial");
+    const next3 = el6("button", "big", last ? "Fight a beginner AI" : "Next");
+    const skip2 = el6("button", "pill", last ? "Maybe later" : "Skip tutorial");
+    if (c.language) {
+      const en = el6("button", "big" + (lang() === "en" ? "" : " alt"), "English");
+      const ru = el6("button", "big" + (lang() === "ru" ? "" : " alt"), "\u0420\u0443\u0441\u0441\u043A\u0438\u0439");
+      en.dataset.noI18n = "";
+      ru.dataset.noI18n = "";
+      en.onclick = () => show2(i + 1);
+      ru.onclick = () => {
+        if (lang() !== "ru") useRussianNow();
+        const sel = document.getElementById("langSel");
+        if (sel) sel.value = "ru";
+        show2(i + 1);
+      };
+      next3.hidden = true;
+      queueMicrotask(() => actions.append(en, ru));
+    }
     if (c.choice) {
-      const yes = el4("button", "big", "Yes \u2014 I know hiragana");
-      const no = el4("button", "big alt", "I'm a beginner");
+      const yes = el6("button", "big", "Yes \u2014 I know hiragana");
+      const no = el6("button", "big alt", "I'm a beginner");
       const pickKana = (mastered) => {
         yes.disabled = no.disabled = true;
         void api.event(mastered ? "tutorial_kana_yes" : "tutorial_kana_no");
@@ -4645,14 +5440,14 @@ ${stack}`.slice(0, 2e3);
       finish();
     };
     actions.append(skip2, next3);
-    card.append(dots, el4("h2", "", c.title), el4("p", "", c.body), ...c.extra ? [c.extra()] : [], actions);
+    card.append(dots, el6("h2", "", c.title), el6("p", "", c.body), ...c.extra ? [c.extra()] : [], actions);
     box.replaceChildren(card);
     box.hidden = false;
     next3.focus();
   }
   function finish() {
     stage = "off";
-    $5("tutorial").hidden = true;
+    $6("tutorial").hidden = true;
     coach(null);
     void api.tutorialDone().catch(() => {
     });
@@ -4663,21 +5458,21 @@ ${stack}`.slice(0, 2e3);
     else if (screen2 === "battle") coach("Type the reading of the kanji (hiragana or romaji) and press Enter. Don't know it? Esc skips. Keep your HP above the AI's!");
     else if (screen2 === "results") {
       void api.event("tutorial_done");
-      coach("Well cast! Words you missed are now in Study spells \u2192 Struggling. Level up to unlock Writing, Boss and Deck Duel.");
+      coach("Well cast! On the results screen you choose which deck the words you missed go to (Struggling spells by default). Every mode is open \u2014 try Writing, Boss or Deck Duel next.");
       setTimeout(finish, 12e3);
     } else if (screen2 === "menu") finish();
   }
   function coach(text) {
-    const c = $5("coach");
+    const c = $6("coach");
     if (!text) {
       c.hidden = true;
       return;
     }
-    const close = el4("button", "pill", "Got it");
+    const close = el6("button", "pill", "Got it");
     close.onclick = () => {
       c.hidden = true;
     };
-    c.replaceChildren(el4("b", "", "Tip"), el4("span", "", text), close);
+    c.replaceChildren(el6("b", "", "Tip"), el6("span", "", text), close);
     c.hidden = false;
   }
 
@@ -4723,8 +5518,8 @@ ${stack}`.slice(0, 2e3);
     // overtime is a 1v1 Rapid duel: the cards are gone; random kanji (N5–N1), first to type the reading hits
     overtimeCardMs: 12e3,
     // per kanji
-    overtimeGapMs: 2200,
-    // the answer stays up before the next kanji
+    overtimeGapMs: 4500,
+    // the answer (kanji, reading, meaning) stays up before the next kanji
     overtimeMaxMs: 3 * 6e4,
     // then the higher HP wins
     witchSightDamage: 1.35,
@@ -4747,13 +5542,13 @@ ${stack}`.slice(0, 2e3);
   };
 
   // src/client/deckui.ts
-  var $6 = $;
+  var $7 = $;
   var COLOR_NAME = { lightblue: "Light blue", blue: "Blue", yellow: "Yellow", green: "Green", red: "Red" };
   function h2(tag, cls = "", text) {
-    const el9 = document.createElement(tag);
-    if (cls) el9.className = cls;
-    if (text !== void 0) el9.textContent = String(text);
-    return el9;
+    const el11 = document.createElement(tag);
+    if (cls) el11.className = cls;
+    if (text !== void 0) el11.textContent = String(text);
+    return el11;
   }
   var view = null;
   var hooks2;
@@ -4798,7 +5593,7 @@ ${stack}`.slice(0, 2e3);
   }
   function initDeck(hk) {
     hooks2 = hk;
-    $6("dkAbility").onclick = () => {
+    $7("dkAbility").onclick = () => {
       const me3 = view?.players.find((p) => p.id === view.you);
       if (me3?.character && CHARACTER_INFO[me3.character].passive) {
         const used = [me3.wizardCardsUsed ? "cards used" : "+2 cards ready", me3.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
@@ -4806,18 +5601,18 @@ ${stack}`.slice(0, 2e3);
       }
       hooks2.send({ type: "deck_ability" });
     };
-    $6("dkChatForm").addEventListener("submit", (e) => {
+    $7("dkChatForm").addEventListener("submit", (e) => {
       e.preventDefault();
-      const input2 = $6("dkChatInput");
+      const input2 = $7("dkChatInput");
       const text = input2.value.trim();
       if (text) hooks2.send({ type: "chat", text });
       input2.value = "";
     });
-    renderGuide($6("deckGuide"));
+    renderGuide($7("deckGuide"));
   }
   var seenChat = /* @__PURE__ */ new Set();
   function chatMessages(msgs) {
-    const log = $6("dkChatLog");
+    const log = $7("dkChatLog");
     for (const m of msgs) {
       if (seenChat.has(m.id)) continue;
       seenChat.add(m.id);
@@ -4831,10 +5626,10 @@ ${stack}`.slice(0, 2e3);
   }
   function clearChat() {
     seenChat.clear();
-    $6("dkChatLog").replaceChildren();
+    $7("dkChatLog").replaceChildren();
   }
-  var renderDeckGuide = (el9) => renderGuide(el9);
-  function renderGuide(el9) {
+  var renderDeckGuide = (el11) => renderGuide(el11);
+  function renderGuide(el11) {
     const sec = (title, ...kids) => {
       const s = h2("section", "g-sec");
       s.append(h2("h4", "", title), ...kids);
@@ -4876,7 +5671,7 @@ ${stack}`.slice(0, 2e3);
       li.append(h2("span", "g-ic", icon), h2("span", "", t));
       flow.append(li);
     }
-    el9.replaceChildren(
+    el11.replaceChildren(
       h2("h3", "", "How Deck Duel works"),
       sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (\u2212${DECK_RULES.skipPenaltyHp} HP).`)),
       sec("Cards", cards),
@@ -4888,26 +5683,26 @@ ${stack}`.slice(0, 2e3);
   function cardEl(c, opts = {}) {
     const base = CARD_SPECS[c.color];
     const spec = { ...base, cost: Math.ceil(base.cost * (opts.costFactor ?? 1)) };
-    const el9 = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
-    if (opts.button) el9.disabled = !!opts.disabled;
-    el9.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
-    if (opts.big) return el9;
-    el9.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
+    const el11 = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
+    if (opts.button) el11.disabled = !!opts.disabled;
+    el11.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
+    if (opts.big) return el11;
+    el11.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
     if (c.kanji) {
       const k = h2("span", "dkc-k", c.kanji);
       k.lang = "ja";
       const r2 = h2("span", "dkc-r", c.reading ?? "");
       r2.lang = "ja";
-      el9.append(k, r2);
+      el11.append(k, r2);
     } else {
-      el9.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
+      el11.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
     }
-    return el9;
+    return el11;
   }
   var powered = (p) => !!p.character && p.character !== "wizard" && p.abilityActive > 0;
-  function playerPanel(el9, p, mine) {
-    paintFlame(el9, p.flame);
-    el9.classList.toggle("powered", powered(p));
+  function playerPanel(el11, p, mine) {
+    paintFlame(el11, p.flame);
+    el11.classList.toggle("powered", powered(p));
     arena()?.onfire(mine ? "me" : "opp", powered(p), flameColor(p.flame));
     const av = h2("div", "dk-av");
     av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp", p.staff) : "";
@@ -4939,7 +5734,7 @@ ${stack}`.slice(0, 2e3);
       cc.append(dot, `\xD7${p.handCounts[col]}`);
       counts2.append(cc);
     }
-    el9.replaceChildren(av, name, hp, mana, counts2);
+    el11.replaceChildren(av, name, hp, mana, counts2);
   }
   function renderDeck(v) {
     view = v;
@@ -4947,22 +5742,23 @@ ${stack}`.slice(0, 2e3);
     const opp = v.players.find((p) => p.id !== v.you);
     if (opp.character) arenaForDeck(v);
     show("deck");
-    playerPanel($6("dkMe"), me3, true);
-    playerPanel($6("dkOpp"), opp, false);
-    const overlay = $6("dkOverlay");
+    playerPanel($7("dkMe"), me3, true);
+    playerPanel($7("dkOpp"), opp, false);
+    const overlay = $7("dkOverlay");
     if (v.phase === "characters" || v.phase === "draft") {
       renderCast(v);
       stopCountdown("dkTurn");
-      $6("dkBanner").textContent = "";
+      $7("dkBanner").textContent = "";
+      hideTimer("dkTurn", $7("dkTurnTimer"));
       return v.phase === "characters" ? renderCharacters(v, me3, opp) : renderDraft(v, me3);
     }
     overlay.hidden = true;
     if (v.phase === "overtime") {
-      countdown("dkMatch", v.overtimeLeft, (left) => $6("dkClock").textContent = `OT ${clock(left)}`);
+      countdown("dkMatch", v.overtimeLeft, (left) => $7("dkClock").textContent = `OT ${clock(left)}`);
     } else {
-      countdown("dkMatch", v.matchLeftMs, (left) => $6("dkClock").textContent = clock(left));
+      countdown("dkMatch", v.matchLeftMs, (left) => $7("dkClock").textContent = clock(left));
     }
-    const banner = $6("dkBanner");
+    const banner = $7("dkBanner");
     const myTurn = v.turn?.active === v.you;
     if (myTurn && !v.casting && !wasMyTurn && v.phase !== "over") {
       sfx.yourTurn();
@@ -4973,19 +5769,28 @@ ${stack}`.slice(0, 2e3);
     banner.classList.toggle("mine", myTurn || v.phase === "overtime");
     const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
     const label = v.phase === "overtime" ? "Overtime \u2014 Rapid duel! First to type the reading hits" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
-    countdown("dkTurn", deadline, (left) => banner.textContent = `${label} \xB7 ${Math.ceil(left / 1e3)}s`);
+    banner.textContent = label;
+    const total = v.casting ? v.casting.overtime ? DECK_RULES.overtimeCardMs : DECK_RULES.castMs : DECK_RULES.chooseMs;
+    if (deadline > 0 && v.phase !== "over") bigTimer("dkTurn", $7("dkTurnTimer"), deadline, total, myTurn || v.phase === "overtime" ? 6e3 : 3e3);
+    else hideTimer("dkTurn", $7("dkTurnTimer"));
+    $7("dkTurnTimer").classList.toggle("mine", myTurn || v.phase === "overtime");
+    if (v.turn && v.turn.active !== feedActive) {
+      feedActive = v.turn.active;
+      feedTurn++;
+      logFeed("turn", v.turn.active === v.you ? "Your turn" : `${opp.name}'s turn`, v.turn.active === v.you ? "me" : "opp");
+    }
     const canPlay2 = myTurn && !v.casting && Date.now() >= revealUntil;
-    $6("dkHand").replaceChildren(...v.hand.map((c) => {
+    $7("dkHand").replaceChildren(...v.hand.map((c) => {
       const costFactor = myTurn ? v.turn.costFactor : 1;
-      const el9 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me3.mana });
-      el9.onclick = () => {
+      const el11 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me3.mana });
+      el11.onclick = () => {
         sfx.flip();
         hooks2.send({ type: "deck_play", cardId: c.cardId });
       };
-      return el9;
+      return el11;
     }));
-    $6("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
-    const ab = $6("dkAbility");
+    $7("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
+    const ab = $7("dkAbility");
     const ch = me3.character;
     ab.innerHTML = ch ? heroSvg(ch, "me", me3.staff) : "";
     const cd = me3.abilityCooldown;
@@ -5003,7 +5808,7 @@ ${stack}`.slice(0, 2e3);
     renderList(v);
   }
   function renderList(v) {
-    const box = $6("dkList");
+    const box = $7("dkList");
     const head = h2("h4", "", "Your kanji");
     if (!v.deckList) {
       box.replaceChildren(head, h2("p", "hint", v.phase === "overtime" ? "Overtime \u2014 the cards are gone: type the readings!" : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
@@ -5021,15 +5826,16 @@ ${stack}`.slice(0, 2e3);
     }
     box.replaceChildren(append2(head, h2("small", "", ` \xB7 ${v.deckList.length}`)), h2("p", "hint", "Which card is which stays secret."), ul);
   }
-  var append2 = (el9, ...kids) => {
-    el9.append(...kids);
-    return el9;
+  var append2 = (el11, ...kids) => {
+    el11.append(...kids);
+    return el11;
   };
   var castKey = "";
   function renderCast(v) {
-    const box = $6("dkCast");
+    const box = $7("dkCast");
     const c = v.casting;
     if (!c) {
+      $7("deck").classList.remove("dk-mycast", "dk-writing");
       arena()?.channel(0);
       arena()?.oppChannel(false);
       castKey = "";
@@ -5040,7 +5846,7 @@ ${stack}`.slice(0, 2e3);
       }
       if (Date.now() < revealUntil) return;
       box.replaceChildren();
-      $6("dkFeedback").replaceChildren();
+      $7("dkFeedback").replaceChildren();
       return;
     }
     revealUntil = 0;
@@ -5121,9 +5927,11 @@ ${stack}`.slice(0, 2e3);
         }
       } else stopCountdown("dkRead");
       box.replaceChildren(card, actions);
-      if (fresh) $6("dkFeedback").replaceChildren();
+      if (fresh) $7("dkFeedback").replaceChildren();
     }
     const writeNow = mine && !c.overtime && c.stage === "write";
+    $7("deck").classList.toggle("dk-mycast", mine && !c.overtime && c.ownerId === v.you);
+    $7("deck").classList.toggle("dk-writing", writeNow);
     const a3 = arena();
     a3?.channel(writeNow ? 1 : mine && c.stage === "look" ? 0.4 : c.overtime ? 0.5 : 0);
     a3?.oppChannel(!mine && c.stage === "write");
@@ -5136,7 +5944,7 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function renderCharacters(v, me3, opp) {
-    const overlay = $6("dkOverlay");
+    const overlay = $7("dkOverlay");
     overlay.hidden = false;
     const title = h2("h2", "", me3.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
     const grid = h2("div", "char-pick");
@@ -5154,7 +5962,7 @@ ${stack}`.slice(0, 2e3);
   var coinShown = false;
   function renderDraft(v, me3) {
     const d = v.draft;
-    const overlay = $6("dkOverlay");
+    const overlay = $7("dkOverlay");
     overlay.hidden = false;
     const mine = d.picker === v.you;
     const head = h2("div", "center");
@@ -5170,24 +5978,99 @@ ${stack}`.slice(0, 2e3);
     countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ""}`);
     const board = h2("div", "draft-board");
     for (const c of d.pool) {
-      const el9 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
-      if (c.takenBy) el9.classList.add("taken");
-      el9.onclick = () => {
+      const el11 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
+      if (c.takenBy) el11.classList.add("taken");
+      el11.onclick = () => {
         sfx.flip();
         hooks2.send({ type: "deck_pick", cardId: c.cardId });
       };
-      board.append(el9);
+      board.append(el11);
     }
     overlay.replaceChildren(backButton(v), head, status, board, h2("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
   }
   function backButton(v) {
-    const b = h2("button", "back dk-back", "\u2190 Back to lobby");
+    const b = h2("button", "lobby-btn dk-back", "Back to lobby");
     b.hidden = v.round > 1;
     b.onclick = () => hooks2.send({ type: "back_to_lobby" });
     return b;
   }
+  var feedTurn = 0;
+  var feedActive = "";
+  function logFeed(kind, text, who, color, extra) {
+    const list = $7("dkFeed");
+    const li = h2("li", `feed-${kind} by-${who}`);
+    if (kind === "turn") {
+      li.append(h2("span", "ft-turn", `Turn ${feedTurn}`), h2("span", "ft-who", text));
+    } else {
+      li.append(h2("span", `ft-dot${color ? ` c-${color}` : ""}`));
+      const body = h2("span", "ft-text", text);
+      li.append(body);
+      if (extra) li.append(h2("span", "ft-extra", extra));
+    }
+    const atEnd = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+    list.append(li);
+    while (list.children.length > 120) list.firstElementChild.remove();
+    if (atEnd) list.scrollTop = list.scrollHeight;
+  }
+  function resetFeed() {
+    feedTurn = 0;
+    feedActive = "";
+    $7("dkFeed").replaceChildren();
+  }
+  function feedEvent(e) {
+    if (!view) return;
+    const me3 = view.you;
+    const who = (id) => id === me3 ? "You" : view.players.find((p) => p.id === id)?.name ?? "Opponent";
+    const whom = (id) => id === me3 ? "you" : view.players.find((p) => p.id === id)?.name ?? "the opponent";
+    const side = (id) => id === me3 ? "me" : "opp";
+    switch (e.kind) {
+      case "coin":
+        logFeed("round", `Round ${e.round}: ${who(e.winner)} won the coin flip and pick${e.winner === me3 ? "" : "s"} first`, "sys");
+        break;
+      case "redraft":
+        logFeed("round", `${who(e.playerId)} ran out of cards \u2014 Round ${e.round} draft (HP and mana stay)`, side(e.playerId));
+        break;
+      case "ability":
+        logFeed("power", `${who(e.playerId)} used Omnipotence \u2014 ${CHARACTER_INFO[e.character].power.split(":")[0]}`, side(e.playerId), void 0, CHARACTER_INFO[e.character].power.split(":").slice(1).join(":").split(". ")[0].trim());
+        break;
+      case "wizard":
+        logFeed("power", `${who(e.playerId)}: Arcane reserve \u2014 ${e.what === "cards" ? "+2 random cards" : "+30 mana"}`, side(e.playerId));
+        break;
+      case "cast": {
+        const s = CARD_SPECS[e.color];
+        logFeed("cast", `${who(e.playerId)} played a ${s.label} card${s.cost ? ` (\u2212${s.cost}\u25C6)` : ""}`, side(e.playerId), e.color);
+        break;
+      }
+      case "resolve": {
+        const word2 = `${e.kanji} (${e.reading} \xB7 ${e.meaning})`;
+        if (e.overtime) {
+          if (e.ok) logFeed("hit", `${who(e.playerId)} read ${e.kanji} first \u2014 \u2212${e.amount} HP to ${whom(e.targetId)}`, side(e.playerId), e.color, `${e.reading} \xB7 ${e.meaning}`);
+          else logFeed("miss", `Nobody read ${e.kanji} in time`, "sys", e.color, `${e.reading} \xB7 ${e.meaning}`);
+          break;
+        }
+        const s = CARD_SPECS[e.color];
+        if (!e.ok) {
+          logFeed("miss", `${who(e.playerId)} missed ${e.kanji} \u2014 the ${s.label} fizzled`, side(e.playerId), e.color, `${e.reading} \xB7 ${e.meaning}${e.recognized && e.recognized !== "\xD7" ? ` \xB7 wrote ${e.recognized}` : ""}`);
+          break;
+        }
+        const what = s.kind === "attack" ? `${s.label} hit ${whom(e.targetId)} for \u2212${e.amount} HP` : s.kind === "heal" ? `${s.label}: +${e.amount} HP` : `${s.label}: +${e.amount}\u25C6 mana`;
+        logFeed(s.kind === "attack" ? "hit" : s.kind === "heal" ? "heal" : "mana", `${who(e.playerId)} cast ${e.kanji} \u2713 \u2014 ${what}${e.refund ? ` (+${e.refund}\u25C6 back)` : ""}`, side(e.playerId), e.color, word2.slice(e.kanji.length + 1));
+        break;
+      }
+      case "overtime":
+        logFeed("overtime", "Overtime! The cards are gone \u2014 first to type the reading hits", "sys");
+        break;
+      case "skip":
+        logFeed("skip", `${who(e.playerId)} ${stuckId === e.playerId ? "had no mana for any card" : "ran out of time"} \u2014 turn skipped, \u2212${e.damage} HP`, side(e.playerId));
+        break;
+      case "ot_miss":
+        logFeed("miss", `${who(e.playerId)} guessed wrong`, side(e.playerId));
+        break;
+    }
+  }
   function deckEvent(e) {
     if (!view) return;
+    feedEvent(e);
     const me3 = view.you;
     const name = (id) => view.players.find((p) => p.id === id)?.name ?? "Someone";
     switch (e.kind) {
@@ -5232,8 +6115,8 @@ ${stack}`.slice(0, 2e3);
   }
   var CARD_FX = { lightblue: "bolt", blue: "frost", red: "fire" };
   function animateResolve(e, me3, spoken = Promise.resolve()) {
-    const card = $6("dkCast").querySelector(".dkc.big");
-    const fb = $6("dkFeedback");
+    const card = $7("dkCast").querySelector(".dkc.big");
+    const fb = $7("dkFeedback");
     const who = e.playerId === me3 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
     const spec = e.overtime ? { label: "Rapid hit", kind: "attack", amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
     if (!e.ok) {
@@ -5250,7 +6133,7 @@ ${stack}`.slice(0, 2e3);
       const to = spec.kind === "attack" ? e.targetId === me3 ? "me" : "opp" : from;
       void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind, fx: e.overtime ? void 0 : CARD_FX[e.color] });
     } else if (spec.kind === "attack" && !e.overtime && CARD_FX[e.color]) {
-      const panel = $6(e.targetId === me3 ? "dkMe" : "dkOpp");
+      const panel = $7(e.targetId === me3 ? "dkMe" : "dkOpp");
       setTimeout(() => {
         panel.classList.remove("fx-bolt", "fx-frost", "fx-fire");
         void panel.offsetWidth;
@@ -5272,7 +6155,7 @@ ${stack}`.slice(0, 2e3);
       ghost.classList.add("sparkle");
     } else {
       const towardsMe = spec.kind === "heal" ? e.playerId === me3 : e.targetId === me3;
-      const target = zrect($6(towardsMe ? "dkMe" : "dkOpp"));
+      const target = zrect($7(towardsMe ? "dkMe" : "dkOpp"));
       ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
       void spoken.then(() => {
@@ -5302,18 +6185,19 @@ ${stack}`.slice(0, 2e3);
     card.append(h2("span", "reveal-badge", e.ok ? "\u2713" : "\u2717"), top, bottom);
     const label = h2("div", "cast-timer", e.ok ? "Correct!" : "The correct kanji");
     const strokesBox = h2("div", "dk-reveal-strokes");
-    $6("dkCast").replaceChildren(card, label, strokesBox);
+    $7("dkCast").replaceChildren(card, label, strokesBox);
     if (!e.ok && e.playerId === hooks2.me()) showWrongStrokes(strokesBox, e.kanji);
-    revealUntil = Date.now() + REVEAL_MS;
+    const ms = e.overtime ? DECK_RULES.overtimeGapMs - 300 : REVEAL_MS;
+    revealUntil = Date.now() + ms;
     clearTimeout(revealTimer);
     revealTimer = window.setTimeout(() => {
       revealUntil = 0;
       if (!view?.casting) {
-        $6("dkCast").replaceChildren();
-        $6("dkFeedback").replaceChildren();
+        $7("dkCast").replaceChildren();
+        $7("dkFeedback").replaceChildren();
       }
       if (view) renderDeck(view);
-    }, REVEAL_MS);
+    }, ms);
   }
   function ripCard(card) {
     const r2 = zrect(card);
@@ -5340,8 +6224,10 @@ ${stack}`.slice(0, 2e3);
     lastCastId = 0;
     writingCastId = 0;
     coinShown = false;
+    resetFeed();
+    $7("deck").classList.remove("dk-mycast", "dk-writing");
     stopCountdown("dkMatch");
-    stopCountdown("dkTurn");
+    hideTimer("dkTurn", $7("dkTurnTimer"));
     stopCountdown("dkDraft");
   };
 
@@ -5366,12 +6252,12 @@ ${stack}`.slice(0, 2e3);
   var me = () => "";
   var tick = 0;
   var searching = false;
-  function guideHover(el9, mode3) {
+  function guideHover(el11, mode3) {
     const pop = $("guidePop");
-    const open = () => {
+    const open2 = () => {
       pop.replaceChildren(...modeGuideNodes(mode3));
       pop.hidden = false;
-      const r2 = zrect(el9);
+      const r2 = zrect(el11);
       const w = Math.min(380, viewW() - 24);
       pop.style.width = `${w}px`;
       pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r2.left))}px`;
@@ -5381,10 +6267,10 @@ ${stack}`.slice(0, 2e3);
     const close = () => {
       pop.hidden = true;
     };
-    el9.addEventListener("mouseenter", open);
-    el9.addEventListener("mouseleave", close);
-    el9.addEventListener("focusin", open);
-    el9.addEventListener("focusout", close);
+    el11.addEventListener("mouseenter", open2);
+    el11.addEventListener("mouseleave", close);
+    el11.addEventListener("focusin", open2);
+    el11.addEventListener("focusout", close);
   }
   function chip(value, label, on, group) {
     const l = document.createElement("label");
@@ -5406,7 +6292,7 @@ ${stack}`.slice(0, 2e3);
   function remember() {
     save2({ modes: picked("qModes"), levels: picked("qLevels"), pick: pick3 });
   }
-  function choose(p, silent = false) {
+  function choose2(p, silent = false) {
     if (p === "deck" && !canPlay("deck")) {
       if (!silent) toast(lockText("deck"), 5e3);
       p = "battle";
@@ -5438,11 +6324,11 @@ ${stack}`.slice(0, 2e3);
       show("menu");
     };
     document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
-      c.addEventListener("click", () => choose(c.dataset.q));
+      c.addEventListener("click", () => choose2(c.dataset.q));
       c.addEventListener("keydown", (e) => {
         if (e.key === " " || e.key === "Enter") {
           e.preventDefault();
-          choose(c.dataset.q);
+          choose2(c.dataset.q);
         }
       });
     });
@@ -5459,9 +6345,9 @@ ${stack}`.slice(0, 2e3);
   function openQueue() {
     const s = load3();
     $("qModes").replaceChildren(...QUEUE_MODES.map((m) => {
-      const open = canPlay(m);
-      const c = chip(m, MODE_LABEL[m] + (open ? "" : " \xB7 locked"), open && s.modes.includes(m), "qm");
-      if (!open) {
+      const open2 = canPlay(m);
+      const c = chip(m, MODE_LABEL[m] + (open2 ? "" : " \xB7 locked"), open2 && s.modes.includes(m), "qm");
+      if (!open2) {
         c.classList.add("locked");
         c.querySelector("input").disabled = true;
         c.title = lockText(m);
@@ -5472,7 +6358,7 @@ ${stack}`.slice(0, 2e3);
     const deckCard = document.querySelector('#queuePick .queue-card[data-q="deck"]');
     deckCard.classList.toggle("locked", !canPlay("deck"));
     $("qLevels").replaceChildren(...LEVELS.map((l) => lockLevelChip(chip(l, LEVEL_LABEL[l], s.levels.includes(l) && (!kanaBeginner() || l === "KANA"), "ql"), l)));
-    choose(s.pick ?? "battle", true);
+    choose2(s.pick ?? "battle", true);
     if (!searching) {
       $("queuePick").hidden = false;
       $("qSearching").hidden = true;
@@ -5543,7 +6429,7 @@ ${stack}`.slice(0, 2e3);
     }
     $("qCancel").hidden = false;
     $("qTitle").textContent = "Searching for a player\u2026";
-    const started = Date.now() - ((msg.now ?? 0) - (msg.since ?? 0));
+    const started2 = Date.now() - ((msg.now ?? 0) - (msg.since ?? 0));
     const others = (msg.searching ?? 1) - 1;
     const boss = (msg.modes ?? []).includes("boss") ? ` \xB7 Boss needs 4 players: ${Math.min(4, msg.boss ?? 1)} / 4 queued` : "";
     $("qInfo").textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(" \xB7 ")} \u2014 ${others > 0 ? `${others} other player${others === 1 ? "" : "s"} searching` : "no one else searching yet"}${boss}`;
@@ -5551,7 +6437,7 @@ ${stack}`.slice(0, 2e3);
       searching = true;
       clearInterval(tick);
       const paint = () => {
-        const s = Math.floor((Date.now() - started) / 1e3);
+        const s = Math.floor((Date.now() - started2) / 1e3);
         $("qTimer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
       };
       paint();
@@ -5741,6 +6627,13 @@ ${stack}`.slice(0, 2e3);
       canvas.addEventListener("pointerup", () => this.up());
       canvas.addEventListener("pointercancel", () => this.up());
       canvas.addEventListener("pointerleave", () => this.up());
+      const stop2 = (e) => {
+        if (e.cancelable) e.preventDefault();
+      };
+      canvas.addEventListener("touchstart", stop2, { passive: false });
+      canvas.addEventListener("touchmove", stop2, { passive: false });
+      canvas.addEventListener("touchend", stop2, { passive: false });
+      canvas.addEventListener("gesturestart", (e) => e.preventDefault());
     }
     get strokeCount() {
       return this.strokes.length;
@@ -5921,32 +6814,32 @@ ${stack}`.slice(0, 2e3);
   };
 
   // src/client/study.ts
-  var $7 = $;
+  var $8 = $;
   var onProfile = () => {
   };
   var onProfileChange = (fn) => {
     onProfile = fn;
   };
-  function counts(el9, c) {
-    el9.innerHTML = "";
+  function counts(el11, c) {
+    el11.innerHTML = "";
     for (const [cls, n, label] of [["c-new", c.new, "new"], ["c-learn", c.learning, "learning"], ["c-due", c.due, "to review"]]) {
       const s = document.createElement("span");
       s.className = cls;
       const b = document.createElement("b");
       b.textContent = String(n);
       s.append(b, label);
-      el9.append(s);
+      el11.append(s);
     }
   }
-  function levelChips(selected) {
-    const box = $7("studyLevels");
+  function levelChips(selected2) {
+    const box = $8("studyLevels");
     box.replaceChildren(...LEVELS.map((lv) => {
       const label = document.createElement("label");
-      label.className = "chip" + (selected.includes(lv) ? " on" : "");
+      label.className = "chip" + (selected2.includes(lv) ? " on" : "");
       const input2 = document.createElement("input");
       input2.type = "checkbox";
       input2.value = lv;
-      input2.checked = selected.includes(lv);
+      input2.checked = selected2.includes(lv);
       label.append(input2, LEVEL_LABEL[lv]);
       return lockLevelChip(label, lv);
     }));
@@ -5955,32 +6848,50 @@ ${stack}`.slice(0, 2e3);
     show("study");
     try {
       const s = await api.study();
-      render2(s);
+      render3(s);
     } catch (e) {
       toast(e.message);
     }
   }
-  function render2(s) {
+  function render3(s) {
     levelChips(s.studyLevels);
-    counts($7("countsAll"), s.decks.all);
-    counts($7("countsStruggle"), s.decks.struggling);
-    $7("studyCrit").textContent = `${s.profile.learnedToday} learned today \xB7 ${s.profile.learned} learned in total`;
-    const notice = $7("studyNotice");
+    counts($8("countsAll"), s.decks.all);
+    counts($8("countsStruggle"), s.decks.struggling);
+    counts($8("countsCustom"), s.decks.custom);
+    $8("dailyNew").value = String(s.dailyNew);
+    $8("dailyNewVal").textContent = String(s.dailyNew);
+    $8("studyCrit").textContent = `${s.profile.learnedToday} learned today \xB7 ${s.profile.learned} learned in total`;
+    const notice = $8("studyNotice");
     notice.hidden = !s.notice;
     notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
     if (!s.studyLevels.length && !s.decks.all.total) {
       notice.hidden = false;
-      notice.textContent = "Tick one or more levels under \u201CAll spells\u201D to get 25 new spells today (and every day).";
+      notice.textContent = `Tick one or more levels under \u201CAll spells\u201D to get ${s.dailyNew} new spells today (and every day).`;
     }
     const has2 = (c) => c.new + c.learning + c.due > 0;
-    $7("studyAll").disabled = !has2(s.decks.all);
-    $7("studyStruggle").disabled = !has2(s.decks.struggling);
+    $8("studyAll").disabled = !has2(s.decks.all);
+    $8("studyStruggle").disabled = !has2(s.decks.struggling);
+    $8("studyCustom").disabled = !has2(s.decks.custom);
     onProfile(s.profile);
   }
-  $7("studyLevels").addEventListener("change", async () => {
+  initDecks({ changed: () => {
+    if (!$8("study").hidden) void api.study().then(render3).catch(() => {
+    });
+  }, back: () => void openStudy() });
+  $8("dailyNew").addEventListener("input", () => {
+    $8("dailyNewVal").textContent = $8("dailyNew").value;
+  });
+  $8("dailyNew").addEventListener("change", async () => {
+    try {
+      render3(await api.setDailyNew(Number($8("dailyNew").value)));
+    } catch (e) {
+      toast(e.message);
+    }
+  });
+  $8("studyLevels").addEventListener("change", async () => {
     const levels = [...document.querySelectorAll("#studyLevels input")].filter((i) => i.checked).map((i) => i.value);
     try {
-      render2(await api.setStudyLevels(levels));
+      render3(await api.setStudyLevels(levels));
     } catch (e) {
       toast(e.message);
     }
@@ -5993,7 +6904,7 @@ ${stack}`.slice(0, 2e3);
   async function startSession(d) {
     deck = d;
     show("review");
-    $7("reviewDone").hidden = true;
+    $8("reviewDone").hidden = true;
     try {
       queue2 = (await api.queue(d)).cards;
     } catch (e) {
@@ -6006,20 +6917,20 @@ ${stack}`.slice(0, 2e3);
     current = queue2.shift() ?? null;
     flipped = false;
     const done = !current;
-    $7("flash").hidden = done;
-    $7("showAnswer").hidden = done;
-    $7("rateRow").hidden = true;
-    $7("reviewDone").hidden = !done;
-    $7("reviewLeft").textContent = done ? "" : `${queue2.length + 1} left \xB7 ${deck === "all" ? "All spells" : "Struggling"}`;
+    $8("flash").hidden = done;
+    $8("showAnswer").hidden = done;
+    $8("rateRow").hidden = true;
+    $8("reviewDone").hidden = !done;
+    $8("reviewLeft").textContent = done ? "" : `${queue2.length + 1} left \xB7 ${DECK_LABEL[deck]}`;
     if (!current) return;
-    $7("fcKanji").textContent = current.kanji;
-    $7("fcLevel").textContent = LEVEL_LABEL[current.level] + (current.state === "new" ? " \xB7 new" : "");
-    $7("fcReading").textContent = current.reading;
-    $7("fcMeaning").textContent = current.meaning;
-    $7("fcBack").hidden = true;
-    $7("fcStrokes").hidden = true;
-    $7("fcStrokeBox").hidden = true;
-    const card = $7("flash");
+    $8("fcKanji").textContent = current.kanji;
+    $8("fcLevel").textContent = (current.custom ? "Custom" : LEVEL_LABEL[current.level]) + (current.state === "new" ? " \xB7 new" : "");
+    $8("fcReading").textContent = current.reading;
+    $8("fcMeaning").textContent = current.meaning;
+    $8("fcBack").hidden = true;
+    $8("fcStrokes").hidden = true;
+    $8("fcStrokeBox").hidden = true;
+    const card = $8("flash");
     card.style.animation = "none";
     void card.offsetWidth;
     card.style.animation = "";
@@ -6031,18 +6942,18 @@ ${stack}`.slice(0, 2e3);
   function flip() {
     if (!current || flipped) return;
     flipped = true;
-    $7("fcBack").hidden = false;
-    $7("showAnswer").hidden = true;
-    $7("rateRow").hidden = false;
-    $7("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
+    $8("fcBack").hidden = false;
+    $8("showAnswer").hidden = true;
+    $8("rateRow").hidden = false;
+    $8("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
   }
   function strokes() {
-    if (!current || !flipped || $7("fcStrokes").hidden) return;
-    const box = $7("fcStrokeBox");
+    if (!current || !flipped || $8("fcStrokes").hidden) return;
+    const box = $8("fcStrokeBox");
     box.hidden = false;
     void showStrokeOrder(box, current.kanji);
   }
-  $7("fcStrokes").onclick = (e) => {
+  $8("fcStrokes").onclick = (e) => {
     e.stopPropagation();
     strokes();
   };
@@ -6051,7 +6962,7 @@ ${stack}`.slice(0, 2e3);
     busy = true;
     const card = current;
     try {
-      const res = await api.review(card.vocabId, r2);
+      await api.review(card.vocabId, r2, deck);
       if (r2 === "again") queue2.splice(Math.min(3, queue2.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
       else if (r2 === "hard" && card.state !== "review") queue2.splice(Math.min(6, queue2.length), 0, card);
     } catch (e) {
@@ -6060,11 +6971,11 @@ ${stack}`.slice(0, 2e3);
     busy = false;
     next2();
   }
-  $7("showAnswer").onclick = flip;
-  $7("flash").onclick = flip;
+  $8("showAnswer").onclick = flip;
+  $8("flash").onclick = flip;
   for (const b of document.querySelectorAll("#rateRow .rate")) b.onclick = () => void rate(b.dataset.rating);
   addEventListener("keydown", (e) => {
-    if ($7("review").hidden || e.target instanceof HTMLInputElement) return;
+    if ($8("review").hidden || e.target instanceof HTMLInputElement) return;
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       flipped ? void rate("good") : flip();
@@ -6073,17 +6984,18 @@ ${stack}`.slice(0, 2e3);
     if (n >= 0 && flipped) void rate(["again", "hard", "good", "easy"][n]);
     if ((e.key === "s" || e.key === "S") && flipped) strokes();
   });
-  $7("studyAll").onclick = () => void startSession("all");
-  $7("studyStruggle").onclick = () => void startSession("struggling");
-  $7("reviewBack").onclick = () => void openStudy();
-  $7("reviewDoneBack").onclick = () => void openStudy();
+  $8("studyAll").onclick = () => void startSession("all");
+  $8("studyStruggle").onclick = () => void startSession("struggling");
+  $8("studyCustom").onclick = () => void startSession("custom");
+  $8("reviewBack").onclick = () => void openStudy();
+  $8("reviewDoneBack").onclick = () => void openStudy();
   var custTab = "staff";
   var picked2 = {};
   var cust = null;
   var preview2 = null;
   var previewTried = false;
   var staffThumbs = {};
-  var el5 = (tag, cls = "", text) => {
+  var el7 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -6102,7 +7014,7 @@ ${stack}`.slice(0, 2e3);
       return;
     }
     previewTried = true;
-    preview2 = await staffPreview($7("staffCanvas"));
+    preview2 = await staffPreview($8("staffCanvas"));
     if (preview2) staffThumbs = Object.fromEntries(preview2.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
     renderCustomize();
   }
@@ -6134,7 +7046,7 @@ ${stack}`.slice(0, 2e3);
             img.alt = "";
             return img;
           }
-          const g = el5("div", "pixel-staff");
+          const g = el7("div", "pixel-staff");
           g.innerHTML = pixelStaffSvg(s.id);
           return g;
         },
@@ -6146,12 +7058,12 @@ ${stack}`.slice(0, 2e3);
         id: b.id,
         name: b.name,
         blurb: "The scene behind every battle (and its sounds in the menus).",
-        locked: !isAdmin && lvl < b.level,
+        locked: !isAdmin && !beta.open && lvl < b.level,
         lock: `Level ${b.level}`,
         lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
         equipped: profile2.background === b.id,
         tile: () => {
-          const d = el5("div", "bg-thumb");
+          const d = el7("div", "bg-thumb");
           d.innerHTML = backgroundThumb(b.id, time);
           return d;
         },
@@ -6167,7 +7079,7 @@ ${stack}`.slice(0, 2e3);
       lockedToast: f2.season ? `${f2.name} flames are the ${monthName(f2.season)} reward \u2014 complete that month's goals (see Progress)${f2.season === thisMonth() ? " \u2014 it's on now!" : ""}` : `Reach level ${f2.level} to unlock ${f2.name} flames`,
       equipped: (profile2.flame ?? "blue") === f2.id,
       tile: () => {
-        const d = el5("span", "flame-dot big");
+        const d = el7("span", "flame-dot big");
         d.style.setProperty("--c", f2.color);
         return d;
       },
@@ -6190,13 +7102,13 @@ ${stack}`.slice(0, 2e3);
     }
     const items = custItems(profile2, isAdmin);
     const sel = items.find((i) => i.id === picked2[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
-    $7("custSub").textContent = CUST_SUB[custTab](profile2);
-    const times = $7("bgTimes");
+    $8("custSub").textContent = CUST_SUB[custTab](profile2);
+    const times = $8("bgTimes");
     times.hidden = custTab !== "arena";
     if (custTab === "arena") {
       const pref = getTimePref();
       times.replaceChildren(...TIMES.map((t) => {
-        const b = el5("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "Day" : t.id === "sunset" ? "Sunset" : "Night");
+        const b = el7("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "Day" : t.id === "sunset" ? "Sunset" : "Night");
         b.onclick = () => {
           setTimePref(t.id);
           onTimeChange();
@@ -6216,13 +7128,13 @@ ${stack}`.slice(0, 2e3);
         toast(e.message);
       }
     };
-    $7("custGrid").className = `cust-grid ${custTab}`;
-    $7("custGrid").replaceChildren(...items.map((it) => {
-      const b = el5("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
+    $8("custGrid").className = `cust-grid ${custTab}`;
+    $8("custGrid").replaceChildren(...items.map((it) => {
+      const b = el7("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
       b.setAttribute("aria-pressed", String(it === sel));
-      const pic = el5("div", "ci-pic");
+      const pic = el7("div", "ci-pic");
       pic.append(it.tile());
-      b.append(pic, el5("div", "ci-name", it.name), el5("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? `Locked \xB7 ${it.lock}` : "Unlocked"));
+      b.append(pic, el7("div", "ci-name", it.name), el7("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? `Locked \xB7 ${it.lock}` : "Unlocked"));
       b.onclick = () => {
         picked2[custTab] = it.id;
         renderCustomize();
@@ -6230,52 +7142,52 @@ ${stack}`.slice(0, 2e3);
       b.ondblclick = () => void equip(it);
       return b;
     }));
-    const canvas = $7("staffCanvas");
-    const stage2 = $7("custStage2");
+    const canvas = $8("staffCanvas");
+    const stage2 = $8("custStage2");
     const showCanvas = custTab === "staff" && !!preview2;
     canvas.hidden = !showCanvas;
     stage2.hidden = showCanvas;
-    $7("custStage").dataset.tab = custTab;
+    $8("custStage").dataset.tab = custTab;
     if (custTab === "staff") {
       if (preview2) preview2.show(sel.id);
       else {
-        const g = el5("div", "pixel-staff big");
+        const g = el7("div", "pixel-staff big");
         g.innerHTML = pixelStaffSvg(sel.id);
         stage2.replaceChildren(g);
       }
     } else if (custTab === "arena") {
       stage2.innerHTML = backgroundThumb(sel.id, resolveTime(getTimePref()));
     } else {
-      const w = el5("div", "wizard me onfire");
+      const w = el7("div", "wizard me onfire");
       paintFlame(w, sel.id);
-      const sprite = el5("div", "sprite");
+      const sprite = el7("div", "sprite");
       sprite.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", profile2.staff);
-      w.append(el5("div", "aura"), sprite);
-      const badge = el5("div", "combo-hud hot omni-badge");
+      w.append(el7("div", "aura"), sprite);
+      const badge = el7("div", "combo-hud hot omni-badge");
       badge.style.setProperty("--flame", FLAMES.find((f2) => f2.id === sel.id).color);
-      badge.append(el5("b", "", "\xD75"), el5("span", "", "COMBO"));
+      badge.append(el7("b", "", "\xD75"), el7("span", "", "COMBO"));
       stage2.replaceChildren(w, badge);
     }
-    const btn = el5("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? sel.lock.startsWith("Level") ? `Unlocks at ${sel.lock.replace("Level", "level")}` : sel.lock.endsWith("goals") ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}` : "Equip");
+    const btn = el7("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? sel.lock.startsWith("Level") ? `Unlocks at ${sel.lock.replace("Level", "level")}` : sel.lock.endsWith("goals") ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}` : "Equip");
     btn.disabled = sel.equipped;
     btn.classList.toggle("locked", sel.locked);
     btn.onclick = () => void equip(sel);
-    const info = [el5("h3", "", sel.name), el5("p", "sub", sel.blurb)];
+    const info = [el7("h3", "", sel.name), el7("p", "sub", sel.blurb)];
     if (custTab === "staff") {
-      const row = el5("div", "cust-2d");
-      const who = el5("div", "c2-char");
+      const row = el7("div", "cust-2d");
+      const who = el7("div", "c2-char");
       who.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", sel.id);
-      const st = el5("div", "pixel-staff");
+      const st = el7("div", "pixel-staff");
       st.innerHTML = pixelStaffSvg(sel.id);
-      row.append(who, st, el5("span", "hint", "2D arena"));
+      row.append(who, st, el7("span", "hint", "2D arena"));
       info.push(row);
     }
-    $7("custInfo").replaceChildren(...info, btn);
+    $8("custInfo").replaceChildren(...info, btn);
   }
 
   // src/client/progressui.ts
-  var $8 = $;
-  var el6 = (tag, cls = "", text) => {
+  var $9 = $;
+  var el8 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -6293,10 +7205,16 @@ ${stack}`.slice(0, 2e3);
   var page = null;
   var level = "N5";
   var unlocks = [];
-  async function openProgress(myUnlocks = []) {
+  var badges = [];
+  var onBadgesChanged = () => {
+  };
+  async function openProgress(myUnlocks = [], myBadges = [], changed = () => {
+  }) {
     unlocks = myUnlocks;
+    badges = [...myBadges];
+    onBadgesChanged = changed;
     show("progress");
-    $8("progGrid").replaceChildren(el6("p", "hint", "Loading\u2026"));
+    $9("progGrid").replaceChildren(el8("p", "hint", "Loading\u2026"));
     try {
       page = await api.progress();
     } catch (e) {
@@ -6305,14 +7223,26 @@ ${stack}`.slice(0, 2e3);
     }
     const busiest = LEVELS.map((l) => [l, page.mastery[l].filter(([, m]) => m > 0).length]).sort((a, b) => b[1] - a[1])[0];
     if (busiest && busiest[1] > 0) level = busiest[0];
-    render3();
+    render4();
   }
-  function render3() {
+  function render4() {
     if (!page) return;
     renderWeek(page.activity);
-    $8("progMonth").replaceChildren(...monthNodes(page.month));
+    $9("progMonth").replaceChildren(...monthNodes(page.month));
     renderHeatmap(page.activity);
-    renderAchievements($8("progAch"), unlocks);
+    renderAchievements($9("progAch"), unlocks, badges, (next3) => {
+      const before = badges;
+      badges = next3;
+      render4();
+      api.setBadges(next3).then((r2) => {
+        badges = r2.badges;
+        onBadgesChanged(badges);
+      }).catch((e) => {
+        badges = before;
+        render4();
+        toast(e.message);
+      });
+    });
     renderMastery();
   }
   function renderWeek(activity) {
@@ -6330,56 +7260,56 @@ ${stack}`.slice(0, 2e3);
     const now = sum(7, 0), before = sum(14, 7);
     const stat = (label, v, prev) => {
       const d = v - prev;
-      const box = el6("div", "pw-stat");
+      const box = el8("div", "pw-stat");
       box.append(
-        el6("b", "", v.toLocaleString()),
-        el6("span", "", label),
-        el6("small", d > 0 ? "up" : d < 0 ? "down" : "", prev || v ? `${d > 0 ? "+" : ""}${d.toLocaleString()} vs last week` : "\u2014")
+        el8("b", "", v.toLocaleString()),
+        el8("span", "", label),
+        el8("small", d > 0 ? "up" : d < 0 ? "down" : "", prev || v ? `${d > 0 ? "+" : ""}${d.toLocaleString()} vs last week` : "\u2014")
       );
       return box;
     };
-    const grid = el6("div", "pw-grid");
+    const grid = el8("div", "pw-grid");
     grid.append(stat("days active", now.days, before.days), stat("cards passed", now.reviews, before.reviews), stat("games", now.games, before.games), stat("wins", now.wins, before.wins), stat("XP", now.xp, before.xp));
-    const bars = el6("div", "pw-bars");
-    const max = Math.max(1, ...Array.from({ length: 7 }, (_, i) => score(activity.find((a) => a.day === shift(t, i - 6)))));
+    const bars = el8("div", "pw-bars");
+    const max = Math.max(1, ...Array.from({ length: 7 }, (_, i) => score2(activity.find((a) => a.day === shift(t, i - 6)))));
     for (let i = -6; i <= 0; i++) {
       const day = shift(t, i);
       const a = activity.find((x) => x.day === day);
-      const bar = el6("div", "pw-bar");
-      const fill = el6("i");
-      fill.style.height = `${Math.round(score(a) / max * 100)}%`;
+      const bar = el8("div", "pw-bar");
+      const fill = el8("i");
+      fill.style.height = `${Math.round(score2(a) / max * 100)}%`;
       bar.title = `${day}: ${a ? `${a.reviews} cards, ${a.games} games` : "nothing"}`;
-      bar.append(fill, el6("span", "", (/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "narrow" })));
+      bar.append(fill, el8("span", "", (/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "narrow" })));
       bars.append(bar);
     }
-    $8("progWeek").replaceChildren(el6("h3", "", "This week"), grid, bars);
+    $9("progWeek").replaceChildren(el8("h3", "", "This week"), grid, bars);
   }
-  var score = (a) => a ? a.reviews + a.games * 5 + (a.login ? 1 : 0) : 0;
+  var score2 = (a) => a ? a.reviews + a.games * 5 + (a.login ? 1 : 0) : 0;
   function monthNodes(m) {
     const [kind, id] = m.reward.split(":");
     const reward = kind === "flame" ? FLAMES.find((f2) => f2.id === id) : STAFFS.find((s) => s.id === id);
-    const sw = el6("span", `reward-img ${kind}`);
+    const sw = el8("span", `reward-img ${kind}`);
     if (kind === "flame") {
-      const w = el6("div", "wizard me onfire");
+      const w = el8("div", "wizard me onfire");
       paintFlame(w, id);
-      const sprite = el6("div", "sprite");
+      const sprite = el8("div", "sprite");
       sprite.innerHTML = wizardSvg("me");
-      w.append(el6("div", "aura"), sprite);
+      w.append(el8("div", "aura"), sprite);
       sw.append(w);
     } else sw.innerHTML = pixelStaffSvg(id);
     sw.title = `${reward?.name}${kind === "flame" ? " flames" : ""}`;
     const monthName2 = (/* @__PURE__ */ new Date(`${m.month}-15T12:00:00`)).toLocaleDateString(locale(), { month: "long" });
-    const head = el6("h3", "", `${monthName2}: ${m.name} season`);
-    const rw = el6("div", "reward-line");
-    rw.append(sw, el6("span", "", m.unlocked ? `Unlocked: ${reward?.name}${kind === "flame" ? " flames" : ""} \u2014 equip it in Customize` : `Reward: ${reward?.name}${kind === "flame" ? " flames" : ""} (only this month)`));
-    const goals = el6("div", "goals");
+    const head = el8("h3", "", `${monthName2}: ${m.name} season`);
+    const rw = el8("div", "reward-line");
+    rw.append(sw, el8("span", "", m.unlocked ? `Unlocked: ${reward?.name}${kind === "flame" ? " flames" : ""} \u2014 equip it in Customize` : `Reward: ${reward?.name}${kind === "flame" ? " flames" : ""} (only this month)`));
+    const goals = el8("div", "goals");
     for (const g of m.goals) {
-      const row = el6("div", "goal" + (g.value >= g.target ? " done" : ""));
-      const bar = el6("div", "goal-bar");
-      const fill = el6("i");
+      const row = el8("div", "goal" + (g.value >= g.target ? " done" : ""));
+      const bar = el8("div", "goal-bar");
+      const fill = el8("i");
       fill.style.width = `${Math.round(g.value / g.target * 100)}%`;
       bar.append(fill);
-      row.append(el6("span", "goal-label", `${g.value >= g.target ? "\u2713 " : ""}${g.label}`), el6("span", "goal-num", `${g.value} / ${g.target}`), bar);
+      row.append(el8("span", "goal-label", `${g.value >= g.target ? "\u2713 " : ""}${g.label}`), el8("span", "goal-num", `${g.value} / ${g.target}`), bar);
       goals.append(row);
     }
     return [head, rw, goals];
@@ -6394,15 +7324,15 @@ ${stack}`.slice(0, 2e3);
   function renderCalendar() {
     const t = today();
     const byDay = new Map(calActivity.map((a) => [a.day, a]));
-    const max = Math.max(1, ...calActivity.map(score));
+    const max = Math.max(1, ...calActivity.map(score2));
     const [y, m] = calMonth.split("-").map(Number);
     const first = `${calMonth}-01`;
     const days2 = new Date(Date.UTC(y, m, 0)).getUTCDate();
     const lead = ((/* @__PURE__ */ new Date(`${first}T12:00:00Z`)).getUTCDay() + 6) % 7;
-    const box = $8("progHeat");
+    const box = $9("progHeat");
     const oldest = shift(t, -182).slice(0, 7);
-    const prev = el6("button", "pill cal-nav", "\u2039");
-    const next3 = el6("button", "pill cal-nav", "\u203A");
+    const prev = el8("button", "pill cal-nav", "\u2039");
+    const next3 = el8("button", "pill cal-nav", "\u203A");
     const step = (n) => {
       const d = new Date(Date.UTC(y, m - 1 + n, 15));
       calMonth = d.toISOString().slice(0, 7);
@@ -6414,29 +7344,29 @@ ${stack}`.slice(0, 2e3);
     next3.onclick = () => step(1);
     prev.setAttribute("aria-label", "Previous month");
     next3.setAttribute("aria-label", "Next month");
-    const title = el6("b", "cal-title", new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(locale(), { month: "long", year: "numeric", timeZone: "UTC" }));
-    const head = el6("div", "cal-head");
+    const title = el8("b", "cal-title", new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(locale(), { month: "long", year: "numeric", timeZone: "UTC" }));
+    const head = el8("div", "cal-head");
     head.append(prev, title, next3);
-    const grid = el6("div", "cal-grid");
-    grid.append(el6("span", "cal-wd wk", "Wk"));
-    for (let i = 0; i < 7; i++) grid.append(el6("span", "cal-wd", new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(locale(), { weekday: "short", timeZone: "UTC" })));
+    const grid = el8("div", "cal-grid");
+    grid.append(el8("span", "cal-wd wk", "Wk"));
+    for (let i = 0; i < 7; i++) grid.append(el8("span", "cal-wd", new Date(Date.UTC(2024, 0, 1 + i, 12)).toLocaleDateString(locale(), { weekday: "short", timeZone: "UTC" })));
     let active2 = 0;
-    const cells = lead + days2, rows = Math.ceil(cells / 7);
-    for (let r2 = 0; r2 < rows; r2++) {
+    const cells = lead + days2, rows2 = Math.ceil(cells / 7);
+    for (let r2 = 0; r2 < rows2; r2++) {
       const firstOfRow = shift(first, r2 * 7 - lead);
-      grid.append(el6("span", "cal-wk", isoWeek(firstOfRow)));
+      grid.append(el8("span", "cal-wk", isoWeek(firstOfRow)));
       for (let c = 0; c < 7; c++) {
         const i = r2 * 7 + c - lead;
         if (i < 0 || i >= days2) {
-          grid.append(el6("span", "cal-day blank"));
+          grid.append(el8("span", "cal-day blank"));
           continue;
         }
         const day = shift(first, i);
-        const cell = el6("span", "cal-day", i + 1);
+        const cell = el8("span", "cal-day", i + 1);
         if (day > t) cell.classList.add("future");
         else {
           const a = byDay.get(day);
-          const sc = score(a);
+          const sc = score2(a);
           if (sc > 0) active2++;
           cell.dataset.l = String(sc === 0 ? 0 : Math.min(4, 1 + Math.floor(sc / max * 3.999)));
           cell.title = `${(/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric" })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ""}` : "no activity"}`;
@@ -6446,15 +7376,15 @@ ${stack}`.slice(0, 2e3);
       }
     }
     box.replaceChildren(head, grid);
-    $8("progHeatSub").textContent = `${active2} active days this month`;
+    $9("progHeatSub").textContent = `${active2} active days this month`;
   }
   function renderMastery() {
     if (!page) return;
-    const tabs = $8("progLevels");
+    const tabs = $9("progLevels");
     tabs.replaceChildren(...LEVELS.map((l) => {
       const words2 = page.mastery[l];
       const known = words2.filter(([, m]) => m >= 3).length;
-      const b = el6("button", "cust-tab" + (l === level ? " on" : ""), `${LEVEL_LABEL[l]} \xB7 ${known}/${words2.length}`);
+      const b = el8("button", "cust-tab" + (l === level ? " on" : ""), `${LEVEL_LABEL[l]} \xB7 ${known}/${words2.length}`);
       b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", String(l === level));
       b.onclick = () => {
@@ -6466,25 +7396,25 @@ ${stack}`.slice(0, 2e3);
     const words = page.mastery[level];
     const counts2 = [0, 0, 0, 0, 0];
     for (const [, m] of words) counts2[m]++;
-    $8("progLegend").replaceChildren(...MASTERY.map((m, i) => {
-      const item = el6("span", "ml-item");
-      item.append(el6("i", m.cls), el6("span", "", `${m.label} \xB7 ${counts2[i]}`));
+    $9("progLegend").replaceChildren(...MASTERY.map((m, i) => {
+      const item = el8("span", "ml-item");
+      item.append(el8("i", m.cls), el8("span", "", `${m.label} \xB7 ${counts2[i]}`));
       return item;
     }));
-    const grid = $8("progGrid");
+    const grid = $9("progGrid");
     const frag = document.createDocumentFragment();
     for (const [kanji, m] of words) {
-      const c = el6("span", `mg ${MASTERY[m].cls}`);
+      const c = el8("span", `mg ${MASTERY[m].cls}`);
       c.title = `${kanji} \u2014 ${MASTERY[m].label}`;
       frag.append(c);
     }
     grid.replaceChildren(frag);
   }
-  $8("progressBack").onclick = () => show("menu");
+  $9("progressBack").onclick = () => show("menu");
 
   // src/client/dailyui.ts
-  var $9 = $;
-  var el7 = (tag, cls = "", text) => {
+  var $10 = $;
+  var el9 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -6511,7 +7441,7 @@ ${stack}`.slice(0, 2e3);
   async function openDaily(userId) {
     me2 = userId;
     show("daily");
-    $9("dailyMain").replaceChildren(el7("p", "hint", "Loading\u2026"));
+    $10("dailyMain").replaceChildren(el9("p", "hint", "Loading\u2026"));
     try {
       renderOverview(await api.daily());
     } catch (e) {
@@ -6519,52 +7449,52 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function renderBoard(o) {
-    const list = $9("dailyBoard");
+    const list = $10("dailyBoard");
     if (!o.board.length) {
-      list.replaceChildren(el7("li", "hint", "Nobody has played today yet \u2014 be the first!"));
+      list.replaceChildren(el9("li", "hint", "Nobody has played today yet \u2014 be the first!"));
       return;
     }
     list.replaceChildren(...o.board.map((r2, i) => {
-      const li = el7("li", r2.id === me2 ? "me" : "");
-      li.append(el7("span", "db-rank", i + 1), el7("span", "db-name", r2.name), el7("span", "db-score", `${r2.correct}/${o.total}`), el7("span", "db-time", secs2(r2.ms)));
+      const li = el9("li", r2.id === me2 ? "me" : "");
+      li.append(el9("span", "db-rank", i + 1), el9("span", "db-name", r2.name), el9("span", "db-score", `${r2.correct}/${o.total}`), el9("span", "db-time", secs2(r2.ms)));
       return li;
     }));
   }
   function renderOverview(o) {
     renderBoard(o);
-    const main = $9("dailyMain");
+    const main = $10("dailyMain");
     const date = `Challenge of ${(/* @__PURE__ */ new Date(`${o.day}T12:00:00Z`)).toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}`;
     if (o.mine) {
-      const words = el7("div", "daily-words");
+      const words = el9("div", "daily-words");
       for (const w of o.words ?? []) {
-        const row = el7("div", "dw" + (w.ok === true ? " ok" : w.ok === false ? " no" : ""));
-        const k = el7("span", "dw-k", w.kanji);
+        const row = el9("div", "dw" + (w.ok === true ? " ok" : w.ok === false ? " no" : ""));
+        const k = el9("span", "dw-k", w.kanji);
         k.lang = "ja";
-        const r2 = el7("span", "dw-r", w.reading);
+        const r2 = el9("span", "dw-r", w.reading);
         r2.lang = "ja";
-        const lv = el7("span", "dw-l", LEVEL_LABEL[w.level]);
-        if (w.ok !== null) lv.prepend(el7("b", "dw-mark", w.ok ? "\u2713 " : "\u2717 "));
-        row.append(lv, k, r2, el7("span", "dw-m", w.meaning));
+        const lv = el9("span", "dw-l", LEVEL_LABEL[w.level]);
+        if (w.ok !== null) lv.prepend(el9("b", "dw-mark", w.ok ? "\u2713 " : "\u2717 "));
+        row.append(lv, k, r2, el9("span", "dw-m", w.meaning));
         words.append(row);
       }
       main.replaceChildren(
-        el7("p", "sub", date),
-        el7("div", "daily-score", `${o.mine.correct} / ${o.total}`),
-        el7("p", "center", `${secs2(o.mine.ms)} \xB7 rank ${o.rank} today`),
-        el7("p", "hint center", `10 new words ${nextReset()}.`),
-        el7("h4", "", "Today's words"),
+        el9("p", "sub", date),
+        el9("div", "daily-score", `${o.mine.correct} / ${o.total}`),
+        el9("p", "center", `${secs2(o.mine.ms)} \xB7 rank ${o.rank} today`),
+        el9("p", "hint center", `10 new words ${nextReset()}.`),
+        el9("h4", "", "Today's words"),
         words,
-        ...o.words?.some((w) => w.ok === false) ? [el7("p", "hint center", "The words you missed are now in Study spells \u2192 Struggling spells.")] : []
+        ...o.words?.some((w) => w.ok === false) ? [el9("p", "hint center", "The words you missed are now in Study spells \u2192 Struggling spells.")] : []
       );
       return;
     }
-    const start = el7("button", "big", o.inProgress ? "Continue" : "Start");
+    const start = el9("button", "big", o.inProgress ? "Continue" : "Start");
     start.onclick = () => void begin();
     main.replaceChildren(
-      el7("p", "sub", date),
-      el7("h3", "", "Ten words, the same for everyone today"),
-      el7("p", "", `Two words each from N5 to N1, easiest first. Type the reading (kana or romaji) and press Enter \u2014 ${o.wordMs / 1e3} s per word. One try a day: most correct wins, then fastest.`),
-      el7("p", "hint", `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
+      el9("p", "sub", date),
+      el9("h3", "", "Ten words, the same for everyone today"),
+      el9("p", "", `Two words each from N5 to N1, easiest first. Type the reading (kana or romaji) and press Enter \u2014 ${o.wordMs / 1e3} s per word. One try a day: most correct wins, then fastest.`),
+      el9("p", "hint", `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
       start
     );
   }
@@ -6584,31 +7514,31 @@ ${stack}`.slice(0, 2e3);
   }
   function renderPlay(last) {
     if (!word) return;
-    const main = $9("dailyMain");
-    const dots = el7("div", "daily-dots");
-    for (let i = 0; i < word.total; i++) dots.append(el7("i", i < results.length ? results[i] ? "ok" : "no" : i === word.index ? "now" : ""));
-    const k = el7("div", "daily-kanji", word.kanji);
+    const main = $10("dailyMain");
+    const dots = el9("div", "daily-dots");
+    for (let i = 0; i < word.total; i++) dots.append(el9("i", i < results.length ? results[i] ? "ok" : "no" : i === word.index ? "now" : ""));
+    const k = el9("div", "daily-kanji", word.kanji);
     k.lang = "ja";
-    const bar = el7("div", "timer thin");
-    const fill = el7("div");
+    const bar = el9("div", "timer thin");
+    const fill = el9("div");
     bar.append(fill);
-    const input2 = el7("input", "daily-input");
+    const input2 = el9("input", "daily-input");
     input2.lang = "ja";
     input2.autocomplete = "off";
     input2.spellcheck = false;
     input2.placeholder = "reading (\u304B\u306A or romaji)";
     input2.addEventListener("paste", (e) => e.preventDefault());
-    const skip2 = el7("button", "pill", "Skip");
-    const fb = el7("div", "daily-fb");
+    const skip2 = el9("button", "pill", "Skip");
+    const fb = el9("div", "daily-fb");
     if (last) {
       fb.className = `daily-fb ${last.correct ? "ok" : "no"}`;
-      const kk = el7("span", "rk", last.kanji);
+      const kk = el9("span", "rk", last.kanji);
       kk.lang = "ja";
-      const rr = el7("span", "rr", last.reading);
+      const rr = el9("span", "rr", last.reading);
       rr.lang = "ja";
-      fb.append(el7("b", "", last.correct ? "\u2713" : "\u2717"), kk, rr, el7("span", "", last.meaning));
+      fb.append(el9("b", "", last.correct ? "\u2713" : "\u2717"), kk, rr, el9("span", "", last.meaning));
     }
-    main.replaceChildren(el7("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input2, skip2, fb);
+    main.replaceChildren(el9("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input2, skip2, fb);
     input2.focus();
     const t0 = performance.now(), limit = word.timeLimitMs;
     clearInterval(timer2);
@@ -6651,15 +7581,15 @@ ${stack}`.slice(0, 2e3);
       void openDaily(me2);
     }
   }
-  $9("dailyBack").onclick = () => {
+  $10("dailyBack").onclick = () => {
     clearInterval(timer2);
     word = null;
     show("menu");
   };
 
   // src/client/friendsui.ts
-  var $10 = $;
-  var el8 = (tag, cls = "", text) => {
+  var $11 = $;
+  var el10 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text !== void 0) e.textContent = String(text);
@@ -6691,40 +7621,40 @@ ${stack}`.slice(0, 2e3);
   var refreshFriendsBadge = () => void refresh(true);
   async function openFriends() {
     show("friends");
-    $10("friendMsg").textContent = "";
+    $11("friendMsg").textContent = "";
     await refresh(true);
-    render4();
+    render5();
   }
-  function render4() {
-    const list = $10("friendList");
+  function render5() {
+    const list = $11("friendList");
     const incoming = friends2.filter((f2) => f2.status === "incoming");
     const accepted = friends2.filter((f2) => f2.status === "accepted").sort((a, b) => Number(b.online) - Number(a.online) || a.username.localeCompare(b.username));
     const outgoing = friends2.filter((f2) => f2.status === "outgoing");
-    const section = (title, rows) => {
-      if (!rows.length) return [];
-      const s = el8("div", "fl-section");
-      s.append(el8("h3", "", title), ...rows);
+    const section = (title, rows2) => {
+      if (!rows2.length) return [];
+      const s = el10("div", "fl-section");
+      s.append(el10("h3", "", title), ...rows2);
       return [s];
     };
     const row = (f2, actions) => {
-      const r2 = el8("div", "fl-row" + (f2.online ? " online" : ""));
-      const who = el8("div", "fl-who");
-      const name = el8("span", "fl-name", f2.username);
+      const r2 = el10("div", "fl-row" + (f2.online ? " online" : ""));
+      const who = el10("div", "fl-who");
+      const name = el10("span", "fl-name", f2.username);
       markProfile(name, { id: f2.id, name: f2.username, bot: null });
-      who.append(el8("i", "dot"), name, el8("small", "", f2.status === "accepted" ? f2.online ? f2.activity ?? "Online" : "Offline" : f2.status === "incoming" ? "wants to be friends" : "request sent"));
-      r2.append(who, el8("div", "fl-actions"));
+      who.append(el10("i", "dot"), name, el10("small", "", f2.status === "accepted" ? f2.online ? f2.activity ?? "Online" : "Offline" : f2.status === "incoming" ? "wants to be friends" : "request sent"));
+      r2.append(who, el10("div", "fl-actions"));
       r2.lastElementChild.append(...actions);
       return r2;
     };
     const btn = (text, cls, fn) => {
-      const b = el8("button", `pill ${cls}`, text);
+      const b = el10("button", `pill ${cls}`, text);
       b.onclick = async () => {
         b.disabled = true;
         try {
           friends2 = (await fn()).friends;
           fetchedAt = Date.now();
           updateBadge();
-          render4();
+          render5();
         } catch (e) {
           toast(e.message);
           b.disabled = false;
@@ -6737,32 +7667,32 @@ ${stack}`.slice(0, 2e3);
       ...section(`Friends (${accepted.length}) \xB7 ${accepted.filter((f2) => f2.online).length} online`, accepted.map((f2) => row(f2, [btn("Remove", "danger", () => api.removeFriend(f2.id))]))),
       ...section("Sent requests", outgoing.map((f2) => row(f2, [btn("Cancel", "", () => api.removeFriend(f2.id))])))
     ];
-    list.replaceChildren(...nodes.length ? nodes : [el8("p", "hint", "No friends yet \u2014 add someone by their player name above.")]);
+    list.replaceChildren(...nodes.length ? nodes : [el10("p", "hint", "No friends yet \u2014 add someone by their player name above.")]);
   }
-  $10("friendAdd").addEventListener("submit", async (e) => {
+  $11("friendAdd").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const input2 = $10("friendName");
+    const input2 = $11("friendName");
     const name = input2.value.trim();
     if (!name) return;
     try {
       const r2 = await api.addFriend(name);
       friends2 = r2.friends;
       fetchedAt = Date.now();
-      $10("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      $11("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
       input2.value = "";
-      render4();
+      render5();
     } catch (err) {
-      $10("friendMsg").textContent = err.message;
+      $11("friendMsg").textContent = err.message;
     }
   });
-  $10("friendsBack").onclick = () => show("menu");
-  $10("friendsRefresh").onclick = () => void openFriends();
+  $11("friendsBack").onclick = () => show("menu");
+  $11("friendsRefresh").onclick = () => void openFriends();
   var INVITE_COOLDOWN_MS = 1e4;
   var invitedAt = /* @__PURE__ */ new Map();
   var lobbyIds = [];
   var cooldownTimer = 0;
   async function renderLobbyInvites(isLobby, inRoom2 = lobbyIds) {
-    const box = $10("lobbyInvite");
+    const box = $11("lobbyInvite");
     lobbyIds = inRoom2;
     clearTimeout(cooldownTimer);
     if (!isLobby) {
@@ -6774,12 +7704,12 @@ ${stack}`.slice(0, 2e3);
     box.hidden = online.length === 0;
     if (!online.length) return;
     let soonest = Infinity;
-    box.replaceChildren(el8("h4", "", "Invite friends"), ...online.map((f2) => {
-      const r2 = el8("div", "li-row");
+    box.replaceChildren(el10("h4", "", "Invite friends"), ...online.map((f2) => {
+      const r2 = el10("div", "li-row");
       const playing2 = !!f2.activity?.startsWith("Playing");
       const wait = INVITE_COOLDOWN_MS - (Date.now() - (invitedAt.get(f2.id) ?? 0));
       if (wait > 0) soonest = Math.min(soonest, wait);
-      const b = el8("button", "pill primary", playing2 ? "In a game" : wait > 0 ? `Invited \xB7 ${Math.ceil(wait / 1e3)}s` : invitedAt.has(f2.id) ? "Invite again" : "Invite");
+      const b = el10("button", "pill primary", playing2 ? "In a game" : wait > 0 ? `Invited \xB7 ${Math.ceil(wait / 1e3)}s` : invitedAt.has(f2.id) ? "Invite again" : "Invite");
       b.disabled = playing2 || wait > 0;
       b.title = playing2 ? "They are playing \u2014 invite them when their game is over" : "";
       b.onclick = () => {
@@ -6787,7 +7717,7 @@ ${stack}`.slice(0, 2e3);
         invitedAt.set(f2.id, Date.now());
         void renderLobbyInvites(true);
       };
-      r2.append(el8("i", "dot"), el8("span", "", f2.username), el8("small", "hint", f2.activity ?? ""), b);
+      r2.append(el10("i", "dot"), el10("span", "", f2.username), el10("small", "hint", f2.activity ?? ""), b);
       return r2;
     }));
     if (soonest < Infinity) cooldownTimer = window.setTimeout(() => {
@@ -6795,9 +7725,9 @@ ${stack}`.slice(0, 2e3);
     }, Math.min(1e3, soonest));
   }
   function onInvite(msg) {
-    const box = $10("inviteBox");
-    const join2 = el8("button", "big", "Join");
-    const no = el8("button", "pill", "Decline");
+    const box = $11("inviteBox");
+    const join2 = el10("button", "big", "Join");
+    const no = el10("button", "pill", "Decline");
     const close = () => {
       box.hidden = true;
       clearTimeout(t);
@@ -6807,7 +7737,7 @@ ${stack}`.slice(0, 2e3);
       hooks3.join(msg.code);
     };
     no.onclick = close;
-    box.replaceChildren(el8("b", "", `${msg.from} invites you`), el8("span", "", `to ${MODE_LABEL[msg.mode]} \u2014 room ${msg.code}`), el8("div", "ib-actions"));
+    box.replaceChildren(el10("b", "", `${msg.from} invites you`), el10("span", "", `to ${MODE_LABEL[msg.mode]} \u2014 room ${msg.code}`), el10("div", "ib-actions"));
     box.lastElementChild.append(join2, no);
     box.hidden = false;
     sfx.go();
@@ -6817,11 +7747,12 @@ ${stack}`.slice(0, 2e3);
   function onFriendEvent(msg) {
     toast(msg.event === "request" ? `${msg.from} wants to be your friend \u2014 see Friends` : `${msg.from} accepted your friend request`, 5e3);
     void refresh(true).then(() => {
-      if (currentScreen() === "friends") render4();
+      if (currentScreen() === "friends") render5();
     });
   }
 
   // src/client/main.ts
+  initWhatsNew();
   applyUiZoom();
   var user = null;
   var profile = null;
@@ -6926,8 +7857,8 @@ ${stack}`.slice(0, 2e3);
       tutorialShown = true;
       startTutorial();
     }
-    void dailyPending().then((open) => {
-      $("dailyBadge").hidden = !open;
+    void dailyPending().then((open2) => {
+      $("dailyBadge").hidden = !open2;
     });
     refreshFriendsBadge();
     if (user?.role === "admin") void refreshInboxBadge();
@@ -7017,6 +7948,9 @@ ${stack}`.slice(0, 2e3);
       case "chat":
         chatMessages(msg.messages);
         break;
+      case "look":
+        arenaLook(msg.id, msg.yaw, msg.pitch);
+        break;
       case "welcome":
         user = msg.user;
         setUser(msg.user);
@@ -7045,6 +7979,10 @@ ${stack}`.slice(0, 2e3);
           socket.send({ type: "join", code: pendingJoin, levels: savedLevels() });
           pendingJoin = "";
         }
+        if (pendingChallenge && !pendingChallenge.sent) {
+          pendingChallenge.sent = true;
+          socket.send({ type: "create", mode: pendingChallenge.mode, levels: savedLevels() });
+        }
         break;
       case "notice":
         toast(msg.message);
@@ -7057,6 +7995,21 @@ ${stack}`.slice(0, 2e3);
         onInvite(msg);
         break;
       case "lobby":
+        if (currentScreen() === "results" && !lobbyRequested) {
+          pendingLobby = msg;
+          $("rematch").disabled = true;
+          $("rematchStatus").textContent = "The room is back in its lobby \u2014 press Back to lobby when you're ready.";
+          $("resultLobby").classList.add("pulse");
+          break;
+        }
+        lobbyRequested = false;
+        pendingLobby = null;
+        if (pendingChallenge && msg.hostId === you && msg.mode === pendingChallenge.mode) {
+          socket.send({ type: "invite", friendId: pendingChallenge.friendId });
+          toast(`Challenge sent to ${pendingChallenge.name} \u2014 they get an invite to your ${MODE_LABEL[msg.mode]} room.`, 5e3);
+          pendingChallenge = null;
+        }
+        $("resultLobby").classList.remove("pulse");
         players = msg.players;
         soloVsAi = msg.players.filter((p) => !p.bot).length === 1;
         setPaused(false);
@@ -7082,6 +8035,10 @@ ${stack}`.slice(0, 2e3);
       case "battle_start":
         players = msg.players;
         mode2 = msg.mode;
+        if (msg.resume && currentScreen() === "battle") {
+          resumeBattle(players, msg.boss, you, msg.durationMs);
+          break;
+        }
         showBattle(msg.mode, players, msg.boss, you, msg.countdownMs, msg.durationMs, (n) => n > 0 ? sfx.tick() : sfx.go());
         break;
       case "challenge":
@@ -7133,6 +8090,9 @@ ${stack}`.slice(0, 2e3);
         deckInk(msg.castId, msg.strokes, msg.cells);
         break;
       case "game_over": {
+        pendingLobby = null;
+        lobbyRequested = false;
+        $("resultLobby").classList.remove("pulse");
         players = msg.players;
         lockInput();
         stopWriting();
@@ -7158,6 +8118,7 @@ ${stack}`.slice(0, 2e3);
         setPaused(msg.on);
         break;
       case "progress":
+        if (msg.missed?.length && currentScreen() === "results") showMissedSave(msg.missed);
         setTimeout(() => {
           showXp(msg.gained, msg.level, msg.levelUp);
           if (msg.levelUp) toast(`Level ${msg.level}! Check Customize for new unlocks.`, 5e3);
@@ -7182,14 +8143,14 @@ ${stack}`.slice(0, 2e3);
   }
   function onBattleEvent(msg) {
     const e = msg.event;
-    const render5 = () => renderFighters(players, you, msg.boss);
+    const render6 = () => renderFighters(players, you, msg.boss);
     switch (e.kind) {
       case "hit": {
         const caster = actorOf(e.playerId);
         const target = actorOf(e.targetId);
         const friendly = caster !== "opp";
         void castSpell(caster, target, e.kanji, e.damage, friendly, !!e.crit).then(() => {
-          render5();
+          render6();
           if (target === "me") sfx.hurt();
           else if (caster === "me") sfx.impact();
         });
@@ -7198,13 +8159,13 @@ ${stack}`.slice(0, 2e3);
       }
       case "miss":
         fizzle(actorOf(e.playerId));
-        render5();
+        render6();
         if (e.playerId !== you) logLine(`${nameOf(e.playerId)} fumbled:`, e.kanji);
         break;
       case "claw":
         clawHit(actorOf(e.playerId), e.damage);
         if (e.playerId === you) sfx.claw();
-        setTimeout(render5, 200);
+        setTimeout(render6, 200);
         if (e.playerId !== you) logLine(`The dragon claws ${nameOf(e.playerId)} for ${e.damage}`);
         break;
       case "breath_warning":
@@ -7217,7 +8178,7 @@ ${stack}`.slice(0, 2e3);
         breathFire(e.damage, victims, immune.map((id) => actorOf(id)));
         if (immune.includes(you)) toast("You are on fire \u2014 immune to dragon breath!");
         sfx.fire();
-        setTimeout(render5, 450);
+        setTimeout(render6, 450);
         logLine(immune.length ? `Fire breath! ${e.damage} damage \u2014 ${immune.map(nameOf).join(", ")} immune (on fire)` : `Fire breath! Everyone takes ${e.damage}`);
         break;
       }
@@ -7234,6 +8195,10 @@ ${stack}`.slice(0, 2e3);
       arena()?.twitch();
     }
   };
+  addEventListener("kw:look", (e) => {
+    const d = e.detail;
+    socket.send({ type: "look", yaw: d.yaw, pitch: d.pitch });
+  });
   var inkTimer = 0;
   var inkAt = 0;
   function shareInk() {
@@ -7407,7 +8372,25 @@ ${stack}`.slice(0, 2e3);
   $("dailyBtn").onclick = () => {
     if (user) void openDaily(user.id);
   };
-  $("progressBtn").onclick = () => void openProgress(profile?.unlocks ?? []);
+  var pendingChallenge = null;
+  function challengeFriend(friendId, name, mode3) {
+    if (!canPlay(mode3)) {
+      toast(lockText(mode3), 5e3);
+      return;
+    }
+    pendingChallenge = { friendId, name, mode: mode3 };
+    if (inRoom) socket.send({ type: "leave" });
+    else {
+      pendingChallenge.sent = true;
+      socket.send({ type: "create", mode: mode3, levels: savedLevels() });
+    }
+  }
+  $("progressBtn").onclick = () => void openProgress(profile?.unlocks ?? [], profile?.badges ?? [], (b) => {
+    if (profile) {
+      profile = { ...profile, badges: b };
+      setBadges(b);
+    }
+  });
   initFriends({
     send: (m) => socket.send(m),
     join: (c) => {
@@ -7453,6 +8436,15 @@ ${stack}`.slice(0, 2e3);
       showAdmin(users, user, { storage, persistent }, async (u) => {
         try {
           await api.setBanned(u.id, !u.banned);
+          await openAdmin();
+        } catch (e) {
+          $("adminInfo").textContent = e.message;
+        }
+      }, async (u) => {
+        const promote = u.role !== "admin";
+        if (!confirm(promote ? `Make ${u.username} an admin? They will see the Admin page (users, inbox, stats) and can ban players.` : `Remove admin from ${u.username}?`)) return;
+        try {
+          await api.setRole(u.id, promote ? "admin" : "user");
           await openAdmin();
         } catch (e) {
           $("adminInfo").textContent = e.message;
@@ -7614,6 +8606,16 @@ ${stack}`.slice(0, 2e3);
     stopWriting: () => stopWriting()
   });
   $("rematch").onclick = () => socket.send({ type: "rematch" });
+  var lobbyRequested = false;
+  var pendingLobby = null;
+  $("resultLobby").onclick = () => {
+    lobbyRequested = true;
+    if (pendingLobby) {
+      const m = pendingLobby;
+      pendingLobby = null;
+      onMessage(m);
+    } else socket.send({ type: "back_to_lobby" });
+  };
   $("leave").onclick = () => socket.send({ type: "leave" });
   async function openHistory() {
     showHistory(null, openMatch);
@@ -7637,30 +8639,44 @@ ${stack}`.slice(0, 2e3);
   $("resultHistoryBack").onclick = () => void openHistory();
   {
     let shownFor = "";
-    const open = async (el9) => {
-      const id = el9.dataset.profile;
+    const open2 = async (el11) => {
+      const id = el11.dataset.profile;
       if (shownFor === id && !$("otherPop").hidden) {
         hideProfileCard();
         shownFor = "";
         return;
       }
       shownFor = id;
-      const name = el9.dataset.name ?? el9.textContent ?? "";
-      const bot = el9.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
-      if (bot) return showProfileCard(el9, { bot, name });
-      showProfileCard(el9, "loading");
+      const name = el11.dataset.name ?? el11.textContent ?? "";
+      const bot = el11.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
+      if (bot) return showProfileCard(el11, { bot, name });
+      showProfileCard(el11, "loading");
       try {
-        const { profile: profile2 } = await api.player(id);
-        if (shownFor === id) showProfileCard(el9, profile2);
+        const [{ profile: p }, fr] = await Promise.all([api.player(id), api.friends().catch(() => ({ friends: [] }))]);
+        const link = fr.friends.find((f2) => f2.id === id);
+        const relation = id === you || id === user?.id ? "self" : link?.status === "accepted" ? "friend" : link?.status ?? "none";
+        if (shownFor === id) showProfileCard(el11, p, {
+          relation,
+          addFriend: async () => {
+            await api.addFriend(p.name);
+            void refreshRail();
+          },
+          accept: async () => {
+            await api.acceptFriend(id);
+            void refreshRail();
+          },
+          challenge: (m) => challengeFriend(id, p.name, m),
+          canChallenge: !["prep", "battle", "deck"].includes(currentScreen() ?? "")
+        });
       } catch {
-        if (shownFor === id) showProfileCard(el9, "missing");
+        if (shownFor === id) showProfileCard(el11, "missing");
       }
     };
     addEventListener("click", (e) => {
-      const el9 = e.target.closest("[data-profile]");
-      if (el9) {
+      const el11 = e.target.closest("[data-profile]");
+      if (el11) {
         e.stopPropagation();
-        void open(el9);
+        void open2(el11);
         return;
       }
       if (!$("otherPop").contains(e.target)) {
@@ -7669,10 +8685,10 @@ ${stack}`.slice(0, 2e3);
       }
     }, true);
     addEventListener("keydown", (e) => {
-      const el9 = e.target.closest?.("[data-profile]");
-      if (el9 && (e.key === "Enter" || e.key === " ")) {
+      const el11 = e.target.closest?.("[data-profile]");
+      if (el11 && (e.key === "Enter" || e.key === " ")) {
         e.preventDefault();
-        void open(el9);
+        void open2(el11);
       } else if (e.key === "Escape") hideProfileCard();
     });
   }

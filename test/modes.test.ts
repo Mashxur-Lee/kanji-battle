@@ -5,6 +5,8 @@ import { DEFAULT_CONFIG, Game, type GameConfig, type GameEvent } from '../src/se
 import { Room, DEFAULT_ROOM_OPTIONS } from '../src/server/Room';
 import type { ServerMessage, VocabEntry } from '../src/shared/protocol';
 import { VOCAB } from '../src/server/vocab';
+import { beta } from '../src/shared/progress';
+beta.open = false; // these tests check the normal unlock rules (the closed beta opens everything)
 
 const CFG: GameConfig = {
   ...DEFAULT_CONFIG, prepMs: 1000, countdownMs: 100, battleMs: 300_000, challengeMs: 1_000_000, nextDelayMs: 10, missPenaltyMs: 50,
@@ -76,7 +78,7 @@ test('boss: the party is wiped by breath; time running out is a loss too', () =>
   const t = new Game([{ id: 'A', pool: POOL, maxHp: 99_999 }], (e) => ev.push(e), { ...CFG, battleMs: 5000 }, Math.random, () => clock, { mode: 'boss', boss: { name: 'D', maxHp: 1e6 } });
   t.start(); t.markReady('A'); tick(100); tick(5000);
   const o = ev.find((e) => e.type === 'game_over') as any;
-  assert.deepEqual([o.teamWon, o.reason], [false, 'time']);
+  assert.deepEqual([o.teamWon, o.reason], [true, 'time']); // surviving to the end is a win
 });
 
 test('boss: a knocked-out player stops getting challenges; teammate fights on', () => {
@@ -572,10 +574,9 @@ test('after a Deck Duel every kanji of the duel joins All spells (cards you have
   await store.markStruggling(u.id, [a], Date.now());
   await study.recordMatch(u.id, 'win', 1, 'deck', [b], false, false, undefined, [a, b, c, 'not-a-word']);
   const cards = await store.cards(u.id);
-  assert.deepEqual(cards.map((x) => x.vocabId).sort(), [a, b, c].sort());
-  assert.equal(cards.find((x) => x.vocabId === c)!.struggling, false, 'new, not struggling');
-  assert.equal(cards.find((x) => x.vocabId === b)!.struggling, true, 'missed words still go to Struggling');
-  assert.equal((await store.findById(u.id))!.newNotice, 1, 'the study screen tells you about the new spell');
+  assert.deepEqual(cards.filter((x) => x.deck === 'all').map((x) => x.vocabId).sort(), [a, b, c].sort(), 'every kanji of the duel in All spells');
+  assert.deepEqual(cards.filter((x) => x.deck === 'struggling').map((x) => x.vocabId).sort(), [a, b].sort(), 'missed words still go to Struggling');
+  assert.equal((await store.findById(u.id))!.newNotice, 3, 'the study screen tells you about the new spells');
 });
 
 test('magic staffs unlock by best login streak (5/10/15/20 days; admins: all); others see your staff', async () => {
@@ -597,4 +598,20 @@ test('magic staffs unlock by best login streak (5/10/15/20 days; admins: all); o
   const a = client(), b = client();
   room.join('a', 'A', a, undefined, { crit: 0, xp: 0, staff: 'void' }); room.join('b', 'B', b);
   assert.deepEqual(b.last('lobby')!.players.map((p) => p.staff), ['void', 'verdant']);
+});
+
+test('room: mouse look is relayed to the others only, clamped and throttled, and only during a game', () => {
+  const room = new Room('LOOK', 'reading', { onEmpty: () => {} }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a, ['N2']); room.join('b', 'B', b, ['N2']);
+  room.look('a', 0.2, 0.1, 1000);
+  assert.equal(b.last('look'), undefined, 'no game yet');
+  room.start('a'); room.ready('a'); room.ready('b'); tick(100);
+  room.look('a', 9, -9, 2000);
+  assert.deepEqual(b.last('look'), { type: 'look', id: 'a', yaw: 0.5, pitch: -0.3 });
+  assert.equal(a.last('look'), undefined, 'not echoed back');
+  room.look('a', 0.1, 0, 2050);
+  assert.equal(b.last('look')!.yaw, 0.5, 'too soon: dropped');
+  room.look('a', Number.NaN, 0, 3000);
+  assert.equal(b.last('look')!.yaw, 0.5, 'bad numbers: dropped');
 });

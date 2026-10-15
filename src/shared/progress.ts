@@ -60,6 +60,13 @@ export function nextLocalMidnight(today: string, tzOffsetMin: number): number {
   return Date.UTC(y, m - 1, d + 1) + tzOffsetMin * 60_000;
 }
 
+// ── closed beta ───────────────────────────────────────────────────────────────
+/** Closed beta: every background, flame, staff and game mode is open to everyone, whatever their level or
+ *  login streak. Set `open` to false for the public release to bring back the gradual unlocks (the tests do,
+ *  to check the normal rules). The hiragana-first lock for kana beginners and the study lock stay — they
+ *  aren't rewards. */
+export const beta = { open: true };
+
 // ── backgrounds ────────────────────────────────────────────────────────────────
 export const BACKGROUNDS = [
   { id: 'forest', name: 'Forest', level: 0 },
@@ -70,7 +77,7 @@ export const BACKGROUNDS = [
 ] as const;
 export type BackgroundId = (typeof BACKGROUNDS)[number]['id'];
 export const isBackground = (x: unknown): x is BackgroundId => BACKGROUNDS.some((b) => b.id === x);
-export const unlocked = (bg: BackgroundId, xp: number) => levelOf(xp) >= BACKGROUNDS.find((b) => b.id === bg)!.level;
+export const unlocked = (bg: BackgroundId, xp: number) => beta.open || levelOf(xp) >= BACKGROUNDS.find((b) => b.id === bg)!.level;
 
 // ── seasons: each month has goals; completing them unlocks that month's reward (a flame or a staff) ──
 /** Twelve themes, one per calendar month; even months give a flame, odd months a staff. */
@@ -114,6 +121,7 @@ export const isFlame = (x: unknown): x is FlameId => FLAMES.some((f) => f.id ===
 export const flameUnlocked = (f: FlameId, xp: number, unlocks: readonly string[] = []) => {
   const d = FLAMES.find((x) => x.id === f);
   if (!d) return false;
+  if (beta.open) return true;
   return d.season ? unlocks.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
 };
 export const flameColor = (f: string | null | undefined) => (FLAMES.find((x) => x.id === f) ?? FLAMES[0]).color;
@@ -156,14 +164,16 @@ export const isStaff = (x: unknown): x is StaffId => STAFFS.some((s) => s.id ===
 export const staffUnlocked = (s: StaffId, bestStreak: number, unlocks: readonly string[] = []) => {
   const d = STAFFS.find((x) => x.id === s);
   if (!d) return false;
+  if (beta.open) return true;
   return d.season ? unlocks.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
 };
 export const staffOf = (s: string | null | undefined) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
 
 // ── gradual unlocks: new players start with Reading and Rapid ──────────────────────────────────
-/** Level needed to create a room or queue for a mode (joining a friend's room by code or invite is always allowed). */
-export const MODE_LEVEL: Record<string, number> = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 2 };
-export const modeUnlocked = (mode: string, xp: number, admin = false) => admin || levelOf(xp) >= (MODE_LEVEL[mode] ?? 0);
+/** Level needed to create a room or queue for a mode (joining a friend's room by code or invite is always allowed).
+ *  Since 0.9.9 every mode is open from the start (only kana beginners wait for Deck Duel). */
+export const MODE_LEVEL: Record<string, number> = { reading: 0, rapid: 0, writing: 0, boss: 0, deck: 0 };
+export const modeUnlocked = (mode: string, xp: number, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode] ?? 0);
 
 /** More "Struggling spells" waiting than this → the game modes lock until you study them. */
 export const STUDY_LOCK = 100;

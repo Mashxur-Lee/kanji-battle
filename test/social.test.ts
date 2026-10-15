@@ -5,6 +5,8 @@ import { DAILY_WORD_MS, DAILY_WORDS, DailyService, dailyWords } from '../src/ser
 import { ProgressService } from '../src/server/study/ProgressService';
 import { StudyService } from '../src/server/study/StudyService';
 import { MONTH_GOALS, flameUnlocked, modeUnlocked, staffUnlocked, xpForLevel } from '../src/shared/progress';
+import { beta } from '../src/shared/progress';
+beta.open = false; // these tests check the normal unlock rules (the closed beta opens everything)
 
 test('daily challenge: the same 10 words for everyone (N5 → N1), checked on the server, one try, ranked', async () => {
   const store = new MemoryStore();
@@ -63,9 +65,16 @@ test('monthly goals: play 12 days, win 10, pass 150 cards → the month\'s rewar
   assert.deepEqual([m.name, m.reward, m.done], ['Maple', 'staff:maple', false]);
 });
 
-test('gradual unlocks: Reading and Rapid from the start, Writing and Boss at level 1, Deck Duel at level 2', () => {
-  assert.ok(modeUnlocked('reading', 0) && modeUnlocked('rapid', 0));
-  assert.ok(!modeUnlocked('writing', 0) && !modeUnlocked('boss', 0) && !modeUnlocked('deck', xpForLevel(1)));
-  assert.ok(modeUnlocked('boss', xpForLevel(1)) && modeUnlocked('deck', xpForLevel(2)));
-  assert.ok(modeUnlocked('deck', 0, true), 'admins have everything');
+test('every game mode is open from the start (0.9.9)', () => {
+  for (const m of ['reading', 'rapid', 'writing', 'boss', 'deck']) assert.ok(modeUnlocked(m, 0), m);
+  assert.ok(modeUnlocked('deck', xpForLevel(1)));
+});
+
+test('closed beta: every background, flame and staff is open to a brand-new player', () => {
+  beta.open = true;
+  try {
+    assert.ok(flameUnlocked('purple', 0) && flameUnlocked('harvest', 0));
+    assert.ok(staffUnlocked('void', 0) && staffUnlocked('maple', 0));
+  } finally { beta.open = false; }
+  assert.ok(!staffUnlocked('void', 0), 'back to the normal rules');
 });

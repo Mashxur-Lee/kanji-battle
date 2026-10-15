@@ -4,12 +4,12 @@ import { DEFAULT_CONFIG } from './Game';
 
 /**
  * Fair HP: your HP depends on how hard your OPPONENT hits, i.e. on the levels they chose.
- * HP = base + perHit × (opponent's average base damage), so an N1 caster faces ~1000 HP
- * while a かな/N5 caster faces ~250–300 HP. Easier words are answered faster, so the
- * low-level side needs a few more hits — that keeps the match even in practice.
+ * HP ≈ the opponent's average hit (with a typical combo) × `hits`, so every level needs about the same
+ * number of correct answers to win (~18) — a かな player no longer needs 35 hits and runs out of time.
+ * (0.9.9: before, a fixed base of 130 HP made easy levels far too long.)
  */
 export interface BalanceConfig { base: number; perAvgDamage: number; min: number; max: number }
-export const DEFAULT_BALANCE: BalanceConfig = { base: 130, perAvgDamage: 17, min: 150, max: 1200 };
+export const DEFAULT_BALANCE: BalanceConfig = { base: 0, perAvgDamage: 1.3 * 18, min: 100, max: 1200 };
 
 export function averageBaseDamage(levels: readonly Level[], damagePerDifficulty = DEFAULT_CONFIG.damagePerDifficulty): number {
   const words = VOCAB.filter((v) => levels.includes(v.level));

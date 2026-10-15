@@ -1,7 +1,7 @@
 import postgres from 'postgres';
 import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
 import type { BackgroundId, FlameId, StaffId } from '../../shared/progress';
-import type { CardState, SrsCard } from '../../shared/srs';
+import { deckOf, type CardState, type CustomWord, type DeckId, type SrsCard } from '../../shared/srs';
 import { randomUUID } from 'node:crypto';
 import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, type ActivityDelta, type GameEventRow, type Report, type AvatarImage, type DailyResult, type DayActivity, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
@@ -14,10 +14,11 @@ interface UserRow {
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
   crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null; tutorial_done: boolean | null; unlocks: string[] | null;
   login_day: string | null; streak: number | null; best_streak: number | null;
+  daily_new: number | null; new_today: number | null; badges: string[] | null;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
-  reps: number; lapses: number; struggling: boolean; crit_day: string | null;
+  reps: number; lapses: number; struggling: boolean; crit_day: string | null; deck: DeckId | null; added_at: string | number | null;
 }
 
 const toUser = (r: UserRow): UserRecord => ({
@@ -27,17 +28,20 @@ const toUser = (r: UserRow): UserRecord => ({
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
   wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant', tutorialDone: r.tutorial_done ?? true, unlocks: r.unlocks ?? [],
   loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0,
+  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [],
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
-  due: Number(r.due), reps: r.reps, lapses: r.lapses, struggling: r.struggling, critDay: r.crit_day ?? null,
+  due: Number(r.due), reps: r.reps, lapses: r.lapses, struggling: r.deck === 'struggling', critDay: r.crit_day ?? null,
+  deck: r.deck ?? 'all', addedAt: r.added_at == null ? null : Number(r.added_at),
 });
 
 const COLUMNS: Record<keyof UserPatch, string> = {
   banned: 'banned', passwordHash: 'password_hash', background: 'background',
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
   critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff', tutorialDone: 'tutorial_done', unlocks: 'unlocks',
-  loginDay: 'login_day', streak: 'streak', bestStreak: 'best_streak',
+  loginDay: 'login_day', streak: 'streak', bestStreak: 'best_streak', role: 'role',
+  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges',
 };
 
 /**
@@ -190,6 +194,36 @@ export class PgStore implements Store {
       where xp_scheme < 2
       returning id`;
     if (converted.length) console.log(`Converted XP of ${converted.length} account(s) to the new level curve`);
+    // v0.9.9: separate decks (All / Struggling / Custom), new words a day, profile badges, custom words
+    await this.sql`alter table kw_users add column if not exists daily_new integer not null default 25`;
+    await this.sql`alter table kw_users add column if not exists new_today integer not null default 0`;
+    await this.sql`alter table kw_users add column if not exists badges text[] not null default '{}'`;
+    await this.sql`alter table kw_cards add column if not exists added_at bigint`;
+    await this.sql`alter table kw_cards add column if not exists deck text not null default 'all'`;
+    const [pk] = await this.sql<{ n: string }[]>`
+      select count(*) as n from information_schema.key_column_usage where table_name = 'kw_cards' and constraint_name = 'kw_cards_pkey'`;
+    if (Number(pk?.n) === 2) {
+      // one card per word until now: the deck joins the key, and every struggling word also gets its own
+      // card in Struggling spells (the original stays in All spells) — nothing is lost
+      await this.sql`alter table kw_cards drop constraint kw_cards_pkey`;
+      await this.sql`alter table kw_cards add primary key (user_id, deck, vocab_id)`;
+      const moved = await this.sql`
+        insert into kw_cards (user_id, vocab_id, state, step, ease, interval_days, due, reps, lapses, struggling, crit_day, deck)
+        select user_id, vocab_id, state, step, ease, interval_days, due, reps, lapses, true, crit_day, 'struggling'
+        from kw_cards where deck = 'all' and struggling on conflict do nothing`;
+      await this.sql`update kw_cards set struggling = false where deck = 'all'`;
+      console.log(`Study decks split: ${moved.count} struggling card(s) now in their own deck`);
+    }
+    await this.sql`
+      create table if not exists kw_custom_words (
+        id text not null,
+        user_id uuid not null references kw_users(id) on delete cascade,
+        kanji text not null,
+        reading text not null,
+        meaning text not null,
+        created_at bigint not null,
+        primary key (user_id, id)
+      )`;
   }
 
   async findByUsername(username: string) {
@@ -227,44 +261,65 @@ export class PgStore implements Store {
   async cards(userId: string) {
     return (await this.sql<CardRow[]>`select * from kw_cards where user_id = ${userId}`).map(toCard);
   }
-  async card(userId: string, vocabId: string) {
-    const [r] = await this.sql<CardRow[]>`select * from kw_cards where user_id = ${userId} and vocab_id = ${vocabId}`;
+  async card(userId: string, deck: DeckId, vocabId: string) {
+    const [r] = await this.sql<CardRow[]>`select * from kw_cards where user_id = ${userId} and deck = ${deck} and vocab_id = ${vocabId}`;
     return r ? toCard(r) : null;
   }
   private row(userId: string, c: SrsCard) {
+    const deck = deckOf(c);
     return {
       user_id: userId, vocab_id: c.vocabId, state: c.state, step: c.step, ease: c.ease, interval_days: c.intervalDays,
-      due: c.due, reps: c.reps, lapses: c.lapses, struggling: c.struggling, crit_day: c.critDay ?? null,
+      due: c.due, reps: c.reps, lapses: c.lapses, struggling: deck === 'struggling', crit_day: c.critDay ?? null, deck, added_at: c.addedAt ?? null,
     };
   }
   async saveCard(userId: string, c: SrsCard) {
     const row = this.row(userId, c);
     await this.sql`
       insert into kw_cards ${this.sql(row)}
-      on conflict (user_id, vocab_id) do update set
+      on conflict (user_id, deck, vocab_id) do update set
         state = excluded.state, step = excluded.step, ease = excluded.ease, interval_days = excluded.interval_days,
         due = excluded.due, reps = excluded.reps, lapses = excluded.lapses, struggling = excluded.struggling, crit_day = excluded.crit_day`;
   }
   async addCards(userId: string, cards: SrsCard[]) {
-    if (cards.length === 0) return 0;
+    if (cards.length === 0) return [];
     const rows = cards.map((c) => this.row(userId, c));
-    const res = await this.sql`insert into kw_cards ${this.sql(rows)} on conflict do nothing`;
+    const res = await this.sql<{ vocab_id: string }[]>`insert into kw_cards ${this.sql(rows)} on conflict do nothing returning vocab_id`;
+    return res.map((r) => r.vocab_id);
+  }
+  async removeCards(userId: string, deck: DeckId, vocabIds: string[]) {
+    if (vocabIds.length === 0) return 0;
+    const res = await this.sql`delete from kw_cards where user_id = ${userId} and deck = ${deck} and vocab_id in ${this.sql(vocabIds)}`;
     return res.count;
   }
   async markStruggling(userId: string, vocabIds: string[], now: number) {
-    if (vocabIds.length === 0) return;
-    const rows = vocabIds.map((id) => ({
-      user_id: userId, vocab_id: id, state: 'new', step: 0, ease: 2500, interval_days: 0, due: now, reps: 0, lapses: 0, struggling: true,
+    const ids = [...new Set(vocabIds)];
+    if (ids.length === 0) return [];
+    const rows = ids.map((id) => ({
+      user_id: userId, vocab_id: id, state: 'new', step: 0, ease: 2500, interval_days: 0, due: now, reps: 0, lapses: 0, struggling: true, deck: 'struggling', added_at: now,
     }));
-    await this.sql`insert into kw_cards ${this.sql(rows)} on conflict (user_id, vocab_id) do update set struggling = true, due = least(kw_cards.due, excluded.due)`;
+    // xmax = 0 → the row was inserted (not updated): a word that is new in Struggling spells
+    const res = await this.sql<{ vocab_id: string; inserted: boolean }[]>`
+      insert into kw_cards ${this.sql(rows)} on conflict (user_id, deck, vocab_id) do update set due = least(kw_cards.due, excluded.due)
+      returning vocab_id, (xmax = 0) as inserted`;
+    return res.filter((r) => r.inserted).map((r) => r.vocab_id);
   }
+  async customWords(userId: string) {
+    const rows = await this.sql<{ id: string; kanji: string; reading: string; meaning: string; created_at: string }[]>`
+      select * from kw_custom_words where user_id = ${userId} order by created_at`;
+    return rows.map((r): CustomWord => ({ id: r.id, kanji: r.kanji, reading: r.reading, meaning: r.meaning, createdAt: Number(r.created_at) }));
+  }
+  async addCustomWord(userId: string, w: CustomWord) {
+    await this.sql`insert into kw_custom_words (id, user_id, kanji, reading, meaning, created_at) values (${w.id}, ${userId}, ${w.kanji}, ${w.reading}, ${w.meaning}, ${w.createdAt})
+      on conflict (user_id, id) do update set kanji = excluded.kanji, reading = excluded.reading, meaning = excluded.meaning`;
+  }
+  async deleteCustomWord(userId: string, id: string) { await this.sql`delete from kw_custom_words where user_id = ${userId} and id = ${id}`; }
   async learnedCount(userId: string) {
-    const [r] = await this.sql<{ n: string }[]>`select count(*) as n from kw_cards where user_id = ${userId} and state = 'review'`;
+    const [r] = await this.sql<{ n: string }[]>`select count(distinct vocab_id) as n from kw_cards where user_id = ${userId} and state = 'review'`;
     return Number(r.n);
   }
   async cardStats() {
     const rows = await this.sql<{ user_id: string; cards: string; learned: string }[]>`
-      select user_id, count(*) as cards, count(*) filter (where state = 'review') as learned from kw_cards group by user_id`;
+      select user_id, count(*) as cards, count(distinct vocab_id) filter (where state = 'review') as learned from kw_cards group by user_id`;
     return Object.fromEntries(rows.map((r) => [r.user_id, { cards: Number(r.cards), learned: Number(r.learned) }]));
   }
   async addResult(id: string, outcome: 'win' | 'loss' | 'draw') {

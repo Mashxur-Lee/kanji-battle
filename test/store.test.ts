@@ -6,6 +6,8 @@ import { test } from 'node:test';
 import { PgStore, cleanUrl } from '../src/server/db/PgStore';
 import { FileStore, MemoryStore, type Store } from '../src/server/db/Store';
 import { newCard } from '../src/shared/srs';
+import { beta } from '../src/shared/progress';
+beta.open = false; // these tests check the normal unlock rules (the closed beta opens everything)
 
 // The same contract for every implementation. Postgres runs when TEST_DATABASE_URL is set.
 const stores: Array<[string, () => Store]> = [
@@ -31,17 +33,31 @@ for (const [name, make] of stores) {
     assert.deepEqual([upd!.background, upd!.studyLevels, upd!.lastNewDate, upd!.newNotice, upd!.banned], ['swamp', ['N5', 'N4'], '2026-10-09', 25, true]);
 
     const now = 1_700_000_000_000;
-    assert.equal(await s.addCards(u.id, [newCard('山:やま', now), newCard('川:かわ', now)]), 2);
-    assert.equal(await s.addCards(u.id, [newCard('山:やま', now), newCard('水:みず', now)]), 1, 'existing cards are kept');
-    const c = (await s.card(u.id, '山:やま'))!;
+    assert.deepEqual([u.dailyNew, u.badges], [25, []]);
+    assert.deepEqual((await s.addCards(u.id, [newCard('山:やま', now), newCard('川:かわ', now)])).sort(), ['山:やま', '川:かわ'].sort());
+    assert.deepEqual(await s.addCards(u.id, [newCard('山:やま', now), newCard('水:みず', now)]), ['水:みず'], 'existing cards are kept');
+    const c = (await s.card(u.id, 'all', '山:やま'))!;
+    assert.equal(c.addedAt, now);
     await s.saveCard(u.id, { ...c, state: 'review', intervalDays: 3, due: now + 3 * 86400000, reps: 3 });
     assert.equal(await s.learnedCount(u.id), 1);
-    await s.markStruggling(u.id, ['山:やま', '火:ひ'], now);
+    // 0.9.9: missed words get their own cards in Struggling spells; All spells is left as it was
+    assert.deepEqual((await s.markStruggling(u.id, ['山:やま', '火:ひ'], now)).sort(), ['山:やま', '火:ひ'].sort());
+    assert.deepEqual(await s.markStruggling(u.id, ['山:やま'], now + 5), [], 'already struggling: nothing new');
     const cards = await s.cards(u.id);
-    assert.equal(cards.length, 4);
-    const yama = cards.find((x) => x.vocabId === '山:やま')!;
-    assert.deepEqual([yama.struggling, yama.state, yama.due], [true, 'review', now], 'missed word is due right away, keeps its progress');
-    assert.equal(cards.find((x) => x.vocabId === '火:ひ')!.state, 'new');
+    assert.equal(cards.length, 5);
+    const yamaAll = cards.find((x) => x.vocabId === '山:やま' && x.deck === 'all')!;
+    const yamaStr = cards.find((x) => x.vocabId === '山:やま' && x.deck === 'struggling')!;
+    assert.deepEqual([yamaAll.state, yamaAll.struggling], ['review', false], 'All spells keeps its progress');
+    assert.deepEqual([yamaStr.state, yamaStr.struggling, yamaStr.due], ['new', true, now]);
+    assert.equal(await s.learnedCount(u.id), 1, 'a word counts once');
+    assert.equal(await s.removeCards(u.id, 'struggling', ['火:ひ', 'nope']), 1);
+    assert.equal((await s.cards(u.id)).length, 4);
+    await s.addCustomWord(u.id, { id: 'u:abc', kanji: '魔法陣', reading: 'まほうじん', meaning: 'magic circle', createdAt: now });
+    assert.deepEqual((await s.customWords(u.id)).map((w) => w.kanji), ['魔法陣']);
+    await s.deleteCustomWord(u.id, 'u:abc');
+    assert.equal((await s.customWords(u.id)).length, 0);
+    const upd2 = await s.update(u.id, { dailyNew: 60, badges: ['combo-20'] });
+    assert.deepEqual([upd2!.dailyNew, upd2!.badges], [60, ['combo-20']]);
     assert.equal((await s.list()).length, 1);
     await s.close?.();
   });

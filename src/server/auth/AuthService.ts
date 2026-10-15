@@ -8,6 +8,8 @@ export class AuthError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
 }
 
+/** The seeded admin account (index.ts): it can never lose its admin role. */
+export const OWNER = 'admin';
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
 export const toPublic = (u: UserRecord): PublicUser => ({ id: u.id, username: u.username, role: u.role });
 
@@ -76,6 +78,19 @@ export class AuthService {
     if (target.role === 'admin') throw new AuthError("Admins can't be banned");
     const rec = (await this.store.update(targetId, { banned }))!;
     if (banned) for (const l of this.banListeners) l(targetId);
+    return { ...toPublic(rec), banned: rec.banned, createdAt: rec.createdAt };
+  }
+
+  /** Promote a player to admin, or take it back. The main "admin" account can't be demoted, and nobody
+   *  changes their own role (so the last admin can't lock everyone out). */
+  async setRole(admin: UserRecord, targetId: string, role: Role): Promise<AdminUserRow> {
+    if (role !== 'admin' && role !== 'user') throw new AuthError('Role: admin or user');
+    const target = await this.store.findById(targetId);
+    if (!target) throw new AuthError('No such user', 404);
+    if (target.id === admin.id) throw new AuthError("You can't change your own role");
+    if (target.username.toLowerCase() === OWNER) throw new AuthError('The main admin account stays an admin');
+    if (target.banned && role === 'admin') throw new AuthError('Unban this player first');
+    const rec = (await this.store.update(targetId, { role }))!;
     return { ...toPublic(rec), banned: rec.banned, createdAt: rec.createdAt };
   }
 

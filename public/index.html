@@ -22,7 +22,7 @@
     <div id="profilePop" class="profile-pop" hidden>
       <div class="pp-head">
         <div id="ppPic" class="pp-pic">✦</div>
-        <div><div id="ppName" class="pp-name"></div><div id="whoLevel" class="pp-level">Lv 0</div></div>
+        <div><div id="ppName" class="pp-name"></div><div id="whoLevel" class="pp-level">Lv 0</div><div id="ppBadges"></div></div>
       </div>
       <div class="xpbar" title="XP to next level"><span id="whoXp"></span></div>
       <div class="pp-stats">
@@ -98,6 +98,10 @@
     <div class="fb-actions"><button id="fbCancel" type="button" class="pill">Close</button><button id="fbSend" type="submit" class="big">Send</button></div>
   </form>
 </dialog>
+ <dialog id="newsDialog" class="friend-dialog news-dialog" aria-label="What's new">
+  <div class="dd-head"><h3>What's new</h3><span id="newsVersion" class="tag"></span><button id="newsClose" class="pill">Close</button></div>
+  <div id="newsBody" class="news-body" data-no-i18n></div>
+</dialog>
 <dialog id="aboutDialog" class="friend-dialog about-dialog" aria-label="About">
   <h3>Kanji Wizards <small id="aboutVersion" class="hint"></small></h3>
   <p>A game for learning Japanese: study words with spaced repetition, then cast them as spells.</p>
@@ -111,6 +115,25 @@
   <h4>Privacy</h4>
   <p class="hint">We store your player name, a scrambled (hashed) password, your progress, match history, friends and — if you upload one — your profile picture. Bug reports and suggestions you send are kept with your player name; errors include your browser type. Nothing is sold or shared. Ask the admin to delete your account and all of it is removed.</p>
   <form method="dialog" class="fb-actions"><button class="big">Close</button></form>
+</dialog>
+ <dialog id="deckDialog" class="friend-dialog deck-dialog" aria-label="Spells">
+  <div class="dd-head"><h3 id="deckTitle">Spells</h3><span id="deckCount" class="tag"></span><button id="deckClose" class="pill">Close</button></div>
+  <div id="customPanel" class="custom-panel" hidden>
+    <div class="cp-row"><input id="customSearch" placeholder="Search: kanji, kana or meaning (e.g. 魔法, まほう, magic)" autocomplete="off" lang="ja"><span class="hint">or type your own:</span></div>
+    <div id="customHits" class="custom-hits"></div>
+    <form id="customForm" class="cp-row cp-own"><input id="cwKanji" placeholder="Word (漢字)" lang="ja" maxlength="16" required><input id="cwReading" placeholder="Reading (かな)" lang="ja" maxlength="32"><input id="cwMeaning" placeholder="Meaning" maxlength="120"><button class="pill" type="submit">Add</button></form>
+    <p id="customMsg" class="hint" role="status"></p>
+  </div>
+  <div class="dd-tools"><input id="deckFilter" placeholder="Filter…" autocomplete="off"><label class="toggle-row"><input id="deckAllBox" type="checkbox"> Select all</label><button id="deckRemove" class="pill danger" disabled>Remove selected</button></div>
+  <div class="dd-list"><table class="deck-table"><thead><tr><th></th><th>Spell</th><th>Reading</th><th>Meaning</th><th>Level</th><th>Added</th><th>Status</th><th></th></tr></thead><tbody id="deckRows"></tbody></table></div>
+</dialog>
+<dialog id="passageDialog" class="friend-dialog passage-dialog" aria-label="Reading passage">
+  <div class="dd-head"><h3>Reading passage</h3><button id="passageNew" class="pill">New story</button><button id="passageClose" class="pill">Close</button></div>
+  <p class="hint">Tap a highlighted word for its reading and meaning.</p>
+  <div id="passageText" class="passage-text" lang="ja"></div>
+  <div id="passageGloss" class="passage-gloss" hidden></div>
+  <details class="passage-tr"><summary>Translation</summary><div id="passageTr"></div></details>
+  <div id="passageWords" class="passage-words"></div>
 </dialog>
 <div id="pauseOverlay" class="pause-overlay" role="dialog" aria-modal="true" aria-label="Paused" hidden>
   <div class="pause-box"><h2>Paused</h2><p class="sub">The clock, the AI and the dragon wait for you.</p><button id="resumeBtn" class="big">Resume</button></div>
@@ -223,6 +246,7 @@
         <button id="howBtn" class="how-btn">How to play?</button>
         <button id="feedbackBtn" class="how-btn">Feedback</button>
         <button id="aboutBtn" class="how-btn">About</button>
+        <button id="newsBtn" class="how-btn news-btn">What's new <span id="newsDot" class="badge" hidden>new</span></button>
       </div>
     </div>
     <div class="col-scene"><div class="scene duel-scene" aria-hidden="true"></div></div>
@@ -296,17 +320,28 @@
     <div class="study-decks">
       <div class="deck-card">
         <h3>All spells</h3>
-        <p class="hint">Tick levels — 25 new random words are added every day.</p>
+        <p class="hint">Tick levels — new random words are added every day.</p>
         <div id="studyLevels" class="chips"></div>
+        <label class="daily-new">New spells a day <input id="dailyNew" type="range" min="10" max="150" step="5" value="25"> <b id="dailyNewVal">25</b></label>
         <div id="countsAll" class="counts"></div>
-        <button id="studyAll" class="big">Study</button>
+        <div class="deck-btns"><button id="studyAll" class="big">Study</button><button class="pill deck-open" data-deck="all">Words</button></div>
       </div>
       <div class="deck-card struggle">
         <h3>Struggling spells</h3>
-        <p class="hint">Words you missed in battles land here automatically.</p>
+        <p class="hint">Words you missed in games — you choose on the results screen.</p>
         <div id="countsStruggle" class="counts"></div>
-        <button id="studyStruggle" class="big">Study</button>
+        <div class="deck-btns"><button id="studyStruggle" class="big">Study</button><button class="pill deck-open" data-deck="struggling">Words</button></div>
       </div>
+      <div class="deck-card custom">
+        <h3>Custom spells</h3>
+        <p class="hint">Your own words: from the dictionary, or any word you type in.</p>
+        <div id="countsCustom" class="counts"></div>
+        <div class="deck-btns"><button id="studyCustom" class="big">Study</button><button class="pill deck-open" data-deck="custom">Words</button><button id="customAdd" class="pill">+ Add words</button></div>
+      </div>
+    </div>
+    <div class="practice-row">
+      <button id="quizBtn" class="practice-card"><b>JLPT quiz</b><span>10 questions from the spells you studied — readings, meanings and kanji, 4 choices each.</span></button>
+      <button id="passageBtn" class="practice-card"><b>Reading passage</b><span>A short story with your struggling words, each with its reading and meaning.</span></button>
     </div>
   </section>
 
@@ -330,6 +365,24 @@
       <h2>All done for now</h2>
       <p class="sub">Come back later — cards return when they are due.</p>
       <button id="reviewDoneBack" class="big">Back to study</button>
+    </div>
+  </section>
+
+  <!-- STUDY: JLPT-style quiz -->
+  <section id="quiz" class="screen quiz" hidden>
+    <div class="page-head"><button id="quizBack" class="back">← Study</button><span id="quizProgress" class="tag"></span><span id="quizScore" class="tag"></span></div>
+    <div id="quizCard" class="quiz-card">
+      <div id="quizAsk" class="quiz-ask"></div>
+      <div id="quizPrompt" class="quiz-prompt" lang="ja"></div>
+      <div id="quizSub" class="quiz-sub"></div>
+      <div id="quizChoices" class="quiz-choices"></div>
+      <p id="quizFeedback" class="quiz-feedback" role="status"></p>
+      <button id="quizNext" class="big" hidden>Next <kbd>Enter</kbd></button>
+    </div>
+    <div id="quizDone" class="quiz-done" hidden>
+      <h2 id="quizResult"></h2>
+      <div id="quizMissed"></div>
+      <div class="quiz-done-btns"><button id="quizAgain" class="big">New quiz</button><button id="quizDoneBack" class="pill">Back to study</button></div>
     </div>
   </section>
 
@@ -467,7 +520,7 @@
 
   <!-- PREPARATION -->
   <section id="prep" class="screen" hidden>
-    <button id="prepBack" class="back">← Back to lobby</button>
+    <button id="prepBack" class="lobby-btn">Back to lobby</button>
     <header class="prephead">
       <div>
         <h2>Preparation</h2>
@@ -502,6 +555,7 @@
         <div id="countdown" class="countdown" hidden></div>
         <div id="breathWarn" class="breath-warn" hidden></div>
         <div id="challenge" class="challenge">
+          <div id="turnTimer" class="turn-timer" role="timer" aria-label="Time left" hidden></div>
           <div id="kanji" class="kanji" lang="ja"></div>
           <div id="meaningPrompt" class="meaning-prompt" hidden></div>
           <button id="castGo" class="big cast-btn go" hidden title="Hide the kanji and write it (Enter)">CAST!</button>
@@ -542,9 +596,12 @@
       </div>
     </div>
     <div class="deck-middle">
-      <aside id="dkList" class="dk-panel dk-list"></aside>
+      <div class="dk-left">
+        <aside id="dkList" class="dk-panel dk-list"></aside>
+        <aside class="dk-panel dk-feed" aria-label="Turn log"><h4>Turn log</h4><ol id="dkFeed" class="feed-list" aria-live="polite"></ol></aside>
+      </div>
       <div id="dkStage" class="dk-stage">
-        <div id="dkBanner" class="dk-banner"></div>
+        <div class="dk-turnrow"><div id="dkBanner" class="dk-banner"></div><div id="dkTurnTimer" class="turn-timer" role="timer" aria-label="Turn time left" hidden></div></div>
         <div id="dkCast" class="dk-cast"></div>
         <div id="dkWrite"></div>
         <div id="dkFeedback" class="feedback"></div>
@@ -595,7 +652,8 @@
     <div id="xpLine" class="xp-line" hidden></div>
     <div id="statCompare" class="compare"></div>
     <div id="struggledBox" class="struggled">
-      <h3>Review — you struggled with <small>(added to Struggling spells · click a word for its stroke order)</small></h3>
+      <h3>Review — you struggled with <small>(click a word for its stroke order)</small></h3>
+      <div id="missedSave" class="missed-save" hidden></div>
       <div id="struggled" class="grid small"></div>
     </div>
     <h3>Vocabulary performance</h3>
@@ -606,9 +664,10 @@
       </table>
     </div>
     <div id="resultActions">
-      <div class="row">
-        <button id="rematch">Rematch</button>
-        <button id="leave" class="alt">Leave</button>
+      <div class="row result-btns">
+        <button id="rematch" class="big">Rematch</button>
+        <button id="resultLobby" class="lobby-btn">Back to lobby</button>
+        <button id="leave" class="lobby-btn menu-btn">Main menu</button>
       </div>
       <p id="rematchStatus" class="sub center"></p>
     </div>
@@ -644,7 +703,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.8.5</div>
+<div id="version" class="version">v0.9.9</div>
 <script src="/app.js"></script>
 </body>
 </html>

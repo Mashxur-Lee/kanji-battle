@@ -3,6 +3,8 @@ import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/Insi
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { AuthError, toPublic, type AuthService } from './auth/AuthService';
 import { resolveToday, StudyError, type StudyService } from './study/StudyService';
+import { isDeck, type DeckId } from '../shared/srs';
+import type { Role } from '../shared/protocol';
 import { DailyError, type DailyService } from './study/DailyService';
 import { SocialError, type SocialService } from './study/SocialService';
 import { playerDay } from './study/ProgressService';
@@ -195,13 +197,41 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
         send(res, 200, await study.summary(await auth.authenticate(bearer(req)), resolveToday(body.today)));
       } else if (req.method === 'GET' && url === '/api/study/queue') {
         const u = await auth.authenticate(bearer(req));
-        const deck = query.get('deck') === 'struggling' ? 'struggling' : 'all';
-        send(res, 200, { cards: await study.queue(u, deck) });
+        const deck = query.get('deck');
+        send(res, 200, { cards: await study.queue(u, (isDeck(deck) ? deck : 'all') as DeckId) });
       } else if (req.method === 'POST' && url === '/api/study/review') {
         const u = await auth.authenticate(bearer(req));
         const body = await readJson(req);
         const tz = Number(body.tz);
-        send(res, 200, await study.review(u, body.vocabId, body.rating, Date.now(), resolveToday(body.today), Number.isFinite(tz) && Math.abs(tz) <= 840 ? tz : 0));
+        send(res, 200, await study.review(u, body.vocabId, body.rating, Date.now(), resolveToday(body.today), Number.isFinite(tz) && Math.abs(tz) <= 840 ? tz : 0, body.deck));
+      } else if (req.method === 'GET' && url === '/api/study/deck') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, { words: await study.deckList(u, query.get('deck')) });
+      } else if (req.method === 'POST' && url === '/api/study/deck/remove') {
+        const u = await auth.authenticate(bearer(req));
+        const body = await readJson(req, 32 * 1024);
+        send(res, 200, { removed: await study.removeFromDeck(u, body.deck, body.ids) });
+      } else if (req.method === 'POST' && url === '/api/study/deck/add') {
+        const u = await auth.authenticate(bearer(req));
+        const body = await readJson(req, 32 * 1024);
+        send(res, 200, { added: await study.addToDeck(u, body.deck, body.ids) });
+      } else if (req.method === 'GET' && url === '/api/study/search') {
+        await auth.authenticate(bearer(req));
+        send(res, 200, { words: study.search(query.get('q')) });
+      } else if (req.method === 'POST' && url === '/api/study/custom') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, await study.addCustom(u, await readJson(req)));
+      } else if (req.method === 'GET' && url === '/api/study/quiz') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, { questions: await study.quiz(u, Number(query.get('n')) || 10) });
+      } else if (req.method === 'PUT' && url === '/api/study/daily-new') {
+        const u = await auth.authenticate(bearer(req));
+        const body = await readJson(req);
+        await study.setDailyNew(u, body.n, resolveToday(body.today));
+        send(res, 200, await study.summary(await auth.authenticate(bearer(req)), resolveToday(body.today)));
+      } else if (req.method === 'PUT' && url === '/api/me/badges') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, { badges: await study.setBadges(u, (await readJson(req)).badges) });
       } else if (req.method === 'GET' && url === '/api/admin/users') {
         await auth.requireAdmin(bearer(req));
         const stats = await study.adminStats(await auth.listUsers());
@@ -215,6 +245,11 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
         const body = await readJson(req);
         const id = url.split('/')[4];
         send(res, 200, { user: await auth.setBanned(admin, id, body.banned === true) });
+      } else if (req.method === 'POST' && /^\/api\/admin\/users\/[\w-]+\/role$/.test(url)) {
+        const admin = await auth.requireAdmin(bearer(req));
+        const body = await readJson(req);
+        const id = url.split('/')[4];
+        send(res, 200, { user: await auth.setRole(admin, id, body.role as Role) });
       } else {
         send(res, 404, { error: 'Not found' });
       }

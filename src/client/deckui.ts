@@ -208,6 +208,7 @@ export function renderDeck(v: DeckView) {
     renderCast(v);
     ui.stopCountdown('dkTurn');
     $('dkBanner').textContent = '';
+    ui.hideTimer('dkTurn', $('dkTurnTimer'));
     return v.phase === 'characters' ? renderCharacters(v, me, opp) : renderDraft(v, me);
   }
   overlay.hidden = true;
@@ -230,7 +231,18 @@ export function renderDeck(v: DeckView) {
     : myTurn
       ? (v.casting ? (v.casting.stage === 'read' ? 'Your spell — read it' : v.casting.stage === 'look' ? 'Your spell — memorise the kanji' : 'Write the kanji!') : `Your turn — choose a card${v.turn!.castsLeft > 1 ? ' (Frenzy: 2 cards)' : ''}`)
       : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
-  ui.countdown('dkTurn', deadline, (left) => (banner.textContent = `${label} · ${Math.ceil(left / 1000)}s`));
+  banner.textContent = label;
+  // the turn clock: big, by the banner, red in the last seconds (so nobody misses their turn)
+  const total = v.casting ? (v.casting.overtime ? DECK_RULES.overtimeCardMs : DECK_RULES.castMs) : DECK_RULES.chooseMs;
+  if (deadline > 0 && v.phase !== 'over') ui.bigTimer('dkTurn', $('dkTurnTimer'), deadline, total, myTurn || v.phase === 'overtime' ? 6000 : 3000);
+  else ui.hideTimer('dkTurn', $('dkTurnTimer'));
+  $('dkTurnTimer').classList.toggle('mine', myTurn || v.phase === 'overtime');
+  // the turn log counts turns: a new one each time the other player is up
+  if (v.turn && v.turn.active !== feedActive) {
+    feedActive = v.turn.active;
+    feedTurn++;
+    logFeed('turn', v.turn.active === v.you ? 'Your turn' : `${opp.name}'s turn`, v.turn.active === v.you ? 'me' : 'opp');
+  }
 
   // hands
   const canPlay = myTurn && !v.casting && Date.now() >= revealUntil;
@@ -296,6 +308,7 @@ function renderCast(v: DeckView) {
   const box = $('dkCast');
   const c = v.casting;
   if (!c) {
+    $('deck').classList.remove('dk-mycast', 'dk-writing');
     arena()?.channel(0);
     arena()?.oppChannel(false);
     castKey = '';
@@ -377,6 +390,9 @@ function renderCast(v: DeckView) {
     if (fresh) $('dkFeedback').replaceChildren();
   }
   const writeNow = mine && !c.overtime && c.stage === 'write';
+  // your own cast: the hand shrinks to the bottom edge so the card, the pad and the clock all fit on screen
+  $('deck').classList.toggle('dk-mycast', mine && !c.overtime && c.ownerId === v.you);
+  $('deck').classList.toggle('dk-writing', writeNow);
   const a3 = arena();
   a3?.channel(writeNow ? 1 : mine && c.stage === 'look' ? 0.4 : c.overtime ? 0.5 : 0);
   a3?.oppChannel(!mine && c.stage === 'write');
@@ -431,15 +447,70 @@ function renderDraft(v: DeckView, me: DeckPlayerView) {
 
 /** Hero pick and the first draft can still be called off: everyone goes back to the lobby. */
 function backButton(v: DeckView): HTMLElement {
-  const b = h('button', 'back dk-back', '← Back to lobby') as HTMLButtonElement;
+  const b = h('button', 'lobby-btn dk-back', 'Back to lobby') as HTMLButtonElement;
   b.hidden = v.round > 1; // a later draft happens mid-match: use Forfeit instead
   b.onclick = () => hooks.send({ type: 'back_to_lobby' });
   return b;
 }
 
 /** Animations for what just happened (the next state render redraws the board). */
+// ── turn log: who did what, turn by turn ────────────────────────────────────
+type FeedKind = 'turn' | 'cast' | 'hit' | 'heal' | 'mana' | 'miss' | 'power' | 'skip' | 'round' | 'overtime';
+let feedTurn = 0;
+let feedActive = '';
+function logFeed(kind: FeedKind, text: string, who: 'me' | 'opp' | 'sys', color?: CardColor, extra?: string) {
+  const list = $('dkFeed');
+  const li = h('li', `feed-${kind} by-${who}`);
+  if (kind === 'turn') { li.append(h('span', 'ft-turn', `Turn ${feedTurn}`), h('span', 'ft-who', text)); }
+  else {
+    li.append(h('span', `ft-dot${color ? ` c-${color}` : ''}`));
+    const body = h('span', 'ft-text', text);
+    li.append(body);
+    if (extra) li.append(h('span', 'ft-extra', extra));
+  }
+  // oldest at the top, the newest at the bottom (kept in view unless you scrolled up to read)
+  const atEnd = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+  list.append(li);
+  while (list.children.length > 120) list.firstElementChild!.remove();
+  if (atEnd) list.scrollTop = list.scrollHeight;
+}
+export function resetFeed() { feedTurn = 0; feedActive = ''; $('dkFeed').replaceChildren(); }
+
+/** One line per event, as plain and complete as possible. */
+function feedEvent(e: DeckEvent) {
+  if (!view) return;
+  const me = view.you;
+  const who = (id: string) => (id === me ? 'You' : view!.players.find((p) => p.id === id)?.name ?? 'Opponent');
+  const whom = (id: string) => (id === me ? 'you' : view!.players.find((p) => p.id === id)?.name ?? 'the opponent');
+  const side = (id: string): 'me' | 'opp' => (id === me ? 'me' : 'opp');
+  switch (e.kind) {
+    case 'coin': logFeed('round', `Round ${e.round}: ${who(e.winner)} won the coin flip and pick${e.winner === me ? '' : 's'} first`, 'sys'); break;
+    case 'redraft': logFeed('round', `${who(e.playerId)} ran out of cards — Round ${e.round} draft (HP and mana stay)`, side(e.playerId)); break;
+    case 'ability': logFeed('power', `${who(e.playerId)} used Omnipotence — ${CHARACTER_INFO[e.character].power.split(':')[0]}`, side(e.playerId), undefined, CHARACTER_INFO[e.character].power.split(':').slice(1).join(':').split('. ')[0].trim()); break;
+    case 'wizard': logFeed('power', `${who(e.playerId)}: Arcane reserve — ${e.what === 'cards' ? '+2 random cards' : '+30 mana'}`, side(e.playerId)); break;
+    case 'cast': { const s = CARD_SPECS[e.color]; logFeed('cast', `${who(e.playerId)} played a ${s.label} card${s.cost ? ` (−${s.cost}◆)` : ''}`, side(e.playerId), e.color); break; }
+    case 'resolve': {
+      const word = `${e.kanji} (${e.reading} · ${e.meaning})`;
+      if (e.overtime) {
+        if (e.ok) logFeed('hit', `${who(e.playerId)} read ${e.kanji} first — −${e.amount} HP to ${whom(e.targetId)}`, side(e.playerId), e.color, `${e.reading} · ${e.meaning}`);
+        else logFeed('miss', `Nobody read ${e.kanji} in time`, 'sys', e.color, `${e.reading} · ${e.meaning}`);
+        break;
+      }
+      const s = CARD_SPECS[e.color];
+      if (!e.ok) { logFeed('miss', `${who(e.playerId)} missed ${e.kanji} — the ${s.label} fizzled`, side(e.playerId), e.color, `${e.reading} · ${e.meaning}${e.recognized && e.recognized !== '×' ? ` · wrote ${e.recognized}` : ''}`); break; }
+      const what = s.kind === 'attack' ? `${s.label} hit ${whom(e.targetId)} for −${e.amount} HP` : s.kind === 'heal' ? `${s.label}: +${e.amount} HP` : `${s.label}: +${e.amount}◆ mana`;
+      logFeed(s.kind === 'attack' ? 'hit' : s.kind === 'heal' ? 'heal' : 'mana', `${who(e.playerId)} cast ${e.kanji} ✓ — ${what}${e.refund ? ` (+${e.refund}◆ back)` : ''}`, side(e.playerId), e.color, word.slice(e.kanji.length + 1));
+      break;
+    }
+    case 'overtime': logFeed('overtime', 'Overtime! The cards are gone — first to type the reading hits', 'sys'); break;
+    case 'skip': logFeed('skip', `${who(e.playerId)} ${stuckId === e.playerId ? 'had no mana for any card' : 'ran out of time'} — turn skipped, −${e.damage} HP`, side(e.playerId)); break;
+    case 'ot_miss': logFeed('miss', `${who(e.playerId)} guessed wrong`, side(e.playerId)); break;
+  }
+}
+
 export function deckEvent(e: DeckEvent) {
   if (!view) return;
+  feedEvent(e);
   const me = view.you;
   const name = (id: string) => view!.players.find((p) => p.id === id)?.name ?? 'Someone';
   switch (e.kind) {
@@ -549,13 +620,15 @@ function showReveal(e: Extract<DeckEvent, { kind: 'resolve' }>) {
   // your own miss: the correct strokes play right away
   if (!e.ok && e.playerId === hooks.me()) ui.showWrongStrokes(strokesBox, e.kanji);
 
-  revealUntil = Date.now() + REVEAL_MS;
+  // overtime: the kanji, reading and meaning stay up until just before the next kanji (DECK_RULES.overtimeGapMs)
+  const ms = e.overtime ? DECK_RULES.overtimeGapMs - 300 : REVEAL_MS;
+  revealUntil = Date.now() + ms;
   clearTimeout(revealTimer);
   revealTimer = window.setTimeout(() => {
     revealUntil = 0;
     if (!view?.casting) { $('dkCast').replaceChildren(); $('dkFeedback').replaceChildren(); }
     if (view) renderDeck(view); // your cards become playable again
-  }, REVEAL_MS);
+  }, ms);
 }
 
 function ripCard(card: HTMLElement) {
@@ -574,4 +647,4 @@ function ripCard(card: HTMLElement) {
 }
 
 const clock = (ms: number) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-export const resetDeck = () => { wasMyTurn = false; resetArenaDeck(); view = null; lastCastId = 0; writingCastId = 0; coinShown = false; ui.stopCountdown('dkMatch'); ui.stopCountdown('dkTurn'); ui.stopCountdown('dkDraft'); };
+export const resetDeck = () => { wasMyTurn = false; resetArenaDeck(); view = null; lastCastId = 0; writingCastId = 0; coinShown = false; resetFeed(); $('deck').classList.remove('dk-mycast', 'dk-writing'); ui.stopCountdown('dkMatch'); ui.hideTimer('dkTurn', $('dkTurnTimer')); ui.stopCountdown('dkDraft'); };

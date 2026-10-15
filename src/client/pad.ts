@@ -30,6 +30,13 @@ export class HandwritingPad {
     canvas.addEventListener('pointerup', () => this.up());
     canvas.addEventListener('pointercancel', () => this.up());
     canvas.addEventListener('pointerleave', () => this.up());
+    // iOS Safari: a finger on the pad must draw, never scroll or zoom the page (touch-action alone is not
+    // always honoured inside scrolling screens), so the touch events themselves are cancelled here.
+    const stop = (e: TouchEvent) => { if (e.cancelable) e.preventDefault(); };
+    canvas.addEventListener('touchstart', stop, { passive: false });
+    canvas.addEventListener('touchmove', stop, { passive: false });
+    canvas.addEventListener('touchend', stop, { passive: false });
+    canvas.addEventListener('gesturestart', (e) => e.preventDefault());
   }
 
   get strokeCount() { return this.strokes.length; }

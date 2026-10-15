@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.8.5
+# Kanji Wizards · v0.9.9
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -75,6 +75,23 @@ comets and red eyes in the dark, a misty swamp with will-o'-wisps, plains with v
 wandering goblins, a castle with the Black Dragon circling above and soldiers clashing at the sides, and the
 World Tree. Each has its own sounds in the menus (owls, frogs, goblin chatter, sword clashes, chimes) at the
 music volume. Admins have every background unlocked.
+
+**3D arenas (0.9.9).** In the 3D arena each background is its own place, ported from the Blender scripts
+(`src/client/arenas/`: a shared kit plus `forest`, `swamp`, `plains`, `castle`, `worldtree`): a painted sky dome
+(colour by elevation, sun / moon glow, far ridges, a Milky Way at night), a slowly turning cloud dome, crisp
+star points and twinkling sparkle stars, then each scene's own parts — swaying trees with blinking red eyes,
+water with ripples and mist, 3D mountains with snow and twin suns, two castles with waving flags and clashing
+warrior silhouettes, the giant World Tree above a sea of clouds. Shape keys became morph targets; keyframed
+animation runs off a 30 fps clock. Sunset and night use the scripts' themes; day is derived from sunset. Lite
+builds fewer trees, tufts and lights and a smaller sky texture.
+
+**3D staffs (0.9.9).** The five staffs are ports of the Blender staff scripts (`src/client/staffs3d.ts`, helpers in
+`src/client/geokit.ts`) with their animations: Verdant's leaves sway, Ember drips lava, Tide's crescent waves melt
+into a whirling stream every few seconds, Storm's shock rings and bolts crackle, Void pulls stars into its core.
+
+**Mouse look (0.9.9).** In Full 3D the mouse turns your head (not over the pad, buttons or cards, and not while
+drawing); a `look` message (≤ 8/s, relayed by the room) turns your character's head on the other players'
+screens. Lite keeps the old parallax.
 
 ## Admin
 

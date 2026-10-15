@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { buildCharacter, kindFor, type Character } from './models3d';
 import { buildStaff, GEM_Y, type Staff } from './staffs3d';
 import { createStaffPreview } from './staffpreview';
+import { buildEnv, type Env } from './arenas';
 
 export type Who = 'me' | 'opp' | 'boss' | `ally:${string}`;
 export type TimeOfDay = 'day' | 'sunset' | 'night';
@@ -50,6 +51,8 @@ export interface ArenaApi {
   breath(victims: Who[], damage: number): void;
   claw(victim: Who, damage: number): void;
   float(who: Who, text: string, color?: string): void;
+  /** where another player is looking (their mouse look, from the network): their model turns its head */
+  look(who: Who, yaw: number, pitch: number): void;
   /** lighter rendering for small screens / phones (less grass and particles, lower resolution) */
   setLite(on: boolean): void;
   dispose(): void;
@@ -192,6 +195,8 @@ interface Fighter {
   aura: THREE.Sprite;
   hurtUntil: number; lungeUntil: number; frostUntil: number; burnUntil: number;
   frosted: boolean;
+  /** where they look: target (from the network, or an idle wander) and the current, eased head turn */
+  look: { yaw: number; pitch: number; at: number; curYaw: number; curPitch: number; seed: number };
 }
 interface Particle { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max: number; grow: number; gravity: number }
 
@@ -228,18 +233,22 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   stage.position.set(1.5, 5, 9); stage.target.position.set(0, 1, -3);
   scene.add(stage, stage.target);
 
+  // the classic arena (a painted background, grass, a tiled floor, torch pillars) — used when the background
+  // has no 3D arena; the five arenas built from the Blender models replace all of it
+  const classic = new THREE.Group();
+  scene.add(classic);
   // ── far background: the player's chosen scene on a huge curved screen, its own ground at the horizon ──
   const bgMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, side: THREE.DoubleSide });
   const bgMesh = new THREE.Mesh(new THREE.CylinderGeometry(70, 70, 66, 48, 1, true, Math.PI - 0.95, 1.9), bgMat);
   bgMesh.scale.set(-1, 1, 1);
   bgMesh.position.set(0, 13, 6);
-  scene.add(bgMesh);
+  classic.add(bgMesh);
 
   // ── ground: grass all around the arena, fading into the fog ──
   const groundMat = new THREE.MeshStandardMaterial({ color: 0x2a3a24, roughness: 1 });
   const ground = new THREE.Mesh(new THREE.CircleGeometry(90, 48), groundMat);
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02;
-  scene.add(ground);
+  classic.add(ground);
   const grassMat = new THREE.MeshStandardMaterial({ color: 0x4f7a3a, roughness: 0.9, flatShading: true });
   const GRASS = 2600;
   const grass = new THREE.InstancedMesh(new THREE.ConeGeometry(0.05, 0.42, 3), grassMat, GRASS);
@@ -255,10 +264,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       grass.setColorAt(i, col.setHSL(rnd(0.22, 0.32), rnd(0.35, 0.6), rnd(0.3, 0.5)));
     }
   }
-  scene.add(grass);
+  classic.add(grass);
   // trees / bushes / rocks between the grass and the painted background, so nothing seems to float
   const propsGroup = new THREE.Group();
-  scene.add(propsGroup);
+  classic.add(propsGroup);
   const treeMat = new THREE.MeshStandardMaterial({ color: 0x1e3b2a, roughness: 1, flatShading: true });
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 1 });
   const rockMat = new THREE.MeshStandardMaterial({ color: 0x5c5866, roughness: 1, flatShading: true });
@@ -289,13 +298,13 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   // ── the stone arena ──
   const floor = new THREE.Mesh(new THREE.CircleGeometry(9.5, 64), new THREE.MeshStandardMaterial({ map: floorTexture(), roughness: 0.92, metalness: 0.02 }));
   floor.rotation.x = -Math.PI / 2;
-  scene.add(floor);
+  classic.add(floor);
   const rim = new THREE.Mesh(new THREE.TorusGeometry(9.5, 0.18, 8, 96), new THREE.MeshStandardMaterial({ color: 0x4b4656, roughness: 0.85 }));
   rim.rotation.x = Math.PI / 2; rim.position.y = 0.05;
-  scene.add(rim);
+  classic.add(rim);
   const rune = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), new THREE.MeshBasicMaterial({ map: ringTexture('#a98bff'), transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false }));
   rune.rotation.x = -Math.PI / 2; rune.position.y = 0.03; rune.scale.x = -1;
-  scene.add(rune);
+  classic.add(rune);
 
   // pillars with torches around the far half
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0x5a5466, roughness: 0.9 });
@@ -313,7 +322,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     const light = new THREE.PointLight(0xff9a4a, 10, 14, 2); light.position.y = 5.1;
     p.add(shaft, cap, bowl, flame, light);
     p.position.set(x, 0, z);
-    scene.add(p);
+    classic.add(p);
     torches.push({ light, flame, base: 1, phase: Math.random() * 10 });
   }
 
@@ -324,7 +333,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   for (let i = 0; i < MOTES; i++) { motePos[i * 3] = rnd(-14, 14); motePos[i * 3 + 1] = rnd(0, 7); motePos[i * 3 + 2] = rnd(-12, 6); moteSeed[i] = Math.random() * 100; }
   moteGeo.setAttribute('position', new THREE.BufferAttribute(motePos, 3));
   const moteMat = new THREE.PointsMaterial({ size: 0.12, map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffffff, sizeAttenuation: true });
-  scene.add(new THREE.Points(moteGeo, moteMat));
+  classic.add(new THREE.Points(moteGeo, moteMat));
 
   // ── fighters ───────────────────────────────────────────────────────────────
   const sparkTex = glowTexture();
@@ -360,7 +369,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     aura.scale.set(height * 1.2, height * 1.2, 1); aura.position.y = height * 0.5;
     group.add(aura);
     scene.add(group);
-    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false };
+    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 } };
     fighters.set(key, f);
     return f;
   }
@@ -596,7 +605,42 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
 
   // ── state set by the game ───────────────────────────────────────────────────
   let layout: ArenaSetup['layout'] = 'battle';
-  let bgKey = '';
+  let bgKey = '', bgKeyClassic = '';
+  // ── the 3D arena of the chosen background (Forest, Swamp, Plains, Castle, World tree) ──
+  let env: Env | null = null;
+  const envLights: THREE.PointLight[] = [];
+  const envKey = new THREE.DirectionalLight(0xffffff, 1);
+  envKey.visible = false;
+  scene.add(envKey, envKey.target);
+  const fromBlender = (p: readonly number[], floor: number) => new THREE.Vector3(p[0], p[2] - floor, -p[1]);
+  function setEnv(id: string, time: TimeOfDay) {
+    if (env) { scene.remove(env.group); env.dispose(); env = null; }
+    for (const l of envLights) scene.remove(l);
+    envLights.length = 0;
+    try { env = buildEnv(id, time, lite); } catch (e) { console.warn('3D arena failed, using the classic one', e); env = null; }
+    classic.visible = !env;
+    envKey.visible = !!env;
+    if (!env) { bgKeyClassic = ''; return; }
+    env.group.rotation.x = -Math.PI / 2; env.group.position.y = -env.floor;
+    scene.add(env.group);
+    for (const l of lite ? env.lights.slice(0, 2) : env.lights) { // Lite: only the main glow lights
+      const p = new THREE.PointLight(new THREE.Color(...l.color), l.intensity * 8, l.dist, 2);
+      p.position.copy(fromBlender(l.pos, env.floor));
+      p.userData.base = p.intensity; p.userData.flicker = l.flicker ?? 0;
+      scene.add(p); envLights.push(p);
+    }
+  }
+  function applyEnvLight(e: Env) {
+    const d = e.key.dir;
+    envKey.color.setRGB(...e.key.color); envKey.intensity = e.key.intensity * 0.35;
+    envKey.position.set(d[0] * 50, d[2] * 50, -d[1] * 50); envKey.target.position.set(0, 0, 0);
+    hemi.color.setRGB(...e.ambient.sky); hemi.groundColor.setRGB(...e.ambient.ground); hemi.intensity = e.ambient.intensity;
+    sun.intensity = 0; // the env's own key light replaces the generic sun
+    stage.intensity *= 0.45; fill.intensity *= 0.5; // still lights the fighters, without flooding the stone
+    const fog = scene.fog as THREE.Fog;
+    fog.color.setRGB(...e.fog.color); fog.near = e.fog.near; fog.far = e.fog.far;
+    renderer.setClearColor(fog.color);
+  }
   let channelLevel = 0, channelShown = 0;
   let twitchAmp = 0;
   const twitchRot = new THREE.Euler(), twitchTarget = new THREE.Euler();
@@ -657,6 +701,12 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     spriteTint = new THREE.Color(L.spriteTint);
     if (bgKey !== s.bgKey) {
       bgKey = s.bgKey;
+      setEnv(s.bgKey.split('-')[0], s.time);
+    }
+    if (env) applyEnvLight(env);
+    else if (bgKeyClassic !== s.bgKey) {
+      bgKeyClassic = s.bgKey;
+      (scene.fog as THREE.Fog).near = 20; (scene.fog as THREE.Fog).far = 58;
       buildProps(s.bgKey.split('-')[0]);
       backgroundTexture(s.bgSvg, (tex, groundCol, skyCol) => {
         bgMat.map?.dispose(); bgMat.map = tex; bgMat.needsUpdate = true;
@@ -669,9 +719,19 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     }
   }
 
-  // ── input: the camera follows the mouse a little ───────────────────────────
+  // ── input: mouse look ───────────────────────────────────────────────────────
+  // Full 3D: you turn your head where the mouse points (left → you look left), and the other players see your
+  // model turn its head. Lite: the old, cheaper parallax (the camera slides a little). Moves made while drawing
+  // a stroke, or over the writing pad, buttons and cards, are ignored — the view must not swing while you write.
   const mouse = new THREE.Vector2(), look = new THREE.Vector2();
-  const onMove = (e: PointerEvent) => { if (e.pointerType !== 'mouse') return; /* not while drawing on a phone */ mouse.set((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1); };
+  const LOOK_YAW = 0.32, LOOK_PITCH = 0.13; // how far you can look (radians)
+  const myLook = { yaw: 0, pitch: 0, sentYaw: 0, sentPitch: 0, sentAt: 0 };
+  const onMove = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse' || e.buttons) return; // not while drawing (or on a phone)
+    const t = e.target as Element | null;
+    if (t?.closest?.('.pad, canvas:not(#arena3d), input, textarea, button, select, .dkc, .deck-hand, .challenge, dialog')) return;
+    mouse.set((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1);
+  };
   addEventListener('pointermove', onMove, { passive: true });
   /** Your hand and staff, bottom-right — moved in on a narrow (upright phone) screen so they stay in view. */
   function placeHand() {
@@ -752,9 +812,24 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
 
     look.lerp(mouse, still ? 1 : 0.05);
     const sway = still ? 0 : Math.sin(time * 0.7) * 0.025;
-    // mouse look: the camera turns towards the mouse (right → looks right, up → looks up), a little
-    camera.position.set(CAM.x + look.x * 0.12, CAM.y - look.y * 0.05 + sway, CAM.z);
-    camera.lookAt(LOOK.clone().add(new THREE.Vector3(look.x * 1.5, -look.y * 0.75, 0)));
+    if (lite) {
+      // Lite: parallax — the camera slides towards the mouse a little
+      camera.position.set(CAM.x + look.x * 0.12, CAM.y - look.y * 0.05 + sway, CAM.z);
+      camera.lookAt(LOOK.clone().add(new THREE.Vector3(look.x * 1.5, -look.y * 0.75, 0)));
+      myLook.yaw = 0; myLook.pitch = 0;
+    } else {
+      // Full 3D: you turn your head (left → look left, up → look up); others see your model do the same
+      myLook.yaw = -look.x * LOOK_YAW; myLook.pitch = -look.y * LOOK_PITCH;
+      camera.position.set(CAM.x, CAM.y + sway, CAM.z);
+      const dir = LOOK.clone().sub(CAM).applyAxisAngle(new THREE.Vector3(0, 1, 0), myLook.yaw);
+      const right = dir.clone().cross(new THREE.Vector3(0, 1, 0)).normalize();
+      dir.applyAxisAngle(right, myLook.pitch);
+      camera.lookAt(CAM.clone().add(dir));
+    }
+    if (active && current && (current.opp || current.allies.length) && nowMs - myLook.sentAt > 150 && (Math.abs(myLook.yaw - myLook.sentYaw) > 0.02 || Math.abs(myLook.pitch - myLook.sentPitch) > 0.02)) {
+      myLook.sentAt = nowMs; myLook.sentYaw = myLook.yaw; myLook.sentPitch = myLook.pitch;
+      dispatchEvent(new CustomEvent('kw:look', { detail: { yaw: +myLook.yaw.toFixed(3), pitch: +myLook.pitch.toFixed(3) } }));
+    }
     if (shake > 0) {
       camera.position.add(new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), 0).multiplyScalar(shake));
       camera.rotation.z += rnd(-1, 1) * shake * 0.15;
@@ -802,7 +877,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
           }
         }
       }
-      staff.gem.scale.set(gemScale, 1.5 * gemScale, gemScale);
+      staff.gem.scale.setScalar(gemScale);
       staff.gemMat.emissiveIntensity = 0.7 + charge * (1.6 + pulse * 1.2) + thrust * 3;
       gemLight.intensity = (0.5 + charge * 4 + thrust * 6) * gemScale;
       staff.glow.scale.setScalar((0.3 + charge * (0.32 + pulse * 0.18) + thrust * 0.6) * gemScale);
@@ -840,6 +915,15 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       if (f.model) {
         const m = f.model;
         m.body.position.y = still ? 0 : Math.sin(time * 2 + f.height * 3) * 0.02;
+        // where they look: the player's own mouse look (from the network), or — for the AI, or a player who
+        // hasn't moved the mouse for a while — a slow idle glance around
+        const L = f.look;
+        const idle = now - L.at > 4000;
+        const ty = idle ? 0.22 * Math.sin(time * 0.31 + L.seed) * Math.sin(time * 0.13 + L.seed * 2) : L.yaw;
+        const tp = idle ? 0.06 * Math.sin(time * 0.23 + L.seed * 3) : L.pitch;
+        L.curYaw += (ty - L.curYaw) * Math.min(1, dt * 7); L.curPitch += (tp - L.curPitch) * Math.min(1, dt * 7);
+        m.head.rotation.set(-L.curPitch * 0.8, L.curYaw * 0.7, 0);
+        m.body.rotation.y = L.curYaw * 0.3; // the shoulders follow a little
         // casting: a short wind-up (staff tip back), then the staff is thrust forward at the target — like yours
         const p = 1 - lunge; // 0 → 1 over the cast
         const thrust = lunge <= 0 ? 0 : p < 0.18 ? -0.35 * (p / 0.18) : p < 0.4 ? -0.35 + 1.35 * ((p - 0.18) / 0.22) : 1 - ((p - 0.4) / 0.6) ** 2;
@@ -887,6 +971,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       t.flame.scale.set(1.2 * k, 1.8 * (0.9 + 0.2 * k), 1);
     }
     rune.rotation.z += dt * 0.05;
+    if (env) {
+      env.update(time * 30);
+      for (const l of envLights) if (l.userData.flicker) l.intensity = l.userData.base * (1 - l.userData.flicker * (0.5 + 0.5 * Math.sin(time * 9 + l.position.x) * Math.sin(time * 23 + l.position.z)));
+    }
 
     const pos = moteGeo.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < MOTES; i++) {
@@ -980,14 +1068,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
           const g = new THREE.Mesh(staff.gem.geometry, staff.gemMat);
           const a0 = pointOf('me', 'staff'), a1 = pointOf('me', 'chest');
           const mid = a0.clone().lerp(a1, 0.5).add(new THREE.Vector3(0, 0.35, 0));
-          g.position.copy(a0); g.scale.set(1.3, 1.95, 1.3);
+          g.position.copy(a0); g.scale.setScalar(1.3);
           scene.add(g);
           const t0 = performance.now();
           await new Promise<void>((done) => {
             const step = () => {
               const t = Math.min(1, (performance.now() - t0) / 520);
               const p = a0.clone().lerp(mid, t).lerp(mid.clone().lerp(a1, t), t);
-              g.position.copy(p); g.rotation.y += 0.3; g.scale.setScalar(1.3 * (1 - t * 0.7)); g.scale.y *= 1.5;
+              g.position.copy(p); g.rotation.y += 0.3; g.scale.setScalar(1.3 * (1 - t * 0.7));
               if (Math.random() < 0.8) spark(p.clone(), color, { size: rnd(0.03, 0.07), life: 0.35, opacity: 0.9 });
               if (t < 1) requestAnimationFrame(step); else { scene.remove(g); done(); }
             };
@@ -1007,7 +1095,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       if (from === 'me') {
         // your staff thrusts and its gem launches forward with the spell; a new one builds up when you next write
         thrustAt = performance.now(); gemState = 'gone';
-        const g = new THREE.Mesh(staff.gem.geometry, staff.gemMat); g.scale.set(1.4, 2.1, 1.4); g.position.copy(start);
+        const g = new THREE.Mesh(staff.gem.geometry, staff.gemMat); g.scale.setScalar(1.5); g.position.copy(start);
         scene.add(g);
         flights[flights.length - 1].gem = g;
       }
@@ -1109,8 +1197,15 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       }, 200);
     },
     float,
+    look(who, yaw, pitch) {
+      const f = fighters.get(who);
+      if (!f || !Number.isFinite(yaw) || !Number.isFinite(pitch)) return;
+      f.look.yaw = Math.max(-LOOK_YAW, Math.min(LOOK_YAW, yaw)); f.look.pitch = Math.max(-LOOK_PITCH, Math.min(LOOK_PITCH, pitch)); f.look.at = performance.now();
+    },
     setLite(on) {
+      const changed = lite !== on;
       lite = on;
+      if (changed && env && current) { bgKey = ''; setup(current); } // the arena again, with less in it
       renderer.setPixelRatio(pixelRatio());
       grass.count = on ? 900 : GRASS;
       moteGeo.setDrawRange(0, on ? 90 : MOTES);
@@ -1122,10 +1217,12 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       removeEventListener('pointermove', onMove);
       removeEventListener('resize', resize);
       overlay.remove();
+      if (env) { env.dispose(); env = null; }
       renderer.dispose();
     },
   };
   if (lite) api.setLite(true);
+  if (location.search.includes('debug3d')) (globalThis as unknown as { __arenaDbg: unknown }).__arenaDbg = { get staff() { return staff; }, get gemState() { return gemState; }, scene, camera, renderer };
   resize();
   // compile every shader now (while you're in the menu), not in the first second of your first battle
   try { renderer.compile(scene, camera); } catch { /* fine — compiled on first draw */ }

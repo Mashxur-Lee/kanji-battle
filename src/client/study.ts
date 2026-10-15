@@ -1,6 +1,6 @@
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
-import { avatarFor, BACKGROUNDS, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
+import { avatarFor, BACKGROUNDS, beta, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
 import { staffPreview } from './arena';
 import type { StaffPreview } from './staffpreview';
 import { avatarSvg } from './wizard';
@@ -8,11 +8,13 @@ import { pixelStaffSvg } from './pixelstaffs';
 import { showStrokeOrder } from './strokes';
 import type { Rating } from '../shared/srs';
 import { api, type DeckCounts, type Profile, type StudyCard } from './api';
+import type { DeckId } from '../shared/srs';
+import { DECK_LABEL, initDecks } from './decks';
 import { backgroundThumb, getTimePref, resolveTime, setTimePref, TIMES } from './backgrounds';
 import * as ui from './ui';
 
 const $ = ui.$;
-type Deck = 'all' | 'struggling';
+type Deck = DeckId;
 
 /** Called whenever XP / crit / background change, so the top bar and background stay in sync. */
 let onProfile: (p: Profile) => void = () => {};
@@ -55,19 +57,29 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
   levelChips(s.studyLevels);
   counts($('countsAll'), s.decks.all);
   counts($('countsStruggle'), s.decks.struggling);
+  counts($('countsCustom'), s.decks.custom);
+  $<HTMLInputElement>('dailyNew').value = String(s.dailyNew);
+  $('dailyNewVal').textContent = String(s.dailyNew);
   $('studyCrit').textContent = `${s.profile.learnedToday} learned today · ${s.profile.learned} learned in total`;
   const notice = $('studyNotice');
   notice.hidden = !s.notice;
   notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? '' : 's'} added to “All spells” — happy studying!` : '';
   if (!s.studyLevels.length && !s.decks.all.total) {
     notice.hidden = false;
-    notice.textContent = 'Tick one or more levels under “All spells” to get 25 new spells today (and every day).';
+    notice.textContent = `Tick one or more levels under “All spells” to get ${s.dailyNew} new spells today (and every day).`;
   }
   const has = (c: DeckCounts) => c.new + c.learning + c.due > 0;
   $<HTMLButtonElement>('studyAll').disabled = !has(s.decks.all);
   $<HTMLButtonElement>('studyStruggle').disabled = !has(s.decks.struggling);
+  $<HTMLButtonElement>('studyCustom').disabled = !has(s.decks.custom);
   onProfile(s.profile);
 }
+
+initDecks({ changed: () => { if (!$('study').hidden) void api.study().then(render).catch(() => {}); }, back: () => void openStudy() });
+$('dailyNew').addEventListener('input', () => { $('dailyNewVal').textContent = $<HTMLInputElement>('dailyNew').value; });
+$('dailyNew').addEventListener('change', async () => {
+  try { render(await api.setDailyNew(Number($<HTMLInputElement>('dailyNew').value))); } catch (e) { ui.toast((e as Error).message); }
+});
 
 $('studyLevels').addEventListener('change', async () => {
   const levels = [...document.querySelectorAll<HTMLInputElement>('#studyLevels input')].filter((i) => i.checked).map((i) => i.value as Level);
@@ -99,10 +111,10 @@ function next() {
   $('showAnswer').hidden = done;
   $('rateRow').hidden = true;
   $('reviewDone').hidden = !done;
-  $('reviewLeft').textContent = done ? '' : `${queue.length + 1} left · ${deck === 'all' ? 'All spells' : 'Struggling'}`;
+  $('reviewLeft').textContent = done ? '' : `${queue.length + 1} left · ${DECK_LABEL[deck]}`;
   if (!current) return;
   $('fcKanji').textContent = current.kanji;
-  $('fcLevel').textContent = LEVEL_LABEL[current.level] + (current.state === 'new' ? ' · new' : '');
+  $('fcLevel').textContent = (current.custom ? 'Custom' : LEVEL_LABEL[current.level]) + (current.state === 'new' ? ' · new' : '');
   $('fcReading').textContent = current.reading;
   $('fcMeaning').textContent = current.meaning;
   $('fcBack').hidden = true;
@@ -138,7 +150,7 @@ async function rate(r: Rating) {
   busy = true;
   const card = current;
   try {
-    const res = await api.review(card.vocabId, r);
+    await api.review(card.vocabId, r, deck);
     // Anki shows "again" cards again in the same session once their short step is up
     if (r === 'again') queue.splice(Math.min(3, queue.length), 0, { ...card, state: 'learning', intervals: { again: '1m', hard: '6m', good: '10m', easy: '4d' } });
     else if (r === 'hard' && card.state !== 'review') queue.splice(Math.min(6, queue.length), 0, card);
@@ -159,6 +171,7 @@ addEventListener('keydown', (e) => {
 });
 $('studyAll').onclick = () => void startSession('all');
 $('studyStruggle').onclick = () => void startSession('struggling');
+$('studyCustom').onclick = () => void startSession('custom');
 $('reviewBack').onclick = () => void openStudy();
 $('reviewDoneBack').onclick = () => void openStudy();
 
@@ -227,7 +240,7 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
   if (custTab === 'arena') {
     return BACKGROUNDS.map((b) => ({
       id: b.id, name: b.name, blurb: 'The scene behind every battle (and its sounds in the menus).',
-      locked: !isAdmin && lvl < b.level, lock: `Level ${b.level}`,
+      locked: !isAdmin && !beta.open && lvl < b.level, lock: `Level ${b.level}`,
       lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
       equipped: profile.background === b.id,
       tile: () => { const d = el('div', 'bg-thumb'); d.innerHTML = backgroundThumb(b.id, time); return d; },

@@ -5,6 +5,7 @@ import { MODE_LABEL, type GameMode } from '../shared/protocol';
 import { MODE_LEVEL, modeUnlocked, xpForLevel } from '../shared/progress';
 import { isCorrectReading } from '../shared/kana';
 import { api } from './api';
+import { lang, useRussianNow } from './i18n';
 import * as audio from './audio';
 import * as ui from './ui';
 
@@ -40,7 +41,8 @@ let hooks: { firstBattle: () => void; kana: (mastered: boolean) => Promise<void>
 export function initTutorial(h: typeof hooks) { hooks = h; }
 export const inTutorialBattle = () => stage === 'battle';
 
-const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement; choice?: true }> = [
+const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement; choice?: true; language?: true }> = [
+  { title: 'Language · Язык', body: 'Choose the language for the game and this tutorial. · Выберите язык игры и обучения. (You can change it later in Settings.)', language: true },
   { title: 'Welcome, apprentice', body: 'In Kanji Wizards every spell is a Japanese word. Learn a word — and you can cast it at your opponent.' },
   { title: 'Do you know hiragana?', body: 'Kanji are read with hiragana (かな). If you can already read all of it, you start with kanji (N5 to N1). If not, you start with かな only — the kanji levels open once you tick "I\'ve mastered hiragana" in Settings.', choice: true },
   {
@@ -49,7 +51,7 @@ const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement; cho
     extra: tryIt,
   },
   { title: 'Study makes you stronger', body: 'Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review.' },
-  { title: 'More to unlock', body: 'You start with Kanji Reading and Rapid. Kanji Writing and the Boss fight unlock at level 1, Deck Duel at level 2. There is also a Daily challenge, Progress, Friends — and monthly goals with rewards.' },
+  { title: 'Everything is open', body: 'Every mode is open from the start: Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel. There is also a Daily challenge, a JLPT quiz, Progress, Friends — and monthly goals with rewards.' },
   { title: 'かな first, then kanji', body: 'Beginners: study かな in Study spells until you know it by heart. Then tick "I\'ve mastered hiragana" in Settings (the sliders button, top-right) — and the kanji levels N5 to N1 open for studying and battles.' },
   { title: 'Your first battle', body: 'Ready? You\'ll study 10 easy words for a minute, then duel a beginner AI with them.' },
 ];
@@ -89,6 +91,16 @@ function show(i: number) {
   const last = i === CARDS.length - 1;
   const next = el('button', 'big', last ? 'Fight a beginner AI' : 'Next') as HTMLButtonElement;
   const skip = el('button', 'pill', last ? 'Maybe later' : 'Skip tutorial') as HTMLButtonElement;
+  if (c.language) {
+    // first of all: the language — the rest of the tutorial follows it
+    const en = el('button', 'big' + (lang() === 'en' ? '' : ' alt'), 'English') as HTMLButtonElement;
+    const ru = el('button', 'big' + (lang() === 'ru' ? '' : ' alt'), 'Русский') as HTMLButtonElement;
+    en.dataset.noI18n = ''; ru.dataset.noI18n = '';
+    en.onclick = () => show(i + 1);
+    ru.onclick = () => { if (lang() !== 'ru') useRussianNow(); const sel = document.getElementById('langSel') as HTMLSelectElement | null; if (sel) sel.value = 'ru'; show(i + 1); };
+    next.hidden = true;
+    queueMicrotask(() => actions.append(en, ru));
+  }
   if (c.choice) {
     // two answers instead of Next: they decide which levels this player starts with
     const yes = el('button', 'big', 'Yes — I know hiragana') as HTMLButtonElement;
@@ -127,7 +139,7 @@ export function tutorialScreen(screen: string) {
   if (stage !== 'battle') return;
   if (screen === 'prep') coach('Read the 10 words — reading and meaning. When the battle starts, they come back as kanji only. Press Ready when you\'re done.');
   else if (screen === 'battle') coach('Type the reading of the kanji (hiragana or romaji) and press Enter. Don\'t know it? Esc skips. Keep your HP above the AI\'s!');
-  else if (screen === 'results') { void api.event('tutorial_done'); coach('Well cast! Words you missed are now in Study spells → Struggling. Level up to unlock Writing, Boss and Deck Duel.'); setTimeout(finish, 12_000); }
+  else if (screen === 'results') { void api.event('tutorial_done'); coach('Well cast! On the results screen you choose which deck the words you missed go to (Struggling spells by default). Every mode is open — try Writing, Boss or Deck Duel next.'); setTimeout(finish, 12_000); }
   else if (screen === 'menu') finish();
 }
 
