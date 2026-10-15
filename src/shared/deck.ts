@@ -44,7 +44,7 @@ export const DECK_RULES = {
   matchMs: 8 * 60_000, // then overtime
   // overtime is a 1v1 Rapid duel: the cards are gone; random kanji (N5–N1), first to type the reading hits
   overtimeCardMs: 12_000, // per kanji
-  overtimeGapMs: 2_200, // the answer stays up before the next kanji
+  overtimeGapMs: 4_500, // the answer (kanji, reading, meaning) stays up before the next kanji
   overtimeMaxMs: 3 * 60_000, // then the higher HP wins
   witchSightDamage: 1.35, // Witch's attack spells hit harder while Sight is on
   goblinSecondCost: 1.5, // Frenzy's second card costs this much more mana

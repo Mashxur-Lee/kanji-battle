@@ -313,7 +313,7 @@ const RU: Record<string, string> = {
   'Vocabulary performance': 'Результаты по словам', 'Word': 'Слово', 'Reading': 'Чтение', 'Meaning': 'Значение', 'Result': 'Результат', 'Avg time': 'Ср. время',
   'Rematch': 'Реванш', 'Leave': 'Выйти', 'Rematch requested!': 'Реванш запрошен!', 'Waiting for the others to accept…': 'Ждём, пока другие согласятся…',
   'A player left the battle': 'Игрок покинул бой', 'The Black Dragon has fallen': 'Чёрный дракон повержен', 'The party was burned to ash': 'Отряд сожжён дотла',
-  'Time up — the dragon survived': 'Время вышло — дракон выжил', 'Time up — most HP left wins': 'Время вышло — побеждает тот, у кого больше HP',
+  'Time up — the dragon survived': 'Время вышло — дракон выжил', 'Time up — you held the dragon off!': 'Время вышло — вы сдержали дракона!', 'Time up — most HP left wins': 'Время вышло — побеждает тот, у кого больше HP',
   'Damage to dragon': 'Урон дракону', 'Damage dealt': 'Нанесено урона', 'Avg response': 'Ср. ответ', 'Best combo': 'Лучшее комбо', 'not seen': 'не встречалось',
   'No XP — the match was forfeited': 'Без опыта — матч был сдан', 'Got it': 'Понятно', 'Tip': 'Совет',
 
@@ -459,7 +459,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^The pad read: (.+)$/, 'Панель распознала: $1'],
   [/^Monthly goals complete! (.+) unlocked — equip it in Customize\.$/, 'Месячные цели выполнены! Открыто: $1 — наденьте в «Кастомизации».'],
   [/^(\d+) struggling spells are waiting\. Study them down to (\d+) to unlock the game modes\.$/, 'Ждут трудные заклинания: $1. Повторите их, пока не останется $2, чтобы открыть режимы.'],
-  [/^(\d+) left · (All spells|Struggling)$/, (_, n, d) => `осталось ${n} · ${d === 'All spells' ? 'Все заклинания' : 'Трудные'}`],
+  [/^(\d+) left · (All spells|Struggling spells|Custom spells)$/, (_, n, d) => `осталось ${n} · ${d === 'All spells' ? 'Все заклинания' : d === 'Custom spells' ? 'Свои заклинания' : 'Трудные заклинания'}`],
   [/^(\d+)-day streak$/, (_, n) => `серия ${n} ${plural(+n, 'день', 'дня', 'дней')}`],
   [/^Unlocks at (?:a )?(\d+)-day streak$/, (_, n) => `Откроется при серии ${n} ${plural(+n, 'день', 'дня', 'дней')}`],
   [/^Unlocks at level (\d+)$/, 'Откроется на уровне $1'],
@@ -494,6 +494,8 @@ const PATTERNS: Array<[RegExp, Rep]> = [
 // page is walked again.
 let MEANINGS: Record<string, string> | null = null;
 const meaning = (s: string): string | undefined => MEANINGS?.[s];
+/** A word's meaning in the player's language (Russian when it's loaded, else the English as it is). */
+export const meaningIn = (en: string): string => (lang() === 'ru' ? MEANINGS?.[en] ?? en : en);
 
 /** A text that is, or ends with, a word's meaning: "meaning", "— meaning", "reading — meaning",
  *  "kanji · reading · meaning" (optionally "— read: …"). */
@@ -556,9 +558,16 @@ function walk(root: Node) {
 }
 
 /** Start translating the page (Russian only). */
+let started = false;
+/** First-run tutorial: switch to Russian at once (no reload), so the tutorial goes on in Russian. */
+export function useRussianNow() {
+  try { localStorage.setItem(KEY, 'ru'); } catch { /* private mode */ }
+  initI18n();
+}
 export function initI18n() {
   document.documentElement.lang = lang();
-  if (lang() !== 'ru') return;
+  if (lang() !== 'ru' || started) return;
+  started = true;
   walk(document.body);
   fetch('/meanings-ru.json')
     .then((r) => (r.ok ? r.json() : null))

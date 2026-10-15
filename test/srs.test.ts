@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { answer, formatInterval, newCard, previewIntervals } from '../src/shared/srs';
 import { avatarFor, critFor, dailyCrit, nextLocalMidnight, levelOf, levelXp, unlocked, xpFor, xpForLevel } from '../src/shared/progress';
+import { beta } from '../src/shared/progress';
+beta.open = false; // these tests check the normal unlock rules (the closed beta opens everything)
 
 const T = 1_700_000_000_000, MIN = 60_000, DAY = 86_400_000;
 

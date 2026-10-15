@@ -301,7 +301,7 @@ export class Game implements Match {
 
   private timeUp() {
     if (this.phase !== 'battle') return;
-    if (this.boss) return this.finish(null, 'time', false); // the dragon survived
+    if (this.boss) return this.finish(null, 'time', true); // the party held out to the end: a win
     const ranked = [...this.players.values()].sort((a, b) => b.hp - a.hp);
     const tie = ranked.length > 1 && ranked[0].hp === ranked[1].hp;
     this.finish(tie ? null : ranked[0].id, 'time', null);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, mock, test } from 'node:test';
-import { ACCEPT_MS, Matchmaker } from '../src/server/Matchmaker';
+import { ACCEPT_MS, Matchmaker, RAPID_ANY_AFTER_MS } from '../src/server/Matchmaker';
 import { RoomManager } from '../src/server/RoomManager';
 import type { Room } from '../src/server/Room';
 import type { Level, ServerMessage } from '../src/shared/protocol';
@@ -114,6 +114,25 @@ test('queue: Rapid only matches players with a level in common, and plays just t
   await settle();
   const lobby = a.last('lobby') ?? c.last('lobby');
   assert.ok(lobby!.players.every((p) => p.levels.join() === 'N4'), 'both play only N4');
+});
+
+test('queue: Rapid with no level in common still matches after a short wait, on both players\' levels', async () => {
+  let clock = 1_000_000;
+  const mm = new Matchmaker(new RoomManager(), () => 0, () => clock);
+  const a = player('a'), b = player('b');
+  mm.enqueue('a', a.client, ['rapid'], ['KANA']);
+  mm.enqueue('b', b.client, ['rapid'], ['N5']);
+  await settle();
+  assert.equal(mm.size, 2, 'not right away');
+  clock += RAPID_ANY_AFTER_MS + 1;
+  mm.tick();
+  await settle();
+  const id = a.last('queue')!.matchId;
+  assert.ok(id && b.last('queue')!.matchId === id, 'matched after waiting');
+  mm.accept('a', id); mm.accept('b', id);
+  await settle();
+  const lobby = a.last('lobby') ?? b.last('lobby');
+  assert.ok(lobby!.players.every((p) => p.levels.join() === 'KANA,N5'), 'both play KANA + N5');
 });
 
 test('queue: Boss waits for a full party of 4 (no 1v1, 2v1 or 3v1), then all 4 accept and fight together', async () => {

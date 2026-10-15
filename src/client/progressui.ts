@@ -31,8 +31,12 @@ let page: ProgressPage | null = null;
 let level: Level = 'N5';
 
 let unlocks: readonly string[] = [];
-export async function openProgress(myUnlocks: readonly string[] = []) {
+let badges: string[] = [];
+let onBadgesChanged: (b: string[]) => void = () => {};
+export async function openProgress(myUnlocks: readonly string[] = [], myBadges: readonly string[] = [], changed: (b: string[]) => void = () => {}) {
   unlocks = myUnlocks;
+  badges = [...myBadges];
+  onBadgesChanged = changed;
   ui.show('progress');
   $('progGrid').replaceChildren(el('p', 'hint', 'Loading…'));
   try { page = await api.progress(); } catch (e) { ui.toast((e as Error).message); return; }
@@ -47,7 +51,11 @@ function render() {
   renderWeek(page.activity);
   $('progMonth').replaceChildren(...monthNodes(page.month));
   renderHeatmap(page.activity);
-  renderAchievements($('progAch'), unlocks);
+  renderAchievements($('progAch'), unlocks, badges, (next) => {
+    const before = badges;
+    badges = next; render();
+    api.setBadges(next).then((r) => { badges = r.badges; onBadgesChanged(badges); }).catch((e) => { badges = before; render(); ui.toast((e as Error).message); });
+  });
   renderMastery();
 }
 

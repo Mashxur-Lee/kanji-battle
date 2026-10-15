@@ -1,5 +1,8 @@
 import './support'; // error reporting first, so early errors are caught too
 import { refreshOnline } from './support';
+import { showMissedSave } from './decks';
+import { initWhatsNew } from './whatsnew';
+initWhatsNew();
 import { adminTab, refreshInboxBadge, setAdminTab } from './adminui';
 import { gameKbAvailable, gameKbPref, gameKbReset, setGameKb, setGameKbPref } from './gamekb';
 import { celebrate, celebrateNew, comboMilestone } from './achievements';
@@ -14,7 +17,7 @@ import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
 import { arena, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
 import { LEVELS, MODE_LABEL, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
-import { api, ApiError, getToken, setToken, type Profile } from './api';
+import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
 import { chatMessages, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
@@ -245,6 +248,7 @@ function onMessage(msg: ServerMessage) {
     case 'left':
       backToMenu();
       if (pendingJoin) { socket.send({ type: 'join', code: pendingJoin, levels: savedLevels() }); pendingJoin = ''; }
+      if (pendingChallenge && !pendingChallenge.sent) { pendingChallenge.sent = true; socket.send({ type: 'create', mode: pendingChallenge.mode, levels: savedLevels() }); }
       break;
     case 'notice':
       ui.toast(msg.message);
@@ -257,6 +261,24 @@ function onMessage(msg: ServerMessage) {
       onInvite(msg);
       break;
     case 'lobby':
+      // someone else went back to the lobby while you are still reading the results: stay, and let
+      // "Back to lobby" take you there when you're ready
+      if (ui.currentScreen() === 'results' && !lobbyRequested) {
+        pendingLobby = msg;
+        ui.$<HTMLButtonElement>('rematch').disabled = true;
+        ui.$('rematchStatus').textContent = 'The room is back in its lobby — press Back to lobby when you\'re ready.';
+        ui.$('resultLobby').classList.add('pulse');
+        break;
+      }
+      lobbyRequested = false;
+      pendingLobby = null;
+      // a challenge from a friend's profile: the room is made — invite them right away
+      if (pendingChallenge && msg.hostId === you && msg.mode === pendingChallenge.mode) {
+        socket.send({ type: 'invite', friendId: pendingChallenge.friendId });
+        ui.toast(`Challenge sent to ${pendingChallenge.name} — they get an invite to your ${MODE_LABEL[msg.mode]} room.`, 5000);
+        pendingChallenge = null;
+      }
+      ui.$('resultLobby').classList.remove('pulse');
       players = msg.players;
       // only you against the AI (or a solo Boss run): the game can be paused
       soloVsAi = msg.players.filter((p) => !p.bot).length === 1;
@@ -284,6 +306,7 @@ function onMessage(msg: ServerMessage) {
     case 'battle_start':
       players = msg.players;
       mode = msg.mode;
+      if (msg.resume && ui.currentScreen() === 'battle') { ui.resumeBattle(players, msg.boss, you, msg.durationMs); break; }
       ui.showBattle(msg.mode, players, msg.boss, you, msg.countdownMs, msg.durationMs, (n) => (n > 0 ? audio.sfx.tick() : audio.sfx.go()));
       break;
     case 'challenge':
@@ -328,6 +351,7 @@ function onMessage(msg: ServerMessage) {
       deckInk(msg.castId, msg.strokes, msg.cells);
       break;
     case 'game_over': {
+      pendingLobby = null; lobbyRequested = false; ui.$('resultLobby').classList.remove('pulse');
       players = msg.players;
       ui.lockInput();
       stopWriting();
@@ -351,6 +375,7 @@ function onMessage(msg: ServerMessage) {
       setPaused(msg.on);
       break;
     case 'progress':
+      if (msg.missed?.length && ui.currentScreen() === 'results') showMissedSave(msg.missed);
       setTimeout(() => {
         ui.showXp(msg.gained, msg.level, msg.levelUp);
         if (msg.levelUp) ui.toast(`Level ${msg.level}! Check Customize for new unlocks.`, 5000);
@@ -563,7 +588,16 @@ for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {
 }
 // new menu pages
 ui.$('dailyBtn').onclick = () => { if (user) void openDaily(user.id); };
-ui.$('progressBtn').onclick = () => void openProgress(profile?.unlocks ?? []);
+// ── challenge a friend: make a room for the mode you picked and invite them into it ──
+let pendingChallenge: { friendId: string; name: string; mode: GameMode; sent?: boolean } | null = null;
+function challengeFriend(friendId: string, name: string, mode: GameMode) {
+  if (!canPlay(mode)) { ui.toast(lockText(mode), 5000); return; }
+  pendingChallenge = { friendId, name, mode };
+  if (inRoom) socket.send({ type: 'leave' }); // the room is made once you're out of this one ('left')
+  else { pendingChallenge.sent = true; socket.send({ type: 'create', mode, levels: savedLevels() }); }
+}
+
+ui.$('progressBtn').onclick = () => void openProgress(profile?.unlocks ?? [], profile?.badges ?? [], (b) => { if (profile) { profile = { ...profile, badges: b }; ui.setBadges(b); } });
 initFriends({
   send: (m) => socket.send(m),
   join: (c) => {
@@ -602,6 +636,10 @@ async function openAdmin() {
     const { users, storage, persistent } = await api.users();
     ui.showAdmin(users, user!, { storage, persistent }, async (u) => {
       try { await api.setBanned(u.id, !u.banned); await openAdmin(); } catch (e) { ui.$('adminInfo').textContent = (e as Error).message; }
+    }, async (u) => {
+      const promote = u.role !== 'admin';
+      if (!confirm(promote ? `Make ${u.username} an admin? They will see the Admin page (users, inbox, stats) and can ban players.` : `Remove admin from ${u.username}?`)) return;
+      try { await api.setRole(u.id, promote ? 'admin' : 'user'); await openAdmin(); } catch (e) { ui.$('adminInfo').textContent = (e as Error).message; }
     });
   } catch (e) {
     ui.setError((e as Error).message);
@@ -742,6 +780,14 @@ initDeck({
 
 // ── results ──────────────────────────────────────────────────────────────────
 ui.$('rematch').onclick = () => socket.send({ type: 'rematch' });
+// results → back to this room's lobby (same players, pick the next mode together)
+let lobbyRequested = false;
+let pendingLobby: Extract<ServerMessage, { type: 'lobby' }> | null = null;
+ui.$('resultLobby').onclick = () => {
+  lobbyRequested = true;
+  if (pendingLobby) { const m = pendingLobby; pendingLobby = null; onMessage(m); }
+  else socket.send({ type: 'back_to_lobby' });
+};
 ui.$('leave').onclick = () => socket.send({ type: 'leave' });
 
 // ── match history ────────────────────────────────────────────────────────────
@@ -772,8 +818,16 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
     if (bot) return ui.showProfileCard(el, { bot, name });
     ui.showProfileCard(el, 'loading');
     try {
-      const { profile } = await api.player(id);
-      if (shownFor === id) ui.showProfileCard(el, profile);
+      const [{ profile: p }, fr] = await Promise.all([api.player(id), api.friends().catch(() => ({ friends: [] as Friend[] }))]);
+      const link = fr.friends.find((f) => f.id === id);
+      const relation = id === you || id === user?.id ? 'self' : link?.status === 'accepted' ? 'friend' : link?.status ?? 'none';
+      if (shownFor === id) ui.showProfileCard(el, p, {
+        relation,
+        addFriend: async () => { await api.addFriend(p.name); void refreshRail(); },
+        accept: async () => { await api.acceptFriend(id); void refreshRail(); },
+        challenge: (m) => challengeFriend(id, p.name, m),
+        canChallenge: !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? ''),
+      });
     } catch { if (shownFor === id) ui.showProfileCard(el, 'missing'); }
   };
   addEventListener('click', (e) => {

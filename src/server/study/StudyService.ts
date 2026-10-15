@@ -1,22 +1,34 @@
-import type { AdminUserRow, MatchDetail, PublicProfile } from '../../shared/protocol';
+import { randomUUID } from 'node:crypto';
+import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry } from '../../shared/protocol';
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
 import { isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
-import { answer, isDue, newCard, previewIntervals, RATINGS, type Rating, type SrsCard } from '../../shared/srs';
+import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
+import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
 import { MATCH_HISTORY_LIMIT, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { VOCAB, VOCAB_BY_ID } from '../vocab';
 import { playerDay, ProgressService, type MonthProgress } from './ProgressService';
 
-export const DAILY_NEW = 25;
+export const DAILY_NEW = 25; // default new words a day in "All spells"
+export const DAILY_NEW_MIN = 10, DAILY_NEW_MAX = 150;
+export const BADGES_MAX = 3;
 /** Matches with an AI player give half XP (an easy AI shouldn't be an XP farm). */
 export const AI_XP_FACTOR = 0.5;
-export type Deck = 'all' | 'struggling';
+export type Deck = DeckId;
+/** A word as the study screens see it: from the dictionary or one of your custom words. */
+interface WordInfo { id: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean }
+const fromVocab = (v: VocabEntry): WordInfo => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, custom: false });
+const fromCustom = (w: CustomWord): WordInfo => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: 'N5', custom: true });
+/** One row of a deck's word list (Study → open a deck). */
+export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: SrsCard['state']; addedAt: number | null; due: number; intervalDays: number }
+/** A JLPT-style question: pick 1 of 4. */
+export interface QuizQuestion { kind: 'reading' | 'meaning' | 'kanji'; vocabId: string; level: Level; prompt: string; sub?: string; choices: string[]; answer: number }
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
-  tutorialDone: boolean; unlocks: string[]; month: MonthProgress }
+  tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew: number; badges: string[] }
 
 /** Public URL of a profile picture (versioned, so browsers can cache it forever). */
 export const picUrl = (u: { id: string; avatarV: number }) => (u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null);
@@ -24,7 +36,7 @@ const MAX_AVATAR_BYTES = 60 * 1024;
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudyItem {
   vocabId: string; kanji: string; reading: string; meaning: string; level: Level;
-  state: SrsCard['state']; intervals: Record<Rating, string>;
+  state: SrsCard['state']; intervals: Record<Rating, string>; custom?: boolean;
 }
 
 export class StudyError extends Error { constructor(message: string, readonly status = 400) { super(message); } }
@@ -53,6 +65,7 @@ export class StudyService {
       studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u), flame: u.flame ?? 'blue', staff: u.staff ?? 'verdant', strugglingDue: await this.strugglingDue(u.id, now),
       streak: liveStreak(u, new Date(now).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0,
       tutorialDone: u.tutorialDone ?? true, unlocks: u.unlocks ?? [], month: await this.progress.month(u, playerDay(u, now)),
+      dailyNew: u.dailyNew ?? DAILY_NEW, badges: u.badges ?? [],
     };
   }
 
@@ -70,7 +83,7 @@ export class StudyService {
 
   /** Struggling spells waiting to be studied (new, learning or due). */
   async strugglingDue(userId: string, now = Date.now()) {
-    const c = counts((await this.store.cards(userId)).filter((x) => x.struggling && VOCAB_BY_ID.has(x.vocabId)), now);
+    const c = counts((await this.store.cards(userId)).filter((x) => deckOf(x) === 'struggling' && VOCAB_BY_ID.has(x.vocabId)), now);
     return c.new + c.learning + c.due;
   }
 
@@ -107,7 +120,7 @@ export class StudyService {
   async publicProfile(id: string): Promise<PublicProfile | null> {
     const u = await this.store.findById(id);
     if (!u || u.banned) return null;
-    return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date().toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0 };
+    return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date().toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [] };
   }
 
   matches(userId: string) { return this.store.matches(userId, MATCH_HISTORY_LIMIT); }
@@ -151,15 +164,138 @@ export class StudyService {
     if (!mastered) await this.store.update(u.id, { studyLevels: ['KANA'] });
   }
 
-  /** Adds up to 25 new random words from the chosen levels, once per day. */
+  /** Adds today's new words (your "new spells a day", 10–150) from the chosen levels to All spells; tops up if you raised it. */
   private async addDaily(u: UserRecord, today: string): Promise<number> {
-    const have = new Set((await this.store.cards(u.id)).map((c) => c.vocabId));
-    const fresh = shuffle(VOCAB.filter((v) => u.studyLevels.includes(v.level) && !have.has(v.id)), this.rng).slice(0, DAILY_NEW);
+    const already = u.lastNewDate === today ? u.newToday ?? 0 : 0;
+    const want = Math.max(0, clampDaily(u.dailyNew) - already);
+    if (!want) { if (u.lastNewDate !== today) await this.store.update(u.id, { lastNewDate: today, newToday: 0 }); return 0; }
+    const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === 'all').map((c) => c.vocabId));
+    const fresh = shuffle(VOCAB.filter((v) => u.studyLevels.includes(v.level) && !have.has(v.id)), this.rng).slice(0, want);
     const now = Date.now();
-    const added = await this.store.addCards(u.id, fresh.map((v) => newCard(v.id, now)));
-    await this.store.update(u.id, { lastNewDate: today, newNotice: u.newNotice + added });
+    const added = (await this.store.addCards(u.id, fresh.map((v) => newCard(v.id, now, 'all')))).length;
+    await this.store.update(u.id, { lastNewDate: today, newToday: already + added, newNotice: u.newNotice + added });
     return added;
   }
+
+  /** Study → "New spells a day" (10–150). Raising it today adds the difference right away. */
+  async setDailyNew(u: UserRecord, raw: unknown, today: string) {
+    const n = clampDaily(Number(raw));
+    const rec = (await this.store.update(u.id, { dailyNew: n }))!;
+    if (rec.studyLevels.length && rec.lastNewDate === today) await this.addDaily(rec, today);
+    return n;
+  }
+
+  // ── decks: word lists, removing, adding, custom words ─────────────────────
+  private async words(userId: string): Promise<Map<string, WordInfo>> {
+    const custom = await this.store.customWords(userId);
+    return new Map(custom.map((w) => [w.id, fromCustom(w)]));
+  }
+  private info(id: string, custom: Map<string, WordInfo>): WordInfo | null {
+    const v = VOCAB_BY_ID.get(id);
+    return v ? fromVocab(v) : custom.get(id) ?? null;
+  }
+
+  /** Study → open a deck: every word in it, newest first. */
+  async deckList(u: UserRecord, deck: unknown): Promise<DeckRow[]> {
+    if (!isDeck(deck)) throw new StudyError('Unknown deck');
+    const custom = await this.words(u.id);
+    return (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck).flatMap((c) => {
+      const w = this.info(c.vocabId, custom);
+      return w ? [{ vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, custom: w.custom, state: c.state, addedAt: c.addedAt ?? null, due: c.due, intervalDays: c.intervalDays }] : [];
+    }).sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));
+  }
+
+  async removeFromDeck(u: UserRecord, deck: unknown, ids: unknown) {
+    if (!isDeck(deck)) throw new StudyError('Unknown deck');
+    const list = Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string').slice(0, 500) : [];
+    const n = await this.store.removeCards(u.id, deck, list);
+    // a custom word removed from Custom spells (and in no other deck) is gone for good
+    if (deck === 'custom') {
+      const still = new Set((await this.store.cards(u.id)).map((c) => c.vocabId));
+      for (const id of list) if (id.startsWith(CUSTOM_PREFIX) && !still.has(id)) await this.store.deleteCustomWord(u.id, id);
+    }
+    return n;
+  }
+
+  /** Put words in a deck (dictionary or your custom words). Returns the ids that were new there. */
+  async addToDeck(u: UserRecord, deck: unknown, ids: unknown): Promise<string[]> {
+    if (!isDeck(deck)) throw new StudyError('Unknown deck');
+    const custom = await this.words(u.id);
+    const list = (Array.isArray(ids) ? ids : []).filter((x): x is string => typeof x === 'string' && !!this.info(x, custom)).slice(0, 500);
+    const now = Date.now();
+    return this.store.addCards(u.id, [...new Set(list)].map((id) => newCard(id, now, deck)));
+  }
+
+  /** Search the dictionary (kanji, kana reading or English meaning) for Custom spells. */
+  search(q: unknown, limit = 20): WordInfo[] {
+    const s = String(q ?? '').trim().toLowerCase().normalize('NFKC');
+    if (!s) return [];
+    const out: WordInfo[] = [];
+    const exact: WordInfo[] = [];
+    for (const v of VOCAB) {
+      const reading = displayReading(v);
+      const hit = v.kanji === s || reading === s ? 'exact' : v.kanji.includes(s) || reading.includes(s) || v.meaning.toLowerCase().includes(s) ? 'part' : null;
+      if (hit === 'exact') exact.push(fromVocab(v)); else if (hit && out.length < limit) out.push(fromVocab(v));
+    }
+    return [...exact, ...out].slice(0, limit);
+  }
+
+  /**
+   * Custom spells: add a word. A dictionary word (by its id, or kanji [+ reading]) is used as it is;
+   * anything else becomes your own word — then a reading (kana) and a meaning are needed.
+   */
+  async addCustom(u: UserRecord, body: { vocabId?: unknown; kanji?: unknown; reading?: unknown; meaning?: unknown }) {
+    if (typeof body.vocabId === 'string' && VOCAB_BY_ID.has(body.vocabId)) return { added: (await this.addToDeck(u, 'custom', [body.vocabId])).length > 0, word: fromVocab(VOCAB_BY_ID.get(body.vocabId)!) };
+    const kanji = String(body.kanji ?? '').trim().normalize('NFKC').slice(0, 16);
+    const reading = String(body.reading ?? '').trim().normalize('NFKC').slice(0, 32);
+    const meaning = String(body.meaning ?? '').trim().slice(0, 120);
+    if (!kanji) throw new StudyError('Write the word (kanji or kana)');
+    const known = VOCAB.find((v) => v.kanji === kanji && (!reading || isCorrectReading(reading, [v.reading, ...(v.altReadings ?? [])])));
+    if (known) return { added: (await this.addToDeck(u, 'custom', [known.id])).length > 0, word: fromVocab(known) };
+    if (!/^[぀-ゟ゠-ヿー]+$/.test(reading)) throw new StudyError('Not in the dictionary — add its reading in kana (e.g. まほう)');
+    if (!meaning) throw new StudyError('Add a meaning');
+    const mine = await this.store.customWords(u.id);
+    if (mine.length >= 1000) throw new StudyError('Custom spells are full (1000 words)');
+    const dupe = mine.find((w) => w.kanji === kanji && w.reading === reading);
+    const w: CustomWord = dupe ?? { id: CUSTOM_PREFIX + randomUUID().slice(0, 13), kanji, reading, meaning, createdAt: Date.now() };
+    if (!dupe) await this.store.addCustomWord(u.id, w);
+    return { added: (await this.addToDeck(u, 'custom', [w.id])).length > 0, word: fromCustom(w) };
+  }
+
+  /**
+   * JLPT-style quiz from the words you have studied (any deck, answered at least once): reading, meaning
+   * or "which kanji" — 4 choices, the wrong ones taken from the same level.
+   */
+  async quiz(u: UserRecord, n = 10): Promise<QuizQuestion[]> {
+    const custom = await this.words(u.id);
+    const cards = await this.store.cards(u.id);
+    const studied = new Map<string, WordInfo>();
+    for (const c of cards) if (c.reps > 0 || c.state !== 'new') { const w = this.info(c.vocabId, custom); if (w) studied.set(w.id, w); }
+    if (studied.size < 4) for (const c of cards) { const w = this.info(c.vocabId, custom); if (w) studied.set(w.id, w); }
+    const pool = shuffle([...studied.values()], this.rng).slice(0, Math.max(1, Math.min(30, n)));
+    const kinds: QuizQuestion['kind'][] = ['reading', 'meaning', 'kanji'];
+    return pool.map((w, i) => {
+      const kind = w.kanji === w.reading ? 'meaning' : kinds[i % 3];
+      const field = kind === 'reading' ? 'reading' : kind === 'meaning' ? 'meaning' : 'kanji';
+      const right = w[field];
+      const same = VOCAB.filter((v) => v.level === w.level && v.id !== w.id);
+      const wrong: string[] = [];
+      for (const v of shuffle(same.length > 20 ? same : [...VOCAB], this.rng)) {
+        const x = field === 'reading' ? displayReading(v) : v[field];
+        if (x !== right && !wrong.includes(x) && (field !== 'kanji' || v.kanji !== v.reading)) wrong.push(x);
+        if (wrong.length === 3) break;
+      }
+      const choices = shuffle([right, ...wrong], this.rng);
+      return {
+        kind, vocabId: w.id, level: w.level, choices, answer: choices.indexOf(right),
+        prompt: kind === 'kanji' ? w.reading : w.kanji,
+        sub: kind === 'kanji' ? w.meaning : undefined,
+      };
+    });
+  }
+
+  /** Quiz / results: words you got wrong → a deck of your choice. */
+  async saveMissed(u: UserRecord, deck: unknown, ids: unknown) { return this.addToDeck(u, deck, ids); }
 
   /** Opening the study screen: top up today's new cards, report counts, and hand over any "new spells" notice once. */
   async summary(u: UserRecord, today: string, now = Date.now()) {
@@ -167,33 +303,36 @@ export class StudyService {
     const fresh = (await this.store.findById(u.id))!;
     const notice = fresh.newNotice;
     if (notice) await this.store.update(u.id, { newNotice: 0 });
-    const cards = (await this.store.cards(u.id)).filter((c) => VOCAB_BY_ID.has(c.vocabId));
+    const custom = await this.words(u.id);
+    const cards = (await this.store.cards(u.id)).filter((c) => !!this.info(c.vocabId, custom));
     return {
       studyLevels: fresh.studyLevels,
       notice,
-      decks: { all: counts(cards, now), struggling: counts(cards.filter((c) => c.struggling), now) },
+      decks: { all: counts(cards.filter((c) => deckOf(c) === 'all'), now), struggling: counts(cards.filter((c) => deckOf(c) === 'struggling'), now), custom: counts(cards.filter((c) => deckOf(c) === 'custom'), now) },
+      dailyNew: fresh.dailyNew ?? DAILY_NEW,
       profile: await this.profile(fresh),
     };
   }
 
   /** Cards to study now, Anki order: (re)learning due → reviews due → new. */
   async queue(u: UserRecord, deck: Deck, now = Date.now(), limit = 60): Promise<StudyItem[]> {
-    const cards = (await this.store.cards(u.id)).filter((c) => VOCAB_BY_ID.has(c.vocabId) && (deck === 'all' || c.struggling));
+    if (!isDeck(deck)) throw new StudyError('Unknown deck');
+    const custom = await this.words(u.id);
+    const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck && !!this.info(c.vocabId, custom));
     const rank = (c: SrsCard) => (c.state === 'learning' || c.state === 'relearning' ? 0 : c.state === 'review' ? 1 : 2);
     return cards
       .filter((c) => c.state === 'new' || isDue(c, now))
       .sort((a, b) => rank(a) - rank(b) || a.due - b.due)
       .slice(0, limit)
-      .map((c) => this.item(c, now));
+      .map((c) => this.item(c, now, custom));
   }
 
-  async review(u: UserRecord, vocabId: unknown, rating: unknown, now = Date.now(), today = resolveToday(undefined, now), tzOffsetMin = 0) {
+  async review(u: UserRecord, vocabId: unknown, rating: unknown, now = Date.now(), today = resolveToday(undefined, now), tzOffsetMin = 0, deck: unknown = 'all') {
     if (typeof vocabId !== 'string' || !RATINGS.includes(rating as Rating)) throw new StudyError('Bad review');
-    const card = await this.store.card(u.id, vocabId);
+    const d: DeckId = isDeck(deck) ? deck : 'all';
+    const card = await this.store.card(u.id, d, vocabId);
     if (!card) throw new StudyError('No such card', 404);
     const next = answer(card, rating as Rating, now);
-    // a struggling word stops counting as struggling once it graduates with "Good"/"Easy"
-    if (next.state === 'review' && (rating === 'good' || rating === 'easy')) next.struggling = false;
     // daily crit: a passed card (anything but Again) counts once per day
     if (rating !== 'again' && card.critDay !== today) {
       next.critDay = today;
@@ -228,18 +367,20 @@ export class StudyService {
     await this.store.addResult(userId, outcome);
     const who = await this.store.findById(userId);
     if (who) await this.progress.record(userId, playerDay(who), { games: 1, wins: outcome === 'win' ? 1 : 0, xp: gained });
-    const words = missedIds.filter((id) => VOCAB_BY_ID.has(id));
-    if (words.length) await this.store.markStruggling(userId, words, Date.now());
+    // missed words go to Struggling spells right away (pre-ticked); the results screen can undo it or move them
+    const words = [...new Set(missedIds.filter((id) => VOCAB_BY_ID.has(id)))];
+    const added = new Set(words.length ? await this.store.markStruggling(userId, words, Date.now()) : []);
+    const missed: MissedWord[] = words.map((id) => { const v = VOCAB_BY_ID.get(id)!; return { id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, added: added.has(id) }; });
     // Deck Duel: every kanji of the duel joins All spells as a new card (cards you already have are left alone)
     const met = seen.filter((id) => VOCAB_BY_ID.has(id));
     if (met.length) {
-      const added = await this.store.addCards(userId, met.map((id) => newCard(id, Date.now())));
-      const u = added ? await this.store.findById(userId) : null;
-      if (u) await this.store.update(userId, { newNotice: u.newNotice + added });
+      const n = (await this.store.addCards(userId, met.map((id) => newCard(id, Date.now(), 'all')))).length;
+      const u = n ? await this.store.findById(userId) : null;
+      if (u) await this.store.update(userId, { newNotice: u.newNotice + n });
     }
     const st = record?.stats[userId];
     const achievements = await this.grantAchievements(userId, { mode, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited });
-    return { gained, xp, achievements };
+    return { gained, xp, achievements, missed };
   }
 
   /** Grants every achievement the player has now earned (plus `extra`); returns the new ones. */
@@ -257,12 +398,23 @@ export class StudyService {
     return fresh;
   }
 
-  private item(c: SrsCard, now: number): StudyItem {
-    const v = VOCAB_BY_ID.get(c.vocabId)!;
-    return { vocabId: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, state: c.state, intervals: previewIntervals(c, now) };
+  private item(c: SrsCard, now: number, custom: Map<string, WordInfo>): StudyItem {
+    const w = this.info(c.vocabId, custom)!;
+    return { vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, state: c.state, intervals: previewIntervals(c, now), custom: w.custom };
+  }
+
+  /** Profile badges: up to 3 of your achievements, shown under your name. */
+  async setBadges(u: UserRecord, raw: unknown) {
+    const have = new Set((u.unlocks ?? []).filter((x) => x.startsWith(ACH_PREFIX)).map((x) => x.slice(ACH_PREFIX.length)));
+    const list = [...new Set(Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [])];
+    if (list.length > BADGES_MAX) throw new StudyError(`Pick up to ${BADGES_MAX} badges`);
+    if (list.some((id) => !have.has(id))) throw new StudyError('You can only show achievements you have earned');
+    await this.store.update(u.id, { badges: list });
+    return list;
   }
 }
 
+const clampDaily = (n: number) => Math.max(DAILY_NEW_MIN, Math.min(DAILY_NEW_MAX, Math.round(Number.isFinite(n) ? n : DAILY_NEW)));
 const dayBefore = (d: string) => new Date(Date.parse(d) - 86_400_000).toISOString().slice(0, 10);
 /** A streak still counts if the last login was today or yesterday (a day of slack for time zones). */
 function liveStreak(u: UserRecord, today: string) {

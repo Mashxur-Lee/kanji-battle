@@ -94,7 +94,8 @@ export interface PlayerStats {
 export type GameOverReason = 'ko' | 'time' | 'forfeit' | 'boss_slain' | 'party_wiped';
 
 /** Another player's public card (shown when you click their name). */
-export interface PublicProfile { id: string; name: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string; streak: number; bestStreak: number }
+export interface MissedWord { id: string; kanji: string; reading: string; meaning: string; level: Level; added: boolean }
+export interface PublicProfile { id: string; name: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string; streak: number; bestStreak: number; badges?: string[] }
 
 /** One line of your match history. `character`: Deck Duel hero, otherwise the wizard avatar you played. */
 export interface MatchSummary {
@@ -206,6 +207,8 @@ export type ServerMessage =
       boss: BossView | null;
       durationMs: number;
       countdownMs: number;
+      /** back from a pause: same battle, only the clocks are new (keep the arena, KOs and combos as they are) */
+      resume?: boolean;
     }
   | ChallengeMsg
   | {
@@ -240,7 +243,9 @@ export type ServerMessage =
     }
   | { type: 'rematch_status'; votes: PlayerId[] }
   | { type: 'paused'; on: boolean }
-  | { type: 'progress'; gained: number; xp: number; level: number; levelUp: boolean; crit: number; achievements?: string[] }
+  | { type: 'progress'; gained: number; xp: number; level: number; levelUp: boolean; crit: number; achievements?: string[];
+      /** words you missed this game; `added` = they were just put in Struggling spells (the results screen lets you undo or move them) */
+      missed?: MissedWord[] }
   | { type: 'notice'; message: string }
   | { type: 'deck_state'; view: DeckView }
   | { type: 'deck_event'; event: DeckEvent }

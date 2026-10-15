@@ -1,4 +1,5 @@
 import { VERSION } from '../shared/version';
+import type { MissedWord } from '../shared/protocol';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
@@ -51,15 +52,16 @@ const rooms = new RoomManager({
   onGameStart: (mode, playerIds) => { for (const id of playerIds) void insights.event(id, `game_start:${mode}`); },
   onMatchEnd: async (mode, results) => {
     for (const r of results) void insights.event(r.id, `game_end:${mode}`);
-    const out: Record<string, { gained: number; xp: number; crit: number; achievements: string[] }> = {};
+    const out: Record<string, { gained: number; xp: number; crit: number; achievements: string[]; missed: MissedWord[] }> = {};
     for (const r of results) {
-      const { gained, xp, achievements } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited, r.vsAi, r.record, r.seen);
-      out[r.id] = { gained, xp, crit: await study.crit(r.id), achievements };
+      const { gained, xp, achievements, missed } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited, r.vsAi, r.record, r.seen);
+      out[r.id] = { gained, xp, crit: await study.crit(r.id), achievements, missed };
     }
     return out;
   },
 });
 const matchmaker = new Matchmaker(rooms);
+setInterval(() => matchmaker.tick(), 2_000).unref();
 auth.onBan((userId) => hub.kick(userId, 'This account has been banned.'));
 
 const GZ = new Map<string, Buffer>();

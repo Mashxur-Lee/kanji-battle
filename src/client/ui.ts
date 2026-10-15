@@ -21,7 +21,7 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
 }
 const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { parent.append(...kids); return parent; };
 
-const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'customize', 'deck', 'history', 'progress', 'daily', 'friends'] as const;
+const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'customize', 'deck', 'history', 'progress', 'daily', 'friends'] as const;
 export type Screen = (typeof SCREENS)[number];
 let screenListener: (s: Screen) => void = () => {};
 export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };
@@ -53,6 +53,25 @@ export function countdown(slot: string, durationMs: number, onFrame: (leftMs: nu
   };
   tick();
 }
+/**
+ * A big round turn timer (seconds in a ring that empties), red and pulsing in the last `warnMs`.
+ * Used for the answer window in battles and for the turn / cast clock in Deck Duel.
+ */
+export function bigTimer(slot: string, el: HTMLElement, leftMs: number, totalMs: number, warnMs = 5000) {
+  if (!el.querySelector('.tt-fg')) el.innerHTML = '<svg viewBox="0 0 44 44" aria-hidden="true"><circle class="tt-bg" cx="22" cy="22" r="19"/><circle class="tt-fg" cx="22" cy="22" r="19"/></svg><b></b>';
+  const fg = el.querySelector<SVGCircleElement>('.tt-fg')!, b = el.querySelector('b')!;
+  el.hidden = false;
+  let shown = -1;
+  countdown(slot, leftMs, (left, frac) => {
+    const s = Math.ceil(left / 1000);
+    if (s !== shown) { shown = s; b.textContent = String(s); }
+    fg.style.strokeDashoffset = String(119.4 * (1 - Math.max(0, Math.min(1, frac))));
+    el.classList.toggle('low', left > 0 && left <= warnMs);
+    el.classList.toggle('out', left <= 0);
+  }, totalMs);
+}
+export function hideTimer(slot: string, el: HTMLElement) { stopCountdown(slot); el.hidden = true; el.classList.remove('low', 'out'); }
+
 export function stopCountdown(slot?: string) {
   for (const [k, id] of timers) if (!slot || k === slot) { cancelAnimationFrame(id); timers.delete(k); }
 }
@@ -83,7 +102,7 @@ export function setNet(map: Record<string, number | null>) {
 }
 
 // ── top bar ──────────────────────────────────────────────────────────────────
-export interface ProfileView { xp: number; level: number; crit: number; learned: number; learnedToday?: number; wins?: number; losses?: number; pic?: string | null; streak?: number; bestStreak?: number; unlocks?: string[] }
+export interface ProfileView { xp: number; level: number; crit: number; learned: number; learnedToday?: number; wins?: number; losses?: number; pic?: string | null; streak?: number; bestStreak?: number; unlocks?: string[]; badges?: string[] }
 /** A round profile picture (or nothing). */
 export function picEl(url: string | null | undefined, cls = 'pic'): HTMLElement | '' {
   if (!url) return '';
@@ -104,8 +123,15 @@ export function lockLevelChip(label: HTMLElement, lv: string) {
   return label;
 }
 
+/** Your badges under your name in the profile pop-up. */
+export function setBadges(ids: readonly string[] | undefined) { $('ppBadges').replaceChildren(...[badgeRowFn?.(ids)].filter((x): x is HTMLElement => !!x)); }
+let badgeRowFn: ((ids: readonly string[] | undefined) => HTMLElement | '') | null = null;
+/** achievements.ts registers how badges are drawn (it imports ui, so not the other way round). */
+export const useBadgeRow = (fn: (ids: readonly string[] | undefined) => HTMLElement | '') => { badgeRowFn = fn; };
+
 export function setProfile(p: ProfileView | null) {
   if (!p) return;
+  setBadges(p.badges);
   beginnerFlag = isKanaBeginner(p.unlocks);
   const lx = levelXp(p.xp);
   $('whoLv').textContent = String(lx.level);
@@ -208,7 +234,7 @@ function ago(t: number) {
   const m = Math.max(0, Math.round((Date.now() - t) / 60_000));
   return m < 60 ? `${m} min` : m < 60 * 24 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`;
 }
-export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: string; persistent: boolean }, onToggle: (u: AdminUserRow) => void) {
+export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: string; persistent: boolean }, onToggle: (u: AdminUserRow) => void, onRole?: (u: AdminUserRow) => void) {
   const banned = users.filter((u) => u.banned).length;
   const online = users.filter((u) => u.online).length;
   $('adminInfo').textContent = `${online} online now · ${users.length} accounts · ${banned} banned`;
@@ -228,6 +254,12 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
         const b = h('button', 'pill' + (u.banned ? '' : ' danger'), u.banned ? 'Unban' : 'Ban') as HTMLButtonElement;
         b.onclick = () => onToggle(u);
         action.append(b);
+      }
+      // promote / demote (not yourself, not the main "admin" account, not a banned player)
+      if (onRole && u.id !== me.id && u.username.toLowerCase() !== 'admin' && !u.banned) {
+        const r = h('button', 'pill' + (u.role === 'admin' ? '' : ' promote'), u.role === 'admin' ? 'Remove admin' : 'Make admin') as HTMLButtonElement;
+        r.onclick = () => onRole(u);
+        action.append(r);
       }
       const presence = append(h('td', 'presence ' + (u.online ? 'on' : 'off')), h('span', 'dot'),
         append(h('span', 'pr-txt'), h('b', '', u.online ? 'Online' : 'Offline'),
@@ -691,6 +723,13 @@ export function showBattle(mode: GameMode, players: PlayerView[], boss: BossView
   setTimeout(() => countdown('battle', battleMs, (left) => ($('battleClock').textContent = clockText(left))), countdownMs);
 }
 
+/** Back from a pause: the same battle goes on — keep the arena (who is down, who is on fire), only restart the clock. */
+export function resumeBattle(players: PlayerView[], boss: BossView | null, you: PlayerId, battleMs: number) {
+  renderFighters(players, you, boss);
+  $('battleClock').textContent = clockText(battleMs);
+  countdown('battle', battleMs, (left) => ($('battleClock').textContent = clockText(left)));
+}
+
 let answerMode: AnswerMode = 'reading';
 export const currentAnswerMode = () => answerMode;
 
@@ -703,6 +742,7 @@ export function showChallenge(c: ChallengeView) {
   k.textContent = c.kanji;
   setFeedback(null);
   countdown('challenge', c.timeLimitMs, (_l, frac) => ($('challengeBar').style.width = `${frac * 100}%`));
+  bigTimer('challengeRing', $('turnTimer'), c.timeLimitMs, c.timeLimitMs, Math.min(5000, c.timeLimitMs / 3));
 
   if (c.answer === 'writing') {
     // flash the kanji, then only the meaning remains
@@ -774,6 +814,7 @@ $('answer').addEventListener('beforeinput', (e) => { if ($('answer').dataset.loc
 
 export function lockInput() {
   stopCountdown('challenge');
+  hideTimer('challengeRing', $('turnTimer'));
   $('castGo').hidden = true;
   setAnswerLocked(true);
   $<HTMLButtonElement>('skip').disabled = true;
@@ -856,7 +897,7 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
   const title = $('resultTitle');
   title.className = `result-title ${outcome}`;
   title.textContent = outcome === 'win' ? 'VICTORY' : outcome === 'loss' ? 'DEFEAT' : 'DRAW';
-  if (mode === 'boss') $('resultReason').textContent = teamWon ? REASONS.boss_slain : reason === 'time' ? 'Time up — the dragon survived' : REASONS[reason];
+  if (mode === 'boss') $('resultReason').textContent = reason === 'time' && teamWon ? 'Time up — you held the dragon off!' : teamWon ? REASONS.boss_slain : reason === 'time' ? 'Time up — you held the dragon off!' : REASONS[reason];
   else $('resultReason').textContent = reason === 'time' ? 'Time up — most HP left wins' : REASONS[reason];
   $('resultActions').hidden = !!opts.history;
   $('historyBackRow').hidden = !opts.history;
@@ -891,6 +932,7 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
 
   const byKanji = new Map(me.words.map((w) => [w.kanji, w]));
   $('struggledBox').hidden = me.struggled.length === 0;
+  $('missedSave').hidden = true; // filled in when the server reports which words it saved (decks.ts)
   $('struggled').replaceChildren(
     ...me.struggled.map((k) => {
       const w = byKanji.get(k)!;
@@ -972,7 +1014,8 @@ export function markProfile(el: HTMLElement, p: { id: string; bot?: string | nul
 export const dateTime = (at: number) => new Date(at).toLocaleString(locale(), { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /** A small floating card next to the clicked name. */
-export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing') {
+export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean }
+export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing', actions?: ProfileActions) {
   const pop = $('otherPop');
   const body: HTMLElement[] = [];
   if (p === 'loading') body.push(h('p', 'hint', 'Loading…'));
@@ -986,7 +1029,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
     if (img) pic.append(img);
     const games = p.wins + p.losses;
     body.push(
-      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `Lv ${p.level}`))),
+      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `Lv ${p.level}`), ...[badgeRowFn?.(p.badges)].filter((x): x is HTMLElement => !!x))),
       append(h('div', 'pp-stats'),
         append(h('div'), h('b', '', p.wins), h('span', '', 'wins')),
         append(h('div'), h('b', '', p.losses), h('span', '', 'losses')),
@@ -999,6 +1042,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
       ),
       h('p', 'hint', `Playing since ${new Date(p.since).toLocaleDateString(locale(), { year: 'numeric', month: 'short', day: 'numeric' })}`),
     );
+    if (actions && actions.relation !== 'self') body.push(profileActions(p, actions));
   }
   pop.replaceChildren(...body);
   pop.hidden = false;
@@ -1010,6 +1054,38 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
   pop.style.top = `${below + 240 > viewH() ? Math.max(12, r.top - 8 - pop.offsetHeight) : below}px`;
 }
 export const hideProfileCard = () => { $('otherPop').hidden = true; };
+
+/** Under someone's profile: Add friend (or accept their request), and Challenge a friend to a game. */
+function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
+  const box = h('div', 'pp-actions');
+  const msg = h('p', 'hint pp-msg');
+  if (a.relation === 'none' || a.relation === 'incoming') {
+    const b = h('button', 'pill primary', a.relation === 'incoming' ? '✓ Accept friend request' : '+ Add friend') as HTMLButtonElement;
+    b.onclick = async () => {
+      b.disabled = true;
+      try { await (a.relation === 'incoming' ? a.accept() : a.addFriend()); b.textContent = a.relation === 'incoming' ? '✓ Friends' : '✓ Request sent'; }
+      catch (e) { msg.textContent = (e as Error).message; b.disabled = false; }
+    };
+    box.append(b);
+  } else if (a.relation === 'outgoing') box.append(h('button', 'pill', '✓ Request sent', { disabled: '' }));
+  if (a.relation === 'friend') {
+    const c = h('button', 'pill primary challenge-btn', '⚔ Challenge') as HTMLButtonElement;
+    const modes = h('div', 'pp-modes');
+    modes.hidden = true;
+    for (const m of ['reading', 'writing', 'rapid', 'boss', 'deck'] as GameMode[]) {
+      const mb = h('button', 'pill pp-mode', MODE_LABEL[m]) as HTMLButtonElement;
+      mb.prepend(modeBadge(m));
+      mb.onclick = () => { a.challenge(m); hideProfileCard(); };
+      modes.append(mb);
+    }
+    c.disabled = !a.canChallenge;
+    if (!a.canChallenge) c.title = 'Finish your game first';
+    c.onclick = () => { modes.hidden = !modes.hidden; };
+    box.append(c, modes);
+  }
+  box.append(msg);
+  return box;
+}
 
 /** Match history: one row per game, newest first. */
 export function showHistory(list: MatchSummary[] | null, onOpen: (id: string) => void) {

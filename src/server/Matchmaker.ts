@@ -21,6 +21,8 @@ export const ACCEPT_MS = 5_000;
 /** How many players a queued match needs: Boss is always a full party of 4 against the dragon. */
 export const QUEUE_SIZE: Partial<Record<GameMode, number>> = { boss: 4 };
 const sizeOf = (m: GameMode) => QUEUE_SIZE[m] ?? 2;
+/** Rapid prefers a partner with a level in common; after this long it takes anyone (the room then uses both players' levels). */
+export const RAPID_ANY_AFTER_MS = 8_000;
 
 /**
  * Online queue: players tick the modes they'd play (or Deck Duel on its own) and the levels they bring.
@@ -99,6 +101,9 @@ export class Matchmaker {
   }
   get size() { return this.tickets.length; }
 
+  /** Called every couple of seconds: tickets that waited long enough may now match (Rapid without a common level). */
+  tick() { if (this.tickets.length > 1 && !this.busy) void this.match(); }
+
   /** Group the oldest compatible tickets (first come, first served) and ask them all to accept. */
   private async match() {
     for (;;) {
@@ -122,7 +127,9 @@ export class Matchmaker {
       for (const t of group) t.client.send({ type: 'queue', state: 'matched', mode });
       const room = this.rooms.create(mode);
       const seated: Ticket[] = [];
-      const shared = mode === 'rapid' ? group[0].levels.filter((l) => group.every((t) => t.levels.includes(l))) : null; // Rapid: only the levels all picked
+      // Rapid: both race on the same words — the levels everyone picked, or (no level in common) all of them
+      const common = group[0].levels.filter((l) => group.every((t) => t.levels.includes(l)));
+      const shared = mode === 'rapid' ? (common.length ? common : LEVELS.filter((l) => group.some((t) => t.levels.includes(l)))) : null;
       for (const t of group) if (await t.client.joinMatched(room, shared ?? (t.levels.length ? t.levels : ['N5']))) seated.push(t);
       if (seated.length < group.length) {
         // someone vanished while we were seating them: put the other back in the queue
@@ -148,7 +155,9 @@ export class Matchmaker {
       const a = this.tickets[i];
       const options: Array<[Ticket[], GameMode]> = [];
       for (const m of a.modes) {
-        const others = this.tickets.slice(i + 1).filter((b) => b.modes.includes(m) && (m !== 'rapid' || a.levels.some((l) => b.levels.includes(l))));
+        const waited = (t: Ticket) => this.now() - t.since >= RAPID_ANY_AFTER_MS;
+        const fits = (b: Ticket) => m !== 'rapid' || a.levels.some((l) => b.levels.includes(l)) || (waited(a) && waited(b));
+        const others = this.tickets.slice(i + 1).filter((b) => b.modes.includes(m) && fits(b));
         if (others.length >= sizeOf(m) - 1) options.push([[a, ...others.slice(0, sizeOf(m) - 1)], m]);
       }
       if (options.length) return options[Math.floor(this.rng() * options.length)];

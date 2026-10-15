@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import path from 'node:path';
 import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
 import { legacyXpToCurrent, type BackgroundId, type FlameId, type StaffId } from '../../shared/progress';
-import type { SrsCard } from '../../shared/srs';
+import { deckOf, type CustomWord, type DeckId, type SrsCard } from '../../shared/srs';
 
 export interface UserRecord {
   id: string;
@@ -29,10 +29,13 @@ export interface UserRecord {
   loginDay: string | null; // YYYY-MM-DD (the player's local date) of the last day they played
   streak: number; // days in a row with a login
   bestStreak: number;
+  dailyNew: number; // new words a day in "All spells" (10–150)
+  newToday: number; // how many were added on lastNewDate
+  badges: string[]; // up to 3 achievement ids shown under your name
 }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'bestStreak'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -44,13 +47,18 @@ export interface Store {
   list(): Promise<UserRecord[]>;
   update(id: string, patch: UserPatch): Promise<UserRecord | null>;
   addXp(id: string, delta: number): Promise<number>;
+  /** Every card in every deck (each has `deck`). */
   cards(userId: string): Promise<SrsCard[]>;
-  card(userId: string, vocabId: string): Promise<SrsCard | null>;
+  card(userId: string, deck: DeckId, vocabId: string): Promise<SrsCard | null>;
   saveCard(userId: string, card: SrsCard): Promise<void>;
-  /** Insert cards that don't exist yet (existing ones are left alone). Returns how many were added. */
-  addCards(userId: string, cards: SrsCard[]): Promise<number>;
-  /** Flag words as struggling (creating new cards if needed). */
-  markStruggling(userId: string, vocabIds: string[], now: number): Promise<void>;
+  /** Insert cards that don't exist yet in their deck (existing ones are left alone). Returns the vocab ids added. */
+  addCards(userId: string, cards: SrsCard[]): Promise<string[]>;
+  removeCards(userId: string, deck: DeckId, vocabIds: string[]): Promise<number>;
+  /** Missed words go to "Struggling spells" (new cards; ones already there are due again). Returns the ids that were new there. */
+  markStruggling(userId: string, vocabIds: string[], now: number): Promise<string[]>;
+  customWords(userId: string): Promise<CustomWord[]>;
+  addCustomWord(userId: string, w: CustomWord): Promise<void>;
+  deleteCustomWord(userId: string, id: string): Promise<void>;
   /** Per user: study-set size and learned (graduated) cards — for the admin page. */
   cardStats(): Promise<Record<string, { cards: number; learned: number }>>;
   /** Count a finished match (draws aren't counted). */
@@ -110,13 +118,14 @@ export interface FriendLink { id: string; username: string; status: 'accepted' |
 export const MATCH_HISTORY_LIMIT = 15; // older games are deleted
 const summaryOf = (m: MatchDetail): MatchSummary => ({ id: m.id, mode: m.mode, outcome: m.outcome, character: m.character, at: m.at, opponents: m.opponents });
 
-const blankProgress = () => ({ xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: 'blue' as FlameId, staff: 'verdant' as StaffId, tutorialDone: true, unlocks: [] as string[], loginDay: null as string | null, streak: 0, bestStreak: 0 });
+const blankProgress = () => ({ dailyNew: 25, newToday: 0, badges: [] as string[], xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: 'blue' as FlameId, staff: 'verdant' as StaffId, tutorialDone: true, unlocks: [] as string[], loginDay: null as string | null, streak: 0, bestStreak: 0 });
 
 /** In-memory store (tests); FileStore persists the same data as JSON. */
 export class MemoryStore implements Store {
   readonly name: string = 'memory';
   protected users = new Map<string, UserRecord>();
-  protected srs = new Map<string, Map<string, SrsCard>>();
+  protected srs = new Map<string, Map<string, SrsCard>>(); // user → "deck|vocabId" → card
+  protected custom = new Map<string, CustomWord[]>();
 
   async init() {}
   async findByUsername(username: string) {
@@ -152,26 +161,42 @@ export class MemoryStore implements Store {
     if (!d) { d = new Map(); this.srs.set(userId, d); }
     return d;
   }
-  async cards(userId: string) { return [...this.deck(userId).values()].map((c) => ({ ...c })); }
-  async card(userId: string, vocabId: string) { const c = this.deck(userId).get(vocabId); return c ? { ...c } : null; }
-  async saveCard(userId: string, card: SrsCard) { this.deck(userId).set(card.vocabId, { ...card }); this.persist(); }
+  async cards(userId: string) { return [...this.deck(userId).values()].map((c) => ({ ...c, deck: deckOf(c) })); }
+  async card(userId: string, deck: DeckId, vocabId: string) { const c = this.deck(userId).get(`${deck}|${vocabId}`); return c ? { ...c, deck } : null; }
+  async saveCard(userId: string, card: SrsCard) { const deck = deckOf(card); this.deck(userId).set(`${deck}|${card.vocabId}`, { ...card, deck, struggling: deck === 'struggling' }); this.persist(); }
   async addCards(userId: string, cards: SrsCard[]) {
     const d = this.deck(userId);
+    const added: string[] = [];
+    for (const c of cards) {
+      const deck = deckOf(c), key = `${deck}|${c.vocabId}`;
+      if (!d.has(key)) { d.set(key, { ...c, deck, struggling: deck === 'struggling' }); added.push(c.vocabId); }
+    }
+    this.persist();
+    return added;
+  }
+  async removeCards(userId: string, deck: DeckId, vocabIds: string[]) {
+    const d = this.deck(userId);
     let n = 0;
-    for (const c of cards) if (!d.has(c.vocabId)) { d.set(c.vocabId, { ...c }); n++; }
+    for (const id of vocabIds) if (d.delete(`${deck}|${id}`)) n++;
     this.persist();
     return n;
   }
   async markStruggling(userId: string, vocabIds: string[], now: number) {
     const d = this.deck(userId);
-    for (const id of vocabIds) {
-      const c = d.get(id);
-      if (c) { c.struggling = true; c.due = Math.min(c.due, now); } // missed in battle → review it now
-      else d.set(id, { vocabId: id, state: 'new', step: 0, ease: 2500, intervalDays: 0, due: now, reps: 0, lapses: 0, struggling: true });
+    const added: string[] = [];
+    for (const id of new Set(vocabIds)) {
+      const c = d.get(`struggling|${id}`);
+      if (c) c.due = Math.min(c.due, now); // missed again → review it now
+      else { d.set(`struggling|${id}`, { vocabId: id, deck: 'struggling', addedAt: now, state: 'new', step: 0, ease: 2500, intervalDays: 0, due: now, reps: 0, lapses: 0, struggling: true }); added.push(id); }
     }
     this.persist();
+    return added;
   }
-  async learnedCount(userId: string) { return [...this.deck(userId).values()].filter((c) => c.state === 'review').length; }
+  async customWords(userId: string) { return (this.custom.get(userId) ?? []).map((w) => ({ ...w })); }
+  async addCustomWord(userId: string, w: CustomWord) { this.custom.set(userId, [...(this.custom.get(userId) ?? []).filter((x) => x.id !== w.id), { ...w }]); this.persist(); }
+  async deleteCustomWord(userId: string, id: string) { this.custom.set(userId, (this.custom.get(userId) ?? []).filter((x) => x.id !== id)); this.persist(); }
+  /** Learned = words that graduated to review in any deck (a word counts once). */
+  async learnedCount(userId: string) { return new Set([...this.deck(userId).values()].filter((c) => c.state === 'review').map((c) => c.vocabId)).size; }
   protected avatars = new Map<string, AvatarImage>();
   async addResult(id: string, outcome: 'win' | 'loss' | 'draw') {
     const r = this.users.get(id);
@@ -188,7 +213,7 @@ export class MemoryStore implements Store {
   }
   async getAvatar(id: string) { return this.avatars.get(id) ?? null; }
   async cardStats() {
-    return Object.fromEntries([...this.srs].map(([uid, d]) => [uid, { cards: d.size, learned: [...d.values()].filter((c) => c.state === 'review').length }]));
+    return Object.fromEntries([...this.srs].map(([uid, d]) => [uid, { cards: d.size, learned: new Set([...d.values()].filter((c) => c.state === 'review').map((c) => c.vocabId)).size }]));
   }
   protected history = new Map<string, MatchDetail[]>();
   private nextMatch = 1;
@@ -303,8 +328,17 @@ export class FileStore extends MemoryStore {
       this.reportList = (data.reports ?? []) as Report[];
       this.eventLog = (data.events ?? []) as GameEventRow[];
       for (const [uid, cards] of Object.entries((data.srs ?? {}) as Record<string, SrsCard[]>)) {
-        this.srs.set(uid, new Map(cards.map((c) => [c.vocabId, c])));
+        const m = new Map<string, SrsCard>();
+        for (const c of cards) {
+          if (c.deck) { m.set(`${c.deck}|${c.vocabId}`, c); continue; }
+          // saved before 0.9.9 (one card per word, struggling = a flag): the card stays in All spells and a
+          // struggling word also gets its own card in Struggling spells
+          m.set(`all|${c.vocabId}`, { ...c, deck: 'all', struggling: false });
+          if (c.struggling) m.set(`struggling|${c.vocabId}`, { ...c, deck: 'struggling' });
+        }
+        this.srs.set(uid, m);
       }
+      for (const [uid, words] of Object.entries((data.custom ?? {}) as Record<string, CustomWord[]>)) this.custom.set(uid, words);
     }
   }
   protected persist() {
@@ -315,7 +349,7 @@ export class FileStore extends MemoryStore {
     const activity = Object.fromEntries([...this.activityLog].map(([uid, m]) => [uid, [...m.values()]]));
     const daily = Object.fromEntries([...this.dailyResults].map(([day, m]) => [day, Object.fromEntries(m)]));
     const friends = Object.fromEntries([...this.friendLinks].map(([uid, m]) => [uid, Object.fromEntries(m)]));
-    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history), activity, daily, friends, reports: this.reportList, events: this.eventLog }));
+    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history), activity, daily, friends, reports: this.reportList, events: this.eventLog, custom: Object.fromEntries(this.custom) }));
     renameSync(tmp, this.file); // atomic replace
   }
 }

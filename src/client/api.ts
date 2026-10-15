@@ -1,9 +1,9 @@
 import type { AdminUserRow, Level, MatchDetail, MatchSummary, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, FlameId, StaffId } from '../shared/progress';
-import type { CardState, Rating } from '../shared/srs';
+import type { CardState, DeckId, Rating } from '../shared/srs';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; wins: number; losses: number; pic: string | null; background: BackgroundId; studyLevels: Level[]; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
-  tutorialDone: boolean; unlocks: string[]; month: MonthProgress }
+  tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew?: number; badges?: string[] }
 export interface MonthProgress { month: string; name: string; reward: string; goals: Array<{ id: string; label: string; target: number; value: number }>; done: boolean; unlocked: boolean }
 export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number }
 export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, Array<[string, number]>>; month: MonthProgress }
@@ -14,8 +14,11 @@ export interface DailyOverview { day: string; total: number; wordMs: number; min
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
 export interface Friend { id: string; username: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; activity?: string; pic?: string | null; level?: number }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
-export interface StudySummary { studyLevels: Level[]; notice: number; decks: { all: DeckCounts; struggling: DeckCounts }; profile: Profile }
-export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string> }
+export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; profile: Profile }
+export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean }
+export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: CardState; addedAt: number | null; due: number; intervalDays: number }
+export interface WordHit { id: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean }
+export interface QuizQuestion { kind: 'reading' | 'meaning' | 'kanji'; vocabId: string; level: Level; prompt: string; sub?: string; choices: string[]; answer: number }
 /** The player's local calendar date (daily new cards follow their day, not the server's). */
 export const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
@@ -53,8 +56,16 @@ export const api = {
   setBackground: (background: BackgroundId) => call<{ profile: Profile }>('PUT', '/api/me/background', { background }),
   study: () => call<StudySummary>('GET', `/api/study?today=${today()}`),
   setStudyLevels: (levels: Level[]) => call<StudySummary>('PUT', '/api/study/levels', { levels, today: today() }),
-  queue: (deck: 'all' | 'struggling') => call<{ cards: StudyCard[] }>('GET', `/api/study/queue?deck=${deck}`),
-  review: (vocabId: string, rating: Rating) => call<{ crit: number }>('POST', '/api/study/review', { vocabId, rating, today: today(), tz: new Date().getTimezoneOffset() }),
+  queue: (deck: DeckId) => call<{ cards: StudyCard[] }>('GET', `/api/study/queue?deck=${deck}`),
+  review: (vocabId: string, rating: Rating, deck: DeckId = 'all') => call<{ crit: number }>('POST', '/api/study/review', { vocabId, rating, deck, today: today(), tz: new Date().getTimezoneOffset() }),
+  deckWords: (deck: DeckId) => call<{ words: DeckRow[] }>('GET', `/api/study/deck?deck=${deck}`),
+  deckRemove: (deck: DeckId, ids: string[]) => call<{ removed: number }>('POST', '/api/study/deck/remove', { deck, ids }),
+  deckAdd: (deck: DeckId, ids: string[]) => call<{ added: string[] }>('POST', '/api/study/deck/add', { deck, ids }),
+  searchWords: (q: string) => call<{ words: WordHit[] }>('GET', `/api/study/search?q=${encodeURIComponent(q)}`),
+  addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', w),
+  quiz: (n = 10) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}`),
+  setDailyNew: (n: number) => call<StudySummary>('PUT', '/api/study/daily-new', { n, today: today() }),
+  setBadges: (badges: string[]) => call<{ badges: string[] }>('PUT', '/api/me/badges', { badges }),
   matches: () => call<{ matches: MatchSummary[] }>('GET', '/api/matches'),
   match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),
   player: (id: string) => call<{ profile: PublicProfile }>('GET', `/api/users/${encodeURIComponent(id)}`),
@@ -78,5 +89,6 @@ export const api = {
   addFriend: (username: string) => call<{ result: 'requested' | 'accepted' | 'exists'; friends: Friend[] }>('POST', '/api/friends', { username }),
   acceptFriend: (id: string) => call<{ friends: Friend[] }>('POST', `/api/friends/${encodeURIComponent(id)}/accept`),
   removeFriend: (id: string) => call<{ friends: Friend[] }>('DELETE', `/api/friends/${encodeURIComponent(id)}`),
+  setRole: (id: string, role: 'admin' | 'user') => call<{ user: AdminUserRow }>('POST', `/api/admin/users/${encodeURIComponent(id)}/role`, { role }),
   setBanned: (id: string, banned: boolean) => call<{ user: AdminUserRow }>('POST', `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned }),
 };

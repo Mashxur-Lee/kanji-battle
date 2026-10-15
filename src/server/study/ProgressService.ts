@@ -72,7 +72,10 @@ export class ProgressService {
   }
 
   async page(u: UserRecord, day: string): Promise<ProgressPage> {
-    const cards = new Map((await this.store.cards(u.id)).map((c) => [c.vocabId, c]));
+    // a word can be in several decks: its best card counts (furthest along, longest interval)
+    const score = (c: { state: string; intervalDays: number }) => (c.state === 'review' ? 1000 + c.intervalDays : c.state === 'new' ? 0 : 1);
+    const cards = new Map<string, Awaited<ReturnType<Store['cards']>>[number]>();
+    for (const c of await this.store.cards(u.id)) { const was = cards.get(c.vocabId); if (!was || score(c) > score(was)) cards.set(c.vocabId, c); }
     const mastery = Object.fromEntries(LEVELS.map((l) => [l, [] as Array<[string, number]>])) as Record<Level, Array<[string, number]>>;
     for (const v of VOCAB) {
       const c = cards.get(v.id);

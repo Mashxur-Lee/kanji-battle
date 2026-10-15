@@ -42,8 +42,38 @@ export function badgeSvg(a: AchievementDef, locked: boolean): string {
 
 const has = (unlocks: readonly string[] | undefined, id: string) => !!unlocks?.includes(ACH_PREFIX + id);
 
-/** Progress page: every achievement, earned ones in colour first in the list order. */
-export function renderAchievements(box: HTMLElement, unlocks: readonly string[] = []) {
+/** Small badges under a player's name (profile card, your own profile): hover/tap for the details. */
+export function badgeRow(ids: readonly string[] | undefined): HTMLElement | '' {
+  const list = (ids ?? []).map(achById).filter((a): a is AchievementDef => !!a);
+  if (!list.length) return '';
+  const row = document.createElement('div');
+  row.className = 'badge-row';
+  for (const a of list) {
+    const b = document.createElement('span');
+    b.className = 'ach mini';
+    b.tabIndex = 0;
+    b.style.setProperty('--ac', a.color);
+    b.setAttribute('aria-label', `${a.name}: ${a.how}`);
+    b.innerHTML = badgeSvg(a, false);
+    const tip = document.createElement('div');
+    tip.className = 'ach-tip';
+    const t = document.createElement('b'); t.textContent = a.name;
+    const s = document.createElement('span'); s.textContent = a.how;
+    tip.append(t, s);
+    b.append(tip);
+    row.append(b);
+  }
+  return row;
+}
+
+export const BADGES_MAX = 3;
+ui.useBadgeRow(badgeRow);
+
+/**
+ * Progress page: every achievement, earned ones in colour first in the list order. Click an earned one to
+ * show it under your name (up to 3 badges) — `onBadges` saves the new choice.
+ */
+export function renderAchievements(box: HTMLElement, unlocks: readonly string[] = [], badges: readonly string[] = [], onBadges?: (next: string[]) => void) {
   const earned = ACHIEVEMENTS.filter((a) => has(unlocks, a.id)).length;
   const grid = document.createElement('div');
   grid.className = 'ach-grid';
@@ -59,16 +89,31 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
     tip.className = 'ach-tip';
     const t = document.createElement('b'); t.textContent = a.name;
     const s = document.createElement('span'); s.textContent = a.how;
-    const st = document.createElement('small'); st.textContent = locked ? 'Locked' : 'Unlocked ✓';
+    const pinned = badges.includes(a.id);
+    const st = document.createElement('small'); st.textContent = locked ? 'Locked' : pinned ? 'On your profile ✓ — click to remove' : onBadges ? 'Unlocked ✓ — click to show on your profile' : 'Unlocked ✓';
     tip.append(t, s, st);
     b.append(tip);
+    if (pinned) { b.classList.add('pinned'); const pin = document.createElement('i'); pin.className = 'ach-pin'; pin.textContent = '★'; b.append(pin); }
+    if (!locked && onBadges) {
+      b.classList.add('pickable');
+      const toggle = () => {
+        if (pinned) return onBadges(badges.filter((x) => x !== a.id));
+        if (badges.length >= BADGES_MAX) { ui.toast(`Up to ${BADGES_MAX} badges — click one with a ★ to remove it first.`); return; }
+        onBadges([...badges, a.id]);
+      };
+      b.onclick = toggle;
+      b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } };
+    }
     grid.append(b);
   }
   const head = document.createElement('h3');
   head.append('Achievements ');
   const sm = document.createElement('small'); sm.className = 'hint'; sm.textContent = `${earned} / ${ACHIEVEMENTS.length}`;
   head.append(sm);
-  box.replaceChildren(head, grid);
+  const hint = document.createElement('p');
+  hint.className = 'hint ach-hint';
+  hint.textContent = `Click an earned badge to show it under your name (★ = on your profile, up to ${BADGES_MAX}).`;
+  box.replaceChildren(head, ...(onBadges && earned ? [hint] : []), grid);
 }
 
 // ── the celebration ─────────────────────────────────────────────────────────

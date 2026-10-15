@@ -6,8 +6,17 @@ export type CardState = 'new' | 'learning' | 'review' | 'relearning';
 export type Rating = 'again' | 'hard' | 'good' | 'easy';
 export const RATINGS: Rating[] = ['again', 'hard', 'good', 'easy'];
 
+/** Study decks: "All spells" (daily new words), "Struggling spells" (missed in games), "Custom spells" (your own). */
+export const DECKS = ['all', 'struggling', 'custom'] as const;
+export type DeckId = (typeof DECKS)[number];
+export const isDeck = (x: unknown): x is DeckId => DECKS.includes(x as DeckId);
+
 export interface SrsCard {
   vocabId: string;
+  /** which deck the card is in (a word can be in several decks, each with its own schedule); default 'all' */
+  deck?: DeckId;
+  /** epoch ms the card was added (cards from before 0.9.9: unknown) */
+  addedAt?: number | null;
   state: CardState;
   step: number; // index into the (re)learning steps
   ease: number; // permille, 2500 = 250%
@@ -17,7 +26,7 @@ export interface SrsCard {
   critDay?: string | null;
   reps: number;
   lapses: number;
-  struggling: boolean; // missed in a battle → shows up in "Struggling spells"
+  struggling: boolean; // = deck === 'struggling' (kept for older code and saves)
 }
 
 export const SRS = {
@@ -38,9 +47,14 @@ export const SRS = {
 const MIN = 60_000;
 const DAY = 86_400_000;
 
-export function newCard(vocabId: string, now: number, struggling = false): SrsCard {
-  return { vocabId, state: 'new', step: 0, ease: SRS.startEase, intervalDays: 0, due: now, reps: 0, lapses: 0, struggling };
+export function newCard(vocabId: string, now: number, deck: DeckId = 'all'): SrsCard {
+  return { vocabId, deck, addedAt: now, state: 'new', step: 0, ease: SRS.startEase, intervalDays: 0, due: now, reps: 0, lapses: 0, struggling: deck === 'struggling' };
 }
+export const deckOf = (c: Pick<SrsCard, 'deck'>): DeckId => c.deck ?? 'all';
+
+/** Words you typed in yourself ("Custom spells") that aren't in the game's dictionary. */
+export interface CustomWord { id: string; kanji: string; reading: string; meaning: string; createdAt: number }
+export const CUSTOM_PREFIX = 'u:';
 
 /** Learned = graduated to review at least once (counts toward crit). */
 export const isLearned = (c: Pick<SrsCard, 'state'>) => c.state === 'review';
