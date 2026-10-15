@@ -7,6 +7,21 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.2', date: '2026-10',
+    en: [
+      'New low-poly Wizard, Knight and Goblin, after their concept sheets: sculpted faces, the Wizard’s long beard, blue cloak and gold-trimmed robes, the Knight’s great helm, red plume, tabard and sword on his back, the Goblin’s long ears, red scarf, straps and wrapped legs.',
+      'The Witch is brighter (you can see her on the night arenas now), and her hat brim and sleeve no longer cut through her staff: every character holds the staff leaning out and forward.',
+      'Verdant staff: no more spike poking up between the branches.',
+      'Results screen: the words you missed come pre-ticked for Struggling spells, and unticking one keeps it out (it is removed if it was already added).',
+    ],
+    ru: [
+      'Новые низкополигональные Волшебник, Рыцарь и Гоблин по концепт-артам: вылепленные лица, длинная борода, синий плащ и мантия с золотым узором у Волшебника, топхельм, красный плюмаж, сюрко и меч за спиной у Рыцаря, длинные уши, красный шарф, ремни и обмотки у Гоблина.',
+      'Ведьма стала светлее (её видно на ночных аренах), а поля шляпы и рукав больше не проходят сквозь посох: все персонажи держат посох с наклоном наружу и вперёд.',
+      'Посох Verdant: между ветвями больше не торчит шип.',
+      'Экран итогов: пропущенные слова отмечены для «Трудных заклинаний», и если снять галочку, слово туда не попадёт (или будет удалено, если уже добавлено).',
+    ],
+  },
+  {
     v: '0.9.9.1', date: '2026-10',
     en: [
       'Unlocks are earned again (the closed beta is over), but easier: Kanji Writing, the Boss fight and Deck Duel open at level 1; backgrounds at levels 3 / 5 / 8 / 10; staffs at a 3 / 5 / 8 / 10-day login streak.',

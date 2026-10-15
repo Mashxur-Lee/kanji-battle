@@ -88,7 +88,7 @@
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.1";
+  var VERSION = "0.9.9.2";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -3381,7 +3381,7 @@ ${stack}`.slice(0, 2e3);
         if (on) {
           const r2 = await api.deckAdd(deck2, [id]);
           r2.added.forEach((x) => ours.add(x));
-        } else if (ours.has(id)) {
+        } else if (ours.has(id) || deck2 === "struggling") {
           await api.deckRemove(deck2, [id]);
           ours.delete(id);
         }
@@ -3632,6 +3632,22 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.2",
+      date: "2026-10",
+      en: [
+        "New low-poly Wizard, Knight and Goblin, after their concept sheets: sculpted faces, the Wizard\u2019s long beard, blue cloak and gold-trimmed robes, the Knight\u2019s great helm, red plume, tabard and sword on his back, the Goblin\u2019s long ears, red scarf, straps and wrapped legs.",
+        "The Witch is brighter (you can see her on the night arenas now), and her hat brim and sleeve no longer cut through her staff: every character holds the staff leaning out and forward.",
+        "Verdant staff: no more spike poking up between the branches.",
+        "Results screen: the words you missed come pre-ticked for Struggling spells, and unticking one keeps it out (it is removed if it was already added)."
+      ],
+      ru: [
+        "\u041D\u043E\u0432\u044B\u0435 \u043D\u0438\u0437\u043A\u043E\u043F\u043E\u043B\u0438\u0433\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u0412\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u043A, \u0420\u044B\u0446\u0430\u0440\u044C \u0438 \u0413\u043E\u0431\u043B\u0438\u043D \u043F\u043E \u043A\u043E\u043D\u0446\u0435\u043F\u0442-\u0430\u0440\u0442\u0430\u043C: \u0432\u044B\u043B\u0435\u043F\u043B\u0435\u043D\u043D\u044B\u0435 \u043B\u0438\u0446\u0430, \u0434\u043B\u0438\u043D\u043D\u0430\u044F \u0431\u043E\u0440\u043E\u0434\u0430, \u0441\u0438\u043D\u0438\u0439 \u043F\u043B\u0430\u0449 \u0438 \u043C\u0430\u043D\u0442\u0438\u044F \u0441 \u0437\u043E\u043B\u043E\u0442\u044B\u043C \u0443\u0437\u043E\u0440\u043E\u043C \u0443 \u0412\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u043A\u0430, \u0442\u043E\u043F\u0445\u0435\u043B\u044C\u043C, \u043A\u0440\u0430\u0441\u043D\u044B\u0439 \u043F\u043B\u044E\u043C\u0430\u0436, \u0441\u044E\u0440\u043A\u043E \u0438 \u043C\u0435\u0447 \u0437\u0430 \u0441\u043F\u0438\u043D\u043E\u0439 \u0443 \u0420\u044B\u0446\u0430\u0440\u044F, \u0434\u043B\u0438\u043D\u043D\u044B\u0435 \u0443\u0448\u0438, \u043A\u0440\u0430\u0441\u043D\u044B\u0439 \u0448\u0430\u0440\u0444, \u0440\u0435\u043C\u043D\u0438 \u0438 \u043E\u0431\u043C\u043E\u0442\u043A\u0438 \u0443 \u0413\u043E\u0431\u043B\u0438\u043D\u0430.",
+        "\u0412\u0435\u0434\u044C\u043C\u0430 \u0441\u0442\u0430\u043B\u0430 \u0441\u0432\u0435\u0442\u043B\u0435\u0435 (\u0435\u0451 \u0432\u0438\u0434\u043D\u043E \u043D\u0430 \u043D\u043E\u0447\u043D\u044B\u0445 \u0430\u0440\u0435\u043D\u0430\u0445), \u0430 \u043F\u043E\u043B\u044F \u0448\u043B\u044F\u043F\u044B \u0438 \u0440\u0443\u043A\u0430\u0432 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043F\u0440\u043E\u0445\u043E\u0434\u044F\u0442 \u0441\u043A\u0432\u043E\u0437\u044C \u043F\u043E\u0441\u043E\u0445: \u0432\u0441\u0435 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436\u0438 \u0434\u0435\u0440\u0436\u0430\u0442 \u043F\u043E\u0441\u043E\u0445 \u0441 \u043D\u0430\u043A\u043B\u043E\u043D\u043E\u043C \u043D\u0430\u0440\u0443\u0436\u0443 \u0438 \u0432\u043F\u0435\u0440\u0451\u0434.",
+        "\u041F\u043E\u0441\u043E\u0445 Verdant: \u043C\u0435\u0436\u0434\u0443 \u0432\u0435\u0442\u0432\u044F\u043C\u0438 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0442\u043E\u0440\u0447\u0438\u0442 \u0448\u0438\u043F.",
+        "\u042D\u043A\u0440\u0430\u043D \u0438\u0442\u043E\u0433\u043E\u0432: \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B \u0434\u043B\u044F \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB, \u0438 \u0435\u0441\u043B\u0438 \u0441\u043D\u044F\u0442\u044C \u0433\u0430\u043B\u043E\u0447\u043A\u0443, \u0441\u043B\u043E\u0432\u043E \u0442\u0443\u0434\u0430 \u043D\u0435 \u043F\u043E\u043F\u0430\u0434\u0451\u0442 (\u0438\u043B\u0438 \u0431\u0443\u0434\u0435\u0442 \u0443\u0434\u0430\u043B\u0435\u043D\u043E, \u0435\u0441\u043B\u0438 \u0443\u0436\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E)."
+      ]
+    },
     {
       v: "0.9.9.1",
       date: "2026-10",
@@ -8063,6 +8079,7 @@ ${stack}`.slice(0, 2e3);
           resumeBattle(players, msg.boss, you, msg.durationMs);
           break;
         }
+        pendingMissed = null;
         showBattle(msg.mode, players, msg.boss, you, msg.countdownMs, msg.durationMs, (n) => n > 0 ? sfx.tick() : sfx.go());
         break;
       case "challenge":
@@ -8135,6 +8152,10 @@ ${stack}`.slice(0, 2e3);
           else if (msg.mode === "boss" || msg.winnerId) sfx.lose();
           resetDeck();
           showResults(msg.mode, msg.players, you, msg.winnerId, msg.teamWon, msg.reason, msg.stats);
+          if (pendingMissed) {
+            showMissedSave(pendingMissed);
+            pendingMissed = null;
+          }
         }, msg.reason === "forfeit" ? 400 : 2e3);
         break;
       }
@@ -8142,7 +8163,10 @@ ${stack}`.slice(0, 2e3);
         setPaused(msg.on);
         break;
       case "progress":
-        if (msg.missed?.length && currentScreen() === "results") showMissedSave(msg.missed);
+        if (msg.missed?.length) {
+          if (currentScreen() === "results") showMissedSave(msg.missed);
+          else pendingMissed = msg.missed;
+        }
         setTimeout(() => {
           showXp(msg.gained, msg.level, msg.levelUp);
           if (msg.levelUp) toast(`Level ${msg.level}! Check Customize for new unlocks.`, 5e3);
@@ -8219,6 +8243,7 @@ ${stack}`.slice(0, 2e3);
       arena()?.twitch();
     }
   };
+  var pendingMissed = null;
   addEventListener("kw:look", (e) => {
     const d = e.detail;
     socket.send({ type: "look", yaw: d.yaw, pitch: d.pitch });

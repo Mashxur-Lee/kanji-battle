@@ -6,15 +6,16 @@
 // arm is a pivot at the shoulder holding the staff, the head turns for the mouse look.
 
 import * as THREE from 'three';
-import { buildStaff } from './staffs3d';
 import type { Character, Side } from './models3d';
+import { holdStaff } from './charkit';
 
 type V3 = [number, number, number];
 const C = (hex: number) => new THREE.Color(hex);
+// 0.9.9.2: a lighter palette (the first one was near-black on the night arenas)
 const PAL = {
-  robe: C(0x5b3e8e), robeDeep: C(0x41296b), trim: C(0x8466bf), dress: C(0x1d1924), dressHi: C(0x2c2636), lining: C(0x4a3d4e),
-  skin: C(0xe8d6d2), hair: C(0xb3a4c6), hairDark: C(0x7f7096), hat: C(0x543985), hatBand: C(0x7a60b0), boot: C(0x24202b),
-  belt: C(0x2a2133), moon: C(0xe6dcb8), lips: C(0x5a3550), eye: C(0x1a1420),
+  robe: C(0x7a56bd), robeDeep: C(0x5c3f96), trim: C(0xab8de6), dress: C(0x352d44), dressHi: C(0x4b4160), lining: C(0x6a5a70),
+  skin: C(0xeedcd8), hair: C(0xcfc2e4), hairDark: C(0x9b8cb6), hat: C(0x6c4aac), hatBand: C(0x9c80d6), boot: C(0x3b3446),
+  belt: C(0x40344c), moon: C(0xf0e6c0), lips: C(0x5a3550), eye: C(0x1a1420),
 };
 
 /**
@@ -146,7 +147,7 @@ function faceTexture() {
 export function buildWitch(side: Side, glowTex: THREE.Texture, staffSkin?: string): Character {
   const materials: Character['materials'] = [];
   const mat = (color: number | THREE.Color, o: { vc?: boolean; metal?: number; rough?: number; emissive?: number; double?: boolean } = {}) => {
-    const m = new THREE.MeshStandardMaterial({ color: o.vc ? 0xffffff : color, vertexColors: !!o.vc, metalness: o.metal ?? 0.04, roughness: o.rough ?? 0.82, flatShading: true, emissive: o.emissive ?? 0x000000, transparent: true, side: o.double ? THREE.DoubleSide : THREE.FrontSide });
+    const m = new THREE.MeshStandardMaterial({ color: o.vc ? 0xffffff : color, vertexColors: !!o.vc, metalness: o.metal ?? 0.04, roughness: o.rough ?? 0.82, flatShading: true, emissive: o.emissive ?? (o.vc ? 0x1a1424 : 0x000000), transparent: true, side: o.double ? THREE.DoubleSide : THREE.FrontSide });
     materials.push({ mat: m, color: m.color.clone(), emissive: m.emissive.clone() });
     return m;
   };
@@ -156,7 +157,7 @@ export function buildWitch(side: Side, glowTex: THREE.Texture, staffSkin?: strin
   const moon = mat(PAL.moon, { metal: 0.35, rough: 0.35, emissive: 0x2a2410 });
   const M = (g: THREE.BufferGeometry, m: THREE.Material, parent: THREE.Object3D, at: V3 = [0, 0, 0]) => { const o = new THREE.Mesh(g, m); o.position.set(...at); parent.add(o); return o; };
   // allies wear a greener coat, opponents keep the concept's purple (as in the other models' robe colours)
-  const robe = side === 'ally' ? C(0x2f7a64) : PAL.robe, robeDeep = side === 'ally' ? C(0x215545) : PAL.robeDeep, trim = side === 'ally' ? C(0x5cb898) : PAL.trim;
+  const robe = side === 'ally' ? C(0x3a9a7c) : PAL.robe, robeDeep = side === 'ally' ? C(0x2a7058) : PAL.robeDeep, trim = side === 'ally' ? C(0x74d0ae) : PAL.trim;
 
   const root = new THREE.Group(), body = new THREE.Group();
   root.add(body);
@@ -269,7 +270,7 @@ export function buildWitch(side: Side, glowTex: THREE.Texture, staffSkin?: strin
   hat.rotation.set(-0.12, 0, 0.07);
   head.add(hat);
   M(surf(20, 3, (u, v) => {
-    const a = u * Math.PI * 2, r = 0.14 + v * 0.3;
+    const a = u * Math.PI * 2, r = 0.14 + v * 0.24; // 0.9.9.2: a little narrower, clear of the staff
     return [Math.sin(a) * r, 0.02 - 0.075 * v * v + 0.012 * Math.sin(a * 3) * v, Math.cos(a) * r];
   }, (u, v) => mixC(PAL.hat, robeDeep, v > 0.9 ? 0.25 : 0.2 * tri(u * 5)), true), cloth, hat);
   const crown: V3[] = [[0, 0.01, 0], [0, 0.17, -0.015], [0.01, 0.31, -0.05], [0.04, 0.42, -0.11], [0.1, 0.48, -0.18], [0.17, 0.47, -0.23], [0.22, 0.42, -0.25]];
@@ -279,9 +280,9 @@ export function buildWitch(side: Side, glowTex: THREE.Texture, staffSkin?: strin
   hatMoon.rotation.z = 0.5;
 
   // ── arms: wide bell sleeves; the left hangs, the right (pivot) holds the staff ──
-  const sleeve = (len: number, bend: number) => surf(10, 6, (u, v) => {
+  const sleeve = (len: number, bend: number, bell = 0.15) => surf(10, 6, (u, v) => {
     const a = u * Math.PI * 2;
-    const r = 0.065 + 0.15 * Math.max(0, (v - 0.3) / 0.7) ** 1.4; // a bell from the elbow down
+    const r = 0.065 + bell * Math.max(0, (v - 0.3) / 0.7) ** 1.4; // a bell from the elbow down
     const cuff = v < 0.99 ? 0 : 0.07 * tri(u * 4); // a pointed cuff
     const y = -(v * len) - cuff, z = bend * v * v;
     return [Math.cos(a) * r, y, Math.sin(a) * r * 0.9 + z];
@@ -290,13 +291,10 @@ export function buildWitch(side: Side, glowTex: THREE.Texture, staffSkin?: strin
   M(sleeve(0.6, 0.06), cloth, left);
   const lh = M(new THREE.SphereGeometry(0.042, 6, 4), skin, left, [0, -0.6, 0.05]); lh.scale.set(0.8, 1.25, 0.6);
   const arm = new THREE.Group(); arm.position.set(0.23, 1.47, 0.02); arm.rotation.z = -0.35; body.add(arm);
-  const rs = M(sleeve(0.5, 0.0), cloth, arm); rs.rotation.x = -0.5;
-  const hand = M(new THREE.SphereGeometry(0.044, 6, 4), skin, arm, [0, -0.43, 0.24]); hand.scale.set(0.85, 1.1, 0.7);
-  const staffPivot = new THREE.Group(); staffPivot.position.set(0, -0.43, 0.24); staffPivot.rotation.z = 0.28; arm.add(staffPivot);
-  const staff = buildStaff(staffSkin, glowTex);
-  staff.group.position.y = 0.3;
-  staffPivot.add(staff.group);
-  for (const m of staff.materials) materials.push({ mat: m, color: m.color.clone(), emissive: m.emissive.clone() });
-  const { gem: crystal, gemMat: crystalMat, glow } = staff;
+  // the staff arm: a shorter, narrower bell that stops above the wrist, so the staff never cuts through it
+  const rs = M(sleeve(0.4, 0.0, 0.07), cloth, arm); rs.rotation.x = -0.5;
+  const wrist = M(new THREE.CylinderGeometry(0.03, 0.034, 0.12, 6), skin, arm, [0, -0.38, 0.19]); wrist.rotation.x = -0.5;
+  M(new THREE.SphereGeometry(0.044, 6, 4), skin, arm, [0, -0.43, 0.24]).scale.set(0.85, 1.1, 0.7);
+  const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.43, 0.24], materials, glowTex, staffSkin);
   return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials };
 }

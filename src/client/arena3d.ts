@@ -430,8 +430,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   }
   const handLight = new THREE.PointLight(0xffffff, 1.4, 3, 2); handLight.position.set(0.3, 0.3, -0.5); camera.add(handLight);
   const HANDS: Record<string, { sleeve: number; skin: number }> = {
-    wizard: { sleeve: 0x3d5ad6, skin: 0xf0c49a }, witch: { sleeve: 0x5b3e8e, skin: 0xe8d6d2 }, goblin: { sleeve: 0x7a5a2e, skin: 0x6fbf4a },
-    knight: { sleeve: 0xc4ccd8, skin: 0xb8c0cc }, kid: { sleeve: 0xd8662f, skin: 0xf0c49a }, human: { sleeve: 0x8a5a33, skin: 0xf0c49a },
+    wizard: { sleeve: 0x3463c8, skin: 0xf2ddcf }, witch: { sleeve: 0x7a56bd, skin: 0xeedcd8 }, goblin: { sleeve: 0x7a4e2c, skin: 0x84933f },
+    knight: { sleeve: 0xd6cfbf, skin: 0xa9a291 }, kid: { sleeve: 0xd8662f, skin: 0xf0c49a }, human: { sleeve: 0x8a5a33, skin: 0xf0c49a },
   };
   // the gem: launched with each spell, then gone until you start writing / typing again, when it builds up
   let thrustAt = -1e9;
