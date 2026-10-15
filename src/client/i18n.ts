@@ -413,8 +413,8 @@ const RU: Record<string, string> = {
   'Study spells is a flashcard deck. Every spell you learn today raises your critical-hit chance, and words you miss in battle come back there to review.':
     '«Изучать заклинания» — это колода карточек. Каждое выученное сегодня заклинание повышает шанс крита, а слова, на которых вы ошиблись в бою, возвращаются туда на повторение.',
   'More to unlock': 'Что откроется дальше',
-  'You start with Kanji Reading and Rapid. Kanji Writing and the Boss fight unlock at level 1, Deck Duel at level 2. There is also a Daily challenge, Progress, Friends — and monthly goals with rewards.':
-    'Сначала доступны Чтение кандзи и Блиц. Написание кандзи и Битва с боссом открываются на уровне 1, Дуэль колод — на уровне 2. Ещё есть Ежедневное испытание, Прогресс, Друзья и месячные цели с наградами.',
+  'You start with Kanji Reading and Rapid. Kanji Writing, the Boss fight and Deck Duel unlock at level 1. There is also a Daily challenge, a JLPT quiz, Progress, Friends — and monthly goals with rewards.':
+    'Сначала доступны Чтение кандзи и Блиц. Написание кандзи, Битва с боссом и Дуэль колод открываются на уровне 1. Ещё есть Ежедневное испытание, тест JLPT, Прогресс, Друзья и месячные цели с наградами.',
   'Your first battle': 'Ваш первый бой', "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them.": 'Готовы? Минуту вы учите 10 простых слов, потом сражаетесь ими с ИИ-новичком.',
   'type its reading: yama': 'напишите чтение: yama', 'Mountain — try it!': 'Гора — попробуйте!', "Not quite — it's やま (yama)": 'Не совсем — это やま (yama)', '✓ やま — a spell!': '✓ やま — заклинание!',
   'Fight a beginner AI': 'Сразиться с ИИ-новичком', 'Maybe later': 'Может, позже', 'Skip tutorial': 'Пропустить обучение', 'Next': 'Далее',
@@ -432,7 +432,7 @@ const RU: Record<string, string> = {
   'Fast + correct = more damage.': 'Быстро + верно = больше урона.', '(Esc) shows the answer.': '(Esc) показывает ответ.',
   '— Anki-style flashcards. Missed words go to': '— карточки в стиле Anki. Ошибочные слова попадают в',
   'Login streak': 'Серия входов', '— open the game on days in a row. Your best streak unlocks magic staffs in': '— заходите в игру несколько дней подряд. Лучшая серия открывает магические посохи в',
-  ': Ember at 5 days, Tide at 10, Storm at 15, Void at 20.': ': Ember за 5 дней, Tide за 10, Storm за 15, Void за 20.',
+  ': Ember at 3 days, Tide at 5, Storm at 8, Void at 10.': ': Ember за 3 дня, Tide за 5, Storm за 8, Void за 10.',
   'How Kanji Reading works': 'Как устроено Чтение кандзи', 'How Kanji Writing works': 'Как устроено Написание кандзи', 'How Boss Elimination works': 'Как устроена Битва с боссом', 'How 1v1 Rapid works': 'Как устроен Блиц 1 на 1',
   '60 s to study your 10 words (reading + meaning). Then they disappear.': '60 с, чтобы выучить 10 слов (чтение + значение). Потом они исчезнут.',
   'Wrong or Skip (Esc) = a miss; the answer is shown and the word comes back later.': 'Ошибка или пропуск (Esc) = промах; ответ показывается, а слово вернётся позже.',

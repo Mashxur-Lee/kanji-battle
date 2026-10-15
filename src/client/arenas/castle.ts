@@ -248,19 +248,22 @@ export function buildCastle(time: 'day' | 'sunset' | 'night', lite: boolean): En
     }
   }
   const silMat = vcMat({ morph: true, double: true });
-  const clusters: Array<{ m: THREE.Mesh; half: number }> = [];
+  // every duel is its own mesh with its own rhythm (speed, phase, pauses and how hard each side presses),
+  // so the battlefield never moves in step
+  const duels: Array<{ m: THREE.Mesh; w: number; w2: number; w3: number; p: number; p2: number; p3: number; bias: number }> = [];
   const nCl = lite ? 5 : 8;
   for (let i = 0; i < nCl; i++) {
     let ang = (2 * Math.PI * (i + R2.uniform(-0.3, 0.3))) / nCl;
     const r = R2.uniform(17, 36);
     if (lane((ang * 180) / Math.PI, r, 15)) ang += 0.6;
-    const cx = r * Math.cos(ang), cy = r * Math.sin(ang), s = new Sil('clash');
+    const cx = r * Math.cos(ang), cy = r * Math.sin(ang);
     for (let k = 0; k < 3; k++) {
+      const s = new Sil('clash');
       const a = R2.uniform(0, 6.283), dc = new THREE.Vector3(cx + R2.uniform(-4.5, 4.5), cy + R2.uniform(-4.5, 4.5), 0), dirv = new THREE.Vector3(Math.cos(a), Math.sin(a), 0), gap = R2.uniform(0.9, 1.1);
       for (const [team, sg] of [[0, -1], [1, 1]]) { const pos = dc.clone().addScaledVector(dirv, gap * sg); pos.z = gh(pos.x, pos.y); s.warrior(pos, team === 0 ? a : a + Math.PI, R2.choice(['sword', 'sword', 'axe', 'spear']), team); }
+      const m = new THREE.Mesh(s.finish(), silMat); m.morphTargetInfluences = [0, 0]; group.add(m);
+      duels.push({ m, w: (2 * Math.PI) / R.uniform(40, 95), w2: (2 * Math.PI) / R.uniform(110, 260), w3: (2 * Math.PI) / R.uniform(150, 400), p: R.uniform(0, 6.28), p2: R.uniform(0, 6.28), p3: R.uniform(0, 6.28), bias: R.uniform(-0.35, 0.35) });
     }
-    const m = new THREE.Mesh(s.finish(), silMat); m.morphTargetInfluences = [0, 0]; group.add(m);
-    clusters.push({ m, half: R.choice([24, 30, 36, 45]) });
   }
   { // the fallen
     const s = new Sil(null);
@@ -276,19 +279,19 @@ export function buildCastle(time: 'day' | 'sunset' | 'night', lite: boolean): En
     }
     group.add(new THREE.Mesh(s.finish(), vcMat({ double: true })));
   }
-  let army: THREE.Mesh;
-  { // the distant army, in clumps, surging forward together
-    const s = new Sil('surge'), clumps: THREE.Vector3[] = [];
+  const armies: Array<{ m: THREE.Mesh; w: number; p: number; w2: number; p2: number }> = [];
+  { // the distant army, in clumps — each clump surges forward on its own
+    const clumps: THREE.Vector3[] = [];
     for (let k = 0; k < 6; k++) { let a = R2.uniform(0, 6.283); const r = R2.uniform(45, 90); if (lane((a * 180) / Math.PI, r, 40)) a += 0.8; clumps.push(new THREE.Vector3(r * Math.cos(a), r * Math.sin(a), 0)); }
-    const n = lite ? 70 : 120;
+    const n = lite ? 70 : 120, sils = clumps.map(() => new Sil('surge'));
     for (let i = 0; i < n; i++) {
-      const cc = clumps[i % clumps.length], pos = cc.clone().add(new THREE.Vector3(R2.uniform(-9, 9), R2.uniform(-9, 9), 0)); pos.z = gh(pos.x, pos.y);
+      const s = sils[i % clumps.length], cc = clumps[i % clumps.length], pos = cc.clone().add(new THREE.Vector3(R2.uniform(-9, 9), R2.uniform(-9, 9), 0)); pos.z = gh(pos.x, pos.y);
       const yaw = Math.atan2(cc.y - pos.y, cc.x - pos.x) + R2.uniform(-0.5, 0.5), wi = s.war.length, Rm = new THREE.Matrix4().makeRotationZ(yaw - Math.PI / 2);
       const P = (x: number, y: number, z: number) => pos.clone().add(new THREE.Vector3(x, y, z).applyMatrix4(Rm)), c = pos.clone().add(new THREE.Vector3(0, 0, 0.9));
       s.part(c, P(0, 0, 0), P(0, 0, 1.45), 0.28, 0.22, 4, wi); s.part(c, P(0, 0.05, 1.45), P(0, 0.05, 1.65), 0.12, 0.12, 4, wi); s.part(c, P(0.3, -0.3, 0.9), P(0.3, 2, 2.4), 0.03, 0.025, 4, wi, true);
       s.war.push({ team: 0, f: new THREE.Vector3(0, 1, 0).applyMatrix4(Rm), axis: new THREE.Vector3(1, 0, 0).applyMatrix4(Rm), pivot: P(0, 0, 1.4) });
     }
-    army = new THREE.Mesh(s.finish(), silMat); army.morphTargetInfluences = [0, 0]; group.add(army);
+    for (const s of sils) { const m = new THREE.Mesh(s.finish(), silMat); m.morphTargetInfluences = [0, 0]; group.add(m); armies.push({ m, w: (2 * Math.PI) / R.uniform(90, 170), p: R.uniform(0, 6.28), w2: (2 * Math.PI) / R.uniform(300, 600), p2: R.uniform(0, 6.28) }); }
   }
 
   // ── dead grass, embers ──
@@ -303,8 +306,13 @@ export function buildCastle(time: 'day' | 'sunset' | 'night', lite: boolean): En
     group, floor: 0.6,
     update(f) {
       rig.update(f);
-      for (const c of clusters) { const n = Math.floor(f / c.half), t = (f - n * c.half) / c.half, e = t * t * (3 - 2 * t), a = n % 2 === 0 ? 1 - e : e; c.m.morphTargetInfluences![0] = a; c.m.morphTargetInfluences![1] = 1 - a; }
-      army.morphTargetInfluences![0] = pingpong(f, 60);
+      for (const d of duels) {
+        // who presses wanders irregularly; sometimes both hold back for a moment
+        const x = Math.sin(f * d.w + d.p + 1.4 * Math.sin(f * d.w2 + d.p2)) + d.bias, k = 0.55 + 0.45 * Math.sin(f * d.w3 + d.p3);
+        const ia = clamp01(x) * k, ib = clamp01(-x) * k;
+        d.m.morphTargetInfluences![0] = ia * ia * (3 - 2 * ia); d.m.morphTargetInfluences![1] = ib * ib * (3 - 2 * ib);
+      }
+      for (const a of armies) a.m.morphTargetInfluences![0] = clamp01(0.5 + 0.6 * Math.sin(f * a.w + a.p) * (0.6 + 0.4 * Math.sin(f * a.w2 + a.p2)));
       const w = pingpong(f, 90);
       banners.morphTargetInfluences![0] = w; banners.morphTargetInfluences![1] = 1 - w;
       for (const fm of castleFlags) { fm.morphTargetInfluences![0] = w; fm.morphTargetInfluences![1] = 1 - w; }

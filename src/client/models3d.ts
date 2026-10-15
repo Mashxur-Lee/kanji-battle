@@ -6,6 +6,7 @@
 
 import * as THREE from 'three';
 import { buildStaff, type Staff } from './staffs3d';
+import { buildWitch } from './witch3d';
 
 export type CharKind = 'wizard' | 'witch' | 'goblin' | 'knight' | 'kid' | 'human';
 export type Side = 'me' | 'opp' | 'ally';
@@ -27,6 +28,7 @@ export interface Character {
 const ROBES: Record<Side, number> = { me: 0x3d5ad6, opp: 0xc23a4c, ally: 0x2f9f74 };
 
 export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Texture, staffSkin?: string): Character {
+  if (kind === 'witch') return buildWitch(side, glowTex, staffSkin); // 0.9.9.1: the detailed low-poly witch (witch3d.ts)
   const materials: Character['materials'] = [];
   const mat = (color: number, o: { metal?: number; rough?: number; emissive?: number; ei?: number } = {}) => {
     // transparent from the start (opacity 1), so Frost can fade the model without a shader recompile hitch
@@ -38,11 +40,11 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
 
   const small = kind === 'goblin' || kind === 'kid';
   const s = small ? 0.78 : 1; // overall scale
-  const skin = mat(kind === 'goblin' ? 0x6fbf4a : kind === 'witch' ? 0x9ad07a : 0xf0c49a);
+  const skin = mat(kind === 'goblin' ? 0x6fbf4a : 0xf0c49a);
   const dark = mat(0x1c1726);
-  const robeColor = kind === 'witch' ? 0x5b2a86 : kind === 'goblin' ? 0x7a5a2e : kind === 'knight' ? 0x2f4f9e : kind === 'kid' ? 0xd8662f : kind === 'human' ? 0x8a5a33 : ROBES[side];
+  const robeColor = kind === 'goblin' ? 0x7a5a2e : kind === 'knight' ? 0x2f4f9e : kind === 'kid' ? 0xd8662f : kind === 'human' ? 0x8a5a33 : ROBES[side];
   const robe = mat(robeColor);
-  const trim = mat(kind === 'witch' ? 0x9b59ff : 0xffd479, { metal: 0.2, rough: 0.4 });
+  const trim = mat(0xffd479, { metal: 0.2, rough: 0.4 });
   const metal = mat(0xc4ccd8, { metal: 0.3, rough: 0.45 }); // (no reflections in the scene: real metalness would look black)
 
   const root = new THREE.Group();
@@ -50,7 +52,7 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
   root.add(body);
 
   // ── lower body ──
-  if (kind === 'wizard' || kind === 'witch') {
+  if (kind === 'wizard') {
     body.add(mesh(new THREE.CylinderGeometry(0.27, 0.46, 1.0, 9), robe, 0, 0.5, 0)); // long robe
     body.add(mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.05, 9), trim, 0, 0.03, 0));
   } else {
@@ -85,13 +87,6 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
     head.add(mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.04, 12), robe, 0, 0.15, 0)); // brim
     const hat = mesh(new THREE.ConeGeometry(0.24, 0.62, 9), robe, 0, 0.47, 0); hat.rotation.z = 0.12; head.add(hat);
     head.add(mesh(new THREE.TorusGeometry(0.21, 0.025, 5, 12), trim, 0, 0.2, 0).rotateX(Math.PI / 2));
-  } else if (kind === 'witch') {
-    const hatM = mat(0x2a1f3d);
-    head.add(mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.03, 12), hatM, 0, 0.14, 0));
-    const hat = mesh(new THREE.ConeGeometry(0.22, 0.7, 8), hatM, 0.04, 0.5, -0.03); hat.rotation.set(-0.25, 0, 0.3); head.add(hat);
-    head.add(mesh(new THREE.TorusGeometry(0.2, 0.03, 5, 12), trim, 0, 0.19, 0).rotateX(Math.PI / 2));
-    head.add(mesh(new THREE.ConeGeometry(0.035, 0.12, 5), skin, 0, -0.02, 0.22).rotateX(Math.PI / 2)); // nose
-    head.add(mesh(new THREE.BoxGeometry(0.42, 0.3, 0.12), mat(0x3a2a4a), 0, -0.08, -0.14)); // hair
   } else if (kind === 'goblin') {
     for (const sx of [-1, 1]) { const ear = mesh(new THREE.ConeGeometry(0.07, 0.34, 5), skin, sx * 0.24, 0.05, 0); ear.rotation.z = -sx * 1.25; head.add(ear); }
     head.add(mesh(new THREE.ConeGeometry(0.05, 0.14, 5), skin, 0, -0.02, 0.22).rotateX(Math.PI / 2));

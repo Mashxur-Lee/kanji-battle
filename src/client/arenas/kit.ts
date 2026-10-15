@@ -637,7 +637,9 @@ export function slabArena(o: { th: Theme; r: Rand; z0: number; h: number; rimZ0:
   const g = new THREE.Group();
   g.add(new THREE.Mesh(stone.geo(), vcMat()));
   g.add(new THREE.Mesh(glow.geo(), emitMat(o.glowCol, o.glow * 1.1)));
-  g.add(new THREE.Mesh(lines.geo(), emitMat(o.lineCol, o.glow * 1.3)));
+  const lineMesh = new THREE.Mesh(lines.geo(), emitMat(o.lineCol, o.glow * 1.3));
+  lineMesh.name = 'centre-pattern'; // hidden in the game: the classic rotating kanji circle is drawn there instead
+  g.add(lineMesh);
   g.add(new THREE.Mesh(runes.geo(), emitMat(o.runeCol, o.glow * 1.6)));
   return g;
 }

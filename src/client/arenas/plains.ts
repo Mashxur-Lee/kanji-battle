@@ -105,7 +105,7 @@ export function buildPlains(time: 'day' | 'sunset' | 'night', lite: boolean): En
   }
 
   // ── the platform ──
-  const stone = new MB(), plain2 = new MB(), plain1 = new MB(), ring = new MB(), stripe = new MB(), rune = new MB();
+  const stone = new MB(), plain2 = new MB(), plain1 = new MB(), ring = new MB(), dots = new MB(), rune = new MB();
   const lathe = (mb: MB, prof: Array<[number, number]>, segs: number, at: P3, color: (p: P3) => readonly number[], capTop = true) => {
     const rows = prof.map(([h, r]) => Array.from({ length: segs }, (_, i) => { const p: P3 = [at[0] + r * Math.cos((2 * Math.PI * i) / segs), at[1] + r * Math.sin((2 * Math.PI * i) / segs), at[2] + h]; return mb.v(p, color(p)); }));
     for (let k = 0; k < rows.length - 1; k++) for (let i = 0; i < segs; i++) { const i2 = (i + 1) % segs; mb.f(rows[k][i], rows[k][i2], rows[k + 1][i2], rows[k + 1][i]); }
@@ -144,8 +144,7 @@ export function buildPlains(time: 'day' | 'sunset' | 'night', lite: boolean): En
     stoneBox([radius * Math.cos(a), radius * Math.sin(a), h / 2], [1.3, 2.6, h], a + R.uniform(-0.1, 0.1), R.choice(T.stone));
   }
   for (const r of [5.8, 4.2, 2.6, 1.2]) torus(ring, r, 0.08, 48, 6, TOP + 0.02, 0.6);
-  for (let i = 0; i < 16; i++) { const a = (2 * Math.PI * i) / 16 + Math.PI / 16; lathe(ring, [[0, 0.14], [0.04, 0.14]], 8, [5 * Math.cos(a), 5 * Math.sin(a), TOP], () => [1, 1, 1]); }
-  for (const [sx, rz] of [[-1.2, 0.2], [1.2, -0.2]]) box(stripe, [sx, 0, TOP + 0.02], [0.4, 9, 0.04], rz, () => [1, 1, 1]); // (narrower than the model's 0.9: the camera stands right on them)
+  for (let i = 0; i < 16; i++) { const a = (2 * Math.PI * i) / 16 + Math.PI / 16; lathe(dots, [[0, 0.14], [0.04, 0.14]], 8, [5 * Math.cos(a), 5 * Math.sin(a), TOP], () => [1, 1, 1]); }
   // braziers on four of the wall blocks
   const flames: Array<{ m: THREE.Mesh; keys: Array<[number, number, number]> }> = [];
   const flameG = flameGeo(), flameM = glowMat({ gain: 1.05 });
@@ -209,8 +208,9 @@ export function buildPlains(time: 'day' | 'sunset' | 'night', lite: boolean): En
   }
   group.add(new THREE.Mesh(stone.geo(), vcMat()));
   group.add(new THREE.Mesh(plain2.geo(), vcMat({ flat: false })), new THREE.Mesh(plain1.geo(), vcMat()));
-  group.add(new THREE.Mesh(ring.geo(), emitMat([1, 0.92, 0.75], 0.75 * Math.min(1.6, E))));
-  group.add(new THREE.Mesh(stripe.geo(), emitMat([1, 0.35, 0.12], 0.55)));
+  const rings = new THREE.Mesh(ring.geo(), emitMat([1, 0.92, 0.75], 0.75 * Math.min(1.6, E)));
+  rings.name = 'centre-pattern';
+  group.add(rings, new THREE.Mesh(dots.geo(), emitMat([1, 0.92, 0.75], 0.75 * Math.min(1.6, E))));
   group.add(new THREE.Mesh(rune.geo(), emitMat([1, 0.3, 0.1], 1.1 * Math.min(1.4, E))));
 
   // grass (two halves that sway in turn) and flowers

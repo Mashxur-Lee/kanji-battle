@@ -579,18 +579,18 @@ test('after a Deck Duel every kanji of the duel joins All spells (cards you have
   assert.equal((await store.findById(u.id))!.newNotice, 3, 'the study screen tells you about the new spells');
 });
 
-test('magic staffs unlock by best login streak (5/10/15/20 days; admins: all); others see your staff', async () => {
+test('magic staffs unlock by best login streak (3/5/8/10 days; admins: all); others see your staff', async () => {
   const { StudyService } = await import('../src/server/study/StudyService');
   const { MemoryStore } = await import('../src/server/db/Store');
   const store = new MemoryStore();
   const study = new StudyService(store);
   const u = await store.create({ username: 'staffy', passwordHash: 'x', role: 'user' } as any);
   assert.equal((await study.profile(u)).staff, 'verdant');
-  await assert.rejects(study.setStaff(u, 'ember'), /5-day/);
+  await assert.rejects(study.setStaff(u, 'ember'), /3-day/);
   await assert.rejects(study.setStaff(u, 'banana'), /Unknown/);
-  await store.update(u.id, { bestStreak: 12, streak: 0 }); // a broken streak keeps what you unlocked
+  await store.update(u.id, { bestStreak: 6, streak: 0 }); // a broken streak keeps what you unlocked
   await study.setStaff((await store.findById(u.id))!, 'tide');
-  await assert.rejects(study.setStaff((await store.findById(u.id))!, 'storm'), /15-day/);
+  await assert.rejects(study.setStaff((await store.findById(u.id))!, 'storm'), /8-day/);
   assert.equal((await study.profile((await store.findById(u.id))!)).staff, 'tide');
   const admin = await store.create({ username: 'boss2', passwordHash: 'x', role: 'admin' } as any);
   await study.setStaff(admin, 'void');
