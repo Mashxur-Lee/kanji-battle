@@ -254,6 +254,16 @@ export class Room {
     const msg: ServerMessage = { type: 'deck_ink', castId, strokes, cells: Math.max(1, Math.min(4, Math.round(cells))) };
     for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
   }
+  /** 3D mouse look: relayed to the others in the room (a game must be on; at most ~8 a second per player) */
+  private lastLook = new Map<PlayerId, number>();
+  look(id: PlayerId, yaw: number, pitch: number, now = Date.now()) {
+    if (!this.game || !Number.isFinite(yaw) || !Number.isFinite(pitch)) return;
+    if (now - (this.lastLook.get(id) ?? 0) < 110) return;
+    this.lastLook.set(id, now);
+    const clamp = (v: number, m: number) => Math.round(Math.max(-m, Math.min(m, v)) * 1000) / 1000;
+    const msg: ServerMessage = { type: 'look', id, yaw: clamp(yaw, 0.5), pitch: clamp(pitch, 0.3) };
+    for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
+  }
   answer(id: PlayerId, challengeId: number, text: string) { if (this.clock.paused) return; this.game?.submit(id, challengeId, text); }
   write(id: PlayerId, challengeId: number, chars: DrawnChar[]) { if (this.clock.paused) return; this.game?.submitWriting(id, challengeId, chars); }
   skip(id: PlayerId, challengeId: number) { if (this.clock.paused) return; this.game?.skip(id, challengeId); }

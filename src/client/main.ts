@@ -15,7 +15,7 @@ import { initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
-import { arena, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
+import { arena, arenaLook, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
 import { LEVELS, MODE_LABEL, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
 import * as audio from './audio';
@@ -222,6 +222,9 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'chat':
       chatMessages(msg.messages);
+      break;
+    case 'look':
+      arenaLook(msg.id, msg.yaw, msg.pitch);
       break;
     case 'welcome':
       user = msg.user;
@@ -447,6 +450,8 @@ pad.onDraw = () => {
   ui.gemBack();
   if (Date.now() - twitchAt > 140) { twitchAt = Date.now(); arena()?.twitch(); } // the staff moves as you write
 };
+// 3D mouse look: the arena tells us where you look (throttled there); the other players' models turn their heads
+addEventListener('kw:look', (e) => { const d = (e as CustomEvent<{ yaw: number; pitch: number }>).detail; socket.send({ type: 'look', yaw: d.yaw, pitch: d.pitch }); });
 /** Deck Duel: the opponent watches your pad live (throttled, the last state always goes out). */
 let inkTimer = 0, inkAt = 0;
 function shareInk() {

@@ -156,6 +156,8 @@ export type ClientMessage =
   /** invite a friend into the room you're in (lobby) */
   | { type: 'invite'; friendId: string }
   | { type: 'chat'; text: string }
+  /** 3D mouse look: where you are looking (radians; + = left / up), sent a few times a second */
+  | { type: 'look'; yaw: number; pitch: number }
   | { type: 'pong'; t: number }
   | { type: 'answer'; challengeId: number; text: string }
   | { type: 'write'; challengeId: number; chars: DrawnChar[] }
@@ -193,6 +195,8 @@ export type ServerMessage =
   /** a friend invites you to their room */
   | { type: 'invite'; fromId: string; from: string; code: string; mode: GameMode }
   | { type: 'chat'; messages: ChatMessage[] }
+  /** another player's mouse look (their model turns its head) */
+  | { type: 'look'; id: PlayerId; yaw: number; pitch: number }
   | { type: 'auth_error'; message: string }
   | { type: 'kicked'; message: string }
   | { type: 'joined'; code: string; you: PlayerId; mode: GameMode }

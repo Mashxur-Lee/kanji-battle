@@ -599,3 +599,19 @@ test('magic staffs unlock by best login streak (5/10/15/20 days; admins: all); o
   room.join('a', 'A', a, undefined, { crit: 0, xp: 0, staff: 'void' }); room.join('b', 'B', b);
   assert.deepEqual(b.last('lobby')!.players.map((p) => p.staff), ['void', 'verdant']);
 });
+
+test('room: mouse look is relayed to the others only, clamped and throttled, and only during a game', () => {
+  const room = new Room('LOOK', 'reading', { onEmpty: () => {} }, OPTS);
+  const a = client(), b = client();
+  room.join('a', 'A', a, ['N2']); room.join('b', 'B', b, ['N2']);
+  room.look('a', 0.2, 0.1, 1000);
+  assert.equal(b.last('look'), undefined, 'no game yet');
+  room.start('a'); room.ready('a'); room.ready('b'); tick(100);
+  room.look('a', 9, -9, 2000);
+  assert.deepEqual(b.last('look'), { type: 'look', id: 'a', yaw: 0.5, pitch: -0.3 });
+  assert.equal(a.last('look'), undefined, 'not echoed back');
+  room.look('a', 0.1, 0, 2050);
+  assert.equal(b.last('look')!.yaw, 0.5, 'too soon: dropped');
+  room.look('a', Number.NaN, 0, 3000);
+  assert.equal(b.last('look')!.yaw, 0.5, 'bad numbers: dropped');
+});

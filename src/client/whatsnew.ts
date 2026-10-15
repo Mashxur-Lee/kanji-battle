@@ -21,7 +21,8 @@ const PATCHES: Patch[] = [
       'Fixes: pausing no longer revives downed teammates or loses your combo; the beginner AI fight no longer runs out of time (HP is balanced to ~18 hits at every level); Rapid in the online queue finds a partner even without a level in common; writing on iPhone no longer scrolls the page.',
       'Closed beta: every mode, staff, flame and arena is open from level 1. Admins can make other players admins.',
       'The tutorial starts by asking for your language, and its window is bigger.',
-      'New 3D magic staffs and arenas, built from the Blender models.',
+      'New 3D magic staffs (Verdant, Ember, Tide, Storm, Void — each with its own animation) and five new 3D arenas: Forest, Swamp, Plains, Castle and World Tree, with painted skies, moving trees, water, flags and fireflies.',
+      'Full 3D: the mouse now turns your head instead of sliding the camera — and the other players see your character look where you look. Lite keeps the lighter parallax.',
     ],
     ru: [
       'Учёба: «Все», «Трудные» и «Свои» заклинания — теперь три отдельные колоды. Откройте любую, чтобы увидеть все слова, дату добавления и удалить лишние.',
@@ -36,7 +37,8 @@ const PATCHES: Patch[] = [
       'Исправления: пауза больше не поднимает павших союзников и не сбрасывает комбо; бой с ИИ-новичком больше не кончается по времени (HP рассчитано на ~18 попаданий на любом уровне); «Блиц» в онлайн-очереди находит соперника даже без общего уровня; письмо на iPhone больше не прокручивает страницу.',
       'Закрытый бета-тест: все режимы, посохи, пламя и арены открыты с 1 уровня. Админы могут назначать других админов.',
       'Обучение начинается с выбора языка, а его окно стало больше.',
-      'Новые 3D-посохи и арены, сделанные по моделям из Blender.',
+      'Новые 3D-посохи (Листвы, Углей, Прилива, Бури, Пустоты — у каждого своя анимация) и пять новых 3D-арен: Лес, Болото, Равнины, Замок и Мировое древо — с рисованным небом, качающимися деревьями, водой, флагами и светлячками.',
+      'Полное 3D: мышь теперь поворачивает голову, а не сдвигает камеру, — и другие игроки видят, куда смотрит ваш персонаж. В лёгком режиме остаётся параллакс.',
     ],
   },
   {

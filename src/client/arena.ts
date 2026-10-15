@@ -133,7 +133,18 @@ screen.orientation?.addEventListener?.('change', reflow);
 /** The background the player chose (and the time of day): shown far behind the arena. */
 export function setArenaBackground(id: BackgroundId, time: TimeOfDay) { bg = { id, time }; }
 
+/** players' ids → who they are in the arena (for their mouse look) */
+const whoById = new Map<string, Who>();
+/** Another player's mouse look arrived from the server: their model turns its head. */
+export function arenaLook(id: string, yaw: number, pitch: number) {
+  const who = whoById.get(id);
+  if (who) arena()?.look(who, yaw, pitch);
+}
+
 function configure(s: Omit<ArenaSetup, 'bgSvg' | 'bgKey' | 'time'>) {
+  whoById.clear();
+  if (s.opp) whoById.set(s.opp.id, 'opp');
+  for (const a of s.allies) whoById.set(a.id, `ally:${a.id}`);
   pending = s;
   if (api && onScreen && wanted()) void activate();
 }
