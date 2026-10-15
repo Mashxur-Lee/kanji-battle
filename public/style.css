@@ -1738,3 +1738,24 @@ body.game-kb #comboHud { bottom: calc(var(--kb-h, 0px) + 6%); left: 4%; transfor
 .news-patch ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; color: var(--muted); }
 .news-patch.latest ul { color: var(--text); }
 .news-btn .badge { margin-left: 4px; }
+
+/* ── 0.9.9.1 ─────────────────────────────────────────────────────────────── */
+/* "← Menu" (and the other page backs): a clear pill, always at the top left, on every page */
+.screen > .back {
+  position: fixed; top: 62px; left: var(--gutter); z-index: 20; margin: 0;
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px 8px 12px; border-radius: 999px;
+  background: rgba(20, 16, 44, .82); border: 1.5px solid rgba(110, 231, 255, .55); color: #e8f9ff;
+  font-size: 1rem; font-weight: 800; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); backdrop-filter: blur(4px);
+}
+.screen > .back:hover { background: rgba(110, 231, 255, .18); color: #fff; }
+.screen:has(> .back) { padding-top: 112px; }
+/* preparation: "Back to lobby" sits above the heading instead of on top of it */
+#prepBack.lobby-btn { position: static; margin: 0 0 12px; }
+#prep:has(> #prepBack) { padding-top: 72px; }
+/* Study spells: the decks and practice cards in the middle */
+#study { max-width: calc(1180px + 2 * var(--gutter)); margin: 0 auto; }
+#study .study-decks, #study .practice-row { margin-left: auto; margin-right: auto; }
+/* the Challenge mode list fits inside the profile card */
+.pp-modes { grid-template-columns: 1fr; }
+.pp-mode { white-space: normal; min-width: 0; width: 100%; text-align: left; justify-content: flex-start; }
+.other-pop { max-height: calc(100 * var(--dvh) - 24px); overflow-y: auto; }

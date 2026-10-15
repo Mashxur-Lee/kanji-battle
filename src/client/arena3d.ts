@@ -304,7 +304,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   classic.add(rim);
   const rune = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), new THREE.MeshBasicMaterial({ map: ringTexture('#a98bff'), transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false }));
   rune.rotation.x = -Math.PI / 2; rune.position.y = 0.03; rune.scale.x = -1;
-  classic.add(rune);
+  scene.add(rune); // the rotating kanji circle the fighters stand on — kept in the 3D arenas too
 
   // pillars with torches around the far half
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0x5a5466, roughness: 0.9 });
@@ -430,7 +430,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   }
   const handLight = new THREE.PointLight(0xffffff, 1.4, 3, 2); handLight.position.set(0.3, 0.3, -0.5); camera.add(handLight);
   const HANDS: Record<string, { sleeve: number; skin: number }> = {
-    wizard: { sleeve: 0x3d5ad6, skin: 0xf0c49a }, witch: { sleeve: 0x5b2a86, skin: 0x9ad07a }, goblin: { sleeve: 0x7a5a2e, skin: 0x6fbf4a },
+    wizard: { sleeve: 0x3d5ad6, skin: 0xf0c49a }, witch: { sleeve: 0x5b3e8e, skin: 0xe8d6d2 }, goblin: { sleeve: 0x7a5a2e, skin: 0x6fbf4a },
     knight: { sleeve: 0xc4ccd8, skin: 0xb8c0cc }, kid: { sleeve: 0xd8662f, skin: 0xf0c49a }, human: { sleeve: 0x8a5a33, skin: 0xf0c49a },
   };
   // the gem: launched with each spell, then gone until you start writing / typing again, when it builds up
@@ -619,10 +619,12 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     envLights.length = 0;
     try { env = buildEnv(id, time, lite); } catch (e) { console.warn('3D arena failed, using the classic one', e); env = null; }
     classic.visible = !env;
+    rune.position.y = env ? 0.1 : 0.03;
     envKey.visible = !!env;
     if (!env) { bgKeyClassic = ''; return; }
     env.group.rotation.x = -Math.PI / 2; env.group.position.y = -env.floor;
     scene.add(env.group);
+    env.group.traverse((o) => { if (o.name === 'centre-pattern') o.visible = false; });
     for (const l of lite ? env.lights.slice(0, 2) : env.lights) { // Lite: only the main glow lights
       const p = new THREE.PointLight(new THREE.Color(...l.color), l.intensity * 8, l.dist, 2);
       p.position.copy(fromBlender(l.pos, env.floor));

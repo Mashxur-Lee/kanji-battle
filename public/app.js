@@ -88,7 +88,7 @@
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9";
+  var VERSION = "0.9.9.1";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -725,7 +725,7 @@
     "Study makes you stronger": "\u0423\u0447\u0451\u0431\u0430 \u0434\u0435\u043B\u0430\u0435\u0442 \u0441\u0438\u043B\u044C\u043D\u0435\u0435",
     "Study spells is a flashcard deck. Every spell you learn today raises your critical-hit chance, and words you miss in battle come back there to review.": "\xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2014 \u044D\u0442\u043E \u043A\u043E\u043B\u043E\u0434\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A. \u041A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 \u043F\u043E\u0432\u044B\u0448\u0430\u0435\u0442 \u0448\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430, \u0430 \u0441\u043B\u043E\u0432\u0430, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0432\u044B \u043E\u0448\u0438\u0431\u043B\u0438\u0441\u044C \u0432 \u0431\u043E\u044E, \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E\u0442\u0441\u044F \u0442\u0443\u0434\u0430 \u043D\u0430 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u0435.",
     "More to unlock": "\u0427\u0442\u043E \u043E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u0434\u0430\u043B\u044C\u0448\u0435",
-    "You start with Kanji Reading and Rapid. Kanji Writing and the Boss fight unlock at level 1, Deck Duel at level 2. There is also a Daily challenge, Progress, Friends \u2014 and monthly goals with rewards.": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438 \u0438 \u0411\u043B\u0438\u0446. \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438 \u0438 \u0411\u0438\u0442\u0432\u0430 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u0435 1, \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434 \u2014 \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u0435 2. \u0415\u0449\u0451 \u0435\u0441\u0442\u044C \u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435, \u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441, \u0414\u0440\u0443\u0437\u044C\u044F \u0438 \u043C\u0435\u0441\u044F\u0447\u043D\u044B\u0435 \u0446\u0435\u043B\u0438 \u0441 \u043D\u0430\u0433\u0440\u0430\u0434\u0430\u043C\u0438.",
+    "You start with Kanji Reading and Rapid. Kanji Writing, the Boss fight and Deck Duel unlock at level 1. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards.": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438 \u0438 \u0411\u043B\u0438\u0446. \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u0438\u0442\u0432\u0430 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C \u0438 \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u0435 1. \u0415\u0449\u0451 \u0435\u0441\u0442\u044C \u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435, \u0442\u0435\u0441\u0442 JLPT, \u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441, \u0414\u0440\u0443\u0437\u044C\u044F \u0438 \u043C\u0435\u0441\u044F\u0447\u043D\u044B\u0435 \u0446\u0435\u043B\u0438 \u0441 \u043D\u0430\u0433\u0440\u0430\u0434\u0430\u043C\u0438.",
     "Your first battle": "\u0412\u0430\u0448 \u043F\u0435\u0440\u0432\u044B\u0439 \u0431\u043E\u0439",
     "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them.": "\u0413\u043E\u0442\u043E\u0432\u044B? \u041C\u0438\u043D\u0443\u0442\u0443 \u0432\u044B \u0443\u0447\u0438\u0442\u0435 10 \u043F\u0440\u043E\u0441\u0442\u044B\u0445 \u0441\u043B\u043E\u0432, \u043F\u043E\u0442\u043E\u043C \u0441\u0440\u0430\u0436\u0430\u0435\u0442\u0435\u0441\u044C \u0438\u043C\u0438 \u0441 \u0418\u0418-\u043D\u043E\u0432\u0438\u0447\u043A\u043E\u043C.",
     "type its reading: yama": "\u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0447\u0442\u0435\u043D\u0438\u0435: yama",
@@ -756,7 +756,7 @@
     "\u2014 Anki-style flashcards. Missed words go to": "\u2014 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u0432 \u0441\u0442\u0438\u043B\u0435 Anki. \u041E\u0448\u0438\u0431\u043E\u0447\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u043F\u043E\u043F\u0430\u0434\u0430\u044E\u0442 \u0432",
     "Login streak": "\u0421\u0435\u0440\u0438\u044F \u0432\u0445\u043E\u0434\u043E\u0432",
     "\u2014 open the game on days in a row. Your best streak unlocks magic staffs in": "\u2014 \u0437\u0430\u0445\u043E\u0434\u0438\u0442\u0435 \u0432 \u0438\u0433\u0440\u0443 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0434\u043D\u0435\u0439 \u043F\u043E\u0434\u0440\u044F\u0434. \u041B\u0443\u0447\u0448\u0430\u044F \u0441\u0435\u0440\u0438\u044F \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u043E\u0441\u043E\u0445\u0438 \u0432",
-    ": Ember at 5 days, Tide at 10, Storm at 15, Void at 20.": ": Ember \u0437\u0430 5 \u0434\u043D\u0435\u0439, Tide \u0437\u0430 10, Storm \u0437\u0430 15, Void \u0437\u0430 20.",
+    ": Ember at 3 days, Tide at 5, Storm at 8, Void at 10.": ": Ember \u0437\u0430 3 \u0434\u043D\u044F, Tide \u0437\u0430 5, Storm \u0437\u0430 8, Void \u0437\u0430 10.",
     "How Kanji Reading works": "\u041A\u0430\u043A \u0443\u0441\u0442\u0440\u043E\u0435\u043D\u043E \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438",
     "How Kanji Writing works": "\u041A\u0430\u043A \u0443\u0441\u0442\u0440\u043E\u0435\u043D\u043E \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438",
     "How Boss Elimination works": "\u041A\u0430\u043A \u0443\u0441\u0442\u0440\u043E\u0435\u043D\u0430 \u0411\u0438\u0442\u0432\u0430 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C",
@@ -1148,13 +1148,13 @@
     const l = levelXp(xp);
     return l.into / l.need;
   };
-  var beta = { open: true };
+  var beta = { open: false };
   var BACKGROUNDS = [
     { id: "forest", name: "Forest", level: 0 },
-    { id: "swamp", name: "Swamp", level: 5 },
-    { id: "plains", name: "Plains", level: 10 },
-    { id: "castle", name: "Castle", level: 15 },
-    { id: "worldtree", name: "World Tree", level: 20 }
+    { id: "swamp", name: "Swamp", level: 3 },
+    { id: "plains", name: "Plains", level: 5 },
+    { id: "castle", name: "Castle", level: 8 },
+    { id: "worldtree", name: "World Tree", level: 10 }
   ];
   var FLAMES = [
     { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
@@ -1189,10 +1189,10 @@
   }
   var STAFFS = [
     { id: "verdant", name: "Verdant Staff", streak: 0, gem: "#6dff6a", blurb: "Carved from an ancient tree. It channels the natural energy of the earth and life." },
-    { id: "ember", name: "Ember Staff", streak: 5, gem: "#ff7a1a", blurb: "Forged from volcanic rock and blessed by fire spirits." },
-    { id: "tide", name: "Tide Staff", streak: 10, gem: "#3fb8ff", blurb: "Crafted from crystal and oceanic runes. It flows with the tides." },
-    { id: "storm", name: "Storm Staff", streak: 15, gem: "#b26bff", blurb: "A relic of the sky temples. It channels lightning." },
-    { id: "void", name: "Void Staff", streak: 20, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." },
+    { id: "ember", name: "Ember Staff", streak: 3, gem: "#ff7a1a", blurb: "Forged from volcanic rock and blessed by fire spirits." },
+    { id: "tide", name: "Tide Staff", streak: 5, gem: "#3fb8ff", blurb: "Crafted from crystal and oceanic runes. It flows with the tides." },
+    { id: "storm", name: "Storm Staff", streak: 8, gem: "#b26bff", blurb: "A relic of the sky temples. It channels lightning." },
+    { id: "void", name: "Void Staff", streak: 10, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." },
     { id: "frost", name: "Frost Staff", streak: 0, season: 1, base: "tide", tint: "#d8f4ff", gem: "#bfefff", blurb: "January reward. Rimed with ice that never melts." },
     { id: "blossom", name: "Blossom Staff", streak: 0, season: 3, base: "verdant", tint: "#ffb8d8", gem: "#ff7ab8", blurb: "March reward. A branch that flowers whenever it casts." },
     { id: "jade", name: "Jade Staff", streak: 0, season: 5, base: "ember", tint: "#7dffb0", gem: "#3dff8a", blurb: "May reward. Carved from one piece of temple jade." },
@@ -1207,7 +1207,7 @@
     return d.season ? unlocks2.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
   };
   var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
-  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 0, boss: 0, deck: 0 };
+  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 1 };
   var modeUnlocked = (mode3, xp, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode3] ?? 0);
   var STUDY_LOCK = 100;
   var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
@@ -3039,6 +3039,11 @@
   var hideProfileCard = () => {
     $("otherPop").hidden = true;
   };
+  function clampProfileCard() {
+    const pop = $("otherPop");
+    const top = parseFloat(pop.style.top) || 0, hgt = pop.offsetHeight;
+    if (top + hgt > viewH() - 12) pop.style.top = `${Math.max(12, viewH() - 12 - hgt)}px`;
+  }
   function profileActions(p, a) {
     const box = h("div", "pp-actions");
     const msg = h("p", "hint pp-msg");
@@ -3073,6 +3078,7 @@
       if (!a.canChallenge) c.title = "Finish your game first";
       c.onclick = () => {
         modes.hidden = !modes.hidden;
+        clampProfileCard();
       };
       box.append(c, modes);
     }
@@ -3626,6 +3632,22 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.1",
+      date: "2026-10",
+      en: [
+        "Unlocks are earned again (the closed beta is over), but easier: Kanji Writing, the Boss fight and Deck Duel open at level 1; backgrounds at levels 3 / 5 / 8 / 10; staffs at a 3 / 5 / 8 / 10-day login streak.",
+        "A new Witch: a tall, low-poly witch after her concept art \u2014 wide hat with a crescent moon, long wavy hair, open coat with bell sleeves and a pointed hem, heeled boots.",
+        "The rotating kanji circle is back under the fighters in every 3D arena; the orange V on the Plains is gone; the Castle\u2019s warriors now fight each to their own rhythm.",
+        "\u201C\u2190 Menu\u201D is a clear button at the top left of every page; the Study spells cards are centred; Back to lobby no longer covers the Preparation title; the Challenge mode list fits inside the profile card."
+      ],
+      ru: [
+        "\u041D\u0430\u0433\u0440\u0430\u0434\u044B \u0441\u043D\u043E\u0432\u0430 \u043D\u0443\u0436\u043D\u043E \u0437\u0430\u0441\u043B\u0443\u0436\u0438\u0442\u044C (\u0437\u0430\u043A\u0440\u044B\u0442\u044B\u0439 \u0431\u0435\u0442\u0430-\u0442\u0435\u0441\u0442 \u043E\u043A\u043E\u043D\u0447\u0435\u043D), \u043D\u043E \u043F\u0440\u043E\u0449\u0435: \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u0438\u0442\u0432\u0430 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C \u0438 \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u0435 1; \u0444\u043E\u043D\u044B \u2014 \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u044F\u0445 3 / 5 / 8 / 10; \u043F\u043E\u0441\u043E\u0445\u0438 \u2014 \u0437\u0430 \u0441\u0435\u0440\u0438\u044E \u0432\u0445\u043E\u0434\u043E\u0432 3 / 5 / 8 / 10 \u0434\u043D\u0435\u0439.",
+        "\u041D\u043E\u0432\u0430\u044F \u0412\u0435\u0434\u044C\u043C\u0430: \u0432\u044B\u0441\u043E\u043A\u0430\u044F low-poly \u0432\u0435\u0434\u044C\u043C\u0430 \u043F\u043E \u043A\u043E\u043D\u0446\u0435\u043F\u0442-\u0430\u0440\u0442\u0443 \u2014 \u0448\u0438\u0440\u043E\u043A\u0430\u044F \u0448\u043B\u044F\u043F\u0430 \u0441 \u043F\u043E\u043B\u0443\u043C\u0435\u0441\u044F\u0446\u0435\u043C, \u0434\u043B\u0438\u043D\u043D\u044B\u0435 \u0432\u043E\u043B\u043D\u0438\u0441\u0442\u044B\u0435 \u0432\u043E\u043B\u043E\u0441\u044B, \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0435 \u043F\u0430\u043B\u044C\u0442\u043E \u0441 \u0440\u0443\u043A\u0430\u0432\u0430\u043C\u0438-\u043A\u043E\u043B\u043E\u043A\u043E\u043B\u0430\u043C\u0438 \u0438 \u0437\u0443\u0431\u0447\u0430\u0442\u044B\u043C \u043F\u043E\u0434\u043E\u043B\u043E\u043C, \u0441\u0430\u043F\u043E\u0433\u0438 \u043D\u0430 \u043A\u0430\u0431\u043B\u0443\u043A\u0430\u0445.",
+        "\u0412\u0440\u0430\u0449\u0430\u044E\u0449\u0438\u0439\u0441\u044F \u043A\u0440\u0443\u0433 \u0441 \u043A\u0430\u043D\u0434\u0437\u0438 \u0441\u043D\u043E\u0432\u0430 \u043F\u043E\u0434 \u0431\u043E\u0439\u0446\u0430\u043C\u0438 \u043D\u0430 \u0432\u0441\u0435\u0445 3D-\u0430\u0440\u0435\u043D\u0430\u0445; \u043E\u0440\u0430\u043D\u0436\u0435\u0432\u0430\u044F \xABV\xBB \u043D\u0430 \u0420\u0430\u0432\u043D\u0438\u043D\u0430\u0445 \u0443\u0431\u0440\u0430\u043D\u0430; \u0432\u043E\u0438\u043D\u044B \u0443 \u0417\u0430\u043C\u043A\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u0441\u0440\u0430\u0436\u0430\u044E\u0442\u0441\u044F \u043A\u0430\u0436\u0434\u044B\u0439 \u0432 \u0441\u0432\u043E\u0451\u043C \u0440\u0438\u0442\u043C\u0435.",
+        "\xAB\u2190 \u041C\u0435\u043D\u044E\xBB \u2014 \u0437\u0430\u043C\u0435\u0442\u043D\u0430\u044F \u043A\u043D\u043E\u043F\u043A\u0430 \u0441\u043B\u0435\u0432\u0430 \u0432\u0432\u0435\u0440\u0445\u0443 \u043D\u0430 \u043A\u0430\u0436\u0434\u043E\u0439 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0435; \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u043F\u043E \u0446\u0435\u043D\u0442\u0440\u0443; \xAB\u041D\u0430\u0437\u0430\u0434 \u0432 \u043B\u043E\u0431\u0431\u0438\xBB \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A \xAB\u041F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0430\xBB; \u0441\u043F\u0438\u0441\u043E\u043A \u0440\u0435\u0436\u0438\u043C\u043E\u0432 \u0434\u043B\u044F \u0432\u044B\u0437\u043E\u0432\u0430 \u043F\u043E\u043C\u0435\u0449\u0430\u0435\u0442\u0441\u044F \u0432 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435 \u043F\u0440\u043E\u0444\u0438\u043B\u044F."
+      ]
+    },
     {
       v: "0.9.9",
       date: "2026-10",
@@ -5354,7 +5376,7 @@ ${stack}`.slice(0, 2e3);
       extra: tryIt
     },
     { title: "Study makes you stronger", body: "Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review." },
-    { title: "Everything is open", body: "Every mode is open from the start: Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards." },
+    { title: "More to unlock", body: "You start with Kanji Reading and Rapid. Kanji Writing, the Boss fight and Deck Duel unlock at level 1. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards." },
     { title: "\u304B\u306A first, then kanji", body: `Beginners: study \u304B\u306A in Study spells until you know it by heart. Then tick "I've mastered hiragana" in Settings (the sliders button, top-right) \u2014 and the kanji levels N5 to N1 open for studying and battles.` },
     { title: "Your first battle", body: "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them." }
   ];

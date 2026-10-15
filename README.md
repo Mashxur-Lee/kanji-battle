@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9
+# Kanji Wizards · v0.9.9.1
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -131,7 +131,7 @@ history) to see their profile: level, wins, losses, win rate and spells learned.
 
 Opening the game on consecutive days builds a 🔥 login streak (by your own calendar day); your current and best
 streak have their own boxes in your profile and on your profile card for others. Your **best** streak unlocks magic
-staffs (so a broken streak never takes one away): Verdant (everyone), Ember 5 days, Tide 10, Storm 15, Void 20.
+staffs (so a broken streak never takes one away): Verdant (everyone), Ember 3 days, Tide 5, Storm 8, Void 10.
 
 ## New players: tutorial and unlocks
 

@@ -61,19 +61,17 @@ export function nextLocalMidnight(today: string, tzOffsetMin: number): number {
 }
 
 // ── closed beta ───────────────────────────────────────────────────────────────
-/** Closed beta: every background, flame, staff and game mode is open to everyone, whatever their level or
- *  login streak. Set `open` to false for the public release to bring back the gradual unlocks (the tests do,
- *  to check the normal rules). The hiragana-first lock for kana beginners and the study lock stay — they
- *  aren't rewards. */
-export const beta = { open: true };
+/** Closed beta switch: true opens every background, flame, staff and game mode to everyone. Off since 0.9.9.1
+ *  (unlocks are earned again, with lower requirements: modes at level 1, skins at level / streak 10 at most). */
+export const beta = { open: false };
 
 // ── backgrounds ────────────────────────────────────────────────────────────────
 export const BACKGROUNDS = [
   { id: 'forest', name: 'Forest', level: 0 },
-  { id: 'swamp', name: 'Swamp', level: 5 },
-  { id: 'plains', name: 'Plains', level: 10 },
-  { id: 'castle', name: 'Castle', level: 15 },
-  { id: 'worldtree', name: 'World Tree', level: 20 },
+  { id: 'swamp', name: 'Swamp', level: 3 },
+  { id: 'plains', name: 'Plains', level: 5 },
+  { id: 'castle', name: 'Castle', level: 8 },
+  { id: 'worldtree', name: 'World Tree', level: 10 },
 ] as const;
 export type BackgroundId = (typeof BACKGROUNDS)[number]['id'];
 export const isBackground = (x: unknown): x is BackgroundId => BACKGROUNDS.some((b) => b.id === x);
@@ -147,10 +145,10 @@ export function flameShades(f: string | null | undefined): [string, string, stri
 export interface StaffDef { id: string; name: string; streak: number; gem: string; blurb: string; season?: number; base?: string; tint?: string }
 export const STAFFS: readonly StaffDef[] = [
   { id: 'verdant', name: 'Verdant Staff', streak: 0, gem: '#6dff6a', blurb: 'Carved from an ancient tree. It channels the natural energy of the earth and life.' },
-  { id: 'ember', name: 'Ember Staff', streak: 5, gem: '#ff7a1a', blurb: 'Forged from volcanic rock and blessed by fire spirits.' },
-  { id: 'tide', name: 'Tide Staff', streak: 10, gem: '#3fb8ff', blurb: 'Crafted from crystal and oceanic runes. It flows with the tides.' },
-  { id: 'storm', name: 'Storm Staff', streak: 15, gem: '#b26bff', blurb: 'A relic of the sky temples. It channels lightning.' },
-  { id: 'void', name: 'Void Staff', streak: 20, gem: '#4a7dff', blurb: 'An ancient, otherworldly artifact. It bends reality and commands the unknown.' },
+  { id: 'ember', name: 'Ember Staff', streak: 3, gem: '#ff7a1a', blurb: 'Forged from volcanic rock and blessed by fire spirits.' },
+  { id: 'tide', name: 'Tide Staff', streak: 5, gem: '#3fb8ff', blurb: 'Crafted from crystal and oceanic runes. It flows with the tides.' },
+  { id: 'storm', name: 'Storm Staff', streak: 8, gem: '#b26bff', blurb: 'A relic of the sky temples. It channels lightning.' },
+  { id: 'void', name: 'Void Staff', streak: 10, gem: '#4a7dff', blurb: 'An ancient, otherworldly artifact. It bends reality and commands the unknown.' },
   { id: 'frost', name: 'Frost Staff', streak: 0, season: 1, base: 'tide', tint: '#d8f4ff', gem: '#bfefff', blurb: 'January reward. Rimed with ice that never melts.' },
   { id: 'blossom', name: 'Blossom Staff', streak: 0, season: 3, base: 'verdant', tint: '#ffb8d8', gem: '#ff7ab8', blurb: 'March reward. A branch that flowers whenever it casts.' },
   { id: 'jade', name: 'Jade Staff', streak: 0, season: 5, base: 'ember', tint: '#7dffb0', gem: '#3dff8a', blurb: 'May reward. Carved from one piece of temple jade.' },
@@ -172,7 +170,7 @@ export const staffOf = (s: string | null | undefined) => STAFFS.find((x) => x.id
 // ── gradual unlocks: new players start with Reading and Rapid ──────────────────────────────────
 /** Level needed to create a room or queue for a mode (joining a friend's room by code or invite is always allowed).
  *  Since 0.9.9 every mode is open from the start (only kana beginners wait for Deck Duel). */
-export const MODE_LEVEL: Record<string, number> = { reading: 0, rapid: 0, writing: 0, boss: 0, deck: 0 };
+export const MODE_LEVEL: Record<string, number> = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 1 };
 export const modeUnlocked = (mode: string, xp: number, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode] ?? 0);
 
 /** More "Struggling spells" waiting than this → the game modes lock until you study them. */

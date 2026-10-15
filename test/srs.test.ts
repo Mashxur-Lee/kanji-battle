@@ -48,7 +48,7 @@ test('progress: XP, levels, crit, backgrounds, characters', () => {
   assert.equal(new Date(midnight).toISOString(), '2026-10-09T19:00:00.000Z');
   assert.equal(Math.round(dailyCrit(10, midnight, midnight - 1) * 100), 11);
   assert.equal(dailyCrit(10, midnight, midnight), 0.01, 'resets at midnight');
-  assert.ok(unlocked('forest', 0) && !unlocked('swamp', 14_999) && unlocked('swamp', 15_000));
+  assert.ok(unlocked('forest', 0) && !unlocked('swamp', 5_999) && unlocked('swamp', 6_000) && !unlocked('worldtree', xpForLevel(10) - 1) && unlocked('worldtree', xpForLevel(10)));
   assert.deepEqual([avatarFor(['KANA']), avatarFor(['N5', 'KANA']), avatarFor(['N4']), avatarFor(['N3', 'N5']), avatarFor(['N1']), avatarFor(['N2', 'N3'])], ['goblin', 'kid', 'human', 'knight', 'wizard', 'witch']);
 });
 

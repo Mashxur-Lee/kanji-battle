@@ -1054,6 +1054,12 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
   pop.style.top = `${below + 240 > viewH() ? Math.max(12, r.top - 8 - pop.offsetHeight) : below}px`;
 }
 export const hideProfileCard = () => { $('otherPop').hidden = true; };
+/** keep the whole card on screen (it grows when the Challenge mode list opens) */
+function clampProfileCard() {
+  const pop = $('otherPop');
+  const top = parseFloat(pop.style.top) || 0, hgt = pop.offsetHeight;
+  if (top + hgt > viewH() - 12) pop.style.top = `${Math.max(12, viewH() - 12 - hgt)}px`;
+}
 
 /** Under someone's profile: Add friend (or accept their request), and Challenge a friend to a game. */
 function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
@@ -1080,7 +1086,7 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     }
     c.disabled = !a.canChallenge;
     if (!a.canChallenge) c.title = 'Finish your game first';
-    c.onclick = () => { modes.hidden = !modes.hidden; };
+    c.onclick = () => { modes.hidden = !modes.hidden; clampProfileCard(); };
     box.append(c, modes);
   }
   box.append(msg);

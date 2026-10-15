@@ -65,9 +65,11 @@ test('monthly goals: play 12 days, win 10, pass 150 cards → the month\'s rewar
   assert.deepEqual([m.name, m.reward, m.done], ['Maple', 'staff:maple', false]);
 });
 
-test('every game mode is open from the start (0.9.9)', () => {
-  for (const m of ['reading', 'rapid', 'writing', 'boss', 'deck']) assert.ok(modeUnlocked(m, 0), m);
-  assert.ok(modeUnlocked('deck', xpForLevel(1)));
+test('modes: Reading and Rapid from the start, Writing / Boss / Deck Duel at level 1 (0.9.9.1)', () => {
+  assert.ok(modeUnlocked('reading', 0) && modeUnlocked('rapid', 0));
+  assert.ok(!modeUnlocked('writing', 0) && !modeUnlocked('boss', 0) && !modeUnlocked('deck', 0));
+  assert.ok(modeUnlocked('writing', xpForLevel(1)) && modeUnlocked('boss', xpForLevel(1)) && modeUnlocked('deck', xpForLevel(1)));
+  assert.ok(modeUnlocked('deck', 0, true), 'admins have everything');
 });
 
 test('closed beta: every background, flame and staff is open to a brand-new player', () => {
