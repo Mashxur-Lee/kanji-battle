@@ -27,7 +27,9 @@ export interface UserRecord {
   tutorialDone: boolean; // new players get the first-run tutorial (accounts from before 0.9.6: true)
   unlocks: string[]; // seasonal rewards earned (monthly goals), e.g. 'flame:harvest'
   loginDay: string | null; // YYYY-MM-DD (the player's local date) of the last day they played
-  streak: number; // days in a row with a login
+  streak: number; // days in a row with all daily tasks done (0.9.9.3; before: with a login)
+  streakDay: string | null; // the last day the daily tasks were all done
+  border: string; // avatar border (Customize → Profile)
   bestStreak: number;
   dailyNew: number; // new words a day in "All spells" (10–150)
   newToday: number; // how many were added on lastNewDate
@@ -35,7 +37,7 @@ export interface UserRecord {
 }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -108,7 +110,7 @@ export const REPORTS_KEPT = 500; // the newest; errors beyond that are dropped
 export class UsernameTakenError extends Error {}
 
 /** One player's activity on one of their local days (progress page, monthly goals). */
-export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number }
+export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number; quizzes: number; challenges: number; passages: number }
 export type ActivityDelta = Partial<Omit<DayActivity, 'day'>>;
 /** A daily-challenge result. */
 export interface DailyResult { userId: string; username: string; correct: number; ms: number }
@@ -118,7 +120,7 @@ export interface FriendLink { id: string; username: string; status: 'accepted' |
 export const MATCH_HISTORY_LIMIT = 15; // older games are deleted
 const summaryOf = (m: MatchDetail): MatchSummary => ({ id: m.id, mode: m.mode, outcome: m.outcome, character: m.character, at: m.at, opponents: m.opponents });
 
-const blankProgress = () => ({ dailyNew: 25, newToday: 0, badges: [] as string[], xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: 'blue' as FlameId, staff: 'verdant' as StaffId, tutorialDone: true, unlocks: [] as string[], loginDay: null as string | null, streak: 0, bestStreak: 0 });
+const blankProgress = () => ({ dailyNew: 25, newToday: 0, badges: [] as string[], xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: 'blue' as FlameId, staff: 'verdant' as StaffId, tutorialDone: true, unlocks: [] as string[], loginDay: null as string | null, streak: 0, streakDay: null as string | null, border: 'none', bestStreak: 0 });
 
 /** In-memory store (tests); FileStore persists the same data as JSON. */
 export class MemoryStore implements Store {
@@ -229,9 +231,10 @@ export class MemoryStore implements Store {
   async addActivity(userId: string, day: string, d: ActivityDelta) {
     const log = this.activityLog.get(userId) ?? new Map<string, DayActivity>();
     this.activityLog.set(userId, log);
-    const a = log.get(day) ?? { day, login: false, reviews: 0, games: 0, wins: 0, xp: 0 };
+    const a = log.get(day) ?? { day, login: false, reviews: 0, games: 0, wins: 0, xp: 0, quizzes: 0, challenges: 0, passages: 0 };
     if (d.login) a.login = true;
     a.reviews += d.reviews ?? 0; a.games += d.games ?? 0; a.wins += d.wins ?? 0; a.xp += d.xp ?? 0;
+    a.quizzes = (a.quizzes ?? 0) + (d.quizzes ?? 0); a.challenges = (a.challenges ?? 0) + (d.challenges ?? 0); a.passages = (a.passages ?? 0) + (d.passages ?? 0);
     log.set(day, a);
     this.persist();
   }

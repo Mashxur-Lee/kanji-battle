@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { holdStaff } from './charkit';
+import { holdStaff, handMesh } from './charkit';
 
 type V3 = [number, number, number];
 const C = (hex: number) => new THREE.Color(hex);
@@ -289,12 +289,11 @@ export function buildWitch(side: Side, glowTex: THREE.Texture, staffSkin?: strin
   }, (u, v) => (v > 0.85 ? trim : mixC(robe, robeDeep, 0.3 * tri(u * 3))), true);
   const left = new THREE.Group(); left.position.set(-0.23, 1.47, 0); left.rotation.set(0.05, 0, 0.12); body.add(left);
   M(sleeve(0.6, 0.06), cloth, left);
-  const lh = M(new THREE.SphereGeometry(0.042, 6, 4), skin, left, [0, -0.6, 0.05]); lh.scale.set(0.8, 1.25, 0.6);
+  left.add(handMesh(PAL.skin, cloth, false)).position.set(0, -0.58, 0.05);
   const arm = new THREE.Group(); arm.position.set(0.23, 1.47, 0.02); arm.rotation.z = -0.35; body.add(arm);
   // the staff arm: a shorter, narrower bell that stops above the wrist, so the staff never cuts through it
   const rs = M(sleeve(0.4, 0.0, 0.07), cloth, arm); rs.rotation.x = -0.5;
   const wrist = M(new THREE.CylinderGeometry(0.03, 0.034, 0.12, 6), skin, arm, [0, -0.38, 0.19]); wrist.rotation.x = -0.5;
-  M(new THREE.SphereGeometry(0.044, 6, 4), skin, arm, [0, -0.43, 0.24]).scale.set(0.85, 1.1, 0.7);
-  const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.43, 0.24], materials, glowTex, staffSkin);
+  const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.43, 0.24], materials, glowTex, staffSkin, handMesh(PAL.skin, cloth, true));
   return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials };
 }

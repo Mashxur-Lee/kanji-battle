@@ -13,7 +13,7 @@ interface UserRow {
   id: string; username: string; password_hash: string; role: Role; banned: boolean; created_at: Date;
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
   crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null; tutorial_done: boolean | null; unlocks: string[] | null;
-  login_day: string | null; streak: number | null; best_streak: number | null;
+  login_day: string | null; streak: number | null; best_streak: number | null; streak_day: string | null; border: string | null;
   daily_new: number | null; new_today: number | null; badges: string[] | null;
 }
 interface CardRow {
@@ -27,7 +27,7 @@ const toUser = (r: UserRow): UserRecord => ({
   studyLevels: r.study_levels ?? [], lastNewDate: r.last_new_date, newNotice: r.new_notice,
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
   wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant', tutorialDone: r.tutorial_done ?? true, unlocks: r.unlocks ?? [],
-  loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0,
+  loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0, streakDay: r.streak_day ?? null, border: r.border ?? 'none',
   dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [],
 });
 const toCard = (r: CardRow): SrsCard => ({
@@ -40,7 +40,7 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   banned: 'banned', passwordHash: 'password_hash', background: 'background',
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
   critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff', tutorialDone: 'tutorial_done', unlocks: 'unlocks',
-  loginDay: 'login_day', streak: 'streak', bestStreak: 'best_streak', role: 'role',
+  loginDay: 'login_day', streak: 'streak', streakDay: 'streak_day', border: 'border', bestStreak: 'best_streak', role: 'role',
   dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges',
 };
 
@@ -136,6 +136,13 @@ export class PgStore implements Store {
         xp integer not null default 0,
         primary key (user_id, day)
       )`;
+    // v0.9.9.3 the daily streak counts days with all four daily tasks done; avatar borders
+    await this.sql`alter table kw_activity add column if not exists quizzes integer not null default 0`;
+    await this.sql`alter table kw_activity add column if not exists challenges integer not null default 0`;
+    await this.sql`alter table kw_activity add column if not exists passages integer not null default 0`;
+    await this.sql`alter table kw_users add column if not exists streak_day text`;
+    await this.sql`alter table kw_users add column if not exists border text not null default 'none'`;
+    await this.sql`update kw_users set streak_day = login_day where streak_day is null and login_day is not null`; // a running streak carries on
     await this.sql`
       create table if not exists kw_daily (
         day text not null,
@@ -359,15 +366,16 @@ export class PgStore implements Store {
   }
   async addActivity(userId: string, day: string, d: ActivityDelta) {
     await this.sql`
-      insert into kw_activity (user_id, day, login, reviews, games, wins, xp)
-      values (${userId}, ${day}, ${!!d.login}, ${d.reviews ?? 0}, ${d.games ?? 0}, ${d.wins ?? 0}, ${d.xp ?? 0})
+      insert into kw_activity (user_id, day, login, reviews, games, wins, xp, quizzes, challenges, passages)
+      values (${userId}, ${day}, ${!!d.login}, ${d.reviews ?? 0}, ${d.games ?? 0}, ${d.wins ?? 0}, ${d.xp ?? 0}, ${d.quizzes ?? 0}, ${d.challenges ?? 0}, ${d.passages ?? 0})
       on conflict (user_id, day) do update set
         login = kw_activity.login or excluded.login,
         reviews = kw_activity.reviews + excluded.reviews, games = kw_activity.games + excluded.games,
-        wins = kw_activity.wins + excluded.wins, xp = kw_activity.xp + excluded.xp`;
+        wins = kw_activity.wins + excluded.wins, xp = kw_activity.xp + excluded.xp,
+        quizzes = kw_activity.quizzes + excluded.quizzes, challenges = kw_activity.challenges + excluded.challenges, passages = kw_activity.passages + excluded.passages`;
   }
   async activity(userId: string, fromDay: string): Promise<DayActivity[]> {
-    return this.sql<DayActivity[]>`select day, login, reviews, games, wins, xp from kw_activity where user_id = ${userId} and day >= ${fromDay} order by day`;
+    return this.sql<DayActivity[]>`select day, login, reviews, games, wins, xp, quizzes, challenges, passages from kw_activity where user_id = ${userId} and day >= ${fromDay} order by day`;
   }
   async saveDaily(day: string, userId: string, correct: number, ms: number, marks = '') {
     const r = await this.sql`insert into kw_daily (day, user_id, correct, ms, marks) values (${day}, ${userId}, ${correct}, ${ms}, ${marks}) on conflict do nothing returning day`;

@@ -1,5 +1,5 @@
 import { LEVELS, type Level } from '../../shared/protocol';
-import { MONTH_GOALS, seasonOf, type MonthGoalId } from '../../shared/progress';
+import { DAILY_TASKS, MONTH_GOALS, seasonOf, type DailyTaskState, type MonthGoalId } from '../../shared/progress';
 import type { DayActivity, Store, UserRecord } from '../db/Store';
 import { VOCAB } from '../vocab';
 
@@ -44,7 +44,24 @@ export class ProgressService {
   /** Record something the player did today, then check this month's goals. Returns a newly earned reward, if any. */
   async record(userId: string, day: string, delta: Parameters<Store['addActivity']>[2]): Promise<string | null> {
     await this.store.addActivity(userId, day, delta);
+    await this.checkStreak(userId, day);
     return this.checkSeason(userId, day);
+  }
+
+  /** Today's daily tasks (Study 10 spells, a quiz, the daily challenge, a passage) and how far along each is. */
+  async tasks(userId: string, day: string): Promise<DailyTaskState[]> {
+    const a = (await this.store.activity(userId, day)).find((r) => r.day === day);
+    const value: Record<string, number> = { learn: a?.reviews ?? 0, quiz: a?.quizzes ?? 0, daily: a?.challenges ?? 0, passage: a?.passages ?? 0 };
+    return DAILY_TASKS.map((t) => ({ id: t.id, label: t.label, target: t.target, value: Math.min(t.target, value[t.id] ?? 0) }));
+  }
+
+  /** All four tasks done today → the streak goes up (once a day; a missed day starts it over). */
+  async checkStreak(userId: string, day: string) {
+    if (!(await this.tasks(userId, day)).every((t) => t.value >= t.target)) return;
+    const u = await this.store.findById(userId);
+    if (!u || u.streakDay === day) return;
+    const streak = u.streakDay === shiftDay(day, -1) ? (u.streak ?? 0) + 1 : 1;
+    await this.store.update(userId, { streakDay: day, streak, bestStreak: Math.max(u.bestStreak ?? 0, streak) });
   }
 
   async month(u: UserRecord, day: string): Promise<MonthProgress> {

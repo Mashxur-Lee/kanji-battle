@@ -1,6 +1,8 @@
 import './support'; // error reporting first, so early errors are caught too
 import { refreshOnline } from './support';
-import { showMissedSave } from './decks';
+import { onTaskDone, showMissedSave, startQuiz } from './decks';
+import { initTasks, renderTasks, taskActions, tasksAtLogin } from './dailytasks';
+import { checkRewards } from './rewards';
 import { initWhatsNew } from './whatsnew';
 initWhatsNew();
 import { adminTab, refreshInboxBadge, setAdminTab } from './adminui';
@@ -30,7 +32,6 @@ import { dailyPending, openDaily } from './dailyui';
 import { initFriends, onFriendEvent, onInvite, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
 import { askNotifyPermission } from './notify';
-import { FLAMES as ALL_FLAMES, STAFFS as ALL_STAFFS } from '../shared/progress';
 
 applyUiZoom(); // before anything is laid out
 
@@ -80,6 +81,7 @@ ui.onScreen((s) => {
   const title = ui.$('modeTitle');
   title.hidden = !['prep', 'battle', 'deck'].includes(s);
   document.body.classList.toggle('mode-shown', !title.hidden);
+  title.classList.toggle('in-game', s === 'battle' || s === 'deck'); // the clock takes the top centre; the name sits bottom-left
   // leaving the battle: let go of the answer box (it stays enabled between words so the phone keyboard stays up)
   if (s !== 'battle' && document.activeElement?.id === 'answer') (document.activeElement as HTMLElement).blur();
   if (!title.hidden) title.replaceChildren(ui.modeBadge(s === 'deck' ? 'deck' : mode), document.createTextNode(MODE_LABEL[s === 'deck' ? 'deck' : mode]));
@@ -121,14 +123,8 @@ let soloVsAi = false; // you are the only human in the room → Pause
 let writeShape = ''; // the word being written with its kanji hidden: 必ず → □ず
 let prevStaff: string | null = null; // the staff the menu wizards hold // invited while in another room: join after leaving it
 function applyProfile(p: Profile) {
-  // a monthly reward just unlocked → say so
-  const before = profile?.unlocks ?? null;
-  if (user) celebrateNew(user.id, p.unlocks);
-  if (before) for (const r of p.unlocks ?? []) if (!before.includes(r) && !r.startsWith('flag:')) {
-    const [kind, id] = r.split(':');
-    const name = kind === 'flame' ? `${ALL_FLAMES.find((f) => f.id === id)?.name} flames` : ALL_STAFFS.find((x) => x.id === id)?.name;
-    ui.toast(`Monthly goals complete! ${name} unlocked — equip it in Customize.`, 7000);
-  }
+  if (user) celebrateNew(user.id, p.unlocks); // new achievements: the celebration
+  // (0.9.9.3: new unlocks — monthly rewards too — are shown by the reward box, rewards.ts)
   profile = p;
   ui.setProfile(p);
   ui.$('kanaRow').hidden = ui.$('kanaInfo').hidden = false;
@@ -137,6 +133,9 @@ function applyProfile(p: Profile) {
   if (!p.tutorialDone && !tutorialShown && user && !inRoom) { tutorialShown = true; startTutorial(); }
   void dailyPending().then((open) => { ui.$('dailyBadge').hidden = !open; });
   refreshFriendsBadge();
+  renderTasks(p); // the daily streak tasks
+  if (user && !inRoom && ui.currentScreen() === 'menu') checkRewards(user.id, p, user.role === 'admin', applyProfile); // something new unlocked → a reward box
+  if (user && p.tutorialDone && !tutorialShown && !inRoom && ui.currentScreen() === 'menu') tasksAtLogin(p);
   if (user?.role === 'admin') void refreshInboxBadge(); // new bug reports / suggestions
   // too many struggling spells waiting → the game modes are locked until you study (the server checks too)
   const locked = user?.role !== 'admin' && (p.strugglingDue ?? 0) > STUDY_LOCK;
@@ -148,6 +147,12 @@ function applyProfile(p: Profile) {
   preloadArena();
 }
 onProfileChange(applyProfile);
+onTaskDone.cb = applyProfile;
+initTasks();
+taskActions.learn = () => ui.$('studyBtn').click();
+taskActions.quiz = () => void startQuiz();
+taskActions.daily = () => ui.$('dailyBtn').click();
+taskActions.passage = () => ui.$('passageBtn').click();
 
 async function refreshProfile() {
   try { applyProfile((await api.me()).profile); } catch { /* offline: keep what we have */ }

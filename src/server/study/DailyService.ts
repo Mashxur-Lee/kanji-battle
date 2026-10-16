@@ -70,7 +70,7 @@ export class DailyService {
     const mine = await this.store.daily(day, u.id);
     const board = await this.store.dailyBoard(day, 20);
     const rank = mine ? (await this.store.dailyBetter(day, mine.correct, mine.ms)) + 1 : null;
-    const words = mine ? this.words(day).map((v, i) => ({ kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === '1' : null })) : null;
+    const words = mine ? this.words(day).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === '1' : null })) : null;
     return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), words, inProgress: this.attempts.get(u.id)?.day === day };
   }
 
@@ -127,10 +127,8 @@ export class DailyService {
       if (missed.length) await this.store.markStruggling(u.id, missed, this.now()); // (adds the card if you didn't have it)
     }
     const xp = saved ? a.correct * XP_PER_CORRECT + (a.correct === DAILY_WORDS ? 100 : 0) : 0;
-    if (xp) {
-      await this.store.addXp(u.id, xp);
-      await this.progress.record(u.id, playerDay(u, this.now()), { xp });
-    }
+    if (xp) await this.store.addXp(u.id, xp);
+    if (saved) await this.progress.record(u.id, playerDay(u, this.now()), { xp, challenges: 1 }); // a daily task (the streak)
     if (saved && a.correct === DAILY_WORDS) await this.onPerfect?.(u.id);
     const rank = (await this.store.dailyBetter(a.day, a.correct, a.ms)) + 1;
     const players = (await this.store.dailyBoard(a.day, 100_000)).length;

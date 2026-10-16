@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { C, type V3, surf, lathe, tube, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, tri, mixC, star4, lattice } from './charkit';
+import { C, type V3, surf, lathe, tube, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, tri, mixC, star4, lattice } from './charkit';
 
 const PAL = {
   robe: C(0x3463c8), robeDeep: C(0x274c9c), cream: C(0xf1e7cf), creamDeep: C(0xd9cdb0), gold: C(0xe4b84c), goldDeep: C(0xb08630),
@@ -126,12 +126,11 @@ export function buildWizard(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   }, (u, v) => (v > 0.88 ? PAL.cream : v > 0.72 ? goldBand(u, (v - 0.72) / 0.16, 5, robeDeep) : mixC(robe, robeDeep, 0.3 * tri(u * 3))), true);
   const left = new THREE.Group(); left.position.set(-0.22, 1.42, 0); left.rotation.set(0.05, 0, 0.12); body.add(left);
   add(sleeve(0.58, 0.05, 0.13), cloth, left);
-  add(new THREE.SphereGeometry(0.04, 6, 4), skin, left, [0, -0.58, 0.04]).scale.set(0.8, 1.25, 0.6);
+  left.add(handMesh(PAL.skin, cloth, false)).position.set(0, -0.56, 0.04);
   const arm = new THREE.Group(); arm.position.set(0.22, 1.42, 0.02); arm.rotation.z = -0.35; body.add(arm);
   add(sleeve(0.4, 0, 0.065), cloth, arm).rotation.x = -0.5;
   add(new THREE.CylinderGeometry(0.03, 0.033, 0.12, 6), skin, arm, [0, -0.38, 0.19]).rotation.x = -0.5;
-  add(new THREE.SphereGeometry(0.043, 6, 4), skin, arm, [0, -0.43, 0.24]).scale.set(0.85, 1.1, 0.7);
-  const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.43, 0.24], materials, glowTex, staffSkin);
+  const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.43, 0.24], materials, glowTex, staffSkin, handMesh(PAL.skin, cloth, true));
   return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials };
 }
 

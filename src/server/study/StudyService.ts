@@ -3,7 +3,7 @@ import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry }
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
-import { isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
+import { BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
@@ -28,7 +28,8 @@ export interface DeckRow { vocabId: string; kanji: string; reading: string; mean
 export interface QuizQuestion { kind: 'reading' | 'meaning' | 'kanji'; vocabId: string; level: Level; prompt: string; sub?: string; choices: string[]; answer: number }
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
-  tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew: number; badges: string[] }
+  tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew: number; badges: string[];
+  tasks: DailyTaskState[]; streakDay: string | null; border: string }
 
 /** Public URL of a profile picture (versioned, so browsers can cache it forever). */
 export const picUrl = (u: { id: string; avatarV: number }) => (u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null);
@@ -66,6 +67,7 @@ export class StudyService {
       streak: liveStreak(u, new Date(now).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0,
       tutorialDone: u.tutorialDone ?? true, unlocks: u.unlocks ?? [], month: await this.progress.month(u, playerDay(u, now)),
       dailyNew: u.dailyNew ?? DAILY_NEW, badges: u.badges ?? [],
+      tasks: await this.progress.tasks(u.id, playerDay(u, now)), streakDay: u.streakDay ?? null, border: u.border ?? 'none',
     };
   }
 
@@ -75,10 +77,17 @@ export class StudyService {
    */
   async touchLogin(u: UserRecord, today: string): Promise<UserRecord> {
     if (u.loginDay === today) return u;
-    const streak = u.loginDay === dayBefore(today) ? (u.streak ?? 0) + 1 : 1;
-    const rec = (await this.store.update(u.id, { loginDay: today, streak, bestStreak: Math.max(u.bestStreak ?? 0, streak) })) ?? u;
+    // 0.9.9.3: logging in no longer counts for the streak — the four daily tasks do (ProgressService.checkStreak)
+    const rec = (await this.store.update(u.id, { loginDay: today })) ?? u;
     await this.progress.record(u.id, today, { login: true });
     return (await this.store.findById(u.id)) ?? rec;
+  }
+
+  /** A daily task done in the browser (the JLPT quiz, a reading passage) — counts towards today's streak. */
+  async recordTask(u: UserRecord, task: unknown, today: string) {
+    if (task !== 'quiz' && task !== 'passage') throw new StudyError('Unknown task');
+    await this.progress.record(u.id, today, task === 'quiz' ? { quizzes: 1 } : { passages: 1 });
+    return this.profile((await this.store.findById(u.id)) ?? u);
   }
 
   /** Struggling spells waiting to be studied (new, learning or due). */
@@ -106,7 +115,7 @@ export class StudyService {
   async setStaff(u: UserRecord, s: unknown) {
     if (!isStaff(s)) throw new StudyError('Unknown staff');
     const def = STAFFS.find((x) => x.id === s)!;
-    if (u.role !== 'admin' && !staffUnlocked(s, u.bestStreak ?? 0, u.unlocks)) throw new StudyError(def.season ? 'A monthly reward: complete that month\'s goals' : `Unlocks with a ${def.streak}-day login streak`, 403);
+    if (u.role !== 'admin' && !staffUnlocked(s, u.bestStreak ?? 0, u.unlocks)) throw new StudyError(def.season ? 'A monthly reward: complete that month\'s goals' : `Unlocks with a ${def.streak}-day daily streak`, 403);
     await this.store.update(u.id, { staff: s });
   }
 
@@ -120,7 +129,7 @@ export class StudyService {
   async publicProfile(id: string): Promise<PublicProfile | null> {
     const u = await this.store.findById(id);
     if (!u || u.banned) return null;
-    return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date().toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [] };
+    return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date().toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none' };
   }
 
   matches(userId: string) { return this.store.matches(userId, MATCH_HISTORY_LIMIT); }
@@ -403,6 +412,15 @@ export class StudyService {
     return { vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, state: c.state, intervals: previewIntervals(c, now), custom: w.custom };
   }
 
+  /** Avatar border (Customize → Profile), unlocked by level; admins have all. */
+  async setBorder(u: UserRecord, b: unknown) {
+    if (!isBorder(b)) throw new StudyError('Unknown border');
+    const def = BORDERS.find((x) => x.id === b)!;
+    if (u.role !== 'admin' && !borderUnlocked(b, levelOf(u.xp))) throw new StudyError(`Unlocks at level ${def.level}`, 403);
+    await this.store.update(u.id, { border: b });
+    return this.profile((await this.store.findById(u.id)) ?? u);
+  }
+
   /** Profile badges: up to 3 of your achievements, shown under your name. */
   async setBadges(u: UserRecord, raw: unknown) {
     const have = new Set((u.unlocks ?? []).filter((x) => x.startsWith(ACH_PREFIX)).map((x) => x.slice(ACH_PREFIX.length)));
@@ -418,8 +436,8 @@ const clampDaily = (n: number) => Math.max(DAILY_NEW_MIN, Math.min(DAILY_NEW_MAX
 const dayBefore = (d: string) => new Date(Date.parse(d) - 86_400_000).toISOString().slice(0, 10);
 /** A streak still counts if the last login was today or yesterday (a day of slack for time zones). */
 function liveStreak(u: UserRecord, today: string) {
-  if (!u.loginDay) return 0;
-  return u.loginDay >= dayBefore(dayBefore(today)) ? u.streak ?? 0 : 0;
+  if (!u.streakDay) return 0;
+  return u.streakDay >= dayBefore(dayBefore(today)) ? u.streak ?? 0 : 0; // done today or yesterday (a day of slack for time zones)
 }
 
 function counts(cards: SrsCard[], now: number): DeckCounts {

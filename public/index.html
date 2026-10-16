@@ -33,9 +33,10 @@
         <div><b id="ppToday">0</b><span>learned today</span></div>
       </div>
       <div class="pp-stats pp-streaks">
-        <div class="streak-box"><b id="ppStreak">0</b><span>login streak (days)</span></div>
+        <div class="streak-box"><b id="ppStreak">0</b><span>daily streak (days)</span></div>
         <div class="streak-box best"><b id="ppBestStreak">0</b><span>best streak (days)</span></div>
       </div>
+      <button id="ppTasks" class="pp-tasks link" type="button"></button>
       <div class="pp-actions">
         <label class="pill" title="PNG, JPEG or WebP">Change picture<input id="picInput" type="file" accept="image/png,image/jpeg,image/webp,image/*" hidden></label>
         <button id="picRemove" class="pill">Remove picture</button>
@@ -127,9 +128,24 @@
   <div class="dd-tools"><input id="deckFilter" placeholder="Filter…" autocomplete="off"><label class="toggle-row"><input id="deckAllBox" type="checkbox"> Select all</label><button id="deckRemove" class="pill danger" disabled>Remove selected</button></div>
   <div class="dd-list"><table class="deck-table"><thead><tr><th></th><th>Spell</th><th>Reading</th><th>Meaning</th><th>Level</th><th>Added</th><th>Status</th><th></th></tr></thead><tbody id="deckRows"></tbody></table></div>
 </dialog>
+<dialog id="rewardDialog" class="friend-dialog reward-dialog" aria-label="New unlock">
+  <div class="rw-ribbon">✦ Unlocked ✦</div>
+  <h3 id="rewardName" class="rw-name"></h3>
+  <p id="rewardWhy" class="hint center"></p>
+  <div id="rewardPreview" class="rw-stage"></div>
+  <div class="rw-btns"><button id="rewardOk" class="big alt">OK</button><button id="rewardEquip" class="big">Equip</button></div>
+</dialog>
+<dialog id="tasksDialog" class="friend-dialog tasks-dialog" aria-label="Daily streak">
+  <div class="dd-head"><h3>🔥 Keep your daily streak</h3></div>
+  <p class="hint">A day counts for your streak when all four tasks are done. Your best streak unlocks magic staffs.</p>
+  <div id="tasksStreak" class="tasks-streak"></div>
+  <ul id="tasksList" class="tasks-list"></ul>
+  <label class="tasks-never"><input id="tasksNever" type="checkbox"> Don’t show this when I log in</label>
+  <div class="tasks-foot"><button id="tasksOk" class="big">OK</button></div>
+</dialog>
 <dialog id="passageDialog" class="friend-dialog passage-dialog" aria-label="Reading passage">
   <div class="dd-head"><h3>Reading passage</h3><button id="passageNew" class="pill">New story</button><button id="passageClose" class="pill">Close</button></div>
-  <p class="hint">Tap a highlighted word for its reading and meaning.</p>
+  <p class="hint">Fill each blank with one of your words (the furigana is your clue). Tap any word in the story for its meaning.</p>
   <div id="passageText" class="passage-text" lang="ja"></div>
   <div id="passageGloss" class="passage-gloss" hidden></div>
   <details class="passage-tr"><summary>Translation</summary><div id="passageTr"></div></details>
@@ -230,6 +246,7 @@
           </div>
         </div>
         <button id="dailyBtn" class="alt daily-btn">Daily challenge <span id="dailyBadge" class="badge" hidden>new</span></button>
+        <button id="tasksBtn" class="tasks-btn" type="button" hidden></button>
         <div class="menu-row">
           <button id="studyBtn" class="alt">Study spells <span id="studyBadge" class="badge" hidden></span></button>
           <button id="customizeBtn" class="alt">Customize</button>
@@ -341,7 +358,7 @@
     </div>
     <div class="practice-row">
       <button id="quizBtn" class="practice-card"><b>JLPT quiz</b><span>10 questions from the spells you studied — readings, meanings and kanji, 4 choices each.</span></button>
-      <button id="passageBtn" class="practice-card"><b>Reading passage</b><span>A short story with your struggling words, each with its reading and meaning.</span></button>
+      <button id="passageBtn" class="practice-card"><b>Reading passage</b><span>A short story with blanks — fill them in with your struggling words, then check.</span></button>
     </div>
   </section>
 
@@ -352,6 +369,7 @@
       <div class="fc-front"><div id="fcKanji" class="fc-kanji" lang="ja"></div><div id="fcLevel" class="fc-level"></div></div>
       <div id="fcBack" class="fc-back" hidden><div id="fcReading" class="fc-reading" lang="ja"></div><div id="fcMeaning" class="fc-meaning"></div></div>
     </div>
+    <p class="swipe-hint">Swipe the card: ← Again · Hard   |   Okay · Easy →</p>
     <button id="fcStrokes" class="pill fc-strokes" hidden title="How to write it (S)">Stroke order <kbd>S</kbd></button>
     <div id="fcStrokeBox" class="fc-stroke-box" hidden></div>
     <button id="showAnswer" class="big show-answer">Show answer <kbd>Space</kbd></button>
@@ -394,6 +412,7 @@
       <button role="tab" data-tab="staff" class="cust-tab">Magic staff</button>
       <button role="tab" data-tab="arena" class="cust-tab">Arena</button>
       <button role="tab" data-tab="omni" class="cust-tab">Omnipotence</button>
+      <button role="tab" data-tab="profile" class="cust-tab">Profile</button>
     </div>
     <div class="cust-body">
       <div class="cust-preview">
@@ -407,6 +426,7 @@
         <p id="custSub" class="sub"></p>
         <div id="bgTimes" class="bg-times" role="group" aria-label="Time of day"></div>
         <div id="custGrid" class="cust-grid"></div>
+        <div id="custExtra" class="cust-extra" hidden></div>
       </div>
     </div>
   </section>
@@ -652,7 +672,7 @@
     <div id="xpLine" class="xp-line" hidden></div>
     <div id="statCompare" class="compare"></div>
     <div id="struggledBox" class="struggled">
-      <h3>Review — you struggled with <small>(click a word for its stroke order)</small></h3>
+      <h3>Review — you struggled with <small>(ticked words go to your deck · tap a card to untick · 筆 = stroke order)</small></h3>
       <div id="missedSave" class="missed-save" hidden></div>
       <div id="struggled" class="grid small"></div>
     </div>
@@ -698,12 +718,12 @@
       <li><b>Fast + correct = more damage.</b> Combos build up to ×1.5 (5 in a row sets you on fire 🔥). <b>Skip</b> (Esc) shows the answer.</li>
       <li><b>Study spells</b> — Anki-style flashcards. Missed words go to <i>Struggling spells</i>.</li>
       <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
-      <li><b>Login streak</b> — open the game on days in a row. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
+      <li><b>Daily streak</b> — a day counts when you do all four daily tasks: study 10 spells, a JLPT quiz, the daily challenge and a reading passage. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
     </ol>
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.9.2</div>
+<div id="version" class="version">v0.9.9.3</div>
 <script src="/app.js"></script>
 </body>
 </html>

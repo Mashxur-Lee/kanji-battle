@@ -64,6 +64,7 @@ export interface PlayerView {
   pic: string | null; // profile picture URL
   flame: string; // colour of their combo flames ('blue' | 'purple')
   staff?: string; // magic staff skin
+  border?: string; // avatar border (0.9.9.3)
 }
 
 export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number }
@@ -95,7 +96,7 @@ export type GameOverReason = 'ko' | 'time' | 'forfeit' | 'boss_slain' | 'party_w
 
 /** Another player's public card (shown when you click their name). */
 export interface MissedWord { id: string; kanji: string; reading: string; meaning: string; level: Level; added: boolean }
-export interface PublicProfile { id: string; name: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string; streak: number; bestStreak: number; badges?: string[] }
+export interface PublicProfile { id: string; name: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string; streak: number; bestStreak: number; badges?: string[]; border?: string }
 
 /** One line of your match history. `character`: Deck Duel hero, otherwise the wizard avatar you played. */
 export interface MatchSummary {

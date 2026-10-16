@@ -139,18 +139,18 @@ function floorTexture() {
   t.anisotropy = 4;
   return t;
 }
-/** Pixel-art SVG → texture (async: the image has to load). */
+/** SVG → texture (async: the image has to load). */
 function svgTexture(svg: string, onReady: (t: THREE.Texture, aspect: number) => void) {
   const vb = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
   const w = vb ? Number(vb[1]) : 16, h = vb ? Number(vb[2]) : 20;
-  const scale = Math.max(1, Math.floor(512 / Math.max(w, h)));
+  const scale = 1024 / Math.max(w, h); // (0.9.9.3: the sprites are vector paintings now — draw them big and smooth)
   const url = URL.createObjectURL(new Blob([svg.replace('<svg ', `<svg xmlns="http://www.w3.org/2000/svg" width="${w * scale}" height="${h * scale}" `)], { type: 'image/svg+xml' }));
   const img = new Image();
   img.onload = () => {
     const c = document.createElement('canvas'); c.width = w * scale; c.height = h * scale;
-    const g = c.getContext('2d')!; g.imageSmoothingEnabled = false; g.drawImage(img, 0, 0, c.width, c.height);
+    const g = c.getContext('2d')!; g.drawImage(img, 0, 0, c.width, c.height);
     URL.revokeObjectURL(url);
-    onReady(canvasTex(c, true), w / h);
+    onReady(canvasTex(c), w / h);
   };
   img.onerror = () => URL.revokeObjectURL(url);
   img.src = url;
@@ -431,7 +431,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   const handLight = new THREE.PointLight(0xffffff, 1.4, 3, 2); handLight.position.set(0.3, 0.3, -0.5); camera.add(handLight);
   const HANDS: Record<string, { sleeve: number; skin: number }> = {
     wizard: { sleeve: 0x3463c8, skin: 0xf2ddcf }, witch: { sleeve: 0x7a56bd, skin: 0xeedcd8 }, goblin: { sleeve: 0x7a4e2c, skin: 0x84933f },
-    knight: { sleeve: 0xd6cfbf, skin: 0xa9a291 }, kid: { sleeve: 0xd8662f, skin: 0xf0c49a }, human: { sleeve: 0x8a5a33, skin: 0xf0c49a },
+    knight: { sleeve: 0xd6cfbf, skin: 0xe4dece }, kid: { sleeve: 0xd8662f, skin: 0xf0c49a }, human: { sleeve: 0x8a5a33, skin: 0xf0c49a },
   };
   // the gem: launched with each spell, then gone until you start writing / typing again, when it builds up
   let thrustAt = -1e9;
@@ -684,7 +684,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     clearFighters();
     const hand = HANDS[kindFor(s.me.character ?? 'wizard')] ?? HANDS.wizard;
     sleeveMat.color.set(hand.sleeve); skinMat.color.set(hand.skin);
-    skinMat.metalness = s.me.character === 'knight' ? 0.3 : 0; // a gauntlet
+    skinMat.metalness = s.me.character === 'knight' ? 0.12 : 0; // a gauntlet (not too metallic: there is no environment map to reflect, so metal goes dark)
     placeHand();
     setStaffSkin(s.me.staff ?? 'verdant');
     meDown = false; fp.visible = true; gemState = 'ready';
@@ -735,6 +735,36 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     mouse.set((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1);
   };
   addEventListener('pointermove', onMove, { passive: true });
+  // ── phones: turn or tilt the phone to look around (0.9.9.3) — the same look as the mouse. Measured from where
+  // you held it when the game started; that centre slowly follows you, so a new comfortable grip becomes straight ahead.
+  const tilt = { base: null as null | { a: number; x: number; y: number }, x: 0, y: 0, at: 0 };
+  const wrap = (d: number) => ((d + 540) % 360) - 180;
+  const onTilt = (e: DeviceOrientationEvent) => {
+    if (e.alpha === null || e.beta === null || e.gamma === null || !active) return;
+    const ang = (screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) % 360;
+    // the tilt left/right and forward/back as seen on the screen (landscape swaps the axes)
+    const tx = ang === 90 ? -e.beta : ang === 270 || ang === -90 ? e.beta : e.gamma;
+    const ty = ang === 90 ? e.gamma : ang === 270 || ang === -90 ? -e.gamma : e.beta;
+    const now = performance.now();
+    if (!tilt.base || now - tilt.at > 1500) tilt.base = { a: e.alpha, x: tx, y: ty }; // first reading (or back from a pause)
+    const b = tilt.base, k = Math.min(1, (now - tilt.at) / 9000); // the centre drifts towards how you hold it
+    tilt.at = now;
+    b.a += wrap(e.alpha - b.a) * k; b.x += (tx - b.x) * k; b.y += (ty - b.y) * k;
+    // turning the phone left (alpha up) or tilting its left edge down looks left; tilting the top back looks up
+    const x = -wrap(e.alpha - b.a) / 22 + (tx - b.x) / 26, y = -(ty - b.y) / 30;
+    mouse.set(Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y)));
+  };
+  const touchy = matchMedia('(pointer: coarse)').matches && 'DeviceOrientationEvent' in window;
+  // iOS asks for permission, and only from a tap: ask at the first tap on the arena
+  const askTilt = () => {
+    removeEventListener('touchend', askTilt);
+    const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
+    if (D.requestPermission) void D.requestPermission().then((r) => { if (r === 'granted') addEventListener('deviceorientation', onTilt); }).catch(() => { /* declined */ });
+  };
+  if (touchy) {
+    if ((DeviceOrientationEvent as unknown as { requestPermission?: unknown }).requestPermission) addEventListener('touchend', askTilt, { passive: true });
+    else addEventListener('deviceorientation', onTilt);
+  }
   /** Your hand and staff, bottom-right — moved in on a narrow (upright phone) screen so they stay in view. */
   function placeHand() {
     const base = layout === 'deck' ? FP_DECK : FP_BATTLE, size = layout === 'deck' ? 0.56 : 0.72;
@@ -1217,6 +1247,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       api.setActive(false);
       ro?.disconnect();
       removeEventListener('pointermove', onMove);
+      removeEventListener('deviceorientation', onTilt); removeEventListener('touchend', askTilt);
       removeEventListener('resize', resize);
       overlay.remove();
       if (env) { env.dispose(); env = null; }

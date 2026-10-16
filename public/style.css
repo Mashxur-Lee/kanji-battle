@@ -951,7 +951,7 @@ body.has-3d #bg { visibility: hidden; }
 body.has-3d #arena .wizard, body.has-3d #dragon > .sprite, body.has-3d #dragon > .ground, body.has-3d #fire { display: none !important; }
 body.has-3d #arena .side { min-height: 0; }
 /* glassy panels over the arena */
-body.has-3d .fighter, body.has-3d .boss-bar, body.has-3d .dk-player, body.has-3d .dk-panel {
+body.has-3d .boss-bar, body.has-3d .dk-player, body.has-3d .dk-panel {
   background: rgba(14, 12, 36, .52); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border-color: rgba(255, 255, 255, .12); }
 /* the centre panel: no box over the arena (the enemy stays visible), the text carries its own shadow */
 body.has-3d .challenge { background: none; border: 0; padding: 12px 18px; }
@@ -1759,3 +1759,152 @@ body.game-kb #comboHud { bottom: calc(var(--kb-h, 0px) + 6%); left: 4%; transfor
 .pp-modes { grid-template-columns: 1fr; }
 .pp-mode { white-space: normal; min-width: 0; width: 100%; text-align: left; justify-content: flex-start; }
 .other-pop { max-height: calc(100 * var(--dvh) - 24px); overflow-y: auto; }
+
+/* ── 0.9.9.3: the clock, Forfeit and Pause sit together at the top centre; the mode's name moves to the bottom-left ── */
+body.has-3d .fighter { text-shadow: 0 1px 2px #000, 0 2px 10px rgba(0, 0, 0, .85); } /* no box round the HP bars */
+body.has-3d .fighter .hp { box-shadow: 0 2px 10px rgba(0, 0, 0, .45); }
+.arena-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: clamp(16px, 8vw, 160px); }
+.arena-top > .fighter.opp { grid-column: 2; }
+.arena-top:has(.fighter.party) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+body.mode-shown .clock-col { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 32; flex-direction: row; align-items: center; gap: 12px;
+  padding: 4px 8px; border-radius: 999px; background: rgba(16, 14, 44, .82); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0, 0, 0, .35); }
+body.mode-shown .clock-col .clock-btns { display: contents; }
+body.mode-shown .clock-col .forfeit { order: 0; opacity: 1; padding: 5px 12px; border-radius: 999px; }
+body.mode-shown .clock-col .clock { order: 1; font-size: 1.5rem; min-width: 3.2ch; text-align: center; }
+body.mode-shown .clock-col .pause-btn { order: 2; padding: 5px 10px; border-radius: 999px; }
+body.mode-shown .clock-col .clock:empty { display: none; }
+.mode-title.in-game { top: auto; bottom: 12px; left: 12px; transform: none; font-size: .78rem; padding: 4px 12px; opacity: .85; z-index: 20; pointer-events: none; }
+.mode-title.in-game .mode-badge { font-size: 1rem; }
+@media (max-width: 700px) {
+  .mode-title.in-game { display: none !important; }
+  body.mode-shown .clock-col { top: 6px; gap: 6px; padding: 3px 6px; }
+  body.mode-shown .clock-col .clock { font-size: 1.15rem; }
+  body.mode-shown .clock-col .forfeit { padding: 3px 8px; font-size: .72rem; }
+}
+
+/* ── 0.9.9.3: missed words are red cards with a small tick (tap to keep one out of the deck) ── */
+.missed-save { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; background: none; border: 0; }
+.miss-card { position: relative; border-color: rgba(255, 107, 129, .6); background: linear-gradient(160deg, rgba(120, 30, 52, .78), rgba(36, 14, 32, .86)); }
+.miss-card.tickable { cursor: pointer; transition: opacity .15s, transform .1s, filter .15s; user-select: none; }
+.miss-card.tickable:not(.on) { opacity: .4; filter: saturate(.4); }
+.miss-card.tickable:active { transform: scale(.97); }
+.mc-tick { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: .8rem; font-weight: 900;
+  border: 1.5px solid rgba(255, 140, 155, .9); color: #fff; background: transparent; }
+.miss-card.on .mc-tick { background: #ff6b81; border-color: #ff6b81; }
+.miss-card .so-btn { position: absolute; bottom: 6px; right: 6px; width: 24px; height: 24px; padding: 0; border-radius: 6px; font-size: .8rem; border: 1px solid var(--line); background: rgba(0, 0, 0, .2); color: var(--muted); cursor: pointer; }
+.miss-card .so-btn:hover { color: var(--text); }
+.daily-missed { margin: 6px 0 12px; }
+body.has-3d .fighter .hpnum, body.has-3d .fighter .name { color: #f1eefc; }
+
+/* ── 0.9.9.3: reading passage — blanks to fill from a word bank; every word tappable ── */
+.passage-text .p-tok { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; border-bottom: 1px dotted rgba(255, 255, 255, .25); border-radius: 0; }
+.passage-text .p-tok:hover, .passage-text .p-tok.on { background: rgba(255, 212, 121, .14); border-bottom-color: var(--gold); }
+.passage-text .p-blank { font: inherit; display: inline-flex; align-items: baseline; gap: 4px; min-width: 3.4em; justify-content: center; padding: 0 8px; margin: 0 2px; cursor: pointer;
+  color: var(--text); background: rgba(169, 139, 255, .1); border: 1.5px dashed rgba(169, 139, 255, .65); border-radius: 10px; vertical-align: baseline; line-height: 2.1; }
+.passage-text .p-blank.filled { border-style: solid; background: rgba(169, 139, 255, .2); }
+.passage-text .p-blank.sel { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 212, 121, .25); }
+.passage-text .p-blank.right { border: 1.5px solid #3ddc97; background: rgba(61, 220, 151, .16); }
+.passage-text .p-blank.wrong { border: 1.5px solid #ff6b81; background: rgba(255, 107, 129, .16); }
+.passage-text .p-blank .p-num { font-family: var(--ui, inherit); font-size: .55em; color: var(--muted); align-self: center; }
+.passage-text .p-blank .p-was { font-size: .7em; color: #ff8fa0; margin-left: 4px; }
+.p-bank { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; }
+.p-chip { font-family: var(--jp); font-size: 1.3rem; padding: 6px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+.p-chip:hover:not(:disabled) { border-color: var(--accent); }
+.p-chip:disabled { opacity: .3; cursor: default; }
+#passageCheck { grid-column: 1 / -1; justify-self: center; min-width: 200px; margin-top: 6px; }
+.p-score { grid-column: 1 / -1; text-align: center; font-size: 2rem; font-weight: 900; color: var(--gold); }
+.passage-words > .hint { grid-column: 1 / -1; }
+
+/* ── 0.9.9.3: the daily streak tasks ── */
+.tasks-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 14px; border-radius: 14px; cursor: pointer; font: inherit; font-weight: 700; color: var(--text);
+  background: linear-gradient(100deg, rgba(255, 150, 60, .16), rgba(255, 90, 60, .08)); border: 1px solid rgba(255, 160, 80, .45); }
+.tasks-btn:hover { border-color: #ffb066; }
+.tasks-btn .tb-text { flex: 1; text-align: left; font-size: .92rem; }
+.tasks-btn .tb-days { min-width: 30px; height: 26px; display: grid; place-items: center; border-radius: 8px; background: rgba(255, 150, 60, .25); color: #ffd09a; font-weight: 900; }
+.tasks-btn.done { background: linear-gradient(100deg, rgba(61, 220, 151, .16), rgba(61, 220, 151, .06)); border-color: rgba(61, 220, 151, .5); }
+.pp-tasks { display: block; width: 100%; text-align: left; margin: 6px 0 2px; color: #ffc38a; font-size: .85rem; }
+.tasks-dialog { width: min(480px, 94vw); }
+.tasks-streak { display: flex; align-items: baseline; justify-content: center; gap: 8px; margin: 4px 0 10px; }
+.tasks-streak b { font-size: 2.4rem; font-weight: 900; color: #ffb066; }
+.tasks-streak b::before { content: "🔥 "; font-size: 1.6rem; }
+.tasks-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tasks-list li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
+.tasks-list li.ok { border-color: rgba(61, 220, 151, .55); background: rgba(61, 220, 151, .08); }
+.tasks-list .tk-ic { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: rgba(169, 139, 255, .18); font-family: var(--jp); font-weight: 800; }
+.tasks-list li.ok .tk-ic { background: #3ddc97; color: #08251a; }
+.tasks-list .tk-label { flex: 1; }
+.tasks-list .tk-prog { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .9rem; }
+.tasks-never { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: .9rem; }
+.tasks-foot { display: flex; justify-content: center; margin-top: 12px; }
+
+/* ── 0.9.9.3: swipe the flashcard (left: Again / Hard, right: Okay / Easy) ── */
+.flashcard { position: relative; touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab; }
+.flashcard.dragging { cursor: grabbing; }
+.fc-stamp { position: absolute; top: 18px; padding: 6px 16px; border-radius: 10px; border: 3px solid currentColor; font-weight: 900; font-size: 1.5rem; letter-spacing: .06em;
+  text-transform: uppercase; background: rgba(255, 255, 255, .85); pointer-events: none; }
+.fc-stamp.l { right: 18px; transform: rotate(10deg); }
+.fc-stamp.r { left: 18px; transform: rotate(-10deg); }
+.fc-stamp.again { color: #d93a50; } .fc-stamp.hard { color: #d98a1a; } .fc-stamp.good { color: #2a9d6a; } .fc-stamp.easy { color: #2d6fd9; }
+.swipe-hint { text-align: center; color: var(--muted); font-size: .82rem; margin: 6px 0 0; }
+
+/* ── 0.9.9.3: avatar borders (Customize → Profile) ── */
+.bd { position: relative; }
+.bd-apprentice { box-shadow: 0 0 0 2px #dfe5ef, 0 0 0 3.5px rgba(40, 44, 60, .8); }
+.bd-adept { box-shadow: 0 0 0 2.5px #b79cff, 0 0 0 4px #4a2e9a, 0 0 10px 2px rgba(169, 139, 255, .55); }
+.bd-master { box-shadow: 0 0 0 2.5px #ffe29a, 0 0 0 4.5px #b8821e, 0 0 14px 3px rgba(255, 200, 90, .55); }
+.bd-archmage { animation: bd-arcane 4s linear infinite; }
+@keyframes bd-arcane {
+  0%, 100% { box-shadow: 0 0 0 2.5px #7af0ff, 0 0 0 5px #6b3dff, 0 0 16px 4px rgba(122, 240, 255, .6); }
+  33% { box-shadow: 0 0 0 2.5px #ff8cf0, 0 0 0 5px #2e7dff, 0 0 18px 5px rgba(255, 140, 240, .6); }
+  66% { box-shadow: 0 0 0 2.5px #ffe27a, 0 0 0 5px #b03dff, 0 0 16px 4px rgba(255, 226, 122, .55); }
+}
+@media (prefers-reduced-motion: reduce) { .bd-archmage { animation: none; box-shadow: 0 0 0 2.5px #7af0ff, 0 0 0 5px #6b3dff, 0 0 16px 4px rgba(122, 240, 255, .6); } }
+/* bigger frames carry an ornament: rune studs (adept), a star on top (master, archmage) */
+div.bd-adept::after, div.bd-master::after, div.bd-archmage::after { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 1; line-height: 1; }
+div.bd-adept::after { content: "◆"; top: -9px; font-size: 12px; color: #d9c8ff; text-shadow: 0 0 6px #8a5cff; }
+div.bd-master::after { content: "★"; top: -12px; font-size: 16px; color: #ffe29a; text-shadow: 0 0 8px #ffb84a, 0 1px 0 #6b4a0a; }
+div.bd-archmage::after { content: "✦"; top: -13px; font-size: 18px; color: #c9fbff; text-shadow: 0 0 10px #7af0ff, 0 0 18px #b03dff; }
+.avatar.bd, .pp-pic.bd { overflow: visible; }
+.avatar.bd > img, .pp-pic.bd > img { border-radius: 50%; }
+.ci-avatar { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); margin: 10px auto; }
+.ci-avatar.has-pic { background: none; }
+.ci-avatar .pic.fill, .pp-pic.big .pic.fill { width: 100%; height: 100%; border: 0; }
+.pp-pic.big { width: 120px; height: 120px; font-size: 3rem; }
+.cust-card { display: flex; align-items: center; gap: 22px; padding: 26px 30px; border-radius: 22px; background: rgba(16, 14, 44, .75); border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0, 0, 0, .35); }
+.cust-card .pp-name { font-size: 1.4rem; font-weight: 800; }
+.cust-card .cc-meta { display: flex; flex-direction: column; gap: 6px; }
+.cust-extra { margin-top: 18px; }
+.cust-extra h3 { margin: 0 0 4px; }
+#custStage[data-tab="profile"] .cust-stage2 { display: grid; place-items: center; height: 100%; }
+
+/* ── 0.9.9.3: the reward box (something new unlocked) ── */
+.reward-dialog { width: min(440px, 94vw); text-align: center; overflow: visible; border: 1px solid rgba(255, 212, 121, .55); box-shadow: 0 0 0 1px rgba(255, 212, 121, .2), 0 20px 60px rgba(0, 0, 0, .55), 0 0 60px rgba(255, 200, 90, .18); }
+.reward-dialog.pop { animation: rw-pop .45s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes rw-pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.rw-ribbon { display: inline-block; margin: -30px auto 8px; padding: 6px 18px; border-radius: 999px; background: linear-gradient(135deg, #ffe29a, #e0a43a); color: #2a1a00; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; font-size: .8rem; box-shadow: 0 6px 18px rgba(224, 164, 58, .45); }
+.rw-name { margin: 6px 0 2px; font-size: 1.5rem; }
+.rw-stage { display: grid; place-items: center; min-height: 170px; margin: 10px 0 16px; border-radius: 16px; background: radial-gradient(circle at 50% 60%, rgba(255, 212, 121, .14), transparent 65%); overflow: hidden; }
+.rw-preview { display: flex; align-items: flex-end; justify-content: center; gap: 12px; width: 100%; }
+.rw-preview.rw-arena svg { width: 100%; height: auto; display: block; border-radius: 12px; }
+.rw-preview .wizard { position: relative; width: 120px; height: 170px; }
+.rw-preview .rw-char { width: 110px; height: 160px; }
+.rw-preview .rw-char svg { width: 100%; height: 100%; }
+.rw-preview .pixel-staff.big { width: 60px; height: 170px; }
+.rw-preview .pp-pic.big { margin: 18px 0; }
+.rw-btns { display: flex; gap: 10px; justify-content: center; }
+.rw-btns .big { min-width: 130px; }
+.tasks-dialog .tasks-never { flex-direction: row; justify-content: center; width: 100%; }
+.tasks-dialog .tasks-never input { width: auto; margin: 0; flex: none; }
+.wizard.gemless .sprite svg .orb-glow { opacity: 0; transition: opacity .35s; }
+svg.art { overflow: visible; }
+/* 0.9.9.3: names and HP numbers readable over bright (day) scenes */
+.fighter .name, .fighter .hpnum, .party-row .pname { text-shadow: 0 1px 2px rgba(0, 0, 0, .9), 0 0 10px rgba(0, 0, 0, .6); }
+.fighter .hpnum { color: #ece9f8; }
+
+/* ── 0.9.9.3: bright (day / sunset) scenes — a soft scrim behind the menus, and loose text that stands out ── */
+#bg::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 1.2s; z-index: 1;
+  background: linear-gradient(90deg, rgba(10, 8, 30, .62), rgba(10, 8, 30, .34) 45%, rgba(10, 8, 30, .22)); }
+body:not(.mode-shown) #bg[data-time="day"]::after { opacity: 1; }
+body:not(.mode-shown) #bg[data-time="sunset"]::after { opacity: .55; }
+body:has(#bg[data-time="day"]) :is(.screen > .sub, .screen > p, .menu-stack > .sub, .page-head, .screen > h2, .screen > h3, .screen .sub, .screen .hint, .menu-foot, .tag) { text-shadow: 0 1px 2px rgba(0, 0, 0, .9), 0 0 12px rgba(0, 0, 0, .55); }
+body:has(#bg[data-time="day"]) .screen .sub, body:has(#bg[data-time="day"]) .menu-stack > .sub { color: #e6e3f4; }

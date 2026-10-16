@@ -30,7 +30,7 @@ export const DEFAULT_LEVELS: Level[] = ['N3', 'N2'];
 export const BOSS_NAME = 'Black Dragon';
 
 /** Per-player progress the room shows and uses (crit chance, account level). */
-export interface MemberProfile { crit: number; xp: number; pic?: string | null; flame?: string; staff?: string }
+export interface MemberProfile { crit: number; xp: number; pic?: string | null; flame?: string; staff?: string; border?: string }
 
 /** `forfeited`: someone gave up or left — nobody gets XP (stops win-trading between accounts). */
 export interface MatchResult {
@@ -548,6 +548,7 @@ export class Room {
         pic: p.profile.pic ?? null,
         flame: p.profile.flame ?? 'blue',
         staff: p.profile.staff ?? 'verdant',
+        border: p.profile.border ?? 'none',
         ready: p.ready,
       };
     });

@@ -292,7 +292,7 @@ export class Session implements Client {
   /** Crit chance and XP shown in rooms (crit comes from learned flashcards). */
   private async profile(): Promise<MemberProfile> {
     const rec = await this.auth.store.findById(this.user!.id);
-    return { crit: await this.study.crit(this.user!.id), xp: rec?.xp ?? 0, pic: rec ? picUrl(rec) : null, flame: rec?.flame ?? 'blue', staff: rec?.staff ?? 'verdant' };
+    return { crit: await this.study.crit(this.user!.id), xp: rec?.xp ?? 0, pic: rec ? picUrl(rec) : null, flame: rec?.flame ?? 'blue', staff: rec?.staff ?? 'verdant', border: rec?.border ?? 'none' };
   }
 
   private async enter(room: Room, levels: Level[]) {

@@ -7,6 +7,31 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.3', date: '2026-10',
+    en: [
+      'New 2D art: the Wizard, Witch, Knight, Goblin, Apprentice and Adventurer, the Black Dragon and every staff are painted after the concept sheets (no more pixels), and all five arenas are repainted to match the 3D ones — with a stone arena the fighters stand on, by day, sunset and night.',
+      'Daily streak: a day now counts when you do four tasks — study 10 spells, a JLPT quiz, the daily challenge and a reading passage. You see them when you log in (tick “don’t show again” to stop it), on the menu and in your profile card.',
+      'Reading passage: your words are blanks now — fill them from the word bank under the story (the furigana is your clue), then check your score. Every word of the story can be tapped for its meaning.',
+      'Study: swipe the flashcard like in Quizlet — far left Again, left Hard, right Okay, far right Easy.',
+      'After a game (and the daily challenge) the words you missed are red cards again, pre-ticked with a small tick in the corner; tap a card to keep it out of your deck.',
+      'Customize → Profile: avatar borders (levels 1, 5, 10, 15) and your badges, with a preview. When you unlock something, the menu shows it with OK and Equip.',
+      'Battles: the clock, Forfeit and Pause sit together at the top centre (the mode name moved to the bottom left); no more grey box round the HP bars.',
+      'Phones: turn or tilt your phone to look around the 3D arena, like moving the mouse.',
+      'Fixes: the Goblin’s and Knight’s hands are visible; menu text is readable on bright day scenes; What’s new shows the latest 3 updates.',
+    ],
+    ru: [
+      'Новая 2D-графика: Волшебник, Ведьма, Рыцарь, Гоблин, Ученик и Искатель приключений, Чёрный дракон и все посохи нарисованы по концепт-артам (без пикселей), а все пять арен перерисованы под 3D — с каменной ареной, на которой стоят бойцы, днём, на закате и ночью.',
+      'Ежедневная серия: день засчитывается, когда выполнены четыре задания — изучить 10 заклинаний, тест JLPT, ежедневное испытание и текст для чтения. Задания показываются при входе (отметьте «не показывать», чтобы отключить), в меню и в карточке профиля.',
+      'Текст для чтения: ваши слова теперь пропущены — заполните их из списка под рассказом (подсказка — фуригана) и проверьте результат. Любое слово рассказа можно нажать, чтобы увидеть значение.',
+      'Учёба: смахивайте карточку, как в Quizlet — далеко влево «Снова», влево «Трудно», вправо «Нормально», далеко вправо «Легко».',
+      'После игры (и ежедневного испытания) пропущенные слова снова красные карточки с маленькой галочкой в углу; нажмите на карточку, чтобы не добавлять слово в колоду.',
+      'Настройка → Профиль: рамки аватара (уровни 1, 5, 10, 15) и ваши значки с предпросмотром. Когда что-то открывается, меню показывает это с кнопками «ОК» и «Надеть».',
+      'Бой: часы, «Сдаться» и «Пауза» вместе вверху по центру (название режима — внизу слева); серой рамки вокруг полос HP больше нет.',
+      'Телефоны: поворачивайте или наклоняйте телефон, чтобы осматривать 3D-арену, как мышью.',
+      'Исправления: руки Гоблина и Рыцаря видны; текст меню читается на ярких дневных сценах; «Что нового» показывает 3 последних обновления.',
+    ],
+  },
+  {
     v: '0.9.9.2', date: '2026-10',
     en: [
       'New low-poly Wizard, Knight and Goblin, after their concept sheets: sculpted faces, the Wizard’s long beard, blue cloak and gold-trimmed robes, the Knight’s great helm, red plume, tabard and sword on his back, the Goblin’s long ears, red scarf, straps and wrapped legs.',
@@ -106,7 +131,7 @@ export function initWhatsNew() {
   document.getElementById('newsBtn')!.onclick = () => {
     const ru = lang() === 'ru';
     document.getElementById('newsVersion')!.textContent = `v${VERSION}`;
-    document.getElementById('newsBody')!.replaceChildren(...PATCHES.map((p, i) => {
+    document.getElementById('newsBody')!.replaceChildren(...PATCHES.slice(0, 3).map((p, i) => {
       const sec = el('section', 'news-patch' + (i === 0 ? ' latest' : ''));
       const head = el('h4', '', `${p.v}${p.v === VERSION ? (ru ? ' — сейчас' : ' — current') : ''}`);
       const ul = el('ul');
