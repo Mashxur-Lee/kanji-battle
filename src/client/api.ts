@@ -1,16 +1,17 @@
 import type { AdminUserRow, Level, MatchDetail, MatchSummary, PublicProfile, PublicUser } from '../shared/protocol';
-import type { BackgroundId, FlameId, StaffId } from '../shared/progress';
+import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
 import type { CardState, DeckId, Rating } from '../shared/srs';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; wins: number; losses: number; pic: string | null; background: BackgroundId; studyLevels: Level[]; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
-  tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew?: number; badges?: string[] }
+  tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew?: number; badges?: string[];
+  tasks?: DailyTaskState[]; streakDay?: string | null; border?: string }
 export interface MonthProgress { month: string; name: string; reward: string; goals: Array<{ id: string; label: string; target: number; value: number }>; done: boolean; unlocked: boolean }
 export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number }
 export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, Array<[string, number]>>; month: MonthProgress }
 export interface DailyWord { index: number; total: number; kanji: string; level: Level; timeLimitMs: number }
 export interface DailyDone { correct: number; ms: number; rank: number; players: number; xp: number }
 export interface DailyOverview { day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
-  board: Array<{ id: string; name: string; correct: number; ms: number }>; words: Array<{ kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
+  board: Array<{ id: string; name: string; correct: number; ms: number }>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
 export interface Friend { id: string; username: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; activity?: string; pic?: string | null; level?: number }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
@@ -64,7 +65,10 @@ export const api = {
   searchWords: (q: string) => call<{ words: WordHit[] }>('GET', `/api/study/search?q=${encodeURIComponent(q)}`),
   addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', w),
   quiz: (n = 10) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}`),
+  /** a daily task done here (the quiz, a passage): counts towards today's streak */
+  task: (task: 'quiz' | 'passage') => call<Profile>('POST', '/api/study/task', { task, today: today() }),
   setDailyNew: (n: number) => call<StudySummary>('PUT', '/api/study/daily-new', { n, today: today() }),
+  setBorder: (border: string) => call<{ profile: Profile }>('PUT', '/api/me/border', { border }),
   setBadges: (badges: string[]) => call<{ badges: string[] }>('PUT', '/api/me/badges', { badges }),
   matches: () => call<{ matches: MatchSummary[] }>('GET', '/api/matches'),
   match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),

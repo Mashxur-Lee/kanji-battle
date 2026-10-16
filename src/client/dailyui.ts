@@ -7,6 +7,7 @@ import { LEVEL_LABEL } from '../shared/protocol';
 import { api, type DailyAnswer, type DailyOverview, type DailyWord } from './api';
 import * as audio from './audio';
 import * as ui from './ui';
+import { tickCards } from './decks';
 
 const $ = ui.$;
 const el = (tag: string, cls = '', text?: string | number) => {
@@ -50,6 +51,23 @@ function renderBoard(o: DailyOverview) {
   }));
 }
 
+/** the words you missed as red cards, ticked = in Struggling spells; tap one to keep it out (0.9.9.3) */
+function missedBlock(o: DailyOverview): HTMLElement[] {
+  const missed = (o.words ?? []).filter((w) => w.ok === false && w.id);
+  if (!missed.length) return [];
+  const grid = el('div', 'grid small daily-missed');
+  const cards = missed.map((w) => {
+    const card = el('div', 'card miss-card'); card.tabIndex = 0;
+    const k = el('div', 'k', w.kanji); k.lang = 'ja';
+    const r = el('div', 'r', w.reading); r.lang = 'ja';
+    card.append(k, r, el('div', 'm', w.meaning));
+    grid.append(card);
+    return { card, id: w.id! };
+  });
+  tickCards(cards, (id, on) => { void (on ? api.deckAdd('struggling', [id]) : api.deckRemove('struggling', [id])).catch((e) => ui.toast((e as Error).message)); });
+  return [el('h4', '', 'Missed — ticked words go to Struggling spells'), grid];
+}
+
 function renderOverview(o: DailyOverview) {
   renderBoard(o);
   const main = $('dailyMain');
@@ -72,7 +90,7 @@ function renderOverview(o: DailyOverview) {
       el('p', 'center', `${secs(o.mine.ms)} · rank ${o.rank} today`),
       el('p', 'hint center', `10 new words ${nextReset()}.`),
       el('h4', '', "Today's words"), words,
-      ...(o.words?.some((w) => w.ok === false) ? [el('p', 'hint center', 'The words you missed are now in Study spells → Struggling spells.')] : []),
+      ...missedBlock(o),
     );
     return;
   }

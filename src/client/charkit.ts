@@ -183,7 +183,7 @@ export const add = (g: THREE.BufferGeometry, m: THREE.Material, parent: THREE.Ob
  * The staff, held in the right hand (the arm pivot is at the shoulder; arena3d raises and swings it). The staff
  * leans away from the body so hats and sleeves don't cut through it.
  */
-export function holdStaff(arm: THREE.Group, hand: V3, materials: Character['materials'], glowTex: THREE.Texture, skin?: string) {
+export function holdStaff(arm: THREE.Group, hand: V3, materials: Character['materials'], glowTex: THREE.Texture, skin?: string, fist?: THREE.Object3D) {
   const staffPivot = new THREE.Group();
   staffPivot.position.set(...hand);
   staffPivot.rotation.z = -0.02; // with the arm's own −0.35: leaning out ~20°
@@ -195,6 +195,7 @@ export function holdStaff(arm: THREE.Group, hand: V3, materials: Character['mate
   const staff = buildStaff(skin, glowTex);
   staff.group.position.set(0, 0.3, 0.02);
   lean.add(staff.group);
+  if (fist) { fist.position.set(0, 0, 0.02); lean.add(fist); } // the hand grips the staff wherever it leans
   for (const m of staff.materials) materials.push({ mat: m, color: m.color.clone(), emissive: m.emissive.clone() });
   return { staffPivot, staff, crystal: staff.gem, crystalMat: staff.gemMat, glow: staff.glow };
 }
@@ -218,3 +219,32 @@ export function star4(R: number, r: number, depth: number) {
 }
 /** a diamond lattice in a band: t across the band (0..1), u around (repeats k times) → on a gold line? */
 export const lattice = (u: number, t: number, k: number) => { const d = tri(u * k); return Math.abs(d - t) < 0.2 || Math.abs(d - (1 - t)) < 0.2; };
+
+/**
+ * A low-poly hand (0.9.9.3 — the old ones were a ball, lost behind the staff). `grip`: a fist round the staff,
+ * which runs along y through the origin (the palm outside, four curled fingers, the thumb over them);
+ * otherwise a relaxed hand hanging down (fingers along −y). `tips`: another colour for the fingers (fingerless
+ * gloves, a gauntlet's lames). For the vertex-coloured cloth or plate material.
+ */
+export function handMesh(color: THREE.Color, m: THREE.Material, grip: boolean, tips = color, size = 1) {
+  const g = new THREE.Group();
+  const P = (geo: THREE.BufferGeometry, c: THREE.Color, at: V3, rot: V3 = [0, 0, 0], sc: V3 = [1, 1, 1]) => {
+    const o = add(painted(geo, c), m, g, at); o.rotation.set(...rot); o.scale.set(...sc); return o;
+  };
+  if (grip) {
+    P(new THREE.BoxGeometry(0.03, 0.085, 0.07), color, [0.04, 0, -0.005]); // the back of the hand, outside the staff
+    for (let i = 0; i < 4; i++) {
+      const y = 0.03 - i * 0.02, r = 0.028 - i * 0.001;
+      const f = new THREE.TorusGeometry(r, 0.011, 4, 7, Math.PI * 1.25);
+      f.rotateX(Math.PI / 2); // round the staff (the y axis), from the palm side over the front
+      P(f, tips, [0.012, y, 0], [0, -0.35, 0]);
+    }
+    P(new THREE.CapsuleGeometry(0.011, 0.04, 2, 5), color, [0.02, 0.048, 0.03], [0.2, 0, 1.2]); // the thumb over the fingers
+  } else {
+    P(new THREE.BoxGeometry(0.06, 0.07, 0.028), color, [0, -0.035, 0]); // the palm
+    for (let i = 0; i < 4; i++) P(new THREE.BoxGeometry(0.013, 0.05 - Math.abs(i - 1.5) * 0.007, 0.016), tips, [-0.022 + i * 0.0145, -0.092 + Math.abs(i - 1.5) * 0.003, 0.006], [0.25, 0, 0]);
+    P(new THREE.BoxGeometry(0.014, 0.04, 0.016), tips, [0.034, -0.045, 0.012], [0.2, 0, -0.5]); // the thumb, forward
+  }
+  g.scale.setScalar(size);
+  return g;
+}

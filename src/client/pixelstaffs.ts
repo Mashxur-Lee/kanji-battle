@@ -2,6 +2,7 @@
 // staff you equipped too. 5 × 20 pixels each; the hand grips row GRIP of the centre column; 'O' is the gem.
 
 import { staffOf } from '../shared/progress';
+import { staffSvg } from './art2d';
 
 export const STAFF_W = 5, STAFF_H = 20, GRIP = 10;
 
@@ -146,8 +147,12 @@ export function staffPixels(id: string | null | undefined): Array<[number, numbe
   return out;
 }
 
-/** The staff on its own, as a crisp SVG (Customize, tooltips). */
+/** The staff on its own (Customize, tooltips) — since 0.9.9.3 the painted vector staff (art2d.ts). */
 export function pixelStaffSvg(id: string | null | undefined): string {
+  return staffSvg(id);
+}
+/** the old pixel staff */
+export function pixelStaffSvgOld(id: string | null | undefined): string {
   const rects = staffPixels(id).map(([x, y, c, gem]) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"${gem ? ' class="orb"' : ''}/>`);
   return `<svg viewBox="0 0 ${STAFF_W} ${STAFF_H}" shape-rendering="crispEdges" aria-hidden="true">${rects.join('')}</svg>`;
 }

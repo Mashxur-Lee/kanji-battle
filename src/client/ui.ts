@@ -102,11 +102,13 @@ export function setNet(map: Record<string, number | null>) {
 }
 
 // ── top bar ──────────────────────────────────────────────────────────────────
-export interface ProfileView { xp: number; level: number; crit: number; learned: number; learnedToday?: number; wins?: number; losses?: number; pic?: string | null; streak?: number; bestStreak?: number; unlocks?: string[]; badges?: string[] }
+export interface ProfileView { xp: number; level: number; crit: number; learned: number; learnedToday?: number; wins?: number; losses?: number; pic?: string | null; streak?: number; bestStreak?: number; unlocks?: string[]; badges?: string[]; border?: string }
+/** The CSS class of an avatar border (0.9.9.3; '' for none). */
+export const borderCls = (b?: string | null) => (b && b !== 'none' ? ` bd bd-${b}` : '');
 /** A round profile picture (or nothing). */
-export function picEl(url: string | null | undefined, cls = 'pic'): HTMLElement | '' {
+export function picEl(url: string | null | undefined, cls = 'pic', border?: string | null): HTMLElement | '' {
   if (!url) return '';
-  const img = h('img', cls, undefined, { src: url, alt: '', loading: 'lazy', decoding: 'async' }) as HTMLImageElement;
+  const img = h('img', cls + borderCls(border), undefined, { src: url, alt: '', loading: 'lazy', decoding: 'async' }) as HTMLImageElement;
   img.onerror = () => img.remove();
   return img;
 }
@@ -148,6 +150,7 @@ export function setProfile(p: ProfileView | null) {
     const el = $(id);
     el.replaceChildren(p.pic ? picEl(p.pic, 'pic fill') : '✦');
     el.classList.toggle('has-pic', !!p.pic);
+    el.className = el.className.replace(/\s*\bbd(-\w+)?\b/g, '') + borderCls(p.border);
   }
   $('picRemove').hidden = !p.pic;
   $('whoXp').style.width = `${levelProgress(p.xp) * 100}%`;
@@ -163,6 +166,8 @@ export function toast(text: string, ms = 3500) {
   toastTimer = window.setTimeout(() => (el.hidden = true), ms);
 }
 
+/** your username (Customize → Profile preview) */
+export const myName = () => $('whoName').textContent ?? '';
 export function setUser(user: PublicUser | null) {
   $('whoami').hidden = !user;
   $('whoName').textContent = user?.username ?? '';
@@ -348,7 +353,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp', p.staff);
       const who = h('span', 'who', p.id === you ? `${p.name} (you)` : p.name);
       if (p.id !== you) markProfile(who, p);
-      li.append(av, picEl(p.pic), who);
+      li.append(av, picEl(p.pic, 'pic', p.border), who);
       if (p.bot) li.append(h('span', 'tag ai', p.bot === 'BEGINNER' ? 'AI · beginner' : `AI · knows ${p.bot}`));
       else li.append(netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
       if (p.bot && you === hostId) { const x = h('button', 'pill rm-bot', '✕', { title: 'Remove this AI' }); x.dataset.removeBot = p.id; li.append(x); }
@@ -459,7 +464,7 @@ function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
     const row = h('div', 'party-row' + (p.id === you ? ' me' : '') + (p.hp <= 0 ? ' down' : ''));
     const pn = h('span', 'n', p.id === you ? `${p.name} (you)` : p.name);
     if (p.id !== you) markProfile(pn, p);
-    const name = append(h('div', 'pname'), picEl(p.pic), pn, netBars(p.id), h('span', 'lv', `Lv ${p.level}`),
+    const name = append(h('div', 'pname'), picEl(p.pic, 'pic', p.border), pn, netBars(p.id), h('span', 'lv', `Lv ${p.level}`),
       h('span', 'combo', p.combo >= 2 ? `×${p.combo}` : ''));
     row.append(name, thickBar(p.hp, p.maxHp, 'ally', p.hp <= 0 ? 'down' : `${p.hp} / ${p.maxHp}`));
     return row;
@@ -479,7 +484,7 @@ function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, 
   if (!p) { el.replaceChildren(h('div', 'name', emptyText)); return; }
   const nameEl = h('span', 'n', label);
   if (!label.endsWith('(you)')) markProfile(nameEl, p);
-  const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic), nameEl, netBars(p.id), h('span', 'lv', `Lv ${p.level}`)) , h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo` : ''));
+  const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic, 'pic', p.border), nameEl, netBars(p.id), h('span', 'lv', `Lv ${p.level}`)) , h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo` : ''));
   el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h('div', 'hpnum', `${p.hp} / ${p.maxHp} HP`), h('span', 'lvs', `· ${levelsText(p.levels)}${p.online ? '' : ' · away'}`)));
 }
 
@@ -936,7 +941,10 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
   $('struggled').replaceChildren(
     ...me.struggled.map((k) => {
       const w = byKanji.get(k)!;
-      const card = append(h('div', 'card clickable', undefined, { tabindex: '0', title: 'Stroke order' }), h('div', 'k', w.kanji, { lang: 'ja' }), h('div', 'r', w.reading, { lang: 'ja' }), h('div', 'm', w.meaning));
+      // a red card; once the server says which words it saved, decks.ts adds the tick (tap to keep it out of the deck)
+      const so = h('button', 'so-btn', '筆', { type: 'button', title: 'Stroke order', 'aria-label': 'Stroke order', lang: 'ja' });
+      so.onclick = (e) => { e.stopPropagation(); openStrokeDialog(w.kanji, w.reading, w.meaning); };
+      const card = append(h('div', 'card miss-card', undefined, { tabindex: '0', 'data-kanji': w.kanji }), h('div', 'k', w.kanji, { lang: 'ja' }), h('div', 'r', w.reading, { lang: 'ja' }), h('div', 'm', w.meaning), so);
       card.onclick = () => openStrokeDialog(w.kanji, w.reading, w.meaning);
       return card;
     }),
@@ -1024,7 +1032,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
     body.push(append(h('div', 'pp-head'), h('div', 'pp-pic', 'AI'), append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', p.bot === 'BEGINNER' ? 'AI player · beginner' : `AI player · knows ${p.bot}`))),
       h('p', 'hint', 'A computer opponent. It gets words right about as often as a learner of its level would.'));
   } else {
-    const pic = h('div', 'pp-pic' + (p.pic ? ' has-pic' : ''), p.pic ? '' : p.name.slice(0, 1).toUpperCase());
+    const pic = h('div', 'pp-pic' + (p.pic ? ' has-pic' : '') + borderCls(p.border), p.pic ? '' : p.name.slice(0, 1).toUpperCase());
     const img = picEl(p.pic, 'pic fill');
     if (img) pic.append(img);
     const games = p.wins + p.losses;
@@ -1037,7 +1045,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
         append(h('div'), h('b', '', p.learned), h('span', '', 'spells learned')),
       ),
       append(h('div', 'pp-stats pp-streaks'),
-        append(h('div', 'streak-box'), h('b', '', p.streak ?? 0), h('span', '', 'login streak (days)')),
+        append(h('div', 'streak-box'), h('b', '', p.streak ?? 0), h('span', '', 'daily streak (days)')),
         append(h('div', 'streak-box best'), h('b', '', Math.max(p.bestStreak ?? 0, p.streak ?? 0)), h('span', '', 'best streak (days)')),
       ),
       h('p', 'hint', `Playing since ${new Date(p.since).toLocaleDateString(locale(), { year: 'numeric', month: 'short', day: 'numeric' })}`),

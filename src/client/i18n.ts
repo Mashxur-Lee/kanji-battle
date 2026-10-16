@@ -444,6 +444,24 @@ const RU: Record<string, string> = {
   'Both players get the same kanji — no study phase.': 'Оба игрока получают один и тот же кандзи — без подготовки.', 'Wrong? Try again until the 12 s round ends.': 'Ошиблись? Пробуйте снова, пока не кончится 12-секундный раунд.',
   'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.': 'Крит: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Игра с ИИ даёт половину опыта; сдача — ничего.',
   'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.': 'Шанс крита сегодня: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Сбрасывается в полночь.',
+  // 0.9.9.3
+  'Ticked: goes to your deck. Tap to keep it out.': 'Отмечено: попадёт в колоду. Нажмите, чтобы не добавлять.', 'Ticked words go to': 'Отмеченные слова — в',
+  '(ticked words go to your deck · tap a card to untick · 筆 = stroke order)': '(отмеченные слова попадут в колоду · нажмите на карточку, чтобы снять отметку · 筆 — порядок черт)',
+  'Missed — ticked words go to Struggling spells': 'Ошибки — отмеченные слова попадут в «Трудные заклинания»',
+  'Fill each blank with one of your words (the furigana is your clue). Tap any word in the story for its meaning.': 'Заполните пропуски своими словами (подсказка — фуригана). Нажмите на любое слово в тексте, чтобы увидеть значение.',
+  'Your words — tap a blank, then a word': 'Ваши слова — нажмите на пропуск, затем на слово', 'Check': 'Проверить', 'Perfect — every word in its place!': 'Идеально — все слова на месте!',
+  'Green: right. Red: the right word, with yours crossed out.': 'Зелёный — верно. Красный — правильное слово, ваше зачёркнуто.', 'Tap, then pick a word below': 'Нажмите, затем выберите слово ниже',
+  'Study 10 spells (any deck)': 'Изучите 10 заклинаний (любая колода)', 'Do a JLPT quiz': 'Пройдите тест JLPT', 'Play the daily challenge': 'Сыграйте ежедневное испытание',
+  'Read a passage (fill in the blanks)': 'Прочитайте текст (заполните пропуски)', 'Streak kept today — well done!': 'Серия сегодня сохранена — отлично!', 'Daily streak tasks': 'Задания для серии',
+  'Today’s streak tasks': 'Задания на сегодня', 'days in a row': 'дней подряд', 'Go': 'Перейти', '🔥 Keep your daily streak': '🔥 Сохраните ежедневную серию',
+  'A day counts for your streak when all four tasks are done. Your best streak unlocks magic staffs.': 'День засчитывается в серию, когда выполнены все четыре задания. Лучшая серия открывает магические посохи.',
+  'Don’t show this when I log in': 'Не показывать при входе', 'daily streak (days)': 'серия (дни)',
+  'A short story with blanks — fill them in with your struggling words, then check.': 'Короткий рассказ с пропусками — заполните их трудными словами и проверьте.',
+  'Swipe the card: ← Again · Hard   |   Okay · Easy →': 'Смахните карточку: ← Снова · Трудно   |   Нормально · Легко →',
+  'Profile': 'Профиль', '✦ Unlocked ✦': '✦ Открыто ✦', 'No border': 'Без рамки',
+  'Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.': 'Ваша карточка профиля: рамка вокруг фото (открываются на 1, 5, 10 и 15 уровнях) и до 3 значков достижений под именем.',
+  'Tap an achievement you have earned to show it under your name; tap it again to take it off.': 'Нажмите на полученное достижение, чтобы показать его под именем; нажмите ещё раз, чтобы убрать.',
+  'No badges yet — pick up to 3 below.': 'Значков пока нет — выберите до 3 ниже.',
 };
 
 // names of the monthly seasons and the staffs (staff names in the genitive: «Посох Бури»)

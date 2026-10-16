@@ -2,7 +2,7 @@
 // quiz, the reading passage, and — on the results screen — choosing where the words you missed go.
 import { LEVEL_LABEL, type MissedWord } from '../shared/protocol';
 import type { DeckId } from '../shared/srs';
-import { api, type DeckRow, type QuizQuestion, type WordHit } from './api';
+import { api, type DeckRow, type Profile, type QuizQuestion, type WordHit } from './api';
 import { lang, locale, meaningIn, tr } from './i18n';
 import { openStrokeDialog } from './ui';
 import * as ui from './ui';
@@ -147,6 +147,31 @@ $('customForm').addEventListener('submit', async (e) => {
  * The server already put the missed words in Struggling spells (pre-ticked). Untick a word to take it
  * out again, or pick another deck to move them there. Words that were in the deck before stay put.
  */
+/**
+ * Makes red word cards tickable: a small tick in the corner, pre-ticked (= in the deck); tapping a card unticks it
+ * (it turns see-through) and `onToggle` takes it out of the deck again. Used after a battle and the daily challenge.
+ */
+export function tickCards(cards: Array<{ card: HTMLElement; id: string }>, onToggle: (id: string, on: boolean) => void) {
+  for (const { card, id } of cards) {
+    card.classList.add('tickable', 'on');
+    card.setAttribute('role', 'checkbox');
+    card.setAttribute('aria-checked', 'true');
+    card.title = tr('Ticked: goes to your deck. Tap to keep it out.');
+    const tick = el('span', 'mc-tick', '✓', { 'aria-hidden': 'true' });
+    card.prepend(tick);
+    const flip = () => {
+      const on = !card.classList.contains('on');
+      card.classList.toggle('on', on);
+      card.setAttribute('aria-checked', String(on));
+      tick.textContent = on ? '✓' : '';
+      onToggle(id, on);
+    };
+    card.onclick = flip;
+    card.onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); } };
+  }
+}
+
+/** After a battle: the red "struggled" cards get their ticks; a line above picks the deck they go to. */
 export function showMissedSave(missed: MissedWord[]) {
   const box = $('missedSave');
   if (!missed.length) { box.hidden = true; return; }
@@ -154,25 +179,30 @@ export function showMissedSave(missed: MissedWord[]) {
   const ticked = new Set(missed.map((m) => m.id));
   let ours = new Set(missed.filter((m) => m.added).map((m) => m.id)); // put in `deck` by this game (safe to take out again)
   const status = el('span', 'ms-status hint');
-  const say = (t: string) => { status.textContent = t; };
+  const say = () => { status.textContent = `${ticked.size} / ${missed.length} → ${tr(DECK_LABEL[deck])}`; };
   const sync = async (id: string, on: boolean) => {
+    on ? ticked.add(id) : ticked.delete(id);
+    say();
     try {
       if (on) { const r = await api.deckAdd(deck, [id]); r.added.forEach((x) => ours.add(x)); }
       // untick: out of the deck again — always for Struggling (that is the point of unticking), and for the
       // other decks only if this game put it there (never delete a word you had studied before)
       else if (ours.has(id) || deck === 'struggling') { await api.deckRemove(deck, [id]); ours.delete(id); }
-      say(`${ticked.size} of ${missed.length} in ${tr(DECK_LABEL[deck])}`);
-    } catch (e) { say((e as Error).message); }
+    } catch (e) { status.textContent = (e as Error).message; }
   };
-  const chips = missed.map((m) => {
-    const l = el('label', 'ms-word on');
-    const c = el('input', '', undefined, { type: 'checkbox' }) as HTMLInputElement;
-    c.checked = true;
-    c.onchange = () => { c.checked ? ticked.add(m.id) : ticked.delete(m.id); l.classList.toggle('on', c.checked); void sync(m.id, c.checked); };
-    l.append(c, el('b', '', m.kanji, { lang: 'ja' }), el('small', '', m.reading, { lang: 'ja' }));
-    l.title = m.meaning;
-    return l;
+  // the cards the results screen drew (ui.ts); a missed word without one gets a card of its own
+  const grid = $('struggled');
+  const cards = missed.map((m) => {
+    let card = grid.querySelector<HTMLElement>(`.miss-card[data-kanji="${CSS.escape(m.kanji)}"]`);
+    if (!card) {
+      card = el('div', 'card miss-card', undefined, { tabindex: '0', 'data-kanji': m.kanji });
+      card.append(el('div', 'k', m.kanji, { lang: 'ja' }), el('div', 'r', m.reading, { lang: 'ja' }), el('div', 'm', m.meaning));
+      grid.append(card);
+      $('struggledBox').hidden = false;
+    }
+    return { card, id: m.id };
   });
+  tickCards(cards, (id, on) => void sync(id, on));
   const sel = el('select', 'ms-deck', undefined, { 'aria-label': 'Save to' }) as HTMLSelectElement;
   for (const d of ['struggling', 'all', 'custom'] as DeckId[]) sel.append(Object.assign(el('option', '', DECK_LABEL[d]), { value: d }));
   sel.value = deck;
@@ -183,17 +213,14 @@ export function showMissedSave(missed: MissedWord[]) {
       if (ours.size) await api.deckRemove(deck, [...ours]);
       deck = to;
       ours = new Set((await api.deckAdd(deck, [...ticked])).added);
-      say(`${ticked.size} of ${missed.length} in ${tr(DECK_LABEL[deck])}`);
-    } catch (e) { say((e as Error).message); }
+      say();
+    } catch (e) { status.textContent = (e as Error).message; }
     sel.disabled = false;
   };
   const story = el('button', 'pill', 'Read them in a story');
   story.onclick = () => openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning })));
-  const head = el('div', 'ms-head');
-  head.append(el('span', '', 'Save these words to'), sel, status, story);
-  box.replaceChildren(head, Object.assign(el('div', 'ms-words'), {}));
-  box.lastElementChild!.append(...chips);
-  say(`${ticked.size} of ${missed.length} in ${tr(DECK_LABEL[deck])}`);
+  box.replaceChildren(el('span', 'hint', 'Ticked words go to'), sel, status, story);
+  say();
   box.hidden = false;
 }
 
@@ -268,6 +295,7 @@ function nextQuestion() {
   $('quizCard').hidden = true;
   $('quizDone').hidden = false;
   $('quizResult').textContent = `${score} / ${quiz.length} correct${score === quiz.length ? ' — perfect!' : ''}`;
+  void api.task('quiz').then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task
   const box = $('quizMissed');
   if (!wrong.length) { box.replaceChildren(); return; }
   const sel = el('select', 'ms-deck') as HTMLSelectElement;
@@ -321,32 +349,154 @@ const CLOSE: Line = { ja: 'こうして、ハルの[魔法|まほう]はまた[�
 type PWord = { kanji: string; reading: string; meaning: string };
 let passageWords: PWord[] = [];
 
-/** Japanese line with furigana (ruby) and the word slot as a tappable highlight. */
-function jaLine(line: Line, w: PWord | null, i: number) {
+/**
+ * The story's own words (0.9.9.3: every one of them can be tapped for its meaning, not only your spells).
+ * Key: `kanji|furigana` as written in the lines (and katakana words as they are); value: dictionary form,
+ * English, Russian.
+ */
+const GLOSS: Record<string, [string, string, string]> = {
+  '魔法|まほう': ['魔法', 'magic', 'магия'], '学校|がっこう': ['学校', 'school', 'школа'], '一日|いちにち': ['一日', 'one day; a day', 'один день'],
+  '見習|みなら': ['見習い', 'apprentice', 'ученик, подмастерье'], '魔法使|まほうつか': ['魔法使い', 'wizard, witch', 'волшебник'], '朝|あさ': ['朝', 'morning', 'утро'],
+  '呪文|じゅもん': ['呪文', 'spell, incantation', 'заклинание'], '練習|れんしゅう': ['練習する', 'to practise', 'тренироваться'],
+  '師匠|ししょう': ['師匠', 'master, teacher', 'учитель, мастер'], '書|か': ['書く', 'to write', 'писать'], '古|ふる': ['古い', 'old', 'старый'],
+  '巻物|まきもの': ['巻物', 'scroll', 'свиток'], '机|つくえ': ['机', 'desk', 'стол'], '置|お': ['置く', 'to put, to place', 'класть'],
+  '読|よ': ['読む', 'to read (読み方 = how to read)', 'читать (読み方 — чтение)'], '方|かた': ['〜方', 'way of …ing', 'способ'],
+  '三回|さんかい': ['三回', 'three times', 'три раза'], '声|こえ': ['声', 'voice', 'голос'], '出|だ': ['出す', 'to put out (声に出す = say aloud; 思い出す = recall)', 'выпускать (声に出す — вслух; 思い出す — вспомнить)'],
+  '言|い': ['言う', 'to say', 'говорить'], '友達|ともだち': ['友達', 'friend', 'друг'], '言葉|ことば': ['言葉', 'word', 'слово'],
+  '覚|おぼ': ['覚える', 'to learn, to remember', 'запоминать'], '図書館|としょかん': ['図書館', 'library', 'библиотека'], '本|ほん': ['本', 'book', 'книга'],
+  '話|はなし': ['話', 'story, talk', 'рассказ'], '意味|いみ': ['意味', 'meaning', 'значение'], '思|おも': ['思う', 'to think (思い出す = recall)', 'думать (思い出す — вспомнить)'],
+  '杖|つえ': ['杖', 'staff, wand', 'посох'], '宝石|ほうせき': ['宝石', 'gem, jewel', 'драгоценный камень'], '明|あか': ['明るい', 'bright', 'яркий'],
+  '光|ひか': ['光る', 'to shine', 'светиться'], '戦|たたか': ['戦い', 'battle, fight', 'битва'], '中|なか': ['中', 'inside; in the middle of', 'внутри, в ходе'],
+  '驚|おどろ': ['驚く', 'to be startled', 'пугаться, удивляться'], '後|うし': ['後ろ', 'behind, back', 'назад'], '下|さ': ['下がる', 'to step back', 'отступать'],
+  '間違|まちが': ['間違える', 'to get wrong, to make a mistake', 'ошибаться'], '答|こた': ['答える', 'to answer', 'отвечать'], '夜|よる': ['夜', 'night', 'ночь'],
+  '何度|なんど': ['何度も', 'again and again', 'много раз'], '笑|わら': ['笑う', 'to smile, to laugh', 'улыбаться, смеяться'], '大丈夫|だいじょうぶ': ['大丈夫', 'all right, fine', 'в порядке'],
+  '次|つぎ': ['次', 'next', 'следующий'], '日|ひ': ['日', 'day', 'день'], '使|つか': ['使う', 'to use', 'использовать'], '闇|やみ': ['闇', 'darkness', 'тьма'],
+  '魔物|まもの': ['魔物', 'monster, demon', 'чудовище'], '倒|たお': ['倒す', 'to defeat', 'победить, свалить'], '前|まえ': ['前', 'in front of', 'перед'],
+  '唱|とな': ['唱える', 'to chant', 'произносить (заклинание)'], '空|そら': ['空', 'sky', 'небо'], '虹|にじ': ['虹', 'rainbow', 'радуга'],
+  '出|で': ['出る', 'to appear, to come out', 'появляться'], '少|すこ': ['少し', 'a little', 'немного'], '強|つよ': ['強い', 'strong', 'сильный'],
+  'ハル': ['ハル', 'Haru (a name)', 'Хару (имя)'], 'ケン': ['ケン', 'Ken (a name)', 'Кен (имя)'], 'ドラゴン': ['ドラゴン', 'dragon', 'дракон'], 'ノート': ['ノート', 'notebook', 'тетрадь'],
+  'みんな': ['みんな', 'everyone', 'все'], 'ゆっくり': ['ゆっくり', 'slowly', 'медленно'], 'たくさん': ['たくさん', 'many, a lot', 'много'], 'まだ': ['まだ', 'still, (not) yet', 'ещё'],
+  'もう': ['もう', 'already, now', 'уже'], 'こうして': ['こうして', 'and so, like this', 'так, таким образом'], 'という': ['という', 'called …, named …', 'под названием'],
+};
+const KANA_WORDS = Object.keys(GLOSS).filter((k) => !k.includes('|')).sort((a, b) => b.length - a.length);
+
+/** the blanks: which word sits in each (null = empty), which blank is selected, and whether it has been checked */
+let blanks: Array<{ answer: PWord; put: PWord | null; el: HTMLButtonElement }> = [];
+let picked = 0;
+let checked = false;
+
+/** Japanese line with furigana; every story word tappable for a gloss; the slot is a blank to fill. */
+function jaLine(line: Line, w: PWord | null) {
   const p = el('span', 'p-line');
   const parts = line.ja.split(/(\[[^\]|]+\|[^\]]+\]|\{w\})/);
   for (const part of parts) {
     if (!part) continue;
     const ruby = /^\[([^\]|]+)\|([^\]]+)\]$/.exec(part);
-    if (ruby) { const r = el('ruby'); r.append(ruby[1], el('rt', '', ruby[2])); p.append(r); continue; }
+    if (ruby) {
+      const r = el('ruby'); r.append(ruby[1], el('rt', '', ruby[2]));
+      const g = GLOSS[`${ruby[1]}|${ruby[2]}`];
+      if (g) { const b = el('button', 'p-tok', undefined, { type: 'button' }); b.append(r); b.onclick = () => glossStory(g, ruby[1], ruby[2], b); p.append(b); } else p.append(r);
+      continue;
+    }
     if (part === '{w}' && w) {
-      const b = el('button', 'p-word', undefined, { type: 'button', 'data-i': String(i) });
-      const r = el('ruby'); r.append(w.kanji, el('rt', '', w.kanji === w.reading ? '' : w.reading));
-      b.append(r);
-      b.onclick = () => gloss(w, b);
+      const i = blanks.length;
+      const b = el('button', 'p-blank', undefined, { type: 'button', 'data-i': String(i), title: 'Tap, then pick a word below' }) as HTMLButtonElement;
+      b.onclick = () => tapBlank(i);
+      blanks.push({ answer: w, put: null, el: b });
       p.append(b);
       continue;
     }
-    p.append(part);
+    // plain text: katakana names and a few kana words are tappable too
+    let rest = part;
+    while (rest) {
+      let at = -1, word = '';
+      for (const k of KANA_WORDS) { const x = rest.indexOf(k); if (x >= 0 && (at < 0 || x < at)) { at = x; word = k; } }
+      if (at < 0) { p.append(rest); break; }
+      if (at) p.append(rest.slice(0, at));
+      const g = GLOSS[word], b = el('button', 'p-tok', word, { type: 'button' });
+      b.onclick = () => glossStory(g, word, '', b);
+      p.append(b);
+      rest = rest.slice(at + word.length);
+    }
   }
   return p;
 }
-function gloss(w: PWord, at: HTMLElement) {
-  document.querySelectorAll('.p-word.on').forEach((x) => x.classList.remove('on'));
+function showGloss(at: HTMLElement, ...kids: Node[]) {
+  document.querySelectorAll('.passage-text .on').forEach((x) => x.classList.remove('on'));
   at.classList.add('on');
   const g = $('passageGloss');
-  g.replaceChildren(el('b', '', w.kanji, { lang: 'ja' }), el('span', 'rd', w.reading, { lang: 'ja' }), el('span', 'm', meaningIn(w.meaning)));
+  g.replaceChildren(...kids);
   g.hidden = false;
+}
+function glossStory(g: [string, string, string], kanji: string, reading: string, at: HTMLElement) {
+  const dict = g[0] !== kanji ? el('span', 'rd', `→ ${g[0]}`, { lang: 'ja' }) : el('span');
+  showGloss(at, el('b', '', kanji, { lang: 'ja' }), el('span', 'rd', reading, { lang: 'ja' }), dict, el('span', 'm', lang() === 'ru' ? g[2] : g[1], { 'data-no-i18n': '' }));
+}
+function drawBlank(i: number) {
+  const b = blanks[i];
+  b.el.replaceChildren();
+  b.el.classList.toggle('sel', !checked && i === picked);
+  b.el.classList.toggle('filled', !!b.put);
+  if (checked) {
+    const ok = b.put?.kanji === b.answer.kanji;
+    b.el.classList.add(ok ? 'right' : 'wrong');
+    const r = el('ruby'); r.append(b.answer.kanji, el('rt', '', b.answer.kanji === b.answer.reading ? '' : b.answer.reading));
+    b.el.append(r);
+    if (!ok && b.put) b.el.append(el('s', 'p-was', b.put.kanji));
+    b.el.onclick = () => showGloss(b.el, el('b', '', b.answer.kanji, { lang: 'ja' }), el('span', 'rd', b.answer.reading, { lang: 'ja' }), el('span', 'm', meaningIn(b.answer.meaning)));
+    return;
+  }
+  // a hint over each blank: its reading (furigana) — pick the kanji that is read this way
+  const r = el('ruby'); r.append(b.put ? b.put.kanji : '＿＿', el('rt', '', b.answer.reading));
+  b.el.append(el('span', 'p-num', String(i + 1)), r);
+}
+function drawBank() {
+  const used = new Set(blanks.filter((b) => b.put).map((b) => b.put!.kanji));
+  for (const c of document.querySelectorAll<HTMLButtonElement>('#passageWords .p-chip')) c.disabled = checked || used.has(c.dataset.k!);
+  const left = blanks.filter((b) => !b.put).length;
+  const check = document.getElementById('passageCheck') as HTMLButtonElement | null;
+  if (check) { check.disabled = checked || left === blanks.length; check.textContent = left ? `Check (${left} empty)` : 'Check'; }
+}
+function tapBlank(i: number) {
+  if (checked) return;
+  if (blanks[i].put && picked === i) blanks[i].put = null; // tap a filled, selected blank again: back to the bank
+  picked = i;
+  blanks.forEach((_, k) => drawBlank(k));
+  drawBank();
+}
+function putWord(w: PWord) {
+  if (checked || !blanks.length) return;
+  blanks[picked].put = w;
+  const next = blanks.findIndex((b, k) => !b.put && k > picked);
+  picked = next >= 0 ? next : Math.max(0, blanks.findIndex((b) => !b.put));
+  blanks.forEach((_, k) => drawBlank(k));
+  drawBank();
+}
+let lines: Line[] = [];
+let pick: PWord[] = [];
+function drawTranslation() {
+  const ru = lang() === 'ru';
+  // before checking, the translation gives the meaning only (it would give the answers away)
+  const fill = (l: Line, w: PWord | null) => (ru ? l.ru : l.en).replace('{w}', w ? (checked ? `${w.kanji} — ${meaningIn(w.meaning)}` : `… (${meaningIn(w.meaning)})`) : '');
+  $('passageTr').replaceChildren(...[fill(OPEN, null), ...lines.map((l, i) => fill(l, pick[i])), fill(CLOSE, null)].map((t) => el('p', '', t, { 'data-no-i18n': '' })));
+}
+/** called when a passage is checked (the daily tasks count it) */
+export const passageHooks: { done?: (score: number, total: number) => void } = {};
+/** a daily task was recorded: the fresh profile (main.ts shows it) */
+export const onTaskDone = { cb: (_p: Profile) => {} };
+function check() {
+  checked = true;
+  blanks.forEach((_, k) => drawBlank(k));
+  const right = blanks.filter((b) => b.put?.kanji === b.answer.kanji).length;
+  drawTranslation();
+  const list = pick.map((w) => {
+    const row = el('div', 'pw');
+    row.append(el('b', '', w.kanji, { lang: 'ja' }), el('span', 'rd', w.reading, { lang: 'ja' }), el('span', 'm', meaningIn(w.meaning)));
+    return row;
+  });
+  $('passageWords').replaceChildren(el('div', 'p-score', `${right} / ${blanks.length}`), el('p', 'hint center', right === blanks.length ? 'Perfect — every word in its place!' : 'Green: right. Red: the right word, with yours crossed out.'), el('h4', '', 'Words in this story'), ...list);
+  passageHooks.done?.(right, blanks.length);
+  void api.task('passage').then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task
 }
 
 export function openPassage(words: PWord[]) {
@@ -355,21 +505,29 @@ export function openPassage(words: PWord[]) {
   buildPassage();
 }
 function buildPassage() {
-  const pick = [...passageWords].sort(() => Math.random() - 0.5).slice(0, Math.min(8, LINES.length));
+  // no two words that look the same (the bank would be ambiguous)
+  const seen = new Set<string>();
+  pick = [...passageWords].sort(() => Math.random() - 0.5).filter((w) => !seen.has(w.kanji) && !!seen.add(w.kanji)).slice(0, Math.min(8, LINES.length));
   // keep the story in order: the chosen sentences in their LINES order
-  const lines = [...LINES.keys()].sort(() => Math.random() - 0.5).slice(0, pick.length).sort((a, b) => a - b).map((i) => LINES[i]);
+  lines = [...LINES.keys()].sort(() => Math.random() - 0.5).slice(0, pick.length).sort((a, b) => a - b).map((i) => LINES[i]);
+  blanks = []; picked = 0; checked = false;
   const text = $('passageText');
-  text.replaceChildren(jaLine(OPEN, null, -1), ...lines.map((l, i) => jaLine(l, pick[i], i)), jaLine(CLOSE, null, -1));
-  const ru = lang() === 'ru';
-  const fill = (l: Line, w: PWord | null) => (ru ? l.ru : l.en).replace('{w}', w ? `${w.kanji} — ${meaningIn(w.meaning)}` : '');
-  $('passageTr').replaceChildren(...[fill(OPEN, null), ...lines.map((l, i) => fill(l, pick[i])), fill(CLOSE, null)].map((t) => el('p', '', t, { 'data-no-i18n': '' })));
-  $('passageWords').replaceChildren(el('h4', '', 'Words in this story'), ...pick.map((w) => {
-    const row = el('div', 'pw');
-    row.append(el('b', '', w.kanji, { lang: 'ja' }), el('span', 'rd', w.reading, { lang: 'ja' }), el('span', 'm', meaningIn(w.meaning)));
-    return row;
-  }));
+  text.replaceChildren(jaLine(OPEN, null), ...lines.map((l, i) => jaLine(l, pick[i])), jaLine(CLOSE, null));
+  blanks.forEach((_, k) => drawBlank(k));
+  drawTranslation();
+  // the word bank: every word of the story, shuffled; tap one to put it in the selected blank
+  const bank = el('div', 'p-bank');
+  for (const w of [...pick].sort(() => Math.random() - 0.5)) {
+    const c = el('button', 'p-chip', w.kanji, { type: 'button', lang: 'ja', 'data-k': w.kanji }) as HTMLButtonElement;
+    c.onclick = () => putWord(w);
+    bank.append(c);
+  }
+  const go = el('button', 'big', 'Check', { id: 'passageCheck', type: 'button' }) as HTMLButtonElement;
+  go.onclick = check;
+  $('passageWords').replaceChildren(el('h4', '', 'Your words — tap a blank, then a word'), bank, go);
+  drawBank();
   $('passageGloss').hidden = true;
-  if (!pick.length) text.replaceChildren(el('p', 'hint', 'No words yet — the story uses your struggling spells (or the words you missed in a game).'));
+  if (!pick.length) { text.replaceChildren(el('p', 'hint', 'No words yet — the story uses your struggling spells (or the words you missed in a game).')); $('passageWords').replaceChildren(); }
 }
 $('passageNew').onclick = buildPassage;
 $('passageClose').onclick = () => $<HTMLDialogElement>('passageDialog').close();

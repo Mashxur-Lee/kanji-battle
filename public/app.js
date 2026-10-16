@@ -58,7 +58,10 @@
     searchWords: (q) => call("GET", `/api/study/search?q=${encodeURIComponent(q)}`),
     addCustom: (w) => call("POST", "/api/study/custom", w),
     quiz: (n = 10) => call("GET", `/api/study/quiz?n=${n}`),
+    /** a daily task done here (the quiz, a passage): counts towards today's streak */
+    task: (task) => call("POST", "/api/study/task", { task, today: today() }),
     setDailyNew: (n) => call("PUT", "/api/study/daily-new", { n, today: today() }),
+    setBorder: (border) => call("PUT", "/api/me/border", { border }),
     setBadges: (badges2) => call("PUT", "/api/me/badges", { badges: badges2 }),
     matches: () => call("GET", "/api/matches"),
     match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
@@ -88,7 +91,7 @@
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.2";
+  var VERSION = "0.9.9.3";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -772,7 +775,39 @@
     "Both players get the same kanji \u2014 no study phase.": "\u041E\u0431\u0430 \u0438\u0433\u0440\u043E\u043A\u0430 \u043F\u043E\u043B\u0443\u0447\u0430\u044E\u0442 \u043E\u0434\u0438\u043D \u0438 \u0442\u043E\u0442 \u0436\u0435 \u043A\u0430\u043D\u0434\u0437\u0438 \u2014 \u0431\u0435\u0437 \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0438.",
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
-    "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C."
+    "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.3
+    "Ticked: goes to your deck. Tap to keep it out.": "\u041E\u0442\u043C\u0435\u0447\u0435\u043D\u043E: \u043F\u043E\u043F\u0430\u0434\u0451\u0442 \u0432 \u043A\u043E\u043B\u043E\u0434\u0443. \u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0442\u044C.",
+    "Ticked words go to": "\u041E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u2014 \u0432",
+    "(ticked words go to your deck \xB7 tap a card to untick \xB7 \u7B46 = stroke order)": "(\u043E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u043F\u043E\u043F\u0430\u0434\u0443\u0442 \u0432 \u043A\u043E\u043B\u043E\u0434\u0443 \xB7 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443, \u0447\u0442\u043E\u0431\u044B \u0441\u043D\u044F\u0442\u044C \u043E\u0442\u043C\u0435\u0442\u043A\u0443 \xB7 \u7B46 \u2014 \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u0447\u0435\u0440\u0442)",
+    "Missed \u2014 ticked words go to Struggling spells": "\u041E\u0448\u0438\u0431\u043A\u0438 \u2014 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u043F\u043E\u043F\u0430\u0434\u0443\u0442 \u0432 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB",
+    "Fill each blank with one of your words (the furigana is your clue). Tap any word in the story for its meaning.": "\u0417\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0438 \u0441\u0432\u043E\u0438\u043C\u0438 \u0441\u043B\u043E\u0432\u0430\u043C\u0438 (\u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u2014 \u0444\u0443\u0440\u0438\u0433\u0430\u043D\u0430). \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043B\u044E\u0431\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u0432 \u0442\u0435\u043A\u0441\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435.",
+    "Your words \u2014 tap a blank, then a word": "\u0412\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043F\u0440\u043E\u043F\u0443\u0441\u043A, \u0437\u0430\u0442\u0435\u043C \u043D\u0430 \u0441\u043B\u043E\u0432\u043E",
+    "Check": "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C",
+    "Perfect \u2014 every word in its place!": "\u0418\u0434\u0435\u0430\u043B\u044C\u043D\u043E \u2014 \u0432\u0441\u0435 \u0441\u043B\u043E\u0432\u0430 \u043D\u0430 \u043C\u0435\u0441\u0442\u0435!",
+    "Green: right. Red: the right word, with yours crossed out.": "\u0417\u0435\u043B\u0451\u043D\u044B\u0439 \u2014 \u0432\u0435\u0440\u043D\u043E. \u041A\u0440\u0430\u0441\u043D\u044B\u0439 \u2014 \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E, \u0432\u0430\u0448\u0435 \u0437\u0430\u0447\u0451\u0440\u043A\u043D\u0443\u0442\u043E.",
+    "Tap, then pick a word below": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0437\u0430\u0442\u0435\u043C \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u043E \u043D\u0438\u0436\u0435",
+    "Study 10 spells (any deck)": "\u0418\u0437\u0443\u0447\u0438\u0442\u0435 10 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 (\u043B\u044E\u0431\u0430\u044F \u043A\u043E\u043B\u043E\u0434\u0430)",
+    "Do a JLPT quiz": "\u041F\u0440\u043E\u0439\u0434\u0438\u0442\u0435 \u0442\u0435\u0441\u0442 JLPT",
+    "Play the daily challenge": "\u0421\u044B\u0433\u0440\u0430\u0439\u0442\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435",
+    "Read a passage (fill in the blanks)": "\u041F\u0440\u043E\u0447\u0438\u0442\u0430\u0439\u0442\u0435 \u0442\u0435\u043A\u0441\u0442 (\u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0438)",
+    "Streak kept today \u2014 well done!": "\u0421\u0435\u0440\u0438\u044F \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0430 \u2014 \u043E\u0442\u043B\u0438\u0447\u043D\u043E!",
+    "Daily streak tasks": "\u0417\u0430\u0434\u0430\u043D\u0438\u044F \u0434\u043B\u044F \u0441\u0435\u0440\u0438\u0438",
+    "Today\u2019s streak tasks": "\u0417\u0430\u0434\u0430\u043D\u0438\u044F \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
+    "days in a row": "\u0434\u043D\u0435\u0439 \u043F\u043E\u0434\u0440\u044F\u0434",
+    "Go": "\u041F\u0435\u0440\u0435\u0439\u0442\u0438",
+    "\u{1F525} Keep your daily streak": "\u{1F525} \u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u0443\u044E \u0441\u0435\u0440\u0438\u044E",
+    "A day counts for your streak when all four tasks are done. Your best streak unlocks magic staffs.": "\u0414\u0435\u043D\u044C \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u0441\u0435\u0440\u0438\u044E, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u044B \u0432\u0441\u0435 \u0447\u0435\u0442\u044B\u0440\u0435 \u0437\u0430\u0434\u0430\u043D\u0438\u044F. \u041B\u0443\u0447\u0448\u0430\u044F \u0441\u0435\u0440\u0438\u044F \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u043E\u0441\u043E\u0445\u0438.",
+    "Don\u2019t show this when I log in": "\u041D\u0435 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043F\u0440\u0438 \u0432\u0445\u043E\u0434\u0435",
+    "daily streak (days)": "\u0441\u0435\u0440\u0438\u044F (\u0434\u043D\u0438)",
+    "A short story with blanks \u2014 fill them in with your struggling words, then check.": "\u041A\u043E\u0440\u043E\u0442\u043A\u0438\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0441 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u043C\u0438 \u2014 \u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0438\u0445 \u0442\u0440\u0443\u0434\u043D\u044B\u043C\u0438 \u0441\u043B\u043E\u0432\u0430\u043C\u0438 \u0438 \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435.",
+    "Swipe the card: \u2190 Again \xB7 Hard   |   Okay \xB7 Easy \u2192": "\u0421\u043C\u0430\u0445\u043D\u0438\u0442\u0435 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443: \u2190 \u0421\u043D\u043E\u0432\u0430 \xB7 \u0422\u0440\u0443\u0434\u043D\u043E   |   \u041D\u043E\u0440\u043C\u0430\u043B\u044C\u043D\u043E \xB7 \u041B\u0435\u0433\u043A\u043E \u2192",
+    "Profile": "\u041F\u0440\u043E\u0444\u0438\u043B\u044C",
+    "\u2726 Unlocked \u2726": "\u2726 \u041E\u0442\u043A\u0440\u044B\u0442\u043E \u2726",
+    "No border": "\u0411\u0435\u0437 \u0440\u0430\u043C\u043A\u0438",
+    "Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.": "\u0412\u0430\u0448\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u043F\u0440\u043E\u0444\u0438\u043B\u044F: \u0440\u0430\u043C\u043A\u0430 \u0432\u043E\u043A\u0440\u0443\u0433 \u0444\u043E\u0442\u043E (\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043D\u0430 1, 5, 10 \u0438 15 \u0443\u0440\u043E\u0432\u043D\u044F\u0445) \u0438 \u0434\u043E 3 \u0437\u043D\u0430\u0447\u043A\u043E\u0432 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0439 \u043F\u043E\u0434 \u0438\u043C\u0435\u043D\u0435\u043C.",
+    "Tap an achievement you have earned to show it under your name; tap it again to take it off.": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0435\u0433\u043E \u043F\u043E\u0434 \u0438\u043C\u0435\u043D\u0435\u043C; \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437, \u0447\u0442\u043E\u0431\u044B \u0443\u0431\u0440\u0430\u0442\u044C.",
+    "No badges yet \u2014 pick up to 3 below.": "\u0417\u043D\u0430\u0447\u043A\u043E\u0432 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u043E 3 \u043D\u0438\u0436\u0435."
   };
   var SEASON_RU = { Frost: "\u0418\u043D\u0435\u0439", Sakura: "\u0421\u0430\u043A\u0443\u0440\u0430", Blossom: "\u0426\u0432\u0435\u0442\u0435\u043D\u0438\u0435", Rain: "\u0414\u043E\u0436\u0434\u044C", Jade: "\u041D\u0435\u0444\u0440\u0438\u0442", Sun: "\u0421\u043E\u043B\u043D\u0446\u0435", Abyss: "\u0411\u0435\u0437\u0434\u043D\u0430", Thunder: "\u0413\u0440\u043E\u043C", Moon: "\u041B\u0443\u043D\u0430", Harvest: "\u0423\u0440\u043E\u0436\u0430\u0439", Maple: "\u041A\u043B\u0451\u043D", Starlight: "\u0417\u0432\u0451\u0437\u0434\u043D\u044B\u0439 \u0441\u0432\u0435\u0442" };
   var STAFF_RU = { Verdant: "\u041B\u0438\u0441\u0442\u0432\u044B", Ember: "\u0423\u0433\u043B\u0435\u0439", Tide: "\u041F\u0440\u0438\u043B\u0438\u0432\u0430", Storm: "\u0411\u0443\u0440\u0438", Void: "\u041F\u0443\u0441\u0442\u043E\u0442\u044B", Frost: "\u0418\u043D\u0435\u044F", Blossom: "\u0426\u0432\u0435\u0442\u0435\u043D\u0438\u044F", Jade: "\u041D\u0435\u0444\u0440\u0438\u0442\u0430", Abyss: "\u0411\u0435\u0437\u0434\u043D\u044B", Moon: "\u041B\u0443\u043D\u044B", Maple: "\u041A\u043B\u0451\u043D\u0430" };
@@ -1046,8 +1081,8 @@
       const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
       d += ` Q${pts[i][0]} ${pts[i][1]} ${mx.toFixed(1)} ${my.toFixed(1)}`;
     }
-    const last = pts[pts.length - 1];
-    return `${d} L${last[0]} ${last[1]}`;
+    const last2 = pts[pts.length - 1];
+    return `${d} L${last2[0]} ${last2[1]}`;
   }
   function diagram(ch, strokes2, stepMs, delay) {
     if (!strokes2 || !strokes2.length) {
@@ -1156,6 +1191,15 @@
     { id: "castle", name: "Castle", level: 8 },
     { id: "worldtree", name: "World Tree", level: 10 }
   ];
+  var unlocked = (bg2, xp) => beta.open || levelOf(xp) >= BACKGROUNDS.find((b) => b.id === bg2).level;
+  var BORDERS = [
+    { id: "none", name: "No border", level: 0, blurb: "Just your picture." },
+    { id: "apprentice", name: "Apprentice", level: 1, blurb: "A plain silver ring." },
+    { id: "adept", name: "Adept", level: 5, blurb: "A violet ring with four rune studs." },
+    { id: "master", name: "Master", level: 10, blurb: "A golden ring with a star at the top." },
+    { id: "archmage", name: "Archmage", level: 15, blurb: "A glowing ring of moving arcane light." }
+  ];
+  var borderUnlocked = (id, level2) => (BORDERS.find((b) => b.id === id)?.level ?? 999) <= level2;
   var FLAMES = [
     { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
     { id: "purple", name: "Purple", level: 5, color: "#b26bff" },
@@ -1226,378 +1270,520 @@
     return Math.ceil(((d.getTime() - yearStart) / 864e5 + 1) / 7);
   }
 
-  // src/client/pixelstaffs.ts
-  var STAFF_W = 5;
-  var STAFF_H = 20;
-  var GRIP = 10;
-  var MAPS = {
-    verdant: [
-      ".l.l.",
-      "b.l.b",
-      "b.O.b",
-      "bOOOb",
-      ".bOb.",
-      "..w..",
-      ".vwl.",
-      "..wv.",
-      ".vw..",
-      "..wv.",
-      "..w..",
-      ".vw..",
-      "..wv.",
-      ".lw..",
-      "..wv.",
-      ".vw..",
-      "..w..",
-      "..wl.",
-      "..w..",
-      "..d.."
-    ],
-    ember: [
-      "..F..",
-      ".F.F.",
-      "F.O.F",
-      "fOOOf",
-      ".dOd.",
-      "..d..",
-      "..w..",
-      ".fw..",
-      "..wf.",
-      ".fw..",
-      "..w..",
-      "..wf.",
-      ".fw..",
-      "..wf.",
-      ".fw..",
-      "..w..",
-      "..wf.",
-      "..w..",
-      "..d..",
-      "..f.."
-    ],
-    tide: [
-      ".ccc.",
-      "c...c",
-      "c.O..",
-      "cOOO.",
-      "c.O.c",
-      ".ccc.",
-      "..w..",
-      "..wc.",
-      ".cw..",
-      "..ws.",
-      "..w..",
-      ".sw..",
-      "..wc.",
-      ".cw..",
-      "..ws.",
-      "..w..",
-      "..w..",
-      ".ccc.",
-      "..c..",
-      "..c.."
-    ],
-    storm: [
-      "..s..",
-      "r.s.r",
-      "s.O.s",
-      "sOOOs",
-      "r.O.r",
-      ".sss.",
-      "..w..",
-      "..r..",
-      "..w..",
-      ".sws.",
-      "..w..",
-      "..r..",
-      "..w..",
-      ".sws.",
-      "..w..",
-      "..r..",
-      "..w..",
-      "..w..",
-      ".rrr.",
-      "..r.."
-    ],
-    void: [
-      "*.c.*",
-      "..c..",
-      "s.O.s",
-      "sOOOs",
-      ".cOc.",
-      "s.c.s",
-      ".sws.",
-      "..wc.",
-      ".sw..",
-      "..ws.",
-      ".cw..",
-      "..ws.",
-      ".sw..",
-      "..wc.",
-      ".sw..",
-      "..ws.",
-      "..w..",
-      ".ccc.",
-      "..c..",
-      "..c.."
-    ]
+  // src/client/art2d.ts
+  var uid = 0;
+  var nid = () => `a${(uid++).toString(36)}`;
+  var hexRgb = (h3) => [1, 3, 5].map((i) => parseInt(h3.slice(i, i + 2), 16));
+  var rgbHex = (c) => `#${c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("")}`;
+  var mix = (a, b, t) => {
+    const x = hexRgb(a), y = hexRgb(b);
+    return rgbHex(x.map((v, i) => v + (y[i] - v) * t));
   };
-  var PALS = {
-    verdant: { w: "#7a4e2d", d: "#4f311b", b: "#8a5a33", v: "#3f9a3a", l: "#6ad04e", O: "#6dff6a" },
-    ember: { w: "#2e1e1a", d: "#160c0a", f: "#ff5a1a", F: "#ffb347", O: "#ff7a1a" },
-    tide: { w: "#3a4250", s: "#c8d4e4", c: "#6fd0ff", O: "#3fb8ff" },
-    storm: { w: "#2a2440", s: "#8c86a8", r: "#b26bff", O: "#d6b0ff" },
-    void: { w: "#5a6688", s: "#e4e8f2", c: "#8fc8ff", O: "#4a7dff", "*": "#ffffff" }
+  var dk = (c, t = 0.3) => mix(c, "#0a0612", t);
+  var lt = (c, t = 0.3) => mix(c, "#ffffff", t);
+  var Pic = class {
+    constructor() {
+      __publicField(this, "defs", []);
+      __publicField(this, "body", []);
+    }
+    /** a left-lit gradient across a shape: light, base, shadow */
+    lit(c, angle = "h", amt = 0.28) {
+      const id = nid();
+      const [x2, y2] = angle === "h" ? [1, 0] : angle === "v" ? [0, 1] : [1, 1];
+      this.defs.push(`<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="${lt(c, amt * 0.7)}"/><stop offset=".45" stop-color="${c}"/><stop offset="1" stop-color="${dk(c, amt)}"/></linearGradient>`);
+      return `url(#${id})`;
+    }
+    radial(stops, cx = 0.5, cy = 0.5, r2 = 0.5) {
+      const id = nid();
+      this.defs.push(`<radialGradient id="${id}" cx="${cx}" cy="${cy}" r="${r2}">${stops.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}"${a !== void 0 ? ` stop-opacity="${a}"` : ""}/>`).join("")}</radialGradient>`);
+      return `url(#${id})`;
+    }
+    linear(stops, x2 = 0, y2 = 1) {
+      const id = nid();
+      this.defs.push(`<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}">${stops.map(([o, c, a]) => `<stop offset="${o}" stop-color="${c}"${a !== void 0 ? ` stop-opacity="${a}"` : ""}/>`).join("")}</linearGradient>`);
+      return `url(#${id})`;
+    }
+    p(d, fill2, extra = "") {
+      this.body.push(`<path d="${d}" fill="${fill2}"${extra ? " " + extra : ""}/>`);
+      return this;
+    }
+    /** a stroked path (no fill) */
+    s(d, stroke, w, extra = "") {
+      this.body.push(`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"${extra ? " " + extra : ""}/>`);
+      return this;
+    }
+    e(cx, cy, rx, ry, fill2, extra = "") {
+      this.body.push(`<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${fill2}"${extra ? " " + extra : ""}/>`);
+      return this;
+    }
+    raw(s) {
+      this.body.push(s);
+      return this;
+    }
+    svg(w, h3, cls = "art") {
+      return `<svg viewBox="0 0 ${w} ${h3}" class="${cls}" aria-hidden="true"><defs>${this.defs.join("")}</defs>${this.body.join("")}</svg>`;
+    }
+    inner() {
+      return `<defs>${this.defs.join("")}</defs>${this.body.join("")}`;
+    }
   };
-  function mix(a, b, t) {
-    const p = (h3) => [1, 3, 5].map((i) => parseInt(h3.slice(i, i + 2), 16));
-    const [x, y] = [p(a), p(b)];
-    return `#${x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join("")}`;
+  function facets(pic, pts, light) {
+    pts.forEach((t, i) => pic.p(`M${t[0]} ${t[1]}L${t[2]} ${t[3]}L${t[4]} ${t[5]}Z`, light[i] ? "#ffffff" : "#000000", `opacity="${light[i] ? 0.09 : 0.12}"`));
   }
-  function staffPixels(id) {
+  var STAFF_VW = 50;
+  var STAFF_VH = 200;
+  var STAFF_GRIP = 100;
+  function staffPal(id) {
     const def = staffOf(id);
     const shape = def.base ?? def.id;
-    const map = MAPS[shape];
-    const pal = { ...PALS[shape] };
-    if (def.tint) for (const k of Object.keys(pal)) pal[k] = mix(pal[k], def.tint, k === "O" ? 0 : 0.55);
-    if (def.tint) pal.O = def.gem;
-    const out = [];
-    map.forEach((row, y) => [...row].forEach((ch, x) => {
-      if (ch !== ".") out.push([x, y, pal[ch], ch === "O"]);
-    }));
-    return out;
+    const base = {
+      verdant: { wood: "#8a5a32", wood2: "#5e3a1e", metal: "#c9a35a", gem: "#6dff6a", glow: "#b8ff9a", leaf: "#4fc24a" },
+      ember: { wood: "#3a2a2a", wood2: "#1e1414", metal: "#d06a2a", gem: "#ff7a1a", glow: "#ffcf6a", leaf: "#ff4a1a" },
+      tide: { wood: "#2f6f9a", wood2: "#1d4466", metal: "#cfe8f4", gem: "#3fb8ff", glow: "#bff0ff", leaf: "#7fe0ff" },
+      storm: { wood: "#4a4a62", wood2: "#2a2a3e", metal: "#c8c8e0", gem: "#b26bff", glow: "#e8d0ff", leaf: "#ffe36a" },
+      void: { wood: "#1e1a30", wood2: "#0c0a18", metal: "#5a6aa8", gem: "#4a7dff", glow: "#b8ccff", leaf: "#8a5cff" }
+    };
+    const pal = { ...base[shape] ?? base.verdant };
+    if (def.tint) for (const k of ["wood", "wood2", "metal", "leaf"]) pal[k] = mix(pal[k], def.tint, 0.55);
+    if (def.tint) {
+      pal.gem = def.gem;
+      pal.glow = lt(def.gem, 0.6);
+    }
+    return { shape: base[shape] ? shape : "verdant", pal };
   }
-  function pixelStaffSvg(id) {
-    const rects = staffPixels(id).map(([x, y, c, gem]) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"${gem ? ' class="orb"' : ""}/>`);
-    return `<svg viewBox="0 0 ${STAFF_W} ${STAFF_H}" shape-rendering="crispEdges" aria-hidden="true">${rects.join("")}</svg>`;
+  function staffBody(pic, id) {
+    const { shape, pal } = staffPal(id);
+    const shaft = pic.lit(pal.wood, "h", 0.45);
+    const glow = pic.radial([[0, pal.glow, 0.95], [0.35, pal.gem, 0.55], [1, pal.gem, 0]]);
+    const gemF = pic.radial([[0, "#ffffff"], [0.3, pal.glow], [1, pal.gem]], 0.35, 0.3, 0.7);
+    pic.e(25, 26, 26, 26, glow, 'class="orb-glow"');
+    if (shape === "verdant") {
+      pic.p("M22 198 C20 170 27 150 23 120 C20 95 28 75 24 50 L28 50 C32 76 25 96 28 121 C31 150 24 172 28 198 Z", shaft);
+      pic.s("M24 180 C27 170 22 160 26 150 M23 130 C27 118 22 108 26 95", pal.wood2, 1.2, 'opacity=".7"');
+      for (const [d, w] of [["M25 52 C12 46 9 30 14 12", 3.2], ["M26 52 C38 46 41 30 36 12", 3.2], ["M25 50 C22 36 20 26 24 6", 2.6], ["M26 50 C30 36 31 24 28 4", 2.4]]) pic.s(d, pal.wood, w);
+      pic.e(25, 28, 9.5, 10, gemF, 'class="orb"');
+      for (const [x, y, a] of [[12, 14, -40], [38, 13, 40], [16, 40, -70], [36, 42, 60], [22, 90, -60], [29, 140, 50], [21, 166, -50]]) pic.raw(`<ellipse cx="${x}" cy="${y}" rx="5" ry="2.4" fill="${pal.leaf}" transform="rotate(${a} ${x} ${y})"/>`);
+      pic.s("M23 60 C30 70 18 82 27 96 C33 108 19 118 27 132", mix(pal.leaf, "#2a5a1a", 0.35), 1.4);
+    } else if (shape === "ember") {
+      pic.p("M21 198 L23 60 L27 60 L29 198 Z", shaft);
+      pic.s("M24 180 L26 168 L24 150 M25 120 L27 106 L24 92", pal.metal, 1.1, 'opacity=".85"');
+      pic.p("M14 62 L25 50 L36 62 L31 68 L19 68 Z", pic.lit(pal.wood, "h", 0.5));
+      for (const [d] of [["M17 60 C8 46 10 26 16 14 L19 16 C15 30 15 44 21 56 Z"], ["M33 60 C42 46 40 26 34 14 L31 16 C35 30 35 44 29 56 Z"], ["M24 54 L23 16 L27 16 L26 54 Z"]]) pic.p(d, pic.lit(pal.wood, "h", 0.5));
+      pic.p("M25 12 L34 28 L25 44 L16 28 Z", gemF, 'class="orb"');
+      pic.p("M25 12 L34 28 L25 28 Z", "#ffffff", 'opacity=".25"');
+      pic.e(25, 196, 5, 3, pal.metal);
+    } else if (shape === "tide") {
+      pic.p("M22 198 L22 58 Q25 54 28 58 L28 198 Z", shaft);
+      for (const y of [70, 110, 150, 186]) pic.p(`M20 ${y} h10 v5 h-10 Z`, pic.lit(pal.metal, "h", 0.4));
+      pic.s("M25 58 C10 54 6 34 16 22 C24 14 34 18 32 28", pal.metal, 3.4);
+      pic.s("M25 58 C40 54 44 36 38 22", lt(pal.wood, 0.4), 2.6);
+      pic.e(25, 32, 10, 10, gemF, 'class="orb"');
+      pic.e(22, 28, 3, 2, "#ffffff", 'opacity=".7"');
+    } else if (shape === "storm") {
+      pic.p("M22 198 L22 60 L28 60 L28 198 Z", shaft);
+      for (const y of [64, 100, 140]) pic.p(`M19 ${y} h12 l-2 6 h-8 Z`, pic.lit(pal.metal, "h", 0.4));
+      pic.p("M25 60 L12 40 L16 39 L8 18 L20 34 L17 35 L25 48 L33 35 L30 34 L42 18 L34 39 L38 40 Z", pic.lit(pal.metal, "h", 0.4));
+      pic.e(25, 26, 9, 9, gemF, 'class="orb"');
+      pic.s("M25 26 L21 31 L26 31 L22 37", "#ffffff", 1.2, 'opacity=".8"');
+    } else {
+      pic.p("M22 198 C18 160 30 130 22 100 C16 80 28 70 25 56 L29 58 C30 72 22 82 27 100 C34 130 22 162 28 198 Z", shaft);
+      pic.s("M23 188 C30 176 20 168 27 154 C33 140 21 128 26 116", pal.leaf, 1, 'opacity=".55"');
+      pic.e(25, 30, 15, 6, "none", `stroke="${pal.metal}" stroke-width="2.4" transform="rotate(-25 25 30)"`);
+      pic.e(25, 30, 9, 9, gemF, 'class="orb"');
+      pic.e(25, 30, 15, 6, "none", `stroke="${lt(pal.metal, 0.3)}" stroke-width="1.2" transform="rotate(35 25 30)" opacity=".8"`);
+      pic.p("M25 58 L19 46 L25 42 L31 46 Z", pal.metal);
+    }
+  }
+  function staffSvg(id) {
+    const pic = new Pic();
+    staffBody(pic, id ?? "verdant");
+    return pic.svg(STAFF_VW, STAFF_VH, "art staff-art");
+  }
+  function placeStaff(pic, id, hx, hy, s = 0.92, tilt = 4) {
+    const sub = new Pic();
+    staffBody(sub, id ?? "verdant");
+    pic.defs.push(...sub.defs);
+    pic.raw(`<g transform="translate(${hx} ${hy}) rotate(${tilt}) scale(${s}) translate(${-25} ${-STAFF_GRIP})">${sub.body.join("")}</g>`);
+  }
+  function face(pic, cx, cy, w, h3, o) {
+    pic.e(cx, cy, w, h3, pic.radial([[0, lt(o.skin, 0.12)], [0.65, o.skin], [1, dk(o.skin, 0.22)]], 0.4, 0.35, 0.75));
+    pic.p(`M${cx + w * 0.55} ${cy - h3 * 0.2} Q${cx + w * 1.02} ${cy + h3 * 0.2} ${cx + w * 0.4} ${cy + h3 * 0.95} Q${cx + w * 0.75} ${cy + h3 * 0.3} ${cx + w * 0.55} ${cy - h3 * 0.2}Z`, dk(o.skin, 0.35), 'opacity=".35"');
+    pic.p(`M${cx + w * 0.12} ${cy - h3 * 0.05} L${cx + w * 0.3} ${cy + h3 * 0.32} L${cx + w * 0.08} ${cy + h3 * 0.36}Z`, dk(o.skin, 0.3), 'opacity=".5"');
+    for (const sx of [-1, 1]) {
+      const ex = cx + sx * w * 0.42 + w * 0.08, ey = cy - h3 * 0.06, ew = w * 0.26, eh = h3 * 0.13;
+      pic.e(ex, ey, ew, eh, o.glow ? "#ffd23a" : "#f4f0ea");
+      pic.e(ex + ew * 0.25, ey + eh * 0.1, eh * 0.95, eh * 0.95, o.eye);
+      pic.e(ex + ew * 0.25, ey + eh * 0.1, o.glow ? eh * 0.25 : eh * 0.45, eh * 0.7, "#140c14");
+      if (!o.glow) pic.e(ex + ew * 0.05, ey - eh * 0.35, eh * 0.22, eh * 0.22, "#ffffff", 'opacity=".85"');
+      pic.p(`M${ex - ew * 1.1} ${ey - eh * 1.4} L${ex + ew * 1.1} ${ey - eh * 1.4} L${ex + ew * 1.1} ${ey - eh * (1 - o.lid * 1.6)} Q${ex} ${ey - eh * (1.3 - o.lid * 1.8)} ${ex - ew * 1.1} ${ey - eh * (0.6 - o.lid)} Z`, o.skin);
+      pic.s(`M${ex - ew * 1.05} ${ey - eh * (0.55 - o.lid)} Q${ex} ${ey - eh * (1.25 - o.lid * 1.8)} ${ex + ew * 1.08} ${ey - eh * (0.95 - o.lid * 1.6)}`, "#1c1418", h3 * 0.045);
+      if (o.lashes) pic.s(`M${ex + ew * 0.8} ${ey - eh * (0.9 - o.lid * 1.6)} l${ew * 0.35} ${-eh * 0.45}`, "#1c1418", h3 * 0.03);
+      const inner = sx < 0 ? ex + ew : ex - ew, outer = sx < 0 ? ex - ew * 1.1 : ex + ew * 1.15;
+      const by = ey - eh * 2.3;
+      pic.s(`M${inner} ${by + o.browTilt * eh} Q${(inner + outer) / 2} ${by - eh * 0.7} ${outer} ${by - o.browTilt * eh * 0.5}`, o.brow, h3 * 0.09);
+    }
+    const my = cy + h3 * 0.55;
+    if (o.mouth === "snarl") {
+      pic.p(`M${cx - w * 0.3} ${my} Q${cx + w * 0.1} ${my - h3 * 0.12} ${cx + w * 0.5} ${my} L${cx + w * 0.42} ${my + h3 * 0.14} Q${cx + w * 0.1} ${my + h3 * 0.2} ${cx - w * 0.22} ${my + h3 * 0.12} Z`, "#2a1416");
+      pic.p(`M${cx - w * 0.24} ${my + h3 * 0.01} L${cx + w * 0.44} ${my + h3 * 0.01} L${cx + w * 0.4} ${my + h3 * 0.07} L${cx - w * 0.2} ${my + h3 * 0.07}Z`, "#ece4cc");
+      pic.s(`M${cx - w * 0.05} ${my} v${h3 * 0.07} M${cx + w * 0.15} ${my} v${h3 * 0.07}`, "#2a1416", 0.5);
+    } else if (o.mouth === "lips") {
+      pic.p(`M${cx - w * 0.25} ${my} Q${cx + w * 0.1} ${my - h3 * 0.1} ${cx + w * 0.45} ${my} Q${cx + w * 0.1} ${my + h3 * 0.16} ${cx - w * 0.25} ${my}Z`, o.lips ?? "#7a3a5a");
+    } else {
+      pic.s(`M${cx - w * 0.15} ${my} Q${cx + w * 0.12} ${my + h3 * 0.04} ${cx + w * 0.38} ${my - h3 * 0.02}`, dk(o.skin, 0.55), h3 * 0.05);
+    }
+  }
+  function wavyHair(pic, x, y0, y1, w, c, lobes = 5) {
+    const n = lobes, step = (y1 - y0) / n;
+    let d = `M${x - w / 2} ${y0}`;
+    for (let i = 0; i < n; i++) d += ` Q${x - w / 2 - w * 0.35} ${y0 + step * (i + 0.5)} ${x - w / 2 + (i % 2 ? w * 0.12 : -w * 0.05)} ${y0 + step * (i + 1)}`;
+    d += ` L${x + w * 0.1} ${y1 + step * 0.4}`;
+    for (let i = n - 1; i >= 0; i--) d += ` Q${x + w / 2 + w * 0.35} ${y0 + step * (i + 0.5)} ${x + w / 2 + (i % 2 ? -w * 0.12 : w * 0.05)} ${y0 + step * i}`;
+    pic.p(d + "Z", pic.lit(c, "h", 0.35));
+    for (let i = 1; i < n; i++) pic.s(`M${x - w * 0.25} ${y0 + step * i - 3} q${w * 0.2} ${step * 0.4} ${w * 0.05} ${step * 0.8}`, dk(c, 0.25), 0.8, 'opacity=".6"');
+  }
+  function fist(pic, x, y, c, glove) {
+    const g = glove ?? c;
+    pic.p(`M${x - 6} ${y - 6} Q${x - 7} ${y + 6} ${x - 2} ${y + 7} L${x + 6} ${y + 6} Q${x + 8} ${y} ${x + 6} ${y - 6} Q${x} ${y - 9} ${x - 6} ${y - 6}Z`, pic.lit(g, "h", 0.4));
+    for (const k of [-3, 0, 3]) pic.s(`M${x - 4} ${y + k} h7`, dk(g, 0.45), 0.6, 'opacity=".7"');
+    pic.p(`M${x - 6} ${y - 6} Q${x - 9} ${y - 2} ${x - 5} ${y + 1}`, "none", `stroke="${dk(g, 0.35)}" stroke-width=".8"`);
+    if (glove && glove !== c) pic.e(x + 1, y - 7, 2.5, 1.6, c);
+  }
+  function openHand(pic, x, y, c) {
+    pic.p(`M${x - 5} ${y - 4} Q${x - 6} ${y + 6} ${x - 2} ${y + 9} Q${x + 1} ${y + 11} ${x + 4} ${y + 8} Q${x + 6} ${y + 2} ${x + 5} ${y - 4}Z`, pic.lit(c, "h", 0.35));
+    pic.s(`M${x - 1} ${y + 3} v5 M${x + 2} ${y + 3} v5`, dk(c, 0.35), 0.6);
+  }
+  function shadow(pic, cx = 74, w = 50) {
+    pic.e(cx, 196, w, 5, "#000", 'opacity=".32"');
+  }
+  function wizard(pic, side, staff) {
+    const robe = side === "ally" ? "#2f9070" : side === "rival" ? "#a8304a" : "#2f5ac4", deep = dk(robe, 0.35), cream = "#efe5cc", gold = "#e4b84c", skin = "#f2ddcf", hair = "#f2f0ec";
+    const band = (x0, x1, y, h3, flip2 = false) => {
+      const n = Math.max(2, Math.round((x1 - x0) / 9)), dx = (x1 - x0) / n;
+      let d = "";
+      for (let i = 0; i < n; i++) {
+        const a = x0 + i * dx;
+        d += `M${a} ${y + h3 / 2} L${a + dx / 2} ${y} L${a + dx} ${y + h3 / 2} L${a + dx / 2} ${y + h3} Z `;
+      }
+      pic.p(d, "none", `stroke="${gold}" stroke-width="1.1"${flip2 ? "" : ""}`);
+    };
+    shadow(pic);
+    wavyHair(pic, 72, 64, 128, 40, "#dcd9d2", 5);
+    lp(pic, "M46 92 Q30 140 18 192 L128 192 Q114 140 98 92 Z", deep, 9);
+    pic.p("M50 86 Q72 98 94 86 Q100 98 92 104 Q72 112 52 104 Q44 98 50 86Z", pic.lit(robe, "v", 0.3));
+    pic.p("M54 186 Q52 196 46 197 L66 197 L66 186Z", pic.lit("#2c4f9c", "h"));
+    pic.p("M78 186 L78 197 L98 197 Q92 195 90 186Z", pic.lit("#2c4f9c", "h"));
+    lp(pic, "M54 96 L90 96 L104 190 L40 190 Z", robe, 8);
+    pic.p("M66 104 L76 104 L82 190 L62 190 Z", pic.lit(cream, "h", 0.2));
+    pic.p("M41 184 L103 184 L104 190 L40 190Z", cream);
+    band(43, 101, 172, 10);
+    pic.p("M53 122 L91 122 L92 129 L52 129Z", pic.lit("#75492a", "v"));
+    pic.p("M74 129 L80 129 L81 168 L77 172 L73 168Z", pic.lit("#6a4024", "h"));
+    pic.p("M72 119 L77 125.5 L72 132 L67 125.5Z", pic.lit(gold, "d", 0.4));
+    lp(pic, "M50 90 Q40 140 22 192 L52 192 Q54 150 58 100 Z", robe, 8);
+    lp(pic, "M94 90 Q104 140 122 192 L92 192 Q90 150 86 100 Z", dk(robe, 0.2), 8);
+    pic.p("M58 100 Q54 150 52 192 L56 192 Q58 150 61 101Z", cream);
+    pic.p("M86 100 Q90 150 92 192 L88 192 Q86 150 83 101Z", cream);
+    pic.p("M22 188 L52 188 L52 192 L22 192Z", cream);
+    pic.p("M92 188 L122 188 L122 192 L92 192Z", cream);
+    band(25, 51, 174, 10);
+    band(93, 120, 174, 10);
+    facets(pic, [[30, 150, 46, 120, 40, 170], [100, 120, 112, 160, 96, 150]], [true, false]);
+    pic.p("M50 94 Q38 120 34 150 L54 152 Q56 124 58 100 Z", pic.lit(robe, "h", 0.3));
+    pic.p("M34 150 Q30 160 28 166 L58 166 Q56 158 54 152Z", pic.lit(robe, "h", 0.3));
+    band(31, 56, 152, 8);
+    pic.p("M28 162 L58 162 L59 168 L27 168Z", cream);
+    openHand(pic, 43, 170, skin);
+    pic.p("M64 76 L80 76 L79 90 L65 90Z", dk(skin, 0.1));
+    wavyHair(pic, 54, 58, 108, 13, hair, 4);
+    wavyHair(pic, 90, 58, 104, 12, "#e2dfd8", 4);
+    face(pic, 72, 66, 13, 15, { skin, eye: "#5d7590", brow: "#f4f2ee", lid: 0.45, browTilt: 0.25 });
+    pic.p("M58 66 Q58 80 62 90 Q64 108 70 124 Q72 130 74 124 Q82 106 84 90 Q88 80 87 66 Q84 78 78 79 Q72 82 66 79 Q60 77 58 66Z", pic.lit(hair, "h", 0.25));
+    pic.s("M66 88 q2 10 4 18 M74 88 q1 12 0 22 M80 86 q-1 10 -3 16", "#cfcbc4", 0.8);
+    pic.p("M64 76 Q70 72 72 75 Q75 72 82 76 Q78 80 72 77.5 Q67 80 64 76Z", "#f8f6f2");
+    pic.p("M36 54 Q72 44 110 54 Q74 64 36 54Z", pic.lit(robe, "v", 0.4));
+    lp(pic, "M54 52 Q60 30 70 12 Q78 2 92 6 Q84 10 82 18 Q86 34 92 52 Q72 58 54 52Z", robe, 7);
+    pic.p("M55 46 Q72 50 91 46 L92 52 Q72 57 54 52Z", gold);
+    pic.p("M72 26 L75 33 L82 36 L75 39 L72 46 L69 39 L62 36 L69 33Z", pic.lit(gold, "d", 0.3));
+    facets(pic, [[56, 50, 66, 20, 66, 50], [80, 20, 90, 50, 84, 50]], [true, false]);
+    placeStaff(pic, staff, 122, 126);
+    pic.p("M90 94 Q104 104 116 120 L110 132 Q98 118 86 108Z", pic.lit(robe, "h", 0.3));
+    pic.p("M110 116 Q120 112 128 120 L118 140 Q112 136 108 130Z", pic.lit(robe, "h", 0.3));
+    pic.p("M118 120 L128 124 L124 133 L114 129Z", cream);
+    fist(pic, 122, 128, skin);
+  }
+  function witch(pic, side, staff) {
+    const robe = side === "ally" ? "#3a9a7c" : "#7a56bd", deep = dk(robe, 0.35), trim = lt(robe, 0.35), dress = "#2e2838", skin = "#f0dedb", hair = "#cfc2e4";
+    shadow(pic);
+    wavyHair(pic, 72, 58, 134, 44, "#b9acd2", 6);
+    lp(pic, "M46 90 Q30 140 16 186 L130 186 Q114 140 98 90Z", deep, 9);
+    pic.p("M62 150 L68 150 L67 190 L63 190Z", pic.lit("#3b3446", "h"));
+    pic.p("M58 190 L68 188 L70 196 L56 196Z", "#2a2432");
+    pic.p("M60 196 L59 190 L57 196Z", "#1a1620");
+    pic.p("M76 150 L82 150 L83 190 L78 190Z", pic.lit("#3b3446", "h"));
+    pic.p("M77 188 L86 190 L88 196 L76 196Z", "#2a2432");
+    lp(pic, "M56 96 L88 96 L100 184 L80 184 L74 146 L70 146 L64 184 L44 184 Z", dress, 8, 0.4);
+    pic.p("M70 146 L74 146 L80 184 L64 184Z", "#5a4a62", 'opacity=".6"');
+    pic.p("M55 118 L89 118 L90 124 L54 124Z", "#40344c");
+    pic.raw(`<path d="M75 116 a5 5 0 1 0 0 10 a3.6 3.6 0 1 1 0 -10z" fill="#f0e6c0"/>`);
+    const hem = (x0, x1, y) => {
+      let d = "";
+      const n = 4, dx = (x1 - x0) / n;
+      for (let i = 0; i < n; i++) d += ` L${x0 + dx * (i + 0.5)} ${y + 8} L${x0 + dx * (i + 1)} ${y}`;
+      return d;
+    };
+    lp(pic, `M50 90 Q40 140 20 180${hem(20, 54, 180)} Q56 140 60 100Z`, robe, 8);
+    lp(pic, `M94 90 Q104 140 124 180 L124 180${hem(124, 90, 180)} Q88 140 84 100Z`, dk(robe, 0.22), 8);
+    pic.s(`M60 100 Q56 140 54 180${hem(54, 20, 180)}`, trim, 2.4);
+    pic.s(`M84 100 Q88 140 90 180${hem(90, 124, 180)}`, trim, 2.4);
+    facets(pic, [[30, 150, 46, 118, 42, 170], [100, 120, 114, 160, 98, 150]], [true, false]);
+    pic.p("M54 84 Q72 96 90 84 L92 94 Q72 104 52 94Z", pic.lit(robe, "v", 0.3));
+    pic.p("M50 94 Q38 120 32 150 L56 150 Q58 120 60 100Z", pic.lit(robe, "h", 0.3));
+    pic.p("M32 148 L56 148 L58 164 L50 158 L44 168 L38 158 L28 164Z", pic.lit(robe, "h", 0.3));
+    pic.s("M28 164 L38 158 L44 168 L50 158 L58 164", trim, 2);
+    openHand(pic, 44, 168, skin);
+    pic.p("M65 74 L79 74 L78 88 L66 88Z", dk(skin, 0.1));
+    wavyHair(pic, 56, 56, 112, 14, hair, 5);
+    wavyHair(pic, 89, 56, 108, 13, "#c2b4da", 5);
+    face(pic, 72, 64, 12, 15, { skin, eye: "#4a3a5c", brow: "#4a3a55", lid: 0.5, browTilt: 0.45, mouth: "lips", lips: "#6b3058", lashes: true });
+    pic.e(64, 59, 3.4, 1.4, "#7a5590", 'opacity=".35"');
+    pic.e(81, 59, 3.4, 1.4, "#7a5590", 'opacity=".35"');
+    pic.p("M58 52 Q72 46 87 52 Q86 58 72 54 Q60 58 58 52Z", pic.lit(hair, "h"));
+    pic.p("M24 54 Q72 40 120 52 Q114 60 100 58 Q72 66 44 60 Q30 60 24 54Z", pic.lit(robe, "v", 0.45));
+    lp(pic, "M54 50 Q58 28 66 12 Q72 2 84 4 Q92 6 96 14 Q86 10 82 18 Q84 34 90 50 Q72 56 54 50Z", robe, 7);
+    pic.p("M55 44 Q72 48 89 44 L90 50 Q72 55 54 50Z", trim);
+    pic.raw('<path d="M72 37 a6 6 0 1 0 0 12 a4.2 4.2 0 1 1 0 -12z" fill="#f0e6c0" transform="rotate(25 72 43)"/>');
+    facets(pic, [[56, 48, 64, 20, 66, 48], [78, 18, 88, 48, 82, 48]], [true, false]);
+    placeStaff(pic, staff, 122, 126);
+    pic.p("M88 94 Q102 104 114 120 L108 132 Q96 118 84 106Z", pic.lit(robe, "h", 0.3));
+    pic.p("M108 116 Q118 110 128 118 L120 138 Q112 134 106 128Z", pic.lit(robe, "h", 0.3));
+    pic.s("M120 138 L128 118", trim, 2);
+    fist(pic, 122, 128, skin);
+  }
+  function knight(pic, side, staff) {
+    const plate = "#d6cfbf", plateLo = dk(plate, 0.3), red = side === "ally" ? "#2f9a6c" : "#c2302c", under = "#4a3122", leather = "#6e4426", sash = "#6f6a3a";
+    const P = (d, c = plate, _a2 = "h") => lp(pic, d, c, 6, 0.32);
+    shadow(pic, 74, 52);
+    pic.raw(`<g transform="rotate(-28 72 120)"><rect x="70" y="60" width="5" height="110" fill="${pic.lit("#4f2f19", "h")}"/><rect x="62" y="56" width="21" height="4" rx="1" fill="#c39a48"/><rect x="70.5" y="40" width="4" height="16" fill="#4a2c18"/><circle cx="72.5" cy="38" r="3.4" fill="#c39a48"/></g>`);
+    for (const x of [58, 86]) {
+      P(`M${x - 7} 140 L${x + 7} 140 L${x + 6} 186 L${x - 6} 186Z`);
+      pic.e(x, 158, 8, 6, pic.lit(plate, "d", 0.35));
+      P(`M${x - 7} 184 L${x + 7} 184 L${x + 14} 194 L${x + 16} 197 L${x - 8} 197Z`, plateLo);
+      pic.s(`M${x - 6} 168 h12 M${x - 6} 176 h12`, dk(plate, 0.45), 0.7);
+    }
+    pic.p("M48 118 L96 118 L104 168 L40 168Z", pic.lit(under, "h"));
+    pic.p("M50 116 L70 116 L68 172 L46 176 L40 160Z", pic.lit("#f0ece2", "h", 0.2));
+    pic.p("M74 116 L94 116 L104 160 L98 176 L76 172Z", pic.lit("#f0ece2", "h", 0.3));
+    for (const y of [158, 166]) {
+      pic.p(`M41 ${y} L68.5 ${y - 2} L68.3 ${y + 2.5} L42 ${y + 4.5}Z`, red);
+      pic.p(`M76 ${y - 2} L102 ${y} L101 ${y + 4.5} L76 ${y + 2.5}Z`, red);
+    }
+    P("M50 84 Q72 78 94 84 L92 118 L52 118Z", plate, "h");
+    pic.p("M71 84 L73 84 L73 116 L71 116Z", lt(plate, 0.4));
+    for (const y of [110, 116]) pic.p(`M51 ${y} L93 ${y} L94 ${y + 5} L50 ${y + 5}Z`, pic.lit(plateLo, "h"));
+    pic.p("M48 112 Q72 118 96 112 L97 122 Q72 128 47 122Z", pic.lit(sash, "v", 0.3));
+    pic.p("M52 120 L60 120 L58 146 L50 144Z", pic.lit(sash, "h", 0.3));
+    pic.p("M52 86 L58 84 L94 112 L90 116Z", pic.lit(leather, "h"));
+    pic.p("M92 86 L86 84 L50 112 L54 116Z", pic.lit(leather, "h"));
+    pic.p("M72 94 L77 99 L72 104 L67 99Z", "#c39a48");
+    P("M60 76 L84 76 L86 86 L58 86Z", plateLo);
+    pic.raw(`<g class="plume"><path d="M72 34 Q86 24 100 30 Q110 36 112 56 Q104 46 96 44 Q102 54 100 64 Q92 50 84 46 Q80 40 72 40Z" fill="${pic.lit(red, "h", 0.35)}"/></g>`);
+    P("M58 44 Q58 32 72 30 Q86 32 86 44 L86 72 Q72 78 58 72Z", plate, "h");
+    pic.p("M60 52 L84 52 L84 55.5 L60 55.5Z", "#15120f");
+    pic.p("M71 32 L73 32 L73 76 L71 76Z", lt(plate, 0.35), 'opacity=".8"');
+    for (const [x, y] of [[77, 62], [80, 62], [77, 66], [80, 66]]) pic.p(`M${x} ${y} h1.6 v1.6 h-1.6Z`, "#15120f");
+    pic.p("M70 30 L74 30 L74 36 L70 36Z", "#c39a48");
+    facets(pic, [[58, 44, 66, 34, 64, 70], [80, 36, 86, 46, 84, 70]], [true, false]);
+    pic.e(48, 88, 13, 10, pic.lit(plate, "d", 0.4));
+    pic.e(42, 90, 4, 4, pic.lit(lt(plate, 0.3), "d"));
+    P("M36 94 L54 94 L51 116 L52 138 L38 138 L39 116Z");
+    pic.e(45, 117, 8, 6.5, pic.lit(plate, "d"));
+    pic.p("M37 132 L53 132 L52 139 L38 139Z", pic.lit(under, "h"));
+    P("M37 138 L53 138 L54 154 L50 162 L42 163 L36 154Z", plateLo);
+    pic.s("M40 156 v5 M44 157 v6 M48 157 v5", dk(plate, 0.5), 0.7);
+    placeStaff(pic, staff, 122, 124);
+    pic.e(96, 88, 13, 10, pic.lit(plate, "d", 0.4));
+    pic.e(102, 90, 4, 4, pic.lit(lt(plate, 0.3), "d"));
+    P("M90 92 Q108 100 120 116 L108 128 Q96 116 84 106Z");
+    pic.e(104, 108, 8, 6.5, pic.lit(plate, "d"));
+    fist(pic, 122, 126, plate, plateLo);
+  }
+  function goblin(pic, side, staff) {
+    const skin = "#84933f", skinLo = dk(skin, 0.3), red = side === "ally" ? "#2c8f8a" : "#b3352b", leather = "#7a4e2c", wrap = "#a88a62", shorts = "#3a332f";
+    shadow(pic, 74, 44);
+    for (const x of [62, 84]) {
+      pic.p(`M${x - 5} 150 L${x + 5} 150 L${x + 4} 188 L${x - 4} 188Z`, pic.lit(skin, "h"));
+      pic.p(`M${x - 6} 158 L${x + 6} 158 L${x + 5.5} 186 L${x - 5.5} 186Z`, pic.lit(wrap, "h"));
+      pic.s(`M${x - 6} 164 l12 -3 M${x - 6} 171 l12 -3 M${x - 6} 178 l12 -3`, dk(wrap, 0.4), 0.9);
+      pic.p(`M${x - 6} 186 L${x + 6} 186 Q${x + 14} 190 ${x + 15} 196 L${x - 6} 197Z`, pic.lit(skin, "h"));
+      for (const t of [0, 4, 8]) pic.e(x + 3 + t, 196, 2.2, 1.6, skinLo);
+    }
+    pic.p("M54 116 L90 116 L96 150 L76 152 L72 136 L68 152 L48 150Z", pic.lit(shorts, "h"));
+    pic.p("M54 114 L90 114 L91 121 L53 121Z", pic.lit(leather, "v"));
+    pic.p("M68 113 L76 113 L76 122 L68 122Z", "none", 'stroke="#b99245" stroke-width="1.6"');
+    pic.p("M64 122 L80 122 L82 150 L78 146 L76 160 L72 152 L69 162 L66 148 L62 152Z", pic.lit(red, "h", 0.3));
+    lp(pic, "M54 82 Q72 76 90 82 L92 100 Q90 112 88 116 L56 116 Q54 112 52 100Z", skin, 6, 0.3);
+    pic.s("M62 92 Q72 96 82 92 M72 96 L72 114 M64 104 h16 M65 110 h14", skinLo, 0.8, 'opacity=".8"');
+    pic.p("M56 84 L62 82 L90 108 L86 112Z", pic.lit(leather, "h"));
+    pic.p("M88 84 L82 82 L54 108 L58 112Z", pic.lit(leather, "h"));
+    pic.p("M68 92 L76 92 L76 100 L68 100Z", "none", 'stroke="#b99245" stroke-width="1.6"');
+    pic.p("M56 74 Q72 66 88 74 Q92 84 84 88 Q72 92 60 88 Q52 84 56 74Z", pic.lit(red, "v", 0.35));
+    pic.p("M60 86 L68 88 L66 104 L60 100Z", pic.lit(red, "h", 0.35));
+    pic.p("M52 84 Q44 104 42 130 L50 132 Q52 108 58 90Z", pic.lit(skin, "h"));
+    pic.p("M41 118 L51 118 L50 134 L42 134Z", pic.lit(leather, "h"));
+    pic.s("M41 122 l10 -2 M41 127 l10 -2 M41 132 l10 -2", dk(leather, 0.4), 0.8);
+    openHand(pic, 46, 138, "#5a3a20");
+    pic.p("M42 80 Q50 72 60 78 L58 92 Q48 92 42 88Z", pic.lit(leather, "d", 0.35));
+    pic.s("M44 84 Q50 80 57 82", dk(leather, 0.4), 0.8);
+    pic.p("M66 66 L78 66 L77 76 L67 76Z", skinLo);
+    pic.p("M60 56 Q48 50 34 40 Q44 54 58 64Z", pic.lit(skin, "h"));
+    pic.p("M58 58 Q48 52 40 46 Q48 56 58 62Z", "#a36a5a", 'opacity=".7"');
+    pic.p("M84 56 Q96 50 110 40 Q100 54 86 64Z", pic.lit(skin, "h", 0.4));
+    pic.p("M86 58 Q96 52 104 46 Q96 56 86 62Z", "#a36a5a", 'opacity=".6"');
+    face(pic, 72, 58, 13, 13.5, { skin, eye: "#d2401c", brow: "#2a221c", lid: 0.2, browTilt: 0.9, mouth: "snarl", glow: true });
+    pic.p("M58 52 Q56 36 66 36 Q64 32 72 32 Q76 28 80 34 Q88 32 86 40 Q92 42 88 52 Q84 44 80 48 Q78 42 72 46 Q68 40 64 48 Q62 44 58 52Z", pic.lit("#2c2420", "h", 0.3));
+    placeStaff(pic, staff, 118, 118, 0.84);
+    pic.p("M86 84 Q100 92 112 108 L106 118 Q96 104 84 96Z", pic.lit(skin, "h"));
+    pic.p("M104 104 L114 110 L110 122 L100 116Z", pic.lit(leather, "h"));
+    fist(pic, 118, 120, skin, "#5a3a20");
+  }
+  function kid(pic, side, staff) {
+    const tunic = side === "ally" ? "#3aa57c" : "#d65a4a", skin = "#f2c79e";
+    shadow(pic, 74, 40);
+    for (const x of [64, 82]) {
+      pic.p(`M${x - 5} 150 L${x + 5} 150 L${x + 5} 188 L${x - 5} 188Z`, pic.lit("#3d5ca8", "h"));
+      pic.p(`M${x - 6} 186 L${x + 6} 186 L${x + 10} 196 L${x - 6} 196Z`, pic.lit("#4a2c18", "h"));
+    }
+    pic.p("M56 104 Q73 98 90 104 L94 152 L52 152Z", pic.lit(tunic, "h", 0.3));
+    pic.p("M54 140 L92 140 L93 146 L53 146Z", "#5a3a1e");
+    pic.p("M60 104 L66 102 L90 140 L84 142Z", pic.lit("#7a4e2d", "h"));
+    pic.p("M54 106 Q46 124 46 140 L53 141 Q55 124 60 110Z", pic.lit(tunic, "h"));
+    openHand(pic, 49, 146, skin);
+    pic.p("M66 92 L80 92 L79 102 L67 102Z", dk(skin, 0.1));
+    face(pic, 73, 80, 14, 15, { skin, eye: "#3a2a1a", brow: "#5a3a1e", lid: 0.1, browTilt: 0, mouth: "calm" });
+    pic.p("M58 78 Q56 60 72 58 Q90 58 88 78 Q84 68 76 70 Q70 64 66 72 Q60 70 58 78Z", pic.lit("#7a4a24", "h"));
+    placeStaff(pic, staff, 116, 126, 0.8);
+    pic.p("M88 106 Q102 114 110 124 L104 132 Q96 120 86 114Z", pic.lit(tunic, "h"));
+    fist(pic, 116, 128, skin);
+  }
+  function human(pic, side, staff) {
+    const tunic = side === "ally" ? "#2f9070" : "#3e8e5e", skin = "#f2c79e";
+    shadow(pic, 74, 44);
+    pic.p("M50 92 Q38 140 40 172 L104 172 Q106 140 94 92Z", pic.lit("#7a3a2a", "h", 0.3));
+    for (const x of [62, 84]) {
+      pic.p(`M${x - 6} 140 L${x + 6} 140 L${x + 6} 184 L${x - 6} 184Z`, pic.lit("#4a4a6a", "h"));
+      pic.p(`M${x - 7} 172 L${x + 7} 172 L${x + 8} 196 L${x - 7} 196Z`, pic.lit("#5a3a1e", "h"));
+    }
+    pic.p("M52 90 Q72 84 92 90 L96 144 L48 144Z", pic.lit(tunic, "h", 0.3));
+    pic.p("M49 124 L95 124 L96 131 L48 131Z", pic.lit("#5a3a1e", "v"));
+    pic.p("M69 123 L76 123 L76 132 L69 132Z", "none", 'stroke="#ffd479" stroke-width="1.4"');
+    pic.p("M50 92 Q40 116 40 138 L48 139 Q50 116 56 98Z", pic.lit(tunic, "h"));
+    openHand(pic, 44, 144, skin);
+    pic.p("M65 76 L79 76 L78 90 L66 90Z", dk(skin, 0.1));
+    face(pic, 72, 64, 13, 15, { skin, eye: "#3a2a1a", brow: "#3b2a20", lid: 0.2, browTilt: 0.2, mouth: "calm" });
+    pic.p("M57 62 Q54 44 72 42 Q90 42 87 62 Q82 52 74 54 Q68 48 64 56 Q60 54 57 62Z", pic.lit("#3b2a20", "h"));
+    placeStaff(pic, staff, 120, 120, 0.88);
+    pic.p("M90 94 Q104 102 114 116 L106 126 Q96 112 86 104Z", pic.lit(tunic, "h"));
+    fist(pic, 120, 122, skin);
+  }
+  var DRAW = { wizard, witch, knight, goblin, kid, human };
+  function characterSvg(kind, side, staff) {
+    const pic = new Pic();
+    (DRAW[kind] ?? wizard)(pic, side, staff);
+    return pic.svg(160, 200, `art char-art ${kind}`);
+  }
+  var rs = 1;
+  var rand = () => (rs = rs * 16807 % 2147483647) / 2147483647;
+  function lowpoly(pic, d, box, base, cell, light = 0.22, seed2 = 7) {
+    rs = seed2;
+    const id = nid();
+    pic.defs.push(`<clipPath id="${id}"><path d="${d}"/></clipPath>`);
+    const [x0, y0, x1, y1] = box;
+    const nx = Math.ceil((x1 - x0) / cell) + 1, ny = Math.ceil((y1 - y0) / cell) + 1;
+    const pts = [];
+    for (let j = 0; j <= ny; j++) {
+      pts.push([]);
+      for (let i = 0; i <= nx; i++) pts[j].push([x0 + (i + j % 2 * 0.5 - 0.25 + (rand() - 0.5) * 0.6) * cell, y0 + (j + (rand() - 0.5) * 0.6) * cell]);
+    }
+    let out = `<g clip-path="url(#${id})"><path d="${d}" fill="${base}"/>`;
+    const tri = (a, b, c) => {
+      const mx = (a[0] + b[0] + c[0]) / 3, my = (a[1] + b[1] + c[1]) / 3;
+      const k = 0.5 - (mx - x0) / (x1 - x0 + 1) * 0.6 - (my - y0) / (y1 - y0 + 1) * 0.4 + (rand() - 0.5) * 0.5;
+      const col = k > 0 ? mix(base, "#ffffff", k * light) : mix(base, "#000000", -k * light * 1.4);
+      return `<path d="M${a[0].toFixed(1)} ${a[1].toFixed(1)}L${b[0].toFixed(1)} ${b[1].toFixed(1)}L${c[0].toFixed(1)} ${c[1].toFixed(1)}Z" fill="${col}" stroke="${col}" stroke-width=".4"/>`;
+    };
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const a = pts[j][i], b = pts[j][i + 1], c = pts[j + 1][i], e = pts[j + 1][i + 1];
+      out += j % 2 ? tri(a, e, c) + tri(a, b, e) : tri(a, b, c) + tri(b, e, c);
+    }
+    pic.raw(out + "</g>");
+  }
+  function lp(pic, d, base, cell = 7, light = 0.26) {
+    const n = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+    const xs = n.filter((_, i) => i % 2 === 0), ys = n.filter((_, i) => i % 2 === 1);
+    let h3 = 0;
+    for (const c of d) h3 = (h3 * 31 + c.charCodeAt(0)) % 99991;
+    lowpoly(pic, d, [Math.min(...xs) - 2, Math.min(...ys) - 2, Math.max(...xs) + 2, Math.max(...ys) + 2], base, cell, light, h3 + 1);
+  }
+  function dragonArt() {
+    const pic = new Pic();
+    const K = "#2a2733", W2 = "#3a3446", belly = "#4a4452", horn2 = "#b8b29c", claw = "#d8d2bc";
+    pic.e(250, 290, 120, 9, "#000", 'opacity=".35"');
+    const wing = (sx, sy, tips, bottom, c, seed2) => {
+      const d = `M${sx} ${sy} ` + tips.map(([x, y]) => `L${x} ${y}`).join(" ") + " " + bottom.map(([x, y], i) => i % 2 ? `Q${x} ${y}` : `${x} ${y}`).join(" ") + " Z";
+      lowpoly(pic, d, [Math.min(sx, ...tips.map((t) => t[0]), ...bottom.map((t) => t[0])) - 5, Math.min(sy, ...tips.map((t) => t[1])) - 5, Math.max(sx, ...tips.map((t) => t[0]), ...bottom.map((t) => t[0])) + 5, Math.max(sy, ...bottom.map((t) => t[1])) + 5], c, 26, 0.3, seed2);
+      const [wx, wy] = tips[0];
+      pic.s(`M${sx} ${sy} L${wx} ${wy}`, dk(c, 0.4), 4);
+      for (let i = 1; i < tips.length; i++) pic.s(`M${wx} ${wy} L${tips[i][0]} ${tips[i][1]}`, dk(c, 0.35), 2.2);
+      for (let i = 0; i < bottom.length; i += 2) pic.s(`M${wx} ${wy} L${bottom[i][0]} ${bottom[i][1]}`, dk(c, 0.3), 1.3, 'opacity=".8"');
+    };
+    wing(232, 118, [[196, 30], [150, 8], [214, 10], [262, 34]], [[150, 8], [130, 70], [150, 86], [156, 110], [184, 108], [196, 140], [228, 120]], dk(W2, 0.15), 3);
+    const tail = "M268 222 Q330 228 360 250 Q392 272 384 290 Q360 296 330 288 Q352 282 354 270 Q330 252 286 252 Z";
+    lowpoly(pic, tail, [260, 215, 395, 298], K, 14, 0.25, 11);
+    for (let i = 0; i < 6; i++) {
+      const t = i / 6, x = 300 + t * 80, y = 230 + t * 40;
+      pic.p(`M${x} ${y} l6 -12 l5 12Z`, dk(K, 0.2));
+    }
+    lowpoly(pic, "M280 220 Q300 250 296 276 L306 290 L272 292 L276 262 Q262 246 262 226Z", [255, 215, 310, 295], dk(K, 0.15), 12, 0.25, 5);
+    const body = "M196 128 Q240 104 282 140 Q306 176 296 220 Q280 252 236 254 Q200 248 186 214 Q176 170 196 128Z";
+    lowpoly(pic, body, [170, 100, 310, 258], K, 15, 0.3, 17);
+    lowpoly(pic, "M200 150 Q214 140 222 160 Q232 200 226 244 Q206 240 196 212 Q190 180 200 150Z", [186, 136, 236, 248], belly, 10, 0.3, 21);
+    for (let y = 158; y < 240; y += 12) pic.s(`M${200 + (y - 150) * 0.05} ${y} Q212 ${y + 4} ${226} ${y}`, dk(belly, 0.4), 1, 'opacity=".7"');
+    lowpoly(pic, "M248 214 Q280 216 284 246 Q282 270 270 280 L288 292 L240 294 L246 270 Q232 240 248 214Z", [228, 208, 292, 296], K, 11, 0.3, 23);
+    for (const x of [242, 254, 266, 278]) pic.p(`M${x} 290 l4 -8 l4 8 q-4 4 -8 0Z`, claw);
+    lowpoly(pic, "M204 196 Q186 214 182 246 Q180 270 170 282 L196 290 L196 262 Q206 232 222 212Z", [165, 190, 226, 294], K, 10, 0.3, 29);
+    for (const x of [166, 176, 186]) pic.p(`M${x} 290 l3 -8 l4 8 q-4 4 -7 0Z`, claw);
+    const neck = "M206 140 Q178 128 168 104 Q158 80 136 70 L120 76 Q144 92 150 112 Q160 144 194 166 Z";
+    lowpoly(pic, neck, [115, 62, 212, 170], K, 10, 0.32, 31);
+    for (const [x, y, a] of [[134, 66, -10], [148, 76, 0], [160, 92, 10], [168, 108, 15], [182, 122, 20], [196, 128, 30], [214, 122, 40], [234, 116, 55], [254, 122, 70], [272, 134, 80]]) pic.raw(`<path d="M${x - 5} ${y + 4} L${x} ${y - 12} L${x + 5} ${y + 4}Z" fill="${dk(K, 0.25)}" transform="rotate(${a} ${x} ${y})"/>`);
+    wing(256, 124, [[300, 26], [266, 4], [340, 2], [392, 40], [396, 100]], [[396, 100], [372, 120], [372, 150], [350, 150], [338, 176], [312, 162], [284, 168]], W2, 9);
+    pic.p("M120 46 Q136 26 160 14 Q146 34 132 52Z", pic.lit(horn2, "h", 0.4));
+    pic.p("M128 54 Q150 40 176 34 Q156 50 136 60Z", pic.lit(dk(horn2, 0.15), "h", 0.4));
+    const head = "M58 80 L76 64 L104 52 L126 50 L138 62 L136 78 L120 88 L96 92 L72 92 L60 88Z";
+    lowpoly(pic, head, [55, 45, 142, 96], K, 9, 0.35, 37);
+    lowpoly(pic, "M64 90 L96 92 L118 88 L112 100 L86 104 L68 98Z", [60, 85, 120, 106], dk(K, 0.15), 7, 0.3, 41);
+    for (const x of [70, 78, 86, 94]) pic.p(`M${x} 91 l3 6 l3 -6Z`, claw);
+    pic.p("M86 60 L104 58 L100 64 L88 66Z", "#14101a");
+    pic.raw(`<g class="eye"><path d="M88 62 L102 59.5 L99 63.5 L89 64.5Z" fill="#39ff7a"/><path d="M94 60.5 L95.5 60.3 L95 64 L93.8 64.1Z" fill="#0b2a12"/></g>`);
+    pic.e(95, 62, 10, 6, pic.radial([[0, "#39ff7a", 0.6], [1, "#39ff7a", 0]]), 'class="eye"');
+    pic.p("M62 78 L66 77 L65 80Z", "#000", 'opacity=".6"');
+    for (const [x, y] of [[106, 50], [114, 48], [100, 52]]) pic.p(`M${x} ${y} l3 -9 l3 9Z`, dk(K, 0.2));
+    return pic.svg(400, 300, "art dragon-art");
   }
 
   // src/client/wizard.ts
-  var WIZARD_MAP = [
-    "......H.........",
-    ".....HHh........",
-    ".....HHh........",
-    "....HHHHh.......",
-    "....HYHHh....OO.",
-    "...HHHHHHh..OOOO",
-    ".YYYYYYYYYY..OO.",
-    "...SSSSSS.....T.",
-    "...SSESSE.....T.",
-    "...SSSSSS.....T.",
-    "...BBBBBB....ST.",
-    "..RBBBBBBRRRRRT.",
-    ".RRRBBBBRRRRr.T.",
-    ".RRRRBBRRRrr..T.",
-    ".RRRRRRRRRr...T.",
-    ".RRRRRYRRRr...T.",
-    ".RRRRRYRRRRr..T.",
-    "RRRRRRYRRRRRr.T.",
-    "RRRRRRYRRRRRrrT.",
-    "..KKK...KKK...T."
-  ];
-  var COMMON = { Y: "#ffd479", S: "#f2c79e", E: "#1b1530", B: "#ece8f7", T: "#8a5a2b", K: "#2a2440" };
-  var PALETTES = {
-    me: { ...COMMON, H: "#2f6fe0", h: "#1d47a6", R: "#3b82f6", r: "#1e4fb8", O: "#6ee7ff" },
-    opp: { ...COMMON, H: "#c2364d", h: "#7d1a2e", R: "#d6445c", r: "#8a1f34", O: "#ffb36b" }
-  };
-  function pixelSvg(map, pal, classes = {}, extra = []) {
-    const rects = [];
-    map.forEach((row, y) => {
-      for (let x = 0; x < row.length; ) {
-        const ch = row[x];
-        let w = 1;
-        while (row[x + w] === ch) w++;
-        if (ch !== ".") rects.push(`<rect x="${x}" y="${y}" width="${w}" height="1" fill="${pal[ch]}"${classes[ch] ? ` class="${classes[ch]}"` : ""}/>`);
-        x += w;
-      }
-    });
-    return `<svg viewBox="0 0 ${map[0].length} ${map.length}" shape-rendering="crispEdges" aria-hidden="true">${rects.join("")}${extra.join("")}</svg>`;
-  }
-  var HOLD = {
-    wizard: { erase: "TO", cx: 13, gy: 10, hand: "S" },
-    goblin: { erase: "C", cx: 13, gy: 11, hand: "G" },
-    kid: { erase: "YT", cx: 13, gy: 11, hand: "S" },
-    human: { erase: "VY", cx: 13, gy: 11, hand: "S" },
-    knight: { erase: "AY", cx: 13, gy: 11, hand: "M" }
-  };
-  function holding(kind, map, pal, staff, classes = {}) {
-    const h3 = HOLD[kind];
-    const base = map.map((row) => [...row].map((ch, x) => x >= 11 && h3.erase.includes(ch) ? "." : ch).join(""));
-    const ox = h3.cx - 2, oy = h3.gy - GRIP;
-    const extra = staffPixels(staff).filter(([x, y]) => y + oy >= 0 && y + oy < map.length).map(([x, y, c, gem]) => `<rect x="${x + ox}" y="${y + oy}" width="1" height="1" fill="${c}"${gem ? ' class="orb"' : ""}/>`);
-    extra.push(`<rect x="${h3.cx}" y="${h3.gy}" width="1" height="1" fill="${pal[h3.hand]}"/>`, `<rect x="${h3.cx - 1}" y="${h3.gy}" width="1" height="1" fill="${pal[h3.hand]}"/>`);
-    return pixelSvg(base, pal, classes, extra);
-  }
-  var PALETTES_ALLY = { ...COMMON, H: "#2f8f6b", h: "#1c5c44", R: "#3aa57c", r: "#22684e", O: "#c6ff7a" };
   function wizardSvg(side, staff) {
-    return holding("wizard", WIZARD_MAP, side === "ally" ? PALETTES_ALLY : PALETTES[side], staff);
+    return characterSvg("wizard", side === "opp" ? "rival" : side, staff);
   }
-  var GOBLIN_MAP = [
-    "................",
-    "................",
-    "................",
-    "......gGGg......",
-    "....gGGGGGGg....",
-    ".gg.GGGGGGGG.gg.",
-    "..gGGEGGGEGGGg..",
-    "...gGGGGGGGGg...",
-    "....GTGTGTGG....",
-    ".....gGGGGg..C..",
-    "....bBBBBBBb.CC.",
-    "...GbBBBBBBbGC..",
-    "...GbBBbbBBbGC..",
-    "....bBBBBBBb.C..",
-    "....bBBBBBBb.C..",
-    "....bbBBBBbb....",
-    ".....GG..GG.....",
-    ".....GG..GG.....",
-    "....KKK..KKK....",
-    "................"
-  ];
-  var GOBLIN_PAL = { G: "#6fbf4a", g: "#3f7d2a", E: "#ffe066", T: "#f4f1e6", B: "#7a4e2d", b: "#4f311b", C: "#a0703e", K: "#2a2440" };
-  var KID_MAP = [
-    "................",
-    "................",
-    "................",
-    "................",
-    ".....HHHHH......",
-    "....HHHHHHH.....",
-    "....HSSSSSH.....",
-    "....SSESESS.....",
-    "....SSSSSSS.....",
-    ".....SSmSS...Y..",
-    "......SSS...YTY.",
-    "....RRRRRRRSST..",
-    "...SRRRRRRR..T..",
-    "...SRRRRRRR..T..",
-    "....RRRRRRR.....",
-    "....DDDDDDD.....",
-    "....DDD.DDD.....",
-    ".....SS..SS.....",
-    "....KKK..KKK....",
-    "................"
-  ];
-  var KID_PAL = { H: "#7a4a24", S: "#f2c79e", E: "#1b1530", m: "#b5654a", R: "#d65a4a", D: "#3d5ca8", Y: "#ffd479", T: "#8a5a2b", K: "#2a2440" };
-  var HUMAN_MAP = [
-    "................",
-    "................",
-    ".....HHHHH......",
-    "....HHHHHHH..V..",
-    "....HSSSSSH..V..",
-    "....SSESESS..V..",
-    "....SSSSSSS..V..",
-    ".....SSmSS...V..",
-    "......SSS....V..",
-    "...RRRRRRRR..V..",
-    "..RRRRRRRRRRYYY.",
-    "..SRRRRRRRRSS...",
-    "..S.RRRRRRR.....",
-    "....LLLLLLL.....",
-    "....RRRRRRR.....",
-    "....DDDDDDD.....",
-    "....DDD.DDD.....",
-    "....DDD.DDD.....",
-    "...KKKK.KKKK....",
-    "................"
-  ];
-  var HUMAN_PAL = { H: "#3b2a20", S: "#f2c79e", E: "#1b1530", m: "#b5654a", R: "#3e8e5e", L: "#5a3a1e", D: "#4a4a6a", V: "#d9dde8", Y: "#ffd479", K: "#2a2440" };
-  var KNIGHT_MAP = [
-    "......PP........",
-    ".....PPP........",
-    ".....MMMM.......",
-    "....MMMMMM......",
-    "....MMMMMMM.....",
-    "....MmEEEEM.....",
-    "....MMMMMMM.....",
-    "....mMMMMMm.....",
-    ".....mMMMm......",
-    "...mMMMMMMMAAAA.",
-    "..mMMMMMMMMAYYA.",
-    "..MMMMMMMMMAYYA.",
-    "..M.MMMMMMMAAAA.",
-    "..S.mmmmmmm.AA..",
-    "....MMMMMMM.....",
-    "....mMMMMMm.....",
-    "....MMM.MMM.....",
-    "....mmm.mmm.....",
-    "...KKKK.KKKK....",
-    "................"
-  ];
-  var KNIGHT_PAL = { P: "#d64545", M: "#b8c0cc", m: "#6e7686", E: "#14121c", A: "#3d5ca8", Y: "#ffd479", S: "#f2c79e", K: "#2a2440" };
-  var WITCH_PAL = { ...COMMON, H: "#2a1f3d", h: "#140e20", Y: "#9b59ff", S: "#a8d88a", E: "#2a1430", B: "#3a2a4a", R: "#5b2a86", r: "#3d1a5c", O: "#b6ff5a" };
   function heroSvg(hero, side, staff) {
     return avatarSvg(hero, side, staff);
   }
   function avatarSvg(avatar2, side, staff) {
-    switch (avatar2) {
-      case "goblin":
-        return holding("goblin", GOBLIN_MAP, GOBLIN_PAL, staff);
-      case "kid":
-        return holding("kid", KID_MAP, KID_PAL, staff);
-      case "human":
-        return holding("human", HUMAN_MAP, HUMAN_PAL, staff);
-      case "knight":
-        return holding("knight", KNIGHT_MAP, KNIGHT_PAL, staff);
-      case "witch":
-        return holding("wizard", WIZARD_MAP, WITCH_PAL, staff);
-      default:
-        return wizardSvg(side, staff);
-    }
+    const kind = ["goblin", "kid", "human", "knight", "witch", "wizard"].includes(avatar2) ? avatar2 : "wizard";
+    return characterSvg(kind, side, staff);
   }
-  var DRAGON_MAP = [
-    "........................................",
-    ".............H.........WwwwwwwwWWW......",
-    "........H...HH.......wwwwwWWWWWwwwwW....",
-    "........H..HH........wWWWwWWWWWwWWWww...",
-    ".......HH.HHH........wwWWWwWWWWWwWWwwww.",
-    ".......HKGHH........WwwWWWwWWWWWwWWWwWWw",
-    ".....GGHKHHK........WwwWWWWwWWWWWwWWwWW.",
-    "....GKeeKKKKG.......WwWwWWWwWWWWWwWWww..",
-    ".GGGKKEEKKKKKG......wWWwWWWWwWWWWWw.Ww..",
-    ".kkkkKKKKKKKKKG.....wWWWwWWWwWWWWW......",
-    ".....KKKKKKKKKKGH...wWWWwWWWWwWWWW......",
-    "..TMTMTMMMKKKKKKK..WwWWWwwWWW...W.......",
-    "...TkTkTkkkKKKKKKG.WwWHWWHWWW...........",
-    "...........kKKKKKKGHKGKGGKGGH...........",
-    "............kKKKKKKKKKKKKKKKKGGH........",
-    ".............kKKKKKKKKKKKKKKKKKK........",
-    "..............kKKKKKKKKKKKKKKKKKG.......",
-    "...............KKKKKKKKKKKKKKKKKK.......",
-    "..............GKKKKKKKKKKKKKKKKKKG......",
-    "..............KKKKKKKKKKKKKKKKKKKKG.....",
-    "..............KKKKKSKKSKKSKKSKKKKKKG....",
-    "..............KKKKSKKSKKSKKSKKKkkkkKG...",
-    "..............KKKSkkSKKSKKSKKSK....kKG..",
-    ".............GKKKK..kkkkkkKKSKK.....kKG.",
-    ".............KKKKK........KKKKK......HHH",
-    ".............KKKKk........KKKKk......kHH",
-    ".............KKKK.........KKKK.........H",
-    "...........C.kkkkGG.....C.kkkkGG........",
-    "...........C.C.C.C......C.C.C.C.........",
-    "........................................"
-  ];
-  var DRAGON_PALETTE = {
-    K: "#1c1926",
-    k: "#0c0a12",
-    G: "#3d3754",
-    S: "#2a2636",
-    W: "#2b2238",
-    w: "#4b4262",
-    H: "#b8b29c",
-    T: "#efe9d8",
-    E: "#39ff7a",
-    e: "#1f9c4c",
-    C: "#cfc9b6",
-    M: "#4a0f16"
-  };
   function dragonSvg() {
-    return pixelSvg(DRAGON_MAP, DRAGON_PALETTE, { E: "eye" });
-  }
-  function spriteRects(kind) {
-    const map = kind === "goblin" ? GOBLIN_MAP : DRAGON_MAP;
-    const pal = kind === "goblin" ? GOBLIN_PAL : DRAGON_PALETTE;
-    const svg = pixelSvg(map, pal, kind === "dragon" ? { E: "eye" } : {});
-    return { rects: svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, ""), w: map[0].length, h: map.length };
+    return dragonArt();
   }
 
   // src/client/backgrounds.ts
@@ -1668,20 +1854,6 @@
     for (let x = 0; x <= W; x += 40) d += ` L${x} ${f(y + Math.sin(x / 210 + phase) * amp + Math.sin(x / 90 + phase * 2) * amp * 0.25)}`;
     return `<path d="${d} L${W} ${H} Z" fill="${color}"/>`;
   }
-  function pine(x, base, h3, color) {
-    const w = h3 * 0.42;
-    let s = `<rect x="${f(x - w * 0.04)}" y="${f(base - h3 * 0.12)}" width="${f(w * 0.08)}" height="${f(h3 * 0.14)}" fill="${color}"/>`;
-    for (let t = 0; t < 4; t++) {
-      const top = base - h3 * (0.35 + t * 0.21), bw = w * (1 - t * 0.2), by = base - h3 * (0.08 + t * 0.2);
-      s += `<polygon points="${f(x - bw / 2)},${f(by)} ${f(x - bw * 0.3)},${f(by - 6)} ${f(x)},${f(top)} ${f(x + bw * 0.3)},${f(by - 6)} ${f(x + bw / 2)},${f(by)}" fill="${color}"/>`;
-    }
-    return s;
-  }
-  function forestRow(base, count, minH, maxH, color) {
-    let s = "";
-    for (let i = 0; i < count; i++) s += pine(i / count * W + r(-20, W / count), base + r(-6, 6), r(minH, maxH), color);
-    return s + `<rect x="0" y="${base}" width="${W}" height="${H - base}" fill="${color}"/>`;
-  }
   function eyes(n, yMin, yMax, op) {
     return Array.from({ length: n }, () => {
       const x = r(60, W - 60), y = r(yMin, yMax), gap = r(7, 12), s = r(2, 3.4);
@@ -1701,141 +1873,241 @@
     return `<g class="bg-mist" opacity="${op}" filter="url(#blur20)">${Array.from({ length: 6 }, (_, i) => `<ellipse cx="${f(i * 300 + r(-60, 60))}" cy="${f(y + r(-20, 20))}" rx="${f(r(220, 340))}" ry="${f(r(26, 46))}" fill="${color}"/>`).join("")}</g>`;
   }
   var pick = (t, day, sunset, night) => t === "day" ? day : t === "sunset" ? sunset : night;
+  var dk2 = (c, t) => {
+    const p = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16) * (1 - t));
+    return `#${p.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+  };
+  function arenaFloor(t, stone, accent, glyph = "#ffffff") {
+    const [top, mid, edge] = stone;
+    const cy = 940, rx = 1040, ry = 220;
+    let s = `<ellipse cx="800" cy="${cy + 22}" rx="${rx + 20}" ry="${ry + 16}" fill="#000" opacity=".35" filter="url(#blur20)"/>`;
+    s += `<ellipse cx="800" cy="${cy + 20}" rx="${rx}" ry="${ry}" fill="${edge}"/>`;
+    s += `<ellipse cx="800" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#floorG)"/>`;
+    for (const k of [0.82, 0.62, 0.42]) s += `<ellipse cx="800" cy="${cy}" rx="${f(rx * k)}" ry="${f(ry * k)}" fill="none" stroke="${mid}" stroke-width="${f(3 * k + 1)}" opacity=".7"/>`;
+    for (let i = 0; i < 18; i++) {
+      const a = Math.PI + i / 18 * Math.PI;
+      s += `<line x1="${f(800 + Math.cos(a) * rx * 0.42)}" y1="${f(cy + Math.sin(a) * ry * 0.42)}" x2="${f(800 + Math.cos(a) * rx)}" y2="${f(cy + Math.sin(a) * ry)}" stroke="${mid}" stroke-width="2.5" opacity=".6"/>`;
+    }
+    for (let i = 0; i < 9; i++) {
+      const x = r(150, 1450), y = r(740, 880);
+      s += `<path d="M${f(x)} ${f(y)} l${f(r(20, 50))} ${f(r(-6, 6))} l${f(r(10, 30))} ${f(r(4, 14))}" stroke="${mid}" stroke-width="1.6" fill="none" opacity=".55"/>`;
+    }
+    const glow = pick(t, 0.55, 0.8, 1);
+    const rr = 0.66;
+    s += `<g filter="url(#glow)" opacity="${glow}"><ellipse cx="800" cy="${cy}" rx="${f(rx * rr)}" ry="${f(ry * rr)}" fill="none" stroke="${accent}" stroke-width="5"/><ellipse cx="800" cy="${cy}" rx="${f(rx * (rr - 0.07))}" ry="${f(ry * (rr - 0.07))}" fill="none" stroke="${accent}" stroke-width="2.5" opacity=".8"/><ellipse cx="800" cy="${cy}" rx="${f(rx * 0.2)}" ry="${f(ry * 0.2)}" fill="none" stroke="${accent}" stroke-width="3" opacity=".7"/></g>`;
+    const glyphs = "\u706B\u6C34\u6728\u91D1\u571F\u98A8\u96F7\u5149\u95C7\u6C37\u9B54\u529B";
+    for (let i = 0; i < 9; i++) {
+      const a = Math.PI + (i + 0.5) / 9 * Math.PI, rk = rr - 0.035;
+      const x = 800 + Math.cos(a) * rx * rk, y = cy + Math.sin(a) * ry * rk;
+      s += `<text x="${f(x)}" y="${f(y + 9)}" font-size="34" text-anchor="middle" fill="${glyph}" opacity="${f(glow * 0.75)}" font-family="'Noto Serif JP','Yu Mincho',serif" transform="scale(1 .62) translate(0 ${f(y / 0.62 - y)})" filter="url(#glow)">${glyphs[i]}</text>`;
+    }
+    s += `<ellipse cx="800" cy="${cy - 30}" rx="420" ry="90" fill="${accent}" opacity="${f(glow * 0.12)}" filter="url(#blur20)"/>`;
+    s += `<path d="M${800 - rx} ${cy} A ${rx} ${ry} 0 0 1 ${800 + rx} ${cy}" stroke="#ffffff" stroke-width="3" fill="none" opacity="${pick(t, 0.35, 0.22, 0.12)}"/>`;
+    return s;
+  }
+  var floorDefs = (stone) => grad("floorG", [[0, stone[0]], [0.5, stone[1]], [1, stone[2]]]);
+  function trunk(x, w, color, lean = 0) {
+    const top = -40, base = 760;
+    const L = (k) => x - w / 2 + lean * (1 - k / 800) + Math.sin(k / 90) * w * 0.06, R = (k) => x + w / 2 + lean * (1 - k / 800) + Math.sin(k / 70 + 1) * w * 0.05;
+    let d = `M${f(x - w * 1.5)} ${base} Q${f(x - w * 0.62)} ${base - 40} ${f(L(base - 160))} ${base - 160}`;
+    for (let k = base - 240; k >= top; k -= 80) d += ` L${f(L(k))} ${k}`;
+    d += ` L${f(R(top))} ${top}`;
+    for (let k = top + 80; k <= base - 160; k += 80) d += ` L${f(R(k))} ${k}`;
+    d += ` Q${f(x + w * 0.62)} ${base - 40} ${f(x + w * 1.5)} ${base} Z`;
+    let s = `<path d="${d}" fill="${color}"/>`;
+    s += `<path d="M${f(L(base - 160) + w * 0.06)} ${base - 160} L${f(L(top) + w * 0.06)} ${top} L${f(L(top) + w * 0.2)} ${top} L${f(L(base - 160) + w * 0.18)} ${base - 160} Z" fill="#ffffff" opacity=".06"/>`;
+    for (let i = 0; i < 5; i++) {
+      const bx = x - w * 0.3 + i * w * 0.15 + lean * 0.5;
+      s += `<path d="M${f(bx)} ${base - 120} q${f(r(-8, 8))} -200 ${f(r(-10, 10))} -${f(r(300, 600))}" stroke="#000" stroke-width="${f(r(2, 5))}" opacity=".16" fill="none"/>`;
+    }
+    for (const sx of [-1, 1]) s += `<path d="M${f(x + sx * w * 0.3)} ${base - 60} Q${f(x + sx * w * 0.9)} ${base - 20} ${f(x + sx * w * 1.9)} ${base + 10}" stroke="${color}" stroke-width="${f(w * 0.18)}" fill="none" stroke-linecap="round"/>`;
+    return s;
+  }
+  function monolith(x, base, h3, w, stone, glow, lit) {
+    let s = `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h3} L${x + w / 2 - 6} ${base - h3 - 8} L${x + w / 2} ${base} Z" fill="${stone}"/>`;
+    s += `<path d="M${x + w * 0.1} ${base - h3 - 4} L${x + w / 2 - 6} ${base - h3 - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".25"/>`;
+    for (let i = 0; i < 3; i++) s += `<rect x="${f(x - 3)}" y="${f(base - h3 * (0.78 - i * 0.22))}" width="6" height="${f(h3 * 0.1)}" rx="2" fill="${glow}" opacity="${lit ? 0.95 : 0.55}"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ""}/>`;
+    return s;
+  }
+  function brazier(x, base, s, stone, lit) {
+    const flame = `<g class="bg-flicker" filter="url(#glow)"><path d="M${x - 9 * s} ${base - 34 * s} Q${x - 10 * s} ${base - 56 * s} ${x} ${base - 74 * s} Q${x + 10 * s} ${base - 56 * s} ${x + 9 * s} ${base - 34 * s} Z" fill="#ff9a2a"/><path d="M${x - 4 * s} ${base - 34 * s} Q${x - 4 * s} ${base - 48 * s} ${x} ${base - 58 * s} Q${x + 4 * s} ${base - 48 * s} ${x + 4 * s} ${base - 34 * s} Z" fill="#fff0a0"/></g>`;
+    return `<path d="M${x - 14 * s} ${base} L${x - 9 * s} ${base - 26 * s} L${x - 16 * s} ${base - 34 * s} L${x + 16 * s} ${base - 34 * s} L${x + 9 * s} ${base - 26 * s} L${x + 14 * s} ${base} Z" fill="${stone}"/>${lit ? flame : `<ellipse cx="${x}" cy="${base - 36 * s}" rx="${12 * s}" ry="${4 * s}" fill="#ffb060" opacity=".7"/>`}`;
+  }
+  function grass(n, y0, y1, color, hmin = 14, hmax = 34) {
+    return `<g class="bg-sway">${Array.from({ length: n }, () => {
+      const x = r(0, W), y = r(y0, y1), h3 = r(hmin, hmax);
+      return `<path d="M${f(x)} ${f(y)} q${f(r(-6, 2))} ${f(-h3 * 0.6)} ${f(r(-10, -2))} ${f(-h3)} M${f(x + 3)} ${f(y)} q${f(r(0, 4))} ${f(-h3 * 0.7)} ${f(r(4, 10))} ${f(-h3 * 0.9)}" stroke="${color}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+    }).join("")}</g>`;
+  }
+  function rock(x, y, s, c) {
+    return `<path d="M${x - 40 * s} ${y} L${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} Z" fill="${c}"/><path d="M${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} L${x + 4 * s} ${y} Z" fill="#000" opacity=".22"/>`;
+  }
   function forest(t) {
-    const sky = pick(t, [[0, "#4f95d0"], [0.5, "#9fd0ea"], [1, "#e6f2d8"]], [[0, "#22163f"], [0.4, "#7a3a68"], [0.7, "#e2774f"], [1, "#ffcf8a"]], [[0, "#040914"], [0.55, "#0c1e33"], [1, "#183a3c"]]);
-    const rows2 = pick(t, ["#5f8f86", "#3e6e5d", "#24503f", "#123222"], ["#5a3d5c", "#3f2c48", "#2a1e33", "#140f1c"], ["#1a3b3d", "#11292b", "#0a1c1d", "#040f10"]);
-    return `<defs>${grad("sk", sky)}${grad("cometTail", [[0, "#fff", 0.9], [1, "#9fd8ff", 0]], false)}${DEFS}</defs>
+    const sky = pick(t, [[0, "#7fb2d8"], [0.5, "#cfe4ec"], [1, "#f2f6ee"]], [[0, "#2a1a44"], [0.4, "#8a4a6a"], [0.7, "#e88a5a"], [1, "#ffd49a"]], [[0, "#050a16"], [0.55, "#0f2236"], [1, "#1c3c42"]]);
+    const far = pick(t, "#b8c8d4", "#a0707a", "#1e3644"), mid = pick(t, "#5e6a80", "#4a2e46", "#0f1e28"), near = pick(t, "#262838", "#1c1222", "#05090e");
+    const stone = pick(t, ["#d8dce4", "#a8aebc", "#6a7080"], ["#8a6a78", "#5e4458", "#2e2030"], ["#3a4656", "#28323e", "#121820"]);
+    return `<defs>${grad("sk", sky)}${grad("cometTail", [[0, "#fff", 0.9], [1, "#9fd8ff", 0]], false)}${floorDefs(stone)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
-    ${t === "night" ? milkyWay() + stars(180, 520) + comets(3) + moon(1220, 160, 58) : t === "sunset" ? stars(30, 200, "#ffe7c4") + horizonGlow(560, "#ff8a4a") + sun(1080, 560, 70, "#ffd9a0", "#ff9a5a") : sun(1260, 150, 46, "#fff6d8", "#fff2b0") + clouds(6, 80, 260, "#ffffff", 0.75)}
-    ${mountains(520, 90, pick(t, "#86aac0", "#6b4a72", "#132a3a"), 0.4)}
-    ${haze(560, pick(t, "#dff0f4", "#ffb08a", "#2a4a5a"), 0.6)}
-    ${mist(560, pick(t, "#e8f4f0", "#ffcfb0", "#4e7a86"), pick(t, 0.5, 0.35, 0.3))}
-    ${forestRow(620, 24, 240, 400, rows2[0])}
-    ${haze(640, pick(t, "#cfe6dc", "#c87a6a", "#1c3a40"), 0.45)}
-    ${t !== "night" ? rays(t === "day" ? 1260 : 1080, t === "day" ? 150 : 560, pick(t, "#fffbe0", "#ffd39a", "#000"), pick(t, 0.22, 0.3, 0)) : ""}
-    ${forestRow(700, 20, 200, 330, rows2[1])}
-    ${t !== "day" ? fireflies(t === "night" ? 26 : 12, 520, 820, "#e8ff9a") : ""}
-    ${forestRow(780, 16, 160, 270, rows2[2])}
-    ${eyes(t === "night" ? 7 : t === "sunset" ? 4 : 2, 700, 800, t === "day" ? 0.35 : 1)}
-    ${forestRow(860, 12, 120, 210, rows2[3])}
-    ${mist(860, pick(t, "#ffffff", "#ffd8b8", "#2a4f56"), 0.25)}`;
+    ${t === "night" ? milkyWay() + stars(160, 420) + comets(2) + moon(1200, 150, 54) : t === "sunset" ? horizonGlow(560, "#ff8a4a") + sun(1080, 520, 70, "#ffd9a0", "#ff9a5a") : sun(1180, 120, 50, "#fffbe8", "#fff6c8")}
+    ${Array.from({ length: 34 }, (_, i) => {
+      const x = i / 34 * W + r(-20, 20), w = r(14, 34);
+      return `<rect x="${f(x)}" y="0" width="${f(w)}" height="700" fill="${far}" opacity="${f(r(0.35, 0.7))}"/>`;
+    }).join("")}
+    ${haze(560, pick(t, "#f2f6f4", "#ffc0a0", "#2a4a5a"), 0.75)}
+    ${mist(600, pick(t, "#ffffff", "#ffd0b0", "#4e7a86"), pick(t, 0.6, 0.4, 0.35))}
+    ${Array.from({ length: 12 }, (_, i) => {
+      const x = i / 12 * W + r(0, 90), w = r(40, 70);
+      return `<path d="M${f(x)} 760 L${f(x + 8)} 0 L${f(x + w)} 0 L${f(x + w + 6)} 760Z" fill="${mid}" opacity=".9"/>`;
+    }).join("")}
+    ${t !== "night" ? rays(t === "day" ? 1180 : 1080, t === "day" ? 120 : 520, pick(t, "#fffdf0", "#ffd39a", "#000"), pick(t, 0.32, 0.3, 0)) : ""}
+    ${haze(700, pick(t, "#e8f0f0", "#d08a7a", "#1c3a40"), 0.35)}
+    ${rock(300, 760, 1.3, pick(t, "#7a8090", "#4a3444", "#141a22"))}${rock(1290, 756, 1.1, pick(t, "#6e7484", "#40303e", "#111820"))}
+    ${eyes(t === "night" ? 6 : t === "sunset" ? 3 : 1, 560, 700, t === "day" ? 0.3 : 1)}
+    ${trunk(90, 190, near, 30)}${trunk(1500, 210, near, -40)}${trunk(420, 110, mid, 20)}${trunk(1170, 120, mid, -10)}
+    ${t !== "day" ? fireflies(t === "night" ? 28 : 12, 460, 760, "#e8ff9a") : ""}
+    ${grass(60, 720, 770, pick(t, "#5a7a4a", "#4a3a3a", "#0e1a12"))}
+    ${arenaFloor(t, stone, pick(t, "#3a9cff", "#7ac8ff", "#5ab0ff"), pick(t, "#2a6ad0", "#e8f4ff", "#cfe8ff"))}
+    ${mist(880, pick(t, "#ffffff", "#ffd8b8", "#2a4f56"), 0.18)}`;
   }
   function swamp(t) {
-    const sky = pick(t, [[0, "#7fa59a"], [0.55, "#c1d2b4"], [1, "#e2e6c8"]], [[0, "#2a1838"], [0.45, "#7a4058"], [0.75, "#d0835a"], [1, "#e8b86e"]], [[0, "#07080f"], [0.5, "#141f22"], [1, "#1f3426"]]);
-    const tree = pick(t, "#2f3d2c", "#24182a", "#080d0a");
-    const water = pick(t, ["#6d8a73", "#33493a"], ["#7a4e4e", "#2a1a22"], ["#1b2b22", "#060b08"]);
-    const deadTree = (x, y, h3) => {
-      const b = (x1, y1, x2, y2, w) => `<path d="M${f(x1)} ${f(y1)} Q ${f((x1 + x2) / 2 + r(-15, 15))} ${f((y1 + y2) / 2)} ${f(x2)} ${f(y2)}" stroke="${tree}" stroke-width="${w}" stroke-linecap="round" fill="none"/>`;
-      let s = b(x, y, x + 8, y - h3, 18) + b(x + 4, y - h3 * 0.55, x - h3 * 0.38, y - h3 * 0.86, 8) + b(x + 6, y - h3 * 0.72, x + h3 * 0.42, y - h3 * 0.98, 7) + b(x - h3 * 0.2, y - h3 * 0.74, x - h3 * 0.32, y - h3 * 1.02, 4) + b(x + 8, y - h3, x + 34, y - h3 * 1.16, 4);
+    const sky = pick(t, [[0, "#8fb0a4"], [0.55, "#cfdcc0"], [1, "#eef0d8"]], [[0, "#3a2040"], [0.45, "#9a5a5a"], [0.75, "#e8a868"], [1, "#f6d49a"]], [[0, "#06080e"], [0.5, "#14222a"], [1, "#22383a"]]);
+    const tree = pick(t, "#2f3d2c", "#24182a", "#06090a");
+    const water = pick(t, ["#8aa898", "#4a6656"], ["#c4865e", "#5a3438"], ["#24383a", "#081212"]);
+    const stone = pick(t, ["#7a8a74", "#56644e", "#2e3628"], ["#6a5450", "#4a3638", "#22181c"], ["#2a3632", "#1c2624", "#0a100e"]);
+    const deadTree = (x, y, h3, c) => {
+      const b = (x1, y1, x2, y2, w) => `<path d="M${f(x1)} ${f(y1)} Q ${f((x1 + x2) / 2 + r(-15, 15))} ${f((y1 + y2) / 2)} ${f(x2)} ${f(y2)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round" fill="none"/>`;
+      let s = b(x, y, x + 8, y - h3, h3 * 0.06) + b(x + 4, y - h3 * 0.55, x - h3 * 0.38, y - h3 * 0.86, h3 * 0.026) + b(x + 6, y - h3 * 0.72, x + h3 * 0.42, y - h3 * 0.98, h3 * 0.022) + b(x - h3 * 0.2, y - h3 * 0.74, x - h3 * 0.32, y - h3 * 1.02, h3 * 0.014) + b(x + 8, y - h3, x + 34, y - h3 * 1.16, h3 * 0.014);
       for (let i = 0; i < 6; i++) {
         const mx = x + r(-h3 * 0.35, h3 * 0.4), my = y - h3 * r(0.7, 1);
-        s += `<path class="bg-sway" d="M${f(mx)} ${f(my)} q 4 ${f(r(20, 40))} -2 ${f(r(40, 80))}" stroke="${pick(t, "#5e7a4a", "#4c3a3a", "#2a3e26")}" stroke-width="3" fill="none" opacity=".85"/>`;
+        s += `<path class="bg-sway" d="M${f(mx)} ${f(my)} q 4 ${f(r(20, 40))} -2 ${f(r(40, 80))}" stroke="${pick(t, "#6e8a5a", "#5c4a42", "#2a3e26")}" stroke-width="3" fill="none" opacity=".85"/>`;
       }
       return s;
     };
-    const trees = [140, 470, 980, 1380].map((x, i) => deadTree(x, 650, 250 + i * 28)).join("");
-    return `<defs>${grad("sk", sky)}${grad("wt", [[0, water[0]], [1, water[1]]])}${radial("wisp", [[0, "#cfff9a", 0.9], [1, "#cfff9a", 0]])}${DEFS}</defs>
+    const reeds = (n, y0, y1, c) => Array.from({ length: n }, () => {
+      const x = r(0, W), y = r(y0, y1), h3 = r(50, 110);
+      return `<g class="bg-sway"><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h3)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h3 * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`;
+    }).join("");
+    const lit = t !== "day";
+    return `<defs>${grad("sk", sky)}${grad("wt", [[0, water[0]], [1, water[1]]])}${radial("wisp", [[0, "#cfff9a", 0.9], [1, "#cfff9a", 0]])}${floorDefs(stone)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
-    ${t === "night" ? stars(70, 320, "#cfe8b0") + moon(380, 170, 48, "#dfe9a8") : t === "sunset" ? horizonGlow(560, "#ff7a5a") + sun(420, 520, 60, "#ffcf96", "#ff8a60") : sun(380, 140, 40, "#fbfbe6", "#ffffff") + clouds(4, 90, 220, "#f4f6ea", 0.55)}
-    ${hills(560, 24, pick(t, "#56715a", "#3c2a3c", "#132018"))}
-    ${haze(600, pick(t, "#eef4e6", "#e8a088", "#2e4a3a"), 0.55)}
-    ${mist(580, pick(t, "#f0f4e6", "#f2c2a6", "#6c8a6a"), pick(t, 0.55, 0.4, 0.35))}
-    ${trees}
-    <rect x="0" y="640" width="${W}" height="260" fill="url(#wt)"/>
-    <g opacity=".25" transform="translate(0 1290) scale(1 -1)">${trees}</g>
-    ${Array.from({ length: 14 }, () => `<ellipse cx="${f(r(0, W))}" cy="${f(r(680, 880))}" rx="${f(r(20, 46))}" ry="7" fill="${pick(t, "#4f7a3c", "#5a4a30", "#1f3a1a")}" opacity=".9"/>`).join("")}
-    ${Array.from({ length: 22 }, () => {
-      const x = r(0, W), y = r(640, 700);
-      return `<line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-4, 4))}" y2="${f(y - r(40, 90))}" stroke="${tree}" stroke-width="3"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - r(60, 90))}" rx="4" ry="11" fill="${pick(t, "#4a3a22", "#2a1a14", "#0a0a06")}"/>`;
-    }).join("")}
-    ${Array.from({ length: 6 }, () => {
-      const x = r(80, W - 80), y = r(700, 860);
-      return `<g fill="${pick(t, "#3d5a2a", "#2c2418", "#0c1408")}"><ellipse cx="${f(x)}" cy="${f(y)}" rx="11" ry="7"/><circle cx="${f(x - 6)}" cy="${f(y - 6)}" r="3.5"/><circle cx="${f(x + 6)}" cy="${f(y - 6)}" r="3.5"/></g>${t === "night" ? `<g class="bg-flicker slow"><circle cx="${f(x - 6)}" cy="${f(y - 6)}" r="1.4" fill="#e8ff7a"/><circle cx="${f(x + 6)}" cy="${f(y - 6)}" r="1.4" fill="#e8ff7a"/></g>` : ""}`;
-    }).join("")}
-    ${t !== "day" ? `<g class="bg-float">${Array.from({ length: t === "night" ? 7 : 3 }, () => `<circle cx="${f(r(100, W - 100))}" cy="${f(r(480, 760))}" r="${f(r(14, 24))}" fill="url(#wisp)" class="bg-flicker" style="animation-delay:${f(r(0, 3))}s"/>`).join("")}</g>` : ""}
-    ${fireflies(t === "night" ? 30 : 10, 420, 760, "#d8ff7a")}
-    ${mist(700, pick(t, "#ffffff", "#ffd8c0", "#9ab89a"), pick(t, 0.35, 0.28, 0.22))}`;
+    ${t === "night" ? stars(80, 320, "#cfe8b0") + moon(420, 160, 46, "#dfe9a8") : t === "sunset" ? horizonGlow(560, "#ff8a5a") + sun(420, 520, 66, "#ffe0a8", "#ff9a60") + clouds(4, 120, 260, "#f0a888", 0.5) : sun(400, 130, 40, "#fbfbe6", "#ffffff") + clouds(5, 90, 240, "#f6f8ee", 0.6)}
+    ${hills(570, 20, pick(t, "#6e8a72", "#5a3a4a", "#13201a"))}
+    ${[160, 420, 700, 1e3, 1260, 1480].map((x, i) => deadTree(x, 600, 140 + i % 3 * 30, pick(t, "#5a6a5a", "#5a3a48", "#0e1614"))).join("")}
+    ${haze(600, pick(t, "#eef4e6", "#f0b090", "#2e4a3a"), 0.6)}
+    <rect x="0" y="600" width="${W}" height="300" fill="url(#wt)"/>
+    ${mist(610, pick(t, "#f6f8ec", "#f8c8a8", "#7a9a7a"), pick(t, 0.6, 0.45, 0.4))}
+    ${[110, 1440].map((x, i) => deadTree(x, 720, 340 + i * 40, tree)).join("")}
+    <g opacity=".22" transform="translate(0 1440) scale(1 -1)">${[110, 1440].map((x, i) => deadTree(x, 720, 340 + i * 40, tree)).join("")}</g>
+    ${Array.from({ length: 16 }, () => `<ellipse cx="${f(r(0, W))}" cy="${f(r(640, 720))}" rx="${f(r(16, 34))}" ry="5" fill="${pick(t, "#5a8a44", "#6a5a34", "#1f3a1a")}"/>`).join("")}
+    ${reeds(26, 640, 720, tree)}
+    ${monolith(270, 730, 120, 44, pick(t, "#4a5444", "#3a2a30", "#141c18"), "#9aff8a", lit)}${monolith(1330, 728, 130, 46, pick(t, "#4a5444", "#3a2a30", "#141c18"), "#9aff8a", lit)}
+    ${t !== "day" ? `<g class="bg-float">${Array.from({ length: t === "night" ? 7 : 3 }, () => `<circle cx="${f(r(100, W - 100))}" cy="${f(r(420, 660))}" r="${f(r(14, 24))}" fill="url(#wisp)" class="bg-flicker" style="animation-delay:${f(r(0, 3))}s"/>`).join("")}</g>` : ""}
+    ${fireflies(t === "night" ? 30 : 10, 380, 700, "#d8ff7a")}
+    ${arenaFloor(t, stone, pick(t, "#4aff7a", "#9aff8a", "#7affa0"), pick(t, "#1a7a3a", "#f0ffe0", "#d8ffe0"))}
+    ${reeds(14, 880, 900, tree)}
+    ${mist(860, pick(t, "#ffffff", "#ffd8c0", "#9ab89a"), pick(t, 0.25, 0.2, 0.16))}`;
   }
   function plains(t) {
-    const sky = pick(t, [[0, "#3f86d6"], [0.55, "#8fc4ee"], [1, "#dff0fb"]], [[0, "#2a1a45"], [0.45, "#a8506a"], [0.75, "#f0a060"], [1, "#f6d08a"]], [[0, "#050a1c"], [0.6, "#16224a"], [1, "#2a2f58"]]);
+    const sky = pick(t, [[0, "#4a8ed8"], [0.55, "#9ccaee"], [1, "#e6f2fa"]], [[0, "#2e1c48"], [0.45, "#b0586e"], [0.75, "#f2a868"], [1, "#f8d48e"]], [[0, "#060b1e"], [0.6, "#18244e"], [1, "#2c325a"]]);
     const lit = t !== "day";
+    const stone = pick(t, ["#8a84a4", "#625c7c", "#34304a"], ["#7a5a72", "#54405a", "#2a1e30"], ["#2a2a48", "#1c1c34", "#0c0c1a"]);
     const house = (x, y, s, wall2, roof2) => {
       const w = 46 * s, h3 = 30 * s;
-      const win = lit ? `<rect x="${f(x + w * 0.2)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#ffcf6a" class="bg-flicker slow"/><rect x="${f(x + w * 0.6)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#ffcf6a"/>` : `<rect x="${f(x + w * 0.2)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#2a3040" opacity=".6"/>`;
-      const smoke = `<g class="bg-smoke" style="animation-delay:${f(r(0, 4))}s">${[0, 1, 2].map((i) => `<circle cx="${f(x + w * 0.78 + i * 4)}" cy="${f(y - h3 - 26 * s - i * 14)}" r="${f(4 + i * 3)}" fill="${pick(t, "#ffffff", "#f2d4c2", "#8a8fa8")}" opacity="${f(0.5 - i * 0.12)}"/>`).join("")}</g>`;
-      return `${smoke}<rect x="${f(x)}" y="${f(y - h3)}" width="${f(w)}" height="${f(h3)}" fill="${wall2}"/><polygon points="${f(x - 5 * s)},${f(y - h3)} ${f(x + w / 2)},${f(y - h3 - 22 * s)} ${f(x + w + 5 * s)},${f(y - h3)}" fill="${roof2}"/><rect x="${f(x + w * 0.72)}" y="${f(y - h3 - 24 * s)}" width="${f(6 * s)}" height="${f(14 * s)}" fill="${roof2}"/>${win}`;
+      const win = lit ? `<rect x="${f(x + w * 0.2)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#ffcf6a" class="bg-flicker slow"/><rect x="${f(x + w * 0.6)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#ffcf6a"/>` : "";
+      return `<rect x="${f(x)}" y="${f(y - h3)}" width="${f(w)}" height="${f(h3)}" fill="${wall2}"/><polygon points="${f(x - 5 * s)},${f(y - h3)} ${f(x + w / 2)},${f(y - h3 - 22 * s)} ${f(x + w + 5 * s)},${f(y - h3)}" fill="${roof2}"/>${win}`;
     };
     const wall = pick(t, "#e8dcc0", "#c99a7a", "#3a3550"), roof = pick(t, "#a04a3a", "#6e2e3a", "#1f1a30");
     const village = (x, y, s) => Array.from({ length: 5 }, (_, i) => house(x + i * 58 * s + r(-8, 8), y + r(-4, 6), s * r(0.85, 1.1), wall, roof)).join("");
-    const gob = spriteRects("goblin");
-    const goblin = (x, y, s, delay) => `<g class="bg-walk" style="animation-delay:${delay}s"><g transform="translate(${f(x)} ${f(y - gob.h * s)}) scale(${s})" opacity="${t === "night" ? 0.8 : 0.95}">${gob.rects}</g></g>`;
-    return `<defs>${grad("sk", sky)}${DEFS}</defs>
+    const gob = (x, y, s, delay) => `<g class="bg-walk" style="animation-delay:${delay}s"><g transform="translate(${f(x)} ${f(y - 200 * s)}) scale(${s})" opacity="${pick(t, 0.85, 0.7, 0.55)}">${characterSvg("goblin", "opp", "ember").replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "")}</g></g>`;
+    const mono = pick(t, "#5a566e", "#3a2a40", "#14142a");
+    return `<defs>${grad("sk", sky)}${floorDefs(stone)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
-    ${t === "night" ? milkyWay() + stars(150, 480) + moon(260, 140, 44) : t === "sunset" ? horizonGlow(580, "#ffa060") + sun(820, 560, 110, "#ffe2a0", "#ffb070") + clouds(6, 120, 320, "#f7c7b0", 0.5) : sun(1300, 130, 50, "#fffbe0", "#fff6c0") + clouds(8, 70, 300, "#ffffff", 0.85)}
-    ${mountains(560, 70, pick(t, "#7d98b8", "#6a4a6a", "#1c2240"), 2)}
-    ${haze(600, pick(t, "#e6f0fa", "#ffb890", "#2a3060"), 0.55)}
-    ${hills(600, 30, pick(t, "#7aa060", "#7a5a5a", "#1e2a2a"), 0.5)}
-    ${village(260, 612, 0.7)}${village(1040, 604, 0.6)}
-    <g transform="translate(1180 560)"><rect x="-7" y="0" width="14" height="110" fill="${pick(t, "#cbb79a", "#5a3a3a", "#1a1a28")}"/><g class="bg-spin">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-84" width="8" height="84" fill="${pick(t, "#8a6a4a", "#3a2228", "#141420")}" transform="rotate(${a + 20})"/>`).join("")}</g></g>
-    ${hills(660, 34, pick(t, "#5f8f45", "#4a5a3a", "#162418"), 1.7)}
-    ${goblin(300, 692, 2.6, 0)}${goblin(400, 698, 2.3, 6)}${goblin(1240, 702, 2.5, 3)}
-    ${t === "night" ? `<g class="bg-flicker" filter="url(#glow)"><polygon points="1380,742 1392,712 1404,742" fill="#ffb347"/><polygon points="1386,742 1392,722 1398,742" fill="#fff0a0"/></g>${goblin(1330, 744, 2.2, 9)}${goblin(1420, 744, 2.2, 12)}` : ""}
-    ${hills(740, 26, pick(t, "#4a7a35", "#33472b", "#0e180e"), 3)}
-    ${Array.from({ length: 80 }, () => {
-      const x = r(0, W), y = r(760, 900);
-      return `<line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-3, 6))}" y2="${f(y - r(12, 26))}" stroke="${pick(t, "#2f5a22", "#23331d", "#08100a")}" stroke-width="3" class="bg-sway"/>`;
-    }).join("")}
-    ${t === "night" ? fireflies(14, 640, 860, "#fff2a0") : ""}`;
+    ${t === "night" ? milkyWay() + stars(150, 460) + moon(260, 140, 44) : t === "sunset" ? horizonGlow(580, "#ffa060") + sun(820, 560, 110, "#ffe2a0", "#ffb070") + clouds(6, 120, 320, "#f7c7b0", 0.55) : sun(1300, 130, 50, "#fffbe0", "#fff6c0") + clouds(8, 70, 300, "#ffffff", 0.9)}
+    ${mountains(540, 120, pick(t, "#8aa0c0", "#7a5070", "#1c2244"), 2)}
+    ${haze(560, pick(t, "#e6f0fa", "#ffb890", "#2a3060"), 0.5)}
+    ${mountains(590, 70, pick(t, "#6f86a8", "#5a3a58", "#151a36"), 0.6)}
+    ${haze(620, pick(t, "#e6f0fa", "#ffb890", "#2a3060"), 0.4)}
+    ${hills(630, 24, pick(t, "#86a868", "#7a5a5a", "#1e2a2a"), 0.5)}
+    ${village(240, 640, 0.6)}${village(1060, 634, 0.55)}
+    <g transform="translate(1200 600)"><rect x="-6" y="0" width="12" height="80" fill="${pick(t, "#cbb79a", "#5a3a3a", "#1a1a28")}"/><g class="bg-spin">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-64" width="8" height="64" fill="${pick(t, "#8a6a4a", "#3a2228", "#141420")}" transform="rotate(${a + 20})"/>`).join("")}</g></g>
+    ${hills(680, 26, pick(t, "#6a9a4c", "#4a5a3a", "#162418"), 1.7)}
+    ${gob(280, 700, 0.42, 0)}${gob(380, 704, 0.38, 6)}${gob(1250, 706, 0.4, 3)}
+    ${monolith(130, 760, 210, 70, mono, "#ffb070", lit)}${monolith(470, 735, 150, 54, mono, "#ffb070", lit)}${monolith(1130, 735, 150, 54, mono, "#ffb070", lit)}${monolith(1470, 760, 210, 70, mono, "#ffb070", lit)}
+    ${brazier(330, 742, 1.2, mono, lit)}${brazier(1270, 742, 1.2, mono, lit)}
+    ${grass(70, 700, 760, pick(t, "#3f6a2a", "#33472b", "#0b140c"))}
+    ${arenaFloor(t, stone, pick(t, "#ffffff", "#ffe0c0", "#e8e6ff"), pick(t, "#4a3a6a", "#ffffff", "#ffffff"))}
+    ${t === "night" ? fireflies(14, 600, 800, "#fff2a0") : ""}`;
   }
   function castle(t) {
-    const sky = pick(t, [[0, "#4a78b8"], [0.6, "#9ab8dc"], [1, "#d8e4ee"]], [[0, "#1a0a1e"], [0.4, "#6a1a2a"], [0.72, "#c2452a"], [1, "#f08a3a"]], [[0, "#03051a"], [0.6, "#141d4a"], [1, "#2c3270"]]);
-    const stone = pick(t, "#5a5a6e", "#2a1a24", "#121126"), roof = pick(t, "#3a3a58", "#1a0e18", "#1b1a33");
+    const sky = pick(t, [[0, "#5a86c0"], [0.6, "#a8c2e0"], [1, "#e2eaf2"]], [[0, "#1e0c24"], [0.4, "#7a2232"], [0.72, "#d0582e"], [1, "#f4a050"]], [[0, "#04061c"], [0.6, "#161f4e"], [1, "#2e3474"]]);
+    const stoneC = pick(t, "#5e5e74", "#2c1a26", "#13132a"), roof = pick(t, "#3e3e5e", "#1c0e1a", "#1c1b36");
     const lit = t !== "day";
-    const tower = (x, w, h3) => `<rect x="${x}" y="${640 - h3}" width="${w}" height="${h3}" fill="${stone}"/><polygon points="${x - 10},${640 - h3} ${x + w / 2},${560 - h3} ${x + w + 10},${640 - h3}" fill="${roof}"/>` + Array.from({ length: Math.floor(h3 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h3 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h3}" x2="${x + w / 2}" y2="${520 - h3}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h3} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
-    const dragon = spriteRects("dragon");
+    const tower = (x, w, h3) => `<rect x="${x}" y="${640 - h3}" width="${w}" height="${h3}" fill="${stoneC}"/><rect x="${x + w * 0.62}" y="${640 - h3}" width="${w * 0.38}" height="${h3}" fill="#000" opacity=".2"/><polygon points="${x - 10},${640 - h3} ${x + w / 2},${560 - h3} ${x + w + 10},${640 - h3}" fill="${roof}"/>` + Array.from({ length: Math.floor(h3 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h3 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h3}" x2="${x + w / 2}" y2="${520 - h3}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h3} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
+    const dragon = dragonArt().replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
     const soldier = (x, y, s, flip2, weapon) => {
       const c = pick(t, "#2c3038", "#1a0c10", "#06070e");
       const g = `<circle cx="0" cy="-58" r="7"/><path d="M-7 -62 q7 -14 14 0 z"/><rect x="-8" y="-50" width="16" height="30" rx="4"/><rect x="-8" y="-22" width="6" height="22"/><rect x="2" y="-22" width="6" height="22"/><ellipse cx="-11" cy="-36" rx="7" ry="11"/>` + (weapon === "spear" ? `<line x1="10" y1="-10" x2="16" y2="-92" stroke="${c}" stroke-width="3"/><polygon points="13,-92 16,-104 19,-92"/>` : `<g class="bg-swing"><line x1="8" y1="-40" x2="34" y2="-70" stroke="${c}" stroke-width="3"/></g>`);
-      return `<g transform="translate(${x} ${y}) scale(${flip2 ? -s : s} ${s})" fill="${c}" opacity="${pick(t, 0.55, 0.75, 0.8)}">${g}</g>`;
+      return `<g transform="translate(${x} ${y}) scale(${flip2 ? -s : s} ${s})" fill="${c}" opacity="${pick(t, 0.6, 0.8, 0.85)}">${g}</g>`;
     };
-    const left = [soldier(70, 860, 1.5, false, "spear"), soldier(140, 868, 1.4, false, "spear"), soldier(230, 856, 1.6, false, "sword")];
-    const right = [soldier(1530, 860, 1.5, true, "spear"), soldier(1460, 868, 1.4, true, "spear"), soldier(1370, 856, 1.6, true, "sword")];
-    return `<defs>${grad("sk", sky)}${DEFS}</defs>
+    const army = (x0, flip2) => Array.from({ length: 9 }, (_, i) => soldier(x0 + (flip2 ? -1 : 1) * (i * 34 + r(-6, 6)), 718 + i % 3 * 6, 0.9 + i % 3 * 0.08, flip2, i % 4 === 3 ? "sword" : "spear")).join("");
+    const banner = (x) => `<line x1="${x}" y1="720" x2="${x}" y2="470" stroke="${pick(t, "#3a3030", "#1a0c10", "#0a0a14")}" stroke-width="7"/><path class="bg-flag" d="M${x} 480 h62 v130 l-31 -22 l-31 22 Z" fill="${pick(t, "#a8243a", "#7a1424", "#5a1020")}"/>`;
+    const stone = pick(t, ["#8a8494", "#5e5868", "#2e2a36"], ["#5a3a3a", "#3e2628", "#1e1012"], ["#2a2a40", "#1c1c30", "#0c0c18"]);
+    return `<defs>${grad("sk", sky)}${floorDefs(stone)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
-    ${t === "night" ? milkyWay() + stars(160, 480) + moon(300, 150, 52, "#e8e6ff") : t === "sunset" ? horizonGlow(560, "#ff5a2a") + sun(1250, 520, 90, "#ffb070", "#ff5a3a") + clouds(5, 120, 300, "#ff9a7a", 0.35) : sun(1280, 140, 44, "#fffbe6", "#ffffff") + clouds(7, 80, 280, "#ffffff", 0.8)}
-    ${mountains(600, 110, pick(t, "#6c7a96", "#3a1622", "#0e1030"), 1.3)}
+    ${t === "night" ? milkyWay() + stars(160, 460) + moon(300, 150, 52, "#e8e6ff") : t === "sunset" ? horizonGlow(560, "#ff5a2a") + sun(1250, 520, 90, "#ffb070", "#ff5a3a") + clouds(5, 120, 300, "#ff9a7a", 0.4) : sun(1280, 140, 44, "#fffbe6", "#ffffff") + clouds(7, 80, 280, "#ffffff", 0.85)}
+    ${mountains(600, 110, pick(t, "#7686a2", "#3a1622", "#0e1030"), 1.3)}
     ${haze(620, pick(t, "#dfe8f4", "#ff7a5a", "#1a2050"), 0.5)}
-    <g class="bg-dragon"><g transform="scale(${f(170 / dragon.w)})">${dragon.rects}</g></g>
-    ${hills(640, 18, pick(t, "#4a5a48", "#1a0a12", "#10122a"))}
-    <rect x="560" y="430" width="480" height="210" fill="${stone}"/>
-    ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="${stone}"/>`).join("")}
+    <g class="bg-dragon"><g transform="scale(.55)" opacity="${pick(t, 0.9, 0.85, 0.75)}">${dragon}</g></g>
+    ${hills(640, 18, pick(t, "#4e5e4c", "#1a0a12", "#10122a"))}
+    <rect x="560" y="430" width="480" height="210" fill="${stoneC}"/>
+    ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="${stoneC}"/>`).join("")}
     ${tower(500, 90, 330)}${tower(1010, 90, 330)}${tower(740, 120, 420)}
     <path d="M760 640 L760 590 Q800 548 840 590 L840 640 Z" fill="${pick(t, "#2a2a38", "#0c0408", "#05050f")}"/>
-    ${Array.from({ length: 5 }, (_, i) => `<line x1="${768 + i * 16}" y1="${i === 0 || i === 4 ? 600 : 568}" x2="${768 + i * 16}" y2="640" stroke="${pick(t, "#4a4a5a", "#2a1418", "#14142a")}" stroke-width="3"/>`).join("")}
-    <rect x="0" y="650" width="${W}" height="16" fill="${pick(t, "#5a7a9a", "#5a1a1a", "#10183a")}" opacity=".55"/>
-    <polygon points="740,640 860,640 900,700 700,700" fill="${pick(t, "#6a5a48", "#2a1810", "#14121e")}"/>
     ${lit ? `<g class="bg-flicker" filter="url(#glow)"><circle cx="740" cy="600" r="6" fill="#ffb347"/><circle cx="860" cy="600" r="6" fill="#ffb347"/></g>` : ""}
-    ${hills(780, 22, pick(t, "#3a4a38", "#14080c", "#0b0c1c"), 2)}
-    ${left.join("")}${right.join("")}
-    <g class="bg-spark" filter="url(#glow)"><circle cx="262" cy="788" r="5" fill="#fff6c0"/><circle cx="1338" cy="788" r="5" fill="#fff6c0" style="animation-delay:2.7s"/></g>
+    ${haze(700, pick(t, "#e8eef6", "#ff8a5a", "#1a2050"), 0.25)}
+    ${banner(380)}${banner(1158)}
+    ${army(40, false)}${army(1560, true)}
+    ${brazier(270, 740, 1.4, pick(t, "#4a4a56", "#2a1418", "#121222"), lit || true)}${brazier(1330, 740, 1.4, pick(t, "#4a4a56", "#2a1418", "#121222"), lit || true)}
+    ${arenaFloor(t, stone, pick(t, "#ffb060", "#ffb060", "#a8a0ff"), pick(t, "#ffffff", "#fff0d0", "#e8e6ff"))}
+    <g class="bg-spark" filter="url(#glow)"><circle cx="262" cy="700" r="5" fill="#fff6c0"/><circle cx="1338" cy="700" r="5" fill="#fff6c0" style="animation-delay:2.7s"/></g>
     ${t === "night" ? fireflies(8, 520, 700, "#ffcf6a") : ""}`;
   }
   function worldtree(t) {
     const sky = pick(t, [[0, "#4a8ad8"], [0.5, "#9cd0f2"], [0.85, "#e8f6ff"], [1, "#ffffff"]], [[0, "#2a1450"], [0.45, "#b04a78"], [0.8, "#f4a060"], [1, "#ffe0a0"]], [[0, "#0b0626"], [0.45, "#2a1260"], [0.8, "#1d4f78"], [1, "#2c8a8a"]]);
-    const leaves = (y, n, rmin, rmax, col, op) => Array.from({ length: n }, (_, i) => `<circle cx="${f(i / n * W + r(0, 80))}" cy="${f(y + r(0, 50))}" r="${f(r(rmin, rmax))}" fill="${col}" opacity="${op}"/>`).join("");
-    const leafA = pick(t, "#3f9a5a", "#7a5a3a", "#14402f"), leafB = pick(t, "#56b86a", "#a0703a", "#1b5a3c"), leafC = pick(t, "#7ad68a", "#e0a050", "#2f9e6a");
-    return `<defs>${grad("sk", sky)}${radial("glow2", [[0, pick(t, "#ffffff", "#ffe0a0", "#9ff5c8"), 0.55], [1, "#ffffff", 0]])}${grad("aurora", [[0, "#7affc8", 0], [0.5, "#7affc8", 0.35], [1, "#b07aff", 0]], false)}${DEFS}</defs>
+    const bark = pick(t, "#4a3626", "#3a2418", "#1a1424"), leaf = pick(t, ["#3f9a5a", "#56b86a", "#7ad68a"], ["#7a5a3a", "#a0703a", "#e0a050"], ["#14402f", "#1b5a3c", "#2f9e6a"]);
+    const lit = t !== "day";
+    const stone = pick(t, ["#7a8a8a", "#56645e", "#2a3430"], ["#6a5450", "#4a3a3a", "#22181a"], ["#1e3038", "#14222a", "#081016"]);
+    const canopy = (cx, cy, rx, ry) => [0, 1, 2].map((layer) => {
+      const n = [26, 30, 22][layer], k = [1, 0.85, 0.6][layer], dy = [40, 0, -40][layer], dx = [0, -10, -50][layer];
+      const col = [dk2(leaf[0], 0.35), leaf[1], leaf[2]][layer];
+      return Array.from({ length: n }, () => {
+        const a = r(0, Math.PI * 2), d = Math.sqrt(rnd());
+        const x = cx + dx + Math.cos(a) * rx * k * d, y = cy + dy + Math.sin(a) * ry * k * d;
+        const rad = r(34, 70) * (layer === 2 ? 0.8 : 1);
+        return `<circle cx="${f(x)}" cy="${f(y)}" r="${f(rad)}" fill="${col}"/>${layer === 2 ? `<circle cx="${f(x - rad * 0.3)}" cy="${f(y - rad * 0.35)}" r="${f(rad * 0.45)}" fill="#ffffff" opacity=".08"/>` : ""}`;
+      }).join("");
+    }).join("");
+    const island = (x, y, s) => `<g class="bg-float"><path d="M${x - 60 * s} ${y} Q${x} ${y - 16 * s} ${x + 60 * s} ${y} L${x + 20 * s} ${y + 50 * s} L${x} ${y + 80 * s} L${x - 24 * s} ${y + 46 * s} Z" fill="${pick(t, "#6a5a4a", "#5a3a2a", "#1e1a2a")}"/><ellipse cx="${x}" cy="${y - 4 * s}" rx="${62 * s}" ry="${12 * s}" fill="${leaf[1]}"/>${lit ? `<circle cx="${x}" cy="${y + 70 * s}" r="${4 * s}" fill="#9ff5c8" filter="url(#glow)" class="bg-flicker"/>` : ""}</g>`;
+    const mono = pick(t, "#4a5a5a", "#3a2a30", "#122028");
+    return `<defs>${grad("sk", sky)}${radial("glow2", [[0, pick(t, "#ffffff", "#ffe0a0", "#9ff5c8"), 0.55], [1, "#ffffff", 0]])}${grad("aurora", [[0, "#7affc8", 0], [0.5, "#7affc8", 0.35], [1, "#b07aff", 0]], false)}${floorDefs(stone)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
-    ${t === "night" ? stars(200, 560, "#d7ccff") + `<g class="bg-aurora" filter="url(#blur20)"><path d="M-100 200 C 300 80, 700 260, 1100 140 S 1600 120, 1800 200 L1800 280 C 1300 200, 900 340, 500 240 S 0 260, -100 300 Z" fill="url(#aurora)"/></g>` + moon(1240, 170, 54, "#fff4d6") : t === "sunset" ? horizonGlow(500, "#ffb070") + sun(380, 470, 80, "#fff0c0", "#ffb070") : sun(1240, 150, 50, "#ffffff", "#fff8d0") + rays(1240, 150, "#ffffff", 0.18)}
-    <ellipse cx="800" cy="640" rx="900" ry="200" fill="url(#glow2)"/>
-    ${clouds(10, 590, 660, pick(t, "#ffffff", "#ffd8c0", "#efeaff"), pick(t, 0.85, 0.6, 0.22), "bg-drift slow")}
-    ${leaves(640, 26, 50, 90, leafA, 1)}
-    ${leaves(690, 30, 45, 80, leafB, 1)}
-    <path d="M-40 800 C 300 730, 650 760, 820 740 S 1300 735, 1640 780 L1640 900 L-40 900 Z" fill="${pick(t, "#5a3a24", "#4a2a18", "#3a2418")}"/>
-    <path d="M-40 840 C 400 800, 760 820, 940 800 S 1400 810, 1640 840 L1640 900 L-40 900 Z" fill="${pick(t, "#462c1a", "#36200f", "#2b190f")}"/>
-    ${leaves(760, 22, 26, 46, leafC, 0.9)}
-    ${fireflies(t === "night" ? 60 : 24, 560, 820, pick(t, "#ffffff", "#fff0b0", "#b9ffd8"))}
-    ${t === "night" ? fireflies(30, 80, 560, "#bff8ff") : ""}`;
+    ${t === "night" ? stars(200, 560, "#d7ccff") + `<g class="bg-aurora" filter="url(#blur20)"><path d="M-100 200 C 300 80, 700 260, 1100 140 S 1600 120, 1800 200 L1800 280 C 1300 200, 900 340, 500 240 S 0 260, -100 300 Z" fill="url(#aurora)"/></g>` + moon(1300, 150, 50, "#fff4d6") : t === "sunset" ? horizonGlow(500, "#ffb070") + sun(300, 470, 80, "#fff0c0", "#ffb070") : sun(1300, 140, 50, "#ffffff", "#fff8d0") + rays(1300, 140, "#ffffff", 0.18)}
+    ${mountains(600, 150, pick(t, "#7a9ac0", "#6a4a72", "#1a2a4a"), 0.2)}
+    ${haze(620, pick(t, "#e8f4ff", "#ffc0a0", "#2a3a6a"), 0.5)}
+    ${island(260, 300, 0.9)}${island(1340, 360, 0.7)}${island(1080, 220, 0.5)}
+    <ellipse cx="800" cy="600" rx="700" ry="200" fill="url(#glow2)"/>
+    <path d="M690 650 Q712 520 690 430 Q660 360 580 320 L640 318 Q720 350 750 290 Q760 360 800 330 Q840 360 850 290 Q880 350 960 318 L1020 320 Q940 360 910 430 Q888 520 910 650 Z" fill="${bark}"/>
+    <path d="M800 650 L790 440 Q800 400 812 440 L820 650Z" fill="#000" opacity=".18"/><path d="M700 640 Q706 520 696 440 L720 440 Q728 520 724 640Z" fill="#fff" opacity=".07"/>
+    <path d="M690 640 Q600 660 470 700 L520 704 Q620 676 700 664 Z M910 640 Q1000 660 1130 700 L1080 704 Q980 676 900 664 Z M760 650 Q720 690 640 712 L960 712 Q880 690 840 650Z" fill="${bark}"/>
+    ${lit ? `<g filter="url(#glow)" class="bg-flicker slow">${Array.from({ length: 7 }, (_, i) => `<path d="M${740 + i * 20} 640 q${r(-40, 40)} 30 ${r(-120, 120)} 50" stroke="#9ff5c8" stroke-width="2" fill="none" opacity=".7"/>`).join("")}</g>` : ""}
+    ${canopy(800, 240, 470, 170)}
+    ${clouds(8, 600, 660, pick(t, "#ffffff", "#ffd8c0", "#efeaff"), pick(t, 0.8, 0.55, 0.2), "bg-drift slow")}
+    ${hills(690, 20, pick(t, "#3a6a4a", "#4a3a2a", "#0e2420"), 1)}
+    ${monolith(180, 750, 190, 64, mono, "#7affd0", lit)}${monolith(1420, 750, 190, 64, mono, "#7affd0", lit)}${monolith(500, 720, 120, 44, mono, "#7affd0", lit)}${monolith(1100, 720, 120, 44, mono, "#7affd0", lit)}
+    ${grass(60, 700, 760, pick(t, "#2f6a3a", "#4a3a24", "#0a1a14"))}
+    ${fireflies(t === "night" ? 50 : 20, 420, 760, pick(t, "#ffffff", "#fff0b0", "#b9ffd8"))}
+    ${arenaFloor(t, stone, pick(t, "#2adfa0", "#7affd0", "#6affd0"), pick(t, "#0a5a40", "#f0fff8", "#e0fff4"))}
+    ${t === "night" ? fireflies(24, 80, 520, "#bff8ff") : ""}`;
   }
   var SCENES = { forest, swamp, plains, castle, worldtree };
   function scene(id, t) {
@@ -2155,9 +2427,10 @@
     for (const [id, rtt] of Object.entries(map)) rtts.set(id, rtt);
     document.querySelectorAll(".net[data-net]").forEach(paintNet);
   }
-  function picEl(url, cls = "pic") {
+  var borderCls = (b) => b && b !== "none" ? ` bd bd-${b}` : "";
+  function picEl(url, cls = "pic", border) {
     if (!url) return "";
-    const img = h("img", cls, void 0, { src: url, alt: "", loading: "lazy", decoding: "async" });
+    const img = h("img", cls + borderCls(border), void 0, { src: url, alt: "", loading: "lazy", decoding: "async" });
     img.onerror = () => img.remove();
     return img;
   }
@@ -2202,6 +2475,7 @@
       const el11 = $(id);
       el11.replaceChildren(p.pic ? picEl(p.pic, "pic fill") : "\u2726");
       el11.classList.toggle("has-pic", !!p.pic);
+      el11.className = el11.className.replace(/\s*\bbd(-\w+)?\b/g, "") + borderCls(p.border);
     }
     $("picRemove").hidden = !p.pic;
     $("whoXp").style.width = `${levelProgress(p.xp) * 100}%`;
@@ -2215,6 +2489,7 @@
     clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => el11.hidden = true, ms);
   }
+  var myName = () => $("whoName").textContent ?? "";
   function setUser(user2) {
     $("whoami").hidden = !user2;
     $("whoName").textContent = user2?.username ?? "";
@@ -2390,7 +2665,7 @@
         av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp", p.staff);
         const who = h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name);
         if (p.id !== you2) markProfile(who, p);
-        li.append(av, picEl(p.pic), who);
+        li.append(av, picEl(p.pic, "pic", p.border), who);
         if (p.bot) li.append(h("span", "tag ai", p.bot === "BEGINNER" ? "AI \xB7 beginner" : `AI \xB7 knows ${p.bot}`));
         else li.append(netBars(p.id), h("span", "lv", `Lv ${p.level}`));
         if (p.bot && you2 === hostId) {
@@ -2480,7 +2755,7 @@
       if (p.id !== you2) markProfile(pn, p);
       const name = append(
         h("div", "pname"),
-        picEl(p.pic),
+        picEl(p.pic, "pic", p.border),
         pn,
         netBars(p.id),
         h("span", "lv", `Lv ${p.level}`),
@@ -2493,9 +2768,9 @@
   function thickBar(hp, max, side, text) {
     const pct2 = max > 0 ? Math.max(0, Math.min(100, hp / max * 100)) : 0;
     const bar = h("div", `tbar ${side}${pct2 <= 25 ? " low" : ""}`, void 0, { role: "meter", "aria-valuemin": "0", "aria-valuemax": String(max), "aria-valuenow": String(hp) });
-    const fill = h("div", "fill");
-    fill.style.width = `${pct2}%`;
-    bar.append(fill, h("span", "tbar-txt", text));
+    const fill2 = h("div", "fill");
+    fill2.style.width = `${pct2}%`;
+    bar.append(fill2, h("span", "tbar-txt", text));
     return bar;
   }
   function fighterCard(el11, p, label, emptyText) {
@@ -2505,7 +2780,7 @@
     }
     const nameEl = h("span", "n", label);
     if (!label.endsWith("(you)")) markProfile(nameEl, p);
-    const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`)), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo` : ""));
+    const name = append(h("div", "name"), append(h("span", "n"), picEl(p.pic, "pic", p.border), nameEl, netBars(p.id), h("span", "lv", `Lv ${p.level}`)), h("span", "combo", p.combo >= 2 ? `\xD7${p.combo} combo` : ""));
     el11.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   var battleMode = "reading";
@@ -2723,11 +2998,11 @@
     const cd = $("countdown");
     if (countdownMs > 0) {
       cd.hidden = false;
-      let last = -1;
+      let last2 = -1;
       countdown("cd", countdownMs, (left) => {
         const n = Math.ceil(left / 1e3);
-        if (n !== last) {
-          last = n;
+        if (n !== last2) {
+          last2 = n;
           onTick(n);
         }
         cd.textContent = left > 0 ? String(n) : "\u6226\uFF01";
@@ -2930,7 +3205,12 @@
     $("struggled").replaceChildren(
       ...me3.struggled.map((k) => {
         const w = byKanji.get(k);
-        const card = append(h("div", "card clickable", void 0, { tabindex: "0", title: "Stroke order" }), h("div", "k", w.kanji, { lang: "ja" }), h("div", "r", w.reading, { lang: "ja" }), h("div", "m", w.meaning));
+        const so = h("button", "so-btn", "\u7B46", { type: "button", title: "Stroke order", "aria-label": "Stroke order", lang: "ja" });
+        so.onclick = (e) => {
+          e.stopPropagation();
+          openStrokeDialog(w.kanji, w.reading, w.meaning);
+        };
+        const card = append(h("div", "card miss-card", void 0, { tabindex: "0", "data-kanji": w.kanji }), h("div", "k", w.kanji, { lang: "ja" }), h("div", "r", w.reading, { lang: "ja" }), h("div", "m", w.meaning), so);
         card.onclick = () => openStrokeDialog(w.kanji, w.reading, w.meaning);
         return card;
       })
@@ -3005,7 +3285,7 @@
         h("p", "hint", "A computer opponent. It gets words right about as often as a learner of its level would.")
       );
     } else {
-      const pic = h("div", "pp-pic" + (p.pic ? " has-pic" : ""), p.pic ? "" : p.name.slice(0, 1).toUpperCase());
+      const pic = h("div", "pp-pic" + (p.pic ? " has-pic" : "") + borderCls(p.border), p.pic ? "" : p.name.slice(0, 1).toUpperCase());
       const img = picEl(p.pic, "pic fill");
       if (img) pic.append(img);
       const games = p.wins + p.losses;
@@ -3020,7 +3300,7 @@
         ),
         append(
           h("div", "pp-stats pp-streaks"),
-          append(h("div", "streak-box"), h("b", "", p.streak ?? 0), h("span", "", "login streak (days)")),
+          append(h("div", "streak-box"), h("b", "", p.streak ?? 0), h("span", "", "daily streak (days)")),
           append(h("div", "streak-box best"), h("b", "", Math.max(p.bestStreak ?? 0, p.streak ?? 0)), h("span", "", "best streak (days)"))
         ),
         h("p", "hint", `Playing since ${new Date(p.since).toLocaleDateString(locale(), { year: "numeric", month: "short", day: "numeric" })}`)
@@ -3363,6 +3643,30 @@ ${stack}`.slice(0, 2e3);
       $3("customMsg").textContent = err.message;
     }
   });
+  function tickCards(cards, onToggle) {
+    for (const { card, id } of cards) {
+      card.classList.add("tickable", "on");
+      card.setAttribute("role", "checkbox");
+      card.setAttribute("aria-checked", "true");
+      card.title = tr("Ticked: goes to your deck. Tap to keep it out.");
+      const tick2 = el2("span", "mc-tick", "\u2713", { "aria-hidden": "true" });
+      card.prepend(tick2);
+      const flip2 = () => {
+        const on = !card.classList.contains("on");
+        card.classList.toggle("on", on);
+        card.setAttribute("aria-checked", String(on));
+        tick2.textContent = on ? "\u2713" : "";
+        onToggle(id, on);
+      };
+      card.onclick = flip2;
+      card.onkeydown = (e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          flip2();
+        }
+      };
+    }
+  }
   function showMissedSave(missed) {
     const box = $3("missedSave");
     if (!missed.length) {
@@ -3373,10 +3677,12 @@ ${stack}`.slice(0, 2e3);
     const ticked = new Set(missed.map((m) => m.id));
     let ours = new Set(missed.filter((m) => m.added).map((m) => m.id));
     const status = el2("span", "ms-status hint");
-    const say2 = (t) => {
-      status.textContent = t;
+    const say2 = () => {
+      status.textContent = `${ticked.size} / ${missed.length} \u2192 ${tr(DECK_LABEL[deck2])}`;
     };
     const sync = async (id, on) => {
+      on ? ticked.add(id) : ticked.delete(id);
+      say2();
       try {
         if (on) {
           const r2 = await api.deckAdd(deck2, [id]);
@@ -3385,24 +3691,22 @@ ${stack}`.slice(0, 2e3);
           await api.deckRemove(deck2, [id]);
           ours.delete(id);
         }
-        say2(`${ticked.size} of ${missed.length} in ${tr(DECK_LABEL[deck2])}`);
       } catch (e) {
-        say2(e.message);
+        status.textContent = e.message;
       }
     };
-    const chips = missed.map((m) => {
-      const l = el2("label", "ms-word on");
-      const c = el2("input", "", void 0, { type: "checkbox" });
-      c.checked = true;
-      c.onchange = () => {
-        c.checked ? ticked.add(m.id) : ticked.delete(m.id);
-        l.classList.toggle("on", c.checked);
-        void sync(m.id, c.checked);
-      };
-      l.append(c, el2("b", "", m.kanji, { lang: "ja" }), el2("small", "", m.reading, { lang: "ja" }));
-      l.title = m.meaning;
-      return l;
+    const grid = $3("struggled");
+    const cards = missed.map((m) => {
+      let card = grid.querySelector(`.miss-card[data-kanji="${CSS.escape(m.kanji)}"]`);
+      if (!card) {
+        card = el2("div", "card miss-card", void 0, { tabindex: "0", "data-kanji": m.kanji });
+        card.append(el2("div", "k", m.kanji, { lang: "ja" }), el2("div", "r", m.reading, { lang: "ja" }), el2("div", "m", m.meaning));
+        grid.append(card);
+        $3("struggledBox").hidden = false;
+      }
+      return { card, id: m.id };
     });
+    tickCards(cards, (id, on) => void sync(id, on));
     const sel = el2("select", "ms-deck", void 0, { "aria-label": "Save to" });
     for (const d of ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
     sel.value = deck2;
@@ -3413,19 +3717,16 @@ ${stack}`.slice(0, 2e3);
         if (ours.size) await api.deckRemove(deck2, [...ours]);
         deck2 = to;
         ours = new Set((await api.deckAdd(deck2, [...ticked])).added);
-        say2(`${ticked.size} of ${missed.length} in ${tr(DECK_LABEL[deck2])}`);
+        say2();
       } catch (e) {
-        say2(e.message);
+        status.textContent = e.message;
       }
       sel.disabled = false;
     };
     const story = el2("button", "pill", "Read them in a story");
     story.onclick = () => openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning })));
-    const head = el2("div", "ms-head");
-    head.append(el2("span", "", "Save these words to"), sel, status, story);
-    box.replaceChildren(head, Object.assign(el2("div", "ms-words"), {}));
-    box.lastElementChild.append(...chips);
-    say2(`${ticked.size} of ${missed.length} in ${tr(DECK_LABEL[deck2])}`);
+    box.replaceChildren(el2("span", "hint", "Ticked words go to"), sel, status, story);
+    say2();
     box.hidden = false;
   }
   var ASK = {
@@ -3507,6 +3808,8 @@ ${stack}`.slice(0, 2e3);
     $3("quizCard").hidden = true;
     $3("quizDone").hidden = false;
     $3("quizResult").textContent = `${score} / ${quiz.length} correct${score === quiz.length ? " \u2014 perfect!" : ""}`;
+    void api.task("quiz").then((p) => onTaskDone.cb(p)).catch(() => {
+    });
     const box = $3("quizMissed");
     if (!wrong.length) {
       box.replaceChildren();
@@ -3514,20 +3817,20 @@ ${stack}`.slice(0, 2e3);
     }
     const sel = el2("select", "ms-deck");
     for (const d of ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
-    const save3 = el2("button", "pill", "Add the ones I missed");
+    const save4 = el2("button", "pill", "Add the ones I missed");
     const msg = el2("span", "hint");
-    save3.onclick = async () => {
+    save4.onclick = async () => {
       try {
         const r2 = await api.deckAdd(sel.value, wrong.map((q) => q.vocabId));
         msg.textContent = `${r2.added.length} added to ${tr(DECK_LABEL[sel.value])}.`;
-        save3.disabled = true;
+        save4.disabled = true;
         onChanged();
       } catch (e) {
         msg.textContent = e.message;
       }
     };
     const head = el2("div", "ms-head");
-    head.append(el2("span", "", `You missed ${wrong.length}:`), sel, save3, msg);
+    head.append(el2("span", "", `You missed ${wrong.length}:`), sel, save4, msg);
     const list = el2("div", "ms-words");
     list.append(...wrong.map((q) => el2("span", "ms-word on", q.kind === "kanji" ? q.choices[q.answer] : q.prompt, { lang: "ja" })));
     box.replaceChildren(head, list);
@@ -3565,7 +3868,80 @@ ${stack}`.slice(0, 2e3);
   ];
   var CLOSE = { ja: "\u3053\u3046\u3057\u3066\u3001\u30CF\u30EB\u306E[\u9B54\u6CD5|\u307E\u307B\u3046]\u306F\u307E\u305F[\u5C11|\u3059\u3053]\u3057[\u5F37|\u3064\u3088]\u304F\u306A\u3063\u305F\u3002", en: "And so Haru\u2019s magic grew a little stronger again.", ru: "\u0422\u0430\u043A \u043C\u0430\u0433\u0438\u044F \u0425\u0430\u0440\u0443 \u0441\u0442\u0430\u043B\u0430 \u0435\u0449\u0451 \u043D\u0435\u043C\u043D\u043E\u0433\u043E \u0441\u0438\u043B\u044C\u043D\u0435\u0435." };
   var passageWords = [];
-  function jaLine(line, w, i) {
+  var GLOSS = {
+    "\u9B54\u6CD5|\u307E\u307B\u3046": ["\u9B54\u6CD5", "magic", "\u043C\u0430\u0433\u0438\u044F"],
+    "\u5B66\u6821|\u304C\u3063\u3053\u3046": ["\u5B66\u6821", "school", "\u0448\u043A\u043E\u043B\u0430"],
+    "\u4E00\u65E5|\u3044\u3061\u306B\u3061": ["\u4E00\u65E5", "one day; a day", "\u043E\u0434\u0438\u043D \u0434\u0435\u043D\u044C"],
+    "\u898B\u7FD2|\u307F\u306A\u3089": ["\u898B\u7FD2\u3044", "apprentice", "\u0443\u0447\u0435\u043D\u0438\u043A, \u043F\u043E\u0434\u043C\u0430\u0441\u0442\u0435\u0440\u044C\u0435"],
+    "\u9B54\u6CD5\u4F7F|\u307E\u307B\u3046\u3064\u304B": ["\u9B54\u6CD5\u4F7F\u3044", "wizard, witch", "\u0432\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u043A"],
+    "\u671D|\u3042\u3055": ["\u671D", "morning", "\u0443\u0442\u0440\u043E"],
+    "\u546A\u6587|\u3058\u3085\u3082\u3093": ["\u546A\u6587", "spell, incantation", "\u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435"],
+    "\u7DF4\u7FD2|\u308C\u3093\u3057\u3085\u3046": ["\u7DF4\u7FD2\u3059\u308B", "to practise", "\u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C\u0441\u044F"],
+    "\u5E2B\u5320|\u3057\u3057\u3087\u3046": ["\u5E2B\u5320", "master, teacher", "\u0443\u0447\u0438\u0442\u0435\u043B\u044C, \u043C\u0430\u0441\u0442\u0435\u0440"],
+    "\u66F8|\u304B": ["\u66F8\u304F", "to write", "\u043F\u0438\u0441\u0430\u0442\u044C"],
+    "\u53E4|\u3075\u308B": ["\u53E4\u3044", "old", "\u0441\u0442\u0430\u0440\u044B\u0439"],
+    "\u5DFB\u7269|\u307E\u304D\u3082\u306E": ["\u5DFB\u7269", "scroll", "\u0441\u0432\u0438\u0442\u043E\u043A"],
+    "\u673A|\u3064\u304F\u3048": ["\u673A", "desk", "\u0441\u0442\u043E\u043B"],
+    "\u7F6E|\u304A": ["\u7F6E\u304F", "to put, to place", "\u043A\u043B\u0430\u0441\u0442\u044C"],
+    "\u8AAD|\u3088": ["\u8AAD\u3080", "to read (\u8AAD\u307F\u65B9 = how to read)", "\u0447\u0438\u0442\u0430\u0442\u044C (\u8AAD\u307F\u65B9 \u2014 \u0447\u0442\u0435\u043D\u0438\u0435)"],
+    "\u65B9|\u304B\u305F": ["\u301C\u65B9", "way of \u2026ing", "\u0441\u043F\u043E\u0441\u043E\u0431"],
+    "\u4E09\u56DE|\u3055\u3093\u304B\u3044": ["\u4E09\u56DE", "three times", "\u0442\u0440\u0438 \u0440\u0430\u0437\u0430"],
+    "\u58F0|\u3053\u3048": ["\u58F0", "voice", "\u0433\u043E\u043B\u043E\u0441"],
+    "\u51FA|\u3060": ["\u51FA\u3059", "to put out (\u58F0\u306B\u51FA\u3059 = say aloud; \u601D\u3044\u51FA\u3059 = recall)", "\u0432\u044B\u043F\u0443\u0441\u043A\u0430\u0442\u044C (\u58F0\u306B\u51FA\u3059 \u2014 \u0432\u0441\u043B\u0443\u0445; \u601D\u3044\u51FA\u3059 \u2014 \u0432\u0441\u043F\u043E\u043C\u043D\u0438\u0442\u044C)"],
+    "\u8A00|\u3044": ["\u8A00\u3046", "to say", "\u0433\u043E\u0432\u043E\u0440\u0438\u0442\u044C"],
+    "\u53CB\u9054|\u3068\u3082\u3060\u3061": ["\u53CB\u9054", "friend", "\u0434\u0440\u0443\u0433"],
+    "\u8A00\u8449|\u3053\u3068\u3070": ["\u8A00\u8449", "word", "\u0441\u043B\u043E\u0432\u043E"],
+    "\u899A|\u304A\u307C": ["\u899A\u3048\u308B", "to learn, to remember", "\u0437\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u0442\u044C"],
+    "\u56F3\u66F8\u9928|\u3068\u3057\u3087\u304B\u3093": ["\u56F3\u66F8\u9928", "library", "\u0431\u0438\u0431\u043B\u0438\u043E\u0442\u0435\u043A\u0430"],
+    "\u672C|\u307B\u3093": ["\u672C", "book", "\u043A\u043D\u0438\u0433\u0430"],
+    "\u8A71|\u306F\u306A\u3057": ["\u8A71", "story, talk", "\u0440\u0430\u0441\u0441\u043A\u0430\u0437"],
+    "\u610F\u5473|\u3044\u307F": ["\u610F\u5473", "meaning", "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"],
+    "\u601D|\u304A\u3082": ["\u601D\u3046", "to think (\u601D\u3044\u51FA\u3059 = recall)", "\u0434\u0443\u043C\u0430\u0442\u044C (\u601D\u3044\u51FA\u3059 \u2014 \u0432\u0441\u043F\u043E\u043C\u043D\u0438\u0442\u044C)"],
+    "\u6756|\u3064\u3048": ["\u6756", "staff, wand", "\u043F\u043E\u0441\u043E\u0445"],
+    "\u5B9D\u77F3|\u307B\u3046\u305B\u304D": ["\u5B9D\u77F3", "gem, jewel", "\u0434\u0440\u0430\u0433\u043E\u0446\u0435\u043D\u043D\u044B\u0439 \u043A\u0430\u043C\u0435\u043D\u044C"],
+    "\u660E|\u3042\u304B": ["\u660E\u308B\u3044", "bright", "\u044F\u0440\u043A\u0438\u0439"],
+    "\u5149|\u3072\u304B": ["\u5149\u308B", "to shine", "\u0441\u0432\u0435\u0442\u0438\u0442\u044C\u0441\u044F"],
+    "\u6226|\u305F\u305F\u304B": ["\u6226\u3044", "battle, fight", "\u0431\u0438\u0442\u0432\u0430"],
+    "\u4E2D|\u306A\u304B": ["\u4E2D", "inside; in the middle of", "\u0432\u043D\u0443\u0442\u0440\u0438, \u0432 \u0445\u043E\u0434\u0435"],
+    "\u9A5A|\u304A\u3069\u308D": ["\u9A5A\u304F", "to be startled", "\u043F\u0443\u0433\u0430\u0442\u044C\u0441\u044F, \u0443\u0434\u0438\u0432\u043B\u044F\u0442\u044C\u0441\u044F"],
+    "\u5F8C|\u3046\u3057": ["\u5F8C\u308D", "behind, back", "\u043D\u0430\u0437\u0430\u0434"],
+    "\u4E0B|\u3055": ["\u4E0B\u304C\u308B", "to step back", "\u043E\u0442\u0441\u0442\u0443\u043F\u0430\u0442\u044C"],
+    "\u9593\u9055|\u307E\u3061\u304C": ["\u9593\u9055\u3048\u308B", "to get wrong, to make a mistake", "\u043E\u0448\u0438\u0431\u0430\u0442\u044C\u0441\u044F"],
+    "\u7B54|\u3053\u305F": ["\u7B54\u3048\u308B", "to answer", "\u043E\u0442\u0432\u0435\u0447\u0430\u0442\u044C"],
+    "\u591C|\u3088\u308B": ["\u591C", "night", "\u043D\u043E\u0447\u044C"],
+    "\u4F55\u5EA6|\u306A\u3093\u3069": ["\u4F55\u5EA6\u3082", "again and again", "\u043C\u043D\u043E\u0433\u043E \u0440\u0430\u0437"],
+    "\u7B11|\u308F\u3089": ["\u7B11\u3046", "to smile, to laugh", "\u0443\u043B\u044B\u0431\u0430\u0442\u044C\u0441\u044F, \u0441\u043C\u0435\u044F\u0442\u044C\u0441\u044F"],
+    "\u5927\u4E08\u592B|\u3060\u3044\u3058\u3087\u3046\u3076": ["\u5927\u4E08\u592B", "all right, fine", "\u0432 \u043F\u043E\u0440\u044F\u0434\u043A\u0435"],
+    "\u6B21|\u3064\u304E": ["\u6B21", "next", "\u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439"],
+    "\u65E5|\u3072": ["\u65E5", "day", "\u0434\u0435\u043D\u044C"],
+    "\u4F7F|\u3064\u304B": ["\u4F7F\u3046", "to use", "\u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C"],
+    "\u95C7|\u3084\u307F": ["\u95C7", "darkness", "\u0442\u044C\u043C\u0430"],
+    "\u9B54\u7269|\u307E\u3082\u306E": ["\u9B54\u7269", "monster, demon", "\u0447\u0443\u0434\u043E\u0432\u0438\u0449\u0435"],
+    "\u5012|\u305F\u304A": ["\u5012\u3059", "to defeat", "\u043F\u043E\u0431\u0435\u0434\u0438\u0442\u044C, \u0441\u0432\u0430\u043B\u0438\u0442\u044C"],
+    "\u524D|\u307E\u3048": ["\u524D", "in front of", "\u043F\u0435\u0440\u0435\u0434"],
+    "\u5531|\u3068\u306A": ["\u5531\u3048\u308B", "to chant", "\u043F\u0440\u043E\u0438\u0437\u043D\u043E\u0441\u0438\u0442\u044C (\u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435)"],
+    "\u7A7A|\u305D\u3089": ["\u7A7A", "sky", "\u043D\u0435\u0431\u043E"],
+    "\u8679|\u306B\u3058": ["\u8679", "rainbow", "\u0440\u0430\u0434\u0443\u0433\u0430"],
+    "\u51FA|\u3067": ["\u51FA\u308B", "to appear, to come out", "\u043F\u043E\u044F\u0432\u043B\u044F\u0442\u044C\u0441\u044F"],
+    "\u5C11|\u3059\u3053": ["\u5C11\u3057", "a little", "\u043D\u0435\u043C\u043D\u043E\u0433\u043E"],
+    "\u5F37|\u3064\u3088": ["\u5F37\u3044", "strong", "\u0441\u0438\u043B\u044C\u043D\u044B\u0439"],
+    "\u30CF\u30EB": ["\u30CF\u30EB", "Haru (a name)", "\u0425\u0430\u0440\u0443 (\u0438\u043C\u044F)"],
+    "\u30B1\u30F3": ["\u30B1\u30F3", "Ken (a name)", "\u041A\u0435\u043D (\u0438\u043C\u044F)"],
+    "\u30C9\u30E9\u30B4\u30F3": ["\u30C9\u30E9\u30B4\u30F3", "dragon", "\u0434\u0440\u0430\u043A\u043E\u043D"],
+    "\u30CE\u30FC\u30C8": ["\u30CE\u30FC\u30C8", "notebook", "\u0442\u0435\u0442\u0440\u0430\u0434\u044C"],
+    "\u307F\u3093\u306A": ["\u307F\u3093\u306A", "everyone", "\u0432\u0441\u0435"],
+    "\u3086\u3063\u304F\u308A": ["\u3086\u3063\u304F\u308A", "slowly", "\u043C\u0435\u0434\u043B\u0435\u043D\u043D\u043E"],
+    "\u305F\u304F\u3055\u3093": ["\u305F\u304F\u3055\u3093", "many, a lot", "\u043C\u043D\u043E\u0433\u043E"],
+    "\u307E\u3060": ["\u307E\u3060", "still, (not) yet", "\u0435\u0449\u0451"],
+    "\u3082\u3046": ["\u3082\u3046", "already, now", "\u0443\u0436\u0435"],
+    "\u3053\u3046\u3057\u3066": ["\u3053\u3046\u3057\u3066", "and so, like this", "\u0442\u0430\u043A, \u0442\u0430\u043A\u0438\u043C \u043E\u0431\u0440\u0430\u0437\u043E\u043C"],
+    "\u3068\u3044\u3046": ["\u3068\u3044\u3046", "called \u2026, named \u2026", "\u043F\u043E\u0434 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\u043C"]
+  };
+  var KANA_WORDS = Object.keys(GLOSS).filter((k) => !k.includes("|")).sort((a, b) => b.length - a.length);
+  var blanks = [];
+  var picked = 0;
+  var checked = false;
+  function jaLine(line, w) {
     const p = el2("span", "p-line");
     const parts = line.ja.split(/(\[[^\]|]+\|[^\]]+\]|\{w\})/);
     for (const part of parts) {
@@ -3574,28 +3950,125 @@ ${stack}`.slice(0, 2e3);
       if (ruby) {
         const r2 = el2("ruby");
         r2.append(ruby[1], el2("rt", "", ruby[2]));
-        p.append(r2);
+        const g = GLOSS[`${ruby[1]}|${ruby[2]}`];
+        if (g) {
+          const b = el2("button", "p-tok", void 0, { type: "button" });
+          b.append(r2);
+          b.onclick = () => glossStory(g, ruby[1], ruby[2], b);
+          p.append(b);
+        } else p.append(r2);
         continue;
       }
       if (part === "{w}" && w) {
-        const b = el2("button", "p-word", void 0, { type: "button", "data-i": String(i) });
-        const r2 = el2("ruby");
-        r2.append(w.kanji, el2("rt", "", w.kanji === w.reading ? "" : w.reading));
-        b.append(r2);
-        b.onclick = () => gloss(w, b);
+        const i = blanks.length;
+        const b = el2("button", "p-blank", void 0, { type: "button", "data-i": String(i), title: "Tap, then pick a word below" });
+        b.onclick = () => tapBlank(i);
+        blanks.push({ answer: w, put: null, el: b });
         p.append(b);
         continue;
       }
-      p.append(part);
+      let rest = part;
+      while (rest) {
+        let at = -1, word2 = "";
+        for (const k of KANA_WORDS) {
+          const x = rest.indexOf(k);
+          if (x >= 0 && (at < 0 || x < at)) {
+            at = x;
+            word2 = k;
+          }
+        }
+        if (at < 0) {
+          p.append(rest);
+          break;
+        }
+        if (at) p.append(rest.slice(0, at));
+        const g = GLOSS[word2], b = el2("button", "p-tok", word2, { type: "button" });
+        b.onclick = () => glossStory(g, word2, "", b);
+        p.append(b);
+        rest = rest.slice(at + word2.length);
+      }
     }
     return p;
   }
-  function gloss(w, at) {
-    document.querySelectorAll(".p-word.on").forEach((x) => x.classList.remove("on"));
+  function showGloss(at, ...kids) {
+    document.querySelectorAll(".passage-text .on").forEach((x) => x.classList.remove("on"));
     at.classList.add("on");
     const g = $3("passageGloss");
-    g.replaceChildren(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)));
+    g.replaceChildren(...kids);
     g.hidden = false;
+  }
+  function glossStory(g, kanji, reading, at) {
+    const dict = g[0] !== kanji ? el2("span", "rd", `\u2192 ${g[0]}`, { lang: "ja" }) : el2("span");
+    showGloss(at, el2("b", "", kanji, { lang: "ja" }), el2("span", "rd", reading, { lang: "ja" }), dict, el2("span", "m", lang() === "ru" ? g[2] : g[1], { "data-no-i18n": "" }));
+  }
+  function drawBlank(i) {
+    const b = blanks[i];
+    b.el.replaceChildren();
+    b.el.classList.toggle("sel", !checked && i === picked);
+    b.el.classList.toggle("filled", !!b.put);
+    if (checked) {
+      const ok = b.put?.kanji === b.answer.kanji;
+      b.el.classList.add(ok ? "right" : "wrong");
+      const r3 = el2("ruby");
+      r3.append(b.answer.kanji, el2("rt", "", b.answer.kanji === b.answer.reading ? "" : b.answer.reading));
+      b.el.append(r3);
+      if (!ok && b.put) b.el.append(el2("s", "p-was", b.put.kanji));
+      b.el.onclick = () => showGloss(b.el, el2("b", "", b.answer.kanji, { lang: "ja" }), el2("span", "rd", b.answer.reading, { lang: "ja" }), el2("span", "m", meaningIn(b.answer.meaning)));
+      return;
+    }
+    const r2 = el2("ruby");
+    r2.append(b.put ? b.put.kanji : "\uFF3F\uFF3F", el2("rt", "", b.answer.reading));
+    b.el.append(el2("span", "p-num", String(i + 1)), r2);
+  }
+  function drawBank() {
+    const used = new Set(blanks.filter((b) => b.put).map((b) => b.put.kanji));
+    for (const c of document.querySelectorAll("#passageWords .p-chip")) c.disabled = checked || used.has(c.dataset.k);
+    const left = blanks.filter((b) => !b.put).length;
+    const check2 = document.getElementById("passageCheck");
+    if (check2) {
+      check2.disabled = checked || left === blanks.length;
+      check2.textContent = left ? `Check (${left} empty)` : "Check";
+    }
+  }
+  function tapBlank(i) {
+    if (checked) return;
+    if (blanks[i].put && picked === i) blanks[i].put = null;
+    picked = i;
+    blanks.forEach((_, k) => drawBlank(k));
+    drawBank();
+  }
+  function putWord(w) {
+    if (checked || !blanks.length) return;
+    blanks[picked].put = w;
+    const next3 = blanks.findIndex((b, k) => !b.put && k > picked);
+    picked = next3 >= 0 ? next3 : Math.max(0, blanks.findIndex((b) => !b.put));
+    blanks.forEach((_, k) => drawBlank(k));
+    drawBank();
+  }
+  var lines = [];
+  var pick2 = [];
+  function drawTranslation() {
+    const ru = lang() === "ru";
+    const fill2 = (l, w) => (ru ? l.ru : l.en).replace("{w}", w ? checked ? `${w.kanji} \u2014 ${meaningIn(w.meaning)}` : `\u2026 (${meaningIn(w.meaning)})` : "");
+    $3("passageTr").replaceChildren(...[fill2(OPEN, null), ...lines.map((l, i) => fill2(l, pick2[i])), fill2(CLOSE, null)].map((t) => el2("p", "", t, { "data-no-i18n": "" })));
+  }
+  var passageHooks = {};
+  var onTaskDone = { cb: (_p) => {
+  } };
+  function check() {
+    checked = true;
+    blanks.forEach((_, k) => drawBlank(k));
+    const right = blanks.filter((b) => b.put?.kanji === b.answer.kanji).length;
+    drawTranslation();
+    const list = pick2.map((w) => {
+      const row = el2("div", "pw");
+      row.append(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)));
+      return row;
+    });
+    $3("passageWords").replaceChildren(el2("div", "p-score", `${right} / ${blanks.length}`), el2("p", "hint center", right === blanks.length ? "Perfect \u2014 every word in its place!" : "Green: right. Red: the right word, with yours crossed out."), el2("h4", "", "Words in this story"), ...list);
+    passageHooks.done?.(right, blanks.length);
+    void api.task("passage").then((p) => onTaskDone.cb(p)).catch(() => {
+    });
   }
   function openPassage(words) {
     passageWords = words.filter((w) => w.kanji).slice(0, 40);
@@ -3603,20 +4076,31 @@ ${stack}`.slice(0, 2e3);
     buildPassage();
   }
   function buildPassage() {
-    const pick4 = [...passageWords].sort(() => Math.random() - 0.5).slice(0, Math.min(8, LINES.length));
-    const lines = [...LINES.keys()].sort(() => Math.random() - 0.5).slice(0, pick4.length).sort((a, b) => a - b).map((i) => LINES[i]);
+    const seen2 = /* @__PURE__ */ new Set();
+    pick2 = [...passageWords].sort(() => Math.random() - 0.5).filter((w) => !seen2.has(w.kanji) && !!seen2.add(w.kanji)).slice(0, Math.min(8, LINES.length));
+    lines = [...LINES.keys()].sort(() => Math.random() - 0.5).slice(0, pick2.length).sort((a, b) => a - b).map((i) => LINES[i]);
+    blanks = [];
+    picked = 0;
+    checked = false;
     const text = $3("passageText");
-    text.replaceChildren(jaLine(OPEN, null, -1), ...lines.map((l, i) => jaLine(l, pick4[i], i)), jaLine(CLOSE, null, -1));
-    const ru = lang() === "ru";
-    const fill = (l, w) => (ru ? l.ru : l.en).replace("{w}", w ? `${w.kanji} \u2014 ${meaningIn(w.meaning)}` : "");
-    $3("passageTr").replaceChildren(...[fill(OPEN, null), ...lines.map((l, i) => fill(l, pick4[i])), fill(CLOSE, null)].map((t) => el2("p", "", t, { "data-no-i18n": "" })));
-    $3("passageWords").replaceChildren(el2("h4", "", "Words in this story"), ...pick4.map((w) => {
-      const row = el2("div", "pw");
-      row.append(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)));
-      return row;
-    }));
+    text.replaceChildren(jaLine(OPEN, null), ...lines.map((l, i) => jaLine(l, pick2[i])), jaLine(CLOSE, null));
+    blanks.forEach((_, k) => drawBlank(k));
+    drawTranslation();
+    const bank = el2("div", "p-bank");
+    for (const w of [...pick2].sort(() => Math.random() - 0.5)) {
+      const c = el2("button", "p-chip", w.kanji, { type: "button", lang: "ja", "data-k": w.kanji });
+      c.onclick = () => putWord(w);
+      bank.append(c);
+    }
+    const go = el2("button", "big", "Check", { id: "passageCheck", type: "button" });
+    go.onclick = check;
+    $3("passageWords").replaceChildren(el2("h4", "", "Your words \u2014 tap a blank, then a word"), bank, go);
+    drawBank();
     $3("passageGloss").hidden = true;
-    if (!pick4.length) text.replaceChildren(el2("p", "hint", "No words yet \u2014 the story uses your struggling spells (or the words you missed in a game)."));
+    if (!pick2.length) {
+      text.replaceChildren(el2("p", "hint", "No words yet \u2014 the story uses your struggling spells (or the words you missed in a game)."));
+      $3("passageWords").replaceChildren();
+    }
   }
   $3("passageNew").onclick = buildPassage;
   $3("passageClose").onclick = () => $3("passageDialog").close();
@@ -3630,8 +4114,241 @@ ${stack}`.slice(0, 2e3);
     }
   };
 
+  // src/client/dailytasks.ts
+  var $4 = $;
+  var NEVER = "kb:tasksNoticeOff";
+  var store = {
+    get: (k) => {
+      try {
+        return localStorage.getItem(k);
+      } catch {
+        return null;
+      }
+    },
+    set: (k, v) => {
+      try {
+        if (v) localStorage.setItem(k, v);
+        else localStorage.removeItem(k);
+      } catch {
+      }
+    }
+  };
+  var ICON = { learn: "\u5B66", quiz: "\u554F", daily: "\u65E5", passage: "\u8AAD" };
+  var taskActions = {};
+  var last = null;
+  var shownThisVisit = false;
+  var doneCount = (p) => (p.tasks ?? []).filter((t) => t.value >= t.target).length;
+  function renderTasks(p) {
+    last = p;
+    const tasks = p.tasks ?? [];
+    if (!tasks.length) return;
+    const n = doneCount(p), all = n === tasks.length;
+    const btn = $4("tasksBtn");
+    btn.hidden = false;
+    btn.classList.toggle("done", all);
+    btn.replaceChildren(
+      Object.assign(document.createElement("span"), { className: "tb-fire", textContent: "\u{1F525}" }),
+      Object.assign(document.createElement("span"), { className: "tb-text", textContent: all ? tr("Streak kept today \u2014 well done!") : `${tr("Daily streak tasks")}: ${n}/${tasks.length}` }),
+      Object.assign(document.createElement("span"), { className: "tb-days", textContent: `${p.streak ?? 0}` })
+    );
+    $4("ppTasks").textContent = `${tr("Today\u2019s streak tasks")}: ${n}/${tasks.length} \u203A`;
+    if (!$4("tasksDialog").open) return;
+    fill(p);
+  }
+  function fill(p) {
+    const tasks = p.tasks ?? [];
+    $4("tasksStreak").replaceChildren(
+      Object.assign(document.createElement("b"), { textContent: String(p.streak ?? 0) }),
+      Object.assign(document.createElement("span"), { textContent: tr("days in a row") })
+    );
+    $4("tasksList").replaceChildren(...tasks.map((t) => {
+      const li = document.createElement("li");
+      const ok = t.value >= t.target;
+      li.className = ok ? "ok" : "";
+      const ic = Object.assign(document.createElement("span"), { className: "tk-ic", textContent: ok ? "\u2713" : ICON[t.id] ?? "\u2022" });
+      ic.lang = "ja";
+      const label = Object.assign(document.createElement("span"), { className: "tk-label", textContent: tr(t.label) });
+      const prog = Object.assign(document.createElement("span"), { className: "tk-prog", textContent: `${t.value}/${t.target}` });
+      li.append(ic, label, prog);
+      const go = taskActions[t.id];
+      if (!ok && go) {
+        const b = Object.assign(document.createElement("button"), { className: "pill", textContent: tr("Go"), type: "button" });
+        b.onclick = () => {
+          $4("tasksDialog").close();
+          go();
+        };
+        li.append(b);
+      }
+      return li;
+    }));
+  }
+  function openTasks() {
+    if (!last) return;
+    fill(last);
+    $4("tasksNever").checked = store.get(NEVER) === "1";
+    const d = $4("tasksDialog");
+    if (!d.open) d.showModal();
+  }
+  function tasksAtLogin(p) {
+    if (shownThisVisit || store.get(NEVER) === "1" || !(p.tasks ?? []).length || doneCount(p) === (p.tasks ?? []).length) return;
+    shownThisVisit = true;
+    last = p;
+    openTasks();
+  }
+  function initTasks() {
+    $4("tasksBtn").onclick = openTasks;
+    $4("ppTasks").onclick = () => {
+      $4("profilePop").hidden = true;
+      openTasks();
+    };
+    $4("tasksOk").onclick = () => $4("tasksDialog").close();
+    $4("tasksNever").onchange = (e) => store.set(NEVER, e.target.checked ? "1" : "");
+  }
+
+  // src/client/pixelstaffs.ts
+  function pixelStaffSvg(id) {
+    return staffSvg(id);
+  }
+
+  // src/client/rewards.ts
+  var KEY4 = (uid2) => `kb:seenRewards:${uid2}`;
+  var load3 = (uid2) => {
+    try {
+      const r2 = localStorage.getItem(KEY4(uid2));
+      return r2 ? JSON.parse(r2) : null;
+    } catch {
+      return null;
+    }
+  };
+  var save = (uid2, keys) => {
+    try {
+      localStorage.setItem(KEY4(uid2), JSON.stringify(keys));
+    } catch {
+    }
+  };
+  function haveNow(p) {
+    const lvl = levelOf(p.xp), best = Math.max(p.bestStreak ?? 0, p.streak ?? 0), un = p.unlocks ?? [];
+    const out = [];
+    for (const b of BACKGROUNDS) if (b.level > 0 && unlocked(b.id, p.xp)) out.push({ key: `arena:${b.id}`, kind: "arena", id: b.id, name: `${b.name} arena`, why: `You reached level ${b.level}` });
+    for (const f2 of FLAMES) if ((f2.level > 0 || f2.season) && flameUnlocked(f2.id, p.xp, un)) out.push({ key: `flame:${f2.id}`, kind: "flame", id: f2.id, name: `${f2.name} flames`, why: f2.season ? "Monthly goals complete" : `You reached level ${f2.level}` });
+    for (const s of STAFFS) if ((s.streak || s.season) && staffUnlocked(s.id, best, un)) out.push({ key: `staff:${s.id}`, kind: "staff", id: s.id, name: s.name, why: s.season ? "Monthly goals complete" : `A ${s.streak}-day daily streak` });
+    for (const b of BORDERS) if (b.level > 0 && borderUnlocked(b.id, lvl)) out.push({ key: `border:${b.id}`, kind: "border", id: b.id, name: `${b.name} border`, why: `You reached level ${b.level}` });
+    return out;
+  }
+  var queue = [];
+  var profile = null;
+  var onEquipped = () => {
+  };
+  function checkRewards(uid2, p, isAdmin, equipped) {
+    if (isAdmin) return;
+    profile = p;
+    onEquipped = equipped;
+    const now = haveNow(p);
+    const seen2 = load3(uid2);
+    save(uid2, [.../* @__PURE__ */ new Set([...seen2 ?? [], ...now.map((r2) => r2.key)])]);
+    if (!seen2) return;
+    const fresh = now.filter((r2) => !seen2.includes(r2.key) && !queue.some((q) => q.key === r2.key));
+    if (!fresh.length) return;
+    queue.push(...fresh);
+    if (!$("rewardDialog").open) showNext();
+  }
+  function preview(r2, p) {
+    const box = document.createElement("div");
+    box.className = `rw-preview rw-${r2.kind}`;
+    if (r2.kind === "arena") box.innerHTML = backgroundThumb(r2.id, resolveTime(getTimePref()));
+    else if (r2.kind === "staff") {
+      const w = document.createElement("div");
+      w.className = "rw-char";
+      w.innerHTML = avatarSvg(avatarFor(p.studyLevels), "me", r2.id);
+      const s = document.createElement("div");
+      s.className = "pixel-staff big";
+      s.innerHTML = pixelStaffSvg(r2.id);
+      box.append(s, w);
+    } else if (r2.kind === "flame") {
+      const w = document.createElement("div");
+      w.className = "wizard me onfire";
+      paintFlame(w, r2.id);
+      const sp = document.createElement("div");
+      sp.className = "sprite";
+      sp.innerHTML = avatarSvg(avatarFor(p.studyLevels), "me", p.staff);
+      const au = document.createElement("div");
+      au.className = "aura";
+      w.append(au, sp);
+      box.append(w);
+    } else {
+      const d = document.createElement("div");
+      d.className = `pp-pic big${p.pic ? " has-pic" : ""}${borderCls(r2.id)}`;
+      if (p.pic) {
+        const img = picEl(p.pic, "pic fill");
+        if (img) d.append(img);
+      } else d.textContent = (myName() || "\u2726").slice(0, 1).toUpperCase();
+      box.append(d);
+    }
+    return box;
+  }
+  function showNext() {
+    const r2 = queue.shift();
+    const d = $("rewardDialog");
+    if (!r2 || !profile) {
+      if (d.open) d.close();
+      return;
+    }
+    const p = profile;
+    $("rewardWhy").textContent = r2.why;
+    $("rewardName").textContent = r2.name;
+    $("rewardPreview").replaceChildren(preview(r2, p));
+    const equipped = r2.kind === "arena" && p.background === r2.id || r2.kind === "flame" && p.flame === r2.id || r2.kind === "staff" && p.staff === r2.id || r2.kind === "border" && (p.border ?? "none") === r2.id;
+    const eq = $("rewardEquip");
+    eq.hidden = equipped;
+    eq.disabled = false;
+    eq.onclick = async () => {
+      eq.disabled = true;
+      try {
+        const res = r2.kind === "arena" ? await api.setBackground(r2.id) : r2.kind === "flame" ? await api.setFlame(r2.id) : r2.kind === "staff" ? await api.setStaff(r2.id) : await api.setBorder(r2.id);
+        profile = res.profile;
+        onEquipped(res.profile);
+        toast(`${r2.name} equipped`);
+        showNext();
+      } catch (e) {
+        eq.disabled = false;
+        toast(e.message);
+      }
+    };
+    $("rewardOk").onclick = () => showNext();
+    if (!d.open) d.showModal();
+    d.classList.remove("pop");
+    void d.offsetWidth;
+    d.classList.add("pop");
+  }
+
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.3",
+      date: "2026-10",
+      en: [
+        "New 2D art: the Wizard, Witch, Knight, Goblin, Apprentice and Adventurer, the Black Dragon and every staff are painted after the concept sheets (no more pixels), and all five arenas are repainted to match the 3D ones \u2014 with a stone arena the fighters stand on, by day, sunset and night.",
+        "Daily streak: a day now counts when you do four tasks \u2014 study 10 spells, a JLPT quiz, the daily challenge and a reading passage. You see them when you log in (tick \u201Cdon\u2019t show again\u201D to stop it), on the menu and in your profile card.",
+        "Reading passage: your words are blanks now \u2014 fill them from the word bank under the story (the furigana is your clue), then check your score. Every word of the story can be tapped for its meaning.",
+        "Study: swipe the flashcard like in Quizlet \u2014 far left Again, left Hard, right Okay, far right Easy.",
+        "After a game (and the daily challenge) the words you missed are red cards again, pre-ticked with a small tick in the corner; tap a card to keep it out of your deck.",
+        "Customize \u2192 Profile: avatar borders (levels 1, 5, 10, 15) and your badges, with a preview. When you unlock something, the menu shows it with OK and Equip.",
+        "Battles: the clock, Forfeit and Pause sit together at the top centre (the mode name moved to the bottom left); no more grey box round the HP bars.",
+        "Phones: turn or tilt your phone to look around the 3D arena, like moving the mouse.",
+        "Fixes: the Goblin\u2019s and Knight\u2019s hands are visible; menu text is readable on bright day scenes; What\u2019s new shows the latest 3 updates."
+      ],
+      ru: [
+        "\u041D\u043E\u0432\u0430\u044F 2D-\u0433\u0440\u0430\u0444\u0438\u043A\u0430: \u0412\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u043A, \u0412\u0435\u0434\u044C\u043C\u0430, \u0420\u044B\u0446\u0430\u0440\u044C, \u0413\u043E\u0431\u043B\u0438\u043D, \u0423\u0447\u0435\u043D\u0438\u043A \u0438 \u0418\u0441\u043A\u0430\u0442\u0435\u043B\u044C \u043F\u0440\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0439, \u0427\u0451\u0440\u043D\u044B\u0439 \u0434\u0440\u0430\u043A\u043E\u043D \u0438 \u0432\u0441\u0435 \u043F\u043E\u0441\u043E\u0445\u0438 \u043D\u0430\u0440\u0438\u0441\u043E\u0432\u0430\u043D\u044B \u043F\u043E \u043A\u043E\u043D\u0446\u0435\u043F\u0442-\u0430\u0440\u0442\u0430\u043C (\u0431\u0435\u0437 \u043F\u0438\u043A\u0441\u0435\u043B\u0435\u0439), \u0430 \u0432\u0441\u0435 \u043F\u044F\u0442\u044C \u0430\u0440\u0435\u043D \u043F\u0435\u0440\u0435\u0440\u0438\u0441\u043E\u0432\u0430\u043D\u044B \u043F\u043E\u0434 3D \u2014 \u0441 \u043A\u0430\u043C\u0435\u043D\u043D\u043E\u0439 \u0430\u0440\u0435\u043D\u043E\u0439, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u043E\u0439 \u0441\u0442\u043E\u044F\u0442 \u0431\u043E\u0439\u0446\u044B, \u0434\u043D\u0451\u043C, \u043D\u0430 \u0437\u0430\u043A\u0430\u0442\u0435 \u0438 \u043D\u043E\u0447\u044C\u044E.",
+        "\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u0430\u044F \u0441\u0435\u0440\u0438\u044F: \u0434\u0435\u043D\u044C \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u044B \u0447\u0435\u0442\u044B\u0440\u0435 \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u2014 \u0438\u0437\u0443\u0447\u0438\u0442\u044C 10 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439, \u0442\u0435\u0441\u0442 JLPT, \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435 \u0438 \u0442\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F. \u0417\u0430\u0434\u0430\u043D\u0438\u044F \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043F\u0440\u0438 \u0432\u0445\u043E\u0434\u0435 (\u043E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \xAB\u043D\u0435 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C\xBB, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C), \u0432 \u043C\u0435\u043D\u044E \u0438 \u0432 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435 \u043F\u0440\u043E\u0444\u0438\u043B\u044F.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u044B \u2014 \u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0438\u0445 \u0438\u0437 \u0441\u043F\u0438\u0441\u043A\u0430 \u043F\u043E\u0434 \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u043C (\u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u2014 \u0444\u0443\u0440\u0438\u0433\u0430\u043D\u0430) \u0438 \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442. \u041B\u044E\u0431\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u043C\u043E\u0436\u043D\u043E \u043D\u0430\u0436\u0430\u0442\u044C, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435.",
+        "\u0423\u0447\u0451\u0431\u0430: \u0441\u043C\u0430\u0445\u0438\u0432\u0430\u0439\u0442\u0435 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443, \u043A\u0430\u043A \u0432 Quizlet \u2014 \u0434\u0430\u043B\u0435\u043A\u043E \u0432\u043B\u0435\u0432\u043E \xAB\u0421\u043D\u043E\u0432\u0430\xBB, \u0432\u043B\u0435\u0432\u043E \xAB\u0422\u0440\u0443\u0434\u043D\u043E\xBB, \u0432\u043F\u0440\u0430\u0432\u043E \xAB\u041D\u043E\u0440\u043C\u0430\u043B\u044C\u043D\u043E\xBB, \u0434\u0430\u043B\u0435\u043A\u043E \u0432\u043F\u0440\u0430\u0432\u043E \xAB\u041B\u0435\u0433\u043A\u043E\xBB.",
+        "\u041F\u043E\u0441\u043B\u0435 \u0438\u0433\u0440\u044B (\u0438 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0433\u043E \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u044F) \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u0441\u043D\u043E\u0432\u0430 \u043A\u0440\u0430\u0441\u043D\u044B\u0435 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u0441 \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0439 \u0433\u0430\u043B\u043E\u0447\u043A\u043E\u0439 \u0432 \u0443\u0433\u043B\u0443; \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443, \u0447\u0442\u043E\u0431\u044B \u043D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0442\u044C \u0441\u043B\u043E\u0432\u043E \u0432 \u043A\u043E\u043B\u043E\u0434\u0443.",
+        "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430 \u2192 \u041F\u0440\u043E\u0444\u0438\u043B\u044C: \u0440\u0430\u043C\u043A\u0438 \u0430\u0432\u0430\u0442\u0430\u0440\u0430 (\u0443\u0440\u043E\u0432\u043D\u0438 1, 5, 10, 15) \u0438 \u0432\u0430\u0448\u0438 \u0437\u043D\u0430\u0447\u043A\u0438 \u0441 \u043F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u043E\u043C. \u041A\u043E\u0433\u0434\u0430 \u0447\u0442\u043E-\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442\u0441\u044F, \u043C\u0435\u043D\u044E \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442 \u044D\u0442\u043E \u0441 \u043A\u043D\u043E\u043F\u043A\u0430\u043C\u0438 \xAB\u041E\u041A\xBB \u0438 \xAB\u041D\u0430\u0434\u0435\u0442\u044C\xBB.",
+        "\u0411\u043E\u0439: \u0447\u0430\u0441\u044B, \xAB\u0421\u0434\u0430\u0442\u044C\u0441\u044F\xBB \u0438 \xAB\u041F\u0430\u0443\u0437\u0430\xBB \u0432\u043C\u0435\u0441\u0442\u0435 \u0432\u0432\u0435\u0440\u0445\u0443 \u043F\u043E \u0446\u0435\u043D\u0442\u0440\u0443 (\u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0440\u0435\u0436\u0438\u043C\u0430 \u2014 \u0432\u043D\u0438\u0437\u0443 \u0441\u043B\u0435\u0432\u0430); \u0441\u0435\u0440\u043E\u0439 \u0440\u0430\u043C\u043A\u0438 \u0432\u043E\u043A\u0440\u0443\u0433 \u043F\u043E\u043B\u043E\u0441 HP \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435\u0442.",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B: \u043F\u043E\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u0439\u0442\u0435 \u0438\u043B\u0438 \u043D\u0430\u043A\u043B\u043E\u043D\u044F\u0439\u0442\u0435 \u0442\u0435\u043B\u0435\u0444\u043E\u043D, \u0447\u0442\u043E\u0431\u044B \u043E\u0441\u043C\u0430\u0442\u0440\u0438\u0432\u0430\u0442\u044C 3D-\u0430\u0440\u0435\u043D\u0443, \u043A\u0430\u043A \u043C\u044B\u0448\u044C\u044E.",
+        "\u0418\u0441\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F: \u0440\u0443\u043A\u0438 \u0413\u043E\u0431\u043B\u0438\u043D\u0430 \u0438 \u0420\u044B\u0446\u0430\u0440\u044F \u0432\u0438\u0434\u043D\u044B; \u0442\u0435\u043A\u0441\u0442 \u043C\u0435\u043D\u044E \u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043D\u0430 \u044F\u0440\u043A\u0438\u0445 \u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0441\u0446\u0435\u043D\u0430\u0445; \xAB\u0427\u0442\u043E \u043D\u043E\u0432\u043E\u0433\u043E\xBB \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442 3 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0445 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F."
+      ]
+    },
     {
       v: "0.9.9.2",
       date: "2026-10",
@@ -3745,7 +4462,7 @@ ${stack}`.slice(0, 2e3);
     document.getElementById("newsBtn").onclick = () => {
       const ru = lang() === "ru";
       document.getElementById("newsVersion").textContent = `v${VERSION}`;
-      document.getElementById("newsBody").replaceChildren(...PATCHES.map((p, i) => {
+      document.getElementById("newsBody").replaceChildren(...PATCHES.slice(0, 3).map((p, i) => {
         const sec = el3("section", "news-patch" + (i === 0 ? " latest" : ""));
         const head = el3("h4", "", `${p.v}${p.v === VERSION ? ru ? " \u2014 \u0441\u0435\u0439\u0447\u0430\u0441" : " \u2014 current" : ""}`);
         const ul = el3("ul");
@@ -3764,7 +4481,7 @@ ${stack}`.slice(0, 2e3);
   }
 
   // src/client/adminui.ts
-  var $4 = $;
+  var $5 = $;
   var el4 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -3777,9 +4494,9 @@ ${stack}`.slice(0, 2e3);
   function setAdminTab(t) {
     tab = t;
     for (const b of document.querySelectorAll("#adminTabs [data-atab]")) b.classList.toggle("on", b.dataset.atab === t);
-    $4("adminUsers").hidden = t !== "users";
-    $4("adminInbox").hidden = t !== "inbox";
-    $4("adminStats").hidden = t !== "stats";
+    $5("adminUsers").hidden = t !== "users";
+    $5("adminInbox").hidden = t !== "inbox";
+    $5("adminStats").hidden = t !== "stats";
     if (t === "inbox") void loadInbox();
     if (t === "stats") void loadStats();
   }
@@ -3791,8 +4508,8 @@ ${stack}`.slice(0, 2e3);
     }
     const open2 = reports.filter((r2) => !r2.done && r2.kind !== "error").length;
     for (const id of ["inboxBadge", "adminBadge"]) {
-      $4(id).hidden = open2 === 0;
-      $4(id).textContent = String(open2);
+      $5(id).hidden = open2 === 0;
+      $5(id).textContent = String(open2);
     }
   }
   async function loadInbox() {
@@ -3802,9 +4519,9 @@ ${stack}`.slice(0, 2e3);
   var KIND_LABEL = { bug: "Bug report", suggestion: "Suggestion", error: "Error" };
   function renderInbox() {
     const kind = document.querySelector('input[name="inboxKind"]:checked')?.value ?? "all";
-    const showDone = $4("inboxShowDone").checked;
+    const showDone = $5("inboxShowDone").checked;
     const list = reports.filter((r2) => (kind === "all" || r2.kind === kind) && (showDone || !r2.done));
-    $4("inboxList").replaceChildren(...list.length ? list.map((r2) => {
+    $5("inboxList").replaceChildren(...list.length ? list.map((r2) => {
       const card = el4("article", `inbox-item k-${r2.kind}${r2.done ? " done" : ""}`);
       const head = el4("div", "ii-head");
       head.append(el4("span", `ii-kind k-${r2.kind}`, KIND_LABEL[r2.kind]), el4("b", "", r2.username || (r2.kind === "error" ? "game" : "?")), el4("small", "hint", dateTime(r2.at)));
@@ -3839,7 +4556,7 @@ ${stack}`.slice(0, 2e3);
       renderInbox();
     });
   }
-  $4("inboxShowDone").addEventListener("change", renderInbox);
+  $5("inboxShowDone").addEventListener("change", renderInbox);
   for (const b of document.querySelectorAll("#adminTabs [data-atab]")) b.onclick = () => setAdminTab(b.dataset.atab);
   var pct = (a, b) => b ? `${Math.round(a / b * 100)}%` : "\u2014";
   var FUNNEL_LABEL = {
@@ -3852,7 +4569,7 @@ ${stack}`.slice(0, 2e3);
     tutorial_skip: "Skipped the tutorial"
   };
   async function loadStats() {
-    const box = $4("adminStats");
+    const box = $5("adminStats");
     box.replaceChildren(el4("p", "hint", "Loading\u2026"));
     let s;
     try {
@@ -4140,19 +4857,19 @@ ${stack}`.slice(0, 2e3);
   var writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
 
   // src/client/gamekb.ts
-  var KEY4 = "kb:gamekb";
+  var KEY5 = "kb:gamekb";
   var ROWS = ["qwertyuiop", "asdfghjkl-", "zxcvbnm"];
   var touch = () => matchMedia("(pointer: coarse)").matches;
   var gameKbPref = () => {
     try {
-      return localStorage.getItem(KEY4) !== "system";
+      return localStorage.getItem(KEY5) !== "system";
     } catch {
       return true;
     }
   };
   function setGameKbPref(on) {
     try {
-      localStorage.setItem(KEY4, on ? "game" : "system");
+      localStorage.setItem(KEY5, on ? "game" : "system");
     } catch {
     }
   }
@@ -4161,7 +4878,7 @@ ${stack}`.slice(0, 2e3);
   function input() {
     return $("answer");
   }
-  function preview() {
+  function preview2() {
     const v = input().value;
     $("gkPreview").textContent = currentAnswerMode() === "romaji" || !v ? v : romajiToHiragana(v);
   }
@@ -4170,7 +4887,7 @@ ${stack}`.slice(0, 2e3);
     if (answerLocked()) return;
     i.value += ch;
     i.dispatchEvent(new Event("input", { bubbles: true }));
-    preview();
+    preview2();
   }
   function build() {
     const kb = $("gameKb");
@@ -4195,25 +4912,25 @@ ${stack}`.slice(0, 2e3);
         const el11 = input();
         el11.value = el11.value.slice(0, -1);
         el11.dispatchEvent(new Event("input", { bubbles: true }));
-        preview();
+        preview2();
       }));
       return row;
     });
-    const last = document.createElement("div");
-    last.className = "gk-row";
-    last.append(
+    const last2 = document.createElement("div");
+    last2.className = "gk-row";
+    last2.append(
       key("Skip", "wide skip", () => $("skip").click()),
       key("n'", "ch", () => type("'")),
       key("Cast \u23CE", "wide enter", () => {
         input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-        preview();
+        preview2();
       })
     );
     const pv = document.createElement("div");
     pv.id = "gkPreview";
     pv.className = "gk-preview";
     pv.lang = "ja";
-    kb.replaceChildren(pv, ...rows2, last);
+    kb.replaceChildren(pv, ...rows2, last2);
   }
   function setGameKb(on) {
     on = on && touch() && gameKbPref();
@@ -4223,7 +4940,7 @@ ${stack}`.slice(0, 2e3);
     document.body.classList.toggle("game-kb", on);
     const i = input();
     i.inputMode = on ? "none" : "";
-    if (on) preview();
+    if (on) preview2();
     requestAnimationFrame(() => {
       const h3 = on ? $("gameKb").getBoundingClientRect().height : 0;
       document.documentElement.style.setProperty("--kb-h", `${Math.round(h3 / uiScale())}px`);
@@ -4231,10 +4948,10 @@ ${stack}`.slice(0, 2e3);
     });
   }
   $("answer").addEventListener("input", () => {
-    if (active) preview();
+    if (active) preview2();
   });
   function gameKbReset() {
-    if (active) preview();
+    if (active) preview2();
   }
 
   // src/shared/achievements.ts
@@ -4539,15 +5256,15 @@ ${stack}`.slice(0, 2e3);
   }
   function strings(notes, at, dur, bus, level2 = 0.035, cutoff = 1100) {
     const c = ctx;
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = cutoff;
+    const lp2 = c.createBiquadFilter();
+    lp2.type = "lowpass";
+    lp2.frequency.value = cutoff;
     const g = c.createGain();
     g.gain.setValueAtTime(1e-4, at);
     g.gain.exponentialRampToValueAtTime(level2, at + 0.9);
     g.gain.setValueAtTime(level2, at + dur - 0.6);
     g.gain.exponentialRampToValueAtTime(1e-4, at + dur + 0.5);
-    lp.connect(g).connect(bus);
+    lp2.connect(g).connect(bus);
     const s = c.createGain();
     s.gain.value = 0.5;
     g.connect(s).connect(reverb);
@@ -4556,7 +5273,7 @@ ${stack}`.slice(0, 2e3);
       o.type = "sawtooth";
       o.frequency.value = midi(n);
       o.detune.value = d;
-      o.connect(lp);
+      o.connect(lp2);
       o.start(at);
       o.stop(at + dur + 0.6);
     }
@@ -4587,17 +5304,17 @@ ${stack}`.slice(0, 2e3);
   }
   function horn(n, at, dur, bus, level2 = 0.05) {
     const c = ctx;
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.setValueAtTime(350, at);
-    lp.frequency.linearRampToValueAtTime(1300, at + Math.min(0.5, dur * 0.5));
-    lp.frequency.linearRampToValueAtTime(600, at + dur);
+    const lp2 = c.createBiquadFilter();
+    lp2.type = "lowpass";
+    lp2.frequency.setValueAtTime(350, at);
+    lp2.frequency.linearRampToValueAtTime(1300, at + Math.min(0.5, dur * 0.5));
+    lp2.frequency.linearRampToValueAtTime(600, at + dur);
     const g = c.createGain();
     g.gain.setValueAtTime(1e-4, at);
     g.gain.exponentialRampToValueAtTime(level2, at + 0.12);
     g.gain.setValueAtTime(level2 * 0.85, at + dur * 0.75);
     g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
-    lp.connect(g).connect(bus);
+    lp2.connect(g).connect(bus);
     const s = c.createGain();
     s.gain.value = 0.45;
     g.connect(s).connect(reverb);
@@ -4606,7 +5323,7 @@ ${stack}`.slice(0, 2e3);
       o.type = "sawtooth";
       o.frequency.value = midi(n);
       o.detune.value = d;
-      o.connect(lp);
+      o.connect(lp2);
       o.start(at);
       o.stop(at + dur + 0.05);
     }
@@ -4883,14 +5600,14 @@ ${stack}`.slice(0, 2e3);
     o.type = "sawtooth";
     o.frequency.setValueAtTime(95, at);
     o.frequency.exponentialRampToValueAtTime(55, at + 1.5);
-    const lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 420;
+    const lp2 = c.createBiquadFilter();
+    lp2.type = "lowpass";
+    lp2.frequency.value = 420;
     const g = c.createGain();
     g.gain.setValueAtTime(1e-4, at);
     g.gain.exponentialRampToValueAtTime(0.05, at + 0.3);
     g.gain.exponentialRampToValueAtTime(1e-4, at + 1.6);
-    o.connect(lp).connect(g).connect(ambBus);
+    o.connect(lp2).connect(g).connect(ambBus);
     const s = c.createGain();
     s.gain.value = 0.9;
     g.connect(s).connect(reverb);
@@ -5019,16 +5736,16 @@ ${stack}`.slice(0, 2e3);
     box.replaceChildren(head, ...onBadges && earned ? [hint] : [], grid);
   }
   var shown = /* @__PURE__ */ new Set();
-  var queue = [];
+  var queue2 = [];
   var playing = false;
   function celebrate(id) {
     if (shown.has(id) || !achById(id)) return;
     shown.add(id);
-    queue.push(id);
+    queue2.push(id);
     if (!playing) next();
   }
   function next() {
-    const id = queue.shift();
+    const id = queue2.shift();
     const box = $("achPop");
     if (!id) {
       playing = false;
@@ -5081,7 +5798,7 @@ ${stack}`.slice(0, 2e3);
   }
 
   // src/client/friendrail.ts
-  var $5 = $;
+  var $6 = $;
   var el5 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -5096,15 +5813,15 @@ ${stack}`.slice(0, 2e3);
   function setRailUser(on) {
     signedIn = on;
     if (!on) {
-      $5("friendRail").hidden = true;
-      $5("railFab").hidden = true;
+      $6("friendRail").hidden = true;
+      $6("railFab").hidden = true;
       clearInterval(timer);
     }
   }
   function railScreen(screen2) {
     const show3 = signedIn && RAIL_SCREENS.has(screen2);
-    $5("friendRail").hidden = !show3;
-    $5("railFab").hidden = !show3;
+    $6("friendRail").hidden = !show3;
+    $6("railFab").hidden = !show3;
     setOpen(false);
     document.body.classList.toggle("has-rail", show3);
     clearInterval(timer);
@@ -5114,16 +5831,16 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function setOpen(on) {
-    $5("friendRail").classList.toggle("open", on);
-    $5("railFab").setAttribute("aria-expanded", String(on));
+    $6("friendRail").classList.toggle("open", on);
+    $6("railFab").setAttribute("aria-expanded", String(on));
   }
-  $5("railFab").onclick = (e) => {
+  $6("railFab").onclick = (e) => {
     e.stopPropagation();
-    setOpen(!$5("friendRail").classList.contains("open"));
+    setOpen(!$6("friendRail").classList.contains("open"));
   };
   document.addEventListener("pointerdown", (e) => {
     const t = e.target;
-    if ($5("friendRail").classList.contains("open") && !t.closest("#friendRail, #railFab, #friendDialog, #otherPop")) setOpen(false);
+    if ($6("friendRail").classList.contains("open") && !t.closest("#friendRail, #railFab, #friendDialog, #otherPop")) setOpen(false);
   });
   async function refreshRail() {
     try {
@@ -5167,31 +5884,31 @@ ${stack}`.slice(0, 2e3);
       });
       return [head, ...rows2];
     };
-    const list = $5("railList");
+    const list = $6("railList");
     list.replaceChildren(
       ...section("online", "Online", online),
       ...section("offline", "Offline", offline),
       ...accepted.length ? [] : [el5("p", "fr-empty", "No friends yet \u2014 add someone below.")]
     );
-    $5("railOnline").textContent = String(online.length);
-    $5("railFabCount").textContent = String(online.length);
-    $5("railFab").classList.toggle("alert", incoming > 0);
-    const badge = $5("railReqBadge");
+    $6("railOnline").textContent = String(online.length);
+    $6("railFabCount").textContent = String(online.length);
+    $6("railFab").classList.toggle("alert", incoming > 0);
+    const badge = $6("railReqBadge");
     badge.hidden = incoming === 0;
     badge.textContent = String(incoming);
   }
   function openDialog(tab2) {
-    const d = $5("friendDialog");
+    const d = $6("friendDialog");
     for (const b of d.querySelectorAll("[data-ftab]")) b.classList.toggle("on", b.dataset.ftab === tab2);
-    $5("fdAdd").hidden = tab2 !== "add";
-    $5("fdRequests").hidden = tab2 !== "requests";
-    $5("fdMsg").textContent = "";
+    $6("fdAdd").hidden = tab2 !== "add";
+    $6("fdRequests").hidden = tab2 !== "requests";
+    $6("fdMsg").textContent = "";
     renderRequests();
     if (!d.open) d.showModal();
-    if (tab2 === "add") setTimeout(() => $5("fdName").focus(), 30);
+    if (tab2 === "add") setTimeout(() => $6("fdName").focus(), 30);
   }
   function renderRequests() {
-    const box = $5("fdReqList");
+    const box = $6("fdReqList");
     const incoming = friends.filter((f2) => f2.status === "incoming");
     const outgoing = friends.filter((f2) => f2.status === "outgoing");
     const act = (text, cls, fn) => {
@@ -5221,39 +5938,39 @@ ${stack}`.slice(0, 2e3);
       ...outgoing.length ? [el5("h4", "", "Sent requests"), ...outgoing.map((f2) => row(f2, [act("Cancel", "", () => api.removeFriend(f2.id))], "request sent"))] : []
     );
   }
-  $5("railAdd").onclick = () => openDialog("add");
-  $5("railReq").onclick = () => openDialog("requests");
+  $6("railAdd").onclick = () => openDialog("add");
+  $6("railReq").onclick = () => openDialog("requests");
   for (const b of document.querySelectorAll("#friendDialog [data-ftab]")) b.onclick = () => openDialog(b.dataset.ftab);
-  $5("fdClose").onclick = () => $5("friendDialog").close();
-  $5("fdAdd").addEventListener("submit", async (e) => {
+  $6("fdClose").onclick = () => $6("friendDialog").close();
+  $6("fdAdd").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const input2 = $5("fdName");
+    const input2 = $6("fdName");
     const name = input2.value.trim();
     if (!name) return;
     try {
       const r2 = await api.addFriend(name);
       friends = r2.friends;
-      $5("fdMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      $6("fdMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
       input2.value = "";
       render2();
     } catch (err) {
-      $5("fdMsg").textContent = err.message;
+      $6("fdMsg").textContent = err.message;
     }
   });
-  $5("railList").addEventListener("click", () => $5("friendDialog").close());
+  $6("railList").addEventListener("click", () => $6("friendDialog").close());
 
   // src/client/voice.ts
-  var KEY5 = "kb:voice";
+  var KEY6 = "kb:voice";
   var prefs2 = (() => {
     try {
-      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY5) ?? "{}") };
+      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY6) ?? "{}") };
     } catch {
       return { on: true, vol: 0.9 };
     }
   })();
-  var save = () => {
+  var save2 = () => {
     try {
-      localStorage.setItem(KEY5, JSON.stringify(prefs2));
+      localStorage.setItem(KEY6, JSON.stringify(prefs2));
     } catch {
     }
   };
@@ -5261,7 +5978,7 @@ ${stack}`.slice(0, 2e3);
   var synth = typeof speechSynthesis !== "undefined" ? speechSynthesis : null;
   var voice = null;
   var male = false;
-  function pick2() {
+  function pick3() {
     if (!synth) return;
     const ja = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith("ja"));
     const m = ja.find((v) => MALE.test(v.name));
@@ -5269,19 +5986,19 @@ ${stack}`.slice(0, 2e3);
     male = !!m;
   }
   if (synth) {
-    pick2();
-    synth.addEventListener?.("voiceschanged", pick2);
+    pick3();
+    synth.addEventListener?.("voiceschanged", pick3);
   }
   var voiceAvailable = () => !!synth;
   var getVoicePrefs = () => ({ ...prefs2, name: voice?.name ?? null, male });
   function setVoiceVolume(v) {
     prefs2.vol = Math.max(0, Math.min(1, v));
     prefs2.on = prefs2.vol > 0;
-    save();
+    save2();
   }
   function say(kana) {
     if (!synth || !prefs2.on || prefs2.vol <= 0 || document.visibilityState !== "visible") return;
-    if (!voice) pick2();
+    if (!voice) pick3();
     if (!voice && !synth.getVoices().length) return;
     const u = new SpeechSynthesisUtterance(kana);
     u.lang = "ja-JP";
@@ -5294,7 +6011,7 @@ ${stack}`.slice(0, 2e3);
   }
   function speak(kana) {
     if (!synth || !prefs2.on || prefs2.vol <= 0 || document.visibilityState !== "visible") return Promise.resolve();
-    if (!voice) pick2();
+    if (!voice) pick3();
     if (!voice && !synth.getVoices().length) return Promise.resolve();
     return new Promise((done) => {
       const u = new SpeechSynthesisUtterance(kana);
@@ -5358,7 +6075,7 @@ ${stack}`.slice(0, 2e3);
   addEventListener("focus", stop);
 
   // src/client/tutorial.ts
-  var $6 = $;
+  var $7 = $;
   var el6 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -5432,14 +6149,14 @@ ${stack}`.slice(0, 2e3);
   }
   function show2(i) {
     const c = CARDS[i];
-    const box = $6("tutorial");
+    const box = $7("tutorial");
     const dots = el6("div", "tut-dots");
     CARDS.forEach((_, j) => dots.append(el6("i", j === i ? "on" : "")));
     const card = el6("div", "tut-card");
     const actions = el6("div", "tut-actions");
-    const last = i === CARDS.length - 1;
-    const next3 = el6("button", "big", last ? "Fight a beginner AI" : "Next");
-    const skip2 = el6("button", "pill", last ? "Maybe later" : "Skip tutorial");
+    const last2 = i === CARDS.length - 1;
+    const next3 = el6("button", "big", last2 ? "Fight a beginner AI" : "Next");
+    const skip2 = el6("button", "pill", last2 ? "Maybe later" : "Skip tutorial");
     if (c.language) {
       const en = el6("button", "big" + (lang() === "en" ? "" : " alt"), "English");
       const ru = el6("button", "big" + (lang() === "ru" ? "" : " alt"), "\u0420\u0443\u0441\u0441\u043A\u0438\u0439");
@@ -5469,7 +6186,7 @@ ${stack}`.slice(0, 2e3);
       queueMicrotask(() => actions.append(no, yes));
     }
     next3.onclick = () => {
-      if (!last) return show2(i + 1);
+      if (!last2) return show2(i + 1);
       stage = "battle";
       box.hidden = true;
       void api.event("tutorial_battle");
@@ -5487,7 +6204,7 @@ ${stack}`.slice(0, 2e3);
   }
   function finish() {
     stage = "off";
-    $6("tutorial").hidden = true;
+    $7("tutorial").hidden = true;
     coach(null);
     void api.tutorialDone().catch(() => {
     });
@@ -5503,7 +6220,7 @@ ${stack}`.slice(0, 2e3);
     } else if (screen2 === "menu") finish();
   }
   function coach(text) {
-    const c = $6("coach");
+    const c = $7("coach");
     if (!text) {
       c.hidden = true;
       return;
@@ -5582,7 +6299,7 @@ ${stack}`.slice(0, 2e3);
   };
 
   // src/client/deckui.ts
-  var $7 = $;
+  var $8 = $;
   var COLOR_NAME = { lightblue: "Light blue", blue: "Blue", yellow: "Yellow", green: "Green", red: "Red" };
   function h2(tag, cls = "", text) {
     const el11 = document.createElement(tag);
@@ -5633,7 +6350,7 @@ ${stack}`.slice(0, 2e3);
   }
   function initDeck(hk) {
     hooks2 = hk;
-    $7("dkAbility").onclick = () => {
+    $8("dkAbility").onclick = () => {
       const me3 = view?.players.find((p) => p.id === view.you);
       if (me3?.character && CHARACTER_INFO[me3.character].passive) {
         const used = [me3.wizardCardsUsed ? "cards used" : "+2 cards ready", me3.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
@@ -5641,18 +6358,18 @@ ${stack}`.slice(0, 2e3);
       }
       hooks2.send({ type: "deck_ability" });
     };
-    $7("dkChatForm").addEventListener("submit", (e) => {
+    $8("dkChatForm").addEventListener("submit", (e) => {
       e.preventDefault();
-      const input2 = $7("dkChatInput");
+      const input2 = $8("dkChatInput");
       const text = input2.value.trim();
       if (text) hooks2.send({ type: "chat", text });
       input2.value = "";
     });
-    renderGuide($7("deckGuide"));
+    renderGuide($8("deckGuide"));
   }
   var seenChat = /* @__PURE__ */ new Set();
   function chatMessages(msgs) {
-    const log = $7("dkChatLog");
+    const log = $8("dkChatLog");
     for (const m of msgs) {
       if (seenChat.has(m.id)) continue;
       seenChat.add(m.id);
@@ -5666,7 +6383,7 @@ ${stack}`.slice(0, 2e3);
   }
   function clearChat() {
     seenChat.clear();
-    $7("dkChatLog").replaceChildren();
+    $8("dkChatLog").replaceChildren();
   }
   var renderDeckGuide = (el11) => renderGuide(el11);
   function renderGuide(el11) {
@@ -5755,9 +6472,9 @@ ${stack}`.slice(0, 2e3);
     name.append(netBars(p.id));
     const bar = (cls, value, max, text) => {
       const b = h2("div", `dkbar ${cls}`);
-      const fill = h2("div", "fill");
-      fill.style.width = `${Math.max(0, Math.min(1, value / max)) * 100}%`;
-      b.append(fill, h2("span", "dkbar-txt", text));
+      const fill2 = h2("div", "fill");
+      fill2.style.width = `${Math.max(0, Math.min(1, value / max)) * 100}%`;
+      b.append(fill2, h2("span", "dkbar-txt", text));
       return b;
     };
     const hp = bar("hp-bar" + (p.hp / p.maxHp <= 0.25 ? " low" : ""), p.hp, p.maxHp, `\u2665 ${p.hp} / ${p.maxHp}`);
@@ -5782,23 +6499,23 @@ ${stack}`.slice(0, 2e3);
     const opp = v.players.find((p) => p.id !== v.you);
     if (opp.character) arenaForDeck(v);
     show("deck");
-    playerPanel($7("dkMe"), me3, true);
-    playerPanel($7("dkOpp"), opp, false);
-    const overlay = $7("dkOverlay");
+    playerPanel($8("dkMe"), me3, true);
+    playerPanel($8("dkOpp"), opp, false);
+    const overlay = $8("dkOverlay");
     if (v.phase === "characters" || v.phase === "draft") {
       renderCast(v);
       stopCountdown("dkTurn");
-      $7("dkBanner").textContent = "";
-      hideTimer("dkTurn", $7("dkTurnTimer"));
+      $8("dkBanner").textContent = "";
+      hideTimer("dkTurn", $8("dkTurnTimer"));
       return v.phase === "characters" ? renderCharacters(v, me3, opp) : renderDraft(v, me3);
     }
     overlay.hidden = true;
     if (v.phase === "overtime") {
-      countdown("dkMatch", v.overtimeLeft, (left) => $7("dkClock").textContent = `OT ${clock(left)}`);
+      countdown("dkMatch", v.overtimeLeft, (left) => $8("dkClock").textContent = `OT ${clock(left)}`);
     } else {
-      countdown("dkMatch", v.matchLeftMs, (left) => $7("dkClock").textContent = clock(left));
+      countdown("dkMatch", v.matchLeftMs, (left) => $8("dkClock").textContent = clock(left));
     }
-    const banner = $7("dkBanner");
+    const banner = $8("dkBanner");
     const myTurn = v.turn?.active === v.you;
     if (myTurn && !v.casting && !wasMyTurn && v.phase !== "over") {
       sfx.yourTurn();
@@ -5811,16 +6528,16 @@ ${stack}`.slice(0, 2e3);
     const label = v.phase === "overtime" ? "Overtime \u2014 Rapid duel! First to type the reading hits" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
     banner.textContent = label;
     const total = v.casting ? v.casting.overtime ? DECK_RULES.overtimeCardMs : DECK_RULES.castMs : DECK_RULES.chooseMs;
-    if (deadline > 0 && v.phase !== "over") bigTimer("dkTurn", $7("dkTurnTimer"), deadline, total, myTurn || v.phase === "overtime" ? 6e3 : 3e3);
-    else hideTimer("dkTurn", $7("dkTurnTimer"));
-    $7("dkTurnTimer").classList.toggle("mine", myTurn || v.phase === "overtime");
+    if (deadline > 0 && v.phase !== "over") bigTimer("dkTurn", $8("dkTurnTimer"), deadline, total, myTurn || v.phase === "overtime" ? 6e3 : 3e3);
+    else hideTimer("dkTurn", $8("dkTurnTimer"));
+    $8("dkTurnTimer").classList.toggle("mine", myTurn || v.phase === "overtime");
     if (v.turn && v.turn.active !== feedActive) {
       feedActive = v.turn.active;
       feedTurn++;
       logFeed("turn", v.turn.active === v.you ? "Your turn" : `${opp.name}'s turn`, v.turn.active === v.you ? "me" : "opp");
     }
     const canPlay2 = myTurn && !v.casting && Date.now() >= revealUntil;
-    $7("dkHand").replaceChildren(...v.hand.map((c) => {
+    $8("dkHand").replaceChildren(...v.hand.map((c) => {
       const costFactor = myTurn ? v.turn.costFactor : 1;
       const el11 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me3.mana });
       el11.onclick = () => {
@@ -5829,8 +6546,8 @@ ${stack}`.slice(0, 2e3);
       };
       return el11;
     }));
-    $7("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
-    const ab = $7("dkAbility");
+    $8("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
+    const ab = $8("dkAbility");
     const ch = me3.character;
     ab.innerHTML = ch ? heroSvg(ch, "me", me3.staff) : "";
     const cd = me3.abilityCooldown;
@@ -5848,7 +6565,7 @@ ${stack}`.slice(0, 2e3);
     renderList(v);
   }
   function renderList(v) {
-    const box = $7("dkList");
+    const box = $8("dkList");
     const head = h2("h4", "", "Your kanji");
     if (!v.deckList) {
       box.replaceChildren(head, h2("p", "hint", v.phase === "overtime" ? "Overtime \u2014 the cards are gone: type the readings!" : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
@@ -5872,10 +6589,10 @@ ${stack}`.slice(0, 2e3);
   };
   var castKey = "";
   function renderCast(v) {
-    const box = $7("dkCast");
+    const box = $8("dkCast");
     const c = v.casting;
     if (!c) {
-      $7("deck").classList.remove("dk-mycast", "dk-writing");
+      $8("deck").classList.remove("dk-mycast", "dk-writing");
       arena()?.channel(0);
       arena()?.oppChannel(false);
       castKey = "";
@@ -5886,7 +6603,7 @@ ${stack}`.slice(0, 2e3);
       }
       if (Date.now() < revealUntil) return;
       box.replaceChildren();
-      $7("dkFeedback").replaceChildren();
+      $8("dkFeedback").replaceChildren();
       return;
     }
     revealUntil = 0;
@@ -5967,11 +6684,11 @@ ${stack}`.slice(0, 2e3);
         }
       } else stopCountdown("dkRead");
       box.replaceChildren(card, actions);
-      if (fresh) $7("dkFeedback").replaceChildren();
+      if (fresh) $8("dkFeedback").replaceChildren();
     }
     const writeNow = mine && !c.overtime && c.stage === "write";
-    $7("deck").classList.toggle("dk-mycast", mine && !c.overtime && c.ownerId === v.you);
-    $7("deck").classList.toggle("dk-writing", writeNow);
+    $8("deck").classList.toggle("dk-mycast", mine && !c.overtime && c.ownerId === v.you);
+    $8("deck").classList.toggle("dk-writing", writeNow);
     const a3 = arena();
     a3?.channel(writeNow ? 1 : mine && c.stage === "look" ? 0.4 : c.overtime ? 0.5 : 0);
     a3?.oppChannel(!mine && c.stage === "write");
@@ -5984,7 +6701,7 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function renderCharacters(v, me3, opp) {
-    const overlay = $7("dkOverlay");
+    const overlay = $8("dkOverlay");
     overlay.hidden = false;
     const title = h2("h2", "", me3.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
     const grid = h2("div", "char-pick");
@@ -6002,7 +6719,7 @@ ${stack}`.slice(0, 2e3);
   var coinShown = false;
   function renderDraft(v, me3) {
     const d = v.draft;
-    const overlay = $7("dkOverlay");
+    const overlay = $8("dkOverlay");
     overlay.hidden = false;
     const mine = d.picker === v.you;
     const head = h2("div", "center");
@@ -6037,7 +6754,7 @@ ${stack}`.slice(0, 2e3);
   var feedTurn = 0;
   var feedActive = "";
   function logFeed(kind, text, who, color, extra) {
-    const list = $7("dkFeed");
+    const list = $8("dkFeed");
     const li = h2("li", `feed-${kind} by-${who}`);
     if (kind === "turn") {
       li.append(h2("span", "ft-turn", `Turn ${feedTurn}`), h2("span", "ft-who", text));
@@ -6055,7 +6772,7 @@ ${stack}`.slice(0, 2e3);
   function resetFeed() {
     feedTurn = 0;
     feedActive = "";
-    $7("dkFeed").replaceChildren();
+    $8("dkFeed").replaceChildren();
   }
   function feedEvent(e) {
     if (!view) return;
@@ -6155,8 +6872,8 @@ ${stack}`.slice(0, 2e3);
   }
   var CARD_FX = { lightblue: "bolt", blue: "frost", red: "fire" };
   function animateResolve(e, me3, spoken = Promise.resolve()) {
-    const card = $7("dkCast").querySelector(".dkc.big");
-    const fb = $7("dkFeedback");
+    const card = $8("dkCast").querySelector(".dkc.big");
+    const fb = $8("dkFeedback");
     const who = e.playerId === me3 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
     const spec = e.overtime ? { label: "Rapid hit", kind: "attack", amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
     if (!e.ok) {
@@ -6173,7 +6890,7 @@ ${stack}`.slice(0, 2e3);
       const to = spec.kind === "attack" ? e.targetId === me3 ? "me" : "opp" : from;
       void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind, fx: e.overtime ? void 0 : CARD_FX[e.color] });
     } else if (spec.kind === "attack" && !e.overtime && CARD_FX[e.color]) {
-      const panel = $7(e.targetId === me3 ? "dkMe" : "dkOpp");
+      const panel = $8(e.targetId === me3 ? "dkMe" : "dkOpp");
       setTimeout(() => {
         panel.classList.remove("fx-bolt", "fx-frost", "fx-fire");
         void panel.offsetWidth;
@@ -6195,7 +6912,7 @@ ${stack}`.slice(0, 2e3);
       ghost.classList.add("sparkle");
     } else {
       const towardsMe = spec.kind === "heal" ? e.playerId === me3 : e.targetId === me3;
-      const target = zrect($7(towardsMe ? "dkMe" : "dkOpp"));
+      const target = zrect($8(towardsMe ? "dkMe" : "dkOpp"));
       ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
       void spoken.then(() => {
@@ -6225,7 +6942,7 @@ ${stack}`.slice(0, 2e3);
     card.append(h2("span", "reveal-badge", e.ok ? "\u2713" : "\u2717"), top, bottom);
     const label = h2("div", "cast-timer", e.ok ? "Correct!" : "The correct kanji");
     const strokesBox = h2("div", "dk-reveal-strokes");
-    $7("dkCast").replaceChildren(card, label, strokesBox);
+    $8("dkCast").replaceChildren(card, label, strokesBox);
     if (!e.ok && e.playerId === hooks2.me()) showWrongStrokes(strokesBox, e.kanji);
     const ms = e.overtime ? DECK_RULES.overtimeGapMs - 300 : REVEAL_MS;
     revealUntil = Date.now() + ms;
@@ -6233,8 +6950,8 @@ ${stack}`.slice(0, 2e3);
     revealTimer = window.setTimeout(() => {
       revealUntil = 0;
       if (!view?.casting) {
-        $7("dkCast").replaceChildren();
-        $7("dkFeedback").replaceChildren();
+        $8("dkCast").replaceChildren();
+        $8("dkFeedback").replaceChildren();
       }
       if (view) renderDeck(view);
     }, ms);
@@ -6265,25 +6982,25 @@ ${stack}`.slice(0, 2e3);
     writingCastId = 0;
     coinShown = false;
     resetFeed();
-    $7("deck").classList.remove("dk-mycast", "dk-writing");
+    $8("deck").classList.remove("dk-mycast", "dk-writing");
     stopCountdown("dkMatch");
-    hideTimer("dkTurn", $7("dkTurnTimer"));
+    hideTimer("dkTurn", $8("dkTurnTimer"));
     stopCountdown("dkDraft");
   };
 
   // src/client/queue.ts
   var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
-  var KEY6 = "kb:queue";
-  var load3 = () => {
+  var KEY7 = "kb:queue";
+  var load4 = () => {
     try {
-      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY6) ?? "{}") };
+      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY7) ?? "{}") };
     } catch {
       return { modes: ["reading", "rapid"], levels: ["N5"] };
     }
   };
-  var save2 = (s) => {
+  var save3 = (s) => {
     try {
-      localStorage.setItem(KEY6, JSON.stringify(s));
+      localStorage.setItem(KEY7, JSON.stringify(s));
     } catch {
     }
   };
@@ -6327,17 +7044,17 @@ ${stack}`.slice(0, 2e3);
     l.append(box, label);
     return l;
   }
-  var picked = (id) => [...document.querySelectorAll(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
-  var pick3 = "battle";
+  var picked2 = (id) => [...document.querySelectorAll(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
+  var pick4 = "battle";
   function remember() {
-    save2({ modes: picked("qModes"), levels: picked("qLevels"), pick: pick3 });
+    save3({ modes: picked2("qModes"), levels: picked2("qLevels"), pick: pick4 });
   }
   function choose2(p, silent = false) {
     if (p === "deck" && !canPlay("deck")) {
       if (!silent) toast(lockText("deck"), 5e3);
       p = "battle";
     }
-    pick3 = p;
+    pick4 = p;
     document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
       const on = c.dataset.q === p;
       c.classList.toggle("chosen", on);
@@ -6374,8 +7091,8 @@ ${stack}`.slice(0, 2e3);
     });
     $("qStart").onclick = () => {
       askNotifyPermission();
-      if (pick3 === "deck") return send({ type: "queue", modes: ["deck"] });
-      const modes = picked("qModes"), levels = picked("qLevels");
+      if (pick4 === "deck") return send({ type: "queue", modes: ["deck"] });
+      const modes = picked2("qModes"), levels = picked2("qLevels");
       if (!modes.length) return toast("Tick at least one mode");
       if (!levels.length) return toast("Tick at least one level");
       send({ type: "queue", modes, levels });
@@ -6383,7 +7100,7 @@ ${stack}`.slice(0, 2e3);
     $("qCancel").onclick = () => send({ type: "queue_cancel" });
   }
   function openQueue() {
-    const s = load3();
+    const s = load4();
     $("qModes").replaceChildren(...QUEUE_MODES.map((m) => {
       const open2 = canPlay(m);
       const c = chip(m, MODE_LABEL[m] + (open2 ? "" : " \xB7 locked"), open2 && s.modes.includes(m), "qm");
@@ -6775,8 +7492,8 @@ ${stack}`.slice(0, 2e3);
       }
       if (!this.current) return;
       const p = this.point(e);
-      const last = this.current[this.current.length - 1];
-      if (Math.hypot(p[0] - last[0], p[1] - last[1]) < MIN_DIST) return;
+      const last2 = this.current[this.current.length - 1];
+      if (Math.hypot(p[0] - last2[0], p[1] - last2[1]) < MIN_DIST) return;
       this.current.push(p);
       this.redraw();
       this.onDraw();
@@ -6854,7 +7571,7 @@ ${stack}`.slice(0, 2e3);
   };
 
   // src/client/study.ts
-  var $8 = $;
+  var $9 = $;
   var onProfile = () => {
   };
   var onProfileChange = (fn) => {
@@ -6872,7 +7589,7 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function levelChips(selected2) {
-    const box = $8("studyLevels");
+    const box = $9("studyLevels");
     box.replaceChildren(...LEVELS.map((lv) => {
       const label = document.createElement("label");
       label.className = "chip" + (selected2.includes(lv) ? " on" : "");
@@ -6895,13 +7612,13 @@ ${stack}`.slice(0, 2e3);
   }
   function render3(s) {
     levelChips(s.studyLevels);
-    counts($8("countsAll"), s.decks.all);
-    counts($8("countsStruggle"), s.decks.struggling);
-    counts($8("countsCustom"), s.decks.custom);
-    $8("dailyNew").value = String(s.dailyNew);
-    $8("dailyNewVal").textContent = String(s.dailyNew);
-    $8("studyCrit").textContent = `${s.profile.learnedToday} learned today \xB7 ${s.profile.learned} learned in total`;
-    const notice = $8("studyNotice");
+    counts($9("countsAll"), s.decks.all);
+    counts($9("countsStruggle"), s.decks.struggling);
+    counts($9("countsCustom"), s.decks.custom);
+    $9("dailyNew").value = String(s.dailyNew);
+    $9("dailyNewVal").textContent = String(s.dailyNew);
+    $9("studyCrit").textContent = `${s.profile.learnedToday} learned today \xB7 ${s.profile.learned} learned in total`;
+    const notice = $9("studyNotice");
     notice.hidden = !s.notice;
     notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
     if (!s.studyLevels.length && !s.decks.all.total) {
@@ -6909,26 +7626,26 @@ ${stack}`.slice(0, 2e3);
       notice.textContent = `Tick one or more levels under \u201CAll spells\u201D to get ${s.dailyNew} new spells today (and every day).`;
     }
     const has2 = (c) => c.new + c.learning + c.due > 0;
-    $8("studyAll").disabled = !has2(s.decks.all);
-    $8("studyStruggle").disabled = !has2(s.decks.struggling);
-    $8("studyCustom").disabled = !has2(s.decks.custom);
+    $9("studyAll").disabled = !has2(s.decks.all);
+    $9("studyStruggle").disabled = !has2(s.decks.struggling);
+    $9("studyCustom").disabled = !has2(s.decks.custom);
     onProfile(s.profile);
   }
   initDecks({ changed: () => {
-    if (!$8("study").hidden) void api.study().then(render3).catch(() => {
+    if (!$9("study").hidden) void api.study().then(render3).catch(() => {
     });
   }, back: () => void openStudy() });
-  $8("dailyNew").addEventListener("input", () => {
-    $8("dailyNewVal").textContent = $8("dailyNew").value;
+  $9("dailyNew").addEventListener("input", () => {
+    $9("dailyNewVal").textContent = $9("dailyNew").value;
   });
-  $8("dailyNew").addEventListener("change", async () => {
+  $9("dailyNew").addEventListener("change", async () => {
     try {
-      render3(await api.setDailyNew(Number($8("dailyNew").value)));
+      render3(await api.setDailyNew(Number($9("dailyNew").value)));
     } catch (e) {
       toast(e.message);
     }
   });
-  $8("studyLevels").addEventListener("change", async () => {
+  $9("studyLevels").addEventListener("change", async () => {
     const levels = [...document.querySelectorAll("#studyLevels input")].filter((i) => i.checked).map((i) => i.value);
     try {
       render3(await api.setStudyLevels(levels));
@@ -6936,7 +7653,7 @@ ${stack}`.slice(0, 2e3);
       toast(e.message);
     }
   });
-  var queue2 = [];
+  var queue3 = [];
   var deck = "all";
   var current = null;
   var flipped = false;
@@ -6944,33 +7661,33 @@ ${stack}`.slice(0, 2e3);
   async function startSession(d) {
     deck = d;
     show("review");
-    $8("reviewDone").hidden = true;
+    $9("reviewDone").hidden = true;
     try {
-      queue2 = (await api.queue(d)).cards;
+      queue3 = (await api.queue(d)).cards;
     } catch (e) {
       toast(e.message);
-      queue2 = [];
+      queue3 = [];
     }
     next2();
   }
   function next2() {
-    current = queue2.shift() ?? null;
+    current = queue3.shift() ?? null;
     flipped = false;
     const done = !current;
-    $8("flash").hidden = done;
-    $8("showAnswer").hidden = done;
-    $8("rateRow").hidden = true;
-    $8("reviewDone").hidden = !done;
-    $8("reviewLeft").textContent = done ? "" : `${queue2.length + 1} left \xB7 ${DECK_LABEL[deck]}`;
+    $9("flash").hidden = done;
+    $9("showAnswer").hidden = done;
+    $9("rateRow").hidden = true;
+    $9("reviewDone").hidden = !done;
+    $9("reviewLeft").textContent = done ? "" : `${queue3.length + 1} left \xB7 ${DECK_LABEL[deck]}`;
     if (!current) return;
-    $8("fcKanji").textContent = current.kanji;
-    $8("fcLevel").textContent = (current.custom ? "Custom" : LEVEL_LABEL[current.level]) + (current.state === "new" ? " \xB7 new" : "");
-    $8("fcReading").textContent = current.reading;
-    $8("fcMeaning").textContent = current.meaning;
-    $8("fcBack").hidden = true;
-    $8("fcStrokes").hidden = true;
-    $8("fcStrokeBox").hidden = true;
-    const card = $8("flash");
+    $9("fcKanji").textContent = current.kanji;
+    $9("fcLevel").textContent = (current.custom ? "Custom" : LEVEL_LABEL[current.level]) + (current.state === "new" ? " \xB7 new" : "");
+    $9("fcReading").textContent = current.reading;
+    $9("fcMeaning").textContent = current.meaning;
+    $9("fcBack").hidden = true;
+    $9("fcStrokes").hidden = true;
+    $9("fcStrokeBox").hidden = true;
+    const card = $9("flash");
     card.style.animation = "none";
     void card.offsetWidth;
     card.style.animation = "";
@@ -6982,18 +7699,18 @@ ${stack}`.slice(0, 2e3);
   function flip() {
     if (!current || flipped) return;
     flipped = true;
-    $8("fcBack").hidden = false;
-    $8("showAnswer").hidden = true;
-    $8("rateRow").hidden = false;
-    $8("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
+    $9("fcBack").hidden = false;
+    $9("showAnswer").hidden = true;
+    $9("rateRow").hidden = false;
+    $9("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
   }
   function strokes() {
-    if (!current || !flipped || $8("fcStrokes").hidden) return;
-    const box = $8("fcStrokeBox");
+    if (!current || !flipped || $9("fcStrokes").hidden) return;
+    const box = $9("fcStrokeBox");
     box.hidden = false;
     void showStrokeOrder(box, current.kanji);
   }
-  $8("fcStrokes").onclick = (e) => {
+  $9("fcStrokes").onclick = (e) => {
     e.stopPropagation();
     strokes();
   };
@@ -7003,19 +7720,100 @@ ${stack}`.slice(0, 2e3);
     const card = current;
     try {
       await api.review(card.vocabId, r2, deck);
-      if (r2 === "again") queue2.splice(Math.min(3, queue2.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
-      else if (r2 === "hard" && card.state !== "review") queue2.splice(Math.min(6, queue2.length), 0, card);
+      if (r2 === "again") queue3.splice(Math.min(3, queue3.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
+      else if (r2 === "hard" && card.state !== "review") queue3.splice(Math.min(6, queue3.length), 0, card);
     } catch (e) {
       toast(e.message);
     }
     busy = false;
     next2();
   }
-  $8("showAnswer").onclick = flip;
-  $8("flash").onclick = flip;
+  $9("showAnswer").onclick = flip;
+  $9("flash").onclick = () => {
+    if (!swiped) flip();
+  };
+  var swiped = false;
+  {
+    const card = $9("flash");
+    const stamp = document.createElement("div");
+    stamp.className = "fc-stamp";
+    stamp.hidden = true;
+    card.append(stamp);
+    const ZONES = [["again", "Again"], ["hard", "Hard"], ["good", "Okay"], ["easy", "Easy"]];
+    const zoneOf = (dx2) => {
+      const w = Math.max(220, card.offsetWidth), f2 = dx2 / w;
+      if (f2 <= -0.42) return ZONES[0];
+      if (f2 <= -0.16) return ZONES[1];
+      if (f2 >= 0.42) return ZONES[3];
+      if (f2 >= 0.16) return ZONES[2];
+      return null;
+    };
+    let x0 = 0, y0 = 0, id = -1, dx = 0, dragging = false;
+    const reset = (animate) => {
+      card.style.transition = animate ? "transform .25s ease-out" : "";
+      card.style.transform = "";
+      stamp.hidden = true;
+      card.classList.remove("dragging");
+    };
+    card.addEventListener("pointerdown", (e) => {
+      if (!current || busy || e.target.closest("button")) return;
+      id = e.pointerId;
+      x0 = e.clientX;
+      y0 = e.clientY;
+      dx = 0;
+      dragging = false;
+      swiped = false;
+    });
+    card.addEventListener("pointermove", (e) => {
+      if (e.pointerId !== id) return;
+      dx = e.clientX - x0;
+      if (!dragging) {
+        if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(e.clientY - y0)) return;
+        dragging = true;
+        card.setPointerCapture(id);
+        card.classList.add("dragging");
+        card.style.transition = "";
+      }
+      card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
+      const z = zoneOf(dx);
+      stamp.hidden = !z;
+      if (z) {
+        stamp.textContent = tr(z[1]);
+        stamp.className = `fc-stamp ${z[0]} ${dx < 0 ? "l" : "r"}`;
+      }
+    });
+    const end = (e) => {
+      if (e.pointerId !== id) return;
+      id = -1;
+      if (!dragging) return;
+      swiped = true;
+      setTimeout(() => {
+        swiped = false;
+      }, 0);
+      const z = zoneOf(dx);
+      if (!z || !current) {
+        reset(true);
+        return;
+      }
+      card.style.transition = "transform .22s ease-in, opacity .22s";
+      card.style.transform = `translateX(${Math.sign(dx) * innerWidth}px) rotate(${Math.sign(dx) * 25}deg)`;
+      setTimeout(() => {
+        reset(false);
+        if (!flipped) flip();
+        void rate(z[0]);
+      }, 200);
+    };
+    card.addEventListener("pointerup", end);
+    card.addEventListener("pointercancel", (e) => {
+      if (e.pointerId === id) {
+        id = -1;
+        reset(true);
+      }
+    });
+  }
   for (const b of document.querySelectorAll("#rateRow .rate")) b.onclick = () => void rate(b.dataset.rating);
   addEventListener("keydown", (e) => {
-    if ($8("review").hidden || e.target instanceof HTMLInputElement) return;
+    if ($9("review").hidden || e.target instanceof HTMLInputElement) return;
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       flipped ? void rate("good") : flip();
@@ -7024,15 +7822,15 @@ ${stack}`.slice(0, 2e3);
     if (n >= 0 && flipped) void rate(["again", "hard", "good", "easy"][n]);
     if ((e.key === "s" || e.key === "S") && flipped) strokes();
   });
-  $8("studyAll").onclick = () => void startSession("all");
-  $8("studyStruggle").onclick = () => void startSession("struggling");
-  $8("studyCustom").onclick = () => void startSession("custom");
-  $8("reviewBack").onclick = () => void openStudy();
-  $8("reviewDoneBack").onclick = () => void openStudy();
+  $9("studyAll").onclick = () => void startSession("all");
+  $9("studyStruggle").onclick = () => void startSession("struggling");
+  $9("studyCustom").onclick = () => void startSession("custom");
+  $9("reviewBack").onclick = () => void openStudy();
+  $9("reviewDoneBack").onclick = () => void openStudy();
   var custTab = "staff";
-  var picked2 = {};
+  var picked3 = {};
   var cust = null;
-  var preview2 = null;
+  var preview3 = null;
   var previewTried = false;
   var staffThumbs = {};
   var el7 = (tag, cls = "", text) => {
@@ -7041,9 +7839,9 @@ ${stack}`.slice(0, 2e3);
     if (text !== void 0) e.textContent = String(text);
     return e;
   };
-  function openCustomize(profile2, isAdmin = false, onTimeChange = () => {
+  function openCustomize(profile3, isAdmin = false, onTimeChange = () => {
   }) {
-    cust = { profile: profile2, isAdmin, onTimeChange };
+    cust = { profile: profile3, isAdmin, onTimeChange };
     renderCustomize();
     show("customize");
     void ensurePreview();
@@ -7054,8 +7852,8 @@ ${stack}`.slice(0, 2e3);
       return;
     }
     previewTried = true;
-    preview2 = await staffPreview($8("staffCanvas"));
-    if (preview2) staffThumbs = Object.fromEntries(preview2.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
+    preview3 = await staffPreview($9("staffCanvas"));
+    if (preview3) staffThumbs = Object.fromEntries(preview3.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
     renderCustomize();
   }
   for (const b of document.querySelectorAll("#custTabs .cust-tab")) {
@@ -7066,19 +7864,19 @@ ${stack}`.slice(0, 2e3);
   }
   var thisMonth = () => (/* @__PURE__ */ new Date()).getMonth() + 1;
   var monthName = (m) => new Date(2026, m - 1, 15).toLocaleDateString(locale(), { month: "long" });
-  function custItems(profile2, isAdmin) {
-    const lvl = levelOf(profile2.xp);
-    const best = Math.max(profile2.bestStreak ?? 0, profile2.streak ?? 0);
+  function custItems(profile3, isAdmin) {
+    const lvl = levelOf(profile3.xp);
+    const best = Math.max(profile3.bestStreak ?? 0, profile3.streak ?? 0);
     const time = resolveTime(getTimePref());
     if (custTab === "staff") {
       return STAFFS.map((s) => ({
         id: s.id,
         name: s.name,
         blurb: s.blurb,
-        locked: !isAdmin && !staffUnlocked(s.id, best, profile2.unlocks),
+        locked: !isAdmin && !staffUnlocked(s.id, best, profile3.unlocks),
         lock: s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : "",
         lockedToast: s.season ? `The ${s.name} is the ${monthName(s.season)} reward \u2014 complete that month's goals (see Progress)${s.season === thisMonth() ? " \u2014 it's on now!" : ""}` : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
-        equipped: (profile2.staff ?? "verdant") === s.id,
+        equipped: (profile3.staff ?? "verdant") === s.id,
         tile: () => {
           if (staffThumbs[s.id]) {
             const img = document.createElement("img");
@@ -7101,7 +7899,7 @@ ${stack}`.slice(0, 2e3);
         locked: !isAdmin && !beta.open && lvl < b.level,
         lock: `Level ${b.level}`,
         lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
-        equipped: profile2.background === b.id,
+        equipped: profile3.background === b.id,
         tile: () => {
           const d = el7("div", "bg-thumb");
           d.innerHTML = backgroundThumb(b.id, time);
@@ -7110,14 +7908,27 @@ ${stack}`.slice(0, 2e3);
         equip: () => api.setBackground(b.id)
       }));
     }
+    if (custTab === "profile") {
+      return BORDERS.map((b) => ({
+        id: b.id,
+        name: b.name === "No border" ? b.name : `${b.name} border`,
+        blurb: `${b.blurb} Round your profile picture \u2014 everyone sees it in lobbies, battles and on your profile card.`,
+        locked: !isAdmin && !borderUnlocked(b.id, lvl),
+        lock: `Level ${b.level}`,
+        lockedToast: `Reach level ${b.level} to unlock the ${b.name} border`,
+        equipped: (profile3.border ?? "none") === b.id,
+        tile: () => avatarDisc(profile3, b.id, "ci-avatar"),
+        equip: () => api.setBorder(b.id)
+      }));
+    }
     return FLAMES.map((f2) => ({
       id: f2.id,
       name: `${f2.name} flames`,
       blurb: f2.season ? `${monthName(f2.season)} reward: complete that month's goals (Progress page). Wraps you at 5 in a row and during your Omnipotence.` : "Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.",
-      locked: !isAdmin && !flameUnlocked(f2.id, profile2.xp, profile2.unlocks),
+      locked: !isAdmin && !flameUnlocked(f2.id, profile3.xp, profile3.unlocks),
       lock: f2.season ? `${monthName(f2.season)} goals` : `Level ${f2.level}`,
       lockedToast: f2.season ? `${f2.name} flames are the ${monthName(f2.season)} reward \u2014 complete that month's goals (see Progress)${f2.season === thisMonth() ? " \u2014 it's on now!" : ""}` : `Reach level ${f2.level} to unlock ${f2.name} flames`,
-      equipped: (profile2.flame ?? "blue") === f2.id,
+      equipped: (profile3.flame ?? "blue") === f2.id,
       tile: () => {
         const d = el7("span", "flame-dot big");
         d.style.setProperty("--c", f2.color);
@@ -7130,20 +7941,22 @@ ${stack}`.slice(0, 2e3);
   var CUST_SUB = {
     staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak \u2014 your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
     arena: () => "The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).",
+    profile: () => "Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.",
     omni: () => "Omnipotence: the flames of a 5\xD7 combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up."
   };
   function renderCustomize() {
     if (!cust) return;
-    const { profile: profile2, isAdmin, onTimeChange } = cust;
+    const { profile: profile3, isAdmin, onTimeChange } = cust;
     for (const b of document.querySelectorAll("#custTabs .cust-tab")) {
       const on = b.dataset.tab === custTab;
       b.classList.toggle("on", on);
       b.setAttribute("aria-selected", String(on));
     }
-    const items = custItems(profile2, isAdmin);
-    const sel = items.find((i) => i.id === picked2[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
-    $8("custSub").textContent = CUST_SUB[custTab](profile2);
-    const times = $8("bgTimes");
+    const items = custItems(profile3, isAdmin);
+    const lvl = levelOf(profile3.xp);
+    const sel = items.find((i) => i.id === picked3[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
+    $9("custSub").textContent = CUST_SUB[custTab](profile3);
+    const times = $9("bgTimes");
     times.hidden = custTab !== "arena";
     if (custTab === "arena") {
       const pref = getTimePref();
@@ -7168,28 +7981,49 @@ ${stack}`.slice(0, 2e3);
         toast(e.message);
       }
     };
-    $8("custGrid").className = `cust-grid ${custTab}`;
-    $8("custGrid").replaceChildren(...items.map((it) => {
+    $9("custGrid").className = `cust-grid ${custTab}`;
+    $9("custGrid").replaceChildren(...items.map((it) => {
       const b = el7("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
       b.setAttribute("aria-pressed", String(it === sel));
       const pic = el7("div", "ci-pic");
       pic.append(it.tile());
       b.append(pic, el7("div", "ci-name", it.name), el7("div", "ci-state", it.equipped ? "\u2713 Equipped" : it.locked ? `Locked \xB7 ${it.lock}` : "Unlocked"));
       b.onclick = () => {
-        picked2[custTab] = it.id;
+        picked3[custTab] = it.id;
         renderCustomize();
       };
       b.ondblclick = () => void equip(it);
       return b;
     }));
-    const canvas = $8("staffCanvas");
-    const stage2 = $8("custStage2");
-    const showCanvas = custTab === "staff" && !!preview2;
+    const extra = $9("custExtra");
+    extra.hidden = custTab !== "profile";
+    if (custTab === "profile") {
+      const box = el7("div", "ach-box");
+      const draw2 = () => renderAchievements(box, profile3.unlocks, profile3.badges ?? [], (next3) => {
+        const before = profile3.badges ?? [];
+        profile3.badges = next3;
+        renderCustomize();
+        api.setBadges(next3).then((r2) => {
+          profile3.badges = r2.badges;
+          onProfile({ ...profile3 });
+          renderCustomize();
+        }).catch((e) => {
+          profile3.badges = before;
+          renderCustomize();
+          toast(e.message);
+        });
+      });
+      draw2();
+      extra.replaceChildren(el7("h3", "", `Badges (up to ${BADGES_MAX})`), box);
+    }
+    const canvas = $9("staffCanvas");
+    const stage2 = $9("custStage2");
+    const showCanvas = custTab === "staff" && !!preview3;
     canvas.hidden = !showCanvas;
     stage2.hidden = showCanvas;
-    $8("custStage").dataset.tab = custTab;
+    $9("custStage").dataset.tab = custTab;
     if (custTab === "staff") {
-      if (preview2) preview2.show(sel.id);
+      if (preview3) preview3.show(sel.id);
       else {
         const g = el7("div", "pixel-staff big");
         g.innerHTML = pixelStaffSvg(sel.id);
@@ -7197,11 +8031,20 @@ ${stack}`.slice(0, 2e3);
       }
     } else if (custTab === "arena") {
       stage2.innerHTML = backgroundThumb(sel.id, resolveTime(getTimePref()));
+    } else if (custTab === "profile") {
+      const card = el7("div", "cust-card");
+      const meta = el7("div", "cc-meta");
+      meta.append(el7("div", "pp-name", myName()), el7("div", "pp-level", `Lv ${lvl}`));
+      const row = badgeRow(profile3.badges);
+      if (row) meta.append(row);
+      else meta.append(el7("div", "hint", "No badges yet \u2014 pick up to 3 below."));
+      card.append(avatarDisc(profile3, sel.id, "pp-pic big"), meta);
+      stage2.replaceChildren(card);
     } else {
       const w = el7("div", "wizard me onfire");
       paintFlame(w, sel.id);
       const sprite = el7("div", "sprite");
-      sprite.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", profile2.staff);
+      sprite.innerHTML = avatarSvg(avatarFor(profile3.studyLevels), "me", profile3.staff);
       w.append(el7("div", "aura"), sprite);
       const badge = el7("div", "combo-hud hot omni-badge");
       badge.style.setProperty("--flame", FLAMES.find((f2) => f2.id === sel.id).color);
@@ -7216,17 +8059,25 @@ ${stack}`.slice(0, 2e3);
     if (custTab === "staff") {
       const row = el7("div", "cust-2d");
       const who = el7("div", "c2-char");
-      who.innerHTML = avatarSvg(avatarFor(profile2.studyLevels), "me", sel.id);
+      who.innerHTML = avatarSvg(avatarFor(profile3.studyLevels), "me", sel.id);
       const st = el7("div", "pixel-staff");
       st.innerHTML = pixelStaffSvg(sel.id);
       row.append(who, st, el7("span", "hint", "2D arena"));
       info.push(row);
     }
-    $8("custInfo").replaceChildren(...info, btn);
+    $9("custInfo").replaceChildren(...info, btn);
+  }
+  function avatarDisc(p, border, cls) {
+    const d = el7("div", `${cls}${p.pic ? " has-pic" : ""}${borderCls(border)}`);
+    if (p.pic) {
+      const img = picEl(p.pic, "pic fill");
+      if (img) d.append(img);
+    } else d.textContent = (myName() || "\u2726").slice(0, 1).toUpperCase();
+    return d;
   }
 
   // src/client/progressui.ts
-  var $9 = $;
+  var $10 = $;
   var el8 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -7254,7 +8105,7 @@ ${stack}`.slice(0, 2e3);
     badges = [...myBadges];
     onBadgesChanged = changed;
     show("progress");
-    $9("progGrid").replaceChildren(el8("p", "hint", "Loading\u2026"));
+    $10("progGrid").replaceChildren(el8("p", "hint", "Loading\u2026"));
     try {
       page = await api.progress();
     } catch (e) {
@@ -7268,9 +8119,9 @@ ${stack}`.slice(0, 2e3);
   function render4() {
     if (!page) return;
     renderWeek(page.activity);
-    $9("progMonth").replaceChildren(...monthNodes(page.month));
+    $10("progMonth").replaceChildren(...monthNodes(page.month));
     renderHeatmap(page.activity);
-    renderAchievements($9("progAch"), unlocks, badges, (next3) => {
+    renderAchievements($10("progAch"), unlocks, badges, (next3) => {
       const before = badges;
       badges = next3;
       render4();
@@ -7316,13 +8167,13 @@ ${stack}`.slice(0, 2e3);
       const day = shift(t, i);
       const a = activity.find((x) => x.day === day);
       const bar = el8("div", "pw-bar");
-      const fill = el8("i");
-      fill.style.height = `${Math.round(score2(a) / max * 100)}%`;
+      const fill2 = el8("i");
+      fill2.style.height = `${Math.round(score2(a) / max * 100)}%`;
       bar.title = `${day}: ${a ? `${a.reviews} cards, ${a.games} games` : "nothing"}`;
-      bar.append(fill, el8("span", "", (/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "narrow" })));
+      bar.append(fill2, el8("span", "", (/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "narrow" })));
       bars.append(bar);
     }
-    $9("progWeek").replaceChildren(el8("h3", "", "This week"), grid, bars);
+    $10("progWeek").replaceChildren(el8("h3", "", "This week"), grid, bars);
   }
   var score2 = (a) => a ? a.reviews + a.games * 5 + (a.login ? 1 : 0) : 0;
   function monthNodes(m) {
@@ -7346,9 +8197,9 @@ ${stack}`.slice(0, 2e3);
     for (const g of m.goals) {
       const row = el8("div", "goal" + (g.value >= g.target ? " done" : ""));
       const bar = el8("div", "goal-bar");
-      const fill = el8("i");
-      fill.style.width = `${Math.round(g.value / g.target * 100)}%`;
-      bar.append(fill);
+      const fill2 = el8("i");
+      fill2.style.width = `${Math.round(g.value / g.target * 100)}%`;
+      bar.append(fill2);
       row.append(el8("span", "goal-label", `${g.value >= g.target ? "\u2713 " : ""}${g.label}`), el8("span", "goal-num", `${g.value} / ${g.target}`), bar);
       goals.append(row);
     }
@@ -7369,7 +8220,7 @@ ${stack}`.slice(0, 2e3);
     const first = `${calMonth}-01`;
     const days2 = new Date(Date.UTC(y, m, 0)).getUTCDate();
     const lead = ((/* @__PURE__ */ new Date(`${first}T12:00:00Z`)).getUTCDay() + 6) % 7;
-    const box = $9("progHeat");
+    const box = $10("progHeat");
     const oldest = shift(t, -182).slice(0, 7);
     const prev = el8("button", "pill cal-nav", "\u2039");
     const next3 = el8("button", "pill cal-nav", "\u203A");
@@ -7416,11 +8267,11 @@ ${stack}`.slice(0, 2e3);
       }
     }
     box.replaceChildren(head, grid);
-    $9("progHeatSub").textContent = `${active2} active days this month`;
+    $10("progHeatSub").textContent = `${active2} active days this month`;
   }
   function renderMastery() {
     if (!page) return;
-    const tabs = $9("progLevels");
+    const tabs = $10("progLevels");
     tabs.replaceChildren(...LEVELS.map((l) => {
       const words2 = page.mastery[l];
       const known = words2.filter(([, m]) => m >= 3).length;
@@ -7436,12 +8287,12 @@ ${stack}`.slice(0, 2e3);
     const words = page.mastery[level];
     const counts2 = [0, 0, 0, 0, 0];
     for (const [, m] of words) counts2[m]++;
-    $9("progLegend").replaceChildren(...MASTERY.map((m, i) => {
+    $10("progLegend").replaceChildren(...MASTERY.map((m, i) => {
       const item = el8("span", "ml-item");
       item.append(el8("i", m.cls), el8("span", "", `${m.label} \xB7 ${counts2[i]}`));
       return item;
     }));
-    const grid = $9("progGrid");
+    const grid = $10("progGrid");
     const frag = document.createDocumentFragment();
     for (const [kanji, m] of words) {
       const c = el8("span", `mg ${MASTERY[m].cls}`);
@@ -7450,10 +8301,10 @@ ${stack}`.slice(0, 2e3);
     }
     grid.replaceChildren(frag);
   }
-  $9("progressBack").onclick = () => show("menu");
+  $10("progressBack").onclick = () => show("menu");
 
   // src/client/dailyui.ts
-  var $10 = $;
+  var $11 = $;
   var el9 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -7481,7 +8332,7 @@ ${stack}`.slice(0, 2e3);
   async function openDaily(userId) {
     me2 = userId;
     show("daily");
-    $10("dailyMain").replaceChildren(el9("p", "hint", "Loading\u2026"));
+    $11("dailyMain").replaceChildren(el9("p", "hint", "Loading\u2026"));
     try {
       renderOverview(await api.daily());
     } catch (e) {
@@ -7489,7 +8340,7 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function renderBoard(o) {
-    const list = $10("dailyBoard");
+    const list = $11("dailyBoard");
     if (!o.board.length) {
       list.replaceChildren(el9("li", "hint", "Nobody has played today yet \u2014 be the first!"));
       return;
@@ -7500,9 +8351,29 @@ ${stack}`.slice(0, 2e3);
       return li;
     }));
   }
+  function missedBlock(o) {
+    const missed = (o.words ?? []).filter((w) => w.ok === false && w.id);
+    if (!missed.length) return [];
+    const grid = el9("div", "grid small daily-missed");
+    const cards = missed.map((w) => {
+      const card = el9("div", "card miss-card");
+      card.tabIndex = 0;
+      const k = el9("div", "k", w.kanji);
+      k.lang = "ja";
+      const r2 = el9("div", "r", w.reading);
+      r2.lang = "ja";
+      card.append(k, r2, el9("div", "m", w.meaning));
+      grid.append(card);
+      return { card, id: w.id };
+    });
+    tickCards(cards, (id, on) => {
+      void (on ? api.deckAdd("struggling", [id]) : api.deckRemove("struggling", [id])).catch((e) => toast(e.message));
+    });
+    return [el9("h4", "", "Missed \u2014 ticked words go to Struggling spells"), grid];
+  }
   function renderOverview(o) {
     renderBoard(o);
-    const main = $10("dailyMain");
+    const main = $11("dailyMain");
     const date = `Challenge of ${(/* @__PURE__ */ new Date(`${o.day}T12:00:00Z`)).toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}`;
     if (o.mine) {
       const words = el9("div", "daily-words");
@@ -7524,7 +8395,7 @@ ${stack}`.slice(0, 2e3);
         el9("p", "hint center", `10 new words ${nextReset()}.`),
         el9("h4", "", "Today's words"),
         words,
-        ...o.words?.some((w) => w.ok === false) ? [el9("p", "hint center", "The words you missed are now in Study spells \u2192 Struggling spells.")] : []
+        ...missedBlock(o)
       );
       return;
     }
@@ -7552,16 +8423,16 @@ ${stack}`.slice(0, 2e3);
     busy2 = false;
     renderPlay(null);
   }
-  function renderPlay(last) {
+  function renderPlay(last2) {
     if (!word) return;
-    const main = $10("dailyMain");
+    const main = $11("dailyMain");
     const dots = el9("div", "daily-dots");
     for (let i = 0; i < word.total; i++) dots.append(el9("i", i < results.length ? results[i] ? "ok" : "no" : i === word.index ? "now" : ""));
     const k = el9("div", "daily-kanji", word.kanji);
     k.lang = "ja";
     const bar = el9("div", "timer thin");
-    const fill = el9("div");
-    bar.append(fill);
+    const fill2 = el9("div");
+    bar.append(fill2);
     const input2 = el9("input", "daily-input");
     input2.lang = "ja";
     input2.autocomplete = "off";
@@ -7570,13 +8441,13 @@ ${stack}`.slice(0, 2e3);
     input2.addEventListener("paste", (e) => e.preventDefault());
     const skip2 = el9("button", "pill", "Skip");
     const fb = el9("div", "daily-fb");
-    if (last) {
-      fb.className = `daily-fb ${last.correct ? "ok" : "no"}`;
-      const kk = el9("span", "rk", last.kanji);
+    if (last2) {
+      fb.className = `daily-fb ${last2.correct ? "ok" : "no"}`;
+      const kk = el9("span", "rk", last2.kanji);
       kk.lang = "ja";
-      const rr = el9("span", "rr", last.reading);
+      const rr = el9("span", "rr", last2.reading);
       rr.lang = "ja";
-      fb.append(el9("b", "", last.correct ? "\u2713" : "\u2717"), kk, rr, el9("span", "", last.meaning));
+      fb.append(el9("b", "", last2.correct ? "\u2713" : "\u2717"), kk, rr, el9("span", "", last2.meaning));
     }
     main.replaceChildren(el9("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input2, skip2, fb);
     input2.focus();
@@ -7584,7 +8455,7 @@ ${stack}`.slice(0, 2e3);
     clearInterval(timer2);
     timer2 = window.setInterval(() => {
       const left = Math.max(0, limit - (performance.now() - t0));
-      fill.style.width = `${left / limit * 100}%`;
+      fill2.style.width = `${left / limit * 100}%`;
       if (left <= 0) void submit("");
     }, 100);
     input2.addEventListener("keydown", (e) => {
@@ -7621,14 +8492,14 @@ ${stack}`.slice(0, 2e3);
       void openDaily(me2);
     }
   }
-  $10("dailyBack").onclick = () => {
+  $11("dailyBack").onclick = () => {
     clearInterval(timer2);
     word = null;
     show("menu");
   };
 
   // src/client/friendsui.ts
-  var $11 = $;
+  var $12 = $;
   var el10 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -7661,12 +8532,12 @@ ${stack}`.slice(0, 2e3);
   var refreshFriendsBadge = () => void refresh(true);
   async function openFriends() {
     show("friends");
-    $11("friendMsg").textContent = "";
+    $12("friendMsg").textContent = "";
     await refresh(true);
     render5();
   }
   function render5() {
-    const list = $11("friendList");
+    const list = $12("friendList");
     const incoming = friends2.filter((f2) => f2.status === "incoming");
     const accepted = friends2.filter((f2) => f2.status === "accepted").sort((a, b) => Number(b.online) - Number(a.online) || a.username.localeCompare(b.username));
     const outgoing = friends2.filter((f2) => f2.status === "outgoing");
@@ -7709,30 +8580,30 @@ ${stack}`.slice(0, 2e3);
     ];
     list.replaceChildren(...nodes.length ? nodes : [el10("p", "hint", "No friends yet \u2014 add someone by their player name above.")]);
   }
-  $11("friendAdd").addEventListener("submit", async (e) => {
+  $12("friendAdd").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const input2 = $11("friendName");
+    const input2 = $12("friendName");
     const name = input2.value.trim();
     if (!name) return;
     try {
       const r2 = await api.addFriend(name);
       friends2 = r2.friends;
       fetchedAt = Date.now();
-      $11("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      $12("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
       input2.value = "";
       render5();
     } catch (err) {
-      $11("friendMsg").textContent = err.message;
+      $12("friendMsg").textContent = err.message;
     }
   });
-  $11("friendsBack").onclick = () => show("menu");
-  $11("friendsRefresh").onclick = () => void openFriends();
+  $12("friendsBack").onclick = () => show("menu");
+  $12("friendsRefresh").onclick = () => void openFriends();
   var INVITE_COOLDOWN_MS = 1e4;
   var invitedAt = /* @__PURE__ */ new Map();
   var lobbyIds = [];
   var cooldownTimer = 0;
   async function renderLobbyInvites(isLobby, inRoom2 = lobbyIds) {
-    const box = $11("lobbyInvite");
+    const box = $12("lobbyInvite");
     lobbyIds = inRoom2;
     clearTimeout(cooldownTimer);
     if (!isLobby) {
@@ -7765,7 +8636,7 @@ ${stack}`.slice(0, 2e3);
     }, Math.min(1e3, soonest));
   }
   function onInvite(msg) {
-    const box = $11("inviteBox");
+    const box = $12("inviteBox");
     const join2 = el10("button", "big", "Join");
     const no = el10("button", "pill", "Decline");
     const close = () => {
@@ -7795,7 +8666,7 @@ ${stack}`.slice(0, 2e3);
   initWhatsNew();
   applyUiZoom();
   var user = null;
-  var profile = null;
+  var profile2 = null;
   var you = "";
   var code = "";
   var mode2 = "reading";
@@ -7806,7 +8677,7 @@ ${stack}`.slice(0, 2e3);
   var writing = false;
   var charCount = 0;
   var written = [];
-  var store = {
+  var store2 = {
     get(key) {
       try {
         return localStorage.getItem(key);
@@ -7823,7 +8694,7 @@ ${stack}`.slice(0, 2e3);
   };
   var savedLevels = () => {
     try {
-      const raw = JSON.parse(store.get("kb:levels") ?? "[]");
+      const raw = JSON.parse(store2.get("kb:levels") ?? "[]");
       const lv = LEVELS.filter((l) => Array.isArray(raw) && raw.includes(l));
       if (kanaBeginner()) return ["KANA"];
       return lv.length ? lv : ["N3", "N2"];
@@ -7843,9 +8714,10 @@ ${stack}`.slice(0, 2e3);
     const title = $("modeTitle");
     title.hidden = !["prep", "battle", "deck"].includes(s);
     document.body.classList.toggle("mode-shown", !title.hidden);
+    title.classList.toggle("in-game", s === "battle" || s === "deck");
     if (s !== "battle" && document.activeElement?.id === "answer") document.activeElement.blur();
     if (!title.hidden) title.replaceChildren(modeBadge(s === "deck" ? "deck" : mode2), document.createTextNode(MODE_LABEL[s === "deck" ? "deck" : mode2]));
-    if (s === "menu" && profile) void refreshProfile();
+    if (s === "menu" && profile2) void refreshProfile();
     if (s !== "lobby") void renderLobbyInvites(false);
     railScreen(s);
     if (s === "menu" || s === "queue") void refreshOnline();
@@ -7858,7 +8730,7 @@ ${stack}`.slice(0, 2e3);
   var NO_BG_CHANGE = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
   var shownTime = "";
   function applyBackground(fade = false) {
-    const bg2 = profile?.background ?? "forest";
+    const bg2 = profile2?.background ?? "forest";
     const time = resolveTime(getTimePref());
     if (fade && NO_BG_CHANGE.has(currentScreen() ?? "")) return;
     paintBackground($("bg"), bg2, time, fade && shownTime !== "" && shownTime !== time);
@@ -7879,16 +8751,8 @@ ${stack}`.slice(0, 2e3);
   var writeShape = "";
   var prevStaff = null;
   function applyProfile(p) {
-    const before = profile?.unlocks ?? null;
     if (user) celebrateNew(user.id, p.unlocks);
-    if (before) {
-      for (const r2 of p.unlocks ?? []) if (!before.includes(r2) && !r2.startsWith("flag:")) {
-        const [kind, id] = r2.split(":");
-        const name = kind === "flame" ? `${FLAMES.find((f2) => f2.id === id)?.name} flames` : STAFFS.find((x) => x.id === id)?.name;
-        toast(`Monthly goals complete! ${name} unlocked \u2014 equip it in Customize.`, 7e3);
-      }
-    }
-    profile = p;
+    profile2 = p;
     setProfile(p);
     $("kanaRow").hidden = $("kanaInfo").hidden = false;
     $("kanaMastered").checked = !kanaBeginner();
@@ -7901,6 +8765,9 @@ ${stack}`.slice(0, 2e3);
       $("dailyBadge").hidden = !open2;
     });
     refreshFriendsBadge();
+    renderTasks(p);
+    if (user && !inRoom && currentScreen() === "menu") checkRewards(user.id, p, user.role === "admin", applyProfile);
+    if (user && p.tutorialDone && !tutorialShown && !inRoom && currentScreen() === "menu") tasksAtLogin(p);
     if (user?.role === "admin") void refreshInboxBadge();
     const locked = user?.role !== "admin" && (p.strugglingDue ?? 0) > STUDY_LOCK;
     $("menu").classList.toggle("locked", locked);
@@ -7914,6 +8781,12 @@ ${stack}`.slice(0, 2e3);
     preloadArena();
   }
   onProfileChange(applyProfile);
+  onTaskDone.cb = applyProfile;
+  initTasks();
+  taskActions.learn = () => $("studyBtn").click();
+  taskActions.quiz = () => void startQuiz();
+  taskActions.daily = () => $("dailyBtn").click();
+  taskActions.passage = () => $("passageBtn").click();
   async function refreshProfile() {
     try {
       applyProfile((await api.me()).profile);
@@ -7945,12 +8818,12 @@ ${stack}`.slice(0, 2e3);
     setRailUser(true);
     socket.start(getToken());
     if (!inRoom) show("menu");
-    if (!profile) void refreshProfile();
-    else applyProfile(profile);
+    if (!profile2) void refreshProfile();
+    else applyProfile(profile2);
   }
   function showAuth(message = "") {
     user = null;
-    profile = null;
+    profile2 = null;
     inRoom = false;
     setUser(null);
     setRailUser(false);
@@ -8111,7 +8984,7 @@ ${stack}`.slice(0, 2e3);
         if (msg.correct) {
           const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
           void speak(kana).then(() => sfx.correct(msg.combo));
-          if (mode2 !== "deck") comboMilestone(msg.combo, profile?.unlocks);
+          if (mode2 !== "deck") comboMilestone(msg.combo, profile2?.unlocks);
         } else {
           sfx.wrong();
           arena()?.fizzle("me");
@@ -8434,9 +9307,9 @@ ${stack}`.slice(0, 2e3);
       socket.send({ type: "create", mode: mode3, levels: savedLevels() });
     }
   }
-  $("progressBtn").onclick = () => void openProgress(profile?.unlocks ?? [], profile?.badges ?? [], (b) => {
-    if (profile) {
-      profile = { ...profile, badges: b };
+  $("progressBtn").onclick = () => void openProgress(profile2?.unlocks ?? [], profile2?.badges ?? [], (b) => {
+    if (profile2) {
+      profile2 = { ...profile2, badges: b };
       setBadges(b);
     }
   });
@@ -8458,7 +9331,7 @@ ${stack}`.slice(0, 2e3);
       } catch (e) {
         toast(e.message);
       }
-      if (!mastered) store.set("kb:levels", JSON.stringify(["KANA"]));
+      if (!mastered) store2.set("kb:levels", JSON.stringify(["KANA"]));
     }
   });
   $("modesBack").onclick = () => show("menu");
@@ -8476,7 +9349,7 @@ ${stack}`.slice(0, 2e3);
   $("studyBack").onclick = () => show("menu");
   $("customizeBtn").onclick = async () => {
     await refreshProfile();
-    if (profile) openCustomize(profile, user?.role === "admin", () => applyBackground(true));
+    if (profile2) openCustomize(profile2, user?.role === "admin", () => applyBackground(true));
   };
   $("customizeBack").onclick = () => show("menu");
   async function openAdmin() {
@@ -8522,7 +9395,7 @@ ${stack}`.slice(0, 2e3);
       e.target.checked = true;
       return;
     }
-    store.set("kb:levels", JSON.stringify(levels));
+    store2.set("kb:levels", JSON.stringify(levels));
     socket.send({ type: "levels", levels });
   });
   $("leaveLobby").onclick = () => socket.send({ type: "leave" });
@@ -8627,7 +9500,7 @@ ${stack}`.slice(0, 2e3);
     try {
       applyProfile((await api.setKana(box.checked)).profile);
       toast(box.checked ? "Kanji levels unlocked \u2014 pick N5 in Study spells to start!" : "Back to \u304B\u306A only: kanji levels are locked.", 5e3);
-      if (!box.checked) store.set("kb:levels", JSON.stringify(["KANA"]));
+      if (!box.checked) store2.set("kb:levels", JSON.stringify(["KANA"]));
     } catch (err) {
       box.checked = !box.checked;
       toast(err.message);
@@ -8765,8 +9638,8 @@ ${stack}`.slice(0, 2e3);
       e.target.value = "";
       if (!file) return;
       try {
-        const { profile: profile2 } = await api.setAvatar(await squarePicture(file));
-        setProfile(profile2);
+        const { profile: profile3 } = await api.setAvatar(await squarePicture(file));
+        setProfile(profile3);
         toast("Profile picture updated");
       } catch (err) {
         toast(err.message || "Could not use that picture");

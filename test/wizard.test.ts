@@ -1,29 +1,39 @@
-import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { avatarSvg, CHARACTER_MAPS, DRAGON_MAP, dragonSvg, PALETTES, WIZARD_MAP, wizardSvg } from '../src/client/wizard';
+import assert from 'node:assert/strict';
+import { characterSvg, dragonArt, staffSvg } from '../src/client/art2d';
+import { STAFFS } from '../src/shared/progress';
 
-test('wizard sprite map is a clean 16×20 grid with a colour for every symbol', () => {
-  assert.equal(WIZARD_MAP.length, 20);
-  for (const row of WIZARD_MAP) assert.equal(row.length, 16, row);
-  for (const side of ['me', 'opp'] as const) {
-    for (const ch of new Set(WIZARD_MAP.join(''))) if (ch !== '.') assert.ok(PALETTES[side][ch], `${side} palette has ${ch}`);
-    assert.ok(!wizardSvg(side).includes('undefined'));
+// 0.9.9.3: the 2D art is vector paintings (art2d.ts) instead of pixel maps
+
+const wellFormed = (svg: string) => {
+  assert.match(svg, /^<svg viewBox="0 0 \d+ \d+"/);
+  assert.ok(svg.endsWith('</svg>'));
+  assert.ok(!/NaN|undefined/.test(svg), 'no broken numbers or colours');
+  // every gradient / clip used is defined in the same picture
+  for (const [, id] of svg.matchAll(/url\(#(\w+)\)/g)) assert.ok(svg.includes(`id="${id}"`), `missing #${id}`);
+};
+
+test('every character is a 160×200 painting holding a staff, with unique ids across pictures', () => {
+  const all: string[] = [];
+  for (const k of ['wizard', 'witch', 'knight', 'goblin', 'kid', 'human'] as const) for (const side of ['me', 'opp', 'ally'] as const) {
+    const s = characterSvg(k, side, 'storm');
+    assert.match(s, /^<svg viewBox="0 0 160 200"/);
+    wellFormed(s);
+    assert.match(s, /class="orb"/, `${k} holds a staff with a gem`);
+    all.push(s);
   }
+  const ids = all.flatMap((s) => [...s.matchAll(/id="(\w+)"/g)].map((m) => m[1]));
+  assert.equal(new Set(ids).size, ids.length, 'gradient ids never clash when several characters are on the page');
 });
 
-test('dragon sprite is a clean 40×30 grid with glowing eyes', () => {
-  assert.equal(DRAGON_MAP.length, 30);
-  for (const row of DRAGON_MAP) assert.equal(row.length, 40, row);
-  const svg = dragonSvg();
-  assert.ok(svg.includes('class="eye"') && !svg.includes('undefined'));
-  assert.ok(wizardSvg('ally').includes('#3aa57c'));
+test('the Black Dragon is a 400×300 painting with glowing eyes', () => {
+  const s = dragonArt();
+  assert.match(s, /^<svg viewBox="0 0 400 300"/);
+  wellFormed(s);
+  assert.match(s, /class="eye"/);
 });
 
-test('every level character is a clean 16×20 sprite', () => {
-  for (const [name, map] of Object.entries(CHARACTER_MAPS)) {
-    assert.equal(map.length, 20, name);
-    for (const row of map) assert.equal(row.length, 16, `${name}: ${row}`);
-    const svg = avatarSvg(name as any, 'me');
-    assert.ok(svg.startsWith('<svg') && !svg.includes('undefined'), name);
-  }
+test('every staff (seasonal ones too) has its own painting with a gem', () => {
+  for (const st of STAFFS) { const s = staffSvg(st.id); wellFormed(s); assert.match(s, /class="orb"/); }
+  assert.notEqual(staffSvg('verdant'), staffSvg('blossom'), 'a seasonal staff is recoloured');
 });

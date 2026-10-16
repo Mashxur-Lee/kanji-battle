@@ -224,11 +224,18 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
       } else if (req.method === 'GET' && url === '/api/study/quiz') {
         const u = await auth.authenticate(bearer(req));
         send(res, 200, { questions: await study.quiz(u, Number(query.get('n')) || 10) });
+      } else if (req.method === 'POST' && url === '/api/study/task') {
+        const u = await auth.authenticate(bearer(req));
+        const body = await readJson(req);
+        send(res, 200, await study.recordTask(u, body.task, resolveToday(body.today)));
       } else if (req.method === 'PUT' && url === '/api/study/daily-new') {
         const u = await auth.authenticate(bearer(req));
         const body = await readJson(req);
         await study.setDailyNew(u, body.n, resolveToday(body.today));
         send(res, 200, await study.summary(await auth.authenticate(bearer(req)), resolveToday(body.today)));
+      } else if (req.method === 'PUT' && url === '/api/me/border') {
+        const u = await auth.authenticate(bearer(req));
+        send(res, 200, { profile: await study.setBorder(u, (await readJson(req)).border) });
       } else if (req.method === 'PUT' && url === '/api/me/badges') {
         const u = await auth.authenticate(bearer(req));
         send(res, 200, { badges: await study.setBadges(u, (await readJson(req)).badges) });

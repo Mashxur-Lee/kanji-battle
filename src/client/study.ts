@@ -1,6 +1,6 @@
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
-import { avatarFor, BACKGROUNDS, beta, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
+import { avatarFor, BACKGROUNDS, beta, BORDERS, borderUnlocked, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
 import { staffPreview } from './arena';
 import type { StaffPreview } from './staffpreview';
 import { avatarSvg } from './wizard';
@@ -12,6 +12,8 @@ import type { DeckId } from '../shared/srs';
 import { DECK_LABEL, initDecks } from './decks';
 import { backgroundThumb, getTimePref, resolveTime, setTimePref, TIMES } from './backgrounds';
 import * as ui from './ui';
+import { BADGES_MAX, badgeRow, renderAchievements } from './achievements';
+import { tr } from './i18n';
 
 const $ = ui.$;
 type Deck = DeckId;
@@ -160,7 +162,64 @@ async function rate(r: Rating) {
 }
 
 $('showAnswer').onclick = flip;
-$('flash').onclick = flip;
+$('flash').onclick = () => { if (!swiped) flip(); };
+
+// ── swipe the card (0.9.9.3, like Quizlet): drag it left for Again / Hard, right for Okay / Easy — the further
+// you drag, the stronger the answer; a label on the card says which one you'd give if you let go here
+let swiped = false;
+{
+  const card = $('flash');
+  const stamp = document.createElement('div');
+  stamp.className = 'fc-stamp';
+  stamp.hidden = true;
+  card.append(stamp);
+  const ZONES: Array<[Rating, string]> = [['again', 'Again'], ['hard', 'Hard'], ['good', 'Okay'], ['easy', 'Easy']];
+  const zoneOf = (dx: number): [Rating, string] | null => {
+    const w = Math.max(220, card.offsetWidth), f = dx / w;
+    if (f <= -0.42) return ZONES[0];
+    if (f <= -0.16) return ZONES[1];
+    if (f >= 0.42) return ZONES[3];
+    if (f >= 0.16) return ZONES[2];
+    return null;
+  };
+  let x0 = 0, y0 = 0, id = -1, dx = 0, dragging = false;
+  const reset = (animate: boolean) => {
+    card.style.transition = animate ? 'transform .25s ease-out' : '';
+    card.style.transform = '';
+    stamp.hidden = true;
+    card.classList.remove('dragging');
+  };
+  card.addEventListener('pointerdown', (e) => {
+    if (!current || busy || (e.target as Element).closest('button')) return;
+    id = e.pointerId; x0 = e.clientX; y0 = e.clientY; dx = 0; dragging = false; swiped = false;
+  });
+  card.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id) return;
+    dx = e.clientX - x0;
+    if (!dragging) {
+      if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(e.clientY - y0)) return; // a tap, or scrolling
+      dragging = true; card.setPointerCapture(id); card.classList.add('dragging'); card.style.transition = '';
+    }
+    card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
+    const z = zoneOf(dx);
+    stamp.hidden = !z;
+    if (z) { stamp.textContent = tr(z[1]); stamp.className = `fc-stamp ${z[0]} ${dx < 0 ? 'l' : 'r'}`; }
+  });
+  const end = (e: PointerEvent) => {
+    if (e.pointerId !== id) return;
+    id = -1;
+    if (!dragging) return;
+    swiped = true; setTimeout(() => { swiped = false; }, 0); // no flip from the click that follows
+    const z = zoneOf(dx);
+    if (!z || !current) { reset(true); return; }
+    // away it flies, then the rating (seeing the answer first if you hadn't)
+    card.style.transition = 'transform .22s ease-in, opacity .22s';
+    card.style.transform = `translateX(${Math.sign(dx) * innerWidth}px) rotate(${Math.sign(dx) * 25}deg)`;
+    setTimeout(() => { reset(false); if (!flipped) flip(); void rate(z[0]); }, 200);
+  };
+  card.addEventListener('pointerup', end);
+  card.addEventListener('pointercancel', (e) => { if (e.pointerId === id) { id = -1; reset(true); } });
+}
 for (const b of document.querySelectorAll<HTMLButtonElement>('#rateRow .rate')) b.onclick = () => void rate(b.dataset.rating as Rating);
 addEventListener('keydown', (e) => {
   if ($('review').hidden || e.target instanceof HTMLInputElement) return;
@@ -176,7 +235,7 @@ $('reviewBack').onclick = () => void openStudy();
 $('reviewDoneBack').onclick = () => void openStudy();
 
 // ── customize: magic staff (login streak) · arena (level) · omnipotence (level) ──────────────────
-type CustTab = 'staff' | 'arena' | 'omni';
+type CustTab = 'staff' | 'arena' | 'omni' | 'profile';
 interface CustItem {
   id: string; name: string; blurb: string; locked: boolean; lock: string; equipped: boolean;
   tile: () => Node; equip: () => Promise<{ profile: Profile }>; lockedToast: string;
@@ -247,6 +306,16 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
       equip: () => api.setBackground(b.id as BackgroundId),
     }));
   }
+  if (custTab === 'profile') {
+    return BORDERS.map((b) => ({
+      id: b.id, name: b.name === 'No border' ? b.name : `${b.name} border`, blurb: `${b.blurb} Round your profile picture — everyone sees it in lobbies, battles and on your profile card.`,
+      locked: !isAdmin && !borderUnlocked(b.id, lvl), lock: `Level ${b.level}`,
+      lockedToast: `Reach level ${b.level} to unlock the ${b.name} border`,
+      equipped: (profile.border ?? 'none') === b.id,
+      tile: () => avatarDisc(profile, b.id, 'ci-avatar'),
+      equip: () => api.setBorder(b.id),
+    }));
+  }
   return FLAMES.map((f) => ({
     id: f.id, name: `${f.name} flames`, blurb: f.season ? `${monthName(f.season)} reward: complete that month's goals (Progress page). Wraps you at 5 in a row and during your Omnipotence.` : 'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.',
     locked: !isAdmin && !flameUnlocked(f.id, profile.xp, profile.unlocks), lock: f.season ? `${monthName(f.season)} goals` : `Level ${f.level}`,
@@ -261,6 +330,7 @@ const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
   staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak — your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
   arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
+  profile: () => 'Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.',
   omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up.',
 };
 
@@ -272,6 +342,7 @@ function renderCustomize() {
     b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on));
   }
   const items = custItems(profile, isAdmin);
+  const lvl = levelOf(profile.xp);
   const sel = items.find((i) => i.id === picked[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
   $('custSub').textContent = CUST_SUB[custTab](profile);
 
@@ -308,6 +379,21 @@ function renderCustomize() {
     return b;
   }));
 
+  // Profile: your badges (earned achievements) under the borders
+  const extra = $('custExtra');
+  extra.hidden = custTab !== 'profile';
+  if (custTab === 'profile') {
+    const box = el('div', 'ach-box');
+    const draw = () => renderAchievements(box, profile.unlocks, profile.badges ?? [], (next) => {
+      const before = profile.badges ?? [];
+      profile.badges = next; renderCustomize();
+      api.setBadges(next).then((r) => { profile.badges = r.badges; onProfile({ ...profile }); renderCustomize(); })
+        .catch((e) => { profile.badges = before; renderCustomize(); ui.toast((e as Error).message); });
+    });
+    draw();
+    extra.replaceChildren(el('h3', '', `Badges (up to ${BADGES_MAX})`), box);
+  }
+
   // the preview
   const canvas = $<HTMLCanvasElement>('staffCanvas');
   const stage2 = $('custStage2');
@@ -320,6 +406,15 @@ function renderCustomize() {
     else { const g = el('div', 'pixel-staff big'); g.innerHTML = pixelStaffSvg(sel.id); stage2.replaceChildren(g); }
   } else if (custTab === 'arena') {
     stage2.innerHTML = backgroundThumb(sel.id as BackgroundId, resolveTime(getTimePref()));
+  } else if (custTab === 'profile') {
+    // a preview of your profile card, as others see it
+    const card = el('div', 'cust-card');
+    const meta = el('div', 'cc-meta');
+    meta.append(el('div', 'pp-name', ui.myName()), el('div', 'pp-level', `Lv ${lvl}`));
+    const row = badgeRow(profile.badges);
+    if (row) meta.append(row); else meta.append(el('div', 'hint', 'No badges yet — pick up to 3 below.'));
+    card.append(avatarDisc(profile, sel.id, 'pp-pic big'), meta);
+    stage2.replaceChildren(card);
   } else {
     const w = el('div', 'wizard me onfire');
     ui.paintFlame(w, sel.id);
@@ -345,4 +440,11 @@ function renderCustomize() {
     info.push(row);
   }
   $('custInfo').replaceChildren(...info, btn);
+}
+
+/** Your picture (or initial) in a round frame with the given border — the Profile tab's tiles and preview. */
+function avatarDisc(p: Profile, border: string, cls: string) {
+  const d = el('div', `${cls}${p.pic ? ' has-pic' : ''}${ui.borderCls(border)}`);
+  if (p.pic) { const img = ui.picEl(p.pic, 'pic fill'); if (img) d.append(img); } else d.textContent = (ui.myName() || '✦').slice(0, 1).toUpperCase();
+  return d;
 }

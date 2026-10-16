@@ -94,6 +94,28 @@ export const SEASONS = [
   { month: 12, name: 'Starlight', reward: 'flame:starlight' },
 ] as const;
 /** The same three goals every month (counted on the player's own calendar days). */
+// ── avatar borders (0.9.9.3): round your profile picture, by level ──────────────────────────────────
+export interface BorderDef { id: string; name: string; level: number; blurb: string }
+export const BORDERS: readonly BorderDef[] = [
+  { id: 'none', name: 'No border', level: 0, blurb: 'Just your picture.' },
+  { id: 'apprentice', name: 'Apprentice', level: 1, blurb: 'A plain silver ring.' },
+  { id: 'adept', name: 'Adept', level: 5, blurb: 'A violet ring with four rune studs.' },
+  { id: 'master', name: 'Master', level: 10, blurb: 'A golden ring with a star at the top.' },
+  { id: 'archmage', name: 'Archmage', level: 15, blurb: 'A glowing ring of moving arcane light.' },
+];
+export const isBorder = (b: unknown): b is string => typeof b === 'string' && BORDERS.some((x) => x.id === b);
+export const borderUnlocked = (id: string, level: number) => (BORDERS.find((b) => b.id === id)?.level ?? 999) <= level;
+
+// ── the daily streak (0.9.9.3): a day counts once all four tasks are done ───────────────────────────────
+export const DAILY_TASKS = [
+  { id: 'learn', label: 'Study 10 spells (any deck)', target: 10 },
+  { id: 'quiz', label: 'Do a JLPT quiz', target: 1 },
+  { id: 'daily', label: 'Play the daily challenge', target: 1 },
+  { id: 'passage', label: 'Read a passage (fill in the blanks)', target: 1 },
+] as const;
+export type DailyTaskId = (typeof DAILY_TASKS)[number]['id'];
+export interface DailyTaskState { id: DailyTaskId; label: string; target: number; value: number }
+
 export const MONTH_GOALS = [
   { id: 'days', label: 'Play on 12 different days', target: 12 },
   { id: 'wins', label: 'Win 10 games', target: 10 },
