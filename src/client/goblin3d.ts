@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { C, type V3, surf, lathe, tube, box, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, tri, mixC } from './charkit';
+import { C, type V3, surf, lathe, tube, box, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC } from './charkit';
 
 const PAL = {
   skin: C(0x84933f), skinLo: C(0x66752e), skinHi: C(0x9aaa52), hair: C(0x2c2420), hairHi: C(0x45392f),
@@ -110,5 +110,6 @@ export function buildGoblin(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   add(tube([[0, 0, 0], [0, -0.12, 0.0], [0, -0.22, 0.04], [0, -0.3, 0.12], [0, -0.38, 0.2]], (t) => 0.042 - 0.012 * t, 7, (t, a) => S(a, t)), cloth, arm);
   bracer(arm, [0, -0.28, 0.1], [0, -0.38, 0.19]);
   const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.42, 0.23], materials, glowTex, staffSkin, handMesh(PAL.leather, cloth, true, PAL.skin, 1.05));
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 1.75, materials };
+  const eyes = glowEyes(head, [-1, 1].map((sx) => [sx * 0.38 * HEAD.w, 0.06 * HEAD.h, 0.9 * HEAD.d]) as V3[], EYE_COLORS.goblin, glowTex);
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 1.75, materials, eyes };
 }

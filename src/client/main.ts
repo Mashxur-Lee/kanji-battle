@@ -81,7 +81,8 @@ ui.onScreen((s) => {
   const title = ui.$('modeTitle');
   title.hidden = !['prep', 'battle', 'deck'].includes(s);
   document.body.classList.toggle('mode-shown', !title.hidden);
-  title.classList.toggle('in-game', s === 'battle' || s === 'deck'); // the clock takes the top centre; the name sits bottom-left
+  title.classList.toggle('in-game', s === 'battle'); // the clock takes the top centre; the name sits bottom-left
+  title.classList.toggle('in-deck', s === 'deck'); // Deck Duel: under your name, top-left (the Omnipotence button is bottom-left)
   // leaving the battle: let go of the answer box (it stays enabled between words so the phone keyboard stays up)
   if (s !== 'battle' && document.activeElement?.id === 'answer') (document.activeElement as HTMLElement).blur();
   if (!title.hidden) title.replaceChildren(ui.modeBadge(s === 'deck' ? 'deck' : mode), document.createTextNode(MODE_LABEL[s === 'deck' ? 'deck' : mode]));
@@ -655,6 +656,9 @@ async function openAdmin() {
       const promote = u.role !== 'admin';
       if (!confirm(promote ? `Make ${u.username} an admin? They will see the Admin page (users, inbox, stats) and can ban players.` : `Remove admin from ${u.username}?`)) return;
       try { await api.setRole(u.id, promote ? 'admin' : 'user'); await openAdmin(); } catch (e) { ui.$('adminInfo').textContent = (e as Error).message; }
+    }, async (u) => {
+      if (!confirm(`Delete the account “${u.username}” for good? Its XP, study cards, match history and friends are deleted too. This can’t be undone.`)) return;
+      try { await api.deleteUser(u.id); ui.toast(`${u.username} deleted`); await openAdmin(); } catch (e) { ui.$('adminInfo').textContent = (e as Error).message; }
     });
   } catch (e) {
     ui.setError((e as Error).message);

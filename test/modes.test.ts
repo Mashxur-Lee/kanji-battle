@@ -634,3 +634,18 @@ test('room: mouse look is relayed to the others only, clamped and throttled, and
   room.look('a', Number.NaN, 0, 3000);
   assert.equal(b.last('look')!.yaw, 0.5, 'bad numbers: dropped');
 });
+
+test('the Beta border (0.9.9.3.1): given once the tutorial is done, equippable; level borders by level', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const { MemoryStore } = await import('../src/server/db/Store');
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  let u = await store.create({ username: 'tester', passwordHash: 'x', role: 'user' } as any);
+  assert.ok(!(await study.profile(u)).unlocks.includes('border:beta'), 'not before the tutorial');
+  await assert.rejects(study.setBorder(u, 'beta'), /tutorial/);
+  u = (await store.update(u.id, { tutorialDone: true }))!;
+  assert.ok((await study.profile(u)).unlocks.includes('border:beta'));
+  u = (await store.findById(u.id))!;
+  assert.equal((await study.setBorder(u, 'beta')).border, 'beta');
+  await assert.rejects(study.setBorder(u, 'master'), /level 10/);
+});

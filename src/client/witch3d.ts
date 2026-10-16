@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { holdStaff, handMesh } from './charkit';
+import { EYE_COLORS, glowEyes, holdStaff, handMesh } from './charkit';
 
 type V3 = [number, number, number];
 const C = (hex: number) => new THREE.Color(hex);
@@ -295,5 +295,6 @@ export function buildWitch(side: Side, glowTex: THREE.Texture, staffSkin?: strin
   const rs = M(sleeve(0.4, 0.0, 0.07), cloth, arm); rs.rotation.x = -0.5;
   const wrist = M(new THREE.CylinderGeometry(0.03, 0.034, 0.12, 6), skin, arm, [0, -0.38, 0.19]); wrist.rotation.x = -0.5;
   const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.43, 0.24], materials, glowTex, staffSkin, handMesh(PAL.skin, cloth, true));
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials };
+  const eyes = glowEyes(head, [-1, 1].map((sx) => [sx * 0.38 * HEAD.w, 0.06 * HEAD.h, 0.9 * HEAD.d]) as V3[], EYE_COLORS.witch, glowTex);
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials, eyes };
 }

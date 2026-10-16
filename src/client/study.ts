@@ -309,8 +309,8 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
   if (custTab === 'profile') {
     return BORDERS.map((b) => ({
       id: b.id, name: b.name === 'No border' ? b.name : `${b.name} border`, blurb: `${b.blurb} Round your profile picture — everyone sees it in lobbies, battles and on your profile card.`,
-      locked: !isAdmin && !borderUnlocked(b.id, lvl), lock: `Level ${b.level}`,
-      lockedToast: `Reach level ${b.level} to unlock the ${b.name} border`,
+      locked: !isAdmin && !borderUnlocked(b.id, lvl, profile.unlocks), lock: b.unlock ? 'Tutorial' : `Level ${b.level}`,
+      lockedToast: b.unlock ? 'Finish the tutorial to get the Beta border' : `Reach level ${b.level} to unlock the ${b.name} border`,
       equipped: (profile.border ?? 'none') === b.id,
       tile: () => avatarDisc(profile, b.id, 'ci-avatar'),
       equip: () => api.setBorder(b.id),
@@ -426,7 +426,7 @@ function renderCustomize() {
   }
 
   // name, description, Equip
-  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? (sel.lock.startsWith('Level') ? `Unlocks at ${sel.lock.replace('Level', 'level')}` : sel.lock.endsWith('goals') ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}`) : 'Equip') as HTMLButtonElement;
+  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? (sel.lock.startsWith('Level') ? `Unlocks at ${sel.lock.replace('Level', 'level')}` : sel.lock === 'Tutorial' ? 'Finish the tutorial to unlock' : sel.lock.endsWith('goals') ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}`) : 'Equip') as HTMLButtonElement;
   btn.disabled = sel.equipped;
   btn.classList.toggle('locked', sel.locked);
   btn.onclick = () => void equip(sel);

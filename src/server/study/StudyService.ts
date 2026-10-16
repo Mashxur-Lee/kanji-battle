@@ -3,7 +3,7 @@ import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry }
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
-import { BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
+import { BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
@@ -59,6 +59,8 @@ export class StudyService {
   async profile(u: UserRecord, now = Date.now()): Promise<Profile> {
     // achievements earned outside a match (streaks, spells learned, friends, level, monthly rewards)
     if ((await this.grantAchievements(u.id)).length) u = (await this.store.findById(u.id)) ?? u;
+    // the Beta border: everyone who has finished the tutorial (0.9.9.3.1)
+    if ((u.tutorialDone ?? true) && !(u.unlocks ?? []).includes(BETA_BORDER)) u = (await this.store.update(u.id, { unlocks: [...(u.unlocks ?? []), BETA_BORDER] })) ?? u;
     const learned = await this.store.learnedCount(u.id);
     const learnedToday = now < u.critExpires ? u.critCount : 0;
     return {
@@ -416,7 +418,7 @@ export class StudyService {
   async setBorder(u: UserRecord, b: unknown) {
     if (!isBorder(b)) throw new StudyError('Unknown border');
     const def = BORDERS.find((x) => x.id === b)!;
-    if (u.role !== 'admin' && !borderUnlocked(b, levelOf(u.xp))) throw new StudyError(`Unlocks at level ${def.level}`, 403);
+    if (u.role !== 'admin' && !borderUnlocked(b, levelOf(u.xp), u.unlocks)) throw new StudyError(def.unlock ? 'Finish the tutorial to get the Beta border' : `Unlocks at level ${def.level}`, 403);
     await this.store.update(u.id, { border: b });
     return this.profile((await this.store.findById(u.id)) ?? u);
   }

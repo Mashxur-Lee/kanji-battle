@@ -239,7 +239,7 @@ function ago(t: number) {
   const m = Math.max(0, Math.round((Date.now() - t) / 60_000));
   return m < 60 ? `${m} min` : m < 60 * 24 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`;
 }
-export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: string; persistent: boolean }, onToggle: (u: AdminUserRow) => void, onRole?: (u: AdminUserRow) => void) {
+export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: string; persistent: boolean }, onToggle: (u: AdminUserRow) => void, onRole?: (u: AdminUserRow) => void, onDelete?: (u: AdminUserRow) => void) {
   const banned = users.filter((u) => u.banned).length;
   const online = users.filter((u) => u.online).length;
   $('adminInfo').textContent = `${online} online now · ${users.length} accounts · ${banned} banned`;
@@ -265,6 +265,12 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
         const r = h('button', 'pill' + (u.role === 'admin' ? '' : ' promote'), u.role === 'admin' ? 'Remove admin' : 'Make admin') as HTMLButtonElement;
         r.onclick = () => onRole(u);
         action.append(r);
+      }
+      // delete the account for good (test accounts): not yourself, not an admin
+      if (onDelete && u.role !== 'admin' && u.id !== me.id) {
+        const d = h('button', 'pill danger del-user', '🗑 Delete', { title: 'Delete this account and all its progress' }) as HTMLButtonElement;
+        d.onclick = () => onDelete(u);
+        action.append(d);
       }
       const presence = append(h('td', 'presence ' + (u.online ? 'on' : 'off')), h('span', 'dot'),
         append(h('span', 'pr-txt'), h('b', '', u.online ? 'Online' : 'Offline'),

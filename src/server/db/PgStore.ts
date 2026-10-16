@@ -254,6 +254,11 @@ export class PgStore implements Store {
     }
   }
   async list() { return (await this.sql<UserRow[]>`select * from kw_users order by created_at`).map(toUser); }
+  async deleteUser(id: string) {
+    // every other table refers to kw_users with "on delete cascade" (reports: set null)
+    const r = await this.sql`delete from kw_users where id = ${id}`;
+    return r.count > 0;
+  }
   async update(id: string, patch: UserPatch) {
     const set: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(patch)) if (v !== undefined) set[COLUMNS[k as keyof UserPatch]] = v;

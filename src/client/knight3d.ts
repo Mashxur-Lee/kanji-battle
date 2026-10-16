@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { C, type V3, surf, lathe, tube, box, painted, materialKit, add, holdStaff, handMesh, tri, mixC } from './charkit';
+import { C, type V3, surf, lathe, tube, box, painted, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC } from './charkit';
 
 const PAL = {
   plate: C(0xd6cfbf), plateHi: C(0xe8e2d4), plateLo: C(0xa9a291), plateDark: C(0x7c7668),
@@ -120,5 +120,6 @@ export function buildKnight(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   add(painted(new THREE.SphereGeometry(0.05, 7, 5), PAL.plateHi), plate, arm, [0, -0.24, 0.05]);
   add(tube([[0, -0.25, 0.07], [0, -0.33, 0.15], [0, -0.39, 0.21]], (t) => 0.045 + 0.01 * t, 7, (t, a) => P(a, t)), plate, arm);
   const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.43, 0.25], materials, glowTex, staffSkin, handMesh(PAL.plateHi, plate, true, PAL.plateLo, 1.15));
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials };
+  const eyes = glowEyes(head, [[-0.035, 0.016, 0.128], [0.035, 0.016, 0.128]], EYE_COLORS.knight, glowTex); // in the visor slit
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials, eyes };
 }

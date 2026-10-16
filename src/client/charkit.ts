@@ -248,3 +248,25 @@ export function handMesh(color: THREE.Color, m: THREE.Material, grip: boolean, t
   g.scale.setScalar(size);
   return g;
 }
+
+/** The eyes' glow colour per character (0.9.9.3.1): shown on fire — a combo, or a Deck Duel Omnipotence. */
+export const EYE_COLORS: Record<string, number> = { goblin: 0xff3a24, witch: 0xb86bff, wizard: 0x49a8ff, knight: 0xff3030 };
+/** Two glowing eyes on a head (hidden until arena3d turns them on): a hot core and an additive halo each. */
+export function glowEyes(head: THREE.Object3D, eyes: V3[], color: number, glowTex: THREE.Texture) {
+  const g = new THREE.Group();
+  g.name = 'eyes';
+  g.visible = false;
+  const core = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.3), transparent: true, depthWrite: false });
+  // normal blending: a coloured glow even over pale skin (additive light washes out to white there)
+  const halo = new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, opacity: 0.8, depthWrite: false });
+  for (const p of eyes) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), core);
+    m.position.set(...p); m.scale.set(1.6, 0.75, 0.5);
+    g.add(m);
+    const s = new THREE.Sprite(halo);
+    s.position.set(p[0], p[1], p[2] + 0.012); s.scale.setScalar(0.06);
+    g.add(s);
+  }
+  head.add(g);
+  return g;
+}

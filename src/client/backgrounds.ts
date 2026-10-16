@@ -1,5 +1,5 @@
 import type { BackgroundId } from '../shared/progress';
-import { characterSvg, dragonArt } from './art2d';
+import { characterSvg } from './art2d';
 
 // Painted backgrounds: layered SVG scenes (no image files), each in three times of day.
 // Small living details are animated with CSS classes (bg-*) defined in style.css.
@@ -191,7 +191,7 @@ function brazier(x: number, base: number, s: number, stone: string, lit: boolean
 }
 /** Grass tufts along a line (the near ground). */
 function grass(n: number, y0: number, y1: number, color: string, hmin = 14, hmax = 34) {
-  return `<g class="bg-sway">${Array.from({ length: n }, () => {
+  return `<g>${Array.from({ length: n }, () => {
     const x = r(0, W), y = r(y0, y1), h = r(hmin, hmax);
     return `<path d="M${f(x)} ${f(y)} q${f(r(-6, 2))} ${f(-h * 0.6)} ${f(r(-10, -2))} ${f(-h)} M${f(x + 3)} ${f(y)} q${f(r(0, 4))} ${f(-h * 0.7)} ${f(r(4, 10))} ${f(-h * 0.9)}" stroke="${color}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
   }).join('')}</g>`;
@@ -234,7 +234,7 @@ function swamp(t: TimeOfDay) {
     for (let i = 0; i < 6; i++) { const mx = x + r(-h * 0.35, h * 0.4), my = y - h * r(0.7, 1); s += `<path class="bg-sway" d="M${f(mx)} ${f(my)} q 4 ${f(r(20, 40))} -2 ${f(r(40, 80))}" stroke="${pick(t, '#6e8a5a', '#5c4a42', '#2a3e26')}" stroke-width="3" fill="none" opacity=".85"/>`; }
     return s;
   };
-  const reeds = (n: number, y0: number, y1: number, c: string) => Array.from({ length: n }, () => { const x = r(0, W), y = r(y0, y1), h = r(50, 110); return `<g class="bg-sway"><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`; }).join('');
+  const reeds = (n: number, y0: number, y1: number, c: string) => Array.from({ length: n }, () => { const x = r(0, W), y = r(y0, y1), h = r(50, 110); return `<g><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`; }).join('');
   const lit = t !== 'day';
   return `<defs>${grad('sk', sky)}${grad('wt', [[0, water[0]], [1, water[1]]])}${radial('wisp', [[0, '#cfff9a', 0.9], [1, '#cfff9a', 0]])}${floorDefs(stone)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
@@ -295,7 +295,6 @@ function castle(t: TimeOfDay) {
   const tower = (x: number, w: number, h: number) => `<rect x="${x}" y="${640 - h}" width="${w}" height="${h}" fill="${stoneC}"/><rect x="${x + w * 0.62}" y="${640 - h}" width="${w * 0.38}" height="${h}" fill="#000" opacity=".2"/><polygon points="${x - 10},${640 - h} ${x + w / 2},${560 - h} ${x + w + 10},${640 - h}" fill="${roof}"/>`
     + Array.from({ length: Math.floor(h / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? '#ffcf6a' : '#20202e'}" opacity="${lit ? (rnd() > 0.35 ? 0.95 : 0.2) : 0.6}"${lit ? ' class="bg-flicker slow"' : ''}/>`).join('')
     + `<line x1="${x + w / 2}" y1="${560 - h}" x2="${x + w / 2}" y2="${520 - h}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
-  const dragon = dragonArt().replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
   const soldier = (x: number, y: number, s: number, flip: boolean, weapon: 'spear' | 'sword') => {
     const c = pick(t, '#2c3038', '#1a0c10', '#06070e');
     const g = `<circle cx="0" cy="-58" r="7"/><path d="M-7 -62 q7 -14 14 0 z"/><rect x="-8" y="-50" width="16" height="30" rx="4"/><rect x="-8" y="-22" width="6" height="22"/><rect x="2" y="-22" width="6" height="22"/><ellipse cx="-11" cy="-36" rx="7" ry="11"/>`
@@ -310,7 +309,6 @@ function castle(t: TimeOfDay) {
     ${t === 'night' ? milkyWay() + stars(160, 460) + moon(300, 150, 52, '#e8e6ff') : t === 'sunset' ? horizonGlow(560, '#ff5a2a') + sun(1250, 520, 90, '#ffb070', '#ff5a3a') + clouds(5, 120, 300, '#ff9a7a', 0.4) : sun(1280, 140, 44, '#fffbe6', '#ffffff') + clouds(7, 80, 280, '#ffffff', 0.85)}
     ${mountains(600, 110, pick(t, '#7686a2', '#3a1622', '#0e1030'), 1.3)}
     ${haze(620, pick(t, '#dfe8f4', '#ff7a5a', '#1a2050'), 0.5)}
-    <g class="bg-dragon"><g transform="scale(.55)" opacity="${pick(t, 0.9, 0.85, 0.75)}">${dragon}</g></g>
     ${hills(640, 18, pick(t, '#4e5e4c', '#1a0a12', '#10122a'))}
     <rect x="560" y="430" width="480" height="210" fill="${stoneC}"/>
     ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="${stoneC}"/>`).join('')}

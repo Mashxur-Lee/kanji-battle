@@ -253,3 +253,21 @@ for (const [name, make] of stores) {
     await s.close?.();
   });
 }
+
+for (const [name, make] of stores) {
+  test(`delete an account and everything of it (0.9.9.3.1): ${name}`, async () => {
+    const s = make();
+    await s.init();
+    const a = await s.create({ username: `gone${Date.now() % 100000}`, passwordHash: 'h', role: 'user' });
+    const b = await s.create({ username: `stay${Date.now() % 100000}`, passwordHash: 'h', role: 'user' });
+    await s.saveCard(a.id, newCard('n5-1', Date.now()));
+    await s.addActivity(a.id, '2026-10-16', { reviews: 3 });
+    await s.requestFriend(a.id, b.id);
+    assert.equal(await s.deleteUser(a.id), true);
+    assert.equal(await s.findById(a.id), null);
+    assert.equal((await s.cards(a.id)).length, 0);
+    assert.equal((await s.activity(a.id, '2026-01-01')).length, 0);
+    assert.ok(await s.findById(b.id), 'other accounts stay');
+    assert.equal(await s.deleteUser(a.id), false, 'already gone');
+  });
+}

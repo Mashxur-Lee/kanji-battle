@@ -48,6 +48,8 @@ export interface Store {
   create(u: NewUser): Promise<UserRecord>;
   list(): Promise<UserRecord[]>;
   update(id: string, patch: UserPatch): Promise<UserRecord | null>;
+  /** Delete an account and everything of it (cards, picture, history, friends …). */
+  deleteUser(id: string): Promise<boolean>;
   addXp(id: string, delta: number): Promise<number>;
   /** Every card in every deck (each has `deck`). */
   cards(userId: string): Promise<SrsCard[]>;
@@ -144,6 +146,15 @@ export class MemoryStore implements Store {
     return { ...rec };
   }
   async list() { return [...this.users.values()].map((r) => ({ ...r })).sort((a, b) => a.createdAt.localeCompare(b.createdAt)); }
+  async deleteUser(id: string) {
+    if (!this.users.delete(id)) return false;
+    this.srs.delete(id); this.custom.delete(id); this.avatars.delete(id); this.history.delete(id); this.activityLog.delete(id);
+    for (const m of this.dailyResults.values()) m.delete(id);
+    this.friendLinks.delete(id);
+    for (const m of this.friendLinks.values()) m.delete(id);
+    this.persist();
+    return true;
+  }
   async update(id: string, patch: UserPatch) {
     const r = this.users.get(id);
     if (!r) return null;

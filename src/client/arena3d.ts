@@ -41,6 +41,8 @@ export interface ArenaApi {
   ko(who: Who): void;
   /** combo flames (5+ in a row) or a Deck Duel power: flames in the player's colour around them */
   onfire(who: Who, on: boolean, color?: string): void;
+  /** a burst of light from their glowing eyes (a Deck Duel Omnipotence going off) */
+  flashEyes(who: Who): void;
   channel(level: number): void;
   /** you drew a stroke / typed a letter: the staff moves */
   twitch(): void;
@@ -195,6 +197,8 @@ interface Fighter {
   aura: THREE.Sprite;
   hurtUntil: number; lungeUntil: number; frostUntil: number; burnUntil: number;
   frosted: boolean;
+  /** glowing eyes: a bright flash until then (an Omnipotence going off) */
+  eyesFlashUntil: number;
   /** where they look: target (from the network, or an idle wander) and the current, eased head turn */
   look: { yaw: number; pitch: number; at: number; curYaw: number; curPitch: number; seed: number };
 }
@@ -369,7 +373,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     aura.scale.set(height * 1.2, height * 1.2, 1); aura.position.y = height * 0.5;
     group.add(aura);
     scene.add(group);
-    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 } };
+    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 } };
     fighters.set(key, f);
     return f;
   }
@@ -988,6 +992,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       am.opacity += ((auraOn ? 0.55 + 0.2 * Math.sin(time * 5) : f.flame ? 0.35 : 0) - am.opacity) * Math.min(1, dt * 5);
       am.color.copy(key === 'boss' ? new THREE.Color(0xff7a2a) : f.flame ?? new THREE.Color(0xb48cff));
       if (f.flame) flames(f, f.flame, 2);
+      // glowing eyes: a slow pulse, a big flare right after an Omnipotence
+      const eyes = f.model?.eyes;
+      if (eyes?.visible) {
+        const flash = Math.max(0, f.eyesFlashUntil - now) / 1400;
+        const k = 1 + 0.25 * Math.sin(time * 7) + flash * 3.5;
+        for (const c of eyes.children) if ((c as THREE.Sprite).isSprite) c.scale.setScalar(0.06 * k);
+        if (!f.flame && flash <= 0) eyes.visible = false;
+      }
       if (now < f.burnUntil) flames(f, Math.random() < 0.5 ? 0xff5a1a : 0xffb030, 3);
       if (now < f.frostUntil && Math.random() < 0.3) flames(f, 0xcff2ff, 1);
       if (key === 'boss' && inhaling && Math.random() < 0.8) {
@@ -1188,6 +1200,13 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       }
       const f = fighters.get(who);
       if (f) f.flame = on ? new THREE.Color(color ?? '#6ee7ff') : null;
+      if (f?.model?.eyes) f.model.eyes.visible = on; // their eyes glow in the character's colour
+    },
+    flashEyes(who) {
+      const f = fighters.get(who);
+      if (!f?.model?.eyes) return;
+      f.model.eyes.visible = true;
+      f.eyesFlashUntil = performance.now() + 1400;
     },
     channel(level) { channelLevel = Math.max(0, Math.min(1, level)); },
     twitch() {
