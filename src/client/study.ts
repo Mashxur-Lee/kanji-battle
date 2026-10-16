@@ -1,7 +1,9 @@
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
-import { avatarFor, BACKGROUNDS, beta, BORDERS, borderUnlocked, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
-import { staffPreview } from './arena';
+import { avatarFor, BACKGROUNDS, beta, BORDERS, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
+import { arenaPreview, staffPreview } from './arena';
+import type { ArenaApi } from './arena3d';
+import { sceneSvg } from './backgrounds';
 import type { StaffPreview } from './staffpreview';
 import { avatarSvg } from './wizard';
 import { pixelStaffSvg } from './pixelstaffs';
@@ -240,7 +242,7 @@ interface CustItem {
   id: string; name: string; blurb: string; locked: boolean; lock: string; equipped: boolean;
   tile: () => Node; equip: () => Promise<{ profile: Profile }>; lockedToast: string;
 }
-let custTab: CustTab = 'staff';
+let custTab: CustTab = 'profile';
 const picked: Partial<Record<CustTab, string>> = {};
 let cust: { profile: Profile; isAdmin: boolean; onTimeChange: () => void } | null = null;
 let preview: StaffPreview | null = null;
@@ -394,13 +396,17 @@ function renderCustomize() {
     extra.replaceChildren(el('h3', '', `Badges (up to ${BADGES_MAX})`), box);
   }
 
-  // the preview
+  // the preview: the staff in 3D; the arena and the flames in a small 3D arena (0.9.9.3.2) — 2D without WebGL
   const canvas = $<HTMLCanvasElement>('staffCanvas');
   const stage2 = $('custStage2');
   const showCanvas = custTab === 'staff' && !!preview;
+  const in3d = (custTab === 'arena' || custTab === 'omni') && !!arena3;
   canvas.hidden = !showCanvas;
-  stage2.hidden = showCanvas;
+  $('arenaPreview').hidden = !in3d;
+  stage2.hidden = showCanvas || in3d;
   $('custStage').dataset.tab = custTab;
+  if ((custTab === 'arena' || custTab === 'omni') && !arena3Tried) void ensureArena3();
+  if (in3d) showArena3(custTab as 'arena' | 'omni', sel.id, profile); else arena3?.setActive(false);
   if (custTab === 'staff') {
     if (preview) preview.show(sel.id);
     else { const g = el('div', 'pixel-staff big'); g.innerHTML = pixelStaffSvg(sel.id); stage2.replaceChildren(g); }
@@ -431,6 +437,13 @@ function renderCustomize() {
   btn.classList.toggle('locked', sel.locked);
   btn.onclick = () => void equip(sel);
   const info: Node[] = [el('h3', '', sel.name), el('p', 'sub', sel.blurb)];
+  if (in3d && custTab === 'arena') { const t = el('div', 'cust-2d'); const th = el('div', 'bg-thumb'); th.innerHTML = backgroundThumb(sel.id as BackgroundId, resolveTime(getTimePref())); t.append(th, el('span', 'hint', '2D arena')); info.push(t); }
+  if (in3d && custTab === 'omni') {
+    const t = el('div', 'cust-2d');
+    const w = el('div', 'wizard me onfire c2-char'); ui.paintFlame(w, sel.id);
+    const sp = el('div', 'sprite'); sp.innerHTML = avatarSvg(avatarFor(profile.studyLevels), 'me', profile.staff);
+    w.append(el('div', 'aura'), sp); t.append(w, el('span', 'hint', '2D arena')); info.push(t);
+  }
   if (custTab === 'staff') {
     // the pixel version: what the 2D arena shows, in your character's hand
     const row = el('div', 'cust-2d');
@@ -448,3 +461,30 @@ function avatarDisc(p: Profile, border: string, cls: string) {
   if (p.pic) { const img = ui.picEl(p.pic, 'pic fill'); if (img) d.append(img); } else d.textContent = (ui.myName() || '✦').slice(0, 1).toUpperCase();
   return d;
 }
+
+// ── Customize → Arena / Omnipotence: a small live 3D arena with you in it (0.9.9.3.2) ──────────────────
+let arena3: ArenaApi | null = null;
+let arena3Tried = false;
+let arena3Key = '';
+async function ensureArena3() {
+  arena3Tried = true;
+  arena3 = await arenaPreview($<HTMLCanvasElement>('arenaPreview'));
+  if (arena3 && !$('customize').hidden) renderCustomize();
+}
+/** you stand across the arena (as others see you): the chosen arena, or your flames burning round you */
+function showArena3(tab: 'arena' | 'omni', id: string, p: Profile) {
+  if (!arena3) return;
+  const bgId = (tab === 'arena' ? id : p.background) as BackgroundId, time = resolveTime(getTimePref());
+  const character = avatarFor(p.studyLevels);
+  const key = `${bgId}-${time}-${character}-${p.staff}`;
+  if (key !== arena3Key) {
+    arena3Key = key;
+    arena3.setup({ layout: 'battle', bgSvg: sceneSvg(bgId, time), bgKey: `${bgId}-${time}`, time,
+      me: { id: 'me', character, staff: p.staff }, opp: { id: 'you', name: ui.myName(), character, staff: p.staff }, allies: [], boss: null });
+  }
+  arena3.setActive(true);
+  arena3.focusOpp(tab === 'omni'); // the flames: up close; the arena: the whole view
+  arena3.onfire('opp', tab === 'omni', tab === 'omni' ? flameColor(id) : undefined);
+}
+/** leaving Customize: the preview stops drawing */
+export function customizeHidden() { arena3?.setActive(false); }

@@ -92,7 +92,7 @@
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.3.1";
+  var VERSION = "0.9.9.3.2";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -777,6 +777,13 @@
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.3.2
+    "Words from": "\u0421\u043B\u043E\u0432\u0430 \u0438\u0437",
+    "+ Add to\u2026": "+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u2026",
+    "That word is not in the dictionary": "\u042D\u0442\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430 \u043D\u0435\u0442 \u0432 \u0441\u043B\u043E\u0432\u0430\u0440\u0435",
+    "already in": "\u0443\u0436\u0435 \u0432",
+    "No words in this deck yet \u2014 pick another deck above, or study some spells first.": "\u0412 \u044D\u0442\u043E\u0439 \u043A\u043E\u043B\u043E\u0434\u0435 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043B\u043E\u0432 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443 \u0432\u044B\u0448\u0435 \u0438\u043B\u0438 \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u0438\u0437\u0443\u0447\u0438\u0442\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F.",
+    "A short story with blanks \u2014 pick a deck, fill them in with its words, then check.": "\u041A\u043E\u0440\u043E\u0442\u043A\u0438\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0441 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u043C\u0438 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043A\u043E\u043B\u043E\u0434\u0443, \u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0438 \u0435\u0451 \u0441\u043B\u043E\u0432\u0430\u043C\u0438 \u0438 \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435.",
     // 0.9.9.3.1
     "\u{1F5D1} Delete": "\u{1F5D1} \u0423\u0434\u0430\u043B\u0438\u0442\u044C",
     "Delete this account and all its progress": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u044D\u0442\u043E\u0442 \u0430\u043A\u043A\u0430\u0443\u043D\u0442 \u0438 \u0432\u0435\u0441\u044C \u0435\u0433\u043E \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441",
@@ -2251,6 +2258,11 @@
     const create = globalThis.KWStaffPreview;
     return create?.(canvas) ?? null;
   }
+  async function arenaPreview(canvas) {
+    if (!webgl || !await loadBundle()) return null;
+    const create = globalThis.KWArena3D;
+    return create?.(canvas, { lite: arenaQuality() === "lite", preview: true }) ?? null;
+  }
   function preloadArena() {
     if (wanted()) setTimeout(() => void load2(), 1500);
   }
@@ -2677,7 +2689,8 @@
       ...players2.map((p) => {
         const li = h("li");
         const av = h("span", "who-av");
-        av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp", p.staff);
+        if (mode3 !== "deck") av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp", p.staff);
+        else av.hidden = true;
         const who = h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name);
         if (p.id !== you2) markProfile(who, p);
         li.append(av, picEl(p.pic, "pic", p.border), who);
@@ -3538,9 +3551,42 @@ ${stack}`.slice(0, 2e3);
     render();
   }
   var dateOf = (t) => t ? new Date(t).toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric" }) : "\u2014";
+  var sortKey = null;
+  var sortDir = 1;
+  var LEVEL_ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  var STATE_ORDER = ["new", "learning", "relearning", "review"];
+  function sortRows(list) {
+    if (!sortKey) return list;
+    const key = sortKey;
+    const val = (r2) => key === "kanji" ? r2.kanji : key === "reading" ? r2.reading : key === "meaning" ? meaningIn(r2.meaning).toLowerCase() : key === "level" ? r2.custom ? 99 : LEVEL_ORDER.indexOf(r2.level) : key === "added" ? r2.addedAt ?? 0 : STATE_ORDER.indexOf(r2.state);
+    return [...list].sort((a, b) => {
+      const x = val(a), y = val(b);
+      return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), lang() === "ru" ? "ru" : "ja")) * sortDir;
+    });
+  }
+  for (const th of document.querySelectorAll("#deckDialog th.sortable")) {
+    th.tabIndex = 0;
+    const go = () => {
+      const k = th.dataset.sort;
+      if (sortKey === k) sortDir = -sortDir;
+      else {
+        sortKey = k;
+        sortDir = 1;
+      }
+      for (const o of document.querySelectorAll("#deckDialog th.sortable")) o.dataset.dir = o === th ? sortDir > 0 ? "asc" : "desc" : "";
+      render();
+    };
+    th.onclick = go;
+    th.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        go();
+      }
+    };
+  }
   function render() {
     const f2 = $3("deckFilter").value.trim().toLowerCase();
-    const shown2 = rows.filter((r2) => !f2 || r2.kanji.includes(f2) || r2.reading.includes(f2) || r2.meaning.toLowerCase().includes(f2) || meaningIn(r2.meaning).toLowerCase().includes(f2));
+    const shown2 = sortRows(rows).filter((r2) => !f2 || r2.kanji.includes(f2) || r2.reading.includes(f2) || r2.meaning.toLowerCase().includes(f2) || meaningIn(r2.meaning).toLowerCase().includes(f2));
     $3("deckCount").textContent = `${rows.length} ${rows.length === 1 ? "spell" : "spells"}`;
     $3("deckRows").replaceChildren(...shown2.slice(0, 400).map((r2) => {
       const box = el2("input", "", void 0, { type: "checkbox", "aria-label": `Select ${r2.kanji}` });
@@ -3659,6 +3705,7 @@ ${stack}`.slice(0, 2e3);
     }
   });
   function tickCards(cards, onToggle) {
+    const setters = /* @__PURE__ */ new Map();
     for (const { card, id } of cards) {
       card.classList.add("tickable", "on");
       card.setAttribute("role", "checkbox");
@@ -3666,11 +3713,15 @@ ${stack}`.slice(0, 2e3);
       card.title = tr("Ticked: goes to your deck. Tap to keep it out.");
       const tick2 = el2("span", "mc-tick", "\u2713", { "aria-hidden": "true" });
       card.prepend(tick2);
-      const flip2 = () => {
-        const on = !card.classList.contains("on");
+      const show3 = (on) => {
         card.classList.toggle("on", on);
         card.setAttribute("aria-checked", String(on));
         tick2.textContent = on ? "\u2713" : "";
+      };
+      setters.set(id, show3);
+      const flip2 = () => {
+        const on = !card.classList.contains("on");
+        show3(on);
         onToggle(id, on);
       };
       card.onclick = flip2;
@@ -3681,6 +3732,7 @@ ${stack}`.slice(0, 2e3);
         }
       };
     }
+    return (id, on) => setters.get(id)?.(on);
   }
   function showMissedSave(missed) {
     const box = $3("missedSave");
@@ -3739,7 +3791,7 @@ ${stack}`.slice(0, 2e3);
       sel.disabled = false;
     };
     const story = el2("button", "pill", "Read them in a story");
-    story.onclick = () => openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning })));
+    story.onclick = () => openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning, id: m.id })));
     box.replaceChildren(el2("span", "hint", "Ticked words go to"), sel, status, story);
     say2();
     box.hidden = false;
@@ -4014,7 +4066,32 @@ ${stack}`.slice(0, 2e3);
   }
   function glossStory(g, kanji, reading, at) {
     const dict = g[0] !== kanji ? el2("span", "rd", `\u2192 ${g[0]}`, { lang: "ja" }) : el2("span");
-    showGloss(at, el2("b", "", kanji, { lang: "ja" }), el2("span", "rd", reading, { lang: "ja" }), dict, el2("span", "m", lang() === "ru" ? g[2] : g[1], { "data-no-i18n": "" }));
+    showGloss(at, el2("b", "", kanji, { lang: "ja" }), el2("span", "rd", reading, { lang: "ja" }), dict, el2("span", "m", lang() === "ru" ? g[2] : g[1], { "data-no-i18n": "" }), addToDeck(g[0]));
+  }
+  function addToDeck(word2, id) {
+    const sel = el2("select", "p-add", void 0, { "aria-label": "Add to a deck" });
+    sel.append(Object.assign(el2("option", "", "+ Add to\u2026"), { value: "" }));
+    for (const d of ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
+    sel.onchange = async () => {
+      const deck2 = sel.value;
+      if (!deck2) return;
+      sel.disabled = true;
+      try {
+        let vid = id;
+        if (!vid) {
+          const hits = (await api.searchWords(word2)).words;
+          vid = (hits.find((w) => w.kanji === word2) ?? hits[0])?.id;
+        }
+        if (!vid) throw new Error(tr("That word is not in the dictionary"));
+        const r2 = await api.deckAdd(deck2, [vid]);
+        toast(r2.added.length ? `${word2} \u2192 ${tr(DECK_LABEL[deck2])}` : `${word2}: ${tr("already in")} ${tr(DECK_LABEL[deck2])}`);
+      } catch (e) {
+        toast(e.message);
+      }
+      sel.value = "";
+      sel.disabled = false;
+    };
+    return sel;
   }
   function drawBlank(i) {
     const b = blanks[i];
@@ -4028,7 +4105,7 @@ ${stack}`.slice(0, 2e3);
       r3.append(b.answer.kanji, el2("rt", "", b.answer.kanji === b.answer.reading ? "" : b.answer.reading));
       b.el.append(r3);
       if (!ok && b.put) b.el.append(el2("s", "p-was", b.put.kanji));
-      b.el.onclick = () => showGloss(b.el, el2("b", "", b.answer.kanji, { lang: "ja" }), el2("span", "rd", b.answer.reading, { lang: "ja" }), el2("span", "m", meaningIn(b.answer.meaning)));
+      b.el.onclick = () => showGloss(b.el, el2("b", "", b.answer.kanji, { lang: "ja" }), el2("span", "rd", b.answer.reading, { lang: "ja" }), el2("span", "m", meaningIn(b.answer.meaning)), addToDeck(b.answer.kanji, b.answer.id));
       return;
     }
     const r2 = el2("ruby");
@@ -4077,7 +4154,7 @@ ${stack}`.slice(0, 2e3);
     drawTranslation();
     const list = pick2.map((w) => {
       const row = el2("div", "pw");
-      row.append(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)));
+      row.append(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)), addToDeck(w.kanji, w.id));
       return row;
     });
     $3("passageWords").replaceChildren(el2("div", "p-score", `${right} / ${blanks.length}`), el2("p", "hint center", right === blanks.length ? "Perfect \u2014 every word in its place!" : "Green: right. Red: the right word, with yours crossed out."), el2("h4", "", "Words in this story"), ...list);
@@ -4113,21 +4190,35 @@ ${stack}`.slice(0, 2e3);
     drawBank();
     $3("passageGloss").hidden = true;
     if (!pick2.length) {
-      text.replaceChildren(el2("p", "hint", "No words yet \u2014 the story uses your struggling spells (or the words you missed in a game)."));
+      text.replaceChildren(el2("p", "hint", "No words in this deck yet \u2014 pick another deck above, or study some spells first."));
       $3("passageWords").replaceChildren();
     }
   }
   $3("passageNew").onclick = buildPassage;
   $3("passageClose").onclick = () => $3("passageDialog").close();
-  $3("passageBtn").onclick = async () => {
+  var passageDeck = "struggling";
+  async function passageFrom(deck2) {
+    passageDeck = deck2;
+    $3("passageDeck").value = deck2;
     try {
-      let words = (await api.deckWords("struggling")).words;
-      if (words.length < 3) words = [...words, ...(await api.deckWords("all")).words.filter((w) => w.state !== "new")];
-      openPassage(words.slice(0, 40).map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning })));
+      let words = (await api.deckWords(deck2)).words;
+      if (deck2 === "struggling" && words.length < 3) words = [...words, ...(await api.deckWords("all")).words.filter((w) => w.state !== "new")];
+      const mapped = words.sort(() => Math.random() - 0.5).slice(0, 40).map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.vocabId }));
+      if (!$3("passageDialog").open) openPassage(mapped);
+      else {
+        passageWords = mapped;
+        buildPassage();
+      }
     } catch (e) {
       toast(e.message);
     }
-  };
+  }
+  {
+    const sel = $3("passageDeck");
+    for (const d of ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
+    sel.onchange = () => void passageFrom(sel.value);
+  }
+  $3("passageBtn").onclick = () => void passageFrom(passageDeck);
 
   // src/client/dailytasks.ts
   var $4 = $;
@@ -4338,6 +4429,28 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.3.2",
+      date: "2026-10",
+      en: [
+        "Customize: Profile comes first, then Arena, Magic staff and Omnipotence. Arena and Omnipotence now have a live 3D preview (your character in the arena, or wrapped in your flames up close), with the 2D look beside it.",
+        "Reading passage: choose which deck the story takes its words from, and add any word of the story to any of your decks.",
+        "Study \u2192 Words: tap Spell, Reading, Meaning, Level, Added or Status to sort the list (again to reverse it).",
+        "Omnipotence: the eyes now close the right way \u2014 fully shut, then open again.",
+        "Deck Duel: no mode name over the table, slim scrollbars, and no hero picture in the lobby (you pick your hero in the game).",
+        "Daily challenge: skipping words no longer adds 15 s each to your time, and words you unticked stay unticked when you come back.",
+        "New-look checkboxes and scrollbars; the Archmage border animates on PCs with reduced animations too; turning your phone to look around is smoother and quicker."
+      ],
+      ru: [
+        "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430: \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u041F\u0440\u043E\u0444\u0438\u043B\u044C, \u0437\u0430\u0442\u0435\u043C \u0410\u0440\u0435\u043D\u0430, \u041C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u043F\u043E\u0441\u043E\u0445 \u0438 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E. \u0423 \u0410\u0440\u0435\u043D\u044B \u0438 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u0436\u0438\u0432\u043E\u0439 3D-\u043F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 (\u0432\u0430\u0448 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436 \u043D\u0430 \u0430\u0440\u0435\u043D\u0435 \u0438\u043B\u0438 \u0432 \u0441\u0432\u043E\u0451\u043C \u043F\u043B\u0430\u043C\u0435\u043D\u0438 \u043A\u0440\u0443\u043F\u043D\u044B\u043C \u043F\u043B\u0430\u043D\u043E\u043C), \u0430 \u0440\u044F\u0434\u043E\u043C \u2014 2D-\u0432\u0438\u0434.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u0432\u044B\u0431\u0438\u0440\u0430\u0439\u0442\u0435 \u043A\u043E\u043B\u043E\u0434\u0443, \u0438\u0437 \u043A\u043E\u0442\u043E\u0440\u043E\u0439 \u0431\u0435\u0440\u0443\u0442\u0441\u044F \u0441\u043B\u043E\u0432\u0430, \u0438 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0439\u0442\u0435 \u043B\u044E\u0431\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u0432 \u043B\u044E\u0431\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443.",
+        "\u0423\u0447\u0451\u0431\u0430 \u2192 \u0421\u043B\u043E\u0432\u0430: \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \xAB\u0417\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435\xBB, \xAB\u0427\u0442\u0435\u043D\u0438\u0435\xBB, \xAB\u0417\u043D\u0430\u0447\u0435\u043D\u0438\u0435\xBB, \xAB\u0423\u0440\u043E\u0432\u0435\u043D\u044C\xBB, \xAB\u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E\xBB \u0438\u043B\u0438 \xAB\u0421\u0442\u0430\u0442\u0443\u0441\xBB, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A (\u0435\u0449\u0451 \u0440\u0430\u0437 \u2014 \u0432 \u043E\u0431\u0440\u0430\u0442\u043D\u043E\u043C \u043F\u043E\u0440\u044F\u0434\u043A\u0435).",
+        "\u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E: \u0433\u043B\u0430\u0437\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E \u2014 \u043F\u043E\u043B\u043D\u043E\u0441\u0442\u044C\u044E, \u0430 \u043F\u043E\u0442\u043E\u043C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F.",
+        "\xAB\u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434\xBB: \u0431\u0435\u0437 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044F \u0440\u0435\u0436\u0438\u043C\u0430 \u043D\u0430\u0434 \u0441\u0442\u043E\u043B\u043E\u043C, \u0442\u043E\u043D\u043A\u0438\u0435 \u043F\u043E\u043B\u043E\u0441\u044B \u043F\u0440\u043E\u043A\u0440\u0443\u0442\u043A\u0438 \u0438 \u0431\u0435\u0437 \u043A\u0430\u0440\u0442\u0438\u043D\u043A\u0438 \u0433\u0435\u0440\u043E\u044F \u0432 \u043B\u043E\u0431\u0431\u0438 (\u0433\u0435\u0440\u043E\u044F \u0432\u044B\u0431\u0438\u0440\u0430\u044E\u0442 \u0432 \u0438\u0433\u0440\u0435).",
+        "\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435: \u043F\u0440\u043E\u043F\u0443\u0441\u043A \u0441\u043B\u043E\u0432\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442 15 \u0441 \u043A\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438, \u0430 \u0441\u043D\u044F\u0442\u044B\u0435 \u0433\u0430\u043B\u043E\u0447\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0435\u0441\u044C.",
+        "\u041D\u043E\u0432\u044B\u0435 \u0444\u043B\u0430\u0436\u043A\u0438 \u0438 \u043F\u043E\u043B\u043E\u0441\u044B \u043F\u0440\u043E\u043A\u0440\u0443\u0442\u043A\u0438; \u0440\u0430\u043C\u043A\u0430 \xAB\u0410\u0440\u0445\u0438\u043C\u0430\u0433\xBB \u0430\u043D\u0438\u043C\u0438\u0440\u0443\u0435\u0442\u0441\u044F \u0438 \u043D\u0430 \u041F\u041A \u0441 \u0443\u043C\u0435\u043D\u044C\u0448\u0435\u043D\u043D\u043E\u0439 \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u0435\u0439; \u043E\u0441\u043C\u0430\u0442\u0440\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043F\u043E\u0432\u043E\u0440\u043E\u0442\u043E\u043C \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0441\u0442\u0430\u043B\u043E \u043F\u043B\u0430\u0432\u043D\u0435\u0435 \u0438 \u0431\u044B\u0441\u0442\u0440\u0435\u0435."
+      ]
+    },
     {
       v: "0.9.9.3.1",
       date: "2026-10",
@@ -7886,7 +7999,7 @@ ${stack}`.slice(0, 2e3);
   $9("studyCustom").onclick = () => void startSession("custom");
   $9("reviewBack").onclick = () => void openStudy();
   $9("reviewDoneBack").onclick = () => void openStudy();
-  var custTab = "staff";
+  var custTab = "profile";
   var picked3 = {};
   var cust = null;
   var preview3 = null;
@@ -8078,9 +8191,14 @@ ${stack}`.slice(0, 2e3);
     const canvas = $9("staffCanvas");
     const stage2 = $9("custStage2");
     const showCanvas = custTab === "staff" && !!preview3;
+    const in3d = (custTab === "arena" || custTab === "omni") && !!arena3;
     canvas.hidden = !showCanvas;
-    stage2.hidden = showCanvas;
+    $9("arenaPreview").hidden = !in3d;
+    stage2.hidden = showCanvas || in3d;
     $9("custStage").dataset.tab = custTab;
+    if ((custTab === "arena" || custTab === "omni") && !arena3Tried) void ensureArena3();
+    if (in3d) showArena3(custTab, sel.id, profile3);
+    else arena3?.setActive(false);
     if (custTab === "staff") {
       if (preview3) preview3.show(sel.id);
       else {
@@ -8115,6 +8233,23 @@ ${stack}`.slice(0, 2e3);
     btn.classList.toggle("locked", sel.locked);
     btn.onclick = () => void equip(sel);
     const info = [el7("h3", "", sel.name), el7("p", "sub", sel.blurb)];
+    if (in3d && custTab === "arena") {
+      const t = el7("div", "cust-2d");
+      const th = el7("div", "bg-thumb");
+      th.innerHTML = backgroundThumb(sel.id, resolveTime(getTimePref()));
+      t.append(th, el7("span", "hint", "2D arena"));
+      info.push(t);
+    }
+    if (in3d && custTab === "omni") {
+      const t = el7("div", "cust-2d");
+      const w = el7("div", "wizard me onfire c2-char");
+      paintFlame(w, sel.id);
+      const sp = el7("div", "sprite");
+      sp.innerHTML = avatarSvg(avatarFor(profile3.studyLevels), "me", profile3.staff);
+      w.append(el7("div", "aura"), sp);
+      t.append(w, el7("span", "hint", "2D arena"));
+      info.push(t);
+    }
     if (custTab === "staff") {
       const row = el7("div", "cust-2d");
       const who = el7("div", "c2-char");
@@ -8133,6 +8268,39 @@ ${stack}`.slice(0, 2e3);
       if (img) d.append(img);
     } else d.textContent = (myName() || "\u2726").slice(0, 1).toUpperCase();
     return d;
+  }
+  var arena3 = null;
+  var arena3Tried = false;
+  var arena3Key = "";
+  async function ensureArena3() {
+    arena3Tried = true;
+    arena3 = await arenaPreview($9("arenaPreview"));
+    if (arena3 && !$9("customize").hidden) renderCustomize();
+  }
+  function showArena3(tab2, id, p) {
+    if (!arena3) return;
+    const bgId = tab2 === "arena" ? id : p.background, time = resolveTime(getTimePref());
+    const character = avatarFor(p.studyLevels);
+    const key = `${bgId}-${time}-${character}-${p.staff}`;
+    if (key !== arena3Key) {
+      arena3Key = key;
+      arena3.setup({
+        layout: "battle",
+        bgSvg: sceneSvg(bgId, time),
+        bgKey: `${bgId}-${time}`,
+        time,
+        me: { id: "me", character, staff: p.staff },
+        opp: { id: "you", name: myName(), character, staff: p.staff },
+        allies: [],
+        boss: null
+      });
+    }
+    arena3.setActive(true);
+    arena3.focusOpp(tab2 === "omni");
+    arena3.onfire("opp", tab2 === "omni", tab2 === "omni" ? flameColor(id) : void 0);
+  }
+  function customizeHidden() {
+    arena3?.setActive(false);
   }
 
   // src/client/progressui.ts
@@ -8425,8 +8593,13 @@ ${stack}`.slice(0, 2e3);
       grid.append(card);
       return { card, id: w.id };
     });
-    tickCards(cards, (id, on) => {
+    const set = tickCards(cards, (id, on) => {
       void (on ? api.deckAdd("struggling", [id]) : api.deckRemove("struggling", [id])).catch((e) => toast(e.message));
+    });
+    void api.deckWords("struggling").then((r2) => {
+      const have = new Set(r2.words.map((w) => w.vocabId));
+      for (const c of cards) set(c.id, have.has(c.id));
+    }).catch(() => {
     });
     return [el9("h4", "", "Missed \u2014 ticked words go to Struggling spells"), grid];
   }
@@ -8770,6 +8943,7 @@ ${stack}`.slice(0, 2e3);
   onScreen2((s) => {
     setScene(GAME_SCREENS2.has(s) ? "game" : "menu");
     arenaScreen(s);
+    if (s !== "customize") customizeHidden();
     const title = $("modeTitle");
     title.hidden = !["prep", "battle", "deck"].includes(s);
     document.body.classList.toggle("mode-shown", !title.hidden);

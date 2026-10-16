@@ -80,6 +80,12 @@ export async function staffPreview(canvas: HTMLCanvasElement): Promise<StaffPrev
   const create = (globalThis as unknown as { KWStaffPreview?: (c: HTMLCanvasElement) => StaffPreview | null }).KWStaffPreview;
   return create?.(canvas) ?? null;
 }
+/** Customize → Arena / Omnipotence: a second, small 3D arena on the given canvas (null without WebGL). */
+export async function arenaPreview(canvas: HTMLCanvasElement): Promise<ArenaApi | null> {
+  if (!webgl || !(await loadBundle())) return null;
+  const create = (globalThis as unknown as { KWArena3D?: (c: HTMLCanvasElement, o?: { lite?: boolean; preview?: boolean }) => ArenaApi | null }).KWArena3D;
+  return create?.(canvas, { lite: arenaQuality() === 'lite', preview: true }) ?? null;
+}
 /** Start loading early (after login) so the first battle doesn't wait. */
 export function preloadArena() { if (wanted()) setTimeout(() => void load(), 1500); }
 

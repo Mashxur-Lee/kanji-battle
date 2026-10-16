@@ -7,6 +7,27 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.3.2', date: '2026-10',
+    en: [
+      'Customize: Profile comes first, then Arena, Magic staff and Omnipotence. Arena and Omnipotence now have a live 3D preview (your character in the arena, or wrapped in your flames up close), with the 2D look beside it.',
+      'Reading passage: choose which deck the story takes its words from, and add any word of the story to any of your decks.',
+      'Study → Words: tap Spell, Reading, Meaning, Level, Added or Status to sort the list (again to reverse it).',
+      'Omnipotence: the eyes now close the right way — fully shut, then open again.',
+      'Deck Duel: no mode name over the table, slim scrollbars, and no hero picture in the lobby (you pick your hero in the game).',
+      'Daily challenge: skipping words no longer adds 15 s each to your time, and words you unticked stay unticked when you come back.',
+      'New-look checkboxes and scrollbars; the Archmage border animates on PCs with reduced animations too; turning your phone to look around is smoother and quicker.',
+    ],
+    ru: [
+      'Настройка: сначала Профиль, затем Арена, Магический посох и Всемогущество. У Арены и Всемогущества теперь живой 3D-предпросмотр (ваш персонаж на арене или в своём пламени крупным планом), а рядом — 2D-вид.',
+      'Текст для чтения: выбирайте колоду, из которой берутся слова, и добавляйте любое слово рассказа в любую колоду.',
+      'Учёба → Слова: нажмите «Заклинание», «Чтение», «Значение», «Уровень», «Добавлено» или «Статус», чтобы отсортировать список (ещё раз — в обратном порядке).',
+      'Всемогущество: глаза теперь закрываются правильно — полностью, а потом открываются.',
+      '«Дуэль колод»: без названия режима над столом, тонкие полосы прокрутки и без картинки героя в лобби (героя выбирают в игре).',
+      'Ежедневное испытание: пропуск слова больше не добавляет 15 с ко времени, а снятые галочки сохраняются, когда вы возвращаетесь.',
+      'Новые флажки и полосы прокрутки; рамка «Архимаг» анимируется и на ПК с уменьшенной анимацией; осматриваться поворотом телефона стало плавнее и быстрее.',
+    ],
+  },
+  {
     v: '0.9.9.3.1', date: '2026-10',
     en: [
       'Deck Duel Omnipotence: your eyes close, 究極能力 (“ultimate power”) flashes, and they open again in a burst of fire — and your opponent sees your character’s eyes blaze (Goblin red, Witch purple, Wizard blue, Knight red). In every mode, eyes glow while you are on fire.',

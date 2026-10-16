@@ -41,6 +41,8 @@ export interface ArenaApi {
   ko(who: Who): void;
   /** combo flames (5+ in a row) or a Deck Duel power: flames in the player's colour around them */
   onfire(who: Who, on: boolean, color?: string): void;
+  /** Customize preview: bring the camera up close to the opponent (no hand and staff in view) */
+  focusOpp(on: boolean): void;
   /** a burst of light from their glowing eyes (a Deck Duel Omnipotence going off) */
   flashEyes(who: Who): void;
   channel(level: number): void;
@@ -206,7 +208,7 @@ interface Particle { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max
 
 const TREE_BGS = ['forest', 'swamp', 'worldtree'];
 
-export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } = {}): ArenaApi | null {
+export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; preview?: boolean } = {}): ArenaApi | null {
   let renderer: THREE.WebGLRenderer;
   let lite = !!opts.lite;
   try {
@@ -739,35 +741,36 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
     mouse.set((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1);
   };
   addEventListener('pointermove', onMove, { passive: true });
-  // ── phones: turn or tilt the phone to look around (0.9.9.3) — the same look as the mouse. Measured from where
-  // you held it when the game started; that centre slowly follows you, so a new comfortable grip becomes straight ahead.
-  const tilt = { base: null as null | { a: number; x: number; y: number }, x: 0, y: 0, at: 0 };
-  const wrap = (d: number) => ((d + 540) % 360) - 180;
-  const onTilt = (e: DeviceOrientationEvent) => {
-    if (e.alpha === null || e.beta === null || e.gamma === null || !active) return;
-    const ang = (screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) % 360;
-    // the tilt left/right and forward/back as seen on the screen (landscape swaps the axes)
-    const tx = ang === 90 ? -e.beta : ang === 270 || ang === -90 ? e.beta : e.gamma;
-    const ty = ang === 90 ? e.gamma : ang === 270 || ang === -90 ? -e.gamma : e.beta;
+  // ── phones: turn or tilt the phone to look around (0.9.9.3; 0.9.9.3.2: from the gyroscope) — the same look as the
+  // mouse. The rotation rates are added up into how far you have turned; that slowly settles back to straight
+  // ahead, so it never drifts. (The orientation angles were laggy and jumped when the phone was held upright.)
+  const turn = { yaw: 0, pitch: 0, at: 0, live: 0 };
+  const screenAngle = () => (((screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) % 360) + 360) % 360;
+  const onMotion = (e: DeviceMotionEvent) => {
+    const r = e.rotationRate;
+    if (!r || r.beta === null || r.gamma === null || !active) return;
     const now = performance.now();
-    if (!tilt.base || now - tilt.at > 1500) tilt.base = { a: e.alpha, x: tx, y: ty }; // first reading (or back from a pause)
-    const b = tilt.base, k = Math.min(1, (now - tilt.at) / 9000); // the centre drifts towards how you hold it
-    tilt.at = now;
-    b.a += wrap(e.alpha - b.a) * k; b.x += (tx - b.x) * k; b.y += (ty - b.y) * k;
-    // turning the phone left (alpha up) or tilting its left edge down looks left; tilting the top back looks up
-    const x = -wrap(e.alpha - b.a) / 22 + (tx - b.x) / 26, y = -(ty - b.y) / 30;
-    mouse.set(Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y)));
+    const dt = turn.at ? Math.min(0.1, (now - turn.at) / 1000) : 0;
+    turn.at = now; turn.live = now;
+    // rates (deg/s) about the screen's up and right axes: + = turning left / tilting the top towards you (looking up)
+    const ang = screenAngle();
+    const yawRate = ang === 90 ? r.beta : ang === 270 ? -r.beta : ang === 180 ? -r.gamma : r.gamma;
+    const pitchRate = ang === 90 ? -r.gamma : ang === 270 ? r.gamma : ang === 180 ? -r.beta : r.beta;
+    const settle = Math.exp(-dt / 2.2);
+    turn.yaw = (turn.yaw + yawRate * dt) * settle;
+    turn.pitch = (turn.pitch + pitchRate * dt) * settle;
+    mouse.set(Math.max(-1, Math.min(1, -turn.yaw / 16)), Math.max(-1, Math.min(1, -turn.pitch / 14)));
   };
-  const touchy = matchMedia('(pointer: coarse)').matches && 'DeviceOrientationEvent' in window;
+  const touchy = matchMedia('(pointer: coarse)').matches && 'DeviceMotionEvent' in window;
   // iOS asks for permission, and only from a tap: ask at the first tap on the arena
   const askTilt = () => {
     removeEventListener('touchend', askTilt);
-    const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
-    if (D.requestPermission) void D.requestPermission().then((r) => { if (r === 'granted') addEventListener('deviceorientation', onTilt); }).catch(() => { /* declined */ });
+    const D = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> };
+    if (D.requestPermission) void D.requestPermission().then((res) => { if (res === 'granted') addEventListener('devicemotion', onMotion); }).catch(() => { /* declined */ });
   };
   if (touchy) {
-    if ((DeviceOrientationEvent as unknown as { requestPermission?: unknown }).requestPermission) addEventListener('touchend', askTilt, { passive: true });
-    else addEventListener('deviceorientation', onTilt);
+    if ((DeviceMotionEvent as unknown as { requestPermission?: unknown }).requestPermission) addEventListener('touchend', askTilt, { passive: true });
+    else addEventListener('devicemotion', onMotion);
   }
   /** Your hand and staff, bottom-right — moved in on a narrow (upright phone) screen so they stay in view. */
   function placeHand() {
@@ -825,6 +828,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
 
   // ── the frame loop ─────────────────────────────────────────────────────────
   let active = false, raf = 0, last = performance.now(), time = 0;
+  let focusOn = false, focus = 0;
   // adaptive quality: a slow machine drops to Lite (then lower resolution) by itself, instead of lagging
   let perfFrames = 0, perfTime = 0, perfSkip = 0;
   function watchPerf(ms: number) {
@@ -840,13 +844,13 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
   }
   function frame(nowMs: number) {
     raf = requestAnimationFrame(frame);
-    watchPerf(nowMs - last);
+    if (!opts.preview) watchPerf(nowMs - last); // a Customize preview never switches the game to Lite
     const realDt = Math.min(1, Math.max(0, (nowMs - last) / 1000));
     const dt = Math.min(0.05, realDt); last = nowMs; time += dt;
     const now = performance.now();
     const still = false; // ambient motion always runs (see `reduced`)
 
-    look.lerp(mouse, still ? 1 : 0.05);
+    look.lerp(mouse, still ? 1 : performance.now() - turn.live < 300 ? Math.min(1, realDt * 14) : 0.05); // the phone's turn follows quickly; the mouse eases
     const sway = still ? 0 : Math.sin(time * 0.7) * 0.025;
     if (lite) {
       // Lite: parallax — the camera slides towards the mouse a little
@@ -862,7 +866,16 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       dir.applyAxisAngle(right, myLook.pitch);
       camera.lookAt(CAM.clone().add(dir));
     }
-    if (active && current && (current.opp || current.allies.length) && nowMs - myLook.sentAt > 150 && (Math.abs(myLook.yaw - myLook.sentYaw) > 0.02 || Math.abs(myLook.pitch - myLook.sentPitch) > 0.02)) {
+    // a Customize preview: the camera walks up to the opponent (you, as others see you) — 0.9.9.3.2
+    focus += ((focusOn ? 1 : 0) - focus) * Math.min(1, dt * 4);
+    const fo = fighters.get('opp');
+    if (focus > 0.001 && fo) {
+      const p = fo.group.position;
+      const k = focus * focus * (3 - 2 * focus);
+      camera.position.lerp(new THREE.Vector3(p.x + 1.1, 1.75 + sway, p.z + 3.4), k);
+      camera.lookAt(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).multiplyScalar(4).add(camera.position).lerp(new THREE.Vector3(p.x - 0.1, 1.45, p.z), k));
+    }
+    if (!opts.preview && active && current && (current.opp || current.allies.length) && nowMs - myLook.sentAt > 150 && (Math.abs(myLook.yaw - myLook.sentYaw) > 0.02 || Math.abs(myLook.pitch - myLook.sentPitch) > 0.02)) {
       myLook.sentAt = nowMs; myLook.sentYaw = myLook.yaw; myLook.sentPitch = myLook.pitch;
       dispatchEvent(new CustomEvent('kw:look', { detail: { yaw: +myLook.yaw.toFixed(3), pitch: +myLook.pitch.toFixed(3) } }));
     }
@@ -1202,6 +1215,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       if (f) f.flame = on ? new THREE.Color(color ?? '#6ee7ff') : null;
       if (f?.model?.eyes) f.model.eyes.visible = on; // their eyes glow in the character's colour
     },
+    focusOpp(on) { focusOn = on; fp.visible = !on; },
     flashEyes(who) {
       const f = fighters.get(who);
       if (!f?.model?.eyes) return;
@@ -1266,7 +1280,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean } 
       api.setActive(false);
       ro?.disconnect();
       removeEventListener('pointermove', onMove);
-      removeEventListener('deviceorientation', onTilt); removeEventListener('touchend', askTilt);
+      removeEventListener('devicemotion', onMotion); removeEventListener('touchend', askTilt);
       removeEventListener('resize', resize);
       overlay.remove();
       if (env) { env.dispose(); env = null; }

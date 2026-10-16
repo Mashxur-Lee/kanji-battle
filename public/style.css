@@ -1096,7 +1096,7 @@ body:not(.has-3d) #comboHud { display: none; }
 .cust-info .sub { color: var(--muted); }
 #custSub { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: rgba(12, 10, 32, .62); color: var(--text); backdrop-filter: blur(6px); }
 #comboHud[hidden] { display: none; }
-.vol-panel .toggle-row input[type=checkbox] { width: auto; flex: none; margin: 0; accent-color: var(--accent); }
+.vol-panel .toggle-row input[type=checkbox] { flex: none; margin: 0; }
 .vol-panel .toggle-row select { margin-left: auto; width: auto; min-width: 0; max-width: 62%; padding: 4px 8px; border-radius: 8px; background: var(--field); color: var(--text); border: 1px solid var(--line); font: inherit; }
 .vol-panel .toggle-row { white-space: nowrap; }
 
@@ -1864,7 +1864,6 @@ div.bd-beta::after { content: "BETA"; position: absolute; left: 50%; bottom: -9p
   color: #2a313c; background: linear-gradient(180deg, #ffffff, #b9c3cf); border: 1px solid #6f7b8a; box-shadow: 0 2px 6px rgba(0, 0, 0, .4); z-index: 1; pointer-events: none; }
 .pp-pic.big.bd-beta::after { font-size: 13px; bottom: -12px; padding: 2px 10px; }
 .avatar.bd-beta::after { font-size: 6px; bottom: -6px; padding: 0 3px; letter-spacing: .06em; }
-@media (prefers-reduced-motion: reduce) { .bd-archmage { animation: none; box-shadow: 0 0 0 4px #7af0ff, 0 0 0 7.5px #6b3dff, 0 0 18px 5px rgba(122, 240, 255, .6); } }
 /* bigger frames carry an ornament: rune studs (adept), a star on top (master, archmage) */
 div.bd-adept::after, div.bd-master::after, div.bd-archmage::after { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 1; line-height: 1; }
 div.bd-adept::after { content: "◆"; top: -9px; font-size: 12px; color: #d9c8ff; text-shadow: 0 0 6px #8a5cff; }
@@ -1949,11 +1948,15 @@ body:has(#bg[data-time="day"]) .screen .sub, body:has(#bg[data-time="day"]) .men
 
 /* ── 0.9.9.3.1: your Omnipotence — eyes close, 究極能力 flashes, eyes open in fire (1.6 s) ── */
 .ult-fx { position: fixed; inset: 0; z-index: 90; pointer-events: none; overflow: hidden; --eye: #ffcf6a; }
-.ult-lid { position: absolute; left: -5%; width: 110%; height: 52%; background: radial-gradient(120% 90% at 50% 100%, #12080c, #000 70%); animation: 1.6s cubic-bezier(.5, 0, .3, 1) forwards; }
-.ult-lid.top { top: 0; transform: translateY(-101%); border-bottom-left-radius: 50% 18%; border-bottom-right-radius: 50% 18%; animation-name: ult-lid-t; }
-.ult-lid.bot { bottom: 0; transform: translateY(101%); border-top-left-radius: 50% 18%; border-top-right-radius: 50% 18%; background: radial-gradient(120% 90% at 50% 0%, #12080c, #000 70%); animation-name: ult-lid-b; }
-@keyframes ult-lid-t { 0% { transform: translateY(-101%); } 18%, 54% { transform: translateY(0); } 74%, 100% { transform: translateY(-101%); } }
-@keyframes ult-lid-b { 0% { transform: translateY(101%); } 18%, 54% { transform: translateY(0); } 74%, 100% { transform: translateY(101%); } }
+/* the lids: each one's edge is cut in an arc (concave in the middle), so the gap between them is an eye — widest in the
+   middle, pinched at the corners — and when shut they overlap and close fully (0.9.9.3.2) */
+.ult-lid { position: absolute; left: -2%; width: 104%; height: 92%; background: #050206; animation: 1.6s cubic-bezier(.55, 0, .35, 1) forwards; }
+.ult-lid.top { top: -10%; transform: translateY(-101%); animation-name: ult-lid-t;
+  -webkit-mask: radial-gradient(ellipse 62% 36% at 50% 100%, transparent 97%, #000 100%); mask: radial-gradient(ellipse 62% 36% at 50% 100%, transparent 97%, #000 100%); }
+.ult-lid.bot { bottom: -10%; transform: translateY(101%); animation-name: ult-lid-b;
+  -webkit-mask: radial-gradient(ellipse 62% 36% at 50% 0%, transparent 97%, #000 100%); mask: radial-gradient(ellipse 62% 36% at 50% 0%, transparent 97%, #000 100%); }
+@keyframes ult-lid-t { 0% { transform: translateY(-101%); } 20%, 54% { transform: translateY(4%); } 74%, 100% { transform: translateY(-101%); } }
+@keyframes ult-lid-b { 0% { transform: translateY(101%); } 20%, 54% { transform: translateY(-4%); } 74%, 100% { transform: translateY(101%); } }
 .ult-text { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(1.5); font-family: var(--jp); font-weight: 900; font-size: clamp(2.6rem, 11vw, 7rem); letter-spacing: .12em; white-space: nowrap;
   color: #fff; opacity: 0; text-shadow: 0 0 12px var(--eye), 0 0 34px var(--eye), 0 0 70px var(--eye); animation: ult-text 1.6s ease-out forwards; }
 @keyframes ult-text { 0%, 16% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); } 24% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 30% { opacity: .55; } 34%, 46% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); } 56%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.25); } }
@@ -1962,3 +1965,41 @@ body:has(#bg[data-time="day"]) .screen .sub, body:has(#bg[data-time="day"]) .men
 @keyframes ult-eyes { 0%, 42% { opacity: 0; transform: translate(-50%, -50%) scaleY(.1); } 50% { opacity: 1; transform: translate(-50%, -50%) scaleY(1); } 62% { opacity: 1; transform: translate(-50%, -50%) scaleY(1.5); } 76%, 100% { opacity: 0; transform: translate(-50%, -50%) scaleY(2.2); } }
 .ult-burst { position: absolute; left: 0; right: 0; bottom: -10%; height: 70%; opacity: 0; background: radial-gradient(60% 80% at 50% 100%, #fff6c0, #ffb02a 30%, var(--eye) 55%, transparent 75%); filter: blur(6px); animation: ult-burst 1.6s ease-out forwards; mix-blend-mode: screen; }
 @keyframes ult-burst { 0%, 56% { opacity: 0; transform: scaleY(.3); } 70% { opacity: .95; transform: scaleY(1); } 100% { opacity: 0; transform: scaleY(1.3); } }
+
+/* ── 0.9.9.3.2 ── */
+/* Deck Duel: no mode name over the table (the cards say it all) */
+.mode-title.in-deck { display: none !important; }
+/* slim, themed scrollbars instead of the big grey ones (panels, lists, dialogs) */
+* { scrollbar-width: thin; scrollbar-color: rgba(169, 139, 255, .45) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(169, 139, 255, .35); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(169, 139, 255, .6); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+/* themed checkboxes (the plain browser ones looked out of place) */
+input[type="checkbox"] { -webkit-appearance: none; appearance: none; flex: none; width: 20px; height: 20px; margin: 0; border-radius: 6px; cursor: pointer; display: inline-grid; place-items: center; vertical-align: middle;
+  border: 2px solid rgba(169, 139, 255, .65); background: rgba(16, 14, 44, .6); transition: background .15s, border-color .15s, box-shadow .15s; }
+input[type="checkbox"]::after { content: ""; width: 10px; height: 6px; border: solid #fff; border-width: 0 0 2.5px 2.5px; transform: translateY(-1px) rotate(-45deg) scale(0); transition: transform .15s; }
+input[type="checkbox"]:checked { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; box-shadow: 0 0 10px rgba(169, 139, 255, .45); }
+input[type="checkbox"]:checked::after { transform: translateY(-1px) rotate(-45deg) scale(1); }
+input[type="checkbox"]:hover { border-color: var(--accent); }
+input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+input[type="checkbox"]:disabled { opacity: .45; cursor: default; }
+.chip input[type="checkbox"] { display: none; }
+.toggle-row, .tasks-never { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.deck-table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.deck-table th.sortable::after { content: "↕"; margin-left: 4px; opacity: .35; font-size: .85em; }
+.deck-table th.sortable[data-dir="asc"]::after { content: "▲"; opacity: .9; color: var(--accent2); }
+.deck-table th.sortable[data-dir="desc"]::after { content: "▼"; opacity: .9; color: var(--accent2); }
+.deck-table th.sortable:hover { color: var(--text); }
+.p-from { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: .85rem; color: var(--muted); }
+.p-from select, .p-add { padding: 4px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--field); color: var(--text); font: inherit; font-size: .85rem; }
+.passage-gloss .p-add { margin-left: auto; }
+.passage-words .pw .p-add { margin-left: auto; font-size: .78rem; padding: 2px 6px; }
+.cust-stage[data-tab="omni"] { height: auto; aspect-ratio: 16 / 9; background: #000; }
+.cust-stage .arena-prev { position: absolute; inset: 0; }
+.cust-2d .bg-thumb { width: 120px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; }
+.cust-2d .bg-thumb svg { width: 100%; height: 100%; display: block; }
+.cust-2d .wizard.c2-char { position: relative; width: 64px; height: 80px; }
+.cust-2d .wizard.c2-char .sprite { position: relative; width: 64px; height: 80px; animation: none; }
+.cust-2d .wizard.c2-char .aura { display: none; }

@@ -64,7 +64,9 @@ function missedBlock(o: DailyOverview): HTMLElement[] {
     grid.append(card);
     return { card, id: w.id! };
   });
-  tickCards(cards, (id, on) => { void (on ? api.deckAdd('struggling', [id]) : api.deckRemove('struggling', [id])).catch((e) => ui.toast((e as Error).message)); });
+  const set = tickCards(cards, (id, on) => { void (on ? api.deckAdd('struggling', [id]) : api.deckRemove('struggling', [id])).catch((e) => ui.toast((e as Error).message)); });
+  // as they are now: a word you unticked earlier is no longer in Struggling spells (0.9.9.3.2)
+  void api.deckWords('struggling').then((r) => { const have = new Set(r.words.map((w) => w.vocabId)); for (const c of cards) set(c.id, have.has(c.id)); }).catch(() => { /* offline: keep the ticks */ });
   return [el('h4', '', 'Missed — ticked words go to Struggling spells'), grid];
 }
 

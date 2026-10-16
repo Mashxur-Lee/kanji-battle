@@ -126,7 +126,7 @@
     <p id="customMsg" class="hint" role="status"></p>
   </div>
   <div class="dd-tools"><input id="deckFilter" placeholder="Filter…" autocomplete="off"><label class="toggle-row"><input id="deckAllBox" type="checkbox"> Select all</label><button id="deckRemove" class="pill danger" disabled>Remove selected</button></div>
-  <div class="dd-list"><table class="deck-table"><thead><tr><th></th><th>Spell</th><th>Reading</th><th>Meaning</th><th>Level</th><th>Added</th><th>Status</th><th></th></tr></thead><tbody id="deckRows"></tbody></table></div>
+  <div class="dd-list"><table class="deck-table"><thead><tr><th></th><th class="sortable" data-sort="kanji">Spell</th><th class="sortable" data-sort="reading">Reading</th><th class="sortable" data-sort="meaning">Meaning</th><th class="sortable" data-sort="level">Level</th><th class="sortable" data-sort="added">Added</th><th class="sortable" data-sort="state">Status</th><th></th></tr></thead><tbody id="deckRows"></tbody></table></div>
 </dialog>
 <dialog id="rewardDialog" class="friend-dialog reward-dialog" aria-label="New unlock">
   <div class="rw-ribbon">✦ Unlocked ✦</div>
@@ -144,7 +144,7 @@
   <div class="tasks-foot"><button id="tasksOk" class="big">OK</button></div>
 </dialog>
 <dialog id="passageDialog" class="friend-dialog passage-dialog" aria-label="Reading passage">
-  <div class="dd-head"><h3>Reading passage</h3><button id="passageNew" class="pill">New story</button><button id="passageClose" class="pill">Close</button></div>
+  <div class="dd-head"><h3>Reading passage</h3><label class="p-from">Words from <select id="passageDeck" aria-label="Words from"></select></label><button id="passageNew" class="pill">New story</button><button id="passageClose" class="pill">Close</button></div>
   <p class="hint">Fill each blank with one of your words (the furigana is your clue). Tap any word in the story for its meaning.</p>
   <div id="passageText" class="passage-text" lang="ja"></div>
   <div id="passageGloss" class="passage-gloss" hidden></div>
@@ -358,7 +358,7 @@
     </div>
     <div class="practice-row">
       <button id="quizBtn" class="practice-card"><b>JLPT quiz</b><span>10 questions from the spells you studied — readings, meanings and kanji, 4 choices each.</span></button>
-      <button id="passageBtn" class="practice-card"><b>Reading passage</b><span>A short story with blanks — fill them in with your struggling words, then check.</span></button>
+      <button id="passageBtn" class="practice-card"><b>Reading passage</b><span>A short story with blanks — pick a deck, fill them in with its words, then check.</span></button>
     </div>
   </section>
 
@@ -409,15 +409,16 @@
     <button id="customizeBack" class="back">← Menu</button>
     <h2>Customize</h2>
     <div id="custTabs" class="cust-tabs" role="tablist" aria-label="What to customize">
-      <button role="tab" data-tab="staff" class="cust-tab">Magic staff</button>
-      <button role="tab" data-tab="arena" class="cust-tab">Arena</button>
-      <button role="tab" data-tab="omni" class="cust-tab">Omnipotence</button>
       <button role="tab" data-tab="profile" class="cust-tab">Profile</button>
+      <button role="tab" data-tab="arena" class="cust-tab">Arena</button>
+      <button role="tab" data-tab="staff" class="cust-tab">Magic staff</button>
+      <button role="tab" data-tab="omni" class="cust-tab">Omnipotence</button>
     </div>
     <div class="cust-body">
       <div class="cust-preview">
         <div id="custStage" class="cust-stage">
           <canvas id="staffCanvas" class="staff-canvas" aria-label="Staff preview"></canvas>
+          <canvas id="arenaPreview" class="staff-canvas arena-prev" aria-label="3D preview" hidden></canvas>
           <div id="custStage2" class="cust-stage2"></div>
         </div>
         <div id="custInfo" class="cust-info"></div>
@@ -723,7 +724,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.9.3.1</div>
+<div id="version" class="version">v0.9.9.3.2</div>
 <script src="/app.js"></script>
 </body>
 </html>
