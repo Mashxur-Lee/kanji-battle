@@ -356,7 +356,8 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
     ...players.map((p) => {
       const li = h('li');
       const av = h('span', 'who-av');
-      av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp', p.staff);
+      // Deck Duel: no character yet — you pick your hero once the game starts (0.9.9.3.2)
+      if (mode !== 'deck') av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp', p.staff); else av.hidden = true;
       const who = h('span', 'who', p.id === you ? `${p.name} (you)` : p.name);
       if (p.id !== you) markProfile(who, p);
       li.append(av, picEl(p.pic, 'pic', p.border), who);

@@ -25,7 +25,7 @@ import { getTimePref, paintBackground, resolveTime, untilNextStep } from './back
 import { chatMessages, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
 import { HandwritingPad } from './pad';
-import { onProfileChange, openCustomize, openStudy } from './study';
+import { customizeHidden, onProfileChange, openCustomize, openStudy } from './study';
 import * as ui from './ui';
 import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
@@ -77,6 +77,7 @@ const GAME_SCREENS = new Set(['prep', 'battle', 'deck']);
 ui.onScreen((s) => {
   audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu');
   arenaScreen(s); // the 3D arena on battle screens
+  if (s !== 'customize') customizeHidden(); // its little 3D preview stops drawing
   // the mode's name at the very top while playing
   const title = ui.$('modeTitle');
   title.hidden = !['prep', 'battle', 'deck'].includes(s);

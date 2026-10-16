@@ -80,3 +80,15 @@ test('closed beta: every background, flame and staff is open to a brand-new play
   } finally { beta.open = false; }
   assert.ok(!staffUnlocked('void', 0), 'back to the normal rules');
 });
+
+test('daily challenge (0.9.9.3.2): skipping every word counts the time really taken, not 15 s each', async () => {
+  const store = new MemoryStore();
+  let now = Date.parse('2026-10-16T08:00:00Z');
+  const daily = new DailyService(store, new ProgressService(store), () => now);
+  const u = await store.create({ username: 'skipper', passwordHash: 'x', role: 'user' } as any);
+  await daily.start(u);
+  let r;
+  for (let i = 0; i < DAILY_WORDS; i++) { now += 1000; r = await daily.answer(u, ''); }
+  assert.equal(r!.done!.correct, 0);
+  assert.equal(r!.done!.ms, DAILY_WORDS * 1000);
+});

@@ -99,7 +99,7 @@ export class DailyService {
     const inTime = this.now() - a.shownAt <= DAILY_WORD_MS + GRACE_MS;
     const correct = inTime && !!text.trim() && isCorrectReading(text, [word.reading, ...(word.altReadings ?? [])]);
     if (correct) a.correct++;
-    a.ms += correct ? ms : DAILY_WORD_MS; // misses cost the full time
+    a.ms += ms; // the time you really took (0.9.9.3.2: a skip no longer counts the full 15 s)
     a.index++;
     a.marks += correct ? '1' : '0';
     a.shownAt = this.now();
