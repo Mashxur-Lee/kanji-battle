@@ -444,6 +444,9 @@ const RU: Record<string, string> = {
   'Both players get the same kanji — no study phase.': 'Оба игрока получают один и тот же кандзи — без подготовки.', 'Wrong? Try again until the 12 s round ends.': 'Ошиблись? Пробуйте снова, пока не кончится 12-секундный раунд.',
   'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.': 'Крит: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Игра с ИИ даёт половину опыта; сдача — ничего.',
   'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.': 'Шанс крита сегодня: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Сбрасывается в полночь.',
+  // 0.9.9.3.1
+  '🗑 Delete': '🗑 Удалить', 'Delete this account and all its progress': 'Удалить этот аккаунт и весь его прогресс', 'Beta border': 'Рамка Beta',
+  'Finish the tutorial to unlock': 'Пройдите обучение, чтобы открыть', 'Finish the tutorial to get the Beta border': 'Пройдите обучение, чтобы получить рамку Beta', 'Thank you for playing the beta!': 'Спасибо, что играете в бету!',
   // 0.9.9.3
   'Ticked: goes to your deck. Tap to keep it out.': 'Отмечено: попадёт в колоду. Нажмите, чтобы не добавлять.', 'Ticked words go to': 'Отмеченные слова — в',
   '(ticked words go to your deck · tap a card to untick · 筆 = stroke order)': '(отмеченные слова попадут в колоду · нажмите на карточку, чтобы снять отметку · 筆 — порядок черт)',

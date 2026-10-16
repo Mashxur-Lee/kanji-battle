@@ -86,6 +86,9 @@ export function chatMessages(msgs: ChatMessage[]) {
     line.append(h('b', '', m.from === hooks.me() ? 'You' : m.name), h('span', '', m.text)); // textContent: never HTML
     log.append(line);
     if (m.from !== hooks.me() && view && view.phase !== 'over') audio.sfx.flip();
+    // a folded chat (narrow screens) shows a dot for a new message
+    const panel = log.closest('.dk-panel');
+    if (m.from !== hooks.me() && panel && !panel.classList.contains('open')) { const hd = panel.querySelector('h4'); if (hd && !hd.querySelector('.dk-unread')) hd.append(h('span', 'dk-unread')); }
   }
   while (log.children.length > 60) log.firstElementChild!.remove();
   log.scrollTop = log.scrollHeight;
@@ -274,6 +277,15 @@ export function renderDeck(v: DeckView) {
   renderCast(v);
   renderList(v);
 }
+
+// narrow screens: your kanji, the turn log and the chat fold open / shut (style.css 0.9.9.3.1)
+document.getElementById('deck')?.addEventListener('click', (e) => {
+  const head = (e.target as Element).closest('.dk-panel > h4');
+  if (!head) return;
+  const panel = head.parentElement!;
+  panel.classList.toggle('open');
+  head.querySelector('.dk-unread')?.remove();
+});
 
 /** Off-turn study list: the kanji in your hand, sorted, without colours. */
 function renderList(v: DeckView) {
@@ -508,6 +520,24 @@ function feedEvent(e: DeckEvent) {
   }
 }
 
+/** The eyes' colour per hero (as the 3D models' glowing eyes). */
+const EYE_CSS: Record<string, string> = { goblin: '#ff3a24', witch: '#b86bff', wizard: '#49a8ff', knight: '#ff3030' };
+/**
+ * Your Omnipotence (0.9.9.3.1), ~1.6 s: your eyes close (lids from the top and bottom), 究極能力 ("ultimate
+ * power") flashes in the dark, and your eyes open in your colour as the fire bursts up around you.
+ */
+function ultimateFx(character: string) {
+  document.querySelector('.ult-fx')?.remove();
+  const o = h('div', 'ult-fx');
+  o.style.setProperty('--eye', EYE_CSS[character] ?? '#ffcf6a');
+  o.append(h('div', 'ult-lid top'), h('div', 'ult-lid bot'), h('div', 'ult-eyes'), h('div', 'ult-text', '究極能力'), h('div', 'ult-burst'));
+  (o.querySelector('.ult-eyes') as HTMLElement).append(h('i'), h('i'));
+  (o.querySelector('.ult-text') as HTMLElement).lang = 'ja';
+  document.body.append(o);
+  setTimeout(() => audio.sfx.fire(), 900);
+  setTimeout(() => o.remove(), 1750);
+}
+
 export function deckEvent(e: DeckEvent) {
   if (!view) return;
   feedEvent(e);
@@ -516,7 +546,11 @@ export function deckEvent(e: DeckEvent) {
   switch (e.kind) {
     case 'coin': coinShown = false; break;
     case 'redraft': ui.toast(`${e.playerId === me ? 'You are' : `${name(e.playerId)} is`} out of cards — Round ${e.round} draft!`, 4000); break;
-    case 'ability': ui.toast(`${e.playerId === me ? 'You' : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(':')[0]}!`); break;
+    case 'ability':
+      if (e.playerId === me) ultimateFx(e.character); // eyes shut, 究極能力, eyes open in fire
+      else arena()?.flashEyes('opp'); // their eyes blaze in their colour
+      setTimeout(() => ui.toast(`${e.playerId === me ? 'You' : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(':')[0]}!`), e.playerId === me ? 1300 : 0);
+      break;
     case 'wizard': ui.toast(`${e.playerId === me ? 'Your' : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === 'cards' ? '+2 cards' : '+30 mana'}`); break;
     case 'stuck': stuckId = e.playerId; break; // the 'skip' event right after explains it
     case 'overtime': ui.toast('Overtime! The cards are gone — it\'s a Rapid duel now: first to type the reading hits.', 5000); break;

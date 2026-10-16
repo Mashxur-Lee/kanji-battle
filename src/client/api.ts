@@ -94,5 +94,6 @@ export const api = {
   acceptFriend: (id: string) => call<{ friends: Friend[] }>('POST', `/api/friends/${encodeURIComponent(id)}/accept`),
   removeFriend: (id: string) => call<{ friends: Friend[] }>('DELETE', `/api/friends/${encodeURIComponent(id)}`),
   setRole: (id: string, role: 'admin' | 'user') => call<{ user: AdminUserRow }>('POST', `/api/admin/users/${encodeURIComponent(id)}/role`, { role }),
+  deleteUser: (id: string) => call<{ ok: boolean }>('DELETE', `/api/admin/users/${encodeURIComponent(id)}`),
   setBanned: (id: string, banned: boolean) => call<{ user: AdminUserRow }>('POST', `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned }),
 };

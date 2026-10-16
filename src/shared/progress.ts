@@ -95,16 +95,22 @@ export const SEASONS = [
 ] as const;
 /** The same three goals every month (counted on the player's own calendar days). */
 // ── avatar borders (0.9.9.3): round your profile picture, by level ──────────────────────────────────
-export interface BorderDef { id: string; name: string; level: number; blurb: string }
+export interface BorderDef { id: string; name: string; level: number; blurb: string; /** earned another way (an unlock id), not by level */ unlock?: string }
 export const BORDERS: readonly BorderDef[] = [
   { id: 'none', name: 'No border', level: 0, blurb: 'Just your picture.' },
   { id: 'apprentice', name: 'Apprentice', level: 1, blurb: 'A plain silver ring.' },
   { id: 'adept', name: 'Adept', level: 5, blurb: 'A violet ring with four rune studs.' },
   { id: 'master', name: 'Master', level: 10, blurb: 'A golden ring with a star at the top.' },
   { id: 'archmage', name: 'Archmage', level: 15, blurb: 'A glowing ring of moving arcane light.' },
+  { id: 'beta', name: 'Beta', level: 0, unlock: 'border:beta', blurb: 'A platinum ring with a BETA tag — for everyone who finished the tutorial during the beta.' },
 ];
 export const isBorder = (b: unknown): b is string => typeof b === 'string' && BORDERS.some((x) => x.id === b);
-export const borderUnlocked = (id: string, level: number) => (BORDERS.find((b) => b.id === id)?.level ?? 999) <= level;
+export const borderUnlocked = (id: string, level: number, unlocks: readonly string[] = []) => {
+  const b = BORDERS.find((x) => x.id === id);
+  return !!b && (b.unlock ? unlocks.includes(b.unlock) : b.level <= level);
+};
+/** the beta border: given to every account that has finished the tutorial */
+export const BETA_BORDER = 'border:beta';
 
 // ── the daily streak (0.9.9.3): a day counts once all four tasks are done ───────────────────────────────
 export const DAILY_TASKS = [

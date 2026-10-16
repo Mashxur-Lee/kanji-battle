@@ -7,6 +7,23 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.3.1', date: '2026-10',
+    en: [
+      'Deck Duel Omnipotence: your eyes close, 究極能力 (“ultimate power”) flashes, and they open again in a burst of fire — and your opponent sees your character’s eyes blaze (Goblin red, Witch purple, Wizard blue, Knight red). In every mode, eyes glow while you are on fire.',
+      'Deck Duel on phones: your cards and Omnipotence are right under the table; your kanji, the turn log and the chat are foldable sections below (a dot shows a new chat message). The mode name no longer covers the Omnipotence button.',
+      'Avatar borders are bolder, and there is a new platinum Beta border with a BETA tag for everyone who finished the tutorial.',
+      'Admins can delete accounts.',
+      'The menu’s two wizards stand in the middle of the screen; no more swaying grass in the 2D arenas, and no dragon flying over the castle.',
+    ],
+    ru: [
+      'Всемогущество в «Дуэли колод»: ваши глаза закрываются, вспыхивает 究極能力 («высшая сила»), и они открываются в огне — а соперник видит, как горят глаза вашего героя (Гоблин — красным, Ведьма — фиолетовым, Волшебник — синим, Рыцарь — красным). Во всех режимах глаза светятся, когда вы в огне.',
+      '«Дуэль колод» на телефоне: ваши карты и Всемогущество сразу под столом; ваши кандзи, журнал ходов и чат — сворачиваемые разделы ниже (точка — новое сообщение). Название режима больше не закрывает кнопку Всемогущества.',
+      'Рамки аватара стали толще, и появилась новая платиновая рамка Beta с надписью BETA для всех, кто прошёл обучение.',
+      'Админы могут удалять аккаунты.',
+      'Два волшебника в меню стоят посередине экрана; трава в 2D-аренах больше не качается, и над замком не летает дракон.',
+    ],
+  },
+  {
     v: '0.9.9.3', date: '2026-10',
     en: [
       'New 2D art: the Wizard, Witch, Knight, Goblin, Apprentice and Adventurer, the Black Dragon and every staff are painted after the concept sheets (no more pixels), and all five arenas are repainted to match the 3D ones — with a stone arena the fighters stand on, by day, sunset and night.',

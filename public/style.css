@@ -1849,16 +1849,22 @@ body.has-3d .fighter .hpnum, body.has-3d .fighter .name { color: #f1eefc; }
 
 /* ── 0.9.9.3: avatar borders (Customize → Profile) ── */
 .bd { position: relative; }
-.bd-apprentice { box-shadow: 0 0 0 2px #dfe5ef, 0 0 0 3.5px rgba(40, 44, 60, .8); }
-.bd-adept { box-shadow: 0 0 0 2.5px #b79cff, 0 0 0 4px #4a2e9a, 0 0 10px 2px rgba(169, 139, 255, .55); }
-.bd-master { box-shadow: 0 0 0 2.5px #ffe29a, 0 0 0 4.5px #b8821e, 0 0 14px 3px rgba(255, 200, 90, .55); }
+.bd-apprentice { box-shadow: 0 0 0 3.5px #e6ebf3, 0 0 0 6px rgba(40, 44, 60, .85); }
+.bd-adept { box-shadow: 0 0 0 4px #b79cff, 0 0 0 6.5px #4a2e9a, 0 0 12px 3px rgba(169, 139, 255, .6); }
+.bd-master { box-shadow: 0 0 0 4px #ffe29a, 0 0 0 7px #b8821e, 0 0 16px 4px rgba(255, 200, 90, .6); }
 .bd-archmage { animation: bd-arcane 4s linear infinite; }
 @keyframes bd-arcane {
-  0%, 100% { box-shadow: 0 0 0 2.5px #7af0ff, 0 0 0 5px #6b3dff, 0 0 16px 4px rgba(122, 240, 255, .6); }
-  33% { box-shadow: 0 0 0 2.5px #ff8cf0, 0 0 0 5px #2e7dff, 0 0 18px 5px rgba(255, 140, 240, .6); }
-  66% { box-shadow: 0 0 0 2.5px #ffe27a, 0 0 0 5px #b03dff, 0 0 16px 4px rgba(255, 226, 122, .55); }
+  0%, 100% { box-shadow: 0 0 0 4px #7af0ff, 0 0 0 7.5px #6b3dff, 0 0 18px 5px rgba(122, 240, 255, .6); }
+  33% { box-shadow: 0 0 0 4px #ff8cf0, 0 0 0 7.5px #2e7dff, 0 0 20px 6px rgba(255, 140, 240, .6); }
+  66% { box-shadow: 0 0 0 4px #ffe27a, 0 0 0 7.5px #b03dff, 0 0 18px 5px rgba(255, 226, 122, .55); }
 }
-@media (prefers-reduced-motion: reduce) { .bd-archmage { animation: none; box-shadow: 0 0 0 2.5px #7af0ff, 0 0 0 5px #6b3dff, 0 0 16px 4px rgba(122, 240, 255, .6); } }
+/* the Beta border: platinum, with a BETA tag at the bottom */
+.bd-beta { box-shadow: 0 0 0 2px #f7f9fc, 0 0 0 5px #b9c3cf, 0 0 0 7px #6f7b8a, 0 0 14px 3px rgba(220, 232, 245, .55); }
+div.bd-beta::after { content: "BETA"; position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); padding: 1px 6px; border-radius: 6px; font: 900 9px/1.3 system-ui, sans-serif; letter-spacing: .12em;
+  color: #2a313c; background: linear-gradient(180deg, #ffffff, #b9c3cf); border: 1px solid #6f7b8a; box-shadow: 0 2px 6px rgba(0, 0, 0, .4); z-index: 1; pointer-events: none; }
+.pp-pic.big.bd-beta::after { font-size: 13px; bottom: -12px; padding: 2px 10px; }
+.avatar.bd-beta::after { font-size: 6px; bottom: -6px; padding: 0 3px; letter-spacing: .06em; }
+@media (prefers-reduced-motion: reduce) { .bd-archmage { animation: none; box-shadow: 0 0 0 4px #7af0ff, 0 0 0 7.5px #6b3dff, 0 0 18px 5px rgba(122, 240, 255, .6); } }
 /* bigger frames carry an ornament: rune studs (adept), a star on top (master, archmage) */
 div.bd-adept::after, div.bd-master::after, div.bd-archmage::after { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 1; line-height: 1; }
 div.bd-adept::after { content: "◆"; top: -9px; font-size: 12px; color: #d9c8ff; text-shadow: 0 0 6px #8a5cff; }
@@ -1908,3 +1914,51 @@ body:not(.mode-shown) #bg[data-time="day"]::after { opacity: 1; }
 body:not(.mode-shown) #bg[data-time="sunset"]::after { opacity: .55; }
 body:has(#bg[data-time="day"]) :is(.screen > .sub, .screen > p, .menu-stack > .sub, .page-head, .screen > h2, .screen > h3, .screen .sub, .screen .hint, .menu-foot, .tag) { text-shadow: 0 1px 2px rgba(0, 0, 0, .9), 0 0 12px rgba(0, 0, 0, .55); }
 body:has(#bg[data-time="day"]) .screen .sub, body:has(#bg[data-time="day"]) .menu-stack > .sub { color: #e6e3f4; }
+
+/* ── 0.9.9.3.1 ── */
+#userRows td:last-child { white-space: nowrap; }
+#userRows .del-user { margin-left: 4px; }
+/* the menu's duelling wizards stand in the middle of the screen (between the menu and the friends list) */
+@media (min-width: 861px) {
+  #menu .duel-scene { right: auto; width: min(calc(42 * var(--vw)), 620px); left: calc(50% - min(calc(21 * var(--vw)), 310px) + clamp(60px, calc(9 * var(--vw)), 160px)); }
+}
+
+/* ── 0.9.9.3.1: Deck Duel on phones / narrow screens — your cards and Omnipotence come right after the table;
+   your kanji, the turn log and the chat are foldable sections below them ── */
+@media (max-width: 980px) {
+  #deck.deck-screen { display: flex; flex-direction: column; gap: 8px; height: auto; min-height: calc(100 * var(--dvh)); overflow: visible; }
+  #deck .deck-middle, #deck .dk-left { display: contents; }
+  #deck .deck-top { order: 0; }
+  #deck .dk-stage { order: 1; }
+  #deck .deck-bottom { order: 2; }
+  #deck .dk-list { order: 3; }
+  #deck .dk-feed { order: 4; }
+  #deck .dk-chat { order: 5; }
+  #deck .dk-panel { max-height: none; height: auto !important; min-height: 0; padding-top: 0; padding-bottom: 0; }
+  #deck .dk-panel > h4 { cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 0; padding: 12px 2px; user-select: none; }
+  #deck .dk-panel > h4::after { content: "▸"; margin-left: auto; font-size: 1rem; transition: transform .2s; }
+  #deck .dk-panel.open > h4::after { transform: rotate(90deg); }
+  #deck .dk-panel:not(.open) > :not(h4) { display: none !important; }
+  #deck .dk-panel.open { padding-bottom: 10px; }
+  #deck .dk-panel.open > :not(h4):not(form) { max-height: 240px; overflow: auto; }
+  #deck .dk-panel > h4 .dk-unread { width: 8px; height: 8px; border-radius: 50%; background: #ff6b81; }
+}
+.mode-title.in-deck { top: 52px; bottom: auto; left: 12px; transform: none; font-size: .78rem; padding: 4px 12px; opacity: .85; z-index: 20; pointer-events: none; }
+.mode-title.in-deck .mode-badge { font-size: 1rem; }
+@media (max-width: 700px) { .mode-title.in-deck { display: none !important; } }
+
+/* ── 0.9.9.3.1: your Omnipotence — eyes close, 究極能力 flashes, eyes open in fire (1.6 s) ── */
+.ult-fx { position: fixed; inset: 0; z-index: 90; pointer-events: none; overflow: hidden; --eye: #ffcf6a; }
+.ult-lid { position: absolute; left: -5%; width: 110%; height: 52%; background: radial-gradient(120% 90% at 50% 100%, #12080c, #000 70%); animation: 1.6s cubic-bezier(.5, 0, .3, 1) forwards; }
+.ult-lid.top { top: 0; transform: translateY(-101%); border-bottom-left-radius: 50% 18%; border-bottom-right-radius: 50% 18%; animation-name: ult-lid-t; }
+.ult-lid.bot { bottom: 0; transform: translateY(101%); border-top-left-radius: 50% 18%; border-top-right-radius: 50% 18%; background: radial-gradient(120% 90% at 50% 0%, #12080c, #000 70%); animation-name: ult-lid-b; }
+@keyframes ult-lid-t { 0% { transform: translateY(-101%); } 18%, 54% { transform: translateY(0); } 74%, 100% { transform: translateY(-101%); } }
+@keyframes ult-lid-b { 0% { transform: translateY(101%); } 18%, 54% { transform: translateY(0); } 74%, 100% { transform: translateY(101%); } }
+.ult-text { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(1.5); font-family: var(--jp); font-weight: 900; font-size: clamp(2.6rem, 11vw, 7rem); letter-spacing: .12em; white-space: nowrap;
+  color: #fff; opacity: 0; text-shadow: 0 0 12px var(--eye), 0 0 34px var(--eye), 0 0 70px var(--eye); animation: ult-text 1.6s ease-out forwards; }
+@keyframes ult-text { 0%, 16% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); } 24% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 30% { opacity: .55; } 34%, 46% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); } 56%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.25); } }
+.ult-eyes { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; gap: min(22vw, 220px); opacity: 0; animation: ult-eyes 1.6s ease-out forwards; }
+.ult-eyes i { display: block; width: min(16vw, 150px); height: min(3vw, 26px); border-radius: 50%; background: radial-gradient(closest-side, #fff, var(--eye) 55%, transparent); box-shadow: 0 0 30px 8px var(--eye); }
+@keyframes ult-eyes { 0%, 42% { opacity: 0; transform: translate(-50%, -50%) scaleY(.1); } 50% { opacity: 1; transform: translate(-50%, -50%) scaleY(1); } 62% { opacity: 1; transform: translate(-50%, -50%) scaleY(1.5); } 76%, 100% { opacity: 0; transform: translate(-50%, -50%) scaleY(2.2); } }
+.ult-burst { position: absolute; left: 0; right: 0; bottom: -10%; height: 70%; opacity: 0; background: radial-gradient(60% 80% at 50% 100%, #fff6c0, #ffb02a 30%, var(--eye) 55%, transparent 75%); filter: blur(6px); animation: ult-burst 1.6s ease-out forwards; mix-blend-mode: screen; }
+@keyframes ult-burst { 0%, 56% { opacity: 0; transform: scaleY(.3); } 70% { opacity: .95; transform: scaleY(1); } 100% { opacity: 0; transform: scaleY(1.3); } }

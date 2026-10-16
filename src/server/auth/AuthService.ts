@@ -81,6 +81,16 @@ export class AuthService {
     return { ...toPublic(rec), banned: rec.banned, createdAt: rec.createdAt };
   }
 
+  /** Delete an account for good (test accounts). Not yourself, not another admin; they are logged out at once. */
+  async deleteUser(admin: UserRecord, targetId: string): Promise<void> {
+    const target = await this.store.findById(targetId);
+    if (!target) throw new AuthError('No such user', 404);
+    if (target.id === admin.id) throw new AuthError("You can't delete yourself");
+    if (target.role === 'admin') throw new AuthError('Admins can’t be deleted — take away their admin role first');
+    for (const l of this.banListeners) l(targetId); // kick their open sessions
+    await this.store.deleteUser(targetId);
+  }
+
   /** Promote a player to admin, or take it back. The main "admin" account can't be demoted, and nobody
    *  changes their own role (so the last admin can't lock everyone out). */
   async setRole(admin: UserRecord, targetId: string, role: Role): Promise<AdminUserRow> {

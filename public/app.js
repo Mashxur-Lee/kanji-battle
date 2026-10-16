@@ -87,11 +87,12 @@
     acceptFriend: (id) => call("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
     removeFriend: (id) => call("DELETE", `/api/friends/${encodeURIComponent(id)}`),
     setRole: (id, role) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/role`, { role }),
+    deleteUser: (id) => call("DELETE", `/api/admin/users/${encodeURIComponent(id)}`),
     setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.3";
+  var VERSION = "0.9.9.3.1";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -776,6 +777,13 @@
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.3.1
+    "\u{1F5D1} Delete": "\u{1F5D1} \u0423\u0434\u0430\u043B\u0438\u0442\u044C",
+    "Delete this account and all its progress": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u044D\u0442\u043E\u0442 \u0430\u043A\u043A\u0430\u0443\u043D\u0442 \u0438 \u0432\u0435\u0441\u044C \u0435\u0433\u043E \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441",
+    "Beta border": "\u0420\u0430\u043C\u043A\u0430 Beta",
+    "Finish the tutorial to unlock": "\u041F\u0440\u043E\u0439\u0434\u0438\u0442\u0435 \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u0435, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C",
+    "Finish the tutorial to get the Beta border": "\u041F\u0440\u043E\u0439\u0434\u0438\u0442\u0435 \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0440\u0430\u043C\u043A\u0443 Beta",
+    "Thank you for playing the beta!": "\u0421\u043F\u0430\u0441\u0438\u0431\u043E, \u0447\u0442\u043E \u0438\u0433\u0440\u0430\u0435\u0442\u0435 \u0432 \u0431\u0435\u0442\u0443!",
     // 0.9.9.3
     "Ticked: goes to your deck. Tap to keep it out.": "\u041E\u0442\u043C\u0435\u0447\u0435\u043D\u043E: \u043F\u043E\u043F\u0430\u0434\u0451\u0442 \u0432 \u043A\u043E\u043B\u043E\u0434\u0443. \u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0442\u044C.",
     "Ticked words go to": "\u041E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u2014 \u0432",
@@ -1197,9 +1205,13 @@
     { id: "apprentice", name: "Apprentice", level: 1, blurb: "A plain silver ring." },
     { id: "adept", name: "Adept", level: 5, blurb: "A violet ring with four rune studs." },
     { id: "master", name: "Master", level: 10, blurb: "A golden ring with a star at the top." },
-    { id: "archmage", name: "Archmage", level: 15, blurb: "A glowing ring of moving arcane light." }
+    { id: "archmage", name: "Archmage", level: 15, blurb: "A glowing ring of moving arcane light." },
+    { id: "beta", name: "Beta", level: 0, unlock: "border:beta", blurb: "A platinum ring with a BETA tag \u2014 for everyone who finished the tutorial during the beta." }
   ];
-  var borderUnlocked = (id, level2) => (BORDERS.find((b) => b.id === id)?.level ?? 999) <= level2;
+  var borderUnlocked = (id, level2, unlocks2 = []) => {
+    const b = BORDERS.find((x) => x.id === id);
+    return !!b && (b.unlock ? unlocks2.includes(b.unlock) : b.level <= level2);
+  };
   var FLAMES = [
     { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
     { id: "purple", name: "Purple", level: 5, color: "#b26bff" },
@@ -1934,7 +1946,7 @@
     return `<path d="M${x - 14 * s} ${base} L${x - 9 * s} ${base - 26 * s} L${x - 16 * s} ${base - 34 * s} L${x + 16 * s} ${base - 34 * s} L${x + 9 * s} ${base - 26 * s} L${x + 14 * s} ${base} Z" fill="${stone}"/>${lit ? flame : `<ellipse cx="${x}" cy="${base - 36 * s}" rx="${12 * s}" ry="${4 * s}" fill="#ffb060" opacity=".7"/>`}`;
   }
   function grass(n, y0, y1, color, hmin = 14, hmax = 34) {
-    return `<g class="bg-sway">${Array.from({ length: n }, () => {
+    return `<g>${Array.from({ length: n }, () => {
       const x = r(0, W), y = r(y0, y1), h3 = r(hmin, hmax);
       return `<path d="M${f(x)} ${f(y)} q${f(r(-6, 2))} ${f(-h3 * 0.6)} ${f(r(-10, -2))} ${f(-h3)} M${f(x + 3)} ${f(y)} q${f(r(0, 4))} ${f(-h3 * 0.7)} ${f(r(4, 10))} ${f(-h3 * 0.9)}" stroke="${color}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
     }).join("")}</g>`;
@@ -1985,7 +1997,7 @@
     };
     const reeds = (n, y0, y1, c) => Array.from({ length: n }, () => {
       const x = r(0, W), y = r(y0, y1), h3 = r(50, 110);
-      return `<g class="bg-sway"><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h3)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h3 * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`;
+      return `<g><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h3)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h3 * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`;
     }).join("");
     const lit = t !== "day";
     return `<defs>${grad("sk", sky)}${grad("wt", [[0, water[0]], [1, water[1]]])}${radial("wisp", [[0, "#cfff9a", 0.9], [1, "#cfff9a", 0]])}${floorDefs(stone)}${DEFS}</defs>
@@ -2043,7 +2055,6 @@
     const stoneC = pick(t, "#5e5e74", "#2c1a26", "#13132a"), roof = pick(t, "#3e3e5e", "#1c0e1a", "#1c1b36");
     const lit = t !== "day";
     const tower = (x, w, h3) => `<rect x="${x}" y="${640 - h3}" width="${w}" height="${h3}" fill="${stoneC}"/><rect x="${x + w * 0.62}" y="${640 - h3}" width="${w * 0.38}" height="${h3}" fill="#000" opacity=".2"/><polygon points="${x - 10},${640 - h3} ${x + w / 2},${560 - h3} ${x + w + 10},${640 - h3}" fill="${roof}"/>` + Array.from({ length: Math.floor(h3 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h3 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h3}" x2="${x + w / 2}" y2="${520 - h3}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h3} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
-    const dragon = dragonArt().replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
     const soldier = (x, y, s, flip2, weapon) => {
       const c = pick(t, "#2c3038", "#1a0c10", "#06070e");
       const g = `<circle cx="0" cy="-58" r="7"/><path d="M-7 -62 q7 -14 14 0 z"/><rect x="-8" y="-50" width="16" height="30" rx="4"/><rect x="-8" y="-22" width="6" height="22"/><rect x="2" y="-22" width="6" height="22"/><ellipse cx="-11" cy="-36" rx="7" ry="11"/>` + (weapon === "spear" ? `<line x1="10" y1="-10" x2="16" y2="-92" stroke="${c}" stroke-width="3"/><polygon points="13,-92 16,-104 19,-92"/>` : `<g class="bg-swing"><line x1="8" y1="-40" x2="34" y2="-70" stroke="${c}" stroke-width="3"/></g>`);
@@ -2057,7 +2068,6 @@
     ${t === "night" ? milkyWay() + stars(160, 460) + moon(300, 150, 52, "#e8e6ff") : t === "sunset" ? horizonGlow(560, "#ff5a2a") + sun(1250, 520, 90, "#ffb070", "#ff5a3a") + clouds(5, 120, 300, "#ff9a7a", 0.4) : sun(1280, 140, 44, "#fffbe6", "#ffffff") + clouds(7, 80, 280, "#ffffff", 0.85)}
     ${mountains(600, 110, pick(t, "#7686a2", "#3a1622", "#0e1030"), 1.3)}
     ${haze(620, pick(t, "#dfe8f4", "#ff7a5a", "#1a2050"), 0.5)}
-    <g class="bg-dragon"><g transform="scale(.55)" opacity="${pick(t, 0.9, 0.85, 0.75)}">${dragon}</g></g>
     ${hills(640, 18, pick(t, "#4e5e4c", "#1a0a12", "#10122a"))}
     <rect x="560" y="430" width="480" height="210" fill="${stoneC}"/>
     ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="${stoneC}"/>`).join("")}
@@ -2554,7 +2564,7 @@
     const m = Math.max(0, Math.round((Date.now() - t) / 6e4));
     return m < 60 ? `${m} min` : m < 60 * 24 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`;
   }
-  function showAdmin(users, me3, db, onToggle, onRole) {
+  function showAdmin(users, me3, db, onToggle, onRole, onDelete) {
     const banned = users.filter((u) => u.banned).length;
     const online = users.filter((u) => u.online).length;
     $("adminInfo").textContent = `${online} online now \xB7 ${users.length} accounts \xB7 ${banned} banned`;
@@ -2574,6 +2584,11 @@
           const r2 = h("button", "pill" + (u.role === "admin" ? "" : " promote"), u.role === "admin" ? "Remove admin" : "Make admin");
           r2.onclick = () => onRole(u);
           action.append(r2);
+        }
+        if (onDelete && u.role !== "admin" && u.id !== me3.id) {
+          const d = h("button", "pill danger del-user", "\u{1F5D1} Delete", { title: "Delete this account and all its progress" });
+          d.onclick = () => onDelete(u);
+          action.append(d);
         }
         const presence = append(
           h("td", "presence " + (u.online ? "on" : "off")),
@@ -4232,7 +4247,7 @@ ${stack}`.slice(0, 2e3);
     for (const b of BACKGROUNDS) if (b.level > 0 && unlocked(b.id, p.xp)) out.push({ key: `arena:${b.id}`, kind: "arena", id: b.id, name: `${b.name} arena`, why: `You reached level ${b.level}` });
     for (const f2 of FLAMES) if ((f2.level > 0 || f2.season) && flameUnlocked(f2.id, p.xp, un)) out.push({ key: `flame:${f2.id}`, kind: "flame", id: f2.id, name: `${f2.name} flames`, why: f2.season ? "Monthly goals complete" : `You reached level ${f2.level}` });
     for (const s of STAFFS) if ((s.streak || s.season) && staffUnlocked(s.id, best, un)) out.push({ key: `staff:${s.id}`, kind: "staff", id: s.id, name: s.name, why: s.season ? "Monthly goals complete" : `A ${s.streak}-day daily streak` });
-    for (const b of BORDERS) if (b.level > 0 && borderUnlocked(b.id, lvl)) out.push({ key: `border:${b.id}`, kind: "border", id: b.id, name: `${b.name} border`, why: `You reached level ${b.level}` });
+    for (const b of BORDERS) if ((b.level > 0 || b.unlock) && borderUnlocked(b.id, lvl, un)) out.push({ key: `border:${b.id}`, kind: "border", id: b.id, name: `${b.name} border`, why: b.unlock ? "Thank you for playing the beta!" : `You reached level ${b.level}` });
     return out;
   }
   var queue = [];
@@ -4323,6 +4338,24 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.3.1",
+      date: "2026-10",
+      en: [
+        "Deck Duel Omnipotence: your eyes close, \u7A76\u6975\u80FD\u529B (\u201Cultimate power\u201D) flashes, and they open again in a burst of fire \u2014 and your opponent sees your character\u2019s eyes blaze (Goblin red, Witch purple, Wizard blue, Knight red). In every mode, eyes glow while you are on fire.",
+        "Deck Duel on phones: your cards and Omnipotence are right under the table; your kanji, the turn log and the chat are foldable sections below (a dot shows a new chat message). The mode name no longer covers the Omnipotence button.",
+        "Avatar borders are bolder, and there is a new platinum Beta border with a BETA tag for everyone who finished the tutorial.",
+        "Admins can delete accounts.",
+        "The menu\u2019s two wizards stand in the middle of the screen; no more swaying grass in the 2D arenas, and no dragon flying over the castle."
+      ],
+      ru: [
+        "\u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E \u0432 \xAB\u0414\u0443\u044D\u043B\u0438 \u043A\u043E\u043B\u043E\u0434\xBB: \u0432\u0430\u0448\u0438 \u0433\u043B\u0430\u0437\u0430 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F, \u0432\u0441\u043F\u044B\u0445\u0438\u0432\u0430\u0435\u0442 \u7A76\u6975\u80FD\u529B (\xAB\u0432\u044B\u0441\u0448\u0430\u044F \u0441\u0438\u043B\u0430\xBB), \u0438 \u043E\u043D\u0438 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u0432 \u043E\u0433\u043D\u0435 \u2014 \u0430 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A \u0432\u0438\u0434\u0438\u0442, \u043A\u0430\u043A \u0433\u043E\u0440\u044F\u0442 \u0433\u043B\u0430\u0437\u0430 \u0432\u0430\u0448\u0435\u0433\u043E \u0433\u0435\u0440\u043E\u044F (\u0413\u043E\u0431\u043B\u0438\u043D \u2014 \u043A\u0440\u0430\u0441\u043D\u044B\u043C, \u0412\u0435\u0434\u044C\u043C\u0430 \u2014 \u0444\u0438\u043E\u043B\u0435\u0442\u043E\u0432\u044B\u043C, \u0412\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u043A \u2014 \u0441\u0438\u043D\u0438\u043C, \u0420\u044B\u0446\u0430\u0440\u044C \u2014 \u043A\u0440\u0430\u0441\u043D\u044B\u043C). \u0412\u043E \u0432\u0441\u0435\u0445 \u0440\u0435\u0436\u0438\u043C\u0430\u0445 \u0433\u043B\u0430\u0437\u0430 \u0441\u0432\u0435\u0442\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B \u0432 \u043E\u0433\u043D\u0435.",
+        "\xAB\u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434\xBB \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435: \u0432\u0430\u0448\u0438 \u043A\u0430\u0440\u0442\u044B \u0438 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E \u0441\u0440\u0430\u0437\u0443 \u043F\u043E\u0434 \u0441\u0442\u043E\u043B\u043E\u043C; \u0432\u0430\u0448\u0438 \u043A\u0430\u043D\u0434\u0437\u0438, \u0436\u0443\u0440\u043D\u0430\u043B \u0445\u043E\u0434\u043E\u0432 \u0438 \u0447\u0430\u0442 \u2014 \u0441\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u043C\u044B\u0435 \u0440\u0430\u0437\u0434\u0435\u043B\u044B \u043D\u0438\u0436\u0435 (\u0442\u043E\u0447\u043A\u0430 \u2014 \u043D\u043E\u0432\u043E\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435). \u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0440\u0435\u0436\u0438\u043C\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043A\u043D\u043E\u043F\u043A\u0443 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u0430.",
+        "\u0420\u0430\u043C\u043A\u0438 \u0430\u0432\u0430\u0442\u0430\u0440\u0430 \u0441\u0442\u0430\u043B\u0438 \u0442\u043E\u043B\u0449\u0435, \u0438 \u043F\u043E\u044F\u0432\u0438\u043B\u0430\u0441\u044C \u043D\u043E\u0432\u0430\u044F \u043F\u043B\u0430\u0442\u0438\u043D\u043E\u0432\u0430\u044F \u0440\u0430\u043C\u043A\u0430 Beta \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E BETA \u0434\u043B\u044F \u0432\u0441\u0435\u0445, \u043A\u0442\u043E \u043F\u0440\u043E\u0448\u0451\u043B \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u0435.",
+        "\u0410\u0434\u043C\u0438\u043D\u044B \u043C\u043E\u0433\u0443\u0442 \u0443\u0434\u0430\u043B\u044F\u0442\u044C \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u044B.",
+        "\u0414\u0432\u0430 \u0432\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u043A\u0430 \u0432 \u043C\u0435\u043D\u044E \u0441\u0442\u043E\u044F\u0442 \u043F\u043E\u0441\u0435\u0440\u0435\u0434\u0438\u043D\u0435 \u044D\u043A\u0440\u0430\u043D\u0430; \u0442\u0440\u0430\u0432\u0430 \u0432 2D-\u0430\u0440\u0435\u043D\u0430\u0445 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043A\u0430\u0447\u0430\u0435\u0442\u0441\u044F, \u0438 \u043D\u0430\u0434 \u0437\u0430\u043C\u043A\u043E\u043C \u043D\u0435 \u043B\u0435\u0442\u0430\u0435\u0442 \u0434\u0440\u0430\u043A\u043E\u043D."
+      ]
+    },
     {
       v: "0.9.9.3",
       date: "2026-10",
@@ -6377,6 +6410,11 @@ ${stack}`.slice(0, 2e3);
       line.append(h2("b", "", m.from === hooks2.me() ? "You" : m.name), h2("span", "", m.text));
       log.append(line);
       if (m.from !== hooks2.me() && view && view.phase !== "over") sfx.flip();
+      const panel = log.closest(".dk-panel");
+      if (m.from !== hooks2.me() && panel && !panel.classList.contains("open")) {
+        const hd = panel.querySelector("h4");
+        if (hd && !hd.querySelector(".dk-unread")) hd.append(h2("span", "dk-unread"));
+      }
     }
     while (log.children.length > 60) log.firstElementChild.remove();
     log.scrollTop = log.scrollHeight;
@@ -6564,6 +6602,13 @@ ${stack}`.slice(0, 2e3);
     renderCast(v);
     renderList(v);
   }
+  document.getElementById("deck")?.addEventListener("click", (e) => {
+    const head = e.target.closest(".dk-panel > h4");
+    if (!head) return;
+    const panel = head.parentElement;
+    panel.classList.toggle("open");
+    head.querySelector(".dk-unread")?.remove();
+  });
   function renderList(v) {
     const box = $8("dkList");
     const head = h2("h4", "", "Your kanji");
@@ -6825,6 +6870,18 @@ ${stack}`.slice(0, 2e3);
         break;
     }
   }
+  var EYE_CSS = { goblin: "#ff3a24", witch: "#b86bff", wizard: "#49a8ff", knight: "#ff3030" };
+  function ultimateFx(character) {
+    document.querySelector(".ult-fx")?.remove();
+    const o = h2("div", "ult-fx");
+    o.style.setProperty("--eye", EYE_CSS[character] ?? "#ffcf6a");
+    o.append(h2("div", "ult-lid top"), h2("div", "ult-lid bot"), h2("div", "ult-eyes"), h2("div", "ult-text", "\u7A76\u6975\u80FD\u529B"), h2("div", "ult-burst"));
+    o.querySelector(".ult-eyes").append(h2("i"), h2("i"));
+    o.querySelector(".ult-text").lang = "ja";
+    document.body.append(o);
+    setTimeout(() => sfx.fire(), 900);
+    setTimeout(() => o.remove(), 1750);
+  }
   function deckEvent(e) {
     if (!view) return;
     feedEvent(e);
@@ -6838,7 +6895,9 @@ ${stack}`.slice(0, 2e3);
         toast(`${e.playerId === me3 ? "You are" : `${name(e.playerId)} is`} out of cards \u2014 Round ${e.round} draft!`, 4e3);
         break;
       case "ability":
-        toast(`${e.playerId === me3 ? "You" : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(":")[0]}!`);
+        if (e.playerId === me3) ultimateFx(e.character);
+        else arena()?.flashEyes("opp");
+        setTimeout(() => toast(`${e.playerId === me3 ? "You" : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(":")[0]}!`), e.playerId === me3 ? 1300 : 0);
         break;
       case "wizard":
         toast(`${e.playerId === me3 ? "Your" : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === "cards" ? "+2 cards" : "+30 mana"}`);
@@ -7913,9 +7972,9 @@ ${stack}`.slice(0, 2e3);
         id: b.id,
         name: b.name === "No border" ? b.name : `${b.name} border`,
         blurb: `${b.blurb} Round your profile picture \u2014 everyone sees it in lobbies, battles and on your profile card.`,
-        locked: !isAdmin && !borderUnlocked(b.id, lvl),
-        lock: `Level ${b.level}`,
-        lockedToast: `Reach level ${b.level} to unlock the ${b.name} border`,
+        locked: !isAdmin && !borderUnlocked(b.id, lvl, profile3.unlocks),
+        lock: b.unlock ? "Tutorial" : `Level ${b.level}`,
+        lockedToast: b.unlock ? "Finish the tutorial to get the Beta border" : `Reach level ${b.level} to unlock the ${b.name} border`,
         equipped: (profile3.border ?? "none") === b.id,
         tile: () => avatarDisc(profile3, b.id, "ci-avatar"),
         equip: () => api.setBorder(b.id)
@@ -8051,7 +8110,7 @@ ${stack}`.slice(0, 2e3);
       badge.append(el7("b", "", "\xD75"), el7("span", "", "COMBO"));
       stage2.replaceChildren(w, badge);
     }
-    const btn = el7("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? sel.lock.startsWith("Level") ? `Unlocks at ${sel.lock.replace("Level", "level")}` : sel.lock.endsWith("goals") ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}` : "Equip");
+    const btn = el7("button", "big cust-equip", sel.equipped ? "\u2713 Equipped" : sel.locked ? sel.lock.startsWith("Level") ? `Unlocks at ${sel.lock.replace("Level", "level")}` : sel.lock === "Tutorial" ? "Finish the tutorial to unlock" : sel.lock.endsWith("goals") ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}` : "Equip");
     btn.disabled = sel.equipped;
     btn.classList.toggle("locked", sel.locked);
     btn.onclick = () => void equip(sel);
@@ -8714,7 +8773,8 @@ ${stack}`.slice(0, 2e3);
     const title = $("modeTitle");
     title.hidden = !["prep", "battle", "deck"].includes(s);
     document.body.classList.toggle("mode-shown", !title.hidden);
-    title.classList.toggle("in-game", s === "battle" || s === "deck");
+    title.classList.toggle("in-game", s === "battle");
+    title.classList.toggle("in-deck", s === "deck");
     if (s !== "battle" && document.activeElement?.id === "answer") document.activeElement.blur();
     if (!title.hidden) title.replaceChildren(modeBadge(s === "deck" ? "deck" : mode2), document.createTextNode(MODE_LABEL[s === "deck" ? "deck" : mode2]));
     if (s === "menu" && profile2) void refreshProfile();
@@ -9367,6 +9427,15 @@ ${stack}`.slice(0, 2e3);
         if (!confirm(promote ? `Make ${u.username} an admin? They will see the Admin page (users, inbox, stats) and can ban players.` : `Remove admin from ${u.username}?`)) return;
         try {
           await api.setRole(u.id, promote ? "admin" : "user");
+          await openAdmin();
+        } catch (e) {
+          $("adminInfo").textContent = e.message;
+        }
+      }, async (u) => {
+        if (!confirm(`Delete the account \u201C${u.username}\u201D for good? Its XP, study cards, match history and friends are deleted too. This can\u2019t be undone.`)) return;
+        try {
+          await api.deleteUser(u.id);
+          toast(`${u.username} deleted`);
           await openAdmin();
         } catch (e) {
           $("adminInfo").textContent = e.message;

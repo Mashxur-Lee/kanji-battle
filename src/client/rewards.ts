@@ -23,7 +23,7 @@ function haveNow(p: Profile): Reward[] {
   for (const b of BACKGROUNDS) if (b.level > 0 && unlocked(b.id, p.xp)) out.push({ key: `arena:${b.id}`, kind: 'arena', id: b.id, name: `${b.name} arena`, why: `You reached level ${b.level}` });
   for (const f of FLAMES) if ((f.level > 0 || f.season) && flameUnlocked(f.id as FlameId, p.xp, un)) out.push({ key: `flame:${f.id}`, kind: 'flame', id: f.id, name: `${f.name} flames`, why: f.season ? 'Monthly goals complete' : `You reached level ${f.level}` });
   for (const s of STAFFS) if ((s.streak || s.season) && staffUnlocked(s.id as StaffId, best, un)) out.push({ key: `staff:${s.id}`, kind: 'staff', id: s.id, name: s.name, why: s.season ? 'Monthly goals complete' : `A ${s.streak}-day daily streak` });
-  for (const b of BORDERS) if (b.level > 0 && borderUnlocked(b.id, lvl)) out.push({ key: `border:${b.id}`, kind: 'border', id: b.id, name: `${b.name} border`, why: `You reached level ${b.level}` });
+  for (const b of BORDERS) if ((b.level > 0 || b.unlock) && borderUnlocked(b.id, lvl, un)) out.push({ key: `border:${b.id}`, kind: 'border', id: b.id, name: `${b.name} border`, why: b.unlock ? 'Thank you for playing the beta!' : `You reached level ${b.level}` });
   return out;
 }
 

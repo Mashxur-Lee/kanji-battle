@@ -252,6 +252,10 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
         const body = await readJson(req);
         const id = url.split('/')[4];
         send(res, 200, { user: await auth.setBanned(admin, id, body.banned === true) });
+      } else if (req.method === 'DELETE' && /^\/api\/admin\/users\/[\w-]+$/.test(url)) {
+        const admin = await auth.requireAdmin(bearer(req));
+        await auth.deleteUser(admin, url.split('/')[4]);
+        send(res, 200, { ok: true });
       } else if (req.method === 'POST' && /^\/api\/admin\/users\/[\w-]+\/role$/.test(url)) {
         const admin = await auth.requireAdmin(bearer(req));
         const body = await readJson(req);

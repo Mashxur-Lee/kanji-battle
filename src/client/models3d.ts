@@ -26,6 +26,8 @@ export interface Character {
   staff: Staff;
   height: number;
   materials: Array<{ mat: THREE.MeshStandardMaterial; color: THREE.Color; emissive: THREE.Color }>;
+  /** glowing eyes, on while on fire (0.9.9.3.1) */
+  eyes?: THREE.Group;
 }
 
 const ROBES: Record<Side, number> = { me: 0x3d5ad6, opp: 0xc23a4c, ally: 0x2f9f74 };
