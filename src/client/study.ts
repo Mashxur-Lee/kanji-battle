@@ -466,6 +466,7 @@ function avatarDisc(p: Profile, border: string, cls: string) {
 let arena3: ArenaApi | null = null;
 let arena3Tried = false;
 let arena3Key = '';
+let arena3Bg = '';
 async function ensureArena3() {
   arena3Tried = true;
   arena3 = await arenaPreview($<HTMLCanvasElement>('arenaPreview'));
@@ -476,15 +477,22 @@ function showArena3(tab: 'arena' | 'omni', id: string, p: Profile) {
   if (!arena3) return;
   const bgId = (tab === 'arena' ? id : p.background) as BackgroundId, time = resolveTime(getTimePref());
   const character = avatarFor(p.studyLevels);
-  const key = `${bgId}-${time}-${character}-${p.staff}`;
-  if (key !== arena3Key) {
-    arena3Key = key;
-    arena3.setup({ layout: 'battle', bgSvg: sceneSvg(bgId, time), bgKey: `${bgId}-${time}`, time,
+  const who = `${character}-${p.staff}`, bg = `${bgId}-${time}`;
+  // the fighters are built once; picking another arena only swaps the arena (0.9.9.3.3: no rebuild, no stutter)
+  if (who !== arena3Key) {
+    arena3Key = who; arena3Bg = bg;
+    arena3.setup({ layout: 'battle', bgSvg: sceneSvg(bgId, time), bgKey: bg, time,
       me: { id: 'me', character, staff: p.staff }, opp: { id: 'you', name: ui.myName(), character, staff: p.staff }, allies: [], boss: null });
+  } else if (bg !== arena3Bg) {
+    arena3Bg = bg;
+    arena3.setBackground(bg, time, sceneSvg(bgId, time));
   }
   arena3.setActive(true);
+  if (tab === 'arena') arena3.prewarm(BACKGROUNDS.map((b) => b.id), time); // the other arenas get built while you look
   arena3.focusOpp(tab === 'omni'); // the flames: up close; the arena: the whole view
-  arena3.onfire('opp', tab === 'omni', tab === 'omni' ? flameColor(id) : undefined);
+  const color = tab === 'omni' ? flameColor(id) : undefined;
+  arena3.onfire('opp', tab === 'omni', color);
+  arena3.onfire('me', tab === 'omni', color); // and the first-person fire along the bottom, as you see it in a battle
 }
 /** leaving Customize: the preview stops drawing */
 export function customizeHidden() { arena3?.setActive(false); }

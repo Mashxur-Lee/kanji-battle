@@ -92,7 +92,7 @@
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.3.2";
+  var VERSION = "0.9.9.3.3";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -777,6 +777,9 @@
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.3.3
+    "A day counts for your streak when all four tasks are done \u2014 and gives +500 XP. Your best streak unlocks magic staffs.": "\u0414\u0435\u043D\u044C \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u0441\u0435\u0440\u0438\u044E, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u044B \u0432\u0441\u0435 \u0447\u0435\u0442\u044B\u0440\u0435 \u0437\u0430\u0434\u0430\u043D\u0438\u044F, \u2014 \u0438 \u0434\u0430\u0451\u0442 +500 \u043E\u043F\u044B\u0442\u0430. \u041B\u0443\u0447\u0448\u0430\u044F \u0441\u0435\u0440\u0438\u044F \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u043E\u0441\u043E\u0445\u0438.",
+    "Daily streak kept!": "\u0421\u0435\u0440\u0438\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0430!",
     // 0.9.9.3.2
     "Words from": "\u0421\u043B\u043E\u0432\u0430 \u0438\u0437",
     "+ Add to\u2026": "+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u2026",
@@ -1143,27 +1146,29 @@
     box.classList.add("stroke-order");
     box.replaceChildren(Object.assign(document.createElement("div"), { className: "so-loading", textContent: "\u2026" }));
     await load(chars.filter((c) => /[\p{Script=Han}々]/u.test(c)));
-    const row = document.createElement("div");
-    row.className = "so-row";
-    let delay = 0;
-    for (const ch of chars) {
-      const strokes2 = /[\p{Script=Han}々]/u.test(ch) ? cache.get(ch) ?? null : null;
-      const cell = document.createElement("div");
-      cell.className = "so-cell";
-      cell.append(diagram(ch, strokes2, stepMs, delay));
-      row.append(cell);
-      delay += (strokes2?.length ?? 0) * stepMs + (strokes2 ? 250 : 0);
-    }
+    const build2 = () => {
+      const row2 = document.createElement("div");
+      row2.className = "so-row";
+      let delay = 0;
+      for (const ch of chars) {
+        const strokes2 = /[\p{Script=Han}々]/u.test(ch) ? cache.get(ch) ?? null : null;
+        const cell = document.createElement("div");
+        cell.className = "so-cell";
+        cell.append(diagram(ch, strokes2, stepMs, delay));
+        row2.append(cell);
+        delay += (strokes2?.length ?? 0) * stepMs + (strokes2 ? 250 : 0);
+      }
+      return row2;
+    };
+    let row = build2();
     const foot = document.createElement("div");
     foot.className = "so-foot";
     if (o.caption) foot.append(Object.assign(document.createElement("span"), { textContent: o.caption }));
     const replay = Object.assign(document.createElement("button"), { className: "pill so-replay", type: "button", textContent: "\u21BB Replay" });
     replay.onclick = () => {
-      for (const n of row.querySelectorAll(".so-ink path, .so-nums text")) {
-        n.style.animationName = "none";
-        void n.offsetWidth;
-        n.style.animationName = "";
-      }
+      const fresh = build2();
+      row.replaceWith(fresh);
+      row = fresh;
     };
     foot.append(replay);
     box.replaceChildren(row, foot);
@@ -4244,11 +4249,14 @@ ${stack}`.slice(0, 2e3);
   var last = null;
   var shownThisVisit = false;
   var doneCount = (p) => (p.tasks ?? []).filter((t) => t.value >= t.target).length;
+  var wasAll = null;
   function renderTasks(p) {
     last = p;
     const tasks = p.tasks ?? [];
     if (!tasks.length) return;
     const n = doneCount(p), all = n === tasks.length;
+    if (wasAll === false && all) toast(`\u{1F525} ${tr("Daily streak kept!")} +500 XP`, 5e3);
+    wasAll = all;
     const btn = $4("tasksBtn");
     btn.hidden = false;
     btn.classList.toggle("done", all);
@@ -4429,6 +4437,28 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.3.3",
+      date: "2026-10",
+      en: [
+        "Omnipotence has its own sound: a whoosh as your eyes close, a deep impact with a ringing chord as \u7A76\u6975\u80FD\u529B flashes, and a roar of fire as they open.",
+        "Keeping your daily streak (all four tasks) now gives +500 XP.",
+        "Stroke order: Replay works again.",
+        "Customize: switching arenas in the 3D preview no longer stutters; the Omnipotence preview shows the first-person fire too; the 2D arena preview is bigger.",
+        "Other players\u2019 staffs are a bit smaller; the forest\u2019s trees are taller (no more treetops in view).",
+        "JLPT quiz: a single hiragana is asked by its romaji, with four real choices (no more one-choice or \u201Chiragana / hiragana (voiced)\u201D questions).",
+        "Study spells: the yellow notices are readable on bright backgrounds."
+      ],
+      ru: [
+        "\u0423 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u0430 \u0441\u0432\u043E\u0439 \u0437\u0432\u0443\u043A: \u0441\u0432\u0438\u0441\u0442, \u043A\u043E\u0433\u0434\u0430 \u0433\u043B\u0430\u0437\u0430 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F, \u0433\u043B\u0443\u0431\u043E\u043A\u0438\u0439 \u0443\u0434\u0430\u0440 \u0441\u043E \u0437\u0432\u0435\u043D\u044F\u0449\u0438\u043C \u0430\u043A\u043A\u043E\u0440\u0434\u043E\u043C \u043F\u0440\u0438 \u0432\u0441\u043F\u044B\u0448\u043A\u0435 \u7A76\u6975\u80FD\u529B \u0438 \u0440\u0451\u0432 \u043F\u043B\u0430\u043C\u0435\u043D\u0438, \u043A\u043E\u0433\u0434\u0430 \u043E\u043D\u0438 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F.",
+        "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u0430\u044F \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u0430\u044F \u0441\u0435\u0440\u0438\u044F (\u0432\u0441\u0435 \u0447\u0435\u0442\u044B\u0440\u0435 \u0437\u0430\u0434\u0430\u043D\u0438\u044F) \u0442\u0435\u043F\u0435\u0440\u044C \u0434\u0430\u0451\u0442 +500 \u043E\u043F\u044B\u0442\u0430.",
+        "\u041F\u043E\u0440\u044F\u0434\u043E\u043A \u0447\u0435\u0440\u0442: \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C\xBB \u0441\u043D\u043E\u0432\u0430 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442.",
+        "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430: \u043F\u0435\u0440\u0435\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u0430\u0440\u0435\u043D \u0432 3D-\u043F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043F\u043E\u0434\u0442\u043E\u0440\u043C\u0430\u0436\u0438\u0432\u0430\u0435\u0442; \u043F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u0430 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442 \u0438 \u043E\u0433\u043E\u043D\u044C \u043E\u0442 \u043F\u0435\u0440\u0432\u043E\u0433\u043E \u043B\u0438\u0446\u0430; 2D-\u043F\u0440\u0435\u0432\u044C\u044E \u0430\u0440\u0435\u043D\u044B \u0441\u0442\u0430\u043B\u043E \u0431\u043E\u043B\u044C\u0448\u0435.",
+        "\u041F\u043E\u0441\u043E\u0445\u0438 \u0434\u0440\u0443\u0433\u0438\u0445 \u0438\u0433\u0440\u043E\u043A\u043E\u0432 \u0447\u0443\u0442\u044C \u043C\u0435\u043D\u044C\u0448\u0435; \u0434\u0435\u0440\u0435\u0432\u044C\u044F \u0432 \u043B\u0435\u0441\u0443 \u0432\u044B\u0448\u0435 (\u0438\u0445 \u0432\u0435\u0440\u0445\u0443\u0448\u0435\u043A \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0432\u0438\u0434\u043D\u043E).",
+        "\u0422\u0435\u0441\u0442 JLPT: \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u0430\u044F \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0430 \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 \u0440\u043E\u043C\u0430\u0434\u0437\u0438, \u0441 \u0447\u0435\u0442\u044B\u0440\u044C\u043C\u044F \u043D\u0430\u0441\u0442\u043E\u044F\u0449\u0438\u043C\u0438 \u0432\u0430\u0440\u0438\u0430\u043D\u0442\u0430\u043C\u0438 (\u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0438\u043A\u0430\u043A\u0438\u0445 \u0432\u043E\u043F\u0440\u043E\u0441\u043E\u0432 \u0441 \u043E\u0434\u043D\u0438\u043C \u0432\u0430\u0440\u0438\u0430\u043D\u0442\u043E\u043C \u0438\u043B\u0438 \xABhiragana / hiragana (voiced)\xBB).",
+        "\u0423\u0447\u0451\u0431\u0430: \u0436\u0451\u043B\u0442\u044B\u0435 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 \u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u0441\u0432\u0435\u0442\u043B\u043E\u043C \u0444\u043E\u043D\u0435."
+      ]
+    },
     {
       v: "0.9.9.3.2",
       date: "2026-10",
@@ -5315,6 +5345,27 @@ ${stack}`.slice(0, 2e3);
       const t = ctx.currentTime;
       noise(t, 1.2, 0.5, 1400);
       tone(70, t, 1.1, { type: "sawtooth", gain: 0.12, to: 40 });
+    },
+    /**
+     * Deck Duel Omnipotence (0.9.9.3.3), timed to the eyes: a whoosh as they close, a deep impact with a ringing,
+     * shimmering chord as 究極能力 flashes, then a rising swell into a roar of fire as they open.
+     */
+    ultimate() {
+      if (!sfxOk()) return;
+      const t = ctx.currentTime;
+      noise(t, 0.34, 0.35, 900, "lowpass", sfxBus, true);
+      tone(46, t, 0.4, { type: "sine", gain: 0.18, to: 38, attack: 0.25 });
+      const hit2 = t + 0.36;
+      tone(110, hit2, 0.9, { type: "sine", gain: 0.5, to: 32, attack: 4e-3 });
+      tone(55, hit2, 1.1, { type: "sawtooth", gain: 0.1, to: 30, attack: 4e-3 });
+      noise(hit2, 0.5, 0.45, 2600);
+      for (const [n, d] of [[64, 0], [71, 0.01], [76, 0.02], [83, 0.03], [88, 0.05]]) bell(midi(n), hit2 + d, 1.3, 0.07);
+      tone(midi(76), hit2, 1.2, { type: "triangle", gain: 0.05, detune: 9 });
+      const open2 = t + 0.86;
+      noise(open2 - 0.25, 0.3, 0.3, 3500, "bandpass", sfxBus, true);
+      noise(open2, 1, 0.45, 1500);
+      tone(82, open2, 0.9, { type: "sawtooth", gain: 0.12, to: 140, attack: 0.05 });
+      bell(midi(95), open2 + 0.04, 0.8, 0.06);
     },
     claw() {
       if (!sfxOk()) return;
@@ -6992,7 +7043,7 @@ ${stack}`.slice(0, 2e3);
     o.querySelector(".ult-eyes").append(h2("i"), h2("i"));
     o.querySelector(".ult-text").lang = "ja";
     document.body.append(o);
-    setTimeout(() => sfx.fire(), 900);
+    sfx.ultimate();
     setTimeout(() => o.remove(), 1750);
   }
   function deckEvent(e) {
@@ -8272,6 +8323,7 @@ ${stack}`.slice(0, 2e3);
   var arena3 = null;
   var arena3Tried = false;
   var arena3Key = "";
+  var arena3Bg = "";
   async function ensureArena3() {
     arena3Tried = true;
     arena3 = await arenaPreview($9("arenaPreview"));
@@ -8281,23 +8333,30 @@ ${stack}`.slice(0, 2e3);
     if (!arena3) return;
     const bgId = tab2 === "arena" ? id : p.background, time = resolveTime(getTimePref());
     const character = avatarFor(p.studyLevels);
-    const key = `${bgId}-${time}-${character}-${p.staff}`;
-    if (key !== arena3Key) {
-      arena3Key = key;
+    const who = `${character}-${p.staff}`, bg2 = `${bgId}-${time}`;
+    if (who !== arena3Key) {
+      arena3Key = who;
+      arena3Bg = bg2;
       arena3.setup({
         layout: "battle",
         bgSvg: sceneSvg(bgId, time),
-        bgKey: `${bgId}-${time}`,
+        bgKey: bg2,
         time,
         me: { id: "me", character, staff: p.staff },
         opp: { id: "you", name: myName(), character, staff: p.staff },
         allies: [],
         boss: null
       });
+    } else if (bg2 !== arena3Bg) {
+      arena3Bg = bg2;
+      arena3.setBackground(bg2, time, sceneSvg(bgId, time));
     }
     arena3.setActive(true);
+    if (tab2 === "arena") arena3.prewarm(BACKGROUNDS.map((b) => b.id), time);
     arena3.focusOpp(tab2 === "omni");
-    arena3.onfire("opp", tab2 === "omni", tab2 === "omni" ? flameColor(id) : void 0);
+    const color = tab2 === "omni" ? flameColor(id) : void 0;
+    arena3.onfire("opp", tab2 === "omni", color);
+    arena3.onfire("me", tab2 === "omni", color);
   }
   function customizeHidden() {
     arena3?.setActive(false);

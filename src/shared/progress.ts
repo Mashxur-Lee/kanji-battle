@@ -114,7 +114,7 @@ export const BETA_BORDER = 'border:beta';
 
 // ── the daily streak (0.9.9.3): a day counts once all four tasks are done ───────────────────────────────
 export const DAILY_TASKS = [
-  { id: 'learn', label: 'Study 10 spells (any deck)', target: 10 },
+  { id: 'learn', label: 'Study 10 spells (any deck)', target: 10 }, // all four done: the streak goes up and +500 XP
   { id: 'quiz', label: 'Do a JLPT quiz', target: 1 },
   { id: 'daily', label: 'Play the daily challenge', target: 1 },
   { id: 'passage', label: 'Read a passage (fill in the blanks)', target: 1 },

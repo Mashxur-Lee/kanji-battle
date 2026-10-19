@@ -534,7 +534,7 @@ function ultimateFx(character: string) {
   (o.querySelector('.ult-eyes') as HTMLElement).append(h('i'), h('i'));
   (o.querySelector('.ult-text') as HTMLElement).lang = 'ja';
   document.body.append(o);
-  setTimeout(() => audio.sfx.fire(), 900);
+  audio.sfx.ultimate();
   setTimeout(() => o.remove(), 1750);
 }
 

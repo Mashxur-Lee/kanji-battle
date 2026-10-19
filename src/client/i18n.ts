@@ -444,6 +444,9 @@ const RU: Record<string, string> = {
   'Both players get the same kanji — no study phase.': 'Оба игрока получают один и тот же кандзи — без подготовки.', 'Wrong? Try again until the 12 s round ends.': 'Ошиблись? Пробуйте снова, пока не кончится 12-секундный раунд.',
   'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.': 'Крит: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Игра с ИИ даёт половину опыта; сдача — ничего.',
   'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.': 'Шанс крита сегодня: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Сбрасывается в полночь.',
+  // 0.9.9.3.3
+  'A day counts for your streak when all four tasks are done — and gives +500 XP. Your best streak unlocks magic staffs.': 'День засчитывается в серию, когда выполнены все четыре задания, — и даёт +500 опыта. Лучшая серия открывает магические посохи.',
+  'Daily streak kept!': 'Серия сохранена!',
   // 0.9.9.3.2
   'Words from': 'Слова из', '+ Add to…': '+ Добавить в…', 'That word is not in the dictionary': 'Этого слова нет в словаре', 'already in': 'уже в',
   'No words in this deck yet — pick another deck above, or study some spells first.': 'В этой колоде пока нет слов — выберите другую колоду выше или сначала изучите заклинания.',

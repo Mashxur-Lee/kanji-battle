@@ -87,24 +87,31 @@ export async function showStrokeOrder(box: HTMLElement, word: string, o: { stepM
   box.classList.add('stroke-order');
   box.replaceChildren(Object.assign(document.createElement('div'), { className: 'so-loading', textContent: '…' }));
   await load(chars.filter((c) => /[\p{Script=Han}々]/u.test(c)));
-  const row = document.createElement('div');
-  row.className = 'so-row';
-  let delay = 0;
-  for (const ch of chars) {
-    const strokes = /[\p{Script=Han}々]/u.test(ch) ? cache.get(ch) ?? null : null;
-    const cell = document.createElement('div');
-    cell.className = 'so-cell';
-    cell.append(diagram(ch, strokes, stepMs, delay));
-    row.append(cell);
-    delay += (strokes?.length ?? 0) * stepMs + (strokes ? 250 : 0);
-  }
+  const build = () => {
+    const row = document.createElement('div');
+    row.className = 'so-row';
+    let delay = 0;
+    for (const ch of chars) {
+      const strokes = /[\p{Script=Han}々]/u.test(ch) ? cache.get(ch) ?? null : null;
+      const cell = document.createElement('div');
+      cell.className = 'so-cell';
+      cell.append(diagram(ch, strokes, stepMs, delay));
+      row.append(cell);
+      delay += (strokes?.length ?? 0) * stepMs + (strokes ? 250 : 0);
+    }
+    return row;
+  };
+  let row = build();
   const foot = document.createElement('div');
   foot.className = 'so-foot';
   if (o.caption) foot.append(Object.assign(document.createElement('span'), { textContent: o.caption }));
   const replay = Object.assign(document.createElement('button'), { className: 'pill so-replay', type: 'button', textContent: '↻ Replay' });
   replay.onclick = () => {
-    // restart the CSS animations
-    for (const n of row.querySelectorAll<SVGElement>('.so-ink path, .so-nums text')) { n.style.animationName = 'none'; void (n as unknown as HTMLElement).offsetWidth; n.style.animationName = ''; }
+    // a fresh copy of the diagrams starts the animation over (0.9.9.3.3: restarting the CSS animations in place
+    // didn't work — SVG elements have no offsetWidth to force the reflow)
+    const fresh = build();
+    row.replaceWith(fresh);
+    row = fresh;
   };
   foot.append(replay);
   box.replaceChildren(row, foot);

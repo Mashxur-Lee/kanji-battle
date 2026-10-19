@@ -7,6 +7,27 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.3.3', date: '2026-10',
+    en: [
+      'Omnipotence has its own sound: a whoosh as your eyes close, a deep impact with a ringing chord as 究極能力 flashes, and a roar of fire as they open.',
+      'Keeping your daily streak (all four tasks) now gives +500 XP.',
+      'Stroke order: Replay works again.',
+      'Customize: switching arenas in the 3D preview no longer stutters; the Omnipotence preview shows the first-person fire too; the 2D arena preview is bigger.',
+      'Other players’ staffs are a bit smaller; the forest’s trees are taller (no more treetops in view).',
+      'JLPT quiz: a single hiragana is asked by its romaji, with four real choices (no more one-choice or “hiragana / hiragana (voiced)” questions).',
+      'Study spells: the yellow notices are readable on bright backgrounds.',
+    ],
+    ru: [
+      'У Всемогущества свой звук: свист, когда глаза закрываются, глубокий удар со звенящим аккордом при вспышке 究極能力 и рёв пламени, когда они открываются.',
+      'Сохранённая ежедневная серия (все четыре задания) теперь даёт +500 опыта.',
+      'Порядок черт: кнопка «Повторить» снова работает.',
+      'Настройка: переключение арен в 3D-предпросмотре больше не подтормаживает; предпросмотр Всемогущества показывает и огонь от первого лица; 2D-превью арены стало больше.',
+      'Посохи других игроков чуть меньше; деревья в лесу выше (их верхушек больше не видно).',
+      'Тест JLPT: отдельная хирагана спрашивается через ромадзи, с четырьмя настоящими вариантами (больше никаких вопросов с одним вариантом или «hiragana / hiragana (voiced)»).',
+      'Учёба: жёлтые подсказки читаются на светлом фоне.',
+    ],
+  },
+  {
     v: '0.9.9.3.2', date: '2026-10',
     en: [
       'Customize: Profile comes first, then Arena, Magic staff and Omnipotence. Arena and Omnipotence now have a live 3D preview (your character in the arena, or wrapped in your flames up close), with the 2D look beside it.',
