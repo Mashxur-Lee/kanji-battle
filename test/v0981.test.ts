@@ -6,9 +6,9 @@ import { StudyService } from '../src/server/study/StudyService';
 
 const base = { wins: 0, level: 0, bestStreak: 0, learned: 0, friends: 0, seasonal: 0 };
 
-test('20 achievements, each with a name, how-to, icon and colour', () => {
-  assert.equal(ACHIEVEMENTS.length, 20);
-  assert.equal(new Set(ACHIEVEMENTS.map((a) => a.id)).size, 20);
+test('21 achievements, each with a name, how-to, icon and colour', () => {
+  assert.equal(ACHIEVEMENTS.length, 21);
+  assert.equal(new Set(ACHIEVEMENTS.map((a) => a.id)).size, 21);
   for (const a of ACHIEVEMENTS) assert.ok(a.name && a.how && a.icon && /^#[0-9a-f]{6}$/i.test(a.color), a.id);
 });
 

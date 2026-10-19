@@ -7,6 +7,21 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.3.4', date: '2026-10',
+    en: [
+      'Every mode is open from the start — Kanji Writing, the Boss fight and Deck Duel no longer wait for level 1.',
+      'Reading passage: a much bigger window on PCs, with larger story text, furigana, word bank and meanings.',
+      'JLPT quiz: the wrong answers now look like the right one — readings that share kana, kanji that share a character, meanings of the same kind.',
+      'New achievement: Kingslayer — beat an admin in a battle.',
+    ],
+    ru: [
+      'Все режимы открыты сразу — Написание кандзи, Битва с боссом и Дуэль колод больше не ждут 1 уровня.',
+      'Текст для чтения: на ПК окно намного больше, текст, фуригана, банк слов и значения крупнее.',
+      'Тест JLPT: неверные ответы теперь похожи на верный — чтения с общими каной, кандзи с общим иероглифом, значения того же типа.',
+      'Новое достижение: Цареубийца — победите администратора в бою.',
+    ],
+  },
+  {
     v: '0.9.9.3.3', date: '2026-10',
     en: [
       'Omnipotence has its own sound: a whoosh as your eyes close, a deep impact with a ringing chord as 究極能力 flashes, and a roar of fire as they open.',

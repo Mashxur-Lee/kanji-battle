@@ -67,8 +67,7 @@ test('monthly goals: play 12 days, win 10, pass 150 cards → the month\'s rewar
 
 test('modes: Reading and Rapid from the start, Writing / Boss / Deck Duel at level 1 (0.9.9.1)', () => {
   assert.ok(modeUnlocked('reading', 0) && modeUnlocked('rapid', 0));
-  assert.ok(!modeUnlocked('writing', 0) && !modeUnlocked('boss', 0) && !modeUnlocked('deck', 0));
-  assert.ok(modeUnlocked('writing', xpForLevel(1)) && modeUnlocked('boss', xpForLevel(1)) && modeUnlocked('deck', xpForLevel(1)));
+  assert.ok(modeUnlocked('writing', 0) && modeUnlocked('boss', 0) && modeUnlocked('deck', 0), 'every mode is open from the start');
   assert.ok(modeUnlocked('deck', 0, true), 'admins have everything');
 });
 

@@ -53,8 +53,12 @@ const rooms = new RoomManager({
   onMatchEnd: async (mode, results) => {
     for (const r of results) void insights.event(r.id, `game_end:${mode}`);
     const out: Record<string, { gained: number; xp: number; crit: number; achievements: string[]; missed: MissedWord[] }> = {};
+    // 0.9.9.3.4: "Kingslayer" — winning against an admin who played it out (no forfeit)
+    const admins = new Set<string>();
+    for (const r of results) if ((await store.findById(r.id))?.role === 'admin') admins.add(r.id);
     for (const r of results) {
-      const { gained, xp, achievements, missed } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited, r.vsAi, r.record, r.seen);
+      const beatAdmin = r.outcome === 'win' && results.some((o) => o.id !== r.id && o.outcome === 'loss' && !o.forfeited && admins.has(o.id));
+      const { gained, xp, achievements, missed } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited, r.vsAi, r.record, r.seen, beatAdmin);
       out[r.id] = { gained, xp, crit: await study.crit(r.id), achievements, missed };
     }
     return out;

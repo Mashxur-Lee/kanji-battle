@@ -80,8 +80,8 @@ const RU: Record<string, string> = {
   'Nobody has played today yet — be the first!': 'Сегодня ещё никто не играл — будьте первым!', 'Ten words, the same for everyone today': 'Десять слов, сегодня одни и те же для всех',
   'Start': 'Начать', 'Continue': 'Продолжить', 'Skip': 'Пропустить', 'reading (かな or romaji)': 'чтение (かな или ромадзи)',
   'Start the challenge first': 'Сначала начните испытание',
-  'Add players by name. When you\'re in a room\'s lobby, you can invite online friends straight in — even to modes they haven\'t unlocked yet.':
-    'Добавляйте игроков по имени. В лобби комнаты можно сразу пригласить друзей онлайн — даже в режимы, которые у них ещё не открыты.',
+  'Add players by name. When you\'re in a room\'s lobby, you can invite online friends straight in.':
+    'Добавляйте игроков по имени. В лобби комнаты можно сразу пригласить друзей онлайн.',
   'Add friend': 'Добавить в друзья', 'Player name': 'Имя игрока', 'wants to be friends': 'хочет дружить', 'request sent': 'запрос отправлен',
   'Sent requests': 'Отправленные запросы', 'No friends yet — add someone by their player name above.': 'Друзей пока нет — добавьте кого-нибудь по имени выше.',
   'Accept': 'Принять', 'Decline': 'Отклонить', 'Remove': 'Удалить', 'Online': 'В сети', 'Offline': 'Не в сети',
@@ -192,6 +192,7 @@ const RU: Record<string, string> = {
   'Complete a month\'s goals and earn its reward.': 'Выполните цели месяца и получите награду.',
   'Grand Wizard': 'Великий маг',
   'Reach level 10.': 'Достигните 10 уровня.',
+  'Kingslayer': 'Цареубийца', 'Beat an admin in a battle.': 'Победите администратора в бою.',
   // 0.9.8.2 — mode and Deck Duel guides
   'A kanji appears: type its reading in kana or romaji, Enter.': 'Появляется кандзи: напишите его чтение каной или ромадзи и нажмите Enter.',
   'Your HP depends on how hard your opponent hits (their levels). Most HP after 5 min wins.': 'Ваше HP зависит от того, как сильно бьёт соперник (его уровни). Через 5 минут побеждает тот, у кого больше HP.',
@@ -412,9 +413,9 @@ const RU: Record<string, string> = {
   'Study makes you stronger': 'Учёба делает сильнее',
   'Study spells is a flashcard deck. Every spell you learn today raises your critical-hit chance, and words you miss in battle come back there to review.':
     '«Изучать заклинания» — это колода карточек. Каждое выученное сегодня заклинание повышает шанс крита, а слова, на которых вы ошиблись в бою, возвращаются туда на повторение.',
-  'More to unlock': 'Что откроется дальше',
-  'You start with Kanji Reading and Rapid. Kanji Writing, the Boss fight and Deck Duel unlock at level 1. There is also a Daily challenge, a JLPT quiz, Progress, Friends — and monthly goals with rewards.':
-    'Сначала доступны Чтение кандзи и Блиц. Написание кандзи, Битва с боссом и Дуэль колод открываются на уровне 1. Ещё есть Ежедневное испытание, тест JLPT, Прогресс, Друзья и месячные цели с наградами.',
+  'All modes are open': 'Все режимы открыты',
+  'Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel are all open from the start. There is also a Daily challenge, a JLPT quiz, Progress, Friends — and monthly goals with rewards.':
+    'Чтение кандзи, Блиц, Написание кандзи, Битва с боссом и Дуэль колод открыты сразу. Ещё есть Ежедневное испытание, тест JLPT, Прогресс, Друзья и месячные цели с наградами.',
   'Your first battle': 'Ваш первый бой', "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them.": 'Готовы? Минуту вы учите 10 простых слов, потом сражаетесь ими с ИИ-новичком.',
   'type its reading: yama': 'напишите чтение: yama', 'Mountain — try it!': 'Гора — попробуйте!', "Not quite — it's やま (yama)": 'Не совсем — это やま (yama)', '✓ やま — a spell!': '✓ やま — заклинание!',
   'Fight a beginner AI': 'Сразиться с ИИ-новичком', 'Maybe later': 'Может, позже', 'Skip tutorial': 'Пропустить обучение', 'Next': 'Далее',

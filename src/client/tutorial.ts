@@ -28,7 +28,7 @@ export function setModeAccess(level: number, admin: boolean, beginner = false) {
     card.dataset.lock = !locked ? '' : beginnerLocked(mode) ? 'Master hiragana first' : `Unlocks at level ${MODE_LEVEL[mode]}`;
   }
 }
-const beginnerLocked = (mode: GameMode) => mode === 'deck' && access.beginner && !access.admin;
+const beginnerLocked = (_mode: GameMode) => false; // 0.9.9.3.4: every mode is open from the start
 export const canPlay = (mode: GameMode) => !beginnerLocked(mode) && modeUnlocked(mode, xpForLevel(access.level), access.admin);
 export const lockText = (mode: GameMode) => beginnerLocked(mode)
   ? 'Deck Duel is all kanji — tick "I\'ve mastered hiragana" in Settings first.'
@@ -51,7 +51,7 @@ const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement; cho
     extra: tryIt,
   },
   { title: 'Study makes you stronger', body: 'Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review.' },
-  { title: 'More to unlock', body: 'You start with Kanji Reading and Rapid. Kanji Writing, the Boss fight and Deck Duel unlock at level 1. There is also a Daily challenge, a JLPT quiz, Progress, Friends — and monthly goals with rewards.' },
+  { title: 'All modes are open', body: 'Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel are all open from the start. There is also a Daily challenge, a JLPT quiz, Progress, Friends — and monthly goals with rewards.' },
   { title: 'かな first, then kanji', body: 'Beginners: study かな in Study spells until you know it by heart. Then tick "I\'ve mastered hiragana" in Settings (the sliders button, top-right) — and the kanji levels N5 to N1 open for studying and battles.' },
   { title: 'Your first battle', body: 'Ready? You\'ll study 10 easy words for a minute, then duel a beginner AI with them.' },
 ];
