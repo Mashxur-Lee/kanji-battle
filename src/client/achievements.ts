@@ -27,6 +27,7 @@ const GLYPH: Record<AchIcon, string> = {
   people: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 14.5c3 0 6 1.8 6 5"/>',
   leaf: '<path d="M5 19C5 9 11 4 20 4c0 9-5 15-15 15z"/><path d="M5 19l8-8"/>',
   star: '<path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/>',
+  kingslayer: '<path d="M3.5 9l3.5 3.5L10.5 7l3 4.5L17 9l-1.6 8.5H5.2z"/><path d="M21 3L9 21"/>',
 };
 
 /** A hexagon badge with the achievement's icon, in its colour (or grey and locked). */

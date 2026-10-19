@@ -92,7 +92,7 @@
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.3.3";
+  var VERSION = "0.9.9.3.4";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -232,7 +232,7 @@
     "Skip": "\u041F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C",
     "reading (\u304B\u306A or romaji)": "\u0447\u0442\u0435\u043D\u0438\u0435 (\u304B\u306A \u0438\u043B\u0438 \u0440\u043E\u043C\u0430\u0434\u0437\u0438)",
     "Start the challenge first": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043D\u0430\u0447\u043D\u0438\u0442\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435",
-    "Add players by name. When you're in a room's lobby, you can invite online friends straight in \u2014 even to modes they haven't unlocked yet.": "\u0414\u043E\u0431\u0430\u0432\u043B\u044F\u0439\u0442\u0435 \u0438\u0433\u0440\u043E\u043A\u043E\u0432 \u043F\u043E \u0438\u043C\u0435\u043D\u0438. \u0412 \u043B\u043E\u0431\u0431\u0438 \u043A\u043E\u043C\u043D\u0430\u0442\u044B \u043C\u043E\u0436\u043D\u043E \u0441\u0440\u0430\u0437\u0443 \u043F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0442\u044C \u0434\u0440\u0443\u0437\u0435\u0439 \u043E\u043D\u043B\u0430\u0439\u043D \u2014 \u0434\u0430\u0436\u0435 \u0432 \u0440\u0435\u0436\u0438\u043C\u044B, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u0443 \u043D\u0438\u0445 \u0435\u0449\u0451 \u043D\u0435 \u043E\u0442\u043A\u0440\u044B\u0442\u044B.",
+    "Add players by name. When you're in a room's lobby, you can invite online friends straight in.": "\u0414\u043E\u0431\u0430\u0432\u043B\u044F\u0439\u0442\u0435 \u0438\u0433\u0440\u043E\u043A\u043E\u0432 \u043F\u043E \u0438\u043C\u0435\u043D\u0438. \u0412 \u043B\u043E\u0431\u0431\u0438 \u043A\u043E\u043C\u043D\u0430\u0442\u044B \u043C\u043E\u0436\u043D\u043E \u0441\u0440\u0430\u0437\u0443 \u043F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0442\u044C \u0434\u0440\u0443\u0437\u0435\u0439 \u043E\u043D\u043B\u0430\u0439\u043D.",
     "Add friend": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u0434\u0440\u0443\u0437\u044C\u044F",
     "Player name": "\u0418\u043C\u044F \u0438\u0433\u0440\u043E\u043A\u0430",
     "wants to be friends": "\u0445\u043E\u0447\u0435\u0442 \u0434\u0440\u0443\u0436\u0438\u0442\u044C",
@@ -386,6 +386,8 @@
     "Complete a month's goals and earn its reward.": "\u0412\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0446\u0435\u043B\u0438 \u043C\u0435\u0441\u044F\u0446\u0430 \u0438 \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u0435 \u043D\u0430\u0433\u0440\u0430\u0434\u0443.",
     "Grand Wizard": "\u0412\u0435\u043B\u0438\u043A\u0438\u0439 \u043C\u0430\u0433",
     "Reach level 10.": "\u0414\u043E\u0441\u0442\u0438\u0433\u043D\u0438\u0442\u0435 10 \u0443\u0440\u043E\u0432\u043D\u044F.",
+    "Kingslayer": "\u0426\u0430\u0440\u0435\u0443\u0431\u0438\u0439\u0446\u0430",
+    "Beat an admin in a battle.": "\u041F\u043E\u0431\u0435\u0434\u0438\u0442\u0435 \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430 \u0432 \u0431\u043E\u044E.",
     // 0.9.8.2 — mode and Deck Duel guides
     "A kanji appears: type its reading in kana or romaji, Enter.": "\u041F\u043E\u044F\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u043A\u0430\u043D\u0434\u0437\u0438: \u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0435\u0433\u043E \u0447\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u043E\u0439 \u0438\u043B\u0438 \u0440\u043E\u043C\u0430\u0434\u0437\u0438 \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 Enter.",
     "Your HP depends on how hard your opponent hits (their levels). Most HP after 5 min wins.": "\u0412\u0430\u0448\u0435 HP \u0437\u0430\u0432\u0438\u0441\u0438\u0442 \u043E\u0442 \u0442\u043E\u0433\u043E, \u043A\u0430\u043A \u0441\u0438\u043B\u044C\u043D\u043E \u0431\u044C\u0451\u0442 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A (\u0435\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u0438). \u0427\u0435\u0440\u0435\u0437 5 \u043C\u0438\u043D\u0443\u0442 \u043F\u043E\u0431\u0435\u0436\u0434\u0430\u0435\u0442 \u0442\u043E\u0442, \u0443 \u043A\u043E\u0433\u043E \u0431\u043E\u043B\u044C\u0448\u0435 HP.",
@@ -728,8 +730,8 @@
     "A kanji appears; type how it is read \u2014 in hiragana, or in romaji with a normal keyboard \u2014 and press Enter. Fast and right in a row hits harder.": "\u041F\u043E\u044F\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u043A\u0430\u043D\u0434\u0437\u0438; \u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435, \u043A\u0430\u043A \u043E\u043D \u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u2014 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u043E\u0439 \u0438\u043B\u0438 \u0440\u043E\u043C\u0430\u0434\u0437\u0438 \u043D\u0430 \u043E\u0431\u044B\u0447\u043D\u043E\u0439 \u043A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u0435 \u2014 \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 Enter. \u0411\u044B\u0441\u0442\u0440\u044B\u0435 \u0432\u0435\u0440\u043D\u044B\u0435 \u043E\u0442\u0432\u0435\u0442\u044B \u043F\u043E\u0434\u0440\u044F\u0434 \u0431\u044C\u044E\u0442 \u0441\u0438\u043B\u044C\u043D\u0435\u0435.",
     "Study makes you stronger": "\u0423\u0447\u0451\u0431\u0430 \u0434\u0435\u043B\u0430\u0435\u0442 \u0441\u0438\u043B\u044C\u043D\u0435\u0435",
     "Study spells is a flashcard deck. Every spell you learn today raises your critical-hit chance, and words you miss in battle come back there to review.": "\xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2014 \u044D\u0442\u043E \u043A\u043E\u043B\u043E\u0434\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A. \u041A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 \u043F\u043E\u0432\u044B\u0448\u0430\u0435\u0442 \u0448\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430, \u0430 \u0441\u043B\u043E\u0432\u0430, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0432\u044B \u043E\u0448\u0438\u0431\u043B\u0438\u0441\u044C \u0432 \u0431\u043E\u044E, \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E\u0442\u0441\u044F \u0442\u0443\u0434\u0430 \u043D\u0430 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u0435.",
-    "More to unlock": "\u0427\u0442\u043E \u043E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u0434\u0430\u043B\u044C\u0448\u0435",
-    "You start with Kanji Reading and Rapid. Kanji Writing, the Boss fight and Deck Duel unlock at level 1. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards.": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438 \u0438 \u0411\u043B\u0438\u0446. \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u0438\u0442\u0432\u0430 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C \u0438 \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u0435 1. \u0415\u0449\u0451 \u0435\u0441\u0442\u044C \u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435, \u0442\u0435\u0441\u0442 JLPT, \u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441, \u0414\u0440\u0443\u0437\u044C\u044F \u0438 \u043C\u0435\u0441\u044F\u0447\u043D\u044B\u0435 \u0446\u0435\u043B\u0438 \u0441 \u043D\u0430\u0433\u0440\u0430\u0434\u0430\u043C\u0438.",
+    "All modes are open": "\u0412\u0441\u0435 \u0440\u0435\u0436\u0438\u043C\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044B",
+    "Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel are all open from the start. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards.": "\u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u043B\u0438\u0446, \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u0438\u0442\u0432\u0430 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C \u0438 \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434 \u043E\u0442\u043A\u0440\u044B\u0442\u044B \u0441\u0440\u0430\u0437\u0443. \u0415\u0449\u0451 \u0435\u0441\u0442\u044C \u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435, \u0442\u0435\u0441\u0442 JLPT, \u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441, \u0414\u0440\u0443\u0437\u044C\u044F \u0438 \u043C\u0435\u0441\u044F\u0447\u043D\u044B\u0435 \u0446\u0435\u043B\u0438 \u0441 \u043D\u0430\u0433\u0440\u0430\u0434\u0430\u043C\u0438.",
     "Your first battle": "\u0412\u0430\u0448 \u043F\u0435\u0440\u0432\u044B\u0439 \u0431\u043E\u0439",
     "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them.": "\u0413\u043E\u0442\u043E\u0432\u044B? \u041C\u0438\u043D\u0443\u0442\u0443 \u0432\u044B \u0443\u0447\u0438\u0442\u0435 10 \u043F\u0440\u043E\u0441\u0442\u044B\u0445 \u0441\u043B\u043E\u0432, \u043F\u043E\u0442\u043E\u043C \u0441\u0440\u0430\u0436\u0430\u0435\u0442\u0435\u0441\u044C \u0438\u043C\u0438 \u0441 \u0418\u0418-\u043D\u043E\u0432\u0438\u0447\u043A\u043E\u043C.",
     "type its reading: yama": "\u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0447\u0442\u0435\u043D\u0438\u0435: yama",
@@ -1275,7 +1277,7 @@
     return d.season ? unlocks2.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
   };
   var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
-  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 1 };
+  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 0, boss: 0, deck: 0 };
   var modeUnlocked = (mode3, xp, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode3] ?? 0);
   var STUDY_LOCK = 100;
   var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
@@ -4438,6 +4440,22 @@ ${stack}`.slice(0, 2e3);
   // src/client/whatsnew.ts
   var PATCHES = [
     {
+      v: "0.9.9.3.4",
+      date: "2026-10",
+      en: [
+        "Every mode is open from the start \u2014 Kanji Writing, the Boss fight and Deck Duel no longer wait for level 1.",
+        "Reading passage: a much bigger window on PCs, with larger story text, furigana, word bank and meanings.",
+        "JLPT quiz: the wrong answers now look like the right one \u2014 readings that share kana, kanji that share a character, meanings of the same kind.",
+        "New achievement: Kingslayer \u2014 beat an admin in a battle."
+      ],
+      ru: [
+        "\u0412\u0441\u0435 \u0440\u0435\u0436\u0438\u043C\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044B \u0441\u0440\u0430\u0437\u0443 \u2014 \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u0438\u0442\u0432\u0430 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C \u0438 \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0436\u0434\u0443\u0442 1 \u0443\u0440\u043E\u0432\u043D\u044F.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u043D\u0430 \u041F\u041A \u043E\u043A\u043D\u043E \u043D\u0430\u043C\u043D\u043E\u0433\u043E \u0431\u043E\u043B\u044C\u0448\u0435, \u0442\u0435\u043A\u0441\u0442, \u0444\u0443\u0440\u0438\u0433\u0430\u043D\u0430, \u0431\u0430\u043D\u043A \u0441\u043B\u043E\u0432 \u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u043A\u0440\u0443\u043F\u043D\u0435\u0435.",
+        "\u0422\u0435\u0441\u0442 JLPT: \u043D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u043E\u0442\u0432\u0435\u0442\u044B \u0442\u0435\u043F\u0435\u0440\u044C \u043F\u043E\u0445\u043E\u0436\u0438 \u043D\u0430 \u0432\u0435\u0440\u043D\u044B\u0439 \u2014 \u0447\u0442\u0435\u043D\u0438\u044F \u0441 \u043E\u0431\u0449\u0438\u043C\u0438 \u043A\u0430\u043D\u043E\u0439, \u043A\u0430\u043D\u0434\u0437\u0438 \u0441 \u043E\u0431\u0449\u0438\u043C \u0438\u0435\u0440\u043E\u0433\u043B\u0438\u0444\u043E\u043C, \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0442\u043E\u0433\u043E \u0436\u0435 \u0442\u0438\u043F\u0430.",
+        "\u041D\u043E\u0432\u043E\u0435 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0435: \u0426\u0430\u0440\u0435\u0443\u0431\u0438\u0439\u0446\u0430 \u2014 \u043F\u043E\u0431\u0435\u0434\u0438\u0442\u0435 \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430 \u0432 \u0431\u043E\u044E."
+      ]
+    },
+    {
       v: "0.9.9.3.3",
       date: "2026-10",
       en: [
@@ -5151,7 +5169,8 @@ ${stack}`.slice(0, 2e3);
     { id: "perfect-day", name: "Perfect Day", how: "Get 10 / 10 in the Daily challenge.", icon: "calendar", color: "#4dd6c8", tier: 2 },
     { id: "fellowship", name: "Fellowship", how: "Make a friend.", icon: "people", color: "#8be37a", tier: 1 },
     { id: "seasonal", name: "Seasonal", how: "Complete a month's goals and earn its reward.", icon: "leaf", color: "#ff8ccf", tier: 2 },
-    { id: "grand-wizard", name: "Grand Wizard", how: "Reach level 10.", icon: "star", color: "#ffd479", tier: 3 }
+    { id: "grand-wizard", name: "Grand Wizard", how: "Reach level 10.", icon: "star", color: "#ffd479", tier: 3 },
+    { id: "kingslayer", name: "Kingslayer", how: "Beat an admin in a battle.", icon: "kingslayer", color: "#ff3d6e", tier: 3 }
   ];
   var ACH_PREFIX = "ach:";
   var achById = (id) => ACHIEVEMENTS.find((a) => a.id === id);
@@ -5837,7 +5856,8 @@ ${stack}`.slice(0, 2e3);
     calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4"/>',
     people: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 14.5c3 0 6 1.8 6 5"/>',
     leaf: '<path d="M5 19C5 9 11 4 20 4c0 9-5 15-15 15z"/><path d="M5 19l8-8"/>',
-    star: '<path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/>'
+    star: '<path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/>',
+    kingslayer: '<path d="M3.5 9l3.5 3.5L10.5 7l3 4.5L17 9l-1.6 8.5H5.2z"/><path d="M21 3L9 21"/>'
   };
   function badgeSvg(a, locked) {
     const c = a.color;
@@ -6289,7 +6309,7 @@ ${stack}`.slice(0, 2e3);
       card.dataset.lock = !locked ? "" : beginnerLocked(mode3) ? "Master hiragana first" : `Unlocks at level ${MODE_LEVEL[mode3]}`;
     }
   }
-  var beginnerLocked = (mode3) => mode3 === "deck" && access.beginner && !access.admin;
+  var beginnerLocked = (_mode) => false;
   var canPlay = (mode3) => !beginnerLocked(mode3) && modeUnlocked(mode3, xpForLevel(access.level), access.admin);
   var lockText = (mode3) => beginnerLocked(mode3) ? `Deck Duel is all kanji \u2014 tick "I've mastered hiragana" in Settings first.` : `${MODE_LABEL[mode3]} unlocks at level ${MODE_LEVEL[mode3]} \u2014 win a few games first. (A friend can still invite you.)`;
   var stage = "off";
@@ -6308,7 +6328,7 @@ ${stack}`.slice(0, 2e3);
       extra: tryIt
     },
     { title: "Study makes you stronger", body: "Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review." },
-    { title: "More to unlock", body: "You start with Kanji Reading and Rapid. Kanji Writing, the Boss fight and Deck Duel unlock at level 1. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards." },
+    { title: "All modes are open", body: "Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel are all open from the start. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards." },
     { title: "\u304B\u306A first, then kanji", body: `Beginners: study \u304B\u306A in Study spells until you know it by heart. Then tick "I've mastered hiragana" in Settings (the sliders button, top-right) \u2014 and the kanji levels N5 to N1 open for studying and battles.` },
     { title: "Your first battle", body: "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them." }
   ];

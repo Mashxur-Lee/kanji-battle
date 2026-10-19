@@ -7,6 +7,7 @@ import { BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, is
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
+import { pickDistractors, posOf } from './distract';
 import { MATCH_HISTORY_LIMIT, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { VOCAB, VOCAB_BY_ID } from '../vocab';
@@ -295,12 +296,14 @@ export class StudyService {
       const field = kind === 'reading' ? 'reading' : kind === 'meaning' ? 'meaning' : 'kanji';
       const right = asRomaji ? ve!.romaji! : w[field];
       const same = asRomaji ? VOCAB.filter(kanaChar) : VOCAB.filter((v) => v.level === w.level && v.id !== w.id && (field !== 'meaning' || !kanaChar(v)));
-      const wrong: string[] = [];
-      for (const v of shuffle(same.length > 20 ? same : [...VOCAB].filter((x) => !kanaChar(x)), this.rng)) {
-        const x = asRomaji ? v.romaji! : field === 'reading' ? displayReading(v) : v[field];
-        if (x !== right && !wrong.includes(x) && (field !== 'kanji' || v.kanji !== v.reading)) wrong.push(x);
-        if (wrong.length === 3) break;
-      }
+      const base = same.length > 20 ? same : VOCAB.filter((x) => !kanaChar(x) && x.id !== w.id);
+      // 0.9.9.3.4: wrong answers that look like the right one (shared kana / kanji, same kind of meaning)
+      const pool = base
+        .filter((v) => field !== 'kanji' || (v.kanji !== v.reading && v.reading !== w.reading)) // no kana-only words; no homophones
+        .filter((v) => field !== 'reading' || v.kanji !== w.kanji);
+      const text = (v: VocabEntry) => asRomaji ? v.romaji! : field === 'reading' ? displayReading(v) : v[field];
+      const posBy = new Map(pool.map((v) => [text(v), posOf(v.kanji, v.meaning)]));
+      const wrong = pickDistractors(asRomaji ? 'romaji' : field, right, pool.map(text), this.rng, 3, asRomaji ? undefined : { right: posOf(w.kanji, w.meaning), of: (x) => posBy.get(x) });
       const choices = shuffle([right, ...wrong], this.rng);
       return {
         kind, vocabId: w.id, level: w.level, choices, answer: choices.indexOf(right),
@@ -376,7 +379,7 @@ export class StudyService {
     return { users, storage: this.store.name, persistent: this.store.name === 'postgres' || !process.env.RENDER };
   }
   /** Forfeits give nobody XP; matches with AI players give half. */
-  async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false, vsAi = false, record?: Omit<MatchDetail, 'id'>, seen: string[] = []) {
+  async recordMatch(userId: string, outcome: MatchOutcome, accuracy: number, mode: string, missedIds: string[], forfeited = false, vsAi = false, record?: Omit<MatchDetail, 'id'>, seen: string[] = [], beatAdmin = false) {
     if (record) await this.store.addMatch(userId, record);
     const gained = forfeited ? 0 : Math.round(xpFor(outcome, accuracy, mode) * (vsAi ? AI_XP_FACTOR : 1));
     const xp = gained ? await this.store.addXp(userId, gained) : (await this.store.findById(userId))?.xp ?? 0;
@@ -395,7 +398,7 @@ export class StudyService {
       if (u) await this.store.update(userId, { newNotice: u.newNotice + n });
     }
     const st = record?.stats[userId];
-    const achievements = await this.grantAchievements(userId, { mode, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited });
+    const achievements = await this.grantAchievements(userId, { mode, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited, beatAdmin });
     return { gained, xp, achievements, missed };
   }
 

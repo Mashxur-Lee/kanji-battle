@@ -198,7 +198,7 @@ export const staffOf = (s: string | null | undefined) => STAFFS.find((x) => x.id
 // ── gradual unlocks: new players start with Reading and Rapid ──────────────────────────────────
 /** Level needed to create a room or queue for a mode (joining a friend's room by code or invite is always allowed).
  *  Since 0.9.9 every mode is open from the start (only kana beginners wait for Deck Duel). */
-export const MODE_LEVEL: Record<string, number> = { reading: 0, rapid: 0, writing: 1, boss: 1, deck: 1 };
+export const MODE_LEVEL: Record<string, number> = { reading: 0, rapid: 0, writing: 0, boss: 0, deck: 0 };
 export const modeUnlocked = (mode: string, xp: number, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode] ?? 0);
 
 /** More "Struggling spells" waiting than this → the game modes lock until you study them. */

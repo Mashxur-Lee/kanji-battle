@@ -1,9 +1,9 @@
-// Achievements: 20 badges shown on the Progress page (locked until earned; hover says how). Earned ones are
+// Achievements: 21 badges shown on the Progress page (locked until earned; hover says how). Earned ones are
 // stored in the account's `unlocks` as "ach:<id>" and checked on the server — after every match, and
 // whenever the profile loads (streaks, spells learned, friends, level, monthly rewards).
 
 export type AchIcon = 'sword' | 'swords' | 'crown' | 'flame' | 'flame2' | 'comet' | 'target' | 'dragon' | 'cards' | 'brush' | 'bolt'
-  | 'book' | 'tome' | 'kana' | 'sun' | 'moon' | 'calendar' | 'people' | 'leaf' | 'star';
+  | 'book' | 'tome' | 'kana' | 'sun' | 'moon' | 'calendar' | 'people' | 'leaf' | 'star' | 'kingslayer';
 export interface AchievementDef { id: string; name: string; how: string; icon: AchIcon; color: string; tier: 1 | 2 | 3 }
 
 export const ACHIEVEMENTS: readonly AchievementDef[] = [
@@ -27,6 +27,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'fellowship', name: 'Fellowship', how: 'Make a friend.', icon: 'people', color: '#8be37a', tier: 1 },
   { id: 'seasonal', name: 'Seasonal', how: 'Complete a month\'s goals and earn its reward.', icon: 'leaf', color: '#ff8ccf', tier: 2 },
   { id: 'grand-wizard', name: 'Grand Wizard', how: 'Reach level 10.', icon: 'star', color: '#ffd479', tier: 3 },
+  { id: 'kingslayer', name: 'Kingslayer', how: 'Beat an admin in a battle.', icon: 'kingslayer', color: '#ff3d6e', tier: 3 },
 ];
 export const ACH_PREFIX = 'ach:';
 export const achById = (id: string) => ACHIEVEMENTS.find((a) => a.id === id);
@@ -34,7 +35,7 @@ export const achById = (id: string) => ACHIEVEMENTS.find((a) => a.id === id);
 /** What the server knows about a player when it checks achievements. */
 export interface AchFacts {
   wins: number; level: number; bestStreak: number; learned: number; friends: number; seasonal: number;
-  match?: { mode: string; outcome: 'win' | 'loss' | 'draw'; accuracy: number; attempts: number; bestCombo: number; forfeited: boolean };
+  match?: { mode: string; outcome: 'win' | 'loss' | 'draw'; accuracy: number; attempts: number; bestCombo: number; forfeited: boolean; beatAdmin?: boolean };
 }
 
 /** Every achievement these facts earn (already-earned ones included). */
@@ -62,6 +63,7 @@ export function earnedAchievements(f: AchFacts): string[] {
     add('card-sage', won && m.mode === 'deck');
     add('calligrapher', won && m.mode === 'writing');
     add('quickdraw', won && m.mode === 'rapid');
+    add('kingslayer', won && !!m.beatAdmin);
   }
   return out;
 }
