@@ -22,11 +22,14 @@ let shownThisVisit = false;
 const doneCount = (p: Profile) => (p.tasks ?? []).filter((t) => t.value >= t.target).length;
 
 /** The menu button and the profile card line; called on every profile update. */
+let wasAll: boolean | null = null;
 export function renderTasks(p: Profile) {
   last = p;
   const tasks = p.tasks ?? [];
   if (!tasks.length) return;
   const n = doneCount(p), all = n === tasks.length;
+  if (wasAll === false && all) ui.toast(`🔥 ${tr('Daily streak kept!')} +500 XP`, 5000); // just finished the fourth task
+  wasAll = all;
   const btn = $('tasksBtn');
   btn.hidden = false;
   btn.classList.toggle('done', all);

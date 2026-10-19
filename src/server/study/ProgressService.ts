@@ -25,6 +25,8 @@ export interface ProgressPage {
 }
 
 const DAY_MS = 86_400_000;
+/** XP for completing the day's four streak tasks */
+export const STREAK_XP = 500;
 export const shiftDay = (day: string, days: number) => new Date(Date.parse(day) + days * DAY_MS).toISOString().slice(0, 10);
 
 /**
@@ -62,6 +64,9 @@ export class ProgressService {
     if (!u || u.streakDay === day) return;
     const streak = u.streakDay === shiftDay(day, -1) ? (u.streak ?? 0) + 1 : 1;
     await this.store.update(userId, { streakDay: day, streak, bestStreak: Math.max(u.bestStreak ?? 0, streak) });
+    // the day's reward (0.9.9.3.3)
+    await this.store.addXp(userId, STREAK_XP);
+    await this.store.addActivity(userId, day, { xp: STREAK_XP });
   }
 
   async month(u: UserRecord, day: string): Promise<MonthProgress> {

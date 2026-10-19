@@ -129,7 +129,7 @@ export function buildForest(time: 'day' | 'sunset' | 'night', lite: boolean): En
     const near = i < nNear;
     const p = near ? spot(15, 26, true) : spot(32, 46, false);
     if (!p) continue;
-    const H = near ? R.uniform(20, 32) : R.uniform(30, 40), br = near ? R.uniform(1.1, 2) : R.uniform(2.2, 3.2);
+    const H = near ? R.uniform(46, 62) : R.uniform(58, 76), br = near ? R.uniform(1.2, 2.1) : R.uniform(2.3, 3.3); // 0.9.9.3.3: tall enough that their tops are out of view
     const hasEyes = near && R.random() < 0.25;
     const t = makeTree(p[0], p[1], H, br, hasEyes);
     const mesh = new THREE.Mesh(t.bark.geo(), barkMat);
@@ -272,7 +272,7 @@ export function buildForest(time: 'day' | 'sunset' | 'night', lite: boolean): En
   }
   { // far trunks in the haze
     const mb = new MB();
-    ([[52, 70, 50, 70], [59, 80, 55, 75], [66, 90, 60, 80]] as const).forEach(([radius, count, hmin, hmax], idx) => backdropLayer(mb, { r: R, idx, radius, count: lite ? Math.round(count * 0.6) : count, hmin, hmax, th: TH, sky, sunAz: SUN_AZ }));
+    ([[52, 70, 110, 150], [59, 80, 120, 160], [66, 90, 130, 170]] as const).forEach(([radius, count, hmin, hmax], idx) => backdropLayer(mb, { r: R, idx, radius, count: lite ? Math.round(count * 0.6) : count, hmin, hmax, th: TH, sky, sunAz: SUN_AZ }));
     const back = glowMat({ fog: false, gain: time === 'night' ? 0.45 : 0.6 }); back.toneMapped = false;
     group.add(new THREE.Mesh(mb.geo(), back));
   }

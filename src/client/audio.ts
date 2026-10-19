@@ -180,6 +180,27 @@ export const sfx = {
     noise(t, 1.2, 0.5, 1400);
     tone(70, t, 1.1, { type: 'sawtooth', gain: 0.12, to: 40 });
   },
+  /**
+   * Deck Duel Omnipotence (0.9.9.3.3), timed to the eyes: a whoosh as they close, a deep impact with a ringing,
+   * shimmering chord as 究極能力 flashes, then a rising swell into a roar of fire as they open.
+   */
+  ultimate() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    noise(t, 0.34, 0.35, 900, 'lowpass', sfxBus, true); // the lids close: a dark whoosh
+    tone(46, t, 0.4, { type: 'sine', gain: 0.18, to: 38, attack: 0.25 });
+    const hit = t + 0.36; // the flash
+    tone(110, hit, 0.9, { type: 'sine', gain: 0.5, to: 32, attack: 0.004 }); // the impact
+    tone(55, hit, 1.1, { type: 'sawtooth', gain: 0.1, to: 30, attack: 0.004 });
+    noise(hit, 0.5, 0.45, 2600);
+    for (const [n, d] of [[64, 0], [71, 0.01], [76, 0.02], [83, 0.03], [88, 0.05]] as const) bell(midi(n), hit + d, 1.3, 0.07); // the ring
+    tone(midi(76), hit, 1.2, { type: 'triangle', gain: 0.05, detune: 9 });
+    const open = t + 0.86; // the eyes open
+    noise(open - 0.25, 0.3, 0.3, 3500, 'bandpass', sfxBus, true);
+    noise(open, 1.0, 0.45, 1500); // the fire
+    tone(82, open, 0.9, { type: 'sawtooth', gain: 0.12, to: 140, attack: 0.05 });
+    bell(midi(95), open + 0.04, 0.8, 0.06);
+  },
   claw() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;

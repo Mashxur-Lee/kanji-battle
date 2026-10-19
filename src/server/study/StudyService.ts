@@ -285,14 +285,19 @@ export class StudyService {
     if (studied.size < 4) for (const c of cards) { const w = this.info(c.vocabId, custom); if (w) studied.set(w.id, w); }
     const pool = shuffle([...studied.values()], this.rng).slice(0, Math.max(1, Math.min(30, n)));
     const kinds: QuizQuestion['kind'][] = ['reading', 'meaning', 'kanji'];
+    // a single hiragana (meaning "hiragana", "hiragana (voiced)" …) is asked by its romaji — 0.9.9.3.3: their
+    // "meanings" are all alike, so a meaning question had one choice, or several that only differed in "(voiced)"
+    const kanaChar = (v: { meaning: string; romaji?: string }) => !!v.romaji && /^hiragana/.test(v.meaning);
     return pool.map((w, i) => {
-      const kind = w.kanji === w.reading ? 'meaning' : kinds[i % 3];
+      const ve = VOCAB_BY_ID.get(w.id);
+      const asRomaji = !!ve && kanaChar(ve);
+      const kind = asRomaji ? 'reading' : w.kanji === w.reading ? 'meaning' : kinds[i % 3];
       const field = kind === 'reading' ? 'reading' : kind === 'meaning' ? 'meaning' : 'kanji';
-      const right = w[field];
-      const same = VOCAB.filter((v) => v.level === w.level && v.id !== w.id);
+      const right = asRomaji ? ve!.romaji! : w[field];
+      const same = asRomaji ? VOCAB.filter(kanaChar) : VOCAB.filter((v) => v.level === w.level && v.id !== w.id && (field !== 'meaning' || !kanaChar(v)));
       const wrong: string[] = [];
-      for (const v of shuffle(same.length > 20 ? same : [...VOCAB], this.rng)) {
-        const x = field === 'reading' ? displayReading(v) : v[field];
+      for (const v of shuffle(same.length > 20 ? same : [...VOCAB].filter((x) => !kanaChar(x)), this.rng)) {
+        const x = asRomaji ? v.romaji! : field === 'reading' ? displayReading(v) : v[field];
         if (x !== right && !wrong.includes(x) && (field !== 'kanji' || v.kanji !== v.reading)) wrong.push(x);
         if (wrong.length === 3) break;
       }

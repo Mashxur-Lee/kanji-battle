@@ -43,6 +43,10 @@ export interface ArenaApi {
   onfire(who: Who, on: boolean, color?: string): void;
   /** Customize preview: bring the camera up close to the opponent (no hand and staff in view) */
   focusOpp(on: boolean): void;
+  /** change only the arena and the time of day (the fighters stay) */
+  setBackground(bgKey: string, time: TimeOfDay, bgSvg: string): void;
+  /** Customize: build these arenas ahead, one at a time while the browser is idle, so picking one is instant */
+  prewarm(arenas: string[], time: TimeOfDay): void;
   /** a burst of light from their glowing eyes (a Deck Duel Omnipotence going off) */
   flashEyes(who: Who): void;
   channel(level: number): void;
@@ -614,16 +618,20 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   let bgKey = '', bgKeyClassic = '';
   // ── the 3D arena of the chosen background (Forest, Swamp, Plains, Castle, World tree) ──
   let env: Env | null = null;
+  const envCache = new Map<string, Env>();
   const envLights: THREE.PointLight[] = [];
   const envKey = new THREE.DirectionalLight(0xffffff, 1);
   envKey.visible = false;
   scene.add(envKey, envKey.target);
   const fromBlender = (p: readonly number[], floor: number) => new THREE.Vector3(p[0], p[2] - floor, -p[1]);
   function setEnv(id: string, time: TimeOfDay) {
-    if (env) { scene.remove(env.group); env.dispose(); env = null; }
+    if (env) { scene.remove(env.group); if (!opts.preview) env.dispose(); env = null; }
     for (const l of envLights) scene.remove(l);
     envLights.length = 0;
-    try { env = buildEnv(id, time, lite); } catch (e) { console.warn('3D arena failed, using the classic one', e); env = null; }
+    // a Customize preview keeps the arenas it has built: switching back and forth is instant (0.9.9.3.3)
+    const ck = `${id}-${time}-${lite}`;
+    try { env = (opts.preview && envCache.get(ck)) || buildEnv(id, time, lite); } catch (e) { console.warn('3D arena failed, using the classic one', e); env = null; }
+    if (env && opts.preview) envCache.set(ck, env);
     classic.visible = !env;
     rune.position.y = env ? 0.1 : 0.03;
     envKey.visible = !!env;
@@ -699,6 +707,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (s.boss) makeFighter('boss', s.boss);
     for (const a of s.allies) makeFighter(`ally:${a.id}`, a);
     placeFighters();
+    applyBackground(s);
+  }
+  /** the arena, its light and the time of day (also on its own: Customize switching arenas, 0.9.9.3.3) */
+  function applyBackground(s: ArenaSetup) {
     const L = LIGHT[s.time];
     hemi.color.set(L.sky); hemi.groundColor.set(L.ground); hemi.intensity = L.hemi * 1.25;
     stage.intensity = s.time === 'night' ? 1.3 : s.time === 'sunset' ? 1 : 0.7;
@@ -951,7 +963,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       }
       // the mana fire along the bottom of the screen fades in and out
       fireU.uTime.value = still ? 0 : time;
-      fireU.uAmount.value += ((myFlame && fp.visible ? 1 : 0) - fireU.uAmount.value) * Math.min(1, realDt * 3);
+      fireU.uAmount.value += ((myFlame && (fp.visible || focusOn) ? 1 : 0) - fireU.uAmount.value) * Math.min(1, realDt * 3);
       fireBand.visible = fireU.uAmount.value > 0.01;
     }
 
@@ -1216,6 +1228,24 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (f?.model?.eyes) f.model.eyes.visible = on; // their eyes glow in the character's colour
     },
     focusOpp(on) { focusOn = on; fp.visible = !on; },
+    prewarm(ids, time) {
+      if (!opts.preview) return;
+      const todo = ids.filter((id) => !envCache.has(`${id}-${time}-${lite}`));
+      const idle = (cb: () => void) => ((globalThis as unknown as { requestIdleCallback?: (f: () => void, o?: object) => number }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 200)))(cb, { timeout: 2000 });
+      const next = () => {
+        const id = todo.shift();
+        if (!id) return;
+        const k = `${id}-${time}-${lite}`;
+        if (!envCache.has(k)) { try { const e = buildEnv(id, time, lite); if (e) envCache.set(k, e); } catch { /* skip it */ } }
+        idle(next);
+      };
+      idle(next);
+    },
+    setBackground(key, time, svg) {
+      if (!current) return;
+      current = { ...current, bgKey: key, time, bgSvg: svg };
+      applyBackground(current);
+    },
     flashEyes(who) {
       const f = fighters.get(who);
       if (!f?.model?.eyes) return;

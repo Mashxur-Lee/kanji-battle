@@ -569,7 +569,9 @@ test('daily streak (0.9.9.3): a day counts once all four tasks are done; logging
   await study.progress.record(u.id, '2026-10-01', { reviews: 1 });
   u = (await store.findById(u.id))!;
   assert.deepEqual([u.streak, u.bestStreak], [1, 1]);
+  assert.equal(u.xp, 500, 'a kept streak day gives 500 XP');
   await allTasks('2026-10-01'); // again the same day: no change
+  assert.equal(u.xp, 500, 'once a day');
   assert.deepEqual([u.streak, u.bestStreak], [1, 1]);
   await allTasks('2026-10-02'); await allTasks('2026-10-03');
   assert.deepEqual([u.streak, u.bestStreak], [3, 3]);
@@ -648,4 +650,23 @@ test('the Beta border (0.9.9.3.1): given once the tutorial is done, equippable; 
   u = (await store.findById(u.id))!;
   assert.equal((await study.setBorder(u, 'beta')).border, 'beta');
   await assert.rejects(study.setBorder(u, 'master'), /level 10/);
+});
+
+test('JLPT quiz (0.9.9.3.3): single hiragana are asked by romaji, every question has 4 different choices', async () => {
+  const { StudyService } = await import('../src/server/study/StudyService');
+  const { MemoryStore } = await import('../src/server/db/Store');
+  const { VOCAB } = await import('../src/server/vocab');
+  const { newCard } = await import('../src/shared/srs');
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const u = await store.create({ username: 'kanaquiz', passwordHash: 'x', role: 'user' } as any);
+  for (const v of VOCAB.filter((x) => x.level === 'KANA').slice(0, 30)) await store.saveCard(u.id, { ...newCard(v.id, Date.now()), reps: 1, state: 'review' });
+  const qs = await study.quiz(u, 20);
+  assert.ok(qs.length >= 10);
+  for (const q of qs) {
+    assert.equal(new Set(q.choices).size, 4, `4 different choices: ${q.prompt} ${q.choices}`);
+    assert.ok(!q.choices.some((c) => /^hiragana/.test(c)), 'never "hiragana" / "hiragana (voiced)" as choices');
+  }
+  const kana = qs.find((q) => /^[ぁ-ん]$/.test(q.prompt));
+  if (kana) assert.ok(kana.choices.every((c) => /^[a-z]+$/.test(c)), 'romaji choices for a single kana');
 });

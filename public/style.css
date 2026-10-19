@@ -2003,3 +2003,10 @@ input[type="checkbox"]:disabled { opacity: .45; cursor: default; }
 .cust-2d .wizard.c2-char { position: relative; width: 64px; height: 80px; }
 .cust-2d .wizard.c2-char .sprite { position: relative; width: 64px; height: 80px; animation: none; }
 .cust-2d .wizard.c2-char .aura { display: none; }
+
+/* ── 0.9.9.3.3: yellow text readable on any background (Study: the notice and the tag) ── */
+#study .notice, .notice { background: rgba(28, 20, 8, .88); border-color: rgba(255, 212, 121, .55); color: #ffd98a; text-shadow: none; }
+.tag { background: rgba(16, 14, 44, .85); }
+#studyCrit { color: #ffd98a; border-color: rgba(255, 212, 121, .6); }
+.cust-stage[data-tab="arena"] ~ .cust-info .cust-2d, .cust-2d:has(.bg-thumb) { flex-direction: column; align-items: stretch; }
+.cust-2d .bg-thumb { width: 100%; }
