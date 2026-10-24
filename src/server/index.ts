@@ -78,15 +78,17 @@ const server = createServer(async (req, res) => {
   try {
     const data = await readFile(file);
     const type = TYPES[path.extname(file)] ?? 'application/octet-stream';
+    // the service worker and the page are checked for a new version every time (0.9.9.4)
+    const fresh: Record<string, string> = url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : {};
     // text files go out gzipped (app.js, arena3d.js and the Russian meanings are large); cached per build
     if (/text|json|javascript|svg/.test(type) && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? '')) && data.length > 1024) {
       const key = `${file}:${data.length}`;
       let gz = GZ.get(key);
       if (!gz) { gz = gzipSync(data); GZ.set(key, gz); }
-      res.writeHead(200, { 'Content-Type': type, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }).end(gz);
+      res.writeHead(200, { 'Content-Type': type, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding', ...fresh }).end(gz);
       return;
     }
-    res.writeHead(200, { 'Content-Type': type }).end(data);
+    res.writeHead(200, { 'Content-Type': type, ...fresh }).end(data);
   } catch {
     res.writeHead(404).end('Not found');
   }

@@ -1,0 +1,94 @@
+# Builds the Windows app (.exe installer) and the Android app (.apk) — 0.9.9.4.
+# Pull requests: build only (download them from the run's "Artifacts").
+# main: build, then publish them as a GitHub release named after the version in package.json, so
+# https://github.com/<repo>/releases/latest/download/KanjiWizards-Setup.exe (and KanjiWizards.apk) always
+# point at the newest ones — the game's "Get the app" dialog links there.
+name: Apps (Windows + Android)
+
+on:
+  push:
+    branches: [main]
+    paths: ['package.json', 'desktop/**', 'mobile/**', '.github/workflows/apps.yml']
+  pull_request:
+    paths: ['package.json', 'desktop/**', 'mobile/**', '.github/workflows/apps.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Version
+        shell: bash
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+          echo "SEMVER=$(echo "$V" | cut -d. -f1-3)" >> "$GITHUB_ENV"
+      - name: Install
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+      - name: Build the installer
+        working-directory: desktop
+        shell: bash
+        run: |
+          set -o pipefail
+          npm pkg set version="$SEMVER"  # electron-builder wants x.y.z; the full version goes into the .exe's file version
+          npx electron-builder --win nsis --publish never -c.buildVersion="$VERSION" -c.extraMetadata.version="$SEMVER" 2>&1 | tee build.log || {
+            echo "::error title=electron-builder::$(tail -n 40 build.log | sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\r//g' -e 's/\n/%0A/g')"
+            exit 1
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: desktop/dist/KanjiWizards-Setup.exe
+          if-no-files-found: error
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+      - name: Build the APK
+        run: gradle -p mobile/android assembleRelease --no-daemon -PversionName="$VERSION" -PversionCode="${{ github.run_number }}"
+      - name: Rename
+        run: cp mobile/android/app/build/outputs/apk/release/app-release.apk KanjiWizards.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: KanjiWizards.apk
+          if-no-files-found: error
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(node -p "require('./package.json').version")
+          TAG="v$V"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "Kanji Wizards $V" --latest \
+              --notes "Windows: download **KanjiWizards-Setup.exe** and run it. Android: download **KanjiWizards.apk** and open it (allow installing from your browser). Or install it from the game's menu → *Get the app*."
+          fi
+          gh release upload "$TAG" out/windows/KanjiWizards-Setup.exe out/android/KanjiWizards.apk --clobber

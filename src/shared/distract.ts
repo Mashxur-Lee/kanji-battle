@@ -6,6 +6,7 @@ export type QuizField = 'reading' | 'meaning' | 'kanji' | 'romaji';
 
 const isKanji = (c: string) => /[一-鿿㐀-䶿々]/.test(c);
 const chars = (s: string) => [...s];
+const last = (s: string) => s.slice(-1);
 /** How many characters two strings share (as multisets). */
 function shared(a: string, b: string, keep: (c: string) => boolean = () => true) {
   const left = new Map<string, number>();
@@ -31,18 +32,18 @@ export function similarity(field: QuizField, right: string, x: string): number {
     case 'reading': {
       let s = shared(right, x) * 2 - len * 1.5;
       if (right[0] === x[0]) s += 2;
-      if (right.at(-1) === x.at(-1)) s += 1.5;
+      if (last(right) === last(x)) s += 1.5;
       return s;
     }
     case 'kanji': {
       let s = shared(right, x, isKanji) * 4 + shared(right, x, (c) => !isKanji(c)) * 1.5 - len * 1.5;
       if (chars(right).filter(isKanji).length === chars(x).filter(isKanji).length) s += 1;
-      if (!isKanji(right.at(-1)!) && right.at(-1) === x.at(-1)) s += 2; // same ending: 呼ぶ / 飛ぶ, 明るい / 暗い
+      if (!isKanji(last(right)) && last(right) === last(x)) s += 2; // same ending: 呼ぶ / 飛ぶ, 明るい / 暗い
       return s;
     }
     case 'romaji': {
       let s = -len * 2;
-      if (right.at(-1) === x.at(-1)) s += 3; // same vowel: ka / sa / ta
+      if (last(right) === last(x)) s += 3; // same vowel: ka / sa / ta
       if (right[0] === x[0]) s += 3; // same row: ka / ki / ku
       return s;
     }

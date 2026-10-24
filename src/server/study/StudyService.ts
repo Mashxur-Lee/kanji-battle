@@ -7,15 +7,19 @@ import { BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, is
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
-import { pickDistractors, posOf } from './distract';
-import { MATCH_HISTORY_LIMIT, type Store, type UserRecord } from '../db/Store';
+import { buildQuiz, type QuizQuestion } from '../../shared/quiz';
+import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type Snapshot, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { VOCAB, VOCAB_BY_ID } from '../vocab';
-import { playerDay, ProgressService, type MonthProgress } from './ProgressService';
+import { playerDay, ProgressService, shiftDay, type MonthProgress } from './ProgressService';
+import { now as clockNow } from '../now';
+import { seededRng } from '../../shared/rng';
 
 export const DAILY_NEW = 25; // default new words a day in "All spells"
 export const DAILY_NEW_MIN = 10, DAILY_NEW_MAX = 150;
 export const BADGES_MAX = 3;
+/** a custom word's id: CUSTOM_PREFIX + 13 characters (a slice of a UUID) */
+export const CUSTOM_ID = /^u:[0-9a-f-]{13}$/;
 /** Matches with an AI player give half XP (an easy AI shouldn't be an XP farm). */
 export const AI_XP_FACTOR = 0.5;
 export type Deck = DeckId;
@@ -26,7 +30,7 @@ const fromCustom = (w: CustomWord): WordInfo => ({ id: w.id, kanji: w.kanji, rea
 /** One row of a deck's word list (Study → open a deck). */
 export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: SrsCard['state']; addedAt: number | null; due: number; intervalDays: number }
 /** A JLPT-style question: pick 1 of 4. */
-export interface QuizQuestion { kind: 'reading' | 'meaning' | 'kanji'; vocabId: string; level: Level; prompt: string; sub?: string; choices: string[]; answer: number }
+export type { QuizQuestion } from '../../shared/quiz';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
   tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew: number; badges: string[];
@@ -44,8 +48,8 @@ export interface StudyItem {
 export class StudyError extends Error { constructor(message: string, readonly status = 400) { super(message); } }
 
 /** YYYY-MM-DD; the client's local date is trusted only within a day of the server's. */
-export function resolveToday(clientToday: unknown, now = Date.now()): string {
-  const server = new Date(now).toISOString().slice(0, 10);
+export function resolveToday(clientToday: unknown, at = clockNow()): string {
+  const server = new Date(at).toISOString().slice(0, 10);
   if (typeof clientToday !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(clientToday)) return server;
   const diff = Math.abs(Date.parse(clientToday) - Date.parse(server));
   return diff <= 86_400_000 ? clientToday : server;
@@ -57,7 +61,7 @@ export class StudyService {
     this.progress = new ProgressService(store);
   }
 
-  async profile(u: UserRecord, now = Date.now()): Promise<Profile> {
+  async profile(u: UserRecord, now = clockNow()): Promise<Profile> {
     // achievements earned outside a match (streaks, spells learned, friends, level, monthly rewards)
     if ((await this.grantAchievements(u.id)).length) u = (await this.store.findById(u.id)) ?? u;
     // the Beta border: everyone who has finished the tutorial (0.9.9.3.1)
@@ -94,7 +98,7 @@ export class StudyService {
   }
 
   /** Struggling spells waiting to be studied (new, learning or due). */
-  async strugglingDue(userId: string, now = Date.now()) {
+  async strugglingDue(userId: string, now = clockNow()) {
     const c = counts((await this.store.cards(userId)).filter((x) => deckOf(x) === 'struggling' && VOCAB_BY_ID.has(x.vocabId)), now);
     return c.new + c.learning + c.due;
   }
@@ -123,7 +127,7 @@ export class StudyService {
   }
 
   /** Today's crit chance (1% + 1% per spell learned today, max 50%; back to 1% at the player's midnight). */
-  async crit(userId: string, now = Date.now()) {
+  async crit(userId: string, now = clockNow()) {
     const u = await this.store.findById(userId);
     return u ? dailyCrit(u.critCount, u.critExpires, now) : CRIT_BASE;
   }
@@ -132,11 +136,25 @@ export class StudyService {
   async publicProfile(id: string): Promise<PublicProfile | null> {
     const u = await this.store.findById(id);
     if (!u || u.banned) return null;
-    return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date().toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none' };
+    return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date(clockNow()).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none' };
   }
 
   matches(userId: string) { return this.store.matches(userId, MATCH_HISTORY_LIMIT); }
   match(userId: string, id: string) { return this.store.match(userId, id); }
+
+  /** 0.9.9.4: your own data, for the app to keep working offline (client/offline). */
+  async snapshot(u: UserRecord, dailyDay?: string): Promise<Snapshot> {
+    const at = clockNow();
+    const day = new Date(at).toISOString().slice(0, 10);
+    const list = await this.store.matches(u.id, MATCH_HISTORY_LIMIT);
+    const matches = (await Promise.all(list.map((m) => this.store.match(u.id, m.id)))).filter((m): m is MatchDetail => !!m);
+    return {
+      v: SNAPSHOT_V, at, user: { ...u, passwordHash: '' },
+      cards: await this.store.cards(u.id), custom: await this.store.customWords(u.id), matches,
+      activity: await this.store.activity(u.id, shiftDay(day, -400)),
+      daily: dailyDay ? { day: dailyDay, result: await this.store.daily(dailyDay, u.id) } : null,
+    };
+  }
 
   /** Profile picture: a small PNG/JPEG/WebP (the browser resizes it to 128×128 before upload). null removes it. */
   async setAvatar(u: UserRecord, dataUrl: unknown) {
@@ -182,8 +200,10 @@ export class StudyService {
     const want = Math.max(0, clampDaily(u.dailyNew) - already);
     if (!want) { if (u.lastNewDate !== today) await this.store.update(u.id, { lastNewDate: today, newToday: 0 }); return 0; }
     const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === 'all').map((c) => c.vocabId));
-    const fresh = shuffle(VOCAB.filter((v) => u.studyLevels.includes(v.level) && !have.has(v.id)), this.rng).slice(0, want);
-    const now = Date.now();
+    // seeded by player + day (0.9.9.4): the app offline and the server pick the same words, so study done
+    // offline on today's new cards replays cleanly
+    const fresh = shuffle(VOCAB.filter((v) => u.studyLevels.includes(v.level) && !have.has(v.id)), seededRng(`${u.id}:${today}:${already}`)).slice(0, want);
+    const now = clockNow();
     const added = (await this.store.addCards(u.id, fresh.map((v) => newCard(v.id, now, 'all')))).length;
     await this.store.update(u.id, { lastNewDate: today, newToday: already + added, newNotice: u.newNotice + added });
     return added;
@@ -234,7 +254,7 @@ export class StudyService {
     if (!isDeck(deck)) throw new StudyError('Unknown deck');
     const custom = await this.words(u.id);
     const list = (Array.isArray(ids) ? ids : []).filter((x): x is string => typeof x === 'string' && !!this.info(x, custom)).slice(0, 500);
-    const now = Date.now();
+    const now = clockNow();
     return this.store.addCards(u.id, [...new Set(list)].map((id) => newCard(id, now, deck)));
   }
 
@@ -256,7 +276,7 @@ export class StudyService {
    * Custom spells: add a word. A dictionary word (by its id, or kanji [+ reading]) is used as it is;
    * anything else becomes your own word — then a reading (kana) and a meaning are needed.
    */
-  async addCustom(u: UserRecord, body: { vocabId?: unknown; kanji?: unknown; reading?: unknown; meaning?: unknown }) {
+  async addCustom(u: UserRecord, body: { vocabId?: unknown; kanji?: unknown; reading?: unknown; meaning?: unknown; id?: unknown }) {
     if (typeof body.vocabId === 'string' && VOCAB_BY_ID.has(body.vocabId)) return { added: (await this.addToDeck(u, 'custom', [body.vocabId])).length > 0, word: fromVocab(VOCAB_BY_ID.get(body.vocabId)!) };
     const kanji = String(body.kanji ?? '').trim().normalize('NFKC').slice(0, 16);
     const reading = String(body.reading ?? '').trim().normalize('NFKC').slice(0, 32);
@@ -269,7 +289,9 @@ export class StudyService {
     const mine = await this.store.customWords(u.id);
     if (mine.length >= 1000) throw new StudyError('Custom spells are full (1000 words)');
     const dupe = mine.find((w) => w.kanji === kanji && w.reading === reading);
-    const w: CustomWord = dupe ?? { id: CUSTOM_PREFIX + randomUUID().slice(0, 13), kanji, reading, meaning, createdAt: Date.now() };
+    // the app picks the id itself (0.9.9.4), so a word added offline keeps it when the outbox is replayed
+    const asked = typeof body.id === 'string' && CUSTOM_ID.test(body.id) && !mine.some((x) => x.id === body.id) ? body.id : null;
+    const w: CustomWord = dupe ?? { id: asked ?? CUSTOM_PREFIX + randomUUID().slice(0, 13), kanji, reading, meaning, createdAt: clockNow() };
     if (!dupe) await this.store.addCustomWord(u.id, w);
     return { added: (await this.addToDeck(u, 'custom', [w.id])).length > 0, word: fromCustom(w) };
   }
@@ -285,39 +307,14 @@ export class StudyService {
     for (const c of cards) if (c.reps > 0 || c.state !== 'new') { const w = this.info(c.vocabId, custom); if (w) studied.set(w.id, w); }
     if (studied.size < 4) for (const c of cards) { const w = this.info(c.vocabId, custom); if (w) studied.set(w.id, w); }
     const pool = shuffle([...studied.values()], this.rng).slice(0, Math.max(1, Math.min(30, n)));
-    const kinds: QuizQuestion['kind'][] = ['reading', 'meaning', 'kanji'];
-    // a single hiragana (meaning "hiragana", "hiragana (voiced)" …) is asked by its romaji — 0.9.9.3.3: their
-    // "meanings" are all alike, so a meaning question had one choice, or several that only differed in "(voiced)"
-    const kanaChar = (v: { meaning: string; romaji?: string }) => !!v.romaji && /^hiragana/.test(v.meaning);
-    return pool.map((w, i) => {
-      const ve = VOCAB_BY_ID.get(w.id);
-      const asRomaji = !!ve && kanaChar(ve);
-      const kind = asRomaji ? 'reading' : w.kanji === w.reading ? 'meaning' : kinds[i % 3];
-      const field = kind === 'reading' ? 'reading' : kind === 'meaning' ? 'meaning' : 'kanji';
-      const right = asRomaji ? ve!.romaji! : w[field];
-      const same = asRomaji ? VOCAB.filter(kanaChar) : VOCAB.filter((v) => v.level === w.level && v.id !== w.id && (field !== 'meaning' || !kanaChar(v)));
-      const base = same.length > 20 ? same : VOCAB.filter((x) => !kanaChar(x) && x.id !== w.id);
-      // 0.9.9.3.4: wrong answers that look like the right one (shared kana / kanji, same kind of meaning)
-      const pool = base
-        .filter((v) => field !== 'kanji' || (v.kanji !== v.reading && v.reading !== w.reading)) // no kana-only words; no homophones
-        .filter((v) => field !== 'reading' || v.kanji !== w.kanji);
-      const text = (v: VocabEntry) => asRomaji ? v.romaji! : field === 'reading' ? displayReading(v) : v[field];
-      const posBy = new Map(pool.map((v) => [text(v), posOf(v.kanji, v.meaning)]));
-      const wrong = pickDistractors(asRomaji ? 'romaji' : field, right, pool.map(text), this.rng, 3, asRomaji ? undefined : { right: posOf(w.kanji, w.meaning), of: (x) => posBy.get(x) });
-      const choices = shuffle([right, ...wrong], this.rng);
-      return {
-        kind, vocabId: w.id, level: w.level, choices, answer: choices.indexOf(right),
-        prompt: kind === 'kanji' ? w.reading : w.kanji,
-        sub: kind === 'kanji' ? w.meaning : undefined,
-      };
-    });
+    return buildQuiz(pool, VOCAB, this.rng, (id) => VOCAB_BY_ID.get(id));
   }
 
   /** Quiz / results: words you got wrong → a deck of your choice. */
   async saveMissed(u: UserRecord, deck: unknown, ids: unknown) { return this.addToDeck(u, deck, ids); }
 
   /** Opening the study screen: top up today's new cards, report counts, and hand over any "new spells" notice once. */
-  async summary(u: UserRecord, today: string, now = Date.now()) {
+  async summary(u: UserRecord, today: string, now = clockNow()) {
     if (u.studyLevels.length && u.lastNewDate !== today) await this.addDaily(u, today);
     const fresh = (await this.store.findById(u.id))!;
     const notice = fresh.newNotice;
@@ -334,7 +331,7 @@ export class StudyService {
   }
 
   /** Cards to study now, Anki order: (re)learning due → reviews due → new. */
-  async queue(u: UserRecord, deck: Deck, now = Date.now(), limit = 60): Promise<StudyItem[]> {
+  async queue(u: UserRecord, deck: Deck, now = clockNow(), limit = 60): Promise<StudyItem[]> {
     if (!isDeck(deck)) throw new StudyError('Unknown deck');
     const custom = await this.words(u.id);
     const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck && !!this.info(c.vocabId, custom));
@@ -346,7 +343,7 @@ export class StudyService {
       .map((c) => this.item(c, now, custom));
   }
 
-  async review(u: UserRecord, vocabId: unknown, rating: unknown, now = Date.now(), today = resolveToday(undefined, now), tzOffsetMin = 0, deck: unknown = 'all') {
+  async review(u: UserRecord, vocabId: unknown, rating: unknown, now = clockNow(), today = resolveToday(undefined, now), tzOffsetMin = 0, deck: unknown = 'all') {
     if (typeof vocabId !== 'string' || !RATINGS.includes(rating as Rating)) throw new StudyError('Bad review');
     const d: DeckId = isDeck(deck) ? deck : 'all';
     const card = await this.store.card(u.id, d, vocabId);
@@ -388,12 +385,12 @@ export class StudyService {
     if (who) await this.progress.record(userId, playerDay(who), { games: 1, wins: outcome === 'win' ? 1 : 0, xp: gained });
     // missed words go to Struggling spells right away (pre-ticked); the results screen can undo it or move them
     const words = [...new Set(missedIds.filter((id) => VOCAB_BY_ID.has(id)))];
-    const added = new Set(words.length ? await this.store.markStruggling(userId, words, Date.now()) : []);
+    const added = new Set(words.length ? await this.store.markStruggling(userId, words, clockNow()) : []);
     const missed: MissedWord[] = words.map((id) => { const v = VOCAB_BY_ID.get(id)!; return { id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, added: added.has(id) }; });
     // Deck Duel: every kanji of the duel joins All spells as a new card (cards you already have are left alone)
     const met = seen.filter((id) => VOCAB_BY_ID.has(id));
     if (met.length) {
-      const n = (await this.store.addCards(userId, met.map((id) => newCard(id, Date.now(), 'all')))).length;
+      const n = (await this.store.addCards(userId, met.map((id) => newCard(id, clockNow(), 'all')))).length;
       const u = n ? await this.store.findById(userId) : null;
       if (u) await this.store.update(userId, { newNotice: u.newNotice + n });
     }

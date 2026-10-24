@@ -1,6 +1,12 @@
 import type { AuthService } from '../auth/AuthService';
 import type { FriendLink, Store } from '../db/Store';
-import type { SessionHub } from '../Session';
+import type { ServerMessage } from '../../shared/protocol';
+
+/** What friends need of the session hub (Session.ts): who's online, and a message to one player. */
+export interface FriendHub {
+  presence(userId: string): { online: boolean; activity?: string; since?: number; lastSeen?: number };
+  sendTo(userId: string, msg: ServerMessage): unknown;
+}
 import { levelOf } from '../../shared/progress';
 import { picUrl } from './StudyService';
 
@@ -9,7 +15,7 @@ const UUID = /^[0-9a-f-]{36}$/i;
 
 /** Friends: requests by name, accept / remove, who is online; invites go through the hub (websocket). */
 export class SocialService {
-  constructor(private readonly store: Store, private readonly hub: SessionHub, private readonly auth?: AuthService) {}
+  constructor(private readonly store: Store, private readonly hub: FriendHub, private readonly auth?: AuthService) {}
 
   async list(userId: string) {
     const links = await this.store.friends(userId);

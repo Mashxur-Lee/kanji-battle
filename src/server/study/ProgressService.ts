@@ -2,6 +2,7 @@ import { LEVELS, type Level } from '../../shared/protocol';
 import { DAILY_TASKS, MONTH_GOALS, seasonOf, type DailyTaskState, type MonthGoalId } from '../../shared/progress';
 import type { DayActivity, Store, UserRecord } from '../db/Store';
 import { VOCAB } from '../vocab';
+import { now } from '../now';
 
 /** How a word stands in your study set (Progress → mastery grid). */
 export const Mastery = { Unseen: 0, New: 1, Learning: 2, Learned: 3, Mastered: 4 } as const;
@@ -33,8 +34,8 @@ export const shiftDay = (day: string, days: number) => new Date(Date.parse(day) 
  * The player's day for things the server records without the browser's date (match results): their last
  * login day if it's within a day of the server's, otherwise the server's date.
  */
-export function playerDay(u: Pick<UserRecord, 'loginDay'>, now = Date.now()) {
-  const server = new Date(now).toISOString().slice(0, 10);
+export function playerDay(u: Pick<UserRecord, 'loginDay'>, at = now()) {
+  const server = new Date(at).toISOString().slice(0, 10);
   if (u.loginDay && Math.abs(Date.parse(u.loginDay) - Date.parse(server)) <= DAY_MS) return u.loginDay;
   return server;
 }

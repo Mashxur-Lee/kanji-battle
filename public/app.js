@@ -4,6 +4,2261 @@
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
+  // src/client/offline/node-shim.ts
+  var no = (name) => () => {
+    throw new Error(`${name} is not available offline`);
+  };
+  var randomUUID = () => typeof crypto.randomUUID === "function" ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, () => (Math.random() * 16 | 0).toString(16));
+  var randomBytes = no("randomBytes");
+  var scrypt = no("scrypt");
+  var timingSafeEqual = no("timingSafeEqual");
+  var createHmac = no("createHmac");
+  var mkdirSync = no("mkdirSync");
+  var readFileSync = no("readFileSync");
+  var renameSync = no("renameSync");
+  var writeFileSync = no("writeFileSync");
+
+  // src/shared/progress.ts
+  var XP_PER_LEVEL = 1e3;
+  var xpToNext = (level2) => XP_PER_LEVEL * (level2 + 1);
+  var xpForLevel = (level2) => XP_PER_LEVEL * level2 * (level2 + 1) / 2;
+  function levelOf(xp) {
+    let n = Math.floor((Math.sqrt(1 + 8 * Math.max(0, xp) / XP_PER_LEVEL) - 1) / 2);
+    while (xpForLevel(n + 1) <= xp) n++;
+    while (n > 0 && xpForLevel(n) > xp) n--;
+    return n;
+  }
+  function levelXp(xp) {
+    const level2 = levelOf(xp);
+    return { level: level2, into: Math.max(0, xp) - xpForLevel(level2), need: xpToNext(level2) };
+  }
+  var levelProgress = (xp) => {
+    const l = levelXp(xp);
+    return l.into / l.need;
+  };
+  function xpFor(outcome, accuracy, mode3) {
+    const acc = Math.round(Math.max(0, Math.min(1, accuracy)) * 100);
+    if (mode3 === "deck") return outcome === "win" ? 4e3 : outcome === "draw" ? 2500 : 1500;
+    return (outcome === "win" ? 300 : outcome === "draw" ? 150 : 50) + acc;
+  }
+  var CRIT_BASE = 0.01;
+  var CRIT_PER_WORD = 0.01;
+  var CRIT_CAP = 0.5;
+  var critFor = (learnedToday) => Math.min(CRIT_CAP, CRIT_BASE + Math.max(0, learnedToday) * CRIT_PER_WORD);
+  var dailyCrit = (count, expiresAt, now2 = Date.now()) => now2 < expiresAt ? critFor(count) : CRIT_BASE;
+  function nextLocalMidnight(today2, tzOffsetMin) {
+    const [y, m, d] = today2.split("-").map(Number);
+    return Date.UTC(y, m - 1, d + 1) + tzOffsetMin * 6e4;
+  }
+  var beta = { open: false };
+  var BACKGROUNDS = [
+    { id: "forest", name: "Forest", level: 0 },
+    { id: "swamp", name: "Swamp", level: 3 },
+    { id: "plains", name: "Plains", level: 5 },
+    { id: "castle", name: "Castle", level: 8 },
+    { id: "worldtree", name: "World Tree", level: 10 }
+  ];
+  var isBackground = (x) => BACKGROUNDS.some((b) => b.id === x);
+  var unlocked = (bg2, xp) => beta.open || levelOf(xp) >= BACKGROUNDS.find((b) => b.id === bg2).level;
+  var SEASONS = [
+    { month: 1, name: "Frost", reward: "staff:frost" },
+    { month: 2, name: "Sakura", reward: "flame:sakura" },
+    { month: 3, name: "Blossom", reward: "staff:blossom" },
+    { month: 4, name: "Rain", reward: "flame:rain" },
+    { month: 5, name: "Jade", reward: "staff:jade" },
+    { month: 6, name: "Sun", reward: "flame:sun" },
+    { month: 7, name: "Abyss", reward: "staff:abyss" },
+    { month: 8, name: "Thunder", reward: "flame:thunder" },
+    { month: 9, name: "Moon", reward: "staff:moon" },
+    { month: 10, name: "Harvest", reward: "flame:harvest" },
+    { month: 11, name: "Maple", reward: "staff:maple" },
+    { month: 12, name: "Starlight", reward: "flame:starlight" }
+  ];
+  var BORDERS = [
+    { id: "none", name: "No border", level: 0, blurb: "Just your picture." },
+    { id: "apprentice", name: "Apprentice", level: 1, blurb: "A plain silver ring." },
+    { id: "adept", name: "Adept", level: 5, blurb: "A violet ring with four rune studs." },
+    { id: "master", name: "Master", level: 10, blurb: "A golden ring with a star at the top." },
+    { id: "archmage", name: "Archmage", level: 15, blurb: "A glowing ring of moving arcane light." },
+    { id: "beta", name: "Beta", level: 0, unlock: "border:beta", blurb: "A platinum ring with a BETA tag \u2014 for everyone who finished the tutorial during the beta." }
+  ];
+  var isBorder = (b) => typeof b === "string" && BORDERS.some((x) => x.id === b);
+  var borderUnlocked = (id, level2, unlocks2 = []) => {
+    const b = BORDERS.find((x) => x.id === id);
+    return !!b && (b.unlock ? unlocks2.includes(b.unlock) : b.level <= level2);
+  };
+  var BETA_BORDER = "border:beta";
+  var DAILY_TASKS = [
+    { id: "learn", label: "Study 10 spells (any deck)", target: 10 },
+    // all four done: the streak goes up and +500 XP
+    { id: "quiz", label: "Do a JLPT quiz", target: 1 },
+    { id: "daily", label: "Play the daily challenge", target: 1 },
+    { id: "passage", label: "Read a passage (fill in the blanks)", target: 1 }
+  ];
+  var MONTH_GOALS = [
+    { id: "days", label: "Play on 12 different days", target: 12 },
+    { id: "wins", label: "Win 10 games", target: 10 },
+    { id: "reviews", label: "Pass 150 flashcards in Study spells", target: 150 }
+  ];
+  var seasonOf = (day) => SEASONS[Number(day.slice(5, 7)) - 1] ?? SEASONS[0];
+  var FLAMES = [
+    { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
+    { id: "purple", name: "Purple", level: 5, color: "#b26bff" },
+    { id: "sakura", name: "Sakura", level: 0, color: "#ff8ccf", season: 2 },
+    { id: "rain", name: "Rain", level: 0, color: "#3fd9c4", season: 4 },
+    { id: "sun", name: "Sun", level: 0, color: "#ffd23f", season: 6 },
+    { id: "thunder", name: "Thunder", level: 0, color: "#e8e2ff", season: 8 },
+    { id: "harvest", name: "Harvest", level: 0, color: "#ff8a2a", season: 10 },
+    { id: "starlight", name: "Starlight", level: 0, color: "#fff0a0", season: 12 }
+  ];
+  var isFlame = (x) => FLAMES.some((f2) => f2.id === x);
+  var flameUnlocked = (f2, xp, unlocks2 = []) => {
+    const d = FLAMES.find((x) => x.id === f2);
+    if (!d) return false;
+    if (beta.open) return true;
+    return d.season ? unlocks2.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
+  };
+  var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
+  function flameShades(f2) {
+    const hex = flameColor(f2).slice(1);
+    const [r2, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const max = Math.max(r2, g, b), min = Math.min(r2, g, b), l = (max + min) / 2, d = max - min;
+    const h3 = d === 0 ? 0 : max === r2 ? ((g - b) / d + 6) % 6 : max === g ? (b - r2) / d + 2 : (r2 - g) / d + 4;
+    const hue = h3 * 60;
+    const pale = l > 0.85;
+    const rgb = (s, li) => {
+      const c = (1 - Math.abs(2 * li - 1)) * s, x = c * (1 - Math.abs(hue / 60 % 2 - 1)), m = li - c / 2;
+      const [a, bb, cc] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
+      return [a, bb, cc].map((v) => Math.round((v + m) * 255)).join(",");
+    };
+    return pale ? [rgb(1, 0.97), rgb(1, 0.86), rgb(0.85, 0.7), rgb(0.7, 0.45)] : [rgb(1, 0.93), rgb(1, 0.72), rgb(0.9, 0.55), rgb(0.85, 0.36)];
+  }
+  var STAFFS = [
+    { id: "verdant", name: "Verdant Staff", streak: 0, gem: "#6dff6a", blurb: "Carved from an ancient tree. It channels the natural energy of the earth and life." },
+    { id: "ember", name: "Ember Staff", streak: 3, gem: "#ff7a1a", blurb: "Forged from volcanic rock and blessed by fire spirits." },
+    { id: "tide", name: "Tide Staff", streak: 5, gem: "#3fb8ff", blurb: "Crafted from crystal and oceanic runes. It flows with the tides." },
+    { id: "storm", name: "Storm Staff", streak: 8, gem: "#b26bff", blurb: "A relic of the sky temples. It channels lightning." },
+    { id: "void", name: "Void Staff", streak: 10, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." },
+    { id: "frost", name: "Frost Staff", streak: 0, season: 1, base: "tide", tint: "#d8f4ff", gem: "#bfefff", blurb: "January reward. Rimed with ice that never melts." },
+    { id: "blossom", name: "Blossom Staff", streak: 0, season: 3, base: "verdant", tint: "#ffb8d8", gem: "#ff7ab8", blurb: "March reward. A branch that flowers whenever it casts." },
+    { id: "jade", name: "Jade Staff", streak: 0, season: 5, base: "ember", tint: "#7dffb0", gem: "#3dff8a", blurb: "May reward. Carved from one piece of temple jade." },
+    { id: "abyss", name: "Abyss Staff", streak: 0, season: 7, base: "tide", tint: "#3a5cff", gem: "#2a4dff", blurb: "July reward. Pulled from the deepest trench of the sea." },
+    { id: "moon", name: "Moon Staff", streak: 0, season: 9, base: "verdant", tint: "#f2f0ff", gem: "#fff6c8", blurb: "September reward. Silver light of the harvest moon." },
+    { id: "maple", name: "Maple Staff", streak: 0, season: 11, base: "ember", tint: "#ff5a3a", gem: "#ff3a2a", blurb: "November reward. Burning red like autumn leaves." }
+  ];
+  var isStaff = (x) => STAFFS.some((s) => s.id === x);
+  var staffUnlocked = (s, bestStreak, unlocks2 = []) => {
+    const d = STAFFS.find((x) => x.id === s);
+    if (!d) return false;
+    if (beta.open) return true;
+    return d.season ? unlocks2.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
+  };
+  var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
+  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 0, boss: 0, deck: 0 };
+  var modeUnlocked = (mode3, xp, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode3] ?? 0);
+  var STUDY_LOCK = 100;
+  var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
+  var ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  function avatarFor(levels) {
+    const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? "N5";
+    return AVATAR_BY_LEVEL[top];
+  }
+  var KANA_BEGINNER = "flag:kana-beginner";
+  var isKanaBeginner = (unlocks2) => !!unlocks2?.includes(KANA_BEGINNER);
+  function levelsFor(levels, beginner) {
+    if (!beginner) return [...levels];
+    return ["KANA"];
+  }
+  function isoWeek(day) {
+    const d = /* @__PURE__ */ new Date(`${day}T00:00:00Z`);
+    const dow = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dow);
+    const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
+    return Math.ceil(((d.getTime() - yearStart) / 864e5 + 1) / 7);
+  }
+
+  // src/shared/srs.ts
+  var RATINGS = ["again", "hard", "good", "easy"];
+  var DECKS = ["all", "struggling", "custom"];
+  var isDeck = (x) => DECKS.includes(x);
+  var SRS = {
+    learnSteps: [1, 10],
+    // minutes
+    relearnSteps: [10],
+    graduatingDays: 1,
+    easyDays: 4,
+    startEase: 2500,
+    minEase: 1300,
+    hardFactor: 1.2,
+    easyBonus: 1.3,
+    lapseEaseDrop: 200,
+    hardEaseDrop: 150,
+    easyEaseGain: 150,
+    maxDays: 36500
+  };
+  var MIN = 6e4;
+  var DAY = 864e5;
+  function newCard(vocabId, now2, deck2 = "all") {
+    return { vocabId, deck: deck2, addedAt: now2, state: "new", step: 0, ease: SRS.startEase, intervalDays: 0, due: now2, reps: 0, lapses: 0, struggling: deck2 === "struggling" };
+  }
+  var deckOf = (c) => c.deck ?? "all";
+  var CUSTOM_PREFIX = "u:";
+  var isDue = (c, now2) => c.due <= now2;
+  function stepMinutes(steps, i) {
+    return steps[Math.min(i, steps.length - 1)];
+  }
+  function answer(card, rating, now2) {
+    const c = { ...card, reps: card.reps + 1 };
+    const inLearning = c.state === "new" || c.state === "learning";
+    const toReview = (days2) => {
+      c.state = "review";
+      c.step = 0;
+      c.intervalDays = Math.min(SRS.maxDays, Math.max(1, Math.round(days2)));
+      c.due = now2 + c.intervalDays * DAY;
+    };
+    if (inLearning || c.state === "relearning") {
+      const steps = c.state === "relearning" ? SRS.relearnSteps : SRS.learnSteps;
+      if (c.state === "new") c.state = "learning";
+      const graduateDays = card.state === "relearning" ? Math.max(1, card.intervalDays) : SRS.graduatingDays;
+      switch (rating) {
+        case "again":
+          c.step = 0;
+          c.due = now2 + steps[0] * MIN;
+          break;
+        case "hard": {
+          const m = c.step === 0 && steps.length > 1 ? (steps[0] + steps[1]) / 2 : stepMinutes(steps, c.step);
+          c.due = now2 + m * MIN;
+          break;
+        }
+        case "good":
+          if (c.step + 1 >= steps.length) toReview(graduateDays);
+          else {
+            c.step += 1;
+            c.due = now2 + steps[c.step] * MIN;
+          }
+          break;
+        case "easy":
+          toReview(card.state === "relearning" ? graduateDays + 1 : SRS.easyDays);
+          break;
+      }
+      return c;
+    }
+    const late = Math.max(0, (now2 - card.due) / DAY);
+    const ivl = card.intervalDays;
+    switch (rating) {
+      case "again":
+        c.lapses += 1;
+        c.ease = Math.max(SRS.minEase, c.ease - SRS.lapseEaseDrop);
+        c.state = "relearning";
+        c.step = 0;
+        c.intervalDays = 1;
+        c.due = now2 + SRS.relearnSteps[0] * MIN;
+        return c;
+      case "hard":
+        c.ease = Math.max(SRS.minEase, c.ease - SRS.hardEaseDrop);
+        toReview(Math.max(ivl + 1, ivl * SRS.hardFactor));
+        return c;
+      case "good":
+        toReview(Math.max(ivl + 1, (ivl + late / 2) * (card.ease / 1e3)));
+        return c;
+      case "easy":
+        c.ease = card.ease + SRS.easyEaseGain;
+        toReview(Math.max(ivl + 2, (ivl + late) * (card.ease / 1e3) * SRS.easyBonus));
+        return c;
+    }
+  }
+  function formatInterval(ms) {
+    const m = ms / MIN;
+    if (m < 60) return `${Math.max(1, Math.round(m))}m`;
+    const h3 = m / 60;
+    if (h3 < 24) return `${Math.round(h3)}h`;
+    const d = h3 / 24;
+    if (d < 30) return `${Math.round(d)}d`;
+    if (d < 365) return `${(d / 30).toFixed(d < 300 ? 1 : 0).replace(/\.0$/, "")}mo`;
+    return `${(d / 365).toFixed(1).replace(/\.0$/, "")}y`;
+  }
+  var previewIntervals = (card, now2) => Object.fromEntries(RATINGS.map((r2) => [r2, formatInterval(answer(card, r2, now2).due - now2)]));
+
+  // src/server/db/Store.ts
+  var REPORTS_KEPT = 500;
+  var UsernameTakenError = class extends Error {
+  };
+  var MATCH_HISTORY_LIMIT = 15;
+  var SNAPSHOT_V = 1;
+  var summaryOf = (m) => ({ id: m.id, mode: m.mode, outcome: m.outcome, character: m.character, at: m.at, opponents: m.opponents });
+  var blankProgress = () => ({ dailyNew: 25, newToday: 0, badges: [], xp: 0, background: "forest", studyLevels: [], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: "blue", staff: "verdant", tutorialDone: true, unlocks: [], loginDay: null, streak: 0, streakDay: null, border: "none", bestStreak: 0 });
+  var MemoryStore = class {
+    constructor() {
+      __publicField(this, "name", "memory");
+      __publicField(this, "users", /* @__PURE__ */ new Map());
+      __publicField(this, "srs", /* @__PURE__ */ new Map());
+      // user → "deck|vocabId" → card
+      __publicField(this, "custom", /* @__PURE__ */ new Map());
+      __publicField(this, "avatars", /* @__PURE__ */ new Map());
+      __publicField(this, "history", /* @__PURE__ */ new Map());
+      __publicField(this, "nextMatch", 1);
+      __publicField(this, "activityLog", /* @__PURE__ */ new Map());
+      __publicField(this, "dailyResults", /* @__PURE__ */ new Map());
+      __publicField(this, "friendLinks", /* @__PURE__ */ new Map());
+      __publicField(this, "reportList", []);
+      __publicField(this, "eventLog", []);
+    }
+    async init() {
+    }
+    async findByUsername(username) {
+      const u = username.toLowerCase();
+      for (const r2 of this.users.values()) if (r2.username === u) return { ...r2 };
+      return null;
+    }
+    async findById(id) {
+      const r2 = this.users.get(id);
+      return r2 ? { ...r2 } : null;
+    }
+    async create(u) {
+      if (await this.findByUsername(u.username)) throw new UsernameTakenError();
+      const rec = { ...blankProgress(), tutorialDone: false, ...u, username: u.username.toLowerCase(), banned: false, id: randomUUID(), createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+      this.users.set(rec.id, rec);
+      this.persist();
+      return { ...rec };
+    }
+    async list() {
+      return [...this.users.values()].map((r2) => ({ ...r2 })).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    }
+    async deleteUser(id) {
+      if (!this.users.delete(id)) return false;
+      this.srs.delete(id);
+      this.custom.delete(id);
+      this.avatars.delete(id);
+      this.history.delete(id);
+      this.activityLog.delete(id);
+      for (const m of this.dailyResults.values()) m.delete(id);
+      this.friendLinks.delete(id);
+      for (const m of this.friendLinks.values()) m.delete(id);
+      this.persist();
+      return true;
+    }
+    async update(id, patch) {
+      const r2 = this.users.get(id);
+      if (!r2) return null;
+      Object.assign(r2, patch);
+      this.persist();
+      return { ...r2 };
+    }
+    async addXp(id, delta) {
+      const r2 = this.users.get(id);
+      if (!r2) return 0;
+      r2.xp = Math.max(0, r2.xp + Math.round(delta));
+      this.persist();
+      return r2.xp;
+    }
+    deck(userId) {
+      let d = this.srs.get(userId);
+      if (!d) {
+        d = /* @__PURE__ */ new Map();
+        this.srs.set(userId, d);
+      }
+      return d;
+    }
+    async cards(userId) {
+      return [...this.deck(userId).values()].map((c) => ({ ...c, deck: deckOf(c) }));
+    }
+    async card(userId, deck2, vocabId) {
+      const c = this.deck(userId).get(`${deck2}|${vocabId}`);
+      return c ? { ...c, deck: deck2 } : null;
+    }
+    async saveCard(userId, card) {
+      const deck2 = deckOf(card);
+      this.deck(userId).set(`${deck2}|${card.vocabId}`, { ...card, deck: deck2, struggling: deck2 === "struggling" });
+      this.persist();
+    }
+    async addCards(userId, cards) {
+      const d = this.deck(userId);
+      const added = [];
+      for (const c of cards) {
+        const deck2 = deckOf(c), key = `${deck2}|${c.vocabId}`;
+        if (!d.has(key)) {
+          d.set(key, { ...c, deck: deck2, struggling: deck2 === "struggling" });
+          added.push(c.vocabId);
+        }
+      }
+      this.persist();
+      return added;
+    }
+    async removeCards(userId, deck2, vocabIds) {
+      const d = this.deck(userId);
+      let n = 0;
+      for (const id of vocabIds) if (d.delete(`${deck2}|${id}`)) n++;
+      this.persist();
+      return n;
+    }
+    async markStruggling(userId, vocabIds, now2) {
+      const d = this.deck(userId);
+      const added = [];
+      for (const id of new Set(vocabIds)) {
+        const c = d.get(`struggling|${id}`);
+        if (c) c.due = Math.min(c.due, now2);
+        else {
+          d.set(`struggling|${id}`, { vocabId: id, deck: "struggling", addedAt: now2, state: "new", step: 0, ease: 2500, intervalDays: 0, due: now2, reps: 0, lapses: 0, struggling: true });
+          added.push(id);
+        }
+      }
+      this.persist();
+      return added;
+    }
+    async customWords(userId) {
+      return (this.custom.get(userId) ?? []).map((w) => ({ ...w }));
+    }
+    async addCustomWord(userId, w) {
+      this.custom.set(userId, [...(this.custom.get(userId) ?? []).filter((x) => x.id !== w.id), { ...w }]);
+      this.persist();
+    }
+    async deleteCustomWord(userId, id) {
+      this.custom.set(userId, (this.custom.get(userId) ?? []).filter((x) => x.id !== id));
+      this.persist();
+    }
+    /** Learned = words that graduated to review in any deck (a word counts once). */
+    async learnedCount(userId) {
+      return new Set([...this.deck(userId).values()].filter((c) => c.state === "review").map((c) => c.vocabId)).size;
+    }
+    async addResult(id, outcome) {
+      const r2 = this.users.get(id);
+      if (!r2 || outcome === "draw") return;
+      if (outcome === "win") r2.wins++;
+      else r2.losses++;
+      this.persist();
+    }
+    async setAvatar(id, img) {
+      const r2 = this.users.get(id);
+      if (!r2) return 0;
+      if (img) {
+        this.avatars.set(id, img);
+        r2.avatarV = (r2.avatarV || 0) + 1;
+      } else {
+        this.avatars.delete(id);
+        r2.avatarV = 0;
+      }
+      this.persist();
+      return r2.avatarV;
+    }
+    async getAvatar(id) {
+      return this.avatars.get(id) ?? null;
+    }
+    async cardStats() {
+      return Object.fromEntries([...this.srs].map(([uid2, d]) => [uid2, { cards: d.size, learned: new Set([...d.values()].filter((c) => c.state === "review").map((c) => c.vocabId)).size }]));
+    }
+    async addMatch(userId, m) {
+      const list = this.history.get(userId) ?? [];
+      list.unshift({ ...m, id: `${Date.now().toString(36)}${(this.nextMatch++).toString(36)}` });
+      this.history.set(userId, list.slice(0, MATCH_HISTORY_LIMIT));
+      this.persist();
+    }
+    async matches(userId, limit) {
+      return (this.history.get(userId) ?? []).slice(0, limit).map(summaryOf);
+    }
+    async match(userId, id) {
+      return (this.history.get(userId) ?? []).find((m) => m.id === id) ?? null;
+    }
+    async addActivity(userId, day, d) {
+      const log = this.activityLog.get(userId) ?? /* @__PURE__ */ new Map();
+      this.activityLog.set(userId, log);
+      const a = log.get(day) ?? { day, login: false, reviews: 0, games: 0, wins: 0, xp: 0, quizzes: 0, challenges: 0, passages: 0 };
+      if (d.login) a.login = true;
+      a.reviews += d.reviews ?? 0;
+      a.games += d.games ?? 0;
+      a.wins += d.wins ?? 0;
+      a.xp += d.xp ?? 0;
+      a.quizzes = (a.quizzes ?? 0) + (d.quizzes ?? 0);
+      a.challenges = (a.challenges ?? 0) + (d.challenges ?? 0);
+      a.passages = (a.passages ?? 0) + (d.passages ?? 0);
+      log.set(day, a);
+      this.persist();
+    }
+    async activity(userId, fromDay) {
+      return [...this.activityLog.get(userId)?.values() ?? []].filter((a) => a.day >= fromDay).sort((a, b) => a.day.localeCompare(b.day)).map((a) => ({ ...a }));
+    }
+    async saveDaily(day, userId, correct, ms, marks = "") {
+      const d = this.dailyResults.get(day) ?? /* @__PURE__ */ new Map();
+      this.dailyResults.set(day, d);
+      if (d.has(userId)) return false;
+      d.set(userId, { correct, ms, marks });
+      this.persist();
+      return true;
+    }
+    async daily(day, userId) {
+      const r2 = this.dailyResults.get(day)?.get(userId);
+      return r2 ? { ...r2 } : null;
+    }
+    async dailyBoard(day, limit) {
+      return [...this.dailyResults.get(day) ?? /* @__PURE__ */ new Map()].map(([userId, r2]) => ({ userId, username: this.users.get(userId)?.username ?? "?", correct: r2.correct, ms: r2.ms })).sort((a, b) => b.correct - a.correct || a.ms - b.ms).slice(0, limit);
+    }
+    async dailyBetter(day, correct, ms) {
+      return [...this.dailyResults.get(day)?.values() ?? []].filter((r2) => r2.correct > correct || r2.correct === correct && r2.ms < ms).length;
+    }
+    // from → to → status
+    link(a, b) {
+      return this.friendLinks.get(a)?.get(b);
+    }
+    setLink(a, b, s) {
+      const m = this.friendLinks.get(a) ?? /* @__PURE__ */ new Map();
+      this.friendLinks.set(a, m);
+      if (s) m.set(b, s);
+      else m.delete(b);
+    }
+    async friends(userId) {
+      const out = [];
+      for (const [to, s] of this.friendLinks.get(userId) ?? []) {
+        const u = this.users.get(to);
+        if (u) out.push({ id: to, username: u.username, status: s === "accepted" ? "accepted" : "outgoing" });
+      }
+      for (const [from, m] of this.friendLinks) {
+        const u = this.users.get(from);
+        if (u && m.get(userId) === "pending") out.push({ id: from, username: u.username, status: "incoming" });
+      }
+      return out.sort((a, b) => a.username.localeCompare(b.username));
+    }
+    async requestFriend(from, to) {
+      if (this.link(from, to)) return "exists";
+      if (this.link(to, from) === "pending") {
+        this.setLink(to, from, "accepted");
+        this.setLink(from, to, "accepted");
+        this.persist();
+        return "accepted";
+      }
+      this.setLink(from, to, "pending");
+      this.persist();
+      return "requested";
+    }
+    async acceptFriend(userId, fromId) {
+      if (this.link(fromId, userId) !== "pending") return false;
+      this.setLink(fromId, userId, "accepted");
+      this.setLink(userId, fromId, "accepted");
+      this.persist();
+      return true;
+    }
+    async removeFriend(userId, otherId) {
+      this.setLink(userId, otherId, null);
+      this.setLink(otherId, userId, null);
+      this.persist();
+    }
+    async addReport(r2) {
+      this.reportList.unshift({ ...r2, id: randomUUID(), done: false });
+      this.reportList.length = Math.min(this.reportList.length, REPORTS_KEPT);
+      this.persist();
+    }
+    async reports(limit) {
+      return this.reportList.slice(0, limit).map((r2) => ({ ...r2 }));
+    }
+    async setReportDone(id, done2) {
+      const r2 = this.reportList.find((x) => x.id === id);
+      if (r2) {
+        r2.done = done2;
+        this.persist();
+      }
+    }
+    async deleteReport(id) {
+      this.reportList = this.reportList.filter((x) => x.id !== id);
+      this.persist();
+    }
+    async addEvent(userId, name, at = Date.now()) {
+      this.eventLog.push({ userId, name, at });
+      if (this.eventLog.length > 5e4) this.eventLog.splice(0, 1e4);
+      this.persist();
+    }
+    async events(since) {
+      return this.eventLog.filter((e) => e.at >= since).map((e) => ({ ...e }));
+    }
+    async activityAll(fromDay) {
+      const out = [];
+      for (const [userId, days2] of this.activityLog) for (const a of days2.values()) if (a.day >= fromDay) out.push({ userId, day: a.day, games: a.games });
+      return out;
+    }
+    persist() {
+    }
+  };
+
+  // src/server/auth/AuthService.ts
+  var AuthError = class extends Error {
+    constructor(message, status = 400) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  var toPublic = (u) => ({ id: u.id, username: u.username, role: u.role });
+
+  // src/server/study/InsightsService.ts
+  var InsightsError = class extends Error {
+    constructor(message, status = 400) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  var CLIENT_EVENTS = ["tutorial_start", "tutorial_kana_yes", "tutorial_kana_no", "tutorial_battle", "tutorial_skip", "tutorial_done"];
+
+  // src/shared/protocol.ts
+  var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  var LEVEL_LABEL = { KANA: "\u304B\u306A", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
+  var MODE_LABEL = {
+    reading: "1v1 Kanji Reading",
+    writing: "1v1 Kanji Writing",
+    boss: "Boss Elimination",
+    rapid: "1v1 Rapid",
+    deck: "Deck Duel"
+  };
+
+  // src/shared/achievements.ts
+  var ACHIEVEMENTS = [
+    { id: "first-win", name: "First Victory", how: "Win a battle.", icon: "sword", color: "#ff6b6b", tier: 1 },
+    { id: "veteran", name: "Veteran", how: "Win 25 battles.", icon: "swords", color: "#ff8f5a", tier: 2 },
+    { id: "champion", name: "Champion", how: "Win 100 battles.", icon: "crown", color: "#ffd479", tier: 3 },
+    { id: "combo-5", name: "On Fire", how: "Cast 5 correct spells in a row in a battle.", icon: "flame", color: "#6ee7ff", tier: 1 },
+    { id: "combo-10", name: "Inferno", how: "Reach a 10\xD7 combo in a battle.", icon: "flame2", color: "#b26bff", tier: 2 },
+    { id: "combo-20", name: "Unstoppable", how: "Reach a 20\xD7 combo in a battle.", icon: "comet", color: "#ff4fd8", tier: 3 },
+    { id: "flawless", name: "Flawless", how: "Win a battle with 100% accuracy (at least 10 answers).", icon: "target", color: "#3ddc84", tier: 2 },
+    { id: "dragon-slayer", name: "Dragon Slayer", how: "Defeat the Black Dragon in Boss Elimination.", icon: "dragon", color: "#ff5a3a", tier: 2 },
+    { id: "card-sage", name: "Card Sage", how: "Win a Deck Duel.", icon: "cards", color: "#5aa8e8", tier: 2 },
+    { id: "calligrapher", name: "Calligrapher", how: "Win a Kanji Writing duel.", icon: "brush", color: "#e8d5a8", tier: 1 },
+    { id: "quickdraw", name: "Quickdraw", how: "Win a Rapid duel.", icon: "bolt", color: "#ffe14d", tier: 1 },
+    { id: "scholar", name: "Scholar", how: "Learn 100 spells in Study spells.", icon: "book", color: "#7fd1ff", tier: 1 },
+    { id: "archmage", name: "Archmage", how: "Learn 1,000 spells.", icon: "tome", color: "#a98bff", tier: 3 },
+    { id: "graduate", name: "Kana Graduate", how: `Start as a \u304B\u306A beginner, then tick "I've mastered hiragana" in Settings.`, icon: "kana", color: "#ff9ec7", tier: 1 },
+    { id: "devoted", name: "Devoted", how: "Log in 7 days in a row.", icon: "sun", color: "#ffb84d", tier: 1 },
+    { id: "eternal", name: "Eternal Flame", how: "Log in 30 days in a row.", icon: "moon", color: "#ff7a1a", tier: 3 },
+    { id: "perfect-day", name: "Perfect Day", how: "Get 10 / 10 in the Daily challenge.", icon: "calendar", color: "#4dd6c8", tier: 2 },
+    { id: "fellowship", name: "Fellowship", how: "Make a friend.", icon: "people", color: "#8be37a", tier: 1 },
+    { id: "seasonal", name: "Seasonal", how: "Complete a month's goals and earn its reward.", icon: "leaf", color: "#ff8ccf", tier: 2 },
+    { id: "grand-wizard", name: "Grand Wizard", how: "Reach level 10.", icon: "star", color: "#ffd479", tier: 3 },
+    { id: "kingslayer", name: "Kingslayer", how: "Beat an admin in a battle.", icon: "kingslayer", color: "#ff3d6e", tier: 3 }
+  ];
+  var ACH_PREFIX = "ach:";
+  var achById = (id) => ACHIEVEMENTS.find((a) => a.id === id);
+  function earnedAchievements(f2) {
+    const out = [];
+    const add = (id, ok) => {
+      if (ok) out.push(id);
+    };
+    add("first-win", f2.wins >= 1);
+    add("veteran", f2.wins >= 25);
+    add("champion", f2.wins >= 100);
+    add("scholar", f2.learned >= 100);
+    add("archmage", f2.learned >= 1e3);
+    add("devoted", f2.bestStreak >= 7);
+    add("eternal", f2.bestStreak >= 30);
+    add("fellowship", f2.friends >= 1);
+    add("seasonal", f2.seasonal >= 1);
+    add("grand-wizard", f2.level >= 10);
+    const m = f2.match;
+    if (m && !m.forfeited) {
+      add("combo-5", m.bestCombo >= 5);
+      add("combo-10", m.bestCombo >= 10);
+      add("combo-20", m.bestCombo >= 20);
+      const won = m.outcome === "win";
+      add("flawless", won && m.accuracy >= 1 && m.attempts >= 10);
+      add("dragon-slayer", won && m.mode === "boss");
+      add("card-sage", won && m.mode === "deck");
+      add("calligrapher", won && m.mode === "writing");
+      add("quickdraw", won && m.mode === "rapid");
+      add("kingslayer", won && !!m.beatAdmin);
+    }
+    return out;
+  }
+  var COMBO_ACHIEVEMENTS = [[5, "combo-5"], [10, "combo-10"], [20, "combo-20"]];
+
+  // src/shared/kana.ts
+  var BASE = {
+    a: "\u3042",
+    i: "\u3044",
+    u: "\u3046",
+    e: "\u3048",
+    o: "\u304A",
+    ka: "\u304B",
+    ki: "\u304D",
+    ku: "\u304F",
+    ke: "\u3051",
+    ko: "\u3053",
+    sa: "\u3055",
+    si: "\u3057",
+    shi: "\u3057",
+    su: "\u3059",
+    se: "\u305B",
+    so: "\u305D",
+    ta: "\u305F",
+    ti: "\u3061",
+    chi: "\u3061",
+    tu: "\u3064",
+    tsu: "\u3064",
+    te: "\u3066",
+    to: "\u3068",
+    na: "\u306A",
+    ni: "\u306B",
+    nu: "\u306C",
+    ne: "\u306D",
+    no: "\u306E",
+    ha: "\u306F",
+    hi: "\u3072",
+    hu: "\u3075",
+    fu: "\u3075",
+    he: "\u3078",
+    ho: "\u307B",
+    ma: "\u307E",
+    mi: "\u307F",
+    mu: "\u3080",
+    me: "\u3081",
+    mo: "\u3082",
+    ya: "\u3084",
+    yu: "\u3086",
+    yo: "\u3088",
+    ra: "\u3089",
+    ri: "\u308A",
+    ru: "\u308B",
+    re: "\u308C",
+    ro: "\u308D",
+    la: "\u3089",
+    li: "\u308A",
+    lu: "\u308B",
+    le: "\u308C",
+    lo: "\u308D",
+    wa: "\u308F",
+    wo: "\u3092",
+    wi: "\u3046\u3043",
+    we: "\u3046\u3047",
+    ga: "\u304C",
+    gi: "\u304E",
+    gu: "\u3050",
+    ge: "\u3052",
+    go: "\u3054",
+    za: "\u3056",
+    zi: "\u3058",
+    ji: "\u3058",
+    zu: "\u305A",
+    ze: "\u305C",
+    zo: "\u305E",
+    da: "\u3060",
+    di: "\u3062",
+    du: "\u3065",
+    de: "\u3067",
+    do: "\u3069",
+    ba: "\u3070",
+    bi: "\u3073",
+    bu: "\u3076",
+    be: "\u3079",
+    bo: "\u307C",
+    pa: "\u3071",
+    pi: "\u3074",
+    pu: "\u3077",
+    pe: "\u307A",
+    po: "\u307D",
+    va: "\u3094\u3041",
+    vi: "\u3094\u3043",
+    vu: "\u3094",
+    ve: "\u3094\u3047",
+    vo: "\u3094\u3049",
+    fa: "\u3075\u3041",
+    fi: "\u3075\u3043",
+    fe: "\u3075\u3047",
+    fo: "\u3075\u3049",
+    xa: "\u3041",
+    xi: "\u3043",
+    xu: "\u3045",
+    xe: "\u3047",
+    xo: "\u3049",
+    xya: "\u3083",
+    xyu: "\u3085",
+    xyo: "\u3087",
+    lya: "\u3083",
+    lyu: "\u3085",
+    lyo: "\u3087",
+    xtu: "\u3063",
+    ltu: "\u3063",
+    xtsu: "\u3063",
+    ltsu: "\u3063",
+    "-": "\u30FC"
+  };
+  var YOON = [
+    [["ky"], "\u304D"],
+    [["gy"], "\u304E"],
+    [["sh", "sy"], "\u3057"],
+    [["j", "jy", "zy"], "\u3058"],
+    [["ch", "ty", "cy"], "\u3061"],
+    [["dy"], "\u3062"],
+    [["ny"], "\u306B"],
+    [["hy"], "\u3072"],
+    [["by"], "\u3073"],
+    [["py"], "\u3074"],
+    [["my"], "\u307F"],
+    [["ry", "ly"], "\u308A"]
+  ];
+  var SMALL = { a: "\u3083", u: "\u3085", o: "\u3087" };
+  var _a, _b;
+  for (const [prefixes, kana] of YOON) {
+    for (const p of prefixes) {
+      for (const [v, small] of Object.entries(SMALL)) BASE[_a = p + v] ?? (BASE[_a] = kana + small);
+      if (p === "sh" || p === "ch" || p === "j") BASE[_b = p + "e"] ?? (BASE[_b] = kana + "\u3047");
+    }
+  }
+  var VOWELS = /* @__PURE__ */ new Set(["a", "i", "u", "e", "o"]);
+  function romajiToHiragana(input2) {
+    const s = input2.toLowerCase();
+    let out = "";
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      const next3 = s[i + 1];
+      if (c === "n") {
+        if (next3 === "'") {
+          out += "\u3093";
+          i += 2;
+          continue;
+        }
+        if (next3 === void 0) {
+          out += "\u3093";
+          i += 1;
+          continue;
+        }
+        if (next3 === "n") {
+          const after = s[i + 2];
+          out += "\u3093";
+          i += after !== void 0 && (VOWELS.has(after) || after === "y") ? 1 : 2;
+          continue;
+        }
+        if (!VOWELS.has(next3) && next3 !== "y") {
+          out += "\u3093";
+          i += 1;
+          continue;
+        }
+      }
+      if (c >= "a" && c <= "z" && !VOWELS.has(c) && (next3 === c || c === "t" && next3 === "c")) {
+        out += "\u3063";
+        i += 1;
+        continue;
+      }
+      let matched = false;
+      for (let len = 4; len >= 1; len--) {
+        const kana = BASE[s.slice(i, i + len)];
+        if (kana) {
+          out += kana;
+          i += len;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        out += c;
+        i += 1;
+      }
+    }
+    return out;
+  }
+  var katakanaToHiragana = (s) => s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 96));
+  function normalizeAnswer(input2) {
+    const halfWidth = input2.normalize("NFKC");
+    const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
+    return romajiToHiragana(katakanaToHiragana(cleaned));
+  }
+  function isCorrectReading(input2, readings) {
+    const answer2 = normalizeAnswer(input2);
+    if (!answer2.length) return false;
+    return readings.some((raw) => {
+      const r2 = katakanaToHiragana(raw);
+      if (r2 === answer2) return true;
+      if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer2) return true;
+      return longVowelSlip(r2, answer2);
+    });
+  }
+  function longVowelSlip(r2, a) {
+    const LONG = "\u3046\u304A";
+    if (a.length === r2.length - 1) {
+      for (let i = 1; i < r2.length; i++) if (LONG.includes(r2[i]) && r2.slice(0, i) + r2.slice(i + 1) === a) return true;
+      return false;
+    }
+    if (a.length === r2.length) {
+      let diff = -1;
+      for (let i = 0; i < r2.length; i++) if (r2[i] !== a[i]) {
+        if (diff >= 0) return false;
+        diff = i;
+      }
+      return diff > 0 && LONG.includes(r2[diff]) && LONG.includes(a[diff]);
+    }
+    return false;
+  }
+  var WRITE = /[\p{Script=Han}々〆ヶ□]/u;
+  var writeTargets = (word2) => {
+    const all = [...word2];
+    const k = all.filter((c) => WRITE.test(c));
+    return k.length ? k : all;
+  };
+  var writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
+
+  // src/shared/vocab.ts
+  var LEVEL_DIFFICULTY = { KANA: 6, N5: 15, N4: 28, N3: 40, N2: 57, N1: 75 };
+  var KANA = [
+    ..."\u3042a \u3044i \u3046u \u3048e \u304Ao \u304Bka \u304Dki \u304Fku \u3051ke \u3053ko \u3055sa \u3057shi \u3059su \u305Bse \u305Dso \u305Fta \u3061chi \u3064tsu \u3066te \u3068to \u306Ana \u306Bni \u306Cnu \u306Dne \u306Eno \u306Fha \u3072hi \u3075fu \u3078he \u307Bho \u307Ema \u307Fmi \u3080mu \u3081me \u3082mo \u3084ya \u3086yu \u3088yo \u3089ra \u308Ari \u308Bru \u308Cre \u308Dro \u308Fwa \u3092wo \u3093n".split(" ").map((s) => [s[0], s.slice(1), "hiragana", 5]),
+    ..."\u304Cga \u304Egi \u3050gu \u3052ge \u3054go \u3056za \u3058ji \u305Azu \u305Cze \u305Ezo \u3060da \u3062ji \u3065zu \u3067de \u3069do \u3070ba \u3073bi \u3076bu \u3079be \u307Cbo \u3071pa \u3074pi \u3077pu \u307Ape \u307Dpo".split(" ").map((s) => [s[0], s.slice(1), "hiragana (voiced)", 6]),
+    ..."\u304D\u3083kya \u304D\u3085kyu \u304D\u3087kyo \u3057\u3083sha \u3057\u3085shu \u3057\u3087sho \u3061\u3083cha \u3061\u3085chu \u3061\u3087cho \u306B\u3083nya \u3072\u3083hya \u307F\u3083mya \u308A\u3083rya \u308A\u3087ryo \u304E\u3087gyo \u3058\u3083ja \u3058\u3085ju \u3058\u3087jo \u3073\u3087byo".split(" ").map((s) => [s.slice(0, 2), s.slice(2), "hiragana (combined)", 8]),
+    ["\u306D\u3053", "neko", "cat", 9],
+    ["\u3044\u306C", "inu", "dog", 9],
+    ["\u3055\u304B\u306A", "sakana", "fish", 10],
+    ["\u3059\u3057", "sushi", "sushi", 9],
+    ["\u307F\u305A", "mizu", "water", 9],
+    ["\u3084\u307E", "yama", "mountain", 9],
+    ["\u3068\u3082\u3060\u3061", "tomodachi", "friend", 11],
+    ["\u304D\u3063\u3077", "kippu", "ticket", 11],
+    ["\u304C\u3063\u3053\u3046", "gakkou", "school", 11],
+    ["\u306B\u307B\u3093", "nihon", "Japan", 10],
+    ["\u3042\u308A\u304C\u3068\u3046", "arigatou", "thank you", 12],
+    ["\u304A\u306F\u3088\u3046", "ohayou", "good morning", 12]
+  ];
+  var displayReading = (v) => v.romaji ?? v.reading;
+
+  // src/shared/distract.ts
+  var isKanji = (c) => /[一-鿿㐀-䶿々]/.test(c);
+  var chars = (s) => [...s];
+  var last = (s) => s.slice(-1);
+  function shared(a, b, keep = () => true) {
+    const left = /* @__PURE__ */ new Map();
+    for (const c of chars(a)) if (keep(c)) left.set(c, (left.get(c) ?? 0) + 1);
+    let n = 0;
+    for (const c of chars(b)) {
+      const k = left.get(c);
+      if (k) {
+        n++;
+        left.set(c, k - 1);
+      }
+    }
+    return n;
+  }
+  var STOP = /* @__PURE__ */ new Set(["a", "an", "the", "of", "to", "in", "on", "one", "one's", "be", "or", "and", "for", "with", "at", "by", "something", "someone", "etc", "is", "as"]);
+  var words = (m) => m.toLowerCase().replace(/\([^)]*\)/g, " ").split(/[^a-z']+/).filter((w) => w.length > 2 && !STOP.has(w));
+  var firstGloss = (m) => m.split(/[;,]/)[0].replace(/\([^)]*\)/g, "").trim().toLowerCase();
+  var kindOf = (m) => {
+    const g = firstGloss(m);
+    return g.startsWith("to ") ? "verb" : /ly$/.test(g) ? "adverb" : "noun";
+  };
+  var posOf = (kanji, meaning2 = "") => /^to /.test(firstGloss(meaning2)) || /[うくぐすつぬぶむる]$/.test(kanji) && /[\u4e00-\u9fff]/.test(kanji) ? "verb" : /い$/.test(kanji) && /[\u4e00-\u9fff]/.test(kanji) ? "adj" : kindOf(meaning2);
+  function similarity(field, right, x) {
+    const len = Math.abs(chars(right).length - chars(x).length);
+    switch (field) {
+      case "reading": {
+        let s = shared(right, x) * 2 - len * 1.5;
+        if (right[0] === x[0]) s += 2;
+        if (last(right) === last(x)) s += 1.5;
+        return s;
+      }
+      case "kanji": {
+        let s = shared(right, x, isKanji) * 4 + shared(right, x, (c) => !isKanji(c)) * 1.5 - len * 1.5;
+        if (chars(right).filter(isKanji).length === chars(x).filter(isKanji).length) s += 1;
+        if (!isKanji(last(right)) && last(right) === last(x)) s += 2;
+        return s;
+      }
+      case "romaji": {
+        let s = -len * 2;
+        if (last(right) === last(x)) s += 3;
+        if (right[0] === x[0]) s += 3;
+        return s;
+      }
+      case "meaning": {
+        const a = new Set(words(right)), b = words(x);
+        let s = b.filter((w) => a.has(w)).length * 2;
+        if (kindOf(right) === kindOf(x)) s += 3;
+        s -= Math.min(4, Math.abs(firstGloss(right).length - firstGloss(x).length) / 4);
+        s -= Math.min(3, Math.abs(right.length - x.length) / 15);
+        return s;
+      }
+    }
+  }
+  function pickDistractors(field, right, pool, rng = Math.random, count = 3, pos) {
+    const seen2 = /* @__PURE__ */ new Set([right]);
+    const bad = field === "meaning" ? firstGloss(right) : null;
+    const scored = [];
+    for (const x of pool) {
+      if (seen2.has(x)) continue;
+      seen2.add(x);
+      if (bad !== null && firstGloss(x) === bad) continue;
+      scored.push({ x, s: similarity(field, right, x) + (pos && pos.of(x) === pos.right ? 4 : 0) + rng() * 1.5 });
+    }
+    scored.sort((p, q) => q.s - p.s);
+    const top = scored.slice(0, Math.max(count, 8));
+    for (let i = top.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [top[i], top[j]] = [top[j], top[i]];
+    }
+    return top.slice(0, count).map((t) => t.x);
+  }
+
+  // src/shared/quiz.ts
+  var shuffle = (a, rng) => {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  var kanaChar = (v) => !!v.romaji && /^hiragana/.test(v.meaning);
+  function buildQuiz(words2, vocab, rng = Math.random, byId) {
+    const find = byId ?? ((id) => vocab.find((v) => v.id === id));
+    const kinds = ["reading", "meaning", "kanji"];
+    return words2.map((w, i) => {
+      const ve = find(w.id);
+      const asRomaji = !!ve && kanaChar(ve);
+      const kind = asRomaji ? "reading" : w.kanji === w.reading ? "meaning" : kinds[i % 3];
+      const field = kind === "reading" ? "reading" : kind === "meaning" ? "meaning" : "kanji";
+      const right = asRomaji ? ve.romaji : w[field];
+      const same = asRomaji ? vocab.filter(kanaChar) : vocab.filter((v) => v.level === w.level && v.id !== w.id && (field !== "meaning" || !kanaChar(v)));
+      const base = same.length > 20 ? same : vocab.filter((x) => !kanaChar(x) && x.id !== w.id);
+      const pool = base.filter((v) => field !== "kanji" || v.kanji !== v.reading && v.reading !== w.reading).filter((v) => field !== "reading" || v.kanji !== w.kanji);
+      const text = (v) => asRomaji ? v.romaji : field === "reading" ? displayReading(v) : v[field];
+      const posBy = new Map(pool.map((v) => [text(v), posOf(v.kanji, v.meaning)]));
+      const wrong2 = pickDistractors(asRomaji ? "romaji" : field, right, pool.map(text), rng, 3, asRomaji ? void 0 : { right: posOf(w.kanji, w.meaning), of: (x) => posBy.get(x) });
+      const choices = shuffle([right, ...wrong2], rng);
+      return {
+        kind,
+        vocabId: w.id,
+        level: w.level,
+        choices,
+        answer: choices.indexOf(right),
+        prompt: kind === "kanji" ? w.reading : w.kanji,
+        sub: kind === "kanji" ? w.meaning : void 0,
+        word: { kanji: w.kanji, reading: asRomaji ? `${w.reading} \xB7 ${ve.romaji}` : w.reading, meaning: w.meaning }
+      };
+    });
+  }
+
+  // src/shared/rebin.ts
+  var KANJI = /[一-鿿㐀-䶿々]/;
+  var JLPT_ORDER = ["N5", "N4", "N3", "N2", "N1"];
+  var JLPT_WEIGHT = 3;
+  function rebinByStrokes(words2) {
+    const kanjiWords = words2.filter((w) => w.level !== "KANA");
+    const sizes = JLPT_ORDER.map((l) => kanjiWords.filter((w) => w.level === l).length);
+    const rank = (w) => JLPT_ORDER.indexOf(w.level);
+    const score3 = (w) => (w.strokes ?? 0) + JLPT_WEIGHT * rank(w);
+    const sorted = [...kanjiWords].sort((a, b) => score3(a) - score3(b) || rank(a) - rank(b) || a.kanji.length - b.kanji.length || a.id.localeCompare(b.id));
+    const next3 = /* @__PURE__ */ new Map();
+    let i = 0;
+    sizes.forEach((n, li) => {
+      for (const w of sorted.slice(i, i + n)) next3.set(w.id, JLPT_ORDER[li]);
+      i += n;
+    });
+    return words2.map((w) => {
+      const level2 = next3.get(w.id);
+      if (!level2) return w;
+      const ks = [...w.kanji].filter((c) => KANJI.test(c)).length;
+      const total = w.strokes ?? 12;
+      const adj = Math.max(-6, Math.min(10, (total - 12) * 0.45)) + (ks >= 3 ? 2 : 0);
+      return { ...w, level: level2, jlpt: w.level, difficulty: Math.round(Math.max(5, Math.min(100, LEVEL_DIFFICULTY[level2] + adj))) };
+    });
+  }
+
+  // src/client/offline/vocab.ts
+  var VOCAB = [];
+  var VOCAB_BY_ID = /* @__PURE__ */ new Map();
+  var loading = null;
+  function loadVocab() {
+    loading ?? (loading = fetch("/vocab.json").then((r2) => {
+      if (!r2.ok) throw new Error(`vocab ${r2.status}`);
+      return r2.json();
+    }).then((raw) => {
+      VOCAB.length = 0;
+      VOCAB.push(...rebinByStrokes(raw));
+      VOCAB_BY_ID.clear();
+      for (const v of VOCAB) VOCAB_BY_ID.set(v.id, v);
+    }).catch((e) => {
+      loading = null;
+      throw e;
+    }));
+    return loading;
+  }
+
+  // src/server/VocabPool.ts
+  function shuffle2(a, rng = Math.random) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // src/server/now.ts
+  var provider = () => Date.now();
+  var now = () => provider();
+
+  // src/server/study/ProgressService.ts
+  var Mastery = { Unseen: 0, New: 1, Learning: 2, Learned: 3, Mastered: 4 };
+  var MASTERED_DAYS = 21;
+  var DAY_MS = 864e5;
+  var STREAK_XP = 500;
+  var shiftDay = (day, days2) => new Date(Date.parse(day) + days2 * DAY_MS).toISOString().slice(0, 10);
+  function playerDay(u, at = now()) {
+    const server = new Date(at).toISOString().slice(0, 10);
+    if (u.loginDay && Math.abs(Date.parse(u.loginDay) - Date.parse(server)) <= DAY_MS) return u.loginDay;
+    return server;
+  }
+  var ProgressService = class {
+    constructor(store3) {
+      __publicField(this, "store", store3);
+    }
+    /** Record something the player did today, then check this month's goals. Returns a newly earned reward, if any. */
+    async record(userId, day, delta) {
+      await this.store.addActivity(userId, day, delta);
+      await this.checkStreak(userId, day);
+      return this.checkSeason(userId, day);
+    }
+    /** Today's daily tasks (Study 10 spells, a quiz, the daily challenge, a passage) and how far along each is. */
+    async tasks(userId, day) {
+      const a = (await this.store.activity(userId, day)).find((r2) => r2.day === day);
+      const value = { learn: a?.reviews ?? 0, quiz: a?.quizzes ?? 0, daily: a?.challenges ?? 0, passage: a?.passages ?? 0 };
+      return DAILY_TASKS.map((t) => ({ id: t.id, label: t.label, target: t.target, value: Math.min(t.target, value[t.id] ?? 0) }));
+    }
+    /** All four tasks done today → the streak goes up (once a day; a missed day starts it over). */
+    async checkStreak(userId, day) {
+      if (!(await this.tasks(userId, day)).every((t) => t.value >= t.target)) return;
+      const u = await this.store.findById(userId);
+      if (!u || u.streakDay === day) return;
+      const streak = u.streakDay === shiftDay(day, -1) ? (u.streak ?? 0) + 1 : 1;
+      await this.store.update(userId, { streakDay: day, streak, bestStreak: Math.max(u.bestStreak ?? 0, streak) });
+      await this.store.addXp(userId, STREAK_XP);
+      await this.store.addActivity(userId, day, { xp: STREAK_XP });
+    }
+    async month(u, day) {
+      const first = `${day.slice(0, 8)}01`;
+      const rows2 = await this.store.activity(u.id, first);
+      const inMonth = rows2.filter((r2) => r2.day.slice(0, 7) === day.slice(0, 7));
+      const value = {
+        days: inMonth.filter((r2) => r2.login || r2.games > 0 || r2.reviews > 0).length,
+        wins: inMonth.reduce((n, r2) => n + r2.wins, 0),
+        reviews: inMonth.reduce((n, r2) => n + r2.reviews, 0)
+      };
+      const season = seasonOf(day);
+      const goals = MONTH_GOALS.map((g) => ({ id: g.id, label: g.label, target: g.target, value: Math.min(g.target, value[g.id]) }));
+      return { month: day.slice(0, 7), name: season.name, reward: season.reward, goals, done: goals.every((g) => g.value >= g.target), unlocked: (u.unlocks ?? []).includes(season.reward) };
+    }
+    /** All three goals done → this month's reward is added to the player's unlocks (once). */
+    async checkSeason(userId, day) {
+      const u = await this.store.findById(userId);
+      if (!u) return null;
+      const m = await this.month(u, day);
+      if (!m.done || m.unlocked) return null;
+      await this.store.update(u.id, { unlocks: [...u.unlocks ?? [], m.reward] });
+      return m.reward;
+    }
+    async page(u, day) {
+      const score3 = (c) => c.state === "review" ? 1e3 + c.intervalDays : c.state === "new" ? 0 : 1;
+      const cards = /* @__PURE__ */ new Map();
+      for (const c of await this.store.cards(u.id)) {
+        const was = cards.get(c.vocabId);
+        if (!was || score3(c) > score3(was)) cards.set(c.vocabId, c);
+      }
+      const mastery = Object.fromEntries(LEVELS.map((l) => [l, []]));
+      for (const v of VOCAB) {
+        const c = cards.get(v.id);
+        const m = !c ? Mastery.Unseen : c.state === "new" ? Mastery.New : c.state === "review" ? c.intervalDays >= MASTERED_DAYS ? Mastery.Mastered : Mastery.Learned : Mastery.Learning;
+        mastery[v.level]?.push([v.kanji, m]);
+      }
+      return { activity: await this.store.activity(u.id, shiftDay(day, -26 * 7)), mastery, month: await this.month(u, day) };
+    }
+  };
+
+  // src/shared/rng.ts
+  function seeded(seed2) {
+    let a = seed2 >>> 0;
+    return () => {
+      a = a + 1831565813 >>> 0;
+      let t = a;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var hash = (s) => [...s].reduce((h3, c) => Math.imul(h3 ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
+  var seededRng = (key) => seeded(hash(key));
+
+  // src/server/study/StudyService.ts
+  var DAILY_NEW = 25;
+  var DAILY_NEW_MIN = 10;
+  var DAILY_NEW_MAX = 150;
+  var BADGES_MAX = 3;
+  var CUSTOM_ID = /^u:[0-9a-f-]{13}$/;
+  var AI_XP_FACTOR = 0.5;
+  var fromVocab = (v) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, custom: false });
+  var fromCustom = (w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: "N5", custom: true });
+  var picUrl = (u) => u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null;
+  var MAX_AVATAR_BYTES = 60 * 1024;
+  var StudyError = class extends Error {
+    constructor(message, status = 400) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  function resolveToday(clientToday, at = now()) {
+    const server = new Date(at).toISOString().slice(0, 10);
+    if (typeof clientToday !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(clientToday)) return server;
+    const diff = Math.abs(Date.parse(clientToday) - Date.parse(server));
+    return diff <= 864e5 ? clientToday : server;
+  }
+  var StudyService = class {
+    constructor(store3, rng = Math.random) {
+      __publicField(this, "store", store3);
+      __publicField(this, "rng", rng);
+      __publicField(this, "progress");
+      this.progress = new ProgressService(store3);
+    }
+    async profile(u, now2 = now()) {
+      if ((await this.grantAchievements(u.id)).length) u = await this.store.findById(u.id) ?? u;
+      if ((u.tutorialDone ?? true) && !(u.unlocks ?? []).includes(BETA_BORDER)) u = await this.store.update(u.id, { unlocks: [...u.unlocks ?? [], BETA_BORDER] }) ?? u;
+      const learned = await this.store.learnedCount(u.id);
+      const learnedToday = now2 < u.critExpires ? u.critCount : 0;
+      return {
+        xp: u.xp,
+        level: levelOf(u.xp),
+        crit: dailyCrit(u.critCount, u.critExpires, now2),
+        learned,
+        learnedToday,
+        background: u.background,
+        studyLevels: u.studyLevels,
+        wins: u.wins,
+        losses: u.losses,
+        pic: picUrl(u),
+        flame: u.flame ?? "blue",
+        staff: u.staff ?? "verdant",
+        strugglingDue: await this.strugglingDue(u.id, now2),
+        streak: liveStreak(u, new Date(now2).toISOString().slice(0, 10)),
+        bestStreak: u.bestStreak ?? 0,
+        tutorialDone: u.tutorialDone ?? true,
+        unlocks: u.unlocks ?? [],
+        month: await this.progress.month(u, playerDay(u, now2)),
+        dailyNew: u.dailyNew ?? DAILY_NEW,
+        badges: u.badges ?? [],
+        tasks: await this.progress.tasks(u.id, playerDay(u, now2)),
+        streakDay: u.streakDay ?? null,
+        border: u.border ?? "none"
+      };
+    }
+    /**
+     * Daily login streak: called when the app opens (with the player's local date). Same day: nothing;
+     * the day after: +1; a gap: back to 1.
+     */
+    async touchLogin(u, today2) {
+      if (u.loginDay === today2) return u;
+      const rec = await this.store.update(u.id, { loginDay: today2 }) ?? u;
+      await this.progress.record(u.id, today2, { login: true });
+      return await this.store.findById(u.id) ?? rec;
+    }
+    /** A daily task done in the browser (the JLPT quiz, a reading passage) — counts towards today's streak. */
+    async recordTask(u, task, today2) {
+      if (task !== "quiz" && task !== "passage") throw new StudyError("Unknown task");
+      await this.progress.record(u.id, today2, task === "quiz" ? { quizzes: 1 } : { passages: 1 });
+      return this.profile(await this.store.findById(u.id) ?? u);
+    }
+    /** Struggling spells waiting to be studied (new, learning or due). */
+    async strugglingDue(userId, now2 = now()) {
+      const c = counts((await this.store.cards(userId)).filter((x) => deckOf(x) === "struggling" && VOCAB_BY_ID.has(x.vocabId)), now2);
+      return c.new + c.learning + c.due;
+    }
+    /** null, or why this player may not start a game right now (too many struggling spells waiting). Admins are never locked. */
+    async playLock(u) {
+      if (u.role === "admin") return null;
+      const n = await this.strugglingDue(u.id);
+      return n > STUDY_LOCK ? `You have ${n} struggling spells waiting \u2014 study them down to ${STUDY_LOCK} to play again (Study spells \u2192 Struggling).` : null;
+    }
+    /** Colour of the combo flames (Purple from level 5; admins have all). */
+    async setFlame(u, f2) {
+      if (!isFlame(f2)) throw new StudyError("Unknown flame");
+      const def = FLAMES.find((x) => x.id === f2);
+      if (u.role !== "admin" && !flameUnlocked(f2, u.xp, u.unlocks)) throw new StudyError(def.season ? "A monthly reward: complete that month's goals" : `Unlocks at level ${def.level}`, 403);
+      await this.store.update(u.id, { flame: f2 });
+    }
+    /** Magic staff skin (unlocked by your best login streak; admins have all). */
+    async setStaff(u, s) {
+      if (!isStaff(s)) throw new StudyError("Unknown staff");
+      const def = STAFFS.find((x) => x.id === s);
+      if (u.role !== "admin" && !staffUnlocked(s, u.bestStreak ?? 0, u.unlocks)) throw new StudyError(def.season ? "A monthly reward: complete that month's goals" : `Unlocks with a ${def.streak}-day daily streak`, 403);
+      await this.store.update(u.id, { staff: s });
+    }
+    /** Today's crit chance (1% + 1% per spell learned today, max 50%; back to 1% at the player's midnight). */
+    async crit(userId, now2 = now()) {
+      const u = await this.store.findById(userId);
+      return u ? dailyCrit(u.critCount, u.critExpires, now2) : CRIT_BASE;
+    }
+    /** What other players see when they click your name. */
+    async publicProfile(id) {
+      const u = await this.store.findById(id);
+      if (!u || u.banned) return null;
+      return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date(now()).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? "none" };
+    }
+    matches(userId) {
+      return this.store.matches(userId, MATCH_HISTORY_LIMIT);
+    }
+    match(userId, id) {
+      return this.store.match(userId, id);
+    }
+    /** 0.9.9.4: your own data, for the app to keep working offline (client/offline). */
+    async snapshot(u, dailyDay) {
+      const at = now();
+      const day = new Date(at).toISOString().slice(0, 10);
+      const list = await this.store.matches(u.id, MATCH_HISTORY_LIMIT);
+      const matches = (await Promise.all(list.map((m) => this.store.match(u.id, m.id)))).filter((m) => !!m);
+      return {
+        v: SNAPSHOT_V,
+        at,
+        user: { ...u, passwordHash: "" },
+        cards: await this.store.cards(u.id),
+        custom: await this.store.customWords(u.id),
+        matches,
+        activity: await this.store.activity(u.id, shiftDay(day, -400)),
+        daily: dailyDay ? { day: dailyDay, result: await this.store.daily(dailyDay, u.id) } : null
+      };
+    }
+    /** Profile picture: a small PNG/JPEG/WebP (the browser resizes it to 128×128 before upload). null removes it. */
+    async setAvatar(u, dataUrl) {
+      if (dataUrl === null) {
+        await this.store.setAvatar(u.id, null);
+        return;
+      }
+      const m = typeof dataUrl === "string" ? /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl) : null;
+      if (!m) throw new StudyError("Pictures must be PNG, JPEG or WebP");
+      const data = Buffer.from(m[2], "base64");
+      if (data.length > MAX_AVATAR_BYTES) throw new StudyError("Picture is too large");
+      const magic = m[1] === "image/png" ? data.subarray(0, 4).toString("hex") === "89504e47" : m[1] === "image/jpeg" ? data.subarray(0, 3).toString("hex") === "ffd8ff" : data.subarray(0, 4).toString("latin1") === "RIFF" && data.subarray(8, 12).toString("latin1") === "WEBP";
+      if (!magic) throw new StudyError("That file is not a valid picture");
+      await this.store.setAvatar(u.id, { mime: m[1], data });
+    }
+    avatar(id) {
+      return this.store.getAvatar(id);
+    }
+    async setBackground(u, bg2) {
+      if (!isBackground(bg2)) throw new StudyError("Unknown background");
+      if (u.role !== "admin" && !unlocked(bg2, u.xp)) throw new StudyError(`Unlocks at level ${BACKGROUNDS.find((b) => b.id === bg2).level}`, 403);
+      await this.store.update(u.id, { background: bg2 });
+    }
+    /** "All spells": pick the levels that feed the daily new cards. Picking levels adds today's batch right away. */
+    async setStudyLevels(u, raw, today2) {
+      const picked4 = Array.isArray(raw) ? LEVELS.filter((l) => raw.includes(l)) : [];
+      const levels = isKanaBeginner(u.unlocks) && u.role !== "admin" && picked4.length ? levelsFor(picked4, true) : picked4;
+      const rec = await this.store.update(u.id, { studyLevels: levels, lastNewDate: levels.length ? u.lastNewDate : null });
+      if (levels.length && rec.lastNewDate !== today2) await this.addDaily(rec, today2);
+    }
+    /** "I've mastered hiragana" (Settings) — or, for a new player who says they're a beginner, not yet. */
+    async setKanaMastered(u, mastered) {
+      const rest = (u.unlocks ?? []).filter((x) => x !== KANA_BEGINNER);
+      await this.store.update(u.id, { unlocks: mastered ? rest : [...rest, KANA_BEGINNER] });
+      if (mastered && isKanaBeginner(u.unlocks)) await this.grantAchievements(u.id, void 0, ["graduate"]);
+      if (!mastered) await this.store.update(u.id, { studyLevels: ["KANA"] });
+    }
+    /** Adds today's new words (your "new spells a day", 10–150) from the chosen levels to All spells; tops up if you raised it. */
+    async addDaily(u, today2) {
+      const already = u.lastNewDate === today2 ? u.newToday ?? 0 : 0;
+      const want = Math.max(0, clampDaily(u.dailyNew) - already);
+      if (!want) {
+        if (u.lastNewDate !== today2) await this.store.update(u.id, { lastNewDate: today2, newToday: 0 });
+        return 0;
+      }
+      const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === "all").map((c) => c.vocabId));
+      const fresh = shuffle2(VOCAB.filter((v) => u.studyLevels.includes(v.level) && !have.has(v.id)), seededRng(`${u.id}:${today2}:${already}`)).slice(0, want);
+      const now2 = now();
+      const added = (await this.store.addCards(u.id, fresh.map((v) => newCard(v.id, now2, "all")))).length;
+      await this.store.update(u.id, { lastNewDate: today2, newToday: already + added, newNotice: u.newNotice + added });
+      return added;
+    }
+    /** Study → "New spells a day" (10–150). Raising it today adds the difference right away. */
+    async setDailyNew(u, raw, today2) {
+      const n = clampDaily(Number(raw));
+      const rec = await this.store.update(u.id, { dailyNew: n });
+      if (rec.studyLevels.length && rec.lastNewDate === today2) await this.addDaily(rec, today2);
+      return n;
+    }
+    // ── decks: word lists, removing, adding, custom words ─────────────────────
+    async words(userId) {
+      const custom = await this.store.customWords(userId);
+      return new Map(custom.map((w) => [w.id, fromCustom(w)]));
+    }
+    info(id, custom) {
+      const v = VOCAB_BY_ID.get(id);
+      return v ? fromVocab(v) : custom.get(id) ?? null;
+    }
+    /** Study → open a deck: every word in it, newest first. */
+    async deckList(u, deck2) {
+      if (!isDeck(deck2)) throw new StudyError("Unknown deck");
+      const custom = await this.words(u.id);
+      return (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck2).flatMap((c) => {
+        const w = this.info(c.vocabId, custom);
+        return w ? [{ vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, custom: w.custom, state: c.state, addedAt: c.addedAt ?? null, due: c.due, intervalDays: c.intervalDays }] : [];
+      }).sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));
+    }
+    async removeFromDeck(u, deck2, ids) {
+      if (!isDeck(deck2)) throw new StudyError("Unknown deck");
+      const list = Array.isArray(ids) ? ids.filter((x) => typeof x === "string").slice(0, 500) : [];
+      const n = await this.store.removeCards(u.id, deck2, list);
+      if (deck2 === "custom") {
+        const still = new Set((await this.store.cards(u.id)).map((c) => c.vocabId));
+        for (const id of list) if (id.startsWith(CUSTOM_PREFIX) && !still.has(id)) await this.store.deleteCustomWord(u.id, id);
+      }
+      return n;
+    }
+    /** Put words in a deck (dictionary or your custom words). Returns the ids that were new there. */
+    async addToDeck(u, deck2, ids) {
+      if (!isDeck(deck2)) throw new StudyError("Unknown deck");
+      const custom = await this.words(u.id);
+      const list = (Array.isArray(ids) ? ids : []).filter((x) => typeof x === "string" && !!this.info(x, custom)).slice(0, 500);
+      const now2 = now();
+      return this.store.addCards(u.id, [...new Set(list)].map((id) => newCard(id, now2, deck2)));
+    }
+    /** Search the dictionary (kanji, kana reading or English meaning) for Custom spells. */
+    search(q, limit = 20) {
+      const s = String(q ?? "").trim().toLowerCase().normalize("NFKC");
+      if (!s) return [];
+      const out = [];
+      const exact = [];
+      for (const v of VOCAB) {
+        const reading = displayReading(v);
+        const hit2 = v.kanji === s || reading === s ? "exact" : v.kanji.includes(s) || reading.includes(s) || v.meaning.toLowerCase().includes(s) ? "part" : null;
+        if (hit2 === "exact") exact.push(fromVocab(v));
+        else if (hit2 && out.length < limit) out.push(fromVocab(v));
+      }
+      return [...exact, ...out].slice(0, limit);
+    }
+    /**
+     * Custom spells: add a word. A dictionary word (by its id, or kanji [+ reading]) is used as it is;
+     * anything else becomes your own word — then a reading (kana) and a meaning are needed.
+     */
+    async addCustom(u, body) {
+      if (typeof body.vocabId === "string" && VOCAB_BY_ID.has(body.vocabId)) return { added: (await this.addToDeck(u, "custom", [body.vocabId])).length > 0, word: fromVocab(VOCAB_BY_ID.get(body.vocabId)) };
+      const kanji = String(body.kanji ?? "").trim().normalize("NFKC").slice(0, 16);
+      const reading = String(body.reading ?? "").trim().normalize("NFKC").slice(0, 32);
+      const meaning2 = String(body.meaning ?? "").trim().slice(0, 120);
+      if (!kanji) throw new StudyError("Write the word (kanji or kana)");
+      const known = VOCAB.find((v) => v.kanji === kanji && (!reading || isCorrectReading(reading, [v.reading, ...v.altReadings ?? []])));
+      if (known) return { added: (await this.addToDeck(u, "custom", [known.id])).length > 0, word: fromVocab(known) };
+      if (!/^[぀-ゟ゠-ヿー]+$/.test(reading)) throw new StudyError("Not in the dictionary \u2014 add its reading in kana (e.g. \u307E\u307B\u3046)");
+      if (!meaning2) throw new StudyError("Add a meaning");
+      const mine = await this.store.customWords(u.id);
+      if (mine.length >= 1e3) throw new StudyError("Custom spells are full (1000 words)");
+      const dupe = mine.find((w2) => w2.kanji === kanji && w2.reading === reading);
+      const asked = typeof body.id === "string" && CUSTOM_ID.test(body.id) && !mine.some((x) => x.id === body.id) ? body.id : null;
+      const w = dupe ?? { id: asked ?? CUSTOM_PREFIX + randomUUID().slice(0, 13), kanji, reading, meaning: meaning2, createdAt: now() };
+      if (!dupe) await this.store.addCustomWord(u.id, w);
+      return { added: (await this.addToDeck(u, "custom", [w.id])).length > 0, word: fromCustom(w) };
+    }
+    /**
+     * JLPT-style quiz from the words you have studied (any deck, answered at least once): reading, meaning
+     * or "which kanji" — 4 choices, the wrong ones taken from the same level.
+     */
+    async quiz(u, n = 10) {
+      const custom = await this.words(u.id);
+      const cards = await this.store.cards(u.id);
+      const studied = /* @__PURE__ */ new Map();
+      for (const c of cards) if (c.reps > 0 || c.state !== "new") {
+        const w = this.info(c.vocabId, custom);
+        if (w) studied.set(w.id, w);
+      }
+      if (studied.size < 4) for (const c of cards) {
+        const w = this.info(c.vocabId, custom);
+        if (w) studied.set(w.id, w);
+      }
+      const pool = shuffle2([...studied.values()], this.rng).slice(0, Math.max(1, Math.min(30, n)));
+      return buildQuiz(pool, VOCAB, this.rng, (id) => VOCAB_BY_ID.get(id));
+    }
+    /** Quiz / results: words you got wrong → a deck of your choice. */
+    async saveMissed(u, deck2, ids) {
+      return this.addToDeck(u, deck2, ids);
+    }
+    /** Opening the study screen: top up today's new cards, report counts, and hand over any "new spells" notice once. */
+    async summary(u, today2, now2 = now()) {
+      if (u.studyLevels.length && u.lastNewDate !== today2) await this.addDaily(u, today2);
+      const fresh = await this.store.findById(u.id);
+      const notice = fresh.newNotice;
+      if (notice) await this.store.update(u.id, { newNotice: 0 });
+      const custom = await this.words(u.id);
+      const cards = (await this.store.cards(u.id)).filter((c) => !!this.info(c.vocabId, custom));
+      return {
+        studyLevels: fresh.studyLevels,
+        notice,
+        decks: { all: counts(cards.filter((c) => deckOf(c) === "all"), now2), struggling: counts(cards.filter((c) => deckOf(c) === "struggling"), now2), custom: counts(cards.filter((c) => deckOf(c) === "custom"), now2) },
+        dailyNew: fresh.dailyNew ?? DAILY_NEW,
+        profile: await this.profile(fresh)
+      };
+    }
+    /** Cards to study now, Anki order: (re)learning due → reviews due → new. */
+    async queue(u, deck2, now2 = now(), limit = 60) {
+      if (!isDeck(deck2)) throw new StudyError("Unknown deck");
+      const custom = await this.words(u.id);
+      const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck2 && !!this.info(c.vocabId, custom));
+      const rank = (c) => c.state === "learning" || c.state === "relearning" ? 0 : c.state === "review" ? 1 : 2;
+      return cards.filter((c) => c.state === "new" || isDue(c, now2)).sort((a, b) => rank(a) - rank(b) || a.due - b.due).slice(0, limit).map((c) => this.item(c, now2, custom));
+    }
+    async review(u, vocabId, rating, now2 = now(), today2 = resolveToday(void 0, now2), tzOffsetMin = 0, deck2 = "all") {
+      if (typeof vocabId !== "string" || !RATINGS.includes(rating)) throw new StudyError("Bad review");
+      const d = isDeck(deck2) ? deck2 : "all";
+      const card = await this.store.card(u.id, d, vocabId);
+      if (!card) throw new StudyError("No such card", 404);
+      const next3 = answer(card, rating, now2);
+      if (rating !== "again" && card.critDay !== today2) {
+        next3.critDay = today2;
+        const fresh = await this.store.findById(u.id) ?? u;
+        const newDay = now2 >= fresh.critExpires;
+        await this.store.update(u.id, {
+          critCount: newDay ? 1 : fresh.critCount + 1,
+          critExpires: newDay ? nextLocalMidnight(today2, tzOffsetMin) : fresh.critExpires
+        });
+      }
+      await this.store.saveCard(u.id, next3);
+      if (rating !== "again") await this.progress.record(u.id, today2, { reviews: 1 });
+      return { card: next3, crit: await this.crit(u.id, now2) };
+    }
+    /** After a match: XP and the words you missed go to "Struggling spells". */
+    /** Admin page: XP, level, crit and study-set size for every account, plus where it's all saved. */
+    async adminStats(rows2) {
+      const stats = await this.store.cardStats();
+      const users = rows2.map((u) => {
+        const s = stats[u.id] ?? { cards: 0, learned: 0 };
+        const xp = u.xp ?? 0;
+        return { ...u, xp, level: levelOf(xp), crit: u.crit ?? CRIT_BASE, learned: s.learned, cards: s.cards };
+      });
+      return { users, storage: this.store.name, persistent: this.store.name === "postgres" || true };
+    }
+    /** Forfeits give nobody XP; matches with AI players give half. */
+    async recordMatch(userId, outcome, accuracy, mode3, missedIds, forfeited = false, vsAi = false, record, seen2 = [], beatAdmin = false) {
+      if (record) await this.store.addMatch(userId, record);
+      const gained = forfeited ? 0 : Math.round(xpFor(outcome, accuracy, mode3) * (vsAi ? AI_XP_FACTOR : 1));
+      const xp = gained ? await this.store.addXp(userId, gained) : (await this.store.findById(userId))?.xp ?? 0;
+      await this.store.addResult(userId, outcome);
+      const who = await this.store.findById(userId);
+      if (who) await this.progress.record(userId, playerDay(who), { games: 1, wins: outcome === "win" ? 1 : 0, xp: gained });
+      const words2 = [...new Set(missedIds.filter((id) => VOCAB_BY_ID.has(id)))];
+      const added = new Set(words2.length ? await this.store.markStruggling(userId, words2, now()) : []);
+      const missed = words2.map((id) => {
+        const v = VOCAB_BY_ID.get(id);
+        return { id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, added: added.has(id) };
+      });
+      const met = seen2.filter((id) => VOCAB_BY_ID.has(id));
+      if (met.length) {
+        const n = (await this.store.addCards(userId, met.map((id) => newCard(id, now(), "all")))).length;
+        const u = n ? await this.store.findById(userId) : null;
+        if (u) await this.store.update(userId, { newNotice: u.newNotice + n });
+      }
+      const st = record?.stats[userId];
+      const achievements = await this.grantAchievements(userId, { mode: mode3, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited, beatAdmin });
+      return { gained, xp, achievements, missed };
+    }
+    /** Grants every achievement the player has now earned (plus `extra`); returns the new ones. */
+    async grantAchievements(userId, match, extra = []) {
+      const u = await this.store.findById(userId);
+      if (!u) return [];
+      const unlocks2 = u.unlocks ?? [];
+      const facts = {
+        wins: u.wins,
+        level: levelOf(u.xp),
+        bestStreak: u.bestStreak ?? 0,
+        learned: await this.store.learnedCount(userId),
+        friends: (await this.store.friends(userId)).filter((f2) => f2.status === "accepted").length,
+        seasonal: unlocks2.filter((x) => x.startsWith("flame:") || x.startsWith("staff:")).length,
+        match
+      };
+      const fresh = [.../* @__PURE__ */ new Set([...earnedAchievements(facts), ...extra])].filter((id) => !unlocks2.includes(ACH_PREFIX + id));
+      if (fresh.length) await this.store.update(userId, { unlocks: [...unlocks2, ...fresh.map((id) => ACH_PREFIX + id)] });
+      return fresh;
+    }
+    item(c, now2, custom) {
+      const w = this.info(c.vocabId, custom);
+      return { vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, state: c.state, intervals: previewIntervals(c, now2), custom: w.custom };
+    }
+    /** Avatar border (Customize → Profile), unlocked by level; admins have all. */
+    async setBorder(u, b) {
+      if (!isBorder(b)) throw new StudyError("Unknown border");
+      const def = BORDERS.find((x) => x.id === b);
+      if (u.role !== "admin" && !borderUnlocked(b, levelOf(u.xp), u.unlocks)) throw new StudyError(def.unlock ? "Finish the tutorial to get the Beta border" : `Unlocks at level ${def.level}`, 403);
+      await this.store.update(u.id, { border: b });
+      return this.profile(await this.store.findById(u.id) ?? u);
+    }
+    /** Profile badges: up to 3 of your achievements, shown under your name. */
+    async setBadges(u, raw) {
+      const have = new Set((u.unlocks ?? []).filter((x) => x.startsWith(ACH_PREFIX)).map((x) => x.slice(ACH_PREFIX.length)));
+      const list = [...new Set(Array.isArray(raw) ? raw.filter((x) => typeof x === "string") : [])];
+      if (list.length > BADGES_MAX) throw new StudyError(`Pick up to ${BADGES_MAX} badges`);
+      if (list.some((id) => !have.has(id))) throw new StudyError("You can only show achievements you have earned");
+      await this.store.update(u.id, { badges: list });
+      return list;
+    }
+  };
+  var clampDaily = (n) => Math.max(DAILY_NEW_MIN, Math.min(DAILY_NEW_MAX, Math.round(Number.isFinite(n) ? n : DAILY_NEW)));
+  var dayBefore = (d) => new Date(Date.parse(d) - 864e5).toISOString().slice(0, 10);
+  function liveStreak(u, today2) {
+    if (!u.streakDay) return 0;
+    return u.streakDay >= dayBefore(dayBefore(today2)) ? u.streak ?? 0 : 0;
+  }
+  function counts(cards, now2) {
+    return {
+      new: cards.filter((c) => c.state === "new").length,
+      learning: cards.filter((c) => (c.state === "learning" || c.state === "relearning") && isDue(c, now2)).length,
+      due: cards.filter((c) => c.state === "review" && isDue(c, now2)).length,
+      total: cards.length
+    };
+  }
+
+  // src/server/study/DailyService.ts
+  var DAILY_WORDS = 10;
+  var DAILY_WORD_MS = 15e3;
+  var GRACE_MS = 1500;
+  var XP_PER_CORRECT = 30;
+  var LEVEL_ORDER = ["N5", "N5", "N4", "N4", "N3", "N3", "N2", "N2", "N1", "N1"];
+  function dailyWords(day) {
+    const rnd2 = seeded(hash(`kanji-wizards:${day}`));
+    const picked4 = [];
+    for (const level2 of LEVEL_ORDER) {
+      const pool = VOCAB.filter((v) => v.level === level2 && !picked4.includes(v) && /[一-鿿]/.test(v.kanji));
+      picked4.push(pool[Math.floor(rnd2() * pool.length)]);
+    }
+    return picked4;
+  }
+  var DailyError = class extends Error {
+    constructor(message, status = 400) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+  var DailyService = class {
+    constructor(store3, progress, now2 = now) {
+      __publicField(this, "store", store3);
+      __publicField(this, "progress", progress);
+      __publicField(this, "now", now2);
+      __publicField(this, "attempts", /* @__PURE__ */ new Map());
+      // userId → today's run in progress
+      __publicField(this, "cache", null);
+      /** 10 / 10: the 'Perfect Day' achievement (set in index.ts) */
+      __publicField(this, "onPerfect");
+    }
+    today() {
+      return new Date(this.now()).toISOString().slice(0, 10);
+    }
+    words(day) {
+      if (this.cache?.day !== day) this.cache = { day, words: dailyWords(day) };
+      return this.cache.words;
+    }
+    /** Today's board, your result (and then the words with their readings), and whether you can play. */
+    async overview(u) {
+      const day = this.today();
+      const mine = await this.store.daily(day, u.id);
+      const board = await this.store.dailyBoard(day, 20);
+      const rank = mine ? await this.store.dailyBetter(day, mine.correct, mine.ms) + 1 : null;
+      const words2 = mine ? this.words(day).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === "1" : null })) : null;
+      return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), words: words2, inProgress: this.attempts.get(u.id)?.day === day };
+    }
+    /** Start (or continue) today's run: returns the current word. */
+    async start(u) {
+      const day = this.today();
+      if (await this.store.daily(day, u.id)) throw new DailyError("You already played today's challenge \u2014 come back tomorrow!", 409);
+      let a = this.attempts.get(u.id);
+      if (!a || a.day !== day) {
+        a = { day, index: 0, shownAt: this.now(), correct: 0, ms: 0, marks: "" };
+        this.attempts.set(u.id, a);
+      }
+      while (a.index < DAILY_WORDS && this.now() - a.shownAt > DAILY_WORD_MS + GRACE_MS) {
+        a.ms += DAILY_WORD_MS;
+        a.index++;
+        a.marks += "0";
+        a.shownAt = this.now();
+      }
+      if (a.index >= DAILY_WORDS) throw new DailyError("Time ran out on the remaining words \u2014 send your answers to finish.", 409);
+      return this.view(a);
+    }
+    /** Answer the current word (empty text = skip). */
+    async answer(u, raw) {
+      const day = this.today();
+      const a = this.attempts.get(u.id);
+      if (!a || a.day !== day) throw new DailyError("Start the challenge first");
+      const text = typeof raw === "string" ? raw.slice(0, 60) : "";
+      const word2 = this.words(day)[a.index];
+      const ms = Math.min(DAILY_WORD_MS, this.now() - a.shownAt);
+      const inTime = this.now() - a.shownAt <= DAILY_WORD_MS + GRACE_MS;
+      const correct = inTime && !!text.trim() && isCorrectReading(text, [word2.reading, ...word2.altReadings ?? []]);
+      if (correct) a.correct++;
+      a.ms += ms;
+      a.index++;
+      a.marks += correct ? "1" : "0";
+      a.shownAt = this.now();
+      const base = { correct, kanji: word2.kanji, reading: displayReading(word2), meaning: word2.meaning, ms };
+      if (a.index < DAILY_WORDS) return { ...base, next: this.view(a), done: null };
+      return { ...base, next: null, done: await this.finish(u, a) };
+    }
+    /** Abandoned runs finish themselves: whatever is left counts as missed. */
+    async finishStale(u) {
+      const a = this.attempts.get(u.id);
+      if (!a || a.day !== this.today()) return null;
+      a.ms += (DAILY_WORDS - a.index) * DAILY_WORD_MS;
+      a.marks = a.marks.padEnd(DAILY_WORDS, "0");
+      a.index = DAILY_WORDS;
+      return this.finish(u, a);
+    }
+    async finish(u, a) {
+      this.attempts.delete(u.id);
+      const saved = await this.store.saveDaily(a.day, u.id, a.correct, a.ms, a.marks);
+      if (saved) {
+        const missed = this.words(a.day).filter((_, i) => a.marks[i] !== "1").map((v) => v.id);
+        if (missed.length) await this.store.markStruggling(u.id, missed, this.now());
+      }
+      const xp = saved ? a.correct * XP_PER_CORRECT + (a.correct === DAILY_WORDS ? 100 : 0) : 0;
+      if (xp) await this.store.addXp(u.id, xp);
+      if (saved) await this.progress.record(u.id, playerDay(u, this.now()), { xp, challenges: 1 });
+      if (saved && a.correct === DAILY_WORDS) await this.onPerfect?.(u.id);
+      const rank = await this.store.dailyBetter(a.day, a.correct, a.ms) + 1;
+      const players2 = (await this.store.dailyBoard(a.day, 1e5)).length;
+      return { correct: a.correct, ms: a.ms, rank, players: players2, xp };
+    }
+    view(a) {
+      const w = this.words(a.day)[a.index];
+      return { index: a.index, total: DAILY_WORDS, kanji: w.kanji, level: w.level, timeLimitMs: DAILY_WORD_MS };
+    }
+  };
+  var publicRow = (r2) => ({ id: r2.userId, name: r2.username, correct: r2.correct, ms: r2.ms });
+
+  // src/server/study/SocialService.ts
+  var SocialError = class extends Error {
+    constructor(message, status = 400) {
+      super(message);
+      __publicField(this, "status", status);
+    }
+  };
+
+  // src/server/router.ts
+  var MAX_BODY = 4 * 1024;
+  var RateLimiter = class {
+    constructor(limit, windowMs) {
+      __publicField(this, "limit", limit);
+      __publicField(this, "windowMs", windowMs);
+      __publicField(this, "hits", /* @__PURE__ */ new Map());
+    }
+    allow(key, now2 = Date.now()) {
+      const h3 = this.hits.get(key);
+      if (!h3 || h3.reset < now2) {
+        this.hits.set(key, { n: 1, reset: now2 + this.windowMs });
+        return true;
+      }
+      h3.n++;
+      if (this.hits.size > 1e4) this.hits.clear();
+      return h3.n <= this.limit;
+    }
+  };
+  var res = (status, body) => ({ status, body });
+  function createApiRouter(auth, study, extras = {}) {
+    const { presence, daily, social, strokes: strokes2, insights, onlineCount, onError } = extras;
+    const limiter = new RateLimiter(20, 6e4);
+    const errorLimiter = new RateLimiter(30, 6e4);
+    return async (r2) => {
+      const url = r2.url;
+      if (!url.startsWith("/api/")) return null;
+      const query = r2.query;
+      const ip = r2.ip;
+      try {
+        if (r2.method === "POST" && (url === "/api/register" || url === "/api/login")) {
+          if (!limiter.allow(ip)) throw new AuthError("Too many attempts \u2014 wait a minute", 429);
+          const body = await r2.json();
+          const result = url === "/api/register" ? await auth.register(body.username, body.password) : await auth.login(body.username, body.password);
+          if (url === "/api/register") void insights?.event(result.user.id, "signup");
+          return res(200, result);
+        } else if (r2.method === "GET" && url === "/api/online") {
+          return res(200, { online: onlineCount?.() ?? 0 });
+        } else if (r2.method === "POST" && url === "/api/errors") {
+          if (!errorLimiter.allow(ip)) return { status: 429, body: { ok: false } };
+          const body = await r2.json();
+          const who = await auth.authenticate(r2.token).catch(() => null);
+          await insights?.error(`[browser] ${String(body.message ?? "")}`, String(body.details ?? ""), who);
+          return res(200, { ok: true });
+        } else if (r2.method === "POST" && url === "/api/feedback") {
+          const u = await auth.authenticate(r2.token);
+          const body = await r2.json();
+          await insights?.feedback(u, body.kind, body.text, body.meta);
+          return res(200, { ok: true });
+        } else if (r2.method === "POST" && url === "/api/event") {
+          const u = await auth.authenticate(r2.token);
+          const name = String((await r2.json()).name ?? "");
+          if (CLIENT_EVENTS.includes(name)) await insights?.event(u.id, name);
+          return res(200, { ok: true });
+        } else if (r2.method === "GET" && url === "/api/admin/inbox") {
+          await auth.requireAdmin(r2.token);
+          return res(200, { reports: insights ? await auth.store.reports(300) : [] });
+        } else if (r2.method === "POST" && /^\/api\/admin\/inbox\/[\w-]+$/.test(url)) {
+          await auth.requireAdmin(r2.token);
+          await auth.store.setReportDone(url.split("/")[4], (await r2.json()).done === true);
+          return res(200, { ok: true });
+        } else if (r2.method === "DELETE" && /^\/api\/admin\/inbox\/[\w-]+$/.test(url)) {
+          await auth.requireAdmin(r2.token);
+          await auth.store.deleteReport(url.split("/")[4]);
+          return res(200, { ok: true });
+        } else if (r2.method === "GET" && url === "/api/admin/stats") {
+          await auth.requireAdmin(r2.token);
+          return res(200, insights ? await insights.stats(await auth.store.list(), onlineCount?.() ?? 0) : {});
+        } else if (r2.method === "GET" && url === "/api/me") {
+          let u = await auth.authenticate(r2.token);
+          if (query.get("today")) u = await study.touchLogin(u, resolveToday(query.get("today")));
+          return res(200, { user: toPublic(u), profile: await study.profile(u) });
+        } else if (r2.method === "GET" && /^\/api\/avatar\/[\w-]+$/.test(url)) {
+          const img = await study.avatar(url.split("/")[3]);
+          if (!img) return res(404, { error: "No picture" });
+          return { status: 200, raw: { mime: img.mime, data: img.data, headers: { "Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" } } };
+        } else if (r2.method === "PUT" && url === "/api/me/avatar") {
+          const u = await auth.authenticate(r2.token);
+          await study.setAvatar(u, (await r2.json(120 * 1024)).image);
+          return res(200, { profile: await study.profile(await auth.authenticate(r2.token)) });
+        } else if (r2.method === "DELETE" && url === "/api/me/avatar") {
+          const u = await auth.authenticate(r2.token);
+          await study.setAvatar(u, null);
+          return res(200, { profile: await study.profile(await auth.authenticate(r2.token)) });
+        } else if (r2.method === "PUT" && url === "/api/me/background") {
+          const u = await auth.authenticate(r2.token);
+          await study.setBackground(u, (await r2.json()).background);
+          return res(200, { profile: await study.profile(await auth.authenticate(r2.token)) });
+        } else if (r2.method === "PUT" && url === "/api/me/flame") {
+          const u = await auth.authenticate(r2.token);
+          await study.setFlame(u, (await r2.json()).flame);
+          return res(200, { profile: await study.profile(await auth.authenticate(r2.token)) });
+        } else if (r2.method === "PUT" && url === "/api/me/staff") {
+          const u = await auth.authenticate(r2.token);
+          await study.setStaff(u, (await r2.json()).staff);
+          return res(200, { profile: await study.profile(await auth.authenticate(r2.token)) });
+        } else if (r2.method === "PUT" && url === "/api/me/kana") {
+          const u = await auth.authenticate(r2.token);
+          await study.setKanaMastered(u, (await r2.json()).mastered === true);
+          return res(200, { profile: await study.profile(await auth.authenticate(r2.token)) });
+        } else if (r2.method === "PUT" && url === "/api/me/tutorial") {
+          const u = await auth.authenticate(r2.token);
+          await auth.store.update(u.id, { tutorialDone: true });
+          return res(200, { ok: true });
+        } else if (r2.method === "GET" && url === "/api/progress") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, await study.progress.page(u, query.get("today") ? resolveToday(query.get("today")) : playerDay(u)));
+        } else if (r2.method === "GET" && url === "/api/strokes") {
+          const chars2 = [...query.get("k") ?? ""].slice(0, 8);
+          return res(200, { strokes: Object.fromEntries(chars2.map((c) => [c, strokes2?.(c) ?? null])) });
+        } else if (daily && r2.method === "GET" && url === "/api/daily") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, await daily.overview(u));
+        } else if (daily && r2.method === "POST" && url === "/api/daily/start") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, { word: await daily.start(u) });
+        } else if (daily && r2.method === "POST" && url === "/api/daily/answer") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, await daily.answer(u, (await r2.json()).text));
+        } else if (daily && r2.method === "POST" && url === "/api/daily/finish") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, { done: await daily.finishStale(u) });
+        } else if (social && r2.method === "GET" && url === "/api/friends") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, { friends: await social.list(u.id) });
+        } else if (social && r2.method === "POST" && url === "/api/friends") {
+          const u = await auth.authenticate(r2.token);
+          const result = await social.request(u.id, u.username, (await r2.json()).username);
+          return res(200, { result, friends: await social.list(u.id) });
+        } else if (social && r2.method === "POST" && /^\/api\/friends\/[\w-]+\/accept$/.test(url)) {
+          const u = await auth.authenticate(r2.token);
+          await social.accept(u.id, u.username, url.split("/")[3]);
+          return res(200, { friends: await social.list(u.id) });
+        } else if (social && r2.method === "DELETE" && /^\/api\/friends\/[\w-]+$/.test(url)) {
+          const u = await auth.authenticate(r2.token);
+          await social.remove(u.id, url.split("/")[3]);
+          return res(200, { friends: await social.list(u.id) });
+        } else if (r2.method === "GET" && url === "/api/matches") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, { matches: await study.matches(u.id) });
+        } else if (r2.method === "GET" && /^\/api\/matches\/[\w-]+$/.test(url)) {
+          const u = await auth.authenticate(r2.token);
+          const m = await study.match(u.id, url.split("/")[3]);
+          return m ? res(200, { match: m }) : res(404, { error: "No such match" });
+        } else if (r2.method === "GET" && /^\/api\/users\/[\w-]+$/.test(url)) {
+          await auth.authenticate(r2.token);
+          const p = await study.publicProfile(url.split("/")[3]);
+          return p ? res(200, { profile: p }) : res(404, { error: "No such player" });
+        } else if (r2.method === "GET" && url === "/api/study") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, await study.summary(u, resolveToday(query.get("today"))));
+        } else if (r2.method === "PUT" && url === "/api/study/levels") {
+          const u = await auth.authenticate(r2.token);
+          const body = await r2.json();
+          await study.setStudyLevels(u, body.levels, resolveToday(body.today));
+          return res(200, await study.summary(await auth.authenticate(r2.token), resolveToday(body.today)));
+        } else if (r2.method === "GET" && url === "/api/study/queue") {
+          const u = await auth.authenticate(r2.token);
+          const deck2 = query.get("deck");
+          return res(200, { cards: await study.queue(u, isDeck(deck2) ? deck2 : "all") });
+        } else if (r2.method === "POST" && url === "/api/study/review") {
+          const u = await auth.authenticate(r2.token);
+          const body = await r2.json();
+          const tz = Number(body.tz);
+          return res(200, await study.review(u, body.vocabId, body.rating, now(), resolveToday(body.today), Number.isFinite(tz) && Math.abs(tz) <= 840 ? tz : 0, body.deck));
+        } else if (r2.method === "GET" && url === "/api/study/deck") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, { words: await study.deckList(u, query.get("deck")) });
+        } else if (r2.method === "POST" && url === "/api/study/deck/remove") {
+          const u = await auth.authenticate(r2.token);
+          const body = await r2.json(32 * 1024);
+          return res(200, { removed: await study.removeFromDeck(u, body.deck, body.ids) });
+        } else if (r2.method === "POST" && url === "/api/study/deck/add") {
+          const u = await auth.authenticate(r2.token);
+          const body = await r2.json(32 * 1024);
+          return res(200, { added: await study.addToDeck(u, body.deck, body.ids) });
+        } else if (r2.method === "GET" && url === "/api/study/search") {
+          await auth.authenticate(r2.token);
+          return res(200, { words: study.search(query.get("q")) });
+        } else if (r2.method === "POST" && url === "/api/study/custom") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, await study.addCustom(u, await r2.json()));
+        } else if (r2.method === "GET" && url === "/api/study/quiz") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, { questions: await study.quiz(u, Number(query.get("n")) || 10) });
+        } else if (r2.method === "POST" && url === "/api/study/task") {
+          const u = await auth.authenticate(r2.token);
+          const body = await r2.json();
+          return res(200, await study.recordTask(u, body.task, resolveToday(body.today)));
+        } else if (r2.method === "PUT" && url === "/api/study/daily-new") {
+          const u = await auth.authenticate(r2.token);
+          const body = await r2.json();
+          await study.setDailyNew(u, body.n, resolveToday(body.today));
+          return res(200, await study.summary(await auth.authenticate(r2.token), resolveToday(body.today)));
+        } else if (r2.method === "PUT" && url === "/api/me/border") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, { profile: await study.setBorder(u, (await r2.json()).border) });
+        } else if (r2.method === "PUT" && url === "/api/me/badges") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, { badges: await study.setBadges(u, (await r2.json()).badges) });
+        } else if (r2.method === "GET" && url === "/api/admin/users") {
+          await auth.requireAdmin(r2.token);
+          const stats = await study.adminStats(await auth.listUsers());
+          const users = stats.users.map((u) => {
+            const p = presence?.(u.id);
+            return p ? { ...u, online: p.online, activity: p.activity, onlineSince: p.since, lastSeen: p.lastSeen } : u;
+          });
+          return res(200, { ...stats, users });
+        } else if (r2.method === "POST" && /^\/api\/admin\/users\/[\w-]+\/ban$/.test(url)) {
+          const admin = await auth.requireAdmin(r2.token);
+          const body = await r2.json();
+          const id = url.split("/")[4];
+          return res(200, { user: await auth.setBanned(admin, id, body.banned === true) });
+        } else if (r2.method === "DELETE" && /^\/api\/admin\/users\/[\w-]+$/.test(url)) {
+          const admin = await auth.requireAdmin(r2.token);
+          await auth.deleteUser(admin, url.split("/")[4]);
+          return res(200, { ok: true });
+        } else if (r2.method === "POST" && /^\/api\/admin\/users\/[\w-]+\/role$/.test(url)) {
+          const admin = await auth.requireAdmin(r2.token);
+          const body = await r2.json();
+          const id = url.split("/")[4];
+          return res(200, { user: await auth.setRole(admin, id, body.role) });
+        } else if (r2.method === "GET" && url === "/api/sync/snapshot") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, await study.snapshot(u, daily?.today()));
+        } else {
+          return res(404, { error: "Not found" });
+        }
+      } catch (e) {
+        if (e instanceof AuthError || e instanceof StudyError || e instanceof DailyError || e instanceof SocialError || e instanceof InsightsError) return res(e.status, { error: e.message });
+        onError?.(`${r2.method} ${url}`, e);
+        return res(500, { error: "Server error" });
+      }
+    };
+  }
+
+  // src/client/offline/engine.ts
+  var LocalStore = class extends MemoryStore {
+    constructor(uid2) {
+      super();
+      __publicField(this, "uid", uid2);
+      __publicField(this, "name", "offline");
+      __publicField(this, "onChange");
+    }
+    load(s) {
+      const id = this.uid;
+      this.users.set(id, { ...s.user });
+      this.srs.set(id, new Map(s.cards.map((c) => [`${deckOf(c)}|${c.vocabId}`, { ...c, deck: deckOf(c) }])));
+      this.custom.set(id, s.custom.map((w) => ({ ...w })));
+      this.history.set(id, s.matches);
+      this.activityLog.set(id, new Map(s.activity.map((a) => [a.day, { ...a }])));
+      this.dailyResults.clear();
+      if (s.daily?.result) this.dailyResults.set(s.daily.day, /* @__PURE__ */ new Map([[id, s.daily.result]]));
+    }
+    dump() {
+      const id = this.uid;
+      const user2 = this.users.get(id);
+      const days2 = [...this.dailyResults.entries()].filter(([, m]) => m.has(id)).sort(([a], [b]) => b.localeCompare(a));
+      return {
+        v: SNAPSHOT_V,
+        at: Date.now(),
+        user: { ...user2 },
+        cards: [...this.srs.get(id)?.values() ?? []].map((c) => ({ ...c })),
+        custom: (this.custom.get(id) ?? []).map((w) => ({ ...w })),
+        matches: this.history.get(id) ?? [],
+        activity: [...this.activityLog.get(id)?.values() ?? []].map((a) => ({ ...a })),
+        daily: days2.length ? { day: days2[0][0], result: days2[0][1].get(id) } : null
+      };
+    }
+    persist() {
+      this.onChange?.();
+    }
+  };
+  var NEEDS_NET = "You're offline \u2014 this needs an internet connection.";
+  async function createEngine(s, onChange2) {
+    await loadVocab();
+    const store3 = new LocalStore(s.user.id);
+    store3.load(s);
+    store3.onChange = onChange2;
+    const study = new StudyService(store3);
+    const daily = new DailyService(store3, study.progress);
+    daily.onPerfect = (id) => study.grantAchievements(id, void 0, ["perfect-day"]);
+    const auth = {
+      store: store3,
+      authenticate: async () => {
+        const u = await store3.findById(s.user.id);
+        if (!u) throw new AuthError("Please sign in again", 401);
+        return u;
+      },
+      requireAdmin: async () => {
+        throw new AuthError(NEEDS_NET, 503);
+      },
+      login: async () => {
+        throw new AuthError(NEEDS_NET, 503);
+      },
+      register: async () => {
+        throw new AuthError(NEEDS_NET, 503);
+      }
+    };
+    const route = createApiRouter(auth, study, { daily, onError: (where, e) => console.error("[offline]", where, e) });
+    return {
+      userId: s.user.id,
+      async request(method, url, body) {
+        const [path, qs] = url.split("?");
+        const out = await route({ method, url: path, query: new URLSearchParams(qs ?? ""), token: "offline", ip: "", json: async () => body ?? {} });
+        return out ?? { status: 404, body: { error: "Not found" } };
+      },
+      dump: () => store3.dump(),
+      user: () => store3.findById(s.user.id)
+    };
+  }
+
+  // src/client/offline/idb.ts
+  var DB = "kanji-wizards";
+  var STORE = "kv";
+  var dbp = null;
+  var mem = /* @__PURE__ */ new Map();
+  function open() {
+    dbp ?? (dbp = new Promise((resolve) => {
+      try {
+        const req = indexedDB.open(DB, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    }));
+    return dbp;
+  }
+  function tx(mode3, run) {
+    return open().then((db) => new Promise((resolve) => {
+      if (!db) return resolve(void 0);
+      try {
+        const req = run(db.transaction(STORE, mode3).objectStore(STORE));
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(void 0);
+      } catch {
+        resolve(void 0);
+      }
+    }));
+  }
+  async function get(key) {
+    const v = await tx("readonly", (s) => s.get(key));
+    return v === void 0 ? mem.get(key) : v;
+  }
+  async function set(key, value) {
+    mem.set(key, value);
+    await tx("readwrite", (s) => s.put(value, key));
+  }
+  async function del(key) {
+    mem.delete(key);
+    await tx("readwrite", (s) => s.delete(key));
+  }
+
+  // src/client/offline/index.ts
+  var offline = false;
+  var engine = null;
+  var engineFor = "";
+  var outbox = [];
+  var token = () => "";
+  var syncing = null;
+  var probeTimer = 0;
+  var snapTimer = 0;
+  var saveTimer = 0;
+  var listeners = [];
+  var UID_KEY = "kb:uid";
+  var snapKey = (uid2) => `snap:${uid2}`;
+  var boxKey = (uid2) => `outbox:${uid2}`;
+  var storedUid = () => {
+    try {
+      return localStorage.getItem(UID_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  };
+  var OFFLINE_ROUTES = [
+    ["GET", /^\/api\/(me|study|study\/queue|study\/deck|study\/search|study\/quiz|progress|daily|matches|matches\/[\w-]+)$/],
+    ["PUT", /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-new)$/],
+    ["POST", /^\/api\/(study\/(review|deck\/remove|deck\/add|custom|task)|daily\/(start|answer|finish))$/]
+  ];
+  var pathOf = (url) => url.split("?")[0];
+  var handles = (method, url) => OFFLINE_ROUTES.some(([m, re]) => m === method && re.test(pathOf(url)));
+  var changes = (method, url) => method !== "GET" || /^\/api\/(me|study)$/.test(pathOf(url));
+  var isOffline = () => offline;
+  function onChange(fn) {
+    listeners.push(fn);
+  }
+  function setOffline(v) {
+    if (offline === v) return;
+    offline = v;
+    for (const fn of listeners) fn(v);
+    clearInterval(probeTimer);
+    if (v) probeTimer = window.setInterval(() => void tryReconnect(), 2e4);
+  }
+  function init(getToken2) {
+    token = getToken2;
+    addEventListener("online", () => void tryReconnect());
+    addEventListener("offline", () => void goOffline());
+  }
+  async function probe() {
+    if (offline || !storedUid()) return;
+    if (!navigator.onLine || !await reachable()) await goOffline();
+  }
+  async function signedIn(uid2) {
+    try {
+      localStorage.setItem(UID_KEY, uid2);
+    } catch {
+    }
+    outbox = await get(boxKey(uid2)) ?? [];
+    if (outbox.length) void tryReconnect();
+    else scheduleSnapshot(1500);
+  }
+  async function signedOut() {
+    const uid2 = storedUid();
+    engine = null;
+    engineFor = "";
+    outbox = [];
+    try {
+      localStorage.removeItem(UID_KEY);
+    } catch {
+    }
+    if (uid2) {
+      await del(snapKey(uid2));
+      await del(boxKey(uid2));
+    }
+    setOffline(false);
+  }
+  async function ensureEngine() {
+    const uid2 = storedUid();
+    if (!uid2) return null;
+    if (engine && engineFor === uid2) return engine;
+    const snap = await get(snapKey(uid2));
+    if (!snap || snap.v !== SNAPSHOT_V || snap.user.id !== uid2) return null;
+    try {
+      engine = await createEngine(snap, () => {
+        clearTimeout(saveTimer);
+        saveTimer = window.setTimeout(() => {
+          if (engine) void set(snapKey(uid2), engine.dump());
+        }, 250);
+      });
+      engineFor = uid2;
+      outbox = await get(boxKey(uid2)) ?? outbox;
+      return engine;
+    } catch (e) {
+      console.warn("offline engine unavailable", e);
+      return null;
+    }
+  }
+  async function goOffline() {
+    if (offline) return !!engine;
+    const e = await ensureEngine();
+    if (!e) return false;
+    setOffline(true);
+    return true;
+  }
+  async function call(method, url, body) {
+    const e = await ensureEngine();
+    if (!e) return { status: 503, body: { error: "You're offline." } };
+    const out = await e.request(method, url, body);
+    if (out.status < 400 && changes(method, url)) {
+      if (!(method === "GET" && outbox.some((x) => x.method === "GET" && x.url === url))) {
+        outbox.push({ method, url, body, at: Date.now() });
+        await set(boxKey(e.userId), outbox);
+      }
+    }
+    return { status: out.status, body: out.body ?? {} };
+  }
+  var timeout = (ms) => {
+    const c = new AbortController();
+    setTimeout(() => c.abort(), ms);
+    return c.signal;
+  };
+  var authHeaders = () => ({ "Content-Type": "application/json", ...token() ? { Authorization: `Bearer ${token()}` } : {} });
+  async function reachable() {
+    try {
+      return (await fetch("/api/online", { cache: "no-store", signal: timeout(6e3) })).ok;
+    } catch {
+      return false;
+    }
+  }
+  function tryReconnect() {
+    syncing ?? (syncing = (async () => {
+      try {
+        if (!await reachable()) return false;
+        const uid2 = storedUid();
+        if (!uid2 || !token()) {
+          setOffline(false);
+          return true;
+        }
+        while (outbox.length) {
+          const x = outbox[0];
+          let res2;
+          try {
+            res2 = await fetch(x.url, { method: x.method, headers: { ...authHeaders(), "X-KW-At": String(x.at) }, body: x.body === void 0 ? void 0 : JSON.stringify(x.body), signal: timeout(2e4) });
+          } catch {
+            return false;
+          }
+          if (res2.status === 401 || res2.status === 403) return false;
+          if (res2.status === 429 || res2.status === 502 || res2.status === 503 || res2.status === 504) return false;
+          outbox.shift();
+          await set(boxKey(uid2), outbox);
+        }
+        await refreshSnapshot();
+        setOffline(false);
+        return true;
+      } finally {
+        syncing = null;
+      }
+    })());
+    return syncing;
+  }
+  async function refreshSnapshot() {
+    const uid2 = storedUid();
+    if (!uid2 || !token() || outbox.length) return;
+    try {
+      const res2 = await fetch("/api/sync/snapshot", { headers: authHeaders(), cache: "no-store", signal: timeout(3e4) });
+      if (!res2.ok) return;
+      const snap = await res2.json();
+      if (snap.user?.id !== uid2) return;
+      await set(snapKey(uid2), snap);
+      engine = null;
+      engineFor = "";
+    } catch {
+    }
+  }
+  var snapDue = 0;
+  function scheduleSnapshot(ms = 6e3) {
+    const due = Date.now() + ms;
+    if (snapTimer && snapDue <= due) return;
+    clearTimeout(snapTimer);
+    snapDue = due;
+    snapTimer = window.setTimeout(() => {
+      snapTimer = 0;
+      if (!offline) void refreshSnapshot();
+    }, ms);
+  }
+  function changedOnline(method, url) {
+    if (changes(method, url) && handles(method, url)) scheduleSnapshot();
+  }
+  var pending = () => outbox.length;
+
   // src/client/api.ts
   var today = () => {
     const d = /* @__PURE__ */ new Date();
@@ -29,70 +2284,92 @@
       __publicField(this, "status", status);
     }
   };
-  async function call(method, url, body) {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
-      body: body === void 0 ? void 0 : JSON.stringify(body)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
+  var isNetworkError = (e) => e instanceof TypeError || e instanceof DOMException && e.name === "AbortError";
+  async function call2(method, url, body) {
+    if (isOffline()) return local(method, url, body);
+    let res2;
+    try {
+      const ctl = new AbortController();
+      const t = method === "GET" && handles(method, url) ? window.setTimeout(() => ctl.abort(), 12e3) : 0;
+      res2 = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+        body: body === void 0 ? void 0 : JSON.stringify(body),
+        signal: ctl.signal
+      }).finally(() => clearTimeout(t));
+    } catch (e) {
+      if (isNetworkError(e) && handles(method, url) && await goOffline()) return local(method, url, body);
+      if (isNetworkError(e)) throw new ApiError(OFFLINE_TEXT, 0);
+      throw e;
+    }
+    const data = await res2.json().catch(() => ({}));
+    if (!res2.ok) throw new ApiError(data.error ?? `Error ${res2.status}`, res2.status);
+    changedOnline(method, url);
     return data;
   }
+  var uuid = () => typeof crypto.randomUUID === "function" ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, () => (Math.random() * 16 | 0).toString(16));
+  var OFFLINE_TEXT = "You're offline \u2014 this needs an internet connection.";
+  async function local(method, url, body) {
+    if (!handles(method, url)) throw new ApiError(OFFLINE_TEXT, 0);
+    const out = await call(method, url, body);
+    if (out.status >= 400) throw new ApiError(out.body?.error ?? `Error ${out.status}`, out.status);
+    return out.body;
+  }
   var api = {
-    login: (username, password) => call("POST", "/api/login", { username, password }),
-    register: (username, password) => call("POST", "/api/register", { username, password }),
-    me: () => call("GET", `/api/me?today=${today()}`),
-    setAvatar: (image) => call("PUT", "/api/me/avatar", { image }),
-    removeAvatar: () => call("DELETE", "/api/me/avatar"),
-    setFlame: (flame) => call("PUT", "/api/me/flame", { flame }),
-    setStaff: (staff) => call("PUT", "/api/me/staff", { staff }),
-    setBackground: (background) => call("PUT", "/api/me/background", { background }),
-    study: () => call("GET", `/api/study?today=${today()}`),
-    setStudyLevels: (levels) => call("PUT", "/api/study/levels", { levels, today: today() }),
-    queue: (deck2) => call("GET", `/api/study/queue?deck=${deck2}`),
-    review: (vocabId, rating, deck2 = "all") => call("POST", "/api/study/review", { vocabId, rating, deck: deck2, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
-    deckWords: (deck2) => call("GET", `/api/study/deck?deck=${deck2}`),
-    deckRemove: (deck2, ids) => call("POST", "/api/study/deck/remove", { deck: deck2, ids }),
-    deckAdd: (deck2, ids) => call("POST", "/api/study/deck/add", { deck: deck2, ids }),
-    searchWords: (q) => call("GET", `/api/study/search?q=${encodeURIComponent(q)}`),
-    addCustom: (w) => call("POST", "/api/study/custom", w),
-    quiz: (n = 10) => call("GET", `/api/study/quiz?n=${n}`),
+    login: (username, password) => call2("POST", "/api/login", { username, password }),
+    register: (username, password) => call2("POST", "/api/register", { username, password }),
+    me: () => call2("GET", `/api/me?today=${today()}`),
+    setAvatar: (image) => call2("PUT", "/api/me/avatar", { image }),
+    removeAvatar: () => call2("DELETE", "/api/me/avatar"),
+    setFlame: (flame) => call2("PUT", "/api/me/flame", { flame }),
+    setStaff: (staff) => call2("PUT", "/api/me/staff", { staff }),
+    setBackground: (background) => call2("PUT", "/api/me/background", { background }),
+    study: () => call2("GET", `/api/study?today=${today()}`),
+    setStudyLevels: (levels) => call2("PUT", "/api/study/levels", { levels, today: today() }),
+    queue: (deck2) => call2("GET", `/api/study/queue?deck=${deck2}`),
+    review: (vocabId, rating, deck2 = "all") => call2("POST", "/api/study/review", { vocabId, rating, deck: deck2, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    deckWords: (deck2) => call2("GET", `/api/study/deck?deck=${deck2}`),
+    deckRemove: (deck2, ids) => call2("POST", "/api/study/deck/remove", { deck: deck2, ids }),
+    deckAdd: (deck2, ids) => call2("POST", "/api/study/deck/add", { deck: deck2, ids }),
+    searchWords: (q) => call2("GET", `/api/study/search?q=${encodeURIComponent(q)}`),
+    // the app names a new custom word itself (0.9.9.4), so one added offline keeps its id on the server
+    addCustom: (w) => call2("POST", "/api/study/custom", { ...w, id: `u:${uuid().slice(0, 13)}` }),
+    quiz: (n = 10) => call2("GET", `/api/study/quiz?n=${n}`),
     /** a daily task done here (the quiz, a passage): counts towards today's streak */
-    task: (task) => call("POST", "/api/study/task", { task, today: today() }),
-    setDailyNew: (n) => call("PUT", "/api/study/daily-new", { n, today: today() }),
-    setBorder: (border) => call("PUT", "/api/me/border", { border }),
-    setBadges: (badges2) => call("PUT", "/api/me/badges", { badges: badges2 }),
-    matches: () => call("GET", "/api/matches"),
-    match: (id) => call("GET", `/api/matches/${encodeURIComponent(id)}`),
-    player: (id) => call("GET", `/api/users/${encodeURIComponent(id)}`),
-    users: () => call("GET", "/api/admin/users"),
-    inbox: () => call("GET", "/api/admin/inbox"),
-    inboxDone: (id, done) => call("POST", `/api/admin/inbox/${encodeURIComponent(id)}`, { done }),
-    inboxDelete: (id) => call("DELETE", `/api/admin/inbox/${encodeURIComponent(id)}`),
-    adminStats: () => call("GET", "/api/admin/stats"),
-    feedback: (kind, text, meta) => call("POST", "/api/feedback", { kind, text, meta }),
-    event: (name) => call("POST", "/api/event", { name }).catch(() => ({ ok: false })),
-    online: () => call("GET", "/api/online"),
-    tutorialDone: () => call("PUT", "/api/me/tutorial"),
-    setKana: (mastered) => call("PUT", "/api/me/kana", { mastered }),
-    progress: () => call("GET", `/api/progress?today=${today()}`),
-    strokes: (chars) => call("GET", `/api/strokes?k=${encodeURIComponent(chars)}`),
-    daily: () => call("GET", "/api/daily"),
-    dailyStart: () => call("POST", "/api/daily/start"),
-    dailyAnswer: (text) => call("POST", "/api/daily/answer", { text }),
-    dailyFinish: () => call("POST", "/api/daily/finish"),
-    friends: () => call("GET", "/api/friends"),
-    addFriend: (username) => call("POST", "/api/friends", { username }),
-    acceptFriend: (id) => call("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
-    removeFriend: (id) => call("DELETE", `/api/friends/${encodeURIComponent(id)}`),
-    setRole: (id, role) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/role`, { role }),
-    deleteUser: (id) => call("DELETE", `/api/admin/users/${encodeURIComponent(id)}`),
-    setBanned: (id, banned) => call("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
+    task: (task) => call2("POST", "/api/study/task", { task, today: today() }),
+    setDailyNew: (n) => call2("PUT", "/api/study/daily-new", { n, today: today() }),
+    setBorder: (border) => call2("PUT", "/api/me/border", { border }),
+    setBadges: (badges2) => call2("PUT", "/api/me/badges", { badges: badges2 }),
+    matches: () => call2("GET", "/api/matches"),
+    match: (id) => call2("GET", `/api/matches/${encodeURIComponent(id)}`),
+    player: (id) => call2("GET", `/api/users/${encodeURIComponent(id)}`),
+    users: () => call2("GET", "/api/admin/users"),
+    inbox: () => call2("GET", "/api/admin/inbox"),
+    inboxDone: (id, done2) => call2("POST", `/api/admin/inbox/${encodeURIComponent(id)}`, { done: done2 }),
+    inboxDelete: (id) => call2("DELETE", `/api/admin/inbox/${encodeURIComponent(id)}`),
+    adminStats: () => call2("GET", "/api/admin/stats"),
+    feedback: (kind, text, meta) => call2("POST", "/api/feedback", { kind, text, meta }),
+    event: (name) => call2("POST", "/api/event", { name }).catch(() => ({ ok: false })),
+    online: () => call2("GET", "/api/online"),
+    tutorialDone: () => call2("PUT", "/api/me/tutorial"),
+    setKana: (mastered) => call2("PUT", "/api/me/kana", { mastered }),
+    progress: () => call2("GET", `/api/progress?today=${today()}`),
+    strokes: (chars2) => call2("GET", `/api/strokes?k=${encodeURIComponent(chars2)}`),
+    daily: () => call2("GET", "/api/daily"),
+    dailyStart: () => call2("POST", "/api/daily/start"),
+    dailyAnswer: (text) => call2("POST", "/api/daily/answer", { text }),
+    dailyFinish: () => call2("POST", "/api/daily/finish"),
+    friends: () => call2("GET", "/api/friends"),
+    addFriend: (username) => call2("POST", "/api/friends", { username }),
+    acceptFriend: (id) => call2("POST", `/api/friends/${encodeURIComponent(id)}/accept`),
+    removeFriend: (id) => call2("DELETE", `/api/friends/${encodeURIComponent(id)}`),
+    setRole: (id, role) => call2("POST", `/api/admin/users/${encodeURIComponent(id)}/role`, { role }),
+    deleteUser: (id) => call2("DELETE", `/api/admin/users/${encodeURIComponent(id)}`),
+    setBanned: (id, banned) => call2("POST", `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned })
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.3.4";
+  var VERSION = "0.9.9.4";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -779,6 +3056,36 @@
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.4
+    "Get the app": "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
+    "Install Kanji Wizards": "\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C Kanji Wizards",
+    "Phone or PC \u2014 from this browser": "\u0422\u0435\u043B\u0435\u0444\u043E\u043D \u0438\u043B\u0438 \u041F\u041A \u2014 \u043F\u0440\u044F\u043C\u043E \u0438\u0437 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430",
+    "The app opens straight into the game and works offline too: Study spells, the JLPT quiz, reading passages, the daily challenge, Customize, Progress and match history. Online queue and private games need internet. Your account and progress are the same everywhere.": "\u041F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0441\u0440\u0430\u0437\u0443 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0438\u0433\u0440\u0443 \u0438 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430: \u0438\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439, \u0442\u0435\u0441\u0442 JLPT, \u0442\u0435\u043A\u0441\u0442\u044B \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F, \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435, \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430, \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044F \u043C\u0430\u0442\u0447\u0435\u0439. \u0414\u043B\u044F \u043E\u043D\u043B\u0430\u0439\u043D-\u043E\u0447\u0435\u0440\u0435\u0434\u0438 \u0438 \u043F\u0440\u0438\u0432\u0430\u0442\u043D\u044B\u0445 \u0438\u0433\u0440 \u043D\u0443\u0436\u0435\u043D \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442. \u0410\u043A\u043A\u0430\u0443\u043D\u0442 \u0438 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0432\u0435\u0437\u0434\u0435 \u043E\u0434\u043D\u0438 \u0438 \u0442\u0435 \u0436\u0435.",
+    "No store needed: it installs like an app, with its own icon.": "\u041C\u0430\u0433\u0430\u0437\u0438\u043D \u043D\u0435 \u043D\u0443\u0436\u0435\u043D: \u0443\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u043A\u0430\u043A \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435, \u0441\u043E \u0441\u0432\u043E\u0438\u043C \u0437\u043D\u0430\u0447\u043A\u043E\u043C.",
+    "On iPhone / iPad (Safari): tap": "\u041D\u0430 iPhone / iPad (Safari): \u043D\u0430\u0436\u043C\u0438\u0442\u0435",
+    "Share": "\u041F\u043E\u0434\u0435\u043B\u0438\u0442\u044C\u0441\u044F",
+    "Add to Home Screen": "\u041D\u0430 \u044D\u043A\u0440\u0430\u043D \xAB\u0414\u043E\u043C\u043E\u0439\xBB",
+    "In Chrome or Edge: open the browser menu": "\u0412 Chrome \u0438\u043B\u0438 Edge: \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043C\u0435\u043D\u044E \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430",
+    "Install app": "\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
+    "(or": "(\u0438\u043B\u0438",
+    "Add to Home screen": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u044B\u0439 \u044D\u043A\u0440\u0430\u043D",
+    "or": "\u0438\u043B\u0438",
+    "Windows": "Windows",
+    "Android": "Android",
+    "Download and run the installer. If Windows says \u201Cprotected your PC\u201D, choose": "\u0421\u043A\u0430\u0447\u0430\u0439\u0442\u0435 \u0438 \u0437\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0449\u0438\u043A. \u0415\u0441\u043B\u0438 Windows \u043F\u0438\u0448\u0435\u0442 \xAB\u0421\u0438\u0441\u0442\u0435\u043C\u0430 \u0437\u0430\u0449\u0438\u0442\u0438\u043B\u0430 \u0432\u0430\u0448 \u043A\u043E\u043C\u043F\u044C\u044E\u0442\u0435\u0440\xBB, \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435",
+    "More info \u2192 Run anyway": "\u041F\u043E\u0434\u0440\u043E\u0431\u043D\u0435\u0435 \u2192 \u0412\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u0432 \u043B\u044E\u0431\u043E\u043C \u0441\u043B\u0443\u0447\u0430\u0435",
+    "(the app isn't signed yet).": "(\u0443 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u043F\u043E\u0434\u043F\u0438\u0441\u0438).",
+    "Download for Windows (.exe)": "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0434\u043B\u044F Windows (.exe)",
+    "Download for Android (.apk)": "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0434\u043B\u044F Android (.apk)",
+    "Download the APK and open it; allow your browser to install apps when asked. No Google Play needed.": "\u0421\u043A\u0430\u0447\u0430\u0439\u0442\u0435 APK \u0438 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0435\u0433\u043E; \u0440\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0443 \u0443\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F, \u043A\u043E\u0433\u0434\u0430 \u043E\u043D \u0441\u043F\u0440\u043E\u0441\u0438\u0442. Google Play \u043D\u0435 \u043D\u0443\u0436\u0435\u043D.",
+    "You're offline \u2014 this needs an internet connection.": "\u041D\u0435\u0442 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0443 \u2014 \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u043E\u043D \u043D\u0443\u0436\u0435\u043D.",
+    "You're offline.": "\u041D\u0435\u0442 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0443.",
+    "Offline mode": "\u041E\u0444\u043B\u0430\u0439\u043D-\u0440\u0435\u0436\u0438\u043C",
+    "You're offline. Study spells, the quiz, reading passages, the daily challenge and Customize still work \u2014 your progress syncs when you're back online.": "\u041D\u0435\u0442 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430. \u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439, \u0442\u0435\u0441\u0442, \u0442\u0435\u043A\u0441\u0442\u044B, \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430 \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442 \u2014 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u0443\u0435\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0432\u0435\u0440\u043D\u0451\u0442\u0441\u044F.",
+    "Back online \u2014 your progress is synced.": "\u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0441\u043D\u043E\u0432\u0430 \u0435\u0441\u0442\u044C \u2014 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u043D.",
+    "No internet connection. Sign in once while online \u2014 then Study spells and more work offline too.": "\u041D\u0435\u0442 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0443. \u0412\u043E\u0439\u0434\u0438\u0442\u0435 \u043E\u0434\u0438\u043D \u0440\u0430\u0437 \u043E\u043D\u043B\u0430\u0439\u043D \u2014 \u043F\u043E\u0441\u043B\u0435 \u044D\u0442\u043E\u0433\u043E \u0438\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0438 \u043C\u043D\u043E\u0433\u043E\u0435 \u0434\u0440\u0443\u0433\u043E\u0435 \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442 \u0438 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430.",
+    "Kanji Wizards is installed \u2014 find it with your apps.": "Kanji Wizards \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E \u2014 \u043D\u0430\u0439\u0434\u0438\u0442\u0435 \u0435\u0433\u043E \u0441\u0440\u0435\u0434\u0438 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0439.",
+    "Please sign in again": "\u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u0432\u043E\u0439\u0434\u0438\u0442\u0435 \u0441\u043D\u043E\u0432\u0430",
     // 0.9.9.3.3
     "A day counts for your streak when all four tasks are done \u2014 and gives +500 XP. Your best streak unlocks magic staffs.": "\u0414\u0435\u043D\u044C \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u0441\u0435\u0440\u0438\u044E, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u044B \u0432\u0441\u0435 \u0447\u0435\u0442\u044B\u0440\u0435 \u0437\u0430\u0434\u0430\u043D\u0438\u044F, \u2014 \u0438 \u0434\u0430\u0451\u0442 +500 \u043E\u043F\u044B\u0442\u0430. \u041B\u0443\u0447\u0448\u0430\u044F \u0441\u0435\u0440\u0438\u044F \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u043E\u0441\u043E\u0445\u0438.",
     "Daily streak kept!": "\u0421\u0435\u0440\u0438\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0430!",
@@ -936,6 +3243,8 @@
     [/^Two words each from N5 to N1, easiest first\. Type the reading \(kana or romaji\) and press Enter — (\d+) s per word\. One try a day: most correct wins, then fastest\.$/, "\u041F\u043E \u0434\u0432\u0430 \u0441\u043B\u043E\u0432\u0430 \u0441 N5 \u0434\u043E N1, \u043E\u0442 \u043F\u0440\u043E\u0441\u0442\u044B\u0445 \u043A \u0441\u043B\u043E\u0436\u043D\u044B\u043C. \u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0447\u0442\u0435\u043D\u0438\u0435 (\u043A\u0430\u043D\u0430 \u0438\u043B\u0438 \u0440\u043E\u043C\u0430\u0434\u0437\u0438) \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 Enter \u2014 $1 \u0441 \u043D\u0430 \u0441\u043B\u043E\u0432\u043E. \u041E\u0434\u043D\u0430 \u043F\u043E\u043F\u044B\u0442\u043A\u0430 \u0432 \u0434\u0435\u043D\u044C: \u043F\u043E\u0431\u0435\u0436\u0434\u0430\u0435\u0442 \u0431\u043E\u043B\u044C\u0448\u0435 \u0432\u0435\u0440\u043D\u044B\u0445, \u0437\u0430\u0442\u0435\u043C \u0431\u044B\u0441\u0442\u0440\u0435\u0435."],
     [/^10 new words at (.+) your time\.$/, "10 \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u0432 $1 \u043F\u043E \u0432\u0430\u0448\u0435\u043C\u0443 \u0432\u0440\u0435\u043C\u0435\u043D\u0438."],
     [/^Word (\d+) of (\d+) · (.+)$/, "\u0421\u043B\u043E\u0432\u043E $1 \u0438\u0437 $2 \xB7 $3"],
+    [/^Offline mode · (\d+) to sync$/, "\u041E\u0444\u043B\u0430\u0439\u043D-\u0440\u0435\u0436\u0438\u043C \xB7 \u0436\u0434\u0443\u0442 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u0438: $1"],
+    [/^Daily challenge: (\d+)\/10(?: · \+(\d+) XP)? · your rank comes when you're back online$/, (_, c, x) => `\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435: ${c}/10${x ? ` \xB7 +${x} \u043E\u043F\u044B\u0442\u0430` : ""} \xB7 \u043C\u0435\u0441\u0442\u043E \u0443\u0437\u043D\u0430\u0435\u0442\u0435, \u043A\u043E\u0433\u0434\u0430 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442`],
     [/^Daily challenge: (\d+)\/10 · rank (\d+) of (\d+)(?: · \+(\d+) XP)?$/, (_, c, r2, p, x) => `\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435: ${c}/10 \xB7 \u043C\u0435\u0441\u0442\u043E ${r2} \u0438\u0437 ${p}${x ? ` \xB7 +${x} \u043E\u043F\u044B\u0442\u0430` : ""}`],
     [/^([\d.]+) s · rank (\d+) today$/, "$1 \u0441 \xB7 \u043C\u0435\u0441\u0442\u043E $2 \u0441\u0435\u0433\u043E\u0434\u043D\u044F"],
     [/^Read the meaning — the kanji shows in (\d+) s$/, "\u041F\u0440\u043E\u0447\u0438\u0442\u0430\u0439\u0442\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u2014 \u043A\u0430\u043D\u0434\u0437\u0438 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 $1 \u0441"],
@@ -1059,11 +3368,11 @@
     const root = document.documentElement;
     root.style.setProperty("--ui-zoom", String(z));
     root.style.setProperty("--vfix", "1");
-    const probe = document.createElement("div");
-    probe.style.cssText = "position:absolute;left:0;top:0;width:100px;height:100vh;visibility:hidden;pointer-events:none";
-    document.body.append(probe);
-    const r2 = probe.getBoundingClientRect();
-    probe.remove();
+    const probe2 = document.createElement("div");
+    probe2.style.cssText = "position:absolute;left:0;top:0;width:100px;height:100vh;visibility:hidden;pointer-events:none";
+    document.body.append(probe2);
+    const r2 = probe2.getBoundingClientRect();
+    probe2.remove();
     scale = r2.width > 0 ? r2.width / 100 : 1;
     const vfix = r2.height > 0 ? innerHeight / r2.height : 1;
     root.style.setProperty("--vfix", String(Math.round(vfix * 1e3) / 1e3));
@@ -1078,8 +3387,8 @@
 
   // src/client/strokes.ts
   var cache = /* @__PURE__ */ new Map();
-  async function load(chars) {
-    const missing = [...new Set(chars)].filter((c) => !cache.has(c));
+  async function load(chars2) {
+    const missing = [...new Set(chars2)].filter((c) => !cache.has(c));
     if (!missing.length) return;
     try {
       const { strokes: strokes2 } = await api.strokes(missing.join(""));
@@ -1094,15 +3403,15 @@
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
     return e;
   };
-  function pathOf(pts) {
+  function pathOf2(pts) {
     if (pts.length < 3) return `M${pts.map((p) => p.join(" ")).join(" L")}`;
     let d = `M${pts[0][0]} ${pts[0][1]}`;
     for (let i = 1; i < pts.length - 1; i++) {
       const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
       d += ` Q${pts[i][0]} ${pts[i][1]} ${mx.toFixed(1)} ${my.toFixed(1)}`;
     }
-    const last2 = pts[pts.length - 1];
-    return `${d} L${last2[0]} ${last2[1]}`;
+    const last3 = pts[pts.length - 1];
+    return `${d} L${last3[0]} ${last3[1]}`;
   }
   function diagram(ch, strokes2, stepMs, delay) {
     if (!strokes2 || !strokes2.length) {
@@ -1126,7 +3435,7 @@
     const nums = el("g", { class: "so-nums" });
     strokes2.forEach((raw, i) => {
       const pts = fit(raw);
-      const d = pathOf(pts);
+      const d = pathOf2(pts);
       ghost.append(el("path", { d }));
       const p = el("path", { d, pathLength: 1, style: `animation-delay:${delay + i * stepMs}ms;animation-duration:${stepMs * 0.85}ms` });
       ink.append(p);
@@ -1143,16 +3452,16 @@
     return g;
   }
   async function showStrokeOrder(box, word2, o = {}) {
-    const chars = [...word2];
+    const chars2 = [...word2];
     const stepMs = o.stepMs ?? 520;
     box.classList.add("stroke-order");
     box.replaceChildren(Object.assign(document.createElement("div"), { className: "so-loading", textContent: "\u2026" }));
-    await load(chars.filter((c) => /[\p{Script=Han}々]/u.test(c)));
+    await load(chars2.filter((c) => /[\p{Script=Han}々]/u.test(c)));
     const build2 = () => {
       const row2 = document.createElement("div");
       row2.className = "so-row";
       let delay = 0;
-      for (const ch of chars) {
+      for (const ch of chars2) {
         const strokes2 = /[\p{Script=Han}々]/u.test(ch) ? cache.get(ch) ?? null : null;
         const cell = document.createElement("div");
         cell.className = "so-cell";
@@ -1174,126 +3483,6 @@
     };
     foot.append(replay);
     box.replaceChildren(row, foot);
-  }
-
-  // src/shared/protocol.ts
-  var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
-  var LEVEL_LABEL = { KANA: "\u304B\u306A", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
-  var MODE_LABEL = {
-    reading: "1v1 Kanji Reading",
-    writing: "1v1 Kanji Writing",
-    boss: "Boss Elimination",
-    rapid: "1v1 Rapid",
-    deck: "Deck Duel"
-  };
-
-  // src/shared/progress.ts
-  var XP_PER_LEVEL = 1e3;
-  var xpToNext = (level2) => XP_PER_LEVEL * (level2 + 1);
-  var xpForLevel = (level2) => XP_PER_LEVEL * level2 * (level2 + 1) / 2;
-  function levelOf(xp) {
-    let n = Math.floor((Math.sqrt(1 + 8 * Math.max(0, xp) / XP_PER_LEVEL) - 1) / 2);
-    while (xpForLevel(n + 1) <= xp) n++;
-    while (n > 0 && xpForLevel(n) > xp) n--;
-    return n;
-  }
-  function levelXp(xp) {
-    const level2 = levelOf(xp);
-    return { level: level2, into: Math.max(0, xp) - xpForLevel(level2), need: xpToNext(level2) };
-  }
-  var levelProgress = (xp) => {
-    const l = levelXp(xp);
-    return l.into / l.need;
-  };
-  var beta = { open: false };
-  var BACKGROUNDS = [
-    { id: "forest", name: "Forest", level: 0 },
-    { id: "swamp", name: "Swamp", level: 3 },
-    { id: "plains", name: "Plains", level: 5 },
-    { id: "castle", name: "Castle", level: 8 },
-    { id: "worldtree", name: "World Tree", level: 10 }
-  ];
-  var unlocked = (bg2, xp) => beta.open || levelOf(xp) >= BACKGROUNDS.find((b) => b.id === bg2).level;
-  var BORDERS = [
-    { id: "none", name: "No border", level: 0, blurb: "Just your picture." },
-    { id: "apprentice", name: "Apprentice", level: 1, blurb: "A plain silver ring." },
-    { id: "adept", name: "Adept", level: 5, blurb: "A violet ring with four rune studs." },
-    { id: "master", name: "Master", level: 10, blurb: "A golden ring with a star at the top." },
-    { id: "archmage", name: "Archmage", level: 15, blurb: "A glowing ring of moving arcane light." },
-    { id: "beta", name: "Beta", level: 0, unlock: "border:beta", blurb: "A platinum ring with a BETA tag \u2014 for everyone who finished the tutorial during the beta." }
-  ];
-  var borderUnlocked = (id, level2, unlocks2 = []) => {
-    const b = BORDERS.find((x) => x.id === id);
-    return !!b && (b.unlock ? unlocks2.includes(b.unlock) : b.level <= level2);
-  };
-  var FLAMES = [
-    { id: "blue", name: "Light blue", level: 0, color: "#6ee7ff" },
-    { id: "purple", name: "Purple", level: 5, color: "#b26bff" },
-    { id: "sakura", name: "Sakura", level: 0, color: "#ff8ccf", season: 2 },
-    { id: "rain", name: "Rain", level: 0, color: "#3fd9c4", season: 4 },
-    { id: "sun", name: "Sun", level: 0, color: "#ffd23f", season: 6 },
-    { id: "thunder", name: "Thunder", level: 0, color: "#e8e2ff", season: 8 },
-    { id: "harvest", name: "Harvest", level: 0, color: "#ff8a2a", season: 10 },
-    { id: "starlight", name: "Starlight", level: 0, color: "#fff0a0", season: 12 }
-  ];
-  var flameUnlocked = (f2, xp, unlocks2 = []) => {
-    const d = FLAMES.find((x) => x.id === f2);
-    if (!d) return false;
-    if (beta.open) return true;
-    return d.season ? unlocks2.includes(`flame:${d.id}`) : levelOf(xp) >= d.level;
-  };
-  var flameColor = (f2) => (FLAMES.find((x) => x.id === f2) ?? FLAMES[0]).color;
-  function flameShades(f2) {
-    const hex = flameColor(f2).slice(1);
-    const [r2, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-    const max = Math.max(r2, g, b), min = Math.min(r2, g, b), l = (max + min) / 2, d = max - min;
-    const h3 = d === 0 ? 0 : max === r2 ? ((g - b) / d + 6) % 6 : max === g ? (b - r2) / d + 2 : (r2 - g) / d + 4;
-    const hue = h3 * 60;
-    const pale = l > 0.85;
-    const rgb = (s, li) => {
-      const c = (1 - Math.abs(2 * li - 1)) * s, x = c * (1 - Math.abs(hue / 60 % 2 - 1)), m = li - c / 2;
-      const [a, bb, cc] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
-      return [a, bb, cc].map((v) => Math.round((v + m) * 255)).join(",");
-    };
-    return pale ? [rgb(1, 0.97), rgb(1, 0.86), rgb(0.85, 0.7), rgb(0.7, 0.45)] : [rgb(1, 0.93), rgb(1, 0.72), rgb(0.9, 0.55), rgb(0.85, 0.36)];
-  }
-  var STAFFS = [
-    { id: "verdant", name: "Verdant Staff", streak: 0, gem: "#6dff6a", blurb: "Carved from an ancient tree. It channels the natural energy of the earth and life." },
-    { id: "ember", name: "Ember Staff", streak: 3, gem: "#ff7a1a", blurb: "Forged from volcanic rock and blessed by fire spirits." },
-    { id: "tide", name: "Tide Staff", streak: 5, gem: "#3fb8ff", blurb: "Crafted from crystal and oceanic runes. It flows with the tides." },
-    { id: "storm", name: "Storm Staff", streak: 8, gem: "#b26bff", blurb: "A relic of the sky temples. It channels lightning." },
-    { id: "void", name: "Void Staff", streak: 10, gem: "#4a7dff", blurb: "An ancient, otherworldly artifact. It bends reality and commands the unknown." },
-    { id: "frost", name: "Frost Staff", streak: 0, season: 1, base: "tide", tint: "#d8f4ff", gem: "#bfefff", blurb: "January reward. Rimed with ice that never melts." },
-    { id: "blossom", name: "Blossom Staff", streak: 0, season: 3, base: "verdant", tint: "#ffb8d8", gem: "#ff7ab8", blurb: "March reward. A branch that flowers whenever it casts." },
-    { id: "jade", name: "Jade Staff", streak: 0, season: 5, base: "ember", tint: "#7dffb0", gem: "#3dff8a", blurb: "May reward. Carved from one piece of temple jade." },
-    { id: "abyss", name: "Abyss Staff", streak: 0, season: 7, base: "tide", tint: "#3a5cff", gem: "#2a4dff", blurb: "July reward. Pulled from the deepest trench of the sea." },
-    { id: "moon", name: "Moon Staff", streak: 0, season: 9, base: "verdant", tint: "#f2f0ff", gem: "#fff6c8", blurb: "September reward. Silver light of the harvest moon." },
-    { id: "maple", name: "Maple Staff", streak: 0, season: 11, base: "ember", tint: "#ff5a3a", gem: "#ff3a2a", blurb: "November reward. Burning red like autumn leaves." }
-  ];
-  var staffUnlocked = (s, bestStreak, unlocks2 = []) => {
-    const d = STAFFS.find((x) => x.id === s);
-    if (!d) return false;
-    if (beta.open) return true;
-    return d.season ? unlocks2.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
-  };
-  var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
-  var MODE_LEVEL = { reading: 0, rapid: 0, writing: 0, boss: 0, deck: 0 };
-  var modeUnlocked = (mode3, xp, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode3] ?? 0);
-  var STUDY_LOCK = 100;
-  var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
-  var ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
-  function avatarFor(levels) {
-    const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? "N5";
-    return AVATAR_BY_LEVEL[top];
-  }
-  var KANA_BEGINNER = "flag:kana-beginner";
-  var isKanaBeginner = (unlocks2) => !!unlocks2?.includes(KANA_BEGINNER);
-  function isoWeek(day) {
-    const d = /* @__PURE__ */ new Date(`${day}T00:00:00Z`);
-    const dow = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dow);
-    const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
-    return Math.ceil(((d.getTime() - yearStart) / 864e5 + 1) / 7);
   }
 
   // src/client/art2d.ts
@@ -1821,11 +4010,11 @@
   ];
   var CYCLE_STEP_MS = 3 * 6e4;
   var CYCLE = ["day", "sunset", "night"];
-  function resolveTime(pref, now = Date.now()) {
+  function resolveTime(pref, now2 = Date.now()) {
     if (pref !== "auto") return pref;
-    return CYCLE[Math.floor(now / CYCLE_STEP_MS) % CYCLE.length];
+    return CYCLE[Math.floor(now2 / CYCLE_STEP_MS) % CYCLE.length];
   }
-  var untilNextStep = (now = Date.now()) => CYCLE_STEP_MS - now % CYCLE_STEP_MS;
+  var untilNextStep = (now2 = Date.now()) => CYCLE_STEP_MS - now2 % CYCLE_STEP_MS;
   var W = 1600;
   var H = 900;
   var seed = 1;
@@ -2195,10 +4384,10 @@
   var KEY3 = "kb:3d";
   var GAME_SCREENS = /* @__PURE__ */ new Set(["battle", "deck"]);
   var api2 = null;
-  var loading = null;
+  var loading2 = null;
   var onScreen = false;
   var bg = { id: "forest", time: "night" };
-  var pending = null;
+  var pending2 = null;
   var webgl = (() => {
     try {
       const c = document.createElement("canvas");
@@ -2251,14 +4440,14 @@
   }
   function load2() {
     if (api2) return Promise.resolve(api2);
-    loading ?? (loading = loadBundle().then((ok) => {
+    loading2 ?? (loading2 = loadBundle().then((ok) => {
       const create = globalThis.KWArena3D;
       api2 = ok ? create?.(document.getElementById("arena3d"), { lite: arenaQuality() === "lite" }) ?? null : null;
       if (api2 && location.search.includes("debug3d")) globalThis.__arena = api2;
-      if (!api2) loading = null;
+      if (!api2) loading2 = null;
       return api2;
     }));
-    return loading;
+    return loading2;
   }
   async function staffPreview(canvas) {
     if (!webgl || !await loadBundle()) return null;
@@ -2281,9 +4470,9 @@
     if (!wanted()) return;
     const a = await load2();
     if (!a || !onScreen || !wanted()) return;
-    if (pending) {
-      a.setup({ ...pending, bgSvg: sceneSvg(bg.id, bg.time), bgKey: `${bg.id}-${bg.time}`, time: bg.time });
-      pending = null;
+    if (pending2) {
+      a.setup({ ...pending2, bgSvg: sceneSvg(bg.id, bg.time), bgKey: `${bg.id}-${bg.time}`, time: bg.time });
+      pending2 = null;
     }
     document.body.classList.add("has-3d");
     sizeCanvas();
@@ -2328,7 +4517,7 @@
     whoById.clear();
     if (s.opp) whoById.set(s.opp.id, "opp");
     for (const a of s.allies) whoById.set(a.id, `ally:${a.id}`);
-    pending = s;
+    pending2 = s;
     if (api2 && onScreen && wanted()) void activate();
   }
   function arenaForBattle(mode3, players2, you2) {
@@ -2348,7 +4537,7 @@
     const me3 = v.players.find((p) => p.id === v.you);
     const opp = v.players.find((p) => p.id !== v.you);
     const key = `${me3?.id}:${me3?.character}:${me3?.staff}:${opp?.id}:${opp?.character}:${opp?.staff}`;
-    if (key === deckKey && (!api2 || pending === null)) return;
+    if (key === deckKey && (!api2 || pending2 === null)) return;
     deckKey = key;
     configure({
       layout: "deck",
@@ -2531,12 +4720,12 @@
     $("netStatus").textContent = text ?? "";
   }
   function setAudioButtons(radio, sfx2) {
-    const set = (id, on, icon, label) => {
+    const set2 = (id, on, icon, label) => {
       $(id).setAttribute("aria-pressed", String(on));
       $(id).replaceChildren(h("span", "ico", icon), h("span", "lbl", ` ${label} ${on ? "on" : "off"}`));
     };
-    set("radioBtn", radio, "", "Music");
-    set("sfxBtn", sfx2, "", "Sounds");
+    set2("radioBtn", radio, "", "Music");
+    set2("sfxBtn", sfx2, "", "Sounds");
   }
   var sceneStaff = null;
   function paintScenes(staff = sceneStaff) {
@@ -3033,11 +5222,11 @@
     const cd = $("countdown");
     if (countdownMs > 0) {
       cd.hidden = false;
-      let last2 = -1;
+      let last3 = -1;
       countdown("cd", countdownMs, (left) => {
         const n = Math.ceil(left / 1e3);
-        if (n !== last2) {
-          last2 = n;
+        if (n !== last3) {
+          last3 = n;
           onTick(n);
         }
         cd.textContent = left > 0 ? String(n) : "\u6226\uFF01";
@@ -3513,6 +5702,276 @@ ${stack}`.slice(0, 2e3);
     if (getToken() && ["menu", "queue"].includes(currentScreen() ?? "")) void refreshOnline();
   }, 3e4);
 
+  // src/client/stories.ts
+  var STORIES = [
+    {
+      id: "magic",
+      open: { ja: "[\u9B54\u6CD5|\u307E\u307B\u3046][\u5B66\u6821|\u304C\u3063\u3053\u3046]\u306E[\u4E00\u65E5|\u3044\u3061\u306B\u3061]\u3002", en: "A day at the school of magic.", ru: "\u041E\u0434\u0438\u043D \u0434\u0435\u043D\u044C \u0432 \u0448\u043A\u043E\u043B\u0435 \u043C\u0430\u0433\u0438\u0438." },
+      lines: [
+        { ja: "[\u898B\u7FD2|\u307F\u306A\u3089]\u3044[\u9B54\u6CD5\u4F7F|\u307E\u307B\u3046\u3064\u304B]\u3044\u306E\u30CF\u30EB\u306F\u3001[\u671D|\u3042\u3055]\u304B\u3089\u300C{w}\u300D\u3068\u3044\u3046[\u546A\u6587|\u3058\u3085\u3082\u3093]\u3092[\u7DF4\u7FD2|\u308C\u3093\u3057\u3085\u3046]\u3057\u3066\u3044\u305F\u3002", en: "Haru, an apprentice wizard, had been practising the spell \u201C{w}\u201D since morning.", ru: "\u0423\u0447\u0435\u043D\u0438\u0446\u0430-\u0432\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u0446\u0430 \u0425\u0430\u0440\u0443 \u0441 \u0441\u0430\u043C\u043E\u0433\u043E \u0443\u0442\u0440\u0430 \u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u0430\u043B\u0430 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 \xAB{w}\xBB." },
+        { ja: "[\u5E2B\u5320|\u3057\u3057\u3087\u3046]\u306F\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F[\u53E4|\u3075\u308B]\u3044[\u5DFB\u7269|\u307E\u304D\u3082\u306E]\u3092[\u673A|\u3064\u304F\u3048]\u306B[\u7F6E|\u304A]\u3044\u305F\u3002", en: "The master put an old scroll with \u201C{w}\u201D written on it on the desk.", ru: "\u0423\u0447\u0438\u0442\u0435\u043B\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u043B \u043D\u0430 \u0441\u0442\u043E\u043B \u0441\u0442\u0430\u0440\u044B\u0439 \u0441\u0432\u0438\u0442\u043E\u043A \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB{w}\xBB." },
+        { ja: "\u30CF\u30EB\u306F\u300C{w}\u300D\u306E[\u8AAD|\u3088]\u307F[\u65B9|\u304B\u305F]\u3092[\u4E09\u56DE|\u3055\u3093\u304B\u3044][\u58F0|\u3053\u3048]\u306B[\u51FA|\u3060]\u3057\u3066[\u8A00|\u3044]\u3063\u305F\u3002", en: "Haru said the reading of \u201C{w}\u201D out loud three times.", ru: "\u0425\u0430\u0440\u0443 \u0442\u0440\u0438\u0436\u0434\u044B \u043F\u0440\u043E\u0438\u0437\u043D\u0435\u0441\u043B\u0430 \u0432\u0441\u043B\u0443\u0445 \u0447\u0442\u0435\u043D\u0438\u0435 \u0441\u043B\u043E\u0432\u0430 \xAB{w}\xBB." },
+        { ja: "[\u53CB\u9054|\u3068\u3082\u3060\u3061]\u306E\u30B1\u30F3\u306F\u300C{w}\u300D\u3068\u3044\u3046[\u8A00\u8449|\u3053\u3068\u3070]\u3092\u307E\u3060[\u899A|\u304A\u307C]\u3048\u3066\u3044\u306A\u304B\u3063\u305F\u3002", en: "Her friend Ken still hadn\u2019t learned the word \u201C{w}\u201D.", ru: "\u0415\u0451 \u0434\u0440\u0443\u0433 \u041A\u0435\u043D \u0435\u0449\u0451 \u043D\u0435 \u0432\u044B\u0443\u0447\u0438\u043B \u0441\u043B\u043E\u0432\u043E \xAB{w}\xBB." },
+        { ja: "[\u56F3\u66F8\u9928|\u3068\u3057\u3087\u304B\u3093]\u306E[\u672C|\u307B\u3093]\u306B\u306F\u300C{w}\u300D\u306B\u3064\u3044\u3066\u306E[\u8A71|\u306F\u306A\u3057]\u304C\u305F\u304F\u3055\u3093\u3042\u3063\u305F\u3002", en: "The library books had many stories about \u201C{w}\u201D.", ru: "\u0412 \u0431\u0438\u0431\u043B\u0438\u043E\u0442\u0435\u0447\u043D\u044B\u0445 \u043A\u043D\u0438\u0433\u0430\u0445 \u0431\u044B\u043B\u043E \u043C\u043D\u043E\u0433\u043E \u0438\u0441\u0442\u043E\u0440\u0438\u0439 \u043E \xAB{w}\xBB." },
+        { ja: "\u300C{w}\u300D\u306E[\u610F\u5473|\u3044\u307F]\u3092[\u601D|\u304A\u3082]\u3044[\u51FA|\u3060]\u3059\u3068\u3001[\u6756|\u3064\u3048]\u306E[\u5B9D\u77F3|\u307B\u3046\u305B\u304D]\u304C[\u660E|\u3042\u304B]\u308B\u304F[\u5149|\u3072\u304B]\u3063\u305F\u3002", en: "When she remembered the meaning of \u201C{w}\u201D, the gem on her staff shone brightly.", ru: "\u041A\u043E\u0433\u0434\u0430 \u043E\u043D\u0430 \u0432\u0441\u043F\u043E\u043C\u043D\u0438\u043B\u0430 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \xAB{w}\xBB, \u043A\u0430\u043C\u0435\u043D\u044C \u043D\u0430 \u043F\u043E\u0441\u043E\u0445\u0435 \u044F\u0440\u043A\u043E \u0437\u0430\u0441\u0438\u044F\u043B." },
+        { ja: "[\u6226|\u305F\u305F\u304B]\u3044\u306E[\u4E2D|\u306A\u304B]\u3067\u3001\u30C9\u30E9\u30B4\u30F3\u306F\u300C{w}\u300D\u306E[\u546A\u6587|\u3058\u3085\u3082\u3093]\u306B[\u9A5A|\u304A\u3069\u308D]\u3044\u3066[\u5F8C|\u3046\u3057]\u308D\u3078[\u4E0B|\u3055]\u304C\u3063\u305F\u3002", en: "In the battle, the dragon was startled by the spell \u201C{w}\u201D and stepped back.", ru: "\u0412 \u0431\u043E\u044E \u0434\u0440\u0430\u043A\u043E\u043D \u0438\u0441\u043F\u0443\u0433\u0430\u043B\u0441\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F \xAB{w}\xBB \u0438 \u043E\u0442\u0441\u0442\u0443\u043F\u0438\u043B." },
+        { ja: "\u300C{w}\u300D\u3092[\u9593\u9055|\u307E\u3061\u304C]\u3048\u306A\u3044\u3088\u3046\u306B\u3001\u30CF\u30EB\u306F\u3086\u3063\u304F\u308A[\u7B54|\u3053\u305F]\u3048\u305F\u3002", en: "So as not to get \u201C{w}\u201D wrong, Haru answered slowly.", ru: "\u0427\u0442\u043E\u0431\u044B \u043D\u0435 \u043E\u0448\u0438\u0431\u0438\u0442\u044C\u0441\u044F \u0432 \xAB{w}\xBB, \u0425\u0430\u0440\u0443 \u043E\u0442\u0432\u0435\u0447\u0430\u043B\u0430 \u043C\u0435\u0434\u043B\u0435\u043D\u043D\u043E." },
+        { ja: "[\u591C|\u3088\u308B]\u306B\u306A\u3063\u3066\u3082\u3001\u30CF\u30EB\u306F\u30CE\u30FC\u30C8\u306B\u300C{w}\u300D\u3092[\u4F55\u5EA6|\u306A\u3093\u3069]\u3082[\u66F8|\u304B]\u3044\u305F\u3002", en: "Even at night, Haru wrote \u201C{w}\u201D in her notebook again and again.", ru: "\u0414\u0430\u0436\u0435 \u043D\u043E\u0447\u044C\u044E \u0425\u0430\u0440\u0443 \u0441\u043D\u043E\u0432\u0430 \u0438 \u0441\u043D\u043E\u0432\u0430 \u043F\u0438\u0441\u0430\u043B\u0430 \xAB{w}\xBB \u0432 \u0442\u0435\u0442\u0440\u0430\u0434\u0438." },
+        { ja: "[\u5E2B\u5320|\u3057\u3057\u3087\u3046]\u306F[\u7B11|\u308F\u3089]\u3063\u3066\u3001\u300C{w}\u300D\u306F\u3082\u3046[\u5927\u4E08\u592B|\u3060\u3044\u3058\u3087\u3046\u3076]\u3060\u306D\u3068[\u8A00|\u3044]\u3063\u305F\u3002", en: "The master smiled and said that \u201C{w}\u201D was fine now.", ru: "\u0423\u0447\u0438\u0442\u0435\u043B\u044C \u0443\u043B\u044B\u0431\u043D\u0443\u043B\u0441\u044F \u0438 \u0441\u043A\u0430\u0437\u0430\u043B, \u0447\u0442\u043E \u0441 \xAB{w}\xBB \u0442\u0435\u043F\u0435\u0440\u044C \u0432\u0441\u0451 \u0432 \u043F\u043E\u0440\u044F\u0434\u043A\u0435." },
+        { ja: "[\u6B21|\u3064\u304E]\u306E[\u65E5|\u3072]\u3001\u30CF\u30EB\u306F\u300C{w}\u300D\u3092[\u4F7F|\u3064\u304B]\u3063\u3066\u3001[\u95C7|\u3084\u307F]\u306E[\u9B54\u7269|\u307E\u3082\u306E]\u3092[\u5012|\u305F\u304A]\u3057\u305F\u3002", en: "The next day, Haru used \u201C{w}\u201D to defeat a shadow monster.", ru: "\u041D\u0430 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0434\u0435\u043D\u044C \u0425\u0430\u0440\u0443 \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \xAB{w}\xBB \u043F\u043E\u0431\u0435\u0434\u0438\u043B\u0430 \u0442\u0451\u043C\u043D\u043E\u0435 \u0447\u0443\u0434\u043E\u0432\u0438\u0449\u0435." },
+        { ja: "\u307F\u3093\u306A\u306E[\u524D|\u307E\u3048]\u3067\u300C{w}\u300D\u3068[\u5531|\u3068\u306A]\u3048\u308B\u3068\u3001[\u7A7A|\u305D\u3089]\u306B[\u8679|\u306B\u3058]\u304C[\u51FA|\u3067]\u305F\u3002", en: "When she chanted \u201C{w}\u201D in front of everyone, a rainbow appeared in the sky.", ru: "\u041A\u043E\u0433\u0434\u0430 \u043E\u043D\u0430 \u043F\u0440\u043E\u0438\u0437\u043D\u0435\u0441\u043B\u0430 \xAB{w}\xBB \u043F\u0435\u0440\u0435\u0434 \u0432\u0441\u0435\u043C\u0438, \u0432 \u043D\u0435\u0431\u0435 \u043F\u043E\u044F\u0432\u0438\u043B\u0430\u0441\u044C \u0440\u0430\u0434\u0443\u0433\u0430." }
+      ],
+      close: { ja: "\u3053\u3046\u3057\u3066\u3001\u30CF\u30EB\u306E[\u9B54\u6CD5|\u307E\u307B\u3046]\u306F\u307E\u305F[\u5C11|\u3059\u3053]\u3057[\u5F37|\u3064\u3088]\u304F\u306A\u3063\u305F\u3002", en: "And so Haru\u2019s magic grew a little stronger again.", ru: "\u0422\u0430\u043A \u043C\u0430\u0433\u0438\u044F \u0425\u0430\u0440\u0443 \u0441\u0442\u0430\u043B\u0430 \u0435\u0449\u0451 \u043D\u0435\u043C\u043D\u043E\u0433\u043E \u0441\u0438\u043B\u044C\u043D\u0435\u0435." }
+    },
+    {
+      id: "kyoto",
+      open: { ja: "[\u4EAC\u90FD|\u304D\u3087\u3046\u3068]\u3078\u306E[\u65C5|\u305F\u3073]\u3002", en: "A trip to Kyoto.", ru: "\u041F\u043E\u0435\u0437\u0434\u043A\u0430 \u0432 \u041A\u0438\u043E\u0442\u043E." },
+      lines: [
+        { ja: "[\u671D|\u3042\u3055]\u306E[\u99C5|\u3048\u304D]\u3067\u3001\u30E6\u30AD\u306F[\u5207\u7B26|\u304D\u3063\u3077]\u306E[\u88CF|\u3046\u3089]\u306B\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F\u3002", en: "At the station in the morning, Yuki wrote \u201C{w}\u201D on the back of her ticket.", ru: "\u0423\u0442\u0440\u043E\u043C \u043D\u0430 \u0432\u043E\u043A\u0437\u0430\u043B\u0435 \u042E\u043A\u0438 \u043D\u0430\u043F\u0438\u0441\u0430\u043B\u0430 \xAB{w}\xBB \u043D\u0430 \u043E\u0431\u043E\u0440\u043E\u0442\u0435 \u0431\u0438\u043B\u0435\u0442\u0430." },
+        { ja: "[\u65B0\u5E79\u7DDA|\u3057\u3093\u304B\u3093\u305B\u3093]\u306E[\u4E2D|\u306A\u304B]\u3067\u3001[\u96A3|\u3068\u306A\u308A]\u306E[\u4EBA|\u3072\u3068]\u304C\u300C{w}\u300D\u306E[\u610F\u5473|\u3044\u307F]\u3092[\u6559|\u304A\u3057]\u3048\u3066\u304F\u308C\u305F\u3002", en: "On the bullet train, the person next to her explained what \u201C{w}\u201D means.", ru: "\u0412 \u0441\u0438\u043D\u043A\u0430\u043D\u0441\u044D\u043D\u0435 \u0441\u043E\u0441\u0435\u0434 \u043E\u0431\u044A\u044F\u0441\u043D\u0438\u043B \u0435\u0439, \u0447\u0442\u043E \u0437\u043D\u0430\u0447\u0438\u0442 \xAB{w}\xBB." },
+        { ja: "[\u4EAC\u90FD|\u304D\u3087\u3046\u3068][\u99C5|\u3048\u304D]\u306E[\u770B\u677F|\u304B\u3093\u3070\u3093]\u306B\u306F\u3001[\u5927|\u304A\u304A]\u304D\u304F\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u3066\u3042\u3063\u305F\u3002", en: "The sign at Kyoto Station said \u201C{w}\u201D in big letters.", ru: "\u041D\u0430 \u0432\u044B\u0432\u0435\u0441\u043A\u0435 \u0432\u043E\u043A\u0437\u0430\u043B\u0430 \u041A\u0438\u043E\u0442\u043E \u043A\u0440\u0443\u043F\u043D\u044B\u043C\u0438 \u0431\u0443\u043A\u0432\u0430\u043C\u0438 \u0431\u044B\u043B\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043E \xAB{w}\xBB." },
+        { ja: "[\u53E4|\u3075\u308B]\u3044\u304A[\u5BFA|\u3066\u3089]\u3067\u3001\u304A[\u574A|\u307C\u3046]\u3055\u3093\u304C\u300C{w}\u300D\u3068\u3044\u3046[\u8A00\u8449|\u3053\u3068\u3070]\u306B\u3064\u3044\u3066[\u8A71|\u306F\u306A]\u3057\u305F\u3002", en: "At an old temple, a monk talked about the word \u201C{w}\u201D.", ru: "\u0412 \u0441\u0442\u0430\u0440\u043E\u043C \u0445\u0440\u0430\u043C\u0435 \u043C\u043E\u043D\u0430\u0445 \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u044B\u0432\u0430\u043B \u043E \u0441\u043B\u043E\u0432\u0435 \xAB{w}\xBB." },
+        { ja: "[\u9053|\u307F\u3061]\u306B[\u8FF7|\u307E\u3088]\u3063\u305F\u3068\u304D\u3001\u30E6\u30AD\u306F[\u5730\u56F3|\u3061\u305A]\u3067\u300C{w}\u300D\u3092[\u63A2|\u3055\u304C]\u3057\u305F\u3002", en: "When she got lost, Yuki looked for \u201C{w}\u201D on the map.", ru: "\u0417\u0430\u0431\u043B\u0443\u0434\u0438\u0432\u0448\u0438\u0441\u044C, \u042E\u043A\u0438 \u0438\u0441\u043A\u0430\u043B\u0430 \u043D\u0430 \u043A\u0430\u0440\u0442\u0435 \xAB{w}\xBB." },
+        { ja: "[\u65C5\u9928|\u308A\u3087\u304B\u3093]\u306E[\u5973\u5C06|\u304A\u304B\u307F]\u3055\u3093\u306F\u300C{w}\u300D\u3068[\u8A00|\u3044]\u3063\u3066\u3001\u304A[\u8336|\u3061\u3083]\u3092[\u51FA|\u3060]\u3057\u3066\u304F\u308C\u305F\u3002", en: "The innkeeper said \u201C{w}\u201D and brought her some tea.", ru: "\u0425\u043E\u0437\u044F\u0439\u043A\u0430 \u0433\u043E\u0441\u0442\u0438\u043D\u0438\u0446\u044B \u0441\u043A\u0430\u0437\u0430\u043B\u0430 \xAB{w}\xBB \u0438 \u043F\u043E\u0434\u0430\u043B\u0430 \u0435\u0439 \u0447\u0430\u0439." },
+        { ja: "[\u591C|\u3088\u308B]\u3001[\u5DDD|\u304B\u308F]\u306E\u305D\u3070\u3067[\u53CB\u9054|\u3068\u3082\u3060\u3061]\u306B\u300C{w}\u300D\u3068\u3044\u3046\u30E1\u30C3\u30BB\u30FC\u30B8\u3092[\u9001|\u304A\u304F]\u3063\u305F\u3002", en: "At night, by the river, she sent her friend a message saying \u201C{w}\u201D.", ru: "\u0412\u0435\u0447\u0435\u0440\u043E\u043C \u0443 \u0440\u0435\u043A\u0438 \u043E\u043D\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u043B\u0430 \u0434\u0440\u0443\u0433\u0443 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \xAB{w}\xBB." },
+        { ja: "\u304A[\u571F\u7523|\u307F\u3084\u3052][\u5C4B|\u3084]\u3067\u3001\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F\u304A[\u5B88|\u307E\u3082]\u308A\u3092[\u8CB7|\u304B]\u3063\u305F\u3002", en: "At a souvenir shop, she bought a charm with \u201C{w}\u201D written on it.", ru: "\u0412 \u0441\u0443\u0432\u0435\u043D\u0438\u0440\u043D\u043E\u0439 \u043B\u0430\u0432\u043A\u0435 \u043E\u043D\u0430 \u043A\u0443\u043F\u0438\u043B\u0430 \u0430\u043C\u0443\u043B\u0435\u0442 \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB{w}\xBB." },
+        { ja: "[\u5199\u771F|\u3057\u3083\u3057\u3093]\u3092[\u898B|\u307F]\u308B\u3068\u3001\u300C{w}\u300D\u3068\u3044\u3046[\u770B\u677F|\u304B\u3093\u3070\u3093]\u304C[\u5F8C|\u3046\u3057]\u308D\u306B[\u5199|\u3046\u3064]\u3063\u3066\u3044\u305F\u3002", en: "In one of her photos, a sign saying \u201C{w}\u201D was in the background.", ru: "\u041D\u0430 \u043E\u0434\u043D\u043E\u0439 \u0438\u0437 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0439 \u043D\u0430 \u0437\u0430\u0434\u043D\u0435\u043C \u043F\u043B\u0430\u043D\u0435 \u0431\u044B\u043B\u0430 \u0432\u044B\u0432\u0435\u0441\u043A\u0430 \xAB{w}\xBB." },
+        { ja: "[\u5E30|\u304B\u3048]\u308A\u306E[\u96FB\u8ECA|\u3067\u3093\u3057\u3083]\u3067\u3001\u30E6\u30AD\u306F[\u65E5\u8A18|\u306B\u3063\u304D]\u306B\u300C{w}\u300D\u3092[\u4E09\u56DE|\u3055\u3093\u304B\u3044][\u66F8|\u304B]\u3044\u305F\u3002", en: "On the train home, Yuki wrote \u201C{w}\u201D three times in her diary.", ru: "\u0412 \u043F\u043E\u0435\u0437\u0434\u0435 \u0434\u043E\u043C\u043E\u0439 \u042E\u043A\u0438 \u0442\u0440\u0438\u0436\u0434\u044B \u0437\u0430\u043F\u0438\u0441\u0430\u043B\u0430 \xAB{w}\xBB \u0432 \u0434\u043D\u0435\u0432\u043D\u0438\u043A." }
+      ],
+      close: { ja: "[\u697D|\u305F\u306E]\u3057\u3044[\u65C5|\u305F\u3073]\u3067\u3001\u30E6\u30AD\u306E[\u65E5\u672C\u8A9E|\u306B\u307B\u3093\u3054]\u306F\u307E\u305F[\u4E0A\u624B|\u3058\u3087\u3046\u305A]\u306B\u306A\u3063\u305F\u3002", en: "On this fun trip, Yuki\u2019s Japanese got better again.", ru: "\u0417\u0430 \u044D\u0442\u0443 \u0432\u0435\u0441\u0451\u043B\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443 \u044F\u043F\u043E\u043D\u0441\u043A\u0438\u0439 \u042E\u043A\u0438 \u0441\u043D\u043E\u0432\u0430 \u0441\u0442\u0430\u043B \u043B\u0443\u0447\u0448\u0435." }
+    },
+    {
+      id: "detective",
+      open: { ja: "[\u6D88|\u304D]\u3048\u305F[\u624B\u7D19|\u3066\u304C\u307F]\u306E[\u8B0E|\u306A\u305E]\u3002", en: "The mystery of the vanished letter.", ru: "\u0422\u0430\u0439\u043D\u0430 \u043F\u0440\u043E\u043F\u0430\u0432\u0448\u0435\u0433\u043E \u043F\u0438\u0441\u044C\u043C\u0430." },
+      lines: [
+        { ja: "[\u63A2\u5075|\u305F\u3093\u3066\u3044]\u306E\u30DF\u30CA\u306F\u3001[\u673A|\u3064\u304F\u3048]\u306E[\u4E0A|\u3046\u3048]\u306B\u300C{w}\u300D\u3068\u3060\u3051[\u66F8|\u304B]\u304B\u308C\u305F[\u7D19|\u304B\u307F]\u3092[\u898B|\u307F]\u3064\u3051\u305F\u3002", en: "Detective Mina found a sheet of paper on the desk with only \u201C{w}\u201D written on it.", ru: "\u0421\u044B\u0449\u0438\u0446\u0430 \u041C\u0438\u043D\u0430 \u043D\u0430\u0448\u043B\u0430 \u043D\u0430 \u0441\u0442\u043E\u043B\u0435 \u043B\u0438\u0441\u0442\u043E\u043A, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u043E\u043C \u0431\u044B\u043B\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043E \u0442\u043E\u043B\u044C\u043A\u043E \xAB{w}\xBB." },
+        { ja: "[\u72AF\u4EBA|\u306F\u3093\u306B\u3093]\u306F[\u96FB\u8A71|\u3067\u3093\u308F]\u3067\u300C{w}\u300D\u3068[\u5C0F|\u3061\u3044]\u3055\u306A[\u58F0|\u3053\u3048]\u3067[\u8A00|\u3044]\u3063\u305F\u3002", en: "On the phone, the culprit said \u201C{w}\u201D in a quiet voice.", ru: "\u041F\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0443 \u043F\u0440\u0435\u0441\u0442\u0443\u043F\u043D\u0438\u043A \u0442\u0438\u0445\u043E \u0441\u043A\u0430\u0437\u0430\u043B \xAB{w}\xBB." },
+        { ja: "[\u8B66\u5BDF|\u3051\u3044\u3055\u3064]\u306E[\u4EBA|\u3072\u3068]\u306F\u300C{w}\u300D\u3068\u3044\u3046[\u8A00\u8449|\u3053\u3068\u3070]\u306E[\u610F\u5473|\u3044\u307F]\u304C\u308F\u304B\u3089\u306A\u304B\u3063\u305F\u3002", en: "The police officer didn\u2019t understand what the word \u201C{w}\u201D meant.", ru: "\u041F\u043E\u043B\u0438\u0446\u0435\u0439\u0441\u043A\u0438\u0439 \u043D\u0435 \u043F\u043E\u043D\u044F\u043B, \u0447\u0442\u043E \u0437\u043D\u0430\u0447\u0438\u0442 \u0441\u043B\u043E\u0432\u043E \xAB{w}\xBB." },
+        { ja: "\u30DF\u30CA\u306F[\u866B\u773C\u93E1|\u3080\u3057\u3081\u304C\u306D]\u3067\u3001[\u58C1|\u304B\u3079]\u306E\u300C{w}\u300D\u3068\u3044\u3046[\u6587\u5B57|\u3082\u3058]\u3092[\u8ABF|\u3057\u3089]\u3079\u305F\u3002", en: "With a magnifying glass, Mina examined the letters \u201C{w}\u201D on the wall.", ru: "\u041C\u0438\u043D\u0430 \u0440\u0430\u0441\u0441\u043C\u043E\u0442\u0440\u0435\u043B\u0430 \u0432 \u043B\u0443\u043F\u0443 \u043D\u0430\u0434\u043F\u0438\u0441\u044C \xAB{w}\xBB \u043D\u0430 \u0441\u0442\u0435\u043D\u0435." },
+        { ja: "[\u99C5|\u3048\u304D]\u306E[\u6642\u8A08|\u3068\u3051\u3044]\u306E[\u88CF|\u3046\u3089]\u306B\u3082\u3001\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u3066\u3042\u3063\u305F\u3002", en: "On the back of the station clock, too, \u201C{w}\u201D was written.", ru: "\u0418 \u043D\u0430 \u043E\u0431\u0440\u0430\u0442\u043D\u043E\u0439 \u0441\u0442\u043E\u0440\u043E\u043D\u0435 \u0432\u043E\u043A\u0437\u0430\u043B\u044C\u043D\u044B\u0445 \u0447\u0430\u0441\u043E\u0432 \u0431\u044B\u043B\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043E \xAB{w}\xBB." },
+        { ja: "[\u52A9\u624B|\u3058\u3087\u3057\u3085]\u306E\u30BF\u30ED\u30A6\u306F\u3001\u300C{w}\u300D\u304C[\u6697\u53F7|\u3042\u3093\u3054\u3046]\u3060\u3068[\u6C17|\u304D]\u3065\u3044\u305F\u3002", en: "Her assistant Taro realised that \u201C{w}\u201D was a code.", ru: "\u0415\u0451 \u043F\u043E\u043C\u043E\u0449\u043D\u0438\u043A \u0422\u0430\u0440\u043E \u0434\u043E\u0433\u0430\u0434\u0430\u043B\u0441\u044F, \u0447\u0442\u043E \xAB{w}\xBB \u2014 \u044D\u0442\u043E \u0448\u0438\u0444\u0440." },
+        { ja: "[\u53E4|\u3075\u308B]\u3044[\u65B0\u805E|\u3057\u3093\u3076\u3093]\u306B\u300C{w}\u300D\u3068\u3044\u3046[\u8A18\u4E8B|\u304D\u3058]\u304C\u3042\u3063\u305F\u3002", en: "An old newspaper had an article called \u201C{w}\u201D.", ru: "\u0412 \u0441\u0442\u0430\u0440\u043E\u0439 \u0433\u0430\u0437\u0435\u0442\u0435 \u043D\u0430\u0448\u043B\u0430\u0441\u044C \u0441\u0442\u0430\u0442\u044C\u044F \u043F\u043E\u0434 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\u043C \xAB{w}\xBB." },
+        { ja: "[\u96E8|\u3042\u3081]\u306E[\u591C|\u3088\u308B]\u3001\u30DF\u30CA\u306F\u300C{w}\u300D\u306E[\u8AAD|\u3088]\u307F[\u65B9|\u304B\u305F]\u304B\u3089[\u7B54|\u3053\u305F]\u3048\u3092[\u898B|\u307F]\u3064\u3051\u305F\u3002", en: "On a rainy night, Mina found the answer in the reading of \u201C{w}\u201D.", ru: "\u0414\u043E\u0436\u0434\u043B\u0438\u0432\u043E\u0439 \u043D\u043E\u0447\u044C\u044E \u041C\u0438\u043D\u0430 \u043D\u0430\u0448\u043B\u0430 \u043E\u0442\u0432\u0435\u0442 \u0432 \u0447\u0442\u0435\u043D\u0438\u0438 \u0441\u043B\u043E\u0432\u0430 \xAB{w}\xBB." },
+        { ja: "[\u72AF\u4EBA|\u306F\u3093\u306B\u3093]\u306F\u300C{w}\u300D\u3068[\u805E|\u304D]\u3044\u3066\u3001[\u9854|\u304B\u304A]\u304C[\u9752|\u3042\u304A]\u304F\u306A\u3063\u305F\u3002", en: "When the culprit heard \u201C{w}\u201D, he turned pale.", ru: "\u0423\u0441\u043B\u044B\u0448\u0430\u0432 \xAB{w}\xBB, \u043F\u0440\u0435\u0441\u0442\u0443\u043F\u043D\u0438\u043A \u043F\u043E\u0431\u043B\u0435\u0434\u043D\u0435\u043B." },
+        { ja: "[\u6700\u5F8C|\u3055\u3044\u3054]\u306B\u3001\u30DF\u30CA\u306F\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F[\u7BB1|\u306F\u3053]\u304B\u3089[\u624B\u7D19|\u3066\u304C\u307F]\u3092[\u51FA|\u3060]\u3057\u305F\u3002", en: "At last, Mina took the letter out of a box marked \u201C{w}\u201D.", ru: "\u041D\u0430\u043A\u043E\u043D\u0435\u0446 \u041C\u0438\u043D\u0430 \u0434\u043E\u0441\u0442\u0430\u043B\u0430 \u043F\u0438\u0441\u044C\u043C\u043E \u0438\u0437 \u043A\u043E\u0440\u043E\u0431\u043A\u0438 \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB{w}\xBB." }
+      ],
+      close: { ja: "\u3053\u3046\u3057\u3066\u3001[\u6D88|\u304D]\u3048\u305F[\u624B\u7D19|\u3066\u304C\u307F]\u306E[\u8B0E|\u306A\u305E]\u306F[\u89E3|\u3068]\u3051\u305F\u3002", en: "And so the mystery of the vanished letter was solved.", ru: "\u0422\u0430\u043A \u0442\u0430\u0439\u043D\u0430 \u043F\u0440\u043E\u043F\u0430\u0432\u0448\u0435\u0433\u043E \u043F\u0438\u0441\u044C\u043C\u0430 \u0431\u044B\u043B\u0430 \u0440\u0430\u0441\u043A\u0440\u044B\u0442\u0430." }
+    },
+    {
+      id: "sea",
+      open: { ja: "[\u5B9D\u5CF6|\u305F\u304B\u3089\u3058\u307E]\u3078\u306E[\u822A\u6D77|\u3053\u3046\u304B\u3044]\u3002", en: "A voyage to Treasure Island.", ru: "\u041F\u043B\u0430\u0432\u0430\u043D\u0438\u0435 \u043A \u041E\u0441\u0442\u0440\u043E\u0432\u0443 \u0441\u043E\u043A\u0440\u043E\u0432\u0438\u0449." },
+      lines: [
+        { ja: "[\u8239\u9577|\u305B\u3093\u3061\u3087\u3046]\u306E\u30EA\u30AF\u306F\u3001[\u53E4|\u3075\u308B]\u3044[\u5730\u56F3|\u3061\u305A]\u306B\u300C{w}\u300D\u3068\u3044\u3046[\u5370|\u3057\u308B\u3057]\u3092[\u898B|\u307F]\u3064\u3051\u305F\u3002", en: "Captain Riku found a mark saying \u201C{w}\u201D on an old map.", ru: "\u041A\u0430\u043F\u0438\u0442\u0430\u043D \u0420\u0438\u043A\u0443 \u043D\u0430\u0448\u0451\u043B \u043D\u0430 \u0441\u0442\u0430\u0440\u043E\u0439 \u043A\u0430\u0440\u0442\u0435 \u043E\u0442\u043C\u0435\u0442\u043A\u0443 \xAB{w}\xBB." },
+        { ja: "[\u6E2F|\u307F\u306A\u3068]\u306E[\u8001\u4EBA|\u308D\u3046\u3058\u3093]\u306F\u300C{w}\u300D\u3068[\u8A00|\u3044]\u3063\u3066\u3001[\u5317|\u304D\u305F]\u306E[\u6D77|\u3046\u307F]\u3092[\u6307|\u3086\u3073]\u3055\u3057\u305F\u3002", en: "An old man at the harbour said \u201C{w}\u201D and pointed at the northern sea.", ru: "\u0421\u0442\u0430\u0440\u0438\u043A \u0432 \u043F\u043E\u0440\u0442\u0443 \u0441\u043A\u0430\u0437\u0430\u043B \xAB{w}\xBB \u0438 \u0443\u043A\u0430\u0437\u0430\u043B \u043D\u0430 \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u043C\u043E\u0440\u0435." },
+        { ja: "[\u5D50|\u3042\u3089\u3057]\u306E[\u591C|\u3088\u308B]\u3001[\u8239|\u3075\u306D]\u306E[\u4EF2\u9593|\u306A\u304B\u307E]\u306F\u300C{w}\u300D\u3068[\u53EB|\u3055\u3051]\u3093\u3060\u3002", en: "On a stormy night, the crew shouted \u201C{w}\u201D.", ru: "\u0412 \u0448\u0442\u043E\u0440\u043C\u043E\u0432\u0443\u044E \u043D\u043E\u0447\u044C \u043A\u043E\u043C\u0430\u043D\u0434\u0430 \u043A\u0440\u0438\u0447\u0430\u043B\u0430 \xAB{w}\xBB." },
+        { ja: "\u30AB\u30E2\u30E1\u304C[\u904B|\u306F\u3053]\u3093\u3067\u304D\u305F[\u74F6|\u3073\u3093]\u306E[\u4E2D|\u306A\u304B]\u306B\u3001\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F[\u7D19|\u304B\u307F]\u304C\u3042\u3063\u305F\u3002", en: "Inside a bottle brought by a seagull was a note saying \u201C{w}\u201D.", ru: "\u0412 \u0431\u0443\u0442\u044B\u043B\u043A\u0435, \u043A\u043E\u0442\u043E\u0440\u0443\u044E \u043F\u0440\u0438\u043D\u0435\u0441\u043B\u0430 \u0447\u0430\u0439\u043A\u0430, \u0431\u044B\u043B\u0430 \u0437\u0430\u043F\u0438\u0441\u043A\u0430 \xAB{w}\xBB." },
+        { ja: "\u30EA\u30AF\u306F[\u661F|\u307B\u3057]\u3092[\u898B|\u307F]\u306A\u304C\u3089\u3001\u300C{w}\u300D\u306E[\u610F\u5473|\u3044\u307F]\u3092[\u8003|\u304B\u3093\u304C]\u3048\u305F\u3002", en: "Looking at the stars, Riku thought about what \u201C{w}\u201D meant.", ru: "\u0413\u043B\u044F\u0434\u044F \u043D\u0430 \u0437\u0432\u0451\u0437\u0434\u044B, \u0420\u0438\u043A\u0443 \u0440\u0430\u0437\u043C\u044B\u0448\u043B\u044F\u043B, \u0447\u0442\u043E \u0437\u043D\u0430\u0447\u0438\u0442 \xAB{w}\xBB." },
+        { ja: "[\u5CF6|\u3057\u307E]\u306E[\u5165|\u3044]\u308A[\u53E3|\u3050\u3061]\u306E[\u5CA9|\u3044\u308F]\u306B\u306F\u3001\u300C{w}\u300D\u3068\u3044\u3046[\u6587\u5B57|\u3082\u3058]\u304C[\u5F6B|\u307B]\u3063\u3066\u3042\u3063\u305F\u3002", en: "The word \u201C{w}\u201D was carved into the rock at the island\u2019s entrance.", ru: "\u041D\u0430 \u0441\u043A\u0430\u043B\u0435 \u0443 \u0432\u0445\u043E\u0434\u0430 \u043D\u0430 \u043E\u0441\u0442\u0440\u043E\u0432 \u0431\u044B\u043B\u043E \u0432\u044B\u0441\u0435\u0447\u0435\u043D\u043E \xAB{w}\xBB." },
+        { ja: "[\u6D1E\u7A9F|\u3069\u3046\u304F\u3064]\u306E[\u6249|\u3068\u3073\u3089]\u306F\u3001\u300C{w}\u300D\u3068[\u8A00|\u3044]\u3046\u3068[\u958B|\u3072\u3089]\u3044\u305F\u3002", en: "The cave door opened when he said \u201C{w}\u201D.", ru: "\u0414\u0432\u0435\u0440\u044C \u043F\u0435\u0449\u0435\u0440\u044B \u043E\u0442\u043A\u0440\u044B\u043B\u0430\u0441\u044C, \u043A\u043E\u0433\u0434\u0430 \u043E\u043D \u0441\u043A\u0430\u0437\u0430\u043B \xAB{w}\xBB." },
+        { ja: "[\u4EF2\u9593|\u306A\u304B\u307E]\u306E\u30A2\u30AA\u30A4\u306F\u300C{w}\u300D\u304C[\u8AAD|\u3088]\u3081\u305F\u306E\u3067\u3001[\u7F60|\u308F\u306A]\u306B[\u6C17|\u304D]\u3065\u3044\u305F\u3002", en: "Because his crewmate Aoi could read \u201C{w}\u201D, she spotted the trap.", ru: "\u0415\u0433\u043E \u043F\u043E\u0434\u0440\u0443\u0433\u0430 \u043F\u043E \u043A\u043E\u043C\u0430\u043D\u0434\u0435 \u0410\u043E\u0439 \u0441\u043C\u043E\u0433\u043B\u0430 \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C \xAB{w}\xBB \u0438 \u0437\u0430\u043C\u0435\u0442\u0438\u043B\u0430 \u043B\u043E\u0432\u0443\u0448\u043A\u0443." },
+        { ja: "[\u5B9D\u7BB1|\u305F\u304B\u3089\u3070\u3053]\u306E\u3075\u305F\u306B\u306F\u3001[\u91D1\u8272|\u304D\u3093\u3044\u308D]\u306E[\u6587\u5B57|\u3082\u3058]\u3067\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u3066\u3042\u3063\u305F\u3002", en: "The lid of the treasure chest said \u201C{w}\u201D in golden letters.", ru: "\u041D\u0430 \u043A\u0440\u044B\u0448\u043A\u0435 \u0441\u0443\u043D\u0434\u0443\u043A\u0430 \u0437\u043E\u043B\u043E\u0442\u044B\u043C\u0438 \u0431\u0443\u043A\u0432\u0430\u043C\u0438 \u0431\u044B\u043B\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043E \xAB{w}\xBB." },
+        { ja: "[\u5E30|\u304B\u3048]\u308A\u306E[\u8239|\u3075\u306D]\u3067\u3001\u307F\u3093\u306A\u306F\u300C{w}\u300D\u3068\u3044\u3046[\u6B4C|\u3046\u305F]\u3092[\u6B4C|\u3046\u305F]\u3063\u305F\u3002", en: "On the voyage home, everyone sang a song called \u201C{w}\u201D.", ru: "\u041D\u0430 \u043E\u0431\u0440\u0430\u0442\u043D\u043E\u043C \u043F\u0443\u0442\u0438 \u0432\u0441\u0435 \u043F\u0435\u043B\u0438 \u043F\u0435\u0441\u043D\u044E \xAB{w}\xBB." }
+      ],
+      close: { ja: "\u3053\u3046\u3057\u3066\u3001\u30EA\u30AF\u305F\u3061\u306F[\u5B9D\u7269|\u305F\u304B\u3089\u3082\u306E]\u3092[\u6301|\u3082]\u3063\u3066[\u6E2F|\u307F\u306A\u3068]\u306B[\u5E30|\u304B\u3048]\u3063\u305F\u3002", en: "And so Riku and his crew came back to the harbour with the treasure.", ru: "\u0422\u0430\u043A \u0420\u0438\u043A\u0443 \u0438 \u0435\u0433\u043E \u043A\u043E\u043C\u0430\u043D\u0434\u0430 \u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u0432 \u043F\u043E\u0440\u0442 \u0441 \u0441\u043E\u043A\u0440\u043E\u0432\u0438\u0449\u0435\u043C." }
+    },
+    {
+      id: "space",
+      open: { ja: "[\u6708|\u3064\u304D]\u3078\u306E[\u65C5|\u305F\u3073]\u3002", en: "A journey to the Moon.", ru: "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435 \u043D\u0430 \u041B\u0443\u043D\u0443." },
+      lines: [
+        { ja: "[\u5B87\u5B99\u98DB\u884C\u58EB|\u3046\u3061\u3085\u3046\u3072\u3053\u3046\u3057]\u306E\u30BD\u30E9\u306F\u3001[\u51FA\u767A|\u3057\u3085\u3063\u3071\u3064]\u306E[\u524D|\u307E\u3048]\u306B\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F\u30E1\u30E2\u3092[\u6301|\u3082]\u3063\u305F\u3002", en: "Before take-off, the astronaut Sora took a note with \u201C{w}\u201D written on it.", ru: "\u041F\u0435\u0440\u0435\u0434 \u0441\u0442\u0430\u0440\u0442\u043E\u043C \u043A\u043E\u0441\u043C\u043E\u043D\u0430\u0432\u0442\u043A\u0430 \u0421\u043E\u0440\u0430 \u0432\u0437\u044F\u043B\u0430 \u0441 \u0441\u043E\u0431\u043E\u0439 \u0437\u0430\u043F\u0438\u0441\u043A\u0443 \xAB{w}\xBB." },
+        { ja: "\u30ED\u30B1\u30C3\u30C8\u306E[\u4E2D|\u306A\u304B]\u3067\u3001[\u753B\u9762|\u304C\u3081\u3093]\u306B\u300C{w}\u300D\u3068\u3044\u3046[\u6587\u5B57|\u3082\u3058]\u304C[\u51FA|\u3067]\u305F\u3002", en: "Inside the rocket, the word \u201C{w}\u201D appeared on the screen.", ru: "\u0412 \u0440\u0430\u043A\u0435\u0442\u0435 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u043F\u043E\u044F\u0432\u0438\u043B\u043E\u0441\u044C \u0441\u043B\u043E\u0432\u043E \xAB{w}\xBB." },
+        { ja: "[\u5730\u7403|\u3061\u304D\u3085\u3046]\u306E[\u57FA\u5730|\u304D\u3061]\u304B\u3089\u300C{w}\u300D\u3068\u3044\u3046[\u901A\u4FE1|\u3064\u3046\u3057\u3093]\u304C[\u6765|\u304D]\u305F\u3002", en: "A message saying \u201C{w}\u201D came from the base on Earth.", ru: "\u0421 \u0431\u0430\u0437\u044B \u043D\u0430 \u0417\u0435\u043C\u043B\u0435 \u043F\u0440\u0438\u0448\u043B\u043E \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \xAB{w}\xBB." },
+        { ja: "\u30ED\u30DC\u30C3\u30C8\u306E\u30D4\u30B3\u306F\u300C{w}\u300D\u306E[\u8AAD|\u3088]\u307F[\u65B9|\u304B\u305F]\u3092[\u9593\u9055|\u307E\u3061\u304C]\u3048\u305F\u3002", en: "Piko the robot read \u201C{w}\u201D the wrong way.", ru: "\u0420\u043E\u0431\u043E\u0442 \u041F\u0438\u043A\u043E \u043D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u043B \xAB{w}\xBB." },
+        { ja: "\u30BD\u30E9\u306F[\u7121\u7DDA|\u3080\u305B\u3093]\u3067\u300C{w}\u300D\u3068[\u7B54|\u3053\u305F]\u3048\u305F\u3002", en: "Sora answered \u201C{w}\u201D over the radio.", ru: "\u0421\u043E\u0440\u0430 \u043E\u0442\u0432\u0435\u0442\u0438\u043B\u0430 \u043F\u043E \u0440\u0430\u0434\u0438\u043E: \xAB{w}\xBB." },
+        { ja: "[\u6708|\u3064\u304D]\u306E[\u77F3|\u3044\u3057]\u306B\u3001\u3060\u308C\u304B\u304C\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u3066\u3044\u305F\u3002", en: "Someone had written \u201C{w}\u201D on a moon rock.", ru: "\u041A\u0442\u043E-\u0442\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043B \xAB{w}\xBB \u043D\u0430 \u043B\u0443\u043D\u043D\u043E\u043C \u043A\u0430\u043C\u043D\u0435." },
+        { ja: "[\u661F|\u307B\u3057]\u306E[\u5730\u56F3|\u3061\u305A]\u306B\u306F\u300C{w}\u300D\u3068\u3044\u3046[\u540D\u524D|\u306A\u307E\u3048]\u306E[\u661F|\u307B\u3057]\u304C\u3042\u3063\u305F\u3002", en: "The star map showed a star named \u201C{w}\u201D.", ru: "\u041D\u0430 \u0437\u0432\u0451\u0437\u0434\u043D\u043E\u0439 \u043A\u0430\u0440\u0442\u0435 \u0431\u044B\u043B\u0430 \u0437\u0432\u0435\u0437\u0434\u0430 \u043F\u043E \u0438\u043C\u0435\u043D\u0438 \xAB{w}\xBB." },
+        { ja: "[\u7A93|\u307E\u3069]\u306E[\u5916|\u305D\u3068]\u306E[\u9752|\u3042\u304A]\u3044[\u5730\u7403|\u3061\u304D\u3085\u3046]\u3092[\u898B|\u307F]\u3066\u3001\u30BD\u30E9\u306F\u300C{w}\u300D\u3068\u3064\u3076\u3084\u3044\u305F\u3002", en: "Looking at the blue Earth outside the window, Sora murmured \u201C{w}\u201D.", ru: "\u0413\u043B\u044F\u0434\u044F \u0432 \u043E\u043A\u043D\u043E \u043D\u0430 \u0433\u043E\u043B\u0443\u0431\u0443\u044E \u0417\u0435\u043C\u043B\u044E, \u0421\u043E\u0440\u0430 \u043F\u0440\u043E\u0448\u0435\u043F\u0442\u0430\u043B\u0430 \xAB{w}\xBB." },
+        { ja: "[\u5E30|\u304B\u3048]\u308B[\u524D|\u307E\u3048]\u306B\u3001\u30BD\u30E9\u306F[\u65D7|\u306F\u305F]\u306B\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F\u3002", en: "Before heading home, Sora wrote \u201C{w}\u201D on the flag.", ru: "\u041F\u0435\u0440\u0435\u0434 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0435\u043D\u0438\u0435\u043C \u0421\u043E\u0440\u0430 \u043D\u0430\u043F\u0438\u0441\u0430\u043B\u0430 \u043D\u0430 \u0444\u043B\u0430\u0433\u0435 \xAB{w}\xBB." },
+        { ja: "[\u5730\u7403|\u3061\u304D\u3085\u3046]\u306B[\u7740|\u3064]\u304F\u3068\u3001[\u5B50|\u3053]\u3069\u3082\u305F\u3061\u304C\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F[\u7D19|\u304B\u307F]\u3092[\u6301|\u3082]\u3063\u3066[\u5F85|\u307E]\u3063\u3066\u3044\u305F\u3002", en: "Back on Earth, children were waiting with signs saying \u201C{w}\u201D.", ru: "\u041D\u0430 \u0417\u0435\u043C\u043B\u0435 \u0435\u0451 \u0436\u0434\u0430\u043B\u0438 \u0434\u0435\u0442\u0438 \u0441 \u043F\u043B\u0430\u043A\u0430\u0442\u0430\u043C\u0438 \xAB{w}\xBB." }
+      ],
+      close: { ja: "\u3053\u3046\u3057\u3066\u3001\u30BD\u30E9\u306E[\u9577|\u306A\u304C]\u3044[\u65C5|\u305F\u3073]\u306F[\u7D42|\u304A]\u308F\u3063\u305F\u3002", en: "And so Sora\u2019s long journey came to an end.", ru: "\u0422\u0430\u043A \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u043B\u043E\u0441\u044C \u0434\u043E\u043B\u0433\u043E\u0435 \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435 \u0421\u043E\u0440\u044B." }
+    },
+    {
+      id: "cafe",
+      open: { ja: "[\u5C0F|\u3061\u3044]\u3055\u306A[\u55AB\u8336\u5E97|\u304D\u3063\u3055\u3066\u3093]\u306E[\u4E00\u65E5|\u3044\u3061\u306B\u3061]\u3002", en: "A day at a little caf\xE9.", ru: "\u041E\u0434\u0438\u043D \u0434\u0435\u043D\u044C \u0432 \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u043C \u043A\u0430\u0444\u0435." },
+      lines: [
+        { ja: "[\u671D|\u3042\u3055]\u3001[\u5E97\u9577|\u3066\u3093\u3061\u3087\u3046]\u306E\u30E1\u30A4\u306F[\u9ED2\u677F|\u3053\u304F\u3070\u3093]\u306B\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F\u3002", en: "In the morning, Mei, the caf\xE9 owner, wrote \u201C{w}\u201D on the blackboard.", ru: "\u0423\u0442\u0440\u043E\u043C \u0445\u043E\u0437\u044F\u0439\u043A\u0430 \u043A\u0430\u0444\u0435 \u041C\u044D\u0439 \u043D\u0430\u043F\u0438\u0441\u0430\u043B\u0430 \u043D\u0430 \u0434\u043E\u0441\u043A\u0435 \xAB{w}\xBB." },
+        { ja: "[\u6700\u521D|\u3055\u3044\u3057\u3087]\u306E\u304A[\u5BA2|\u304D\u3083\u304F]\u3055\u3093\u306F\u3001\u300C{w}\u300D\u3068\u3044\u3046[\u540D\u524D|\u306A\u307E\u3048]\u306E\u30B1\u30FC\u30AD\u3092[\u6CE8\u6587|\u3061\u3085\u3046\u3082\u3093]\u3057\u305F\u3002", en: "The first customer ordered a cake called \u201C{w}\u201D.", ru: "\u041F\u0435\u0440\u0432\u044B\u0439 \u043F\u043E\u0441\u0435\u0442\u0438\u0442\u0435\u043B\u044C \u0437\u0430\u043A\u0430\u0437\u0430\u043B \u0442\u043E\u0440\u0442 \u043F\u043E\u0434 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\u043C \xAB{w}\xBB." },
+        { ja: "[\u732B|\u306D\u3053]\u306E\u30E2\u30C1\u306F\u3001\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F[\u7BB1|\u306F\u3053]\u306E[\u4E0A|\u3046\u3048]\u3067[\u5BDD|\u306D]\u3066\u3044\u305F\u3002", en: "Mochi the cat was asleep on a box marked \u201C{w}\u201D.", ru: "\u041A\u043E\u0448\u043A\u0430 \u041C\u043E\u0442\u0438 \u0441\u043F\u0430\u043B\u0430 \u043D\u0430 \u043A\u043E\u0440\u043E\u0431\u043A\u0435 \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB{w}\xBB." },
+        { ja: "[\u5E38\u9023|\u3058\u3087\u3046\u308C\u3093]\u306E\u304A\u3058\u3044\u3055\u3093\u306F\u300C{w}\u300D\u3068[\u8A00|\u3044]\u3063\u3066[\u7B11|\u308F\u3089]\u3063\u305F\u3002", en: "An old regular said \u201C{w}\u201D and laughed.", ru: "\u0421\u0442\u0430\u0440\u0438\u0447\u043E\u043A-\u0437\u0430\u0432\u0441\u0435\u0433\u0434\u0430\u0442\u0430\u0439 \u0441\u043A\u0430\u0437\u0430\u043B \xAB{w}\xBB \u0438 \u0437\u0430\u0441\u043C\u0435\u044F\u043B\u0441\u044F." },
+        { ja: "\u30E1\u30A4\u306F[\u65B0|\u3042\u305F\u3089]\u3057\u3044\u30AB\u30C3\u30D7\u306B\u300C{w}\u300D\u3068\u3044\u3046[\u5B57|\u3058]\u3092[\u63CF|\u304B]\u3044\u305F\u3002", en: "Mei painted the word \u201C{w}\u201D on a new cup.", ru: "\u041C\u044D\u0439 \u043D\u0430\u0440\u0438\u0441\u043E\u0432\u0430\u043B\u0430 \u043D\u0430 \u043D\u043E\u0432\u043E\u0439 \u0447\u0430\u0448\u043A\u0435 \u043D\u0430\u0434\u043F\u0438\u0441\u044C \xAB{w}\xBB." },
+        { ja: "[\u96E8|\u3042\u3081]\u306E[\u65E5|\u3072]\u3001[\u5E97|\u307F\u305B]\u306E[\u524D|\u307E\u3048]\u306E[\u770B\u677F|\u304B\u3093\u3070\u3093]\u304C\u300C{w}\u300D\u306B[\u5909|\u304B]\u308F\u3063\u3066\u3044\u305F\u3002", en: "On a rainy day, the sign in front of the caf\xE9 had changed to \u201C{w}\u201D.", ru: "\u0412 \u0434\u043E\u0436\u0434\u043B\u0438\u0432\u044B\u0439 \u0434\u0435\u043D\u044C \u0432\u044B\u0432\u0435\u0441\u043A\u0430 \u043F\u0435\u0440\u0435\u0434 \u043A\u0430\u0444\u0435 \u0441\u043C\u0435\u043D\u0438\u043B\u0430\u0441\u044C \u043D\u0430 \xAB{w}\xBB." },
+        { ja: "[\u5B50|\u3053]\u3069\u3082\u304C\u300C{w}\u300D\u306E[\u610F\u5473|\u3044\u307F]\u3092[\u805E|\u304D]\u3044\u305F\u306E\u3067\u3001\u30E1\u30A4\u306F[\u7D75|\u3048]\u3067[\u8AAC\u660E|\u305B\u3064\u3081\u3044]\u3057\u305F\u3002", en: "A child asked what \u201C{w}\u201D meant, so Mei explained it with a drawing.", ru: "\u0420\u0435\u0431\u0451\u043D\u043E\u043A \u0441\u043F\u0440\u043E\u0441\u0438\u043B, \u0447\u0442\u043E \u0437\u043D\u0430\u0447\u0438\u0442 \xAB{w}\xBB, \u0438 \u041C\u044D\u0439 \u043E\u0431\u044A\u044F\u0441\u043D\u0438\u043B\u0430 \u044D\u0442\u043E \u0440\u0438\u0441\u0443\u043D\u043A\u043E\u043C." },
+        { ja: "[\u5915\u65B9|\u3086\u3046\u304C\u305F]\u3001\u30E9\u30B8\u30AA\u304B\u3089\u300C{w}\u300D\u3068\u3044\u3046[\u6B4C|\u3046\u305F]\u304C[\u6D41|\u306A\u304C]\u308C\u305F\u3002", en: "In the evening, a song called \u201C{w}\u201D came on the radio.", ru: "\u0412\u0435\u0447\u0435\u0440\u043E\u043C \u043F\u043E \u0440\u0430\u0434\u0438\u043E \u0437\u0430\u0438\u0433\u0440\u0430\u043B\u0430 \u043F\u0435\u0441\u043D\u044F \xAB{w}\xBB." },
+        { ja: "[\u5916\u56FD|\u304C\u3044\u3053\u304F]\u304B\u3089[\u6765|\u304D]\u305F\u304A[\u5BA2|\u304D\u3083\u304F]\u3055\u3093\u306F\u3001\u300C{w}\u300D\u306E[\u8AAD|\u3088]\u307F[\u65B9|\u304B\u305F]\u3092\u30E1\u30A4\u306B[\u805E|\u304D]\u3044\u305F\u3002", en: "A visitor from abroad asked Mei how to read \u201C{w}\u201D.", ru: "\u0413\u043E\u0441\u0442\u044C \u0438\u0437-\u0437\u0430 \u0433\u0440\u0430\u043D\u0438\u0446\u044B \u0441\u043F\u0440\u043E\u0441\u0438\u043B \u0443 \u041C\u044D\u0439, \u043A\u0430\u043A \u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \xAB{w}\xBB." },
+        { ja: "[\u9589\u5E97|\u3078\u3044\u3066\u3093]\u306E[\u5F8C|\u3042\u3068]\u3001\u30E1\u30A4\u306F[\u65E5\u8A18|\u306B\u3063\u304D]\u306B\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F\u3002", en: "After closing time, Mei wrote \u201C{w}\u201D in her diary.", ru: "\u041F\u043E\u0441\u043B\u0435 \u0437\u0430\u043A\u0440\u044B\u0442\u0438\u044F \u041C\u044D\u0439 \u0437\u0430\u043F\u0438\u0441\u0430\u043B\u0430 \u0432 \u0434\u043D\u0435\u0432\u043D\u0438\u043A \xAB{w}\xBB." }
+      ],
+      close: { ja: "\u3053\u3046\u3057\u3066\u3001[\u55AB\u8336\u5E97|\u304D\u3063\u3055\u3066\u3093]\u306E[\u4E00\u65E5|\u3044\u3061\u306B\u3061]\u306F[\u9759|\u3057\u305A]\u304B\u306B[\u7D42|\u304A]\u308F\u3063\u305F\u3002", en: "And so the caf\xE9\u2019s day came quietly to an end.", ru: "\u0422\u0430\u043A \u0442\u0438\u0445\u043E \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u043B\u0441\u044F \u0434\u0435\u043D\u044C \u0432 \u043A\u0430\u0444\u0435." }
+    }
+  ];
+  var STORY_GLOSS = {
+    // Kyoto
+    "\u4EAC\u90FD|\u304D\u3087\u3046\u3068": ["\u4EAC\u90FD", "Kyoto", "\u041A\u0438\u043E\u0442\u043E"],
+    "\u65C5|\u305F\u3073": ["\u65C5", "journey, trip", "\u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435"],
+    "\u99C5|\u3048\u304D": ["\u99C5", "station", "\u0441\u0442\u0430\u043D\u0446\u0438\u044F, \u0432\u043E\u043A\u0437\u0430\u043B"],
+    "\u5207\u7B26|\u304D\u3063\u3077": ["\u5207\u7B26", "ticket", "\u0431\u0438\u043B\u0435\u0442"],
+    "\u88CF|\u3046\u3089": ["\u88CF", "back, reverse side", "\u043E\u0431\u0440\u0430\u0442\u043D\u0430\u044F \u0441\u0442\u043E\u0440\u043E\u043D\u0430"],
+    "\u65B0\u5E79\u7DDA|\u3057\u3093\u304B\u3093\u305B\u3093": ["\u65B0\u5E79\u7DDA", "bullet train", "\u0441\u0438\u043D\u043A\u0430\u043D\u0441\u044D\u043D"],
+    "\u96A3|\u3068\u306A\u308A": ["\u96A3", "next to, neighbour", "\u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439"],
+    "\u4EBA|\u3072\u3068": ["\u4EBA", "person", "\u0447\u0435\u043B\u043E\u0432\u0435\u043A"],
+    "\u6559|\u304A\u3057": ["\u6559\u3048\u308B", "to teach, to tell", "\u0443\u0447\u0438\u0442\u044C, \u043E\u0431\u044A\u044F\u0441\u043D\u044F\u0442\u044C"],
+    "\u770B\u677F|\u304B\u3093\u3070\u3093": ["\u770B\u677F", "sign, signboard", "\u0432\u044B\u0432\u0435\u0441\u043A\u0430"],
+    "\u5927|\u304A\u304A": ["\u5927\u304D\u3044", "big", "\u0431\u043E\u043B\u044C\u0448\u043E\u0439"],
+    "\u5BFA|\u3066\u3089": ["\u5BFA", "temple", "\u0445\u0440\u0430\u043C"],
+    "\u574A|\u307C\u3046": ["\u304A\u574A\u3055\u3093", "monk", "\u043C\u043E\u043D\u0430\u0445"],
+    "\u8A71|\u306F\u306A": ["\u8A71\u3059", "to talk, to speak", "\u0433\u043E\u0432\u043E\u0440\u0438\u0442\u044C"],
+    "\u9053|\u307F\u3061": ["\u9053", "road, way", "\u0434\u043E\u0440\u043E\u0433\u0430"],
+    "\u8FF7|\u307E\u3088": ["\u8FF7\u3046", "to get lost", "\u0437\u0430\u0431\u043B\u0443\u0434\u0438\u0442\u044C\u0441\u044F"],
+    "\u5730\u56F3|\u3061\u305A": ["\u5730\u56F3", "map", "\u043A\u0430\u0440\u0442\u0430"],
+    "\u63A2|\u3055\u304C": ["\u63A2\u3059", "to look for", "\u0438\u0441\u043A\u0430\u0442\u044C"],
+    "\u65C5\u9928|\u308A\u3087\u304B\u3093": ["\u65C5\u9928", "Japanese inn", "\u044F\u043F\u043E\u043D\u0441\u043A\u0430\u044F \u0433\u043E\u0441\u0442\u0438\u043D\u0438\u0446\u0430"],
+    "\u5973\u5C06|\u304A\u304B\u307F": ["\u5973\u5C06", "landlady (of an inn)", "\u0445\u043E\u0437\u044F\u0439\u043A\u0430"],
+    "\u8336|\u3061\u3083": ["\u304A\u8336", "tea", "\u0447\u0430\u0439"],
+    "\u5DDD|\u304B\u308F": ["\u5DDD", "river", "\u0440\u0435\u043A\u0430"],
+    "\u9001|\u304A\u304F": ["\u9001\u308B", "to send", "\u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u0442\u044C"],
+    "\u571F\u7523|\u307F\u3084\u3052": ["\u304A\u571F\u7523", "souvenir", "\u0441\u0443\u0432\u0435\u043D\u0438\u0440"],
+    "\u5C4B|\u3084": ["\u301C\u5C4B", "shop", "\u043B\u0430\u0432\u043A\u0430"],
+    "\u5B88|\u307E\u3082": ["\u304A\u5B88\u308A", "lucky charm", "\u0430\u043C\u0443\u043B\u0435\u0442"],
+    "\u8CB7|\u304B": ["\u8CB7\u3046", "to buy", "\u043F\u043E\u043A\u0443\u043F\u0430\u0442\u044C"],
+    "\u5199\u771F|\u3057\u3083\u3057\u3093": ["\u5199\u771F", "photo", "\u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u044F"],
+    "\u898B|\u307F": ["\u898B\u308B", "to see, to look", "\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C"],
+    "\u5199|\u3046\u3064": ["\u5199\u308B", "to be in (a photo)", "\u043F\u043E\u043F\u0430\u0441\u0442\u044C \u0432 \u043A\u0430\u0434\u0440"],
+    "\u5E30|\u304B\u3048": ["\u5E30\u308B", "to go home, to return", "\u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0442\u044C\u0441\u044F"],
+    "\u96FB\u8ECA|\u3067\u3093\u3057\u3083": ["\u96FB\u8ECA", "train", "\u043F\u043E\u0435\u0437\u0434"],
+    "\u65E5\u8A18|\u306B\u3063\u304D": ["\u65E5\u8A18", "diary", "\u0434\u043D\u0435\u0432\u043D\u0438\u043A"],
+    "\u697D|\u305F\u306E": ["\u697D\u3057\u3044", "fun", "\u0432\u0435\u0441\u0451\u043B\u044B\u0439"],
+    "\u65E5\u672C\u8A9E|\u306B\u307B\u3093\u3054": ["\u65E5\u672C\u8A9E", "Japanese (language)", "\u044F\u043F\u043E\u043D\u0441\u043A\u0438\u0439 \u044F\u0437\u044B\u043A"],
+    "\u4E0A\u624B|\u3058\u3087\u3046\u305A": ["\u4E0A\u624B", "good at, skilful", "\u0443\u043C\u0435\u043B\u044B\u0439"],
+    // detective
+    "\u6D88|\u304D": ["\u6D88\u3048\u308B", "to vanish", "\u0438\u0441\u0447\u0435\u0437\u0430\u0442\u044C"],
+    "\u624B\u7D19|\u3066\u304C\u307F": ["\u624B\u7D19", "letter", "\u043F\u0438\u0441\u044C\u043C\u043E"],
+    "\u8B0E|\u306A\u305E": ["\u8B0E", "mystery, riddle", "\u0437\u0430\u0433\u0430\u0434\u043A\u0430"],
+    "\u63A2\u5075|\u305F\u3093\u3066\u3044": ["\u63A2\u5075", "detective", "\u0441\u044B\u0449\u0438\u043A"],
+    "\u4E0A|\u3046\u3048": ["\u4E0A", "on, above", "\u043D\u0430, \u043D\u0430\u0434"],
+    "\u7D19|\u304B\u307F": ["\u7D19", "paper", "\u0431\u0443\u043C\u0430\u0433\u0430"],
+    "\u72AF\u4EBA|\u306F\u3093\u306B\u3093": ["\u72AF\u4EBA", "culprit", "\u043F\u0440\u0435\u0441\u0442\u0443\u043F\u043D\u0438\u043A"],
+    "\u96FB\u8A71|\u3067\u3093\u308F": ["\u96FB\u8A71", "telephone", "\u0442\u0435\u043B\u0435\u0444\u043E\u043D"],
+    "\u5C0F|\u3061\u3044": ["\u5C0F\u3055\u3044", "small", "\u043C\u0430\u043B\u0435\u043D\u044C\u043A\u0438\u0439"],
+    "\u8B66\u5BDF|\u3051\u3044\u3055\u3064": ["\u8B66\u5BDF", "police", "\u043F\u043E\u043B\u0438\u0446\u0438\u044F"],
+    "\u866B\u773C\u93E1|\u3080\u3057\u3081\u304C\u306D": ["\u866B\u773C\u93E1", "magnifying glass", "\u043B\u0443\u043F\u0430"],
+    "\u58C1|\u304B\u3079": ["\u58C1", "wall", "\u0441\u0442\u0435\u043D\u0430"],
+    "\u6587\u5B57|\u3082\u3058": ["\u6587\u5B57", "letter, character", "\u0431\u0443\u043A\u0432\u0430, \u0438\u0435\u0440\u043E\u0433\u043B\u0438\u0444"],
+    "\u8ABF|\u3057\u3089": ["\u8ABF\u3079\u308B", "to examine, to look into", "\u0438\u0441\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u0442\u044C"],
+    "\u6642\u8A08|\u3068\u3051\u3044": ["\u6642\u8A08", "clock, watch", "\u0447\u0430\u0441\u044B"],
+    "\u52A9\u624B|\u3058\u3087\u3057\u3085": ["\u52A9\u624B", "assistant", "\u043F\u043E\u043C\u043E\u0449\u043D\u0438\u043A"],
+    "\u6697\u53F7|\u3042\u3093\u3054\u3046": ["\u6697\u53F7", "code, cipher", "\u0448\u0438\u0444\u0440"],
+    "\u6C17|\u304D": ["\u6C17\u3065\u304F", "to notice, to realise", "\u0437\u0430\u043C\u0435\u0442\u0438\u0442\u044C, \u0434\u043E\u0433\u0430\u0434\u0430\u0442\u044C\u0441\u044F"],
+    "\u65B0\u805E|\u3057\u3093\u3076\u3093": ["\u65B0\u805E", "newspaper", "\u0433\u0430\u0437\u0435\u0442\u0430"],
+    "\u8A18\u4E8B|\u304D\u3058": ["\u8A18\u4E8B", "article", "\u0441\u0442\u0430\u0442\u044C\u044F"],
+    "\u96E8|\u3042\u3081": ["\u96E8", "rain", "\u0434\u043E\u0436\u0434\u044C"],
+    "\u805E|\u304D": ["\u805E\u304F", "to hear, to ask", "\u0441\u043B\u044B\u0448\u0430\u0442\u044C, \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0442\u044C"],
+    "\u9854|\u304B\u304A": ["\u9854", "face", "\u043B\u0438\u0446\u043E"],
+    "\u9752|\u3042\u304A": ["\u9752\u3044", "blue; pale", "\u0441\u0438\u043D\u0438\u0439; \u0431\u043B\u0435\u0434\u043D\u044B\u0439"],
+    "\u6700\u5F8C|\u3055\u3044\u3054": ["\u6700\u5F8C", "last, at last", "\u043D\u0430\u043A\u043E\u043D\u0435\u0446"],
+    "\u7BB1|\u306F\u3053": ["\u7BB1", "box", "\u043A\u043E\u0440\u043E\u0431\u043A\u0430"],
+    "\u89E3|\u3068": ["\u89E3\u3051\u308B", "to be solved", "\u0440\u0430\u0437\u0433\u0430\u0434\u044B\u0432\u0430\u0442\u044C\u0441\u044F"],
+    // sea
+    "\u5B9D\u5CF6|\u305F\u304B\u3089\u3058\u307E": ["\u5B9D\u5CF6", "treasure island", "\u043E\u0441\u0442\u0440\u043E\u0432 \u0441\u043E\u043A\u0440\u043E\u0432\u0438\u0449"],
+    "\u822A\u6D77|\u3053\u3046\u304B\u3044": ["\u822A\u6D77", "voyage", "\u043F\u043B\u0430\u0432\u0430\u043D\u0438\u0435"],
+    "\u8239\u9577|\u305B\u3093\u3061\u3087\u3046": ["\u8239\u9577", "captain", "\u043A\u0430\u043F\u0438\u0442\u0430\u043D"],
+    "\u5370|\u3057\u308B\u3057": ["\u5370", "mark, sign", "\u043E\u0442\u043C\u0435\u0442\u043A\u0430"],
+    "\u6E2F|\u307F\u306A\u3068": ["\u6E2F", "harbour, port", "\u043F\u043E\u0440\u0442"],
+    "\u8001\u4EBA|\u308D\u3046\u3058\u3093": ["\u8001\u4EBA", "old man", "\u0441\u0442\u0430\u0440\u0438\u043A"],
+    "\u5317|\u304D\u305F": ["\u5317", "north", "\u0441\u0435\u0432\u0435\u0440"],
+    "\u6D77|\u3046\u307F": ["\u6D77", "sea", "\u043C\u043E\u0440\u0435"],
+    "\u6307|\u3086\u3073": ["\u6307\u3055\u3059", "to point at", "\u0443\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C"],
+    "\u5D50|\u3042\u3089\u3057": ["\u5D50", "storm", "\u0431\u0443\u0440\u044F"],
+    "\u8239|\u3075\u306D": ["\u8239", "ship", "\u043A\u043E\u0440\u0430\u0431\u043B\u044C"],
+    "\u4EF2\u9593|\u306A\u304B\u307E": ["\u4EF2\u9593", "friend, crewmate", "\u0442\u043E\u0432\u0430\u0440\u0438\u0449"],
+    "\u53EB|\u3055\u3051": ["\u53EB\u3076", "to shout", "\u043A\u0440\u0438\u0447\u0430\u0442\u044C"],
+    "\u904B|\u306F\u3053": ["\u904B\u3076", "to carry", "\u043D\u0435\u0441\u0442\u0438"],
+    "\u74F6|\u3073\u3093": ["\u74F6", "bottle", "\u0431\u0443\u0442\u044B\u043B\u043A\u0430"],
+    "\u661F|\u307B\u3057": ["\u661F", "star", "\u0437\u0432\u0435\u0437\u0434\u0430"],
+    "\u8003|\u304B\u3093\u304C": ["\u8003\u3048\u308B", "to think", "\u0434\u0443\u043C\u0430\u0442\u044C"],
+    "\u5CF6|\u3057\u307E": ["\u5CF6", "island", "\u043E\u0441\u0442\u0440\u043E\u0432"],
+    "\u5165|\u3044": ["\u5165\u308A\u53E3", "entrance", "\u0432\u0445\u043E\u0434"],
+    "\u53E3|\u3050\u3061": ["\u301C\u53E3", "opening, entrance", "\u0432\u0445\u043E\u0434"],
+    "\u5CA9|\u3044\u308F": ["\u5CA9", "rock", "\u0441\u043A\u0430\u043B\u0430"],
+    "\u5F6B|\u307B": ["\u5F6B\u308B", "to carve", "\u0432\u044B\u0441\u0435\u043A\u0430\u0442\u044C"],
+    "\u6D1E\u7A9F|\u3069\u3046\u304F\u3064": ["\u6D1E\u7A9F", "cave", "\u043F\u0435\u0449\u0435\u0440\u0430"],
+    "\u6249|\u3068\u3073\u3089": ["\u6249", "door", "\u0434\u0432\u0435\u0440\u044C"],
+    "\u958B|\u3072\u3089": ["\u958B\u304F", "to open", "\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C\u0441\u044F"],
+    "\u7F60|\u308F\u306A": ["\u7F60", "trap", "\u043B\u043E\u0432\u0443\u0448\u043A\u0430"],
+    "\u5B9D\u7BB1|\u305F\u304B\u3089\u3070\u3053": ["\u5B9D\u7BB1", "treasure chest", "\u0441\u0443\u043D\u0434\u0443\u043A \u0441 \u0441\u043E\u043A\u0440\u043E\u0432\u0438\u0449\u0430\u043C\u0438"],
+    "\u91D1\u8272|\u304D\u3093\u3044\u308D": ["\u91D1\u8272", "golden", "\u0437\u043E\u043B\u043E\u0442\u043E\u0439"],
+    "\u6B4C|\u3046\u305F": ["\u6B4C", "song (\u6B4C\u3092\u6B4C\u3046 = sing a song)", "\u043F\u0435\u0441\u043D\u044F (\u6B4C\u3092\u6B4C\u3046 \u2014 \u043F\u0435\u0442\u044C \u043F\u0435\u0441\u043D\u044E)"],
+    "\u5B9D\u7269|\u305F\u304B\u3089\u3082\u306E": ["\u5B9D\u7269", "treasure", "\u0441\u043E\u043A\u0440\u043E\u0432\u0438\u0449\u0435"],
+    "\u6301|\u3082": ["\u6301\u3064", "to hold, to carry", "\u0434\u0435\u0440\u0436\u0430\u0442\u044C, \u043D\u0435\u0441\u0442\u0438"],
+    // space
+    "\u6708|\u3064\u304D": ["\u6708", "the Moon", "\u041B\u0443\u043D\u0430"],
+    "\u5B87\u5B99\u98DB\u884C\u58EB|\u3046\u3061\u3085\u3046\u3072\u3053\u3046\u3057": ["\u5B87\u5B99\u98DB\u884C\u58EB", "astronaut", "\u043A\u043E\u0441\u043C\u043E\u043D\u0430\u0432\u0442"],
+    "\u51FA\u767A|\u3057\u3085\u3063\u3071\u3064": ["\u51FA\u767A", "departure", "\u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435"],
+    "\u753B\u9762|\u304C\u3081\u3093": ["\u753B\u9762", "screen", "\u044D\u043A\u0440\u0430\u043D"],
+    "\u5730\u7403|\u3061\u304D\u3085\u3046": ["\u5730\u7403", "the Earth", "\u0417\u0435\u043C\u043B\u044F"],
+    "\u57FA\u5730|\u304D\u3061": ["\u57FA\u5730", "base", "\u0431\u0430\u0437\u0430"],
+    "\u901A\u4FE1|\u3064\u3046\u3057\u3093": ["\u901A\u4FE1", "message, transmission", "\u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435, \u0441\u0432\u044F\u0437\u044C"],
+    "\u6765|\u304D": ["\u6765\u308B", "to come", "\u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442\u044C"],
+    "\u7121\u7DDA|\u3080\u305B\u3093": ["\u7121\u7DDA", "radio", "\u0440\u0430\u0434\u0438\u043E\u0441\u0432\u044F\u0437\u044C"],
+    "\u77F3|\u3044\u3057": ["\u77F3", "stone, rock", "\u043A\u0430\u043C\u0435\u043D\u044C"],
+    "\u540D\u524D|\u306A\u307E\u3048": ["\u540D\u524D", "name", "\u0438\u043C\u044F"],
+    "\u7A93|\u307E\u3069": ["\u7A93", "window", "\u043E\u043A\u043D\u043E"],
+    "\u5916|\u305D\u3068": ["\u5916", "outside", "\u0441\u043D\u0430\u0440\u0443\u0436\u0438"],
+    "\u65D7|\u306F\u305F": ["\u65D7", "flag", "\u0444\u043B\u0430\u0433"],
+    "\u7740|\u3064": ["\u7740\u304F", "to arrive", "\u043F\u0440\u0438\u0431\u044B\u0432\u0430\u0442\u044C"],
+    "\u5B50|\u3053": ["\u5B50\u3069\u3082", "child", "\u0440\u0435\u0431\u0451\u043D\u043E\u043A"],
+    "\u5F85|\u307E": ["\u5F85\u3064", "to wait", "\u0436\u0434\u0430\u0442\u044C"],
+    "\u9577|\u306A\u304C": ["\u9577\u3044", "long", "\u0434\u043E\u043B\u0433\u0438\u0439"],
+    "\u7D42|\u304A": ["\u7D42\u308F\u308B", "to end", "\u0437\u0430\u043A\u0430\u043D\u0447\u0438\u0432\u0430\u0442\u044C\u0441\u044F"],
+    // café
+    "\u55AB\u8336\u5E97|\u304D\u3063\u3055\u3066\u3093": ["\u55AB\u8336\u5E97", "caf\xE9, coffee shop", "\u043A\u0430\u0444\u0435"],
+    "\u5E97\u9577|\u3066\u3093\u3061\u3087\u3046": ["\u5E97\u9577", "shop owner, manager", "\u0445\u043E\u0437\u044F\u0438\u043D \u0437\u0430\u0432\u0435\u0434\u0435\u043D\u0438\u044F"],
+    "\u9ED2\u677F|\u3053\u304F\u3070\u3093": ["\u9ED2\u677F", "blackboard", "\u0434\u043E\u0441\u043A\u0430"],
+    "\u6700\u521D|\u3055\u3044\u3057\u3087": ["\u6700\u521D", "first", "\u043F\u0435\u0440\u0432\u044B\u0439"],
+    "\u5BA2|\u304D\u3083\u304F": ["\u304A\u5BA2\u3055\u3093", "customer, guest", "\u043F\u043E\u0441\u0435\u0442\u0438\u0442\u0435\u043B\u044C"],
+    "\u6CE8\u6587|\u3061\u3085\u3046\u3082\u3093": ["\u6CE8\u6587\u3059\u308B", "to order", "\u0437\u0430\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C"],
+    "\u732B|\u306D\u3053": ["\u732B", "cat", "\u043A\u043E\u0448\u043A\u0430"],
+    "\u5BDD|\u306D": ["\u5BDD\u308B", "to sleep", "\u0441\u043F\u0430\u0442\u044C"],
+    "\u5E38\u9023|\u3058\u3087\u3046\u308C\u3093": ["\u5E38\u9023", "regular (customer)", "\u0437\u0430\u0432\u0441\u0435\u0433\u0434\u0430\u0442\u0430\u0439"],
+    "\u65B0|\u3042\u305F\u3089": ["\u65B0\u3057\u3044", "new", "\u043D\u043E\u0432\u044B\u0439"],
+    "\u5B57|\u3058": ["\u5B57", "letter, character", "\u0431\u0443\u043A\u0432\u0430, \u0438\u0435\u0440\u043E\u0433\u043B\u0438\u0444"],
+    "\u63CF|\u304B": ["\u63CF\u304F", "to draw, to paint", "\u0440\u0438\u0441\u043E\u0432\u0430\u0442\u044C"],
+    "\u5E97|\u307F\u305B": ["\u5E97", "shop", "\u043C\u0430\u0433\u0430\u0437\u0438\u043D, \u0437\u0430\u0432\u0435\u0434\u0435\u043D\u0438\u0435"],
+    "\u5909|\u304B": ["\u5909\u308F\u308B", "to change", "\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F"],
+    "\u7D75|\u3048": ["\u7D75", "picture, drawing", "\u0440\u0438\u0441\u0443\u043D\u043E\u043A"],
+    "\u8AAC\u660E|\u305B\u3064\u3081\u3044": ["\u8AAC\u660E\u3059\u308B", "to explain", "\u043E\u0431\u044A\u044F\u0441\u043D\u044F\u0442\u044C"],
+    "\u5915\u65B9|\u3086\u3046\u304C\u305F": ["\u5915\u65B9", "evening", "\u0432\u0435\u0447\u0435\u0440"],
+    "\u6D41|\u306A\u304C": ["\u6D41\u308C\u308B", "to play (music), to flow", "\u0437\u0432\u0443\u0447\u0430\u0442\u044C, \u0442\u0435\u0447\u044C"],
+    "\u5916\u56FD|\u304C\u3044\u3053\u304F": ["\u5916\u56FD", "foreign country", "\u0437\u0430\u0433\u0440\u0430\u043D\u0438\u0446\u0430"],
+    "\u9589\u5E97|\u3078\u3044\u3066\u3093": ["\u9589\u5E97", "closing time", "\u0437\u0430\u043A\u0440\u044B\u0442\u0438\u0435"],
+    "\u5F8C|\u3042\u3068": ["\u5F8C", "after", "\u043F\u043E\u0441\u043B\u0435"],
+    "\u9759|\u3057\u305A": ["\u9759\u304B", "quiet", "\u0442\u0438\u0445\u0438\u0439"],
+    // names and katakana words
+    "\u30E6\u30AD": ["\u30E6\u30AD", "Yuki (a name)", "\u042E\u043A\u0438 (\u0438\u043C\u044F)"],
+    "\u30DF\u30CA": ["\u30DF\u30CA", "Mina (a name)", "\u041C\u0438\u043D\u0430 (\u0438\u043C\u044F)"],
+    "\u30BF\u30ED\u30A6": ["\u30BF\u30ED\u30A6", "Taro (a name)", "\u0422\u0430\u0440\u043E (\u0438\u043C\u044F)"],
+    "\u30EA\u30AF": ["\u30EA\u30AF", "Riku (a name)", "\u0420\u0438\u043A\u0443 (\u0438\u043C\u044F)"],
+    "\u30A2\u30AA\u30A4": ["\u30A2\u30AA\u30A4", "Aoi (a name)", "\u0410\u043E\u0439 (\u0438\u043C\u044F)"],
+    "\u30BD\u30E9": ["\u30BD\u30E9", "Sora (a name)", "\u0421\u043E\u0440\u0430 (\u0438\u043C\u044F)"],
+    "\u30D4\u30B3": ["\u30D4\u30B3", "Piko (a name)", "\u041F\u0438\u043A\u043E (\u0438\u043C\u044F)"],
+    "\u30E1\u30A4": ["\u30E1\u30A4", "Mei (a name)", "\u041C\u044D\u0439 (\u0438\u043C\u044F)"],
+    "\u30E2\u30C1": ["\u30E2\u30C1", "Mochi (a name)", "\u041C\u043E\u0442\u0438 (\u0438\u043C\u044F)"],
+    "\u30AB\u30E2\u30E1": ["\u30AB\u30E2\u30E1", "seagull", "\u0447\u0430\u0439\u043A\u0430"],
+    "\u30ED\u30B1\u30C3\u30C8": ["\u30ED\u30B1\u30C3\u30C8", "rocket", "\u0440\u0430\u043A\u0435\u0442\u0430"],
+    "\u30ED\u30DC\u30C3\u30C8": ["\u30ED\u30DC\u30C3\u30C8", "robot", "\u0440\u043E\u0431\u043E\u0442"],
+    "\u30E1\u30E2": ["\u30E1\u30E2", "note, memo", "\u0437\u0430\u043F\u0438\u0441\u043A\u0430"],
+    "\u30E1\u30C3\u30BB\u30FC\u30B8": ["\u30E1\u30C3\u30BB\u30FC\u30B8", "message", "\u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435"],
+    "\u30B1\u30FC\u30AD": ["\u30B1\u30FC\u30AD", "cake", "\u0442\u043E\u0440\u0442"],
+    "\u30AB\u30C3\u30D7": ["\u30AB\u30C3\u30D7", "cup", "\u0447\u0430\u0448\u043A\u0430"],
+    "\u30E9\u30B8\u30AA": ["\u30E9\u30B8\u30AA", "radio", "\u0440\u0430\u0434\u0438\u043E"],
+    "\u3064\u3076\u3084\u3044\u305F": ["\u3064\u3076\u3084\u304F", "to murmur", "\u0448\u0435\u043F\u0442\u0430\u0442\u044C"],
+    "\u3060\u308C\u304B": ["\u3060\u308C\u304B", "someone", "\u043A\u0442\u043E-\u0442\u043E"]
+  };
+
   // src/client/decks.ts
   var $3 = $;
   var el2 = (tag, cls = "", text, attrs = {}) => {
@@ -3532,11 +5991,11 @@ ${stack}`.slice(0, 2e3);
     onChanged = o.changed;
     backToStudy = o.back;
   };
-  var open = "all";
+  var open2 = "all";
   var rows = [];
   var selected = /* @__PURE__ */ new Set();
   async function openDeck(deck2, withAdd = false) {
-    open = deck2;
+    open2 = deck2;
     selected.clear();
     $3("deckTitle").textContent = DECK_LABEL[deck2];
     $3("customPanel").hidden = !(deck2 === "custom" && withAdd);
@@ -3549,7 +6008,7 @@ ${stack}`.slice(0, 2e3);
   }
   async function reload() {
     try {
-      rows = (await api.deckWords(open)).words;
+      rows = (await api.deckWords(open2)).words;
     } catch (e) {
       toast(e.message);
       rows = [];
@@ -3560,12 +6019,12 @@ ${stack}`.slice(0, 2e3);
   var dateOf = (t) => t ? new Date(t).toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric" }) : "\u2014";
   var sortKey = null;
   var sortDir = 1;
-  var LEVEL_ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  var LEVEL_ORDER2 = ["KANA", "N5", "N4", "N3", "N2", "N1"];
   var STATE_ORDER = ["new", "learning", "relearning", "review"];
   function sortRows(list) {
     if (!sortKey) return list;
     const key = sortKey;
-    const val = (r2) => key === "kanji" ? r2.kanji : key === "reading" ? r2.reading : key === "meaning" ? meaningIn(r2.meaning).toLowerCase() : key === "level" ? r2.custom ? 99 : LEVEL_ORDER.indexOf(r2.level) : key === "added" ? r2.addedAt ?? 0 : STATE_ORDER.indexOf(r2.state);
+    const val = (r2) => key === "kanji" ? r2.kanji : key === "reading" ? r2.reading : key === "meaning" ? meaningIn(r2.meaning).toLowerCase() : key === "level" ? r2.custom ? 99 : LEVEL_ORDER2.indexOf(r2.level) : key === "added" ? r2.addedAt ?? 0 : STATE_ORDER.indexOf(r2.state);
     return [...list].sort((a, b) => {
       const x = val(a), y = val(b);
       return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), lang() === "ru" ? "ru" : "ja")) * sortDir;
@@ -3604,8 +6063,8 @@ ${stack}`.slice(0, 2e3);
       };
       const k = el2("td", "k clickable", r2.kanji, { lang: "ja", title: "Stroke order" });
       k.onclick = () => openStrokeDialog(r2.kanji, r2.reading, r2.meaning);
-      const del = el2("button", "pill danger small", "\u2715", { title: "Remove from this deck", "aria-label": `Remove ${r2.kanji}` });
-      del.onclick = () => void remove([r2.vocabId]);
+      const del2 = el2("button", "pill danger small", "\u2715", { title: "Remove from this deck", "aria-label": `Remove ${r2.kanji}` });
+      del2.onclick = () => void remove([r2.vocabId]);
       const tr_ = el2("tr");
       const td = (n) => {
         const c = el2("td");
@@ -3620,12 +6079,12 @@ ${stack}`.slice(0, 2e3);
         el2("td", "dlv", r2.custom ? "Custom" : LEVEL_LABEL[r2.level]),
         el2("td", "dt", dateOf(r2.addedAt)),
         el2("td", `st st-${r2.state}`, STATE_LABEL[r2.state] ?? r2.state),
-        td(del)
+        td(del2)
       );
       return tr_;
     }));
     if (!rows.length) $3("deckRows").replaceChildren(el2("tr", "empty", void 0));
-    if (!rows.length) $3("deckRows").firstElementChild.append(Object.assign(el2("td", "hint", open === "custom" ? "No custom spells yet \u2014 search the dictionary above or type your own word." : "No spells in this deck yet."), { colSpan: 8 }));
+    if (!rows.length) $3("deckRows").firstElementChild.append(Object.assign(el2("td", "hint", open2 === "custom" ? "No custom spells yet \u2014 search the dictionary above or type your own word." : "No spells in this deck yet."), { colSpan: 8 }));
     tools();
   }
   function tools() {
@@ -3635,9 +6094,9 @@ ${stack}`.slice(0, 2e3);
   }
   async function remove(ids) {
     if (!ids.length) return;
-    if (ids.length > 1 && !confirm(`Remove ${ids.length} spells from ${DECK_LABEL[open]}? Their study progress in this deck is lost.`)) return;
+    if (ids.length > 1 && !confirm(`Remove ${ids.length} spells from ${DECK_LABEL[open2]}? Their study progress in this deck is lost.`)) return;
     try {
-      await api.deckRemove(open, ids);
+      await api.deckRemove(open2, ids);
       ids.forEach((i) => selected.delete(i));
       await reload();
       onChanged();
@@ -3667,11 +6126,11 @@ ${stack}`.slice(0, 2e3);
         return;
       }
       try {
-        const { words } = await api.searchWords(q);
+        const { words: words2 } = await api.searchWords(q);
         if (seq !== searchSeq) return;
         const have = new Set(rows.map((r2) => r2.vocabId));
-        $3("customHits").replaceChildren(...words.length ? words.map((w) => hit(w, have.has(w.id))) : [el2("p", "hint", "Not in the dictionary \u2014 add it as your own word below.")]);
-        if (!words.length) {
+        $3("customHits").replaceChildren(...words2.length ? words2.map((w) => hit(w, have.has(w.id))) : [el2("p", "hint", "Not in the dictionary \u2014 add it as your own word below.")]);
+        if (!words2.length) {
           $3("cwKanji").value = /[一-鿿ぁ-ゟァ-ヿ]/.test(q) ? q : "";
         }
       } catch (e) {
@@ -3797,9 +6256,9 @@ ${stack}`.slice(0, 2e3);
       }
       sel.disabled = false;
     };
-    const story = el2("button", "pill", "Read them in a story");
-    story.onclick = () => openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning, id: m.id })));
-    box.replaceChildren(el2("span", "hint", "Ticked words go to"), sel, status, story);
+    const story2 = el2("button", "pill", "Read them in a story");
+    story2.onclick = () => openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning, id: m.id })));
+    box.replaceChildren(el2("span", "hint", "Ticked words go to"), sel, status, story2);
     say2();
     box.hidden = false;
   }
@@ -3848,6 +6307,7 @@ ${stack}`.slice(0, 2e3);
     $3("quizSub").textContent = q.sub ? meaningIn(q.sub) : "";
     $3("quizFeedback").textContent = "";
     $3("quizFeedback").className = "quiz-feedback";
+    $3("quizWord").hidden = true;
     $3("quizNext").hidden = true;
     $3("quizChoices").replaceChildren(...q.choices.map((c, i) => {
       const b = el2("button", "quiz-choice", void 0, { type: "button" });
@@ -3871,6 +6331,8 @@ ${stack}`.slice(0, 2e3);
     });
     $3("quizFeedback").textContent = ok ? "\u2713 Correct!" : `\u2717 The answer is ${q.kind === "meaning" ? meaningIn(q.choices[q.answer]) : q.choices[q.answer]}`;
     $3("quizFeedback").className = `quiz-feedback ${ok ? "ok" : "no"}`;
+    if (q.word) $3("quizWord").replaceChildren(el2("b", "", q.word.kanji, { lang: "ja" }), el2("span", "rd", q.word.reading, { lang: "ja" }), el2("span", "m", meaningIn(q.word.meaning)));
+    $3("quizWord").hidden = !q.word;
     $3("quizScore").textContent = `${score} correct`;
     $3("quizNext").hidden = false;
     $3("quizNext").focus();
@@ -3925,22 +6387,24 @@ ${stack}`.slice(0, 2e3);
       nextQuestion();
     }
   });
-  var OPEN = { ja: "[\u9B54\u6CD5|\u307E\u307B\u3046][\u5B66\u6821|\u304C\u3063\u3053\u3046]\u306E[\u4E00\u65E5|\u3044\u3061\u306B\u3061]\u3002", en: "A day at the school of magic.", ru: "\u041E\u0434\u0438\u043D \u0434\u0435\u043D\u044C \u0432 \u0448\u043A\u043E\u043B\u0435 \u043C\u0430\u0433\u0438\u0438." };
-  var LINES = [
-    { ja: "[\u898B\u7FD2|\u307F\u306A\u3089]\u3044[\u9B54\u6CD5\u4F7F|\u307E\u307B\u3046\u3064\u304B]\u3044\u306E\u30CF\u30EB\u306F\u3001[\u671D|\u3042\u3055]\u304B\u3089\u300C{w}\u300D\u3068\u3044\u3046[\u546A\u6587|\u3058\u3085\u3082\u3093]\u3092[\u7DF4\u7FD2|\u308C\u3093\u3057\u3085\u3046]\u3057\u3066\u3044\u305F\u3002", en: "Haru, an apprentice wizard, had been practising the spell \u201C{w}\u201D since morning.", ru: "\u0423\u0447\u0435\u043D\u0438\u0446\u0430-\u0432\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u0446\u0430 \u0425\u0430\u0440\u0443 \u0441 \u0441\u0430\u043C\u043E\u0433\u043E \u0443\u0442\u0440\u0430 \u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u0430\u043B\u0430 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 \xAB{w}\xBB." },
-    { ja: "[\u5E2B\u5320|\u3057\u3057\u3087\u3046]\u306F\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F[\u53E4|\u3075\u308B]\u3044[\u5DFB\u7269|\u307E\u304D\u3082\u306E]\u3092[\u673A|\u3064\u304F\u3048]\u306B[\u7F6E|\u304A]\u3044\u305F\u3002", en: "The master put an old scroll with \u201C{w}\u201D written on it on the desk.", ru: "\u0423\u0447\u0438\u0442\u0435\u043B\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u043B \u043D\u0430 \u0441\u0442\u043E\u043B \u0441\u0442\u0430\u0440\u044B\u0439 \u0441\u0432\u0438\u0442\u043E\u043A \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB{w}\xBB." },
-    { ja: "\u30CF\u30EB\u306F\u300C{w}\u300D\u306E[\u8AAD|\u3088]\u307F[\u65B9|\u304B\u305F]\u3092[\u4E09\u56DE|\u3055\u3093\u304B\u3044][\u58F0|\u3053\u3048]\u306B[\u51FA|\u3060]\u3057\u3066[\u8A00|\u3044]\u3063\u305F\u3002", en: "Haru said the reading of \u201C{w}\u201D out loud three times.", ru: "\u0425\u0430\u0440\u0443 \u0442\u0440\u0438\u0436\u0434\u044B \u043F\u0440\u043E\u0438\u0437\u043D\u0435\u0441\u043B\u0430 \u0432\u0441\u043B\u0443\u0445 \u0447\u0442\u0435\u043D\u0438\u0435 \u0441\u043B\u043E\u0432\u0430 \xAB{w}\xBB." },
-    { ja: "[\u53CB\u9054|\u3068\u3082\u3060\u3061]\u306E\u30B1\u30F3\u306F\u300C{w}\u300D\u3068\u3044\u3046[\u8A00\u8449|\u3053\u3068\u3070]\u3092\u307E\u3060[\u899A|\u304A\u307C]\u3048\u3066\u3044\u306A\u304B\u3063\u305F\u3002", en: "Her friend Ken still hadn\u2019t learned the word \u201C{w}\u201D.", ru: "\u0415\u0451 \u0434\u0440\u0443\u0433 \u041A\u0435\u043D \u0435\u0449\u0451 \u043D\u0435 \u0432\u044B\u0443\u0447\u0438\u043B \u0441\u043B\u043E\u0432\u043E \xAB{w}\xBB." },
-    { ja: "[\u56F3\u66F8\u9928|\u3068\u3057\u3087\u304B\u3093]\u306E[\u672C|\u307B\u3093]\u306B\u306F\u300C{w}\u300D\u306B\u3064\u3044\u3066\u306E[\u8A71|\u306F\u306A\u3057]\u304C\u305F\u304F\u3055\u3093\u3042\u3063\u305F\u3002", en: "The library books had many stories about \u201C{w}\u201D.", ru: "\u0412 \u0431\u0438\u0431\u043B\u0438\u043E\u0442\u0435\u0447\u043D\u044B\u0445 \u043A\u043D\u0438\u0433\u0430\u0445 \u0431\u044B\u043B\u043E \u043C\u043D\u043E\u0433\u043E \u0438\u0441\u0442\u043E\u0440\u0438\u0439 \u043E \xAB{w}\xBB." },
-    { ja: "\u300C{w}\u300D\u306E[\u610F\u5473|\u3044\u307F]\u3092[\u601D|\u304A\u3082]\u3044[\u51FA|\u3060]\u3059\u3068\u3001[\u6756|\u3064\u3048]\u306E[\u5B9D\u77F3|\u307B\u3046\u305B\u304D]\u304C[\u660E|\u3042\u304B]\u308B\u304F[\u5149|\u3072\u304B]\u3063\u305F\u3002", en: "When she remembered the meaning of \u201C{w}\u201D, the gem on her staff shone brightly.", ru: "\u041A\u043E\u0433\u0434\u0430 \u043E\u043D\u0430 \u0432\u0441\u043F\u043E\u043C\u043D\u0438\u043B\u0430 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \xAB{w}\xBB, \u043A\u0430\u043C\u0435\u043D\u044C \u043D\u0430 \u043F\u043E\u0441\u043E\u0445\u0435 \u044F\u0440\u043A\u043E \u0437\u0430\u0441\u0438\u044F\u043B." },
-    { ja: "[\u6226|\u305F\u305F\u304B]\u3044\u306E[\u4E2D|\u306A\u304B]\u3067\u3001\u30C9\u30E9\u30B4\u30F3\u306F\u300C{w}\u300D\u306E[\u546A\u6587|\u3058\u3085\u3082\u3093]\u306B[\u9A5A|\u304A\u3069\u308D]\u3044\u3066[\u5F8C|\u3046\u3057]\u308D\u3078[\u4E0B|\u3055]\u304C\u3063\u305F\u3002", en: "In the battle, the dragon was startled by the spell \u201C{w}\u201D and stepped back.", ru: "\u0412 \u0431\u043E\u044E \u0434\u0440\u0430\u043A\u043E\u043D \u0438\u0441\u043F\u0443\u0433\u0430\u043B\u0441\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F \xAB{w}\xBB \u0438 \u043E\u0442\u0441\u0442\u0443\u043F\u0438\u043B." },
-    { ja: "\u300C{w}\u300D\u3092[\u9593\u9055|\u307E\u3061\u304C]\u3048\u306A\u3044\u3088\u3046\u306B\u3001\u30CF\u30EB\u306F\u3086\u3063\u304F\u308A[\u7B54|\u3053\u305F]\u3048\u305F\u3002", en: "So as not to get \u201C{w}\u201D wrong, Haru answered slowly.", ru: "\u0427\u0442\u043E\u0431\u044B \u043D\u0435 \u043E\u0448\u0438\u0431\u0438\u0442\u044C\u0441\u044F \u0432 \xAB{w}\xBB, \u0425\u0430\u0440\u0443 \u043E\u0442\u0432\u0435\u0447\u0430\u043B\u0430 \u043C\u0435\u0434\u043B\u0435\u043D\u043D\u043E." },
-    { ja: "[\u591C|\u3088\u308B]\u306B\u306A\u3063\u3066\u3082\u3001\u30CF\u30EB\u306F\u30CE\u30FC\u30C8\u306B\u300C{w}\u300D\u3092[\u4F55\u5EA6|\u306A\u3093\u3069]\u3082[\u66F8|\u304B]\u3044\u305F\u3002", en: "Even at night, Haru wrote \u201C{w}\u201D in her notebook again and again.", ru: "\u0414\u0430\u0436\u0435 \u043D\u043E\u0447\u044C\u044E \u0425\u0430\u0440\u0443 \u0441\u043D\u043E\u0432\u0430 \u0438 \u0441\u043D\u043E\u0432\u0430 \u043F\u0438\u0441\u0430\u043B\u0430 \xAB{w}\xBB \u0432 \u0442\u0435\u0442\u0440\u0430\u0434\u0438." },
-    { ja: "[\u5E2B\u5320|\u3057\u3057\u3087\u3046]\u306F[\u7B11|\u308F\u3089]\u3063\u3066\u3001\u300C{w}\u300D\u306F\u3082\u3046[\u5927\u4E08\u592B|\u3060\u3044\u3058\u3087\u3046\u3076]\u3060\u306D\u3068[\u8A00|\u3044]\u3063\u305F\u3002", en: "The master smiled and said that \u201C{w}\u201D was fine now.", ru: "\u0423\u0447\u0438\u0442\u0435\u043B\u044C \u0443\u043B\u044B\u0431\u043D\u0443\u043B\u0441\u044F \u0438 \u0441\u043A\u0430\u0437\u0430\u043B, \u0447\u0442\u043E \u0441 \xAB{w}\xBB \u0442\u0435\u043F\u0435\u0440\u044C \u0432\u0441\u0451 \u0432 \u043F\u043E\u0440\u044F\u0434\u043A\u0435." },
-    { ja: "[\u6B21|\u3064\u304E]\u306E[\u65E5|\u3072]\u3001\u30CF\u30EB\u306F\u300C{w}\u300D\u3092[\u4F7F|\u3064\u304B]\u3063\u3066\u3001[\u95C7|\u3084\u307F]\u306E[\u9B54\u7269|\u307E\u3082\u306E]\u3092[\u5012|\u305F\u304A]\u3057\u305F\u3002", en: "The next day, Haru used \u201C{w}\u201D to defeat a shadow monster.", ru: "\u041D\u0430 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0434\u0435\u043D\u044C \u0425\u0430\u0440\u0443 \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \xAB{w}\xBB \u043F\u043E\u0431\u0435\u0434\u0438\u043B\u0430 \u0442\u0451\u043C\u043D\u043E\u0435 \u0447\u0443\u0434\u043E\u0432\u0438\u0449\u0435." },
-    { ja: "\u307F\u3093\u306A\u306E[\u524D|\u307E\u3048]\u3067\u300C{w}\u300D\u3068[\u5531|\u3068\u306A]\u3048\u308B\u3068\u3001[\u7A7A|\u305D\u3089]\u306B[\u8679|\u306B\u3058]\u304C[\u51FA|\u3067]\u305F\u3002", en: "When she chanted \u201C{w}\u201D in front of everyone, a rainbow appeared in the sky.", ru: "\u041A\u043E\u0433\u0434\u0430 \u043E\u043D\u0430 \u043F\u0440\u043E\u0438\u0437\u043D\u0435\u0441\u043B\u0430 \xAB{w}\xBB \u043F\u0435\u0440\u0435\u0434 \u0432\u0441\u0435\u043C\u0438, \u0432 \u043D\u0435\u0431\u0435 \u043F\u043E\u044F\u0432\u0438\u043B\u0430\u0441\u044C \u0440\u0430\u0434\u0443\u0433\u0430." }
-  ];
-  var CLOSE = { ja: "\u3053\u3046\u3057\u3066\u3001\u30CF\u30EB\u306E[\u9B54\u6CD5|\u307E\u307B\u3046]\u306F\u307E\u305F[\u5C11|\u3059\u3053]\u3057[\u5F37|\u3064\u3088]\u304F\u306A\u3063\u305F\u3002", en: "And so Haru\u2019s magic grew a little stronger again.", ru: "\u0422\u0430\u043A \u043C\u0430\u0433\u0438\u044F \u0425\u0430\u0440\u0443 \u0441\u0442\u0430\u043B\u0430 \u0435\u0449\u0451 \u043D\u0435\u043C\u043D\u043E\u0433\u043E \u0441\u0438\u043B\u044C\u043D\u0435\u0435." };
+  var story = STORIES[0];
+  var OPEN = story.open;
+  var CLOSE = story.close;
+  function nextStory() {
+    let last3 = "";
+    try {
+      last3 = localStorage.getItem("kb:story") ?? "";
+    } catch {
+    }
+    const choices = STORIES.filter((x) => x.id !== last3);
+    story = choices[Math.floor(Math.random() * choices.length)];
+    try {
+      localStorage.setItem("kb:story", story.id);
+    } catch {
+    }
+    OPEN = story.open;
+    CLOSE = story.close;
+  }
   var passageWords = [];
   var GLOSS = {
     "\u9B54\u6CD5|\u307E\u307B\u3046": ["\u9B54\u6CD5", "magic", "\u043C\u0430\u0433\u0438\u044F"],
@@ -4011,6 +6475,7 @@ ${stack}`.slice(0, 2e3);
     "\u3053\u3046\u3057\u3066": ["\u3053\u3046\u3057\u3066", "and so, like this", "\u0442\u0430\u043A, \u0442\u0430\u043A\u0438\u043C \u043E\u0431\u0440\u0430\u0437\u043E\u043C"],
     "\u3068\u3044\u3046": ["\u3068\u3044\u3046", "called \u2026, named \u2026", "\u043F\u043E\u0434 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\u043C"]
   };
+  Object.assign(GLOSS, STORY_GLOSS);
   var KANA_WORDS = Object.keys(GLOSS).filter((k) => !k.includes("|")).sort((a, b) => b.length - a.length);
   var blanks = [];
   var picked = 0;
@@ -4169,13 +6634,15 @@ ${stack}`.slice(0, 2e3);
     void api.task("passage").then((p) => onTaskDone.cb(p)).catch(() => {
     });
   }
-  function openPassage(words) {
-    passageWords = words.filter((w) => w.kanji).slice(0, 40);
+  function openPassage(words2) {
+    passageWords = words2.filter((w) => w.kanji).slice(0, 40);
     $3("passageDialog").showModal();
     buildPassage();
   }
   function buildPassage() {
     const seen2 = /* @__PURE__ */ new Set();
+    nextStory();
+    const LINES = story.lines;
     pick2 = [...passageWords].sort(() => Math.random() - 0.5).filter((w) => !seen2.has(w.kanji) && !!seen2.add(w.kanji)).slice(0, Math.min(8, LINES.length));
     lines = [...LINES.keys()].sort(() => Math.random() - 0.5).slice(0, pick2.length).sort((a, b) => a - b).map((i) => LINES[i]);
     blanks = [];
@@ -4208,9 +6675,9 @@ ${stack}`.slice(0, 2e3);
     passageDeck = deck2;
     $3("passageDeck").value = deck2;
     try {
-      let words = (await api.deckWords(deck2)).words;
-      if (deck2 === "struggling" && words.length < 3) words = [...words, ...(await api.deckWords("all")).words.filter((w) => w.state !== "new")];
-      const mapped = words.sort(() => Math.random() - 0.5).slice(0, 40).map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.vocabId }));
+      let words2 = (await api.deckWords(deck2)).words;
+      if (deck2 === "struggling" && words2.length < 3) words2 = [...words2, ...(await api.deckWords("all")).words.filter((w) => w.state !== "new")];
+      const mapped = words2.sort(() => Math.random() - 0.5).slice(0, 40).map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.vocabId }));
       if (!$3("passageDialog").open) openPassage(mapped);
       else {
         passageWords = mapped;
@@ -4248,12 +6715,12 @@ ${stack}`.slice(0, 2e3);
   };
   var ICON = { learn: "\u5B66", quiz: "\u554F", daily: "\u65E5", passage: "\u8AAD" };
   var taskActions = {};
-  var last = null;
+  var last2 = null;
   var shownThisVisit = false;
   var doneCount = (p) => (p.tasks ?? []).filter((t) => t.value >= t.target).length;
   var wasAll = null;
   function renderTasks(p) {
-    last = p;
+    last2 = p;
     const tasks = p.tasks ?? [];
     if (!tasks.length) return;
     const n = doneCount(p), all = n === tasks.length;
@@ -4299,8 +6766,8 @@ ${stack}`.slice(0, 2e3);
     }));
   }
   function openTasks() {
-    if (!last) return;
-    fill(last);
+    if (!last2) return;
+    fill(last2);
     $4("tasksNever").checked = store.get(NEVER) === "1";
     const d = $4("tasksDialog");
     if (!d.open) d.showModal();
@@ -4308,7 +6775,7 @@ ${stack}`.slice(0, 2e3);
   function tasksAtLogin(p) {
     if (shownThisVisit || store.get(NEVER) === "1" || !(p.tasks ?? []).length || doneCount(p) === (p.tasks ?? []).length) return;
     shownThisVisit = true;
-    last = p;
+    last2 = p;
     openTasks();
   }
   function initTasks() {
@@ -4359,11 +6826,11 @@ ${stack}`.slice(0, 2e3);
     if (isAdmin) return;
     profile = p;
     onEquipped = equipped;
-    const now = haveNow(p);
+    const now2 = haveNow(p);
     const seen2 = load3(uid2);
-    save(uid2, [.../* @__PURE__ */ new Set([...seen2 ?? [], ...now.map((r2) => r2.key)])]);
+    save(uid2, [.../* @__PURE__ */ new Set([...seen2 ?? [], ...now2.map((r2) => r2.key)])]);
     if (!seen2) return;
-    const fresh = now.filter((r2) => !seen2.includes(r2.key) && !queue.some((q) => q.key === r2.key));
+    const fresh = now2.filter((r2) => !seen2.includes(r2.key) && !queue.some((q) => q.key === r2.key));
     if (!fresh.length) return;
     queue.push(...fresh);
     if (!$("rewardDialog").open) showNext();
@@ -4420,9 +6887,9 @@ ${stack}`.slice(0, 2e3);
     eq.onclick = async () => {
       eq.disabled = true;
       try {
-        const res = r2.kind === "arena" ? await api.setBackground(r2.id) : r2.kind === "flame" ? await api.setFlame(r2.id) : r2.kind === "staff" ? await api.setStaff(r2.id) : await api.setBorder(r2.id);
-        profile = res.profile;
-        onEquipped(res.profile);
+        const res2 = r2.kind === "arena" ? await api.setBackground(r2.id) : r2.kind === "flame" ? await api.setFlame(r2.id) : r2.kind === "staff" ? await api.setStaff(r2.id) : await api.setBorder(r2.id);
+        profile = res2.profile;
+        onEquipped(res2.profile);
         toast(`${r2.name} equipped`);
         showNext();
       } catch (e) {
@@ -4439,6 +6906,26 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.4",
+      date: "2026-10",
+      en: [
+        "Kanji Wizards is an app now: install it from the browser on any phone or PC (menu \u2192 Get the app), or download the Windows app (.exe) or the Android app (.apk) \u2014 no store needed.",
+        "Offline mode: without internet you can still study spells, take the JLPT quiz, read passages, play the daily challenge, customize and look at your progress and match history. Everything syncs when you\u2019re back online. Online queue and private games need internet.",
+        "All dropdown menus are in the game\u2019s style now.",
+        "JLPT quiz: after every answer you see the whole word \u2014 kanji, reading and meaning \u2014 even when you got it right.",
+        "Reading passages have six different stories: the school of magic, a trip to Kyoto, a detective case, a sea voyage, a journey to the Moon and a little caf\xE9.",
+        "Study spells: the \u201Clearned today\u201D counter is readable."
+      ],
+      ru: [
+        "Kanji Wizards \u0442\u0435\u043F\u0435\u0440\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435: \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u0435 \u0435\u0433\u043E \u0438\u0437 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430 \u043D\u0430 \u043B\u044E\u0431\u043E\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D \u0438\u043B\u0438 \u041F\u041A (\u043C\u0435\u043D\u044E \u2192 \xAB\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435\xBB) \u0438\u043B\u0438 \u0441\u043A\u0430\u0447\u0430\u0439\u0442\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0434\u043B\u044F Windows (.exe) \u0438\u043B\u0438 Android (.apk) \u2014 \u043C\u0430\u0433\u0430\u0437\u0438\u043D \u043D\u0435 \u043D\u0443\u0436\u0435\u043D.",
+        "\u041E\u0444\u043B\u0430\u0439\u043D-\u0440\u0435\u0436\u0438\u043C: \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430 \u043C\u043E\u0436\u043D\u043E \u0438\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F, \u043F\u0440\u043E\u0445\u043E\u0434\u0438\u0442\u044C \u0442\u0435\u0441\u0442 JLPT, \u0447\u0438\u0442\u0430\u0442\u044C \u0442\u0435\u043A\u0441\u0442\u044B, \u0438\u0433\u0440\u0430\u0442\u044C \u0432 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435, \u043C\u0435\u043D\u044F\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0438 \u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043C\u0430\u0442\u0447\u0435\u0439. \u0412\u0441\u0451 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u0443\u0435\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0432\u0435\u0440\u043D\u0451\u0442\u0441\u044F. \u0414\u043B\u044F \u043E\u043D\u043B\u0430\u0439\u043D-\u043E\u0447\u0435\u0440\u0435\u0434\u0438 \u0438 \u043F\u0440\u0438\u0432\u0430\u0442\u043D\u044B\u0445 \u0438\u0433\u0440 \u043D\u0443\u0436\u0435\u043D \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442.",
+        "\u0412\u0441\u0435 \u0432\u044B\u043F\u0430\u0434\u0430\u044E\u0449\u0438\u0435 \u043C\u0435\u043D\u044E \u0442\u0435\u043F\u0435\u0440\u044C \u0432 \u0441\u0442\u0438\u043B\u0435 \u0438\u0433\u0440\u044B.",
+        "\u0422\u0435\u0441\u0442 JLPT: \u043F\u043E\u0441\u043B\u0435 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u043E\u0442\u0432\u0435\u0442\u0430 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0441\u043B\u043E\u0432\u043E \u0446\u0435\u043B\u0438\u043A\u043E\u043C \u2014 \u043A\u0430\u043D\u0434\u0437\u0438, \u0447\u0442\u0435\u043D\u0438\u0435 \u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u2014 \u0434\u0430\u0436\u0435 \u0435\u0441\u043B\u0438 \u0432\u044B \u043E\u0442\u0432\u0435\u0442\u0438\u043B\u0438 \u0432\u0435\u0440\u043D\u043E.",
+        "\u0412 \u0442\u0435\u043A\u0441\u0442\u0430\u0445 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F \u0448\u0435\u0441\u0442\u044C \u0440\u0430\u0437\u043D\u044B\u0445 \u0438\u0441\u0442\u043E\u0440\u0438\u0439: \u0448\u043A\u043E\u043B\u0430 \u043C\u0430\u0433\u0438\u0438, \u043F\u043E\u0435\u0437\u0434\u043A\u0430 \u0432 \u041A\u0438\u043E\u0442\u043E, \u0434\u0435\u0442\u0435\u043A\u0442\u0438\u0432\u043D\u043E\u0435 \u0434\u0435\u043B\u043E, \u043C\u043E\u0440\u0441\u043A\u043E\u0435 \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435, \u043F\u043E\u043B\u0451\u0442 \u043D\u0430 \u041B\u0443\u043D\u0443 \u0438 \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u043A\u0430\u0444\u0435.",
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u0441\u0447\u0451\u0442\u0447\u0438\u043A \xAB\u0432\u044B\u0443\u0447\u0435\u043D\u043E \u0441\u0435\u0433\u043E\u0434\u043D\u044F\xBB \u0445\u043E\u0440\u043E\u0448\u043E \u0432\u0438\u0434\u0435\u043D."
+      ]
+    },
     {
       v: "0.9.9.3.4",
       date: "2026-10",
@@ -4700,10 +7187,10 @@ ${stack}`.slice(0, 2e3);
     } catch {
       return;
     }
-    const open2 = reports.filter((r2) => !r2.done && r2.kind !== "error").length;
+    const open3 = reports.filter((r2) => !r2.done && r2.kind !== "error").length;
     for (const id of ["inboxBadge", "adminBadge"]) {
-      $5(id).hidden = open2 === 0;
-      $5(id).textContent = String(open2);
+      $5(id).hidden = open3 === 0;
+      $5(id).textContent = String(open3);
     }
   }
   async function loadInbox() {
@@ -4719,21 +7206,21 @@ ${stack}`.slice(0, 2e3);
       const card = el4("article", `inbox-item k-${r2.kind}${r2.done ? " done" : ""}`);
       const head = el4("div", "ii-head");
       head.append(el4("span", `ii-kind k-${r2.kind}`, KIND_LABEL[r2.kind]), el4("b", "", r2.username || (r2.kind === "error" ? "game" : "?")), el4("small", "hint", dateTime(r2.at)));
-      const done = el4("button", "pill", r2.done ? "Reopen" : "\u2713 Done");
-      done.onclick = async () => {
+      const done2 = el4("button", "pill", r2.done ? "Reopen" : "\u2713 Done");
+      done2.onclick = async () => {
         await api.inboxDone(r2.id, !r2.done);
         r2.done = !r2.done;
         renderInbox();
         void refreshInboxBadge();
       };
-      const del = el4("button", "pill danger", "Delete");
-      del.onclick = async () => {
+      const del2 = el4("button", "pill danger", "Delete");
+      del2.onclick = async () => {
         await api.inboxDelete(r2.id);
         reports = reports.filter((x) => x.id !== r2.id);
         renderInbox();
         void refreshInboxBadge();
       };
-      head.append(el4("span", "ii-sp"), done, del);
+      head.append(el4("span", "ii-sp"), done2, del2);
       const text = el4("p", "ii-text", r2.text);
       card.append(head, text);
       if (r2.meta) {
@@ -4825,231 +7312,6 @@ ${stack}`.slice(0, 2e3);
     cols.append(c1, c2);
   }
 
-  // src/shared/kana.ts
-  var BASE = {
-    a: "\u3042",
-    i: "\u3044",
-    u: "\u3046",
-    e: "\u3048",
-    o: "\u304A",
-    ka: "\u304B",
-    ki: "\u304D",
-    ku: "\u304F",
-    ke: "\u3051",
-    ko: "\u3053",
-    sa: "\u3055",
-    si: "\u3057",
-    shi: "\u3057",
-    su: "\u3059",
-    se: "\u305B",
-    so: "\u305D",
-    ta: "\u305F",
-    ti: "\u3061",
-    chi: "\u3061",
-    tu: "\u3064",
-    tsu: "\u3064",
-    te: "\u3066",
-    to: "\u3068",
-    na: "\u306A",
-    ni: "\u306B",
-    nu: "\u306C",
-    ne: "\u306D",
-    no: "\u306E",
-    ha: "\u306F",
-    hi: "\u3072",
-    hu: "\u3075",
-    fu: "\u3075",
-    he: "\u3078",
-    ho: "\u307B",
-    ma: "\u307E",
-    mi: "\u307F",
-    mu: "\u3080",
-    me: "\u3081",
-    mo: "\u3082",
-    ya: "\u3084",
-    yu: "\u3086",
-    yo: "\u3088",
-    ra: "\u3089",
-    ri: "\u308A",
-    ru: "\u308B",
-    re: "\u308C",
-    ro: "\u308D",
-    la: "\u3089",
-    li: "\u308A",
-    lu: "\u308B",
-    le: "\u308C",
-    lo: "\u308D",
-    wa: "\u308F",
-    wo: "\u3092",
-    wi: "\u3046\u3043",
-    we: "\u3046\u3047",
-    ga: "\u304C",
-    gi: "\u304E",
-    gu: "\u3050",
-    ge: "\u3052",
-    go: "\u3054",
-    za: "\u3056",
-    zi: "\u3058",
-    ji: "\u3058",
-    zu: "\u305A",
-    ze: "\u305C",
-    zo: "\u305E",
-    da: "\u3060",
-    di: "\u3062",
-    du: "\u3065",
-    de: "\u3067",
-    do: "\u3069",
-    ba: "\u3070",
-    bi: "\u3073",
-    bu: "\u3076",
-    be: "\u3079",
-    bo: "\u307C",
-    pa: "\u3071",
-    pi: "\u3074",
-    pu: "\u3077",
-    pe: "\u307A",
-    po: "\u307D",
-    va: "\u3094\u3041",
-    vi: "\u3094\u3043",
-    vu: "\u3094",
-    ve: "\u3094\u3047",
-    vo: "\u3094\u3049",
-    fa: "\u3075\u3041",
-    fi: "\u3075\u3043",
-    fe: "\u3075\u3047",
-    fo: "\u3075\u3049",
-    xa: "\u3041",
-    xi: "\u3043",
-    xu: "\u3045",
-    xe: "\u3047",
-    xo: "\u3049",
-    xya: "\u3083",
-    xyu: "\u3085",
-    xyo: "\u3087",
-    lya: "\u3083",
-    lyu: "\u3085",
-    lyo: "\u3087",
-    xtu: "\u3063",
-    ltu: "\u3063",
-    xtsu: "\u3063",
-    ltsu: "\u3063",
-    "-": "\u30FC"
-  };
-  var YOON = [
-    [["ky"], "\u304D"],
-    [["gy"], "\u304E"],
-    [["sh", "sy"], "\u3057"],
-    [["j", "jy", "zy"], "\u3058"],
-    [["ch", "ty", "cy"], "\u3061"],
-    [["dy"], "\u3062"],
-    [["ny"], "\u306B"],
-    [["hy"], "\u3072"],
-    [["by"], "\u3073"],
-    [["py"], "\u3074"],
-    [["my"], "\u307F"],
-    [["ry", "ly"], "\u308A"]
-  ];
-  var SMALL = { a: "\u3083", u: "\u3085", o: "\u3087" };
-  var _a, _b;
-  for (const [prefixes, kana] of YOON) {
-    for (const p of prefixes) {
-      for (const [v, small] of Object.entries(SMALL)) BASE[_a = p + v] ?? (BASE[_a] = kana + small);
-      if (p === "sh" || p === "ch" || p === "j") BASE[_b = p + "e"] ?? (BASE[_b] = kana + "\u3047");
-    }
-  }
-  var VOWELS = /* @__PURE__ */ new Set(["a", "i", "u", "e", "o"]);
-  function romajiToHiragana(input2) {
-    const s = input2.toLowerCase();
-    let out = "";
-    let i = 0;
-    while (i < s.length) {
-      const c = s[i];
-      const next3 = s[i + 1];
-      if (c === "n") {
-        if (next3 === "'") {
-          out += "\u3093";
-          i += 2;
-          continue;
-        }
-        if (next3 === void 0) {
-          out += "\u3093";
-          i += 1;
-          continue;
-        }
-        if (next3 === "n") {
-          const after = s[i + 2];
-          out += "\u3093";
-          i += after !== void 0 && (VOWELS.has(after) || after === "y") ? 1 : 2;
-          continue;
-        }
-        if (!VOWELS.has(next3) && next3 !== "y") {
-          out += "\u3093";
-          i += 1;
-          continue;
-        }
-      }
-      if (c >= "a" && c <= "z" && !VOWELS.has(c) && (next3 === c || c === "t" && next3 === "c")) {
-        out += "\u3063";
-        i += 1;
-        continue;
-      }
-      let matched = false;
-      for (let len = 4; len >= 1; len--) {
-        const kana = BASE[s.slice(i, i + len)];
-        if (kana) {
-          out += kana;
-          i += len;
-          matched = true;
-          break;
-        }
-      }
-      if (!matched) {
-        out += c;
-        i += 1;
-      }
-    }
-    return out;
-  }
-  var katakanaToHiragana = (s) => s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 96));
-  function normalizeAnswer(input2) {
-    const halfWidth = input2.normalize("NFKC");
-    const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
-    return romajiToHiragana(katakanaToHiragana(cleaned));
-  }
-  function isCorrectReading(input2, readings) {
-    const answer = normalizeAnswer(input2);
-    if (!answer.length) return false;
-    return readings.some((raw) => {
-      const r2 = katakanaToHiragana(raw);
-      if (r2 === answer) return true;
-      if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer) return true;
-      return longVowelSlip(r2, answer);
-    });
-  }
-  function longVowelSlip(r2, a) {
-    const LONG = "\u3046\u304A";
-    if (a.length === r2.length - 1) {
-      for (let i = 1; i < r2.length; i++) if (LONG.includes(r2[i]) && r2.slice(0, i) + r2.slice(i + 1) === a) return true;
-      return false;
-    }
-    if (a.length === r2.length) {
-      let diff = -1;
-      for (let i = 0; i < r2.length; i++) if (r2[i] !== a[i]) {
-        if (diff >= 0) return false;
-        diff = i;
-      }
-      return diff > 0 && LONG.includes(r2[diff]) && LONG.includes(a[diff]);
-    }
-    return false;
-  }
-  var WRITE = /[\p{Script=Han}々〆ヶ□]/u;
-  var writeTargets = (word2) => {
-    const all = [...word2];
-    const k = all.filter((c) => WRITE.test(c));
-    return k.length ? k : all;
-  };
-  var writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
-
   // src/client/gamekb.ts
   var KEY5 = "kb:gamekb";
   var ROWS = ["qwertyuiop", "asdfghjkl-", "zxcvbnm"];
@@ -5110,9 +7372,9 @@ ${stack}`.slice(0, 2e3);
       }));
       return row;
     });
-    const last2 = document.createElement("div");
-    last2.className = "gk-row";
-    last2.append(
+    const last3 = document.createElement("div");
+    last3.className = "gk-row";
+    last3.append(
       key("Skip", "wide skip", () => $("skip").click()),
       key("n'", "ch", () => type("'")),
       key("Cast \u23CE", "wide enter", () => {
@@ -5124,7 +7386,7 @@ ${stack}`.slice(0, 2e3);
     pv.id = "gkPreview";
     pv.className = "gk-preview";
     pv.lang = "ja";
-    kb.replaceChildren(pv, ...rows2, last2);
+    kb.replaceChildren(pv, ...rows2, last3);
   }
   function setGameKb(on) {
     on = on && touch() && gameKbPref();
@@ -5147,34 +7409,6 @@ ${stack}`.slice(0, 2e3);
   function gameKbReset() {
     if (active) preview2();
   }
-
-  // src/shared/achievements.ts
-  var ACHIEVEMENTS = [
-    { id: "first-win", name: "First Victory", how: "Win a battle.", icon: "sword", color: "#ff6b6b", tier: 1 },
-    { id: "veteran", name: "Veteran", how: "Win 25 battles.", icon: "swords", color: "#ff8f5a", tier: 2 },
-    { id: "champion", name: "Champion", how: "Win 100 battles.", icon: "crown", color: "#ffd479", tier: 3 },
-    { id: "combo-5", name: "On Fire", how: "Cast 5 correct spells in a row in a battle.", icon: "flame", color: "#6ee7ff", tier: 1 },
-    { id: "combo-10", name: "Inferno", how: "Reach a 10\xD7 combo in a battle.", icon: "flame2", color: "#b26bff", tier: 2 },
-    { id: "combo-20", name: "Unstoppable", how: "Reach a 20\xD7 combo in a battle.", icon: "comet", color: "#ff4fd8", tier: 3 },
-    { id: "flawless", name: "Flawless", how: "Win a battle with 100% accuracy (at least 10 answers).", icon: "target", color: "#3ddc84", tier: 2 },
-    { id: "dragon-slayer", name: "Dragon Slayer", how: "Defeat the Black Dragon in Boss Elimination.", icon: "dragon", color: "#ff5a3a", tier: 2 },
-    { id: "card-sage", name: "Card Sage", how: "Win a Deck Duel.", icon: "cards", color: "#5aa8e8", tier: 2 },
-    { id: "calligrapher", name: "Calligrapher", how: "Win a Kanji Writing duel.", icon: "brush", color: "#e8d5a8", tier: 1 },
-    { id: "quickdraw", name: "Quickdraw", how: "Win a Rapid duel.", icon: "bolt", color: "#ffe14d", tier: 1 },
-    { id: "scholar", name: "Scholar", how: "Learn 100 spells in Study spells.", icon: "book", color: "#7fd1ff", tier: 1 },
-    { id: "archmage", name: "Archmage", how: "Learn 1,000 spells.", icon: "tome", color: "#a98bff", tier: 3 },
-    { id: "graduate", name: "Kana Graduate", how: `Start as a \u304B\u306A beginner, then tick "I've mastered hiragana" in Settings.`, icon: "kana", color: "#ff9ec7", tier: 1 },
-    { id: "devoted", name: "Devoted", how: "Log in 7 days in a row.", icon: "sun", color: "#ffb84d", tier: 1 },
-    { id: "eternal", name: "Eternal Flame", how: "Log in 30 days in a row.", icon: "moon", color: "#ff7a1a", tier: 3 },
-    { id: "perfect-day", name: "Perfect Day", how: "Get 10 / 10 in the Daily challenge.", icon: "calendar", color: "#4dd6c8", tier: 2 },
-    { id: "fellowship", name: "Fellowship", how: "Make a friend.", icon: "people", color: "#8be37a", tier: 1 },
-    { id: "seasonal", name: "Seasonal", how: "Complete a month's goals and earn its reward.", icon: "leaf", color: "#ff8ccf", tier: 2 },
-    { id: "grand-wizard", name: "Grand Wizard", how: "Reach level 10.", icon: "star", color: "#ffd479", tier: 3 },
-    { id: "kingslayer", name: "Kingslayer", how: "Beat an admin in a battle.", icon: "kingslayer", color: "#ff3d6e", tier: 3 }
-  ];
-  var ACH_PREFIX = "ach:";
-  var achById = (id) => ACHIEVEMENTS.find((a) => a.id === id);
-  var COMBO_ACHIEVEMENTS = [[5, "combo-5"], [10, "combo-10"], [20, "combo-20"]];
 
   // src/client/audio.ts
   var PREFS_KEY = "kb:audio";
@@ -5380,11 +7614,11 @@ ${stack}`.slice(0, 2e3);
       noise(hit2, 0.5, 0.45, 2600);
       for (const [n, d] of [[64, 0], [71, 0.01], [76, 0.02], [83, 0.03], [88, 0.05]]) bell(midi(n), hit2 + d, 1.3, 0.07);
       tone(midi(76), hit2, 1.2, { type: "triangle", gain: 0.05, detune: 9 });
-      const open2 = t + 0.86;
-      noise(open2 - 0.25, 0.3, 0.3, 3500, "bandpass", sfxBus, true);
-      noise(open2, 1, 0.45, 1500);
-      tone(82, open2, 0.9, { type: "sawtooth", gain: 0.12, to: 140, attack: 0.05 });
-      bell(midi(95), open2 + 0.04, 0.8, 0.06);
+      const open3 = t + 0.86;
+      noise(open3 - 0.25, 0.3, 0.3, 3500, "bandpass", sfxBus, true);
+      noise(open3, 1, 0.45, 1500);
+      tone(82, open3, 0.9, { type: "sawtooth", gain: 0.12, to: 140, attack: 0.05 });
+      bell(midi(95), open3 + 0.04, 0.8, 0.06);
     },
     claw() {
       if (!sfxOk()) return;
@@ -5889,7 +8123,7 @@ ${stack}`.slice(0, 2e3);
     }
     return row;
   }
-  var BADGES_MAX = 3;
+  var BADGES_MAX2 = 3;
   useBadgeRow(badgeRow);
   function renderAchievements(box, unlocks2 = [], badges2 = [], onBadges) {
     const earned = ACHIEVEMENTS.filter((a) => has(unlocks2, a.id)).length;
@@ -5925,8 +8159,8 @@ ${stack}`.slice(0, 2e3);
         b.classList.add("pickable");
         const toggle = () => {
           if (pinned) return onBadges(badges2.filter((x) => x !== a.id));
-          if (badges2.length >= BADGES_MAX) {
-            toast(`Up to ${BADGES_MAX} badges \u2014 click one with a \u2605 to remove it first.`);
+          if (badges2.length >= BADGES_MAX2) {
+            toast(`Up to ${BADGES_MAX2} badges \u2014 click one with a \u2605 to remove it first.`);
             return;
           }
           onBadges([...badges2, a.id]);
@@ -5949,7 +8183,7 @@ ${stack}`.slice(0, 2e3);
     head.append(sm);
     const hint = document.createElement("p");
     hint.className = "hint ach-hint";
-    hint.textContent = `Click an earned badge to show it under your name (\u2605 = on your profile, up to ${BADGES_MAX}).`;
+    hint.textContent = `Click an earned badge to show it under your name (\u2605 = on your profile, up to ${BADGES_MAX2}).`;
     box.replaceChildren(head, ...onBadges && earned ? [hint] : [], grid);
   }
   var shown = /* @__PURE__ */ new Set();
@@ -6024,11 +8258,11 @@ ${stack}`.slice(0, 2e3);
   };
   var RAIL_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "customize", "history", "progress", "daily", "friends"]);
   var friends = [];
-  var signedIn = false;
+  var signedIn2 = false;
   var timer = 0;
   var collapsed = { online: false, offline: true };
   function setRailUser(on) {
-    signedIn = on;
+    signedIn2 = on;
     if (!on) {
       $6("friendRail").hidden = true;
       $6("railFab").hidden = true;
@@ -6036,7 +8270,7 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function railScreen(screen2) {
-    const show3 = signedIn && RAIL_SCREENS.has(screen2);
+    const show3 = signedIn2 && RAIL_SCREENS.has(screen2);
     $6("friendRail").hidden = !show3;
     $6("railFab").hidden = !show3;
     setOpen(false);
@@ -6080,7 +8314,7 @@ ${stack}`.slice(0, 2e3);
   };
   function render2() {
     const accepted = friends.filter((f2) => f2.status === "accepted").sort((a, b) => a.username.localeCompare(b.username));
-    const online = accepted.filter((f2) => f2.online), offline = accepted.filter((f2) => !f2.online);
+    const online = accepted.filter((f2) => f2.online), offline2 = accepted.filter((f2) => !f2.online);
     const incoming = friends.filter((f2) => f2.status === "incoming").length;
     const section = (key, title, list2) => {
       const head = el5("button", "fr-sec", "");
@@ -6104,7 +8338,7 @@ ${stack}`.slice(0, 2e3);
     const list = $6("railList");
     list.replaceChildren(
       ...section("online", "Online", online),
-      ...section("offline", "Offline", offline),
+      ...section("offline", "Offline", offline2),
       ...accepted.length ? [] : [el5("p", "fr-empty", "No friends yet \u2014 add someone below.")]
     );
     $6("railOnline").textContent = String(online.length);
@@ -6206,7 +8440,15 @@ ${stack}`.slice(0, 2e3);
     pick3();
     synth.addEventListener?.("voiceschanged", pick3);
   }
-  var voiceAvailable = () => !!synth;
+  var android = window.KWAndroid ?? null;
+  var androidSay = (kana) => {
+    try {
+      return !!android?.canSpeak() && android.speak(kana, 0.95, 0.85);
+    } catch {
+      return false;
+    }
+  };
+  var voiceAvailable = () => !!synth || !!android;
   var getVoicePrefs = () => ({ ...prefs2, name: voice?.name ?? null, male });
   function setVoiceVolume(v) {
     prefs2.vol = Math.max(0, Math.min(1, v));
@@ -6214,6 +8456,10 @@ ${stack}`.slice(0, 2e3);
     save2();
   }
   function say(kana) {
+    if (android && prefs2.on && prefs2.vol > 0) {
+      androidSay(kana);
+      return;
+    }
     if (!synth || !prefs2.on || prefs2.vol <= 0 || document.visibilityState !== "visible") return;
     if (!voice) pick3();
     if (!voice && !synth.getVoices().length) return;
@@ -6227,10 +8473,14 @@ ${stack}`.slice(0, 2e3);
     synth.speak(u);
   }
   function speak(kana) {
+    if (android && prefs2.on && prefs2.vol > 0 && document.visibilityState === "visible") {
+      if (!androidSay(kana)) return Promise.resolve();
+      return new Promise((done2) => setTimeout(done2, Math.min(2600, 500 + [...kana].length * 220)));
+    }
     if (!synth || !prefs2.on || prefs2.vol <= 0 || document.visibilityState !== "visible") return Promise.resolve();
     if (!voice) pick3();
     if (!voice && !synth.getVoices().length) return Promise.resolve();
-    return new Promise((done) => {
+    return new Promise((done2) => {
       const u = new SpeechSynthesisUtterance(kana);
       u.lang = "ja-JP";
       if (voice) u.voice = voice;
@@ -6241,7 +8491,7 @@ ${stack}`.slice(0, 2e3);
       const end = () => {
         if (!finished) {
           finished = true;
-          done();
+          done2();
         }
       };
       u.onend = end;
@@ -6371,9 +8621,9 @@ ${stack}`.slice(0, 2e3);
     CARDS.forEach((_, j) => dots.append(el6("i", j === i ? "on" : "")));
     const card = el6("div", "tut-card");
     const actions = el6("div", "tut-actions");
-    const last2 = i === CARDS.length - 1;
-    const next3 = el6("button", "big", last2 ? "Fight a beginner AI" : "Next");
-    const skip2 = el6("button", "pill", last2 ? "Maybe later" : "Skip tutorial");
+    const last3 = i === CARDS.length - 1;
+    const next3 = el6("button", "big", last3 ? "Fight a beginner AI" : "Next");
+    const skip2 = el6("button", "pill", last3 ? "Maybe later" : "Skip tutorial");
     if (c.language) {
       const en = el6("button", "big" + (lang() === "en" ? "" : " alt"), "English");
       const ru = el6("button", "big" + (lang() === "ru" ? "" : " alt"), "\u0420\u0443\u0441\u0441\u043A\u0438\u0439");
@@ -6391,19 +8641,19 @@ ${stack}`.slice(0, 2e3);
     }
     if (c.choice) {
       const yes = el6("button", "big", "Yes \u2014 I know hiragana");
-      const no = el6("button", "big alt", "I'm a beginner");
+      const no2 = el6("button", "big alt", "I'm a beginner");
       const pickKana = (mastered) => {
-        yes.disabled = no.disabled = true;
+        yes.disabled = no2.disabled = true;
         void api.event(mastered ? "tutorial_kana_yes" : "tutorial_kana_no");
         void hooks.kana(mastered).finally(() => show2(i + 1));
       };
       yes.onclick = () => pickKana(true);
-      no.onclick = () => pickKana(false);
+      no2.onclick = () => pickKana(false);
       next3.hidden = true;
-      queueMicrotask(() => actions.append(no, yes));
+      queueMicrotask(() => actions.append(no2, yes));
     }
     next3.onclick = () => {
-      if (!last2) return show2(i + 1);
+      if (!last3) return show2(i + 1);
       stage = "battle";
       box.hidden = true;
       void api.event("tutorial_battle");
@@ -6701,8 +8951,8 @@ ${stack}`.slice(0, 2e3);
     };
     const hp = bar("hp-bar" + (p.hp / p.maxHp <= 0.25 ? " low" : ""), p.hp, p.maxHp, `\u2665 ${p.hp} / ${p.maxHp}`);
     const mana = bar("mana-bar", p.mana, p.maxMana, `\u25C6 ${p.mana} / ${p.maxMana}`);
-    const counts2 = h2("div", "dk-counts");
-    counts2.append(h2("span", "cc total", `${p.handSize} card${p.handSize === 1 ? "" : "s"}`));
+    const counts3 = h2("div", "dk-counts");
+    counts3.append(h2("span", "cc total", `${p.handSize} card${p.handSize === 1 ? "" : "s"}`));
     for (const col of Object.keys(p.handCounts)) {
       if (!p.handCounts[col]) continue;
       const cc = h2("span", "cc");
@@ -6711,9 +8961,9 @@ ${stack}`.slice(0, 2e3);
       dot.style.height = "16px";
       dot.style.padding = "0";
       cc.append(dot, `\xD7${p.handCounts[col]}`);
-      counts2.append(cc);
+      counts3.append(cc);
     }
-    el11.replaceChildren(av, name, hp, mana, counts2);
+    el11.replaceChildren(av, name, hp, mana, counts3);
   }
   function renderDeck(v) {
     view = v;
@@ -7254,7 +9504,7 @@ ${stack}`.slice(0, 2e3);
   var searching = false;
   function guideHover(el11, mode3) {
     const pop = $("guidePop");
-    const open2 = () => {
+    const open3 = () => {
       pop.replaceChildren(...modeGuideNodes(mode3));
       pop.hidden = false;
       const r2 = zrect(el11);
@@ -7267,9 +9517,9 @@ ${stack}`.slice(0, 2e3);
     const close = () => {
       pop.hidden = true;
     };
-    el11.addEventListener("mouseenter", open2);
+    el11.addEventListener("mouseenter", open3);
     el11.addEventListener("mouseleave", close);
-    el11.addEventListener("focusin", open2);
+    el11.addEventListener("focusin", open3);
     el11.addEventListener("focusout", close);
   }
   function chip(value, label, on, group) {
@@ -7345,9 +9595,9 @@ ${stack}`.slice(0, 2e3);
   function openQueue() {
     const s = load4();
     $("qModes").replaceChildren(...QUEUE_MODES.map((m) => {
-      const open2 = canPlay(m);
-      const c = chip(m, MODE_LABEL[m] + (open2 ? "" : " \xB7 locked"), open2 && s.modes.includes(m), "qm");
-      if (!open2) {
+      const open3 = canPlay(m);
+      const c = chip(m, MODE_LABEL[m] + (open3 ? "" : " \xB7 locked"), open3 && s.modes.includes(m), "qm");
+      if (!open3) {
         c.classList.add("locked");
         c.querySelector("input").disabled = true;
         c.title = lockText(m);
@@ -7475,24 +9725,24 @@ ${stack}`.slice(0, 2e3);
   };
   function draw() {
     const g = Array.from({ length: G }, () => Array(G).fill(null));
-    const set = (x, y, c) => {
+    const set2 = (x, y, c) => {
       if (x >= 0 && y >= 0 && x < G && y < G) g[y][x] = c;
     };
     for (let t = 0; t <= 25; t++) {
       const x = 1 + t, y = 30 - t;
-      if (t <= 1) set(x, y, "B");
+      if (t <= 1) set2(x, y, "B");
       else if (t <= 7) {
-        set(x, y, "b");
-        set(x + 1, y, "b");
-        if (t >= 4 && t <= 6) set(x, y - 1, "b");
+        set2(x, y, "b");
+        set2(x + 1, y, "b");
+        if (t >= 4 && t <= 6) set2(x, y - 1, "b");
       } else if (t <= 9) {
-        set(x, y, "m");
-        set(x + 1, y, "m");
-        set(x, y - 1, "m");
+        set2(x, y, "m");
+        set2(x + 1, y, "m");
+        set2(x, y - 1, "m");
       } else {
-        set(x, y, "w");
-        set(x + 1, y, "W");
-        set(x, y - 1, "w");
+        set2(x, y, "w");
+        set2(x + 1, y, "W");
+        set2(x, y - 1, "w");
       }
     }
     const hx = (y) => 31 - y;
@@ -7502,15 +9752,15 @@ ${stack}`.slice(0, 2e3);
         const x0 = hx(y) - 2, x1 = hx(y) + 6;
         for (let x = x0; x <= x1; x++) {
           if (y === y0 + 1 && x === x0) continue;
-          set(x, y, y === y0 + 1 && x > x0 + 1 ? "S" : "s");
+          set2(x, y, y === y0 + 1 && x > x0 + 1 ? "S" : "s");
         }
       }
     }
-    for (let y = 10; y <= 18; y++) for (let x = hx(y) + 7; x <= Math.min(31, hx(y) + 11); x++) set(x, y, x >= hx(y) + 10 ? "S" : "s");
-    for (let x = hx(9) - 2; x <= hx(9) + 4; x++) set(x, 9, "s");
-    for (let x = hx(10) - 3; x <= hx(10) + 2; x++) set(x, 10, x <= hx(10) - 1 ? "s" : "S");
-    for (let x = hx(8) + 1; x <= hx(8) + 5; x++) set(x, 8, "s");
-    for (let y = 3; y <= 16; y++) for (let x = hx(y) + 12; x <= 31; x++) if (x - (hx(y) + 12) < 4) set(x, y, x === hx(y) + 12 ? "C" : "c");
+    for (let y = 10; y <= 18; y++) for (let x = hx(y) + 7; x <= Math.min(31, hx(y) + 11); x++) set2(x, y, x >= hx(y) + 10 ? "S" : "s");
+    for (let x = hx(9) - 2; x <= hx(9) + 4; x++) set2(x, 9, "s");
+    for (let x = hx(10) - 3; x <= hx(10) + 2; x++) set2(x, 10, x <= hx(10) - 1 ? "s" : "S");
+    for (let x = hx(8) + 1; x <= hx(8) + 5; x++) set2(x, 8, "s");
+    for (let y = 3; y <= 16; y++) for (let x = hx(y) + 12; x <= 31; x++) if (x - (hx(y) + 12) < 4) set2(x, y, x === hx(y) + 12 ? "C" : "c");
     const filled = g.map((row) => row.map((c) => c !== null));
     for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
       if (filled[y][x]) continue;
@@ -7551,8 +9801,8 @@ ${stack}`.slice(0, 2e3);
       addEventListener("online", wake);
       addEventListener("pageshow", wake);
     }
-    start(token) {
-      this.token = token;
+    start(token2) {
+      this.token = token2;
       this.stopped = false;
       this.connect(false);
     }
@@ -7604,10 +9854,10 @@ ${stack}`.slice(0, 2e3);
     return out;
   }
   var HandwritingPad = class {
-    constructor(canvas, onChange = () => {
+    constructor(canvas, onChange2 = () => {
     }) {
       __publicField(this, "canvas", canvas);
-      __publicField(this, "onChange", onChange);
+      __publicField(this, "onChange", onChange2);
       __publicField(this, "strokes", []);
       __publicField(this, "current", null);
       __publicField(this, "ctx");
@@ -7735,8 +9985,8 @@ ${stack}`.slice(0, 2e3);
       }
       if (!this.current) return;
       const p = this.point(e);
-      const last2 = this.current[this.current.length - 1];
-      if (Math.hypot(p[0] - last2[0], p[1] - last2[1]) < MIN_DIST) return;
+      const last3 = this.current[this.current.length - 1];
+      if (Math.hypot(p[0] - last3[0], p[1] - last3[1]) < MIN_DIST) return;
       this.current.push(p);
       this.redraw();
       this.onDraw();
@@ -7820,7 +10070,7 @@ ${stack}`.slice(0, 2e3);
   var onProfileChange = (fn) => {
     onProfile = fn;
   };
-  function counts(el11, c) {
+  function counts2(el11, c) {
     el11.innerHTML = "";
     for (const [cls, n, label] of [["c-new", c.new, "new"], ["c-learn", c.learning, "learning"], ["c-due", c.due, "to review"]]) {
       const s = document.createElement("span");
@@ -7855,9 +10105,9 @@ ${stack}`.slice(0, 2e3);
   }
   function render3(s) {
     levelChips(s.studyLevels);
-    counts($9("countsAll"), s.decks.all);
-    counts($9("countsStruggle"), s.decks.struggling);
-    counts($9("countsCustom"), s.decks.custom);
+    counts2($9("countsAll"), s.decks.all);
+    counts2($9("countsStruggle"), s.decks.struggling);
+    counts2($9("countsCustom"), s.decks.custom);
     $9("dailyNew").value = String(s.dailyNew);
     $9("dailyNewVal").textContent = String(s.dailyNew);
     $9("studyCrit").textContent = `${s.profile.learnedToday} learned today \xB7 ${s.profile.learned} learned in total`;
@@ -7916,12 +10166,12 @@ ${stack}`.slice(0, 2e3);
   function next2() {
     current = queue3.shift() ?? null;
     flipped = false;
-    const done = !current;
-    $9("flash").hidden = done;
-    $9("showAnswer").hidden = done;
+    const done2 = !current;
+    $9("flash").hidden = done2;
+    $9("showAnswer").hidden = done2;
     $9("rateRow").hidden = true;
-    $9("reviewDone").hidden = !done;
-    $9("reviewLeft").textContent = done ? "" : `${queue3.length + 1} left \xB7 ${DECK_LABEL[deck]}`;
+    $9("reviewDone").hidden = !done2;
+    $9("reviewLeft").textContent = done2 ? "" : `${queue3.length + 1} left \xB7 ${DECK_LABEL[deck]}`;
     if (!current) return;
     $9("fcKanji").textContent = current.kanji;
     $9("fcLevel").textContent = (current.custom ? "Custom" : LEVEL_LABEL[current.level]) + (current.state === "new" ? " \xB7 new" : "");
@@ -8257,7 +10507,7 @@ ${stack}`.slice(0, 2e3);
         });
       });
       draw2();
-      extra.replaceChildren(el7("h3", "", `Badges (up to ${BADGES_MAX})`), box);
+      extra.replaceChildren(el7("h3", "", `Badges (up to ${BADGES_MAX2})`), box);
     }
     const canvas = $9("staffCanvas");
     const stage2 = $9("custStage2");
@@ -8390,8 +10640,8 @@ ${stack}`.slice(0, 2e3);
     if (text !== void 0) e.textContent = String(text);
     return e;
   };
-  var DAY_MS = 864e5;
-  var shift = (day, n) => new Date(Date.parse(day) + n * DAY_MS).toISOString().slice(0, 10);
+  var DAY_MS2 = 864e5;
+  var shift = (day, n) => new Date(Date.parse(day) + n * DAY_MS2).toISOString().slice(0, 10);
   var MASTERY = [
     { cls: "m0", label: "Not in your spells yet" },
     { cls: "m1", label: "New" },
@@ -8454,7 +10704,7 @@ ${stack}`.slice(0, 2e3);
         xp: days2.reduce((n, a) => n + a.xp, 0)
       };
     };
-    const now = sum(7, 0), before = sum(14, 7);
+    const now2 = sum(7, 0), before = sum(14, 7);
     const stat = (label, v, prev) => {
       const d = v - prev;
       const box = el8("div", "pw-stat");
@@ -8466,7 +10716,7 @@ ${stack}`.slice(0, 2e3);
       return box;
     };
     const grid = el8("div", "pw-grid");
-    grid.append(stat("days active", now.days, before.days), stat("cards passed", now.reviews, before.reviews), stat("games", now.games, before.games), stat("wins", now.wins, before.wins), stat("XP", now.xp, before.xp));
+    grid.append(stat("days active", now2.days, before.days), stat("cards passed", now2.reviews, before.reviews), stat("games", now2.games, before.games), stat("wins", now2.wins, before.wins), stat("XP", now2.xp, before.xp));
     const bars = el8("div", "pw-bars");
     const max = Math.max(1, ...Array.from({ length: 7 }, (_, i) => score2(activity.find((a) => a.day === shift(t, i - 6)))));
     for (let i = -6; i <= 0; i++) {
@@ -8579,9 +10829,9 @@ ${stack}`.slice(0, 2e3);
     if (!page) return;
     const tabs = $10("progLevels");
     tabs.replaceChildren(...LEVELS.map((l) => {
-      const words2 = page.mastery[l];
-      const known = words2.filter(([, m]) => m >= 3).length;
-      const b = el8("button", "cust-tab" + (l === level ? " on" : ""), `${LEVEL_LABEL[l]} \xB7 ${known}/${words2.length}`);
+      const words3 = page.mastery[l];
+      const known = words3.filter(([, m]) => m >= 3).length;
+      const b = el8("button", "cust-tab" + (l === level ? " on" : ""), `${LEVEL_LABEL[l]} \xB7 ${known}/${words3.length}`);
       b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", String(l === level));
       b.onclick = () => {
@@ -8590,17 +10840,17 @@ ${stack}`.slice(0, 2e3);
       };
       return b;
     }));
-    const words = page.mastery[level];
-    const counts2 = [0, 0, 0, 0, 0];
-    for (const [, m] of words) counts2[m]++;
+    const words2 = page.mastery[level];
+    const counts3 = [0, 0, 0, 0, 0];
+    for (const [, m] of words2) counts3[m]++;
     $10("progLegend").replaceChildren(...MASTERY.map((m, i) => {
       const item = el8("span", "ml-item");
-      item.append(el8("i", m.cls), el8("span", "", `${m.label} \xB7 ${counts2[i]}`));
+      item.append(el8("i", m.cls), el8("span", "", `${m.label} \xB7 ${counts3[i]}`));
       return item;
     }));
     const grid = $10("progGrid");
     const frag = document.createDocumentFragment();
-    for (const [kanji, m] of words) {
+    for (const [kanji, m] of words2) {
       const c = el8("span", `mg ${MASTERY[m].cls}`);
       c.title = `${kanji} \u2014 ${MASTERY[m].label}`;
       frag.append(c);
@@ -8672,12 +10922,12 @@ ${stack}`.slice(0, 2e3);
       grid.append(card);
       return { card, id: w.id };
     });
-    const set = tickCards(cards, (id, on) => {
+    const set2 = tickCards(cards, (id, on) => {
       void (on ? api.deckAdd("struggling", [id]) : api.deckRemove("struggling", [id])).catch((e) => toast(e.message));
     });
     void api.deckWords("struggling").then((r2) => {
       const have = new Set(r2.words.map((w) => w.vocabId));
-      for (const c of cards) set(c.id, have.has(c.id));
+      for (const c of cards) set2(c.id, have.has(c.id));
     }).catch(() => {
     });
     return [el9("h4", "", "Missed \u2014 ticked words go to Struggling spells"), grid];
@@ -8687,7 +10937,7 @@ ${stack}`.slice(0, 2e3);
     const main = $11("dailyMain");
     const date = `Challenge of ${(/* @__PURE__ */ new Date(`${o.day}T12:00:00Z`)).toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}`;
     if (o.mine) {
-      const words = el9("div", "daily-words");
+      const words2 = el9("div", "daily-words");
       for (const w of o.words ?? []) {
         const row = el9("div", "dw" + (w.ok === true ? " ok" : w.ok === false ? " no" : ""));
         const k = el9("span", "dw-k", w.kanji);
@@ -8697,7 +10947,7 @@ ${stack}`.slice(0, 2e3);
         const lv = el9("span", "dw-l", LEVEL_LABEL[w.level]);
         if (w.ok !== null) lv.prepend(el9("b", "dw-mark", w.ok ? "\u2713 " : "\u2717 "));
         row.append(lv, k, r2, el9("span", "dw-m", w.meaning));
-        words.append(row);
+        words2.append(row);
       }
       main.replaceChildren(
         el9("p", "sub", date),
@@ -8705,7 +10955,7 @@ ${stack}`.slice(0, 2e3);
         el9("p", "center", `${secs2(o.mine.ms)} \xB7 rank ${o.rank} today`),
         el9("p", "hint center", `10 new words ${nextReset()}.`),
         el9("h4", "", "Today's words"),
-        words,
+        words2,
         ...missedBlock(o)
       );
       return;
@@ -8734,7 +10984,7 @@ ${stack}`.slice(0, 2e3);
     busy2 = false;
     renderPlay(null);
   }
-  function renderPlay(last2) {
+  function renderPlay(last3) {
     if (!word) return;
     const main = $11("dailyMain");
     const dots = el9("div", "daily-dots");
@@ -8752,13 +11002,13 @@ ${stack}`.slice(0, 2e3);
     input2.addEventListener("paste", (e) => e.preventDefault());
     const skip2 = el9("button", "pill", "Skip");
     const fb = el9("div", "daily-fb");
-    if (last2) {
-      fb.className = `daily-fb ${last2.correct ? "ok" : "no"}`;
-      const kk = el9("span", "rk", last2.kanji);
+    if (last3) {
+      fb.className = `daily-fb ${last3.correct ? "ok" : "no"}`;
+      const kk = el9("span", "rk", last3.kanji);
       kk.lang = "ja";
-      const rr = el9("span", "rr", last2.reading);
+      const rr = el9("span", "rr", last3.reading);
       rr.lang = "ja";
-      fb.append(el9("b", "", last2.correct ? "\u2713" : "\u2717"), kk, rr, el9("span", "", last2.meaning));
+      fb.append(el9("b", "", last3.correct ? "\u2713" : "\u2717"), kk, rr, el9("span", "", last3.meaning));
     }
     main.replaceChildren(el9("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input2, skip2, fb);
     input2.focus();
@@ -8794,7 +11044,7 @@ ${stack}`.slice(0, 2e3);
       const o = await api.daily();
       renderOverview(o);
       if (r2.done) {
-        toast(`Daily challenge: ${r2.done.correct}/10 \xB7 rank ${r2.done.rank} of ${r2.done.players}${r2.done.xp ? ` \xB7 +${r2.done.xp} XP` : ""}`, 6e3);
+        toast(isOffline() ? `Daily challenge: ${r2.done.correct}/10${r2.done.xp ? ` \xB7 +${r2.done.xp} XP` : ""} \xB7 your rank comes when you're back online` : `Daily challenge: ${r2.done.correct}/10 \xB7 rank ${r2.done.rank} of ${r2.done.players}${r2.done.xp ? ` \xB7 +${r2.done.xp} XP` : ""}`, 6e3);
         if (r2.done.correct === 10) sfx.go();
       }
     } catch (e) {
@@ -8949,7 +11199,7 @@ ${stack}`.slice(0, 2e3);
   function onInvite(msg) {
     const box = $12("inviteBox");
     const join2 = el10("button", "big", "Join");
-    const no = el10("button", "pill", "Decline");
+    const no2 = el10("button", "pill", "Decline");
     const close = () => {
       box.hidden = true;
       clearTimeout(t);
@@ -8958,9 +11208,9 @@ ${stack}`.slice(0, 2e3);
       close();
       hooks3.join(msg.code);
     };
-    no.onclick = close;
+    no2.onclick = close;
     box.replaceChildren(el10("b", "", `${msg.from} invites you`), el10("span", "", `to ${MODE_LABEL[msg.mode]} \u2014 room ${msg.code}`), el10("div", "ib-actions"));
-    box.lastElementChild.append(join2, no);
+    box.lastElementChild.append(join2, no2);
     box.hidden = false;
     sfx.go();
     attention(`${msg.from} invites you`, `Join their ${MODE_LABEL[msg.mode]} room`);
@@ -8971,6 +11221,250 @@ ${stack}`.slice(0, 2e3);
     void refresh(true).then(() => {
       if (currentScreen() === "friends") render5();
     });
+  }
+
+  // src/client/selects.ts
+  var done = /* @__PURE__ */ new WeakSet();
+  var openMenu = null;
+  function enhance(sel) {
+    if (done.has(sel) || sel.multiple || sel.size > 1 || sel.hasAttribute("data-native")) return;
+    done.add(sel);
+    const wrap = document.createElement("span");
+    wrap.className = "csel " + sel.className;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "csel-btn";
+    btn.setAttribute("aria-haspopup", "listbox");
+    const label = document.createElement("span");
+    label.className = "csel-label";
+    const chev = document.createElement("span");
+    chev.className = "csel-chev";
+    chev.setAttribute("aria-hidden", "true");
+    btn.append(label, chev);
+    sel.replaceWith(wrap);
+    wrap.append(sel, btn);
+    sel.classList.add("csel-native");
+    sel.tabIndex = -1;
+    sel.setAttribute("aria-hidden", "true");
+    const sync = () => {
+      const o = sel.selectedOptions[0] ?? sel.options[0];
+      label.textContent = o?.textContent ?? "";
+      btn.disabled = sel.disabled;
+      const aria = sel.getAttribute("aria-label") ?? sel.title;
+      if (aria) btn.setAttribute("aria-label", `${aria}: ${label.textContent}`);
+      if (sel.title) btn.title = sel.title;
+    };
+    for (const prop of ["value", "selectedIndex"]) {
+      const d = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, prop);
+      Object.defineProperty(sel, prop, { configurable: true, get() {
+        return d.get.call(this);
+      }, set(v) {
+        d.set.call(this, v);
+        sync();
+      } });
+    }
+    new MutationObserver(sync).observe(sel, { childList: true, subtree: true, attributes: true, characterData: true });
+    sel.addEventListener("change", sync);
+    let menu = null;
+    let active2 = -1;
+    const items = () => [...menu?.querySelectorAll(".csel-opt:not(.off)") ?? []];
+    const mark = (i) => {
+      const list = items();
+      if (!list.length) return;
+      active2 = (i + list.length) % list.length;
+      list.forEach((x, k) => x.classList.toggle("act", k === active2));
+      list[active2].scrollIntoView({ block: "nearest" });
+    };
+    const close = () => {
+      if (!menu) return;
+      menu.remove();
+      menu = null;
+      wrap.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+      document.removeEventListener("pointerdown", outside, true);
+      if (openMenu?.close === close) openMenu = null;
+    };
+    const pick5 = (i) => {
+      if (i < 0 || i === sel.selectedIndex) {
+        close();
+        btn.focus();
+        return;
+      }
+      sel.selectedIndex = i;
+      sel.dispatchEvent(new Event("input", { bubbles: true }));
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+      close();
+      btn.focus();
+    };
+    const outside = (e) => {
+      if (!wrap.contains(e.target)) close();
+    };
+    const open3 = () => {
+      if (menu || sel.disabled) return;
+      openMenu?.close();
+      menu = document.createElement("div");
+      menu.className = "csel-menu";
+      menu.setAttribute("role", "listbox");
+      [...sel.options].forEach((o, i) => {
+        if (o.hidden) return;
+        const it = document.createElement("div");
+        it.className = "csel-opt" + (o.disabled ? " off" : "") + (i === sel.selectedIndex ? " sel" : "");
+        it.setAttribute("role", "option");
+        it.setAttribute("aria-selected", String(i === sel.selectedIndex));
+        it.textContent = o.textContent;
+        it.dataset.i = String(i);
+        if (!o.disabled) it.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          pick5(i);
+        });
+        menu.append(it);
+      });
+      wrap.append(menu);
+      wrap.classList.add("open");
+      btn.setAttribute("aria-expanded", "true");
+      const r2 = btn.getBoundingClientRect();
+      const box = (wrap.closest("dialog") ?? document.documentElement).getBoundingClientRect();
+      const bottom = Math.min(box.bottom, window.innerHeight);
+      const below = bottom - r2.bottom, above = r2.top - Math.max(box.top, 0);
+      menu.classList.toggle("up", below < Math.min(menu.getBoundingClientRect().height, 260) && above > below);
+      const list = items();
+      mark(Math.max(0, list.findIndex((x) => x.classList.contains("sel"))));
+      openMenu = { close };
+      setTimeout(() => document.addEventListener("pointerdown", outside, true));
+    };
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      menu ? close() : open3();
+    });
+    btn.addEventListener("keydown", (e) => {
+      if (!menu) {
+        if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
+          e.preventDefault();
+          open3();
+        }
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        mark(active2 + 1);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        mark(active2 - 1);
+      } else if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        const it = items()[active2];
+        pick5(it ? +it.dataset.i : -1);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      } else if (e.key === "Tab") close();
+    });
+    const lab = wrap.closest("label");
+    if (lab) lab.addEventListener("click", (e) => {
+      if (!wrap.contains(e.target)) {
+        e.preventDefault();
+        btn.focus();
+      }
+    });
+    sync();
+  }
+  function initSelects(root = document) {
+    root.querySelectorAll("select").forEach((s) => enhance(s));
+    new MutationObserver((muts) => {
+      for (const m of muts) for (const n of m.addedNodes) {
+        if (n instanceof HTMLSelectElement) enhance(n);
+        else if (n instanceof HTMLElement) n.querySelectorAll("select").forEach((s) => enhance(s));
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("resize", () => openMenu?.close());
+  }
+
+  // src/client/appshell.ts
+  var RELEASES = "https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download";
+  var DOWNLOADS = { windows: `${RELEASES}/KanjiWizards-Setup.exe`, android: `${RELEASES}/KanjiWizards.apk` };
+  var inApp = () => /KanjiWizards(Desktop|Android)/.test(navigator.userAgent) || matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  var isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  var installPrompt = null;
+  var ONLINE_ONLY = "#queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove";
+  function initApp(hooks4) {
+    init(getToken);
+    onChange((off) => {
+      document.body.classList.toggle("offline", off);
+      hooks4.netStatus();
+      if (off) toast("You're offline. Study spells, the quiz, reading passages, the daily challenge and Customize still work \u2014 your progress syncs when you're back online.", 6e3);
+      else {
+        toast("Back online \u2014 your progress is synced.", 3500);
+        hooks4.backOnline();
+      }
+    });
+    document.addEventListener("click", (e) => {
+      if (!isOffline() && navigator.onLine) return;
+      const t = e.target?.closest?.(ONLINE_ONLY);
+      if (!t) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      toast(OFFLINE_TEXT, 3500);
+    }, true);
+    const secure = location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    if ("serviceWorker" in navigator && secure && !/[?&]nosw\b/.test(location.search)) {
+      const hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.register("/sw.js").catch((e) => console.warn("service worker", e));
+      let waiting = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!hadController || waiting) return;
+        waiting = true;
+        const tryReload = () => {
+          if (hooks4.canReload()) location.reload();
+          else setTimeout(tryReload, 3e3);
+        };
+        tryReload();
+      });
+    }
+    addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      installPrompt = e;
+      renderAppDialog();
+    });
+    addEventListener("appinstalled", () => {
+      installPrompt = null;
+      renderAppDialog();
+      toast("Kanji Wizards is installed \u2014 find it with your apps.");
+    });
+    const btn = $("appBtn");
+    btn.hidden = inApp();
+    btn.onclick = () => {
+      renderAppDialog();
+      $("appDialog").showModal();
+    };
+    $("appInstall").onclick = async () => {
+      if (!installPrompt) return;
+      await installPrompt.prompt();
+      await installPrompt.userChoice.catch(() => null);
+      installPrompt = null;
+      renderAppDialog();
+    };
+    window.kwBack = () => {
+      const open3 = [...document.querySelectorAll("dialog[open]")].pop();
+      if (open3) {
+        open3.close();
+        return true;
+      }
+      const scr = currentScreen();
+      if (!scr || scr === "menu" || scr === "auth") return false;
+      const back = document.querySelector(`#${scr} .back, #${scr} [id$="Back"]`);
+      if (back && back.offsetParent !== null) back.click();
+      return true;
+    };
+    $("appWin").href = DOWNLOADS.windows;
+    $("appApk").href = DOWNLOADS.android;
+  }
+  function renderAppDialog() {
+    $("appInstall").hidden = !installPrompt;
+    $("appIos").hidden = !(isIos() && !inApp());
+    $("appManual").hidden = !!installPrompt || isIos() || inApp();
   }
 
   // src/client/main.ts
@@ -9014,8 +11508,15 @@ ${stack}`.slice(0, 2e3);
     }
   };
   var socket = new GameSocket(onMessage, (s) => {
-    setNetStatus(s === "reconnecting" ? "Reconnecting\u2026" : null);
+    netState = s;
+    if (s === "reconnecting") void probe();
+    showNetStatus();
   });
+  var netState = "";
+  function showNetStatus() {
+    if (isOffline()) setNetStatus(pending() ? `Offline mode \xB7 ${pending()} to sync` : "Offline mode");
+    else setNetStatus(netState === "reconnecting" ? "Reconnecting\u2026" : null);
+  }
   var actorOf = (id) => id === "boss" ? "boss" : id === you ? "me" : mode2 === "boss" ? `ally:${id}` : "opp";
   var nameOf = (id) => players.find((p) => p.id === id)?.name ?? "Someone";
   var GAME_SCREENS2 = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
@@ -9074,8 +11575,8 @@ ${stack}`.slice(0, 2e3);
       tutorialShown = true;
       startTutorial();
     }
-    void dailyPending().then((open2) => {
-      $("dailyBadge").hidden = !open2;
+    void dailyPending().then((open3) => {
+      $("dailyBadge").hidden = !open3;
     });
     refreshFriendsBadge();
     renderTasks(p);
@@ -9114,19 +11615,20 @@ ${stack}`.slice(0, 2e3);
     try {
       const { user: u, profile: p } = await api.me();
       applyProfile(p);
-      signedIn2(u);
+      signedIn3(u);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         setToken("");
         showAuth(e.status === 403 ? e.message : "");
       } else {
         show("auth");
-        $("authError").textContent = "Server unreachable \u2014 try again in a moment.";
+        $("authError").textContent = e instanceof ApiError && e.status === 0 ? "No internet connection. Sign in once while online \u2014 then Study spells and more work offline too." : "Server unreachable \u2014 try again in a moment.";
       }
     }
   }
-  function signedIn2(u) {
+  function signedIn3(u) {
     user = u;
+    if (!isOffline()) void signedIn(u.id);
     setUser(u);
     setRailUser(true);
     socket.start(getToken());
@@ -9145,6 +11647,7 @@ ${stack}`.slice(0, 2e3);
     $("authError").textContent = message;
   }
   function logout(message = "") {
+    void signedOut();
     setToken("");
     socket.stop();
     showAuth(message);
@@ -9568,10 +12071,10 @@ ${stack}`.slice(0, 2e3);
     btn.disabled = true;
     $("authError").textContent = "";
     try {
-      const res = authTab === "login" ? await api.login(username, password) : await api.register(username, password);
-      setToken(res.token);
+      const res2 = authTab === "login" ? await api.login(username, password) : await api.register(username, password);
+      setToken(res2.token);
       $("authPass").value = "";
-      signedIn2(res.user);
+      signedIn3(res2.user);
       void refreshProfile();
     } catch (err) {
       $("authError").textContent = err instanceof Error ? err.message : "Something went wrong";
@@ -9635,6 +12138,15 @@ ${stack}`.slice(0, 2e3);
       socket.send({ type: "leave" });
     },
     inRoom: () => inRoom
+  });
+  initSelects();
+  initApp({
+    // a new version is ready: reload when you're on the menu (or signed out), not in a room or a study session
+    canReload: () => !inRoom && ["menu", "auth"].includes(currentScreen() ?? ""),
+    backOnline: () => {
+      void refreshProfile();
+    },
+    netStatus: showNetStatus
   });
   initTutorial({
     firstBattle: () => socket.send({ type: "create", mode: "reading", levels: kanaBeginner() ? ["KANA"] : ["KANA", "N5"], tutorial: true }),
@@ -9883,7 +12395,7 @@ ${stack}`.slice(0, 2e3);
   $("resultHistoryBack").onclick = () => void openHistory();
   {
     let shownFor = "";
-    const open2 = async (el11) => {
+    const open3 = async (el11) => {
       const id = el11.dataset.profile;
       if (shownFor === id && !$("otherPop").hidden) {
         hideProfileCard();
@@ -9920,7 +12432,7 @@ ${stack}`.slice(0, 2e3);
       const el11 = e.target.closest("[data-profile]");
       if (el11) {
         e.stopPropagation();
-        void open2(el11);
+        void open3(el11);
         return;
       }
       if (!$("otherPop").contains(e.target)) {
@@ -9932,7 +12444,7 @@ ${stack}`.slice(0, 2e3);
       const el11 = e.target.closest?.("[data-profile]");
       if (el11 && (e.key === "Enter" || e.key === " ")) {
         e.preventDefault();
-        void open2(el11);
+        void open3(el11);
       } else if (e.key === "Escape") hideProfileCard();
     });
   }

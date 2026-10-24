@@ -1,10 +1,10 @@
 {
   "name": "kanji-battle",
-  "version": "0.9.9.3.4",
+  "version": "0.9.9.4",
   "private": true,
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
-    "build:client": "esbuild src/client/main.ts --bundle --outfile=public/app.js --target=es2020 && esbuild src/client/arena3d.ts --bundle --minify --outfile=public/arena3d.js --target=es2020",
+    "build:client": "node scripts/build-client.mjs",
     "build:server": "tsc -p tsconfig.json",
     "build": "npm run build:client && npm run build:server",
     "dev": "npm run build:client && tsx src/server/index.ts",

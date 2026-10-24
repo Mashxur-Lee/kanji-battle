@@ -2042,3 +2042,50 @@ dialog.passage-dialog { padding: 22px 26px; }
 @media (min-width: 1600px) {
   .passage-dialog .passage-text { font-size: 2rem; }
 }
+
+/* ── 0.9.9.4: themed dropdowns (selects.ts) and a readable "learned today" counter ── */
+.csel-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }
+span.csel { position: relative; display: inline-flex; vertical-align: middle; min-width: 0; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; font-size: inherit; }
+.csel-btn { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-width: 0; cursor: pointer;
+  padding: 6px 10px 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(40, 34, 92, .9), rgba(20, 17, 52, .92)); color: var(--text);
+  font: inherit; font-size: .9em; font-weight: 600; line-height: 1.25; transition: border-color .15s, box-shadow .15s; white-space: nowrap; }
+.csel-btn:hover:not(:disabled), .csel.open .csel-btn { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(185, 147, 255, .18); }
+.csel-btn:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+.csel-btn:disabled { opacity: .5; cursor: default; }
+.csel-label { overflow: hidden; text-overflow: ellipsis; }
+.csel-chev { flex: none; width: 8px; height: 8px; border: solid var(--accent2); border-width: 0 2px 2px 0; transform: translateY(-2px) rotate(45deg); transition: transform .15s; }
+.csel.open .csel-chev { transform: translateY(2px) rotate(-135deg); }
+.csel-menu { position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; min-width: 100%; max-width: min(340px, 86vw); max-height: 260px; overflow: auto; overscroll-behavior: contain;
+  padding: 6px; border-radius: 12px; border: 1px solid rgba(185, 147, 255, .45); background: rgba(18, 15, 48, .98); box-shadow: 0 14px 34px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .3);
+  animation: csel-in .12s ease-out; scrollbar-width: thin; }
+.csel-menu.up { top: auto; bottom: calc(100% + 6px); }
+.vol-panel .csel-menu, .toggle-row .csel-menu { left: auto; right: 0; }
+@keyframes csel-in { from { opacity: 0; transform: translateY(-4px); } }
+.csel-opt { padding: 8px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; font-size: .92em; color: var(--text); }
+.csel-opt.act { background: rgba(185, 147, 255, .18); }
+.csel-opt.sel { color: var(--accent2); font-weight: 700; }
+.csel-opt.sel::before { content: "✓ "; }
+.csel-opt.off { opacity: .4; cursor: default; }
+.vol-panel .toggle-row .csel { margin-left: auto; max-width: 70%; }
+.add-bot .csel { flex: 1; min-width: 140px; }
+.add-bot .csel-btn { padding: 8px 12px; }
+#studyCrit { font-size: .9rem; font-weight: 700; padding: 5px 14px; color: #ffe2a0; background: rgba(20, 14, 6, .82); border: 1px solid rgba(255, 212, 121, .7); box-shadow: 0 2px 10px rgba(0, 0, 0, .35); text-shadow: none; }
+.quiz-word { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 6px 14px; margin: 4px auto 0; padding: 10px 18px; border-radius: 14px; background: rgba(110, 231, 255, .08); border: 1px solid rgba(110, 231, 255, .3); animation: csel-in .2s ease-out; max-width: 100%; }
+.quiz-word b { font-family: var(--jp); font-size: 1.6rem; }
+.quiz-word .rd { color: var(--accent2); font-size: 1.1rem; }
+.quiz-word .m { color: var(--text); }
+
+/* ── 0.9.9.4: the app — "Get the app", offline mode ── */
+.app-dialog { width: min(560px, calc(100vw - 32px)); }
+.app-opt { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--line); }
+.app-opt img { border-radius: 12px; flex: none; }
+.app-opt .app-ico { font-size: 1.9rem; width: 44px; text-align: center; flex: none; }
+.app-opt > div { flex: 1; min-width: 0; }
+.app-opt p { margin: 4px 0 8px; }
+a.btn-link { display: inline-block; text-decoration: none; text-align: center; padding: 10px 16px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #6d4bff); color: #fff; font-weight: 700; }
+.app-btn { border-color: rgba(110, 231, 255, .45) !important; }
+body.offline :is(#queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railFab) { opacity: .45; filter: grayscale(.6); }
+body.offline .friend-rail .fr-list { opacity: .45; }
+body.offline .net-status { background: #1d2440; color: #9fd8ff; border-color: #3a4f80; }
+button.big kbd, .big kbd { color: rgba(255, 255, 255, .85); border-color: rgba(255, 255, 255, .45); background: rgba(0, 0, 0, .12); }
+body.offline #onlineCount { display: none !important; }

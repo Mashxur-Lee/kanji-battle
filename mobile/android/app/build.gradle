@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Kanji Wizards for Android (0.9.9.4): a small WebView app around the game's website.
+// Version: -PversionName=0.9.9.4 -PversionCode=<build number> (set by .github/workflows/apps.yml)
+android {
+    namespace 'com.kanjiwizards.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.kanjiwizards.app'
+        minSdk 24
+        targetSdk 34
+        versionCode((project.findProperty('versionCode') ?: '1') as int)
+        versionName((project.findProperty('versionName') ?: '0.9.9.4') as String)
+        buildConfigField 'String', 'SERVER', '"' + (project.findProperty('server') ?: 'https://kanji-battle-ev0o.onrender.com') + '"'
+    }
+
+    // A fixed key, so each new APK installs over the old one. It's a beta key kept in the repository
+    // (fine for installing the APK directly); a Play Store release would use a private key instead.
+    signingConfigs {
+        beta {
+            storeFile file('../kanjiwizards-beta.jks')
+            storePassword 'kanjiwizards'
+            keyAlias 'beta'
+            keyPassword 'kanjiwizards'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.beta
+        }
+        debug {
+            signingConfig signingConfigs.beta
+        }
+    }
+    buildFeatures { buildConfig true }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
