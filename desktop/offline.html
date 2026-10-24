@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' file:">
+<title>Kanji Wizards</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: grid; place-items: center; background: radial-gradient(ellipse at 50% 35%, #2b1f6e, #0b0920 70%); color: #ece8ff; font: 16px/1.5 "Segoe UI", system-ui, sans-serif; }
+  .box { text-align: center; max-width: 440px; padding: 24px; }
+  img { width: 112px; height: 112px; border-radius: 26px; box-shadow: 0 10px 40px rgba(143, 99, 255, .45); }
+  h1 { font-size: 1.6rem; margin: 18px 0 6px; }
+  p { color: #b8b0e0; margin: 0 0 18px; }
+  button { font: inherit; font-weight: 700; color: #fff; border: 0; border-radius: 12px; padding: 12px 28px; cursor: pointer; background: linear-gradient(135deg, #b993ff, #6d4bff); }
+  button:hover { filter: brightness(1.1); }
+  small { display: block; margin-top: 14px; color: #8a83b8; }
+</style>
+</head>
+<body>
+<div class="box">
+  <img src="icon.png" alt="">
+  <h1>No internet connection</h1>
+  <p>Kanji Wizards needs the internet the first time it opens, to sign you in. After that, Study spells and more work offline too.</p>
+  <button id="retry">Try again</button>
+  <small>If the server was asleep it can take up to a minute to wake up.</small>
+</div>
+<script>
+  const server = new URLSearchParams(location.search).get('server');
+  document.getElementById('retry').onclick = () => { if (server) location.href = server; };
+  addEventListener('online', () => { if (server) location.href = server; });
+</script>
+</body>
+</html>

@@ -6,7 +6,12 @@
   <meta name="theme-color" content="#0b0a1c">
   <title>Kanji Wizards</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kanji Wizards">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -102,6 +107,34 @@
  <dialog id="newsDialog" class="friend-dialog news-dialog" aria-label="What's new">
   <div class="dd-head"><h3>What's new</h3><span id="newsVersion" class="tag"></span><button id="newsClose" class="pill">Close</button></div>
   <div id="newsBody" class="news-body" data-no-i18n></div>
+</dialog>
+<dialog id="appDialog" class="friend-dialog app-dialog" aria-label="Get the app">
+  <h3>Get the app</h3>
+  <p class="hint">The app opens straight into the game and works offline too: Study spells, the JLPT quiz, reading passages, the daily challenge, Customize, Progress and match history. Online queue and private games need internet. Your account and progress are the same everywhere.</p>
+  <div class="app-opt">
+    <img src="/icons/icon-192.png" alt="" width="44" height="44">
+    <div><b>Phone or PC — from this browser</b>
+      <p class="hint">No store needed: it installs like an app, with its own icon.</p>
+      <button id="appInstall" class="big" hidden>Install Kanji Wizards</button>
+      <p id="appIos" class="hint" hidden>On iPhone / iPad (Safari): tap <b>Share</b> <span aria-hidden="true">⎙</span> → <b>Add to Home Screen</b>.</p>
+      <p id="appManual" class="hint">In Chrome or Edge: open the browser menu <b>⋮</b> → <b>Install app</b> (or <b>Add to Home screen</b>).</p>
+    </div>
+  </div>
+  <div class="app-opt">
+    <span class="app-ico" aria-hidden="true">🪟</span>
+    <div><b>Windows</b>
+      <p class="hint">Download and run the installer. If Windows says “protected your PC”, choose <b>More info → Run anyway</b> (the app isn't signed yet).</p>
+      <a id="appWin" class="big btn-link" href="#" rel="noopener">Download for Windows (.exe)</a>
+    </div>
+  </div>
+  <div class="app-opt">
+    <span class="app-ico" aria-hidden="true">🤖</span>
+    <div><b>Android</b>
+      <p class="hint">Download the APK and open it; allow your browser to install apps when asked. No Google Play needed.</p>
+      <a id="appApk" class="big btn-link" href="#" rel="noopener">Download for Android (.apk)</a>
+    </div>
+  </div>
+  <form method="dialog" class="fb-actions"><button class="big alt">Close</button></form>
 </dialog>
 <dialog id="aboutDialog" class="friend-dialog about-dialog" aria-label="About">
   <h3>Kanji Wizards <small id="aboutVersion" class="hint"></small></h3>
@@ -264,6 +297,7 @@
         <button id="feedbackBtn" class="how-btn">Feedback</button>
         <button id="aboutBtn" class="how-btn">About</button>
         <button id="newsBtn" class="how-btn news-btn">What's new <span id="newsDot" class="badge" hidden>new</span></button>
+        <button id="appBtn" class="how-btn app-btn" hidden>Get the app</button>
       </div>
     </div>
     <div class="col-scene"><div class="scene duel-scene" aria-hidden="true"></div></div>
@@ -725,7 +759,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.9.3.4</div>
+<div id="version" class="version">v0.9.9.4</div>
 <script src="/app.js"></script>
 </body>
 </html>

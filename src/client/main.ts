@@ -33,6 +33,8 @@ import { initFriends, onFriendEvent, onInvite, openFriends, refreshFriendsBadge,
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
+import * as offline from './offline';
+import { initApp } from './appshell';
 
 applyUiZoom(); // before anything is laid out
 
@@ -65,8 +67,16 @@ const savedLevels = (): Level[] => {
 };
 
 const socket = new GameSocket(onMessage, (s) => {
-  ui.setNetStatus(s === 'reconnecting' ? 'Reconnecting…' : null);
+  netState = s;
+  if (s === 'reconnecting') void offline.probe();
+  showNetStatus();
 });
+let netState = '';
+/** 0.9.9.4: offline → a calm "Offline" pill instead of "Reconnecting…" forever */
+function showNetStatus() {
+  if (offline.isOffline()) ui.setNetStatus(offline.pending() ? `Offline mode · ${offline.pending()} to sync` : 'Offline mode');
+  else ui.setNetStatus(netState === 'reconnecting' ? 'Reconnecting…' : null);
+}
 
 /** Who is this player on screen? You are always on the left; in boss mode the other player is your ally. */
 const actorOf = (id: PlayerId | 'boss'): ui.Actor => (id === 'boss' ? 'boss' : id === you ? 'me' : mode === 'boss' ? `ally:${id}` : 'opp');
@@ -173,12 +183,13 @@ async function boot() {
     signedIn(u);
   } catch (e) {
     if (e instanceof ApiError && (e.status === 401 || e.status === 403)) { setToken(''); showAuth(e.status === 403 ? e.message : ''); }
-    else { ui.show('auth'); ui.$('authError').textContent = 'Server unreachable — try again in a moment.'; }
+    else { ui.show('auth'); ui.$('authError').textContent = e instanceof ApiError && e.status === 0 ? 'No internet connection. Sign in once while online — then Study spells and more work offline too.' : 'Server unreachable — try again in a moment.'; }
   }
 }
 
 function signedIn(u: PublicUser) {
   user = u;
+  if (!offline.isOffline()) void offline.signedIn(u.id); // keep a copy of the account for offline use
   ui.setUser(u);
   setRailUser(true);
   socket.start(getToken());
@@ -199,6 +210,7 @@ function showAuth(message = '') {
 }
 
 function logout(message = '') {
+  void offline.signedOut();
   setToken('');
   socket.stop();
   showAuth(message);
@@ -628,6 +640,12 @@ initFriends({
   inRoom: () => inRoom,
 });
 initSelects();
+initApp({
+  // a new version is ready: reload when you're on the menu (or signed out), not in a room or a study session
+  canReload: () => !inRoom && ['menu', 'auth'].includes(ui.currentScreen() ?? ''),
+  backOnline: () => { void refreshProfile(); },
+  netStatus: showNetStatus,
+});
 initTutorial({
   firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ui.kanaBeginner() ? ['KANA'] : ['KANA', 'N5'], tutorial: true }),
   kana: async (mastered) => {

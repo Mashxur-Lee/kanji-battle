@@ -28,6 +28,8 @@ const TOKEN_KEY = 'kb:token';
 export const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) ?? ''; } catch { return ''; } };
 export const setToken = (t: string) => { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch { /* private mode */ } };
 
+import * as offline from './offline';
+
 export class ApiError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
 export interface AdminReport { id: string; kind: 'bug' | 'suggestion' | 'error'; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean }
@@ -36,15 +38,41 @@ export interface AdminStats {
   day1: { players: number; returned: number }; day7: { players: number; returned: number };
   funnel: Array<{ name: string; players: number }>; modes: Record<string, { started: number; finished: number }>;
 }
+/** Network trouble (no answer at all), as opposed to the server saying no. */
+const isNetworkError = (e: unknown) => e instanceof TypeError || (e instanceof DOMException && e.name === 'AbortError');
+
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  // 0.9.9.4: offline → the calls that work alone are answered by the app itself (offline/), the rest can't
+  if (offline.isOffline()) return local<T>(method, url, body);
+  let res: Response;
+  try {
+    // a GET that hangs (no signal, or the server still waking up) gives up after a while when we can go offline
+    const ctl = new AbortController();
+    const t = method === 'GET' && offline.handles(method, url) ? window.setTimeout(() => ctl.abort(), 12_000) : 0;
+    res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: ctl.signal,
+    }).finally(() => clearTimeout(t));
+  } catch (e) {
+    if (isNetworkError(e) && offline.handles(method, url) && await offline.goOffline()) return local<T>(method, url, body);
+    if (isNetworkError(e)) throw new ApiError(OFFLINE_TEXT, 0);
+    throw e;
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
+  offline.changedOnline(method, url);
   return data as T;
+}
+/** crypto.randomUUID needs https; plain-http LAN testing gets a random fallback */
+export const uuid = () => (typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, () => (Math.random() * 16 | 0).toString(16)));
+export const OFFLINE_TEXT = 'You\'re offline — this needs an internet connection.';
+async function local<T>(method: string, url: string, body?: unknown): Promise<T> {
+  if (!offline.handles(method, url)) throw new ApiError(OFFLINE_TEXT, 0);
+  const out = await offline.call(method, url, body);
+  if (out.status >= 400) throw new ApiError(out.body?.error ?? `Error ${out.status}`, out.status);
+  return out.body as T;
 }
 
 export const api = {
@@ -64,7 +92,8 @@ export const api = {
   deckRemove: (deck: DeckId, ids: string[]) => call<{ removed: number }>('POST', '/api/study/deck/remove', { deck, ids }),
   deckAdd: (deck: DeckId, ids: string[]) => call<{ added: string[] }>('POST', '/api/study/deck/add', { deck, ids }),
   searchWords: (q: string) => call<{ words: WordHit[] }>('GET', `/api/study/search?q=${encodeURIComponent(q)}`),
-  addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', w),
+  // the app names a new custom word itself (0.9.9.4), so one added offline keeps its id on the server
+  addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', { ...w, id: `u:${uuid().slice(0, 13)}` }),
   quiz: (n = 10) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}`),
   /** a daily task done here (the quiz, a passage): counts towards today's streak */
   task: (task: 'quiz' | 'passage') => call<Profile>('POST', '/api/study/task', { task, today: today() }),

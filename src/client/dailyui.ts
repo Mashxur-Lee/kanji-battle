@@ -4,6 +4,7 @@
 
 import { locale } from './i18n';
 import { LEVEL_LABEL } from '../shared/protocol';
+import * as offline from './offline';
 import { api, type DailyAnswer, type DailyOverview, type DailyWord } from './api';
 import * as audio from './audio';
 import * as ui from './ui';
@@ -162,7 +163,9 @@ async function submit(text: string) {
     const o = await api.daily();
     renderOverview(o);
     if (r.done) {
-      ui.toast(`Daily challenge: ${r.done.correct}/10 · rank ${r.done.rank} of ${r.done.players}${r.done.xp ? ` · +${r.done.xp} XP` : ''}`, 6000);
+      ui.toast(offline.isOffline()
+        ? `Daily challenge: ${r.done.correct}/10${r.done.xp ? ` · +${r.done.xp} XP` : ''} · your rank comes when you're back online`
+        : `Daily challenge: ${r.done.correct}/10 · rank ${r.done.rank} of ${r.done.players}${r.done.xp ? ` · +${r.done.xp} XP` : ''}`, 6000);
       if (r.done.correct === 10) audio.sfx.go();
     }
   } catch (e) {

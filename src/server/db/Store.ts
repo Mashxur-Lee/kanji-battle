@@ -120,6 +120,14 @@ export interface DailyResult { userId: string; username: string; correct: number
 export interface FriendLink { id: string; username: string; status: 'accepted' | 'incoming' | 'outgoing' }
 
 export const MATCH_HISTORY_LIMIT = 15; // older games are deleted
+
+/** 0.9.9.4: one player's data for the app's offline engine (GET /api/sync/snapshot). */
+export const SNAPSHOT_V = 1;
+export interface Snapshot {
+  v: number; at: number; user: UserRecord; cards: SrsCard[]; custom: CustomWord[]; matches: MatchDetail[]; activity: DayActivity[];
+  /** today's daily challenge (UTC day) and your result, if you played it */
+  daily: { day: string; result: { correct: number; ms: number; marks?: string } | null } | null;
+}
 const summaryOf = (m: MatchDetail): MatchSummary => ({ id: m.id, mode: m.mode, outcome: m.outcome, character: m.character, at: m.at, opponents: m.opponents });
 
 const blankProgress = () => ({ dailyNew: 25, newToday: 0, badges: [] as string[], xp: 0, background: 'forest' as BackgroundId, studyLevels: [] as Level[], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: 'blue' as FlameId, staff: 'verdant' as StaffId, tutorialDone: true, unlocks: [] as string[], loginDay: null as string | null, streak: 0, streakDay: null as string | null, border: 'none', bestStreak: 0 });

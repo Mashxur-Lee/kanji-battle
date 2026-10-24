@@ -2074,3 +2074,18 @@ span.csel { position: relative; display: inline-flex; vertical-align: middle; mi
 .quiz-word b { font-family: var(--jp); font-size: 1.6rem; }
 .quiz-word .rd { color: var(--accent2); font-size: 1.1rem; }
 .quiz-word .m { color: var(--text); }
+
+/* ── 0.9.9.4: the app — "Get the app", offline mode ── */
+.app-dialog { width: min(560px, calc(100vw - 32px)); }
+.app-opt { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--line); }
+.app-opt img { border-radius: 12px; flex: none; }
+.app-opt .app-ico { font-size: 1.9rem; width: 44px; text-align: center; flex: none; }
+.app-opt > div { flex: 1; min-width: 0; }
+.app-opt p { margin: 4px 0 8px; }
+a.btn-link { display: inline-block; text-decoration: none; text-align: center; padding: 10px 16px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #6d4bff); color: #fff; font-weight: 700; }
+.app-btn { border-color: rgba(110, 231, 255, .45) !important; }
+body.offline :is(#queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railFab) { opacity: .45; filter: grayscale(.6); }
+body.offline .friend-rail .fr-list { opacity: .45; }
+body.offline .net-status { background: #1d2440; color: #9fd8ff; border-color: #3a4f80; }
+button.big kbd, .big kbd { color: rgba(255, 255, 255, .85); border-color: rgba(255, 255, 255, .45); background: rgba(0, 0, 0, .12); }
+body.offline #onlineCount { display: none !important; }

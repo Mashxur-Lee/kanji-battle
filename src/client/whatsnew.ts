@@ -7,6 +7,25 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4', date: '2026-10',
+    en: [
+      'Kanji Wizards is an app now: install it from the browser on any phone or PC (menu → Get the app), or download the Windows app (.exe) or the Android app (.apk) — no store needed.',
+      'Offline mode: without internet you can still study spells, take the JLPT quiz, read passages, play the daily challenge, customize and look at your progress and match history. Everything syncs when you’re back online. Online queue and private games need internet.',
+      'All dropdown menus are in the game’s style now.',
+      'JLPT quiz: after every answer you see the whole word — kanji, reading and meaning — even when you got it right.',
+      'Reading passages have six different stories: the school of magic, a trip to Kyoto, a detective case, a sea voyage, a journey to the Moon and a little café.',
+      'Study spells: the “learned today” counter is readable.',
+    ],
+    ru: [
+      'Kanji Wizards теперь приложение: установите его из браузера на любой телефон или ПК (меню → «Скачать приложение») или скачайте приложение для Windows (.exe) или Android (.apk) — магазин не нужен.',
+      'Офлайн-режим: без интернета можно изучать заклинания, проходить тест JLPT, читать тексты, играть в ежедневное испытание, менять настройки и смотреть прогресс и историю матчей. Всё синхронизируется, когда интернет вернётся. Для онлайн-очереди и приватных игр нужен интернет.',
+      'Все выпадающие меню теперь в стиле игры.',
+      'Тест JLPT: после каждого ответа показывается слово целиком — кандзи, чтение и значение — даже если вы ответили верно.',
+      'В текстах для чтения шесть разных историй: школа магии, поездка в Киото, детективное дело, морское путешествие, полёт на Луну и маленькое кафе.',
+      'Изучение заклинаний: счётчик «выучено сегодня» хорошо виден.',
+    ],
+  },
+  {
     v: '0.9.9.3.4', date: '2026-10',
     en: [
       'Every mode is open from the start — Kanji Writing, the Boss fight and Deck Duel no longer wait for level 1.',

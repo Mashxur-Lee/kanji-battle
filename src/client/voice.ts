@@ -25,12 +25,18 @@ function pick() {
 }
 if (synth) { pick(); synth.addEventListener?.('voiceschanged', pick); }
 
-export const voiceAvailable = () => !!synth;
+// 0.9.9.4: the Android app's WebView has no speechSynthesis — it lends Android's text-to-speech instead
+interface AndroidVoice { speak(text: string, rate: number, pitch: number): boolean; canSpeak(): boolean }
+const android = (window as { KWAndroid?: AndroidVoice }).KWAndroid ?? null;
+const androidSay = (kana: string) => { try { return !!android?.canSpeak() && android.speak(kana, 0.95, 0.85); } catch { return false; } };
+
+export const voiceAvailable = () => !!synth || !!android;
 export const getVoicePrefs = () => ({ ...prefs, name: voice?.name ?? null, male });
 export function setVoiceVolume(v: number) { prefs.vol = Math.max(0, Math.min(1, v)); prefs.on = prefs.vol > 0; save(); }
 
 /** Say a word (kana reading). Kana-only or romaji strings: pass the kana. */
 export function say(kana: string) {
+  if (android && prefs.on && prefs.vol > 0) { androidSay(kana); return; }
   if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== 'visible') return;
   if (!voice) pick();
   if (!voice && !synth.getVoices().length) return; // no Japanese voice on this device
@@ -49,6 +55,10 @@ export function say(kana: string) {
  * when there's no voice or it's switched off; never waits longer than the word could take.
  */
 export function speak(kana: string): Promise<void> {
+  if (android && prefs.on && prefs.vol > 0 && document.visibilityState === 'visible') {
+    if (!androidSay(kana)) return Promise.resolve();
+    return new Promise((done) => setTimeout(done, Math.min(2600, 500 + [...kana].length * 220)));
+  }
   if (!synth || !prefs.on || prefs.vol <= 0 || document.visibilityState !== 'visible') return Promise.resolve();
   if (!voice) pick();
   if (!voice && !synth.getVoices().length) return Promise.resolve();

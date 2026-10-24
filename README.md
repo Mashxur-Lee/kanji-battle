@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.3.4
+# Kanji Wizards · v0.9.9.4
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -20,6 +20,28 @@ npm test           # unit tests
 
 Production: `npm run build && npm start` (`PORT` supported). On Render the build command must include
 `npm install` (e.g. `npm install && npm run build`) so the `postgres` package gets installed.
+
+## Apps and offline mode (0.9.9.4)
+
+- **Install from the browser (PWA)** — `public/manifest.webmanifest` + the service worker `public/sw.js`
+  (generated from `src/client/sw.js` by `scripts/build-client.mjs`, with the list of files to keep).
+  Phones and PCs can install the site as an app (menu → **Get the app**); it opens without internet.
+- **Windows app** — `desktop/` (Electron). It opens the live site (always the newest version), so the
+  service worker gives it offline mode too; `offline.html` is shown only if the very first start has no
+  internet. Built into `KanjiWizards-Setup.exe` by electron-builder.
+- **Android app** — `mobile/android/` (a small WebView app, no Google Play needed). Adds Android's
+  text-to-speech for spoken words, the file picker for profile pictures and invite links. Signed with the
+  beta key `mobile/android/kanjiwizards-beta.jks`, so new APKs install over old ones.
+- **Builds** — `.github/workflows/apps.yml` builds both on every pull request (download them from the
+  run's *Artifacts*) and, on `main`, publishes them as the GitHub release `v<version>`; the game links to
+  `releases/latest/download/KanjiWizards-Setup.exe` and `…/KanjiWizards.apk`.
+- **Offline mode** — `src/client/offline/`. The app keeps a snapshot of your account
+  (`GET /api/sync/snapshot`) and, without internet, answers the study calls itself with the server's own
+  code (`src/server/router.ts`, `StudyService`, `DailyService` bundled for the browser). Changes go to an
+  outbox that is replayed in order once the server answers again, each call stamped with `X-KW-At` (the
+  moment it really happened, at most a week back) — so cards, streaks and daily-challenge times come out
+  as if you'd been online. Online queue, private games, friends and the admin pages need the server.
+- Icons: `assets/icon.svg` → `node scripts/build-icons.mjs` (needs `sharp`).
 
 ## Accounts and saving progress
 
