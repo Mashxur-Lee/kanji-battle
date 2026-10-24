@@ -36,7 +36,12 @@ jobs:
       - name: Build the installer
         working-directory: desktop
         shell: bash
-        run: npx electron-builder --win nsis --publish never -c.buildVersion="$VERSION" -c.extraMetadata.version="$SEMVER"
+        run: |
+          set -o pipefail
+          npx electron-builder --win nsis --publish never -c.buildVersion="$VERSION" -c.extraMetadata.version="$SEMVER" 2>&1 | tee build.log || {
+            echo "::error title=electron-builder::$(tail -n 40 build.log | sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\r//g' -e 's/\n/%0A/g')"
+            exit 1
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: windows
