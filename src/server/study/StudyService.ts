@@ -7,7 +7,7 @@ import { BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, is
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
-import { pickDistractors, posOf } from './distract';
+import { buildQuiz, type QuizQuestion } from '../../shared/quiz';
 import { MATCH_HISTORY_LIMIT, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { VOCAB, VOCAB_BY_ID } from '../vocab';
@@ -26,7 +26,7 @@ const fromCustom = (w: CustomWord): WordInfo => ({ id: w.id, kanji: w.kanji, rea
 /** One row of a deck's word list (Study → open a deck). */
 export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: SrsCard['state']; addedAt: number | null; due: number; intervalDays: number }
 /** A JLPT-style question: pick 1 of 4. */
-export interface QuizQuestion { kind: 'reading' | 'meaning' | 'kanji'; vocabId: string; level: Level; prompt: string; sub?: string; choices: string[]; answer: number }
+export type { QuizQuestion } from '../../shared/quiz';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
   tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew: number; badges: string[];
@@ -285,32 +285,7 @@ export class StudyService {
     for (const c of cards) if (c.reps > 0 || c.state !== 'new') { const w = this.info(c.vocabId, custom); if (w) studied.set(w.id, w); }
     if (studied.size < 4) for (const c of cards) { const w = this.info(c.vocabId, custom); if (w) studied.set(w.id, w); }
     const pool = shuffle([...studied.values()], this.rng).slice(0, Math.max(1, Math.min(30, n)));
-    const kinds: QuizQuestion['kind'][] = ['reading', 'meaning', 'kanji'];
-    // a single hiragana (meaning "hiragana", "hiragana (voiced)" …) is asked by its romaji — 0.9.9.3.3: their
-    // "meanings" are all alike, so a meaning question had one choice, or several that only differed in "(voiced)"
-    const kanaChar = (v: { meaning: string; romaji?: string }) => !!v.romaji && /^hiragana/.test(v.meaning);
-    return pool.map((w, i) => {
-      const ve = VOCAB_BY_ID.get(w.id);
-      const asRomaji = !!ve && kanaChar(ve);
-      const kind = asRomaji ? 'reading' : w.kanji === w.reading ? 'meaning' : kinds[i % 3];
-      const field = kind === 'reading' ? 'reading' : kind === 'meaning' ? 'meaning' : 'kanji';
-      const right = asRomaji ? ve!.romaji! : w[field];
-      const same = asRomaji ? VOCAB.filter(kanaChar) : VOCAB.filter((v) => v.level === w.level && v.id !== w.id && (field !== 'meaning' || !kanaChar(v)));
-      const base = same.length > 20 ? same : VOCAB.filter((x) => !kanaChar(x) && x.id !== w.id);
-      // 0.9.9.3.4: wrong answers that look like the right one (shared kana / kanji, same kind of meaning)
-      const pool = base
-        .filter((v) => field !== 'kanji' || (v.kanji !== v.reading && v.reading !== w.reading)) // no kana-only words; no homophones
-        .filter((v) => field !== 'reading' || v.kanji !== w.kanji);
-      const text = (v: VocabEntry) => asRomaji ? v.romaji! : field === 'reading' ? displayReading(v) : v[field];
-      const posBy = new Map(pool.map((v) => [text(v), posOf(v.kanji, v.meaning)]));
-      const wrong = pickDistractors(asRomaji ? 'romaji' : field, right, pool.map(text), this.rng, 3, asRomaji ? undefined : { right: posOf(w.kanji, w.meaning), of: (x) => posBy.get(x) });
-      const choices = shuffle([right, ...wrong], this.rng);
-      return {
-        kind, vocabId: w.id, level: w.level, choices, answer: choices.indexOf(right),
-        prompt: kind === 'kanji' ? w.reading : w.kanji,
-        sub: kind === 'kanji' ? w.meaning : undefined,
-      };
-    });
+    return buildQuiz(pool, VOCAB, this.rng, (id) => VOCAB_BY_ID.get(id));
   }
 
   /** Quiz / results: words you got wrong → a deck of your choice. */

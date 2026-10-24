@@ -19,7 +19,8 @@ export interface StudySummary { studyLevels: Level[]; notice: number; decks: Rec
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean }
 export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: CardState; addedAt: number | null; due: number; intervalDays: number }
 export interface WordHit { id: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean }
-export interface QuizQuestion { kind: 'reading' | 'meaning' | 'kanji'; vocabId: string; level: Level; prompt: string; sub?: string; choices: string[]; answer: number }
+export type { QuizQuestion } from '../shared/quiz';
+import type { QuizQuestion } from '../shared/quiz';
 /** The player's local calendar date (daily new cards follow their day, not the server's). */
 export const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 

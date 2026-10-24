@@ -32,6 +32,7 @@ import { dailyPending, openDaily } from './dailyui';
 import { initFriends, onFriendEvent, onInvite, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
 import { askNotifyPermission } from './notify';
+import { initSelects } from './selects';
 
 applyUiZoom(); // before anything is laid out
 
@@ -626,6 +627,7 @@ initFriends({
   },
   inRoom: () => inRoom,
 });
+initSelects();
 initTutorial({
   firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ui.kanaBeginner() ? ['KANA'] : ['KANA', 'N5'], tutorial: true }),
   kana: async (mastered) => {

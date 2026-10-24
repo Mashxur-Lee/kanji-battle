@@ -1,5 +1,6 @@
 // Study decks you can open and edit (All / Struggling / Custom), adding your own words, the JLPT-style
 // quiz, the reading passage, and — on the results screen — choosing where the words you missed go.
+import { STORIES, STORY_GLOSS, type Line, type Story } from './stories';
 import { LEVEL_LABEL, type MissedWord } from '../shared/protocol';
 import type { DeckId } from '../shared/srs';
 import { api, type DeckRow, type Profile, type QuizQuestion, type WordHit } from './api';
@@ -296,6 +297,7 @@ function question() {
   $('quizSub').textContent = q.sub ? meaningIn(q.sub) : '';
   $('quizFeedback').textContent = '';
   $('quizFeedback').className = 'quiz-feedback';
+  $('quizWord').hidden = true;
   $('quizNext').hidden = true;
   $('quizChoices').replaceChildren(...q.choices.map((c, i) => {
     const b = el('button', 'quiz-choice', undefined, { type: 'button' }) as HTMLButtonElement;
@@ -315,6 +317,9 @@ function choose(i: number) {
   btns.forEach((b, j) => { b.disabled = true; b.classList.toggle('right', j === q.answer); b.classList.toggle('wrong', j === i && !ok); });
   $('quizFeedback').textContent = ok ? '✓ Correct!' : `✗ The answer is ${q.kind === 'meaning' ? meaningIn(q.choices[q.answer]) : q.choices[q.answer]}`;
   $('quizFeedback').className = `quiz-feedback ${ok ? 'ok' : 'no'}`;
+  // 0.9.9.4: the whole word after every answer — a right guess still shows what it means
+  if (q.word) $('quizWord').replaceChildren(el('b', '', q.word.kanji, { lang: 'ja' }), el('span', 'rd', q.word.reading, { lang: 'ja' }), el('span', 'm', meaningIn(q.word.meaning)));
+  $('quizWord').hidden = !q.word;
   $('quizScore').textContent = `${score} correct`;
   $('quizNext').hidden = false;
   $('quizNext').focus();
@@ -358,25 +363,18 @@ addEventListener('keydown', (e) => {
 });
 
 // ── reading passage ─────────────────────────────────────────────────────────
-// A little story about Haru, an apprentice wizard. Every sentence quotes one of your words (「…」), so it
-// stays good Japanese whatever the word is. [漢字|かな] = furigana for the story's own kanji.
-interface Line { ja: string; en: string; ru: string }
-const OPEN: Line = { ja: '[魔法|まほう][学校|がっこう]の[一日|いちにち]。', en: 'A day at the school of magic.', ru: 'Один день в школе магии.' };
-const LINES: Line[] = [
-  { ja: '[見習|みなら]い[魔法使|まほうつか]いのハルは、[朝|あさ]から「{w}」という[呪文|じゅもん]を[練習|れんしゅう]していた。', en: 'Haru, an apprentice wizard, had been practising the spell “{w}” since morning.', ru: 'Ученица-волшебница Хару с самого утра тренировала заклинание «{w}».' },
-  { ja: '[師匠|ししょう]は「{w}」と[書|か]かれた[古|ふる]い[巻物|まきもの]を[机|つくえ]に[置|お]いた。', en: 'The master put an old scroll with “{w}” written on it on the desk.', ru: 'Учитель положил на стол старый свиток с надписью «{w}».' },
-  { ja: 'ハルは「{w}」の[読|よ]み[方|かた]を[三回|さんかい][声|こえ]に[出|だ]して[言|い]った。', en: 'Haru said the reading of “{w}” out loud three times.', ru: 'Хару трижды произнесла вслух чтение слова «{w}».' },
-  { ja: '[友達|ともだち]のケンは「{w}」という[言葉|ことば]をまだ[覚|おぼ]えていなかった。', en: 'Her friend Ken still hadn’t learned the word “{w}”.', ru: 'Её друг Кен ещё не выучил слово «{w}».' },
-  { ja: '[図書館|としょかん]の[本|ほん]には「{w}」についての[話|はなし]がたくさんあった。', en: 'The library books had many stories about “{w}”.', ru: 'В библиотечных книгах было много историй о «{w}».' },
-  { ja: '「{w}」の[意味|いみ]を[思|おも]い[出|だ]すと、[杖|つえ]の[宝石|ほうせき]が[明|あか]るく[光|ひか]った。', en: 'When she remembered the meaning of “{w}”, the gem on her staff shone brightly.', ru: 'Когда она вспомнила значение «{w}», камень на посохе ярко засиял.' },
-  { ja: '[戦|たたか]いの[中|なか]で、ドラゴンは「{w}」の[呪文|じゅもん]に[驚|おどろ]いて[後|うし]ろへ[下|さ]がった。', en: 'In the battle, the dragon was startled by the spell “{w}” and stepped back.', ru: 'В бою дракон испугался заклинания «{w}» и отступил.' },
-  { ja: '「{w}」を[間違|まちが]えないように、ハルはゆっくり[答|こた]えた。', en: 'So as not to get “{w}” wrong, Haru answered slowly.', ru: 'Чтобы не ошибиться в «{w}», Хару отвечала медленно.' },
-  { ja: '[夜|よる]になっても、ハルはノートに「{w}」を[何度|なんど]も[書|か]いた。', en: 'Even at night, Haru wrote “{w}” in her notebook again and again.', ru: 'Даже ночью Хару снова и снова писала «{w}» в тетради.' },
-  { ja: '[師匠|ししょう]は[笑|わら]って、「{w}」はもう[大丈夫|だいじょうぶ]だねと[言|い]った。', en: 'The master smiled and said that “{w}” was fine now.', ru: 'Учитель улыбнулся и сказал, что с «{w}» теперь всё в порядке.' },
-  { ja: '[次|つぎ]の[日|ひ]、ハルは「{w}」を[使|つか]って、[闇|やみ]の[魔物|まもの]を[倒|たお]した。', en: 'The next day, Haru used “{w}” to defeat a shadow monster.', ru: 'На следующий день Хару с помощью «{w}» победила тёмное чудовище.' },
-  { ja: 'みんなの[前|まえ]で「{w}」と[唱|とな]えると、[空|そら]に[虹|にじ]が[出|で]た。', en: 'When she chanted “{w}” in front of everyone, a rainbow appeared in the sky.', ru: 'Когда она произнесла «{w}» перед всеми, в небе появилась радуга.' },
-];
-const CLOSE: Line = { ja: 'こうして、ハルの[魔法|まほう]はまた[少|すこ]し[強|つよ]くなった。', en: 'And so Haru’s magic grew a little stronger again.', ru: 'Так магия Хару стала ещё немного сильнее.' };
+// Stories live in stories.ts (0.9.9.4: several plots — school of magic, a trip to Kyoto, a detective case, a
+// voyage, the Moon, a café). Every sentence quotes one of your words, so it stays good Japanese.
+let story: Story = STORIES[0];
+let OPEN: Line = story.open, CLOSE: Line = story.close;
+/** a different story from last time (remembered across sessions) */
+function nextStory() {
+  let last = ''; try { last = localStorage.getItem('kb:story') ?? ''; } catch { /* private mode */ }
+  const choices = STORIES.filter((x) => x.id !== last);
+  story = choices[Math.floor(Math.random() * choices.length)];
+  try { localStorage.setItem('kb:story', story.id); } catch { /* private mode */ }
+  OPEN = story.open; CLOSE = story.close;
+}
 
 type PWord = { kanji: string; reading: string; meaning: string; id?: string };
 let passageWords: PWord[] = [];
@@ -410,6 +408,7 @@ const GLOSS: Record<string, [string, string, string]> = {
   'みんな': ['みんな', 'everyone', 'все'], 'ゆっくり': ['ゆっくり', 'slowly', 'медленно'], 'たくさん': ['たくさん', 'many, a lot', 'много'], 'まだ': ['まだ', 'still, (not) yet', 'ещё'],
   'もう': ['もう', 'already, now', 'уже'], 'こうして': ['こうして', 'and so, like this', 'так, таким образом'], 'という': ['という', 'called …, named …', 'под названием'],
 };
+Object.assign(GLOSS, STORY_GLOSS);
 const KANA_WORDS = Object.keys(GLOSS).filter((k) => !k.includes('|')).sort((a, b) => b.length - a.length);
 
 /** the blanks: which word sits in each (null = empty), which blank is selected, and whether it has been checked */
@@ -562,6 +561,8 @@ export function openPassage(words: PWord[]) {
 function buildPassage() {
   // no two words that look the same (the bank would be ambiguous)
   const seen = new Set<string>();
+  nextStory();
+  const LINES = story.lines;
   pick = [...passageWords].sort(() => Math.random() - 0.5).filter((w) => !seen.has(w.kanji) && !!seen.add(w.kanji)).slice(0, Math.min(8, LINES.length));
   // keep the story in order: the chosen sentences in their LINES order
   lines = [...LINES.keys()].sort(() => Math.random() - 0.5).slice(0, pick.length).sort((a, b) => a - b).map((i) => LINES[i]);

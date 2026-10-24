@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { earnedAchievements } from '../src/shared/achievements';
 import { MODE_LEVEL, modeUnlocked } from '../src/shared/progress';
 import { MemoryStore } from '../src/server/db/Store';
-import { pickDistractors, similarity } from '../src/server/study/distract';
+import { pickDistractors, similarity } from '../src/shared/distract';
 import { StudyService } from '../src/server/study/StudyService';
 import { VOCAB } from '../src/server/vocab';
 import { newCard } from '../src/shared/srs';
