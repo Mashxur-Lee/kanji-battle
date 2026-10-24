@@ -39,7 +39,9 @@ function createWindow() {
   win.removeMenu();
   if (b?.maximized) win.maximize();
   if (b?.fullscreen) win.setFullScreen(true);
-  win.once('ready-to-show', () => win.show());
+  // show at once if the page is slow (the server may be waking up) — the window's dark background, not white
+  win.once('ready-to-show', () => win?.show());
+  setTimeout(() => { if (win && !win.isVisible()) win.show(); }, 1500);
   const ua = `${win.webContents.getUserAgent()} KanjiWizardsDesktop/${app.getVersion()}`;
   win.webContents.setUserAgent(ua);
 
