@@ -30,6 +30,7 @@ jobs:
           V=$(node -p "require('./package.json').version")
           echo "VERSION=$V" >> "$GITHUB_ENV"
           echo "SEMVER=$(echo "$V" | cut -d. -f1-3)" >> "$GITHUB_ENV"
+          echo "FILEVER=$(echo "$V" | cut -d. -f1-4)" >> "$GITHUB_ENV"  # Windows file versions have at most 4 parts
       - name: Install
         working-directory: desktop
         run: npm install --no-audit --no-fund
@@ -39,7 +40,7 @@ jobs:
         run: |
           set -o pipefail
           npm pkg set version="$SEMVER"  # electron-builder wants x.y.z; the full version goes into the .exe's file version
-          npx electron-builder --win nsis --publish never -c.buildVersion="$VERSION" -c.extraMetadata.version="$SEMVER" 2>&1 | tee build.log || {
+          npx electron-builder --win nsis --publish never -c.buildVersion="$FILEVER" -c.extraMetadata.version="$SEMVER" 2>&1 | tee build.log || {
             echo "::error title=electron-builder::$(tail -n 40 build.log | sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\r//g' -e 's/\n/%0A/g')"
             exit 1
           }

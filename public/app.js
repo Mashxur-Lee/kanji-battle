@@ -2369,7 +2369,7 @@
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.4";
+  var VERSION = "0.9.9.4.1";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -3056,6 +3056,12 @@
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.4.1
+    "Then open": "\u0417\u0430\u0442\u0435\u043C \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435",
+    "Files \u2192 Downloads": "\u0424\u0430\u0439\u043B\u044B \u2192 \u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0438",
+    "(or Chrome": "(\u0438\u043B\u0438 \u0432 Chrome",
+    "\u22EE \u2192 Downloads": "\u22EE \u2192 \u0421\u043A\u0430\u0447\u0430\u043D\u043D\u044B\u0435 \u0444\u0430\u0439\u043B\u044B",
+    ") and tap": ") \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435",
     // 0.9.9.4
     "Get the app": "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
     "Install Kanji Wizards": "\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C Kanji Wizards",
@@ -6906,6 +6912,12 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.4.1",
+      date: "2026-10",
+      en: ["Get the app: the Android download works from the installed game too (it stopped at 100% before) \u2014 then open Downloads and tap KanjiWizards.apk."],
+      ru: ["\xAB\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435\xBB: \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0434\u043B\u044F Android \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0438 \u0438\u0437 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u043E\u0439 \u0438\u0433\u0440\u044B (\u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u043D\u0430 \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u043B\u0430\u0441\u044C \u043D\u0430 100%) \u2014 \u0437\u0430\u0442\u0435\u043C \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \xAB\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0438\xBB \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 KanjiWizards.apk."]
+    },
     {
       v: "0.9.9.4",
       date: "2026-10",
@@ -11384,7 +11396,7 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/appshell.ts
   var RELEASES = "https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download";
-  var DOWNLOADS = { windows: `${RELEASES}/KanjiWizards-Setup.exe`, android: `${RELEASES}/KanjiWizards.apk` };
+  var DOWNLOADS = { windows: `${RELEASES}/KanjiWizards-Setup.exe`, android: "/download/KanjiWizards.apk" };
   var inApp = () => /KanjiWizards(Desktop|Android)/.test(navigator.userAgent) || matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
   var isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
   var installPrompt = null;
