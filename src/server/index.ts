@@ -68,10 +68,34 @@ const matchmaker = new Matchmaker(rooms);
 setInterval(() => matchmaker.tick(), 2_000).unref();
 auth.onBan((userId) => hub.kick(userId, 'This account has been banned.'));
 
+// 0.9.9.4.1: the Android app from the game's own address. Opening GitHub's link from the installed game
+// went through an in-app browser tab where Chrome can't ask "download this APK?" — the download failed
+// at 100%. Same address = the download stays in the game's window. Fetched from the latest GitHub release
+// and kept for 10 minutes.
+const APK_URL = process.env.APK_URL ?? 'https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download/KanjiWizards.apk';
+let apkCache: { at: number; data: Buffer } | null = null;
+async function latestApk(): Promise<Buffer> {
+  if (apkCache && Date.now() - apkCache.at < 10 * 60_000) return apkCache.data;
+  const r = await fetch(APK_URL, { redirect: 'follow' });
+  if (!r.ok) throw new Error(`APK ${r.status}`);
+  apkCache = { at: Date.now(), data: Buffer.from(await r.arrayBuffer()) };
+  return apkCache.data;
+}
+
 const GZ = new Map<string, Buffer>();
 const server = createServer(async (req, res) => {
   if (await api(req, res)) return;
   const pathOnly = (req.url ?? '/').split('?')[0];
+  if (pathOnly === '/download/KanjiWizards.apk') {
+    try {
+      const data = await latestApk();
+      res.writeHead(200, { 'Content-Type': 'application/vnd.android.package-archive', 'Content-Disposition': 'attachment; filename="KanjiWizards.apk"', 'Content-Length': data.length, 'Cache-Control': 'no-cache' }).end(data);
+    } catch (e) {
+      reportServerError('APK download', e);
+      res.writeHead(302, { Location: APK_URL }).end(); // GitHub directly, then
+    }
+    return;
+  }
   const url = pathOnly === '/' ? '/index.html' : pathOnly; // '/?anything' is the app too
   const file = path.join(PUBLIC_DIR, path.normalize(url));
   if (!file.startsWith(PUBLIC_DIR)) { res.writeHead(403).end(); return; }

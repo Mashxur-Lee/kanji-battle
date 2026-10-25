@@ -6,7 +6,7 @@ import { getToken, OFFLINE_TEXT } from './api';
 import * as ui from './ui';
 
 const RELEASES = 'https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download';
-export const DOWNLOADS = { windows: `${RELEASES}/KanjiWizards-Setup.exe`, android: `${RELEASES}/KanjiWizards.apk` };
+export const DOWNLOADS = { windows: `${RELEASES}/KanjiWizards-Setup.exe`, android: '/download/KanjiWizards.apk' }; // the APK from our own address (0.9.9.4.1)
 
 /** Inside the Windows or Android app, or installed from the browser. */
 export const inApp = () => /KanjiWizards(Desktop|Android)/.test(navigator.userAgent)

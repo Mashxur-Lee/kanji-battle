@@ -2,7 +2,7 @@
 // scripts/build-client.mjs fills in the file list and a build id; a new build means a new cache, and the
 // page reloads into it the next time you're on the menu. The API is never cached here (offline study is the
 // app's own offline engine), except profile pictures.
-const BUILD = 'dfcfb1147ba6';
+const BUILD = 'a4baa4d02906';
 const SHELL = ["/","/index.html","/app.js","/arena3d.js","/style.css","/favicon.svg","/vocab.json","/meanings-ru.json","/manifest.webmanifest","/icons/icon-192.png","/icons/icon-512.png","/icons/maskable-512.png","/icons/apple-touch-icon.png"];
 const CACHE = `kw-shell-${BUILD}`;
 const RUNTIME = 'kw-runtime';
@@ -29,7 +29,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith('/api/avatar/')) { e.respondWith(cacheFirst(req, RUNTIME)); return; }
-  if (url.pathname.startsWith('/api/')) return; // live data: the app handles being offline itself
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/download/')) return; // live data / app downloads: never the cached page
   if (req.mode === 'navigate') { e.respondWith(shell('/index.html', req)); return; }
   e.respondWith(shell(url.pathname, req));
 });

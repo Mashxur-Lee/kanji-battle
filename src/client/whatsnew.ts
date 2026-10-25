@@ -7,6 +7,11 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.1', date: '2026-10',
+    en: ['Get the app: the Android download works from the installed game too (it stopped at 100% before) — then open Downloads and tap KanjiWizards.apk.'],
+    ru: ['«Скачать приложение»: загрузка для Android работает и из установленной игры (раньше она останавливалась на 100%) — затем откройте «Загрузки» и нажмите KanjiWizards.apk.'],
+  },
+  {
     v: '0.9.9.4', date: '2026-10',
     en: [
       'Kanji Wizards is an app now: install it from the browser on any phone or PC (menu → Get the app), or download the Windows app (.exe) or the Android app (.apk) — no store needed.',

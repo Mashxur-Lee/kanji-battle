@@ -445,6 +445,8 @@ const RU: Record<string, string> = {
   'Both players get the same kanji — no study phase.': 'Оба игрока получают один и тот же кандзи — без подготовки.', 'Wrong? Try again until the 12 s round ends.': 'Ошиблись? Пробуйте снова, пока не кончится 12-секундный раунд.',
   'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.': 'Крит: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Игра с ИИ даёт половину опыта; сдача — ничего.',
   'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.': 'Шанс крита сегодня: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Сбрасывается в полночь.',
+  // 0.9.9.4.1
+  'Then open': 'Затем откройте', 'Files → Downloads': 'Файлы → Загрузки', '(or Chrome': '(или в Chrome', '⋮ → Downloads': '⋮ → Скачанные файлы', ') and tap': ') и нажмите',
   // 0.9.9.4
   'Get the app': 'Скачать приложение', 'Install Kanji Wizards': 'Установить Kanji Wizards', 'Phone or PC — from this browser': 'Телефон или ПК — прямо из браузера',
   'The app opens straight into the game and works offline too: Study spells, the JLPT quiz, reading passages, the daily challenge, Customize, Progress and match history. Online queue and private games need internet. Your account and progress are the same everywhere.':

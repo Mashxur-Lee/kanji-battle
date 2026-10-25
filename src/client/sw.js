@@ -29,7 +29,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith('/api/avatar/')) { e.respondWith(cacheFirst(req, RUNTIME)); return; }
-  if (url.pathname.startsWith('/api/')) return; // live data: the app handles being offline itself
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/download/')) return; // live data / app downloads: never the cached page
   if (req.mode === 'navigate') { e.respondWith(shell('/index.html', req)); return; }
   e.respondWith(shell(url.pathname, req));
 });
