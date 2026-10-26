@@ -2,10 +2,10 @@ import type { DeckEvent, DeckView } from './deck';
 // Single source of truth for everything that crosses the wire.
 export type PlayerId = string; // = the player's account id
 
-/** KANA = hiragana practice (answered in romaji); N5–N1 = JLPT vocabulary (answered with the reading). */
-export const LEVELS = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
+/** KANA = hiragana, KATA = katakana practice (answered in romaji); N5–N1 = JLPT vocabulary (answered with the reading). */
+export const LEVELS = ['KANA', 'KATA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
 export type Level = (typeof LEVELS)[number];
-export const LEVEL_LABEL: Record<Level, string> = { KANA: 'かな', N5: 'N5', N4: 'N4', N3: 'N3', N2: 'N2', N1: 'N1' };
+export const LEVEL_LABEL: Record<Level, string> = { KANA: 'ひらがな', KATA: 'カタカナ', N5: 'N5', N4: 'N4', N3: 'N3', N2: 'N2', N1: 'N1' };
 
 export const MODES = ['reading', 'writing', 'boss', 'rapid', 'deck'] as const;
 export type GameMode = (typeof MODES)[number];
@@ -256,3 +256,6 @@ export type ServerMessage =
   | { type: 'deck_event'; event: DeckEvent }
   | { type: 'deck_ink'; castId: number; strokes: DrawnChar; cells: number }
   | { type: 'error'; message: string };
+
+/** The two kana levels (letters, answered in romaji). */
+export const isKanaLevel = (l: string) => l === 'KANA' || l === 'KATA';

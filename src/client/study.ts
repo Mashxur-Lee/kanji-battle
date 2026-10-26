@@ -1,3 +1,4 @@
+import { exampleFor, loadExamples } from './examples';
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
 import { avatarFor, BACKGROUNDS, beta, BORDERS, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
@@ -99,6 +100,7 @@ let busy = false;
 
 async function startSession(d: Deck) {
   deck = d;
+  void loadExamples(); // ready by the first answer
   ui.show('review');
   $('reviewDone').hidden = true;
   try {
@@ -122,6 +124,7 @@ function next() {
   $('fcReading').textContent = current.reading;
   $('fcMeaning').textContent = current.meaning;
   $('fcBack').hidden = true;
+  $('fcExample').replaceChildren();
   $('fcStrokes').hidden = true;
   $('fcStrokeBox').hidden = true;
   const card = $('flash');
@@ -139,6 +142,9 @@ function flip() {
   $('showAnswer').hidden = true;
   $('rateRow').hidden = false;
   $('fcStrokes').hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
+  // 0.9.9.4.2: an example sentence with the word in it, and its translation
+  const card = current;
+  void exampleFor(card.vocabId).then((ex) => { if (ex && current === card && flipped) $('fcExample').replaceChildren(ex); });
 }
 /** How to write the word: animated stroke order under the card. */
 function strokes() {
@@ -149,18 +155,22 @@ function strokes() {
 }
 $('fcStrokes').onclick = (e) => { e.stopPropagation(); strokes(); };
 
-async function rate(r: Rating) {
+// 0.9.9.4.2: the next card comes at once; the rating goes to the server behind it, in order. Waiting for
+// the server first made every swipe stall (and froze the buttons when the connection dropped mid-session).
+let sending: Promise<void> = Promise.resolve();
+function rate(r: Rating) {
   if (!current || !flipped || busy) return;
-  busy = true;
-  const card = current;
-  try {
-    await api.review(card.vocabId, r, deck);
-    // Anki shows "again" cards again in the same session once their short step is up
-    if (r === 'again') queue.splice(Math.min(3, queue.length), 0, { ...card, state: 'learning', intervals: { again: '1m', hard: '6m', good: '10m', easy: '4d' } });
-    else if (r === 'hard' && card.state !== 'review') queue.splice(Math.min(6, queue.length), 0, card);
-  } catch (e) { ui.toast((e as Error).message); }
-  busy = false;
+  const card = current, d = deck;
+  sending = sending.then(() => api.review(card.vocabId, r, d).then(() => {}, (e) => { ui.toast((e as Error).message); }));
+  // Anki shows "again" cards again in the same session once their short step is up
+  if (r === 'again') queue.splice(Math.min(3, queue.length), 0, { ...card, state: 'learning', intervals: { again: '1m', hard: '6m', good: '10m', easy: '4d' } });
+  else if (r === 'hard' && card.state !== 'review') queue.splice(Math.min(6, queue.length), 0, card);
   next();
+}
+/** Back to the decks once every rating has been saved (so the counts are right). */
+async function leaveSession() {
+  await sending;
+  void openStudy();
 }
 
 $('showAnswer').onclick = flip;
@@ -217,24 +227,24 @@ let swiped = false;
     // away it flies, then the rating (seeing the answer first if you hadn't)
     card.style.transition = 'transform .22s ease-in, opacity .22s';
     card.style.transform = `translateX(${Math.sign(dx) * innerWidth}px) rotate(${Math.sign(dx) * 25}deg)`;
-    setTimeout(() => { reset(false); if (!flipped) flip(); void rate(z[0]); }, 200);
+    setTimeout(() => { reset(false); if (!flipped) flip(); rate(z[0]); }, 200);
   };
   card.addEventListener('pointerup', end);
   card.addEventListener('pointercancel', (e) => { if (e.pointerId === id) { id = -1; reset(true); } });
 }
-for (const b of document.querySelectorAll<HTMLButtonElement>('#rateRow .rate')) b.onclick = () => void rate(b.dataset.rating as Rating);
+for (const b of document.querySelectorAll<HTMLButtonElement>('#rateRow .rate')) b.onclick = () => rate(b.dataset.rating as Rating);
 addEventListener('keydown', (e) => {
   if ($('review').hidden || e.target instanceof HTMLInputElement) return;
-  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipped ? void rate('good') : flip(); }
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipped ? rate('good') : flip(); }
   const n = ['1', '2', '3', '4'].indexOf(e.key);
-  if (n >= 0 && flipped) void rate((['again', 'hard', 'good', 'easy'] as Rating[])[n]);
+  if (n >= 0 && flipped) rate((['again', 'hard', 'good', 'easy'] as Rating[])[n]);
   if ((e.key === 's' || e.key === 'S') && flipped) strokes();
 });
 $('studyAll').onclick = () => void startSession('all');
 $('studyStruggle').onclick = () => void startSession('struggling');
 $('studyCustom').onclick = () => void startSession('custom');
-$('reviewBack').onclick = () => void openStudy();
-$('reviewDoneBack').onclick = () => void openStudy();
+$('reviewBack').onclick = () => void leaveSession();
+$('reviewDoneBack').onclick = () => void leaveSession();
 
 // ── customize: magic staff (login streak) · arena (level) · omnipotence (level) ──────────────────
 type CustTab = 'staff' | 'arena' | 'omni' | 'profile';

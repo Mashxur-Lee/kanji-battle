@@ -206,8 +206,8 @@ export const STUDY_LOCK = 100;
 
 // ── characters ─────────────────────────────────────────────────────────────────
 export type { Avatar };
-const AVATAR_BY_LEVEL: Record<Level, Avatar> = { KANA: 'goblin', N5: 'kid', N4: 'human', N3: 'knight', N2: 'witch', N1: 'wizard' };
-const ORDER: Level[] = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'];
+const AVATAR_BY_LEVEL: Record<Level, Avatar> = { KANA: 'goblin', KATA: 'goblin', N5: 'kid', N4: 'human', N3: 'knight', N2: 'witch', N1: 'wizard' };
+const ORDER: Level[] = ['KANA', 'KATA', 'N5', 'N4', 'N3', 'N2', 'N1'];
 /** Your fighter is decided by the hardest level you picked. */
 export function avatarFor(levels: readonly Level[]): Avatar {
   const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? 'N5';
@@ -218,10 +218,11 @@ export const AVATAR_LABEL: Record<Avatar, string> = { goblin: 'Goblin', kid: 'Ap
 // ── hiragana first: a new player who hasn't mastered かな yet only gets かな words (Settings → "I've mastered hiragana") ──
 export const KANA_BEGINNER = 'flag:kana-beginner';
 export const isKanaBeginner = (unlocks?: readonly string[] | null) => !!unlocks?.includes(KANA_BEGINNER);
-/** A beginner's levels: only かな (and at least かな). */
+/** A beginner's levels: only the kana ones — hiragana, and katakana if picked (and at least hiragana). */
 export function levelsFor<T extends string>(levels: readonly T[], beginner: boolean): T[] {
   if (!beginner) return [...levels];
-  return ['KANA' as T];
+  const kana = levels.filter((l) => l === 'KANA' || l === 'KATA');
+  return kana.length ? kana : ['KANA' as T];
 }
 
 /** ISO week number of a day ('YYYY-MM-DD'): weeks start on Monday, week 1 holds the year's first Thursday. */

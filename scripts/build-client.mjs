@@ -3,7 +3,7 @@
 // studying without internet; Node-only imports are swapped for browser stand-ins, and server/vocab.ts for
 // a version that loads public/vocab.json. Also writes vocab.json and the service worker's file list.
 import { build } from 'esbuild';
-import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,9 +26,18 @@ await build({
 });
 await build({ entryPoints: [r('src/client/arena3d.ts')], bundle: true, minify: true, outfile: r('public/arena3d.js'), target: 'es2020', logLevel: 'warning' });
 copyFileSync(r('data/vocab.json'), r('public/vocab.json'));
+// example sentences (0.9.9.4.2): data/examples/*.tsv — id, sentence with the word in 【】, English, Russian
+const examples = {};
+for (const f of readdirSync(r('data/examples')).filter((x) => x.endsWith('.tsv')).sort()) {
+  for (const line of readFileSync(r('data/examples', f), 'utf8').split('\n')) {
+    const [id, ja, en, ru] = line.split('\t');
+    if (id && ja && en) examples[id] = [ja, en, ru ?? ''];
+  }
+}
+writeFileSync(r('public/examples.json'), JSON.stringify(examples));
 
 // the service worker caches these for offline use; its version changes whenever any of them does
-const SHELL = ['/', '/index.html', '/app.js', '/arena3d.js', '/style.css', '/favicon.svg', '/vocab.json', '/meanings-ru.json', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
+const SHELL = ['/', '/index.html', '/app.js', '/arena3d.js', '/style.css', '/favicon.svg', '/vocab.json', '/examples.json', '/meanings-ru.json', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
 const h = createHash('sha256');
 for (const f of SHELL) if (f !== '/') { try { h.update(readFileSync(r('public', f))); } catch { /* not built yet */ } }
 const sw = readFileSync(r('src/client/sw.js'), 'utf8')

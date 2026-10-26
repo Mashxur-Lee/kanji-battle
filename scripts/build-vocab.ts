@@ -108,8 +108,9 @@ export function build(): VocabEntry[] {
   // hand-written lists: add what the open lists don't have; keep hand-tuned difficulty
   for (const level of Object.keys(CURATED) as Level[]) {
     for (const [kanji, second, meaning, difficulty] of CURATED[level]) {
-      if (level === 'KANA') {
-        out.set(`kana:${kanji}`, { id: `kana:${kanji}`, kanji, reading: kanji, romaji: second, meaning, level, difficulty: difficulty ?? LEVEL_DIFFICULTY.KANA, ...(KANA_ALT[kanji] ? { altReadings: KANA_ALT[kanji] } : {}) });
+      if (level === 'KANA' || level === 'KATA') {
+        const id = `${level === 'KANA' ? 'kana' : 'kata'}:${kanji}`;
+        out.set(id, { id, kanji, reading: katakanaToHiragana(kanji), romaji: second, meaning, level, difficulty: difficulty ?? LEVEL_DIFFICULTY[level], ...(KANA_ALT[kanji] ? { altReadings: KANA_ALT[kanji] } : {}) });
         continue;
       }
       if (seenWord.has(kanji)) continue;

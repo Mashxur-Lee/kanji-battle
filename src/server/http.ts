@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { reportServerError } from './errors';
 import { AuthError, type AuthService } from './auth/AuthService';
 import type { StudyService } from './study/StudyService';
-import { createApiRouter, MAX_BODY, type ApiExtras } from './router';
+import { createApiRouter, MAX_BODY, type ApiExtras, type ApiResponse } from './router';
 import { setNowProvider } from './now';
 
 export type { ApiExtras } from './router';
@@ -35,6 +35,20 @@ export function replayTime(header: unknown, real = Date.now()): number | null {
   return Math.min(real, Math.max(real - REPLAY_WINDOW_MS, Math.round(at)));
 }
 
+// 0.9.9.4.2: a change sent with `X-KW-Op: <id>` is done once — the same id again (the app timed out, did it
+// offline and replays it) gets the first answer back. Kept for an hour.
+const OP_TTL = 60 * 60_000;
+const done = new Map<string, { at: number; out: ApiResponse }>();
+export function rememberOp(op: string, out: ApiResponse, now = Date.now()) {
+  done.set(op, { at: now, out });
+  if (done.size > 50_000) for (const [k, v] of done) { if (now - v.at > OP_TTL || done.size > 40_000) done.delete(k); else break; }
+}
+export function recalledOp(op: string, now = Date.now()) {
+  const d = done.get(op);
+  return d && now - d.at < OP_TTL ? d.out : null;
+}
+const opOf = (h: unknown) => { const v = String(Array.isArray(h) ? h[0] : h ?? ''); return /^[\w-]{8,64}$/.test(v) ? v : null; };
+
 /** Handles /api/*; returns false for any other path so static files can be served. */
 export function createApiHandler(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
   const route = createApiRouter(auth, study, { onError: reportServerError, ...extras });
@@ -48,7 +62,11 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
       json: (max) => readJson(req, max),
     });
     const at = replayTime(req.headers['x-kw-at']);
-    const out = (at === null ? await call() : await requestTime.run(at, call))!;
+    const op = req.method !== 'GET' ? opOf(req.headers['x-kw-op']) : null;
+    const token = (req.headers.authorization ?? '').slice(-16);
+    const seen = op ? recalledOp(`${token}:${op}`) : null;
+    const out = seen ?? (at === null ? await call() : await requestTime.run(at, call))!;
+    if (op && !seen && out.status < 500) rememberOp(`${token}:${op}`, out);
     if (out.raw) res.writeHead(out.status, { 'Content-Type': out.raw.mime, 'Content-Length': out.raw.data.length, ...out.raw.headers }).end(out.raw.data);
     else res.writeHead(out.status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }).end(JSON.stringify(out.body));
     return true;

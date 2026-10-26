@@ -1,4 +1,4 @@
-import { LEVELS, LEVEL_LABEL, MODE_LABEL, type GameMode, type Level, type ServerMessage } from '../shared/protocol';
+import { isKanaLevel, LEVELS, LEVEL_LABEL, MODE_LABEL, type GameMode, type Level, type ServerMessage } from '../shared/protocol';
 import { viewH, viewW, zrect } from './zoom';
 import { askNotifyPermission, attention } from './notify';
 import { canPlay, lockText } from './tutorial';
@@ -102,7 +102,7 @@ export function openQueue() {
   }));
   const deckCard = document.querySelector<HTMLElement>('#queuePick .queue-card[data-q="deck"]')!;
   deckCard.classList.toggle('locked', !canPlay('deck'));
-  ui.$('qLevels').replaceChildren(...LEVELS.map((l) => ui.lockLevelChip(chip(l, LEVEL_LABEL[l], s.levels.includes(l) && (!ui.kanaBeginner() || l === 'KANA'), 'ql'), l)));
+  ui.$('qLevels').replaceChildren(...LEVELS.map((l) => ui.lockLevelChip(chip(l, LEVEL_LABEL[l], s.levels.includes(l) && (!ui.kanaBeginner() || isKanaLevel(l)), 'ql'), l)));
   choose(s.pick ?? 'battle', true);
   if (!searching) { ui.$('queuePick').hidden = false; ui.$('qSearching').hidden = true; }
   ui.show('queue');

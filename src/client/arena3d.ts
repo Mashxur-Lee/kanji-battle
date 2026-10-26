@@ -757,6 +757,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   // mouse. The rotation rates are added up into how far you have turned; that slowly settles back to straight
   // ahead, so it never drifts. (The orientation angles were laggy and jumped when the phone was held upright.)
   const turn = { yaw: 0, pitch: 0, at: 0, live: 0 };
+  // Android reports gravity as "up" (+9.8 on the axis pointing up), iOS as "down"
+  const GRAVITY_SIGN = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? -1 : 1;
   const screenAngle = () => (((screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) % 360) + 360) % 360;
   const onMotion = (e: DeviceMotionEvent) => {
     const r = e.rotationRate;
@@ -766,7 +768,13 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     turn.at = now; turn.live = now;
     // rates (deg/s) about the screen's up and right axes: + = turning left / tilting the top towards you (looking up)
     const ang = screenAngle();
-    const yawRate = ang === 90 ? r.beta : ang === 270 ? -r.beta : ang === 180 ? -r.gamma : r.gamma;
+    // 0.9.9.4.2: turning left/right = rotating about the real "up" (from gravity), however the phone is held —
+    // upright in front of you as well as tilted down; before, only the phone's own up axis counted
+    const g = e.accelerationIncludingGravity;
+    const gl = g && g.x !== null && g.y !== null && g.z !== null ? Math.hypot(g.x, g.y, g.z!) : 0;
+    const yawRate = gl > 4
+      ? (r.beta * g!.x! + r.gamma * g!.y! + (r.alpha ?? 0) * g!.z!) / gl * GRAVITY_SIGN
+      : ang === 90 ? r.beta : ang === 270 ? -r.beta : ang === 180 ? -r.gamma : r.gamma;
     const pitchRate = ang === 90 ? -r.gamma : ang === 270 ? r.gamma : ang === 180 ? -r.beta : r.beta;
     const settle = Math.exp(-dt / 2.2);
     turn.yaw = (turn.yaw + yawRate * dt) * settle;

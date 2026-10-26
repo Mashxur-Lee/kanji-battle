@@ -55,7 +55,7 @@ const dateOf = (t: number | null) => (t ? new Date(t).toLocaleDateString(locale(
 type SortKey = 'kanji' | 'reading' | 'meaning' | 'level' | 'added' | 'state';
 let sortKey: SortKey | null = null;
 let sortDir = 1;
-const LEVEL_ORDER = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'];
+const LEVEL_ORDER = ['KANA', 'KATA', 'N5', 'N4', 'N3', 'N2', 'N1'];
 const STATE_ORDER = ['new', 'learning', 'relearning', 'review'];
 function sortRows(list: DeckRow[]) {
   if (!sortKey) return list;
@@ -497,7 +497,7 @@ function drawBlank(i: number) {
     const r = el('ruby'); r.append(b.answer.kanji, el('rt', '', b.answer.kanji === b.answer.reading ? '' : b.answer.reading));
     b.el.append(r);
     if (!ok && b.put) b.el.append(el('s', 'p-was', b.put.kanji));
-    b.el.onclick = () => showGloss(b.el, el('b', '', b.answer.kanji, { lang: 'ja' }), el('span', 'rd', b.answer.reading, { lang: 'ja' }), el('span', 'm', meaningIn(b.answer.meaning)), addToDeck(b.answer.kanji, b.answer.id));
+    b.el.onclick = () => showGloss(b.el, el('b', '', b.answer.kanji, { lang: 'ja' }), el('span', 'rd', b.answer.reading, { lang: 'ja' }), el('span', 'm', meaningIn(b.answer.meaning))); // (it's from your deck already: no "Add to")
     return;
   }
   // a hint over each blank: its reading (furigana) — pick the kanji that is read this way
@@ -545,10 +545,16 @@ function check() {
   drawTranslation();
   const list = pick.map((w) => {
     const row = el('div', 'pw');
-    row.append(el('b', '', w.kanji, { lang: 'ja' }), el('span', 'rd', w.reading, { lang: 'ja' }), el('span', 'm', meaningIn(w.meaning)), addToDeck(w.kanji, w.id));
+    row.append(el('b', '', w.kanji, { lang: 'ja' }), el('span', 'rd', w.reading, { lang: 'ja' }), el('span', 'm', meaningIn(w.meaning)));
     return row;
   });
-  $('passageWords').replaceChildren(el('div', 'p-score', `${right} / ${blanks.length}`), el('p', 'hint center', right === blanks.length ? 'Perfect — every word in its place!' : 'Green: right. Red: the right word, with yours crossed out.'), el('h4', '', 'Words in this story'), ...list);
+  // 0.9.9.4.2: the score stays at the bottom; the words (from your own deck — nothing to add) scroll with the story
+  const res = $('passageResult');
+  res.replaceChildren(el('h4', '', 'Words in this story'), ...list);
+  res.hidden = false;
+  const again = el('button', 'big', 'New story', { type: 'button' }) as HTMLButtonElement;
+  again.onclick = buildPassage;
+  $('passageWords').replaceChildren(el('div', 'p-score', `${right} / ${blanks.length}`), el('p', 'hint center', right === blanks.length ? 'Perfect — every word in its place!' : 'Green: right. Red: the right word, with yours crossed out.'), again);
   passageHooks.done?.(right, blanks.length);
   void api.task('passage').then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task
 }
@@ -559,6 +565,8 @@ export function openPassage(words: PWord[]) {
   buildPassage();
 }
 function buildPassage() {
+  $('passageResult').hidden = true;
+  $('passageResult').replaceChildren();
   // no two words that look the same (the bank would be ambiguous)
   const seen = new Set<string>();
   nextStory();

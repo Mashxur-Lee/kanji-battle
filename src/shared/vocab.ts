@@ -3,7 +3,7 @@ import type { Level, VocabEntry } from './protocol';
 // Starting difficulty per level (spec §8). These are placeholders: JLPT is a filter, and real
 // difficulty should later be learned from player performance (spec §47). JLPT tags are approximate —
 // there is no official JLPT word list.
-export const LEVEL_DIFFICULTY: Record<Level, number> = { KANA: 6, N5: 15, N4: 28, N3: 40, N2: 57, N1: 75 };
+export const LEVEL_DIFFICULTY: Record<Level, number> = { KANA: 6, KATA: 7, N5: 15, N4: 28, N3: 40, N2: 57, N1: 75 };
 
 type Row = [kanji: string, reading: string, meaning: string, difficulty?: number];
 
@@ -127,23 +127,26 @@ const N1: Row[] = [
 ];
 
 // Hiragana practice: shown as kana, answered in romaji. [kana, romaji, meaning, difficulty?]
-const KANA: Row[] = [
-  ...'あa いi うu えe おo かka きki くku けke こko さsa しshi すsu せse そso たta ちchi つtsu てte とto なna にni ぬnu ねne のno はha ひhi ふfu へhe ほho まma みmi むmu めme もmo やya ゆyu よyo らra りri るru れre ろro わwa をwo んn'
-    .split(' ').map((s): Row => [s[0], s.slice(1), 'hiragana', 5]),
-  ...'がga ぎgi ぐgu げge ごgo ざza じji ずzu ぜze ぞzo だda ぢji づzu でde どdo ばba びbi ぶbu べbe ぼbo ぱpa ぴpi ぷpu ぺpe ぽpo'
-    .split(' ').map((s): Row => [s[0], s.slice(1), 'hiragana (voiced)', 6]),
-  ...'きゃkya きゅkyu きょkyo しゃsha しゅshu しょsho ちゃcha ちゅchu ちょcho にゃnya ひゃhya みゃmya りゃrya りょryo ぎょgyo じゃja じゅju じょjo びょbyo'
-    .split(' ').map((s): Row => [s.slice(0, 2), s.slice(2), 'hiragana (combined)', 8]),
-  ['ねこ', 'neko', 'cat', 9], ['いぬ', 'inu', 'dog', 9], ['さかな', 'sakana', 'fish', 10], ['すし', 'sushi', 'sushi', 9],
-  ['みず', 'mizu', 'water', 9], ['やま', 'yama', 'mountain', 9], ['ともだち', 'tomodachi', 'friend', 11], ['きっぷ', 'kippu', 'ticket', 11],
-  ['がっこう', 'gakkou', 'school', 11], ['にほん', 'nihon', 'Japan', 10], ['ありがとう', 'arigatou', 'thank you', 12], ['おはよう', 'ohayou', 'good morning', 12],
+// 0.9.9.4.2: letters only — the basic ones, with ゛/゜ and every combination (きゃ …); the few whole words are gone
+export const KANA_BASIC = 'あa いi うu えe おo かka きki くku けke こko さsa しshi すsu せse そso たta ちchi つtsu てte とto なna にni ぬnu ねne のno はha ひhi ふfu へhe ほho まma みmi むmu めme もmo やya ゆyu よyo らra りri るru れre ろro わwa をwo んn';
+export const KANA_VOICED = 'がga ぎgi ぐgu げge ごgo ざza じji ずzu ぜze ぞzo だda ぢji づzu でde どdo ばba びbi ぶbu べbe ぼbo ぱpa ぴpi ぷpu ぺpe ぽpo';
+export const KANA_COMBO = 'きゃkya きゅkyu きょkyo しゃsha しゅshu しょsho ちゃcha ちゅchu ちょcho にゃnya にゅnyu にょnyo ひゃhya ひゅhyu ひょhyo みゃmya みゅmyu みょmyo りゃrya りゅryu りょryo ぎゃgya ぎゅgyu ぎょgyo じゃja じゅju じょjo びゃbya びゅbyu びょbyo ぴゃpya ぴゅpyu ぴょpyo';
+const kanaRows = (script: 'hiragana' | 'katakana', conv: (s: string) => string): Row[] => [
+  ...KANA_BASIC.split(' ').map((s): Row => [conv(s[0]), s.slice(1), script, 5]),
+  ...KANA_VOICED.split(' ').map((s): Row => [conv(s[0]), s.slice(1), `${script} (voiced)`, 6]),
+  ...KANA_COMBO.split(' ').map((s): Row => [conv(s.slice(0, 2)), s.slice(2), `${script} (combined)`, 8]),
 ];
+/** ひらがな → カタカナ (the katakana block is 0x60 above) */
+export const toKatakana = (s: string) => s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+const KANA: Row[] = kanaRows('hiragana', (s) => s);
+// Katakana practice (0.9.9.4.2): the same letters in katakana, answered in romaji too
+const KATA: Row[] = kanaRows('katakana', toKatakana).map(([k, r, m, d]): Row => [k, r, m, d === undefined ? d : d + 1]);
 
 /** Hand-written lists. The full vocabulary (data/vocab.json) = these + the open JLPT lists; see scripts/build-vocab.ts. */
-export const CURATED: Record<Level, Row[]> = { KANA, N5, N4, N3, N2, N1 };
+export const CURATED: Record<Level, Row[]> = { KANA, KATA, N5, N4, N3, N2, N1 };
 
 // Hiragana with two common romanisations of the same sound (ぢ/じ, づ/ず).
-export const KANA_ALT: Record<string, string[]> = { ぢ: ['じ'], づ: ['ず'] };
+export const KANA_ALT: Record<string, string[]> = { ぢ: ['じ'], づ: ['ず'], ヂ: ['じ'], ヅ: ['ず'] };
 
 export type { Row as CuratedRow };
 

@@ -18,7 +18,7 @@ const shuffle = <T>(a: T[], rng: () => number) => {
 };
 // a single hiragana (meaning "hiragana", "hiragana (voiced)" …) is asked by its romaji — their "meanings"
 // are all alike, so a meaning question had one choice, or several that only differed in "(voiced)"
-const kanaChar = (v: { meaning: string; romaji?: string }) => !!v.romaji && /^hiragana/.test(v.meaning);
+const kanaChar = (v: { meaning: string; romaji?: string }) => !!v.romaji && /^(hiragana|katakana)/.test(v.meaning);
 
 /** Questions for `words` (already picked and shuffled), wrong answers from `vocab`. */
 export function buildQuiz(words: QuizWord[], vocab: readonly VocabEntry[], rng: () => number = Math.random, byId?: (id: string) => VocabEntry | undefined): QuizQuestion[] {

@@ -9,7 +9,8 @@ import { SNAPSHOT_V } from '../../server/db/Store';
 import { createEngine, type Engine } from './engine';
 import * as kv from './idb';
 
-export interface OutboxEntry { method: string; url: string; body?: unknown; at: number }
+/** `op`: the call's id — the server answers a repeated id from memory instead of doing it twice (0.9.9.4.2) */
+export interface OutboxEntry { method: string; url: string; body?: unknown; at: number; op?: string }
 type Listener = (offline: boolean) => void;
 
 let offline = false;
@@ -49,16 +50,39 @@ function setOffline(v: boolean) {
   if (v) probeTimer = window.setInterval(() => void tryReconnect(), 20_000);
 }
 
-export function init(getToken: () => string) {
+let busyCheck: () => boolean = () => false;
+export function init(getToken: () => string, busy?: () => boolean) {
   token = getToken;
+  if (busy) busyCheck = busy;
   addEventListener('online', () => void tryReconnect());
-  addEventListener('offline', () => void goOffline());
+  addEventListener('offline', () => { if (document.visibilityState === 'visible') void goOffline(); });
+  // back in the app: if we were offline, look for the server straight away
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && offline) void tryReconnect(); });
 }
 
-/** Something failed to connect (the game socket): is the server gone? Then go offline right away. */
+/**
+ * Something failed to connect (the game socket): is the server gone? Only while the app is on screen —
+ * phones cut the connection of an app in the background (0.9.9.4.2: switching apps went offline) — and only
+ * if it's still gone a few seconds later.
+ */
+let probing = false;
 export async function probe() {
-  if (offline || !storedUid()) return;
-  if (!navigator.onLine || !(await reachable())) await goOffline();
+  if (offline || probing || !storedUid() || document.visibilityState !== 'visible') return;
+  probing = true;
+  try {
+    for (let i = 0; i < 2; i++) {
+      if (navigator.onLine && await reachable()) return;
+      await new Promise((r) => setTimeout(r, 3000));
+      if (document.visibilityState !== 'visible') return;
+    }
+    await goOffline();
+  } finally { probing = false; }
+}
+
+/** Is there a saved copy of this account to play offline with? */
+export async function canGoOffline() {
+  const uid = storedUid();
+  return !!uid && !!(await kv.get<Snapshot>(snapKey(uid)));
 }
 
 /** Signed in (online): remember who, and keep a fresh snapshot for when the connection goes. */
@@ -67,6 +91,7 @@ export async function signedIn(uid: string) {
   outbox = (await kv.get<OutboxEntry[]>(boxKey(uid))) ?? [];
   if (outbox.length) void tryReconnect(); // study left over from last time offline
   else scheduleSnapshot(1500);
+  setTimeout(() => { if (!engine) void ensureEngine(); }, 8000);
 }
 /** Signed out: forget the local copy of the account. */
 export async function signedOut() {
@@ -87,7 +112,7 @@ async function ensureEngine(): Promise<Engine | null> {
   try {
     engine = await createEngine(snap, () => {
       clearTimeout(saveTimer);
-      saveTimer = window.setTimeout(() => { if (engine) void kv.set(snapKey(uid), engine.dump()); }, 250);
+      saveTimer = window.setTimeout(() => { if (engine) void kv.set(snapKey(uid), engine.dump()); }, 1500);
     });
     engineFor = uid;
     outbox = (await kv.get<OutboxEntry[]>(boxKey(uid))) ?? outbox;
@@ -108,14 +133,14 @@ export async function goOffline(): Promise<boolean> {
 }
 
 /** Answer a call locally (and queue it for the server if it changes something). */
-export async function call(method: string, url: string, body?: unknown): Promise<{ status: number; body: any }> {
+export async function call(method: string, url: string, body?: unknown, op?: string): Promise<{ status: number; body: any }> {
   const e = await ensureEngine();
   if (!e) return { status: 503, body: { error: 'You\'re offline.' } };
   const out = await e.request(method, url, body);
   if (out.status < 400 && changes(method, url)) {
     // the same GET twice (e.g. opening Study again) only needs replaying once
     if (!(method === 'GET' && outbox.some((x) => x.method === 'GET' && x.url === url))) {
-      outbox.push({ method, url, body, at: Date.now() });
+      outbox.push({ method, url, body, at: Date.now(), op });
       await kv.set(boxKey(e.userId), outbox);
     }
   }
@@ -142,7 +167,7 @@ export function tryReconnect(): Promise<boolean> {
         const x = outbox[0];
         let res: Response;
         try {
-          res = await fetch(x.url, { method: x.method, headers: { ...authHeaders(), 'X-KW-At': String(x.at) }, body: x.body === undefined ? undefined : JSON.stringify(x.body), signal: timeout(20_000) });
+          res = await fetch(x.url, { method: x.method, headers: { ...authHeaders(), 'X-KW-At': String(x.at), ...(x.op ? { 'X-KW-Op': x.op } : {}) }, body: x.body === undefined ? undefined : JSON.stringify(x.body), signal: timeout(20_000) });
         } catch { return false; } // gone again: try later
         if (res.status === 401 || res.status === 403) return false; // signed out: keep it for after signing in
         if (res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504) return false;
@@ -167,19 +192,35 @@ export async function refreshSnapshot() {
     const snap = (await res.json()) as Snapshot;
     if (snap.user?.id !== uid) return;
     await kv.set(snapKey(uid), snap);
-    engine = null; engineFor = ''; // rebuilt from the new snapshot when needed
+    engine = null; engineFor = ''; // rebuilt from the new snapshot
+    clearTimeout(saveTimer);
+    setTimeout(() => { if (!engine) void ensureEngine(); }, 1000);
   } catch { /* try again later */ }
 }
 /** Refresh the snapshot in a while. More changes meanwhile ride along — never postponed, only brought forward. */
 let snapDue = 0;
-function scheduleSnapshot(ms = 6000) {
+// 0.9.9.4.2: not while you're studying (a whole snapshot every few cards made phones stutter) — afterwards
+function scheduleSnapshot(ms = 30_000) {
   const due = Date.now() + ms;
   if (snapTimer && snapDue <= due) return;
   clearTimeout(snapTimer);
   snapDue = due;
-  snapTimer = window.setTimeout(() => { snapTimer = 0; if (!offline) void refreshSnapshot(); }, ms);
+  snapTimer = window.setTimeout(() => {
+    snapTimer = 0;
+    if (offline) return;
+    if (busyCheck()) { scheduleSnapshot(15_000); return; }
+    const run = () => void refreshSnapshot();
+    if ('requestIdleCallback' in window) (window as any).requestIdleCallback(run, { timeout: 5000 }); else run();
+  }, ms);
 }
-/** After an online call that changed something: the local copy is behind, refresh it soon. */
-export function changedOnline(method: string, url: string) { if (changes(method, url) && handles(method, url)) scheduleSnapshot(); }
+/**
+ * After an online call that changed something: do the same to the local copy right away (so going offline
+ * mid-session doesn't bring back the cards you just studied), and fetch a fresh snapshot later.
+ */
+export function changedOnline(method: string, url: string, body?: unknown) {
+  if (!changes(method, url) || !handles(method, url)) return;
+  if (engine && engineFor === storedUid()) void engine.request(method, url, body).catch(() => {});
+  scheduleSnapshot();
+}
 /** How many changes are waiting to be sent. */
 export const pending = () => outbox.length;

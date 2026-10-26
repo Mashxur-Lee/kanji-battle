@@ -182,10 +182,21 @@ async function boot() {
     applyProfile(p);
     signedIn(u);
   } catch (e) {
-    if (e instanceof ApiError && (e.status === 401 || e.status === 403)) { setToken(''); showAuth(e.status === 403 ? e.message : ''); }
-    else { ui.show('auth'); ui.$('authError').textContent = e instanceof ApiError && e.status === 0 ? 'No internet connection. Sign in once while online — then Study spells and more work offline too.' : 'Server unreachable — try again in a moment.'; }
+    if (e instanceof ApiError && (e.status === 401 || e.status === 403)) { setToken(''); showAuth(e.status === 403 ? e.message : ''); return; }
+    // 0.9.9.4.2: no server, but this account is saved here → straight into offline mode
+    if (!offline.isOffline() && await offline.canGoOffline() && await offline.goOffline()) return void boot();
+    ui.show('auth');
+    const canOffline = await offline.canGoOffline();
+    ui.$('authError').textContent = canOffline ? 'The server can\'t be reached right now.'
+      : e instanceof ApiError && e.status === 0 ? 'No internet connection. Sign in once while online — then Study spells and more work offline too.' : 'Server unreachable — try again in a moment.';
+    ui.$('playOffline').hidden = !canOffline;
   }
 }
+ui.$('playOffline').onclick = async () => {
+  ui.$('playOffline').hidden = true;
+  if (await offline.goOffline()) void boot();
+  else ui.$('authError').textContent = 'Nothing saved on this device yet — sign in once while online.';
+};
 
 function signedIn(u: PublicUser) {
   user = u;
@@ -199,6 +210,7 @@ function signedIn(u: PublicUser) {
 }
 
 function showAuth(message = '') {
+  ui.$('playOffline').hidden = true;
   user = null;
   profile = null;
   inRoom = false;

@@ -7,7 +7,7 @@ export interface Profile { xp: number; level: number; crit: number; learned: num
   tasks?: DailyTaskState[]; streakDay?: string | null; border?: string }
 export interface MonthProgress { month: string; name: string; reward: string; goals: Array<{ id: string; label: string; target: number; value: number }>; done: boolean; unlocked: boolean }
 export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number }
-export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, Array<[string, number]>>; month: MonthProgress }
+export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, Array<[kanji: string, mastery: number, progress: number]>>; month: MonthProgress }
 export interface DailyWord { index: number; total: number; kanji: string; level: Level; timeLimitMs: number }
 export interface DailyDone { correct: number; ms: number; rank: number; players: number; xp: number }
 export interface DailyOverview { day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
@@ -42,35 +42,38 @@ export interface AdminStats {
 const isNetworkError = (e: unknown) => e instanceof TypeError || (e instanceof DOMException && e.name === 'AbortError');
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
+  // 0.9.9.4.2: every change that also works offline carries an id; if it times out here and is done again
+  // offline (and later replayed), the server recognises the id and doesn't do it twice
+  const op = method !== 'GET' && offline.handles(method, url) ? uuid() : undefined;
   // 0.9.9.4: offline → the calls that work alone are answered by the app itself (offline/), the rest can't
-  if (offline.isOffline()) return local<T>(method, url, body);
+  if (offline.isOffline()) return local<T>(method, url, body, op);
   let res: Response;
   try {
-    // a GET that hangs (no signal, or the server still waking up) gives up after a while when we can go offline
+    // a call that hangs (no signal, or the server still waking up) gives up after a while when we can go offline
     const ctl = new AbortController();
-    const t = method === 'GET' && offline.handles(method, url) ? window.setTimeout(() => ctl.abort(), 12_000) : 0;
+    const t = offline.handles(method, url) ? window.setTimeout(() => ctl.abort(), method === 'GET' ? 12_000 : 10_000) : 0;
     res = await fetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+      headers: { 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}), ...(op ? { 'X-KW-Op': op } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: ctl.signal,
     }).finally(() => clearTimeout(t));
   } catch (e) {
-    if (isNetworkError(e) && offline.handles(method, url) && await offline.goOffline()) return local<T>(method, url, body);
+    if (isNetworkError(e) && offline.handles(method, url) && await offline.goOffline()) return local<T>(method, url, body, op);
     if (isNetworkError(e)) throw new ApiError(OFFLINE_TEXT, 0);
     throw e;
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
-  offline.changedOnline(method, url);
+  offline.changedOnline(method, url, body);
   return data as T;
 }
 /** crypto.randomUUID needs https; plain-http LAN testing gets a random fallback */
 export const uuid = () => (typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, () => (Math.random() * 16 | 0).toString(16)));
 export const OFFLINE_TEXT = 'You\'re offline — this needs an internet connection.';
-async function local<T>(method: string, url: string, body?: unknown): Promise<T> {
+async function local<T>(method: string, url: string, body?: unknown, op?: string): Promise<T> {
   if (!offline.handles(method, url)) throw new ApiError(OFFLINE_TEXT, 0);
-  const out = await offline.call(method, url, body);
+  const out = await offline.call(method, url, body, op);
   if (out.status >= 400) throw new ApiError(out.body?.error ?? `Error ${out.status}`, out.status);
   return out.body as T;
 }

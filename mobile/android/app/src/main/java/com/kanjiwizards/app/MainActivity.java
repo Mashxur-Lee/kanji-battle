@@ -128,10 +128,10 @@ public class MainActivity extends Activity {
     @Override
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
-        // the game handles "back" itself (Escape closes dialogs and screens); at the menu it leaves the app
-        web.evaluateJavascript("(window.kwBack && window.kwBack()) ? 1 : 0", v -> {
-            if (!"1".equals(v)) moveTaskToBack(true);
-        });
+        // the game keeps a history entry while a dialog or a screen other than the menu is open (0.9.9.4.2):
+        // back closes it or goes back; at the menu the app goes to the background
+        if (web.canGoBack()) web.goBack();
+        else moveTaskToBack(true);
     }
 
     @Override

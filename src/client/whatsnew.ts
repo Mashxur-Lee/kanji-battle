@@ -7,6 +7,31 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.2', date: '2026-10',
+    en: [
+      'Kana: ひらがな (hiragana) and the new カタカナ (katakana) are two separate levels — only letters now: the basic ones, with ゛/゜ and every combination (きゃ, シュ …). Both work in Study spells and in every game mode, answered in romaji.',
+      'Study spells: each answer shows an example sentence with the word marked, and its translation (N5 and N4 words for now — more levels coming).',
+      'Study spells: swiping a card is instant — the next card no longer waits for the server, and losing the connection mid-session doesn’t freeze the buttons.',
+      'Spell mastery: tiles with the word and a progress bar, like a kana chart; the kana levels are laid out as the kana table. Tap a tile for its reading and meaning (phones too). Kanji levels have filters and “show more”.',
+      'Activity: a legend explains the shades (the brighter, the more you did that day); tap a day for its details.',
+      'Reading passage: the word bank stays at the bottom while the story scrolls; no more “Add to…” on words that are already in your deck.',
+      'Phones: the back button closes dialogs and goes back a screen; switching to another app no longer switches to offline mode; looking around by turning the phone works when it’s held upright too.',
+      'Offline: when the server can’t be reached at sign-in, a “Play offline” button takes you straight in.',
+      'Get the app: the real Windows and Android logos.',
+    ],
+    ru: [
+      'Кана: ひらがな (хирагана) и новая カタカナ (катакана) — два отдельных уровня, теперь только буквы: основные, с ゛/゜ и все сочетания (きゃ, シュ …). Оба работают в «Изучать заклинания» и во всех режимах игры, ответ ромадзи.',
+      'Изучение заклинаний: с каждым ответом показывается пример — предложение с выделенным словом и его перевод (пока для слов N5 и N4, другие уровни будут позже).',
+      'Изучение заклинаний: карточки свайпаются мгновенно — следующая больше не ждёт сервер, а потеря связи посреди занятия не блокирует кнопки.',
+      'Освоение заклинаний: плитки со словом и шкалой прогресса, как таблица каны; уровни каны выложены таблицей. Нажмите на плитку, чтобы увидеть чтение и значение (и на телефоне). У уровней кандзи есть фильтры и «показать ещё».',
+      'Активность: легенда объясняет оттенки (чем ярче, тем больше вы сделали в тот день); нажмите на день, чтобы узнать подробности.',
+      'Текст для чтения: банк слов остаётся внизу, а рассказ прокручивается; у слов, которые уже в вашей колоде, больше нет «Добавить в…».',
+      'Телефоны: кнопка «Назад» закрывает окна и возвращает на предыдущий экран; переключение в другое приложение больше не включает офлайн-режим; осмотр поворотом телефона работает и когда он держится вертикально.',
+      'Офлайн: если при входе сервер недоступен, кнопка «Играть без интернета» сразу пускает в игру.',
+      '«Скачать приложение»: настоящие логотипы Windows и Android.',
+    ],
+  },
+  {
     v: '0.9.9.4.1', date: '2026-10',
     en: ['Get the app: the Android download works from the installed game too (it stopped at 100% before) — then open Downloads and tap KanjiWizards.apk.'],
     ru: ['«Скачать приложение»: загрузка для Android работает и из установленной игры (раньше она останавливалась на 100%) — затем откройте «Загрузки» и нажмите KanjiWizards.apk.'],
