@@ -22,7 +22,7 @@ export const BOT_ACCURACY: Record<BotLevel, Record<'N5' | 'N4' | 'N3' | 'N2' | '
   N1: { N5: 1.00, N4: 0.95, N3: 0.87, N2: 0.70, N1: 0.60 },
 };
 export function botChance(bot: BotLevel, word: Level): number {
-  return BOT_ACCURACY[bot][word === 'KANA' ? 'N5' : word];
+  return BOT_ACCURACY[bot][word === 'KANA' || word === 'KATA' ? 'N5' : word];
 }
 
 const NAMES = ['Kitsune', 'Tanuki', 'Tengu', 'Kappa', 'Oni', 'Yuki', 'Ryu', 'Neko'];

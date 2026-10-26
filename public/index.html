@@ -121,14 +121,14 @@
     </div>
   </div>
   <div class="app-opt">
-    <span class="app-ico" aria-hidden="true">🪟</span>
+    <svg class="app-ico" viewBox="0 0 88 88" aria-hidden="true"><path fill="#00a4ef" d="M0 12.4 35.7 7.5v34.4H0zM40 6.9 87.3 0v41.5H40zM0 45.7h35.7v34.5L0 75.3zM40 46.2h47.3V88L40 81.3z"/></svg>
     <div><b>Windows</b>
       <p class="hint">Download and run the installer. If Windows says “protected your PC”, choose <b>More info → Run anyway</b> (the app isn't signed yet).</p>
       <a id="appWin" class="big btn-link" href="#" rel="noopener">Download for Windows (.exe)</a>
     </div>
   </div>
   <div class="app-opt">
-    <span class="app-ico" aria-hidden="true">🤖</span>
+    <svg class="app-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="#3ddc84" d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.65-.38l-1.86 3.22a11.43 11.43 0 0 0-9.86 0L5.21 5.92a.38.38 0 0 0-.65.38L6.4 9.48A10.78 10.78 0 0 0 1 18h22a10.78 10.78 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 1.25-1.25A1.25 1.25 0 0 1 7 15.25zm10 0A1.25 1.25 0 1 1 18.25 14 1.25 1.25 0 0 1 17 15.25z"/></svg>
     <div><b>Android</b>
       <p class="hint">Download the APK and open it; allow your browser to install apps when asked. No Google Play needed.</p>
       <a id="appApk" class="big btn-link" href="#" download="KanjiWizards.apk">Download for Android (.apk)</a>
@@ -180,10 +180,13 @@
 <dialog id="passageDialog" class="friend-dialog passage-dialog" aria-label="Reading passage">
   <div class="dd-head"><h3>Reading passage</h3><label class="p-from">Words from <select id="passageDeck" aria-label="Words from"></select></label><button id="passageNew" class="pill">New story</button><button id="passageClose" class="pill">Close</button></div>
   <p class="hint">Fill each blank with one of your words (the furigana is your clue). Tap any word in the story for its meaning.</p>
-  <div id="passageText" class="passage-text" lang="ja"></div>
+  <div class="passage-scroll">
+    <div id="passageText" class="passage-text" lang="ja"></div>
+    <details class="passage-tr"><summary>Translation</summary><div id="passageTr"></div></details>
+    <div id="passageResult" class="passage-words" hidden></div>
+  </div>
   <div id="passageGloss" class="passage-gloss" hidden></div>
-  <details class="passage-tr"><summary>Translation</summary><div id="passageTr"></div></details>
-  <div id="passageWords" class="passage-words"></div>
+  <div id="passageWords" class="passage-words passage-bank"></div>
 </dialog>
 <div id="pauseOverlay" class="pause-overlay" role="dialog" aria-modal="true" aria-label="Paused" hidden>
   <div class="pause-box"><h2>Paused</h2><p class="sub">The clock, the AI and the dragon wait for you.</p><button id="resumeBtn" class="big">Resume</button></div>
@@ -219,6 +222,7 @@
         <label class="field"><span>Password</span><input id="authPass" name="password" type="password" autocomplete="current-password" maxlength="72" required></label>
         <button id="authSubmit" type="submit">Log in</button>
         <p id="authError" class="error" role="alert"></p>
+        <button id="playOffline" type="button" class="big alt" hidden>Play offline</button>
         <p id="authHint" class="hint"></p>
       </form>
     </div>
@@ -322,10 +326,11 @@
       </div>
     </div>
     <div class="prog-card">
-      <h3>Spell mastery <small class="hint">every word of each level — hover a square to see it</small></h3>
+      <h3>Spell mastery <small class="hint">every word of each level — tap one to see it</small></h3>
       <div id="progLevels" class="cust-tabs" role="tablist" aria-label="Level"></div>
       <div id="progLegend" class="mastery-legend"></div>
       <div id="progGrid" class="mastery-grid" lang="ja"></div>
+      <div id="mgPop" class="mg-pop" role="status" hidden></div>
     </div>
   </section>
 
@@ -402,7 +407,7 @@
     <div class="page-head"><button id="reviewBack" class="back">← Study</button><span id="reviewLeft" class="tag"></span></div>
     <div id="flash" class="flashcard" tabindex="0" aria-live="polite">
       <div class="fc-front"><div id="fcKanji" class="fc-kanji" lang="ja"></div><div id="fcLevel" class="fc-level"></div></div>
-      <div id="fcBack" class="fc-back" hidden><div id="fcReading" class="fc-reading" lang="ja"></div><div id="fcMeaning" class="fc-meaning"></div></div>
+      <div id="fcBack" class="fc-back" hidden><div id="fcReading" class="fc-reading" lang="ja"></div><div id="fcMeaning" class="fc-meaning"></div><div id="fcExample"></div></div>
     </div>
     <p class="swipe-hint">Swipe the card: ← Again · Hard   |   Okay · Easy →</p>
     <button id="fcStrokes" class="pill fc-strokes" hidden title="How to write it (S)">Stroke order <kbd>S</kbd></button>
@@ -742,7 +747,7 @@
     <h2>How to play</h2>
     <ol>
       <li><b>Create a room</b>, pick a mode, and send the 4-letter code to a friend. On a phone you can switch apps to send it — your seat is kept for 5 minutes.</li>
-      <li><b>Pick your levels.</b> かな is hiragana (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (かな), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.</li>
+      <li><b>Pick your levels.</b> ひらがな (hiragana) and カタカナ (katakana) are the kana letters (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (ひらがな / カタカナ), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.</li>
       <li><b>Modes</b>
         <ul>
           <li><b>Reading</b> — study 10 words, then type each reading (かな or romaji).</li>
@@ -760,7 +765,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.9.4.1</div>
+<div id="version" class="version">v0.9.9.4.2</div>
 <script src="/app.js"></script>
 </body>
 </html>

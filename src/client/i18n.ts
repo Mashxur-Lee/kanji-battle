@@ -135,7 +135,7 @@ const RU: Record<string, string> = {
   'かな first, then kanji': 'Сначала かな, потом кандзи',
   'Beginners: study かな in Study spells until you know it by heart. Then tick "I\'ve mastered hiragana" in Settings (the sliders button, top-right) — and the kanji levels N5 to N1 open for studying and battles.':
     'Новичкам: учите かな в «Изучать заклинания», пока не выучите наизусть. Затем отметьте «Я освоил хирагану» в настройках (кнопка с ползунками справа вверху) — и откроются уровни кандзи N5–N1 для учёбы и боёв.',
-  'Master hiragana first (Study spells → かな), then tick "I\'ve mastered hiragana" in Settings': 'Сначала освойте хирагану («Изучать заклинания» → かな), затем отметьте «Я освоил хирагану» в настройках',
+  'Master hiragana first (Study spells → ひらがな), then tick "I\'ve mastered hiragana" in Settings': 'Сначала освойте хирагану («Изучать заклинания» → ひらがな), затем отметьте «Я освоил хирагану» в настройках',
   'Kanji levels unlocked — pick N5 in Study spells to start!': 'Уровни кандзи открыты — выберите N5 в «Изучать заклинания»!',
   'Back to かな only: kanji levels are locked.': 'Снова только かな: уровни кандзи закрыты.',
   'Write the kanji': 'Напишите кандзи', 'the kana is written for you': 'кана уже написана за вас', 'Wk': 'Нед.',
@@ -237,7 +237,7 @@ const RU: Record<string, string> = {
   'Keyboard': 'Клавиатура',
   '— pick a hero, draft cards by colour, then cast them by writing their kanji. Bolt 90 dmg (10 mana), Frost 150 (20), Mana +60, Heal 140 (30), Inferno 340 (45). 15 s to choose a card, then 1 minute to read its meaning, look at the kanji and write it. +10 mana each turn. Out of cards → a new draft round (HP and mana stay). No mana for any of your cards → your turn is skipped (−100 HP). When time runs out: overtime, a Rapid duel. Every kanji of the duel joins your': '— выберите героя, наберите карты по цвету, затем разыгрывайте их, записывая кандзи. Молния 90 урона (10 маны), Мороз 150 (20), Мана +60, Лечение 140 (30), Инферно 340 (45). 15 с на выбор карты, затем 1 минута, чтобы прочитать значение, посмотреть на кандзи и написать его. +10 маны каждый ход. Карты кончились → новый набор (HP и мана сохраняются). Нет маны ни на одну карту → ход пропускается (−100 HP). Когда время выходит — овертайм, дуэль Блиц. Все кандзи дуэли попадают в',
   '— win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in': '— победа: 300 + точность%; поражение: 50 + точность%; Дуэль колод: 4000 / 1500. Сданные матчи не дают опыта. Каждый уровень требует на 1000 опыта больше предыдущего (1000, затем 2000, 3000 …) и открывает фоны и цвета пламени в',
-  'かな is hiragana (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (かな), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.': 'かな — это хирагана (ответ ромадзи); N5 — самый лёгкий, N1 — самый трудный. Ваш персонаж зависит от самого трудного уровня: Гоблин (かな), Ученик (N5), Искатель приключений (N4), Рыцарь (N3), Ведьма (N2), Волшебник (N1). Каждый держит магический посох, выбранный в Кастомизации. Трудные слова бьют сильнее, поэтому у соперника больше HP.',
+  'ひらがな (hiragana) and カタカナ (katakana) are the kana letters (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (ひらがな / カタカナ), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.': 'ひらがな (хирагана) и カタカナ (катакана) — это азбуки каны (ответ ромадзи); N5 — самый лёгкий, N1 — самый трудный. Ваш персонаж зависит от самого трудного уровня: Гоблин (ひらがな / カタカナ), Ученик (N5), Искатель приключений (N4), Рыцарь (N3), Ведьма (N2), Волшебник (N1). Каждый держит магический посох, выбранный в Кастомизации. Трудные слова бьют сильнее, поэтому у соперника больше HP.',
   'Master hiragana first': 'Сначала освойте хирагану',
   'Deck Duel is all kanji — tick "I\'ve mastered hiragana" in Settings first.': 'Дуэль колод — это только кандзи: сначала отметьте «Я освоил хирагану» в настройках.',
   'Paused': 'Пауза',
@@ -354,7 +354,7 @@ const RU: Record<string, string> = {
   'Waiting for a teammate (optional)…': 'Ожидание союзника (необязательно)…', 'Waiting for opponent…': 'Ожидание соперника…',
   'Deck Duel draws cards from every level (N5–N1). Your level picks only change your character here.': 'В Дуэли колод карты берутся со всех уровней (N5–N1). Выбор уровней меняет здесь только вашего персонажа.',
   'Each player picks their own. You will write these words by hand. Harder levels hit harder — so your opponent gets more HP.': 'Каждый выбирает свои. Эти слова вы будете писать от руки. Сложные уровни бьют сильнее — поэтому у соперника больше HP.',
-  'Each player picks their own. かな = hiragana, answered in romaji. Harder levels hit harder — so your opponent gets more HP.': 'Каждый выбирает свои. かな — хирагана, ответ ромадзи. Сложные уровни бьют сильнее — поэтому у соперника больше HP.',
+  'Each player picks their own. ひらがな and カタカナ = the two kana alphabets, answered in romaji. Harder levels hit harder — so your opponent gets more HP.': 'Каждый выбирает свои. ひらがな и カタカナ — две азбуки каны, ответ ромадзи. Сложные уровни бьют сильнее — поэтому у соперника больше HP.',
   'Share the code, or add an AI opponent — then press Ready. The duel starts when both are ready.': 'Отправьте код или добавьте ИИ-соперника — затем нажмите «Готов». Дуэль начнётся, когда оба будут готовы.',
   'Waiting for your opponent to be ready…': 'Ждём, когда соперник будет готов…', 'Press Ready — the duel starts when both players are ready.': 'Нажмите «Готов» — дуэль начнётся, когда оба будут готовы.',
   'Start solo': 'Начать в одиночку', 'Waiting for the host to start…': 'Ждём, пока хозяин начнёт…', 'Opponent left': 'Соперник вышел',
@@ -445,6 +445,11 @@ const RU: Record<string, string> = {
   'Both players get the same kanji — no study phase.': 'Оба игрока получают один и тот же кандзи — без подготовки.', 'Wrong? Try again until the 12 s round ends.': 'Ошиблись? Пробуйте снова, пока не кончится 12-секундный раунд.',
   'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.': 'Крит: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Игра с ИИ даёт половину опыта; сдача — ничего.',
   'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.': 'Шанс крита сегодня: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Сбрасывается в полночь.',
+  // 0.9.9.4.2
+  'Hiragana': 'Хирагана', 'Katakana': 'Катакана', 'Dakuon and handakuon (゛ ゜)': 'Дакутэн и хандакутэн (゛ ゜)', 'Combinations': 'Сочетания', 'Nothing here yet.': 'Здесь пока ничего нет.',
+  'every word of each level — tap one to see it': 'все слова каждого уровня — нажмите на слово, чтобы посмотреть', 'Less': 'Меньше', 'More': 'Больше',
+  'The brighter a day, the more you did — cards passed and games played, compared with your busiest day. Tap a day for details.': 'Чем ярче день, тем больше вы сделали — пройденные карточки и сыгранные игры по сравнению с самым активным днём. Нажмите на день, чтобы узнать подробности.',
+  'Play offline': 'Играть без интернета', 'The server can\'t be reached right now.': 'Сервер сейчас недоступен.', 'Nothing saved on this device yet — sign in once while online.': 'На этом устройстве пока ничего не сохранено — войдите один раз онлайн.',
   // 0.9.9.4.1
   'Then open': 'Затем откройте', 'Files → Downloads': 'Файлы → Загрузки', '(or Chrome': '(или в Chrome', '⋮ → Downloads': '⋮ → Скачанные файлы', ') and tap': ') и нажмите',
   // 0.9.9.4
@@ -499,7 +504,7 @@ const RU: Record<string, string> = {
 // names of the monthly seasons and the staffs (staff names in the genitive: «Посох Бури»)
 const SEASON_RU: Record<string, string> = { Frost: 'Иней', Sakura: 'Сакура', Blossom: 'Цветение', Rain: 'Дождь', Jade: 'Нефрит', Sun: 'Солнце', Abyss: 'Бездна', Thunder: 'Гром', Moon: 'Луна', Harvest: 'Урожай', Maple: 'Клён', Starlight: 'Звёздный свет' };
 const STAFF_RU: Record<string, string> = { Verdant: 'Листвы', Ember: 'Углей', Tide: 'Прилива', Storm: 'Бури', Void: 'Пустоты', Frost: 'Инея', Blossom: 'Цветения', Jade: 'Нефрита', Abyss: 'Бездны', Moon: 'Луны', Maple: 'Клёна' };
-const MASTERY_RU: Record<string, string> = { 'Not in your spells yet': 'Ещё нет в заклинаниях', New: 'Новые', Learning: 'Изучаются', Learned: 'Выучены', 'Mastered (3+ weeks)': 'Освоены (3+ недели)' };
+const MASTERY_RU: Record<string, string> = { 'Not in your spells yet': 'Ещё нет в заклинаниях', New: 'Новые', Learning: 'Изучаются', Learned: 'Выучены', 'Mastered (3+ weeks)': 'Освоены (3+ недели)', 'Your spells': 'Ваши заклинания', 'Learned & mastered': 'Выучены и освоены', 'Not started': 'Не начаты', All: 'Все' };
 type Rep = string | ((...m: string[]) => string);
 const MODE_RU: Record<string, string> = { '1v1 Kanji Reading': '1 на 1: Чтение кандзи', '1v1 Kanji Writing': '1 на 1: Написание кандзи', 'Boss Elimination': 'Битва с боссом', '1v1 Rapid': '1 на 1: Блиц', 'Deck Duel': 'Дуэль колод', 'Kanji Reading': 'Чтение кандзи', 'Kanji Writing': 'Написание кандзи' };
 const mode = (m: string) => MODE_RU[m] ?? m;
@@ -605,6 +610,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Two words each from N5 to N1, easiest first\. Type the reading \(kana or romaji\) and press Enter — (\d+) s per word\. One try a day: most correct wins, then fastest\.$/, 'По два слова с N5 до N1, от простых к сложным. Напишите чтение (кана или ромадзи) и нажмите Enter — $1 с на слово. Одна попытка в день: побеждает больше верных, затем быстрее.'],
   [/^10 new words at (.+) your time\.$/, '10 новых слов в $1 по вашему времени.'],
   [/^Word (\d+) of (\d+) · (.+)$/, 'Слово $1 из $2 · $3'],
+  [/^Show more \((\d+) left\)$/, 'Показать ещё (осталось $1)'],
   [/^Offline mode · (\d+) to sync$/, 'Офлайн-режим · ждут синхронизации: $1'],
   [/^Daily challenge: (\d+)\/10(?: · \+(\d+) XP)? · your rank comes when you're back online$/, (_, c, x) => `Ежедневное испытание: ${c}/10${x ? ` · +${x} опыта` : ''} · место узнаете, когда появится интернет`],
   [/^Daily challenge: (\d+)\/10 · rank (\d+) of (\d+)(?: · \+(\d+) XP)?$/, (_, c, r, p, x) => `Ежедневное испытание: ${c}/10 · место ${r} из ${p}${x ? ` · +${x} опыта` : ''}`],

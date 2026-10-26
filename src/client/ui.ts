@@ -2,7 +2,7 @@ import { locale } from './i18n';
 import { viewH, viewW, zrect } from './zoom';
 import { showStrokeOrder } from './strokes';
 import {
-  LEVEL_LABEL, LEVELS, MODE_LABEL, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
+  LEVEL_LABEL, LEVELS, MODE_LABEL, isKanaLevel, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
   type Level, type MatchSummary, type PlayerId, type PlayerStats, type PlayerView, type PublicProfile, type PublicUser, type StudyItem, type Avatar,
 } from '../shared/protocol';
 import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
@@ -115,10 +115,10 @@ export function picEl(url: string | null | undefined, cls = 'pic', border?: stri
 let beginnerFlag = false;
 /** A hiragana beginner: only かな until "I've mastered hiragana" is ticked in Settings. */
 export const kanaBeginner = () => beginnerFlag;
-export const BEGINNER_LOCK = 'Master hiragana first (Study spells → かな), then tick "I\'ve mastered hiragana" in Settings';
+export const BEGINNER_LOCK = 'Master hiragana first (Study spells → ひらがな), then tick "I\'ve mastered hiragana" in Settings';
 /** Locks a level chip a beginner can't pick yet (everything but かな). */
 export function lockLevelChip(label: HTMLElement, lv: string) {
-  if (!beginnerFlag || lv === 'KANA') return label;
+  if (!beginnerFlag || isKanaLevel(lv)) return label; // 0.9.9.4.2: katakana is open to beginners too
   label.classList.add('locked'); label.classList.remove('on');
   const i = label.querySelector('input'); if (i) { i.disabled = true; i.checked = false; }
   label.title = BEGINNER_LOCK;
@@ -394,7 +394,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
     ? 'Each player picks their own. The dragon gets tougher when the party picks harder levels.'
     : mode === 'writing'
       ? 'Each player picks their own. You will write these words by hand. Harder levels hit harder — so your opponent gets more HP.'
-      : 'Each player picks their own. かな = hiragana, answered in romaji. Harder levels hit harder — so your opponent gets more HP.';
+      : 'Each player picks their own. ひらがな and カタカナ = the two kana alphabets, answered in romaji. Harder levels hit harder — so your opponent gets more HP.';
   const isHost = you === hostId;
   const canStart = players.length >= minPlayers;
   $('addBot').hidden = !isHost || players.length >= maxPlayers;

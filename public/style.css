@@ -2079,7 +2079,7 @@ span.csel { position: relative; display: inline-flex; vertical-align: middle; mi
 .app-dialog { width: min(560px, calc(100vw - 32px)); }
 .app-opt { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--line); }
 .app-opt img { border-radius: 12px; flex: none; }
-.app-opt .app-ico { font-size: 1.9rem; width: 44px; text-align: center; flex: none; }
+.app-opt .app-ico { width: 40px; height: 40px; margin: 2px; flex: none; }
 .app-opt > div { flex: 1; min-width: 0; }
 .app-opt p { margin: 4px 0 8px; }
 a.btn-link { display: inline-block; text-decoration: none; text-align: center; padding: 10px 16px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #6d4bff); color: #fff; font-weight: 700; }
@@ -2089,3 +2089,78 @@ body.offline .friend-rail .fr-list { opacity: .45; }
 body.offline .net-status { background: #1d2440; color: #9fd8ff; border-color: #3a4f80; }
 button.big kbd, .big kbd { color: rgba(255, 255, 255, .85); border-color: rgba(255, 255, 255, .45); background: rgba(0, 0, 0, .12); }
 body.offline #onlineCount { display: none !important; }
+
+/* ── 0.9.9.4.2: reading passage — the story scrolls, the word bank stays at the bottom ── */
+dialog.passage-dialog[open] { display: flex; flex-direction: column; overflow: hidden; height: min(92vh, 980px); max-height: calc(92vh * var(--vfix)); }
+.passage-dialog .passage-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; margin: 0 -6px; padding: 0 6px; }
+.passage-dialog .passage-gloss { position: static; flex: none; margin-top: 8px; }
+.passage-dialog .passage-bank { flex: none; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); max-height: 42%; overflow-y: auto; }
+.passage-dialog .passage-bank .p-score { font-size: 1.6rem; }
+.passage-dialog .passage-bank > .big { grid-column: 1 / -1; justify-self: center; min-width: 200px; }
+.passage-dialog > .hint { flex: none; margin: 6px 0 0; }
+@media (max-width: 700px) {
+  dialog.passage-dialog[open] { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; padding: 12px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .passage-dialog .p-chip { font-size: 1.15rem; padding: 5px 11px; }
+  .passage-dialog > .hint { font-size: .78rem; }
+}
+
+/* ── 0.9.9.4.2: spell mastery tiles (word + progress bar) ── */
+.mastery-grid { display: block; max-height: none; overflow: visible; }
+.mastery-grid.kana { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px 26px; align-items: start; }
+.kana-sec h4 { margin: 4px 0 8px; color: var(--muted); font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; }
+.kana-grid { display: grid; gap: 8px; }
+.kana-grid.c5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.kana-grid.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  padding: 8px 6px 7px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, .1); background: rgba(16, 13, 44, .82); position: relative; transition: transform .12s, border-color .12s; }
+.mt:hover, .mt:focus-visible { transform: translateY(-2px); border-color: rgba(185, 147, 255, .6); }
+.mt.sel { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 212, 121, .25); }
+.mt.blank { visibility: hidden; cursor: default; }
+.mt-k { font-family: var(--jp); font-size: 1.55rem; line-height: 1.2; color: var(--text); white-space: nowrap; }
+.mt-r { font-size: .72rem; color: var(--muted); line-height: 1; }
+.mt-bar { display: block; width: 78%; height: 5px; margin-top: 5px; border-radius: 3px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.mt-bar i { display: block; height: 100%; border-radius: 3px; background: #6c6694; }
+.mt.m0, .mt.m1, .mt.m2, .mt.m3 { background: rgba(16, 13, 44, .82); box-shadow: none; }
+.mt.m0 .mt-k { color: rgba(236, 232, 255, .45); }
+.mt.m1 .mt-bar i { background: #8a83c9; } .mt.m2 .mt-bar i { background: #4a8df0; } .mt.m3 .mt-bar i { background: #3fbf8a; }
+.mt.m4 { border-color: rgba(255, 212, 121, .55); background: linear-gradient(180deg, rgba(60, 46, 12, .55), rgba(16, 13, 44, .85)); }
+.mt.m4 .mt-k { color: #ffe2a0; } .mt.m4 .mt-bar i { background: var(--gold); }
+.mt.m3 { border-color: rgba(63, 191, 138, .45); }
+.word-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; max-height: 460px; overflow-y: auto; padding: 2px; scrollbar-width: thin; }
+.mt.word { padding: 6px 3px 5px; min-height: 58px; border-radius: 10px; }
+.mt.word .mt-k { font-size: 1.3rem; }
+.mt.word .mt-k[data-len="2"] { font-size: 1.05rem; } .mt.word .mt-k[data-len="3"] { font-size: .85rem; } .mt.word .mt-k[data-len="4"], .mt.word .mt-k[data-len="5"] { font-size: .7rem; }
+.mg-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.mg-filters .chip { cursor: pointer; }
+.mg-more { display: block; margin: 12px auto 0; }
+.mg-pop { position: sticky; bottom: 10px; z-index: 5; margin-top: 12px; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(255, 212, 121, .45); background: #221a40; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+.mp-head { display: flex; align-items: baseline; gap: 12px; }
+.mp-k { font-family: var(--jp); font-size: 2rem; }
+.mp-rd { color: var(--accent2); font-size: 1.05rem; }
+.mp-x { all: unset; cursor: pointer; margin-left: auto; color: var(--muted); padding: 2px 8px; font-size: 1.1rem; }
+.mp-m { margin: 4px 0; }
+.mp-st { margin: 4px 0 6px; font-size: .85rem; font-weight: 700; background: none !important; box-shadow: none !important; }
+.mp-st.m0 { color: var(--muted); } .mp-st.m1 { color: #b2acec; } .mp-st.m2 { color: #7fb0ff; } .mp-st.m3 { color: #5fe0a8; } .mp-st.m4 { color: var(--gold); }
+.mt-bar.big { width: 100%; height: 7px; }
+.mt-bar.big i { background: var(--accent); }
+@media (max-width: 600px) {
+  .mastery-grid.kana { grid-template-columns: 1fr; }
+  .kana-grid { gap: 6px; }
+  .mt-k { font-size: 1.35rem; }
+  .word-grid { grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); max-height: 380px; }
+}
+.cal-legend { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 10px; font-size: .75rem; color: var(--muted); }
+.cal-legend i.cal-day { width: 16px; height: 16px; aspect-ratio: auto; border-radius: 4px; display: inline-block; }
+.cal-legend i.cal-day[data-l="0"] { background: rgba(255, 255, 255, .06); }
+.cal-why { margin: 6px 0 0; font-size: .78rem; }
+.cal-info { margin: 4px 0 0; min-height: 1.2em; font-size: .85rem; font-weight: 600; color: var(--accent2); }
+.cal-day { cursor: pointer; }
+.cal-day.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ── 0.9.9.4.2: example sentence under the answer ── */
+.fc-example { margin: 14px auto 0; padding: 10px 14px 8px; max-width: 460px; border-top: 1px dashed rgba(27, 21, 48, .2); text-align: center; animation: csel-in .2s ease-out; }
+.fc-ex-ja { margin: 0; font-family: var(--jp); font-size: 1.15rem; line-height: 1.6; color: #1b1530; }
+.fc-ex-ja mark { background: rgba(185, 147, 255, .3); color: #3b1f8a; border-radius: 4px; padding: 0 3px; font-weight: 700; }
+.fc-ex-tr { margin: 4px 0 0; font-size: .9rem; color: #5a5274; }
+.mg-filters .mg-f { font-size: .8rem; padding: 5px 12px; }
+.mg-filters .mg-f.on { background: var(--accent); color: #140f30; border-color: var(--accent); }

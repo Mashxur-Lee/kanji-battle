@@ -8,6 +8,13 @@ import { now } from '../now';
 export const Mastery = { Unseen: 0, New: 1, Learning: 2, Learned: 3, Mastered: 4 } as const;
 /** A card counts as mastered once its review interval reaches three weeks. */
 export const MASTERED_DAYS = 21;
+/** 0–100: how far along a word is (0.9.9.4.2: the bar under each tile) — mastered at a 3-week interval. */
+export function progressOf(c?: { state: string; intervalDays: number; reps: number } | null): number {
+  if (!c) return 0;
+  if (c.state === 'new') return 4;
+  if (c.state !== 'review') return Math.min(30, 10 + c.reps * 5);
+  return Math.round(35 + 65 * Math.min(1, Math.log1p(c.intervalDays) / Math.log1p(MASTERED_DAYS)));
+}
 
 export interface MonthProgress {
   month: string; // YYYY-MM
@@ -21,7 +28,7 @@ export interface ProgressPage {
   /** last 26 weeks of activity (only days with something in them) */
   activity: DayActivity[];
   /** per level: every word as [kanji, Mastery] in the vocab order */
-  mastery: Record<Level, Array<[string, number]>>;
+  mastery: Record<Level, Array<[string, number, number]>>;
   month: MonthProgress;
 }
 
@@ -99,14 +106,14 @@ export class ProgressService {
     const score = (c: { state: string; intervalDays: number }) => (c.state === 'review' ? 1000 + c.intervalDays : c.state === 'new' ? 0 : 1);
     const cards = new Map<string, Awaited<ReturnType<Store['cards']>>[number]>();
     for (const c of await this.store.cards(u.id)) { const was = cards.get(c.vocabId); if (!was || score(c) > score(was)) cards.set(c.vocabId, c); }
-    const mastery = Object.fromEntries(LEVELS.map((l) => [l, [] as Array<[string, number]>])) as Record<Level, Array<[string, number]>>;
+    const mastery = Object.fromEntries(LEVELS.map((l) => [l, [] as Array<[string, number, number]>])) as Record<Level, Array<[string, number, number]>>;
     for (const v of VOCAB) {
       const c = cards.get(v.id);
       const m = !c ? Mastery.Unseen
         : c.state === 'new' ? Mastery.New
         : c.state === 'review' ? (c.intervalDays >= MASTERED_DAYS ? Mastery.Mastered : Mastery.Learned)
         : Mastery.Learning;
-      mastery[v.level]?.push([v.kanji, m]);
+      mastery[v.level]?.push([v.kanji, m, progressOf(c)]);
     }
     return { activity: await this.store.activity(u.id, shiftDay(day, -26 * 7)), mastery, month: await this.month(u, day) };
   }

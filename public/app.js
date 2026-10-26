@@ -157,8 +157,8 @@
   var MODE_LEVEL = { reading: 0, rapid: 0, writing: 0, boss: 0, deck: 0 };
   var modeUnlocked = (mode3, xp, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode3] ?? 0);
   var STUDY_LOCK = 100;
-  var AVATAR_BY_LEVEL = { KANA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
-  var ORDER = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  var AVATAR_BY_LEVEL = { KANA: "goblin", KATA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
+  var ORDER = ["KANA", "KATA", "N5", "N4", "N3", "N2", "N1"];
   function avatarFor(levels) {
     const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? "N5";
     return AVATAR_BY_LEVEL[top];
@@ -167,7 +167,8 @@
   var isKanaBeginner = (unlocks2) => !!unlocks2?.includes(KANA_BEGINNER);
   function levelsFor(levels, beginner) {
     if (!beginner) return [...levels];
-    return ["KANA"];
+    const kana = levels.filter((l) => l === "KANA" || l === "KATA");
+    return kana.length ? kana : ["KANA"];
   }
   function isoWeek(day) {
     const d = /* @__PURE__ */ new Date(`${day}T00:00:00Z`);
@@ -595,8 +596,8 @@
   var CLIENT_EVENTS = ["tutorial_start", "tutorial_kana_yes", "tutorial_kana_no", "tutorial_battle", "tutorial_skip", "tutorial_done"];
 
   // src/shared/protocol.ts
-  var LEVELS = ["KANA", "N5", "N4", "N3", "N2", "N1"];
-  var LEVEL_LABEL = { KANA: "\u304B\u306A", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
+  var LEVELS = ["KANA", "KATA", "N5", "N4", "N3", "N2", "N1"];
+  var LEVEL_LABEL = { KANA: "\u3072\u3089\u304C\u306A", KATA: "\u30AB\u30BF\u30AB\u30CA", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
   var MODE_LABEL = {
     reading: "1v1 Kanji Reading",
     writing: "1v1 Kanji Writing",
@@ -604,6 +605,7 @@
     rapid: "1v1 Rapid",
     deck: "Deck Duel"
   };
+  var isKanaLevel = (l) => l === "KANA" || l === "KATA";
 
   // src/shared/achievements.ts
   var ACHIEVEMENTS = [
@@ -889,24 +891,18 @@
   var writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
 
   // src/shared/vocab.ts
-  var LEVEL_DIFFICULTY = { KANA: 6, N5: 15, N4: 28, N3: 40, N2: 57, N1: 75 };
-  var KANA = [
-    ..."\u3042a \u3044i \u3046u \u3048e \u304Ao \u304Bka \u304Dki \u304Fku \u3051ke \u3053ko \u3055sa \u3057shi \u3059su \u305Bse \u305Dso \u305Fta \u3061chi \u3064tsu \u3066te \u3068to \u306Ana \u306Bni \u306Cnu \u306Dne \u306Eno \u306Fha \u3072hi \u3075fu \u3078he \u307Bho \u307Ema \u307Fmi \u3080mu \u3081me \u3082mo \u3084ya \u3086yu \u3088yo \u3089ra \u308Ari \u308Bru \u308Cre \u308Dro \u308Fwa \u3092wo \u3093n".split(" ").map((s) => [s[0], s.slice(1), "hiragana", 5]),
-    ..."\u304Cga \u304Egi \u3050gu \u3052ge \u3054go \u3056za \u3058ji \u305Azu \u305Cze \u305Ezo \u3060da \u3062ji \u3065zu \u3067de \u3069do \u3070ba \u3073bi \u3076bu \u3079be \u307Cbo \u3071pa \u3074pi \u3077pu \u307Ape \u307Dpo".split(" ").map((s) => [s[0], s.slice(1), "hiragana (voiced)", 6]),
-    ..."\u304D\u3083kya \u304D\u3085kyu \u304D\u3087kyo \u3057\u3083sha \u3057\u3085shu \u3057\u3087sho \u3061\u3083cha \u3061\u3085chu \u3061\u3087cho \u306B\u3083nya \u3072\u3083hya \u307F\u3083mya \u308A\u3083rya \u308A\u3087ryo \u304E\u3087gyo \u3058\u3083ja \u3058\u3085ju \u3058\u3087jo \u3073\u3087byo".split(" ").map((s) => [s.slice(0, 2), s.slice(2), "hiragana (combined)", 8]),
-    ["\u306D\u3053", "neko", "cat", 9],
-    ["\u3044\u306C", "inu", "dog", 9],
-    ["\u3055\u304B\u306A", "sakana", "fish", 10],
-    ["\u3059\u3057", "sushi", "sushi", 9],
-    ["\u307F\u305A", "mizu", "water", 9],
-    ["\u3084\u307E", "yama", "mountain", 9],
-    ["\u3068\u3082\u3060\u3061", "tomodachi", "friend", 11],
-    ["\u304D\u3063\u3077", "kippu", "ticket", 11],
-    ["\u304C\u3063\u3053\u3046", "gakkou", "school", 11],
-    ["\u306B\u307B\u3093", "nihon", "Japan", 10],
-    ["\u3042\u308A\u304C\u3068\u3046", "arigatou", "thank you", 12],
-    ["\u304A\u306F\u3088\u3046", "ohayou", "good morning", 12]
+  var LEVEL_DIFFICULTY = { KANA: 6, KATA: 7, N5: 15, N4: 28, N3: 40, N2: 57, N1: 75 };
+  var KANA_BASIC = "\u3042a \u3044i \u3046u \u3048e \u304Ao \u304Bka \u304Dki \u304Fku \u3051ke \u3053ko \u3055sa \u3057shi \u3059su \u305Bse \u305Dso \u305Fta \u3061chi \u3064tsu \u3066te \u3068to \u306Ana \u306Bni \u306Cnu \u306Dne \u306Eno \u306Fha \u3072hi \u3075fu \u3078he \u307Bho \u307Ema \u307Fmi \u3080mu \u3081me \u3082mo \u3084ya \u3086yu \u3088yo \u3089ra \u308Ari \u308Bru \u308Cre \u308Dro \u308Fwa \u3092wo \u3093n";
+  var KANA_VOICED = "\u304Cga \u304Egi \u3050gu \u3052ge \u3054go \u3056za \u3058ji \u305Azu \u305Cze \u305Ezo \u3060da \u3062ji \u3065zu \u3067de \u3069do \u3070ba \u3073bi \u3076bu \u3079be \u307Cbo \u3071pa \u3074pi \u3077pu \u307Ape \u307Dpo";
+  var KANA_COMBO = "\u304D\u3083kya \u304D\u3085kyu \u304D\u3087kyo \u3057\u3083sha \u3057\u3085shu \u3057\u3087sho \u3061\u3083cha \u3061\u3085chu \u3061\u3087cho \u306B\u3083nya \u306B\u3085nyu \u306B\u3087nyo \u3072\u3083hya \u3072\u3085hyu \u3072\u3087hyo \u307F\u3083mya \u307F\u3085myu \u307F\u3087myo \u308A\u3083rya \u308A\u3085ryu \u308A\u3087ryo \u304E\u3083gya \u304E\u3085gyu \u304E\u3087gyo \u3058\u3083ja \u3058\u3085ju \u3058\u3087jo \u3073\u3083bya \u3073\u3085byu \u3073\u3087byo \u3074\u3083pya \u3074\u3085pyu \u3074\u3087pyo";
+  var kanaRows = (script, conv) => [
+    ...KANA_BASIC.split(" ").map((s) => [conv(s[0]), s.slice(1), script, 5]),
+    ...KANA_VOICED.split(" ").map((s) => [conv(s[0]), s.slice(1), `${script} (voiced)`, 6]),
+    ...KANA_COMBO.split(" ").map((s) => [conv(s.slice(0, 2)), s.slice(2), `${script} (combined)`, 8])
   ];
+  var toKatakana = (s) => s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 96));
+  var KANA = kanaRows("hiragana", (s) => s);
+  var KATA = kanaRows("katakana", toKatakana).map(([k, r2, m, d]) => [k, r2, m, d === void 0 ? d : d + 1]);
   var displayReading = (v) => v.romaji ?? v.reading;
 
   // src/shared/distract.ts
@@ -992,7 +988,7 @@
     }
     return a;
   };
-  var kanaChar = (v) => !!v.romaji && /^hiragana/.test(v.meaning);
+  var kanaChar = (v) => !!v.romaji && /^(hiragana|katakana)/.test(v.meaning);
   function buildQuiz(words2, vocab, rng = Math.random, byId) {
     const find = byId ?? ((id) => vocab.find((v) => v.id === id));
     const kinds = ["reading", "meaning", "kanji"];
@@ -1027,7 +1023,7 @@
   var JLPT_ORDER = ["N5", "N4", "N3", "N2", "N1"];
   var JLPT_WEIGHT = 3;
   function rebinByStrokes(words2) {
-    const kanjiWords = words2.filter((w) => w.level !== "KANA");
+    const kanjiWords = words2.filter((w) => w.level !== "KANA" && w.level !== "KATA");
     const sizes = JLPT_ORDER.map((l) => kanjiWords.filter((w) => w.level === l).length);
     const rank = (w) => JLPT_ORDER.indexOf(w.level);
     const score3 = (w) => (w.strokes ?? 0) + JLPT_WEIGHT * rank(w);
@@ -1084,6 +1080,12 @@
   // src/server/study/ProgressService.ts
   var Mastery = { Unseen: 0, New: 1, Learning: 2, Learned: 3, Mastered: 4 };
   var MASTERED_DAYS = 21;
+  function progressOf(c) {
+    if (!c) return 0;
+    if (c.state === "new") return 4;
+    if (c.state !== "review") return Math.min(30, 10 + c.reps * 5);
+    return Math.round(35 + 65 * Math.min(1, Math.log1p(c.intervalDays) / Math.log1p(MASTERED_DAYS)));
+  }
   var DAY_MS = 864e5;
   var STREAK_XP = 500;
   var shiftDay = (day, days2) => new Date(Date.parse(day) + days2 * DAY_MS).toISOString().slice(0, 10);
@@ -1151,7 +1153,7 @@
       for (const v of VOCAB) {
         const c = cards.get(v.id);
         const m = !c ? Mastery.Unseen : c.state === "new" ? Mastery.New : c.state === "review" ? c.intervalDays >= MASTERED_DAYS ? Mastery.Mastered : Mastery.Learned : Mastery.Learning;
-        mastery[v.level]?.push([v.kanji, m]);
+        mastery[v.level]?.push([v.kanji, m, progressOf(c)]);
       }
       return { activity: await this.store.activity(u.id, shiftDay(day, -26 * 7)), mastery, month: await this.month(u, day) };
     }
@@ -2112,14 +2114,36 @@
     clearInterval(probeTimer);
     if (v) probeTimer = window.setInterval(() => void tryReconnect(), 2e4);
   }
-  function init(getToken2) {
+  var busyCheck = () => false;
+  function init(getToken2, busy3) {
     token = getToken2;
+    if (busy3) busyCheck = busy3;
     addEventListener("online", () => void tryReconnect());
-    addEventListener("offline", () => void goOffline());
+    addEventListener("offline", () => {
+      if (document.visibilityState === "visible") void goOffline();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && offline) void tryReconnect();
+    });
   }
+  var probing = false;
   async function probe() {
-    if (offline || !storedUid()) return;
-    if (!navigator.onLine || !await reachable()) await goOffline();
+    if (offline || probing || !storedUid() || document.visibilityState !== "visible") return;
+    probing = true;
+    try {
+      for (let i = 0; i < 2; i++) {
+        if (navigator.onLine && await reachable()) return;
+        await new Promise((r2) => setTimeout(r2, 3e3));
+        if (document.visibilityState !== "visible") return;
+      }
+      await goOffline();
+    } finally {
+      probing = false;
+    }
+  }
+  async function canGoOffline() {
+    const uid2 = storedUid();
+    return !!uid2 && !!await get(snapKey(uid2));
   }
   async function signedIn(uid2) {
     try {
@@ -2129,6 +2153,9 @@
     outbox = await get(boxKey(uid2)) ?? [];
     if (outbox.length) void tryReconnect();
     else scheduleSnapshot(1500);
+    setTimeout(() => {
+      if (!engine) void ensureEngine();
+    }, 8e3);
   }
   async function signedOut() {
     const uid2 = storedUid();
@@ -2156,7 +2183,7 @@
         clearTimeout(saveTimer);
         saveTimer = window.setTimeout(() => {
           if (engine) void set(snapKey(uid2), engine.dump());
-        }, 250);
+        }, 1500);
       });
       engineFor = uid2;
       outbox = await get(boxKey(uid2)) ?? outbox;
@@ -2173,13 +2200,13 @@
     setOffline(true);
     return true;
   }
-  async function call(method, url, body) {
+  async function call(method, url, body, op) {
     const e = await ensureEngine();
     if (!e) return { status: 503, body: { error: "You're offline." } };
     const out = await e.request(method, url, body);
     if (out.status < 400 && changes(method, url)) {
       if (!(method === "GET" && outbox.some((x) => x.method === "GET" && x.url === url))) {
-        outbox.push({ method, url, body, at: Date.now() });
+        outbox.push({ method, url, body, at: Date.now(), op });
         await set(boxKey(e.userId), outbox);
       }
     }
@@ -2211,7 +2238,7 @@
           const x = outbox[0];
           let res2;
           try {
-            res2 = await fetch(x.url, { method: x.method, headers: { ...authHeaders(), "X-KW-At": String(x.at) }, body: x.body === void 0 ? void 0 : JSON.stringify(x.body), signal: timeout(2e4) });
+            res2 = await fetch(x.url, { method: x.method, headers: { ...authHeaders(), "X-KW-At": String(x.at), ...x.op ? { "X-KW-Op": x.op } : {} }, body: x.body === void 0 ? void 0 : JSON.stringify(x.body), signal: timeout(2e4) });
           } catch {
             return false;
           }
@@ -2240,22 +2267,36 @@
       await set(snapKey(uid2), snap);
       engine = null;
       engineFor = "";
+      clearTimeout(saveTimer);
+      setTimeout(() => {
+        if (!engine) void ensureEngine();
+      }, 1e3);
     } catch {
     }
   }
   var snapDue = 0;
-  function scheduleSnapshot(ms = 6e3) {
+  function scheduleSnapshot(ms = 3e4) {
     const due = Date.now() + ms;
     if (snapTimer && snapDue <= due) return;
     clearTimeout(snapTimer);
     snapDue = due;
     snapTimer = window.setTimeout(() => {
       snapTimer = 0;
-      if (!offline) void refreshSnapshot();
+      if (offline) return;
+      if (busyCheck()) {
+        scheduleSnapshot(15e3);
+        return;
+      }
+      const run = () => void refreshSnapshot();
+      if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 5e3 });
+      else run();
     }, ms);
   }
-  function changedOnline(method, url) {
-    if (changes(method, url) && handles(method, url)) scheduleSnapshot();
+  function changedOnline(method, url, body) {
+    if (!changes(method, url) || !handles(method, url)) return;
+    if (engine && engineFor === storedUid()) void engine.request(method, url, body).catch(() => {
+    });
+    scheduleSnapshot();
   }
   var pending = () => outbox.length;
 
@@ -2286,32 +2327,33 @@
   };
   var isNetworkError = (e) => e instanceof TypeError || e instanceof DOMException && e.name === "AbortError";
   async function call2(method, url, body) {
-    if (isOffline()) return local(method, url, body);
+    const op = method !== "GET" && handles(method, url) ? uuid() : void 0;
+    if (isOffline()) return local(method, url, body, op);
     let res2;
     try {
       const ctl = new AbortController();
-      const t = method === "GET" && handles(method, url) ? window.setTimeout(() => ctl.abort(), 12e3) : 0;
+      const t = handles(method, url) ? window.setTimeout(() => ctl.abort(), method === "GET" ? 12e3 : 1e4) : 0;
       res2 = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+        headers: { "Content-Type": "application/json", ...getToken() ? { Authorization: `Bearer ${getToken()}` } : {}, ...op ? { "X-KW-Op": op } : {} },
         body: body === void 0 ? void 0 : JSON.stringify(body),
         signal: ctl.signal
       }).finally(() => clearTimeout(t));
     } catch (e) {
-      if (isNetworkError(e) && handles(method, url) && await goOffline()) return local(method, url, body);
+      if (isNetworkError(e) && handles(method, url) && await goOffline()) return local(method, url, body, op);
       if (isNetworkError(e)) throw new ApiError(OFFLINE_TEXT, 0);
       throw e;
     }
     const data = await res2.json().catch(() => ({}));
     if (!res2.ok) throw new ApiError(data.error ?? `Error ${res2.status}`, res2.status);
-    changedOnline(method, url);
+    changedOnline(method, url, body);
     return data;
   }
   var uuid = () => typeof crypto.randomUUID === "function" ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, () => (Math.random() * 16 | 0).toString(16));
   var OFFLINE_TEXT = "You're offline \u2014 this needs an internet connection.";
-  async function local(method, url, body) {
+  async function local(method, url, body, op) {
     if (!handles(method, url)) throw new ApiError(OFFLINE_TEXT, 0);
-    const out = await call(method, url, body);
+    const out = await call(method, url, body, op);
     if (out.status >= 400) throw new ApiError(out.body?.error ?? `Error ${out.status}`, out.status);
     return out.body;
   }
@@ -2369,7 +2411,7 @@
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.4.1";
+  var VERSION = "0.9.9.4.2";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -2599,7 +2641,7 @@
     'Kanji are read with hiragana (\u304B\u306A). If you can already read all of it, you start with kanji (N5 to N1). If not, you start with \u304B\u306A only \u2014 the kanji levels open once you tick "I\'ve mastered hiragana" in Settings.': "\u041A\u0430\u043D\u0434\u0437\u0438 \u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u043E\u0439 (\u304B\u306A). \u0415\u0441\u043B\u0438 \u0432\u044B \u0443\u0436\u0435 \u0447\u0438\u0442\u0430\u0435\u0442\u0435 \u0435\u0451 \u0432\u0441\u044E \u2014 \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0435 \u0441 \u043A\u0430\u043D\u0434\u0437\u0438 (N5\u2013N1). \u0415\u0441\u043B\u0438 \u043D\u0435\u0442 \u2014 \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u0442\u043E\u043B\u044C\u043A\u043E \u304B\u306A; \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 \u043E\u0442\u043A\u0440\u043E\u044E\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B \u043E\u0442\u043C\u0435\u0442\u0438\u0442\u0435 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445.",
     "\u304B\u306A first, then kanji": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u304B\u306A, \u043F\u043E\u0442\u043E\u043C \u043A\u0430\u043D\u0434\u0437\u0438",
     'Beginners: study \u304B\u306A in Study spells until you know it by heart. Then tick "I\'ve mastered hiragana" in Settings (the sliders button, top-right) \u2014 and the kanji levels N5 to N1 open for studying and battles.': "\u041D\u043E\u0432\u0438\u0447\u043A\u0430\u043C: \u0443\u0447\u0438\u0442\u0435 \u304B\u306A \u0432 \xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB, \u043F\u043E\u043A\u0430 \u043D\u0435 \u0432\u044B\u0443\u0447\u0438\u0442\u0435 \u043D\u0430\u0438\u0437\u0443\u0441\u0442\u044C. \u0417\u0430\u0442\u0435\u043C \u043E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 (\u043A\u043D\u043E\u043F\u043A\u0430 \u0441 \u043F\u043E\u043B\u0437\u0443\u043D\u043A\u0430\u043C\u0438 \u0441\u043F\u0440\u0430\u0432\u0430 \u0432\u0432\u0435\u0440\u0445\u0443) \u2014 \u0438 \u043E\u0442\u043A\u0440\u043E\u044E\u0442\u0441\u044F \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 N5\u2013N1 \u0434\u043B\u044F \u0443\u0447\u0451\u0431\u044B \u0438 \u0431\u043E\u0451\u0432.",
-    'Master hiragana first (Study spells \u2192 \u304B\u306A), then tick "I\'ve mastered hiragana" in Settings': "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0441\u0432\u043E\u0439\u0442\u0435 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443 (\xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2192 \u304B\u306A), \u0437\u0430\u0442\u0435\u043C \u043E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445",
+    'Master hiragana first (Study spells \u2192 \u3072\u3089\u304C\u306A), then tick "I\'ve mastered hiragana" in Settings': "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0441\u0432\u043E\u0439\u0442\u0435 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443 (\xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2192 \u3072\u3089\u304C\u306A), \u0437\u0430\u0442\u0435\u043C \u043E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445",
     "Kanji levels unlocked \u2014 pick N5 in Study spells to start!": "\u0423\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 \u043E\u0442\u043A\u0440\u044B\u0442\u044B \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 N5 \u0432 \xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB!",
     "Back to \u304B\u306A only: kanji levels are locked.": "\u0421\u043D\u043E\u0432\u0430 \u0442\u043E\u043B\u044C\u043A\u043E \u304B\u306A: \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 \u0437\u0430\u043A\u0440\u044B\u0442\u044B.",
     "Write the kanji": "\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043A\u0430\u043D\u0434\u0437\u0438",
@@ -2709,7 +2751,7 @@
     "Keyboard": "\u041A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u0430",
     "\u2014 pick a hero, draft cards by colour, then cast them by writing their kanji. Bolt 90 dmg (10 mana), Frost 150 (20), Mana +60, Heal 140 (30), Inferno 340 (45). 15 s to choose a card, then 1 minute to read its meaning, look at the kanji and write it. +10 mana each turn. Out of cards \u2192 a new draft round (HP and mana stay). No mana for any of your cards \u2192 your turn is skipped (\u2212100 HP). When time runs out: overtime, a Rapid duel. Every kanji of the duel joins your": "\u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0433\u0435\u0440\u043E\u044F, \u043D\u0430\u0431\u0435\u0440\u0438\u0442\u0435 \u043A\u0430\u0440\u0442\u044B \u043F\u043E \u0446\u0432\u0435\u0442\u0443, \u0437\u0430\u0442\u0435\u043C \u0440\u0430\u0437\u044B\u0433\u0440\u044B\u0432\u0430\u0439\u0442\u0435 \u0438\u0445, \u0437\u0430\u043F\u0438\u0441\u044B\u0432\u0430\u044F \u043A\u0430\u043D\u0434\u0437\u0438. \u041C\u043E\u043B\u043D\u0438\u044F 90 \u0443\u0440\u043E\u043D\u0430 (10 \u043C\u0430\u043D\u044B), \u041C\u043E\u0440\u043E\u0437 150 (20), \u041C\u0430\u043D\u0430 +60, \u041B\u0435\u0447\u0435\u043D\u0438\u0435 140 (30), \u0418\u043D\u0444\u0435\u0440\u043D\u043E 340 (45). 15 \u0441 \u043D\u0430 \u0432\u044B\u0431\u043E\u0440 \u043A\u0430\u0440\u0442\u044B, \u0437\u0430\u0442\u0435\u043C 1 \u043C\u0438\u043D\u0443\u0442\u0430, \u0447\u0442\u043E\u0431\u044B \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435, \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u043D\u0430 \u043A\u0430\u043D\u0434\u0437\u0438 \u0438 \u043D\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u0435\u0433\u043E. +10 \u043C\u0430\u043D\u044B \u043A\u0430\u0436\u0434\u044B\u0439 \u0445\u043E\u0434. \u041A\u0430\u0440\u0442\u044B \u043A\u043E\u043D\u0447\u0438\u043B\u0438\u0441\u044C \u2192 \u043D\u043E\u0432\u044B\u0439 \u043D\u0430\u0431\u043E\u0440 (HP \u0438 \u043C\u0430\u043D\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F). \u041D\u0435\u0442 \u043C\u0430\u043D\u044B \u043D\u0438 \u043D\u0430 \u043E\u0434\u043D\u0443 \u043A\u0430\u0440\u0442\u0443 \u2192 \u0445\u043E\u0434 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0435\u0442\u0441\u044F (\u2212100 HP). \u041A\u043E\u0433\u0434\u0430 \u0432\u0440\u0435\u043C\u044F \u0432\u044B\u0445\u043E\u0434\u0438\u0442 \u2014 \u043E\u0432\u0435\u0440\u0442\u0430\u0439\u043C, \u0434\u0443\u044D\u043B\u044C \u0411\u043B\u0438\u0446. \u0412\u0441\u0435 \u043A\u0430\u043D\u0434\u0437\u0438 \u0434\u0443\u044D\u043B\u0438 \u043F\u043E\u043F\u0430\u0434\u0430\u044E\u0442 \u0432",
     "\u2014 win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 \u2026) and unlocks backgrounds and flame colours in": "\u2014 \u043F\u043E\u0431\u0435\u0434\u0430: 300 + \u0442\u043E\u0447\u043D\u043E\u0441\u0442\u044C%; \u043F\u043E\u0440\u0430\u0436\u0435\u043D\u0438\u0435: 50 + \u0442\u043E\u0447\u043D\u043E\u0441\u0442\u044C%; \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434: 4000 / 1500. \u0421\u0434\u0430\u043D\u043D\u044B\u0435 \u043C\u0430\u0442\u0447\u0438 \u043D\u0435 \u0434\u0430\u044E\u0442 \u043E\u043F\u044B\u0442\u0430. \u041A\u0430\u0436\u0434\u044B\u0439 \u0443\u0440\u043E\u0432\u0435\u043D\u044C \u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u043D\u0430 1000 \u043E\u043F\u044B\u0442\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 \u043F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0435\u0433\u043E (1000, \u0437\u0430\u0442\u0435\u043C 2000, 3000 \u2026) \u0438 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0444\u043E\u043D\u044B \u0438 \u0446\u0432\u0435\u0442\u0430 \u043F\u043B\u0430\u043C\u0435\u043D\u0438 \u0432",
-    "\u304B\u306A is hiragana (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (\u304B\u306A), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.": "\u304B\u306A \u2014 \u044D\u0442\u043E \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0430 (\u043E\u0442\u0432\u0435\u0442 \u0440\u043E\u043C\u0430\u0434\u0437\u0438); N5 \u2014 \u0441\u0430\u043C\u044B\u0439 \u043B\u0451\u0433\u043A\u0438\u0439, N1 \u2014 \u0441\u0430\u043C\u044B\u0439 \u0442\u0440\u0443\u0434\u043D\u044B\u0439. \u0412\u0430\u0448 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436 \u0437\u0430\u0432\u0438\u0441\u0438\u0442 \u043E\u0442 \u0441\u0430\u043C\u043E\u0433\u043E \u0442\u0440\u0443\u0434\u043D\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F: \u0413\u043E\u0431\u043B\u0438\u043D (\u304B\u306A), \u0423\u0447\u0435\u043D\u0438\u043A (N5), \u0418\u0441\u043A\u0430\u0442\u0435\u043B\u044C \u043F\u0440\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0439 (N4), \u0420\u044B\u0446\u0430\u0440\u044C (N3), \u0412\u0435\u0434\u044C\u043C\u0430 (N2), \u0412\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u043A (N1). \u041A\u0430\u0436\u0434\u044B\u0439 \u0434\u0435\u0440\u0436\u0438\u0442 \u043C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u043F\u043E\u0441\u043E\u0445, \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0439 \u0432 \u041A\u0430\u0441\u0442\u043E\u043C\u0438\u0437\u0430\u0446\u0438\u0438. \u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u0431\u044C\u044E\u0442 \u0441\u0438\u043B\u044C\u043D\u0435\u0435, \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u0443 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 HP.",
+    "\u3072\u3089\u304C\u306A (hiragana) and \u30AB\u30BF\u30AB\u30CA (katakana) are the kana letters (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (\u3072\u3089\u304C\u306A / \u30AB\u30BF\u30AB\u30CA), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.": "\u3072\u3089\u304C\u306A (\u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0430) \u0438 \u30AB\u30BF\u30AB\u30CA (\u043A\u0430\u0442\u0430\u043A\u0430\u043D\u0430) \u2014 \u044D\u0442\u043E \u0430\u0437\u0431\u0443\u043A\u0438 \u043A\u0430\u043D\u044B (\u043E\u0442\u0432\u0435\u0442 \u0440\u043E\u043C\u0430\u0434\u0437\u0438); N5 \u2014 \u0441\u0430\u043C\u044B\u0439 \u043B\u0451\u0433\u043A\u0438\u0439, N1 \u2014 \u0441\u0430\u043C\u044B\u0439 \u0442\u0440\u0443\u0434\u043D\u044B\u0439. \u0412\u0430\u0448 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436 \u0437\u0430\u0432\u0438\u0441\u0438\u0442 \u043E\u0442 \u0441\u0430\u043C\u043E\u0433\u043E \u0442\u0440\u0443\u0434\u043D\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F: \u0413\u043E\u0431\u043B\u0438\u043D (\u3072\u3089\u304C\u306A / \u30AB\u30BF\u30AB\u30CA), \u0423\u0447\u0435\u043D\u0438\u043A (N5), \u0418\u0441\u043A\u0430\u0442\u0435\u043B\u044C \u043F\u0440\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0439 (N4), \u0420\u044B\u0446\u0430\u0440\u044C (N3), \u0412\u0435\u0434\u044C\u043C\u0430 (N2), \u0412\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u043A (N1). \u041A\u0430\u0436\u0434\u044B\u0439 \u0434\u0435\u0440\u0436\u0438\u0442 \u043C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u043F\u043E\u0441\u043E\u0445, \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0439 \u0432 \u041A\u0430\u0441\u0442\u043E\u043C\u0438\u0437\u0430\u0446\u0438\u0438. \u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u0431\u044C\u044E\u0442 \u0441\u0438\u043B\u044C\u043D\u0435\u0435, \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u0443 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 HP.",
     "Master hiragana first": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0441\u0432\u043E\u0439\u0442\u0435 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443",
     'Deck Duel is all kanji \u2014 tick "I\'ve mastered hiragana" in Settings first.': "\u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434 \u2014 \u044D\u0442\u043E \u0442\u043E\u043B\u044C\u043A\u043E \u043A\u0430\u043D\u0434\u0437\u0438: \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u043E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445.",
     "Paused": "\u041F\u0430\u0443\u0437\u0430",
@@ -2875,7 +2917,7 @@
     "Waiting for opponent\u2026": "\u041E\u0436\u0438\u0434\u0430\u043D\u0438\u0435 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430\u2026",
     "Deck Duel draws cards from every level (N5\u2013N1). Your level picks only change your character here.": "\u0412 \u0414\u0443\u044D\u043B\u0438 \u043A\u043E\u043B\u043E\u0434 \u043A\u0430\u0440\u0442\u044B \u0431\u0435\u0440\u0443\u0442\u0441\u044F \u0441\u043E \u0432\u0441\u0435\u0445 \u0443\u0440\u043E\u0432\u043D\u0435\u0439 (N5\u2013N1). \u0412\u044B\u0431\u043E\u0440 \u0443\u0440\u043E\u0432\u043D\u0435\u0439 \u043C\u0435\u043D\u044F\u0435\u0442 \u0437\u0434\u0435\u0441\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u0432\u0430\u0448\u0435\u0433\u043E \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436\u0430.",
     "Each player picks their own. You will write these words by hand. Harder levels hit harder \u2014 so your opponent gets more HP.": "\u041A\u0430\u0436\u0434\u044B\u0439 \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442 \u0441\u0432\u043E\u0438. \u042D\u0442\u0438 \u0441\u043B\u043E\u0432\u0430 \u0432\u044B \u0431\u0443\u0434\u0435\u0442\u0435 \u043F\u0438\u0441\u0430\u0442\u044C \u043E\u0442 \u0440\u0443\u043A\u0438. \u0421\u043B\u043E\u0436\u043D\u044B\u0435 \u0443\u0440\u043E\u0432\u043D\u0438 \u0431\u044C\u044E\u0442 \u0441\u0438\u043B\u044C\u043D\u0435\u0435 \u2014 \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u0443 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 HP.",
-    "Each player picks their own. \u304B\u306A = hiragana, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.": "\u041A\u0430\u0436\u0434\u044B\u0439 \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442 \u0441\u0432\u043E\u0438. \u304B\u306A \u2014 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0430, \u043E\u0442\u0432\u0435\u0442 \u0440\u043E\u043C\u0430\u0434\u0437\u0438. \u0421\u043B\u043E\u0436\u043D\u044B\u0435 \u0443\u0440\u043E\u0432\u043D\u0438 \u0431\u044C\u044E\u0442 \u0441\u0438\u043B\u044C\u043D\u0435\u0435 \u2014 \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u0443 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 HP.",
+    "Each player picks their own. \u3072\u3089\u304C\u306A and \u30AB\u30BF\u30AB\u30CA = the two kana alphabets, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.": "\u041A\u0430\u0436\u0434\u044B\u0439 \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442 \u0441\u0432\u043E\u0438. \u3072\u3089\u304C\u306A \u0438 \u30AB\u30BF\u30AB\u30CA \u2014 \u0434\u0432\u0435 \u0430\u0437\u0431\u0443\u043A\u0438 \u043A\u0430\u043D\u044B, \u043E\u0442\u0432\u0435\u0442 \u0440\u043E\u043C\u0430\u0434\u0437\u0438. \u0421\u043B\u043E\u0436\u043D\u044B\u0435 \u0443\u0440\u043E\u0432\u043D\u0438 \u0431\u044C\u044E\u0442 \u0441\u0438\u043B\u044C\u043D\u0435\u0435 \u2014 \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u0443 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 HP.",
     "Share the code, or add an AI opponent \u2014 then press Ready. The duel starts when both are ready.": "\u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u043A\u043E\u0434 \u0438\u043B\u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0418\u0418-\u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430 \u2014 \u0437\u0430\u0442\u0435\u043C \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \xAB\u0413\u043E\u0442\u043E\u0432\xBB. \u0414\u0443\u044D\u043B\u044C \u043D\u0430\u0447\u043D\u0451\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u043E\u0431\u0430 \u0431\u0443\u0434\u0443\u0442 \u0433\u043E\u0442\u043E\u0432\u044B.",
     "Waiting for your opponent to be ready\u2026": "\u0416\u0434\u0451\u043C, \u043A\u043E\u0433\u0434\u0430 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A \u0431\u0443\u0434\u0435\u0442 \u0433\u043E\u0442\u043E\u0432\u2026",
     "Press Ready \u2014 the duel starts when both players are ready.": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \xAB\u0413\u043E\u0442\u043E\u0432\xBB \u2014 \u0434\u0443\u044D\u043B\u044C \u043D\u0430\u0447\u043D\u0451\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u043E\u0431\u0430 \u0431\u0443\u0434\u0443\u0442 \u0433\u043E\u0442\u043E\u0432\u044B.",
@@ -3056,6 +3098,19 @@
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.4.2
+    "Hiragana": "\u0425\u0438\u0440\u0430\u0433\u0430\u043D\u0430",
+    "Katakana": "\u041A\u0430\u0442\u0430\u043A\u0430\u043D\u0430",
+    "Dakuon and handakuon (\u309B \u309C)": "\u0414\u0430\u043A\u0443\u0442\u044D\u043D \u0438 \u0445\u0430\u043D\u0434\u0430\u043A\u0443\u0442\u044D\u043D (\u309B \u309C)",
+    "Combinations": "\u0421\u043E\u0447\u0435\u0442\u0430\u043D\u0438\u044F",
+    "Nothing here yet.": "\u0417\u0434\u0435\u0441\u044C \u043F\u043E\u043A\u0430 \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435\u0442.",
+    "every word of each level \u2014 tap one to see it": "\u0432\u0441\u0435 \u0441\u043B\u043E\u0432\u0430 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u0441\u043B\u043E\u0432\u043E, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C",
+    "Less": "\u041C\u0435\u043D\u044C\u0448\u0435",
+    "More": "\u0411\u043E\u043B\u044C\u0448\u0435",
+    "The brighter a day, the more you did \u2014 cards passed and games played, compared with your busiest day. Tap a day for details.": "\u0427\u0435\u043C \u044F\u0440\u0447\u0435 \u0434\u0435\u043D\u044C, \u0442\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0432\u044B \u0441\u0434\u0435\u043B\u0430\u043B\u0438 \u2014 \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u043D\u044B\u0435 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u0438 \u0441\u044B\u0433\u0440\u0430\u043D\u043D\u044B\u0435 \u0438\u0433\u0440\u044B \u043F\u043E \u0441\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u044E \u0441 \u0441\u0430\u043C\u044B\u043C \u0430\u043A\u0442\u0438\u0432\u043D\u044B\u043C \u0434\u043D\u0451\u043C. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u0434\u0435\u043D\u044C, \u0447\u0442\u043E\u0431\u044B \u0443\u0437\u043D\u0430\u0442\u044C \u043F\u043E\u0434\u0440\u043E\u0431\u043D\u043E\u0441\u0442\u0438.",
+    "Play offline": "\u0418\u0433\u0440\u0430\u0442\u044C \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430",
+    "The server can't be reached right now.": "\u0421\u0435\u0440\u0432\u0435\u0440 \u0441\u0435\u0439\u0447\u0430\u0441 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D.",
+    "Nothing saved on this device yet \u2014 sign in once while online.": "\u041D\u0430 \u044D\u0442\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435 \u043F\u043E\u043A\u0430 \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E \u2014 \u0432\u043E\u0439\u0434\u0438\u0442\u0435 \u043E\u0434\u0438\u043D \u0440\u0430\u0437 \u043E\u043D\u043B\u0430\u0439\u043D.",
     // 0.9.9.4.1
     "Then open": "\u0417\u0430\u0442\u0435\u043C \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435",
     "Files \u2192 Downloads": "\u0424\u0430\u0439\u043B\u044B \u2192 \u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0438",
@@ -3144,7 +3199,7 @@
   };
   var SEASON_RU = { Frost: "\u0418\u043D\u0435\u0439", Sakura: "\u0421\u0430\u043A\u0443\u0440\u0430", Blossom: "\u0426\u0432\u0435\u0442\u0435\u043D\u0438\u0435", Rain: "\u0414\u043E\u0436\u0434\u044C", Jade: "\u041D\u0435\u0444\u0440\u0438\u0442", Sun: "\u0421\u043E\u043B\u043D\u0446\u0435", Abyss: "\u0411\u0435\u0437\u0434\u043D\u0430", Thunder: "\u0413\u0440\u043E\u043C", Moon: "\u041B\u0443\u043D\u0430", Harvest: "\u0423\u0440\u043E\u0436\u0430\u0439", Maple: "\u041A\u043B\u0451\u043D", Starlight: "\u0417\u0432\u0451\u0437\u0434\u043D\u044B\u0439 \u0441\u0432\u0435\u0442" };
   var STAFF_RU = { Verdant: "\u041B\u0438\u0441\u0442\u0432\u044B", Ember: "\u0423\u0433\u043B\u0435\u0439", Tide: "\u041F\u0440\u0438\u043B\u0438\u0432\u0430", Storm: "\u0411\u0443\u0440\u0438", Void: "\u041F\u0443\u0441\u0442\u043E\u0442\u044B", Frost: "\u0418\u043D\u0435\u044F", Blossom: "\u0426\u0432\u0435\u0442\u0435\u043D\u0438\u044F", Jade: "\u041D\u0435\u0444\u0440\u0438\u0442\u0430", Abyss: "\u0411\u0435\u0437\u0434\u043D\u044B", Moon: "\u041B\u0443\u043D\u044B", Maple: "\u041A\u043B\u0451\u043D\u0430" };
-  var MASTERY_RU = { "Not in your spells yet": "\u0415\u0449\u0451 \u043D\u0435\u0442 \u0432 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445", New: "\u041D\u043E\u0432\u044B\u0435", Learning: "\u0418\u0437\u0443\u0447\u0430\u044E\u0442\u0441\u044F", Learned: "\u0412\u044B\u0443\u0447\u0435\u043D\u044B", "Mastered (3+ weeks)": "\u041E\u0441\u0432\u043E\u0435\u043D\u044B (3+ \u043D\u0435\u0434\u0435\u043B\u0438)" };
+  var MASTERY_RU = { "Not in your spells yet": "\u0415\u0449\u0451 \u043D\u0435\u0442 \u0432 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445", New: "\u041D\u043E\u0432\u044B\u0435", Learning: "\u0418\u0437\u0443\u0447\u0430\u044E\u0442\u0441\u044F", Learned: "\u0412\u044B\u0443\u0447\u0435\u043D\u044B", "Mastered (3+ weeks)": "\u041E\u0441\u0432\u043E\u0435\u043D\u044B (3+ \u043D\u0435\u0434\u0435\u043B\u0438)", "Your spells": "\u0412\u0430\u0448\u0438 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F", "Learned & mastered": "\u0412\u044B\u0443\u0447\u0435\u043D\u044B \u0438 \u043E\u0441\u0432\u043E\u0435\u043D\u044B", "Not started": "\u041D\u0435 \u043D\u0430\u0447\u0430\u0442\u044B", All: "\u0412\u0441\u0435" };
   var MODE_RU = { "1v1 Kanji Reading": "1 \u043D\u0430 1: \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438", "1v1 Kanji Writing": "1 \u043D\u0430 1: \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438", "Boss Elimination": "\u0411\u0438\u0442\u0432\u0430 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C", "1v1 Rapid": "1 \u043D\u0430 1: \u0411\u043B\u0438\u0446", "Deck Duel": "\u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434", "Kanji Reading": "\u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438", "Kanji Writing": "\u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438" };
   var mode = (m) => MODE_RU[m] ?? m;
   var plural = (n, one, few, many) => {
@@ -3249,6 +3304,7 @@
     [/^Two words each from N5 to N1, easiest first\. Type the reading \(kana or romaji\) and press Enter — (\d+) s per word\. One try a day: most correct wins, then fastest\.$/, "\u041F\u043E \u0434\u0432\u0430 \u0441\u043B\u043E\u0432\u0430 \u0441 N5 \u0434\u043E N1, \u043E\u0442 \u043F\u0440\u043E\u0441\u0442\u044B\u0445 \u043A \u0441\u043B\u043E\u0436\u043D\u044B\u043C. \u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0447\u0442\u0435\u043D\u0438\u0435 (\u043A\u0430\u043D\u0430 \u0438\u043B\u0438 \u0440\u043E\u043C\u0430\u0434\u0437\u0438) \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 Enter \u2014 $1 \u0441 \u043D\u0430 \u0441\u043B\u043E\u0432\u043E. \u041E\u0434\u043D\u0430 \u043F\u043E\u043F\u044B\u0442\u043A\u0430 \u0432 \u0434\u0435\u043D\u044C: \u043F\u043E\u0431\u0435\u0436\u0434\u0430\u0435\u0442 \u0431\u043E\u043B\u044C\u0448\u0435 \u0432\u0435\u0440\u043D\u044B\u0445, \u0437\u0430\u0442\u0435\u043C \u0431\u044B\u0441\u0442\u0440\u0435\u0435."],
     [/^10 new words at (.+) your time\.$/, "10 \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u0432 $1 \u043F\u043E \u0432\u0430\u0448\u0435\u043C\u0443 \u0432\u0440\u0435\u043C\u0435\u043D\u0438."],
     [/^Word (\d+) of (\d+) · (.+)$/, "\u0421\u043B\u043E\u0432\u043E $1 \u0438\u0437 $2 \xB7 $3"],
+    [/^Show more \((\d+) left\)$/, "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0435\u0449\u0451 (\u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C $1)"],
     [/^Offline mode · (\d+) to sync$/, "\u041E\u0444\u043B\u0430\u0439\u043D-\u0440\u0435\u0436\u0438\u043C \xB7 \u0436\u0434\u0443\u0442 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u0438: $1"],
     [/^Daily challenge: (\d+)\/10(?: · \+(\d+) XP)? · your rank comes when you're back online$/, (_, c, x) => `\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435: ${c}/10${x ? ` \xB7 +${x} \u043E\u043F\u044B\u0442\u0430` : ""} \xB7 \u043C\u0435\u0441\u0442\u043E \u0443\u0437\u043D\u0430\u0435\u0442\u0435, \u043A\u043E\u0433\u0434\u0430 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442`],
     [/^Daily challenge: (\d+)\/10 · rank (\d+) of (\d+)(?: · \+(\d+) XP)?$/, (_, c, r2, p, x) => `\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435: ${c}/10 \xB7 \u043C\u0435\u0441\u0442\u043E ${r2} \u0438\u0437 ${p}${x ? ` \xB7 +${x} \u043E\u043F\u044B\u0442\u0430` : ""}`],
@@ -4660,9 +4716,9 @@
   }
   var beginnerFlag = false;
   var kanaBeginner = () => beginnerFlag;
-  var BEGINNER_LOCK = `Master hiragana first (Study spells \u2192 \u304B\u306A), then tick "I've mastered hiragana" in Settings`;
+  var BEGINNER_LOCK = `Master hiragana first (Study spells \u2192 \u3072\u3089\u304C\u306A), then tick "I've mastered hiragana" in Settings`;
   function lockLevelChip(label, lv) {
-    if (!beginnerFlag || lv === "KANA") return label;
+    if (!beginnerFlag || isKanaLevel(lv)) return label;
     label.classList.add("locked");
     label.classList.remove("on");
     const i = label.querySelector("input");
@@ -4923,7 +4979,7 @@
         return lockLevelChip(label, lv);
       })
     );
-    $("levelsHint").textContent = mode3 === "deck" ? "Deck Duel draws cards from every level (N5\u2013N1). Your level picks only change your character here." : mode3 === "rapid" ? "Shared levels: both players race on the same kanji, so a change here changes it for everyone." : mode3 === "boss" ? "Each player picks their own. The dragon gets tougher when the party picks harder levels." : mode3 === "writing" ? "Each player picks their own. You will write these words by hand. Harder levels hit harder \u2014 so your opponent gets more HP." : "Each player picks their own. \u304B\u306A = hiragana, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.";
+    $("levelsHint").textContent = mode3 === "deck" ? "Deck Duel draws cards from every level (N5\u2013N1). Your level picks only change your character here." : mode3 === "rapid" ? "Shared levels: both players race on the same kanji, so a change here changes it for everyone." : mode3 === "boss" ? "Each player picks their own. The dragon gets tougher when the party picks harder levels." : mode3 === "writing" ? "Each player picks their own. You will write these words by hand. Harder levels hit harder \u2014 so your opponent gets more HP." : "Each player picks their own. \u3072\u3089\u304C\u306A and \u30AB\u30BF\u30AB\u30CA = the two kana alphabets, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.";
     const isHost = you2 === hostId;
     const canStart = players2.length >= minPlayers2;
     $("addBot").hidden = !isHost || players2.length >= maxPlayers;
@@ -6025,7 +6081,7 @@ ${stack}`.slice(0, 2e3);
   var dateOf = (t) => t ? new Date(t).toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric" }) : "\u2014";
   var sortKey = null;
   var sortDir = 1;
-  var LEVEL_ORDER2 = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  var LEVEL_ORDER2 = ["KANA", "KATA", "N5", "N4", "N3", "N2", "N1"];
   var STATE_ORDER = ["new", "learning", "relearning", "review"];
   function sortRows(list) {
     if (!sortKey) return list;
@@ -6583,7 +6639,7 @@ ${stack}`.slice(0, 2e3);
       r3.append(b.answer.kanji, el2("rt", "", b.answer.kanji === b.answer.reading ? "" : b.answer.reading));
       b.el.append(r3);
       if (!ok && b.put) b.el.append(el2("s", "p-was", b.put.kanji));
-      b.el.onclick = () => showGloss(b.el, el2("b", "", b.answer.kanji, { lang: "ja" }), el2("span", "rd", b.answer.reading, { lang: "ja" }), el2("span", "m", meaningIn(b.answer.meaning)), addToDeck(b.answer.kanji, b.answer.id));
+      b.el.onclick = () => showGloss(b.el, el2("b", "", b.answer.kanji, { lang: "ja" }), el2("span", "rd", b.answer.reading, { lang: "ja" }), el2("span", "m", meaningIn(b.answer.meaning)));
       return;
     }
     const r2 = el2("ruby");
@@ -6632,10 +6688,15 @@ ${stack}`.slice(0, 2e3);
     drawTranslation();
     const list = pick2.map((w) => {
       const row = el2("div", "pw");
-      row.append(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)), addToDeck(w.kanji, w.id));
+      row.append(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)));
       return row;
     });
-    $3("passageWords").replaceChildren(el2("div", "p-score", `${right} / ${blanks.length}`), el2("p", "hint center", right === blanks.length ? "Perfect \u2014 every word in its place!" : "Green: right. Red: the right word, with yours crossed out."), el2("h4", "", "Words in this story"), ...list);
+    const res2 = $3("passageResult");
+    res2.replaceChildren(el2("h4", "", "Words in this story"), ...list);
+    res2.hidden = false;
+    const again = el2("button", "big", "New story", { type: "button" });
+    again.onclick = buildPassage;
+    $3("passageWords").replaceChildren(el2("div", "p-score", `${right} / ${blanks.length}`), el2("p", "hint center", right === blanks.length ? "Perfect \u2014 every word in its place!" : "Green: right. Red: the right word, with yours crossed out."), again);
     passageHooks.done?.(right, blanks.length);
     void api.task("passage").then((p) => onTaskDone.cb(p)).catch(() => {
     });
@@ -6646,6 +6707,8 @@ ${stack}`.slice(0, 2e3);
     buildPassage();
   }
   function buildPassage() {
+    $3("passageResult").hidden = true;
+    $3("passageResult").replaceChildren();
     const seen2 = /* @__PURE__ */ new Set();
     nextStory();
     const LINES = story.lines;
@@ -6912,6 +6975,32 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.4.2",
+      date: "2026-10",
+      en: [
+        "Kana: \u3072\u3089\u304C\u306A (hiragana) and the new \u30AB\u30BF\u30AB\u30CA (katakana) are two separate levels \u2014 only letters now: the basic ones, with \u309B/\u309C and every combination (\u304D\u3083, \u30B7\u30E5 \u2026). Both work in Study spells and in every game mode, answered in romaji.",
+        "Study spells: each answer shows an example sentence with the word marked, and its translation (N5 and N4 words for now \u2014 more levels coming).",
+        "Study spells: swiping a card is instant \u2014 the next card no longer waits for the server, and losing the connection mid-session doesn\u2019t freeze the buttons.",
+        "Spell mastery: tiles with the word and a progress bar, like a kana chart; the kana levels are laid out as the kana table. Tap a tile for its reading and meaning (phones too). Kanji levels have filters and \u201Cshow more\u201D.",
+        "Activity: a legend explains the shades (the brighter, the more you did that day); tap a day for its details.",
+        "Reading passage: the word bank stays at the bottom while the story scrolls; no more \u201CAdd to\u2026\u201D on words that are already in your deck.",
+        "Phones: the back button closes dialogs and goes back a screen; switching to another app no longer switches to offline mode; looking around by turning the phone works when it\u2019s held upright too.",
+        "Offline: when the server can\u2019t be reached at sign-in, a \u201CPlay offline\u201D button takes you straight in.",
+        "Get the app: the real Windows and Android logos."
+      ],
+      ru: [
+        "\u041A\u0430\u043D\u0430: \u3072\u3089\u304C\u306A (\u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0430) \u0438 \u043D\u043E\u0432\u0430\u044F \u30AB\u30BF\u30AB\u30CA (\u043A\u0430\u0442\u0430\u043A\u0430\u043D\u0430) \u2014 \u0434\u0432\u0430 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u044B\u0445 \u0443\u0440\u043E\u0432\u043D\u044F, \u0442\u0435\u043F\u0435\u0440\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u0431\u0443\u043A\u0432\u044B: \u043E\u0441\u043D\u043E\u0432\u043D\u044B\u0435, \u0441 \u309B/\u309C \u0438 \u0432\u0441\u0435 \u0441\u043E\u0447\u0435\u0442\u0430\u043D\u0438\u044F (\u304D\u3083, \u30B7\u30E5 \u2026). \u041E\u0431\u0430 \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442 \u0432 \xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u0438 \u0432\u043E \u0432\u0441\u0435\u0445 \u0440\u0435\u0436\u0438\u043C\u0430\u0445 \u0438\u0433\u0440\u044B, \u043E\u0442\u0432\u0435\u0442 \u0440\u043E\u043C\u0430\u0434\u0437\u0438.",
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u0441 \u043A\u0430\u0436\u0434\u044B\u043C \u043E\u0442\u0432\u0435\u0442\u043E\u043C \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u043F\u0440\u0438\u043C\u0435\u0440 \u2014 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0441 \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u043D\u044B\u043C \u0441\u043B\u043E\u0432\u043E\u043C \u0438 \u0435\u0433\u043E \u043F\u0435\u0440\u0435\u0432\u043E\u0434 (\u043F\u043E\u043A\u0430 \u0434\u043B\u044F \u0441\u043B\u043E\u0432 N5 \u0438 N4, \u0434\u0440\u0443\u0433\u0438\u0435 \u0443\u0440\u043E\u0432\u043D\u0438 \u0431\u0443\u0434\u0443\u0442 \u043F\u043E\u0437\u0436\u0435).",
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u0441\u0432\u0430\u0439\u043F\u0430\u044E\u0442\u0441\u044F \u043C\u0433\u043D\u043E\u0432\u0435\u043D\u043D\u043E \u2014 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0436\u0434\u0451\u0442 \u0441\u0435\u0440\u0432\u0435\u0440, \u0430 \u043F\u043E\u0442\u0435\u0440\u044F \u0441\u0432\u044F\u0437\u0438 \u043F\u043E\u0441\u0440\u0435\u0434\u0438 \u0437\u0430\u043D\u044F\u0442\u0438\u044F \u043D\u0435 \u0431\u043B\u043E\u043A\u0438\u0440\u0443\u0435\u0442 \u043A\u043D\u043E\u043F\u043A\u0438.",
+        "\u041E\u0441\u0432\u043E\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u043F\u043B\u0438\u0442\u043A\u0438 \u0441\u043E \u0441\u043B\u043E\u0432\u043E\u043C \u0438 \u0448\u043A\u0430\u043B\u043E\u0439 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441\u0430, \u043A\u0430\u043A \u0442\u0430\u0431\u043B\u0438\u0446\u0430 \u043A\u0430\u043D\u044B; \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u044B \u0432\u044B\u043B\u043E\u0436\u0435\u043D\u044B \u0442\u0430\u0431\u043B\u0438\u0446\u0435\u0439. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043F\u043B\u0438\u0442\u043A\u0443, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0447\u0442\u0435\u043D\u0438\u0435 \u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 (\u0438 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435). \u0423 \u0443\u0440\u043E\u0432\u043D\u0435\u0439 \u043A\u0430\u043D\u0434\u0437\u0438 \u0435\u0441\u0442\u044C \u0444\u0438\u043B\u044C\u0442\u0440\u044B \u0438 \xAB\u043F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0435\u0449\u0451\xBB.",
+        "\u0410\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C: \u043B\u0435\u0433\u0435\u043D\u0434\u0430 \u043E\u0431\u044A\u044F\u0441\u043D\u044F\u0435\u0442 \u043E\u0442\u0442\u0435\u043D\u043A\u0438 (\u0447\u0435\u043C \u044F\u0440\u0447\u0435, \u0442\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0432\u044B \u0441\u0434\u0435\u043B\u0430\u043B\u0438 \u0432 \u0442\u043E\u0442 \u0434\u0435\u043D\u044C); \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u0434\u0435\u043D\u044C, \u0447\u0442\u043E\u0431\u044B \u0443\u0437\u043D\u0430\u0442\u044C \u043F\u043E\u0434\u0440\u043E\u0431\u043D\u043E\u0441\u0442\u0438.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u0431\u0430\u043D\u043A \u0441\u043B\u043E\u0432 \u043E\u0441\u0442\u0430\u0451\u0442\u0441\u044F \u0432\u043D\u0438\u0437\u0443, \u0430 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u043F\u0440\u043E\u043A\u0440\u0443\u0447\u0438\u0432\u0430\u0435\u0442\u0441\u044F; \u0443 \u0441\u043B\u043E\u0432, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u0443\u0436\u0435 \u0432 \u0432\u0430\u0448\u0435\u0439 \u043A\u043E\u043B\u043E\u0434\u0435, \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435\u0442 \xAB\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u2026\xBB.",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B: \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u041D\u0430\u0437\u0430\u0434\xBB \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043E\u043A\u043D\u0430 \u0438 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043D\u0430 \u043F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0438\u0439 \u044D\u043A\u0440\u0430\u043D; \u043F\u0435\u0440\u0435\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u0432 \u0434\u0440\u0443\u0433\u043E\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0432\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u043E\u0444\u043B\u0430\u0439\u043D-\u0440\u0435\u0436\u0438\u043C; \u043E\u0441\u043C\u043E\u0442\u0440 \u043F\u043E\u0432\u043E\u0440\u043E\u0442\u043E\u043C \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0438 \u043A\u043E\u0433\u0434\u0430 \u043E\u043D \u0434\u0435\u0440\u0436\u0438\u0442\u0441\u044F \u0432\u0435\u0440\u0442\u0438\u043A\u0430\u043B\u044C\u043D\u043E.",
+        "\u041E\u0444\u043B\u0430\u0439\u043D: \u0435\u0441\u043B\u0438 \u043F\u0440\u0438 \u0432\u0445\u043E\u0434\u0435 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D, \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u0418\u0433\u0440\u0430\u0442\u044C \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430\xBB \u0441\u0440\u0430\u0437\u0443 \u043F\u0443\u0441\u043A\u0430\u0435\u0442 \u0432 \u0438\u0433\u0440\u0443.",
+        "\xAB\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435\xBB: \u043D\u0430\u0441\u0442\u043E\u044F\u0449\u0438\u0435 \u043B\u043E\u0433\u043E\u0442\u0438\u043F\u044B Windows \u0438 Android."
+      ]
+    },
     {
       v: "0.9.9.4.1",
       date: "2026-10",
@@ -7272,7 +7361,7 @@ ${stack}`.slice(0, 2e3);
       return;
     }
     const tiles = el4("div", "stat-tiles");
-    const tile2 = (n, label, sub = "") => {
+    const tile3 = (n, label, sub = "") => {
       const t = el4("div", "stat-tile");
       t.append(el4("b", "", n), el4("span", "", label));
       if (sub) t.append(el4("small", "hint", sub));
@@ -7280,11 +7369,11 @@ ${stack}`.slice(0, 2e3);
     };
     const today2 = s.daily[s.daily.length - 1];
     tiles.append(
-      tile2(s.onlineNow, "online now"),
-      tile2(today2?.active ?? 0, "active today"),
-      tile2(s.players, "accounts"),
-      tile2(pct(s.day1.returned, s.day1.players), "back on day 1", `${s.day1.returned} of ${s.day1.players} (last 30 days)`),
-      tile2(pct(s.day7.returned, s.day7.players), "back on day 7", `${s.day7.returned} of ${s.day7.players}`)
+      tile3(s.onlineNow, "online now"),
+      tile3(today2?.active ?? 0, "active today"),
+      tile3(s.players, "accounts"),
+      tile3(pct(s.day1.returned, s.day1.players), "back on day 1", `${s.day1.returned} of ${s.day1.players} (last 30 days)`),
+      tile3(pct(s.day7.returned, s.day7.players), "back on day 7", `${s.day7.returned} of ${s.day7.players}`)
     );
     const max = Math.max(1, ...s.daily.map((d) => d.active));
     const chart = el4("div", "stat-chart");
@@ -9619,7 +9708,7 @@ ${stack}`.slice(0, 2e3);
     }));
     const deckCard = document.querySelector('#queuePick .queue-card[data-q="deck"]');
     deckCard.classList.toggle("locked", !canPlay("deck"));
-    $("qLevels").replaceChildren(...LEVELS.map((l) => lockLevelChip(chip(l, LEVEL_LABEL[l], s.levels.includes(l) && (!kanaBeginner() || l === "KANA"), "ql"), l)));
+    $("qLevels").replaceChildren(...LEVELS.map((l) => lockLevelChip(chip(l, LEVEL_LABEL[l], s.levels.includes(l) && (!kanaBeginner() || isKanaLevel(l)), "ql"), l)));
     choose2(s.pick ?? "battle", true);
     if (!searching) {
       $("queuePick").hidden = false;
@@ -10075,6 +10164,39 @@ ${stack}`.slice(0, 2e3);
     }
   };
 
+  // src/client/examples.ts
+  var loading3 = null;
+  function loadExamples() {
+    loading3 ?? (loading3 = fetch("/examples.json").then((r2) => r2.ok ? r2.json() : {}).then((o) => new Map(Object.entries(o))).catch(() => {
+      loading3 = null;
+      return /* @__PURE__ */ new Map();
+    }));
+    return loading3;
+  }
+  async function exampleFor(vocabId) {
+    const ex = (await loadExamples()).get(vocabId);
+    if (!ex) return null;
+    const box = document.createElement("div");
+    box.className = "fc-example";
+    const ja = document.createElement("p");
+    ja.className = "fc-ex-ja";
+    ja.lang = "ja";
+    for (const part of ex[0].split(/(【[^】]+】)/)) {
+      if (!part) continue;
+      if (part.startsWith("\u3010")) {
+        const m = document.createElement("mark");
+        m.textContent = part.slice(1, -1);
+        ja.append(m);
+      } else ja.append(part);
+    }
+    const tr2 = document.createElement("p");
+    tr2.className = "fc-ex-tr";
+    tr2.setAttribute("data-no-i18n", "");
+    tr2.textContent = lang() === "ru" && ex[2] ? ex[2] : ex[1];
+    box.append(ja, tr2);
+    return box;
+  }
+
   // src/client/study.ts
   var $9 = $;
   var onProfile = () => {
@@ -10165,6 +10287,7 @@ ${stack}`.slice(0, 2e3);
   var busy = false;
   async function startSession(d) {
     deck = d;
+    void loadExamples();
     show("review");
     $9("reviewDone").hidden = true;
     try {
@@ -10190,6 +10313,7 @@ ${stack}`.slice(0, 2e3);
     $9("fcReading").textContent = current.reading;
     $9("fcMeaning").textContent = current.meaning;
     $9("fcBack").hidden = true;
+    $9("fcExample").replaceChildren();
     $9("fcStrokes").hidden = true;
     $9("fcStrokeBox").hidden = true;
     const card = $9("flash");
@@ -10208,6 +10332,10 @@ ${stack}`.slice(0, 2e3);
     $9("showAnswer").hidden = true;
     $9("rateRow").hidden = false;
     $9("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
+    const card = current;
+    void exampleFor(card.vocabId).then((ex) => {
+      if (ex && current === card && flipped) $9("fcExample").replaceChildren(ex);
+    });
   }
   function strokes() {
     if (!current || !flipped || $9("fcStrokes").hidden) return;
@@ -10219,19 +10347,21 @@ ${stack}`.slice(0, 2e3);
     e.stopPropagation();
     strokes();
   };
-  async function rate(r2) {
+  var sending = Promise.resolve();
+  function rate(r2) {
     if (!current || !flipped || busy) return;
-    busy = true;
-    const card = current;
-    try {
-      await api.review(card.vocabId, r2, deck);
-      if (r2 === "again") queue3.splice(Math.min(3, queue3.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
-      else if (r2 === "hard" && card.state !== "review") queue3.splice(Math.min(6, queue3.length), 0, card);
-    } catch (e) {
+    const card = current, d = deck;
+    sending = sending.then(() => api.review(card.vocabId, r2, d).then(() => {
+    }, (e) => {
       toast(e.message);
-    }
-    busy = false;
+    }));
+    if (r2 === "again") queue3.splice(Math.min(3, queue3.length), 0, { ...card, state: "learning", intervals: { again: "1m", hard: "6m", good: "10m", easy: "4d" } });
+    else if (r2 === "hard" && card.state !== "review") queue3.splice(Math.min(6, queue3.length), 0, card);
     next2();
+  }
+  async function leaveSession() {
+    await sending;
+    void openStudy();
   }
   $9("showAnswer").onclick = flip;
   $9("flash").onclick = () => {
@@ -10305,7 +10435,7 @@ ${stack}`.slice(0, 2e3);
       setTimeout(() => {
         reset(false);
         if (!flipped) flip();
-        void rate(z[0]);
+        rate(z[0]);
       }, 200);
     };
     card.addEventListener("pointerup", end);
@@ -10316,22 +10446,22 @@ ${stack}`.slice(0, 2e3);
       }
     });
   }
-  for (const b of document.querySelectorAll("#rateRow .rate")) b.onclick = () => void rate(b.dataset.rating);
+  for (const b of document.querySelectorAll("#rateRow .rate")) b.onclick = () => rate(b.dataset.rating);
   addEventListener("keydown", (e) => {
     if ($9("review").hidden || e.target instanceof HTMLInputElement) return;
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
-      flipped ? void rate("good") : flip();
+      flipped ? rate("good") : flip();
     }
     const n = ["1", "2", "3", "4"].indexOf(e.key);
-    if (n >= 0 && flipped) void rate(["again", "hard", "good", "easy"][n]);
+    if (n >= 0 && flipped) rate(["again", "hard", "good", "easy"][n]);
     if ((e.key === "s" || e.key === "S") && flipped) strokes();
   });
   $9("studyAll").onclick = () => void startSession("all");
   $9("studyStruggle").onclick = () => void startSession("struggling");
   $9("studyCustom").onclick = () => void startSession("custom");
-  $9("reviewBack").onclick = () => void openStudy();
-  $9("reviewDoneBack").onclick = () => void openStudy();
+  $9("reviewBack").onclick = () => void leaveSession();
+  $9("reviewDoneBack").onclick = () => void leaveSession();
   var custTab = "profile";
   var picked3 = {};
   var cust = null;
@@ -10829,16 +10959,96 @@ ${stack}`.slice(0, 2e3);
           if (sc > 0) active2++;
           cell.dataset.l = String(sc === 0 ? 0 : Math.min(4, 1 + Math.floor(sc / max * 3.999)));
           cell.title = `${(/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric" })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ""}` : "no activity"}`;
+          cell.onclick = () => {
+            $10("progHeatInfo").textContent = cell.title;
+            for (const x of grid.querySelectorAll(".cal-day.sel")) x.classList.remove("sel");
+            cell.classList.add("sel");
+          };
         }
         if (day === t) cell.classList.add("today");
         grid.append(cell);
       }
     }
-    box.replaceChildren(head, grid);
+    const legend = el8("div", "cal-legend");
+    legend.append(el8("span", "", "Less"));
+    for (let l = 0; l <= 4; l++) {
+      const i = el8("i", "cal-day");
+      i.dataset.l = String(l);
+      legend.append(i);
+    }
+    legend.append(el8("span", "", "More"));
+    const why = el8("p", "hint cal-why", "The brighter a day, the more you did \u2014 cards passed and games played, compared with your busiest day. Tap a day for details.");
+    const info = el8("p", "cal-info");
+    info.id = "progHeatInfo";
+    box.replaceChildren(head, grid, legend, why, info);
     $10("progHeatSub").textContent = `${active2} active days this month`;
+  }
+  var GOJUON = "\u3042\u3044\u3046\u3048\u304A \u304B\u304D\u304F\u3051\u3053 \u3055\u3057\u3059\u305B\u305D \u305F\u3061\u3064\u3066\u3068 \u306A\u306B\u306C\u306D\u306E \u306F\u3072\u3075\u3078\u307B \u307E\u307F\u3080\u3081\u3082 \u3084_\u3086_\u3088 \u3089\u308A\u308B\u308C\u308D \u308F___\u3092 \u3093____";
+  var VOICED = "\u304C\u304E\u3050\u3052\u3054 \u3056\u3058\u305A\u305C\u305E \u3060\u3062\u3065\u3067\u3069 \u3070\u3073\u3076\u3079\u307C \u3071\u3074\u3077\u307A\u307D";
+  var ROMAJI = /* @__PURE__ */ new Map();
+  for (const list of [KANA_BASIC, KANA_VOICED]) for (const t of list.split(" ")) ROMAJI.set(t[0], t.slice(1));
+  var COMBOS = KANA_COMBO.split(" ").map((t) => {
+    ROMAJI.set(t.slice(0, 2), t.slice(2));
+    return t.slice(0, 2);
+  });
+  var mFilter = "mine";
+  var mShown = 150;
+  var PAGE = 150;
+  function tile2(word2, m, pct2, kana) {
+    const t = el8("button", `mt ${MASTERY[m].cls}${kana === null ? " word" : " kana"}`);
+    t.type = "button";
+    const shown2 = kana === null ? word2 : word2;
+    const k = el8("span", "mt-k", shown2);
+    if (kana === null) k.dataset.len = String(Math.min(5, [...word2].length));
+    t.append(k);
+    if (kana !== null) t.append(el8("span", "mt-r", ROMAJI.get(kana) ?? ""));
+    const bar = el8("span", "mt-bar");
+    const fill2 = el8("i");
+    fill2.style.width = `${pct2}%`;
+    bar.append(fill2);
+    t.append(bar);
+    t.title = `${word2} \u2014 ${tr(MASTERY[m].label)}`;
+    t.onclick = () => void showWord(t, word2, m, pct2);
+    return t;
+  }
+  async function showWord(at, word2, m, pct2) {
+    const pop = $10("mgPop");
+    for (const x of document.querySelectorAll(".mt.sel")) x.classList.remove("sel");
+    at.classList.add("sel");
+    try {
+      await loadVocab();
+    } catch {
+    }
+    const v = VOCAB.find((x) => x.kanji === word2 && x.level === level) ?? VOCAB.find((x) => x.kanji === word2);
+    const head = el8("div", "mp-head");
+    const big = el8("b", "mp-k", word2);
+    big.lang = "ja";
+    head.append(big);
+    if (v) {
+      const rd = el8("span", "mp-rd", v.romaji ? `${v.reading === word2 ? "" : `${v.reading} \xB7 `}${v.romaji}` : v.reading);
+      rd.lang = "ja";
+      head.append(rd);
+    }
+    const close = el8("button", "mp-x", "\u2715");
+    close.type = "button";
+    close.setAttribute("aria-label", "Close");
+    close.onclick = () => {
+      pop.hidden = true;
+      at.classList.remove("sel");
+    };
+    head.append(close);
+    const bar = el8("span", "mt-bar big");
+    const fill2 = el8("i");
+    fill2.style.width = `${pct2}%`;
+    bar.append(fill2);
+    const meaning2 = el8("p", "mp-m", v ? meaningIn(v.meaning) : "");
+    meaning2.setAttribute("data-no-i18n", "");
+    pop.replaceChildren(head, meaning2, el8("p", `mp-st ${MASTERY[m].cls}`, `${tr(MASTERY[m].label)} \xB7 ${pct2}%`), bar);
+    pop.hidden = false;
   }
   function renderMastery() {
     if (!page) return;
+    $10("mgPop").hidden = true;
     const tabs = $10("progLevels");
     tabs.replaceChildren(...LEVELS.map((l) => {
       const words3 = page.mastery[l];
@@ -10848,6 +11058,7 @@ ${stack}`.slice(0, 2e3);
       b.setAttribute("aria-selected", String(l === level));
       b.onclick = () => {
         level = l;
+        mShown = PAGE;
         renderMastery();
       };
       return b;
@@ -10861,13 +11072,68 @@ ${stack}`.slice(0, 2e3);
       return item;
     }));
     const grid = $10("progGrid");
-    const frag = document.createDocumentFragment();
-    for (const [kanji, m] of words2) {
-      const c = el8("span", `mg ${MASTERY[m].cls}`);
-      c.title = `${kanji} \u2014 ${MASTERY[m].label}`;
-      frag.append(c);
+    grid.className = "mastery-grid";
+    const by = new Map(words2.map(([k, m, p]) => [k, [m, p ?? 0]]));
+    if (isKanaLevel(level)) {
+      const conv = level === "KATA" ? toKatakana : (x) => x;
+      const section = (title, rows2, cols) => {
+        const box = el8("div", "kana-sec");
+        box.append(el8("h4", "", title));
+        const g = el8("div", `kana-grid c${cols}`);
+        for (const row of rows2) for (const ch of row) {
+          if (!ch || ch === "_") {
+            g.append(el8("span", "mt blank"));
+            continue;
+          }
+          const w = conv(ch);
+          const [m, p] = by.get(w) ?? [0, 0];
+          g.append(tile2(w, m, p, ch));
+        }
+        box.append(g);
+        return box;
+      };
+      const rowsOf = (str) => str.split(" ").map((r2) => [...r2]);
+      const comboRows = [];
+      for (let i = 0; i < COMBOS.length; i += 3) comboRows.push(COMBOS.slice(i, i + 3));
+      grid.classList.add("kana");
+      grid.replaceChildren(section(level === "KATA" ? "Katakana" : "Hiragana", rowsOf(GOJUON), 5), section("Dakuon and handakuon (\u309B \u309C)", rowsOf(VOICED), 5), section("Combinations", comboRows, 3));
+      return;
     }
-    grid.replaceChildren(frag);
+    const filters = [
+      ["mine", "Your spells", (m) => m > 0],
+      ["studying", "Learning", (m) => m >= 1 && m <= 2],
+      ["mastered", "Learned & mastered", (m) => m >= 3],
+      ["unseen", "Not started", (m) => m === 0],
+      ["all", "All", () => true]
+    ];
+    if (mFilter === "mine" && !words2.some(([, m]) => m > 0)) mFilter = "all";
+    const bar = el8("div", "mg-filters");
+    for (const [id, label, test2] of filters) {
+      const n = words2.filter(([, m]) => test2(m)).length;
+      const b = el8("button", "pill mg-f" + (id === mFilter ? " on" : ""), `${label} \xB7 ${n}`);
+      b.type = "button";
+      b.onclick = () => {
+        mFilter = id;
+        mShown = PAGE;
+        renderMastery();
+      };
+      bar.append(b);
+    }
+    const test = filters.find(([id]) => id === mFilter)[2];
+    const list = words2.filter(([, m]) => test(m)).sort((a, b) => b[2] - a[2]);
+    const tiles = el8("div", "word-grid");
+    for (const [k, m, p] of list.slice(0, mShown)) tiles.append(tile2(k, m, p ?? 0, null));
+    const nodes = [bar, tiles];
+    if (!list.length) nodes.push(el8("p", "hint", "Nothing here yet."));
+    if (list.length > mShown) {
+      const more = el8("button", "pill mg-more", `Show more (${list.length - mShown} left)`);
+      more.onclick = () => {
+        mShown += PAGE * 2;
+        renderMastery();
+      };
+      nodes.push(more);
+    }
+    grid.replaceChildren(...nodes);
   }
   $10("progressBack").onclick = () => show("menu");
 
@@ -11402,7 +11668,7 @@ ${stack}`.slice(0, 2e3);
   var installPrompt = null;
   var ONLINE_ONLY = "#queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove";
   function initApp(hooks4) {
-    init(getToken);
+    init(getToken, () => ["review", "quiz", "daily"].includes(currentScreen() ?? ""));
     onChange((off) => {
       document.body.classList.toggle("offline", off);
       hooks4.netStatus();
@@ -11458,18 +11724,7 @@ ${stack}`.slice(0, 2e3);
       installPrompt = null;
       renderAppDialog();
     };
-    window.kwBack = () => {
-      const open3 = [...document.querySelectorAll("dialog[open]")].pop();
-      if (open3) {
-        open3.close();
-        return true;
-      }
-      const scr = currentScreen();
-      if (!scr || scr === "menu" || scr === "auth") return false;
-      const back = document.querySelector(`#${scr} .back, #${scr} [id$="Back"]`);
-      if (back && back.offsetParent !== null) back.click();
-      return true;
-    };
+    initBack();
     $("appWin").href = DOWNLOADS.windows;
     $("appApk").href = DOWNLOADS.android;
   }
@@ -11477,6 +11732,52 @@ ${stack}`.slice(0, 2e3);
     $("appInstall").hidden = !installPrompt;
     $("appIos").hidden = !(isIos() && !inApp());
     $("appManual").hidden = !!installPrompt || isIos() || inApp();
+  }
+  function goBack() {
+    const open3 = [...document.querySelectorAll("dialog[open]")].pop();
+    if (open3) {
+      open3.close();
+      return true;
+    }
+    const scr = currentScreen();
+    if (!scr || scr === "menu" || scr === "auth") return false;
+    const back = [...document.querySelectorAll(`#${scr} .back, #${scr} [id$="Back"], #${scr} [id$="back"]`)].find((b) => b.getClientRects().length > 0 && !b.disabled);
+    back?.click();
+    return true;
+  }
+  var away = () => !!document.querySelector("dialog[open]") || !["menu", "auth", void 0].includes(currentScreen());
+  var guarded = false;
+  var consuming = false;
+  function syncGuard() {
+    if (away() && !guarded) {
+      history.pushState({ kwGuard: 1 }, "");
+      guarded = true;
+    } else if (!away() && guarded) {
+      guarded = false;
+      consuming = true;
+      history.back();
+    }
+  }
+  function initBack() {
+    addEventListener("popstate", () => {
+      if (consuming) {
+        consuming = false;
+        return;
+      }
+      if (!guarded) return;
+      guarded = false;
+      goBack();
+      setTimeout(syncGuard, 0);
+    });
+    const mo = new MutationObserver(() => syncGuard());
+    for (const el11 of document.querySelectorAll(".screen, dialog")) mo.observe(el11, { attributes: true, attributeFilter: ["hidden", "open"] });
+    window.kwBack = () => {
+      if (guarded) {
+        history.back();
+        return true;
+      }
+      return goBack();
+    };
   }
 
   // src/client/main.ts
@@ -11632,12 +11933,20 @@ ${stack}`.slice(0, 2e3);
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         setToken("");
         showAuth(e.status === 403 ? e.message : "");
-      } else {
-        show("auth");
-        $("authError").textContent = e instanceof ApiError && e.status === 0 ? "No internet connection. Sign in once while online \u2014 then Study spells and more work offline too." : "Server unreachable \u2014 try again in a moment.";
+        return;
       }
+      if (!isOffline() && await canGoOffline() && await goOffline()) return void boot();
+      show("auth");
+      const canOffline = await canGoOffline();
+      $("authError").textContent = canOffline ? "The server can't be reached right now." : e instanceof ApiError && e.status === 0 ? "No internet connection. Sign in once while online \u2014 then Study spells and more work offline too." : "Server unreachable \u2014 try again in a moment.";
+      $("playOffline").hidden = !canOffline;
     }
   }
+  $("playOffline").onclick = async () => {
+    $("playOffline").hidden = true;
+    if (await goOffline()) void boot();
+    else $("authError").textContent = "Nothing saved on this device yet \u2014 sign in once while online.";
+  };
   function signedIn3(u) {
     user = u;
     if (!isOffline()) void signedIn(u.id);
@@ -11649,6 +11958,7 @@ ${stack}`.slice(0, 2e3);
     else applyProfile(profile2);
   }
   function showAuth(message = "") {
+    $("playOffline").hidden = true;
     user = null;
     profile2 = null;
     inRoom = false;

@@ -20,7 +20,7 @@ let installPrompt: InstallPrompt | null = null;
 const ONLINE_ONLY = '#queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove';
 
 export function initApp(hooks: { canReload: () => boolean; backOnline: () => void; netStatus: () => void }) {
-  offline.init(getToken);
+  offline.init(getToken, () => ['review', 'quiz', 'daily'].includes(ui.currentScreen() ?? ''));
   offline.onChange((off) => {
     document.body.classList.toggle('offline', off);
     hooks.netStatus();
@@ -65,16 +65,7 @@ export function initApp(hooks: { canReload: () => boolean; backOnline: () => voi
     installPrompt = null;
     renderAppDialog();
   };
-  // the Android app's back button: close a dialog, or go back from a screen; at the menu it leaves the app
-  (window as { kwBack?: () => boolean }).kwBack = () => {
-    const open = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].pop();
-    if (open) { open.close(); return true; }
-    const scr = ui.currentScreen();
-    if (!scr || scr === 'menu' || scr === 'auth') return false;
-    const back = document.querySelector<HTMLElement>(`#${scr} .back, #${scr} [id$="Back"]`);
-    if (back && back.offsetParent !== null) back.click();
-    return true; // in a game: stay (no leaving by accident)
-  };
+  initBack();
   ui.$<HTMLAnchorElement>('appWin').href = DOWNLOADS.windows;
   ui.$<HTMLAnchorElement>('appApk').href = DOWNLOADS.android;
 }
@@ -83,4 +74,41 @@ function renderAppDialog() {
   ui.$('appInstall').hidden = !installPrompt;
   ui.$('appIos').hidden = !(isIos() && !inApp());
   ui.$('appManual').hidden = !!installPrompt || isIos() || inApp();
+}
+
+// ── the phone's back button (0.9.9.4.2) ─────────────────────────────────────
+// The game is one page, so "back" had nothing to go back to. Now, whenever a dialog is open or you're on any
+// screen but the menu, one extra history entry is kept; the back button uses it up: it closes the dialog or
+// presses the screen's own back button. At the menu, back leaves the app as usual. Works in the Android
+// app, in the installed web app and in the browser.
+function goBack(): boolean {
+  const open = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].pop();
+  if (open) { open.close(); return true; }
+  const scr = ui.currentScreen();
+  if (!scr || scr === 'menu' || scr === 'auth') return false;
+  const back = [...document.querySelectorAll<HTMLElement>(`#${scr} .back, #${scr} [id$="Back"], #${scr} [id$="back"]`)]
+    .find((b) => b.getClientRects().length > 0 && !(b as HTMLButtonElement).disabled);
+  back?.click();
+  return true; // in a game: stay (no leaving by accident)
+}
+const away = () => !!document.querySelector('dialog[open]') || !['menu', 'auth', undefined].includes(ui.currentScreen());
+let guarded = false, consuming = false;
+function syncGuard() {
+  if (away() && !guarded) { history.pushState({ kwGuard: 1 }, ''); guarded = true; }
+  // back at the menu by the game's own buttons: take the extra entry away again, quietly
+  else if (!away() && guarded) { guarded = false; consuming = true; history.back(); }
+}
+function initBack() {
+  addEventListener('popstate', () => {
+    if (consuming) { consuming = false; return; }
+    if (!guarded) return; // not ours
+    guarded = false;
+    goBack();
+    setTimeout(syncGuard, 0);
+  });
+  // screens and dialogs opening
+  const mo = new MutationObserver(() => syncGuard());
+  for (const el of document.querySelectorAll('.screen, dialog')) mo.observe(el, { attributes: true, attributeFilter: ['hidden', 'open'] });
+  // the Android app (0.9.9.4) asked the page directly; keep answering for APKs from before this patch
+  (window as { kwBack?: () => boolean }).kwBack = () => { if (guarded) { history.back(); return true; } return goBack(); };
 }

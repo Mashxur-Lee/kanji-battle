@@ -3,3 +3,4 @@ dist
 public/app.js
 .data
 public/vocab.json
+public/examples.json
