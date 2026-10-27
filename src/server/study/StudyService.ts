@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry } from '../../shared/protocol';
 import type { Level } from '../../shared/protocol';
-import { LEVELS } from '../../shared/protocol';
+import { LEVELS, studyLevelOf } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
 import { taskPassed, BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
@@ -25,7 +25,7 @@ export const AI_XP_FACTOR = 0.5;
 export type Deck = DeckId;
 /** A word as the study screens see it: from the dictionary or one of your custom words. */
 interface WordInfo { id: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean }
-const fromVocab = (v: VocabEntry): WordInfo => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, custom: false });
+const fromVocab = (v: VocabEntry): WordInfo => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: studyLevelOf(v), custom: false });
 const fromCustom = (w: CustomWord): WordInfo => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: 'N5', custom: true });
 /** One row of a deck's word list (Study → open a deck). */
 export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: SrsCard['state']; addedAt: number | null; due: number; intervalDays: number }
@@ -204,7 +204,7 @@ export class StudyService {
     const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === 'all').map((c) => c.vocabId));
     // seeded by player + day (0.9.9.4): the app offline and the server pick the same words, so study done
     // offline on today's new cards replays cleanly
-    const fresh = shuffle(VOCAB.filter((v) => u.studyLevels.includes(v.level) && !have.has(v.id)), seededRng(`${u.id}:${today}:${already}`)).slice(0, want);
+    const fresh = shuffle(VOCAB.filter((v) => u.studyLevels.includes(studyLevelOf(v)) && !have.has(v.id)), seededRng(`${u.id}:${today}:${already}`)).slice(0, want);
     const now = clockNow();
     const added = (await this.store.addCards(u.id, fresh.map((v) => newCard(v.id, now, 'all')))).length;
     await this.store.update(u.id, { lastNewDate: today, newToday: already + added, newNotice: u.newNotice + added });

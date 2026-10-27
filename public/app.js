@@ -607,6 +607,7 @@
     rapid: "1v1 Rapid",
     deck: "Deck Duel"
   };
+  var studyLevelOf = (v) => v.jlpt ?? v.level;
   var isKanaLevel = (l) => l === "KANA" || l === "KATA";
 
   // src/shared/achievements.ts
@@ -1155,7 +1156,7 @@
       for (const v of VOCAB) {
         const c = cards.get(v.id);
         const m = !c ? Mastery.Unseen : c.state === "new" ? Mastery.New : c.state === "review" ? c.intervalDays >= MASTERED_DAYS ? Mastery.Mastered : Mastery.Learned : Mastery.Learning;
-        mastery[v.level]?.push([v.kanji, m, progressOf(c)]);
+        mastery[studyLevelOf(v)]?.push([v.kanji, m, progressOf(c)]);
       }
       return { activity: await this.store.activity(u.id, shiftDay(day, -26 * 7)), mastery, month: await this.month(u, day) };
     }
@@ -1182,7 +1183,7 @@
   var BADGES_MAX = 3;
   var CUSTOM_ID = /^u:[0-9a-f-]{13}$/;
   var AI_XP_FACTOR = 0.5;
-  var fromVocab = (v) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, custom: false });
+  var fromVocab = (v) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: studyLevelOf(v), custom: false });
   var fromCustom = (w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: "N5", custom: true });
   var picUrl = (u) => u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null;
   var MAX_AVATAR_BYTES = 60 * 1024;
@@ -1357,7 +1358,7 @@
         return 0;
       }
       const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === "all").map((c) => c.vocabId));
-      const fresh = shuffle2(VOCAB.filter((v) => u.studyLevels.includes(v.level) && !have.has(v.id)), seededRng(`${u.id}:${today2}:${already}`)).slice(0, want);
+      const fresh = shuffle2(VOCAB.filter((v) => u.studyLevels.includes(studyLevelOf(v)) && !have.has(v.id)), seededRng(`${u.id}:${today2}:${already}`)).slice(0, want);
       const now2 = now();
       const added = (await this.store.addCards(u.id, fresh.map((v) => newCard(v.id, now2, "all")))).length;
       await this.store.update(u.id, { lastNewDate: today2, newToday: already + added, newNotice: u.newNotice + added });
@@ -11155,7 +11156,7 @@ ${stack}`.slice(0, 2e3);
       await loadVocab();
     } catch {
     }
-    const v = VOCAB.find((x) => x.kanji === word2 && x.level === level) ?? VOCAB.find((x) => x.kanji === word2);
+    const v = VOCAB.find((x) => x.kanji === word2 && studyLevelOf(x) === level) ?? VOCAB.find((x) => x.kanji === word2);
     const head = el8("div", "mp-head");
     const big = el8("b", "mp-k", word2);
     big.lang = "ja";

@@ -36,3 +36,11 @@ test('every kanji-level word has an example sentence with furigana', () => {
   const missing = VOCAB.filter((v) => /^N[1-5]$/.test(v.level) && !have.has(v.id));
   assert.equal(missing.length, 0, `missing examples: ${missing.slice(0, 5).map((v) => v.id).join(', ')}`);
 });
+
+test('Study spells uses the JLPT list; games keep the stroke-count levels', async () => {
+  const { studyLevelOf } = await import('../src/shared/protocol');
+  const tabi = VOCAB.find((v) => v.kanji === '旅')!;
+  assert.equal(studyLevelOf(tabi), tabi.jlpt ?? tabi.level);
+  for (const v of VOCAB) if (v.jlpt) assert.equal(studyLevelOf(v), v.jlpt);
+  console.log('旅', tabi.level, '→ study', studyLevelOf(tabi));
+});
