@@ -6,9 +6,6 @@ name: Dependencies
 
 on:
   workflow_dispatch:
-  push:
-    branches: [study-jlpt]
-    paths: [.github/workflows/deps.yml]
 
 permissions:
   contents: write
