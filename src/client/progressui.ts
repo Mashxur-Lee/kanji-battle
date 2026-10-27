@@ -2,7 +2,7 @@
 // month calendar, and a mastery grid with every word of each level coloured by how well you know it.
 
 import { locale, meaningIn, tr } from './i18n';
-import { isKanaLevel, LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
+import { isKanaLevel, LEVEL_LABEL, LEVELS, studyLevelOf, type Level } from '../shared/protocol';
 import { KANA_BASIC, KANA_COMBO, KANA_VOICED, toKatakana } from '../shared/vocab';
 import { loadVocab, VOCAB } from './offline/vocab';
 import { FLAMES, isoWeek, STAFFS } from '../shared/progress';
@@ -231,7 +231,7 @@ async function showWord(at: HTMLElement, word: string, m: number, pct: number) {
   for (const x of document.querySelectorAll('.mt.sel')) x.classList.remove('sel');
   at.classList.add('sel');
   try { await loadVocab(); } catch { /* offline and not cached: just the word */ }
-  const v = VOCAB.find((x) => x.kanji === word && x.level === level) ?? VOCAB.find((x) => x.kanji === word);
+  const v = VOCAB.find((x) => x.kanji === word && studyLevelOf(x) === level) ?? VOCAB.find((x) => x.kanji === word);
   const head = el('div', 'mp-head');
   const big = el('b', 'mp-k', word); big.lang = 'ja';
   head.append(big);

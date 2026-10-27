@@ -1,0 +1,60 @@
+# Dependency refresh: updates the server/client packages (within their major versions, plus every security fix
+# npm audit can apply), checks the build, type-check and tests against them, and commits the new
+# package.json / package-lock.json back to the branch. Run it from the Actions tab ("Run workflow").
+# The coding container can't reach the npm registry, so this runs here instead.
+name: Dependencies
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: kw
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Update packages
+        run: |
+          set -o pipefail
+          # newest within each major version (three.js is pinned on purpose: the 3D arena is built against it)
+          npx -y npm-check-updates@17 -u --target minor --reject three,@types/three
+          npm install --no-audit --no-fund
+          npm audit fix --no-fund || true
+          echo '## npm audit (after update)' >> "$GITHUB_STEP_SUMMARY"
+          { echo '```'; npm audit || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          cd desktop
+          npx -y npm-check-updates@17 -u --target minor --reject electron-builder
+          npx -y npm-check-updates@17 -u --target latest --filter electron-builder
+          npm install --no-audit --no-fund
+          { echo '## desktop npm audit'; echo '```'; npm audit || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Build, type-check, test
+        env:
+          TEST_DATABASE_URL: postgres://postgres@localhost:5432/kw
+        run: |
+          node --version
+          npm run -s build
+          npm run -s typecheck
+          npm test
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json desktop/package.json
+          if git diff --cached --quiet; then echo 'Already up to date'; exit 0; fi
+          git diff --cached --stat
+          git commit -m 'Update dependencies (npm-check-updates + npm audit fix)'
+          git push

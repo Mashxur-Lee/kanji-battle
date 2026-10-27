@@ -1,4 +1,4 @@
-import { LEVELS, type Level } from '../../shared/protocol';
+import { LEVELS, studyLevelOf, type Level } from '../../shared/protocol';
 import { DAILY_TASKS, MONTH_GOALS, seasonOf, type DailyTaskState, type MonthGoalId } from '../../shared/progress';
 import type { DayActivity, Store, UserRecord } from '../db/Store';
 import { VOCAB } from '../vocab';
@@ -113,7 +113,7 @@ export class ProgressService {
         : c.state === 'new' ? Mastery.New
         : c.state === 'review' ? (c.intervalDays >= MASTERED_DAYS ? Mastery.Mastered : Mastery.Learned)
         : Mastery.Learning;
-      mastery[v.level]?.push([v.kanji, m, progressOf(c)]);
+      mastery[studyLevelOf(v)]?.push([v.kanji, m, progressOf(c)]);
     }
     return { activity: await this.store.activity(u.id, shiftDay(day, -26 * 7)), mastery, month: await this.month(u, day) };
   }

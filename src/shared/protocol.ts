@@ -34,6 +34,9 @@ export interface VocabEntry {
   jlpt?: Level; // the word's JLPT list (its `level` is re-sorted by stroke count, src/server/vocab.ts)
 }
 
+/** Study spells (0.9.9.4.3) uses the word's real JLPT list; the games keep the stroke-count levels. */
+export const studyLevelOf = (v: { level: Level; jlpt?: Level }): Level => v.jlpt ?? v.level;
+
 /** What the client sees during the study phase. Never sent during battle. */
 export interface StudyItem { kanji: string; reading: string; meaning: string; level: Level }
 
