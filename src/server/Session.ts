@@ -54,6 +54,11 @@ export class SessionHub {
 
 /** One per socket connection: authenticates, validates untrusted input, routes it to the right Room. */
 /** Why a friend can't be invited right now (null = go ahead): already here, mid-game, or just invited. */
+/** What friends and admins see while someone is outside a room (0.9.9.4.3). */
+export const SCREEN_ACTIVITY: Record<string, string> = {
+  study: 'Studying spells', review: 'Studying spells', deck: 'Studying spells', quiz: 'Taking a JLPT quiz', passage: 'Reading a passage',
+  daily: 'Playing the daily challenge', customize: 'Customizing', progress: 'Looking at their progress', history: 'Looking at match history', friends: 'With friends',
+};
 export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; now: number }): string | null {
   if (o.inRoom) return 'Your friend is already in this room';
   if (o.activity?.startsWith('Playing')) return 'Your friend is in a game right now — invite them when it\'s over';
@@ -144,6 +149,7 @@ export class Session implements Client {
     const user = this.user;
     if (!user) return this.send({ type: 'auth_error', message: 'Please log in' });
     if (msg.type === 'pong') return this.onPong(msg.t);
+    if (msg.type === 'where') { this.screen = typeof msg.screen === 'string' && msg.screen in SCREEN_ACTIVITY ? msg.screen : ''; return; }
 
     // too many struggling spells waiting: study first (checked on the server, so it can't be skipped)
     if (msg.type === 'queue' || msg.type === 'create' || msg.type === 'join') {
@@ -276,6 +282,8 @@ export class Session implements Client {
     this.room = undefined;
   }
 
+  /** the screen the app says it's on (outside rooms) */
+  private screen = '';
   /** What the player is doing (for admins): menus, searching, or in a room of some mode. */
   activity(): string {
     if (this.room) {
@@ -283,7 +291,7 @@ export class Session implements Client {
       return this.room.stage === 'game' ? `Playing ${mode}` : this.room.stage === 'results' ? `Results · ${mode}` : `Lobby · ${mode}`;
     }
     if (this.user && this.matchmaker?.isQueued(this.user.id)) return 'In the online queue';
-    return 'In the menus';
+    return SCREEN_ACTIVITY[this.screen] ?? 'In the menus';
   }
 
   /** Crit chance and XP shown in rooms (crit comes from learned flashcards). */

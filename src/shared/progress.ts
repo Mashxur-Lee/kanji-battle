@@ -115,10 +115,13 @@ export const BETA_BORDER = 'border:beta';
 // ── the daily streak (0.9.9.3): a day counts once all four tasks are done ───────────────────────────────
 export const DAILY_TASKS = [
   { id: 'learn', label: 'Study 10 spells (any deck)', target: 10 }, // all four done: the streak goes up and +500 XP
-  { id: 'quiz', label: 'Do a JLPT quiz', target: 1 },
+  { id: 'quiz', label: 'Do a JLPT quiz (7/10 or better)', target: 1 },
   { id: 'daily', label: 'Play the daily challenge', target: 1 },
-  { id: 'passage', label: 'Read a passage (fill in the blanks)', target: 1 },
+  { id: 'passage', label: 'Read a passage (4/8 or better)', target: 1 },
 ] as const;
+/** 0.9.9.4.3: a quiz counts for the daily task at 7/10 or better, a passage at 4/8 (the same share of a shorter one) */
+export const TASK_PASS = { quiz: 0.7, passage: 0.5 } as const;
+export const taskPassed = (task: 'quiz' | 'passage', score: number, total: number) => total > 0 && score / total >= TASK_PASS[task] - 1e-9;
 export type DailyTaskId = (typeof DAILY_TASKS)[number]['id'];
 export interface DailyTaskState { id: DailyTaskId; label: string; target: number; value: number }
 

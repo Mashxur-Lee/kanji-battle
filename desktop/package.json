@@ -12,16 +12,28 @@
     "dist": "electron-builder --win nsis --publish never"
   },
   "devDependencies": {
-    "electron": "33.2.1",
+    "electron": "^44.0.0",
     "electron-builder": "25.1.8"
   },
   "build": {
     "appId": "com.kanjiwizards.app",
     "productName": "Kanji Wizards",
     "copyright": "Kanji Wizards",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "offline.html", "icon.png", "package.json"],
-    "win": { "target": "nsis", "icon": "build/icon.png", "artifactName": "KanjiWizards-Setup.exe" },
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "offline.html",
+      "icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png",
+      "artifactName": "KanjiWizards-Setup.exe"
+    },
     "nsis": {
       "oneClick": false,
       "perMachine": false,

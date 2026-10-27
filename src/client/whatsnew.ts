@@ -7,6 +7,31 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.3', date: '2026-10',
+    en: [
+      'Study spells: every word on every level (N5 to N1, 6,500+) now has an example sentence, with furigana — the reading in small hiragana above each kanji.',
+      'Study spells: swiping a card right (Good / Easy) no longer lags on phones.',
+      'Study spells: your whole due queue comes at once — no more “60 cards, then 50 more appear” after you finish.',
+      'Friends see “Studying spells”, “Taking a JLPT quiz” or “Reading a passage” as your activity instead of “In the menus”.',
+      'Daily challenge: the JLPT quiz counts at 7/10 or better, the reading passage at 4/8 or better.',
+      'Reading passage: a red ✕ at the top right closes it, and reopening brings back the same story until you press “New story”. The JLPT quiz “← Study” button now looks like “← Menu”.',
+      'Pop-up messages can be dismissed: click ✕ on PC, swipe them away on a phone. “You are offline” messages clear by themselves once you’re back online.',
+      'Phones: screens and buttons are centred, the default UI size is 100%, and putting the app in the background no longer drops it into offline mode.',
+      'Under the hood: patched Node.js security update (October 2026) and a newer desktop app engine.',
+    ],
+    ru: [
+      'Изучение заклинаний: у каждого слова всех уровней (от N5 до N1, больше 6 500) теперь есть пример предложения с фуриганой — чтением мелкой хираганой над каждым кандзи.',
+      'Изучение заклинаний: свайп карточки вправо («Хорошо» / «Легко») больше не тормозит на телефонах.',
+      'Изучение заклинаний: вся очередь на повторение приходит сразу — больше никаких «60 карточек, а потом ещё 50».',
+      'Друзья видят вашу активность «Изучает заклинания», «Проходит тест JLPT» или «Читает текст» вместо «В меню».',
+      'Ежедневное испытание: тест JLPT засчитывается от 7/10, текст для чтения — от 4/8.',
+      'Текст для чтения: красный ✕ в правом верхнем углу закрывает его, а при повторном открытии возвращается тот же рассказ, пока вы не нажмёте «Новый рассказ». Кнопка «← Учёба» в тесте JLPT теперь выглядит как «← Меню».',
+      'Всплывающие сообщения можно закрыть: ✕ на ПК, свайпом на телефоне. Сообщения «Вы офлайн» исчезают сами, когда связь вернулась.',
+      'Телефоны: экраны и кнопки по центру, размер интерфейса по умолчанию 100%, а сворачивание приложения больше не включает офлайн-режим.',
+      'Внутри: обновление безопасности Node.js (октябрь 2026) и более новая версия движка для ПК-приложения.',
+    ],
+  },
+  {
     v: '0.9.9.4.2', date: '2026-10',
     en: [
       'Kana: ひらがな (hiragana) and the new カタカナ (katakana) are two separate levels — only letters now: the basic ones, with ゛/゜ and every combination (きゃ, シュ …). Both work in Study spells and in every game mode, answered in romaji.',

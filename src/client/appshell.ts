@@ -17,7 +17,7 @@ interface InstallPrompt extends Event { prompt(): Promise<void>; userChoice: Pro
 let installPrompt: InstallPrompt | null = null;
 
 // things that need the server: online games, rooms, friends
-const ONLINE_ONLY = '#queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove';
+const ONLINE_ONLY = '#adminBtn, #queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove';
 
 export function initApp(hooks: { canReload: () => boolean; backOnline: () => void; netStatus: () => void }) {
   offline.init(getToken, () => ['review', 'quiz', 'daily'].includes(ui.currentScreen() ?? ''));

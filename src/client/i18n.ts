@@ -445,6 +445,12 @@ const RU: Record<string, string> = {
   'Both players get the same kanji — no study phase.': 'Оба игрока получают один и тот же кандзи — без подготовки.', 'Wrong? Try again until the 12 s round ends.': 'Ошиблись? Пробуйте снова, пока не кончится 12-секундный раунд.',
   'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.': 'Крит: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Игра с ИИ даёт половину опыта; сдача — ничего.',
   'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.': 'Шанс крита сегодня: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Сбрасывается в полночь.',
+  // 0.9.9.4.3
+  'Do a JLPT quiz (7/10 or better)': 'Пройдите тест JLPT (7/10 или лучше)', 'Read a passage (4/8 or better)': 'Прочитайте текст (4/8 или лучше)',
+  'For the daily task, get 7 out of 10 or better — try another quiz!': 'Для ежедневного задания нужно 7 из 10 или лучше — попробуйте ещё один тест!',
+  'For the daily task, get half the blanks right (4 of 8) — try a new story!': 'Для ежедневного задания заполните верно половину пропусков (4 из 8) — попробуйте новый рассказ!',
+  'Studying spells': 'Изучает заклинания', 'Taking a JLPT quiz': 'Проходит тест JLPT', 'Reading a passage': 'Читает текст', 'Playing the daily challenge': 'Проходит ежедневное испытание',
+  'Customizing': 'Настраивает облик', 'Looking at their progress': 'Смотрит прогресс', 'Looking at match history': 'Смотрит историю матчей', 'With friends': 'С друзьями',
   // 0.9.9.4.2
   'Hiragana': 'Хирагана', 'Katakana': 'Катакана', 'Dakuon and handakuon (゛ ゜)': 'Дакутэн и хандакутэн (゛ ゜)', 'Combinations': 'Сочетания', 'Nothing here yet.': 'Здесь пока ничего нет.',
   'every word of each level — tap one to see it': 'все слова каждого уровня — нажмите на слово, чтобы посмотреть', 'Less': 'Меньше', 'More': 'Больше',

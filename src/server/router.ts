@@ -225,7 +225,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'POST' && url === '/api/study/task') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();
-        return res(200, await study.recordTask(u, body.task, resolveToday(body.today)));
+        return res(200, await study.recordTask(u, body.task, resolveToday(body.today), body.score, body.total));
       } else if (r.method === 'PUT' && url === '/api/study/daily-new') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();

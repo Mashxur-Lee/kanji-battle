@@ -41,10 +41,10 @@ export interface AdminStats {
 /** Network trouble (no answer at all), as opposed to the server saying no. */
 const isNetworkError = (e: unknown) => e instanceof TypeError || (e instanceof DOMException && e.name === 'AbortError');
 
-async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
+async function call<T>(method: string, url: string, body?: unknown, again?: { op?: string }): Promise<T> {
   // 0.9.9.4.2: every change that also works offline carries an id; if it times out here and is done again
   // offline (and later replayed), the server recognises the id and doesn't do it twice
-  const op = method !== 'GET' && offline.handles(method, url) ? uuid() : undefined;
+  const op = again ? again.op : method !== 'GET' && offline.handles(method, url) ? uuid() : undefined;
   // 0.9.9.4: offline → the calls that work alone are answered by the app itself (offline/), the rest can't
   if (offline.isOffline()) return local<T>(method, url, body, op);
   let res: Response;
@@ -59,7 +59,11 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
       signal: ctl.signal,
     }).finally(() => clearTimeout(t));
   } catch (e) {
-    if (isNetworkError(e) && offline.handles(method, url) && await offline.goOffline()) return local<T>(method, url, body, op);
+    // 0.9.9.4.3: in the background (or just back from it) a phone's connection blips — that isn't "offline":
+    // try once more when the app is on screen, and only then switch
+    if (isNetworkError(e) && offline.handles(method, url) && await stillDown()) {
+      if (await offline.goOffline()) return local<T>(method, url, body, op);
+    } else if (isNetworkError(e) && offline.handles(method, url) && !again && (method === 'GET' || op)) return call<T>(method, url, body, { op });
     if (isNetworkError(e)) throw new ApiError(OFFLINE_TEXT, 0);
     throw e;
   }
@@ -67,6 +71,13 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
   if (!res.ok) throw new ApiError(data.error ?? `Error ${res.status}`, res.status);
   offline.changedOnline(method, url, body);
   return data as T;
+}
+/** Is the server really gone? Waits until the app is visible, gives the network a moment, then asks the server. */
+async function stillDown(): Promise<boolean> {
+  if (document.visibilityState !== 'visible') await new Promise<void>((r) => { const f = () => { if (document.visibilityState === 'visible') { document.removeEventListener('visibilitychange', f); r(); } }; document.addEventListener('visibilitychange', f); });
+  if (!navigator.onLine) return true;
+  await new Promise((r) => setTimeout(r, 1500));
+  try { return !(await fetch('/api/online', { cache: 'no-store', signal: AbortSignal.timeout(6000) })).ok; } catch { return true; }
 }
 /** crypto.randomUUID needs https; plain-http LAN testing gets a random fallback */
 export const uuid = () => (typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, () => (Math.random() * 16 | 0).toString(16)));
@@ -99,7 +110,7 @@ export const api = {
   addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', { ...w, id: `u:${uuid().slice(0, 13)}` }),
   quiz: (n = 10) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}`),
   /** a daily task done here (the quiz, a passage): counts towards today's streak */
-  task: (task: 'quiz' | 'passage') => call<Profile>('POST', '/api/study/task', { task, today: today() }),
+  task: (task: 'quiz' | 'passage', score: number, total: number) => call<Profile>('POST', '/api/study/task', { task, today: today(), score, total }),
   setDailyNew: (n: number) => call<StudySummary>('PUT', '/api/study/daily-new', { n, today: today() }),
   setBorder: (border: string) => call<{ profile: Profile }>('PUT', '/api/me/border', { border }),
   setBadges: (badges: string[]) => call<{ badges: string[] }>('PUT', '/api/me/badges', { badges }),
