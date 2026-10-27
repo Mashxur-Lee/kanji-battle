@@ -1,5 +1,6 @@
 // Study decks you can open and edit (All / Struggling / Custom), adding your own words, the JLPT-style
 // quiz, the reading passage, and — on the results screen — choosing where the words you missed go.
+import { taskPassed } from '../shared/progress';
 import { STORIES, STORY_GLOSS, type Line, type Story } from './stories';
 import { LEVEL_LABEL, type MissedWord } from '../shared/protocol';
 import type { DeckId } from '../shared/srs';
@@ -251,7 +252,7 @@ export function showMissedSave(missed: MissedWord[]) {
     sel.disabled = false;
   };
   const story = el('button', 'pill', 'Read them in a story');
-  story.onclick = () => openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning, id: m.id })));
+  story.onclick = () => { storyFrom = 'missed'; openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning, id: m.id }))); };
   box.replaceChildren(el('span', 'hint', 'Ticked words go to'), sel, status, story);
   say();
   box.hidden = false;
@@ -332,7 +333,8 @@ function nextQuestion() {
   $('quizCard').hidden = true;
   $('quizDone').hidden = false;
   $('quizResult').textContent = `${score} / ${quiz.length} correct${score === quiz.length ? ' — perfect!' : ''}`;
-  void api.task('quiz').then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task
+  void api.task('quiz', score, quiz.length).then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task (7/10 or better)
+  if (!taskPassed('quiz', score, quiz.length)) ui.toast('For the daily task, get 7 out of 10 or better — try another quiz!', 5000);
   const box = $('quizMissed');
   if (!wrong.length) { box.replaceChildren(); return; }
   const sel = el('select', 'ms-deck') as HTMLSelectElement;
@@ -556,7 +558,8 @@ function check() {
   again.onclick = buildPassage;
   $('passageWords').replaceChildren(el('div', 'p-score', `${right} / ${blanks.length}`), el('p', 'hint center', right === blanks.length ? 'Perfect — every word in its place!' : 'Green: right. Red: the right word, with yours crossed out.'), again);
   passageHooks.done?.(right, blanks.length);
-  void api.task('passage').then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task
+  void api.task('passage', right, blanks.length).then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task (4/8 or better)
+  if (!taskPassed('passage', right, blanks.length)) ui.toast('For the daily task, get half the blanks right (4 of 8) — try a new story!', 5000);
 }
 
 export function openPassage(words: PWord[]) {
@@ -612,6 +615,12 @@ async function passageFrom(deck: DeckId) {
 {
   const sel = $<HTMLSelectElement>('passageDeck');
   for (const d of ['struggling', 'all', 'custom'] as DeckId[]) sel.append(Object.assign(el('option', '', DECK_LABEL[d]), { value: d }));
-  sel.onchange = () => void passageFrom(sel.value as DeckId);
+  sel.onchange = () => { storyFrom = `deck:${sel.value}`; void passageFrom(sel.value as DeckId); };
 }
-$('passageBtn').onclick = () => void passageFrom(passageDeck);
+// 0.9.9.4.3: the story stays until "New story" (closing it to look something up and coming back kept nothing)
+let storyFrom = '';
+$('passageBtn').onclick = () => {
+  if (storyFrom === `deck:${passageDeck}` && pick.length) { $<HTMLDialogElement>('passageDialog').showModal(); return; }
+  storyFrom = `deck:${passageDeck}`;
+  void passageFrom(passageDeck);
+};

@@ -160,6 +160,8 @@ export type ClientMessage =
   /** 3D mouse look: where you are looking (radians; + = left / up), sent a few times a second */
   | { type: 'look'; yaw: number; pitch: number }
   | { type: 'pong'; t: number }
+  /** which part of the game you're in outside rooms (0.9.9.4.3: friends and admins see "Studying spells") */
+  | { type: 'where'; screen: string }
   | { type: 'answer'; challengeId: number; text: string }
   | { type: 'write'; challengeId: number; chars: DrawnChar[] }
   | { type: 'skip'; challengeId: number }

@@ -3,7 +3,7 @@ import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry }
 import type { Level } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
-import { BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
+import { taskPassed, BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
@@ -91,8 +91,10 @@ export class StudyService {
   }
 
   /** A daily task done in the browser (the JLPT quiz, a reading passage) — counts towards today's streak. */
-  async recordTask(u: UserRecord, task: unknown, today: string) {
+  async recordTask(u: UserRecord, task: unknown, today: string, score?: unknown, total?: unknown) {
     if (task !== 'quiz' && task !== 'passage') throw new StudyError('Unknown task');
+    // 0.9.9.4.3: only a good enough result counts (7/10 quiz, 4/8 passage); older apps send no score
+    if (typeof score === 'number' && typeof total === 'number' && !taskPassed(task, score, total)) return this.profile(u);
     await this.progress.record(u.id, today, task === 'quiz' ? { quizzes: 1 } : { passages: 1 });
     return this.profile((await this.store.findById(u.id)) ?? u);
   }
@@ -331,7 +333,7 @@ export class StudyService {
   }
 
   /** Cards to study now, Anki order: (re)learning due → reviews due → new. */
-  async queue(u: UserRecord, deck: Deck, now = clockNow(), limit = 60): Promise<StudyItem[]> {
+  async queue(u: UserRecord, deck: Deck, now = clockNow(), limit = 500): Promise<StudyItem[]> { // 0.9.9.4.3: was 60 — a big day came in two sessions
     if (!isDeck(deck)) throw new StudyError('Unknown deck');
     const custom = await this.words(u.id);
     const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck && !!this.info(c.vocabId, custom));

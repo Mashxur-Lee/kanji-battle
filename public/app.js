@@ -91,10 +91,12 @@
   var DAILY_TASKS = [
     { id: "learn", label: "Study 10 spells (any deck)", target: 10 },
     // all four done: the streak goes up and +500 XP
-    { id: "quiz", label: "Do a JLPT quiz", target: 1 },
+    { id: "quiz", label: "Do a JLPT quiz (7/10 or better)", target: 1 },
     { id: "daily", label: "Play the daily challenge", target: 1 },
-    { id: "passage", label: "Read a passage (fill in the blanks)", target: 1 }
+    { id: "passage", label: "Read a passage (4/8 or better)", target: 1 }
   ];
+  var TASK_PASS = { quiz: 0.7, passage: 0.5 };
+  var taskPassed = (task, score3, total) => total > 0 && score3 / total >= TASK_PASS[task] - 1e-9;
   var MONTH_GOALS = [
     { id: "days", label: "Play on 12 different days", target: 12 },
     { id: "wins", label: "Win 10 games", target: 10 },
@@ -1245,8 +1247,9 @@
       return await this.store.findById(u.id) ?? rec;
     }
     /** A daily task done in the browser (the JLPT quiz, a reading passage) — counts towards today's streak. */
-    async recordTask(u, task, today2) {
+    async recordTask(u, task, today2, score3, total) {
       if (task !== "quiz" && task !== "passage") throw new StudyError("Unknown task");
+      if (typeof score3 === "number" && typeof total === "number" && !taskPassed(task, score3, total)) return this.profile(u);
       await this.progress.record(u.id, today2, task === "quiz" ? { quizzes: 1 } : { passages: 1 });
       return this.profile(await this.store.findById(u.id) ?? u);
     }
@@ -1479,7 +1482,7 @@
       };
     }
     /** Cards to study now, Anki order: (re)learning due → reviews due → new. */
-    async queue(u, deck2, now2 = now(), limit = 60) {
+    async queue(u, deck2, now2 = now(), limit = 500) {
       if (!isDeck(deck2)) throw new StudyError("Unknown deck");
       const custom = await this.words(u.id);
       const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck2 && !!this.info(c.vocabId, custom));
@@ -1907,7 +1910,7 @@
         } else if (r2.method === "POST" && url === "/api/study/task") {
           const u = await auth.authenticate(r2.token);
           const body = await r2.json();
-          return res(200, await study.recordTask(u, body.task, resolveToday(body.today)));
+          return res(200, await study.recordTask(u, body.task, resolveToday(body.today), body.score, body.total));
         } else if (r2.method === "PUT" && url === "/api/study/daily-new") {
           const u = await auth.authenticate(r2.token);
           const body = await r2.json();
@@ -2326,8 +2329,8 @@
     }
   };
   var isNetworkError = (e) => e instanceof TypeError || e instanceof DOMException && e.name === "AbortError";
-  async function call2(method, url, body) {
-    const op = method !== "GET" && handles(method, url) ? uuid() : void 0;
+  async function call2(method, url, body, again) {
+    const op = again ? again.op : method !== "GET" && handles(method, url) ? uuid() : void 0;
     if (isOffline()) return local(method, url, body, op);
     let res2;
     try {
@@ -2340,7 +2343,9 @@
         signal: ctl.signal
       }).finally(() => clearTimeout(t));
     } catch (e) {
-      if (isNetworkError(e) && handles(method, url) && await goOffline()) return local(method, url, body, op);
+      if (isNetworkError(e) && handles(method, url) && await stillDown()) {
+        if (await goOffline()) return local(method, url, body, op);
+      } else if (isNetworkError(e) && handles(method, url) && !again && (method === "GET" || op)) return call2(method, url, body, { op });
       if (isNetworkError(e)) throw new ApiError(OFFLINE_TEXT, 0);
       throw e;
     }
@@ -2348,6 +2353,24 @@
     if (!res2.ok) throw new ApiError(data.error ?? `Error ${res2.status}`, res2.status);
     changedOnline(method, url, body);
     return data;
+  }
+  async function stillDown() {
+    if (document.visibilityState !== "visible") await new Promise((r2) => {
+      const f2 = () => {
+        if (document.visibilityState === "visible") {
+          document.removeEventListener("visibilitychange", f2);
+          r2();
+        }
+      };
+      document.addEventListener("visibilitychange", f2);
+    });
+    if (!navigator.onLine) return true;
+    await new Promise((r2) => setTimeout(r2, 1500));
+    try {
+      return !(await fetch("/api/online", { cache: "no-store", signal: AbortSignal.timeout(6e3) })).ok;
+    } catch {
+      return true;
+    }
   }
   var uuid = () => typeof crypto.randomUUID === "function" ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, () => (Math.random() * 16 | 0).toString(16));
   var OFFLINE_TEXT = "You're offline \u2014 this needs an internet connection.";
@@ -2378,7 +2401,7 @@
     addCustom: (w) => call2("POST", "/api/study/custom", { ...w, id: `u:${uuid().slice(0, 13)}` }),
     quiz: (n = 10) => call2("GET", `/api/study/quiz?n=${n}`),
     /** a daily task done here (the quiz, a passage): counts towards today's streak */
-    task: (task) => call2("POST", "/api/study/task", { task, today: today() }),
+    task: (task, score3, total) => call2("POST", "/api/study/task", { task, today: today(), score: score3, total }),
     setDailyNew: (n) => call2("PUT", "/api/study/daily-new", { n, today: today() }),
     setBorder: (border) => call2("PUT", "/api/me/border", { border }),
     setBadges: (badges2) => call2("PUT", "/api/me/badges", { badges: badges2 }),
@@ -2411,7 +2434,7 @@
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.4.2";
+  var VERSION = "0.9.9.4.3";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -3098,6 +3121,19 @@
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.4.3
+    "Do a JLPT quiz (7/10 or better)": "\u041F\u0440\u043E\u0439\u0434\u0438\u0442\u0435 \u0442\u0435\u0441\u0442 JLPT (7/10 \u0438\u043B\u0438 \u043B\u0443\u0447\u0448\u0435)",
+    "Read a passage (4/8 or better)": "\u041F\u0440\u043E\u0447\u0438\u0442\u0430\u0439\u0442\u0435 \u0442\u0435\u043A\u0441\u0442 (4/8 \u0438\u043B\u0438 \u043B\u0443\u0447\u0448\u0435)",
+    "For the daily task, get 7 out of 10 or better \u2014 try another quiz!": "\u0414\u043B\u044F \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0433\u043E \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u043D\u0443\u0436\u043D\u043E 7 \u0438\u0437 10 \u0438\u043B\u0438 \u043B\u0443\u0447\u0448\u0435 \u2014 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u043E\u0434\u0438\u043D \u0442\u0435\u0441\u0442!",
+    "For the daily task, get half the blanks right (4 of 8) \u2014 try a new story!": "\u0414\u043B\u044F \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0433\u043E \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0432\u0435\u0440\u043D\u043E \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u043E\u0432 (4 \u0438\u0437 8) \u2014 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u043D\u043E\u0432\u044B\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437!",
+    "Studying spells": "\u0418\u0437\u0443\u0447\u0430\u0435\u0442 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F",
+    "Taking a JLPT quiz": "\u041F\u0440\u043E\u0445\u043E\u0434\u0438\u0442 \u0442\u0435\u0441\u0442 JLPT",
+    "Reading a passage": "\u0427\u0438\u0442\u0430\u0435\u0442 \u0442\u0435\u043A\u0441\u0442",
+    "Playing the daily challenge": "\u041F\u0440\u043E\u0445\u043E\u0434\u0438\u0442 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435",
+    "Customizing": "\u041D\u0430\u0441\u0442\u0440\u0430\u0438\u0432\u0430\u0435\u0442 \u043E\u0431\u043B\u0438\u043A",
+    "Looking at their progress": "\u0421\u043C\u043E\u0442\u0440\u0438\u0442 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441",
+    "Looking at match history": "\u0421\u043C\u043E\u0442\u0440\u0438\u0442 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043C\u0430\u0442\u0447\u0435\u0439",
+    "With friends": "\u0421 \u0434\u0440\u0443\u0437\u044C\u044F\u043C\u0438",
     // 0.9.9.4.2
     "Hiragana": "\u0425\u0438\u0440\u0430\u0433\u0430\u043D\u0430",
     "Katakana": "\u041A\u0430\u0442\u0430\u043A\u0430\u043D\u0430",
@@ -3417,7 +3453,7 @@
       if (UI_ZOOMS.includes(v)) return v;
     } catch {
     }
-    return innerWidth >= 900 ? 0.8 : 1;
+    return innerWidth >= 900 && !matchMedia("(pointer: coarse)").matches ? 0.8 : 1;
   }
   function setUiZoomPref(z) {
     try {
@@ -4638,8 +4674,13 @@
     scrollTo(0, 0);
     screenListener(screen2);
   };
+  var errorTimer = 0;
   var setError = (text) => {
     $("error").textContent = text;
+    clearTimeout(errorTimer);
+    if (text) errorTimer = window.setTimeout(() => {
+      $("error").textContent = "";
+    }, 1e4);
   };
   var secs = (ms) => (ms / 1e3).toFixed(1) + "s";
   var clockText = (ms) => {
@@ -4762,9 +4803,46 @@
     $("whoXp").parentElement.title = `${lx.into} / ${lx.need} XP to level ${lx.level + 1}`;
   }
   var toastTimer = 0;
+  function hideToast() {
+    clearTimeout(toastTimer);
+    $("toast").hidden = true;
+  }
+  var toastWired = false;
+  function wireToast(el11) {
+    toastWired = true;
+    let x0 = 0, y0 = 0, id = -1;
+    el11.addEventListener("pointerdown", (e) => {
+      id = e.pointerId;
+      x0 = e.clientX;
+      y0 = e.clientY;
+    });
+    el11.addEventListener("pointermove", (e) => {
+      if (e.pointerId !== id) return;
+      const dx = e.clientX - x0, dy = Math.min(0, e.clientY - y0);
+      el11.style.transform = `translate(calc(-50% + ${dx}px), ${dy}px)`;
+      el11.style.opacity = String(Math.max(0.2, 1 - (Math.abs(dx) + Math.abs(dy)) / 220));
+    });
+    const end = (e) => {
+      if (e.pointerId !== id) return;
+      id = -1;
+      const far = Math.abs(e.clientX - x0) > 70 || y0 - e.clientY > 40;
+      el11.style.transform = "";
+      el11.style.opacity = "";
+      if (far) hideToast();
+    };
+    el11.addEventListener("pointerup", end);
+    el11.addEventListener("pointercancel", end);
+  }
   function toast(text, ms = 3500) {
     const el11 = $("toast");
-    el11.textContent = text;
+    if (!toastWired) wireToast(el11);
+    const x = h("button", "toast-x", "\u2715");
+    x.setAttribute("aria-label", "Close");
+    x.onclick = (e) => {
+      e.stopPropagation();
+      hideToast();
+    };
+    el11.replaceChildren(h("span", "toast-t", text), x);
     el11.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => el11.hidden = true, ms);
@@ -6319,7 +6397,10 @@ ${stack}`.slice(0, 2e3);
       sel.disabled = false;
     };
     const story2 = el2("button", "pill", "Read them in a story");
-    story2.onclick = () => openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning, id: m.id })));
+    story2.onclick = () => {
+      storyFrom = "missed";
+      openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning, id: m.id })));
+    };
     box.replaceChildren(el2("span", "hint", "Ticked words go to"), sel, status, story2);
     say2();
     box.hidden = false;
@@ -6406,8 +6487,9 @@ ${stack}`.slice(0, 2e3);
     $3("quizCard").hidden = true;
     $3("quizDone").hidden = false;
     $3("quizResult").textContent = `${score} / ${quiz.length} correct${score === quiz.length ? " \u2014 perfect!" : ""}`;
-    void api.task("quiz").then((p) => onTaskDone.cb(p)).catch(() => {
+    void api.task("quiz", score, quiz.length).then((p) => onTaskDone.cb(p)).catch(() => {
     });
+    if (!taskPassed("quiz", score, quiz.length)) toast("For the daily task, get 7 out of 10 or better \u2014 try another quiz!", 5e3);
     const box = $3("quizMissed");
     if (!wrong.length) {
       box.replaceChildren();
@@ -6698,8 +6780,9 @@ ${stack}`.slice(0, 2e3);
     again.onclick = buildPassage;
     $3("passageWords").replaceChildren(el2("div", "p-score", `${right} / ${blanks.length}`), el2("p", "hint center", right === blanks.length ? "Perfect \u2014 every word in its place!" : "Green: right. Red: the right word, with yours crossed out."), again);
     passageHooks.done?.(right, blanks.length);
-    void api.task("passage").then((p) => onTaskDone.cb(p)).catch(() => {
+    void api.task("passage", right, blanks.length).then((p) => onTaskDone.cb(p)).catch(() => {
     });
+    if (!taskPassed("passage", right, blanks.length)) toast("For the daily task, get half the blanks right (4 of 8) \u2014 try a new story!", 5e3);
   }
   function openPassage(words2) {
     passageWords = words2.filter((w) => w.kanji).slice(0, 40);
@@ -6759,9 +6842,20 @@ ${stack}`.slice(0, 2e3);
   {
     const sel = $3("passageDeck");
     for (const d of ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
-    sel.onchange = () => void passageFrom(sel.value);
+    sel.onchange = () => {
+      storyFrom = `deck:${sel.value}`;
+      void passageFrom(sel.value);
+    };
   }
-  $3("passageBtn").onclick = () => void passageFrom(passageDeck);
+  var storyFrom = "";
+  $3("passageBtn").onclick = () => {
+    if (storyFrom === `deck:${passageDeck}` && pick2.length) {
+      $3("passageDialog").showModal();
+      return;
+    }
+    storyFrom = `deck:${passageDeck}`;
+    void passageFrom(passageDeck);
+  };
 
   // src/client/dailytasks.ts
   var $4 = $;
@@ -6975,6 +7069,32 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.4.3",
+      date: "2026-10",
+      en: [
+        "Study spells: every word on every level (N5 to N1, 6,500+) now has an example sentence, with furigana \u2014 the reading in small hiragana above each kanji.",
+        "Study spells: swiping a card right (Good / Easy) no longer lags on phones.",
+        "Study spells: your whole due queue comes at once \u2014 no more \u201C60 cards, then 50 more appear\u201D after you finish.",
+        "Friends see \u201CStudying spells\u201D, \u201CTaking a JLPT quiz\u201D or \u201CReading a passage\u201D as your activity instead of \u201CIn the menus\u201D.",
+        "Daily challenge: the JLPT quiz counts at 7/10 or better, the reading passage at 4/8 or better.",
+        "Reading passage: a red \u2715 at the top right closes it, and reopening brings back the same story until you press \u201CNew story\u201D. The JLPT quiz \u201C\u2190 Study\u201D button now looks like \u201C\u2190 Menu\u201D.",
+        "Pop-up messages can be dismissed: click \u2715 on PC, swipe them away on a phone. \u201CYou are offline\u201D messages clear by themselves once you\u2019re back online.",
+        "Phones: screens and buttons are centred, the default UI size is 100%, and putting the app in the background no longer drops it into offline mode.",
+        "Under the hood: patched Node.js security update (October 2026) and a newer desktop app engine."
+      ],
+      ru: [
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430 \u0432\u0441\u0435\u0445 \u0443\u0440\u043E\u0432\u043D\u0435\u0439 (\u043E\u0442 N5 \u0434\u043E N1, \u0431\u043E\u043B\u044C\u0448\u0435 6 500) \u0442\u0435\u043F\u0435\u0440\u044C \u0435\u0441\u0442\u044C \u043F\u0440\u0438\u043C\u0435\u0440 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u0441 \u0444\u0443\u0440\u0438\u0433\u0430\u043D\u043E\u0439 \u2014 \u0447\u0442\u0435\u043D\u0438\u0435\u043C \u043C\u0435\u043B\u043A\u043E\u0439 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u043E\u0439 \u043D\u0430\u0434 \u043A\u0430\u0436\u0434\u044B\u043C \u043A\u0430\u043D\u0434\u0437\u0438.",
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u0441\u0432\u0430\u0439\u043F \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u0432\u043F\u0440\u0430\u0432\u043E (\xAB\u0425\u043E\u0440\u043E\u0448\u043E\xBB / \xAB\u041B\u0435\u0433\u043A\u043E\xBB) \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0442\u043E\u0440\u043C\u043E\u0437\u0438\u0442 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430\u0445.",
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u0432\u0441\u044F \u043E\u0447\u0435\u0440\u0435\u0434\u044C \u043D\u0430 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u0435 \u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442 \u0441\u0440\u0430\u0437\u0443 \u2014 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0438\u043A\u0430\u043A\u0438\u0445 \xAB60 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A, \u0430 \u043F\u043E\u0442\u043E\u043C \u0435\u0449\u0451 50\xBB.",
+        "\u0414\u0440\u0443\u0437\u044C\u044F \u0432\u0438\u0434\u044F\u0442 \u0432\u0430\u0448\u0443 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C \xAB\u0418\u0437\u0443\u0447\u0430\u0435\u0442 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB, \xAB\u041F\u0440\u043E\u0445\u043E\u0434\u0438\u0442 \u0442\u0435\u0441\u0442 JLPT\xBB \u0438\u043B\u0438 \xAB\u0427\u0438\u0442\u0430\u0435\u0442 \u0442\u0435\u043A\u0441\u0442\xBB \u0432\u043C\u0435\u0441\u0442\u043E \xAB\u0412 \u043C\u0435\u043D\u044E\xBB.",
+        "\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435: \u0442\u0435\u0441\u0442 JLPT \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u043E\u0442 7/10, \u0442\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F \u2014 \u043E\u0442 4/8.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u043A\u0440\u0430\u0441\u043D\u044B\u0439 \u2715 \u0432 \u043F\u0440\u0430\u0432\u043E\u043C \u0432\u0435\u0440\u0445\u043D\u0435\u043C \u0443\u0433\u043B\u0443 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0435\u0433\u043E, \u0430 \u043F\u0440\u0438 \u043F\u043E\u0432\u0442\u043E\u0440\u043D\u043E\u043C \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u0438 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u0442 \u0436\u0435 \u0440\u0430\u0441\u0441\u043A\u0430\u0437, \u043F\u043E\u043A\u0430 \u0432\u044B \u043D\u0435 \u043D\u0430\u0436\u043C\u0451\u0442\u0435 \xAB\u041D\u043E\u0432\u044B\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437\xBB. \u041A\u043D\u043E\u043F\u043A\u0430 \xAB\u2190 \u0423\u0447\u0451\u0431\u0430\xBB \u0432 \u0442\u0435\u0441\u0442\u0435 JLPT \u0442\u0435\u043F\u0435\u0440\u044C \u0432\u044B\u0433\u043B\u044F\u0434\u0438\u0442 \u043A\u0430\u043A \xAB\u2190 \u041C\u0435\u043D\u044E\xBB.",
+        "\u0412\u0441\u043F\u043B\u044B\u0432\u0430\u044E\u0449\u0438\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u043C\u043E\u0436\u043D\u043E \u0437\u0430\u043A\u0440\u044B\u0442\u044C: \u2715 \u043D\u0430 \u041F\u041A, \u0441\u0432\u0430\u0439\u043F\u043E\u043C \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435. \u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \xAB\u0412\u044B \u043E\u0444\u043B\u0430\u0439\u043D\xBB \u0438\u0441\u0447\u0435\u0437\u0430\u044E\u0442 \u0441\u0430\u043C\u0438, \u043A\u043E\u0433\u0434\u0430 \u0441\u0432\u044F\u0437\u044C \u0432\u0435\u0440\u043D\u0443\u043B\u0430\u0441\u044C.",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B: \u044D\u043A\u0440\u0430\u043D\u044B \u0438 \u043A\u043D\u043E\u043F\u043A\u0438 \u043F\u043E \u0446\u0435\u043D\u0442\u0440\u0443, \u0440\u0430\u0437\u043C\u0435\u0440 \u0438\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0430 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E 100%, \u0430 \u0441\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u043D\u0438\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0432\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u043E\u0444\u043B\u0430\u0439\u043D-\u0440\u0435\u0436\u0438\u043C.",
+        "\u0412\u043D\u0443\u0442\u0440\u0438: \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435 \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u0438 Node.js (\u043E\u043A\u0442\u044F\u0431\u0440\u044C 2026) \u0438 \u0431\u043E\u043B\u0435\u0435 \u043D\u043E\u0432\u0430\u044F \u0432\u0435\u0440\u0441\u0438\u044F \u0434\u0432\u0438\u0436\u043A\u0430 \u0434\u043B\u044F \u041F\u041A-\u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F."
+      ]
+    },
     {
       v: "0.9.9.4.2",
       date: "2026-10",
@@ -10173,6 +10293,22 @@ ${stack}`.slice(0, 2e3);
     }));
     return loading3;
   }
+  function furigana(text) {
+    const out = [];
+    for (const bit of text.split(/(\[[^\]|]+\|[^\]]+\])/)) {
+      const m = /^\[([^\]|]+)\|([^\]]+)\]$/.exec(bit);
+      if (!m) {
+        if (bit) out.push(bit);
+        continue;
+      }
+      const r2 = document.createElement("ruby");
+      const rt = document.createElement("rt");
+      rt.textContent = m[2];
+      r2.append(m[1], rt);
+      out.push(r2);
+    }
+    return out;
+  }
   async function exampleFor(vocabId) {
     const ex = (await loadExamples()).get(vocabId);
     if (!ex) return null;
@@ -10185,9 +10321,9 @@ ${stack}`.slice(0, 2e3);
       if (!part) continue;
       if (part.startsWith("\u3010")) {
         const m = document.createElement("mark");
-        m.textContent = part.slice(1, -1);
+        m.append(...furigana(part.slice(1, -1)));
         ja.append(m);
-      } else ja.append(part);
+      } else ja.append(...furigana(part));
     }
     const tr2 = document.createElement("p");
     tr2.className = "fc-ex-tr";
@@ -11666,7 +11802,7 @@ ${stack}`.slice(0, 2e3);
   var inApp = () => /KanjiWizards(Desktop|Android)/.test(navigator.userAgent) || matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
   var isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
   var installPrompt = null;
-  var ONLINE_ONLY = "#queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove";
+  var ONLINE_ONLY = "#adminBtn, #queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove";
   function initApp(hooks4) {
     init(getToken, () => ["review", "quiz", "daily"].includes(currentScreen() ?? ""));
     onChange((off) => {
@@ -11822,10 +11958,30 @@ ${stack}`.slice(0, 2e3);
   };
   var socket = new GameSocket(onMessage, (s) => {
     netState = s;
+    if (s === "online") {
+      lastWhere = "";
+      tellWhere();
+    }
     if (s === "reconnecting") void probe();
     showNetStatus();
   });
   var netState = "";
+  var lastWhere = "";
+  function tellWhere() {
+    if (inRoom || !user) return;
+    const where = document.querySelector("#passageDialog[open]") ? "passage" : currentScreen() ?? "";
+    if (where === lastWhere) return;
+    lastWhere = where;
+    socket.send({ type: "where", screen: where });
+  }
+  {
+    let t = 0;
+    const mo = new MutationObserver(() => {
+      clearTimeout(t);
+      t = window.setTimeout(tellWhere, 300);
+    });
+    for (const el11 of document.querySelectorAll(".screen, #passageDialog")) mo.observe(el11, { attributes: true, attributeFilter: ["hidden", "open"] });
+  }
   function showNetStatus() {
     if (isOffline()) setNetStatus(pending() ? `Offline mode \xB7 ${pending()} to sync` : "Offline mode");
     else setNetStatus(netState === "reconnecting" ? "Reconnecting\u2026" : null);
@@ -12466,6 +12622,7 @@ ${stack}`.slice(0, 2e3);
     // a new version is ready: reload when you're on the menu (or signed out), not in a room or a study session
     canReload: () => !inRoom && ["menu", "auth"].includes(currentScreen() ?? ""),
     backOnline: () => {
+      setError("");
       void refreshProfile();
     },
     netStatus: showNetStatus

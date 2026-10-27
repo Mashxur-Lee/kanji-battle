@@ -17,7 +17,8 @@ export function uiZoomPref(): number {
     const v = Number(localStorage.getItem(KEY));
     if (UI_ZOOMS.includes(v as (typeof UI_ZOOMS)[number])) return v;
   } catch { /* private mode */ }
-  return innerWidth >= 900 ? 0.8 : 1; // phones and small windows stay at 100%
+  // phones and tablets (touch) and small windows stay at 100%
+  return innerWidth >= 900 && !matchMedia('(pointer: coarse)').matches ? 0.8 : 1;
 }
 
 export function setUiZoomPref(z: number) {

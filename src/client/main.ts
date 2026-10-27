@@ -68,10 +68,25 @@ const savedLevels = (): Level[] => {
 
 const socket = new GameSocket(onMessage, (s) => {
   netState = s;
+  if (s === 'online') { lastWhere = ''; tellWhere(); }
   if (s === 'reconnecting') void offline.probe();
   showNetStatus();
 });
 let netState = '';
+// 0.9.9.4.3: tell the server where you are outside rooms (friends see "Studying spells", not "In the menus")
+let lastWhere = '';
+function tellWhere() {
+  if (inRoom || !user) return;
+  const where = document.querySelector('#passageDialog[open]') ? 'passage' : ui.currentScreen() ?? '';
+  if (where === lastWhere) return;
+  lastWhere = where;
+  socket.send({ type: 'where', screen: where });
+}
+{
+  let t = 0;
+  const mo = new MutationObserver(() => { clearTimeout(t); t = window.setTimeout(tellWhere, 300); });
+  for (const el of document.querySelectorAll('.screen, #passageDialog')) mo.observe(el, { attributes: true, attributeFilter: ['hidden', 'open'] });
+}
 /** 0.9.9.4: offline → a calm "Offline" pill instead of "Reconnecting…" forever */
 function showNetStatus() {
   if (offline.isOffline()) ui.setNetStatus(offline.pending() ? `Offline mode · ${offline.pending()} to sync` : 'Offline mode');
@@ -655,7 +670,7 @@ initSelects();
 initApp({
   // a new version is ready: reload when you're on the menu (or signed out), not in a room or a study session
   canReload: () => !inRoom && ['menu', 'auth'].includes(ui.currentScreen() ?? ''),
-  backOnline: () => { void refreshProfile(); },
+  backOnline: () => { ui.setError(''); void refreshProfile(); },
   netStatus: showNetStatus,
 });
 initTutorial({

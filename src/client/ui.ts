@@ -32,7 +32,13 @@ export const show = (screen: Screen) => {
   screenListener(screen);
 };
 
-export const setError = (text: string) => { $('error').textContent = text; };
+// 0.9.9.4.3: a menu error goes away by itself (it used to stay for days)
+let errorTimer = 0;
+export const setError = (text: string) => {
+  $('error').textContent = text;
+  clearTimeout(errorTimer);
+  if (text) errorTimer = window.setTimeout(() => { $('error').textContent = ''; }, 10_000);
+};
 
 const secs = (ms: number) => (ms / 1000).toFixed(1) + 's';
 const clockText = (ms: number) => {
@@ -158,9 +164,36 @@ export function setProfile(p: ProfileView | null) {
 }
 
 let toastTimer = 0;
+// 0.9.9.4.3: a toast can be dismissed — ✕ (or a tap), or swiped away on a phone
+export function hideToast() { clearTimeout(toastTimer); $('toast').hidden = true; }
+let toastWired = false;
+function wireToast(el: HTMLElement) {
+  toastWired = true;
+  let x0 = 0, y0 = 0, id = -1;
+  el.addEventListener('pointerdown', (e) => { id = e.pointerId; x0 = e.clientX; y0 = e.clientY; });
+  el.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id) return;
+    const dx = e.clientX - x0, dy = Math.min(0, e.clientY - y0);
+    el.style.transform = `translate(calc(-50% + ${dx}px), ${dy}px)`;
+    el.style.opacity = String(Math.max(0.2, 1 - (Math.abs(dx) + Math.abs(dy)) / 220));
+  });
+  const end = (e: PointerEvent) => {
+    if (e.pointerId !== id) return;
+    id = -1;
+    const far = Math.abs(e.clientX - x0) > 70 || y0 - e.clientY > 40;
+    el.style.transform = ''; el.style.opacity = '';
+    if (far) hideToast();
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
 export function toast(text: string, ms = 3500) {
   const el = $('toast');
-  el.textContent = text;
+  if (!toastWired) wireToast(el);
+  const x = h('button', 'toast-x', '✕');
+  x.setAttribute('aria-label', 'Close');
+  x.onclick = (e) => { e.stopPropagation(); hideToast(); };
+  el.replaceChildren(h('span', 'toast-t', text), x);
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => (el.hidden = true), ms);
