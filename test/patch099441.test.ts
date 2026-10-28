@@ -71,8 +71,8 @@ test('stories (0.9.9.4.4.5): the reason comes back when there is no story; only 
   let bodies: any[] = [];
   globalThis.fetch = (async (_u: string, init: RequestInit) => {
     const b = JSON.parse(String(init.body)); bodies.push(b);
-    // a model that can't switch thinking off
-    if (b.generationConfig.thinkingConfig) return new Response('{"error":{"message":"Thinking budget is not supported"}}', { status: 400 });
+    // a model that knows neither way of switching thinking off (answers 400 "invalid argument", like Gemini does)
+    if (b.generationConfig.thinkingConfig) return new Response('{"error":{"code":400,"message":"Request contains an invalid argument.","status":"INVALID_ARGUMENT"}}', { status: 400 });
     return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"title":{"ja":"x"},"lines":[{"ja":"【[寺|てら]】","en":"a","ru":"b"}]}' }] } }] }));
   }) as unknown as typeof fetch;
   try {
@@ -80,7 +80,10 @@ test('stories (0.9.9.4.4.5): the reason comes back when there is no story; only 
     const r = await svc.story('u', words, '2026-10-28');
     assert.equal(r.story, null);
     assert.match(r.why!, /missing 祈る/);
-    assert.ok(bodies.some((b) => !b.generationConfig.thinkingConfig), 'asked again without thinking');
+    assert.deepEqual(bodies.slice(0, 3).map((b) => b.generationConfig.thinkingConfig ?? null), [{ thinkingLevel: 'minimal' }, { thinkingBudget: 0 }, null], 'each way in turn');
+    bodies = [];
+    await svc.story('u', [...words, { kanji: '山', reading: 'やま', meaning: 'mountain' }], '2026-10-28');
+    assert.equal(bodies[0].generationConfig.thinkingConfig, undefined, 'the way that worked is remembered');
     assert.equal(svc.usage('u', '2026-10-28').used, 0, 'a failed story is not counted');
     globalThis.fetch = (async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(good) }] } }] }))) as unknown as typeof fetch;
     assert.ok((await svc.story('u', words, '2026-10-28')).story);

@@ -7,6 +7,17 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.4.6', date: '2026-10',
+    en: [
+      'Reading passage: fixed the AI story failing with “invalid argument” on newer Gemini models — it now finds the settings your model accepts by itself.',
+      'Study spells: “learned in total” now includes the words you learned today.',
+    ],
+    ru: [
+      'Текст для чтения: исправлена ошибка «invalid argument» у новых моделей Gemini — приложение само подбирает настройки, которые принимает модель.',
+      'Изучение заклинаний: «выучено всего» теперь включает слова, выученные сегодня.',
+    ],
+  },
+  {
     v: '0.9.9.4.4.5', date: '2026-10',
     en: [
       'Reading passage: the AI now writes one flowing story where your 8 words appear wherever they fit — a sentence can hold two of them, or none — instead of one sentence per word. Fill in the blanks from the context.',

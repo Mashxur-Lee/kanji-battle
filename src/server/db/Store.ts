@@ -219,8 +219,8 @@ export class MemoryStore implements Store {
   async customWords(userId: string) { return (this.custom.get(userId) ?? []).map((w) => ({ ...w })); }
   async addCustomWord(userId: string, w: CustomWord) { this.custom.set(userId, [...(this.custom.get(userId) ?? []).filter((x) => x.id !== w.id), { ...w }]); this.persist(); }
   async deleteCustomWord(userId: string, id: string) { this.custom.set(userId, (this.custom.get(userId) ?? []).filter((x) => x.id !== id)); this.persist(); }
-  /** Learned = words that graduated to review in any deck (a word counts once). */
-  async learnedCount(userId: string) { return new Set([...this.deck(userId).values()].filter((c) => c.state === 'review').map((c) => c.vocabId)).size; }
+  /** Learned = words that graduated to review, or that you've answered right at least once (0.9.9.4.4.6: today's count too) — in any deck, a word counts once. */
+  async learnedCount(userId: string) { return new Set([...this.deck(userId).values()].filter((c) => c.state === 'review' || !!c.critDay).map((c) => c.vocabId)).size; }
   protected avatars = new Map<string, AvatarImage>();
   async addResult(id: string, outcome: 'win' | 'loss' | 'draw') {
     const r = this.users.get(id);
@@ -237,7 +237,7 @@ export class MemoryStore implements Store {
   }
   async getAvatar(id: string) { return this.avatars.get(id) ?? null; }
   async cardStats() {
-    return Object.fromEntries([...this.srs].map(([uid, d]) => [uid, { cards: d.size, learned: new Set([...d.values()].filter((c) => c.state === 'review').map((c) => c.vocabId)).size }]));
+    return Object.fromEntries([...this.srs].map(([uid, d]) => [uid, { cards: d.size, learned: new Set([...d.values()].filter((c) => c.state === 'review' || !!c.critDay).map((c) => c.vocabId)).size }]));
   }
   protected history = new Map<string, MatchDetail[]>();
   private nextMatch = 1;
