@@ -21,6 +21,17 @@ export function pickPool(levels: readonly Level[], size: number, rng: Rng = Math
 }
 
 /**
+ * 0.9.9.4.4.2: a pool from your own words — words of the chosen levels that are in your "All spells" (`mine`)
+ * come first, random words of those levels fill the rest.
+ */
+export function pickPoolFrom(levels: readonly Level[], size: number, mine: ReadonlySet<string> | undefined, rng: Rng = Math.random, source = VOCAB, filter: (v: VocabEntry) => boolean = () => true): VocabEntry[] {
+  const eligible = source.filter((v) => levels.includes(v.level) && filter(v));
+  const own = mine?.size ? shuffle(eligible.filter((v) => mine.has(v.id)), rng).slice(0, size) : [];
+  const taken = new Set(own.map((v) => v.id));
+  return shuffle([...own, ...shuffle(eligible.filter((v) => !taken.has(v.id)), rng).slice(0, size - own.length)], rng);
+}
+
+/**
  * Per-player challenge order, controlled by the server. Cycles through the pool without
  * immediate repeats; missed words are pushed back in a few cards later so they come back soon.
  */

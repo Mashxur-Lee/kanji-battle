@@ -361,7 +361,12 @@
   <!-- STUDY: deck choice -->
   <section id="study" class="screen" hidden>
     <button id="studyBack" class="back">← Menu</button>
-    <div class="page-head"><h2>Study spells</h2><span id="studyCrit" class="tag"></span></div>
+    <div class="page-head"><h2>Study spells</h2>
+      <div id="studyStats" class="study-stats" aria-live="polite">
+        <div class="ss-tile today"><b id="ssToday">0</b><span>learned today</span></div>
+        <div class="ss-tile total"><b id="ssTotal">0</b><span>learned in total</span></div>
+        <div class="ss-tile xp"><b id="ssXp">0</b><span>study XP today</span></div>
+      </div></div>
     <p class="sub">Spaced repetition like Anki: each card comes back just before you would forget it.</p>
     <div id="studyNotice" class="notice" hidden></div>
     <div class="study-decks">
@@ -369,7 +374,7 @@
         <h3>All spells</h3>
         <p class="hint">How many new words of each level are added every day (0 = none).</p>
         <div id="studyLevels" class="level-plan" role="group" aria-label="New words a day per level"></div>
-        <p id="dailyTotal" class="hint daily-total"></p>
+        <p id="dailyTotal" class="daily-total" hidden></p>
         <div id="planApply" class="plan-apply" role="group" hidden><span id="planApplyText"></span><button id="planCancelBtn" type="button" class="pill">Cancel</button><button id="planApplyBtn" type="button" class="pill plan-ok">Apply</button></div>
         <div id="countsAll" class="counts"></div>
         <div class="deck-btns"><button id="studyAll" class="big">Study</button><button class="deck-open" data-deck="all"><span aria-hidden="true">☰</span> Words</button></div>
@@ -631,6 +636,7 @@
         <div id="challenge" class="challenge">
           <div id="turnTimer" class="turn-timer" role="timer" aria-label="Time left" hidden></div>
           <div id="kanji" class="kanji" lang="ja"></div>
+          <div id="wordFrom" class="word-from" hidden></div>
           <div id="meaningPrompt" class="meaning-prompt" hidden></div>
           <button id="castGo" class="big cast-btn go" hidden title="Hide the kanji and write it (Enter)">CAST!</button>
           <div class="timer thin"><div id="challengeBar"></div></div>
@@ -777,7 +783,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.9.4.4.1</div>
+<div id="version" class="version">v0.9.9.4.4.2</div>
 <script src="/app.js"></script>
 </body>
 </html>

@@ -576,6 +576,7 @@
       a.quizzes = (a.quizzes ?? 0) + (d.quizzes ?? 0);
       a.challenges = (a.challenges ?? 0) + (d.challenges ?? 0);
       a.passages = (a.passages ?? 0) + (d.passages ?? 0);
+      a.studyXp = (a.studyXp ?? 0) + (d.studyXp ?? 0);
       log.set(day, a);
       this.persist();
     }
@@ -1597,6 +1598,7 @@
         decks: { all: counts(cards.filter((c) => deckOf(c) === "all"), now2), struggling: counts(cards.filter((c) => deckOf(c) === "struggling"), now2), custom: counts(cards.filter((c) => deckOf(c) === "custom"), now2), ono: counts(cards.filter((c) => deckOf(c) === "ono"), now2) },
         dailyNew: fresh.dailyNew ?? DAILY_NEW,
         dailyByLevel: planOf(fresh, today2).per,
+        studyXpToday: (await this.store.activity(u.id, today2)).find((a) => a.day === today2)?.studyXp ?? 0,
         profile: await this.profile(fresh)
       };
     }
@@ -1617,8 +1619,14 @@
       const card = await this.store.card(u.id, d, vocabId);
       if (!card) throw new StudyError("No such card", 404);
       const next3 = answer(card, rating, now2);
+      const todayXp = (await this.store.activity(u.id, today2)).find((a) => a.day === today2)?.studyXp ?? 0;
+      const xp = todayXp + STUDY_XP <= STUDY_XP_DAILY ? STUDY_XP : 0;
+      if (xp) {
+        await this.store.addXp(u.id, xp);
+        await this.store.addActivity(u.id, today2, { studyXp: xp, xp });
+      }
       const stack = this.undos.get(u.id) ?? [];
-      stack.push({ deck: d, before: card, today: today2, counted: rating !== "again", critCounted: rating !== "again" && card.critDay !== today2 });
+      stack.push({ deck: d, before: card, today: today2, counted: rating !== "again", critCounted: rating !== "again" && card.critDay !== today2, xp });
       if (stack.length > UNDO_MAX) stack.shift();
       this.undos.set(u.id, stack);
       if (rating !== "again" && card.critDay !== today2) {
@@ -1632,7 +1640,7 @@
       }
       await this.store.saveCard(u.id, next3);
       if (rating !== "again") await this.progress.record(u.id, today2, { reviews: 1 });
-      return { card: next3, crit: await this.crit(u.id, now2) };
+      return { card: next3, crit: await this.crit(u.id, now2), xp };
     }
     /**
      * 0.9.9.4.4: "Undo" in a study session — the last answer to this card goes back to how it was (its schedule,
@@ -1646,6 +1654,10 @@
       stack.pop();
       await this.store.saveCard(u.id, last3.before);
       if (last3.counted) await this.store.addActivity(u.id, last3.today, { reviews: -1 });
+      if (last3.xp) {
+        await this.store.addXp(u.id, -last3.xp);
+        await this.store.addActivity(u.id, last3.today, { studyXp: -last3.xp, xp: -last3.xp });
+      }
       if (last3.critCounted) {
         const fresh = await this.store.findById(u.id) ?? u;
         if (fresh.critCount > 0) await this.store.update(u.id, { critCount: fresh.critCount - 1 });
@@ -1734,6 +1746,8 @@
     }
   };
   var DAILY_LEVEL_MAX = 150;
+  var STUDY_XP = 5;
+  var STUDY_XP_DAILY = 500;
   var ONO_NEW_SESSION = 20;
   var onoWords = () => VOCAB.filter((v) => v.level === "ONO");
   function splitDaily(levels, total) {
@@ -1941,16 +1955,56 @@ Answer with JSON only, no other text:
 {"title":{"ja":"\u2026","en":"\u2026","ru":"\u2026"},"lines":[{"word":<number of the word above>,"ja":"\u2026","en":"English translation","ru":"Russian translation"}]}
 The title's "ja" uses the same furigana format and has no \u3010\u3011. The lines are in story order (any order of the words).`;
   }
+  function providerFromEnv(env = process.env) {
+    const model = env.STORY_MODEL || void 0;
+    if (env.GEMINI_API_KEY) return { kind: "gemini", key: env.GEMINI_API_KEY, model: model ?? "gemini-flash-lite-latest" };
+    if (env.ANTHROPIC_API_KEY) return { kind: "anthropic", key: env.ANTHROPIC_API_KEY, model: model ?? "claude-haiku-5-5" };
+    if (env.OPENAI_API_KEY) return { kind: "openai", key: env.OPENAI_API_KEY, model: model ?? "gpt-4o-mini", baseUrl: (env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "") };
+    return null;
+  }
+  async function complete(p, text, signal) {
+    const post = async (url, headers, body) => {
+      const r2 = await fetch(url, { method: "POST", signal, headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
+      if (!r2.ok) throw new Error(`${p.kind} API ${r2.status}: ${(await r2.text()).slice(0, 200)}`);
+      return r2.json();
+    };
+    if (p.kind === "gemini") {
+      const d2 = await post(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`,
+        { "x-goog-api-key": p.key },
+        { contents: [{ role: "user", parts: [{ text }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 3e3 } }
+      );
+      return (d2.candidates?.[0]?.content?.parts ?? []).map((x) => x.text ?? "").join("");
+    }
+    if (p.kind === "anthropic") {
+      const d2 = await post(
+        "https://api.anthropic.com/v1/messages",
+        { "x-api-key": p.key, "anthropic-version": "2023-06-01" },
+        { model: p.model, max_tokens: 2e3, messages: [{ role: "user", content: text }] }
+      );
+      return d2.content?.find((c) => c.type === "text")?.text ?? "";
+    }
+    const d = await post(
+      `${p.baseUrl}/chat/completions`,
+      { authorization: `Bearer ${p.key}` },
+      { model: p.model, messages: [{ role: "user", content: text }], response_format: { type: "json_object" }, temperature: 0.9 }
+    );
+    return d.choices?.[0]?.message?.content ?? "";
+  }
   var StoryService = class {
-    constructor(apiKey = process.env.ANTHROPIC_API_KEY ?? "", model = process.env.STORY_MODEL || "claude-haiku-5-5", perDay = 40) {
-      __publicField(this, "apiKey", apiKey);
-      __publicField(this, "model", model);
+    constructor(provider2 = providerFromEnv(), perDay = 40, allPerDay = Number(process.env.STORY_DAILY_MAX) || 400) {
+      __publicField(this, "provider", provider2);
       __publicField(this, "perDay", perDay);
+      __publicField(this, "allPerDay", allPerDay);
       __publicField(this, "cache", /* @__PURE__ */ new Map());
       __publicField(this, "used", /* @__PURE__ */ new Map());
+      __publicField(this, "all", { day: "", n: 0 });
     }
     get enabled() {
-      return !!this.apiKey;
+      return !!this.provider;
+    }
+    get describe() {
+      return this.provider ? `${this.provider.kind} \xB7 ${this.provider.model}` : "off";
     }
     /** The words as the story should use them (dictionary entries win over what the browser sent). */
     static clean(raw) {
@@ -1969,6 +2023,9 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
       if (hit2) return hit2;
       const u = this.used.get(userId);
       if (u && u.day === today2 && u.n >= this.perDay) return null;
+      if (this.all.day !== today2) this.all = { day: today2, n: 0 };
+      if (this.all.n >= this.allPerDay) return null;
+      this.all.n++;
       this.used.set(userId, { day: today2, n: (u?.day === today2 ? u.n : 0) + 1 });
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
@@ -1990,15 +2047,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
       const ctl = new AbortController();
       const t = setTimeout(() => ctl.abort(), 25e3);
       try {
-        const r2 = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          signal: ctl.signal,
-          headers: { "content-type": "application/json", "x-api-key": this.apiKey, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({ model: this.model, max_tokens: 2e3, messages: [{ role: "user", content: prompt(words2) }] })
-        });
-        if (!r2.ok) throw new Error(`Anthropic API ${r2.status}: ${(await r2.text()).slice(0, 200)}`);
-        const data = await r2.json();
-        const text = data.content?.find((c) => c.type === "text")?.text ?? "";
+        const text = await complete(this.provider, prompt(words2), ctl.signal);
         const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
         return JSON.parse(json);
       } finally {
@@ -2739,7 +2788,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.4.4.1";
+  var VERSION = "0.9.9.4.4.2";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -3426,6 +3475,13 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.4.4.2
+    "\u2605 From your spells": "\u2605 \u0418\u0437 \u0432\u0430\u0448\u0438\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439",
+    "\u2605 yours": "\u2605 \u0432\u0430\u0448\u0435",
+    "From your All spells": "\u0418\u0437 \u0432\u0430\u0448\u0438\u0445 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB",
+    "learned in total": "\u0432\u044B\u0443\u0447\u0435\u043D\u043E \u0432\u0441\u0435\u0433\u043E",
+    "study XP today": "\u043E\u043F\u044B\u0442 \u0437\u0430 \u0443\u0447\u0451\u0431\u0443 \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
+    "new spells a day": "\u043D\u043E\u0432\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0432 \u0434\u0435\u043D\u044C",
     // 0.9.9.4.4.1
     "Queued on its own. No levels to pick: the cards come from both players' All spells \u2014 2 words of each level (N5\u2013N1) from each of you.": "\u041E\u0442\u0434\u0435\u043B\u044C\u043D\u0430\u044F \u043E\u0447\u0435\u0440\u0435\u0434\u044C. \u0423\u0440\u043E\u0432\u043D\u0438 \u043D\u0435 \u0432\u044B\u0431\u0438\u0440\u0430\u044E\u0442\u0441\u044F: \u043A\u0430\u0440\u0442\u044B \u0431\u0435\u0440\u0443\u0442\u0441\u044F \u0438\u0437 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB \u043E\u0431\u043E\u0438\u0445 \u0438\u0433\u0440\u043E\u043A\u043E\u0432 \u2014 \u043F\u043E 2 \u0441\u043B\u043E\u0432\u0430 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F (N5\u2013N1) \u043E\u0442 \u043A\u0430\u0436\u0434\u043E\u0433\u043E.",
     "Pick a hero, draft 10 face-down spell cards from both players' All spells, then cast them turn by turn: read the meaning, look at the kanji, write it from memory. Mana, heals and your hero's Omnipotence.": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0433\u0435\u0440\u043E\u044F, \u043D\u0430\u0431\u0435\u0440\u0438\u0442\u0435 10 \u0437\u0430\u043A\u0440\u044B\u0442\u044B\u0445 \u043A\u0430\u0440\u0442 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0438\u0437 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB \u043E\u0431\u043E\u0438\u0445 \u0438\u0433\u0440\u043E\u043A\u043E\u0432, \u0437\u0430\u0442\u0435\u043C \u0440\u0430\u0437\u044B\u0433\u0440\u044B\u0432\u0430\u0439\u0442\u0435 \u0438\u0445 \u043F\u043E \u043E\u0447\u0435\u0440\u0435\u0434\u0438: \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0439\u0442\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435, \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u043D\u0434\u0437\u0438, \u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0435\u0433\u043E \u043F\u043E \u043F\u0430\u043C\u044F\u0442\u0438. \u041C\u0430\u043D\u0430, \u043B\u0435\u0447\u0435\u043D\u0438\u0435 \u0438 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E \u0432\u0430\u0448\u0435\u0433\u043E \u0433\u0435\u0440\u043E\u044F.",
@@ -3600,6 +3656,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     [/^(You|.+?): Arcane reserve — (\+2 random cards|\+30 mana)$/, (_, w, x) => `${w === "You" ? "\u0412\u044B" : w}: \u0422\u0430\u0439\u043D\u044B\u0439 \u0437\u0430\u043F\u0430\u0441 \u2014 ${x === "+30 mana" ? "+30 \u043C\u0430\u043D\u044B" : "+2 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0435 \u043A\u0430\u0440\u0442\u044B"}`],
     [/^Turn (\d+)$/, "\u0425\u043E\u0434 $1"],
     [/^(\d+) online$/, "$1 \u0432 \u0441\u0435\u0442\u0438"],
+    [/^From (.+)'s spells$/, "\u0418\u0437 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: $1"],
     [/^(\d+) new spells a day$/, "$1 \u043D\u043E\u0432\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0432 \u0434\u0435\u043D\u044C"],
     [/^Adds up to (\d+) new words to “All spells” today$/, "\u0421\u0435\u0433\u043E\u0434\u043D\u044F \u0434\u043E\u0431\u0430\u0432\u0438\u0442 \u0434\u043E $1 \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u0432\u043E \xAB\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB"],
     [/^(\d+) of (\d+) \(last 30 days\)$/, "$1 \u0438\u0437 $2 (\u0437\u0430 30 \u0434\u043D\u0435\u0439)"],
@@ -4533,20 +4590,45 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     return `<rect x="0" y="${y - 260}" width="${W}" height="${H - y + 260}" fill="url(#haze)" opacity="${op}" style="color:${color}"/>`;
   }
   function clouds(n, yMin, yMax, color, op, cls = "bg-drift") {
+    const shade = dk2(color, 0.22), rim = dk2(color, 0.4);
     return `<g class="${cls}" opacity="${op}">${Array.from({ length: n }, () => {
       const x = r(-100, W), y = r(yMin, yMax), s = r(0.6, 1.4);
-      return `<g transform="translate(${f(x)} ${f(y)}) scale(${f(s)})" fill="${color}"><ellipse cx="0" cy="0" rx="90" ry="22"/><ellipse cx="-40" cy="-12" rx="46" ry="26"/><ellipse cx="30" cy="-18" rx="52" ry="30"/><ellipse cx="70" cy="-4" rx="40" ry="18"/></g>`;
+      const puffs = [[0, 0, 90, 22], [-40, -12, 46, 26], [30, -18, 52, 30], [70, -4, 40, 18], [-78, -2, 34, 16]].map(([cx, cy, rx, ry]) => [cx + r(-6, 6), cy + r(-4, 4), rx * r(0.9, 1.1), ry * r(0.9, 1.1)]);
+      const shape = (fill2, grow = 0, dy = 0) => puffs.map(([cx, cy, rx, ry]) => `<ellipse cx="${f(cx)}" cy="${f(cy + dy)}" rx="${f(rx + grow)}" ry="${f(ry + grow)}" fill="${fill2}"/>`).join("");
+      return `<g transform="translate(${f(x)} ${f(y)}) scale(${f(s)})">${shape(rim, 3)}${shape(shade)}${shape(color, -2, -5)}<ellipse cx="10" cy="-26" rx="40" ry="9" fill="#fff" opacity=".35"/></g>`;
     }).join("")}</g>`;
   }
   function mountains(y, amp, color, jag = 1) {
-    let d = `M0 ${H} L0 ${y}`;
-    for (let x = 0; x <= W + 60; x += 60) d += ` L${x} ${f(y - Math.abs(Math.sin(x / 260 + jag) * amp) - r(0, amp * 0.25))}`;
-    return `<path d="${d} L${W} ${H} Z" fill="${color}"/>`;
+    const pts = [];
+    for (let x = -60; x <= W + 180; x += r(70, 150)) {
+      const k = pts.length % 3;
+      const hgt = Math.abs(Math.sin(x / 260 + jag)) * amp * r(0.7, 1.2) + amp * 0.2;
+      pts.push([x, y - (k === 0 ? hgt : k === 1 ? hgt * r(0.45, 0.7) : r(0, amp * 0.3))]);
+    }
+    const ridge = pts.map(([x, py], i) => `${i ? "L" : "M"}${f(x)} ${f(py)}`).join(" ");
+    let s = `<path d="${ridge} L${W + 200} ${H} L-60 ${H} Z" fill="${color}"/>`;
+    const shade = dk2(color, 0.18), lit = lighten(color, 0.16);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const [px, py] = pts[i], [nx, ny] = pts[i + 1], [lx, ly] = pts[i - 1];
+      if (py > ny || py > ly) continue;
+      s += `<path d="M${f(px)} ${f(py)} L${f(nx)} ${f(ny)} L${f(nx - 20)} ${f(y + 40)} L${f(px + (nx - px) * 0.15)} ${f(y + 40)} Z" fill="${shade}"/>`;
+      s += `<path d="M${f(px)} ${f(py)} L${f(px - (px - lx) * 0.35)} ${f(py + (ly - py) * 0.35)} L${f(px - (px - lx) * 0.1)} ${f(y + 10)} Z" fill="${lit}" opacity=".55"/>`;
+    }
+    return s + `<path d="${ridge}" stroke="${lighten(color, 0.3)}" stroke-width="3" fill="none" stroke-linejoin="round" opacity=".7"/>`;
+  }
+  function lighten(c, t) {
+    const p = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    return `#${p.map((v) => Math.round(v + (255 - v) * t).toString(16).padStart(2, "0")).join("")}`;
   }
   function hills(y, amp, color, phase = 0) {
     let d = `M0 ${H} L0 ${y}`;
-    for (let x = 0; x <= W; x += 40) d += ` L${x} ${f(y + Math.sin(x / 210 + phase) * amp + Math.sin(x / 90 + phase * 2) * amp * 0.25)}`;
-    return `<path d="${d} L${W} ${H} Z" fill="${color}"/>`;
+    let top = "";
+    for (let x = 0; x <= W; x += 40) {
+      const py = f(y + Math.sin(x / 210 + phase) * amp + Math.sin(x / 90 + phase * 2) * amp * 0.25);
+      d += ` L${x} ${py}`;
+      top += `${x ? "L" : "M"}${x} ${py} `;
+    }
+    return `<path d="${d} L${W} ${H} Z" fill="${color}"/><path d="${top}" stroke="${dk2(color, 0.3)}" stroke-width="3" fill="none" opacity=".6"/><path d="${top}" transform="translate(0 4)" stroke="${lighten(color, 0.18)}" stroke-width="2" fill="none" opacity=".45"/>`;
   }
   function eyes(n, yMin, yMax, op) {
     return Array.from({ length: n }, () => {
@@ -4614,27 +4696,69 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
       const bx = x - w * 0.3 + i * w * 0.15 + lean * 0.5;
       s += `<path d="M${f(bx)} ${base - 120} q${f(r(-8, 8))} -200 ${f(r(-10, 10))} -${f(r(300, 600))}" stroke="#000" stroke-width="${f(r(2, 5))}" opacity=".16" fill="none"/>`;
     }
+    s += bark(x - w * 0.42 + lean * 0.4, top + 40, w * 0.84, base - 180 - top, color);
     for (const sx of [-1, 1]) s += `<path d="M${f(x + sx * w * 0.3)} ${base - 60} Q${f(x + sx * w * 0.9)} ${base - 20} ${f(x + sx * w * 1.9)} ${base + 10}" stroke="${color}" stroke-width="${f(w * 0.18)}" fill="none" stroke-linecap="round"/>`;
     return s;
   }
-  function monolith(x, base, h4, w, stone, glow, lit) {
-    let s = `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h4} L${x + w / 2 - 6} ${base - h4 - 8} L${x + w / 2} ${base} Z" fill="${stone}"/>`;
-    s += `<path d="M${x + w * 0.1} ${base - h4 - 4} L${x + w / 2 - 6} ${base - h4 - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".25"/>`;
-    for (let i = 0; i < 3; i++) s += `<rect x="${f(x - 3)}" y="${f(base - h4 * (0.78 - i * 0.22))}" width="6" height="${f(h4 * 0.1)}" rx="2" fill="${glow}" opacity="${lit ? 0.95 : 0.55}"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ""}/>`;
+  function bark(x, y, w, h4, c) {
+    let dark = "", light = "";
+    for (let i = 0; i < Math.round(w / 3); i++) {
+      const bx = x + r(0, w), by = y + r(0, h4), len = r(20, 90);
+      const p = `M${f(bx)} ${f(by)} q${f(r(-3, 3))} ${f(len / 2)} ${f(r(-2, 2))} ${f(len)} `;
+      if (i % 3) dark += p;
+      else light += p;
+    }
+    const knots = Array.from({ length: Math.max(1, Math.round(h4 / 260)) }, () => `<ellipse cx="${f(x + r(w * 0.2, w * 0.8))}" cy="${f(y + r(0, h4))}" rx="${f(r(5, 9))}" ry="${f(r(8, 14))}" fill="none" stroke="${dk2(c, 0.5)}" stroke-width="2.5" opacity=".7"/>`).join("");
+    return `<path d="${dark}" stroke="${dk2(c, 0.45)}" stroke-width="2" fill="none" opacity=".6"/><path d="${light}" stroke="${lighten(c, 0.2)}" stroke-width="1.5" fill="none" opacity=".35"/>${knots}`;
+  }
+  function monolith(x, base, h4, w, stone, glow, lit, moss = "#4f8a3a") {
+    const outline = dk2(stone, 0.55);
+    let s = `<ellipse cx="${x}" cy="${base + 2}" rx="${f(w * 0.8)}" ry="${f(w * 0.14)}" fill="#000" opacity=".25"/>`;
+    s += `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h4} L${x + w / 2 - 6} ${base - h4 - 8} L${x + w / 2} ${base} Z" fill="${stone}" stroke="${outline}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    s += `<path d="M${x + w * 0.1} ${base - h4 - 4} L${x + w / 2 - 6} ${base - h4 - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".28"/>`;
+    s += `<path d="M${x - w / 2 + 4} ${base - h4} L${x - w / 2 + 1} ${base}" stroke="${lighten(stone, 0.3)}" stroke-width="3" opacity=".5"/>`;
+    s += speckle(x - w / 2 + 3, base - h4, w - 8, h4 - 4, Math.round(h4 / 4), stone);
+    s += `<path d="M${f(x - w * 0.3)} ${f(base - h4 * 0.4)} l${f(w * 0.12)} ${f(h4 * 0.08)} l${f(-w * 0.05)} ${f(h4 * 0.1)} M${f(x + w * 0.2)} ${f(base - h4 * 0.75)} l${f(-w * 0.1)} ${f(h4 * 0.06)}" stroke="${outline}" stroke-width="1.6" fill="none" opacity=".8"/>`;
+    s += `<path d="M${x - w / 2 + 3} ${base - h4 + 10} Q${x - w * 0.2} ${base - h4 - 10} ${x + w / 2 - 6} ${base - h4 - 8} L${x + w / 2 - 4} ${base - h4 + 6} Q${x + w * 0.2} ${base - h4 + 16} ${x + w * 0.05} ${base - h4 + 8} Q${x - w * 0.15} ${base - h4 + 24} ${x - w * 0.25} ${base - h4 + 10} Z" fill="${moss}"/>`;
+    s += `<path d="M${f(x - w * 0.25)} ${base - h4 + 12} q2 14 -1 26 M${f(x + w * 0.22)} ${base - h4 + 8} q-2 10 1 18" stroke="${moss}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    s += `<path d="M${f(x - w * 0.3)} ${base} q${f(w * 0.2)} -14 ${f(w * 0.4)} -4 q${f(w * 0.2)} -10 ${f(w * 0.3)} 4 Z" fill="${moss}" opacity=".9"/>`;
+    let rune = "";
+    for (let i = 0; i < 3; i++) {
+      const ry = base - h4 * (0.78 - i * 0.22), rh = h4 * 0.12;
+      rune += `M${f(x)} ${f(ry)} v${f(rh)} M${f(x)} ${f(ry + rh * 0.35)} l${f(rnd() > 0.5 ? 5 : -5)} -4 M${f(x)} ${f(ry + rh * 0.7)} l${f(rnd() > 0.5 ? -5 : 5)} 4 `;
+    }
+    s += `<path d="${rune}" stroke="${glow}" stroke-width="3.2" stroke-linecap="round" fill="none" opacity="${lit ? 0.95 : 0.7}"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ""}/>`;
     return s;
+  }
+  function standingStones(stone, glow, lit, moss) {
+    return monolith(180, 750, 190, 64, stone, glow, lit, moss) + monolith(1420, 750, 190, 64, stone, glow, lit, moss) + monolith(500, 720, 120, 44, stone, glow, lit, moss) + monolith(1100, 720, 120, 44, stone, glow, lit, moss);
   }
   function brazier(x, base, s, stone, lit) {
     const flame = `<g class="bg-flicker" filter="url(#glow)"><path d="M${x - 9 * s} ${base - 34 * s} Q${x - 10 * s} ${base - 56 * s} ${x} ${base - 74 * s} Q${x + 10 * s} ${base - 56 * s} ${x + 9 * s} ${base - 34 * s} Z" fill="#ff9a2a"/><path d="M${x - 4 * s} ${base - 34 * s} Q${x - 4 * s} ${base - 48 * s} ${x} ${base - 58 * s} Q${x + 4 * s} ${base - 48 * s} ${x + 4 * s} ${base - 34 * s} Z" fill="#fff0a0"/></g>`;
     return `<path d="M${x - 14 * s} ${base} L${x - 9 * s} ${base - 26 * s} L${x - 16 * s} ${base - 34 * s} L${x + 16 * s} ${base - 34 * s} L${x + 9 * s} ${base - 26 * s} L${x + 14 * s} ${base} Z" fill="${stone}"/>${lit ? flame : `<ellipse cx="${x}" cy="${base - 36 * s}" rx="${12 * s}" ry="${4 * s}" fill="#ffb060" opacity=".7"/>`}`;
   }
   function grass(n, y0, y1, color, hmin = 14, hmax = 34) {
-    return `<g>${Array.from({ length: n }, () => {
-      const x = r(0, W), y = r(y0, y1), h4 = r(hmin, hmax);
-      return `<path d="M${f(x)} ${f(y)} q${f(r(-6, 2))} ${f(-h4 * 0.6)} ${f(r(-10, -2))} ${f(-h4)} M${f(x + 3)} ${f(y)} q${f(r(0, 4))} ${f(-h4 * 0.7)} ${f(r(4, 10))} ${f(-h4 * 0.9)}" stroke="${color}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
-    }).join("")}</g>`;
+    const shades = [dk2(color, 0.25), color, lighten(color, 0.22)];
+    const d = ["", "", ""];
+    for (let i = 0; i < n * 6; i++) {
+      const x = r(-10, W + 10), y = r(y0, y1), h4 = r(hmin, hmax) * r(0.6, 1.2), lean = r(-9, 9);
+      d[i % 3] += `M${f(x)} ${f(y)} q${f(lean * 0.3)} ${f(-h4 * 0.55)} ${f(lean)} ${f(-h4)} `;
+    }
+    const flowers = Array.from({ length: Math.round(n / 3) }, () => `<circle cx="${f(r(0, W))}" cy="${f(r(y0 - 6, y1 - 4))}" r="${f(r(1.6, 2.8))}" fill="${["#fff8e0", "#ffe27a", "#ffb3d0", "#d6e4ff"][Math.floor(rnd() * 4)]}"/>`).join("");
+    return `<g fill="none" stroke-linecap="round">${d.map((p, i) => `<path d="${p}" stroke="${shades[i]}" stroke-width="${[2.4, 2, 1.6][i]}"/>`).join("")}</g><g opacity=".85">${flowers}</g>`;
   }
   function rock(x, y, s, c) {
-    return `<path d="M${x - 40 * s} ${y} L${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} Z" fill="${c}"/><path d="M${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} L${x + 4 * s} ${y} Z" fill="#000" opacity=".22"/>`;
+    return `<path d="M${x - 40 * s} ${y} L${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} Z" fill="${c}" stroke="${dk2(c, 0.45)}" stroke-width="2"/><path d="M${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} L${x + 4 * s} ${y} Z" fill="#000" opacity=".22"/><path d="M${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s}" stroke="${lighten(c, 0.35)}" stroke-width="2.5" opacity=".6"/>${speckle(x - 30 * s, y - 34 * s, 70 * s, 30 * s, 14, c)}`;
+  }
+  function speckle(x, y, w, h4, n, c) {
+    let dark = "", light = "";
+    for (let i = 0; i < n; i++) {
+      const px = x + r(0, w), py = y + r(0, h4), s = r(1, 2.6);
+      const p = `M${f(px)} ${f(py)} h${f(s)} v${f(s * 0.8)} h${f(-s)}Z `;
+      if (i % 2) dark += p;
+      else light += p;
+    }
+    return `<path d="${dark}" fill="${dk2(c, 0.4)}" opacity=".7"/><path d="${light}" fill="${lighten(c, 0.3)}" opacity=".55"/>`;
   }
   function forest(t) {
     const sky = pick(t, [[0, "#7fb2d8"], [0.5, "#cfe4ec"], [1, "#f2f6ee"]], [[0, "#2a1a44"], [0.4, "#8a4a6a"], [0.7, "#e88a5a"], [1, "#ffd49a"]], [[0, "#050a16"], [0.55, "#0f2236"], [1, "#1c3c42"]]);
@@ -4660,6 +4784,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     ${trunk(90, 190, near, 30)}${trunk(1500, 210, near, -40)}${trunk(420, 110, mid, 20)}${trunk(1170, 120, mid, -10)}
     ${t !== "day" ? fireflies(t === "night" ? 28 : 12, 460, 760, "#e8ff9a") : ""}
     <path d="M0 740 Q400 724 800 726 Q1200 724 1600 740 L1600 900 L0 900 Z" fill="${pick(t, "#4e5a48", "#2a1c26", "#070d10")}"/>
+    ${standingStones(pick(t, "#5e6670", "#3a2a34", "#121a20"), "#6ec8ff", t !== "day", pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"))}
     ${grass(60, 720, 770, pick(t, "#5a7a4a", "#4a3a3a", "#0e1a12"))}
     ${arenaFloor(t, stone, pick(t, "#3a9cff", "#7ac8ff", "#5ab0ff"), pick(t, "#2a6ad0", "#e8f4ff", "#cfe8ff"))}
     ${mist(880, pick(t, "#ffffff", "#ffd8b8", "#2a4f56"), 0.18)}`;
@@ -4670,7 +4795,11 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     const water = pick(t, ["#8aa898", "#4a6656"], ["#c4865e", "#5a3438"], ["#24383a", "#081212"]);
     const stone = pick(t, ["#7a8a74", "#56644e", "#2e3628"], ["#6a5450", "#4a3638", "#22181c"], ["#2a3632", "#1c2624", "#0a100e"]);
     const deadTree = (x, y, h4, c) => {
-      const b = (x1, y1, x2, y2, w) => `<path d="M${f(x1)} ${f(y1)} Q ${f((x1 + x2) / 2 + r(-15, 15))} ${f((y1 + y2) / 2)} ${f(x2)} ${f(y2)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round" fill="none"/>`;
+      const b = (x1, y1, x2, y2, w) => {
+        const mx = f((x1 + x2) / 2 + r(-15, 15)), my = f((y1 + y2) / 2);
+        const d = `M${f(x1)} ${f(y1)} Q ${mx} ${my} ${f(x2)} ${f(y2)}`;
+        return `<path d="${d}" stroke="${dk2(c, 0.5)}" stroke-width="${f(w + 4)}" stroke-linecap="round" fill="none"/><path d="${d}" stroke="${c}" stroke-width="${f(w)}" stroke-linecap="round" fill="none"/><path d="${d}" transform="translate(${f(-w * 0.22)} 0)" stroke="${lighten(c, 0.25)}" stroke-width="${f(Math.max(1, w * 0.18))}" stroke-linecap="round" fill="none" opacity=".5"/>`;
+      };
       let s = b(x, y, x + 8, y - h4, h4 * 0.06) + b(x + 4, y - h4 * 0.55, x - h4 * 0.38, y - h4 * 0.86, h4 * 0.026) + b(x + 6, y - h4 * 0.72, x + h4 * 0.42, y - h4 * 0.98, h4 * 0.022) + b(x - h4 * 0.2, y - h4 * 0.74, x - h4 * 0.32, y - h4 * 1.02, h4 * 0.014) + b(x + 8, y - h4, x + 34, y - h4 * 1.16, h4 * 0.014);
       for (let i = 0; i < 6; i++) {
         const mx = x + r(-h4 * 0.35, h4 * 0.4), my = y - h4 * r(0.7, 1);
@@ -4690,12 +4819,16 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     ${[160, 420, 700, 1e3, 1260, 1480].map((x, i) => deadTree(x, 600, 140 + i % 3 * 30, pick(t, "#5a6a5a", "#5a3a48", "#0e1614"))).join("")}
     ${haze(600, pick(t, "#eef4e6", "#f0b090", "#2e4a3a"), 0.6)}
     <rect x="0" y="600" width="${W}" height="300" fill="url(#wt)"/>
+    <g class="bg-drift slow" stroke="${lighten(water[0], 0.35)}" stroke-width="2" fill="none" opacity=".45">${Array.from({ length: 22 }, () => {
+      const x = r(0, W), y = r(612, 720), w = r(30, 90);
+      return `<path d="M${f(x)} ${f(y)} q${f(w / 2)} -3 ${f(w)} 0"/>`;
+    }).join("")}</g>
     ${mist(610, pick(t, "#f6f8ec", "#f8c8a8", "#7a9a7a"), pick(t, 0.6, 0.45, 0.4))}
     ${[110, 1440].map((x, i) => deadTree(x, 720, 340 + i * 40, tree)).join("")}
     <g opacity=".22" transform="translate(0 1440) scale(1 -1)">${[110, 1440].map((x, i) => deadTree(x, 720, 340 + i * 40, tree)).join("")}</g>
     ${Array.from({ length: 16 }, () => `<ellipse cx="${f(r(0, W))}" cy="${f(r(640, 720))}" rx="${f(r(16, 34))}" ry="5" fill="${pick(t, "#5a8a44", "#6a5a34", "#1f3a1a")}"/>`).join("")}
     ${reeds(26, 640, 720, tree)}
-    ${monolith(270, 730, 120, 44, pick(t, "#4a5444", "#3a2a30", "#141c18"), "#9aff8a", lit)}${monolith(1330, 728, 130, 46, pick(t, "#4a5444", "#3a2a30", "#141c18"), "#9aff8a", lit)}
+    ${standingStones(pick(t, "#5a6454", "#3a2a30", "#141c18"), "#9aff8a", lit, pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"))}
     ${t !== "day" ? `<g class="bg-float">${Array.from({ length: t === "night" ? 7 : 3 }, () => `<circle cx="${f(r(100, W - 100))}" cy="${f(r(420, 660))}" r="${f(r(14, 24))}" fill="url(#wisp)" class="bg-flicker" style="animation-delay:${f(r(0, 3))}s"/>`).join("")}</g>` : ""}
     ${fireflies(t === "night" ? 30 : 10, 380, 700, "#d8ff7a")}
     ${arenaFloor(t, stone, pick(t, "#4aff7a", "#9aff8a", "#7affa0"), pick(t, "#1a7a3a", "#f0ffe0", "#d8ffe0"))}
@@ -4727,7 +4860,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     <g transform="translate(1200 600)"><rect x="-6" y="0" width="12" height="80" fill="${pick(t, "#cbb79a", "#5a3a3a", "#1a1a28")}"/><g class="bg-spin">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-64" width="8" height="64" fill="${pick(t, "#8a6a4a", "#3a2228", "#141420")}" transform="rotate(${a + 20})"/>`).join("")}</g></g>
     ${hills(680, 26, pick(t, "#6a9a4c", "#4a5a3a", "#162418"), 1.7)}
     ${gob(280, 700, 0.42, 0)}${gob(380, 704, 0.38, 6)}${gob(1250, 706, 0.4, 3)}
-    ${monolith(130, 760, 210, 70, mono, "#ffb070", lit)}${monolith(470, 735, 150, 54, mono, "#ffb070", lit)}${monolith(1130, 735, 150, 54, mono, "#ffb070", lit)}${monolith(1470, 760, 210, 70, mono, "#ffb070", lit)}
+    ${standingStones(mono, "#ffb070", lit, pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"))}
     ${brazier(330, 742, 1.2, mono, lit)}${brazier(1270, 742, 1.2, mono, lit)}
     ${grass(70, 700, 760, pick(t, "#3f6a2a", "#33472b", "#0b140c"))}
     ${arenaFloor(t, stone, pick(t, "#ffffff", "#ffe0c0", "#e8e6ff"), pick(t, "#4a3a6a", "#ffffff", "#ffffff"))}
@@ -4737,7 +4870,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     const sky = pick(t, [[0, "#5a86c0"], [0.6, "#a8c2e0"], [1, "#e2eaf2"]], [[0, "#1e0c24"], [0.4, "#7a2232"], [0.72, "#d0582e"], [1, "#f4a050"]], [[0, "#04061c"], [0.6, "#161f4e"], [1, "#2e3474"]]);
     const stoneC = pick(t, "#5e5e74", "#2c1a26", "#13132a"), roof = pick(t, "#3e3e5e", "#1c0e1a", "#1c1b36");
     const lit = t !== "day";
-    const tower = (x, w, h4) => `<rect x="${x}" y="${640 - h4}" width="${w}" height="${h4}" fill="${stoneC}"/><rect x="${x + w * 0.62}" y="${640 - h4}" width="${w * 0.38}" height="${h4}" fill="#000" opacity=".2"/><polygon points="${x - 10},${640 - h4} ${x + w / 2},${560 - h4} ${x + w + 10},${640 - h4}" fill="${roof}"/>` + Array.from({ length: Math.floor(h4 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h4 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h4}" x2="${x + w / 2}" y2="${520 - h4}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h4} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
+    const tower = (x, w, h4) => `<rect x="${x}" y="${640 - h4}" width="${w}" height="${h4}" fill="${stoneC}" stroke="${dk2(stoneC, 0.5)}" stroke-width="2.5"/><rect x="${x}" y="${640 - h4}" width="${w}" height="${h4}" fill="url(#bricks)"/><rect x="${x + w * 0.62}" y="${640 - h4}" width="${w * 0.38}" height="${h4}" fill="#000" opacity=".2"/><rect x="${x + 3}" y="${640 - h4}" width="5" height="${h4}" fill="#fff" opacity=".07"/><polygon points="${x - 10},${640 - h4} ${x + w / 2},${560 - h4} ${x + w + 10},${640 - h4}" fill="${roof}"/>` + Array.from({ length: Math.floor(h4 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h4 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h4}" x2="${x + w / 2}" y2="${520 - h4}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h4} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
     const soldier = (x, y, s, flip2, weapon) => {
       const c = pick(t, "#2c3038", "#1a0c10", "#06070e");
       const g = `<circle cx="0" cy="-58" r="7"/><path d="M-7 -62 q7 -14 14 0 z"/><rect x="-8" y="-50" width="16" height="30" rx="4"/><rect x="-8" y="-22" width="6" height="22"/><rect x="2" y="-22" width="6" height="22"/><ellipse cx="-11" cy="-36" rx="7" ry="11"/>` + (weapon === "spear" ? `<line x1="10" y1="-10" x2="16" y2="-92" stroke="${c}" stroke-width="3"/><polygon points="13,-92 16,-104 19,-92"/>` : `<g class="bg-swing"><line x1="8" y1="-40" x2="34" y2="-70" stroke="${c}" stroke-width="3"/></g>`);
@@ -4746,13 +4879,14 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     const army = (x0, flip2) => Array.from({ length: 9 }, (_, i) => soldier(x0 + (flip2 ? -1 : 1) * (i * 34 + r(-6, 6)), 718 + i % 3 * 6, 0.9 + i % 3 * 0.08, flip2, i % 4 === 3 ? "sword" : "spear")).join("");
     const banner = (x) => `<line x1="${x}" y1="720" x2="${x}" y2="470" stroke="${pick(t, "#3a3030", "#1a0c10", "#0a0a14")}" stroke-width="7"/><path class="bg-flag" d="M${x} 480 h62 v130 l-31 -22 l-31 22 Z" fill="${pick(t, "#a8243a", "#7a1424", "#5a1020")}"/>`;
     const stone = pick(t, ["#8a8494", "#5e5868", "#2e2a36"], ["#5a3a3a", "#3e2628", "#1e1012"], ["#2a2a40", "#1c1c30", "#0c0c18"]);
-    return `<defs>${grad("sk", sky)}${floorDefs(stone)}${DEFS}</defs>
+    const bricks = `<pattern id="bricks" width="44" height="28" patternUnits="userSpaceOnUse"><path d="M0 0.5 H44 M0 14.5 H44 M22 0 V14 M0 14 V28 M44 14 V28" stroke="${dk2(stoneC, 0.45)}" stroke-width="1.6" fill="none" opacity=".7"/><rect x="2" y="2" width="18" height="11" fill="#fff" opacity=".05"/><rect x="24" y="16" width="18" height="11" fill="#000" opacity=".08"/><path d="M2 2.5 H20 M24 16.5 H42" stroke="#fff" stroke-width="1" opacity=".12"/></pattern>`;
+    return `<defs>${grad("sk", sky)}${floorDefs(stone)}${DEFS}${bricks}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === "night" ? milkyWay() + stars(160, 460) + moon(300, 150, 52, "#e8e6ff") : t === "sunset" ? horizonGlow(560, "#ff5a2a") + sun(1250, 520, 90, "#ffb070", "#ff5a3a") + clouds(5, 120, 300, "#ff9a7a", 0.4) : sun(1280, 140, 44, "#fffbe6", "#ffffff") + clouds(7, 80, 280, "#ffffff", 0.85)}
     ${mountains(600, 110, pick(t, "#7686a2", "#3a1622", "#0e1030"), 1.3)}
     ${haze(620, pick(t, "#dfe8f4", "#ff7a5a", "#1a2050"), 0.5)}
     ${hills(640, 18, pick(t, "#4e5e4c", "#1a0a12", "#10122a"))}
-    <rect x="560" y="430" width="480" height="210" fill="${stoneC}"/>
+    <rect x="560" y="430" width="480" height="210" fill="${stoneC}" stroke="${dk2(stoneC, 0.5)}" stroke-width="2.5"/><rect x="560" y="430" width="480" height="210" fill="url(#bricks)"/>
     ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="${stoneC}"/>`).join("")}
     ${tower(500, 90, 330)}${tower(1010, 90, 330)}${tower(740, 120, 420)}
     <path d="M760 640 L760 590 Q800 548 840 590 L840 640 Z" fill="${pick(t, "#2a2a38", "#0c0408", "#05050f")}"/>
@@ -4762,6 +4896,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     ${Array.from({ length: 9 }, (_, i) => `<ellipse cx="${f(470 + i * 82 + r(-10, 10))}" cy="${f(664 + r(0, 14))}" rx="${f(r(18, 30))}" ry="${f(r(7, 11))}" fill="${dk2(stoneC, 0.15)}" opacity=".7"/>`).join("")}
     ${lit ? `<g class="bg-flicker" filter="url(#glow)"><circle cx="740" cy="600" r="6" fill="#ffb347"/><circle cx="860" cy="600" r="6" fill="#ffb347"/></g>` : ""}
     ${haze(700, pick(t, "#e8eef6", "#ff8a5a", "#1a2050"), 0.25)}
+    ${standingStones(pick(t, "#6a6878", "#3a2228", "#16162a"), "#ffb060", lit, pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"))}
     ${banner(380)}${banner(1158)}
     ${army(40, false)}${army(1560, true)}
     ${brazier(270, 740, 1.4, pick(t, "#4a4a56", "#2a1418", "#121222"), lit || true)}${brazier(1330, 740, 1.4, pick(t, "#4a4a56", "#2a1418", "#121222"), lit || true)}
@@ -4771,22 +4906,31 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
   }
   function worldtree(t) {
     const sky = pick(t, [[0, "#4a8ad8"], [0.5, "#9cd0f2"], [0.85, "#e8f6ff"], [1, "#ffffff"]], [[0, "#2a1450"], [0.45, "#b04a78"], [0.8, "#f4a060"], [1, "#ffe0a0"]], [[0, "#0b0626"], [0.45, "#2a1260"], [0.8, "#1d4f78"], [1, "#2c8a8a"]]);
-    const bark = pick(t, "#4a3626", "#3a2418", "#1a1424"), leaf = pick(t, ["#3f9a5a", "#56b86a", "#7ad68a"], ["#7a5a3a", "#a0703a", "#e0a050"], ["#14402f", "#1b5a3c", "#2f9e6a"]);
+    const bark0 = pick(t, "#6a4a32", "#4a2e1c", "#1e1828");
+    const barkC = bark0, leaf = pick(t, ["#3f9a5a", "#56b86a", "#7ad68a"], ["#7a5a3a", "#a0703a", "#e0a050"], ["#14402f", "#1b5a3c", "#2f9e6a"]);
     const lit = t !== "day";
     const stone = pick(t, ["#7a8a8a", "#56645e", "#2a3430"], ["#6a5450", "#4a3a3a", "#22181a"], ["#1e3038", "#14222a", "#081016"]);
     const canopy = (cx, cy, rx, ry) => [0, 1, 2].map((layer) => {
-      const n = [26, 30, 22][layer], k = [1, 0.85, 0.6][layer], dy = [40, 0, -40][layer], dx = [0, -10, -50][layer];
+      const n = [40, 46, 34][layer], k = [1, 0.85, 0.6][layer], dy = [40, 0, -40][layer], dx = [0, -10, -50][layer];
       const col = [dk2(leaf[0], 0.35), leaf[1], leaf[2]][layer];
       return Array.from({ length: n }, () => {
         const a = r(0, Math.PI * 2), d = Math.sqrt(rnd());
         const x = cx + dx + Math.cos(a) * rx * k * d, y = cy + dy + Math.sin(a) * ry * k * d;
-        const rad = r(34, 70) * (layer === 2 ? 0.8 : 1);
-        return `<circle cx="${f(x)}" cy="${f(y)}" r="${f(rad)}" fill="${col}"/>${layer === 2 ? `<circle cx="${f(x - rad * 0.3)}" cy="${f(y - rad * 0.35)}" r="${f(rad * 0.45)}" fill="#ffffff" opacity=".08"/>` : ""}`;
+        const rad = r(28, 58) * (layer === 2 ? 0.8 : 1);
+        const bumps = Array.from({ length: 5 }, (_, j) => {
+          const b = j / 5 * Math.PI * 2 + r(-0.3, 0.3);
+          return `<circle cx="${f(x + Math.cos(b) * rad * 0.82)}" cy="${f(y + Math.sin(b) * rad * 0.82)}" r="${f(rad * r(0.32, 0.45))}" fill="${col}"/>`;
+        }).join("");
+        return `<circle cx="${f(x)}" cy="${f(y + 3)}" r="${f(rad + 3)}" fill="${dk2(col, 0.25)}"/>${bumps}<circle cx="${f(x)}" cy="${f(y)}" r="${f(rad)}" fill="${col}"/>${layer >= 1 ? `<circle cx="${f(x - rad * 0.3)}" cy="${f(y - rad * 0.35)}" r="${f(rad * 0.45)}" fill="#ffffff" opacity="${layer === 2 ? 0.12 : 0.06}"/>` : ""}`;
       }).join("");
     }).join("");
-    const island = (x, y, s) => `<g class="bg-float"><path d="M${x - 60 * s} ${y} Q${x} ${y - 16 * s} ${x + 60 * s} ${y} L${x + 20 * s} ${y + 50 * s} L${x} ${y + 80 * s} L${x - 24 * s} ${y + 46 * s} Z" fill="${pick(t, "#6a5a4a", "#5a3a2a", "#1e1a2a")}"/><ellipse cx="${x}" cy="${y - 4 * s}" rx="${62 * s}" ry="${12 * s}" fill="${leaf[1]}"/>${lit ? `<circle cx="${x}" cy="${y + 70 * s}" r="${4 * s}" fill="#9ff5c8" filter="url(#glow)" class="bg-flicker"/>` : ""}</g>`;
+    const island = (x, y, s) => {
+      const dirt = pick(t, "#7a5a42", "#5a3a2a", "#1e1a2a");
+      const bits = Array.from({ length: 4 }, (_, i) => `<rect x="${f(x + r(-20, 20) * s)}" y="${f(y + (80 + i * 14) * s)}" width="${f(r(3, 6) * s)}" height="${f(r(3, 6) * s)}" fill="${dirt}" transform="rotate(${f(r(0, 45))} ${f(x)} ${f(y + 90 * s)})"/>`).join("");
+      return `<g class="bg-float"><ellipse cx="${x}" cy="${y + 40 * s}" rx="${70 * s}" ry="${30 * s}" fill="${pick(t, "#9ff5ff", "#ffd0a0", "#7affd0")}" opacity=".25" filter="url(#blur20)"/><path d="M${x - 60 * s} ${y} Q${x} ${y - 16 * s} ${x + 60 * s} ${y} L${x + 20 * s} ${y + 50 * s} L${x} ${y + 80 * s} L${x - 24 * s} ${y + 46 * s} Z" fill="${dirt}" stroke="${dk2(dirt, 0.5)}" stroke-width="2.5" stroke-linejoin="round"/><path d="M${x - 30 * s} ${y + 10 * s} L${x - 10 * s} ${y + 40 * s} M${x + 20 * s} ${y + 8 * s} L${x + 6 * s} ${y + 50 * s}" stroke="${dk2(dirt, 0.35)}" stroke-width="2" fill="none"/><ellipse cx="${x}" cy="${y - 4 * s}" rx="${62 * s}" ry="${12 * s}" fill="${leaf[1]}" stroke="${dk2(leaf[1], 0.4)}" stroke-width="2"/><path d="M${x - 40 * s} ${y + 4 * s} q4 ${12 * s} 0 ${20 * s} M${x + 30 * s} ${y + 4 * s} q-3 ${10 * s} 1 ${16 * s}" stroke="${leaf[0]}" stroke-width="3" fill="none" stroke-linecap="round"/><g class="bg-flicker">${bits}</g>${lit ? `<circle cx="${x}" cy="${y + 70 * s}" r="${4 * s}" fill="#9ff5c8" filter="url(#glow)" class="bg-flicker"/>` : ""}</g>`;
+    };
     const mono = pick(t, "#4a5a5a", "#3a2a30", "#122028");
-    return `<defs>${grad("sk", sky)}${radial("glow2", [[0, pick(t, "#ffffff", "#ffe0a0", "#9ff5c8"), 0.55], [1, "#ffffff", 0]])}${grad("aurora", [[0, "#7affc8", 0], [0.5, "#7affc8", 0.35], [1, "#b07aff", 0]], false)}${floorDefs(stone)}${DEFS}</defs>
+    return `<defs>${grad("sk", sky)}${radial("glow2", [[0, pick(t, "#ffffff", "#ffe0a0", "#9ff5c8"), 0.55], [1, "#ffffff", 0]])}${grad("aurora", [[0, "#7affc8", 0], [0.5, "#7affc8", 0.35], [1, "#b07aff", 0]], false)}${floorDefs(stone)}${DEFS}<clipPath id="trunkClip"><path d="M690 650 Q712 520 690 430 L910 430 Q888 520 910 650 Z"/></clipPath></defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === "night" ? stars(200, 560, "#d7ccff") + `<g class="bg-aurora" filter="url(#blur20)"><path d="M-100 200 C 300 80, 700 260, 1100 140 S 1600 120, 1800 200 L1800 280 C 1300 200, 900 340, 500 240 S 0 260, -100 300 Z" fill="url(#aurora)"/></g>` + moon(1300, 150, 50, "#fff4d6") : t === "sunset" ? horizonGlow(500, "#ffb070") + sun(300, 470, 80, "#fff0c0", "#ffb070") : sun(1300, 140, 50, "#ffffff", "#fff8d0") + rays(1300, 140, "#ffffff", 0.18)}
     ${mountains(600, 150, pick(t, "#7a9ac0", "#6a4a72", "#1a2a4a"), 0.2)}
@@ -4794,15 +4938,16 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     ${island(260, 300, 0.9)}${island(1340, 360, 0.7)}${island(1080, 220, 0.5)}
     <ellipse cx="800" cy="600" rx="700" ry="200" fill="url(#glow2)"/>
     ${clouds(8, 600, 660, pick(t, "#ffffff", "#ffd8c0", "#efeaff"), pick(t, 0.8, 0.55, 0.2), "bg-drift slow")}
-    <path d="M690 650 Q712 520 690 430 Q660 360 580 320 L640 318 Q720 350 750 290 Q760 360 800 330 Q840 360 850 290 Q880 350 960 318 L1020 320 Q940 360 910 430 Q888 520 910 650 Z" fill="${bark}"/>
+    <path d="M690 650 Q712 520 690 430 Q660 360 580 320 L640 318 Q720 350 750 290 Q760 360 800 330 Q840 360 850 290 Q880 350 960 318 L1020 320 Q940 360 910 430 Q888 520 910 650 Z" fill="${barkC}"/>
     <path d="M800 650 L790 440 Q800 400 812 440 L820 650Z" fill="#000" opacity=".18"/><path d="M700 640 Q706 520 696 440 L720 440 Q728 520 724 640Z" fill="#fff" opacity=".07"/>
+    <g clip-path="url(#trunkClip)">${bark(690, 420, 220, 240, bark0)}</g>
     ${canopy(800, 240, 470, 170)}
     ${hills(690, 20, pick(t, "#3a6a4a", "#4a3a2a", "#0e2420"), 1)}
     <path d="M560 716 C 640 680, 720 664, 800 662 C 880 664, 960 680, 1040 716 Z" fill="${dk2(pick(t, "#3a6a4a", "#4a3a2a", "#0e2420"), 0.12)}"/>
-    <path d="M691 644 Q688 652 676 662 Q600 676 470 712 L540 716 Q630 694 716 684 Q740 704 700 724 L780 724 Q790 700 800 690 Q812 700 820 724 L900 724 Q860 704 884 684 Q970 694 1060 716 L1130 712 Q1000 676 924 662 Q912 652 909 644 Z" fill="${bark}"/>
+    <path d="M691 644 Q688 652 676 662 Q600 676 470 712 L540 716 Q630 694 716 684 Q740 704 700 724 L780 724 Q790 700 800 690 Q812 700 820 724 L900 724 Q860 704 884 684 Q970 694 1060 716 L1130 712 Q1000 676 924 662 Q912 652 909 644 Z" fill="${barkC}"/>
     <path d="M676 664 Q600 680 500 712 M924 664 Q1000 680 1100 712" stroke="#000" stroke-opacity=".18" stroke-width="5" fill="none"/>
     ${lit ? `<g filter="url(#glow)" class="bg-flicker slow">${Array.from({ length: 7 }, (_, i) => `<path d="M${740 + i * 20} 680 q${r(-40, 40)} 30 ${r(-120, 120)} 50" stroke="#9ff5c8" stroke-width="2" fill="none" opacity=".7"/>`).join("")}</g>` : ""}
-    ${monolith(180, 750, 190, 64, mono, "#7affd0", lit)}${monolith(1420, 750, 190, 64, mono, "#7affd0", lit)}${monolith(500, 720, 120, 44, mono, "#7affd0", lit)}${monolith(1100, 720, 120, 44, mono, "#7affd0", lit)}
+    ${standingStones(mono, "#7affd0", lit, pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"))}
     ${grass(60, 700, 760, pick(t, "#2f6a3a", "#4a3a24", "#0a1a14"))}
     ${fireflies(t === "night" ? 50 : 20, 420, 760, pick(t, "#ffffff", "#fff0b0", "#b9ffd8"))}
     ${arenaFloor(t, stone, pick(t, "#2adfa0", "#7affd0", "#6affd0"), pick(t, "#0a5a40", "#f0fff8", "#e0fff4"))}
@@ -4817,7 +4962,28 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
   var cache2 = /* @__PURE__ */ new Map();
   var BG_FADE_MS = 3200;
   var fadeTimer = 0;
+  var grainDone = false;
+  function ensureGrain() {
+    if (grainDone) return;
+    grainDone = true;
+    try {
+      const c = document.createElement("canvas");
+      c.width = c.height = 160;
+      const g = c.getContext("2d");
+      if (!g) return;
+      const img = g.createImageData(160, 160);
+      for (let i = 0; i < img.data.length; i += 4) {
+        const v = Math.random() * 255;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+        img.data[i + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+      document.documentElement.style.setProperty("--grain", `url(${c.toDataURL("image/png")})`);
+    } catch {
+    }
+  }
   function paintBackground(el11, id, time = "night", fade = false) {
+    ensureGrain();
     const key = `${id}-${time}`;
     if (el11.dataset.key === key) return;
     el11.dataset.key = key;
@@ -5475,7 +5641,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
   function showPrep(pool, durationMs, mode4) {
     $("prepSub").textContent = mode4 === "writing" ? "Memorise how each word is written. In battle you only get the meaning (and a half-second glimpse)." : "Memorise the readings. They vanish when the battle starts.";
     $("studyGrid").replaceChildren(
-      ...pool.map((w) => append(h("div", "card"), h("div", "lv", LEVEL_LABEL[w.level]), h("div", "k", w.kanji, { lang: "ja" }), h("div", "r", w.reading, { lang: "ja" }), h("div", "m", w.meaning)))
+      ...pool.map((w) => append(h("div", "card" + (w.mine ? " mine" : "")), h("div", "lv", LEVEL_LABEL[w.level]), ...w.mine ? [h("div", "mine-tag", "\u2605 yours", { title: "From your All spells" })] : [], h("div", "k", w.kanji, { lang: "ja" }), h("div", "r", w.reading, { lang: "ja" }), h("div", "m", w.meaning)))
     );
     $("ready").disabled = false;
     $("readyStatus").textContent = "";
@@ -5775,6 +5941,10 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     const k = $("kanji");
     k.classList.remove("cast", "gone");
     k.textContent = c.kanji;
+    const wf = $("wordFrom");
+    wf.hidden = !c.from;
+    wf.textContent = c.from ? c.from === "you" ? "\u2605 From your spells" : `From ${c.from}'s spells` : "";
+    wf.classList.toggle("mine", c.from === "you");
     setFeedback(null);
     countdown("challenge", c.timeLimitMs, (_l, frac) => $("challengeBar").style.width = `${frac * 100}%`);
     bigTimer("challengeRing", $("turnTimer"), c.timeLimitMs, c.timeLimitMs, Math.min(5e3, c.timeLimitMs / 3));
@@ -7368,6 +7538,28 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.4.4.2",
+      date: "2026-10",
+      en: [
+        "Battles use your own words: 1v1 Kanji Reading, Kanji Writing and Boss take the words of your levels from your All spells (random words fill up when you have too few) \u2014 marked \u2605 on the study cards.",
+        "1v1 Rapid: the first 10 rounds are 5 words from each player\u2019s All spells, and each round says whose word it is.",
+        "Study spells: every card you answer gives +5 XP (up to 500 a day). The first few each day show \u201C+5 XP\u201D, then it stays quiet.",
+        "Study spells: \u201Clearned today\u201D, \u201Clearned in total\u201D and today\u2019s study XP are big tiles at the top, and the new-spells-a-day total is big too.",
+        "New 2D arenas look: a painted style with fine grain \u2014 faceted mountains, outlined clouds, dense grass with little flowers, bark, stone brickwork \u2014 and the World Tree\u2019s four rune stones now stand in every arena.",
+        "Fixes: \u201C\u2190 Leave room\u201D looks like \u201C\u2190 Menu\u201D; the menu\u2019s small buttons no longer overlap the menu on short screens; the quizzes have room under \u201C\u2190 Study\u201D.",
+        "Reading passage stories can now be written by Google Gemini (free tier), Claude or any OpenAI-compatible AI \u2014 whichever key the server has."
+      ],
+      ru: [
+        "\u0411\u043E\u0438 \u2014 \u0432\u0430\u0448\u0438\u043C\u0438 \u0441\u043B\u043E\u0432\u0430\u043C\u0438: \xAB\u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438\xBB, \xAB\u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438\xBB \u0438 \xAB\u0411\u043E\u0441\u0441\xBB \u0431\u0435\u0440\u0443\u0442 \u0441\u043B\u043E\u0432\u0430 \u0432\u0430\u0448\u0438\u0445 \u0443\u0440\u043E\u0432\u043D\u0435\u0439 \u0438\u0437 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB (\u0435\u0441\u043B\u0438 \u043C\u0430\u043B\u043E \u2014 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u044E\u0442\u0441\u044F \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0435), \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430\u0445 \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0438 \u043E\u043D\u0438 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B \u2605.",
+        "1v1 \u0420\u0430\u043F\u0438\u0434: \u043F\u0435\u0440\u0432\u044B\u0435 10 \u0440\u0430\u0443\u043D\u0434\u043E\u0432 \u2014 \u043F\u043E 5 \u0441\u043B\u043E\u0432 \u0438\u0437 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0438\u0433\u0440\u043E\u043A\u0430, \u0438 \u0432 \u043A\u0430\u0436\u0434\u043E\u043C \u0440\u0430\u0443\u043D\u0434\u0435 \u0432\u0438\u0434\u043D\u043E, \u0447\u044C\u0451 \u044D\u0442\u043E \u0441\u043B\u043E\u0432\u043E.",
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u043A\u0430\u0436\u0434\u0430\u044F \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0434\u0430\u0451\u0442 +5 \u043E\u043F\u044B\u0442\u0430 (\u0434\u043E 500 \u0432 \u0434\u0435\u043D\u044C). \u041F\u0435\u0440\u0432\u044B\u0435 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430 \u0434\u0435\u043D\u044C \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u044E\u0442 \xAB+5 XP\xBB, \u0434\u0430\u043B\u044C\u0448\u0435 \u2014 \u0431\u0435\u0437 \u043E\u0442\u0432\u043B\u0435\u0447\u0435\u043D\u0438\u0439.",
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \xAB\u0432\u044B\u0443\u0447\u0435\u043D\u043E \u0441\u0435\u0433\u043E\u0434\u043D\u044F\xBB, \xAB\u0432\u044B\u0443\u0447\u0435\u043D\u043E \u0432\u0441\u0435\u0433\u043E\xBB \u0438 \u043E\u043F\u044B\u0442 \u0437\u0430 \u0443\u0447\u0451\u0431\u0443 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u2014 \u043A\u0440\u0443\u043F\u043D\u044B\u0435 \u043F\u043B\u0438\u0442\u043A\u0438 \u0432\u0432\u0435\u0440\u0445\u0443; \u043E\u0431\u0449\u0435\u0435 \u0447\u0438\u0441\u043B\u043E \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u0432 \u0434\u0435\u043D\u044C \u0442\u043E\u0436\u0435 \u043A\u0440\u0443\u043F\u043D\u043E\u0435.",
+        "\u041D\u043E\u0432\u044B\u0439 \u0432\u0438\u0434 2D-\u0430\u0440\u0435\u043D: \u0440\u0438\u0441\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0441\u0442\u0438\u043B\u044C \u0441 \u043B\u0451\u0433\u043A\u0438\u043C \u0437\u0435\u0440\u043D\u043E\u043C \u2014 \u0433\u0440\u0430\u043D\u0451\u043D\u044B\u0435 \u0433\u043E\u0440\u044B, \u043E\u0431\u043B\u0430\u043A\u0430 \u0441 \u043A\u043E\u043D\u0442\u0443\u0440\u043E\u043C, \u0433\u0443\u0441\u0442\u0430\u044F \u0442\u0440\u0430\u0432\u0430 \u0441 \u0446\u0432\u0435\u0442\u0430\u043C\u0438, \u043A\u043E\u0440\u0430, \u043A\u0430\u043C\u0435\u043D\u043D\u0430\u044F \u043A\u043B\u0430\u0434\u043A\u0430 \u2014 \u0438 \u0447\u0435\u0442\u044B\u0440\u0435 \u0440\u0443\u043D\u043D\u044B\u0445 \u043A\u0430\u043C\u043D\u044F \u041C\u0438\u0440\u043E\u0432\u043E\u0433\u043E \u0434\u0440\u0435\u0432\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u043D\u0430 \u043A\u0430\u0436\u0434\u043E\u0439 \u0430\u0440\u0435\u043D\u0435.",
+        "\u0418\u0441\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F: \xAB\u2190 \u041F\u043E\u043A\u0438\u043D\u0443\u0442\u044C \u043A\u043E\u043C\u043D\u0430\u0442\u0443\xBB \u0432\u044B\u0433\u043B\u044F\u0434\u0438\u0442 \u043A\u0430\u043A \xAB\u2190 \u041C\u0435\u043D\u044E\xBB; \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u0438\u0435 \u043A\u043D\u043E\u043F\u043A\u0438 \u043C\u0435\u043D\u044E \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043D\u0430\u0435\u0437\u0436\u0430\u044E\u0442 \u043D\u0430 \u043C\u0435\u043D\u044E \u043D\u0430 \u043D\u0435\u0432\u044B\u0441\u043E\u043A\u0438\u0445 \u044D\u043A\u0440\u0430\u043D\u0430\u0445; \u0432 \u0442\u0435\u0441\u0442\u0430\u0445 \u043F\u043E\u044F\u0432\u0438\u043B\u043E\u0441\u044C \u043C\u0435\u0441\u0442\u043E \u043F\u043E\u0434 \xAB\u2190 \u0423\u0447\u0451\u0431\u0430\xBB.",
+        "\u0420\u0430\u0441\u0441\u043A\u0430\u0437\u044B \u0434\u043B\u044F \u0442\u0435\u043A\u0441\u0442\u0430 \u043C\u043E\u0433\u0443\u0442 \u043F\u0438\u0441\u0430\u0442\u044C Google Gemini (\u0431\u0435\u0441\u043F\u043B\u0430\u0442\u043D\u044B\u0439 \u0443\u0440\u043E\u0432\u0435\u043D\u044C), Claude \u0438\u043B\u0438 \u043B\u044E\u0431\u043E\u0439 \u0418\u0418, \u0441\u043E\u0432\u043C\u0435\u0441\u0442\u0438\u043C\u044B\u0439 \u0441 OpenAI, \u2014 \u0441\u043C\u043E\u0442\u0440\u044F \u043A\u0430\u043A\u043E\u0439 \u043A\u043B\u044E\u0447 \u0435\u0441\u0442\u044C \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435."
+      ]
+    },
     {
       v: "0.9.9.4.4.1",
       date: "2026-10",
@@ -10720,7 +10912,9 @@ ${stack}`.slice(0, 2e3);
       row.classList.toggle("changed", (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
     }
     const total = planTotal(draftPlan);
-    $9("dailyTotal").textContent = total ? `${total} new spells a day` : "";
+    const tot = $9("dailyTotal");
+    tot.hidden = !total;
+    tot.replaceChildren(Object.assign(document.createElement("b"), { textContent: String(total) }), document.createTextNode(` ${tr("new spells a day")}`));
     const dirty = LEVELS.some((l) => (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
     const bar = $9("planApply");
     bar.hidden = !dirty;
@@ -10756,7 +10950,9 @@ ${stack}`.slice(0, 2e3);
     counts2($9("countsStruggle"), s.decks.struggling);
     counts2($9("countsCustom"), s.decks.custom);
     if (s.decks.ono) counts2($9("countsOno"), s.decks.ono);
-    $9("studyCrit").textContent = `${s.profile.learnedToday} learned today \xB7 ${s.profile.learned} learned in total`;
+    $9("ssToday").textContent = String(s.profile.learnedToday);
+    $9("ssTotal").textContent = String(s.profile.learned);
+    $9("ssXp").textContent = `+${s.studyXpToday ?? 0}`;
     const notice = $9("studyNotice");
     notice.hidden = !s.notice;
     notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
@@ -10867,13 +11063,34 @@ ${stack}`.slice(0, 2e3);
     queue3 = [h4.card, ...h4.queue];
     next2();
   }
+  var XP_SHOW = 5;
+  var xpShown = 0;
+  function xpPop(n) {
+    const key = `kb:xpPop:${(/* @__PURE__ */ new Date()).toDateString()}`;
+    try {
+      xpShown = Number(localStorage.getItem(key)) || xpShown;
+    } catch {
+    }
+    if (xpShown >= XP_SHOW || $9("review").hidden) return;
+    xpShown++;
+    try {
+      localStorage.setItem(key, String(xpShown));
+    } catch {
+    }
+    const p = document.createElement("div");
+    p.className = "xp-pop";
+    p.textContent = `+${n} XP`;
+    $9("flash").append(p);
+    setTimeout(() => p.remove(), 1200);
+  }
   function rate(r2) {
     if (!current || !flipped || busy) return;
     const card = current, d = deck;
     history2.push({ card, queue: [...queue3] });
     if (history2.length > 30) history2.shift();
     undoBtn();
-    sending = sending.then(() => api.review(card.vocabId, r2, d).then(() => {
+    sending = sending.then(() => api.review(card.vocabId, r2, d).then((res2) => {
+      if (res2.xp) xpPop(res2.xp);
     }, (e) => {
       toast(e.message);
     }));
@@ -12656,7 +12873,7 @@ ${stack}`.slice(0, 2e3);
       case "challenge":
         challengeId = msg.id;
         arena()?.channel(0);
-        showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs });
+        showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs, from: msg.from });
         gameKbReset();
         arena()?.oppChannel(true);
         if (msg.answer === "writing") {

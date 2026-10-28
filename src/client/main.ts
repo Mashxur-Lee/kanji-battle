@@ -363,7 +363,7 @@ function onMessage(msg: ServerMessage) {
     case 'challenge':
       challengeId = msg.id;
       arena()?.channel(0);
-      ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs });
+      ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs, from: msg.from });
       gameKbReset();
       arena()?.oppChannel(true); // the others are always working on a word in a battle: their staffs trace ∞
       if (msg.answer === 'writing') { flashMs = msg.flashMs ?? 3500; beginWriting(msg.id, msg.kanji); }

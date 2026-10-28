@@ -31,6 +31,7 @@ export class RapidGame implements Match {
   private battleEndsAt = 0;
   private phaseEndsAt = 0;
 
+  private first: VocabEntry[] = [];
   constructor(
     setups: ReadonlyArray<{ id: PlayerId; maxHp: number; crit?: number }>,
     pool: readonly VocabEntry[],
@@ -39,10 +40,13 @@ export class RapidGame implements Match {
     private readonly rng: Rng = Math.random,
     private readonly now: () => number = Date.now,
     private readonly timers: Timers = REAL_TIMERS,
+    /** 0.9.9.4.4.2: the first `firstN` words of the pool (the players' own words) come first, in this order */
+    firstN = 0,
   ) {
     if (setups.length < 2) throw new Error('Rapid needs 2 players');
     if (pool.length === 0) throw new Error('Rapid needs words');
     this.deck = new ChallengeDeck(pool, rng);
+    this.first = pool.slice(0, firstN);
     for (const s of setups) {
       this.players.set(s.id, { id: s.id, hp: s.maxHp, maxHp: s.maxHp, crit: s.crit ?? 0, combo: 0, bestCombo: 0, damageDealt: 0, gaveUp: false, attempts: 0, correct: 0, totalMs: 0, words: new Map() });
     }
@@ -144,7 +148,7 @@ export class RapidGame implements Match {
 
   private nextRound() {
     if (this.phase !== 'battle') return;
-    const entry = this.deck.draw();
+    const entry = this.first.shift() ?? this.deck.draw();
     this.current = { id: this.nextId++, entry, issuedAt: this.now() };
     for (const p of this.players.values()) {
       p.gaveUp = false;

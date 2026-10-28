@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.4.4.1
+# Kanji Wizards · v0.9.9.4.4.2
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -65,8 +65,10 @@ Passwords are hashed with scrypt; logins are signed tokens (30 days).
 | `AUTH_SECRET` | **Set this.** Any long random string. Without it, everyone is logged out whenever the server restarts. |
 | `ADMIN_PASSWORD` | **Set this.** Replaces the public default admin password. |
 | `USER_PASSWORD` | Optional: password for the demo `user` account. |
-| `ANTHROPIC_API_KEY` | Optional: turns on the reading passage's AI stories (one short story written with the player's words, by Claude Haiku; up to 40 per player a day, cached). Without it the passage uses the words' example sentences. |
-| `STORY_MODEL` | Optional: another Claude model for the stories (default `claude-haiku-5-5`). |
+| `GEMINI_API_KEY` | Optional: turns on the reading passage's AI stories (one short story written with the player's words) using Google Gemini — it has a free tier (get a key at aistudio.google.com). Default model `gemini-flash-lite-latest`. |
+| `ANTHROPIC_API_KEY` | Optional, instead of Gemini: the stories come from Claude (default `claude-haiku-5-5`). Pay-as-you-go from console.anthropic.com. |
+| `OPENAI_API_KEY` (+ `OPENAI_BASE_URL`) | Optional, instead: any OpenAI-compatible API — OpenAI (default), xAI Grok (`https://api.x.ai/v1`), Groq (`https://api.groq.com/openai/v1`), OpenRouter (`https://openrouter.ai/api/v1`). Set `STORY_MODEL` to that service's model name. |
+| `STORY_MODEL` | Optional: the model for the stories. `STORY_DAILY_MAX`: stories a day for everyone together (default 400; each player up to 40). Without any key the passage uses the words' example sentences. |
 | `USERS_FILE` | Local only: where the file store writes when there is no database (default `.data/users.json`). |
 
 ### Keeping accounts on Render (Neon Postgres)

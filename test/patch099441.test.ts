@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { checkStory, StoryService, type StoryWord } from '../src/server/study/StoryService';
+import { checkStory, providerFromEnv, StoryService, type StoryWord } from '../src/server/study/StoryService';
 
 const words: StoryWord[] = [
   { kanji: '祈る', reading: 'いのる', meaning: 'to pray' },
@@ -29,15 +29,31 @@ test('story check: missing furigana, a missing mark, a wrong word or reading are
 });
 
 test('stories: off without an API key; with one, a checked answer is used and cached', async () => {
-  assert.equal(await new StoryService('').story('u', words, '2026-10-28'), null);
+  assert.equal(await new StoryService(null).story('u', words, '2026-10-28'), null);
   let calls = 0;
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async () => { calls++; return new Response(JSON.stringify({ content: [{ type: 'text', text: `Here:\n${JSON.stringify(good)}` }] })); }) as typeof fetch;
   try {
-    const svc = new StoryService('test-key');
+    const svc = new StoryService({ kind: 'anthropic', key: 'k', model: 'm' });
     const s = await svc.story('u', words, '2026-10-28');
     assert.equal(s?.lines.length, 2);
     await svc.story('u', [...words].reverse(), '2026-10-28');
     assert.equal(calls, 1, 'the same words come from the cache');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('stories: Gemini (free tier) first, then Claude, then any OpenAI-compatible API', async () => {
+  assert.equal(providerFromEnv({}), null);
+  assert.equal(providerFromEnv({ GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'a' })?.kind, 'gemini');
+  assert.equal(providerFromEnv({ ANTHROPIC_API_KEY: 'a' })?.kind, 'anthropic');
+  const grok = providerFromEnv({ OPENAI_API_KEY: 'x', OPENAI_BASE_URL: 'https://api.x.ai/v1/', STORY_MODEL: 'grok-x' });
+  assert.deepEqual(grok, { kind: 'openai', key: 'x', model: 'grok-x', baseUrl: 'https://api.x.ai/v1' });
+  const realFetch = globalThis.fetch;
+  let url = '';
+  globalThis.fetch = (async (u: string) => { url = u; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(good) }] } }] })); }) as unknown as typeof fetch;
+  try {
+    const s = await new StoryService({ kind: 'gemini', key: 'g', model: 'gemini-flash-lite-latest' }).story('u', words, '2026-10-28');
+    assert.equal(s?.lines.length, 2);
+    assert.match(url, /generativelanguage.googleapis.com.*gemini-flash-lite-latest:generateContent/);
   } finally { globalThis.fetch = realFetch; }
 });

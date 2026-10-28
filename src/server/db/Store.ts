@@ -115,7 +115,7 @@ export const REPORTS_KEPT = 500; // the newest; errors beyond that are dropped
 export class UsernameTakenError extends Error {}
 
 /** One player's activity on one of their local days (progress page, monthly goals). */
-export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number; quizzes: number; challenges: number; passages: number }
+export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number; quizzes: number; challenges: number; passages: number; /** XP from study cards (0.9.9.4.4.2) */ studyXp?: number }
 export type ActivityDelta = Partial<Omit<DayActivity, 'day'>>;
 /** A daily-challenge result. */
 export interface DailyResult { userId: string; username: string; correct: number; ms: number }
@@ -256,7 +256,7 @@ export class MemoryStore implements Store {
     const a = log.get(day) ?? { day, login: false, reviews: 0, games: 0, wins: 0, xp: 0, quizzes: 0, challenges: 0, passages: 0 };
     if (d.login) a.login = true;
     a.reviews += d.reviews ?? 0; a.games += d.games ?? 0; a.wins += d.wins ?? 0; a.xp += d.xp ?? 0;
-    a.quizzes = (a.quizzes ?? 0) + (d.quizzes ?? 0); a.challenges = (a.challenges ?? 0) + (d.challenges ?? 0); a.passages = (a.passages ?? 0) + (d.passages ?? 0);
+    a.quizzes = (a.quizzes ?? 0) + (d.quizzes ?? 0); a.challenges = (a.challenges ?? 0) + (d.challenges ?? 0); a.passages = (a.passages ?? 0) + (d.passages ?? 0); a.studyXp = (a.studyXp ?? 0) + (d.studyXp ?? 0);
     log.set(day, a);
     this.persist();
   }

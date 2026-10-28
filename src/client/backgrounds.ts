@@ -69,20 +69,44 @@ function haze(y: number, color: string, op: number) {
   return `<rect x="0" y="${y - 260}" width="${W}" height="${H - y + 260}" fill="url(#haze)" opacity="${op}" style="color:${color}"/>`;
 }
 function clouds(n: number, yMin: number, yMax: number, color: string, op: number, cls = 'bg-drift') {
+  // 0.9.9.4.4.2 (painted style): soft puffs with a darker rim, a flat shaded base and a lit top
+  const shade = dk2(color, 0.22), rim = dk2(color, 0.4);
   return `<g class="${cls}" opacity="${op}">${Array.from({ length: n }, () => {
     const x = r(-100, W), y = r(yMin, yMax), s = r(0.6, 1.4);
-    return `<g transform="translate(${f(x)} ${f(y)}) scale(${f(s)})" fill="${color}"><ellipse cx="0" cy="0" rx="90" ry="22"/><ellipse cx="-40" cy="-12" rx="46" ry="26"/><ellipse cx="30" cy="-18" rx="52" ry="30"/><ellipse cx="70" cy="-4" rx="40" ry="18"/></g>`;
+    const puffs = [[0, 0, 90, 22], [-40, -12, 46, 26], [30, -18, 52, 30], [70, -4, 40, 18], [-78, -2, 34, 16]].map(([cx, cy, rx, ry]) => [cx + r(-6, 6), cy + r(-4, 4), rx * r(0.9, 1.1), ry * r(0.9, 1.1)]);
+    const shape = (fill: string, grow = 0, dy = 0) => puffs.map(([cx, cy, rx, ry]) => `<ellipse cx="${f(cx)}" cy="${f(cy + dy)}" rx="${f(rx + grow)}" ry="${f(ry + grow)}" fill="${fill}"/>`).join('');
+    return `<g transform="translate(${f(x)} ${f(y)}) scale(${f(s)})">${shape(rim, 3)}${shape(shade)}${shape(color, -2, -5)}<ellipse cx="10" cy="-26" rx="40" ry="9" fill="#fff" opacity=".35"/></g>`;
   }).join('')}</g>`;
 }
 function mountains(y: number, amp: number, color: string, jag = 1) {
-  let d = `M0 ${H} L0 ${y}`;
-  for (let x = 0; x <= W + 60; x += 60) d += ` L${x} ${f(y - Math.abs(Math.sin(x / 260 + jag) * amp) - r(0, amp * 0.25))}`;
-  return `<path d="${d} L${W} ${H} Z" fill="${color}"/>`;
+  // 0.9.9.4.4.2 (painted style): a ridge of big peaks; each peak has a lit face and a shaded face, and the ridge
+  // catches the light
+  const pts: Array<[number, number]> = [];
+  for (let x = -60; x <= W + 180; x += r(70, 150)) {
+    const k = pts.length % 3; // a peak, a shoulder, a saddle
+    const hgt = Math.abs(Math.sin(x / 260 + jag)) * amp * r(0.7, 1.2) + amp * 0.2;
+    pts.push([x, y - (k === 0 ? hgt : k === 1 ? hgt * r(0.45, 0.7) : r(0, amp * 0.3))]);
+  }
+  const ridge = pts.map(([x, py], i) => `${i ? 'L' : 'M'}${f(x)} ${f(py)}`).join(' ');
+  let s = `<path d="${ridge} L${W + 200} ${H} L-60 ${H} Z" fill="${color}"/>`;
+  const shade = dk2(color, 0.18), lit = lighten(color, 0.16);
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [px, py] = pts[i], [nx, ny] = pts[i + 1], [lx, ly] = pts[i - 1];
+    if (py > ny || py > ly) continue; // valleys
+    // the shaded right face: down to the next valley and straight to the foot
+    s += `<path d="M${f(px)} ${f(py)} L${f(nx)} ${f(ny)} L${f(nx - 20)} ${f(y + 40)} L${f(px + (nx - px) * 0.15)} ${f(y + 40)} Z" fill="${shade}"/>`;
+    // a lit sliver on the left face
+    s += `<path d="M${f(px)} ${f(py)} L${f(px - (px - lx) * 0.35)} ${f(py + (ly - py) * 0.35)} L${f(px - (px - lx) * 0.1)} ${f(y + 10)} Z" fill="${lit}" opacity=".55"/>`;
+  }
+  return s + `<path d="${ridge}" stroke="${lighten(color, 0.3)}" stroke-width="3" fill="none" stroke-linejoin="round" opacity=".7"/>`;
 }
+/** a colour mixed towards white */
+function lighten(c: string, t: number) { const p = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)); return `#${p.map((v) => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0')).join('')}`; }
 function hills(y: number, amp: number, color: string, phase = 0) {
   let d = `M0 ${H} L0 ${y}`;
-  for (let x = 0; x <= W; x += 40) d += ` L${x} ${f(y + Math.sin(x / 210 + phase) * amp + Math.sin(x / 90 + phase * 2) * amp * 0.25)}`;
-  return `<path d="${d} L${W} ${H} Z" fill="${color}"/>`;
+  let top = '';
+  for (let x = 0; x <= W; x += 40) { const py = f(y + Math.sin(x / 210 + phase) * amp + Math.sin(x / 90 + phase * 2) * amp * 0.25); d += ` L${x} ${py}`; top += `${x ? 'L' : 'M'}${x} ${py} `; }
+  return `<path d="${d} L${W} ${H} Z" fill="${color}"/><path d="${top}" stroke="${dk2(color, 0.3)}" stroke-width="3" fill="none" opacity=".6"/><path d="${top}" transform="translate(0 4)" stroke="${lighten(color, 0.18)}" stroke-width="2" fill="none" opacity=".45"/>`;
 }
 /** A pine with ragged tiers (prettier than a plain triangle). */
 function pine(x: number, base: number, h: number, color: string) {
@@ -174,15 +198,52 @@ function trunk(x: number, w: number, color: string, lean = 0) {
   // the light catches the left side; bark ridges; roots running into the ground
   s += `<path d="M${f(L(base - 160) + w * 0.06)} ${base - 160} L${f(L(top) + w * 0.06)} ${top} L${f(L(top) + w * 0.2)} ${top} L${f(L(base - 160) + w * 0.18)} ${base - 160} Z" fill="#ffffff" opacity=".06"/>`;
   for (let i = 0; i < 5; i++) { const bx = x - w * 0.3 + i * w * 0.15 + lean * 0.5; s += `<path d="M${f(bx)} ${base - 120} q${f(r(-8, 8))} -200 ${f(r(-10, 10))} -${f(r(300, 600))}" stroke="#000" stroke-width="${f(r(2, 5))}" opacity=".16" fill="none"/>`; }
+  s += bark(x - w * 0.42 + lean * 0.4, top + 40, w * 0.84, base - 180 - top, color);
   for (const sx of [-1, 1]) s += `<path d="M${f(x + sx * w * 0.3)} ${base - 60} Q${f(x + sx * w * 0.9)} ${base - 20} ${f(x + sx * w * 1.9)} ${base + 10}" stroke="${color}" stroke-width="${f(w * 0.18)}" fill="none" stroke-linecap="round"/>`;
   return s;
 }
+/** Bark texture (0.9.9.4.4.2): fine vertical grain, a few knots — dark and light strokes, one path each. */
+function bark(x: number, y: number, w: number, h: number, c: string) {
+  let dark = '', light = '';
+  for (let i = 0; i < Math.round(w / 3); i++) {
+    const bx = x + r(0, w), by = y + r(0, h), len = r(20, 90);
+    const p = `M${f(bx)} ${f(by)} q${f(r(-3, 3))} ${f(len / 2)} ${f(r(-2, 2))} ${f(len)} `;
+    if (i % 3) dark += p; else light += p;
+  }
+  const knots = Array.from({ length: Math.max(1, Math.round(h / 260)) }, () => `<ellipse cx="${f(x + r(w * 0.2, w * 0.8))}" cy="${f(y + r(0, h))}" rx="${f(r(5, 9))}" ry="${f(r(8, 14))}" fill="none" stroke="${dk2(c, 0.5)}" stroke-width="2.5" opacity=".7"/>`).join('');
+  return `<path d="${dark}" stroke="${dk2(c, 0.45)}" stroke-width="2" fill="none" opacity=".6"/><path d="${light}" stroke="${lighten(c, 0.2)}" stroke-width="1.5" fill="none" opacity=".35"/>${knots}`;
+}
 /** A rune monolith (the 3D plains and world tree): a tall stone with glowing slits. */
-function monolith(x: number, base: number, h: number, w: number, stone: string, glow: string, lit: boolean) {
-  let s = `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h} L${x + w / 2 - 6} ${base - h - 8} L${x + w / 2} ${base} Z" fill="${stone}"/>`;
-  s += `<path d="M${x + w * 0.1} ${base - h - 4} L${x + w / 2 - 6} ${base - h - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".25"/>`;
-  for (let i = 0; i < 3; i++) s += `<rect x="${f(x - 3)}" y="${f(base - h * (0.78 - i * 0.22))}" width="6" height="${f(h * 0.1)}" rx="2" fill="${glow}" opacity="${lit ? 0.95 : 0.55}"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ''}/>`;
+function monolith(x: number, base: number, h: number, w: number, stone: string, glow: string, lit: boolean, moss = '#4f8a3a') {
+  // 0.9.9.4.4.2 (painted style): a rough-cut standing stone — lit and shaded faces, flecked texture, cracks,
+  // moss on top running down, glowing runes carved down the front
+  const outline = dk2(stone, 0.55);
+  let s = `<ellipse cx="${x}" cy="${base + 2}" rx="${f(w * 0.8)}" ry="${f(w * 0.14)}" fill="#000" opacity=".25"/>`;
+  s += `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h} L${x + w / 2 - 6} ${base - h - 8} L${x + w / 2} ${base} Z" fill="${stone}" stroke="${outline}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  s += `<path d="M${x + w * 0.1} ${base - h - 4} L${x + w / 2 - 6} ${base - h - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".28"/>`;
+  s += `<path d="M${x - w / 2 + 4} ${base - h} L${x - w / 2 + 1} ${base}" stroke="${lighten(stone, 0.3)}" stroke-width="3" opacity=".5"/>`;
+  s += speckle(x - w / 2 + 3, base - h, w - 8, h - 4, Math.round(h / 4), stone);
+  s += `<path d="M${f(x - w * 0.3)} ${f(base - h * 0.4)} l${f(w * 0.12)} ${f(h * 0.08)} l${f(-w * 0.05)} ${f(h * 0.1)} M${f(x + w * 0.2)} ${f(base - h * 0.75)} l${f(-w * 0.1)} ${f(h * 0.06)}" stroke="${outline}" stroke-width="1.6" fill="none" opacity=".8"/>`;
+  // moss: a cap with a few drips
+  s += `<path d="M${x - w / 2 + 3} ${base - h + 10} Q${x - w * 0.2} ${base - h - 10} ${x + w / 2 - 6} ${base - h - 8} L${x + w / 2 - 4} ${base - h + 6} Q${x + w * 0.2} ${base - h + 16} ${x + w * 0.05} ${base - h + 8} Q${x - w * 0.15} ${base - h + 24} ${x - w * 0.25} ${base - h + 10} Z" fill="${moss}"/>`;
+  s += `<path d="M${f(x - w * 0.25)} ${base - h + 12} q2 14 -1 26 M${f(x + w * 0.22)} ${base - h + 8} q-2 10 1 18" stroke="${moss}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  s += `<path d="M${f(x - w * 0.3)} ${base} q${f(w * 0.2)} -14 ${f(w * 0.4)} -4 q${f(w * 0.2)} -10 ${f(w * 0.3)} 4 Z" fill="${moss}" opacity=".9"/>`;
+  // runes: carved strokes that glow
+  let rune = '';
+  for (let i = 0; i < 3; i++) {
+    const ry = base - h * (0.78 - i * 0.22), rh = h * 0.12;
+    rune += `M${f(x)} ${f(ry)} v${f(rh)} M${f(x)} ${f(ry + rh * 0.35)} l${f(rnd() > 0.5 ? 5 : -5)} -4 M${f(x)} ${f(ry + rh * 0.7)} l${f(rnd() > 0.5 ? -5 : 5)} 4 `;
+  }
+  s += `<path d="${rune}" stroke="${glow}" stroke-width="3.2" stroke-linecap="round" fill="none" opacity="${lit ? 0.95 : 0.7}"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ''}/>`;
   return s;
+}
+/**
+ * 0.9.9.4.4.2: the four standing stones of the World Tree, in every arena, in the same places — two tall ones at
+ * the sides and two smaller ones nearer the middle.
+ */
+function standingStones(stone: string, glow: string, lit: boolean, moss: string) {
+  return monolith(180, 750, 190, 64, stone, glow, lit, moss) + monolith(1420, 750, 190, 64, stone, glow, lit, moss)
+    + monolith(500, 720, 120, 44, stone, glow, lit, moss) + monolith(1100, 720, 120, 44, stone, glow, lit, moss);
 }
 /** A stone brazier with a flame. */
 function brazier(x: number, base: number, s: number, stone: string, lit: boolean) {
@@ -191,14 +252,31 @@ function brazier(x: number, base: number, s: number, stone: string, lit: boolean
 }
 /** Grass tufts along a line (the near ground). */
 function grass(n: number, y0: number, y1: number, color: string, hmin = 14, hmax = 34) {
-  return `<g>${Array.from({ length: n }, () => {
-    const x = r(0, W), y = r(y0, y1), h = r(hmin, hmax);
-    return `<path d="M${f(x)} ${f(y)} q${f(r(-6, 2))} ${f(-h * 0.6)} ${f(r(-10, -2))} ${f(-h)} M${f(x + 3)} ${f(y)} q${f(r(0, 4))} ${f(-h * 0.7)} ${f(r(4, 10))} ${f(-h * 0.9)}" stroke="${color}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
-  }).join('')}</g>`;
+  // 0.9.9.4.4.2 (painted style): a dense meadow edge — many thin blades in three shades (one path per shade, so it
+  // stays cheap to draw), and a few tiny flowers
+  const shades = [dk2(color, 0.25), color, lighten(color, 0.22)];
+  const d = ['', '', ''];
+  for (let i = 0; i < n * 6; i++) {
+    const x = r(-10, W + 10), y = r(y0, y1), h = r(hmin, hmax) * r(0.6, 1.2), lean = r(-9, 9);
+    d[i % 3] += `M${f(x)} ${f(y)} q${f(lean * 0.3)} ${f(-h * 0.55)} ${f(lean)} ${f(-h)} `;
+  }
+  const flowers = Array.from({ length: Math.round(n / 3) }, () => `<circle cx="${f(r(0, W))}" cy="${f(r(y0 - 6, y1 - 4))}" r="${f(r(1.6, 2.8))}" fill="${['#fff8e0', '#ffe27a', '#ffb3d0', '#d6e4ff'][Math.floor(rnd() * 4)]}"/>`).join('');
+  return `<g fill="none" stroke-linecap="round">${d.map((p, i) => `<path d="${p}" stroke="${shades[i]}" stroke-width="${[2.4, 2, 1.6][i]}"/>`).join('')}</g><g opacity=".85">${flowers}</g>`;
 }
 /** A rock (low-poly: two faces). */
 function rock(x: number, y: number, s: number, c: string) {
-  return `<path d="M${x - 40 * s} ${y} L${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} Z" fill="${c}"/><path d="M${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} L${x + 4 * s} ${y} Z" fill="#000" opacity=".22"/>`;
+  return `<path d="M${x - 40 * s} ${y} L${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} Z" fill="${c}" stroke="${dk2(c, 0.45)}" stroke-width="2"/><path d="M${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} L${x + 4 * s} ${y} Z" fill="#000" opacity=".22"/>`
+    + `<path d="M${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s}" stroke="${lighten(c, 0.35)}" stroke-width="2.5" opacity=".6"/>${speckle(x - 30 * s, y - 34 * s, 70 * s, 30 * s, 14, c)}`;
+}
+/** Stone texture: small light and dark flecks in a box (one path each). */
+function speckle(x: number, y: number, w: number, h: number, n: number, c: string) {
+  let dark = '', light = '';
+  for (let i = 0; i < n; i++) {
+    const px = x + r(0, w), py = y + r(0, h), s = r(1, 2.6);
+    const p = `M${f(px)} ${f(py)} h${f(s)} v${f(s * 0.8)} h${f(-s)}Z `;
+    if (i % 2) dark += p; else light += p;
+  }
+  return `<path d="${dark}" fill="${dk2(c, 0.4)}" opacity=".7"/><path d="${light}" fill="${lighten(c, 0.3)}" opacity=".55"/>`;
 }
 
 function forest(t: TimeOfDay) {
@@ -219,6 +297,7 @@ function forest(t: TimeOfDay) {
     ${trunk(90, 190, near, 30)}${trunk(1500, 210, near, -40)}${trunk(420, 110, mid, 20)}${trunk(1170, 120, mid, -10)}
     ${t !== 'day' ? fireflies(t === 'night' ? 28 : 12, 460, 760, '#e8ff9a') : ''}
     <path d="M0 740 Q400 724 800 726 Q1200 724 1600 740 L1600 900 L0 900 Z" fill="${pick(t, '#4e5a48', '#2a1c26', '#070d10')}"/>
+    ${standingStones(pick(t, '#5e6670', '#3a2a34', '#121a20'), '#6ec8ff', t !== 'day', pick(t, '#4f8a3a', '#6a6a34', '#1e4a2c'))}
     ${grass(60, 720, 770, pick(t, '#5a7a4a', '#4a3a3a', '#0e1a12'))}
     ${arenaFloor(t, stone, pick(t, '#3a9cff', '#7ac8ff', '#5ab0ff'), pick(t, '#2a6ad0', '#e8f4ff', '#cfe8ff'))}
     ${mist(880, pick(t, '#ffffff', '#ffd8b8', '#2a4f56'), 0.18)}`;
@@ -230,7 +309,8 @@ function swamp(t: TimeOfDay) {
   const water = pick(t, ['#8aa898', '#4a6656'], ['#c4865e', '#5a3438'], ['#24383a', '#081212']);
   const stone = pick(t, ['#7a8a74', '#56644e', '#2e3628'], ['#6a5450', '#4a3638', '#22181c'], ['#2a3632', '#1c2624', '#0a100e']);
   const deadTree = (x: number, y: number, h: number, c: string) => {
-    const b = (x1: number, y1: number, x2: number, y2: number, w: number) => `<path d="M${f(x1)} ${f(y1)} Q ${f((x1 + x2) / 2 + r(-15, 15))} ${f((y1 + y2) / 2)} ${f(x2)} ${f(y2)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round" fill="none"/>`;
+    // 0.9.9.4.4.2 (painted style): each limb has a dark outline and a lit edge
+    const b = (x1: number, y1: number, x2: number, y2: number, w: number) => { const mx = f((x1 + x2) / 2 + r(-15, 15)), my = f((y1 + y2) / 2); const d = `M${f(x1)} ${f(y1)} Q ${mx} ${my} ${f(x2)} ${f(y2)}`; return `<path d="${d}" stroke="${dk2(c, 0.5)}" stroke-width="${f(w + 4)}" stroke-linecap="round" fill="none"/><path d="${d}" stroke="${c}" stroke-width="${f(w)}" stroke-linecap="round" fill="none"/><path d="${d}" transform="translate(${f(-w * 0.22)} 0)" stroke="${lighten(c, 0.25)}" stroke-width="${f(Math.max(1, w * 0.18))}" stroke-linecap="round" fill="none" opacity=".5"/>`; };
     let s = b(x, y, x + 8, y - h, h * 0.06) + b(x + 4, y - h * 0.55, x - h * 0.38, y - h * 0.86, h * 0.026) + b(x + 6, y - h * 0.72, x + h * 0.42, y - h * 0.98, h * 0.022) + b(x - h * 0.2, y - h * 0.74, x - h * 0.32, y - h * 1.02, h * 0.014) + b(x + 8, y - h, x + 34, y - h * 1.16, h * 0.014);
     for (let i = 0; i < 6; i++) { const mx = x + r(-h * 0.35, h * 0.4), my = y - h * r(0.7, 1); s += `<path class="bg-sway" d="M${f(mx)} ${f(my)} q 4 ${f(r(20, 40))} -2 ${f(r(40, 80))}" stroke="${pick(t, '#6e8a5a', '#5c4a42', '#2a3e26')}" stroke-width="3" fill="none" opacity=".85"/>`; }
     return s;
@@ -244,12 +324,13 @@ function swamp(t: TimeOfDay) {
     ${[160, 420, 700, 1000, 1260, 1480].map((x, i) => deadTree(x, 600, 140 + (i % 3) * 30, pick(t, '#5a6a5a', '#5a3a48', '#0e1614'))).join('')}
     ${haze(600, pick(t, '#eef4e6', '#f0b090', '#2e4a3a'), 0.6)}
     <rect x="0" y="600" width="${W}" height="300" fill="url(#wt)"/>
+    <g class="bg-drift slow" stroke="${lighten(water[0], 0.35)}" stroke-width="2" fill="none" opacity=".45">${Array.from({ length: 22 }, () => { const x = r(0, W), y = r(612, 720), w = r(30, 90); return `<path d="M${f(x)} ${f(y)} q${f(w / 2)} -3 ${f(w)} 0"/>`; }).join('')}</g>
     ${mist(610, pick(t, '#f6f8ec', '#f8c8a8', '#7a9a7a'), pick(t, 0.6, 0.45, 0.4))}
     ${[110, 1440].map((x, i) => deadTree(x, 720, 340 + i * 40, tree)).join('')}
     <g opacity=".22" transform="translate(0 1440) scale(1 -1)">${[110, 1440].map((x, i) => deadTree(x, 720, 340 + i * 40, tree)).join('')}</g>
     ${Array.from({ length: 16 }, () => `<ellipse cx="${f(r(0, W))}" cy="${f(r(640, 720))}" rx="${f(r(16, 34))}" ry="5" fill="${pick(t, '#5a8a44', '#6a5a34', '#1f3a1a')}"/>`).join('')}
     ${reeds(26, 640, 720, tree)}
-    ${monolith(270, 730, 120, 44, pick(t, '#4a5444', '#3a2a30', '#141c18'), '#9aff8a', lit)}${monolith(1330, 728, 130, 46, pick(t, '#4a5444', '#3a2a30', '#141c18'), '#9aff8a', lit)}
+    ${standingStones(pick(t, '#5a6454', '#3a2a30', '#141c18'), '#9aff8a', lit, pick(t, '#4f8a3a', '#6a6a34', '#1e4a2c'))}
     ${t !== 'day' ? `<g class="bg-float">${Array.from({ length: t === 'night' ? 7 : 3 }, () => `<circle cx="${f(r(100, W - 100))}" cy="${f(r(420, 660))}" r="${f(r(14, 24))}" fill="url(#wisp)" class="bg-flicker" style="animation-delay:${f(r(0, 3))}s"/>`).join('')}</g>` : ''}
     ${fireflies(t === 'night' ? 30 : 10, 380, 700, '#d8ff7a')}
     ${arenaFloor(t, stone, pick(t, '#4aff7a', '#9aff8a', '#7affa0'), pick(t, '#1a7a3a', '#f0ffe0', '#d8ffe0'))}
@@ -282,7 +363,7 @@ function plains(t: TimeOfDay) {
     <g transform="translate(1200 600)"><rect x="-6" y="0" width="12" height="80" fill="${pick(t, '#cbb79a', '#5a3a3a', '#1a1a28')}"/><g class="bg-spin">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-64" width="8" height="64" fill="${pick(t, '#8a6a4a', '#3a2228', '#141420')}" transform="rotate(${a + 20})"/>`).join('')}</g></g>
     ${hills(680, 26, pick(t, '#6a9a4c', '#4a5a3a', '#162418'), 1.7)}
     ${gob(280, 700, 0.42, 0)}${gob(380, 704, 0.38, 6)}${gob(1250, 706, 0.4, 3)}
-    ${monolith(130, 760, 210, 70, mono, '#ffb070', lit)}${monolith(470, 735, 150, 54, mono, '#ffb070', lit)}${monolith(1130, 735, 150, 54, mono, '#ffb070', lit)}${monolith(1470, 760, 210, 70, mono, '#ffb070', lit)}
+    ${standingStones(mono, '#ffb070', lit, pick(t, '#4f8a3a', '#6a6a34', '#1e4a2c'))}
     ${brazier(330, 742, 1.2, mono, lit)}${brazier(1270, 742, 1.2, mono, lit)}
     ${grass(70, 700, 760, pick(t, '#3f6a2a', '#33472b', '#0b140c'))}
     ${arenaFloor(t, stone, pick(t, '#ffffff', '#ffe0c0', '#e8e6ff'), pick(t, '#4a3a6a', '#ffffff', '#ffffff'))}
@@ -293,7 +374,7 @@ function castle(t: TimeOfDay) {
   const sky: Sky = pick(t, [[0, '#5a86c0'], [0.6, '#a8c2e0'], [1, '#e2eaf2']], [[0, '#1e0c24'], [0.4, '#7a2232'], [0.72, '#d0582e'], [1, '#f4a050']], [[0, '#04061c'], [0.6, '#161f4e'], [1, '#2e3474']]);
   const stoneC = pick(t, '#5e5e74', '#2c1a26', '#13132a'), roof = pick(t, '#3e3e5e', '#1c0e1a', '#1c1b36');
   const lit = t !== 'day';
-  const tower = (x: number, w: number, h: number) => `<rect x="${x}" y="${640 - h}" width="${w}" height="${h}" fill="${stoneC}"/><rect x="${x + w * 0.62}" y="${640 - h}" width="${w * 0.38}" height="${h}" fill="#000" opacity=".2"/><polygon points="${x - 10},${640 - h} ${x + w / 2},${560 - h} ${x + w + 10},${640 - h}" fill="${roof}"/>`
+  const tower = (x: number, w: number, h: number) => `<rect x="${x}" y="${640 - h}" width="${w}" height="${h}" fill="${stoneC}" stroke="${dk2(stoneC, 0.5)}" stroke-width="2.5"/><rect x="${x}" y="${640 - h}" width="${w}" height="${h}" fill="url(#bricks)"/><rect x="${x + w * 0.62}" y="${640 - h}" width="${w * 0.38}" height="${h}" fill="#000" opacity=".2"/><rect x="${x + 3}" y="${640 - h}" width="5" height="${h}" fill="#fff" opacity=".07"/><polygon points="${x - 10},${640 - h} ${x + w / 2},${560 - h} ${x + w + 10},${640 - h}" fill="${roof}"/>`
     + Array.from({ length: Math.floor(h / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? '#ffcf6a' : '#20202e'}" opacity="${lit ? (rnd() > 0.35 ? 0.95 : 0.2) : 0.6}"${lit ? ' class="bg-flicker slow"' : ''}/>`).join('')
     + `<line x1="${x + w / 2}" y1="${560 - h}" x2="${x + w / 2}" y2="${520 - h}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
   const soldier = (x: number, y: number, s: number, flip: boolean, weapon: 'spear' | 'sword') => {
@@ -305,13 +386,15 @@ function castle(t: TimeOfDay) {
   const army = (x0: number, flip: boolean) => Array.from({ length: 9 }, (_, i) => soldier(x0 + (flip ? -1 : 1) * (i * 34 + r(-6, 6)), 718 + (i % 3) * 6, 0.9 + (i % 3) * 0.08, flip, i % 4 === 3 ? 'sword' : 'spear')).join('');
   const banner = (x: number) => `<line x1="${x}" y1="720" x2="${x}" y2="470" stroke="${pick(t, '#3a3030', '#1a0c10', '#0a0a14')}" stroke-width="7"/><path class="bg-flag" d="M${x} 480 h62 v130 l-31 -22 l-31 22 Z" fill="${pick(t, '#a8243a', '#7a1424', '#5a1020')}"/>`;
   const stone = pick(t, ['#8a8494', '#5e5868', '#2e2a36'], ['#5a3a3a', '#3e2628', '#1e1012'], ['#2a2a40', '#1c1c30', '#0c0c18']);
-  return `<defs>${grad('sk', sky)}${floorDefs(stone)}${DEFS}</defs>
+  // masonry: courses of stone blocks, the joints offset every other course, a few lighter and darker blocks
+  const bricks = `<pattern id="bricks" width="44" height="28" patternUnits="userSpaceOnUse"><path d="M0 0.5 H44 M0 14.5 H44 M22 0 V14 M0 14 V28 M44 14 V28" stroke="${dk2(stoneC, 0.45)}" stroke-width="1.6" fill="none" opacity=".7"/><rect x="2" y="2" width="18" height="11" fill="#fff" opacity=".05"/><rect x="24" y="16" width="18" height="11" fill="#000" opacity=".08"/><path d="M2 2.5 H20 M24 16.5 H42" stroke="#fff" stroke-width="1" opacity=".12"/></pattern>`;
+  return `<defs>${grad('sk', sky)}${floorDefs(stone)}${DEFS}${bricks}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === 'night' ? milkyWay() + stars(160, 460) + moon(300, 150, 52, '#e8e6ff') : t === 'sunset' ? horizonGlow(560, '#ff5a2a') + sun(1250, 520, 90, '#ffb070', '#ff5a3a') + clouds(5, 120, 300, '#ff9a7a', 0.4) : sun(1280, 140, 44, '#fffbe6', '#ffffff') + clouds(7, 80, 280, '#ffffff', 0.85)}
     ${mountains(600, 110, pick(t, '#7686a2', '#3a1622', '#0e1030'), 1.3)}
     ${haze(620, pick(t, '#dfe8f4', '#ff7a5a', '#1a2050'), 0.5)}
     ${hills(640, 18, pick(t, '#4e5e4c', '#1a0a12', '#10122a'))}
-    <rect x="560" y="430" width="480" height="210" fill="${stoneC}"/>
+    <rect x="560" y="430" width="480" height="210" fill="${stoneC}" stroke="${dk2(stoneC, 0.5)}" stroke-width="2.5"/><rect x="560" y="430" width="480" height="210" fill="url(#bricks)"/>
     ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="${stoneC}"/>`).join('')}
     ${tower(500, 90, 330)}${tower(1010, 90, 330)}${tower(740, 120, 420)}
     <path d="M760 640 L760 590 Q800 548 840 590 L840 640 Z" fill="${pick(t, '#2a2a38', '#0c0408', '#05050f')}"/>
@@ -321,6 +404,7 @@ function castle(t: TimeOfDay) {
     ${Array.from({ length: 9 }, (_, i) => `<ellipse cx="${f(470 + i * 82 + r(-10, 10))}" cy="${f(664 + r(0, 14))}" rx="${f(r(18, 30))}" ry="${f(r(7, 11))}" fill="${dk2(stoneC, 0.15)}" opacity=".7"/>`).join('')}
     ${lit ? `<g class="bg-flicker" filter="url(#glow)"><circle cx="740" cy="600" r="6" fill="#ffb347"/><circle cx="860" cy="600" r="6" fill="#ffb347"/></g>` : ''}
     ${haze(700, pick(t, '#e8eef6', '#ff8a5a', '#1a2050'), 0.25)}
+    ${standingStones(pick(t, '#6a6878', '#3a2228', '#16162a'), '#ffb060', lit, pick(t, '#4f8a3a', '#6a6a34', '#1e4a2c'))}
     ${banner(380)}${banner(1158)}
     ${army(40, false)}${army(1560, true)}
     ${brazier(270, 740, 1.4, pick(t, '#4a4a56', '#2a1418', '#121222'), lit || true)}${brazier(1330, 740, 1.4, pick(t, '#4a4a56', '#2a1418', '#121222'), lit || true)}
@@ -331,18 +415,32 @@ function castle(t: TimeOfDay) {
 
 function worldtree(t: TimeOfDay) {
   const sky: Sky = pick(t, [[0, '#4a8ad8'], [0.5, '#9cd0f2'], [0.85, '#e8f6ff'], [1, '#ffffff']], [[0, '#2a1450'], [0.45, '#b04a78'], [0.8, '#f4a060'], [1, '#ffe0a0']], [[0, '#0b0626'], [0.45, '#2a1260'], [0.8, '#1d4f78'], [1, '#2c8a8a']]);
-  const bark = pick(t, '#4a3626', '#3a2418', '#1a1424'), leaf = pick(t, ['#3f9a5a', '#56b86a', '#7ad68a'], ['#7a5a3a', '#a0703a', '#e0a050'], ['#14402f', '#1b5a3c', '#2f9e6a']);
+  const bark0 = pick(t, '#6a4a32', '#4a2e1c', '#1e1828');
+  const barkC = bark0, leaf = pick(t, ['#3f9a5a', '#56b86a', '#7ad68a'], ['#7a5a3a', '#a0703a', '#e0a050'], ['#14402f', '#1b5a3c', '#2f9e6a']);
   const lit = t !== 'day';
   const stone = pick(t, ['#7a8a8a', '#56645e', '#2a3430'], ['#6a5450', '#4a3a3a', '#22181a'], ['#1e3038', '#14222a', '#081016']);
   const canopy = (cx: number, cy: number, rx: number, ry: number) => [0, 1, 2].map((layer) => {
     // three layers for volume: the dark underside, the body, the sunlit top (towards the light, upper left)
-    const n = [26, 30, 22][layer], k = [1, 0.85, 0.6][layer], dy = [40, 0, -40][layer], dx = [0, -10, -50][layer];
+    const n = [40, 46, 34][layer], k = [1, 0.85, 0.6][layer], dy = [40, 0, -40][layer], dx = [0, -10, -50][layer];
     const col = [dk2(leaf[0], 0.35), leaf[1], leaf[2]][layer];
-    return Array.from({ length: n }, () => { const a = r(0, Math.PI * 2), d = Math.sqrt(rnd()); const x = cx + dx + Math.cos(a) * rx * k * d, y = cy + dy + Math.sin(a) * ry * k * d; const rad = r(34, 70) * (layer === 2 ? 0.8 : 1); return `<circle cx="${f(x)}" cy="${f(y)}" r="${f(rad)}" fill="${col}"/>${layer === 2 ? `<circle cx="${f(x - rad * 0.3)}" cy="${f(y - rad * 0.35)}" r="${f(rad * 0.45)}" fill="#ffffff" opacity=".08"/>` : ''}`; }).join('');
+    // 0.9.9.4.4.2 (painted style): each clump is a cauliflower of small bumps with a darker rim
+    return Array.from({ length: n }, () => {
+      const a = r(0, Math.PI * 2), d = Math.sqrt(rnd()); const x = cx + dx + Math.cos(a) * rx * k * d, y = cy + dy + Math.sin(a) * ry * k * d; const rad = r(28, 58) * (layer === 2 ? 0.8 : 1);
+      const bumps = Array.from({ length: 5 }, (_, j) => { const b = (j / 5) * Math.PI * 2 + r(-0.3, 0.3); return `<circle cx="${f(x + Math.cos(b) * rad * 0.82)}" cy="${f(y + Math.sin(b) * rad * 0.82)}" r="${f(rad * r(0.32, 0.45))}" fill="${col}"/>`; }).join('');
+      return `<circle cx="${f(x)}" cy="${f(y + 3)}" r="${f(rad + 3)}" fill="${dk2(col, 0.25)}"/>${bumps}<circle cx="${f(x)}" cy="${f(y)}" r="${f(rad)}" fill="${col}"/>${layer >= 1 ? `<circle cx="${f(x - rad * 0.3)}" cy="${f(y - rad * 0.35)}" r="${f(rad * 0.45)}" fill="#ffffff" opacity="${layer === 2 ? 0.12 : 0.06}"/>` : ''}`;
+    }).join('');
   }).join('');
-  const island = (x: number, y: number, s: number) => `<g class="bg-float"><path d="M${x - 60 * s} ${y} Q${x} ${y - 16 * s} ${x + 60 * s} ${y} L${x + 20 * s} ${y + 50 * s} L${x} ${y + 80 * s} L${x - 24 * s} ${y + 46 * s} Z" fill="${pick(t, '#6a5a4a', '#5a3a2a', '#1e1a2a')}"/><ellipse cx="${x}" cy="${y - 4 * s}" rx="${62 * s}" ry="${12 * s}" fill="${leaf[1]}"/>${lit ? `<circle cx="${x}" cy="${y + 70 * s}" r="${4 * s}" fill="#9ff5c8" filter="url(#glow)" class="bg-flicker"/>` : ''}</g>`;
+  const island = (x: number, y: number, s: number) => {
+    const dirt = pick(t, '#7a5a42', '#5a3a2a', '#1e1a2a');
+    const bits = Array.from({ length: 4 }, (_, i) => `<rect x="${f(x + r(-20, 20) * s)}" y="${f(y + (80 + i * 14) * s)}" width="${f(r(3, 6) * s)}" height="${f(r(3, 6) * s)}" fill="${dirt}" transform="rotate(${f(r(0, 45))} ${f(x)} ${f(y + 90 * s)})"/>`).join('');
+    return `<g class="bg-float"><ellipse cx="${x}" cy="${y + 40 * s}" rx="${70 * s}" ry="${30 * s}" fill="${pick(t, '#9ff5ff', '#ffd0a0', '#7affd0')}" opacity=".25" filter="url(#blur20)"/>`
+      + `<path d="M${x - 60 * s} ${y} Q${x} ${y - 16 * s} ${x + 60 * s} ${y} L${x + 20 * s} ${y + 50 * s} L${x} ${y + 80 * s} L${x - 24 * s} ${y + 46 * s} Z" fill="${dirt}" stroke="${dk2(dirt, 0.5)}" stroke-width="2.5" stroke-linejoin="round"/>`
+      + `<path d="M${x - 30 * s} ${y + 10 * s} L${x - 10 * s} ${y + 40 * s} M${x + 20 * s} ${y + 8 * s} L${x + 6 * s} ${y + 50 * s}" stroke="${dk2(dirt, 0.35)}" stroke-width="2" fill="none"/>`
+      + `<ellipse cx="${x}" cy="${y - 4 * s}" rx="${62 * s}" ry="${12 * s}" fill="${leaf[1]}" stroke="${dk2(leaf[1], 0.4)}" stroke-width="2"/><path d="M${x - 40 * s} ${y + 4 * s} q4 ${12 * s} 0 ${20 * s} M${x + 30 * s} ${y + 4 * s} q-3 ${10 * s} 1 ${16 * s}" stroke="${leaf[0]}" stroke-width="3" fill="none" stroke-linecap="round"/>`
+      + `<g class="bg-flicker">${bits}</g>${lit ? `<circle cx="${x}" cy="${y + 70 * s}" r="${4 * s}" fill="#9ff5c8" filter="url(#glow)" class="bg-flicker"/>` : ''}</g>`;
+  };
   const mono = pick(t, '#4a5a5a', '#3a2a30', '#122028');
-  return `<defs>${grad('sk', sky)}${radial('glow2', [[0, pick(t, '#ffffff', '#ffe0a0', '#9ff5c8'), 0.55], [1, '#ffffff', 0]])}${grad('aurora', [[0, '#7affc8', 0], [0.5, '#7affc8', 0.35], [1, '#b07aff', 0]], false)}${floorDefs(stone)}${DEFS}</defs>
+  return `<defs>${grad('sk', sky)}${radial('glow2', [[0, pick(t, '#ffffff', '#ffe0a0', '#9ff5c8'), 0.55], [1, '#ffffff', 0]])}${grad('aurora', [[0, '#7affc8', 0], [0.5, '#7affc8', 0.35], [1, '#b07aff', 0]], false)}${floorDefs(stone)}${DEFS}<clipPath id="trunkClip"><path d="M690 650 Q712 520 690 430 L910 430 Q888 520 910 650 Z"/></clipPath></defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === 'night' ? stars(200, 560, '#d7ccff') + `<g class="bg-aurora" filter="url(#blur20)"><path d="M-100 200 C 300 80, 700 260, 1100 140 S 1600 120, 1800 200 L1800 280 C 1300 200, 900 340, 500 240 S 0 260, -100 300 Z" fill="url(#aurora)"/></g>` + moon(1300, 150, 50, '#fff4d6')
       : t === 'sunset' ? horizonGlow(500, '#ffb070') + sun(300, 470, 80, '#fff0c0', '#ffb070') : sun(1300, 140, 50, '#ffffff', '#fff8d0') + rays(1300, 140, '#ffffff', 0.18)}
@@ -351,15 +449,16 @@ function worldtree(t: TimeOfDay) {
     ${island(260, 300, 0.9)}${island(1340, 360, 0.7)}${island(1080, 220, 0.5)}
     <ellipse cx="800" cy="600" rx="700" ry="200" fill="url(#glow2)"/>
     ${clouds(8, 600, 660, pick(t, '#ffffff', '#ffd8c0', '#efeaff'), pick(t, 0.8, 0.55, 0.2), 'bg-drift slow')}
-    <path d="M690 650 Q712 520 690 430 Q660 360 580 320 L640 318 Q720 350 750 290 Q760 360 800 330 Q840 360 850 290 Q880 350 960 318 L1020 320 Q940 360 910 430 Q888 520 910 650 Z" fill="${bark}"/>
+    <path d="M690 650 Q712 520 690 430 Q660 360 580 320 L640 318 Q720 350 750 290 Q760 360 800 330 Q840 360 850 290 Q880 350 960 318 L1020 320 Q940 360 910 430 Q888 520 910 650 Z" fill="${barkC}"/>
     <path d="M800 650 L790 440 Q800 400 812 440 L820 650Z" fill="#000" opacity=".18"/><path d="M700 640 Q706 520 696 440 L720 440 Q728 520 724 640Z" fill="#fff" opacity=".07"/>
+    <g clip-path="url(#trunkClip)">${bark(690, 420, 220, 240, bark0)}</g>
     ${canopy(800, 240, 470, 170)}
     ${hills(690, 20, pick(t, '#3a6a4a', '#4a3a2a', '#0e2420'), 1)}
     <path d="M560 716 C 640 680, 720 664, 800 662 C 880 664, 960 680, 1040 716 Z" fill="${dk2(pick(t, '#3a6a4a', '#4a3a2a', '#0e2420'), 0.12)}"/>
-    <path d="M691 644 Q688 652 676 662 Q600 676 470 712 L540 716 Q630 694 716 684 Q740 704 700 724 L780 724 Q790 700 800 690 Q812 700 820 724 L900 724 Q860 704 884 684 Q970 694 1060 716 L1130 712 Q1000 676 924 662 Q912 652 909 644 Z" fill="${bark}"/>
+    <path d="M691 644 Q688 652 676 662 Q600 676 470 712 L540 716 Q630 694 716 684 Q740 704 700 724 L780 724 Q790 700 800 690 Q812 700 820 724 L900 724 Q860 704 884 684 Q970 694 1060 716 L1130 712 Q1000 676 924 662 Q912 652 909 644 Z" fill="${barkC}"/>
     <path d="M676 664 Q600 680 500 712 M924 664 Q1000 680 1100 712" stroke="#000" stroke-opacity=".18" stroke-width="5" fill="none"/>
     ${lit ? `<g filter="url(#glow)" class="bg-flicker slow">${Array.from({ length: 7 }, (_, i) => `<path d="M${740 + i * 20} 680 q${r(-40, 40)} 30 ${r(-120, 120)} 50" stroke="#9ff5c8" stroke-width="2" fill="none" opacity=".7"/>`).join('')}</g>` : ''}
-    ${monolith(180, 750, 190, 64, mono, '#7affd0', lit)}${monolith(1420, 750, 190, 64, mono, '#7affd0', lit)}${monolith(500, 720, 120, 44, mono, '#7affd0', lit)}${monolith(1100, 720, 120, 44, mono, '#7affd0', lit)}
+    ${standingStones(mono, '#7affd0', lit, pick(t, '#4f8a3a', '#6a6a34', '#1e4a2c'))}
     ${grass(60, 700, 760, pick(t, '#2f6a3a', '#4a3a24', '#0a1a14'))}
     ${fireflies(t === 'night' ? 50 : 20, 420, 760, pick(t, '#ffffff', '#fff0b0', '#b9ffd8'))}
     ${arenaFloor(t, stone, pick(t, '#2adfa0', '#7affd0', '#6affd0'), pick(t, '#0a5a40', '#f0fff8', '#e0fff4'))}
@@ -380,7 +479,27 @@ const cache = new Map<string, string>();
 export const BG_FADE_MS = 3200;
 let fadeTimer = 0;
 /** Draws a background into the fixed #bg layer. `fade`: fade out and back in (the time of day changing). */
+/**
+ * 0.9.9.4.4.2 (painted style): a fine film grain over the whole scene — a small noise tile made once in a canvas,
+ * repeated by CSS (#bg::before) — far cheaper than an SVG noise filter that redraws with every animation frame.
+ */
+let grainDone = false;
+function ensureGrain() {
+  if (grainDone) return;
+  grainDone = true;
+  try {
+    const c = document.createElement('canvas');
+    c.width = c.height = 160;
+    const g = c.getContext('2d');
+    if (!g) return;
+    const img = g.createImageData(160, 160);
+    for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+    g.putImageData(img, 0, 0);
+    document.documentElement.style.setProperty('--grain', `url(${c.toDataURL('image/png')})`);
+  } catch { /* no canvas: no grain */ }
+}
 export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfDay = 'night', fade = false) {
+  ensureGrain();
   const key = `${id}-${time}`;
   if (el.dataset.key === key) return;
   el.dataset.key = key;
