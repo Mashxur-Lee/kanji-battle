@@ -2,7 +2,7 @@
 // scripts/build-client.mjs fills in the file list and a build id; a new build means a new cache, and the
 // page reloads into it the next time you're on the menu. The API is never cached here (offline study is the
 // app's own offline engine), except profile pictures.
-const BUILD = 'c44f91222131';
+const BUILD = '678cc575db04';
 const SHELL = ["/","/index.html","/app.js","/arena3d.js","/style.css","/favicon.svg","/vocab.json","/examples.json","/kanji.json","/meanings-ru.json","/manifest.webmanifest","/icons/icon-192.png","/icons/icon-512.png","/icons/maskable-512.png","/icons/apple-touch-icon.png"];
 const CACHE = `kw-shell-${BUILD}`;
 const RUNTIME = 'kw-runtime';

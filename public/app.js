@@ -2788,7 +2788,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.4.4.3";
+  var VERSION = "0.9.9.4.4.4";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -4813,10 +4813,22 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
       rune += `M${f(x)} ${f(ry)} v${f(rh)} M${f(x)} ${f(ry + rh * 0.35)} l${f(rnd() > 0.5 ? 5 : -5)} -4 M${f(x)} ${f(ry + rh * 0.7)} l${f(rnd() > 0.5 ? -5 : 5)} 4 `;
     }
     s += `<path d="${rune}" stroke="${glow}" stroke-width="3.2" stroke-linecap="round" fill="none" opacity="${lit ? 0.95 : 0.7}"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ""}/>`;
+    const earth = dk2(moss, 0.55);
+    s += `<path d="M${f(x - w * 0.95)} ${base + 3} Q${f(x - w * 0.6)} ${base - 7} ${f(x - w * 0.3)} ${base - 5} Q${x} ${base - 9} ${f(x + w * 0.35)} ${base - 5} Q${f(x + w * 0.7)} ${base - 6} ${f(x + w * 1.05)} ${base + 3} Z" fill="${lin([[0, dk2(moss, 0.2)], [1, earth]])}"/>`;
+    for (let i = 0; i < 4; i++) {
+      const px = x + r(-w * 0.9, w * 0.9);
+      s += `<ellipse cx="${f(px)}" cy="${f(base + r(-1, 3))}" rx="${f(r(2.5, 5))}" ry="${f(r(1.6, 3))}" fill="${lighten(stone, 0.12)}"/>`;
+    }
+    let tuft = "";
+    for (let i = 0; i < 18; i++) {
+      const gx = x + r(-w * 0.95, w * 0.95), gh = r(6, 16);
+      tuft += `M${f(gx)} ${base + 2} q${f(r(-3, 3))} ${f(-gh / 2)} ${f(r(-5, 5))} ${f(-gh)} `;
+    }
+    s += `<path d="${tuft}" stroke="${moss}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
     return s;
   }
-  function standingStones(stone, glow, lit, moss) {
-    return monolith(180, 750, 190, 64, stone, glow, lit, moss) + monolith(1420, 750, 190, 64, stone, glow, lit, moss) + monolith(500, 720, 120, 44, stone, glow, lit, moss) + monolith(1100, 720, 120, 44, stone, glow, lit, moss);
+  function standingStones(stone, glow, lit, moss, inner = 720) {
+    return monolith(500, inner, 120, 44, stone, glow, lit, moss) + monolith(1100, inner, 120, 44, stone, glow, lit, moss) + monolith(180, 750, 190, 64, stone, glow, lit, moss) + monolith(1420, 750, 190, 64, stone, glow, lit, moss);
   }
   function brazier(x, base, s, stone, lit) {
     const flame = `<g class="bg-flicker" filter="url(#glow)"><path d="M${x - 9 * s} ${base - 34 * s} Q${x - 10 * s} ${base - 56 * s} ${x} ${base - 74 * s} Q${x + 10 * s} ${base - 56 * s} ${x + 9 * s} ${base - 34 * s} Z" fill="#ff9a2a"/><path d="M${x - 4 * s} ${base - 34 * s} Q${x - 4 * s} ${base - 48 * s} ${x} ${base - 58 * s} Q${x + 4 * s} ${base - 48 * s} ${x + 4 * s} ${base - 34 * s} Z" fill="#fff0a0"/></g>`;
@@ -4883,7 +4895,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     })()}
     <path d="M0 740 Q400 724 800 726 Q1200 724 1600 740 L1600 900 L0 900 Z" fill="${pick(t, "#4e5a48", "#2a1c26", "#070d10")}"/>
     ${[60, 330, 610, 1e3, 1260, 1540].map((x) => bush(x + r(-30, 30), 748, r(26, 42), pick(t, "#4a6e3a", "#4a3a34", "#10201a"))).join("")}
-    ${standingStones(pick(t, "#5e6670", "#3a2a34", "#121a20"), "#6ec8ff", t !== "day", pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"))}
+    ${standingStones(pick(t, "#5e6670", "#3a2a34", "#121a20"), "#6ec8ff", t !== "day", pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"), 742)}
     ${grass(60, 720, 770, pick(t, "#5a7a4a", "#4a3a3a", "#0e1a12"))}
     ${arenaFloor(t, stone, pick(t, "#3a9cff", "#7ac8ff", "#5ab0ff"), pick(t, "#2a6ad0", "#e8f4ff", "#cfe8ff"))}
     ${mist(880, pick(t, "#ffffff", "#ffd8b8", "#2a4f56"), 0.18)}`;
@@ -5015,9 +5027,9 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     ${lit ? `<g class="bg-flicker" filter="url(#glow)"><circle cx="740" cy="600" r="6" fill="#ffb347"/><circle cx="860" cy="600" r="6" fill="#ffb347"/></g>` : ""}
     ${haze(700, pick(t, "#e8eef6", "#ff8a5a", "#1a2050"), 0.25)}
     ${grass(30, 655, 715, pick(t, "#5e7a48", "#3a2a24", "#121a22"), 10, 22)}
-    ${standingStones(pick(t, "#6a6878", "#3a2228", "#16162a"), "#ffb060", lit, pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"))}
     ${banner(380)}${banner(1158)}
     ${army(40, false)}${army(1560, true)}
+    ${standingStones(pick(t, "#6a6878", "#3a2228", "#16162a"), "#ffb060", lit, pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"))}
     ${brazier(270, 740, 1.4, pick(t, "#4a4a56", "#2a1418", "#121222"), lit || true)}${brazier(1330, 740, 1.4, pick(t, "#4a4a56", "#2a1418", "#121222"), lit || true)}
     ${arenaFloor(t, stone, pick(t, "#ffb060", "#ffb060", "#a8a0ff"), pick(t, "#ffffff", "#fff0d0", "#e8e6ff"))}
     <g class="bg-spark" filter="url(#glow)"><circle cx="262" cy="700" r="5" fill="#fff6c0"/><circle cx="1338" cy="700" r="5" fill="#fff6c0" style="animation-delay:2.7s"/></g>
@@ -5029,17 +5041,36 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     const barkC = bark0, leaf = pick(t, ["#3f9a5a", "#56b86a", "#7ad68a"], ["#7a5a3a", "#a0703a", "#e0a050"], ["#14402f", "#1b5a3c", "#2f9e6a"]);
     const lit = t !== "day";
     const stone = pick(t, ["#7a8a8a", "#56645e", "#2a3430"], ["#6a5450", "#4a3a3a", "#22181a"], ["#1e3038", "#14222a", "#081016"]);
-    const canopy = (cx, cy, rx, ry) => [0, 1, 2].map((layer) => {
-      const n = [40, 46, 34][layer], k = [1, 0.85, 0.6][layer], dy = [40, 0, -40][layer], dx = [0, -10, -50][layer];
-      const base = [dk2(leaf[0], 0.35), leaf[1], leaf[2]][layer];
-      const col = rad([[0, lighten(base, layer === 2 ? 0.28 : 0.15)], [0.55, base], [1, dk2(base, 0.35)]]);
-      return Array.from({ length: n }, () => {
+    const canopy = (cx, cy, rx, ry) => {
+      const ball = (base, hi) => rad([[0, lighten(base, hi)], [0.55, base], [1, dk2(base, 0.4)]]);
+      const deep = dk2(leaf[0], 0.5);
+      let s = "";
+      const limbs = [[790, 330, 560, 250], [790, 330, 690, 170], [810, 330, 900, 150], [810, 330, 1050, 240], [800, 330, 360, 270], [800, 330, 1240, 280]];
+      s += limbs.map(([x0, y0, x1, y1]) => `<path d="M${x0} ${y0} Q${f((x0 + x1) / 2)} ${f(Math.min(y0, y1) - 30)} ${x1} ${y1}" stroke="${dk2(barkC, 0.25)}" stroke-width="16" fill="none" stroke-linecap="round"/>`).join("");
+      for (let i = 0; i < 22; i++) {
+        const a = i / 22 * Math.PI * 2 + r(-0.1, 0.1);
+        s += leafBlob(cx + Math.cos(a) * rx * 0.78, cy + 20 + Math.sin(a) * ry * 0.72, r(70, 95), ball(deep, 0.1));
+      }
+      for (let i = 0; i < 18; i++) {
         const a = r(0, Math.PI * 2), d = Math.sqrt(rnd());
-        const x = cx + dx + Math.cos(a) * rx * k * d, y = cy + dy + Math.sin(a) * ry * k * d;
-        const rad2 = r(28, 58) * (layer === 2 ? 0.8 : 1);
-        return leafBlob(x, y, rad2 * 1.1, col);
-      }).join("") + (layer === 2 ? glints(cx + dx, cy + dy, rx * k, ry * k, lighten(leaf[2], 0.35)) : "");
-    }).join("");
+        s += leafBlob(cx + Math.cos(a) * rx * 0.6 * d, cy + 20 + Math.sin(a) * ry * 0.55 * d, r(80, 110), ball(deep, 0.1));
+      }
+      const layers = [
+        // n, k (how far out), dx, dy, rMin, rMax, colour, highlight
+        [70, 0.92, 0, 30, 38, 60, dk2(leaf[0], 0.2), 0.12],
+        [80, 0.8, -15, 0, 32, 52, leaf[1], 0.18],
+        [60, 0.62, -45, -35, 26, 44, leaf[2], 0.25],
+        [34, 0.42, -80, -65, 16, 28, lighten(leaf[2], 0.15), 0.3]
+      ];
+      for (const [n, k, dx, dy, r0, r1, c, hi] of layers) {
+        const g = ball(c, hi);
+        for (let i = 0; i < n; i++) {
+          const a = r(0, Math.PI * 2), d = Math.sqrt(rnd());
+          s += leafBlob(cx + dx + Math.cos(a) * rx * 0.82 * k * d, cy + dy + Math.sin(a) * ry * 0.78 * k * d, r(r0, r1), g);
+        }
+      }
+      return s + glints(cx - 40, cy - 30, rx * 0.6, ry * 0.5, lighten(leaf[2], 0.35));
+    };
     const island = (x, y, s) => {
       const dirt = pick(t, "#7a5a42", "#5a3a2a", "#1e1a2a");
       const bits = Array.from({ length: 4 }, (_, i) => `<rect x="${f(x + r(-20, 20) * s)}" y="${f(y + (80 + i * 14) * s)}" width="${f(r(3, 6) * s)}" height="${f(r(3, 6) * s)}" fill="${dirt}" transform="rotate(${f(r(0, 45))} ${f(x)} ${f(y + 90 * s)})"/>`).join("");
@@ -5060,7 +5091,11 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     ${canopy(800, 240, 470, 170)}
     ${hills(690, 20, pick(t, "#3a6a4a", "#4a3a2a", "#0e2420"), 1)}
     <path d="M560 716 C 640 680, 720 664, 800 662 C 880 664, 960 680, 1040 716 Z" fill="${dk2(pick(t, "#3a6a4a", "#4a3a2a", "#0e2420"), 0.12)}"/>
-    <path d="M691 644 Q688 652 676 662 Q600 676 470 712 L540 716 Q630 694 716 684 Q740 704 700 724 L780 724 Q790 700 800 690 Q812 700 820 724 L900 724 Q860 704 884 684 Q970 694 1060 716 L1130 712 Q1000 676 924 662 Q912 652 909 644 Z" fill="${barkC}"/>
+    <path d="M691 644 Q688 652 676 662 Q600 676 470 712 L540 716 Q630 694 716 684 Q740 704 700 724 L780 724 Q790 700 800 690 Q812 700 820 724 L900 724 Q860 704 884 684 Q970 694 1060 716 L1130 712 Q1000 676 924 662 Q912 652 909 644 Z" fill="${lin([[0, lighten(barkC, 0.15)], [0.35, barkC], [0.8, dk2(barkC, 0.3)], [1, dk2(barkC, 0.45)]], 0.1667, 0, 0.8333, 0)}"/>
+    <path d="M691 644 Q688 652 676 662 Q600 676 470 712 L540 716 Q630 694 716 684 Q740 704 700 724 L780 724 Q790 700 800 690 Q812 700 820 724 L900 724 Q860 704 884 684 Q970 694 1060 716 L1130 712 Q1000 676 924 662 Q912 652 909 644 Z" fill="${lin([[0, "#000", 0], [0.4, "#000", 0.05], [1, "#000", 0.4]])}"/>
+    <path d="M690 652 Q640 672 520 706 M700 662 Q650 680 560 708 M716 690 Q726 706 712 720 M800 696 Q796 708 790 722 M884 690 Q874 706 888 720 M910 652 Q960 672 1080 706 M900 662 Q950 680 1040 708" stroke="${lighten(barkC, 0.32)}" stroke-width="3.5" fill="none" stroke-linecap="round" opacity=".75"/>
+    <path d="M694 670 Q640 686 580 704 M906 670 Q960 686 1020 704 M760 680 Q770 700 760 716 M840 680 Q830 700 842 716" stroke="${dk2(barkC, 0.5)}" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".6"/>
+    ${[[600, 696, 26], [740, 684, 18], [858, 688, 20], [1e3, 698, 24]].map(([mx, my, mw]) => `<ellipse cx="${mx}" cy="${my}" rx="${mw}" ry="5" fill="${pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c")}" opacity=".8"/>`).join("")}
     <path d="M676 664 Q600 680 500 712 M924 664 Q1000 680 1100 712" stroke="#000" stroke-opacity=".18" stroke-width="5" fill="none"/>
     ${lit ? `<g filter="url(#glow)" class="bg-flicker slow">${Array.from({ length: 7 }, (_, i) => `<path d="M${740 + i * 20} 680 q${r(-40, 40)} 30 ${r(-120, 120)} 50" stroke="#9ff5c8" stroke-width="2" fill="none" opacity=".7"/>`).join("")}</g>` : ""}
     ${standingStones(mono, "#7affd0", lit, pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"))}
@@ -7637,6 +7672,20 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.4.4.4",
+      date: "2026-10",
+      en: [
+        "World Tree: a much fuller crown \u2014 a solid mass of leaves shaded from dark underneath to sunlit on top, branches showing through, no leaves hanging loose in the air \u2014 and shaded roots with ridges and moss that blend into the trunk.",
+        "Rune stones: every stone sits in a little mound of earth with grass and pebbles at its foot; in the forest they stand on the forest floor.",
+        "Castle: the soldiers stand behind the rune stones now."
+      ],
+      ru: [
+        "\u041C\u0438\u0440\u043E\u0432\u043E\u0435 \u0434\u0440\u0435\u0432\u043E: \u0433\u043E\u0440\u0430\u0437\u0434\u043E \u0431\u043E\u043B\u0435\u0435 \u043F\u044B\u0448\u043D\u0430\u044F \u043A\u0440\u043E\u043D\u0430 \u2014 \u0441\u043F\u043B\u043E\u0448\u043D\u0430\u044F \u043C\u0430\u0441\u0441\u0430 \u043B\u0438\u0441\u0442\u0432\u044B, \u0442\u0451\u043C\u043D\u0430\u044F \u0441\u043D\u0438\u0437\u0443 \u0438 \u043E\u0441\u0432\u0435\u0449\u0451\u043D\u043D\u0430\u044F \u0441\u0432\u0435\u0440\u0445\u0443, \u0441\u043A\u0432\u043E\u0437\u044C \u043D\u0435\u0451 \u0432\u0438\u0434\u043D\u044B \u0432\u0435\u0442\u0432\u0438, \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0432\u0438\u0441\u0438\u0442 \u0432 \u0432\u043E\u0437\u0434\u0443\u0445\u0435 \u2014 \u0438 \u043A\u043E\u0440\u043D\u0438 \u0441 \u0442\u0435\u043D\u044C\u044E, \u043F\u0440\u043E\u0436\u0438\u043B\u043A\u0430\u043C\u0438 \u0438 \u043C\u0445\u043E\u043C, \u043F\u043B\u0430\u0432\u043D\u043E \u043F\u0435\u0440\u0435\u0445\u043E\u0434\u044F\u0449\u0438\u0435 \u0432 \u0441\u0442\u0432\u043E\u043B.",
+        "\u0420\u0443\u043D\u043D\u044B\u0435 \u043A\u0430\u043C\u043D\u0438: \u043A\u0430\u0436\u0434\u044B\u0439 \u0441\u0442\u043E\u0438\u0442 \u0432 \u043D\u0435\u0431\u043E\u043B\u044C\u0448\u043E\u043C \u0445\u043E\u043B\u043C\u0438\u043A\u0435 \u0437\u0435\u043C\u043B\u0438 \u0441 \u0442\u0440\u0430\u0432\u043E\u0439 \u0438 \u043A\u0430\u043C\u0435\u0448\u043A\u0430\u043C\u0438 \u0443 \u043E\u0441\u043D\u043E\u0432\u0430\u043D\u0438\u044F; \u0432 \u043B\u0435\u0441\u0443 \u043E\u043D\u0438 \u0441\u0442\u043E\u044F\u0442 \u043D\u0430 \u0437\u0435\u043C\u043B\u0435.",
+        "\u0417\u0430\u043C\u043E\u043A: \u0441\u043E\u043B\u0434\u0430\u0442\u044B \u0442\u0435\u043F\u0435\u0440\u044C \u0441\u0442\u043E\u044F\u0442 \u043F\u043E\u0437\u0430\u0434\u0438 \u0440\u0443\u043D\u043D\u044B\u0445 \u043A\u0430\u043C\u043D\u0435\u0439."
+      ]
+    },
     {
       v: "0.9.9.4.4.3",
       date: "2026-10",
