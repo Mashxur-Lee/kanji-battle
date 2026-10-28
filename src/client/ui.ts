@@ -420,7 +420,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
     }),
   );
   $('levelsHint').textContent = mode === 'deck'
-    ? 'Deck Duel draws cards from every level (N5–N1). Your level picks only change your character here.'
+    ? "Deck Duel deals its cards from both players' All spells (2 of each level N5–N1 from each). Your level picks only change your character here."
     : mode === 'rapid'
       ? 'Shared levels: both players race on the same kanji, so a change here changes it for everyone.'
       : mode === 'boss'

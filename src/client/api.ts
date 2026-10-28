@@ -110,6 +110,8 @@ export const api = {
   // the app names a new custom word itself (0.9.9.4), so one added offline keeps its id on the server
   addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', { ...w, id: `u:${uuid().slice(0, 13)}` }),
   quiz: (n = 10) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}`),
+  /** 0.9.9.4.4.1: one story with these words (null when the AI is off or failed) */
+  story: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>) => call<{ story: { title: { ja: string; en: string; ru: string }; lines: Array<{ word: number; ja: string; en: string; ru: string }> } | null }>('POST', '/api/study/story', { words, today: today() }),
   /** a daily task done here (the quiz, a passage): counts towards today's streak */
   task: (task: 'quiz' | 'passage', score: number, total: number) => call<Profile>('POST', '/api/study/task', { task, today: today(), score, total }),
   setDailyNew: (n: number) => call<StudySummary>('PUT', '/api/study/daily-new', { n, today: today() }),

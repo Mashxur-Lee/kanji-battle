@@ -18,6 +18,7 @@ import { SocialService } from './study/SocialService';
 import { RoomManager } from './RoomManager';
 import { Session, SessionHub } from './Session';
 import { Matchmaker } from './Matchmaker';
+import { StoryService } from './study/StoryService';
 import { InsightsService } from './study/InsightsService';
 import { onServerError, reportServerError } from './errors';
 
@@ -41,7 +42,9 @@ const social = new SocialService(store, hub);
 const recognizer = Recognizer.fromFile();
 const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount });
+const stories = new StoryService();
+if (stories.enabled) console.log('Reading passage stories: AI on');
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const rooms = new RoomManager({

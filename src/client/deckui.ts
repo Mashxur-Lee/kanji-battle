@@ -119,7 +119,7 @@ function renderGuide(el: HTMLElement) {
   const flow = h('ol', 'g-flow');
   for (const [icon, t] of [
     ['🦸', 'Pick a hero (30 s).'],
-    ['🪙', 'Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji.'],
+    ['🪙', "Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji. The 20 cards come from both players' All spells: 4 of each level N5–N1, 2 of them yours and 2 your opponent's (a random word of that level if someone has none)."],
     ['🃏', `Your turn: ${DECK_RULES.chooseMs / 1000} s to choose a card. Its mana is paid right away — even if you then miss.`],
     ['📖', `The card flips: read its reading and meaning (up to ${DECK_RULES.castReadMs / 1000} s), then press Ready to look at the kanji.`],
     ['✍️', `Press CAST! — the kanji disappears and you write it from memory (pad with eraser, or Japanese keyboard). ${DECK_RULES.castMs / 60000} minute for all three steps. Your opponent watches you write.`],

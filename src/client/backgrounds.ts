@@ -218,6 +218,7 @@ function forest(t: TimeOfDay) {
     ${eyes(t === 'night' ? 6 : t === 'sunset' ? 3 : 1, 560, 700, t === 'day' ? 0.3 : 1)}
     ${trunk(90, 190, near, 30)}${trunk(1500, 210, near, -40)}${trunk(420, 110, mid, 20)}${trunk(1170, 120, mid, -10)}
     ${t !== 'day' ? fireflies(t === 'night' ? 28 : 12, 460, 760, '#e8ff9a') : ''}
+    <path d="M0 740 Q400 724 800 726 Q1200 724 1600 740 L1600 900 L0 900 Z" fill="${pick(t, '#4e5a48', '#2a1c26', '#070d10')}"/>
     ${grass(60, 720, 770, pick(t, '#5a7a4a', '#4a3a3a', '#0e1a12'))}
     ${arenaFloor(t, stone, pick(t, '#3a9cff', '#7ac8ff', '#5ab0ff'), pick(t, '#2a6ad0', '#e8f4ff', '#cfe8ff'))}
     ${mist(880, pick(t, '#ffffff', '#ffd8b8', '#2a4f56'), 0.18)}`;
@@ -314,6 +315,10 @@ function castle(t: TimeOfDay) {
     ${Array.from({ length: 12 }, (_, i) => `<rect x="${560 + i * 40}" y="414" width="22" height="18" fill="${stoneC}"/>`).join('')}
     ${tower(500, 90, 330)}${tower(1010, 90, 330)}${tower(740, 120, 420)}
     <path d="M760 640 L760 590 Q800 548 840 590 L840 640 Z" fill="${pick(t, '#2a2a38', '#0c0408', '#05050f')}"/>
+    <path d="M400 712 C 440 660, 470 640, 492 636 L1108 636 C 1130 640, 1160 660, 1200 712 Z" fill="${pick(t, '#5a6c57', '#22101a', '#14162e')}"/>
+    <path d="M488 634 L1112 634 L1124 652 L476 652 Z" fill="${dk2(stoneC, 0.25)}"/>
+    <path d="M760 652 L840 652 L860 712 L740 712 Z" fill="${pick(t, '#8a7a62', '#3a2420', '#1c1a2a')}" opacity=".85"/>
+    ${Array.from({ length: 9 }, (_, i) => `<ellipse cx="${f(470 + i * 82 + r(-10, 10))}" cy="${f(664 + r(0, 14))}" rx="${f(r(18, 30))}" ry="${f(r(7, 11))}" fill="${dk2(stoneC, 0.15)}" opacity=".7"/>`).join('')}
     ${lit ? `<g class="bg-flicker" filter="url(#glow)"><circle cx="740" cy="600" r="6" fill="#ffb347"/><circle cx="860" cy="600" r="6" fill="#ffb347"/></g>` : ''}
     ${haze(700, pick(t, '#e8eef6', '#ff8a5a', '#1a2050'), 0.25)}
     ${banner(380)}${banner(1158)}
@@ -345,13 +350,15 @@ function worldtree(t: TimeOfDay) {
     ${haze(620, pick(t, '#e8f4ff', '#ffc0a0', '#2a3a6a'), 0.5)}
     ${island(260, 300, 0.9)}${island(1340, 360, 0.7)}${island(1080, 220, 0.5)}
     <ellipse cx="800" cy="600" rx="700" ry="200" fill="url(#glow2)"/>
+    ${clouds(8, 600, 660, pick(t, '#ffffff', '#ffd8c0', '#efeaff'), pick(t, 0.8, 0.55, 0.2), 'bg-drift slow')}
     <path d="M690 650 Q712 520 690 430 Q660 360 580 320 L640 318 Q720 350 750 290 Q760 360 800 330 Q840 360 850 290 Q880 350 960 318 L1020 320 Q940 360 910 430 Q888 520 910 650 Z" fill="${bark}"/>
     <path d="M800 650 L790 440 Q800 400 812 440 L820 650Z" fill="#000" opacity=".18"/><path d="M700 640 Q706 520 696 440 L720 440 Q728 520 724 640Z" fill="#fff" opacity=".07"/>
-    <path d="M690 640 Q600 660 470 700 L520 704 Q620 676 700 664 Z M910 640 Q1000 660 1130 700 L1080 704 Q980 676 900 664 Z M760 650 Q720 690 640 712 L960 712 Q880 690 840 650Z" fill="${bark}"/>
-    ${lit ? `<g filter="url(#glow)" class="bg-flicker slow">${Array.from({ length: 7 }, (_, i) => `<path d="M${740 + i * 20} 640 q${r(-40, 40)} 30 ${r(-120, 120)} 50" stroke="#9ff5c8" stroke-width="2" fill="none" opacity=".7"/>`).join('')}</g>` : ''}
     ${canopy(800, 240, 470, 170)}
-    ${clouds(8, 600, 660, pick(t, '#ffffff', '#ffd8c0', '#efeaff'), pick(t, 0.8, 0.55, 0.2), 'bg-drift slow')}
     ${hills(690, 20, pick(t, '#3a6a4a', '#4a3a2a', '#0e2420'), 1)}
+    <path d="M560 716 C 640 680, 720 664, 800 662 C 880 664, 960 680, 1040 716 Z" fill="${dk2(pick(t, '#3a6a4a', '#4a3a2a', '#0e2420'), 0.12)}"/>
+    <path d="M691 644 Q688 652 676 662 Q600 676 470 712 L540 716 Q630 694 716 684 Q740 704 700 724 L780 724 Q790 700 800 690 Q812 700 820 724 L900 724 Q860 704 884 684 Q970 694 1060 716 L1130 712 Q1000 676 924 662 Q912 652 909 644 Z" fill="${bark}"/>
+    <path d="M676 664 Q600 680 500 712 M924 664 Q1000 680 1100 712" stroke="#000" stroke-opacity=".18" stroke-width="5" fill="none"/>
+    ${lit ? `<g filter="url(#glow)" class="bg-flicker slow">${Array.from({ length: 7 }, (_, i) => `<path d="M${740 + i * 20} 680 q${r(-40, 40)} 30 ${r(-120, 120)} 50" stroke="#9ff5c8" stroke-width="2" fill="none" opacity=".7"/>`).join('')}</g>` : ''}
     ${monolith(180, 750, 190, 64, mono, '#7affd0', lit)}${monolith(1420, 750, 190, 64, mono, '#7affd0', lit)}${monolith(500, 720, 120, 44, mono, '#7affd0', lit)}${monolith(1100, 720, 120, 44, mono, '#7affd0', lit)}
     ${grass(60, 700, 760, pick(t, '#2f6a3a', '#4a3a24', '#0a1a14'))}
     ${fireflies(t === 'night' ? 50 : 20, 420, 760, pick(t, '#ffffff', '#fff0b0', '#b9ffd8'))}

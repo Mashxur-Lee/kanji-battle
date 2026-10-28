@@ -38,29 +38,71 @@ function counts(el: HTMLElement, c: DeckCounts) {
   }
 }
 
-/** 0.9.9.4.4: All spells — a number per level: how many of its words are added a day (was: ticks + one slider) */
+/**
+ * All spells — a number per level: how many of its words are added a day (0.9.9.4.4). 0.9.9.4.4.1: − / + buttons
+ * (steps of 1) and nothing is saved until you press Apply — a slip of the finger can't add a pile of words.
+ */
+let savedPlan: Partial<Record<Level, number>> = {};
+let draftPlan: Partial<Record<Level, number>> = {};
+const planTotal = (p: Partial<Record<Level, number>>) => LEVELS.reduce((a, l) => a + (p[l] ?? 0), 0);
 function levelPlan(per: Partial<Record<Level, number>>) {
+  savedPlan = { ...per };
+  draftPlan = { ...per };
   const box = $('studyLevels');
-  // (don't redraw under the player's fingers while they type)
-  if (box.contains(document.activeElement)) return;
   box.replaceChildren(...LEVELS.map((lv) => {
-    const n = per[lv] ?? 0;
-    const label = document.createElement('label');
-    label.className = 'lp-row' + (n ? ' on' : '');
+    const row = document.createElement('div');
+    row.className = 'lp-row';
+    row.dataset.level = lv;
     const name = document.createElement('span');
+    name.className = 'lp-name';
     name.textContent = LEVEL_LABEL[lv];
+    const minus = Object.assign(document.createElement('button'), { type: 'button', className: 'lp-btn', textContent: '−' });
+    const plus = Object.assign(document.createElement('button'), { type: 'button', className: 'lp-btn', textContent: '+' });
+    minus.setAttribute('aria-label', `${LEVEL_LABEL[lv]} −1`); plus.setAttribute('aria-label', `${LEVEL_LABEL[lv]} +1`);
     const input = document.createElement('input');
-    Object.assign(input, { type: 'number', min: '0', max: '150', step: '5', value: String(n), inputMode: 'numeric' });
+    Object.assign(input, { type: 'text', inputMode: 'numeric', value: String(per[lv] ?? 0), maxLength: 3 });
     input.dataset.level = lv;
     input.setAttribute('aria-label', `${LEVEL_LABEL[lv]}: ${tr('new words a day')}`);
-    label.append(name, input);
-    const locked = ui.lockLevelChip(label, lv);
-    if (locked.classList.contains('locked')) { input.value = '0'; label.classList.remove('on'); }
+    const set = (n: number) => { draftPlan[lv] = Math.max(0, Math.min(150, Math.round(n) || 0)); input.value = String(draftPlan[lv]); planChanged(); };
+    minus.onclick = () => set((draftPlan[lv] ?? 0) - 1);
+    plus.onclick = () => set((draftPlan[lv] ?? 0) + 1);
+    input.oninput = () => { input.value = input.value.replace(/\D/g, ''); draftPlan[lv] = Math.min(150, Number(input.value) || 0); planChanged(); };
+    input.onblur = () => set(Number(input.value));
+    input.onkeydown = (e) => { if (e.key === 'ArrowUp') { e.preventDefault(); plus.click(); } if (e.key === 'ArrowDown') { e.preventDefault(); minus.click(); } if (e.key === 'Enter') input.blur(); };
+    const step = document.createElement('div');
+    step.className = 'lp-step';
+    step.append(minus, input, plus);
+    row.append(name, step);
+    const locked = ui.lockLevelChip(row, lv);
+    if (locked.classList.contains('locked')) { input.value = '0'; input.disabled = minus.disabled = plus.disabled = true; delete draftPlan[lv]; }
     return locked;
   }));
-  const total = LEVELS.reduce((a, l) => a + (per[l] ?? 0), 0);
-  $('dailyTotal').textContent = total ? `${total} new spells a day` : '';
+  planChanged();
 }
+function planChanged() {
+  for (const row of document.querySelectorAll<HTMLElement>('#studyLevels .lp-row')) {
+    const l = row.dataset.level as Level;
+    row.classList.toggle('on', (draftPlan[l] ?? 0) > 0);
+    row.classList.toggle('changed', (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
+  }
+  const total = planTotal(draftPlan);
+  $('dailyTotal').textContent = total ? `${total} new spells a day` : '';
+  const dirty = LEVELS.some((l) => (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
+  const bar = $('planApply');
+  bar.hidden = !dirty;
+  if (!dirty) return;
+  const more = LEVELS.reduce((a, l) => a + Math.max(0, (draftPlan[l] ?? 0) - (savedPlan[l] ?? 0)), 0);
+  $('planApplyText').textContent = more ? `Adds up to ${more} new words to “All spells” today` : 'Fewer new words from tomorrow';
+}
+$('planApplyBtn').onclick = async () => {
+  const per: Partial<Record<Level, number>> = {};
+  for (const l of LEVELS) if ((draftPlan[l] ?? 0) > 0) per[l] = draftPlan[l];
+  const btn = $<HTMLButtonElement>('planApplyBtn');
+  btn.disabled = true;
+  try { render(await api.setDailyLevels(per)); } catch (err) { ui.toast((err as Error).message); }
+  btn.disabled = false;
+};
+$('planCancelBtn').onclick = () => levelPlan(savedPlan);
 
 /** The "Study spells" screen: deck counts, level ticks, and the "new spells added" notice. */
 export async function openStudy() {
@@ -94,18 +136,6 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
 }
 
 initDecks({ changed: () => { if (!$('study').hidden) void api.study().then(render).catch(() => {}); }, back: () => void openStudy() });
-// a number changed: save the whole plan (blur or Enter; the arrows save at once)
-$('studyLevels').addEventListener('change', async (e) => {
-  const input = e.target as HTMLInputElement;
-  const n = Math.max(0, Math.min(150, Math.round(Number(input.value) || 0)));
-  input.value = String(n);
-  input.closest('.lp-row')?.classList.toggle('on', n > 0);
-  const per: Partial<Record<Level, number>> = {};
-  for (const i of document.querySelectorAll<HTMLInputElement>('#studyLevels input')) if (!i.disabled && Number(i.value) > 0) per[i.dataset.level as Level] = Math.min(150, Math.round(Number(i.value)));
-  input.blur();
-  try { render(await api.setDailyLevels(per)); } catch (err) { ui.toast((err as Error).message); }
-});
-$('studyLevels').addEventListener('keydown', (e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); });
 
 // ── flashcard session (Anki-style) ──────────────────────────────────────────
 let queue: StudyCard[] = [];
@@ -448,7 +478,7 @@ function renderCustomize() {
         .catch((e) => { profile.badges = before; renderCustomize(); ui.toast((e as Error).message); });
     });
     draw();
-    extra.replaceChildren(el('h3', '', `Badges (up to ${BADGES_MAX})`), box);
+    extra.replaceChildren(box);
   }
 
   // the preview: the staff in 3D; the arena and the flames in a small 3D arena (0.9.9.3.2) — 2D without WebGL

@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.4.4
+# Kanji Wizards · v0.9.9.4.4.1
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -10,7 +10,7 @@ Real-time kanji battles in the browser. Five modes:
 | **1v1 Kanji Writing** | Look at the kanji (up to 3.5 s) and press **CAST!** (or Enter): it vanishes and only then the pad / Japanese keyboard appear, with the reading + meaning. Pasting into the answer box is blocked and the kanji can't be selected. Type the kanji with a Japanese IME or draw it on the pad. Only kanji count (kana only at the かな level). |
 | **Boss Elimination** | 1–4 players vs the Black Dragon (its HP grows with the party). Correct answers hit it; a mistake gets you clawed; fire breath every 30 s hits everyone who isn't on fire (5+ combo = immune). |
 | **1v1 Rapid** | Both players get the same kanji. First correct reading (kana or romaji) deals the damage. Levels are shared: in a room one set for both, in the online queue only players with a level in common are matched. |
-| **Deck Duel** | Pick a hero, draft 10 kanji cards, then spend mana to cast them by writing the kanji. 800 HP each. |
+| **Deck Duel** | Pick a hero, draft 10 kanji cards from a pool made of both players' All spells, then spend mana to cast them by writing the kanji. 800 HP each. |
 
 ```
 npm install
@@ -65,6 +65,8 @@ Passwords are hashed with scrypt; logins are signed tokens (30 days).
 | `AUTH_SECRET` | **Set this.** Any long random string. Without it, everyone is logged out whenever the server restarts. |
 | `ADMIN_PASSWORD` | **Set this.** Replaces the public default admin password. |
 | `USER_PASSWORD` | Optional: password for the demo `user` account. |
+| `ANTHROPIC_API_KEY` | Optional: turns on the reading passage's AI stories (one short story written with the player's words, by Claude Haiku; up to 40 per player a day, cached). Without it the passage uses the words' example sentences. |
+| `STORY_MODEL` | Optional: another Claude model for the stories (default `claude-haiku-5-5`). |
 | `USERS_FILE` | Local only: where the file store writes when there is no database (default `.data/users.json`). |
 
 ### Keeping accounts on Render (Neon Postgres)
@@ -367,7 +369,8 @@ duel starts. Hero pick and the first draft can still go **← Back to lobby**. I
 while your opponent plays you can read the list of kanji in your hand (sorted, so you can't tell which card
 is which). A card's mana is paid when you play it, even if you then write it wrong.
 
-Draft: 20 cards (4 per colour), coin flip, picks of 2 (one 20 s clock for both) until each player has 10. Colours, ranked by word
+Draft pool (0.9.9.4.4): 4 words of each level N5–N1 — 2 from each player's **All spells** (a random word of that level when a player has
+too few, and for the AI). Draft: 20 cards (4 per colour), coin flip, picks of 2 (one 20 s clock for both) until each player has 10. Colours, ranked by word
 difficulty (JLPT level, stroke count and word length):
 
 | Colour | Effect | Mana |

@@ -7,6 +7,29 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.4.1', date: '2026-10',
+    en: [
+      'All spells: each level has its own − / + buttons (steps of 1), and nothing changes until you press Apply — it tells you how many words that adds today, so a misclick can’t flood your deck.',
+      'Study spells: a tidier layout on PC — All spells on the left, the other three decks compact beside it, and the JLPT quiz, Onomatopoeia quiz and Reading passage as bright cards below. The “Words” buttons stand out.',
+      'Onomatopoeia cards: the kind (擬態語 gitaigo …) is in a dark, readable colour on the card.',
+      'Reading passage: one short story with all your words again — written for you by a small AI (when the server has it switched on), with furigana and translations. Without it, the words’ example sentences are used.',
+      'Deck Duel: every instruction now says where the cards come from — both players’ All spells.',
+      'PC: the interface keeps the same proportions on every monitor — a laptop and a big screen show the same layout, scaled to the screen. The UI size (70–100%) still makes everything smaller or bigger.',
+      'Customize: the badges section sits on its own panel and is easy to read.',
+      '2D arenas: the castle and the World Tree stand firmly on the ground, and the forest’s ground reaches the edges of the screen.',
+    ],
+    ru: [
+      'Все заклинания: у каждого уровня свои кнопки − / + (шаг 1), и ничего не меняется, пока вы не нажмёте «Применить» — там видно, сколько слов добавится сегодня, так что случайное нажатие не завалит колоду.',
+      'Изучение заклинаний: аккуратнее на ПК — «Все заклинания» слева, три другие колоды компактно рядом, а тест JLPT, тест по ономатопее и текст для чтения — яркими карточками внизу. Кнопки «Слова» стало хорошо видно.',
+      'Карточки ономатопеи: вид (擬態語 гитайго …) теперь тёмным, хорошо читаемым цветом.',
+      'Текст для чтения: снова один короткий рассказ со всеми вашими словами — его пишет небольшой ИИ (если он включён на сервере), с фуриганой и переводом. Без него используются примеры предложений.',
+      'Дуэль колод: во всех инструкциях сказано, откуда берутся карты, — из «Всех заклинаний» обоих игроков.',
+      'ПК: интерфейс сохраняет одинаковые пропорции на любом мониторе — ноутбук и большой экран показывают одну и ту же раскладку в масштабе экрана. Размер интерфейса (70–100%) по-прежнему делает всё меньше или больше.',
+      'Настройка облика: раздел значков на своей панели, его легко читать.',
+      '2D-арены: замок и Мировое древо твёрдо стоят на земле, а земля в лесу доходит до краёв экрана.',
+    ],
+  },
+  {
     v: '0.9.9.4.4', date: '2026-10',
     en: [
       'Study spells: an ↶ Undo button (or Z) brings back the card you just answered — for a misclick or a wrong swipe.',
