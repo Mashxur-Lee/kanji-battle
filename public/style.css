@@ -2379,5 +2379,8 @@ html, body { overflow-x: clip; }
 .word-from.mine { color: var(--gold, #ffd479); border-color: rgba(255, 212, 121, .6); background: rgba(255, 212, 121, .1); }
 .card.mine { border-color: rgba(255, 212, 121, .7); }
 .card .mine-tag { position: absolute; top: 6px; left: 8px; font-size: .7rem; font-weight: 800; color: var(--gold, #ffd479); }
-/* the painted backgrounds' film grain (0.9.9.4.4.2) */
-#bg::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background-image: var(--grain, none); background-size: 160px 160px; opacity: .22; mix-blend-mode: overlay; }
+/* 0.9.9.4.4.3: away from the main menu (and outside battles), the middle of the background dims a little so the
+   page in front of it reads better; the edges keep the scene */
+#bg::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .6s;
+  background: radial-gradient(ellipse 62% 70% at 50% 46%, rgba(8, 6, 24, .62), rgba(8, 6, 24, .4) 55%, rgba(8, 6, 24, .08) 100%); }
+body:is([data-screen="study"], [data-screen="review"], [data-screen="quiz"], [data-screen="passage"], [data-screen="customize"], [data-screen="progress"], [data-screen="history"], [data-screen="daily"], [data-screen="friends"], [data-screen="queue"], [data-screen="modes"], [data-screen="lobby"], [data-screen="admin"], [data-screen="results"]) #bg::before { opacity: 1; }

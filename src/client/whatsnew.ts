@@ -7,6 +7,17 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.4.3', date: '2026-10',
+    en: [
+      '2D arenas repainted in more detail: soft light and shadow instead of outlines, fluffy clouds, snowy mountain peaks, leafy trees and bushes, ivy, brick walls and banners on the castle, lily pads in the swamp, fields around the villages — and no more film-grain filter.',
+      'Menus: behind every screen except the main menu, the middle of the background is dimmed a little, so text and cards are easier to read.',
+    ],
+    ru: [
+      '2D-арены перерисованы подробнее: мягкий свет и тени вместо контуров, пушистые облака, снежные вершины, лиственные деревья и кусты, плющ, кирпичные стены и знамёна замка, кувшинки на болоте, поля у деревень — и без «киношного» зерна.',
+      'Меню: на всех экранах, кроме главного меню, центр фона немного затемнён — текст и карточки читаются легче.',
+    ],
+  },
+  {
     v: '0.9.9.4.4.2', date: '2026-10',
     en: [
       'Battles use your own words: 1v1 Kanji Reading, Kanji Writing and Boss take the words of your levels from your All spells (random words fill up when you have too few) — marked ★ on the study cards.',
