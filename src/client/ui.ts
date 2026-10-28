@@ -28,6 +28,7 @@ export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };
 export const currentScreen = () => SCREENS.find((s) => !$(s).hidden);
 export const show = (screen: Screen) => {
   SCREENS.forEach((s) => ($(s).hidden = s !== screen));
+  document.body.dataset.screen = screen; // 0.9.9.4.4.3: the background dims behind the menus (style.css)
   scrollTo(0, 0);
   screenListener(screen);
 };
