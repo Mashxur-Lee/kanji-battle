@@ -329,12 +329,12 @@ export class PgStore implements Store {
   }
   async deleteCustomWord(userId: string, id: string) { await this.sql`delete from kw_custom_words where user_id = ${userId} and id = ${id}`; }
   async learnedCount(userId: string) {
-    const [r] = await this.sql<{ n: string }[]>`select count(distinct vocab_id) as n from kw_cards where user_id = ${userId} and state = 'review'`;
+    const [r] = await this.sql<{ n: string }[]>`select count(distinct vocab_id) as n from kw_cards where user_id = ${userId} and (state = 'review' or crit_day is not null)`;
     return Number(r.n);
   }
   async cardStats() {
     const rows = await this.sql<{ user_id: string; cards: string; learned: string }[]>`
-      select user_id, count(*) as cards, count(distinct vocab_id) filter (where state = 'review') as learned from kw_cards group by user_id`;
+      select user_id, count(*) as cards, count(distinct vocab_id) filter (where state = 'review' or crit_day is not null) as learned from kw_cards group by user_id`;
     return Object.fromEntries(rows.map((r) => [r.user_id, { cards: Number(r.cards), learned: Number(r.learned) }]));
   }
   async addResult(id: string, outcome: 'win' | 'loss' | 'draw') {

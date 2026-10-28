@@ -522,9 +522,9 @@
       this.custom.set(userId, (this.custom.get(userId) ?? []).filter((x) => x.id !== id));
       this.persist();
     }
-    /** Learned = words that graduated to review in any deck (a word counts once). */
+    /** Learned = words that graduated to review, or that you've answered right at least once (0.9.9.4.4.6: today's count too) — in any deck, a word counts once. */
     async learnedCount(userId) {
-      return new Set([...this.deck(userId).values()].filter((c) => c.state === "review").map((c) => c.vocabId)).size;
+      return new Set([...this.deck(userId).values()].filter((c) => c.state === "review" || !!c.critDay).map((c) => c.vocabId)).size;
     }
     async addResult(id, outcome) {
       const r2 = this.users.get(id);
@@ -550,7 +550,7 @@
       return this.avatars.get(id) ?? null;
     }
     async cardStats() {
-      return Object.fromEntries([...this.srs].map(([uid2, d]) => [uid2, { cards: d.size, learned: new Set([...d.values()].filter((c) => c.state === "review").map((c) => c.vocabId)).size }]));
+      return Object.fromEntries([...this.srs].map(([uid2, d]) => [uid2, { cards: d.size, learned: new Set([...d.values()].filter((c) => c.state === "review" || !!c.critDay).map((c) => c.vocabId)).size }]));
     }
     async addMatch(userId, m) {
       const list = this.history.get(userId) ?? [];
@@ -1983,6 +1983,7 @@ Answer with JSON only, no other text:
     if (env.OPENAI_API_KEY) return { kind: "openai", key: env.OPENAI_API_KEY, model: model ?? "gpt-4o-mini", baseUrl: (env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "") };
     return null;
   }
+  var geminiWay = /* @__PURE__ */ new Map();
   async function complete(p, text, signal) {
     const post = async (url, headers, body) => {
       const r2 = await fetch(url, { method: "POST", signal, headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
@@ -1991,13 +1992,22 @@ Answer with JSON only, no other text:
     };
     if (p.kind === "gemini") {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`;
-      const config = { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 8192 };
+      const base = { temperature: 0.9, maxOutputTokens: 8192 };
+      const ways = [
+        { ...base, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } },
+        { ...base, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
+        { ...base, responseMimeType: "application/json" },
+        base
+      ];
       let d2;
-      try {
-        d2 = await post(url, { "x-goog-api-key": p.key }, { contents: [{ role: "user", parts: [{ text }] }], generationConfig: { ...config, thinkingConfig: { thinkingBudget: 0 } } });
-      } catch (e) {
-        if (!/ 400:.*think/is.test(e.message)) throw e;
-        d2 = await post(url, { "x-goog-api-key": p.key }, { contents: [{ role: "user", parts: [{ text }] }], generationConfig: config });
+      for (let i = geminiWay.get(p.model) ?? 0; ; i++) {
+        try {
+          d2 = await post(url, { "x-goog-api-key": p.key }, { contents: [{ role: "user", parts: [{ text }] }], generationConfig: ways[i] });
+          geminiWay.set(p.model, i);
+          break;
+        } catch (e) {
+          if (i + 1 >= ways.length || !/ 400:/.test(e.message) || /API[ _]KEY/i.test(e.message)) throw e;
+        }
       }
       return (d2.candidates?.[0]?.content?.parts ?? []).map((x) => x.text ?? "").join("");
     }
@@ -2835,7 +2845,7 @@ Answer with JSON only, no other text:
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.4.4.5";
+  var VERSION = "0.9.9.4.4.6";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -7810,6 +7820,18 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.4.4.6",
+      date: "2026-10",
+      en: [
+        "Reading passage: fixed the AI story failing with \u201Cinvalid argument\u201D on newer Gemini models \u2014 it now finds the settings your model accepts by itself.",
+        "Study spells: \u201Clearned in total\u201D now includes the words you learned today."
+      ],
+      ru: [
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u0438\u0441\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0430 \u043E\u0448\u0438\u0431\u043A\u0430 \xABinvalid argument\xBB \u0443 \u043D\u043E\u0432\u044B\u0445 \u043C\u043E\u0434\u0435\u043B\u0435\u0439 Gemini \u2014 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0441\u0430\u043C\u043E \u043F\u043E\u0434\u0431\u0438\u0440\u0430\u0435\u0442 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043F\u0440\u0438\u043D\u0438\u043C\u0430\u0435\u0442 \u043C\u043E\u0434\u0435\u043B\u044C.",
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \xAB\u0432\u044B\u0443\u0447\u0435\u043D\u043E \u0432\u0441\u0435\u0433\u043E\xBB \u0442\u0435\u043F\u0435\u0440\u044C \u0432\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u0441\u043B\u043E\u0432\u0430, \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u044B\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F."
+      ]
+    },
     {
       v: "0.9.9.4.4.5",
       date: "2026-10",

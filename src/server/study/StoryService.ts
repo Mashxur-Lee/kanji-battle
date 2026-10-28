@@ -87,6 +87,8 @@ export function providerFromEnv(env: Record<string, string | undefined> = proces
   return null;
 }
 
+/** which generationConfig worked for a Gemini model (see complete) */
+const geminiWay = new Map<string, number>();
 /** One prompt → the model's text answer. */
 async function complete(p: StoryProvider, text: string, signal: AbortSignal): Promise<string> {
   const post = async (url: string, headers: Record<string, string>, body: unknown) => {
@@ -96,14 +98,26 @@ async function complete(p: StoryProvider, text: string, signal: AbortSignal): Pr
   };
   if (p.kind === 'gemini') {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`;
-    const config = { responseMimeType: 'application/json', temperature: 0.9, maxOutputTokens: 8192 };
-    // 0.9.9.4.4.5: no "thinking" — a short story doesn't need it, and it made the answer slow (the app gave up
-    // and showed the example sentences). A model that can't switch thinking off is asked again without it.
+    // 0.9.9.4.4.6: no "thinking" (a short story doesn't need it, and it makes the answer slow) — but how to
+    // switch it off depends on the model: Gemini 3 takes thinkingLevel, 2.5 takes thinkingBudget, and a model
+    // answers 400 "invalid argument" to the one it doesn't know. So: try each way in turn, and remember the
+    // first that works for this model.
+    const base = { temperature: 0.9, maxOutputTokens: 8192 };
+    const ways: Array<Record<string, unknown>> = [
+      { ...base, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } },
+      { ...base, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } },
+      { ...base, responseMimeType: 'application/json' },
+      base,
+    ];
     let d;
-    try { d = await post(url, { 'x-goog-api-key': p.key }, { contents: [{ role: 'user', parts: [{ text }] }], generationConfig: { ...config, thinkingConfig: { thinkingBudget: 0 } } }); }
-    catch (e) {
-      if (!/ 400:.*think/is.test((e as Error).message)) throw e;
-      d = await post(url, { 'x-goog-api-key': p.key }, { contents: [{ role: 'user', parts: [{ text }] }], generationConfig: config });
+    for (let i = geminiWay.get(p.model) ?? 0; ; i++) {
+      try {
+        d = await post(url, { 'x-goog-api-key': p.key }, { contents: [{ role: 'user', parts: [{ text }] }], generationConfig: ways[i] });
+        geminiWay.set(p.model, i);
+        break;
+      } catch (e) {
+        if (i + 1 >= ways.length || !/ 400:/.test((e as Error).message) || /API[ _]KEY/i.test((e as Error).message)) throw e;
+      }
     }
     return (d.candidates?.[0]?.content?.parts ?? []).map((x: { text?: string }) => x.text ?? '').join('');
   }
