@@ -36,8 +36,32 @@ for (const f of readdirSync(r('data/examples')).filter((x) => x.endsWith('.tsv')
 }
 writeFileSync(r('public/examples.json'), JSON.stringify(examples));
 
+// kanji help (0.9.9.4.4): KANJIDIC meanings/readings + KanjiVG parts (data/kanji/base.json), friendly names for the parts
+// (radicals.tsv, components.tsv) and a hand-written Russian meaning + memory story per kanji (data/kanji/notes/*.tsv)
+{
+  const base = JSON.parse(readFileSync(r('data/kanji/base.json'), 'utf8'));
+  const tsv = (f) => readFileSync(f, 'utf8').split('\n').filter((l) => l.trim()).map((l) => l.split('\t'));
+  const names = {};
+  for (const [c, m] of Object.entries(base.partMeanings)) names[c] = [m.toLowerCase(), ''];
+  const notes = {};
+  for (const f of readdirSync(r('data/kanji/notes')).filter((x) => x.endsWith('.tsv')).sort()) {
+    for (const [c, ru, en, sr] of tsv(r('data/kanji/notes', f))) notes[c] = { ru, en, sr };
+  }
+  for (const [c, d] of Object.entries(base.kanji)) names[c] = [(d.m[0] ?? '').toLowerCase(), (notes[c]?.ru ?? '').split(/[,;]/)[0].trim()];
+  for (const f of ['components.tsv', 'radicals.tsv']) for (const [c, en, ru] of tsv(r('data/kanji', f))) names[c] = [en, ru];
+  const kanji = {};
+  for (const [c, d] of Object.entries(base.kanji)) {
+    const n = notes[c] ?? {};
+    const parts = d.p.map((e) => [e.startsWith('CDP') ? '' : e, ...(names[e] ?? ['', ''])]).filter((x) => x[1]);
+    // [8] which part each stroke belongs to (index into d.p, -1 none) — colours the parts in the picture
+    const idx = d.p.map((e) => parts.findIndex((x) => x[0] === e || (e.startsWith('CDP') && x[0] === '')));
+    kanji[c] = [d.m.filter((m) => !/radical/i.test(m)).join(', '), n.ru ?? '', d.on.join('、'), d.kun.join('、'), parts, n.en ?? '', n.sr ?? '', d.s ? d.s.map((i) => (i < 0 ? -1 : idx[i])) : null];
+  }
+  writeFileSync(r('public/kanji.json'), JSON.stringify(kanji));
+}
+
 // the service worker caches these for offline use; its version changes whenever any of them does
-const SHELL = ['/', '/index.html', '/app.js', '/arena3d.js', '/style.css', '/favicon.svg', '/vocab.json', '/examples.json', '/meanings-ru.json', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
+const SHELL = ['/', '/index.html', '/app.js', '/arena3d.js', '/style.css', '/favicon.svg', '/vocab.json', '/examples.json', '/kanji.json', '/meanings-ru.json', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
 const h = createHash('sha256');
 for (const f of SHELL) if (f !== '/') { try { h.update(readFileSync(r('public', f))); } catch { /* not built yet */ } }
 const sw = readFileSync(r('src/client/sw.js'), 'utf8')

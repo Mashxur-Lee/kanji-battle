@@ -4,7 +4,7 @@ import { DEFAULT_ROOM_OPTIONS, Room, type MatchEndHook, type RoomOptions } from 
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-export interface ManagerDeps { judgeWriting?: WritingJudge; judgeDeck?: WritingJudge; writableFilter?: (v: VocabEntry) => boolean; onMatchEnd?: MatchEndHook; onGameStart?: (mode: GameMode, playerIds: PlayerId[]) => void }
+export interface ManagerDeps { judgeWriting?: WritingJudge; judgeDeck?: WritingJudge; writableFilter?: (v: VocabEntry) => boolean; spellIds?: (id: string) => Promise<ReadonlySet<string>>; onMatchEnd?: MatchEndHook; onGameStart?: (mode: GameMode, playerIds: PlayerId[]) => void }
 
 /** Owns all rooms and remembers which room each account is sitting in (for reconnects). */
 export class RoomManager {
@@ -25,6 +25,7 @@ export class RoomManager {
       judgeWriting: this.deps.judgeWriting,
       judgeDeck: this.deps.judgeDeck,
       writableFilter: this.deps.writableFilter,
+      spellIds: this.deps.spellIds,
       onMatchEnd: this.deps.onMatchEnd,
       onGameStart: this.deps.onGameStart,
     }, quick ? { ...this.opts, game: { ...this.opts.game, prepMs: 30_000, battleMs: 120_000 } } : this.opts);

@@ -11,7 +11,7 @@ export function loadExamples(): Promise<Map<string, Example>> {
 }
 
 /** [漢字|かんじ] → <ruby>漢字<rt>かんじ</rt></ruby> (0.9.9.4.3: furigana over the sentence's kanji) */
-function furigana(text: string): Array<Node | string> {
+export function furigana(text: string): Array<Node | string> {
   const out: Array<Node | string> = [];
   for (const bit of text.split(/(\[[^\]|]+\|[^\]]+\])/)) {
     const m = /^\[([^\]|]+)\|([^\]]+)\]$/.exec(bit);

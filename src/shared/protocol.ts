@@ -4,8 +4,16 @@ export type PlayerId = string; // = the player's account id
 
 /** KANA = hiragana, KATA = katakana practice (answered in romaji); N5–N1 = JLPT vocabulary (answered with the reading). */
 export const LEVELS = ['KANA', 'KATA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
-export type Level = (typeof LEVELS)[number];
-export const LEVEL_LABEL: Record<Level, string> = { KANA: 'ひらがな', KATA: 'カタカナ', N5: 'N5', N4: 'N4', N3: 'N3', N2: 'N2', N1: 'N1' };
+/** ONO (0.9.9.4.4): onomatopoeia — studied in their own deck and quiz, never in battle (so not in LEVELS) */
+export type Level = (typeof LEVELS)[number] | 'ONO';
+export const LEVEL_LABEL: Record<Level, string> = { KANA: 'ひらがな', KATA: 'カタカナ', N5: 'N5', N4: 'N4', N3: 'N3', N2: 'N2', N1: 'N1', ONO: 'オノマトペ' };
+/** The three kinds of onomatopoeia: 擬声語 (a sound or voice), 擬態語 (a state or manner), 擬情語 (a feeling). */
+export type OnoType = 'sei' | 'tai' | 'jo';
+export const ONO_TYPES: Record<OnoType, { ja: string; romaji: string; en: string }> = {
+  sei: { ja: '擬声語', romaji: 'giseigo', en: 'sound' },
+  tai: { ja: '擬態語', romaji: 'gitaigo', en: 'state / manner' },
+  jo: { ja: '擬情語', romaji: 'gijōgo', en: 'feeling' },
+};
 
 export const MODES = ['reading', 'writing', 'boss', 'rapid', 'deck'] as const;
 export type GameMode = (typeof MODES)[number];
@@ -32,6 +40,7 @@ export interface VocabEntry {
   strokes?: number; // total stroke count of the kanji in the word
   altReadings?: string[];
   jlpt?: Level; // the word's JLPT list (its `level` is re-sorted by stroke count, src/server/vocab.ts)
+  ono?: OnoType; // level ONO: which kind of onomatopoeia
 }
 
 /** Study spells (0.9.9.4.3) uses the word's real JLPT list; the games keep the stroke-count levels. */

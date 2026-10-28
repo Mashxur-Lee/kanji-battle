@@ -1,6 +1,7 @@
 import { exampleFor, loadExamples } from './examples';
+import { hideKanji, kanjiTappable } from './kanjihelp';
 import { locale } from './i18n';
-import { LEVEL_LABEL, LEVELS, type Level } from '../shared/protocol';
+import { LEVEL_LABEL, LEVELS, ONO_TYPES, type Level } from '../shared/protocol';
 import { avatarFor, BACKGROUNDS, beta, BORDERS, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
 import { arenaPreview, staffPreview } from './arena';
 import type { ArenaApi } from './arena3d';
@@ -37,16 +38,28 @@ function counts(el: HTMLElement, c: DeckCounts) {
   }
 }
 
-function levelChips(selected: Level[]) {
+/** 0.9.9.4.4: All spells — a number per level: how many of its words are added a day (was: ticks + one slider) */
+function levelPlan(per: Partial<Record<Level, number>>) {
   const box = $('studyLevels');
+  // (don't redraw under the player's fingers while they type)
+  if (box.contains(document.activeElement)) return;
   box.replaceChildren(...LEVELS.map((lv) => {
+    const n = per[lv] ?? 0;
     const label = document.createElement('label');
-    label.className = 'chip' + (selected.includes(lv) ? ' on' : '');
+    label.className = 'lp-row' + (n ? ' on' : '');
+    const name = document.createElement('span');
+    name.textContent = LEVEL_LABEL[lv];
     const input = document.createElement('input');
-    input.type = 'checkbox'; input.value = lv; input.checked = selected.includes(lv);
-    label.append(input, LEVEL_LABEL[lv]);
-    return ui.lockLevelChip(label, lv);
+    Object.assign(input, { type: 'number', min: '0', max: '150', step: '5', value: String(n), inputMode: 'numeric' });
+    input.dataset.level = lv;
+    input.setAttribute('aria-label', `${LEVEL_LABEL[lv]}: ${tr('new words a day')}`);
+    label.append(name, input);
+    const locked = ui.lockLevelChip(label, lv);
+    if (locked.classList.contains('locked')) { input.value = '0'; label.classList.remove('on'); }
+    return locked;
   }));
+  const total = LEVELS.reduce((a, l) => a + (per[l] ?? 0), 0);
+  $('dailyTotal').textContent = total ? `${total} new spells a day` : '';
 }
 
 /** The "Study spells" screen: deck counts, level ticks, and the "new spells added" notice. */
@@ -59,37 +72,40 @@ export async function openStudy() {
 }
 
 function render(s: Awaited<ReturnType<typeof api.study>>) {
-  levelChips(s.studyLevels);
+  levelPlan(s.dailyByLevel ?? Object.fromEntries(s.studyLevels.map((l) => [l, Math.round(s.dailyNew / s.studyLevels.length)])));
   counts($('countsAll'), s.decks.all);
   counts($('countsStruggle'), s.decks.struggling);
   counts($('countsCustom'), s.decks.custom);
-  $<HTMLInputElement>('dailyNew').value = String(s.dailyNew);
-  $('dailyNewVal').textContent = String(s.dailyNew);
+  if (s.decks.ono) counts($('countsOno'), s.decks.ono);
   $('studyCrit').textContent = `${s.profile.learnedToday} learned today · ${s.profile.learned} learned in total`;
   const notice = $('studyNotice');
   notice.hidden = !s.notice;
   notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? '' : 's'} added to “All spells” — happy studying!` : '';
   if (!s.studyLevels.length && !s.decks.all.total) {
     notice.hidden = false;
-    notice.textContent = `Tick one or more levels under “All spells” to get ${s.dailyNew} new spells today (and every day).`;
+    notice.textContent = 'Set how many new words of a level you want under “All spells” (e.g. N5: 10) — they are added today and every day.';
   }
   const has = (c: DeckCounts) => c.new + c.learning + c.due > 0;
   $<HTMLButtonElement>('studyAll').disabled = !has(s.decks.all);
   $<HTMLButtonElement>('studyStruggle').disabled = !has(s.decks.struggling);
   $<HTMLButtonElement>('studyCustom').disabled = !has(s.decks.custom);
+  $<HTMLButtonElement>('studyOno').disabled = !!s.decks.ono && !has(s.decks.ono);
   onProfile(s.profile);
 }
 
 initDecks({ changed: () => { if (!$('study').hidden) void api.study().then(render).catch(() => {}); }, back: () => void openStudy() });
-$('dailyNew').addEventListener('input', () => { $('dailyNewVal').textContent = $<HTMLInputElement>('dailyNew').value; });
-$('dailyNew').addEventListener('change', async () => {
-  try { render(await api.setDailyNew(Number($<HTMLInputElement>('dailyNew').value))); } catch (e) { ui.toast((e as Error).message); }
+// a number changed: save the whole plan (blur or Enter; the arrows save at once)
+$('studyLevels').addEventListener('change', async (e) => {
+  const input = e.target as HTMLInputElement;
+  const n = Math.max(0, Math.min(150, Math.round(Number(input.value) || 0)));
+  input.value = String(n);
+  input.closest('.lp-row')?.classList.toggle('on', n > 0);
+  const per: Partial<Record<Level, number>> = {};
+  for (const i of document.querySelectorAll<HTMLInputElement>('#studyLevels input')) if (!i.disabled && Number(i.value) > 0) per[i.dataset.level as Level] = Math.min(150, Math.round(Number(i.value)));
+  input.blur();
+  try { render(await api.setDailyLevels(per)); } catch (err) { ui.toast((err as Error).message); }
 });
-
-$('studyLevels').addEventListener('change', async () => {
-  const levels = [...document.querySelectorAll<HTMLInputElement>('#studyLevels input')].filter((i) => i.checked).map((i) => i.value as Level);
-  try { render(await api.setStudyLevels(levels)); } catch (e) { ui.toast((e as Error).message); }
-});
+$('studyLevels').addEventListener('keydown', (e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); });
 
 // ── flashcard session (Anki-style) ──────────────────────────────────────────
 let queue: StudyCard[] = [];
@@ -100,6 +116,7 @@ let busy = false;
 
 async function startSession(d: Deck) {
   deck = d;
+  history = []; undoBtn();
   void loadExamples(); // ready by the first answer
   ui.show('review');
   $('reviewDone').hidden = true;
@@ -119,8 +136,11 @@ function next() {
   $('reviewDone').hidden = !done;
   $('reviewLeft').textContent = done ? '' : `${queue.length + 1} left · ${DECK_LABEL[deck]}`;
   if (!current) return;
+  hideKanji();
   $('fcKanji').textContent = current.kanji;
   $('fcLevel').textContent = (current.custom ? 'Custom' : LEVEL_LABEL[current.level]) + (current.state === 'new' ? ' · new' : '');
+  // onomatopoeia: which kind (擬声語 sound · 擬態語 state · 擬情語 feeling)
+  if (current.ono) $('fcLevel').append(' · ', Object.assign(document.createElement('span'), { className: 'ono-kind', lang: 'ja', textContent: `${ONO_TYPES[current.ono].ja} ${ONO_TYPES[current.ono].romaji}` }));
   $('fcReading').textContent = current.reading;
   $('fcMeaning').textContent = current.meaning;
   $('fcBack').hidden = true;
@@ -144,7 +164,9 @@ function flip() {
   $('fcStrokes').hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
   // 0.9.9.4.2: an example sentence with the word in it, and its translation
   const card = current;
-  void exampleFor(card.vocabId).then((ex) => { if (ex && current === card && flipped) $('fcExample').replaceChildren(ex); });
+  void exampleFor(card.vocabId).then((ex) => { if (ex && current === card && flipped) { kanjiTappable(ex); $('fcExample').replaceChildren(ex); } });
+  // 0.9.9.4.4: tap a kanji of the word (or of the example) for its meaning, readings and parts
+  kanjiTappable($('fcKanji'));
 }
 /** How to write the word: animated stroke order under the card. */
 function strokes() {
@@ -158,9 +180,24 @@ $('fcStrokes').onclick = (e) => { e.stopPropagation(); strokes(); };
 // 0.9.9.4.2: the next card comes at once; the rating goes to the server behind it, in order. Waiting for
 // the server first made every swipe stall (and froze the buttons when the connection dropped mid-session).
 let sending: Promise<void> = Promise.resolve();
+// 0.9.9.4.4: "Undo" — the card you just answered comes back (a misclick or a wrong swipe), as it was
+let history: Array<{ card: StudyCard; queue: StudyCard[] }> = [];
+const undoBtn = () => { $<HTMLButtonElement>('reviewUndo').disabled = !history.length; };
+function undo() {
+  const h = history.pop();
+  undoBtn();
+  if (!h) return;
+  const d = deck;
+  sending = sending.then(() => api.undo(h.card.vocabId, d).then(() => {}, (e) => { ui.toast((e as Error).message); }));
+  queue = [h.card, ...h.queue];
+  next();
+}
 function rate(r: Rating) {
   if (!current || !flipped || busy) return;
   const card = current, d = deck;
+  history.push({ card, queue: [...queue] });
+  if (history.length > 30) history.shift();
+  undoBtn();
   sending = sending.then(() => api.review(card.vocabId, r, d).then(() => {}, (e) => { ui.toast((e as Error).message); }));
   // Anki shows "again" cards again in the same session once their short step is up
   if (r === 'again') queue.splice(Math.min(3, queue.length), 0, { ...card, state: 'learning', intervals: { again: '1m', hard: '6m', good: '10m', easy: '4d' } });
@@ -169,6 +206,7 @@ function rate(r: Rating) {
 }
 /** Back to the decks once every rating has been saved (so the counts are right). */
 async function leaveSession() {
+  hideKanji();
   await sending;
   void openStudy();
 }
@@ -187,14 +225,15 @@ let swiped = false;
   card.append(stamp);
   const ZONES: Array<[Rating, string]> = [['again', 'Again'], ['hard', 'Hard'], ['good', 'Okay'], ['easy', 'Easy']];
   const zoneOf = (dx: number): [Rating, string] | null => {
+    // 0.9.9.4.4: half as far as before — a short drag is enough (was 16% / 42% of the card)
     const w = Math.max(220, card.offsetWidth), f = dx / w;
-    if (f <= -0.42) return ZONES[0];
-    if (f <= -0.16) return ZONES[1];
-    if (f >= 0.42) return ZONES[3];
-    if (f >= 0.16) return ZONES[2];
+    if (f <= -0.3) return ZONES[0];
+    if (f <= -0.09) return ZONES[1];
+    if (f >= 0.3) return ZONES[3];
+    if (f >= 0.09) return ZONES[2];
     return null;
   };
-  let x0 = 0, y0 = 0, id = -1, dx = 0, dragging = false;
+  let x0 = 0, y0 = 0, id = -1, dx = 0, dragging = false, lastX = 0, lastT = 0, vx = 0;
   const reset = (animate: boolean) => {
     card.style.transition = animate ? 'transform .25s ease-out' : '';
     card.style.transform = '';
@@ -202,12 +241,14 @@ let swiped = false;
     card.classList.remove('dragging');
   };
   card.addEventListener('pointerdown', (e) => {
-    if (!current || busy || (e.target as Element).closest('button')) return;
-    id = e.pointerId; x0 = e.clientX; y0 = e.clientY; dx = 0; dragging = false; swiped = false;
+    if (!current || busy || (e.target as Element).closest('button, .kj')) return;
+    id = e.pointerId; x0 = e.clientX; y0 = e.clientY; dx = 0; dragging = false; swiped = false; lastX = e.clientX; lastT = e.timeStamp; vx = 0;
   });
   card.addEventListener('pointermove', (e) => {
     if (e.pointerId !== id) return;
     dx = e.clientX - x0;
+    const dt = e.timeStamp - lastT;
+    if (dt > 0) { vx = 0.6 * vx + 0.4 * ((e.clientX - lastX) / dt); lastX = e.clientX; lastT = e.timeStamp; }
     if (!dragging) {
       if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(e.clientY - y0)) return; // a tap, or scrolling
       dragging = true; card.setPointerCapture(id); card.classList.add('dragging'); card.style.transition = '';
@@ -222,7 +263,8 @@ let swiped = false;
     id = -1;
     if (!dragging) return;
     swiped = true; setTimeout(() => { swiped = false; }, 0); // no flip from the click that follows
-    const z = zoneOf(dx);
+    // a quick flick counts too (Hard / Okay), even if it was short
+    const z = zoneOf(dx) ?? (Math.abs(vx) > 0.45 && Math.abs(dx) > 24 && Math.sign(vx) === Math.sign(dx) ? ZONES[dx < 0 ? 1 : 2] : null);
     if (!z || !current) { reset(true); return; }
     // away it flies, then the rating (seeing the answer first if you hadn't)
     card.style.transition = 'transform .22s ease-in, opacity .22s';
@@ -239,11 +281,14 @@ addEventListener('keydown', (e) => {
   const n = ['1', '2', '3', '4'].indexOf(e.key);
   if (n >= 0 && flipped) rate((['again', 'hard', 'good', 'easy'] as Rating[])[n]);
   if ((e.key === 's' || e.key === 'S') && flipped) strokes();
+  if ((e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') && !e.repeat) { e.preventDefault(); undo(); }
 });
 $('studyAll').onclick = () => void startSession('all');
 $('studyStruggle').onclick = () => void startSession('struggling');
 $('studyCustom').onclick = () => void startSession('custom');
+$('studyOno').onclick = () => void startSession('ono');
 $('reviewBack').onclick = () => void leaveSession();
+$('reviewUndo').onclick = () => undo();
 $('reviewDoneBack').onclick = () => void leaveSession();
 
 // ── customize: magic staff (login streak) · arena (level) · omnipotence (level) ──────────────────

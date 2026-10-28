@@ -116,3 +116,29 @@ export async function showStrokeOrder(box: HTMLElement, word: string, o: { stepM
   foot.append(replay);
   box.replaceChildren(row, foot);
 }
+
+/** The reference strokes of one character (null when there are none). */
+export async function strokesOf(ch: string): Promise<Strokes | null> {
+  await load([ch]);
+  return cache.get(ch) ?? null;
+}
+
+/**
+ * The kanji as a picture of its parts (0.9.9.4.4): every stroke drawn in the colour of the part it belongs to
+ * (`part[i]` = index of stroke i's part, -1 = none), so 休 shows its person and its tree side by side.
+ */
+export function partsPicture(strokes: Strokes, part: number[], colours: string[]): SVGSVGElement {
+  const all = strokes.flat();
+  const xs = all.map((p) => p[0]), ys = all.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const scale = 80 / Math.max(x1 - x0, y1 - y0, 1);
+  const ox = 50 - ((x0 + x1) / 2) * scale, oy = 50 - ((y0 + y1) / 2) * scale;
+  const svg = el('svg', { viewBox: '0 0 100 100', class: 'kp-svg' }) as SVGSVGElement;
+  svg.append(gridLines());
+  strokes.forEach((raw, i) => {
+    const pts = raw.map(([x, y]) => [+(x * scale + ox).toFixed(1), +(y * scale + oy).toFixed(1)]);
+    const c = part[i] >= 0 ? colours[part[i] % colours.length] : 'currentColor';
+    svg.append(el('path', { d: pathOf(pts), stroke: c, class: 'kp-stroke', style: `animation-delay:${i * 90}ms` }));
+  });
+  return svg;
+}

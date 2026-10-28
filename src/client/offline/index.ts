@@ -32,8 +32,8 @@ const storedUid = () => { try { return localStorage.getItem(UID_KEY) ?? ''; } ca
 // ── which calls work offline ────────────────────────────────────────────────
 const OFFLINE_ROUTES: Array<[string, RegExp]> = [
   ['GET', /^\/api\/(me|study|study\/queue|study\/deck|study\/search|study\/quiz|progress|daily|matches|matches\/[\w-]+)$/],
-  ['PUT', /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-new)$/],
-  ['POST', /^\/api\/(study\/(review|deck\/remove|deck\/add|custom|task)|daily\/(start|answer|finish))$/],
+  ['PUT', /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-levels|study\/daily-new)$/],
+  ['POST', /^\/api\/(study\/(review|undo|deck\/remove|deck\/add|custom|task)|daily\/(start|answer|finish))$/],
 ];
 const pathOf = (url: string) => url.split('?')[0];
 export const handles = (method: string, url: string) => OFFLINE_ROUTES.some(([m, re]) => m === method && re.test(pathOf(url)));

@@ -209,7 +209,7 @@ export const STUDY_LOCK = 100;
 
 // ── characters ─────────────────────────────────────────────────────────────────
 export type { Avatar };
-const AVATAR_BY_LEVEL: Record<Level, Avatar> = { KANA: 'goblin', KATA: 'goblin', N5: 'kid', N4: 'human', N3: 'knight', N2: 'witch', N1: 'wizard' };
+const AVATAR_BY_LEVEL: Record<Level, Avatar> = { KANA: 'goblin', KATA: 'goblin', N5: 'kid', N4: 'human', N3: 'knight', N2: 'witch', N1: 'wizard', ONO: 'kid' };
 const ORDER: Level[] = ['KANA', 'KATA', 'N5', 'N4', 'N3', 'N2', 'N1'];
 /** Your fighter is decided by the hardest level you picked. */
 export function avatarFor(levels: readonly Level[]): Avatar {

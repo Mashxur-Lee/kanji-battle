@@ -3,7 +3,7 @@ import type { Level, VocabEntry } from './protocol';
 // Starting difficulty per level (spec §8). These are placeholders: JLPT is a filter, and real
 // difficulty should later be learned from player performance (spec §47). JLPT tags are approximate —
 // there is no official JLPT word list.
-export const LEVEL_DIFFICULTY: Record<Level, number> = { KANA: 6, KATA: 7, N5: 15, N4: 28, N3: 40, N2: 57, N1: 75 };
+export const LEVEL_DIFFICULTY: Record<Level, number> = { KANA: 6, KATA: 7, N5: 15, N4: 28, N3: 40, N2: 57, N1: 75, ONO: 20 };
 
 type Row = [kanji: string, reading: string, meaning: string, difficulty?: number];
 
@@ -143,7 +143,7 @@ const KANA: Row[] = kanaRows('hiragana', (s) => s);
 const KATA: Row[] = kanaRows('katakana', toKatakana).map(([k, r, m, d]): Row => [k, r, m, d === undefined ? d : d + 1]);
 
 /** Hand-written lists. The full vocabulary (data/vocab.json) = these + the open JLPT lists; see scripts/build-vocab.ts. */
-export const CURATED: Record<Level, Row[]> = { KANA, KATA, N5, N4, N3, N2, N1 };
+export const CURATED: Partial<Record<Level, Row[]>> = { KANA, KATA, N5, N4, N3, N2, N1 };
 
 // Hiragana with two common romanisations of the same sound (ぢ/じ, づ/ず).
 export const KANA_ALT: Record<string, string[]> = { ぢ: ['じ'], づ: ['ず'], ヂ: ['じ'], ヅ: ['ず'] };

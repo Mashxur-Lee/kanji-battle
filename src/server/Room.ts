@@ -53,6 +53,8 @@ export interface RoomDeps {
   /** Deck Duel's extra-forgiving judge (falls back to judgeWriting) */
   judgeDeck?: WritingJudge;
   writableFilter?: (v: VocabEntry) => boolean;
+  /** 0.9.9.4.4: a player's "All spells" word ids (Deck Duel drafts from them) */
+  spellIds?: (id: PlayerId) => Promise<ReadonlySet<string>>;
 }
 
 type Phase = 'lobby' | 'game' | 'results';
@@ -72,6 +74,12 @@ interface Member {
 export class Room {
   private roster: Member[] = [];
   private clients = new Map<PlayerId, Client>();
+  /** Deck Duel: each player's All spells, loaded when they join */
+  private spells = new Map<PlayerId, ReadonlySet<string>>();
+  private loadSpells(id: PlayerId) {
+    if (this.mode !== 'deck' || !this.deps.spellIds) return;
+    void this.deps.spellIds(id).then((s) => { this.spells.set(id, s); }, () => { /* random words then */ });
+  }
   private hostId: PlayerId | null = null;
   private phase: Phase = 'lobby';
   /** lobby / game / results — for the admin's "who is online" view */
@@ -102,6 +110,7 @@ export class Room {
     const shared = this.mode === 'rapid' ? this.roster.find((p) => !p.bot)?.levels : undefined; // Rapid: join the room's levels
     this.roster.push({ id, name: name.slice(0, 32) || 'Player', levels: shared ? [...shared] : levels?.length ? levels : [...DEFAULT_LEVELS], online: true, profile, ready: false });
     this.clients.set(id, client);
+    this.loadSpells(id);
     this.hostId ??= id;
     client.send({ type: 'joined', code: this.code, you: id, mode: this.mode });
     if (this.chatLog.length) client.send({ type: 'chat', messages: this.chatLog });
@@ -376,7 +385,10 @@ export class Room {
       const writable = this.deps.writableFilter ?? (() => true);
       this.phase = 'game';
       // 0.9.8.3: no critical hits any more (crit: 0 for everyone)
-      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: 0, pic: p.profile.pic ?? null, flame: p.profile.flame ?? 'blue', staff: p.profile.staff ?? 'verdant' })), () => buildDraftPool(VOCAB, writable, Math.random), emit, judge, Math.random, clock.now, undefined, clock);
+      // 0.9.9.4.4: the cards come from both players' All spells (an AI's share: random words)
+      for (const p of this.roster) if (!p.bot) this.loadSpells(p.id); // fresh for the next draft round
+      const spells = () => this.roster.map((p) => this.spells.get(p.id) ?? new Set<string>());
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: 0, pic: p.profile.pic ?? null, flame: p.profile.flame ?? 'blue', staff: p.profile.staff ?? 'verdant' })), () => buildDraftPool(VOCAB, writable, Math.random, undefined, spells()), emit, judge, Math.random, clock.now, undefined, clock);
       this.game.start();
       return;
     }

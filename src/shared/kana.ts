@@ -171,3 +171,29 @@ export function isCorrectWriting(input: string, kanji: string, reading: string):
   };
   return go(0, 0, 0);
 }
+
+// kana → Hepburn romaji (0.9.9.4.4: the onomatopoeia cards show how a word sounds, ドキドキ → dokidoki)
+const ROMA: Record<string, string> = {
+  あ: 'a', い: 'i', う: 'u', え: 'e', お: 'o', か: 'ka', き: 'ki', く: 'ku', け: 'ke', こ: 'ko', さ: 'sa', し: 'shi', す: 'su', せ: 'se', そ: 'so',
+  た: 'ta', ち: 'chi', つ: 'tsu', て: 'te', と: 'to', な: 'na', に: 'ni', ぬ: 'nu', ね: 'ne', の: 'no', は: 'ha', ひ: 'hi', ふ: 'fu', へ: 'he', ほ: 'ho',
+  ま: 'ma', み: 'mi', む: 'mu', め: 'me', も: 'mo', や: 'ya', ゆ: 'yu', よ: 'yo', ら: 'ra', り: 'ri', る: 'ru', れ: 're', ろ: 'ro', わ: 'wa', を: 'o', ん: 'n',
+  が: 'ga', ぎ: 'gi', ぐ: 'gu', げ: 'ge', ご: 'go', ざ: 'za', じ: 'ji', ず: 'zu', ぜ: 'ze', ぞ: 'zo', だ: 'da', ぢ: 'ji', づ: 'zu', で: 'de', ど: 'do',
+  ば: 'ba', び: 'bi', ぶ: 'bu', べ: 'be', ぼ: 'bo', ぱ: 'pa', ぴ: 'pi', ぷ: 'pu', ぺ: 'pe', ぽ: 'po', ぁ: 'a', ぃ: 'i', ぅ: 'u', ぇ: 'e', ぉ: 'o', ゔ: 'vu',
+};
+export function toRomaji(kana: string): string {
+  const s = katakanaToHiragana(kana);
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i], n = s[i + 1];
+    if (c === 'っ') { const next = toRomaji(s.slice(i + 1, i + 3))[0] ?? ''; out += next === 'c' ? 't' : /[a-z]/.test(next) ? next : ''; continue; }
+    if (c === 'ー') { out += out.slice(-1); continue; }
+    if (n && 'ゃゅょ'.includes(n) && ROMA[c]) {
+      const base = ROMA[c], v = { ゃ: 'a', ゅ: 'u', ょ: 'o' }[n as 'ゃ']!;
+      out += /^(shi|chi|ji)$/.test(base) ? base.slice(0, -1) + v : base.slice(0, -1) + 'y' + v;
+      i++; continue;
+    }
+    if (n && 'ぁぃぅぇぉ'.includes(n) && ROMA[c]) { out += ROMA[c].slice(0, -1) + ROMA[n]; i++; continue; }
+    out += ROMA[c] ?? c;
+  }
+  return out;
+}

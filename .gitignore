@@ -4,3 +4,4 @@ public/app.js
 .data
 public/vocab.json
 public/examples.json
+public/kanji.json
