@@ -7,6 +7,19 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.4.4', date: '2026-10',
+    en: [
+      'World Tree: a much fuller crown — a solid mass of leaves shaded from dark underneath to sunlit on top, branches showing through, no leaves hanging loose in the air — and shaded roots with ridges and moss that blend into the trunk.',
+      'Rune stones: every stone sits in a little mound of earth with grass and pebbles at its foot; in the forest they stand on the forest floor.',
+      'Castle: the soldiers stand behind the rune stones now.',
+    ],
+    ru: [
+      'Мировое древо: гораздо более пышная крона — сплошная масса листвы, тёмная снизу и освещённая сверху, сквозь неё видны ветви, ничего не висит в воздухе — и корни с тенью, прожилками и мхом, плавно переходящие в ствол.',
+      'Рунные камни: каждый стоит в небольшом холмике земли с травой и камешками у основания; в лесу они стоят на земле.',
+      'Замок: солдаты теперь стоят позади рунных камней.',
+    ],
+  },
+  {
     v: '0.9.9.4.4.3', date: '2026-10',
     en: [
       '2D arenas repainted in more detail: soft light and shadow instead of outlines, fluffy clouds, snowy mountain peaks, leafy trees and bushes, ivy, brick walls and banners on the castle, lily pads in the swamp, fields around the villages — and no more film-grain filter.',
