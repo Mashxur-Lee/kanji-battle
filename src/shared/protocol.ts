@@ -47,7 +47,7 @@ export interface VocabEntry {
 export const studyLevelOf = (v: { level: Level; jlpt?: Level }): Level => v.jlpt ?? v.level;
 
 /** What the client sees during the study phase. Never sent during battle. */
-export interface StudyItem { kanji: string; reading: string; meaning: string; level: Level }
+export interface StudyItem { kanji: string; reading: string; meaning: string; level: Level; /** 0.9.9.4.4.2: a word from your own All spells */ mine?: boolean }
 
 export type Role = 'user' | 'admin';
 export interface PublicUser { id: string; username: string; role: Role }
@@ -190,6 +190,8 @@ export interface ChallengeMsg {
   reading?: string;
   charCount?: number;
   flashMs?: number;
+  /** 0.9.9.4.4.2 (Rapid): whose All spells the word comes from — 'you', a player's name, or none (a random word) */
+  from?: string;
 }
 
 export type ServerMessage =

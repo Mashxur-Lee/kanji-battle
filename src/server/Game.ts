@@ -122,7 +122,7 @@ export interface Match {
 }
 
 /** Each player brings their own word pool (their chosen levels) and their own max HP (see Balance.ts). */
-export interface PlayerSetup { id: PlayerId; pool: readonly VocabEntry[]; maxHp: number; crit?: number }
+export interface PlayerSetup { id: PlayerId; pool: readonly VocabEntry[]; maxHp: number; crit?: number; /** ids of the player's own All spells (marked in the study list) */ mine?: ReadonlySet<string> }
 
 export interface GameOptions {
   mode: GameMode;
@@ -171,6 +171,7 @@ export class Game implements Match {
     for (const s of setups) {
       if (s.pool.length === 0) throw new Error('Every player needs a non-empty pool');
       this.players.set(s.id, new PlayerState(s.id, s.pool, s.maxHp, rng, s.crit ?? 0));
+      if (s.mine) this.mine.set(s.id, s.mine);
     }
     this.boss = opts.boss ? { name: opts.boss.name, hp: opts.boss.maxHp, maxHp: opts.boss.maxHp } : null;
   }
@@ -421,8 +422,10 @@ export class Game implements Match {
 
   // ── helpers ───────────────────────────────────────────────────────────────
 
+  private readonly mine = new Map<PlayerId, ReadonlySet<string>>();
   private studyList(p: PlayerState): StudyItem[] {
-    return p.pool.map((v) => ({ kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level }));
+    const mine = this.mine.get(p.id);
+    return p.pool.map((v) => ({ kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ...(mine?.has(v.id) ? { mine: true } : {}) }));
   }
 
   /** Duel / free-for-all: the first living opponent. Teams would plug in here. */

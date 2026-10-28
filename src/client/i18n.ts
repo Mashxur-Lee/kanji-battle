@@ -445,6 +445,9 @@ const RU: Record<string, string> = {
   'Both players get the same kanji — no study phase.': 'Оба игрока получают один и тот же кандзи — без подготовки.', 'Wrong? Try again until the 12 s round ends.': 'Ошиблись? Пробуйте снова, пока не кончится 12-секундный раунд.',
   'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.': 'Крит: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Игра с ИИ даёт половину опыта; сдача — ничего.',
   'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.': 'Шанс крита сегодня: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Сбрасывается в полночь.',
+  // 0.9.9.4.4.2
+  '★ From your spells': '★ Из ваших заклинаний', '★ yours': '★ ваше', 'From your All spells': 'Из ваших «Всех заклинаний»',
+  'learned in total': 'выучено всего', 'study XP today': 'опыт за учёбу сегодня', 'new spells a day': 'новых заклинаний в день',
   // 0.9.9.4.4.1
   "Queued on its own. No levels to pick: the cards come from both players' All spells — 2 words of each level (N5–N1) from each of you.": 'Отдельная очередь. Уровни не выбираются: карты берутся из «Всех заклинаний» обоих игроков — по 2 слова каждого уровня (N5–N1) от каждого.',
   "Pick a hero, draft 10 face-down spell cards from both players' All spells, then cast them turn by turn: read the meaning, look at the kanji, write it from memory. Mana, heals and your hero's Omnipotence.": 'Выберите героя, наберите 10 закрытых карт заклинаний из «Всех заклинаний» обоих игроков, затем разыгрывайте их по очереди: прочитайте значение, посмотрите на кандзи, напишите его по памяти. Мана, лечение и Всемогущество вашего героя.',
@@ -562,6 +565,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^(You|.+?): Arcane reserve — (\+2 random cards|\+30 mana)$/, (_, w, x) => `${w === 'You' ? 'Вы' : w}: Тайный запас — ${x === '+30 mana' ? '+30 маны' : '+2 случайные карты'}`],
   [/^Turn (\d+)$/, 'Ход $1'],
   [/^(\d+) online$/, '$1 в сети'],
+  [/^From (.+)'s spells$/, 'Из заклинаний: $1'],
   [/^(\d+) new spells a day$/, '$1 новых заклинаний в день'],
   [/^Adds up to (\d+) new words to “All spells” today$/, 'Сегодня добавит до $1 новых слов во «Все заклинания»'],
   [/^(\d+) of (\d+) \(last 30 days\)$/, '$1 из $2 (за 30 дней)'],

@@ -467,7 +467,7 @@ export function showPrep(pool: StudyItem[], durationMs: number, mode: GameMode) 
     ? 'Memorise how each word is written. In battle you only get the meaning (and a half-second glimpse).'
     : 'Memorise the readings. They vanish when the battle starts.';
   $('studyGrid').replaceChildren(
-    ...pool.map((w) => append(h('div', 'card'), h('div', 'lv', LEVEL_LABEL[w.level]), h('div', 'k', w.kanji, { lang: 'ja' }), h('div', 'r', w.reading, { lang: 'ja' }), h('div', 'm', w.meaning))),
+    ...pool.map((w) => append(h('div', 'card' + (w.mine ? ' mine' : '')), h('div', 'lv', LEVEL_LABEL[w.level]), ...(w.mine ? [h('div', 'mine-tag', '★ yours', { title: 'From your All spells' })] : []), h('div', 'k', w.kanji, { lang: 'ja' }), h('div', 'r', w.reading, { lang: 'ja' }), h('div', 'm', w.meaning))),
   );
   $<HTMLButtonElement>('ready').disabled = false;
   $('readyStatus').textContent = '';
@@ -778,13 +778,18 @@ export function resumeBattle(players: PlayerView[], boss: BossView | null, you: 
 let answerMode: AnswerMode = 'reading';
 export const currentAnswerMode = () => answerMode;
 
-export interface ChallengeView { kanji: string; answer: AnswerMode; timeLimitMs: number; meaning?: string; reading?: string; charCount?: number; flashMs?: number }
+export interface ChallengeView { kanji: string; answer: AnswerMode; timeLimitMs: number; meaning?: string; reading?: string; charCount?: number; flashMs?: number; from?: string }
 
 export function showChallenge(c: ChallengeView) {
   answerMode = c.answer;
   const k = $('kanji');
   k.classList.remove('cast', 'gone');
   k.textContent = c.kanji;
+  // Rapid (0.9.9.4.4.2): whose spells the word comes from
+  const wf = $('wordFrom');
+  wf.hidden = !c.from;
+  wf.textContent = c.from ? (c.from === 'you' ? '★ From your spells' : `From ${c.from}'s spells`) : '';
+  wf.classList.toggle('mine', c.from === 'you');
   setFeedback(null);
   countdown('challenge', c.timeLimitMs, (_l, frac) => ($('challengeBar').style.width = `${frac * 100}%`));
   bigTimer('challengeRing', $('turnTimer'), c.timeLimitMs, c.timeLimitMs, Math.min(5000, c.timeLimitMs / 3));

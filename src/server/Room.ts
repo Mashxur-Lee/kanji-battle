@@ -8,7 +8,7 @@ import { DEFAULT_CONFIG, Game, WRITING_CONFIG, type GameConfig, type GameEvent, 
 import { RapidGame } from './RapidGame';
 import { buildDraftPool, DeckGame } from './DeckGame';
 import { VOCAB } from './vocab';
-import { pickPool } from './VocabPool';
+import { pickPool, pickPoolFrom, shuffle } from './VocabPool';
 
 /** Transport-agnostic: Room only needs something it can send messages to. */
 export interface Client { send(msg: ServerMessage): void }
@@ -76,8 +76,10 @@ export class Room {
   private clients = new Map<PlayerId, Client>();
   /** Deck Duel: each player's All spells, loaded when they join */
   private spells = new Map<PlayerId, ReadonlySet<string>>();
+  /** Rapid: which player's spells a word came from (by kanji) */
+  private readonly rapidOwner = new Map<string, PlayerId>();
   private loadSpells(id: PlayerId) {
-    if (this.mode !== 'deck' || !this.deps.spellIds) return;
+    if (!this.deps.spellIds) return; // 0.9.9.4.4.2: every mode plays your own words
     void this.deps.spellIds(id).then((s) => { this.spells.set(id, s); }, () => { /* random words then */ });
   }
   private hostId: PlayerId | null = null;
@@ -392,15 +394,29 @@ export class Room {
       this.game.start();
       return;
     }
+    for (const p of this.roster) if (!p.bot) this.loadSpells(p.id); // fresh for the next game
     if (this.mode === 'rapid') {
-      const pool = pickPool(this.unionLevels(), 40);
+      // 0.9.9.4.4.2: the first 10 rounds are 5 words from each player's All spells (of the shared levels), shuffled
+      // — the round says whose word it is; then random words of those levels
+      const levels = this.unionLevels();
+      this.rapidOwner.clear();
+      const own: VocabEntry[] = [];
+      for (const p of this.roster) {
+        const mine = this.spells.get(p.id);
+        if (!mine?.size) continue;
+        const words = shuffle(VOCAB.filter((v) => levels.includes(v.level) && mine.has(v.id) && !own.includes(v)), Math.random).slice(0, 5);
+        for (const v of words) { own.push(v); this.rapidOwner.set(v.kanji, p.id); }
+      }
+      const rest = pickPool(levels, 40).filter((v) => !own.includes(v));
+      const pool = [...shuffle(own, Math.random), ...rest].slice(0, 40);
       this.phase = 'game';
-      this.game = new RapidGame(this.roster.map((p) => ({ id: p.id, maxHp: this.hpFor(p.id), crit: 0 })), pool, emit, this.opts.game, Math.random, clock.now, clock);
+      this.game = new RapidGame(this.roster.map((p) => ({ id: p.id, maxHp: this.hpFor(p.id), crit: 0 })), pool, emit, this.opts.game, Math.random, clock.now, clock, own.length);
       this.game.start();
       return;
     }
     const filter = this.mode === 'writing' ? this.deps.writableFilter : undefined;
-    const setups = this.roster.map((p) => ({ id: p.id, pool: pickPool(p.levels, this.opts.poolSize, Math.random, undefined, filter), maxHp: this.hpFor(p.id), crit: 0 }));
+    // 0.9.9.4.4.2: each player's words come from their own All spells (of their levels), random words fill the rest
+    const setups = this.roster.map((p) => ({ id: p.id, pool: pickPoolFrom(p.levels, this.opts.poolSize, this.spells.get(p.id), Math.random, undefined, filter), maxHp: this.hpFor(p.id), crit: 0, mine: this.spells.get(p.id) }));
     // a level combination with no writable words would leave someone with an empty pool
     for (const s of setups) {
       if (s.pool.length === 0) {
@@ -468,11 +484,14 @@ export class Room {
         return this.broadcast({ type: 'prep_ready', readyIds: e.readyIds });
       case 'battle_start':
         return this.broadcast({ type: 'battle_start', mode: this.mode, players: this.view(), boss: this.bossView(), durationMs: e.durationMs, countdownMs: e.countdownMs });
-      case 'challenge':
+      case 'challenge': {
+        const owner = this.mode === 'rapid' ? this.rapidOwner.get(e.kanji) : undefined;
+        const from = owner ? (owner === e.playerId ? 'you' : this.roster.find((p) => p.id === owner)?.name) : undefined;
         return this.clients.get(e.playerId)?.send({
           type: 'challenge', id: e.id, kanji: e.kanji, answer: e.answerMode, timeLimitMs: e.timeLimitMs,
-          meaning: e.meaning, reading: e.reading, charCount: e.charCount, flashMs: e.flashMs,
+          meaning: e.meaning, reading: e.reading, charCount: e.charCount, flashMs: e.flashMs, ...(from ? { from } : {}),
         });
+      }
       case 'answer_result': {
         const { entry } = e;
         return this.clients.get(e.playerId)?.send({

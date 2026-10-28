@@ -1,8 +1,8 @@
-// Reading passage stories (0.9.9.4.4.1): a small AI (Claude Haiku, via the Anthropic API) writes ONE short story
+// Reading passage stories (0.9.9.4.4.1): a small AI (Gemini, Claude or an OpenAI-compatible model) writes ONE short story
 // that uses all of the player's words — each in its own sentence, in a natural context — with furigana over
 // every kanji and English + Russian translations. Every answer is checked before it is used (the words are
 // there and marked, every kanji has a reading, the target's reading fits the word); anything off and the app
-// falls back to the words' example sentences. Without ANTHROPIC_API_KEY the feature is simply off.
+// falls back to the words' example sentences. Without an API key the feature is simply off.
 
 import { VOCAB_BY_ID } from '../vocab';
 
@@ -65,11 +65,46 @@ Answer with JSON only, no other text:
 The title's "ja" uses the same furigana format and has no 【】. The lines are in story order (any order of the words).`;
 }
 
+/** Which AI writes the stories, from the environment (0.9.9.4.4.2): Gemini (has a free tier), Claude, or any
+ * OpenAI-compatible API (OpenAI, xAI Grok, Groq, OpenRouter …). The first key that is set wins. */
+export interface StoryProvider { kind: 'gemini' | 'anthropic' | 'openai'; key: string; model: string; baseUrl?: string }
+export function providerFromEnv(env: Record<string, string | undefined> = process.env): StoryProvider | null {
+  const model = env.STORY_MODEL || undefined;
+  if (env.GEMINI_API_KEY) return { kind: 'gemini', key: env.GEMINI_API_KEY, model: model ?? 'gemini-flash-lite-latest' };
+  if (env.ANTHROPIC_API_KEY) return { kind: 'anthropic', key: env.ANTHROPIC_API_KEY, model: model ?? 'claude-haiku-5-5' };
+  if (env.OPENAI_API_KEY) return { kind: 'openai', key: env.OPENAI_API_KEY, model: model ?? 'gpt-4o-mini', baseUrl: (env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '') };
+  return null;
+}
+
+/** One prompt → the model's text answer. */
+async function complete(p: StoryProvider, text: string, signal: AbortSignal): Promise<string> {
+  const post = async (url: string, headers: Record<string, string>, body: unknown) => {
+    const r = await fetch(url, { method: 'POST', signal, headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(`${p.kind} API ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    return r.json() as Promise<any>;
+  };
+  if (p.kind === 'gemini') {
+    const d = await post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`, { 'x-goog-api-key': p.key },
+      { contents: [{ role: 'user', parts: [{ text }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.9, maxOutputTokens: 3000 } });
+    return (d.candidates?.[0]?.content?.parts ?? []).map((x: { text?: string }) => x.text ?? '').join('');
+  }
+  if (p.kind === 'anthropic') {
+    const d = await post('https://api.anthropic.com/v1/messages', { 'x-api-key': p.key, 'anthropic-version': '2023-06-01' },
+      { model: p.model, max_tokens: 2000, messages: [{ role: 'user', content: text }] });
+    return d.content?.find((c: { type: string }) => c.type === 'text')?.text ?? '';
+  }
+  const d = await post(`${p.baseUrl}/chat/completions`, { authorization: `Bearer ${p.key}` },
+    { model: p.model, messages: [{ role: 'user', content: text }], response_format: { type: 'json_object' }, temperature: 0.9 });
+  return d.choices?.[0]?.message?.content ?? '';
+}
+
 export class StoryService {
   private readonly cache = new Map<string, Story>();
   private readonly used = new Map<string, { day: string; n: number }>();
-  constructor(private readonly apiKey = process.env.ANTHROPIC_API_KEY ?? '', private readonly model = process.env.STORY_MODEL || 'claude-haiku-5-5', private readonly perDay = 40) {}
-  get enabled() { return !!this.apiKey; }
+  private all = { day: '', n: 0 };
+  constructor(private readonly provider: StoryProvider | null = providerFromEnv(), private readonly perDay = 40, private readonly allPerDay = Number(process.env.STORY_DAILY_MAX) || 400) {}
+  get enabled() { return !!this.provider; }
+  get describe() { return this.provider ? `${this.provider.kind} · ${this.provider.model}` : 'off'; }
 
   /** The words as the story should use them (dictionary entries win over what the browser sent). */
   static clean(raw: unknown): StoryWord[] {
@@ -89,6 +124,10 @@ export class StoryService {
     if (hit) return hit;
     const u = this.used.get(userId);
     if (u && u.day === today && u.n >= this.perDay) return null;
+    // a cap for everyone together keeps a free API plan within its daily quota
+    if (this.all.day !== today) this.all = { day: today, n: 0 };
+    if (this.all.n >= this.allPerDay) return null;
+    this.all.n++;
     this.used.set(userId, { day: today, n: (u?.day === today ? u.n : 0) + 1 });
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -109,14 +148,7 @@ export class StoryService {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 25_000);
     try {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', signal: ctl.signal,
-        headers: { 'content-type': 'application/json', 'x-api-key': this.apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: this.model, max_tokens: 2000, messages: [{ role: 'user', content: prompt(words) }] }),
-      });
-      if (!r.ok) throw new Error(`Anthropic API ${r.status}: ${(await r.text()).slice(0, 200)}`);
-      const data = await r.json() as { content?: Array<{ type: string; text?: string }> };
-      const text = data.content?.find((c) => c.type === 'text')?.text ?? '';
+      const text = await complete(this.provider!, prompt(words), ctl.signal);
       const json = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
       return JSON.parse(json) as Story;
     } finally { clearTimeout(t); }

@@ -58,7 +58,7 @@ export function resolveToday(clientToday: unknown, at = clockNow()): string {
 }
 
 /** 0.9.9.4.4: what an answer changed, so "Undo" can put it back (newest last, a few per player). */
-interface UndoEntry { deck: DeckId; before: SrsCard; today: string; counted: boolean; critCounted: boolean }
+interface UndoEntry { deck: DeckId; before: SrsCard; today: string; counted: boolean; critCounted: boolean; xp: number }
 const UNDO_MAX = 30;
 
 export class StudyService {
@@ -374,6 +374,7 @@ export class StudyService {
       decks: { all: counts(cards.filter((c) => deckOf(c) === 'all'), now), struggling: counts(cards.filter((c) => deckOf(c) === 'struggling'), now), custom: counts(cards.filter((c) => deckOf(c) === 'custom'), now), ono: counts(cards.filter((c) => deckOf(c) === 'ono'), now) },
       dailyNew: fresh.dailyNew ?? DAILY_NEW,
       dailyByLevel: planOf(fresh, today).per,
+      studyXpToday: (await this.store.activity(u.id, today)).find((a) => a.day === today)?.studyXp ?? 0,
       profile: await this.profile(fresh),
     };
   }
@@ -402,8 +403,12 @@ export class StudyService {
     const card = await this.store.card(u.id, d, vocabId);
     if (!card) throw new StudyError('No such card', 404);
     const next = answer(card, rating as Rating, now);
+    // 0.9.9.4.4.2: every card you answer gives STUDY_XP (up to STUDY_XP_DAILY a day)
+    const todayXp = (await this.store.activity(u.id, today)).find((a) => a.day === today)?.studyXp ?? 0;
+    const xp = todayXp + STUDY_XP <= STUDY_XP_DAILY ? STUDY_XP : 0;
+    if (xp) { await this.store.addXp(u.id, xp); await this.store.addActivity(u.id, today, { studyXp: xp, xp }); }
     const stack = this.undos.get(u.id) ?? [];
-    stack.push({ deck: d, before: card, today, counted: rating !== 'again', critCounted: rating !== 'again' && card.critDay !== today });
+    stack.push({ deck: d, before: card, today, counted: rating !== 'again', critCounted: rating !== 'again' && card.critDay !== today, xp });
     if (stack.length > UNDO_MAX) stack.shift();
     this.undos.set(u.id, stack);
     // daily crit: a passed card (anything but Again) counts once per day
@@ -418,7 +423,7 @@ export class StudyService {
     }
     await this.store.saveCard(u.id, next);
     if (rating !== 'again') await this.progress.record(u.id, today, { reviews: 1 });
-    return { card: next, crit: await this.crit(u.id, now) };
+    return { card: next, crit: await this.crit(u.id, now), xp };
   }
 
   /**
@@ -433,6 +438,7 @@ export class StudyService {
     stack.pop();
     await this.store.saveCard(u.id, last.before);
     if (last.counted) await this.store.addActivity(u.id, last.today, { reviews: -1 });
+    if (last.xp) { await this.store.addXp(u.id, -last.xp); await this.store.addActivity(u.id, last.today, { studyXp: -last.xp, xp: -last.xp }); }
     if (last.critCounted) {
       const fresh = (await this.store.findById(u.id)) ?? u;
       if (fresh.critCount > 0) await this.store.update(u.id, { critCount: fresh.critCount - 1 });
@@ -524,6 +530,8 @@ export class StudyService {
 }
 
 export const DAILY_LEVEL_MAX = 150;
+/** XP for each study card you answer, and the most a day from cards */
+export const STUDY_XP = 5, STUDY_XP_DAILY = 500;
 /** new onomatopoeia cards per study session */
 export const ONO_NEW_SESSION = 20;
 // (a function: in the app's offline engine the word list loads after this module)

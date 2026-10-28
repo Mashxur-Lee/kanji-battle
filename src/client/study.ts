@@ -86,7 +86,10 @@ function planChanged() {
     row.classList.toggle('changed', (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
   }
   const total = planTotal(draftPlan);
-  $('dailyTotal').textContent = total ? `${total} new spells a day` : '';
+  // 0.9.9.4.4.2: the day's total, big — "25 new spells a day"
+  const tot = $('dailyTotal');
+  tot.hidden = !total;
+  tot.replaceChildren(Object.assign(document.createElement('b'), { textContent: String(total) }), document.createTextNode(` ${tr('new spells a day')}`));
   const dirty = LEVELS.some((l) => (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
   const bar = $('planApply');
   bar.hidden = !dirty;
@@ -119,7 +122,9 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
   counts($('countsStruggle'), s.decks.struggling);
   counts($('countsCustom'), s.decks.custom);
   if (s.decks.ono) counts($('countsOno'), s.decks.ono);
-  $('studyCrit').textContent = `${s.profile.learnedToday} learned today · ${s.profile.learned} learned in total`;
+  $('ssToday').textContent = String(s.profile.learnedToday);
+  $('ssTotal').textContent = String(s.profile.learned);
+  $('ssXp').textContent = `+${s.studyXpToday ?? 0}`;
   const notice = $('studyNotice');
   notice.hidden = !s.notice;
   notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? '' : 's'} added to “All spells” — happy studying!` : '';
@@ -222,13 +227,31 @@ function undo() {
   queue = [h.card, ...h.queue];
   next();
 }
+/**
+ * 0.9.9.4.4.2: each answered card gives +5 XP. The first few of a session say so on the card; after that it's
+ * quiet (it would only distract).
+ */
+const XP_SHOW = 5; // per day
+let xpShown = 0;
+function xpPop(n: number) {
+  const key = `kb:xpPop:${new Date().toDateString()}`;
+  try { xpShown = Number(localStorage.getItem(key)) || xpShown; } catch { /* private mode */ }
+  if (xpShown >= XP_SHOW || $('review').hidden) return;
+  xpShown++;
+  try { localStorage.setItem(key, String(xpShown)); } catch { /* private mode */ }
+  const p = document.createElement('div');
+  p.className = 'xp-pop';
+  p.textContent = `+${n} XP`;
+  $('flash').append(p);
+  setTimeout(() => p.remove(), 1200);
+}
 function rate(r: Rating) {
   if (!current || !flipped || busy) return;
   const card = current, d = deck;
   history.push({ card, queue: [...queue] });
   if (history.length > 30) history.shift();
   undoBtn();
-  sending = sending.then(() => api.review(card.vocabId, r, d).then(() => {}, (e) => { ui.toast((e as Error).message); }));
+  sending = sending.then(() => api.review(card.vocabId, r, d).then((res) => { if (res.xp) xpPop(res.xp); }, (e) => { ui.toast((e as Error).message); }));
   // Anki shows "again" cards again in the same session once their short step is up
   if (r === 'again') queue.splice(Math.min(3, queue.length), 0, { ...card, state: 'learning', intervals: { again: '1m', hard: '6m', good: '10m', easy: '4d' } });
   else if (r === 'hard' && card.state !== 'review') queue.splice(Math.min(6, queue.length), 0, card);

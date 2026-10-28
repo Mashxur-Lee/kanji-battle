@@ -7,6 +7,27 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.4.2', date: '2026-10',
+    en: [
+      'Battles use your own words: 1v1 Kanji Reading, Kanji Writing and Boss take the words of your levels from your All spells (random words fill up when you have too few) — marked ★ on the study cards.',
+      '1v1 Rapid: the first 10 rounds are 5 words from each player’s All spells, and each round says whose word it is.',
+      'Study spells: every card you answer gives +5 XP (up to 500 a day). The first few each day show “+5 XP”, then it stays quiet.',
+      'Study spells: “learned today”, “learned in total” and today’s study XP are big tiles at the top, and the new-spells-a-day total is big too.',
+      'New 2D arenas look: a painted style with fine grain — faceted mountains, outlined clouds, dense grass with little flowers, bark, stone brickwork — and the World Tree’s four rune stones now stand in every arena.',
+      'Fixes: “← Leave room” looks like “← Menu”; the menu’s small buttons no longer overlap the menu on short screens; the quizzes have room under “← Study”.',
+      'Reading passage stories can now be written by Google Gemini (free tier), Claude or any OpenAI-compatible AI — whichever key the server has.',
+    ],
+    ru: [
+      'Бои — вашими словами: «Чтение кандзи», «Написание кандзи» и «Босс» берут слова ваших уровней из «Всех заклинаний» (если мало — добавляются случайные), на карточках подготовки они отмечены ★.',
+      '1v1 Рапид: первые 10 раундов — по 5 слов из «Всех заклинаний» каждого игрока, и в каждом раунде видно, чьё это слово.',
+      'Изучение заклинаний: каждая карточка даёт +5 опыта (до 500 в день). Первые несколько за день показывают «+5 XP», дальше — без отвлечений.',
+      'Изучение заклинаний: «выучено сегодня», «выучено всего» и опыт за учёбу сегодня — крупные плитки вверху; общее число новых слов в день тоже крупное.',
+      'Новый вид 2D-арен: рисованный стиль с лёгким зерном — гранёные горы, облака с контуром, густая трава с цветами, кора, каменная кладка — и четыре рунных камня Мирового древа теперь на каждой арене.',
+      'Исправления: «← Покинуть комнату» выглядит как «← Меню»; маленькие кнопки меню больше не наезжают на меню на невысоких экранах; в тестах появилось место под «← Учёба».',
+      'Рассказы для текста могут писать Google Gemini (бесплатный уровень), Claude или любой ИИ, совместимый с OpenAI, — смотря какой ключ есть на сервере.',
+    ],
+  },
+  {
     v: '0.9.9.4.4.1', date: '2026-10',
     en: [
       'All spells: each level has its own − / + buttons (steps of 1), and nothing changes until you press Apply — it tells you how many words that adds today, so a misclick can’t flood your deck.',
