@@ -44,7 +44,9 @@ function counts(el: HTMLElement, c: DeckCounts) {
  */
 let savedPlan: Partial<Record<Level, number>> = {};
 let draftPlan: Partial<Record<Level, number>> = {};
-const planTotal = (p: Partial<Record<Level, number>>) => LEVELS.reduce((a, l) => a + (p[l] ?? 0), 0);
+const lockedLv = new Set<Level>();
+/** The day's total — locked levels give no words, so they don't count. */
+const planTotal = (p: Partial<Record<Level, number>>) => LEVELS.reduce((a, l) => a + (lockedLv.has(l) ? 0 : p[l] ?? 0), 0);
 function levelPlan(per: Partial<Record<Level, number>>) {
   savedPlan = { ...per };
   draftPlan = { ...per };
@@ -74,7 +76,8 @@ function levelPlan(per: Partial<Record<Level, number>>) {
     step.append(minus, input, plus);
     row.append(name, step);
     const locked = ui.lockLevelChip(row, lv);
-    if (locked.classList.contains('locked')) { input.value = '0'; input.disabled = minus.disabled = plus.disabled = true; delete draftPlan[lv]; }
+    // 0.9.9.4.4.5: a locked level (かな beginner) keeps its number — greyed out, unchangeable, no words from it
+    if (locked.classList.contains('locked')) { input.disabled = minus.disabled = plus.disabled = true; lockedLv.add(lv); } else lockedLv.delete(lv);
     return locked;
   }));
   planChanged();
@@ -82,7 +85,7 @@ function levelPlan(per: Partial<Record<Level, number>>) {
 function planChanged() {
   for (const row of document.querySelectorAll<HTMLElement>('#studyLevels .lp-row')) {
     const l = row.dataset.level as Level;
-    row.classList.toggle('on', (draftPlan[l] ?? 0) > 0);
+    row.classList.toggle('on', (draftPlan[l] ?? 0) > 0 && !lockedLv.has(l));
     row.classList.toggle('changed', (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
   }
   const total = planTotal(draftPlan);

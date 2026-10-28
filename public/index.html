@@ -450,10 +450,21 @@
 
   <!-- READING PASSAGE (0.9.9.4.4: its own screen, like the quiz) -->
   <section id="passage" class="screen passage" hidden>
-    <div class="page-head"><button id="passageBack" class="back">← Study</button><label class="p-from">Words from <select id="passageDeck" aria-label="Words from"></select></label><button id="passageNew" class="pill">New passage</button></div>
+    <div class="page-head"><button id="passageBack" class="back">← Study</button><label class="p-from">Words from <select id="passageDeck" aria-label="Words from"></select></label><span class="p-new"><button id="passageNew" class="pill">New passage</button><span id="passageQuota" class="p-quota" hidden></span></span></div>
     <div class="passage-card">
       <h2 class="passage-title">Reading passage</h2>
       <p class="hint">A short story with your words left out. Tap a blank, then the word that fits — the story around it is the clue. Tap any word for its meaning, and a kanji in it for its parts.</p>
+      <div id="passageIntro" class="passage-intro" hidden>
+        <h4>How reading passages work</h4>
+        <ul>
+          <li>An AI writes one short story with 8 of your words in it — each word appears where it makes sense, not in a sentence of its own.</li>
+          <li>The words are blanked out. Tap a blank, then the word that fits from the context. Check shows what you got right.</li>
+          <li>Writing a story takes a few seconds — the bar shows how far along it is.</li>
+          <li id="passageIntroQuota">You can have up to 40 new AI stories a day — the counter next to New passage shows how many are left. After that (or offline), the passage uses your words’ example sentences instead.</li>
+        </ul>
+        <button id="passageIntroOk" class="pill" type="button">Got it</button>
+      </div>
+      <p id="passageNote" class="passage-note" hidden></p>
       <div id="passageText" class="passage-text" lang="ja"></div>
       <details class="passage-tr"><summary>Translation</summary><div id="passageTr"></div></details>
       <div id="passageResult" class="passage-words" hidden></div>
@@ -768,22 +779,25 @@
       <li><b>Pick your levels.</b> ひらがな (hiragana) and カタカナ (katakana) are the kana letters (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (ひらがな / カタカナ), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.</li>
       <li><b>Modes</b>
         <ul>
-          <li><b>Reading</b> — study 10 words, then type each reading (かな or romaji).</li>
-          <li><b>Rapid</b> — no study; both get the same kanji, first correct reading hits.</li>
+          <li><b>Reading</b> — study 10 of your words, then type each reading (かな or romaji).</li>
+          <li><b>Rapid</b> — no study; both get the same kanji, first correct reading hits. The first 10 are 5 words from each player’s All spells — the round shows whose word it is.</li>
           <li><b>Writing</b> — look at the kanji, press CAST! (up to 3.5 s), then write it from memory on the pad or type it with a Japanese keyboard. Messy is fine.</li>
           <li><b>Boss</b> — 1 to 4 players team up against the Black Dragon (it gets tougher with every player). Mistakes get you clawed; fire breath every 30 s.</li>
           <li><b>Deck Duel</b> — pick a hero, draft cards by colour, then cast them by writing their kanji. Bolt 90 dmg (10 mana), Frost 150 (20), Mana +60, Heal 140 (30), Inferno 340 (45). 15 s to choose a card, then 1 minute to read its meaning, look at the kanji and write it. +10 mana each turn. Out of cards → a new draft round (HP and mana stay). No mana for any of your cards → your turn is skipped (−100 HP). When time runs out: overtime, a Rapid duel. Every kanji of the duel joins your <i>All spells</i>.</li>
         </ul>
       </li>
+      <li><b>Your own words</b> — every battle plays the words of your levels from your All spells (marked ★ on the study cards); random words fill in when you have too few.</li>
       <li><b>Fast + correct = more damage.</b> Combos build up to ×1.5 (5 in a row sets you on fire 🔥). <b>Skip</b> (Esc) shows the answer.</li>
-      <li><b>Study spells</b> — Anki-style flashcards. Missed words go to <i>Struggling spells</i>.</li>
+      <li><b>Study spells</b> — Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (− / +, then Apply). Every card you answer gives +5 XP (up to 500 a day); ↶ Undo takes the last answer back.</li>
+      <li><b>Practice</b> — the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 40 new stories a day — the counter shows how many are left). Tap any kanji for its parts and a memory story.</li>
+      <li><b>Hiragana first</b> — beginners study ひらがな until they tick “I’ve mastered hiragana” in Settings. Until then the kanji levels are locked: they add no new words, but the numbers you set for them are kept.</li>
       <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
       <li><b>Daily streak</b> — a day counts when you do all four daily tasks: study 10 spells, a JLPT quiz, the daily challenge and a reading passage. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
     </ol>
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.9.4.4.4</div>
+<div id="version" class="version">v0.9.9.4.4.5</div>
 <script src="/app.js"></script>
 </body>
 </html>

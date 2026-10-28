@@ -6,7 +6,7 @@ import { buildOnoQuiz } from '../shared/quiz';
 import { kanjiTappable } from './kanjihelp';
 import { LEVEL_LABEL, type MissedWord } from '../shared/protocol';
 import type { DeckId } from '../shared/srs';
-import { api, type DeckRow, type Profile, type QuizQuestion, type WordHit } from './api';
+import { api, OFFLINE_TEXT, type DeckRow, type StoryUsage, type Profile, type QuizQuestion, type WordHit } from './api';
 import { lang, locale, meaningIn, tr } from './i18n';
 import { openStrokeDialog } from './ui';
 import * as ui from './ui';
@@ -419,8 +419,9 @@ let passageWords: PWord[] = [];
 let blanks: Array<{ answer: PWord; form: string; put: PWord | null; el: HTMLButtonElement }> = [];
 let picked = 0;
 let checked = false;
-/** the sentences of this passage: [the word, its example] */
-let lines: Array<{ w: PWord; ex: [string, string, string] }> = [];
+/** the sentences of this passage: the words its blanks hold (in order) and [ja, en, ru] — 0.9.9.4.4.5: a story
+ * sentence may hold two words or none; an example sentence holds its one word */
+let lines: Array<{ ws: PWord[]; ex: [string, string, string] }> = [];
 /** the story's title when the passage is one story (null: separate example sentences) */
 let storyTitle: { ja: string; en: string; ru: string } | null = null;
 let passageBuild = 0;
@@ -446,7 +447,8 @@ function rubyBits(text: string, tap: boolean): Node[] {
 const formOf = (marked: string) => marked.replace(/\[([^\]|]+)\|[^\]]+\]/g, '$1');
 
 function jaLine(n: number) {
-  const { w, ex } = lines[n];
+  const { ws, ex } = lines[n];
+  let k = 0;
   // a story (0.9.9.4.4.1) runs on as one text; example sentences are numbered, one per line
   const p = el(storyTitle ? 'span' : 'p', storyTitle ? 'p-sent' : 'p-line');
   if (!storyTitle) p.append(el('span', 'p-n', String(n + 1)));
@@ -456,7 +458,7 @@ function jaLine(n: number) {
       const i = blanks.length;
       const b = el('button', 'p-blank', undefined, { type: 'button', 'data-i': String(i), title: 'Tap, then pick a word below' }) as HTMLButtonElement;
       b.onclick = () => tapBlank(i);
-      blanks.push({ answer: w, form: part.slice(1, -1), put: null, el: b });
+      blanks.push({ answer: ws[Math.min(k++, ws.length - 1)], form: part.slice(1, -1), put: null, el: b });
       p.append(b);
     } else p.append(...rubyBits(part, true));
   }
@@ -573,7 +575,7 @@ function check() {
   blanks.forEach((_, k) => drawBlank(k));
   const right = blanks.filter((b) => b.put?.kanji === b.answer.kanji).length;
   drawTranslation();
-  const list = lines.map(({ w }) => {
+  const list = lines.flatMap((l) => l.ws).map((w) => {
     const row = el('div', 'pw');
     row.append(el('b', '', w.kanji, { lang: 'ja' }), el('span', 'rd', w.reading, { lang: 'ja' }), el('span', 'm', meaningIn(w.meaning)));
     return row;
@@ -592,7 +594,40 @@ function check() {
 export function openPassage(words: PWord[]) {
   passageWords = words.filter((w) => w.kanji).slice(0, 60);
   ui.show('passage');
+  showIntro();
+  void api.storyUsage().then(showQuota).catch(() => { /* offline: no counter */ });
   void buildPassage();
+}
+
+// ── 0.9.9.4.4.5: AI stories — the counter, the first-time explainer, and why there's no story ──
+const f1 = (n: number) => n.toFixed(1);
+let storyUsage: StoryUsage | null = null;
+function showQuota(u: StoryUsage) {
+  storyUsage = u;
+  const q = $('passageQuota');
+  q.hidden = !u.enabled;
+  const left = Math.max(0, u.limit - u.used);
+  q.textContent = `${tr('AI stories left today')}: ${left} / ${u.limit}`;
+  q.title = tr('Each new AI story counts once; the same words again come free. The count starts over at midnight.');
+  q.classList.toggle('low', left <= 5);
+  $('passageIntroQuota').hidden = !u.enabled;
+}
+const INTRO_KEY = 'kw:passage-intro';
+function showIntro() {
+  let seen = false;
+  try { seen = localStorage.getItem(INTRO_KEY) === '1'; } catch { /* private mode: show it */ }
+  $('passageIntro').hidden = seen;
+}
+$('passageIntroOk').onclick = () => { $('passageIntro').hidden = true; try { localStorage.setItem(INTRO_KEY, '1'); } catch { /* private mode */ } };
+/** what to tell the player when the AI didn't write the story */
+function storyWhy(why: string): string {
+  if (why === 'off') return tr('AI stories are switched off on the server — here are your words’ example sentences instead.');
+  if (why === 'limit') return tr('You’ve used all of today’s AI stories — here are your words’ example sentences instead. New stories tomorrow!');
+  if (why === 'busy') return tr('Today’s AI stories for everyone are used up — here are your words’ example sentences instead.');
+  if (why === 'timeout') return tr('The story took too long — here are your words’ example sentences instead. Try “New passage” again.');
+  if (why === 'few words') return tr('Too few words for a story — here are their example sentences.');
+  if (why === OFFLINE_TEXT) return tr('You’re offline — here are your words’ example sentences instead.');
+  return `${tr('The AI couldn’t write a story this time — here are your words’ example sentences instead. Try “New passage” again.')} (${why.slice(0, 120)})`;
 }
 async function buildPassage() {
   $('passageResult').hidden = true;
@@ -609,19 +644,39 @@ async function buildPassage() {
   $('passageWords').replaceChildren();
   // 0.9.9.4.4.1: one story with all the words, written by a small AI on the server; the words' example sentences
   // when it is off, offline, slow or not good enough
-  if (pool.length >= 2) {
-    text.replaceChildren(el('p', 'hint p-writing', '✍ Writing a story with your words…'));
-    const story = await Promise.race([
-      api.story(pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }))).then((r) => r.story).catch(() => null),
-      new Promise<null>((ok) => setTimeout(() => ok(null), 30_000)),
+  const note = $('passageNote');
+  note.hidden = true;
+  if (pool.length >= 2 && storyUsage?.enabled !== false) {
+    // 0.9.9.4.4.5: a bar while the story is written — it fills quickly at first, then slows (it never claims 100%
+    // before the story is there); the seconds tick under it
+    const bar = el('i');
+    const sec = el('span', '', '0');
+    const msg = el('p', 'hint');
+    msg.append(`✍ ${tr('Writing a story with your words…')} `, sec, ' s');
+    const box = el('div', 'p-load', undefined, { lang: lang() });
+    box.append(Object.assign(el('div', 'p-load-bar'), { role: 'progressbar' }), msg);
+    box.firstElementChild!.append(bar);
+    text.replaceChildren(box);
+    const t0 = Date.now();
+    const tick = window.setInterval(() => { const t = (Date.now() - t0) / 1000; bar.style.width = `${f1(96 * (1 - Math.exp(-t / 14)))}%`; sec.textContent = String(Math.floor(t)); }, 250);
+    const r = await Promise.race([
+      api.story(pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }))).catch((e) => ({ story: null, why: (e as Error).message, usage: undefined })),
+      new Promise<{ story: null; why: string; usage: undefined }>((ok) => setTimeout(() => ok({ story: null, why: 'timeout', usage: undefined }), 95_000)),
     ]);
+    clearInterval(tick);
     if (build !== passageBuild) return; // a newer passage was asked for meanwhile
-    if (story) {
-      storyTitle = story.title;
-      lines = story.lines.map((l) => ({ w: pool[l.word], ex: [l.ja, l.en, l.ru] as [string, string, string] }));
+    if (r.usage) showQuota(r.usage);
+    if (r.story) {
+      bar.style.width = '100%';
+      storyTitle = r.story.title;
+      lines = r.story.lines.map((l) => ({ ws: l.words.map((i) => pool[i]), ex: [l.ja, l.en, l.ru] as [string, string, string] }));
+    } else if (r.why) {
+      note.textContent = storyWhy(r.why);
+      note.hidden = false;
     }
   }
-  if (!lines.length) lines = pool.filter((w) => !!w.id && examples.has(w.id)).map((w) => ({ w, ex: examples.get(w.id!)! }));
+  else if (storyUsage?.enabled === false) { note.textContent = storyWhy('off'); note.hidden = false; }
+  if (!lines.length) lines = pool.filter((w) => !!w.id && examples.has(w.id)).map((w) => ({ ws: [w], ex: examples.get(w.id!)! }));
   const title = storyTitle ? el('p', 'p-title') : null;
   if (title && storyTitle) title.append(...rubyBits(storyTitle.ja, false));
   const body = storyTitle ? el('p', 'p-story') : null;
@@ -632,7 +687,7 @@ async function buildPassage() {
   drawTranslation();
   // the word bank: every word of the passage, shuffled; tap one to put it in the selected blank
   const bank = el('div', 'p-bank');
-  for (const { w } of [...lines].sort(() => Math.random() - 0.5)) {
+  for (const w of lines.flatMap((l) => l.ws).sort(() => Math.random() - 0.5)) {
     const c = el('button', 'p-chip', w.kanji, { type: 'button', lang: 'ja', 'data-k': w.kanji }) as HTMLButtonElement;
     c.onclick = () => putWord(w);
     bank.append(c);

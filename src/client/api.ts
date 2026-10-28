@@ -29,6 +29,7 @@ export const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) ?? 
 export const setToken = (t: string) => { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch { /* private mode */ } };
 
 import * as offline from './offline';
+export interface StoryUsage { enabled: boolean; used: number; limit: number }
 
 export class ApiError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
@@ -111,7 +112,9 @@ export const api = {
   addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', { ...w, id: `u:${uuid().slice(0, 13)}` }),
   quiz: (n = 10) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}`),
   /** 0.9.9.4.4.1: one story with these words (null when the AI is off or failed) */
-  story: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>) => call<{ story: { title: { ja: string; en: string; ru: string }; lines: Array<{ word: number; ja: string; en: string; ru: string }> } | null }>('POST', '/api/study/story', { words, today: today() }),
+  story: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>) => call<{ story: { title: { ja: string; en: string; ru: string }; lines: Array<{ ja: string; en: string; ru: string; words: number[] }> } | null; why?: string; usage?: StoryUsage }>('POST', '/api/study/story', { words, today: today() }),
+  /** 0.9.9.4.4.5: AI stories today — how many you've had and the daily cap */
+  storyUsage: () => call<StoryUsage>('GET', `/api/study/story?today=${today()}`),
   /** a daily task done here (the quiz, a passage): counts towards today's streak */
   task: (task: 'quiz' | 'passage', score: number, total: number) => call<Profile>('POST', '/api/study/task', { task, today: today(), score, total }),
   setDailyNew: (n: number) => call<StudySummary>('PUT', '/api/study/daily-new', { n, today: today() }),

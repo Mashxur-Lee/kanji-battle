@@ -239,7 +239,12 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const body = await r.json();
         const words = StoryService.clean(body.words);
-        return res(200, { story: stories ? await stories.story(u.id, words, resolveToday(body.today)) : null, words });
+        const day = resolveToday(body.today);
+        const out = stories ? await stories.story(u.id, words, day) : { story: null, why: 'off' };
+        return res(200, { ...out, words, usage: stories?.usage(u.id, day) ?? { enabled: false, used: 0, limit: 0 } });
+      } else if (r.method === 'GET' && url === '/api/study/story') {
+        const u = await auth.authenticate(r.token);
+        return res(200, stories?.usage(u.id, resolveToday(query.get('today'))) ?? { enabled: false, used: 0, limit: 0 });
       } else if (r.method === 'POST' && url === '/api/study/task') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();

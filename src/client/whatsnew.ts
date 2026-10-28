@@ -7,6 +7,23 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.4.5', date: '2026-10',
+    en: [
+      'Reading passage: the AI now writes one flowing story where your 8 words appear wherever they fit — a sentence can hold two of them, or none — instead of one sentence per word. Fill in the blanks from the context.',
+      'Reading passage: a progress bar while the story is written (it can take a few seconds), a counter of how many AI stories you have left today (40 a day), and a short explainer the first time you open it. When there is no AI story, it says why.',
+      'Reading passage: stories are far less often thrown away over a small slip, and the app waits long enough for them.',
+      'All spells: unticking “I’ve mastered hiragana” no longer resets your numbers per level — the kanji levels are just locked (greyed out, no new words) until you tick it again.',
+      'How to play: updated — your own words in battles, the four study decks, +5 XP per card, the practice modes and hiragana first.',
+    ],
+    ru: [
+      'Текст для чтения: ИИ теперь пишет один связный рассказ, где ваши 8 слов стоят там, где они к месту (в предложении может быть два слова или ни одного), а не по предложению на слово. Заполняйте пропуски по смыслу.',
+      'Текст для чтения: полоска загрузки, пока пишется рассказ (это занимает несколько секунд), счётчик оставшихся на сегодня ИИ-рассказов (40 в день) и короткое пояснение при первом открытии. Если ИИ-рассказа нет, видно почему.',
+      'Текст для чтения: рассказы гораздо реже отбрасываются из-за мелкой ошибки, и приложение ждёт их достаточно долго.',
+      'Все заклинания: если снять «Я освоил хирагану», числа по уровням больше не сбрасываются — уровни кандзи просто закрыты (серые, без новых слов), пока галочка снова не стоит.',
+      'Как играть: обновлено — ваши слова в боях, четыре колоды, +5 опыта за карточку, режимы практики и «сначала хирагана».',
+    ],
+  },
+  {
     v: '0.9.9.4.4.4', date: '2026-10',
     en: [
       'World Tree: a much fuller crown — a solid mass of leaves shaded from dark underneath to sunlit on top, branches showing through, no leaves hanging loose in the air — and shaded roots with ridges and moss that blend into the trunk.',

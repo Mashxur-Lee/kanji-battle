@@ -50,7 +50,7 @@ const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement; cho
     body: 'A kanji appears; type how it is read — in hiragana, or in romaji with a normal keyboard — and press Enter. Fast and right in a row hits harder.',
     extra: tryIt,
   },
-  { title: 'Study makes you stronger', body: 'Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review.' },
+  { title: 'Study makes you stronger', body: 'Study spells is a flashcard deck: the more words you know, the more spells you can cast — battles use the words in your All spells. Every card you answer gives +5 XP, and words you miss in battle come back there to review.' },
   { title: 'All modes are open', body: 'Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel are all open from the start. There is also a Daily challenge, a JLPT quiz, Progress, Friends — and monthly goals with rewards.' },
   { title: 'かな first, then kanji', body: 'Beginners: study かな in Study spells until you know it by heart. Then tick "I\'ve mastered hiragana" in Settings (the sliders button, top-right) — and the kanji levels N5 to N1 open for studying and battles.' },
   { title: 'Your first battle', body: 'Ready? You\'ll study 10 easy words for a minute, then duel a beginner AI with them.' },

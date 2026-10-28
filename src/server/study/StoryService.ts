@@ -1,68 +1,79 @@
 // Reading passage stories (0.9.9.4.4.1): a small AI (Gemini, Claude or an OpenAI-compatible model) writes ONE short story
-// that uses all of the player's words — each in its own sentence, in a natural context — with furigana over
-// every kanji and English + Russian translations. Every answer is checked before it is used (the words are
-// there and marked, every kanji has a reading, the target's reading fits the word); anything off and the app
-// falls back to the words' example sentences. Without an API key the feature is simply off.
+// that uses all of the player's words, with furigana over the kanji and English + Russian translations.
+// 0.9.9.4.4.5: the words are woven into one flowing story (a sentence may hold two of them, or none) instead of
+// one sentence per word, and the answer is repaired where it can be rather than thrown away. When there is no
+// story, the reason ('off', 'limit', 'timeout' …) goes back to the app, which says so and uses the words'
+// example sentences instead. Without an API key the feature is simply off.
 
 import { VOCAB_BY_ID } from '../vocab';
 
 export interface StoryWord { id?: string; kanji: string; reading: string; meaning: string }
-export interface StoryLine { word: number; ja: string; en: string; ru: string }
+/** a sentence of the story; `words` are the words its 【】 blanks hold, in order (indexes into the word list) */
+export interface StoryLine { ja: string; en: string; ru: string; words: number[] }
 export interface Story { title: { ja: string; en: string; ru: string }; lines: StoryLine[] }
 
 const HAN = /[\p{Script=Han}々]/u;
 const RUBY = /\[([^\]|]+)\|([^\]]+)\]/g;
-const kata2hira = (s: string) => s.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+const KANA = /^[぀-ゟ゠-ヿー]+$/;
+/** the start of a word as it is written in any form: its kanji and the kana between them (祈る → 祈, 静か → 静, お金持ち → お金持) */
+const stemOf = (kanji: string) => {
+  const last = Math.max(...[...kanji].map((c, i) => (HAN.test(c) ? i : -1)));
+  return last < 0 ? kanji.replace(/[るうくすつぬむぶぐいだなした]$/, '') || kanji : [...kanji].slice(0, last + 1).join('');
+};
 
-/** Is this generated story usable for these words? Returns the reason when it isn't. */
-export function checkStory(s: unknown, words: readonly StoryWord[]): string | null {
-  const st = s as Story;
-  if (!st || typeof st !== 'object' || !Array.isArray(st.lines)) return 'no lines';
-  if (!st.title || typeof st.title.ja !== 'string' || HAN.test(st.title.ja.replace(RUBY, ''))) return 'title';
-  if (st.lines.length !== words.length) return 'line count';
-  const seen = new Set<number>();
-  for (const l of st.lines) {
-    if (!l || typeof l.ja !== 'string' || typeof l.en !== 'string' || typeof l.ru !== 'string' || !l.en.trim() || !l.ru.trim()) return 'fields';
-    if (!Number.isInteger(l.word) || l.word < 0 || l.word >= words.length || seen.has(l.word)) return 'word index';
-    seen.add(l.word);
-    if (l.ja.length > 120) return 'too long';
-    const marks = l.ja.match(/【[^】]+】/g) ?? [];
-    if (marks.length !== 1) return `marks in ${l.ja}`;
-    const bare = l.ja.replace(RUBY, '');
-    if (HAN.test(bare)) return `kanji without furigana: ${l.ja}`;
-    for (const m of l.ja.matchAll(RUBY)) if (!HAN.test(m[1]) || !/^[぀-ゟ゠-ヿー]+$/.test(m[2])) return `bad ruby ${m[0]}`;
-    // the target: written like the word (its kanji, then any okurigana / conjugation) and read like it
-    const w = words[l.word];
-    const inner = marks[0].slice(1, -1);
-    const written = inner.replace(RUBY, '$1');
-    const stem = [...w.kanji].filter((c, i, a) => HAN.test(c) || a.slice(0, i).every((x) => !HAN.test(x))).join('').replace(/[぀-ゟ]+$/, '');
-    if (!written.startsWith(stem)) return `target ${written} ≠ ${w.kanji}`;
-    // the furigana over the word's kanji must start the word's reading (祈 いの → いのる; a noun: all of it)
-    const reading = kata2hira(inner.replace(RUBY, '$2'));
-    const lead = kata2hira(inner.split('[')[0]); // kana before the kanji (お金持ち: お)
-    const want = kata2hira(w.reading).replace(new RegExp(`^${lead}`), '');
-    const kanjiPart = kata2hira([...inner.matchAll(RUBY)].map((m) => m[2]).join(''));
-    if (kanjiPart && !want.startsWith(kanjiPart) && !(kanjiPart.length > 2 && want.startsWith(kanjiPart.slice(0, -1)))) return `reading ${reading} ≠ ${want}`;
-    if (!kanjiPart && !reading.startsWith(want.slice(0, Math.max(1, want.length - 2)))) return `reading ${reading} ≠ ${want}`;
+/**
+ * 0.9.9.4.4.5: one story, as many sentences as it needs. Makes a model's answer usable when it can — ruby with a
+ * bad reading becomes plain text, a 【】 around something that isn't one of the words is unwrapped, a word marked
+ * twice keeps its first blank — and says why when it can't (a word is missing, no text …).
+ */
+export function normalizeStory(s: unknown, words: readonly StoryWord[]): Story | string {
+  const st = s as { title?: { ja?: unknown; en?: unknown; ru?: unknown }; lines?: unknown };
+  if (!st || typeof st !== 'object' || !Array.isArray(st.lines) || !st.lines.length) return 'no lines';
+  if (st.lines.length > 40) return 'too many lines';
+  const str = (x: unknown) => (typeof x === 'string' ? x.trim() : '');
+  const fixRuby = (t: string) => t.replace(RUBY, (m, base: string, rt: string) => (HAN.test(base) && KANA.test(rt) ? m : base));
+  const stems = words.map((w) => stemOf(w.kanji));
+  const used = new Set<number>();
+  const lines: StoryLine[] = [];
+  for (const raw of st.lines as Array<Record<string, unknown>>) {
+    let ja = fixRuby(str(raw?.ja));
+    const en = str(raw?.en), ru = str(raw?.ru) || en;
+    if (!ja) continue;
+    if (ja.length > 240) return 'too long';
+    const ws: number[] = [];
+    ja = ja.replace(/【([^】]*)】/g, (m, inner: string) => {
+      const written = inner.replace(RUBY, '$1');
+      // the word this blank holds: the one whose kanji the text starts with (the longest match wins)
+      let best = -1;
+      words.forEach((_, i) => { if (!used.has(i) && stems[i] && written.startsWith(stems[i]) && (best < 0 || stems[i].length > stems[best].length)) best = i; });
+      if (best < 0) return inner; // not one of the words (or one already used): plain text
+      used.add(best); ws.push(best);
+      return m;
+    });
+    lines.push({ ja, en, ru, words: ws });
   }
-  return null;
+  const missing = words.map((w, i) => (used.has(i) ? '' : w.kanji)).filter(Boolean);
+  if (missing.length) return `missing ${missing.join(' ')}`;
+  const t = st.title ?? {};
+  return { title: { ja: fixRuby(str(t.ja)), en: str(t.en), ru: str(t.ru) || str(t.en) }, lines };
 }
 
 function prompt(words: readonly StoryWord[]) {
-  const list = words.map((w, i) => `${i}. ${w.kanji} (${w.reading}) — ${w.meaning}`).join('\n');
-  return `Write a short, simple, coherent story in Japanese for a learner. It must use each of these ${words.length} words exactly once, one word per sentence, in a natural context that shows what the word means (e.g. 寺で【祈る】 for "to pray"). Keep the grammar simple and the sentences short (under 40 characters). One character or a small cast, one setting, a clear little plot from beginning to end — the sentences must follow on from each other.
+  const list = words.map((w, i) => `${i + 1}. ${w.kanji} (${w.reading}) — ${w.meaning}`).join('\n');
+  return `Write ONE short, simple, coherent story in Japanese for a learner (about ${Math.max(6, words.length + 2)}–${words.length * 2} short sentences). It must use every one of these ${words.length} words, each exactly once, woven naturally into the story so that the context shows what the word means. The words should not each get their own separate sentence — it is one flowing story with a small cast, one setting and a clear little plot from beginning to end; a sentence may hold two of the words, and some sentences may hold none.
 
 Words:
 ${list}
 
 Format rules for the "ja" text (very important):
-- Write every kanji with its furigana as [漢字|かんじ] — e.g. [今日|きょう]は[寺|てら]で — and NEVER write a kanji outside these brackets.
-- Kana (hiragana, katakana) is written as it is, never in brackets.
-- Wrap the target word of the sentence, with its okurigana or conjugation, in 【】 — e.g. 【[祈|いの]った】 or 【[静|しず]かな】. Exactly one 【】 per sentence, nothing else in 【】.
+- Write every kanji with its furigana as [漢字|かんじ] — e.g. [今日|きょう]は[寺|てら]で — never a kanji outside these brackets.
+- Kana is written as it is, never in brackets.
+- Wrap each of the words above, where it appears, in 【】 together with its okurigana or conjugation — e.g. 【[祈|いの]った】 or 【[静|しず]かな】. Use 【】 only for those words, once each.
+- Keep the grammar simple (JLPT N5–N4 where possible, apart from the words themselves).
 
 Answer with JSON only, no other text:
-{"title":{"ja":"…","en":"…","ru":"…"},"lines":[{"word":<number of the word above>,"ja":"…","en":"English translation","ru":"Russian translation"}]}
-The title's "ja" uses the same furigana format and has no 【】. The lines are in story order (any order of the words).`;
+{"title":{"ja":"…","en":"…","ru":"…"},"lines":[{"ja":"one sentence","en":"its English translation","ru":"its Russian translation"}]}
+"lines" are the story's sentences in order. The title's "ja" uses the same furigana format and has no 【】.`;
 }
 
 /** Which AI writes the stories, from the environment (0.9.9.4.4.2): Gemini (has a free tier), Claude, or any
@@ -84,13 +95,21 @@ async function complete(p: StoryProvider, text: string, signal: AbortSignal): Pr
     return r.json() as Promise<any>;
   };
   if (p.kind === 'gemini') {
-    const d = await post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`, { 'x-goog-api-key': p.key },
-      { contents: [{ role: 'user', parts: [{ text }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.9, maxOutputTokens: 3000 } });
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`;
+    const config = { responseMimeType: 'application/json', temperature: 0.9, maxOutputTokens: 8192 };
+    // 0.9.9.4.4.5: no "thinking" — a short story doesn't need it, and it made the answer slow (the app gave up
+    // and showed the example sentences). A model that can't switch thinking off is asked again without it.
+    let d;
+    try { d = await post(url, { 'x-goog-api-key': p.key }, { contents: [{ role: 'user', parts: [{ text }] }], generationConfig: { ...config, thinkingConfig: { thinkingBudget: 0 } } }); }
+    catch (e) {
+      if (!/ 400:.*think/is.test((e as Error).message)) throw e;
+      d = await post(url, { 'x-goog-api-key': p.key }, { contents: [{ role: 'user', parts: [{ text }] }], generationConfig: config });
+    }
     return (d.candidates?.[0]?.content?.parts ?? []).map((x: { text?: string }) => x.text ?? '').join('');
   }
   if (p.kind === 'anthropic') {
     const d = await post('https://api.anthropic.com/v1/messages', { 'x-api-key': p.key, 'anthropic-version': '2023-06-01' },
-      { model: p.model, max_tokens: 2000, messages: [{ role: 'user', content: text }] });
+      { model: p.model, max_tokens: 4000, messages: [{ role: 'user', content: text }] });
     return d.content?.find((c: { type: string }) => c.type === 'text')?.text ?? '';
   }
   const d = await post(`${p.baseUrl}/chat/completions`, { authorization: `Bearer ${p.key}` },
@@ -117,36 +136,56 @@ export class StoryService {
     });
   }
 
-  async story(userId: string, words: StoryWord[], today: string): Promise<Story | null> {
-    if (!this.enabled || words.length < 2) return null;
+  /** How many stories this player has had written today, and the cap (0.9.9.4.4.5: shown next to "New passage"). */
+  usage(userId: string, today: string) {
+    const u = this.used.get(userId);
+    return { enabled: this.enabled, used: u && u.day === today ? u.n : 0, limit: this.perDay };
+  }
+
+  /**
+   * One story with these words, or why there isn't one ('off', 'limit', 'busy' — everyone's cap —, or what went
+   * wrong). A story already written for the same words comes from the cache and isn't counted.
+   */
+  async story(userId: string, words: StoryWord[], today: string): Promise<{ story: Story | null; why?: string }> {
+    if (!this.enabled) return { story: null, why: 'off' };
+    if (words.length < 2) return { story: null, why: 'few words' };
     const key = words.map((w) => w.id ?? w.kanji).sort().join(',');
     const hit = this.cache.get(key);
-    if (hit) return hit;
+    if (hit) return { story: hit };
     const u = this.used.get(userId);
-    if (u && u.day === today && u.n >= this.perDay) return null;
+    if (u && u.day === today && u.n >= this.perDay) return { story: null, why: 'limit' };
     // a cap for everyone together keeps a free API plan within its daily quota
     if (this.all.day !== today) this.all = { day: today, n: 0 };
-    if (this.all.n >= this.allPerDay) return null;
-    this.all.n++;
-    this.used.set(userId, { day: today, n: (u?.day === today ? u.n : 0) + 1 });
-    for (let attempt = 0; attempt < 2; attempt++) {
+    if (this.all.n >= this.allPerDay) return { story: null, why: 'busy' };
+    let why = '';
+    const start = Date.now();
+    // a second try only when the first was quick (the app waits about 90 s in all)
+    for (let attempt = 0; attempt < 2 && (attempt === 0 || Date.now() - start < 30_000); attempt++) {
       try {
         const s = await this.ask(words);
-        const why = checkStory(s, words);
-        if (!why) {
+        const st = normalizeStory(s, words);
+        if (typeof st !== 'string') {
+          // only a story you actually get counts
+          this.all.n++;
+          this.used.set(userId, { day: today, n: (u?.day === today ? u.n : 0) + 1 });
           if (this.cache.size > 500) this.cache.delete(this.cache.keys().next().value!);
-          this.cache.set(key, s!);
-          return s;
+          this.cache.set(key, st);
+          return { story: st };
         }
-        console.warn('story rejected:', why);
-      } catch (e) { console.warn('story failed:', (e as Error).message); }
+        why = st;
+        console.warn('story rejected:', st);
+      } catch (e) {
+        why = (e as Error).name === 'AbortError' ? 'timeout' : (e as Error).message;
+        console.warn('story failed:', why);
+        if (/ 4\d\d:/.test(why) && !/ 429:/.test(why)) break; // a bad key / model: trying again won't help
+      }
     }
-    return null;
+    return { story: null, why: why.slice(0, 300) };
   }
 
   private async ask(words: readonly StoryWord[]): Promise<Story | null> {
     const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 25_000);
+    const t = setTimeout(() => ctl.abort(), 55_000);
     try {
       const text = await complete(this.provider!, prompt(words), ctl.signal);
       const json = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
