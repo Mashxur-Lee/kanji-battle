@@ -1,8 +1,111 @@
 "use strict";
 (() => {
   var __defProp = Object.defineProperty;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __esm = (fn, res2, err) => function __init() {
+    if (err) throw err[0];
+    try {
+      return fn && (res2 = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res2;
+    } catch (e) {
+      throw err = [e], e;
+    }
+  };
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+
+  // src/shared/vocab.ts
+  var LEVEL_DIFFICULTY, KANA_BASIC, KANA_VOICED, KANA_COMBO, kanaRows, toKatakana, KANA, KATA, displayReading;
+  var init_vocab = __esm({
+    "src/shared/vocab.ts"() {
+      "use strict";
+      LEVEL_DIFFICULTY = { KANA: 6, KATA: 7, N5: 15, N4: 28, N3: 40, N2: 57, N1: 75, ONO: 20 };
+      KANA_BASIC = "\u3042a \u3044i \u3046u \u3048e \u304Ao \u304Bka \u304Dki \u304Fku \u3051ke \u3053ko \u3055sa \u3057shi \u3059su \u305Bse \u305Dso \u305Fta \u3061chi \u3064tsu \u3066te \u3068to \u306Ana \u306Bni \u306Cnu \u306Dne \u306Eno \u306Fha \u3072hi \u3075fu \u3078he \u307Bho \u307Ema \u307Fmi \u3080mu \u3081me \u3082mo \u3084ya \u3086yu \u3088yo \u3089ra \u308Ari \u308Bru \u308Cre \u308Dro \u308Fwa \u3092wo \u3093n";
+      KANA_VOICED = "\u304Cga \u304Egi \u3050gu \u3052ge \u3054go \u3056za \u3058ji \u305Azu \u305Cze \u305Ezo \u3060da \u3062ji \u3065zu \u3067de \u3069do \u3070ba \u3073bi \u3076bu \u3079be \u307Cbo \u3071pa \u3074pi \u3077pu \u307Ape \u307Dpo";
+      KANA_COMBO = "\u304D\u3083kya \u304D\u3085kyu \u304D\u3087kyo \u3057\u3083sha \u3057\u3085shu \u3057\u3087sho \u3061\u3083cha \u3061\u3085chu \u3061\u3087cho \u306B\u3083nya \u306B\u3085nyu \u306B\u3087nyo \u3072\u3083hya \u3072\u3085hyu \u3072\u3087hyo \u307F\u3083mya \u307F\u3085myu \u307F\u3087myo \u308A\u3083rya \u308A\u3085ryu \u308A\u3087ryo \u304E\u3083gya \u304E\u3085gyu \u304E\u3087gyo \u3058\u3083ja \u3058\u3085ju \u3058\u3087jo \u3073\u3083bya \u3073\u3085byu \u3073\u3087byo \u3074\u3083pya \u3074\u3085pyu \u3074\u3087pyo";
+      kanaRows = (script, conv) => [
+        ...KANA_BASIC.split(" ").map((s) => [conv(s[0]), s.slice(1), script, 5]),
+        ...KANA_VOICED.split(" ").map((s) => [conv(s[0]), s.slice(1), `${script} (voiced)`, 6]),
+        ...KANA_COMBO.split(" ").map((s) => [conv(s.slice(0, 2)), s.slice(2), `${script} (combined)`, 8])
+      ];
+      toKatakana = (s) => s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 96));
+      KANA = kanaRows("hiragana", (s) => s);
+      KATA = kanaRows("katakana", toKatakana).map(([k, r2, m, d]) => [k, r2, m, d === void 0 ? d : d + 1]);
+      displayReading = (v) => v.romaji ?? v.reading;
+    }
+  });
+
+  // src/shared/rebin.ts
+  function rebinByStrokes(words2) {
+    const kanjiWords = words2.filter((w) => JLPT_ORDER.includes(w.level));
+    const sizes = JLPT_ORDER.map((l) => kanjiWords.filter((w) => w.level === l).length);
+    const rank = (w) => JLPT_ORDER.indexOf(w.level);
+    const score3 = (w) => (w.strokes ?? 0) + JLPT_WEIGHT * rank(w);
+    const sorted = [...kanjiWords].sort((a, b) => score3(a) - score3(b) || rank(a) - rank(b) || a.kanji.length - b.kanji.length || a.id.localeCompare(b.id));
+    const next3 = /* @__PURE__ */ new Map();
+    let i = 0;
+    sizes.forEach((n, li) => {
+      for (const w of sorted.slice(i, i + n)) next3.set(w.id, JLPT_ORDER[li]);
+      i += n;
+    });
+    return words2.map((w) => {
+      const level2 = next3.get(w.id);
+      if (!level2) return w;
+      const ks = [...w.kanji].filter((c) => KANJI.test(c)).length;
+      const total = w.strokes ?? 12;
+      const adj = Math.max(-6, Math.min(10, (total - 12) * 0.45)) + (ks >= 3 ? 2 : 0);
+      return { ...w, level: level2, jlpt: w.level, difficulty: Math.round(Math.max(5, Math.min(100, LEVEL_DIFFICULTY[level2] + adj))) };
+    });
+  }
+  var KANJI, JLPT_ORDER, JLPT_WEIGHT;
+  var init_rebin = __esm({
+    "src/shared/rebin.ts"() {
+      "use strict";
+      init_vocab();
+      KANJI = /[一-鿿㐀-䶿々]/;
+      JLPT_ORDER = ["N5", "N4", "N3", "N2", "N1"];
+      JLPT_WEIGHT = 3;
+    }
+  });
+
+  // src/client/offline/vocab.ts
+  var vocab_exports = {};
+  __export(vocab_exports, {
+    JLPT_WEIGHT: () => JLPT_WEIGHT,
+    VOCAB: () => VOCAB,
+    VOCAB_BY_ID: () => VOCAB_BY_ID,
+    loadVocab: () => loadVocab,
+    rebinByStrokes: () => rebinByStrokes
+  });
+  function loadVocab() {
+    loading ?? (loading = fetch("/vocab.json").then((r2) => {
+      if (!r2.ok) throw new Error(`vocab ${r2.status}`);
+      return r2.json();
+    }).then((raw) => {
+      VOCAB.length = 0;
+      VOCAB.push(...rebinByStrokes(raw));
+      VOCAB_BY_ID.clear();
+      for (const v of VOCAB) VOCAB_BY_ID.set(v.id, v);
+    }).catch((e) => {
+      loading = null;
+      throw e;
+    }));
+    return loading;
+  }
+  var VOCAB, VOCAB_BY_ID, loading;
+  var init_vocab2 = __esm({
+    "src/client/offline/vocab.ts"() {
+      "use strict";
+      init_rebin();
+      init_rebin();
+      VOCAB = [];
+      VOCAB_BY_ID = /* @__PURE__ */ new Map();
+      loading = null;
+    }
+  });
 
   // src/client/offline/node-shim.ts
   var no = (name) => () => {
@@ -36,9 +139,9 @@
     const l = levelXp(xp);
     return l.into / l.need;
   };
-  function xpFor(outcome, accuracy, mode3) {
+  function xpFor(outcome, accuracy, mode4) {
     const acc = Math.round(Math.max(0, Math.min(1, accuracy)) * 100);
-    if (mode3 === "deck") return outcome === "win" ? 4e3 : outcome === "draw" ? 2500 : 1500;
+    if (mode4 === "deck") return outcome === "win" ? 4e3 : outcome === "draw" ? 2500 : 1500;
     return (outcome === "win" ? 300 : outcome === "draw" ? 150 : 50) + acc;
   }
   var CRIT_BASE = 0.01;
@@ -125,8 +228,8 @@
     const hex = flameColor(f2).slice(1);
     const [r2, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
     const max = Math.max(r2, g, b), min = Math.min(r2, g, b), l = (max + min) / 2, d = max - min;
-    const h3 = d === 0 ? 0 : max === r2 ? ((g - b) / d + 6) % 6 : max === g ? (b - r2) / d + 2 : (r2 - g) / d + 4;
-    const hue = h3 * 60;
+    const h4 = d === 0 ? 0 : max === r2 ? ((g - b) / d + 6) % 6 : max === g ? (b - r2) / d + 2 : (r2 - g) / d + 4;
+    const hue = h4 * 60;
     const pale = l > 0.85;
     const rgb = (s, li) => {
       const c = (1 - Math.abs(2 * li - 1)) * s, x = c * (1 - Math.abs(hue / 60 % 2 - 1)), m = li - c / 2;
@@ -157,9 +260,9 @@
   };
   var staffOf = (s) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
   var MODE_LEVEL = { reading: 0, rapid: 0, writing: 0, boss: 0, deck: 0 };
-  var modeUnlocked = (mode3, xp, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode3] ?? 0);
+  var modeUnlocked = (mode4, xp, admin = false) => beta.open || admin || levelOf(xp) >= (MODE_LEVEL[mode4] ?? 0);
   var STUDY_LOCK = 100;
-  var AVATAR_BY_LEVEL = { KANA: "goblin", KATA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard" };
+  var AVATAR_BY_LEVEL = { KANA: "goblin", KATA: "goblin", N5: "kid", N4: "human", N3: "knight", N2: "witch", N1: "wizard", ONO: "kid" };
   var ORDER = ["KANA", "KATA", "N5", "N4", "N3", "N2", "N1"];
   function avatarFor(levels) {
     const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? "N5";
@@ -182,7 +285,7 @@
 
   // src/shared/srs.ts
   var RATINGS = ["again", "hard", "good", "easy"];
-  var DECKS = ["all", "struggling", "custom"];
+  var DECKS = ["all", "struggling", "custom", "ono"];
   var isDeck = (x) => DECKS.includes(x);
   var SRS = {
     learnSteps: [1, 10],
@@ -273,9 +376,9 @@
   function formatInterval(ms) {
     const m = ms / MIN;
     if (m < 60) return `${Math.max(1, Math.round(m))}m`;
-    const h3 = m / 60;
-    if (h3 < 24) return `${Math.round(h3)}h`;
-    const d = h3 / 24;
+    const h4 = m / 60;
+    if (h4 < 24) return `${Math.round(h4)}h`;
+    const d = h4 / 24;
     if (d < 30) return `${Math.round(d)}d`;
     if (d < 365) return `${(d / 30).toFixed(d < 300 ? 1 : 0).replace(/\.0$/, "")}mo`;
     return `${(d / 365).toFixed(1).replace(/\.0$/, "")}y`;
@@ -289,7 +392,7 @@
   var MATCH_HISTORY_LIMIT = 15;
   var SNAPSHOT_V = 1;
   var summaryOf = (m) => ({ id: m.id, mode: m.mode, outcome: m.outcome, character: m.character, at: m.at, opponents: m.opponents });
-  var blankProgress = () => ({ dailyNew: 25, newToday: 0, badges: [], xp: 0, background: "forest", studyLevels: [], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: "blue", staff: "verdant", tutorialDone: true, unlocks: [], loginDay: null, streak: 0, streakDay: null, border: "none", bestStreak: 0 });
+  var blankProgress = () => ({ dailyNew: 25, newToday: 0, badges: [], dailyPlan: null, xp: 0, background: "forest", studyLevels: [], lastNewDate: null, newNotice: 0, critCount: 0, critExpires: 0, wins: 0, losses: 0, avatarV: 0, flame: "blue", staff: "verdant", tutorialDone: true, unlocks: [], loginDay: null, streak: 0, streakDay: null, border: "none", bestStreak: 0 });
   var MemoryStore = class {
     constructor() {
       __publicField(this, "name", "memory");
@@ -599,7 +702,12 @@
 
   // src/shared/protocol.ts
   var LEVELS = ["KANA", "KATA", "N5", "N4", "N3", "N2", "N1"];
-  var LEVEL_LABEL = { KANA: "\u3072\u3089\u304C\u306A", KATA: "\u30AB\u30BF\u30AB\u30CA", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
+  var LEVEL_LABEL = { KANA: "\u3072\u3089\u304C\u306A", KATA: "\u30AB\u30BF\u30AB\u30CA", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1", ONO: "\u30AA\u30CE\u30DE\u30C8\u30DA" };
+  var ONO_TYPES = {
+    sei: { ja: "\u64EC\u58F0\u8A9E", romaji: "giseigo", en: "sound" },
+    tai: { ja: "\u64EC\u614B\u8A9E", romaji: "gitaigo", en: "state / manner" },
+    jo: { ja: "\u64EC\u60C5\u8A9E", romaji: "gij\u014Dgo", en: "feeling" }
+  };
   var MODE_LABEL = {
     reading: "1v1 Kanji Reading",
     writing: "1v1 Kanji Writing",
@@ -893,20 +1001,8 @@
   };
   var writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
 
-  // src/shared/vocab.ts
-  var LEVEL_DIFFICULTY = { KANA: 6, KATA: 7, N5: 15, N4: 28, N3: 40, N2: 57, N1: 75 };
-  var KANA_BASIC = "\u3042a \u3044i \u3046u \u3048e \u304Ao \u304Bka \u304Dki \u304Fku \u3051ke \u3053ko \u3055sa \u3057shi \u3059su \u305Bse \u305Dso \u305Fta \u3061chi \u3064tsu \u3066te \u3068to \u306Ana \u306Bni \u306Cnu \u306Dne \u306Eno \u306Fha \u3072hi \u3075fu \u3078he \u307Bho \u307Ema \u307Fmi \u3080mu \u3081me \u3082mo \u3084ya \u3086yu \u3088yo \u3089ra \u308Ari \u308Bru \u308Cre \u308Dro \u308Fwa \u3092wo \u3093n";
-  var KANA_VOICED = "\u304Cga \u304Egi \u3050gu \u3052ge \u3054go \u3056za \u3058ji \u305Azu \u305Cze \u305Ezo \u3060da \u3062ji \u3065zu \u3067de \u3069do \u3070ba \u3073bi \u3076bu \u3079be \u307Cbo \u3071pa \u3074pi \u3077pu \u307Ape \u307Dpo";
-  var KANA_COMBO = "\u304D\u3083kya \u304D\u3085kyu \u304D\u3087kyo \u3057\u3083sha \u3057\u3085shu \u3057\u3087sho \u3061\u3083cha \u3061\u3085chu \u3061\u3087cho \u306B\u3083nya \u306B\u3085nyu \u306B\u3087nyo \u3072\u3083hya \u3072\u3085hyu \u3072\u3087hyo \u307F\u3083mya \u307F\u3085myu \u307F\u3087myo \u308A\u3083rya \u308A\u3085ryu \u308A\u3087ryo \u304E\u3083gya \u304E\u3085gyu \u304E\u3087gyo \u3058\u3083ja \u3058\u3085ju \u3058\u3087jo \u3073\u3083bya \u3073\u3085byu \u3073\u3087byo \u3074\u3083pya \u3074\u3085pyu \u3074\u3087pyo";
-  var kanaRows = (script, conv) => [
-    ...KANA_BASIC.split(" ").map((s) => [conv(s[0]), s.slice(1), script, 5]),
-    ...KANA_VOICED.split(" ").map((s) => [conv(s[0]), s.slice(1), `${script} (voiced)`, 6]),
-    ...KANA_COMBO.split(" ").map((s) => [conv(s.slice(0, 2)), s.slice(2), `${script} (combined)`, 8])
-  ];
-  var toKatakana = (s) => s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 96));
-  var KANA = kanaRows("hiragana", (s) => s);
-  var KATA = kanaRows("katakana", toKatakana).map(([k, r2, m, d]) => [k, r2, m, d === void 0 ? d : d + 1]);
-  var displayReading = (v) => v.romaji ?? v.reading;
+  // src/server/study/StudyService.ts
+  init_vocab();
 
   // src/shared/distract.ts
   var isKanji = (c) => /[一-鿿㐀-䶿々]/.test(c);
@@ -984,6 +1080,7 @@
   }
 
   // src/shared/quiz.ts
+  init_vocab();
   var shuffle = (a, rng) => {
     for (let i = a.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
@@ -1020,54 +1117,31 @@
       };
     });
   }
-
-  // src/shared/rebin.ts
-  var KANJI = /[一-鿿㐀-䶿々]/;
-  var JLPT_ORDER = ["N5", "N4", "N3", "N2", "N1"];
-  var JLPT_WEIGHT = 3;
-  function rebinByStrokes(words2) {
-    const kanjiWords = words2.filter((w) => w.level !== "KANA" && w.level !== "KATA");
-    const sizes = JLPT_ORDER.map((l) => kanjiWords.filter((w) => w.level === l).length);
-    const rank = (w) => JLPT_ORDER.indexOf(w.level);
-    const score3 = (w) => (w.strokes ?? 0) + JLPT_WEIGHT * rank(w);
-    const sorted = [...kanjiWords].sort((a, b) => score3(a) - score3(b) || rank(a) - rank(b) || a.kanji.length - b.kanji.length || a.id.localeCompare(b.id));
-    const next3 = /* @__PURE__ */ new Map();
-    let i = 0;
-    sizes.forEach((n, li) => {
-      for (const w of sorted.slice(i, i + n)) next3.set(w.id, JLPT_ORDER[li]);
-      i += n;
+  var onoTypeLabel = (t) => `${ONO_TYPES[t].ja} (${ONO_TYPES[t].romaji}) \u2014 ${ONO_TYPES[t].en}`;
+  function buildOnoQuiz(words2, vocab, rng = Math.random, examples) {
+    const ono = vocab.filter((v) => v.level === "ONO");
+    const kinds = ["onomean", "onoword", "onoctx", "onotype"];
+    return words2.map((w, i) => {
+      let kind = kinds[i % kinds.length];
+      const ex = examples?.get(w.id);
+      if (kind === "onoctx" && !ex) kind = "onoword";
+      const others = shuffle(ono.filter((v) => v.id !== w.id && v.reading !== w.reading && v.meaning !== w.meaning), rng);
+      const near = [...others.filter((v) => v.ono === w.ono), ...others.filter((v) => v.ono !== w.ono)];
+      const word2 = { kanji: w.kanji, reading: `${w.romaji ?? w.reading} \xB7 ${onoTypeLabel(w.ono ?? "tai")}`, meaning: w.meaning };
+      if (kind === "onotype") {
+        const choices2 = ["sei", "tai", "jo"].map(onoTypeLabel);
+        return { kind, vocabId: w.id, level: w.level, prompt: w.kanji, sub: w.meaning, choices: choices2, answer: choices2.indexOf(onoTypeLabel(w.ono ?? "tai")), word: word2 };
+      }
+      const right = kind === "onomean" ? w.meaning : w.kanji;
+      const pick4 = (kind === "onomean" ? near.map((v) => v.meaning) : near.map((v) => v.kanji)).filter((x, k, a) => x !== right && a.indexOf(x) === k).slice(0, 3);
+      const choices = shuffle([right, ...pick4], rng);
+      const prompt = kind === "onomean" ? w.kanji : kind === "onoword" ? w.meaning : (ex ?? "").replace(/【[^】]+】/, "\uFF3F\uFF3F\uFF3F");
+      return { kind, vocabId: w.id, level: w.level, prompt, sub: kind === "onoctx" ? w.meaning : void 0, choices, answer: choices.indexOf(right), word: word2 };
     });
-    return words2.map((w) => {
-      const level2 = next3.get(w.id);
-      if (!level2) return w;
-      const ks = [...w.kanji].filter((c) => KANJI.test(c)).length;
-      const total = w.strokes ?? 12;
-      const adj = Math.max(-6, Math.min(10, (total - 12) * 0.45)) + (ks >= 3 ? 2 : 0);
-      return { ...w, level: level2, jlpt: w.level, difficulty: Math.round(Math.max(5, Math.min(100, LEVEL_DIFFICULTY[level2] + adj))) };
-    });
-  }
-
-  // src/client/offline/vocab.ts
-  var VOCAB = [];
-  var VOCAB_BY_ID = /* @__PURE__ */ new Map();
-  var loading = null;
-  function loadVocab() {
-    loading ?? (loading = fetch("/vocab.json").then((r2) => {
-      if (!r2.ok) throw new Error(`vocab ${r2.status}`);
-      return r2.json();
-    }).then((raw) => {
-      VOCAB.length = 0;
-      VOCAB.push(...rebinByStrokes(raw));
-      VOCAB_BY_ID.clear();
-      for (const v of VOCAB) VOCAB_BY_ID.set(v.id, v);
-    }).catch((e) => {
-      loading = null;
-      throw e;
-    }));
-    return loading;
   }
 
   // src/server/VocabPool.ts
+  init_vocab2();
   function shuffle2(a, rng = Math.random) {
     for (let i = a.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
@@ -1075,6 +1149,12 @@
     }
     return a;
   }
+
+  // src/server/study/StudyService.ts
+  init_vocab2();
+
+  // src/server/study/ProgressService.ts
+  init_vocab2();
 
   // src/server/now.ts
   var provider = () => Date.now();
@@ -1173,7 +1253,7 @@
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
     };
   }
-  var hash = (s) => [...s].reduce((h3, c) => Math.imul(h3 ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
+  var hash = (s) => [...s].reduce((h4, c) => Math.imul(h4 ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
   var seededRng = (key) => seeded(hash(key));
 
   // src/server/study/StudyService.ts
@@ -1199,11 +1279,13 @@
     const diff = Math.abs(Date.parse(clientToday) - Date.parse(server));
     return diff <= 864e5 ? clientToday : server;
   }
+  var UNDO_MAX = 30;
   var StudyService = class {
     constructor(store3, rng = Math.random) {
       __publicField(this, "store", store3);
       __publicField(this, "rng", rng);
       __publicField(this, "progress");
+      __publicField(this, "undos", /* @__PURE__ */ new Map());
       this.progress = new ProgressService(store3);
     }
     async profile(u, now2 = now()) {
@@ -1339,35 +1421,68 @@
     async setStudyLevels(u, raw, today2) {
       const picked4 = Array.isArray(raw) ? LEVELS.filter((l) => raw.includes(l)) : [];
       const levels = isKanaBeginner(u.unlocks) && u.role !== "admin" && picked4.length ? levelsFor(picked4, true) : picked4;
-      const rec = await this.store.update(u.id, { studyLevels: levels, lastNewDate: levels.length ? u.lastNewDate : null });
-      if (levels.length && rec.lastNewDate !== today2) await this.addDaily(rec, today2);
+      const per = splitDaily(levels, clampDaily(u.dailyNew));
+      const rec = await this.store.update(u.id, { studyLevels: levels, lastNewDate: levels.length ? u.lastNewDate : null, dailyPlan: { ...planOf(u, today2), per } });
+      if (levels.length) await this.addDaily(rec, today2);
+    }
+    /**
+     * 0.9.9.4.4 — "All spells": how many new words of each level are added a day (0–150 each; 0 = not that level).
+     * Raising a number today adds the difference right away.
+     */
+    async setDailyLevels(u, raw, today2) {
+      const beginner = isKanaBeginner(u.unlocks) && u.role !== "admin";
+      const per = {};
+      const obj = raw && typeof raw === "object" ? raw : {};
+      for (const l of LEVELS) {
+        const n = Math.round(Number(obj[l]));
+        if (!Number.isFinite(n) || n <= 0) continue;
+        if (beginner && !levelsFor([l], true).includes(l)) continue;
+        per[l] = Math.min(DAILY_LEVEL_MAX, n);
+      }
+      const levels = LEVELS.filter((l) => per[l]);
+      const total = levels.reduce((a, l) => a + per[l], 0);
+      const rec = await this.store.update(u.id, {
+        studyLevels: levels,
+        dailyNew: clampDaily(total || u.dailyNew),
+        lastNewDate: levels.length ? u.lastNewDate : null,
+        dailyPlan: { ...planOf(u, today2), per }
+      });
+      if (levels.length) await this.addDaily(rec, today2);
+      return per;
     }
     /** "I've mastered hiragana" (Settings) — or, for a new player who says they're a beginner, not yet. */
     async setKanaMastered(u, mastered) {
       const rest = (u.unlocks ?? []).filter((x) => x !== KANA_BEGINNER);
       await this.store.update(u.id, { unlocks: mastered ? rest : [...rest, KANA_BEGINNER] });
       if (mastered && isKanaBeginner(u.unlocks)) await this.grantAchievements(u.id, void 0, ["graduate"]);
-      if (!mastered) await this.store.update(u.id, { studyLevels: ["KANA"] });
+      if (!mastered) await this.store.update(u.id, { studyLevels: ["KANA"], dailyPlan: { ...planOf(u, ""), per: { KANA: clampDaily(u.dailyNew) } } });
     }
-    /** Adds today's new words (your "new spells a day", 10–150) from the chosen levels to All spells; tops up if you raised it. */
+    /**
+     * Adds today's new words to All spells: for each level, its "new a day" (0.9.9.4.4; before: one number shared
+     * by the levels you ticked); tops up if you raised a number.
+     */
     async addDaily(u, today2) {
-      const already = u.lastNewDate === today2 ? u.newToday ?? 0 : 0;
-      const want = Math.max(0, clampDaily(u.dailyNew) - already);
-      if (!want) {
-        if (u.lastNewDate !== today2) await this.store.update(u.id, { lastNewDate: today2, newToday: 0 });
-        return 0;
-      }
+      const plan = planOf(u, today2);
+      const done2 = { ...plan.done };
       const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === "all").map((c) => c.vocabId));
-      const fresh = shuffle2(VOCAB.filter((v) => u.studyLevels.includes(studyLevelOf(v)) && !have.has(v.id)), seededRng(`${u.id}:${today2}:${already}`)).slice(0, want);
       const now2 = now();
-      const added = (await this.store.addCards(u.id, fresh.map((v) => newCard(v.id, now2, "all")))).length;
-      await this.store.update(u.id, { lastNewDate: today2, newToday: already + added, newNotice: u.newNotice + added });
+      let added = 0;
+      for (const l of u.studyLevels) {
+        const want = Math.max(0, (plan.per[l] ?? 0) - (done2[l] ?? 0));
+        if (!want) continue;
+        const fresh = shuffle2(VOCAB.filter((v) => studyLevelOf(v) === l && !have.has(v.id)), seededRng(`${u.id}:${today2}:${l}:${done2[l] ?? 0}`)).slice(0, want);
+        const n = (await this.store.addCards(u.id, fresh.map((v) => newCard(v.id, now2, "all")))).length;
+        done2[l] = (done2[l] ?? 0) + (fresh.length < want ? want : n);
+        added += n;
+      }
+      const before = u.lastNewDate === today2 ? u.newToday ?? 0 : 0;
+      await this.store.update(u.id, { lastNewDate: today2, newToday: before + added, newNotice: u.newNotice + added, dailyPlan: { per: plan.per, day: today2, done: done2 } });
       return added;
     }
-    /** Study → "New spells a day" (10–150). Raising it today adds the difference right away. */
+    /** Study → "New spells a day" (10–150), older app versions: shared by the ticked levels. */
     async setDailyNew(u, raw, today2) {
       const n = clampDaily(Number(raw));
-      const rec = await this.store.update(u.id, { dailyNew: n });
+      const rec = await this.store.update(u.id, { dailyNew: n, dailyPlan: { ...planOf(u, today2), per: splitDaily(u.studyLevels, n) } });
       if (rec.studyLevels.length && rec.lastNewDate === today2) await this.addDaily(rec, today2);
       return n;
     }
@@ -1383,6 +1498,7 @@
     /** Study → open a deck: every word in it, newest first. */
     async deckList(u, deck2) {
       if (!isDeck(deck2)) throw new StudyError("Unknown deck");
+      if (deck2 === "ono") await this.fillOno(u.id);
       const custom = await this.words(u.id);
       return (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck2).flatMap((c) => {
         const w = this.info(c.vocabId, custom);
@@ -1453,11 +1569,11 @@
       const studied = /* @__PURE__ */ new Map();
       for (const c of cards) if (c.reps > 0 || c.state !== "new") {
         const w = this.info(c.vocabId, custom);
-        if (w) studied.set(w.id, w);
+        if (w && w.level !== "ONO") studied.set(w.id, w);
       }
       if (studied.size < 4) for (const c of cards) {
         const w = this.info(c.vocabId, custom);
-        if (w) studied.set(w.id, w);
+        if (w && w.level !== "ONO") studied.set(w.id, w);
       }
       const pool = shuffle2([...studied.values()], this.rng).slice(0, Math.max(1, Math.min(30, n)));
       return buildQuiz(pool, VOCAB, this.rng, (id) => VOCAB_BY_ID.get(id));
@@ -1473,12 +1589,14 @@
       const notice = fresh.newNotice;
       if (notice) await this.store.update(u.id, { newNotice: 0 });
       const custom = await this.words(u.id);
+      await this.fillOno(u.id);
       const cards = (await this.store.cards(u.id)).filter((c) => !!this.info(c.vocabId, custom));
       return {
         studyLevels: fresh.studyLevels,
         notice,
-        decks: { all: counts(cards.filter((c) => deckOf(c) === "all"), now2), struggling: counts(cards.filter((c) => deckOf(c) === "struggling"), now2), custom: counts(cards.filter((c) => deckOf(c) === "custom"), now2) },
+        decks: { all: counts(cards.filter((c) => deckOf(c) === "all"), now2), struggling: counts(cards.filter((c) => deckOf(c) === "struggling"), now2), custom: counts(cards.filter((c) => deckOf(c) === "custom"), now2), ono: counts(cards.filter((c) => deckOf(c) === "ono"), now2) },
         dailyNew: fresh.dailyNew ?? DAILY_NEW,
+        dailyByLevel: planOf(fresh, today2).per,
         profile: await this.profile(fresh)
       };
     }
@@ -1486,9 +1604,12 @@
     async queue(u, deck2, now2 = now(), limit = 500) {
       if (!isDeck(deck2)) throw new StudyError("Unknown deck");
       const custom = await this.words(u.id);
+      if (deck2 === "ono") await this.fillOno(u.id);
       const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck2 && !!this.info(c.vocabId, custom));
       const rank = (c) => c.state === "learning" || c.state === "relearning" ? 0 : c.state === "review" ? 1 : 2;
-      return cards.filter((c) => c.state === "new" || isDue(c, now2)).sort((a, b) => rank(a) - rank(b) || a.due - b.due).slice(0, limit).map((c) => this.item(c, now2, custom));
+      const order = deck2 === "ono" ? new Map(shuffle2(cards.map((c) => c.vocabId).sort(), seededRng(`${u.id}:ono`)).map((id, i) => [id, i])) : null;
+      let fresh = 0;
+      return cards.filter((c) => c.state === "new" || isDue(c, now2)).sort((a, b) => rank(a) - rank(b) || (order && a.state === "new" && b.state === "new" ? order.get(a.vocabId) - order.get(b.vocabId) : a.due - b.due)).filter((c) => !order || c.state !== "new" || fresh++ < ONO_NEW_SESSION).slice(0, limit).map((c) => this.item(c, now2, custom));
     }
     async review(u, vocabId, rating, now2 = now(), today2 = resolveToday(void 0, now2), tzOffsetMin = 0, deck2 = "all") {
       if (typeof vocabId !== "string" || !RATINGS.includes(rating)) throw new StudyError("Bad review");
@@ -1496,6 +1617,10 @@
       const card = await this.store.card(u.id, d, vocabId);
       if (!card) throw new StudyError("No such card", 404);
       const next3 = answer(card, rating, now2);
+      const stack = this.undos.get(u.id) ?? [];
+      stack.push({ deck: d, before: card, today: today2, counted: rating !== "again", critCounted: rating !== "again" && card.critDay !== today2 });
+      if (stack.length > UNDO_MAX) stack.shift();
+      this.undos.set(u.id, stack);
       if (rating !== "again" && card.critDay !== today2) {
         next3.critDay = today2;
         const fresh = await this.store.findById(u.id) ?? u;
@@ -1509,7 +1634,24 @@
       if (rating !== "again") await this.progress.record(u.id, today2, { reviews: 1 });
       return { card: next3, crit: await this.crit(u.id, now2) };
     }
-    /** After a match: XP and the words you missed go to "Struggling spells". */
+    /**
+     * 0.9.9.4.4: "Undo" in a study session — the last answer to this card goes back to how it was (its schedule,
+     * the day's review count and crit). Only the newest answer can be undone, one at a time.
+     */
+    async undo(u, vocabId, deck2 = "all") {
+      const stack = this.undos.get(u.id) ?? [];
+      const last3 = stack[stack.length - 1];
+      const d = isDeck(deck2) ? deck2 : "all";
+      if (!last3 || last3.before.vocabId !== vocabId || last3.deck !== d) throw new StudyError("Nothing to undo", 409);
+      stack.pop();
+      await this.store.saveCard(u.id, last3.before);
+      if (last3.counted) await this.store.addActivity(u.id, last3.today, { reviews: -1 });
+      if (last3.critCounted) {
+        const fresh = await this.store.findById(u.id) ?? u;
+        if (fresh.critCount > 0) await this.store.update(u.id, { critCount: fresh.critCount - 1 });
+      }
+      return { card: last3.before, crit: await this.crit(u.id) };
+    }
     /** Admin page: XP, level, crit and study-set size for every account, plus where it's all saved. */
     async adminStats(rows2) {
       const stats = await this.store.cardStats();
@@ -1521,9 +1663,9 @@
       return { users, storage: this.store.name, persistent: this.store.name === "postgres" || true };
     }
     /** Forfeits give nobody XP; matches with AI players give half. */
-    async recordMatch(userId, outcome, accuracy, mode3, missedIds, forfeited = false, vsAi = false, record, seen2 = [], beatAdmin = false) {
+    async recordMatch(userId, outcome, accuracy, mode4, missedIds, forfeited = false, vsAi = false, record, seen2 = [], beatAdmin = false) {
       if (record) await this.store.addMatch(userId, record);
-      const gained = forfeited ? 0 : Math.round(xpFor(outcome, accuracy, mode3) * (vsAi ? AI_XP_FACTOR : 1));
+      const gained = forfeited ? 0 : Math.round(xpFor(outcome, accuracy, mode4) * (vsAi ? AI_XP_FACTOR : 1));
       const xp = gained ? await this.store.addXp(userId, gained) : (await this.store.findById(userId))?.xp ?? 0;
       await this.store.addResult(userId, outcome);
       const who = await this.store.findById(userId);
@@ -1541,7 +1683,7 @@
         if (u) await this.store.update(userId, { newNotice: u.newNotice + n });
       }
       const st = record?.stats[userId];
-      const achievements = await this.grantAchievements(userId, { mode: mode3, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited, beatAdmin });
+      const achievements = await this.grantAchievements(userId, { mode: mode4, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited, beatAdmin });
       return { gained, xp, achievements, missed };
     }
     /** Grants every achievement the player has now earned (plus `extra`); returns the new ones. */
@@ -1564,7 +1706,14 @@
     }
     item(c, now2, custom) {
       const w = this.info(c.vocabId, custom);
-      return { vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, state: c.state, intervals: previewIntervals(c, now2), custom: w.custom };
+      const ono = VOCAB_BY_ID.get(c.vocabId)?.ono;
+      return { vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, state: c.state, intervals: previewIntervals(c, now2), custom: w.custom, ...ono ? { ono } : {} };
+    }
+    /** 0.9.9.4.4: the Onomatopoeia deck holds every onomatopoeia word — put them in when it is empty (new words too) */
+    async fillOno(userId) {
+      if ((await this.store.cards(userId)).some((c) => deckOf(c) === "ono")) return;
+      const now2 = now();
+      await this.store.addCards(userId, onoWords().map((v) => newCard(v.id, now2, "ono")));
     }
     /** Avatar border (Customize → Profile), unlocked by level; admins have all. */
     async setBorder(u, b) {
@@ -1584,6 +1733,22 @@
       return list;
     }
   };
+  var DAILY_LEVEL_MAX = 150;
+  var ONO_NEW_SESSION = 20;
+  var onoWords = () => VOCAB.filter((v) => v.level === "ONO");
+  function splitDaily(levels, total) {
+    const per = {};
+    levels.forEach((l, i) => {
+      per[l] = Math.floor(total / levels.length) + (i < total % levels.length ? 1 : 0);
+    });
+    return per;
+  }
+  function planOf(u, today2) {
+    const per = u.dailyPlan?.per ?? splitDaily(u.studyLevels, clampDaily(u.dailyNew));
+    if (u.dailyPlan?.day === today2) return { per, day: today2, done: { ...u.dailyPlan.done } };
+    const legacy = !u.dailyPlan && u.lastNewDate === today2 && (u.newToday ?? 0) > 0;
+    return { per, day: today2, done: legacy ? { ...per } : {} };
+  }
   var clampDaily = (n) => Math.max(DAILY_NEW_MIN, Math.min(DAILY_NEW_MAX, Math.round(Number.isFinite(n) ? n : DAILY_NEW)));
   var dayBefore = (d) => new Date(Date.parse(d) - 864e5).toISOString().slice(0, 10);
   function liveStreak(u, today2) {
@@ -1600,6 +1765,8 @@
   }
 
   // src/server/study/DailyService.ts
+  init_vocab();
+  init_vocab2();
   var DAILY_WORDS = 10;
   var DAILY_WORD_MS = 15e3;
   var GRACE_MS = 1500;
@@ -1732,14 +1899,14 @@
       __publicField(this, "hits", /* @__PURE__ */ new Map());
     }
     allow(key, now2 = Date.now()) {
-      const h3 = this.hits.get(key);
-      if (!h3 || h3.reset < now2) {
+      const h4 = this.hits.get(key);
+      if (!h4 || h4.reset < now2) {
         this.hits.set(key, { n: 1, reset: now2 + this.windowMs });
         return true;
       }
-      h3.n++;
+      h4.n++;
       if (this.hits.size > 1e4) this.hits.clear();
-      return h3.n <= this.limit;
+      return h4.n <= this.limit;
     }
   };
   var res = (status, body) => ({ status, body });
@@ -1874,6 +2041,11 @@
         } else if (r2.method === "GET" && url === "/api/study") {
           const u = await auth.authenticate(r2.token);
           return res(200, await study.summary(u, resolveToday(query.get("today"))));
+        } else if (r2.method === "PUT" && url === "/api/study/daily-levels") {
+          const u = await auth.authenticate(r2.token);
+          const body = await r2.json();
+          await study.setDailyLevels(u, body.levels, resolveToday(body.today));
+          return res(200, await study.summary(await auth.authenticate(r2.token), resolveToday(body.today)));
         } else if (r2.method === "PUT" && url === "/api/study/levels") {
           const u = await auth.authenticate(r2.token);
           const body = await r2.json();
@@ -1888,6 +2060,10 @@
           const body = await r2.json();
           const tz = Number(body.tz);
           return res(200, await study.review(u, body.vocabId, body.rating, now(), resolveToday(body.today), Number.isFinite(tz) && Math.abs(tz) <= 840 ? tz : 0, body.deck));
+        } else if (r2.method === "POST" && url === "/api/study/undo") {
+          const u = await auth.authenticate(r2.token);
+          const body = await r2.json();
+          return res(200, await study.undo(u, body.vocabId, body.deck));
         } else if (r2.method === "GET" && url === "/api/study/deck") {
           const u = await auth.authenticate(r2.token);
           return res(200, { words: await study.deckList(u, query.get("deck")) });
@@ -1960,6 +2136,7 @@
   }
 
   // src/client/offline/engine.ts
+  init_vocab2();
   var LocalStore = class extends MemoryStore {
     constructor(uid2) {
       super();
@@ -2053,11 +2230,11 @@
     }));
     return dbp;
   }
-  function tx(mode3, run) {
+  function tx(mode4, run) {
     return open().then((db) => new Promise((resolve) => {
       if (!db) return resolve(void 0);
       try {
-        const req = run(db.transaction(STORE, mode3).objectStore(STORE));
+        const req = run(db.transaction(STORE, mode4).objectStore(STORE));
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => resolve(void 0);
       } catch {
@@ -2101,8 +2278,8 @@
   };
   var OFFLINE_ROUTES = [
     ["GET", /^\/api\/(me|study|study\/queue|study\/deck|study\/search|study\/quiz|progress|daily|matches|matches\/[\w-]+)$/],
-    ["PUT", /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-new)$/],
-    ["POST", /^\/api\/(study\/(review|deck\/remove|deck\/add|custom|task)|daily\/(start|answer|finish))$/]
+    ["PUT", /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-levels|study\/daily-new)$/],
+    ["POST", /^\/api\/(study\/(review|undo|deck\/remove|deck\/add|custom|task)|daily\/(start|answer|finish))$/]
   ];
   var pathOf = (url) => url.split("?")[0];
   var handles = (method, url) => OFFLINE_ROUTES.some(([m, re]) => m === method && re.test(pathOf(url)));
@@ -2394,6 +2571,7 @@
     setStudyLevels: (levels) => call2("PUT", "/api/study/levels", { levels, today: today() }),
     queue: (deck2) => call2("GET", `/api/study/queue?deck=${deck2}`),
     review: (vocabId, rating, deck2 = "all") => call2("POST", "/api/study/review", { vocabId, rating, deck: deck2, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
+    undo: (vocabId, deck2 = "all") => call2("POST", "/api/study/undo", { vocabId, deck: deck2 }),
     deckWords: (deck2) => call2("GET", `/api/study/deck?deck=${deck2}`),
     deckRemove: (deck2, ids) => call2("POST", "/api/study/deck/remove", { deck: deck2, ids }),
     deckAdd: (deck2, ids) => call2("POST", "/api/study/deck/add", { deck: deck2, ids }),
@@ -2404,6 +2582,8 @@
     /** a daily task done here (the quiz, a passage): counts towards today's streak */
     task: (task, score3, total) => call2("POST", "/api/study/task", { task, today: today(), score: score3, total }),
     setDailyNew: (n) => call2("PUT", "/api/study/daily-new", { n, today: today() }),
+    /** 0.9.9.4.4: new words a day per level */
+    setDailyLevels: (levels) => call2("PUT", "/api/study/daily-levels", { levels, today: today() }),
     setBorder: (border) => call2("PUT", "/api/me/border", { border }),
     setBadges: (badges2) => call2("PUT", "/api/me/badges", { badges: badges2 }),
     matches: () => call2("GET", "/api/matches"),
@@ -2435,7 +2615,7 @@
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.4.3";
+  var VERSION = "0.9.9.4.4";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -3122,6 +3302,34 @@
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.4.4
+    "Undo the last answer (Z)": "\u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u043E\u0442\u0432\u0435\u0442 (Z)",
+    "Tap for this kanji": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0443\u0437\u043D\u0430\u0442\u044C \u043E\u0431 \u044D\u0442\u043E\u043C \u043A\u0430\u043D\u0434\u0437\u0438",
+    "No details for this kanji yet": "\u0421\u0432\u0435\u0434\u0435\u043D\u0438\u0439 \u043E\u0431 \u044D\u0442\u043E\u043C \u043A\u0430\u043D\u0434\u0437\u0438 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442",
+    "Parts": "\u0427\u0430\u0441\u0442\u0438",
+    "Memory picture": "\u041A\u0430\u0440\u0442\u0438\u043D\u043A\u0430-\u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430",
+    "New passage": "\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442",
+    "Words in this passage": "\u0421\u043B\u043E\u0432\u0430 \u0432 \u044D\u0442\u043E\u043C \u0442\u0435\u043A\u0441\u0442\u0435",
+    "Tap the kanji for its meaning": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u043D\u0434\u0437\u0438, \u0447\u0442\u043E\u0431\u044B \u0443\u0437\u043D\u0430\u0442\u044C \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435",
+    "Each sentence is missing one of your words. Tap a blank, then the word that fits \u2014 read the sentence around it. Tap any word for its meaning, and a kanji in it for its parts.": "\u0412 \u043A\u0430\u0436\u0434\u043E\u043C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0438 \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E \u043E\u0434\u043D\u043E \u0438\u0437 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043F\u0440\u043E\u043F\u0443\u0441\u043A, \u0437\u0430\u0442\u0435\u043C \u043D\u0430 \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0449\u0435\u0435 \u0441\u043B\u043E\u0432\u043E \u2014 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u043E\u0439 \u0441\u043B\u0443\u0436\u0438\u0442 \u0441\u0430\u043C\u043E \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043B\u044E\u0431\u043E\u0435 \u0441\u043B\u043E\u0432\u043E, \u0447\u0442\u043E\u0431\u044B \u0443\u0437\u043D\u0430\u0442\u044C \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435, \u0430 \u043D\u0430 \u043A\u0430\u043D\u0434\u0437\u0438 \u0432 \u043D\u0451\u043C \u2014 \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0435\u0433\u043E \u0447\u0430\u0441\u0442\u0438.",
+    "No words with example sentences in this deck yet \u2014 pick another deck above, or study some spells first.": "\u0412 \u044D\u0442\u043E\u0439 \u043A\u043E\u043B\u043E\u0434\u0435 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043B\u043E\u0432 \u0441 \u043F\u0440\u0438\u043C\u0435\u0440\u0430\u043C\u0438 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443 \u0432\u044B\u0448\u0435 \u0438\u043B\u0438 \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u0438\u0437\u0443\u0447\u0438\u0442\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F.",
+    "For the daily task, get half the blanks right (4 of 8) \u2014 try a new passage!": "\u0414\u043B\u044F \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0433\u043E \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0432\u0435\u0440\u043D\u043E \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u043E\u0432 (4 \u0438\u0437 8) \u2014 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u043D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442!",
+    "How many new words of each level are added every day (0 = none).": "\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0432 \u0434\u0435\u043D\u044C (0 \u2014 \u043D\u0438 \u043E\u0434\u043D\u043E\u0433\u043E).",
+    "new words a day": "\u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u0432 \u0434\u0435\u043D\u044C",
+    "Set how many new words of a level you want under \u201CAll spells\u201D (e.g. N5: 10) \u2014 they are added today and every day.": "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0432 \xAB\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u043A\u0430\u043A\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F \u0432\u044B \u0445\u043E\u0442\u0438\u0442\u0435 (\u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440, N5: 10) \u2014 \u043E\u043D\u0438 \u0434\u043E\u0431\u0430\u0432\u044F\u0442\u0441\u044F \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0438 \u0431\u0443\u0434\u0443\u0442 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0442\u044C\u0441\u044F \u043A\u0430\u0436\u0434\u044B\u0439 \u0434\u0435\u043D\u044C.",
+    "Onomatopoeia": "\u041E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u044F",
+    "Onomatopoeia quiz": "\u0422\u0435\u0441\u0442 \u043F\u043E \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0435",
+    "Every giseigo, gitaigo and gij\u014Dgo: sounds (\u30EF\u30F3\u30EF\u30F3), states (\u304D\u3089\u304D\u3089) and feelings (\u30C9\u30AD\u30C9\u30AD) \u2014 20 new a session.": "\u0412\u0441\u0435 \u0433\u0438\u0441\u044D\u0439\u0433\u043E, \u0433\u0438\u0442\u0430\u0439\u0433\u043E \u0438 \u0433\u0438\u0434\u0437\u0451\u0433\u043E: \u0437\u0432\u0443\u043A\u0438 (\u30EF\u30F3\u30EF\u30F3), \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F (\u304D\u3089\u304D\u3089) \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u0430 (\u30C9\u30AD\u30C9\u30AD) \u2014 \u043F\u043E 20 \u043D\u043E\u0432\u044B\u0445 \u0437\u0430 \u0437\u0430\u043D\u044F\u0442\u0438\u0435.",
+    "10 questions on giongo, gitaigo and gij\u014Dgo \u2014 sounds, states and feelings, 4 choices each.": "10 \u0432\u043E\u043F\u0440\u043E\u0441\u043E\u0432 \u043E \u0433\u0438\u043E\u043D\u0433\u043E, \u0433\u0438\u0442\u0430\u0439\u0433\u043E \u0438 \u0433\u0438\u0434\u0437\u0451\u0433\u043E \u2014 \u0437\u0432\u0443\u043A\u0438, \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u0430, \u043F\u043E 4 \u0432\u0430\u0440\u0438\u0430\u043D\u0442\u0430.",
+    "Sentences with blanks \u2014 fill each one with the word that fits the context, then check.": "\u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u0441 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u043C\u0438 \u2014 \u0432\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u0432 \u043A\u0430\u0436\u0434\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u043F\u043E \u0441\u043C\u044B\u0441\u043B\u0443, \u0437\u0430\u0442\u0435\u043C \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435.",
+    "Choose the best meaning for the onomatopoeia.": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043B\u0443\u0447\u0448\u0435\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0434\u043B\u044F \u0437\u0432\u0443\u043A\u043E\u043F\u043E\u0434\u0440\u0430\u0436\u0430\u043D\u0438\u044F.",
+    "Which onomatopoeia has this meaning?": "\u041A\u0430\u043A\u043E\u0435 \u0437\u0432\u0443\u043A\u043E\u043F\u043E\u0434\u0440\u0430\u0436\u0430\u043D\u0438\u0435 \u0438\u043C\u0435\u0435\u0442 \u044D\u0442\u043E \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435?",
+    "Which kind of onomatopoeia is it \u2014 a sound, a state or a feeling?": "\u041A\u0430\u043A\u043E\u0433\u043E \u044D\u0442\u043E \u0432\u0438\u0434\u0430 \u2014 \u0437\u0432\u0443\u043A, \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0438\u043B\u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u043E?",
+    "Choose the word that fits the sentence.": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u043E, \u043A\u043E\u0442\u043E\u0440\u043E\u0435 \u043F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u043A \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044E.",
+    "\u64EC\u58F0\u8A9E (giseigo) \u2014 sound": "\u64EC\u58F0\u8A9E (\u0433\u0438\u0441\u044D\u0439\u0433\u043E) \u2014 \u0437\u0432\u0443\u043A",
+    "\u64EC\u614B\u8A9E (gitaigo) \u2014 state / manner": "\u64EC\u614B\u8A9E (\u0433\u0438\u0442\u0430\u0439\u0433\u043E) \u2014 \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 / \u043E\u0431\u0440\u0430\u0437 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F",
+    "\u64EC\u60C5\u8A9E (gij\u014Dgo) \u2014 feeling": "\u64EC\u60C5\u8A9E (\u0433\u0438\u0434\u0437\u0451\u0433\u043E) \u2014 \u0447\u0443\u0432\u0441\u0442\u0432\u043E",
+    "Taking an onomatopoeia quiz": "\u041F\u0440\u043E\u0445\u043E\u0434\u0438\u0442 \u0442\u0435\u0441\u0442 \u043F\u043E \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0435",
     // 0.9.9.4.3
     "Do a JLPT quiz (7/10 or better)": "\u041F\u0440\u043E\u0439\u0434\u0438\u0442\u0435 \u0442\u0435\u0441\u0442 JLPT (7/10 \u0438\u043B\u0438 \u043B\u0443\u0447\u0448\u0435)",
     "Read a passage (4/8 or better)": "\u041F\u0440\u043E\u0447\u0438\u0442\u0430\u0439\u0442\u0435 \u0442\u0435\u043A\u0441\u0442 (4/8 \u0438\u043B\u0438 \u043B\u0443\u0447\u0448\u0435)",
@@ -3260,6 +3468,7 @@
     [/^(You|.+?): Arcane reserve — (\+2 random cards|\+30 mana)$/, (_, w, x) => `${w === "You" ? "\u0412\u044B" : w}: \u0422\u0430\u0439\u043D\u044B\u0439 \u0437\u0430\u043F\u0430\u0441 \u2014 ${x === "+30 mana" ? "+30 \u043C\u0430\u043D\u044B" : "+2 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0435 \u043A\u0430\u0440\u0442\u044B"}`],
     [/^Turn (\d+)$/, "\u0425\u043E\u0434 $1"],
     [/^(\d+) online$/, "$1 \u0432 \u0441\u0435\u0442\u0438"],
+    [/^(\d+) new spells a day$/, "$1 \u043D\u043E\u0432\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0432 \u0434\u0435\u043D\u044C"],
     [/^(\d+) of (\d+) \(last 30 days\)$/, "$1 \u0438\u0437 $2 (\u0437\u0430 30 \u0434\u043D\u0435\u0439)"],
     [/^(\d+) of (\d+)$/, "$1 \u0438\u0437 $2"],
     [/^(\d+) started$/, "\u043D\u0430\u0447\u0430\u0442\u043E: $1"],
@@ -3583,11 +3792,30 @@
     foot.append(replay);
     box.replaceChildren(row, foot);
   }
+  async function strokesOf(ch) {
+    await load([ch]);
+    return cache.get(ch) ?? null;
+  }
+  function partsPicture(strokes2, part, colours) {
+    const all = strokes2.flat();
+    const xs = all.map((p) => p[0]), ys = all.map((p) => p[1]);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const scale2 = 80 / Math.max(x1 - x0, y1 - y0, 1);
+    const ox = 50 - (x0 + x1) / 2 * scale2, oy = 50 - (y0 + y1) / 2 * scale2;
+    const svg = el("svg", { viewBox: "0 0 100 100", class: "kp-svg" });
+    svg.append(gridLines());
+    strokes2.forEach((raw, i) => {
+      const pts = raw.map(([x, y]) => [+(x * scale2 + ox).toFixed(1), +(y * scale2 + oy).toFixed(1)]);
+      const c = part[i] >= 0 ? colours[part[i] % colours.length] : "currentColor";
+      svg.append(el("path", { d: pathOf2(pts), stroke: c, class: "kp-stroke", style: `animation-delay:${i * 90}ms` }));
+    });
+    return svg;
+  }
 
   // src/client/art2d.ts
   var uid = 0;
   var nid = () => `a${(uid++).toString(36)}`;
-  var hexRgb = (h3) => [1, 3, 5].map((i) => parseInt(h3.slice(i, i + 2), 16));
+  var hexRgb = (h4) => [1, 3, 5].map((i) => parseInt(h4.slice(i, i + 2), 16));
   var rgbHex = (c) => `#${c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("")}`;
   var mix = (a, b, t) => {
     const x = hexRgb(a), y = hexRgb(b);
@@ -3634,8 +3862,8 @@
       this.body.push(s);
       return this;
     }
-    svg(w, h3, cls = "art") {
-      return `<svg viewBox="0 0 ${w} ${h3}" class="${cls}" aria-hidden="true"><defs>${this.defs.join("")}</defs>${this.body.join("")}</svg>`;
+    svg(w, h4, cls = "art") {
+      return `<svg viewBox="0 0 ${w} ${h4}" class="${cls}" aria-hidden="true"><defs>${this.defs.join("")}</defs>${this.body.join("")}</svg>`;
     }
     inner() {
       return `<defs>${this.defs.join("")}</defs>${this.body.join("")}`;
@@ -3719,32 +3947,32 @@
     pic.defs.push(...sub.defs);
     pic.raw(`<g transform="translate(${hx} ${hy}) rotate(${tilt}) scale(${s}) translate(${-25} ${-STAFF_GRIP})">${sub.body.join("")}</g>`);
   }
-  function face(pic, cx, cy, w, h3, o) {
-    pic.e(cx, cy, w, h3, pic.radial([[0, lt(o.skin, 0.12)], [0.65, o.skin], [1, dk(o.skin, 0.22)]], 0.4, 0.35, 0.75));
-    pic.p(`M${cx + w * 0.55} ${cy - h3 * 0.2} Q${cx + w * 1.02} ${cy + h3 * 0.2} ${cx + w * 0.4} ${cy + h3 * 0.95} Q${cx + w * 0.75} ${cy + h3 * 0.3} ${cx + w * 0.55} ${cy - h3 * 0.2}Z`, dk(o.skin, 0.35), 'opacity=".35"');
-    pic.p(`M${cx + w * 0.12} ${cy - h3 * 0.05} L${cx + w * 0.3} ${cy + h3 * 0.32} L${cx + w * 0.08} ${cy + h3 * 0.36}Z`, dk(o.skin, 0.3), 'opacity=".5"');
+  function face(pic, cx, cy, w, h4, o) {
+    pic.e(cx, cy, w, h4, pic.radial([[0, lt(o.skin, 0.12)], [0.65, o.skin], [1, dk(o.skin, 0.22)]], 0.4, 0.35, 0.75));
+    pic.p(`M${cx + w * 0.55} ${cy - h4 * 0.2} Q${cx + w * 1.02} ${cy + h4 * 0.2} ${cx + w * 0.4} ${cy + h4 * 0.95} Q${cx + w * 0.75} ${cy + h4 * 0.3} ${cx + w * 0.55} ${cy - h4 * 0.2}Z`, dk(o.skin, 0.35), 'opacity=".35"');
+    pic.p(`M${cx + w * 0.12} ${cy - h4 * 0.05} L${cx + w * 0.3} ${cy + h4 * 0.32} L${cx + w * 0.08} ${cy + h4 * 0.36}Z`, dk(o.skin, 0.3), 'opacity=".5"');
     for (const sx of [-1, 1]) {
-      const ex = cx + sx * w * 0.42 + w * 0.08, ey = cy - h3 * 0.06, ew = w * 0.26, eh = h3 * 0.13;
+      const ex = cx + sx * w * 0.42 + w * 0.08, ey = cy - h4 * 0.06, ew = w * 0.26, eh = h4 * 0.13;
       pic.e(ex, ey, ew, eh, o.glow ? "#ffd23a" : "#f4f0ea");
       pic.e(ex + ew * 0.25, ey + eh * 0.1, eh * 0.95, eh * 0.95, o.eye);
       pic.e(ex + ew * 0.25, ey + eh * 0.1, o.glow ? eh * 0.25 : eh * 0.45, eh * 0.7, "#140c14");
       if (!o.glow) pic.e(ex + ew * 0.05, ey - eh * 0.35, eh * 0.22, eh * 0.22, "#ffffff", 'opacity=".85"');
       pic.p(`M${ex - ew * 1.1} ${ey - eh * 1.4} L${ex + ew * 1.1} ${ey - eh * 1.4} L${ex + ew * 1.1} ${ey - eh * (1 - o.lid * 1.6)} Q${ex} ${ey - eh * (1.3 - o.lid * 1.8)} ${ex - ew * 1.1} ${ey - eh * (0.6 - o.lid)} Z`, o.skin);
-      pic.s(`M${ex - ew * 1.05} ${ey - eh * (0.55 - o.lid)} Q${ex} ${ey - eh * (1.25 - o.lid * 1.8)} ${ex + ew * 1.08} ${ey - eh * (0.95 - o.lid * 1.6)}`, "#1c1418", h3 * 0.045);
-      if (o.lashes) pic.s(`M${ex + ew * 0.8} ${ey - eh * (0.9 - o.lid * 1.6)} l${ew * 0.35} ${-eh * 0.45}`, "#1c1418", h3 * 0.03);
+      pic.s(`M${ex - ew * 1.05} ${ey - eh * (0.55 - o.lid)} Q${ex} ${ey - eh * (1.25 - o.lid * 1.8)} ${ex + ew * 1.08} ${ey - eh * (0.95 - o.lid * 1.6)}`, "#1c1418", h4 * 0.045);
+      if (o.lashes) pic.s(`M${ex + ew * 0.8} ${ey - eh * (0.9 - o.lid * 1.6)} l${ew * 0.35} ${-eh * 0.45}`, "#1c1418", h4 * 0.03);
       const inner = sx < 0 ? ex + ew : ex - ew, outer = sx < 0 ? ex - ew * 1.1 : ex + ew * 1.15;
       const by = ey - eh * 2.3;
-      pic.s(`M${inner} ${by + o.browTilt * eh} Q${(inner + outer) / 2} ${by - eh * 0.7} ${outer} ${by - o.browTilt * eh * 0.5}`, o.brow, h3 * 0.09);
+      pic.s(`M${inner} ${by + o.browTilt * eh} Q${(inner + outer) / 2} ${by - eh * 0.7} ${outer} ${by - o.browTilt * eh * 0.5}`, o.brow, h4 * 0.09);
     }
-    const my = cy + h3 * 0.55;
+    const my = cy + h4 * 0.55;
     if (o.mouth === "snarl") {
-      pic.p(`M${cx - w * 0.3} ${my} Q${cx + w * 0.1} ${my - h3 * 0.12} ${cx + w * 0.5} ${my} L${cx + w * 0.42} ${my + h3 * 0.14} Q${cx + w * 0.1} ${my + h3 * 0.2} ${cx - w * 0.22} ${my + h3 * 0.12} Z`, "#2a1416");
-      pic.p(`M${cx - w * 0.24} ${my + h3 * 0.01} L${cx + w * 0.44} ${my + h3 * 0.01} L${cx + w * 0.4} ${my + h3 * 0.07} L${cx - w * 0.2} ${my + h3 * 0.07}Z`, "#ece4cc");
-      pic.s(`M${cx - w * 0.05} ${my} v${h3 * 0.07} M${cx + w * 0.15} ${my} v${h3 * 0.07}`, "#2a1416", 0.5);
+      pic.p(`M${cx - w * 0.3} ${my} Q${cx + w * 0.1} ${my - h4 * 0.12} ${cx + w * 0.5} ${my} L${cx + w * 0.42} ${my + h4 * 0.14} Q${cx + w * 0.1} ${my + h4 * 0.2} ${cx - w * 0.22} ${my + h4 * 0.12} Z`, "#2a1416");
+      pic.p(`M${cx - w * 0.24} ${my + h4 * 0.01} L${cx + w * 0.44} ${my + h4 * 0.01} L${cx + w * 0.4} ${my + h4 * 0.07} L${cx - w * 0.2} ${my + h4 * 0.07}Z`, "#ece4cc");
+      pic.s(`M${cx - w * 0.05} ${my} v${h4 * 0.07} M${cx + w * 0.15} ${my} v${h4 * 0.07}`, "#2a1416", 0.5);
     } else if (o.mouth === "lips") {
-      pic.p(`M${cx - w * 0.25} ${my} Q${cx + w * 0.1} ${my - h3 * 0.1} ${cx + w * 0.45} ${my} Q${cx + w * 0.1} ${my + h3 * 0.16} ${cx - w * 0.25} ${my}Z`, o.lips ?? "#7a3a5a");
+      pic.p(`M${cx - w * 0.25} ${my} Q${cx + w * 0.1} ${my - h4 * 0.1} ${cx + w * 0.45} ${my} Q${cx + w * 0.1} ${my + h4 * 0.16} ${cx - w * 0.25} ${my}Z`, o.lips ?? "#7a3a5a");
     } else {
-      pic.s(`M${cx - w * 0.15} ${my} Q${cx + w * 0.12} ${my + h3 * 0.04} ${cx + w * 0.38} ${my - h3 * 0.02}`, dk(o.skin, 0.55), h3 * 0.05);
+      pic.s(`M${cx - w * 0.15} ${my} Q${cx + w * 0.12} ${my + h4 * 0.04} ${cx + w * 0.38} ${my - h4 * 0.02}`, dk(o.skin, 0.55), h4 * 0.05);
     }
   }
   function wavyHair(pic, x, y0, y1, w, c, lobes = 5) {
@@ -3772,12 +4000,12 @@
   }
   function wizard(pic, side, staff) {
     const robe = side === "ally" ? "#2f9070" : side === "rival" ? "#a8304a" : "#2f5ac4", deep = dk(robe, 0.35), cream = "#efe5cc", gold = "#e4b84c", skin = "#f2ddcf", hair = "#f2f0ec";
-    const band = (x0, x1, y, h3, flip2 = false) => {
+    const band = (x0, x1, y, h4, flip2 = false) => {
       const n = Math.max(2, Math.round((x1 - x0) / 9)), dx = (x1 - x0) / n;
       let d = "";
       for (let i = 0; i < n; i++) {
         const a = x0 + i * dx;
-        d += `M${a} ${y + h3 / 2} L${a + dx / 2} ${y} L${a + dx} ${y + h3 / 2} L${a + dx / 2} ${y + h3} Z `;
+        d += `M${a} ${y + h4 / 2} L${a + dx / 2} ${y} L${a + dx} ${y + h4 / 2} L${a + dx / 2} ${y + h4} Z `;
       }
       pic.p(d, "none", `stroke="${gold}" stroke-width="1.1"${flip2 ? "" : ""}`);
     };
@@ -4035,9 +4263,9 @@
   function lp(pic, d, base, cell = 7, light = 0.26) {
     const n = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
     const xs = n.filter((_, i) => i % 2 === 0), ys = n.filter((_, i) => i % 2 === 1);
-    let h3 = 0;
-    for (const c of d) h3 = (h3 * 31 + c.charCodeAt(0)) % 99991;
-    lowpoly(pic, d, [Math.min(...xs) - 2, Math.min(...ys) - 2, Math.max(...xs) + 2, Math.max(...ys) + 2], base, cell, light, h3 + 1);
+    let h4 = 0;
+    for (const c of d) h4 = (h4 * 31 + c.charCodeAt(0)) % 99991;
+    lowpoly(pic, d, [Math.min(...xs) - 2, Math.min(...ys) - 2, Math.max(...xs) + 2, Math.max(...ys) + 2], base, cell, light, h4 + 1);
   }
   function dragonArt() {
     const pic = new Pic();
@@ -4237,10 +4465,10 @@
     for (const sx of [-1, 1]) s += `<path d="M${f(x + sx * w * 0.3)} ${base - 60} Q${f(x + sx * w * 0.9)} ${base - 20} ${f(x + sx * w * 1.9)} ${base + 10}" stroke="${color}" stroke-width="${f(w * 0.18)}" fill="none" stroke-linecap="round"/>`;
     return s;
   }
-  function monolith(x, base, h3, w, stone, glow, lit) {
-    let s = `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h3} L${x + w / 2 - 6} ${base - h3 - 8} L${x + w / 2} ${base} Z" fill="${stone}"/>`;
-    s += `<path d="M${x + w * 0.1} ${base - h3 - 4} L${x + w / 2 - 6} ${base - h3 - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".25"/>`;
-    for (let i = 0; i < 3; i++) s += `<rect x="${f(x - 3)}" y="${f(base - h3 * (0.78 - i * 0.22))}" width="6" height="${f(h3 * 0.1)}" rx="2" fill="${glow}" opacity="${lit ? 0.95 : 0.55}"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ""}/>`;
+  function monolith(x, base, h4, w, stone, glow, lit) {
+    let s = `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h4} L${x + w / 2 - 6} ${base - h4 - 8} L${x + w / 2} ${base} Z" fill="${stone}"/>`;
+    s += `<path d="M${x + w * 0.1} ${base - h4 - 4} L${x + w / 2 - 6} ${base - h4 - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".25"/>`;
+    for (let i = 0; i < 3; i++) s += `<rect x="${f(x - 3)}" y="${f(base - h4 * (0.78 - i * 0.22))}" width="6" height="${f(h4 * 0.1)}" rx="2" fill="${glow}" opacity="${lit ? 0.95 : 0.55}"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ""}/>`;
     return s;
   }
   function brazier(x, base, s, stone, lit) {
@@ -4249,8 +4477,8 @@
   }
   function grass(n, y0, y1, color, hmin = 14, hmax = 34) {
     return `<g>${Array.from({ length: n }, () => {
-      const x = r(0, W), y = r(y0, y1), h3 = r(hmin, hmax);
-      return `<path d="M${f(x)} ${f(y)} q${f(r(-6, 2))} ${f(-h3 * 0.6)} ${f(r(-10, -2))} ${f(-h3)} M${f(x + 3)} ${f(y)} q${f(r(0, 4))} ${f(-h3 * 0.7)} ${f(r(4, 10))} ${f(-h3 * 0.9)}" stroke="${color}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+      const x = r(0, W), y = r(y0, y1), h4 = r(hmin, hmax);
+      return `<path d="M${f(x)} ${f(y)} q${f(r(-6, 2))} ${f(-h4 * 0.6)} ${f(r(-10, -2))} ${f(-h4)} M${f(x + 3)} ${f(y)} q${f(r(0, 4))} ${f(-h4 * 0.7)} ${f(r(4, 10))} ${f(-h4 * 0.9)}" stroke="${color}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
     }).join("")}</g>`;
   }
   function rock(x, y, s, c) {
@@ -4288,18 +4516,18 @@
     const tree = pick(t, "#2f3d2c", "#24182a", "#06090a");
     const water = pick(t, ["#8aa898", "#4a6656"], ["#c4865e", "#5a3438"], ["#24383a", "#081212"]);
     const stone = pick(t, ["#7a8a74", "#56644e", "#2e3628"], ["#6a5450", "#4a3638", "#22181c"], ["#2a3632", "#1c2624", "#0a100e"]);
-    const deadTree = (x, y, h3, c) => {
+    const deadTree = (x, y, h4, c) => {
       const b = (x1, y1, x2, y2, w) => `<path d="M${f(x1)} ${f(y1)} Q ${f((x1 + x2) / 2 + r(-15, 15))} ${f((y1 + y2) / 2)} ${f(x2)} ${f(y2)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round" fill="none"/>`;
-      let s = b(x, y, x + 8, y - h3, h3 * 0.06) + b(x + 4, y - h3 * 0.55, x - h3 * 0.38, y - h3 * 0.86, h3 * 0.026) + b(x + 6, y - h3 * 0.72, x + h3 * 0.42, y - h3 * 0.98, h3 * 0.022) + b(x - h3 * 0.2, y - h3 * 0.74, x - h3 * 0.32, y - h3 * 1.02, h3 * 0.014) + b(x + 8, y - h3, x + 34, y - h3 * 1.16, h3 * 0.014);
+      let s = b(x, y, x + 8, y - h4, h4 * 0.06) + b(x + 4, y - h4 * 0.55, x - h4 * 0.38, y - h4 * 0.86, h4 * 0.026) + b(x + 6, y - h4 * 0.72, x + h4 * 0.42, y - h4 * 0.98, h4 * 0.022) + b(x - h4 * 0.2, y - h4 * 0.74, x - h4 * 0.32, y - h4 * 1.02, h4 * 0.014) + b(x + 8, y - h4, x + 34, y - h4 * 1.16, h4 * 0.014);
       for (let i = 0; i < 6; i++) {
-        const mx = x + r(-h3 * 0.35, h3 * 0.4), my = y - h3 * r(0.7, 1);
+        const mx = x + r(-h4 * 0.35, h4 * 0.4), my = y - h4 * r(0.7, 1);
         s += `<path class="bg-sway" d="M${f(mx)} ${f(my)} q 4 ${f(r(20, 40))} -2 ${f(r(40, 80))}" stroke="${pick(t, "#6e8a5a", "#5c4a42", "#2a3e26")}" stroke-width="3" fill="none" opacity=".85"/>`;
       }
       return s;
     };
     const reeds = (n, y0, y1, c) => Array.from({ length: n }, () => {
-      const x = r(0, W), y = r(y0, y1), h3 = r(50, 110);
-      return `<g><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h3)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h3 * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`;
+      const x = r(0, W), y = r(y0, y1), h4 = r(50, 110);
+      return `<g><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h4)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h4 * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`;
     }).join("");
     const lit = t !== "day";
     return `<defs>${grad("sk", sky)}${grad("wt", [[0, water[0]], [1, water[1]]])}${radial("wisp", [[0, "#cfff9a", 0.9], [1, "#cfff9a", 0]])}${floorDefs(stone)}${DEFS}</defs>
@@ -4326,9 +4554,9 @@
     const lit = t !== "day";
     const stone = pick(t, ["#8a84a4", "#625c7c", "#34304a"], ["#7a5a72", "#54405a", "#2a1e30"], ["#2a2a48", "#1c1c34", "#0c0c1a"]);
     const house = (x, y, s, wall2, roof2) => {
-      const w = 46 * s, h3 = 30 * s;
-      const win = lit ? `<rect x="${f(x + w * 0.2)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#ffcf6a" class="bg-flicker slow"/><rect x="${f(x + w * 0.6)}" y="${f(y - h3 * 0.62)}" width="${f(w * 0.18)}" height="${f(h3 * 0.3)}" fill="#ffcf6a"/>` : "";
-      return `<rect x="${f(x)}" y="${f(y - h3)}" width="${f(w)}" height="${f(h3)}" fill="${wall2}"/><polygon points="${f(x - 5 * s)},${f(y - h3)} ${f(x + w / 2)},${f(y - h3 - 22 * s)} ${f(x + w + 5 * s)},${f(y - h3)}" fill="${roof2}"/>${win}`;
+      const w = 46 * s, h4 = 30 * s;
+      const win = lit ? `<rect x="${f(x + w * 0.2)}" y="${f(y - h4 * 0.62)}" width="${f(w * 0.18)}" height="${f(h4 * 0.3)}" fill="#ffcf6a" class="bg-flicker slow"/><rect x="${f(x + w * 0.6)}" y="${f(y - h4 * 0.62)}" width="${f(w * 0.18)}" height="${f(h4 * 0.3)}" fill="#ffcf6a"/>` : "";
+      return `<rect x="${f(x)}" y="${f(y - h4)}" width="${f(w)}" height="${f(h4)}" fill="${wall2}"/><polygon points="${f(x - 5 * s)},${f(y - h4)} ${f(x + w / 2)},${f(y - h4 - 22 * s)} ${f(x + w + 5 * s)},${f(y - h4)}" fill="${roof2}"/>${win}`;
     };
     const wall = pick(t, "#e8dcc0", "#c99a7a", "#3a3550"), roof = pick(t, "#a04a3a", "#6e2e3a", "#1f1a30");
     const village = (x, y, s) => Array.from({ length: 5 }, (_, i) => house(x + i * 58 * s + r(-8, 8), y + r(-4, 6), s * r(0.85, 1.1), wall, roof)).join("");
@@ -4356,7 +4584,7 @@
     const sky = pick(t, [[0, "#5a86c0"], [0.6, "#a8c2e0"], [1, "#e2eaf2"]], [[0, "#1e0c24"], [0.4, "#7a2232"], [0.72, "#d0582e"], [1, "#f4a050"]], [[0, "#04061c"], [0.6, "#161f4e"], [1, "#2e3474"]]);
     const stoneC = pick(t, "#5e5e74", "#2c1a26", "#13132a"), roof = pick(t, "#3e3e5e", "#1c0e1a", "#1c1b36");
     const lit = t !== "day";
-    const tower = (x, w, h3) => `<rect x="${x}" y="${640 - h3}" width="${w}" height="${h3}" fill="${stoneC}"/><rect x="${x + w * 0.62}" y="${640 - h3}" width="${w * 0.38}" height="${h3}" fill="#000" opacity=".2"/><polygon points="${x - 10},${640 - h3} ${x + w / 2},${560 - h3} ${x + w + 10},${640 - h3}" fill="${roof}"/>` + Array.from({ length: Math.floor(h3 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h3 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h3}" x2="${x + w / 2}" y2="${520 - h3}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h3} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
+    const tower = (x, w, h4) => `<rect x="${x}" y="${640 - h4}" width="${w}" height="${h4}" fill="${stoneC}"/><rect x="${x + w * 0.62}" y="${640 - h4}" width="${w * 0.38}" height="${h4}" fill="#000" opacity=".2"/><polygon points="${x - 10},${640 - h4} ${x + w / 2},${560 - h4} ${x + w + 10},${640 - h4}" fill="${roof}"/>` + Array.from({ length: Math.floor(h4 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h4 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h4}" x2="${x + w / 2}" y2="${520 - h4}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h4} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
     const soldier = (x, y, s, flip2, weapon) => {
       const c = pick(t, "#2c3038", "#1a0c10", "#06070e");
       const g = `<circle cx="0" cy="-58" r="7"/><path d="M-7 -62 q7 -14 14 0 z"/><rect x="-8" y="-50" width="16" height="30" rx="4"/><rect x="-8" y="-22" width="6" height="22"/><rect x="2" y="-22" width="6" height="22"/><ellipse cx="-11" cy="-36" rx="7" ry="11"/>` + (weapon === "spear" ? `<line x1="10" y1="-10" x2="16" y2="-92" stroke="${c}" stroke-width="3"/><polygon points="13,-92 16,-104 19,-92"/>` : `<g class="bg-swing"><line x1="8" y1="-40" x2="34" y2="-70" stroke="${c}" stroke-width="3"/></g>`);
@@ -4619,16 +4847,16 @@
     pending2 = s;
     if (api2 && onScreen && wanted()) void activate();
   }
-  function arenaForBattle(mode3, players2, you2) {
+  function arenaForBattle(mode4, players2, you2) {
     const me3 = players2.find((p) => p.id === you2);
     const others = players2.filter((p) => p.id !== you2);
     const art = (p) => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff });
     configure({
       layout: "battle",
       me: me3 ? art(me3) : { id: you2, character: "wizard" },
-      opp: mode3 === "boss" || !others[0] ? null : art(others[0]),
-      allies: mode3 === "boss" ? others.map(art) : [],
-      boss: mode3 === "boss" ? { id: "boss", svg: dragonSvg() } : null
+      opp: mode4 === "boss" || !others[0] ? null : art(others[0]),
+      allies: mode4 === "boss" ? others.map(art) : [],
+      boss: mode4 === "boss" ? { id: "boss", svg: dragonSvg() } : null
     });
   }
   var deckKey = "";
@@ -4663,7 +4891,7 @@
     parent.append(...kids);
     return parent;
   };
-  var SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "quiz", "customize", "deck", "history", "progress", "daily", "friends"];
+  var SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "quiz", "passage", "customize", "deck", "history", "progress", "daily", "friends"];
   var screenListener = () => {
   };
   var onScreen2 = (fn) => {
@@ -4704,11 +4932,11 @@
     if (!el11.querySelector(".tt-fg")) el11.innerHTML = '<svg viewBox="0 0 44 44" aria-hidden="true"><circle class="tt-bg" cx="22" cy="22" r="19"/><circle class="tt-fg" cx="22" cy="22" r="19"/></svg><b></b>';
     const fg = el11.querySelector(".tt-fg"), b = el11.querySelector("b");
     el11.hidden = false;
-    let shown2 = -1;
+    let shown3 = -1;
     countdown(slot, leftMs, (left, frac) => {
       const s = Math.ceil(left / 1e3);
-      if (s !== shown2) {
-        shown2 = s;
+      if (s !== shown3) {
+        shown3 = s;
         b.textContent = String(s);
       }
       fg.style.strokeDashoffset = String(119.4 * (1 - Math.max(0, Math.min(1, frac))));
@@ -5009,24 +5237,24 @@
       ]
     }
   };
-  function modeGuideNodes(mode3) {
-    const g = GUIDES[mode3];
+  function modeGuideNodes(mode4) {
+    const g = GUIDES[mode4];
     const ol = h("ol", "g-flow");
     for (const [icon, text] of g.steps) ol.append(append(h("li"), h("span", "g-ic", icon), h("span", "", text)));
     return [h("h3", "", g.title), g.pic(), ol, h("p", "g-foot", "Playing with AI gives half XP; a forfeit gives none.")];
   }
-  function renderModeGuide(mode3) {
-    if (mode3 === "deck") return;
-    $("modeGuide").replaceChildren(...modeGuideNodes(mode3));
+  function renderModeGuide(mode4) {
+    if (mode4 === "deck") return;
+    $("modeGuide").replaceChildren(...modeGuideNodes(mode4));
   }
-  function showLobby(code2, mode3, players2, you2, hostId, maxPlayers, minPlayers2) {
+  function showLobby(code2, mode4, players2, you2, hostId, maxPlayers, minPlayers2) {
     $("code").textContent = code2;
-    $("lobbyMode").textContent = MODE_LABEL[mode3];
+    $("lobbyMode").textContent = MODE_LABEL[mode4];
     $("lobbyPlayers").replaceChildren(
       ...players2.map((p) => {
         const li = h("li");
         const av = h("span", "who-av");
-        if (mode3 !== "deck") av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp", p.staff);
+        if (mode4 !== "deck") av.innerHTML = avatarSvg(p.avatar, p.id === you2 ? "me" : "opp", p.staff);
         else av.hidden = true;
         const who = h("span", "who", p.id === you2 ? `${p.name} (you)` : p.name);
         if (p.id !== you2) markProfile(who, p);
@@ -5040,12 +5268,12 @@
         }
         if (p.id === hostId) li.append(h("span", "tag", "host"));
         if (!p.online) li.append(h("span", "tag off", "away \u2014 seat kept"));
-        if (mode3 === "deck") li.append(h("span", "tag " + (p.ready ? "ready" : "notready"), p.ready ? "\u2713 Ready" : "Not ready"));
+        if (mode4 === "deck") li.append(h("span", "tag " + (p.ready ? "ready" : "notready"), p.ready ? "\u2713 Ready" : "Not ready"));
         else if (p.bot) li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `${p.maxHp} HP`)));
         else if (!p.bot) li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `${p.maxHp} HP`)));
         return li;
       }),
-      ...Array.from({ length: Math.max(0, maxPlayers - players2.length) }, () => h("li", "empty", mode3 === "boss" ? "Waiting for a teammate (optional)\u2026" : "Waiting for opponent\u2026"))
+      ...Array.from({ length: Math.max(0, maxPlayers - players2.length) }, () => h("li", "empty", mode4 === "boss" ? "Waiting for a teammate (optional)\u2026" : "Waiting for opponent\u2026"))
     );
     const mine = players2.find((p) => p.id === you2)?.levels ?? [];
     $("levelChips").replaceChildren(
@@ -5058,15 +5286,15 @@
         return lockLevelChip(label, lv);
       })
     );
-    $("levelsHint").textContent = mode3 === "deck" ? "Deck Duel draws cards from every level (N5\u2013N1). Your level picks only change your character here." : mode3 === "rapid" ? "Shared levels: both players race on the same kanji, so a change here changes it for everyone." : mode3 === "boss" ? "Each player picks their own. The dragon gets tougher when the party picks harder levels." : mode3 === "writing" ? "Each player picks their own. You will write these words by hand. Harder levels hit harder \u2014 so your opponent gets more HP." : "Each player picks their own. \u3072\u3089\u304C\u306A and \u30AB\u30BF\u30AB\u30CA = the two kana alphabets, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.";
+    $("levelsHint").textContent = mode4 === "deck" ? "Deck Duel draws cards from every level (N5\u2013N1). Your level picks only change your character here." : mode4 === "rapid" ? "Shared levels: both players race on the same kanji, so a change here changes it for everyone." : mode4 === "boss" ? "Each player picks their own. The dragon gets tougher when the party picks harder levels." : mode4 === "writing" ? "Each player picks their own. You will write these words by hand. Harder levels hit harder \u2014 so your opponent gets more HP." : "Each player picks their own. \u3072\u3089\u304C\u306A and \u30AB\u30BF\u30AB\u30CA = the two kana alphabets, answered in romaji. Harder levels hit harder \u2014 so your opponent gets more HP.";
     const isHost = you2 === hostId;
     const canStart = players2.length >= minPlayers2;
     $("addBot").hidden = !isHost || players2.length >= maxPlayers;
-    const deck2 = mode3 === "deck";
+    const deck2 = mode4 === "deck";
     $("levels").hidden = deck2;
     $("deckGuide").hidden = !deck2;
     $("modeGuide").hidden = deck2;
-    if (!deck2) renderModeGuide(mode3);
+    if (!deck2) renderModeGuide(mode4);
     const meReady = !!players2.find((p) => p.id === you2)?.ready;
     $("readyBtn").hidden = !deck2;
     $("readyBtn").textContent = meReady ? "Not ready" : "Ready";
@@ -5080,13 +5308,13 @@
     }
     $("start").hidden = !isHost;
     $("start").disabled = !canStart;
-    $("start").textContent = mode3 === "boss" ? players2.length === 1 ? "Start solo" : `Start \u2014 party of ${players2.length}` : "Start battle";
-    $("lobbyStatus").textContent = !canStart ? "Share the code with a friend, or add an AI player to start." : isHost ? mode3 === "boss" && players2.length < maxPlayers ? `Start now, or wait for more teammates (up to ${maxPlayers}).` : "" : "Waiting for the host to start\u2026";
+    $("start").textContent = mode4 === "boss" ? players2.length === 1 ? "Start solo" : `Start \u2014 party of ${players2.length}` : "Start battle";
+    $("lobbyStatus").textContent = !canStart ? "Share the code with a friend, or add an AI player to start." : isHost ? mode4 === "boss" && players2.length < maxPlayers ? `Start now, or wait for more teammates (up to ${maxPlayers}).` : "" : "Waiting for the host to start\u2026";
     show("lobby");
   }
   var selectedLevels = () => [...document.querySelectorAll("#levelChips input")].filter((i) => i.checked).map((i) => i.value);
-  function showPrep(pool, durationMs, mode3) {
-    $("prepSub").textContent = mode3 === "writing" ? "Memorise how each word is written. In battle you only get the meaning (and a half-second glimpse)." : "Memorise the readings. They vanish when the battle starts.";
+  function showPrep(pool, durationMs, mode4) {
+    $("prepSub").textContent = mode4 === "writing" ? "Memorise how each word is written. In battle you only get the meaning (and a half-second glimpse)." : "Memorise the readings. They vanish when the battle starts.";
     $("studyGrid").replaceChildren(
       ...pool.map((w) => append(h("div", "card"), h("div", "lv", LEVEL_LABEL[w.level]), h("div", "k", w.kanji, { lang: "ja" }), h("div", "r", w.reading, { lang: "ja" }), h("div", "m", w.meaning)))
     );
@@ -5185,9 +5413,9 @@
     el11.classList.add(cls);
     setTimeout(() => el11.classList.remove(cls), ms);
   }
-  function setupArena(mode3, players2, you2) {
-    battleMode = mode3;
-    const boss = mode3 === "boss";
+  function setupArena(mode4, players2, you2) {
+    battleMode = mode4;
+    const boss = mode4 === "boss";
     const others = players2.filter((p) => p.id !== you2);
     $("wizOpp").hidden = boss;
     $("dragon").hidden = !boss;
@@ -5208,13 +5436,13 @@
       return w;
     }));
     $("arena").dataset.party = String(boss ? players2.length : 0);
-    arenaForBattle(mode3, players2, you2);
+    arenaForBattle(mode4, players2, you2);
     $("dragon").className = "dragon";
     $("dragon").querySelector(".sprite").innerHTML = dragonSvg();
     $("fire").hidden = true;
     $("breathWarn").hidden = true;
-    $("typeArea").hidden = mode3 === "writing";
-    if (mode3 === "writing") mountWriteArea("writeSlot");
+    $("typeArea").hidden = mode4 === "writing";
+    if (mode4 === "writing") mountWriteArea("writeSlot");
     else $("writeArea").hidden = true;
     $("meaningPrompt").hidden = true;
   }
@@ -5350,9 +5578,9 @@
     el11.classList.add("ko");
     el11.classList.remove("onfire");
   }
-  function showBattle(mode3, players2, boss, you2, countdownMs, battleMs, onTick) {
+  function showBattle(mode4, players2, boss, you2, countdownMs, battleMs, onTick) {
     clearStudy();
-    setupArena(mode3, players2, you2);
+    setupArena(mode4, players2, you2);
     renderFighters(players2, you2, boss);
     $("kanji").textContent = "";
     setFeedback(null);
@@ -5523,23 +5751,23 @@
     boss_slain: "The Black Dragon has fallen",
     party_wiped: "The party was burned to ash"
   };
-  function showResults(mode3, players2, you2, winnerId, teamWon, reason, stats, opts = {}) {
+  function showResults(mode4, players2, you2, winnerId, teamWon, reason, stats, opts = {}) {
     stopCountdown();
-    const outcome = mode3 === "boss" ? teamWon ? "win" : "loss" : winnerId === null ? "draw" : winnerId === you2 ? "win" : "loss";
-    $("resultMode").replaceChildren(modeBadge(mode3), h("span", "rm-name", MODE_LABEL[mode3]), ...opts.history ? [h("span", "rm-date", dateTime(opts.history.at))] : []);
+    const outcome = mode4 === "boss" ? teamWon ? "win" : "loss" : winnerId === null ? "draw" : winnerId === you2 ? "win" : "loss";
+    $("resultMode").replaceChildren(modeBadge(mode4), h("span", "rm-name", MODE_LABEL[mode4]), ...opts.history ? [h("span", "rm-date", dateTime(opts.history.at))] : []);
     const title = $("resultTitle");
     title.className = `result-title ${outcome}`;
     title.textContent = outcome === "win" ? "VICTORY" : outcome === "loss" ? "DEFEAT" : "DRAW";
-    if (mode3 === "boss") $("resultReason").textContent = reason === "time" && teamWon ? "Time up \u2014 you held the dragon off!" : teamWon ? REASONS.boss_slain : reason === "time" ? "Time up \u2014 you held the dragon off!" : REASONS[reason];
+    if (mode4 === "boss") $("resultReason").textContent = reason === "time" && teamWon ? "Time up \u2014 you held the dragon off!" : teamWon ? REASONS.boss_slain : reason === "time" ? "Time up \u2014 you held the dragon off!" : REASONS[reason];
     else $("resultReason").textContent = reason === "time" ? "Time up \u2014 most HP left wins" : REASONS[reason];
     $("resultActions").hidden = !!opts.history;
     $("historyBackRow").hidden = !opts.history;
     const otherId = Object.keys(stats).find((id) => id !== you2);
     const me3 = stats[you2];
     const other = otherId ? stats[otherId] : void 0;
-    const otherName = players2.find((p) => p.id === otherId)?.name ?? (mode3 === "boss" ? "Ally" : "Opponent");
+    const otherName = players2.find((p) => p.id === otherId)?.name ?? (mode4 === "boss" ? "Ally" : "Opponent");
     const rows2 = [
-      [mode3 === "boss" ? "Damage to dragon" : "Damage dealt", (s) => String(s.damageDealt)],
+      [mode4 === "boss" ? "Damage to dragon" : "Damage dealt", (s) => String(s.damageDealt)],
       ["Accuracy", (s) => s.attempts ? `${Math.round(s.accuracy * 100)}% (${s.correct}/${s.attempts})` : "\u2014"],
       ["Avg response", (s) => s.avgResponseMs !== null ? secs(s.avgResponseMs) : "\u2014"],
       ["Best combo", (s) => `\xD7${s.bestCombo}`]
@@ -5618,13 +5846,13 @@
     else $("rematchStatus").textContent = youVoted ? "Waiting for the others to accept\u2026" : "Rematch requested!";
   }
   var MODE_ICON = { reading: "\u8AAD", rapid: "\u901F", writing: "\u66F8", boss: "\u7ADC", deck: "\u672D" };
-  function modeBadge(mode3) {
-    return h("span", `mode-badge ${mode3}`, MODE_ICON[mode3], { lang: "ja", title: MODE_LABEL[mode3], "aria-label": MODE_LABEL[mode3] });
+  function modeBadge(mode4) {
+    return h("span", `mode-badge ${mode4}`, MODE_ICON[mode4], { lang: "ja", title: MODE_LABEL[mode4], "aria-label": MODE_LABEL[mode4] });
   }
-  function characterEl(character, mode3, side = "me") {
+  function characterEl(character, mode4, side = "me") {
     const el11 = h("span", "char-sprite");
     const heroes = ["goblin", "knight", "witch", "wizard"];
-    el11.innerHTML = mode3 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
+    el11.innerHTML = mode4 === "deck" && heroes.includes(character) ? heroSvg(character, side) : avatarSvg(["goblin", "kid", "human", "knight", "witch", "wizard"].includes(character) ? character : "wizard", side);
     el11.title = character[0].toUpperCase() + character.slice(1);
     return el11;
   }
@@ -5640,7 +5868,7 @@
   }
   var dateTime = (at) => new Date(at).toLocaleString(locale(), { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   function showProfileCard(anchor, p, actions) {
-    const pop = $("otherPop");
+    const pop2 = $("otherPop");
     const body = [];
     if (p === "loading") body.push(h("p", "hint", "Loading\u2026"));
     else if (p === "missing") body.push(h("p", "hint", "This player can no longer be viewed."));
@@ -5672,22 +5900,22 @@
       );
       if (actions && actions.relation !== "self") body.push(profileActions(p, actions));
     }
-    pop.replaceChildren(...body);
-    pop.hidden = false;
+    pop2.replaceChildren(...body);
+    pop2.hidden = false;
     const r2 = zrect(anchor);
     const w = Math.min(300, viewW() - 24);
-    pop.style.width = `${w}px`;
-    pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r2.left + r2.width / 2 - w / 2))}px`;
+    pop2.style.width = `${w}px`;
+    pop2.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r2.left + r2.width / 2 - w / 2))}px`;
     const below = r2.bottom + 8;
-    pop.style.top = `${below + 240 > viewH() ? Math.max(12, r2.top - 8 - pop.offsetHeight) : below}px`;
+    pop2.style.top = `${below + 240 > viewH() ? Math.max(12, r2.top - 8 - pop2.offsetHeight) : below}px`;
   }
   var hideProfileCard = () => {
     $("otherPop").hidden = true;
   };
   function clampProfileCard() {
-    const pop = $("otherPop");
-    const top = parseFloat(pop.style.top) || 0, hgt = pop.offsetHeight;
-    if (top + hgt > viewH() - 12) pop.style.top = `${Math.max(12, viewH() - 12 - hgt)}px`;
+    const pop2 = $("otherPop");
+    const top = parseFloat(pop2.style.top) || 0, hgt = pop2.offsetHeight;
+    if (top + hgt > viewH() - 12) pop2.style.top = `${Math.max(12, viewH() - 12 - hgt)}px`;
   }
   function profileActions(p, a) {
     const box = h("div", "pp-actions");
@@ -5843,275 +6071,197 @@ ${stack}`.slice(0, 2e3);
     if (getToken() && ["menu", "queue"].includes(currentScreen() ?? "")) void refreshOnline();
   }, 3e4);
 
-  // src/client/stories.ts
-  var STORIES = [
-    {
-      id: "magic",
-      open: { ja: "[\u9B54\u6CD5|\u307E\u307B\u3046][\u5B66\u6821|\u304C\u3063\u3053\u3046]\u306E[\u4E00\u65E5|\u3044\u3061\u306B\u3061]\u3002", en: "A day at the school of magic.", ru: "\u041E\u0434\u0438\u043D \u0434\u0435\u043D\u044C \u0432 \u0448\u043A\u043E\u043B\u0435 \u043C\u0430\u0433\u0438\u0438." },
-      lines: [
-        { ja: "[\u898B\u7FD2|\u307F\u306A\u3089]\u3044[\u9B54\u6CD5\u4F7F|\u307E\u307B\u3046\u3064\u304B]\u3044\u306E\u30CF\u30EB\u306F\u3001[\u671D|\u3042\u3055]\u304B\u3089\u300C{w}\u300D\u3068\u3044\u3046[\u546A\u6587|\u3058\u3085\u3082\u3093]\u3092[\u7DF4\u7FD2|\u308C\u3093\u3057\u3085\u3046]\u3057\u3066\u3044\u305F\u3002", en: "Haru, an apprentice wizard, had been practising the spell \u201C{w}\u201D since morning.", ru: "\u0423\u0447\u0435\u043D\u0438\u0446\u0430-\u0432\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u0446\u0430 \u0425\u0430\u0440\u0443 \u0441 \u0441\u0430\u043C\u043E\u0433\u043E \u0443\u0442\u0440\u0430 \u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u0430\u043B\u0430 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 \xAB{w}\xBB." },
-        { ja: "[\u5E2B\u5320|\u3057\u3057\u3087\u3046]\u306F\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F[\u53E4|\u3075\u308B]\u3044[\u5DFB\u7269|\u307E\u304D\u3082\u306E]\u3092[\u673A|\u3064\u304F\u3048]\u306B[\u7F6E|\u304A]\u3044\u305F\u3002", en: "The master put an old scroll with \u201C{w}\u201D written on it on the desk.", ru: "\u0423\u0447\u0438\u0442\u0435\u043B\u044C \u043F\u043E\u043B\u043E\u0436\u0438\u043B \u043D\u0430 \u0441\u0442\u043E\u043B \u0441\u0442\u0430\u0440\u044B\u0439 \u0441\u0432\u0438\u0442\u043E\u043A \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB{w}\xBB." },
-        { ja: "\u30CF\u30EB\u306F\u300C{w}\u300D\u306E[\u8AAD|\u3088]\u307F[\u65B9|\u304B\u305F]\u3092[\u4E09\u56DE|\u3055\u3093\u304B\u3044][\u58F0|\u3053\u3048]\u306B[\u51FA|\u3060]\u3057\u3066[\u8A00|\u3044]\u3063\u305F\u3002", en: "Haru said the reading of \u201C{w}\u201D out loud three times.", ru: "\u0425\u0430\u0440\u0443 \u0442\u0440\u0438\u0436\u0434\u044B \u043F\u0440\u043E\u0438\u0437\u043D\u0435\u0441\u043B\u0430 \u0432\u0441\u043B\u0443\u0445 \u0447\u0442\u0435\u043D\u0438\u0435 \u0441\u043B\u043E\u0432\u0430 \xAB{w}\xBB." },
-        { ja: "[\u53CB\u9054|\u3068\u3082\u3060\u3061]\u306E\u30B1\u30F3\u306F\u300C{w}\u300D\u3068\u3044\u3046[\u8A00\u8449|\u3053\u3068\u3070]\u3092\u307E\u3060[\u899A|\u304A\u307C]\u3048\u3066\u3044\u306A\u304B\u3063\u305F\u3002", en: "Her friend Ken still hadn\u2019t learned the word \u201C{w}\u201D.", ru: "\u0415\u0451 \u0434\u0440\u0443\u0433 \u041A\u0435\u043D \u0435\u0449\u0451 \u043D\u0435 \u0432\u044B\u0443\u0447\u0438\u043B \u0441\u043B\u043E\u0432\u043E \xAB{w}\xBB." },
-        { ja: "[\u56F3\u66F8\u9928|\u3068\u3057\u3087\u304B\u3093]\u306E[\u672C|\u307B\u3093]\u306B\u306F\u300C{w}\u300D\u306B\u3064\u3044\u3066\u306E[\u8A71|\u306F\u306A\u3057]\u304C\u305F\u304F\u3055\u3093\u3042\u3063\u305F\u3002", en: "The library books had many stories about \u201C{w}\u201D.", ru: "\u0412 \u0431\u0438\u0431\u043B\u0438\u043E\u0442\u0435\u0447\u043D\u044B\u0445 \u043A\u043D\u0438\u0433\u0430\u0445 \u0431\u044B\u043B\u043E \u043C\u043D\u043E\u0433\u043E \u0438\u0441\u0442\u043E\u0440\u0438\u0439 \u043E \xAB{w}\xBB." },
-        { ja: "\u300C{w}\u300D\u306E[\u610F\u5473|\u3044\u307F]\u3092[\u601D|\u304A\u3082]\u3044[\u51FA|\u3060]\u3059\u3068\u3001[\u6756|\u3064\u3048]\u306E[\u5B9D\u77F3|\u307B\u3046\u305B\u304D]\u304C[\u660E|\u3042\u304B]\u308B\u304F[\u5149|\u3072\u304B]\u3063\u305F\u3002", en: "When she remembered the meaning of \u201C{w}\u201D, the gem on her staff shone brightly.", ru: "\u041A\u043E\u0433\u0434\u0430 \u043E\u043D\u0430 \u0432\u0441\u043F\u043E\u043C\u043D\u0438\u043B\u0430 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \xAB{w}\xBB, \u043A\u0430\u043C\u0435\u043D\u044C \u043D\u0430 \u043F\u043E\u0441\u043E\u0445\u0435 \u044F\u0440\u043A\u043E \u0437\u0430\u0441\u0438\u044F\u043B." },
-        { ja: "[\u6226|\u305F\u305F\u304B]\u3044\u306E[\u4E2D|\u306A\u304B]\u3067\u3001\u30C9\u30E9\u30B4\u30F3\u306F\u300C{w}\u300D\u306E[\u546A\u6587|\u3058\u3085\u3082\u3093]\u306B[\u9A5A|\u304A\u3069\u308D]\u3044\u3066[\u5F8C|\u3046\u3057]\u308D\u3078[\u4E0B|\u3055]\u304C\u3063\u305F\u3002", en: "In the battle, the dragon was startled by the spell \u201C{w}\u201D and stepped back.", ru: "\u0412 \u0431\u043E\u044E \u0434\u0440\u0430\u043A\u043E\u043D \u0438\u0441\u043F\u0443\u0433\u0430\u043B\u0441\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F \xAB{w}\xBB \u0438 \u043E\u0442\u0441\u0442\u0443\u043F\u0438\u043B." },
-        { ja: "\u300C{w}\u300D\u3092[\u9593\u9055|\u307E\u3061\u304C]\u3048\u306A\u3044\u3088\u3046\u306B\u3001\u30CF\u30EB\u306F\u3086\u3063\u304F\u308A[\u7B54|\u3053\u305F]\u3048\u305F\u3002", en: "So as not to get \u201C{w}\u201D wrong, Haru answered slowly.", ru: "\u0427\u0442\u043E\u0431\u044B \u043D\u0435 \u043E\u0448\u0438\u0431\u0438\u0442\u044C\u0441\u044F \u0432 \xAB{w}\xBB, \u0425\u0430\u0440\u0443 \u043E\u0442\u0432\u0435\u0447\u0430\u043B\u0430 \u043C\u0435\u0434\u043B\u0435\u043D\u043D\u043E." },
-        { ja: "[\u591C|\u3088\u308B]\u306B\u306A\u3063\u3066\u3082\u3001\u30CF\u30EB\u306F\u30CE\u30FC\u30C8\u306B\u300C{w}\u300D\u3092[\u4F55\u5EA6|\u306A\u3093\u3069]\u3082[\u66F8|\u304B]\u3044\u305F\u3002", en: "Even at night, Haru wrote \u201C{w}\u201D in her notebook again and again.", ru: "\u0414\u0430\u0436\u0435 \u043D\u043E\u0447\u044C\u044E \u0425\u0430\u0440\u0443 \u0441\u043D\u043E\u0432\u0430 \u0438 \u0441\u043D\u043E\u0432\u0430 \u043F\u0438\u0441\u0430\u043B\u0430 \xAB{w}\xBB \u0432 \u0442\u0435\u0442\u0440\u0430\u0434\u0438." },
-        { ja: "[\u5E2B\u5320|\u3057\u3057\u3087\u3046]\u306F[\u7B11|\u308F\u3089]\u3063\u3066\u3001\u300C{w}\u300D\u306F\u3082\u3046[\u5927\u4E08\u592B|\u3060\u3044\u3058\u3087\u3046\u3076]\u3060\u306D\u3068[\u8A00|\u3044]\u3063\u305F\u3002", en: "The master smiled and said that \u201C{w}\u201D was fine now.", ru: "\u0423\u0447\u0438\u0442\u0435\u043B\u044C \u0443\u043B\u044B\u0431\u043D\u0443\u043B\u0441\u044F \u0438 \u0441\u043A\u0430\u0437\u0430\u043B, \u0447\u0442\u043E \u0441 \xAB{w}\xBB \u0442\u0435\u043F\u0435\u0440\u044C \u0432\u0441\u0451 \u0432 \u043F\u043E\u0440\u044F\u0434\u043A\u0435." },
-        { ja: "[\u6B21|\u3064\u304E]\u306E[\u65E5|\u3072]\u3001\u30CF\u30EB\u306F\u300C{w}\u300D\u3092[\u4F7F|\u3064\u304B]\u3063\u3066\u3001[\u95C7|\u3084\u307F]\u306E[\u9B54\u7269|\u307E\u3082\u306E]\u3092[\u5012|\u305F\u304A]\u3057\u305F\u3002", en: "The next day, Haru used \u201C{w}\u201D to defeat a shadow monster.", ru: "\u041D\u0430 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0434\u0435\u043D\u044C \u0425\u0430\u0440\u0443 \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \xAB{w}\xBB \u043F\u043E\u0431\u0435\u0434\u0438\u043B\u0430 \u0442\u0451\u043C\u043D\u043E\u0435 \u0447\u0443\u0434\u043E\u0432\u0438\u0449\u0435." },
-        { ja: "\u307F\u3093\u306A\u306E[\u524D|\u307E\u3048]\u3067\u300C{w}\u300D\u3068[\u5531|\u3068\u306A]\u3048\u308B\u3068\u3001[\u7A7A|\u305D\u3089]\u306B[\u8679|\u306B\u3058]\u304C[\u51FA|\u3067]\u305F\u3002", en: "When she chanted \u201C{w}\u201D in front of everyone, a rainbow appeared in the sky.", ru: "\u041A\u043E\u0433\u0434\u0430 \u043E\u043D\u0430 \u043F\u0440\u043E\u0438\u0437\u043D\u0435\u0441\u043B\u0430 \xAB{w}\xBB \u043F\u0435\u0440\u0435\u0434 \u0432\u0441\u0435\u043C\u0438, \u0432 \u043D\u0435\u0431\u0435 \u043F\u043E\u044F\u0432\u0438\u043B\u0430\u0441\u044C \u0440\u0430\u0434\u0443\u0433\u0430." }
-      ],
-      close: { ja: "\u3053\u3046\u3057\u3066\u3001\u30CF\u30EB\u306E[\u9B54\u6CD5|\u307E\u307B\u3046]\u306F\u307E\u305F[\u5C11|\u3059\u3053]\u3057[\u5F37|\u3064\u3088]\u304F\u306A\u3063\u305F\u3002", en: "And so Haru\u2019s magic grew a little stronger again.", ru: "\u0422\u0430\u043A \u043C\u0430\u0433\u0438\u044F \u0425\u0430\u0440\u0443 \u0441\u0442\u0430\u043B\u0430 \u0435\u0449\u0451 \u043D\u0435\u043C\u043D\u043E\u0433\u043E \u0441\u0438\u043B\u044C\u043D\u0435\u0435." }
-    },
-    {
-      id: "kyoto",
-      open: { ja: "[\u4EAC\u90FD|\u304D\u3087\u3046\u3068]\u3078\u306E[\u65C5|\u305F\u3073]\u3002", en: "A trip to Kyoto.", ru: "\u041F\u043E\u0435\u0437\u0434\u043A\u0430 \u0432 \u041A\u0438\u043E\u0442\u043E." },
-      lines: [
-        { ja: "[\u671D|\u3042\u3055]\u306E[\u99C5|\u3048\u304D]\u3067\u3001\u30E6\u30AD\u306F[\u5207\u7B26|\u304D\u3063\u3077]\u306E[\u88CF|\u3046\u3089]\u306B\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F\u3002", en: "At the station in the morning, Yuki wrote \u201C{w}\u201D on the back of her ticket.", ru: "\u0423\u0442\u0440\u043E\u043C \u043D\u0430 \u0432\u043E\u043A\u0437\u0430\u043B\u0435 \u042E\u043A\u0438 \u043D\u0430\u043F\u0438\u0441\u0430\u043B\u0430 \xAB{w}\xBB \u043D\u0430 \u043E\u0431\u043E\u0440\u043E\u0442\u0435 \u0431\u0438\u043B\u0435\u0442\u0430." },
-        { ja: "[\u65B0\u5E79\u7DDA|\u3057\u3093\u304B\u3093\u305B\u3093]\u306E[\u4E2D|\u306A\u304B]\u3067\u3001[\u96A3|\u3068\u306A\u308A]\u306E[\u4EBA|\u3072\u3068]\u304C\u300C{w}\u300D\u306E[\u610F\u5473|\u3044\u307F]\u3092[\u6559|\u304A\u3057]\u3048\u3066\u304F\u308C\u305F\u3002", en: "On the bullet train, the person next to her explained what \u201C{w}\u201D means.", ru: "\u0412 \u0441\u0438\u043D\u043A\u0430\u043D\u0441\u044D\u043D\u0435 \u0441\u043E\u0441\u0435\u0434 \u043E\u0431\u044A\u044F\u0441\u043D\u0438\u043B \u0435\u0439, \u0447\u0442\u043E \u0437\u043D\u0430\u0447\u0438\u0442 \xAB{w}\xBB." },
-        { ja: "[\u4EAC\u90FD|\u304D\u3087\u3046\u3068][\u99C5|\u3048\u304D]\u306E[\u770B\u677F|\u304B\u3093\u3070\u3093]\u306B\u306F\u3001[\u5927|\u304A\u304A]\u304D\u304F\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u3066\u3042\u3063\u305F\u3002", en: "The sign at Kyoto Station said \u201C{w}\u201D in big letters.", ru: "\u041D\u0430 \u0432\u044B\u0432\u0435\u0441\u043A\u0435 \u0432\u043E\u043A\u0437\u0430\u043B\u0430 \u041A\u0438\u043E\u0442\u043E \u043A\u0440\u0443\u043F\u043D\u044B\u043C\u0438 \u0431\u0443\u043A\u0432\u0430\u043C\u0438 \u0431\u044B\u043B\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043E \xAB{w}\xBB." },
-        { ja: "[\u53E4|\u3075\u308B]\u3044\u304A[\u5BFA|\u3066\u3089]\u3067\u3001\u304A[\u574A|\u307C\u3046]\u3055\u3093\u304C\u300C{w}\u300D\u3068\u3044\u3046[\u8A00\u8449|\u3053\u3068\u3070]\u306B\u3064\u3044\u3066[\u8A71|\u306F\u306A]\u3057\u305F\u3002", en: "At an old temple, a monk talked about the word \u201C{w}\u201D.", ru: "\u0412 \u0441\u0442\u0430\u0440\u043E\u043C \u0445\u0440\u0430\u043C\u0435 \u043C\u043E\u043D\u0430\u0445 \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u044B\u0432\u0430\u043B \u043E \u0441\u043B\u043E\u0432\u0435 \xAB{w}\xBB." },
-        { ja: "[\u9053|\u307F\u3061]\u306B[\u8FF7|\u307E\u3088]\u3063\u305F\u3068\u304D\u3001\u30E6\u30AD\u306F[\u5730\u56F3|\u3061\u305A]\u3067\u300C{w}\u300D\u3092[\u63A2|\u3055\u304C]\u3057\u305F\u3002", en: "When she got lost, Yuki looked for \u201C{w}\u201D on the map.", ru: "\u0417\u0430\u0431\u043B\u0443\u0434\u0438\u0432\u0448\u0438\u0441\u044C, \u042E\u043A\u0438 \u0438\u0441\u043A\u0430\u043B\u0430 \u043D\u0430 \u043A\u0430\u0440\u0442\u0435 \xAB{w}\xBB." },
-        { ja: "[\u65C5\u9928|\u308A\u3087\u304B\u3093]\u306E[\u5973\u5C06|\u304A\u304B\u307F]\u3055\u3093\u306F\u300C{w}\u300D\u3068[\u8A00|\u3044]\u3063\u3066\u3001\u304A[\u8336|\u3061\u3083]\u3092[\u51FA|\u3060]\u3057\u3066\u304F\u308C\u305F\u3002", en: "The innkeeper said \u201C{w}\u201D and brought her some tea.", ru: "\u0425\u043E\u0437\u044F\u0439\u043A\u0430 \u0433\u043E\u0441\u0442\u0438\u043D\u0438\u0446\u044B \u0441\u043A\u0430\u0437\u0430\u043B\u0430 \xAB{w}\xBB \u0438 \u043F\u043E\u0434\u0430\u043B\u0430 \u0435\u0439 \u0447\u0430\u0439." },
-        { ja: "[\u591C|\u3088\u308B]\u3001[\u5DDD|\u304B\u308F]\u306E\u305D\u3070\u3067[\u53CB\u9054|\u3068\u3082\u3060\u3061]\u306B\u300C{w}\u300D\u3068\u3044\u3046\u30E1\u30C3\u30BB\u30FC\u30B8\u3092[\u9001|\u304A\u304F]\u3063\u305F\u3002", en: "At night, by the river, she sent her friend a message saying \u201C{w}\u201D.", ru: "\u0412\u0435\u0447\u0435\u0440\u043E\u043C \u0443 \u0440\u0435\u043A\u0438 \u043E\u043D\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u043B\u0430 \u0434\u0440\u0443\u0433\u0443 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \xAB{w}\xBB." },
-        { ja: "\u304A[\u571F\u7523|\u307F\u3084\u3052][\u5C4B|\u3084]\u3067\u3001\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F\u304A[\u5B88|\u307E\u3082]\u308A\u3092[\u8CB7|\u304B]\u3063\u305F\u3002", en: "At a souvenir shop, she bought a charm with \u201C{w}\u201D written on it.", ru: "\u0412 \u0441\u0443\u0432\u0435\u043D\u0438\u0440\u043D\u043E\u0439 \u043B\u0430\u0432\u043A\u0435 \u043E\u043D\u0430 \u043A\u0443\u043F\u0438\u043B\u0430 \u0430\u043C\u0443\u043B\u0435\u0442 \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB{w}\xBB." },
-        { ja: "[\u5199\u771F|\u3057\u3083\u3057\u3093]\u3092[\u898B|\u307F]\u308B\u3068\u3001\u300C{w}\u300D\u3068\u3044\u3046[\u770B\u677F|\u304B\u3093\u3070\u3093]\u304C[\u5F8C|\u3046\u3057]\u308D\u306B[\u5199|\u3046\u3064]\u3063\u3066\u3044\u305F\u3002", en: "In one of her photos, a sign saying \u201C{w}\u201D was in the background.", ru: "\u041D\u0430 \u043E\u0434\u043D\u043E\u0439 \u0438\u0437 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0439 \u043D\u0430 \u0437\u0430\u0434\u043D\u0435\u043C \u043F\u043B\u0430\u043D\u0435 \u0431\u044B\u043B\u0430 \u0432\u044B\u0432\u0435\u0441\u043A\u0430 \xAB{w}\xBB." },
-        { ja: "[\u5E30|\u304B\u3048]\u308A\u306E[\u96FB\u8ECA|\u3067\u3093\u3057\u3083]\u3067\u3001\u30E6\u30AD\u306F[\u65E5\u8A18|\u306B\u3063\u304D]\u306B\u300C{w}\u300D\u3092[\u4E09\u56DE|\u3055\u3093\u304B\u3044][\u66F8|\u304B]\u3044\u305F\u3002", en: "On the train home, Yuki wrote \u201C{w}\u201D three times in her diary.", ru: "\u0412 \u043F\u043E\u0435\u0437\u0434\u0435 \u0434\u043E\u043C\u043E\u0439 \u042E\u043A\u0438 \u0442\u0440\u0438\u0436\u0434\u044B \u0437\u0430\u043F\u0438\u0441\u0430\u043B\u0430 \xAB{w}\xBB \u0432 \u0434\u043D\u0435\u0432\u043D\u0438\u043A." }
-      ],
-      close: { ja: "[\u697D|\u305F\u306E]\u3057\u3044[\u65C5|\u305F\u3073]\u3067\u3001\u30E6\u30AD\u306E[\u65E5\u672C\u8A9E|\u306B\u307B\u3093\u3054]\u306F\u307E\u305F[\u4E0A\u624B|\u3058\u3087\u3046\u305A]\u306B\u306A\u3063\u305F\u3002", en: "On this fun trip, Yuki\u2019s Japanese got better again.", ru: "\u0417\u0430 \u044D\u0442\u0443 \u0432\u0435\u0441\u0451\u043B\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443 \u044F\u043F\u043E\u043D\u0441\u043A\u0438\u0439 \u042E\u043A\u0438 \u0441\u043D\u043E\u0432\u0430 \u0441\u0442\u0430\u043B \u043B\u0443\u0447\u0448\u0435." }
-    },
-    {
-      id: "detective",
-      open: { ja: "[\u6D88|\u304D]\u3048\u305F[\u624B\u7D19|\u3066\u304C\u307F]\u306E[\u8B0E|\u306A\u305E]\u3002", en: "The mystery of the vanished letter.", ru: "\u0422\u0430\u0439\u043D\u0430 \u043F\u0440\u043E\u043F\u0430\u0432\u0448\u0435\u0433\u043E \u043F\u0438\u0441\u044C\u043C\u0430." },
-      lines: [
-        { ja: "[\u63A2\u5075|\u305F\u3093\u3066\u3044]\u306E\u30DF\u30CA\u306F\u3001[\u673A|\u3064\u304F\u3048]\u306E[\u4E0A|\u3046\u3048]\u306B\u300C{w}\u300D\u3068\u3060\u3051[\u66F8|\u304B]\u304B\u308C\u305F[\u7D19|\u304B\u307F]\u3092[\u898B|\u307F]\u3064\u3051\u305F\u3002", en: "Detective Mina found a sheet of paper on the desk with only \u201C{w}\u201D written on it.", ru: "\u0421\u044B\u0449\u0438\u0446\u0430 \u041C\u0438\u043D\u0430 \u043D\u0430\u0448\u043B\u0430 \u043D\u0430 \u0441\u0442\u043E\u043B\u0435 \u043B\u0438\u0441\u0442\u043E\u043A, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u043E\u043C \u0431\u044B\u043B\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043E \u0442\u043E\u043B\u044C\u043A\u043E \xAB{w}\xBB." },
-        { ja: "[\u72AF\u4EBA|\u306F\u3093\u306B\u3093]\u306F[\u96FB\u8A71|\u3067\u3093\u308F]\u3067\u300C{w}\u300D\u3068[\u5C0F|\u3061\u3044]\u3055\u306A[\u58F0|\u3053\u3048]\u3067[\u8A00|\u3044]\u3063\u305F\u3002", en: "On the phone, the culprit said \u201C{w}\u201D in a quiet voice.", ru: "\u041F\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0443 \u043F\u0440\u0435\u0441\u0442\u0443\u043F\u043D\u0438\u043A \u0442\u0438\u0445\u043E \u0441\u043A\u0430\u0437\u0430\u043B \xAB{w}\xBB." },
-        { ja: "[\u8B66\u5BDF|\u3051\u3044\u3055\u3064]\u306E[\u4EBA|\u3072\u3068]\u306F\u300C{w}\u300D\u3068\u3044\u3046[\u8A00\u8449|\u3053\u3068\u3070]\u306E[\u610F\u5473|\u3044\u307F]\u304C\u308F\u304B\u3089\u306A\u304B\u3063\u305F\u3002", en: "The police officer didn\u2019t understand what the word \u201C{w}\u201D meant.", ru: "\u041F\u043E\u043B\u0438\u0446\u0435\u0439\u0441\u043A\u0438\u0439 \u043D\u0435 \u043F\u043E\u043D\u044F\u043B, \u0447\u0442\u043E \u0437\u043D\u0430\u0447\u0438\u0442 \u0441\u043B\u043E\u0432\u043E \xAB{w}\xBB." },
-        { ja: "\u30DF\u30CA\u306F[\u866B\u773C\u93E1|\u3080\u3057\u3081\u304C\u306D]\u3067\u3001[\u58C1|\u304B\u3079]\u306E\u300C{w}\u300D\u3068\u3044\u3046[\u6587\u5B57|\u3082\u3058]\u3092[\u8ABF|\u3057\u3089]\u3079\u305F\u3002", en: "With a magnifying glass, Mina examined the letters \u201C{w}\u201D on the wall.", ru: "\u041C\u0438\u043D\u0430 \u0440\u0430\u0441\u0441\u043C\u043E\u0442\u0440\u0435\u043B\u0430 \u0432 \u043B\u0443\u043F\u0443 \u043D\u0430\u0434\u043F\u0438\u0441\u044C \xAB{w}\xBB \u043D\u0430 \u0441\u0442\u0435\u043D\u0435." },
-        { ja: "[\u99C5|\u3048\u304D]\u306E[\u6642\u8A08|\u3068\u3051\u3044]\u306E[\u88CF|\u3046\u3089]\u306B\u3082\u3001\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u3066\u3042\u3063\u305F\u3002", en: "On the back of the station clock, too, \u201C{w}\u201D was written.", ru: "\u0418 \u043D\u0430 \u043E\u0431\u0440\u0430\u0442\u043D\u043E\u0439 \u0441\u0442\u043E\u0440\u043E\u043D\u0435 \u0432\u043E\u043A\u0437\u0430\u043B\u044C\u043D\u044B\u0445 \u0447\u0430\u0441\u043E\u0432 \u0431\u044B\u043B\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043E \xAB{w}\xBB." },
-        { ja: "[\u52A9\u624B|\u3058\u3087\u3057\u3085]\u306E\u30BF\u30ED\u30A6\u306F\u3001\u300C{w}\u300D\u304C[\u6697\u53F7|\u3042\u3093\u3054\u3046]\u3060\u3068[\u6C17|\u304D]\u3065\u3044\u305F\u3002", en: "Her assistant Taro realised that \u201C{w}\u201D was a code.", ru: "\u0415\u0451 \u043F\u043E\u043C\u043E\u0449\u043D\u0438\u043A \u0422\u0430\u0440\u043E \u0434\u043E\u0433\u0430\u0434\u0430\u043B\u0441\u044F, \u0447\u0442\u043E \xAB{w}\xBB \u2014 \u044D\u0442\u043E \u0448\u0438\u0444\u0440." },
-        { ja: "[\u53E4|\u3075\u308B]\u3044[\u65B0\u805E|\u3057\u3093\u3076\u3093]\u306B\u300C{w}\u300D\u3068\u3044\u3046[\u8A18\u4E8B|\u304D\u3058]\u304C\u3042\u3063\u305F\u3002", en: "An old newspaper had an article called \u201C{w}\u201D.", ru: "\u0412 \u0441\u0442\u0430\u0440\u043E\u0439 \u0433\u0430\u0437\u0435\u0442\u0435 \u043D\u0430\u0448\u043B\u0430\u0441\u044C \u0441\u0442\u0430\u0442\u044C\u044F \u043F\u043E\u0434 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\u043C \xAB{w}\xBB." },
-        { ja: "[\u96E8|\u3042\u3081]\u306E[\u591C|\u3088\u308B]\u3001\u30DF\u30CA\u306F\u300C{w}\u300D\u306E[\u8AAD|\u3088]\u307F[\u65B9|\u304B\u305F]\u304B\u3089[\u7B54|\u3053\u305F]\u3048\u3092[\u898B|\u307F]\u3064\u3051\u305F\u3002", en: "On a rainy night, Mina found the answer in the reading of \u201C{w}\u201D.", ru: "\u0414\u043E\u0436\u0434\u043B\u0438\u0432\u043E\u0439 \u043D\u043E\u0447\u044C\u044E \u041C\u0438\u043D\u0430 \u043D\u0430\u0448\u043B\u0430 \u043E\u0442\u0432\u0435\u0442 \u0432 \u0447\u0442\u0435\u043D\u0438\u0438 \u0441\u043B\u043E\u0432\u0430 \xAB{w}\xBB." },
-        { ja: "[\u72AF\u4EBA|\u306F\u3093\u306B\u3093]\u306F\u300C{w}\u300D\u3068[\u805E|\u304D]\u3044\u3066\u3001[\u9854|\u304B\u304A]\u304C[\u9752|\u3042\u304A]\u304F\u306A\u3063\u305F\u3002", en: "When the culprit heard \u201C{w}\u201D, he turned pale.", ru: "\u0423\u0441\u043B\u044B\u0448\u0430\u0432 \xAB{w}\xBB, \u043F\u0440\u0435\u0441\u0442\u0443\u043F\u043D\u0438\u043A \u043F\u043E\u0431\u043B\u0435\u0434\u043D\u0435\u043B." },
-        { ja: "[\u6700\u5F8C|\u3055\u3044\u3054]\u306B\u3001\u30DF\u30CA\u306F\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F[\u7BB1|\u306F\u3053]\u304B\u3089[\u624B\u7D19|\u3066\u304C\u307F]\u3092[\u51FA|\u3060]\u3057\u305F\u3002", en: "At last, Mina took the letter out of a box marked \u201C{w}\u201D.", ru: "\u041D\u0430\u043A\u043E\u043D\u0435\u0446 \u041C\u0438\u043D\u0430 \u0434\u043E\u0441\u0442\u0430\u043B\u0430 \u043F\u0438\u0441\u044C\u043C\u043E \u0438\u0437 \u043A\u043E\u0440\u043E\u0431\u043A\u0438 \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB{w}\xBB." }
-      ],
-      close: { ja: "\u3053\u3046\u3057\u3066\u3001[\u6D88|\u304D]\u3048\u305F[\u624B\u7D19|\u3066\u304C\u307F]\u306E[\u8B0E|\u306A\u305E]\u306F[\u89E3|\u3068]\u3051\u305F\u3002", en: "And so the mystery of the vanished letter was solved.", ru: "\u0422\u0430\u043A \u0442\u0430\u0439\u043D\u0430 \u043F\u0440\u043E\u043F\u0430\u0432\u0448\u0435\u0433\u043E \u043F\u0438\u0441\u044C\u043C\u0430 \u0431\u044B\u043B\u0430 \u0440\u0430\u0441\u043A\u0440\u044B\u0442\u0430." }
-    },
-    {
-      id: "sea",
-      open: { ja: "[\u5B9D\u5CF6|\u305F\u304B\u3089\u3058\u307E]\u3078\u306E[\u822A\u6D77|\u3053\u3046\u304B\u3044]\u3002", en: "A voyage to Treasure Island.", ru: "\u041F\u043B\u0430\u0432\u0430\u043D\u0438\u0435 \u043A \u041E\u0441\u0442\u0440\u043E\u0432\u0443 \u0441\u043E\u043A\u0440\u043E\u0432\u0438\u0449." },
-      lines: [
-        { ja: "[\u8239\u9577|\u305B\u3093\u3061\u3087\u3046]\u306E\u30EA\u30AF\u306F\u3001[\u53E4|\u3075\u308B]\u3044[\u5730\u56F3|\u3061\u305A]\u306B\u300C{w}\u300D\u3068\u3044\u3046[\u5370|\u3057\u308B\u3057]\u3092[\u898B|\u307F]\u3064\u3051\u305F\u3002", en: "Captain Riku found a mark saying \u201C{w}\u201D on an old map.", ru: "\u041A\u0430\u043F\u0438\u0442\u0430\u043D \u0420\u0438\u043A\u0443 \u043D\u0430\u0448\u0451\u043B \u043D\u0430 \u0441\u0442\u0430\u0440\u043E\u0439 \u043A\u0430\u0440\u0442\u0435 \u043E\u0442\u043C\u0435\u0442\u043A\u0443 \xAB{w}\xBB." },
-        { ja: "[\u6E2F|\u307F\u306A\u3068]\u306E[\u8001\u4EBA|\u308D\u3046\u3058\u3093]\u306F\u300C{w}\u300D\u3068[\u8A00|\u3044]\u3063\u3066\u3001[\u5317|\u304D\u305F]\u306E[\u6D77|\u3046\u307F]\u3092[\u6307|\u3086\u3073]\u3055\u3057\u305F\u3002", en: "An old man at the harbour said \u201C{w}\u201D and pointed at the northern sea.", ru: "\u0421\u0442\u0430\u0440\u0438\u043A \u0432 \u043F\u043E\u0440\u0442\u0443 \u0441\u043A\u0430\u0437\u0430\u043B \xAB{w}\xBB \u0438 \u0443\u043A\u0430\u0437\u0430\u043B \u043D\u0430 \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u043C\u043E\u0440\u0435." },
-        { ja: "[\u5D50|\u3042\u3089\u3057]\u306E[\u591C|\u3088\u308B]\u3001[\u8239|\u3075\u306D]\u306E[\u4EF2\u9593|\u306A\u304B\u307E]\u306F\u300C{w}\u300D\u3068[\u53EB|\u3055\u3051]\u3093\u3060\u3002", en: "On a stormy night, the crew shouted \u201C{w}\u201D.", ru: "\u0412 \u0448\u0442\u043E\u0440\u043C\u043E\u0432\u0443\u044E \u043D\u043E\u0447\u044C \u043A\u043E\u043C\u0430\u043D\u0434\u0430 \u043A\u0440\u0438\u0447\u0430\u043B\u0430 \xAB{w}\xBB." },
-        { ja: "\u30AB\u30E2\u30E1\u304C[\u904B|\u306F\u3053]\u3093\u3067\u304D\u305F[\u74F6|\u3073\u3093]\u306E[\u4E2D|\u306A\u304B]\u306B\u3001\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F[\u7D19|\u304B\u307F]\u304C\u3042\u3063\u305F\u3002", en: "Inside a bottle brought by a seagull was a note saying \u201C{w}\u201D.", ru: "\u0412 \u0431\u0443\u0442\u044B\u043B\u043A\u0435, \u043A\u043E\u0442\u043E\u0440\u0443\u044E \u043F\u0440\u0438\u043D\u0435\u0441\u043B\u0430 \u0447\u0430\u0439\u043A\u0430, \u0431\u044B\u043B\u0430 \u0437\u0430\u043F\u0438\u0441\u043A\u0430 \xAB{w}\xBB." },
-        { ja: "\u30EA\u30AF\u306F[\u661F|\u307B\u3057]\u3092[\u898B|\u307F]\u306A\u304C\u3089\u3001\u300C{w}\u300D\u306E[\u610F\u5473|\u3044\u307F]\u3092[\u8003|\u304B\u3093\u304C]\u3048\u305F\u3002", en: "Looking at the stars, Riku thought about what \u201C{w}\u201D meant.", ru: "\u0413\u043B\u044F\u0434\u044F \u043D\u0430 \u0437\u0432\u0451\u0437\u0434\u044B, \u0420\u0438\u043A\u0443 \u0440\u0430\u0437\u043C\u044B\u0448\u043B\u044F\u043B, \u0447\u0442\u043E \u0437\u043D\u0430\u0447\u0438\u0442 \xAB{w}\xBB." },
-        { ja: "[\u5CF6|\u3057\u307E]\u306E[\u5165|\u3044]\u308A[\u53E3|\u3050\u3061]\u306E[\u5CA9|\u3044\u308F]\u306B\u306F\u3001\u300C{w}\u300D\u3068\u3044\u3046[\u6587\u5B57|\u3082\u3058]\u304C[\u5F6B|\u307B]\u3063\u3066\u3042\u3063\u305F\u3002", en: "The word \u201C{w}\u201D was carved into the rock at the island\u2019s entrance.", ru: "\u041D\u0430 \u0441\u043A\u0430\u043B\u0435 \u0443 \u0432\u0445\u043E\u0434\u0430 \u043D\u0430 \u043E\u0441\u0442\u0440\u043E\u0432 \u0431\u044B\u043B\u043E \u0432\u044B\u0441\u0435\u0447\u0435\u043D\u043E \xAB{w}\xBB." },
-        { ja: "[\u6D1E\u7A9F|\u3069\u3046\u304F\u3064]\u306E[\u6249|\u3068\u3073\u3089]\u306F\u3001\u300C{w}\u300D\u3068[\u8A00|\u3044]\u3046\u3068[\u958B|\u3072\u3089]\u3044\u305F\u3002", en: "The cave door opened when he said \u201C{w}\u201D.", ru: "\u0414\u0432\u0435\u0440\u044C \u043F\u0435\u0449\u0435\u0440\u044B \u043E\u0442\u043A\u0440\u044B\u043B\u0430\u0441\u044C, \u043A\u043E\u0433\u0434\u0430 \u043E\u043D \u0441\u043A\u0430\u0437\u0430\u043B \xAB{w}\xBB." },
-        { ja: "[\u4EF2\u9593|\u306A\u304B\u307E]\u306E\u30A2\u30AA\u30A4\u306F\u300C{w}\u300D\u304C[\u8AAD|\u3088]\u3081\u305F\u306E\u3067\u3001[\u7F60|\u308F\u306A]\u306B[\u6C17|\u304D]\u3065\u3044\u305F\u3002", en: "Because his crewmate Aoi could read \u201C{w}\u201D, she spotted the trap.", ru: "\u0415\u0433\u043E \u043F\u043E\u0434\u0440\u0443\u0433\u0430 \u043F\u043E \u043A\u043E\u043C\u0430\u043D\u0434\u0435 \u0410\u043E\u0439 \u0441\u043C\u043E\u0433\u043B\u0430 \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C \xAB{w}\xBB \u0438 \u0437\u0430\u043C\u0435\u0442\u0438\u043B\u0430 \u043B\u043E\u0432\u0443\u0448\u043A\u0443." },
-        { ja: "[\u5B9D\u7BB1|\u305F\u304B\u3089\u3070\u3053]\u306E\u3075\u305F\u306B\u306F\u3001[\u91D1\u8272|\u304D\u3093\u3044\u308D]\u306E[\u6587\u5B57|\u3082\u3058]\u3067\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u3066\u3042\u3063\u305F\u3002", en: "The lid of the treasure chest said \u201C{w}\u201D in golden letters.", ru: "\u041D\u0430 \u043A\u0440\u044B\u0448\u043A\u0435 \u0441\u0443\u043D\u0434\u0443\u043A\u0430 \u0437\u043E\u043B\u043E\u0442\u044B\u043C\u0438 \u0431\u0443\u043A\u0432\u0430\u043C\u0438 \u0431\u044B\u043B\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u043E \xAB{w}\xBB." },
-        { ja: "[\u5E30|\u304B\u3048]\u308A\u306E[\u8239|\u3075\u306D]\u3067\u3001\u307F\u3093\u306A\u306F\u300C{w}\u300D\u3068\u3044\u3046[\u6B4C|\u3046\u305F]\u3092[\u6B4C|\u3046\u305F]\u3063\u305F\u3002", en: "On the voyage home, everyone sang a song called \u201C{w}\u201D.", ru: "\u041D\u0430 \u043E\u0431\u0440\u0430\u0442\u043D\u043E\u043C \u043F\u0443\u0442\u0438 \u0432\u0441\u0435 \u043F\u0435\u043B\u0438 \u043F\u0435\u0441\u043D\u044E \xAB{w}\xBB." }
-      ],
-      close: { ja: "\u3053\u3046\u3057\u3066\u3001\u30EA\u30AF\u305F\u3061\u306F[\u5B9D\u7269|\u305F\u304B\u3089\u3082\u306E]\u3092[\u6301|\u3082]\u3063\u3066[\u6E2F|\u307F\u306A\u3068]\u306B[\u5E30|\u304B\u3048]\u3063\u305F\u3002", en: "And so Riku and his crew came back to the harbour with the treasure.", ru: "\u0422\u0430\u043A \u0420\u0438\u043A\u0443 \u0438 \u0435\u0433\u043E \u043A\u043E\u043C\u0430\u043D\u0434\u0430 \u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u0432 \u043F\u043E\u0440\u0442 \u0441 \u0441\u043E\u043A\u0440\u043E\u0432\u0438\u0449\u0435\u043C." }
-    },
-    {
-      id: "space",
-      open: { ja: "[\u6708|\u3064\u304D]\u3078\u306E[\u65C5|\u305F\u3073]\u3002", en: "A journey to the Moon.", ru: "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435 \u043D\u0430 \u041B\u0443\u043D\u0443." },
-      lines: [
-        { ja: "[\u5B87\u5B99\u98DB\u884C\u58EB|\u3046\u3061\u3085\u3046\u3072\u3053\u3046\u3057]\u306E\u30BD\u30E9\u306F\u3001[\u51FA\u767A|\u3057\u3085\u3063\u3071\u3064]\u306E[\u524D|\u307E\u3048]\u306B\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F\u30E1\u30E2\u3092[\u6301|\u3082]\u3063\u305F\u3002", en: "Before take-off, the astronaut Sora took a note with \u201C{w}\u201D written on it.", ru: "\u041F\u0435\u0440\u0435\u0434 \u0441\u0442\u0430\u0440\u0442\u043E\u043C \u043A\u043E\u0441\u043C\u043E\u043D\u0430\u0432\u0442\u043A\u0430 \u0421\u043E\u0440\u0430 \u0432\u0437\u044F\u043B\u0430 \u0441 \u0441\u043E\u0431\u043E\u0439 \u0437\u0430\u043F\u0438\u0441\u043A\u0443 \xAB{w}\xBB." },
-        { ja: "\u30ED\u30B1\u30C3\u30C8\u306E[\u4E2D|\u306A\u304B]\u3067\u3001[\u753B\u9762|\u304C\u3081\u3093]\u306B\u300C{w}\u300D\u3068\u3044\u3046[\u6587\u5B57|\u3082\u3058]\u304C[\u51FA|\u3067]\u305F\u3002", en: "Inside the rocket, the word \u201C{w}\u201D appeared on the screen.", ru: "\u0412 \u0440\u0430\u043A\u0435\u0442\u0435 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u043F\u043E\u044F\u0432\u0438\u043B\u043E\u0441\u044C \u0441\u043B\u043E\u0432\u043E \xAB{w}\xBB." },
-        { ja: "[\u5730\u7403|\u3061\u304D\u3085\u3046]\u306E[\u57FA\u5730|\u304D\u3061]\u304B\u3089\u300C{w}\u300D\u3068\u3044\u3046[\u901A\u4FE1|\u3064\u3046\u3057\u3093]\u304C[\u6765|\u304D]\u305F\u3002", en: "A message saying \u201C{w}\u201D came from the base on Earth.", ru: "\u0421 \u0431\u0430\u0437\u044B \u043D\u0430 \u0417\u0435\u043C\u043B\u0435 \u043F\u0440\u0438\u0448\u043B\u043E \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \xAB{w}\xBB." },
-        { ja: "\u30ED\u30DC\u30C3\u30C8\u306E\u30D4\u30B3\u306F\u300C{w}\u300D\u306E[\u8AAD|\u3088]\u307F[\u65B9|\u304B\u305F]\u3092[\u9593\u9055|\u307E\u3061\u304C]\u3048\u305F\u3002", en: "Piko the robot read \u201C{w}\u201D the wrong way.", ru: "\u0420\u043E\u0431\u043E\u0442 \u041F\u0438\u043A\u043E \u043D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u043B \xAB{w}\xBB." },
-        { ja: "\u30BD\u30E9\u306F[\u7121\u7DDA|\u3080\u305B\u3093]\u3067\u300C{w}\u300D\u3068[\u7B54|\u3053\u305F]\u3048\u305F\u3002", en: "Sora answered \u201C{w}\u201D over the radio.", ru: "\u0421\u043E\u0440\u0430 \u043E\u0442\u0432\u0435\u0442\u0438\u043B\u0430 \u043F\u043E \u0440\u0430\u0434\u0438\u043E: \xAB{w}\xBB." },
-        { ja: "[\u6708|\u3064\u304D]\u306E[\u77F3|\u3044\u3057]\u306B\u3001\u3060\u308C\u304B\u304C\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u3066\u3044\u305F\u3002", en: "Someone had written \u201C{w}\u201D on a moon rock.", ru: "\u041A\u0442\u043E-\u0442\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043B \xAB{w}\xBB \u043D\u0430 \u043B\u0443\u043D\u043D\u043E\u043C \u043A\u0430\u043C\u043D\u0435." },
-        { ja: "[\u661F|\u307B\u3057]\u306E[\u5730\u56F3|\u3061\u305A]\u306B\u306F\u300C{w}\u300D\u3068\u3044\u3046[\u540D\u524D|\u306A\u307E\u3048]\u306E[\u661F|\u307B\u3057]\u304C\u3042\u3063\u305F\u3002", en: "The star map showed a star named \u201C{w}\u201D.", ru: "\u041D\u0430 \u0437\u0432\u0451\u0437\u0434\u043D\u043E\u0439 \u043A\u0430\u0440\u0442\u0435 \u0431\u044B\u043B\u0430 \u0437\u0432\u0435\u0437\u0434\u0430 \u043F\u043E \u0438\u043C\u0435\u043D\u0438 \xAB{w}\xBB." },
-        { ja: "[\u7A93|\u307E\u3069]\u306E[\u5916|\u305D\u3068]\u306E[\u9752|\u3042\u304A]\u3044[\u5730\u7403|\u3061\u304D\u3085\u3046]\u3092[\u898B|\u307F]\u3066\u3001\u30BD\u30E9\u306F\u300C{w}\u300D\u3068\u3064\u3076\u3084\u3044\u305F\u3002", en: "Looking at the blue Earth outside the window, Sora murmured \u201C{w}\u201D.", ru: "\u0413\u043B\u044F\u0434\u044F \u0432 \u043E\u043A\u043D\u043E \u043D\u0430 \u0433\u043E\u043B\u0443\u0431\u0443\u044E \u0417\u0435\u043C\u043B\u044E, \u0421\u043E\u0440\u0430 \u043F\u0440\u043E\u0448\u0435\u043F\u0442\u0430\u043B\u0430 \xAB{w}\xBB." },
-        { ja: "[\u5E30|\u304B\u3048]\u308B[\u524D|\u307E\u3048]\u306B\u3001\u30BD\u30E9\u306F[\u65D7|\u306F\u305F]\u306B\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F\u3002", en: "Before heading home, Sora wrote \u201C{w}\u201D on the flag.", ru: "\u041F\u0435\u0440\u0435\u0434 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0435\u043D\u0438\u0435\u043C \u0421\u043E\u0440\u0430 \u043D\u0430\u043F\u0438\u0441\u0430\u043B\u0430 \u043D\u0430 \u0444\u043B\u0430\u0433\u0435 \xAB{w}\xBB." },
-        { ja: "[\u5730\u7403|\u3061\u304D\u3085\u3046]\u306B[\u7740|\u3064]\u304F\u3068\u3001[\u5B50|\u3053]\u3069\u3082\u305F\u3061\u304C\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F[\u7D19|\u304B\u307F]\u3092[\u6301|\u3082]\u3063\u3066[\u5F85|\u307E]\u3063\u3066\u3044\u305F\u3002", en: "Back on Earth, children were waiting with signs saying \u201C{w}\u201D.", ru: "\u041D\u0430 \u0417\u0435\u043C\u043B\u0435 \u0435\u0451 \u0436\u0434\u0430\u043B\u0438 \u0434\u0435\u0442\u0438 \u0441 \u043F\u043B\u0430\u043A\u0430\u0442\u0430\u043C\u0438 \xAB{w}\xBB." }
-      ],
-      close: { ja: "\u3053\u3046\u3057\u3066\u3001\u30BD\u30E9\u306E[\u9577|\u306A\u304C]\u3044[\u65C5|\u305F\u3073]\u306F[\u7D42|\u304A]\u308F\u3063\u305F\u3002", en: "And so Sora\u2019s long journey came to an end.", ru: "\u0422\u0430\u043A \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u043B\u043E\u0441\u044C \u0434\u043E\u043B\u0433\u043E\u0435 \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435 \u0421\u043E\u0440\u044B." }
-    },
-    {
-      id: "cafe",
-      open: { ja: "[\u5C0F|\u3061\u3044]\u3055\u306A[\u55AB\u8336\u5E97|\u304D\u3063\u3055\u3066\u3093]\u306E[\u4E00\u65E5|\u3044\u3061\u306B\u3061]\u3002", en: "A day at a little caf\xE9.", ru: "\u041E\u0434\u0438\u043D \u0434\u0435\u043D\u044C \u0432 \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u043C \u043A\u0430\u0444\u0435." },
-      lines: [
-        { ja: "[\u671D|\u3042\u3055]\u3001[\u5E97\u9577|\u3066\u3093\u3061\u3087\u3046]\u306E\u30E1\u30A4\u306F[\u9ED2\u677F|\u3053\u304F\u3070\u3093]\u306B\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F\u3002", en: "In the morning, Mei, the caf\xE9 owner, wrote \u201C{w}\u201D on the blackboard.", ru: "\u0423\u0442\u0440\u043E\u043C \u0445\u043E\u0437\u044F\u0439\u043A\u0430 \u043A\u0430\u0444\u0435 \u041C\u044D\u0439 \u043D\u0430\u043F\u0438\u0441\u0430\u043B\u0430 \u043D\u0430 \u0434\u043E\u0441\u043A\u0435 \xAB{w}\xBB." },
-        { ja: "[\u6700\u521D|\u3055\u3044\u3057\u3087]\u306E\u304A[\u5BA2|\u304D\u3083\u304F]\u3055\u3093\u306F\u3001\u300C{w}\u300D\u3068\u3044\u3046[\u540D\u524D|\u306A\u307E\u3048]\u306E\u30B1\u30FC\u30AD\u3092[\u6CE8\u6587|\u3061\u3085\u3046\u3082\u3093]\u3057\u305F\u3002", en: "The first customer ordered a cake called \u201C{w}\u201D.", ru: "\u041F\u0435\u0440\u0432\u044B\u0439 \u043F\u043E\u0441\u0435\u0442\u0438\u0442\u0435\u043B\u044C \u0437\u0430\u043A\u0430\u0437\u0430\u043B \u0442\u043E\u0440\u0442 \u043F\u043E\u0434 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\u043C \xAB{w}\xBB." },
-        { ja: "[\u732B|\u306D\u3053]\u306E\u30E2\u30C1\u306F\u3001\u300C{w}\u300D\u3068[\u66F8|\u304B]\u304B\u308C\u305F[\u7BB1|\u306F\u3053]\u306E[\u4E0A|\u3046\u3048]\u3067[\u5BDD|\u306D]\u3066\u3044\u305F\u3002", en: "Mochi the cat was asleep on a box marked \u201C{w}\u201D.", ru: "\u041A\u043E\u0448\u043A\u0430 \u041C\u043E\u0442\u0438 \u0441\u043F\u0430\u043B\u0430 \u043D\u0430 \u043A\u043E\u0440\u043E\u0431\u043A\u0435 \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB{w}\xBB." },
-        { ja: "[\u5E38\u9023|\u3058\u3087\u3046\u308C\u3093]\u306E\u304A\u3058\u3044\u3055\u3093\u306F\u300C{w}\u300D\u3068[\u8A00|\u3044]\u3063\u3066[\u7B11|\u308F\u3089]\u3063\u305F\u3002", en: "An old regular said \u201C{w}\u201D and laughed.", ru: "\u0421\u0442\u0430\u0440\u0438\u0447\u043E\u043A-\u0437\u0430\u0432\u0441\u0435\u0433\u0434\u0430\u0442\u0430\u0439 \u0441\u043A\u0430\u0437\u0430\u043B \xAB{w}\xBB \u0438 \u0437\u0430\u0441\u043C\u0435\u044F\u043B\u0441\u044F." },
-        { ja: "\u30E1\u30A4\u306F[\u65B0|\u3042\u305F\u3089]\u3057\u3044\u30AB\u30C3\u30D7\u306B\u300C{w}\u300D\u3068\u3044\u3046[\u5B57|\u3058]\u3092[\u63CF|\u304B]\u3044\u305F\u3002", en: "Mei painted the word \u201C{w}\u201D on a new cup.", ru: "\u041C\u044D\u0439 \u043D\u0430\u0440\u0438\u0441\u043E\u0432\u0430\u043B\u0430 \u043D\u0430 \u043D\u043E\u0432\u043E\u0439 \u0447\u0430\u0448\u043A\u0435 \u043D\u0430\u0434\u043F\u0438\u0441\u044C \xAB{w}\xBB." },
-        { ja: "[\u96E8|\u3042\u3081]\u306E[\u65E5|\u3072]\u3001[\u5E97|\u307F\u305B]\u306E[\u524D|\u307E\u3048]\u306E[\u770B\u677F|\u304B\u3093\u3070\u3093]\u304C\u300C{w}\u300D\u306B[\u5909|\u304B]\u308F\u3063\u3066\u3044\u305F\u3002", en: "On a rainy day, the sign in front of the caf\xE9 had changed to \u201C{w}\u201D.", ru: "\u0412 \u0434\u043E\u0436\u0434\u043B\u0438\u0432\u044B\u0439 \u0434\u0435\u043D\u044C \u0432\u044B\u0432\u0435\u0441\u043A\u0430 \u043F\u0435\u0440\u0435\u0434 \u043A\u0430\u0444\u0435 \u0441\u043C\u0435\u043D\u0438\u043B\u0430\u0441\u044C \u043D\u0430 \xAB{w}\xBB." },
-        { ja: "[\u5B50|\u3053]\u3069\u3082\u304C\u300C{w}\u300D\u306E[\u610F\u5473|\u3044\u307F]\u3092[\u805E|\u304D]\u3044\u305F\u306E\u3067\u3001\u30E1\u30A4\u306F[\u7D75|\u3048]\u3067[\u8AAC\u660E|\u305B\u3064\u3081\u3044]\u3057\u305F\u3002", en: "A child asked what \u201C{w}\u201D meant, so Mei explained it with a drawing.", ru: "\u0420\u0435\u0431\u0451\u043D\u043E\u043A \u0441\u043F\u0440\u043E\u0441\u0438\u043B, \u0447\u0442\u043E \u0437\u043D\u0430\u0447\u0438\u0442 \xAB{w}\xBB, \u0438 \u041C\u044D\u0439 \u043E\u0431\u044A\u044F\u0441\u043D\u0438\u043B\u0430 \u044D\u0442\u043E \u0440\u0438\u0441\u0443\u043D\u043A\u043E\u043C." },
-        { ja: "[\u5915\u65B9|\u3086\u3046\u304C\u305F]\u3001\u30E9\u30B8\u30AA\u304B\u3089\u300C{w}\u300D\u3068\u3044\u3046[\u6B4C|\u3046\u305F]\u304C[\u6D41|\u306A\u304C]\u308C\u305F\u3002", en: "In the evening, a song called \u201C{w}\u201D came on the radio.", ru: "\u0412\u0435\u0447\u0435\u0440\u043E\u043C \u043F\u043E \u0440\u0430\u0434\u0438\u043E \u0437\u0430\u0438\u0433\u0440\u0430\u043B\u0430 \u043F\u0435\u0441\u043D\u044F \xAB{w}\xBB." },
-        { ja: "[\u5916\u56FD|\u304C\u3044\u3053\u304F]\u304B\u3089[\u6765|\u304D]\u305F\u304A[\u5BA2|\u304D\u3083\u304F]\u3055\u3093\u306F\u3001\u300C{w}\u300D\u306E[\u8AAD|\u3088]\u307F[\u65B9|\u304B\u305F]\u3092\u30E1\u30A4\u306B[\u805E|\u304D]\u3044\u305F\u3002", en: "A visitor from abroad asked Mei how to read \u201C{w}\u201D.", ru: "\u0413\u043E\u0441\u0442\u044C \u0438\u0437-\u0437\u0430 \u0433\u0440\u0430\u043D\u0438\u0446\u044B \u0441\u043F\u0440\u043E\u0441\u0438\u043B \u0443 \u041C\u044D\u0439, \u043A\u0430\u043A \u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \xAB{w}\xBB." },
-        { ja: "[\u9589\u5E97|\u3078\u3044\u3066\u3093]\u306E[\u5F8C|\u3042\u3068]\u3001\u30E1\u30A4\u306F[\u65E5\u8A18|\u306B\u3063\u304D]\u306B\u300C{w}\u300D\u3068[\u66F8|\u304B]\u3044\u305F\u3002", en: "After closing time, Mei wrote \u201C{w}\u201D in her diary.", ru: "\u041F\u043E\u0441\u043B\u0435 \u0437\u0430\u043A\u0440\u044B\u0442\u0438\u044F \u041C\u044D\u0439 \u0437\u0430\u043F\u0438\u0441\u0430\u043B\u0430 \u0432 \u0434\u043D\u0435\u0432\u043D\u0438\u043A \xAB{w}\xBB." }
-      ],
-      close: { ja: "\u3053\u3046\u3057\u3066\u3001[\u55AB\u8336\u5E97|\u304D\u3063\u3055\u3066\u3093]\u306E[\u4E00\u65E5|\u3044\u3061\u306B\u3061]\u306F[\u9759|\u3057\u305A]\u304B\u306B[\u7D42|\u304A]\u308F\u3063\u305F\u3002", en: "And so the caf\xE9\u2019s day came quietly to an end.", ru: "\u0422\u0430\u043A \u0442\u0438\u0445\u043E \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u043B\u0441\u044F \u0434\u0435\u043D\u044C \u0432 \u043A\u0430\u0444\u0435." }
+  // src/client/examples.ts
+  var loading3 = null;
+  function loadExamples() {
+    loading3 ?? (loading3 = fetch("/examples.json").then((r2) => r2.ok ? r2.json() : {}).then((o) => new Map(Object.entries(o))).catch(() => {
+      loading3 = null;
+      return /* @__PURE__ */ new Map();
+    }));
+    return loading3;
+  }
+  function furigana(text) {
+    const out = [];
+    for (const bit of text.split(/(\[[^\]|]+\|[^\]]+\])/)) {
+      const m = /^\[([^\]|]+)\|([^\]]+)\]$/.exec(bit);
+      if (!m) {
+        if (bit) out.push(bit);
+        continue;
+      }
+      const r2 = document.createElement("ruby");
+      const rt = document.createElement("rt");
+      rt.textContent = m[2];
+      r2.append(m[1], rt);
+      out.push(r2);
     }
-  ];
-  var STORY_GLOSS = {
-    // Kyoto
-    "\u4EAC\u90FD|\u304D\u3087\u3046\u3068": ["\u4EAC\u90FD", "Kyoto", "\u041A\u0438\u043E\u0442\u043E"],
-    "\u65C5|\u305F\u3073": ["\u65C5", "journey, trip", "\u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435"],
-    "\u99C5|\u3048\u304D": ["\u99C5", "station", "\u0441\u0442\u0430\u043D\u0446\u0438\u044F, \u0432\u043E\u043A\u0437\u0430\u043B"],
-    "\u5207\u7B26|\u304D\u3063\u3077": ["\u5207\u7B26", "ticket", "\u0431\u0438\u043B\u0435\u0442"],
-    "\u88CF|\u3046\u3089": ["\u88CF", "back, reverse side", "\u043E\u0431\u0440\u0430\u0442\u043D\u0430\u044F \u0441\u0442\u043E\u0440\u043E\u043D\u0430"],
-    "\u65B0\u5E79\u7DDA|\u3057\u3093\u304B\u3093\u305B\u3093": ["\u65B0\u5E79\u7DDA", "bullet train", "\u0441\u0438\u043D\u043A\u0430\u043D\u0441\u044D\u043D"],
-    "\u96A3|\u3068\u306A\u308A": ["\u96A3", "next to, neighbour", "\u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439"],
-    "\u4EBA|\u3072\u3068": ["\u4EBA", "person", "\u0447\u0435\u043B\u043E\u0432\u0435\u043A"],
-    "\u6559|\u304A\u3057": ["\u6559\u3048\u308B", "to teach, to tell", "\u0443\u0447\u0438\u0442\u044C, \u043E\u0431\u044A\u044F\u0441\u043D\u044F\u0442\u044C"],
-    "\u770B\u677F|\u304B\u3093\u3070\u3093": ["\u770B\u677F", "sign, signboard", "\u0432\u044B\u0432\u0435\u0441\u043A\u0430"],
-    "\u5927|\u304A\u304A": ["\u5927\u304D\u3044", "big", "\u0431\u043E\u043B\u044C\u0448\u043E\u0439"],
-    "\u5BFA|\u3066\u3089": ["\u5BFA", "temple", "\u0445\u0440\u0430\u043C"],
-    "\u574A|\u307C\u3046": ["\u304A\u574A\u3055\u3093", "monk", "\u043C\u043E\u043D\u0430\u0445"],
-    "\u8A71|\u306F\u306A": ["\u8A71\u3059", "to talk, to speak", "\u0433\u043E\u0432\u043E\u0440\u0438\u0442\u044C"],
-    "\u9053|\u307F\u3061": ["\u9053", "road, way", "\u0434\u043E\u0440\u043E\u0433\u0430"],
-    "\u8FF7|\u307E\u3088": ["\u8FF7\u3046", "to get lost", "\u0437\u0430\u0431\u043B\u0443\u0434\u0438\u0442\u044C\u0441\u044F"],
-    "\u5730\u56F3|\u3061\u305A": ["\u5730\u56F3", "map", "\u043A\u0430\u0440\u0442\u0430"],
-    "\u63A2|\u3055\u304C": ["\u63A2\u3059", "to look for", "\u0438\u0441\u043A\u0430\u0442\u044C"],
-    "\u65C5\u9928|\u308A\u3087\u304B\u3093": ["\u65C5\u9928", "Japanese inn", "\u044F\u043F\u043E\u043D\u0441\u043A\u0430\u044F \u0433\u043E\u0441\u0442\u0438\u043D\u0438\u0446\u0430"],
-    "\u5973\u5C06|\u304A\u304B\u307F": ["\u5973\u5C06", "landlady (of an inn)", "\u0445\u043E\u0437\u044F\u0439\u043A\u0430"],
-    "\u8336|\u3061\u3083": ["\u304A\u8336", "tea", "\u0447\u0430\u0439"],
-    "\u5DDD|\u304B\u308F": ["\u5DDD", "river", "\u0440\u0435\u043A\u0430"],
-    "\u9001|\u304A\u304F": ["\u9001\u308B", "to send", "\u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u0442\u044C"],
-    "\u571F\u7523|\u307F\u3084\u3052": ["\u304A\u571F\u7523", "souvenir", "\u0441\u0443\u0432\u0435\u043D\u0438\u0440"],
-    "\u5C4B|\u3084": ["\u301C\u5C4B", "shop", "\u043B\u0430\u0432\u043A\u0430"],
-    "\u5B88|\u307E\u3082": ["\u304A\u5B88\u308A", "lucky charm", "\u0430\u043C\u0443\u043B\u0435\u0442"],
-    "\u8CB7|\u304B": ["\u8CB7\u3046", "to buy", "\u043F\u043E\u043A\u0443\u043F\u0430\u0442\u044C"],
-    "\u5199\u771F|\u3057\u3083\u3057\u3093": ["\u5199\u771F", "photo", "\u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u044F"],
-    "\u898B|\u307F": ["\u898B\u308B", "to see, to look", "\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C"],
-    "\u5199|\u3046\u3064": ["\u5199\u308B", "to be in (a photo)", "\u043F\u043E\u043F\u0430\u0441\u0442\u044C \u0432 \u043A\u0430\u0434\u0440"],
-    "\u5E30|\u304B\u3048": ["\u5E30\u308B", "to go home, to return", "\u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0442\u044C\u0441\u044F"],
-    "\u96FB\u8ECA|\u3067\u3093\u3057\u3083": ["\u96FB\u8ECA", "train", "\u043F\u043E\u0435\u0437\u0434"],
-    "\u65E5\u8A18|\u306B\u3063\u304D": ["\u65E5\u8A18", "diary", "\u0434\u043D\u0435\u0432\u043D\u0438\u043A"],
-    "\u697D|\u305F\u306E": ["\u697D\u3057\u3044", "fun", "\u0432\u0435\u0441\u0451\u043B\u044B\u0439"],
-    "\u65E5\u672C\u8A9E|\u306B\u307B\u3093\u3054": ["\u65E5\u672C\u8A9E", "Japanese (language)", "\u044F\u043F\u043E\u043D\u0441\u043A\u0438\u0439 \u044F\u0437\u044B\u043A"],
-    "\u4E0A\u624B|\u3058\u3087\u3046\u305A": ["\u4E0A\u624B", "good at, skilful", "\u0443\u043C\u0435\u043B\u044B\u0439"],
-    // detective
-    "\u6D88|\u304D": ["\u6D88\u3048\u308B", "to vanish", "\u0438\u0441\u0447\u0435\u0437\u0430\u0442\u044C"],
-    "\u624B\u7D19|\u3066\u304C\u307F": ["\u624B\u7D19", "letter", "\u043F\u0438\u0441\u044C\u043C\u043E"],
-    "\u8B0E|\u306A\u305E": ["\u8B0E", "mystery, riddle", "\u0437\u0430\u0433\u0430\u0434\u043A\u0430"],
-    "\u63A2\u5075|\u305F\u3093\u3066\u3044": ["\u63A2\u5075", "detective", "\u0441\u044B\u0449\u0438\u043A"],
-    "\u4E0A|\u3046\u3048": ["\u4E0A", "on, above", "\u043D\u0430, \u043D\u0430\u0434"],
-    "\u7D19|\u304B\u307F": ["\u7D19", "paper", "\u0431\u0443\u043C\u0430\u0433\u0430"],
-    "\u72AF\u4EBA|\u306F\u3093\u306B\u3093": ["\u72AF\u4EBA", "culprit", "\u043F\u0440\u0435\u0441\u0442\u0443\u043F\u043D\u0438\u043A"],
-    "\u96FB\u8A71|\u3067\u3093\u308F": ["\u96FB\u8A71", "telephone", "\u0442\u0435\u043B\u0435\u0444\u043E\u043D"],
-    "\u5C0F|\u3061\u3044": ["\u5C0F\u3055\u3044", "small", "\u043C\u0430\u043B\u0435\u043D\u044C\u043A\u0438\u0439"],
-    "\u8B66\u5BDF|\u3051\u3044\u3055\u3064": ["\u8B66\u5BDF", "police", "\u043F\u043E\u043B\u0438\u0446\u0438\u044F"],
-    "\u866B\u773C\u93E1|\u3080\u3057\u3081\u304C\u306D": ["\u866B\u773C\u93E1", "magnifying glass", "\u043B\u0443\u043F\u0430"],
-    "\u58C1|\u304B\u3079": ["\u58C1", "wall", "\u0441\u0442\u0435\u043D\u0430"],
-    "\u6587\u5B57|\u3082\u3058": ["\u6587\u5B57", "letter, character", "\u0431\u0443\u043A\u0432\u0430, \u0438\u0435\u0440\u043E\u0433\u043B\u0438\u0444"],
-    "\u8ABF|\u3057\u3089": ["\u8ABF\u3079\u308B", "to examine, to look into", "\u0438\u0441\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u0442\u044C"],
-    "\u6642\u8A08|\u3068\u3051\u3044": ["\u6642\u8A08", "clock, watch", "\u0447\u0430\u0441\u044B"],
-    "\u52A9\u624B|\u3058\u3087\u3057\u3085": ["\u52A9\u624B", "assistant", "\u043F\u043E\u043C\u043E\u0449\u043D\u0438\u043A"],
-    "\u6697\u53F7|\u3042\u3093\u3054\u3046": ["\u6697\u53F7", "code, cipher", "\u0448\u0438\u0444\u0440"],
-    "\u6C17|\u304D": ["\u6C17\u3065\u304F", "to notice, to realise", "\u0437\u0430\u043C\u0435\u0442\u0438\u0442\u044C, \u0434\u043E\u0433\u0430\u0434\u0430\u0442\u044C\u0441\u044F"],
-    "\u65B0\u805E|\u3057\u3093\u3076\u3093": ["\u65B0\u805E", "newspaper", "\u0433\u0430\u0437\u0435\u0442\u0430"],
-    "\u8A18\u4E8B|\u304D\u3058": ["\u8A18\u4E8B", "article", "\u0441\u0442\u0430\u0442\u044C\u044F"],
-    "\u96E8|\u3042\u3081": ["\u96E8", "rain", "\u0434\u043E\u0436\u0434\u044C"],
-    "\u805E|\u304D": ["\u805E\u304F", "to hear, to ask", "\u0441\u043B\u044B\u0448\u0430\u0442\u044C, \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0442\u044C"],
-    "\u9854|\u304B\u304A": ["\u9854", "face", "\u043B\u0438\u0446\u043E"],
-    "\u9752|\u3042\u304A": ["\u9752\u3044", "blue; pale", "\u0441\u0438\u043D\u0438\u0439; \u0431\u043B\u0435\u0434\u043D\u044B\u0439"],
-    "\u6700\u5F8C|\u3055\u3044\u3054": ["\u6700\u5F8C", "last, at last", "\u043D\u0430\u043A\u043E\u043D\u0435\u0446"],
-    "\u7BB1|\u306F\u3053": ["\u7BB1", "box", "\u043A\u043E\u0440\u043E\u0431\u043A\u0430"],
-    "\u89E3|\u3068": ["\u89E3\u3051\u308B", "to be solved", "\u0440\u0430\u0437\u0433\u0430\u0434\u044B\u0432\u0430\u0442\u044C\u0441\u044F"],
-    // sea
-    "\u5B9D\u5CF6|\u305F\u304B\u3089\u3058\u307E": ["\u5B9D\u5CF6", "treasure island", "\u043E\u0441\u0442\u0440\u043E\u0432 \u0441\u043E\u043A\u0440\u043E\u0432\u0438\u0449"],
-    "\u822A\u6D77|\u3053\u3046\u304B\u3044": ["\u822A\u6D77", "voyage", "\u043F\u043B\u0430\u0432\u0430\u043D\u0438\u0435"],
-    "\u8239\u9577|\u305B\u3093\u3061\u3087\u3046": ["\u8239\u9577", "captain", "\u043A\u0430\u043F\u0438\u0442\u0430\u043D"],
-    "\u5370|\u3057\u308B\u3057": ["\u5370", "mark, sign", "\u043E\u0442\u043C\u0435\u0442\u043A\u0430"],
-    "\u6E2F|\u307F\u306A\u3068": ["\u6E2F", "harbour, port", "\u043F\u043E\u0440\u0442"],
-    "\u8001\u4EBA|\u308D\u3046\u3058\u3093": ["\u8001\u4EBA", "old man", "\u0441\u0442\u0430\u0440\u0438\u043A"],
-    "\u5317|\u304D\u305F": ["\u5317", "north", "\u0441\u0435\u0432\u0435\u0440"],
-    "\u6D77|\u3046\u307F": ["\u6D77", "sea", "\u043C\u043E\u0440\u0435"],
-    "\u6307|\u3086\u3073": ["\u6307\u3055\u3059", "to point at", "\u0443\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C"],
-    "\u5D50|\u3042\u3089\u3057": ["\u5D50", "storm", "\u0431\u0443\u0440\u044F"],
-    "\u8239|\u3075\u306D": ["\u8239", "ship", "\u043A\u043E\u0440\u0430\u0431\u043B\u044C"],
-    "\u4EF2\u9593|\u306A\u304B\u307E": ["\u4EF2\u9593", "friend, crewmate", "\u0442\u043E\u0432\u0430\u0440\u0438\u0449"],
-    "\u53EB|\u3055\u3051": ["\u53EB\u3076", "to shout", "\u043A\u0440\u0438\u0447\u0430\u0442\u044C"],
-    "\u904B|\u306F\u3053": ["\u904B\u3076", "to carry", "\u043D\u0435\u0441\u0442\u0438"],
-    "\u74F6|\u3073\u3093": ["\u74F6", "bottle", "\u0431\u0443\u0442\u044B\u043B\u043A\u0430"],
-    "\u661F|\u307B\u3057": ["\u661F", "star", "\u0437\u0432\u0435\u0437\u0434\u0430"],
-    "\u8003|\u304B\u3093\u304C": ["\u8003\u3048\u308B", "to think", "\u0434\u0443\u043C\u0430\u0442\u044C"],
-    "\u5CF6|\u3057\u307E": ["\u5CF6", "island", "\u043E\u0441\u0442\u0440\u043E\u0432"],
-    "\u5165|\u3044": ["\u5165\u308A\u53E3", "entrance", "\u0432\u0445\u043E\u0434"],
-    "\u53E3|\u3050\u3061": ["\u301C\u53E3", "opening, entrance", "\u0432\u0445\u043E\u0434"],
-    "\u5CA9|\u3044\u308F": ["\u5CA9", "rock", "\u0441\u043A\u0430\u043B\u0430"],
-    "\u5F6B|\u307B": ["\u5F6B\u308B", "to carve", "\u0432\u044B\u0441\u0435\u043A\u0430\u0442\u044C"],
-    "\u6D1E\u7A9F|\u3069\u3046\u304F\u3064": ["\u6D1E\u7A9F", "cave", "\u043F\u0435\u0449\u0435\u0440\u0430"],
-    "\u6249|\u3068\u3073\u3089": ["\u6249", "door", "\u0434\u0432\u0435\u0440\u044C"],
-    "\u958B|\u3072\u3089": ["\u958B\u304F", "to open", "\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C\u0441\u044F"],
-    "\u7F60|\u308F\u306A": ["\u7F60", "trap", "\u043B\u043E\u0432\u0443\u0448\u043A\u0430"],
-    "\u5B9D\u7BB1|\u305F\u304B\u3089\u3070\u3053": ["\u5B9D\u7BB1", "treasure chest", "\u0441\u0443\u043D\u0434\u0443\u043A \u0441 \u0441\u043E\u043A\u0440\u043E\u0432\u0438\u0449\u0430\u043C\u0438"],
-    "\u91D1\u8272|\u304D\u3093\u3044\u308D": ["\u91D1\u8272", "golden", "\u0437\u043E\u043B\u043E\u0442\u043E\u0439"],
-    "\u6B4C|\u3046\u305F": ["\u6B4C", "song (\u6B4C\u3092\u6B4C\u3046 = sing a song)", "\u043F\u0435\u0441\u043D\u044F (\u6B4C\u3092\u6B4C\u3046 \u2014 \u043F\u0435\u0442\u044C \u043F\u0435\u0441\u043D\u044E)"],
-    "\u5B9D\u7269|\u305F\u304B\u3089\u3082\u306E": ["\u5B9D\u7269", "treasure", "\u0441\u043E\u043A\u0440\u043E\u0432\u0438\u0449\u0435"],
-    "\u6301|\u3082": ["\u6301\u3064", "to hold, to carry", "\u0434\u0435\u0440\u0436\u0430\u0442\u044C, \u043D\u0435\u0441\u0442\u0438"],
-    // space
-    "\u6708|\u3064\u304D": ["\u6708", "the Moon", "\u041B\u0443\u043D\u0430"],
-    "\u5B87\u5B99\u98DB\u884C\u58EB|\u3046\u3061\u3085\u3046\u3072\u3053\u3046\u3057": ["\u5B87\u5B99\u98DB\u884C\u58EB", "astronaut", "\u043A\u043E\u0441\u043C\u043E\u043D\u0430\u0432\u0442"],
-    "\u51FA\u767A|\u3057\u3085\u3063\u3071\u3064": ["\u51FA\u767A", "departure", "\u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435"],
-    "\u753B\u9762|\u304C\u3081\u3093": ["\u753B\u9762", "screen", "\u044D\u043A\u0440\u0430\u043D"],
-    "\u5730\u7403|\u3061\u304D\u3085\u3046": ["\u5730\u7403", "the Earth", "\u0417\u0435\u043C\u043B\u044F"],
-    "\u57FA\u5730|\u304D\u3061": ["\u57FA\u5730", "base", "\u0431\u0430\u0437\u0430"],
-    "\u901A\u4FE1|\u3064\u3046\u3057\u3093": ["\u901A\u4FE1", "message, transmission", "\u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435, \u0441\u0432\u044F\u0437\u044C"],
-    "\u6765|\u304D": ["\u6765\u308B", "to come", "\u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442\u044C"],
-    "\u7121\u7DDA|\u3080\u305B\u3093": ["\u7121\u7DDA", "radio", "\u0440\u0430\u0434\u0438\u043E\u0441\u0432\u044F\u0437\u044C"],
-    "\u77F3|\u3044\u3057": ["\u77F3", "stone, rock", "\u043A\u0430\u043C\u0435\u043D\u044C"],
-    "\u540D\u524D|\u306A\u307E\u3048": ["\u540D\u524D", "name", "\u0438\u043C\u044F"],
-    "\u7A93|\u307E\u3069": ["\u7A93", "window", "\u043E\u043A\u043D\u043E"],
-    "\u5916|\u305D\u3068": ["\u5916", "outside", "\u0441\u043D\u0430\u0440\u0443\u0436\u0438"],
-    "\u65D7|\u306F\u305F": ["\u65D7", "flag", "\u0444\u043B\u0430\u0433"],
-    "\u7740|\u3064": ["\u7740\u304F", "to arrive", "\u043F\u0440\u0438\u0431\u044B\u0432\u0430\u0442\u044C"],
-    "\u5B50|\u3053": ["\u5B50\u3069\u3082", "child", "\u0440\u0435\u0431\u0451\u043D\u043E\u043A"],
-    "\u5F85|\u307E": ["\u5F85\u3064", "to wait", "\u0436\u0434\u0430\u0442\u044C"],
-    "\u9577|\u306A\u304C": ["\u9577\u3044", "long", "\u0434\u043E\u043B\u0433\u0438\u0439"],
-    "\u7D42|\u304A": ["\u7D42\u308F\u308B", "to end", "\u0437\u0430\u043A\u0430\u043D\u0447\u0438\u0432\u0430\u0442\u044C\u0441\u044F"],
-    // café
-    "\u55AB\u8336\u5E97|\u304D\u3063\u3055\u3066\u3093": ["\u55AB\u8336\u5E97", "caf\xE9, coffee shop", "\u043A\u0430\u0444\u0435"],
-    "\u5E97\u9577|\u3066\u3093\u3061\u3087\u3046": ["\u5E97\u9577", "shop owner, manager", "\u0445\u043E\u0437\u044F\u0438\u043D \u0437\u0430\u0432\u0435\u0434\u0435\u043D\u0438\u044F"],
-    "\u9ED2\u677F|\u3053\u304F\u3070\u3093": ["\u9ED2\u677F", "blackboard", "\u0434\u043E\u0441\u043A\u0430"],
-    "\u6700\u521D|\u3055\u3044\u3057\u3087": ["\u6700\u521D", "first", "\u043F\u0435\u0440\u0432\u044B\u0439"],
-    "\u5BA2|\u304D\u3083\u304F": ["\u304A\u5BA2\u3055\u3093", "customer, guest", "\u043F\u043E\u0441\u0435\u0442\u0438\u0442\u0435\u043B\u044C"],
-    "\u6CE8\u6587|\u3061\u3085\u3046\u3082\u3093": ["\u6CE8\u6587\u3059\u308B", "to order", "\u0437\u0430\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C"],
-    "\u732B|\u306D\u3053": ["\u732B", "cat", "\u043A\u043E\u0448\u043A\u0430"],
-    "\u5BDD|\u306D": ["\u5BDD\u308B", "to sleep", "\u0441\u043F\u0430\u0442\u044C"],
-    "\u5E38\u9023|\u3058\u3087\u3046\u308C\u3093": ["\u5E38\u9023", "regular (customer)", "\u0437\u0430\u0432\u0441\u0435\u0433\u0434\u0430\u0442\u0430\u0439"],
-    "\u65B0|\u3042\u305F\u3089": ["\u65B0\u3057\u3044", "new", "\u043D\u043E\u0432\u044B\u0439"],
-    "\u5B57|\u3058": ["\u5B57", "letter, character", "\u0431\u0443\u043A\u0432\u0430, \u0438\u0435\u0440\u043E\u0433\u043B\u0438\u0444"],
-    "\u63CF|\u304B": ["\u63CF\u304F", "to draw, to paint", "\u0440\u0438\u0441\u043E\u0432\u0430\u0442\u044C"],
-    "\u5E97|\u307F\u305B": ["\u5E97", "shop", "\u043C\u0430\u0433\u0430\u0437\u0438\u043D, \u0437\u0430\u0432\u0435\u0434\u0435\u043D\u0438\u0435"],
-    "\u5909|\u304B": ["\u5909\u308F\u308B", "to change", "\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F"],
-    "\u7D75|\u3048": ["\u7D75", "picture, drawing", "\u0440\u0438\u0441\u0443\u043D\u043E\u043A"],
-    "\u8AAC\u660E|\u305B\u3064\u3081\u3044": ["\u8AAC\u660E\u3059\u308B", "to explain", "\u043E\u0431\u044A\u044F\u0441\u043D\u044F\u0442\u044C"],
-    "\u5915\u65B9|\u3086\u3046\u304C\u305F": ["\u5915\u65B9", "evening", "\u0432\u0435\u0447\u0435\u0440"],
-    "\u6D41|\u306A\u304C": ["\u6D41\u308C\u308B", "to play (music), to flow", "\u0437\u0432\u0443\u0447\u0430\u0442\u044C, \u0442\u0435\u0447\u044C"],
-    "\u5916\u56FD|\u304C\u3044\u3053\u304F": ["\u5916\u56FD", "foreign country", "\u0437\u0430\u0433\u0440\u0430\u043D\u0438\u0446\u0430"],
-    "\u9589\u5E97|\u3078\u3044\u3066\u3093": ["\u9589\u5E97", "closing time", "\u0437\u0430\u043A\u0440\u044B\u0442\u0438\u0435"],
-    "\u5F8C|\u3042\u3068": ["\u5F8C", "after", "\u043F\u043E\u0441\u043B\u0435"],
-    "\u9759|\u3057\u305A": ["\u9759\u304B", "quiet", "\u0442\u0438\u0445\u0438\u0439"],
-    // names and katakana words
-    "\u30E6\u30AD": ["\u30E6\u30AD", "Yuki (a name)", "\u042E\u043A\u0438 (\u0438\u043C\u044F)"],
-    "\u30DF\u30CA": ["\u30DF\u30CA", "Mina (a name)", "\u041C\u0438\u043D\u0430 (\u0438\u043C\u044F)"],
-    "\u30BF\u30ED\u30A6": ["\u30BF\u30ED\u30A6", "Taro (a name)", "\u0422\u0430\u0440\u043E (\u0438\u043C\u044F)"],
-    "\u30EA\u30AF": ["\u30EA\u30AF", "Riku (a name)", "\u0420\u0438\u043A\u0443 (\u0438\u043C\u044F)"],
-    "\u30A2\u30AA\u30A4": ["\u30A2\u30AA\u30A4", "Aoi (a name)", "\u0410\u043E\u0439 (\u0438\u043C\u044F)"],
-    "\u30BD\u30E9": ["\u30BD\u30E9", "Sora (a name)", "\u0421\u043E\u0440\u0430 (\u0438\u043C\u044F)"],
-    "\u30D4\u30B3": ["\u30D4\u30B3", "Piko (a name)", "\u041F\u0438\u043A\u043E (\u0438\u043C\u044F)"],
-    "\u30E1\u30A4": ["\u30E1\u30A4", "Mei (a name)", "\u041C\u044D\u0439 (\u0438\u043C\u044F)"],
-    "\u30E2\u30C1": ["\u30E2\u30C1", "Mochi (a name)", "\u041C\u043E\u0442\u0438 (\u0438\u043C\u044F)"],
-    "\u30AB\u30E2\u30E1": ["\u30AB\u30E2\u30E1", "seagull", "\u0447\u0430\u0439\u043A\u0430"],
-    "\u30ED\u30B1\u30C3\u30C8": ["\u30ED\u30B1\u30C3\u30C8", "rocket", "\u0440\u0430\u043A\u0435\u0442\u0430"],
-    "\u30ED\u30DC\u30C3\u30C8": ["\u30ED\u30DC\u30C3\u30C8", "robot", "\u0440\u043E\u0431\u043E\u0442"],
-    "\u30E1\u30E2": ["\u30E1\u30E2", "note, memo", "\u0437\u0430\u043F\u0438\u0441\u043A\u0430"],
-    "\u30E1\u30C3\u30BB\u30FC\u30B8": ["\u30E1\u30C3\u30BB\u30FC\u30B8", "message", "\u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435"],
-    "\u30B1\u30FC\u30AD": ["\u30B1\u30FC\u30AD", "cake", "\u0442\u043E\u0440\u0442"],
-    "\u30AB\u30C3\u30D7": ["\u30AB\u30C3\u30D7", "cup", "\u0447\u0430\u0448\u043A\u0430"],
-    "\u30E9\u30B8\u30AA": ["\u30E9\u30B8\u30AA", "radio", "\u0440\u0430\u0434\u0438\u043E"],
-    "\u3064\u3076\u3084\u3044\u305F": ["\u3064\u3076\u3084\u304F", "to murmur", "\u0448\u0435\u043F\u0442\u0430\u0442\u044C"],
-    "\u3060\u308C\u304B": ["\u3060\u308C\u304B", "someone", "\u043A\u0442\u043E-\u0442\u043E"]
+    return out;
+  }
+  async function exampleFor(vocabId) {
+    const ex = (await loadExamples()).get(vocabId);
+    if (!ex) return null;
+    const box = document.createElement("div");
+    box.className = "fc-example";
+    const ja = document.createElement("p");
+    ja.className = "fc-ex-ja";
+    ja.lang = "ja";
+    for (const part of ex[0].split(/(【[^】]+】)/)) {
+      if (!part) continue;
+      if (part.startsWith("\u3010")) {
+        const m = document.createElement("mark");
+        m.append(...furigana(part.slice(1, -1)));
+        ja.append(m);
+      } else ja.append(...furigana(part));
+    }
+    const tr2 = document.createElement("p");
+    tr2.className = "fc-ex-tr";
+    tr2.setAttribute("data-no-i18n", "");
+    tr2.textContent = lang() === "ru" && ex[2] ? ex[2] : ex[1];
+    box.append(ja, tr2);
+    return box;
+  }
+
+  // src/client/kanjihelp.ts
+  var loading4 = null;
+  function loadKanji() {
+    loading4 ?? (loading4 = fetch("/kanji.json").then((r2) => r2.ok ? r2.json() : {}).catch(() => {
+      loading4 = null;
+      return {};
+    }));
+    return loading4;
+  }
+  var HAN = /[\p{Script=Han}]/u;
+  var tappable = (ch) => HAN.test(ch) && ch !== "\u3005";
+  var COLOURS = ["#e8590c", "#1c7ed6", "#2b8a3e", "#ae3ec9", "#e67700", "#0c8599"];
+  var h2 = (tag, cls = "", text, attrs = {}) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = text;
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
   };
+  function kanjiTappable(root) {
+    void loadKanji();
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const texts = [];
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (n.parentElement?.closest("rt, .kj")) continue;
+      if (HAN.test(n.nodeValue ?? "")) texts.push(n);
+    }
+    for (const t of texts) {
+      const frag = document.createDocumentFragment();
+      for (const ch of [...t.nodeValue ?? ""]) {
+        if (!tappable(ch)) {
+          frag.append(ch);
+          continue;
+        }
+        const s = h2("span", "kj", ch, { role: "button", tabindex: "0", lang: "ja", title: tr("Tap for this kanji") });
+        const open3 = (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          void showKanji(ch, s);
+        };
+        s.addEventListener("click", open3);
+        s.addEventListener("pointerdown", (e) => e.stopPropagation());
+        s.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") open3(e);
+        });
+        frag.append(s);
+      }
+      t.replaceWith(frag);
+    }
+  }
+  var kun = (s) => s.split("\u3001").map((r2) => r2.replace(/^-/, "\u301C").replace(/-$/, "\u301C").replace(/\.(.+)$/, "($1)")).join("\u3001");
+  function pop() {
+    let p = document.getElementById("kanjiPop");
+    if (p) return p;
+    p = h2("div", "kanji-pop", void 0, { id: "kanjiPop", role: "dialog", "aria-label": "Kanji" });
+    p.hidden = true;
+    document.body.append(p);
+    document.addEventListener("pointerdown", (e) => {
+      const q = document.getElementById("kanjiPop");
+      if (q && !q.hidden && !e.target.closest("#kanjiPop, .kj")) hideKanji();
+    });
+    addEventListener("keydown", (e) => {
+      if (e.key === "Escape") hideKanji();
+    }, true);
+    return p;
+  }
+  function hideKanji() {
+    const p = document.getElementById("kanjiPop");
+    if (p) p.hidden = true;
+    document.querySelectorAll(".kj.on").forEach((x) => x.classList.remove("on"));
+  }
+  async function showKanji(ch, at) {
+    const info = (await loadKanji())[ch];
+    const p = pop();
+    const ru = lang() === "ru";
+    document.querySelectorAll(".kj.on").forEach((x) => x.classList.remove("on"));
+    at?.classList.add("on");
+    const close = h2("button", "kp-x", "\u2715", { type: "button", "aria-label": tr("Close"), title: tr("Close") });
+    close.onclick = hideKanji;
+    const head = h2("div", "kp-head");
+    head.append(h2("span", "kp-char", ch, { lang: "ja" }));
+    const meta = h2("div", "kp-meta");
+    if (!info) {
+      meta.append(h2("span", "kp-mean", tr("No details for this kanji yet")));
+      head.append(meta);
+      p.replaceChildren(close, head);
+      p.hidden = false;
+      return;
+    }
+    const [en, rus, on, kn, parts, sen, sru, seq] = info;
+    meta.append(h2("span", "kp-mean", ru && rus ? rus : en, { "data-no-i18n": "" }));
+    const rd = h2("div", "kp-reads");
+    if (on) {
+      const r2 = h2("span", "kp-r");
+      r2.append(h2("b", "", ru ? "\u043E\u043D" : "on", { "data-no-i18n": "" }), h2("span", "", on, { lang: "ja" }));
+      rd.append(r2);
+    }
+    if (kn) {
+      const r2 = h2("span", "kp-r");
+      r2.append(h2("b", "", ru ? "\u043A\u0443\u043D" : "kun", { "data-no-i18n": "" }), h2("span", "", kun(kn), { lang: "ja" }));
+      rd.append(r2);
+    }
+    meta.append(rd);
+    head.append(meta);
+    const kids = [close, head];
+    if (parts.length) {
+      const row = h2("div", "kp-parts");
+      row.append(h2("span", "kp-lbl", tr("Parts")));
+      parts.forEach(([c, pen, pru], i) => {
+        const chip2 = h2("button", "kp-part", void 0, { type: "button", style: `--pc:${COLOURS[i % COLOURS.length]}` });
+        if (c) chip2.append(h2("span", "kp-pc", c, { lang: "ja" }));
+        chip2.append(h2("span", "kp-pm", ru && pru ? pru : pen, { "data-no-i18n": "" }));
+        chip2.onclick = () => {
+          if (c && HAN.test(c)) void showKanji(c);
+        };
+        if (i) row.append(h2("span", "kp-plus", "+"));
+        row.append(chip2);
+      });
+      kids.push(row);
+    }
+    const story = ru && sru ? sru : sen;
+    if (story) {
+      const btn = h2("button", "pill kp-pic", `\u{1F5BC} ${tr("Memory picture")}`, { type: "button", "aria-expanded": "false" });
+      const box = h2("div", "kp-story");
+      box.hidden = true;
+      btn.onclick = async () => {
+        box.hidden = !box.hidden;
+        btn.setAttribute("aria-expanded", String(!box.hidden));
+        if (box.hidden || box.childElementCount) return;
+        const pic = h2("div", "kp-picture");
+        const text = h2("p", "kp-tale", story, { "data-no-i18n": "" });
+        box.append(pic, text);
+        const strokes2 = await strokesOf(ch);
+        if (strokes2 && seq && seq.length === strokes2.length) pic.append(partsPicture(strokes2, seq, COLOURS));
+        else pic.append(h2("span", "kp-big", ch, { lang: "ja" }));
+      };
+      head.append(btn);
+      kids.push(box);
+    }
+    p.replaceChildren(...kids);
+    p.hidden = false;
+  }
 
   // src/client/decks.ts
   var $3 = $;
@@ -6122,7 +6272,7 @@ ${stack}`.slice(0, 2e3);
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
     return e;
   };
-  var DECK_LABEL = { all: "All spells", struggling: "Struggling spells", custom: "Custom spells" };
+  var DECK_LABEL = { all: "All spells", struggling: "Struggling spells", custom: "Custom spells", ono: "Onomatopoeia" };
   var STATE_LABEL = { new: "new", learning: "learning", relearning: "learning", review: "learned" };
   var onChanged = () => {
   };
@@ -6193,9 +6343,9 @@ ${stack}`.slice(0, 2e3);
   }
   function render() {
     const f2 = $3("deckFilter").value.trim().toLowerCase();
-    const shown2 = sortRows(rows).filter((r2) => !f2 || r2.kanji.includes(f2) || r2.reading.includes(f2) || r2.meaning.toLowerCase().includes(f2) || meaningIn(r2.meaning).toLowerCase().includes(f2));
+    const shown3 = sortRows(rows).filter((r2) => !f2 || r2.kanji.includes(f2) || r2.reading.includes(f2) || r2.meaning.toLowerCase().includes(f2) || meaningIn(r2.meaning).toLowerCase().includes(f2));
     $3("deckCount").textContent = `${rows.length} ${rows.length === 1 ? "spell" : "spells"}`;
-    $3("deckRows").replaceChildren(...shown2.slice(0, 400).map((r2) => {
+    $3("deckRows").replaceChildren(...shown3.slice(0, 400).map((r2) => {
       const box = el2("input", "", void 0, { type: "checkbox", "aria-label": `Select ${r2.kanji}` });
       box.checked = selected.has(r2.vocabId);
       box.onchange = () => {
@@ -6397,32 +6547,54 @@ ${stack}`.slice(0, 2e3);
       }
       sel.disabled = false;
     };
-    const story2 = el2("button", "pill", "Read them in a story");
-    story2.onclick = () => {
+    const story = el2("button", "pill", "Read them in a story");
+    story.onclick = () => {
       storyFrom = "missed";
       openPassage(missed.map((m) => ({ kanji: m.kanji, reading: m.reading, meaning: m.meaning, id: m.id })));
     };
-    box.replaceChildren(el2("span", "hint", "Ticked words go to"), sel, status, story2);
+    box.replaceChildren(el2("span", "hint", "Ticked words go to"), sel, status, story);
     say2();
     box.hidden = false;
   }
   var ASK = {
     reading: ["\uFF3F\uFF3F\u306E\u3053\u3068\u3070\u306E\u8AAD\u307F\u65B9\u3068\u3057\u3066\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the best reading for the word."],
     meaning: ["\u3053\u306E\u3053\u3068\u3070\u306E\u610F\u5473\u3068\u3057\u3066\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the best meaning for the word."],
-    kanji: ["\uFF3F\uFF3F\u306E\u3053\u3068\u3070\u3092\u6F22\u5B57\u3067\u66F8\u304F\u3068\u304D\u3001\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the right kanji for the word."]
+    kanji: ["\uFF3F\uFF3F\u306E\u3053\u3068\u3070\u3092\u6F22\u5B57\u3067\u66F8\u304F\u3068\u304D\u3001\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the right kanji for the word."],
+    onomean: ["\u3053\u306E\u30AA\u30CE\u30DE\u30C8\u30DA\u306E\u610F\u5473\u3068\u3057\u3066\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the best meaning for the onomatopoeia."],
+    onoword: ["\u3053\u306E\u610F\u5473\u306E\u30AA\u30CE\u30DE\u30C8\u30DA\u3068\u3057\u3066\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Which onomatopoeia has this meaning?"],
+    onotype: ["\u3053\u306E\u30AA\u30CE\u30DE\u30C8\u30DA\u306F\u3069\u306E\u7A2E\u985E\u3067\u3059\u304B\u3002", "Which kind of onomatopoeia is it \u2014 a sound, a state or a feeling?"],
+    onoctx: ["\uFF3F\uFF3F\uFF3F\u306B\u5165\u308C\u308B\u306E\u306B\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the word that fits the sentence."]
   };
   var quiz = [];
   var qi = 0;
   var score = 0;
   var answered = false;
   var wrong = [];
-  async function startQuiz() {
+  var mode2 = "jlpt";
+  var quizMode = () => mode2;
+  async function onoQuestions(n) {
+    const [{ VOCAB: VOCAB2, VOCAB_BY_ID: VOCAB_BY_ID2, loadVocab: loadVocab2 }, examples] = await Promise.all([Promise.resolve().then(() => (init_vocab2(), vocab_exports)), loadExamples()]);
+    await loadVocab2();
+    let studied = [];
+    try {
+      studied = (await api.deckWords("ono")).words.filter((w) => w.state !== "new").map((w) => w.vocabId);
+    } catch {
+    }
+    const mix2 = (a) => a.sort(() => Math.random() - 0.5);
+    const mine = mix2(studied.map((id) => VOCAB_BY_ID2.get(id)).filter((v) => !!v && v.level === "ONO"));
+    const rest = mix2(VOCAB2.filter((v) => v.level === "ONO" && !studied.includes(v.id)));
+    const words2 = [...mine, ...rest].slice(0, n);
+    const ja = new Map([...examples].map(([id, ex]) => [id, ex[0]]));
+    return buildOnoQuiz(mix2(words2), VOCAB2, Math.random, ja);
+  }
+  async function startQuiz(which = "jlpt") {
+    mode2 = which;
     show("quiz");
     $3("quizDone").hidden = true;
     $3("quizCard").hidden = false;
     $3("quizPrompt").textContent = "\u2026";
     try {
-      quiz = (await api.quiz(10)).questions;
+      quiz = which === "ono" ? await onoQuestions(10) : (await api.quiz(10)).questions;
     } catch (e) {
       toast(e.message);
       quiz = [];
@@ -6439,6 +6611,12 @@ ${stack}`.slice(0, 2e3);
     wrong.length = 0;
     question();
   }
+  function shown(q, text, isPrompt = false) {
+    if (isPrompt ? q.kind === "onoword" : q.kind === "meaning" || q.kind === "onomean") return [document.createTextNode(meaningIn(text))];
+    if (isPrompt && q.kind === "onoctx") return furigana(text).map((x) => typeof x === "string" ? document.createTextNode(x) : x);
+    return [document.createTextNode(text)];
+  }
+  var isJa = (q, prompt) => prompt ? q.kind !== "onoword" : !["meaning", "onomean", "onotype"].includes(q.kind);
   function question() {
     const q = quiz[qi];
     answered = false;
@@ -6446,8 +6624,12 @@ ${stack}`.slice(0, 2e3);
     $3("quizScore").textContent = `${score} correct`;
     const [ja, en] = ASK[q.kind];
     $3("quizAsk").replaceChildren(el2("span", "ja", ja, { lang: "ja" }), el2("small", "", en));
-    $3("quizPrompt").textContent = q.prompt;
-    $3("quizPrompt").classList.toggle("underline", q.kind !== "meaning");
+    const prompt = $3("quizPrompt");
+    prompt.replaceChildren(...shown(q, q.prompt, true));
+    prompt.lang = isJa(q, true) ? "ja" : "en";
+    prompt.toggleAttribute("data-no-i18n", !isJa(q, true));
+    prompt.classList.toggle("underline", q.kind === "reading" || q.kind === "kanji");
+    prompt.classList.toggle("long", q.kind === "onoctx" || q.kind === "onoword");
     $3("quizSub").textContent = q.sub ? meaningIn(q.sub) : "";
     $3("quizFeedback").textContent = "";
     $3("quizFeedback").className = "quiz-feedback";
@@ -6455,7 +6637,9 @@ ${stack}`.slice(0, 2e3);
     $3("quizNext").hidden = true;
     $3("quizChoices").replaceChildren(...q.choices.map((c, i) => {
       const b = el2("button", "quiz-choice", void 0, { type: "button" });
-      b.append(el2("span", "n", String(i + 1)), el2("span", "t", q.kind === "meaning" ? meaningIn(c) : c, q.kind === "meaning" ? {} : { lang: "ja" }));
+      const t = el2("span", "t", void 0, isJa(q, false) ? { lang: "ja" } : q.kind === "onotype" ? {} : { "data-no-i18n": "" });
+      t.append(...shown(q, c));
+      b.append(el2("span", "n", String(i + 1)), t);
       b.onclick = () => choose(i);
       return b;
     }));
@@ -6473,7 +6657,8 @@ ${stack}`.slice(0, 2e3);
       b.classList.toggle("right", j === q.answer);
       b.classList.toggle("wrong", j === i && !ok);
     });
-    $3("quizFeedback").textContent = ok ? "\u2713 Correct!" : `\u2717 The answer is ${q.kind === "meaning" ? meaningIn(q.choices[q.answer]) : q.choices[q.answer]}`;
+    const right = q.choices[q.answer];
+    $3("quizFeedback").textContent = ok ? "\u2713 Correct!" : `\u2717 The answer is ${q.kind === "meaning" || q.kind === "onomean" ? meaningIn(right) : right}`;
     $3("quizFeedback").className = `quiz-feedback ${ok ? "ok" : "no"}`;
     if (q.word) $3("quizWord").replaceChildren(el2("b", "", q.word.kanji, { lang: "ja" }), el2("span", "rd", q.word.reading, { lang: "ja" }), el2("span", "m", meaningIn(q.word.meaning)));
     $3("quizWord").hidden = !q.word;
@@ -6488,16 +6673,18 @@ ${stack}`.slice(0, 2e3);
     $3("quizCard").hidden = true;
     $3("quizDone").hidden = false;
     $3("quizResult").textContent = `${score} / ${quiz.length} correct${score === quiz.length ? " \u2014 perfect!" : ""}`;
-    void api.task("quiz", score, quiz.length).then((p) => onTaskDone.cb(p)).catch(() => {
-    });
-    if (!taskPassed("quiz", score, quiz.length)) toast("For the daily task, get 7 out of 10 or better \u2014 try another quiz!", 5e3);
+    if (mode2 === "jlpt") {
+      void api.task("quiz", score, quiz.length).then((p) => onTaskDone.cb(p)).catch(() => {
+      });
+      if (!taskPassed("quiz", score, quiz.length)) toast("For the daily task, get 7 out of 10 or better \u2014 try another quiz!", 5e3);
+    }
     const box = $3("quizMissed");
     if (!wrong.length) {
       box.replaceChildren();
       return;
     }
     const sel = el2("select", "ms-deck");
-    for (const d of ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
+    for (const d of mode2 === "ono" ? ["ono", "struggling", "custom"] : ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
     const save4 = el2("button", "pill", "Add the ones I missed");
     const msg = el2("span", "hint");
     save4.onclick = async () => {
@@ -6513,14 +6700,15 @@ ${stack}`.slice(0, 2e3);
     const head = el2("div", "ms-head");
     head.append(el2("span", "", `You missed ${wrong.length}:`), sel, save4, msg);
     const list = el2("div", "ms-words");
-    list.append(...wrong.map((q) => el2("span", "ms-word on", q.kind === "kanji" ? q.choices[q.answer] : q.prompt, { lang: "ja" })));
+    list.append(...wrong.map((q) => el2("span", "ms-word on", q.word?.kanji ?? (q.kind === "kanji" ? q.choices[q.answer] : q.prompt), { lang: "ja" })));
     box.replaceChildren(head, list);
   }
   $3("quizNext").onclick = nextQuestion;
-  $3("quizAgain").onclick = () => void startQuiz();
+  $3("quizAgain").onclick = () => void startQuiz(mode2);
   $3("quizBack").onclick = () => backToStudy();
   $3("quizDoneBack").onclick = () => backToStudy();
-  $3("quizBtn").onclick = () => void startQuiz();
+  $3("quizBtn").onclick = () => void startQuiz("jlpt");
+  $3("onoQuizBtn").onclick = () => void startQuiz("ono");
   addEventListener("keydown", (e) => {
     if ($3("quiz").hidden || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
     const n = ["1", "2", "3", "4"].indexOf(e.key);
@@ -6532,158 +6720,87 @@ ${stack}`.slice(0, 2e3);
       nextQuestion();
     }
   });
-  var story = STORIES[0];
-  var OPEN = story.open;
-  var CLOSE = story.close;
-  function nextStory() {
-    let last3 = "";
-    try {
-      last3 = localStorage.getItem("kb:story") ?? "";
-    } catch {
-    }
-    const choices = STORIES.filter((x) => x.id !== last3);
-    story = choices[Math.floor(Math.random() * choices.length)];
-    try {
-      localStorage.setItem("kb:story", story.id);
-    } catch {
-    }
-    OPEN = story.open;
-    CLOSE = story.close;
-  }
   var passageWords = [];
-  var GLOSS = {
-    "\u9B54\u6CD5|\u307E\u307B\u3046": ["\u9B54\u6CD5", "magic", "\u043C\u0430\u0433\u0438\u044F"],
-    "\u5B66\u6821|\u304C\u3063\u3053\u3046": ["\u5B66\u6821", "school", "\u0448\u043A\u043E\u043B\u0430"],
-    "\u4E00\u65E5|\u3044\u3061\u306B\u3061": ["\u4E00\u65E5", "one day; a day", "\u043E\u0434\u0438\u043D \u0434\u0435\u043D\u044C"],
-    "\u898B\u7FD2|\u307F\u306A\u3089": ["\u898B\u7FD2\u3044", "apprentice", "\u0443\u0447\u0435\u043D\u0438\u043A, \u043F\u043E\u0434\u043C\u0430\u0441\u0442\u0435\u0440\u044C\u0435"],
-    "\u9B54\u6CD5\u4F7F|\u307E\u307B\u3046\u3064\u304B": ["\u9B54\u6CD5\u4F7F\u3044", "wizard, witch", "\u0432\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u043A"],
-    "\u671D|\u3042\u3055": ["\u671D", "morning", "\u0443\u0442\u0440\u043E"],
-    "\u546A\u6587|\u3058\u3085\u3082\u3093": ["\u546A\u6587", "spell, incantation", "\u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435"],
-    "\u7DF4\u7FD2|\u308C\u3093\u3057\u3085\u3046": ["\u7DF4\u7FD2\u3059\u308B", "to practise", "\u0442\u0440\u0435\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C\u0441\u044F"],
-    "\u5E2B\u5320|\u3057\u3057\u3087\u3046": ["\u5E2B\u5320", "master, teacher", "\u0443\u0447\u0438\u0442\u0435\u043B\u044C, \u043C\u0430\u0441\u0442\u0435\u0440"],
-    "\u66F8|\u304B": ["\u66F8\u304F", "to write", "\u043F\u0438\u0441\u0430\u0442\u044C"],
-    "\u53E4|\u3075\u308B": ["\u53E4\u3044", "old", "\u0441\u0442\u0430\u0440\u044B\u0439"],
-    "\u5DFB\u7269|\u307E\u304D\u3082\u306E": ["\u5DFB\u7269", "scroll", "\u0441\u0432\u0438\u0442\u043E\u043A"],
-    "\u673A|\u3064\u304F\u3048": ["\u673A", "desk", "\u0441\u0442\u043E\u043B"],
-    "\u7F6E|\u304A": ["\u7F6E\u304F", "to put, to place", "\u043A\u043B\u0430\u0441\u0442\u044C"],
-    "\u8AAD|\u3088": ["\u8AAD\u3080", "to read (\u8AAD\u307F\u65B9 = how to read)", "\u0447\u0438\u0442\u0430\u0442\u044C (\u8AAD\u307F\u65B9 \u2014 \u0447\u0442\u0435\u043D\u0438\u0435)"],
-    "\u65B9|\u304B\u305F": ["\u301C\u65B9", "way of \u2026ing", "\u0441\u043F\u043E\u0441\u043E\u0431"],
-    "\u4E09\u56DE|\u3055\u3093\u304B\u3044": ["\u4E09\u56DE", "three times", "\u0442\u0440\u0438 \u0440\u0430\u0437\u0430"],
-    "\u58F0|\u3053\u3048": ["\u58F0", "voice", "\u0433\u043E\u043B\u043E\u0441"],
-    "\u51FA|\u3060": ["\u51FA\u3059", "to put out (\u58F0\u306B\u51FA\u3059 = say aloud; \u601D\u3044\u51FA\u3059 = recall)", "\u0432\u044B\u043F\u0443\u0441\u043A\u0430\u0442\u044C (\u58F0\u306B\u51FA\u3059 \u2014 \u0432\u0441\u043B\u0443\u0445; \u601D\u3044\u51FA\u3059 \u2014 \u0432\u0441\u043F\u043E\u043C\u043D\u0438\u0442\u044C)"],
-    "\u8A00|\u3044": ["\u8A00\u3046", "to say", "\u0433\u043E\u0432\u043E\u0440\u0438\u0442\u044C"],
-    "\u53CB\u9054|\u3068\u3082\u3060\u3061": ["\u53CB\u9054", "friend", "\u0434\u0440\u0443\u0433"],
-    "\u8A00\u8449|\u3053\u3068\u3070": ["\u8A00\u8449", "word", "\u0441\u043B\u043E\u0432\u043E"],
-    "\u899A|\u304A\u307C": ["\u899A\u3048\u308B", "to learn, to remember", "\u0437\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u0442\u044C"],
-    "\u56F3\u66F8\u9928|\u3068\u3057\u3087\u304B\u3093": ["\u56F3\u66F8\u9928", "library", "\u0431\u0438\u0431\u043B\u0438\u043E\u0442\u0435\u043A\u0430"],
-    "\u672C|\u307B\u3093": ["\u672C", "book", "\u043A\u043D\u0438\u0433\u0430"],
-    "\u8A71|\u306F\u306A\u3057": ["\u8A71", "story, talk", "\u0440\u0430\u0441\u0441\u043A\u0430\u0437"],
-    "\u610F\u5473|\u3044\u307F": ["\u610F\u5473", "meaning", "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"],
-    "\u601D|\u304A\u3082": ["\u601D\u3046", "to think (\u601D\u3044\u51FA\u3059 = recall)", "\u0434\u0443\u043C\u0430\u0442\u044C (\u601D\u3044\u51FA\u3059 \u2014 \u0432\u0441\u043F\u043E\u043C\u043D\u0438\u0442\u044C)"],
-    "\u6756|\u3064\u3048": ["\u6756", "staff, wand", "\u043F\u043E\u0441\u043E\u0445"],
-    "\u5B9D\u77F3|\u307B\u3046\u305B\u304D": ["\u5B9D\u77F3", "gem, jewel", "\u0434\u0440\u0430\u0433\u043E\u0446\u0435\u043D\u043D\u044B\u0439 \u043A\u0430\u043C\u0435\u043D\u044C"],
-    "\u660E|\u3042\u304B": ["\u660E\u308B\u3044", "bright", "\u044F\u0440\u043A\u0438\u0439"],
-    "\u5149|\u3072\u304B": ["\u5149\u308B", "to shine", "\u0441\u0432\u0435\u0442\u0438\u0442\u044C\u0441\u044F"],
-    "\u6226|\u305F\u305F\u304B": ["\u6226\u3044", "battle, fight", "\u0431\u0438\u0442\u0432\u0430"],
-    "\u4E2D|\u306A\u304B": ["\u4E2D", "inside; in the middle of", "\u0432\u043D\u0443\u0442\u0440\u0438, \u0432 \u0445\u043E\u0434\u0435"],
-    "\u9A5A|\u304A\u3069\u308D": ["\u9A5A\u304F", "to be startled", "\u043F\u0443\u0433\u0430\u0442\u044C\u0441\u044F, \u0443\u0434\u0438\u0432\u043B\u044F\u0442\u044C\u0441\u044F"],
-    "\u5F8C|\u3046\u3057": ["\u5F8C\u308D", "behind, back", "\u043D\u0430\u0437\u0430\u0434"],
-    "\u4E0B|\u3055": ["\u4E0B\u304C\u308B", "to step back", "\u043E\u0442\u0441\u0442\u0443\u043F\u0430\u0442\u044C"],
-    "\u9593\u9055|\u307E\u3061\u304C": ["\u9593\u9055\u3048\u308B", "to get wrong, to make a mistake", "\u043E\u0448\u0438\u0431\u0430\u0442\u044C\u0441\u044F"],
-    "\u7B54|\u3053\u305F": ["\u7B54\u3048\u308B", "to answer", "\u043E\u0442\u0432\u0435\u0447\u0430\u0442\u044C"],
-    "\u591C|\u3088\u308B": ["\u591C", "night", "\u043D\u043E\u0447\u044C"],
-    "\u4F55\u5EA6|\u306A\u3093\u3069": ["\u4F55\u5EA6\u3082", "again and again", "\u043C\u043D\u043E\u0433\u043E \u0440\u0430\u0437"],
-    "\u7B11|\u308F\u3089": ["\u7B11\u3046", "to smile, to laugh", "\u0443\u043B\u044B\u0431\u0430\u0442\u044C\u0441\u044F, \u0441\u043C\u0435\u044F\u0442\u044C\u0441\u044F"],
-    "\u5927\u4E08\u592B|\u3060\u3044\u3058\u3087\u3046\u3076": ["\u5927\u4E08\u592B", "all right, fine", "\u0432 \u043F\u043E\u0440\u044F\u0434\u043A\u0435"],
-    "\u6B21|\u3064\u304E": ["\u6B21", "next", "\u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439"],
-    "\u65E5|\u3072": ["\u65E5", "day", "\u0434\u0435\u043D\u044C"],
-    "\u4F7F|\u3064\u304B": ["\u4F7F\u3046", "to use", "\u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C"],
-    "\u95C7|\u3084\u307F": ["\u95C7", "darkness", "\u0442\u044C\u043C\u0430"],
-    "\u9B54\u7269|\u307E\u3082\u306E": ["\u9B54\u7269", "monster, demon", "\u0447\u0443\u0434\u043E\u0432\u0438\u0449\u0435"],
-    "\u5012|\u305F\u304A": ["\u5012\u3059", "to defeat", "\u043F\u043E\u0431\u0435\u0434\u0438\u0442\u044C, \u0441\u0432\u0430\u043B\u0438\u0442\u044C"],
-    "\u524D|\u307E\u3048": ["\u524D", "in front of", "\u043F\u0435\u0440\u0435\u0434"],
-    "\u5531|\u3068\u306A": ["\u5531\u3048\u308B", "to chant", "\u043F\u0440\u043E\u0438\u0437\u043D\u043E\u0441\u0438\u0442\u044C (\u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435)"],
-    "\u7A7A|\u305D\u3089": ["\u7A7A", "sky", "\u043D\u0435\u0431\u043E"],
-    "\u8679|\u306B\u3058": ["\u8679", "rainbow", "\u0440\u0430\u0434\u0443\u0433\u0430"],
-    "\u51FA|\u3067": ["\u51FA\u308B", "to appear, to come out", "\u043F\u043E\u044F\u0432\u043B\u044F\u0442\u044C\u0441\u044F"],
-    "\u5C11|\u3059\u3053": ["\u5C11\u3057", "a little", "\u043D\u0435\u043C\u043D\u043E\u0433\u043E"],
-    "\u5F37|\u3064\u3088": ["\u5F37\u3044", "strong", "\u0441\u0438\u043B\u044C\u043D\u044B\u0439"],
-    "\u30CF\u30EB": ["\u30CF\u30EB", "Haru (a name)", "\u0425\u0430\u0440\u0443 (\u0438\u043C\u044F)"],
-    "\u30B1\u30F3": ["\u30B1\u30F3", "Ken (a name)", "\u041A\u0435\u043D (\u0438\u043C\u044F)"],
-    "\u30C9\u30E9\u30B4\u30F3": ["\u30C9\u30E9\u30B4\u30F3", "dragon", "\u0434\u0440\u0430\u043A\u043E\u043D"],
-    "\u30CE\u30FC\u30C8": ["\u30CE\u30FC\u30C8", "notebook", "\u0442\u0435\u0442\u0440\u0430\u0434\u044C"],
-    "\u307F\u3093\u306A": ["\u307F\u3093\u306A", "everyone", "\u0432\u0441\u0435"],
-    "\u3086\u3063\u304F\u308A": ["\u3086\u3063\u304F\u308A", "slowly", "\u043C\u0435\u0434\u043B\u0435\u043D\u043D\u043E"],
-    "\u305F\u304F\u3055\u3093": ["\u305F\u304F\u3055\u3093", "many, a lot", "\u043C\u043D\u043E\u0433\u043E"],
-    "\u307E\u3060": ["\u307E\u3060", "still, (not) yet", "\u0435\u0449\u0451"],
-    "\u3082\u3046": ["\u3082\u3046", "already, now", "\u0443\u0436\u0435"],
-    "\u3053\u3046\u3057\u3066": ["\u3053\u3046\u3057\u3066", "and so, like this", "\u0442\u0430\u043A, \u0442\u0430\u043A\u0438\u043C \u043E\u0431\u0440\u0430\u0437\u043E\u043C"],
-    "\u3068\u3044\u3046": ["\u3068\u3044\u3046", "called \u2026, named \u2026", "\u043F\u043E\u0434 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\u043C"]
-  };
-  Object.assign(GLOSS, STORY_GLOSS);
-  var KANA_WORDS = Object.keys(GLOSS).filter((k) => !k.includes("|")).sort((a, b) => b.length - a.length);
   var blanks = [];
   var picked = 0;
   var checked = false;
-  function jaLine(line, w) {
-    const p = el2("span", "p-line");
-    const parts = line.ja.split(/(\[[^\]|]+\|[^\]]+\]|\{w\})/);
-    for (const part of parts) {
-      if (!part) continue;
-      const ruby = /^\[([^\]|]+)\|([^\]]+)\]$/.exec(part);
-      if (ruby) {
-        const r2 = el2("ruby");
-        r2.append(ruby[1], el2("rt", "", ruby[2]));
-        const g = GLOSS[`${ruby[1]}|${ruby[2]}`];
-        if (g) {
-          const b = el2("button", "p-tok", void 0, { type: "button" });
-          b.append(r2);
-          b.onclick = () => glossStory(g, ruby[1], ruby[2], b);
-          p.append(b);
-        } else p.append(r2);
-        continue;
+  var lines = [];
+  function rubyBits(text, tap) {
+    const out = [];
+    const bits = text.split(/(\[[^\]|]+\|[^\]]+\])/);
+    bits.forEach((bit, k) => {
+      const m = /^\[([^\]|]+)\|([^\]]+)\]$/.exec(bit);
+      if (!m) {
+        if (bit) out.push(document.createTextNode(bit));
+        return;
       }
-      if (part === "{w}" && w) {
+      const r2 = el2("ruby");
+      r2.append(m[1], el2("rt", "", m[2]));
+      if (!tap) {
+        out.push(r2);
+        return;
+      }
+      const b = el2("button", "p-tok", void 0, { type: "button" });
+      b.append(r2);
+      const after = bits[k + 1] ?? "";
+      b.onclick = () => void glossWord(m[1], m[2], after, b);
+      out.push(b);
+    });
+    return out;
+  }
+  function jaLine(n) {
+    const { w, ex } = lines[n];
+    const p = el2("p", "p-line");
+    p.append(el2("span", "p-n", String(n + 1)));
+    for (const part of ex[0].split(/(【[^】]+】)/)) {
+      if (!part) continue;
+      if (part.startsWith("\u3010")) {
         const i = blanks.length;
         const b = el2("button", "p-blank", void 0, { type: "button", "data-i": String(i), title: "Tap, then pick a word below" });
         b.onclick = () => tapBlank(i);
-        blanks.push({ answer: w, put: null, el: b });
+        blanks.push({ answer: w, form: part.slice(1, -1), put: null, el: b });
         p.append(b);
-        continue;
-      }
-      let rest = part;
-      while (rest) {
-        let at = -1, word2 = "";
-        for (const k of KANA_WORDS) {
-          const x = rest.indexOf(k);
-          if (x >= 0 && (at < 0 || x < at)) {
-            at = x;
-            word2 = k;
-          }
-        }
-        if (at < 0) {
-          p.append(rest);
-          break;
-        }
-        if (at) p.append(rest.slice(0, at));
-        const g = GLOSS[word2], b = el2("button", "p-tok", word2, { type: "button" });
-        b.onclick = () => glossStory(g, word2, "", b);
-        p.append(b);
-        rest = rest.slice(at + word2.length);
-      }
+      } else p.append(...rubyBits(part, true));
     }
     return p;
   }
+  async function lookup(base, reading, after) {
+    const { VOCAB: VOCAB2, loadVocab: loadVocab2 } = await Promise.resolve().then(() => (init_vocab2(), vocab_exports));
+    try {
+      await loadVocab2();
+    } catch {
+      return null;
+    }
+    const exact = VOCAB2.find((v) => v.kanji === base && v.reading === reading);
+    if (exact) return { kanji: exact.kanji, reading: exact.reading, meaning: exact.meaning, id: exact.id };
+    const near = VOCAB2.filter((v) => v.kanji.startsWith(base) && v.reading.startsWith(reading) && v.kanji.length <= base.length + 3 && !/[一-鿿]/.test(v.kanji.slice(base.length)));
+    const best = near.find((v) => after.startsWith(v.kanji.slice(base.length))) ?? near.find((v) => v.kanji.length > base.length) ?? near[0];
+    return best ? { kanji: best.kanji, reading: best.reading, meaning: best.meaning, id: best.id } : null;
+  }
   function showGloss(at, ...kids) {
-    document.querySelectorAll(".passage-text .on").forEach((x) => x.classList.remove("on"));
-    at.classList.add("on");
+    document.querySelectorAll(".passage-text .on").forEach((x2) => x2.classList.remove("on"));
+    at?.classList.add("on");
     const g = $3("passageGloss");
-    g.replaceChildren(...kids);
+    const x = el2("button", "kp-x", "\u2715", { type: "button", "aria-label": "Close", title: "Close" });
+    x.onclick = hideGloss;
+    const body = el2("div", "pg-body");
+    body.append(...kids);
+    for (const b of body.querySelectorAll("b")) kanjiTappable(b);
+    g.replaceChildren(x, body);
     g.hidden = false;
   }
-  function glossStory(g, kanji, reading, at) {
-    const dict = g[0] !== kanji ? el2("span", "rd", `\u2192 ${g[0]}`, { lang: "ja" }) : el2("span");
-    showGloss(at, el2("b", "", kanji, { lang: "ja" }), el2("span", "rd", reading, { lang: "ja" }), dict, el2("span", "m", lang() === "ru" ? g[2] : g[1], { "data-no-i18n": "" }), addToDeck(g[0]));
+  function hideGloss() {
+    $3("passageGloss").hidden = true;
+    document.querySelectorAll(".passage-text .on").forEach((x) => x.classList.remove("on"));
+  }
+  async function glossWord(base, reading, after, at) {
+    const w = await lookup(base, reading, after);
+    if (!w) {
+      showGloss(at, el2("b", "", base, { lang: "ja" }), el2("span", "rd", reading, { lang: "ja" }), el2("span", "m hint", "Tap the kanji for its meaning"));
+      return;
+    }
+    const dict = w.kanji !== base ? el2("span", "rd", `\u2192 ${w.kanji}`, { lang: "ja" }) : el2("span");
+    showGloss(at, el2("b", "", base, { lang: "ja" }), el2("span", "rd", reading, { lang: "ja" }), dict, el2("span", "m", meaningIn(w.meaning)), addToDeck(w.kanji, w.id));
   }
   function addToDeck(word2, id) {
     const sel = el2("select", "p-add", void 0, { "aria-label": "Add to a deck" });
@@ -6718,16 +6835,12 @@ ${stack}`.slice(0, 2e3);
     if (checked) {
       const ok = b.put?.kanji === b.answer.kanji;
       b.el.classList.add(ok ? "right" : "wrong");
-      const r3 = el2("ruby");
-      r3.append(b.answer.kanji, el2("rt", "", b.answer.kanji === b.answer.reading ? "" : b.answer.reading));
-      b.el.append(r3);
+      b.el.append(...rubyBits(b.form, false));
       if (!ok && b.put) b.el.append(el2("s", "p-was", b.put.kanji));
       b.el.onclick = () => showGloss(b.el, el2("b", "", b.answer.kanji, { lang: "ja" }), el2("span", "rd", b.answer.reading, { lang: "ja" }), el2("span", "m", meaningIn(b.answer.meaning)));
       return;
     }
-    const r2 = el2("ruby");
-    r2.append(b.put ? b.put.kanji : "\uFF3F\uFF3F", el2("rt", "", b.answer.reading));
-    b.el.append(el2("span", "p-num", String(i + 1)), r2);
+    b.el.append(el2("span", "p-num", String(i + 1)), el2("span", "p-slot", b.put ? b.put.kanji : "\uFF3F\uFF3F", { lang: "ja" }));
   }
   function drawBank() {
     const used = new Set(blanks.filter((b) => b.put).map((b) => b.put.kanji));
@@ -6754,59 +6867,57 @@ ${stack}`.slice(0, 2e3);
     blanks.forEach((_, k) => drawBlank(k));
     drawBank();
   }
-  var lines = [];
-  var pick2 = [];
   function drawTranslation() {
     const ru = lang() === "ru";
-    const fill2 = (l, w) => (ru ? l.ru : l.en).replace("{w}", w ? checked ? `${w.kanji} \u2014 ${meaningIn(w.meaning)}` : `\u2026 (${meaningIn(w.meaning)})` : "");
-    $3("passageTr").replaceChildren(...[fill2(OPEN, null), ...lines.map((l, i) => fill2(l, pick2[i])), fill2(CLOSE, null)].map((t) => el2("p", "", t, { "data-no-i18n": "" })));
+    $3("passageTr").replaceChildren(...lines.map(({ ex }, i) => el2("p", "", `${i + 1}. ${ru && ex[2] ? ex[2] : ex[1]}`, { "data-no-i18n": "" })));
   }
   var passageHooks = {};
   var onTaskDone = { cb: (_p) => {
   } };
   function check() {
     checked = true;
+    hideGloss();
     blanks.forEach((_, k) => drawBlank(k));
     const right = blanks.filter((b) => b.put?.kanji === b.answer.kanji).length;
     drawTranslation();
-    const list = pick2.map((w) => {
+    const list = lines.map(({ w }) => {
       const row = el2("div", "pw");
       row.append(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)));
       return row;
     });
     const res2 = $3("passageResult");
-    res2.replaceChildren(el2("h4", "", "Words in this story"), ...list);
+    res2.replaceChildren(el2("h4", "", "Words in this passage"), ...list);
     res2.hidden = false;
-    const again = el2("button", "big", "New story", { type: "button" });
+    const again = el2("button", "big", "New passage", { type: "button" });
     again.onclick = buildPassage;
     $3("passageWords").replaceChildren(el2("div", "p-score", `${right} / ${blanks.length}`), el2("p", "hint center", right === blanks.length ? "Perfect \u2014 every word in its place!" : "Green: right. Red: the right word, with yours crossed out."), again);
     passageHooks.done?.(right, blanks.length);
     void api.task("passage", right, blanks.length).then((p) => onTaskDone.cb(p)).catch(() => {
     });
-    if (!taskPassed("passage", right, blanks.length)) toast("For the daily task, get half the blanks right (4 of 8) \u2014 try a new story!", 5e3);
+    if (!taskPassed("passage", right, blanks.length)) toast("For the daily task, get half the blanks right (4 of 8) \u2014 try a new passage!", 5e3);
   }
   function openPassage(words2) {
-    passageWords = words2.filter((w) => w.kanji).slice(0, 40);
-    $3("passageDialog").showModal();
-    buildPassage();
+    passageWords = words2.filter((w) => w.kanji).slice(0, 60);
+    show("passage");
+    void buildPassage();
   }
-  function buildPassage() {
+  async function buildPassage() {
     $3("passageResult").hidden = true;
     $3("passageResult").replaceChildren();
+    hideGloss();
+    const examples = await loadExamples();
     const seen2 = /* @__PURE__ */ new Set();
-    nextStory();
-    const LINES = story.lines;
-    pick2 = [...passageWords].sort(() => Math.random() - 0.5).filter((w) => !seen2.has(w.kanji) && !!seen2.add(w.kanji)).slice(0, Math.min(8, LINES.length));
-    lines = [...LINES.keys()].sort(() => Math.random() - 0.5).slice(0, pick2.length).sort((a, b) => a - b).map((i) => LINES[i]);
+    const pool = [...passageWords].sort(() => Math.random() - 0.5).filter((w) => !!w.id && examples.has(w.id) && !seen2.has(w.kanji) && !!seen2.add(w.kanji));
+    lines = pool.slice(0, 8).map((w) => ({ w, ex: examples.get(w.id) }));
     blanks = [];
     picked = 0;
     checked = false;
     const text = $3("passageText");
-    text.replaceChildren(jaLine(OPEN, null), ...lines.map((l, i) => jaLine(l, pick2[i])), jaLine(CLOSE, null));
+    text.replaceChildren(...lines.map((_, i) => jaLine(i)));
     blanks.forEach((_, k) => drawBlank(k));
     drawTranslation();
     const bank = el2("div", "p-bank");
-    for (const w of [...pick2].sort(() => Math.random() - 0.5)) {
+    for (const { w } of [...lines].sort(() => Math.random() - 0.5)) {
       const c = el2("button", "p-chip", w.kanji, { type: "button", lang: "ja", "data-k": w.kanji });
       c.onclick = () => putWord(w);
       bank.append(c);
@@ -6815,26 +6926,28 @@ ${stack}`.slice(0, 2e3);
     go.onclick = check;
     $3("passageWords").replaceChildren(el2("h4", "", "Your words \u2014 tap a blank, then a word"), bank, go);
     drawBank();
-    $3("passageGloss").hidden = true;
-    if (!pick2.length) {
-      text.replaceChildren(el2("p", "hint", "No words in this deck yet \u2014 pick another deck above, or study some spells first."));
+    if (!lines.length) {
+      text.replaceChildren(el2("p", "hint", "No words with example sentences in this deck yet \u2014 pick another deck above, or study some spells first."));
       $3("passageWords").replaceChildren();
     }
   }
-  $3("passageNew").onclick = buildPassage;
-  $3("passageClose").onclick = () => $3("passageDialog").close();
+  $3("passageNew").onclick = () => void buildPassage();
+  $3("passageBack").onclick = () => {
+    hideGloss();
+    backToStudy();
+  };
   var passageDeck = "struggling";
   async function passageFrom(deck2) {
     passageDeck = deck2;
     $3("passageDeck").value = deck2;
     try {
       let words2 = (await api.deckWords(deck2)).words;
-      if (deck2 === "struggling" && words2.length < 3) words2 = [...words2, ...(await api.deckWords("all")).words.filter((w) => w.state !== "new")];
-      const mapped = words2.sort(() => Math.random() - 0.5).slice(0, 40).map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.vocabId }));
-      if (!$3("passageDialog").open) openPassage(mapped);
+      if (words2.length < 8 && deck2 !== "all") words2 = [...words2, ...(await api.deckWords("all")).words.filter((w) => w.state !== "new").slice(0, 30)];
+      const mapped = words2.sort(() => Math.random() - 0.5).slice(0, 60).map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.vocabId }));
+      if ($3("passage").hidden) openPassage(mapped);
       else {
         passageWords = mapped;
-        buildPassage();
+        void buildPassage();
       }
     } catch (e) {
       toast(e.message);
@@ -6842,7 +6955,7 @@ ${stack}`.slice(0, 2e3);
   }
   {
     const sel = $3("passageDeck");
-    for (const d of ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
+    for (const d of ["struggling", "all", "custom", "ono"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
     sel.onchange = () => {
       storyFrom = `deck:${sel.value}`;
       void passageFrom(sel.value);
@@ -6850,8 +6963,8 @@ ${stack}`.slice(0, 2e3);
   }
   var storyFrom = "";
   $3("passageBtn").onclick = () => {
-    if (storyFrom === `deck:${passageDeck}` && pick2.length) {
-      $3("passageDialog").showModal();
+    if (storyFrom === `deck:${passageDeck}` && lines.length) {
+      show("passage");
       return;
     }
     storyFrom = `deck:${passageDeck}`;
@@ -7070,6 +7183,34 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.4.4",
+      date: "2026-10",
+      en: [
+        "Study spells: an \u21B6 Undo button (or Z) brings back the card you just answered \u2014 for a misclick or a wrong swipe.",
+        "Study spells: swiping is more sensitive \u2014 a short drag or a quick flick is enough.",
+        "Study spells: on a flipped card, tap any kanji (in the word or the example) for its meaning, on/kun readings and the parts it is built from. \u201C\u{1F5BC} Memory picture\u201D draws the kanji with each part in its own colour, plus a short story that links the parts to the meaning (\u4F11 = a person \u4EBB leaning on a tree \u6728 \u2192 rest). Every kanji in the game has one.",
+        "All spells: instead of ticks and one slider, each level has its own number \u2014 how many of its words are added a day (e.g. N5: 10, N3: 5).",
+        "New deck: Onomatopoeia \u2014 240+ giseigo, gitaigo and gij\u014Dgo (sounds, states and feelings), each marked with its kind, with an example sentence. 20 new cards a session.",
+        "New: the Onomatopoeia quiz (between the JLPT quiz and the reading passage) \u2014 meanings, words, kinds and \u201Cwhich word fits the sentence\u201D.",
+        "Reading passage: now a screen of its own (centred on phones) instead of a window. Each blank sits in a real sentence for the word \u2014 no furigana over the blank, the context is the clue. Tap a word for its meaning; the box has a proper \u2715.",
+        "Deck Duel: the 20 cards you draft from come from both players\u2019 All spells \u2014 2 of each level from each of you (a random word if someone has none of that level). The colours (difficulty) are unchanged.",
+        "Word lists: 9 words that were skipped because of notes like \u201C(\u3059\u308B)\u201D are back \u2014 \u7D50\u5A5A, \u6563\u6B69, \u6383\u9664, \u52C9\u5F37, \u7DF4\u7FD2, \u304A\u91D1\u6301\u3061, \u56DE\u308B, \u56DE\u3059, \u751F\u3051\u308B.",
+        "Credits: kanji data from KANJIDIC2 (EDRDG) via kanji-data, and the kanji parts from KanjiVG."
+      ],
+      ru: [
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u21B6 \u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C\xBB (\u0438\u043B\u0438 Z) \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u0443\u044E \u0432\u044B \u0442\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E \u043E\u0442\u0432\u0435\u0442\u0438\u043B\u0438, \u2014 \u0435\u0441\u043B\u0438 \u043F\u0440\u043E\u043C\u0430\u0445\u043D\u0443\u043B\u0438\u0441\u044C \u0438\u043B\u0438 \u0441\u0432\u0430\u0439\u043F\u043D\u0443\u043B\u0438 \u043D\u0435 \u0442\u0443\u0434\u0430.",
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u0441\u0432\u0430\u0439\u043F \u0441\u0442\u0430\u043B \u0447\u0443\u0432\u0441\u0442\u0432\u0438\u0442\u0435\u043B\u044C\u043D\u0435\u0435 \u2014 \u0445\u0432\u0430\u0442\u0430\u0435\u0442 \u043A\u043E\u0440\u043E\u0442\u043A\u043E\u0433\u043E \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u044F \u0438\u043B\u0438 \u0431\u044B\u0441\u0442\u0440\u043E\u0433\u043E \u0432\u0437\u043C\u0430\u0445\u0430.",
+        "\u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: \u043D\u0430 \u043F\u0435\u0440\u0435\u0432\u0451\u0440\u043D\u0443\u0442\u043E\u0439 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043B\u044E\u0431\u043E\u0439 \u043A\u0430\u043D\u0434\u0437\u0438 (\u0432 \u0441\u043B\u043E\u0432\u0435 \u0438\u043B\u0438 \u0432 \u043F\u0440\u0438\u043C\u0435\u0440\u0435) \u2014 \u0443\u0432\u0438\u0434\u0438\u0442\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435, \u0447\u0442\u0435\u043D\u0438\u044F \u043E\u043D/\u043A\u0443\u043D \u0438 \u0447\u0430\u0441\u0442\u0438, \u0438\u0437 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043E\u043D \u0441\u043E\u0441\u0442\u043E\u0438\u0442. \xAB\u{1F5BC} \u041A\u0430\u0440\u0442\u0438\u043D\u043A\u0430-\u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430\xBB \u0440\u0438\u0441\u0443\u0435\u0442 \u043A\u0430\u043D\u0434\u0437\u0438, \u0440\u0430\u0441\u043A\u0440\u0430\u0448\u0438\u0432\u0430\u044F \u043A\u0430\u0436\u0434\u0443\u044E \u0447\u0430\u0441\u0442\u044C \u0441\u0432\u043E\u0438\u043C \u0446\u0432\u0435\u0442\u043E\u043C, \u0438 \u0434\u0430\u0451\u0442 \u043A\u043E\u0440\u043E\u0442\u043A\u0443\u044E \u0438\u0441\u0442\u043E\u0440\u0438\u044E, \u0441\u0432\u044F\u0437\u044B\u0432\u0430\u044E\u0449\u0443\u044E \u0447\u0430\u0441\u0442\u0438 \u0441\u043E \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435\u043C (\u4F11 = \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u4EBB \u043F\u0440\u0438\u0441\u043B\u043E\u043D\u0438\u043B\u0441\u044F \u043A \u0434\u0435\u0440\u0435\u0432\u0443 \u6728 \u2192 \u043E\u0442\u0434\u044B\u0445). \u041E\u043D\u0430 \u0435\u0441\u0442\u044C \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u043A\u0430\u043D\u0434\u0437\u0438 \u0432 \u0438\u0433\u0440\u0435.",
+        "\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F: \u0432\u043C\u0435\u0441\u0442\u043E \u0433\u0430\u043B\u043E\u0447\u0435\u043A \u0438 \u043E\u0434\u043D\u043E\u0433\u043E \u043F\u043E\u043B\u0437\u0443\u043D\u043A\u0430 \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F \u0441\u0432\u043E\u0451 \u0447\u0438\u0441\u043B\u043E \u2014 \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0435\u0433\u043E \u0441\u043B\u043E\u0432 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0442\u044C \u0432 \u0434\u0435\u043D\u044C (\u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440, N5: 10, N3: 5).",
+        "\u041D\u043E\u0432\u0430\u044F \u043A\u043E\u043B\u043E\u0434\u0430: \u041E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u044F \u2014 \u0431\u043E\u043B\u044C\u0448\u0435 240 \u0433\u0438\u0441\u044D\u0439\u0433\u043E, \u0433\u0438\u0442\u0430\u0439\u0433\u043E \u0438 \u0433\u0438\u0434\u0437\u0451\u0433\u043E (\u0437\u0432\u0443\u043A\u0438, \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u0430), \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0443\u043A\u0430\u0437\u0430\u043D \u0432\u0438\u0434 \u0438 \u0435\u0441\u0442\u044C \u043F\u0440\u0438\u043C\u0435\u0440. \u041F\u043E 20 \u043D\u043E\u0432\u044B\u0445 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A \u0437\u0430 \u0437\u0430\u043D\u044F\u0442\u0438\u0435.",
+        "\u041D\u043E\u0432\u043E\u0435: \u0442\u0435\u0441\u0442 \u043F\u043E \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0435 (\u043C\u0435\u0436\u0434\u0443 \u0442\u0435\u0441\u0442\u043E\u043C JLPT \u0438 \u0442\u0435\u043A\u0441\u0442\u043E\u043C \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F) \u2014 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F, \u0441\u043B\u043E\u0432\u0430, \u0432\u0438\u0434\u044B \u0438 \xAB\u043A\u0430\u043A\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u043F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u043A \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044E\xBB.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u0442\u0435\u043F\u0435\u0440\u044C \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u044B\u0439 \u044D\u043A\u0440\u0430\u043D (\u043F\u043E \u0446\u0435\u043D\u0442\u0440\u0443 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430\u0445), \u0430 \u043D\u0435 \u043E\u043A\u043D\u043E. \u041A\u0430\u0436\u0434\u044B\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u043A \u0441\u0442\u043E\u0438\u0442 \u0432 \u043D\u0430\u0441\u0442\u043E\u044F\u0449\u0435\u043C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0438 \u0441 \u044D\u0442\u0438\u043C \u0441\u043B\u043E\u0432\u043E\u043C \u2014 \u0431\u0435\u0437 \u0444\u0443\u0440\u0438\u0433\u0430\u043D\u044B \u043D\u0430\u0434 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u043E\u043C, \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u2014 \u043A\u043E\u043D\u0442\u0435\u043A\u0441\u0442. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u0441\u043B\u043E\u0432\u043E, \u0447\u0442\u043E\u0431\u044B \u0443\u0437\u043D\u0430\u0442\u044C \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435; \u0443 \u043E\u043A\u043E\u0448\u043A\u0430 \u0435\u0441\u0442\u044C \u043D\u043E\u0440\u043C\u0430\u043B\u044C\u043D\u044B\u0439 \u2715.",
+        "\u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434: 20 \u043A\u0430\u0440\u0442 \u0434\u043B\u044F \u0434\u0440\u0430\u0444\u0442\u0430 \u0431\u0435\u0440\u0443\u0442\u0441\u044F \u0438\u0437 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB \u043E\u0431\u043E\u0438\u0445 \u0438\u0433\u0440\u043E\u043A\u043E\u0432 \u2014 \u043F\u043E 2 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F \u043E\u0442 \u043A\u0430\u0436\u0434\u043E\u0433\u043E (\u0441\u043B\u0443\u0447\u0430\u0439\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E, \u0435\u0441\u043B\u0438 \u0443 \u043A\u043E\u0433\u043E-\u0442\u043E \u043D\u0435\u0442 \u0441\u043B\u043E\u0432 \u044D\u0442\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F). \u0426\u0432\u0435\u0442\u0430 (\u0441\u043B\u043E\u0436\u043D\u043E\u0441\u0442\u044C) \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u0438\u0441\u044C.",
+        "\u0421\u043F\u0438\u0441\u043A\u0438 \u0441\u043B\u043E\u0432: \u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C 9 \u0441\u043B\u043E\u0432, \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043D\u044B\u0445 \u0438\u0437-\u0437\u0430 \u043F\u043E\u043C\u0435\u0442\u043E\u043A \u0432\u0440\u043E\u0434\u0435 \xAB(\u3059\u308B)\xBB, \u2014 \u7D50\u5A5A, \u6563\u6B69, \u6383\u9664, \u52C9\u5F37, \u7DF4\u7FD2, \u304A\u91D1\u6301\u3061, \u56DE\u308B, \u56DE\u3059, \u751F\u3051\u308B.",
+        "\u0411\u043B\u0430\u0433\u043E\u0434\u0430\u0440\u043D\u043E\u0441\u0442\u0438: \u0434\u0430\u043D\u043D\u044B\u0435 \u043E \u043A\u0430\u043D\u0434\u0437\u0438 \u2014 KANJIDIC2 (EDRDG) \u0447\u0435\u0440\u0435\u0437 kanji-data, \u0447\u0430\u0441\u0442\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 \u2014 KanjiVG."
+      ]
+    },
     {
       v: "0.9.9.4.3",
       date: "2026-10",
@@ -7620,8 +7761,8 @@ ${stack}`.slice(0, 2e3);
     i.inputMode = on ? "none" : "";
     if (on) preview2();
     requestAnimationFrame(() => {
-      const h3 = on ? $("gameKb").getBoundingClientRect().height : 0;
-      document.documentElement.style.setProperty("--kb-h", `${Math.round(h3 / uiScale())}px`);
+      const h4 = on ? $("gameKb").getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty("--kb-h", `${Math.round(h4 / uiScale())}px`);
       dispatchEvent(new Event("resize"));
     });
   }
@@ -8408,12 +8549,12 @@ ${stack}`.slice(0, 2e3);
     hint.textContent = `Click an earned badge to show it under your name (\u2605 = on your profile, up to ${BADGES_MAX2}).`;
     box.replaceChildren(head, ...onBadges && earned ? [hint] : [], grid);
   }
-  var shown = /* @__PURE__ */ new Set();
+  var shown2 = /* @__PURE__ */ new Set();
   var queue2 = [];
   var playing = false;
   function celebrate(id) {
-    if (shown.has(id) || !achById(id)) return;
-    shown.add(id);
+    if (shown2.has(id) || !achById(id)) return;
+    shown2.add(id);
     queue2.push(id);
     if (!playing) next();
   }
@@ -8440,9 +8581,9 @@ ${stack}`.slice(0, 2e3);
     k.textContent = "Achievement unlocked!";
     const n = document.createElement("b");
     n.textContent = a.name;
-    const h3 = document.createElement("span");
-    h3.textContent = a.how;
-    txt.append(k, n, h3);
+    const h4 = document.createElement("span");
+    h4.textContent = a.how;
+    txt.append(k, n, h4);
     box.append(rays2, badge, txt);
     box.hidden = false;
     box.classList.remove("go");
@@ -8459,7 +8600,7 @@ ${stack}`.slice(0, 2e3);
       seen2 = JSON.parse(localStorage.getItem(key) ?? "null");
     } catch {
     }
-    if (!Array.isArray(seen2)) ids.forEach((id) => shown.add(id));
+    if (!Array.isArray(seen2)) ids.forEach((id) => shown2.add(id));
     else for (const id of ids) if (!seen2.includes(id)) celebrate(id);
     try {
       localStorage.setItem(key, JSON.stringify(ids));
@@ -8651,7 +8792,7 @@ ${stack}`.slice(0, 2e3);
   var synth = typeof speechSynthesis !== "undefined" ? speechSynthesis : null;
   var voice = null;
   var male = false;
-  function pick3() {
+  function pick2() {
     if (!synth) return;
     const ja = synth.getVoices().filter((v) => v.lang.toLowerCase().startsWith("ja"));
     const m = ja.find((v) => MALE.test(v.name));
@@ -8659,8 +8800,8 @@ ${stack}`.slice(0, 2e3);
     male = !!m;
   }
   if (synth) {
-    pick3();
-    synth.addEventListener?.("voiceschanged", pick3);
+    pick2();
+    synth.addEventListener?.("voiceschanged", pick2);
   }
   var android = window.KWAndroid ?? null;
   var androidSay = (kana) => {
@@ -8683,7 +8824,7 @@ ${stack}`.slice(0, 2e3);
       return;
     }
     if (!synth || !prefs2.on || prefs2.vol <= 0 || document.visibilityState !== "visible") return;
-    if (!voice) pick3();
+    if (!voice) pick2();
     if (!voice && !synth.getVoices().length) return;
     const u = new SpeechSynthesisUtterance(kana);
     u.lang = "ja-JP";
@@ -8700,7 +8841,7 @@ ${stack}`.slice(0, 2e3);
       return new Promise((done2) => setTimeout(done2, Math.min(2600, 500 + [...kana].length * 220)));
     }
     if (!synth || !prefs2.on || prefs2.vol <= 0 || document.visibilityState !== "visible") return Promise.resolve();
-    if (!voice) pick3();
+    if (!voice) pick2();
     if (!voice && !synth.getVoices().length) return Promise.resolve();
     return new Promise((done2) => {
       const u = new SpeechSynthesisUtterance(kana);
@@ -8775,19 +8916,19 @@ ${stack}`.slice(0, 2e3);
   function setModeAccess(level2, admin, beginner = false) {
     access = { level: level2, admin, beginner };
     for (const card of document.querySelectorAll(".mode-card[data-mode]")) {
-      const mode3 = card.dataset.mode;
-      const locked = !canPlay(mode3);
+      const mode4 = card.dataset.mode;
+      const locked = !canPlay(mode4);
       card.classList.toggle("locked", locked);
-      card.dataset.lock = !locked ? "" : beginnerLocked(mode3) ? "Master hiragana first" : `Unlocks at level ${MODE_LEVEL[mode3]}`;
+      card.dataset.lock = !locked ? "" : beginnerLocked(mode4) ? "Master hiragana first" : `Unlocks at level ${MODE_LEVEL[mode4]}`;
     }
   }
   var beginnerLocked = (_mode) => false;
-  var canPlay = (mode3) => !beginnerLocked(mode3) && modeUnlocked(mode3, xpForLevel(access.level), access.admin);
-  var lockText = (mode3) => beginnerLocked(mode3) ? `Deck Duel is all kanji \u2014 tick "I've mastered hiragana" in Settings first.` : `${MODE_LABEL[mode3]} unlocks at level ${MODE_LEVEL[mode3]} \u2014 win a few games first. (A friend can still invite you.)`;
+  var canPlay = (mode4) => !beginnerLocked(mode4) && modeUnlocked(mode4, xpForLevel(access.level), access.admin);
+  var lockText = (mode4) => beginnerLocked(mode4) ? `Deck Duel is all kanji \u2014 tick "I've mastered hiragana" in Settings first.` : `${MODE_LABEL[mode4]} unlocks at level ${MODE_LEVEL[mode4]} \u2014 win a few games first. (A friend can still invite you.)`;
   var stage = "off";
   var hooks;
-  function initTutorial(h3) {
-    hooks = h3;
+  function initTutorial(h4) {
+    hooks = h4;
   }
   var inTutorialBattle = () => stage === "battle";
   var CARDS = [
@@ -8990,7 +9131,7 @@ ${stack}`.slice(0, 2e3);
   // src/client/deckui.ts
   var $8 = $;
   var COLOR_NAME = { lightblue: "Light blue", blue: "Blue", yellow: "Yellow", green: "Green", red: "Red" };
-  function h2(tag, cls = "", text) {
+  function h3(tag, cls = "", text) {
     const el11 = document.createElement(tag);
     if (cls) el11.className = cls;
     if (text !== void 0) el11.textContent = String(text);
@@ -9062,14 +9203,14 @@ ${stack}`.slice(0, 2e3);
     for (const m of msgs) {
       if (seenChat.has(m.id)) continue;
       seenChat.add(m.id);
-      const line = h2("div", "chat-line" + (m.from === hooks2.me() ? " mine" : ""));
-      line.append(h2("b", "", m.from === hooks2.me() ? "You" : m.name), h2("span", "", m.text));
+      const line = h3("div", "chat-line" + (m.from === hooks2.me() ? " mine" : ""));
+      line.append(h3("b", "", m.from === hooks2.me() ? "You" : m.name), h3("span", "", m.text));
       log.append(line);
       if (m.from !== hooks2.me() && view && view.phase !== "over") sfx.flip();
       const panel = log.closest(".dk-panel");
       if (m.from !== hooks2.me() && panel && !panel.classList.contains("open")) {
         const hd = panel.querySelector("h4");
-        if (hd && !hd.querySelector(".dk-unread")) hd.append(h2("span", "dk-unread"));
+        if (hd && !hd.querySelector(".dk-unread")) hd.append(h3("span", "dk-unread"));
       }
     }
     while (log.children.length > 60) log.firstElementChild.remove();
@@ -9082,29 +9223,29 @@ ${stack}`.slice(0, 2e3);
   var renderDeckGuide = (el11) => renderGuide(el11);
   function renderGuide(el11) {
     const sec = (title, ...kids) => {
-      const s = h2("section", "g-sec");
-      s.append(h2("h4", "", title), ...kids);
+      const s = h3("section", "g-sec");
+      s.append(h3("h4", "", title), ...kids);
       return s;
     };
-    const p = (t) => h2("p", "", t);
-    const heroes = h2("div", "g-heroes");
+    const p = (t) => h3("p", "", t);
+    const heroes = h3("div", "g-heroes");
     for (const c of DECK_CHARACTERS) {
-      const row = h2("div", "g-hero");
-      const av = h2("div", "g-av");
+      const row = h3("div", "g-hero");
+      const av = h3("div", "g-av");
       av.innerHTML = heroSvg(c, "me");
-      const txt = h2("div");
-      txt.append(h2("b", "", CHARACTER_INFO[c].name), h2("span", "", CHARACTER_INFO[c].power));
+      const txt = h3("div");
+      txt.append(h3("b", "", CHARACTER_INFO[c].name), h3("span", "", CHARACTER_INFO[c].power));
       row.append(av, txt);
       heroes.append(row);
     }
-    const cards = h2("div", "g-cards");
+    const cards = h3("div", "g-cards");
     for (const col of CARD_COLORS) {
       const spec = CARD_SPECS[col];
-      const fig = h2("div", "g-card");
-      fig.append(cardEl({ cardId: "", color: col }), h2("span", "", `${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heals ${spec.amount}` : `+${spec.amount} mana`} \xB7 ${spec.cost ? `${spec.cost} mana` : "free"}`));
+      const fig = h3("div", "g-card");
+      fig.append(cardEl({ cardId: "", color: col }), h3("span", "", `${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heals ${spec.amount}` : `+${spec.amount} mana`} \xB7 ${spec.cost ? `${spec.cost} mana` : "free"}`));
       cards.append(fig);
     }
-    const flow = h2("ol", "g-flow");
+    const flow = h3("ol", "g-flow");
     for (const [icon, t] of [
       ["\u{1F9B8}", "Pick a hero (30 s)."],
       ["\u{1FA99}", "Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji."],
@@ -9118,12 +9259,12 @@ ${stack}`.slice(0, 2e3);
       ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the cards and Omnipotence are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5\u2013N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 6e4} min, then the higher HP wins.`],
       ["\u231B", `Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`]
     ]) {
-      const li = h2("li");
-      li.append(h2("span", "g-ic", icon), h2("span", "", t));
+      const li = h3("li");
+      li.append(h3("span", "g-ic", icon), h3("span", "", t));
       flow.append(li);
     }
     el11.replaceChildren(
-      h2("h3", "", "How Deck Duel works"),
+      h3("h3", "", "How Deck Duel works"),
       sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (\u2212${DECK_RULES.skipPenaltyHp} HP).`)),
       sec("Cards", cards),
       sec("A turn", flow),
@@ -9134,19 +9275,19 @@ ${stack}`.slice(0, 2e3);
   function cardEl(c, opts = {}) {
     const base = CARD_SPECS[c.color];
     const spec = { ...base, cost: Math.ceil(base.cost * (opts.costFactor ?? 1)) };
-    const el11 = h2(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
+    const el11 = h3(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
     if (opts.button) el11.disabled = !!opts.disabled;
     el11.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
     if (opts.big) return el11;
-    el11.append(h2("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
+    el11.append(h3("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
     if (c.kanji) {
-      const k = h2("span", "dkc-k", c.kanji);
+      const k = h3("span", "dkc-k", c.kanji);
       k.lang = "ja";
-      const r2 = h2("span", "dkc-r", c.reading ?? "");
+      const r2 = h3("span", "dkc-r", c.reading ?? "");
       r2.lang = "ja";
       el11.append(k, r2);
     } else {
-      el11.append(h2("span", "dkc-lbl", spec.label), h2("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
+      el11.append(h3("span", "dkc-lbl", spec.label), h3("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
     }
     return el11;
   }
@@ -9155,30 +9296,30 @@ ${stack}`.slice(0, 2e3);
     paintFlame(el11, p.flame);
     el11.classList.toggle("powered", powered(p));
     arena()?.onfire(mine ? "me" : "opp", powered(p), flameColor(p.flame));
-    const av = h2("div", "dk-av");
+    const av = h3("div", "dk-av");
     av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp", p.staff) : "";
-    const name = h2("div", "dk-name");
-    const nm = h2("span", "", mine ? `${p.name} (you)` : p.name);
+    const name = h3("div", "dk-name");
+    const nm = h3("span", "", mine ? `${p.name} (you)` : p.name);
     if (!mine) markProfile(nm, { id: p.id, name: p.name, bot: /\(AI (N\d)\)$/.exec(p.name)?.[1] ?? null });
     name.append(picEl(p.pic), nm);
-    if (p.character) name.append(h2("span", "tag", CHARACTER_INFO[p.character].name));
-    if (p.abilityActive > 0 && p.character !== "wizard") name.append(h2("span", "tag", `${p.character === "goblin" ? "Frenzy" : CHARACTER_INFO[p.character].power.split(":")[0]} \xD7${p.abilityActive}`));
+    if (p.character) name.append(h3("span", "tag", CHARACTER_INFO[p.character].name));
+    if (p.abilityActive > 0 && p.character !== "wizard") name.append(h3("span", "tag", `${p.character === "goblin" ? "Frenzy" : CHARACTER_INFO[p.character].power.split(":")[0]} \xD7${p.abilityActive}`));
     name.append(netBars(p.id));
     const bar = (cls, value, max, text) => {
-      const b = h2("div", `dkbar ${cls}`);
-      const fill2 = h2("div", "fill");
+      const b = h3("div", `dkbar ${cls}`);
+      const fill2 = h3("div", "fill");
       fill2.style.width = `${Math.max(0, Math.min(1, value / max)) * 100}%`;
-      b.append(fill2, h2("span", "dkbar-txt", text));
+      b.append(fill2, h3("span", "dkbar-txt", text));
       return b;
     };
     const hp = bar("hp-bar" + (p.hp / p.maxHp <= 0.25 ? " low" : ""), p.hp, p.maxHp, `\u2665 ${p.hp} / ${p.maxHp}`);
     const mana = bar("mana-bar", p.mana, p.maxMana, `\u25C6 ${p.mana} / ${p.maxMana}`);
-    const counts3 = h2("div", "dk-counts");
-    counts3.append(h2("span", "cc total", `${p.handSize} card${p.handSize === 1 ? "" : "s"}`));
+    const counts3 = h3("div", "dk-counts");
+    counts3.append(h3("span", "cc total", `${p.handSize} card${p.handSize === 1 ? "" : "s"}`));
     for (const col of Object.keys(p.handCounts)) {
       if (!p.handCounts[col]) continue;
-      const cc = h2("span", "cc");
-      const dot = h2("span", `dot dkc c-${col}`);
+      const cc = h3("span", "cc");
+      const dot = h3("span", `dot dkc c-${col}`);
       dot.style.width = "12px";
       dot.style.height = "16px";
       dot.style.padding = "0";
@@ -9240,17 +9381,17 @@ ${stack}`.slice(0, 2e3);
       };
       return el11;
     }));
-    $8("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h2("div", "dkc back face-down")));
+    $8("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h3("div", "dkc back face-down")));
     const ab = $8("dkAbility");
     const ch = me3.character;
     ab.innerHTML = ch ? heroSvg(ch, "me", me3.staff) : "";
     const cd = me3.abilityCooldown;
     if (ch) {
-      const label2 = h2("span", "ab-name");
-      label2.append(h2("b", "", "Omnipotence"), h2("small", "", CHARACTER_INFO[ch].passive ? "passive \xB7 tap for info" : cd > 0 ? `ready in ${cd} turn${cd === 1 ? "" : "s"}` : `${DECK_RULES.abilityCost}\u25C6`));
+      const label2 = h3("span", "ab-name");
+      label2.append(h3("b", "", "Omnipotence"), h3("small", "", CHARACTER_INFO[ch].passive ? "passive \xB7 tap for info" : cd > 0 ? `ready in ${cd} turn${cd === 1 ? "" : "s"}` : `${DECK_RULES.abilityCost}\u25C6`));
       ab.append(label2);
     }
-    if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h2("span", "ab-cd", String(cd)));
+    if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h3("span", "ab-cd", String(cd)));
     ab.title = ch ? CHARACTER_INFO[ch].power : "";
     ab.classList.toggle("passive", !!ch && !!CHARACTER_INFO[ch].passive);
     ab.classList.toggle("active", me3.abilityActive > 0);
@@ -9267,22 +9408,22 @@ ${stack}`.slice(0, 2e3);
   });
   function renderList(v) {
     const box = $8("dkList");
-    const head = h2("h4", "", "Your kanji");
+    const head = h3("h4", "", "Your kanji");
     if (!v.deckList) {
-      box.replaceChildren(head, h2("p", "hint", v.phase === "overtime" ? "Overtime \u2014 the cards are gone: type the readings!" : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
+      box.replaceChildren(head, h3("p", "hint", v.phase === "overtime" ? "Overtime \u2014 the cards are gone: type the readings!" : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
       return;
     }
-    const ul = h2("ul", "kanji-list");
+    const ul = h3("ul", "kanji-list");
     for (const k of v.deckList) {
-      const li = h2("li");
-      const kj = h2("span", "kl-k", k.kanji);
+      const li = h3("li");
+      const kj = h3("span", "kl-k", k.kanji);
       kj.lang = "ja";
-      const rd = h2("span", "kl-r", k.reading);
+      const rd = h3("span", "kl-r", k.reading);
       rd.lang = "ja";
-      li.append(kj, rd, h2("span", "kl-m", k.meaning));
+      li.append(kj, rd, h3("span", "kl-m", k.meaning));
       ul.append(li);
     }
-    box.replaceChildren(append2(head, h2("small", "", ` \xB7 ${v.deckList.length}`)), h2("p", "hint", "Which card is which stays secret."), ul);
+    box.replaceChildren(append2(head, h3("small", "", ` \xB7 ${v.deckList.length}`)), h3("p", "hint", "Which card is which stays secret."), ul);
   }
   var append2 = (el11, ...kids) => {
     el11.append(...kids);
@@ -9317,24 +9458,24 @@ ${stack}`.slice(0, 2e3);
       castKey = key;
       const card = cardEl(c.card, { big: true });
       if (!fresh) card.style.animation = "none";
-      const top = h2("div", "dkc-half");
-      const shown2 = c.card.kanji ?? "\uFF1F".repeat(Math.min(c.chars, 3));
-      const k = h2("span", `dkc-k l${Math.min(4, [...shown2].length)}` + (c.card.kanji ? "" : " unknown"), shown2);
+      const top = h3("div", "dkc-half");
+      const shown3 = c.card.kanji ?? "\uFF1F".repeat(Math.min(c.chars, 3));
+      const k = h3("span", `dkc-k l${Math.min(4, [...shown3].length)}` + (c.card.kanji ? "" : " unknown"), shown3);
       k.lang = "ja";
       top.append(k);
-      const bottom = h2("div", "dkc-half bottom");
-      if (c.overtime) bottom.append(h2("span", "dkc-r", c.rapid ? c.rapid.level : ""), h2("span", "dkc-m", c.rapid ? `Reading? \xB7 ${c.rapid.damage} damage` : "Reading?"));
+      const bottom = h3("div", "dkc-half bottom");
+      if (c.overtime) bottom.append(h3("span", "dkc-r", c.rapid ? c.rapid.level : ""), h3("span", "dkc-m", c.rapid ? `Reading? \xB7 ${c.rapid.damage} damage` : "Reading?"));
       else {
-        const r2 = h2("span", "dkc-r", c.card.reading ?? "");
+        const r2 = h3("span", "dkc-r", c.card.reading ?? "");
         r2.lang = "ja";
-        bottom.append(r2, h2("span", "dkc-m", c.card.meaning ?? ""));
+        bottom.append(r2, h3("span", "dkc-m", c.card.meaning ?? ""));
       }
       card.append(top, bottom);
-      const actions = h2("div", "cast-actions");
+      const actions = h3("div", "cast-actions");
       otInput = null;
       if (c.overtime) {
         stopCountdown("dkRead");
-        const input2 = h2("input", "ot-input");
+        const input2 = h3("input", "ot-input");
         input2.lang = "ja";
         input2.autocomplete = "off";
         input2.spellcheck = false;
@@ -9347,12 +9488,12 @@ ${stack}`.slice(0, 2e3);
           if (text) hooks2.send({ type: "answer", challengeId: c.castId, text });
         });
         otInput = input2;
-        actions.append(input2, h2("div", "cast-timer", "First to type its reading hits \xB7 wrong? try again"));
+        actions.append(input2, h3("div", "cast-timer", "First to type its reading hits \xB7 wrong? try again"));
         setTimeout(() => input2.focus(), 30);
       } else if (mine && c.stage === "read") {
-        const t = h2("div", "cast-timer");
+        const t = h3("div", "cast-timer");
         countdown("dkRead", c.readLeftMs ?? 0, (left) => t.textContent = `Read the meaning \u2014 the kanji shows in ${Math.ceil(left / 1e3)} s`);
-        const b = h2("button", "big cast-btn", "Ready \u25B8");
+        const b = h3("button", "big cast-btn", "Ready \u25B8");
         b.onclick = () => {
           b.disabled = true;
           hooks2.send({ type: "deck_cast_ready", castId: c.castId });
@@ -9360,18 +9501,18 @@ ${stack}`.slice(0, 2e3);
         actions.append(t, b);
       } else if (mine && c.stage === "look") {
         stopCountdown("dkRead");
-        const b = h2("button", "big cast-btn go", "CAST! \u2726");
+        const b = h3("button", "big cast-btn go", "CAST! \u2726");
         b.onclick = () => {
           b.disabled = true;
           sfx.flip();
           arena()?.thrust();
           hooks2.send({ type: "deck_cast_go", castId: c.castId });
         };
-        actions.append(h2("div", "cast-timer", "Memorise it \u2014 it disappears when you cast"), b);
+        actions.append(h3("div", "cast-timer", "Memorise it \u2014 it disappears when you cast"), b);
       } else if (!mine) {
         stopCountdown("dkRead");
         const who = v.players.find((p) => p.id === c.ownerId)?.name ?? "Your opponent";
-        actions.append(h2("div", "cast-timer", c.stage === "read" ? "Reading the spell\u2026" : c.stage === "look" ? "Studying the kanji\u2026" : `${who} is writing\u2026`));
+        actions.append(h3("div", "cast-timer", c.stage === "read" ? "Reading the spell\u2026" : c.stage === "look" ? "Studying the kanji\u2026" : `${who} is writing\u2026`));
         if (c.stage === "write") {
           const cv = document.createElement("canvas");
           cv.className = "ink-view";
@@ -9404,14 +9545,14 @@ ${stack}`.slice(0, 2e3);
   function renderCharacters(v, me3, opp) {
     const overlay = $8("dkOverlay");
     overlay.hidden = false;
-    const title = h2("h2", "", me3.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
-    const grid = h2("div", "char-pick");
+    const title = h3("h2", "", me3.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
+    const grid = h3("div", "char-pick");
     for (const c of DECK_CHARACTERS) {
-      const b = h2("button", "char-card" + (me3.character === c ? " on" : ""));
+      const b = h3("button", "char-card" + (me3.character === c ? " on" : ""));
       b.disabled = !!me3.character;
-      const av = h2("div", "ch-av");
+      const av = h3("div", "ch-av");
       av.innerHTML = heroSvg(c, "me");
-      b.append(av, h2("span", "ch-name", CHARACTER_INFO[c].name), h2("span", "ch-power", CHARACTER_INFO[c].power));
+      b.append(av, h3("span", "ch-name", CHARACTER_INFO[c].name), h3("span", "ch-power", CHARACTER_INFO[c].power));
       b.onclick = () => hooks2.send({ type: "deck_character", character: c });
       grid.append(b);
     }
@@ -9423,18 +9564,18 @@ ${stack}`.slice(0, 2e3);
     const overlay = $8("dkOverlay");
     overlay.hidden = false;
     const mine = d.picker === v.you;
-    const head = h2("div", "center");
+    const head = h3("div", "center");
     if (!coinShown) {
       coinShown = true;
-      head.append(h2("div", "coin"));
+      head.append(h3("div", "coin"));
     }
-    if (v.round > 1) head.append(h2("p", "round-tag", `Round ${v.round} \u2014 new cards! HP, mana and powers stay as they are.`));
-    head.append(h2("h2", "", d.coinWinner === v.you ? "You won the coin flip \u2014 you pick first" : "Your opponent won the coin flip"));
-    const status = h2("p", "sub");
+    if (v.round > 1) head.append(h3("p", "round-tag", `Round ${v.round} \u2014 new cards! HP, mana and powers stay as they are.`));
+    head.append(h3("h2", "", d.coinWinner === v.you ? "You won the coin flip \u2014 you pick first" : "Your opponent won the coin flip"));
+    const status = h3("p", "sub");
     const pickedNow = d.pool.filter((c) => c.takenBy === v.you).length;
     const kept = me3.handSize - pickedNow;
     countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ""}`);
-    const board = h2("div", "draft-board");
+    const board = h3("div", "draft-board");
     for (const c of d.pool) {
       const el11 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
       if (c.takenBy) el11.classList.add("taken");
@@ -9444,10 +9585,10 @@ ${stack}`.slice(0, 2e3);
       };
       board.append(el11);
     }
-    overlay.replaceChildren(backButton(v), head, status, board, h2("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
+    overlay.replaceChildren(backButton(v), head, status, board, h3("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
   }
   function backButton(v) {
-    const b = h2("button", "lobby-btn dk-back", "Back to lobby");
+    const b = h3("button", "lobby-btn dk-back", "Back to lobby");
     b.hidden = v.round > 1;
     b.onclick = () => hooks2.send({ type: "back_to_lobby" });
     return b;
@@ -9456,14 +9597,14 @@ ${stack}`.slice(0, 2e3);
   var feedActive = "";
   function logFeed(kind, text, who, color, extra) {
     const list = $8("dkFeed");
-    const li = h2("li", `feed-${kind} by-${who}`);
+    const li = h3("li", `feed-${kind} by-${who}`);
     if (kind === "turn") {
-      li.append(h2("span", "ft-turn", `Turn ${feedTurn}`), h2("span", "ft-who", text));
+      li.append(h3("span", "ft-turn", `Turn ${feedTurn}`), h3("span", "ft-who", text));
     } else {
-      li.append(h2("span", `ft-dot${color ? ` c-${color}` : ""}`));
-      const body = h2("span", "ft-text", text);
+      li.append(h3("span", `ft-dot${color ? ` c-${color}` : ""}`));
+      const body = h3("span", "ft-text", text);
       li.append(body);
-      if (extra) li.append(h2("span", "ft-extra", extra));
+      if (extra) li.append(h3("span", "ft-extra", extra));
     }
     const atEnd = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
     list.append(li);
@@ -9529,10 +9670,10 @@ ${stack}`.slice(0, 2e3);
   var EYE_CSS = { goblin: "#ff3a24", witch: "#b86bff", wizard: "#49a8ff", knight: "#ff3030" };
   function ultimateFx(character) {
     document.querySelector(".ult-fx")?.remove();
-    const o = h2("div", "ult-fx");
+    const o = h3("div", "ult-fx");
     o.style.setProperty("--eye", EYE_CSS[character] ?? "#ffcf6a");
-    o.append(h2("div", "ult-lid top"), h2("div", "ult-lid bot"), h2("div", "ult-eyes"), h2("div", "ult-text", "\u7A76\u6975\u80FD\u529B"), h2("div", "ult-burst"));
-    o.querySelector(".ult-eyes").append(h2("i"), h2("i"));
+    o.append(h3("div", "ult-lid top"), h3("div", "ult-lid bot"), h3("div", "ult-eyes"), h3("div", "ult-text", "\u7A76\u6975\u80FD\u529B"), h3("div", "ult-burst"));
+    o.querySelector(".ult-eyes").append(h3("i"), h3("i"));
     o.querySelector(".ult-text").lang = "ja";
     document.body.append(o);
     sfx.ultimate();
@@ -9593,7 +9734,7 @@ ${stack}`.slice(0, 2e3);
     const spec = e.overtime ? { label: "Rapid hit", kind: "attack", amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
     if (!e.ok) {
       fb.className = "feedback bad";
-      fb.replaceChildren(h2("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me3 ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h2("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
+      fb.replaceChildren(h3("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me3 ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h3("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
       sfx.rip();
       arena()?.fizzle(e.playerId === me3 ? "me" : "opp");
       if (card) ripCard(card);
@@ -9614,9 +9755,9 @@ ${stack}`.slice(0, 2e3);
       }, 500);
     }
     fb.className = "feedback good";
-    fb.replaceChildren(h2("span", "big", `\u2713 ${who}: ${spec.label} ${spec.kind === "attack" ? `\u2212${e.amount}` : spec.kind === "heal" ? `+${e.amount} \u2665` : `+${e.amount} \u25C6`}`));
-    if (e.refund) fb.append(h2("span", "refund", ` +${e.refund}\u25C6 back`));
-    if (e.overtime) fb.append(h2("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}`));
+    fb.replaceChildren(h3("span", "big", `\u2713 ${who}: ${spec.label} ${spec.kind === "attack" ? `\u2212${e.amount}` : spec.kind === "heal" ? `+${e.amount} \u2665` : `+${e.amount} \u25C6`}`));
+    if (e.refund) fb.append(h3("span", "refund", ` +${e.refund}\u25C6 back`));
+    if (e.overtime) fb.append(h3("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}`));
     if (!card) return;
     const ghost = card.cloneNode(true);
     const r2 = zrect(card);
@@ -9645,18 +9786,18 @@ ${stack}`.slice(0, 2e3);
   var revealUntil = 0;
   var revealTimer = 0;
   function showReveal(e) {
-    const card = h2("div", `dkc c-${e.color} big reveal ${e.ok ? "ok" : "bad"}`);
-    const top = h2("div", "dkc-half");
-    const k = h2("span", `dkc-k l${Math.min(4, [...e.kanji].length)}`, e.kanji);
+    const card = h3("div", `dkc c-${e.color} big reveal ${e.ok ? "ok" : "bad"}`);
+    const top = h3("div", "dkc-half");
+    const k = h3("span", `dkc-k l${Math.min(4, [...e.kanji].length)}`, e.kanji);
     k.lang = "ja";
     top.append(k);
-    const bottom = h2("div", "dkc-half bottom");
-    const r2 = h2("span", "dkc-r", e.reading);
+    const bottom = h3("div", "dkc-half bottom");
+    const r2 = h3("span", "dkc-r", e.reading);
     r2.lang = "ja";
-    bottom.append(r2, h2("span", "dkc-m", e.meaning));
-    card.append(h2("span", "reveal-badge", e.ok ? "\u2713" : "\u2717"), top, bottom);
-    const label = h2("div", "cast-timer", e.ok ? "Correct!" : "The correct kanji");
-    const strokesBox = h2("div", "dk-reveal-strokes");
+    bottom.append(r2, h3("span", "dkc-m", e.meaning));
+    card.append(h3("span", "reveal-badge", e.ok ? "\u2713" : "\u2717"), top, bottom);
+    const label = h3("div", "cast-timer", e.ok ? "Correct!" : "The correct kanji");
+    const strokesBox = h3("div", "dk-reveal-strokes");
     $8("dkCast").replaceChildren(card, label, strokesBox);
     if (!e.ok && e.playerId === hooks2.me()) showWrongStrokes(strokesBox, e.kanji);
     const ms = e.overtime ? DECK_RULES.overtimeGapMs - 300 : REVEAL_MS;
@@ -9673,7 +9814,7 @@ ${stack}`.slice(0, 2e3);
   }
   function ripCard(card) {
     const r2 = zrect(card);
-    const wrap = h2("div", "rip");
+    const wrap = h3("div", "rip");
     Object.assign(wrap.style, { position: "fixed", left: `${r2.left}px`, top: `${r2.top}px`, width: `${r2.width}px`, height: `${r2.height}px`, zIndex: "30" });
     for (const side of ["l", "r"]) {
       const half = card.cloneNode(true);
@@ -9724,20 +9865,20 @@ ${stack}`.slice(0, 2e3);
   var me = () => "";
   var tick = 0;
   var searching = false;
-  function guideHover(el11, mode3) {
-    const pop = $("guidePop");
+  function guideHover(el11, mode4) {
+    const pop2 = $("guidePop");
     const open3 = () => {
-      pop.replaceChildren(...modeGuideNodes(mode3));
-      pop.hidden = false;
+      pop2.replaceChildren(...modeGuideNodes(mode4));
+      pop2.hidden = false;
       const r2 = zrect(el11);
       const w = Math.min(380, viewW() - 24);
-      pop.style.width = `${w}px`;
-      pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r2.left))}px`;
+      pop2.style.width = `${w}px`;
+      pop2.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r2.left))}px`;
       const below = r2.bottom + 10;
-      pop.style.top = `${below + pop.offsetHeight > viewH() - 8 ? Math.max(8, r2.top - 10 - pop.offsetHeight) : below}px`;
+      pop2.style.top = `${below + pop2.offsetHeight > viewH() - 8 ? Math.max(8, r2.top - 10 - pop2.offsetHeight) : below}px`;
     };
     const close = () => {
-      pop.hidden = true;
+      pop2.hidden = true;
     };
     el11.addEventListener("mouseenter", open3);
     el11.addEventListener("mouseleave", close);
@@ -9760,16 +9901,16 @@ ${stack}`.slice(0, 2e3);
     return l;
   }
   var picked2 = (id) => [...document.querySelectorAll(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
-  var pick4 = "battle";
+  var pick3 = "battle";
   function remember() {
-    save3({ modes: picked2("qModes"), levels: picked2("qLevels"), pick: pick4 });
+    save3({ modes: picked2("qModes"), levels: picked2("qLevels"), pick: pick3 });
   }
   function choose2(p, silent = false) {
     if (p === "deck" && !canPlay("deck")) {
       if (!silent) toast(lockText("deck"), 5e3);
       p = "battle";
     }
-    pick4 = p;
+    pick3 = p;
     document.querySelectorAll("#queuePick .queue-card").forEach((c) => {
       const on = c.dataset.q === p;
       c.classList.toggle("chosen", on);
@@ -9806,7 +9947,7 @@ ${stack}`.slice(0, 2e3);
     });
     $("qStart").onclick = () => {
       askNotifyPermission();
-      if (pick4 === "deck") return send({ type: "queue", modes: ["deck"] });
+      if (pick3 === "deck") return send({ type: "queue", modes: ["deck"] });
       const modes = picked2("qModes"), levels = picked2("qLevels");
       if (!modes.length) return toast("Tick at least one mode");
       if (!levels.length) return toast("Tick at least one level");
@@ -10285,55 +10426,6 @@ ${stack}`.slice(0, 2e3);
     }
   };
 
-  // src/client/examples.ts
-  var loading3 = null;
-  function loadExamples() {
-    loading3 ?? (loading3 = fetch("/examples.json").then((r2) => r2.ok ? r2.json() : {}).then((o) => new Map(Object.entries(o))).catch(() => {
-      loading3 = null;
-      return /* @__PURE__ */ new Map();
-    }));
-    return loading3;
-  }
-  function furigana(text) {
-    const out = [];
-    for (const bit of text.split(/(\[[^\]|]+\|[^\]]+\])/)) {
-      const m = /^\[([^\]|]+)\|([^\]]+)\]$/.exec(bit);
-      if (!m) {
-        if (bit) out.push(bit);
-        continue;
-      }
-      const r2 = document.createElement("ruby");
-      const rt = document.createElement("rt");
-      rt.textContent = m[2];
-      r2.append(m[1], rt);
-      out.push(r2);
-    }
-    return out;
-  }
-  async function exampleFor(vocabId) {
-    const ex = (await loadExamples()).get(vocabId);
-    if (!ex) return null;
-    const box = document.createElement("div");
-    box.className = "fc-example";
-    const ja = document.createElement("p");
-    ja.className = "fc-ex-ja";
-    ja.lang = "ja";
-    for (const part of ex[0].split(/(【[^】]+】)/)) {
-      if (!part) continue;
-      if (part.startsWith("\u3010")) {
-        const m = document.createElement("mark");
-        m.append(...furigana(part.slice(1, -1)));
-        ja.append(m);
-      } else ja.append(...furigana(part));
-    }
-    const tr2 = document.createElement("p");
-    tr2.className = "fc-ex-tr";
-    tr2.setAttribute("data-no-i18n", "");
-    tr2.textContent = lang() === "ru" && ex[2] ? ex[2] : ex[1];
-    box.append(ja, tr2);
-    return box;
-  }
-
   // src/client/study.ts
   var $9 = $;
   var onProfile = () => {
@@ -10352,18 +10444,29 @@ ${stack}`.slice(0, 2e3);
       el11.append(s);
     }
   }
-  function levelChips(selected2) {
+  function levelPlan(per) {
     const box = $9("studyLevels");
+    if (box.contains(document.activeElement)) return;
     box.replaceChildren(...LEVELS.map((lv) => {
+      const n = per[lv] ?? 0;
       const label = document.createElement("label");
-      label.className = "chip" + (selected2.includes(lv) ? " on" : "");
+      label.className = "lp-row" + (n ? " on" : "");
+      const name = document.createElement("span");
+      name.textContent = LEVEL_LABEL[lv];
       const input2 = document.createElement("input");
-      input2.type = "checkbox";
-      input2.value = lv;
-      input2.checked = selected2.includes(lv);
-      label.append(input2, LEVEL_LABEL[lv]);
-      return lockLevelChip(label, lv);
+      Object.assign(input2, { type: "number", min: "0", max: "150", step: "5", value: String(n), inputMode: "numeric" });
+      input2.dataset.level = lv;
+      input2.setAttribute("aria-label", `${LEVEL_LABEL[lv]}: ${tr("new words a day")}`);
+      label.append(name, input2);
+      const locked = lockLevelChip(label, lv);
+      if (locked.classList.contains("locked")) {
+        input2.value = "0";
+        label.classList.remove("on");
+      }
+      return locked;
     }));
+    const total = LEVELS.reduce((a, l) => a + (per[l] ?? 0), 0);
+    $9("dailyTotal").textContent = total ? `${total} new spells a day` : "";
   }
   async function openStudy() {
     show("study");
@@ -10375,47 +10478,46 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function render3(s) {
-    levelChips(s.studyLevels);
+    levelPlan(s.dailyByLevel ?? Object.fromEntries(s.studyLevels.map((l) => [l, Math.round(s.dailyNew / s.studyLevels.length)])));
     counts2($9("countsAll"), s.decks.all);
     counts2($9("countsStruggle"), s.decks.struggling);
     counts2($9("countsCustom"), s.decks.custom);
-    $9("dailyNew").value = String(s.dailyNew);
-    $9("dailyNewVal").textContent = String(s.dailyNew);
+    if (s.decks.ono) counts2($9("countsOno"), s.decks.ono);
     $9("studyCrit").textContent = `${s.profile.learnedToday} learned today \xB7 ${s.profile.learned} learned in total`;
     const notice = $9("studyNotice");
     notice.hidden = !s.notice;
     notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
     if (!s.studyLevels.length && !s.decks.all.total) {
       notice.hidden = false;
-      notice.textContent = `Tick one or more levels under \u201CAll spells\u201D to get ${s.dailyNew} new spells today (and every day).`;
+      notice.textContent = "Set how many new words of a level you want under \u201CAll spells\u201D (e.g. N5: 10) \u2014 they are added today and every day.";
     }
     const has2 = (c) => c.new + c.learning + c.due > 0;
     $9("studyAll").disabled = !has2(s.decks.all);
     $9("studyStruggle").disabled = !has2(s.decks.struggling);
     $9("studyCustom").disabled = !has2(s.decks.custom);
+    $9("studyOno").disabled = !!s.decks.ono && !has2(s.decks.ono);
     onProfile(s.profile);
   }
   initDecks({ changed: () => {
     if (!$9("study").hidden) void api.study().then(render3).catch(() => {
     });
   }, back: () => void openStudy() });
-  $9("dailyNew").addEventListener("input", () => {
-    $9("dailyNewVal").textContent = $9("dailyNew").value;
-  });
-  $9("dailyNew").addEventListener("change", async () => {
+  $9("studyLevels").addEventListener("change", async (e) => {
+    const input2 = e.target;
+    const n = Math.max(0, Math.min(150, Math.round(Number(input2.value) || 0)));
+    input2.value = String(n);
+    input2.closest(".lp-row")?.classList.toggle("on", n > 0);
+    const per = {};
+    for (const i of document.querySelectorAll("#studyLevels input")) if (!i.disabled && Number(i.value) > 0) per[i.dataset.level] = Math.min(150, Math.round(Number(i.value)));
+    input2.blur();
     try {
-      render3(await api.setDailyNew(Number($9("dailyNew").value)));
-    } catch (e) {
-      toast(e.message);
+      render3(await api.setDailyLevels(per));
+    } catch (err) {
+      toast(err.message);
     }
   });
-  $9("studyLevels").addEventListener("change", async () => {
-    const levels = [...document.querySelectorAll("#studyLevels input")].filter((i) => i.checked).map((i) => i.value);
-    try {
-      render3(await api.setStudyLevels(levels));
-    } catch (e) {
-      toast(e.message);
-    }
+  $9("studyLevels").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") e.target.blur();
   });
   var queue3 = [];
   var deck = "all";
@@ -10424,6 +10526,8 @@ ${stack}`.slice(0, 2e3);
   var busy = false;
   async function startSession(d) {
     deck = d;
+    history2 = [];
+    undoBtn();
     void loadExamples();
     show("review");
     $9("reviewDone").hidden = true;
@@ -10445,8 +10549,10 @@ ${stack}`.slice(0, 2e3);
     $9("reviewDone").hidden = !done2;
     $9("reviewLeft").textContent = done2 ? "" : `${queue3.length + 1} left \xB7 ${DECK_LABEL[deck]}`;
     if (!current) return;
+    hideKanji();
     $9("fcKanji").textContent = current.kanji;
     $9("fcLevel").textContent = (current.custom ? "Custom" : LEVEL_LABEL[current.level]) + (current.state === "new" ? " \xB7 new" : "");
+    if (current.ono) $9("fcLevel").append(" \xB7 ", Object.assign(document.createElement("span"), { className: "ono-kind", lang: "ja", textContent: `${ONO_TYPES[current.ono].ja} ${ONO_TYPES[current.ono].romaji}` }));
     $9("fcReading").textContent = current.reading;
     $9("fcMeaning").textContent = current.meaning;
     $9("fcBack").hidden = true;
@@ -10471,8 +10577,12 @@ ${stack}`.slice(0, 2e3);
     $9("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
     const card = current;
     void exampleFor(card.vocabId).then((ex) => {
-      if (ex && current === card && flipped) $9("fcExample").replaceChildren(ex);
+      if (ex && current === card && flipped) {
+        kanjiTappable(ex);
+        $9("fcExample").replaceChildren(ex);
+      }
     });
+    kanjiTappable($9("fcKanji"));
   }
   function strokes() {
     if (!current || !flipped || $9("fcStrokes").hidden) return;
@@ -10485,9 +10595,28 @@ ${stack}`.slice(0, 2e3);
     strokes();
   };
   var sending = Promise.resolve();
+  var history2 = [];
+  var undoBtn = () => {
+    $9("reviewUndo").disabled = !history2.length;
+  };
+  function undo() {
+    const h4 = history2.pop();
+    undoBtn();
+    if (!h4) return;
+    const d = deck;
+    sending = sending.then(() => api.undo(h4.card.vocabId, d).then(() => {
+    }, (e) => {
+      toast(e.message);
+    }));
+    queue3 = [h4.card, ...h4.queue];
+    next2();
+  }
   function rate(r2) {
     if (!current || !flipped || busy) return;
     const card = current, d = deck;
+    history2.push({ card, queue: [...queue3] });
+    if (history2.length > 30) history2.shift();
+    undoBtn();
     sending = sending.then(() => api.review(card.vocabId, r2, d).then(() => {
     }, (e) => {
       toast(e.message);
@@ -10497,6 +10626,7 @@ ${stack}`.slice(0, 2e3);
     next2();
   }
   async function leaveSession() {
+    hideKanji();
     await sending;
     void openStudy();
   }
@@ -10514,13 +10644,13 @@ ${stack}`.slice(0, 2e3);
     const ZONES = [["again", "Again"], ["hard", "Hard"], ["good", "Okay"], ["easy", "Easy"]];
     const zoneOf = (dx2) => {
       const w = Math.max(220, card.offsetWidth), f2 = dx2 / w;
-      if (f2 <= -0.42) return ZONES[0];
-      if (f2 <= -0.16) return ZONES[1];
-      if (f2 >= 0.42) return ZONES[3];
-      if (f2 >= 0.16) return ZONES[2];
+      if (f2 <= -0.3) return ZONES[0];
+      if (f2 <= -0.09) return ZONES[1];
+      if (f2 >= 0.3) return ZONES[3];
+      if (f2 >= 0.09) return ZONES[2];
       return null;
     };
-    let x0 = 0, y0 = 0, id = -1, dx = 0, dragging = false;
+    let x0 = 0, y0 = 0, id = -1, dx = 0, dragging = false, lastX = 0, lastT = 0, vx = 0;
     const reset = (animate) => {
       card.style.transition = animate ? "transform .25s ease-out" : "";
       card.style.transform = "";
@@ -10528,17 +10658,26 @@ ${stack}`.slice(0, 2e3);
       card.classList.remove("dragging");
     };
     card.addEventListener("pointerdown", (e) => {
-      if (!current || busy || e.target.closest("button")) return;
+      if (!current || busy || e.target.closest("button, .kj")) return;
       id = e.pointerId;
       x0 = e.clientX;
       y0 = e.clientY;
       dx = 0;
       dragging = false;
       swiped = false;
+      lastX = e.clientX;
+      lastT = e.timeStamp;
+      vx = 0;
     });
     card.addEventListener("pointermove", (e) => {
       if (e.pointerId !== id) return;
       dx = e.clientX - x0;
+      const dt = e.timeStamp - lastT;
+      if (dt > 0) {
+        vx = 0.6 * vx + 0.4 * ((e.clientX - lastX) / dt);
+        lastX = e.clientX;
+        lastT = e.timeStamp;
+      }
       if (!dragging) {
         if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(e.clientY - y0)) return;
         dragging = true;
@@ -10562,7 +10701,7 @@ ${stack}`.slice(0, 2e3);
       setTimeout(() => {
         swiped = false;
       }, 0);
-      const z = zoneOf(dx);
+      const z = zoneOf(dx) ?? (Math.abs(vx) > 0.45 && Math.abs(dx) > 24 && Math.sign(vx) === Math.sign(dx) ? ZONES[dx < 0 ? 1 : 2] : null);
       if (!z || !current) {
         reset(true);
         return;
@@ -10593,11 +10732,17 @@ ${stack}`.slice(0, 2e3);
     const n = ["1", "2", "3", "4"].indexOf(e.key);
     if (n >= 0 && flipped) rate(["again", "hard", "good", "easy"][n]);
     if ((e.key === "s" || e.key === "S") && flipped) strokes();
+    if ((e.key === "z" || e.key === "Z" || e.key === "Backspace") && !e.repeat) {
+      e.preventDefault();
+      undo();
+    }
   });
   $9("studyAll").onclick = () => void startSession("all");
   $9("studyStruggle").onclick = () => void startSession("struggling");
   $9("studyCustom").onclick = () => void startSession("custom");
+  $9("studyOno").onclick = () => void startSession("ono");
   $9("reviewBack").onclick = () => void leaveSession();
+  $9("reviewUndo").onclick = () => undo();
   $9("reviewDoneBack").onclick = () => void leaveSession();
   var custTab = "profile";
   var picked3 = {};
@@ -10912,6 +11057,8 @@ ${stack}`.slice(0, 2e3);
   }
 
   // src/client/progressui.ts
+  init_vocab();
+  init_vocab2();
   var $10 = $;
   var el8 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
@@ -11134,8 +11281,8 @@ ${stack}`.slice(0, 2e3);
   function tile2(word2, m, pct2, kana) {
     const t = el8("button", `mt ${MASTERY[m].cls}${kana === null ? " word" : " kana"}`);
     t.type = "button";
-    const shown2 = kana === null ? word2 : word2;
-    const k = el8("span", "mt-k", shown2);
+    const shown3 = kana === null ? word2 : word2;
+    const k = el8("span", "mt-k", shown3);
     if (kana === null) k.dataset.len = String(Math.min(5, [...word2].length));
     t.append(k);
     if (kana !== null) t.append(el8("span", "mt-r", ROMAJI.get(kana) ?? ""));
@@ -11149,7 +11296,7 @@ ${stack}`.slice(0, 2e3);
     return t;
   }
   async function showWord(at, word2, m, pct2) {
-    const pop = $10("mgPop");
+    const pop2 = $10("mgPop");
     for (const x of document.querySelectorAll(".mt.sel")) x.classList.remove("sel");
     at.classList.add("sel");
     try {
@@ -11170,7 +11317,7 @@ ${stack}`.slice(0, 2e3);
     close.type = "button";
     close.setAttribute("aria-label", "Close");
     close.onclick = () => {
-      pop.hidden = true;
+      pop2.hidden = true;
       at.classList.remove("sel");
     };
     head.append(close);
@@ -11180,8 +11327,8 @@ ${stack}`.slice(0, 2e3);
     bar.append(fill2);
     const meaning2 = el8("p", "mp-m", v ? meaningIn(v.meaning) : "");
     meaning2.setAttribute("data-no-i18n", "");
-    pop.replaceChildren(head, meaning2, el8("p", `mp-st ${MASTERY[m].cls}`, `${tr(MASTERY[m].label)} \xB7 ${pct2}%`), bar);
-    pop.hidden = false;
+    pop2.replaceChildren(head, meaning2, el8("p", `mp-st ${MASTERY[m].cls}`, `${tr(MASTERY[m].label)} \xB7 ${pct2}%`), bar);
+    pop2.hidden = false;
   }
   function renderMastery() {
     if (!page) return;
@@ -11485,8 +11632,8 @@ ${stack}`.slice(0, 2e3);
   var friends2 = [];
   var fetchedAt = 0;
   var hooks3;
-  function initFriends(h3) {
-    hooks3 = h3;
+  function initFriends(h4) {
+    hooks3 = h4;
   }
   async function refresh(force = false) {
     if (!force && Date.now() - fetchedAt < 8e3) return friends2;
@@ -11699,7 +11846,7 @@ ${stack}`.slice(0, 2e3);
       document.removeEventListener("pointerdown", outside, true);
       if (openMenu?.close === close) openMenu = null;
     };
-    const pick5 = (i) => {
+    const pick4 = (i) => {
       if (i < 0 || i === sel.selectedIndex) {
         close();
         btn.focus();
@@ -11731,7 +11878,7 @@ ${stack}`.slice(0, 2e3);
         if (!o.disabled) it.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          pick5(i);
+          pick4(i);
         });
         menu.append(it);
       });
@@ -11770,7 +11917,7 @@ ${stack}`.slice(0, 2e3);
       } else if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         const it = items()[active2];
-        pick5(it ? +it.dataset.i : -1);
+        pick4(it ? +it.dataset.i : -1);
       } else if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
@@ -11924,7 +12071,7 @@ ${stack}`.slice(0, 2e3);
   var profile2 = null;
   var you = "";
   var code = "";
-  var mode2 = "reading";
+  var mode3 = "reading";
   var players = [];
   var minPlayers = 2;
   var challengeId = 0;
@@ -11970,7 +12117,7 @@ ${stack}`.slice(0, 2e3);
   var lastWhere = "";
   function tellWhere() {
     if (inRoom || !user) return;
-    const where = document.querySelector("#passageDialog[open]") ? "passage" : currentScreen() ?? "";
+    const where = currentScreen() === "quiz" && quizMode() === "ono" ? "onoquiz" : currentScreen() ?? "";
     if (where === lastWhere) return;
     lastWhere = where;
     socket.send({ type: "where", screen: where });
@@ -11981,13 +12128,13 @@ ${stack}`.slice(0, 2e3);
       clearTimeout(t);
       t = window.setTimeout(tellWhere, 300);
     });
-    for (const el11 of document.querySelectorAll(".screen, #passageDialog")) mo.observe(el11, { attributes: true, attributeFilter: ["hidden", "open"] });
+    for (const el11 of document.querySelectorAll(".screen")) mo.observe(el11, { attributes: true, attributeFilter: ["hidden", "open"] });
   }
   function showNetStatus() {
     if (isOffline()) setNetStatus(pending() ? `Offline mode \xB7 ${pending()} to sync` : "Offline mode");
     else setNetStatus(netState === "reconnecting" ? "Reconnecting\u2026" : null);
   }
-  var actorOf = (id) => id === "boss" ? "boss" : id === you ? "me" : mode2 === "boss" ? `ally:${id}` : "opp";
+  var actorOf = (id) => id === "boss" ? "boss" : id === you ? "me" : mode3 === "boss" ? `ally:${id}` : "opp";
   var nameOf = (id) => players.find((p) => p.id === id)?.name ?? "Someone";
   var GAME_SCREENS2 = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
   onScreen2((s) => {
@@ -12000,14 +12147,14 @@ ${stack}`.slice(0, 2e3);
     title.classList.toggle("in-game", s === "battle");
     title.classList.toggle("in-deck", s === "deck");
     if (s !== "battle" && document.activeElement?.id === "answer") document.activeElement.blur();
-    if (!title.hidden) title.replaceChildren(modeBadge(s === "deck" ? "deck" : mode2), document.createTextNode(MODE_LABEL[s === "deck" ? "deck" : mode2]));
+    if (!title.hidden) title.replaceChildren(modeBadge(s === "deck" ? "deck" : mode3), document.createTextNode(MODE_LABEL[s === "deck" ? "deck" : mode3]));
     if (s === "menu" && profile2) void refreshProfile();
     if (s !== "lobby") void renderLobbyInvites(false);
     railScreen(s);
     if (s === "menu" || s === "queue") void refreshOnline();
     for (const b of document.querySelectorAll("[data-pause]")) b.hidden = !(soloVsAi && ["prep", "battle", "deck"].includes(s));
     if (!["prep", "battle", "deck"].includes(s)) setPaused(false);
-    setGameKb(s === "battle" && mode2 !== "writing");
+    setGameKb(s === "battle" && mode3 !== "writing");
     tutorialScreen(s);
     if (!GAME_SCREENS2.has(s)) setTimeout(() => applyBackground(true), 0);
   });
@@ -12177,7 +12324,7 @@ ${stack}`.slice(0, 2e3);
         resetQueue();
         you = msg.you;
         code = msg.code;
-        mode2 = msg.mode;
+        mode3 = msg.mode;
         inRoom = true;
         setError("");
         break;
@@ -12221,7 +12368,7 @@ ${stack}`.slice(0, 2e3);
         players = msg.players;
         soloVsAi = msg.players.filter((p) => !p.bot).length === 1;
         setPaused(false);
-        mode2 = msg.mode;
+        mode3 = msg.mode;
         minPlayers = msg.minPlayers;
         stopWriting();
         resetDeck();
@@ -12234,7 +12381,7 @@ ${stack}`.slice(0, 2e3);
         break;
       case "prep":
         players = msg.players;
-        showPrep(msg.pool, msg.durationMs, mode2);
+        showPrep(msg.pool, msg.durationMs, mode3);
         setReady(msg.readyIds.length, players.length, msg.readyIds.includes(you));
         break;
       case "prep_ready":
@@ -12242,7 +12389,7 @@ ${stack}`.slice(0, 2e3);
         break;
       case "battle_start":
         players = msg.players;
-        mode2 = msg.mode;
+        mode3 = msg.mode;
         if (msg.resume && currentScreen() === "battle") {
           resumeBattle(players, msg.boss, you, msg.durationMs);
           break;
@@ -12274,12 +12421,12 @@ ${stack}`.slice(0, 2e3);
           break;
         }
         lockInput();
-        if (mode2 === "writing") setCharSlots(charCount, written.map(() => ""), false, writeShape);
+        if (mode3 === "writing") setCharSlots(charCount, written.map(() => ""), false, writeShape);
         setFeedback(msg);
         if (msg.correct) {
           const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
           void speak(kana).then(() => sfx.correct(msg.combo));
-          if (mode2 !== "deck") comboMilestone(msg.combo, profile2?.unlocks);
+          if (mode3 !== "deck") comboMilestone(msg.combo, profile2?.unlocks);
         } else {
           sfx.wrong();
           arena()?.fizzle("me");
@@ -12404,7 +12551,7 @@ ${stack}`.slice(0, 2e3);
   var twitchAt = 0;
   pad.onDraw = () => {
     shareInk();
-    if (mode2 !== "deck") arena()?.channel(Math.min(1, 0.45 + pad.strokeCount * 0.12));
+    if (mode3 !== "deck") arena()?.channel(Math.min(1, 0.45 + pad.strokeCount * 0.12));
     gemBack();
     if (Date.now() - twitchAt > 140) {
       twitchAt = Date.now();
@@ -12419,7 +12566,7 @@ ${stack}`.slice(0, 2e3);
   var inkTimer = 0;
   var inkAt = 0;
   function shareInk() {
-    if (mode2 !== "deck" || !writing) return;
+    if (mode3 !== "deck" || !writing) return;
     const send2 = () => {
       inkTimer = 0;
       inkAt = Date.now();
@@ -12446,11 +12593,11 @@ ${stack}`.slice(0, 2e3);
     else pad.setCells(charCount);
     setEraser(false);
     arena()?.channel(0.35);
-    if (mode2 === "deck") mountWriteArea("dkWrite");
+    if (mode3 === "deck") mountWriteArea("dkWrite");
     setCharSlots(charCount, [], true, writeShape);
     const ime = $("imeInput");
     ime.value = "";
-    if (mode2 === "deck") {
+    if (mode3 === "deck") {
       ime.disabled = false;
       return;
     }
@@ -12470,9 +12617,9 @@ ${stack}`.slice(0, 2e3);
   $("castGo").onclick = () => castGo();
   function stopWriting() {
     writing = false;
-    if (mode2 !== "deck") arena()?.channel(0);
+    if (mode3 !== "deck") arena()?.channel(0);
     lockInput();
-    if (mode2 === "deck") hideWriteArea();
+    if (mode3 === "deck") hideWriteArea();
   }
   function submitDrawing() {
     socket.send({ type: "write", challengeId, chars: written });
@@ -12590,16 +12737,16 @@ ${stack}`.slice(0, 2e3);
     if (user) void openDaily(user.id);
   };
   var pendingChallenge = null;
-  function challengeFriend(friendId, name, mode3) {
-    if (!canPlay(mode3)) {
-      toast(lockText(mode3), 5e3);
+  function challengeFriend(friendId, name, mode4) {
+    if (!canPlay(mode4)) {
+      toast(lockText(mode4), 5e3);
       return;
     }
-    pendingChallenge = { friendId, name, mode: mode3 };
+    pendingChallenge = { friendId, name, mode: mode4 };
     if (inRoom) socket.send({ type: "leave" });
     else {
       pendingChallenge.sent = true;
-      socket.send({ type: "create", mode: mode3, levels: savedLevels() });
+      socket.send({ type: "create", mode: mode4, levels: savedLevels() });
     }
   }
   $("progressBtn").onclick = () => void openProgress(profile2?.unlocks ?? [], profile2?.badges ?? [], (b) => {
@@ -12800,7 +12947,7 @@ ${stack}`.slice(0, 2e3);
     sel.value = gameKbPref() ? "game" : "system";
     sel.onchange = () => {
       setGameKbPref(sel.value === "game");
-      setGameKb(currentScreen() === "battle" && mode2 !== "writing");
+      setGameKb(currentScreen() === "battle" && mode3 !== "writing");
     };
   }
   function setPaused(on) {
@@ -12836,7 +12983,7 @@ ${stack}`.slice(0, 2e3);
     send: (m) => socket.send(m),
     me: () => you,
     beginWriting: (castId, kanji) => {
-      mode2 = "deck";
+      mode3 = "deck";
       beginWriting(castId, kanji);
     },
     stopWriting: () => stopWriting()
@@ -12937,15 +13084,15 @@ ${stack}`.slice(0, 2e3);
     setAudioButtons(isRadioOn(), isSfxOn());
   };
   {
-    const pop = $("profilePop");
+    const pop2 = $("profilePop");
     $("whoBtn").onclick = (e) => {
       e.stopPropagation();
-      pop.hidden = !pop.hidden;
-      $("whoBtn").setAttribute("aria-expanded", String(!pop.hidden));
-      if (!pop.hidden) void refreshProfile();
+      pop2.hidden = !pop2.hidden;
+      $("whoBtn").setAttribute("aria-expanded", String(!pop2.hidden));
+      if (!pop2.hidden) void refreshProfile();
     };
     addEventListener("click", (e) => {
-      if (!pop.hidden && !pop.contains(e.target) && !$("whoBtn").contains(e.target)) pop.hidden = true;
+      if (!pop2.hidden && !pop2.contains(e.target) && !$("whoBtn").contains(e.target)) pop2.hidden = true;
     });
     $("picInput").onchange = async (e) => {
       const file = e.target.files?.[0];

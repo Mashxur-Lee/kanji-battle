@@ -2198,3 +2198,105 @@ html, body { overflow-x: clip; }
 .fc-ex-ja { line-height: 2.1; }
 .fc-ex-ja rt { font-size: .55em; color: #6a6288; font-weight: 500; }
 .fc-ex-ja mark rt { color: #5b3fb0; }
+
+/* 0.9.9.4.4 — undo on the study card */
+.review .page-head .review-undo { margin-left: auto; }
+.review .page-head .review-undo:disabled { opacity: .4; cursor: default; }
+.review .page-head #reviewLeft { margin-left: 4px; }
+
+/* 0.9.9.4.4 — tap a kanji: its meaning, readings, parts and a memory picture */
+.kj { cursor: pointer; border-radius: 6px; border-bottom: 2px dotted rgba(110, 231, 255, .45); transition: background .12s; }
+.kj:hover, .kj.on { background: rgba(110, 231, 255, .16); border-bottom-color: var(--accent2); }
+.fc-kanji .kj { border-bottom-width: 3px; padding: 0 .02em; }
+.kanji-pop { position: fixed; z-index: 75; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  width: min(440px, calc(100vw - 24px)); max-height: min(70vh, 560px); overflow: auto; padding: 14px 16px 16px;
+  background: #1c1740; border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 14px 40px rgba(0, 0, 0, .55); color: var(--text);
+  animation: kp-in .16s ease-out; }
+@keyframes kp-in { from { opacity: 0; transform: translate(-50%, 12px); } }
+.kanji-pop .kp-x { position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; margin: 0; padding: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, .08); border: 1px solid var(--line); color: var(--text); font-size: 1.1rem; line-height: 1; display: grid; place-items: center; }
+.kanji-pop .kp-x:hover { background: rgba(255, 255, 255, .16); }
+.kp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding-right: 44px; }
+.kp-char { font-family: var(--jp); font-size: 3.2rem; line-height: 1.1; color: var(--accent); }
+.kp-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 160px; }
+.kp-mean { font-weight: 700; font-size: 1.05rem; }
+.kp-reads { display: flex; flex-direction: column; gap: 2px; font-size: .95rem; }
+.kp-r { display: flex; gap: 8px; align-items: baseline; }
+.kp-r b { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); min-width: 2.2em; }
+.kp-r span { color: var(--accent2); font-family: var(--jp); }
+.kp-pic { flex: 0 0 auto; }
+.kp-parts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.kp-lbl { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-right: 2px; }
+.kp-plus { color: var(--muted); }
+.kp-part { width: auto; margin: 0; padding: 4px 10px; display: inline-flex; align-items: baseline; gap: 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--pc) 18%, transparent); border: 1.5px solid var(--pc); color: var(--text); font-size: .9rem; font-weight: 600; }
+.kp-pc { font-family: var(--jp); font-size: 1.15rem; color: var(--pc); filter: brightness(1.35); }
+.kp-story { margin-top: 12px; display: flex; gap: 14px; align-items: center; }
+.kp-picture { flex: 0 0 112px; height: 112px; background: rgba(255, 255, 255, .04); border-radius: 14px; display: grid; place-items: center; }
+.kp-svg { width: 104px; height: 104px; }
+.kp-svg .so-grid line, .kp-svg .so-grid rect { stroke: rgba(255, 255, 255, .1); fill: none; stroke-dasharray: 3 3; }
+.kp-stroke { fill: none; stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round; filter: brightness(1.3); animation: kp-fade .3s both; }
+@keyframes kp-fade { from { opacity: 0; } }
+.kp-big { font-family: var(--jp); font-size: 4.4rem; }
+.kp-tale { margin: 0; line-height: 1.5; }
+@media (max-width: 480px) {
+  .kp-char { font-size: 2.6rem; }
+  .kp-story { flex-direction: column; align-items: stretch; }
+  .kp-picture { flex-basis: auto; height: 120px; }
+}
+
+/* 0.9.9.4.4 — four decks; All spells: new words a day per level; Onomatopoeia */
+.study-decks { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+@media (max-width: 900px) { .study-decks { grid-template-columns: 1fr; } }
+.deck-card.ono { border-color: rgba(255, 212, 121, .45); }
+.level-plan { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.lp-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 4px 4px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--field); }
+.lp-row.on { border-color: var(--accent); background: rgba(185, 147, 255, .12); }
+.lp-row.locked { opacity: .45; }
+.lp-row span { font-weight: 700; white-space: nowrap; }
+.lp-row input { width: 4.2em; margin: 0; padding: 6px 4px; text-align: center; font-size: 1rem; border-radius: 9px; border-width: 1.5px; -moz-appearance: textfield; }
+.lp-row input::-webkit-inner-spin-button { opacity: 1; }
+.daily-total { margin: 0; }
+.fc-level .ono-kind { color: var(--gold, #ffd479); }
+.quiz-prompt.long { font-size: 1.5rem; line-height: 2.1; text-align: left; padding: 6px 4px; }
+.quiz-prompt.long[lang="en"] { font-family: var(--ui); text-align: center; font-size: 1.35rem; }
+.quiz-prompt rt { font-size: .5em; color: var(--muted); }
+.quiz-choice .t[data-no-i18n] { font-size: 1rem; }
+
+/* 0.9.9.4.4 — the reading passage: its own screen, centred, sentence by sentence */
+.passage { max-width: 860px; margin: 0 auto; }
+.passage .page-head { flex-wrap: wrap; gap: 8px 10px; }
+.passage .page-head .back { margin: 0; }
+.passage .p-from { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); font-size: .9rem; }
+.passage .p-from select { width: auto; margin: 0; padding: 6px 8px; border-radius: 10px; background: var(--field); color: var(--text); border: 1px solid var(--line); }
+.passage-card { margin-top: 12px; padding: 20px 22px 22px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.passage-title { margin: 0; text-align: center; }
+.passage-card > .hint { text-align: center; margin: 0; }
+.passage .passage-text { background: rgba(255, 255, 255, .035); border: 1px solid rgba(255, 255, 255, .07); border-radius: 14px; padding: 6px 14px; line-height: 2.4; }
+.passage .passage-text .p-line { display: flex; flex-wrap: wrap; align-items: baseline; margin: 6px 0; font-weight: 400; font-size: 1em; }
+.passage .passage-text .p-line:first-child { font-weight: 400; font-size: 1em; margin-bottom: 6px; }
+.passage .passage-text .p-n { font-family: var(--ui); font-size: .6em; color: var(--muted); min-width: 1.6em; align-self: center; }
+.passage .passage-text .p-blank .p-slot { font-family: var(--jp); }
+.passage .passage-bank { position: sticky; bottom: 0; background: var(--card); padding-top: 6px; }
+.passage .passage-gloss { position: fixed; z-index: 72; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  width: min(560px, calc(100vw - 24px)); padding: 12px 54px 12px 16px; border-radius: 16px; background: #2a2140; border: 1px solid rgba(255, 212, 121, .45);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .5); display: block; }
+.passage .passage-gloss .pg-body { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.passage .passage-gloss .kp-x { position: absolute; top: 8px; right: 8px; width: 38px; height: 38px; margin: 0; padding: 0; border-radius: 50%; background: rgba(255, 255, 255, .08); border: 1px solid var(--line); color: var(--text); font-size: 1rem; display: grid; place-items: center; }
+.passage .passage-gloss b { font-family: var(--jp); font-size: 1.4rem; }
+.passage .passage-gloss .p-add { margin-left: auto; width: auto; }
+@media (max-width: 640px) {
+  .passage .p-from { margin-left: 0; width: 100%; }
+  .passage .p-from select { flex: 1; }
+  .passage-card { padding: 14px 12px 16px; }
+  .passage .passage-text { font-size: 1.15rem; padding: 4px 8px; }
+}
+@media (min-width: 1100px) {
+  .passage { max-width: 1000px; }
+  .passage .passage-text { font-size: 1.6rem; padding: 10px 26px; }
+}
+.flashcard .kj { border-bottom-color: rgba(70, 60, 160, .35); }
+.flashcard .kj:hover, .flashcard .kj.on { background: rgba(110, 90, 230, .14); border-bottom-color: #6c5ce7; }
+.passage .passage-bank { background: #1c1740; box-shadow: 0 -10px 18px rgba(0, 0, 0, .35); border-radius: 14px 14px 0 0; padding: 8px 6px 6px; z-index: 3; }
+.review .page-head .back { white-space: nowrap; }
+@media (max-width: 640px) { .passage .passage-bank .p-chip { padding: 6px 10px; font-size: 1.05rem; } }

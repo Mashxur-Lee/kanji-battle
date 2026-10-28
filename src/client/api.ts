@@ -1,4 +1,4 @@
-import type { AdminUserRow, Level, MatchDetail, MatchSummary, PublicProfile, PublicUser } from '../shared/protocol';
+import type { AdminUserRow, Level, MatchDetail, MatchSummary, OnoType, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
 import type { CardState, DeckId, Rating } from '../shared/srs';
 
@@ -15,8 +15,8 @@ export interface DailyOverview { day: string; total: number; wordMs: number; min
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
 export interface Friend { id: string; username: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; activity?: string; pic?: string | null; level?: number }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
-export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; profile: Profile }
-export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean }
+export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; dailyByLevel?: Partial<Record<Level, number>>; profile: Profile }
+export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean; ono?: OnoType }
 export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: CardState; addedAt: number | null; due: number; intervalDays: number }
 export interface WordHit { id: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean }
 export type { QuizQuestion } from '../shared/quiz';
@@ -102,6 +102,7 @@ export const api = {
   setStudyLevels: (levels: Level[]) => call<StudySummary>('PUT', '/api/study/levels', { levels, today: today() }),
   queue: (deck: DeckId) => call<{ cards: StudyCard[] }>('GET', `/api/study/queue?deck=${deck}`),
   review: (vocabId: string, rating: Rating, deck: DeckId = 'all') => call<{ crit: number }>('POST', '/api/study/review', { vocabId, rating, deck, today: today(), tz: new Date().getTimezoneOffset() }),
+  undo: (vocabId: string, deck: DeckId = 'all') => call<{ crit: number }>('POST', '/api/study/undo', { vocabId, deck }),
   deckWords: (deck: DeckId) => call<{ words: DeckRow[] }>('GET', `/api/study/deck?deck=${deck}`),
   deckRemove: (deck: DeckId, ids: string[]) => call<{ removed: number }>('POST', '/api/study/deck/remove', { deck, ids }),
   deckAdd: (deck: DeckId, ids: string[]) => call<{ added: string[] }>('POST', '/api/study/deck/add', { deck, ids }),
@@ -112,6 +113,8 @@ export const api = {
   /** a daily task done here (the quiz, a passage): counts towards today's streak */
   task: (task: 'quiz' | 'passage', score: number, total: number) => call<Profile>('POST', '/api/study/task', { task, today: today(), score, total }),
   setDailyNew: (n: number) => call<StudySummary>('PUT', '/api/study/daily-new', { n, today: today() }),
+  /** 0.9.9.4.4: new words a day per level */
+  setDailyLevels: (levels: Partial<Record<Level, number>>) => call<StudySummary>('PUT', '/api/study/daily-levels', { levels, today: today() }),
   setBorder: (border: string) => call<{ profile: Profile }>('PUT', '/api/me/border', { border }),
   setBadges: (badges: string[]) => call<{ badges: string[] }>('PUT', '/api/me/badges', { badges }),
   matches: () => call<{ matches: MatchSummary[] }>('GET', '/api/matches'),

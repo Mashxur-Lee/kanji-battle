@@ -48,6 +48,8 @@ const rooms = new RoomManager({
   judgeWriting: createWritingJudge(recognizer),
   judgeDeck: createWritingJudge(recognizer, { lenient: true }), // Deck Duel: extra forgiving
   writableFilter: isWritable(recognizer),
+  // Deck Duel drafts from both players' All spells (0.9.9.4.4)
+  spellIds: async (id) => new Set((await store.cards(id)).filter((c) => (c.deck ?? 'all') === 'all').map((c) => c.vocabId)),
   // after every match: XP + missed words into each player's "Struggling spells"
   onGameStart: (mode, playerIds) => { for (const id of playerIds) void insights.event(id, `game_start:${mode}`); },
   onMatchEnd: async (mode, results) => {

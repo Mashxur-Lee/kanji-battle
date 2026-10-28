@@ -1,6 +1,6 @@
 import './support'; // error reporting first, so early errors are caught too
 import { refreshOnline } from './support';
-import { onTaskDone, showMissedSave, startQuiz } from './decks';
+import { onTaskDone, quizMode, showMissedSave, startQuiz } from './decks';
 import { initTasks, renderTasks, taskActions, tasksAtLogin } from './dailytasks';
 import { checkRewards } from './rewards';
 import { initWhatsNew } from './whatsnew';
@@ -77,7 +77,7 @@ let netState = '';
 let lastWhere = '';
 function tellWhere() {
   if (inRoom || !user) return;
-  const where = document.querySelector('#passageDialog[open]') ? 'passage' : ui.currentScreen() ?? '';
+  const where = ui.currentScreen() === 'quiz' && quizMode() === 'ono' ? 'onoquiz' : ui.currentScreen() ?? '';
   if (where === lastWhere) return;
   lastWhere = where;
   socket.send({ type: 'where', screen: where });
@@ -85,7 +85,7 @@ function tellWhere() {
 {
   let t = 0;
   const mo = new MutationObserver(() => { clearTimeout(t); t = window.setTimeout(tellWhere, 300); });
-  for (const el of document.querySelectorAll('.screen, #passageDialog')) mo.observe(el, { attributes: true, attributeFilter: ['hidden', 'open'] });
+  for (const el of document.querySelectorAll('.screen')) mo.observe(el, { attributes: true, attributeFilter: ['hidden', 'open'] });
 }
 /** 0.9.9.4: offline → a calm "Offline" pill instead of "Reconnecting…" forever */
 function showNetStatus() {

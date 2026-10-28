@@ -188,6 +188,12 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/study') {
         const u = await auth.authenticate(r.token);
         return res(200, await study.summary(u, resolveToday(query.get('today'))));
+      } else if (r.method === 'PUT' && url === '/api/study/daily-levels') {
+        // 0.9.9.4.4: new words a day per level
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        await study.setDailyLevels(u, body.levels, resolveToday(body.today));
+        return res(200, await study.summary(await auth.authenticate(r.token), resolveToday(body.today)));
       } else if (r.method === 'PUT' && url === '/api/study/levels') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();
@@ -202,6 +208,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const body = await r.json();
         const tz = Number(body.tz);
         return res(200, await study.review(u, body.vocabId, body.rating, clockNow(), resolveToday(body.today), Number.isFinite(tz) && Math.abs(tz) <= 840 ? tz : 0, body.deck));
+      } else if (r.method === 'POST' && url === '/api/study/undo') {
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        return res(200, await study.undo(u, body.vocabId, body.deck));
       } else if (r.method === 'GET' && url === '/api/study/deck') {
         const u = await auth.authenticate(r.token);
         return res(200, { words: await study.deckList(u, query.get('deck')) });

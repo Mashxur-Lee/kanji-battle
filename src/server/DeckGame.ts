@@ -22,10 +22,22 @@ interface DPlayer {
 interface Cast { castId: number; card: Card; ownerId: PlayerId | null; startedAt: number; tried: Set<PlayerId>; stage: 'read' | 'look' | 'write'; paid?: number }
 
 /** Picks the 20 draft cards: 4 writable words per JLPT level, coloured by difficulty rank. */
-export function buildDraftPool(vocab: readonly VocabEntry[], writable: (v: VocabEntry) => boolean, rng: Rng, perLevel = DECK_RULES.cardsPerLevel): Array<{ entry: VocabEntry; color: CardColor }> {
+/**
+ * The shared draft pool: `perLevel` words of each level N5–N1. 0.9.9.4.4: `spells` = each player's "All spells" —
+ * every level's words are split evenly between the players and come from their own spells (2 + 2 of the 4), a
+ * random word of that level wherever someone has too few. The colours (difficulty) work as before.
+ */
+export function buildDraftPool(vocab: readonly VocabEntry[], writable: (v: VocabEntry) => boolean, rng: Rng, perLevel = DECK_RULES.cardsPerLevel, spells: ReadonlyArray<ReadonlySet<string>> = []): Array<{ entry: VocabEntry; color: CardColor }> {
   const picked: VocabEntry[] = [];
   for (const level of ['N5', 'N4', 'N3', 'N2', 'N1'] as const) {
-    picked.push(...shuffle(vocab.filter((v) => v.level === level && writable(v)), rng).slice(0, perLevel));
+    const all = vocab.filter((v) => v.level === level && writable(v));
+    const taken = new Set<string>();
+    const take = (from: VocabEntry[], n: number) => { for (const v of shuffle(from.filter((x) => !taken.has(x.id)), rng).slice(0, n)) { taken.add(v.id); picked.push(v); } };
+    if (spells.length) {
+      const each = Math.floor(perLevel / spells.length);
+      for (const mine of spells) take(all.filter((v) => mine.has(v.id)), each);
+    }
+    take(all, perLevel - taken.size); // the rest (or everything, without spells): random words of the level
   }
   // Level is the main signal but not the only one: difficulty already folds in stroke count and word length.
   const ranked = [...picked].sort((a, b) => a.difficulty - b.difficulty);

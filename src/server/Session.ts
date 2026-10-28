@@ -56,7 +56,7 @@ export class SessionHub {
 /** Why a friend can't be invited right now (null = go ahead): already here, mid-game, or just invited. */
 /** What friends and admins see while someone is outside a room (0.9.9.4.3). */
 export const SCREEN_ACTIVITY: Record<string, string> = {
-  study: 'Studying spells', review: 'Studying spells', deck: 'Studying spells', quiz: 'Taking a JLPT quiz', passage: 'Reading a passage',
+  study: 'Studying spells', review: 'Studying spells', deck: 'Studying spells', quiz: 'Taking a JLPT quiz', onoquiz: 'Taking an onomatopoeia quiz', passage: 'Reading a passage',
   daily: 'Playing the daily challenge', customize: 'Customizing', progress: 'Looking at their progress', history: 'Looking at match history', friends: 'With friends',
 };
 export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; now: number }): string | null {

@@ -14,7 +14,7 @@ export const JLPT_WEIGHT = 3;
  * the new level, adjusted by strokes and word length as before (scripts/build-vocab.ts).
  */
 export function rebinByStrokes(words: readonly VocabEntry[]): VocabEntry[] {
-  const kanjiWords = words.filter((w) => w.level !== 'KANA' && w.level !== 'KATA');
+  const kanjiWords = words.filter((w) => JLPT_ORDER.includes(w.level)); // (not かな, カナ or onomatopoeia)
   const sizes = JLPT_ORDER.map((l) => kanjiWords.filter((w) => w.level === l).length);
   const rank = (w: VocabEntry) => JLPT_ORDER.indexOf(w.level);
   // mostly stroke count, with a little of the JLPT list (+3 per step from N5 to N1: up to +12 "strokes"),

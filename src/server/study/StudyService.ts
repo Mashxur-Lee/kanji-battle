@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry } from '../../shared/protocol';
-import type { Level } from '../../shared/protocol';
+import type { Level, OnoType } from '../../shared/protocol';
 import { LEVELS, studyLevelOf } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
 import { taskPassed, BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
@@ -8,7 +8,7 @@ import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
 import { buildQuiz, type QuizQuestion } from '../../shared/quiz';
-import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type Snapshot, type Store, type UserRecord } from '../db/Store';
+import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type DailyPlan, type Snapshot, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { VOCAB, VOCAB_BY_ID } from '../vocab';
 import { playerDay, ProgressService, shiftDay, type MonthProgress } from './ProgressService';
@@ -43,6 +43,8 @@ export interface DeckCounts { new: number; learning: number; due: number; total:
 export interface StudyItem {
   vocabId: string; kanji: string; reading: string; meaning: string; level: Level;
   state: SrsCard['state']; intervals: Record<Rating, string>; custom?: boolean;
+  /** onomatopoeia: which kind */
+  ono?: OnoType;
 }
 
 export class StudyError extends Error { constructor(message: string, readonly status = 400) { super(message); } }
@@ -55,8 +57,13 @@ export function resolveToday(clientToday: unknown, at = clockNow()): string {
   return diff <= 86_400_000 ? clientToday : server;
 }
 
+/** 0.9.9.4.4: what an answer changed, so "Undo" can put it back (newest last, a few per player). */
+interface UndoEntry { deck: DeckId; before: SrsCard; today: string; counted: boolean; critCounted: boolean }
+const UNDO_MAX = 30;
+
 export class StudyService {
   readonly progress: ProgressService;
+  private readonly undos = new Map<string, UndoEntry[]>();
   constructor(private readonly store: Store, private readonly rng: () => number = Math.random) {
     this.progress = new ProgressService(store);
   }
@@ -183,8 +190,33 @@ export class StudyService {
   async setStudyLevels(u: UserRecord, raw: unknown, today: string) {
     const picked = Array.isArray(raw) ? LEVELS.filter((l) => raw.includes(l)) : [];
     const levels = isKanaBeginner(u.unlocks) && u.role !== 'admin' && picked.length ? levelsFor(picked, true) : picked;
-    const rec = (await this.store.update(u.id, { studyLevels: levels, lastNewDate: levels.length ? u.lastNewDate : null }))!;
-    if (levels.length && rec.lastNewDate !== today) await this.addDaily(rec, today);
+    // (older app versions) the levels share your "new spells a day"
+    const per = splitDaily(levels, clampDaily(u.dailyNew));
+    const rec = (await this.store.update(u.id, { studyLevels: levels, lastNewDate: levels.length ? u.lastNewDate : null, dailyPlan: { ...planOf(u, today), per } }))!;
+    if (levels.length) await this.addDaily(rec, today);
+  }
+
+  /**
+   * 0.9.9.4.4 — "All spells": how many new words of each level are added a day (0–150 each; 0 = not that level).
+   * Raising a number today adds the difference right away.
+   */
+  async setDailyLevels(u: UserRecord, raw: unknown, today: string) {
+    const beginner = isKanaBeginner(u.unlocks) && u.role !== 'admin';
+    const per: Partial<Record<Level, number>> = {};
+    const obj = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+    for (const l of LEVELS) {
+      const n = Math.round(Number(obj[l]));
+      if (!Number.isFinite(n) || n <= 0) continue;
+      if (beginner && !levelsFor([l], true).includes(l)) continue; // kana first
+      per[l] = Math.min(DAILY_LEVEL_MAX, n);
+    }
+    const levels = LEVELS.filter((l) => per[l]);
+    const total = levels.reduce((a, l) => a + per[l]!, 0);
+    const rec = (await this.store.update(u.id, {
+      studyLevels: levels, dailyNew: clampDaily(total || u.dailyNew), lastNewDate: levels.length ? u.lastNewDate : null, dailyPlan: { ...planOf(u, today), per },
+    }))!;
+    if (levels.length) await this.addDaily(rec, today);
+    return per;
   }
 
   /** "I've mastered hiragana" (Settings) — or, for a new player who says they're a beginner, not yet. */
@@ -193,28 +225,38 @@ export class StudyService {
     await this.store.update(u.id, { unlocks: mastered ? rest : [...rest, KANA_BEGINNER] });
     if (mastered && isKanaBeginner(u.unlocks)) await this.grantAchievements(u.id, undefined, ['graduate']);
     // a beginner studies かな
-    if (!mastered) await this.store.update(u.id, { studyLevels: ['KANA'] });
+    if (!mastered) await this.store.update(u.id, { studyLevels: ['KANA'], dailyPlan: { ...planOf(u, ''), per: { KANA: clampDaily(u.dailyNew) } } });
   }
 
-  /** Adds today's new words (your "new spells a day", 10–150) from the chosen levels to All spells; tops up if you raised it. */
+  /**
+   * Adds today's new words to All spells: for each level, its "new a day" (0.9.9.4.4; before: one number shared
+   * by the levels you ticked); tops up if you raised a number.
+   */
   private async addDaily(u: UserRecord, today: string): Promise<number> {
-    const already = u.lastNewDate === today ? u.newToday ?? 0 : 0;
-    const want = Math.max(0, clampDaily(u.dailyNew) - already);
-    if (!want) { if (u.lastNewDate !== today) await this.store.update(u.id, { lastNewDate: today, newToday: 0 }); return 0; }
+    const plan = planOf(u, today);
+    const done = { ...plan.done };
     const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === 'all').map((c) => c.vocabId));
-    // seeded by player + day (0.9.9.4): the app offline and the server pick the same words, so study done
-    // offline on today's new cards replays cleanly
-    const fresh = shuffle(VOCAB.filter((v) => u.studyLevels.includes(studyLevelOf(v)) && !have.has(v.id)), seededRng(`${u.id}:${today}:${already}`)).slice(0, want);
     const now = clockNow();
-    const added = (await this.store.addCards(u.id, fresh.map((v) => newCard(v.id, now, 'all')))).length;
-    await this.store.update(u.id, { lastNewDate: today, newToday: already + added, newNotice: u.newNotice + added });
+    let added = 0;
+    for (const l of u.studyLevels) {
+      const want = Math.max(0, (plan.per[l] ?? 0) - (done[l] ?? 0));
+      if (!want) continue;
+      // seeded by player + day + level (0.9.9.4): the app offline and the server pick the same words, so study
+      // done offline on today's new cards replays cleanly
+      const fresh = shuffle(VOCAB.filter((v) => studyLevelOf(v) === l && !have.has(v.id)), seededRng(`${u.id}:${today}:${l}:${done[l] ?? 0}`)).slice(0, want);
+      const n = (await this.store.addCards(u.id, fresh.map((v) => newCard(v.id, now, 'all')))).length;
+      done[l] = (done[l] ?? 0) + (fresh.length < want ? want : n); // a level with nothing left counts as done
+      added += n;
+    }
+    const before = u.lastNewDate === today ? u.newToday ?? 0 : 0;
+    await this.store.update(u.id, { lastNewDate: today, newToday: before + added, newNotice: u.newNotice + added, dailyPlan: { per: plan.per, day: today, done } });
     return added;
   }
 
-  /** Study → "New spells a day" (10–150). Raising it today adds the difference right away. */
+  /** Study → "New spells a day" (10–150), older app versions: shared by the ticked levels. */
   async setDailyNew(u: UserRecord, raw: unknown, today: string) {
     const n = clampDaily(Number(raw));
-    const rec = (await this.store.update(u.id, { dailyNew: n }))!;
+    const rec = (await this.store.update(u.id, { dailyNew: n, dailyPlan: { ...planOf(u, today), per: splitDaily(u.studyLevels, n) } }))!;
     if (rec.studyLevels.length && rec.lastNewDate === today) await this.addDaily(rec, today);
     return n;
   }
@@ -232,6 +274,7 @@ export class StudyService {
   /** Study → open a deck: every word in it, newest first. */
   async deckList(u: UserRecord, deck: unknown): Promise<DeckRow[]> {
     if (!isDeck(deck)) throw new StudyError('Unknown deck');
+    if (deck === 'ono') await this.fillOno(u.id);
     const custom = await this.words(u.id);
     return (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck).flatMap((c) => {
       const w = this.info(c.vocabId, custom);
@@ -306,8 +349,9 @@ export class StudyService {
     const custom = await this.words(u.id);
     const cards = await this.store.cards(u.id);
     const studied = new Map<string, WordInfo>();
-    for (const c of cards) if (c.reps > 0 || c.state !== 'new') { const w = this.info(c.vocabId, custom); if (w) studied.set(w.id, w); }
-    if (studied.size < 4) for (const c of cards) { const w = this.info(c.vocabId, custom); if (w) studied.set(w.id, w); }
+    // (onomatopoeia have their own quiz)
+    for (const c of cards) if (c.reps > 0 || c.state !== 'new') { const w = this.info(c.vocabId, custom); if (w && w.level !== 'ONO') studied.set(w.id, w); }
+    if (studied.size < 4) for (const c of cards) { const w = this.info(c.vocabId, custom); if (w && w.level !== 'ONO') studied.set(w.id, w); }
     const pool = shuffle([...studied.values()], this.rng).slice(0, Math.max(1, Math.min(30, n)));
     return buildQuiz(pool, VOCAB, this.rng, (id) => VOCAB_BY_ID.get(id));
   }
@@ -322,12 +366,14 @@ export class StudyService {
     const notice = fresh.newNotice;
     if (notice) await this.store.update(u.id, { newNotice: 0 });
     const custom = await this.words(u.id);
+    await this.fillOno(u.id);
     const cards = (await this.store.cards(u.id)).filter((c) => !!this.info(c.vocabId, custom));
     return {
       studyLevels: fresh.studyLevels,
       notice,
-      decks: { all: counts(cards.filter((c) => deckOf(c) === 'all'), now), struggling: counts(cards.filter((c) => deckOf(c) === 'struggling'), now), custom: counts(cards.filter((c) => deckOf(c) === 'custom'), now) },
+      decks: { all: counts(cards.filter((c) => deckOf(c) === 'all'), now), struggling: counts(cards.filter((c) => deckOf(c) === 'struggling'), now), custom: counts(cards.filter((c) => deckOf(c) === 'custom'), now), ono: counts(cards.filter((c) => deckOf(c) === 'ono'), now) },
       dailyNew: fresh.dailyNew ?? DAILY_NEW,
+      dailyByLevel: planOf(fresh, today).per,
       profile: await this.profile(fresh),
     };
   }
@@ -336,11 +382,16 @@ export class StudyService {
   async queue(u: UserRecord, deck: Deck, now = clockNow(), limit = 500): Promise<StudyItem[]> { // 0.9.9.4.3: was 60 — a big day came in two sessions
     if (!isDeck(deck)) throw new StudyError('Unknown deck');
     const custom = await this.words(u.id);
+    if (deck === 'ono') await this.fillOno(u.id);
     const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck && !!this.info(c.vocabId, custom));
     const rank = (c: SrsCard) => (c.state === 'learning' || c.state === 'relearning' ? 0 : c.state === 'review' ? 1 : 2);
+    // Onomatopoeia: the deck holds every word; new ones come ONO_NEW_SESSION at a time, in your own fixed order
+    const order = deck === 'ono' ? new Map(shuffle(cards.map((c) => c.vocabId).sort(), seededRng(`${u.id}:ono`)).map((id, i) => [id, i])) : null;
+    let fresh = 0;
     return cards
       .filter((c) => c.state === 'new' || isDue(c, now))
-      .sort((a, b) => rank(a) - rank(b) || a.due - b.due)
+      .sort((a, b) => rank(a) - rank(b) || (order && a.state === 'new' && b.state === 'new' ? order.get(a.vocabId)! - order.get(b.vocabId)! : a.due - b.due))
+      .filter((c) => !order || c.state !== 'new' || fresh++ < ONO_NEW_SESSION)
       .slice(0, limit)
       .map((c) => this.item(c, now, custom));
   }
@@ -351,6 +402,10 @@ export class StudyService {
     const card = await this.store.card(u.id, d, vocabId);
     if (!card) throw new StudyError('No such card', 404);
     const next = answer(card, rating as Rating, now);
+    const stack = this.undos.get(u.id) ?? [];
+    stack.push({ deck: d, before: card, today, counted: rating !== 'again', critCounted: rating !== 'again' && card.critDay !== today });
+    if (stack.length > UNDO_MAX) stack.shift();
+    this.undos.set(u.id, stack);
     // daily crit: a passed card (anything but Again) counts once per day
     if (rating !== 'again' && card.critDay !== today) {
       next.critDay = today;
@@ -366,7 +421,25 @@ export class StudyService {
     return { card: next, crit: await this.crit(u.id, now) };
   }
 
-  /** After a match: XP and the words you missed go to "Struggling spells". */
+  /**
+   * 0.9.9.4.4: "Undo" in a study session — the last answer to this card goes back to how it was (its schedule,
+   * the day's review count and crit). Only the newest answer can be undone, one at a time.
+   */
+  async undo(u: UserRecord, vocabId: unknown, deck: unknown = 'all') {
+    const stack = this.undos.get(u.id) ?? [];
+    const last = stack[stack.length - 1];
+    const d: DeckId = isDeck(deck) ? deck : 'all';
+    if (!last || last.before.vocabId !== vocabId || last.deck !== d) throw new StudyError('Nothing to undo', 409);
+    stack.pop();
+    await this.store.saveCard(u.id, last.before);
+    if (last.counted) await this.store.addActivity(u.id, last.today, { reviews: -1 });
+    if (last.critCounted) {
+      const fresh = (await this.store.findById(u.id)) ?? u;
+      if (fresh.critCount > 0) await this.store.update(u.id, { critCount: fresh.critCount - 1 });
+    }
+    return { card: last.before, crit: await this.crit(u.id) };
+  }
+
   /** Admin page: XP, level, crit and study-set size for every account, plus where it's all saved. */
   async adminStats(rows: AdminUserRow[]): Promise<{ users: AdminUserRow[]; storage: string; persistent: boolean }> {
     const stats = await this.store.cardStats();
@@ -418,7 +491,16 @@ export class StudyService {
 
   private item(c: SrsCard, now: number, custom: Map<string, WordInfo>): StudyItem {
     const w = this.info(c.vocabId, custom)!;
-    return { vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, state: c.state, intervals: previewIntervals(c, now), custom: w.custom };
+    const ono = VOCAB_BY_ID.get(c.vocabId)?.ono;
+    return { vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, state: c.state, intervals: previewIntervals(c, now), custom: w.custom, ...(ono ? { ono } : {}) };
+  }
+
+  /** 0.9.9.4.4: the Onomatopoeia deck holds every onomatopoeia word — put them in when it is empty (new words too) */
+  private async fillOno(userId: string) {
+    // only an empty deck is filled (a word you took out stays out)
+    if ((await this.store.cards(userId)).some((c) => deckOf(c) === 'ono')) return;
+    const now = clockNow();
+    await this.store.addCards(userId, onoWords().map((v) => newCard(v.id, now, 'ono')));
   }
 
   /** Avatar border (Customize → Profile), unlocked by level; admins have all. */
@@ -441,6 +523,25 @@ export class StudyService {
   }
 }
 
+export const DAILY_LEVEL_MAX = 150;
+/** new onomatopoeia cards per study session */
+export const ONO_NEW_SESSION = 20;
+// (a function: in the app's offline engine the word list loads after this module)
+const onoWords = () => VOCAB.filter((v) => v.level === 'ONO');
+/** one "new a day" number shared by levels (before 0.9.9.4.4) → per level */
+export function splitDaily(levels: readonly Level[], total: number): Partial<Record<Level, number>> {
+  const per: Partial<Record<Level, number>> = {};
+  levels.forEach((l, i) => { per[l] = Math.floor(total / levels.length) + (i < total % levels.length ? 1 : 0); });
+  return per;
+}
+/** a player's per-level plan for `today` (an account from before 0.9.9.4.4: its levels share its daily number) */
+export function planOf(u: Pick<UserRecord, 'dailyPlan' | 'studyLevels' | 'dailyNew' | 'lastNewDate' | 'newToday'>, today: string): DailyPlan {
+  const per = u.dailyPlan?.per ?? splitDaily(u.studyLevels, clampDaily(u.dailyNew));
+  if (u.dailyPlan?.day === today) return { per, day: today, done: { ...u.dailyPlan.done } };
+  // the day this version arrives: what the old single counter added today counts as done
+  const legacy = !u.dailyPlan && u.lastNewDate === today && (u.newToday ?? 0) > 0;
+  return { per, day: today, done: legacy ? { ...per } : {} };
+}
 const clampDaily = (n: number) => Math.max(DAILY_NEW_MIN, Math.min(DAILY_NEW_MAX, Math.round(Number.isFinite(n) ? n : DAILY_NEW)));
 const dayBefore = (d: string) => new Date(Date.parse(d) - 86_400_000).toISOString().slice(0, 10);
 /** A streak still counts if the last login was today or yesterday (a day of slack for time zones). */

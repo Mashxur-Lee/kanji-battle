@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.4.3
+# Kanji Wizards · v0.9.9.4.4
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -430,7 +430,8 @@ gzipped.
 
 See **About** in the main menu and [CREDITS.md](CREDITS.md): word data from open-anki-jlpt-decks (MIT) / Jonathan
 Waller's JLPT lists (CC BY) / JMdict (EDRDG, CC BY-SA 4.0), handwriting recognition from KanjiCanvas (MIT) with
-KanjiVG data (CC BY-SA 3.0), three.js (MIT). The About box also has a short privacy note.
+KanjiVG data (CC BY-SA 3.0), kanji meanings and readings from KANJIDIC2 (EDRDG, CC BY-SA 4.0) via kanji-data (MIT),
+three.js (MIT). The About box also has a short privacy note.
 
 ## Structure
 

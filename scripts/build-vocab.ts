@@ -3,8 +3,8 @@
 // Run: npx tsx scripts/build-vocab.ts
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { katakanaToHiragana } from '../src/shared/kana';
-import type { Level, VocabEntry } from '../src/shared/protocol';
+import { katakanaToHiragana, toRomaji } from '../src/shared/kana';
+import type { Level, OnoType, VocabEntry } from '../src/shared/protocol';
 import { CURATED, KANA_ALT, LEVEL_DIFFICULTY } from '../src/shared/vocab';
 
 const ROOT = path.resolve(__dirname, '..');
@@ -77,6 +77,18 @@ export function difficultyOf(level: Level, word: string, strokes: Map<string, nu
   return { difficulty: Math.round(Math.max(5, Math.min(100, LEVEL_DIFFICULTY[level] + adj))), strokes: total };
 }
 
+/**
+ * 0.9.9.4.4: rows the lists write with notes — 勉強 "べんきょう (する)", 下品(な), "(花を〜) 生ける, 活ける",
+ * "回る、回す / まわる、まわす" — become plain [written form, reading] pairs (those words were missing before).
+ */
+export function splitRow(expr: string, reading: string): Array<[string, string]> {
+  const clean = (s: string) => s.replace(/\s*[(（](?:する|な|の)[)）]/g, '').replace(/^[(（][^)）]*[～〜][)）]\s*/, '').trim();
+  const e = clean(expr), r = clean(reading);
+  const es = e.split('、').map((x) => x.trim()), rs = r.split('、').map((x) => x.trim());
+  if (es.length > 1 && es.length === rs.length) return es.map((x, i) => [x, rs[i]]);
+  return [[e.replace(/\s*[,，、]\s*/g, ';'), r]];
+}
+
 export function build(): VocabEntry[] {
   const strokes = strokeTable();
   const out = new Map<string, VocabEntry>();
@@ -88,26 +100,31 @@ export function build(): VocabEntry[] {
     const [header, ...rows] = parseCsv(readFileSync(path.join(ROOT, `data/sources/${level.toLowerCase()}.csv`), 'utf8'));
     const iE = header.indexOf('expression'), iR = header.indexOf('reading'), iM = header.indexOf('meaning');
     for (const r of rows) {
-      const expr = r[iE] ?? '', readingField = r[iR] ?? '', meaning = r[iM] ?? '';
-      if (/[～〜()（）\s]/.test(expr.replace(/;\s/g, ';')) || /[～〜()（）]/.test(readingField)) continue; // affixes, notes
-      const readings = readingField.split(/[;；]/).map((s) => katakanaToHiragana(s.trim())).filter((s) => /^[ぁ-ゖー]+$/.test(s));
-      if (readings.length === 0) continue;
-      const form = pickForm(expr, readings[0]);
-      if (!form || seenWord.has(form)) continue;
-      const m = cleanMeaning(meaning);
-      if (!m) continue;
-      seenWord.set(form, level);
-      const alts = readings.slice(1).filter((x) => fits(form, x));
-      out.set(key(form, readings[0]), {
-        id: key(form, readings[0]), kanji: form, reading: readings[0], meaning: m, level,
-        ...difficultyOf(level, form, strokes), ...(alts.length ? { altReadings: alts } : {}),
-      });
+      for (const [expr, readingField] of splitRow(r[iE] ?? '', r[iR] ?? '')) {
+        const meaning = r[iM] ?? '';
+        if (/[～〜()（）\s]/.test(expr.replace(/;\s/g, ';')) || /[～〜()（）]/.test(readingField)) continue; // affixes, notes
+        const all = readingField.split(/[;；]/).map((s) => katakanaToHiragana(s.trim())).filter((s) => /^[ぁ-ゖー]+$/.test(s));
+        // 0.9.9.4.4: the first reading that fits a written form leads (お金持ち: かねもち; おかねもち)
+        const first = all.find((x) => pickForm(expr, x));
+        if (!first) continue;
+        const readings = [first, ...all.filter((x) => x !== first)];
+        const form = pickForm(expr, readings[0]);
+        if (!form || seenWord.has(form)) continue;
+        const m = cleanMeaning(meaning);
+        if (!m) continue;
+        seenWord.set(form, level);
+        const alts = readings.slice(1).filter((x) => fits(form, x));
+        out.set(key(form, readings[0]), {
+          id: key(form, readings[0]), kanji: form, reading: readings[0], meaning: m, level,
+          ...difficultyOf(level, form, strokes), ...(alts.length ? { altReadings: alts } : {}),
+        });
+      }
     }
   }
 
   // hand-written lists: add what the open lists don't have; keep hand-tuned difficulty
   for (const level of Object.keys(CURATED) as Level[]) {
-    for (const [kanji, second, meaning, difficulty] of CURATED[level]) {
+    for (const [kanji, second, meaning, difficulty] of CURATED[level] ?? []) {
       if (level === 'KANA' || level === 'KATA') {
         const id = `${level === 'KANA' ? 'kana' : 'kata'}:${kanji}`;
         out.set(id, { id, kanji, reading: katakanaToHiragana(kanji), romaji: second, meaning, level, difficulty: difficulty ?? LEVEL_DIFFICULTY[level], ...(KANA_ALT[kanji] ? { altReadings: KANA_ALT[kanji] } : {}) });
@@ -118,6 +135,16 @@ export function build(): VocabEntry[] {
       const d = difficultyOf(level, kanji, strokes);
       out.set(key(kanji, second), { id: key(kanji, second), kanji, reading: second, meaning, level, difficulty: difficulty ?? d.difficulty, strokes: d.strokes });
     }
+  }
+  // 0.9.9.4.4: a split row shares one meaning — the second word gets its own
+  const fix = out.get('回す:まわす');
+  if (fix) fix.meaning = 'to turn; to spin (something)';
+  // 0.9.9.4.4: onomatopoeia (giseigo, gitaigo, gijōgo) — their own deck and quiz, never in battle
+  for (const line of readFileSync(path.join(ROOT, 'data/sources/onomatopoeia.tsv'), 'utf8').split('\n')) {
+    if (!line.trim() || line.startsWith('#')) continue;
+    const [word, type, en] = line.split('\t');
+    const id = `ono:${word}`;
+    out.set(id, { id, kanji: word, reading: katakanaToHiragana(word), romaji: toRomaji(word), meaning: en, level: 'ONO', difficulty: LEVEL_DIFFICULTY.ONO, ono: type as OnoType });
   }
   return [...out.values()];
 }

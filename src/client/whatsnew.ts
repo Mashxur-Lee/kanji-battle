@@ -7,6 +7,33 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.4', date: '2026-10',
+    en: [
+      'Study spells: an ↶ Undo button (or Z) brings back the card you just answered — for a misclick or a wrong swipe.',
+      'Study spells: swiping is more sensitive — a short drag or a quick flick is enough.',
+      'Study spells: on a flipped card, tap any kanji (in the word or the example) for its meaning, on/kun readings and the parts it is built from. “🖼 Memory picture” draws the kanji with each part in its own colour, plus a short story that links the parts to the meaning (休 = a person 亻 leaning on a tree 木 → rest). Every kanji in the game has one.',
+      'All spells: instead of ticks and one slider, each level has its own number — how many of its words are added a day (e.g. N5: 10, N3: 5).',
+      'New deck: Onomatopoeia — 240+ giseigo, gitaigo and gijōgo (sounds, states and feelings), each marked with its kind, with an example sentence. 20 new cards a session.',
+      'New: the Onomatopoeia quiz (between the JLPT quiz and the reading passage) — meanings, words, kinds and “which word fits the sentence”.',
+      'Reading passage: now a screen of its own (centred on phones) instead of a window. Each blank sits in a real sentence for the word — no furigana over the blank, the context is the clue. Tap a word for its meaning; the box has a proper ✕.',
+      'Deck Duel: the 20 cards you draft from come from both players’ All spells — 2 of each level from each of you (a random word if someone has none of that level). The colours (difficulty) are unchanged.',
+      'Word lists: 9 words that were skipped because of notes like “(する)” are back — 結婚, 散歩, 掃除, 勉強, 練習, お金持ち, 回る, 回す, 生ける.',
+      'Credits: kanji data from KANJIDIC2 (EDRDG) via kanji-data, and the kanji parts from KanjiVG.',
+    ],
+    ru: [
+      'Изучение заклинаний: кнопка «↶ Отменить» (или Z) возвращает карточку, на которую вы только что ответили, — если промахнулись или свайпнули не туда.',
+      'Изучение заклинаний: свайп стал чувствительнее — хватает короткого движения или быстрого взмаха.',
+      'Изучение заклинаний: на перевёрнутой карточке нажмите на любой кандзи (в слове или в примере) — увидите значение, чтения он/кун и части, из которых он состоит. «🖼 Картинка-подсказка» рисует кандзи, раскрашивая каждую часть своим цветом, и даёт короткую историю, связывающую части со значением (休 = человек 亻 прислонился к дереву 木 → отдых). Она есть у каждого кандзи в игре.',
+      'Все заклинания: вместо галочек и одного ползунка у каждого уровня своё число — сколько его слов добавлять в день (например, N5: 10, N3: 5).',
+      'Новая колода: Ономатопея — больше 240 гисэйго, гитайго и гидзёго (звуки, состояния и чувства), у каждого указан вид и есть пример. По 20 новых карточек за занятие.',
+      'Новое: тест по ономатопее (между тестом JLPT и текстом для чтения) — значения, слова, виды и «какое слово подходит к предложению».',
+      'Текст для чтения: теперь отдельный экран (по центру на телефонах), а не окно. Каждый пропуск стоит в настоящем предложении с этим словом — без фуриганы над пропуском, подсказка — контекст. Нажмите на слово, чтобы узнать значение; у окошка есть нормальный ✕.',
+      'Дуэль колод: 20 карт для драфта берутся из «Всех заклинаний» обоих игроков — по 2 каждого уровня от каждого (случайное слово, если у кого-то нет слов этого уровня). Цвета (сложность) не изменились.',
+      'Списки слов: вернулись 9 слов, пропущенных из-за пометок вроде «(する)», — 結婚, 散歩, 掃除, 勉強, 練習, お金持ち, 回る, 回す, 生ける.',
+      'Благодарности: данные о кандзи — KANJIDIC2 (EDRDG) через kanji-data, части кандзи — KanjiVG.',
+    ],
+  },
+  {
     v: '0.9.9.4.3', date: '2026-10',
     en: [
       'Study spells: every word on every level (N5 to N1, 6,500+) now has an example sentence, with furigana — the reading in small hiragana above each kanji.',

@@ -3,7 +3,7 @@ import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protoc
 import type { BackgroundId, FlameId, StaffId } from '../../shared/progress';
 import { deckOf, type CardState, type CustomWord, type DeckId, type SrsCard } from '../../shared/srs';
 import { randomUUID } from 'node:crypto';
-import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, type ActivityDelta, type GameEventRow, type Report, type AvatarImage, type DailyResult, type DayActivity, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, type ActivityDelta, type GameEventRow, type Report, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
 /**
  * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
@@ -14,7 +14,7 @@ interface UserRow {
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
   crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null; tutorial_done: boolean | null; unlocks: string[] | null;
   login_day: string | null; streak: number | null; best_streak: number | null; streak_day: string | null; border: string | null;
-  daily_new: number | null; new_today: number | null; badges: string[] | null;
+  daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
@@ -28,7 +28,7 @@ const toUser = (r: UserRow): UserRecord => ({
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
   wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant', tutorialDone: r.tutorial_done ?? true, unlocks: r.unlocks ?? [],
   loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0, streakDay: r.streak_day ?? null, border: r.border ?? 'none',
-  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [],
+  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null,
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
@@ -41,7 +41,7 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
   critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff', tutorialDone: 'tutorial_done', unlocks: 'unlocks',
   loginDay: 'login_day', streak: 'streak', streakDay: 'streak_day', border: 'border', bestStreak: 'best_streak', role: 'role',
-  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges',
+  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan',
 };
 
 /**
@@ -231,6 +231,8 @@ export class PgStore implements Store {
         created_at bigint not null,
         primary key (user_id, id)
       )`;
+    // v0.9.9.4.4: new words a day per level
+    await this.sql`alter table kw_users add column if not exists daily_plan jsonb`;
   }
 
   async findByUsername(username: string) {
@@ -261,7 +263,7 @@ export class PgStore implements Store {
   }
   async update(id: string, patch: UserPatch) {
     const set: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(patch)) if (v !== undefined) set[COLUMNS[k as keyof UserPatch]] = v;
+    for (const [k, v] of Object.entries(patch)) if (v !== undefined) set[COLUMNS[k as keyof UserPatch]] = k === 'dailyPlan' && v !== null ? this.sql.json(v as never) : v;
     if (Object.keys(set).length === 0) return this.findById(id);
     const [r] = await this.sql<UserRow[]>`update kw_users set ${this.sql(set)} where id = ${id} returning *`;
     return r ? toUser(r) : null;

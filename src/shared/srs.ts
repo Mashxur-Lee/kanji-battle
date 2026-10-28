@@ -6,8 +6,11 @@ export type CardState = 'new' | 'learning' | 'review' | 'relearning';
 export type Rating = 'again' | 'hard' | 'good' | 'easy';
 export const RATINGS: Rating[] = ['again', 'hard', 'good', 'easy'];
 
-/** Study decks: "All spells" (daily new words), "Struggling spells" (missed in games), "Custom spells" (your own). */
-export const DECKS = ['all', 'struggling', 'custom'] as const;
+/**
+ * Study decks: "All spells" (daily new words), "Struggling spells" (missed in games), "Custom spells" (your own),
+ * "Onomatopoeia" (0.9.9.4.4: every giseigo, gitaigo and gijōgo word).
+ */
+export const DECKS = ['all', 'struggling', 'custom', 'ono'] as const;
 export type DeckId = (typeof DECKS)[number];
 export const isDeck = (x: unknown): x is DeckId => DECKS.includes(x as DeckId);
 
