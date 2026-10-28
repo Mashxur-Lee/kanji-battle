@@ -26,7 +26,21 @@ export function setUiZoomPref(z: number) {
   applyUiZoom(z);
 }
 
-export function applyUiZoom(z = uiZoomPref()) {
+/**
+ * 0.9.9.4.4.1: on a computer the UI keeps the same proportions on every monitor — the chosen size is for a
+ * 1920×1080 screen (a browser window about 1920×940) and scales with the window, so a laptop and a 4K monitor
+ * show the same layout, just smaller or bigger. Phones, tablets and narrow windows are drawn at the size chosen.
+ */
+const REF_W = 1920, REF_H = 940;
+export function screenFactor(): number {
+  if (innerWidth < 900 || matchMedia('(pointer: coarse)').matches) return 1;
+  return Math.max(0.72, Math.min(2.2, Math.min(innerWidth / REF_W, innerHeight / REF_H)));
+}
+
+let lastPref = 0;
+export function applyUiZoom(pref = uiZoomPref()) {
+  lastPref = pref;
+  const z = Math.round(pref * screenFactor() * 1000) / 1000;
   const root = document.documentElement;
   root.style.setProperty('--ui-zoom', String(z));
   root.style.setProperty('--vfix', '1');
@@ -39,6 +53,12 @@ export function applyUiZoom(z = uiZoomPref()) {
   scale = r.width > 0 ? r.width / 100 : 1;
   const vfix = r.height > 0 ? innerHeight / r.height : 1;
   root.style.setProperty('--vfix', String(Math.round(vfix * 1000) / 1000));
+  // layout switches that follow the page's own size (not the monitor's): a short page squeezes Deck Duel
+  root.classList.toggle('eff-short', viewH() <= 900);
+}
+{
+  let t = 0;
+  addEventListener('resize', () => { clearTimeout(t); t = window.setTimeout(() => { if (lastPref) applyUiZoom(lastPref); }, 150); });
 }
 
 /** getBoundingClientRect in the page's own CSS pixels (for positioning things inside the zoomed page). */

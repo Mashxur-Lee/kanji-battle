@@ -236,7 +236,7 @@
       <div class="queue-card deck" data-q="deck" role="radio" tabindex="0">
         <span class="q-radio" aria-hidden="true"></span>
         <h3>Deck Duel</h3>
-        <p class="sub">Queued on its own. No levels to pick: the cards come from N5 to N1.</p>
+        <p class="sub">Queued on its own. No levels to pick: the cards come from both players' All spells — 2 words of each level (N5–N1) from each of you.</p>
         <button id="qDeckHelp" class="q-help" type="button" title="How Deck Duel works" aria-label="How Deck Duel works">?</button>
         <div class="q-deck-pic" aria-hidden="true"><span class="dkc c-red"></span><span class="dkc c-green"></span><span class="dkc c-yellow"></span><span class="dkc c-blue"></span><span class="dkc c-lightblue"></span></div>
       </div>
@@ -365,37 +365,38 @@
     <p class="sub">Spaced repetition like Anki: each card comes back just before you would forget it.</p>
     <div id="studyNotice" class="notice" hidden></div>
     <div class="study-decks">
-      <div class="deck-card">
+      <div class="deck-card all">
         <h3>All spells</h3>
         <p class="hint">How many new words of each level are added every day (0 = none).</p>
         <div id="studyLevels" class="level-plan" role="group" aria-label="New words a day per level"></div>
         <p id="dailyTotal" class="hint daily-total"></p>
+        <div id="planApply" class="plan-apply" role="group" hidden><span id="planApplyText"></span><button id="planCancelBtn" type="button" class="pill">Cancel</button><button id="planApplyBtn" type="button" class="pill plan-ok">Apply</button></div>
         <div id="countsAll" class="counts"></div>
-        <div class="deck-btns"><button id="studyAll" class="big">Study</button><button class="pill deck-open" data-deck="all">Words</button></div>
+        <div class="deck-btns"><button id="studyAll" class="big">Study</button><button class="deck-open" data-deck="all"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
       <div class="deck-card ono">
         <h3>Onomatopoeia</h3>
         <p class="hint">Every giseigo, gitaigo and gijōgo: sounds (ワンワン), states (きらきら) and feelings (ドキドキ) — 20 new a session.</p>
         <div id="countsOno" class="counts"></div>
-        <div class="deck-btns"><button id="studyOno" class="big">Study</button><button class="pill deck-open" data-deck="ono">Words</button></div>
+        <div class="deck-btns"><button id="studyOno" class="big">Study</button><button class="deck-open" data-deck="ono"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
       <div class="deck-card struggle">
         <h3>Struggling spells</h3>
         <p class="hint">Words you missed in games — you choose on the results screen.</p>
         <div id="countsStruggle" class="counts"></div>
-        <div class="deck-btns"><button id="studyStruggle" class="big">Study</button><button class="pill deck-open" data-deck="struggling">Words</button></div>
+        <div class="deck-btns"><button id="studyStruggle" class="big">Study</button><button class="deck-open" data-deck="struggling"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
       <div class="deck-card custom">
         <h3>Custom spells</h3>
         <p class="hint">Your own words: from the dictionary, or any word you type in.</p>
         <div id="countsCustom" class="counts"></div>
-        <div class="deck-btns"><button id="studyCustom" class="big">Study</button><button class="pill deck-open" data-deck="custom">Words</button><button id="customAdd" class="pill">+ Add words</button></div>
+        <div class="deck-btns"><button id="studyCustom" class="big">Study</button><button class="deck-open" data-deck="custom"><span aria-hidden="true">☰</span> Words</button><button id="customAdd" class="deck-open">+ Add words</button></div>
       </div>
     </div>
     <div class="practice-row">
-      <button id="quizBtn" class="practice-card"><b>JLPT quiz</b><span>10 questions from the spells you studied — readings, meanings and kanji, 4 choices each.</span></button>
-      <button id="onoQuizBtn" class="practice-card"><b>Onomatopoeia quiz</b><span>10 questions on giongo, gitaigo and gijōgo — sounds, states and feelings, 4 choices each.</span></button>
-      <button id="passageBtn" class="practice-card"><b>Reading passage</b><span>Sentences with blanks — fill each one with the word that fits the context, then check.</span></button>
+      <button id="quizBtn" class="practice-card pc-quiz"><i class="pc-ico" aria-hidden="true">試</i><b>JLPT quiz</b><span>10 questions from the spells you studied — readings, meanings and kanji, 4 choices each.</span></button>
+      <button id="onoQuizBtn" class="practice-card pc-ono"><i class="pc-ico" aria-hidden="true">音</i><b>Onomatopoeia quiz</b><span>10 questions on giongo, gitaigo and gijōgo — sounds, states and feelings, 4 choices each.</span></button>
+      <button id="passageBtn" class="practice-card pc-read"><i class="pc-ico" aria-hidden="true">読</i><b>Reading passage</b><span>A short story written with your words — fill in the blanks from the context, then check.</span></button>
     </div>
   </section>
 
@@ -447,7 +448,7 @@
     <div class="page-head"><button id="passageBack" class="back">← Study</button><label class="p-from">Words from <select id="passageDeck" aria-label="Words from"></select></label><button id="passageNew" class="pill">New passage</button></div>
     <div class="passage-card">
       <h2 class="passage-title">Reading passage</h2>
-      <p class="hint">Each sentence is missing one of your words. Tap a blank, then the word that fits — read the sentence around it. Tap any word for its meaning, and a kanji in it for its parts.</p>
+      <p class="hint">A short story with your words left out. Tap a blank, then the word that fits — the story around it is the clue. Tap any word for its meaning, and a kanji in it for its parts.</p>
       <div id="passageText" class="passage-text" lang="ja"></div>
       <details class="passage-tr"><summary>Translation</summary><div id="passageTr"></div></details>
       <div id="passageResult" class="passage-words" hidden></div>
@@ -547,7 +548,7 @@
       <button class="mode-card deck" data-mode="deck">
         <span class="mode-icon jp">札</span>
         <span class="mode-name">Deck Duel</span>
-        <span class="mode-desc">Pick a hero, draft 10 face-down spell cards, then cast them turn by turn: read the meaning, look at the kanji, write it from memory. Mana, heals and your hero's Omnipotence.</span>
+        <span class="mode-desc">Pick a hero, draft 10 face-down spell cards from both players' All spells, then cast them turn by turn: read the meaning, look at the kanji, write it from memory. Mana, heals and your hero's Omnipotence.</span>
       </button>
     </div>
   </section>
@@ -776,7 +777,7 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.9.4.4</div>
+<div id="version" class="version">v0.9.9.4.4.1</div>
 <script src="/app.js"></script>
 </body>
 </html>

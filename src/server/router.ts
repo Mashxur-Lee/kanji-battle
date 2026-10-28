@@ -10,6 +10,7 @@ import { DailyError, type DailyService } from './study/DailyService';
 import { SocialError, type SocialService } from './study/SocialService';
 import { playerDay } from './study/ProgressService';
 import { now as clockNow } from './now';
+import { StoryService } from './study/StoryService';
 
 export const MAX_BODY = 4 * 1024;
 
@@ -48,13 +49,15 @@ export interface ApiExtras {
   strokes?: (ch: string) => unknown;
   insights?: InsightsService;
   onlineCount?: () => number;
+  /** 0.9.9.4.4.1: AI-written reading passage stories (off without an API key) */
+  stories?: StoryService;
   /** server errors (500s) are reported here */
   onError?: (where: string, e: unknown) => void;
 }
 
 /** Routes one /api/* call; null for any other path. */
 export function createApiRouter(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const { presence, daily, social, strokes, insights, onlineCount, onError } = extras;
+  const { presence, daily, social, strokes, insights, onlineCount, onError, stories } = extras;
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
 
@@ -232,6 +235,11 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/study/quiz') {
         const u = await auth.authenticate(r.token);
         return res(200, { questions: await study.quiz(u, Number(query.get('n')) || 10) });
+      } else if (r.method === 'POST' && url === '/api/study/story') {
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        const words = StoryService.clean(body.words);
+        return res(200, { story: stories ? await stories.story(u.id, words, resolveToday(body.today)) : null, words });
       } else if (r.method === 'POST' && url === '/api/study/task') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();

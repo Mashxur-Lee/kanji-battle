@@ -125,7 +125,7 @@ $('deckAllBox').addEventListener('change', () => {
 });
 $('deckRemove').onclick = () => void remove([...selected]);
 $('deckClose').onclick = () => $<HTMLDialogElement>('deckDialog').close();
-for (const b of document.querySelectorAll<HTMLElement>('.deck-open')) b.onclick = () => void openDeck(b.dataset.deck as DeckId);
+for (const b of document.querySelectorAll<HTMLElement>('.deck-open[data-deck]')) b.onclick = () => void openDeck(b.dataset.deck as DeckId);
 $('customAdd').onclick = () => void openDeck('custom', true);
 
 // ── adding custom spells: search the dictionary, or type your own ────────────
@@ -421,6 +421,9 @@ let picked = 0;
 let checked = false;
 /** the sentences of this passage: [the word, its example] */
 let lines: Array<{ w: PWord; ex: [string, string, string] }> = [];
+/** the story's title when the passage is one story (null: separate example sentences) */
+let storyTitle: { ja: string; en: string; ru: string } | null = null;
+let passageBuild = 0;
 
 /** [漢字|かな] → ruby; when `tap`, each word is a button that shows its meaning */
 function rubyBits(text: string, tap: boolean): Node[] {
@@ -444,8 +447,9 @@ const formOf = (marked: string) => marked.replace(/\[([^\]|]+)\|[^\]]+\]/g, '$1'
 
 function jaLine(n: number) {
   const { w, ex } = lines[n];
-  const p = el('p', 'p-line');
-  p.append(el('span', 'p-n', String(n + 1)));
+  // a story (0.9.9.4.4.1) runs on as one text; example sentences are numbered, one per line
+  const p = el(storyTitle ? 'span' : 'p', storyTitle ? 'p-sent' : 'p-line');
+  if (!storyTitle) p.append(el('span', 'p-n', String(n + 1)));
   for (const part of ex[0].split(/(【[^】]+】)/)) {
     if (!part) continue;
     if (part.startsWith('【')) {
@@ -555,7 +559,9 @@ function putWord(w: PWord) {
 }
 function drawTranslation() {
   const ru = lang() === 'ru';
-  $('passageTr').replaceChildren(...lines.map(({ ex }, i) => el('p', '', `${i + 1}. ${ru && ex[2] ? ex[2] : ex[1]}`, { 'data-no-i18n': '' })));
+  const out = lines.map(({ ex }, i) => el('p', '', `${storyTitle ? '' : `${i + 1}. `}${ru && ex[2] ? ex[2] : ex[1]}`, { 'data-no-i18n': '' }));
+  if (storyTitle) out.unshift(el('p', 'p-tr-title', ru ? storyTitle.ru : storyTitle.en, { 'data-no-i18n': '' }));
+  $('passageTr').replaceChildren(...out);
 }
 /** called when a passage is checked (the daily tasks count it) */
 export const passageHooks: { done?: (score: number, total: number) => void } = {};
@@ -593,13 +599,35 @@ async function buildPassage() {
   $('passageResult').replaceChildren();
   hideGloss();
   const examples = await loadExamples();
-  // words with an example sentence, no two that look the same (the bank would be ambiguous)
+  const build = ++passageBuild;
+  // words with an example sentence first (the fallback needs them), no two that look the same (the bank would be ambiguous)
   const seen = new Set<string>();
-  const pool = [...passageWords].sort(() => Math.random() - 0.5).filter((w) => !!w.id && examples.has(w.id) && !seen.has(w.kanji) && !!seen.add(w.kanji));
-  lines = pool.slice(0, 8).map((w) => ({ w, ex: examples.get(w.id!)! }));
-  blanks = []; picked = 0; checked = false;
+  const mixed = [...passageWords].sort(() => Math.random() - 0.5).filter((w) => !seen.has(w.kanji) && !!seen.add(w.kanji));
+  const pool = [...mixed.filter((w) => !!w.id && examples.has(w.id)), ...mixed.filter((w) => !w.id || !examples.has(w.id))].slice(0, 8);
   const text = $('passageText');
-  text.replaceChildren(...lines.map((_, i) => jaLine(i)));
+  blanks = []; picked = 0; checked = false; lines = []; storyTitle = null;
+  $('passageWords').replaceChildren();
+  // 0.9.9.4.4.1: one story with all the words, written by a small AI on the server; the words' example sentences
+  // when it is off, offline, slow or not good enough
+  if (pool.length >= 2) {
+    text.replaceChildren(el('p', 'hint p-writing', '✍ Writing a story with your words…'));
+    const story = await Promise.race([
+      api.story(pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }))).then((r) => r.story).catch(() => null),
+      new Promise<null>((ok) => setTimeout(() => ok(null), 30_000)),
+    ]);
+    if (build !== passageBuild) return; // a newer passage was asked for meanwhile
+    if (story) {
+      storyTitle = story.title;
+      lines = story.lines.map((l) => ({ w: pool[l.word], ex: [l.ja, l.en, l.ru] as [string, string, string] }));
+    }
+  }
+  if (!lines.length) lines = pool.filter((w) => !!w.id && examples.has(w.id)).map((w) => ({ w, ex: examples.get(w.id!)! }));
+  const title = storyTitle ? el('p', 'p-title') : null;
+  if (title && storyTitle) title.append(...rubyBits(storyTitle.ja, false));
+  const body = storyTitle ? el('p', 'p-story') : null;
+  const sents = lines.map((_, i) => jaLine(i));
+  if (body) body.append(...sents);
+  text.replaceChildren(...(title && body ? [title, body] : sents));
   blanks.forEach((_, k) => drawBlank(k));
   drawTranslation();
   // the word bank: every word of the passage, shuffled; tap one to put it in the selected blank
