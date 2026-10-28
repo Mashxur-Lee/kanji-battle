@@ -204,13 +204,15 @@ export class StudyService {
     const beginner = isKanaBeginner(u.unlocks) && u.role !== 'admin';
     const per: Partial<Record<Level, number>> = {};
     const obj = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+    const old = planOf(u, today).per;
     for (const l of LEVELS) {
+      // 0.9.9.4.4.5: a level locked for a かな beginner keeps its saved number (it can't be changed while locked)
+      if (beginner && !isKanaLevel(l)) { if (old[l]) per[l] = old[l]; continue; }
       const n = Math.round(Number(obj[l]));
       if (!Number.isFinite(n) || n <= 0) continue;
-      if (beginner && !levelsFor([l], true).includes(l)) continue; // kana first
       per[l] = Math.min(DAILY_LEVEL_MAX, n);
     }
-    const levels = LEVELS.filter((l) => per[l]);
+    const levels = openLevels(per, beginner);
     const total = levels.reduce((a, l) => a + per[l]!, 0);
     const rec = (await this.store.update(u.id, {
       studyLevels: levels, dailyNew: clampDaily(total || u.dailyNew), lastNewDate: levels.length ? u.lastNewDate : null, dailyPlan: { ...planOf(u, today), per },
@@ -224,8 +226,12 @@ export class StudyService {
     const rest = (u.unlocks ?? []).filter((x) => x !== KANA_BEGINNER);
     await this.store.update(u.id, { unlocks: mastered ? rest : [...rest, KANA_BEGINNER] });
     if (mastered && isKanaBeginner(u.unlocks)) await this.grantAchievements(u.id, undefined, ['graduate']);
-    // a beginner studies かな
-    if (!mastered) await this.store.update(u.id, { studyLevels: ['KANA'], dailyPlan: { ...planOf(u, ''), per: { KANA: clampDaily(u.dailyNew) } } });
+    // 0.9.9.4.4.5: your numbers per level are kept either way. A beginner just gets no words from the kanji
+    // levels (they're locked) — and a brand-new player with no plan at all starts on かな.
+    const plan = planOf(u, '');
+    const per = { ...plan.per };
+    if (!mastered && !LEVELS.some((l) => (per[l] ?? 0) > 0)) per.KANA = clampDaily(u.dailyNew);
+    await this.store.update(u.id, { studyLevels: openLevels(per, !mastered), dailyPlan: { ...plan, per } });
   }
 
   /**
@@ -238,7 +244,9 @@ export class StudyService {
     const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === 'all').map((c) => c.vocabId));
     const now = clockNow();
     let added = 0;
+    const beginner = isKanaBeginner(u.unlocks) && u.role !== 'admin';
     for (const l of u.studyLevels) {
+      if (beginner && !isKanaLevel(l)) continue; // locked until "I've mastered hiragana"
       const want = Math.max(0, (plan.per[l] ?? 0) - (done[l] ?? 0));
       if (!want) continue;
       // seeded by player + day + level (0.9.9.4): the app offline and the server pick the same words, so study
@@ -543,6 +551,12 @@ export function splitDaily(levels: readonly Level[], total: number): Partial<Rec
   return per;
 }
 /** a player's per-level plan for `today` (an account from before 0.9.9.4.4: its levels share its daily number) */
+/** The levels that add words each day: those with a number above 0 — only かな ones for a beginner. */
+function openLevels(per: Partial<Record<Level, number>>, beginner: boolean): Level[] {
+  return LEVELS.filter((l) => (per[l] ?? 0) > 0 && (!beginner || isKanaLevel(l)));
+}
+const isKanaLevel = (l: Level) => l === 'KANA' || l === 'KATA';
+
 export function planOf(u: Pick<UserRecord, 'dailyPlan' | 'studyLevels' | 'dailyNew' | 'lastNewDate' | 'newToday'>, today: string): DailyPlan {
   const per = u.dailyPlan?.per ?? splitDaily(u.studyLevels, clampDaily(u.dailyNew));
   if (u.dailyPlan?.day === today) return { per, day: today, done: { ...u.dailyPlan.done } };

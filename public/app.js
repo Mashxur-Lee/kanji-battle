@@ -1434,13 +1434,17 @@
       const beginner = isKanaBeginner(u.unlocks) && u.role !== "admin";
       const per = {};
       const obj = raw && typeof raw === "object" ? raw : {};
+      const old = planOf(u, today2).per;
       for (const l of LEVELS) {
+        if (beginner && !isKanaLevel2(l)) {
+          if (old[l]) per[l] = old[l];
+          continue;
+        }
         const n = Math.round(Number(obj[l]));
         if (!Number.isFinite(n) || n <= 0) continue;
-        if (beginner && !levelsFor([l], true).includes(l)) continue;
         per[l] = Math.min(DAILY_LEVEL_MAX, n);
       }
-      const levels = LEVELS.filter((l) => per[l]);
+      const levels = openLevels(per, beginner);
       const total = levels.reduce((a, l) => a + per[l], 0);
       const rec = await this.store.update(u.id, {
         studyLevels: levels,
@@ -1456,7 +1460,10 @@
       const rest = (u.unlocks ?? []).filter((x) => x !== KANA_BEGINNER);
       await this.store.update(u.id, { unlocks: mastered ? rest : [...rest, KANA_BEGINNER] });
       if (mastered && isKanaBeginner(u.unlocks)) await this.grantAchievements(u.id, void 0, ["graduate"]);
-      if (!mastered) await this.store.update(u.id, { studyLevels: ["KANA"], dailyPlan: { ...planOf(u, ""), per: { KANA: clampDaily(u.dailyNew) } } });
+      const plan = planOf(u, "");
+      const per = { ...plan.per };
+      if (!mastered && !LEVELS.some((l) => (per[l] ?? 0) > 0)) per.KANA = clampDaily(u.dailyNew);
+      await this.store.update(u.id, { studyLevels: openLevels(per, !mastered), dailyPlan: { ...plan, per } });
     }
     /**
      * Adds today's new words to All spells: for each level, its "new a day" (0.9.9.4.4; before: one number shared
@@ -1468,7 +1475,9 @@
       const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === "all").map((c) => c.vocabId));
       const now2 = now();
       let added = 0;
+      const beginner = isKanaBeginner(u.unlocks) && u.role !== "admin";
       for (const l of u.studyLevels) {
+        if (beginner && !isKanaLevel2(l)) continue;
         const want = Math.max(0, (plan.per[l] ?? 0) - (done2[l] ?? 0));
         if (!want) continue;
         const fresh = shuffle2(VOCAB.filter((v) => studyLevelOf(v) === l && !have.has(v.id)), seededRng(`${u.id}:${today2}:${l}:${done2[l] ?? 0}`)).slice(0, want);
@@ -1757,6 +1766,10 @@
     });
     return per;
   }
+  function openLevels(per, beginner) {
+    return LEVELS.filter((l) => (per[l] ?? 0) > 0 && (!beginner || isKanaLevel2(l)));
+  }
+  var isKanaLevel2 = (l) => l === "KANA" || l === "KATA";
   function planOf(u, today2) {
     const per = u.dailyPlan?.per ?? splitDaily(u.studyLevels, clampDaily(u.dailyNew));
     if (u.dailyPlan?.day === today2) return { per, day: today2, done: { ...u.dailyPlan.done } };
@@ -1908,52 +1921,60 @@
   init_vocab2();
   var HAN = /[\p{Script=Han}々]/u;
   var RUBY = /\[([^\]|]+)\|([^\]]+)\]/g;
-  var kata2hira = (s) => s.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 96));
-  function checkStory(s, words2) {
+  var KANA2 = /^[぀-ゟ゠-ヿー]+$/;
+  var stemOf = (kanji) => {
+    const last3 = Math.max(...[...kanji].map((c, i) => HAN.test(c) ? i : -1));
+    return last3 < 0 ? kanji.replace(/[るうくすつぬむぶぐいだなした]$/, "") || kanji : [...kanji].slice(0, last3 + 1).join("");
+  };
+  function normalizeStory(s, words2) {
     const st = s;
-    if (!st || typeof st !== "object" || !Array.isArray(st.lines)) return "no lines";
-    if (!st.title || typeof st.title.ja !== "string" || HAN.test(st.title.ja.replace(RUBY, ""))) return "title";
-    if (st.lines.length !== words2.length) return "line count";
-    const seen2 = /* @__PURE__ */ new Set();
-    for (const l of st.lines) {
-      if (!l || typeof l.ja !== "string" || typeof l.en !== "string" || typeof l.ru !== "string" || !l.en.trim() || !l.ru.trim()) return "fields";
-      if (!Number.isInteger(l.word) || l.word < 0 || l.word >= words2.length || seen2.has(l.word)) return "word index";
-      seen2.add(l.word);
-      if (l.ja.length > 120) return "too long";
-      const marks = l.ja.match(/【[^】]+】/g) ?? [];
-      if (marks.length !== 1) return `marks in ${l.ja}`;
-      const bare = l.ja.replace(RUBY, "");
-      if (HAN.test(bare)) return `kanji without furigana: ${l.ja}`;
-      for (const m of l.ja.matchAll(RUBY)) if (!HAN.test(m[1]) || !/^[぀-ゟ゠-ヿー]+$/.test(m[2])) return `bad ruby ${m[0]}`;
-      const w = words2[l.word];
-      const inner = marks[0].slice(1, -1);
-      const written2 = inner.replace(RUBY, "$1");
-      const stem = [...w.kanji].filter((c, i, a) => HAN.test(c) || a.slice(0, i).every((x) => !HAN.test(x))).join("").replace(/[぀-ゟ]+$/, "");
-      if (!written2.startsWith(stem)) return `target ${written2} \u2260 ${w.kanji}`;
-      const reading = kata2hira(inner.replace(RUBY, "$2"));
-      const lead = kata2hira(inner.split("[")[0]);
-      const want = kata2hira(w.reading).replace(new RegExp(`^${lead}`), "");
-      const kanjiPart = kata2hira([...inner.matchAll(RUBY)].map((m) => m[2]).join(""));
-      if (kanjiPart && !want.startsWith(kanjiPart) && !(kanjiPart.length > 2 && want.startsWith(kanjiPart.slice(0, -1)))) return `reading ${reading} \u2260 ${want}`;
-      if (!kanjiPart && !reading.startsWith(want.slice(0, Math.max(1, want.length - 2)))) return `reading ${reading} \u2260 ${want}`;
+    if (!st || typeof st !== "object" || !Array.isArray(st.lines) || !st.lines.length) return "no lines";
+    if (st.lines.length > 40) return "too many lines";
+    const str = (x) => typeof x === "string" ? x.trim() : "";
+    const fixRuby = (t2) => t2.replace(RUBY, (m, base, rt) => HAN.test(base) && KANA2.test(rt) ? m : base);
+    const stems = words2.map((w) => stemOf(w.kanji));
+    const used = /* @__PURE__ */ new Set();
+    const lines2 = [];
+    for (const raw of st.lines) {
+      let ja = fixRuby(str(raw?.ja));
+      const en = str(raw?.en), ru = str(raw?.ru) || en;
+      if (!ja) continue;
+      if (ja.length > 240) return "too long";
+      const ws = [];
+      ja = ja.replace(/【([^】]*)】/g, (m, inner) => {
+        const written2 = inner.replace(RUBY, "$1");
+        let best = -1;
+        words2.forEach((_, i) => {
+          if (!used.has(i) && stems[i] && written2.startsWith(stems[i]) && (best < 0 || stems[i].length > stems[best].length)) best = i;
+        });
+        if (best < 0) return inner;
+        used.add(best);
+        ws.push(best);
+        return m;
+      });
+      lines2.push({ ja, en, ru, words: ws });
     }
-    return null;
+    const missing = words2.map((w, i) => used.has(i) ? "" : w.kanji).filter(Boolean);
+    if (missing.length) return `missing ${missing.join(" ")}`;
+    const t = st.title ?? {};
+    return { title: { ja: fixRuby(str(t.ja)), en: str(t.en), ru: str(t.ru) || str(t.en) }, lines: lines2 };
   }
   function prompt(words2) {
-    const list = words2.map((w, i) => `${i}. ${w.kanji} (${w.reading}) \u2014 ${w.meaning}`).join("\n");
-    return `Write a short, simple, coherent story in Japanese for a learner. It must use each of these ${words2.length} words exactly once, one word per sentence, in a natural context that shows what the word means (e.g. \u5BFA\u3067\u3010\u7948\u308B\u3011 for "to pray"). Keep the grammar simple and the sentences short (under 40 characters). One character or a small cast, one setting, a clear little plot from beginning to end \u2014 the sentences must follow on from each other.
+    const list = words2.map((w, i) => `${i + 1}. ${w.kanji} (${w.reading}) \u2014 ${w.meaning}`).join("\n");
+    return `Write ONE short, simple, coherent story in Japanese for a learner (about ${Math.max(6, words2.length + 2)}\u2013${words2.length * 2} short sentences). It must use every one of these ${words2.length} words, each exactly once, woven naturally into the story so that the context shows what the word means. The words should not each get their own separate sentence \u2014 it is one flowing story with a small cast, one setting and a clear little plot from beginning to end; a sentence may hold two of the words, and some sentences may hold none.
 
 Words:
 ${list}
 
 Format rules for the "ja" text (very important):
-- Write every kanji with its furigana as [\u6F22\u5B57|\u304B\u3093\u3058] \u2014 e.g. [\u4ECA\u65E5|\u304D\u3087\u3046]\u306F[\u5BFA|\u3066\u3089]\u3067 \u2014 and NEVER write a kanji outside these brackets.
-- Kana (hiragana, katakana) is written as it is, never in brackets.
-- Wrap the target word of the sentence, with its okurigana or conjugation, in \u3010\u3011 \u2014 e.g. \u3010[\u7948|\u3044\u306E]\u3063\u305F\u3011 or \u3010[\u9759|\u3057\u305A]\u304B\u306A\u3011. Exactly one \u3010\u3011 per sentence, nothing else in \u3010\u3011.
+- Write every kanji with its furigana as [\u6F22\u5B57|\u304B\u3093\u3058] \u2014 e.g. [\u4ECA\u65E5|\u304D\u3087\u3046]\u306F[\u5BFA|\u3066\u3089]\u3067 \u2014 never a kanji outside these brackets.
+- Kana is written as it is, never in brackets.
+- Wrap each of the words above, where it appears, in \u3010\u3011 together with its okurigana or conjugation \u2014 e.g. \u3010[\u7948|\u3044\u306E]\u3063\u305F\u3011 or \u3010[\u9759|\u3057\u305A]\u304B\u306A\u3011. Use \u3010\u3011 only for those words, once each.
+- Keep the grammar simple (JLPT N5\u2013N4 where possible, apart from the words themselves).
 
 Answer with JSON only, no other text:
-{"title":{"ja":"\u2026","en":"\u2026","ru":"\u2026"},"lines":[{"word":<number of the word above>,"ja":"\u2026","en":"English translation","ru":"Russian translation"}]}
-The title's "ja" uses the same furigana format and has no \u3010\u3011. The lines are in story order (any order of the words).`;
+{"title":{"ja":"\u2026","en":"\u2026","ru":"\u2026"},"lines":[{"ja":"one sentence","en":"its English translation","ru":"its Russian translation"}]}
+"lines" are the story's sentences in order. The title's "ja" uses the same furigana format and has no \u3010\u3011.`;
   }
   function providerFromEnv(env = process.env) {
     const model = env.STORY_MODEL || void 0;
@@ -1969,18 +1990,22 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
       return r2.json();
     };
     if (p.kind === "gemini") {
-      const d2 = await post(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`,
-        { "x-goog-api-key": p.key },
-        { contents: [{ role: "user", parts: [{ text }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 3e3 } }
-      );
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`;
+      const config = { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 8192 };
+      let d2;
+      try {
+        d2 = await post(url, { "x-goog-api-key": p.key }, { contents: [{ role: "user", parts: [{ text }] }], generationConfig: { ...config, thinkingConfig: { thinkingBudget: 0 } } });
+      } catch (e) {
+        if (!/ 400:.*think/is.test(e.message)) throw e;
+        d2 = await post(url, { "x-goog-api-key": p.key }, { contents: [{ role: "user", parts: [{ text }] }], generationConfig: config });
+      }
       return (d2.candidates?.[0]?.content?.parts ?? []).map((x) => x.text ?? "").join("");
     }
     if (p.kind === "anthropic") {
       const d2 = await post(
         "https://api.anthropic.com/v1/messages",
         { "x-api-key": p.key, "anthropic-version": "2023-06-01" },
-        { model: p.model, max_tokens: 2e3, messages: [{ role: "user", content: text }] }
+        { model: p.model, max_tokens: 4e3, messages: [{ role: "user", content: text }] }
       );
       return d2.content?.find((c) => c.type === "text")?.text ?? "";
     }
@@ -2016,36 +2041,51 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
         return k && r2 && m ? [{ id: typeof x?.id === "string" ? x.id.slice(0, 40) : void 0, kanji: k, reading: r2, meaning: m }] : [];
       });
     }
+    /** How many stories this player has had written today, and the cap (0.9.9.4.4.5: shown next to "New passage"). */
+    usage(userId, today2) {
+      const u = this.used.get(userId);
+      return { enabled: this.enabled, used: u && u.day === today2 ? u.n : 0, limit: this.perDay };
+    }
+    /**
+     * One story with these words, or why there isn't one ('off', 'limit', 'busy' — everyone's cap —, or what went
+     * wrong). A story already written for the same words comes from the cache and isn't counted.
+     */
     async story(userId, words2, today2) {
-      if (!this.enabled || words2.length < 2) return null;
+      if (!this.enabled) return { story: null, why: "off" };
+      if (words2.length < 2) return { story: null, why: "few words" };
       const key = words2.map((w) => w.id ?? w.kanji).sort().join(",");
       const hit2 = this.cache.get(key);
-      if (hit2) return hit2;
+      if (hit2) return { story: hit2 };
       const u = this.used.get(userId);
-      if (u && u.day === today2 && u.n >= this.perDay) return null;
+      if (u && u.day === today2 && u.n >= this.perDay) return { story: null, why: "limit" };
       if (this.all.day !== today2) this.all = { day: today2, n: 0 };
-      if (this.all.n >= this.allPerDay) return null;
-      this.all.n++;
-      this.used.set(userId, { day: today2, n: (u?.day === today2 ? u.n : 0) + 1 });
-      for (let attempt = 0; attempt < 2; attempt++) {
+      if (this.all.n >= this.allPerDay) return { story: null, why: "busy" };
+      let why = "";
+      const start = Date.now();
+      for (let attempt = 0; attempt < 2 && (attempt === 0 || Date.now() - start < 3e4); attempt++) {
         try {
           const s = await this.ask(words2);
-          const why = checkStory(s, words2);
-          if (!why) {
+          const st = normalizeStory(s, words2);
+          if (typeof st !== "string") {
+            this.all.n++;
+            this.used.set(userId, { day: today2, n: (u?.day === today2 ? u.n : 0) + 1 });
             if (this.cache.size > 500) this.cache.delete(this.cache.keys().next().value);
-            this.cache.set(key, s);
-            return s;
+            this.cache.set(key, st);
+            return { story: st };
           }
-          console.warn("story rejected:", why);
+          why = st;
+          console.warn("story rejected:", st);
         } catch (e) {
-          console.warn("story failed:", e.message);
+          why = e.name === "AbortError" ? "timeout" : e.message;
+          console.warn("story failed:", why);
+          if (/ 4\d\d:/.test(why) && !/ 429:/.test(why)) break;
         }
       }
-      return null;
+      return { story: null, why: why.slice(0, 300) };
     }
     async ask(words2) {
       const ctl = new AbortController();
-      const t = setTimeout(() => ctl.abort(), 25e3);
+      const t = setTimeout(() => ctl.abort(), 55e3);
       try {
         const text = await complete(this.provider, prompt(words2), ctl.signal);
         const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
@@ -2254,7 +2294,12 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
           const u = await auth.authenticate(r2.token);
           const body = await r2.json();
           const words2 = StoryService.clean(body.words);
-          return res(200, { story: stories ? await stories.story(u.id, words2, resolveToday(body.today)) : null, words: words2 });
+          const day = resolveToday(body.today);
+          const out = stories ? await stories.story(u.id, words2, day) : { story: null, why: "off" };
+          return res(200, { ...out, words: words2, usage: stories?.usage(u.id, day) ?? { enabled: false, used: 0, limit: 0 } });
+        } else if (r2.method === "GET" && url === "/api/study/story") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, stories?.usage(u.id, resolveToday(query.get("today"))) ?? { enabled: false, used: 0, limit: 0 });
         } else if (r2.method === "POST" && url === "/api/study/task") {
           const u = await auth.authenticate(r2.token);
           const body = await r2.json();
@@ -2752,6 +2797,8 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     quiz: (n = 10) => call2("GET", `/api/study/quiz?n=${n}`),
     /** 0.9.9.4.4.1: one story with these words (null when the AI is off or failed) */
     story: (words2) => call2("POST", "/api/study/story", { words: words2, today: today() }),
+    /** 0.9.9.4.4.5: AI stories today — how many you've had and the daily cap */
+    storyUsage: () => call2("GET", `/api/study/story?today=${today()}`),
     /** a daily task done here (the quiz, a passage): counts towards today's streak */
     task: (task, score3, total) => call2("POST", "/api/study/task", { task, today: today(), score: score3, total }),
     setDailyNew: (n) => call2("PUT", "/api/study/daily-new", { n, today: today() }),
@@ -2788,7 +2835,7 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.4.4.4";
+  var VERSION = "0.9.9.4.4.5";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -3475,6 +3522,32 @@ The title's "ja" uses the same furigana format and has no \u3010\u3011. The line
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
     "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // 0.9.9.4.4.5
+    "\u2014 study 10 of your words, then type each reading (\u304B\u306A or romaji).": "\u2014 \u0432\u044B\u0443\u0447\u0438\u0442\u0435 10 \u0441\u0432\u043E\u0438\u0445 \u0441\u043B\u043E\u0432, \u0437\u0430\u0442\u0435\u043C \u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0447\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u0436\u0434\u043E\u0433\u043E (\u304B\u306A \u0438\u043B\u0438 \u0440\u043E\u043C\u0430\u0434\u0437\u0438).",
+    "\u2014 no study; both get the same kanji, first correct reading hits. The first 10 are 5 words from each player\u2019s All spells \u2014 the round shows whose word it is.": "\u2014 \u0431\u0435\u0437 \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0438; \u0443 \u043E\u0431\u043E\u0438\u0445 \u043E\u0434\u0438\u043D \u043A\u0430\u043D\u0434\u0437\u0438, \u0431\u044C\u0451\u0442 \u043F\u0435\u0440\u0432\u043E\u0435 \u0432\u0435\u0440\u043D\u043E\u0435 \u0447\u0442\u0435\u043D\u0438\u0435. \u041F\u0435\u0440\u0432\u044B\u0435 10 \u2014 \u043F\u043E 5 \u0441\u043B\u043E\u0432 \u0438\u0437 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0438\u0433\u0440\u043E\u043A\u0430, \u0432 \u0440\u0430\u0443\u043D\u0434\u0435 \u0432\u0438\u0434\u043D\u043E, \u0447\u044C\u0451 \u044D\u0442\u043E \u0441\u043B\u043E\u0432\u043E.",
+    "Study spells is a flashcard deck: the more words you know, the more spells you can cast \u2014 battles use the words in your All spells. Every card you answer gives +5 XP, and words you miss in battle come back there to review.": "\xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2014 \u043A\u043E\u043B\u043E\u0434\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A: \u0447\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0441\u043B\u043E\u0432 \u0432\u044B \u0437\u043D\u0430\u0435\u0442\u0435, \u0442\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043E\u0442\u0432\u043E\u0440\u0438\u0442\u044C \u2014 \u0432 \u0431\u043E\u044F\u0445 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442\u0441\u044F \u0441\u043B\u043E\u0432\u0430 \u0438\u0437 \u0432\u0430\u0448\u0438\u0445 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB. \u041A\u0430\u0436\u0434\u0430\u044F \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0434\u0430\u0451\u0442 +5 \u043E\u043F\u044B\u0442\u0430, \u0430 \u0441\u043B\u043E\u0432\u0430, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0432\u044B \u043E\u0448\u0438\u0431\u043B\u0438\u0441\u044C \u0432 \u0431\u043E\u044E, \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E\u0442\u0441\u044F \u0442\u0443\u0434\u0430 \u0434\u043B\u044F \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044F.",
+    "Your own words": "\u0412\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430",
+    "Practice": "\u041F\u0440\u0430\u043A\u0442\u0438\u043A\u0430",
+    "Hiragana first": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0430",
+    "\u2014 every battle plays the words of your levels from your All spells (marked \u2605 on the study cards); random words fill in when you have too few.": "\u2014 \u0432 \u043A\u0430\u0436\u0434\u043E\u043C \u0431\u043E\u044E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442\u0441\u044F \u0441\u043B\u043E\u0432\u0430 \u0432\u0430\u0448\u0438\u0445 \u0443\u0440\u043E\u0432\u043D\u0435\u0439 \u0438\u0437 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB (\u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430\u0445 \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0438 \u2014 \u2605); \u0435\u0441\u043B\u0438 \u0438\u0445 \u043C\u0430\u043B\u043E, \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u044E\u0442\u0441\u044F \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0435.",
+    "\u2014 Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (\u2212 / +, then Apply). Every card you answer gives +5 XP (up to 500 a day); \u21B6 Undo takes the last answer back.": "\u2014 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u0432 \u0441\u0442\u0438\u043B\u0435 Anki \u0432 \u0447\u0435\u0442\u044B\u0440\u0451\u0445 \u043A\u043E\u043B\u043E\u0434\u0430\u0445: \xAB\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB, \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB (\u0442\u0443\u0434\u0430 \u043F\u043E\u043F\u0430\u0434\u0430\u044E\u0442 \u043E\u0448\u0438\u0431\u043A\u0438), \xAB\u0421\u0432\u043E\u0438\xBB \u0438 \xAB\u041E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u044F\xBB. \u0412\u043E \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445\xBB \u0437\u0430\u0434\u0430\u0439\u0442\u0435, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C \u0432 \u0434\u0435\u043D\u044C (\u2212 / +, \u0437\u0430\u0442\u0435\u043C \xAB\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u0442\u044C\xBB). \u041A\u0430\u0436\u0434\u0430\u044F \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0434\u0430\u0451\u0442 +5 \u043E\u043F\u044B\u0442\u0430 (\u0434\u043E 500 \u0432 \u0434\u0435\u043D\u044C); \u21B6 \xAB\u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C\xBB \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u043E\u0442\u0432\u0435\u0442.",
+    "\u2014 the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 40 new stories a day \u2014 the counter shows how many are left). Tap any kanji for its parts and a memory story.": "\u2014 \u0442\u0435\u0441\u0442 JLPT, \u0442\u0435\u0441\u0442 \u043F\u043E \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0435 \u0438 \u0442\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u0418\u0418 \u043F\u0438\u0448\u0435\u0442 \u043A\u043E\u0440\u043E\u0442\u043A\u0438\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0441 8 \u0432\u0430\u0448\u0438\u043C\u0438 \u0441\u043B\u043E\u0432\u0430\u043C\u0438, \u0430 \u0432\u044B \u0437\u0430\u043F\u043E\u043B\u043D\u044F\u0435\u0442\u0435 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0438 \u043F\u043E \u0441\u043C\u044B\u0441\u043B\u0443 (\u0434\u043E 40 \u043D\u043E\u0432\u044B\u0445 \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u0432 \u0434\u0435\u043D\u044C \u2014 \u0441\u0447\u0451\u0442\u0447\u0438\u043A \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C). \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043B\u044E\u0431\u043E\u0439 \u043A\u0430\u043D\u0434\u0437\u0438, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0435\u0433\u043E \u0447\u0430\u0441\u0442\u0438 \u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u0434\u043B\u044F \u0437\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F.",
+    "\u2014 beginners study \u3072\u3089\u304C\u306A until they tick \u201CI\u2019ve mastered hiragana\u201D in Settings. Until then the kanji levels are locked: they add no new words, but the numbers you set for them are kept.": "\u2014 \u043D\u043E\u0432\u0438\u0447\u043A\u0438 \u0443\u0447\u0430\u0442 \u3072\u3089\u304C\u306A, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043C\u0435\u0442\u044F\u0442 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445. \u0414\u043E \u044D\u0442\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 \u0437\u0430\u043A\u0440\u044B\u0442\u044B: \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u043E\u043D\u0438 \u043D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u044E\u0442, \u043D\u043E \u0437\u0430\u0434\u0430\u043D\u043D\u044B\u0435 \u0434\u043B\u044F \u043D\u0438\u0445 \u0447\u0438\u0441\u043B\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F.",
+    "Writing a story with your words\u2026": "\u041F\u0438\u0448\u0435\u043C \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0438\u0437 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432\u2026",
+    "AI stories left today": "\u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
+    "Each new AI story counts once; the same words again come free. The count starts over at midnight.": "\u041A\u0430\u0436\u0434\u044B\u0439 \u043D\u043E\u0432\u044B\u0439 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0434\u0438\u043D \u0440\u0430\u0437; \u0442\u0435 \u0436\u0435 \u0441\u043B\u043E\u0432\u0430 \u0441\u043D\u043E\u0432\u0430 \u2014 \u0431\u0435\u0441\u043F\u043B\u0430\u0442\u043D\u043E. \u0421\u0447\u0451\u0442 \u043E\u0431\u043D\u0443\u043B\u044F\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    "How reading passages work": "\u041A\u0430\u043A \u0443\u0441\u0442\u0440\u043E\u0435\u043D \u0442\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F",
+    "An AI writes one short story with 8 of your words in it \u2014 each word appears where it makes sense, not in a sentence of its own.": "\u0418\u0418 \u043F\u0438\u0448\u0435\u0442 \u043E\u0434\u0438\u043D \u043A\u043E\u0440\u043E\u0442\u043A\u0438\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0441 8 \u0432\u0430\u0448\u0438\u043C\u0438 \u0441\u043B\u043E\u0432\u0430\u043C\u0438 \u2014 \u043A\u0430\u0436\u0434\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u0441\u0442\u043E\u0438\u0442 \u0442\u0430\u043C, \u0433\u0434\u0435 \u043E\u043D\u043E \u043A \u043C\u0435\u0441\u0442\u0443, \u0430 \u043D\u0435 \u0432 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u043E\u043C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0438.",
+    "The words are blanked out. Tap a blank, then the word that fits from the context. Check shows what you got right.": "\u0421\u043B\u043E\u0432\u0430 \u0441\u043A\u0440\u044B\u0442\u044B \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u043C\u0438. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043F\u0440\u043E\u043F\u0443\u0441\u043A, \u0437\u0430\u0442\u0435\u043C \u043D\u0430 \u0441\u043B\u043E\u0432\u043E, \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0449\u0435\u0435 \u043F\u043E \u0441\u043C\u044B\u0441\u043B\u0443. \xAB\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C\xBB \u043F\u043E\u043A\u0430\u0436\u0435\u0442, \u0447\u0442\u043E \u0432\u0435\u0440\u043D\u043E.",
+    "Writing a story takes a few seconds \u2014 the bar shows how far along it is.": "\u0420\u0430\u0441\u0441\u043A\u0430\u0437 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0435\u043A\u0443\u043D\u0434 \u2014 \u043F\u043E\u043B\u043E\u0441\u043A\u0430 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C.",
+    "You can have up to 40 new AI stories a day \u2014 the counter next to New passage shows how many are left. After that (or offline), the passage uses your words\u2019 example sentences instead.": "\u0412 \u0434\u0435\u043D\u044C \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0434\u043E 40 \u043D\u043E\u0432\u044B\u0445 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u2014 \u0441\u0447\u0451\u0442\u0447\u0438\u043A \u0440\u044F\u0434\u043E\u043C \u0441 \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C. \u041F\u043E\u0442\u043E\u043C (\u0438\u043B\u0438 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430) \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442\u0441\u044F \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432.",
+    "AI stories are switched off on the server \u2014 here are your words\u2019 example sentences instead.": "\u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u044B \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u044B \u2014 \u0432\u043E\u0442 \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432.",
+    "You\u2019ve used all of today\u2019s AI stories \u2014 here are your words\u2019 example sentences instead. New stories tomorrow!": "\u0421\u0435\u0433\u043E\u0434\u043D\u044F\u0448\u043D\u0438\u0435 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u044B \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u043B\u0438\u0441\u044C \u2014 \u0432\u043E\u0442 \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432. \u041D\u043E\u0432\u044B\u0435 \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u044B \u0437\u0430\u0432\u0442\u0440\u0430!",
+    "Today\u2019s AI stories for everyone are used up \u2014 here are your words\u2019 example sentences instead.": "\u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u044B \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u043B\u0438\u0441\u044C \u0443 \u0432\u0441\u0435\u0445 \u2014 \u0432\u043E\u0442 \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432.",
+    "The story took too long \u2014 here are your words\u2019 example sentences instead. Try \u201CNew passage\u201D again.": "\u0420\u0430\u0441\u0441\u043A\u0430\u0437 \u043F\u0438\u0441\u0430\u043B\u0441\u044F \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043E\u043B\u0433\u043E \u2014 \u0432\u043E\u0442 \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u0435\u0449\u0451 \u0440\u0430\u0437.",
+    "Too few words for a story \u2014 here are their example sentences.": "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u043E \u0441\u043B\u043E\u0432 \u0434\u043B\u044F \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u2014 \u0432\u043E\u0442 \u0438\u0445 \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439.",
+    "You\u2019re offline \u2014 here are your words\u2019 example sentences instead.": "\u041D\u0435\u0442 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430 \u2014 \u0432\u043E\u0442 \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432.",
+    "The AI couldn\u2019t write a story this time \u2014 here are your words\u2019 example sentences instead. Try \u201CNew passage\u201D again.": "\u0418\u0418 \u043D\u0435 \u0441\u043C\u043E\u0433 \u043D\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u2014 \u0432\u043E\u0442 \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u0435\u0449\u0451 \u0440\u0430\u0437.",
     // 0.9.9.4.4.2
     "\u2605 From your spells": "\u2605 \u0418\u0437 \u0432\u0430\u0448\u0438\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439",
     "\u2605 yours": "\u2605 \u0432\u0430\u0448\u0435",
@@ -7214,7 +7287,8 @@ ${stack}`.slice(0, 2e3);
     return out;
   }
   function jaLine(n) {
-    const { w, ex } = lines[n];
+    const { ws, ex } = lines[n];
+    let k = 0;
     const p = el2(storyTitle ? "span" : "p", storyTitle ? "p-sent" : "p-line");
     if (!storyTitle) p.append(el2("span", "p-n", String(n + 1)));
     for (const part of ex[0].split(/(【[^】]+】)/)) {
@@ -7223,7 +7297,7 @@ ${stack}`.slice(0, 2e3);
         const i = blanks.length;
         const b = el2("button", "p-blank", void 0, { type: "button", "data-i": String(i), title: "Tap, then pick a word below" });
         b.onclick = () => tapBlank(i);
-        blanks.push({ answer: w, form: part.slice(1, -1), put: null, el: b });
+        blanks.push({ answer: ws[Math.min(k++, ws.length - 1)], form: part.slice(1, -1), put: null, el: b });
         p.append(b);
       } else p.append(...rubyBits(part, true));
     }
@@ -7347,7 +7421,7 @@ ${stack}`.slice(0, 2e3);
     blanks.forEach((_, k) => drawBlank(k));
     const right = blanks.filter((b) => b.put?.kanji === b.answer.kanji).length;
     drawTranslation();
-    const list = lines.map(({ w }) => {
+    const list = lines.flatMap((l) => l.ws).map((w) => {
       const row = el2("div", "pw");
       row.append(el2("b", "", w.kanji, { lang: "ja" }), el2("span", "rd", w.reading, { lang: "ja" }), el2("span", "m", meaningIn(w.meaning)));
       return row;
@@ -7366,7 +7440,47 @@ ${stack}`.slice(0, 2e3);
   function openPassage(words2) {
     passageWords = words2.filter((w) => w.kanji).slice(0, 60);
     show("passage");
+    showIntro();
+    void api.storyUsage().then(showQuota).catch(() => {
+    });
     void buildPassage();
+  }
+  var f1 = (n) => n.toFixed(1);
+  var storyUsage = null;
+  function showQuota(u) {
+    storyUsage = u;
+    const q = $3("passageQuota");
+    q.hidden = !u.enabled;
+    const left = Math.max(0, u.limit - u.used);
+    q.textContent = `${tr("AI stories left today")}: ${left} / ${u.limit}`;
+    q.title = tr("Each new AI story counts once; the same words again come free. The count starts over at midnight.");
+    q.classList.toggle("low", left <= 5);
+    $3("passageIntroQuota").hidden = !u.enabled;
+  }
+  var INTRO_KEY = "kw:passage-intro";
+  function showIntro() {
+    let seen2 = false;
+    try {
+      seen2 = localStorage.getItem(INTRO_KEY) === "1";
+    } catch {
+    }
+    $3("passageIntro").hidden = seen2;
+  }
+  $3("passageIntroOk").onclick = () => {
+    $3("passageIntro").hidden = true;
+    try {
+      localStorage.setItem(INTRO_KEY, "1");
+    } catch {
+    }
+  };
+  function storyWhy(why) {
+    if (why === "off") return tr("AI stories are switched off on the server \u2014 here are your words\u2019 example sentences instead.");
+    if (why === "limit") return tr("You\u2019ve used all of today\u2019s AI stories \u2014 here are your words\u2019 example sentences instead. New stories tomorrow!");
+    if (why === "busy") return tr("Today\u2019s AI stories for everyone are used up \u2014 here are your words\u2019 example sentences instead.");
+    if (why === "timeout") return tr("The story took too long \u2014 here are your words\u2019 example sentences instead. Try \u201CNew passage\u201D again.");
+    if (why === "few words") return tr("Too few words for a story \u2014 here are their example sentences.");
+    if (why === OFFLINE_TEXT) return tr("You\u2019re offline \u2014 here are your words\u2019 example sentences instead.");
+    return `${tr("The AI couldn\u2019t write a story this time \u2014 here are your words\u2019 example sentences instead. Try \u201CNew passage\u201D again.")} (${why.slice(0, 120)})`;
   }
   async function buildPassage() {
     $3("passageResult").hidden = true;
@@ -7384,19 +7498,43 @@ ${stack}`.slice(0, 2e3);
     lines = [];
     storyTitle = null;
     $3("passageWords").replaceChildren();
-    if (pool.length >= 2) {
-      text.replaceChildren(el2("p", "hint p-writing", "\u270D Writing a story with your words\u2026"));
-      const story = await Promise.race([
-        api.story(pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }))).then((r2) => r2.story).catch(() => null),
-        new Promise((ok) => setTimeout(() => ok(null), 3e4))
+    const note = $3("passageNote");
+    note.hidden = true;
+    if (pool.length >= 2 && storyUsage?.enabled !== false) {
+      const bar = el2("i");
+      const sec = el2("span", "", "0");
+      const msg = el2("p", "hint");
+      msg.append(`\u270D ${tr("Writing a story with your words\u2026")} `, sec, " s");
+      const box = el2("div", "p-load", void 0, { lang: lang() });
+      box.append(Object.assign(el2("div", "p-load-bar"), { role: "progressbar" }), msg);
+      box.firstElementChild.append(bar);
+      text.replaceChildren(box);
+      const t0 = Date.now();
+      const tick2 = window.setInterval(() => {
+        const t = (Date.now() - t0) / 1e3;
+        bar.style.width = `${f1(96 * (1 - Math.exp(-t / 14)))}%`;
+        sec.textContent = String(Math.floor(t));
+      }, 250);
+      const r2 = await Promise.race([
+        api.story(pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }))).catch((e) => ({ story: null, why: e.message, usage: void 0 })),
+        new Promise((ok) => setTimeout(() => ok({ story: null, why: "timeout", usage: void 0 }), 95e3))
       ]);
+      clearInterval(tick2);
       if (build2 !== passageBuild) return;
-      if (story) {
-        storyTitle = story.title;
-        lines = story.lines.map((l) => ({ w: pool[l.word], ex: [l.ja, l.en, l.ru] }));
+      if (r2.usage) showQuota(r2.usage);
+      if (r2.story) {
+        bar.style.width = "100%";
+        storyTitle = r2.story.title;
+        lines = r2.story.lines.map((l) => ({ ws: l.words.map((i) => pool[i]), ex: [l.ja, l.en, l.ru] }));
+      } else if (r2.why) {
+        note.textContent = storyWhy(r2.why);
+        note.hidden = false;
       }
+    } else if (storyUsage?.enabled === false) {
+      note.textContent = storyWhy("off");
+      note.hidden = false;
     }
-    if (!lines.length) lines = pool.filter((w) => !!w.id && examples.has(w.id)).map((w) => ({ w, ex: examples.get(w.id) }));
+    if (!lines.length) lines = pool.filter((w) => !!w.id && examples.has(w.id)).map((w) => ({ ws: [w], ex: examples.get(w.id) }));
     const title = storyTitle ? el2("p", "p-title") : null;
     if (title && storyTitle) title.append(...rubyBits(storyTitle.ja, false));
     const body = storyTitle ? el2("p", "p-story") : null;
@@ -7406,7 +7544,7 @@ ${stack}`.slice(0, 2e3);
     blanks.forEach((_, k) => drawBlank(k));
     drawTranslation();
     const bank = el2("div", "p-bank");
-    for (const { w } of [...lines].sort(() => Math.random() - 0.5)) {
+    for (const w of lines.flatMap((l) => l.ws).sort(() => Math.random() - 0.5)) {
       const c = el2("button", "p-chip", w.kanji, { type: "button", lang: "ja", "data-k": w.kanji });
       c.onclick = () => putWord(w);
       bank.append(c);
@@ -7672,6 +7810,24 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.4.4.5",
+      date: "2026-10",
+      en: [
+        "Reading passage: the AI now writes one flowing story where your 8 words appear wherever they fit \u2014 a sentence can hold two of them, or none \u2014 instead of one sentence per word. Fill in the blanks from the context.",
+        "Reading passage: a progress bar while the story is written (it can take a few seconds), a counter of how many AI stories you have left today (40 a day), and a short explainer the first time you open it. When there is no AI story, it says why.",
+        "Reading passage: stories are far less often thrown away over a small slip, and the app waits long enough for them.",
+        "All spells: unticking \u201CI\u2019ve mastered hiragana\u201D no longer resets your numbers per level \u2014 the kanji levels are just locked (greyed out, no new words) until you tick it again.",
+        "How to play: updated \u2014 your own words in battles, the four study decks, +5 XP per card, the practice modes and hiragana first."
+      ],
+      ru: [
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u0418\u0418 \u0442\u0435\u043F\u0435\u0440\u044C \u043F\u0438\u0448\u0435\u0442 \u043E\u0434\u0438\u043D \u0441\u0432\u044F\u0437\u043D\u044B\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437, \u0433\u0434\u0435 \u0432\u0430\u0448\u0438 8 \u0441\u043B\u043E\u0432 \u0441\u0442\u043E\u044F\u0442 \u0442\u0430\u043C, \u0433\u0434\u0435 \u043E\u043D\u0438 \u043A \u043C\u0435\u0441\u0442\u0443 (\u0432 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0438 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u0434\u0432\u0430 \u0441\u043B\u043E\u0432\u0430 \u0438\u043B\u0438 \u043D\u0438 \u043E\u0434\u043D\u043E\u0433\u043E), \u0430 \u043D\u0435 \u043F\u043E \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044E \u043D\u0430 \u0441\u043B\u043E\u0432\u043E. \u0417\u0430\u043F\u043E\u043B\u043D\u044F\u0439\u0442\u0435 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0438 \u043F\u043E \u0441\u043C\u044B\u0441\u043B\u0443.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u043F\u043E\u043B\u043E\u0441\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438, \u043F\u043E\u043A\u0430 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u0440\u0430\u0441\u0441\u043A\u0430\u0437 (\u044D\u0442\u043E \u0437\u0430\u043D\u0438\u043C\u0430\u0435\u0442 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0435\u043A\u0443\u043D\u0434), \u0441\u0447\u0451\u0442\u0447\u0438\u043A \u043E\u0441\u0442\u0430\u0432\u0448\u0438\u0445\u0441\u044F \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 (40 \u0432 \u0434\u0435\u043D\u044C) \u0438 \u043A\u043E\u0440\u043E\u0442\u043A\u043E\u0435 \u043F\u043E\u044F\u0441\u043D\u0435\u043D\u0438\u0435 \u043F\u0440\u0438 \u043F\u0435\u0440\u0432\u043E\u043C \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u0438. \u0415\u0441\u043B\u0438 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u043D\u0435\u0442, \u0432\u0438\u0434\u043D\u043E \u043F\u043E\u0447\u0435\u043C\u0443.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u044B \u0433\u043E\u0440\u0430\u0437\u0434\u043E \u0440\u0435\u0436\u0435 \u043E\u0442\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u0438\u0437-\u0437\u0430 \u043C\u0435\u043B\u043A\u043E\u0439 \u043E\u0448\u0438\u0431\u043A\u0438, \u0438 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0436\u0434\u0451\u0442 \u0438\u0445 \u0434\u043E\u0441\u0442\u0430\u0442\u043E\u0447\u043D\u043E \u0434\u043E\u043B\u0433\u043E.",
+        "\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F: \u0435\u0441\u043B\u0438 \u0441\u043D\u044F\u0442\u044C \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB, \u0447\u0438\u0441\u043B\u0430 \u043F\u043E \u0443\u0440\u043E\u0432\u043D\u044F\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0441\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u2014 \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 \u043F\u0440\u043E\u0441\u0442\u043E \u0437\u0430\u043A\u0440\u044B\u0442\u044B (\u0441\u0435\u0440\u044B\u0435, \u0431\u0435\u0437 \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432), \u043F\u043E\u043A\u0430 \u0433\u0430\u043B\u043E\u0447\u043A\u0430 \u0441\u043D\u043E\u0432\u0430 \u043D\u0435 \u0441\u0442\u043E\u0438\u0442.",
+        "\u041A\u0430\u043A \u0438\u0433\u0440\u0430\u0442\u044C: \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E \u2014 \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0432 \u0431\u043E\u044F\u0445, \u0447\u0435\u0442\u044B\u0440\u0435 \u043A\u043E\u043B\u043E\u0434\u044B, +5 \u043E\u043F\u044B\u0442\u0430 \u0437\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443, \u0440\u0435\u0436\u0438\u043C\u044B \u043F\u0440\u0430\u043A\u0442\u0438\u043A\u0438 \u0438 \xAB\u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0430\xBB."
+      ]
+    },
     {
       v: "0.9.9.4.4.4",
       date: "2026-10",
@@ -9501,7 +9657,7 @@ ${stack}`.slice(0, 2e3);
       body: "A kanji appears; type how it is read \u2014 in hiragana, or in romaji with a normal keyboard \u2014 and press Enter. Fast and right in a row hits harder.",
       extra: tryIt
     },
-    { title: "Study makes you stronger", body: "Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review." },
+    { title: "Study makes you stronger", body: "Study spells is a flashcard deck: the more words you know, the more spells you can cast \u2014 battles use the words in your All spells. Every card you answer gives +5 XP, and words you miss in battle come back there to review." },
     { title: "All modes are open", body: "Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel are all open from the start. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards." },
     { title: "\u304B\u306A first, then kanji", body: `Beginners: study \u304B\u306A in Study spells until you know it by heart. Then tick "I've mastered hiragana" in Settings (the sliders button, top-right) \u2014 and the kanji levels N5 to N1 open for studying and battles.` },
     { title: "Your first battle", body: "Ready? You'll study 10 easy words for a minute, then duel a beginner AI with them." }
@@ -11007,7 +11163,8 @@ ${stack}`.slice(0, 2e3);
   }
   var savedPlan = {};
   var draftPlan = {};
-  var planTotal = (p) => LEVELS.reduce((a, l) => a + (p[l] ?? 0), 0);
+  var lockedLv = /* @__PURE__ */ new Set();
+  var planTotal = (p) => LEVELS.reduce((a, l) => a + (lockedLv.has(l) ? 0 : p[l] ?? 0), 0);
   function levelPlan(per) {
     savedPlan = { ...per };
     draftPlan = { ...per };
@@ -11057,10 +11214,9 @@ ${stack}`.slice(0, 2e3);
       row.append(name, step);
       const locked = lockLevelChip(row, lv);
       if (locked.classList.contains("locked")) {
-        input2.value = "0";
         input2.disabled = minus.disabled = plus.disabled = true;
-        delete draftPlan[lv];
-      }
+        lockedLv.add(lv);
+      } else lockedLv.delete(lv);
       return locked;
     }));
     planChanged();
@@ -11068,7 +11224,7 @@ ${stack}`.slice(0, 2e3);
   function planChanged() {
     for (const row of document.querySelectorAll("#studyLevels .lp-row")) {
       const l = row.dataset.level;
-      row.classList.toggle("on", (draftPlan[l] ?? 0) > 0);
+      row.classList.toggle("on", (draftPlan[l] ?? 0) > 0 && !lockedLv.has(l));
       row.classList.toggle("changed", (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
     }
     const total = planTotal(draftPlan);
