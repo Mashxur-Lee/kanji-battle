@@ -784,7 +784,7 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bg-comet { transform-box: view-box; animation: bgComet 21s linear infinite; opacity: 0; }
 @keyframes bgComet { 0% { transform: translate(-300px, var(--cy)); opacity: 0; } 2% { opacity: 1; } 14% { transform: translate(1900px, calc(var(--cy) + 620px)); opacity: 0; } 100% { transform: translate(1900px, calc(var(--cy) + 620px)); opacity: 0; } }
 .bg-blink { transform-origin: center; animation: bgBlink 7s infinite; }
-@keyframes bgBlink { 0%, 90%, 100% { transform: scaleY(1); opacity: 1; } 92%, 95% { transform: scaleY(.1); } 60%, 70% { opacity: .55; } }
+@keyframes bgBlink { 0%, 88%, 100% { transform: scaleY(1); } 91%, 94% { transform: scaleY(.08); } } /* 0.9.9.5: the eyes close and open — no fading */
 .bg-float { transform-box: view-box; animation: bgFloat 9s ease-in-out infinite alternate; }
 @keyframes bgFloat { from { transform: translate(0, 0); } to { transform: translate(18px, -26px); } }
 .bg-flicker { animation: bgFlicker 2.4s ease-in-out infinite alternate; }
@@ -2380,3 +2380,42 @@ body:is([data-screen="study"], [data-screen="review"], [data-screen="quiz"], [da
   .cust-tabs { scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); padding-right: 28px; }
   .cust-tabs::-webkit-scrollbar { display: none; }
 }
+
+/* 0.9.9.5: a whole word in an example sentence (帽子) is one tap — the word box shows its meaning, "+ Add to…" and its kanji */
+.kw { cursor: pointer; border-radius: 6px; border-bottom: 2px dotted rgba(70, 60, 160, .45); transition: background .12s; }
+.kw:hover, .kw.on { background: rgba(110, 90, 230, .14); border-bottom-color: #6c5ce7; }
+.kp-word .kp-char { font-size: 2.2rem; white-space: nowrap; }
+.kp-wr { font-size: 1rem; color: var(--accent2); }
+.kp-wr.dict { color: var(--muted); }
+.kp-word .p-add { margin-top: 6px; align-self: flex-start; }
+.kp-back { margin: 0 0 6px; padding: 4px 10px; font-size: .85rem; }
+
+/* 0.9.9.5: ★ starred words — on the study card (top left) and in the word lists */
+.star-btn { all: unset; cursor: pointer; font-size: 1.25rem; line-height: 1; color: #9a94b8; padding: 2px 4px; border-radius: 8px; transition: transform .12s, color .12s; }
+.star-btn:hover { transform: scale(1.15); color: #ffd479; }
+.star-btn.on { color: #ffc93c; text-shadow: 0 0 8px rgba(255, 201, 60, .55); }
+.star-btn:focus-visible { outline: 2px solid var(--accent2); }
+.fc-star { position: absolute; top: 8px; left: 12px; z-index: 2; }
+.fc-star .star-btn { font-size: 1.6rem; color: #b8b2d4; }
+.fc-star .star-btn.on { color: #f0b400; text-shadow: none; }
+/* 0.9.9.5: reading passage — which of your words (levels) and the story's own level */
+.p-settings { display: grid; gap: 8px; margin: 4px 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+.p-set-row { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.p-set-lbl { font-size: .85rem; font-weight: 700; color: var(--muted); min-width: 7.5em; }
+.p-levels { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.p-lv { padding: 5px 12px; border-radius: 999px; font-size: .9rem; font-weight: 800; background: var(--field); border: 1.5px solid var(--line); color: var(--muted); }
+.p-lv.on { background: rgba(185, 147, 255, .2); border-color: var(--accent); color: var(--text); }
+#passageStoryLevel { width: auto; margin: 0; padding: 6px 10px; font-size: .95rem; }
+.p-set-tip { font-size: .8rem; }
+.p-missed { margin-top: 8px; color: #ffb36b; }
+.passage .page-head .deck-open-btn { padding: 6px 12px; }
+/* 0.9.9.5: "← Study" on the JLPT quiz, the Onomatopoeia quiz and the reading passage sits where "← Menu" does (top left) */
+#quiz .page-head > .back, #passage .page-head > .back { position: fixed; top: 62px; left: var(--gutter); z-index: 20; }
+#quiz, #passage { padding-top: 112px; }
+#quiz .page-head, #passage .page-head { min-height: 0; }
+/* 0.9.9.5: a short page at a smaller UI size sits in the middle of the window (zoom.ts sets --lift) */
+.screen { border-top: var(--lift, 0px) solid transparent; }
+/* 0.9.9.5: Spell mastery → All levels: a heading line before each level's words */
+.mg-level { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; margin: 10px 0 4px; font-weight: 900; font-size: .95rem; color: var(--accent2); letter-spacing: .04em; }
+.mg-level::before, .mg-level::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(110, 231, 255, .5), transparent); }
+.word-grid.all-levels > .mg-level:first-child { margin-top: 2px; }

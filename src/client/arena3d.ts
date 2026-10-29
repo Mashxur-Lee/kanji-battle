@@ -600,17 +600,21 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const kick = (amount: number) => { if (!reduced()) shake = Math.max(shake, amount); };
 
   // spells in flight
-  interface Flight { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; mid: THREE.Vector3; t: number; dur: number; color: THREE.Color; size: number; done: () => void; trailAt: number; gem?: THREE.Mesh }
+  interface Flight { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; mid: THREE.Vector3; t: number; dur: number; color: THREE.Color; size: number; done: () => void; trailAt: number; gem?: THREE.Mesh; incoming?: boolean }
   const flights: Flight[] = [];
-  function fly(from: THREE.Vector3, to: THREE.Vector3, kanji: string, color: string, size: number, dur: number): Promise<void> {
+  function fly(from: THREE.Vector3, to: THREE.Vector3, kanji: string, color: string, size: number, dur: number, incoming = false): Promise<void> {
     const { tex, aspect } = textTexture(kanji, color);
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
     s.scale.set(size * aspect * 0.4, size * 0.4, 1);
     s.position.copy(from);
     s.renderOrder = 5;
     scene.add(s);
-    const mid = from.clone().lerp(to, 0.5).add(new THREE.Vector3(rnd(-0.6, 0.6), 1.2 + from.distanceTo(to) * 0.08, 0));
-    return new Promise((done) => flights.push({ sprite: s, from, to, mid, t: 0, dur, color: new THREE.Color(color), size, done, trailAt: 0 }));
+    // 0.9.9.5: a spell coming at you (first person) flies in low and off to the side, under the question — not
+    // over the middle of the screen where the word you're answering is
+    const mid = incoming
+      ? from.clone().lerp(to, 0.5).add(new THREE.Vector3(screenSpot(0.28, from.clone().lerp(to, 0.5).z) - from.clone().lerp(to, 0.5).x, -0.15, 0))
+      : from.clone().lerp(to, 0.5).add(new THREE.Vector3(rnd(-0.6, 0.6), 1.2 + from.distanceTo(to) * 0.08, 0));
+    return new Promise((done) => flights.push({ sprite: s, from, to, mid, t: 0, dur, color: new THREE.Color(color), size, done, trailAt: 0, incoming }));
   }
 
   // ── state set by the game ───────────────────────────────────────────────────
@@ -1071,8 +1075,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const a = fl.from.clone().lerp(fl.mid, e), b = fl.mid.clone().lerp(fl.to, e);
       fl.sprite.position.copy(a.lerp(b, e));
       if (fl.gem) { fl.gem.position.copy(fl.sprite.position); fl.gem.rotation.y += dt * 12; fl.gem.rotation.x += dt * 7; }
-      const grow = 0.55 + e * 0.8;
+      const grow = fl.incoming ? 0.55 + e * 0.25 : 0.55 + e * 0.8;
       const mat = fl.sprite.material as THREE.SpriteMaterial;
+      // an incoming spell fades as it gets close (the hit flash and the damage number say what happened)
+      if (fl.incoming) mat.opacity = 1 - 0.75 * Math.max(0, Math.min(1, (t - 0.35) / 0.5));
       const img = mat.map?.image as HTMLCanvasElement | undefined;
       const asp = img ? img.width / img.height : 1;
       fl.sprite.scale.set(fl.size * asp * 0.4 * grow, fl.size * 0.4 * grow, 1);
@@ -1166,9 +1172,12 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         return;
       }
       const start = pointOf(from, from === 'boss' ? 'mouth' : 'staff');
-      const end = pointOf(to, 'chest');
+      const firstPerson = to === 'me' && fp.visible;
+      // at you (first person): it lands low and to the side, under the question
+      const chest = pointOf(to, 'chest');
+      const end = firstPerson ? chest.clone().add(new THREE.Vector3(screenSpot(0.42, chest.z) - chest.x, -0.5, 0)) : chest;
       const size = (o.crit ? 1.5 : 1) * 1.15;
-      const flight = fly(start, end, kanji, color, size, 0.85);
+      const flight = fly(start, end, kanji, color, size, 0.85, firstPerson);
       if (from === 'me') {
         // your staff thrusts and its gem launches forward with the spell; a new one builds up when you next write
         thrustAt = performance.now(); gemState = 'gone';
@@ -1177,7 +1186,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         flights[flights.length - 1].gem = g;
       }
       await flight;
-      burst(end, color, o.crit ? 46 : 28, o.crit ? 4.4 : 3.2, 0.2);
+      // (at you: a small burst at the side — the red screen flash says you were hit)
+      if (firstPerson) burst(end, color, o.crit ? 14 : 8, o.crit ? 1.6 : 1.1, 0.12); else burst(end, color, o.crit ? 46 : 28, o.crit ? 4.4 : 3.2, 0.2);
       const t = fighters.get(to);
       if (t) t.hurtUntil = performance.now() + 450;
       cardEffect(to, o.fx, end);

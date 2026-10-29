@@ -11,7 +11,7 @@ import { celebrate, celebrateNew, comboMilestone } from './achievements';
 import { railScreen, refreshRail, setRailUser } from './friendrail';
 import { writeTargets, writeTemplate } from '../shared/kana';
 import { initI18n, lang, setLang } from './i18n';
-import { applyUiZoom, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
+import { applyUiZoom, centerScreens, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
 import * as voice from './voice';
 import { initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
@@ -37,6 +37,7 @@ import * as offline from './offline';
 import { initApp } from './appshell';
 
 applyUiZoom(); // before anything is laid out
+centerScreens();
 
 // ── state ────────────────────────────────────────────────────────────────────
 let user: PublicUser | null = null;

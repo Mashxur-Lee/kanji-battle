@@ -58,7 +58,18 @@ export function normalizeStory(s: unknown, words: readonly StoryWord[]): Story |
   return { title: { ja: fixRuby(str(t.ja)), en: str(t.en), ru: str(t.ru) || str(t.en) }, lines };
 }
 
-function prompt(words: readonly StoryWord[]) {
+/** 0.9.9.5: the story's own level — its other words and its grammar (the player picks it, N5–N1) */
+export type StoryLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
+export const isStoryLevel = (x: unknown): x is StoryLevel => typeof x === 'string' && /^N[1-5]$/.test(x);
+const LEVEL_HINT: Record<StoryLevel, string> = {
+  N5: 'JLPT N5: only the most basic words and grammar (です・ます, simple particles, short sentences)',
+  N4: 'JLPT N4: basic everyday words and grammar (て-form, ～たい, ～から, simple conditionals)',
+  N3: 'JLPT N3: intermediate everyday words and grammar (～ようにする, ～ことになる, passive, more natural connections)',
+  N2: 'JLPT N2: upper-intermediate words and grammar (newspaper-like expressions, ～わけではない, ～に対して)',
+  N1: 'JLPT N1: advanced vocabulary and grammar, natural written Japanese',
+};
+
+function prompt(words: readonly StoryWord[], level: StoryLevel = 'N4') {
   const list = words.map((w, i) => `${i + 1}. ${w.kanji} (${w.reading}) — ${w.meaning}`).join('\n');
   return `Write ONE short, simple, coherent story in Japanese for a learner (about ${Math.max(6, words.length + 2)}–${words.length * 2} short sentences). It must use every one of these ${words.length} words, each exactly once, woven naturally into the story so that the context shows what the word means. The words should not each get their own separate sentence — it is one flowing story with a small cast, one setting and a clear little plot from beginning to end; a sentence may hold two of the words, and some sentences may hold none.
 
@@ -69,7 +80,7 @@ Format rules for the "ja" text (very important):
 - Write every kanji with its furigana as [漢字|かんじ] — e.g. [今日|きょう]は[寺|てら]で — never a kanji outside these brackets.
 - Kana is written as it is, never in brackets.
 - Wrap each of the words above, where it appears, in 【】 together with its okurigana or conjugation — e.g. 【[祈|いの]った】 or 【[静|しず]かな】. Use 【】 only for those words, once each.
-- Keep the grammar simple (JLPT N5–N4 where possible, apart from the words themselves).
+- Write the rest of the story at ${LEVEL_HINT[level]} — the other words and the grammar should be of that level (and easier), so it is a good read for someone studying that level.
 
 Answer with JSON only, no other text:
 {"title":{"ja":"…","en":"…","ru":"…"},"lines":[{"ja":"one sentence","en":"its English translation","ru":"its Russian translation"}]}
@@ -138,7 +149,7 @@ export class StoryService {
   /** players with a story being written — one at a time each */
   private readonly busy = new Set<string>();
   private all = { day: '', n: 0 };
-  constructor(private readonly provider: StoryProvider | null = providerFromEnv(), private readonly perDay = 40, private readonly allPerDay = Number(process.env.STORY_DAILY_MAX) || 400) {}
+  constructor(private readonly provider: StoryProvider | null = providerFromEnv(), private readonly perDay = 10, private readonly allPerDay = Number(process.env.STORY_DAILY_MAX) || 400, private readonly adminPerDay = 40) {}
   get enabled() { return !!this.provider; }
   get describe() { return this.provider ? `${this.provider.kind} · ${this.provider.model}` : 'off'; }
 
@@ -154,24 +165,28 @@ export class StoryService {
   }
 
   /** How many stories this player has had written today, and the cap (0.9.9.4.4.5: shown next to "New passage"). */
-  usage(userId: string, today: string) {
-    return { enabled: this.enabled, used: this.used.get(`${userId}|${today}`)?.n ?? 0, limit: this.perDay };
+  usage(userId: string, today: string, admin = false) {
+    return { enabled: this.enabled, used: this.used.get(`${userId}|${today}`)?.n ?? 0, limit: this.limitFor(admin) };
   }
+  /** 0.9.9.5: 10 new stories a day for players, 40 for admins */
+  private limitFor(admin: boolean) { return admin ? this.adminPerDay : this.perDay; }
 
   /**
    * One story with these words, or why there isn't one ('off', 'limit', 'busy' — everyone's cap —, or what went
    * wrong). A story already written for the same words comes from the cache and isn't counted.
    */
-  async story(userId: string, words: StoryWord[], today: string): Promise<{ story: Story | null; why?: string }> {
+  async story(userId: string, words: StoryWord[], today: string, opts: { level?: StoryLevel; admin?: boolean } = {}): Promise<{ story: Story | null; why?: string }> {
+    const level = opts.level ?? 'N4';
+    const cap = this.limitFor(!!opts.admin);
     if (!this.enabled) return { story: null, why: 'off' };
     if (words.length < 2) return { story: null, why: 'few words' };
-    const key = words.map((w) => w.id ?? w.kanji).sort().join(',');
+    const key = `${level}:${words.map((w) => w.id ?? w.kanji).sort().join(',')}`;
     const hit = this.cache.get(key);
     if (hit) return { story: hit };
     const k = `${userId}|${today}`;
     if (!this.used.has(k)) { if (this.used.size > 20_000) this.used.clear(); this.used.set(k, { n: 0, tries: 0 }); }
     const u = this.used.get(k)!;
-    if (u.n >= this.perDay || u.tries >= Math.max(20, this.perDay * 3)) return { story: null, why: 'limit' };
+    if (u.n >= cap || u.tries >= Math.max(20, cap * 3)) return { story: null, why: 'limit' };
     // a cap for everyone together keeps a free API plan within its daily quota — by the server's day (0.9.9.4.4.7:
     // the app's day can be yesterday or tomorrow, and switching between them mustn't reset it)
     const serverDay = new Date().toISOString().slice(0, 10);
@@ -179,17 +194,17 @@ export class StoryService {
     if (this.all.n >= this.allPerDay) return { story: null, why: 'busy' };
     if (this.busy.has(userId)) return { story: null, why: 'wait' };
     this.busy.add(userId);
-    try { return await this.write(u, key, words); } finally { this.busy.delete(userId); }
+    try { return await this.write(u, key, words, level); } finally { this.busy.delete(userId); }
   }
 
-  private async write(u: { n: number; tries: number }, key: string, words: StoryWord[]): Promise<{ story: Story | null; why?: string }> {
+  private async write(u: { n: number; tries: number }, key: string, words: StoryWord[], level: StoryLevel): Promise<{ story: Story | null; why?: string }> {
     let why = '';
     const start = Date.now();
     // a second try only when the first was quick (the app waits about 90 s in all)
     for (let attempt = 0; attempt < 2 && (attempt === 0 || Date.now() - start < 30_000); attempt++) {
       try {
         u.tries++;
-        const s = await this.ask(words);
+        const s = await this.ask(words, level);
         const st = normalizeStory(s, words);
         if (typeof st !== 'string') {
           // only a story you actually get counts
@@ -210,11 +225,11 @@ export class StoryService {
     return { story: null, why: why.slice(0, 300) };
   }
 
-  private async ask(words: readonly StoryWord[]): Promise<Story | null> {
+  private async ask(words: readonly StoryWord[], level: StoryLevel): Promise<Story | null> {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 55_000);
     try {
-      const text = await complete(this.provider!, prompt(words), ctl.signal);
+      const text = await complete(this.provider!, prompt(words, level), ctl.signal);
       const json = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
       return JSON.parse(json) as Story;
     } finally { clearTimeout(t); }

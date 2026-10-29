@@ -1,5 +1,6 @@
+import { starButton } from './stars';
 import { exampleFor, loadExamples } from './examples';
-import { hideKanji, kanjiTappable } from './kanjihelp';
+import { hideKanji, kanjiTappable, wordsTappable } from './kanjihelp';
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, ONO_TYPES, type Level } from '../shared/protocol';
 import { avatarFor, BACKGROUNDS, beta, BORDERS, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
@@ -183,6 +184,8 @@ function next() {
   $('fcMeaning').textContent = current.meaning;
   $('fcBack').hidden = true;
   $('fcExample').replaceChildren();
+  // 0.9.9.5: ★ the word (reading passages use starred words first)
+  $('fcStar').replaceChildren(starButton(current.vocabId, 'star-btn fc-star-btn'));
   $('fcStrokes').hidden = true;
   $('fcStrokeBox').hidden = true;
   const card = $('flash');
@@ -202,7 +205,7 @@ function flip() {
   $('fcStrokes').hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
   // 0.9.9.4.2: an example sentence with the word in it, and its translation
   const card = current;
-  void exampleFor(card.vocabId).then((ex) => { if (ex && current === card && flipped) { kanjiTappable(ex); $('fcExample').replaceChildren(ex); } });
+  void exampleFor(card.vocabId).then((ex) => { if (ex && current === card && flipped) { wordsTappable(ex); $('fcExample').replaceChildren(ex); } });
   // 0.9.9.4.4: tap a kanji of the word (or of the example) for its meaning, readings and parts
   kanjiTappable($('fcKanji'));
 }

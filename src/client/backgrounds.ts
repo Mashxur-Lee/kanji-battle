@@ -143,10 +143,17 @@ function forestRow(base: number, count: number, minH: number, maxH: number, colo
   for (let i = 0; i < count; i++) s += pine((i / count) * W + r(-20, W / count), base + r(-6, 6), r(minH, maxH), color);
   return s + `<rect x="0" y="${base}" width="${W}" height="${H - base}" fill="${color}"/>`;
 }
-/** Pairs of red eyes in the dark between the trees; each pair blinks on its own rhythm. */
-function eyes(n: number, yMin: number, yMax: number, op: number) {
+/**
+ * Pairs of red eyes in the dark between the trees; each pair blinks on its own rhythm. 0.9.9.5: only in the
+ * gaps between trunks (`trees`: [left, right] of each trunk), drawn behind the nearer trees.
+ */
+function eyes(n: number, yMin: number, yMax: number, op: number, trees: Array<[number, number]> = []) {
+  const free = (x: number) => trees.every(([a, b]) => x + 18 < a || x - 6 > b);
   return Array.from({ length: n }, () => {
-    const x = r(60, W - 60), y = r(yMin, yMax), gap = r(7, 12), s = r(2, 3.4);
+    let x = r(60, W - 60);
+    for (let k = 0; k < 40 && !free(x); k++) x = r(60, W - 60);
+    if (!free(x)) return '';
+    const y = r(yMin, yMax), gap = r(7, 12), s = r(2, 3.4);
     return `<g class="bg-blink" style="animation-delay:${f(r(0, 9))}s;animation-duration:${f(r(5, 11))}s" opacity="${op}" filter="url(#glow)"><ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(s)}" ry="${f(s * 0.7)}" fill="#ff2a2a"/><ellipse cx="${f(x + gap)}" cy="${f(y)}" rx="${f(s)}" ry="${f(s * 0.7)}" fill="#ff2a2a"/></g>`;
   }).join('');
 }
@@ -366,17 +373,21 @@ function forest(t: TimeOfDay) {
   const sky: Sky = pick(t, [[0, '#7fb2d8'], [0.5, '#cfe4ec'], [1, '#f2f6ee']], [[0, '#2a1a44'], [0.4, '#8a4a6a'], [0.7, '#e88a5a'], [1, '#ffd49a']], [[0, '#050a16'], [0.55, '#0f2236'], [1, '#1c3c42']]);
   const far = pick(t, '#b8c8d4', '#a0707a', '#1e3644'), mid = pick(t, '#5e6a80', '#4a2e46', '#0f1e28'), near = pick(t, '#262838', '#1c1222', '#05090e');
   const stone = pick(t, ['#d8dce4', '#a8aebc', '#6a7080'], ['#8a6a78', '#5e4458', '#2e2030'], ['#3a4656', '#28323e', '#121820']);
+  // 0.9.9.5: the middle row of trunks is laid out first, so the eyes can peer out from the gaps between them
+  const mids = Array.from({ length: 12 }, (_, i) => [(i / 12) * W + r(0, 90), r(40, 70)] as [number, number]);
+  const trees: Array<[number, number]> = [...mids.map(([x, w]) => [x - 4, x + w + 10] as [number, number]),
+    ...([[90, 190, 30], [1500, 210, -40], [420, 110, 20], [1170, 120, -10]] as const).map(([x, w, lean]) => [x - w / 2 - Math.abs(lean) - 30, x + w / 2 + Math.abs(lean) + 30] as [number, number])];
   return `<defs>${grad('sk', sky)}${grad('cometTail', [[0, '#fff', 0.9], [1, '#9fd8ff', 0]], false)}${floorDefs(stone)}${DEFS}</defs>
     <rect width="${W}" height="${H}" fill="url(#sk)"/>
     ${t === 'night' ? milkyWay() + stars(160, 420) + comets(2) + moon(1200, 150, 54) : t === 'sunset' ? horizonGlow(560, '#ff8a4a') + sun(1080, 520, 70, '#ffd9a0', '#ff9a5a') : sun(1180, 120, 50, '#fffbe8', '#fff6c8')}
     ${(() => { const g = lin([[0, lighten(far, 0.12)], [0.5, far], [1, dk2(far, 0.12)]], 0, 0, 1, 0); return Array.from({ length: 34 }, (_, i) => { const x = (i / 34) * W + r(-20, 20), w = r(14, 34); return `<path d="M${f(x)} 700 L${f(x + w * 0.15)} 0 H${f(x + w * 0.85)} L${f(x + w)} 700 Z" fill="${g}" opacity="${f(r(0.35, 0.7))}"/>`; }).join(''); })()}
     ${haze(560, pick(t, '#f2f6f4', '#ffc0a0', '#2a4a5a'), 0.75)}
     ${mist(600, pick(t, '#ffffff', '#ffd0b0', '#4e7a86'), pick(t, 0.6, 0.4, 0.35))}
-    ${(() => { const g = lin([[0, lighten(mid, 0.14)], [0.4, mid], [1, dk2(mid, 0.3)]], 0, 0, 1, 0); return Array.from({ length: 12 }, (_, i) => { const x = (i / 12) * W + r(0, 90), w = r(40, 70); return `<path d="M${f(x)} 760 L${f(x + 8)} 0 L${f(x + w)} 0 L${f(x + w + 6)} 760Z" fill="${g}" opacity=".92"/>${bark(x + 8, 40, w - 10, 680, mid)}`; }).join(''); })()}
+    ${eyes(t === 'night' ? 6 : t === 'sunset' ? 3 : 1, 560, 700, t === 'day' ? 0.3 : 1, trees)}
+    ${(() => { const g = lin([[0, lighten(mid, 0.14)], [0.4, mid], [1, dk2(mid, 0.3)]], 0, 0, 1, 0); return mids.map(([x, w]) => `<path d="M${f(x)} 760 L${f(x + 8)} 0 L${f(x + w)} 0 L${f(x + w + 6)} 760Z" fill="${g}" opacity=".92"/>${bark(x + 8, 40, w - 10, 680, mid)}`).join(''); })()}
     ${t !== 'night' ? rays(t === 'day' ? 1180 : 1080, t === 'day' ? 120 : 520, pick(t, '#fffdf0', '#ffd39a', '#000'), pick(t, 0.32, 0.3, 0)) : ''}
     ${haze(700, pick(t, '#e8f0f0', '#d08a7a', '#1c3a40'), 0.35)}
     ${rock(300, 760, 1.3, pick(t, '#7a8090', '#4a3444', '#141a22'))}${rock(1290, 756, 1.1, pick(t, '#6e7484', '#40303e', '#111820'))}
-    ${eyes(t === 'night' ? 6 : t === 'sunset' ? 3 : 1, 560, 700, t === 'day' ? 0.3 : 1)}
     ${trunk(90, 190, near, 30)}${trunk(1500, 210, near, -40)}${trunk(420, 110, mid, 20)}${trunk(1170, 120, mid, -10)}
     ${t !== 'day' ? fireflies(t === 'night' ? 28 : 12, 460, 760, '#e8ff9a') : ''}
     ${(() => { const lf = pick(t, '#3e5e34', '#3a2a30', '#0c1a14'); const g = rad([[0, lighten(lf, 0.18)], [0.6, lf], [1, dk2(lf, 0.4)]], 0.4, 0.7); let c = ''; for (let i = 0; i < 26; i++) c += leafBlob(r(-40, W + 40), r(-30, 70), r(60, 120), g); return `<g class="bg-sway-soft">${c}</g>`; })()}

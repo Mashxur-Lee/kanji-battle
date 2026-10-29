@@ -4,7 +4,7 @@ import type { CardState, DeckId, Rating } from '../shared/srs';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; wins: number; losses: number; pic: string | null; background: BackgroundId; studyLevels: Level[]; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
   tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew?: number; badges?: string[];
-  tasks?: DailyTaskState[]; streakDay?: string | null; border?: string }
+  tasks?: DailyTaskState[]; streakDay?: string | null; border?: string; starred?: string[] }
 export interface MonthProgress { month: string; name: string; reward: string; goals: Array<{ id: string; label: string; target: number; value: number }>; done: boolean; unlocked: boolean }
 export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number }
 export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, Array<[kanji: string, mastery: number, progress: number]>>; month: MonthProgress }
@@ -17,7 +17,7 @@ export interface Friend { id: string; username: string; status: 'accepted' | 'in
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean; ono?: OnoType }
-export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: CardState; addedAt: number | null; due: number; intervalDays: number }
+export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: CardState; addedAt: number | null; due: number; intervalDays: number; starred?: boolean }
 export interface WordHit { id: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean }
 export type { QuizQuestion } from '../shared/quiz';
 import type { QuizQuestion } from '../shared/quiz';
@@ -112,7 +112,9 @@ export const api = {
   addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', { ...w, id: `u:${uuid().slice(0, 13)}` }),
   quiz: (n = 10) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}`),
   /** 0.9.9.4.4.1: one story with these words (null when the AI is off or failed) */
-  story: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>) => call<{ story: { title: { ja: string; en: string; ru: string }; lines: Array<{ ja: string; en: string; ru: string; words: number[] }> } | null; why?: string; usage?: StoryUsage }>('POST', '/api/study/story', { words, today: today() }),
+  story: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>, level?: string) => call<{ story: { title: { ja: string; en: string; ru: string }; lines: Array<{ ja: string; en: string; ru: string; words: number[] }> } | null; why?: string; usage?: StoryUsage }>('POST', '/api/study/story', { words, level, today: today() }),
+  /** 0.9.9.5: ★ a word (the reading passage uses starred words first) */
+  setStar: (vocabId: string, on: boolean) => call<{ starred: string[] }>('PUT', '/api/study/star', { vocabId, on }),
   /** 0.9.9.4.4.5: AI stories today — how many you've had and the daily cap */
   storyUsage: () => call<StoryUsage>('GET', `/api/study/story?today=${today()}`),
   /** a daily task done here (the quiz, a passage): counts towards today's streak */

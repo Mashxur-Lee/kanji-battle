@@ -1,4 +1,4 @@
-// UI size: the whole interface is drawn at a chosen zoom (default 80% on computers, so Deck Duel's HP and
+// UI size: the whole interface is drawn at a chosen zoom (default 100% since 0.9.9.5; it was 80% on computers, so Deck Duel's HP and
 // mana stay on screen even with the IME candidate list open). The 3D arena stays full-screen.
 //
 // CSS `zoom` also shrinks vh/vw lengths, so style.css uses var(--vh) / var(--vw) / var(--dvh), scaled back
@@ -18,7 +18,7 @@ export function uiZoomPref(): number {
     if (UI_ZOOMS.includes(v as (typeof UI_ZOOMS)[number])) return v;
   } catch { /* private mode */ }
   // phones and tablets (touch) and small windows stay at 100%
-  return innerWidth >= 900 && !matchMedia('(pointer: coarse)').matches ? 0.8 : 1;
+  return 1; // 0.9.9.5: 100% everywhere by default (it was 80% on computers)
 }
 
 export function setUiZoomPref(z: number) {
@@ -55,6 +55,7 @@ export function applyUiZoom(pref = uiZoomPref()) {
   root.style.setProperty('--vfix', String(Math.round(vfix * 1000) / 1000));
   // layout switches that follow the page's own size (not the monitor's): a short page squeezes Deck Duel
   root.classList.toggle('eff-short', viewH() <= 900);
+  refit();
 }
 {
   let t = 0;
@@ -70,3 +71,39 @@ export function zrect(el: Element) {
 /** The window size in the page's own CSS pixels. */
 export const viewW = () => innerWidth / scale;
 export const viewH = () => innerHeight / scale;
+
+/**
+ * 0.9.9.5: at a smaller UI size (70–90%) a page that is shorter than the window sits in the middle of it, not
+ * at the top. The battle screens, the main menu and the sign-in page keep their own layouts; at 100% nothing moves.
+ */
+const KEEP = new Set(['battle', 'deck', 'prep', 'menu', 'auth']);
+export function centerScreens() {
+  const fit = (el: HTMLElement) => {
+    if (el.hidden || KEEP.has(el.id)) return;
+    const was = Number(el.dataset.lift ?? 0);
+    // how tall the page's content is (the screen itself is at least as tall as the window)
+    const top = zrect(el).top;
+    let bottom = 0;
+    for (const k of el.children) {
+      if ((k as HTMLElement).hidden || getComputedStyle(k).position === 'fixed') continue;
+      bottom = Math.max(bottom, zrect(k).bottom - top);
+    }
+    const used = bottom - was + parseFloat(getComputedStyle(el).paddingBottom || '0');
+    const extra = lastPref < 1 ? Math.max(0, Math.floor((viewH() - used) / 2)) : 0;
+    if (Math.abs(extra - was) < 2) return;
+    el.dataset.lift = String(extra);
+    el.style.setProperty('--lift', `${extra}px`);
+  };
+  let queued = 0;
+  refit = () => {
+    if (queued) return;
+    queued = requestAnimationFrame(() => { queued = 0; document.querySelectorAll<HTMLElement>('.screen:not([hidden])').forEach(fit); });
+  };
+  // a page changes height when its content arrives (or a section opens): fit again, once per frame at most
+  for (const s of document.querySelectorAll<HTMLElement>('.screen')) {
+    new MutationObserver(refit).observe(s, { attributes: true, attributeFilter: ['hidden'], childList: true, subtree: true });
+  }
+  addEventListener('resize', refit);
+  refit();
+}
+let refit = () => {};

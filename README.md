@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.4.4.7
+# Kanji Wizards · v0.9.9.5
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
