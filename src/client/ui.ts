@@ -7,6 +7,7 @@ import {
 } from '../shared/protocol';
 import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
 import { arena as arena3d, arenaForBattle } from './arena';
+import { setStarred } from './stars';
 import { flameColor, flameShades, isKanaBeginner, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -142,6 +143,7 @@ export function setProfile(p: ProfileView | null) {
   if (!p) return;
   setBadges(p.badges);
   beginnerFlag = isKanaBeginner(p.unlocks);
+  if ('starred' in p) setStarred((p as { starred?: string[] }).starred);
   const lx = levelXp(p.xp);
   $('whoLv').textContent = String(lx.level);
   $('whoLevel').textContent = `Lv ${lx.level} · ${lx.into.toLocaleString()} / ${lx.need.toLocaleString()} XP`;

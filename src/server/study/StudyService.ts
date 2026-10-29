@@ -28,13 +28,13 @@ interface WordInfo { id: string; kanji: string; reading: string; meaning: string
 const fromVocab = (v: VocabEntry): WordInfo => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: studyLevelOf(v), custom: false });
 const fromCustom = (w: CustomWord): WordInfo => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: 'N5', custom: true });
 /** One row of a deck's word list (Study → open a deck). */
-export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: SrsCard['state']; addedAt: number | null; due: number; intervalDays: number }
+export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: SrsCard['state']; addedAt: number | null; due: number; intervalDays: number; starred?: boolean }
 /** A JLPT-style question: pick 1 of 4. */
 export type { QuizQuestion } from '../../shared/quiz';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
   tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew: number; badges: string[];
-  tasks: DailyTaskState[]; streakDay: string | null; border: string }
+  tasks: DailyTaskState[]; streakDay: string | null; border: string; starred: string[] }
 
 /** Public URL of a profile picture (versioned, so browsers can cache it forever). */
 export const picUrl = (u: { id: string; avatarV: number }) => (u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null);
@@ -60,6 +60,7 @@ export function resolveToday(clientToday: unknown, at = clockNow()): string {
 /** 0.9.9.4.4: what an answer changed, so "Undo" can put it back (newest last, a few per player). */
 interface UndoEntry { deck: DeckId; before: SrsCard; today: string; counted: boolean; critCounted: boolean; xp: number }
 const UNDO_MAX = 30;
+export const STAR_MAX = 300;
 
 export class StudyService {
   readonly progress: ProgressService;
@@ -81,7 +82,7 @@ export class StudyService {
       streak: liveStreak(u, new Date(now).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0,
       tutorialDone: u.tutorialDone ?? true, unlocks: u.unlocks ?? [], month: await this.progress.month(u, playerDay(u, now)),
       dailyNew: u.dailyNew ?? DAILY_NEW, badges: u.badges ?? [],
-      tasks: await this.progress.tasks(u.id, playerDay(u, now)), streakDay: u.streakDay ?? null, border: u.border ?? 'none',
+      tasks: await this.progress.tasks(u.id, playerDay(u, now)), streakDay: u.streakDay ?? null, border: u.border ?? 'none', starred: u.starred ?? [],
     };
   }
 
@@ -284,10 +285,21 @@ export class StudyService {
     if (!isDeck(deck)) throw new StudyError('Unknown deck');
     if (deck === 'ono') await this.fillOno(u.id);
     const custom = await this.words(u.id);
+    const stars = new Set(u.starred ?? []);
     return (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck).flatMap((c) => {
       const w = this.info(c.vocabId, custom);
-      return w ? [{ vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, custom: w.custom, state: c.state, addedAt: c.addedAt ?? null, due: c.due, intervalDays: c.intervalDays }] : [];
+      return w ? [{ vocabId: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning, level: w.level, custom: w.custom, state: c.state, addedAt: c.addedAt ?? null, due: c.due, intervalDays: c.intervalDays, starred: stars.has(w.id) }] : [];
     }).sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));
+  }
+
+  /** ★ a word (0.9.9.5): starred words go into your reading passages first. At most STAR_MAX. */
+  async setStar(u: UserRecord, id: unknown, on: unknown): Promise<string[]> {
+    if (typeof id !== 'string' || !id || id.length > 64) throw new StudyError('Unknown word');
+    const rest = (u.starred ?? []).filter((x) => x !== id);
+    if (on === true && rest.length >= STAR_MAX) throw new StudyError(`You can star up to ${STAR_MAX} words`);
+    const starred = on === true ? [...rest, id] : rest;
+    await this.store.update(u.id, { starred });
+    return starred;
   }
 
   async removeFromDeck(u: UserRecord, deck: unknown, ids: unknown) {

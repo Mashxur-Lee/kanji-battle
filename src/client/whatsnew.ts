@@ -7,6 +7,29 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.5', date: '2026-10',
+    en: [
+      'Study cards: in the example sentence a whole word (帽子) is one tap — its meaning, “+ Add to…” a deck, and its kanji one by one underneath.',
+      'Star words ★ on a study card or in any deck’s word list — reading passages put your starred words in first.',
+      'Reading passage: pick which of your words go in (by level, N5–N1) and how hard the story itself is (story level N5–N1). Words come only from the deck you chose (All spells by default), at least 8 kanji words; “☰ Words” shows that deck’s list.',
+      'Reading passage: the words you get wrong go to Struggling spells; the story’s title can be tapped too; 10 new AI stories a day.',
+      'Battles: spells flying at you come in low and fade as they get close, so they don’t cover the word you’re answering.',
+      'Progress → Spell mastery: an “All levels” tab — every level in order, each under its own heading.',
+      'The UI size is 100% by default; at a smaller size the pages sit in the middle of the window instead of at the top. “← Study” on the quizzes and the reading passage is at the top left, like “← Menu”.',
+      'Forest arena: the red eyes peer out from between the trees and blink.',
+    ],
+    ru: [
+      'Карточки: в примере предложения целое слово (帽子) — одно нажатие: значение, «+ Добавить в…» колоду и его кандзи по одному ниже.',
+      'Отмечайте слова ★ на карточке или в списке слов любой колоды — тексты для чтения берут отмеченные слова первыми.',
+      'Текст для чтения: выберите, какие ваши слова войдут (по уровням N5–N1) и насколько сложным будет сам рассказ (уровень N5–N1). Слова берутся только из выбранной колоды («Все заклинания» по умолчанию), нужно хотя бы 8 слов с кандзи; «☰ Слова» показывает список колоды.',
+      'Текст для чтения: слова с ошибками попадают в «Трудные заклинания»; на заголовок рассказа тоже можно нажать; 10 новых ИИ-рассказов в день.',
+      'Бои: заклинания, летящие в вас, идут низом и тают по мере приближения — они больше не закрывают слово, на которое вы отвечаете.',
+      'Прогресс → Освоение заклинаний: вкладка «Все уровни» — все уровни по порядку, каждый под своим заголовком.',
+      'Размер интерфейса по умолчанию — 100%; при меньшем размере страницы стоят по центру окна, а не вверху. «← Заклинания» в тестах и тексте для чтения — вверху слева, как «← Меню».',
+      'Лесная арена: красные глаза выглядывают из-за деревьев и моргают.',
+    ],
+  },
+  {
     v: '0.9.9.4.4.7', date: '2026-10',
     en: [
       'Onomatopoeia quiz: no more “which kind is it” questions — just the meanings, the words and the sentences.',

@@ -425,6 +425,14 @@ const RU: Record<string, string> = {
   'Light blue flames': 'Голубое пламя', 'Purple flames': 'Фиолетовое пламя', 'Login streak': 'Серия входов', 'login streak (days)': 'серия входов (дни)',
   '擬声語 (giseigo) — sound': '擬声語 (гисэйго) — звук', '擬態語 (gitaigo) — state / manner': '擬態語 (гитайго) — состояние / образ действия', '擬情語 (gijōgo) — feeling': '擬情語 (гидзёго) — чувство',
   'Time up — the dragon survived': 'Время вышло — дракон выжил',
+  // 0.9.9.5
+  'Tap for this word': 'Нажмите, чтобы узнать слово', 'Not in the dictionary — tap a kanji below': 'Нет в словаре — нажмите на кандзи ниже', 'Kanji': 'Кандзи',
+  'Your words from': 'Ваши слова уровней', 'Story level': 'Уровень рассказа', '★ starred words go in first · changes apply to the next passage': '★ отмеченные слова идут первыми · изменения — со следующего текста',
+  '— easiest': '— самый лёгкий', '— hardest': '— самый сложный', 'Keep at least one level': 'Оставьте хотя бы один уровень', 'All levels': 'Все уровни',
+  'Already in Struggling spells': 'Уже в «Трудных заклинаниях»', 'Couldn’t add them to Struggling spells (offline?)': 'Не удалось добавить в «Трудные заклинания» (нет интернета?)',
+  'Starred — reading passages use these first': 'Со звёздочкой — тексты для чтения берут их первыми',
+  'Starred — used first in reading passages. Tap to unstar': 'Со звёздочкой — первым идёт в тексты для чтения. Нажмите, чтобы снять',
+  'Star this word — reading passages use starred words first': 'Отметить слово — тексты для чтения берут отмеченные слова первыми',
   // 0.9.9.4.4.7 (check-up: texts that were still English)
   'Share the code with a friend, or add an AI player to start.': 'Поделитесь кодом с другом или добавьте ИИ-игрока, чтобы начать.',
   'Shared levels: both players race on the same kanji, so a change here changes it for everyone.': 'Общие уровни: оба игрока соревнуются на одних и тех же кандзи, поэтому изменение здесь меняет их для всех.',
@@ -442,7 +450,7 @@ const RU: Record<string, string> = {
   'Your own words': 'Ваши слова', 'Practice': 'Практика', 'Hiragana first': 'Сначала хирагана',
   '— every battle plays the words of your levels from your All spells (marked ★ on the study cards); random words fill in when you have too few.': '— в каждом бою используются слова ваших уровней из «Всех заклинаний» (на карточках подготовки — ★); если их мало, добавляются случайные.',
   '— Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (− / +, then Apply). Every card you answer gives +5 XP (up to 500 a day); ↶ Undo takes the last answer back.': '— карточки в стиле Anki в четырёх колодах: «Все заклинания», «Трудные заклинания» (туда попадают ошибки), «Свои» и «Ономатопея». Во «Всех заклинаниях» задайте, сколько новых слов каждого уровня получать в день (− / +, затем «Применить»). Каждая карточка даёт +5 опыта (до 500 в день); ↶ «Отменить» возвращает последний ответ.',
-  '— the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 40 new stories a day — the counter shows how many are left). Tap any kanji for its parts and a memory story.': '— тест JLPT, тест по ономатопее и текст для чтения: ИИ пишет короткий рассказ с 8 вашими словами, а вы заполняете пропуски по смыслу (до 40 новых рассказов в день — счётчик показывает, сколько осталось). Нажмите на любой кандзи, чтобы увидеть его части и историю для запоминания.',
+  '— the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 10 new stories a day — the counter shows how many are left; ★ starred words go in first, and the words you miss go to Struggling spells). Tap any kanji for its parts and a memory story.': '— тест JLPT, тест по ономатопее и текст для чтения: ИИ пишет короткий рассказ с 8 вашими словами, а вы заполняете пропуски по смыслу (до 10 новых рассказов в день — счётчик показывает, сколько осталось; слова со ★ идут первыми, а слова с ошибками попадают в «Трудные заклинания»). Нажмите на любой кандзи, чтобы увидеть его части и историю для запоминания.',
   '— beginners study ひらがな until they tick “I’ve mastered hiragana” in Settings. Until then the kanji levels are locked: they add no new words, but the numbers you set for them are kept.': '— новички учат ひらがな, пока не отметят «Я освоил хирагану» в настройках. До этого уровни кандзи закрыты: новых слов они не добавляют, но заданные для них числа сохраняются.',
   'Writing a story with your words…': 'Пишем рассказ из ваших слов…', 'AI stories left today': 'ИИ-рассказов осталось сегодня',
   'Each new AI story counts once; the same words again come free. The count starts over at midnight.': 'Каждый новый ИИ-рассказ считается один раз; те же слова снова — бесплатно. Счёт обнуляется в полночь.',
@@ -450,7 +458,6 @@ const RU: Record<string, string> = {
   'An AI writes one short story with 8 of your words in it — each word appears where it makes sense, not in a sentence of its own.': 'ИИ пишет один короткий рассказ с 8 вашими словами — каждое слово стоит там, где оно к месту, а не в отдельном предложении.',
   'The words are blanked out. Tap a blank, then the word that fits from the context. Check shows what you got right.': 'Слова скрыты пропусками. Нажмите на пропуск, затем на слово, подходящее по смыслу. «Проверить» покажет, что верно.',
   'Writing a story takes a few seconds — the bar shows how far along it is.': 'Рассказ пишется несколько секунд — полоска показывает, сколько осталось.',
-  'You can have up to 40 new AI stories a day — the counter next to New passage shows how many are left. After that (or offline), the passage uses your words’ example sentences instead.': 'В день можно получить до 40 новых ИИ-рассказов — счётчик рядом с «Новый текст» показывает, сколько осталось. Потом (или без интернета) используются примеры предложений ваших слов.',
   'AI stories are switched off on the server — here are your words’ example sentences instead.': 'ИИ-рассказы на сервере выключены — вот примеры предложений ваших слов.',
   'You’ve used all of today’s AI stories — here are your words’ example sentences instead. New stories tomorrow!': 'Сегодняшние ИИ-рассказы закончились — вот примеры предложений ваших слов. Новые рассказы завтра!',
   'Today’s AI stories for everyone are used up — here are your words’ example sentences instead.': 'ИИ-рассказы на сегодня закончились у всех — вот примеры предложений ваших слов.',
@@ -560,6 +567,11 @@ const plural = (n: number, one: string, few: string, many: string) => {
 };
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
+  [/^You can have up to (\d+) new AI stories a day — the counter next to New passage shows how many are left\. After that \(or offline\), the passage uses your words’ example sentences instead\.$/, 'В день можно получить до $1 новых ИИ-рассказов — счётчик рядом с «Новый текст» показывает, сколько осталось. Потом (или без интернета) используются примеры предложений ваших слов.'],
+  [/^A story needs at least 8 kanji words — “(.+)” has (\d+) of the levels you ticked\. Tick more levels, pick another deck, or study more words\.$/, (_, d, n) => `Для рассказа нужно хотя бы 8 слов с кандзи — в «${RU[d] ?? d}» их ${n} среди отмеченных уровней. Отметьте больше уровней, выберите другую колоду или изучите больше слов.`],
+  [/^(\d+) missed → Struggling spells$/, '$1 с ошибкой → «Трудные заклинания»'],
+  [/^Added to Struggling spells: (\d+)$/, 'Добавлено в «Трудные заклинания»: $1'],
+  [/^All levels · (\d+)\/(\d+)$/, 'Все уровни · $1/$2'],
   [/^Write all (\d+) kanji, left to right$/, 'Напишите все кандзи ($1) слева направо'],
   [/^(.+) \(you\)$/, '$1 (вы)'],
   [/^Click an earned badge to show it under your name \(★ = on your profile, up to (\d+)\)\.$/, 'Нажмите на полученный значок, чтобы показать его под именем (★ — в профиле, до $1).'],

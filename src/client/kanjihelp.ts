@@ -4,7 +4,7 @@
 // parts to the meaning (休 = a person 亻 leaning against a tree 木 → rest).
 // Data: public/kanji.json, built from KANJIDIC (meanings, readings), KanjiVG (parts) and data/kanji/notes.
 
-import { lang, tr } from './i18n';
+import { lang, meaningIn, tr } from './i18n';
 import { partsPicture, strokesOf } from './strokes';
 
 /** [meanings, ru, on, kun, parts [char, en, ru][], story en, story ru, part of each stroke | null] */
@@ -54,6 +54,62 @@ export function kanjiTappable(root: Element) {
   }
 }
 
+// ── whole words (0.9.9.5): in an example sentence a word with furigana (帽子) is one tap, not one per kanji ──
+type Word = { kanji: string; reading: string; meaning: string; id?: string };
+/** decks.ts fills these in (dictionary look-up, "+ Add to…") — they live there, and decks.ts imports this file */
+export const wordHooks: { lookup?: (base: string, reading: string, after: string) => Promise<Word | null>; addTo?: (word: string, id?: string) => HTMLElement } = {};
+
+/** Every word with furigana inside `root` becomes one tappable word: its meaning, its kanji and "+ Add to…". */
+export function wordsTappable(root: Element) {
+  void loadKanji();
+  for (const r of root.querySelectorAll('ruby')) {
+    if (r.closest('.kw') || !HAN.test(r.firstChild?.textContent ?? '')) continue;
+    const base = [...r.childNodes].filter((n) => n.nodeName !== 'RT').map((n) => n.textContent).join('');
+    const reading = r.querySelector('rt')?.textContent ?? '';
+    // the kana right after the word (its okurigana / ending) helps find the dictionary form: 行った → 行く
+    let after = '';
+    for (let n = r.nextSibling; n && after.length < 4; n = n.nextSibling) { if (n.nodeType !== Node.TEXT_NODE) break; after += n.textContent ?? ''; }
+    r.classList.add('kw');
+    r.setAttribute('role', 'button'); r.setAttribute('tabindex', '0'); r.setAttribute('title', tr('Tap for this word'));
+    const open = (e: Event) => { e.stopPropagation(); e.preventDefault(); void showWord(base, reading, after, r as HTMLElement); };
+    r.addEventListener('click', open);
+    r.addEventListener('pointerdown', (e) => e.stopPropagation());
+    r.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') open(e); });
+  }
+}
+
+/** The word box: the word, its reading and meaning, "+ Add to…", and its kanji — each one tap away. */
+export async function showWord(base: string, reading: string, after: string, at?: HTMLElement) {
+  const [w, info] = await Promise.all([wordHooks.lookup?.(base, reading, after) ?? null, loadKanji()]);
+  const p = pop();
+  const ru = lang() === 'ru';
+  document.querySelectorAll('.kj.on, .kw.on').forEach((x) => x.classList.remove('on'));
+  at?.classList.add('on');
+  const close = h('button', 'kp-x', '✕', { type: 'button', 'aria-label': tr('Close'), title: tr('Close') });
+  close.onclick = hideKanji;
+  const head = h('div', 'kp-head kp-word');
+  head.append(h('span', 'kp-char', base, { lang: 'ja' }));
+  const meta = h('div', 'kp-meta');
+  meta.append(h('span', 'kp-wr', reading, { lang: 'ja' }));
+  if (w && w.kanji !== base) meta.append(h('span', 'kp-wr dict', `→ ${w.kanji}`, { lang: 'ja' }));
+  meta.append(h('span', 'kp-mean', w ? meaningIn(w.meaning) : tr('Not in the dictionary — tap a kanji below'), { 'data-no-i18n': '' }));
+  if (w && wordHooks.addTo) meta.append(wordHooks.addTo(w.kanji, w.id));
+  head.append(meta);
+  const row = h('div', 'kp-parts kp-kanji');
+  row.append(h('span', 'kp-lbl', tr('Kanji')));
+  [...base].filter(tappable).forEach((ch, i) => {
+    const k = info[ch];
+    const chip = h('button', 'kp-part', undefined, { type: 'button', style: `--pc:${COLOURS[i % COLOURS.length]}` });
+    chip.append(h('span', 'kp-pc', ch, { lang: 'ja' }));
+    if (k) chip.append(h('span', 'kp-pm', (ru && k[1] ? k[1] : k[0]).split(/[,;]/)[0], { 'data-no-i18n': '' }));
+    chip.onclick = () => void showKanji(ch, at, () => void showWord(base, reading, after, at));
+    if (i) row.append(h('span', 'kp-plus', '+'));
+    row.append(chip);
+  });
+  p.replaceChildren(close, head, row);
+  p.hidden = false;
+}
+
 /** "なが.い" → "なが(い)", "-あ.け" → "〜あ(け)" */
 const kun = (s: string) => s.split('、').map((r) => r.replace(/^-/, '〜').replace(/-$/, '〜').replace(/\.(.+)$/, '($1)')).join('、');
 
@@ -65,7 +121,7 @@ function pop(): HTMLElement {
   document.body.append(p);
   document.addEventListener('pointerdown', (e) => {
     const q = document.getElementById('kanjiPop');
-    if (q && !q.hidden && !(e.target as Element).closest('#kanjiPop, .kj')) hideKanji();
+    if (q && !q.hidden && !(e.target as Element).closest('#kanjiPop, .kj, .kw')) hideKanji();
   });
   addEventListener('keydown', (e) => { if (e.key === 'Escape') hideKanji(); }, true);
   return p;
@@ -73,10 +129,10 @@ function pop(): HTMLElement {
 export function hideKanji() {
   const p = document.getElementById('kanjiPop');
   if (p) p.hidden = true;
-  document.querySelectorAll('.kj.on').forEach((x) => x.classList.remove('on'));
+  document.querySelectorAll('.kj.on, .kw.on').forEach((x) => x.classList.remove('on'));
 }
 
-export async function showKanji(ch: string, at?: HTMLElement) {
+export async function showKanji(ch: string, at?: HTMLElement, back?: () => void) {
   const info = (await loadKanji())[ch];
   const p = pop();
   const ru = lang() === 'ru';
@@ -101,7 +157,7 @@ export async function showKanji(ch: string, at?: HTMLElement) {
   if (kn) { const r = h('span', 'kp-r'); r.append(h('b', '', ru ? 'кун' : 'kun', { 'data-no-i18n': '' }), h('span', '', kun(kn), { lang: 'ja' })); rd.append(r); }
   meta.append(rd);
   head.append(meta);
-  const kids: Node[] = [close, head];
+  const kids: Node[] = back ? [close, Object.assign(h('button', 'pill kp-back', `← ${tr('Word')}`, { type: 'button' }), { onclick: back }), head] : [close, head];
   if (parts.length) {
     const row = h('div', 'kp-parts');
     row.append(h('span', 'kp-lbl', tr('Parts')));

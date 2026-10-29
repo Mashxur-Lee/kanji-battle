@@ -30,7 +30,8 @@ const MASTERY = [
 ];
 
 let page: ProgressPage | null = null;
-let level: Level = 'N5';
+/** the level tab — or 'ALL' (0.9.9.5): every level, each under its own heading */
+let level: Level | 'ALL' = 'N5';
 
 let unlocks: readonly string[] = [];
 let badges: string[] = [];
@@ -231,7 +232,7 @@ async function showWord(at: HTMLElement, word: string, m: number, pct: number) {
   for (const x of document.querySelectorAll('.mt.sel')) x.classList.remove('sel');
   at.classList.add('sel');
   try { await loadVocab(); } catch { /* offline and not cached: just the word */ }
-  const v = VOCAB.find((x) => x.kanji === word && studyLevelOf(x) === level) ?? VOCAB.find((x) => x.kanji === word);
+  const v = VOCAB.find((x) => x.kanji === word && studyLevelOf(x) === at.dataset.level) ?? VOCAB.find((x) => x.kanji === word && studyLevelOf(x) === level) ?? VOCAB.find((x) => x.kanji === word);
   const head = el('div', 'mp-head');
   const big = el('b', 'mp-k', word); big.lang = 'ja';
   head.append(big);
@@ -254,7 +255,12 @@ function renderMastery() {
   if (!page) return;
   $('mgPop').hidden = true;
   const tabs = $('progLevels');
-  tabs.replaceChildren(...LEVELS.map((l) => {
+  const allWords = LEVELS.flatMap((l) => page!.mastery[l]);
+  const allTab = el('button', 'cust-tab' + (level === 'ALL' ? ' on' : ''), `${tr('All levels')} · ${allWords.filter(([, m]) => m >= 3).length}/${allWords.length}`);
+  allTab.setAttribute('role', 'tab');
+  allTab.setAttribute('aria-selected', String(level === 'ALL'));
+  allTab.onclick = () => { level = 'ALL'; mShown = PAGE; renderMastery(); };
+  tabs.replaceChildren(allTab, ...LEVELS.map((l) => {
     const words = page!.mastery[l];
     const known = words.filter(([, m]) => m >= 3).length;
     const b = el('button', 'cust-tab' + (l === level ? ' on' : ''), `${LEVEL_LABEL[l]} · ${known}/${words.length}`);
@@ -263,7 +269,7 @@ function renderMastery() {
     b.onclick = () => { level = l; mShown = PAGE; renderMastery(); };
     return b;
   }));
-  const words = page.mastery[level];
+  const words = level === 'ALL' ? allWords : page.mastery[level];
   const counts = [0, 0, 0, 0, 0];
   for (const [, m] of words) counts[m]++;
   $('progLegend').replaceChildren(...MASTERY.map((m, i) => {
@@ -274,7 +280,7 @@ function renderMastery() {
   const grid = $('progGrid');
   grid.className = 'mastery-grid';
   const by = new Map(words.map(([k, m, p]) => [k, [m, p ?? 0] as const]));
-  if (isKanaLevel(level)) {
+  if (level !== 'ALL' && isKanaLevel(level)) {
     // the kana table
     const conv = level === 'KATA' ? toKatakana : (x: string) => x;
     const section = (title: string, rows: string[][], cols: number) => {
@@ -313,7 +319,19 @@ function renderMastery() {
   const test = filters.find(([id]) => id === mFilter)![2];
   const list = words.filter(([, m]) => test(m)).sort((a, b) => b[2] - a[2]);
   const tiles = el('div', 'word-grid');
-  for (const [k, m, p] of list.slice(0, mShown)) tiles.append(tile(k, m, p ?? 0, null));
+  if (level === 'ALL') {
+    // 0.9.9.5: every level in order, each under a heading line (ひらがな, カタカナ, N5 … N1)
+    tiles.classList.add('all-levels');
+    let left = mShown;
+    for (const l of LEVELS) {
+      if (left <= 0) break;
+      const mine = page.mastery[l].filter(([, m]) => test(m)).sort((a, b) => b[2] - a[2]);
+      if (!mine.length) continue;
+      tiles.append(el('div', 'mg-level', `${LEVEL_LABEL[l]} · ${mine.length}`));
+      for (const [k, m, p] of mine.slice(0, left)) { const t = tile(k, m, p ?? 0, null); t.dataset.level = l; tiles.append(t); }
+      left -= mine.length;
+    }
+  } else for (const [k, m, p] of list.slice(0, mShown)) tiles.append(tile(k, m, p ?? 0, null));
   const nodes: Node[] = [bar, tiles];
   if (!list.length) nodes.push(el('p', 'hint', 'Nothing here yet.'));
   if (list.length > mShown) {

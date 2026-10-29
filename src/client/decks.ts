@@ -3,7 +3,9 @@
 import { taskPassed } from '../shared/progress';
 import { furigana, loadExamples } from './examples';
 import { buildOnoQuiz } from '../shared/quiz';
-import { kanjiTappable } from './kanjihelp';
+import { kanjiTappable, wordHooks } from './kanjihelp';
+import { isStarred, starButton } from './stars';
+import type { Level } from '../shared/protocol';
 import { LEVEL_LABEL, type MissedWord } from '../shared/protocol';
 import type { DeckId } from '../shared/srs';
 import { api, OFFLINE_TEXT, type DeckRow, type StoryUsage, type Profile, type QuizQuestion, type WordHit } from './api';
@@ -55,7 +57,7 @@ async function reload() {
 const dateOf = (t: number | null) => (t ? new Date(t).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
 /** sorting the list (0.9.9.3.2): tap a column — again to reverse it */
-type SortKey = 'kanji' | 'reading' | 'meaning' | 'level' | 'added' | 'state';
+type SortKey = 'star' | 'kanji' | 'reading' | 'meaning' | 'level' | 'added' | 'state';
 let sortKey: SortKey | null = null;
 let sortDir = 1;
 const LEVEL_ORDER = ['KANA', 'KATA', 'N5', 'N4', 'N3', 'N2', 'N1'];
@@ -63,7 +65,7 @@ const STATE_ORDER = ['new', 'learning', 'relearning', 'review'];
 function sortRows(list: DeckRow[]) {
   if (!sortKey) return list;
   const key = sortKey;
-  const val = (r: DeckRow): string | number => key === 'kanji' ? r.kanji : key === 'reading' ? r.reading : key === 'meaning' ? meaningIn(r.meaning).toLowerCase()
+  const val = (r: DeckRow): string | number => key === 'star' ? (isStarred(r.vocabId) ? 0 : 1) : key === 'kanji' ? r.kanji : key === 'reading' ? r.reading : key === 'meaning' ? meaningIn(r.meaning).toLowerCase()
     : key === 'level' ? (r.custom ? 99 : LEVEL_ORDER.indexOf(r.level)) : key === 'added' ? r.addedAt ?? 0 : STATE_ORDER.indexOf(r.state);
   return [...list].sort((a, b) => { const x = val(a), y = val(b); return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), lang() === 'ru' ? 'ru' : 'ja')) * sortDir; });
 }
@@ -93,12 +95,12 @@ function render() {
     del.onclick = () => void remove([r.vocabId]);
     const tr_ = el('tr');
     const td = (n: Node) => { const c = el('td'); c.append(n); return c; };
-    tr_.append(td(box), k, el('td', 'rd', r.reading, { lang: 'ja' }), el('td', 'm', r.meaning), el('td', 'dlv', r.custom ? 'Custom' : LEVEL_LABEL[r.level]),
+    tr_.append(td(box), td(starButton(r.vocabId)), k, el('td', 'rd', r.reading, { lang: 'ja' }), el('td', 'm', r.meaning), el('td', 'dlv', r.custom ? 'Custom' : LEVEL_LABEL[r.level]),
       el('td', 'dt', dateOf(r.addedAt)), el('td', `st st-${r.state}`, STATE_LABEL[r.state] ?? r.state), td(del));
     return tr_;
   }));
   if (!rows.length) $('deckRows').replaceChildren(el('tr', 'empty', undefined));
-  if (!rows.length) $('deckRows').firstElementChild!.append(Object.assign(el('td', 'hint', open === 'custom' ? 'No custom spells yet — search the dictionary above or type your own word.' : 'No spells in this deck yet.'), { colSpan: 8 }));
+  if (!rows.length) $('deckRows').firstElementChild!.append(Object.assign(el('td', 'hint', open === 'custom' ? 'No custom spells yet — search the dictionary above or type your own word.' : 'No spells in this deck yet.'), { colSpan: 9 }));
   tools();
 }
 function tools() {
@@ -411,7 +413,7 @@ addEventListener('keydown', (e) => {
 // blank — the sentence around it is the clue. Tap any word for its meaning (a ✕ closes the box), and any kanji
 // in that box for its parts.
 
-type PWord = { kanji: string; reading: string; meaning: string; id?: string };
+type PWord = { kanji: string; reading: string; meaning: string; id?: string; level?: Level; custom?: boolean };
 let passageWords: PWord[] = [];
 
 /** the blanks: which word sits in each (null = empty), which blank is selected, and whether it has been checked */
@@ -463,6 +465,10 @@ function jaLine(n: number) {
   }
   return p;
 }
+
+// the word box on the study cards' example sentences uses the same look-up and "+ Add to…" (0.9.9.5)
+wordHooks.lookup = (b, r, a) => lookup(b, r, a);
+wordHooks.addTo = (w, id) => addToDeck(w, id);
 
 /** a word of a sentence: looked up in the dictionary by its written form and reading (verbs: 回って → 回る / 回す) */
 async function lookup(base: string, reading: string, after: string): Promise<PWord | null> {
@@ -581,6 +587,14 @@ function check() {
   });
   const res = $('passageResult');
   res.replaceChildren(el('h4', '', 'Words in this passage'), ...list);
+  // 0.9.9.5: the words you got wrong go to Struggling spells, like the words you miss in a battle
+  const missed = [...new Set(blanks.filter((b) => b.put?.kanji !== b.answer.kanji && b.answer.id).map((b) => b.answer.id!))];
+  if (missed.length) {
+    const msg = el('p', 'hint p-missed', `${missed.length} missed → ${tr('Struggling spells')}`);
+    res.append(msg);
+    void api.deckAdd('struggling', missed).then((r) => { msg.textContent = r.added.length ? `${tr('Added to Struggling spells')}: ${r.added.length}` : tr('Already in Struggling spells'); onChanged(); })
+      .catch(() => { msg.textContent = tr('Couldn’t add them to Struggling spells (offline?)'); });
+  }
   res.hidden = false;
   const again = el('button', 'big', 'New passage', { type: 'button' }) as HTMLButtonElement;
   again.onclick = buildPassage;
@@ -591,12 +605,49 @@ function check() {
 }
 
 export function openPassage(words: PWord[]) {
-  passageWords = words.filter((w) => w.kanji).slice(0, 60);
+  passageWords = words.filter((w) => w.kanji);
   ui.show('passage');
   showIntro();
   void api.storyUsage().then(showQuota).catch(() => { /* offline: no counter */ });
   void buildPassage();
 }
+
+// ── 0.9.9.5: which of your words (by level) and how hard the story itself is ──
+const WORD_LEVELS: Level[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
+const LEVELS_KEY = 'kw:passage-levels', STORY_LEVEL_KEY = 'kw:passage-story-level';
+const HAN_RE = /[\p{Script=Han}]/u;
+function pickedLevels(): Level[] {
+  try { const v = JSON.parse(localStorage.getItem(LEVELS_KEY) ?? 'null'); if (Array.isArray(v)) return WORD_LEVELS.filter((l) => v.includes(l)); } catch { /* none saved */ }
+  return [...WORD_LEVELS];
+}
+function storyLevel(): string {
+  try { const v = localStorage.getItem(STORY_LEVEL_KEY); if (v && WORD_LEVELS.includes(v as Level)) return v; } catch { /* none saved */ }
+  return 'N4';
+}
+/** a word that can go in a story: has kanji, isn't a かな / onomatopoeia card, and is of a ticked level (your own typed words always) */
+const storyWord = (w: PWord) => HAN_RE.test(w.kanji) && (w.custom || (!!w.level && pickedLevels().includes(w.level)));
+{
+  const box = $('passageLevels');
+  const draw = () => {
+    const on = pickedLevels();
+    box.replaceChildren(...WORD_LEVELS.map((l) => {
+      const b = el('button', 'p-lv' + (on.includes(l) ? ' on' : ''), (on.includes(l) ? '✓ ' : '') + l, { type: 'button', 'aria-pressed': String(on.includes(l)) });
+      b.onclick = () => {
+        const next = on.includes(l) ? on.filter((x) => x !== l) : [...on, l];
+        if (!next.length) { ui.toast(tr('Keep at least one level')); return; }
+        try { localStorage.setItem(LEVELS_KEY, JSON.stringify(next)); } catch { /* private mode: this visit only */ }
+        draw();
+      };
+      return b;
+    }));
+  };
+  draw();
+  const sel = $<HTMLSelectElement>('passageStoryLevel');
+  for (const l of WORD_LEVELS) sel.append(Object.assign(el('option', '', `${l} ${tr(l === 'N5' ? '— easiest' : l === 'N1' ? '— hardest' : '')}`.trim()), { value: l }));
+  sel.value = storyLevel();
+  sel.onchange = () => { try { localStorage.setItem(STORY_LEVEL_KEY, sel.value); } catch { /* private mode */ } };
+}
+$('passageList').onclick = () => void openDeck(passageDeck);
 
 // ── 0.9.9.4.4.5: AI stories — the counter, the first-time explainer, and why there's no story ──
 const f1 = (n: number) => n.toFixed(1);
@@ -610,6 +661,7 @@ function showQuota(u: StoryUsage) {
   q.title = tr('Each new AI story counts once; the same words again come free. The count starts over at midnight.');
   q.classList.toggle('low', left <= 5);
   $('passageIntroQuota').hidden = !u.enabled;
+  $('passageIntroQuota').textContent = tr(`You can have up to ${u.limit} new AI stories a day — the counter next to New passage shows how many are left. After that (or offline), the passage uses your words’ example sentences instead.`);
 }
 const INTRO_KEY = 'kw:passage-intro';
 function showIntro() {
@@ -635,11 +687,23 @@ async function buildPassage() {
   hideGloss();
   const examples = await loadExamples();
   const build = ++passageBuild;
-  // words with an example sentence first (the fallback needs them), no two that look the same (the bank would be ambiguous)
-  const seen = new Set<string>();
-  const mixed = [...passageWords].sort(() => Math.random() - 0.5).filter((w) => !seen.has(w.kanji) && !!seen.add(w.kanji));
-  const pool = [...mixed.filter((w) => !!w.id && examples.has(w.id)), ...mixed.filter((w) => !w.id || !examples.has(w.id))].slice(0, 8);
   const text = $('passageText');
+  // 0.9.9.5: from a deck, only kanji words (no かな) of the levels you ticked — at least 8 of them
+  const usable = storyFrom.startsWith('deck:') ? passageWords.filter(storyWord) : passageWords;
+  if (storyFrom.startsWith('deck:') && new Set(usable.map((w) => w.kanji)).size < 8) {
+    blanks = []; lines = []; storyTitle = null;
+    $('passageNote').hidden = true;
+    $('passageWords').replaceChildren();
+    $('passageTr').replaceChildren();
+    text.replaceChildren(el('p', 'hint p-few', tr(`A story needs at least 8 kanji words — “${DECK_LABEL[passageDeck]}” has ${new Set(usable.map((w) => w.kanji)).size} of the levels you ticked. Tick more levels, pick another deck, or study more words.`)));
+    return;
+  }
+  // starred words first, then the rest at random (words with an example sentence before those without — the
+  // fallback needs them); no two that look the same (the bank would be ambiguous)
+  const seen = new Set<string>();
+  const mixed = [...usable].sort(() => Math.random() - 0.5).filter((w) => !seen.has(w.kanji) && !!seen.add(w.kanji));
+  const star = mixed.filter((w) => isStarred(w.id)), rest = mixed.filter((w) => !isStarred(w.id));
+  const pool = [...star, ...rest.filter((w) => !!w.id && examples.has(w.id)), ...rest.filter((w) => !w.id || !examples.has(w.id))].slice(0, 8);
   blanks = []; picked = 0; checked = false; lines = []; storyTitle = null;
   $('passageWords').replaceChildren();
   // 0.9.9.4.4.1: one story with all the words, written by a small AI on the server; the words' example sentences
@@ -663,7 +727,7 @@ async function buildPassage() {
     again.disabled = true;
     const tick = window.setInterval(() => { const t = (Date.now() - t0) / 1000; bar.style.width = `${f1(96 * (1 - Math.exp(-t / 14)))}%`; sec.textContent = String(Math.floor(t)); }, 250);
     const r = await Promise.race([
-      api.story(pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }))).catch((e) => ({ story: null, why: (e as Error).message, usage: undefined })),
+      api.story(pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning })), storyLevel()).catch((e) => ({ story: null, why: (e as Error).message, usage: undefined })),
       new Promise<{ story: null; why: string; usage: undefined }>((ok) => setTimeout(() => ok({ story: null, why: 'timeout', usage: undefined }), 95_000)),
     ]);
     clearInterval(tick);
@@ -682,7 +746,7 @@ async function buildPassage() {
   else if (storyUsage?.enabled === false) { note.textContent = storyWhy('off'); note.hidden = false; }
   if (!lines.length) lines = pool.filter((w) => !!w.id && examples.has(w.id)).map((w) => ({ ws: [w], ex: examples.get(w.id!)! }));
   const title = storyTitle ? el('p', 'p-title') : null;
-  if (title && storyTitle) title.append(...rubyBits(storyTitle.ja, false));
+  if (title && storyTitle) title.append(...rubyBits(storyTitle.ja, true)); // 0.9.9.5: the title's words can be tapped too
   const body = storyTitle ? el('p', 'p-story') : null;
   const sents = lines.map((_, i) => jaLine(i));
   if (body) body.append(...sents);
@@ -705,22 +769,21 @@ async function buildPassage() {
 $('passageNew').onclick = () => void buildPassage();
 $('passageBack').onclick = () => { hideGloss(); backToStudy(); };
 /** the deck the passage takes its words from (0.9.9.3.2: any deck, not only Struggling spells) */
-let passageDeck: DeckId = 'struggling';
+// 0.9.9.5: All spells by default; only the chosen deck's words (no topping up from another deck)
+let passageDeck: DeckId = 'all';
 async function passageFrom(deck: DeckId) {
   passageDeck = deck;
   $<HTMLSelectElement>('passageDeck').value = deck;
   try {
-    let words = (await api.deckWords(deck)).words;
-    // a new deck has few studied words: tops up from All spells you have studied
-    if (words.length < 8 && deck !== 'all') words = [...words, ...(await api.deckWords('all')).words.filter((w) => w.state !== 'new').slice(0, 30)];
-    const mapped = words.sort(() => Math.random() - 0.5).slice(0, 60).map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.vocabId }));
+    const words = (await api.deckWords(deck)).words;
+    const mapped = words.map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.vocabId, level: w.level, custom: w.custom }));
     if ($('passage').hidden) openPassage(mapped);
     else { passageWords = mapped; void buildPassage(); }
   } catch (e) { ui.toast((e as Error).message); }
 }
 {
   const sel = $<HTMLSelectElement>('passageDeck');
-  for (const d of ['struggling', 'all', 'custom', 'ono'] as DeckId[]) sel.append(Object.assign(el('option', '', DECK_LABEL[d]), { value: d }));
+  for (const d of ['all', 'struggling', 'custom'] as DeckId[]) sel.append(Object.assign(el('option', '', DECK_LABEL[d]), { value: d }));
   sel.onchange = () => { storyFrom = `deck:${sel.value}`; void passageFrom(sel.value as DeckId); };
 }
 // 0.9.9.4.3: the passage stays until "New passage" (going back to look something up and coming back kept nothing)

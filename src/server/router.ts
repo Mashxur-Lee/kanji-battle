@@ -10,7 +10,7 @@ import { DailyError, type DailyService } from './study/DailyService';
 import { SocialError, type SocialService } from './study/SocialService';
 import { playerDay } from './study/ProgressService';
 import { now as clockNow } from './now';
-import { StoryService } from './study/StoryService';
+import { isStoryLevel, StoryService } from './study/StoryService';
 
 export const MAX_BODY = 4 * 1024;
 
@@ -218,6 +218,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/study/deck') {
         const u = await auth.authenticate(r.token);
         return res(200, { words: await study.deckList(u, query.get('deck')) });
+      } else if (r.method === 'PUT' && url === '/api/study/star') {
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        return res(200, { starred: await study.setStar(u, body.vocabId, body.on) });
       } else if (r.method === 'POST' && url === '/api/study/deck/remove') {
         const u = await auth.authenticate(r.token);
         const body = await r.json(32 * 1024);
@@ -240,11 +244,12 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const body = await r.json();
         const words = StoryService.clean(body.words);
         const day = resolveToday(body.today);
-        const out = stories ? await stories.story(u.id, words, day) : { story: null, why: 'off' };
-        return res(200, { ...out, words, usage: stories?.usage(u.id, day) ?? { enabled: false, used: 0, limit: 0 } });
+        const admin = u.role === 'admin';
+        const out = stories ? await stories.story(u.id, words, day, { level: isStoryLevel(body.level) ? body.level : undefined, admin }) : { story: null, why: 'off' };
+        return res(200, { ...out, words, usage: stories?.usage(u.id, day, admin) ?? { enabled: false, used: 0, limit: 0 } });
       } else if (r.method === 'GET' && url === '/api/study/story') {
         const u = await auth.authenticate(r.token);
-        return res(200, stories?.usage(u.id, resolveToday(query.get('today'))) ?? { enabled: false, used: 0, limit: 0 });
+        return res(200, stories?.usage(u.id, resolveToday(query.get('today')), u.role === 'admin') ?? { enabled: false, used: 0, limit: 0 });
       } else if (r.method === 'POST' && url === '/api/study/task') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();
