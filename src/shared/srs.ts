@@ -60,7 +60,6 @@ export interface CustomWord { id: string; kanji: string; reading: string; meanin
 export const CUSTOM_PREFIX = 'u:';
 
 /** Learned = graduated to review at least once (counts toward crit). */
-export const isLearned = (c: Pick<SrsCard, 'state'>) => c.state === 'review';
 export const isDue = (c: SrsCard, now: number) => c.due <= now;
 
 function stepMinutes(steps: number[], i: number) { return steps[Math.min(i, steps.length - 1)]; }

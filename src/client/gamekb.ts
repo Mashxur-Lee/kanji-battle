@@ -76,7 +76,6 @@ export function setGameKb(on: boolean) {
     dispatchEvent(new Event('resize'));
   });
 }
-export const gameKbActive = () => active;
 ui.$('answer').addEventListener('input', () => { if (active) preview(); });
 /** A new word: clear the preview. */
 export function gameKbReset() { if (active) preview(); }

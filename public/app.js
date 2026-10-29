@@ -968,11 +968,12 @@
     const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
     return romajiToHiragana(katakanaToHiragana(cleaned));
   }
+  var foldJz = (s) => s.replace(/ぢ/g, "\u3058").replace(/づ/g, "\u305A");
   function isCorrectReading(input2, readings) {
-    const answer2 = normalizeAnswer(input2);
+    const answer2 = foldJz(normalizeAnswer(input2));
     if (!answer2.length) return false;
     return readings.some((raw) => {
-      const r2 = katakanaToHiragana(raw);
+      const r2 = foldJz(katakanaToHiragana(raw));
       if (r2 === answer2) return true;
       if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer2) return true;
       return longVowelSlip(r2, answer2);
@@ -1121,7 +1122,7 @@
   var onoTypeLabel = (t) => `${ONO_TYPES[t].ja} (${ONO_TYPES[t].romaji}) \u2014 ${ONO_TYPES[t].en}`;
   function buildOnoQuiz(words2, vocab, rng = Math.random, examples) {
     const ono = vocab.filter((v) => v.level === "ONO");
-    const kinds = ["onomean", "onoword", "onoctx", "onotype"];
+    const kinds = ["onomean", "onoword", "onoctx"];
     return words2.map((w, i) => {
       let kind = kinds[i % kinds.length];
       const ex = examples?.get(w.id);
@@ -1129,10 +1130,6 @@
       const others = shuffle(ono.filter((v) => v.id !== w.id && v.reading !== w.reading && v.meaning !== w.meaning), rng);
       const near = [...others.filter((v) => v.ono === w.ono), ...others.filter((v) => v.ono !== w.ono)];
       const word2 = { kanji: w.kanji, reading: `${w.romaji ?? w.reading} \xB7 ${onoTypeLabel(w.ono ?? "tai")}`, meaning: w.meaning };
-      if (kind === "onotype") {
-        const choices2 = ["sei", "tai", "jo"].map(onoTypeLabel);
-        return { kind, vocabId: w.id, level: w.level, prompt: w.kanji, sub: w.meaning, choices: choices2, answer: choices2.indexOf(onoTypeLabel(w.ono ?? "tai")), word: word2 };
-      }
       const right = kind === "onomean" ? w.meaning : w.kanji;
       const pick4 = (kind === "onomean" ? near.map((v) => v.meaning) : near.map((v) => v.kanji)).filter((x, k, a) => x !== right && a.indexOf(x) === k).slice(0, 3);
       const choices = shuffle([right, ...pick4], rng);
@@ -2032,7 +2029,10 @@ Answer with JSON only, no other text:
       __publicField(this, "perDay", perDay);
       __publicField(this, "allPerDay", allPerDay);
       __publicField(this, "cache", /* @__PURE__ */ new Map());
+      /** per player and day ('user|day'): stories had and AI calls made (0.9.9.4.4.7: failed calls are capped too) */
       __publicField(this, "used", /* @__PURE__ */ new Map());
+      /** players with a story being written — one at a time each */
+      __publicField(this, "busy", /* @__PURE__ */ new Set());
       __publicField(this, "all", { day: "", n: 0 });
     }
     get enabled() {
@@ -2053,8 +2053,7 @@ Answer with JSON only, no other text:
     }
     /** How many stories this player has had written today, and the cap (0.9.9.4.4.5: shown next to "New passage"). */
     usage(userId, today2) {
-      const u = this.used.get(userId);
-      return { enabled: this.enabled, used: u && u.day === today2 ? u.n : 0, limit: this.perDay };
+      return { enabled: this.enabled, used: this.used.get(`${userId}|${today2}`)?.n ?? 0, limit: this.perDay };
     }
     /**
      * One story with these words, or why there isn't one ('off', 'limit', 'busy' — everyone's cap —, or what went
@@ -2066,19 +2065,35 @@ Answer with JSON only, no other text:
       const key = words2.map((w) => w.id ?? w.kanji).sort().join(",");
       const hit2 = this.cache.get(key);
       if (hit2) return { story: hit2 };
-      const u = this.used.get(userId);
-      if (u && u.day === today2 && u.n >= this.perDay) return { story: null, why: "limit" };
-      if (this.all.day !== today2) this.all = { day: today2, n: 0 };
+      const k = `${userId}|${today2}`;
+      if (!this.used.has(k)) {
+        if (this.used.size > 2e4) this.used.clear();
+        this.used.set(k, { n: 0, tries: 0 });
+      }
+      const u = this.used.get(k);
+      if (u.n >= this.perDay || u.tries >= Math.max(20, this.perDay * 3)) return { story: null, why: "limit" };
+      const serverDay = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      if (this.all.day !== serverDay) this.all = { day: serverDay, n: 0 };
       if (this.all.n >= this.allPerDay) return { story: null, why: "busy" };
+      if (this.busy.has(userId)) return { story: null, why: "wait" };
+      this.busy.add(userId);
+      try {
+        return await this.write(u, key, words2);
+      } finally {
+        this.busy.delete(userId);
+      }
+    }
+    async write(u, key, words2) {
       let why = "";
       const start = Date.now();
       for (let attempt = 0; attempt < 2 && (attempt === 0 || Date.now() - start < 3e4); attempt++) {
         try {
+          u.tries++;
           const s = await this.ask(words2);
           const st = normalizeStory(s, words2);
           if (typeof st !== "string") {
             this.all.n++;
-            this.used.set(userId, { day: today2, n: (u?.day === today2 ? u.n : 0) + 1 });
+            u.n++;
             if (this.cache.size > 500) this.cache.delete(this.cache.keys().next().value);
             this.cache.set(key, st);
             return { story: st };
@@ -2845,7 +2860,7 @@ Answer with JSON only, no other text:
   };
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.4.4.6";
+  var VERSION = "0.9.9.4.4.7";
 
   // src/client/i18n.ts
   var KEY = "kb:lang";
@@ -2873,7 +2888,6 @@ Answer with JSON only, no other text:
     "win rate": "\u0434\u043E\u043B\u044F \u043F\u043E\u0431\u0435\u0434",
     "spells learned": "\u0432\u044B\u0443\u0447\u0435\u043D\u043E \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439",
     "learned today": "\u0432\u044B\u0443\u0447\u0435\u043D\u043E \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
-    "login streak (days)": "\u0441\u0435\u0440\u0438\u044F \u0432\u0445\u043E\u0434\u043E\u0432 (\u0434\u043D\u0438)",
     "best streak (days)": "\u043B\u0443\u0447\u0448\u0430\u044F \u0441\u0435\u0440\u0438\u044F (\u0434\u043D\u0438)",
     "Change picture": "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u0444\u043E\u0442\u043E",
     "Remove picture": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u043E\u0442\u043E",
@@ -2965,15 +2979,12 @@ Answer with JSON only, no other text:
     "Look at the kanji, press CAST! \u2014 it vanishes, and you write it from memory, by hand on the pad or with a Japanese keyboard.": "\u041F\u043E\u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u043D\u0434\u0437\u0438, \u043D\u0430\u0436\u043C\u0438\u0442\u0435 CAST! \u2014 \u043E\u043D \u0438\u0441\u0447\u0435\u0437\u043D\u0435\u0442, \u0438 \u0432\u044B \u043D\u0430\u043F\u0438\u0448\u0435\u0442\u0435 \u0435\u0433\u043E \u043F\u043E \u043F\u0430\u043C\u044F\u0442\u0438: \u043E\u0442 \u0440\u0443\u043A\u0438 \u043D\u0430 \u043F\u0430\u043D\u0435\u043B\u0438 \u0438\u043B\u0438 \u044F\u043F\u043E\u043D\u0441\u043A\u043E\u0439 \u043A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u043E\u0439.",
     "Up to 4 players vs the Black Dragon. Mistakes get you clawed; it breathes fire every 30 s.": "\u0414\u043E 4 \u0438\u0433\u0440\u043E\u043A\u043E\u0432 \u043F\u0440\u043E\u0442\u0438\u0432 \u0427\u0451\u0440\u043D\u043E\u0433\u043E \u0434\u0440\u0430\u043A\u043E\u043D\u0430. \u0417\u0430 \u043E\u0448\u0438\u0431\u043A\u0438 \u043E\u043D \u0431\u044C\u0451\u0442 \u043A\u043E\u0433\u0442\u044F\u043C\u0438, \u0430 \u043A\u0430\u0436\u0434\u044B\u0435 30 \u0441 \u0434\u044B\u0448\u0438\u0442 \u043E\u0433\u043D\u0451\u043C.",
     "Pick a hero, draft 10 face-down spell cards, then cast them turn by turn: read the meaning, look at the kanji, write it from memory. Mana, heals and your hero's Omnipotence.": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0433\u0435\u0440\u043E\u044F, \u043D\u0430\u0431\u0435\u0440\u0438\u0442\u0435 10 \u0437\u0430\u043A\u0440\u044B\u0442\u044B\u0445 \u043A\u0430\u0440\u0442 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0438 \u0440\u0430\u0437\u044B\u0433\u0440\u044B\u0432\u0430\u0439\u0442\u0435 \u0438\u0445 \u043F\u043E \u043E\u0447\u0435\u0440\u0435\u0434\u0438: \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0439\u0442\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435, \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u043D\u0434\u0437\u0438, \u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043F\u043E \u043F\u0430\u043C\u044F\u0442\u0438. \u041C\u0430\u043D\u0430, \u043B\u0435\u0447\u0435\u043D\u0438\u0435 \u0438 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E \u0433\u0435\u0440\u043E\u044F.",
-    "Unlocks at level 1": "\u041E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u0435 1",
-    "Unlocks at level 2": "\u041E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u0435 2",
     // progress / daily / friends / history
     "Activity": "\u0410\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C",
     "Spell mastery": "\u041E\u0441\u0432\u043E\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439",
     "every word of each level \u2014 hover a square to see it": "\u043A\u0430\u0436\u0434\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F \u2014 \u043D\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043D\u0430 \u043A\u043B\u0435\u0442\u043A\u0443, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0435\u0433\u043E",
     "Today's leaderboard": "\u0422\u0430\u0431\u043B\u0438\u0446\u0430 \u043B\u0438\u0434\u0435\u0440\u043E\u0432 \u0437\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
     "\u21BB Refresh": "\u21BB \u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C",
-    "Activity over the last 26 weeks": "\u0410\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C \u0437\u0430 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435 26 \u043D\u0435\u0434\u0435\u043B\u044C",
     "This week": "\u042D\u0442\u0430 \u043D\u0435\u0434\u0435\u043B\u044F",
     "days active": "\u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0445 \u0434\u043D\u0435\u0439",
     "cards passed": "\u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u043E",
@@ -3014,10 +3025,7 @@ Answer with JSON only, no other text:
     "Player profile": "\u041F\u0440\u043E\u0444\u0438\u043B\u044C \u0438\u0433\u0440\u043E\u043A\u0430",
     // study
     "Spaced repetition like Anki. Your crit chance starts every day at": "\u0418\u043D\u0442\u0435\u0440\u0432\u0430\u043B\u044C\u043D\u044B\u0435 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044F, \u043A\u0430\u043A \u0432 Anki. \u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u043A\u0430\u0436\u0434\u044B\u0439 \u0434\u0435\u043D\u044C \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F \u0441",
-    "; every spell you learn today adds": "; \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442",
-    "(\xD71.5 damage, max 50%). It resets at midnight.": "(\u0443\u0440\u043E\u043D \xD71.5, \u043C\u0430\u043A\u0441\u0438\u043C\u0443\u043C 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
     "All spells": "\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F",
-    "Tick levels \u2014 25 new random words are added every day.": "\u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u0443\u0440\u043E\u0432\u043D\u0438 \u2014 \u043A\u0430\u0436\u0434\u044B\u0439 \u0434\u0435\u043D\u044C \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F 25 \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0445 \u0441\u043B\u043E\u0432.",
     "Study": "\u0423\u0447\u0438\u0442\u044C",
     "Struggling spells": "\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F",
     "Struggling": "\u0422\u0440\u0443\u0434\u043D\u044B\u0435",
@@ -3035,7 +3043,6 @@ Answer with JSON only, no other text:
     "Back to study": "\u041D\u0430\u0437\u0430\u0434 \u043A \u0438\u0437\u0443\u0447\u0435\u043D\u0438\u044E",
     "new spells added": "\u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E \u043D\u043E\u0432\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439",
     "Learned spells / study set size": "\u0412\u044B\u0443\u0447\u0435\u043D\u043E \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 / \u0440\u0430\u0437\u043C\u0435\u0440 \u043D\u0430\u0431\u043E\u0440\u0430",
-    "Tick one or more levels under \u201CAll spells\u201D to get 25 new spells today (and every day).": "\u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u043E\u0434\u0438\u043D \u0438\u043B\u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0443\u0440\u043E\u0432\u043D\u0435\u0439 \u0432 \xAB\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C 25 \u043D\u043E\u0432\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0441\u0435\u0433\u043E\u0434\u043D\u044F (\u0438 \u043A\u0430\u0436\u0434\u044B\u0439 \u0434\u0435\u043D\u044C).",
     // customize
     "Magic staff": "\u041C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u043F\u043E\u0441\u043E\u0445",
     "Arena": "\u0410\u0440\u0435\u043D\u0430",
@@ -3194,7 +3201,6 @@ Answer with JSON only, no other text:
     "\u275A\u275A Pause": "\u275A\u275A \u041F\u0430\u0443\u0437\u0430",
     "Pause": "\u041F\u0430\u0443\u0437\u0430",
     "You can pause only a private game against the AI (or a solo Boss run)": "\u041F\u0430\u0443\u0437\u0430 \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430 \u0442\u043E\u043B\u044C\u043A\u043E \u0432 \u0441\u0432\u043E\u0435\u0439 \u0438\u0433\u0440\u0435 \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418 (\u0438\u043B\u0438 \u0432 \u043E\u0434\u0438\u043D\u043E\u0447\u043D\u043E\u0439 \u0411\u0438\u0442\u0432\u0435 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C)",
-    "The words you missed are now in Study spells \u2192 Struggling spells.": "\u0421\u043B\u043E\u0432\u0430 \u0441 \u043E\u0448\u0438\u0431\u043A\u0430\u043C\u0438 \u0442\u0435\u043F\u0435\u0440\u044C \u0432 \xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2192 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB.",
     "Today's words": "\u0421\u043B\u043E\u0432\u0430 \u0434\u043D\u044F",
     "Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review.": "\xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \u2014 \u043A\u043E\u043B\u043E\u0434\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A: \u0447\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0441\u043B\u043E\u0432 \u0432\u044B \u0437\u043D\u0430\u0435\u0442\u0435, \u0442\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043E\u0442\u0432\u043E\u0440\u0438\u0442\u044C. \u0421\u043B\u043E\u0432\u0430, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0432\u044B \u043E\u0448\u0438\u0431\u043B\u0438\u0441\u044C \u0432 \u0431\u043E\u044E, \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u044E\u0442\u0441\u044F \u0442\u0443\u0434\u0430 \u043D\u0430 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u0435.",
     "Spaced repetition like Anki: each card comes back just before you would forget it.": "\u0418\u043D\u0442\u0435\u0440\u0432\u0430\u043B\u044C\u043D\u044B\u0435 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044F, \u043A\u0430\u043A \u0432 Anki: \u043A\u0430\u0436\u0434\u0430\u044F \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0441\u044F \u043A\u0430\u043A \u0440\u0430\u0437 \u043F\u0435\u0440\u0435\u0434 \u0442\u0435\u043C, \u043A\u0430\u043A \u0432\u044B \u0431\u044B \u0435\u0451 \u0437\u0430\u0431\u044B\u043B\u0438.",
@@ -3295,12 +3301,9 @@ Answer with JSON only, no other text:
     "\u2014 perfect!": "\u2014 \u0438\u0434\u0435\u0430\u043B\u044C\u043D\u043E!",
     "Add the ones I missed": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0442\u0435, \u0433\u0434\u0435 \u044F \u043E\u0448\u0438\u0431\u0441\u044F",
     "Save to": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0432",
-    "Save these words to": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u044D\u0442\u0438 \u0441\u043B\u043E\u0432\u0430 \u0432",
     "Read them in a story": "\u041F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C \u0438\u0445 \u0432 \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0435",
     "New story": "\u041D\u043E\u0432\u044B\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437",
-    "Words in this story": "\u0421\u043B\u043E\u0432\u0430 \u0432 \u044D\u0442\u043E\u043C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0435",
     "Tap a highlighted word for its reading and meaning.": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u0432\u044B\u0434\u0435\u043B\u0435\u043D\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0447\u0442\u0435\u043D\u0438\u0435 \u0438 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435.",
-    "No words yet \u2014 the story uses your struggling spells (or the words you missed in a game).": "\u0421\u043B\u043E\u0432 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u2014 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0431\u0435\u0440\u0451\u0442 \u0432\u0430\u0448\u0438 \u0442\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F (\u0438\u043B\u0438 \u0441\u043B\u043E\u0432\u0430 \u0441 \u043E\u0448\u0438\u0431\u043A\u0430\u043C\u0438 \u0438\u0437 \u0438\u0433\u0440\u044B).",
     "Filter\u2026": "\u0424\u0438\u043B\u044C\u0442\u0440\u2026",
     "Main menu": "\u0413\u043B\u0430\u0432\u043D\u043E\u0435 \u043C\u0435\u043D\u044E",
     "Finish your game first": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u0442\u0435 \u0438\u0433\u0440\u0443",
@@ -3313,7 +3316,6 @@ Answer with JSON only, no other text:
     "Remove admin": "\u0421\u043D\u044F\u0442\u044C \u0430\u0434\u043C\u0438\u043D\u0430",
     "On your profile \u2713 \u2014 click to remove": "\u0412 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u2713 \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0443\u0431\u0440\u0430\u0442\u044C",
     "Unlocked \u2713 \u2014 click to show on your profile": "\u041F\u043E\u043B\u0443\u0447\u0435\u043D\u043E \u2713 \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435",
-    "Everything is open": "\u0412\u0441\u0451 \u043E\u0442\u043A\u0440\u044B\u0442\u043E",
     "What's new": "\u0427\u0442\u043E \u043D\u043E\u0432\u043E\u0433\u043E",
     "Every mode is open from the start: Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel. There is also a Daily challenge, a JLPT quiz, Progress, Friends \u2014 and monthly goals with rewards.": "\u0412\u0441\u0435 \u0440\u0435\u0436\u0438\u043C\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044B \u0441\u0440\u0430\u0437\u0443: \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u043B\u0438\u0446, \u041D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u0438\u0442\u0432\u0430 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C \u0438 \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434. \u0415\u0449\u0451 \u0435\u0441\u0442\u044C \u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435, \u0442\u0435\u0441\u0442 JLPT, \u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441, \u0414\u0440\u0443\u0437\u044C\u044F \u2014 \u0438 \u0446\u0435\u043B\u0438 \u043C\u0435\u0441\u044F\u0446\u0430 \u0441 \u043D\u0430\u0433\u0440\u0430\u0434\u0430\u043C\u0438.",
     "Turn log": "\u0416\u0443\u0440\u043D\u0430\u043B \u0445\u043E\u0434\u043E\u0432",
@@ -3362,7 +3364,6 @@ Answer with JSON only, no other text:
     "Room is full": "\u041A\u043E\u043C\u043D\u0430\u0442\u0430 \u0437\u0430\u043F\u043E\u043B\u043D\u0435\u043D\u0430",
     "That battle has already started": "\u042D\u0442\u043E\u0442 \u0431\u043E\u0439 \u0443\u0436\u0435 \u043D\u0430\u0447\u0430\u043B\u0441\u044F",
     // prep / battle
-    "\u2190 Back to lobby": "\u2190 \u041D\u0430\u0437\u0430\u0434 \u0432 \u043B\u043E\u0431\u0431\u0438",
     "Back to lobby": "\u041D\u0430\u0437\u0430\u0434 \u0432 \u043B\u043E\u0431\u0431\u0438",
     "Preparation": "\u041F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0430",
     "Memorise the readings. They vanish when the battle starts.": "\u0417\u0430\u043F\u043E\u043C\u043D\u0438\u0442\u0435 \u0447\u0442\u0435\u043D\u0438\u044F. \u041E\u043D\u0438 \u0438\u0441\u0447\u0435\u0437\u043D\u0443\u0442, \u043A\u043E\u0433\u0434\u0430 \u043D\u0430\u0447\u043D\u0451\u0442\u0441\u044F \u0431\u043E\u0439.",
@@ -3385,7 +3386,6 @@ Answer with JSON only, no other text:
     "romaji, then Enter": "\u0440\u043E\u043C\u0430\u0434\u0437\u0438, \u0437\u0430\u0442\u0435\u043C Enter",
     "Counts as a miss and shows the answer": "\u0417\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u043A\u0430\u043A \u043F\u0440\u043E\u043C\u0430\u0445 \u0438 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442 \u043E\u0442\u0432\u0435\u0442",
     "Hiragana spell \u2014 answer in romaji": "\u0417\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u043E\u0439 \u2014 \u043E\u0442\u0432\u0435\u0442 \u0440\u043E\u043C\u0430\u0434\u0437\u0438",
-    "Write the character": "\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0437\u043D\u0430\u043A",
     "\u2717 Not quite \u2014 try again!": "\u2717 \u041D\u0435 \u0441\u043E\u0432\u0441\u0435\u043C \u2014 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451!",
     "Opponent was faster!": "\u0421\u043E\u043F\u0435\u0440\u043D\u0438\u043A \u0431\u044B\u043B \u0431\u044B\u0441\u0442\u0440\u0435\u0435!",
     "\u2717 Too slow!": "\u2717 \u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0435\u0434\u043B\u0435\u043D\u043D\u043E!",
@@ -3400,7 +3400,6 @@ Answer with JSON only, no other text:
     "DEFEAT": "\u041F\u041E\u0420\u0410\u0416\u0415\u041D\u0418\u0415",
     "DRAW": "\u041D\u0418\u0427\u042C\u042F",
     "Review \u2014 you struggled with": "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u2014 \u0432\u0430\u043C \u0431\u044B\u043B\u043E \u0442\u0440\u0443\u0434\u043D\u043E \u0441",
-    "(added to Struggling spells \xB7 click a word for its stroke order)": "(\u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E \u0432 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB \xB7 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u0441\u043B\u043E\u0432\u043E, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u0447\u0435\u0440\u0442)",
     "Vocabulary performance": "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u044B \u043F\u043E \u0441\u043B\u043E\u0432\u0430\u043C",
     "Word": "\u0421\u043B\u043E\u0432\u043E",
     "Reading": "\u0427\u0442\u0435\u043D\u0438\u0435",
@@ -3414,7 +3413,6 @@ Answer with JSON only, no other text:
     "A player left the battle": "\u0418\u0433\u0440\u043E\u043A \u043F\u043E\u043A\u0438\u043D\u0443\u043B \u0431\u043E\u0439",
     "The Black Dragon has fallen": "\u0427\u0451\u0440\u043D\u044B\u0439 \u0434\u0440\u0430\u043A\u043E\u043D \u043F\u043E\u0432\u0435\u0440\u0436\u0435\u043D",
     "The party was burned to ash": "\u041E\u0442\u0440\u044F\u0434 \u0441\u043E\u0436\u0436\u0451\u043D \u0434\u043E\u0442\u043B\u0430",
-    "Time up \u2014 the dragon survived": "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E \u2014 \u0434\u0440\u0430\u043A\u043E\u043D \u0432\u044B\u0436\u0438\u043B",
     "Time up \u2014 you held the dragon off!": "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E \u2014 \u0432\u044B \u0441\u0434\u0435\u0440\u0436\u0430\u043B\u0438 \u0434\u0440\u0430\u043A\u043E\u043D\u0430!",
     "Time up \u2014 most HP left wins": "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E \u2014 \u043F\u043E\u0431\u0435\u0436\u0434\u0430\u0435\u0442 \u0442\u043E\u0442, \u0443 \u043A\u043E\u0433\u043E \u0431\u043E\u043B\u044C\u0448\u0435 HP",
     "Damage to dragon": "\u0423\u0440\u043E\u043D \u0434\u0440\u0430\u043A\u043E\u043D\u0443",
@@ -3442,8 +3440,6 @@ Answer with JSON only, no other text:
     "Play on 12 different days": "\u0418\u0433\u0440\u0430\u0442\u044C \u0432 12 \u0440\u0430\u0437\u043D\u044B\u0445 \u0434\u043D\u0435\u0439",
     "Win 10 games": "\u0412\u044B\u0438\u0433\u0440\u0430\u0442\u044C 10 \u0438\u0433\u0440",
     "Pass 150 flashcards in Study spells": "\u041F\u0440\u043E\u0439\u0442\u0438 150 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A \u0432 \xAB\u0418\u0437\u0443\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB",
-    "Light blue flames": "\u0413\u043E\u043B\u0443\u0431\u043E\u0435 \u043F\u043B\u0430\u043C\u044F",
-    "Purple flames": "\u0424\u0438\u043E\u043B\u0435\u0442\u043E\u0432\u043E\u0435 \u043F\u043B\u0430\u043C\u044F",
     "Your turn": "\u0412\u0430\u0448 \u0445\u043E\u0434",
     "Your turn!": "\u0412\u0430\u0448 \u0445\u043E\u0434!",
     // deck duel
@@ -3513,7 +3509,6 @@ Answer with JSON only, no other text:
     "Fast + correct = more damage.": "\u0411\u044B\u0441\u0442\u0440\u043E + \u0432\u0435\u0440\u043D\u043E = \u0431\u043E\u043B\u044C\u0448\u0435 \u0443\u0440\u043E\u043D\u0430.",
     "(Esc) shows the answer.": "(Esc) \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442 \u043E\u0442\u0432\u0435\u0442.",
     "\u2014 Anki-style flashcards. Missed words go to": "\u2014 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u0432 \u0441\u0442\u0438\u043B\u0435 Anki. \u041E\u0448\u0438\u0431\u043E\u0447\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u043F\u043E\u043F\u0430\u0434\u0430\u044E\u0442 \u0432",
-    "Login streak": "\u0421\u0435\u0440\u0438\u044F \u0432\u0445\u043E\u0434\u043E\u0432",
     "\u2014 open the game on days in a row. Your best streak unlocks magic staffs in": "\u2014 \u0437\u0430\u0445\u043E\u0434\u0438\u0442\u0435 \u0432 \u0438\u0433\u0440\u0443 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0434\u043D\u0435\u0439 \u043F\u043E\u0434\u0440\u044F\u0434. \u041B\u0443\u0447\u0448\u0430\u044F \u0441\u0435\u0440\u0438\u044F \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u043E\u0441\u043E\u0445\u0438 \u0432",
     ": Ember at 3 days, Tide at 5, Storm at 8, Void at 10.": ": Ember \u0437\u0430 3 \u0434\u043D\u044F, Tide \u0437\u0430 5, Storm \u0437\u0430 8, Void \u0437\u0430 10.",
     "How Kanji Reading works": "\u041A\u0430\u043A \u0443\u0441\u0442\u0440\u043E\u0435\u043D\u043E \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438",
@@ -3531,7 +3526,31 @@ Answer with JSON only, no other text:
     "Both players get the same kanji \u2014 no study phase.": "\u041E\u0431\u0430 \u0438\u0433\u0440\u043E\u043A\u0430 \u043F\u043E\u043B\u0443\u0447\u0430\u044E\u0442 \u043E\u0434\u0438\u043D \u0438 \u0442\u043E\u0442 \u0436\u0435 \u043A\u0430\u043D\u0434\u0437\u0438 \u2014 \u0431\u0435\u0437 \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0438.",
     "Wrong? Try again until the 12 s round ends.": "\u041E\u0448\u0438\u0431\u043B\u0438\u0441\u044C? \u041F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F 12-\u0441\u0435\u043A\u0443\u043D\u0434\u043D\u044B\u0439 \u0440\u0430\u0443\u043D\u0434.",
     "Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.": "\u041A\u0440\u0438\u0442: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0418\u0433\u0440\u0430 \u0441 \u0418\u0418 \u0434\u0430\u0451\u0442 \u043F\u043E\u043B\u043E\u0432\u0438\u043D\u0443 \u043E\u043F\u044B\u0442\u0430; \u0441\u0434\u0430\u0447\u0430 \u2014 \u043D\u0438\u0447\u0435\u0433\u043E.",
-    "Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.": "\u0428\u0430\u043D\u0441 \u043A\u0440\u0438\u0442\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: 1% + 1% \u0437\u0430 \u043A\u0430\u0436\u0434\u043E\u0435 \u0432\u044B\u0443\u0447\u0435\u043D\u043D\u043E\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u043C\u0430\u043A\u0441. 50%). \u0421\u0431\u0440\u0430\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0432 \u043F\u043E\u043B\u043D\u043E\u0447\u044C.",
+    // (kept: these are built from data — flame names, onomatopoeia kinds — or from the server)
+    "Light blue flames": "\u0413\u043E\u043B\u0443\u0431\u043E\u0435 \u043F\u043B\u0430\u043C\u044F",
+    "Purple flames": "\u0424\u0438\u043E\u043B\u0435\u0442\u043E\u0432\u043E\u0435 \u043F\u043B\u0430\u043C\u044F",
+    "Login streak": "\u0421\u0435\u0440\u0438\u044F \u0432\u0445\u043E\u0434\u043E\u0432",
+    "login streak (days)": "\u0441\u0435\u0440\u0438\u044F \u0432\u0445\u043E\u0434\u043E\u0432 (\u0434\u043D\u0438)",
+    "\u64EC\u58F0\u8A9E (giseigo) \u2014 sound": "\u64EC\u58F0\u8A9E (\u0433\u0438\u0441\u044D\u0439\u0433\u043E) \u2014 \u0437\u0432\u0443\u043A",
+    "\u64EC\u614B\u8A9E (gitaigo) \u2014 state / manner": "\u64EC\u614B\u8A9E (\u0433\u0438\u0442\u0430\u0439\u0433\u043E) \u2014 \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 / \u043E\u0431\u0440\u0430\u0437 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F",
+    "\u64EC\u60C5\u8A9E (gij\u014Dgo) \u2014 feeling": "\u64EC\u60C5\u8A9E (\u0433\u0438\u0434\u0437\u0451\u0433\u043E) \u2014 \u0447\u0443\u0432\u0441\u0442\u0432\u043E",
+    "Time up \u2014 the dragon survived": "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E \u2014 \u0434\u0440\u0430\u043A\u043E\u043D \u0432\u044B\u0436\u0438\u043B",
+    // 0.9.9.4.4.7 (check-up: texts that were still English)
+    "Share the code with a friend, or add an AI player to start.": "\u041F\u043E\u0434\u0435\u043B\u0438\u0442\u0435\u0441\u044C \u043A\u043E\u0434\u043E\u043C \u0441 \u0434\u0440\u0443\u0433\u043E\u043C \u0438\u043B\u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0418\u0418-\u0438\u0433\u0440\u043E\u043A\u0430, \u0447\u0442\u043E\u0431\u044B \u043D\u0430\u0447\u0430\u0442\u044C.",
+    "Shared levels: both players race on the same kanji, so a change here changes it for everyone.": "\u041E\u0431\u0449\u0438\u0435 \u0443\u0440\u043E\u0432\u043D\u0438: \u043E\u0431\u0430 \u0438\u0433\u0440\u043E\u043A\u0430 \u0441\u043E\u0440\u0435\u0432\u043D\u0443\u044E\u0442\u0441\u044F \u043D\u0430 \u043E\u0434\u043D\u0438\u0445 \u0438 \u0442\u0435\u0445 \u0436\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0435 \u0437\u0434\u0435\u0441\u044C \u043C\u0435\u043D\u044F\u0435\u0442 \u0438\u0445 \u0434\u043B\u044F \u0432\u0441\u0435\u0445.",
+    "Black Dragon": "\u0427\u0451\u0440\u043D\u044B\u0439 \u0434\u0440\u0430\u043A\u043E\u043D",
+    "\u2717 MISS!": "\u2717 \u041F\u0420\u041E\u041C\u0410\u0425!",
+    "Accuracy": "\u0422\u043E\u0447\u043D\u043E\u0441\u0442\u044C",
+    "(you)": "(\u0432\u044B)",
+    "Memorise how each word is written. In battle you only get the meaning (and a half-second glimpse).": "\u0417\u0430\u043F\u043E\u043C\u043D\u0438\u0442\u0435, \u043A\u0430\u043A \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u043A\u0430\u0436\u0434\u043E\u0435 \u0441\u043B\u043E\u0432\u043E. \u0412 \u0431\u043E\u044E \u0431\u0443\u0434\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 (\u0438 \u0432\u0437\u0433\u043B\u044F\u0434 \u043D\u0430 \u043F\u043E\u043B\u0441\u0435\u043A\u0443\u043D\u0434\u044B).",
+    "Each player picks their own. The dragon gets tougher when the party picks harder levels.": "\u041A\u0430\u0436\u0434\u044B\u0439 \u0438\u0433\u0440\u043E\u043A \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442 \u0441\u0432\u043E\u0438. \u0414\u0440\u0430\u043A\u043E\u043D \u0441\u0438\u043B\u044C\u043D\u0435\u0435, \u0435\u0441\u043B\u0438 \u043A\u043E\u043C\u0430\u043D\u0434\u0430 \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442 \u0443\u0440\u043E\u0432\u043D\u0438 \u043F\u043E\u0441\u043B\u043E\u0436\u043D\u0435\u0435.",
+    "Daily streak": "\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u0430\u044F \u0441\u0435\u0440\u0438\u044F",
+    "Apprentice border": "\u0420\u0430\u043C\u043A\u0430 \xAB\u0423\u0447\u0435\u043D\u0438\u043A\xBB",
+    "Adept border": "\u0420\u0430\u043C\u043A\u0430 \xAB\u0410\u0434\u0435\u043F\u0442\xBB",
+    "Master border": "\u0420\u0430\u043C\u043A\u0430 \xAB\u041C\u0430\u0441\u0442\u0435\u0440\xBB",
+    "Archmage border": "\u0420\u0430\u043C\u043A\u0430 \xAB\u0410\u0440\u0445\u0438\u043C\u0430\u0433\xBB",
+    "\u2014 a day counts when you do all four daily tasks: study 10 spells, a JLPT quiz, the daily challenge and a reading passage. Your best streak unlocks magic staffs in": "\u2014 \u0434\u0435\u043D\u044C \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u044B \u0432\u0441\u0435 \u0447\u0435\u0442\u044B\u0440\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0437\u0430\u0434\u0430\u043D\u0438\u044F: \u0438\u0437\u0443\u0447\u0438\u0442\u044C 10 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439, \u0442\u0435\u0441\u0442 JLPT, \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 \u0438 \u0442\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F. \u041B\u0443\u0447\u0448\u0430\u044F \u0441\u0435\u0440\u0438\u044F \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u043E\u0441\u043E\u0445\u0438 \u0432",
+    "Your last story is still being written \u2014 try \u201CNew passage\u201D again in a moment.": "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0438\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0435\u0449\u0451 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u0447\u0443\u0442\u044C \u043F\u043E\u0437\u0436\u0435.",
     // 0.9.9.4.4.5
     "\u2014 study 10 of your words, then type each reading (\u304B\u306A or romaji).": "\u2014 \u0432\u044B\u0443\u0447\u0438\u0442\u0435 10 \u0441\u0432\u043E\u0438\u0445 \u0441\u043B\u043E\u0432, \u0437\u0430\u0442\u0435\u043C \u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0447\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u0436\u0434\u043E\u0433\u043E (\u304B\u306A \u0438\u043B\u0438 \u0440\u043E\u043C\u0430\u0434\u0437\u0438).",
     "\u2014 no study; both get the same kanji, first correct reading hits. The first 10 are 5 words from each player\u2019s All spells \u2014 the round shows whose word it is.": "\u2014 \u0431\u0435\u0437 \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0438; \u0443 \u043E\u0431\u043E\u0438\u0445 \u043E\u0434\u0438\u043D \u043A\u0430\u043D\u0434\u0437\u0438, \u0431\u044C\u0451\u0442 \u043F\u0435\u0440\u0432\u043E\u0435 \u0432\u0435\u0440\u043D\u043E\u0435 \u0447\u0442\u0435\u043D\u0438\u0435. \u041F\u0435\u0440\u0432\u044B\u0435 10 \u2014 \u043F\u043E 5 \u0441\u043B\u043E\u0432 \u0438\u0437 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0438\u0433\u0440\u043E\u043A\u0430, \u0432 \u0440\u0430\u0443\u043D\u0434\u0435 \u0432\u0438\u0434\u043D\u043E, \u0447\u044C\u0451 \u044D\u0442\u043E \u0441\u043B\u043E\u0432\u043E.",
@@ -3595,11 +3614,7 @@ Answer with JSON only, no other text:
     "\u270D Writing a story with your words\u2026": "\u270D \u041F\u0438\u0448\u0435\u043C \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0438\u0437 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432\u2026",
     "Choose the best meaning for the onomatopoeia.": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043B\u0443\u0447\u0448\u0435\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0434\u043B\u044F \u0437\u0432\u0443\u043A\u043E\u043F\u043E\u0434\u0440\u0430\u0436\u0430\u043D\u0438\u044F.",
     "Which onomatopoeia has this meaning?": "\u041A\u0430\u043A\u043E\u0435 \u0437\u0432\u0443\u043A\u043E\u043F\u043E\u0434\u0440\u0430\u0436\u0430\u043D\u0438\u0435 \u0438\u043C\u0435\u0435\u0442 \u044D\u0442\u043E \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435?",
-    "Which kind of onomatopoeia is it \u2014 a sound, a state or a feeling?": "\u041A\u0430\u043A\u043E\u0433\u043E \u044D\u0442\u043E \u0432\u0438\u0434\u0430 \u2014 \u0437\u0432\u0443\u043A, \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0438\u043B\u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u043E?",
     "Choose the word that fits the sentence.": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u043E, \u043A\u043E\u0442\u043E\u0440\u043E\u0435 \u043F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u043A \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044E.",
-    "\u64EC\u58F0\u8A9E (giseigo) \u2014 sound": "\u64EC\u58F0\u8A9E (\u0433\u0438\u0441\u044D\u0439\u0433\u043E) \u2014 \u0437\u0432\u0443\u043A",
-    "\u64EC\u614B\u8A9E (gitaigo) \u2014 state / manner": "\u64EC\u614B\u8A9E (\u0433\u0438\u0442\u0430\u0439\u0433\u043E) \u2014 \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 / \u043E\u0431\u0440\u0430\u0437 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F",
-    "\u64EC\u60C5\u8A9E (gij\u014Dgo) \u2014 feeling": "\u64EC\u60C5\u8A9E (\u0433\u0438\u0434\u0437\u0451\u0433\u043E) \u2014 \u0447\u0443\u0432\u0441\u0442\u0432\u043E",
     "Taking an onomatopoeia quiz": "\u041F\u0440\u043E\u0445\u043E\u0434\u0438\u0442 \u0442\u0435\u0441\u0442 \u043F\u043E \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0435",
     // 0.9.9.4.3
     "Do a JLPT quiz (7/10 or better)": "\u041F\u0440\u043E\u0439\u0434\u0438\u0442\u0435 \u0442\u0435\u0441\u0442 JLPT (7/10 \u0438\u043B\u0438 \u043B\u0443\u0447\u0448\u0435)",
@@ -3672,7 +3687,6 @@ Answer with JSON only, no other text:
     "That word is not in the dictionary": "\u042D\u0442\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430 \u043D\u0435\u0442 \u0432 \u0441\u043B\u043E\u0432\u0430\u0440\u0435",
     "already in": "\u0443\u0436\u0435 \u0432",
     "No words in this deck yet \u2014 pick another deck above, or study some spells first.": "\u0412 \u044D\u0442\u043E\u0439 \u043A\u043E\u043B\u043E\u0434\u0435 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043B\u043E\u0432 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443 \u0432\u044B\u0448\u0435 \u0438\u043B\u0438 \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u0438\u0437\u0443\u0447\u0438\u0442\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F.",
-    "A short story with blanks \u2014 pick a deck, fill them in with its words, then check.": "\u041A\u043E\u0440\u043E\u0442\u043A\u0438\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0441 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u043C\u0438 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043A\u043E\u043B\u043E\u0434\u0443, \u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0438 \u0435\u0451 \u0441\u043B\u043E\u0432\u0430\u043C\u0438 \u0438 \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435.",
     // 0.9.9.3.1
     "\u{1F5D1} Delete": "\u{1F5D1} \u0423\u0434\u0430\u043B\u0438\u0442\u044C",
     "Delete this account and all its progress": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u044D\u0442\u043E\u0442 \u0430\u043A\u043A\u0430\u0443\u043D\u0442 \u0438 \u0432\u0435\u0441\u044C \u0435\u0433\u043E \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441",
@@ -3694,7 +3708,6 @@ Answer with JSON only, no other text:
     "Study 10 spells (any deck)": "\u0418\u0437\u0443\u0447\u0438\u0442\u0435 10 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 (\u043B\u044E\u0431\u0430\u044F \u043A\u043E\u043B\u043E\u0434\u0430)",
     "Do a JLPT quiz": "\u041F\u0440\u043E\u0439\u0434\u0438\u0442\u0435 \u0442\u0435\u0441\u0442 JLPT",
     "Play the daily challenge": "\u0421\u044B\u0433\u0440\u0430\u0439\u0442\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435",
-    "Read a passage (fill in the blanks)": "\u041F\u0440\u043E\u0447\u0438\u0442\u0430\u0439\u0442\u0435 \u0442\u0435\u043A\u0441\u0442 (\u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0438)",
     "Streak kept today \u2014 well done!": "\u0421\u0435\u0440\u0438\u044F \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0430 \u2014 \u043E\u0442\u043B\u0438\u0447\u043D\u043E!",
     "Daily streak tasks": "\u0417\u0430\u0434\u0430\u043D\u0438\u044F \u0434\u043B\u044F \u0441\u0435\u0440\u0438\u0438",
     "Today\u2019s streak tasks": "\u0417\u0430\u0434\u0430\u043D\u0438\u044F \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F",
@@ -3723,6 +3736,19 @@ Answer with JSON only, no other text:
     return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
   };
   var PATTERNS = [
+    [/^Write all (\d+) kanji, left to right$/, "\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0432\u0441\u0435 \u043A\u0430\u043D\u0434\u0437\u0438 ($1) \u0441\u043B\u0435\u0432\u0430 \u043D\u0430\u043F\u0440\u0430\u0432\u043E"],
+    [/^(.+) \(you\)$/, "$1 (\u0432\u044B)"],
+    [/^Click an earned badge to show it under your name \(★ = on your profile, up to (\d+)\)\.$/, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043D\u044B\u0439 \u0437\u043D\u0430\u0447\u043E\u043A, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0435\u0433\u043E \u043F\u043E\u0434 \u0438\u043C\u0435\u043D\u0435\u043C (\u2605 \u2014 \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435, \u0434\u043E $1)."],
+    [/^✗ The answer is (.+)$/, "\u2717 \u041F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u044B\u0439 \u043E\u0442\u0432\u0435\u0442: $1"],
+    [/^(.+) cast for (\d+)( \(CRIT!\))?( \(×\d+\))?:$/, (_, who, n, crit, combo) => `${who} \u0431\u044C\u0451\u0442 \u043D\u0430 ${n}${crit ? " (\u041A\u0420\u0418\u0422!)" : ""}${combo ?? ""}:`],
+    [/^(Just your picture\.|A plain silver ring\.|A violet ring with four rune studs\.|A golden ring with a star at the top\.|A glowing ring of moving arcane light\.|A platinum ring with a BETA tag — for everyone who finished the tutorial during the beta\.) Round your profile picture — everyone sees it in lobbies, battles and on your profile card\.$/, (_, b) => `${{
+      "Just your picture.": "\u0422\u043E\u043B\u044C\u043A\u043E \u0432\u0430\u0448\u0435 \u0444\u043E\u0442\u043E.",
+      "A plain silver ring.": "\u041F\u0440\u043E\u0441\u0442\u043E\u0435 \u0441\u0435\u0440\u0435\u0431\u0440\u044F\u043D\u043E\u0435 \u043A\u043E\u043B\u044C\u0446\u043E.",
+      "A violet ring with four rune studs.": "\u0424\u0438\u043E\u043B\u0435\u0442\u043E\u0432\u043E\u0435 \u043A\u043E\u043B\u044C\u0446\u043E \u0441 \u0447\u0435\u0442\u044B\u0440\u044C\u043C\u044F \u0440\u0443\u043D\u0430\u043C\u0438.",
+      "A golden ring with a star at the top.": "\u0417\u043E\u043B\u043E\u0442\u043E\u0435 \u043A\u043E\u043B\u044C\u0446\u043E \u0441\u043E \u0437\u0432\u0435\u0437\u0434\u043E\u0439 \u0441\u0432\u0435\u0440\u0445\u0443.",
+      "A glowing ring of moving arcane light.": "\u0421\u0438\u044F\u044E\u0449\u0435\u0435 \u043A\u043E\u043B\u044C\u0446\u043E \u0438\u0437 \u0434\u0432\u0438\u0436\u0443\u0449\u0435\u0433\u043E\u0441\u044F \u043C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u043E\u0433\u043E \u0441\u0432\u0435\u0442\u0430.",
+      "A platinum ring with a BETA tag \u2014 for everyone who finished the tutorial during the beta.": "\u041F\u043B\u0430\u0442\u0438\u043D\u043E\u0432\u043E\u0435 \u043A\u043E\u043B\u044C\u0446\u043E \u0441 \u043C\u0435\u0442\u043A\u043E\u0439 BETA \u2014 \u0434\u043B\u044F \u0432\u0441\u0435\u0445, \u043A\u0442\u043E \u043F\u0440\u043E\u0448\u0451\u043B \u043E\u0431\u0443\u0447\u0435\u043D\u0438\u0435 \u0432\u043E \u0432\u0440\u0435\u043C\u044F \u0431\u0435\u0442\u044B."
+    }[b] ?? b} \u041E\u0431\u0440\u0430\u043C\u043B\u044F\u0435\u0442 \u0444\u043E\u0442\u043E \u043F\u0440\u043E\u0444\u0438\u043B\u044F \u2014 \u0435\u0433\u043E \u0432\u0438\u0434\u044F\u0442 \u0432\u0441\u0435 \u0432 \u043B\u043E\u0431\u0431\u0438, \u0431\u043E\u044F\u0445 \u0438 \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435 \u043F\u0440\u043E\u0444\u0438\u043B\u044F.`],
     [/^Lv (\d+)$/, "\u0423\u0440. $1"],
     // Deck Duel turn log (0.9.9)
     [/^(You|.+?) cast (\S+) ✓ — (.+)$/, (_, w, k, rest) => `${w === "You" ? "\u0412\u044B" : w} \u2014 ${k} \u2713 \u2014 ${rest.replace(/hit (.+?) for −(\d+) HP/, (_m, t, n) => `\u0443\u0434\u0430\u0440 \u043F\u043E \xAB${t === "you" ? "\u0432\u0430\u043C" : t}\xBB: \u2212${n} HP`).replace(/\+(\d+) HP/, "+$1 HP").replace(/\+(\d+)◆ mana/, "+$1\u25C6 \u043C\u0430\u043D\u044B")}`],
@@ -3801,15 +3827,12 @@ Answer with JSON only, no other text:
     [/^The dragon inhales… (\d+)$/, "\u0414\u0440\u0430\u043A\u043E\u043D \u043D\u0430\u0431\u0438\u0440\u0430\u0435\u0442 \u0432\u043E\u0437\u0434\u0443\u0445\u2026 $1"],
     [/^Fire breath! Everyone takes (\d+)$/, "\u041E\u0433\u043D\u0435\u043D\u043D\u043E\u0435 \u0434\u044B\u0445\u0430\u043D\u0438\u0435! \u0412\u0441\u0435 \u043F\u043E\u043B\u0443\u0447\u0430\u044E\u0442 $1"],
     [/^The dragon claws (.+) for (\d+)$/, "\u0414\u0440\u0430\u043A\u043E\u043D \u0431\u044C\u0451\u0442 \u043A\u043E\u0433\u0442\u044F\u043C\u0438 $1 \u043D\u0430 $2"],
-    [/^write (\d+) kanji$/, "\u043D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u043A\u0430\u043D\u0434\u0437\u0438: $1"],
     [/^Write all (\d+) characters, left to right$/, "\u041D\u0430\u043F\u0438\u0448\u0438\u0442\u0435 \u0432\u0441\u0435 $1 \u0437\u043D\u0430\u043A\u0430(\u043E\u0432) \u0441\u043B\u0435\u0432\u0430 \u043D\u0430\u043F\u0440\u0430\u0432\u043E"],
     [/^The pad read: (.+)$/, "\u041F\u0430\u043D\u0435\u043B\u044C \u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043B\u0430: $1"],
     [/^Monthly goals complete! (.+) unlocked — equip it in Customize\.$/, "\u041C\u0435\u0441\u044F\u0447\u043D\u044B\u0435 \u0446\u0435\u043B\u0438 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u044B! \u041E\u0442\u043A\u0440\u044B\u0442\u043E: $1 \u2014 \u043D\u0430\u0434\u0435\u043D\u044C\u0442\u0435 \u0432 \xAB\u041A\u0430\u0441\u0442\u043E\u043C\u0438\u0437\u0430\u0446\u0438\u0438\xBB."],
     [/^(\d+) struggling spells are waiting\. Study them down to (\d+) to unlock the game modes\.$/, "\u0416\u0434\u0443\u0442 \u0442\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F: $1. \u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u0438\u0445, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0441\u0442\u0430\u043D\u0435\u0442\u0441\u044F $2, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0440\u0435\u0436\u0438\u043C\u044B."],
     [/^(\d+) left · (All spells|Struggling spells|Custom spells)$/, (_, n, d) => `\u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C ${n} \xB7 ${d === "All spells" ? "\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F" : d === "Custom spells" ? "\u0421\u0432\u043E\u0438 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F" : "\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F"}`],
-    [/^(\d+)-day streak$/, (_, n) => `\u0441\u0435\u0440\u0438\u044F ${n} ${plural(+n, "\u0434\u0435\u043D\u044C", "\u0434\u043D\u044F", "\u0434\u043D\u0435\u0439")}`],
     [/^Unlocks at (?:a )?(\d+)-day streak$/, (_, n) => `\u041E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u0435\u0440\u0438\u0438 ${n} ${plural(+n, "\u0434\u0435\u043D\u044C", "\u0434\u043D\u044F", "\u0434\u043D\u0435\u0439")}`],
-    [/^Unlocks at level (\d+)$/, "\u041E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u0435 $1"],
     [/^Unlocks at (?:a )?(\S+) goals$/, "\u041E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u0437\u0430 \u0446\u0435\u043B\u0438 \u043C\u0435\u0441\u044F\u0446\u0430: $1"],
     [/^Log in (\d+) days in a row to unlock the (.+) \(your best: (\d+)\)$/, "\u0417\u0430\u0445\u043E\u0434\u0438\u0442\u0435 $1 \u0434\u043D\u0435\u0439 \u043F\u043E\u0434\u0440\u044F\u0434, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C $2 (\u0432\u0430\u0448 \u0440\u0435\u043A\u043E\u0440\u0434: $3)"],
     [/^Reach level (\d+) to unlock (.+)$/, "\u0414\u043E\u0441\u0442\u0438\u0433\u043D\u0438\u0442\u0435 \u0443\u0440\u043E\u0432\u043D\u044F $1, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C: $2"],
@@ -3875,7 +3898,8 @@ Answer with JSON only, no other text:
     if (t !== s) node.data = raw.replace(s, t);
   }
   function translateAttrs(el11) {
-    if (el11.closest(SKIP)) return;
+    const box = el11.tagName === "INPUT" || el11.tagName === "TEXTAREA";
+    if ((box ? el11.parentElement : el11)?.closest(SKIP)) return;
     for (const a of ATTRS) {
       const v = el11.getAttribute(a);
       if (v && /[A-Za-z]/.test(v)) {
@@ -5858,7 +5882,7 @@ Answer with JSON only, no other text:
   function showPrep(pool, durationMs, mode4) {
     $("prepSub").textContent = mode4 === "writing" ? "Memorise how each word is written. In battle you only get the meaning (and a half-second glimpse)." : "Memorise the readings. They vanish when the battle starts.";
     $("studyGrid").replaceChildren(
-      ...pool.map((w) => append(h("div", "card" + (w.mine ? " mine" : "")), h("div", "lv", LEVEL_LABEL[w.level]), ...w.mine ? [h("div", "mine-tag", "\u2605 yours", { title: "From your All spells" })] : [], h("div", "k", w.kanji, { lang: "ja" }), h("div", "r", w.reading, { lang: "ja" }), h("div", "m", w.meaning)))
+      ...pool.map((w) => append(h("div", "card" + (w.mine ? " mine" : "")), h("div", "lv", LEVEL_LABEL[w.level]), ...w.mine ? [h("div", "mine-tag", "\u2605 yours", { title: "From your All spells" })] : [], h("div", [...w.kanji].length >= 4 ? "k long" : "k", w.kanji, { lang: "ja" }), h("div", "r", w.reading, { lang: "ja" }), h("div", "m", w.meaning)))
     );
     $("ready").disabled = false;
     $("readyStatus").textContent = "";
@@ -6532,6 +6556,10 @@ Answer with JSON only, no other text:
     el11.dataset.flame = flame ?? "blue";
     flameShades(flame).forEach((c, i) => el11.style.setProperty(`--f${i}`, c));
   }
+  document.addEventListener("click", (e) => {
+    const tab2 = e.target?.closest?.(".cust-tabs > button");
+    if (tab2) tab2.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+  });
 
   // src/client/support.ts
   var $2 = $;
@@ -7108,7 +7136,6 @@ ${stack}`.slice(0, 2e3);
     kanji: ["\uFF3F\uFF3F\u306E\u3053\u3068\u3070\u3092\u6F22\u5B57\u3067\u66F8\u304F\u3068\u304D\u3001\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the right kanji for the word."],
     onomean: ["\u3053\u306E\u30AA\u30CE\u30DE\u30C8\u30DA\u306E\u610F\u5473\u3068\u3057\u3066\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the best meaning for the onomatopoeia."],
     onoword: ["\u3053\u306E\u610F\u5473\u306E\u30AA\u30CE\u30DE\u30C8\u30DA\u3068\u3057\u3066\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Which onomatopoeia has this meaning?"],
-    onotype: ["\u3053\u306E\u30AA\u30CE\u30DE\u30C8\u30DA\u306F\u3069\u306E\u7A2E\u985E\u3067\u3059\u304B\u3002", "Which kind of onomatopoeia is it \u2014 a sound, a state or a feeling?"],
     onoctx: ["\uFF3F\uFF3F\uFF3F\u306B\u5165\u308C\u308B\u306E\u306B\u6700\u3082\u3088\u3044\u3082\u306E\u3092\u9078\u3073\u306A\u3055\u3044\u3002", "Choose the word that fits the sentence."]
   };
   var quiz = [];
@@ -7162,7 +7189,7 @@ ${stack}`.slice(0, 2e3);
     if (isPrompt && q.kind === "onoctx") return furigana(text).map((x) => typeof x === "string" ? document.createTextNode(x) : x);
     return [document.createTextNode(text)];
   }
-  var isJa = (q, prompt2) => prompt2 ? q.kind !== "onoword" : !["meaning", "onomean", "onotype"].includes(q.kind);
+  var isJa = (q, prompt2) => prompt2 ? q.kind !== "onoword" : !["meaning", "onomean"].includes(q.kind);
   function question() {
     const q = quiz[qi];
     answered = false;
@@ -7183,7 +7210,7 @@ ${stack}`.slice(0, 2e3);
     $3("quizNext").hidden = true;
     $3("quizChoices").replaceChildren(...q.choices.map((c, i) => {
       const b = el2("button", "quiz-choice", void 0, { type: "button" });
-      const t = el2("span", "t", void 0, isJa(q, false) ? { lang: "ja" } : q.kind === "onotype" ? {} : { "data-no-i18n": "" });
+      const t = el2("span", "t", void 0, isJa(q, false) ? { lang: "ja" } : { "data-no-i18n": "" });
       t.append(...shown(q, c));
       b.append(el2("span", "n", String(i + 1)), t);
       b.onclick = () => choose(i);
@@ -7486,6 +7513,7 @@ ${stack}`.slice(0, 2e3);
   function storyWhy(why) {
     if (why === "off") return tr("AI stories are switched off on the server \u2014 here are your words\u2019 example sentences instead.");
     if (why === "limit") return tr("You\u2019ve used all of today\u2019s AI stories \u2014 here are your words\u2019 example sentences instead. New stories tomorrow!");
+    if (why === "wait") return tr("Your last story is still being written \u2014 try \u201CNew passage\u201D again in a moment.");
     if (why === "busy") return tr("Today\u2019s AI stories for everyone are used up \u2014 here are your words\u2019 example sentences instead.");
     if (why === "timeout") return tr("The story took too long \u2014 here are your words\u2019 example sentences instead. Try \u201CNew passage\u201D again.");
     if (why === "few words") return tr("Too few words for a story \u2014 here are their example sentences.");
@@ -7520,6 +7548,8 @@ ${stack}`.slice(0, 2e3);
       box.firstElementChild.append(bar);
       text.replaceChildren(box);
       const t0 = Date.now();
+      const again = $3("passageNew");
+      again.disabled = true;
       const tick2 = window.setInterval(() => {
         const t = (Date.now() - t0) / 1e3;
         bar.style.width = `${f1(96 * (1 - Math.exp(-t / 14)))}%`;
@@ -7530,6 +7560,7 @@ ${stack}`.slice(0, 2e3);
         new Promise((ok) => setTimeout(() => ok({ story: null, why: "timeout", usage: void 0 }), 95e3))
       ]);
       clearInterval(tick2);
+      again.disabled = false;
       if (build2 !== passageBuild) return;
       if (r2.usage) showQuota(r2.usage);
       if (r2.story) {
@@ -7702,11 +7733,6 @@ ${stack}`.slice(0, 2e3);
     $4("tasksNever").onchange = (e) => store.set(NEVER, e.target.checked ? "1" : "");
   }
 
-  // src/client/pixelstaffs.ts
-  function pixelStaffSvg(id) {
-    return staffSvg(id);
-  }
-
   // src/client/rewards.ts
   var KEY4 = (uid2) => `kb:seenRewards:${uid2}`;
   var load3 = (uid2) => {
@@ -7759,7 +7785,7 @@ ${stack}`.slice(0, 2e3);
       w.innerHTML = avatarSvg(avatarFor(p.studyLevels), "me", r2.id);
       const s = document.createElement("div");
       s.className = "pixel-staff big";
-      s.innerHTML = pixelStaffSvg(r2.id);
+      s.innerHTML = staffSvg(r2.id);
       box.append(s, w);
     } else if (r2.kind === "flame") {
       const w = document.createElement("div");
@@ -7820,6 +7846,28 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/whatsnew.ts
   var PATCHES = [
+    {
+      v: "0.9.9.4.4.7",
+      date: "2026-10",
+      en: [
+        "Onomatopoeia quiz: no more \u201Cwhich kind is it\u201D questions \u2014 just the meanings, the words and the sentences.",
+        "Answers: \u3062 / \u3065 also accept \u3058 / \u305A \u2014 \u201Ctsuzuku\u201D is right for \u7D9A\u304F, \u201Chanaji\u201D for \u9F3B\u8840.",
+        "Phones: nothing hides under the Friends button any more; the level names in All spells (\u3072\u3089\u304C\u306A, \u30AB\u30BF\u30AB\u30CA) aren\u2019t cut off; the study card header fits; no keyboard hints (Esc, Space) on touch screens.",
+        "Study cards before a battle: long words (\u5F15\u3063\u8D8A\u3059) stay on one line.",
+        "Reading passage: \u201CNew passage\u201D waits while a story is being written, and the daily AI-story limit can\u2019t be got round.",
+        "Russian: the answer box, the battle log, the results, the borders and a few lobby texts are translated now.",
+        "Under the hood: unused old code and styles removed (the old pixel staffs, old screens\u2019 CSS, stale translations)."
+      ],
+      ru: [
+        "\u0422\u0435\u0441\u0442 \u043F\u043E \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0435: \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435\u0442 \u0432\u043E\u043F\u0440\u043E\u0441\u043E\u0432 \xAB\u043A\u0430\u043A\u043E\u0433\u043E \u044D\u0442\u043E \u0432\u0438\u0434\u0430\xBB \u2014 \u0442\u043E\u043B\u044C\u043A\u043E \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F, \u0441\u043B\u043E\u0432\u0430 \u0438 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F.",
+        "\u041E\u0442\u0432\u0435\u0442\u044B: \u3062 / \u3065 \u043F\u0440\u0438\u043D\u0438\u043C\u0430\u044E\u0442\u0441\u044F \u0438 \u043A\u0430\u043A \u3058 / \u305A \u2014 \xABtsuzuku\xBB \u0432\u0435\u0440\u043D\u043E \u0434\u043B\u044F \u7D9A\u304F, \xABhanaji\xBB \u0434\u043B\u044F \u9F3B\u8840.",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B: \u043D\u0438\u0447\u0435\u0433\u043E \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043F\u0440\u044F\u0447\u0435\u0442\u0441\u044F \u043F\u043E\u0434 \u043A\u043D\u043E\u043F\u043A\u043E\u0439 \xAB\u0414\u0440\u0443\u0437\u044C\u044F\xBB; \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044F \u0443\u0440\u043E\u0432\u043D\u0435\u0439 \u0432\u043E \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445\xBB (\u3072\u3089\u304C\u306A, \u30AB\u30BF\u30AB\u30CA) \u043D\u0435 \u043E\u0431\u0440\u0435\u0437\u0430\u044E\u0442\u0441\u044F; \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A \u043F\u043E\u043C\u0435\u0449\u0430\u0435\u0442\u0441\u044F; \u043D\u0430 \u0441\u0435\u043D\u0441\u043E\u0440\u043D\u044B\u0445 \u044D\u043A\u0440\u0430\u043D\u0430\u0445 \u043D\u0435\u0442 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043E\u043A \u043A\u043B\u0430\u0432\u0438\u0448 (Esc, \u041F\u0440\u043E\u0431\u0435\u043B).",
+        "\u041A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u043F\u0435\u0440\u0435\u0434 \u0431\u043E\u0435\u043C: \u0434\u043B\u0438\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 (\u5F15\u3063\u8D8A\u3059) \u043F\u043E\u043C\u0435\u0449\u0430\u044E\u0442\u0441\u044F \u0432 \u043E\u0434\u043D\u0443 \u0441\u0442\u0440\u043E\u043A\u0443.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u0436\u0434\u0451\u0442, \u043F\u043E\u043A\u0430 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u0440\u0430\u0441\u0441\u043A\u0430\u0437, \u0430 \u0434\u043D\u0435\u0432\u043D\u043E\u0439 \u043B\u0438\u043C\u0438\u0442 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u043D\u0435\u043B\u044C\u0437\u044F \u043E\u0431\u043E\u0439\u0442\u0438.",
+        "\u0420\u0443\u0441\u0441\u043A\u0438\u0439 \u044F\u0437\u044B\u043A: \u043F\u0435\u0440\u0435\u0432\u0435\u0434\u0435\u043D\u044B \u043F\u043E\u043B\u0435 \u043E\u0442\u0432\u0435\u0442\u0430, \u0436\u0443\u0440\u043D\u0430\u043B \u0431\u043E\u044F, \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u044B, \u0440\u0430\u043C\u043A\u0438 \u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0442\u0435\u043A\u0441\u0442\u043E\u0432 \u043B\u043E\u0431\u0431\u0438.",
+        "\u0412\u043D\u0443\u0442\u0440\u0438: \u0443\u0434\u0430\u043B\u0435\u043D\u044B \u043D\u0435\u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u043C\u044B\u0435 \u0441\u0442\u0430\u0440\u044B\u0439 \u043A\u043E\u0434 \u0438 \u0441\u0442\u0438\u043B\u0438 (\u0441\u0442\u0430\u0440\u044B\u0435 \u043F\u0438\u043A\u0441\u0435\u043B\u044C\u043D\u044B\u0435 \u043F\u043E\u0441\u043E\u0445\u0438, CSS \u0441\u0442\u0430\u0440\u044B\u0445 \u044D\u043A\u0440\u0430\u043D\u043E\u0432, \u0443\u0441\u0442\u0430\u0440\u0435\u0432\u0448\u0438\u0435 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u044B)."
+      ]
+    },
     {
       v: "0.9.9.4.4.6",
       date: "2026-10",
@@ -11613,7 +11661,7 @@ ${stack}`.slice(0, 2e3);
             return img;
           }
           const g = el7("div", "pixel-staff");
-          g.innerHTML = pixelStaffSvg(s.id);
+          g.innerHTML = staffSvg(s.id);
           return g;
         },
         equip: () => api.setStaff(s.id)
@@ -11759,7 +11807,7 @@ ${stack}`.slice(0, 2e3);
       if (preview3) preview3.show(sel.id);
       else {
         const g = el7("div", "pixel-staff big");
-        g.innerHTML = pixelStaffSvg(sel.id);
+        g.innerHTML = staffSvg(sel.id);
         stage2.replaceChildren(g);
       }
     } else if (custTab === "arena") {
@@ -11811,7 +11859,7 @@ ${stack}`.slice(0, 2e3);
       const who = el7("div", "c2-char");
       who.innerHTML = avatarSvg(avatarFor(profile3.studyLevels), "me", sel.id);
       const st = el7("div", "pixel-staff");
-      st.innerHTML = pixelStaffSvg(sel.id);
+      st.innerHTML = staffSvg(sel.id);
       row.append(who, st, el7("span", "hint", "2D arena"));
       info.push(row);
     }
@@ -11980,7 +12028,7 @@ ${stack}`.slice(0, 2e3);
       sprite.innerHTML = wizardSvg("me");
       w.append(el8("div", "aura"), sprite);
       sw.append(w);
-    } else sw.innerHTML = pixelStaffSvg(id);
+    } else sw.innerHTML = staffSvg(id);
     sw.title = `${reward?.name}${kind === "flame" ? " flames" : ""}`;
     const monthName2 = (/* @__PURE__ */ new Date(`${m.month}-15T12:00:00`)).toLocaleDateString(locale(), { month: "long" });
     const head = el8("h3", "", `${monthName2}: ${m.name} season`);

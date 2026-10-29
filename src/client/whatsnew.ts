@@ -7,6 +7,27 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.4.4.7', date: '2026-10',
+    en: [
+      'Onomatopoeia quiz: no more “which kind is it” questions — just the meanings, the words and the sentences.',
+      'Answers: ぢ / づ also accept じ / ず — “tsuzuku” is right for 続く, “hanaji” for 鼻血.',
+      'Phones: nothing hides under the Friends button any more; the level names in All spells (ひらがな, カタカナ) aren’t cut off; the study card header fits; no keyboard hints (Esc, Space) on touch screens.',
+      'Study cards before a battle: long words (引っ越す) stay on one line.',
+      'Reading passage: “New passage” waits while a story is being written, and the daily AI-story limit can’t be got round.',
+      'Russian: the answer box, the battle log, the results, the borders and a few lobby texts are translated now.',
+      'Under the hood: unused old code and styles removed (the old pixel staffs, old screens’ CSS, stale translations).',
+    ],
+    ru: [
+      'Тест по ономатопее: больше нет вопросов «какого это вида» — только значения, слова и предложения.',
+      'Ответы: ぢ / づ принимаются и как じ / ず — «tsuzuku» верно для 続く, «hanaji» для 鼻血.',
+      'Телефоны: ничего больше не прячется под кнопкой «Друзья»; названия уровней во «Всех заклинаниях» (ひらがな, カタカナ) не обрезаются; заголовок карточек помещается; на сенсорных экранах нет подсказок клавиш (Esc, Пробел).',
+      'Карточки перед боем: длинные слова (引っ越す) помещаются в одну строку.',
+      'Текст для чтения: «Новый текст» ждёт, пока пишется рассказ, а дневной лимит ИИ-рассказов нельзя обойти.',
+      'Русский язык: переведены поле ответа, журнал боя, результаты, рамки и несколько текстов лобби.',
+      'Внутри: удалены неиспользуемые старый код и стили (старые пиксельные посохи, CSS старых экранов, устаревшие переводы).',
+    ],
+  },
+  {
     v: '0.9.9.4.4.6', date: '2026-10',
     en: [
       'Reading passage: fixed the AI story failing with “invalid argument” on newer Gemini models — it now finds the settings your model accepts by itself.',

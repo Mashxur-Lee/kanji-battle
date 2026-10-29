@@ -104,7 +104,7 @@ test('onomatopoeia quiz: four kinds of question, the right answer among the choi
   for (const l of readFileSync('data/examples/ono.tsv', 'utf8').split('\n')) if (l) ex.set(l.split('\t')[0], l.split('\t')[1]);
   assert.equal(ex.size, ono.length, 'an example for every onomatopoeia');
   const qs = buildOnoQuiz(ono.slice(0, 12), VOCAB, Math.random, ex);
-  assert.deepEqual(new Set(qs.map((q) => q.kind)), new Set(['onomean', 'onoword', 'onoctx', 'onotype']));
+  assert.deepEqual(new Set(qs.map((q) => q.kind)), new Set(['onomean', 'onoword', 'onoctx']));
   for (const q of qs) {
     assert.ok(q.answer >= 0 && q.answer < q.choices.length);
     assert.equal(new Set(q.choices).size, q.choices.length);

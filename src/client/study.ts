@@ -8,7 +8,7 @@ import type { ArenaApi } from './arena3d';
 import { sceneSvg } from './backgrounds';
 import type { StaffPreview } from './staffpreview';
 import { avatarSvg } from './wizard';
-import { pixelStaffSvg } from './pixelstaffs';
+import { staffSvg } from './art2d';
 import { showStrokeOrder } from './strokes';
 import type { Rating } from '../shared/srs';
 import { api, type DeckCounts, type Profile, type StudyCard } from './api';
@@ -404,7 +404,7 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
       equipped: (profile.staff ?? 'verdant') === s.id,
       tile: () => {
         if (staffThumbs[s.id]) { const img = document.createElement('img'); img.src = staffThumbs[s.id]; img.alt = ''; return img; }
-        const g = el('div', 'pixel-staff'); g.innerHTML = pixelStaffSvg(s.id); return g;
+        const g = el('div', 'pixel-staff'); g.innerHTML = staffSvg(s.id); return g;
       },
       equip: () => api.setStaff(s.id),
     }));
@@ -520,7 +520,7 @@ function renderCustomize() {
   if (in3d) showArena3(custTab as 'arena' | 'omni', sel.id, profile); else arena3?.setActive(false);
   if (custTab === 'staff') {
     if (preview) preview.show(sel.id);
-    else { const g = el('div', 'pixel-staff big'); g.innerHTML = pixelStaffSvg(sel.id); stage2.replaceChildren(g); }
+    else { const g = el('div', 'pixel-staff big'); g.innerHTML = staffSvg(sel.id); stage2.replaceChildren(g); }
   } else if (custTab === 'arena') {
     stage2.innerHTML = backgroundThumb(sel.id as BackgroundId, resolveTime(getTimePref()));
   } else if (custTab === 'profile') {
@@ -559,7 +559,7 @@ function renderCustomize() {
     // the pixel version: what the 2D arena shows, in your character's hand
     const row = el('div', 'cust-2d');
     const who = el('div', 'c2-char'); who.innerHTML = avatarSvg(avatarFor(profile.studyLevels), 'me', sel.id);
-    const st = el('div', 'pixel-staff'); st.innerHTML = pixelStaffSvg(sel.id);
+    const st = el('div', 'pixel-staff'); st.innerHTML = staffSvg(sel.id);
     row.append(who, st, el('span', 'hint', '2D arena'));
     info.push(row);
   }
