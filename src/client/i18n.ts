@@ -24,7 +24,7 @@ export function setLang(l: Lang) {
 const RU: Record<string, string> = {
   // top bar, profile, settings
   'admin': 'админ', 'crit today': 'крит сегодня', 'wins': 'победы', 'losses': 'поражения', 'win rate': 'доля побед',
-  'spells learned': 'выучено заклинаний', 'learned today': 'выучено сегодня', 'login streak (days)': 'серия входов (дни)',
+  'spells learned': 'выучено заклинаний', 'learned today': 'выучено сегодня', 
   'best streak (days)': 'лучшая серия (дни)', 'Change picture': 'Сменить фото', 'Remove picture': 'Удалить фото', '⎋ Log out': '⎋ Выйти',
   '♪ Music': '♪ Музыка', 'Effects': 'Эффекты', 'Voice (word on a correct cast)': 'Голос (слово при верном ответе)',
   '3D arena': '3D-арена', 'Full': 'Полная', 'Lite (phones, older PCs)': 'Лёгкая (телефоны, старые ПК)', 'Off (2D)': 'Выкл. (2D)',
@@ -37,7 +37,6 @@ const RU: Record<string, string> = {
   'This screen is too small for the 3D arena — the classic 2D view is used.': 'Экран слишком мал для 3D-арены — используется классический 2D-вид.',
   '3D was slow — lowered its resolution. Settings → 3D arena → Off for the 2D view.': '3D тормозило — разрешение снижено. Настройки → 3D-арена → Выкл. для 2D-вида.',
   '3D was slow on this device — switched to Lite (Settings → 3D arena).': '3D тормозило на этом устройстве — включена лёгкая версия (Настройки → 3D-арена).',
-
   // auth
 'Study ten spells. Then cast them from memory.': 'Выучи десять заклинаний. Потом произнеси их по памяти.',
   'Log in': 'Войти', 'Register': 'Регистрация', 'Login': 'Логин', 'Password': 'Пароль', 'Create account': 'Создать аккаунт',
@@ -47,7 +46,6 @@ const RU: Record<string, string> = {
   'Too many attempts — wait a minute': 'Слишком много попыток — подождите минуту', 'Please log in': 'Пожалуйста, войдите',
   'Please log in again': 'Пожалуйста, войдите снова', 'This account has been banned': 'Этот аккаунт заблокирован',
   'Password: at least 6 characters': 'Пароль: не меньше 6 символов', 'Server error': 'Ошибка сервера', 'Something went wrong': 'Что-то пошло не так',
-
   // menu
   '← Menu': '← Меню', 'Online queue': 'Онлайн-очередь',
   "Tick what you'd like to play. You'll be matched with the first player who wants the same, and the game starts straight away. Boss Elimination waits for a full party of 4.":
@@ -71,11 +69,10 @@ const RU: Record<string, string> = {
   'Up to 4 players vs the Black Dragon. Mistakes get you clawed; it breathes fire every 30 s.': 'До 4 игроков против Чёрного дракона. За ошибки он бьёт когтями, а каждые 30 с дышит огнём.',
   "Pick a hero, draft 10 face-down spell cards, then cast them turn by turn: read the meaning, look at the kanji, write it from memory. Mana, heals and your hero's Omnipotence.":
     'Выберите героя, наберите 10 закрытых карт заклинаний и разыгрывайте их по очереди: прочитайте значение, посмотрите на кандзи, напишите по памяти. Мана, лечение и Всемогущество героя.',
-  'Unlocks at level 1': 'Откроется на уровне 1', 'Unlocks at level 2': 'Откроется на уровне 2',
 
   // progress / daily / friends / history
   'Activity': 'Активность', 'Spell mastery': 'Освоение заклинаний', 'every word of each level — hover a square to see it': 'каждое слово каждого уровня — наведите на клетку, чтобы увидеть его',
-  "Today's leaderboard": 'Таблица лидеров за сегодня', '↻ Refresh': '↻ Обновить', 'Activity over the last 26 weeks': 'Активность за последние 26 недель',
+  "Today's leaderboard": 'Таблица лидеров за сегодня', '↻ Refresh': '↻ Обновить', 
   'This week': 'Эта неделя', 'days active': 'активных дней', 'cards passed': 'карточек пройдено', 'Not in your spells yet': 'Ещё нет в ваших заклинаниях',
   'Nobody has played today yet — be the first!': 'Сегодня ещё никто не играл — будьте первым!', 'Ten words, the same for everyone today': 'Десять слов, сегодня одни и те же для всех',
   'Start': 'Начать', 'Continue': 'Продолжить', 'Skip': 'Пропустить', 'reading (かな or romaji)': 'чтение (かな или ромадзи)',
@@ -92,18 +89,15 @@ const RU: Record<string, string> = {
   'Your last 15 games. Open one to see its results again; click a name to see that player\'s profile.': 'Ваши последние 15 игр. Откройте игру, чтобы снова увидеть результаты; нажмите на имя, чтобы открыть профиль игрока.',
   'No matches yet — your finished games will show up here.': 'Матчей пока нет — здесь появятся ваши сыгранные игры.',
   '← Back to match history': '← К истории матчей', 'View profile': 'Профиль', 'Player profile': 'Профиль игрока',
-
   // study
   'Spaced repetition like Anki. Your crit chance starts every day at': 'Интервальные повторения, как в Anki. Шанс крита каждый день начинается с',
-  '; every spell you learn today adds': '; каждое выученное сегодня заклинание добавляет',
-  '(×1.5 damage, max 50%). It resets at midnight.': '(урон ×1.5, максимум 50%). Сбрасывается в полночь.',
-  'All spells': 'Все заклинания', 'Tick levels — 25 new random words are added every day.': 'Отметьте уровни — каждый день добавляется 25 новых случайных слов.',
+  
+  'All spells': 'Все заклинания', 
   'Study': 'Учить', 'Struggling spells': 'Трудные заклинания', 'Struggling': 'Трудные', 'Words you missed in battles land here automatically.': 'Слова, на которых вы ошиблись в боях, попадают сюда автоматически.',
   '← Study': '← Заклинания', 'Stroke order': 'Порядок черт', 'Show answer': 'Показать ответ', 'Space': 'Пробел',
   'Again': 'Снова', 'Hard': 'Трудно', 'Okay': 'Нормально', 'Easy': 'Легко', 'All done for now': 'На сейчас всё',
   'Come back later — cards return when they are due.': 'Возвращайтесь позже — карточки вернутся, когда придёт их время.', 'Back to study': 'Назад к изучению',
   'new spells added': 'добавлено новых заклинаний', 'Learned spells / study set size': 'Выучено заклинаний / размер набора',
-  'Tick one or more levels under “All spells” to get 25 new spells today (and every day).': 'Отметьте один или несколько уровней в «Все заклинания», чтобы получать 25 новых заклинаний сегодня (и каждый день).',
 
   // customize
   'Magic staff': 'Магический посох', 'Arena': 'Арена', 'Omnipotence': 'Всемогущество', 'Equip': 'Надеть', 'Unlocked': 'Открыто', '✓ Equipped': '✓ Надето',
@@ -113,7 +107,6 @@ const RU: Record<string, string> = {
     'Всемогущество: пламя комбо ×5 в бою и вашего Всемогущества (силы героя) в Дуэли колод. Новые цвета открываются с уровнем.',
   'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.':
     'Окутывает вас после 5 верных ответов подряд (Чтение, Написание, Блиц, Босс) и пока активно ваше Всемогущество в Дуэли колод. Ваш цвет видят все.',
-
   '2D arena': '2D-арена', 'No Japanese voice found on this device.': 'На этом устройстве нет японского голоса.', 'This browser has no speech voice.': 'В этом браузере нет синтеза речи.',
   'Carved from an ancient tree. It channels the natural energy of the earth and life.': 'Вырезан из древнего дерева. Проводит природную силу земли и жизни.',
   'Forged from volcanic rock and blessed by fire spirits.': 'Выкован из вулканического камня и благословлён духами огня.',
@@ -126,7 +119,6 @@ const RU: Record<string, string> = {
   'July reward. Pulled from the deepest trench of the sea.': 'Награда июля. Поднят со дна глубочайшей морской впадины.',
   'September reward. Silver light of the harvest moon.': 'Награда сентября. Серебряный свет осенней луны.',
   'November reward. Burning red like autumn leaves.': 'Награда ноября. Горит красным, как осенние листья.',
-
   // 0.9.8
   "I've mastered hiragana": 'Я освоил хирагану', 'Unlocks the kanji levels (N5–N1) for studying and battles.': 'Открывает уровни кандзи (N5–N1) для учёбы и боёв.',
   'Do you know hiragana?': 'Вы знаете хирагану?', 'Yes — I know hiragana': 'Да — я знаю хирагану', "I'm a beginner": 'Я новичок',
@@ -142,7 +134,6 @@ const RU: Record<string, string> = {
   'online': 'в сети', 'Requests': 'Запросы', 'Friend requests': 'Запросы в друзья',
   'No friend requests right now.': 'Сейчас нет запросов в друзья.', 'No friends yet — add someone below.': 'Друзей пока нет — добавьте кого-нибудь ниже.',
   'Your level': 'Ваш уровень', 'Activity calendar': 'Календарь активности', 'Previous month': 'Предыдущий месяц', 'Next month': 'Следующий месяц',
-
   // 0.9.8.1 — achievements, battle keyboard
   'Achievement unlocked!': 'Достижение получено!',
   'Locked': 'Закрыто',
@@ -245,7 +236,6 @@ const RU: Record<string, string> = {
   'Resume': 'Продолжить',
   '❚❚ Pause': '❚❚ Пауза', 'Pause': 'Пауза',
   'You can pause only a private game against the AI (or a solo Boss run)': 'Пауза доступна только в своей игре против ИИ (или в одиночной Битве с боссом)',
-  'The words you missed are now in Study spells → Struggling spells.': 'Слова с ошибками теперь в «Изучать заклинания» → «Трудные заклинания».',
   'Today\'s words': 'Слова дня',
   'Study spells is a flashcard deck: the more words you know, the more spells you can cast. Words you miss in battle come back there to review.': '«Изучать заклинания» — колода карточек: чем больше слов вы знаете, тем больше заклинаний можете сотворить. Слова, на которых вы ошиблись в бою, возвращаются туда на повторение.',
   'Spaced repetition like Anki: each card comes back just before you would forget it.': 'Интервальные повторения, как в Anki: каждая карточка возвращается как раз перед тем, как вы бы её забыли.',
@@ -315,12 +305,9 @@ const RU: Record<string, string> = {
   '— perfect!': '— идеально!',
   'Add the ones I missed': 'Добавить те, где я ошибся',
   'Save to': 'Сохранить в',
-  'Save these words to': 'Сохранить эти слова в',
   'Read them in a story': 'Прочитать их в рассказе',
   'New story': 'Новый рассказ',
-  'Words in this story': 'Слова в этом рассказе',
   'Tap a highlighted word for its reading and meaning.': 'Нажмите на выделенное слово, чтобы увидеть чтение и значение.',
-  'No words yet — the story uses your struggling spells (or the words you missed in a game).': 'Слов пока нет — рассказ берёт ваши трудные заклинания (или слова с ошибками из игры).',
   'Filter…': 'Фильтр…',
   'Main menu': 'Главное меню',
   'Finish your game first': 'Сначала закончите игру',
@@ -333,7 +320,6 @@ const RU: Record<string, string> = {
   'Remove admin': 'Снять админа',
   'On your profile ✓ — click to remove': 'В профиле ✓ — нажмите, чтобы убрать',
   'Unlocked ✓ — click to show on your profile': 'Получено ✓ — нажмите, чтобы показать в профиле',
-  'Everything is open': 'Всё открыто',
   'What\'s new': 'Что нового',
   'Every mode is open from the start: Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel. There is also a Daily challenge, a JLPT quiz, Progress, Friends — and monthly goals with rewards.': 'Все режимы открыты сразу: Чтение кандзи, Блиц, Написание кандзи, Битва с боссом и Дуэль колод. Ещё есть Ежедневное испытание, тест JLPT, Прогресс, Друзья — и цели месяца с наградами.',
   'Turn log': 'Журнал ходов',
@@ -345,7 +331,6 @@ const RU: Record<string, string> = {
   'Role': 'Роль', 'Level': 'Уровень', 'XP': 'Опыт', 'Spells': 'Заклинания', 'Crit': 'Крит', 'Registered': 'Регистрация', 'Status': 'Статус',
   'never logged in': 'ни разу не входил',
   'AI · beginner': 'ИИ · новичок', 'AI player · beginner': 'ИИ-игрок · новичок',
-
   // lobby
   '← Leave room': '← Покинуть комнату', 'Room code — share it with your friend': 'Код комнаты — отправьте его другу', 'Copy': 'Копировать',
   'Add an AI player': 'Добавить ИИ-игрока', 'Beginner — slow, makes mistakes': 'Новичок — медленный, ошибается', 'N3 — intermediate': 'N3 — средний',
@@ -359,39 +344,33 @@ const RU: Record<string, string> = {
   'Waiting for your opponent to be ready…': 'Ждём, когда соперник будет готов…', 'Press Ready — the duel starts when both players are ready.': 'Нажмите «Готов» — дуэль начнётся, когда оба будут готовы.',
   'Start solo': 'Начать в одиночку', 'Waiting for the host to start…': 'Ждём, пока хозяин начнёт…', 'Opponent left': 'Соперник вышел',
   'Room not found': 'Комната не найдена', 'Room is full': 'Комната заполнена', 'That battle has already started': 'Этот бой уже начался',
-
   // prep / battle
-  '← Back to lobby': '← Назад в лобби', 'Back to lobby': 'Назад в лобби', 'Preparation': 'Подготовка',
+  'Back to lobby': 'Назад в лобби', 'Preparation': 'Подготовка',
   'Memorise the readings. They vanish when the battle starts.': 'Запомните чтения. Они исчезнут, когда начнётся бой.', "I'm ready": 'Я готов',
   'Forfeit': 'Сдаться', 'Tap again to forfeit': 'Нажмите ещё раз, чтобы сдаться', 'Chat': 'Чат', 'Send': 'Отправить', 'Say something…': 'Напишите что-нибудь…',
   '↶ Undo': '↶ Отменить', '⌫ Eraser': '⌫ Ластик', '✕ Clear': '✕ Очистить', 'Cast ✦': 'Колдовать ✦', 'Handwriting pad': 'Панель для письма',
   'Eraser: rub over a stroke to remove it (E)': 'Ластик: проведите по черте, чтобы стереть её (E)', '…or type the kanji (Japanese keyboard), Enter': '…или введите кандзи (японская клавиатура), Enter',
   'How to write it (S)': 'Как это пишется (S)', 'Hide the kanji and write it (Enter)': 'Скрыть кандзи и написать (Enter)',
   'かな or romaji, then Enter': 'かな или ромадзи, затем Enter', 'romaji, then Enter': 'ромадзи, затем Enter', 'Counts as a miss and shows the answer': 'Засчитывается как промах и показывает ответ',
-  'Hiragana spell — answer in romaji': 'Заклинание хираганой — ответ ромадзи', 'Write the character': 'Напишите знак', '✗ Not quite — try again!': '✗ Не совсем — попробуйте ещё!',
+  'Hiragana spell — answer in romaji': 'Заклинание хираганой — ответ ромадзи', '✗ Not quite — try again!': '✗ Не совсем — попробуйте ещё!',
   'Opponent was faster!': 'Соперник был быстрее!', '✗ Too slow!': '✗ Слишком медленно!', 'How to write it': 'Как это пишется', 'Time up': 'Время вышло',
   'Pasting is off — write it yourself!': 'Вставка отключена — напишите сами!', 'Use romaji for hiragana spells (switch your IME off)': 'Для заклинаний хираганой используйте ромадзи (выключите IME)',
   'You are on fire — immune to dragon breath!': 'Вы в огне — дыхание дракона вам не страшно!', 'Character power': 'Сила персонажа',
-
   // results
   'VICTORY': 'ПОБЕДА', 'DEFEAT': 'ПОРАЖЕНИЕ', 'DRAW': 'НИЧЬЯ', 'Review — you struggled with': 'Повторите — вам было трудно с',
-  '(added to Struggling spells · click a word for its stroke order)': '(добавлено в «Трудные заклинания» · нажмите на слово, чтобы увидеть порядок черт)',
   'Vocabulary performance': 'Результаты по словам', 'Word': 'Слово', 'Reading': 'Чтение', 'Meaning': 'Значение', 'Result': 'Результат', 'Avg time': 'Ср. время',
   'Rematch': 'Реванш', 'Leave': 'Выйти', 'Rematch requested!': 'Реванш запрошен!', 'Waiting for the others to accept…': 'Ждём, пока другие согласятся…',
   'A player left the battle': 'Игрок покинул бой', 'The Black Dragon has fallen': 'Чёрный дракон повержен', 'The party was burned to ash': 'Отряд сожжён дотла',
-  'Time up — the dragon survived': 'Время вышло — дракон выжил', 'Time up — you held the dragon off!': 'Время вышло — вы сдержали дракона!', 'Time up — most HP left wins': 'Время вышло — побеждает тот, у кого больше HP',
+  'Time up — you held the dragon off!': 'Время вышло — вы сдержали дракона!', 'Time up — most HP left wins': 'Время вышло — побеждает тот, у кого больше HP',
   'Damage to dragon': 'Урон дракону', 'Damage dealt': 'Нанесено урона', 'Avg response': 'Ср. ответ', 'Best combo': 'Лучшее комбо', 'not seen': 'не встречалось',
   'No XP — the match was forfeited': 'Без опыта — матч был сдан', 'Got it': 'Понятно', 'Tip': 'Совет',
-
   // queue / match found
   'Match found!': 'Игра найдена!', 'Match found': 'Игра найдена', 'Waiting for your opponent…': 'Ждём соперника…', 'Your opponent accepted!': 'Соперник принял!',
   "Your opponent didn't accept — you're back in the queue.": 'Соперник не принял — вы снова в очереди.', "You didn't accept in time — the queue stopped.": 'Вы не приняли вовремя — поиск остановлен.',
   'In the online queue': 'В онлайн-очереди', 'In the menus': 'В меню',
   'Music on': 'Музыка вкл.', 'Music off': 'Музыка выкл.', 'Sounds on': 'Звуки вкл.', 'Sounds off': 'Звуки выкл.',
   'games': 'игры', 'Play on 12 different days': 'Играть в 12 разных дней', 'Win 10 games': 'Выиграть 10 игр', 'Pass 150 flashcards in Study spells': 'Пройти 150 карточек в «Изучать заклинания»',
-  'Light blue flames': 'Голубое пламя', 'Purple flames': 'Фиолетовое пламя',
   'Your turn': 'Ваш ход', 'Your turn!': 'Ваш ход!',
-
   // deck duel
   'How Deck Duel works': 'Как устроена Дуэль колод', 'Deck Duel — choose a card': 'Дуэль колод — выберите карту', 'Your spell — read it': 'Ваше заклинание — прочитайте его',
   'Your spell — memorise the kanji': 'Ваше заклинание — запомните кандзи', 'Write the kanji!': 'Напишите кандзи!', 'Your kanji': 'Ваш кандзи', 'Your opponent': 'Ваш соперник',
@@ -403,7 +382,6 @@ const RU: Record<string, string> = {
   '✗ Nobody got it': '✗ Никто не угадал', '✗ The spell fizzles': '✗ Заклинание рассеялось', 'Rapid hit': 'Удар в блице', 'passive · tap for info': 'пассивно · нажмите для информации',
   'cards used': 'карт сыграно', '+2 cards ready': '+2 карты готовы', 'mana used': 'маны потрачено', '+30 mana ready': '+30 маны готово',
   'Out of cards → Round 2 draft. HP, mana and powers stay.': 'Карты кончились → набор раунда 2. HP, мана и силы сохраняются.',
-
   // tutorial
   'Welcome': 'Добро пожаловать', 'Welcome, apprentice': 'Добро пожаловать, ученик',
   'In Kanji Wizards every spell is a Japanese word. Learn a word — and you can cast it at your opponent.': 'В Kanji Wizards каждое заклинание — японское слово. Выучите слово — и сможете метнуть его в соперника.',
@@ -422,7 +400,6 @@ const RU: Record<string, string> = {
   "Read the 10 words — reading and meaning. When the battle starts, they come back as kanji only. Press Ready when you're done.": 'Прочитайте 10 слов — чтение и значение. В бою они вернутся только кандзи. Нажмите «Готов», когда закончите.',
   "Type the reading of the kanji (hiragana or romaji) and press Enter. Don't know it? Esc skips. Keep your HP above the AI's!": 'Напишите чтение кандзи (хираганой или ромадзи) и нажмите Enter. Не знаете? Esc — пропуск. Держите HP выше, чем у ИИ!',
   'Well cast! Words you missed are now in Study spells → Struggling. Level up to unlock Writing, Boss and Deck Duel.': 'Отличное колдовство! Слова с ошибками теперь в «Изучать заклинания → Трудные». Повышайте уровень, чтобы открыть Написание, Босса и Дуэль колод.',
-
   // how to play (guide)
   'Create a room': 'Создайте комнату', ', pick a mode, and send the 4-letter code to a friend. On a phone you can switch apps to send it — your seat is kept for 5 minutes.': ', выберите режим и отправьте другу 4-буквенный код. На телефоне можно переключиться в другое приложение — место сохраняется 5 минут.',
   'Pick your levels.': 'Выберите уровни.', 'Modes': 'Режимы', 'Rapid': 'Блиц', 'Writing': 'Написание', 'Boss': 'Босс',
@@ -432,7 +409,7 @@ const RU: Record<string, string> = {
   '— 1 to 4 players team up against the Black Dragon (it gets tougher with every player). Mistakes get you clawed; fire breath every 30 s.': '— от 1 до 4 игроков против Чёрного дракона (он сильнее с каждым игроком). За ошибки — удар когтями; огненное дыхание каждые 30 с.',
   'Fast + correct = more damage.': 'Быстро + верно = больше урона.', '(Esc) shows the answer.': '(Esc) показывает ответ.',
   '— Anki-style flashcards. Missed words go to': '— карточки в стиле Anki. Ошибочные слова попадают в',
-  'Login streak': 'Серия входов', '— open the game on days in a row. Your best streak unlocks magic staffs in': '— заходите в игру несколько дней подряд. Лучшая серия открывает магические посохи в',
+  '— open the game on days in a row. Your best streak unlocks magic staffs in': '— заходите в игру несколько дней подряд. Лучшая серия открывает магические посохи в',
   ': Ember at 3 days, Tide at 5, Storm at 8, Void at 10.': ': Ember за 3 дня, Tide за 5, Storm за 8, Void за 10.',
   'How Kanji Reading works': 'Как устроено Чтение кандзи', 'How Kanji Writing works': 'Как устроено Написание кандзи', 'How Boss Elimination works': 'Как устроена Битва с боссом', 'How 1v1 Rapid works': 'Как устроен Блиц 1 на 1',
   '60 s to study your 10 words (reading + meaning). Then they disappear.': '60 с, чтобы выучить 10 слов (чтение + значение). Потом они исчезнут.',
@@ -444,7 +421,20 @@ const RU: Record<string, string> = {
   'A mistake gets you clawed (−45).': 'Ошибка — удар когтями (−45).', 'Every 30 s it breathes fire on everyone (−110) — unless you are on fire yourself (5 in a row): then you are immune.': 'Каждые 30 с он дышит огнём на всех (−110) — если только вы сами не в огне (5 подряд): тогда вы неуязвимы.',
   'Both players get the same kanji — no study phase.': 'Оба игрока получают один и тот же кандзи — без подготовки.', 'Wrong? Try again until the 12 s round ends.': 'Ошиблись? Пробуйте снова, пока не кончится 12-секундный раунд.',
   'Crit: 1% + 1% per spell learned today (max 50%). Playing with AI gives half XP; a forfeit gives none.': 'Крит: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Игра с ИИ даёт половину опыта; сдача — ничего.',
-  'Crit chance today: 1% + 1% for every spell you learn today (max 50%). Resets at midnight.': 'Шанс крита сегодня: 1% + 1% за каждое выученное сегодня заклинание (макс. 50%). Сбрасывается в полночь.',
+  // (kept: these are built from data — flame names, onomatopoeia kinds — or from the server)
+  'Light blue flames': 'Голубое пламя', 'Purple flames': 'Фиолетовое пламя', 'Login streak': 'Серия входов', 'login streak (days)': 'серия входов (дни)',
+  '擬声語 (giseigo) — sound': '擬声語 (гисэйго) — звук', '擬態語 (gitaigo) — state / manner': '擬態語 (гитайго) — состояние / образ действия', '擬情語 (gijōgo) — feeling': '擬情語 (гидзёго) — чувство',
+  'Time up — the dragon survived': 'Время вышло — дракон выжил',
+  // 0.9.9.4.4.7 (check-up: texts that were still English)
+  'Share the code with a friend, or add an AI player to start.': 'Поделитесь кодом с другом или добавьте ИИ-игрока, чтобы начать.',
+  'Shared levels: both players race on the same kanji, so a change here changes it for everyone.': 'Общие уровни: оба игрока соревнуются на одних и тех же кандзи, поэтому изменение здесь меняет их для всех.',
+  'Black Dragon': 'Чёрный дракон',
+  '✗ MISS!': '✗ ПРОМАХ!', 'Accuracy': 'Точность', '(you)': '(вы)',
+  'Memorise how each word is written. In battle you only get the meaning (and a half-second glimpse).': 'Запомните, как пишется каждое слово. В бою будет только значение (и взгляд на полсекунды).',
+  'Each player picks their own. The dragon gets tougher when the party picks harder levels.': 'Каждый игрок выбирает свои. Дракон сильнее, если команда выбирает уровни посложнее.',
+  'Daily streak': 'Ежедневная серия', 'Apprentice border': 'Рамка «Ученик»', 'Adept border': 'Рамка «Адепт»', 'Master border': 'Рамка «Мастер»', 'Archmage border': 'Рамка «Архимаг»',
+  '— a day counts when you do all four daily tasks: study 10 spells, a JLPT quiz, the daily challenge and a reading passage. Your best streak unlocks magic staffs in': '— день засчитывается, когда выполнены все четыре ежедневных задания: изучить 10 заклинаний, тест JLPT, ежедневный вызов и текст для чтения. Лучшая серия открывает магические посохи в',
+  'Your last story is still being written — try “New passage” again in a moment.': 'Предыдущий рассказ ещё пишется — нажмите «Новый текст» чуть позже.',
   // 0.9.9.4.4.5
   '— study 10 of your words, then type each reading (かな or romaji).': '— выучите 10 своих слов, затем напишите чтение каждого (かな или ромадзи).',
   '— no study; both get the same kanji, first correct reading hits. The first 10 are 5 words from each player’s All spells — the round shows whose word it is.': '— без подготовки; у обоих один кандзи, бьёт первое верное чтение. Первые 10 — по 5 слов из «Всех заклинаний» каждого игрока, в раунде видно, чьё это слово.',
@@ -494,8 +484,7 @@ const RU: Record<string, string> = {
   'A short story written with your words — fill in the blanks from the context, then check.': 'Короткий рассказ из ваших слов — заполните пропуски по смыслу, затем проверьте.',
   '✍ Writing a story with your words…': '✍ Пишем рассказ из ваших слов…',
   'Choose the best meaning for the onomatopoeia.': 'Выберите лучшее значение для звукоподражания.', 'Which onomatopoeia has this meaning?': 'Какое звукоподражание имеет это значение?',
-  'Which kind of onomatopoeia is it — a sound, a state or a feeling?': 'Какого это вида — звук, состояние или чувство?', 'Choose the word that fits the sentence.': 'Выберите слово, которое подходит к предложению.',
-  '擬声語 (giseigo) — sound': '擬声語 (гисэйго) — звук', '擬態語 (gitaigo) — state / manner': '擬態語 (гитайго) — состояние / образ действия', '擬情語 (gijōgo) — feeling': '擬情語 (гидзёго) — чувство',
+  'Choose the word that fits the sentence.': 'Выберите слово, которое подходит к предложению.',
   'Taking an onomatopoeia quiz': 'Проходит тест по ономатопее',
   // 0.9.9.4.3
   'Do a JLPT quiz (7/10 or better)': 'Пройдите тест JLPT (7/10 или лучше)', 'Read a passage (4/8 or better)': 'Прочитайте текст (4/8 или лучше)',
@@ -535,7 +524,6 @@ const RU: Record<string, string> = {
   // 0.9.9.3.2
   'Words from': 'Слова из', '+ Add to…': '+ Добавить в…', 'That word is not in the dictionary': 'Этого слова нет в словаре', 'already in': 'уже в',
   'No words in this deck yet — pick another deck above, or study some spells first.': 'В этой колоде пока нет слов — выберите другую колоду выше или сначала изучите заклинания.',
-  'A short story with blanks — pick a deck, fill them in with its words, then check.': 'Короткий рассказ с пропусками — выберите колоду, заполните пропуски её словами и проверьте.',
   // 0.9.9.3.1
   '🗑 Delete': '🗑 Удалить', 'Delete this account and all its progress': 'Удалить этот аккаунт и весь его прогресс', 'Beta border': 'Рамка Beta',
   'Finish the tutorial to unlock': 'Пройдите обучение, чтобы открыть', 'Finish the tutorial to get the Beta border': 'Пройдите обучение, чтобы получить рамку Beta', 'Thank you for playing the beta!': 'Спасибо, что играете в бету!',
@@ -547,7 +535,7 @@ const RU: Record<string, string> = {
   'Your words — tap a blank, then a word': 'Ваши слова — нажмите на пропуск, затем на слово', 'Check': 'Проверить', 'Perfect — every word in its place!': 'Идеально — все слова на месте!',
   'Green: right. Red: the right word, with yours crossed out.': 'Зелёный — верно. Красный — правильное слово, ваше зачёркнуто.', 'Tap, then pick a word below': 'Нажмите, затем выберите слово ниже',
   'Study 10 spells (any deck)': 'Изучите 10 заклинаний (любая колода)', 'Do a JLPT quiz': 'Пройдите тест JLPT', 'Play the daily challenge': 'Сыграйте ежедневное испытание',
-  'Read a passage (fill in the blanks)': 'Прочитайте текст (заполните пропуски)', 'Streak kept today — well done!': 'Серия сегодня сохранена — отлично!', 'Daily streak tasks': 'Задания для серии',
+  'Streak kept today — well done!': 'Серия сегодня сохранена — отлично!', 'Daily streak tasks': 'Задания для серии',
   'Today’s streak tasks': 'Задания на сегодня', 'days in a row': 'дней подряд', 'Go': 'Перейти', '🔥 Keep your daily streak': '🔥 Сохраните ежедневную серию',
   'A day counts for your streak when all four tasks are done. Your best streak unlocks magic staffs.': 'День засчитывается в серию, когда выполнены все четыре задания. Лучшая серия открывает магические посохи.',
   'Don’t show this when I log in': 'Не показывать при входе', 'daily streak (days)': 'серия (дни)',
@@ -572,6 +560,16 @@ const plural = (n: number, one: string, few: string, many: string) => {
 };
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
+  [/^Write all (\d+) kanji, left to right$/, 'Напишите все кандзи ($1) слева направо'],
+  [/^(.+) \(you\)$/, '$1 (вы)'],
+  [/^Click an earned badge to show it under your name \(★ = on your profile, up to (\d+)\)\.$/, 'Нажмите на полученный значок, чтобы показать его под именем (★ — в профиле, до $1).'],
+  [/^✗ The answer is (.+)$/, '✗ Правильный ответ: $1'],
+  [/^(.+) cast for (\d+)( \(CRIT!\))?( \(×\d+\))?:$/, (_, who, n, crit, combo) => `${who} бьёт на ${n}${crit ? ' (КРИТ!)' : ''}${combo ?? ''}:`],
+  [/^(Just your picture\.|A plain silver ring\.|A violet ring with four rune studs\.|A golden ring with a star at the top\.|A glowing ring of moving arcane light\.|A platinum ring with a BETA tag — for everyone who finished the tutorial during the beta\.) Round your profile picture — everyone sees it in lobbies, battles and on your profile card\.$/, (_, b) => `${({
+    'Just your picture.': 'Только ваше фото.', 'A plain silver ring.': 'Простое серебряное кольцо.', 'A violet ring with four rune studs.': 'Фиолетовое кольцо с четырьмя рунами.',
+    'A golden ring with a star at the top.': 'Золотое кольцо со звездой сверху.', 'A glowing ring of moving arcane light.': 'Сияющее кольцо из движущегося магического света.',
+    'A platinum ring with a BETA tag — for everyone who finished the tutorial during the beta.': 'Платиновое кольцо с меткой BETA — для всех, кто прошёл обучение во время беты.',
+  } as Record<string, string>)[b] ?? b} Обрамляет фото профиля — его видят все в лобби, боях и на карточке профиля.`],
   [/^Lv (\d+)$/, 'Ур. $1'],
   // Deck Duel turn log (0.9.9)
   [/^(You|.+?) cast (\S+) ✓ — (.+)$/, (_, w, k, rest) => `${w === 'You' ? 'Вы' : w} — ${k} ✓ — ${rest.replace(/hit (.+?) for −(\d+) HP/, (_m: string, t: string, n: string) => `удар по «${t === 'you' ? 'вам' : t}»: −${n} HP`).replace(/\+(\d+) HP/, '+$1 HP').replace(/\+(\d+)◆ mana/, '+$1◆ маны')}`],
@@ -649,15 +647,12 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^The dragon inhales… (\d+)$/, 'Дракон набирает воздух… $1'],
   [/^Fire breath! Everyone takes (\d+)$/, 'Огненное дыхание! Все получают $1'],
   [/^The dragon claws (.+) for (\d+)$/, 'Дракон бьёт когтями $1 на $2'],
-  [/^write (\d+) kanji$/, 'напишите кандзи: $1'],
   [/^Write all (\d+) characters, left to right$/, 'Напишите все $1 знака(ов) слева направо'],
   [/^The pad read: (.+)$/, 'Панель распознала: $1'],
   [/^Monthly goals complete! (.+) unlocked — equip it in Customize\.$/, 'Месячные цели выполнены! Открыто: $1 — наденьте в «Кастомизации».'],
   [/^(\d+) struggling spells are waiting\. Study them down to (\d+) to unlock the game modes\.$/, 'Ждут трудные заклинания: $1. Повторите их, пока не останется $2, чтобы открыть режимы.'],
   [/^(\d+) left · (All spells|Struggling spells|Custom spells)$/, (_, n, d) => `осталось ${n} · ${d === 'All spells' ? 'Все заклинания' : d === 'Custom spells' ? 'Свои заклинания' : 'Трудные заклинания'}`],
-  [/^(\d+)-day streak$/, (_, n) => `серия ${n} ${plural(+n, 'день', 'дня', 'дней')}`],
   [/^Unlocks at (?:a )?(\d+)-day streak$/, (_, n) => `Откроется при серии ${n} ${plural(+n, 'день', 'дня', 'дней')}`],
-  [/^Unlocks at level (\d+)$/, 'Откроется на уровне $1'],
   [/^Unlocks at (?:a )?(\S+) goals$/, 'Откроется за цели месяца: $1'],
   [/^Log in (\d+) days in a row to unlock the (.+) \(your best: (\d+)\)$/, 'Заходите $1 дней подряд, чтобы открыть $2 (ваш рекорд: $3)'],
   [/^Reach level (\d+) to unlock (.+)$/, 'Достигните уровня $1, чтобы открыть: $2'],
@@ -736,7 +731,9 @@ function translateText(node: Text) {
   if (t !== s) node.data = raw.replace(s, t);
 }
 function translateAttrs(el: Element) {
-  if (el.closest(SKIP)) return;
+  // an answer box is lang="ja" (for the keyboard), but its placeholder is English text (0.9.9.4.4.7)
+  const box = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+  if ((box ? el.parentElement : el)?.closest(SKIP)) return;
   for (const a of ATTRS) {
     const v = el.getAttribute(a);
     if (v && /[A-Za-z]/.test(v)) { const t = tr(v.trim()); if (t !== v.trim()) el.setAttribute(a, t); }

@@ -50,8 +50,8 @@ export function buildQuiz(words: QuizWord[], vocab: readonly VocabEntry[], rng: 
 }
 
 // ── the onomatopoeia quiz (0.9.9.4.4) ────────────────────────────────────────
-/** what it means · which word means this · which kind it is (擬声語 / 擬態語 / 擬情語) · which word fits the sentence */
-export type OnoKind = 'onomean' | 'onoword' | 'onotype' | 'onoctx';
+/** what it means · which word means this · which word fits the sentence (0.9.9.4.4.7: no "which kind is it" — the kind is shown on the cards, not tested) */
+export type OnoKind = 'onomean' | 'onoword' | 'onoctx';
 export const onoTypeLabel = (t: OnoType) => `${ONO_TYPES[t].ja} (${ONO_TYPES[t].romaji}) — ${ONO_TYPES[t].en}`;
 
 /**
@@ -60,7 +60,7 @@ export const onoTypeLabel = (t: OnoType) => `${ONO_TYPES[t].ja} (${ONO_TYPES[t].
  */
 export function buildOnoQuiz(words: readonly VocabEntry[], vocab: readonly VocabEntry[], rng: () => number = Math.random, examples?: ReadonlyMap<string, string>): QuizQuestion[] {
   const ono = vocab.filter((v) => v.level === 'ONO');
-  const kinds: OnoKind[] = ['onomean', 'onoword', 'onoctx', 'onotype'];
+  const kinds: OnoKind[] = ['onomean', 'onoword', 'onoctx'];
   return words.map((w, i) => {
     let kind = kinds[i % kinds.length];
     const ex = examples?.get(w.id);
@@ -69,10 +69,6 @@ export function buildOnoQuiz(words: readonly VocabEntry[], vocab: readonly Vocab
     // wrong words of the same kind first (harder), then any
     const near = [...others.filter((v) => v.ono === w.ono), ...others.filter((v) => v.ono !== w.ono)];
     const word = { kanji: w.kanji, reading: `${w.romaji ?? w.reading} · ${onoTypeLabel(w.ono ?? 'tai')}`, meaning: w.meaning };
-    if (kind === 'onotype') {
-      const choices = (['sei', 'tai', 'jo'] as OnoType[]).map(onoTypeLabel);
-      return { kind, vocabId: w.id, level: w.level, prompt: w.kanji, sub: w.meaning, choices, answer: choices.indexOf(onoTypeLabel(w.ono ?? 'tai')), word };
-    }
     const right = kind === 'onomean' ? w.meaning : w.kanji;
     const pick = (kind === 'onomean' ? near.map((v) => v.meaning) : near.map((v) => v.kanji)).filter((x, k, a) => x !== right && a.indexOf(x) === k).slice(0, 3);
     const choices = shuffle([right, ...pick], rng);

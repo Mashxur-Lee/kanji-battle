@@ -50,3 +50,11 @@ test('every vocab reading is pure hiragana and reachable by romaji typing', () =
   assert.ok(VOCAB.length >= 400);
   for (const lv of LEVELS) assert.ok(VOCAB.filter((v) => v.level === lv).length >= 50, `${lv} has 50+ words`);
 });
+
+test('ぢ / づ also accept じ / ず (0.9.9.4.4.7: romaji "tsuzuku" for 続く)', () => {
+  assert.ok(isCorrectReading('tsuzuku', ['つづく']));
+  assert.ok(isCorrectReading('hanaji', ['はなぢ']));
+  assert.ok(isCorrectReading('つづく', ['つづく']));
+  assert.ok(isCorrectReading('ji', ['ぢ']));
+  assert.ok(!isCorrectReading('tsutsuku', ['つづく']));
+});

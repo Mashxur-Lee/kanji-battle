@@ -328,19 +328,6 @@ export class MB {
     return g;
   }
 }
-/** add a three.js geometry to a builder, coloured by a function of the (transformed) position */
-export function addGeo(mb: MB, src: THREE.BufferGeometry, color: (p: P3) => readonly number[], m?: THREE.Matrix4, deltas?: (p: P3) => ReadonlyArray<readonly number[]>) {
-  const g = src.index ? src.toNonIndexed() : src.clone();
-  if (m) g.applyMatrix4(m);
-  const p = g.attributes.position;
-  for (let i = 0; i < p.count; i += 3) {
-    const vs: number[] = [];
-    for (let k = 0; k < 3; k++) { const q: P3 = [p.getX(i + k), p.getY(i + k), p.getZ(i + k)]; vs.push(mb.v(q, color(q), deltas?.(q))); }
-    mb.f(...vs);
-  }
-  g.dispose();
-}
-export const mat4 = (pos: P3, rotZ = 0, scale: P3 | number = 1) => new THREE.Matrix4().compose(new THREE.Vector3(...pos), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), rotZ), typeof scale === 'number' ? new THREE.Vector3(scale, scale, scale) : new THREE.Vector3(...scale));
 
 // ── materials ──────────────────────────────────────────────────────────────────────────────────────────────
 /** vertex-coloured, lit; `emit` adds the vertex colour as glow (the scripts' vc_mat(emit=…)) */

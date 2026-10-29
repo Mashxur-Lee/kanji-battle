@@ -267,7 +267,6 @@ const ASK: Record<QuizQuestion['kind'], [string, string]> = {
   kanji: ['＿＿のことばを漢字で書くとき、最もよいものを選びなさい。', 'Choose the right kanji for the word.'],
   onomean: ['このオノマトペの意味として最もよいものを選びなさい。', 'Choose the best meaning for the onomatopoeia.'],
   onoword: ['この意味のオノマトペとして最もよいものを選びなさい。', 'Which onomatopoeia has this meaning?'],
-  onotype: ['このオノマトペはどの種類ですか。', 'Which kind of onomatopoeia is it — a sound, a state or a feeling?'],
   onoctx: ['＿＿＿に入れるのに最もよいものを選びなさい。', 'Choose the word that fits the sentence.'],
 };
 let quiz: QuizQuestion[] = [];
@@ -316,7 +315,7 @@ function shown(q: QuizQuestion, text: string, isPrompt = false): Node[] {
   if (isPrompt && q.kind === 'onoctx') return furigana(text).map((x) => (typeof x === 'string' ? document.createTextNode(x) : x));
   return [document.createTextNode(text)];
 }
-const isJa = (q: QuizQuestion, prompt: boolean) => (prompt ? q.kind !== 'onoword' : !['meaning', 'onomean', 'onotype'].includes(q.kind));
+const isJa = (q: QuizQuestion, prompt: boolean) => (prompt ? q.kind !== 'onoword' : !['meaning', 'onomean'].includes(q.kind));
 
 function question() {
   const q = quiz[qi];
@@ -338,7 +337,7 @@ function question() {
   $('quizNext').hidden = true;
   $('quizChoices').replaceChildren(...q.choices.map((c, i) => {
     const b = el('button', 'quiz-choice', undefined, { type: 'button' }) as HTMLButtonElement;
-    const t = el('span', 't', undefined, isJa(q, false) ? { lang: 'ja' } : q.kind === 'onotype' ? {} : { 'data-no-i18n': '' });
+    const t = el('span', 't', undefined, isJa(q, false) ? { lang: 'ja' } : { 'data-no-i18n': '' });
     t.append(...shown(q, c));
     b.append(el('span', 'n', String(i + 1)), t);
     b.onclick = () => choose(i);
@@ -623,6 +622,7 @@ $('passageIntroOk').onclick = () => { $('passageIntro').hidden = true; try { loc
 function storyWhy(why: string): string {
   if (why === 'off') return tr('AI stories are switched off on the server — here are your words’ example sentences instead.');
   if (why === 'limit') return tr('You’ve used all of today’s AI stories — here are your words’ example sentences instead. New stories tomorrow!');
+  if (why === 'wait') return tr('Your last story is still being written — try “New passage” again in a moment.');
   if (why === 'busy') return tr('Today’s AI stories for everyone are used up — here are your words’ example sentences instead.');
   if (why === 'timeout') return tr('The story took too long — here are your words’ example sentences instead. Try “New passage” again.');
   if (why === 'few words') return tr('Too few words for a story — here are their example sentences.');
@@ -658,12 +658,16 @@ async function buildPassage() {
     box.firstElementChild!.append(bar);
     text.replaceChildren(box);
     const t0 = Date.now();
+    // one story at a time: "New passage" waits until this one is there
+    const again = $<HTMLButtonElement>('passageNew');
+    again.disabled = true;
     const tick = window.setInterval(() => { const t = (Date.now() - t0) / 1000; bar.style.width = `${f1(96 * (1 - Math.exp(-t / 14)))}%`; sec.textContent = String(Math.floor(t)); }, 250);
     const r = await Promise.race([
       api.story(pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }))).catch((e) => ({ story: null, why: (e as Error).message, usage: undefined })),
       new Promise<{ story: null; why: string; usage: undefined }>((ok) => setTimeout(() => ok({ story: null, why: 'timeout', usage: undefined }), 95_000)),
     ]);
     clearInterval(tick);
+    again.disabled = false;
     if (build !== passageBuild) return; // a newer passage was asked for meanwhile
     if (r.usage) showQuota(r.usage);
     if (r.story) {

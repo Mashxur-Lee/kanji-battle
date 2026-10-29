@@ -143,10 +143,7 @@ const KANA: Row[] = kanaRows('hiragana', (s) => s);
 const KATA: Row[] = kanaRows('katakana', toKatakana).map(([k, r, m, d]): Row => [k, r, m, d === undefined ? d : d + 1]);
 
 /** Hand-written lists. The full vocabulary (data/vocab.json) = these + the open JLPT lists; see scripts/build-vocab.ts. */
-export const CURATED: Partial<Record<Level, Row[]>> = { KANA, KATA, N5, N4, N3, N2, N1 };
 
-// Hiragana with two common romanisations of the same sound (ぢ/じ, づ/ず).
-export const KANA_ALT: Record<string, string[]> = { ぢ: ['じ'], づ: ['ず'], ヂ: ['じ'], ヅ: ['ず'] };
 
 export type { Row as CuratedRow };
 

@@ -9,7 +9,7 @@ import { FLAMES, isoWeek, STAFFS } from '../shared/progress';
 import { api, today, type DayActivity, type MonthProgress, type ProgressPage } from './api';
 import * as ui from './ui';
 import { renderAchievements } from './achievements';
-import { pixelStaffSvg } from './pixelstaffs';
+import { staffSvg } from './art2d';
 import { wizardSvg } from './wizard';
 
 const $ = ui.$;
@@ -113,7 +113,7 @@ export function monthNodes(m: MonthProgress): HTMLElement[] {
     const sprite = el('div', 'sprite'); sprite.innerHTML = wizardSvg('me');
     w.append(el('div', 'aura'), sprite);
     sw.append(w);
-  } else sw.innerHTML = pixelStaffSvg(id);
+  } else sw.innerHTML = staffSvg(id);
   sw.title = `${reward?.name}${kind === 'flame' ? ' flames' : ''}`;
   const monthName = new Date(`${m.month}-15T12:00:00`).toLocaleDateString(locale(), { month: 'long' });
   const head = el('h3', '', `${monthName}: ${m.name} season`);

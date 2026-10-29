@@ -133,7 +133,10 @@ async function complete(p: StoryProvider, text: string, signal: AbortSignal): Pr
 
 export class StoryService {
   private readonly cache = new Map<string, Story>();
-  private readonly used = new Map<string, { day: string; n: number }>();
+  /** per player and day ('user|day'): stories had and AI calls made (0.9.9.4.4.7: failed calls are capped too) */
+  private readonly used = new Map<string, { n: number; tries: number }>();
+  /** players with a story being written — one at a time each */
+  private readonly busy = new Set<string>();
   private all = { day: '', n: 0 };
   constructor(private readonly provider: StoryProvider | null = providerFromEnv(), private readonly perDay = 40, private readonly allPerDay = Number(process.env.STORY_DAILY_MAX) || 400) {}
   get enabled() { return !!this.provider; }
@@ -152,8 +155,7 @@ export class StoryService {
 
   /** How many stories this player has had written today, and the cap (0.9.9.4.4.5: shown next to "New passage"). */
   usage(userId: string, today: string) {
-    const u = this.used.get(userId);
-    return { enabled: this.enabled, used: u && u.day === today ? u.n : 0, limit: this.perDay };
+    return { enabled: this.enabled, used: this.used.get(`${userId}|${today}`)?.n ?? 0, limit: this.perDay };
   }
 
   /**
@@ -166,22 +168,33 @@ export class StoryService {
     const key = words.map((w) => w.id ?? w.kanji).sort().join(',');
     const hit = this.cache.get(key);
     if (hit) return { story: hit };
-    const u = this.used.get(userId);
-    if (u && u.day === today && u.n >= this.perDay) return { story: null, why: 'limit' };
-    // a cap for everyone together keeps a free API plan within its daily quota
-    if (this.all.day !== today) this.all = { day: today, n: 0 };
+    const k = `${userId}|${today}`;
+    if (!this.used.has(k)) { if (this.used.size > 20_000) this.used.clear(); this.used.set(k, { n: 0, tries: 0 }); }
+    const u = this.used.get(k)!;
+    if (u.n >= this.perDay || u.tries >= Math.max(20, this.perDay * 3)) return { story: null, why: 'limit' };
+    // a cap for everyone together keeps a free API plan within its daily quota — by the server's day (0.9.9.4.4.7:
+    // the app's day can be yesterday or tomorrow, and switching between them mustn't reset it)
+    const serverDay = new Date().toISOString().slice(0, 10);
+    if (this.all.day !== serverDay) this.all = { day: serverDay, n: 0 };
     if (this.all.n >= this.allPerDay) return { story: null, why: 'busy' };
+    if (this.busy.has(userId)) return { story: null, why: 'wait' };
+    this.busy.add(userId);
+    try { return await this.write(u, key, words); } finally { this.busy.delete(userId); }
+  }
+
+  private async write(u: { n: number; tries: number }, key: string, words: StoryWord[]): Promise<{ story: Story | null; why?: string }> {
     let why = '';
     const start = Date.now();
     // a second try only when the first was quick (the app waits about 90 s in all)
     for (let attempt = 0; attempt < 2 && (attempt === 0 || Date.now() - start < 30_000); attempt++) {
       try {
+        u.tries++;
         const s = await this.ask(words);
         const st = normalizeStory(s, words);
         if (typeof st !== 'string') {
           // only a story you actually get counts
           this.all.n++;
-          this.used.set(userId, { day: today, n: (u?.day === today ? u.n : 0) + 1 });
+          u.n++;
           if (this.cache.size > 500) this.cache.delete(this.cache.keys().next().value!);
           this.cache.set(key, st);
           return { story: st };

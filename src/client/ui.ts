@@ -468,7 +468,7 @@ export function showPrep(pool: StudyItem[], durationMs: number, mode: GameMode) 
     ? 'Memorise how each word is written. In battle you only get the meaning (and a half-second glimpse).'
     : 'Memorise the readings. They vanish when the battle starts.';
   $('studyGrid').replaceChildren(
-    ...pool.map((w) => append(h('div', 'card' + (w.mine ? ' mine' : '')), h('div', 'lv', LEVEL_LABEL[w.level]), ...(w.mine ? [h('div', 'mine-tag', '★ yours', { title: 'From your All spells' })] : []), h('div', 'k', w.kanji, { lang: 'ja' }), h('div', 'r', w.reading, { lang: 'ja' }), h('div', 'm', w.meaning))),
+    ...pool.map((w) => append(h('div', 'card' + (w.mine ? ' mine' : '')), h('div', 'lv', LEVEL_LABEL[w.level]), ...(w.mine ? [h('div', 'mine-tag', '★ yours', { title: 'From your All spells' })] : []), h('div', [...w.kanji].length >= 4 ? 'k long' : 'k', w.kanji, { lang: 'ja' }), h('div', 'r', w.reading, { lang: 'ja' }), h('div', 'm', w.meaning))),
   );
   $<HTMLButtonElement>('ready').disabled = false;
   $('readyStatus').textContent = '';
@@ -1176,3 +1176,9 @@ export function paintFlame(el: HTMLElement, flame: string | null | undefined) {
   el.dataset.flame = flame ?? 'blue';
   flameShades(flame).forEach((c, i) => el.style.setProperty(`--f${i}`, c));
 }
+
+// 0.9.9.4.4.7: on a phone the tab rows scroll sideways — the tab you pick slides fully into view
+document.addEventListener('click', (e) => {
+  const tab = (e.target as Element | null)?.closest?.('.cust-tabs > button');
+  if (tab) tab.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+});

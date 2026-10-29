@@ -53,7 +53,6 @@ export const CRIT_MULTIPLIER = 1.5;
 export const critFor = (learnedToday: number) => Math.min(CRIT_CAP, CRIT_BASE + Math.max(0, learnedToday) * CRIT_PER_WORD);
 /** Today's crit from the stored counter (`expiresAt` = the player's next local midnight). */
 export const dailyCrit = (count: number, expiresAt: number, now = Date.now()) => (now < expiresAt ? critFor(count) : CRIT_BASE);
-export const critText = (crit: number) => `${(crit * 100).toFixed(1).replace(/\.0$/, '')}%`;
 /** The UTC instant of the next local midnight, from the player's YYYY-MM-DD and getTimezoneOffset(). */
 export function nextLocalMidnight(today: string, tzOffsetMin: number): number {
   const [y, m, d] = today.split('-').map(Number);
@@ -216,7 +215,6 @@ export function avatarFor(levels: readonly Level[]): Avatar {
   const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? 'N5';
   return AVATAR_BY_LEVEL[top];
 }
-export const AVATAR_LABEL: Record<Avatar, string> = { goblin: 'Goblin', kid: 'Apprentice', human: 'Adventurer', knight: 'Knight', witch: 'Witch', wizard: 'Wizard' };
 
 // ── hiragana first: a new player who hasn't mastered かな yet only gets かな words (Settings → "I've mastered hiragana") ──
 export const KANA_BEGINNER = 'flag:kana-beginner';

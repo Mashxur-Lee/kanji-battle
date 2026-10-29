@@ -93,11 +93,13 @@ export function normalizeAnswer(input: string): string {
  *  - one long-vowel う or お left out or swapped (せいかつ for せいかつ, きょと for きょうと, おうきい for おおきい),
  *  - a verb's する left off (せいかつ for せいかつする).
  */
+const foldJz = (s: string) => s.replace(/ぢ/g, 'じ').replace(/づ/g, 'ず');
 export function isCorrectReading(input: string, readings: readonly string[]): boolean {
-  const answer = normalizeAnswer(input);
+  // 0.9.9.4.4.7: ぢ / づ sound like じ / ず and romaji "ji" / "zu" types those — so 続く is right as tsuzuku (つずく) too
+  const answer = foldJz(normalizeAnswer(input));
   if (!answer.length) return false;
   return readings.some((raw) => {
-    const r = katakanaToHiragana(raw);
+    const r = foldJz(katakanaToHiragana(raw));
     if (r === answer) return true;
     if (r.length > 3 && r.endsWith('する') && r.slice(0, -2) === answer) return true;
     return longVowelSlip(r, answer);

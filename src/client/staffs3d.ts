@@ -507,4 +507,3 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
 }
 
 /** for the tests and the preview: how many draw calls a staff costs */
-export function staffDrawCalls(s: Staff) { let n = 0; s.group.traverse((o) => { if ((o as THREE.Mesh).isMesh || (o as THREE.Sprite).isSprite) n++; }); return n; }
