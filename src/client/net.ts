@@ -42,6 +42,20 @@ export class GameSocket {
     this.onState('stopped');
   }
 
+  /**
+   * 0.9.9.6: the connection looks open but nothing comes back (a phone that changed networks keeps a dead
+   * socket that still says "open"): drop it, connect again and send `msg` on the new one.
+   */
+  restart(msg?: ClientMessage) {
+    if (this.stopped) return;
+    if (msg) this.queue.push(JSON.stringify(msg));
+    const ws = this.ws;
+    this.ws = undefined;
+    try { ws?.close(); } catch { /* already gone */ }
+    this.connect(true);
+  }
+  get open() { return this.ws?.readyState === WebSocket.OPEN; }
+
   send(msg: ClientMessage) {
     const data = JSON.stringify(msg);
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(data);

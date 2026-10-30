@@ -13,7 +13,7 @@ export interface DailyDone { correct: number; ms: number; rank: number; players:
 export interface DailyOverview { day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
   board: Array<{ id: string; name: string; correct: number; ms: number }>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
-export interface Friend { id: string; username: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; activity?: string; pic?: string | null; level?: number }
+export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; activity?: string; pic?: string | null; level?: number }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean; ono?: OnoType }
@@ -140,6 +140,10 @@ export const api = {
   event: (name: string) => call<{ ok: boolean }>('POST', '/api/event', { name }).catch(() => ({ ok: false })),
   online: () => call<{ online: number }>('GET', '/api/online'),
   tutorialDone: () => call<{ ok: boolean }>('PUT', '/api/me/tutorial'),
+  /** 0.9.9.6: for reminders — today's tasks, the Daily challenge, reviews due */
+  notifyStatus: () => call<{ day: string; tasksLeft: number; tasksTotal: number; challengeDone: boolean; allDue: number; streak: number }>('GET', `/api/notify/status?today=${today()}`),
+  /** 0.9.9.6: the name others see (empty: your login) */
+  setNickname: (nickname: string) => call<{ user: PublicUser }>('PUT', '/api/me/nickname', { nickname }),
   setKana: (mastered: boolean) => call<{ profile: Profile }>('PUT', '/api/me/kana', { mastered }),
   progress: () => call<ProgressPage>('GET', `/api/progress?today=${today()}`),
   strokes: (chars: string) => call<{ strokes: Record<string, number[][][] | null> }>('GET', `/api/strokes?k=${encodeURIComponent(chars)}`),

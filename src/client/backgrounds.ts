@@ -6,19 +6,26 @@ import { characterSvg } from './art2d';
 
 export type TimeOfDay = 'day' | 'sunset' | 'night';
 export type TimePref = 'auto' | TimeOfDay;
-export const TIMES: Array<{ id: TimePref; name: string }> = [
-  { id: 'auto', name: 'Cycle' }, { id: 'day', name: 'Day' }, { id: 'sunset', name: 'Sunset' }, { id: 'night', name: 'Night' },
-];
 
-/** Cycle ("auto"): day → sunset → night, 3 minutes each, then again. */
-export const CYCLE_STEP_MS = 3 * 60_000;
-const CYCLE: TimeOfDay[] = ['day', 'sunset', 'night'];
-export function resolveTime(pref: TimePref, now = Date.now()): TimeOfDay {
-  if (pref !== 'auto') return pref;
-  return CYCLE[Math.floor(now / CYCLE_STEP_MS) % CYCLE.length];
+/**
+ * 0.9.9.6: the time of day follows your own clock — day from 6:00 to 17:00, sunset until 20:00, night until
+ * 6:00 (it was a 3-minute cycle, or a fixed choice in Customize).
+ */
+const DAY_FROM = 6, SUNSET_FROM = 17, NIGHT_FROM = 20;
+export function resolveTime(_pref: TimePref = 'auto', now = Date.now()): TimeOfDay {
+  const h = new Date(now).getHours();
+  return h >= DAY_FROM && h < SUNSET_FROM ? 'day' : h >= SUNSET_FROM && h < NIGHT_FROM ? 'sunset' : 'night';
 }
-/** ms until the cycle moves on */
-export const untilNextStep = (now = Date.now()) => CYCLE_STEP_MS - (now % CYCLE_STEP_MS);
+/** ms until the next change (the next 6:00, 17:00 or 20:00 on your clock) */
+export function untilNextStep(now = Date.now()) {
+  const d = new Date(now);
+  const next = new Date(d);
+  next.setMinutes(0, 0, 0);
+  const h = d.getHours();
+  const at = [DAY_FROM, SUNSET_FROM, NIGHT_FROM].find((x) => x > h);
+  if (at === undefined) { next.setDate(next.getDate() + 1); next.setHours(DAY_FROM); } else next.setHours(at);
+  return Math.max(1000, next.getTime() - now);
+}
 
 const W = 1600, H = 900;
 let seed = 1;
@@ -654,6 +661,6 @@ export function backgroundThumb(id: BackgroundId, time: TimeOfDay = 'night'): st
 // ── the player's time-of-day choice (saved in this browser) ──────────────────
 const TIME_KEY = 'kb:bgtime';
 export function getTimePref(): TimePref {
-  try { const v = localStorage.getItem(TIME_KEY); return v === 'day' || v === 'sunset' || v === 'night' ? v : 'auto'; } catch { return 'auto'; }
+  void TIME_KEY;
+  return 'auto'; // 0.9.9.6: always your clock (an old saved choice is ignored)
 }
-export function setTimePref(t: TimePref) { try { localStorage.setItem(TIME_KEY, t); } catch { /* private mode */ } }

@@ -55,7 +55,7 @@ export async function refreshRail() {
 const avatar = (f: Friend) => {
   const a = el('span', 'fr-av');
   if (f.pic) { const img = el('img') as HTMLImageElement; img.src = f.pic; img.alt = ''; a.append(img); }
-  else a.textContent = f.username.slice(0, 1).toUpperCase();
+  else a.textContent = (f.name ?? f.username).slice(0, 1).toUpperCase();
   a.append(el('i', 'fr-dot'));
   return a;
 };
@@ -71,10 +71,10 @@ function render() {
     head.onclick = () => { collapsed[key] = !collapsed[key]; render(); };
     const rows = collapsed[key] ? [] : list.map((f) => {
       const r = el('div', 'fr-row' + (f.online ? ' online' : ''));
-      ui.markProfile(r, { id: f.id, name: f.username, bot: null });
-      r.title = `${f.username} — view profile`;
+      ui.markProfile(r, { id: f.id, name: f.name ?? f.username, bot: null });
+      r.title = `${f.name ?? f.username} — view profile`;
       const txt = el('span', 'fr-txt');
-      txt.append(el('span', 'fr-name', f.username), el('small', 'fr-status', f.online ? f.activity ?? 'Online' : 'Offline'));
+      txt.append(el('span', 'fr-name', f.name ?? f.username), el('small', 'fr-status', f.online ? f.activity ?? 'Online' : 'Offline'));
       r.append(avatar(f), txt, el('span', 'fr-lv', `Lv ${f.level ?? 0}`));
       return r;
     });
@@ -117,7 +117,7 @@ function renderRequests() {
   };
   const row = (f: Friend, buttons: HTMLElement[], note: string) => {
     const r = el('div', 'fd-row');
-    const t = el('span', 'fr-txt'); t.append(el('span', 'fr-name', f.username), el('small', 'fr-status', note));
+    const t = el('span', 'fr-txt'); t.append(el('span', 'fr-name', f.name ?? f.username), el('small', 'fr-status', note));
     r.append(avatar(f), t, ...buttons);
     return r;
   };

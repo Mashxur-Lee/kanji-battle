@@ -183,10 +183,15 @@ export const add = (g: THREE.BufferGeometry, m: THREE.Material, parent: THREE.Ob
  * The staff, held in the right hand (the arm pivot is at the shoulder; arena3d raises and swings it). The staff
  * leans away from the body so hats and sleeves don't cut through it.
  */
+/**
+ * 0.9.9.6: the staff arm's resting angle — held out from the body (it was −0.35, the fist at the belly), so the
+ * hand round the staff shows beside the robe instead of in front of it. arena3d swings the arm around this.
+ */
+export const ARM_REST = -0.85;
 export function holdStaff(arm: THREE.Group, hand: V3, materials: Character['materials'], glowTex: THREE.Texture, skin?: string, fist?: THREE.Object3D) {
   const staffPivot = new THREE.Group();
   staffPivot.position.set(...hand);
-  staffPivot.rotation.z = -0.02; // with the arm's own −0.35: leaning out ~20°
+  staffPivot.rotation.z = 0.47; // with the arm's own ARM_REST: the staff leans out ~20°
   arm.add(staffPivot);
   // arena3d drives staffPivot.rotation.x (the cast thrust), so the resting forward lean sits in its own group
   const lean = new THREE.Group();
@@ -196,7 +201,8 @@ export function holdStaff(arm: THREE.Group, hand: V3, materials: Character['mate
   staff.group.position.set(0, 0.24, 0.02);
   staff.group.scale.setScalar(0.8); // 0.9.9.3.3: a staff about as tall as its bearer, not towering over them
   lean.add(staff.group);
-  if (fist) { fist.position.set(0, 0, 0.02); lean.add(fist); } // the hand grips the staff wherever it leans
+  // the hand grips the staff wherever it leans — 0.9.9.6: a bigger fist, so it reads as a hand at a distance
+  if (fist) { fist.position.set(0, 0, 0.02); fist.scale.multiplyScalar(1.7); lean.add(fist); }
   for (const m of staff.materials) materials.push({ mat: m, color: m.color.clone(), emissive: m.emissive.clone() });
   return { staffPivot, staff, crystal: staff.gem, crystalMat: staff.gemMat, glow: staff.glow };
 }

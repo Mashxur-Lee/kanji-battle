@@ -313,7 +313,7 @@
   });
 
   // src/server/db/Store.ts
-  var REPORTS_KEPT, UsernameTakenError, MATCH_HISTORY_LIMIT, SNAPSHOT_V, summaryOf, blankProgress, MemoryStore;
+  var REPORTS_KEPT, UsernameTakenError, displayName, MATCH_HISTORY_LIMIT, SNAPSHOT_V, summaryOf, blankProgress, MemoryStore;
   var init_Store = __esm({
     "src/server/db/Store.ts"() {
       "use strict";
@@ -325,6 +325,7 @@
       REPORTS_KEPT = 500;
       UsernameTakenError = class extends Error {
       };
+      displayName = (u) => u.nickname?.trim() || u.username;
       MATCH_HISTORY_LIMIT = 15;
       SNAPSHOT_V = 1;
       summaryOf = (m) => ({ id: m.id, mode: m.mode, outcome: m.outcome, character: m.character, at: m.at, opponents: m.opponents });
@@ -532,7 +533,7 @@
           return r2 ? { ...r2 } : null;
         }
         async dailyBoard(day, limit) {
-          return [...this.dailyResults.get(day) ?? /* @__PURE__ */ new Map()].map(([userId, r2]) => ({ userId, username: this.users.get(userId)?.username ?? "?", correct: r2.correct, ms: r2.ms })).sort((a, b) => b.correct - a.correct || a.ms - b.ms).slice(0, limit);
+          return [...this.dailyResults.get(day) ?? /* @__PURE__ */ new Map()].map(([userId, r2]) => ({ userId, username: ((u) => u ? displayName(u) : "?")(this.users.get(userId)), correct: r2.correct, ms: r2.ms })).sort((a, b) => b.correct - a.correct || a.ms - b.ms).slice(0, limit);
         }
         async dailyBetter(day, correct, ms) {
           return [...this.dailyResults.get(day)?.values() ?? []].filter((r2) => r2.correct > correct || r2.correct === correct && r2.ms < ms).length;
@@ -551,13 +552,13 @@
           const out = [];
           for (const [to, s] of this.friendLinks.get(userId) ?? []) {
             const u = this.users.get(to);
-            if (u) out.push({ id: to, username: u.username, status: s === "accepted" ? "accepted" : "outgoing" });
+            if (u) out.push({ id: to, username: u.username, name: displayName(u), status: s === "accepted" ? "accepted" : "outgoing" });
           }
           for (const [from, m] of this.friendLinks) {
             const u = this.users.get(from);
-            if (u && m.get(userId) === "pending") out.push({ id: from, username: u.username, status: "incoming" });
+            if (u && m.get(userId) === "pending") out.push({ id: from, username: u.username, name: displayName(u), status: "incoming" });
           }
-          return out.sort((a, b) => a.username.localeCompare(b.username));
+          return out.sort((a, b) => (a.name ?? a.username).localeCompare(b.name ?? b.username));
         }
         async requestFriend(from, to) {
           if (this.link(from, to)) return "exists";
@@ -634,6 +635,7 @@
   var init_AuthService = __esm({
     "src/server/auth/AuthService.ts"() {
       "use strict";
+      init_Store();
       init_progress();
       init_passwords();
       init_Store();
@@ -643,7 +645,7 @@
           __publicField(this, "status", status);
         }
       };
-      toPublic = (u) => ({ id: u.id, username: u.username, role: u.role });
+      toPublic = (u) => ({ id: u.id, username: u.username, role: u.role, name: displayName(u), nickname: u.nickname ?? null });
     }
   });
 
@@ -702,6 +704,30 @@
     add("fellowship", f2.friends >= 1);
     add("seasonal", f2.seasonal >= 1);
     add("grand-wizard", f2.level >= 10);
+    const n = (x) => x ?? 0;
+    add("first-steps", n(f2.reviews) >= 50);
+    add("diligent", n(f2.reviews) >= 1e3);
+    add("tireless", n(f2.reviews) >= 1e4);
+    add("word-hoard", f2.learned >= 500);
+    add("well-versed", n(f2.mastered) >= 100);
+    add("deep-roots", n(f2.mastered) >= 500);
+    add("quiz-whiz", n(f2.quizzes) >= 10);
+    add("quiz-master", n(f2.quizzes) >= 100);
+    add("bookworm", n(f2.passages) >= 10);
+    add("storyteller", n(f2.passages) >= 50);
+    add("daily-devotee", n(f2.challenges) >= 10);
+    add("daily-legend", n(f2.challenges) >= 50);
+    add("regular", n(f2.activeDays) >= 30);
+    add("steadfast", f2.bestStreak >= 14);
+    add("unbreakable", f2.bestStreak >= 100);
+    add("brawler", n(f2.games) >= 10);
+    add("warlord", n(f2.games) >= 250);
+    add("rising-star", f2.level >= 5);
+    add("living-legend", f2.level >= 25);
+    add("circle-of-friends", f2.friends >= 5);
+    add("collector", n(f2.starred) >= 20);
+    add("wordsmith", n(f2.custom) >= 10);
+    add("true-name", !!f2.nickname);
     const m = f2.match;
     if (m && !m.forfeited) {
       add("combo-5", m.bestCombo >= 5);
@@ -742,7 +768,31 @@
         { id: "fellowship", name: "Fellowship", how: "Make a friend.", icon: "people", color: "#8be37a", tier: 1 },
         { id: "seasonal", name: "Seasonal", how: "Complete a month's goals and earn its reward.", icon: "leaf", color: "#ff8ccf", tier: 2 },
         { id: "grand-wizard", name: "Grand Wizard", how: "Reach level 10.", icon: "star", color: "#ffd479", tier: 3 },
-        { id: "kingslayer", name: "Kingslayer", how: "Beat an admin in a battle.", icon: "kingslayer", color: "#ff3d6e", tier: 3 }
+        { id: "kingslayer", name: "Kingslayer", how: "Beat an admin in a battle.", icon: "kingslayer", color: "#ff3d6e", tier: 3 },
+        // ── 0.9.9.6 ──
+        { id: "first-steps", name: "First Steps", how: "Answer 50 study cards.", icon: "hourglass", color: "#9fd8ff", tier: 1 },
+        { id: "diligent", name: "Diligent", how: "Answer 1,000 study cards.", icon: "hourglass", color: "#5aa8ff", tier: 2 },
+        { id: "tireless", name: "Tireless", how: "Answer 10,000 study cards.", icon: "hourglass", color: "#b26bff", tier: 3 },
+        { id: "word-hoard", name: "Word Hoard", how: "Learn 500 spells.", icon: "book", color: "#ffb84d", tier: 2 },
+        { id: "well-versed", name: "Well Versed", how: "Master 100 spells (a review interval of 3 weeks or more).", icon: "gem", color: "#4dd6c8", tier: 2 },
+        { id: "deep-roots", name: "Deep Roots", how: "Master 500 spells.", icon: "gem", color: "#ff8ccf", tier: 3 },
+        { id: "quiz-whiz", name: "Quiz Whiz", how: "Pass 10 JLPT quizzes (7/10 or better).", icon: "check", color: "#8be37a", tier: 1 },
+        { id: "quiz-master", name: "Quiz Master", how: "Pass 100 JLPT quizzes.", icon: "check", color: "#ffd479", tier: 3 },
+        { id: "bookworm", name: "Bookworm", how: "Finish 10 reading passages (4/8 or better).", icon: "scroll", color: "#e8d5a8", tier: 1 },
+        { id: "storyteller", name: "Storyteller", how: "Finish 50 reading passages.", icon: "scroll", color: "#ff9a5a", tier: 2 },
+        { id: "daily-devotee", name: "Daily Devotee", how: "Play the Daily challenge 10 times.", icon: "calendar", color: "#7fd1ff", tier: 1 },
+        { id: "daily-legend", name: "Daily Legend", how: "Play the Daily challenge 50 times.", icon: "calendar", color: "#ff5a3a", tier: 3 },
+        { id: "regular", name: "Regular", how: "Play on 30 different days.", icon: "sun", color: "#ffe14d", tier: 2 },
+        { id: "steadfast", name: "Steadfast", how: "Keep a 14-day daily streak.", icon: "flame", color: "#ff7a1a", tier: 2 },
+        { id: "unbreakable", name: "Unbreakable", how: "Keep a 100-day daily streak.", icon: "mountain", color: "#ff3d6e", tier: 3 },
+        { id: "brawler", name: "Brawler", how: "Play 10 battles.", icon: "shield", color: "#c8b8ff", tier: 1 },
+        { id: "warlord", name: "Warlord", how: "Play 250 battles.", icon: "shield", color: "#ff6b6b", tier: 3 },
+        { id: "rising-star", name: "Rising Star", how: "Reach level 5.", icon: "star", color: "#9fd8ff", tier: 1 },
+        { id: "living-legend", name: "Living Legend", how: "Reach level 25.", icon: "crown", color: "#ff4fd8", tier: 3 },
+        { id: "circle-of-friends", name: "Circle of Friends", how: "Have 5 friends.", icon: "people", color: "#ffb84d", tier: 2 },
+        { id: "collector", name: "Collector", how: "Star 20 words \u2605.", icon: "bookmark", color: "#ffc93c", tier: 1 },
+        { id: "wordsmith", name: "Wordsmith", how: "Have 10 words in Custom spells.", icon: "quill", color: "#a98bff", tier: 1 },
+        { id: "true-name", name: "True Name", how: "Choose a nickname (your profile \u2192 \u270E).", icon: "tag", color: "#6ee7ff", tier: 1 }
       ];
       ACH_PREFIX = "ach:";
       achById = (id) => ACHIEVEMENTS.find((a) => a.id === id);
@@ -1393,6 +1443,7 @@
   var init_StudyService = __esm({
     "src/server/study/StudyService.ts"() {
       "use strict";
+      init_Store();
       init_node_shim();
       init_protocol();
       init_achievements();
@@ -1482,6 +1533,22 @@
           await this.progress.record(u.id, today2, task === "quiz" ? { quizzes: 1 } : { passages: 1 });
           return this.profile(await this.store.findById(u.id) ?? u);
         }
+        /**
+         * 0.9.9.6: what a reminder needs to know — today's daily tasks, whether the Daily challenge is played, and how
+         * many All spells cards are due for review (new cards not counted).
+         */
+        async notifyStatus(u, today2, now2 = now()) {
+          const tasks = await this.progress.tasks(u.id, today2);
+          const all = counts((await this.store.cards(u.id)).filter((x) => deckOf(x) === "all" && !!this.info(x.vocabId, /* @__PURE__ */ new Map())), now2);
+          return {
+            day: today2,
+            tasksLeft: tasks.filter((t) => t.value < t.target).length,
+            tasksTotal: tasks.length,
+            challengeDone: tasks.some((t) => t.id === "daily" && t.value >= t.target),
+            allDue: all.learning + all.due,
+            streak: liveStreak(u, today2)
+          };
+        }
         /** Struggling spells waiting to be studied (new, learning or due). */
         async strugglingDue(userId, now2 = now()) {
           const c = counts((await this.store.cards(userId)).filter((x) => deckOf(x) === "struggling" && VOCAB_BY_ID.has(x.vocabId)), now2);
@@ -1516,7 +1583,7 @@
         async publicProfile(id) {
           const u = await this.store.findById(id);
           if (!u || u.banned) return null;
-          return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date(now()).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? "none" };
+          return { id: u.id, name: displayName(u), login: u.nickname?.trim() ? u.username : void 0, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date(now()).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? "none" };
         }
         matches(userId) {
           return this.store.matches(userId, MATCH_HISTORY_LIMIT);
@@ -1867,6 +1934,9 @@
           const u = await this.store.findById(userId);
           if (!u) return [];
           const unlocks2 = u.unlocks ?? [];
+          const days2 = await this.store.activity(userId, "0000-01-01");
+          const sum = (k) => days2.reduce((a, d) => a + (d[k] ?? 0), 0);
+          const cards = await this.store.cards(userId);
           const facts = {
             wins: u.wins,
             level: levelOf(u.xp),
@@ -1874,7 +1944,17 @@
             learned: await this.store.learnedCount(userId),
             friends: (await this.store.friends(userId)).filter((f2) => f2.status === "accepted").length,
             seasonal: unlocks2.filter((x) => x.startsWith("flame:") || x.startsWith("staff:")).length,
-            match
+            match,
+            reviews: sum("reviews"),
+            games: sum("games"),
+            quizzes: sum("quizzes"),
+            passages: sum("passages"),
+            challenges: sum("challenges"),
+            activeDays: days2.filter((d) => d.login || d.reviews > 0 || d.games > 0).length,
+            mastered: new Set(cards.filter((c) => c.state === "review" && c.intervalDays >= MASTERED_DAYS).map((c) => c.vocabId)).size,
+            starred: (u.starred ?? []).length,
+            custom: cards.filter((c) => deckOf(c) === "custom").length,
+            nickname: !!u.nickname?.trim()
           };
           const fresh = [.../* @__PURE__ */ new Set([...earnedAchievements(facts), ...extra])].filter((id) => !unlocks2.includes(ACH_PREFIX + id));
           if (fresh.length) await this.store.update(userId, { unlocks: [...unlocks2, ...fresh.map((id) => ACH_PREFIX + id)] });
@@ -2423,11 +2503,11 @@ Answer with JSON only, no other text:
           return res(200, { friends: await social.list(u.id) });
         } else if (social && r2.method === "POST" && url === "/api/friends") {
           const u = await auth.authenticate(r2.token);
-          const result = await social.request(u.id, u.username, (await r2.json()).username);
+          const result = await social.request(u.id, displayName(u), (await r2.json()).username);
           return res(200, { result, friends: await social.list(u.id) });
         } else if (social && r2.method === "POST" && /^\/api\/friends\/[\w-]+\/accept$/.test(url)) {
           const u = await auth.authenticate(r2.token);
-          await social.accept(u.id, u.username, url.split("/")[3]);
+          await social.accept(u.id, displayName(u), url.split("/")[3]);
           return res(200, { friends: await social.list(u.id) });
         } else if (social && r2.method === "DELETE" && /^\/api\/friends\/[\w-]+$/.test(url)) {
           const u = await auth.authenticate(r2.token);
@@ -2473,6 +2553,12 @@ Answer with JSON only, no other text:
         } else if (r2.method === "GET" && url === "/api/study/deck") {
           const u = await auth.authenticate(r2.token);
           return res(200, { words: await study.deckList(u, query.get("deck")) });
+        } else if (r2.method === "GET" && url === "/api/notify/status") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, await study.notifyStatus(u, resolveToday(query.get("today"))));
+        } else if (r2.method === "PUT" && url === "/api/me/nickname") {
+          const u = await auth.authenticate(r2.token);
+          return res(200, { user: await auth.setNickname(u, (await r2.json()).nickname) });
         } else if (r2.method === "PUT" && url === "/api/study/star") {
           const u = await auth.authenticate(r2.token);
           const body = await r2.json();
@@ -2569,6 +2655,7 @@ Answer with JSON only, no other text:
   var init_router = __esm({
     "src/server/router.ts"() {
       "use strict";
+      init_Store();
       init_InsightsService();
       init_AuthService();
       init_StudyService();
@@ -3104,6 +3191,10 @@ Answer with JSON only, no other text:
         event: (name) => call2("POST", "/api/event", { name }).catch(() => ({ ok: false })),
         online: () => call2("GET", "/api/online"),
         tutorialDone: () => call2("PUT", "/api/me/tutorial"),
+        /** 0.9.9.6: for reminders — today's tasks, the Daily challenge, reviews due */
+        notifyStatus: () => call2("GET", `/api/notify/status?today=${today()}`),
+        /** 0.9.9.6: the name others see (empty: your login) */
+        setNickname: (nickname) => call2("PUT", "/api/me/nickname", { nickname }),
         setKana: (mastered) => call2("PUT", "/api/me/kana", { mastered }),
         progress: () => call2("GET", `/api/progress?today=${today()}`),
         strokes: (chars2) => call2("GET", `/api/strokes?k=${encodeURIComponent(chars2)}`),
@@ -3881,6 +3972,71 @@ Answer with JSON only, no other text:
         "\u64EC\u614B\u8A9E (gitaigo) \u2014 state / manner": "\u64EC\u614B\u8A9E (\u0433\u0438\u0442\u0430\u0439\u0433\u043E) \u2014 \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 / \u043E\u0431\u0440\u0430\u0437 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F",
         "\u64EC\u60C5\u8A9E (gij\u014Dgo) \u2014 feeling": "\u64EC\u60C5\u8A9E (\u0433\u0438\u0434\u0437\u0451\u0433\u043E) \u2014 \u0447\u0443\u0432\u0441\u0442\u0432\u043E",
         "Time up \u2014 the dragon survived": "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E \u2014 \u0434\u0440\u0430\u043A\u043E\u043D \u0432\u044B\u0436\u0438\u043B",
+        // 0.9.9.6
+        // 0.9.9.6 — achievements
+        "First Steps": "\u041F\u0435\u0440\u0432\u044B\u0435 \u0448\u0430\u0433\u0438",
+        "Answer 50 study cards.": "\u041E\u0442\u0432\u0435\u0442\u044C\u0442\u0435 \u043D\u0430 50 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A.",
+        "Diligent": "\u0423\u0441\u0435\u0440\u0434\u043D\u044B\u0439",
+        "Answer 1,000 study cards.": "\u041E\u0442\u0432\u0435\u0442\u044C\u0442\u0435 \u043D\u0430 1 000 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A.",
+        "Tireless": "\u041D\u0435\u0443\u0442\u043E\u043C\u0438\u043C\u044B\u0439",
+        "Answer 10,000 study cards.": "\u041E\u0442\u0432\u0435\u0442\u044C\u0442\u0435 \u043D\u0430 10 000 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A.",
+        "Word Hoard": "\u0421\u043E\u043A\u0440\u043E\u0432\u0438\u0449\u043D\u0438\u0446\u0430 \u0441\u043B\u043E\u0432",
+        "Learn 500 spells.": "\u0412\u044B\u0443\u0447\u0438\u0442\u0435 500 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439.",
+        "Well Versed": "\u0417\u043D\u0430\u0442\u043E\u043A",
+        "Master 100 spells (a review interval of 3 weeks or more).": "\u041E\u0441\u0432\u043E\u0439\u0442\u0435 100 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 (\u0438\u043D\u0442\u0435\u0440\u0432\u0430\u043B \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044F 3 \u043D\u0435\u0434\u0435\u043B\u0438 \u0438 \u0431\u043E\u043B\u044C\u0448\u0435).",
+        "Deep Roots": "\u0413\u043B\u0443\u0431\u043E\u043A\u0438\u0435 \u043A\u043E\u0440\u043D\u0438",
+        "Master 500 spells.": "\u041E\u0441\u0432\u043E\u0439\u0442\u0435 500 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439.",
+        "Quiz Whiz": "\u0417\u043D\u0430\u0442\u043E\u043A \u0442\u0435\u0441\u0442\u043E\u0432",
+        "Pass 10 JLPT quizzes (7/10 or better).": "\u041F\u0440\u043E\u0439\u0434\u0438\u0442\u0435 10 \u0442\u0435\u0441\u0442\u043E\u0432 JLPT (7/10 \u0438\u043B\u0438 \u043B\u0443\u0447\u0448\u0435).",
+        "Quiz Master": "\u041C\u0430\u0441\u0442\u0435\u0440 \u0442\u0435\u0441\u0442\u043E\u0432",
+        "Pass 100 JLPT quizzes.": "\u041F\u0440\u043E\u0439\u0434\u0438\u0442\u0435 100 \u0442\u0435\u0441\u0442\u043E\u0432 JLPT.",
+        "Bookworm": "\u041A\u043D\u0438\u0436\u043D\u044B\u0439 \u0447\u0435\u0440\u0432\u044C",
+        "Finish 10 reading passages (4/8 or better).": "\u0417\u0430\u043A\u043E\u043D\u0447\u0438\u0442\u0435 10 \u0442\u0435\u043A\u0441\u0442\u043E\u0432 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F (4/8 \u0438\u043B\u0438 \u043B\u0443\u0447\u0448\u0435).",
+        "Storyteller": "\u0421\u043A\u0430\u0437\u0438\u0442\u0435\u043B\u044C",
+        "Finish 50 reading passages.": "\u0417\u0430\u043A\u043E\u043D\u0447\u0438\u0442\u0435 50 \u0442\u0435\u043A\u0441\u0442\u043E\u0432 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F.",
+        "Daily Devotee": "\u0412\u0435\u0440\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432\u0443",
+        "Play the Daily challenge 10 times.": "\u0421\u044B\u0433\u0440\u0430\u0439\u0442\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 10 \u0440\u0430\u0437.",
+        "Daily Legend": "\u041B\u0435\u0433\u0435\u043D\u0434\u0430 \u0432\u044B\u0437\u043E\u0432\u0430",
+        "Play the Daily challenge 50 times.": "\u0421\u044B\u0433\u0440\u0430\u0439\u0442\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 50 \u0440\u0430\u0437.",
+        "Regular": "\u0417\u0430\u0432\u0441\u0435\u0433\u0434\u0430\u0442\u0430\u0439",
+        "Play on 30 different days.": "\u0418\u0433\u0440\u0430\u0439\u0442\u0435 30 \u0440\u0430\u0437\u043D\u044B\u0445 \u0434\u043D\u0435\u0439.",
+        "Steadfast": "\u0421\u0442\u043E\u0439\u043A\u0438\u0439",
+        "Keep a 14-day daily streak.": "\u0414\u0435\u0440\u0436\u0438\u0442\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u0443\u044E \u0441\u0435\u0440\u0438\u044E 14 \u0434\u043D\u0435\u0439.",
+        "Unbreakable": "\u041D\u0435\u0441\u043E\u043A\u0440\u0443\u0448\u0438\u043C\u044B\u0439",
+        "Keep a 100-day daily streak.": "\u0414\u0435\u0440\u0436\u0438\u0442\u0435 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u0443\u044E \u0441\u0435\u0440\u0438\u044E 100 \u0434\u043D\u0435\u0439.",
+        "Brawler": "\u0411\u043E\u0435\u0446",
+        "Play 10 battles.": "\u0421\u044B\u0433\u0440\u0430\u0439\u0442\u0435 10 \u0431\u043E\u0451\u0432.",
+        "Warlord": "\u041F\u043E\u043B\u043A\u043E\u0432\u043E\u0434\u0435\u0446",
+        "Play 250 battles.": "\u0421\u044B\u0433\u0440\u0430\u0439\u0442\u0435 250 \u0431\u043E\u0451\u0432.",
+        "Rising Star": "\u0412\u043E\u0441\u0445\u043E\u0434\u044F\u0449\u0430\u044F \u0437\u0432\u0435\u0437\u0434\u0430",
+        "Reach level 5.": "\u0414\u043E\u0441\u0442\u0438\u0433\u043D\u0438\u0442\u0435 5 \u0443\u0440\u043E\u0432\u043D\u044F.",
+        "Living Legend": "\u0416\u0438\u0432\u0430\u044F \u043B\u0435\u0433\u0435\u043D\u0434\u0430",
+        "Reach level 25.": "\u0414\u043E\u0441\u0442\u0438\u0433\u043D\u0438\u0442\u0435 25 \u0443\u0440\u043E\u0432\u043D\u044F.",
+        "Circle of Friends": "\u041A\u0440\u0443\u0433 \u0434\u0440\u0443\u0437\u0435\u0439",
+        "Have 5 friends.": "\u0417\u0430\u0432\u0435\u0434\u0438\u0442\u0435 5 \u0434\u0440\u0443\u0437\u0435\u0439.",
+        "Collector": "\u041A\u043E\u043B\u043B\u0435\u043A\u0446\u0438\u043E\u043D\u0435\u0440",
+        "Star 20 words \u2605.": "\u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u2605 20 \u0441\u043B\u043E\u0432.",
+        "Wordsmith": "\u0421\u043B\u043E\u0432\u043E\u0442\u0432\u043E\u0440\u0435\u0446",
+        "Have 10 words in Custom spells.": "\u0421\u043E\u0431\u0435\u0440\u0438\u0442\u0435 10 \u0441\u043B\u043E\u0432 \u0432 \xAB\u0421\u0432\u043E\u0438\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445\xBB.",
+        "True Name": "\u0418\u0441\u0442\u0438\u043D\u043D\u043E\u0435 \u0438\u043C\u044F",
+        "Choose a nickname (your profile \u2192 \u270E).": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043D\u0438\u043A (\u0432\u0430\u0448 \u043F\u0440\u043E\u0444\u0438\u043B\u044C \u2192 \u270E).",
+        // 0.9.9.6 — reminders
+        "Reminders on \u2014 tap to turn them off": "\u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u044B \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0432\u044B\u043A\u043B\u044E\u0447\u0438\u0442\u044C",
+        "Reminders off \u2014 tap for daily reminders (Daily challenge, reviews, streak tasks)": "\u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u044B \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C \u0438\u0445 (\u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432, \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044F, \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u0441\u0435\u0440\u0438\u0438)",
+        "Reminders off": "\u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u044B",
+        "This browser can\u2019t show notifications \u2014 try the app (menu \u2192 Get the app).": "\u042D\u0442\u043E\u0442 \u0431\u0440\u0430\u0443\u0437\u0435\u0440 \u043D\u0435 \u0443\u043C\u0435\u0435\u0442 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u2014 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 (\u043C\u0435\u043D\u044E \u2192 \xAB\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435\xBB).",
+        "Notifications are blocked \u2014 allow them for this site in the browser settings, then tap the bell again.": "\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0437\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u044B \u2014 \u0440\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0438\u0445 \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0441\u0430\u0439\u0442\u0430 \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430 \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u043E\u043B\u043E\u043A\u043E\u043B\u044C\u0447\u0438\u043A \u0441\u043D\u043E\u0432\u0430.",
+        "Allow notifications for Kanji Wizards in Android settings to get the reminders.": "\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0434\u043B\u044F Kanji Wizards \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 Android, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C \u043D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F.",
+        "Reminders on: the Daily challenge, 50+ spells to review, and your streak tasks in the evening.": "\u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u044B: \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432, 50+ \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043A \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044E \u0438 \u0432\u0435\u0447\u0435\u0440\u043E\u043C \u2014 \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u0441\u0435\u0440\u0438\u0438.",
+        // 0.9.9.6 — nickname
+        "Change your nickname": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043D\u0438\u043A",
+        "Nickname (empty: your login)": "\u041D\u0438\u043A (\u043F\u0443\u0441\u0442\u043E \u2014 \u0432\u0430\u0448 \u043B\u043E\u0433\u0438\u043D)",
+        "Your nickname": "\u0412\u0430\u0448 \u043D\u0438\u043A",
+        "Nickname cleared \u2014 others see your login": "\u041D\u0438\u043A \u0443\u0434\u0430\u043B\u0451\u043D \u2014 \u0434\u0440\u0443\u0433\u0438\u0435 \u0432\u0438\u0434\u044F\u0442 \u0432\u0430\u0448 \u043B\u043E\u0433\u0438\u043D",
+        "A nickname is 2\u201324 letters, numbers, spaces or _ . - '": "\u041D\u0438\u043A \u2014 \u043E\u0442 2 \u0434\u043E 24 \u0431\u0443\u043A\u0432, \u0446\u0438\u0444\u0440, \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u0432 \u0438\u043B\u0438 _ . - '",
+        "That is another player\u2019s login \u2014 pick another nickname": "\u042D\u0442\u043E \u043B\u043E\u0433\u0438\u043D \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0438\u0433\u0440\u043E\u043A\u0430 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u043E\u0439 \u043D\u0438\u043A",
+        "Online games need an internet connection": "\u0414\u043B\u044F \u043E\u043D\u043B\u0430\u0439\u043D-\u0438\u0433\u0440 \u043D\u0443\u0436\u0435\u043D \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442",
+        "Couldn\u2019t reach the game server \u2014 check your connection and try again.": "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u0432\u044F\u0437\u0430\u0442\u044C\u0441\u044F \u0441 \u0438\u0433\u0440\u043E\u0432\u044B\u043C \u0441\u0435\u0440\u0432\u0435\u0440\u043E\u043C \u2014 \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430.",
         // 0.9.9.5.1
         "Waking up the server\u2026": "\u0411\u0443\u0434\u0438\u043C \u0441\u0435\u0440\u0432\u0435\u0440\u2026",
         "Play offline meanwhile": "\u041F\u043E\u043A\u0430 \u0438\u0433\u0440\u0430\u0442\u044C \u043E\u0444\u043B\u0430\u0439\u043D",
@@ -4104,6 +4260,7 @@ Answer with JSON only, no other text:
         return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
       };
       PATTERNS = [
+        [/^You’ve used all (\d+) of today’s AI stories — new ones tomorrow!$/, "\u0412\u044B \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043B\u0438 \u0432\u0441\u0435 $1 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u2014 \u043D\u043E\u0432\u044B\u0435 \u0437\u0430\u0432\u0442\u0440\u0430!"],
         [/^Pick which of your words go in and the story level above, then start\. (\d+) words of “(.+)” fit\.$/, (_, n, d) => `\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u044B\u0448\u0435, \u043A\u0430\u043A\u0438\u0435 \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0432\u043E\u0439\u0434\u0443\u0442, \u0438 \u0443\u0440\u043E\u0432\u0435\u043D\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430, \u0437\u0430\u0442\u0435\u043C \u043D\u0430\u0447\u043D\u0438\u0442\u0435. \u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u0441\u043B\u043E\u0432 \u0438\u0437 \xAB${RU[d] ?? d}\xBB: ${n}.`],
         [/^You can have up to (\d+) new AI stories a day — the counter next to New passage shows how many are left\. After that \(or offline\), the passage uses your words’ example sentences instead\.$/, "\u0412 \u0434\u0435\u043D\u044C \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0434\u043E $1 \u043D\u043E\u0432\u044B\u0445 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u2014 \u0441\u0447\u0451\u0442\u0447\u0438\u043A \u0440\u044F\u0434\u043E\u043C \u0441 \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C. \u041F\u043E\u0442\u043E\u043C (\u0438\u043B\u0438 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430) \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442\u0441\u044F \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432."],
         [/^A story needs at least 8 kanji words — “(.+)” has (\d+) of the levels you ticked\. Tick more levels, pick another deck, or study more words\.$/, (_, d, n) => `\u0414\u043B\u044F \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u043D\u0443\u0436\u043D\u043E \u0445\u043E\u0442\u044F \u0431\u044B 8 \u0441\u043B\u043E\u0432 \u0441 \u043A\u0430\u043D\u0434\u0437\u0438 \u2014 \u0432 \xAB${RU[d] ?? d}\xBB \u0438\u0445 ${n} \u0441\u0440\u0435\u0434\u0438 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u0445 \u0443\u0440\u043E\u0432\u043D\u0435\u0439. \u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u0443\u0440\u043E\u0432\u043D\u0435\u0439, \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443 \u0438\u043B\u0438 \u0438\u0437\u0443\u0447\u0438\u0442\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u0441\u043B\u043E\u0432.`],
@@ -4999,9 +5156,21 @@ Answer with JSON only, no other text:
   });
 
   // src/client/backgrounds.ts
-  function resolveTime(pref, now2 = Date.now()) {
-    if (pref !== "auto") return pref;
-    return CYCLE[Math.floor(now2 / CYCLE_STEP_MS) % CYCLE.length];
+  function resolveTime(_pref = "auto", now2 = Date.now()) {
+    const h4 = new Date(now2).getHours();
+    return h4 >= DAY_FROM && h4 < SUNSET_FROM ? "day" : h4 >= SUNSET_FROM && h4 < NIGHT_FROM ? "sunset" : "night";
+  }
+  function untilNextStep(now2 = Date.now()) {
+    const d = new Date(now2);
+    const next3 = new Date(d);
+    next3.setMinutes(0, 0, 0);
+    const h4 = d.getHours();
+    const at = [DAY_FROM, SUNSET_FROM, NIGHT_FROM].find((x) => x > h4);
+    if (at === void 0) {
+      next3.setDate(next3.getDate() + 1);
+      next3.setHours(DAY_FROM);
+    } else next3.setHours(at);
+    return Math.max(1e3, next3.getTime() - now2);
   }
   function lin(stops, x1 = 0, y1 = 0, x2 = 0, y2 = 1) {
     const id = `lg${gn++}`;
@@ -5586,33 +5755,17 @@ Answer with JSON only, no other text:
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="still">${scene(id, time)}</svg>`;
   }
   function getTimePref() {
-    try {
-      const v = localStorage.getItem(TIME_KEY);
-      return v === "day" || v === "sunset" || v === "night" ? v : "auto";
-    } catch {
-      return "auto";
-    }
+    void TIME_KEY;
+    return "auto";
   }
-  function setTimePref(t) {
-    try {
-      localStorage.setItem(TIME_KEY, t);
-    } catch {
-    }
-  }
-  var TIMES, CYCLE_STEP_MS, CYCLE, untilNextStep, W, H, seed, rnd, r, f, stopsOf, grad, radial, gdefs, gn, DEFS, pick, dk2, floorDefs, SCENES, cache2, BG_FADE_MS, fadeTimer, TIME_KEY;
+  var DAY_FROM, SUNSET_FROM, NIGHT_FROM, W, H, seed, rnd, r, f, stopsOf, grad, radial, gdefs, gn, DEFS, pick, dk2, floorDefs, SCENES, cache2, BG_FADE_MS, fadeTimer, TIME_KEY;
   var init_backgrounds = __esm({
     "src/client/backgrounds.ts"() {
       "use strict";
       init_art2d();
-      TIMES = [
-        { id: "auto", name: "Cycle" },
-        { id: "day", name: "Day" },
-        { id: "sunset", name: "Sunset" },
-        { id: "night", name: "Night" }
-      ];
-      CYCLE_STEP_MS = 3 * 6e4;
-      CYCLE = ["day", "sunset", "night"];
-      untilNextStep = (now2 = Date.now()) => CYCLE_STEP_MS - now2 % CYCLE_STEP_MS;
+      DAY_FROM = 6;
+      SUNSET_FROM = 17;
+      NIGHT_FROM = 20;
       W = 1600;
       H = 900;
       seed = 1;
@@ -5837,10 +5990,10 @@ Answer with JSON only, no other text:
     b.type = "button";
     b.className = cls;
     let shown3 = false;
-    const draw2 = () => {
+    const draw3 = () => {
       if (b.isConnected) shown3 = true;
       else if (shown3) {
-        listeners2.delete(draw2);
+        listeners2.delete(draw3);
         return;
       }
       const on = stars2.has(id);
@@ -5849,8 +6002,8 @@ Answer with JSON only, no other text:
       b.title = on ? "Starred \u2014 used first in reading passages. Tap to unstar" : "Star this word \u2014 reading passages use starred words first";
       b.setAttribute("aria-pressed", String(on));
     };
-    draw2();
-    listeners2.add(draw2);
+    draw3();
+    listeners2.add(draw3);
     b.addEventListener("pointerdown", (e) => e.stopPropagation());
     b.onclick = async (e) => {
       e.stopPropagation();
@@ -6109,8 +6262,10 @@ Answer with JSON only, no other text:
   }
   function setUser(user2) {
     $("whoami").hidden = !user2;
-    $("whoName").textContent = user2?.username ?? "";
-    $("ppName").textContent = user2?.username ?? "";
+    $("whoName").textContent = user2 ? user2.name ?? user2.username : "";
+    $("ppName").textContent = user2 ? user2.name ?? user2.username : "";
+    $("ppLogin").textContent = user2 && user2.nickname ? `@${user2.username}` : "";
+    $("ppLogin").hidden = !user2?.nickname;
     $("whoRole").hidden = user2?.role !== "admin";
     $("adminBtn").hidden = user2?.role !== "admin";
   }
@@ -6206,7 +6361,7 @@ Answer with JSON only, no other text:
         return append(
           h("tr", u.online ? "is-online" : ""),
           presence,
-          h("td", "", u.username + (u.id === me3.id ? " (you)" : "")),
+          h("td", "", u.username + (u.nickname ? ` (${u.nickname})` : "") + (u.id === me3.id ? " (you)" : "")),
           h("td", "", u.role),
           h("td", "num", `Lv ${u.level ?? 0}`),
           h("td", "num", (u.xp ?? 0).toLocaleString()),
@@ -6841,7 +6996,7 @@ Answer with JSON only, no other text:
       if (img) pic.append(img);
       const games = p.wins + p.losses;
       body.push(
-        append(h("div", "pp-head"), pic, append(h("div"), h("div", "pp-name", p.name), h("div", "pp-level", `Lv ${p.level}`), ...[badgeRowFn?.(p.badges)].filter((x) => !!x))),
+        append(h("div", "pp-head"), pic, append(h("div"), h("div", "pp-name", p.name), ...p.login ? [h("div", "pp-login", `@${p.login}`)] : [], h("div", "pp-level", `Lv ${p.level}`), ...[badgeRowFn?.(p.badges)].filter((x) => !!x))),
         append(
           h("div", "pp-stats"),
           append(h("div"), h("b", "", p.wins), h("span", "", "wins")),
@@ -7084,11 +7239,168 @@ Answer with JSON only, no other text:
     }
   });
 
+  // src/client/reminders.ts
+  init_api();
+  init_i18n();
+  init_ui();
+  var KEY4 = "kw:remind";
+  var android = () => {
+    const b = window.KWAndroid;
+    return b?.setReminders ? b : null;
+  };
+  var remindersOn = () => {
+    try {
+      return localStorage.getItem(KEY4) === "on";
+    } catch {
+      return false;
+    }
+  };
+  var save = (on) => {
+    try {
+      localStorage.setItem(KEY4, on ? "on" : "off");
+    } catch {
+    }
+  };
+  function idb() {
+    return new Promise((ok, no2) => {
+      const r2 = indexedDB.open("kw-remind", 1);
+      r2.onupgradeneeded = () => r2.result.createObjectStore("kv");
+      r2.onsuccess = () => ok(r2.result);
+      r2.onerror = () => no2(r2.error);
+    });
+  }
+  async function put(k, v) {
+    try {
+      const db = await idb();
+      await new Promise((ok) => {
+        const t = db.transaction("kv", "readwrite");
+        t.objectStore("kv").put(v, k);
+        t.oncomplete = () => ok();
+        t.onerror = () => ok();
+      });
+    } catch {
+    }
+  }
+  async function get2(k) {
+    try {
+      const db = await idb();
+      return await new Promise((ok) => {
+        const q = db.transaction("kv").objectStore("kv").get(k);
+        q.onsuccess = () => ok(q.result);
+        q.onerror = () => ok(void 0);
+      });
+    } catch {
+      return void 0;
+    }
+  }
+  function decide(s, hour, ru) {
+    const out = [];
+    if (hour < 12 || hour >= 23) return out;
+    if (!s.challengeDone) out.push({ kind: "challenge", title: ru ? "\u2694 \u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 \u0436\u0434\u0451\u0442" : "\u2694 Today\u2019s Daily challenge is waiting", body: ru ? "\u0414\u0435\u0441\u044F\u0442\u044C \u0441\u043B\u043E\u0432, \u043E\u0434\u0438\u043D\u0430\u043A\u043E\u0432\u044B\u0445 \u0434\u043B\u044F \u0432\u0441\u0435\u0445, \u2014 \u043D\u0430\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0432\u044B \u0431\u044B\u0441\u0442\u0440\u044B?" : "Ten words, the same for everyone \u2014 how fast are you?" });
+    if (s.allDue >= 50) out.push({ kind: "reviews", title: ru ? `\u{1F4DA} ${s.allDue} \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0436\u0434\u0443\u0442 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044F` : `\u{1F4DA} ${s.allDue} spells are waiting for review`, body: ru ? `\u0412 \u043A\u043E\u043B\u043E\u0434\u0435 \xAB\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB ${s.allDue} \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A \u043A \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044E.` : `Your All spells deck has ${s.allDue} cards to review.` });
+    if (hour >= 18 && s.tasksLeft > 0) out.push({ kind: "tasks", title: ru ? "\u{1F525} \u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0435 \u0441\u0435\u0440\u0438\u044E" : "\u{1F525} Keep your streak", body: ru ? `\u041E\u0441\u0442\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0434\u0430\u043D\u0438\u0439 \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F: ${s.tasksLeft} \u0438\u0437 ${s.tasksTotal}.` : `${s.tasksLeft} of ${s.tasksTotal} daily tasks left today.` });
+    return out;
+  }
+  var dayOf = (d = /* @__PURE__ */ new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  async function check() {
+    if (!remindersOn() || android() || !("Notification" in window) || Notification.permission !== "granted") return;
+    let s;
+    try {
+      s = await api.notifyStatus();
+    } catch {
+      return;
+    }
+    const today2 = dayOf();
+    const shown3 = await get2("shown") ?? {};
+    for (const n of decide(s, (/* @__PURE__ */ new Date()).getHours(), lang() === "ru")) {
+      if (shown3[n.kind] === today2) continue;
+      shown3[n.kind] = today2;
+      try {
+        const reg = await navigator.serviceWorker?.getRegistration();
+        if (reg) await reg.showNotification(n.title, { body: n.body, icon: "/icons/icon-192.png", tag: `kw-${n.kind}` });
+        else new Notification(n.title, { body: n.body, icon: "/favicon.svg", tag: `kw-${n.kind}` });
+      } catch {
+      }
+    }
+    await put("shown", shown3);
+  }
+  async function share(on) {
+    const token2 = on ? getToken() : "";
+    const b = android();
+    if (b) {
+      b.setReminders(on, token2, lang());
+      return;
+    }
+    await put("token", token2);
+    await put("lang", lang());
+    try {
+      const reg = await navigator.serviceWorker?.ready;
+      const ps = reg?.periodicSync;
+      if (ps) {
+        if (on) await ps.register("kw-remind", { minInterval: 4 * 36e5 });
+        else await ps.unregister("kw-remind");
+      }
+    } catch {
+    }
+  }
+  function draw() {
+    const b = $("notifyBtn");
+    const on = remindersOn();
+    b.textContent = on ? "\u{1F514}" : "\u{1F515}";
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
+    b.title = tr(on ? "Reminders on \u2014 tap to turn them off" : "Reminders off \u2014 tap for daily reminders (Daily challenge, reviews, streak tasks)");
+  }
+  async function toggle() {
+    if (remindersOn()) {
+      save(false);
+      draw();
+      await share(false);
+      toast(tr("Reminders off"));
+      return;
+    }
+    const b = android();
+    if (!b) {
+      if (!("Notification" in window)) {
+        toast(tr("This browser can\u2019t show notifications \u2014 try the app (menu \u2192 Get the app)."), 5e3);
+        return;
+      }
+      const p = Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
+      if (p !== "granted") {
+        toast(tr("Notifications are blocked \u2014 allow them for this site in the browser settings, then tap the bell again."), 6e3);
+        return;
+      }
+    }
+    save(true);
+    draw();
+    await share(true);
+    if (b && b.notificationsAllowed && !b.notificationsAllowed()) toast(tr("Allow notifications for Kanji Wizards in Android settings to get the reminders."), 6e3);
+    else toast(tr("Reminders on: the Daily challenge, 50+ spells to review, and your streak tasks in the evening."), 5e3);
+  }
+  function initReminders() {
+    draw();
+    $("notifyBtn").onclick = () => void toggle();
+    setInterval(() => {
+      if (document.hidden) void check();
+    }, 15 * 6e4);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) setTimeout(() => {
+        if (document.hidden) void check();
+      }, 6e4);
+    });
+  }
+  function remindersSignedIn() {
+    if (remindersOn()) void share(true);
+  }
+  function remindersSignedOut() {
+    return remindersOn() ? share(false) : Promise.resolve();
+  }
+
   // src/client/support.ts
   init_api();
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.5.1";
+  var VERSION = "0.9.9.6";
 
   // src/client/support.ts
   init_ui();
@@ -7862,20 +8174,20 @@ ${stack}`.slice(0, 2e3);
     }
     const sel = el2("select", "ms-deck");
     for (const d of mode2 === "ono" ? ["ono", "struggling", "custom"] : ["struggling", "all", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
-    const save4 = el2("button", "pill", "Add the ones I missed");
+    const save5 = el2("button", "pill", "Add the ones I missed");
     const msg = el2("span", "hint");
-    save4.onclick = async () => {
+    save5.onclick = async () => {
       try {
         const r2 = await api.deckAdd(sel.value, wrong.map((q) => q.vocabId));
         msg.textContent = `${r2.added.length} added to ${tr(DECK_LABEL[sel.value])}.`;
-        save4.disabled = true;
+        save5.disabled = true;
         onChanged();
       } catch (e) {
         msg.textContent = e.message;
       }
     };
     const head = el2("div", "ms-head");
-    head.append(el2("span", "", `You missed ${wrong.length}:`), sel, save4, msg);
+    head.append(el2("span", "", `You missed ${wrong.length}:`), sel, save5, msg);
     const list = el2("div", "ms-words");
     list.append(...wrong.map((q) => el2("span", "ms-word on", q.word?.kanji ?? (q.kind === "kanji" ? q.choices[q.answer] : q.prompt), { lang: "ja" })));
     box.replaceChildren(head, list);
@@ -8028,10 +8340,10 @@ ${stack}`.slice(0, 2e3);
     const used = new Set(blanks.filter((b) => b.put).map((b) => b.put.kanji));
     for (const c of document.querySelectorAll("#passageWords .p-chip")) c.disabled = checked || used.has(c.dataset.k);
     const left = blanks.filter((b) => !b.put).length;
-    const check2 = document.getElementById("passageCheck");
-    if (check2) {
-      check2.disabled = checked || left === blanks.length;
-      check2.textContent = left ? `Check (${left} empty)` : "Check";
+    const check3 = document.getElementById("passageCheck");
+    if (check3) {
+      check3.disabled = checked || left === blanks.length;
+      check3.textContent = left ? `Check (${left} empty)` : "Check";
     }
   }
   function tapBlank(i) {
@@ -8058,7 +8370,7 @@ ${stack}`.slice(0, 2e3);
   var passageHooks = {};
   var onTaskDone = { cb: (_p) => {
   } };
-  function check() {
+  function check2() {
     checked = true;
     hideGloss();
     blanks.forEach((_, k) => drawBlank(k));
@@ -8116,9 +8428,12 @@ ${stack}`.slice(0, 2e3);
     const box = el2("div", "p-start");
     box.append(el2("p", "hint", fromDeck ? tr(`Pick which of your words go in and the story level above, then start. ${n} words of \u201C${DECK_LABEL[passageDeck]}\u201D fit.`) : tr("The words you missed go into a story \u2014 set the story level above, then start.")));
     const go = el2("button", "big p-go", storyUsage?.enabled === false ? "Make the passage" : "\u270D Write the story", { type: "button" });
-    go.onclick = () => void buildPassage();
+    go.onclick = () => {
+      if (!limitHit()) void buildPassage();
+    };
     box.append(go);
     $3("passageText").replaceChildren(box);
+    drawLimit();
   }
   var WORD_LEVELS = ["N5", "N4", "N3", "N2", "N1"];
   var LEVELS_KEY = "kw:passage-levels";
@@ -8143,7 +8458,7 @@ ${stack}`.slice(0, 2e3);
   var storyWord = (w) => HAN_RE.test(w.kanji) && (w.custom || !!w.level && pickedLevels().includes(w.level));
   {
     const box = $3("passageLevels");
-    const draw2 = () => {
+    const draw3 = () => {
       const on = pickedLevels();
       box.replaceChildren(...WORD_LEVELS.map((l) => {
         const b = el2("button", "p-lv" + (on.includes(l) ? " on" : ""), (on.includes(l) ? "\u2713 " : "") + l, { type: "button", "aria-pressed": String(on.includes(l)) });
@@ -8157,13 +8472,13 @@ ${stack}`.slice(0, 2e3);
             localStorage.setItem(LEVELS_KEY, JSON.stringify(next3));
           } catch {
           }
-          draw2();
+          draw3();
           if (document.querySelector("#passageText .p-start")) showStart();
         };
         return b;
       }));
     };
-    draw2();
+    draw3();
     const sel = $3("passageStoryLevel");
     for (const l of WORD_LEVELS) sel.append(Object.assign(el2("option", "", `${l} ${tr(l === "N5" ? "\u2014 easiest" : l === "N1" ? "\u2014 hardest" : "")}`.trim()), { value: l }));
     sel.value = storyLevel();
@@ -8225,6 +8540,7 @@ ${stack}`.slice(0, 2e3);
     q.textContent = `${tr("AI stories left today")}: ${left} / ${u.limit}`;
     q.title = tr("Each new AI story counts once; the same words again come free. The count starts over at midnight.");
     q.classList.toggle("low", left <= 5);
+    drawLimit();
     $3("passageIntroQuota").hidden = !u.enabled;
     $3("passageIntroQuota").textContent = tr(`You can have up to ${u.limit} new AI stories a day \u2014 the counter next to New passage shows how many are left. After that (or offline), the passage uses your words\u2019 example sentences instead.`);
   }
@@ -8308,6 +8624,7 @@ ${stack}`.slice(0, 2e3);
       const r2 = await writeStory(words2, storyLevel(), 95e3);
       clearInterval(tick2);
       again.disabled = false;
+      drawLimit();
       if (build2 !== passageBuild) return;
       if (r2.usage) showQuota(r2.usage);
       if (r2.story) {
@@ -8341,7 +8658,7 @@ ${stack}`.slice(0, 2e3);
       bank.append(c);
     }
     const go = el2("button", "big", "Check", { id: "passageCheck", type: "button" });
-    go.onclick = check;
+    go.onclick = check2;
     $3("passageWords").replaceChildren(el2("h4", "", "Your words \u2014 tap a blank, then a word"), bank, go);
     drawBank();
     if (!lines.length) {
@@ -8349,7 +8666,22 @@ ${stack}`.slice(0, 2e3);
       $3("passageWords").replaceChildren();
     }
   }
-  $3("passageNew").onclick = () => void buildPassage();
+  $3("passageNew").onclick = () => {
+    if (!limitHit()) void buildPassage();
+  };
+  function limitHit() {
+    if (!(storyUsage?.enabled && storyUsage.used >= storyUsage.limit)) return false;
+    toast(tr(`You\u2019ve used all ${storyUsage.limit} of today\u2019s AI stories \u2014 new ones tomorrow!`), 5e3);
+    return true;
+  }
+  function drawLimit() {
+    const hit2 = !!(storyUsage?.enabled && storyUsage.used >= storyUsage.limit);
+    for (const b of [$3("passageNew"), document.querySelector("#passageText .p-go")]) {
+      if (!b) continue;
+      b.classList.toggle("blocked", hit2);
+      b.setAttribute("aria-disabled", String(hit2));
+    }
+  }
   $3("passageBack").onclick = () => {
     hideGloss();
     backToStudy();
@@ -8492,18 +8824,18 @@ ${stack}`.slice(0, 2e3);
   init_art2d();
   init_wizard();
   init_ui();
-  var KEY4 = (uid2) => `kb:seenRewards:${uid2}`;
+  var KEY5 = (uid2) => `kb:seenRewards:${uid2}`;
   var load3 = (uid2) => {
     try {
-      const r2 = localStorage.getItem(KEY4(uid2));
+      const r2 = localStorage.getItem(KEY5(uid2));
       return r2 ? JSON.parse(r2) : null;
     } catch {
       return null;
     }
   };
-  var save = (uid2, keys) => {
+  var save2 = (uid2, keys) => {
     try {
-      localStorage.setItem(KEY4(uid2), JSON.stringify(keys));
+      localStorage.setItem(KEY5(uid2), JSON.stringify(keys));
     } catch {
     }
   };
@@ -8526,7 +8858,7 @@ ${stack}`.slice(0, 2e3);
     onEquipped = equipped;
     const now2 = haveNow(p);
     const seen2 = load3(uid2);
-    save(uid2, [.../* @__PURE__ */ new Set([...seen2 ?? [], ...now2.map((r2) => r2.key)])]);
+    save2(uid2, [.../* @__PURE__ */ new Set([...seen2 ?? [], ...now2.map((r2) => r2.key)])]);
     if (!seen2) return;
     const fresh = now2.filter((r2) => !seen2.includes(r2.key) && !queue.some((q) => q.key === r2.key));
     if (!fresh.length) return;
@@ -8605,6 +8937,32 @@ ${stack}`.slice(0, 2e3);
   // src/client/whatsnew.ts
   init_i18n();
   var PATCHES = [
+    {
+      v: "0.9.9.6",
+      date: "2026-10",
+      en: [
+        "Reminders \u{1F514}: the bell next to the sound buttons turns on daily reminders \u2014 the Daily challenge, 50+ spells waiting in All spells, and your streak tasks in the evening. In the Android app they come even when it\u2019s closed.",
+        "Nicknames: tap \u270E next to your name in your profile to pick the name others see; your login stays for signing in and shows under it.",
+        "23 new achievements (44 in all) \u2014 from easy (answer 50 cards, pick a nickname) to very hard (a 100-day streak, level 25). The dots under each badge show how hard it is.",
+        "The arena\u2019s time of day follows your clock: day until 17:00, sunset until 20:00, then night (no more 3-minute cycle).",
+        "A calmer, softer menu tune, and the music starts quieter.",
+        "3D battles: spells fly as glowing orbs (no more kanji in the air); the last spell lands before the opponent falls; the characters hold their staff out to the side, with bigger hands; the Void staff\u2019s handle lights up ice-blue while you cast.",
+        "Boss: a fallen teammate no longer gets damage numbers from the dragon\u2019s fire.",
+        "Reading passage: when today\u2019s AI stories are used up, \u201CNew passage\u201D says so instead of starting one.",
+        "Fixes: switching accounts no longer keeps the last account\u2019s settings and limits; picking a mode for a private room retries if the connection was stale (and says so if it fails); the sign-in box is in the middle of the screen; on narrow phones the level names in All spells no longer overlap the numbers."
+      ],
+      ru: [
+        "\u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u{1F514}: \u043A\u043E\u043B\u043E\u043A\u043E\u043B\u044C\u0447\u0438\u043A \u0440\u044F\u0434\u043E\u043C \u0441 \u043A\u043D\u043E\u043F\u043A\u0430\u043C\u0438 \u0437\u0432\u0443\u043A\u0430 \u0432\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0435 \u043D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u2014 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432, 50+ \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043A \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044E \u0432\u043E \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445\xBB \u0438 \u0432\u0435\u0447\u0435\u0440\u043E\u043C \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u0441\u0435\u0440\u0438\u0438. \u0412 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438 \u0434\u043B\u044F Android \u043E\u043D\u0438 \u043F\u0440\u0438\u0445\u043E\u0434\u044F\u0442, \u0434\u0430\u0436\u0435 \u043A\u043E\u0433\u0434\u0430 \u043E\u043D\u043E \u0437\u0430\u043A\u0440\u044B\u0442\u043E.",
+        "\u041D\u0438\u043A\u0438: \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u270E \u0440\u044F\u0434\u043E\u043C \u0441 \u0438\u043C\u0435\u043D\u0435\u043C \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u043C\u044F, \u043A\u043E\u0442\u043E\u0440\u043E\u0435 \u0432\u0438\u0434\u044F\u0442 \u0434\u0440\u0443\u0433\u0438\u0435; \u043B\u043E\u0433\u0438\u043D \u043E\u0441\u0442\u0430\u0451\u0442\u0441\u044F \u0434\u043B\u044F \u0432\u0445\u043E\u0434\u0430 \u0438 \u043F\u043E\u043A\u0430\u0437\u0430\u043D \u043F\u043E\u0434 \u043D\u0438\u043A\u043E\u043C.",
+        "23 \u043D\u043E\u0432\u044B\u0445 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u044F (\u0432\u0441\u0435\u0433\u043E 44) \u2014 \u043E\u0442 \u043B\u0451\u0433\u043A\u0438\u0445 (\u043E\u0442\u0432\u0435\u0442\u0438\u0442\u044C \u043D\u0430 50 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A, \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u043D\u0438\u043A) \u0434\u043E \u043E\u0447\u0435\u043D\u044C \u0441\u043B\u043E\u0436\u043D\u044B\u0445 (\u0441\u0435\u0440\u0438\u044F 100 \u0434\u043D\u0435\u0439, 25 \u0443\u0440\u043E\u0432\u0435\u043D\u044C). \u0422\u043E\u0447\u043A\u0438 \u043F\u043E\u0434 \u0437\u043D\u0430\u0447\u043A\u043E\u043C \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u044E\u0442 \u0441\u043B\u043E\u0436\u043D\u043E\u0441\u0442\u044C.",
+        "\u0412\u0440\u0435\u043C\u044F \u0441\u0443\u0442\u043E\u043A \u043D\u0430 \u0430\u0440\u0435\u043D\u0435 \u0441\u043B\u0435\u0434\u0443\u0435\u0442 \u0432\u0430\u0448\u0438\u043C \u0447\u0430\u0441\u0430\u043C: \u0434\u0435\u043D\u044C \u0434\u043E 17:00, \u0437\u0430\u043A\u0430\u0442 \u0434\u043E 20:00, \u0437\u0430\u0442\u0435\u043C \u043D\u043E\u0447\u044C (\u0431\u0435\u0437 \u0442\u0440\u0451\u0445\u043C\u0438\u043D\u0443\u0442\u043D\u043E\u0433\u043E \u0446\u0438\u043A\u043B\u0430).",
+        "\u0411\u043E\u043B\u0435\u0435 \u0441\u043F\u043E\u043A\u043E\u0439\u043D\u0430\u044F \u0438 \u043C\u044F\u0433\u043A\u0430\u044F \u043C\u0435\u043B\u043E\u0434\u0438\u044F \u043C\u0435\u043D\u044E, \u0438 \u043C\u0443\u0437\u044B\u043A\u0430 \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F \u0442\u0438\u0448\u0435.",
+        "3D-\u0431\u043E\u0438: \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F \u043B\u0435\u0442\u044F\u0442 \u0441\u0432\u0435\u0442\u044F\u0449\u0438\u043C\u0438\u0441\u044F \u0441\u0444\u0435\u0440\u0430\u043C\u0438 (\u0431\u0435\u0437 \u043A\u0430\u043D\u0434\u0437\u0438 \u0432 \u0432\u043E\u0437\u0434\u0443\u0445\u0435); \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0435\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 \u0434\u043E\u043B\u0435\u0442\u0430\u0435\u0442 \u0440\u0430\u043D\u044C\u0448\u0435, \u0447\u0435\u043C \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A \u043F\u0430\u0434\u0430\u0435\u0442; \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436\u0438 \u0434\u0435\u0440\u0436\u0430\u0442 \u043F\u043E\u0441\u043E\u0445 \u0432 \u0441\u0442\u043E\u0440\u043E\u043D\u0435, \u0440\u0443\u043A\u0438 \u043A\u0440\u0443\u043F\u043D\u0435\u0435; \u0440\u0443\u043A\u043E\u044F\u0442\u044C \u043F\u043E\u0441\u043E\u0445\u0430 Void \u0441\u0432\u0435\u0442\u0438\u0442\u0441\u044F \u043B\u0435\u0434\u044F\u043D\u044B\u043C \u0433\u043E\u043B\u0443\u0431\u044B\u043C, \u043F\u043E\u043A\u0430 \u0432\u044B \u043A\u043E\u043B\u0434\u0443\u0435\u0442\u0435.",
+        "\u0411\u043E\u0441\u0441: \u043F\u0430\u0432\u0448\u0438\u0439 \u0442\u043E\u0432\u0430\u0440\u0438\u0449 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043F\u043E\u043B\u0443\u0447\u0430\u0435\u0442 \u0446\u0438\u0444\u0440\u044B \u0443\u0440\u043E\u043D\u0430 \u043E\u0442 \u043E\u0433\u043D\u044F \u0434\u0440\u0430\u043A\u043E\u043D\u0430.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u043A\u043E\u0433\u0434\u0430 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u044B \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u043B\u0438\u0441\u044C, \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u0433\u043E\u0432\u043E\u0440\u0438\u0442 \u043E\u0431 \u044D\u0442\u043E\u043C, \u0430 \u043D\u0435 \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442 \u043D\u043E\u0432\u044B\u0439.",
+        "\u0418\u0441\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F: \u0441\u043C\u0435\u043D\u0430 \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u0442 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0438 \u043B\u0438\u043C\u0438\u0442\u044B \u043F\u0440\u043E\u0448\u043B\u043E\u0433\u043E; \u0432\u044B\u0431\u043E\u0440 \u0440\u0435\u0436\u0438\u043C\u0430 \u0434\u043B\u044F \u043F\u0440\u0438\u0432\u0430\u0442\u043D\u043E\u0439 \u043A\u043E\u043C\u043D\u0430\u0442\u044B \u043F\u043E\u0432\u0442\u043E\u0440\u044F\u0435\u0442\u0441\u044F, \u0435\u0441\u043B\u0438 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \xAB\u0437\u0430\u0432\u0438\u0441\u043B\u043E\xBB (\u0438 \u0441\u043E\u043E\u0431\u0449\u0430\u0435\u0442 \u043E\u0431 \u043E\u0448\u0438\u0431\u043A\u0435); \u043E\u043A\u043D\u043E \u0432\u0445\u043E\u0434\u0430 \u2014 \u0432 \u0446\u0435\u043D\u0442\u0440\u0435 \u044D\u043A\u0440\u0430\u043D\u0430; \u043D\u0430 \u0443\u0437\u043A\u0438\u0445 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430\u0445 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044F \u0443\u0440\u043E\u0432\u043D\u0435\u0439 \u0432\u043E \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445\xBB \u043D\u0435 \u043D\u0430\u0435\u0437\u0436\u0430\u044E\u0442 \u043D\u0430 \u0447\u0438\u0441\u043B\u0430."
+      ]
+    },
     {
       v: "0.9.9.5.1",
       date: "2026-10",
@@ -9270,19 +9628,19 @@ ${stack}`.slice(0, 2e3);
   init_kana();
   init_ui();
   init_zoom();
-  var KEY5 = "kb:gamekb";
+  var KEY6 = "kb:gamekb";
   var ROWS = ["qwertyuiop", "asdfghjkl-", "zxcvbnm"];
   var touch = () => matchMedia("(pointer: coarse)").matches;
   var gameKbPref = () => {
     try {
-      return localStorage.getItem(KEY5) !== "system";
+      return localStorage.getItem(KEY6) !== "system";
     } catch {
       return true;
     }
   };
   function setGameKbPref(on) {
     try {
-      localStorage.setItem(KEY5, on ? "game" : "system");
+      localStorage.setItem(KEY6, on ? "game" : "system");
     } catch {
     }
   }
@@ -9372,7 +9730,7 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/audio.ts
   var PREFS_KEY = "kb:audio";
-  var DEFAULTS = { radio: true, sfx: true, musicVol: 0.7, sfxVol: 0.8 };
+  var DEFAULTS = { radio: true, sfx: true, musicVol: 0.45, sfxVol: 0.8 };
   var prefs = (() => {
     try {
       return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
@@ -9688,7 +10046,7 @@ ${stack}`.slice(0, 2e3);
       o.stop(at + dur + 0.6);
     }
   }
-  function flute(n, at, dur, bus) {
+  function flute(n, at, dur, bus, level2 = 0.045) {
     const c = ctx;
     const o = c.createOscillator();
     const vib = c.createOscillator();
@@ -9700,8 +10058,8 @@ ${stack}`.slice(0, 2e3);
     o.frequency.value = midi(n);
     const g = c.createGain();
     g.gain.setValueAtTime(1e-4, at);
-    g.gain.exponentialRampToValueAtTime(0.045, at + 0.06);
-    g.gain.setValueAtTime(0.04, at + dur * 0.7);
+    g.gain.exponentialRampToValueAtTime(level2, at + Math.min(0.25, dur * 0.3));
+    g.gain.setValueAtTime(level2 * 0.9, at + dur * 0.7);
     g.gain.exponentialRampToValueAtTime(1e-4, at + dur);
     o.connect(g).connect(bus);
     const s = c.createGain();
@@ -9738,45 +10096,72 @@ ${stack}`.slice(0, 2e3);
       o.stop(at + dur + 0.05);
     }
   }
+  function pad(notes, at, dur, bus, level2 = 0.022) {
+    const c = ctx;
+    const lp2 = c.createBiquadFilter();
+    lp2.type = "lowpass";
+    lp2.frequency.value = 900;
+    lp2.Q.value = 0.3;
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, at);
+    g.gain.exponentialRampToValueAtTime(level2, at + 1.6);
+    g.gain.setValueAtTime(level2, at + dur - 1);
+    g.gain.exponentialRampToValueAtTime(1e-4, at + dur + 1.2);
+    lp2.connect(g).connect(bus);
+    const s = c.createGain();
+    s.gain.value = 0.8;
+    g.connect(s).connect(reverb);
+    for (const n of notes) for (const [type2, d] of [["sine", -4], ["triangle", 5]]) {
+      const o = c.createOscillator();
+      o.type = type2;
+      o.frequency.value = midi(n);
+      o.detune.value = d;
+      o.connect(lp2);
+      o.start(at);
+      o.stop(at + dur + 1.3);
+    }
+  }
   var menuTheme = (() => {
     const PROG = [
-      [50, 57, 62, 65],
-      [46, 53, 58, 62],
-      [41, 48, 53, 57],
-      [48, 55, 60, 64],
-      [50, 57, 62, 65],
-      [43, 50, 55, 58],
-      [45, 52, 57, 61],
-      [50, 57, 62, 65]
+      [41, 57, 60, 64, 69],
+      [38, 57, 60, 64, 65],
+      [34, 57, 62, 65, 69],
+      [36, 55, 60, 65, 67],
+      [33, 55, 60, 64, 67],
+      [38, 57, 60, 62, 65],
+      [31, 57, 62, 65, 70],
+      [36, 55, 60, 64, 67]
     ];
     const MELODY = [
-      [74, 0, 77, 0, 76, 74, 72, 0],
-      [74, 0, 0, 70, 72, 0, 74, 0],
-      [72, 0, 69, 0, 72, 74, 77, 0],
-      [76, 0, 74, 72, 74, 0, 0, 0],
-      [74, 0, 77, 0, 81, 0, 79, 77],
-      [79, 0, 77, 0, 74, 0, 70, 0],
-      [73, 0, 76, 0, 79, 77, 76, 73],
-      [74, 0, 0, 0, 0, 0, 0, 0]
+      [72, 0, 0, 0, 76, 0, 74, 0, 72, 0, 0, 0, 0, 0, 0, 0],
+      [74, 0, 0, 0, 72, 0, 69, 0, 72, 0, 0, 0, 0, 0, 0, 0],
+      [74, 0, 0, 0, 77, 0, 76, 0, 74, 0, 0, 0, 72, 0, 0, 0],
+      [72, 0, 0, 0, 0, 0, 0, 0, 67, 0, 0, 0, 0, 0, 0, 0],
+      [76, 0, 0, 0, 79, 0, 77, 0, 76, 0, 0, 0, 72, 0, 0, 0],
+      [74, 0, 0, 0, 77, 0, 74, 0, 72, 0, 0, 0, 0, 0, 0, 0],
+      [70, 0, 0, 0, 74, 0, 72, 0, 69, 0, 0, 0, 67, 0, 0, 0],
+      [67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ];
-    const track = makeTrack(84, () => menuBus, (step, at) => {
+    const ARP = [1, 2, 3, 4, 3, 2, 3, 4];
+    const track = makeTrack(64, () => menuBus, (step, at) => {
       const STEP = track.STEP;
-      const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
-      const loop = Math.floor(step / (8 * PROG.length));
+      const bar = Math.floor(step / 16) % PROG.length, inBar = step % 16, chord = PROG[bar];
+      const loop = Math.floor(step / (16 * PROG.length));
       if (inBar === 0) {
-        strings(chord.slice(1), at, STEP * 8, menuBus);
-        tone(midi(chord[0] - 12), at, STEP * 7, { gain: 0.07, bus: menuBus, attack: 0.05 });
+        pad(chord.slice(1), at, STEP * 16, menuBus);
+        tone(midi(chord[0]), at, STEP * 15, { gain: 0.045, bus: menuBus, attack: 0.4 });
       }
-      const arp = [0, 1, 2, 3, 2, 1, 2, 3][inBar];
-      tone(midi(chord[arp] + 12), at, 1.4, { type: "triangle", gain: 0.05, bus: menuBus, send: 0.5, attack: 3e-3 });
-      tone(midi(chord[arp] + 24), at, 0.5, { gain: 0.015, bus: menuBus, send: 0.5, attack: 3e-3 });
-      if (inBar === 0 || inBar === 3 || inBar === 6) tone(inBar === 0 ? 62 : 55, at, 0.45, { gain: inBar === 0 ? 0.16 : 0.09, to: 38, bus: menuBus, attack: 4e-3 });
-      if (loop % 3 !== 0) {
+      if (inBar % 2 === 0) {
+        const n = chord[ARP[inBar / 2 % ARP.length]] + 12;
+        tone(midi(n), at, 2.2, { type: "sine", gain: 0.022, bus: menuBus, send: 0.9, attack: 4e-3 });
+        if (inBar % 4 === 0) tone(midi(n + 12), at, 1.2, { gain: 6e-3, bus: menuBus, send: 0.9, attack: 4e-3 });
+      }
+      if (loop % 2 === 1) {
         const n = MELODY[bar][inBar];
         if (n) {
           let len = 1;
-          while (inBar + len < 8 && MELODY[bar][inBar + len] === 0) len++;
-          flute(n, at, STEP * Math.min(len, 4) * 0.95, menuBus);
+          while (inBar + len < 16 && MELODY[bar][inBar + len] === 0) len++;
+          flute(n, at, STEP * Math.min(len, 6) * 0.95, menuBus, 0.026);
         }
       }
     });
@@ -10052,7 +10437,16 @@ ${stack}`.slice(0, 2e3);
     people: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 14.5c3 0 6 1.8 6 5"/>',
     leaf: '<path d="M5 19C5 9 11 4 20 4c0 9-5 15-15 15z"/><path d="M5 19l8-8"/>',
     star: '<path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/>',
-    kingslayer: '<path d="M3.5 9l3.5 3.5L10.5 7l3 4.5L17 9l-1.6 8.5H5.2z"/><path d="M21 3L9 21"/>'
+    kingslayer: '<path d="M3.5 9l3.5 3.5L10.5 7l3 4.5L17 9l-1.6 8.5H5.2z"/><path d="M21 3L9 21"/>',
+    hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/><path d="M10 18h4"/>',
+    scroll: '<path d="M7 4h11a2 2 0 0 1 0 4H9v10a2 2 0 0 1-4 0V6a2 2 0 0 1 2-2z"/><path d="M9 18h10a2 2 0 0 0 0-4h-1M11 10h5M11 13h4"/>',
+    shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 7v10M8 11h8"/>',
+    gem: '<path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M9 4l-1.5 5L12 20M15 4l1.5 5L12 20"/>',
+    quill: '<path d="M20 3C12 4 7 9 5 19l2-1c1-3 3-5 5-6l-2-1 4-1c2-2 4-4 6-7z"/><path d="M4 21l3-3"/>',
+    bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/><path d="M12 7l1 2.1 2.3.3-1.7 1.6.4 2.3-2-1.1-2 1.1.4-2.3L8.7 9.4 11 9z"/>',
+    tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.4"/>',
+    mountain: '<path d="M2 20l7-12 4 6 3-4 6 10z"/><path d="M9 8l2 3 1.5-1"/>',
+    check: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 12l3 3 5-6"/>'
   };
   function badgeSvg(a, locked) {
     const c = a.color;
@@ -10118,7 +10512,7 @@ ${stack}`.slice(0, 2e3);
       }
       if (!locked && onBadges) {
         b.classList.add("pickable");
-        const toggle = () => {
+        const toggle2 = () => {
           if (pinned) return onBadges(badges2.filter((x) => x !== a.id));
           if (badges2.length >= BADGES_MAX2) {
             toast(`Up to ${BADGES_MAX2} badges \u2014 click one with a \u2605 to remove it first.`);
@@ -10126,11 +10520,11 @@ ${stack}`.slice(0, 2e3);
           }
           onBadges([...badges2, a.id]);
         };
-        b.onclick = toggle;
+        b.onclick = toggle2;
         b.onkeydown = (e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            toggle();
+            toggle2();
           }
         };
       }
@@ -10208,6 +10602,19 @@ ${stack}`.slice(0, 2e3);
   function comboMilestone(combo, unlocks2) {
     for (const [n, id] of COMBO_ACHIEVEMENTS) if (combo >= n && !has(unlocks2, id)) celebrate(id);
   }
+  function keepTipOnScreen(e) {
+    const tip = e.target?.closest?.(".ach")?.querySelector(".ach-tip");
+    if (!tip) return;
+    tip.style.setProperty("--tip-dx", "0px");
+    requestAnimationFrame(() => {
+      const r2 = tip.getBoundingClientRect();
+      if (!r2.width) return;
+      const pad3 = 8, dx = r2.left < pad3 ? pad3 - r2.left : r2.right > innerWidth - pad3 ? innerWidth - pad3 - r2.right : 0;
+      tip.style.setProperty("--tip-dx", `${Math.round(dx / (r2.width / tip.offsetWidth || 1))}px`);
+    });
+  }
+  document.addEventListener("pointerover", keepTipOnScreen);
+  document.addEventListener("focusin", keepTipOnScreen);
 
   // src/client/friendrail.ts
   init_api();
@@ -10271,7 +10678,7 @@ ${stack}`.slice(0, 2e3);
       img.src = f2.pic;
       img.alt = "";
       a.append(img);
-    } else a.textContent = f2.username.slice(0, 1).toUpperCase();
+    } else a.textContent = (f2.name ?? f2.username).slice(0, 1).toUpperCase();
     a.append(el5("i", "fr-dot"));
     return a;
   };
@@ -10289,10 +10696,10 @@ ${stack}`.slice(0, 2e3);
       };
       const rows2 = collapsed[key] ? [] : list2.map((f2) => {
         const r2 = el5("div", "fr-row" + (f2.online ? " online" : ""));
-        markProfile(r2, { id: f2.id, name: f2.username, bot: null });
-        r2.title = `${f2.username} \u2014 view profile`;
+        markProfile(r2, { id: f2.id, name: f2.name ?? f2.username, bot: null });
+        r2.title = `${f2.name ?? f2.username} \u2014 view profile`;
         const txt = el5("span", "fr-txt");
-        txt.append(el5("span", "fr-name", f2.username), el5("small", "fr-status", f2.online ? f2.activity ?? "Online" : "Offline"));
+        txt.append(el5("span", "fr-name", f2.name ?? f2.username), el5("small", "fr-status", f2.online ? f2.activity ?? "Online" : "Offline"));
         r2.append(avatar(f2), txt, el5("span", "fr-lv", `Lv ${f2.level ?? 0}`));
         return r2;
       });
@@ -10343,7 +10750,7 @@ ${stack}`.slice(0, 2e3);
     const row = (f2, buttons, note) => {
       const r2 = el5("div", "fd-row");
       const t = el5("span", "fr-txt");
-      t.append(el5("span", "fr-name", f2.username), el5("small", "fr-status", note));
+      t.append(el5("span", "fr-name", f2.name ?? f2.username), el5("small", "fr-status", note));
       r2.append(avatar(f2), t, ...buttons);
       return r2;
     };
@@ -10379,17 +10786,17 @@ ${stack}`.slice(0, 2e3);
   init_zoom();
 
   // src/client/voice.ts
-  var KEY6 = "kb:voice";
+  var KEY7 = "kb:voice";
   var prefs2 = (() => {
     try {
-      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY6) ?? "{}") };
+      return { on: true, vol: 0.9, ...JSON.parse(localStorage.getItem(KEY7) ?? "{}") };
     } catch {
       return { on: true, vol: 0.9 };
     }
   })();
-  var save2 = () => {
+  var save3 = () => {
     try {
-      localStorage.setItem(KEY6, JSON.stringify(prefs2));
+      localStorage.setItem(KEY7, JSON.stringify(prefs2));
     } catch {
     }
   };
@@ -10408,23 +10815,23 @@ ${stack}`.slice(0, 2e3);
     pick2();
     synth.addEventListener?.("voiceschanged", pick2);
   }
-  var android = window.KWAndroid ?? null;
+  var android2 = window.KWAndroid ?? null;
   var androidSay = (kana) => {
     try {
-      return !!android?.canSpeak() && android.speak(kana, 0.95, 0.85);
+      return !!android2?.canSpeak() && android2.speak(kana, 0.95, 0.85);
     } catch {
       return false;
     }
   };
-  var voiceAvailable = () => !!synth || !!android;
+  var voiceAvailable = () => !!synth || !!android2;
   var getVoicePrefs = () => ({ ...prefs2, name: voice?.name ?? null, male });
   function setVoiceVolume(v) {
     prefs2.vol = Math.max(0, Math.min(1, v));
     prefs2.on = prefs2.vol > 0;
-    save2();
+    save3();
   }
   function say(kana) {
-    if (android && prefs2.on && prefs2.vol > 0) {
+    if (android2 && prefs2.on && prefs2.vol > 0) {
       androidSay(kana);
       return;
     }
@@ -10441,7 +10848,7 @@ ${stack}`.slice(0, 2e3);
     synth.speak(u);
   }
   function speak(kana) {
-    if (android && prefs2.on && prefs2.vol > 0 && document.visibilityState === "visible") {
+    if (android2 && prefs2.on && prefs2.vol > 0 && document.visibilityState === "visible") {
       if (!androidSay(kana)) return Promise.resolve();
       return new Promise((done2) => setTimeout(done2, Math.min(2600, 500 + [...kana].length * 220)));
     }
@@ -11471,17 +11878,17 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/queue.ts
   var QUEUE_MODES = ["reading", "writing", "rapid", "boss"];
-  var KEY7 = "kb:queue";
+  var KEY8 = "kb:queue";
   var load4 = () => {
     try {
-      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY7) ?? "{}") };
+      return { modes: ["reading", "rapid"], levels: ["N5"], ...JSON.parse(localStorage.getItem(KEY8) ?? "{}") };
     } catch {
       return { modes: ["reading", "rapid"], levels: ["N5"] };
     }
   };
-  var save3 = (s) => {
+  var save4 = (s) => {
     try {
-      localStorage.setItem(KEY7, JSON.stringify(s));
+      localStorage.setItem(KEY8, JSON.stringify(s));
     } catch {
     }
   };
@@ -11528,7 +11935,7 @@ ${stack}`.slice(0, 2e3);
   var picked2 = (id) => [...document.querySelectorAll(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
   var pick3 = "battle";
   function remember() {
-    save3({ modes: picked2("qModes"), levels: picked2("qLevels"), pick: pick3 });
+    save4({ modes: picked2("qModes"), levels: picked2("qLevels"), pick: pick3 });
   }
   function choose2(p, silent = false) {
     if (p === "deck" && !canPlay("deck")) {
@@ -11711,7 +12118,7 @@ ${stack}`.slice(0, 2e3);
     C: "#9fb4ff"
     // sleeve cuff
   };
-  function draw() {
+  function draw2() {
     const g = Array.from({ length: G }, () => Array(G).fill(null));
     const set2 = (x, y, c) => {
       if (x >= 0 && y >= 0 && x < G && y < G) g[y][x] = c;
@@ -11759,7 +12166,7 @@ ${stack}`.slice(0, 2e3);
   var css = "";
   function brushCursor() {
     if (css) return css;
-    const g = draw();
+    const g = draw2();
     let rects = "";
     g.forEach((row, y) => row.forEach((c, x) => {
       if (c) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${COLORS[c]}"/>`;
@@ -11810,6 +12217,24 @@ ${stack}`.slice(0, 2e3);
       this.ws = void 0;
       ws?.close();
       this.onState("stopped");
+    }
+    /**
+     * 0.9.9.6: the connection looks open but nothing comes back (a phone that changed networks keeps a dead
+     * socket that still says "open"): drop it, connect again and send `msg` on the new one.
+     */
+    restart(msg) {
+      if (this.stopped) return;
+      if (msg) this.queue.push(JSON.stringify(msg));
+      const ws = this.ws;
+      this.ws = void 0;
+      try {
+        ws?.close();
+      } catch {
+      }
+      this.connect(true);
+    }
+    get open() {
+      return this.ws?.readyState === WebSocket.OPEN;
     }
     send(msg) {
       const data = JSON.stringify(msg);
@@ -12591,20 +13016,8 @@ ${stack}`.slice(0, 2e3);
     const lvl = levelOf(profile3.xp);
     const sel = items.find((i) => i.id === picked3[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
     $9("custSub").textContent = CUST_SUB[custTab](profile3);
-    const times = $9("bgTimes");
-    times.hidden = custTab !== "arena";
-    if (custTab === "arena") {
-      const pref = getTimePref();
-      times.replaceChildren(...TIMES.map((t) => {
-        const b = el7("button", "pill" + (t.id === pref ? " on" : ""), t.id === "auto" ? `Cycle (now: ${resolveTime(pref)})` : t.id === "day" ? "Day" : t.id === "sunset" ? "Sunset" : "Night");
-        b.onclick = () => {
-          setTimePref(t.id);
-          onTimeChange();
-          renderCustomize();
-        };
-        return b;
-      }));
-    }
+    $9("bgTimes").hidden = true;
+    void onTimeChange;
     const equip = async (it) => {
       if (it.locked) return toast(it.lockedToast);
       try {
@@ -12634,7 +13047,7 @@ ${stack}`.slice(0, 2e3);
     extra.hidden = custTab !== "profile";
     if (custTab === "profile") {
       const box = el7("div", "ach-box");
-      const draw2 = () => renderAchievements(box, profile3.unlocks, profile3.badges ?? [], (next3) => {
+      const draw3 = () => renderAchievements(box, profile3.unlocks, profile3.badges ?? [], (next3) => {
         const before = profile3.badges ?? [];
         profile3.badges = next3;
         renderCustomize();
@@ -12648,7 +13061,7 @@ ${stack}`.slice(0, 2e3);
           toast(e.message);
         });
       });
-      draw2();
+      draw3();
       extra.replaceChildren(box);
     }
     const canvas = $9("staffCanvas");
@@ -13433,8 +13846,8 @@ ${stack}`.slice(0, 2e3);
     const row = (f2, actions) => {
       const r2 = el10("div", "fl-row" + (f2.online ? " online" : ""));
       const who = el10("div", "fl-who");
-      const name = el10("span", "fl-name", f2.username);
-      markProfile(name, { id: f2.id, name: f2.username, bot: null });
+      const name = el10("span", "fl-name", f2.name ?? f2.username);
+      markProfile(name, { id: f2.id, name: f2.name ?? f2.username, bot: null });
       who.append(el10("i", "dot"), name, el10("small", "", f2.status === "accepted" ? f2.online ? f2.activity ?? "Online" : "Offline" : f2.status === "incoming" ? "wants to be friends" : "request sent"));
       r2.append(who, el10("div", "fl-actions"));
       r2.lastElementChild.append(...actions);
@@ -13511,7 +13924,7 @@ ${stack}`.slice(0, 2e3);
         invitedAt.set(f2.id, Date.now());
         void renderLobbyInvites(true);
       };
-      r2.append(el10("i", "dot"), el10("span", "", f2.username), el10("small", "hint", f2.activity ?? ""), b);
+      r2.append(el10("i", "dot"), el10("span", "", f2.name ?? f2.username), el10("small", "hint", f2.activity ?? ""), b);
       return r2;
     }));
     if (soonest < Infinity) cooldownTimer = window.setTimeout(() => {
@@ -13834,6 +14247,7 @@ ${stack}`.slice(0, 2e3);
   initWhatsNew();
   applyUiZoom();
   centerScreens();
+  initReminders();
   var user = null;
   var profile2 = null;
   var you = "";
@@ -14077,6 +14491,7 @@ ${stack}`.slice(0, 2e3);
   };
   function signedIn3(u) {
     user = u;
+    remindersSignedIn();
     if (!isOffline()) void signedIn(u.id);
     setUser(u);
     setRailUser(true);
@@ -14094,13 +14509,23 @@ ${stack}`.slice(0, 2e3);
     setRailUser(false);
     setAuthTab(authTab);
     show("auth");
-    $("authError").textContent = message;
+    let left = "";
+    try {
+      left = sessionStorage.getItem("kw:auth-msg") ?? "";
+      sessionStorage.removeItem("kw:auth-msg");
+    } catch {
+    }
+    $("authError").textContent = message || left;
   }
   function logout(message = "") {
-    void signedOut();
+    const reminders = remindersSignedOut();
     setToken("");
     socket.stop();
-    showAuth(message);
+    try {
+      sessionStorage.setItem("kw:auth-msg", message);
+    } catch {
+    }
+    void Promise.allSettled([reminders, signedOut()]).finally(() => location.reload());
   }
   function backToMenu() {
     inRoom = false;
@@ -14145,6 +14570,7 @@ ${stack}`.slice(0, 2e3);
         setError(`${msg.message} Refresh this page to play here.`);
         break;
       case "joined":
+        createDone();
         resetQueue();
         you = msg.you;
         code = msg.code;
@@ -14317,6 +14743,7 @@ ${stack}`.slice(0, 2e3);
         setRematchStatus(msg.votes, you, players.length, minPlayers);
         break;
       case "error":
+        createDone();
         if (inRoom) {
           $("lobbyStatus").textContent = msg.message;
           toast(msg.message);
@@ -14361,7 +14788,7 @@ ${stack}`.slice(0, 2e3);
         break;
       case "breath": {
         const immune = e.immune ?? [];
-        const victims = players.filter((p) => !immune.includes(p.id) && (p.hp > 0 || p.hp + e.damage > 0)).map((p) => actorOf(p.id));
+        const victims = (e.victims ? players.filter((p) => e.victims.includes(p.id)) : players.filter((p) => !immune.includes(p.id) && p.hp > 0)).map((p) => actorOf(p.id));
         breathFire(e.damage, victims, immune.map((id) => actorOf(id)));
         if (immune.includes(you)) toast("You are on fire \u2014 immune to dragon breath!");
         sfx.fire();
@@ -14371,11 +14798,11 @@ ${stack}`.slice(0, 2e3);
       }
     }
   }
-  var pad = new HandwritingPad($("pad"), () => shareInk());
+  var pad2 = new HandwritingPad($("pad"), () => shareInk());
   var twitchAt = 0;
-  pad.onDraw = () => {
+  pad2.onDraw = () => {
     shareInk();
-    if (mode3 !== "deck") arena()?.channel(Math.min(1, 0.45 + pad.strokeCount * 0.12));
+    if (mode3 !== "deck") arena()?.channel(Math.min(1, 0.45 + pad2.strokeCount * 0.12));
     gemBack();
     if (Date.now() - twitchAt > 140) {
       twitchAt = Date.now();
@@ -14394,7 +14821,7 @@ ${stack}`.slice(0, 2e3);
     const send2 = () => {
       inkTimer = 0;
       inkAt = Date.now();
-      socket.send({ type: "deck_ink", castId: challengeId, strokes: pad.ink(), cells: pad.cellCount });
+      socket.send({ type: "deck_ink", castId: challengeId, strokes: pad2.ink(), cells: pad2.cellCount });
     };
     if (inkTimer) return;
     const wait = 120 - (Date.now() - inkAt);
@@ -14413,8 +14840,8 @@ ${stack}`.slice(0, 2e3);
     $("imePost").textContent = post;
     $("imePost").hidden = !post;
     written = [];
-    if (writeShape.includes("\u25A1") && /[^□]/.test(writeShape)) pad.setLayout(writeShape);
-    else pad.setCells(charCount);
+    if (writeShape.includes("\u25A1") && /[^□]/.test(writeShape)) pad2.setLayout(writeShape);
+    else pad2.setCells(charCount);
     setEraser(false);
     arena()?.channel(0.35);
     if (mode3 === "deck") mountWriteArea("dkWrite");
@@ -14450,14 +14877,14 @@ ${stack}`.slice(0, 2e3);
     lockInput();
     writing = false;
   }
-  $("padUndo").onclick = () => pad.undo();
+  $("padUndo").onclick = () => pad2.undo();
   var setEraser = (on) => {
-    pad.setEraser(on);
+    pad2.setEraser(on);
     $("padErase").setAttribute("aria-pressed", String(on));
     $("padErase").classList.toggle("on", on);
   };
-  $("padErase").onclick = () => setEraser(!pad.eraser);
-  $("padClear").onclick = () => pad.clear();
+  $("padErase").onclick = () => setEraser(!pad2.eraser);
+  $("padClear").onclick = () => pad2.clear();
   $("answer").addEventListener("input", (e) => {
     arena()?.channel(Math.min(0.8, e.target.value.length * 0.15));
     arena()?.twitch();
@@ -14470,8 +14897,8 @@ ${stack}`.slice(0, 2e3);
   });
   $("padSkip").onclick = () => skip();
   $("padNext").onclick = () => {
-    if (pad.strokeCount === 0) return;
-    written = [pad.take()];
+    if (pad2.strokeCount === 0) return;
+    written = [pad2.take()];
     submitDrawing();
   };
   for (const id of ["imeInput", "answer"]) {
@@ -14501,8 +14928,8 @@ ${stack}`.slice(0, 2e3);
     else if (e.key === "Escape") skip();
     else if ((e.ctrlKey || e.metaKey) && e.key === "z") {
       e.preventDefault();
-      pad.undo();
-    } else if (e.key === "e" || e.key === "E") setEraser(!pad.eraser);
+      pad2.undo();
+    } else if (e.key === "e" || e.key === "E") setEraser(!pad2.eraser);
   });
   var authTab = "login";
   $("tabLogin").onclick = () => {
@@ -14533,6 +14960,28 @@ ${stack}`.slice(0, 2e3);
     }
   });
   $("logout").onclick = () => logout();
+  $("ppRename").onclick = () => {
+    const f2 = $("ppRenameForm");
+    f2.hidden = !f2.hidden;
+    if (!f2.hidden) {
+      const i = $("ppRenameInput");
+      i.value = user?.nickname ?? "";
+      i.focus();
+    }
+  };
+  $("ppRenameForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const i = $("ppRenameInput");
+    try {
+      const r2 = await api.setNickname(i.value);
+      user = r2.user;
+      setUser(r2.user);
+      $("ppRenameForm").hidden = true;
+      toast(r2.user.nickname ? `${tr("Your nickname")}: ${r2.user.nickname}` : tr("Nickname cleared \u2014 others see your login"));
+    } catch (err) {
+      toast(err.message, 5e3);
+    }
+  });
   $("studyLockBtn").onclick = () => void openStudy();
   $("create").onclick = () => {
     setError("");
@@ -14549,12 +14998,34 @@ ${stack}`.slice(0, 2e3);
     openQueue();
   };
   initQueue((m) => socket.send(m), () => user?.id ?? "");
+  var creating = null;
+  function createDone() {
+    if (!creating) return;
+    creating.timers.forEach(clearTimeout);
+    creating = null;
+    for (const c of document.querySelectorAll(".mode-card")) c.classList.remove("busy");
+  }
   for (const card of document.querySelectorAll(".mode-card")) {
     card.onclick = () => {
       const m = card.dataset.mode;
       if (!canPlay(m)) return toast(lockText(m), 5e3);
+      if (isOffline()) return toast(tr("Online games need an internet connection"), 4e3);
+      if (creating) return;
       if (m === "deck") askNotifyPermission();
-      socket.send({ type: "create", mode: m, levels: savedLevels() });
+      const msg = { type: "create", mode: m, levels: savedLevels() };
+      card.classList.add("busy");
+      creating = { timers: [] };
+      socket.send(msg);
+      creating.timers.push(
+        window.setTimeout(() => {
+          if (creating && currentScreen() === "modes") socket.restart(msg);
+        }, 4e3),
+        window.setTimeout(() => {
+          if (!creating) return;
+          createDone();
+          if (currentScreen() === "modes") toast(tr("Couldn\u2019t reach the game server \u2014 check your connection and try again."), 5e3);
+        }, 12e3)
+      );
     };
   }
   $("dailyBtn").onclick = () => {

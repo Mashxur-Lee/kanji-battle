@@ -64,3 +64,36 @@ test('stories (0.9.9.5.1): written in the background — a job id at once, the s
     assert.equal(svc.usage('u', TODAY).used, 1);
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('0.9.9.6: nicknames — others see it, the login stays; another player’s login is refused', async () => {
+  const { AuthService } = await import('../src/server/auth/AuthService');
+  const { TokenSigner } = await import('../src/server/auth/tokens');
+  const store = new MemoryStore();
+  const auth = new AuthService(store, new TokenSigner('secret'));
+  const a = await store.create({ username: 'alice', passwordHash: 'x', role: 'user' });
+  await store.create({ username: 'bob', passwordHash: 'x', role: 'user' });
+  const pub = await auth.setNickname(a, '  Мудрая Сова ');
+  assert.equal(pub.name, 'Мудрая Сова');
+  assert.equal(pub.username, 'alice');
+  await assert.rejects(() => auth.setNickname(a, 'Bob'), /another player/);
+  await assert.rejects(() => auth.setNickname(a, 'x'), /2–24/);
+  const study = new StudyService(store);
+  const p = await study.publicProfile(a.id);
+  assert.deepEqual([p?.name, p?.login], ['Мудрая Сова', 'alice']);
+  assert.equal((await auth.setNickname((await store.findById(a.id))!, '')).name, 'alice');
+});
+
+test('0.9.9.6: reminder status — tasks left, the Daily challenge, reviews due', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const u = await store.create({ username: 'rem1', passwordHash: 'x', role: 'user' });
+  const s = await study.notifyStatus(u, TODAY);
+  assert.deepEqual([s.tasksLeft, s.tasksTotal, s.challengeDone, s.allDue], [4, 4, false, 0]);
+});
+
+test('0.9.9.6: the new achievements are earned from lifetime totals', async () => {
+  const { earnedAchievements } = await import('../src/shared/achievements');
+  const base = { wins: 0, level: 1, bestStreak: 0, learned: 0, friends: 0, seasonal: 0 };
+  assert.deepEqual(earnedAchievements({ ...base, reviews: 60, quizzes: 10, nickname: true }).sort(), ['first-steps', 'quiz-whiz', 'true-name']);
+  assert.ok(earnedAchievements({ ...base, bestStreak: 100 }).includes('unbreakable'));
+});

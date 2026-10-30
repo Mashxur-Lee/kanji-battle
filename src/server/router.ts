@@ -1,6 +1,7 @@
 // The REST API without the transport (0.9.9.4): the Node server (http.ts) feeds it real requests, and the
 // app's offline engine (client/offline) feeds it the same calls while there is no internet — so offline
 // study, quizzes, passages and the daily challenge run exactly the server's code.
+import { displayName } from './db/Store';
 import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/InsightsService';
 import { AuthError, toPublic, type AuthService } from './auth/AuthService';
 import { resolveToday, StudyError, type StudyService } from './study/StudyService';
@@ -167,11 +168,11 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         return res(200, { friends: await social.list(u.id) });
       } else if (social && r.method === 'POST' && url === '/api/friends') {
         const u = await auth.authenticate(r.token);
-        const result = await social.request(u.id, u.username, (await r.json()).username);
+        const result = await social.request(u.id, displayName(u), (await r.json()).username);
         return res(200, { result, friends: await social.list(u.id) });
       } else if (social && r.method === 'POST' && /^\/api\/friends\/[\w-]+\/accept$/.test(url)) {
         const u = await auth.authenticate(r.token);
-        await social.accept(u.id, u.username, url.split('/')[3]);
+        await social.accept(u.id, displayName(u), url.split('/')[3]);
         return res(200, { friends: await social.list(u.id) });
       } else if (social && r.method === 'DELETE' && /^\/api\/friends\/[\w-]+$/.test(url)) {
         const u = await auth.authenticate(r.token);
@@ -218,6 +219,12 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/study/deck') {
         const u = await auth.authenticate(r.token);
         return res(200, { words: await study.deckList(u, query.get('deck')) });
+      } else if (r.method === 'GET' && url === '/api/notify/status') {
+        const u = await auth.authenticate(r.token);
+        return res(200, await study.notifyStatus(u, resolveToday(query.get('today'))));
+      } else if (r.method === 'PUT' && url === '/api/me/nickname') {
+        const u = await auth.authenticate(r.token);
+        return res(200, { user: await auth.setNickname(u, (await r.json()).nickname) });
       } else if (r.method === 'PUT' && url === '/api/study/star') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();

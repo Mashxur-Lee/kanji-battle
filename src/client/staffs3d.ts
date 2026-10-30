@@ -41,6 +41,8 @@ interface Kit {
   mesh(geo: THREE.BufferGeometry, mat: THREE.Material, pos?: P3): THREE.Mesh;
   inst(geo: THREE.BufferGeometry, mat: THREE.Material, count: number): THREE.InstancedMesh;
   anim(fn: Anim): void;
+  /** how charged the staff is now (0 at rest … 1 casting) — 0.9.9.6 */
+  charge(): number;
   m: Mats;
 }
 const col = (r: number, g: number, b: number) => new THREE.Color(r, g, b);
@@ -417,6 +419,18 @@ function buildVoid(k: Kit): Orb {
     k.anim((f) => { rg.rotation.z = f * sp; });
   });
   k.stat(crystalGeo(0.62, 0.05, 0.032, 4), gem, [0, 0, 3.17]); // the spire above the orb
+  // 0.9.9.6: casting wakes the handle — the obsidian veins, the thread and the silver light up ice-blue as the
+  // orb builds, and settle again after
+  {
+    const vEI = vein.emissiveIntensity, eEI = energy.emissiveIntensity, ice = col(0.45, 0.82, 1);
+    let c = 0;
+    k.anim((_f, dt) => {
+      c += (k.charge() - c) * Math.min(1, dt * 5);
+      vein.emissiveIntensity = vEI * (1 + 5 * c);
+      energy.emissiveIntensity = eEI * (1 + 2.5 * c);
+      silver.emissive.copy(ice).multiplyScalar(0.85 * c);
+    });
+  }
   // every star and every white sparkle is pulled into the core, over and over
   const rels = scatterSphere(rng, N(110), 0.35, 0.85);
   for (let i = 0; i < N(40); i++) rels.push([rng.uniform(-0.12, 0.12), rng.uniform(-0.12, 0.12), rng.uniform(-1.2, 0.35)]);
@@ -454,6 +468,7 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
   group.add(B);
   const materials: THREE.MeshStandardMaterial[] = [], glassy: THREE.Material[] = [];
   const anims: Anim[] = [];
+  let chargeNow = 0;
   const batch = new Batch();
   const kit: Kit = {
     B, batch, rng: seeded(SEEDS[kind]), m: mats(materials, glassy),
@@ -461,6 +476,7 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
     mesh: (geo, mat, pos) => { const o = new THREE.Mesh(geo, mat); if (pos) o.position.set(...pos); B.add(o); return o; },
     inst: (geo, mat, count) => { const o = new THREE.InstancedMesh(geo, mat, count); o.frustumCulled = false; B.add(o); return o; },
     anim: (fn) => { anims.push(fn); },
+    charge: () => chargeNow,
   };
   const orb = BUILDERS[kind](kit);
   batch.build(B);
@@ -498,7 +514,7 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
   group.add(glow);
 
   let clock = Math.random() * 20; // staffs in the same arena don't move in step
-  const step = (dt: number, charge: number) => { clock += dt * (1 + charge * 1.5); const f = clock * 24; for (const a of anims) a(f, dt); };
+  const step = (dt: number, charge: number) => { chargeNow = charge; clock += dt * (1 + charge * 1.5); const f = clock * 24; for (const a of anims) a(f, dt); };
   step(0, 0);
   return {
     group, gem, gemMat, glow, color, materials,

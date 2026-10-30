@@ -1,3 +1,4 @@
+import { displayName } from '../db/Store';
 import { dailyCrit } from '../../shared/progress';
 import type { AdminUserRow, PublicUser, Role } from '../../shared/protocol';
 import { hashPassword, verifyPassword } from './passwords';
@@ -11,7 +12,7 @@ export class AuthError extends Error {
 /** The seeded admin account (index.ts): it can never lose its admin role. */
 export const OWNER = 'admin';
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
-export const toPublic = (u: UserRecord): PublicUser => ({ id: u.id, username: u.username, role: u.role });
+export const toPublic = (u: UserRecord): PublicUser => ({ id: u.id, username: u.username, role: u.role, name: displayName(u), nickname: u.nickname ?? null });
 
 export class AuthService {
   private banListeners: Array<(userId: string) => void> = [];
@@ -65,6 +66,21 @@ export class AuthService {
     const rec = await this.authenticate(token);
     if (rec.role !== 'admin') throw new AuthError('Admins only', 403);
     return rec;
+  }
+
+  /**
+   * 0.9.9.6: the name others see. 2–24 characters (letters of any script, digits, spaces and _ . - ' ), not
+   * someone else's login; empty clears it (the login shows again).
+   */
+  async setNickname(u: UserRecord, raw: unknown): Promise<PublicUser> {
+    const nick = String(raw ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim();
+    if (nick && !/^[\p{L}\p{N} _.'\-]{2,24}$/u.test(nick)) throw new AuthError('A nickname is 2–24 letters, numbers, spaces or _ . - \'');
+    if (nick && nick.toLowerCase() !== u.username) {
+      const other = await this.store.findByUsername(nick.toLowerCase());
+      if (other && other.id !== u.id) throw new AuthError('That is another player’s login — pick another nickname');
+    }
+    const rec = (await this.store.update(u.id, { nickname: nick || null }))!;
+    return toPublic(rec);
   }
 
   async listUsers(): Promise<AdminUserRow[]> {

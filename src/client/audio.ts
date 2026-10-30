@@ -3,7 +3,8 @@
 
 type Prefs = { radio: boolean; sfx: boolean; musicVol: number; sfxVol: number };
 const PREFS_KEY = 'kb:audio';
-const DEFAULTS: Prefs = { radio: true, sfx: true, musicVol: 0.7, sfxVol: 0.8 };
+// 0.9.9.6: the music starts quieter (it was 0.7) — a background, not the main thing
+const DEFAULTS: Prefs = { radio: true, sfx: true, musicVol: 0.45, sfxVol: 0.8 };
 const prefs: Prefs = (() => {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') }; } catch { return { ...DEFAULTS }; }
 })();
@@ -294,7 +295,7 @@ function strings(notes: number[], at: number, dur: number, bus: AudioNode, level
   }
 }
 
-function flute(n: number, at: number, dur: number, bus: AudioNode) {
+function flute(n: number, at: number, dur: number, bus: AudioNode, level = 0.045) {
   const c = ctx!;
   const o = c.createOscillator();
   const vib = c.createOscillator(); const vg = c.createGain();
@@ -302,8 +303,8 @@ function flute(n: number, at: number, dur: number, bus: AudioNode) {
   o.type = 'sine'; o.frequency.value = midi(n);
   const g = c.createGain();
   g.gain.setValueAtTime(0.0001, at);
-  g.gain.exponentialRampToValueAtTime(0.045, at + 0.06);
-  g.gain.setValueAtTime(0.04, at + dur * 0.7);
+  g.gain.exponentialRampToValueAtTime(level, at + Math.min(0.25, dur * 0.3));
+  g.gain.setValueAtTime(level * 0.9, at + dur * 0.7);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
   o.connect(g).connect(bus);
   const s = c.createGain(); s.gain.value = 0.7; g.connect(s).connect(reverb);
@@ -330,35 +331,57 @@ function horn(n: number, at: number, dur: number, bus: AudioNode, level = 0.05) 
   }
 }
 
-// ── Menu theme: a calm dark-fantasy loop in D minor (harp, strings, flute, low drum) ────────────────
+// ── Menu theme (0.9.9.6): soft and warm — slow pads, a music-box arpeggio, a sparse flute; no drums ──────
+/** A soft pad: sine + triangle voices, slow swell, warm lowpass. */
+function pad(notes: number[], at: number, dur: number, bus: AudioNode, level = 0.022) {
+  const c = ctx!;
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.3;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(level, at + 1.6);
+  g.gain.setValueAtTime(level, at + dur - 1);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 1.2);
+  lp.connect(g).connect(bus);
+  const s = c.createGain(); s.gain.value = 0.8; g.connect(s).connect(reverb);
+  for (const n of notes) for (const [type, d] of [['sine', -4], ['triangle', 5]] as const) {
+    const o = c.createOscillator();
+    o.type = type; o.frequency.value = midi(n); o.detune.value = d;
+    o.connect(lp); o.start(at); o.stop(at + dur + 1.3);
+  }
+}
 const menuTheme = (() => {
-  // i – VI – III – VII  (Dm – B♭ – F – C), then i – iv – V – i  (Dm – Gm – A – Dm)
+  // F major, two bars a chord: Fmaj7 – Dm9 – B♭maj7 – Csus, Am7 – Dm7 – Gm9 – C (gentle, open voicings)
   const PROG = [
-    [50, 57, 62, 65], [46, 53, 58, 62], [41, 48, 53, 57], [48, 55, 60, 64],
-    [50, 57, 62, 65], [43, 50, 55, 58], [45, 52, 57, 61], [50, 57, 62, 65],
+    [41, 57, 60, 64, 69], [38, 57, 60, 64, 65], [34, 57, 62, 65, 69], [36, 55, 60, 65, 67],
+    [33, 55, 60, 64, 67], [38, 57, 60, 62, 65], [31, 57, 62, 65, 70], [36, 55, 60, 64, 67],
   ];
+  // a sparse flute line (one note per beat at most; 0 = rest), every other time round
   const MELODY = [
-    [74, 0, 77, 0, 76, 74, 72, 0], [74, 0, 0, 70, 72, 0, 74, 0], [72, 0, 69, 0, 72, 74, 77, 0], [76, 0, 74, 72, 74, 0, 0, 0],
-    [74, 0, 77, 0, 81, 0, 79, 77], [79, 0, 77, 0, 74, 0, 70, 0], [73, 0, 76, 0, 79, 77, 76, 73], [74, 0, 0, 0, 0, 0, 0, 0],
+    [72, 0, 0, 0, 76, 0, 74, 0, 72, 0, 0, 0, 0, 0, 0, 0], [74, 0, 0, 0, 72, 0, 69, 0, 72, 0, 0, 0, 0, 0, 0, 0],
+    [74, 0, 0, 0, 77, 0, 76, 0, 74, 0, 0, 0, 72, 0, 0, 0], [72, 0, 0, 0, 0, 0, 0, 0, 67, 0, 0, 0, 0, 0, 0, 0],
+    [76, 0, 0, 0, 79, 0, 77, 0, 76, 0, 0, 0, 72, 0, 0, 0], [74, 0, 0, 0, 77, 0, 74, 0, 72, 0, 0, 0, 0, 0, 0, 0],
+    [70, 0, 0, 0, 74, 0, 72, 0, 69, 0, 0, 0, 67, 0, 0, 0], [67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   ];
-  const track = makeTrack(84, () => menuBus, (step, at) => {
+  const ARP = [1, 2, 3, 4, 3, 2, 3, 4]; // chord tones for the music box, one every quarter
+  const track = makeTrack(64, () => menuBus, (step, at) => {
     const STEP = track.STEP;
-    const bar = Math.floor(step / 8) % PROG.length, inBar = step % 8, chord = PROG[bar];
-    const loop = Math.floor(step / (8 * PROG.length));
+    const bar = Math.floor(step / 16) % PROG.length, inBar = step % 16, chord = PROG[bar];
+    const loop = Math.floor(step / (16 * PROG.length));
     if (inBar === 0) {
-      strings(chord.slice(1), at, STEP * 8, menuBus);
-      tone(midi(chord[0] - 12), at, STEP * 7, { gain: 0.07, bus: menuBus, attack: 0.05 }); // bass
+      pad(chord.slice(1), at, STEP * 16, menuBus);
+      tone(midi(chord[0]), at, STEP * 15, { gain: 0.045, bus: menuBus, attack: 0.4 }); // a soft bass
     }
-    const arp = [0, 1, 2, 3, 2, 1, 2, 3][inBar];
-    tone(midi(chord[arp] + 12), at, 1.4, { type: 'triangle', gain: 0.05, bus: menuBus, send: 0.5, attack: 0.003 }); // harp
-    tone(midi(chord[arp] + 24), at, 0.5, { gain: 0.015, bus: menuBus, send: 0.5, attack: 0.003 });
-    if (inBar === 0 || inBar === 3 || inBar === 6) tone(inBar === 0 ? 62 : 55, at, 0.45, { gain: inBar === 0 ? 0.16 : 0.09, to: 38, bus: menuBus, attack: 0.004 });
-    if (loop % 3 !== 0) {
+    if (inBar % 2 === 0) {
+      const n = chord[ARP[(inBar / 2) % ARP.length]] + 12;
+      tone(midi(n), at, 2.2, { type: 'sine', gain: 0.022, bus: menuBus, send: 0.9, attack: 0.004 }); // music box
+      if (inBar % 4 === 0) tone(midi(n + 12), at, 1.2, { gain: 0.006, bus: menuBus, send: 0.9, attack: 0.004 }); // its shimmer
+    }
+    if (loop % 2 === 1) {
       const n = MELODY[bar][inBar];
       if (n) {
         let len = 1;
-        while (inBar + len < 8 && MELODY[bar][inBar + len] === 0) len++;
-        flute(n, at, STEP * Math.min(len, 4) * 0.95, menuBus);
+        while (inBar + len < 16 && MELODY[bar][inBar + len] === 0) len++;
+        flute(n, at, STEP * Math.min(len, 6) * 0.95, menuBus, 0.026);
       }
     }
   });

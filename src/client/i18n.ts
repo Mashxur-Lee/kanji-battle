@@ -425,6 +425,43 @@ const RU: Record<string, string> = {
   'Light blue flames': 'Голубое пламя', 'Purple flames': 'Фиолетовое пламя', 'Login streak': 'Серия входов', 'login streak (days)': 'серия входов (дни)',
   '擬声語 (giseigo) — sound': '擬声語 (гисэйго) — звук', '擬態語 (gitaigo) — state / manner': '擬態語 (гитайго) — состояние / образ действия', '擬情語 (gijōgo) — feeling': '擬情語 (гидзёго) — чувство',
   'Time up — the dragon survived': 'Время вышло — дракон выжил',
+  // 0.9.9.6
+  // 0.9.9.6 — achievements
+  'First Steps': 'Первые шаги', 'Answer 50 study cards.': 'Ответьте на 50 карточек.',
+  'Diligent': 'Усердный', 'Answer 1,000 study cards.': 'Ответьте на 1 000 карточек.',
+  'Tireless': 'Неутомимый', 'Answer 10,000 study cards.': 'Ответьте на 10 000 карточек.',
+  'Word Hoard': 'Сокровищница слов', 'Learn 500 spells.': 'Выучите 500 заклинаний.',
+  'Well Versed': 'Знаток', 'Master 100 spells (a review interval of 3 weeks or more).': 'Освойте 100 заклинаний (интервал повторения 3 недели и больше).',
+  'Deep Roots': 'Глубокие корни', 'Master 500 spells.': 'Освойте 500 заклинаний.',
+  'Quiz Whiz': 'Знаток тестов', 'Pass 10 JLPT quizzes (7/10 or better).': 'Пройдите 10 тестов JLPT (7/10 или лучше).',
+  'Quiz Master': 'Мастер тестов', 'Pass 100 JLPT quizzes.': 'Пройдите 100 тестов JLPT.',
+  'Bookworm': 'Книжный червь', 'Finish 10 reading passages (4/8 or better).': 'Закончите 10 текстов для чтения (4/8 или лучше).',
+  'Storyteller': 'Сказитель', 'Finish 50 reading passages.': 'Закончите 50 текстов для чтения.',
+  'Daily Devotee': 'Верный вызову', 'Play the Daily challenge 10 times.': 'Сыграйте ежедневный вызов 10 раз.',
+  'Daily Legend': 'Легенда вызова', 'Play the Daily challenge 50 times.': 'Сыграйте ежедневный вызов 50 раз.',
+  'Regular': 'Завсегдатай', 'Play on 30 different days.': 'Играйте 30 разных дней.',
+  'Steadfast': 'Стойкий', 'Keep a 14-day daily streak.': 'Держите ежедневную серию 14 дней.',
+  'Unbreakable': 'Несокрушимый', 'Keep a 100-day daily streak.': 'Держите ежедневную серию 100 дней.',
+  'Brawler': 'Боец', 'Play 10 battles.': 'Сыграйте 10 боёв.',
+  'Warlord': 'Полководец', 'Play 250 battles.': 'Сыграйте 250 боёв.',
+  'Rising Star': 'Восходящая звезда', 'Reach level 5.': 'Достигните 5 уровня.',
+  'Living Legend': 'Живая легенда', 'Reach level 25.': 'Достигните 25 уровня.',
+  'Circle of Friends': 'Круг друзей', 'Have 5 friends.': 'Заведите 5 друзей.',
+  'Collector': 'Коллекционер', 'Star 20 words ★.': 'Отметьте ★ 20 слов.',
+  'Wordsmith': 'Словотворец', 'Have 10 words in Custom spells.': 'Соберите 10 слов в «Своих заклинаниях».',
+  'True Name': 'Истинное имя', 'Choose a nickname (your profile → ✎).': 'Выберите ник (ваш профиль → ✎).',
+  // 0.9.9.6 — reminders
+  'Reminders on — tap to turn them off': 'Напоминания включены — нажмите, чтобы выключить', 'Reminders off — tap for daily reminders (Daily challenge, reviews, streak tasks)': 'Напоминания выключены — нажмите, чтобы получать их (ежедневный вызов, повторения, задания серии)',
+  'Reminders off': 'Напоминания выключены', 'This browser can’t show notifications — try the app (menu → Get the app).': 'Этот браузер не умеет показывать уведомления — попробуйте приложение (меню → «Скачать приложение»).',
+  'Notifications are blocked — allow them for this site in the browser settings, then tap the bell again.': 'Уведомления заблокированы — разрешите их для этого сайта в настройках браузера и нажмите на колокольчик снова.',
+  'Allow notifications for Kanji Wizards in Android settings to get the reminders.': 'Разрешите уведомления для Kanji Wizards в настройках Android, чтобы получать напоминания.',
+  'Reminders on: the Daily challenge, 50+ spells to review, and your streak tasks in the evening.': 'Напоминания включены: ежедневный вызов, 50+ заклинаний к повторению и вечером — задания серии.',
+  // 0.9.9.6 — nickname
+  'Change your nickname': 'Изменить ник', 'Nickname (empty: your login)': 'Ник (пусто — ваш логин)', 'Your nickname': 'Ваш ник',
+  'Nickname cleared — others see your login': 'Ник удалён — другие видят ваш логин',
+  'A nickname is 2–24 letters, numbers, spaces or _ . - \'': 'Ник — от 2 до 24 букв, цифр, пробелов или _ . - \'',
+  'That is another player’s login — pick another nickname': 'Это логин другого игрока — выберите другой ник',
+  'Online games need an internet connection': 'Для онлайн-игр нужен интернет', 'Couldn’t reach the game server — check your connection and try again.': 'Не удалось связаться с игровым сервером — проверьте соединение и попробуйте снова.',
   // 0.9.9.5.1
   'Waking up the server…': 'Будим сервер…', 'Play offline meanwhile': 'Пока играть офлайн',
   's · The free server sleeps when nobody has played for a while — it takes about a minute to start.': 'с · Бесплатный сервер засыпает, когда долго никто не играет, — запуск занимает около минуты.',
@@ -572,6 +609,7 @@ const plural = (n: number, one: string, few: string, many: string) => {
 };
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
+  [/^You’ve used all (\d+) of today’s AI stories — new ones tomorrow!$/, 'Вы использовали все $1 ИИ-рассказов на сегодня — новые завтра!'],
   [/^Pick which of your words go in and the story level above, then start\. (\d+) words of “(.+)” fit\.$/, (_, n, d) => `Выберите выше, какие ваши слова войдут, и уровень рассказа, затем начните. Подходит слов из «${RU[d] ?? d}»: ${n}.`],
   [/^You can have up to (\d+) new AI stories a day — the counter next to New passage shows how many are left\. After that \(or offline\), the passage uses your words’ example sentences instead\.$/, 'В день можно получить до $1 новых ИИ-рассказов — счётчик рядом с «Новый текст» показывает, сколько осталось. Потом (или без интернета) используются примеры предложений ваших слов.'],
   [/^A story needs at least 8 kanji words — “(.+)” has (\d+) of the levels you ticked\. Tick more levels, pick another deck, or study more words\.$/, (_, d, n) => `Для рассказа нужно хотя бы 8 слов с кандзи — в «${RU[d] ?? d}» их ${n} среди отмеченных уровней. Отметьте больше уровней, выберите другую колоду или изучите больше слов.`],

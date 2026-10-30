@@ -10,6 +10,7 @@
 // This file is bundled on its own (public/arena3d.js) and only loaded when the 3D arena is switched on,
 // so the menus stay light. It knows nothing about the game rules: the UI calls the effects below.
 
+import { ARM_REST } from './charkit';
 import * as THREE from 'three';
 import { buildCharacter, kindFor, type Character } from './models3d';
 import { buildStaff, GEM_Y, type Staff } from './staffs3d';
@@ -105,18 +106,6 @@ function ringTexture(color: string) {
   for (let i = 0; i <= 5; i++) { const a = (i * 4 * Math.PI) / 5 - Math.PI / 2; const x = Math.cos(a) * 180, y = Math.sin(a) * 180; i ? g.lineTo(x, y) : g.moveTo(x, y); }
   g.stroke();
   return canvasTex(c);
-}
-function textTexture(text: string, color: string, size = 160) {
-  const c = document.createElement('canvas');
-  const n = [...text].length;
-  c.width = Math.max(256, Math.ceil(n * size * 1.05 + 80)); c.height = size + 80;
-  const g = c.getContext('2d')!;
-  g.font = `900 ${size}px "Hiragino Mincho ProN","Yu Mincho","Noto Serif JP","Noto Serif CJK JP",serif`;
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.shadowColor = color; g.shadowBlur = 34;
-  g.fillStyle = color; g.fillText(text, c.width / 2, c.height / 2);
-  g.shadowBlur = 10; g.fillStyle = '#ffffff'; g.fillText(text, c.width / 2, c.height / 2);
-  return { tex: canvasTex(c), aspect: c.width / c.height };
 }
 function numberTexture(text: string, color: string) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 128;
@@ -600,12 +589,31 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const kick = (amount: number) => { if (!reduced()) shake = Math.max(shake, amount); };
 
   // spells in flight
-  interface Flight { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; mid: THREE.Vector3; t: number; dur: number; color: THREE.Color; size: number; done: () => void; trailAt: number; gem?: THREE.Mesh; incoming?: boolean }
+  interface Flight { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; mid: THREE.Vector3; t: number; dur: number; color: THREE.Color; size: number; done: () => void; trailAt: number; gem?: THREE.Mesh; incoming?: boolean; target?: Who }
   const flights: Flight[] = [];
+  const koWait = new Set<Who>(); // knocked out, waiting for the spell that did it to land
+  /** a soft glowing ball in a colour (shared per colour) */
+  const orbs = new Map<string, THREE.Texture>();
+  function orbTexture(color: string): THREE.Texture {
+    const hit = orbs.get(color);
+    if (hit) return hit;
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d')!;
+    const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.22, color); grad.addColorStop(0.5, `${color}88`); grad.addColorStop(1, `${color}00`);
+    g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    orbs.set(color, tex);
+    return tex;
+  }
   function fly(from: THREE.Vector3, to: THREE.Vector3, kanji: string, color: string, size: number, dur: number, incoming = false): Promise<void> {
-    const { tex, aspect } = textTexture(kanji, color);
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-    s.scale.set(size * aspect * 0.4, size * 0.4, 1);
+    // 0.9.9.6: a glowing orb flies, not the kanji (the word is on screen already; the orb is the spell)
+    void kanji;
+    const tex = orbTexture(color);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    s.scale.set(size * 0.42, size * 0.42, 1);
     s.position.copy(from);
     s.renderOrder = 5;
     scene.add(s);
@@ -1008,7 +1016,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         const inf = key === 'me' ? 0 : writing * (1 - Math.max(0, thrust));
         const ax = -0.15 - writing * 0.75 - Math.max(0, thrust) * 0.9 + (key === 'me' ? twitchRot.x : 0) + Math.sin(time * 4.4) * 0.22 * inf;
         m.arm.rotation.x += (ax - m.arm.rotation.x) * Math.min(1, dt * 10);
-        m.arm.rotation.z = -0.35 + (key === 'me' ? twitchRot.z : 0) + Math.sin(time * 2.2) * 0.32 * inf;
+        m.arm.rotation.z = ARM_REST + (key === 'me' ? twitchRot.z : 0) + Math.sin(time * 2.2) * 0.32 * inf;
         m.arm.rotation.y = key === 'me' ? twitchRot.y : 0;
         const glowLevel = key === 'me' ? channelShown : writing;
         m.crystalMat.emissiveIntensity = 1.2 + glowLevel * (3 + pulse * 2) + lunge * 3;
@@ -1079,16 +1087,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const mat = fl.sprite.material as THREE.SpriteMaterial;
       // an incoming spell fades as it gets close (the hit flash and the damage number say what happened)
       if (fl.incoming) mat.opacity = 1 - 0.75 * Math.max(0, Math.min(1, (t - 0.35) / 0.5));
-      const img = mat.map?.image as HTMLCanvasElement | undefined;
-      const asp = img ? img.width / img.height : 1;
-      fl.sprite.scale.set(fl.size * asp * 0.4 * grow, fl.size * 0.4 * grow, 1);
+      fl.sprite.scale.set(fl.size * 0.42 * grow, fl.size * 0.42 * grow, 1);
       fl.trailAt -= dt;
       if (fl.trailAt <= 0 && !still) {
         fl.trailAt = 0.016;
         spark(fl.sprite.position, fl.color, { size: rnd(0.05, 0.13) * fl.size, life: 0.35, opacity: 0.8, vel: new THREE.Vector3(rnd(-0.3, 0.3), rnd(-0.3, 0.3), rnd(-0.3, 0.3)) });
       }
       if (t >= 1) {
-        scene.remove(fl.sprite); mat.map?.dispose(); mat.dispose();
+        scene.remove(fl.sprite); mat.dispose(); // (the orb texture is shared)
         if (fl.gem) scene.remove(fl.gem);
         flights.splice(i, 1);
         fl.done();
@@ -1178,6 +1184,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const end = firstPerson ? chest.clone().add(new THREE.Vector3(screenSpot(0.42, chest.z) - chest.x, -0.5, 0)) : chest;
       const size = (o.crit ? 1.5 : 1) * 1.15;
       const flight = fly(start, end, kanji, color, size, 0.85, firstPerson);
+      flights[flights.length - 1].target = to;
       if (from === 'me') {
         // your staff thrusts and its gem launches forward with the spell; a new one builds up when you next write
         thrustAt = performance.now(); gemState = 'gone';
@@ -1209,6 +1216,18 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       }
     },
     ko(who) {
+      // 0.9.9.6: the finishing spell lands first, then they fall (the KO came in while it was still flying)
+      if (flights.some((fl) => fl.target === who) && !koWait.has(who)) {
+        koWait.add(who);
+        const t0 = performance.now();
+        const wait = () => {
+          if (flights.some((fl) => fl.target === who) && performance.now() - t0 < 2500) { setTimeout(wait, 60); return; }
+          setTimeout(() => { koWait.delete(who); api.ko(who); }, 120);
+        };
+        wait();
+        return;
+      }
+      if (koWait.has(who)) return;
       if (who === 'me') {
         // you're down: your staff falls out of your hand
         if (meDown) return;

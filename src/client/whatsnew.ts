@@ -7,6 +7,31 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.6', date: '2026-10',
+    en: [
+      'Reminders 🔔: the bell next to the sound buttons turns on daily reminders — the Daily challenge, 50+ spells waiting in All spells, and your streak tasks in the evening. In the Android app they come even when it’s closed.',
+      'Nicknames: tap ✎ next to your name in your profile to pick the name others see; your login stays for signing in and shows under it.',
+      '23 new achievements (44 in all) — from easy (answer 50 cards, pick a nickname) to very hard (a 100-day streak, level 25). The dots under each badge show how hard it is.',
+      'The arena’s time of day follows your clock: day until 17:00, sunset until 20:00, then night (no more 3-minute cycle).',
+      'A calmer, softer menu tune, and the music starts quieter.',
+      '3D battles: spells fly as glowing orbs (no more kanji in the air); the last spell lands before the opponent falls; the characters hold their staff out to the side, with bigger hands; the Void staff’s handle lights up ice-blue while you cast.',
+      'Boss: a fallen teammate no longer gets damage numbers from the dragon’s fire.',
+      'Reading passage: when today’s AI stories are used up, “New passage” says so instead of starting one.',
+      'Fixes: switching accounts no longer keeps the last account’s settings and limits; picking a mode for a private room retries if the connection was stale (and says so if it fails); the sign-in box is in the middle of the screen; on narrow phones the level names in All spells no longer overlap the numbers.',
+    ],
+    ru: [
+      'Напоминания 🔔: колокольчик рядом с кнопками звука включает ежедневные напоминания — ежедневный вызов, 50+ заклинаний к повторению во «Всех заклинаниях» и вечером задания серии. В приложении для Android они приходят, даже когда оно закрыто.',
+      'Ники: нажмите ✎ рядом с именем в профиле и выберите имя, которое видят другие; логин остаётся для входа и показан под ником.',
+      '23 новых достижения (всего 44) — от лёгких (ответить на 50 карточек, выбрать ник) до очень сложных (серия 100 дней, 25 уровень). Точки под значком показывают сложность.',
+      'Время суток на арене следует вашим часам: день до 17:00, закат до 20:00, затем ночь (без трёхминутного цикла).',
+      'Более спокойная и мягкая мелодия меню, и музыка начинается тише.',
+      '3D-бои: заклинания летят светящимися сферами (без кандзи в воздухе); последнее заклинание долетает раньше, чем соперник падает; персонажи держат посох в стороне, руки крупнее; рукоять посоха Void светится ледяным голубым, пока вы колдуете.',
+      'Босс: павший товарищ больше не получает цифры урона от огня дракона.',
+      'Текст для чтения: когда ИИ-рассказы на сегодня закончились, «Новый текст» говорит об этом, а не начинает новый.',
+      'Исправления: смена аккаунта больше не сохраняет настройки и лимиты прошлого; выбор режима для приватной комнаты повторяется, если соединение «зависло» (и сообщает об ошибке); окно входа — в центре экрана; на узких телефонах названия уровней во «Всех заклинаниях» не наезжают на числа.',
+    ],
+  },
+  {
     v: '0.9.9.5.1', date: '2026-10',
     en: [
       'Reading passage: nothing is written until you press “✍ Write the story” — set your word levels and the story level first.',

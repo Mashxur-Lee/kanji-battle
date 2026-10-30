@@ -14,7 +14,7 @@ interface UserRow {
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
   crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null; tutorial_done: boolean | null; unlocks: string[] | null;
   login_day: string | null; streak: number | null; best_streak: number | null; streak_day: string | null; border: string | null;
-  daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null; starred: string[] | null;
+  daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null; starred: string[] | null; nickname: string | null;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
@@ -28,7 +28,7 @@ const toUser = (r: UserRow): UserRecord => ({
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
   wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant', tutorialDone: r.tutorial_done ?? true, unlocks: r.unlocks ?? [],
   loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0, streakDay: r.streak_day ?? null, border: r.border ?? 'none',
-  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null, starred: r.starred ?? [],
+  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null, starred: r.starred ?? [], nickname: r.nickname ?? null,
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
@@ -41,7 +41,7 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
   critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff', tutorialDone: 'tutorial_done', unlocks: 'unlocks',
   loginDay: 'login_day', streak: 'streak', streakDay: 'streak_day', border: 'border', bestStreak: 'best_streak', role: 'role',
-  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred',
+  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred', nickname: 'nickname',
 };
 
 /**
@@ -208,6 +208,8 @@ export class PgStore implements Store {
     await this.sql`alter table kw_users add column if not exists badges text[] not null default '{}'`;
     // 0.9.9.5: starred words (the reading passage uses them first)
     await this.sql`alter table kw_users add column if not exists starred text[] not null default '{}'`;
+    // 0.9.9.6: a nickname others see (the login stays for signing in)
+    await this.sql`alter table kw_users add column if not exists nickname text`;
     await this.sql`alter table kw_cards add column if not exists added_at bigint`;
     await this.sql`alter table kw_cards add column if not exists deck text not null default 'all'`;
     const [pk] = await this.sql<{ n: string }[]>`
@@ -397,7 +399,7 @@ export class PgStore implements Store {
   }
   async dailyBoard(day: string, limit: number): Promise<DailyResult[]> {
     const rows = await this.sql<{ user_id: string; username: string; correct: number; ms: number }[]>`
-      select d.user_id, u.username, d.correct, d.ms from kw_daily d join kw_users u on u.id = d.user_id
+      select d.user_id, coalesce(nullif(u.nickname, ''), u.username) as username, d.correct, d.ms from kw_daily d join kw_users u on u.id = d.user_id
       where d.day = ${day} order by d.correct desc, d.ms asc limit ${limit}`;
     return rows.map((r) => ({ userId: r.user_id, username: r.username, correct: r.correct, ms: r.ms }));
   }
@@ -426,14 +428,14 @@ export class PgStore implements Store {
     return rows.map((r) => ({ userId: r.user_id, day: r.day, games: r.games }));
   }
   async friends(userId: string): Promise<FriendLink[]> {
-    const rows = await this.sql<{ id: string; username: string; status: FriendLink['status'] }[]>`
-      select f.friend_id as id, u.username, case when f.status = 'accepted' then 'accepted' else 'outgoing' end as status
+    const rows = await this.sql<{ id: string; username: string; name: string; status: FriendLink['status'] }[]>`
+      select f.friend_id as id, u.username, coalesce(nullif(u.nickname, ''), u.username) as name, case when f.status = 'accepted' then 'accepted' else 'outgoing' end as status
         from kw_friends f join kw_users u on u.id = f.friend_id where f.user_id = ${userId}
       union all
-      select f.user_id as id, u.username, 'incoming' as status
+      select f.user_id as id, u.username, coalesce(nullif(u.nickname, ''), u.username) as name, 'incoming' as status
         from kw_friends f join kw_users u on u.id = f.user_id where f.friend_id = ${userId} and f.status = 'pending'
-      order by username`;
-    return rows.map((r) => ({ id: r.id, username: r.username, status: r.status }));
+      order by name`;
+    return rows.map((r) => ({ id: r.id, username: r.username, name: r.name, status: r.status }));
   }
   async requestFriend(from: string, to: string) {
     const [mine] = await this.sql`select 1 from kw_friends where user_id = ${from} and friend_id = ${to}`;

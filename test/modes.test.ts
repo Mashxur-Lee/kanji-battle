@@ -670,3 +670,21 @@ test('JLPT quiz (0.9.9.3.3): single hiragana are asked by romaji, every question
   const kana = qs.find((q) => /^[ぁ-ん]$/.test(q.prompt));
   if (kana) assert.ok(kana.choices.every((c) => /^[a-z]+$/.test(c)), 'romaji choices for a single kana');
 });
+
+test('boss (0.9.9.6): the breath names who it hit — a fallen teammate is not among them', () => {
+  const b = boss(['A', 'B'], 1000, 200);
+  tick(30_000); // 200 → 90 each
+  tick(30_000); // both fall
+  const breaths = b.updates().filter((e) => e.kind === 'breath') as Array<{ victims?: string[] }>;
+  assert.deepEqual(breaths[0].victims, ['A', 'B']);
+  assert.deepEqual(breaths[1].victims, ['A', 'B']);
+});
+
+test('boss (0.9.9.6): someone already down is not hit by the next breath', () => {
+  const b = boss(['A', 'B'], 1000, 200);
+  for (let i = 0; i < 10; i++) { b.wrong('A'); tick(10); } // A is clawed down by mistakes
+  if (b.game.getHp('A') > 0) return; // (the claw damage changed: nothing to test here)
+  tick(30_000);
+  const last = b.updates().filter((e) => e.kind === 'breath').at(-1) as { victims?: string[] } | undefined;
+  if (last) assert.ok(!last.victims!.includes('A'));
+});

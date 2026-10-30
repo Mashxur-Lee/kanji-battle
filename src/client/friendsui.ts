@@ -57,8 +57,8 @@ function render() {
   const row = (f: Friend, actions: HTMLElement[]) => {
     const r = el('div', 'fl-row' + (f.online ? ' online' : ''));
     const who = el('div', 'fl-who');
-    const name = el('span', 'fl-name', f.username);
-    ui.markProfile(name, { id: f.id, name: f.username, bot: null });
+    const name = el('span', 'fl-name', f.name ?? f.username);
+    ui.markProfile(name, { id: f.id, name: f.name ?? f.username, bot: null });
     who.append(el('i', 'dot'), name, el('small', '', f.status === 'accepted' ? (f.online ? f.activity ?? 'Online' : 'Offline') : f.status === 'incoming' ? 'wants to be friends' : 'request sent'));
     r.append(who, el('div', 'fl-actions'));
     r.lastElementChild!.append(...actions);
@@ -117,7 +117,7 @@ export async function renderLobbyInvites(isLobby: boolean, inRoom: string[] = lo
     b.disabled = playing || wait > 0;
     b.title = playing ? 'They are playing — invite them when their game is over' : '';
     b.onclick = () => { hooks.send({ type: 'invite', friendId: f.id }); invitedAt.set(f.id, Date.now()); void renderLobbyInvites(true); };
-    r.append(el('i', 'dot'), el('span', '', f.username), el('small', 'hint', f.activity ?? ''), b);
+    r.append(el('i', 'dot'), el('span', '', f.name ?? f.username), el('small', 'hint', f.activity ?? ''), b);
     return r;
   }));
   // tick the countdown on the buttons
