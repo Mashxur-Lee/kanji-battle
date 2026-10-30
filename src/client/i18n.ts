@@ -425,6 +425,11 @@ const RU: Record<string, string> = {
   'Light blue flames': 'Голубое пламя', 'Purple flames': 'Фиолетовое пламя', 'Login streak': 'Серия входов', 'login streak (days)': 'серия входов (дни)',
   '擬声語 (giseigo) — sound': '擬声語 (гисэйго) — звук', '擬態語 (gitaigo) — state / manner': '擬態語 (гитайго) — состояние / образ действия', '擬情語 (gijōgo) — feeling': '擬情語 (гидзёго) — чувство',
   'Time up — the dragon survived': 'Время вышло — дракон выжил',
+  // 0.9.9.5.1
+  'Waking up the server…': 'Будим сервер…', 'Play offline meanwhile': 'Пока играть офлайн',
+  's · The free server sleeps when nobody has played for a while — it takes about a minute to start.': 'с · Бесплатный сервер засыпает, когда долго никто не играет, — запуск занимает около минуты.',
+  'The words you missed go into a story — set the story level above, then start.': 'Слова с ошибками войдут в рассказ — выберите уровень рассказа выше и начните.',
+  '✍ Write the story': '✍ Написать рассказ', 'Make the passage': 'Составить текст',
   // 0.9.9.5
   'Tap for this word': 'Нажмите, чтобы узнать слово', 'Not in the dictionary — tap a kanji below': 'Нет в словаре — нажмите на кандзи ниже', 'Kanji': 'Кандзи',
   'Your words from': 'Ваши слова уровней', 'Story level': 'Уровень рассказа', '★ starred words go in first · changes apply to the next passage': '★ отмеченные слова идут первыми · изменения — со следующего текста',
@@ -567,6 +572,7 @@ const plural = (n: number, one: string, few: string, many: string) => {
 };
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
+  [/^Pick which of your words go in and the story level above, then start\. (\d+) words of “(.+)” fit\.$/, (_, n, d) => `Выберите выше, какие ваши слова войдут, и уровень рассказа, затем начните. Подходит слов из «${RU[d] ?? d}»: ${n}.`],
   [/^You can have up to (\d+) new AI stories a day — the counter next to New passage shows how many are left\. After that \(or offline\), the passage uses your words’ example sentences instead\.$/, 'В день можно получить до $1 новых ИИ-рассказов — счётчик рядом с «Новый текст» показывает, сколько осталось. Потом (или без интернета) используются примеры предложений ваших слов.'],
   [/^A story needs at least 8 kanji words — “(.+)” has (\d+) of the levels you ticked\. Tick more levels, pick another deck, or study more words\.$/, (_, d, n) => `Для рассказа нужно хотя бы 8 слов с кандзи — в «${RU[d] ?? d}» их ${n} среди отмеченных уровней. Отметьте больше уровней, выберите другую колоду или изучите больше слов.`],
   [/^(\d+) missed → Struggling spells$/, '$1 с ошибкой → «Трудные заклинания»'],

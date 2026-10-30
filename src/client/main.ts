@@ -192,6 +192,12 @@ async function boot() {
   applyBackground();
   ui.paintScenes();
   ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn());
+  // 0.9.9.5.1: online but the server doesn't answer → it's probably asleep: wait for it with a progress bar
+  // instead of dropping into offline mode for a minute
+  if (!offline.isOffline() && navigator.onLine && !(await serverAnswers(5000))) {
+    const r = await wakeServer();
+    if (r === 'offline') { if (await offline.goOffline()) return void boot(); }
+  }
   if (!getToken()) return showAuth();
   try {
     const { user: u, profile: p } = await api.me();
@@ -208,6 +214,47 @@ async function boot() {
     ui.$('playOffline').hidden = !canOffline;
   }
 }
+/** Does the server answer at all within `ms`? */
+async function serverAnswers(ms: number): Promise<boolean> {
+  try { const r = await fetch('/api/online', { cache: 'no-store', signal: AbortSignal.timeout(ms) }); return r.ok && /json/.test(r.headers.get('content-type') ?? ''); } catch { return false; }
+}
+const WAKE_KEY = 'kw:wake-secs';
+/**
+ * The "waking up" screen: asks the server every few seconds; the bar follows how long it took last time
+ * (about a minute on a free plan). Resolves 'up', 'offline' (you chose to play offline) or 'gave-up' (2½ minutes).
+ */
+async function wakeServer(): Promise<'up' | 'offline' | 'gave-up'> {
+  const scr = ui.$('wakeScreen'), bar = ui.$('wakeBar'), sec = ui.$('wakeSec'), off = ui.$<HTMLButtonElement>('wakeOffline');
+  let est = 55;
+  try { est = Math.max(15, Math.min(120, Number(localStorage.getItem(WAKE_KEY)) || 55)); } catch { /* private mode */ }
+  scr.hidden = false;
+  off.hidden = !(await offline.canGoOffline());
+  const t0 = Date.now();
+  const tick = window.setInterval(() => {
+    const t = (Date.now() - t0) / 1000, k = t / est;
+    bar.style.width = `${(k < 1 ? 92 * (1 - (1 - k) * (1 - k)) : 92 + 6 * (1 - Math.exp(-(k - 1)))).toFixed(1)}%`;
+    sec.textContent = String(Math.floor(t));
+  }, 250);
+  let chose = false;
+  const choice = new Promise<'offline'>((ok) => { off.onclick = () => { chose = true; ok('offline'); }; });
+  const poll = (async (): Promise<'up' | 'gave-up'> => {
+    while (Date.now() - t0 < 150_000 && !chose) {
+      if (await serverAnswers(20_000)) return 'up';
+      await new Promise((ok) => setTimeout(ok, 2500));
+    }
+    return 'gave-up';
+  })();
+  const r = await Promise.race([poll, choice]);
+  clearInterval(tick);
+  if (r === 'up') {
+    try { localStorage.setItem(WAKE_KEY, String(Math.round((Date.now() - t0) / 1000))); } catch { /* private mode */ }
+    bar.style.width = '100%';
+    await new Promise((ok) => setTimeout(ok, 400));
+  }
+  scr.hidden = true;
+  return r;
+}
+
 ui.$('playOffline').onclick = async () => {
   ui.$('playOffline').hidden = true;
   if (await offline.goOffline()) void boot();

@@ -148,6 +148,9 @@ export class StoryService {
   private readonly used = new Map<string, { n: number; tries: number }>();
   /** players with a story being written — one at a time each */
   private readonly busy = new Set<string>();
+  /** 0.9.9.5.1: stories being written in the background — the app asks every couple of seconds (a phone's network
+   * drops a request held open for long, and then the finished story was lost) */
+  private readonly jobs = new Map<string, { userId: string; at: number; out: { story: Story | null; why?: string } | null }>();
   private all = { day: '', n: 0 };
   constructor(private readonly provider: StoryProvider | null = providerFromEnv(), private readonly perDay = 10, private readonly allPerDay = Number(process.env.STORY_DAILY_MAX) || 400, private readonly adminPerDay = 40) {}
   get enabled() { return !!this.provider; }
@@ -162,6 +165,23 @@ export class StoryService {
       const k = String(x?.kanji ?? '').slice(0, 16), r = String(x?.reading ?? '').slice(0, 32), m = String(x?.meaning ?? '').slice(0, 80);
       return k && r && m ? [{ id: typeof x?.id === 'string' ? x.id.slice(0, 40) : undefined, kanji: k, reading: r, meaning: m }] : [];
     });
+  }
+
+  /** Starts writing a story and returns at once with a job id; `job()` gives the result when it's there. */
+  startJob(userId: string, words: StoryWord[], today: string, opts: { level?: StoryLevel; admin?: boolean } = {}): string {
+    const now = Date.now();
+    for (const [k, j] of this.jobs) if (now - j.at > 10 * 60_000) this.jobs.delete(k);
+    const id = `${now.toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    const job: { userId: string; at: number; out: { story: Story | null; why?: string } | null } = { userId, at: now, out: null };
+    this.jobs.set(id, job);
+    void this.story(userId, words, today, opts).then((o) => { job.out = o; }, (e) => { job.out = { story: null, why: (e as Error).message }; });
+    return id;
+  }
+  /** a job's result: null while it's still being written, undefined if there's no such job (or it isn't yours) */
+  job(userId: string, id: string): { story: Story | null; why?: string } | null | undefined {
+    const j = this.jobs.get(id);
+    if (!j || j.userId !== userId) return undefined;
+    return j.out;
   }
 
   /** How many stories this player has had written today, and the cap (0.9.9.4.4.5: shown next to "New passage"). */

@@ -30,6 +30,7 @@ export const setToken = (t: string) => { try { t ? localStorage.setItem(TOKEN_KE
 
 import * as offline from './offline';
 export interface StoryUsage { enabled: boolean; used: number; limit: number }
+export interface StoryData { title: { ja: string; en: string; ru: string }; lines: Array<{ ja: string; en: string; ru: string; words: number[] }> }
 
 export class ApiError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
@@ -113,6 +114,9 @@ export const api = {
   quiz: (n = 10) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}`),
   /** 0.9.9.4.4.1: one story with these words (null when the AI is off or failed) */
   story: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>, level?: string) => call<{ story: { title: { ja: string; en: string; ru: string }; lines: Array<{ ja: string; en: string; ru: string; words: number[] }> } | null; why?: string; usage?: StoryUsage }>('POST', '/api/study/story', { words, level, today: today() }),
+  /** 0.9.9.5.1: start a story in the background (returns a job id), then ask for it until it's there */
+  storyStart: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>, level?: string) => call<{ job?: string; story?: StoryData | null; why?: string; usage?: StoryUsage }>('POST', '/api/study/story', { words, level, today: today(), async: true }),
+  storyJob: (id: string) => call<{ pending?: boolean; story?: StoryData | null; why?: string; usage?: StoryUsage }>('GET', `/api/study/story/job?id=${encodeURIComponent(id)}&today=${today()}`),
   /** 0.9.9.5: ★ a word (the reading passage uses starred words first) */
   setStar: (vocabId: string, on: boolean) => call<{ starred: string[] }>('PUT', '/api/study/star', { vocabId, on }),
   /** 0.9.9.4.4.5: AI stories today — how many you've had and the daily cap */

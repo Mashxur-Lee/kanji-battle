@@ -801,7 +801,17 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
-<div id="version" class="version">v0.9.9.5</div>
+<!-- 0.9.9.5.1: the server is waking up (free hosting sleeps after a while with nobody playing) -->
+<div id="wakeScreen" class="wake-screen" hidden role="status" aria-live="polite">
+  <div class="wake-card">
+    <h2><span class="jp">漢字</span> Wizards</h2>
+    <p class="wake-title">Waking up the server…</p>
+    <div class="wake-bar"><i id="wakeBar"></i></div>
+    <p class="hint"><span id="wakeSec">0</span> s · The free server sleeps when nobody has played for a while — it takes about a minute to start.</p>
+    <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
+  </div>
+</div>
+<div id="version" class="version">v0.9.9.5.1</div>
 <script src="/app.js"></script>
 </body>
 </html>

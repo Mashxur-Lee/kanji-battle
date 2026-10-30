@@ -47,3 +47,20 @@ test('stories: 10 a day for players, 40 for admins; the story level goes into th
     assert.ok((await few.story('adm', words, TODAY, { level: 'N1', admin: true })).story, 'admins have 40');
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('stories (0.9.9.5.1): written in the background — a job id at once, the story when it is there', async () => {
+  const realFetch = globalThis.fetch;
+  let release: () => void = () => {};
+  const gate = new Promise<void>((ok) => { release = ok; });
+  globalThis.fetch = (async () => { await gate; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: good }] } }] })); }) as unknown as typeof fetch;
+  try {
+    const svc = new StoryService({ kind: 'gemini', key: 'g', model: 'm' });
+    const id = svc.startJob('u', words, TODAY, { level: 'N3' });
+    assert.equal(svc.job('u', id), null, 'still being written');
+    assert.equal(svc.job('someone else', id), undefined, 'not yours');
+    release();
+    for (let i = 0; i < 20 && !svc.job('u', id); i++) await new Promise((ok) => setTimeout(ok, 5));
+    assert.ok(svc.job('u', id)?.story);
+    assert.equal(svc.usage('u', TODAY).used, 1);
+  } finally { globalThis.fetch = realFetch; }
+});

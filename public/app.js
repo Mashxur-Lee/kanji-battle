@@ -2196,6 +2196,9 @@ Answer with JSON only, no other text:
           __publicField(this, "used", /* @__PURE__ */ new Map());
           /** players with a story being written — one at a time each */
           __publicField(this, "busy", /* @__PURE__ */ new Set());
+          /** 0.9.9.5.1: stories being written in the background — the app asks every couple of seconds (a phone's network
+           * drops a request held open for long, and then the finished story was lost) */
+          __publicField(this, "jobs", /* @__PURE__ */ new Map());
           __publicField(this, "all", { day: "", n: 0 });
         }
         get enabled() {
@@ -2213,6 +2216,26 @@ Answer with JSON only, no other text:
             const k = String(x?.kanji ?? "").slice(0, 16), r2 = String(x?.reading ?? "").slice(0, 32), m = String(x?.meaning ?? "").slice(0, 80);
             return k && r2 && m ? [{ id: typeof x?.id === "string" ? x.id.slice(0, 40) : void 0, kanji: k, reading: r2, meaning: m }] : [];
           });
+        }
+        /** Starts writing a story and returns at once with a job id; `job()` gives the result when it's there. */
+        startJob(userId, words2, today2, opts = {}) {
+          const now2 = Date.now();
+          for (const [k, j] of this.jobs) if (now2 - j.at > 10 * 6e4) this.jobs.delete(k);
+          const id = `${now2.toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+          const job = { userId, at: now2, out: null };
+          this.jobs.set(id, job);
+          void this.story(userId, words2, today2, opts).then((o) => {
+            job.out = o;
+          }, (e) => {
+            job.out = { story: null, why: e.message };
+          });
+          return id;
+        }
+        /** a job's result: null while it's still being written, undefined if there's no such job (or it isn't yours) */
+        job(userId, id) {
+          const j = this.jobs.get(id);
+          if (!j || j.userId !== userId) return void 0;
+          return j.out;
         }
         /** How many stories this player has had written today, and the cap (0.9.9.4.4.5: shown next to "New passage"). */
         usage(userId, today2, admin = false) {
@@ -2477,8 +2500,18 @@ Answer with JSON only, no other text:
           const words2 = StoryService.clean(body.words);
           const day = resolveToday(body.today);
           const admin = u.role === "admin";
+          if (body.async === true && stories) {
+            const job = stories.startJob(u.id, words2, day, { level: isStoryLevel(body.level) ? body.level : void 0, admin });
+            return res(200, { job, words: words2, usage: stories.usage(u.id, day, admin) });
+          }
           const out = stories ? await stories.story(u.id, words2, day, { level: isStoryLevel(body.level) ? body.level : void 0, admin }) : { story: null, why: "off" };
           return res(200, { ...out, words: words2, usage: stories?.usage(u.id, day, admin) ?? { enabled: false, used: 0, limit: 0 } });
+        } else if (r2.method === "GET" && url === "/api/study/story/job") {
+          const u = await auth.authenticate(r2.token);
+          const out = stories?.job(u.id, String(query.get("id") ?? ""));
+          if (out === void 0) return res(404, { error: "No such story" });
+          const day = resolveToday(query.get("today"));
+          return res(200, out === null ? { pending: true } : { ...out, usage: stories.usage(u.id, day, u.role === "admin") });
         } else if (r2.method === "GET" && url === "/api/study/story") {
           const u = await auth.authenticate(r2.token);
           return res(200, stories?.usage(u.id, resolveToday(query.get("today")), u.role === "admin") ?? { enabled: false, used: 0, limit: 0 });
@@ -3045,6 +3078,9 @@ Answer with JSON only, no other text:
         quiz: (n = 10) => call2("GET", `/api/study/quiz?n=${n}`),
         /** 0.9.9.4.4.1: one story with these words (null when the AI is off or failed) */
         story: (words2, level2) => call2("POST", "/api/study/story", { words: words2, level: level2, today: today() }),
+        /** 0.9.9.5.1: start a story in the background (returns a job id), then ask for it until it's there */
+        storyStart: (words2, level2) => call2("POST", "/api/study/story", { words: words2, level: level2, today: today(), async: true }),
+        storyJob: (id) => call2("GET", `/api/study/story/job?id=${encodeURIComponent(id)}&today=${today()}`),
         /** 0.9.9.5: ★ a word (the reading passage uses starred words first) */
         setStar: (vocabId, on) => call2("PUT", "/api/study/star", { vocabId, on }),
         /** 0.9.9.4.4.5: AI stories today — how many you've had and the daily cap */
@@ -3845,6 +3881,13 @@ Answer with JSON only, no other text:
         "\u64EC\u614B\u8A9E (gitaigo) \u2014 state / manner": "\u64EC\u614B\u8A9E (\u0433\u0438\u0442\u0430\u0439\u0433\u043E) \u2014 \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 / \u043E\u0431\u0440\u0430\u0437 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F",
         "\u64EC\u60C5\u8A9E (gij\u014Dgo) \u2014 feeling": "\u64EC\u60C5\u8A9E (\u0433\u0438\u0434\u0437\u0451\u0433\u043E) \u2014 \u0447\u0443\u0432\u0441\u0442\u0432\u043E",
         "Time up \u2014 the dragon survived": "\u0412\u0440\u0435\u043C\u044F \u0432\u044B\u0448\u043B\u043E \u2014 \u0434\u0440\u0430\u043A\u043E\u043D \u0432\u044B\u0436\u0438\u043B",
+        // 0.9.9.5.1
+        "Waking up the server\u2026": "\u0411\u0443\u0434\u0438\u043C \u0441\u0435\u0440\u0432\u0435\u0440\u2026",
+        "Play offline meanwhile": "\u041F\u043E\u043A\u0430 \u0438\u0433\u0440\u0430\u0442\u044C \u043E\u0444\u043B\u0430\u0439\u043D",
+        "s \xB7 The free server sleeps when nobody has played for a while \u2014 it takes about a minute to start.": "\u0441 \xB7 \u0411\u0435\u0441\u043F\u043B\u0430\u0442\u043D\u044B\u0439 \u0441\u0435\u0440\u0432\u0435\u0440 \u0437\u0430\u0441\u044B\u043F\u0430\u0435\u0442, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u043B\u0433\u043E \u043D\u0438\u043A\u0442\u043E \u043D\u0435 \u0438\u0433\u0440\u0430\u0435\u0442, \u2014 \u0437\u0430\u043F\u0443\u0441\u043A \u0437\u0430\u043D\u0438\u043C\u0430\u0435\u0442 \u043E\u043A\u043E\u043B\u043E \u043C\u0438\u043D\u0443\u0442\u044B.",
+        "The words you missed go into a story \u2014 set the story level above, then start.": "\u0421\u043B\u043E\u0432\u0430 \u0441 \u043E\u0448\u0438\u0431\u043A\u0430\u043C\u0438 \u0432\u043E\u0439\u0434\u0443\u0442 \u0432 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0443\u0440\u043E\u0432\u0435\u043D\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u0432\u044B\u0448\u0435 \u0438 \u043D\u0430\u0447\u043D\u0438\u0442\u0435.",
+        "\u270D Write the story": "\u270D \u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437",
+        "Make the passage": "\u0421\u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u0442\u0435\u043A\u0441\u0442",
         // 0.9.9.5
         "Tap for this word": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0443\u0437\u043D\u0430\u0442\u044C \u0441\u043B\u043E\u0432\u043E",
         "Not in the dictionary \u2014 tap a kanji below": "\u041D\u0435\u0442 \u0432 \u0441\u043B\u043E\u0432\u0430\u0440\u0435 \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u043D\u0434\u0437\u0438 \u043D\u0438\u0436\u0435",
@@ -4061,6 +4104,7 @@ Answer with JSON only, no other text:
         return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
       };
       PATTERNS = [
+        [/^Pick which of your words go in and the story level above, then start\. (\d+) words of “(.+)” fit\.$/, (_, n, d) => `\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u044B\u0448\u0435, \u043A\u0430\u043A\u0438\u0435 \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0432\u043E\u0439\u0434\u0443\u0442, \u0438 \u0443\u0440\u043E\u0432\u0435\u043D\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430, \u0437\u0430\u0442\u0435\u043C \u043D\u0430\u0447\u043D\u0438\u0442\u0435. \u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u0441\u043B\u043E\u0432 \u0438\u0437 \xAB${RU[d] ?? d}\xBB: ${n}.`],
         [/^You can have up to (\d+) new AI stories a day — the counter next to New passage shows how many are left\. After that \(or offline\), the passage uses your words’ example sentences instead\.$/, "\u0412 \u0434\u0435\u043D\u044C \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0434\u043E $1 \u043D\u043E\u0432\u044B\u0445 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u2014 \u0441\u0447\u0451\u0442\u0447\u0438\u043A \u0440\u044F\u0434\u043E\u043C \u0441 \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C. \u041F\u043E\u0442\u043E\u043C (\u0438\u043B\u0438 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430) \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442\u0441\u044F \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432."],
         [/^A story needs at least 8 kanji words — “(.+)” has (\d+) of the levels you ticked\. Tick more levels, pick another deck, or study more words\.$/, (_, d, n) => `\u0414\u043B\u044F \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u043D\u0443\u0436\u043D\u043E \u0445\u043E\u0442\u044F \u0431\u044B 8 \u0441\u043B\u043E\u0432 \u0441 \u043A\u0430\u043D\u0434\u0437\u0438 \u2014 \u0432 \xAB${RU[d] ?? d}\xBB \u0438\u0445 ${n} \u0441\u0440\u0435\u0434\u0438 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u0445 \u0443\u0440\u043E\u0432\u043D\u0435\u0439. \u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u0443\u0440\u043E\u0432\u043D\u0435\u0439, \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443 \u0438\u043B\u0438 \u0438\u0437\u0443\u0447\u0438\u0442\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u0441\u043B\u043E\u0432.`],
         [/^(\d+) missed → Struggling spells$/, "$1 \u0441 \u043E\u0448\u0438\u0431\u043A\u043E\u0439 \u2192 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB"],
@@ -7044,7 +7088,7 @@ Answer with JSON only, no other text:
   init_api();
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.5";
+  var VERSION = "0.9.9.5.1";
 
   // src/client/support.ts
   init_ui();
@@ -8053,7 +8097,28 @@ ${stack}`.slice(0, 2e3);
     showIntro();
     void api.storyUsage().then(showQuota).catch(() => {
     });
-    void buildPassage();
+    showStart();
+  }
+  function showStart() {
+    ++passageBuild;
+    blanks = [];
+    lines = [];
+    storyTitle = null;
+    checked = false;
+    hideGloss();
+    $3("passageResult").hidden = true;
+    $3("passageResult").replaceChildren();
+    $3("passageNote").hidden = true;
+    $3("passageWords").replaceChildren();
+    $3("passageTr").replaceChildren();
+    const fromDeck = storyFrom.startsWith("deck:");
+    const n = new Set((fromDeck ? passageWords.filter(storyWord) : passageWords).map((w) => w.kanji)).size;
+    const box = el2("div", "p-start");
+    box.append(el2("p", "hint", fromDeck ? tr(`Pick which of your words go in and the story level above, then start. ${n} words of \u201C${DECK_LABEL[passageDeck]}\u201D fit.`) : tr("The words you missed go into a story \u2014 set the story level above, then start.")));
+    const go = el2("button", "big p-go", storyUsage?.enabled === false ? "Make the passage" : "\u270D Write the story", { type: "button" });
+    go.onclick = () => void buildPassage();
+    box.append(go);
+    $3("passageText").replaceChildren(box);
   }
   var WORD_LEVELS = ["N5", "N4", "N3", "N2", "N1"];
   var LEVELS_KEY = "kw:passage-levels";
@@ -8093,6 +8158,7 @@ ${stack}`.slice(0, 2e3);
           } catch {
           }
           draw2();
+          if (document.querySelector("#passageText .p-start")) showStart();
         };
         return b;
       }));
@@ -8109,6 +8175,46 @@ ${stack}`.slice(0, 2e3);
     };
   }
   $3("passageList").onclick = () => void openDeck(passageDeck);
+  async function writeStory(words2, level2, limitMs) {
+    const until = Date.now() + limitMs;
+    let start;
+    try {
+      start = await api.storyStart(words2, level2);
+    } catch (e) {
+      return { story: null, why: e.message };
+    }
+    if (!start.job) return { story: start.story ?? null, why: start.why, usage: start.usage };
+    if (start.usage) showQuota(start.usage);
+    let lastError = "";
+    while (Date.now() < until) {
+      await new Promise((ok) => setTimeout(ok, 2e3));
+      try {
+        const j = await api.storyJob(start.job);
+        if (!j.pending) return { story: j.story ?? null, why: j.why, usage: j.usage };
+      } catch (e) {
+        lastError = e.message;
+        if (e instanceof ApiError && e.status === 404) return { story: null, why: lastError };
+      }
+    }
+    return { story: null, why: lastError && lastError !== OFFLINE_TEXT ? lastError : "timeout" };
+  }
+  var TIMES_KEY = "kw:story-times";
+  function storyEstimate() {
+    try {
+      const t = JSON.parse(localStorage.getItem(TIMES_KEY) ?? "[]");
+      if (t.length) return Math.max(4, Math.min(60, t.reduce((a, b) => a + b, 0) / t.length));
+    } catch {
+    }
+    return 15;
+  }
+  function rememberStoryTime(s) {
+    try {
+      const t = JSON.parse(localStorage.getItem(TIMES_KEY) ?? "[]").slice(-4);
+      t.push(Math.round(s * 10) / 10);
+      localStorage.setItem(TIMES_KEY, JSON.stringify(t));
+    } catch {
+    }
+  }
   var f1 = (n) => n.toFixed(1);
   var storyUsage = null;
   function showQuota(u) {
@@ -8190,21 +8296,25 @@ ${stack}`.slice(0, 2e3);
       const t0 = Date.now();
       const again = $3("passageNew");
       again.disabled = true;
+      const est = storyEstimate();
       const tick2 = window.setInterval(() => {
         const t = (Date.now() - t0) / 1e3;
-        bar.style.width = `${f1(96 * (1 - Math.exp(-t / 14)))}%`;
+        const k = t / est;
+        const pct2 = k < 1 ? 90 * (1 - (1 - k) * (1 - k)) : 90 + 8 * (1 - Math.exp(-(k - 1) * 1.5));
+        bar.style.width = `${f1(pct2)}%`;
         sec.textContent = String(Math.floor(t));
-      }, 250);
-      const r2 = await Promise.race([
-        api.story(pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning })), storyLevel()).catch((e) => ({ story: null, why: e.message, usage: void 0 })),
-        new Promise((ok) => setTimeout(() => ok({ story: null, why: "timeout", usage: void 0 }), 95e3))
-      ]);
+      }, 200);
+      const words2 = pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }));
+      const r2 = await writeStory(words2, storyLevel(), 95e3);
       clearInterval(tick2);
       again.disabled = false;
       if (build2 !== passageBuild) return;
       if (r2.usage) showQuota(r2.usage);
       if (r2.story) {
+        rememberStoryTime((Date.now() - t0) / 1e3);
         bar.style.width = "100%";
+        await new Promise((ok) => setTimeout(ok, 380));
+        if (build2 !== passageBuild) return;
         storyTitle = r2.story.title;
         lines = r2.story.lines.map((l) => ({ ws: l.words.map((i) => pool[i]), ex: [l.ja, l.en, l.ru] }));
       } else if (r2.why) {
@@ -8254,7 +8364,7 @@ ${stack}`.slice(0, 2e3);
       if ($3("passage").hidden) openPassage(mapped);
       else {
         passageWords = mapped;
-        void buildPassage();
+        showStart();
       }
     } catch (e) {
       toast(e.message);
@@ -8495,6 +8605,24 @@ ${stack}`.slice(0, 2e3);
   // src/client/whatsnew.ts
   init_i18n();
   var PATCHES = [
+    {
+      v: "0.9.9.5.1",
+      date: "2026-10",
+      en: [
+        "Reading passage: nothing is written until you press \u201C\u270D Write the story\u201D \u2014 set your word levels and the story level first.",
+        "Reading passage: the story is written in the background and the app checks on it, so a phone\u2019s network hiccup no longer loses it (it used to fail after ~20 s and then turn up on the next try). The progress bar follows how long stories usually take and fills to the end.",
+        "Starting the app while the server is asleep: a \u201CWaking up the server\u2026\u201D screen with a progress bar (about a minute on free hosting) instead of a minute of offline mode \u2014 or \u201CPlay offline meanwhile\u201D.",
+        "The background no longer shifts a little when you open Progress or Customize.",
+        "Phones: a long player name no longer pushes the sound and settings buttons off the screen."
+      ],
+      ru: [
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043F\u0438\u0448\u0435\u0442\u0441\u044F, \u043F\u043E\u043A\u0430 \u0432\u044B \u043D\u0435 \u043D\u0430\u0436\u043C\u0451\u0442\u0435 \xAB\u270D \u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\xBB \u2014 \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0443\u0440\u043E\u0432\u043D\u0438 \u0441\u043B\u043E\u0432 \u0438 \u0443\u0440\u043E\u0432\u0435\u043D\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u0432 \u0444\u043E\u043D\u0435, \u0430 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u0435\u0433\u043E \u0433\u043E\u0442\u043E\u0432\u043D\u043E\u0441\u0442\u044C \u2014 \u0441\u0431\u043E\u0439 \u0441\u0435\u0442\u0438 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u0435\u0433\u043E \u043D\u0435 \u0442\u0435\u0440\u044F\u0435\u0442 (\u0440\u0430\u043D\u044C\u0448\u0435 \u0447\u0435\u0440\u0435\u0437 ~20 \u0441 \u0431\u044B\u043B\u0430 \u043E\u0448\u0438\u0431\u043A\u0430, \u0430 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u043F\u043E\u044F\u0432\u043B\u044F\u043B\u0441\u044F \u0441\u043E \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u043E\u043F\u044B\u0442\u043A\u0438). \u041F\u043E\u043B\u043E\u0441\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0441\u043B\u0435\u0434\u0443\u0435\u0442 \u043E\u0431\u044B\u0447\u043D\u043E\u043C\u0443 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0438 \u0434\u043E\u0445\u043E\u0434\u0438\u0442 \u0434\u043E \u043A\u043E\u043D\u0446\u0430.",
+        "\u0417\u0430\u043F\u0443\u0441\u043A, \u043F\u043E\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440 \u0441\u043F\u0438\u0442: \u044D\u043A\u0440\u0430\u043D \xAB\u0411\u0443\u0434\u0438\u043C \u0441\u0435\u0440\u0432\u0435\u0440\u2026\xBB \u0441 \u043F\u043E\u043B\u043E\u0441\u043A\u043E\u0439 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 (\u043E\u043A\u043E\u043B\u043E \u043C\u0438\u043D\u0443\u0442\u044B \u043D\u0430 \u0431\u0435\u0441\u043F\u043B\u0430\u0442\u043D\u043E\u043C \u0445\u043E\u0441\u0442\u0438\u043D\u0433\u0435) \u0432\u043C\u0435\u0441\u0442\u043E \u043C\u0438\u043D\u0443\u0442\u044B \u043E\u0444\u043B\u0430\u0439\u043D-\u0440\u0435\u0436\u0438\u043C\u0430 \u2014 \u0438\u043B\u0438 \xAB\u041F\u043E\u043A\u0430 \u0438\u0433\u0440\u0430\u0442\u044C \u043E\u0444\u043B\u0430\u0439\u043D\xBB.",
+        "\u0424\u043E\u043D \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0441\u0434\u0432\u0438\u0433\u0430\u0435\u0442\u0441\u044F \u043D\u0435\u043C\u043D\u043E\u0433\u043E \u043F\u0440\u0438 \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u0438 \xAB\u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441\u0430\xBB \u0438\u043B\u0438 \xAB\u041A\u0430\u0441\u0442\u043E\u043C\u0438\u0437\u0430\u0446\u0438\u0438\xBB.",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B: \u0434\u043B\u0438\u043D\u043D\u043E\u0435 \u0438\u043C\u044F \u0438\u0433\u0440\u043E\u043A\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0432\u044B\u0442\u0430\u043B\u043A\u0438\u0432\u0430\u0435\u0442 \u043A\u043D\u043E\u043F\u043A\u0438 \u0437\u0432\u0443\u043A\u0430 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043A \u0437\u0430 \u043A\u0440\u0430\u0439 \u044D\u043A\u0440\u0430\u043D\u0430."
+      ]
+    },
     {
       v: "0.9.9.5",
       date: "2026-10",
@@ -13867,6 +13995,12 @@ ${stack}`.slice(0, 2e3);
     applyBackground();
     paintScenes();
     setAudioButtons(isRadioOn(), isSfxOn());
+    if (!isOffline() && navigator.onLine && !await serverAnswers(5e3)) {
+      const r2 = await wakeServer();
+      if (r2 === "offline") {
+        if (await goOffline()) return void boot();
+      }
+    }
     if (!getToken()) return showAuth();
     try {
       const { user: u, profile: p } = await api.me();
@@ -13884,6 +14018,57 @@ ${stack}`.slice(0, 2e3);
       $("authError").textContent = canOffline ? "The server can't be reached right now." : e instanceof ApiError && e.status === 0 ? "No internet connection. Sign in once while online \u2014 then Study spells and more work offline too." : "Server unreachable \u2014 try again in a moment.";
       $("playOffline").hidden = !canOffline;
     }
+  }
+  async function serverAnswers(ms) {
+    try {
+      const r2 = await fetch("/api/online", { cache: "no-store", signal: AbortSignal.timeout(ms) });
+      return r2.ok && /json/.test(r2.headers.get("content-type") ?? "");
+    } catch {
+      return false;
+    }
+  }
+  var WAKE_KEY = "kw:wake-secs";
+  async function wakeServer() {
+    const scr = $("wakeScreen"), bar = $("wakeBar"), sec = $("wakeSec"), off = $("wakeOffline");
+    let est = 55;
+    try {
+      est = Math.max(15, Math.min(120, Number(localStorage.getItem(WAKE_KEY)) || 55));
+    } catch {
+    }
+    scr.hidden = false;
+    off.hidden = !await canGoOffline();
+    const t0 = Date.now();
+    const tick2 = window.setInterval(() => {
+      const t = (Date.now() - t0) / 1e3, k = t / est;
+      bar.style.width = `${(k < 1 ? 92 * (1 - (1 - k) * (1 - k)) : 92 + 6 * (1 - Math.exp(-(k - 1)))).toFixed(1)}%`;
+      sec.textContent = String(Math.floor(t));
+    }, 250);
+    let chose = false;
+    const choice = new Promise((ok) => {
+      off.onclick = () => {
+        chose = true;
+        ok("offline");
+      };
+    });
+    const poll = (async () => {
+      while (Date.now() - t0 < 15e4 && !chose) {
+        if (await serverAnswers(2e4)) return "up";
+        await new Promise((ok) => setTimeout(ok, 2500));
+      }
+      return "gave-up";
+    })();
+    const r2 = await Promise.race([poll, choice]);
+    clearInterval(tick2);
+    if (r2 === "up") {
+      try {
+        localStorage.setItem(WAKE_KEY, String(Math.round((Date.now() - t0) / 1e3)));
+      } catch {
+      }
+      bar.style.width = "100%";
+      await new Promise((ok) => setTimeout(ok, 400));
+    }
+    scr.hidden = true;
+    return r2;
   }
   $("playOffline").onclick = async () => {
     $("playOffline").hidden = true;

@@ -8,7 +8,7 @@ import { isStarred, starButton } from './stars';
 import type { Level } from '../shared/protocol';
 import { LEVEL_LABEL, type MissedWord } from '../shared/protocol';
 import type { DeckId } from '../shared/srs';
-import { api, OFFLINE_TEXT, type DeckRow, type StoryUsage, type Profile, type QuizQuestion, type WordHit } from './api';
+import { api, ApiError, OFFLINE_TEXT, type DeckRow, type StoryData, type StoryUsage, type Profile, type QuizQuestion, type WordHit } from './api';
 import { lang, locale, meaningIn, tr } from './i18n';
 import { openStrokeDialog } from './ui';
 import * as ui from './ui';
@@ -609,7 +609,32 @@ export function openPassage(words: PWord[]) {
   ui.show('passage');
   showIntro();
   void api.storyUsage().then(showQuota).catch(() => { /* offline: no counter */ });
-  void buildPassage();
+  showStart();
+}
+
+/**
+ * 0.9.9.5.1: nothing is written until you ask — set your word levels and the story level first, then
+ * "✍ Write the story".
+ */
+function showStart() {
+  ++passageBuild; // (a story still on its way for an older passage is dropped)
+  blanks = []; lines = []; storyTitle = null; checked = false;
+  hideGloss();
+  $('passageResult').hidden = true;
+  $('passageResult').replaceChildren();
+  $('passageNote').hidden = true;
+  $('passageWords').replaceChildren();
+  $('passageTr').replaceChildren();
+  const fromDeck = storyFrom.startsWith('deck:');
+  const n = new Set((fromDeck ? passageWords.filter(storyWord) : passageWords).map((w) => w.kanji)).size;
+  const box = el('div', 'p-start');
+  box.append(el('p', 'hint', fromDeck
+    ? tr(`Pick which of your words go in and the story level above, then start. ${n} words of “${DECK_LABEL[passageDeck]}” fit.`)
+    : tr('The words you missed go into a story — set the story level above, then start.')));
+  const go = el('button', 'big p-go', storyUsage?.enabled === false ? 'Make the passage' : '✍ Write the story', { type: 'button' }) as HTMLButtonElement;
+  go.onclick = () => void buildPassage();
+  box.append(go);
+  $('passageText').replaceChildren(box);
 }
 
 // ── 0.9.9.5: which of your words (by level) and how hard the story itself is ──
@@ -637,6 +662,7 @@ const storyWord = (w: PWord) => HAN_RE.test(w.kanji) && (w.custom || (!!w.level 
         if (!next.length) { ui.toast(tr('Keep at least one level')); return; }
         try { localStorage.setItem(LEVELS_KEY, JSON.stringify(next)); } catch { /* private mode: this visit only */ }
         draw();
+        if (document.querySelector('#passageText .p-start')) showStart(); // (the word count)
       };
       return b;
     }));
@@ -648,6 +674,38 @@ const storyWord = (w: PWord) => HAN_RE.test(w.kanji) && (w.custom || (!!w.level 
   sel.onchange = () => { try { localStorage.setItem(STORY_LEVEL_KEY, sel.value); } catch { /* private mode */ } };
 }
 $('passageList').onclick = () => void openDeck(passageDeck);
+
+// ── 0.9.9.5.1: writing the story in the background, and how long it usually takes ──
+type StoryAnswer = { story: StoryData | null; why?: string; usage?: StoryUsage };
+/** asks the server to write the story, then asks for it every 2 s (a dropped request doesn't lose it) */
+async function writeStory(words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>, level: string, limitMs: number): Promise<StoryAnswer> {
+  const until = Date.now() + limitMs;
+  let start: Awaited<ReturnType<typeof api.storyStart>>;
+  try { start = await api.storyStart(words, level); } catch (e) { return { story: null, why: (e as Error).message }; }
+  if (!start.job) return { story: start.story ?? null, why: start.why, usage: start.usage }; // (an older server answers at once)
+  if (start.usage) showQuota(start.usage);
+  let lastError = '';
+  while (Date.now() < until) {
+    await new Promise((ok) => setTimeout(ok, 2000));
+    try {
+      const j = await api.storyJob(start.job);
+      if (!j.pending) return { story: j.story ?? null, why: j.why, usage: j.usage };
+    } catch (e) {
+      lastError = (e as Error).message;
+      if (e instanceof ApiError && e.status === 404) return { story: null, why: lastError };
+      // a network blip: keep asking
+    }
+  }
+  return { story: null, why: lastError && lastError !== OFFLINE_TEXT ? lastError : 'timeout' };
+}
+const TIMES_KEY = 'kw:story-times';
+function storyEstimate(): number {
+  try { const t = JSON.parse(localStorage.getItem(TIMES_KEY) ?? '[]') as number[]; if (t.length) return Math.max(4, Math.min(60, t.reduce((a, b) => a + b, 0) / t.length)); } catch { /* none yet */ }
+  return 15;
+}
+function rememberStoryTime(s: number) {
+  try { const t = (JSON.parse(localStorage.getItem(TIMES_KEY) ?? '[]') as number[]).slice(-4); t.push(Math.round(s * 10) / 10); localStorage.setItem(TIMES_KEY, JSON.stringify(t)); } catch { /* private mode */ }
+}
 
 // ── 0.9.9.4.4.5: AI stories — the counter, the first-time explainer, and why there's no story ──
 const f1 = (n: number) => n.toFixed(1);
@@ -725,17 +783,26 @@ async function buildPassage() {
     // one story at a time: "New passage" waits until this one is there
     const again = $<HTMLButtonElement>('passageNew');
     again.disabled = true;
-    const tick = window.setInterval(() => { const t = (Date.now() - t0) / 1000; bar.style.width = `${f1(96 * (1 - Math.exp(-t / 14)))}%`; sec.textContent = String(Math.floor(t)); }, 250);
-    const r = await Promise.race([
-      api.story(pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning })), storyLevel()).catch((e) => ({ story: null, why: (e as Error).message, usage: undefined })),
-      new Promise<{ story: null; why: string; usage: undefined }>((ok) => setTimeout(() => ok({ story: null, why: 'timeout', usage: undefined }), 95_000)),
-    ]);
+    // 0.9.9.5.1: the bar follows how long stories usually take here (it fills to the end when the story is there)
+    const est = storyEstimate();
+    const tick = window.setInterval(() => {
+      const t = (Date.now() - t0) / 1000;
+      const k = t / est;
+      const pct = k < 1 ? 90 * (1 - (1 - k) * (1 - k)) : 90 + 8 * (1 - Math.exp(-(k - 1) * 1.5)); // quick at first, slows near the end
+      bar.style.width = `${f1(pct)}%`;
+      sec.textContent = String(Math.floor(t));
+    }, 200);
+    const words = pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }));
+    const r = await writeStory(words, storyLevel(), 95_000);
     clearInterval(tick);
     again.disabled = false;
     if (build !== passageBuild) return; // a newer passage was asked for meanwhile
     if (r.usage) showQuota(r.usage);
     if (r.story) {
+      rememberStoryTime((Date.now() - t0) / 1000);
       bar.style.width = '100%';
+      await new Promise((ok) => setTimeout(ok, 380)); // let the bar reach the end
+      if (build !== passageBuild) return;
       storyTitle = r.story.title;
       lines = r.story.lines.map((l) => ({ ws: l.words.map((i) => pool[i]), ex: [l.ja, l.en, l.ru] as [string, string, string] }));
     } else if (r.why) {
@@ -778,7 +845,7 @@ async function passageFrom(deck: DeckId) {
     const words = (await api.deckWords(deck)).words;
     const mapped = words.map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.vocabId, level: w.level, custom: w.custom }));
     if ($('passage').hidden) openPassage(mapped);
-    else { passageWords = mapped; void buildPassage(); }
+    else { passageWords = mapped; showStart(); }
   } catch (e) { ui.toast((e as Error).message); }
 }
 {
