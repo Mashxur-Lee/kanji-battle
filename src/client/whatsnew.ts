@@ -7,6 +7,23 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.5.1', date: '2026-10',
+    en: [
+      'Reading passage: nothing is written until you press “✍ Write the story” — set your word levels and the story level first.',
+      'Reading passage: the story is written in the background and the app checks on it, so a phone’s network hiccup no longer loses it (it used to fail after ~20 s and then turn up on the next try). The progress bar follows how long stories usually take and fills to the end.',
+      'Starting the app while the server is asleep: a “Waking up the server…” screen with a progress bar (about a minute on free hosting) instead of a minute of offline mode — or “Play offline meanwhile”.',
+      'The background no longer shifts a little when you open Progress or Customize.',
+      'Phones: a long player name no longer pushes the sound and settings buttons off the screen.',
+    ],
+    ru: [
+      'Текст для чтения: ничего не пишется, пока вы не нажмёте «✍ Написать рассказ» — сначала выберите уровни слов и уровень рассказа.',
+      'Текст для чтения: рассказ пишется в фоне, а приложение проверяет его готовность — сбой сети на телефоне больше его не теряет (раньше через ~20 с была ошибка, а рассказ появлялся со следующей попытки). Полоска загрузки следует обычному времени и доходит до конца.',
+      'Запуск, пока сервер спит: экран «Будим сервер…» с полоской загрузки (около минуты на бесплатном хостинге) вместо минуты офлайн-режима — или «Пока играть офлайн».',
+      'Фон больше не сдвигается немного при открытии «Прогресса» или «Кастомизации».',
+      'Телефоны: длинное имя игрока больше не выталкивает кнопки звука и настроек за край экрана.',
+    ],
+  },
+  {
     v: '0.9.9.5', date: '2026-10',
     en: [
       'Study cards: in the example sentence a whole word (帽子) is one tap — its meaning, “+ Add to…” a deck, and its kanji one by one underneath.',

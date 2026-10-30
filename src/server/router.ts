@@ -245,8 +245,19 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const words = StoryService.clean(body.words);
         const day = resolveToday(body.today);
         const admin = u.role === 'admin';
+        // 0.9.9.5.1: the app starts the story and asks for it every couple of seconds (see StoryService.startJob)
+        if (body.async === true && stories) {
+          const job = stories.startJob(u.id, words, day, { level: isStoryLevel(body.level) ? body.level : undefined, admin });
+          return res(200, { job, words, usage: stories.usage(u.id, day, admin) });
+        }
         const out = stories ? await stories.story(u.id, words, day, { level: isStoryLevel(body.level) ? body.level : undefined, admin }) : { story: null, why: 'off' };
         return res(200, { ...out, words, usage: stories?.usage(u.id, day, admin) ?? { enabled: false, used: 0, limit: 0 } });
+      } else if (r.method === 'GET' && url === '/api/study/story/job') {
+        const u = await auth.authenticate(r.token);
+        const out = stories?.job(u.id, String(query.get('id') ?? ''));
+        if (out === undefined) return res(404, { error: 'No such story' });
+        const day = resolveToday(query.get('today'));
+        return res(200, out === null ? { pending: true } : { ...out, usage: stories!.usage(u.id, day, u.role === 'admin') });
       } else if (r.method === 'GET' && url === '/api/study/story') {
         const u = await auth.authenticate(r.token);
         return res(200, stories?.usage(u.id, resolveToday(query.get('today')), u.role === 'admin') ?? { enabled: false, used: 0, limit: 0 });
