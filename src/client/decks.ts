@@ -632,9 +632,10 @@ function showStart() {
     ? tr(`Pick which of your words go in and the story level above, then start. ${n} words of “${DECK_LABEL[passageDeck]}” fit.`)
     : tr('The words you missed go into a story — set the story level above, then start.')));
   const go = el('button', 'big p-go', storyUsage?.enabled === false ? 'Make the passage' : '✍ Write the story', { type: 'button' }) as HTMLButtonElement;
-  go.onclick = () => void buildPassage();
+  go.onclick = () => { if (!limitHit()) void buildPassage(); };
   box.append(go);
   $('passageText').replaceChildren(box);
+  drawLimit();
 }
 
 // ── 0.9.9.5: which of your words (by level) and how hard the story itself is ──
@@ -718,6 +719,7 @@ function showQuota(u: StoryUsage) {
   q.textContent = `${tr('AI stories left today')}: ${left} / ${u.limit}`;
   q.title = tr('Each new AI story counts once; the same words again come free. The count starts over at midnight.');
   q.classList.toggle('low', left <= 5);
+  drawLimit();
   $('passageIntroQuota').hidden = !u.enabled;
   $('passageIntroQuota').textContent = tr(`You can have up to ${u.limit} new AI stories a day — the counter next to New passage shows how many are left. After that (or offline), the passage uses your words’ example sentences instead.`);
 }
@@ -796,6 +798,7 @@ async function buildPassage() {
     const r = await writeStory(words, storyLevel(), 95_000);
     clearInterval(tick);
     again.disabled = false;
+    drawLimit();
     if (build !== passageBuild) return; // a newer passage was asked for meanwhile
     if (r.usage) showQuota(r.usage);
     if (r.story) {
@@ -833,7 +836,21 @@ async function buildPassage() {
   drawBank();
   if (!lines.length) { text.replaceChildren(el('p', 'hint', 'No words with example sentences in this deck yet — pick another deck above, or study some spells first.')); $('passageWords').replaceChildren(); }
 }
-$('passageNew').onclick = () => void buildPassage();
+$('passageNew').onclick = () => { if (!limitHit()) void buildPassage(); };
+/** 0.9.9.6: today's AI stories are used up — the buttons say so instead of starting a story */
+function limitHit(): boolean {
+  if (!(storyUsage?.enabled && storyUsage.used >= storyUsage.limit)) return false;
+  ui.toast(tr(`You’ve used all ${storyUsage.limit} of today’s AI stories — new ones tomorrow!`), 5000);
+  return true;
+}
+function drawLimit() {
+  const hit = !!(storyUsage?.enabled && storyUsage.used >= storyUsage.limit);
+  for (const b of [$('passageNew'), document.querySelector<HTMLElement>('#passageText .p-go')]) {
+    if (!b) continue;
+    b.classList.toggle('blocked', hit);
+    b.setAttribute('aria-disabled', String(hit));
+  }
+}
 $('passageBack').onclick = () => { hideGloss(); backToStudy(); };
 /** the deck the passage takes its words from (0.9.9.3.2: any deck, not only Struggling spells) */
 // 0.9.9.5: All spells by default; only the chosen deck's words (no topping up from another deck)

@@ -206,8 +206,11 @@ export function toast(text: string, ms = 3500) {
 export const myName = () => $('whoName').textContent ?? '';
 export function setUser(user: PublicUser | null) {
   $('whoami').hidden = !user;
-  $('whoName').textContent = user?.username ?? '';
-  $('ppName').textContent = user?.username ?? '';
+  // 0.9.9.6: your nickname (or login), with the login under it in your profile
+  $('whoName').textContent = user ? user.name ?? user.username : '';
+  $('ppName').textContent = user ? user.name ?? user.username : '';
+  $('ppLogin').textContent = user && user.nickname ? `@${user.username}` : '';
+  $('ppLogin').hidden = !user?.nickname;
   $('whoRole').hidden = user?.role !== 'admin';
   $('adminBtn').hidden = user?.role !== 'admin';
 }
@@ -313,7 +316,7 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
           h('small', '', u.online ? `${u.activity ?? ''}${u.onlineSince ? ` · ${ago(u.onlineSince)}` : ''}` : u.lastSeen ? `seen ${ago(u.lastSeen)} ago` : u.loginDay ? `last day: ${u.loginDay}` : 'never logged in')));
       return append(h('tr', u.online ? 'is-online' : ''),
         presence,
-        h('td', '', u.username + (u.id === me.id ? ' (you)' : '')),
+        h('td', '', u.username + (u.nickname ? ` (${u.nickname})` : '') + (u.id === me.id ? ' (you)' : '')),
         h('td', '', u.role),
         h('td', 'num', `Lv ${u.level ?? 0}`),
         h('td', 'num', (u.xp ?? 0).toLocaleString()),
@@ -1085,7 +1088,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
     if (img) pic.append(img);
     const games = p.wins + p.losses;
     body.push(
-      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', `Lv ${p.level}`), ...[badgeRowFn?.(p.badges)].filter((x): x is HTMLElement => !!x))),
+      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), ...(p.login ? [h('div', 'pp-login', `@${p.login}`)] : []), h('div', 'pp-level', `Lv ${p.level}`), ...[badgeRowFn?.(p.badges)].filter((x): x is HTMLElement => !!x))),
       append(h('div', 'pp-stats'),
         append(h('div'), h('b', '', p.wins), h('span', '', 'wins')),
         append(h('div'), h('b', '', p.losses), h('span', '', 'losses')),

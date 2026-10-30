@@ -15,7 +15,7 @@ import type { Rating } from '../shared/srs';
 import { api, type DeckCounts, type Profile, type StudyCard } from './api';
 import type { DeckId } from '../shared/srs';
 import { DECK_LABEL, initDecks } from './decks';
-import { backgroundThumb, getTimePref, resolveTime, setTimePref, TIMES } from './backgrounds';
+import { backgroundThumb, getTimePref, resolveTime } from './backgrounds';
 import * as ui from './ui';
 import { BADGES_MAX, badgeRow, renderAchievements } from './achievements';
 import { tr } from './i18n';
@@ -463,16 +463,9 @@ function renderCustomize() {
   $('custSub').textContent = CUST_SUB[custTab](profile);
 
   // time of day (arena only)
-  const times = $('bgTimes');
-  times.hidden = custTab !== 'arena';
-  if (custTab === 'arena') {
-    const pref = getTimePref();
-    times.replaceChildren(...TIMES.map((t) => {
-      const b = el('button', 'pill' + (t.id === pref ? ' on' : ''), t.id === 'auto' ? `Cycle (now: ${resolveTime(pref)})` : t.id === 'day' ? 'Day' : t.id === 'sunset' ? 'Sunset' : 'Night');
-      b.onclick = () => { setTimePref(t.id); onTimeChange(); renderCustomize(); };
-      return b;
-    }));
-  }
+  // (0.9.9.6: no time-of-day choice any more — the arena follows your clock)
+  $('bgTimes').hidden = true;
+  void onTimeChange;
 
   const equip = async (it: CustItem) => {
     if (it.locked) return ui.toast(it.lockedToast);

@@ -1,3 +1,4 @@
+import { ARM_REST } from './charkit';
 // Low-poly 3D characters for the arena, each holding a magic staff. Built from simple shapes (no model
 // files), flat-shaded so they read like a stylised 3D version of the pixel characters:
 //   wizard (pointed hat, beard) · witch (crooked hat, green skin) · goblin (big ears) ·
@@ -119,11 +120,11 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
   const left = new THREE.Group(); left.position.set(-0.3, 1.34, 0); left.rotation.z = 0.25; body.add(left);
   left.add(mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.55, 6), sleeveM, 0, -0.27, 0));
   left.add(mesh(new THREE.SphereGeometry(0.07, 6, 4), skin, 0, -0.58, 0));
-  const arm = new THREE.Group(); arm.position.set(0.3, 1.34, 0.02); arm.rotation.z = -0.35; body.add(arm);
+  const arm = new THREE.Group(); arm.position.set(0.3, 1.34, 0.02); arm.rotation.z = ARM_REST; body.add(arm);
   arm.add(mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.5, 6), sleeveM, 0, -0.22, 0.05).rotateX(-0.5));
   const hand = mesh(new THREE.SphereGeometry(0.07, 6, 4), skin, 0, -0.42, 0.22); arm.add(hand);
   // the staff (the player's chosen skin): through the hand, leaning out a little so its gem shows beside the head
-  const staffPivot = new THREE.Group(); staffPivot.position.set(0, -0.42, 0.22); staffPivot.rotation.z = 0.28; arm.add(staffPivot);
+  const staffPivot = new THREE.Group(); staffPivot.position.set(0, -0.42, 0.22); staffPivot.rotation.z = 0.77; arm.add(staffPivot);
   const staff = buildStaff(staffSkin, glowTex);
   staff.group.position.y = 0.24; staff.group.scale.setScalar(0.8); // held a little below the middle (0.9.9.3.3: a bit smaller)
   staffPivot.add(staff.group);

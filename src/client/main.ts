@@ -1,3 +1,4 @@
+import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
 import './support'; // error reporting first, so early errors are caught too
 import { refreshOnline } from './support';
 import { onTaskDone, quizMode, showMissedSave, startQuiz } from './decks';
@@ -10,7 +11,7 @@ import { gameKbAvailable, gameKbPref, gameKbReset, setGameKb, setGameKbPref } fr
 import { celebrate, celebrateNew, comboMilestone } from './achievements';
 import { railScreen, refreshRail, setRailUser } from './friendrail';
 import { writeTargets, writeTemplate } from '../shared/kana';
-import { initI18n, lang, setLang } from './i18n';
+import { initI18n, lang, setLang, tr } from './i18n';
 import { applyUiZoom, centerScreens, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
 import * as voice from './voice';
 import { initQueue, onQueue, openQueue, resetQueue } from './queue';
@@ -18,7 +19,7 @@ import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
 import { arena, arenaLook, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
-import { LEVELS, MODE_LABEL, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
+import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
@@ -38,6 +39,7 @@ import { initApp } from './appshell';
 
 applyUiZoom(); // before anything is laid out
 centerScreens();
+initReminders();
 
 // ── state ────────────────────────────────────────────────────────────────────
 let user: PublicUser | null = null;
@@ -263,6 +265,7 @@ ui.$('playOffline').onclick = async () => {
 
 function signedIn(u: PublicUser) {
   user = u;
+  remindersSignedIn();
   if (!offline.isOffline()) void offline.signedIn(u.id); // keep a copy of the account for offline use
   ui.setUser(u);
   setRailUser(true);
@@ -281,14 +284,19 @@ function showAuth(message = '') {
   setRailUser(false);
   ui.setAuthTab(authTab);
   ui.show('auth');
-  ui.$('authError').textContent = message;
+  let left = '';
+  try { left = sessionStorage.getItem('kw:auth-msg') ?? ''; sessionStorage.removeItem('kw:auth-msg'); } catch { /* private mode */ }
+  ui.$('authError').textContent = message || left;
 }
 
 function logout(message = '') {
-  void offline.signedOut();
+  const reminders = remindersSignedOut(); // (before the token goes)
   setToken('');
   socket.stop();
-  showAuth(message);
+  // 0.9.9.6: start the page afresh, so nothing of this account (study plan, story limit, stars, settings
+  // from the server) carries over to the next one who signs in
+  try { sessionStorage.setItem('kw:auth-msg', message); } catch { /* private mode */ }
+  void Promise.allSettled([reminders, offline.signedOut()]).finally(() => location.reload());
 }
 
 function backToMenu() {
@@ -336,6 +344,7 @@ function onMessage(msg: ServerMessage) {
       ui.setError(`${msg.message} Refresh this page to play here.`);
       break;
     case 'joined':
+      createDone();
       resetQueue();
       you = msg.you;
       code = msg.code;
@@ -488,6 +497,7 @@ function onMessage(msg: ServerMessage) {
       ui.setRematchStatus(msg.votes, you, players.length, minPlayers);
       break;
     case 'error':
+      createDone();
       if (inRoom) { ui.$('lobbyStatus').textContent = msg.message; ui.toast(msg.message); }
       else if (ui.currentScreen() === 'queue') ui.toast(msg.message);
       else { ui.setError(msg.message); ui.show('menu'); }
@@ -528,7 +538,7 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
       break;
     case 'breath': {
       const immune = e.immune ?? [];
-      const victims = players.filter((p) => !immune.includes(p.id) && (p.hp > 0 || p.hp + e.damage > 0)).map((p) => actorOf(p.id));
+      const victims = (e.victims ? players.filter((p) => e.victims!.includes(p.id)) : players.filter((p) => !immune.includes(p.id) && p.hp > 0)).map((p) => actorOf(p.id));
       ui.breathFire(e.damage, victims, immune.map((id) => actorOf(id)));
       if (immune.includes(you)) ui.toast('You are on fire — immune to dragon breath!');
       audio.sfx.fire();
@@ -671,6 +681,23 @@ ui.$('authForm').addEventListener('submit', async (e) => {
   }
 });
 ui.$('logout').onclick = () => logout();
+// 0.9.9.6: change your nickname (the name others see; your login stays for signing in)
+ui.$('ppRename').onclick = () => {
+  const f = ui.$('ppRenameForm');
+  f.hidden = !f.hidden;
+  if (!f.hidden) { const i = ui.$<HTMLInputElement>('ppRenameInput'); i.value = user?.nickname ?? ''; i.focus(); }
+};
+ui.$('ppRenameForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const i = ui.$<HTMLInputElement>('ppRenameInput');
+  try {
+    const r = await api.setNickname(i.value);
+    user = r.user;
+    ui.setUser(r.user);
+    ui.$('ppRenameForm').hidden = true;
+    ui.toast(r.user.nickname ? `${tr('Your nickname')}: ${r.user.nickname}` : tr('Nickname cleared — others see your login'));
+  } catch (err) { ui.toast((err as Error).message, 5000); }
+});
 
 // ── menu ─────────────────────────────────────────────────────────────────────
 ui.$('studyLockBtn').onclick = () => void openStudy();
@@ -683,12 +710,30 @@ ui.$('privateBtn').onclick = () => {
 };
 ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
 initQueue((m) => socket.send(m), () => user?.id ?? '');
+// 0.9.9.6: picking a mode shows that it's working; if the server doesn't answer (a dead connection on a phone)
+// the app reconnects and asks again, and says so if that doesn't help either
+let creating: { timers: number[] } | null = null;
+function createDone() {
+  if (!creating) return;
+  creating.timers.forEach(clearTimeout);
+  creating = null;
+  for (const c of document.querySelectorAll<HTMLButtonElement>('.mode-card')) c.classList.remove('busy');
+}
 for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {
   card.onclick = () => {
     const m = card.dataset.mode as GameMode;
     if (!canPlay(m)) return ui.toast(lockText(m), 5000);
+    if (offline.isOffline()) return ui.toast(tr('Online games need an internet connection'), 4000);
+    if (creating) return; // already on its way
     if (m === 'deck') askNotifyPermission(); // "your turn" while you look at another tab
-    socket.send({ type: 'create', mode: m, levels: savedLevels() });
+    const msg: ClientMessage = { type: 'create', mode: m, levels: savedLevels() };
+    card.classList.add('busy');
+    creating = { timers: [] };
+    socket.send(msg);
+    creating.timers.push(
+      window.setTimeout(() => { if (creating && ui.currentScreen() === 'modes') socket.restart(msg); }, 4000),
+      window.setTimeout(() => { if (!creating) return; createDone(); if (ui.currentScreen() === 'modes') ui.toast(tr('Couldn’t reach the game server — check your connection and try again.'), 5000); }, 12_000),
+    );
   };
 }
 // new menu pages

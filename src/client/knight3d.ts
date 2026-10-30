@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { C, type V3, surf, lathe, tube, box, painted, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC } from './charkit';
+import { C, type V3, surf, lathe, tube, box, painted, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, ARM_REST } from './charkit';
 
 const PAL = {
   plate: C(0xd6cfbf), plateHi: C(0xe8e2d4), plateLo: C(0xa9a291), plateDark: C(0x7c7668),
@@ -115,7 +115,7 @@ export function buildKnight(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   armPlates(left, 0.1);
   add(tube([[0, -0.28, 0.02], [0, -0.42, 0.05], [0, -0.52, 0.06]], (t) => 0.048 + 0.008 * t, 7, (t, a) => P(a, t)), plate, left);
   left.add(handMesh(PAL.plateHi, plate, false, PAL.plateLo, 1.15)).position.set(0, -0.53, 0.06); // the gauntlet
-  const arm = new THREE.Group(); arm.position.set(0.26, 1.44, 0.02); arm.rotation.z = -0.35; body.add(arm);
+  const arm = new THREE.Group(); arm.position.set(0.26, 1.44, 0.02); arm.rotation.z = ARM_REST; body.add(arm);
   add(tube([[0, -0.02, 0], [0, -0.12, 0.0], [0, -0.22, 0.04]], (t) => 0.056 - 0.006 * t, 7, (t, a) => P(a, t)), plate, arm);
   add(painted(new THREE.SphereGeometry(0.05, 7, 5), PAL.plateHi), plate, arm, [0, -0.24, 0.05]);
   add(tube([[0, -0.25, 0.07], [0, -0.33, 0.15], [0, -0.39, 0.21]], (t) => 0.045 + 0.01 * t, 7, (t, a) => P(a, t)), plate, arm);

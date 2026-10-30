@@ -293,8 +293,10 @@ export class Game implements Match {
       this.breathTimers = [];
       // a player on fire (5+ combo) is immune to dragon fire
       const immune = [...this.players.values()].filter((p) => p.alive && p.combo >= FIRE_COMBO).map((p) => p.id);
-      for (const p of this.players.values()) if (p.alive && !immune.includes(p.id)) p.hp = Math.max(0, p.hp - breathDamage);
-      this.emit({ type: 'battle_update', event: { kind: 'breath', damage: breathDamage, immune } });
+      // 0.9.9.6: only those still standing are hit (a fallen teammate gets no damage numbers)
+      const victims = [...this.players.values()].filter((p) => p.alive && !immune.includes(p.id)).map((p) => p.id);
+      for (const p of this.players.values()) if (victims.includes(p.id)) p.hp = Math.max(0, p.hp - breathDamage);
+      this.emit({ type: 'battle_update', event: { kind: 'breath', damage: breathDamage, immune, victims } });
       for (const p of this.players.values()) if (!p.alive) this.stopPlayer(p);
       if (!this.checkEnd('party_wiped')) this.scheduleBreath();
     }, breathEveryMs));

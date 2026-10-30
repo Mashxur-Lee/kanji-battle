@@ -193,7 +193,7 @@ export class Session implements Client {
       const refused = inviteRefusal({ inRoom: room.has(friendId), activity: this.hub.presence(friendId).activity, lastAt: this.invitedAt.get(friendId), now: Date.now() });
       if (refused) return this.send({ type: 'notice', message: refused });
       this.invitedAt.set(friendId, Date.now());
-      if (!this.hub.sendTo(friendId, { type: 'invite', fromId: user.id, from: user.username, code: room.code, mode: room.mode })) return this.send({ type: 'error', message: 'Your friend is offline' });
+      if (!this.hub.sendTo(friendId, { type: 'invite', fromId: user.id, from: user.name ?? user.username, code: room.code, mode: room.mode })) return this.send({ type: 'error', message: 'Your friend is offline' });
       return;
     }
     switch (msg.type) {
@@ -302,7 +302,7 @@ export class Session implements Client {
 
   private async enter(room: Room, levels: Level[]) {
     const user = this.user!;
-    const result = room.join(user.id, user.username, this, levels.length ? await this.allowedLevels(levels) : levels, await this.profile());
+    const result = room.join(user.id, user.name ?? user.username, this, levels.length ? await this.allowedLevels(levels) : levels, await this.profile());
     if (!result.ok) return this.send({ type: 'error', message: result.error });
     this.room = room;
     this.rooms.seat(user.id, room);

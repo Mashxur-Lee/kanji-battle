@@ -27,7 +27,7 @@
     <div id="profilePop" class="profile-pop" hidden>
       <div class="pp-head">
         <div id="ppPic" class="pp-pic">✦</div>
-        <div><div id="ppName" class="pp-name"></div><div id="whoLevel" class="pp-level">Lv 0</div><div id="ppBadges"></div></div>
+        <div><div class="pp-name-row"><div id="ppName" class="pp-name"></div><button id="ppRename" class="pp-rename" type="button" title="Change your nickname" aria-label="Change your nickname">✎</button></div><div id="ppLogin" class="pp-login" hidden></div><form id="ppRenameForm" class="pp-rename-form" hidden><input id="ppRenameInput" maxlength="24" placeholder="Nickname (empty: your login)" autocomplete="off"><button type="submit" class="pill primary">Save</button></form><div id="whoLevel" class="pp-level">Lv 0</div><div id="ppBadges"></div></div>
       </div>
       <div class="xpbar" title="XP to next level"><span id="whoXp"></span></div>
       <div class="pp-stats">
@@ -52,6 +52,7 @@
   <div id="modeTitle" class="mode-title" aria-live="off" hidden></div>
   <div id="netStatus" class="net-status" role="status" hidden></div>
   <div class="audio-ctl" role="group" aria-label="Audio">
+    <button id="notifyBtn" class="pill notify-btn" type="button" aria-pressed="false" aria-label="Reminders">🔕</button>
     <button id="radioBtn" class="pill" aria-pressed="true" aria-label="Music"></button>
     <button id="sfxBtn" class="pill" aria-pressed="true" aria-label="Sounds"></button>
     <button id="volBtn" class="pill" aria-label="Volume" aria-expanded="false" title="Volume"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 2v12M8 2v12M13 2v12"/><circle cx="3" cy="10" r="1.8" fill="currentColor"/><circle cx="8" cy="5" r="1.8" fill="currentColor"/><circle cx="13" cy="11" r="1.8" fill="currentColor"/></svg></button>
@@ -199,7 +200,7 @@
 
 <main>
   <!-- AUTH -->
-  <section id="auth" class="screen split" hidden>
+  <section id="auth" class="screen auth-screen" hidden>
     <div class="col-main">
       <h1 class="title"><span class="jp">漢字</span> Wizards</h1>
       <p class="sub">Study ten spells. Then cast them from memory.</p>
@@ -216,7 +217,6 @@
         <p id="authHint" class="hint"></p>
       </form>
     </div>
-    <div class="col-scene"><div class="scene duel-scene" aria-hidden="true"></div></div>
   </section>
 
   <!-- ONLINE QUEUE -->
@@ -811,7 +811,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.5.1</div>
+<div id="version" class="version">v0.9.9.6</div>
 <script src="/app.js"></script>
 </body>
 </html>

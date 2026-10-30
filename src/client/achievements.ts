@@ -28,6 +28,15 @@ const GLYPH: Record<AchIcon, string> = {
   leaf: '<path d="M5 19C5 9 11 4 20 4c0 9-5 15-15 15z"/><path d="M5 19l8-8"/>',
   star: '<path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/>',
   kingslayer: '<path d="M3.5 9l3.5 3.5L10.5 7l3 4.5L17 9l-1.6 8.5H5.2z"/><path d="M21 3L9 21"/>',
+  hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/><path d="M10 18h4"/>',
+  scroll: '<path d="M7 4h11a2 2 0 0 1 0 4H9v10a2 2 0 0 1-4 0V6a2 2 0 0 1 2-2z"/><path d="M9 18h10a2 2 0 0 0 0-4h-1M11 10h5M11 13h4"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 7v10M8 11h8"/>',
+  gem: '<path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M9 4l-1.5 5L12 20M15 4l1.5 5L12 20"/>',
+  quill: '<path d="M20 3C12 4 7 9 5 19l2-1c1-3 3-5 5-6l-2-1 4-1c2-2 4-4 6-7z"/><path d="M4 21l3-3"/>',
+  bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/><path d="M12 7l1 2.1 2.3.3-1.7 1.6.4 2.3-2-1.1-2 1.1.4-2.3L8.7 9.4 11 9z"/>',
+  tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.4"/>',
+  mountain: '<path d="M2 20l7-12 4 6 3-4 6 10z"/><path d="M9 8l2 3 1.5-1"/>',
+  check: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 12l3 3 5-6"/>',
 };
 
 /** A hexagon badge with the achievement's icon, in its colour (or grey and locked). */
@@ -169,3 +178,18 @@ export function celebrateNew(userId: string, unlocks: readonly string[] | undefi
 export function comboMilestone(combo: number, unlocks: readonly string[] | undefined) {
   for (const [n, id] of COMBO_ACHIEVEMENTS) if (combo >= n && !has(unlocks, id)) celebrate(id);
 }
+
+// 0.9.9.6: a badge near the edge of the screen keeps its tip on screen (it is centred over the badge otherwise)
+function keepTipOnScreen(e: Event) {
+  const tip = (e.target as Element | null)?.closest?.('.ach')?.querySelector<HTMLElement>('.ach-tip');
+  if (!tip) return;
+  tip.style.setProperty('--tip-dx', '0px');
+  requestAnimationFrame(() => {
+    const r = tip.getBoundingClientRect();
+    if (!r.width) return;
+    const pad = 8, dx = r.left < pad ? pad - r.left : r.right > innerWidth - pad ? innerWidth - pad - r.right : 0;
+    tip.style.setProperty('--tip-dx', `${Math.round(dx / (r.width / tip.offsetWidth || 1))}px`);
+  });
+}
+document.addEventListener('pointerover', keepTipOnScreen);
+document.addEventListener('focusin', keepTipOnScreen);

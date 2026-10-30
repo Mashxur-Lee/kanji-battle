@@ -1,3 +1,4 @@
+import { displayName } from '../db/Store';
 import { randomUUID } from 'node:crypto';
 import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry } from '../../shared/protocol';
 import type { Level, OnoType } from '../../shared/protocol';
@@ -11,7 +12,7 @@ import { buildQuiz, type QuizQuestion } from '../../shared/quiz';
 import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type DailyPlan, type Snapshot, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { VOCAB, VOCAB_BY_ID } from '../vocab';
-import { playerDay, ProgressService, shiftDay, type MonthProgress } from './ProgressService';
+import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress } from './ProgressService';
 import { now as clockNow } from '../now';
 import { seededRng } from '../../shared/rng';
 
@@ -107,6 +108,22 @@ export class StudyService {
     return this.profile((await this.store.findById(u.id)) ?? u);
   }
 
+  /**
+   * 0.9.9.6: what a reminder needs to know — today's daily tasks, whether the Daily challenge is played, and how
+   * many All spells cards are due for review (new cards not counted).
+   */
+  async notifyStatus(u: UserRecord, today: string, now = clockNow()) {
+    const tasks = await this.progress.tasks(u.id, today);
+    const all = counts((await this.store.cards(u.id)).filter((x) => deckOf(x) === 'all' && !!this.info(x.vocabId, new Map())), now);
+    return {
+      day: today,
+      tasksLeft: tasks.filter((t) => t.value < t.target).length, tasksTotal: tasks.length,
+      challengeDone: tasks.some((t) => t.id === 'daily' && t.value >= t.target),
+      allDue: all.learning + all.due,
+      streak: liveStreak(u, today),
+    };
+  }
+
   /** Struggling spells waiting to be studied (new, learning or due). */
   async strugglingDue(userId: string, now = clockNow()) {
     const c = counts((await this.store.cards(userId)).filter((x) => deckOf(x) === 'struggling' && VOCAB_BY_ID.has(x.vocabId)), now);
@@ -146,7 +163,7 @@ export class StudyService {
   async publicProfile(id: string): Promise<PublicProfile | null> {
     const u = await this.store.findById(id);
     if (!u || u.banned) return null;
-    return { id: u.id, name: u.username, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date(clockNow()).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none' };
+    return { id: u.id, name: displayName(u), login: u.nickname?.trim() ? u.username : undefined, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date(clockNow()).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none' };
   }
 
   matches(userId: string) { return this.store.matches(userId, MATCH_HISTORY_LIMIT); }
@@ -505,10 +522,18 @@ export class StudyService {
     const u = await this.store.findById(userId);
     if (!u) return [];
     const unlocks = u.unlocks ?? [];
+    // 0.9.9.6: lifetime totals from the daily activity, mastered and custom words, stars, a nickname
+    const days = await this.store.activity(userId, '0000-01-01');
+    const sum = (k: 'reviews' | 'games' | 'quizzes' | 'passages' | 'challenges') => days.reduce((a, d) => a + (d[k] ?? 0), 0);
+    const cards = await this.store.cards(userId);
     const facts: AchFacts = {
       wins: u.wins, level: levelOf(u.xp), bestStreak: u.bestStreak ?? 0, learned: await this.store.learnedCount(userId),
       friends: (await this.store.friends(userId)).filter((f) => f.status === 'accepted').length,
       seasonal: unlocks.filter((x) => x.startsWith('flame:') || x.startsWith('staff:')).length, match,
+      reviews: sum('reviews'), games: sum('games'), quizzes: sum('quizzes'), passages: sum('passages'), challenges: sum('challenges'),
+      activeDays: days.filter((d) => d.login || d.reviews > 0 || d.games > 0).length,
+      mastered: new Set(cards.filter((c) => c.state === 'review' && c.intervalDays >= MASTERED_DAYS).map((c) => c.vocabId)).size,
+      starred: (u.starred ?? []).length, custom: cards.filter((c) => deckOf(c) === 'custom').length, nickname: !!u.nickname?.trim(),
     };
     const fresh = [...new Set([...earnedAchievements(facts), ...extra])].filter((id) => !unlocks.includes(ACH_PREFIX + id));
     if (fresh.length) await this.store.update(userId, { unlocks: [...unlocks, ...fresh.map((id) => ACH_PREFIX + id)] });

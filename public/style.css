@@ -1385,7 +1385,7 @@ body.has-rail .screen { padding-right: calc(var(--gutter) + 64px); }
 .ach.locked::after { content: ""; position: absolute; right: 2px; top: 2px; width: 16px; height: 16px;
   background: no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='7' width='10' height='8' rx='1.5' fill='%239a96c0'/%3E%3Cpath d='M5 7V5a3 3 0 0 1 6 0v2' fill='none' stroke='%239a96c0' stroke-width='1.8'/%3E%3C/svg%3E"); }
 .ach:hover, .ach:focus-visible { transform: translateY(-2px) scale(1.06); }
-.ach-tip { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: 210px; z-index: 40; display: none; flex-direction: column; gap: 3px;
+.ach-tip { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(calc(-50% + var(--tip-dx, 0px))); width: 210px; z-index: 40; display: none; flex-direction: column; gap: 3px;
   background: #14113a; border: 1px solid var(--ac); border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .55); text-align: left; pointer-events: none; }
 .ach-tip b { color: var(--ac); } .ach-tip span { font-size: .85rem; } .ach-tip small { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
 .ach.locked .ach-tip b { color: var(--text); }
@@ -2337,7 +2337,7 @@ html, body { overflow-x: clip; }
    page in front of it reads better; the edges keep the scene */
 #bg::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .6s;
   background: radial-gradient(ellipse 62% 70% at 50% 46%, rgba(8, 6, 24, .62), rgba(8, 6, 24, .4) 55%, rgba(8, 6, 24, .08) 100%); }
-body:is([data-screen="study"], [data-screen="review"], [data-screen="quiz"], [data-screen="passage"], [data-screen="customize"], [data-screen="progress"], [data-screen="history"], [data-screen="daily"], [data-screen="friends"], [data-screen="queue"], [data-screen="modes"], [data-screen="lobby"], [data-screen="admin"], [data-screen="results"]) #bg::before { opacity: 1; }
+body:is([data-screen="auth"], [data-screen="study"], [data-screen="review"], [data-screen="quiz"], [data-screen="passage"], [data-screen="customize"], [data-screen="progress"], [data-screen="history"], [data-screen="daily"], [data-screen="friends"], [data-screen="queue"], [data-screen="modes"], [data-screen="lobby"], [data-screen="admin"], [data-screen="results"]) #bg::before { opacity: 1; }
 .lp-row.locked .lp-name::after { content: " 🔒"; font-size: .85em; }
 
 /* 0.9.9.4.4.5: reading passage — the story is being written (a bar), how many AI stories are left, the first-time explainer */
@@ -2442,3 +2442,35 @@ body:is([data-screen="study"], [data-screen="review"], [data-screen="quiz"], [da
 .wake-card .hint { margin: 0; }
 .wake-card .pill { justify-self: center; }
 .passage .passage-text .p-start { font-family: var(--ui); }
+
+/* 0.9.9.6: the sign-in form in the middle of the screen, on the dimmed scene (no wizards) */
+#auth.auth-screen { display: grid; place-items: center; padding-top: 72px; }
+#auth.auth-screen .col-main { width: min(440px, 100%); padding: 26px 24px; border-radius: 20px; background: rgba(20, 16, 44, .78); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0, 0, 0, .45); backdrop-filter: blur(4px); text-align: center; }
+#auth.auth-screen .title { margin-top: 0; }
+#auth.auth-screen .tabs { justify-content: center; }
+#auth.auth-screen .field { text-align: left; }
+/* 0.9.9.6: narrow phones — each level's name sits above its − / + (side by side they could overlap) */
+@media (max-width: 480px) {
+  .lp-row { flex-direction: column; align-items: stretch; gap: 4px; padding: 6px 6px 6px; }
+  .lp-row .lp-name { text-align: center; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0; }
+  .lp-step { justify-content: space-between; width: 100%; }
+  .lp-step input, .lp-row .lp-step input { flex: 1; width: auto; min-width: 0; }
+  .lp-step .lp-btn { width: 34px; }
+}
+.passage .blocked { opacity: .5; filter: grayscale(.5); cursor: not-allowed; }
+.mode-card.busy { opacity: .7; pointer-events: none; position: relative; }
+.mode-card.busy::after { content: "…"; position: absolute; top: 8px; right: 12px; font-weight: 900; animation: bgFlicker 1s infinite; }
+/* 0.9.9.6: nickname */
+.pp-name-row { display: flex; align-items: center; gap: 6px; }
+.pp-rename { all: unset; cursor: pointer; font-size: .95rem; color: var(--muted); padding: 2px 6px; border-radius: 8px; }
+.pp-rename:hover { color: var(--text); background: rgba(255, 255, 255, .08); }
+.pp-login { font-size: .8rem; color: var(--muted); }
+.pp-rename-form { display: flex; gap: 6px; margin: 6px 0; }
+.pp-rename-form input { margin: 0; padding: 6px 10px; font-size: .95rem; }
+.pp-rename-form .pill { white-space: nowrap; }
+
+/* 0.9.9.6: reminders bell */
+.notify-btn { min-width: 0; padding-inline: 10px; }
+.notify-btn:not(.on) { opacity: .75; }
+#auth.auth-screen .col-main { min-height: 0; height: auto; align-self: center; }
+#auth.auth-screen .title { font-size: clamp(2rem, calc(5 * var(--vw)), 3rem); white-space: nowrap; }

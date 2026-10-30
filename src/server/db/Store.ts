@@ -36,13 +36,15 @@ export interface UserRecord {
   badges: string[]; // up to 3 achievement ids shown under your name
   /** 0.9.9.5: words you starred (★) — the reading passage puts them in first */
   starred?: string[];
+  /** 0.9.9.6: the name others see (null: the login) */
+  nickname?: string | null;
   /** 0.9.9.4.4: new words a day per level (All spells), and how many of each were added on `day` */
   dailyPlan: DailyPlan | null;
 }
 export interface DailyPlan { per: Partial<Record<Level, number>>; day: string | null; done: Partial<Record<Level, number>> }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -122,7 +124,9 @@ export type ActivityDelta = Partial<Omit<DayActivity, 'day'>>;
 /** A daily-challenge result. */
 export interface DailyResult { userId: string; username: string; correct: number; ms: number }
 /** Friends: accepted both ways; a request is 'outgoing' for the sender and 'incoming' for the other player. */
-export interface FriendLink { id: string; username: string; status: 'accepted' | 'incoming' | 'outgoing' }
+export interface FriendLink { id: string; username: string; status: 'accepted' | 'incoming' | 'outgoing'; /** the name to show (0.9.9.6) */ name?: string }
+/** the name others see: the nickname, or the login (0.9.9.6) */
+export const displayName = (u: { username: string; nickname?: string | null }) => u.nickname?.trim() || u.username;
 
 export const MATCH_HISTORY_LIMIT = 15; // older games are deleted
 
@@ -277,7 +281,7 @@ export class MemoryStore implements Store {
   async daily(day: string, userId: string) { const r = this.dailyResults.get(day)?.get(userId); return r ? { ...r } : null; }
   async dailyBoard(day: string, limit: number) {
     return [...(this.dailyResults.get(day) ?? new Map<string, { correct: number; ms: number }>())]
-      .map(([userId, r]) => ({ userId, username: this.users.get(userId)?.username ?? '?', correct: r.correct, ms: r.ms }))
+      .map(([userId, r]) => ({ userId, username: ((u) => (u ? displayName(u) : '?'))(this.users.get(userId)), correct: r.correct, ms: r.ms }))
       .sort((a, b) => b.correct - a.correct || a.ms - b.ms).slice(0, limit);
   }
   async dailyBetter(day: string, correct: number, ms: number) {
@@ -294,13 +298,13 @@ export class MemoryStore implements Store {
     const out: FriendLink[] = [];
     for (const [to, s] of this.friendLinks.get(userId) ?? []) {
       const u = this.users.get(to);
-      if (u) out.push({ id: to, username: u.username, status: s === 'accepted' ? 'accepted' : 'outgoing' });
+      if (u) out.push({ id: to, username: u.username, name: displayName(u), status: s === 'accepted' ? 'accepted' : 'outgoing' });
     }
     for (const [from, m] of this.friendLinks) {
       const u = this.users.get(from);
-      if (u && m.get(userId) === 'pending') out.push({ id: from, username: u.username, status: 'incoming' });
+      if (u && m.get(userId) === 'pending') out.push({ id: from, username: u.username, name: displayName(u), status: 'incoming' });
     }
-    return out.sort((a, b) => a.username.localeCompare(b.username));
+    return out.sort((a, b) => (a.name ?? a.username).localeCompare(b.name ?? b.username));
   }
   async requestFriend(from: string, to: string) {
     if (this.link(from, to)) return 'exists' as const;

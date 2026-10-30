@@ -50,7 +50,8 @@ export const studyLevelOf = (v: { level: Level; jlpt?: Level }): Level => v.jlpt
 export interface StudyItem { kanji: string; reading: string; meaning: string; level: Level; /** 0.9.9.4.4.2: a word from your own All spells */ mine?: boolean }
 
 export type Role = 'user' | 'admin';
-export interface PublicUser { id: string; username: string; role: Role }
+/** `username` is the login; `name` (0.9.9.6) what others see — your nickname, or the login when you have none */
+export interface PublicUser { id: string; username: string; role: Role; name?: string; nickname?: string | null }
 export interface AdminUserRow extends PublicUser {
   banned: boolean; createdAt: string;
   xp?: number; level?: number; crit?: number; learned?: number; cards?: number;
@@ -108,7 +109,7 @@ export type GameOverReason = 'ko' | 'time' | 'forfeit' | 'boss_slain' | 'party_w
 
 /** Another player's public card (shown when you click their name). */
 export interface MissedWord { id: string; kanji: string; reading: string; meaning: string; level: Level; added: boolean }
-export interface PublicProfile { id: string; name: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string; streak: number; bestStreak: number; badges?: string[]; border?: string }
+export interface PublicProfile { id: string; name: string; /** the login under the nickname (0.9.9.6) */ login?: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string; streak: number; bestStreak: number; badges?: string[]; border?: string }
 
 /** One line of your match history. `character`: Deck Duel hero, otherwise the wizard avatar you played. */
 export interface MatchSummary {
@@ -136,7 +137,7 @@ export type BattleEvent =
   | { kind: 'claw'; playerId: PlayerId; damage: number }
   | { kind: 'breath_warning'; inMs: number }
   /** immune: players on fire (5+ combo) shrug the flames off */
-  | { kind: 'breath'; damage: number; immune: PlayerId[] };
+  | { kind: 'breath'; damage: number; immune: PlayerId[]; /** 0.9.9.6: who was hit (the ones still standing) */ victims?: PlayerId[] };
 
 /** One handwritten character = list of strokes, each a list of [x, y] points. */
 export type DrawnChar = Array<Array<[number, number]>>;

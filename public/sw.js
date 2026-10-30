@@ -2,7 +2,7 @@
 // scripts/build-client.mjs fills in the file list and a build id; a new build means a new cache, and the
 // page reloads into it the next time you're on the menu. The API is never cached here (offline study is the
 // app's own offline engine), except profile pictures.
-const BUILD = 'b4d78f594fe5';
+const BUILD = 'c42b7642922e';
 const SHELL = ["/","/index.html","/app.js","/arena3d.js","/style.css","/favicon.svg","/vocab.json","/examples.json","/kanji.json","/meanings-ru.json","/manifest.webmanifest","/icons/icon-192.png","/icons/icon-512.png","/icons/maskable-512.png","/icons/apple-touch-icon.png"];
 const CACHE = `kw-shell-${BUILD}`;
 const RUNTIME = 'kw-runtime';
@@ -56,3 +56,51 @@ async function cacheFirst(req, name) {
   if (res.ok) c.put(req, res.clone());
   return res;
 }
+
+// ── reminders (0.9.9.6): a check now and then, where the browser allows it (an installed app in Chrome) ──
+// The rules are the page's (reminders.ts → decide); the page saves the sign-in token and the language here.
+function kv(mode) {
+  return new Promise((ok, no) => {
+    const r = indexedDB.open('kw-remind', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => ok(r.result.transaction('kv', mode).objectStore('kv'));
+    r.onerror = () => no(r.error);
+  });
+}
+const kvGet = async (k) => { const s = await kv('readonly'); return new Promise((ok) => { const q = s.get(k); q.onsuccess = () => ok(q.result); q.onerror = () => ok(undefined); }); };
+const kvPut = async (k, v) => { const s = await kv('readwrite'); return new Promise((ok) => { const q = s.put(v, k); q.onsuccess = () => ok(); q.onerror = () => ok(); }); };
+async function remind() {
+  const token = await kvGet('token');
+  if (!token) return;
+  const ru = (await kvGet('lang')) === 'ru';
+  const d = new Date(), hour = d.getHours();
+  if (hour < 12 || hour >= 23) return;
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  let s;
+  try {
+    const r = await fetch(`/api/notify/status?today=${today}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+    if (!r.ok) return;
+    s = await r.json();
+  } catch { return; }
+  const out = [];
+  if (!s.challengeDone) out.push(['challenge', ru ? '⚔ Ежедневный вызов ждёт' : '⚔ Today’s Daily challenge is waiting', ru ? 'Десять слов, одинаковых для всех, — насколько вы быстры?' : 'Ten words, the same for everyone — how fast are you?']);
+  if (s.allDue >= 50) out.push(['reviews', ru ? `📚 ${s.allDue} заклинаний ждут повторения` : `📚 ${s.allDue} spells are waiting for review`, ru ? `В колоде «Все заклинания» ${s.allDue} карточек к повторению.` : `Your All spells deck has ${s.allDue} cards to review.`]);
+  if (hour >= 18 && s.tasksLeft > 0) out.push(['tasks', ru ? '🔥 Сохраните серию' : '🔥 Keep your streak', ru ? `Осталось заданий на сегодня: ${s.tasksLeft} из ${s.tasksTotal}.` : `${s.tasksLeft} of ${s.tasksTotal} daily tasks left today.`]);
+  const shown = (await kvGet('shown')) || {};
+  for (const [kind, title, body] of out) {
+    if (shown[kind] === today) continue;
+    shown[kind] = today;
+    await self.registration.showNotification(title, { body, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', tag: `kw-${kind}` });
+  }
+  await kvPut('shown', shown);
+}
+self.addEventListener('periodicsync', (e) => { if (e.tag === 'kw-remind') e.waitUntil(remind()); });
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const w = wins.find((c) => new URL(c.url).origin === location.origin);
+    if (w) return w.focus();
+    return self.clients.openWindow('/');
+  })());
+});

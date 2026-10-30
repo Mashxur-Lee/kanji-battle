@@ -1,6 +1,10 @@
 package com.kanjiwizards.app;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.NotificationManager;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
@@ -28,6 +32,7 @@ import java.util.Locale;
  */
 public class MainActivity extends Activity {
     private static final int PICK_FILE = 1;
+    private static final int ASK_NOTIFY = 2;
     private static final String SERVER = BuildConfig.SERVER;
 
     private WebView web;
@@ -181,6 +186,28 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String version() {
             return BuildConfig.VERSION_NAME;
+        }
+
+        /** 0.9.9.6: reminders on/off (the bell in the top bar); asks for permission on Android 13+. */
+        @JavascriptInterface
+        public void setReminders(boolean on, String token, String lang) {
+            if (on && Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                runOnUiThread(() -> requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, ASK_NOTIFY));
+            }
+            Reminders.configure(MainActivity.this, on, token, lang);
+        }
+
+        @JavascriptInterface
+        public boolean remindersOn() {
+            return Reminders.isOn(MainActivity.this);
+        }
+
+        /** false when Android blocks this app's notifications (the bell then says how to allow them) */
+        @JavascriptInterface
+        public boolean notificationsAllowed() {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false;
+            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            return nm == null || nm.areNotificationsEnabled();
         }
     }
 }

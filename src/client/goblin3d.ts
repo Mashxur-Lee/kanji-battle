@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { C, type V3, surf, lathe, tube, box, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC } from './charkit';
+import { C, type V3, surf, lathe, tube, box, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, ARM_REST } from './charkit';
 
 const PAL = {
   skin: C(0x84933f), skinLo: C(0x66752e), skinHi: C(0x9aaa52), hair: C(0x2c2420), hairHi: C(0x45392f),
@@ -106,7 +106,7 @@ export function buildGoblin(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   add(tube([[0, 0, 0], [0, -0.14, 0.0], [0, -0.26, 0.02], [0, -0.4, 0.05], [0, -0.5, 0.06]], (t) => 0.042 - 0.012 * t + 0.006 * Math.sin(t * 6), 7, (t, a) => S(a, t)), cloth, left);
   bracer(left, [0, -0.32, 0.04], [0, -0.48, 0.06]);
   left.add(handMesh(PAL.leather, cloth, false, PAL.skin, 1.05)).position.set(0, -0.5, 0.065); // fingerless leather gloves
-  const arm = new THREE.Group(); arm.position.set(0.2, 1.3, 0.02); arm.rotation.z = -0.35; body.add(arm);
+  const arm = new THREE.Group(); arm.position.set(0.2, 1.3, 0.02); arm.rotation.z = ARM_REST; body.add(arm);
   add(tube([[0, 0, 0], [0, -0.12, 0.0], [0, -0.22, 0.04], [0, -0.3, 0.12], [0, -0.38, 0.2]], (t) => 0.042 - 0.012 * t, 7, (t, a) => S(a, t)), cloth, arm);
   bracer(arm, [0, -0.28, 0.1], [0, -0.38, 0.19]);
   const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.42, 0.23], materials, glowTex, staffSkin, handMesh(PAL.leather, cloth, true, PAL.skin, 1.05));
