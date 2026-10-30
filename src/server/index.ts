@@ -78,12 +78,14 @@ auth.onBan((userId) => hub.kick(userId, 'This account has been banned.'));
 // at 100%. Same address = the download stays in the game's window. Fetched from the latest GitHub release
 // and kept for 10 minutes.
 const APK_URL = process.env.APK_URL ?? 'https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download/KanjiWizards.apk';
-let apkCache: { at: number; data: Buffer } | null = null;
-async function latestApk(): Promise<Buffer> {
-  if (apkCache && Date.now() - apkCache.at < 10 * 60_000) return apkCache.data;
+let apkCache: { at: number; data: Buffer; v?: string } | null = null;
+/** `want`: the release the in-app updater (0.9.9.6.1) saw — a cached copy from before it is fetched again. */
+async function latestApk(want?: string): Promise<Buffer> {
+  const age = apkCache ? Date.now() - apkCache.at : Infinity;
+  if (apkCache && (age < 60_000 || (age < 10 * 60_000 && (!want || apkCache.v === want)))) return apkCache.data;
   const r = await fetch(APK_URL, { redirect: 'follow' });
   if (!r.ok) throw new Error(`APK ${r.status}`);
-  apkCache = { at: Date.now(), data: Buffer.from(await r.arrayBuffer()) };
+  apkCache = { at: Date.now(), data: Buffer.from(await r.arrayBuffer()), v: want };
   return apkCache.data;
 }
 
@@ -93,7 +95,8 @@ const server = createServer(async (req, res) => {
   const pathOnly = (req.url ?? '/').split('?')[0];
   if (pathOnly === '/download/KanjiWizards.apk') {
     try {
-      const data = await latestApk();
+      const want = new URL(req.url ?? '/', 'http://x').searchParams.get('v')?.slice(0, 32) || undefined;
+      const data = await latestApk(want);
       res.writeHead(200, { 'Content-Type': 'application/vnd.android.package-archive', 'Content-Disposition': 'attachment; filename="KanjiWizards.apk"', 'Content-Length': data.length, 'Cache-Control': 'no-cache' }).end(data);
     } catch (e) {
       reportServerError('APK download', e);

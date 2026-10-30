@@ -7,6 +7,21 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.6.1', date: '2026-10',
+    en: [
+      'Achievements show your progress: hover or tap a locked badge to see how far along you are (e.g. 37 / 100 words learned), with a small bar under the badge.',
+      'Nicknames can now be anything — even the same as another player’s login or nickname. Players are still told apart by their logins.',
+      'Android app: when a newer version is out, “Get the app” turns into “Update the app” — tap it and the app downloads the update and opens the installer by itself. (Apps from before this version need one last download from the browser; the button starts it.)',
+      '3D characters: both arms show again — the left arm had been sitting under the floor, so the hands looked like they came out of the belly. Now both arms hang from the shoulders and the staff is held out to the side.',
+    ],
+    ru: [
+      'Достижения показывают прогресс: наведите или нажмите на закрытый значок, чтобы увидеть, сколько уже сделано (например, 37 / 100 изученных слов), с полоской под значком.',
+      'Ник теперь может быть любым — даже таким же, как логин или ник другого игрока. Игроков по-прежнему различают по логинам.',
+      'Приложение для Android: когда выходит новая версия, «Скачать приложение» превращается в «Обновить приложение» — нажмите, и приложение само скачает обновление и откроет установщик. (Приложениям до этой версии нужна последняя загрузка через браузер — кнопка её запустит.)',
+      '3D-персонажи: снова видны обе руки — левая рука оказывалась под полом, и кисти будто росли из живота. Теперь обе руки идут от плеч, а посох держится сбоку.',
+    ],
+  },
+  {
     v: '0.9.9.6', date: '2026-10',
     en: [
       'Reminders 🔔: the bell next to the sound buttons turns on daily reminders — the Daily challenge, 50+ spells waiting in All spells, and your streak tasks in the evening. In the Android app they come even when it’s closed.',

@@ -2,7 +2,7 @@
 // them) and the "Achievement unlocked!" celebration — shown the moment a combo milestone happens in a
 // battle, and for anything else as soon as the server reports it (end of a match, or a profile load).
 
-import { ACH_PREFIX, ACHIEVEMENTS, achById, COMBO_ACHIEVEMENTS, type AchIcon, type AchievementDef } from '../shared/achievements';
+import { ACH_GOALS, ACH_PREFIX, ACHIEVEMENTS, achById, COMBO_ACHIEVEMENTS, type AchIcon, type AchievementDef } from '../shared/achievements';
 import * as audio from './audio';
 import * as ui from './ui';
 
@@ -83,7 +83,10 @@ ui.useBadgeRow(badgeRow);
  * Progress page: every achievement, earned ones in colour first in the list order. Click an earned one to
  * show it under your name (up to 3 badges) — `onBadges` saves the new choice.
  */
-export function renderAchievements(box: HTMLElement, unlocks: readonly string[] = [], badges: readonly string[] = [], onBadges?: (next: string[]) => void) {
+/** 0.9.9.6.1: the last progress counts the server sent (the Customize view reuses them). */
+let lastCounts: Partial<Record<string, number>> | undefined;
+export function renderAchievements(box: HTMLElement, unlocks: readonly string[] = [], badges: readonly string[] = [], onBadges?: (next: string[]) => void, counts?: Partial<Record<string, number>>) {
+  if (counts) lastCounts = counts; else counts = lastCounts;
   const earned = ACHIEVEMENTS.filter((a) => has(unlocks, a.id)).length;
   const grid = document.createElement('div');
   grid.className = 'ach-grid';
@@ -101,7 +104,20 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
     const s = document.createElement('span'); s.textContent = a.how;
     const pinned = badges.includes(a.id);
     const st = document.createElement('small'); st.textContent = locked ? 'Locked' : pinned ? 'On your profile ✓ — click to remove' : onBadges ? 'Unlocked ✓ — click to show on your profile' : 'Unlocked ✓';
-    tip.append(t, s, st);
+    tip.append(t, s);
+    const goal = locked ? ACH_GOALS[a.id] : undefined;
+    const have = goal && counts ? counts[goal[0]] : undefined;
+    if (goal && typeof have === 'number') { // 0.9.9.6.1: how far along a locked one is
+      const pct = Math.max(0, Math.min(1, have / goal[1]));
+      const pr = document.createElement('div'); pr.className = 'ach-prog';
+      const n = document.createElement('em'); n.textContent = `${Math.min(have, goal[1]).toLocaleString()} / ${goal[1].toLocaleString()}`;
+      const bar = document.createElement('i'); bar.style.setProperty('--p', `${(pct * 100).toFixed(1)}%`);
+      pr.append(n, bar); tip.append(pr);
+      const mini = document.createElement('i'); mini.className = 'ach-bar'; mini.style.setProperty('--p', `${(pct * 100).toFixed(1)}%`);
+      b.append(mini);
+      b.setAttribute('aria-label', `${a.name}: locked — ${a.how} (${Math.min(have, goal[1])} / ${goal[1]})`);
+    }
+    tip.append(st);
     b.append(tip);
     if (pinned) { b.classList.add('pinned'); const pin = document.createElement('i'); pin.className = 'ach-pin'; pin.textContent = '★'; b.append(pin); }
     if (!locked && onBadges) {

@@ -75,10 +75,7 @@ export class AuthService {
   async setNickname(u: UserRecord, raw: unknown): Promise<PublicUser> {
     const nick = String(raw ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim();
     if (nick && !/^[\p{L}\p{N} _.'\-]{2,24}$/u.test(nick)) throw new AuthError('A nickname is 2–24 letters, numbers, spaces or _ . - \'');
-    if (nick && nick.toLowerCase() !== u.username) {
-      const other = await this.store.findByUsername(nick.toLowerCase());
-      if (other && other.id !== u.id) throw new AuthError('That is another player’s login — pick another nickname');
-    }
+    // 0.9.9.6.1: a nickname may match anyone's login or nickname — players are told apart by their logins.
     const rec = (await this.store.update(u.id, { nickname: nick || null }))!;
     return toPublic(rec);
   }

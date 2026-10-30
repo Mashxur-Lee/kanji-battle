@@ -124,7 +124,7 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
   arm.add(mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.5, 6), sleeveM, 0, -0.22, 0.05).rotateX(-0.5));
   const hand = mesh(new THREE.SphereGeometry(0.07, 6, 4), skin, 0, -0.42, 0.22); arm.add(hand);
   // the staff (the player's chosen skin): through the hand, leaning out a little so its gem shows beside the head
-  const staffPivot = new THREE.Group(); staffPivot.position.set(0, -0.42, 0.22); staffPivot.rotation.z = 0.77; arm.add(staffPivot);
+  const staffPivot = new THREE.Group(); staffPivot.position.set(0, -0.42, 0.22); staffPivot.rotation.z = -0.37; arm.add(staffPivot);
   const staff = buildStaff(staffSkin, glowTex);
   staff.group.position.y = 0.24; staff.group.scale.setScalar(0.8); // held a little below the middle (0.9.9.3.3: a bit smaller)
   staffPivot.add(staff.group);

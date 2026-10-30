@@ -66,6 +66,31 @@ export interface AchFacts {
   match?: { mode: string; outcome: 'win' | 'loss' | 'draw'; accuracy: number; attempts: number; bestCombo: number; forfeited: boolean; beatAdmin?: boolean };
 }
 
+/**
+ * 0.9.9.6.1: the counted achievements — which number they follow and the goal — so each badge can show how far
+ * along you are ("12 / 50"). The rest (a combo in a battle, a mode won, a perfect Daily) are done in one go.
+ */
+export type AchMetric = 'wins' | 'level' | 'bestStreak' | 'learned' | 'friends' | 'seasonal' | 'reviews' | 'games' | 'quizzes' | 'passages' | 'challenges' | 'activeDays' | 'mastered' | 'starred' | 'custom';
+export const ACH_GOALS: Readonly<Record<string, [AchMetric, number]>> = {
+  'first-win': ['wins', 1], veteran: ['wins', 25], champion: ['wins', 100],
+  scholar: ['learned', 100], 'word-hoard': ['learned', 500], archmage: ['learned', 1000],
+  devoted: ['bestStreak', 7], steadfast: ['bestStreak', 14], eternal: ['bestStreak', 30], unbreakable: ['bestStreak', 100],
+  fellowship: ['friends', 1], 'circle-of-friends': ['friends', 5], seasonal: ['seasonal', 1],
+  'rising-star': ['level', 5], 'grand-wizard': ['level', 10], 'living-legend': ['level', 25],
+  'first-steps': ['reviews', 50], diligent: ['reviews', 1000], tireless: ['reviews', 10_000],
+  'well-versed': ['mastered', 100], 'deep-roots': ['mastered', 500],
+  'quiz-whiz': ['quizzes', 10], 'quiz-master': ['quizzes', 100], bookworm: ['passages', 10], storyteller: ['passages', 50],
+  'daily-devotee': ['challenges', 10], 'daily-legend': ['challenges', 50], regular: ['activeDays', 30],
+  brawler: ['games', 10], warlord: ['games', 250], collector: ['starred', 20], wordsmith: ['custom', 10],
+};
+/** the numbers the counted achievements follow (sent with the Progress page) */
+export type AchCounts = Partial<Record<AchMetric, number>>;
+export const achCounts = (f: AchFacts): AchCounts => ({
+  wins: f.wins, level: f.level, bestStreak: f.bestStreak, learned: f.learned, friends: f.friends, seasonal: f.seasonal,
+  reviews: f.reviews, games: f.games, quizzes: f.quizzes, passages: f.passages, challenges: f.challenges, activeDays: f.activeDays,
+  mastered: f.mastered, starred: f.starred, custom: f.custom,
+});
+
 /** Every achievement these facts earn (already-earned ones included). */
 export function earnedAchievements(f: AchFacts): string[] {
   const out: string[] = [];

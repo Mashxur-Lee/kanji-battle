@@ -518,15 +518,15 @@ export class StudyService {
   }
 
   /** Grants every achievement the player has now earned (plus `extra`); returns the new ones. */
-  async grantAchievements(userId: string, match?: AchFacts['match'], extra: string[] = []): Promise<string[]> {
-    const u = await this.store.findById(userId);
-    if (!u) return [];
+  /** what the achievements are checked against (0.9.9.6.1: also sent to the Progress page, for "12 / 50") */
+  async achFacts(u: UserRecord, match?: AchFacts['match']): Promise<AchFacts> {
+    const userId = u.id;
     const unlocks = u.unlocks ?? [];
     // 0.9.9.6: lifetime totals from the daily activity, mastered and custom words, stars, a nickname
     const days = await this.store.activity(userId, '0000-01-01');
     const sum = (k: 'reviews' | 'games' | 'quizzes' | 'passages' | 'challenges') => days.reduce((a, d) => a + (d[k] ?? 0), 0);
     const cards = await this.store.cards(userId);
-    const facts: AchFacts = {
+    return {
       wins: u.wins, level: levelOf(u.xp), bestStreak: u.bestStreak ?? 0, learned: await this.store.learnedCount(userId),
       friends: (await this.store.friends(userId)).filter((f) => f.status === 'accepted').length,
       seasonal: unlocks.filter((x) => x.startsWith('flame:') || x.startsWith('staff:')).length, match,
@@ -535,6 +535,13 @@ export class StudyService {
       mastered: new Set(cards.filter((c) => c.state === 'review' && c.intervalDays >= MASTERED_DAYS).map((c) => c.vocabId)).size,
       starred: (u.starred ?? []).length, custom: cards.filter((c) => deckOf(c) === 'custom').length, nickname: !!u.nickname?.trim(),
     };
+  }
+
+  async grantAchievements(userId: string, match?: AchFacts['match'], extra: string[] = []): Promise<string[]> {
+    const u = await this.store.findById(userId);
+    if (!u) return [];
+    const unlocks = u.unlocks ?? [];
+    const facts = await this.achFacts(u, match);
     const fresh = [...new Set([...earnedAchievements(facts), ...extra])].filter((id) => !unlocks.includes(ACH_PREFIX + id));
     if (fresh.length) await this.store.update(userId, { unlocks: [...unlocks, ...fresh.map((id) => ACH_PREFIX + id)] });
     return fresh;

@@ -58,7 +58,7 @@ function render() {
     const before = badges;
     badges = next; render();
     api.setBadges(next).then((r) => { badges = r.badges; onBadgesChanged(badges); }).catch((e) => { badges = before; render(); ui.toast((e as Error).message); });
-  });
+  }, page.achCounts);
   renderMastery();
 }
 

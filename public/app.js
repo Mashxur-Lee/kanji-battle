@@ -649,45 +649,6 @@
     }
   });
 
-  // src/server/study/InsightsService.ts
-  var InsightsError, CLIENT_EVENTS;
-  var init_InsightsService = __esm({
-    "src/server/study/InsightsService.ts"() {
-      "use strict";
-      InsightsError = class extends Error {
-        constructor(message, status = 400) {
-          super(message);
-          __publicField(this, "status", status);
-        }
-      };
-      CLIENT_EVENTS = ["tutorial_start", "tutorial_kana_yes", "tutorial_kana_no", "tutorial_battle", "tutorial_skip", "tutorial_done"];
-    }
-  });
-
-  // src/shared/protocol.ts
-  var LEVELS, LEVEL_LABEL, ONO_TYPES, MODE_LABEL, studyLevelOf, isKanaLevel;
-  var init_protocol = __esm({
-    "src/shared/protocol.ts"() {
-      "use strict";
-      LEVELS = ["KANA", "KATA", "N5", "N4", "N3", "N2", "N1"];
-      LEVEL_LABEL = { KANA: "\u3072\u3089\u304C\u306A", KATA: "\u30AB\u30BF\u30AB\u30CA", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1", ONO: "\u30AA\u30CE\u30DE\u30C8\u30DA" };
-      ONO_TYPES = {
-        sei: { ja: "\u64EC\u58F0\u8A9E", romaji: "giseigo", en: "sound" },
-        tai: { ja: "\u64EC\u614B\u8A9E", romaji: "gitaigo", en: "state / manner" },
-        jo: { ja: "\u64EC\u60C5\u8A9E", romaji: "gij\u014Dgo", en: "feeling" }
-      };
-      MODE_LABEL = {
-        reading: "1v1 Kanji Reading",
-        writing: "1v1 Kanji Writing",
-        boss: "Boss Elimination",
-        rapid: "1v1 Rapid",
-        deck: "Deck Duel"
-      };
-      studyLevelOf = (v) => v.jlpt ?? v.level;
-      isKanaLevel = (l) => l === "KANA" || l === "KATA";
-    }
-  });
-
   // src/shared/achievements.ts
   function earnedAchievements(f2) {
     const out = [];
@@ -743,7 +704,7 @@
     }
     return out;
   }
-  var ACHIEVEMENTS, ACH_PREFIX, achById, COMBO_ACHIEVEMENTS;
+  var ACHIEVEMENTS, ACH_PREFIX, achById, ACH_GOALS, achCounts, COMBO_ACHIEVEMENTS;
   var init_achievements = __esm({
     "src/shared/achievements.ts"() {
       "use strict";
@@ -796,7 +757,97 @@
       ];
       ACH_PREFIX = "ach:";
       achById = (id) => ACHIEVEMENTS.find((a) => a.id === id);
+      ACH_GOALS = {
+        "first-win": ["wins", 1],
+        veteran: ["wins", 25],
+        champion: ["wins", 100],
+        scholar: ["learned", 100],
+        "word-hoard": ["learned", 500],
+        archmage: ["learned", 1e3],
+        devoted: ["bestStreak", 7],
+        steadfast: ["bestStreak", 14],
+        eternal: ["bestStreak", 30],
+        unbreakable: ["bestStreak", 100],
+        fellowship: ["friends", 1],
+        "circle-of-friends": ["friends", 5],
+        seasonal: ["seasonal", 1],
+        "rising-star": ["level", 5],
+        "grand-wizard": ["level", 10],
+        "living-legend": ["level", 25],
+        "first-steps": ["reviews", 50],
+        diligent: ["reviews", 1e3],
+        tireless: ["reviews", 1e4],
+        "well-versed": ["mastered", 100],
+        "deep-roots": ["mastered", 500],
+        "quiz-whiz": ["quizzes", 10],
+        "quiz-master": ["quizzes", 100],
+        bookworm: ["passages", 10],
+        storyteller: ["passages", 50],
+        "daily-devotee": ["challenges", 10],
+        "daily-legend": ["challenges", 50],
+        regular: ["activeDays", 30],
+        brawler: ["games", 10],
+        warlord: ["games", 250],
+        collector: ["starred", 20],
+        wordsmith: ["custom", 10]
+      };
+      achCounts = (f2) => ({
+        wins: f2.wins,
+        level: f2.level,
+        bestStreak: f2.bestStreak,
+        learned: f2.learned,
+        friends: f2.friends,
+        seasonal: f2.seasonal,
+        reviews: f2.reviews,
+        games: f2.games,
+        quizzes: f2.quizzes,
+        passages: f2.passages,
+        challenges: f2.challenges,
+        activeDays: f2.activeDays,
+        mastered: f2.mastered,
+        starred: f2.starred,
+        custom: f2.custom
+      });
       COMBO_ACHIEVEMENTS = [[5, "combo-5"], [10, "combo-10"], [20, "combo-20"]];
+    }
+  });
+
+  // src/server/study/InsightsService.ts
+  var InsightsError, CLIENT_EVENTS;
+  var init_InsightsService = __esm({
+    "src/server/study/InsightsService.ts"() {
+      "use strict";
+      InsightsError = class extends Error {
+        constructor(message, status = 400) {
+          super(message);
+          __publicField(this, "status", status);
+        }
+      };
+      CLIENT_EVENTS = ["tutorial_start", "tutorial_kana_yes", "tutorial_kana_no", "tutorial_battle", "tutorial_skip", "tutorial_done"];
+    }
+  });
+
+  // src/shared/protocol.ts
+  var LEVELS, LEVEL_LABEL, ONO_TYPES, MODE_LABEL, studyLevelOf, isKanaLevel;
+  var init_protocol = __esm({
+    "src/shared/protocol.ts"() {
+      "use strict";
+      LEVELS = ["KANA", "KATA", "N5", "N4", "N3", "N2", "N1"];
+      LEVEL_LABEL = { KANA: "\u3072\u3089\u304C\u306A", KATA: "\u30AB\u30BF\u30AB\u30CA", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1", ONO: "\u30AA\u30CE\u30DE\u30C8\u30DA" };
+      ONO_TYPES = {
+        sei: { ja: "\u64EC\u58F0\u8A9E", romaji: "giseigo", en: "sound" },
+        tai: { ja: "\u64EC\u614B\u8A9E", romaji: "gitaigo", en: "state / manner" },
+        jo: { ja: "\u64EC\u60C5\u8A9E", romaji: "gij\u014Dgo", en: "feeling" }
+      };
+      MODE_LABEL = {
+        reading: "1v1 Kanji Reading",
+        writing: "1v1 Kanji Writing",
+        boss: "Boss Elimination",
+        rapid: "1v1 Rapid",
+        deck: "Deck Duel"
+      };
+      studyLevelOf = (v) => v.jlpt ?? v.level;
+      isKanaLevel = (l) => l === "KANA" || l === "KATA";
     }
   });
 
@@ -1930,14 +1981,14 @@
           return { gained, xp, achievements, missed };
         }
         /** Grants every achievement the player has now earned (plus `extra`); returns the new ones. */
-        async grantAchievements(userId, match, extra = []) {
-          const u = await this.store.findById(userId);
-          if (!u) return [];
+        /** what the achievements are checked against (0.9.9.6.1: also sent to the Progress page, for "12 / 50") */
+        async achFacts(u, match) {
+          const userId = u.id;
           const unlocks2 = u.unlocks ?? [];
           const days2 = await this.store.activity(userId, "0000-01-01");
           const sum = (k) => days2.reduce((a, d) => a + (d[k] ?? 0), 0);
           const cards = await this.store.cards(userId);
-          const facts = {
+          return {
             wins: u.wins,
             level: levelOf(u.xp),
             bestStreak: u.bestStreak ?? 0,
@@ -1956,6 +2007,12 @@
             custom: cards.filter((c) => deckOf(c) === "custom").length,
             nickname: !!u.nickname?.trim()
           };
+        }
+        async grantAchievements(userId, match, extra = []) {
+          const u = await this.store.findById(userId);
+          if (!u) return [];
+          const unlocks2 = u.unlocks ?? [];
+          const facts = await this.achFacts(u, match);
           const fresh = [.../* @__PURE__ */ new Set([...earnedAchievements(facts), ...extra])].filter((id) => !unlocks2.includes(ACH_PREFIX + id));
           if (fresh.length) await this.store.update(userId, { unlocks: [...unlocks2, ...fresh.map((id) => ACH_PREFIX + id)] });
           return fresh;
@@ -2482,7 +2539,8 @@ Answer with JSON only, no other text:
           return res(200, { ok: true });
         } else if (r2.method === "GET" && url === "/api/progress") {
           const u = await auth.authenticate(r2.token);
-          return res(200, await study.progress.page(u, query.get("today") ? resolveToday(query.get("today")) : playerDay(u)));
+          const page2 = await study.progress.page(u, query.get("today") ? resolveToday(query.get("today")) : playerDay(u));
+          return res(200, { ...page2, achCounts: achCounts(await study.achFacts(u)) });
         } else if (r2.method === "GET" && url === "/api/strokes") {
           const chars2 = [...query.get("k") ?? ""].slice(0, 8);
           return res(200, { strokes: Object.fromEntries(chars2.map((c) => [c, strokes2?.(c) ?? null])) });
@@ -2655,6 +2713,7 @@ Answer with JSON only, no other text:
   var init_router = __esm({
     "src/server/router.ts"() {
       "use strict";
+      init_achievements();
       init_Store();
       init_InsightsService();
       init_AuthService();
@@ -4028,13 +4087,18 @@ Answer with JSON only, no other text:
         "Notifications are blocked \u2014 allow them for this site in the browser settings, then tap the bell again.": "\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0437\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u044B \u2014 \u0440\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0438\u0445 \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0441\u0430\u0439\u0442\u0430 \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430 \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u043E\u043B\u043E\u043A\u043E\u043B\u044C\u0447\u0438\u043A \u0441\u043D\u043E\u0432\u0430.",
         "Allow notifications for Kanji Wizards in Android settings to get the reminders.": "\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0434\u043B\u044F Kanji Wizards \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 Android, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C \u043D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F.",
         "Reminders on: the Daily challenge, 50+ spells to review, and your streak tasks in the evening.": "\u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u044B: \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432, 50+ \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043A \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044E \u0438 \u0432\u0435\u0447\u0435\u0440\u043E\u043C \u2014 \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u0441\u0435\u0440\u0438\u0438.",
+        // 0.9.9.6.1
+        "Update the app": "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
+        "Install the update": "\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435",
+        "The download failed \u2014 check your internet and try again.": "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u043D\u0435 \u0443\u0434\u0430\u043B\u0430\u0441\u044C \u2014 \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430.",
+        "Downloading the update \u2014 Android will ask you to install it. (The first time, allow installing from Kanji Wizards.)": "\u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435 \u2014 Android \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0438\u0442 \u0435\u0433\u043E \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C. (\u0412 \u043F\u0435\u0440\u0432\u044B\u0439 \u0440\u0430\u0437 \u0440\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0443 \u0438\u0437 Kanji Wizards.)",
+        "Your browser is downloading the new app \u2014 open KanjiWizards.apk when it finishes and tap Update. From then on, updates install right from this button.": "\u0411\u0440\u0430\u0443\u0437\u0435\u0440 \u0437\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u0442 \u043D\u043E\u0432\u043E\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u2014 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 KanjiWizards.apk, \u043A\u043E\u0433\u0434\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u0442\u0441\u044F, \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \xAB\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C\xBB. \u041F\u043E\u0441\u043B\u0435 \u044D\u0442\u043E\u0433\u043E \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u0441\u0442\u0430\u0432\u044F\u0442\u0441\u044F \u043F\u0440\u044F\u043C\u043E \u044D\u0442\u043E\u0439 \u043A\u043D\u043E\u043F\u043A\u043E\u0439.",
         // 0.9.9.6 — nickname
         "Change your nickname": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043D\u0438\u043A",
         "Nickname (empty: your login)": "\u041D\u0438\u043A (\u043F\u0443\u0441\u0442\u043E \u2014 \u0432\u0430\u0448 \u043B\u043E\u0433\u0438\u043D)",
         "Your nickname": "\u0412\u0430\u0448 \u043D\u0438\u043A",
         "Nickname cleared \u2014 others see your login": "\u041D\u0438\u043A \u0443\u0434\u0430\u043B\u0451\u043D \u2014 \u0434\u0440\u0443\u0433\u0438\u0435 \u0432\u0438\u0434\u044F\u0442 \u0432\u0430\u0448 \u043B\u043E\u0433\u0438\u043D",
         "A nickname is 2\u201324 letters, numbers, spaces or _ . - '": "\u041D\u0438\u043A \u2014 \u043E\u0442 2 \u0434\u043E 24 \u0431\u0443\u043A\u0432, \u0446\u0438\u0444\u0440, \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u0432 \u0438\u043B\u0438 _ . - '",
-        "That is another player\u2019s login \u2014 pick another nickname": "\u042D\u0442\u043E \u043B\u043E\u0433\u0438\u043D \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0438\u0433\u0440\u043E\u043A\u0430 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u043E\u0439 \u043D\u0438\u043A",
         "Online games need an internet connection": "\u0414\u043B\u044F \u043E\u043D\u043B\u0430\u0439\u043D-\u0438\u0433\u0440 \u043D\u0443\u0436\u0435\u043D \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442",
         "Couldn\u2019t reach the game server \u2014 check your connection and try again.": "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u0432\u044F\u0437\u0430\u0442\u044C\u0441\u044F \u0441 \u0438\u0433\u0440\u043E\u0432\u044B\u043C \u0441\u0435\u0440\u0432\u0435\u0440\u043E\u043C \u2014 \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430.",
         // 0.9.9.5.1
@@ -4260,6 +4324,7 @@ Answer with JSON only, no other text:
         return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
       };
       PATTERNS = [
+        [/^Downloading… (\d+)%$/, "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026 $1%"],
         [/^You’ve used all (\d+) of today’s AI stories — new ones tomorrow!$/, "\u0412\u044B \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043B\u0438 \u0432\u0441\u0435 $1 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u2014 \u043D\u043E\u0432\u044B\u0435 \u0437\u0430\u0432\u0442\u0440\u0430!"],
         [/^Pick which of your words go in and the story level above, then start\. (\d+) words of “(.+)” fit\.$/, (_, n, d) => `\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u044B\u0448\u0435, \u043A\u0430\u043A\u0438\u0435 \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0432\u043E\u0439\u0434\u0443\u0442, \u0438 \u0443\u0440\u043E\u0432\u0435\u043D\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430, \u0437\u0430\u0442\u0435\u043C \u043D\u0430\u0447\u043D\u0438\u0442\u0435. \u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u0441\u043B\u043E\u0432 \u0438\u0437 \xAB${RU[d] ?? d}\xBB: ${n}.`],
         [/^You can have up to (\d+) new AI stories a day — the counter next to New passage shows how many are left\. After that \(or offline\), the passage uses your words’ example sentences instead\.$/, "\u0412 \u0434\u0435\u043D\u044C \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0434\u043E $1 \u043D\u043E\u0432\u044B\u0445 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u2014 \u0441\u0447\u0451\u0442\u0447\u0438\u043A \u0440\u044F\u0434\u043E\u043C \u0441 \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C. \u041F\u043E\u0442\u043E\u043C (\u0438\u043B\u0438 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430) \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442\u0441\u044F \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432."],
@@ -7400,7 +7465,7 @@ Answer with JSON only, no other text:
   init_api();
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.6";
+  var VERSION = "0.9.9.6.1";
 
   // src/client/support.ts
   init_ui();
@@ -8937,6 +9002,22 @@ ${stack}`.slice(0, 2e3);
   // src/client/whatsnew.ts
   init_i18n();
   var PATCHES = [
+    {
+      v: "0.9.9.6.1",
+      date: "2026-10",
+      en: [
+        "Achievements show your progress: hover or tap a locked badge to see how far along you are (e.g. 37 / 100 words learned), with a small bar under the badge.",
+        "Nicknames can now be anything \u2014 even the same as another player\u2019s login or nickname. Players are still told apart by their logins.",
+        "Android app: when a newer version is out, \u201CGet the app\u201D turns into \u201CUpdate the app\u201D \u2014 tap it and the app downloads the update and opens the installer by itself. (Apps from before this version need one last download from the browser; the button starts it.)",
+        "3D characters: both arms show again \u2014 the left arm had been sitting under the floor, so the hands looked like they came out of the belly. Now both arms hang from the shoulders and the staff is held out to the side."
+      ],
+      ru: [
+        "\u0414\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u044F \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u044E\u0442 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441: \u043D\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u0438\u043B\u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u0437\u0430\u043A\u0440\u044B\u0442\u044B\u0439 \u0437\u043D\u0430\u0447\u043E\u043A, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0443\u0436\u0435 \u0441\u0434\u0435\u043B\u0430\u043D\u043E (\u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440, 37 / 100 \u0438\u0437\u0443\u0447\u0435\u043D\u043D\u044B\u0445 \u0441\u043B\u043E\u0432), \u0441 \u043F\u043E\u043B\u043E\u0441\u043A\u043E\u0439 \u043F\u043E\u0434 \u0437\u043D\u0430\u0447\u043A\u043E\u043C.",
+        "\u041D\u0438\u043A \u0442\u0435\u043F\u0435\u0440\u044C \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043B\u044E\u0431\u044B\u043C \u2014 \u0434\u0430\u0436\u0435 \u0442\u0430\u043A\u0438\u043C \u0436\u0435, \u043A\u0430\u043A \u043B\u043E\u0433\u0438\u043D \u0438\u043B\u0438 \u043D\u0438\u043A \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0438\u0433\u0440\u043E\u043A\u0430. \u0418\u0433\u0440\u043E\u043A\u043E\u0432 \u043F\u043E-\u043F\u0440\u0435\u0436\u043D\u0435\u043C\u0443 \u0440\u0430\u0437\u043B\u0438\u0447\u0430\u044E\u0442 \u043F\u043E \u043B\u043E\u0433\u0438\u043D\u0430\u043C.",
+        "\u041F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0434\u043B\u044F Android: \u043A\u043E\u0433\u0434\u0430 \u0432\u044B\u0445\u043E\u0434\u0438\u0442 \u043D\u043E\u0432\u0430\u044F \u0432\u0435\u0440\u0441\u0438\u044F, \xAB\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435\xBB \u043F\u0440\u0435\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0441\u044F \u0432 \xAB\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435\xBB \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435, \u0438 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0441\u0430\u043C\u043E \u0441\u043A\u0430\u0447\u0430\u0435\u0442 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435 \u0438 \u043E\u0442\u043A\u0440\u043E\u0435\u0442 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0449\u0438\u043A. (\u041F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F\u043C \u0434\u043E \u044D\u0442\u043E\u0439 \u0432\u0435\u0440\u0441\u0438\u0438 \u043D\u0443\u0436\u043D\u0430 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0447\u0435\u0440\u0435\u0437 \u0431\u0440\u0430\u0443\u0437\u0435\u0440 \u2014 \u043A\u043D\u043E\u043F\u043A\u0430 \u0435\u0451 \u0437\u0430\u043F\u0443\u0441\u0442\u0438\u0442.)",
+        "3D-\u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436\u0438: \u0441\u043D\u043E\u0432\u0430 \u0432\u0438\u0434\u043D\u044B \u043E\u0431\u0435 \u0440\u0443\u043A\u0438 \u2014 \u043B\u0435\u0432\u0430\u044F \u0440\u0443\u043A\u0430 \u043E\u043A\u0430\u0437\u044B\u0432\u0430\u043B\u0430\u0441\u044C \u043F\u043E\u0434 \u043F\u043E\u043B\u043E\u043C, \u0438 \u043A\u0438\u0441\u0442\u0438 \u0431\u0443\u0434\u0442\u043E \u0440\u043E\u0441\u043B\u0438 \u0438\u0437 \u0436\u0438\u0432\u043E\u0442\u0430. \u0422\u0435\u043F\u0435\u0440\u044C \u043E\u0431\u0435 \u0440\u0443\u043A\u0438 \u0438\u0434\u0443\u0442 \u043E\u0442 \u043F\u043B\u0435\u0447, \u0430 \u043F\u043E\u0441\u043E\u0445 \u0434\u0435\u0440\u0436\u0438\u0442\u0441\u044F \u0441\u0431\u043E\u043A\u0443."
+      ]
+    },
     {
       v: "0.9.9.6",
       date: "2026-10",
@@ -10480,7 +10561,10 @@ ${stack}`.slice(0, 2e3);
   }
   var BADGES_MAX2 = 3;
   useBadgeRow(badgeRow);
-  function renderAchievements(box, unlocks2 = [], badges2 = [], onBadges) {
+  var lastCounts;
+  function renderAchievements(box, unlocks2 = [], badges2 = [], onBadges, counts3) {
+    if (counts3) lastCounts = counts3;
+    else counts3 = lastCounts;
     const earned = ACHIEVEMENTS.filter((a) => has(unlocks2, a.id)).length;
     const grid = document.createElement("div");
     grid.className = "ach-grid";
@@ -10501,7 +10585,26 @@ ${stack}`.slice(0, 2e3);
       const pinned = badges2.includes(a.id);
       const st = document.createElement("small");
       st.textContent = locked ? "Locked" : pinned ? "On your profile \u2713 \u2014 click to remove" : onBadges ? "Unlocked \u2713 \u2014 click to show on your profile" : "Unlocked \u2713";
-      tip.append(t, s, st);
+      tip.append(t, s);
+      const goal = locked ? ACH_GOALS[a.id] : void 0;
+      const have = goal && counts3 ? counts3[goal[0]] : void 0;
+      if (goal && typeof have === "number") {
+        const pct2 = Math.max(0, Math.min(1, have / goal[1]));
+        const pr = document.createElement("div");
+        pr.className = "ach-prog";
+        const n = document.createElement("em");
+        n.textContent = `${Math.min(have, goal[1]).toLocaleString()} / ${goal[1].toLocaleString()}`;
+        const bar = document.createElement("i");
+        bar.style.setProperty("--p", `${(pct2 * 100).toFixed(1)}%`);
+        pr.append(n, bar);
+        tip.append(pr);
+        const mini = document.createElement("i");
+        mini.className = "ach-bar";
+        mini.style.setProperty("--p", `${(pct2 * 100).toFixed(1)}%`);
+        b.append(mini);
+        b.setAttribute("aria-label", `${a.name}: locked \u2014 ${a.how} (${Math.min(have, goal[1])} / ${goal[1]})`);
+      }
+      tip.append(st);
       b.append(tip);
       if (pinned) {
         b.classList.add("pinned");
@@ -13256,7 +13359,7 @@ ${stack}`.slice(0, 2e3);
         render4();
         toast(e.message);
       });
-    });
+    }, page.achCounts);
     renderMastery();
   }
   function renderWeek(activity) {
@@ -14180,6 +14283,7 @@ ${stack}`.slice(0, 2e3);
       renderAppDialog();
       $("appDialog").showModal();
     };
+    void offerUpdate(btn);
     $("appInstall").onclick = async () => {
       if (!installPrompt) return;
       await installPrompt.prompt();
@@ -14240,6 +14344,68 @@ ${stack}`.slice(0, 2e3);
         return true;
       }
       return goBack();
+    };
+  }
+  var RELEASE_API = "https://api.github.com/repos/Mashxur-Lee/kanji-battle/releases/latest";
+  function cmpVersion(a, b) {
+    const pa = a.replace(/^v/, "").split(".").map((x) => parseInt(x, 10) || 0), pb = b.replace(/^v/, "").split(".").map((x) => parseInt(x, 10) || 0);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+      if (d) return d < 0 ? -1 : 1;
+    }
+    return 0;
+  }
+  async function latestRelease() {
+    try {
+      const r2 = await fetch(RELEASE_API, { headers: { Accept: "application/vnd.github+json" } });
+      if (r2.ok) {
+        const tag = String((await r2.json()).tag_name ?? "");
+        if (/^v?\d+(\.\d+)+$/.test(tag)) return tag.replace(/^v/, "");
+      }
+    } catch {
+    }
+    return VERSION;
+  }
+  async function offerUpdate(btn) {
+    const kw = window.KWAndroid;
+    const mine = kw?.version?.();
+    if (!kw || !mine) return;
+    const latest = await latestRelease();
+    if (cmpVersion(mine, latest) >= 0) return;
+    btn.hidden = false;
+    btn.classList.add("update");
+    btn.textContent = "Update the app";
+    btn.title = `${mine} \u2192 ${latest}`;
+    let timer3 = 0;
+    const watch = () => {
+      clearInterval(timer3);
+      timer3 = window.setInterval(() => {
+        const st = kw.updateState?.() ?? "idle";
+        if (st.startsWith("downloading")) btn.textContent = `Downloading\u2026 ${st.split(":")[1] ?? 0}%`;
+        else if (st === "done") {
+          clearInterval(timer3);
+          btn.textContent = "Install the update";
+        } else if (st === "failed") {
+          clearInterval(timer3);
+          btn.textContent = "Update the app";
+          toast("The download failed \u2014 check your internet and try again.");
+        }
+      }, 600);
+    };
+    btn.onclick = () => {
+      if (kw.updateApp) {
+        if (kw.updateState?.() === "done") {
+          kw.installUpdate?.();
+          return;
+        }
+        kw.updateApp(`${location.origin}/download/KanjiWizards.apk?v=${encodeURIComponent(latest)}`);
+        btn.textContent = "Downloading\u2026 0%";
+        toast("Downloading the update \u2014 Android will ask you to install it. (The first time, allow installing from Kanji Wizards.)", 6e3);
+        watch();
+      } else {
+        window.open(`${RELEASES}/KanjiWizards.apk`, "_blank");
+        toast("Your browser is downloading the new app \u2014 open KanjiWizards.apk when it finishes and tap Update. From then on, updates install right from this button.", 9e3);
+      }
     };
   }
 
