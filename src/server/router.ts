@@ -1,6 +1,7 @@
 // The REST API without the transport (0.9.9.4): the Node server (http.ts) feeds it real requests, and the
 // app's offline engine (client/offline) feeds it the same calls while there is no internet — so offline
 // study, quizzes, passages and the daily challenge run exactly the server's code.
+import { achCounts } from '../shared/achievements';
 import { displayName } from './db/Store';
 import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/InsightsService';
 import { AuthError, toPublic, type AuthService } from './auth/AuthService';
@@ -146,7 +147,8 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         return res(200, { ok: true });
       } else if (r.method === 'GET' && url === '/api/progress') {
         const u = await auth.authenticate(r.token);
-        return res(200, await study.progress.page(u, query.get('today') ? resolveToday(query.get('today')) : playerDay(u)));
+        const page = await study.progress.page(u, query.get('today') ? resolveToday(query.get('today')) : playerDay(u));
+        return res(200, { ...page, achCounts: achCounts(await study.achFacts(u)) }); // 0.9.9.6.1: "12 / 50" on the badges
       } else if (r.method === 'GET' && url === '/api/strokes') {
         // stroke order for up to 8 characters (public data: reference strokes from the recogniser)
         const chars = [...(query.get('k') ?? '')].slice(0, 8);

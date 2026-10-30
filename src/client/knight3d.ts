@@ -111,10 +111,10 @@ export function buildKnight(side: Side, glowTex: THREE.Texture, staffSkin?: stri
     add(painted(new THREE.CylinderGeometry(0.035, 0.04, 0.02, 10).rotateZ(-sx * Math.PI / 2), PAL.plateHi), plate, pd, [sx * 0.125, -0.03, 0]);
     add(painted(new THREE.SphereGeometry(0.014, 6, 4), PAL.brass), cloth, pd, [sx * 0.137, -0.03, 0]);
   }
-  const left = new THREE.Group(); left.position.set(-0.26, 1.44, 0); left.rotation.set(0.05, 0, 0.1); body.add(left);
+  const left = new THREE.Group(); left.position.set(-0.26, 1.44, 0); left.rotation.set(-0.3, 0, -0.08); body.add(left); // 0.9.9.6.1: a little forward
   armPlates(left, 0.1);
   add(tube([[0, -0.28, 0.02], [0, -0.42, 0.05], [0, -0.52, 0.06]], (t) => 0.048 + 0.008 * t, 7, (t, a) => P(a, t)), plate, left);
-  left.add(handMesh(PAL.plateHi, plate, false, PAL.plateLo, 1.15)).position.set(0, -0.53, 0.06); // the gauntlet
+  const leftHand = handMesh(PAL.plateHi, plate, false, PAL.plateLo, 1.15); leftHand.position.set(0, -0.53, 0.06); left.add(leftHand); // 0.9.9.6.1: the hand moves, not the arm (add() returns the parent — the whole arm sat under the floor) // the gauntlet
   const arm = new THREE.Group(); arm.position.set(0.26, 1.44, 0.02); arm.rotation.z = ARM_REST; body.add(arm);
   add(tube([[0, -0.02, 0], [0, -0.12, 0.0], [0, -0.22, 0.04]], (t) => 0.056 - 0.006 * t, 7, (t, a) => P(a, t)), plate, arm);
   add(painted(new THREE.SphereGeometry(0.05, 7, 5), PAL.plateHi), plate, arm, [0, -0.24, 0.05]);

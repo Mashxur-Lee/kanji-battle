@@ -1389,6 +1389,9 @@ body.has-rail .screen { padding-right: calc(var(--gutter) + 64px); }
   background: #14113a; border: 1px solid var(--ac); border-radius: 12px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .55); text-align: left; pointer-events: none; }
 .ach-tip b { color: var(--ac); } .ach-tip span { font-size: .85rem; } .ach-tip small { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
 .ach.locked .ach-tip b { color: var(--text); }
+.ach-prog { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; } .ach-prog em { font-style: normal; font-size: .8rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ach-prog i, .ach-bar { display: block; height: 5px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) var(--p), rgba(255,255,255,.12) var(--p)); }
+.ach-bar { position: absolute; left: 22%; right: 22%; bottom: -7px; height: 4px; opacity: .9; pointer-events: none; }
 .ach:hover .ach-tip, .ach:focus-visible .ach-tip { display: flex; }
 /* the celebration */
 .ach-pop { position: fixed; top: 16%; left: 50%; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 16px; pointer-events: none;
@@ -2474,3 +2477,5 @@ body:is([data-screen="auth"], [data-screen="study"], [data-screen="review"], [da
 .notify-btn:not(.on) { opacity: .75; }
 #auth.auth-screen .col-main { min-height: 0; height: auto; align-self: center; }
 #auth.auth-screen .title { font-size: clamp(2rem, calc(5 * var(--vw)), 3rem); white-space: nowrap; }
+/* 0.9.9.6.1: "Update the app" in an older Android app */
+.app-btn.update { border-color: var(--gold) !important; color: var(--gold); box-shadow: 0 0 12px color-mix(in srgb, var(--gold) 35%, transparent); }

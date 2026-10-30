@@ -184,14 +184,15 @@ export const add = (g: THREE.BufferGeometry, m: THREE.Material, parent: THREE.Ob
  * leans away from the body so hats and sleeves don't cut through it.
  */
 /**
- * 0.9.9.6: the staff arm's resting angle — held out from the body (it was −0.35, the fist at the belly), so the
- * hand round the staff shows beside the robe instead of in front of it. arena3d swings the arm around this.
+ * The staff arm's resting angle, out from the body. 0.9.9.6.1: positive (it was −0.35, and −0.85 in 0.9.9.6 —
+ * both swung the hand inwards, to the belly); now the arm hangs out to the side and the fist holds the staff
+ * beside the body. arena3d swings the arm around this.
  */
-export const ARM_REST = -0.85;
+export const ARM_REST = 0.3;
 export function holdStaff(arm: THREE.Group, hand: V3, materials: Character['materials'], glowTex: THREE.Texture, skin?: string, fist?: THREE.Object3D) {
   const staffPivot = new THREE.Group();
   staffPivot.position.set(...hand);
-  staffPivot.rotation.z = 0.47; // with the arm's own ARM_REST: the staff leans out ~20°
+  staffPivot.rotation.z = -0.68; // with the arm's own ARM_REST: the staff leans out ~20°
   arm.add(staffPivot);
   // arena3d drives staffPivot.rotation.x (the cast thrust), so the resting forward lean sits in its own group
   const lean = new THREE.Group();

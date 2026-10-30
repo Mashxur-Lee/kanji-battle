@@ -456,11 +456,16 @@ const RU: Record<string, string> = {
   'Notifications are blocked — allow them for this site in the browser settings, then tap the bell again.': 'Уведомления заблокированы — разрешите их для этого сайта в настройках браузера и нажмите на колокольчик снова.',
   'Allow notifications for Kanji Wizards in Android settings to get the reminders.': 'Разрешите уведомления для Kanji Wizards в настройках Android, чтобы получать напоминания.',
   'Reminders on: the Daily challenge, 50+ spells to review, and your streak tasks in the evening.': 'Напоминания включены: ежедневный вызов, 50+ заклинаний к повторению и вечером — задания серии.',
+  // 0.9.9.6.1
+  'Update the app': 'Обновить приложение',
+  'Install the update': 'Установить обновление',
+  'The download failed — check your internet and try again.': 'Загрузка не удалась — проверьте интернет и попробуйте снова.',
+  'Downloading the update — Android will ask you to install it. (The first time, allow installing from Kanji Wizards.)': 'Загружаем обновление — Android предложит его установить. (В первый раз разрешите установку из Kanji Wizards.)',
+  'Your browser is downloading the new app — open KanjiWizards.apk when it finishes and tap Update. From then on, updates install right from this button.': 'Браузер загружает новое приложение — откройте KanjiWizards.apk, когда загрузка закончится, и нажмите «Обновить». После этого обновления ставятся прямо этой кнопкой.',
   // 0.9.9.6 — nickname
   'Change your nickname': 'Изменить ник', 'Nickname (empty: your login)': 'Ник (пусто — ваш логин)', 'Your nickname': 'Ваш ник',
   'Nickname cleared — others see your login': 'Ник удалён — другие видят ваш логин',
   'A nickname is 2–24 letters, numbers, spaces or _ . - \'': 'Ник — от 2 до 24 букв, цифр, пробелов или _ . - \'',
-  'That is another player’s login — pick another nickname': 'Это логин другого игрока — выберите другой ник',
   'Online games need an internet connection': 'Для онлайн-игр нужен интернет', 'Couldn’t reach the game server — check your connection and try again.': 'Не удалось связаться с игровым сервером — проверьте соединение и попробуйте снова.',
   // 0.9.9.5.1
   'Waking up the server…': 'Будим сервер…', 'Play offline meanwhile': 'Пока играть офлайн',
@@ -609,6 +614,7 @@ const plural = (n: number, one: string, few: string, many: string) => {
 };
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
+  [/^Downloading… (\d+)%$/, 'Загрузка… $1%'],
   [/^You’ve used all (\d+) of today’s AI stories — new ones tomorrow!$/, 'Вы использовали все $1 ИИ-рассказов на сегодня — новые завтра!'],
   [/^Pick which of your words go in and the story level above, then start\. (\d+) words of “(.+)” fit\.$/, (_, n, d) => `Выберите выше, какие ваши слова войдут, и уровень рассказа, затем начните. Подходит слов из «${RU[d] ?? d}»: ${n}.`],
   [/^You can have up to (\d+) new AI stories a day — the counter next to New passage shows how many are left\. After that \(or offline\), the passage uses your words’ example sentences instead\.$/, 'В день можно получить до $1 новых ИИ-рассказов — счётчик рядом с «Новый текст» показывает, сколько осталось. Потом (или без интернета) используются примеры предложений ваших слов.'],

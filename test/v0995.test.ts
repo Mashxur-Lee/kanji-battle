@@ -65,7 +65,7 @@ test('stories (0.9.9.5.1): written in the background — a job id at once, the s
   } finally { globalThis.fetch = realFetch; }
 });
 
-test('0.9.9.6: nicknames — others see it, the login stays; another player’s login is refused', async () => {
+test('0.9.9.6: nicknames — others see it, the login stays; a nickname may match another login', async () => {
   const { AuthService } = await import('../src/server/auth/AuthService');
   const { TokenSigner } = await import('../src/server/auth/tokens');
   const store = new MemoryStore();
@@ -75,7 +75,10 @@ test('0.9.9.6: nicknames — others see it, the login stays; another player’s 
   const pub = await auth.setNickname(a, '  Мудрая Сова ');
   assert.equal(pub.name, 'Мудрая Сова');
   assert.equal(pub.username, 'alice');
-  await assert.rejects(() => auth.setNickname(a, 'Bob'), /another player/);
+  // 0.9.9.6.1: a nickname may match another player's login — the logins tell them apart
+  assert.equal((await auth.setNickname(a, 'Bob')).name, 'Bob');
+  assert.equal((await auth.setNickname(a, 'Bob')).username, 'alice');
+  await auth.setNickname(a, 'Мудрая Сова');
   await assert.rejects(() => auth.setNickname(a, 'x'), /2–24/);
   const study = new StudyService(store);
   const p = await study.publicProfile(a.id);
@@ -96,4 +99,18 @@ test('0.9.9.6: the new achievements are earned from lifetime totals', async () =
   const base = { wins: 0, level: 1, bestStreak: 0, learned: 0, friends: 0, seasonal: 0 };
   assert.deepEqual(earnedAchievements({ ...base, reviews: 60, quizzes: 10, nickname: true }).sort(), ['first-steps', 'quiz-whiz', 'true-name']);
   assert.ok(earnedAchievements({ ...base, bestStreak: 100 }).includes('unbreakable'));
+});
+
+test('0.9.9.6.1: achievement progress — every goal names a real achievement; counts follow the facts', async () => {
+  const { ACH_GOALS, ACHIEVEMENTS, achCounts } = await import('../src/shared/achievements');
+  const ids = new Set(ACHIEVEMENTS.map((a) => a.id));
+  for (const [id, [, n]] of Object.entries(ACH_GOALS)) { assert.ok(ids.has(id), id); assert.ok(n > 0, id); }
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const u = await store.create({ username: 'prog1', passwordHash: 'x', role: 'user' });
+  const c = achCounts(await study.achFacts(u));
+  assert.equal(c.wins, 0);
+  assert.equal(c.reviews, 0);
+  assert.equal(typeof c.learned, 'number');
+  assert.equal(typeof c.starred, 'number');
 });
