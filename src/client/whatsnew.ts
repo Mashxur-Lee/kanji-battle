@@ -7,6 +7,35 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.7.1', date: '2026-11',
+    en: [
+      'Dictionary: works offline now — it comes with the app and searches right on your device. Search in Russian too (вода → 水), and Japanese searches show many more matches, including words that share a kanji or sound nearly the same (Show more for the rest). On phones it uses your own keyboard, so you can type Russian or Japanese. The example buttons are gone.',
+      'Light theme, take two: the scene behind keeps its usual look (no more pale veil), text standing on it stays light, and only panels, buttons and fields turn light. Battles are always drawn in the dark theme, so the kanji over the 3D arena stays easy to read.',
+      'Combo poses: Lotus removed; Levitation, Duelist and Channel now unlock at 100, 200 and 300 spells learned. They also show during your Omnipotence in Deck Duel. Customize shows a drawing of each pose and the preview shows you from outside and, in the corner, as you see it yourself.',
+      'Duelist: in first person the staff now points at your opponent; seen from across the arena it’s held lower, so it no longer hides the face. Channel: in first person the staff stands to the right, so its top no longer covers the kanji.',
+      'The Apprentice and Adventurer characters now float, aim and bend their legs in the poses like everyone else.',
+      'Characters: both hands are the same size now, and the staffs are a little smaller.',
+      'Every lobby starts when all players press Ready (like Deck Duel).',
+      'Daily streak: three tasks now — study 10 spells, a JLPT quiz (7/10) OR a reading passage (4/8), and the daily challenge.',
+      'Onomatopoeia: the New a day number waits for Apply (or Cancel), like All spells.',
+      'Reading passage: starred words come first but no longer fill the whole story — up to 6 of the 8 words, the rest from your other words.',
+      'Phones: the menu background is now a still picture and nothing is blurred behind the panels — that was what made it flicker and lag in the app.',
+    ],
+    ru: [
+      'Словарь теперь работает без интернета — он идёт вместе с приложением и ищет прямо на устройстве. Можно искать и по-русски (вода → 水), а поиск по-японски показывает гораздо больше совпадений — и слова с тем же кандзи или почти тем же звучанием («Показать ещё» — остальные). На телефоне используется ваша клавиатура, так что можно печатать по-русски и по-японски. Кнопки с примерами убраны.',
+      'Светлая тема, попытка два: сцена сзади выглядит как обычно (без бледной пелены), текст на ней остаётся светлым, а светлыми становятся только панели, кнопки и поля. Бои всегда в тёмной теме, чтобы кандзи над 3D-ареной было легко читать.',
+      'Позы комбо: Лотос убран; Левитация, Дуэлянт и Концентрация открываются на 100, 200 и 300 изученных заклинаниях. Они появляются и во время Всемогущества в Дуэли колод. В кастомизации у каждой позы рисунок, а превью показывает вас со стороны и в углу — от первого лица.',
+      'Дуэлянт: от первого лица посох теперь направлен на соперника; со стороны он держится ниже и не закрывает лицо. Концентрация: от первого лица посох стоит справа и не закрывает кандзи.',
+      'Ученик и Искатель приключений теперь тоже парят, целятся и сгибают ноги в позах.',
+      'Персонажи: обе руки теперь одного размера, а посохи немного меньше.',
+      'Любое лобби начинается, когда все игроки нажмут «Готов» (как в Дуэли колод).',
+      'Ежедневная серия: теперь три задания — изучить 10 заклинаний, тест JLPT (7/10) ИЛИ текст для чтения (4/8) и ежедневный вызов.',
+      'Ономатопея: число «Новых в день» ждёт «Применить» (или «Отмена»), как во «Всех заклинаниях».',
+      'Текст для чтения: отмеченные звёздочкой слова идут первыми, но больше не заполняют весь рассказ — до 6 из 8, остальные из других ваших слов.',
+      'Телефоны: фон меню теперь неподвижная картинка, и за панелями ничего не размывается — из-за этого в приложении всё мерцало и тормозило.',
+    ],
+  },
+  {
     v: '0.9.9.7', date: '2026-11',
     en: [
       'Dictionary (辞書) in the main menu: type a word in kanji, kana, romaji or English and see every match — readings, JLPT level, all meanings (English and Russian), verb and adjective forms, an example sentence, each kanji with its memory picture and stroke order, and other words written with it. “+ Add to…” puts any word in any of your decks.',

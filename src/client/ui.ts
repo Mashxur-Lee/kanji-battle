@@ -451,24 +451,16 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   $('modeGuide').hidden = deck;
   if (!deck) renderModeGuide(mode);
   const meReady = !!players.find((p) => p.id === you)?.ready;
-  $('readyBtn').hidden = !deck;
+  $('readyBtn').hidden = false; // 0.9.9.7.1: every mode starts when everyone is ready
   $('readyBtn').textContent = meReady ? 'Not ready' : 'Ready';
   $('readyBtn').classList.toggle('is-ready', meReady);
   $('readyBtn').dataset.ready = meReady ? '1' : '';
-  if (deck) {
-    $('start').hidden = true;
-    $('lobbyStatus').textContent = !canStart
-      ? 'Share the code, or add an AI opponent — then press Ready. The duel starts when both are ready.'
-      : meReady ? 'Waiting for your opponent to be ready…' : 'Press Ready — the duel starts when both players are ready.';
-    show('lobby');
-    return;
-  }
-  $('start').hidden = !isHost;
-  $<HTMLButtonElement>('start').disabled = !canStart;
-  $('start').textContent = mode === 'boss' ? (players.length === 1 ? 'Start solo' : `Start — party of ${players.length}`) : 'Start battle';
+  $('start').hidden = true;
+  const solo = mode === 'boss' && players.length === 1;
   $('lobbyStatus').textContent = !canStart
-    ? 'Share the code with a friend, or add an AI player to start.'
-    : isHost ? (mode === 'boss' && players.length < maxPlayers ? `Start now, or wait for more teammates (up to ${maxPlayers}).` : '') : 'Waiting for the host to start…';
+    ? (deck ? 'Share the code, or add an AI opponent — then press Ready. The duel starts when both are ready.' : 'Share the code with a friend, or add an AI player — then press Ready.')
+    : meReady ? (solo ? 'Starting…' : 'Waiting for the others to be ready…')
+    : solo ? 'Press Ready to start your solo run (or wait for a teammate).' : 'Press Ready — the battle starts when every player is ready.';
   show('lobby');
 }
 

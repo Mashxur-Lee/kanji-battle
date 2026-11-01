@@ -178,7 +178,7 @@
 </dialog>
 <dialog id="tasksDialog" class="friend-dialog tasks-dialog" aria-label="Daily streak">
   <div class="dd-head"><h3>🔥 Keep your daily streak</h3></div>
-  <p class="hint">A day counts for your streak when all four tasks are done — and gives +500 XP. Your best streak unlocks magic staffs.</p>
+  <p class="hint">A day counts for your streak when all three tasks are done — and gives +500 XP. Your best streak unlocks magic staffs.</p>
   <div id="tasksStreak" class="tasks-streak"></div>
   <ul id="tasksList" class="tasks-list"></ul>
   <label class="tasks-never"><input id="tasksNever" type="checkbox"> Don’t show this when I log in</label>
@@ -369,7 +369,7 @@
     <button id="dictBack" class="back">← Menu</button>
     <div class="page-head"><h2>Dictionary <span lang="ja" class="dict-jp">辞書</span></h2></div>
     <form id="dictForm" class="dict-search" autocomplete="off">
-      <input id="dictQ" type="search" lang="ja" placeholder="Kanji, kana, romaji or English — 信用, しんよう, shinyou, trust" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Search the dictionary">
+      <input id="dictQ" type="search" lang="ja" placeholder="Kanji, kana, romaji, English or Russian — 信用, しんよう, shinyou, trust, доверие" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Search the dictionary">
       <button id="dictGo" type="submit">Search</button>
     </form>
     <div id="dictBody" class="dict-body"></div>
@@ -400,6 +400,7 @@
         <h3>Onomatopoeia</h3>
         <p class="hint">Every giseigo, gitaigo and gijōgo: sounds (ワンワン), states (きらきら) and feelings (ドキドキ). Choose how many new ones a day (0 = none).</p>
         <div class="level-plan ono-plan"><div class="lp-row" id="onoPlanRow"><span class="lp-name">New a day</span><div class="lp-step"><button type="button" class="lp-btn" id="onoMinus" aria-label="New a day −1">−</button><input id="onoDaily" type="text" inputmode="numeric" maxlength="3" value="0" aria-label="New onomatopoeia a day"><button type="button" class="lp-btn" id="onoPlus" aria-label="New a day +1">+</button></div></div></div>
+        <div id="onoApply" class="plan-apply" role="group" hidden><span id="onoApplyText"></span><button id="onoCancelBtn" type="button" class="pill">Cancel</button><button id="onoApplyBtn" type="button" class="pill plan-ok">Apply</button></div>
         <div id="countsOno" class="counts"></div>
         <div class="deck-btns"><button id="studyOno" class="big">Study</button><button class="deck-open" data-deck="ono"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
@@ -511,6 +512,7 @@
         <div id="custStage" class="cust-stage">
           <canvas id="staffCanvas" class="staff-canvas" aria-label="Staff preview"></canvas>
           <canvas id="arenaPreview" class="staff-canvas arena-prev" aria-label="3D preview" hidden></canvas>
+          <div id="poseInsetLbl" class="pose-inset-lbl" hidden><span>3rd person</span><span>1st person</span></div>
           <div id="custStage2" class="cust-stage2"></div>
         </div>
         <div id="custInfo" class="cust-info"></div>
@@ -798,7 +800,7 @@
   <form method="dialog">
     <h2>How to play</h2>
     <ol>
-      <li><b>Create a room</b>, pick a mode, and send the 4-letter code to a friend. On a phone you can switch apps to send it — your seat is kept for 5 minutes.</li>
+      <li><b>Create a room</b>, pick a mode, and send the 4-letter code to a friend. The battle starts when every player presses <b>Ready</b>. On a phone you can switch apps to send it — your seat is kept for 5 minutes.</li>
       <li><b>Pick your levels.</b> ひらがな (hiragana) and カタカナ (katakana) are the kana letters (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (ひらがな / カタカナ), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.</li>
       <li><b>Modes</b>
         <ul>
@@ -813,11 +815,11 @@
       <li><b>Fast + correct = more damage.</b> Combos build up to ×1.5 (5 in a row sets you on fire 🔥). <b>Skip</b> (Esc) shows the answer.</li>
       <li><b>Study spells</b> — Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (− / +, then Apply); Onomatopoeia has its own “New a day” number (0 until you set it). Every card you answer gives +5 XP (up to 500 a day); ↶ Undo takes the last answer back.</li>
       <li><b>Practice</b> — the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 10 new stories a day — the counter shows how many are left; ★ starred words go in first, and the words you miss go to Struggling spells). Tap any kanji for its parts and a memory story.</li>
-      <li><b>Dictionary</b> (辞書, main menu) — type a word in kanji, kana, romaji or English: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji — and “+ Add to…” puts it in any deck.</li>
-      <li><b>Combo pose</b> — in <i>Customize</i>, choose what your character does while on fire: Levitation, Duelist, Channel or Lotus (they unlock as you level up). Everyone in the battle sees it.</li>
+      <li><b>Dictionary</b> (辞書, main menu, works offline) — type a word in kanji, kana, romaji, English or Russian: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji — and “+ Add to…” puts it in any deck.</li>
+      <li><b>Combo pose</b> — in <i>Customize</i>, choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Levitation, Duelist or Channel — they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.</li>
       <li><b>Hiragana first</b> — beginners study ひらがな until they tick “I’ve mastered hiragana” in Settings. Until then the kanji levels are locked: they add no new words, but the numbers you set for them are kept.</li>
       <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
-      <li><b>Daily streak</b> — a day counts when you do all four daily tasks: study 10 spells, a JLPT quiz, the daily challenge and a reading passage. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
+      <li><b>Daily streak</b> — a day counts when you do all three daily tasks: study 10 spells, a JLPT quiz (7/10) or a reading passage (4/8), and the daily challenge. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
     </ol>
     <button value="close" class="big">Got it</button>
   </form>
@@ -832,7 +834,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.7</div>
+<div id="version" class="version">v0.9.9.7.1</div>
 <script src="/app.js"></script>
 </body>
 </html>

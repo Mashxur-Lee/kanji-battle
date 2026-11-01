@@ -72,19 +72,30 @@ test('0.9.9.7: dictionary — kanji, kana, romaji and English all find 信用; w
   assert.deepEqual(d.search(''), []);
 });
 
-test('0.9.9.7: combo pose — saved in unlocks, unlocked by level', async () => {
+test('0.9.9.7.1: combo pose — saved in unlocks, unlocked by spells learned (100 / 200 / 300); Lotus is gone', async () => {
   const store = new MemoryStore();
   const study = new StudyService(store);
   const u = await store.create({ username: 'pose1', passwordHash: 'x', role: 'user' });
-  await assert.rejects(() => study.setPose(u, 'lotus'), /level 12/);
-  await assert.rejects(() => study.setPose(u, 'dance'), /Unknown/);
-  await store.update(u.id, { xp: 1_000_000 });
-  await study.setPose((await store.findById(u.id))!, 'aim');
-  assert.equal(poseOf((await store.findById(u.id))!.unlocks), 'aim');
-  await study.setPose((await store.findById(u.id))!, 'lotus');
-  assert.deepEqual((await store.findById(u.id))!.unlocks.filter((x) => x.startsWith('pose:')), ['pose:lotus']);
+  await assert.rejects(() => study.setPose(u, 'float'), /learned 100 spells/);
+  await assert.rejects(() => study.setPose(u, 'lotus'), /Unknown/);
+  // 150 learned (cards out of "new"): Levitation yes, Duelist not yet
+  const now = Date.now();
+  await store.addCards(u.id, VOCAB.filter((v) => v.level === 'N5').slice(0, 150).map((v) => ({ vocabId: v.id, deck: 'all' as const, addedAt: now, state: 'review' as const, step: 0, ease: 2500, intervalDays: 3, due: now + 86_400_000 })));
+  await study.setPose((await store.findById(u.id))!, 'float');
+  assert.equal(poseOf((await store.findById(u.id))!.unlocks), 'float');
+  const u2 = (await store.findById(u.id))!;
+  await assert.rejects(() => study.setPose(u2, 'aim'), /200/);
+  assert.equal(poseOf(['pose:lotus']), 'none'); // a saved Lotus falls back to standing
   await study.setPose((await store.findById(u.id))!, 'none');
   assert.equal(poseOf((await store.findById(u.id))!.unlocks), 'none');
+});
+
+test('0.9.9.7.1: dictionary in Russian, and the words that look like it', () => {
+  const d = new DictService();
+  assert.equal(d.search('вода', 3)[0].kanji[0], '水');
+  assert.equal(d.search('кошка', 3)[0].kanji[0], '猫');
+  const near = d.search('信用', 60).map((e) => e.kanji[0]);
+  assert.ok(near.length > 10 && near.includes('信頼') && near.includes('利用'), near.join(' '));
 });
 
 test('0.9.9.7: a paused game clock stands still', async () => {

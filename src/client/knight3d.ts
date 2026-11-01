@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { C, type V3, surf, lathe, tube, box, painted, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, ARM_REST, legRig, type Leg } from './charkit';
+import { C, type V3, surf, lathe, tube, box, painted, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, ARM_REST, legRig, type Leg, HAND_SCALE } from './charkit';
 
 const PAL = {
   plate: C(0xd6cfbf), plateHi: C(0xe8e2d4), plateLo: C(0xa9a291), plateDark: C(0x7c7668),
@@ -116,7 +116,7 @@ export function buildKnight(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   const left = new THREE.Group(); left.position.set(-0.26, 1.44, 0); left.rotation.set(-0.3, 0, -0.08); body.add(left); // 0.9.9.6.1: a little forward
   armPlates(left, 0.1);
   add(tube([[0, -0.28, 0.02], [0, -0.42, 0.05], [0, -0.52, 0.06]], (t) => 0.048 + 0.008 * t, 7, (t, a) => P(a, t)), plate, left);
-  const leftHand = handMesh(PAL.plateHi, plate, false, PAL.plateLo, 1.15); leftHand.position.set(0, -0.53, 0.06); left.add(leftHand); // 0.9.9.6.1: the hand moves, not the arm (add() returns the parent — the whole arm sat under the floor) // the gauntlet
+  const leftHand = handMesh(PAL.plateHi, plate, false, PAL.plateLo, 1.15); leftHand.position.set(0, -0.53, 0.06); leftHand.scale.multiplyScalar(HAND_SCALE); // 0.9.9.7.1: as big as the staff hand left.add(leftHand); // 0.9.9.6.1: the hand moves, not the arm (add() returns the parent — the whole arm sat under the floor) // the gauntlet
   const arm = new THREE.Group(); arm.position.set(0.26, 1.44, 0.02); arm.rotation.z = ARM_REST; body.add(arm);
   add(tube([[0, -0.02, 0], [0, -0.12, 0.0], [0, -0.22, 0.04]], (t) => 0.056 - 0.006 * t, 7, (t, a) => P(a, t)), plate, arm);
   add(painted(new THREE.SphereGeometry(0.05, 7, 5), PAL.plateHi), plate, arm, [0, -0.24, 0.05]);

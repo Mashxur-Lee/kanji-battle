@@ -94,6 +94,8 @@ export interface DeckPlayerView {
   pic: string | null;
   flame: string;
   staff?: string;
+  /** 0.9.9.7.1: combo pose — struck during Omnipotence */
+  pose?: string;
 }
 
 export type CastStage = 'read' | 'look' | 'write';

@@ -189,6 +189,10 @@ export const add = (g: THREE.BufferGeometry, m: THREE.Material, parent: THREE.Ob
  * beside the body. arena3d swings the arm around this.
  */
 export const ARM_REST = 0.3;
+/** 0.9.9.7.1: the staff a little smaller (0.8 before) — from across the arena it hid too much of its bearer */
+export const STAFF_SCALE = 0.68;
+/** the hands, both the same size (the staff hand was 1.7× and looked far bigger than the other) */
+export const FIST_SCALE = 1.3, HAND_SCALE = 1.3;
 
 /**
  * 0.9.9.7: a leg with a hip and a knee joint (the combo poses float and bend the legs). Meshes are added in the
@@ -213,10 +217,10 @@ export function holdStaff(arm: THREE.Group, hand: V3, materials: Character['mate
   staffPivot.add(lean);
   const staff = buildStaff(skin, glowTex);
   staff.group.position.set(0, 0.24, 0.02);
-  staff.group.scale.setScalar(0.8); // 0.9.9.3.3: a staff about as tall as its bearer, not towering over them
+  staff.group.scale.setScalar(STAFF_SCALE); // 0.9.9.3.3: a staff about as tall as its bearer, not towering over them
   lean.add(staff.group);
   // the hand grips the staff wherever it leans — 0.9.9.6: a bigger fist, so it reads as a hand at a distance
-  if (fist) { fist.position.set(0, 0, 0.02); fist.scale.multiplyScalar(1.7); lean.add(fist); }
+  if (fist) { fist.position.set(0, 0, 0.02); fist.scale.multiplyScalar(FIST_SCALE); lean.add(fist); }
   for (const m of staff.materials) materials.push({ mat: m, color: m.color.clone(), emissive: m.emissive.clone() });
   return { staffPivot, staff, crystal: staff.gem, crystalMat: staff.gemMat, glow: staff.glow };
 }

@@ -145,11 +145,11 @@ export class StudyService {
     await this.store.update(u.id, { flame: f });
   }
 
-  /** 0.9.9.7: the combo pose (kept in unlocks as "pose:<id>"; unlocked by level, admins have all). */
+  /** 0.9.9.7: the combo pose (kept in unlocks as "pose:<id>"; 0.9.9.7.1: unlocked by spells learned — 100 / 200 / 300; admins have all). */
   async setPose(u: UserRecord, p: unknown) {
     if (!isPose(p)) throw new StudyError('Unknown pose');
     const def = POSE_DEFS.find((x) => x.id === p)!;
-    if (u.role !== 'admin' && !poseUnlocked(p, u.xp)) throw new StudyError(`Unlocks at level ${def.level}`, 403);
+    if (u.role !== 'admin' && !poseUnlocked(p, (await this.profile(u)).learned)) throw new StudyError(`Unlocks when you have learned ${def.learned} spells`, 403);
     await this.store.update(u.id, { unlocks: [...(u.unlocks ?? []).filter((x) => !x.startsWith('pose:')), ...(p === 'none' ? [] : [`pose:${p}`])] });
   }
 

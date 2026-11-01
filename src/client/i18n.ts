@@ -461,6 +461,21 @@ const RU: Record<string, string> = {
   '🔔 Reminders work': '🔔 Напоминания работают', 'This is how Kanji Wizards reminders will look.': 'Так будут выглядеть напоминания Kanji Wizards.', 'Last reminder check': 'Последняя проверка напоминаний',
   'Theme': 'Тема', 'Dark': 'Тёмная', 'Light': 'Светлая', 'New a day': 'Новых в день',
   'Every giseigo, gitaigo and gijōgo: sounds (ワンワン), states (きらきら) and feelings (ドキドキ). Choose how many new ones a day (0 = none).': 'Все гисэйго, гитайго и гидзёго: звуки (ワンワン), состояния (きらきら) и чувства (ドキドキ). Выберите, сколько новых в день (0 — ни одного).',
+  // 0.9.9.7.1
+  ', pick a mode, and send the 4-letter code to a friend. The battle starts when every player presses': ', выберите режим и отправьте другу 4-буквенный код. Бой начинается, когда каждый игрок нажмёт',
+  '. On a phone you can switch apps to send it — your seat is kept for 5 minutes.': '. На телефоне можно переключиться в другое приложение — место сохраняется 5 минут.',
+  "The dictionary couldn’t load — open it once with internet, then it works offline too.": "Словарь не загрузился — откройте его один раз с интернетом, потом он работает и без сети.",
+  "Type a word in kanji, kana, romaji, English or Russian. Open a word for all its meanings, its kanji with memory pictures, example sentences — and add it to your decks.": "Введите слово кандзи, каной, ромадзи, по-английски или по-русски. Откройте слово — все значения, его кандзи с картинками для запоминания, примеры, — и добавьте его в свои колоды.",
+  "Kanji, kana, romaji, English or Russian — 信用, しんよう, shinyou, trust, доверие": "Кандзи, кана, ромадзи, английский или русский — 信用, しんよう, shinyou, trust, доверие",
+  "Show more": "Показать ещё",
+  "No new onomatopoeia": "Без новой ономатопеи",
+  "Share the code with a friend, or add an AI player — then press Ready.": "Отправьте код другу или добавьте ИИ-игрока — затем нажмите «Готов».",
+  "Waiting for the others to be ready…": "Ждём, пока остальные будут готовы…",
+  "Starting…": "Начинаем…",
+  "Press Ready to start your solo run (or wait for a teammate).": "Нажмите «Готов», чтобы начать в одиночку (или подождите напарника).",
+  "Press Ready — the battle starts when every player is ready.": "Нажмите «Готов» — бой начнётся, когда все будут готовы.",
+  "3rd person": "От 3-го лица",
+  "1st person": "От 1-го лица",
   // 0.9.9.7 — dictionary, poses
   'Dictionary': 'Словарь',
   'Search': 'Найти',
@@ -509,9 +524,9 @@ const RU: Record<string, string> = {
   'Side-on to your opponent, the staff held out straight at them, its core pointed their way.': 'Боком к сопернику, посох вытянут прямо на него, ядро смотрит в его сторону.',
   'Both hands on the staff, upright in front of you, gathering power.': 'Обе руки на посохе, он стоит прямо перед вами — вы копите силу.',
   'You float cross-legged in the air, both hands on the upright staff.': 'Вы парите в воздухе, скрестив ноги, обе руки на посохе.',
-  '(辞書, main menu) — type a word in kanji, kana, romaji or English: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji — and “+ Add to…” puts it in any deck.': '(辞書, главное меню) — введите слово кандзи, каной, ромадзи или по-английски: все значения, уровень JLPT, формы глагола, пример, каждый кандзи с картинкой для запоминания, другие слова с этим кандзи — а «+ Добавить в…» кладёт слово в любую колоду.',
+  '(辞書, main menu, works offline) — type a word in kanji, kana, romaji, English or Russian: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji — and “+ Add to…” puts it in any deck.': '(辞書, главное меню, работает без интернета) — введите слово кандзи, каной, ромадзи, по-английски или по-русски: все значения, уровень JLPT, формы глагола, пример, каждый кандзи с картинкой для запоминания, другие слова с этим кандзи — а «+ Добавить в…» кладёт слово в любую колоду.',
   '— in': '— в разделе',
-  ', choose what your character does while on fire: Levitation, Duelist, Channel or Lotus (they unlock as you level up). Everyone in the battle sees it.': 'выберите, что делает ваш персонаж, пока он в огне: Левитация, Дуэлянт, Концентрация или Лотос (открываются с уровнем). Это видят все в бою.',
+  ', choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Levitation, Duelist or Channel — they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.': 'выберите, что делает ваш персонаж, пока он в огне (5 подряд или Всемогущество в Дуэли колод): Левитация, Дуэлянт или Концентрация — открываются на 100, 200 и 300 изученных заклинаниях. Это видят все в бою.',
   // 0.9.9.6.1
   'Update the app': 'Обновить приложение',
   'Install the update': 'Установить обновление',
@@ -544,7 +559,7 @@ const RU: Record<string, string> = {
   'Memorise how each word is written. In battle you only get the meaning (and a half-second glimpse).': 'Запомните, как пишется каждое слово. В бою будет только значение (и взгляд на полсекунды).',
   'Each player picks their own. The dragon gets tougher when the party picks harder levels.': 'Каждый игрок выбирает свои. Дракон сильнее, если команда выбирает уровни посложнее.',
   'Daily streak': 'Ежедневная серия', 'Apprentice border': 'Рамка «Ученик»', 'Adept border': 'Рамка «Адепт»', 'Master border': 'Рамка «Мастер»', 'Archmage border': 'Рамка «Архимаг»',
-  '— a day counts when you do all four daily tasks: study 10 spells, a JLPT quiz, the daily challenge and a reading passage. Your best streak unlocks magic staffs in': '— день засчитывается, когда выполнены все четыре ежедневных задания: изучить 10 заклинаний, тест JLPT, ежедневный вызов и текст для чтения. Лучшая серия открывает магические посохи в',
+  '— a day counts when you do all three daily tasks: study 10 spells, a JLPT quiz (7/10) or a reading passage (4/8), and the daily challenge. Your best streak unlocks magic staffs in': '— день засчитывается, когда выполнены все три ежедневных задания: изучить 10 заклинаний, тест JLPT (7/10) или текст для чтения (4/8) и ежедневный вызов. Лучшая серия открывает магические посохи в',
   'Your last story is still being written — try “New passage” again in a moment.': 'Предыдущий рассказ ещё пишется — нажмите «Новый текст» чуть позже.',
   // 0.9.9.4.4.5
   '— study 10 of your words, then type each reading (かな or romaji).': '— выучите 10 своих слов, затем напишите чтение каждого (かな или ромадзи).',
@@ -597,7 +612,7 @@ const RU: Record<string, string> = {
   'Choose the word that fits the sentence.': 'Выберите слово, которое подходит к предложению.',
   'Taking an onomatopoeia quiz': 'Проходит тест по ономатопее',
   // 0.9.9.4.3
-  'Do a JLPT quiz (7/10 or better)': 'Пройдите тест JLPT (7/10 или лучше)', 'Read a passage (4/8 or better)': 'Прочитайте текст (4/8 или лучше)',
+  'Do a JLPT quiz (7/10 or better)': 'Пройдите тест JLPT (7/10 или лучше)', 'A JLPT quiz (7/10) or a reading passage (4/8)': 'Тест JLPT (7/10) или текст для чтения (4/8)', 'Read a passage (4/8 or better)': 'Прочитайте текст (4/8 или лучше)',
   'For the daily task, get 7 out of 10 or better — try another quiz!': 'Для ежедневного задания нужно 7 из 10 или лучше — попробуйте ещё один тест!',
   'For the daily task, get half the blanks right (4 of 8) — try a new story!': 'Для ежедневного задания заполните верно половину пропусков (4 из 8) — попробуйте новый рассказ!',
   'Studying spells': 'Изучает заклинания', 'Taking a JLPT quiz': 'Проходит тест JLPT', 'Reading a passage': 'Читает текст', 'Playing the daily challenge': 'Проходит ежедневное испытание',
@@ -629,7 +644,7 @@ const RU: Record<string, string> = {
   'Kanji Wizards is installed — find it with your apps.': 'Kanji Wizards установлено — найдите его среди приложений.',
   'Please sign in again': 'Пожалуйста, войдите снова',
   // 0.9.9.3.3
-  'A day counts for your streak when all four tasks are done — and gives +500 XP. Your best streak unlocks magic staffs.': 'День засчитывается в серию, когда выполнены все четыре задания, — и даёт +500 опыта. Лучшая серия открывает магические посохи.',
+  'A day counts for your streak when all three tasks are done — and gives +500 XP. Your best streak unlocks magic staffs.': 'День засчитывается в серию, когда выполнены все три задания, — и даёт +500 опыта. Лучшая серия открывает магические посохи.',
   'Daily streak kept!': 'Серия сохранена!',
   // 0.9.9.3.2
   'Words from': 'Слова из', '+ Add to…': '+ Добавить в…', 'That word is not in the dictionary': 'Этого слова нет в словаре', 'already in': 'уже в',
@@ -670,7 +685,14 @@ const plural = (n: number, one: string, few: string, many: string) => {
 };
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
-  [/^(\d+) (match|matches)$/, (_, n) => `Найдено: ${n}`],
+  [/^(\d+) new a day — adds (\d+) more today$/, (_, n, m) => `${n} новых в день — сегодня добавится ещё ${m}`],
+  [/^(\d+) new a day$/, (_, n) => `${n} новых в день`],
+  [/^(\d+) spells learned$/, (_, n) => `${n} изученных заклинаний`],
+  [/^Locked · (\d+) spells learned$/, (_, n) => `Закрыто · ${n} изученных заклинаний`],
+  [/^Unlocks at (\d+) spells learned$/, (_, n) => `Откроется на ${n} изученных заклинаниях`],
+  [/^Learn (\d+) spells to unlock the (.+) pose \(you have (\d+)\)$/, (_, n, p, m) => `Изучите ${n} заклинаний, чтобы открыть позу «${RU[p] ?? p}» (у вас ${m})`],
+  [/^Unlocks when you have learned (\d+) spells$/, (_, n) => `Откроется, когда вы изучите ${n} заклинаний`],
+  [/^(\d+\+?) (match|matches)$/, (_, n) => `Найдено: ${n}`],
   [/^Words with (.):$/, 'Слова с $1:'],
   [/^Nothing found for “(.+)”$/, 'Ничего не найдено по запросу «$1»'],
   [/^(\d+) spells?$/, (_, n) => `Заклинаний: ${n}`],

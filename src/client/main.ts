@@ -921,10 +921,16 @@ ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {
 // 0.9.9.7: Theme — dark (as before) or light: light panels and buttons, dark text
 {
   const sel = ui.$<HTMLSelectElement>('themeSel');
+  // 0.9.9.7.1: battles stay dark — over the 3D arena, dark text and light boxes were hard to see
+  const DARK_SCREENS = new Set(['battle', 'deck']);
+  let pref = 'dark';
   const apply = (t: string) => {
-    if (t === 'light') document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'light' ? '#eef0fb' : '#0b0a1c');
+    pref = t;
+    const light = t === 'light' && !DARK_SCREENS.has(document.body.dataset.screen ?? '');
+    if (light) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#eef0fb' : '#0b0a1c');
   };
+  new MutationObserver(() => apply(pref)).observe(document.body, { attributes: true, attributeFilter: ['data-screen'] });
   let saved = 'dark';
   try { saved = localStorage.getItem('kb:theme') === 'light' ? 'light' : 'dark'; } catch { /* private mode */ }
   sel.value = saved; apply(saved);

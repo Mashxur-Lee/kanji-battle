@@ -47,6 +47,8 @@ export interface ArenaApi {
   setPose(who: Who, pose: string): void;
   /** Customize preview: bring the camera up close to the opponent (no hand and staff in view) */
   focusOpp(on: boolean): void;
+  /** 0.9.9.7.1: Customize → Combo pose: a small first-person view in the corner, next to you seen from outside */
+  setInset(on: boolean): void;
   /** change only the arena and the time of day (the fighters stay) */
   setBackground(bgKey: string, time: TimeOfDay, bgSvg: string): void;
   /** Customize: build these arenas ahead, one at a time while the browser is idle, so picking one is instant */
@@ -467,6 +469,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   let eightAmp = 0, eightPhase = 0;
   let myFlame: THREE.Color | null = null;
   let myPose: PoseId = 'none', myPoseK = 0; // 0.9.9.7: your combo pose, in first person
+  let inset = false;
   let meDown = false;
 
   // ── your flames (5× combo / Omnipotence): mana fire flowing along the bottom of the screen ──
@@ -976,14 +979,24 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       // straight ahead; Channel and Lotus bring the staff to the middle, upright, in both hands
       myPoseK += ((myFlame && myPose !== 'none' && !meDown ? 1 : 0) - myPoseK) * Math.min(1, realDt * 3);
       const pk = myPoseK * myPoseK * (3 - 2 * myPoseK);
-      fpLeft.visible = pk > 0.02 && (myPose === 'twohand' || myPose === 'lotus');
+      fpLeft.visible = pk > 0.02 && myPose === 'twohand';
       if (pk > 0.001) {
-        if (myPose === 'float' || myPose === 'lotus') camera.position.y += (myPose === 'lotus' ? 0.3 : 0.2) * pk + Math.sin(time * 1.7) * 0.04 * pk;
+        if (myPose === 'float') camera.position.y += 0.2 * pk + Math.sin(time * 1.7) * 0.04 * pk;
         if (myPose === 'aim') {
-          fp.position.x += (0.12 - fpBase.x) * pk * 0.85; fp.position.y += (-0.3 - fpBase.y) * pk * 0.6;
-          staffGroup.rotation.x += (-1.35 - staffGroup.rotation.x) * pk; staffGroup.rotation.z += (0.05 - staffGroup.rotation.z) * pk;
-        } else if (myPose === 'twohand' || myPose === 'lotus') {
-          fp.position.x += (0.04 - fpBase.x) * pk; fp.position.y += (fpBase.y - 0.08 - fpBase.y) * pk;
+          // 0.9.9.7.1: the staff's core points at your opponent (not straight down the arena)
+          fp.position.x += (0.42 - fpBase.x) * pk; fp.position.y += (-0.36 - fpBase.y) * pk * 0.7;
+          const target = fighters.has('opp') ? pointOf('opp', 'chest') : fighters.has('boss') ? pointOf('boss', 'chest') : null;
+          if (target) {
+            camera.updateMatrixWorld(true);
+            const local = camera.worldToLocal(target.clone());
+            const from = fp.position.clone();
+            const want = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), local.sub(from).normalize());
+            staffGroup.quaternion.slerp(want, pk);
+          }
+        } else if (myPose === 'twohand') {
+          // upright in both hands — to the right of the middle and a little low, so the staff's top never stands
+          // behind the kanji you have to read (0.9.9.7.1)
+          fp.position.x += (0.62 - fpBase.x) * pk; fp.position.y += (fpBase.y - 0.12 - fpBase.y) * pk;
           staffGroup.rotation.x += (0.05 - staffGroup.rotation.x) * pk * 0.8; staffGroup.rotation.z += (0 - staffGroup.rotation.z) * pk;
           fpLeft.scale.setScalar(Math.max(0.01, pk));
         }
@@ -1027,7 +1040,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       }
       // the mana fire along the bottom of the screen fades in and out
       fireU.uTime.value = still ? 0 : time;
-      fireU.uAmount.value += ((myFlame && (fp.visible || focusOn) ? 1 : 0) - fireU.uAmount.value) * Math.min(1, realDt * 3);
+      fireU.uAmount.value += ((myFlame && !inset && (fp.visible || focusOn) ? 1 : 0) - fireU.uAmount.value) * Math.min(1, realDt * 3);
       fireBand.visible = fireU.uAmount.value > 0.01;
     }
 
@@ -1170,6 +1183,24 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (f.life > 1.1) { scene.remove(f.sprite); (f.sprite.material as THREE.SpriteMaterial).map?.dispose(); (f.sprite.material as THREE.Material).dispose(); floats.splice(i, 1); }
     }
     renderer.render(scene, camera);
+    if (inset && focus > 0.5) {
+      // the same moment as you see it yourself: the camera back in your eyes, your hand and staff in front
+      const pos = camera.position.clone(), quat = camera.quaternion.clone(), fpWas = fp.visible;
+      camera.position.set(CAM.x, CAM.y + (camera.position.y - CAM.y) * 0, CAM.z);
+      if (myPose === 'float') camera.position.y += 0.2 * myPoseK;
+      camera.lookAt(LOOK);
+      fp.visible = true;
+      camera.updateMatrixWorld(true);
+      const sz = renderer.getSize(new THREE.Vector2());
+      const iw = Math.round(sz.x * 0.42), ih = Math.round(sz.y * 0.42);
+      renderer.setScissorTest(true);
+      renderer.setViewport(sz.x - iw - 8, 8, iw, ih); renderer.setScissor(sz.x - iw - 8, 8, iw, ih);
+      renderer.render(scene, camera);
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, sz.x, sz.y);
+      fp.visible = fpWas;
+      camera.position.copy(pos); camera.quaternion.copy(quat);
+    }
   }
 
   /** what a Deck Duel card does to its target, on impact */
@@ -1318,6 +1349,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (f) f.pose = p;
     },
     focusOpp(on) { focusOn = on; fp.visible = !on; },
+    setInset(on) { inset = on; },
     prewarm(ids, time) {
       if (!opts.preview) return;
       const todo = ids.filter((id) => !envCache.has(`${id}-${time}-${lite}`));

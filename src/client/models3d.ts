@@ -1,5 +1,5 @@
 import type { Leg } from './charkit';
-import { ARM_REST } from './charkit';
+import { ARM_REST, legRig, STAFF_SCALE } from './charkit';
 // Low-poly 3D characters for the arena, each holding a magic staff. Built from simple shapes (no model
 // files), flat-shaded so they read like a stylised 3D version of the pixel characters:
 //   wizard (pointed hat, beard) · witch (crooked hat, green skin) · goblin (big ears) ·
@@ -33,6 +33,8 @@ export interface Character {
   /** 0.9.9.7: the left arm (shoulder pivot) and both legs (left, right) — for the combo poses */
   leftArm?: THREE.Group;
   legs?: Leg[];
+  /** how far the staff tips forward inside its pivot (holdStaff: 0.3; the older builds: 0) */
+  staffLean?: number;
 }
 
 const ROBES: Record<Side, number> = { me: 0x3d5ad6, opp: 0xc23a4c, ally: 0x2f9f74 };
@@ -65,6 +67,7 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
+  const legs: Leg[] = [];
 
   // ── lower body ──
   if (kind === 'wizard') {
@@ -72,10 +75,14 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
     body.add(mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.05, 9), trim, 0, 0.03, 0));
   } else {
     const legM = kind === 'knight' ? metal : dark;
-    body.add(mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.6, 6), legM, -0.12, 0.3, 0));
-    body.add(mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.6, 6), legM, 0.12, 0.3, 0));
-    body.add(mesh(new THREE.BoxGeometry(0.16, 0.08, 0.26), dark, -0.12, 0.04, 0.05));
-    body.add(mesh(new THREE.BoxGeometry(0.16, 0.08, 0.26), dark, 0.12, 0.04, 0.05));
+    // 0.9.9.7.1: legs with hip and knee joints (the combo poses bend them)
+    for (const x of [-0.12, 0.12]) {
+      const leg = legRig(body, x, 0.62, 0.32); legs.push(leg);
+      leg.thigh.add(mesh(new THREE.CylinderGeometry(0.095, 0.085, 0.34, 7), legM, x, 0.46, 0));
+      leg.shin.add(mesh(new THREE.SphereGeometry(0.085, 7, 5), legM, x, 0.32, 0));
+      leg.shin.add(mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.3, 7), legM, x, 0.17, 0));
+      leg.shin.add(mesh(new THREE.BoxGeometry(0.16, 0.08, 0.26), dark, x, 0.04, 0.05));
+    }
     body.add(mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.32, 8), robe, 0, 0.72, 0)); // tunic skirt
   }
   // ── torso ──
@@ -121,22 +128,22 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
 
   // ── arms: left hangs, right (pivot) holds the staff ──
   const sleeveM = kind === 'knight' ? metal : robe;
-  const left = new THREE.Group(); left.position.set(-0.3, 1.34, 0); left.rotation.z = 0.25; body.add(left);
+  const left = new THREE.Group(); left.position.set(-0.3, 1.34, 0); left.rotation.set(-0.2, 0, -0.18); body.add(left); // 0.9.9.7.1: hangs at the side (it pointed inwards)
   left.add(mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.55, 6), sleeveM, 0, -0.27, 0));
-  left.add(mesh(new THREE.SphereGeometry(0.07, 6, 4), skin, 0, -0.58, 0));
+  left.add(mesh(new THREE.SphereGeometry(0.075, 6, 4), skin, 0, -0.58, 0));
   const arm = new THREE.Group(); arm.position.set(0.3, 1.34, 0.02); arm.rotation.z = ARM_REST; body.add(arm);
   arm.add(mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.5, 6), sleeveM, 0, -0.22, 0.05).rotateX(-0.5));
-  const hand = mesh(new THREE.SphereGeometry(0.07, 6, 4), skin, 0, -0.42, 0.22); arm.add(hand);
+  const hand = mesh(new THREE.SphereGeometry(0.075, 6, 4), skin, 0, -0.42, 0.22); arm.add(hand);
   // the staff (the player's chosen skin): through the hand, leaning out a little so its gem shows beside the head
   const staffPivot = new THREE.Group(); staffPivot.position.set(0, -0.42, 0.22); staffPivot.rotation.z = -0.37; arm.add(staffPivot);
   const staff = buildStaff(staffSkin, glowTex);
-  staff.group.position.y = 0.24; staff.group.scale.setScalar(0.8); // held a little below the middle (0.9.9.3.3: a bit smaller)
+  staff.group.position.y = 0.24; staff.group.scale.setScalar(STAFF_SCALE); // held a little below the middle (0.9.9.3.3: a bit smaller)
   staffPivot.add(staff.group);
   for (const m of staff.materials) materials.push({ mat: m, color: m.color.clone(), emissive: m.emissive.clone() });
   const { gem: crystal, gemMat: crystalMat, glow } = staff;
 
   root.scale.setScalar(s);
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 1.95 * s, materials };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 1.95 * s, materials, leftArm: left, legs, staffLean: 0 };
 }
 
 /** Which model a player gets: Deck Duel heroes, or the level avatar in the other modes. */

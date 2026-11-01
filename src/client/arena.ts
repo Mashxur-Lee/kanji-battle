@@ -174,13 +174,13 @@ let deckKey = '';
 export function arenaForDeck(v: DeckView) {
   const me = v.players.find((p) => p.id === v.you);
   const opp = v.players.find((p) => p.id !== v.you);
-  const key = `${me?.id}:${me?.character}:${me?.staff}:${opp?.id}:${opp?.character}:${opp?.staff}`;
+  const key = `${me?.id}:${me?.character}:${me?.staff}:${me?.pose}:${opp?.id}:${opp?.character}:${opp?.staff}:${opp?.pose}`;
   if (key === deckKey && (!api || pending === null)) return;
   deckKey = key;
   configure({
     layout: 'deck',
-    me: { id: v.you, name: me?.name, character: me?.character ?? 'wizard', flame: flameColor(me?.flame), staff: me?.staff },
-    opp: opp ? { id: opp.id, name: opp.name, character: opp.character ?? 'wizard', flame: flameColor(opp.flame), staff: opp.staff } : null,
+    me: { id: v.you, name: me?.name, character: me?.character ?? 'wizard', flame: flameColor(me?.flame), staff: me?.staff, pose: me?.pose },
+    opp: opp ? { id: opp.id, name: opp.name, character: opp.character ?? 'wizard', flame: flameColor(opp.flame), staff: opp.staff, pose: opp.pose } : null,
     allies: [],
     boss: null,
   });

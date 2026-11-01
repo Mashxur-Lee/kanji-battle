@@ -113,10 +113,10 @@ export const BETA_BORDER = 'border:beta';
 
 // ── the daily streak (0.9.9.3): a day counts once all four tasks are done ───────────────────────────────
 export const DAILY_TASKS = [
-  { id: 'learn', label: 'Study 10 spells (any deck)', target: 10 }, // all four done: the streak goes up and +500 XP
-  { id: 'quiz', label: 'Do a JLPT quiz (7/10 or better)', target: 1 },
+  { id: 'learn', label: 'Study 10 spells (any deck)', target: 10 }, // all three done: the streak goes up and +500 XP
+  // 0.9.9.7.1: the JLPT quiz OR a reading passage — one task (three a day, not four)
+  { id: 'practice', label: 'A JLPT quiz (7/10) or a reading passage (4/8)', target: 1 },
   { id: 'daily', label: 'Play the daily challenge', target: 1 },
-  { id: 'passage', label: 'Read a passage (4/8 or better)', target: 1 },
 ] as const;
 /** 0.9.9.4.3: a quiz counts for the daily task at 7/10 or better, a passage at 4/8 (the same share of a shorter one) */
 export const TASK_PASS = { quiz: 0.7, passage: 0.5 } as const;
@@ -236,18 +236,18 @@ export function isoWeek(day: string): number {
 }
 
 // ── 0.9.9.7: combo poses (Customize → Combo pose): what your character does while on fire ─────────────
-export const POSES = ['none', 'float', 'aim', 'twohand', 'lotus'] as const;
+export const POSES = ['none', 'float', 'aim', 'twohand'] as const; // 0.9.9.7.1: Lotus removed
 export type PoseId = (typeof POSES)[number];
 export const isPose = (x: unknown): x is PoseId => POSES.includes(x as PoseId);
-export interface PoseDef { id: PoseId; name: string; level: number; blurb: string }
+/** `learned`: unlocks once you have learned that many spells (0.9.9.7.1 — it was a level) */
+export interface PoseDef { id: PoseId; name: string; learned: number; blurb: string }
 export const POSE_DEFS: readonly PoseDef[] = [
-  { id: 'none', name: 'Standing', level: 0, blurb: 'Your usual stance — feet on the ground, the staff at your side.' },
-  { id: 'float', name: 'Levitation', level: 3, blurb: 'You rise into the air, one leg bent, as if the magic lifts you.' },
-  { id: 'aim', name: 'Duelist', level: 6, blurb: 'Side-on to your opponent, the staff held out straight at them, its core pointed their way.' },
-  { id: 'twohand', name: 'Channel', level: 9, blurb: 'Both hands on the staff, upright in front of you, gathering power.' },
-  { id: 'lotus', name: 'Lotus', level: 12, blurb: 'You float cross-legged in the air, both hands on the upright staff.' },
+  { id: 'none', name: 'Standing', learned: 0, blurb: 'Your usual stance — feet on the ground, the staff at your side.' },
+  { id: 'float', name: 'Levitation', learned: 100, blurb: 'You rise into the air, one leg bent, as if the magic lifts you.' },
+  { id: 'aim', name: 'Duelist', learned: 200, blurb: 'Side-on to your opponent, the staff held out straight at them, its core pointed their way.' },
+  { id: 'twohand', name: 'Channel', learned: 300, blurb: 'Both hands on the staff, upright in front of you, gathering power.' },
 ];
 
 /** the pose kept in your unlocks as "pose:<id>" (no new column needed) */
 export const poseOf = (unlocks: readonly string[] | null | undefined): PoseId => { const p = (unlocks ?? []).find((x) => x.startsWith('pose:'))?.slice(5); return isPose(p) ? p : 'none'; };
-export const poseUnlocked = (id: PoseId, xp: number) => levelOf(xp) >= (POSE_DEFS.find((d) => d.id === id)?.level ?? 99);
+export const poseUnlocked = (id: PoseId, learned: number) => learned >= (POSE_DEFS.find((d) => d.id === id)?.learned ?? Infinity);

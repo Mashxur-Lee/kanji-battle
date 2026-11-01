@@ -61,7 +61,7 @@ writeFileSync(r('public/examples.json'), JSON.stringify(examples));
 }
 
 // the service worker caches these for offline use; its version changes whenever any of them does
-const SHELL = ['/', '/index.html', '/app.js', '/arena3d.js', '/style.css', '/favicon.svg', '/vocab.json', '/examples.json', '/kanji.json', '/meanings-ru.json', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
+const SHELL = ['/', '/index.html', '/app.js', '/arena3d.js', '/style.css', '/favicon.svg', '/vocab.json', '/examples.json', '/kanji.json', '/meanings-ru.json', '/dict.json', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
 const h = createHash('sha256');
 for (const f of SHELL) if (f !== '/') { try { h.update(readFileSync(r('public', f))); } catch { /* not built yet */ } }
 const sw = readFileSync(r('src/client/sw.js'), 'utf8')

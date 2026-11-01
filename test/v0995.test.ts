@@ -91,7 +91,7 @@ test('0.9.9.6: reminder status — tasks left, the Daily challenge, reviews due'
   const study = new StudyService(store);
   const u = await store.create({ username: 'rem1', passwordHash: 'x', role: 'user' });
   const s = await study.notifyStatus(u, TODAY);
-  assert.deepEqual([s.tasksLeft, s.tasksTotal, s.challengeDone, s.allDue], [4, 4, false, 0]);
+  assert.deepEqual([s.tasksLeft, s.tasksTotal, s.challengeDone, s.allDue], [3, 3, false, 0]);
 });
 
 test('0.9.9.6: the new achievements are earned from lifetime totals', async () => {

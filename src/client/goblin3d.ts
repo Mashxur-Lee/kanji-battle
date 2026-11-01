@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { C, type V3, surf, lathe, tube, box, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, ARM_REST, legRig, type Leg } from './charkit';
+import { C, type V3, surf, lathe, tube, box, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, ARM_REST, legRig, type Leg, HAND_SCALE } from './charkit';
 
 const PAL = {
   skin: C(0x84933f), skinLo: C(0x66752e), skinHi: C(0x9aaa52), hair: C(0x2c2420), hairHi: C(0x45392f),
@@ -108,7 +108,7 @@ export function buildGoblin(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   const left = new THREE.Group(); left.position.set(-0.2, 1.3, 0); left.rotation.set(-0.35, 0, -0.15); body.add(left); // 0.9.9.6.1: a little forward and out
   add(tube([[0, 0, 0], [0, -0.14, 0.0], [0, -0.26, 0.02], [0, -0.4, 0.05], [0, -0.5, 0.06]], (t) => 0.042 - 0.012 * t + 0.006 * Math.sin(t * 6), 7, (t, a) => S(a, t)), cloth, left);
   bracer(left, [0, -0.32, 0.04], [0, -0.48, 0.06]);
-  const leftHand = handMesh(PAL.leather, cloth, false, PAL.skin, 1.05); leftHand.position.set(0, -0.5, 0.065); left.add(leftHand); // 0.9.9.6.1: the hand moves, not the arm (add() returns the parent — the whole arm sat under the floor) // fingerless leather gloves
+  const leftHand = handMesh(PAL.leather, cloth, false, PAL.skin, 1.05); leftHand.position.set(0, -0.5, 0.065); leftHand.scale.multiplyScalar(HAND_SCALE); // 0.9.9.7.1: as big as the staff hand left.add(leftHand); // 0.9.9.6.1: the hand moves, not the arm (add() returns the parent — the whole arm sat under the floor) // fingerless leather gloves
   const arm = new THREE.Group(); arm.position.set(0.2, 1.3, 0.02); arm.rotation.z = ARM_REST; body.add(arm);
   add(tube([[0, 0, 0], [0, -0.12, 0.0], [0, -0.22, 0.04], [0, -0.3, 0.12], [0, -0.38, 0.2]], (t) => 0.042 - 0.012 * t, 7, (t, a) => S(a, t)), cloth, arm);
   bracer(arm, [0, -0.28, 0.1], [0, -0.38, 0.19]);
