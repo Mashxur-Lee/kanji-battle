@@ -234,3 +234,20 @@ export function isoWeek(day: string): number {
   const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
   return Math.ceil(((d.getTime() - yearStart) / 86_400_000 + 1) / 7);
 }
+
+// ── 0.9.9.7: combo poses (Customize → Combo pose): what your character does while on fire ─────────────
+export const POSES = ['none', 'float', 'aim', 'twohand', 'lotus'] as const;
+export type PoseId = (typeof POSES)[number];
+export const isPose = (x: unknown): x is PoseId => POSES.includes(x as PoseId);
+export interface PoseDef { id: PoseId; name: string; level: number; blurb: string }
+export const POSE_DEFS: readonly PoseDef[] = [
+  { id: 'none', name: 'Standing', level: 0, blurb: 'Your usual stance — feet on the ground, the staff at your side.' },
+  { id: 'float', name: 'Levitation', level: 3, blurb: 'You rise into the air, one leg bent, as if the magic lifts you.' },
+  { id: 'aim', name: 'Duelist', level: 6, blurb: 'Side-on to your opponent, the staff held out straight at them, its core pointed their way.' },
+  { id: 'twohand', name: 'Channel', level: 9, blurb: 'Both hands on the staff, upright in front of you, gathering power.' },
+  { id: 'lotus', name: 'Lotus', level: 12, blurb: 'You float cross-legged in the air, both hands on the upright staff.' },
+];
+
+/** the pose kept in your unlocks as "pose:<id>" (no new column needed) */
+export const poseOf = (unlocks: readonly string[] | null | undefined): PoseId => { const p = (unlocks ?? []).find((x) => x.startsWith('pose:'))?.slice(5); return isPose(p) ? p : 'none'; };
+export const poseUnlocked = (id: PoseId, xp: number) => levelOf(xp) >= (POSE_DEFS.find((d) => d.id === id)?.level ?? 99);

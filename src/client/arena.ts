@@ -159,7 +159,7 @@ function configure(s: Omit<ArenaSetup, 'bgSvg' | 'bgKey' | 'time'>) {
 export function arenaForBattle(mode: GameMode, players: PlayerView[], you: PlayerId) {
   const me = players.find((p) => p.id === you);
   const others = players.filter((p) => p.id !== you);
-  const art = (p: PlayerView): FighterArt => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff });
+  const art = (p: PlayerView): FighterArt => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff, pose: p.pose });
   configure({
     layout: 'battle',
     me: me ? art(me) : { id: you, character: 'wizard' },

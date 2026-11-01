@@ -6,7 +6,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { C, type V3, surf, lathe, tube, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, star4, lattice, ARM_REST } from './charkit';
+import { C, type V3, surf, lathe, tube, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, star4, lattice, ARM_REST, legRig, type Leg } from './charkit';
 
 const PAL = {
   robe: C(0x3463c8), robeDeep: C(0x274c9c), cream: C(0xf1e7cf), creamDeep: C(0xd9cdb0), gold: C(0xe4b84c), goldDeep: C(0xb08630),
@@ -28,8 +28,10 @@ export function buildWizard(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   root.add(body);
 
   // ── boots: rounded blue toes under the robe ──
+  const legs: Leg[] = [];
   for (const sx of [-1, 1]) {
-    add(painted(new THREE.SphereGeometry(0.06, 7, 5), PAL.boot), cloth, body, [sx * 0.09, 0.05, 0.08]).scale.set(0.9, 0.75, 1.6);
+    const leg = legRig(body, sx * 0.09, 0.95, 0.5); legs.push(leg); // 0.9.9.7: under the robe — only the boots show
+    add(painted(new THREE.SphereGeometry(0.06, 7, 5), PAL.boot), cloth, leg.shin, [sx * 0.09, 0.05, 0.08]).scale.set(0.9, 0.75, 1.6);
   }
 
   // ── the robe: blue with a cream front panel, a gold lattice band above the hem ──
@@ -132,6 +134,6 @@ export function buildWizard(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   add(new THREE.CylinderGeometry(0.03, 0.033, 0.12, 6), skin, arm, [0, -0.38, 0.19]).rotation.x = -0.5;
   const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.43, 0.24], materials, glowTex, staffSkin, handMesh(PAL.skin, cloth, true));
   const eyes = glowEyes(head, [-1, 1].map((sx) => [sx * 0.38 * HEAD.w, 0.06 * HEAD.h, 0.9 * HEAD.d]) as V3[], EYE_COLORS.wizard, glowTex);
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials, eyes };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials, eyes, leftArm: left, legs };
 }
 

@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { C, type V3, surf, lathe, tube, box, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, ARM_REST } from './charkit';
+import { C, type V3, surf, lathe, tube, box, painted, sculptedHead, faceTexture, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, ARM_REST, legRig, type Leg } from './charkit';
 
 const PAL = {
   skin: C(0x84933f), skinLo: C(0x66752e), skinHi: C(0x9aaa52), hair: C(0x2c2420), hairHi: C(0x45392f),
@@ -26,16 +26,19 @@ export function buildGoblin(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   root.add(body);
 
   // ── bare feet, wrapped shins, skinny legs ──
+  const legs: Leg[] = [];
   for (const sx of [-1, 1]) {
     const x = sx * 0.095;
+    const leg = legRig(body, x, 0.82, 0.44); legs.push(leg); // 0.9.9.7: hip and knee joints
     add(surf(7, 4, (u, v) => {
       const a = u * Math.PI * 2, z = -0.06 + v * 0.23, w = 0.05 * (1 - 0.35 * v) * (v > 0.75 ? 1 - (v - 0.75) * 1.6 : 1);
       return [x + sx * 0.012 * v + Math.cos(a) * w, Math.max(0.004, 0.035 + Math.sin(a) * w * 0.55 - 0.01 * v), z];
-    }, (u, v) => S(u, v), true), cloth, body);
-    for (let k = 0; k < 3; k++) add(painted(new THREE.SphereGeometry(0.016, 5, 4), PAL.skinLo), cloth, body, [x + sx * 0.012 + (k - 1) * 0.022, 0.016, 0.165 - Math.abs(k - 1) * 0.01]);
-    add(tube([[x, 0.05, -0.01], [x, 0.3, -0.005], [x * 1.03, 0.48, 0.01], [x * 1.05, 0.65, 0.0], [x, 0.8, -0.005]], (t) => 0.04 + 0.022 * t + 0.008 * Math.sin(t * 7), 7, (t, a) => S(a, t)), cloth, body);
+    }, (u, v) => S(u, v), true), cloth, leg.shin);
+    for (let k = 0; k < 3; k++) add(painted(new THREE.SphereGeometry(0.016, 5, 4), PAL.skinLo), cloth, leg.shin, [x + sx * 0.012 + (k - 1) * 0.022, 0.016, 0.165 - Math.abs(k - 1) * 0.01]);
+    add(tube([[x, 0.05, -0.01], [x, 0.3, -0.005], [x * 1.03, 0.47, 0.01]], (t) => 0.04 + 0.014 * t + 0.008 * Math.sin(t * 5), 7, (t, a) => S(a, t)), cloth, leg.shin);
+    add(tube([[x * 1.03, 0.41, 0.01], [x * 1.05, 0.65, 0.0], [x, 0.82, -0.005]], (t) => 0.054 + 0.008 * t + 0.006 * Math.sin(t * 4), 7, (t, a) => S(a, t)), cloth, leg.thigh);
     // the wraps, round and round the shin, in bands
-    add(tube([[x, 0.08, -0.01], [x, 0.2, -0.008], [x, 0.32, -0.004], [x * 1.02, 0.44, 0.005]], (t) => 0.048 + 0.008 * t, 7, (t, a) => (tri(t * 6 + a * 0.5) > 0.5 ? PAL.wrap : PAL.wrapLo)), cloth, body);
+    add(tube([[x, 0.08, -0.01], [x, 0.2, -0.008], [x, 0.32, -0.004], [x * 1.02, 0.44, 0.005]], (t) => 0.048 + 0.008 * t, 7, (t, a) => (tri(t * 6 + a * 0.5) > 0.5 ? PAL.wrap : PAL.wrapLo)), cloth, leg.shin);
   }
 
   // ── dark shorts, a belt with a buckle, the torn red loincloth ──
@@ -111,5 +114,5 @@ export function buildGoblin(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   bracer(arm, [0, -0.28, 0.1], [0, -0.38, 0.19]);
   const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.42, 0.23], materials, glowTex, staffSkin, handMesh(PAL.leather, cloth, true, PAL.skin, 1.05));
   const eyes = glowEyes(head, [-1, 1].map((sx) => [sx * 0.38 * HEAD.w, 0.06 * HEAD.h, 0.9 * HEAD.d]) as V3[], EYE_COLORS.goblin, glowTex);
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 1.75, materials, eyes };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 1.75, materials, eyes, leftArm: left, legs };
 }

@@ -1,6 +1,6 @@
 import { PausableClock } from './clock';
 import { Bot, botLevels, botName, isBotLevel, type BotHost } from './Bot';
-import { FLAMES, STAFFS } from '../shared/progress';
+import { FLAMES, POSES, STAFFS } from '../shared/progress';
 import { CHAT_MAX_LENGTH, type BossView, type MatchDetail, type MissedWord, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
 import { BOSS_PARTY_SIZE, BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
@@ -30,7 +30,7 @@ export const DEFAULT_LEVELS: Level[] = ['N3', 'N2'];
 export const BOSS_NAME = 'Black Dragon';
 
 /** Per-player progress the room shows and uses (crit chance, account level). */
-export interface MemberProfile { crit: number; xp: number; pic?: string | null; flame?: string; staff?: string; border?: string }
+export interface MemberProfile { crit: number; xp: number; pic?: string | null; flame?: string; staff?: string; border?: string; pose?: string }
 
 /** `forfeited`: someone gave up or left — nobody gets XP (stops win-trading between accounts). */
 export interface MatchResult {
@@ -187,7 +187,7 @@ export class Room {
     if (this.roster.length >= this.maxPlayers) return this.clients.get(by)?.send({ type: 'error', message: 'Room is full' });
     const id = `ai-${this.code}-${++this.nextBot}`;
     const bot = new Bot(id, level, this.botHost());
-    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: botLevels(level), online: true, profile: { crit: 0, xp: 0, staff: STAFFS[Math.floor(Math.random() * STAFFS.length)].id, flame: FLAMES[Math.floor(Math.random() * FLAMES.length)].id }, ready: true, rtt: 1, bot }); // each AI holds a random staff (and flame colour)
+    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: botLevels(level), online: true, profile: { crit: 0, xp: 0, staff: STAFFS[Math.floor(Math.random() * STAFFS.length)].id, flame: FLAMES[Math.floor(Math.random() * FLAMES.length)].id, pose: POSES[Math.floor(Math.random() * POSES.length)] }, ready: true, rtt: 1, bot }); // each AI holds a random staff (and flame colour)
     this.broadcastLobby();
     this.broadcastNet();
   }
@@ -580,6 +580,7 @@ export class Room {
         flame: p.profile.flame ?? 'blue',
         staff: p.profile.staff ?? 'verdant',
         border: p.profile.border ?? 'none',
+        pose: p.profile.pose ?? 'none',
         ready: p.ready,
       };
     });

@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { C, type V3, surf, lathe, tube, box, painted, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, ARM_REST } from './charkit';
+import { C, type V3, surf, lathe, tube, box, painted, materialKit, add, holdStaff, handMesh, EYE_COLORS, glowEyes, tri, mixC, ARM_REST, legRig, type Leg } from './charkit';
 
 const PAL = {
   plate: C(0xd6cfbf), plateHi: C(0xe8e2d4), plateLo: C(0xa9a291), plateDark: C(0x7c7668),
@@ -25,20 +25,22 @@ export function buildKnight(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   root.add(body);
 
   // ── legs: sabatons, greaves, knee cops, cuisses ──
+  const legs: Leg[] = [];
   for (const sx of [-1, 1]) {
     const x = sx * 0.105;
+    const leg = legRig(body, x, 0.9, 0.53); legs.push(leg); // 0.9.9.7: hip and knee joints
     // the sabaton: overlapping lames to a point
     add(surf(8, 4, (u, v) => {
       const a = u * Math.PI * 2, z = -0.07 + v * 0.25, y = 0.06 - v * 0.035, w = 0.058 * (1 - 0.7 * v ** 1.6);
       return [x + Math.cos(a) * w, Math.max(0.005, y + Math.sin(a) * w * 0.75), z];
-    }, (u, v) => (Math.floor(v * 4) % 2 ? PAL.plateLo : PAL.plate), true), plate, body);
+    }, (u, v) => (Math.floor(v * 4) % 2 ? PAL.plateLo : PAL.plate), true), plate, leg.shin);
     // the greave
-    add(tube([[x, 0.08, -0.01], [x, 0.22, 0.0], [x, 0.36, 0.0], [x, 0.5, 0.005]], (t) => 0.058 + 0.016 * Math.sin(t * 2.6), 8, (t, a) => P(a, t)), plate, body);
+    add(tube([[x, 0.08, -0.01], [x, 0.22, 0.0], [x, 0.36, 0.0], [x, 0.5, 0.005]], (t) => 0.058 + 0.016 * Math.sin(t * 2.6), 8, (t, a) => P(a, t)), plate, leg.shin);
     // the knee: a cop with a side wing
-    add(painted(new THREE.SphereGeometry(0.065, 8, 6), PAL.plateHi), plate, body, [x, 0.53, 0.025]).scale.set(1, 0.9, 0.85);
-    add(painted(new THREE.ConeGeometry(0.05, 0.03, 6).rotateZ(-sx * Math.PI / 2), PAL.plateLo), plate, body, [x + sx * 0.06, 0.53, 0.02]);
+    add(painted(new THREE.SphereGeometry(0.065, 8, 6), PAL.plateHi), plate, leg.shin, [x, 0.53, 0.025]).scale.set(1, 0.9, 0.85);
+    add(painted(new THREE.ConeGeometry(0.05, 0.03, 6).rotateZ(-sx * Math.PI / 2), PAL.plateLo), plate, leg.shin, [x + sx * 0.06, 0.53, 0.02]);
     // the cuisse (thigh)
-    add(tube([[x, 0.56, 0.0], [x * 1.02, 0.72, 0.0], [x * 0.98, 0.9, -0.005]], (t) => 0.068 + 0.022 * t, 8, (t, a) => P(a, t)), plate, body);
+    add(tube([[x, 0.56, 0.0], [x * 1.02, 0.72, 0.0], [x * 0.98, 0.9, -0.005]], (t) => 0.068 + 0.022 * t, 8, (t, a) => P(a, t)), plate, leg.thigh);
   }
 
   // ── the skirts: a dark brown under-skirt, the white tabard skirt over it with red stripes near the hem ──
@@ -121,5 +123,5 @@ export function buildKnight(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   add(tube([[0, -0.25, 0.07], [0, -0.33, 0.15], [0, -0.39, 0.21]], (t) => 0.045 + 0.01 * t, 7, (t, a) => P(a, t)), plate, arm);
   const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.43, 0.25], materials, glowTex, staffSkin, handMesh(PAL.plateHi, plate, true, PAL.plateLo, 1.15));
   const eyes = glowEyes(head, [[-0.035, 0.016, 0.128], [0.035, 0.016, 0.128]], EYE_COLORS.knight, glowTex); // in the visor slit
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials, eyes };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials, eyes, leftArm: left, legs };
 }

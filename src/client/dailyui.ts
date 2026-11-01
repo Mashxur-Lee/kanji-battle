@@ -9,6 +9,7 @@ import { api, type DailyAnswer, type DailyOverview, type DailyWord } from './api
 import * as audio from './audio';
 import * as ui from './ui';
 import { tickCards } from './decks';
+import { useGameKb } from './gamekb';
 
 const $ = ui.$;
 const el = (tag: string, cls = '', text?: string | number) => {
@@ -137,6 +138,7 @@ function renderPlay(last: DailyAnswer | null) {
   }
   main.replaceChildren(el('div', 'daily-head', `Word ${word.index + 1} of ${word.total} · ${LEVEL_LABEL[word.level]}`), dots, k, bar, input, skip, fb);
   input.focus();
+  useGameKb(input, { skip: () => void submit('') }); // 0.9.9.7: phones type with the game keyboard here too
   // the clock (the server keeps the real one)
   const t0 = performance.now(), limit = word.timeLimitMs;
   clearInterval(timer);
@@ -160,6 +162,7 @@ async function submit(text: string) {
     if (r.next) { word = r.next; busy = false; renderPlay(r); return; }
     word = null;
     busy = false;
+    useGameKb(null);
     const o = await api.daily();
     renderOverview(o);
     if (r.done) {

@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { EYE_COLORS, glowEyes, holdStaff, handMesh, ARM_REST } from './charkit';
+import { EYE_COLORS, glowEyes, holdStaff, handMesh, ARM_REST, legRig, type Leg } from './charkit';
 
 type V3 = [number, number, number];
 const C = (hex: number) => new THREE.Color(hex);
@@ -163,17 +163,20 @@ export function buildWitch(side: Side, glowTex: THREE.Texture, staffSkin?: strin
   root.add(body);
 
   // ── boots with heels and slim legs (seen through the dress slit) ──
+  const legs: Leg[] = [];
   for (const sx of [-1, 1]) {
     const x = sx * 0.075;
-    M(tube([[x, 0.98, 0], [x * 1.05, 0.62, 0.01], [x * 1.1, 0.3, 0.0], [x * 1.1, 0.13, -0.01]], (t) => 0.068 - 0.03 * t, 7, () => PAL.boot), cloth, body);
+    const leg = legRig(body, x, 0.96, 0.56); legs.push(leg); // 0.9.9.7: hip and knee joints
+    M(tube([[x, 0.98, 0], [x * 1.04, 0.76, 0.008], [x * 1.05, 0.54, 0.01]], (t) => 0.068 - 0.014 * t, 7, () => PAL.boot), cloth, leg.thigh);
+    M(tube([[x * 1.05, 0.58, 0.01], [x * 1.1, 0.3, 0.0], [x * 1.1, 0.13, -0.01]], (t) => 0.054 - 0.016 * t, 7, () => PAL.boot), cloth, leg.shin);
     // foot: a pointed shoe, the heel raised on a thin spike
     const foot = surf(6, 2, (u, v) => {
       const a = u * Math.PI * 2, along = v; // heel → toe
       const z = -0.05 + along * 0.2, y = 0.13 - along * 0.11, w = 0.045 * (1 - 0.65 * along * along);
       return [x + Math.cos(a) * w, y + Math.sin(a) * w * 0.55, z];
     }, () => PAL.boot, true);
-    M(foot, cloth, body);
-    M(new THREE.CylinderGeometry(0.012, 0.006, 0.12, 5), dark, body, [x, 0.06, -0.045]);
+    M(foot, cloth, leg.shin);
+    M(new THREE.CylinderGeometry(0.012, 0.006, 0.12, 5), dark, leg.shin, [x, 0.06, -0.045]);
   }
 
   // ── the black dress: a long skirt with a front slit, a fitted bodice with a high collar ──
@@ -296,5 +299,5 @@ export function buildWitch(side: Side, glowTex: THREE.Texture, staffSkin?: strin
   const wrist = M(new THREE.CylinderGeometry(0.03, 0.034, 0.12, 6), skin, arm, [0, -0.38, 0.19]); wrist.rotation.x = -0.5;
   const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [0, -0.43, 0.24], materials, glowTex, staffSkin, handMesh(PAL.skin, cloth, true));
   const eyes = glowEyes(head, [-1, 1].map((sx) => [sx * 0.38 * HEAD.w, 0.06 * HEAD.h, 0.9 * HEAD.d]) as V3[], EYE_COLORS.witch, glowTex);
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials, eyes };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: 2.0, materials, eyes, leftArm: left, legs };
 }

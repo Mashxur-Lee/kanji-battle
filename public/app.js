@@ -11,9 +11,9 @@
       throw err = [e], e;
     }
   };
-  var __export = (target, all) => {
+  var __export = (target2, all) => {
     for (var name in all)
-      __defProp(target, name, { get: all[name], enumerable: true });
+      __defProp(target2, name, { get: all[name], enumerable: true });
   };
   var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
@@ -60,8 +60,8 @@
     const hex = flameColor(f2).slice(1);
     const [r2, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
     const max = Math.max(r2, g, b), min = Math.min(r2, g, b), l = (max + min) / 2, d = max - min;
-    const h4 = d === 0 ? 0 : max === r2 ? ((g - b) / d + 6) % 6 : max === g ? (b - r2) / d + 2 : (r2 - g) / d + 4;
-    const hue = h4 * 60;
+    const h5 = d === 0 ? 0 : max === r2 ? ((g - b) / d + 6) % 6 : max === g ? (b - r2) / d + 2 : (r2 - g) / d + 4;
+    const hue = h5 * 60;
     const pale = l > 0.85;
     const rgb = (s, li) => {
       const c = (1 - Math.abs(2 * li - 1)) * s, x = c * (1 - Math.abs(hue / 60 % 2 - 1)), m = li - c / 2;
@@ -86,7 +86,7 @@
     const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
     return Math.ceil(((d.getTime() - yearStart) / 864e5 + 1) / 7);
   }
-  var XP_PER_LEVEL, xpToNext, xpForLevel, levelProgress, CRIT_BASE, CRIT_PER_WORD, CRIT_CAP, critFor, dailyCrit, beta, BACKGROUNDS, isBackground, unlocked, SEASONS, BORDERS, isBorder, borderUnlocked, BETA_BORDER, DAILY_TASKS, TASK_PASS, taskPassed, MONTH_GOALS, seasonOf, FLAMES, isFlame, flameUnlocked, flameColor, STAFFS, isStaff, staffUnlocked, staffOf, MODE_LEVEL, modeUnlocked, STUDY_LOCK, AVATAR_BY_LEVEL, ORDER, KANA_BEGINNER, isKanaBeginner;
+  var XP_PER_LEVEL, xpToNext, xpForLevel, levelProgress, CRIT_BASE, CRIT_PER_WORD, CRIT_CAP, critFor, dailyCrit, beta, BACKGROUNDS, isBackground, unlocked, SEASONS, BORDERS, isBorder, borderUnlocked, BETA_BORDER, DAILY_TASKS, TASK_PASS, taskPassed, MONTH_GOALS, seasonOf, FLAMES, isFlame, flameUnlocked, flameColor, STAFFS, isStaff, staffUnlocked, staffOf, MODE_LEVEL, modeUnlocked, STUDY_LOCK, AVATAR_BY_LEVEL, ORDER, KANA_BEGINNER, isKanaBeginner, POSES, isPose, POSE_DEFS, poseOf, poseUnlocked;
   var init_progress = __esm({
     "src/shared/progress.ts"() {
       "use strict";
@@ -201,6 +201,20 @@
       ORDER = ["KANA", "KATA", "N5", "N4", "N3", "N2", "N1"];
       KANA_BEGINNER = "flag:kana-beginner";
       isKanaBeginner = (unlocks2) => !!unlocks2?.includes(KANA_BEGINNER);
+      POSES = ["none", "float", "aim", "twohand", "lotus"];
+      isPose = (x) => POSES.includes(x);
+      POSE_DEFS = [
+        { id: "none", name: "Standing", level: 0, blurb: "Your usual stance \u2014 feet on the ground, the staff at your side." },
+        { id: "float", name: "Levitation", level: 3, blurb: "You rise into the air, one leg bent, as if the magic lifts you." },
+        { id: "aim", name: "Duelist", level: 6, blurb: "Side-on to your opponent, the staff held out straight at them, its core pointed their way." },
+        { id: "twohand", name: "Channel", level: 9, blurb: "Both hands on the staff, upright in front of you, gathering power." },
+        { id: "lotus", name: "Lotus", level: 12, blurb: "You float cross-legged in the air, both hands on the upright staff." }
+      ];
+      poseOf = (unlocks2) => {
+        const p = (unlocks2 ?? []).find((x) => x.startsWith("pose:"))?.slice(5);
+        return isPose(p) ? p : "none";
+      };
+      poseUnlocked = (id, xp) => levelOf(xp) >= (POSE_DEFS.find((d) => d.id === id)?.level ?? 99);
     }
   });
 
@@ -274,9 +288,9 @@
   function formatInterval(ms) {
     const m = ms / MIN;
     if (m < 60) return `${Math.max(1, Math.round(m))}m`;
-    const h4 = m / 60;
-    if (h4 < 24) return `${Math.round(h4)}h`;
-    const d = h4 / 24;
+    const h5 = m / 60;
+    if (h5 < 24) return `${Math.round(h5)}h`;
+    const d = h5 / 24;
     if (d < 30) return `${Math.round(d)}d`;
     if (d < 365) return `${(d / 30).toFixed(d < 300 ? 1 : 0).replace(/\.0$/, "")}mo`;
     return `${(d / 365).toFixed(1).replace(/\.0$/, "")}y`;
@@ -904,25 +918,45 @@
     }
     return out;
   }
-  function normalizeAnswer(input2) {
-    const halfWidth = input2.normalize("NFKC");
-    const cleaned = halfWidth.replace(/[\s・.,。、]/g, "");
-    return romajiToHiragana(katakanaToHiragana(cleaned));
+  function cleanInput(input2) {
+    const s = input2.trim().toLowerCase().replace(/[āīūēōâîûêô]/g, (c) => MACRON[c]);
+    return s.normalize("NFKC").replace(/[\s・.,。、]/g, "");
+  }
+  function answerVariants(input2) {
+    const s = katakanaToHiragana(cleanInput(input2));
+    const out = /* @__PURE__ */ new Set([romajiToHiragana(s)]);
+    if (!/[a-z]/.test(s)) return [...out];
+    const spots = [];
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i], n = s[i + 1], prev = s[i - 1];
+      if (c === "n" && prev !== "n" && n !== "n" && n !== void 0 && (VOWELS.has(n) || n === "y")) spots.push([i, "n'"]);
+      else if (c === "m" && n !== void 0 && "bpm".includes(n) && prev !== "m") spots.push([i, "n'"]);
+    }
+    const k = Math.min(spots.length, 8);
+    for (let mask = 1; mask < 1 << k; mask++) {
+      let t = s;
+      for (let j = k - 1; j >= 0; j--) if (mask & 1 << j) t = t.slice(0, spots[j][0]) + spots[j][1] + t.slice(spots[j][0] + 1);
+      out.add(romajiToHiragana(t));
+    }
+    return [...out];
   }
   function isCorrectReading(input2, readings) {
-    const answer2 = foldJz(normalizeAnswer(input2));
-    if (!answer2.length) return false;
+    const answers = answerVariants(input2).map(foldJz).filter((a) => a.length);
+    if (!answers.length) return false;
     return readings.some((raw) => {
       const r2 = foldJz(katakanaToHiragana(raw));
-      if (r2 === answer2) return true;
-      if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer2) return true;
-      return longVowelSlip(r2, answer2);
+      return answers.some((answer2) => {
+        if (r2 === answer2) return true;
+        if (r2.length > 3 && r2.endsWith("\u3059\u308B") && r2.slice(0, -2) === answer2) return true;
+        return longVowelSlip(r2, answer2);
+      });
     });
   }
   function longVowelSlip(r2, a) {
     const LONG = "\u3046\u304A";
+    const eLong = (i) => r2[i] === "\u3044" && E_ROW.includes(r2[i - 1] ?? "");
     if (a.length === r2.length - 1) {
-      for (let i = 1; i < r2.length; i++) if (LONG.includes(r2[i]) && r2.slice(0, i) + r2.slice(i + 1) === a) return true;
+      for (let i = 1; i < r2.length; i++) if ((LONG.includes(r2[i]) || eLong(i)) && r2.slice(0, i) + r2.slice(i + 1) === a) return true;
       return false;
     }
     if (a.length === r2.length) {
@@ -931,11 +965,40 @@
         if (diff >= 0) return false;
         diff = i;
       }
-      return diff > 0 && LONG.includes(r2[diff]) && LONG.includes(a[diff]);
+      return diff > 0 && (LONG.includes(r2[diff]) && LONG.includes(a[diff]) || eLong(diff) && a[diff] === "\u3048");
     }
     return false;
   }
-  var BASE, YOON, SMALL, _a, _b, VOWELS, katakanaToHiragana, foldJz, WRITE, writeTargets, writeTemplate;
+  function toRomaji(kana) {
+    const s = katakanaToHiragana(kana);
+    let out = "";
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i], n = s[i + 1];
+      if (c === "\u3063") {
+        const next3 = toRomaji(s.slice(i + 1, i + 3))[0] ?? "";
+        out += next3 === "c" ? "t" : /[a-z]/.test(next3) ? next3 : "";
+        continue;
+      }
+      if (c === "\u30FC") {
+        out += out.slice(-1);
+        continue;
+      }
+      if (n && "\u3083\u3085\u3087".includes(n) && ROMA[c]) {
+        const base = ROMA[c], v = { \u3083: "a", \u3085: "u", \u3087: "o" }[n];
+        out += /^(shi|chi|ji)$/.test(base) ? base.slice(0, -1) + v : base.slice(0, -1) + "y" + v;
+        i++;
+        continue;
+      }
+      if (n && "\u3041\u3043\u3045\u3047\u3049".includes(n) && ROMA[c]) {
+        out += ROMA[c].slice(0, -1) + ROMA[n];
+        i++;
+        continue;
+      }
+      out += ROMA[c] ?? c;
+    }
+    return out;
+  }
+  var BASE, YOON, SMALL, _a, _b, VOWELS, katakanaToHiragana, MACRON, VOWEL_KANA, foldJz, E_ROW, WRITE, writeTargets, writeTemplate, ROMA;
   var init_kana = __esm({
     "src/shared/kana.ts"() {
       "use strict";
@@ -1071,7 +1134,13 @@
       }
       VOWELS = /* @__PURE__ */ new Set(["a", "i", "u", "e", "o"]);
       katakanaToHiragana = (s) => s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 96));
-      foldJz = (s) => s.replace(/ぢ/g, "\u3058").replace(/づ/g, "\u305A");
+      MACRON = { \u0101: "aa", \u012B: "ii", \u016B: "uu", \u0113: "ei", \u014D: "ou", \u00E2: "aa", \u00EE: "ii", \u00FB: "uu", \u00EA: "ei", \u00F4: "ou" };
+      VOWEL_KANA = { a: "\u3042", i: "\u3044", u: "\u3046", e: "\u3048", o: "\u304A", \u3083: "\u3042", \u3085: "\u3046", \u3087: "\u304A", \u3041: "\u3042", \u3043: "\u3044", \u3045: "\u3046", \u3047: "\u3048", \u3049: "\u304A" };
+      foldJz = (s) => s.replace(/ぢ/g, "\u3058").replace(/づ/g, "\u305A").replace(/を/g, "\u304A").replace(/(.)ー/g, (m, c) => {
+        const v = VOWEL_KANA[c] ? c : toRomaji(c).slice(-1);
+        return c + (VOWEL_KANA[v] ?? "\u30FC");
+      }).replace(/っ$/, "");
+      E_ROW = "\u3048\u3051\u3052\u305B\u305C\u3066\u3067\u306D\u3078\u3079\u307A\u3081\u308C";
       WRITE = /[\p{Script=Han}々〆ヶ□]/u;
       writeTargets = (word2) => {
         const all = [...word2];
@@ -1079,6 +1148,85 @@
         return k.length ? k : all;
       };
       writeTemplate = (word2) => [...word2].map((c) => WRITE.test(c) ? "\u25A1" : c).join("");
+      ROMA = {
+        \u3042: "a",
+        \u3044: "i",
+        \u3046: "u",
+        \u3048: "e",
+        \u304A: "o",
+        \u304B: "ka",
+        \u304D: "ki",
+        \u304F: "ku",
+        \u3051: "ke",
+        \u3053: "ko",
+        \u3055: "sa",
+        \u3057: "shi",
+        \u3059: "su",
+        \u305B: "se",
+        \u305D: "so",
+        \u305F: "ta",
+        \u3061: "chi",
+        \u3064: "tsu",
+        \u3066: "te",
+        \u3068: "to",
+        \u306A: "na",
+        \u306B: "ni",
+        \u306C: "nu",
+        \u306D: "ne",
+        \u306E: "no",
+        \u306F: "ha",
+        \u3072: "hi",
+        \u3075: "fu",
+        \u3078: "he",
+        \u307B: "ho",
+        \u307E: "ma",
+        \u307F: "mi",
+        \u3080: "mu",
+        \u3081: "me",
+        \u3082: "mo",
+        \u3084: "ya",
+        \u3086: "yu",
+        \u3088: "yo",
+        \u3089: "ra",
+        \u308A: "ri",
+        \u308B: "ru",
+        \u308C: "re",
+        \u308D: "ro",
+        \u308F: "wa",
+        \u3092: "o",
+        \u3093: "n",
+        \u304C: "ga",
+        \u304E: "gi",
+        \u3050: "gu",
+        \u3052: "ge",
+        \u3054: "go",
+        \u3056: "za",
+        \u3058: "ji",
+        \u305A: "zu",
+        \u305C: "ze",
+        \u305E: "zo",
+        \u3060: "da",
+        \u3062: "ji",
+        \u3065: "zu",
+        \u3067: "de",
+        \u3069: "do",
+        \u3070: "ba",
+        \u3073: "bi",
+        \u3076: "bu",
+        \u3079: "be",
+        \u307C: "bo",
+        \u3071: "pa",
+        \u3074: "pi",
+        \u3077: "pu",
+        \u307A: "pe",
+        \u307D: "po",
+        \u3041: "a",
+        \u3043: "i",
+        \u3045: "u",
+        \u3047: "e",
+        \u3049: "o",
+        \u3094: "vu"
+      };
     }
   });
 
@@ -1450,7 +1598,7 @@
   var init_rng = __esm({
     "src/shared/rng.ts"() {
       "use strict";
-      hash = (s) => [...s].reduce((h4, c) => Math.imul(h4 ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
+      hash = (s) => [...s].reduce((h5, c) => Math.imul(h5 ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
       seededRng = (key) => seeded(hash(key));
     }
   });
@@ -1490,7 +1638,7 @@
       total: cards.length
     };
   }
-  var DAILY_NEW, DAILY_NEW_MIN, DAILY_NEW_MAX, BADGES_MAX, CUSTOM_ID, AI_XP_FACTOR, fromVocab, fromCustom, picUrl, MAX_AVATAR_BYTES, StudyError, UNDO_MAX, STAR_MAX, StudyService, DAILY_LEVEL_MAX, STUDY_XP, STUDY_XP_DAILY, ONO_NEW_SESSION, onoWords, isKanaLevel2, clampDaily, dayBefore;
+  var DAILY_NEW, DAILY_NEW_MIN, DAILY_NEW_MAX, BADGES_MAX, CUSTOM_ID, AI_XP_FACTOR, fromVocab, fromCustom, picUrl, MAX_AVATAR_BYTES, StudyError, UNDO_MAX, STAR_MAX, StudyService, DAILY_LEVEL_MAX, STUDY_XP, STUDY_XP_DAILY, ONO_DAILY_MAX, onoCounts, onoWords, isKanaLevel2, clampDaily, dayBefore;
   var init_StudyService = __esm({
     "src/server/study/StudyService.ts"() {
       "use strict";
@@ -1618,6 +1766,13 @@
           if (u.role !== "admin" && !flameUnlocked(f2, u.xp, u.unlocks)) throw new StudyError(def.season ? "A monthly reward: complete that month's goals" : `Unlocks at level ${def.level}`, 403);
           await this.store.update(u.id, { flame: f2 });
         }
+        /** 0.9.9.7: the combo pose (kept in unlocks as "pose:<id>"; unlocked by level, admins have all). */
+        async setPose(u, p) {
+          if (!isPose(p)) throw new StudyError("Unknown pose");
+          const def = POSE_DEFS.find((x) => x.id === p);
+          if (u.role !== "admin" && !poseUnlocked(p, u.xp)) throw new StudyError(`Unlocks at level ${def.level}`, 403);
+          await this.store.update(u.id, { unlocks: [...(u.unlocks ?? []).filter((x) => !x.startsWith("pose:")), ...p === "none" ? [] : [`pose:${p}`]] });
+        }
         /** Magic staff skin (unlocked by your best login streak; admins have all). */
         async setStaff(u, s) {
           if (!isStaff(s)) throw new StudyError("Unknown staff");
@@ -1707,6 +1862,7 @@
             if (!Number.isFinite(n) || n <= 0) continue;
             per[l] = Math.min(DAILY_LEVEL_MAX, n);
           }
+          if (old.ONO) per.ONO = old.ONO;
           const levels = openLevels(per, beginner);
           const total = levels.reduce((a, l) => a + per[l], 0);
           const rec = await this.store.update(u.id, {
@@ -1753,6 +1909,18 @@
           return added;
         }
         /** Study → "New spells a day" (10–150), older app versions: shared by the ticked levels. */
+        /** 0.9.9.7: new Onomatopoeia words a day (0 = none; it held every word as new before). */
+        async setOnoDaily(u, raw, today2) {
+          const n = Math.max(0, Math.min(ONO_DAILY_MAX, Math.round(Number(raw)) || 0));
+          const plan = planOf(u, today2);
+          await this.store.update(u.id, { dailyPlan: { ...plan, per: { ...plan.per, ONO: n } } });
+          return n;
+        }
+        /** new Onomatopoeia words still allowed today */
+        onoLeft(u, today2) {
+          const plan = planOf(u, today2);
+          return Math.max(0, (plan.per.ONO ?? 0) - (plan.done.ONO ?? 0));
+        }
         async setDailyNew(u, raw, today2) {
           const n = clampDaily(Number(raw));
           const rec = await this.store.update(u.id, { dailyNew: n, dailyPlan: { ...planOf(u, today2), per: splitDaily(u.studyLevels, n) } });
@@ -1877,7 +2045,8 @@
           return {
             studyLevels: fresh.studyLevels,
             notice,
-            decks: { all: counts(cards.filter((c) => deckOf(c) === "all"), now2), struggling: counts(cards.filter((c) => deckOf(c) === "struggling"), now2), custom: counts(cards.filter((c) => deckOf(c) === "custom"), now2), ono: counts(cards.filter((c) => deckOf(c) === "ono"), now2) },
+            decks: { all: counts(cards.filter((c) => deckOf(c) === "all"), now2), struggling: counts(cards.filter((c) => deckOf(c) === "struggling"), now2), custom: counts(cards.filter((c) => deckOf(c) === "custom"), now2), ono: onoCounts(counts(cards.filter((c) => deckOf(c) === "ono"), now2), this.onoLeft(fresh, today2)) },
+            onoDaily: planOf(fresh, today2).per.ONO ?? 0,
             dailyNew: fresh.dailyNew ?? DAILY_NEW,
             dailyByLevel: planOf(fresh, today2).per,
             studyXpToday: (await this.store.activity(u.id, today2)).find((a) => a.day === today2)?.studyXp ?? 0,
@@ -1885,15 +2054,16 @@
           };
         }
         /** Cards to study now, Anki order: (re)learning due → reviews due → new. */
-        async queue(u, deck2, now2 = now(), limit = 500) {
+        async queue(u, deck2, now2 = now(), limit = 500, today2 = resolveToday(void 0, now2)) {
           if (!isDeck(deck2)) throw new StudyError("Unknown deck");
           const custom = await this.words(u.id);
           if (deck2 === "ono") await this.fillOno(u.id);
           const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck2 && !!this.info(c.vocabId, custom));
           const rank = (c) => c.state === "learning" || c.state === "relearning" ? 0 : c.state === "review" ? 1 : 2;
+          const onoNew = deck2 === "ono" ? this.onoLeft(await this.store.findById(u.id) ?? u, today2) : 0;
           const order = deck2 === "ono" ? new Map(shuffle2(cards.map((c) => c.vocabId).sort(), seededRng(`${u.id}:ono`)).map((id, i) => [id, i])) : null;
           let fresh = 0;
-          return cards.filter((c) => c.state === "new" || isDue(c, now2)).sort((a, b) => rank(a) - rank(b) || (order && a.state === "new" && b.state === "new" ? order.get(a.vocabId) - order.get(b.vocabId) : a.due - b.due)).filter((c) => !order || c.state !== "new" || fresh++ < ONO_NEW_SESSION).slice(0, limit).map((c) => this.item(c, now2, custom));
+          return cards.filter((c) => c.state === "new" || isDue(c, now2)).sort((a, b) => rank(a) - rank(b) || (order && a.state === "new" && b.state === "new" ? order.get(a.vocabId) - order.get(b.vocabId) : a.due - b.due)).filter((c) => !order || c.state !== "new" || fresh++ < onoNew).slice(0, limit).map((c) => this.item(c, now2, custom));
         }
         async review(u, vocabId, rating, now2 = now(), today2 = resolveToday(void 0, now2), tzOffsetMin = 0, deck2 = "all") {
           if (typeof vocabId !== "string" || !RATINGS.includes(rating)) throw new StudyError("Bad review");
@@ -1921,6 +2091,11 @@
             });
           }
           await this.store.saveCard(u.id, next3);
+          if (d === "ono" && card.state === "new") {
+            const fresh = await this.store.findById(u.id) ?? u;
+            const plan = planOf(fresh, today2);
+            await this.store.update(u.id, { dailyPlan: { ...plan, done: { ...plan.done, ONO: (plan.done.ONO ?? 0) + 1 } } });
+          }
           if (rating !== "again") await this.progress.record(u.id, today2, { reviews: 1 });
           return { card: next3, crit: await this.crit(u.id, now2), xp };
         }
@@ -1935,6 +2110,11 @@
           if (!last3 || last3.before.vocabId !== vocabId || last3.deck !== d) throw new StudyError("Nothing to undo", 409);
           stack.pop();
           await this.store.saveCard(u.id, last3.before);
+          if (d === "ono" && last3.before.state === "new") {
+            const fresh = await this.store.findById(u.id) ?? u;
+            const plan = planOf(fresh, last3.today);
+            await this.store.update(u.id, { dailyPlan: { ...plan, done: { ...plan.done, ONO: Math.max(0, (plan.done.ONO ?? 0) - 1) } } });
+          }
           if (last3.counted) await this.store.addActivity(u.id, last3.today, { reviews: -1 });
           if (last3.xp) {
             await this.store.addXp(u.id, -last3.xp);
@@ -2049,7 +2229,8 @@
       DAILY_LEVEL_MAX = 150;
       STUDY_XP = 5;
       STUDY_XP_DAILY = 500;
-      ONO_NEW_SESSION = 20;
+      ONO_DAILY_MAX = 100;
+      onoCounts = (c, left) => ({ ...c, new: Math.min(c.new, left) });
       onoWords = () => VOCAB.filter((v) => v.level === "ONO");
       isKanaLevel2 = (l) => l === "KANA" || l === "KATA";
       clampDaily = (n) => Math.max(DAILY_NEW_MIN, Math.min(DAILY_NEW_MAX, Math.round(Number.isFinite(n) ? n : DAILY_NEW)));
@@ -2454,7 +2635,7 @@ Answer with JSON only, no other text:
 
   // src/server/router.ts
   function createApiRouter(auth, study, extras = {}) {
-    const { presence, daily, social, strokes: strokes2, insights, onlineCount, onError, stories } = extras;
+    const { presence, daily, social, strokes: strokes2, insights, onlineCount, onError, stories, dict } = extras;
     const limiter = new RateLimiter(20, 6e4);
     const errorLimiter = new RateLimiter(30, 6e4);
     return async (r2) => {
@@ -2525,6 +2706,10 @@ Answer with JSON only, no other text:
           const u = await auth.authenticate(r2.token);
           await study.setFlame(u, (await r2.json()).flame);
           return res(200, { profile: await study.profile(await auth.authenticate(r2.token)) });
+        } else if (r2.method === "PUT" && url === "/api/me/pose") {
+          const u = await auth.authenticate(r2.token);
+          await study.setPose(u, (await r2.json()).pose);
+          return res(200, { profile: await study.profile(await auth.authenticate(r2.token)) });
         } else if (r2.method === "PUT" && url === "/api/me/staff") {
           const u = await auth.authenticate(r2.token);
           await study.setStaff(u, (await r2.json()).staff);
@@ -2585,6 +2770,11 @@ Answer with JSON only, no other text:
         } else if (r2.method === "GET" && url === "/api/study") {
           const u = await auth.authenticate(r2.token);
           return res(200, await study.summary(u, resolveToday(query.get("today"))));
+        } else if (r2.method === "PUT" && url === "/api/study/ono-daily") {
+          const u = await auth.authenticate(r2.token);
+          const body = await r2.json();
+          await study.setOnoDaily(u, body.n, resolveToday(body.today));
+          return res(200, await study.summary(await auth.authenticate(r2.token), resolveToday(body.today)));
         } else if (r2.method === "PUT" && url === "/api/study/daily-levels") {
           const u = await auth.authenticate(r2.token);
           const body = await r2.json();
@@ -2598,7 +2788,7 @@ Answer with JSON only, no other text:
         } else if (r2.method === "GET" && url === "/api/study/queue") {
           const u = await auth.authenticate(r2.token);
           const deck2 = query.get("deck");
-          return res(200, { cards: await study.queue(u, isDeck(deck2) ? deck2 : "all") });
+          return res(200, { cards: await study.queue(u, isDeck(deck2) ? deck2 : "all", void 0, void 0, resolveToday(query.get("today"))) });
         } else if (r2.method === "POST" && url === "/api/study/review") {
           const u = await auth.authenticate(r2.token);
           const body = await r2.json();
@@ -2611,6 +2801,17 @@ Answer with JSON only, no other text:
         } else if (r2.method === "GET" && url === "/api/study/deck") {
           const u = await auth.authenticate(r2.token);
           return res(200, { words: await study.deckList(u, query.get("deck")) });
+        } else if (r2.method === "GET" && url === "/api/dict") {
+          await auth.authenticate(r2.token);
+          if (!dict) return res(503, { error: "The dictionary needs internet" });
+          return res(200, { words: dict.search(query.get("q")), tags: query.get("tags") ? dict.tagNames() : void 0 });
+        } else if (r2.method === "GET" && /^\/api\/dict\/\d+$/.test(url)) {
+          await auth.authenticate(r2.token);
+          if (!dict) return res(503, { error: "The dictionary needs internet" });
+          const e = dict.get(Number(url.split("/")[3]));
+          if (!e) return res(404, { error: "No such word" });
+          const chars2 = [...new Set([...e.kanji[0] ?? ""].filter((c) => /\p{Script=Han}/u.test(c)))];
+          return res(200, { word: e, withKanji: Object.fromEntries(chars2.map((c) => [c, dict.withKanji(c, 8).filter((x) => x.i !== e.i)])) });
         } else if (r2.method === "GET" && url === "/api/notify/status") {
           const u = await auth.authenticate(r2.token);
           return res(200, await study.notifyStatus(u, resolveToday(query.get("today"))));
@@ -2732,14 +2933,14 @@ Answer with JSON only, no other text:
           __publicField(this, "hits", /* @__PURE__ */ new Map());
         }
         allow(key, now2 = Date.now()) {
-          const h4 = this.hits.get(key);
-          if (!h4 || h4.reset < now2) {
+          const h5 = this.hits.get(key);
+          if (!h5 || h5.reset < now2) {
             this.hits.set(key, { n: 1, reset: now2 + this.windowMs });
             return true;
           }
-          h4.n++;
+          h5.n++;
           if (this.hits.size > 1e4) this.hits.clear();
-          return h4.n <= this.limit;
+          return h5.n <= this.limit;
         }
       };
       res = (status, body) => ({ status, body });
@@ -2895,9 +3096,9 @@ Answer with JSON only, no other text:
     clearInterval(probeTimer);
     if (v) probeTimer = window.setInterval(() => void tryReconnect(), 2e4);
   }
-  function init(getToken2, busy3) {
+  function init(getToken2, busy4) {
     token = getToken2;
-    if (busy3) busyCheck = busy3;
+    if (busy4) busyCheck = busy4;
     addEventListener("online", () => void tryReconnect());
     addEventListener("offline", () => {
       if (document.visibilityState === "visible") void goOffline();
@@ -3207,17 +3408,20 @@ Answer with JSON only, no other text:
         me: () => call2("GET", `/api/me?today=${today()}`),
         setAvatar: (image) => call2("PUT", "/api/me/avatar", { image }),
         removeAvatar: () => call2("DELETE", "/api/me/avatar"),
+        setPose: (pose) => call2("PUT", "/api/me/pose", { pose }),
         setFlame: (flame) => call2("PUT", "/api/me/flame", { flame }),
         setStaff: (staff) => call2("PUT", "/api/me/staff", { staff }),
         setBackground: (background) => call2("PUT", "/api/me/background", { background }),
         study: () => call2("GET", `/api/study?today=${today()}`),
         setStudyLevels: (levels) => call2("PUT", "/api/study/levels", { levels, today: today() }),
-        queue: (deck2) => call2("GET", `/api/study/queue?deck=${deck2}`),
+        queue: (deck2) => call2("GET", `/api/study/queue?deck=${deck2}&today=${today()}`),
         review: (vocabId, rating, deck2 = "all") => call2("POST", "/api/study/review", { vocabId, rating, deck: deck2, today: today(), tz: (/* @__PURE__ */ new Date()).getTimezoneOffset() }),
         undo: (vocabId, deck2 = "all") => call2("POST", "/api/study/undo", { vocabId, deck: deck2 }),
         deckWords: (deck2) => call2("GET", `/api/study/deck?deck=${deck2}`),
         deckRemove: (deck2, ids) => call2("POST", "/api/study/deck/remove", { deck: deck2, ids }),
         deckAdd: (deck2, ids) => call2("POST", "/api/study/deck/add", { deck: deck2, ids }),
+        dict: (q, tags2 = false) => call2("GET", `/api/dict?q=${encodeURIComponent(q)}${tags2 ? "&tags=1" : ""}`),
+        dictWord: (i) => call2("GET", `/api/dict/${i}`),
         searchWords: (q) => call2("GET", `/api/study/search?q=${encodeURIComponent(q)}`),
         // the app names a new custom word itself (0.9.9.4), so one added offline keeps its id on the server
         addCustom: (w) => call2("POST", "/api/study/custom", { ...w, id: `u:${uuid().slice(0, 13)}` }),
@@ -3235,9 +3439,10 @@ Answer with JSON only, no other text:
         task: (task, score3, total) => call2("POST", "/api/study/task", { task, today: today(), score: score3, total }),
         setDailyNew: (n) => call2("PUT", "/api/study/daily-new", { n, today: today() }),
         /** 0.9.9.4.4: new words a day per level */
+        setOnoDaily: (n) => call2("PUT", "/api/study/ono-daily", { n, today: today() }),
         setDailyLevels: (levels) => call2("PUT", "/api/study/daily-levels", { levels, today: today() }),
         setBorder: (border) => call2("PUT", "/api/me/border", { border }),
-        setBadges: (badges2) => call2("PUT", "/api/me/badges", { badges: badges2 }),
+        setBadges: (badges3) => call2("PUT", "/api/me/badges", { badges: badges3 }),
         matches: () => call2("GET", "/api/matches"),
         match: (id) => call2("GET", `/api/matches/${encodeURIComponent(id)}`),
         player: (id) => call2("GET", `/api/users/${encodeURIComponent(id)}`),
@@ -4087,6 +4292,69 @@ Answer with JSON only, no other text:
         "Notifications are blocked \u2014 allow them for this site in the browser settings, then tap the bell again.": "\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0437\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u044B \u2014 \u0440\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0438\u0445 \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0441\u0430\u0439\u0442\u0430 \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430 \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u043E\u043B\u043E\u043A\u043E\u043B\u044C\u0447\u0438\u043A \u0441\u043D\u043E\u0432\u0430.",
         "Allow notifications for Kanji Wizards in Android settings to get the reminders.": "\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0434\u043B\u044F Kanji Wizards \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 Android, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C \u043D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F.",
         "Reminders on: the Daily challenge, 50+ spells to review, and your streak tasks in the evening.": "\u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u0432\u043A\u043B\u044E\u0447\u0435\u043D\u044B: \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432, 50+ \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043A \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u044E \u0438 \u0432\u0435\u0447\u0435\u0440\u043E\u043C \u2014 \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u0441\u0435\u0440\u0438\u0438.",
+        // 0.9.9.7
+        "Reminders": "\u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F",
+        "Send a test": "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C",
+        "Sent \u2014 it should appear in your notifications now.": "\u041E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E \u2014 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435 \u0434\u043E\u043B\u0436\u043D\u043E \u043F\u043E\u044F\u0432\u0438\u0442\u044C\u0441\u044F \u0441\u0435\u0439\u0447\u0430\u0441.",
+        "\u{1F514} Reminders work": "\u{1F514} \u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442",
+        "This is how Kanji Wizards reminders will look.": "\u0422\u0430\u043A \u0431\u0443\u0434\u0443\u0442 \u0432\u044B\u0433\u043B\u044F\u0434\u0435\u0442\u044C \u043D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F Kanji Wizards.",
+        "Last reminder check": "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u043D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u0439",
+        "Theme": "\u0422\u0435\u043C\u0430",
+        "Dark": "\u0422\u0451\u043C\u043D\u0430\u044F",
+        "Light": "\u0421\u0432\u0435\u0442\u043B\u0430\u044F",
+        "New a day": "\u041D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C",
+        "Every giseigo, gitaigo and gij\u014Dgo: sounds (\u30EF\u30F3\u30EF\u30F3), states (\u304D\u3089\u304D\u3089) and feelings (\u30C9\u30AD\u30C9\u30AD). Choose how many new ones a day (0 = none).": "\u0412\u0441\u0435 \u0433\u0438\u0441\u044D\u0439\u0433\u043E, \u0433\u0438\u0442\u0430\u0439\u0433\u043E \u0438 \u0433\u0438\u0434\u0437\u0451\u0433\u043E: \u0437\u0432\u0443\u043A\u0438 (\u30EF\u30F3\u30EF\u30F3), \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F (\u304D\u3089\u304D\u3089) \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u0430 (\u30C9\u30AD\u30C9\u30AD). \u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C (0 \u2014 \u043D\u0438 \u043E\u0434\u043D\u043E\u0433\u043E).",
+        // 0.9.9.7 — dictionary, poses
+        "Dictionary": "\u0421\u043B\u043E\u0432\u0430\u0440\u044C",
+        "Search": "\u041D\u0430\u0439\u0442\u0438",
+        "common": "\u0447\u0430\u0441\u0442\u043E\u0435",
+        "game word": "\u0441\u043B\u043E\u0432\u043E \u0438\u0433\u0440\u044B",
+        "Results": "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u044B",
+        "Listen": "\u0421\u043B\u0443\u0448\u0430\u0442\u044C",
+        "Meanings": "\u0417\u043D\u0430\u0447\u0435\u043D\u0438\u044F",
+        "In Russian": "\u041F\u043E-\u0440\u0443\u0441\u0441\u043A\u0438",
+        "Example": "\u041F\u0440\u0438\u043C\u0435\u0440",
+        "Forms": "\u0424\u043E\u0440\u043C\u044B",
+        "Searching\u2026": "\u0418\u0449\u0435\u043C\u2026",
+        "Loading\u2026": "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026",
+        "match": "\u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0435",
+        "matches": "\u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439",
+        "Add to a deck": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u043A\u043E\u043B\u043E\u0434\u0443",
+        "Add to\u2026": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u2026",
+        "Type a word in kanji, kana, romaji or English. Open a word for all its meanings, its kanji with memory pictures, example sentences \u2014 and add it to your decks.": "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u043E \u043A\u0430\u043D\u0434\u0437\u0438, \u043A\u0430\u043D\u043E\u0439, \u0440\u043E\u043C\u0430\u0434\u0437\u0438 \u0438\u043B\u0438 \u043F\u043E-\u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438. \u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u043B\u043E\u0432\u043E \u2014 \u0432\u0441\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F, \u0435\u0433\u043E \u043A\u0430\u043D\u0434\u0437\u0438 \u0441 \u043A\u0430\u0440\u0442\u0438\u043D\u043A\u0430\u043C\u0438 \u0434\u043B\u044F \u0437\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F, \u043F\u0440\u0438\u043C\u0435\u0440\u044B, \u2014 \u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0435\u0433\u043E \u0432 \u0441\u0432\u043E\u0438 \u043A\u043E\u043B\u043E\u0434\u044B.",
+        "Kanji, kana, romaji or English \u2014 \u4FE1\u7528, \u3057\u3093\u3088\u3046, shinyou, trust": "\u041A\u0430\u043D\u0434\u0437\u0438, \u043A\u0430\u043D\u0430, \u0440\u043E\u043C\u0430\u0434\u0437\u0438 \u0438\u043B\u0438 \u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438\u0439 \u2014 \u4FE1\u7528, \u3057\u3093\u3088\u3046, shinyou, trust",
+        "The dictionary needs internet": "\u0421\u043B\u043E\u0432\u0430\u0440\u044E \u043D\u0443\u0436\u0435\u043D \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442",
+        "No such word": "\u0422\u0430\u043A\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430 \u043D\u0435\u0442",
+        "Polite": "\u0412\u0435\u0436\u043B\u0438\u0432\u0430\u044F",
+        "Negative": "\u041E\u0442\u0440\u0438\u0446\u0430\u043D\u0438\u0435",
+        "Past": "\u041F\u0440\u043E\u0448\u0435\u0434\u0448\u0435\u0435",
+        "Past negative": "\u041F\u0440\u043E\u0448\u0435\u0434\u0448\u0435\u0435 \u043E\u0442\u0440\u0438\u0446\u0430\u043D\u0438\u0435",
+        "Te form": "\u0424\u043E\u0440\u043C\u0430 \u043D\u0430 -\u0442\u044D",
+        "Polite past": "\u0412\u0435\u0436\u043B\u0438\u0432\u043E\u0435 \u043F\u0440\u043E\u0448\u0435\u0434\u0448\u0435\u0435",
+        "Potential": "\u041F\u043E\u0442\u0435\u043D\u0446\u0438\u0430\u043B\u044C\u043D\u0430\u044F",
+        "Passive": "\u0421\u0442\u0440\u0430\u0434\u0430\u0442\u0435\u043B\u044C\u043D\u0430\u044F",
+        "Causative": "\u041F\u043E\u043D\u0443\u0434\u0438\u0442\u0435\u043B\u044C\u043D\u0430\u044F",
+        "Volitional": "\u0412\u043E\u043B\u0438\u0442\u0438\u0432 (\u0434\u0430\u0432\u0430\u0439\u2026)",
+        "Conditional": "\u0423\u0441\u043B\u043E\u0432\u043D\u0430\u044F (-\u0431\u0430)",
+        "Imperative": "\u041F\u043E\u0432\u0435\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u0430\u044F",
+        "Adverb": "\u041D\u0430\u0440\u0435\u0447\u0438\u0435",
+        "Combo pose": "\u041F\u043E\u0437\u0430 \u043A\u043E\u043C\u0431\u043E",
+        "Standing": "\u0421\u0442\u043E\u0439\u043A\u0430",
+        "Levitation": "\u041B\u0435\u0432\u0438\u0442\u0430\u0446\u0438\u044F",
+        "Duelist": "\u0414\u0443\u044D\u043B\u044F\u043D\u0442",
+        "Channel": "\u041A\u043E\u043D\u0446\u0435\u043D\u0442\u0440\u0430\u0446\u0438\u044F",
+        "Lotus": "\u041B\u043E\u0442\u043E\u0441",
+        "Your usual stance \u2014 feet on the ground, the staff at your side.": "\u041E\u0431\u044B\u0447\u043D\u0430\u044F \u0441\u0442\u043E\u0439\u043A\u0430 \u2014 \u043D\u043E\u0433\u0438 \u043D\u0430 \u0437\u0435\u043C\u043B\u0435, \u043F\u043E\u0441\u043E\u0445 \u0441\u0431\u043E\u043A\u0443.",
+        "Combo pose: what your character does while it\u2019s on fire (5 in a row, or Omnipotence) \u2014 float, take aim, or hold the staff in both hands. New poses unlock as you level up.": "\u041F\u043E\u0437\u0430 \u043A\u043E\u043C\u0431\u043E: \u0447\u0442\u043E \u0434\u0435\u043B\u0430\u0435\u0442 \u0432\u0430\u0448 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436, \u043F\u043E\u043A\u0430 \u043E\u043D \u0432 \u043E\u0433\u043D\u0435 (5 \u043F\u043E\u0434\u0440\u044F\u0434 \u0438\u043B\u0438 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E) \u2014 \u043F\u0430\u0440\u0438\u0442, \u0446\u0435\u043B\u0438\u0442\u0441\u044F \u0438\u043B\u0438 \u0434\u0435\u0440\u0436\u0438\u0442 \u043F\u043E\u0441\u043E\u0445 \u043E\u0431\u0435\u0438\u043C\u0438 \u0440\u0443\u043A\u0430\u043C\u0438. \u041D\u043E\u0432\u044B\u0435 \u043F\u043E\u0437\u044B \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u0441 \u0443\u0440\u043E\u0432\u043D\u0435\u043C.",
+        "Combo poses show in the 3D arena (Settings \u2192 3D arena: Full or Lite).": "\u041F\u043E\u0437\u044B \u043A\u043E\u043C\u0431\u043E \u0432\u0438\u0434\u043D\u044B \u043D\u0430 3D-\u0430\u0440\u0435\u043D\u0435 (\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 3D-\u0430\u0440\u0435\u043D\u0430: \u043F\u043E\u043B\u043D\u0430\u044F \u0438\u043B\u0438 \u043E\u0431\u043B\u0435\u0433\u0447\u0451\u043D\u043D\u0430\u044F).",
+        "Enter \u23CE": "\u0412\u0432\u043E\u0434 \u23CE",
+        "You rise into the air, one leg bent, as if the magic lifts you.": "\u0412\u044B \u043F\u043E\u0434\u043D\u0438\u043C\u0430\u0435\u0442\u0435\u0441\u044C \u0432 \u0432\u043E\u0437\u0434\u0443\u0445, \u0441\u043E\u0433\u043D\u0443\u0432 \u043E\u0434\u043D\u0443 \u043D\u043E\u0433\u0443, \u0431\u0443\u0434\u0442\u043E \u0432\u0430\u0441 \u043F\u043E\u0434\u043D\u0438\u043C\u0430\u0435\u0442 \u043C\u0430\u0433\u0438\u044F.",
+        "Side-on to your opponent, the staff held out straight at them, its core pointed their way.": "\u0411\u043E\u043A\u043E\u043C \u043A \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0443, \u043F\u043E\u0441\u043E\u0445 \u0432\u044B\u0442\u044F\u043D\u0443\u0442 \u043F\u0440\u044F\u043C\u043E \u043D\u0430 \u043D\u0435\u0433\u043E, \u044F\u0434\u0440\u043E \u0441\u043C\u043E\u0442\u0440\u0438\u0442 \u0432 \u0435\u0433\u043E \u0441\u0442\u043E\u0440\u043E\u043D\u0443.",
+        "Both hands on the staff, upright in front of you, gathering power.": "\u041E\u0431\u0435 \u0440\u0443\u043A\u0438 \u043D\u0430 \u043F\u043E\u0441\u043E\u0445\u0435, \u043E\u043D \u0441\u0442\u043E\u0438\u0442 \u043F\u0440\u044F\u043C\u043E \u043F\u0435\u0440\u0435\u0434 \u0432\u0430\u043C\u0438 \u2014 \u0432\u044B \u043A\u043E\u043F\u0438\u0442\u0435 \u0441\u0438\u043B\u0443.",
+        "You float cross-legged in the air, both hands on the upright staff.": "\u0412\u044B \u043F\u0430\u0440\u0438\u0442\u0435 \u0432 \u0432\u043E\u0437\u0434\u0443\u0445\u0435, \u0441\u043A\u0440\u0435\u0441\u0442\u0438\u0432 \u043D\u043E\u0433\u0438, \u043E\u0431\u0435 \u0440\u0443\u043A\u0438 \u043D\u0430 \u043F\u043E\u0441\u043E\u0445\u0435.",
+        "(\u8F9E\u66F8, main menu) \u2014 type a word in kanji, kana, romaji or English: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji \u2014 and \u201C+ Add to\u2026\u201D puts it in any deck.": "(\u8F9E\u66F8, \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u043C\u0435\u043D\u044E) \u2014 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u043E \u043A\u0430\u043D\u0434\u0437\u0438, \u043A\u0430\u043D\u043E\u0439, \u0440\u043E\u043C\u0430\u0434\u0437\u0438 \u0438\u043B\u0438 \u043F\u043E-\u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438: \u0432\u0441\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F, \u0443\u0440\u043E\u0432\u0435\u043D\u044C JLPT, \u0444\u043E\u0440\u043C\u044B \u0433\u043B\u0430\u0433\u043E\u043B\u0430, \u043F\u0440\u0438\u043C\u0435\u0440, \u043A\u0430\u0436\u0434\u044B\u0439 \u043A\u0430\u043D\u0434\u0437\u0438 \u0441 \u043A\u0430\u0440\u0442\u0438\u043D\u043A\u043E\u0439 \u0434\u043B\u044F \u0437\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F, \u0434\u0440\u0443\u0433\u0438\u0435 \u0441\u043B\u043E\u0432\u0430 \u0441 \u044D\u0442\u0438\u043C \u043A\u0430\u043D\u0434\u0437\u0438 \u2014 \u0430 \xAB+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u2026\xBB \u043A\u043B\u0430\u0434\u0451\u0442 \u0441\u043B\u043E\u0432\u043E \u0432 \u043B\u044E\u0431\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443.",
+        "\u2014 in": "\u2014 \u0432 \u0440\u0430\u0437\u0434\u0435\u043B\u0435",
+        ", choose what your character does while on fire: Levitation, Duelist, Channel or Lotus (they unlock as you level up). Everyone in the battle sees it.": "\u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0447\u0442\u043E \u0434\u0435\u043B\u0430\u0435\u0442 \u0432\u0430\u0448 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436, \u043F\u043E\u043A\u0430 \u043E\u043D \u0432 \u043E\u0433\u043D\u0435: \u041B\u0435\u0432\u0438\u0442\u0430\u0446\u0438\u044F, \u0414\u0443\u044D\u043B\u044F\u043D\u0442, \u041A\u043E\u043D\u0446\u0435\u043D\u0442\u0440\u0430\u0446\u0438\u044F \u0438\u043B\u0438 \u041B\u043E\u0442\u043E\u0441 (\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u0441 \u0443\u0440\u043E\u0432\u043D\u0435\u043C). \u042D\u0442\u043E \u0432\u0438\u0434\u044F\u0442 \u0432\u0441\u0435 \u0432 \u0431\u043E\u044E.",
         // 0.9.9.6.1
         "Update the app": "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
         "Install the update": "\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435",
@@ -4148,7 +4416,7 @@ Answer with JSON only, no other text:
         "Practice": "\u041F\u0440\u0430\u043A\u0442\u0438\u043A\u0430",
         "Hiragana first": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0430",
         "\u2014 every battle plays the words of your levels from your All spells (marked \u2605 on the study cards); random words fill in when you have too few.": "\u2014 \u0432 \u043A\u0430\u0436\u0434\u043E\u043C \u0431\u043E\u044E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442\u0441\u044F \u0441\u043B\u043E\u0432\u0430 \u0432\u0430\u0448\u0438\u0445 \u0443\u0440\u043E\u0432\u043D\u0435\u0439 \u0438\u0437 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB (\u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430\u0445 \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0438 \u2014 \u2605); \u0435\u0441\u043B\u0438 \u0438\u0445 \u043C\u0430\u043B\u043E, \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u044E\u0442\u0441\u044F \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0435.",
-        "\u2014 Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (\u2212 / +, then Apply). Every card you answer gives +5 XP (up to 500 a day); \u21B6 Undo takes the last answer back.": "\u2014 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u0432 \u0441\u0442\u0438\u043B\u0435 Anki \u0432 \u0447\u0435\u0442\u044B\u0440\u0451\u0445 \u043A\u043E\u043B\u043E\u0434\u0430\u0445: \xAB\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB, \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB (\u0442\u0443\u0434\u0430 \u043F\u043E\u043F\u0430\u0434\u0430\u044E\u0442 \u043E\u0448\u0438\u0431\u043A\u0438), \xAB\u0421\u0432\u043E\u0438\xBB \u0438 \xAB\u041E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u044F\xBB. \u0412\u043E \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445\xBB \u0437\u0430\u0434\u0430\u0439\u0442\u0435, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C \u0432 \u0434\u0435\u043D\u044C (\u2212 / +, \u0437\u0430\u0442\u0435\u043C \xAB\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u0442\u044C\xBB). \u041A\u0430\u0436\u0434\u0430\u044F \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0434\u0430\u0451\u0442 +5 \u043E\u043F\u044B\u0442\u0430 (\u0434\u043E 500 \u0432 \u0434\u0435\u043D\u044C); \u21B6 \xAB\u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C\xBB \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u043E\u0442\u0432\u0435\u0442.",
+        "\u2014 Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (\u2212 / +, then Apply); Onomatopoeia has its own \u201CNew a day\u201D number (0 until you set it). Every card you answer gives +5 XP (up to 500 a day); \u21B6 Undo takes the last answer back.": "\u2014 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u0432 \u0441\u0442\u0438\u043B\u0435 Anki \u0432 \u0447\u0435\u0442\u044B\u0440\u0451\u0445 \u043A\u043E\u043B\u043E\u0434\u0430\u0445: \xAB\u0412\u0441\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB, \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB (\u0442\u0443\u0434\u0430 \u043F\u043E\u043F\u0430\u0434\u0430\u044E\u0442 \u043E\u0448\u0438\u0431\u043A\u0438), \xAB\u0421\u0432\u043E\u0438\xBB \u0438 \xAB\u041E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u044F\xBB. \u0412\u043E \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445\xBB \u0437\u0430\u0434\u0430\u0439\u0442\u0435, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C \u0432 \u0434\u0435\u043D\u044C (\u2212 / +, \u0437\u0430\u0442\u0435\u043C \xAB\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u0442\u044C\xBB); \u0443 \xAB\u041E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0438\xBB \u0441\u0432\u043E\u0451 \u0447\u0438\u0441\u043B\u043E \xAB\u041D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C\xBB (0, \u043F\u043E\u043A\u0430 \u0432\u044B \u0435\u0433\u043E \u043D\u0435 \u0437\u0430\u0434\u0430\u0434\u0438\u0442\u0435). \u041A\u0430\u0436\u0434\u0430\u044F \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0434\u0430\u0451\u0442 +5 \u043E\u043F\u044B\u0442\u0430 (\u0434\u043E 500 \u0432 \u0434\u0435\u043D\u044C); \u21B6 \xAB\u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C\xBB \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u043E\u0442\u0432\u0435\u0442.",
         "\u2014 the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 10 new stories a day \u2014 the counter shows how many are left; \u2605 starred words go in first, and the words you miss go to Struggling spells). Tap any kanji for its parts and a memory story.": "\u2014 \u0442\u0435\u0441\u0442 JLPT, \u0442\u0435\u0441\u0442 \u043F\u043E \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0435 \u0438 \u0442\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u0418\u0418 \u043F\u0438\u0448\u0435\u0442 \u043A\u043E\u0440\u043E\u0442\u043A\u0438\u0439 \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0441 8 \u0432\u0430\u0448\u0438\u043C\u0438 \u0441\u043B\u043E\u0432\u0430\u043C\u0438, \u0430 \u0432\u044B \u0437\u0430\u043F\u043E\u043B\u043D\u044F\u0435\u0442\u0435 \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0438 \u043F\u043E \u0441\u043C\u044B\u0441\u043B\u0443 (\u0434\u043E 10 \u043D\u043E\u0432\u044B\u0445 \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u0432 \u0434\u0435\u043D\u044C \u2014 \u0441\u0447\u0451\u0442\u0447\u0438\u043A \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C; \u0441\u043B\u043E\u0432\u0430 \u0441\u043E \u2605 \u0438\u0434\u0443\u0442 \u043F\u0435\u0440\u0432\u044B\u043C\u0438, \u0430 \u0441\u043B\u043E\u0432\u0430 \u0441 \u043E\u0448\u0438\u0431\u043A\u0430\u043C\u0438 \u043F\u043E\u043F\u0430\u0434\u0430\u044E\u0442 \u0432 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB). \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043B\u044E\u0431\u043E\u0439 \u043A\u0430\u043D\u0434\u0437\u0438, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0435\u0433\u043E \u0447\u0430\u0441\u0442\u0438 \u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u0434\u043B\u044F \u0437\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F.",
         "\u2014 beginners study \u3072\u3089\u304C\u306A until they tick \u201CI\u2019ve mastered hiragana\u201D in Settings. Until then the kanji levels are locked: they add no new words, but the numbers you set for them are kept.": "\u2014 \u043D\u043E\u0432\u0438\u0447\u043A\u0438 \u0443\u0447\u0430\u0442 \u3072\u3089\u304C\u306A, \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043C\u0435\u0442\u044F\u0442 \xAB\u042F \u043E\u0441\u0432\u043E\u0438\u043B \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0443\xBB \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445. \u0414\u043E \u044D\u0442\u043E\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u0438 \u043A\u0430\u043D\u0434\u0437\u0438 \u0437\u0430\u043A\u0440\u044B\u0442\u044B: \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432 \u043E\u043D\u0438 \u043D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u044E\u0442, \u043D\u043E \u0437\u0430\u0434\u0430\u043D\u043D\u044B\u0435 \u0434\u043B\u044F \u043D\u0438\u0445 \u0447\u0438\u0441\u043B\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F.",
         "Writing a story with your words\u2026": "\u041F\u0438\u0448\u0435\u043C \u0440\u0430\u0441\u0441\u043A\u0430\u0437 \u0438\u0437 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432\u2026",
@@ -4324,6 +4592,12 @@ Answer with JSON only, no other text:
         return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
       };
       PATTERNS = [
+        [/^(\d+) (match|matches)$/, (_, n) => `\u041D\u0430\u0439\u0434\u0435\u043D\u043E: ${n}`],
+        [/^Words with (.):$/, "\u0421\u043B\u043E\u0432\u0430 \u0441 $1:"],
+        [/^Nothing found for “(.+)”$/, "\u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E \u043F\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0443 \xAB$1\xBB"],
+        [/^(\d+) spells?$/, (_, n) => `\u0417\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439: ${n}`],
+        [/^(.+) You strike it while you’re on fire — 5 correct casts in a row, or your Omnipotence — and everyone in the battle sees it\.$/, (_, b) => `${RU[b] ?? b} \u0412\u044B \u043F\u0440\u0438\u043D\u0438\u043C\u0430\u0435\u0442\u0435 \u0435\u0451, \u043F\u043E\u043A\u0430 \u0432\u044B \u0432 \u043E\u0433\u043D\u0435 \u2014 5 \u0432\u0435\u0440\u043D\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u043F\u043E\u0434\u0440\u044F\u0434 \u0438\u043B\u0438 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E, \u2014 \u0438 \u0435\u0451 \u0432\u0438\u0434\u044F\u0442 \u0432\u0441\u0435 \u0432 \u0431\u043E\u044E.`],
+        [/^Reach level (\d+) to unlock the (.+) pose$/, (_, n, p) => `\u0414\u043E\u0441\u0442\u0438\u0433\u043D\u0438\u0442\u0435 \u0443\u0440\u043E\u0432\u043D\u044F ${n}, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043F\u043E\u0437\u0443 \xAB${RU[p] ?? p}\xBB`],
         [/^Downloading… (\d+)%$/, "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026 $1%"],
         [/^You’ve used all (\d+) of today’s AI stories — new ones tomorrow!$/, "\u0412\u044B \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043B\u0438 \u0432\u0441\u0435 $1 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u2014 \u043D\u043E\u0432\u044B\u0435 \u0437\u0430\u0432\u0442\u0440\u0430!"],
         [/^Pick which of your words go in and the story level above, then start\. (\d+) words of “(.+)” fit\.$/, (_, n, d) => `\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u044B\u0448\u0435, \u043A\u0430\u043A\u0438\u0435 \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0432\u043E\u0439\u0434\u0443\u0442, \u0438 \u0443\u0440\u043E\u0432\u0435\u043D\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430, \u0437\u0430\u0442\u0435\u043C \u043D\u0430\u0447\u043D\u0438\u0442\u0435. \u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u0441\u043B\u043E\u0432 \u0438\u0437 \xAB${RU[d] ?? d}\xBB: ${n}.`],
@@ -4767,32 +5041,32 @@ Answer with JSON only, no other text:
     pic.defs.push(...sub.defs);
     pic.raw(`<g transform="translate(${hx} ${hy}) rotate(${tilt}) scale(${s}) translate(${-25} ${-STAFF_GRIP})">${sub.body.join("")}</g>`);
   }
-  function face(pic, cx, cy, w, h4, o) {
-    pic.e(cx, cy, w, h4, pic.radial([[0, lt(o.skin, 0.12)], [0.65, o.skin], [1, dk(o.skin, 0.22)]], 0.4, 0.35, 0.75));
-    pic.p(`M${cx + w * 0.55} ${cy - h4 * 0.2} Q${cx + w * 1.02} ${cy + h4 * 0.2} ${cx + w * 0.4} ${cy + h4 * 0.95} Q${cx + w * 0.75} ${cy + h4 * 0.3} ${cx + w * 0.55} ${cy - h4 * 0.2}Z`, dk(o.skin, 0.35), 'opacity=".35"');
-    pic.p(`M${cx + w * 0.12} ${cy - h4 * 0.05} L${cx + w * 0.3} ${cy + h4 * 0.32} L${cx + w * 0.08} ${cy + h4 * 0.36}Z`, dk(o.skin, 0.3), 'opacity=".5"');
+  function face(pic, cx, cy, w, h5, o) {
+    pic.e(cx, cy, w, h5, pic.radial([[0, lt(o.skin, 0.12)], [0.65, o.skin], [1, dk(o.skin, 0.22)]], 0.4, 0.35, 0.75));
+    pic.p(`M${cx + w * 0.55} ${cy - h5 * 0.2} Q${cx + w * 1.02} ${cy + h5 * 0.2} ${cx + w * 0.4} ${cy + h5 * 0.95} Q${cx + w * 0.75} ${cy + h5 * 0.3} ${cx + w * 0.55} ${cy - h5 * 0.2}Z`, dk(o.skin, 0.35), 'opacity=".35"');
+    pic.p(`M${cx + w * 0.12} ${cy - h5 * 0.05} L${cx + w * 0.3} ${cy + h5 * 0.32} L${cx + w * 0.08} ${cy + h5 * 0.36}Z`, dk(o.skin, 0.3), 'opacity=".5"');
     for (const sx of [-1, 1]) {
-      const ex = cx + sx * w * 0.42 + w * 0.08, ey = cy - h4 * 0.06, ew = w * 0.26, eh = h4 * 0.13;
+      const ex = cx + sx * w * 0.42 + w * 0.08, ey = cy - h5 * 0.06, ew = w * 0.26, eh = h5 * 0.13;
       pic.e(ex, ey, ew, eh, o.glow ? "#ffd23a" : "#f4f0ea");
       pic.e(ex + ew * 0.25, ey + eh * 0.1, eh * 0.95, eh * 0.95, o.eye);
       pic.e(ex + ew * 0.25, ey + eh * 0.1, o.glow ? eh * 0.25 : eh * 0.45, eh * 0.7, "#140c14");
       if (!o.glow) pic.e(ex + ew * 0.05, ey - eh * 0.35, eh * 0.22, eh * 0.22, "#ffffff", 'opacity=".85"');
       pic.p(`M${ex - ew * 1.1} ${ey - eh * 1.4} L${ex + ew * 1.1} ${ey - eh * 1.4} L${ex + ew * 1.1} ${ey - eh * (1 - o.lid * 1.6)} Q${ex} ${ey - eh * (1.3 - o.lid * 1.8)} ${ex - ew * 1.1} ${ey - eh * (0.6 - o.lid)} Z`, o.skin);
-      pic.s(`M${ex - ew * 1.05} ${ey - eh * (0.55 - o.lid)} Q${ex} ${ey - eh * (1.25 - o.lid * 1.8)} ${ex + ew * 1.08} ${ey - eh * (0.95 - o.lid * 1.6)}`, "#1c1418", h4 * 0.045);
-      if (o.lashes) pic.s(`M${ex + ew * 0.8} ${ey - eh * (0.9 - o.lid * 1.6)} l${ew * 0.35} ${-eh * 0.45}`, "#1c1418", h4 * 0.03);
+      pic.s(`M${ex - ew * 1.05} ${ey - eh * (0.55 - o.lid)} Q${ex} ${ey - eh * (1.25 - o.lid * 1.8)} ${ex + ew * 1.08} ${ey - eh * (0.95 - o.lid * 1.6)}`, "#1c1418", h5 * 0.045);
+      if (o.lashes) pic.s(`M${ex + ew * 0.8} ${ey - eh * (0.9 - o.lid * 1.6)} l${ew * 0.35} ${-eh * 0.45}`, "#1c1418", h5 * 0.03);
       const inner = sx < 0 ? ex + ew : ex - ew, outer = sx < 0 ? ex - ew * 1.1 : ex + ew * 1.15;
       const by = ey - eh * 2.3;
-      pic.s(`M${inner} ${by + o.browTilt * eh} Q${(inner + outer) / 2} ${by - eh * 0.7} ${outer} ${by - o.browTilt * eh * 0.5}`, o.brow, h4 * 0.09);
+      pic.s(`M${inner} ${by + o.browTilt * eh} Q${(inner + outer) / 2} ${by - eh * 0.7} ${outer} ${by - o.browTilt * eh * 0.5}`, o.brow, h5 * 0.09);
     }
-    const my = cy + h4 * 0.55;
+    const my = cy + h5 * 0.55;
     if (o.mouth === "snarl") {
-      pic.p(`M${cx - w * 0.3} ${my} Q${cx + w * 0.1} ${my - h4 * 0.12} ${cx + w * 0.5} ${my} L${cx + w * 0.42} ${my + h4 * 0.14} Q${cx + w * 0.1} ${my + h4 * 0.2} ${cx - w * 0.22} ${my + h4 * 0.12} Z`, "#2a1416");
-      pic.p(`M${cx - w * 0.24} ${my + h4 * 0.01} L${cx + w * 0.44} ${my + h4 * 0.01} L${cx + w * 0.4} ${my + h4 * 0.07} L${cx - w * 0.2} ${my + h4 * 0.07}Z`, "#ece4cc");
-      pic.s(`M${cx - w * 0.05} ${my} v${h4 * 0.07} M${cx + w * 0.15} ${my} v${h4 * 0.07}`, "#2a1416", 0.5);
+      pic.p(`M${cx - w * 0.3} ${my} Q${cx + w * 0.1} ${my - h5 * 0.12} ${cx + w * 0.5} ${my} L${cx + w * 0.42} ${my + h5 * 0.14} Q${cx + w * 0.1} ${my + h5 * 0.2} ${cx - w * 0.22} ${my + h5 * 0.12} Z`, "#2a1416");
+      pic.p(`M${cx - w * 0.24} ${my + h5 * 0.01} L${cx + w * 0.44} ${my + h5 * 0.01} L${cx + w * 0.4} ${my + h5 * 0.07} L${cx - w * 0.2} ${my + h5 * 0.07}Z`, "#ece4cc");
+      pic.s(`M${cx - w * 0.05} ${my} v${h5 * 0.07} M${cx + w * 0.15} ${my} v${h5 * 0.07}`, "#2a1416", 0.5);
     } else if (o.mouth === "lips") {
-      pic.p(`M${cx - w * 0.25} ${my} Q${cx + w * 0.1} ${my - h4 * 0.1} ${cx + w * 0.45} ${my} Q${cx + w * 0.1} ${my + h4 * 0.16} ${cx - w * 0.25} ${my}Z`, o.lips ?? "#7a3a5a");
+      pic.p(`M${cx - w * 0.25} ${my} Q${cx + w * 0.1} ${my - h5 * 0.1} ${cx + w * 0.45} ${my} Q${cx + w * 0.1} ${my + h5 * 0.16} ${cx - w * 0.25} ${my}Z`, o.lips ?? "#7a3a5a");
     } else {
-      pic.s(`M${cx - w * 0.15} ${my} Q${cx + w * 0.12} ${my + h4 * 0.04} ${cx + w * 0.38} ${my - h4 * 0.02}`, dk(o.skin, 0.55), h4 * 0.05);
+      pic.s(`M${cx - w * 0.15} ${my} Q${cx + w * 0.12} ${my + h5 * 0.04} ${cx + w * 0.38} ${my - h5 * 0.02}`, dk(o.skin, 0.55), h5 * 0.05);
     }
   }
   function wavyHair(pic, x, y0, y1, w, c, lobes = 5) {
@@ -4820,12 +5094,12 @@ Answer with JSON only, no other text:
   }
   function wizard(pic, side, staff) {
     const robe = side === "ally" ? "#2f9070" : side === "rival" ? "#a8304a" : "#2f5ac4", deep = dk(robe, 0.35), cream = "#efe5cc", gold = "#e4b84c", skin = "#f2ddcf", hair = "#f2f0ec";
-    const band = (x0, x1, y, h4, flip2 = false) => {
+    const band = (x0, x1, y, h5, flip2 = false) => {
       const n = Math.max(2, Math.round((x1 - x0) / 9)), dx = (x1 - x0) / n;
       let d = "";
       for (let i = 0; i < n; i++) {
         const a = x0 + i * dx;
-        d += `M${a} ${y + h4 / 2} L${a + dx / 2} ${y} L${a + dx} ${y + h4 / 2} L${a + dx / 2} ${y + h4} Z `;
+        d += `M${a} ${y + h5 / 2} L${a + dx / 2} ${y} L${a + dx} ${y + h5 / 2} L${a + dx / 2} ${y + h5} Z `;
       }
       pic.p(d, "none", `stroke="${gold}" stroke-width="1.1"${flip2 ? "" : ""}`);
     };
@@ -5080,9 +5354,9 @@ Answer with JSON only, no other text:
   function lp(pic, d, base, cell = 7, light = 0.26) {
     const n = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
     const xs = n.filter((_, i) => i % 2 === 0), ys = n.filter((_, i) => i % 2 === 1);
-    let h4 = 0;
-    for (const c of d) h4 = (h4 * 31 + c.charCodeAt(0)) % 99991;
-    lowpoly(pic, d, [Math.min(...xs) - 2, Math.min(...ys) - 2, Math.max(...xs) + 2, Math.max(...ys) + 2], base, cell, light, h4 + 1);
+    let h5 = 0;
+    for (const c of d) h5 = (h5 * 31 + c.charCodeAt(0)) % 99991;
+    lowpoly(pic, d, [Math.min(...xs) - 2, Math.min(...ys) - 2, Math.max(...xs) + 2, Math.max(...ys) + 2], base, cell, light, h5 + 1);
   }
   function dragonArt() {
     const pic = new Pic();
@@ -5136,7 +5410,7 @@ Answer with JSON only, no other text:
       init_progress();
       uid = 0;
       nid = () => `a${(uid++).toString(36)}`;
-      hexRgb = (h4) => [1, 3, 5].map((i) => parseInt(h4.slice(i, i + 2), 16));
+      hexRgb = (h5) => [1, 3, 5].map((i) => parseInt(h5.slice(i, i + 2), 16));
       rgbHex = (c) => `#${c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("")}`;
       mix = (a, b, t) => {
         const x = hexRgb(a), y = hexRgb(b);
@@ -5183,8 +5457,8 @@ Answer with JSON only, no other text:
           this.body.push(s);
           return this;
         }
-        svg(w, h4, cls = "art") {
-          return `<svg viewBox="0 0 ${w} ${h4}" class="${cls}" aria-hidden="true"><defs>${this.defs.join("")}</defs>${this.body.join("")}</svg>`;
+        svg(w, h5, cls = "art") {
+          return `<svg viewBox="0 0 ${w} ${h5}" class="${cls}" aria-hidden="true"><defs>${this.defs.join("")}</defs>${this.body.join("")}</svg>`;
         }
         inner() {
           return `<defs>${this.defs.join("")}</defs>${this.body.join("")}`;
@@ -5222,15 +5496,15 @@ Answer with JSON only, no other text:
 
   // src/client/backgrounds.ts
   function resolveTime(_pref = "auto", now2 = Date.now()) {
-    const h4 = new Date(now2).getHours();
-    return h4 >= DAY_FROM && h4 < SUNSET_FROM ? "day" : h4 >= SUNSET_FROM && h4 < NIGHT_FROM ? "sunset" : "night";
+    const h5 = new Date(now2).getHours();
+    return h5 >= DAY_FROM && h5 < SUNSET_FROM ? "day" : h5 >= SUNSET_FROM && h5 < NIGHT_FROM ? "sunset" : "night";
   }
   function untilNextStep(now2 = Date.now()) {
     const d = new Date(now2);
     const next3 = new Date(d);
     next3.setMinutes(0, 0, 0);
-    const h4 = d.getHours();
-    const at = [DAY_FROM, SUNSET_FROM, NIGHT_FROM].find((x) => x > h4);
+    const h5 = d.getHours();
+    const at = [DAY_FROM, SUNSET_FROM, NIGHT_FROM].find((x) => x > h5);
     if (at === void 0) {
       next3.setDate(next3.getDate() + 1);
       next3.setHours(DAY_FROM);
@@ -5431,12 +5705,12 @@ Answer with JSON only, no other text:
     }
     return `<path d="${vine}" stroke="${dk2(c, 0.35)}" stroke-width="1.5" fill="none"/><path d="${leaves}" fill="${c}"/><path d="${lit}" fill="${lighten(c, 0.25)}"/>`;
   }
-  function leafyTree(x, base, h4, leaf, trunkC) {
-    const w = h4 * 0.07;
-    let s = `<ellipse cx="${x}" cy="${base}" rx="${f(h4 * 0.3)}" ry="${f(h4 * 0.04)}" fill="#000" opacity=".3" filter="url(#soft)"/>`;
-    s += `<path d="M${f(x - w)} ${base} Q${f(x - w * 0.5)} ${f(base - h4 * 0.4)} ${f(x - w * 0.35)} ${f(base - h4 * 0.62)} L${f(x + w * 0.35)} ${f(base - h4 * 0.62)} Q${f(x + w * 0.5)} ${f(base - h4 * 0.4)} ${f(x + w)} ${base} Z" fill="${lin([[0, lighten(trunkC, 0.15)], [1, dk2(trunkC, 0.3)]], 0, 0, 1, 0)}"/>`;
+  function leafyTree(x, base, h5, leaf, trunkC) {
+    const w = h5 * 0.07;
+    let s = `<ellipse cx="${x}" cy="${base}" rx="${f(h5 * 0.3)}" ry="${f(h5 * 0.04)}" fill="#000" opacity=".3" filter="url(#soft)"/>`;
+    s += `<path d="M${f(x - w)} ${base} Q${f(x - w * 0.5)} ${f(base - h5 * 0.4)} ${f(x - w * 0.35)} ${f(base - h5 * 0.62)} L${f(x + w * 0.35)} ${f(base - h5 * 0.62)} Q${f(x + w * 0.5)} ${f(base - h5 * 0.4)} ${f(x + w)} ${base} Z" fill="${lin([[0, lighten(trunkC, 0.15)], [1, dk2(trunkC, 0.3)]], 0, 0, 1, 0)}"/>`;
     const dark = rad([[0, dk2(leaf, 0.1)], [1, dk2(leaf, 0.45)]]), mid = rad([[0, lighten(leaf, 0.15)], [0.6, leaf], [1, dk2(leaf, 0.3)]]), top = rad([[0, lighten(leaf, 0.35)], [1, leaf]]);
-    const cy = base - h4 * 0.72, R = h4 * 0.3;
+    const cy = base - h5 * 0.72, R = h5 * 0.3;
     for (let i = 0; i < 6; i++) s += leafBlob(x + r(-R, R) * 0.9, cy + r(-R * 0.4, R * 0.6), R * r(0.45, 0.6), dark);
     for (let i = 0; i < 7; i++) s += leafBlob(x + r(-R, R) * 0.75, cy + r(-R * 0.6, R * 0.3), R * r(0.4, 0.55), mid);
     for (let i = 0; i < 4; i++) s += leafBlob(x - R * 0.2 + r(-R, R) * 0.45, cy - R * 0.35 + r(-R * 0.3, R * 0.2), R * r(0.28, 0.4), top);
@@ -5457,31 +5731,31 @@ Answer with JSON only, no other text:
     }
     return `<path d="${d}" fill="${c}" opacity=".55"/>`;
   }
-  function bark(x, y, w, h4, c) {
+  function bark(x, y, w, h5, c) {
     let dark = "", light = "";
     for (let i = 0; i < Math.round(w / 3); i++) {
-      const bx = x + r(0, w), by = y + r(0, h4), len = r(20, 90);
+      const bx = x + r(0, w), by = y + r(0, h5), len = r(20, 90);
       const p = `M${f(bx)} ${f(by)} q${f(r(-3, 3))} ${f(len / 2)} ${f(r(-2, 2))} ${f(len)} `;
       if (i % 3) dark += p;
       else light += p;
     }
-    const knots = Array.from({ length: Math.max(1, Math.round(h4 / 260)) }, () => `<ellipse cx="${f(x + r(w * 0.2, w * 0.8))}" cy="${f(y + r(0, h4))}" rx="${f(r(5, 9))}" ry="${f(r(8, 14))}" fill="none" stroke="${dk2(c, 0.5)}" stroke-width="2.5" opacity=".7"/>`).join("");
+    const knots = Array.from({ length: Math.max(1, Math.round(h5 / 260)) }, () => `<ellipse cx="${f(x + r(w * 0.2, w * 0.8))}" cy="${f(y + r(0, h5))}" rx="${f(r(5, 9))}" ry="${f(r(8, 14))}" fill="none" stroke="${dk2(c, 0.5)}" stroke-width="2.5" opacity=".7"/>`).join("");
     return `<path d="${dark}" stroke="${dk2(c, 0.45)}" stroke-width="2" fill="none" opacity=".6"/><path d="${light}" stroke="${lighten(c, 0.2)}" stroke-width="1.5" fill="none" opacity=".35"/>${knots}`;
   }
-  function monolith(x, base, h4, w, stone, glow, lit, moss = "#4f8a3a") {
+  function monolith(x, base, h5, w, stone, glow, lit, moss = "#4f8a3a") {
     const outline = dk2(stone, 0.55);
     let s = `<ellipse cx="${x + w * 0.2}" cy="${base + 2}" rx="${f(w * 1.1)}" ry="${f(w * 0.2)}" fill="#000" opacity=".4" filter="url(#soft)"/>`;
-    s += `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h4} L${x + w / 2 - 6} ${base - h4 - 8} L${x + w / 2} ${base} Z" fill="${lin([[0, lighten(stone, 0.18)], [0.45, stone], [1, dk2(stone, 0.3)]], 0, 0, 1, 0)}" stroke="${outline}" stroke-width="1" stroke-opacity=".5" stroke-linejoin="round"/><path d="M${x - w / 2} ${base} L${x + w / 2} ${base} L${x + w / 2 - 2} ${base - h4 * 0.3} L${x - w / 2 + 1} ${base - h4 * 0.3} Z" fill="${lin([[0, "#000", 0], [1, "#000", 0.35]])}"/>`;
-    s += `<path d="M${x + w * 0.1} ${base - h4 - 4} L${x + w / 2 - 6} ${base - h4 - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".28"/>`;
-    s += `<path d="M${x - w / 2 + 4} ${base - h4} L${x - w / 2 + 1} ${base}" stroke="${lighten(stone, 0.3)}" stroke-width="3" opacity=".5"/>`;
-    s += speckle(x - w / 2 + 3, base - h4, w - 8, h4 - 4, Math.round(h4 / 4), stone);
-    s += `<path d="M${f(x - w * 0.3)} ${f(base - h4 * 0.4)} l${f(w * 0.12)} ${f(h4 * 0.08)} l${f(-w * 0.05)} ${f(h4 * 0.1)} M${f(x + w * 0.2)} ${f(base - h4 * 0.75)} l${f(-w * 0.1)} ${f(h4 * 0.06)}" stroke="${outline}" stroke-width="1.6" fill="none" opacity=".8"/>`;
-    s += `<path d="M${x - w / 2 + 3} ${base - h4 + 10} Q${x - w * 0.2} ${base - h4 - 10} ${x + w / 2 - 6} ${base - h4 - 8} L${x + w / 2 - 4} ${base - h4 + 6} Q${x + w * 0.2} ${base - h4 + 16} ${x + w * 0.05} ${base - h4 + 8} Q${x - w * 0.15} ${base - h4 + 24} ${x - w * 0.25} ${base - h4 + 10} Z" fill="${lin([[0, lighten(moss, 0.25)], [1, dk2(moss, 0.25)]])}"/>`;
-    s += `<path d="M${f(x - w * 0.25)} ${base - h4 + 12} q2 14 -1 26 M${f(x + w * 0.22)} ${base - h4 + 8} q-2 10 1 18" stroke="${moss}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    s += `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h5} L${x + w / 2 - 6} ${base - h5 - 8} L${x + w / 2} ${base} Z" fill="${lin([[0, lighten(stone, 0.18)], [0.45, stone], [1, dk2(stone, 0.3)]], 0, 0, 1, 0)}" stroke="${outline}" stroke-width="1" stroke-opacity=".5" stroke-linejoin="round"/><path d="M${x - w / 2} ${base} L${x + w / 2} ${base} L${x + w / 2 - 2} ${base - h5 * 0.3} L${x - w / 2 + 1} ${base - h5 * 0.3} Z" fill="${lin([[0, "#000", 0], [1, "#000", 0.35]])}"/>`;
+    s += `<path d="M${x + w * 0.1} ${base - h5 - 4} L${x + w / 2 - 6} ${base - h5 - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".28"/>`;
+    s += `<path d="M${x - w / 2 + 4} ${base - h5} L${x - w / 2 + 1} ${base}" stroke="${lighten(stone, 0.3)}" stroke-width="3" opacity=".5"/>`;
+    s += speckle(x - w / 2 + 3, base - h5, w - 8, h5 - 4, Math.round(h5 / 4), stone);
+    s += `<path d="M${f(x - w * 0.3)} ${f(base - h5 * 0.4)} l${f(w * 0.12)} ${f(h5 * 0.08)} l${f(-w * 0.05)} ${f(h5 * 0.1)} M${f(x + w * 0.2)} ${f(base - h5 * 0.75)} l${f(-w * 0.1)} ${f(h5 * 0.06)}" stroke="${outline}" stroke-width="1.6" fill="none" opacity=".8"/>`;
+    s += `<path d="M${x - w / 2 + 3} ${base - h5 + 10} Q${x - w * 0.2} ${base - h5 - 10} ${x + w / 2 - 6} ${base - h5 - 8} L${x + w / 2 - 4} ${base - h5 + 6} Q${x + w * 0.2} ${base - h5 + 16} ${x + w * 0.05} ${base - h5 + 8} Q${x - w * 0.15} ${base - h5 + 24} ${x - w * 0.25} ${base - h5 + 10} Z" fill="${lin([[0, lighten(moss, 0.25)], [1, dk2(moss, 0.25)]])}"/>`;
+    s += `<path d="M${f(x - w * 0.25)} ${base - h5 + 12} q2 14 -1 26 M${f(x + w * 0.22)} ${base - h5 + 8} q-2 10 1 18" stroke="${moss}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
     s += `<path d="M${f(x - w * 0.3)} ${base} q${f(w * 0.2)} -14 ${f(w * 0.4)} -4 q${f(w * 0.2)} -10 ${f(w * 0.3)} 4 Z" fill="${moss}" opacity=".9"/>`;
     let rune = "";
     for (let i = 0; i < 3; i++) {
-      const ry = base - h4 * (0.78 - i * 0.22), rh = h4 * 0.12;
+      const ry = base - h5 * (0.78 - i * 0.22), rh = h5 * 0.12;
       rune += `M${f(x)} ${f(ry)} v${f(rh)} M${f(x)} ${f(ry + rh * 0.35)} l${f(rnd() > 0.5 ? 5 : -5)} -4 M${f(x)} ${f(ry + rh * 0.7)} l${f(rnd() > 0.5 ? -5 : 5)} 4 `;
     }
     s += `<path d="${rune}" stroke="${glow}" stroke-width="3.2" stroke-linecap="round" fill="none" opacity="${lit ? 0.95 : 0.7}"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ""}/>`;
@@ -5510,8 +5784,8 @@ Answer with JSON only, no other text:
     const shades = [dk2(color, 0.25), color, lighten(color, 0.22)];
     const d = ["", "", ""];
     for (let i = 0; i < n * 6; i++) {
-      const x = r(-10, W + 10), y = r(y0, y1), h4 = r(hmin, hmax) * r(0.6, 1.2), lean = r(-9, 9);
-      d[i % 3] += `M${f(x)} ${f(y)} q${f(lean * 0.3)} ${f(-h4 * 0.55)} ${f(lean)} ${f(-h4)} `;
+      const x = r(-10, W + 10), y = r(y0, y1), h5 = r(hmin, hmax) * r(0.6, 1.2), lean = r(-9, 9);
+      d[i % 3] += `M${f(x)} ${f(y)} q${f(lean * 0.3)} ${f(-h5 * 0.55)} ${f(lean)} ${f(-h5)} `;
     }
     const flowers = Array.from({ length: Math.round(n / 3) }, () => `<circle cx="${f(r(0, W))}" cy="${f(r(y0 - 6, y1 - 4))}" r="${f(r(1.6, 2.8))}" fill="${["#fff8e0", "#ffe27a", "#ffb3d0", "#d6e4ff"][Math.floor(rnd() * 4)]}"/>`).join("");
     return `<g fill="none" stroke-linecap="round">${d.map((p, i) => `<path d="${p}" stroke="${shades[i]}" stroke-width="${[2.4, 2, 1.6][i]}"/>`).join("")}</g><g opacity=".85">${flowers}</g>`;
@@ -5519,10 +5793,10 @@ Answer with JSON only, no other text:
   function rock(x, y, s, c) {
     return `<ellipse cx="${x}" cy="${y + 2}" rx="${f(50 * s)}" ry="${f(8 * s)}" fill="#000" opacity=".3" filter="url(#soft)"/><path d="M${x - 40 * s} ${y} L${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} Z" fill="${lin([[0, lighten(c, 0.15)], [1, dk2(c, 0.2)]], 0, 0, 1, 1)}" stroke="${dk2(c, 0.4)}" stroke-width="1" stroke-opacity=".5"/><path d="M${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} L${x + 4 * s} ${y} Z" fill="#000" opacity=".22"/><path d="M${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s}" stroke="${lighten(c, 0.35)}" stroke-width="2.5" opacity=".6"/>${speckle(x - 30 * s, y - 34 * s, 70 * s, 30 * s, 14, c)}`;
   }
-  function speckle(x, y, w, h4, n, c) {
+  function speckle(x, y, w, h5, n, c) {
     let dark = "", light = "";
     for (let i = 0; i < n; i++) {
-      const px = x + r(0, w), py = y + r(0, h4), s = r(1, 2.6);
+      const px = x + r(0, w), py = y + r(0, h5), s = r(1, 2.6);
       const p = `M${f(px)} ${f(py)} h${f(s)} v${f(s * 0.8)} h${f(-s)}Z `;
       if (i % 2) dark += p;
       else light += p;
@@ -5579,22 +5853,22 @@ Answer with JSON only, no other text:
     const tree = pick(t, "#2f3d2c", "#24182a", "#06090a");
     const water = pick(t, ["#8aa898", "#4a6656"], ["#c4865e", "#5a3438"], ["#24383a", "#081212"]);
     const stone = pick(t, ["#7a8a74", "#56644e", "#2e3628"], ["#6a5450", "#4a3638", "#22181c"], ["#2a3632", "#1c2624", "#0a100e"]);
-    const deadTree = (x, y, h4, c) => {
+    const deadTree = (x, y, h5, c) => {
       const b = (x1, y1, x2, y2, w) => {
         const mx = f((x1 + x2) / 2 + r(-15, 15)), my = f((y1 + y2) / 2);
         const d = `M${f(x1)} ${f(y1)} Q ${mx} ${my} ${f(x2)} ${f(y2)}`;
         return `<path d="${d}" stroke="${dk2(c, 0.28)}" stroke-width="${f(w + 1.5)}" opacity=".9" stroke-linecap="round" fill="none"/><path d="${d}" stroke="${c}" stroke-width="${f(w)}" stroke-linecap="round" fill="none"/><path d="${d}" transform="translate(${f(-w * 0.22)} 0)" stroke="${lighten(c, 0.25)}" stroke-width="${f(Math.max(1, w * 0.18))}" stroke-linecap="round" fill="none" opacity=".5"/>`;
       };
-      let s = b(x, y, x + 8, y - h4, h4 * 0.06) + b(x + 4, y - h4 * 0.55, x - h4 * 0.38, y - h4 * 0.86, h4 * 0.026) + b(x + 6, y - h4 * 0.72, x + h4 * 0.42, y - h4 * 0.98, h4 * 0.022) + b(x - h4 * 0.2, y - h4 * 0.74, x - h4 * 0.32, y - h4 * 1.02, h4 * 0.014) + b(x + 8, y - h4, x + 34, y - h4 * 1.16, h4 * 0.014);
+      let s = b(x, y, x + 8, y - h5, h5 * 0.06) + b(x + 4, y - h5 * 0.55, x - h5 * 0.38, y - h5 * 0.86, h5 * 0.026) + b(x + 6, y - h5 * 0.72, x + h5 * 0.42, y - h5 * 0.98, h5 * 0.022) + b(x - h5 * 0.2, y - h5 * 0.74, x - h5 * 0.32, y - h5 * 1.02, h5 * 0.014) + b(x + 8, y - h5, x + 34, y - h5 * 1.16, h5 * 0.014);
       for (let i = 0; i < 6; i++) {
-        const mx = x + r(-h4 * 0.35, h4 * 0.4), my = y - h4 * r(0.7, 1);
+        const mx = x + r(-h5 * 0.35, h5 * 0.4), my = y - h5 * r(0.7, 1);
         s += `<path class="bg-sway" d="M${f(mx)} ${f(my)} q 4 ${f(r(20, 40))} -2 ${f(r(40, 80))}" stroke="${pick(t, "#6e8a5a", "#5c4a42", "#2a3e26")}" stroke-width="3" fill="none" opacity=".85"/>`;
       }
       return s;
     };
     const reeds = (n, y0, y1, c) => Array.from({ length: n }, () => {
-      const x = r(0, W), y = r(y0, y1), h4 = r(50, 110);
-      return `<g><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h4)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h4 * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`;
+      const x = r(0, W), y = r(y0, y1), h5 = r(50, 110);
+      return `<g><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h5)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h5 * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`;
     }).join("");
     const lit = t !== "day";
     return `<defs>${grad("sk", sky)}${grad("wt", [[0, water[0]], [1, water[1]]])}${radial("wisp", [[0, "#cfff9a", 0.9], [1, "#cfff9a", 0]])}${floorDefs(stone)}${DEFS}</defs>
@@ -5633,9 +5907,9 @@ Answer with JSON only, no other text:
     const lit = t !== "day";
     const stone = pick(t, ["#8a84a4", "#625c7c", "#34304a"], ["#7a5a72", "#54405a", "#2a1e30"], ["#2a2a48", "#1c1c34", "#0c0c1a"]);
     const house = (x, y, s, wall2, roof2) => {
-      const w = 46 * s, h4 = 30 * s;
-      const win = lit ? `<rect x="${f(x + w * 0.2)}" y="${f(y - h4 * 0.62)}" width="${f(w * 0.18)}" height="${f(h4 * 0.3)}" fill="#ffcf6a" class="bg-flicker slow"/><rect x="${f(x + w * 0.6)}" y="${f(y - h4 * 0.62)}" width="${f(w * 0.18)}" height="${f(h4 * 0.3)}" fill="#ffcf6a"/>` : "";
-      return `<rect x="${f(x)}" y="${f(y - h4)}" width="${f(w)}" height="${f(h4)}" fill="${wall2}"/><polygon points="${f(x - 5 * s)},${f(y - h4)} ${f(x + w / 2)},${f(y - h4 - 22 * s)} ${f(x + w + 5 * s)},${f(y - h4)}" fill="${roof2}"/>${win}`;
+      const w = 46 * s, h5 = 30 * s;
+      const win = lit ? `<rect x="${f(x + w * 0.2)}" y="${f(y - h5 * 0.62)}" width="${f(w * 0.18)}" height="${f(h5 * 0.3)}" fill="#ffcf6a" class="bg-flicker slow"/><rect x="${f(x + w * 0.6)}" y="${f(y - h5 * 0.62)}" width="${f(w * 0.18)}" height="${f(h5 * 0.3)}" fill="#ffcf6a"/>` : "";
+      return `<rect x="${f(x)}" y="${f(y - h5)}" width="${f(w)}" height="${f(h5)}" fill="${wall2}"/><polygon points="${f(x - 5 * s)},${f(y - h5)} ${f(x + w / 2)},${f(y - h5 - 22 * s)} ${f(x + w + 5 * s)},${f(y - h5)}" fill="${roof2}"/>${win}`;
     };
     const wall = pick(t, "#e8dcc0", "#c99a7a", "#3a3550"), roof = pick(t, "#a04a3a", "#6e2e3a", "#1f1a30");
     const village = (x, y, s) => Array.from({ length: 5 }, (_, i) => house(x + i * 58 * s + r(-8, 8), y + r(-4, 6), s * r(0.85, 1.1), wall, roof)).join("");
@@ -5651,7 +5925,7 @@ Answer with JSON only, no other text:
     ${hills(630, 24, pick(t, "#86a868", "#7a5a5a", "#1e2a2a"), 0.5)}
     ${[[180, 0.7], [560, 0.85], [700, 0.6], [930, 0.75], [1420, 0.8]].map(([x, k]) => `<path d="M${f(x - 90 * k)} ${f(646)} L${f(x + 90 * k)} 640 L${f(x + 110 * k)} 660 L${f(x - 70 * k)} 668 Z" fill="${pick(t, "#c8b456", "#a07040", "#2a2a24")}" opacity=".75"/><path d="M${f(x - 80 * k)} 652 L${f(x + 96 * k)} 646 M${f(x - 76 * k)} 659 L${f(x + 102 * k)} 653" stroke="${pick(t, "#a8923e", "#7a5030", "#1a1a18")}" stroke-width="2" opacity=".6"/>`).join("")}
     ${village(240, 640, 0.6)}${village(1060, 634, 0.55)}
-    ${[[120, 640, 70], [420, 650, 90], [640, 636, 60], [900, 642, 80], [1180, 644, 64], [1360, 650, 96], [1540, 642, 72]].map(([x, y, h4]) => leafyTree(x, y, h4, pick(t, "#4f8a3a", "#6a6034", "#132a1e"), pick(t, "#5a4030", "#3a2420", "#141418"))).join("")}
+    ${[[120, 640, 70], [420, 650, 90], [640, 636, 60], [900, 642, 80], [1180, 644, 64], [1360, 650, 96], [1540, 642, 72]].map(([x, y, h5]) => leafyTree(x, y, h5, pick(t, "#4f8a3a", "#6a6034", "#132a1e"), pick(t, "#5a4030", "#3a2420", "#141418"))).join("")}
     <g transform="translate(1200 600)"><rect x="-6" y="0" width="12" height="80" fill="${pick(t, "#cbb79a", "#5a3a3a", "#1a1a28")}"/><g class="bg-spin">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-64" width="8" height="64" fill="${pick(t, "#8a6a4a", "#3a2228", "#141420")}" transform="rotate(${a + 20})"/>`).join("")}</g></g>
     ${hills(680, 26, pick(t, "#6a9a4c", "#4a5a3a", "#162418"), 1.7)}
     ${[90, 380, 720, 890, 1210, 1500].map((x) => bush(x + r(-20, 20), 700 + r(0, 10), r(18, 30), pick(t, "#4a7a34", "#5a4a2e", "#10241a"))).join("")}
@@ -5669,7 +5943,7 @@ Answer with JSON only, no other text:
     const wallG = lin([[0, lighten(stoneC, 0.14)], [0.55, stoneC], [1, dk2(stoneC, 0.25)]], 0, 0, 1, 0);
     const footG = lin([[0, "#000", 0], [1, "#000", 0.35]]);
     const roofG = lin([[0, lighten(roof, 0.15)], [0.5, roof], [1, dk2(roof, 0.3)]], 0, 0, 1, 0);
-    const tower = (x, w, h4) => `<rect x="${x}" y="${640 - h4}" width="${w}" height="${h4}" fill="${wallG}"/><rect x="${x}" y="${640 - h4 * 0.35}" width="${w}" height="${h4 * 0.35}" fill="${footG}"/><rect x="${x}" y="${640 - h4}" width="${w}" height="${h4}" fill="url(#bricks)"/><rect x="${x + w * 0.62}" y="${640 - h4}" width="${w * 0.38}" height="${h4}" fill="#000" opacity=".2"/><rect x="${x + 3}" y="${640 - h4}" width="5" height="${h4}" fill="#fff" opacity=".07"/><polygon points="${x - 10},${640 - h4} ${x + w / 2},${560 - h4} ${x + w + 10},${640 - h4}" fill="${roofG}"/><path d="M${x - 4} ${640 - h4 - 14} H${x + w + 4} M${x + 6} ${640 - h4 - 34} H${x + w - 6} M${x + 16} ${640 - h4 - 54} H${x + w - 16}" stroke="${dk2(roof, 0.35)}" stroke-width="1.5" opacity=".6"/><rect x="${x - 6}" y="${640 - h4}" width="${w + 12}" height="6" fill="${dk2(stoneC, 0.2)}"/>` + Array.from({ length: Math.floor(h4 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h4 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h4}" x2="${x + w / 2}" y2="${520 - h4}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h4} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
+    const tower = (x, w, h5) => `<rect x="${x}" y="${640 - h5}" width="${w}" height="${h5}" fill="${wallG}"/><rect x="${x}" y="${640 - h5 * 0.35}" width="${w}" height="${h5 * 0.35}" fill="${footG}"/><rect x="${x}" y="${640 - h5}" width="${w}" height="${h5}" fill="url(#bricks)"/><rect x="${x + w * 0.62}" y="${640 - h5}" width="${w * 0.38}" height="${h5}" fill="#000" opacity=".2"/><rect x="${x + 3}" y="${640 - h5}" width="5" height="${h5}" fill="#fff" opacity=".07"/><polygon points="${x - 10},${640 - h5} ${x + w / 2},${560 - h5} ${x + w + 10},${640 - h5}" fill="${roofG}"/><path d="M${x - 4} ${640 - h5 - 14} H${x + w + 4} M${x + 6} ${640 - h5 - 34} H${x + w - 6} M${x + 16} ${640 - h5 - 54} H${x + w - 16}" stroke="${dk2(roof, 0.35)}" stroke-width="1.5" opacity=".6"/><rect x="${x - 6}" y="${640 - h5}" width="${w + 12}" height="6" fill="${dk2(stoneC, 0.2)}"/>` + Array.from({ length: Math.floor(h5 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h5 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h5}" x2="${x + w / 2}" y2="${520 - h5}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h5} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
     const soldier = (x, y, s, flip2, weapon) => {
       const c = pick(t, "#2c3038", "#1a0c10", "#06070e");
       const g = `<circle cx="0" cy="-58" r="7"/><path d="M-7 -62 q7 -14 14 0 z"/><rect x="-8" y="-50" width="16" height="30" rx="4"/><rect x="-8" y="-22" width="6" height="22"/><rect x="2" y="-22" width="6" height="22"/><ellipse cx="-11" cy="-36" rx="7" ry="11"/>` + (weapon === "spear" ? `<line x1="10" y1="-10" x2="16" y2="-92" stroke="${c}" stroke-width="3"/><polygon points="13,-92 16,-104 19,-92"/>` : `<g class="bg-swing"><line x1="8" y1="-40" x2="34" y2="-70" stroke="${c}" stroke-width="3"/></g>`);
@@ -5969,7 +6243,7 @@ Answer with JSON only, no other text:
   function arenaForBattle(mode4, players2, you2) {
     const me3 = players2.find((p) => p.id === you2);
     const others = players2.filter((p) => p.id !== you2);
-    const art = (p) => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff });
+    const art = (p) => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff, pose: p.pose });
     configure({
       layout: "battle",
       me: me3 ? art(me3) : { id: you2, character: "wizard" },
@@ -6108,6 +6382,7 @@ Answer with JSON only, no other text:
     characterEl: () => characterEl,
     clawHit: () => clawHit,
     clearStudy: () => clearStudy,
+    clocksPaused: () => clocksPaused,
     countdown: () => countdown,
     currentAnswerMode: () => currentAnswerMode,
     currentScreen: () => currentScreen,
@@ -6144,6 +6419,7 @@ Answer with JSON only, no other text:
     setAuthTab: () => setAuthTab,
     setBadges: () => setBadges,
     setCharSlots: () => setCharSlots,
+    setClocksPaused: () => setClocksPaused,
     setError: () => setError,
     setFeedback: () => setFeedback,
     setInputHint: () => setInputHint,
@@ -6177,11 +6453,18 @@ Answer with JSON only, no other text:
     for (const [k, v] of Object.entries(attrs)) el11.setAttribute(k, v);
     return el11;
   }
+  function setClocksPaused(on) {
+    if (on && pauseAt === null) pauseAt = performance.now();
+    else if (!on && pauseAt !== null) {
+      pausedFor += performance.now() - pauseAt;
+      pauseAt = null;
+    }
+  }
   function countdown(slot, durationMs, onFrame, totalMs = durationMs) {
     stopCountdown(slot);
-    const end = performance.now() + durationMs;
+    const end = clockNow() + durationMs;
     const tick2 = () => {
-      const left = Math.max(0, end - performance.now());
+      const left = Math.max(0, end - clockNow());
       onFrame(left, totalMs > 0 ? left / totalMs : 0);
       if (left > 0) timers.set(slot, requestAnimationFrame(tick2));
     };
@@ -6644,21 +6927,21 @@ Answer with JSON only, no other text:
     else $("writeArea").hidden = true;
     $("meaningPrompt").hidden = true;
   }
-  function floatText(target, text, cls) {
+  function floatText(target2, text, cls) {
     const arena2 = $("arena");
     const a = zrect(arena2);
-    const t = zrect(target);
+    const t = zrect(target2);
     const f2 = h("div", "float " + cls, text);
     f2.style.left = `${t.left - a.left + t.width / 2 - 20}px`;
     f2.style.top = `${t.top - a.top}px`;
     arena2.append(f2);
     setTimeout(() => f2.remove(), 1e3);
   }
-  function castSpell(caster, target, kanji, damage, friendly, crit = false) {
+  function castSpell(caster, target2, kanji, damage, friendly, crit = false) {
     if (caster === "me") gemGone();
     const a3 = arena();
-    if (a3) return a3.cast(caster, target, kanji, { damage, crit });
-    const c = actorEl(caster), t = actorEl(target);
+    if (a3) return a3.cast(caster, target2, kanji, { damage, crit });
+    const c = actorEl(caster), t = actorEl(target2);
     retrigger(c, "casting", 450);
     const arena2 = $("arena");
     const a = zrect(arena2);
@@ -7161,7 +7444,7 @@ Answer with JSON only, no other text:
     el11.dataset.flame = flame ?? "blue";
     flameShades(flame).forEach((c, i) => el11.style.setProperty(`--f${i}`, c));
   }
-  var $, append, SCREENS, screenListener, onScreen2, currentScreen, show, errorTimer, setError, secs, clockText, levelsText, timers, rtts, borderCls, beginnerFlag, kanaBeginner, BEGINNER_LOCK, badgeRowFn, useBadgeRow, toastTimer, toastWired, myName, sceneStaff, SPELL_KANJI, randomSpellKanji, tile, GUIDES, selectedLevels, battleMode, allyEl, actorEl, gemGone, gemBack, answerMode, currentAnswerMode, answerLocked, hideWriteArea, REASONS, MODE_ICON, dateTime, hideProfileCard;
+  var $, append, SCREENS, screenListener, onScreen2, currentScreen, show, errorTimer, setError, secs, clockText, levelsText, timers, pauseAt, pausedFor, clockNow, clocksPaused, rtts, borderCls, beginnerFlag, kanaBeginner, BEGINNER_LOCK, badgeRowFn, useBadgeRow, toastTimer, toastWired, myName, sceneStaff, SPELL_KANJI, randomSpellKanji, tile, GUIDES, selectedLevels, battleMode, allyEl, actorEl, gemGone, gemBack, answerMode, currentAnswerMode, answerLocked, hideWriteArea, REASONS, MODE_ICON, dateTime, hideProfileCard;
   var init_ui = __esm({
     "src/client/ui.ts"() {
       "use strict";
@@ -7178,7 +7461,7 @@ Answer with JSON only, no other text:
         parent.append(...kids);
         return parent;
       };
-      SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "quiz", "passage", "customize", "deck", "history", "progress", "daily", "friends"];
+      SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "quiz", "passage", "customize", "deck", "history", "progress", "daily", "friends", "dict"];
       screenListener = () => {
       };
       onScreen2 = (fn) => {
@@ -7206,6 +7489,10 @@ Answer with JSON only, no other text:
       };
       levelsText = (levels) => levels.map((l) => LEVEL_LABEL[l]).join(" + ");
       timers = /* @__PURE__ */ new Map();
+      pauseAt = null;
+      pausedFor = 0;
+      clockNow = () => (pauseAt ?? performance.now()) - pausedFor;
+      clocksPaused = () => pauseAt !== null;
       rtts = /* @__PURE__ */ new Map();
       borderCls = (b) => b && b !== "none" ? ` bd bd-${b}` : "";
       beginnerFlag = false;
@@ -7448,6 +7735,33 @@ Answer with JSON only, no other text:
     setInterval(() => {
       if (document.hidden) void check();
     }, 15 * 6e4);
+    const b = android();
+    $("remindTestRow").hidden = !(b?.testReminder || "Notification" in window && !b);
+    $("remindTest").onclick = async () => {
+      if (b?.testReminder) {
+        b.testReminder();
+        if (b.notificationsAllowed && !b.notificationsAllowed()) toast(tr("Allow notifications for Kanji Wizards in Android settings to get the reminders."), 6e3);
+        else toast(tr("Sent \u2014 it should appear in your notifications now."), 4e3);
+        return;
+      }
+      const p = Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
+      if (p !== "granted") {
+        toast(tr("Notifications are blocked \u2014 allow them for this site in the browser settings, then tap the bell again."), 6e3);
+        return;
+      }
+      const reg = await navigator.serviceWorker?.getRegistration().catch(() => void 0);
+      const title = tr("\u{1F514} Reminders work"), body = tr("This is how Kanji Wizards reminders will look.");
+      try {
+        if (reg) await reg.showNotification(title, { body, icon: "/icons/icon-192.png", tag: "kw-test" });
+        else new Notification(title, { body });
+      } catch {
+      }
+    };
+    const last3 = b?.reminderLast?.();
+    if (last3) {
+      $("remindLast").hidden = false;
+      $("remindLast").textContent = `${tr("Last reminder check")}: ${last3}`;
+    }
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) setTimeout(() => {
         if (document.hidden) void check();
@@ -7465,7 +7779,7 @@ Answer with JSON only, no other text:
   init_api();
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.6.1";
+  var VERSION = "0.9.9.7";
 
   // src/client/support.ts
   init_ui();
@@ -8025,15 +8339,15 @@ ${stack}`.slice(0, 2e3);
       card.title = tr("Ticked: goes to your deck. Tap to keep it out.");
       const tick2 = el2("span", "mc-tick", "\u2713", { "aria-hidden": "true" });
       card.prepend(tick2);
-      const show3 = (on) => {
+      const show4 = (on) => {
         card.classList.toggle("on", on);
         card.setAttribute("aria-checked", String(on));
         tick2.textContent = on ? "\u2713" : "";
       };
-      setters.set(id, show3);
+      setters.set(id, show4);
       const flip2 = () => {
         const on = !card.classList.contains("on");
-        show3(on);
+        show4(on);
         onToggle(id, on);
       };
       card.onclick = flip2;
@@ -8426,6 +8740,13 @@ ${stack}`.slice(0, 2e3);
     blanks.forEach((_, k) => drawBlank(k));
     drawBank();
   }
+  function closeTranslation() {
+    const d = document.querySelector(".passage-tr");
+    if (d) {
+      d.open = false;
+      d.classList.remove("shown");
+    }
+  }
   function drawTranslation() {
     const ru = lang() === "ru";
     const out = lines.map(({ ex }, i) => el2("p", "", `${storyTitle ? "" : `${i + 1}. `}${ru && ex[2] ? ex[2] : ex[1]}`, { "data-no-i18n": "" }));
@@ -8460,6 +8781,12 @@ ${stack}`.slice(0, 2e3);
       });
     }
     res2.hidden = false;
+    const trBox = document.querySelector(".passage-tr");
+    if (trBox) {
+      trBox.open = true;
+      trBox.classList.add("shown");
+      setTimeout(() => trBox.scrollIntoView({ behavior: "smooth", block: "start" }), 350);
+    }
     const again = el2("button", "big", "New passage", { type: "button" });
     again.onclick = buildPassage;
     $3("passageWords").replaceChildren(el2("div", "p-score", `${right} / ${blanks.length}`), el2("p", "hint center", right === blanks.length ? "Perfect \u2014 every word in its place!" : "Green: right. Red: the right word, with yours crossed out."), again);
@@ -8488,6 +8815,7 @@ ${stack}`.slice(0, 2e3);
     $3("passageNote").hidden = true;
     $3("passageWords").replaceChildren();
     $3("passageTr").replaceChildren();
+    closeTranslation();
     const fromDeck = storyFrom.startsWith("deck:");
     const n = new Set((fromDeck ? passageWords.filter(storyWord) : passageWords).map((w) => w.kanji)).size;
     const box = el2("div", "p-start");
@@ -8639,6 +8967,7 @@ ${stack}`.slice(0, 2e3);
     $3("passageResult").hidden = true;
     $3("passageResult").replaceChildren();
     hideGloss();
+    closeTranslation();
     const examples = await loadExamples();
     const build2 = ++passageBuild;
     const text = $3("passageText");
@@ -9002,6 +9331,32 @@ ${stack}`.slice(0, 2e3);
   // src/client/whatsnew.ts
   init_i18n();
   var PATCHES = [
+    {
+      v: "0.9.9.7",
+      date: "2026-11",
+      en: [
+        "Dictionary (\u8F9E\u66F8) in the main menu: type a word in kanji, kana, romaji or English and see every match \u2014 readings, JLPT level, all meanings (English and Russian), verb and adjective forms, an example sentence, each kanji with its memory picture and stroke order, and other words written with it. \u201C+ Add to\u2026\u201D puts any word in any of your decks.",
+        "Light theme: Settings \u2192 Theme \u2192 Light gives light panels and buttons with dark text. Dark stays the default.",
+        "Combo poses (Customize \u2192 Combo pose): while you\u2019re on fire, your character can float with one leg bent (Levitation), turn side-on and aim the staff\u2019s core at the opponent (Duelist), hold the staff upright in both hands (Channel), or float cross-legged (Lotus). Everyone sees it, and you see it in first person too. They unlock at levels 3, 6, 9 and 12.",
+        "Pause now freezes everything on screen: the timers, the arena and the opponent stop until you press Resume.",
+        "Romaji fixes: a single \u201Cn\u201D before a vowel or \u201Cy\u201D now counts as \u3093 when it should \u2014 \u4FE1\u7528 as shinyou, \u539F\u56E0 as genin, \u91D1\u66DC\u65E5 as kinyoubi \u2014 and Hepburn spellings work too (shimbun, t\u014Dky\u014D, nyaa for \u30CB\u30E3\u30FC, o for \u3092). Every word in the game was checked.",
+        "Onomatopoeia: no more 243 new words at once \u2014 set how many new ones you want a day (\u2212 / +, 0 by default), like in All spells.",
+        "Phones: the purple game keyboard now also comes up for the Daily challenge, Deck Duel\u2019s overtime and the dictionary search.",
+        "Reading passage: when you finish, the translation opens by itself, framed so it\u2019s easy to spot.",
+        "Android reminders: the check now runs as a background job that waits for the internet and gives the server time to wake up (it used to be cut off after 10 seconds, so no reminder came), and the alarms fire even when the phone is asleep. If the server can\u2019t be reached, you still get a plain reminder. Settings \u2192 Reminders \u2192 \u201CSend a test\u201D shows one right away. (Update the app from the menu to get this.)"
+      ],
+      ru: [
+        "\u0421\u043B\u043E\u0432\u0430\u0440\u044C (\u8F9E\u66F8) \u0432 \u0433\u043B\u0430\u0432\u043D\u043E\u043C \u043C\u0435\u043D\u044E: \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u043E \u043A\u0430\u043D\u0434\u0437\u0438, \u043A\u0430\u043D\u043E\u0439, \u0440\u043E\u043C\u0430\u0434\u0437\u0438 \u0438\u043B\u0438 \u043F\u043E-\u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438 \u0438 \u0443\u0432\u0438\u0434\u0438\u0442\u0435 \u0432\u0441\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u044F \u2014 \u0447\u0442\u0435\u043D\u0438\u044F, \u0443\u0440\u043E\u0432\u0435\u043D\u044C JLPT, \u0432\u0441\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F (\u043F\u043E-\u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438 \u0438 \u043F\u043E-\u0440\u0443\u0441\u0441\u043A\u0438), \u0444\u043E\u0440\u043C\u044B \u0433\u043B\u0430\u0433\u043E\u043B\u043E\u0432 \u0438 \u043F\u0440\u0438\u043B\u0430\u0433\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0445, \u043F\u0440\u0438\u043C\u0435\u0440, \u043A\u0430\u0436\u0434\u044B\u0439 \u043A\u0430\u043D\u0434\u0437\u0438 \u0441 \u043A\u0430\u0440\u0442\u0438\u043D\u043A\u043E\u0439 \u0434\u043B\u044F \u0437\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u0438 \u043F\u043E\u0440\u044F\u0434\u043A\u043E\u043C \u0447\u0435\u0440\u0442 \u0438 \u0434\u0440\u0443\u0433\u0438\u0435 \u0441\u043B\u043E\u0432\u0430 \u0441 \u043D\u0438\u043C. \xAB+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u2026\xBB \u043A\u043B\u0430\u0434\u0451\u0442 \u043B\u044E\u0431\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u0432 \u043B\u044E\u0431\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443.",
+        "\u0421\u0432\u0435\u0442\u043B\u0430\u044F \u0442\u0435\u043C\u0430: \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 \u0422\u0435\u043C\u0430 \u2192 \u0421\u0432\u0435\u0442\u043B\u0430\u044F \u2014 \u0441\u0432\u0435\u0442\u043B\u044B\u0435 \u043F\u0430\u043D\u0435\u043B\u0438 \u0438 \u043A\u043D\u043E\u043F\u043A\u0438 \u0441 \u0442\u0451\u043C\u043D\u044B\u043C \u0442\u0435\u043A\u0441\u0442\u043E\u043C. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u043E\u0441\u0442\u0430\u0451\u0442\u0441\u044F \u0442\u0451\u043C\u043D\u0430\u044F.",
+        "\u041F\u043E\u0437\u044B \u043A\u043E\u043C\u0431\u043E (\u041A\u0430\u0441\u0442\u043E\u043C\u0438\u0437\u0430\u0446\u0438\u044F \u2192 \u041F\u043E\u0437\u0430 \u043A\u043E\u043C\u0431\u043E): \u043F\u043E\u043A\u0430 \u0432\u044B \u0432 \u043E\u0433\u043D\u0435, \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436 \u043C\u043E\u0436\u0435\u0442 \u043F\u0430\u0440\u0438\u0442\u044C, \u0441\u043E\u0433\u043D\u0443\u0432 \u043D\u043E\u0433\u0443 (\u041B\u0435\u0432\u0438\u0442\u0430\u0446\u0438\u044F), \u0432\u0441\u0442\u0430\u0442\u044C \u0431\u043E\u043A\u043E\u043C \u0438 \u043D\u0430\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u044F\u0434\u0440\u043E \u043F\u043E\u0441\u043E\u0445\u0430 \u043D\u0430 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430 (\u0414\u0443\u044D\u043B\u044F\u043D\u0442), \u0434\u0435\u0440\u0436\u0430\u0442\u044C \u043F\u043E\u0441\u043E\u0445 \u043F\u0440\u044F\u043C\u043E \u043E\u0431\u0435\u0438\u043C\u0438 \u0440\u0443\u043A\u0430\u043C\u0438 (\u041A\u043E\u043D\u0446\u0435\u043D\u0442\u0440\u0430\u0446\u0438\u044F) \u0438\u043B\u0438 \u043F\u0430\u0440\u0438\u0442\u044C, \u0441\u043A\u0440\u0435\u0441\u0442\u0438\u0432 \u043D\u043E\u0433\u0438 (\u041B\u043E\u0442\u043E\u0441). \u042D\u0442\u043E \u0432\u0438\u0434\u044F\u0442 \u0432\u0441\u0435, \u0438 \u0432\u044B \u2014 \u043E\u0442 \u043F\u0435\u0440\u0432\u043E\u0433\u043E \u043B\u0438\u0446\u0430. \u041E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u0443\u0440\u043E\u0432\u043D\u044F\u0445 3, 6, 9 \u0438 12.",
+        "\u041F\u0430\u0443\u0437\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u0437\u0430\u043C\u043E\u0440\u0430\u0436\u0438\u0432\u0430\u0435\u0442 \u0432\u0441\u0451: \u0442\u0430\u0439\u043C\u0435\u0440\u044B, \u0430\u0440\u0435\u043D\u0430 \u0438 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A \u0441\u0442\u043E\u044F\u0442, \u043F\u043E\u043A\u0430 \u0432\u044B \u043D\u0435 \u043D\u0430\u0436\u043C\u0451\u0442\u0435 \xAB\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C\xBB.",
+        "\u0420\u043E\u043C\u0430\u0434\u0437\u0438: \u043E\u0434\u0438\u043D\u043E\u0447\u043D\u0430\u044F \xABn\xBB \u043F\u0435\u0440\u0435\u0434 \u0433\u043B\u0430\u0441\u043D\u043E\u0439 \u0438\u043B\u0438 \xABy\xBB \u0442\u0435\u043F\u0435\u0440\u044C \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u3093, \u043A\u043E\u0433\u0434\u0430 \u043D\u0443\u0436\u043D\u043E \u2014 \u4FE1\u7528 \u043A\u0430\u043A shinyou, \u539F\u56E0 \u043A\u0430\u043A genin, \u91D1\u66DC\u65E5 \u043A\u0430\u043A kinyoubi, \u2014 \u0438 \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442 \u043D\u0430\u043F\u0438\u0441\u0430\u043D\u0438\u044F \u0425\u044D\u043F\u0431\u0451\u0440\u043D\u0430 (shimbun, t\u014Dky\u014D, nyaa \u0434\u043B\u044F \u30CB\u30E3\u30FC, o \u0434\u043B\u044F \u3092). \u041F\u0440\u043E\u0432\u0435\u0440\u0435\u043D\u044B \u0432\u0441\u0435 \u0441\u043B\u043E\u0432\u0430 \u0438\u0433\u0440\u044B.",
+        "\u041E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u044F: \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 243 \u043D\u043E\u0432\u044B\u0445 \u0441\u043B\u043E\u0432\u0430 \u0441\u0440\u0430\u0437\u0443 \u2014 \u0437\u0430\u0434\u0430\u0439\u0442\u0435, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u043F\u043E\u043B\u0443\u0447\u0430\u0442\u044C \u0432 \u0434\u0435\u043D\u044C (\u2212 / +, \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E 0), \u043A\u0430\u043A \u0432\u043E \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445\xBB.",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B: \u0444\u0438\u043E\u043B\u0435\u0442\u043E\u0432\u0430\u044F \u0438\u0433\u0440\u043E\u0432\u0430\u044F \u043A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u043F\u043E\u044F\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0438 \u0432 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u043C \u0432\u044B\u0437\u043E\u0432\u0435, \u0432 \u043E\u0432\u0435\u0440\u0442\u0430\u0439\u043C\u0435 \u0414\u0443\u044D\u043B\u0438 \u043A\u043E\u043B\u043E\u0434 \u0438 \u0432 \u043F\u043E\u0438\u0441\u043A\u0435 \u043F\u043E \u0441\u043B\u043E\u0432\u0430\u0440\u044E.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u043F\u043E\u0441\u043B\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0438\u044F \u043F\u0435\u0440\u0435\u0432\u043E\u0434 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0441\u0430\u043C \u0438 \u0432\u044B\u0434\u0435\u043B\u0435\u043D \u0440\u0430\u043C\u043A\u043E\u0439.",
+        "\u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u043D\u0430 Android: \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u0438\u0434\u0451\u0442 \u0444\u043E\u043D\u043E\u0432\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0435\u0439, \u043A\u043E\u0442\u043E\u0440\u0430\u044F \u0436\u0434\u0451\u0442 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u0434\u0430\u0451\u0442 \u0441\u0435\u0440\u0432\u0435\u0440\u0443 \u043F\u0440\u043E\u0441\u043D\u0443\u0442\u044C\u0441\u044F (\u0440\u0430\u043D\u044C\u0448\u0435 \u0435\u0451 \u043E\u0431\u0440\u044B\u0432\u0430\u043B\u0438 \u0447\u0435\u0440\u0435\u0437 10 \u0441\u0435\u043A\u0443\u043D\u0434, \u0438 \u043D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u0435 \u043D\u0435 \u043F\u0440\u0438\u0445\u043E\u0434\u0438\u043B\u043E), \u0430 \u0431\u0443\u0434\u0438\u043B\u044C\u043D\u0438\u043A\u0438 \u0441\u0440\u0430\u0431\u0430\u0442\u044B\u0432\u0430\u044E\u0442 \u0434\u0430\u0436\u0435 \u0432 \u0441\u043F\u044F\u0449\u0435\u043C \u0440\u0435\u0436\u0438\u043C\u0435. \u0415\u0441\u043B\u0438 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D, \u0432\u0441\u0451 \u0440\u0430\u0432\u043D\u043E \u043F\u0440\u0438\u0434\u0451\u0442 \u043F\u0440\u043E\u0441\u0442\u043E\u0435 \u043D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u0435. \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 \u041D\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F \u2192 \xAB\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C\xBB \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442 \u0435\u0433\u043E \u0441\u0440\u0430\u0437\u0443. (\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0438\u0437 \u043C\u0435\u043D\u044E.)"
+      ]
+    },
     {
       v: "0.9.9.6.1",
       date: "2026-10",
@@ -9708,6 +10063,7 @@ ${stack}`.slice(0, 2e3);
   // src/client/gamekb.ts
   init_kana();
   init_ui();
+  init_i18n();
   init_zoom();
   var KEY6 = "kb:gamekb";
   var ROWS = ["qwertyuiop", "asdfghjkl-", "zxcvbnm"];
@@ -9727,16 +10083,21 @@ ${stack}`.slice(0, 2e3);
   }
   var gameKbAvailable = touch;
   var active = false;
+  var battle = () => ({ el: $("answer"), skip: () => $("skip").click() });
+  var target = null;
+  var shownBefore = false;
   function input() {
-    return $("answer");
+    return (target ?? battle()).el;
   }
+  var locked = () => target && target.el.id !== "answer" ? target.el.disabled : answerLocked();
   function preview2() {
     const v = input().value;
-    $("gkPreview").textContent = currentAnswerMode() === "romaji" || !v ? v : romajiToHiragana(v);
+    const raw = target?.raw || target?.el.id === "answer" && currentAnswerMode() === "romaji";
+    $("gkPreview").textContent = raw || !v ? v : romajiToHiragana(v);
   }
   function type(ch) {
     const i = input();
-    if (answerLocked()) return;
+    if (locked()) return;
     i.value += ch;
     i.dispatchEvent(new Event("input", { bubbles: true }));
     preview2();
@@ -9771,9 +10132,10 @@ ${stack}`.slice(0, 2e3);
     const last3 = document.createElement("div");
     last3.className = "gk-row";
     last3.append(
-      key("Skip", "wide skip", () => $("skip").click()),
+      key("Skip", "wide skip", () => (target ?? battle()).skip?.()),
       key("n'", "ch", () => type("'")),
-      key("Cast \u23CE", "wide enter", () => {
+      key("\u2423", "wide space", () => type(" ")),
+      key("Cast \u23CE", "wide enter cast", () => {
         input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
         preview2();
       })
@@ -9785,17 +10147,45 @@ ${stack}`.slice(0, 2e3);
     kb.replaceChildren(pv, ...rows2, last3);
   }
   function setGameKb(on) {
+    if (on) target = battle();
+    show2(on);
+  }
+  function useGameKb(el11, opts = {}) {
+    if (!el11) {
+      if (target && target.el.id !== "answer") show2(false);
+      return;
+    }
+    if (!touch() || !gameKbPref()) return;
+    if (target && target.el !== el11) target.el.inputMode = "";
+    target = { el: el11, ...opts };
+    show2(true);
+  }
+  function show2(on) {
     on = on && touch() && gameKbPref();
     if (on && !$("gameKb").childElementCount) build();
     active = on;
     $("gameKb").hidden = !on;
     document.body.classList.toggle("game-kb", on);
+    const t = target ?? battle();
+    document.body.classList.toggle("game-kb-other", on && t.el.id !== "answer");
+    $("gameKb").classList.toggle("no-skip", !t.skip);
+    $("gameKb").classList.toggle("no-space", t.el.id === "answer");
+    const enter = $("gameKb").querySelector(".gk.cast");
+    if (enter) enter.textContent = t.el.id === "answer" ? tr("Cast \u23CE") : tr("Enter \u23CE");
     const i = input();
     i.inputMode = on ? "none" : "";
-    if (on) preview2();
+    if (!on) target = null;
+    if (on) {
+      preview2();
+      if (i.id !== "answer") {
+        i.addEventListener("input", preview2);
+      }
+    }
+    if (on === shownBefore) return;
+    shownBefore = on;
     requestAnimationFrame(() => {
-      const h4 = on ? $("gameKb").getBoundingClientRect().height : 0;
-      document.documentElement.style.setProperty("--kb-h", `${Math.round(h4 / uiScale())}px`);
+      const h5 = on ? $("gameKb").getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty("--kb-h", `${Math.round(h5 / uiScale())}px`);
       dispatchEvent(new Event("resize"));
     });
   }
@@ -10529,10 +10919,10 @@ ${stack}`.slice(0, 2e3);
     mountain: '<path d="M2 20l7-12 4 6 3-4 6 10z"/><path d="M9 8l2 3 1.5-1"/>',
     check: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 12l3 3 5-6"/>'
   };
-  function badgeSvg(a, locked) {
+  function badgeSvg(a, locked2) {
     const c = a.color;
-    const id = `g${a.id.replace(/\W/g, "")}${locked ? "l" : ""}`;
-    return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${locked ? "#2a2840" : "#2b2160"}"/><stop offset="1" stop-color="${locked ? "#16152a" : "#120c34"}"/></linearGradient></defs><path d="M32 3l25 14.5v29L32 61 7 46.5v-29z" fill="url(#${id})" stroke="${c}" stroke-width="3"/><path d="M32 9.5l19.5 11.3v22.4L32 54.5 12.5 43.2V20.8z" fill="none" stroke="${c}" stroke-opacity=".35" stroke-width="1.2"/><g transform="translate(20 20)" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" color="${c}"><g transform="scale(1)">${GLYPH[a.icon]}</g></g>${Array.from({ length: a.tier }, (_, i) => `<circle cx="${32 + (i - (a.tier - 1) / 2) * 7}" cy="52" r="2.2" fill="${c}"/>`).join("")}</svg>`;
+    const id = `g${a.id.replace(/\W/g, "")}${locked2 ? "l" : ""}`;
+    return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${locked2 ? "#2a2840" : "#2b2160"}"/><stop offset="1" stop-color="${locked2 ? "#16152a" : "#120c34"}"/></linearGradient></defs><path d="M32 3l25 14.5v29L32 61 7 46.5v-29z" fill="url(#${id})" stroke="${c}" stroke-width="3"/><path d="M32 9.5l19.5 11.3v22.4L32 54.5 12.5 43.2V20.8z" fill="none" stroke="${c}" stroke-opacity=".35" stroke-width="1.2"/><g transform="translate(20 20)" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" color="${c}"><g transform="scale(1)">${GLYPH[a.icon]}</g></g>${Array.from({ length: a.tier }, (_, i) => `<circle cx="${32 + (i - (a.tier - 1) / 2) * 7}" cy="52" r="2.2" fill="${c}"/>`).join("")}</svg>`;
   }
   var has = (unlocks2, id) => !!unlocks2?.includes(ACH_PREFIX + id);
   function badgeRow(ids) {
@@ -10562,31 +10952,31 @@ ${stack}`.slice(0, 2e3);
   var BADGES_MAX2 = 3;
   useBadgeRow(badgeRow);
   var lastCounts;
-  function renderAchievements(box, unlocks2 = [], badges2 = [], onBadges, counts3) {
+  function renderAchievements(box, unlocks2 = [], badges3 = [], onBadges, counts3) {
     if (counts3) lastCounts = counts3;
     else counts3 = lastCounts;
     const earned = ACHIEVEMENTS.filter((a) => has(unlocks2, a.id)).length;
     const grid = document.createElement("div");
     grid.className = "ach-grid";
     for (const a of ACHIEVEMENTS) {
-      const locked = !has(unlocks2, a.id);
+      const locked2 = !has(unlocks2, a.id);
       const b = document.createElement("div");
-      b.className = "ach" + (locked ? " locked" : "");
+      b.className = "ach" + (locked2 ? " locked" : "");
       b.tabIndex = 0;
       b.style.setProperty("--ac", a.color);
-      b.setAttribute("aria-label", `${a.name}: ${locked ? "locked \u2014 " : ""}${a.how}`);
-      b.innerHTML = badgeSvg(a, locked);
+      b.setAttribute("aria-label", `${a.name}: ${locked2 ? "locked \u2014 " : ""}${a.how}`);
+      b.innerHTML = badgeSvg(a, locked2);
       const tip = document.createElement("div");
       tip.className = "ach-tip";
       const t = document.createElement("b");
       t.textContent = a.name;
       const s = document.createElement("span");
       s.textContent = a.how;
-      const pinned = badges2.includes(a.id);
+      const pinned = badges3.includes(a.id);
       const st = document.createElement("small");
-      st.textContent = locked ? "Locked" : pinned ? "On your profile \u2713 \u2014 click to remove" : onBadges ? "Unlocked \u2713 \u2014 click to show on your profile" : "Unlocked \u2713";
+      st.textContent = locked2 ? "Locked" : pinned ? "On your profile \u2713 \u2014 click to remove" : onBadges ? "Unlocked \u2713 \u2014 click to show on your profile" : "Unlocked \u2713";
       tip.append(t, s);
-      const goal = locked ? ACH_GOALS[a.id] : void 0;
+      const goal = locked2 ? ACH_GOALS[a.id] : void 0;
       const have = goal && counts3 ? counts3[goal[0]] : void 0;
       if (goal && typeof have === "number") {
         const pct2 = Math.max(0, Math.min(1, have / goal[1]));
@@ -10613,15 +11003,15 @@ ${stack}`.slice(0, 2e3);
         pin.textContent = "\u2605";
         b.append(pin);
       }
-      if (!locked && onBadges) {
+      if (!locked2 && onBadges) {
         b.classList.add("pickable");
         const toggle2 = () => {
-          if (pinned) return onBadges(badges2.filter((x) => x !== a.id));
-          if (badges2.length >= BADGES_MAX2) {
+          if (pinned) return onBadges(badges3.filter((x) => x !== a.id));
+          if (badges3.length >= BADGES_MAX2) {
             toast(`Up to ${BADGES_MAX2} badges \u2014 click one with a \u2605 to remove it first.`);
             return;
           }
-          onBadges([...badges2, a.id]);
+          onBadges([...badges3, a.id]);
         };
         b.onclick = toggle2;
         b.onkeydown = (e) => {
@@ -10676,9 +11066,9 @@ ${stack}`.slice(0, 2e3);
     k.textContent = "Achievement unlocked!";
     const n = document.createElement("b");
     n.textContent = a.name;
-    const h4 = document.createElement("span");
-    h4.textContent = a.how;
-    txt.append(k, n, h4);
+    const h5 = document.createElement("span");
+    h5.textContent = a.how;
+    txt.append(k, n, h5);
     box.append(rays2, badge, txt);
     box.hidden = false;
     box.classList.remove("go");
@@ -10743,13 +11133,13 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function railScreen(screen2) {
-    const show3 = signedIn2 && RAIL_SCREENS.has(screen2);
-    $6("friendRail").hidden = !show3;
-    $6("railFab").hidden = !show3;
+    const show4 = signedIn2 && RAIL_SCREENS.has(screen2);
+    $6("friendRail").hidden = !show4;
+    $6("railFab").hidden = !show4;
     setOpen(false);
-    document.body.classList.toggle("has-rail", show3);
+    document.body.classList.toggle("has-rail", show4);
     clearInterval(timer);
-    if (show3) {
+    if (show4) {
       void refreshRail();
       timer = window.setInterval(() => void refreshRail(), 2e4);
     }
@@ -11042,9 +11432,9 @@ ${stack}`.slice(0, 2e3);
     access = { level: level2, admin, beginner };
     for (const card of document.querySelectorAll(".mode-card[data-mode]")) {
       const mode4 = card.dataset.mode;
-      const locked = !canPlay(mode4);
-      card.classList.toggle("locked", locked);
-      card.dataset.lock = !locked ? "" : beginnerLocked(mode4) ? "Master hiragana first" : `Unlocks at level ${MODE_LEVEL[mode4]}`;
+      const locked2 = !canPlay(mode4);
+      card.classList.toggle("locked", locked2);
+      card.dataset.lock = !locked2 ? "" : beginnerLocked(mode4) ? "Master hiragana first" : `Unlocks at level ${MODE_LEVEL[mode4]}`;
     }
   }
   var beginnerLocked = (_mode) => false;
@@ -11052,8 +11442,8 @@ ${stack}`.slice(0, 2e3);
   var lockText = (mode4) => beginnerLocked(mode4) ? `Deck Duel is all kanji \u2014 tick "I've mastered hiragana" in Settings first.` : `${MODE_LABEL[mode4]} unlocks at level ${MODE_LEVEL[mode4]} \u2014 win a few games first. (A friend can still invite you.)`;
   var stage = "off";
   var hooks;
-  function initTutorial(h4) {
-    hooks = h4;
+  function initTutorial(h5) {
+    hooks = h5;
   }
   var inTutorialBattle = () => stage === "battle";
   var CARDS = [
@@ -11100,9 +11490,9 @@ ${stack}`.slice(0, 2e3);
     if (stage !== "off") return;
     stage = "cards";
     void api.event("tutorial_start");
-    show2(0);
+    show3(0);
   }
-  function show2(i) {
+  function show3(i) {
     const c = CARDS[i];
     const box = $7("tutorial");
     const dots = el6("div", "tut-dots");
@@ -11117,12 +11507,12 @@ ${stack}`.slice(0, 2e3);
       const ru = el6("button", "big" + (lang() === "ru" ? "" : " alt"), "\u0420\u0443\u0441\u0441\u043A\u0438\u0439");
       en.dataset.noI18n = "";
       ru.dataset.noI18n = "";
-      en.onclick = () => show2(i + 1);
+      en.onclick = () => show3(i + 1);
       ru.onclick = () => {
         if (lang() !== "ru") useRussianNow();
         const sel = document.getElementById("langSel");
         if (sel) sel.value = "ru";
-        show2(i + 1);
+        show3(i + 1);
       };
       next3.hidden = true;
       queueMicrotask(() => actions.append(en, ru));
@@ -11133,7 +11523,7 @@ ${stack}`.slice(0, 2e3);
       const pickKana = (mastered) => {
         yes.disabled = no2.disabled = true;
         void api.event(mastered ? "tutorial_kana_yes" : "tutorial_kana_no");
-        void hooks.kana(mastered).finally(() => show2(i + 1));
+        void hooks.kana(mastered).finally(() => show3(i + 1));
       };
       yes.onclick = () => pickKana(true);
       no2.onclick = () => pickKana(false);
@@ -11141,7 +11531,7 @@ ${stack}`.slice(0, 2e3);
       queueMicrotask(() => actions.append(no2, yes));
     }
     next3.onclick = () => {
-      if (!last3) return show2(i + 1);
+      if (!last3) return show3(i + 1);
       stage = "battle";
       box.hidden = true;
       void api.event("tutorial_battle");
@@ -11608,6 +11998,7 @@ ${stack}`.slice(0, 2e3);
       card.append(top, bottom);
       const actions = h3("div", "cast-actions");
       otInput = null;
+      if (!c.overtime) useGameKb(null);
       if (c.overtime) {
         stopCountdown("dkRead");
         const input2 = h3("input", "ot-input");
@@ -11623,6 +12014,7 @@ ${stack}`.slice(0, 2e3);
           if (text) hooks2.send({ type: "answer", challengeId: c.castId, text });
         });
         otInput = input2;
+        setTimeout(() => useGameKb(input2), 0);
         actions.append(input2, h3("div", "cast-timer", "First to type its reading hits \xB7 wrong? try again"));
         setTimeout(() => input2.focus(), 30);
       } else if (mine && c.stage === "read") {
@@ -11903,8 +12295,8 @@ ${stack}`.slice(0, 2e3);
       ghost.classList.add("sparkle");
     } else {
       const towardsMe = spec.kind === "heal" ? e.playerId === me3 : e.targetId === me3;
-      const target = zrect($8(towardsMe ? "dkMe" : "dkOpp"));
-      ghost.style.setProperty("--fy", `${target.top + target.height / 2 - (r2.top + r2.height / 2)}px`);
+      const target2 = zrect($8(towardsMe ? "dkMe" : "dkOpp"));
+      ghost.style.setProperty("--fy", `${target2.top + target2.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
       void spoken.then(() => {
         if (spec.kind === "heal") sfx.heal();
@@ -12668,12 +13060,12 @@ ${stack}`.slice(0, 2e3);
       step.className = "lp-step";
       step.append(minus, input2, plus);
       row.append(name, step);
-      const locked = lockLevelChip(row, lv);
-      if (locked.classList.contains("locked")) {
+      const locked2 = lockLevelChip(row, lv);
+      if (locked2.classList.contains("locked")) {
         input2.disabled = minus.disabled = plus.disabled = true;
         lockedLv.add(lv);
       } else lockedLv.delete(lv);
-      return locked;
+      return locked2;
     }));
     planChanged();
   }
@@ -12722,6 +13114,10 @@ ${stack}`.slice(0, 2e3);
     counts2($9("countsStruggle"), s.decks.struggling);
     counts2($9("countsCustom"), s.decks.custom);
     if (s.decks.ono) counts2($9("countsOno"), s.decks.ono);
+    if (document.activeElement !== $9("onoDaily")) {
+      $9("onoDaily").value = String(s.onoDaily ?? 0);
+      $9("onoPlanRow").classList.toggle("on", (s.onoDaily ?? 0) > 0);
+    }
     $9("ssToday").textContent = String(s.profile.learnedToday);
     $9("ssTotal").textContent = String(s.profile.learned);
     $9("ssXp").textContent = `+${s.studyXpToday ?? 0}`;
@@ -12738,6 +13134,29 @@ ${stack}`.slice(0, 2e3);
     $9("studyCustom").disabled = !has2(s.decks.custom);
     $9("studyOno").disabled = !!s.decks.ono && !has2(s.decks.ono);
     onProfile(s.profile);
+  }
+  {
+    const box = $9("onoDaily");
+    let t = 0;
+    const save5 = () => {
+      clearTimeout(t);
+      t = window.setTimeout(() => void api.setOnoDaily(Number(box.value) || 0).then(render3).catch((e) => toast(e.message)), 600);
+    };
+    const set2 = (n) => {
+      box.value = String(Math.max(0, Math.min(100, Math.round(n) || 0)));
+      $9("onoPlanRow").classList.toggle("on", Number(box.value) > 0);
+      save5();
+    };
+    $9("onoMinus").onclick = () => set2(Number(box.value) - 1);
+    $9("onoPlus").onclick = () => set2(Number(box.value) + 1);
+    box.oninput = () => {
+      box.value = box.value.replace(/\D/g, "").slice(0, 3);
+      save5();
+    };
+    box.onblur = () => set2(Number(box.value));
+    box.onkeydown = (e) => {
+      if (e.key === "Enter") box.blur();
+    };
   }
   initDecks({ changed: () => {
     if (!$9("study").hidden) void api.study().then(render3).catch(() => {
@@ -12825,15 +13244,15 @@ ${stack}`.slice(0, 2e3);
     $9("reviewUndo").disabled = !history2.length;
   };
   function undo() {
-    const h4 = history2.pop();
+    const h5 = history2.pop();
     undoBtn();
-    if (!h4) return;
+    if (!h5) return;
     const d = deck;
-    sending = sending.then(() => api.undo(h4.card.vocabId, d).then(() => {
+    sending = sending.then(() => api.undo(h5.card.vocabId, d).then(() => {
     }, (e) => {
       toast(e.message);
     }));
-    queue3 = [h4.card, ...h4.queue];
+    queue3 = [h5.card, ...h5.queue];
     next2();
   }
   var XP_SHOW = 5;
@@ -13084,6 +13503,24 @@ ${stack}`.slice(0, 2e3);
         equip: () => api.setBorder(b.id)
       }));
     }
+    if (custTab === "pose") {
+      const mine = poseOf(profile3.unlocks);
+      return POSE_DEFS.map((d) => ({
+        id: d.id,
+        name: d.name,
+        blurb: `${d.blurb} ${d.id === "none" ? "" : "You strike it while you\u2019re on fire \u2014 5 correct casts in a row, or your Omnipotence \u2014 and everyone in the battle sees it."}`.trim(),
+        locked: !isAdmin && !poseUnlocked(d.id, profile3.xp),
+        lock: `Level ${d.level}`,
+        lockedToast: `Reach level ${d.level} to unlock the ${d.name} pose`,
+        equipped: mine === d.id,
+        tile: () => {
+          const t = el7("div", "pose-tile");
+          t.textContent = POSE_ICON[d.id];
+          return t;
+        },
+        equip: () => api.setPose(d.id)
+      }));
+    }
     return FLAMES.map((f2) => ({
       id: f2.id,
       name: `${f2.name} flames`,
@@ -13100,11 +13537,13 @@ ${stack}`.slice(0, 2e3);
       equip: () => api.setFlame(f2.id)
     }));
   }
+  var POSE_ICON = { none: "\u{1F9CD}", float: "\u{1FAB6}", aim: "\u{1F3AF}", twohand: "\u{1F64C}", lotus: "\u{1F9D8}" };
   var days = (n) => `${n} day${n === 1 ? "" : "s"}`;
   var CUST_SUB = {
     staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak \u2014 your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
     arena: () => "The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).",
     profile: () => "Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.",
+    pose: () => "Combo pose: what your character does while it\u2019s on fire (5 in a row, or Omnipotence) \u2014 float, take aim, or hold the staff in both hands. New poses unlock as you level up.",
     omni: () => "Omnipotence: the flames of a 5\xD7 combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up."
   };
   function renderCustomize() {
@@ -13170,12 +13609,12 @@ ${stack}`.slice(0, 2e3);
     const canvas = $9("staffCanvas");
     const stage2 = $9("custStage2");
     const showCanvas = custTab === "staff" && !!preview3;
-    const in3d = (custTab === "arena" || custTab === "omni") && !!arena3;
+    const in3d = (custTab === "arena" || custTab === "omni" || custTab === "pose") && !!arena3;
     canvas.hidden = !showCanvas;
     $9("arenaPreview").hidden = !in3d;
     stage2.hidden = showCanvas || in3d;
     $9("custStage").dataset.tab = custTab;
-    if ((custTab === "arena" || custTab === "omni") && !arena3Tried) void ensureArena3();
+    if ((custTab === "arena" || custTab === "omni" || custTab === "pose") && !arena3Tried) void ensureArena3();
     if (in3d) showArena3(custTab, sel.id, profile3);
     else arena3?.setActive(false);
     if (custTab === "staff") {
@@ -13196,6 +13635,10 @@ ${stack}`.slice(0, 2e3);
       else meta.append(el7("div", "hint", "No badges yet \u2014 pick up to 3 below."));
       card.append(avatarDisc(profile3, sel.id, "pp-pic big"), meta);
       stage2.replaceChildren(card);
+    } else if (custTab === "pose") {
+      const box = el7("div", "pose-2d");
+      box.append(el7("div", "pose-tile big", POSE_ICON[sel.id] ?? ""), el7("p", "hint", "Combo poses show in the 3D arena (Settings \u2192 3D arena: Full or Lite)."));
+      stage2.replaceChildren(box);
     } else {
       const w = el7("div", "wizard me onfire");
       paintFlame(w, sel.id);
@@ -13281,9 +13724,10 @@ ${stack}`.slice(0, 2e3);
     }
     arena3.setActive(true);
     if (tab2 === "arena") arena3.prewarm(BACKGROUNDS.map((b) => b.id), time);
-    arena3.focusOpp(tab2 === "omni");
-    const color = tab2 === "omni" ? flameColor(id) : void 0;
-    arena3.onfire("opp", tab2 === "omni", color);
+    arena3.focusOpp(tab2 === "omni" || tab2 === "pose");
+    const color = tab2 === "omni" ? flameColor(id) : tab2 === "pose" ? flameColor(p.flame) : void 0;
+    arena3.setPose("opp", tab2 === "pose" ? id : "none");
+    arena3.onfire("opp", tab2 === "omni" || tab2 === "pose", color);
     arena3.onfire("me", tab2 === "omni", color);
   }
   function customizeHidden() {
@@ -13847,6 +14291,7 @@ ${stack}`.slice(0, 2e3);
     }
     main.replaceChildren(el9("div", "daily-head", `Word ${word.index + 1} of ${word.total} \xB7 ${LEVEL_LABEL[word.level]}`), dots, k, bar, input2, skip2, fb);
     input2.focus();
+    useGameKb(input2, { skip: () => void submit("") });
     const t0 = performance.now(), limit = word.timeLimitMs;
     clearInterval(timer2);
     timer2 = window.setInterval(() => {
@@ -13876,6 +14321,7 @@ ${stack}`.slice(0, 2e3);
       }
       word = null;
       busy2 = false;
+      useGameKb(null);
       const o = await api.daily();
       renderOverview(o);
       if (r2.done) {
@@ -13908,8 +14354,8 @@ ${stack}`.slice(0, 2e3);
   var friends2 = [];
   var fetchedAt = 0;
   var hooks3;
-  function initFriends(h4) {
-    hooks3 = h4;
+  function initFriends(h5) {
+    hooks3 = h5;
   }
   async function refresh(force = false) {
     if (!force && Date.now() - fetchedAt < 8e3) return friends2;
@@ -14409,6 +14855,389 @@ ${stack}`.slice(0, 2e3);
     };
   }
 
+  // src/client/dictui.ts
+  init_api();
+
+  // src/client/conjugate.ts
+  var ROW = {
+    \u3046: ["\u308F", "\u3044", "\u3048", "\u304A", "\u3063\u3066", "\u3063\u305F"],
+    \u304F: ["\u304B", "\u304D", "\u3051", "\u3053", "\u3044\u3066", "\u3044\u305F"],
+    \u3050: ["\u304C", "\u304E", "\u3052", "\u3054", "\u3044\u3067", "\u3044\u3060"],
+    \u3059: ["\u3055", "\u3057", "\u305B", "\u305D", "\u3057\u3066", "\u3057\u305F"],
+    \u3064: ["\u305F", "\u3061", "\u3066", "\u3068", "\u3063\u3066", "\u3063\u305F"],
+    \u306C: ["\u306A", "\u306B", "\u306D", "\u306E", "\u3093\u3067", "\u3093\u3060"],
+    \u3076: ["\u3070", "\u3073", "\u3079", "\u307C", "\u3093\u3067", "\u3093\u3060"],
+    \u3080: ["\u307E", "\u307F", "\u3081", "\u3082", "\u3093\u3067", "\u3093\u3060"],
+    \u308B: ["\u3089", "\u308A", "\u308C", "\u308D", "\u3063\u3066", "\u3063\u305F"]
+  };
+  function conjugate(word2, pos) {
+    const p = pos.find((x) => /^(v1|v5|vk|vs-i|vs-s|adj-i|adj-ix)/.test(x)) ?? (pos.includes("vs") ? "vs" : "");
+    if (!p) return [];
+    if (p === "vs") return suru(word2, "\u3059\u308B");
+    if (p.startsWith("vs-")) return word2.endsWith("\u3059\u308B") ? suru(word2.slice(0, -2), "\u3059\u308B") : [];
+    if (p === "vk") {
+      const stem = word2.slice(0, -2) || word2.slice(0, -1).replace(/来$/, "");
+      const k = word2.endsWith("\u6765\u308B") ? "\u6765" : "";
+      return [
+        ["Dictionary", word2],
+        ["Polite", `${stem}${k || "\u304D"}\u307E\u3059`],
+        ["Negative", `${stem}${k || "\u3053"}\u306A\u3044`],
+        ["Past", `${stem}${k || "\u304D"}\u305F`],
+        ["Te form", `${stem}${k || "\u304D"}\u3066`],
+        ["Potential", `${stem}${k || "\u3053"}\u3089\u308C\u308B`],
+        ["Volitional", `${stem}${k || "\u3053"}\u3088\u3046`],
+        ["Conditional", `${stem}${k || "\u304F"}\u308C\u3070`],
+        ["Imperative", `${stem}${k || "\u3053"}\u3044`]
+      ];
+    }
+    if (p.startsWith("v1")) {
+      const s = word2.slice(0, -1);
+      return [
+        ["Dictionary", word2],
+        ["Polite", `${s}\u307E\u3059`],
+        ["Negative", `${s}\u306A\u3044`],
+        ["Past", `${s}\u305F`],
+        ["Past negative", `${s}\u306A\u304B\u3063\u305F`],
+        ["Te form", `${s}\u3066`],
+        ["Polite past", `${s}\u307E\u3057\u305F`],
+        ["Potential", `${s}\u3089\u308C\u308B`],
+        ["Passive", `${s}\u3089\u308C\u308B`],
+        ["Causative", `${s}\u3055\u305B\u308B`],
+        ["Volitional", `${s}\u3088\u3046`],
+        ["Conditional", `${s}\u308C\u3070`],
+        ["Imperative", `${s}\u308D`]
+      ];
+    }
+    if (p.startsWith("v5")) {
+      const end = word2.slice(-1), s = word2.slice(0, -1), r2 = ROW[end];
+      if (!r2) return [];
+      const iku = p === "v5k-s";
+      const aru = p === "v5aru";
+      const [a, i, e, o] = r2;
+      const te = iku ? "\u3063\u3066" : r2[4], ta = iku ? "\u3063\u305F" : r2[5];
+      const masu = aru ? "\u3044" : i;
+      return [
+        ["Dictionary", word2],
+        ["Polite", `${s}${masu}\u307E\u3059`],
+        ["Negative", p === "v5r-i" ? `${s.replace(/あ$/, "")}\u306A\u3044` : `${s}${a}\u306A\u3044`],
+        ["Past", `${s}${ta}`],
+        ["Past negative", `${s}${a}\u306A\u304B\u3063\u305F`],
+        ["Te form", `${s}${te}`],
+        ["Polite past", `${s}${masu}\u307E\u3057\u305F`],
+        ["Potential", `${s}${e}\u308B`],
+        ["Passive", `${s}${a}\u308C\u308B`],
+        ["Causative", `${s}${a}\u305B\u308B`],
+        ["Volitional", `${s}${o}\u3046`],
+        ["Conditional", `${s}${e}\u3070`],
+        ["Imperative", `${s}${aru ? "\u3044" : e}`]
+      ];
+    }
+    if (p.startsWith("adj-i")) {
+      const ii = p === "adj-ix";
+      const s = ii ? word2.slice(0, -2) + "\u3088" : word2.slice(0, -1);
+      return [
+        ["Dictionary", word2],
+        ["Negative", `${s}\u304F\u306A\u3044`],
+        ["Past", `${s}\u304B\u3063\u305F`],
+        ["Past negative", `${s}\u304F\u306A\u304B\u3063\u305F`],
+        ["Te form", `${s}\u304F\u3066`],
+        ["Adverb", `${s}\u304F`],
+        ["Conditional", `${s}\u3051\u308C\u3070`],
+        ["Polite", `${word2}\u3067\u3059`]
+      ];
+    }
+    return [];
+  }
+  function suru(stem, _s) {
+    return [
+      ["Dictionary", `${stem}\u3059\u308B`],
+      ["Polite", `${stem}\u3057\u307E\u3059`],
+      ["Negative", `${stem}\u3057\u306A\u3044`],
+      ["Past", `${stem}\u3057\u305F`],
+      ["Past negative", `${stem}\u3057\u306A\u304B\u3063\u305F`],
+      ["Te form", `${stem}\u3057\u3066`],
+      ["Polite past", `${stem}\u3057\u307E\u3057\u305F`],
+      ["Potential", `${stem}\u3067\u304D\u308B`],
+      ["Passive", `${stem}\u3055\u308C\u308B`],
+      ["Causative", `${stem}\u3055\u305B\u308B`],
+      ["Volitional", `${stem}\u3057\u3088\u3046`],
+      ["Conditional", `${stem}\u3059\u308C\u3070`],
+      ["Imperative", `${stem}\u3057\u308D`]
+    ];
+  }
+
+  // src/client/dictui.ts
+  init_i18n();
+  init_protocol();
+  init_ui();
+  var $13 = $;
+  var HAN3 = /\p{Script=Han}/u;
+  var h4 = (tag, cls = "", text, attrs = {}) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = text;
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+  var tags = {};
+  var lastQ = "";
+  var lastHits = [];
+  var busy3 = 0;
+  function headword(w, cls = "dw-head") {
+    const box = h4("div", cls, void 0, { lang: "ja" });
+    const main = w.kanji[0];
+    if (main) {
+      const r2 = h4("ruby");
+      r2.append(main, h4("rt", "", w.kana[0] ?? ""));
+      box.append(r2);
+    } else box.append(w.kana[0] ?? "");
+    return box;
+  }
+  function badges2(w) {
+    const row = h4("div", "dw-tags");
+    if (w.level) row.append(h4("span", `dw-tag lv lv-${w.level}`, LEVEL_LABEL[w.level], { "data-no-i18n": "" }));
+    if (w.common) row.append(h4("span", "dw-tag common", tr("common")));
+    if (w.vocabId) row.append(h4("span", "dw-tag game", tr("game word")));
+    return row;
+  }
+  var posText = (pos) => pos.map((p) => tags[p] ?? p).join(", ");
+  var ruOf = (w) => lang() === "ru" && w.ru.length ? w.ru : null;
+  async function search(q) {
+    q = q.trim();
+    const body = $13("dictBody");
+    if (!q) {
+      drawHome();
+      return;
+    }
+    const n = ++busy3;
+    body.replaceChildren(h4("p", "hint center", tr("Searching\u2026")));
+    try {
+      const r2 = await api.dict(q, !Object.keys(tags).length);
+      if (n !== busy3) return;
+      if (r2.tags) tags = r2.tags;
+      lastQ = q;
+      lastHits = r2.words;
+      drawList();
+    } catch (e) {
+      if (n === busy3) body.replaceChildren(h4("p", "hint center", e.message));
+    }
+  }
+  function drawHome() {
+    $13("dictBody").replaceChildren(h4("div", "dict-home", void 0));
+    const home = $13("dictBody").firstElementChild;
+    home.append(h4("p", "hint", tr("Type a word in kanji, kana, romaji or English. Open a word for all its meanings, its kanji with memory pictures, example sentences \u2014 and add it to your decks.")));
+    const tries = h4("div", "dict-tries");
+    for (const t of ["\u4FE1\u7528", "\u305F\u3079\u308B", "kirei", "magic", "\u30C9\u30AD\u30C9\u30AD"]) {
+      const b = h4("button", "pill", t, { type: "button", lang: "ja", "data-no-i18n": "" });
+      b.onclick = () => {
+        $13("dictQ").value = t;
+        void search(t);
+      };
+      tries.append(b);
+    }
+    home.append(tries);
+  }
+  function drawList() {
+    const body = $13("dictBody");
+    if (!lastHits.length) {
+      body.replaceChildren(h4("p", "hint center", `${tr("Nothing found for")} \u201C${lastQ}\u201D`));
+      return;
+    }
+    const list = h4("div", "dict-list");
+    for (const w of lastHits) {
+      const card = h4("button", "dict-hit", void 0, { type: "button" });
+      const top = h4("div", "dh-top");
+      top.append(headword(w, "dh-word"), badges2(w));
+      const ru = ruOf(w);
+      const means = h4("ol", "dh-means");
+      (ru ?? w.senses.map((s) => s[1])).slice(0, 3).forEach((m) => means.append(h4("li", "", m, { "data-no-i18n": "" })));
+      card.append(top, means);
+      card.onclick = () => void openWord(w.i);
+      list.append(card);
+    }
+    body.replaceChildren(h4("p", "hint dict-count", `${lastHits.length} ${tr(lastHits.length === 1 ? "match" : "matches")}`), list);
+    body.scrollTop = 0;
+  }
+  async function openWord(i) {
+    const body = $13("dictBody");
+    body.replaceChildren(h4("p", "hint center", tr("Loading\u2026")));
+    let r2;
+    try {
+      r2 = await api.dictWord(i);
+    } catch (e) {
+      body.replaceChildren(h4("p", "hint center", e.message));
+      return;
+    }
+    const w = r2.word;
+    const page2 = h4("article", "dict-word");
+    const back = h4("button", "pill dict-back", `\u2190 ${tr("Results")}`, { type: "button" });
+    back.onclick = () => lastHits.length ? drawList() : drawHome();
+    const head = h4("div", "dw-top");
+    const left = h4("div", "dw-left");
+    left.append(headword(w), h4("div", "dw-romaji", w.romaji, { "data-no-i18n": "" }));
+    if (w.kana.length > 1 || w.kanji.length > 1) left.append(h4("div", "dw-alt", [...w.kanji.slice(1), ...w.kana.slice(1)].join("\u30FB"), { lang: "ja" }));
+    left.append(badges2(w));
+    const acts = h4("div", "dw-acts");
+    if (voiceAvailable()) {
+      const s = h4("button", "pill", `\u{1F50A} ${tr("Listen")}`, { type: "button" });
+      s.onclick = () => void speak(w.kana[0] ?? "");
+      acts.append(s);
+    }
+    acts.append(addTo(w));
+    if (w.kanji[0] && HAN3.test(w.kanji[0])) {
+      const so = h4("button", "pill", `\u270D ${tr("Stroke order")}`, { type: "button" });
+      so.onclick = () => openStrokeDialog(w.kanji[0], w.kana[0] ?? "", w.senses[0]?.[1] ?? "");
+      acts.append(so);
+    }
+    head.append(left, acts);
+    page2.append(back, head);
+    const sec = (title) => {
+      const s = h4("section", "dw-sec");
+      s.append(h4("h4", "", tr(title)));
+      page2.append(s);
+      return s;
+    };
+    const mean = sec("Meanings");
+    let lastPos = "";
+    const ol = h4("ol", "dw-senses");
+    w.senses.forEach(([pos, gl, misc, info]) => {
+      const p = posText(pos);
+      if (p && p !== lastPos) {
+        ol.append(h4("li", "dw-pos", p, { "data-no-i18n": "" }));
+        lastPos = p;
+      }
+      const li = h4("li", "dw-sense");
+      li.append(h4("span", "", gl, { "data-no-i18n": "" }));
+      for (const m of misc) li.append(h4("span", "dw-misc", tags[m] ?? m, { "data-no-i18n": "" }));
+      if (info) li.append(h4("span", "dw-info", info, { "data-no-i18n": "" }));
+      ol.append(li);
+    });
+    mean.append(ol);
+    if (w.ru.length) {
+      const ru = h4("ol", "dw-senses ru");
+      w.ru.forEach((m) => ru.append(h4("li", "dw-sense", m, { "data-no-i18n": "" })));
+      const s = sec("In Russian");
+      s.append(ru);
+      if (lang() === "ru") mean.before(s);
+    }
+    if (w.vocabId) {
+      const ex = await exampleFor(w.vocabId).catch(() => null);
+      if (ex) sec("Example").append(ex);
+    }
+    const forms = conjugate(w.kanji[0] ?? w.kana[0] ?? "", w.senses[0]?.[0] ?? []);
+    if (forms.length) {
+      const d = h4("details", "dw-forms");
+      d.append(h4("summary", "", tr("Forms")));
+      const t = h4("table", "dw-table");
+      for (const [label, f2] of forms) {
+        const tr0 = h4("tr");
+        tr0.append(h4("th", "", tr(label)), h4("td", "", f2, { lang: "ja" }));
+        t.append(tr0);
+      }
+      d.append(t);
+      page2.append(d);
+    }
+    const chars2 = [...new Set([...w.kanji[0] ?? ""].filter((c) => HAN3.test(c)))];
+    if (chars2.length) {
+      const ks = sec("Kanji");
+      const info = await loadKanji();
+      const ru = lang() === "ru";
+      for (const c of chars2) {
+        const k = info[c];
+        const card = h4("div", "dw-kanji");
+        const big = h4("button", "dw-kchar", c, { type: "button", lang: "ja", title: tr("Memory picture") });
+        big.onclick = () => void showKanji(c, big);
+        const meta = h4("div", "dw-kmeta");
+        if (k) {
+          meta.append(h4("b", "", ru && k[1] ? k[1] : k[0], { "data-no-i18n": "" }));
+          const rd = h4("div", "dw-kreads", void 0, { lang: "ja" });
+          if (k[2]) rd.append(h4("span", "", `${ru ? "\u043E\u043D" : "on"}: ${k[2]}`, { "data-no-i18n": "" }));
+          if (k[3]) rd.append(h4("span", "", `${ru ? "\u043A\u0443\u043D" : "kun"}: ${k[3]}`, { "data-no-i18n": "" }));
+          meta.append(rd);
+          if (k[4].length) meta.append(h4("div", "dw-kparts", k[4].map(([pc, pen, pru]) => `${pc ? pc + " " : ""}${ru && pru ? pru : pen}`).join(" + "), { "data-no-i18n": "" }));
+        }
+        const pic = h4("button", "pill dw-kpic", `\u{1F5BC} ${tr("Memory picture")}`, { type: "button" });
+        pic.onclick = () => void showKanji(c, big);
+        meta.append(pic);
+        card.append(big, meta);
+        const more = r2.withKanji[c] ?? [];
+        if (more.length) {
+          const row = h4("div", "dw-with");
+          row.append(h4("span", "hint", `${tr("Words with")} ${c}:`));
+          for (const m of more) {
+            const b = h4("button", "dw-chip", void 0, { type: "button", lang: "ja" });
+            b.append(h4("b", "", m.kanji[0] ?? m.kana[0]), h4("small", "", m.kana[0] ?? ""));
+            b.title = ruOf(m)?.[0] ?? m.senses[0]?.[1] ?? "";
+            b.onclick = () => void openWord(m.i);
+            row.append(b);
+          }
+          card.append(row);
+        }
+        ks.append(card);
+      }
+    }
+    page2.append(h4("p", "hint dw-src", "JMdict \xA9 EDRDG (CC BY-SA 4.0)", { "data-no-i18n": "" }));
+    body.replaceChildren(page2);
+    window.scrollTo({ top: 0 });
+  }
+  function addTo(w) {
+    const sel = h4("select", "pill dw-add", void 0, { "aria-label": tr("Add to a deck") });
+    sel.append(Object.assign(h4("option", "", `+ ${tr("Add to\u2026")}`), { value: "" }));
+    for (const d of ["all", "struggling", "custom"]) sel.append(Object.assign(h4("option", "", tr(DECK_LABEL[d])), { value: d }));
+    sel.onchange = async () => {
+      const deck2 = sel.value;
+      if (!deck2) return;
+      sel.disabled = true;
+      const word2 = w.kanji[0] ?? w.kana[0] ?? "";
+      try {
+        let id = w.vocabId;
+        if (!id || deck2 === "custom") {
+          const meaning2 = lang() === "ru" && w.ru[0] || w.senses.slice(0, 2).map((s) => s[1]).join("; ");
+          const r3 = await api.addCustom(id ? { vocabId: id } : { kanji: word2, reading: w.kana[0] ?? word2, meaning: meaning2.slice(0, 120) });
+          id = r3.word.id;
+          if (deck2 === "custom") {
+            toast(r3.added ? `${word2} \u2192 ${tr(DECK_LABEL.custom)}` : `${word2}: ${tr("already in")} ${tr(DECK_LABEL.custom)}`);
+            return;
+          }
+        }
+        const r2 = await api.deckAdd(deck2, [id]);
+        toast(r2.added.length ? `${word2} \u2192 ${tr(DECK_LABEL[deck2])}` : `${word2}: ${tr("already in")} ${tr(DECK_LABEL[deck2])}`);
+      } catch (e) {
+        toast(e.message);
+      } finally {
+        sel.value = "";
+        sel.disabled = false;
+      }
+    };
+    return sel;
+  }
+  function openDict() {
+    show("dict");
+    const q = $13("dictQ");
+    if (!lastHits.length) drawHome();
+    useGameKb(q, { raw: true });
+    setTimeout(() => q.focus(), 50);
+  }
+  $13("dictForm").onsubmit = (e) => {
+    e.preventDefault();
+    void search($13("dictQ").value);
+  };
+  {
+    let t = 0;
+    $13("dictQ").addEventListener("input", () => {
+      clearTimeout(t);
+      t = window.setTimeout(() => void search($13("dictQ").value), 350);
+    });
+    $13("dictQ").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        clearTimeout(t);
+        void search($13("dictQ").value);
+      }
+    });
+  }
+  $13("dictBack").onclick = () => show("menu");
+
   // src/client/main.ts
   initWhatsNew();
   applyUiZoom();
@@ -14547,10 +15376,10 @@ ${stack}`.slice(0, 2e3);
     if (user && !inRoom && currentScreen() === "menu") checkRewards(user.id, p, user.role === "admin", applyProfile);
     if (user && p.tutorialDone && !tutorialShown && !inRoom && currentScreen() === "menu") tasksAtLogin(p);
     if (user?.role === "admin") void refreshInboxBadge();
-    const locked = user?.role !== "admin" && (p.strugglingDue ?? 0) > STUDY_LOCK;
-    $("menu").classList.toggle("locked", locked);
-    $("studyLock").hidden = !locked;
-    $("studyLockText").textContent = locked ? `${p.strugglingDue} struggling spells are waiting. Study them down to ${STUDY_LOCK} to unlock the game modes.` : "";
+    const locked2 = user?.role !== "admin" && (p.strugglingDue ?? 0) > STUDY_LOCK;
+    $("menu").classList.toggle("locked", locked2);
+    $("studyLock").hidden = !locked2;
+    $("studyLockText").textContent = locked2 ? `${p.strugglingDue} struggling spells are waiting. Study them down to ${STUDY_LOCK} to unlock the game modes.` : "";
     applyBackground();
     if ((p.staff ?? null) !== prevStaff) {
       prevStaff = p.staff ?? null;
@@ -14927,11 +15756,11 @@ ${stack}`.slice(0, 2e3);
     switch (e.kind) {
       case "hit": {
         const caster = actorOf(e.playerId);
-        const target = actorOf(e.targetId);
+        const target2 = actorOf(e.targetId);
         const friendly = caster !== "opp";
-        void castSpell(caster, target, e.kanji, e.damage, friendly, !!e.crit).then(() => {
+        void castSpell(caster, target2, e.kanji, e.damage, friendly, !!e.crit).then(() => {
           render6();
-          if (target === "me") sfx.hurt();
+          if (target2 === "me") sfx.hurt();
           else if (caster === "me") sfx.impact();
         });
         if (e.playerId !== you) logLine(`${nameOf(e.playerId)} cast for ${e.damage}${e.crit ? " (CRIT!)" : ""}${e.combo >= 2 ? ` (\xD7${e.combo})` : ""}:`, e.kanji);
@@ -15414,6 +16243,7 @@ ${stack}`.slice(0, 2e3);
   function setPaused(on) {
     $("pauseOverlay").hidden = !on;
     document.body.classList.toggle("paused", on);
+    setClocksPaused(on);
   }
   for (const b of document.querySelectorAll("[data-pause]")) b.onclick = () => socket.send({ type: "pause", on: true });
   $("resumeBtn").onclick = () => socket.send({ type: "pause", on: false });
@@ -15428,6 +16258,28 @@ ${stack}`.slice(0, 2e3);
       toast(err.message);
     }
   };
+  {
+    const sel = $("themeSel");
+    const apply = (t) => {
+      if (t === "light") document.documentElement.dataset.theme = "light";
+      else delete document.documentElement.dataset.theme;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "light" ? "#eef0fb" : "#0b0a1c");
+    };
+    let saved = "dark";
+    try {
+      saved = localStorage.getItem("kb:theme") === "light" ? "light" : "dark";
+    } catch {
+    }
+    sel.value = saved;
+    apply(saved);
+    sel.onchange = () => {
+      try {
+        localStorage.setItem("kb:theme", sel.value);
+      } catch {
+      }
+      apply(sel.value);
+    };
+  }
   {
     const sel = $("langSel");
     sel.value = lang();
@@ -15479,6 +16331,7 @@ ${stack}`.slice(0, 2e3);
     }
   }
   $("historyBtn").onclick = () => void openHistory();
+  $("dictBtn").onclick = () => openDict();
   $("historyBack").onclick = () => show("menu");
   $("resultHistoryBack").onclick = () => void openHistory();
   {
@@ -15598,7 +16451,7 @@ ${stack}`.slice(0, 2e3);
   {
     const panel = $("volPanel");
     const music = $("musicVol"), fx = $("sfxVol"), vo = $("voiceVol");
-    const show3 = () => {
+    const show4 = () => {
       const vp = getVoicePrefs();
       vo.value = String(Math.round(vp.vol * 100));
       $("voiceVolVal").textContent = `${vo.value}%`;
@@ -15614,20 +16467,20 @@ ${stack}`.slice(0, 2e3);
       e.stopPropagation();
       panel.hidden = !panel.hidden;
       $("volBtn").setAttribute("aria-expanded", String(!panel.hidden));
-      show3();
+      show4();
     };
     music.oninput = () => {
       setMusicVolume(Number(music.value) / 100);
-      show3();
+      show4();
     };
     fx.oninput = () => {
       setSfxVolume(Number(fx.value) / 100);
-      show3();
+      show4();
     };
     fx.onchange = () => previewSfx();
     vo.oninput = () => {
       setVoiceVolume(Number(vo.value) / 100);
-      show3();
+      show4();
     };
     vo.onchange = () => say("\u304B\u3093\u3058");
     addEventListener("click", (e) => {

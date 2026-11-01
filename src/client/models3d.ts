@@ -1,3 +1,4 @@
+import type { Leg } from './charkit';
 import { ARM_REST } from './charkit';
 // Low-poly 3D characters for the arena, each holding a magic staff. Built from simple shapes (no model
 // files), flat-shaded so they read like a stylised 3D version of the pixel characters:
@@ -29,6 +30,9 @@ export interface Character {
   materials: Array<{ mat: THREE.MeshStandardMaterial; color: THREE.Color; emissive: THREE.Color }>;
   /** glowing eyes, on while on fire (0.9.9.3.1) */
   eyes?: THREE.Group;
+  /** 0.9.9.7: the left arm (shoulder pivot) and both legs (left, right) — for the combo poses */
+  leftArm?: THREE.Group;
+  legs?: Leg[];
 }
 
 const ROBES: Record<Side, number> = { me: 0x3d5ad6, opp: 0xc23a4c, ally: 0x2f9f74 };

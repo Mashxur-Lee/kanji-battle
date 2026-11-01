@@ -36,6 +36,7 @@ import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
 import * as offline from './offline';
 import { initApp } from './appshell';
+import { openDict } from './dictui';
 
 applyUiZoom(); // before anything is laid out
 centerScreens();
@@ -904,6 +905,7 @@ document.documentElement.dataset.v = VERSION;
 function setPaused(on: boolean) {
   ui.$('pauseOverlay').hidden = !on;
   document.body.classList.toggle('paused', on);
+  ui.setClocksPaused(on); // 0.9.9.7: the timers on screen stop too, and the arena freezes (arena3d checks the class)
 }
 for (const b of document.querySelectorAll<HTMLElement>('[data-pause]')) b.onclick = () => socket.send({ type: 'pause', on: true });
 ui.$('resumeBtn').onclick = () => socket.send({ type: 'pause', on: false });
@@ -916,6 +918,18 @@ ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {
     if (!box.checked) store.set('kb:levels', JSON.stringify(['KANA']));
   } catch (err) { box.checked = !box.checked; ui.toast((err as Error).message); }
 };
+// 0.9.9.7: Theme — dark (as before) or light: light panels and buttons, dark text
+{
+  const sel = ui.$<HTMLSelectElement>('themeSel');
+  const apply = (t: string) => {
+    if (t === 'light') document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'light' ? '#eef0fb' : '#0b0a1c');
+  };
+  let saved = 'dark';
+  try { saved = localStorage.getItem('kb:theme') === 'light' ? 'light' : 'dark'; } catch { /* private mode */ }
+  sel.value = saved; apply(saved);
+  sel.onchange = () => { try { localStorage.setItem('kb:theme', sel.value); } catch { /* private mode */ } apply(sel.value); };
+}
 // Language (English / Russian): reloads the page in the new language
 {
   const sel = ui.$<HTMLSelectElement>('langSel');
@@ -963,6 +977,7 @@ async function openMatch(id: string) {
   } catch (err) { ui.toast((err as Error).message); }
 }
 ui.$('historyBtn').onclick = () => void openHistory();
+ui.$('dictBtn').onclick = () => openDict(); // 0.9.9.7
 ui.$('historyBack').onclick = () => ui.show('menu');
 ui.$('resultHistoryBack').onclick = () => void openHistory();
 

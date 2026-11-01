@@ -65,6 +65,7 @@ public class MainActivity extends Activity {
             }
         });
         web.addJavascriptInterface(new Bridge(), "KWAndroid");
+        Reminders.schedule(this); // 0.9.9.7: moves alarms set by an older version to the new kind
 
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -214,6 +215,22 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, ASK_NOTIFY));
             }
             Reminders.configure(MainActivity.this, on, token, lang);
+        }
+
+        /** 0.9.9.7: Settings → "Send a test": a reminder right now, and a real check in the background */
+        @JavascriptInterface
+        public void testReminder() {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                runOnUiThread(() -> requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, ASK_NOTIFY));
+                return;
+            }
+            Reminders.test(MainActivity.this);
+        }
+
+        /** when the last background check ran, and how it went */
+        @JavascriptInterface
+        public String reminderLast() {
+            return Reminders.last(MainActivity.this);
         }
 
         @JavascriptInterface

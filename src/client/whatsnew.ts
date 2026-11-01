@@ -7,6 +7,31 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.7', date: '2026-11',
+    en: [
+      'Dictionary (辞書) in the main menu: type a word in kanji, kana, romaji or English and see every match — readings, JLPT level, all meanings (English and Russian), verb and adjective forms, an example sentence, each kanji with its memory picture and stroke order, and other words written with it. “+ Add to…” puts any word in any of your decks.',
+      'Light theme: Settings → Theme → Light gives light panels and buttons with dark text. Dark stays the default.',
+      'Combo poses (Customize → Combo pose): while you’re on fire, your character can float with one leg bent (Levitation), turn side-on and aim the staff’s core at the opponent (Duelist), hold the staff upright in both hands (Channel), or float cross-legged (Lotus). Everyone sees it, and you see it in first person too. They unlock at levels 3, 6, 9 and 12.',
+      'Pause now freezes everything on screen: the timers, the arena and the opponent stop until you press Resume.',
+      'Romaji fixes: a single “n” before a vowel or “y” now counts as ん when it should — 信用 as shinyou, 原因 as genin, 金曜日 as kinyoubi — and Hepburn spellings work too (shimbun, tōkyō, nyaa for ニャー, o for を). Every word in the game was checked.',
+      'Onomatopoeia: no more 243 new words at once — set how many new ones you want a day (− / +, 0 by default), like in All spells.',
+      'Phones: the purple game keyboard now also comes up for the Daily challenge, Deck Duel’s overtime and the dictionary search.',
+      'Reading passage: when you finish, the translation opens by itself, framed so it’s easy to spot.',
+      'Android reminders: the check now runs as a background job that waits for the internet and gives the server time to wake up (it used to be cut off after 10 seconds, so no reminder came), and the alarms fire even when the phone is asleep. If the server can’t be reached, you still get a plain reminder. Settings → Reminders → “Send a test” shows one right away. (Update the app from the menu to get this.)',
+    ],
+    ru: [
+      'Словарь (辞書) в главном меню: введите слово кандзи, каной, ромадзи или по-английски и увидите все совпадения — чтения, уровень JLPT, все значения (по-английски и по-русски), формы глаголов и прилагательных, пример, каждый кандзи с картинкой для запоминания и порядком черт и другие слова с ним. «+ Добавить в…» кладёт любое слово в любую колоду.',
+      'Светлая тема: Настройки → Тема → Светлая — светлые панели и кнопки с тёмным текстом. По умолчанию остаётся тёмная.',
+      'Позы комбо (Кастомизация → Поза комбо): пока вы в огне, персонаж может парить, согнув ногу (Левитация), встать боком и направить ядро посоха на соперника (Дуэлянт), держать посох прямо обеими руками (Концентрация) или парить, скрестив ноги (Лотос). Это видят все, и вы — от первого лица. Открываются на уровнях 3, 6, 9 и 12.',
+      'Пауза теперь замораживает всё: таймеры, арена и соперник стоят, пока вы не нажмёте «Продолжить».',
+      'Ромадзи: одиночная «n» перед гласной или «y» теперь считается ん, когда нужно — 信用 как shinyou, 原因 как genin, 金曜日 как kinyoubi, — и работают написания Хэпбёрна (shimbun, tōkyō, nyaa для ニャー, o для を). Проверены все слова игры.',
+      'Ономатопея: больше не 243 новых слова сразу — задайте, сколько новых получать в день (− / +, по умолчанию 0), как во «Всех заклинаниях».',
+      'Телефоны: фиолетовая игровая клавиатура теперь появляется и в ежедневном вызове, в овертайме Дуэли колод и в поиске по словарю.',
+      'Текст для чтения: после завершения перевод открывается сам и выделен рамкой.',
+      'Напоминания на Android: проверка теперь идёт фоновой задачей, которая ждёт интернет и даёт серверу проснуться (раньше её обрывали через 10 секунд, и напоминание не приходило), а будильники срабатывают даже в спящем режиме. Если сервер недоступен, всё равно придёт простое напоминание. Настройки → Напоминания → «Проверить» показывает его сразу. (Обновите приложение из меню.)',
+    ],
+  },
+  {
     v: '0.9.9.6.1', date: '2026-10',
     en: [
       'Achievements show your progress: hover or tap a locked badge to see how far along you are (e.g. 37 / 100 words learned), with a small bar under the badge.',

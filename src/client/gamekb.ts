@@ -5,6 +5,7 @@
 
 import { romajiToHiragana } from '../shared/kana';
 import * as ui from './ui';
+import { tr } from './i18n';
 import { uiScale } from './zoom';
 
 const KEY = 'kb:gamekb';
@@ -17,15 +18,25 @@ export function setGameKbPref(on: boolean) { try { localStorage.setItem(KEY, on 
 export const gameKbAvailable = touch;
 
 let active = false;
+/**
+ * 0.9.9.7: the keyboard types into any field, not only the battle's answer box — the Daily challenge,
+ * Deck Duel's overtime, the dictionary search. `raw`: show what's typed (a search can be English too).
+ */
+interface Target { el: HTMLInputElement; skip?: () => void; raw?: boolean }
+const battle = (): Target => ({ el: ui.$<HTMLInputElement>('answer'), skip: () => ui.$('skip').click() });
+let target: Target | null = null;
+let shownBefore = false;
 
-function input() { return ui.$<HTMLInputElement>('answer'); }
+function input() { return (target ?? battle()).el; }
+const locked = () => (target && target.el.id !== 'answer' ? target.el.disabled : ui.answerLocked());
 function preview() {
   const v = input().value;
-  ui.$('gkPreview').textContent = ui.currentAnswerMode() === 'romaji' || !v ? v : romajiToHiragana(v);
+  const raw = target?.raw || (target?.el.id === 'answer' && ui.currentAnswerMode() === 'romaji');
+  ui.$('gkPreview').textContent = raw || !v ? v : romajiToHiragana(v);
 }
 function type(ch: string) {
   const i = input();
-  if (ui.answerLocked()) return;
+  if (locked()) return;
   i.value += ch;
   i.dispatchEvent(new Event('input', { bubbles: true })); // the staff reacts, the gem grows
   preview();
@@ -50,9 +61,10 @@ function build() {
   const last = document.createElement('div');
   last.className = 'gk-row';
   last.append(
-    key('Skip', 'wide skip', () => ui.$('skip').click()),
+    key('Skip', 'wide skip', () => (target ?? battle()).skip?.()),
     key('n\'', 'ch', () => type('\'')),
-    key('Cast ⏎', 'wide enter', () => { input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); preview(); }),
+    key('␣', 'wide space', () => type(' ')),
+    key('Cast ⏎', 'wide enter cast', () => { input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); preview(); }),
   );
   const pv = document.createElement('div');
   pv.id = 'gkPreview'; pv.className = 'gk-preview'; pv.lang = 'ja';
@@ -61,14 +73,34 @@ function build() {
 
 /** On (battle, typed answers, phone, setting on) or off. */
 export function setGameKb(on: boolean) {
+  if (on) target = battle();
+  show(on);
+}
+/** 0.9.9.7: the keyboard for another field (null: off). `skip` adds the Skip key; `raw` shows the text as typed. */
+export function useGameKb(el: HTMLInputElement | null, opts: { skip?: () => void; raw?: boolean } = {}) {
+  if (!el) { if (target && target.el.id !== 'answer') show(false); return; }
+  if (!touch() || !gameKbPref()) return;
+  if (target && target.el !== el) target.el.inputMode = '';
+  target = { el, ...opts };
+  show(true);
+}
+function show(on: boolean) {
   on = on && touch() && gameKbPref();
   if (on && !ui.$('gameKb').childElementCount) build();
   active = on;
   ui.$('gameKb').hidden = !on;
   document.body.classList.toggle('game-kb', on);
+  const t = target ?? battle();
+  document.body.classList.toggle('game-kb-other', on && t.el.id !== 'answer');
+  ui.$('gameKb').classList.toggle('no-skip', !t.skip);
+  ui.$('gameKb').classList.toggle('no-space', t.el.id === 'answer');
+  const enter = ui.$('gameKb').querySelector('.gk.cast'); if (enter) enter.textContent = t.el.id === 'answer' ? tr('Cast ⏎') : tr('Enter ⏎');
   const i = input();
   i.inputMode = on ? 'none' : ''; // no phone keyboard while ours is up
-  if (on) preview();
+  if (!on) target = null;
+  if (on) { preview(); if (i.id !== 'answer') { i.addEventListener('input', preview); } }
+  if (on === shownBefore) return; // only a new field: no need to lay the screen out again
+  shownBefore = on;
   // the 3D arena (hand, staff, combo, flames) fits in the space above the keyboard
   requestAnimationFrame(() => {
     const h = on ? ui.$('gameKb').getBoundingClientRect().height : 0;

@@ -9,7 +9,7 @@ import { lang, tr } from './i18n';
 import * as ui from './ui';
 
 const KEY = 'kw:remind';
-type Bridge = { setReminders?: (on: boolean, token: string, lang: string) => void; notificationsAllowed?: () => boolean };
+type Bridge = { setReminders?: (on: boolean, token: string, lang: string) => void; notificationsAllowed?: () => boolean; testReminder?: () => void; reminderLast?: () => string };
 const android = (): Bridge | null => { const b = (window as unknown as { KWAndroid?: Bridge }).KWAndroid; return b?.setReminders ? b : null; };
 
 export const remindersOn = () => { try { return localStorage.getItem(KEY) === 'on'; } catch { return false; } };
@@ -106,6 +106,24 @@ export function initReminders() {
   draw();
   ui.$('notifyBtn').onclick = () => void toggle();
   setInterval(() => { if (document.hidden) void check(); }, 15 * 60_000);
+  // 0.9.9.7: Settings → Reminders → "Send a test" (the Android app; browsers: a notification from the page)
+  const b = android();
+  ui.$('remindTestRow').hidden = !(b?.testReminder || ('Notification' in window && !b));
+  ui.$('remindTest').onclick = async () => {
+    if (b?.testReminder) {
+      b.testReminder();
+      if (b.notificationsAllowed && !b.notificationsAllowed()) ui.toast(tr('Allow notifications for Kanji Wizards in Android settings to get the reminders.'), 6000);
+      else ui.toast(tr('Sent — it should appear in your notifications now.'), 4000);
+      return;
+    }
+    const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
+    if (p !== 'granted') { ui.toast(tr('Notifications are blocked — allow them for this site in the browser settings, then tap the bell again.'), 6000); return; }
+    const reg = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
+    const title = tr('🔔 Reminders work'), body = tr('This is how Kanji Wizards reminders will look.');
+    try { if (reg) await reg.showNotification(title, { body, icon: '/icons/icon-192.png', tag: 'kw-test' }); else new Notification(title, { body }); } catch { /* not here */ }
+  };
+  const last = b?.reminderLast?.();
+  if (last) { ui.$('remindLast').hidden = false; ui.$('remindLast').textContent = `${tr('Last reminder check')}: ${last}`; }
   document.addEventListener('visibilitychange', () => { if (document.hidden) setTimeout(() => { if (document.hidden) void check(); }, 60_000); });
 }
 export function remindersSignedIn() { if (remindersOn()) void share(true); }

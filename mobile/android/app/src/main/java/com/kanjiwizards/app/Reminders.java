@@ -57,8 +57,11 @@ public class Reminders extends BroadcastReceiver {
             c.set(Calendar.HOUR_OF_DAY, TIMES[i][0]);
             c.set(Calendar.MINUTE, TIMES[i][1]);
             c.set(Calendar.SECOND, 0);
-            if (c.getTimeInMillis() <= System.currentTimeMillis()) c.add(Calendar.DAY_OF_YEAR, 1);
-            am.setInexactRepeating(AlarmManager.RTC_WAKEUP, c.getTimeInMillis(), AlarmManager.INTERVAL_DAY, pi);
+            if (c.getTimeInMillis() <= System.currentTimeMillis() + 60_000) c.add(Calendar.DAY_OF_YEAR, 1);
+            // 0.9.9.7: one alarm at a time, allowed to fire in Doze (a repeating inexact alarm could slip by hours,
+            // or not come at all); each one sets the next
+            if (Build.VERSION.SDK_INT >= 23) am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, c.getTimeInMillis(), pi);
+            else am.set(AlarmManager.RTC_WAKEUP, c.getTimeInMillis(), pi);
         }
     }
 
@@ -69,19 +72,42 @@ public class Reminders extends BroadcastReceiver {
             schedule(ctx);
             return;
         }
+        schedule(ctx); // the next alarm
         if (!isOn(ctx)) return;
-        final int slot = intent.getIntExtra("slot", 0);
-        final PendingResult done = goAsync();
-        final Context app = ctx.getApplicationContext();
-        new Thread(() -> {
+        // 0.9.9.7: the check runs as a job — a receiver gets ~10 s, but a sleeping server needs about a minute to
+        // wake up, so the check used to be cut off and no reminder came. A job may take minutes and waits for internet.
+        ReminderJob.start(ctx, intent.getIntExtra("slot", 0));
+    }
+
+    /** The check, with a few tries; if the server can't be reached at all, a plain reminder instead of nothing. */
+    static void run(Context ctx, int slot) {
+        SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+        for (int i = 0; i < 3; i++) {
             try {
-                check(app, slot);
-            } catch (Exception ignored) {
-                // no connection, or the server is asleep: no reminder this time
-            } finally {
-                done.finish();
+                check(ctx, slot);
+                p.edit().putString("last", new Date() + " ok").apply();
+                return;
+            } catch (Exception e) {
+                p.edit().putString("last", new Date() + " " + e.getClass().getSimpleName()).apply();
+                try { Thread.sleep(20_000); } catch (InterruptedException ie) { return; }
             }
-        }).start();
+        }
+        boolean ru = "ru".equals(p.getString("lang", "en"));
+        if (once(p, "fallback-" + slot, today)) post(ctx, 4,
+            ru ? "🔥 Время для заклинаний" : "🔥 Time for today's spells",
+            ru ? "Ежедневный вызов, повторения и задания на серию ждут вас." : "Your Daily challenge, reviews and streak tasks are waiting.");
+    }
+
+    /** "Send a test" in Settings: a notification right now, so you can see they come through. */
+    static void test(Context ctx) {
+        boolean ru = "ru".equals(ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("lang", "en"));
+        post(ctx, 9, ru ? "🔔 Напоминания работают" : "🔔 Reminders work",
+            ru ? "Так будут выглядеть напоминания Kanji Wizards." : "This is how Kanji Wizards reminders will look.");
+    }
+
+    static String last(Context ctx) {
+        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("last", "");
     }
 
     private static void check(Context ctx, int slot) throws Exception {
@@ -94,7 +120,9 @@ public class Reminders extends BroadcastReceiver {
         con.setConnectTimeout(20000);
         con.setReadTimeout(70000); // a sleeping server takes about a minute to wake up
         con.setRequestProperty("Authorization", "Bearer " + token);
-        if (con.getResponseCode() != 200) return;
+        int code = con.getResponseCode();
+        if (code == 401 || code == 403) return; // signed out: nothing to check
+        if (code != 200) throw new java.io.IOException("HTTP " + code);
         StringBuilder sb = new StringBuilder();
         try (BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream(), "UTF-8"))) {
             String line;
@@ -117,13 +145,13 @@ public class Reminders extends BroadcastReceiver {
     }
 
     /** true the first time a kind comes up today */
-    private static boolean once(SharedPreferences p, String kind, String today) {
+    static boolean once(SharedPreferences p, String kind, String today) {
         if (today.equals(p.getString("shown-" + kind, ""))) return false;
         p.edit().putString("shown-" + kind, today).apply();
         return true;
     }
 
-    private static void post(Context ctx, int id, String title, String text) {
+    static void post(Context ctx, int id, String title, String text) {
         NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
         if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL) == null) {
