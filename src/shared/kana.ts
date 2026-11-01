@@ -83,9 +83,36 @@ export const katakanaToHiragana = (s: string) =>
 
 /** Normalise any player input (IME kana, katakana, romaji, full-width letters) to hiragana. */
 export function normalizeAnswer(input: string): string {
-  const halfWidth = input.normalize('NFKC'); // full-width ｙｕｕ → yuu
-  const cleaned = halfWidth.replace(/[\s・.,。、]/g, '');
-  return romajiToHiragana(katakanaToHiragana(cleaned));
+  return romajiToHiragana(katakanaToHiragana(cleanInput(input)));
+}
+const MACRON: Record<string, string> = { ā: 'aa', ī: 'ii', ū: 'uu', ē: 'ei', ō: 'ou', â: 'aa', î: 'ii', û: 'uu', ê: 'ei', ô: 'ou' };
+function cleanInput(input: string): string {
+  const s = input.trim().toLowerCase().replace(/[āīūēōâîûêô]/g, (c) => MACRON[c]); // Hepburn macrons: tōkyō → toukyou
+  return s.normalize('NFKC').replace(/[\s・.,。、]/g, ''); // full-width ｙｕｕ → yuu
+}
+
+/**
+ * 0.9.9.7: every way romaji input can be read. A single "n" before a vowel or "y" is ambiguous — "shinyou" is
+ * しにょう or しんよう (信用), "genin" げにん or げんいん (原因) — and Hepburn writes ん as "m" before b/p/m
+ * (shimbun → しんぶん). All readings are tried, so typing the word the natural way always counts.
+ */
+export function answerVariants(input: string): string[] {
+  const s = katakanaToHiragana(cleanInput(input));
+  const out = new Set([romajiToHiragana(s)]);
+  if (!/[a-z]/.test(s)) return [...out];
+  const spots: Array<[number, string]> = [];
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i], n = s[i + 1], prev = s[i - 1];
+    if (c === 'n' && prev !== 'n' && n !== 'n' && n !== undefined && (VOWELS.has(n) || n === 'y')) spots.push([i, "n'"]);
+    else if (c === 'm' && n !== undefined && 'bpm'.includes(n) && prev !== 'm') spots.push([i, "n'"]);
+  }
+  const k = Math.min(spots.length, 8);
+  for (let mask = 1; mask < 1 << k; mask++) {
+    let t = s;
+    for (let j = k - 1; j >= 0; j--) if (mask & (1 << j)) t = t.slice(0, spots[j][0]) + spots[j][1] + t.slice(spots[j][0] + 1);
+    out.add(romajiToHiragana(t));
+  }
+  return [...out];
 }
 
 /**
@@ -93,30 +120,40 @@ export function normalizeAnswer(input: string): string {
  *  - one long-vowel う or お left out or swapped (せいかつ for せいかつ, きょと for きょうと, おうきい for おおきい),
  *  - a verb's する left off (せいかつ for せいかつする).
  */
-const foldJz = (s: string) => s.replace(/ぢ/g, 'じ').replace(/づ/g, 'ず');
+const VOWEL_KANA: Record<string, string> = { a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お', ゃ: 'あ', ゅ: 'う', ょ: 'お', ぁ: 'あ', ぃ: 'い', ぅ: 'う', ぇ: 'え', ぉ: 'お' };
+/**
+ * Sounds that are written differently but typed the same: ぢ/づ → じ/ず, を → お (typed "o"), ー → the vowel
+ * before it (ニャー typed "nyaa"), and a final っ (ぴかっ typed "pika") — 0.9.9.7.
+ */
+const foldJz = (s: string) => s.replace(/ぢ/g, 'じ').replace(/づ/g, 'ず').replace(/を/g, 'お')
+  .replace(/(.)ー/g, (m, c: string) => { const v = VOWEL_KANA[c] ? c : toRomaji(c).slice(-1); return c + (VOWEL_KANA[v] ?? 'ー'); }).replace(/っ$/, '');
 export function isCorrectReading(input: string, readings: readonly string[]): boolean {
   // 0.9.9.4.4.7: ぢ / づ sound like じ / ず and romaji "ji" / "zu" types those — so 続く is right as tsuzuku (つずく) too
-  const answer = foldJz(normalizeAnswer(input));
-  if (!answer.length) return false;
+  const answers = answerVariants(input).map(foldJz).filter((a) => a.length);
+  if (!answers.length) return false;
   return readings.some((raw) => {
     const r = foldJz(katakanaToHiragana(raw));
-    if (r === answer) return true;
-    if (r.length > 3 && r.endsWith('する') && r.slice(0, -2) === answer) return true;
-    return longVowelSlip(r, answer);
+    return answers.some((answer) => {
+      if (r === answer) return true;
+      if (r.length > 3 && r.endsWith('する') && r.slice(0, -2) === answer) return true;
+      return longVowelSlip(r, answer);
+    });
   });
 }
 
-/** Exactly one う/お missing (not the first sound), or one う↔お swapped. */
+/** Exactly one う/お missing (not the first sound), or one う↔お swapped; also えい written ええ or え (せんせえ). */
+const E_ROW = 'えけげせぜてでねへべぺめれ';
 function longVowelSlip(r: string, a: string): boolean {
   const LONG = 'うお';
+  const eLong = (i: number) => r[i] === 'い' && E_ROW.includes(r[i - 1] ?? '');
   if (a.length === r.length - 1) {
-    for (let i = 1; i < r.length; i++) if (LONG.includes(r[i]) && r.slice(0, i) + r.slice(i + 1) === a) return true;
+    for (let i = 1; i < r.length; i++) if ((LONG.includes(r[i]) || eLong(i)) && r.slice(0, i) + r.slice(i + 1) === a) return true;
     return false;
   }
   if (a.length === r.length) {
     let diff = -1;
     for (let i = 0; i < r.length; i++) if (r[i] !== a[i]) { if (diff >= 0) return false; diff = i; }
-    return diff > 0 && LONG.includes(r[diff]) && LONG.includes(a[diff]);
+    return diff > 0 && ((LONG.includes(r[diff]) && LONG.includes(a[diff])) || (eLong(diff) && a[diff] === 'え'));
   }
   return false;
 }

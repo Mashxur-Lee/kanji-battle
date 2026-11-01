@@ -189,6 +189,19 @@ export const add = (g: THREE.BufferGeometry, m: THREE.Material, parent: THREE.Ob
  * beside the body. arena3d swings the arm around this.
  */
 export const ARM_REST = 0.3;
+
+/**
+ * 0.9.9.7: a leg with a hip and a knee joint (the combo poses float and bend the legs). Meshes are added in the
+ * body's own coordinates: the thigh to `thigh`, the shin and foot to `shin` — they turn about the hip / knee.
+ */
+export interface Leg { hip: THREE.Group; knee: THREE.Group; thigh: THREE.Group; shin: THREE.Group }
+export function legRig(body: THREE.Object3D, x: number, hipY: number, kneeY: number): Leg {
+  const hip = new THREE.Group(); hip.position.set(x, hipY, 0); body.add(hip);
+  const thigh = new THREE.Group(); thigh.position.set(-x, -hipY, 0); hip.add(thigh);
+  const knee = new THREE.Group(); knee.position.set(0, kneeY - hipY, 0); hip.add(knee);
+  const shin = new THREE.Group(); shin.position.set(-x, -kneeY, 0); knee.add(shin);
+  return { hip, knee, thigh, shin };
+}
 export function holdStaff(arm: THREE.Group, hand: V3, materials: Character['materials'], glowTex: THREE.Texture, skin?: string, fist?: THREE.Object3D) {
   const staffPivot = new THREE.Group();
   staffPivot.position.set(...hand);

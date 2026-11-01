@@ -2340,7 +2340,7 @@ html, body { overflow-x: clip; }
    page in front of it reads better; the edges keep the scene */
 #bg::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .6s;
   background: radial-gradient(ellipse 62% 70% at 50% 46%, rgba(8, 6, 24, .62), rgba(8, 6, 24, .4) 55%, rgba(8, 6, 24, .08) 100%); }
-body:is([data-screen="auth"], [data-screen="study"], [data-screen="review"], [data-screen="quiz"], [data-screen="passage"], [data-screen="customize"], [data-screen="progress"], [data-screen="history"], [data-screen="daily"], [data-screen="friends"], [data-screen="queue"], [data-screen="modes"], [data-screen="lobby"], [data-screen="admin"], [data-screen="results"]) #bg::before { opacity: 1; }
+body:is([data-screen="auth"], [data-screen="study"], [data-screen="review"], [data-screen="quiz"], [data-screen="passage"], [data-screen="customize"], [data-screen="progress"], [data-screen="history"], [data-screen="dict"], [data-screen="daily"], [data-screen="friends"], [data-screen="queue"], [data-screen="modes"], [data-screen="lobby"], [data-screen="admin"], [data-screen="results"]) #bg::before { opacity: 1; }
 .lp-row.locked .lp-name::after { content: " 🔒"; font-size: .85em; }
 
 /* 0.9.9.4.4.5: reading passage — the story is being written (a bar), how many AI stories are left, the first-time explainer */
@@ -2479,3 +2479,262 @@ body:is([data-screen="auth"], [data-screen="study"], [data-screen="review"], [da
 #auth.auth-screen .title { font-size: clamp(2rem, calc(5 * var(--vw)), 3rem); white-space: nowrap; }
 /* 0.9.9.6.1: "Update the app" in an older Android app */
 .app-btn.update { border-color: var(--gold) !important; color: var(--gold); box-shadow: 0 0 12px color-mix(in srgb, var(--gold) 35%, transparent); }
+/* 0.9.9.7: a paused game freezes — every animation in the battle stops where it is */
+body.paused .screen *, body.paused .screen *::before, body.paused .screen *::after { animation-play-state: paused !important; }
+/* 0.9.9.7: the game keyboard outside battles (Daily challenge, dictionary…) */
+.game-kb.no-skip .gk.skip, .game-kb.no-space .gk.space { display: none; }
+body.game-kb-other .screen:not([hidden]) { padding-bottom: calc(var(--kb-h, 230px) + 16px) !important; }
+/* 0.9.9.7: the passage's translation after you finish — open, framed and easy to spot */
+.passage-tr.shown { margin-top: 14px; padding: 12px 16px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--card)); color: var(--text); box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 22%, transparent); animation: trIn .5s ease-out; }
+.passage-tr.shown summary { font-weight: 800; font-size: 1.05rem; color: var(--accent); letter-spacing: .02em; }
+.passage-tr.shown p { font-size: 1.02rem; line-height: 1.55; }
+@keyframes trIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+
+
+/* ── light theme: generated from the dark rules (scripts/lightgen) ── */
+:root[data-theme="light"] body { background: radial-gradient(900px 500px at 75% 15%, rgba(110, 231, 255, .08), transparent 60%),
+    radial-gradient(1400px 800px at 30% -10%, var(--bg2), transparent 70%),
+    linear-gradient(180deg, transparent 62%, var(--floor) 62%, rgba(230, 230, 232, 1.00) 100%),
+    var(--bg); }
+:root[data-theme="light"] .net-status { background: rgba(235, 234, 231, 1.00); }
+:root[data-theme="light"] button.alt { background: rgba(234, 233, 239, 1.00); }
+:root[data-theme="light"] .tab.on { background: rgba(234, 233, 239, 1.00); }
+:root[data-theme="light"] button.danger { background: rgba(238, 232, 234, 1.00); border-color: var(--line); }
+:root[data-theme="light"] .mode-tag { background: rgba(234, 233, 239, 1.00); }
+:root[data-theme="light"] .countdown { background: rgba(231, 231, 233, .82); }
+:root[data-theme="light"] .breath-warn { background: rgba(236, 232, 230, .82); color: var(--text); }
+:root[data-theme="light"] .spell { color: var(--text); }
+:root[data-theme="light"] th { background: rgba(232, 232, 236, 1.00); }
+:root[data-theme="light"] dialog.how { background: rgba(232, 231, 235, 1.00); }
+:root[data-theme="light"] .toast { background: rgba(233, 232, 237, 1.00); }
+:root[data-theme="light"] .rate.again { background: rgba(243, 234, 236, 1.00); }
+:root[data-theme="light"] .dkc.face-down { background: repeating-linear-gradient(45deg, rgba(234, 233, 239, 1.00) 0 6px, rgba(235, 235, 242, 1.00) 6px 12px); }
+:root[data-theme="light"] .dkc { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 85%, #fff), color-mix(in srgb, var(--c) 70%, rgba(230, 230, 230, 1.00))); border: 2px solid rgba(60, 50, 120, .16); }
+:root[data-theme="light"] .dkc.big .dkc-half.bottom { border-top: 1px solid var(--line); }
+:root[data-theme="light"] .dk-ability { background: radial-gradient(circle, rgba(235, 234, 242, 1.00), rgba(232, 232, 236, 1.00)); }
+:root[data-theme="light"] .dk-overlay { background: rgba(230, 230, 232, .82); }
+:root[data-theme="light"] .storage.warn { border: 1px solid var(--line); }
+:root[data-theme="light"] .dkbar { background: rgba(230, 230, 232, .82); }
+:root[data-theme="light"] .dkbar-txt { color: var(--text); }
+:root[data-theme="light"] .dk-panel { background: rgba(231, 231, 234, .82); }
+:root[data-theme="light"] .deck-guide { background: rgba(231, 231, 234, .94); }
+:root[data-theme="light"] .tbar { background: rgba(230, 230, 232, .82); }
+:root[data-theme="light"] .tbar-txt { color: var(--text); }
+:root[data-theme="light"] .float.immune { color: var(--text); }
+:root[data-theme="light"] .dk-ability .ab-cd { background: rgba(230, 230, 232, .82); color: var(--text); }
+:root[data-theme="light"] .tag.ai { color: var(--text); }
+:root[data-theme="light"] .mode-guide { background: rgba(231, 231, 234, .90); }
+:root[data-theme="light"] .vol-panel { background: rgba(231, 231, 234, .97); }
+:root[data-theme="light"] .feedback .refund { color: var(--text); }
+:root[data-theme="light"] .queue-card { background: rgba(231, 231, 234, .88); }
+:root[data-theme="light"] .queue-searching { background: rgba(231, 231, 234, .90); }
+:root[data-theme="light"] .q-orbit span { color: var(--text); }
+:root[data-theme="light"] .who-btn { background: rgba(231, 231, 234, .82); }
+:root[data-theme="light"] .profile-pop { background: rgba(231, 231, 234, .97); }
+:root[data-theme="light"] .pp-stats .streak-box b { color: var(--text); }
+:root[data-theme="light"] .ot-input { background: rgba(230, 230, 232, .82); color: var(--text); }
+:root[data-theme="light"] .private-box { background: rgba(231, 231, 234, .82); }
+:root[data-theme="light"] .reveal-badge { color: var(--text); }
+:root[data-theme="light"] .mf-overlay { background: rgba(230, 230, 231, .82); }
+:root[data-theme="light"] .mf-box { background: linear-gradient(180deg, rgba(233, 232, 238, .98), rgba(231, 231, 234, .98)); }
+:root[data-theme="light"] body.has-3d .boss-bar, :root[data-theme="light"] body.has-3d .dk-player, :root[data-theme="light"] body.has-3d .dk-panel { background: rgba(231, 231, 233, .82); border-color: rgba(60, 50, 120, .16); }
+:root[data-theme="light"] body.has-3d .challenge .timer { background: rgba(230, 230, 230, .82); }
+:root[data-theme="light"] body.has-3d .log { background: rgba(231, 230, 233, .82); }
+:root[data-theme="light"] .study-lock { background: rgba(242, 232, 234, .82); }
+:root[data-theme="light"] .study-lock b { color: var(--text); }
+:root[data-theme="light"] .mode-title { background: rgba(231, 231, 234, .82); }
+:root[data-theme="light"] .cust-stage { background: radial-gradient(ellipse at 50% 40%, rgba(185, 147, 255, .22), transparent 65%), linear-gradient(rgba(232, 232, 236, 1.00), rgba(231, 230, 232, 1.00)); }
+:root[data-theme="light"] .cust-stage[data-tab="arena"] { background: rgba(230, 230, 230, 1.00); }
+:root[data-theme="light"] .cust-item .ci-pic { background: radial-gradient(ellipse at 50% 45%, rgba(185, 147, 255, .18), transparent 70%), rgba(231, 231, 234, 1.00); }
+:root[data-theme="light"] .cust-item.locked .ci-state { color: var(--text); }
+:root[data-theme="light"] #custSub { background: rgba(231, 230, 233, .82); }
+:root[data-theme="light"] .invite-box { background: rgba(232, 231, 235, .96); }
+:root[data-theme="light"] .tutorial-overlay { background: rgba(230, 230, 231, .82); }
+:root[data-theme="light"] .tut-card { background: linear-gradient(160deg, rgba(233, 232, 238, 1.00), rgba(231, 231, 234, 1.00)); }
+:root[data-theme="light"] .coach-tip { background: rgba(232, 231, 235, .95); }
+:root[data-theme="light"] .cal-day[data-l="1"] { background: rgba(234, 237, 240, 1.00); }
+:root[data-theme="light"] .friend-rail { background: rgba(231, 230, 233, .82); }
+:root[data-theme="light"] .fr-av { background: linear-gradient(150deg, #5b4bd6, rgba(234, 233, 242, 1.00)); color: var(--text); }
+:root[data-theme="light"] .fr-dot { border: 2px solid var(--line); }
+:root[data-theme="light"] .fr-row.online .fr-status { color: var(--text); }
+:root[data-theme="light"] .rail-fab { background: linear-gradient(150deg, #5b4bd6, rgba(234, 233, 242, 1.00)); color: var(--text); border: 1px solid rgba(60, 50, 120, .16); }
+:root[data-theme="light"] .friend-dialog { background: rgba(231, 231, 234, 1.00); }
+:root[data-theme="light"] .game-kb { background: rgba(230, 230, 232, .90); }
+:root[data-theme="light"] .pause-overlay { background: rgba(230, 230, 232, .82); }
+:root[data-theme="light"] .pause-box { background: rgba(231, 231, 234, .95); }
+:root[data-theme="light"] .ii-kind.k-suggestion { color: var(--text); }
+:root[data-theme="light"] .ii-kind.k-error { color: var(--text); }
+:root[data-theme="light"] .turn-timer b { color: var(--text); }
+:root[data-theme="light"] .turn-timer.low b { color: var(--text); }
+:root[data-theme="light"] .forfeit, :root[data-theme="light"] .link.forfeit { background: linear-gradient(180deg, #e0485c, rgba(246, 233, 235, 1.00)); color: var(--text); }
+:root[data-theme="light"] .feed-list li.feed-miss .ft-text { color: var(--text); }
+:root[data-theme="light"] .feed-list li.feed-hit .ft-text b, :root[data-theme="light"] .feed-list li.feed-power .ft-text { color: var(--text); }
+:root[data-theme="light"] .feed-list li.feed-skip .ft-text, :root[data-theme="light"] .feed-list li.feed-overtime .ft-text { color: var(--text); }
+:root[data-theme="light"] .screen > .back { background: rgba(232, 231, 234, .82); color: var(--text); }
+:root[data-theme="light"] body.mode-shown .clock-col { background: rgba(231, 231, 234, .82); }
+:root[data-theme="light"] .miss-card { background: linear-gradient(160deg, rgba(242, 232, 235, .82), rgba(233, 231, 233, .86)); }
+:root[data-theme="light"] body.has-3d .fighter .hpnum, :root[data-theme="light"] body.has-3d .fighter .name { color: var(--text); }
+:root[data-theme="light"] .pp-tasks { color: var(--text); }
+:root[data-theme="light"] .tasks-streak b { color: var(--text); }
+:root[data-theme="light"] .cust-card { background: rgba(231, 231, 234, .82); }
+:root[data-theme="light"] .fighter .hpnum { color: var(--text); }
+:root[data-theme="light"] .ult-lid { background: rgba(230, 230, 230, 1.00); }
+:root[data-theme="light"] .ult-text { color: var(--text); }
+:root[data-theme="light"] input[type="checkbox"] { background: rgba(231, 231, 234, .82); }
+:root[data-theme="light"] .cust-stage[data-tab="omni"] { background: rgba(230, 230, 230, 1.00); }
+:root[data-theme="light"] #study .notice, :root[data-theme="light"] .notice { background: rgba(232, 232, 230, .88); color: var(--text); }
+:root[data-theme="light"] .tag { background: rgba(231, 231, 234, .85); }
+:root[data-theme="light"] .csel-btn { background: linear-gradient(180deg, rgba(234, 233, 239, .90), rgba(232, 231, 235, .92)); }
+:root[data-theme="light"] .csel-menu { background: rgba(231, 231, 234, .98); }
+:root[data-theme="light"] body.offline .net-status { background: rgba(232, 233, 236, 1.00); color: var(--text); }
+:root[data-theme="light"] .mt { background: rgba(231, 231, 234, .82); border: 2px solid rgba(60, 50, 120, .16); }
+:root[data-theme="light"] .mt.m0, :root[data-theme="light"] .mt.m1, :root[data-theme="light"] .mt.m2, :root[data-theme="light"] .mt.m3 { background: rgba(231, 231, 234, .82); }
+:root[data-theme="light"] .mt.m0 .mt-k { color: var(--text); }
+:root[data-theme="light"] .mt.m4 { background: linear-gradient(180deg, rgba(236, 234, 231, .82), rgba(231, 231, 234, .85)); }
+:root[data-theme="light"] .mt.m4 .mt-k { color: var(--text); }
+:root[data-theme="light"] .mg-pop { background: rgba(233, 232, 236, 1.00); }
+:root[data-theme="light"] .mp-st.m3 { color: var(--text); }
+:root[data-theme="light"] .fc-example { border-top: 1px dashed var(--line); }
+:root[data-theme="light"] .page-head > .back { background: rgba(232, 231, 234, .82); color: var(--text); }
+:root[data-theme="light"] .kanji-pop { background: rgba(232, 232, 236, 1.00); }
+:root[data-theme="light"] .passage .passage-gloss { background: rgba(234, 233, 236, 1.00); }
+:root[data-theme="light"] .passage .passage-bank { background: rgba(232, 232, 236, 1.00); }
+:root[data-theme="light"] .lp-step { background: rgba(230, 230, 232, .82); }
+:root[data-theme="light"] .plan-apply span { color: var(--text); }
+:root[data-theme="light"] .practice-card { background: linear-gradient(135deg, color-mix(in srgb, var(--pc) 22%, rgba(232, 231, 235, .90)), rgba(232, 231, 235, .85)); }
+:root[data-theme="light"] .practice-card .pc-ico { background: color-mix(in srgb, var(--pc) 70%, rgba(230, 230, 230, 1.00)); color: var(--text); }
+:root[data-theme="light"] #lobby #leaveLobby { background: rgba(232, 231, 234, .82); color: var(--text); }
+:root[data-theme="light"] .ss-tile { background: rgba(232, 231, 234, .82); }
+:root[data-theme="light"] .kw { border-bottom: 2px dotted var(--line); }
+:root[data-theme="light"] .star-btn:hover { color: var(--text); }
+:root[data-theme="light"] .star-btn.on { color: var(--text); }
+:root[data-theme="light"] .p-missed { color: var(--text); }
+:root[data-theme="light"] .wake-screen { background: radial-gradient(ellipse at 50% 45%, rgba(230, 230, 232, .82), rgba(230, 230, 232, .85)); }
+:root[data-theme="light"] .wake-card { background: rgba(232, 231, 234, .90); }
+:root[data-theme="light"] #auth.auth-screen .col-main { background: rgba(232, 231, 234, .82); }
+/* ── end of generated light rules ── */
+/* ══ 0.9.9.7: light theme (Settings → Theme) ═══════════════════════════════════════════════════════════════
+   Light panels, buttons and fields with dark text; the scenes behind stay as they are, veiled in light where a
+   page sits in front of them. Battles keep their arena; only the panels around it turn light. */
+:root[data-theme="light"] {
+  --bg: #eef0fb; --bg2: #d9dcf6; --floor: #e3e5f6; --line: #c9c4e8; --field: rgba(255, 255, 255, .86);
+  --card: rgba(255, 255, 255, .86); --text: #1d1838; --muted: #5d5880; --accent: #6b3fd6; --accent2: #0b7d9c;
+  --gold: #a26300; --good: #12895a; --bad: #c8284a;
+  color-scheme: light;
+}
+:root[data-theme="light"] body { background: linear-gradient(180deg, #f4f5ff, #e6e8f8); }
+:root[data-theme="light"] body::before { opacity: 0; }
+:root[data-theme="light"] .jp { text-shadow: none; }
+:root[data-theme="light"] button.alt, :root[data-theme="light"] .tab.on { background: #e4defc; color: var(--text); }
+:root[data-theme="light"] button.danger { background: #fde3e8; color: #9c1834; border: 1px solid #f1a9b8; }
+:root[data-theme="light"] .pill { background: rgba(255, 255, 255, .9); border-color: var(--line); color: var(--text); box-shadow: 0 1px 2px rgba(40, 30, 90, .08); }
+:root[data-theme="light"] .pill.primary { background: linear-gradient(135deg, #7c4dff, #a07cff); color: #fff; }
+:root[data-theme="light"] input, :root[data-theme="light"] select, :root[data-theme="light"] textarea { background: #fff; color: var(--text); border-color: var(--line); }
+:root[data-theme="light"] select option { background: #fff; color: var(--text); }
+:root[data-theme="light"] dialog { background: #fbfaff; color: var(--text); border-color: var(--line); box-shadow: 0 20px 60px rgba(40, 30, 90, .25); }
+:root[data-theme="light"] dialog::backdrop { background: rgba(60, 56, 100, .35); }
+:root[data-theme="light"] .how-btn, :root[data-theme="light"] .back { color: var(--muted); }
+:root[data-theme="light"] .back:hover { color: var(--text); }
+/* the scene behind a page: a soft light veil instead of the dark one */
+:root[data-theme="light"] #bg::before { background: radial-gradient(ellipse 62% 70% at 50% 46%, rgba(244, 245, 255, .82), rgba(244, 245, 255, .62) 55%, rgba(244, 245, 255, .2) 100%); }
+/* glassy dark panels from before → light glass */
+:root[data-theme="light"] :is(.friend-rail, #custSub, #auth.auth-screen .col-main, .vol-panel, .game-kb, .whoami) { background: rgba(255, 255, 255, .88); color: var(--text); border-color: var(--line); }
+:root[data-theme="light"] :is(.tutorial-overlay, .pause-overlay, .mf-overlay) { background: rgba(230, 232, 250, .7); }
+:root[data-theme="light"] .gk { background: #fff; color: var(--text); box-shadow: 0 2px 0 rgba(40, 30, 90, .18); border: 1px solid var(--line); }
+:root[data-theme="light"] .gk.skip, :root[data-theme="light"] .gk.back { background: #ece9fa; }
+:root[data-theme="light"] .gk.enter { color: #fff; border: 0; }
+:root[data-theme="light"] .toast { background: #fff; color: var(--text); border-color: var(--line); box-shadow: 0 8px 30px rgba(40, 30, 90, .2); }
+:root[data-theme="light"] .net-status { background: #fff4d6; border-color: #e7c06a; color: #7a5200; }
+/* light theme: things the generated rules can't know */
+:root[data-theme="light"] .cal-day { background: rgba(60, 50, 120, .06); color: var(--text); }
+:root[data-theme="light"] .cal-day.blank { background: none; }
+:root[data-theme="light"] .cal-day.future { background: rgba(60, 50, 120, .03); color: rgba(30, 24, 60, .3); }
+:root[data-theme="light"] .cal-day[data-l="1"], :root[data-theme="light"] .cal-legend i.cal-day[data-l="1"] { background: #cfe3fb; color: var(--text); }
+:root[data-theme="light"] .cal-day[data-l="2"], :root[data-theme="light"] .cal-legend i.cal-day[data-l="2"] { background: #8dbcf2; color: #0c2141; }
+:root[data-theme="light"] .cal-day[data-l="3"], :root[data-theme="light"] .cal-legend i.cal-day[data-l="3"] { background: #4b93e0; color: #fff; }
+:root[data-theme="light"] .cal-day[data-l="4"], :root[data-theme="light"] .cal-legend i.cal-day[data-l="4"] { background: #1f6fc9; color: #fff; box-shadow: none; }
+:root[data-theme="light"] .cal-legend i.cal-day[data-l="0"] { background: rgba(60, 50, 120, .08); }
+:root[data-theme="light"] .ach-tip { background: #fff; box-shadow: 0 10px 30px rgba(40, 30, 90, .22); color: var(--text); }
+:root[data-theme="light"] .ach-prog i, :root[data-theme="light"] .ach-bar { background: linear-gradient(90deg, var(--accent) var(--p), rgba(60, 50, 120, .14) var(--p)); }
+:root[data-theme="light"] .ach-pop { background: linear-gradient(135deg, rgba(255, 255, 255, .98), rgba(243, 240, 255, .98)); color: var(--text); box-shadow: 0 0 40px color-mix(in srgb, var(--ac) 35%, transparent), 0 16px 40px rgba(40, 30, 90, .25); }
+:root[data-theme="light"] .deck-open { color: var(--accent2); border-color: color-mix(in srgb, var(--accent2) 50%, transparent); background: rgba(255, 255, 255, .7); }
+:root[data-theme="light"] .deck-open:hover { color: var(--text); }
+:root[data-theme="light"] .tasks-btn { background: linear-gradient(100deg, rgba(255, 236, 214, .95), rgba(255, 244, 236, .95)); border-color: #f0b17a; }
+:root[data-theme="light"] .tasks-btn .tb-days { background: #ffd9b3; color: #8a3d00; }
+:root[data-theme="light"] .pp-tasks { color: #a14d00; }
+/* the main menu sits on the scene: a soft light band behind its column so the title and buttons read */
+:root[data-theme="light"] body[data-screen="menu"] #bg::before { opacity: 1; background: linear-gradient(90deg, rgba(244, 245, 255, .9), rgba(244, 245, 255, .72) 32%, rgba(244, 245, 255, 0) 55%); }
+:root[data-theme="light"] h1.title { text-shadow: 0 1px 0 rgba(255, 255, 255, .6); }
+:root[data-theme="light"] .how-btn { background: rgba(255, 255, 255, .82); border-color: var(--line); color: var(--text); }
+:root[data-theme="light"] body[data-screen]:not([data-screen="menu"]) #bg::before { background: radial-gradient(ellipse 62% 70% at 50% 46%, rgba(244, 245, 255, .9), rgba(244, 245, 255, .74) 55%, rgba(244, 245, 255, .35) 100%); }
+@media (max-width: 760px) { :root[data-theme="light"] body[data-screen] #bg::before { opacity: 1; background: rgba(244, 245, 255, .7) !important; } }
+
+/* ── 0.9.9.7: the dictionary ─────────────────────────────────────────────── */
+.dict-btn .dict-jp, h2 .dict-jp { font-family: var(--jp); color: var(--accent); margin-right: 4px; }
+h2 .dict-jp { font-size: .8em; }
+#dict { max-width: 980px; margin: 0 auto; }
+.dict-search { display: flex; gap: 8px; align-items: center; }
+.dict-search input { flex: 1; margin: 0; font-size: 1.1rem; }
+.dict-search button { margin: 0; flex: 0 0 auto; }
+.dict-body { margin-top: 12px; }
+.dict-home { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; backdrop-filter: blur(6px); }
+.dict-tries { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.dict-count { margin: 0 0 8px; }
+.dict-list { display: flex; flex-direction: column; gap: 8px; }
+button.dict-hit { display: block; width: 100%; margin: 0; text-align: left; padding: 12px 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); color: var(--text); font-weight: 400; font-size: 1rem; backdrop-filter: blur(6px); }
+button.dict-hit:hover { border-color: var(--accent); filter: none; }
+.dh-top { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.dh-word { font-family: var(--jp); font-size: 1.7rem; line-height: 1.15; font-weight: 700; }
+.dh-word rt, .dw-head rt { font-size: .42em; color: var(--muted); font-family: var(--ui); font-weight: 600; }
+.dh-means { margin: 6px 0 0; padding-left: 22px; color: var(--text); font-size: .95rem; }
+.dh-means li { margin: 1px 0; }
+.dh-means li::marker { color: var(--muted); }
+.dw-tags { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+.dw-tag { font-size: .72rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); letter-spacing: .02em; }
+.dw-tag.common { color: var(--good); border-color: color-mix(in srgb, var(--good) 55%, transparent); }
+.dw-tag.lv { color: var(--accent2); border-color: color-mix(in srgb, var(--accent2) 55%, transparent); }
+.dw-tag.game { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+.dict-word { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; backdrop-filter: blur(6px); }
+.dict-back { margin-bottom: 8px; }
+.dw-top { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+.dw-head { font-family: var(--jp); font-size: clamp(2.6rem, 9vw, 3.6rem); line-height: 1.1; font-weight: 700; }
+.dw-romaji { color: var(--muted); font-size: 1rem; letter-spacing: .04em; }
+.dw-alt { color: var(--muted); font-size: .95rem; margin-top: 2px; }
+.dw-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.dw-acts .pill, .dw-add { width: auto; margin: 0; }
+.dw-sec { margin-top: 16px; }
+.dw-sec h4, .dw-forms summary { margin: 0 0 6px; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.dw-senses { margin: 0; padding-left: 0; list-style: none; counter-reset: sn; }
+.dw-sense { counter-increment: sn; padding: 4px 0 4px 28px; position: relative; font-size: 1.02rem; line-height: 1.4; }
+.dw-sense::before { content: counter(sn) "."; position: absolute; left: 4px; color: var(--accent); font-weight: 800; }
+.dw-pos { font-size: .8rem; color: var(--accent2); font-weight: 700; margin-top: 6px; }
+.dw-misc, .dw-info { display: inline-block; margin-left: 8px; font-size: .75rem; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; }
+.dw-info { border: 0; font-style: italic; }
+.dw-forms { margin-top: 16px; }
+.dw-forms summary { cursor: pointer; }
+.dw-table { border-collapse: collapse; margin-top: 6px; }
+.dw-table th { text-align: left; font-weight: 600; color: var(--muted); font-size: .85rem; padding: 3px 16px 3px 0; text-transform: none; letter-spacing: 0; background: none; }
+.dw-table td { font-family: var(--jp); font-size: 1.05rem; padding: 3px 0; background: none; }
+.dw-kanji { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; padding: 10px 0; border-top: 1px solid var(--line); }
+.dw-kanji:first-of-type { border-top: 0; }
+button.dw-kchar { width: 72px; height: 72px; margin: 0; padding: 0; font-family: var(--jp); font-size: 2.8rem; font-weight: 400; background: var(--field); border: 1px solid var(--line); color: var(--text); border-radius: 14px; }
+.dw-kmeta { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.dw-kreads { display: flex; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: .9rem; }
+.dw-kparts { font-size: .85rem; color: var(--muted); }
+.dw-kpic { margin-top: 4px; }
+.dw-with { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+button.dw-chip { width: auto; margin: 0; padding: 4px 10px; display: inline-flex; flex-direction: column; align-items: center; border-radius: 10px; background: var(--field); border: 1px solid var(--line); color: var(--text); font-weight: 400; line-height: 1.15; }
+.dw-chip b { font-family: var(--jp); font-size: 1.05rem; } .dw-chip small { font-size: .7rem; color: var(--muted); }
+.dw-src { margin-top: 14px; font-size: .72rem; }
+@media (max-width: 600px) { .dw-acts { width: 100%; } }
+.dict-word .fc-example { text-align: left; margin: 0; }
+.dict-word .fc-ex-ja { font-size: 1.15rem; color: var(--text); }
+
+:root[data-theme="light"] .gk.enter { background: linear-gradient(160deg, #8b6bff, #5a3fd8); color: #fff; }
+/* 0.9.9.7: Customize → Combo pose */
+.pose-tile { font-size: 2.4rem; line-height: 1; display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto; border-radius: 16px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pose-tile.big { width: 120px; height: 120px; font-size: 4.4rem; }
+.pose-2d { display: grid; place-items: center; gap: 10px; padding: 20px; text-align: center; }
+:root[data-theme="light"] body:is([data-screen="prep"], [data-screen="results"], [data-screen="lobby"], [data-screen="modes"], [data-screen="queue"], [data-screen="dict"]) #bg::before { opacity: 1; }

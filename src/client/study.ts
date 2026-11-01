@@ -3,7 +3,7 @@ import { exampleFor, loadExamples } from './examples';
 import { hideKanji, kanjiTappable, wordsTappable } from './kanjihelp';
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, ONO_TYPES, type Level } from '../shared/protocol';
-import { avatarFor, BACKGROUNDS, beta, BORDERS, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS } from '../shared/progress';
+import { avatarFor, BACKGROUNDS, beta, BORDERS, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS, POSE_DEFS, poseOf, poseUnlocked } from '../shared/progress';
 import { arenaPreview, staffPreview } from './arena';
 import type { ArenaApi } from './arena3d';
 import { sceneSvg } from './backgrounds';
@@ -126,6 +126,7 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
   counts($('countsStruggle'), s.decks.struggling);
   counts($('countsCustom'), s.decks.custom);
   if (s.decks.ono) counts($('countsOno'), s.decks.ono);
+  if (document.activeElement !== $('onoDaily')) { $<HTMLInputElement>('onoDaily').value = String(s.onoDaily ?? 0); $('onoPlanRow').classList.toggle('on', (s.onoDaily ?? 0) > 0); }
   $('ssToday').textContent = String(s.profile.learnedToday);
   $('ssTotal').textContent = String(s.profile.learned);
   $('ssXp').textContent = `+${s.studyXpToday ?? 0}`;
@@ -142,6 +143,19 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
   $<HTMLButtonElement>('studyCustom').disabled = !has(s.decks.custom);
   $<HTMLButtonElement>('studyOno').disabled = !!s.decks.ono && !has(s.decks.ono);
   onProfile(s.profile);
+}
+
+// 0.9.9.7: new Onomatopoeia words a day (saved a moment after the last change)
+{
+  const box = $<HTMLInputElement>('onoDaily');
+  let t = 0;
+  const save = () => { clearTimeout(t); t = window.setTimeout(() => void api.setOnoDaily(Number(box.value) || 0).then(render).catch((e) => ui.toast((e as Error).message)), 600); };
+  const set = (n: number) => { box.value = String(Math.max(0, Math.min(100, Math.round(n) || 0))); $('onoPlanRow').classList.toggle('on', Number(box.value) > 0); save(); };
+  $('onoMinus').onclick = () => set(Number(box.value) - 1);
+  $('onoPlus').onclick = () => set(Number(box.value) + 1);
+  box.oninput = () => { box.value = box.value.replace(/\D/g, '').slice(0, 3); save(); };
+  box.onblur = () => set(Number(box.value));
+  box.onkeydown = (e) => { if (e.key === 'Enter') box.blur(); };
 }
 
 initDecks({ changed: () => { if (!$('study').hidden) void api.study().then(render).catch(() => {}); }, back: () => void openStudy() });
@@ -351,7 +365,7 @@ $('reviewUndo').onclick = () => undo();
 $('reviewDoneBack').onclick = () => void leaveSession();
 
 // ── customize: magic staff (login streak) · arena (level) · omnipotence (level) ──────────────────
-type CustTab = 'staff' | 'arena' | 'omni' | 'profile';
+type CustTab = 'staff' | 'arena' | 'omni' | 'profile' | 'pose';
 interface CustItem {
   id: string; name: string; blurb: string; locked: boolean; lock: string; equipped: boolean;
   tile: () => Node; equip: () => Promise<{ profile: Profile }>; lockedToast: string;
@@ -432,6 +446,17 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
       equip: () => api.setBorder(b.id),
     }));
   }
+  if (custTab === 'pose') {
+    const mine = poseOf(profile.unlocks);
+    return POSE_DEFS.map((d) => ({
+      id: d.id, name: d.name, blurb: `${d.blurb} ${d.id === 'none' ? '' : 'You strike it while you’re on fire — 5 correct casts in a row, or your Omnipotence — and everyone in the battle sees it.'}`.trim(),
+      locked: !isAdmin && !poseUnlocked(d.id, profile.xp), lock: `Level ${d.level}`,
+      lockedToast: `Reach level ${d.level} to unlock the ${d.name} pose`,
+      equipped: mine === d.id,
+      tile: () => { const t = el('div', 'pose-tile'); t.textContent = POSE_ICON[d.id]; return t; },
+      equip: () => api.setPose(d.id),
+    }));
+  }
   return FLAMES.map((f) => ({
     id: f.id, name: `${f.name} flames`, blurb: f.season ? `${monthName(f.season)} reward: complete that month's goals (Progress page). Wraps you at 5 in a row and during your Omnipotence.` : 'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.',
     locked: !isAdmin && !flameUnlocked(f.id, profile.xp, profile.unlocks), lock: f.season ? `${monthName(f.season)} goals` : `Level ${f.level}`,
@@ -442,11 +467,13 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
   }));
 }
 
+const POSE_ICON: Record<string, string> = { none: '🧍', float: '🪶', aim: '🎯', twohand: '🙌', lotus: '🧘' };
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
   staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak — your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
   arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
   profile: () => 'Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.',
+  pose: () => 'Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you level up.',
   omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up.',
 };
 
@@ -507,13 +534,13 @@ function renderCustomize() {
   const canvas = $<HTMLCanvasElement>('staffCanvas');
   const stage2 = $('custStage2');
   const showCanvas = custTab === 'staff' && !!preview;
-  const in3d = (custTab === 'arena' || custTab === 'omni') && !!arena3;
+  const in3d = (custTab === 'arena' || custTab === 'omni' || custTab === 'pose') && !!arena3;
   canvas.hidden = !showCanvas;
   $('arenaPreview').hidden = !in3d;
   stage2.hidden = showCanvas || in3d;
   $('custStage').dataset.tab = custTab;
-  if ((custTab === 'arena' || custTab === 'omni') && !arena3Tried) void ensureArena3();
-  if (in3d) showArena3(custTab as 'arena' | 'omni', sel.id, profile); else arena3?.setActive(false);
+  if ((custTab === 'arena' || custTab === 'omni' || custTab === 'pose') && !arena3Tried) void ensureArena3();
+  if (in3d) showArena3(custTab as 'arena' | 'omni' | 'pose', sel.id, profile); else arena3?.setActive(false);
   if (custTab === 'staff') {
     if (preview) preview.show(sel.id);
     else { const g = el('div', 'pixel-staff big'); g.innerHTML = staffSvg(sel.id); stage2.replaceChildren(g); }
@@ -528,6 +555,9 @@ function renderCustomize() {
     if (row) meta.append(row); else meta.append(el('div', 'hint', 'No badges yet — pick up to 3 below.'));
     card.append(avatarDisc(profile, sel.id, 'pp-pic big'), meta);
     stage2.replaceChildren(card);
+  } else if (custTab === 'pose') {
+    const box = el('div', 'pose-2d'); box.append(el('div', 'pose-tile big', POSE_ICON[sel.id] ?? ''), el('p', 'hint', 'Combo poses show in the 3D arena (Settings → 3D arena: Full or Lite).'));
+    stage2.replaceChildren(box);
   } else {
     const w = el('div', 'wizard me onfire');
     ui.paintFlame(w, sel.id);
@@ -580,7 +610,7 @@ async function ensureArena3() {
   if (arena3 && !$('customize').hidden) renderCustomize();
 }
 /** you stand across the arena (as others see you): the chosen arena, or your flames burning round you */
-function showArena3(tab: 'arena' | 'omni', id: string, p: Profile) {
+function showArena3(tab: 'arena' | 'omni' | 'pose', id: string, p: Profile) {
   if (!arena3) return;
   const bgId = (tab === 'arena' ? id : p.background) as BackgroundId, time = resolveTime(getTimePref());
   const character = avatarFor(p.studyLevels);
@@ -596,9 +626,10 @@ function showArena3(tab: 'arena' | 'omni', id: string, p: Profile) {
   }
   arena3.setActive(true);
   if (tab === 'arena') arena3.prewarm(BACKGROUNDS.map((b) => b.id), time); // the other arenas get built while you look
-  arena3.focusOpp(tab === 'omni'); // the flames: up close; the arena: the whole view
-  const color = tab === 'omni' ? flameColor(id) : undefined;
-  arena3.onfire('opp', tab === 'omni', color);
+  arena3.focusOpp(tab === 'omni' || tab === 'pose'); // the flames / the pose: up close; the arena: the whole view
+  const color = tab === 'omni' ? flameColor(id) : tab === 'pose' ? flameColor(p.flame) : undefined;
+  arena3.setPose('opp', tab === 'pose' ? id : 'none'); // 0.9.9.7: you, in the combo pose you're looking at
+  arena3.onfire('opp', tab === 'omni' || tab === 'pose', color);
   arena3.onfire('me', tab === 'omni', color); // and the first-person fire along the bottom, as you see it in a battle
 }
 /** leaving Customize: the preview stops drawing */

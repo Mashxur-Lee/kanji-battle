@@ -8,6 +8,7 @@ import type { ChatMessage } from '../shared/protocol';
 import { heroSvg } from './wizard';
 import { arena, arenaForDeck, resetArenaDeck } from './arena';
 import { flameColor } from '../shared/progress';
+import { useGameKb } from './gamekb';
 
 const $ = ui.$;
 const COLOR_NAME: Record<CardColor, string> = { lightblue: 'Light blue', blue: 'Blue', yellow: 'Yellow', green: 'Green', red: 'Red' };
@@ -354,6 +355,7 @@ function renderCast(v: DeckView) {
     card.append(top, bottom);
     const actions = h('div', 'cast-actions');
     otInput = null;
+    if (!c.overtime) useGameKb(null);
     if (c.overtime) {
       ui.stopCountdown('dkRead');
       const input = h('input', 'ot-input') as HTMLInputElement;
@@ -370,6 +372,7 @@ function renderCast(v: DeckView) {
         if (text) hooks.send({ type: 'answer', challengeId: c.castId, text });
       });
       otInput = input;
+      setTimeout(() => useGameKb(input), 0); // 0.9.9.7: phones: the game keyboard
       actions.append(input, h('div', 'cast-timer', 'First to type its reading hits · wrong? try again'));
       setTimeout(() => input.focus(), 30);
     } else if (mine && c.stage === 'read') {

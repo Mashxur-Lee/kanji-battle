@@ -16,11 +16,12 @@ import { buildCharacter, kindFor, type Character } from './models3d';
 import { buildStaff, GEM_Y, type Staff } from './staffs3d';
 import { createStaffPreview } from './staffpreview';
 import { buildEnv, type Env } from './arenas';
+import { applyPose, isPose, notePose, type PoseId } from './poses3d';
 
 export type Who = 'me' | 'opp' | 'boss' | `ally:${string}`;
 export type TimeOfDay = 'day' | 'sunset' | 'night';
 /** A fighter: a 3D character model (character = deck hero or level avatar), or a pixel sprite (the dragon). */
-export interface FighterArt { id: string; name?: string; character?: string; svg?: string; flame?: string; staff?: string }
+export interface FighterArt { id: string; name?: string; character?: string; svg?: string; flame?: string; staff?: string; pose?: string }
 export interface ArenaSetup {
   /** battle screens: you stand left, the opponent right of the centre panel; Deck Duel: you bottom-right */
   layout: 'battle' | 'deck';
@@ -42,6 +43,8 @@ export interface ArenaApi {
   ko(who: Who): void;
   /** combo flames (5+ in a row) or a Deck Duel power: flames in the player's colour around them */
   onfire(who: Who, on: boolean, color?: string): void;
+  /** 0.9.9.7: change someone's combo pose (Customize preview) */
+  setPose(who: Who, pose: string): void;
   /** Customize preview: bring the camera up close to the opponent (no hand and staff in view) */
   focusOpp(on: boolean): void;
   /** change only the arena and the time of day (the fighters stay) */
@@ -196,6 +199,8 @@ interface Fighter {
   eyesFlashUntil: number;
   /** where they look: target (from the network, or an idle wander) and the current, eased head turn */
   look: { yaw: number; pitch: number; at: number; curYaw: number; curPitch: number; seed: number };
+  /** 0.9.9.7: the combo pose and how far into it they are (0 → 1) */
+  pose: PoseId; poseK: number;
 }
 interface Particle { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max: number; grow: number; gravity: number }
 
@@ -353,6 +358,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       group.add(sprite);
     } else {
       model = buildCharacter(kindFor(art.character ?? 'wizard'), key === 'me' ? 'me' : key.startsWith('ally:') ? 'ally' : 'opp', sparkTex, art.staff);
+      notePose(model);
       height = model.height;
       group.add(model.root);
     }
@@ -368,7 +374,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     aura.scale.set(height * 1.2, height * 1.2, 1); aura.position.y = height * 0.5;
     group.add(aura);
     scene.add(group);
-    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 } };
+    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0 };
     fighters.set(key, f);
     return f;
   }
@@ -427,6 +433,25 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     part(new THREE.CylinderGeometry(0.1, 0.16, 0.95, 10, 1, true), sleeveMat, arm, 0, -0.6, 0); // sleeve
     part(new THREE.TorusGeometry(0.1, 0.028, 6, 14), gold, arm, 0, -0.14, 0).rotation.x = Math.PI / 2; // cuff
   }
+  // 0.9.9.7: your other hand — it comes up onto the staff in the two-handed combo poses
+  const fpLeft = new THREE.Group();
+  {
+    const part = (g: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); fpLeft.add(o); return o; };
+    const palm = part(new THREE.CapsuleGeometry(0.046, 0.075, 4, 10), skinMat, -0.066, 0, 0.014);
+    palm.scale.set(0.82, 1, 1.12); palm.rotation.set(0, -0.25, 0.08);
+    [0.052, 0.018, -0.016, -0.048].forEach((y, i) => {
+      const finger = part(new THREE.TorusGeometry(0.05 - i * 0.002, 0.019 - i * 0.001, 6, 14, Math.PI * 1.32), skinMat, 0, y, 0);
+      finger.rotation.set(-Math.PI / 2, 0, Math.PI - Math.PI * 0.32);
+    });
+    const fore = new THREE.Group(); fore.position.set(-0.09, -0.08, 0.03); fore.rotation.set(-0.5, 0, -0.75); fpLeft.add(fore);
+    const p2 = (g: THREE.BufferGeometry, m: THREE.Material, y: number) => { const o = new THREE.Mesh(g, m); o.position.set(0, y, 0); fore.add(o); return o; };
+    p2(new THREE.CylinderGeometry(0.05, 0.062, 0.2, 10), skinMat, -0.08);
+    p2(new THREE.CylinderGeometry(0.1, 0.16, 0.95, 10, 1, true), sleeveMat, -0.6);
+    p2(new THREE.TorusGeometry(0.1, 0.028, 6, 14), gold, -0.14).rotation.x = Math.PI / 2;
+    fpLeft.position.set(0, 0.26, 0);
+    fpLeft.visible = false;
+    staffGroup.add(fpLeft);
+  }
   const handLight = new THREE.PointLight(0xffffff, 1.4, 3, 2); handLight.position.set(0.3, 0.3, -0.5); camera.add(handLight);
   const HANDS: Record<string, { sleeve: number; skin: number }> = {
     wizard: { sleeve: 0x3463c8, skin: 0xf2ddcf }, witch: { sleeve: 0x7a56bd, skin: 0xeedcd8 }, goblin: { sleeve: 0x7a4e2c, skin: 0x84933f },
@@ -441,6 +466,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   // the figure-eight (∞) the staff traces while you cast
   let eightAmp = 0, eightPhase = 0;
   let myFlame: THREE.Color | null = null;
+  let myPose: PoseId = 'none', myPoseK = 0; // 0.9.9.7: your combo pose, in first person
   let meDown = false;
 
   // ── your flames (5× combo / Omnipotence): mana fire flowing along the bottom of the screen ──
@@ -715,6 +741,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     setStaffSkin(s.me.staff ?? 'verdant');
     meDown = false; fp.visible = true; gemState = 'ready';
     myFlame = null; fireU.uAmount.value = 0; fireBand.visible = false; // a new game starts without last game's flames
+    myPose = isPose(s.me.pose) ? s.me.pose : 'none'; myPoseK = 0;
     if (s.opp) makeFighter('opp', s.opp);
     if (s.boss) makeFighter('boss', s.boss);
     for (const a of s.allies) makeFighter(`ally:${a.id}`, a);
@@ -876,6 +903,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   }
   function frame(nowMs: number) {
     raf = requestAnimationFrame(frame);
+    if (!opts.preview && document.body.classList.contains('paused')) { last = nowMs; return; } // 0.9.9.7: a paused game is a still picture
     if (!opts.preview) watchPerf(nowMs - last); // a Customize preview never switches the game to Lite
     const realDt = Math.min(1, Math.max(0, (nowMs - last) / 1000));
     const dt = Math.min(0.05, realDt); last = nowMs; time += dt;
@@ -944,6 +972,22 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         twitchRot.y * 0.3,
         0.2 - ex * 0.24 * eightAmp + twitchRot.z * 0.3,
       );
+      // 0.9.9.7: your combo pose, as you see it — floating lifts your view; Duelist points the staff's core
+      // straight ahead; Channel and Lotus bring the staff to the middle, upright, in both hands
+      myPoseK += ((myFlame && myPose !== 'none' && !meDown ? 1 : 0) - myPoseK) * Math.min(1, realDt * 3);
+      const pk = myPoseK * myPoseK * (3 - 2 * myPoseK);
+      fpLeft.visible = pk > 0.02 && (myPose === 'twohand' || myPose === 'lotus');
+      if (pk > 0.001) {
+        if (myPose === 'float' || myPose === 'lotus') camera.position.y += (myPose === 'lotus' ? 0.3 : 0.2) * pk + Math.sin(time * 1.7) * 0.04 * pk;
+        if (myPose === 'aim') {
+          fp.position.x += (0.12 - fpBase.x) * pk * 0.85; fp.position.y += (-0.3 - fpBase.y) * pk * 0.6;
+          staffGroup.rotation.x += (-1.35 - staffGroup.rotation.x) * pk; staffGroup.rotation.z += (0.05 - staffGroup.rotation.z) * pk;
+        } else if (myPose === 'twohand' || myPose === 'lotus') {
+          fp.position.x += (0.04 - fpBase.x) * pk; fp.position.y += (fpBase.y - 0.08 - fpBase.y) * pk;
+          staffGroup.rotation.x += (0.05 - staffGroup.rotation.x) * pk * 0.8; staffGroup.rotation.z += (0 - staffGroup.rotation.z) * pk;
+          fpLeft.scale.setScalar(Math.max(0.01, pk));
+        }
+      }
       let gemScale = gemState === 'ready' ? 1 : 0;
       if (gemState === 'growing') {
         const t = Math.min(1, (now - growAt) / GROW_MS);
@@ -1024,6 +1068,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         (m.glow.material as THREE.SpriteMaterial).opacity = 0.45 + glowLevel * 0.5;
         m.crystal.rotation.y += dt * (0.8 + glowLevel * 6);
         m.staff.update(time, dt, glowLevel);
+        // 0.9.9.7: on fire, they strike their combo pose (Customize)
+        f.poseK += ((f.flame && f.pose !== 'none' ? 1 : 0) - f.poseK) * Math.min(1, dt * 3);
+        if (f.pose !== 'none') applyPose(m, f.pose, f.poseK, time);
         if (glowLevel > 0.5 && Math.random() < glowLevel * 0.6) {
           m.crystal.getWorldPosition(tmp);
           spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), m.staff.color.getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
@@ -1263,6 +1310,12 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const f = fighters.get(who);
       if (f) f.flame = on ? new THREE.Color(color ?? '#6ee7ff') : null;
       if (f?.model?.eyes) f.model.eyes.visible = on; // their eyes glow in the character's colour
+    },
+    setPose(who, pose) {
+      const p = isPose(pose) ? pose : 'none';
+      if (who === 'me') { myPose = p; return; }
+      const f = fighters.get(who);
+      if (f) f.pose = p;
     },
     focusOpp(on) { focusOn = on; fp.visible = !on; },
     prewarm(ids, time) {

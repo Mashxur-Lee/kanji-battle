@@ -36,6 +36,7 @@
                 <data android:scheme="https" android:host="kanji-battle-ev0o.onrender.com" />
             </intent-filter>
         </activity>
+        <service android:name=".ReminderJob" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="false" />
         <receiver android:name=".Reminders" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

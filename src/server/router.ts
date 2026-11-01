@@ -13,6 +13,7 @@ import { SocialError, type SocialService } from './study/SocialService';
 import { playerDay } from './study/ProgressService';
 import { now as clockNow } from './now';
 import { isStoryLevel, StoryService } from './study/StoryService';
+import type { DictService } from './study/DictService';
 
 export const MAX_BODY = 4 * 1024;
 
@@ -55,11 +56,13 @@ export interface ApiExtras {
   stories?: StoryService;
   /** server errors (500s) are reported here */
   onError?: (where: string, e: unknown) => void;
+  /** 0.9.9.7: the dictionary (online only — the offline engine has none) */
+  dict?: DictService;
 }
 
 /** Routes one /api/* call; null for any other path. */
 export function createApiRouter(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const { presence, daily, social, strokes, insights, onlineCount, onError, stories } = extras;
+  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict } = extras;
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
 
@@ -133,6 +136,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         await study.setFlame(u, (await r.json()).flame);
         return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+      } else if (r.method === 'PUT' && url === '/api/me/pose') {
+        const u = await auth.authenticate(r.token);
+        await study.setPose(u, (await r.json()).pose);
+        return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
       } else if (r.method === 'PUT' && url === '/api/me/staff') {
         const u = await auth.authenticate(r.token);
         await study.setStaff(u, (await r.json()).staff);
@@ -194,6 +201,12 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/study') {
         const u = await auth.authenticate(r.token);
         return res(200, await study.summary(u, resolveToday(query.get('today'))));
+      } else if (r.method === 'PUT' && url === '/api/study/ono-daily') {
+        // 0.9.9.7: new Onomatopoeia words a day
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        await study.setOnoDaily(u, body.n, resolveToday(body.today));
+        return res(200, await study.summary(await auth.authenticate(r.token), resolveToday(body.today)));
       } else if (r.method === 'PUT' && url === '/api/study/daily-levels') {
         // 0.9.9.4.4: new words a day per level
         const u = await auth.authenticate(r.token);
@@ -208,7 +221,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/study/queue') {
         const u = await auth.authenticate(r.token);
         const deck = query.get('deck');
-        return res(200, { cards: await study.queue(u, (isDeck(deck) ? deck : 'all') as DeckId) });
+        return res(200, { cards: await study.queue(u, (isDeck(deck) ? deck : 'all') as DeckId, undefined, undefined, resolveToday(query.get('today'))) });
       } else if (r.method === 'POST' && url === '/api/study/review') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();
@@ -221,6 +234,18 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/study/deck') {
         const u = await auth.authenticate(r.token);
         return res(200, { words: await study.deckList(u, query.get('deck')) });
+      } else if (r.method === 'GET' && url === '/api/dict') {
+        // 0.9.9.7: the dictionary — search by kanji, kana, romaji or English
+        await auth.authenticate(r.token);
+        if (!dict) return res(503, { error: 'The dictionary needs internet' });
+        return res(200, { words: dict.search(query.get('q')), tags: query.get('tags') ? dict.tagNames() : undefined });
+      } else if (r.method === 'GET' && /^\/api\/dict\/\d+$/.test(url)) {
+        await auth.authenticate(r.token);
+        if (!dict) return res(503, { error: 'The dictionary needs internet' });
+        const e = dict.get(Number(url.split('/')[3]));
+        if (!e) return res(404, { error: 'No such word' });
+        const chars = [...new Set([...(e.kanji[0] ?? '')].filter((c) => /\p{Script=Han}/u.test(c)))];
+        return res(200, { word: e, withKanji: Object.fromEntries(chars.map((c) => [c, dict.withKanji(c, 8).filter((x) => x.i !== e.i)])) });
       } else if (r.method === 'GET' && url === '/api/notify/status') {
         const u = await auth.authenticate(r.token);
         return res(200, await study.notifyStatus(u, resolveToday(query.get('today'))));

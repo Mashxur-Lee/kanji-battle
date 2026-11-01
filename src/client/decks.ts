@@ -564,6 +564,7 @@ function putWord(w: PWord) {
   blanks.forEach((_, k) => drawBlank(k));
   drawBank();
 }
+function closeTranslation() { const d = document.querySelector<HTMLDetailsElement>('.passage-tr'); if (d) { d.open = false; d.classList.remove('shown'); } }
 function drawTranslation() {
   const ru = lang() === 'ru';
   const out = lines.map(({ ex }, i) => el('p', '', `${storyTitle ? '' : `${i + 1}. `}${ru && ex[2] ? ex[2] : ex[1]}`, { 'data-no-i18n': '' }));
@@ -596,6 +597,9 @@ function check() {
       .catch(() => { msg.textContent = tr('Couldn’t add them to Struggling spells (offline?)'); });
   }
   res.hidden = false;
+  // 0.9.9.7: the translation opens by itself when you finish, highlighted, and comes into view
+  const trBox = document.querySelector<HTMLDetailsElement>('.passage-tr');
+  if (trBox) { trBox.open = true; trBox.classList.add('shown'); setTimeout(() => trBox.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350); }
   const again = el('button', 'big', 'New passage', { type: 'button' }) as HTMLButtonElement;
   again.onclick = buildPassage;
   $('passageWords').replaceChildren(el('div', 'p-score', `${right} / ${blanks.length}`), el('p', 'hint center', right === blanks.length ? 'Perfect — every word in its place!' : 'Green: right. Red: the right word, with yours crossed out.'), again);
@@ -625,6 +629,7 @@ function showStart() {
   $('passageNote').hidden = true;
   $('passageWords').replaceChildren();
   $('passageTr').replaceChildren();
+  closeTranslation();
   const fromDeck = storyFrom.startsWith('deck:');
   const n = new Set((fromDeck ? passageWords.filter(storyWord) : passageWords).map((w) => w.kanji)).size;
   const box = el('div', 'p-start');
@@ -745,6 +750,7 @@ async function buildPassage() {
   $('passageResult').hidden = true;
   $('passageResult').replaceChildren();
   hideGloss();
+  closeTranslation();
   const examples = await loadExamples();
   const build = ++passageBuild;
   const text = $('passageText');

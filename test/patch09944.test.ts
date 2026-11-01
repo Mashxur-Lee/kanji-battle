@@ -78,7 +78,7 @@ test('kanji help: every kanji in the word list has a meaning, readings, a Russia
   }
 });
 
-test('onomatopoeia: their own deck (every word, 20 new a session) and never in battle', async () => {
+test('onomatopoeia: their own deck (every word, as many new a day as you set — 0.9.9.7) and never in battle', async () => {
   const ono = VOCAB.filter((v) => v.level === 'ONO');
   assert.ok(ono.length >= 200, `${ono.length} words`);
   for (const v of ono) { assert.ok(v.ono && v.romaji && v.meaning, v.id); assert.ok(!LEVELS.includes(v.level as never)); }
@@ -90,7 +90,9 @@ test('onomatopoeia: their own deck (every word, 20 new a session) and never in b
   const u = await player(store);
   const s = await study.summary(u, TODAY);
   assert.equal(s.decks.ono.total, ono.length);
-  const q = await study.queue(u, 'ono');
+  assert.equal((await study.queue(u, 'ono')).length, 0); // 0.9.9.7: none until you choose
+  await study.setOnoDaily(u, 20, new Date().toISOString().slice(0, 10));
+  const q = await study.queue((await store.findById(u.id))!, 'ono');
   assert.equal(q.length, 20);
   assert.ok(q.every((c) => c.level === 'ONO' && c.ono));
   // the JLPT quiz leaves them out

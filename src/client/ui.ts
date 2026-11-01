@@ -22,7 +22,7 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
 }
 const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { parent.append(...kids); return parent; };
 
-const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends'] as const;
+const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict'] as const;
 export type Screen = (typeof SCREENS)[number];
 let screenListener: (s: Screen) => void = () => {};
 export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };
@@ -51,11 +51,19 @@ const levelsText = (levels: Level[]) => levels.map((l) => LEVEL_LABEL[l]).join('
 
 // ── countdowns (one per slot, driven by requestAnimationFrame) ──────────────
 const timers = new Map<string, number>();
+// 0.9.9.7: a paused game freezes every countdown on screen (the server's clock stands still too)
+let pauseAt: number | null = null, pausedFor = 0;
+const clockNow = () => (pauseAt ?? performance.now()) - pausedFor;
+export function setClocksPaused(on: boolean) {
+  if (on && pauseAt === null) pauseAt = performance.now();
+  else if (!on && pauseAt !== null) { pausedFor += performance.now() - pauseAt; pauseAt = null; }
+}
+export const clocksPaused = () => pauseAt !== null;
 export function countdown(slot: string, durationMs: number, onFrame: (leftMs: number, frac: number) => void, totalMs = durationMs) {
   stopCountdown(slot);
-  const end = performance.now() + durationMs;
+  const end = clockNow() + durationMs;
   const tick = () => {
-    const left = Math.max(0, end - performance.now());
+    const left = Math.max(0, end - clockNow());
     onFrame(left, totalMs > 0 ? left / totalMs : 0);
     if (left > 0) timers.set(slot, requestAnimationFrame(tick));
   };

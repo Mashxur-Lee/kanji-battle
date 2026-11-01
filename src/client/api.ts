@@ -7,6 +7,8 @@ export interface Profile { xp: number; level: number; crit: number; learned: num
   tasks?: DailyTaskState[]; streakDay?: string | null; border?: string; starred?: string[] }
 export interface MonthProgress { month: string; name: string; reward: string; goals: Array<{ id: string; label: string; target: number; value: number }>; done: boolean; unlocked: boolean }
 export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number }
+/** 0.9.9.7: a dictionary word (server/study/DictService.ts) */
+export interface DictEntry { i: number; kanji: string[]; kana: string[]; romaji: string; senses: Array<[string[], string, string[], string]>; ru: string[]; common: boolean; vocabId?: string; level?: Level }
 export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, Array<[kanji: string, mastery: number, progress: number]>>; month: MonthProgress; achCounts?: Partial<Record<string, number>> }
 export interface DailyWord { index: number; total: number; kanji: string; level: Level; timeLimitMs: number }
 export interface DailyDone { correct: number; ms: number; rank: number; players: number; xp: number }
@@ -15,7 +17,7 @@ export interface DailyOverview { day: string; total: number; wordMs: number; min
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
 export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; activity?: string; pic?: string | null; level?: number }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
-export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile }
+export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; onoDaily?: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean; ono?: OnoType }
 export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: CardState; addedAt: number | null; due: number; intervalDays: number; starred?: boolean }
 export interface WordHit { id: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean }
@@ -97,17 +99,20 @@ export const api = {
   me: () => call<{ user: PublicUser; profile: Profile }>('GET', `/api/me?today=${today()}`),
   setAvatar: (image: string) => call<{ profile: Profile }>('PUT', '/api/me/avatar', { image }),
   removeAvatar: () => call<{ profile: Profile }>('DELETE', '/api/me/avatar'),
+  setPose: (pose: string) => call<{ profile: Profile }>('PUT', '/api/me/pose', { pose }),
   setFlame: (flame: FlameId) => call<{ profile: Profile }>('PUT', '/api/me/flame', { flame }),
   setStaff: (staff: StaffId) => call<{ profile: Profile }>('PUT', '/api/me/staff', { staff }),
   setBackground: (background: BackgroundId) => call<{ profile: Profile }>('PUT', '/api/me/background', { background }),
   study: () => call<StudySummary>('GET', `/api/study?today=${today()}`),
   setStudyLevels: (levels: Level[]) => call<StudySummary>('PUT', '/api/study/levels', { levels, today: today() }),
-  queue: (deck: DeckId) => call<{ cards: StudyCard[] }>('GET', `/api/study/queue?deck=${deck}`),
+  queue: (deck: DeckId) => call<{ cards: StudyCard[] }>('GET', `/api/study/queue?deck=${deck}&today=${today()}`),
   review: (vocabId: string, rating: Rating, deck: DeckId = 'all') => call<{ crit: number; xp?: number }>('POST', '/api/study/review', { vocabId, rating, deck, today: today(), tz: new Date().getTimezoneOffset() }),
   undo: (vocabId: string, deck: DeckId = 'all') => call<{ crit: number }>('POST', '/api/study/undo', { vocabId, deck }),
   deckWords: (deck: DeckId) => call<{ words: DeckRow[] }>('GET', `/api/study/deck?deck=${deck}`),
   deckRemove: (deck: DeckId, ids: string[]) => call<{ removed: number }>('POST', '/api/study/deck/remove', { deck, ids }),
   deckAdd: (deck: DeckId, ids: string[]) => call<{ added: string[] }>('POST', '/api/study/deck/add', { deck, ids }),
+  dict: (q: string, tags = false) => call<{ words: DictEntry[]; tags?: Record<string, string> }>('GET', `/api/dict?q=${encodeURIComponent(q)}${tags ? '&tags=1' : ''}`),
+  dictWord: (i: number) => call<{ word: DictEntry; withKanji: Record<string, DictEntry[]> }>('GET', `/api/dict/${i}`),
   searchWords: (q: string) => call<{ words: WordHit[] }>('GET', `/api/study/search?q=${encodeURIComponent(q)}`),
   // the app names a new custom word itself (0.9.9.4), so one added offline keeps its id on the server
   addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', { ...w, id: `u:${uuid().slice(0, 13)}` }),
@@ -125,6 +130,7 @@ export const api = {
   task: (task: 'quiz' | 'passage', score: number, total: number) => call<Profile>('POST', '/api/study/task', { task, today: today(), score, total }),
   setDailyNew: (n: number) => call<StudySummary>('PUT', '/api/study/daily-new', { n, today: today() }),
   /** 0.9.9.4.4: new words a day per level */
+  setOnoDaily: (n: number) => call<StudySummary>('PUT', '/api/study/ono-daily', { n, today: today() }),
   setDailyLevels: (levels: Partial<Record<Level, number>>) => call<StudySummary>('PUT', '/api/study/daily-levels', { levels, today: today() }),
   setBorder: (border: string) => call<{ profile: Profile }>('PUT', '/api/me/border', { border }),
   setBadges: (badges: string[]) => call<{ badges: string[] }>('PUT', '/api/me/badges', { badges }),

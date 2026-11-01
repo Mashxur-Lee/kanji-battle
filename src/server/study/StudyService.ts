@@ -4,7 +4,7 @@ import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry }
 import type { Level, OnoType } from '../../shared/protocol';
 import { LEVELS, studyLevelOf } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
-import { taskPassed, BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId } from '../../shared/progress';
+import { taskPassed, BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
@@ -145,6 +145,14 @@ export class StudyService {
     await this.store.update(u.id, { flame: f });
   }
 
+  /** 0.9.9.7: the combo pose (kept in unlocks as "pose:<id>"; unlocked by level, admins have all). */
+  async setPose(u: UserRecord, p: unknown) {
+    if (!isPose(p)) throw new StudyError('Unknown pose');
+    const def = POSE_DEFS.find((x) => x.id === p)!;
+    if (u.role !== 'admin' && !poseUnlocked(p, u.xp)) throw new StudyError(`Unlocks at level ${def.level}`, 403);
+    await this.store.update(u.id, { unlocks: [...(u.unlocks ?? []).filter((x) => !x.startsWith('pose:')), ...(p === 'none' ? [] : [`pose:${p}`])] });
+  }
+
   /** Magic staff skin (unlocked by your best login streak; admins have all). */
   async setStaff(u: UserRecord, s: unknown) {
     if (!isStaff(s)) throw new StudyError('Unknown staff');
@@ -230,6 +238,7 @@ export class StudyService {
       if (!Number.isFinite(n) || n <= 0) continue;
       per[l] = Math.min(DAILY_LEVEL_MAX, n);
     }
+    if (old.ONO) per.ONO = old.ONO; // 0.9.9.7: the Onomatopoeia number has its own setting
     const levels = openLevels(per, beginner);
     const total = levels.reduce((a, l) => a + per[l]!, 0);
     const rec = (await this.store.update(u.id, {
@@ -280,6 +289,19 @@ export class StudyService {
   }
 
   /** Study → "New spells a day" (10–150), older app versions: shared by the ticked levels. */
+  /** 0.9.9.7: new Onomatopoeia words a day (0 = none; it held every word as new before). */
+  async setOnoDaily(u: UserRecord, raw: unknown, today: string) {
+    const n = Math.max(0, Math.min(ONO_DAILY_MAX, Math.round(Number(raw)) || 0));
+    const plan = planOf(u, today);
+    await this.store.update(u.id, { dailyPlan: { ...plan, per: { ...plan.per, ONO: n } } });
+    return n;
+  }
+  /** new Onomatopoeia words still allowed today */
+  private onoLeft(u: UserRecord, today: string) {
+    const plan = planOf(u, today);
+    return Math.max(0, (plan.per.ONO ?? 0) - (plan.done.ONO ?? 0));
+  }
+
   async setDailyNew(u: UserRecord, raw: unknown, today: string) {
     const n = clampDaily(Number(raw));
     const rec = (await this.store.update(u.id, { dailyNew: n, dailyPlan: { ...planOf(u, today), per: splitDaily(u.studyLevels, n) } }))!;
@@ -408,7 +430,8 @@ export class StudyService {
     return {
       studyLevels: fresh.studyLevels,
       notice,
-      decks: { all: counts(cards.filter((c) => deckOf(c) === 'all'), now), struggling: counts(cards.filter((c) => deckOf(c) === 'struggling'), now), custom: counts(cards.filter((c) => deckOf(c) === 'custom'), now), ono: counts(cards.filter((c) => deckOf(c) === 'ono'), now) },
+      decks: { all: counts(cards.filter((c) => deckOf(c) === 'all'), now), struggling: counts(cards.filter((c) => deckOf(c) === 'struggling'), now), custom: counts(cards.filter((c) => deckOf(c) === 'custom'), now), ono: onoCounts(counts(cards.filter((c) => deckOf(c) === 'ono'), now), this.onoLeft(fresh, today)) },
+      onoDaily: planOf(fresh, today).per.ONO ?? 0,
       dailyNew: fresh.dailyNew ?? DAILY_NEW,
       dailyByLevel: planOf(fresh, today).per,
       studyXpToday: (await this.store.activity(u.id, today)).find((a) => a.day === today)?.studyXp ?? 0,
@@ -417,19 +440,20 @@ export class StudyService {
   }
 
   /** Cards to study now, Anki order: (re)learning due → reviews due → new. */
-  async queue(u: UserRecord, deck: Deck, now = clockNow(), limit = 500): Promise<StudyItem[]> { // 0.9.9.4.3: was 60 — a big day came in two sessions
+  async queue(u: UserRecord, deck: Deck, now = clockNow(), limit = 500, today = resolveToday(undefined, now)): Promise<StudyItem[]> { // 0.9.9.4.3: was 60 — a big day came in two sessions
     if (!isDeck(deck)) throw new StudyError('Unknown deck');
     const custom = await this.words(u.id);
     if (deck === 'ono') await this.fillOno(u.id);
     const cards = (await this.store.cards(u.id)).filter((c) => deckOf(c) === deck && !!this.info(c.vocabId, custom));
     const rank = (c: SrsCard) => (c.state === 'learning' || c.state === 'relearning' ? 0 : c.state === 'review' ? 1 : 2);
-    // Onomatopoeia: the deck holds every word; new ones come ONO_NEW_SESSION at a time, in your own fixed order
+    // Onomatopoeia: the deck holds every word; new ones come as many a day as you set (0.9.9.7), in your own fixed order
+    const onoNew = deck === 'ono' ? this.onoLeft((await this.store.findById(u.id)) ?? u, today) : 0;
     const order = deck === 'ono' ? new Map(shuffle(cards.map((c) => c.vocabId).sort(), seededRng(`${u.id}:ono`)).map((id, i) => [id, i])) : null;
     let fresh = 0;
     return cards
       .filter((c) => c.state === 'new' || isDue(c, now))
       .sort((a, b) => rank(a) - rank(b) || (order && a.state === 'new' && b.state === 'new' ? order.get(a.vocabId)! - order.get(b.vocabId)! : a.due - b.due))
-      .filter((c) => !order || c.state !== 'new' || fresh++ < ONO_NEW_SESSION)
+      .filter((c) => !order || c.state !== 'new' || fresh++ < onoNew)
       .slice(0, limit)
       .map((c) => this.item(c, now, custom));
   }
@@ -459,6 +483,11 @@ export class StudyService {
       });
     }
     await this.store.saveCard(u.id, next);
+    if (d === 'ono' && card.state === 'new') { // 0.9.9.7: one of today's new Onomatopoeia words
+      const fresh = (await this.store.findById(u.id)) ?? u;
+      const plan = planOf(fresh, today);
+      await this.store.update(u.id, { dailyPlan: { ...plan, done: { ...plan.done, ONO: (plan.done.ONO ?? 0) + 1 } } });
+    }
     if (rating !== 'again') await this.progress.record(u.id, today, { reviews: 1 });
     return { card: next, crit: await this.crit(u.id, now), xp };
   }
@@ -474,6 +503,11 @@ export class StudyService {
     if (!last || last.before.vocabId !== vocabId || last.deck !== d) throw new StudyError('Nothing to undo', 409);
     stack.pop();
     await this.store.saveCard(u.id, last.before);
+    if (d === 'ono' && last.before.state === 'new') { // a new Onomatopoeia word goes back to today's allowance
+      const fresh = (await this.store.findById(u.id)) ?? u;
+      const plan = planOf(fresh, last.today);
+      await this.store.update(u.id, { dailyPlan: { ...plan, done: { ...plan.done, ONO: Math.max(0, (plan.done.ONO ?? 0) - 1) } } });
+    }
     if (last.counted) await this.store.addActivity(u.id, last.today, { reviews: -1 });
     if (last.xp) { await this.store.addXp(u.id, -last.xp); await this.store.addActivity(u.id, last.today, { studyXp: -last.xp, xp: -last.xp }); }
     if (last.critCounted) {
@@ -584,8 +618,10 @@ export class StudyService {
 export const DAILY_LEVEL_MAX = 150;
 /** XP for each study card you answer, and the most a day from cards */
 export const STUDY_XP = 5, STUDY_XP_DAILY = 500;
-/** new onomatopoeia cards per study session */
-export const ONO_NEW_SESSION = 20;
+/** new onomatopoeia cards a day: at most (0.9.9.7: you choose; it was 20 a session) */
+export const ONO_DAILY_MAX = 100;
+/** the Onomatopoeia deck's "new": only as many as today still allows */
+const onoCounts = (c: DeckCounts, left: number): DeckCounts => ({ ...c, new: Math.min(c.new, left) });
 // (a function: in the app's offline engine the word list loads after this module)
 const onoWords = () => VOCAB.filter((v) => v.level === 'ONO');
 /** one "new a day" number shared by levels (before 0.9.9.4.4) → per level */

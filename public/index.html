@@ -12,6 +12,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Kanji Wizards">
+  <script>try { if (localStorage.getItem('kb:theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) { /* private mode */ }</script>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -67,6 +68,9 @@
       <label id="kanaRow" class="toggle-row" hidden><input id="kanaMastered" type="checkbox"> I've mastered hiragana</label>
       <p id="kanaInfo" class="hint" hidden>Unlocks the kanji levels (N5–N1) for studying and battles.</p>
       <label id="gameKbRow" class="toggle-row" hidden>Battle keyboard <select id="gameKbSel" aria-label="Battle keyboard"><option value="game">Game keyboard</option><option value="system">Phone keyboard</option></select></label>
+      <div id="remindTestRow" class="toggle-row" hidden>Reminders <button id="remindTest" class="pill" type="button">Send a test</button></div>
+      <p id="remindLast" class="hint" hidden></p>
+      <label class="toggle-row">Theme <select id="themeSel" aria-label="Theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
       <label class="toggle-row">Language <select id="langSel" aria-label="Language" data-no-i18n><option value="en">English</option><option value="ru">Русский</option></select></label>
     </div>
   </div>
@@ -144,6 +148,7 @@
   <h4>Credits</h4>
   <ul class="credits">
     <li>Word lists and English meanings: <a href="https://github.com/jamsinclair/open-anki-jlpt-decks" target="_blank" rel="noopener">open-anki-jlpt-decks</a> (MIT), based on Jonathan Waller's JLPT lists (<a href="https://www.tanos.co.uk/jlpt/" target="_blank" rel="noopener">tanos.co.uk</a>, CC BY). Those lists draw on <a href="https://www.edrdg.org/jmdict/j_jmdict.html" target="_blank" rel="noopener">JMdict / EDICT</a> by the Electronic Dictionary Research and Development Group, used under <a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">CC BY-SA 4.0</a>.</li>
+    <li>Dictionary: <a href="https://www.edrdg.org/jmdict/j_jmdict.html" target="_blank" rel="noopener">JMdict</a> (EDRDG, CC BY-SA 4.0), via <a href="https://github.com/scriptin/jmdict-simplified" target="_blank" rel="noopener">jmdict-simplified</a>.</li>
     <li>Handwriting recognition: <a href="https://github.com/asdfjkl/kanjicanvas" target="_blank" rel="noopener">KanjiCanvas</a> by Dominik Klein (MIT); its reference strokes come from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> by Ulrich Apel (CC BY-SA 3.0).</li>
     <li>Kanji meanings and readings (tap a kanji): <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noopener">KANJIDIC2</a> by the Electronic Dictionary Research and Development Group (<a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">CC BY-SA 4.0</a>), via <a href="https://github.com/davidluzgouveia/kanji-data" target="_blank" rel="noopener">kanji-data</a> by David Gouveia (MIT); the parts of each kanji from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> (CC BY-SA 3.0). The memory stories and Russian meanings were written for this game.</li>
     <li>3D: <a href="https://threejs.org/" target="_blank" rel="noopener">three.js</a> (MIT).</li>
@@ -283,6 +288,7 @@
           <button id="progressBtn" class="alt">Progress</button>
           <button id="historyBtn" class="alt">Match history</button>
         </div>
+        <button id="dictBtn" class="alt dict-btn"><span lang="ja" class="dict-jp">辞書</span> Dictionary</button>
         <button id="adminBtn" class="alt" hidden>Admin <span id="adminBadge" class="badge" hidden></span></button>
         <p id="error" class="error" role="alert"></p>
       </div>
@@ -358,6 +364,17 @@
     <div id="historyList" class="history-list"></div>
   </section>
 
+  <!-- DICTIONARY (0.9.9.7) -->
+  <section id="dict" class="screen" hidden>
+    <button id="dictBack" class="back">← Menu</button>
+    <div class="page-head"><h2>Dictionary <span lang="ja" class="dict-jp">辞書</span></h2></div>
+    <form id="dictForm" class="dict-search" autocomplete="off">
+      <input id="dictQ" type="search" lang="ja" placeholder="Kanji, kana, romaji or English — 信用, しんよう, shinyou, trust" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Search the dictionary">
+      <button id="dictGo" type="submit">Search</button>
+    </form>
+    <div id="dictBody" class="dict-body"></div>
+  </section>
+
   <!-- STUDY: deck choice -->
   <section id="study" class="screen" hidden>
     <button id="studyBack" class="back">← Menu</button>
@@ -381,7 +398,8 @@
       </div>
       <div class="deck-card ono">
         <h3>Onomatopoeia</h3>
-        <p class="hint">Every giseigo, gitaigo and gijōgo: sounds (ワンワン), states (きらきら) and feelings (ドキドキ) — 20 new a session.</p>
+        <p class="hint">Every giseigo, gitaigo and gijōgo: sounds (ワンワン), states (きらきら) and feelings (ドキドキ). Choose how many new ones a day (0 = none).</p>
+        <div class="level-plan ono-plan"><div class="lp-row" id="onoPlanRow"><span class="lp-name">New a day</span><div class="lp-step"><button type="button" class="lp-btn" id="onoMinus" aria-label="New a day −1">−</button><input id="onoDaily" type="text" inputmode="numeric" maxlength="3" value="0" aria-label="New onomatopoeia a day"><button type="button" class="lp-btn" id="onoPlus" aria-label="New a day +1">+</button></div></div></div>
         <div id="countsOno" class="counts"></div>
         <div class="deck-btns"><button id="studyOno" class="big">Study</button><button class="deck-open" data-deck="ono"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
@@ -486,6 +504,7 @@
       <button role="tab" data-tab="arena" class="cust-tab">Arena</button>
       <button role="tab" data-tab="staff" class="cust-tab">Magic staff</button>
       <button role="tab" data-tab="omni" class="cust-tab">Omnipotence</button>
+      <button role="tab" data-tab="pose" class="cust-tab">Combo pose</button>
     </div>
     <div class="cust-body">
       <div class="cust-preview">
@@ -792,8 +811,10 @@
       </li>
       <li><b>Your own words</b> — every battle plays the words of your levels from your All spells (marked ★ on the study cards); random words fill in when you have too few.</li>
       <li><b>Fast + correct = more damage.</b> Combos build up to ×1.5 (5 in a row sets you on fire 🔥). <b>Skip</b> (Esc) shows the answer.</li>
-      <li><b>Study spells</b> — Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (− / +, then Apply). Every card you answer gives +5 XP (up to 500 a day); ↶ Undo takes the last answer back.</li>
+      <li><b>Study spells</b> — Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (− / +, then Apply); Onomatopoeia has its own “New a day” number (0 until you set it). Every card you answer gives +5 XP (up to 500 a day); ↶ Undo takes the last answer back.</li>
       <li><b>Practice</b> — the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 10 new stories a day — the counter shows how many are left; ★ starred words go in first, and the words you miss go to Struggling spells). Tap any kanji for its parts and a memory story.</li>
+      <li><b>Dictionary</b> (辞書, main menu) — type a word in kanji, kana, romaji or English: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji — and “+ Add to…” puts it in any deck.</li>
+      <li><b>Combo pose</b> — in <i>Customize</i>, choose what your character does while on fire: Levitation, Duelist, Channel or Lotus (they unlock as you level up). Everyone in the battle sees it.</li>
       <li><b>Hiragana first</b> — beginners study ひらがな until they tick “I’ve mastered hiragana” in Settings. Until then the kanji levels are locked: they add no new words, but the numbers you set for them are kept.</li>
       <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
       <li><b>Daily streak</b> — a day counts when you do all four daily tasks: study 10 spells, a JLPT quiz, the daily challenge and a reading passage. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
@@ -811,7 +832,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.6.1</div>
+<div id="version" class="version">v0.9.9.7</div>
 <script src="/app.js"></script>
 </body>
 </html>

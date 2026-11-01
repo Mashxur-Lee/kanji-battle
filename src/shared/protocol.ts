@@ -78,6 +78,7 @@ export interface PlayerView {
   flame: string; // colour of their combo flames ('blue' | 'purple')
   staff?: string; // magic staff skin
   border?: string; // avatar border (0.9.9.3)
+  pose?: string; // 0.9.9.7: combo pose (Customize)
 }
 
 export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number }

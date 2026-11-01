@@ -8,7 +8,7 @@ import type { Matchmaker } from './Matchmaker';
 import type { RoomManager } from './RoomManager';
 import { picUrl, type StudyService } from './study/StudyService';
 import type { SocialService } from './study/SocialService';
-import { isKanaBeginner, levelsFor, MODE_LEVEL, modeUnlocked } from '../shared/progress';
+import { isKanaBeginner, levelsFor, MODE_LEVEL, modeUnlocked, poseOf } from '../shared/progress';
 
 const MAX_ANSWER_LENGTH = 40;
 const MAX_WRITTEN_CHARS = 8;
@@ -297,7 +297,7 @@ export class Session implements Client {
   /** Crit chance and XP shown in rooms (crit comes from learned flashcards). */
   private async profile(): Promise<MemberProfile> {
     const rec = await this.auth.store.findById(this.user!.id);
-    return { crit: await this.study.crit(this.user!.id), xp: rec?.xp ?? 0, pic: rec ? picUrl(rec) : null, flame: rec?.flame ?? 'blue', staff: rec?.staff ?? 'verdant', border: rec?.border ?? 'none' };
+    return { crit: await this.study.crit(this.user!.id), xp: rec?.xp ?? 0, pic: rec ? picUrl(rec) : null, flame: rec?.flame ?? 'blue', staff: rec?.staff ?? 'verdant', border: rec?.border ?? 'none', pose: poseOf(rec?.unlocks) };
   }
 
   private async enter(room: Room, levels: Level[]) {
