@@ -617,6 +617,9 @@ function scene(id: BackgroundId, t: TimeOfDay) {
 }
 
 const cache = new Map<string, string>();
+/** phones and tablets (or "reduce motion"): the background as a still picture */
+export const stillBackground = () => matchMedia('(pointer: coarse), (prefers-reduced-motion: reduce)').matches;
+const stillUrls = new Map<string, string>();
 /** How long the time-of-day change takes: the scene fades out to dusk-dark, swaps, and fades back in. */
 export const BG_FADE_MS = 3200;
 let fadeTimer = 0;
@@ -629,7 +632,16 @@ export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfD
   const swap = () => {
     const layer = document.createElement('div');
     layer.className = 'bg-layer';
-    layer.innerHTML = cache.get(key)!;
+    if (stillBackground()) {
+      // 0.9.9.7.1: phones get the scene as one still picture — the live SVG (dozens of animated parts with glow
+      // filters, redrawn every frame under blurred panels) flickered and lagged in the Android app
+      const img = document.createElement('img');
+      img.alt = ''; img.decoding = 'async'; img.className = 'bg-still';
+      const svg = cache.get(key)!.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replace(/(<svg[^>]*>)/, '$1<style>.bg-comet,.bg-spark circle{display:none}</style>');
+      if (stillUrls.has(key)) img.src = stillUrls.get(key)!;
+      else { const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' })); stillUrls.set(key, url); img.src = url; }
+      layer.append(img);
+    } else layer.innerHTML = cache.get(key)!;
     const old = el.querySelector('.bg-layer');
     if (old) old.replaceWith(layer); else el.prepend(layer);
     el.dataset.bg = id;

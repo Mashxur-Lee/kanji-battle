@@ -1,5 +1,5 @@
-// The daily streak (0.9.9.3): a day counts once four tasks are done — study 10 spells, a JLPT quiz, the daily
-// challenge and a reading passage. Shown when you log in (unless you tick "don't show again"), from the menu,
+// The daily streak (0.9.9.3): a day counts once the tasks are done — study 10 spells, a JLPT quiz or a reading
+// passage (one task since 0.9.9.7.1), and the daily challenge. Shown when you log in (unless you tick "don't show again"), from the menu,
 // and in your profile card.
 
 import type { Profile } from './api';
@@ -12,7 +12,7 @@ const store = {
   get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
   set: (k: string, v: string) => { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* private mode */ } },
 };
-const ICON: Record<string, string> = { learn: '学', quiz: '問', daily: '日', passage: '読' };
+const ICON: Record<string, string> = { learn: '学', practice: '問', daily: '日' };
 /** what each task's "Go" button opens (set by main.ts) */
 export const taskActions: Partial<Record<string, () => void>> = {};
 
@@ -28,7 +28,7 @@ export function renderTasks(p: Profile) {
   const tasks = p.tasks ?? [];
   if (!tasks.length) return;
   const n = doneCount(p), all = n === tasks.length;
-  if (wasAll === false && all) ui.toast(`🔥 ${tr('Daily streak kept!')} +500 XP`, 5000); // just finished the fourth task
+  if (wasAll === false && all) ui.toast(`🔥 ${tr('Daily streak kept!')} +500 XP`, 5000); // just finished the last task
   wasAll = all;
   const btn = $('tasksBtn');
   btn.hidden = false;

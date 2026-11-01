@@ -166,7 +166,7 @@ export class Room {
     const m = this.roster.find((p) => p.id === id);
     if (!m || this.phase === 'game' || levels.length === 0) return;
     if (this.mode === 'rapid') {
-      for (const p of this.roster) if (!p.bot) p.levels = [...levels];
+      for (const p of this.roster) if (!p.bot) { p.levels = [...levels]; p.ready = false; } // shared levels: everyone confirms again
     } else m.levels = levels;
     if (this.phase === 'lobby') this.broadcastLobby();
   }
@@ -241,10 +241,10 @@ export class Room {
     this.broadcast({ type: 'chat', messages: [msg] });
   }
 
-  /** Deck Duel lobby: no levels to pick, just Ready / Not ready. Starts once everyone is ready. */
+  /** Ready / Not ready in the lobby (0.9.9.7.1: every mode, not only Deck Duel). Starts once everyone is ready. */
   setLobbyReady(id: PlayerId, ready: boolean) {
     const m = this.roster.find((p) => p.id === id);
-    if (!m || this.phase !== 'lobby' || this.mode !== 'deck') return;
+    if (!m || this.phase !== 'lobby') return;
     m.ready = !!ready;
     if (this.roster.length >= this.minPlayers && this.roster.every((p) => p.ready)) return this.startGame();
     this.broadcastLobby();
@@ -390,7 +390,7 @@ export class Room {
       // 0.9.9.4.4: the cards come from both players' All spells (an AI's share: random words)
       for (const p of this.roster) if (!p.bot) this.loadSpells(p.id); // fresh for the next draft round
       const spells = () => this.roster.map((p) => this.spells.get(p.id) ?? new Set<string>());
-      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: 0, pic: p.profile.pic ?? null, flame: p.profile.flame ?? 'blue', staff: p.profile.staff ?? 'verdant' })), () => buildDraftPool(VOCAB, writable, Math.random, undefined, spells()), emit, judge, Math.random, clock.now, undefined, clock);
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: 0, pic: p.profile.pic ?? null, flame: p.profile.flame ?? 'blue', staff: p.profile.staff ?? 'verdant', pose: p.profile.pose ?? 'none' })), () => buildDraftPool(VOCAB, writable, Math.random, undefined, spells()), emit, judge, Math.random, clock.now, undefined, clock);
       this.game.start();
       return;
     }

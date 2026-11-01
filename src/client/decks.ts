@@ -769,7 +769,10 @@ async function buildPassage() {
   const seen = new Set<string>();
   const mixed = [...usable].sort(() => Math.random() - 0.5).filter((w) => !seen.has(w.kanji) && !!seen.add(w.kanji));
   const star = mixed.filter((w) => isStarred(w.id)), rest = mixed.filter((w) => !isStarred(w.id));
-  const pool = [...star, ...rest.filter((w) => !!w.id && examples.has(w.id)), ...rest.filter((w) => !w.id || !examples.has(w.id))].slice(0, 8);
+  // 0.9.9.7.1: starred words come first but don't fill the whole story — up to 6 of the 8, the rest from your other words
+  const others = [...rest.filter((w) => !!w.id && examples.has(w.id)), ...rest.filter((w) => !w.id || !examples.has(w.id))];
+  const nStar = Math.min(star.length, others.length >= 2 ? 6 : 8 - others.length);
+  const pool = [...star.slice(0, nStar), ...others, ...star.slice(nStar)].slice(0, 8);
   blanks = []; picked = 0; checked = false; lines = []; storyTitle = null;
   $('passageWords').replaceChildren();
   // 0.9.9.4.4.1: one story with all the words, written by a small AI on the server; the words' example sentences

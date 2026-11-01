@@ -126,7 +126,9 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
   counts($('countsStruggle'), s.decks.struggling);
   counts($('countsCustom'), s.decks.custom);
   if (s.decks.ono) counts($('countsOno'), s.decks.ono);
-  if (document.activeElement !== $('onoDaily')) { $<HTMLInputElement>('onoDaily').value = String(s.onoDaily ?? 0); $('onoPlanRow').classList.toggle('on', (s.onoDaily ?? 0) > 0); }
+  onoSaved = s.onoDaily ?? 0;
+  $<HTMLInputElement>('onoDaily').value = String(onoSaved);
+  onoChanged();
   $('ssToday').textContent = String(s.profile.learnedToday);
   $('ssTotal').textContent = String(s.profile.learned);
   $('ssXp').textContent = `+${s.studyXpToday ?? 0}`;
@@ -145,17 +147,31 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
   onProfile(s.profile);
 }
 
-// 0.9.9.7: new Onomatopoeia words a day (saved a moment after the last change)
+// 0.9.9.7: new Onomatopoeia words a day — 0.9.9.7.1: like All spells, a change waits for Apply (or Cancel)
+let onoSaved = 0;
+function onoChanged() {
+  const box = $<HTMLInputElement>('onoDaily');
+  const n = Number(box.value) || 0;
+  $('onoPlanRow').classList.toggle('on', n > 0);
+  $('onoPlanRow').classList.toggle('changed', n !== onoSaved);
+  $('onoApply').hidden = n === onoSaved;
+  $('onoApplyText').textContent = n > onoSaved ? `${n} new a day — adds ${n - onoSaved} more today` : n ? `${n} new a day` : 'No new onomatopoeia';
+}
 {
   const box = $<HTMLInputElement>('onoDaily');
-  let t = 0;
-  const save = () => { clearTimeout(t); t = window.setTimeout(() => void api.setOnoDaily(Number(box.value) || 0).then(render).catch((e) => ui.toast((e as Error).message)), 600); };
-  const set = (n: number) => { box.value = String(Math.max(0, Math.min(100, Math.round(n) || 0))); $('onoPlanRow').classList.toggle('on', Number(box.value) > 0); save(); };
+  const set = (n: number) => { box.value = String(Math.max(0, Math.min(100, Math.round(n) || 0))); onoChanged(); };
   $('onoMinus').onclick = () => set(Number(box.value) - 1);
   $('onoPlus').onclick = () => set(Number(box.value) + 1);
-  box.oninput = () => { box.value = box.value.replace(/\D/g, '').slice(0, 3); save(); };
+  box.oninput = () => { box.value = box.value.replace(/\D/g, '').slice(0, 3); onoChanged(); };
   box.onblur = () => set(Number(box.value));
   box.onkeydown = (e) => { if (e.key === 'Enter') box.blur(); };
+  $('onoCancelBtn').onclick = () => set(onoSaved);
+  $('onoApplyBtn').onclick = async () => {
+    const btn = $<HTMLButtonElement>('onoApplyBtn');
+    btn.disabled = true;
+    try { render(await api.setOnoDaily(Number(box.value) || 0)); } catch (e) { ui.toast((e as Error).message); }
+    btn.disabled = false;
+  };
 }
 
 initDecks({ changed: () => { if (!$('study').hidden) void api.study().then(render).catch(() => {}); }, back: () => void openStudy() });
@@ -450,10 +466,10 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
     const mine = poseOf(profile.unlocks);
     return POSE_DEFS.map((d) => ({
       id: d.id, name: d.name, blurb: `${d.blurb} ${d.id === 'none' ? '' : 'You strike it while you’re on fire — 5 correct casts in a row, or your Omnipotence — and everyone in the battle sees it.'}`.trim(),
-      locked: !isAdmin && !poseUnlocked(d.id, profile.xp), lock: `Level ${d.level}`,
-      lockedToast: `Reach level ${d.level} to unlock the ${d.name} pose`,
+      locked: !isAdmin && !poseUnlocked(d.id, profile.learned ?? 0), lock: `${d.learned} spells learned`,
+      lockedToast: `Learn ${d.learned} spells to unlock the ${d.name} pose (you have ${profile.learned ?? 0})`,
       equipped: mine === d.id,
-      tile: () => { const t = el('div', 'pose-tile'); t.textContent = POSE_ICON[d.id]; return t; },
+      tile: () => { const t = el('div', 'pose-tile'); t.innerHTML = poseArt(d.id); return t; },
       equip: () => api.setPose(d.id),
     }));
   }
@@ -467,7 +483,31 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
   }));
 }
 
-const POSE_ICON: Record<string, string> = { none: '🧍', float: '🪶', aim: '🎯', twohand: '🙌', lotus: '🧘' };
+/**
+ * 0.9.9.7.1: a little drawing of each combo pose (it was an emoji) — a robed wizard with a glowing staff:
+ * standing, floating with a bent leg, side-on aiming the staff, the staff upright in both hands.
+ */
+function poseArt(id: string): string {
+  const robe = '#a58bff', robeLo = '#7a5ce6', skin = '#ffe2cc', wood = '#c08850', gem = '#8ff0ff';
+  const glow = (x: number, y: number) => `<circle cx="${x}" cy="${y}" r="7" fill="${gem}" opacity=".28"/><circle cx="${x}" cy="${y}" r="3.6" fill="${gem}"/>`;
+  const shadow = (y: number, w: number) => `<ellipse cx="40" cy="${y}" rx="${w}" ry="3" fill="#000" opacity=".22"/>`;
+  const head = (x: number, y: number, tilt = 0) => `<g transform="rotate(${tilt} ${x} ${y})"><path d="M${x - 11} ${y - 5} L${x + 11} ${y - 5} L${x + 2} ${y - 25} Z" fill="${robeLo}"/><rect x="${x - 13}" y="${y - 7}" width="26" height="4" rx="2" fill="${robeLo}"/><circle cx="${x}" cy="${y + 3}" r="6.5" fill="${skin}"/></g>`;
+  let art = '';
+  if (id === 'float') {
+    art = `${shadow(74, 10)}<path d="M33 30 L47 30 L52 54 L28 54 Z" fill="${robe}"/><path d="M34 54 L33 64" stroke="${robeLo}" stroke-width="4" stroke-linecap="round"/><path d="M45 54 L48 60 L42 63" stroke="${robeLo}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      ${head(40, 24)}<path d="M33 34 L24 42" stroke="${robe}" stroke-width="4" stroke-linecap="round"/><path d="M47 34 L54 40" stroke="${robe}" stroke-width="4" stroke-linecap="round"/><path d="M57 14 L54 62" stroke="${wood}" stroke-width="3" stroke-linecap="round"/>${glow(57, 13)}
+      <path d="M20 60 q4 -4 8 0 M52 66 q4 -4 8 0" stroke="${gem}" stroke-width="1.5" fill="none" opacity=".7"/>`;
+  } else if (id === 'aim') {
+    art = `${shadow(72, 12)}<path d="M30 34 L42 34 L46 68 L26 68 Z" fill="${robe}"/>${head(36, 28, -4)}<path d="M40 38 L54 40" stroke="${robe}" stroke-width="4" stroke-linecap="round"/><circle cx="55" cy="40" r="2.6" fill="${skin}"/>
+      <path d="M46 41 L70 39" stroke="${wood}" stroke-width="3" stroke-linecap="round"/>${glow(71, 39)}<path d="M74 34 l4 -3 M75 39 h5 M74 44 l4 3" stroke="${gem}" stroke-width="1.5" stroke-linecap="round"/>`;
+  } else if (id === 'twohand') {
+    art = `${shadow(72, 12)}<path d="M31 34 L49 34 L54 68 L26 68 Z" fill="${robe}"/>${head(40, 28)}<path d="M40 10 L40 70" stroke="${wood}" stroke-width="3" stroke-linecap="round"/>${glow(40, 9)}
+      <path d="M32 38 L38 46 M48 38 L42 52" stroke="${robe}" stroke-width="4" stroke-linecap="round"/><circle cx="40" cy="46" r="2.8" fill="${skin}"/><circle cx="40" cy="52" r="2.8" fill="${skin}"/>`;
+  } else {
+    art = `${shadow(72, 12)}<path d="M31 34 L49 34 L54 68 L26 68 Z" fill="${robe}"/>${head(40, 28)}<path d="M32 38 L28 52 M48 38 L54 46" stroke="${robe}" stroke-width="4" stroke-linecap="round"/><path d="M58 16 L54 70" stroke="${wood}" stroke-width="3" stroke-linecap="round"/>${glow(58, 15)}`;
+  }
+  return `<svg viewBox="4 4 78 74" aria-hidden="true">${art}</svg>`;
+}
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
   staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak — your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
@@ -540,6 +580,7 @@ function renderCustomize() {
   stage2.hidden = showCanvas || in3d;
   $('custStage').dataset.tab = custTab;
   if ((custTab === 'arena' || custTab === 'omni' || custTab === 'pose') && !arena3Tried) void ensureArena3();
+  $('poseInsetLbl').hidden = !(in3d && custTab === 'pose');
   if (in3d) showArena3(custTab as 'arena' | 'omni' | 'pose', sel.id, profile); else arena3?.setActive(false);
   if (custTab === 'staff') {
     if (preview) preview.show(sel.id);
@@ -556,7 +597,8 @@ function renderCustomize() {
     card.append(avatarDisc(profile, sel.id, 'pp-pic big'), meta);
     stage2.replaceChildren(card);
   } else if (custTab === 'pose') {
-    const box = el('div', 'pose-2d'); box.append(el('div', 'pose-tile big', POSE_ICON[sel.id] ?? ''), el('p', 'hint', 'Combo poses show in the 3D arena (Settings → 3D arena: Full or Lite).'));
+    const big = el('div', 'pose-tile big'); big.innerHTML = poseArt(sel.id);
+    const box = el('div', 'pose-2d'); box.append(big, el('p', 'hint', 'Combo poses show in the 3D arena (Settings → 3D arena: Full or Lite).'));
     stage2.replaceChildren(box);
   } else {
     const w = el('div', 'wizard me onfire');
@@ -569,7 +611,7 @@ function renderCustomize() {
   }
 
   // name, description, Equip
-  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? (sel.lock.startsWith('Level') ? `Unlocks at ${sel.lock.replace('Level', 'level')}` : sel.lock === 'Tutorial' ? 'Finish the tutorial to unlock' : sel.lock.endsWith('goals') ? `Unlocks with the ${sel.lock}` : `Unlocks at a ${sel.lock}`) : 'Equip') as HTMLButtonElement;
+  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? (sel.lock.startsWith('Level') ? `Unlocks at ${sel.lock.replace('Level', 'level')}` : sel.lock === 'Tutorial' ? 'Finish the tutorial to unlock' : sel.lock.endsWith('goals') ? `Unlocks with the ${sel.lock}` : sel.lock.endsWith('learned') ? `Unlocks at ${sel.lock}` : `Unlocks at a ${sel.lock}`) : 'Equip') as HTMLButtonElement;
   btn.disabled = sel.equipped;
   btn.classList.toggle('locked', sel.locked);
   btn.onclick = () => void equip(sel);
@@ -629,8 +671,11 @@ function showArena3(tab: 'arena' | 'omni' | 'pose', id: string, p: Profile) {
   arena3.focusOpp(tab === 'omni' || tab === 'pose'); // the flames / the pose: up close; the arena: the whole view
   const color = tab === 'omni' ? flameColor(id) : tab === 'pose' ? flameColor(p.flame) : undefined;
   arena3.setPose('opp', tab === 'pose' ? id : 'none'); // 0.9.9.7: you, in the combo pose you're looking at
+  arena3.setPose('me', tab === 'pose' ? id : 'none'); // … and in the corner as you see it yourself (0.9.9.7.1)
+  arena3.setInset(tab === 'pose');
+  $('poseInsetLbl').hidden = tab !== 'pose';
   arena3.onfire('opp', tab === 'omni' || tab === 'pose', color);
-  arena3.onfire('me', tab === 'omni', color); // and the first-person fire along the bottom, as you see it in a battle
+  arena3.onfire('me', tab === 'omni' || tab === 'pose', color); // and the first-person fire along the bottom, as you see it in a battle
 }
 /** leaving Customize: the preview stops drawing */
 export function customizeHidden() { arena3?.setActive(false); }

@@ -2,11 +2,11 @@
 // with their readings, level and meanings. Open one for everything about it: every meaning by part of speech,
 // the forms of a verb or adjective, an example sentence, each kanji (meaning, readings, parts, memory picture,
 // stroke order) and other words written with it — and add it to any of your decks.
-import { api, type DictEntry } from './api';
+import { api } from './api';
+import { Dictionary, type DictEntry } from '../shared/dict';
 import { conjugate } from './conjugate';
 import { DECK_LABEL } from './decks';
 import { exampleFor } from './examples';
-import { useGameKb } from './gamekb';
 import { lang, tr } from './i18n';
 import { loadKanji, showKanji } from './kanjihelp';
 import { LEVEL_LABEL } from '../shared/protocol';
@@ -25,8 +25,16 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: strin
 };
 
 let tags: Record<string, string> = {};
-let lastQ = '', lastHits: DictEntry[] = [];
+let lastQ = '', lastHits: DictEntry[] = [], shown = 30;
 let busy = 0;
+// 0.9.9.7.1: the dictionary comes with the app (cached for offline use) and is searched right here
+let dictP: Promise<Dictionary> | null = null;
+function dictionary(): Promise<Dictionary> {
+  dictP ??= Promise.all([fetch('/dict.json').then((r) => { if (!r.ok) throw new Error(`dict ${r.status}`); return r.json(); }), import('./offline/vocab').then(async (m) => { await m.loadVocab(); return m.VOCAB; })])
+    .then(([data, vocab]) => { const d = new Dictionary(data, vocab); tags = d.tags; return d; })
+    .catch((e) => { dictP = null; throw e; });
+  return dictP;
+}
 
 /** the word with its reading over it */
 function headword(w: DictEntry, cls = 'dw-head') {
@@ -53,34 +61,26 @@ async function search(q: string) {
   const n = ++busy;
   body.replaceChildren(h('p', 'hint center', tr('Searching…')));
   try {
-    const r = await api.dict(q, !Object.keys(tags).length);
+    const d = await dictionary();
     if (n !== busy) return;
-    if (r.tags) tags = r.tags;
-    lastQ = q; lastHits = r.words;
+    lastQ = q; lastHits = d.search(q, 120); shown = 30;
     drawList();
-  } catch (e) {
-    if (n === busy) body.replaceChildren(h('p', 'hint center', (e as Error).message));
+  } catch {
+    if (n === busy) body.replaceChildren(h('p', 'hint center', tr('The dictionary couldn’t load — open it once with internet, then it works offline too.')));
   }
 }
 
 function drawHome() {
-  $('dictBody').replaceChildren(h('div', 'dict-home', undefined),);
-  const home = $('dictBody').firstElementChild!;
-  home.append(h('p', 'hint', tr('Type a word in kanji, kana, romaji or English. Open a word for all its meanings, its kanji with memory pictures, example sentences — and add it to your decks.')));
-  const tries = h('div', 'dict-tries');
-  for (const t of ['信用', 'たべる', 'kirei', 'magic', 'ドキドキ']) {
-    const b = h('button', 'pill', t, { type: 'button', lang: 'ja', 'data-no-i18n': '' });
-    b.onclick = () => { $<HTMLInputElement>('dictQ').value = t; void search(t); };
-    tries.append(b);
-  }
-  home.append(tries);
+  const home = h('div', 'dict-home');
+  home.append(h('p', 'hint', tr('Type a word in kanji, kana, romaji, English or Russian. Open a word for all its meanings, its kanji with memory pictures, example sentences — and add it to your decks.')));
+  $('dictBody').replaceChildren(home);
 }
 
 function drawList() {
   const body = $('dictBody');
   if (!lastHits.length) { body.replaceChildren(h('p', 'hint center', `${tr('Nothing found for')} “${lastQ}”`)); return; }
   const list = h('div', 'dict-list');
-  for (const w of lastHits) {
+  for (const w of lastHits.slice(0, shown)) {
     const card = h('button', 'dict-hit', undefined, { type: 'button' });
     const top = h('div', 'dh-top');
     top.append(headword(w, 'dh-word'), badges(w));
@@ -91,16 +91,24 @@ function drawList() {
     card.onclick = () => void openWord(w.i);
     list.append(card);
   }
-  body.replaceChildren(h('p', 'hint dict-count', `${lastHits.length} ${tr(lastHits.length === 1 ? 'match' : 'matches')}`), list);
+  const kids: Node[] = [h('p', 'hint dict-count', `${lastHits.length}${lastHits.length >= 120 ? '+' : ''} ${tr(lastHits.length === 1 ? 'match' : 'matches')}`), list];
+  if (lastHits.length > shown) {
+    const more = h('button', 'pill dict-more', tr('Show more'), { type: 'button' });
+    more.onclick = () => { shown += 30; drawList(); };
+    kids.push(more);
+  }
+  body.replaceChildren(...kids);
   body.scrollTop = 0;
 }
 
 async function openWord(i: number) {
   const body = $('dictBody');
   body.replaceChildren(h('p', 'hint center', tr('Loading…')));
-  let r: Awaited<ReturnType<typeof api.dictWord>>;
-  try { r = await api.dictWord(i); } catch (e) { body.replaceChildren(h('p', 'hint center', (e as Error).message)); return; }
-  const w = r.word;
+  const d = await dictionary().catch(() => null);
+  const w = d?.get(i);
+  if (!d || !w) { body.replaceChildren(h('p', 'hint center', tr('No such word'))); return; }
+  const chars0 = [...new Set([...(w.kanji[0] ?? '')].filter((c) => HAN.test(c)))];
+  const r = { withKanji: Object.fromEntries(chars0.map((c) => [c, d.withKanji(c, 8).filter((x) => x.i !== w.i)])) as Record<string, DictEntry[]> };
   const page = h('article', 'dict-word');
   const back = h('button', 'pill dict-back', `← ${tr('Results')}`, { type: 'button' });
   back.onclick = () => (lastHits.length ? drawList() : drawHome());
@@ -237,8 +245,8 @@ export function openDict() {
   ui.show('dict');
   const q = $<HTMLInputElement>('dictQ');
   if (!lastHits.length) drawHome();
-  useGameKb(q, { raw: true });
-  setTimeout(() => q.focus(), 50);
+  void dictionary().catch(() => { /* shown when you search */ }); // starts loading while you type
+  setTimeout(() => q.focus(), 50); // (the phone's own keyboard: Russian and Japanese too)
 }
 
 $('dictForm').onsubmit = (e) => { e.preventDefault(); void search($<HTMLInputElement>('dictQ').value); };

@@ -10,7 +10,7 @@ export { POSES, POSE_DEFS, isPose, type PoseId } from '../shared/progress';
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 const DOWN = new THREE.Vector3(0, -1, 0);
 /** the staff's own axis inside its pivot (holdStaff tips it forward by 0.3) */
-const STAFF_AXIS = new THREE.Vector3(0, Math.cos(0.3), Math.sin(0.3));
+const axisOf = (m: Character) => { const a = m.staffLean ?? 0.3; return new THREE.Vector3(0, Math.cos(a), Math.sin(a)); };
 const q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion();
 /** turn a limb (pivot at the shoulder, hanging along −y) so its hand points at `target` (in `space`'s coordinates) */
 function reach(limb: THREE.Object3D, space: THREE.Object3D, target: THREE.Vector3, k: number) {
@@ -27,7 +27,7 @@ function pointStaff(m: Character, dir: THREE.Vector3, k: number) {
   const parent = m.staffPivot.parent!;
   parent.getWorldQuaternion(q2).invert();
   m.root.getWorldQuaternion(q1);
-  const want = new THREE.Quaternion().setFromUnitVectors(STAFF_AXIS, dir.clone().normalize()).premultiply(q1).premultiply(q2);
+  const want = new THREE.Quaternion().setFromUnitVectors(axisOf(m), dir.clone().normalize()).premultiply(q1).premultiply(q2);
   m.staffPivot.quaternion.slerp(want, k);
 }
 const ease = (k: number) => k * k * (3 - 2 * k);
@@ -46,7 +46,7 @@ export function applyPose(m: Character, pose: PoseId, kRaw: number, time: number
   if (pose === 'none' || k <= 0.001) return;
   const bob = Math.sin(time * 1.7) * 0.05;
   const float = (h: number) => { m.root.position.y = (h + bob) * k; };
-  const twoHands = (lift = 0) => {
+  const twoHands = (lift = 0) => { // (Channel)
     // the staff upright in the middle of the body: the right fist low, the left hand above it
     reach(m.arm, m.body, new THREE.Vector3(0.03, 1.02 + lift, 0.3), k);
     if (m.leftArm) reach(m.leftArm, m.body, new THREE.Vector3(-0.01, 1.24 + lift, 0.32), k);
@@ -62,19 +62,14 @@ export function applyPose(m: Character, pose: PoseId, kRaw: number, time: number
     m.body.rotation.y = lerp(m.body.rotation.y, -1.2, k);
     m.head.rotation.y = lerp(m.head.rotation.y, 1.05, k);
     m.root.updateMatrixWorld(true);
-    const toFront = m.body.worldToLocal(m.root.localToWorld(new THREE.Vector3(0.25, 1.42, 2)));
+    // 0.9.9.7.1: the hand at chest height, not the shoulder — held up high, the staff hid their face from you
+    const toFront = m.body.worldToLocal(m.root.localToWorld(new THREE.Vector3(0.3, 1.0, 2)));
     reach(m.arm, m.body, toFront, k);
-    pointStaff(m, new THREE.Vector3(0, 0.08, 1), k);
+    pointStaff(m, new THREE.Vector3(0, 0.12, 1), k);
     if (m.leftArm) { m.leftArm.rotation.x = lerp(LEFT_REST.x(m), 0.25, k); m.leftArm.rotation.z = lerp(LEFT_REST.z(m), -0.35, k); }
     if (legL) legL.hip.rotation.x = 0.22 * k;
     if (legR) legR.hip.rotation.x = -0.2 * k;
   } else if (pose === 'twohand') {
-    twoHands();
-  } else if (pose === 'lotus') {
-    float(0.5);
-    // thighs forward and out, shins crossed in front
-    if (legL) { legL.hip.rotation.set(-1.45 * k, 0, -0.55 * k); legL.knee.rotation.set(2.2 * k, 0, 0); }
-    if (legR) { legR.hip.rotation.set(-1.45 * k, 0, 0.55 * k); legR.knee.rotation.set(2.2 * k, 0, 0); }
     twoHands();
   }
 }

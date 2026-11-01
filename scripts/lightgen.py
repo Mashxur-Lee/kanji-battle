@@ -86,6 +86,8 @@ def walk(text, media=None):
                 if any(c and lum(*c[:3])<0.3 for c in cs): new.append(f'{bn}: '+re.sub(COL,'var(--line)',v))
                 elif dark and any(c and lum(*c[:3])>0.85 and c[3]<0.4 for c in cs): new.append(f'{bn}: '+re.sub(COL,'rgba(60, 50, 120, .16)',v))
         if not new: continue
+        if dark: new.append('--text: #1d1838; --muted: #5d5880; --accent: #6b3fd6; --accent2: #0b7d9c; --gold: #a26300; --good: #12895a; --bad: #c8284a')
+        if dark and not any(x.startswith('color:') for x in new): new.append('color: var(--text)')  # a light panel: dark text inside (0.9.9.7.1)
         sels=', '.join(':root[data-theme="light"] '+s.strip() for s in sel.split(','))
         rule=f'{sels} {{ {"; ".join(new)}; }}'
         out.append(f'{media} {{ {rule} }}' if media else rule)

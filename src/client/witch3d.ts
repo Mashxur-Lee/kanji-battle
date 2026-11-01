@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import type { Character, Side } from './models3d';
-import { EYE_COLORS, glowEyes, holdStaff, handMesh, ARM_REST, legRig, type Leg } from './charkit';
+import { EYE_COLORS, glowEyes, holdStaff, handMesh, ARM_REST, legRig, type Leg, HAND_SCALE } from './charkit';
 
 type V3 = [number, number, number];
 const C = (hex: number) => new THREE.Color(hex);
@@ -292,7 +292,7 @@ export function buildWitch(side: Side, glowTex: THREE.Texture, staffSkin?: strin
   }, (u, v) => (v > 0.85 ? trim : mixC(robe, robeDeep, 0.3 * tri(u * 3))), true);
   const left = new THREE.Group(); left.position.set(-0.23, 1.47, 0); left.rotation.set(-0.42, 0, -0.2); body.add(left); // 0.9.9.6.1: a little forward and out, in front of the cape
   M(sleeve(0.6, 0.06), cloth, left);
-  const leftHand = handMesh(PAL.skin, cloth, false); leftHand.position.set(0, -0.58, 0.05); left.add(leftHand); // 0.9.9.6.1: the hand moves, not the arm (add() returns the parent — the whole arm sat under the floor)
+  const leftHand = handMesh(PAL.skin, cloth, false); leftHand.position.set(0, -0.58, 0.05); leftHand.scale.multiplyScalar(HAND_SCALE); // 0.9.9.7.1: as big as the staff hand left.add(leftHand); // 0.9.9.6.1: the hand moves, not the arm (add() returns the parent — the whole arm sat under the floor)
   const arm = new THREE.Group(); arm.position.set(0.23, 1.47, 0.02); arm.rotation.z = ARM_REST; body.add(arm);
   // the staff arm: a shorter, narrower bell that stops above the wrist, so the staff never cuts through it
   const rs = M(sleeve(0.4, 0.0, 0.07), cloth, arm); rs.rotation.x = -0.5;
