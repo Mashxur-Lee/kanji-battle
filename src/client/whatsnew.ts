@@ -7,6 +7,25 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.7.2', date: '2026-11',
+    en: [
+      'Dictionary: type any form of a word and it finds the word — yobanai or 呼ばない shows 呼ぶ (“← negative”), よびました, tabetakatta, 勉強します all work. A small mistake is forgiven too: koshujin shows ご主人 with the wrong sound (ご) in red.',
+      'Dictionary: a word’s forms are always shown now, each with its reading in kana; a new Phrases section lists expressions with the word (呼ぶ → 医者を呼ぶ, 人気を呼ぶ …), and 13,000 phrases can be searched. The “common” tag is gone (almost every word had it).',
+      '★ Stars work offline — they’re saved and sent when you’re back online, like your study cards.',
+      'Online queue: Kanji Reading now plays your own words of your levels. The game used to start before your deck had loaded, so you got random words.',
+      'Phones: the settings button stays in the corner during battles; in the 2D arena the fighters now stand on the arena floor above the keyboard (they floated in the trees), and the arena ends where the keyboard begins.',
+      '3D: the Duelist pose in first person holds the staff the way it did before, turned to point at your opponent. The Apprentice and Adventurer are goblins now (the plain models are gone). Staffs are a little smaller again. A player’s staff traces ∞ only while they actually type or write (the AI still always does), and AI opponents always strike a combo pose.',
+    ],
+    ru: [
+      'Словарь: введите любую форму слова — и он найдёт слово: yobanai или 呼ばない покажут 呼ぶ («← отрицание»), работают よびました, tabetakatta, 勉強します. Небольшая ошибка тоже прощается: koshujin покажет ご主人, а неверный звук (ご) — красным.',
+      'Словарь: формы слова теперь всегда видны, у каждой — чтение каной; новый раздел «Фразы» показывает выражения со словом (呼ぶ → 医者を呼ぶ, 人気を呼ぶ …), и по 13 000 фраз можно искать. Метки «частое» больше нет (она была почти у каждого слова).',
+      '★ Звёздочки работают без интернета — сохраняются и отправляются, когда вы снова онлайн, как карточки.',
+      'Онлайн-очередь: «Чтение кандзи» теперь играет вашими словами ваших уровней. Игра начиналась раньше, чем загружалась ваша колода, и слова были случайными.',
+      'Телефоны: кнопка настроек остаётся в углу во время боя; на 2D-арене бойцы теперь стоят на полу арены над клавиатурой (раньше висели в деревьях), а арена заканчивается там, где начинается клавиатура.',
+      '3D: поза Дуэлянт от первого лица держит посох как раньше, но направляет его на соперника. Ученик и Искатель приключений теперь гоблины (простых моделей больше нет). Посохи снова чуть меньше. Посох игрока рисует ∞ только пока он печатает или пишет (ИИ — как раньше, всегда), а ИИ-соперники всегда принимают позу комбо.',
+    ],
+  },
+  {
     v: '0.9.9.7.1', date: '2026-11',
     en: [
       'Dictionary: works offline now — it comes with the app and searches right on your device. Search in Russian too (вода → 水), and Japanese searches show many more matches, including words that share a kanji or sound nearly the same (Show more for the rest). On phones it uses your own keyboard, so you can type Russian or Japanese. The example buttons are gone.',

@@ -21,7 +21,7 @@ import { applyPose, isPose, notePose, type PoseId } from './poses3d';
 export type Who = 'me' | 'opp' | 'boss' | `ally:${string}`;
 export type TimeOfDay = 'day' | 'sunset' | 'night';
 /** A fighter: a 3D character model (character = deck hero or level avatar), or a pixel sprite (the dragon). */
-export interface FighterArt { id: string; name?: string; character?: string; svg?: string; flame?: string; staff?: string; pose?: string }
+export interface FighterArt { id: string; name?: string; character?: string; svg?: string; flame?: string; staff?: string; pose?: string; bot?: boolean }
 export interface ArenaSetup {
   /** battle screens: you stand left, the opponent right of the centre panel; Deck Duel: you bottom-right */
   layout: 'battle' | 'deck';
@@ -61,6 +61,8 @@ export interface ArenaApi {
   /** "CAST!" pressed: the staff thrusts forward with a flash (the spell itself comes on the answer) */
   thrust(): void;
   oppChannel(on: boolean): void;
+  /** 0.9.9.7.2: one player typing / writing (their staff traces ∞ only then); `auto`: always (the AI) */
+  typing(who: Who, on: boolean): void;
   inhale(on: boolean): void;
   breath(victims: Who[], damage: number): void;
   claw(victim: Who, damage: number): void;
@@ -203,6 +205,8 @@ interface Fighter {
   look: { yaw: number; pitch: number; at: number; curYaw: number; curPitch: number; seed: number };
   /** 0.9.9.7: the combo pose and how far into it they are (0 → 1) */
   pose: PoseId; poseK: number;
+  /** 0.9.9.7.2: typing / writing right now (the AI: always while a word is up) */
+  typing: boolean;
 }
 interface Particle { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max: number; grow: number; gravity: number }
 
@@ -376,7 +380,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     aura.scale.set(height * 1.2, height * 1.2, 1); aura.position.y = height * 0.5;
     group.add(aura);
     scene.add(group);
-    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0 };
+    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0, typing: !!art.bot };
     fighters.set(key, f);
     return f;
   }
@@ -983,16 +987,20 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (pk > 0.001) {
         if (myPose === 'float') camera.position.y += 0.2 * pk + Math.sin(time * 1.7) * 0.04 * pk;
         if (myPose === 'aim') {
-          // 0.9.9.7.1: the staff's core points at your opponent (not straight down the arena)
-          fp.position.x += (0.42 - fpBase.x) * pk; fp.position.y += (-0.36 - fpBase.y) * pk * 0.7;
+          // 0.9.9.7.2: the 0.9.9.7 grip (staff thrust forward, the palm over it, holding it from above) — the whole hand
+          // turned to the opponent, so the staff's core points at them instead of straight down the arena
+          fp.position.x += (0.12 - fpBase.x) * pk; fp.position.y += (-0.3 - fpBase.y) * pk * 0.6;
           const target = fighters.has('opp') ? pointOf('opp', 'chest') : fighters.has('boss') ? pointOf('boss', 'chest') : null;
+          let yaw = 0, rx = -1.35;
           if (target) {
             camera.updateMatrixWorld(true);
-            const local = camera.worldToLocal(target.clone());
-            const from = fp.position.clone();
-            const want = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), local.sub(from).normalize());
-            staffGroup.quaternion.slerp(want, pk);
+            const d = camera.worldToLocal(target.clone()).sub(fp.position).normalize();
+            yaw = Math.atan2(-d.x, -d.z);
+            rx = -(Math.PI / 2 - Math.atan2(d.y, Math.hypot(d.x, d.z)));
           }
+          const want = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
+            .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, 0.05)));
+          staffGroup.quaternion.slerp(want, pk);
         } else if (myPose === 'twohand') {
           // upright in both hands — to the right of the middle and a little low, so the staff's top never stands
           // behind the kanji you have to read (0.9.9.7.1)
@@ -1068,7 +1076,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         m.body.rotation.x = Math.max(0, thrust) * 0.2;
         m.staffPivot.rotation.x = thrust * 1.9;
         // the staff arm: raised to cast, held forward while writing, with little random moves as you write
-        const writing = key === 'me' ? channelShown : (key === 'opp' || key.startsWith('ally:')) && oppChannelOn ? (layout === 'deck' ? 0.7 : 0.45) : 0;
+        const writing = key === 'me' ? channelShown : (key === 'opp' || key.startsWith('ally:')) && oppChannelOn && (layout === 'deck' || f.typing) ? (layout === 'deck' ? 0.7 : 0.45) : 0;
         // while they type or write, the staff traces a figure-eight (∞) in the air — like yours
         const inf = key === 'me' ? 0 : writing * (1 - Math.max(0, thrust));
         const ax = -0.15 - writing * 0.75 - Math.max(0, thrust) * 0.9 + (key === 'me' ? twitchRot.x : 0) + Math.sin(time * 4.4) * 0.22 * inf;
@@ -1387,6 +1395,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       burst(tmp.clone(), staff.color, 18, 1.6, 0.08);
     },
     oppChannel(on) { oppChannelOn = on; },
+    typing(who, on) { const f = fighters.get(who); if (f) f.typing = on; },
     inhale(on) { inhaling = on; },
     breath(victims, damage) {
       inhaling = false;

@@ -107,3 +107,42 @@ test('0.9.9.7: a paused game clock stands still', async () => {
   c.resume(); t += 100;
   assert.equal(c.now(), start + 100);
 });
+
+test('0.9.9.7.2: a game made by the queue waits for both players’ own words (it used to start with random ones)', async () => {
+  const { Room, DEFAULT_ROOM_OPTIONS } = await import('../src/server/Room');
+  const mine = new Set(VOCAB.filter((v) => v.level === 'N2').slice(0, 30).map((v) => v.id));
+  const room = new Room('QQQQ', 'reading', { onEmpty: () => {}, spellIds: () => new Promise((ok) => setTimeout(() => ok(mine), 30)) }, DEFAULT_ROOM_OPTIONS);
+  const got: Array<{ type: string; pool?: Array<{ vocabId?: string; id?: string; kanji: string }> }> = [];
+  const send = (m: never) => { got.push(m); };
+  room.join('a', 'A', { send } as never, ['N2']); room.join('b', 'B', { send: () => {} } as never, ['N2']);
+  room.start('a'); // straight away, as the matchmaker does
+  assert.ok(!got.some((m) => m.type === 'prep'), 'not before the words are in');
+  await new Promise((ok) => setTimeout(ok, 80));
+  const prep = got.find((m) => m.type === 'prep')!;
+  assert.ok(prep, 'started once they arrived');
+  const pool = prep.pool as unknown as Array<{ kanji: string; mine?: boolean }>;
+  assert.ok(pool.length > 0 && pool.every((w) => w.mine), `own words: ${pool.map((w) => w.kanji + (w.mine ? '★' : '')).join(' ')}`);
+});
+
+test('0.9.9.7.2: dictionary — verb forms find the word, near misses are marked, phrases', async () => {
+  const { deinflect } = await import('../src/shared/deinflect');
+  const { nearMiss } = await import('../src/shared/dict');
+  assert.ok(deinflect('呼ばない').some((d) => d.word === '呼ぶ' && d.form === 'negative'));
+  assert.ok(deinflect('たべたかった').some((d) => d.word === 'たべる'));
+  assert.ok(deinflect('べんきょうします').some((d) => d.word === 'べんきょう'));
+  assert.deepEqual(nearMiss('こしゅじん', 'ごしゅじん', 1), [0]);
+  assert.equal(nearMiss('こしゅじん', 'たべる', 1), null);
+  const d = new DictService();
+  for (const [q, want, form] of [['yobanai', '呼ぶ', 'negative'], ['呼ばない', '呼ぶ', 'negative'], ['よびました', '呼ぶ', 'polite past'], ['benkyoushimasu', '勉強', 'polite'], ['高くない', '高い', 'negative']] as const) {
+    const hit = d.search(q, 5).find((e) => e.kanji[0] === want);
+    assert.ok(hit, `${q} → ${want}`);
+    assert.equal(hit.form, form, q);
+  }
+  const near = d.search('koshujin', 5);
+  assert.equal(near[0].kanji[0], 'ご主人');
+  assert.deepEqual(near[0].typo, [0]);
+  assert.ok(!d.search('shinyou', 10).some((e) => e.typo), 'no near misses when there are real matches');
+  const yobu = d.search('呼ぶ', 1)[0];
+  const ph = (d as unknown as { d(): { phrasesWith(e: unknown, n: number): Array<{ kanji: string[]; phrase?: boolean }> } }).d().phrasesWith(yobu, 10);
+  assert.ok(ph.length > 3 && ph.every((p) => p.phrase && p.kanji[0].includes('呼')), ph.map((p) => p.kanji[0]).join(' '));
+});

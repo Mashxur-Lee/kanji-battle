@@ -18,7 +18,7 @@ import { initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
-import { arena, arenaLook, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
+import { arena, arenaLook, arenaTyping, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
 import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
 import * as audio from './audio';
@@ -330,6 +330,9 @@ function onMessage(msg: ServerMessage) {
     case 'look':
       arenaLook(msg.id, msg.yaw, msg.pitch);
       break;
+    case 'typing':
+      arenaTyping(msg.id, msg.on);
+      break;
     case 'welcome':
       user = msg.user;
       ui.setUser(msg.user);
@@ -423,11 +426,13 @@ function onMessage(msg: ServerMessage) {
       arena()?.channel(0);
       ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs, from: msg.from });
       gameKbReset();
-      arena()?.oppChannel(true); // the others are always working on a word in a battle: their staffs trace ∞
+      sendTyping(false); // a new word: nothing typed yet
+      arena()?.oppChannel(true); // a word is up: the AI's staff traces ∞, a player's only while they type (0.9.9.7.2)
       if (msg.answer === 'writing') { flashMs = msg.flashMs ?? 3500; beginWriting(msg.id, msg.kanji); }
       break;
     case 'answer_result':
       if (msg.challengeId !== challengeId) break;
+      if (!msg.retry) sendTyping(false); // answered: the staff rests until the next word
       if (msg.retry) { // rapid: wrong, keep going
         ui.setFeedback(msg);
         audio.sfx.wrong();
@@ -557,6 +562,7 @@ pad.onDraw = () => {
   shareInk();
   if (mode !== 'deck') arena()?.channel(Math.min(1, 0.45 + pad.strokeCount * 0.12));
   ui.gemBack();
+  sendTyping(true);
   if (Date.now() - twitchAt > 140) { twitchAt = Date.now(); arena()?.twitch(); } // the staff moves as you write
 };
 /** missed words reported before the results screen opened */
@@ -627,8 +633,11 @@ const setEraser = (on: boolean) => { pad.setEraser(on); ui.$('padErase').setAttr
 ui.$('padErase').onclick = () => setEraser(!pad.eraser);
 ui.$('padClear').onclick = () => pad.clear();
 // typing a reading: the staff glows a little more with each letter
-ui.$<HTMLInputElement>('answer').addEventListener('input', (e) => { arena()?.channel(Math.min(0.8, (e.target as HTMLInputElement).value.length * 0.15)); arena()?.twitch(); ui.gemBack(); });
-ui.$<HTMLInputElement>('imeInput').addEventListener('input', () => { arena()?.channel(0.6); arena()?.twitch(); ui.gemBack(); });
+// 0.9.9.7.2: the others see your staff trace ∞ only while you type or write — tell them when that starts / stops
+let typingSent = false;
+function sendTyping(on: boolean) { if (on !== typingSent) { typingSent = on; socket.send({ type: 'typing', on }); } }
+ui.$<HTMLInputElement>('answer').addEventListener('input', (e) => { const v = (e.target as HTMLInputElement).value; sendTyping(v.length > 0); arena()?.channel(Math.min(0.8, v.length * 0.15)); arena()?.twitch(); ui.gemBack(); });
+ui.$<HTMLInputElement>('imeInput').addEventListener('input', () => { sendTyping(true); arena()?.channel(0.6); arena()?.twitch(); ui.gemBack(); });
 ui.$('padSkip').onclick = () => skip();
 ui.$('padNext').onclick = () => {
   if (pad.strokeCount === 0) return;

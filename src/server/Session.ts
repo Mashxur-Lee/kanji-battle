@@ -231,6 +231,7 @@ export class Session implements Client {
       case 'lobby_ready': return room.setLobbyReady(user.id, !!msg.ready);
       case 'add_bot': return room.addBot(user.id, msg.level);
       case 'remove_bot': return room.removeBot(user.id, msg.id);
+      case 'typing': return room.typing(user.id, msg.on === true);
       case 'look':
         if (typeof msg.yaw === 'number' && typeof msg.pitch === 'number') room.look(user.id, msg.yaw, msg.pitch);
         break;

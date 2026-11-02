@@ -2769,3 +2769,32 @@ button.dw-chip { width: auto; margin: 0; padding: 4px 10px; display: inline-flex
 #study .deck-card.ono .ono-plan { grid-area: p; grid-template-columns: minmax(0, 260px); }
 #study .deck-card.ono #onoApply { grid-area: a; margin: 0; }
 :root[data-theme="light"] :is(.cust-item, #custSub, .cust-tab:not(.on)) { color: var(--text); --text: #1d1838; --muted: #5d5880; --gold: #a26300; }
+/* 0.9.9.7.2: dictionary — the form you typed, near misses in red, forms with readings, phrases */
+.dh-form { font-size: .8rem; color: var(--accent2); font-weight: 700; align-self: center; }
+.dh-near .dh-sep { color: var(--muted); }
+.dh-near-r { font-size: .85em; }
+.dh-miss { color: #ff5a5a; font-weight: 900; }
+.dw-tag.phrase { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.dw-f { font-family: var(--jp); font-size: 1.05rem; }
+.dw-fk { margin-left: 10px; color: var(--muted); font-size: .9rem; font-family: var(--jp); }
+.dw-phrases { display: flex; flex-direction: column; gap: 6px; }
+button.dw-phrase { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; width: 100%; margin: 0; padding: 8px 12px; text-align: left; border-radius: 10px; background: var(--field); border: 1px solid var(--line); color: var(--text); font-weight: 400; font-size: .95rem; }
+button.dw-phrase:hover { border-color: var(--accent); filter: none; }
+.dwp-jp { font-family: var(--jp); font-size: 1.05rem; font-weight: 700; }
+.dwp-jp small { margin-left: 8px; font-family: var(--ui); font-weight: 400; color: var(--muted); font-size: .8rem; }
+.dwp-m { color: var(--muted); }
+/* 0.9.9.7.2: phones in a game — the settings button (only it) stays, small, in the top-right corner */
+@media (max-width: 700px) {
+  body.mode-shown .audio-ctl { display: flex !important; pointer-events: auto; }
+  body.mode-shown .audio-ctl > :not(#volBtn):not(#volPanel) { display: none !important; }
+  body.mode-shown #volBtn { padding: 5px 8px; opacity: .85; }
+  body.mode-shown .vol-panel { max-height: calc(100 * var(--dvh) - 80px); overflow-y: auto; }
+}
+/* 0.9.9.7.2: phones, 2D arena — the question on top, the two fighters below it standing on the arena floor, and the
+   scene ends where the keyboard begins (its floor was hidden under the keyboard, the fighters floated in the trees) */
+@media (max-width: 640px) {
+  body:not(.has-3d) #battle .arena { grid-template-areas: "stage stage" "l r"; align-content: space-between; min-height: calc(100 * var(--dvh) - var(--kb-h, 0px) - 120px); }
+  body:not(.has-3d) #battle .arena .side { align-self: end; display: flex; justify-content: center; }
+  body:not(.has-3d) #battle .wizard .sprite { width: 84px; }
+  body.game-kb:not(.has-3d) #bg { bottom: var(--kb-h, 0px); height: auto; }
+}

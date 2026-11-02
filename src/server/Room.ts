@@ -78,10 +78,14 @@ export class Room {
   private spells = new Map<PlayerId, ReadonlySet<string>>();
   /** Rapid: which player's spells a word came from (by kanji) */
   private readonly rapidOwner = new Map<string, PlayerId>();
+  /** 0.9.9.7.2: spells still on their way (a queue game starts the moment it's made — it waits for them) */
+  private spellsPending = new Map<PlayerId, Promise<void>>();
   private loadSpells(id: PlayerId) {
     if (!this.deps.spellIds) return; // 0.9.9.4.4.2: every mode plays your own words
-    void this.deps.spellIds(id).then((s) => { this.spells.set(id, s); }, () => { /* random words then */ });
+    const p = this.deps.spellIds(id).then((s) => { this.spells.set(id, s); }, () => { /* random words then */ }).finally(() => { if (this.spellsPending.get(id) === p) this.spellsPending.delete(id); });
+    this.spellsPending.set(id, p);
   }
+  private starting = false;
   private hostId: PlayerId | null = null;
   private phase: Phase = 'lobby';
   /** lobby / game / results — for the admin's "who is online" view */
@@ -187,7 +191,7 @@ export class Room {
     if (this.roster.length >= this.maxPlayers) return this.clients.get(by)?.send({ type: 'error', message: 'Room is full' });
     const id = `ai-${this.code}-${++this.nextBot}`;
     const bot = new Bot(id, level, this.botHost());
-    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: botLevels(level), online: true, profile: { crit: 0, xp: 0, staff: STAFFS[Math.floor(Math.random() * STAFFS.length)].id, flame: FLAMES[Math.floor(Math.random() * FLAMES.length)].id, pose: POSES[Math.floor(Math.random() * POSES.length)] }, ready: true, rtt: 1, bot }); // each AI holds a random staff (and flame colour)
+    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: botLevels(level), online: true, profile: { crit: 0, xp: 0, staff: STAFFS[Math.floor(Math.random() * STAFFS.length)].id, flame: FLAMES[Math.floor(Math.random() * FLAMES.length)].id, pose: POSES.filter((x) => x !== 'none')[Math.floor(Math.random() * (POSES.length - 1))] }, ready: true, rtt: 1, bot }); // each AI holds a random staff (and flame colour)
     this.broadcastLobby();
     this.broadcastNet();
   }
@@ -263,6 +267,12 @@ export class Room {
     if (now - (this.lastInk.get(id) ?? 0) < 80) return; // at most ~12 updates a second
     this.lastInk.set(id, now);
     const msg: ServerMessage = { type: 'deck_ink', castId, strokes, cells: Math.max(1, Math.min(4, Math.round(cells))) };
+    for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
+  }
+  /** 0.9.9.7.2: typing / writing — relayed to the others (a game must be on) */
+  typing(id: PlayerId, on: boolean) {
+    if (!this.game) return;
+    const msg: ServerMessage = { type: 'typing', id, on };
     for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
   }
   /** 3D mouse look: relayed to the others in the room (a game must be on; at most ~8 a second per player) */
@@ -373,6 +383,20 @@ export class Room {
   }
 
   private startGame() {
+    // every player's own words first: wait for any still loading (at most 3 s), then start
+    const waiting = this.roster.filter((p) => !p.bot && this.spellsPending.has(p.id)).map((p) => this.spellsPending.get(p.id)!);
+    if (waiting.length) {
+      if (this.starting) return;
+      this.starting = true;
+      void Promise.race([Promise.all(waiting), new Promise((ok) => setTimeout(ok, 3000))]).then(() => {
+        this.starting = false;
+        if (this.phase !== 'game' && this.roster.length >= this.minPlayers) this.startGameNow();
+      });
+      return;
+    }
+    this.startGameNow();
+  }
+  private startGameNow() {
     this.game?.dispose();
     this.rematchVotes.clear();
     this.lastGameOver = undefined;

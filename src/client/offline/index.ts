@@ -32,7 +32,8 @@ const storedUid = () => { try { return localStorage.getItem(UID_KEY) ?? ''; } ca
 // ── which calls work offline ────────────────────────────────────────────────
 const OFFLINE_ROUTES: Array<[string, RegExp]> = [
   ['GET', /^\/api\/(me|study|study\/queue|study\/deck|study\/search|study\/quiz|progress|daily|matches|matches\/[\w-]+)$/],
-  ['PUT', /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-levels|study\/daily-new)$/],
+  // 0.9.9.7.2: ★ stars and the Onomatopoeia number work offline too (saved, then sent when you're back online)
+  ['PUT', /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-levels|study\/daily-new|study\/star|study\/ono-daily)$/],
   ['POST', /^\/api\/(study\/(review|undo|deck\/remove|deck\/add|custom|task)|daily\/(start|answer|finish))$/],
 ];
 const pathOf = (url: string) => url.split('?')[0];

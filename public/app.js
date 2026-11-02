@@ -3299,7 +3299,8 @@ Answer with JSON only, no other text:
       };
       OFFLINE_ROUTES = [
         ["GET", /^\/api\/(me|study|study\/queue|study\/deck|study\/search|study\/quiz|progress|daily|matches|matches\/[\w-]+)$/],
-        ["PUT", /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-levels|study\/daily-new)$/],
+        // 0.9.9.7.2: ★ stars and the Onomatopoeia number work offline too (saved, then sent when you're back online)
+        ["PUT", /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-levels|study\/daily-new|study\/star|study\/ono-daily)$/],
         ["POST", /^\/api\/(study\/(review|undo|deck\/remove|deck\/add|custom|task)|daily\/(start|answer|finish))$/]
       ];
       pathOf = (url) => url.split("?")[0];
@@ -4303,6 +4304,27 @@ Answer with JSON only, no other text:
         "Light": "\u0421\u0432\u0435\u0442\u043B\u0430\u044F",
         "New a day": "\u041D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C",
         "Every giseigo, gitaigo and gij\u014Dgo: sounds (\u30EF\u30F3\u30EF\u30F3), states (\u304D\u3089\u304D\u3089) and feelings (\u30C9\u30AD\u30C9\u30AD). Choose how many new ones a day (0 = none).": "\u0412\u0441\u0435 \u0433\u0438\u0441\u044D\u0439\u0433\u043E, \u0433\u0438\u0442\u0430\u0439\u0433\u043E \u0438 \u0433\u0438\u0434\u0437\u0451\u0433\u043E: \u0437\u0432\u0443\u043A\u0438 (\u30EF\u30F3\u30EF\u30F3), \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F (\u304D\u3089\u304D\u3089) \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u0430 (\u30C9\u30AD\u30C9\u30AD). \u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C (0 \u2014 \u043D\u0438 \u043E\u0434\u043D\u043E\u0433\u043E).",
+        // 0.9.9.7.2
+        "negative": "\u043E\u0442\u0440\u0438\u0446\u0430\u043D\u0438\u0435",
+        "polite": "\u0432\u0435\u0436\u043B\u0438\u0432\u0430\u044F",
+        "polite negative": "\u0432\u0435\u0436\u043B\u0438\u0432\u043E\u0435 \u043E\u0442\u0440\u0438\u0446\u0430\u043D\u0438\u0435",
+        "polite past": "\u0432\u0435\u0436\u043B\u0438\u0432\u043E\u0435 \u043F\u0440\u043E\u0448\u0435\u0434\u0448\u0435\u0435",
+        "polite past negative": "\u0432\u0435\u0436\u043B\u0438\u0432\u043E\u0435 \u043F\u0440\u043E\u0448. \u043E\u0442\u0440\u0438\u0446\u0430\u043D\u0438\u0435",
+        "want to": "\u0445\u043E\u0447\u0443 (-\u0442\u0430\u0439)",
+        "while": "\u043F\u043E\u043A\u0430 (-\u043D\u0430\u0433\u0430\u0440\u0430)",
+        "te form": "\u0444\u043E\u0440\u043C\u0430 \u043D\u0430 -\u0442\u044D",
+        "past": "\u043F\u0440\u043E\u0448\u0435\u0434\u0448\u0435\u0435",
+        "conditional (tara)": "\u0443\u0441\u043B\u043E\u0432\u043D\u0430\u044F (-\u0442\u0430\u0440\u0430)",
+        "conditional (ba)": "\u0443\u0441\u043B\u043E\u0432\u043D\u0430\u044F (-\u0431\u0430)",
+        "potential": "\u043F\u043E\u0442\u0435\u043D\u0446\u0438\u0430\u043B\u044C\u043D\u0430\u044F",
+        "passive": "\u0441\u0442\u0440\u0430\u0434\u0430\u0442\u0435\u043B\u044C\u043D\u0430\u044F",
+        "causative": "\u043F\u043E\u043D\u0443\u0434\u0438\u0442\u0435\u043B\u044C\u043D\u0430\u044F",
+        "volitional": "\u0432\u043E\u043B\u0438\u0442\u0438\u0432",
+        "potential / passive": "\u043F\u043E\u0442\u0435\u043D\u0446. / \u0441\u0442\u0440\u0430\u0434\u0430\u0442.",
+        "conditional": "\u0443\u0441\u043B\u043E\u0432\u043D\u0430\u044F",
+        "past negative": "\u043F\u0440\u043E\u0448\u0435\u0434\u0448\u0435\u0435 \u043E\u0442\u0440\u0438\u0446\u0430\u043D\u0438\u0435",
+        "phrase": "\u0444\u0440\u0430\u0437\u0430",
+        "Phrases": "\u0424\u0440\u0430\u0437\u044B",
         // 0.9.9.7.1
         ", pick a mode, and send the 4-letter code to a friend. The battle starts when every player presses": ", \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0440\u0435\u0436\u0438\u043C \u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0434\u0440\u0443\u0433\u0443 4-\u0431\u0443\u043A\u0432\u0435\u043D\u043D\u044B\u0439 \u043A\u043E\u0434. \u0411\u043E\u0439 \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u043A\u0430\u0436\u0434\u044B\u0439 \u0438\u0433\u0440\u043E\u043A \u043D\u0430\u0436\u043C\u0451\u0442",
         ". On a phone you can switch apps to send it \u2014 your seat is kept for 5 minutes.": ". \u041D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435 \u043C\u043E\u0436\u043D\u043E \u043F\u0435\u0440\u0435\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u0432 \u0434\u0440\u0443\u0433\u043E\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u2014 \u043C\u0435\u0441\u0442\u043E \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u0442\u0441\u044F 5 \u043C\u0438\u043D\u0443\u0442.",
@@ -6266,6 +6288,10 @@ Answer with JSON only, no other text:
   function setArenaBackground(id, time) {
     bg = { id, time };
   }
+  function arenaTyping(id, on) {
+    const who = whoById.get(id);
+    if (who) arena()?.typing(who, on);
+  }
   function arenaLook(id, yaw, pitch) {
     const who = whoById.get(id);
     if (who) arena()?.look(who, yaw, pitch);
@@ -6280,7 +6306,7 @@ Answer with JSON only, no other text:
   function arenaForBattle(mode4, players2, you2) {
     const me3 = players2.find((p) => p.id === you2);
     const others = players2.filter((p) => p.id !== you2);
-    const art = (p) => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff, pose: p.pose });
+    const art = (p) => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff, pose: p.pose, bot: !!p.bot });
     configure({
       layout: "battle",
       me: me3 ? art(me3) : { id: you2, character: "wizard" },
@@ -7809,7 +7835,7 @@ Answer with JSON only, no other text:
   init_api();
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.7.1";
+  var VERSION = "0.9.9.7.2";
 
   // src/client/support.ts
   init_ui();
@@ -9363,6 +9389,26 @@ ${stack}`.slice(0, 2e3);
   // src/client/whatsnew.ts
   init_i18n();
   var PATCHES = [
+    {
+      v: "0.9.9.7.2",
+      date: "2026-11",
+      en: [
+        "Dictionary: type any form of a word and it finds the word \u2014 yobanai or \u547C\u3070\u306A\u3044 shows \u547C\u3076 (\u201C\u2190 negative\u201D), \u3088\u3073\u307E\u3057\u305F, tabetakatta, \u52C9\u5F37\u3057\u307E\u3059 all work. A small mistake is forgiven too: koshujin shows \u3054\u4E3B\u4EBA with the wrong sound (\u3054) in red.",
+        "Dictionary: a word\u2019s forms are always shown now, each with its reading in kana; a new Phrases section lists expressions with the word (\u547C\u3076 \u2192 \u533B\u8005\u3092\u547C\u3076, \u4EBA\u6C17\u3092\u547C\u3076 \u2026), and 13,000 phrases can be searched. The \u201Ccommon\u201D tag is gone (almost every word had it).",
+        "\u2605 Stars work offline \u2014 they\u2019re saved and sent when you\u2019re back online, like your study cards.",
+        "Online queue: Kanji Reading now plays your own words of your levels. The game used to start before your deck had loaded, so you got random words.",
+        "Phones: the settings button stays in the corner during battles; in the 2D arena the fighters now stand on the arena floor above the keyboard (they floated in the trees), and the arena ends where the keyboard begins.",
+        "3D: the Duelist pose in first person holds the staff the way it did before, turned to point at your opponent. The Apprentice and Adventurer are goblins now (the plain models are gone). Staffs are a little smaller again. A player\u2019s staff traces \u221E only while they actually type or write (the AI still always does), and AI opponents always strike a combo pose."
+      ],
+      ru: [
+        "\u0421\u043B\u043E\u0432\u0430\u0440\u044C: \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u043B\u044E\u0431\u0443\u044E \u0444\u043E\u0440\u043C\u0443 \u0441\u043B\u043E\u0432\u0430 \u2014 \u0438 \u043E\u043D \u043D\u0430\u0439\u0434\u0451\u0442 \u0441\u043B\u043E\u0432\u043E: yobanai \u0438\u043B\u0438 \u547C\u3070\u306A\u3044 \u043F\u043E\u043A\u0430\u0436\u0443\u0442 \u547C\u3076 (\xAB\u2190 \u043E\u0442\u0440\u0438\u0446\u0430\u043D\u0438\u0435\xBB), \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442 \u3088\u3073\u307E\u3057\u305F, tabetakatta, \u52C9\u5F37\u3057\u307E\u3059. \u041D\u0435\u0431\u043E\u043B\u044C\u0448\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u0442\u043E\u0436\u0435 \u043F\u0440\u043E\u0449\u0430\u0435\u0442\u0441\u044F: koshujin \u043F\u043E\u043A\u0430\u0436\u0435\u0442 \u3054\u4E3B\u4EBA, \u0430 \u043D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0437\u0432\u0443\u043A (\u3054) \u2014 \u043A\u0440\u0430\u0441\u043D\u044B\u043C.",
+        "\u0421\u043B\u043E\u0432\u0430\u0440\u044C: \u0444\u043E\u0440\u043C\u044B \u0441\u043B\u043E\u0432\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u0432\u0441\u0435\u0433\u0434\u0430 \u0432\u0438\u0434\u043D\u044B, \u0443 \u043A\u0430\u0436\u0434\u043E\u0439 \u2014 \u0447\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u043E\u0439; \u043D\u043E\u0432\u044B\u0439 \u0440\u0430\u0437\u0434\u0435\u043B \xAB\u0424\u0440\u0430\u0437\u044B\xBB \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442 \u0432\u044B\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0441\u043E \u0441\u043B\u043E\u0432\u043E\u043C (\u547C\u3076 \u2192 \u533B\u8005\u3092\u547C\u3076, \u4EBA\u6C17\u3092\u547C\u3076 \u2026), \u0438 \u043F\u043E 13 000 \u0444\u0440\u0430\u0437 \u043C\u043E\u0436\u043D\u043E \u0438\u0441\u043A\u0430\u0442\u044C. \u041C\u0435\u0442\u043A\u0438 \xAB\u0447\u0430\u0441\u0442\u043E\u0435\xBB \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435\u0442 (\u043E\u043D\u0430 \u0431\u044B\u043B\u0430 \u043F\u043E\u0447\u0442\u0438 \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430).",
+        "\u2605 \u0417\u0432\u0451\u0437\u0434\u043E\u0447\u043A\u0438 \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430 \u2014 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u044E\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B \u0441\u043D\u043E\u0432\u0430 \u043E\u043D\u043B\u0430\u0439\u043D, \u043A\u0430\u043A \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438.",
+        "\u041E\u043D\u043B\u0430\u0439\u043D-\u043E\u0447\u0435\u0440\u0435\u0434\u044C: \xAB\u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438\xBB \u0442\u0435\u043F\u0435\u0440\u044C \u0438\u0433\u0440\u0430\u0435\u0442 \u0432\u0430\u0448\u0438\u043C\u0438 \u0441\u043B\u043E\u0432\u0430\u043C\u0438 \u0432\u0430\u0448\u0438\u0445 \u0443\u0440\u043E\u0432\u043D\u0435\u0439. \u0418\u0433\u0440\u0430 \u043D\u0430\u0447\u0438\u043D\u0430\u043B\u0430\u0441\u044C \u0440\u0430\u043D\u044C\u0448\u0435, \u0447\u0435\u043C \u0437\u0430\u0433\u0440\u0443\u0436\u0430\u043B\u0430\u0441\u044C \u0432\u0430\u0448\u0430 \u043A\u043E\u043B\u043E\u0434\u0430, \u0438 \u0441\u043B\u043E\u0432\u0430 \u0431\u044B\u043B\u0438 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u043C\u0438.",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B: \u043A\u043D\u043E\u043F\u043A\u0430 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043A \u043E\u0441\u0442\u0430\u0451\u0442\u0441\u044F \u0432 \u0443\u0433\u043B\u0443 \u0432\u043E \u0432\u0440\u0435\u043C\u044F \u0431\u043E\u044F; \u043D\u0430 2D-\u0430\u0440\u0435\u043D\u0435 \u0431\u043E\u0439\u0446\u044B \u0442\u0435\u043F\u0435\u0440\u044C \u0441\u0442\u043E\u044F\u0442 \u043D\u0430 \u043F\u043E\u043B\u0443 \u0430\u0440\u0435\u043D\u044B \u043D\u0430\u0434 \u043A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u043E\u0439 (\u0440\u0430\u043D\u044C\u0448\u0435 \u0432\u0438\u0441\u0435\u043B\u0438 \u0432 \u0434\u0435\u0440\u0435\u0432\u044C\u044F\u0445), \u0430 \u0430\u0440\u0435\u043D\u0430 \u0437\u0430\u043A\u0430\u043D\u0447\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u0430\u043C, \u0433\u0434\u0435 \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F \u043A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u0430.",
+        "3D: \u043F\u043E\u0437\u0430 \u0414\u0443\u044D\u043B\u044F\u043D\u0442 \u043E\u0442 \u043F\u0435\u0440\u0432\u043E\u0433\u043E \u043B\u0438\u0446\u0430 \u0434\u0435\u0440\u0436\u0438\u0442 \u043F\u043E\u0441\u043E\u0445 \u043A\u0430\u043A \u0440\u0430\u043D\u044C\u0448\u0435, \u043D\u043E \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u044F\u0435\u0442 \u0435\u0433\u043E \u043D\u0430 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430. \u0423\u0447\u0435\u043D\u0438\u043A \u0438 \u0418\u0441\u043A\u0430\u0442\u0435\u043B\u044C \u043F\u0440\u0438\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0439 \u0442\u0435\u043F\u0435\u0440\u044C \u0433\u043E\u0431\u043B\u0438\u043D\u044B (\u043F\u0440\u043E\u0441\u0442\u044B\u0445 \u043C\u043E\u0434\u0435\u043B\u0435\u0439 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435\u0442). \u041F\u043E\u0441\u043E\u0445\u0438 \u0441\u043D\u043E\u0432\u0430 \u0447\u0443\u0442\u044C \u043C\u0435\u043D\u044C\u0448\u0435. \u041F\u043E\u0441\u043E\u0445 \u0438\u0433\u0440\u043E\u043A\u0430 \u0440\u0438\u0441\u0443\u0435\u0442 \u221E \u0442\u043E\u043B\u044C\u043A\u043E \u043F\u043E\u043A\u0430 \u043E\u043D \u043F\u0435\u0447\u0430\u0442\u0430\u0435\u0442 \u0438\u043B\u0438 \u043F\u0438\u0448\u0435\u0442 (\u0418\u0418 \u2014 \u043A\u0430\u043A \u0440\u0430\u043D\u044C\u0448\u0435, \u0432\u0441\u0435\u0433\u0434\u0430), \u0430 \u0418\u0418-\u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0438 \u0432\u0441\u0435\u0433\u0434\u0430 \u043F\u0440\u0438\u043D\u0438\u043C\u0430\u044E\u0442 \u043F\u043E\u0437\u0443 \u043A\u043E\u043C\u0431\u043E."
+      ]
+    },
     {
       v: "0.9.9.7.1",
       date: "2026-11",
@@ -14961,12 +15007,118 @@ ${stack}`.slice(0, 2e3);
 
   // src/shared/dict.ts
   init_kana();
+
+  // src/shared/deinflect.ts
+  var GODAN = [
+    ["\u308F", "\u3044", "\u3048", "\u304A", "\u3046", "\u3063\u3066", "\u3063\u305F"],
+    ["\u304B", "\u304D", "\u3051", "\u3053", "\u304F", "\u3044\u3066", "\u3044\u305F"],
+    ["\u304C", "\u304E", "\u3052", "\u3054", "\u3050", "\u3044\u3067", "\u3044\u3060"],
+    ["\u3055", "\u3057", "\u305B", "\u305D", "\u3059", "\u3057\u3066", "\u3057\u305F"],
+    ["\u305F", "\u3061", "\u3066", "\u3068", "\u3064", "\u3063\u3066", "\u3063\u305F"],
+    ["\u306A", "\u306B", "\u306D", "\u306E", "\u306C", "\u3093\u3067", "\u3093\u3060"],
+    ["\u3070", "\u3073", "\u3079", "\u307C", "\u3076", "\u3093\u3067", "\u3093\u3060"],
+    ["\u307E", "\u307F", "\u3081", "\u3082", "\u3080", "\u3093\u3067", "\u3093\u3060"],
+    ["\u3089", "\u308A", "\u308C", "\u308D", "\u308B", "\u3063\u3066", "\u3063\u305F"]
+  ];
+  var RULES = [];
+  for (const [a, i, e, o, u, te, ta] of GODAN) {
+    RULES.push(
+      [`${a}\u306A\u3044`, u, "negative"],
+      [`${i}\u307E\u3059`, u, "polite"],
+      [`${i}\u307E\u305B\u3093`, u, "polite negative"],
+      [`${i}\u307E\u3057\u305F`, u, "polite past"],
+      [`${i}\u307E\u305B\u3093\u3067\u3057\u305F`, u, "polite past negative"],
+      [`${i}\u305F\u3044`, u, "want to"],
+      [`${i}\u306A\u304C\u3089`, u, "while"],
+      [te, u, "te form"],
+      [ta, u, "past"],
+      [`${ta}\u3089`, u, "conditional (tara)"],
+      [`${e}\u3070`, u, "conditional (ba)"],
+      [`${e}\u308B`, u, "potential"],
+      [`${a}\u308C\u308B`, u, "passive"],
+      [`${a}\u305B\u308B`, u, "causative"],
+      [`${o}\u3046`, u, "volitional"]
+    );
+  }
+  RULES.push(["\u884C\u3063\u3066", "\u884C\u304F", "te form"], ["\u884C\u3063\u305F", "\u884C\u304F", "past"], ["\u3044\u3063\u3066", "\u3044\u304F", "te form"], ["\u3044\u3063\u305F", "\u3044\u304F", "past"]);
+  RULES.push(
+    ["\u306A\u3044", "\u308B", "negative"],
+    ["\u307E\u3059", "\u308B", "polite"],
+    ["\u307E\u305B\u3093", "\u308B", "polite negative"],
+    ["\u307E\u3057\u305F", "\u308B", "polite past"],
+    ["\u307E\u305B\u3093\u3067\u3057\u305F", "\u308B", "polite past negative"],
+    ["\u305F\u3044", "\u308B", "want to"],
+    ["\u306A\u304C\u3089", "\u308B", "while"],
+    ["\u3066", "\u308B", "te form"],
+    ["\u305F", "\u308B", "past"],
+    ["\u305F\u3089", "\u308B", "conditional (tara)"],
+    ["\u308C\u3070", "\u308B", "conditional (ba)"],
+    ["\u3089\u308C\u308B", "\u308B", "potential / passive"],
+    ["\u3055\u305B\u308B", "\u308B", "causative"],
+    ["\u3088\u3046", "\u308B", "volitional"],
+    ["\u308D", "\u308B", "imperative"]
+  );
+  for (const [form, label] of [["\u3057\u306A\u3044", "negative"], ["\u3057\u307E\u3059", "polite"], ["\u3057\u307E\u305B\u3093", "polite negative"], ["\u3057\u307E\u3057\u305F", "polite past"], ["\u3057\u3066", "te form"], ["\u3057\u305F", "past"], ["\u3057\u305F\u3044", "want to"], ["\u3059\u308C\u3070", "conditional (ba)"], ["\u3067\u304D\u308B", "potential"], ["\u3055\u308C\u308B", "passive"], ["\u3055\u305B\u308B", "causative"], ["\u3057\u3088\u3046", "volitional"], ["\u3057\u308D", "imperative"]]) RULES.push([form, "\u3059\u308B", label]);
+  for (const [form, label] of [["\u3053\u306A\u3044", "negative"], ["\u304D\u307E\u3059", "polite"], ["\u304D\u3066", "te form"], ["\u304D\u305F", "past"], ["\u3053\u3089\u308C\u308B", "potential"], ["\u3053\u3088\u3046", "volitional"], ["\u3053\u3044", "imperative"], ["\u6765\u306A\u3044", "negative"], ["\u6765\u307E\u3059", "polite"], ["\u6765\u3066", "te form"], ["\u6765\u305F", "past"]]) RULES.push([form, form.startsWith("\u6765") ? "\u6765\u308B" : "\u304F\u308B", label]);
+  RULES.push(["\u304F\u306A\u3044", "\u3044", "negative"], ["\u304B\u3063\u305F", "\u3044", "past"], ["\u304F\u306A\u304B\u3063\u305F", "\u3044", "past negative"], ["\u304F\u3066", "\u3044", "te form"], ["\u3051\u308C\u3070", "\u3044", "conditional"]);
+  RULES.push(["\u306A\u304B\u3063\u305F", "\u306A\u3044", "past"], ["\u306A\u304F\u3066", "\u306A\u3044", "te form"], ["\u306A\u3051\u308C\u3070", "\u306A\u3044", "conditional"], ["\u305F\u304B\u3063\u305F", "\u305F\u3044", "past"], ["\u305F\u304F\u306A\u3044", "\u305F\u3044", "negative"]);
+  RULES.sort((x, y) => y[0].length - x[0].length);
+  function deinflect(s) {
+    const out = /* @__PURE__ */ new Map();
+    const walk2 = (cur, labels, depth) => {
+      if (depth >= 3) return;
+      for (const [end, rep, label] of RULES) {
+        if (!cur.endsWith(end)) continue;
+        const stem = cur.slice(0, -end.length);
+        if (!stem && !["\u3059\u308B", "\u304F\u308B", "\u6765\u308B", "\u884C\u304F", "\u3044\u304F"].includes(rep)) continue;
+        const base = stem + rep;
+        if (!base || base === cur) continue;
+        const all = [label, ...labels];
+        if (!out.has(base)) out.set(base, all.join(" \xB7 "));
+        if (/(ない|たい)$/.test(base)) walk2(base, all, depth + 1);
+        if (base.endsWith("\u3059\u308B") && base.length > 2 && !out.has(base.slice(0, -2))) out.set(base.slice(0, -2), all.join(" \xB7 "));
+      }
+    };
+    walk2(s, [], 0);
+    out.delete(s);
+    return [...out].map(([word2, form]) => ({ word: word2, form }));
+  }
+
+  // src/shared/dict.ts
   var HAN3 = /\p{Script=Han}/u;
+  var VERBISH = /^(v[15ksz]|vs|adj-i)/;
   var JA = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー々]/u;
   var CYR = /[а-яё]/i;
   var esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   var stripNotes = (g) => g.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s*\{[^}]*\}\s*/g, " ").trim();
   var fold = (s) => s.replace(/[うおー]/g, "").replace(/(?<=[えけげせぜてでねへべぺめれ])い/g, "");
+  function nearMiss(q, r2, max) {
+    if (q === r2) return null;
+    const n = q.length, m = r2.length;
+    const d = Array.from({ length: n + 1 }, (_, i2) => Array.from({ length: m + 1 }, (_2, j2) => i2 === 0 ? j2 : j2 === 0 ? i2 : 0));
+    for (let i2 = 1; i2 <= n; i2++) {
+      let best = Infinity;
+      for (let j2 = 1; j2 <= m; j2++) {
+        d[i2][j2] = Math.min(d[i2 - 1][j2] + 1, d[i2][j2 - 1] + 1, d[i2 - 1][j2 - 1] + (q[i2 - 1] === r2[j2 - 1] ? 0 : 1));
+        best = Math.min(best, d[i2][j2]);
+      }
+      if (best > max) return null;
+    }
+    if (d[n][m] > max) return null;
+    const marks = [];
+    let i = n, j = m;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && d[i][j] === d[i - 1][j - 1] + (q[i - 1] === r2[j - 1] ? 0 : 1)) {
+        if (q[i - 1] !== r2[j - 1]) marks.push(j - 1);
+        i--;
+        j--;
+      } else if (j > 0 && d[i][j] === d[i][j - 1] + 1) {
+        marks.push(j - 1);
+        j--;
+      } else i--;
+    }
+    return marks.reverse();
+  }
   var Dictionary = class {
     // readings in hiragana, per word
     constructor(data, vocab) {
@@ -14989,7 +15141,7 @@ ${stack}`.slice(0, 2e3);
     entry(i) {
       const w = this.words[i];
       const mine = this.mineOf(w);
-      return { i, kanji: w.k, kana: w.r, romaji: toRomaji(w.r[0] ?? ""), senses: w.s, ru: w.ru ?? [], common: !!w.c, ...mine ? { vocabId: mine.id, level: mine.level } : {} };
+      return { i, kanji: w.k, kana: w.r, romaji: toRomaji(w.r[0] ?? ""), senses: w.s, ru: w.ru ?? [], common: !!w.c, ...w.x ? { phrase: true } : {}, ...mine ? { vocabId: mine.id, level: mine.level } : {} };
     }
     get(i) {
       return Number.isInteger(i) && i >= 0 && i < this.words.length ? this.entry(i) : null;
@@ -15003,6 +15155,14 @@ ${stack}`.slice(0, 2e3);
       const qChars = ja ? [...new Set([...q].filter((c) => HAN3.test(c)))] : [];
       const qFold = kanaQs.map(fold);
       const word2 = ru ? new RegExp(`(^|[^\u0430-\u044F\u0451])${esc(q)}`, "i") : ja ? null : new RegExp(`(^|[^a-z])${esc(q)}($|[^a-z])`);
+      const bases = /* @__PURE__ */ new Map();
+      if (!ru) {
+        for (const x of ja ? [q, qKana] : kanaQs) for (const d of deinflect(x)) if (!bases.has(d.word)) bases.set(d.word, d.form);
+      }
+      const typoQs = ru ? [] : (ja ? [qKana] : kanaQs).filter((x) => x.length >= 3 && !HAN3.test(x));
+      const forms = /* @__PURE__ */ new Map(), typos = /* @__PURE__ */ new Map();
+      let sure = 0;
+      const near = [];
       const scored = [];
       for (let i = 0; i < this.words.length; i++) {
         const w = this.words[i], kanas = this.kanas[i];
@@ -15030,14 +15190,50 @@ ${stack}`.slice(0, 2e3);
           else if (word2.test(w.s[0]?.[1].toLowerCase() ?? "")) s = Math.max(s, 70);
           else if (w.s.slice(1).some((x) => word2.test(x[1].toLowerCase()))) s = Math.max(s, 40);
         }
+        if (s < 90 && bases.size && w.s[0]?.[0].some((p) => VERBISH.test(p))) {
+          const hit2 = [...w.k, ...kanas].find((x) => bases.has(x));
+          if (hit2) {
+            s = 92;
+            forms.set(i, bases.get(hit2));
+          }
+        }
+        if (!s && typoQs.length) {
+          for (const tq of typoQs) {
+            const r2 = kanas[0];
+            if (!r2 || Math.abs(r2.length - tq.length) > 1) continue;
+            const marks = nearMiss(tq, r2, tq.length >= 6 ? 2 : 1);
+            if (marks) {
+              near.push([22 - Math.max(1, marks.length) * 4 + (r2.length === tq.length ? 3 : 0) + (w.c ? 12 : 0) + (this.mineOf(w) ? 10 : 0), i]);
+              typos.set(i, marks);
+              break;
+            }
+          }
+        }
         if (!s) continue;
+        if (s >= 40) sure++;
         if (w.c) s += 12;
         if (this.mineOf(w)) s += 10;
         s -= Math.min(10, (w.k[0] ?? w.r[0] ?? "").length);
         scored.push([s, i]);
       }
+      if (sure < 3) scored.push(...near);
       scored.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
-      return scored.slice(0, limit).map(([, i]) => this.entry(i));
+      return scored.slice(0, limit).map(([, i]) => ({ ...this.entry(i), ...forms.has(i) ? { form: forms.get(i) } : {}, ...typos.has(i) ? { typo: typos.get(i) } : {} }));
+    }
+    /** 0.9.9.7.2: phrases / expressions with this word in them (呼ぶ → 名前を呼ぶ …) */
+    phrasesWith(e, limit = 10) {
+      const keys = (e.kanji[0] ? [e.kanji[0]] : [e.kana[0]]).filter((x) => !!x);
+      const stem = (k) => k.length > 2 && /[うくぐすつぬぶむるい]$/.test(k) ? k.slice(0, -1) : k;
+      const out = [];
+      for (let i = 0; i < this.words.length; i++) {
+        const w = this.words[i];
+        if (!w.x || i === e.i) continue;
+        const text = e.kanji[0] ? w.k : [...w.k, ...w.r];
+        if (!keys.some((k) => text.some((t) => t !== k && t.includes(stem(k))))) continue;
+        out.push([(w.c ? 10 : 0) - (w.k[0] ?? w.r[0] ?? "").length, i]);
+      }
+      out.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+      return out.slice(0, limit).map(([, i]) => this.entry(i));
     }
     /** words written with this kanji (common and the game's own first) — "Words with 信" */
     withKanji(ch, limit = 12) {
@@ -15207,10 +15403,19 @@ ${stack}`.slice(0, 2e3);
     } else box.append(w.kana[0] ?? "");
     return box;
   }
+  function nearWord(w) {
+    const box = h4("div", "dh-word dh-near", void 0, { lang: "ja" });
+    const marks = new Set(w.typo ?? []);
+    const reading = h4("span", "dh-near-r");
+    [...w.kana[0] ?? ""].forEach((c, i) => reading.append(marks.has(i) ? h4("b", "dh-miss", c) : c));
+    if (w.kanji[0]) box.append(w.kanji[0], h4("span", "dh-sep", " \xB7 "), reading);
+    else box.append(reading);
+    return box;
+  }
   function badges2(w) {
     const row = h4("div", "dw-tags");
     if (w.level) row.append(h4("span", `dw-tag lv lv-${w.level}`, LEVEL_LABEL[w.level], { "data-no-i18n": "" }));
-    if (w.common) row.append(h4("span", "dw-tag common", tr("common")));
+    if (w.phrase) row.append(h4("span", "dw-tag phrase", tr("phrase")));
     if (w.vocabId) row.append(h4("span", "dw-tag game", tr("game word")));
     return row;
   }
@@ -15251,7 +15456,8 @@ ${stack}`.slice(0, 2e3);
     for (const w of lastHits.slice(0, shown3)) {
       const card = h4("button", "dict-hit", void 0, { type: "button" });
       const top = h4("div", "dh-top");
-      top.append(headword(w, "dh-word"), badges2(w));
+      top.append(w.typo ? nearWord(w) : headword(w, "dh-word"), badges2(w));
+      if (w.form) top.append(h4("span", "dh-form", `\u2190 ${w.form.split(" \xB7 ").map((x) => tr(x)).join(" \xB7 ")}`));
       const ru = ruOf(w);
       const means = h4("ol", "dh-means");
       (ru ?? w.senses.map((s) => s[1])).slice(0, 3).forEach((m) => means.append(h4("li", "", m, { "data-no-i18n": "" })));
@@ -15313,8 +15519,8 @@ ${stack}`.slice(0, 2e3);
     const mean = sec("Meanings");
     let lastPos = "";
     const ol = h4("ol", "dw-senses");
-    w.senses.forEach(([pos, gl, misc, info]) => {
-      const p = posText(pos);
+    w.senses.forEach(([pos2, gl, misc, info]) => {
+      const p = posText(pos2);
       if (p && p !== lastPos) {
         ol.append(h4("li", "dw-pos", p, { "data-no-i18n": "" }));
         lastPos = p;
@@ -15337,18 +15543,35 @@ ${stack}`.slice(0, 2e3);
       const ex = await exampleFor(w.vocabId).catch(() => null);
       if (ex) sec("Example").append(ex);
     }
-    const forms = conjugate(w.kanji[0] ?? w.kana[0] ?? "", w.senses[0]?.[0] ?? []);
+    const pos = w.senses[0]?.[0] ?? [];
+    const forms = conjugate(w.kanji[0] ?? w.kana[0] ?? "", pos);
     if (forms.length) {
-      const d2 = h4("details", "dw-forms");
-      d2.append(h4("summary", "", tr("Forms")));
+      const readings = w.kanji[0] ? conjugate(w.kana[0] ?? "", pos) : [];
       const t = h4("table", "dw-table");
-      for (const [label, f2] of forms) {
-        const tr0 = h4("tr");
-        tr0.append(h4("th", "", tr(label)), h4("td", "", f2, { lang: "ja" }));
-        t.append(tr0);
+      forms.forEach(([label, f2], n) => {
+        const row = h4("tr");
+        const cell = h4("td", "", void 0, { lang: "ja" });
+        cell.append(h4("span", "dw-f", f2));
+        const kana = readings[n]?.[1];
+        if (kana && kana !== f2) cell.append(h4("span", "dw-fk", kana));
+        row.append(h4("th", "", tr(label)), cell);
+        t.append(row);
+      });
+      sec("Forms").append(t);
+    }
+    const phrases = d.phrasesWith(w, 10);
+    if (phrases.length) {
+      const box = h4("div", "dw-phrases");
+      for (const p of phrases) {
+        const b = h4("button", "dw-phrase", void 0, { type: "button" });
+        const jp = h4("span", "dwp-jp", void 0, { lang: "ja" });
+        jp.append(p.kanji[0] ?? p.kana[0] ?? "");
+        if (p.kanji[0]) jp.append(h4("small", "", p.kana[0] ?? ""));
+        b.append(jp, h4("span", "dwp-m", ruOf(p)?.[0] ?? p.senses[0]?.[1] ?? "", { "data-no-i18n": "" }));
+        b.onclick = () => void openWord(p.i);
+        box.append(b);
       }
-      d2.append(t);
-      page2.append(d2);
+      sec("Phrases").append(box);
     }
     const chars2 = [...new Set([...w.kanji[0] ?? ""].filter((c) => HAN4.test(c)))];
     if (chars2.length) {
@@ -15764,6 +15987,9 @@ ${stack}`.slice(0, 2e3);
       case "look":
         arenaLook(msg.id, msg.yaw, msg.pitch);
         break;
+      case "typing":
+        arenaTyping(msg.id, msg.on);
+        break;
       case "welcome":
         user = msg.user;
         setUser(msg.user);
@@ -15861,6 +16087,7 @@ ${stack}`.slice(0, 2e3);
         arena()?.channel(0);
         showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs, from: msg.from });
         gameKbReset();
+        sendTyping(false);
         arena()?.oppChannel(true);
         if (msg.answer === "writing") {
           flashMs = msg.flashMs ?? 3500;
@@ -15869,6 +16096,7 @@ ${stack}`.slice(0, 2e3);
         break;
       case "answer_result":
         if (msg.challengeId !== challengeId) break;
+        if (!msg.retry) sendTyping(false);
         if (msg.retry) {
           setFeedback(msg);
           sfx.wrong();
@@ -16013,6 +16241,7 @@ ${stack}`.slice(0, 2e3);
     shareInk();
     if (mode3 !== "deck") arena()?.channel(Math.min(1, 0.45 + pad2.strokeCount * 0.12));
     gemBack();
+    sendTyping(true);
     if (Date.now() - twitchAt > 140) {
       twitchAt = Date.now();
       arena()?.twitch();
@@ -16094,12 +16323,22 @@ ${stack}`.slice(0, 2e3);
   };
   $("padErase").onclick = () => setEraser(!pad2.eraser);
   $("padClear").onclick = () => pad2.clear();
+  var typingSent = false;
+  function sendTyping(on) {
+    if (on !== typingSent) {
+      typingSent = on;
+      socket.send({ type: "typing", on });
+    }
+  }
   $("answer").addEventListener("input", (e) => {
-    arena()?.channel(Math.min(0.8, e.target.value.length * 0.15));
+    const v = e.target.value;
+    sendTyping(v.length > 0);
+    arena()?.channel(Math.min(0.8, v.length * 0.15));
     arena()?.twitch();
     gemBack();
   });
   $("imeInput").addEventListener("input", () => {
+    sendTyping(true);
     arena()?.channel(0.6);
     arena()?.twitch();
     gemBack();
