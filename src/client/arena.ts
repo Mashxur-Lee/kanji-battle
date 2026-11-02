@@ -142,6 +142,11 @@ export function setArenaBackground(id: BackgroundId, time: TimeOfDay) { bg = { i
 /** players' ids → who they are in the arena (for their mouse look) */
 const whoById = new Map<string, Who>();
 /** Another player's mouse look arrived from the server: their model turns its head. */
+/** 0.9.9.7.2: another player typing / writing */
+export function arenaTyping(id: string, on: boolean) {
+  const who = whoById.get(id);
+  if (who) arena()?.typing(who, on);
+}
 export function arenaLook(id: string, yaw: number, pitch: number) {
   const who = whoById.get(id);
   if (who) arena()?.look(who, yaw, pitch);
@@ -159,7 +164,7 @@ function configure(s: Omit<ArenaSetup, 'bgSvg' | 'bgKey' | 'time'>) {
 export function arenaForBattle(mode: GameMode, players: PlayerView[], you: PlayerId) {
   const me = players.find((p) => p.id === you);
   const others = players.filter((p) => p.id !== you);
-  const art = (p: PlayerView): FighterArt => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff, pose: p.pose });
+  const art = (p: PlayerView): FighterArt => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff, pose: p.pose, bot: !!p.bot });
   configure({
     layout: 'battle',
     me: me ? art(me) : { id: you, character: 'wizard' },

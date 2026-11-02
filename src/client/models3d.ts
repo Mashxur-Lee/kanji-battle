@@ -148,5 +148,7 @@ export function buildCharacter(kind: CharKind, side: Side, glowTex: THREE.Textur
 
 /** Which model a player gets: Deck Duel heroes, or the level avatar in the other modes. */
 export function kindFor(character: string): CharKind {
-  return (['wizard', 'witch', 'goblin', 'knight', 'kid', 'human'] as const).find((k) => k === character) ?? 'wizard';
+  // 0.9.9.7.2: the simple kid and human models are gone — the Apprentice and the Adventurer are goblins in 3D too
+  if (character === 'kid' || character === 'human') return 'goblin';
+  return (['wizard', 'witch', 'goblin', 'knight'] as const).find((k) => k === character) ?? 'wizard';
 }

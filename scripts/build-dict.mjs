@@ -17,7 +17,9 @@ for (const w of src.words) {
   const kana = w.kana.filter((k) => !k.tags.includes('sk') && !k.tags.includes('ik'));
   const common = w.kanji.some((k) => k.common) || w.kana.some((k) => k.common);
   const mine = kanji.some((k) => kana.some((r) => ours.has(`${k.text}|${r.text}`))) || kana.some((r) => ours.has(`${r.text}|${r.text}`));
-  if (!common && !mine) continue;
+  // 0.9.9.7.2: and every expression / phrase (〜を呼ぶ, 気をつける …)
+  const phrase = w.sense.some((x) => x.partOfSpeech.includes('exp'));
+  if (!common && !mine && !phrase) continue;
   const en = [], ru = [];
   for (const s of w.sense) {
     const g = s.gloss.filter((x) => x.lang === 'eng').map((x) => x.text);
@@ -30,6 +32,7 @@ for (const w of src.words) {
   if (!ru.length) { const r = kanji.flatMap((k) => kana.map((x) => ruByWord.get(`${k.text}|${x.text}`))).find(Boolean) ?? kana.map((x) => ruByWord.get(`${x.text}|${x.text}`)).find(Boolean); if (r) ru.push(r); }
   if (ru.length) e.ru = ru.slice(0, 5);
   if (common) e.c = 1;
+  if (phrase) { e.x = 1; e.s = e.s.slice(0, 4); }
   out.push(e);
 }
 const tags = Object.fromEntries([...POS_KEEP].sort().map((t) => [t, src.tags[t] ?? t]));

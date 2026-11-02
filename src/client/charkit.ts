@@ -190,7 +190,7 @@ export const add = (g: THREE.BufferGeometry, m: THREE.Material, parent: THREE.Ob
  */
 export const ARM_REST = 0.3;
 /** 0.9.9.7.1: the staff a little smaller (0.8 before) — from across the arena it hid too much of its bearer */
-export const STAFF_SCALE = 0.68;
+export const STAFF_SCALE = 0.58; // 0.9.9.7.2: smaller again (0.68)
 /** the hands, both the same size (the staff hand was 1.7× and looked far bigger than the other) */
 export const FIST_SCALE = 1.3, HAND_SCALE = 1.3;
 

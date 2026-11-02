@@ -44,10 +44,19 @@ function headword(w: DictEntry, cls = 'dw-head') {
   else box.append(w.kana[0] ?? '');
   return box;
 }
+/** a near miss (you typed koshujin): the word with its reading, the sounds you got wrong in red — 0.9.9.7.2 */
+function nearWord(w: DictEntry) {
+  const box = h('div', 'dh-word dh-near', undefined, { lang: 'ja' });
+  const marks = new Set(w.typo ?? []);
+  const reading = h('span', 'dh-near-r');
+  [...(w.kana[0] ?? '')].forEach((c, i) => reading.append(marks.has(i) ? h('b', 'dh-miss', c) : c));
+  if (w.kanji[0]) box.append(w.kanji[0], h('span', 'dh-sep', ' · '), reading); else box.append(reading);
+  return box;
+}
 function badges(w: DictEntry) {
   const row = h('div', 'dw-tags');
   if (w.level) row.append(h('span', `dw-tag lv lv-${w.level}`, LEVEL_LABEL[w.level], { 'data-no-i18n': '' }));
-  if (w.common) row.append(h('span', 'dw-tag common', tr('common')));
+  if (w.phrase) row.append(h('span', 'dw-tag phrase', tr('phrase')));
   if (w.vocabId) row.append(h('span', 'dw-tag game', tr('game word')));
   return row;
 }
@@ -83,7 +92,8 @@ function drawList() {
   for (const w of lastHits.slice(0, shown)) {
     const card = h('button', 'dict-hit', undefined, { type: 'button' });
     const top = h('div', 'dh-top');
-    top.append(headword(w, 'dh-word'), badges(w));
+    top.append(w.typo ? nearWord(w) : headword(w, 'dh-word'), badges(w));
+    if (w.form) top.append(h('span', 'dh-form', `← ${w.form.split(' · ').map((x) => tr(x)).join(' · ')}`));
     const ru = ruOf(w);
     const means = h('ol', 'dh-means');
     (ru ?? w.senses.map((s) => s[1])).slice(0, 3).forEach((m) => means.append(h('li', '', m, { 'data-no-i18n': '' })));
@@ -159,15 +169,38 @@ async function openWord(i: number) {
     if (ex) sec('Example').append(ex);
   }
 
-  // forms of a verb / adjective
-  const forms = conjugate(w.kanji[0] ?? w.kana[0] ?? '', w.senses[0]?.[0] ?? []);
+  // forms of a verb / adjective — 0.9.9.7.2: always shown, each with its reading
+  const pos = w.senses[0]?.[0] ?? [];
+  const forms = conjugate(w.kanji[0] ?? w.kana[0] ?? '', pos);
   if (forms.length) {
-    const d = h('details', 'dw-forms');
-    d.append(h('summary', '', tr('Forms')));
+    const readings = w.kanji[0] ? conjugate(w.kana[0] ?? '', pos) : [];
     const t = h('table', 'dw-table');
-    for (const [label, f] of forms) { const tr0 = h('tr'); tr0.append(h('th', '', tr(label)), h('td', '', f, { lang: 'ja' })); t.append(tr0); }
-    d.append(t);
-    page.append(d);
+    forms.forEach(([label, f], n) => {
+      const row = h('tr');
+      const cell = h('td', '', undefined, { lang: 'ja' });
+      cell.append(h('span', 'dw-f', f));
+      const kana = readings[n]?.[1];
+      if (kana && kana !== f) cell.append(h('span', 'dw-fk', kana));
+      row.append(h('th', '', tr(label)), cell);
+      t.append(row);
+    });
+    sec('Forms').append(t);
+  }
+
+  // phrases with the word in them (名前を呼ぶ …)
+  const phrases = d.phrasesWith(w, 10);
+  if (phrases.length) {
+    const box = h('div', 'dw-phrases');
+    for (const p of phrases) {
+      const b = h('button', 'dw-phrase', undefined, { type: 'button' });
+      const jp = h('span', 'dwp-jp', undefined, { lang: 'ja' });
+      jp.append(p.kanji[0] ?? p.kana[0] ?? '');
+      if (p.kanji[0]) jp.append(h('small', '', p.kana[0] ?? ''));
+      b.append(jp, h('span', 'dwp-m', ruOf(p)?.[0] ?? p.senses[0]?.[1] ?? '', { 'data-no-i18n': '' }));
+      b.onclick = () => void openWord(p.i);
+      box.append(b);
+    }
+    sec('Phrases').append(box);
   }
 
   // each kanji: meaning, readings, parts — tap for its memory picture

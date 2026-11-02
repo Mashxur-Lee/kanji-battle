@@ -173,6 +173,8 @@ export type ClientMessage =
   | { type: 'chat'; text: string }
   /** 3D mouse look: where you are looking (radians; + = left / up), sent a few times a second */
   | { type: 'look'; yaw: number; pitch: number }
+  /** 0.9.9.7.2: you started / stopped typing or writing (the others see your staff move only then) */
+  | { type: 'typing'; on: boolean }
   | { type: 'pong'; t: number }
   /** which part of the game you're in outside rooms (0.9.9.4.3: friends and admins see "Studying spells") */
   | { type: 'where'; screen: string }
@@ -216,6 +218,8 @@ export type ServerMessage =
   | { type: 'chat'; messages: ChatMessage[] }
   /** another player's mouse look (their model turns its head) */
   | { type: 'look'; id: PlayerId; yaw: number; pitch: number }
+  /** 0.9.9.7.2: another player is typing / writing (or stopped) */
+  | { type: 'typing'; id: PlayerId; on: boolean }
   | { type: 'auth_error'; message: string }
   | { type: 'kicked'; message: string }
   | { type: 'joined'; code: string; you: PlayerId; mode: GameMode }
