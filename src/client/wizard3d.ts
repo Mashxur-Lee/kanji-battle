@@ -128,7 +128,7 @@ export function buildWizard(side: Side, glowTex: THREE.Texture, staffSkin?: stri
   }, (u, v) => (v > 0.88 ? PAL.cream : v > 0.72 ? goldBand(u, (v - 0.72) / 0.16, 5, robeDeep) : mixC(robe, robeDeep, 0.3 * tri(u * 3))), true);
   const left = new THREE.Group(); left.position.set(-0.22, 1.42, 0); left.rotation.set(-0.42, 0, -0.2); body.add(left); // 0.9.9.6.1: a little forward and out, in front of the robe
   add(sleeve(0.58, 0.05, 0.13), cloth, left);
-  const leftHand = handMesh(PAL.skin, cloth, false); leftHand.position.set(0, -0.56, 0.04); leftHand.scale.multiplyScalar(HAND_SCALE); // 0.9.9.7.1: as big as the staff hand left.add(leftHand); // 0.9.9.6.1: the hand moves, not the arm (add() returns the parent — the whole arm sat under the floor)
+  const leftHand = handMesh(PAL.skin, cloth, false); leftHand.position.set(0, -0.56, 0.04); leftHand.scale.multiplyScalar(HAND_SCALE); left.add(leftHand); // 0.9.9.7.1: as big as the staff hand (0.9.9.7.3: and attached again — the comment had swallowed this)
   const arm = new THREE.Group(); arm.position.set(0.22, 1.42, 0.02); arm.rotation.z = ARM_REST; body.add(arm);
   add(sleeve(0.4, 0, 0.065), cloth, arm).rotation.x = -0.5;
   add(new THREE.CylinderGeometry(0.03, 0.033, 0.12, 6), skin, arm, [0, -0.38, 0.19]).rotation.x = -0.5;
