@@ -7,6 +7,25 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.7.3', date: '2026-11',
+    en: [
+      'Dictionary offline: the first time you open it, it asks whether to save the whole dictionary (every word and phrase) on your device. Say yes and it works with no connection at all; you can also save it later from the dictionary page.',
+      'Daily Challenge has leagues: Kana → N5 → N4 → N3 → N2 → N1. Everyone starts in Kana (hiragana and katakana, answered in romaji); score 9/10 or better to move up a league for the next day.',
+      'A proper loading screen on start (no more empty forest), and “Server is waking up” only shows when the server really is asleep.',
+      'Customize → Combo pose: going back to Standing after previewing Levitation now really stands; pick which character to preview it on (goblin, knight, witch, wizard). The 2D arena thumbnails (World Tree) draw properly again.',
+      'Duelist pose in first person: the hand stays on the right of the screen, palm down, pointing the staff at your opponent.',
+      'Phones: no more blue box flashing on buttons when you tap them. PC app: the battle keyboard option is gone there (it’s for touch screens only).',
+    ],
+    ru: [
+      'Словарь офлайн: при первом открытии он спросит, сохранить ли весь словарь (все слова и фразы) на устройство. Согласитесь — и он будет работать совсем без интернета; сохранить можно и позже со страницы словаря.',
+      'В ежедневном испытании появились лиги: Кана → N5 → N4 → N3 → N2 → N1. Все начинают с Каны (хирагана и катакана, ответы ромадзи); наберите 9/10 или больше — и на следующий день перейдёте в лигу выше.',
+      'Настоящий экран загрузки при запуске (больше никакого пустого леса), а «Сервер просыпается» показывается только когда сервер действительно спит.',
+      'Настройка → Комбо-поза: после просмотра Левитации «Стоя» теперь действительно стоит; можно выбрать, на каком персонаже смотреть позу (гоблин, рыцарь, ведьма, волшебник). Миниатюры 2D-арен (Мировое древо) снова рисуются правильно.',
+      'Поза Дуэлянта от первого лица: рука справа на экране, ладонью вниз, посох направлен на соперника.',
+      'Телефоны: при нажатии на кнопки больше не мигает синяя рамка. Приложение для ПК: там убрана настройка боевой клавиатуры (она только для сенсорных экранов).',
+    ],
+  },
+  {
     v: '0.9.9.7.2', date: '2026-11',
     en: [
       'Dictionary: type any form of a word and it finds the word — yobanai or 呼ばない shows 呼ぶ (“← negative”), よびました, tabetakatta, 勉強します all work. A small mistake is forgiven too: koshujin shows ご主人 with the wrong sound (ご) in red.',

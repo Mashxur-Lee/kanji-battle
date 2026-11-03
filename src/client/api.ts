@@ -11,8 +11,8 @@ export interface DayActivity { day: string; login: boolean; reviews: number; gam
 export interface DictEntry { i: number; kanji: string[]; kana: string[]; romaji: string; senses: Array<[string[], string, string[], string]>; ru: string[]; common: boolean; vocabId?: string; level?: Level }
 export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, Array<[kanji: string, mastery: number, progress: number]>>; month: MonthProgress; achCounts?: Partial<Record<string, number>> }
 export interface DailyWord { index: number; total: number; kanji: string; level: Level; timeLimitMs: number }
-export interface DailyDone { correct: number; ms: number; rank: number; players: number; xp: number }
-export interface DailyOverview { day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
+export interface DailyDone { correct: number; ms: number; rank: number; players: number; xp: number; league?: string; promoted?: string | null }
+export interface DailyOverview { league?: string; nextLeague?: string; promoteAt?: number; day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
   board: Array<{ id: string; name: string; correct: number; ms: number }>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
 export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; activity?: string; pic?: string | null; level?: number }
@@ -81,7 +81,8 @@ async function stillDown(): Promise<boolean> {
   if (document.visibilityState !== 'visible') await new Promise<void>((r) => { const f = () => { if (document.visibilityState === 'visible') { document.removeEventListener('visibilitychange', f); r(); } }; document.addEventListener('visibilitychange', f); });
   if (!navigator.onLine) return true;
   await new Promise((r) => setTimeout(r, 1500));
-  try { return !(await fetch('/api/online', { cache: 'no-store', signal: AbortSignal.timeout(6000) })).ok; } catch { return true; }
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000); // (no AbortSignal.timeout: older WebViews)
+  try { return !(await fetch('/api/online', { cache: 'no-store', signal: ctl.signal })).ok; } catch { return true; } finally { clearTimeout(t); }
 }
 /** crypto.randomUUID needs https; plain-http LAN testing gets a random fallback */
 export const uuid = () => (typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, () => (Math.random() * 16 | 0).toString(16)));

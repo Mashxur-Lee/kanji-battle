@@ -461,6 +461,23 @@ const RU: Record<string, string> = {
   '🔔 Reminders work': '🔔 Напоминания работают', 'This is how Kanji Wizards reminders will look.': 'Так будут выглядеть напоминания Kanji Wizards.', 'Last reminder check': 'Последняя проверка напоминаний',
   'Theme': 'Тема', 'Dark': 'Тёмная', 'Light': 'Светлая', 'New a day': 'Новых в день',
   'Every giseigo, gitaigo and gijōgo: sounds (ワンワン), states (きらきら) and feelings (ドキドキ). Choose how many new ones a day (0 = none).': 'Все гисэйго, гитайго и гидзёго: звуки (ワンワン), состояния (きらきら) и чувства (ドキドキ). Выберите, сколько новых в день (0 — ни одного).',
+  // 0.9.9.7.3
+  "Use the dictionary offline?": "Пользоваться словарём без интернета?",
+  "Download every word and phrase (about 2.5 MB) to this device — then the dictionary works without internet, anywhere.": "Скачайте все слова и фразы (около 2,5 МБ) на это устройство — тогда словарь работает без интернета, где угодно.",
+  "Download": "Скачать",
+  "Not now": "Не сейчас",
+  "The dictionary is on this device now — it works offline.": "Словарь теперь на этом устройстве — он работает без интернета.",
+  "Saved on this device — works offline.": "Сохранён на этом устройстве — работает без интернета.",
+  "Save it on this device for offline use": "Сохранить на устройстве для работы без интернета",
+  "League": "Лига",
+  "league": "лига",
+  "Promoted": "Повышение",
+  "tomorrow you play in the new league": "завтра вы играете в новой лиге",
+  "Get": "Наберите",
+  "to move up a league": "чтобы подняться в лигу выше",
+  "One try a day: most correct wins, then fastest. Everyone starts in the kana league.": "Одна попытка в день: побеждает больше верных, затем самый быстрый. Все начинают с лиги каны.",
+  "romaji": "ромадзи",
+  "Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300). Pick a character under the preview to see it on them.": "Поза комбо: что делает ваш персонаж, пока он в огне (5 подряд или Всемогущество) — парит, целится или держит посох обеими руками. Новые позы открываются по мере изучения заклинаний (100, 200, 300). Выберите персонажа под превью, чтобы посмотреть на нём.",
   // 0.9.9.7.2
   "negative": "отрицание",
   "polite": "вежливая",
@@ -706,6 +723,12 @@ const plural = (n: number, one: string, few: string, many: string) => {
 };
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
+  [/^Ten kana, the same for everyone in your league today: five hiragana, five katakana\. Type each in romaji and press Enter — (\d+) s each\. Get (\d+)\/10 or better to move up to N5\.$/, 'Десять знаков каны, одинаковых сегодня для всей вашей лиги: пять хираганы, пять катаканы. Вводите каждый ромадзи и нажимайте Enter — $1 с на каждый. Наберите $2/10 или лучше, чтобы подняться в N5.'],
+  [/^Ten (N\d) words, the same for everyone in your league today, easiest first\. Type the reading \(kana or romaji\) and press Enter — (\d+) s per word\. Get (\d+)\/10 or better to move up a league\.$/, 'Десять слов $1, одинаковых сегодня для всей вашей лиги, от простых к сложным. Введите чтение (каной или ромадзи) и нажмите Enter — $2 с на слово. Наберите $3/10 или лучше, чтобы подняться в лигу выше.'],
+  [/^League: (.+)$/, 'Лига: $1'],
+  [/^▲ Promoted: (.+) — tomorrow you play in the new league$/, '▲ Повышение: $1 — завтра вы играете в новой лиге'],
+  [/^Get (\d+)\/(\d+) to move up a league$/, 'Наберите $1/$2, чтобы подняться в лигу выше'],
+  [/^▲ Promoted: (.+) league!$/, '▲ Повышение: лига $1!'],
   [/^(\d+) new a day — adds (\d+) more today$/, (_, n, m) => `${n} новых в день — сегодня добавится ещё ${m}`],
   [/^(\d+) new a day$/, (_, n) => `${n} новых в день`],
   [/^(\d+) spells learned$/, (_, n) => `${n} изученных заклинаний`],

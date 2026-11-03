@@ -2798,3 +2798,37 @@ button.dw-phrase:hover { border-color: var(--accent); filter: none; }
   body:not(.has-3d) #battle .wizard .sprite { width: 84px; }
   body.game-kb:not(.has-3d) #bg { bottom: var(--kb-h, 0px); height: auto; }
 }
+/* 0.9.9.7.3: the dictionary download */
+.dict-offline h4 { margin: 0 0 4px; font-size: 1.05rem; }
+.dl-bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .12); overflow: hidden; margin-top: 10px; }
+.dl-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .2s; }
+/* 0.9.9.7.3: daily challenge leagues */
+.league-ladder { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px; margin: 6px 0 10px; }
+.ll-step { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: .8rem; font-weight: 700; }
+.ll-step.done { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, transparent); }
+.ll-step.on { color: #1a1430; background: var(--gold); border-color: var(--gold); }
+.ll-step.next { color: var(--gold); border-color: var(--gold); border-style: dashed; }
+.ll-arrow { color: var(--muted); }
+.league-note { font-weight: 700; color: var(--muted); }
+.league-note.up { color: var(--gold); }
+.daily-league { margin: -6px 0 8px; font-weight: 700; }
+/* 0.9.9.7.3: the loading screen (shown before anything else, gone when the first screen is up) */
+.boot-screen { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, #1d1347, #0b0a1c 70%); transition: opacity .4s; }
+.boot-screen.out { opacity: 0; pointer-events: none; }
+.boot-card { display: grid; justify-items: center; gap: 18px; }
+.boot-title { margin: 0; font-size: clamp(2.2rem, 9vw, 3.4rem); color: #f1effb; letter-spacing: .02em; }
+.boot-hint { margin: 0; color: #a4a0c8; font-size: .95rem; }
+.boot-orb { position: relative; width: 64px; height: 64px; }
+.boot-orb i { position: absolute; inset: 0; border-radius: 50%; border: 3px solid transparent; border-top-color: #b993ff; animation: bootSpin 1.1s linear infinite; }
+.boot-orb i:nth-child(2) { inset: 9px; border-top-color: #6ee7ff; animation-duration: .8s; animation-direction: reverse; }
+.boot-orb i:nth-child(3) { inset: 22px; border: 0; background: radial-gradient(circle, #e8dcff, #b993ff 60%, transparent 70%); animation: bootPulse 1.2s ease-in-out infinite alternate; }
+@keyframes bootSpin { to { transform: rotate(360deg); } }
+@keyframes bootPulse { from { transform: scale(.7); opacity: .6; } to { transform: scale(1.05); opacity: 1; } }
+.cust-chars { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 8px 0 10px; }
+.cust-chars .pill.on { background: linear-gradient(135deg, #8b5cf6, #b993ff); color: #fff; border-color: transparent; }
+.bg-thumb-img { width: 100%; height: 100%; display: block; object-fit: cover; }
+/* 0.9.9.7.3: an app, not a web page — no blue box flashing on what you tap, no text selected by a long press */
+* { -webkit-tap-highlight-color: transparent; }
+button, .pill, [role="button"], .cust-item, .mode-card, .deck-card, label, .gk { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+:focus:not(:focus-visible) { outline: none; }
+@media (pointer: coarse) { button:focus-visible, .pill:focus-visible, [role="button"]:focus-visible { outline: none; } }

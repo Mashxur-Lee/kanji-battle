@@ -2,7 +2,7 @@
 // (kana or romaji) within 15 s — checked on the server, one word at a time. One try a day; the board
 // ranks by correct answers, then total time.
 
-import { locale } from './i18n';
+import { locale, tr } from './i18n';
 import { LEVEL_LABEL } from '../shared/protocol';
 import * as offline from './offline';
 import { api, type DailyAnswer, type DailyOverview, type DailyWord } from './api';
@@ -72,8 +72,24 @@ function missedBlock(o: DailyOverview): HTMLElement[] {
   return [el('h4', '', 'Missed — ticked words go to Struggling spells'), grid];
 }
 
+// 0.9.9.7.3: leagues — Kana → N5 → N4 → N3 → N2 → N1; 9 / 10 or better moves you up one
+const LEAGUES = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
+const LEAGUE_NAME: Record<string, string> = { KANA: 'ひらがな・カタカナ', N5: 'N5', N4: 'N4', N3: 'N3', N2: 'N2', N1: 'N1' };
+let league = 'KANA';
+function ladder(current: string, next?: string) {
+  const row = el('div', 'league-ladder');
+  LEAGUES.forEach((l, i) => {
+    if (i) row.append(el('span', 'll-arrow', '›'));
+    const step = el('span', `ll-step${l === current ? ' on' : ''}${LEAGUES.indexOf(l) < LEAGUES.indexOf(current as never) ? ' done' : ''}${next && next !== current && l === next ? ' next' : ''}`, LEAGUE_NAME[l]);
+    step.lang = 'ja';
+    row.append(step);
+  });
+  return row;
+}
 function renderOverview(o: DailyOverview) {
+  league = o.league ?? 'KANA';
   renderBoard(o);
+  $('dailyBoardTitle').textContent = `${tr('League')}: ${LEAGUE_NAME[league]}`;
   const main = $('dailyMain');
   const date = `Challenge of ${new Date(`${o.day}T12:00:00Z`).toLocaleDateString(locale(), { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })}`;
   if (o.mine) {
@@ -88,9 +104,12 @@ function renderOverview(o: DailyOverview) {
       row.append(lv, k, r, el('span', 'dw-m', w.meaning));
       words.append(row);
     }
+    const up = o.nextLeague && o.nextLeague !== league;
     main.replaceChildren(
       el('p', 'sub', date),
+      ladder(league, o.nextLeague),
       el('div', 'daily-score', `${o.mine.correct} / ${o.total}`),
+      el('p', `center league-note${up ? ' up' : ''}`, up ? `▲ ${tr('Promoted')}: ${LEAGUE_NAME[o.nextLeague!]} — ${tr('tomorrow you play in the new league')}` : `${tr('Get')} ${o.promoteAt ?? 9}/${o.total} ${tr('to move up a league')}`),
       el('p', 'center', `${secs(o.mine.ms)} · rank ${o.rank} today`),
       el('p', 'hint center', `10 new words ${nextReset()}.`),
       el('h4', '', "Today's words"), words,
@@ -102,8 +121,12 @@ function renderOverview(o: DailyOverview) {
   start.onclick = () => void begin();
   main.replaceChildren(
     el('p', 'sub', date),
-    el('h3', '', 'Ten words, the same for everyone today'),
-    el('p', '', `Two words each from N5 to N1, easiest first. Type the reading (kana or romaji) and press Enter — ${o.wordMs / 1000} s per word. One try a day: most correct wins, then fastest.`),
+    ladder(league),
+    el('h3', '', `${tr('League')}: ${LEAGUE_NAME[league]}`),
+    el('p', '', league === 'KANA'
+      ? `Ten kana, the same for everyone in your league today: five hiragana, five katakana. Type each in romaji and press Enter — ${o.wordMs / 1000} s each. Get ${o.promoteAt ?? 9}/10 or better to move up to N5.`
+      : `Ten ${league} words, the same for everyone in your league today, easiest first. Type the reading (kana or romaji) and press Enter — ${o.wordMs / 1000} s per word. Get ${o.promoteAt ?? 9}/10 or better to move up a league.`),
+    el('p', 'hint', 'One try a day: most correct wins, then fastest. Everyone starts in the kana league.'),
     el('p', 'hint', `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
     start,
   );
@@ -126,7 +149,7 @@ function renderPlay(last: DailyAnswer | null) {
   const k = el('div', 'daily-kanji', word.kanji); k.lang = 'ja';
   const bar = el('div', 'timer thin'); const fill = el('div'); bar.append(fill);
   const input = el('input', 'daily-input') as HTMLInputElement;
-  input.lang = 'ja'; input.autocomplete = 'off'; input.spellcheck = false; input.placeholder = 'reading (かな or romaji)';
+  input.lang = 'ja'; input.autocomplete = 'off'; input.spellcheck = false; input.placeholder = tr(league === 'KANA' ? 'romaji' : 'reading (かな or romaji)');
   input.addEventListener('paste', (e) => e.preventDefault());
   const skip = el('button', 'pill', 'Skip') as HTMLButtonElement;
   const fb = el('div', 'daily-fb');
@@ -169,6 +192,7 @@ async function submit(text: string) {
       ui.toast(offline.isOffline()
         ? `Daily challenge: ${r.done.correct}/10${r.done.xp ? ` · +${r.done.xp} XP` : ''} · your rank comes when you're back online`
         : `Daily challenge: ${r.done.correct}/10 · rank ${r.done.rank} of ${r.done.players}${r.done.xp ? ` · +${r.done.xp} XP` : ''}`, 6000);
+      if (r.done.promoted) setTimeout(() => ui.toast(`▲ ${tr('Promoted')}: ${LEAGUE_NAME[r.done!.promoted!] ?? r.done!.promoted} ${tr('league')}!`, 6000), 1800);
       if (r.done.correct === 10) audio.sfx.go();
     }
   } catch (e) {

@@ -10,7 +10,8 @@ import { uiScale } from './zoom';
 
 const KEY = 'kb:gamekb';
 const ROWS = ['qwertyuiop', 'asdfghjkl-', 'zxcvbnm'];
-const touch = () => matchMedia('(pointer: coarse)').matches;
+// 0.9.9.7.3: phones and tablets only — not a PC (the Windows app, or a laptop that also has a touch screen)
+const touch = () => matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches && !/KanjiWizardsDesktop/.test(navigator.userAgent);
 
 export const gameKbPref = (): boolean => { try { return localStorage.getItem(KEY) !== 'system'; } catch { return true; } };
 export function setGameKbPref(on: boolean) { try { localStorage.setItem(KEY, on ? 'game' : 'system'); } catch { /* private mode */ } }

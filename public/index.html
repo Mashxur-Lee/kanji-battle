@@ -338,6 +338,7 @@
       <div id="dailyMain" class="daily-main prog-card"></div>
       <div class="prog-card daily-side">
         <h3>Today's leaderboard</h3>
+        <p id="dailyBoardTitle" class="hint daily-league"></p>
         <ol id="dailyBoard" class="daily-board"></ol>
       </div>
     </div>
@@ -514,6 +515,9 @@
           <canvas id="arenaPreview" class="staff-canvas arena-prev" aria-label="3D preview" hidden></canvas>
           <div id="poseInsetLbl" class="pose-inset-lbl" hidden><span>3rd person</span><span>1st person</span></div>
           <div id="custStage2" class="cust-stage2"></div>
+        </div>
+        <div id="custChars" class="cust-chars" role="group" aria-label="Preview character" hidden>
+          <button type="button" class="pill" data-char="goblin">Goblin</button><button type="button" class="pill" data-char="knight">Knight</button><button type="button" class="pill" data-char="witch">Witch</button><button type="button" class="pill" data-char="wizard">Wizard</button>
         </div>
         <div id="custInfo" class="cust-info"></div>
       </div>
@@ -824,6 +828,14 @@
     <button value="close" class="big">Got it</button>
   </form>
 </dialog>
+<!-- 0.9.9.7.3: the loading screen — part of the page, so it covers everything from the very first moment -->
+<div id="bootScreen" class="boot-screen" role="status" aria-label="Loading">
+  <div class="boot-card">
+    <h1 class="boot-title"><span class="jp">漢字</span> Wizards</h1>
+    <div class="boot-orb" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p class="boot-hint">Loading…</p>
+  </div>
+</div>
 <!-- 0.9.9.5.1: the server is waking up (free hosting sleeps after a while with nobody playing) -->
 <div id="wakeScreen" class="wake-screen" hidden role="status" aria-live="polite">
   <div class="wake-card">
@@ -834,7 +846,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.7.2</div>
+<div id="version" class="version">v0.9.9.7.3</div>
 <script src="/app.js"></script>
 </body>
 </html>
