@@ -987,19 +987,29 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (pk > 0.001) {
         if (myPose === 'float') camera.position.y += 0.2 * pk + Math.sin(time * 1.7) * 0.04 * pk;
         if (myPose === 'aim') {
-          // 0.9.9.7.2: the 0.9.9.7 grip (staff thrust forward, the palm over it, holding it from above) — the whole hand
-          // turned to the opponent, so the staff's core points at them instead of straight down the arena
-          fp.position.x += (0.12 - fpBase.x) * pk; fp.position.y += (-0.3 - fpBase.y) * pk * 0.6;
-          const target = fighters.has('opp') ? pointOf('opp', 'chest') : fighters.has('boss') ? pointOf('boss', 'chest') : null;
-          let yaw = 0, rx = -1.35;
+          // 0.9.9.7.3: the hand stays on the right of the screen (the forearm from the bottom-right corner), the staff
+          // thrust forward at the opponent — the hand rolled a quarter turn round the staff, so the palm is on top,
+          // facing down, gripping it from above
+          fp.position.x += (fpBase.x * 0.85 - fpBase.x) * pk; fp.position.y += 0.06 * pk;
+          const foe = fighters.get('opp') ?? fighters.get('boss');
+          const target = foe ? foe.group.position.clone().add(new THREE.Vector3(0, 0.35, 0)) : null; // (their feet, like a pointed blade: the staff doesn't hide them)
+          let yaw = 0.3, rx = -1.35;
           if (target) {
             camera.updateMatrixWorld(true);
-            const d = camera.worldToLocal(target.clone()).sub(fp.position).normalize();
+            // towards where they are ON SCREEN: the target brought to the hand's depth (far away, they are left of your
+            // hand on screen though a little right of it in the arena), plus a little forward — pointed straight at them,
+            // the staff was a stub
+            const t = camera.worldToLocal(target.clone());
+            const atHand = t.multiplyScalar(fp.position.z / t.z);
+            const d = atHand.sub(fp.position);
+            d.z = -0.45 * Math.hypot(d.x, d.y);
+            d.normalize();
             yaw = Math.atan2(-d.x, -d.z);
             rx = -(Math.PI / 2 - Math.atan2(d.y, Math.hypot(d.x, d.z)));
           }
           const want = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
-            .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, 0, 0.05)));
+            .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), rx))
+            .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2));
           staffGroup.quaternion.slerp(want, pk);
         } else if (myPose === 'twohand') {
           // upright in both hands — to the right of the middle and a little low, so the staff's top never stands
@@ -1091,7 +1101,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         m.staff.update(time, dt, glowLevel);
         // 0.9.9.7: on fire, they strike their combo pose (Customize)
         f.poseK += ((f.flame && f.pose !== 'none' ? 1 : 0) - f.poseK) * Math.min(1, dt * 3);
-        if (f.pose !== 'none') applyPose(m, f.pose, f.poseK, time);
+        applyPose(m, f.pose, f.poseK, time); // (always: back to standing resets the last pose — 0.9.9.7.3)
         if (glowLevel > 0.5 && Math.random() < glowLevel * 0.6) {
           m.crystal.getWorldPosition(tmp);
           spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), m.staff.color.getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });

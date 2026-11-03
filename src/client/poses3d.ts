@@ -39,7 +39,7 @@ export function applyPose(m: Character, pose: PoseId, kRaw: number, time: number
   const reset = () => {
     m.root.position.y = 0;
     for (const l of m.legs ?? []) { l.hip.rotation.set(0, 0, 0); l.knee.rotation.set(0, 0, 0); }
-    m.staffPivot.rotation.z = STAFF_Z(m);
+    m.staffPivot.rotation.y = 0; m.staffPivot.rotation.z = STAFF_Z(m); // (a pose turns it about every axis)
     if (m.leftArm) m.leftArm.rotation.set(LEFT_REST.x(m), 0, LEFT_REST.z(m));
   };
   reset();

@@ -997,7 +997,7 @@
     }
     return out;
   }
-  var BASE, YOON, SMALL, _a, _b, VOWELS, katakanaToHiragana, MACRON, VOWEL_KANA, foldJz, E_ROW, WRITE, writeTargets, writeTemplate, ROMA;
+  var BASE, YOON, SMALL, _a, _b, VOWELS, katakanaToHiragana, MACRON, VOWEL_KANA, foldJz, E_ROW, isRomajiInput, WRITE, writeTargets, writeTemplate, ROMA;
   var init_kana = __esm({
     "src/shared/kana.ts"() {
       "use strict";
@@ -1140,6 +1140,7 @@
         return c + (VOWEL_KANA[v] ?? "\u30FC");
       }).replace(/っ$/, "");
       E_ROW = "\u3048\u3051\u3052\u305B\u305C\u3066\u3067\u306D\u3078\u3079\u307A\u3081\u308C";
+      isRomajiInput = (input2) => /^[a-z' \-]+$/i.test(input2.normalize("NFKC").trim());
       WRITE = /[\p{Script=Han}々〆ヶ□]/u;
       writeTargets = (word2) => {
         const all = [...word2];
@@ -2238,16 +2239,17 @@
   });
 
   // src/server/study/DailyService.ts
-  function dailyWords(day) {
-    const rnd2 = seeded(hash(`kanji-wizards:${day}`));
+  function dailyWords(day, league2 = "N5") {
+    const rnd2 = seeded(hash(`kanji-wizards:${day}:${league2}`));
+    const order = league2 === "KANA" ? ["KANA", "KANA", "KANA", "KANA", "KANA", "KATA", "KATA", "KATA", "KATA", "KATA"] : Array(DAILY_WORDS).fill(league2);
     const picked4 = [];
-    for (const level2 of LEVEL_ORDER) {
-      const pool = VOCAB.filter((v) => v.level === level2 && !picked4.includes(v) && /[一-鿿]/.test(v.kanji));
+    for (const level2 of order) {
+      const pool = VOCAB.filter((v) => v.level === level2 && !picked4.includes(v) && (league2 === "KANA" || /[一-鿿]/.test(v.kanji)));
       picked4.push(pool[Math.floor(rnd2() * pool.length)]);
     }
-    return picked4;
+    return league2 === "KANA" ? picked4 : picked4.sort((a, b) => (a.difficulty ?? 0) - (b.difficulty ?? 0));
   }
-  var DAILY_WORDS, DAILY_WORD_MS, GRACE_MS, XP_PER_CORRECT, LEVEL_ORDER, DailyError, DailyService, publicRow;
+  var DAILY_WORDS, DAILY_WORD_MS, GRACE_MS, XP_PER_CORRECT, LEAGUES, PROMOTE_AT, isLeague, leagueOf, playedOn, dailyKey, DailyError, DailyService, publicRow;
   var init_DailyService = __esm({
     "src/server/study/DailyService.ts"() {
       "use strict";
@@ -2261,7 +2263,18 @@
       DAILY_WORD_MS = 15e3;
       GRACE_MS = 1500;
       XP_PER_CORRECT = 30;
-      LEVEL_ORDER = ["N5", "N5", "N4", "N4", "N3", "N3", "N2", "N2", "N1", "N1"];
+      LEAGUES = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+      PROMOTE_AT = 9;
+      isLeague = (x) => LEAGUES.includes(x);
+      leagueOf = (u) => {
+        const l = (u.unlocks ?? []).find((x) => x.startsWith("dleague:"))?.slice(8);
+        return isLeague(l) ? l : "KANA";
+      };
+      playedOn = (u, day) => {
+        const m = (u.unlocks ?? []).find((x) => x.startsWith(`dplayed:${day}:`))?.split(":")[2];
+        return isLeague(m) ? m : null;
+      };
+      dailyKey = (day, league2) => `${day}:${league2}`;
       DailyError = class extends Error {
         constructor(message, status = 400) {
           super(message);
@@ -2275,33 +2288,47 @@
           __publicField(this, "now", now2);
           __publicField(this, "attempts", /* @__PURE__ */ new Map());
           // userId → today's run in progress
-          __publicField(this, "cache", null);
+          __publicField(this, "cache", /* @__PURE__ */ new Map());
           /** 10 / 10: the 'Perfect Day' achievement (set in index.ts) */
           __publicField(this, "onPerfect");
         }
         today() {
           return new Date(this.now()).toISOString().slice(0, 10);
         }
-        words(day) {
-          if (this.cache?.day !== day) this.cache = { day, words: dailyWords(day) };
-          return this.cache.words;
+        words(day, league2) {
+          const k = dailyKey(day, league2);
+          if (!this.cache.has(k)) {
+            if (this.cache.size > 12) this.cache.clear();
+            this.cache.set(k, dailyWords(day, league2));
+          }
+          return this.cache.get(k);
         }
-        /** Today's board, your result (and then the words with their readings), and whether you can play. */
+        /** today's league for you: the one you played in, or your league now */
+        todays(u, day) {
+          return playedOn(u, day) ?? this.attempts.get(u.id)?.league ?? leagueOf(u);
+        }
+        /** the store key of your result today (the offline snapshot carries it) */
+        keyFor(u) {
+          const day = this.today();
+          return dailyKey(day, this.todays(u, day));
+        }
+        /** Today's board (your league's), your result (and then the words with their readings), and whether you can play. */
         async overview(u) {
           const day = this.today();
-          const mine = await this.store.daily(day, u.id);
-          const board = await this.store.dailyBoard(day, 20);
-          const rank = mine ? await this.store.dailyBetter(day, mine.correct, mine.ms) + 1 : null;
-          const words2 = mine ? this.words(day).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === "1" : null })) : null;
-          return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), words: words2, inProgress: this.attempts.get(u.id)?.day === day };
+          const league2 = this.todays(u, day), key = dailyKey(day, league2);
+          const mine = await this.store.daily(key, u.id);
+          const board = await this.store.dailyBoard(key, 20);
+          const rank = mine ? await this.store.dailyBetter(key, mine.correct, mine.ms) + 1 : null;
+          const words2 = mine ? this.words(day, league2).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === "1" : null })) : null;
+          return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), words: words2, inProgress: this.attempts.get(u.id)?.day === day, league: league2, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT };
         }
         /** Start (or continue) today's run: returns the current word. */
         async start(u) {
           const day = this.today();
-          if (await this.store.daily(day, u.id)) throw new DailyError("You already played today's challenge \u2014 come back tomorrow!", 409);
+          if (playedOn(u, day) || await this.store.daily(dailyKey(day, leagueOf(u)), u.id)) throw new DailyError("You already played today's challenge \u2014 come back tomorrow!", 409);
           let a = this.attempts.get(u.id);
           if (!a || a.day !== day) {
-            a = { day, index: 0, shownAt: this.now(), correct: 0, ms: 0, marks: "" };
+            a = { day, league: leagueOf(u), index: 0, shownAt: this.now(), correct: 0, ms: 0, marks: "" };
             this.attempts.set(u.id, a);
           }
           while (a.index < DAILY_WORDS && this.now() - a.shownAt > DAILY_WORD_MS + GRACE_MS) {
@@ -2319,10 +2346,11 @@
           const a = this.attempts.get(u.id);
           if (!a || a.day !== day) throw new DailyError("Start the challenge first");
           const text = typeof raw === "string" ? raw.slice(0, 60) : "";
-          const word2 = this.words(day)[a.index];
+          const word2 = this.words(day, a.league)[a.index];
           const ms = Math.min(DAILY_WORD_MS, this.now() - a.shownAt);
           const inTime = this.now() - a.shownAt <= DAILY_WORD_MS + GRACE_MS;
-          const correct = inTime && !!text.trim() && isCorrectReading(text, [word2.reading, ...word2.altReadings ?? []]);
+          const kana = word2.level === "KANA" || word2.level === "KATA";
+          const correct = inTime && !!text.trim() && (!kana || isRomajiInput(text)) && isCorrectReading(text, [word2.reading, ...word2.altReadings ?? []]);
           if (correct) a.correct++;
           a.ms += ms;
           a.index++;
@@ -2343,21 +2371,31 @@
         }
         async finish(u, a) {
           this.attempts.delete(u.id);
-          const saved = await this.store.saveDaily(a.day, u.id, a.correct, a.ms, a.marks);
+          const key = dailyKey(a.day, a.league);
+          const saved = await this.store.saveDaily(key, u.id, a.correct, a.ms, a.marks);
+          let promoted = null;
           if (saved) {
-            const missed = this.words(a.day).filter((_, i) => a.marks[i] !== "1").map((v) => v.id);
+            const fresh = await this.store.findById(u.id) ?? u;
+            const i = LEAGUES.indexOf(a.league);
+            if (a.correct >= PROMOTE_AT && i < LEAGUES.length - 1) promoted = LEAGUES[i + 1];
+            const now2 = promoted ?? leagueOf(fresh);
+            const rest = (fresh.unlocks ?? []).filter((x) => !x.startsWith("dleague:") && !x.startsWith("dplayed:"));
+            await this.store.update(u.id, { unlocks: [...rest, ...now2 === "KANA" ? [] : [`dleague:${now2}`], `dplayed:${a.day}:${a.league}`] });
+          }
+          if (saved) {
+            const missed = this.words(a.day, a.league).filter((_, i) => a.marks[i] !== "1").map((v) => v.id);
             if (missed.length) await this.store.markStruggling(u.id, missed, this.now());
           }
           const xp = saved ? a.correct * XP_PER_CORRECT + (a.correct === DAILY_WORDS ? 100 : 0) : 0;
           if (xp) await this.store.addXp(u.id, xp);
           if (saved) await this.progress.record(u.id, playerDay(u, this.now()), { xp, challenges: 1 });
           if (saved && a.correct === DAILY_WORDS) await this.onPerfect?.(u.id);
-          const rank = await this.store.dailyBetter(a.day, a.correct, a.ms) + 1;
-          const players2 = (await this.store.dailyBoard(a.day, 1e5)).length;
-          return { correct: a.correct, ms: a.ms, rank, players: players2, xp };
+          const rank = await this.store.dailyBetter(key, a.correct, a.ms) + 1;
+          const players2 = (await this.store.dailyBoard(key, 1e5)).length;
+          return { correct: a.correct, ms: a.ms, rank, players: players2, xp, league: a.league, promoted };
         }
         view(a) {
-          const w = this.words(a.day)[a.index];
+          const w = this.words(a.day, a.league)[a.index];
           return { index: a.index, total: DAILY_WORDS, kanji: w.kanji, level: w.level, timeLimitMs: DAILY_WORD_MS };
         }
       };
@@ -2898,7 +2936,7 @@ Answer with JSON only, no other text:
           return res(200, { user: await auth.setRole(admin, id, body.role) });
         } else if (r2.method === "GET" && url === "/api/sync/snapshot") {
           const u = await auth.authenticate(r2.token);
-          return res(200, await study.snapshot(u, daily?.today()));
+          return res(200, await study.snapshot(u, daily?.keyFor(u)));
         } else {
           return res(404, { error: "Not found" });
         }
@@ -3358,10 +3396,14 @@ Answer with JSON only, no other text:
     });
     if (!navigator.onLine) return true;
     await new Promise((r2) => setTimeout(r2, 1500));
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 6e3);
     try {
-      return !(await fetch("/api/online", { cache: "no-store", signal: AbortSignal.timeout(6e3) })).ok;
+      return !(await fetch("/api/online", { cache: "no-store", signal: ctl.signal })).ok;
     } catch {
       return true;
+    } finally {
+      clearTimeout(t);
     }
   }
   async function local(method, url, body, op) {
@@ -4304,6 +4346,23 @@ Answer with JSON only, no other text:
         "Light": "\u0421\u0432\u0435\u0442\u043B\u0430\u044F",
         "New a day": "\u041D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C",
         "Every giseigo, gitaigo and gij\u014Dgo: sounds (\u30EF\u30F3\u30EF\u30F3), states (\u304D\u3089\u304D\u3089) and feelings (\u30C9\u30AD\u30C9\u30AD). Choose how many new ones a day (0 = none).": "\u0412\u0441\u0435 \u0433\u0438\u0441\u044D\u0439\u0433\u043E, \u0433\u0438\u0442\u0430\u0439\u0433\u043E \u0438 \u0433\u0438\u0434\u0437\u0451\u0433\u043E: \u0437\u0432\u0443\u043A\u0438 (\u30EF\u30F3\u30EF\u30F3), \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F (\u304D\u3089\u304D\u3089) \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u0430 (\u30C9\u30AD\u30C9\u30AD). \u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C (0 \u2014 \u043D\u0438 \u043E\u0434\u043D\u043E\u0433\u043E).",
+        // 0.9.9.7.3
+        "Use the dictionary offline?": "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C\u0441\u044F \u0441\u043B\u043E\u0432\u0430\u0440\u0451\u043C \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430?",
+        "Download every word and phrase (about 2.5 MB) to this device \u2014 then the dictionary works without internet, anywhere.": "\u0421\u043A\u0430\u0447\u0430\u0439\u0442\u0435 \u0432\u0441\u0435 \u0441\u043B\u043E\u0432\u0430 \u0438 \u0444\u0440\u0430\u0437\u044B (\u043E\u043A\u043E\u043B\u043E 2,5 \u041C\u0411) \u043D\u0430 \u044D\u0442\u043E \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E \u2014 \u0442\u043E\u0433\u0434\u0430 \u0441\u043B\u043E\u0432\u0430\u0440\u044C \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430, \u0433\u0434\u0435 \u0443\u0433\u043E\u0434\u043D\u043E.",
+        "Download": "\u0421\u043A\u0430\u0447\u0430\u0442\u044C",
+        "Not now": "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441",
+        "The dictionary is on this device now \u2014 it works offline.": "\u0421\u043B\u043E\u0432\u0430\u0440\u044C \u0442\u0435\u043F\u0435\u0440\u044C \u043D\u0430 \u044D\u0442\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435 \u2014 \u043E\u043D \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430.",
+        "Saved on this device \u2014 works offline.": "\u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D \u043D\u0430 \u044D\u0442\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435 \u2014 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430.",
+        "Save it on this device for offline use": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043D\u0430 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435 \u0434\u043B\u044F \u0440\u0430\u0431\u043E\u0442\u044B \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430",
+        "League": "\u041B\u0438\u0433\u0430",
+        "league": "\u043B\u0438\u0433\u0430",
+        "Promoted": "\u041F\u043E\u0432\u044B\u0448\u0435\u043D\u0438\u0435",
+        "tomorrow you play in the new league": "\u0437\u0430\u0432\u0442\u0440\u0430 \u0432\u044B \u0438\u0433\u0440\u0430\u0435\u0442\u0435 \u0432 \u043D\u043E\u0432\u043E\u0439 \u043B\u0438\u0433\u0435",
+        "Get": "\u041D\u0430\u0431\u0435\u0440\u0438\u0442\u0435",
+        "to move up a league": "\u0447\u0442\u043E\u0431\u044B \u043F\u043E\u0434\u043D\u044F\u0442\u044C\u0441\u044F \u0432 \u043B\u0438\u0433\u0443 \u0432\u044B\u0448\u0435",
+        "One try a day: most correct wins, then fastest. Everyone starts in the kana league.": "\u041E\u0434\u043D\u0430 \u043F\u043E\u043F\u044B\u0442\u043A\u0430 \u0432 \u0434\u0435\u043D\u044C: \u043F\u043E\u0431\u0435\u0436\u0434\u0430\u0435\u0442 \u0431\u043E\u043B\u044C\u0448\u0435 \u0432\u0435\u0440\u043D\u044B\u0445, \u0437\u0430\u0442\u0435\u043C \u0441\u0430\u043C\u044B\u0439 \u0431\u044B\u0441\u0442\u0440\u044B\u0439. \u0412\u0441\u0435 \u043D\u0430\u0447\u0438\u043D\u0430\u044E\u0442 \u0441 \u043B\u0438\u0433\u0438 \u043A\u0430\u043D\u044B.",
+        "romaji": "\u0440\u043E\u043C\u0430\u0434\u0437\u0438",
+        "Combo pose: what your character does while it\u2019s on fire (5 in a row, or Omnipotence) \u2014 float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300). Pick a character under the preview to see it on them.": "\u041F\u043E\u0437\u0430 \u043A\u043E\u043C\u0431\u043E: \u0447\u0442\u043E \u0434\u0435\u043B\u0430\u0435\u0442 \u0432\u0430\u0448 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436, \u043F\u043E\u043A\u0430 \u043E\u043D \u0432 \u043E\u0433\u043D\u0435 (5 \u043F\u043E\u0434\u0440\u044F\u0434 \u0438\u043B\u0438 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E) \u2014 \u043F\u0430\u0440\u0438\u0442, \u0446\u0435\u043B\u0438\u0442\u0441\u044F \u0438\u043B\u0438 \u0434\u0435\u0440\u0436\u0438\u0442 \u043F\u043E\u0441\u043E\u0445 \u043E\u0431\u0435\u0438\u043C\u0438 \u0440\u0443\u043A\u0430\u043C\u0438. \u041D\u043E\u0432\u044B\u0435 \u043F\u043E\u0437\u044B \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043F\u043E \u043C\u0435\u0440\u0435 \u0438\u0437\u0443\u0447\u0435\u043D\u0438\u044F \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 (100, 200, 300). \u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436\u0430 \u043F\u043E\u0434 \u043F\u0440\u0435\u0432\u044C\u044E, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u043D\u0430 \u043D\u0451\u043C.",
         // 0.9.9.7.2
         "negative": "\u043E\u0442\u0440\u0438\u0446\u0430\u043D\u0438\u0435",
         "polite": "\u0432\u0435\u0436\u043B\u0438\u0432\u0430\u044F",
@@ -4629,6 +4688,12 @@ Answer with JSON only, no other text:
         return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
       };
       PATTERNS = [
+        [/^Ten kana, the same for everyone in your league today: five hiragana, five katakana\. Type each in romaji and press Enter — (\d+) s each\. Get (\d+)\/10 or better to move up to N5\.$/, "\u0414\u0435\u0441\u044F\u0442\u044C \u0437\u043D\u0430\u043A\u043E\u0432 \u043A\u0430\u043D\u044B, \u043E\u0434\u0438\u043D\u0430\u043A\u043E\u0432\u044B\u0445 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0434\u043B\u044F \u0432\u0441\u0435\u0439 \u0432\u0430\u0448\u0435\u0439 \u043B\u0438\u0433\u0438: \u043F\u044F\u0442\u044C \u0445\u0438\u0440\u0430\u0433\u0430\u043D\u044B, \u043F\u044F\u0442\u044C \u043A\u0430\u0442\u0430\u043A\u0430\u043D\u044B. \u0412\u0432\u043E\u0434\u0438\u0442\u0435 \u043A\u0430\u0436\u0434\u044B\u0439 \u0440\u043E\u043C\u0430\u0434\u0437\u0438 \u0438 \u043D\u0430\u0436\u0438\u043C\u0430\u0439\u0442\u0435 Enter \u2014 $1 \u0441 \u043D\u0430 \u043A\u0430\u0436\u0434\u044B\u0439. \u041D\u0430\u0431\u0435\u0440\u0438\u0442\u0435 $2/10 \u0438\u043B\u0438 \u043B\u0443\u0447\u0448\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u0434\u043D\u044F\u0442\u044C\u0441\u044F \u0432 N5."],
+        [/^Ten (N\d) words, the same for everyone in your league today, easiest first\. Type the reading \(kana or romaji\) and press Enter — (\d+) s per word\. Get (\d+)\/10 or better to move up a league\.$/, "\u0414\u0435\u0441\u044F\u0442\u044C \u0441\u043B\u043E\u0432 $1, \u043E\u0434\u0438\u043D\u0430\u043A\u043E\u0432\u044B\u0445 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0434\u043B\u044F \u0432\u0441\u0435\u0439 \u0432\u0430\u0448\u0435\u0439 \u043B\u0438\u0433\u0438, \u043E\u0442 \u043F\u0440\u043E\u0441\u0442\u044B\u0445 \u043A \u0441\u043B\u043E\u0436\u043D\u044B\u043C. \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0447\u0442\u0435\u043D\u0438\u0435 (\u043A\u0430\u043D\u043E\u0439 \u0438\u043B\u0438 \u0440\u043E\u043C\u0430\u0434\u0437\u0438) \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 Enter \u2014 $2 \u0441 \u043D\u0430 \u0441\u043B\u043E\u0432\u043E. \u041D\u0430\u0431\u0435\u0440\u0438\u0442\u0435 $3/10 \u0438\u043B\u0438 \u043B\u0443\u0447\u0448\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u0434\u043D\u044F\u0442\u044C\u0441\u044F \u0432 \u043B\u0438\u0433\u0443 \u0432\u044B\u0448\u0435."],
+        [/^League: (.+)$/, "\u041B\u0438\u0433\u0430: $1"],
+        [/^▲ Promoted: (.+) — tomorrow you play in the new league$/, "\u25B2 \u041F\u043E\u0432\u044B\u0448\u0435\u043D\u0438\u0435: $1 \u2014 \u0437\u0430\u0432\u0442\u0440\u0430 \u0432\u044B \u0438\u0433\u0440\u0430\u0435\u0442\u0435 \u0432 \u043D\u043E\u0432\u043E\u0439 \u043B\u0438\u0433\u0435"],
+        [/^Get (\d+)\/(\d+) to move up a league$/, "\u041D\u0430\u0431\u0435\u0440\u0438\u0442\u0435 $1/$2, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u0434\u043D\u044F\u0442\u044C\u0441\u044F \u0432 \u043B\u0438\u0433\u0443 \u0432\u044B\u0448\u0435"],
+        [/^▲ Promoted: (.+) league!$/, "\u25B2 \u041F\u043E\u0432\u044B\u0448\u0435\u043D\u0438\u0435: \u043B\u0438\u0433\u0430 $1!"],
         [/^(\d+) new a day — adds (\d+) more today$/, (_, n, m) => `${n} \u043D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C \u2014 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0441\u044F \u0435\u0449\u0451 ${m}`],
         [/^(\d+) new a day$/, (_, n) => `${n} \u043D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C`],
         [/^(\d+) spells learned$/, (_, n) => `${n} \u0438\u0437\u0443\u0447\u0435\u043D\u043D\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439`],
@@ -4948,7 +5013,7 @@ Answer with JSON only, no other text:
     box.classList.add("stroke-order");
     box.replaceChildren(Object.assign(document.createElement("div"), { className: "so-loading", textContent: "\u2026" }));
     await load(chars2.filter((c) => /[\p{Script=Han}々]/u.test(c)));
-    const build2 = () => {
+    const build3 = () => {
       const row2 = document.createElement("div");
       row2.className = "so-row";
       let delay = 0;
@@ -4962,13 +5027,13 @@ Answer with JSON only, no other text:
       }
       return row2;
     };
-    let row = build2();
+    let row = build3();
     const foot = document.createElement("div");
     foot.className = "so-foot";
     if (o.caption) foot.append(Object.assign(document.createElement("span"), { textContent: o.caption }));
     const replay = Object.assign(document.createElement("button"), { className: "pill so-replay", type: "button", textContent: "\u21BB Replay" });
     replay.onclick = () => {
-      const fresh = build2();
+      const fresh = build3();
       row.replaceWith(fresh);
       row = fresh;
     };
@@ -6148,13 +6213,18 @@ Answer with JSON only, no other text:
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${scene(id, time)}</svg>`;
   }
   function backgroundThumb(id, time = "night") {
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" class="still">${scene(id, time)}</svg>`;
+    const key = `${id}-${time}`;
+    if (!thumbUrls.has(key)) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice"><style>.bg-comet,.bg-spark circle{display:none}</style>${scene(id, time)}</svg>`;
+      thumbUrls.set(key, URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })));
+    }
+    return `<img class="bg-thumb-img" src="${thumbUrls.get(key)}" alt="" decoding="async">`;
   }
   function getTimePref() {
     void TIME_KEY;
     return "auto";
   }
-  var DAY_FROM, SUNSET_FROM, NIGHT_FROM, W, H, seed, rnd, r, f, stopsOf, grad, radial, gdefs, gn, DEFS, pick, dk2, floorDefs, SCENES, cache2, stillBackground, stillUrls, BG_FADE_MS, fadeTimer, TIME_KEY;
+  var DAY_FROM, SUNSET_FROM, NIGHT_FROM, W, H, seed, rnd, r, f, stopsOf, grad, radial, gdefs, gn, DEFS, pick, dk2, floorDefs, SCENES, cache2, stillBackground, stillUrls, BG_FADE_MS, fadeTimer, thumbUrls, TIME_KEY;
   var init_backgrounds = __esm({
     "src/client/backgrounds.ts"() {
       "use strict";
@@ -6186,6 +6256,7 @@ Answer with JSON only, no other text:
       stillUrls = /* @__PURE__ */ new Map();
       BG_FADE_MS = 3200;
       fadeTimer = 0;
+      thumbUrls = /* @__PURE__ */ new Map();
       TIME_KEY = "kb:bgtime";
     }
   });
@@ -6453,6 +6524,7 @@ Answer with JSON only, no other text:
     fizzle: () => fizzle,
     gemBack: () => gemBack,
     gemGone: () => gemGone,
+    hideBootScreen: () => hideBootScreen,
     hideProfileCard: () => hideProfileCard,
     hideTimer: () => hideTimer,
     hideToast: () => hideToast,
@@ -6515,6 +6587,12 @@ Answer with JSON only, no other text:
     if (text !== void 0) el11.textContent = String(text);
     for (const [k, v] of Object.entries(attrs)) el11.setAttribute(k, v);
     return el11;
+  }
+  function hideBootScreen() {
+    const b = document.getElementById("bootScreen");
+    if (!b || b.classList.contains("out")) return;
+    b.classList.add("out");
+    setTimeout(() => b.remove(), 450);
   }
   function setClocksPaused(on) {
     if (on && pauseAt === null) pauseAt = performance.now();
@@ -7527,6 +7605,7 @@ Answer with JSON only, no other text:
       show = (screen2) => {
         SCREENS.forEach((s) => $(s).hidden = s !== screen2);
         document.body.dataset.screen = screen2;
+        hideBootScreen();
         scrollTo(0, 0);
         screenListener(screen2);
       };
@@ -7835,7 +7914,7 @@ Answer with JSON only, no other text:
   init_api();
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.7.2";
+  var VERSION = "0.9.9.7.3";
 
   // src/client/support.ts
   init_ui();
@@ -8234,12 +8313,12 @@ ${stack}`.slice(0, 2e3);
   var dateOf = (t) => t ? new Date(t).toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric" }) : "\u2014";
   var sortKey = null;
   var sortDir = 1;
-  var LEVEL_ORDER2 = ["KANA", "KATA", "N5", "N4", "N3", "N2", "N1"];
+  var LEVEL_ORDER = ["KANA", "KATA", "N5", "N4", "N3", "N2", "N1"];
   var STATE_ORDER = ["new", "learning", "relearning", "review"];
   function sortRows(list) {
     if (!sortKey) return list;
     const key = sortKey;
-    const val = (r2) => key === "star" ? isStarred(r2.vocabId) ? 0 : 1 : key === "kanji" ? r2.kanji : key === "reading" ? r2.reading : key === "meaning" ? meaningIn(r2.meaning).toLowerCase() : key === "level" ? r2.custom ? 99 : LEVEL_ORDER2.indexOf(r2.level) : key === "added" ? r2.addedAt ?? 0 : STATE_ORDER.indexOf(r2.state);
+    const val = (r2) => key === "star" ? isStarred(r2.vocabId) ? 0 : 1 : key === "kanji" ? r2.kanji : key === "reading" ? r2.reading : key === "meaning" ? meaningIn(r2.meaning).toLowerCase() : key === "level" ? r2.custom ? 99 : LEVEL_ORDER.indexOf(r2.level) : key === "added" ? r2.addedAt ?? 0 : STATE_ORDER.indexOf(r2.state);
     return [...list].sort((a, b) => {
       const x = val(a), y = val(b);
       return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), lang() === "ru" ? "ru" : "ja")) * sortDir;
@@ -9025,7 +9104,7 @@ ${stack}`.slice(0, 2e3);
     hideGloss();
     closeTranslation();
     const examples = await loadExamples();
-    const build2 = ++passageBuild;
+    const build3 = ++passageBuild;
     const text = $3("passageText");
     const usable = storyFrom.startsWith("deck:") ? passageWords.filter(storyWord) : passageWords;
     if (storyFrom.startsWith("deck:") && new Set(usable.map((w) => w.kanji)).size < 8) {
@@ -9077,13 +9156,13 @@ ${stack}`.slice(0, 2e3);
       clearInterval(tick2);
       again.disabled = false;
       drawLimit();
-      if (build2 !== passageBuild) return;
+      if (build3 !== passageBuild) return;
       if (r2.usage) showQuota(r2.usage);
       if (r2.story) {
         rememberStoryTime((Date.now() - t0) / 1e3);
         bar.style.width = "100%";
         await new Promise((ok) => setTimeout(ok, 380));
-        if (build2 !== passageBuild) return;
+        if (build3 !== passageBuild) return;
         storyTitle = r2.story.title;
         lines = r2.story.lines.map((l) => ({ ws: l.words.map((i) => pool[i]), ex: [l.ja, l.en, l.ru] }));
       } else if (r2.why) {
@@ -9389,6 +9468,26 @@ ${stack}`.slice(0, 2e3);
   // src/client/whatsnew.ts
   init_i18n();
   var PATCHES = [
+    {
+      v: "0.9.9.7.3",
+      date: "2026-11",
+      en: [
+        "Dictionary offline: the first time you open it, it asks whether to save the whole dictionary (every word and phrase) on your device. Say yes and it works with no connection at all; you can also save it later from the dictionary page.",
+        "Daily Challenge has leagues: Kana \u2192 N5 \u2192 N4 \u2192 N3 \u2192 N2 \u2192 N1. Everyone starts in Kana (hiragana and katakana, answered in romaji); score 9/10 or better to move up a league for the next day.",
+        "A proper loading screen on start (no more empty forest), and \u201CServer is waking up\u201D only shows when the server really is asleep.",
+        "Customize \u2192 Combo pose: going back to Standing after previewing Levitation now really stands; pick which character to preview it on (goblin, knight, witch, wizard). The 2D arena thumbnails (World Tree) draw properly again.",
+        "Duelist pose in first person: the hand stays on the right of the screen, palm down, pointing the staff at your opponent.",
+        "Phones: no more blue box flashing on buttons when you tap them. PC app: the battle keyboard option is gone there (it\u2019s for touch screens only)."
+      ],
+      ru: [
+        "\u0421\u043B\u043E\u0432\u0430\u0440\u044C \u043E\u0444\u043B\u0430\u0439\u043D: \u043F\u0440\u0438 \u043F\u0435\u0440\u0432\u043E\u043C \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u0438 \u043E\u043D \u0441\u043F\u0440\u043E\u0441\u0438\u0442, \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043B\u0438 \u0432\u0435\u0441\u044C \u0441\u043B\u043E\u0432\u0430\u0440\u044C (\u0432\u0441\u0435 \u0441\u043B\u043E\u0432\u0430 \u0438 \u0444\u0440\u0430\u0437\u044B) \u043D\u0430 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E. \u0421\u043E\u0433\u043B\u0430\u0441\u0438\u0442\u0435\u0441\u044C \u2014 \u0438 \u043E\u043D \u0431\u0443\u0434\u0435\u0442 \u0440\u0430\u0431\u043E\u0442\u0430\u0442\u044C \u0441\u043E\u0432\u0441\u0435\u043C \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430; \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043C\u043E\u0436\u043D\u043E \u0438 \u043F\u043E\u0437\u0436\u0435 \u0441\u043E \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u044B \u0441\u043B\u043E\u0432\u0430\u0440\u044F.",
+        "\u0412 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u043C \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0438 \u043F\u043E\u044F\u0432\u0438\u043B\u0438\u0441\u044C \u043B\u0438\u0433\u0438: \u041A\u0430\u043D\u0430 \u2192 N5 \u2192 N4 \u2192 N3 \u2192 N2 \u2192 N1. \u0412\u0441\u0435 \u043D\u0430\u0447\u0438\u043D\u0430\u044E\u0442 \u0441 \u041A\u0430\u043D\u044B (\u0445\u0438\u0440\u0430\u0433\u0430\u043D\u0430 \u0438 \u043A\u0430\u0442\u0430\u043A\u0430\u043D\u0430, \u043E\u0442\u0432\u0435\u0442\u044B \u0440\u043E\u043C\u0430\u0434\u0437\u0438); \u043D\u0430\u0431\u0435\u0440\u0438\u0442\u0435 9/10 \u0438\u043B\u0438 \u0431\u043E\u043B\u044C\u0448\u0435 \u2014 \u0438 \u043D\u0430 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0434\u0435\u043D\u044C \u043F\u0435\u0440\u0435\u0439\u0434\u0451\u0442\u0435 \u0432 \u043B\u0438\u0433\u0443 \u0432\u044B\u0448\u0435.",
+        "\u041D\u0430\u0441\u0442\u043E\u044F\u0449\u0438\u0439 \u044D\u043A\u0440\u0430\u043D \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043F\u0440\u0438 \u0437\u0430\u043F\u0443\u0441\u043A\u0435 (\u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0438\u043A\u0430\u043A\u043E\u0433\u043E \u043F\u0443\u0441\u0442\u043E\u0433\u043E \u043B\u0435\u0441\u0430), \u0430 \xAB\u0421\u0435\u0440\u0432\u0435\u0440 \u043F\u0440\u043E\u0441\u044B\u043F\u0430\u0435\u0442\u0441\u044F\xBB \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u043A\u043E\u0433\u0434\u0430 \u0441\u0435\u0440\u0432\u0435\u0440 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u0441\u043F\u0438\u0442.",
+        "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430 \u2192 \u041A\u043E\u043C\u0431\u043E-\u043F\u043E\u0437\u0430: \u043F\u043E\u0441\u043B\u0435 \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430 \u041B\u0435\u0432\u0438\u0442\u0430\u0446\u0438\u0438 \xAB\u0421\u0442\u043E\u044F\xBB \u0442\u0435\u043F\u0435\u0440\u044C \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u0441\u0442\u043E\u0438\u0442; \u043C\u043E\u0436\u043D\u043E \u0432\u044B\u0431\u0440\u0430\u0442\u044C, \u043D\u0430 \u043A\u0430\u043A\u043E\u043C \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436\u0435 \u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u043F\u043E\u0437\u0443 (\u0433\u043E\u0431\u043B\u0438\u043D, \u0440\u044B\u0446\u0430\u0440\u044C, \u0432\u0435\u0434\u044C\u043C\u0430, \u0432\u043E\u043B\u0448\u0435\u0431\u043D\u0438\u043A). \u041C\u0438\u043D\u0438\u0430\u0442\u044E\u0440\u044B 2D-\u0430\u0440\u0435\u043D (\u041C\u0438\u0440\u043E\u0432\u043E\u0435 \u0434\u0440\u0435\u0432\u043E) \u0441\u043D\u043E\u0432\u0430 \u0440\u0438\u0441\u0443\u044E\u0442\u0441\u044F \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E.",
+        "\u041F\u043E\u0437\u0430 \u0414\u0443\u044D\u043B\u044F\u043D\u0442\u0430 \u043E\u0442 \u043F\u0435\u0440\u0432\u043E\u0433\u043E \u043B\u0438\u0446\u0430: \u0440\u0443\u043A\u0430 \u0441\u043F\u0440\u0430\u0432\u0430 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435, \u043B\u0430\u0434\u043E\u043D\u044C\u044E \u0432\u043D\u0438\u0437, \u043F\u043E\u0441\u043E\u0445 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D \u043D\u0430 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430.",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B: \u043F\u0440\u0438 \u043D\u0430\u0436\u0430\u0442\u0438\u0438 \u043D\u0430 \u043A\u043D\u043E\u043F\u043A\u0438 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043C\u0438\u0433\u0430\u0435\u0442 \u0441\u0438\u043D\u044F\u044F \u0440\u0430\u043C\u043A\u0430. \u041F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0434\u043B\u044F \u041F\u041A: \u0442\u0430\u043C \u0443\u0431\u0440\u0430\u043D\u0430 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430 \u0431\u043E\u0435\u0432\u043E\u0439 \u043A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u044B (\u043E\u043D\u0430 \u0442\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u0441\u0435\u043D\u0441\u043E\u0440\u043D\u044B\u0445 \u044D\u043A\u0440\u0430\u043D\u043E\u0432)."
+      ]
+    },
     {
       v: "0.9.9.7.2",
       date: "2026-11",
@@ -10175,7 +10274,7 @@ ${stack}`.slice(0, 2e3);
   init_zoom();
   var KEY6 = "kb:gamekb";
   var ROWS = ["qwertyuiop", "asdfghjkl-", "zxcvbnm"];
-  var touch = () => matchMedia("(pointer: coarse)").matches;
+  var touch = () => matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches && !/KanjiWizardsDesktop/.test(navigator.userAgent);
   var gameKbPref = () => {
     try {
       return localStorage.getItem(KEY6) !== "system";
@@ -13679,12 +13778,13 @@ ${stack}`.slice(0, 2e3);
     }
     return `<svg viewBox="4 4 78 74" aria-hidden="true">${art}</svg>`;
   }
+  var kindOf2 = (avatar2) => ["goblin", "knight", "witch", "wizard"].includes(avatar2) ? avatar2 : "goblin";
   var days = (n) => `${n} day${n === 1 ? "" : "s"}`;
   var CUST_SUB = {
     staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak \u2014 your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
     arena: () => "The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).",
     profile: () => "Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.",
-    pose: () => "Combo pose: what your character does while it\u2019s on fire (5 in a row, or Omnipotence) \u2014 float, take aim, or hold the staff in both hands. New poses unlock as you level up.",
+    pose: () => "Combo pose: what your character does while it\u2019s on fire (5 in a row, or Omnipotence) \u2014 float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300). Pick a character under the preview to see it on them.",
     omni: () => "Omnipotence: the flames of a 5\xD7 combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up."
   };
   function renderCustomize() {
@@ -13757,6 +13857,9 @@ ${stack}`.slice(0, 2e3);
     $9("custStage").dataset.tab = custTab;
     if ((custTab === "arena" || custTab === "omni" || custTab === "pose") && !arena3Tried) void ensureArena3();
     $9("poseInsetLbl").hidden = !(in3d && custTab === "pose");
+    $9("custChars").hidden = !in3d;
+    const shownChar = previewChar ?? kindOf2(avatarFor(profile3.studyLevels));
+    for (const b of document.querySelectorAll("#custChars [data-char]")) b.classList.toggle("on", b.dataset.char === shownChar);
     if (in3d) showArena3(custTab, sel.id, profile3);
     else arena3?.setActive(false);
     if (custTab === "staff") {
@@ -13836,6 +13939,11 @@ ${stack}`.slice(0, 2e3);
     return d;
   }
   var arena3 = null;
+  var previewChar = null;
+  for (const b of document.querySelectorAll("#custChars [data-char]")) b.onclick = () => {
+    previewChar = b.dataset.char;
+    renderCustomize();
+  };
   var arena3Tried = false;
   var arena3Key = "";
   var arena3Bg = "";
@@ -13847,7 +13955,7 @@ ${stack}`.slice(0, 2e3);
   function showArena3(tab2, id, p) {
     if (!arena3) return;
     const bgId = tab2 === "arena" ? id : p.background, time = resolveTime(getTimePref());
-    const character = avatarFor(p.studyLevels);
+    const character = previewChar ?? avatarFor(p.studyLevels);
     const who = `${character}-${p.staff}`, bg2 = `${bgId}-${time}`;
     if (who !== arena3Key) {
       arena3Key = who;
@@ -14358,8 +14466,23 @@ ${stack}`.slice(0, 2e3);
     });
     return [el9("h4", "", "Missed \u2014 ticked words go to Struggling spells"), grid];
   }
+  var LEAGUES2 = ["KANA", "N5", "N4", "N3", "N2", "N1"];
+  var LEAGUE_NAME = { KANA: "\u3072\u3089\u304C\u306A\u30FB\u30AB\u30BF\u30AB\u30CA", N5: "N5", N4: "N4", N3: "N3", N2: "N2", N1: "N1" };
+  var league = "KANA";
+  function ladder(current2, next3) {
+    const row = el9("div", "league-ladder");
+    LEAGUES2.forEach((l, i) => {
+      if (i) row.append(el9("span", "ll-arrow", "\u203A"));
+      const step = el9("span", `ll-step${l === current2 ? " on" : ""}${LEAGUES2.indexOf(l) < LEAGUES2.indexOf(current2) ? " done" : ""}${next3 && next3 !== current2 && l === next3 ? " next" : ""}`, LEAGUE_NAME[l]);
+      step.lang = "ja";
+      row.append(step);
+    });
+    return row;
+  }
   function renderOverview(o) {
+    league = o.league ?? "KANA";
     renderBoard(o);
+    $11("dailyBoardTitle").textContent = `${tr("League")}: ${LEAGUE_NAME[league]}`;
     const main = $11("dailyMain");
     const date = `Challenge of ${(/* @__PURE__ */ new Date(`${o.day}T12:00:00Z`)).toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}`;
     if (o.mine) {
@@ -14375,9 +14498,12 @@ ${stack}`.slice(0, 2e3);
         row.append(lv, k, r2, el9("span", "dw-m", w.meaning));
         words2.append(row);
       }
+      const up = o.nextLeague && o.nextLeague !== league;
       main.replaceChildren(
         el9("p", "sub", date),
+        ladder(league, o.nextLeague),
         el9("div", "daily-score", `${o.mine.correct} / ${o.total}`),
+        el9("p", `center league-note${up ? " up" : ""}`, up ? `\u25B2 ${tr("Promoted")}: ${LEAGUE_NAME[o.nextLeague]} \u2014 ${tr("tomorrow you play in the new league")}` : `${tr("Get")} ${o.promoteAt ?? 9}/${o.total} ${tr("to move up a league")}`),
         el9("p", "center", `${secs2(o.mine.ms)} \xB7 rank ${o.rank} today`),
         el9("p", "hint center", `10 new words ${nextReset()}.`),
         el9("h4", "", "Today's words"),
@@ -14390,8 +14516,10 @@ ${stack}`.slice(0, 2e3);
     start.onclick = () => void begin();
     main.replaceChildren(
       el9("p", "sub", date),
-      el9("h3", "", "Ten words, the same for everyone today"),
-      el9("p", "", `Two words each from N5 to N1, easiest first. Type the reading (kana or romaji) and press Enter \u2014 ${o.wordMs / 1e3} s per word. One try a day: most correct wins, then fastest.`),
+      ladder(league),
+      el9("h3", "", `${tr("League")}: ${LEAGUE_NAME[league]}`),
+      el9("p", "", league === "KANA" ? `Ten kana, the same for everyone in your league today: five hiragana, five katakana. Type each in romaji and press Enter \u2014 ${o.wordMs / 1e3} s each. Get ${o.promoteAt ?? 9}/10 or better to move up to N5.` : `Ten ${league} words, the same for everyone in your league today, easiest first. Type the reading (kana or romaji) and press Enter \u2014 ${o.wordMs / 1e3} s per word. Get ${o.promoteAt ?? 9}/10 or better to move up a league.`),
+      el9("p", "hint", "One try a day: most correct wins, then fastest. Everyone starts in the kana league."),
       el9("p", "hint", `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
       start
     );
@@ -14424,7 +14552,7 @@ ${stack}`.slice(0, 2e3);
     input2.lang = "ja";
     input2.autocomplete = "off";
     input2.spellcheck = false;
-    input2.placeholder = "reading (\u304B\u306A or romaji)";
+    input2.placeholder = tr(league === "KANA" ? "romaji" : "reading (\u304B\u306A or romaji)");
     input2.addEventListener("paste", (e) => e.preventDefault());
     const skip2 = el9("button", "pill", "Skip");
     const fb = el9("div", "daily-fb");
@@ -14473,6 +14601,7 @@ ${stack}`.slice(0, 2e3);
       renderOverview(o);
       if (r2.done) {
         toast(isOffline() ? `Daily challenge: ${r2.done.correct}/10${r2.done.xp ? ` \xB7 +${r2.done.xp} XP` : ""} \xB7 your rank comes when you're back online` : `Daily challenge: ${r2.done.correct}/10 \xB7 rank ${r2.done.rank} of ${r2.done.players}${r2.done.xp ? ` \xB7 +${r2.done.xp} XP` : ""}`, 6e3);
+        if (r2.done.promoted) setTimeout(() => toast(`\u25B2 ${tr("Promoted")}: ${LEAGUE_NAME[r2.done.promoted] ?? r2.done.promoted} ${tr("league")}!`, 6e3), 1800);
         if (r2.done.correct === 10) sfx.go();
       }
     } catch (e) {
@@ -15249,6 +15378,9 @@ ${stack}`.slice(0, 2e3);
     }
   };
 
+  // src/client/dictui.ts
+  init_idb();
+
   // src/client/conjugate.ts
   var ROW = {
     \u3046: ["\u308F", "\u3044", "\u3048", "\u304A", "\u3063\u3066", "\u3063\u305F"],
@@ -15376,22 +15508,117 @@ ${stack}`.slice(0, 2e3);
   var shown3 = 30;
   var busy3 = 0;
   var dictP = null;
+  var DICT_V = "jmdict-2026-10-26+phrases";
+  var OFFLINE_PREF = "kb:dictOffline";
+  var offlinePref = () => {
+    try {
+      return localStorage.getItem(OFFLINE_PREF);
+    } catch {
+      return null;
+    }
+  };
+  var setOfflinePref = (v) => {
+    try {
+      localStorage.setItem(OFFLINE_PREF, v);
+    } catch {
+    }
+  };
+  async function storedDict() {
+    const s = await get("dict:all").catch(() => void 0);
+    return s && s.dict?.words?.length ? s : null;
+  }
+  async function downloadDict(onProgress) {
+    const r2 = await fetch(`/dict.json?v=${encodeURIComponent(DICT_V)}`, { cache: "no-store" });
+    if (!r2.ok || !r2.body) throw new Error(`dict ${r2.status}`);
+    const total = Number(r2.headers.get("content-length")) || 25e5;
+    const reader = r2.body.getReader();
+    const chunks = [];
+    let done2 = 0;
+    for (; ; ) {
+      const { value, done: end } = await reader.read();
+      if (end) break;
+      chunks.push(value);
+      done2 += value.length;
+      onProgress(done2, Math.max(total, done2));
+    }
+    const text = new TextDecoder().decode(await new Blob(chunks).arrayBuffer());
+    const dict = JSON.parse(text);
+    const m = await Promise.resolve().then(() => (init_vocab2(), vocab_exports));
+    await m.loadVocab().catch(() => {
+    });
+    const stored = { v: DICT_V, dict, vocab: [...m.VOCAB] };
+    await set("dict:all", stored);
+    return stored;
+  }
   function dictionary() {
-    dictP ?? (dictP = Promise.all([fetch("/dict.json").then((r2) => {
-      if (!r2.ok) throw new Error(`dict ${r2.status}`);
-      return r2.json();
-    }), Promise.resolve().then(() => (init_vocab2(), vocab_exports)).then(async (m) => {
-      await m.loadVocab();
-      return m.VOCAB;
-    })]).then(([data, vocab]) => {
-      const d = new Dictionary(data, vocab);
-      tags = d.tags;
-      return d;
-    }).catch((e) => {
+    dictP ?? (dictP = (async () => {
+      const kept = await storedDict();
+      if (kept) {
+        if (kept.v !== DICT_V && navigator.onLine) void downloadDict(() => {
+        }).then((s) => {
+          dictP = Promise.resolve(build2(s.dict, s.vocab));
+        }).catch(() => {
+        });
+        return build2(kept.dict, kept.vocab);
+      }
+      const [data, vocab] = await Promise.all([fetch("/dict.json").then((r2) => {
+        if (!r2.ok) throw new Error(`dict ${r2.status}`);
+        return r2.json();
+      }), Promise.resolve().then(() => (init_vocab2(), vocab_exports)).then(async (m) => {
+        await m.loadVocab();
+        return m.VOCAB;
+      })]);
+      return build2(data, vocab);
+    })().catch((e) => {
       dictP = null;
       throw e;
     }));
     return dictP;
+  }
+  function build2(data, vocab) {
+    const d = new Dictionary(data, vocab);
+    tags = d.tags;
+    return d;
+  }
+  async function askOffline() {
+    if (offlinePref() || await storedDict()) return;
+    const card = h4("div", "dict-home dict-offline");
+    card.append(h4("h4", "", tr("Use the dictionary offline?")), h4("p", "hint", tr("Download every word and phrase (about 2.5 MB) to this device \u2014 then the dictionary works without internet, anywhere.")));
+    const bar = h4("div", "dl-bar");
+    const fill2 = h4("i");
+    bar.append(fill2);
+    bar.hidden = true;
+    const yes = h4("button", "pill primary", tr("Download"), { type: "button" });
+    const no2 = h4("button", "pill", tr("Not now"), { type: "button" });
+    const row = h4("div", "dict-tries");
+    row.append(yes, no2);
+    card.append(row, bar);
+    $13("dictBody").replaceChildren(card);
+    await new Promise((done2) => {
+      no2.onclick = () => {
+        setOfflinePref("no");
+        done2();
+      };
+      yes.onclick = async () => {
+        yes.disabled = true;
+        bar.hidden = false;
+        try {
+          const s = await downloadDict((d, t) => {
+            fill2.style.width = `${Math.round(d / t * 100)}%`;
+            yes.textContent = `${Math.round(d / t * 100)}%`;
+          });
+          setOfflinePref("yes");
+          dictP = Promise.resolve(build2(s.dict, s.vocab));
+          toast(tr("The dictionary is on this device now \u2014 it works offline."), 4e3);
+          done2();
+        } catch {
+          yes.disabled = false;
+          yes.textContent = tr("Download");
+          bar.hidden = true;
+          toast(tr("The download failed \u2014 check your internet and try again."), 4e3);
+        }
+      };
+    });
   }
   function headword(w, cls = "dw-head") {
     const box = h4("div", cls, void 0, { lang: "ja" });
@@ -15444,6 +15671,23 @@ ${stack}`.slice(0, 2e3);
   function drawHome() {
     const home = h4("div", "dict-home");
     home.append(h4("p", "hint", tr("Type a word in kanji, kana, romaji, English or Russian. Open a word for all its meanings, its kanji with memory pictures, example sentences \u2014 and add it to your decks.")));
+    const status = h4("p", "hint dict-store");
+    void storedDict().then((kept) => {
+      if (kept) {
+        status.textContent = `\u2713 ${tr("Saved on this device \u2014 works offline.")}`;
+        return;
+      }
+      const b = h4("button", "pill", tr("Save it on this device for offline use"), { type: "button" });
+      b.onclick = () => {
+        try {
+          localStorage.removeItem(OFFLINE_PREF);
+        } catch {
+        }
+        void askOffline().then(drawHome);
+      };
+      status.append(b);
+    });
+    home.append(status);
     $13("dictBody").replaceChildren(home);
   }
   function drawList() {
@@ -15651,7 +15895,10 @@ ${stack}`.slice(0, 2e3);
     show("dict");
     const q = $13("dictQ");
     if (!lastHits.length) drawHome();
-    void dictionary().catch(() => {
+    void askOffline().then(() => {
+      if (!lastHits.length) drawHome();
+      void dictionary().catch(() => {
+      });
     });
     setTimeout(() => q.focus(), 50);
   }
@@ -15841,7 +16088,8 @@ ${stack}`.slice(0, 2e3);
     applyBackground();
     paintScenes();
     setAudioButtons(isRadioOn(), isSfxOn());
-    if (!isOffline() && navigator.onLine && !await serverAnswers(5e3)) {
+    if (!isOffline() && navigator.onLine && !await serverAnswers(8e3)) {
+      hideBootScreen();
       const r2 = await wakeServer();
       if (r2 === "offline") {
         if (await goOffline()) return void boot();
@@ -15866,11 +16114,15 @@ ${stack}`.slice(0, 2e3);
     }
   }
   async function serverAnswers(ms) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
     try {
-      const r2 = await fetch("/api/online", { cache: "no-store", signal: AbortSignal.timeout(ms) });
+      const r2 = await fetch("/api/online", { cache: "no-store", signal: ctl.signal });
       return r2.ok && /json/.test(r2.headers.get("content-type") ?? "");
     } catch {
       return false;
+    } finally {
+      clearTimeout(t);
     }
   }
   var WAKE_KEY = "kw:wake-secs";
@@ -16950,4 +17202,5 @@ ${stack}`.slice(0, 2e3);
   addEventListener("keydown", firstGesture, { once: true });
   initI18n();
   void boot();
+  setTimeout(() => hideBootScreen(), 2e4);
 })();

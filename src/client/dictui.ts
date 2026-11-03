@@ -3,7 +3,9 @@
 // the forms of a verb or adjective, an example sentence, each kanji (meaning, readings, parts, memory picture,
 // stroke order) and other words written with it — and add it to any of your decks.
 import { api } from './api';
-import { Dictionary, type DictEntry } from '../shared/dict';
+import { Dictionary, type DictData, type DictEntry } from '../shared/dict';
+import type { VocabEntry } from '../shared/protocol';
+import * as idb from './offline/idb';
 import { conjugate } from './conjugate';
 import { DECK_LABEL } from './decks';
 import { exampleFor } from './examples';
@@ -29,11 +31,79 @@ let lastQ = '', lastHits: DictEntry[] = [], shown = 30;
 let busy = 0;
 // 0.9.9.7.1: the dictionary comes with the app (cached for offline use) and is searched right here
 let dictP: Promise<Dictionary> | null = null;
+// 0.9.9.7.3: the whole dictionary can be kept on the device (IndexedDB) — asked once; after that it needs no internet
+// at all, even in the apps (they show the website, whose cache can be emptied). DICT_V changes with the data.
+const DICT_V = 'jmdict-2026-10-26+phrases';
+const OFFLINE_PREF = 'kb:dictOffline'; // 'yes' | 'no' (asked when unset)
+const offlinePref = () => { try { return localStorage.getItem(OFFLINE_PREF); } catch { return null; } };
+const setOfflinePref = (v: 'yes' | 'no') => { try { localStorage.setItem(OFFLINE_PREF, v); } catch { /* private mode */ } };
+type Stored = { v: string; dict: DictData; vocab: VocabEntry[] };
+async function storedDict(): Promise<Stored | null> {
+  const s = await idb.get<Stored>('dict:all').catch(() => undefined);
+  return s && s.dict?.words?.length ? s : null;
+}
+/** download the dictionary (and the game's word list) with progress, and keep it on the device */
+async function downloadDict(onProgress: (done: number, total: number) => void): Promise<Stored> {
+  const r = await fetch(`/dict.json?v=${encodeURIComponent(DICT_V)}`, { cache: 'no-store' });
+  if (!r.ok || !r.body) throw new Error(`dict ${r.status}`);
+  const total = Number(r.headers.get('content-length')) || 2_500_000;
+  const reader = r.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let done = 0;
+  for (;;) {
+    const { value, done: end } = await reader.read();
+    if (end) break;
+    chunks.push(value); done += value.length; onProgress(done, Math.max(total, done));
+  }
+  const text = new TextDecoder().decode(await new Blob(chunks as BlobPart[]).arrayBuffer());
+  const dict = JSON.parse(text) as DictData;
+  const m = await import('./offline/vocab');
+  await m.loadVocab().catch(() => { /* the game's words are optional */ });
+  const stored: Stored = { v: DICT_V, dict, vocab: [...m.VOCAB] };
+  await idb.set('dict:all', stored);
+  return stored;
+}
 function dictionary(): Promise<Dictionary> {
-  dictP ??= Promise.all([fetch('/dict.json').then((r) => { if (!r.ok) throw new Error(`dict ${r.status}`); return r.json(); }), import('./offline/vocab').then(async (m) => { await m.loadVocab(); return m.VOCAB; })])
-    .then(([data, vocab]) => { const d = new Dictionary(data, vocab); tags = d.tags; return d; })
-    .catch((e) => { dictP = null; throw e; });
+  dictP ??= (async () => {
+    const kept = await storedDict();
+    if (kept) {
+      if (kept.v !== DICT_V && navigator.onLine) void downloadDict(() => {}).then((s) => { dictP = Promise.resolve(build(s.dict, s.vocab)); }).catch(() => {}); // a newer one, quietly
+      return build(kept.dict, kept.vocab);
+    }
+    const [data, vocab] = await Promise.all([fetch('/dict.json').then((r) => { if (!r.ok) throw new Error(`dict ${r.status}`); return r.json(); }), import('./offline/vocab').then(async (m) => { await m.loadVocab(); return m.VOCAB; })]);
+    return build(data, vocab);
+  })().catch((e) => { dictP = null; throw e; });
   return dictP;
+}
+function build(data: DictData, vocab: readonly VocabEntry[]) { const d = new Dictionary(data, vocab); tags = d.tags; return d; }
+
+/** the first visit: keep the dictionary on this device? */
+async function askOffline(): Promise<void> {
+  if (offlinePref() || await storedDict()) return;
+  const card = h('div', 'dict-home dict-offline');
+  card.append(h('h4', '', tr('Use the dictionary offline?')), h('p', 'hint', tr('Download every word and phrase (about 2.5 MB) to this device — then the dictionary works without internet, anywhere.')));
+  const bar = h('div', 'dl-bar'); const fill = h('i'); bar.append(fill); bar.hidden = true;
+  const yes = h('button', 'pill primary', tr('Download'), { type: 'button' }) as HTMLButtonElement;
+  const no = h('button', 'pill', tr('Not now'), { type: 'button' });
+  const row = h('div', 'dict-tries'); row.append(yes, no);
+  card.append(row, bar);
+  $('dictBody').replaceChildren(card);
+  await new Promise<void>((done) => {
+    no.onclick = () => { setOfflinePref('no'); done(); };
+    yes.onclick = async () => {
+      yes.disabled = true; bar.hidden = false;
+      try {
+        const s = await downloadDict((d, t) => { fill.style.width = `${Math.round((d / t) * 100)}%`; yes.textContent = `${Math.round((d / t) * 100)}%`; });
+        setOfflinePref('yes');
+        dictP = Promise.resolve(build(s.dict, s.vocab));
+        ui.toast(tr('The dictionary is on this device now — it works offline.'), 4000);
+        done();
+      } catch {
+        yes.disabled = false; yes.textContent = tr('Download'); bar.hidden = true;
+        ui.toast(tr('The download failed — check your internet and try again.'), 4000);
+      }
+    };
+  });
 }
 
 /** the word with its reading over it */
@@ -82,6 +152,15 @@ async function search(q: string) {
 function drawHome() {
   const home = h('div', 'dict-home');
   home.append(h('p', 'hint', tr('Type a word in kanji, kana, romaji, English or Russian. Open a word for all its meanings, its kanji with memory pictures, example sentences — and add it to your decks.')));
+  // 0.9.9.7.3: offline or not — and a way to change your mind
+  const status = h('p', 'hint dict-store');
+  void storedDict().then((kept) => {
+    if (kept) { status.textContent = `✓ ${tr('Saved on this device — works offline.')}`; return; }
+    const b = h('button', 'pill', tr('Save it on this device for offline use'), { type: 'button' });
+    b.onclick = () => { try { localStorage.removeItem(OFFLINE_PREF); } catch { /* private mode */ } void askOffline().then(drawHome); };
+    status.append(b);
+  });
+  home.append(status);
   $('dictBody').replaceChildren(home);
 }
 
@@ -278,7 +357,7 @@ export function openDict() {
   ui.show('dict');
   const q = $<HTMLInputElement>('dictQ');
   if (!lastHits.length) drawHome();
-  void dictionary().catch(() => { /* shown when you search */ }); // starts loading while you type
+  void askOffline().then(() => { if (!lastHits.length) drawHome(); void dictionary().catch(() => { /* shown when you search */ }); }); // starts loading while you type
   setTimeout(() => q.focus(), 50); // (the phone's own keyboard: Russian and Japanese too)
 }
 

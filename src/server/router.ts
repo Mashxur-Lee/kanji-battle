@@ -335,7 +335,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/sync/snapshot') {
         // 0.9.9.4: everything the app needs to keep studying offline (see client/offline)
         const u = await auth.authenticate(r.token);
-        return res(200, await study.snapshot(u, daily?.today()));
+        return res(200, await study.snapshot(u, daily?.keyFor(u)));
       } else {
         return res(404, { error: 'Not found' });
       }

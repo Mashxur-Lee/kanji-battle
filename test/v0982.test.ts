@@ -31,9 +31,9 @@ test('daily challenge: the result says which words were right, and the missed on
   let now = Date.parse('2026-10-11T08:00:00Z');
   const daily = new DailyService(store, new ProgressService(store), () => now);
   const u = await store.create({ username: 'dee', passwordHash: 'x', role: 'user' } as never);
-  const words = dailyWords('2026-10-11');
+  const words = dailyWords('2026-10-11', 'KANA'); // (0.9.9.7.3: everyone starts in the Kana league — answered in romaji)
   await daily.start(u);
-  for (let i = 0; i < 10; i++) { now += 1000; await daily.answer(u, i % 2 === 0 ? words[i].reading : 'zzz'); }
+  for (let i = 0; i < 10; i++) { now += 1000; await daily.answer(u, i % 2 === 0 ? (words[i].romaji ?? words[i].reading) : 'zzz'); }
   const o = await daily.overview(u);
   assert.deepEqual(o.words!.map((w) => w.ok), words.map((_, i) => i % 2 === 0));
   const cards = await store.cards(u.id);

@@ -25,11 +25,19 @@ const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { 
 const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict'] as const;
 export type Screen = (typeof SCREENS)[number];
 let screenListener: (s: Screen) => void = () => {};
+/** 0.9.9.7.3: the loading screen in index.html (it covers the page from the first moment) fades out */
+export function hideBootScreen() {
+  const b = document.getElementById('bootScreen');
+  if (!b || b.classList.contains('out')) return;
+  b.classList.add('out');
+  setTimeout(() => b.remove(), 450);
+}
 export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };
 export const currentScreen = () => SCREENS.find((s) => !$(s).hidden);
 export const show = (screen: Screen) => {
   SCREENS.forEach((s) => ($(s).hidden = s !== screen));
   document.body.dataset.screen = screen; // 0.9.9.4.4.3: the background dims behind the menus (style.css)
+  hideBootScreen(); // 0.9.9.7.3: the first real screen is up
   scrollTo(0, 0);
   screenListener(screen);
 };

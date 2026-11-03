@@ -197,7 +197,10 @@ async function boot() {
   ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn());
   // 0.9.9.5.1: online but the server doesn't answer → it's probably asleep: wait for it with a progress bar
   // instead of dropping into offline mode for a minute
-  if (!offline.isOffline() && navigator.onLine && !(await serverAnswers(5000))) {
+  // 0.9.9.7.3: the loading screen covers the first 8 s (a phone's first connection can be slow); only then is it a
+  // sleeping server, and the waking-up screen takes over
+  if (!offline.isOffline() && navigator.onLine && !(await serverAnswers(8000))) {
+    ui.hideBootScreen();
     const r = await wakeServer();
     if (r === 'offline') { if (await offline.goOffline()) return void boot(); }
   }
@@ -219,7 +222,11 @@ async function boot() {
 }
 /** Does the server answer at all within `ms`? */
 async function serverAnswers(ms: number): Promise<boolean> {
-  try { const r = await fetch('/api/online', { cache: 'no-store', signal: AbortSignal.timeout(ms) }); return r.ok && /json/.test(r.headers.get('content-type') ?? ''); } catch { return false; }
+  // (a plain timer, not AbortSignal.timeout — older Android WebViews don't have it, and the check failed at once,
+  // so the "waking up" screen showed on every start — 0.9.9.7.3)
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try { const r = await fetch('/api/online', { cache: 'no-store', signal: ctl.signal }); return r.ok && /json/.test(r.headers.get('content-type') ?? ''); } catch { return false; } finally { clearTimeout(t); }
 }
 const WAKE_KEY = 'kw:wake-secs';
 /**
@@ -1098,3 +1105,4 @@ addEventListener('keydown', firstGesture, { once: true });
 
 initI18n();
 void boot();
+setTimeout(() => ui.hideBootScreen(), 20_000); // (never stuck behind the loading screen)
