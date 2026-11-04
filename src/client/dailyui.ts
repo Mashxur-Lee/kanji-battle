@@ -43,10 +43,27 @@ export async function openDaily(userId: string) {
   try { renderOverview(await api.daily()); } catch (e) { ui.toast((e as Error).message); }
 }
 
+// 0.9.9.8.2: a tab per league above the board (yours first selected); each shows that league's results today
+let boardLeague = '';
 function renderBoard(o: DailyOverview) {
   const list = $('dailyBoard');
-  if (!o.board.length) { list.replaceChildren(el('li', 'hint', 'Nobody has played today yet — be the first!')); return; }
-  list.replaceChildren(...o.board.map((r, i) => {
+  const show = boardLeague || o.league || 'KANA';
+  const rows = o.boards?.[show] ?? (show === o.league ? o.board : []);
+  let tabs = document.getElementById('dailyTabs');
+  if (!tabs) { tabs = el('div', 'daily-tabs'); tabs.id = 'dailyTabs'; tabs.setAttribute('role', 'tablist'); list.before(tabs); }
+  tabs.hidden = !o.boards;
+  tabs.replaceChildren(...LEAGUES.map((l) => {
+    const b = el('button', `dt-tab${l === show ? ' on' : ''}${l === o.league ? ' mine' : ''}`, l === 'KANA' ? 'かな' : l) as HTMLButtonElement;
+    b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(l === show));
+    b.title = LEAGUE_NAME[l];
+    const n = o.boards?.[l]?.length ?? 0;
+    if (n) b.append(el('small', 'dt-n', n));
+    b.onclick = () => { boardLeague = l; renderBoard(o); };
+    return b;
+  }));
+  $('dailyBoardTitle').textContent = `${tr('League')}: ${LEAGUE_NAME[show]}${show === o.league ? ` · ${tr('yours')}` : ''}`;
+  if (!rows.length) { list.replaceChildren(el('li', 'hint', show === o.league ? 'Nobody has played today yet — be the first!' : tr('Nobody in this league has played today yet.'))); return; }
+  list.replaceChildren(...rows.map((r, i) => {
     const li = el('li', r.id === me ? 'me' : '');
     li.append(el('span', 'db-rank', i + 1), el('span', 'db-name', r.name), el('span', 'db-score', `${r.correct}/${o.total}`), el('span', 'db-time', secs(r.ms)));
     return li;
@@ -88,8 +105,8 @@ function ladder(current: string, next?: string) {
 }
 function renderOverview(o: DailyOverview) {
   league = o.league ?? 'KANA';
+  boardLeague = '';
   renderBoard(o);
-  $('dailyBoardTitle').textContent = `${tr('League')}: ${LEAGUE_NAME[league]}`;
   const main = $('dailyMain');
   const date = `Challenge of ${new Date(`${o.day}T12:00:00Z`).toLocaleDateString(locale(), { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })}`;
   if (o.mine) {

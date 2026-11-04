@@ -20,6 +20,7 @@
 </head>
 <body>
 <div id="bg" class="bg" aria-hidden="true"></div>
+<div id="menuVeil" class="menu-veil" aria-hidden="true"></div>
 <canvas id="arena3d" class="arena3d" aria-hidden="true"></canvas>
 <header class="topbar">
   <div id="whoami" class="whoami" hidden>
@@ -279,12 +280,12 @@
         <p class="sub mc-sub">Study ten spells. Then cast them from memory.</p>
       </div>
       <nav class="mc-nav" aria-label="Your wizard">
-        <button id="customizeBtn" class="mc-nav-btn" type="button"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 20h16z"/><path d="M8.5 12.5h7"/><circle cx="12" cy="7.5" r=".6" fill="currentColor"/></svg><span>Customize</span></button>
-        <button id="progressBtn" class="mc-nav-btn" type="button"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Progress</span></button>
-        <button id="historyBtn" class="mc-nav-btn" type="button"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Match history</span></button>
-        <button id="adminBtn" class="mc-nav-btn" type="button" hidden><span>Admin</span> <span id="adminBadge" class="badge" hidden></span></button>
+        <button id="customizeBtn" class="mc-nav-btn mn-cust" type="button"><span class="mn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 4.5 19.5h15z"/><path d="M8.2 13h7.6"/><path d="M3 21.5h18"/><circle cx="12" cy="8" r=".8" fill="currentColor"/></svg></span><span class="mn-txt"><b>Customize</b><small>Look, staff, arena</small></span></button>
+        <button id="progressBtn" class="mc-nav-btn mn-prog" type="button"><span class="mn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V5M16 20v-6M21.5 20h-19"/><path d="m3 8 6-4 6 5 5-4"/></svg></span><span class="mn-txt"><b>Progress</b><small>Stats and badges</small></span></button>
+        <button id="historyBtn" class="mc-nav-btn mn-hist" type="button"><span class="mn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg></span><span class="mn-txt"><b>Match history</b><small>Your recent games</small></span></button>
       </nav>
     </div>
+    <button id="tasksBtn" class="tasks-btn" type="button" hidden></button>
     <div id="studyLock" class="study-lock" hidden>
       <span><b id="studyLockText"></b></span>
       <button id="studyLockBtn" class="big">Study struggling spells</button>
@@ -295,18 +296,10 @@
         <span class="mc-body"><b class="mc-name">Online queue</b><span class="mc-info">Reading, Rapid, Boss and Deck Duel against players</span><span id="onlineCount" class="online-pill" hidden></span><span class="mc-go">Find a match</span></span>
       </button>
       <div class="mc-slot">
-        <button id="privateBtn" class="mc-card mc-private private-btn" type="button" aria-expanded="false" aria-controls="privateBox">
+        <button id="privateBtn" class="mc-card mc-private" type="button">
           <span class="mc-glyph" lang="ja" aria-hidden="true">友</span>
-          <span class="mc-body"><b class="mc-name">Private game <span class="chev" aria-hidden="true">▾</span></b><span class="mc-info">Play friends with a room code, or the AI</span></span>
+          <span class="mc-body"><b class="mc-name">Private game</b><span class="mc-info">Play friends with a room code, or the AI — the AI works offline too</span></span>
         </button>
-        <div id="privateBox" class="private-box" hidden>
-          <p class="hint">Play with friends: create a room and share its code, or enter a friend's code.</p>
-          <button id="create" class="big">Create room</button>
-          <div class="join-row">
-            <input id="joinCode" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Room code">
-            <button id="join" class="alt big">Join</button>
-          </div>
-        </div>
       </div>
       <button id="dailyBtn" class="mc-card mc-daily daily-btn" type="button">
         <span class="mc-glyph" lang="ja" aria-hidden="true">日</span>
@@ -317,13 +310,13 @@
         <span class="mc-body"><b class="mc-name">Study spells</b><span class="mc-info">Your decks, quizzes and reading passages</span></span>
       </button>
     </div>
-    <button id="tasksBtn" class="tasks-btn" type="button" hidden></button>
     <p id="error" class="error" role="alert"></p>
     <div class="menu-foot">
       <button id="howBtn" class="how-btn">How to play?</button>
       <button id="feedbackBtn" class="how-btn">Feedback</button>
       <button id="aboutBtn" class="how-btn">About</button>
       <button id="newsBtn" class="how-btn news-btn">What's new <span id="newsDot" class="badge" hidden>new</span></button>
+      <button id="adminBtn" class="how-btn" hidden>Admin <span id="adminBadge" class="badge" hidden></span></button>
       <button id="appBtn" class="how-btn app-btn" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg> Get the app</button>
     </div>
   </section>
@@ -590,8 +583,37 @@
   </section>
 
   <!-- MODE SELECT -->
+  <section id="private" class="screen" hidden>
+    <!-- 0.9.9.8.2: Private game has its own page (it was a drop-down on the menu card) -->
+    <button id="privateBack" class="back">← Menu</button>
+    <div class="pv-wrap">
+      <header class="pv-head">
+        <span class="pv-glyph" lang="ja" aria-hidden="true">友</span>
+        <div><h2>Private game</h2><p class="sub">Your own room: pick the mode, the levels and who plays — AI wizards or your friends.</p></div>
+      </header>
+      <p id="pvOffline" class="pv-offline" hidden><b>Offline</b> — you can still play the AI in Kanji Reading, Rapid and Boss Elimination. Friends, Writing and Deck Duel need internet.</p>
+      <div class="pv-cards">
+        <div class="pv-card pv-create">
+          <span class="pv-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          <h3>Create a room</h3>
+          <p>Choose a mode, then add AI players or invite friends from the lobby. Everyone marks Ready, then the game starts.</p>
+          <ul class="pv-points"><li>AI from beginner to N1</li><li>Boss Elimination with up to 3 AI teammates</li><li>Pause any time against the AI</li></ul>
+          <button id="create" class="big">Choose a mode</button>
+        </div>
+        <div class="pv-card pv-join">
+          <span class="pv-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg></span>
+          <h3>Join a friend</h3>
+          <p>Got a 4-letter room code from a friend? Type it here. Friends can also invite you straight from their lobby.</p>
+          <div class="join-row">
+            <input id="joinCode" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Room code">
+            <button id="join" class="alt big">Join</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
   <section id="modes" class="screen" hidden>
-    <button id="modesBack" class="back">← Menu</button>
+    <button id="modesBack" class="back">← Private game</button>
     <h2 class="center">Choose a game mode</h2>
     <div class="mode-cards">
       <button class="mode-card" data-mode="reading">
@@ -844,7 +866,7 @@
       <li><b>Study spells</b> — Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (− / +, then Apply); Onomatopoeia has its own “New a day” number (0 until you set it). Every card you answer gives +5 XP (up to 500 a day); ↶ Undo takes the last answer back.</li>
       <li><b>Practice</b> — the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 10 new stories a day — the counter shows how many are left; ★ starred words go in first, and the words you miss go to Struggling spells). Tap any kanji for its parts and a memory story.</li>
       <li><b>Dictionary</b> (辞書, main menu, works offline) — type a word in kanji, kana, romaji, English or Russian: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji — and “+ Add to…” puts it in any deck.</li>
-      <li><b>Combo pose</b> — in <i>Customize</i>, choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Levitation, Duelist or Channel — they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.</li>
+      <li><b>Combo pose</b> — in <i>Customize</i>, choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Channel, Duelist or Levitation — they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.</li>
       <li><b>Hiragana first</b> — beginners study ひらがな until they tick “I’ve mastered hiragana” in Settings. Until then the kanji levels are locked: they add no new words, but the numbers you set for them are kept.</li>
       <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
       <li><b>Daily streak</b> — a day counts when you do all three daily tasks: study 10 spells, a JLPT quiz (7/10) or a reading passage (4/8), and the daily challenge. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
@@ -870,7 +892,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.8.1</div>
+<div id="version" class="version">v0.9.9.8.2</div>
 <script src="/app.js"></script>
 </body>
 </html>

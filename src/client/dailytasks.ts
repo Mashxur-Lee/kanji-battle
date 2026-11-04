@@ -33,11 +33,22 @@ export function renderTasks(p: Profile) {
   const btn = $('tasksBtn');
   btn.hidden = false;
   btn.classList.toggle('done', all);
-  btn.replaceChildren(
-    Object.assign(document.createElement('span'), { className: 'tb-fire', textContent: '🔥' }),
-    Object.assign(document.createElement('span'), { className: 'tb-text', textContent: all ? tr('Streak kept today — well done!') : `${tr('Daily streak tasks')}: ${n}/${tasks.length}` }),
-    Object.assign(document.createElement('span'), { className: 'tb-days', textContent: `${p.streak ?? 0}` }),
-  );
+  // 0.9.9.8.2: a banner with each task and its progress (it was one thin line that was easy to miss)
+  const mk = (tag: string, cls: string, text = '') => Object.assign(document.createElement(tag), { className: cls, textContent: text });
+  const head = mk('span', 'tb-head');
+  head.append(mk('b', 'tb-title', all ? tr('Streak kept today — well done!') : tr('Daily streak tasks')), mk('span', 'tb-count', `${n}/${tasks.length}`));
+  const list = mk('span', 'tb-tasks');
+  for (const t of tasks) {
+    const ok = t.value >= t.target;
+    const chip = mk('span', `tb-task${ok ? ' ok' : ''}`);
+    chip.style.setProperty('--p', `${Math.min(100, Math.round((t.value / Math.max(1, t.target)) * 100))}%`);
+    const ic = mk('span', 'tb-ic', ok ? '✓' : ICON[t.id] ?? '•'); ic.lang = 'ja';
+    chip.append(ic, mk('span', 'tb-label', tr(t.label)), mk('span', 'tb-val', `${Math.min(t.value, t.target)}/${t.target}`));
+    list.append(chip);
+  }
+  const main = mk('span', 'tb-main'); main.append(head, list);
+  const days = mk('span', 'tb-days'); days.append(mk('b', '', `${p.streak ?? 0}`), mk('small', '', tr('days')));
+  btn.replaceChildren(mk('span', 'tb-fire', '🔥'), main, days);
   $('ppTasks').textContent = `${tr('Today’s streak tasks')}: ${n}/${tasks.length} ›`;
   if (!$<HTMLDialogElement>('tasksDialog').open) return;
   fill(p);

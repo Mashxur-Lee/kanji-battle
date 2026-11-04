@@ -7,6 +7,31 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.8.2', date: '2026-11',
+    en: [
+      'Staff attacks: each staff has its own spell now (every mode but Deck Duel). Verdant — four branches burst from the ground and lash the target like tentacles; Ember — an inferno; Tide — frost; Storm — lightning from the sky; Void — a rift that swallows the light and bursts. Seasonal staffs do their base staff’s spell in their own colours.',
+      'Private game has its own page (Create a room · Join a friend), and it works offline: Kanji Reading, Rapid and Boss Elimination against the AI with no internet.',
+      'Lobbies show who is Ready in every mode (✓ Ready / Not ready), like Deck Duel.',
+      'Daily challenge: the leaderboard has a tab for every league.',
+      'Boss Elimination: your HP is its own big frame with “You”, your teammates a row of smaller blue bars; the grey box round the dragon’s bar is gone.',
+      'Duelist pose in first person: like aiming a pistol — the arm stretched out, the staff pointed straight at your opponent, its core first.',
+      'Combo poses: Channel now unlocks at 100 spells learned, Levitation at 300 (Duelist stays at 200).',
+      'Main menu: the painting frames the menu and a soft violet night with a turning rune circle and drifting kanji sits behind the cards, so they read clearly; new Customize / Progress / Match history tiles; the daily streak tasks are a banner with each task’s progress; Admin moved to the links at the bottom.',
+      'Fixes: Deck Duel’s first Bolt no longer freezes the game for a moment; the avatar and its frame aren’t clipped in phone battles; the avatar no longer turns into an oval in the name pill; the volume sliders reach 0 and 100; UI size says 100% is the default; the ← Menu button no longer touches the dictionary bar.',
+    ],
+    ru: [
+      'Атаки посохов: у каждого посоха теперь своё заклинание (во всех режимах, кроме Дуэли колод). Цветущий — четыре ветви вырываются из земли и хлещут цель, как щупальца; Огненный — инферно; Приливный — мороз; Грозовой — молния с неба; Пустотный — разлом, который поглощает свет и взрывается. Сезонные посохи делают то же, что их основной посох, в своих цветах.',
+      'У своей игры теперь отдельная страница (Создать комнату · К другу), и она работает офлайн: Чтение кандзи, Блиц и Бой с боссом против ИИ без интернета.',
+      'В лобби любого режима видно, кто готов (✓ Готов / Не готов), как в Дуэли колод.',
+      'Ежедневное испытание: у таблицы лидеров вкладка для каждой лиги.',
+      'Бой с боссом: ваше здоровье — отдельная большая рамка с надписью «Вы», союзники — ряд меньших синих полосок; серой рамки вокруг полоски дракона больше нет.',
+      'Поза Дуэлянта от первого лица: как прицел из пистолета — рука вытянута, посох направлен прямо на соперника, ядром вперёд.',
+      'Комбо-позы: Концентрация теперь открывается на 100 изученных заклинаниях, Левитация — на 300 (Дуэлянт — по-прежнему 200).',
+      'Главное меню: картина обрамляет меню, а за карточками — мягкая фиолетовая ночь с вращающимся рунным кругом и плывущими кандзи, так что их легко читать; новые плитки Настройка / Прогресс / История матчей; задания для серии — баннер с прогрессом каждого; кнопка «Админ» переехала к ссылкам внизу.',
+      'Исправления: первая Молния в Дуэли колод больше не подвешивает игру; аватар и его рамка не обрезаются в боях на телефоне; аватар больше не становится овалом; ползунки громкости доходят до 0 и 100; в размере интерфейса по умолчанию указано 100%; кнопка ← Меню больше не прилегает к панели словаря.',
+    ],
+  },
+  {
     v: '0.9.9.8.1', date: '2026-11',
     en: [
       'A new main menu: four big cards — Online queue, Private game, Daily challenge, Study spells — with Customize, Progress and Match history at the top, and the links (and a glowing Get the app) at the bottom.',

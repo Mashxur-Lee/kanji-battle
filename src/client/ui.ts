@@ -22,7 +22,7 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
 }
 const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { parent.append(...kids); return parent; };
 
-const SCREENS = ['auth', 'menu', 'queue', 'admin', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict'] as const;
+const SCREENS = ['auth', 'menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict'] as const;
 export type Screen = (typeof SCREENS)[number];
 let screenListener: (s: Screen) => void = () => {};
 /** 0.9.9.7.3: the loading screen in index.html (it covers the page from the first moment) fades out */
@@ -435,9 +435,11 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       if (p.bot && you === hostId) { const x = h('button', 'pill rm-bot', '✕', { title: 'Remove this AI' }); x.dataset.removeBot = p.id; li.append(x); }
       if (p.id === hostId) li.append(h('span', 'tag', 'host'));
       if (!p.online) li.append(h('span', 'tag off', 'away — seat kept'));
-      if (mode === 'deck') li.append(h('span', 'tag ' + (p.ready ? 'ready' : 'notready'), p.ready ? '✓ Ready' : 'Not ready'));
-      else if (p.bot) li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `${p.maxHp} HP`)));
-      else if (!p.bot) li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `${p.maxHp} HP`)));
+      // 0.9.9.8.2: every mode shows who's ready (it was only Deck Duel) — the AI always is
+      const ready = !!p.bot || !!p.ready;
+      li.classList.toggle('is-ready', ready);
+      li.append(h('span', 'tag ' + (ready ? 'ready' : 'notready'), ready ? '✓ Ready' : 'Not ready'));
+      if (mode !== 'deck') li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `${p.maxHp} HP`)));
       return li;
     }),
     ...Array.from({ length: Math.max(0, maxPlayers - players.length) }, () =>
@@ -525,22 +527,37 @@ function hpBar(hp: number, max: number, label: string) {
   return bar;
 }
 
-/** Boss mode: the whole party's HP, stacked one above the other (you first). */
+/**
+ * Boss mode: the party's HP. 0.9.9.8.2: yours is its own big frame (name, "You", combo, a thick bar), the teammates
+ * a compact row of thinner blue bars under it — they all looked the same and you couldn't tell which was yours.
+ */
 function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
-  const ordered = [...players].sort((a, b) => (a.id === you ? -1 : b.id === you ? 1 : 0));
-  el.replaceChildren(...ordered.map((p) => {
-    const row = h('div', 'party-row' + (p.id === you ? ' me' : '') + (p.hp <= 0 ? ' down' : ''));
-    const pn = h('span', 'n', p.id === you ? `${p.name} (you)` : p.name);
-    if (p.id !== you) markProfile(pn, p);
-    const name = append(h('div', 'pname'), picEl(p.pic, 'pic', p.border), pn, netBars(p.id), h('span', 'lv', `Lv ${p.level}`),
-      h('span', 'combo', p.combo >= 2 ? `×${p.combo}` : ''));
-    row.append(name, thickBar(p.hp, p.maxHp, 'ally', p.hp <= 0 ? 'down' : `${p.hp} / ${p.maxHp}`));
-    return row;
-  }));
+  const mine = players.find((p) => p.id === you);
+  const mates = players.filter((p) => p.id !== you);
+  const out: HTMLElement[] = [];
+  if (mine) {
+    const row = h('div', 'party-me' + (mine.hp <= 0 ? ' down' : ''));
+    const name = append(h('div', 'pm-name'), picEl(mine.pic, 'pic', mine.border), h('span', 'pm-you', 'You'), h('span', 'n', mine.name), netBars(mine.id),
+      h('span', 'combo', mine.combo >= 2 ? `×${mine.combo} combo` : ''));
+    row.append(name, thickBar(mine.hp, mine.maxHp, 'ally', mine.hp <= 0 ? 'down' : `${mine.hp} / ${mine.maxHp}`));
+    out.push(row);
+  }
+  if (mates.length) {
+    const list = h('div', 'party-mates');
+    for (const p of mates) {
+      const row = h('div', 'party-row mate' + (p.hp <= 0 ? ' down' : ''));
+      const pn = h('span', 'n', p.name);
+      markProfile(pn, p);
+      row.append(append(h('div', 'pname'), pn, h('span', 'combo', p.combo >= 2 ? `×${p.combo}` : '')), thickBar(p.hp, p.maxHp, 'mate', p.hp <= 0 ? 'down' : `${p.hp}`));
+      list.append(row);
+    }
+    out.push(list);
+  }
+  el.replaceChildren(...out);
 }
 
 /** A thick HP bar with the number inside it. side: ally = green, enemy = red. */
-function thickBar(hp: number, max: number, side: 'ally' | 'enemy', text: string) {
+function thickBar(hp: number, max: number, side: 'ally' | 'enemy' | 'mate', text: string) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (hp / max) * 100)) : 0;
   const bar = h('div', `tbar ${side}${pct <= 25 ? ' low' : ''}`, undefined, { role: 'meter', 'aria-valuemin': '0', 'aria-valuemax': String(max), 'aria-valuenow': String(hp) });
   const fill = h('div', 'fill'); fill.style.width = `${pct}%`;

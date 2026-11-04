@@ -11,6 +11,9 @@ import { gameKbAvailable, gameKbPref, gameKbReset, setGameKb, setGameKbPref } fr
 import { celebrate, celebrateNew, comboMilestone } from './achievements';
 import { railScreen, refreshRail, setRailUser } from './friendrail';
 import { dictRailScreen, setDictRailUser } from './dictrail';
+import { initMenuVeil } from './menuveil';
+import { inLocalRoom, initLocalGames, localSend, OFFLINE_MODES } from './offline/localgames';
+initMenuVeil();
 import { writeTargets, writeTemplate } from '../shared/kana';
 import { initI18n, lang, setLang, tr } from './i18n';
 import { applyUiZoom, centerScreens, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
@@ -77,6 +80,15 @@ const socket = new GameSocket(onMessage, (s) => {
   if (s === 'reconnecting') void offline.probe();
   showNetStatus();
 });
+// 0.9.9.8.2: offline (or in a room made offline), games against the AI run in the app — see offline/localgames.ts
+initLocalGames((m) => onMessage(m));
+{
+  const toServer = socket.send.bind(socket);
+  socket.send = (m: ClientMessage) => {
+    if (user && (inLocalRoom() || (offline.isOffline() && m.type !== 'pong'))) void localSend(m, { id: user.id, name: user.name ?? user.username });
+    else toServer(m);
+  };
+}
 let netState = '';
 // 0.9.9.4.3: tell the server where you are outside rooms (friends see "Studying spells", not "In the menus")
 let lastWhere = '';
@@ -736,12 +748,9 @@ ui.$('ppRenameForm').addEventListener('submit', async (e) => {
 // ── menu ─────────────────────────────────────────────────────────────────────
 ui.$('studyLockBtn').onclick = () => void openStudy();
 ui.$('create').onclick = () => { ui.setError(''); ui.show('modes'); };
-ui.$('privateBtn').onclick = () => {
-  const box = ui.$('privateBox');
-  box.hidden = !box.hidden;
-  ui.$('privateBtn').setAttribute('aria-expanded', String(!box.hidden));
-  if (!box.hidden && matchMedia('(pointer: fine)').matches) ui.$('joinCode').focus({ preventScroll: true }); // no surprise keyboard on phones
-};
+// 0.9.9.8.2: Private game is a page of its own; offline, it says what still works (the AI)
+ui.$('privateBtn').onclick = () => { ui.setError(''); ui.$('pvOffline').hidden = !offline.isOffline(); ui.show('private'); };
+ui.$('privateBack').onclick = () => ui.show('menu');
 ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
 initQueue((m) => socket.send(m), () => user?.id ?? '');
 // 0.9.9.6: picking a mode shows that it's working; if the server doesn't answer (a dead connection on a phone)
@@ -757,7 +766,7 @@ for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {
   card.onclick = () => {
     const m = card.dataset.mode as GameMode;
     if (!canPlay(m)) return ui.toast(lockText(m), 5000);
-    if (offline.isOffline()) return ui.toast(tr('Online games need an internet connection'), 4000);
+    if (offline.isOffline() && !OFFLINE_MODES.includes(m)) return ui.toast(tr('This mode needs internet — offline you can play Kanji Reading, Rapid or Boss Elimination against the AI.'), 5000);
     if (creating) return; // already on its way
     if (m === 'deck') askNotifyPermission(); // "your turn" while you look at another tab
     const msg: ClientMessage = { type: 'create', mode: m, levels: savedLevels() };
@@ -807,7 +816,7 @@ initTutorial({
     if (!mastered) store.set('kb:levels', JSON.stringify(['KANA']));
   },
 });
-ui.$('modesBack').onclick = () => ui.show('menu');
+ui.$('modesBack').onclick = () => ui.show('private');
 const join = () => {
   const c = ui.$<HTMLInputElement>('joinCode').value.trim();
   if (c.length !== 4) return ui.setError('Room codes have 4 letters');
@@ -984,10 +993,10 @@ ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {
   sel.value = lang();
   sel.onchange = () => setLang(sel.value === 'ru' ? 'ru' : 'en');
 }
-// UI size (default 80% on computers)
+// UI size (default 100% since 0.9.9.5 — the label said 80% until 0.9.9.8.2)
 {
   const sel = ui.$<HTMLSelectElement>('uiZoom');
-  sel.replaceChildren(...UI_ZOOMS.map((z) => new Option(`${Math.round(z * 100)}%${z === 0.8 ? ' (default)' : ''}`, String(z))));
+  sel.replaceChildren(...UI_ZOOMS.map((z) => new Option(`${Math.round(z * 100)}%${z === 1 ? ' (default)' : ''}`, String(z))));
   sel.value = String(uiZoomPref());
   sel.onchange = () => setUiZoomPref(Number(sel.value));
 }
@@ -1113,6 +1122,7 @@ async function squarePicture(file: File): Promise<string> {
     const v = audio.getVolumes();
     music.value = String(Math.round(v.music * 100)); fx.value = String(Math.round(v.sfx * 100));
     ui.$('musicVolVal').textContent = `${music.value}%`; ui.$('sfxVolVal').textContent = `${fx.value}%`;
+    for (const r of [music, fx, vo]) r.style.setProperty('--p', `${r.value}%`); // (the filled part of the track)
     ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn());
   };
   ui.$('volBtn').onclick = (e) => { e.stopPropagation(); panel.hidden = !panel.hidden; ui.$('volBtn').setAttribute('aria-expanded', String(!panel.hidden)); show(); };

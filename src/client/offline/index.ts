@@ -124,6 +124,9 @@ async function ensureEngine(): Promise<Engine | null> {
   }
 }
 
+/** 0.9.9.8.2: the engine itself (offline games against the AI read your spells and look from it) */
+export const localEngine = () => ensureEngine();
+
 /** The connection is gone: switch to the engine if there is a snapshot (false: nothing to work with). */
 export async function goOffline(): Promise<boolean> {
   if (offline) return !!engine;

@@ -18,14 +18,14 @@ interface InstallPrompt extends Event { prompt(): Promise<void>; userChoice: Pro
 let installPrompt: InstallPrompt | null = null;
 
 // things that need the server: online games, rooms, friends
-const ONLINE_ONLY = '#adminBtn, #queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove';
+const ONLINE_ONLY = '#adminBtn, #queueBtn, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove';
 
 export function initApp(hooks: { canReload: () => boolean; backOnline: () => void; netStatus: () => void }) {
   offline.init(getToken, () => ['review', 'quiz', 'daily'].includes(ui.currentScreen() ?? ''));
   offline.onChange((off) => {
     document.body.classList.toggle('offline', off);
     hooks.netStatus();
-    if (off) ui.toast('You\'re offline. Study spells, the quiz, reading passages, the daily challenge and Customize still work — your progress syncs when you\'re back online.', 6000);
+    if (off) ui.toast('You\'re offline. Study spells, the quiz, reading passages, the daily challenge, Customize and private games against the AI still work — your progress syncs when you\'re back online.', 6000);
     else { ui.toast('Back online — your progress is synced.', 3500); hooks.backOnline(); }
   });
   // offline: online-only buttons explain themselves instead of doing nothing

@@ -20,7 +20,7 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: strin
 };
 
 /** where the panel is offered */
-const DICT_SCREENS = new Set(['menu', 'queue', 'admin', 'modes', 'lobby', 'results', 'study', 'review', 'passage', 'customize', 'history', 'progress', 'friends']);
+const DICT_SCREENS = new Set(['menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'results', 'study', 'review', 'passage', 'customize', 'history', 'progress', 'friends']);
 /** screens of a room: "Full entry" would take you out of it, so it isn't offered there */
 const ROOM_SCREENS = new Set(['lobby', 'queue', 'results']);
 let signedIn = false;

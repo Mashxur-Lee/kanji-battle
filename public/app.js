@@ -86,7 +86,7 @@
     const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
     return Math.ceil(((d.getTime() - yearStart) / 864e5 + 1) / 7);
   }
-  var XP_PER_LEVEL, xpToNext, xpForLevel, levelProgress, CRIT_BASE, CRIT_PER_WORD, CRIT_CAP, critFor, dailyCrit, beta, BACKGROUNDS, isBackground, unlocked, SEASONS, BORDERS, isBorder, borderUnlocked, BETA_BORDER, DAILY_TASKS, TASK_PASS, taskPassed, MONTH_GOALS, seasonOf, FLAMES, isFlame, flameUnlocked, flameColor, STAFFS, isStaff, staffUnlocked, staffOf, MODE_LEVEL, modeUnlocked, STUDY_LOCK, AVATAR_BY_LEVEL, ORDER, KANA_BEGINNER, isKanaBeginner, POSES, isPose, POSE_DEFS, poseOf, poseUnlocked;
+  var XP_PER_LEVEL, xpToNext, xpForLevel, levelProgress, CRIT_BASE, CRIT_PER_WORD, CRIT_CAP, CRIT_MULTIPLIER, critFor, dailyCrit, beta, BACKGROUNDS, isBackground, unlocked, SEASONS, BORDERS, isBorder, borderUnlocked, BETA_BORDER, DAILY_TASKS, TASK_PASS, taskPassed, MONTH_GOALS, seasonOf, FLAMES, isFlame, flameUnlocked, flameColor, STAFFS, isStaff, staffUnlocked, staffOf, MODE_LEVEL, modeUnlocked, STUDY_LOCK, AVATAR_BY_LEVEL, ORDER, KANA_BEGINNER, isKanaBeginner, POSES, isPose, POSE_DEFS, poseOf, poseUnlocked;
   var init_progress = __esm({
     "src/shared/progress.ts"() {
       "use strict";
@@ -100,6 +100,7 @@
       CRIT_BASE = 0.01;
       CRIT_PER_WORD = 0.01;
       CRIT_CAP = 0.5;
+      CRIT_MULTIPLIER = 1.5;
       critFor = (learnedToday) => Math.min(CRIT_CAP, CRIT_BASE + Math.max(0, learnedToday) * CRIT_PER_WORD);
       dailyCrit = (count, expiresAt, now2 = Date.now()) => now2 < expiresAt ? critFor(count) : CRIT_BASE;
       beta = { open: false };
@@ -205,9 +206,10 @@
       isPose = (x) => POSES.includes(x);
       POSE_DEFS = [
         { id: "none", name: "Standing", learned: 0, blurb: "Your usual stance \u2014 feet on the ground, the staff at your side." },
-        { id: "float", name: "Levitation", learned: 100, blurb: "You rise into the air, one leg bent, as if the magic lifts you." },
+        // 0.9.9.8.2: Channel first (100), Levitation last (300)
+        { id: "twohand", name: "Channel", learned: 100, blurb: "Both hands on the staff, upright in front of you, gathering power." },
         { id: "aim", name: "Duelist", learned: 200, blurb: "Side-on to your opponent, the staff held out straight at them, its core pointed their way." },
-        { id: "twohand", name: "Channel", learned: 300, blurb: "Both hands on the staff, upright in front of you, gathering power." }
+        { id: "float", name: "Levitation", learned: 300, blurb: "You rise into the air, one leg bent, as if the magic lifts you." }
       ];
       poseOf = (unlocks2) => {
         const p = (unlocks2 ?? []).find((x) => x.startsWith("pose:"))?.slice(5);
@@ -841,7 +843,7 @@
   });
 
   // src/shared/protocol.ts
-  var LEVELS, LEVEL_LABEL, ONO_TYPES, MODE_LABEL, studyLevelOf, isKanaLevel;
+  var LEVELS, LEVEL_LABEL, ONO_TYPES, MODES, MODE_LABEL, studyLevelOf, CHAT_MAX_LENGTH, isKanaLevel;
   var init_protocol = __esm({
     "src/shared/protocol.ts"() {
       "use strict";
@@ -852,6 +854,7 @@
         tai: { ja: "\u64EC\u614B\u8A9E", romaji: "gitaigo", en: "state / manner" },
         jo: { ja: "\u64EC\u60C5\u8A9E", romaji: "gij\u014Dgo", en: "feeling" }
       };
+      MODES = ["reading", "writing", "boss", "rapid", "deck"];
       MODE_LABEL = {
         reading: "1v1 Kanji Reading",
         writing: "1v1 Kanji Writing",
@@ -860,6 +863,7 @@
         deck: "Deck Duel"
       };
       studyLevelOf = (v) => v.jlpt ?? v.level;
+      CHAT_MAX_LENGTH = 140;
       isKanaLevel = (l) => l === "KANA" || l === "KATA";
     }
   });
@@ -968,6 +972,31 @@
     }
     return false;
   }
+  function isCorrectWriting(input2, kanji, reading) {
+    const typed = input2.normalize("NFKC").replace(/\s+/g, "");
+    if (typed === kanji) return true;
+    if (!HAN.test(typed)) return false;
+    const only = writeTargets(kanji).join("");
+    if (only !== kanji && typed === only) return true;
+    const tk = [...typed], kk = [...kanji];
+    if (writeTargets(kanji).length >= 3 && tk.length === kk.length && tk.filter((c, i) => c !== kk[i]).length === 1 && tk.every((c, i) => c === kk[i] || HAN.test(c) && HAN.test(kk[i]))) return true;
+    const T = [...kanji], X = [...katakanaToHiragana(typed)], R = [...katakanaToHiragana(reading)];
+    const hira = (s) => katakanaToHiragana(s);
+    const go = (ti, xi, ri) => {
+      if (ti === T.length) return xi === X.length && ri === R.length;
+      const t = T[ti];
+      if (!HAN.test(t)) {
+        const k = hira(t);
+        return X[xi] === k && R[ri] === k && go(ti + 1, xi + 1, ri + 1);
+      }
+      for (let len = 1; ri + len <= R.length; len++) {
+        if (X[xi] === t && go(ti + 1, xi + 1, ri + len)) return true;
+        if (X.slice(xi, xi + len).join("") === R.slice(ri, ri + len).join("") && go(ti + 1, xi + len, ri + len)) return true;
+      }
+      return false;
+    };
+    return go(0, 0, 0);
+  }
   function toRomaji(kana) {
     const s = katakanaToHiragana(kana);
     let out = "";
@@ -997,7 +1026,7 @@
     }
     return out;
   }
-  var BASE, YOON, SMALL, _a, _b, VOWELS, katakanaToHiragana, MACRON, VOWEL_KANA, foldJz, E_ROW, isRomajiInput, WRITE, writeTargets, writeTemplate, ROMA;
+  var BASE, YOON, SMALL, _a, _b, VOWELS, katakanaToHiragana, MACRON, VOWEL_KANA, foldJz, E_ROW, isRomajiInput, HAN, WRITE, writeTargets, writeTemplate, ROMA;
   var init_kana = __esm({
     "src/shared/kana.ts"() {
       "use strict";
@@ -1141,6 +1170,7 @@
       }).replace(/っ$/, "");
       E_ROW = "\u3048\u3051\u3052\u305B\u305C\u3066\u3067\u306D\u3078\u3079\u307A\u3081\u308C";
       isRomajiInput = (input2) => /^[a-z' \-]+$/i.test(input2.normalize("NFKC").trim());
+      HAN = /[\p{Script=Han}々〆ヶ]/u;
       WRITE = /[\p{Script=Han}々〆ヶ□]/u;
       writeTargets = (word2) => {
         const all = [...word2];
@@ -1474,10 +1504,45 @@
     }
     return a;
   }
+  function pickPool(levels, size, rng = Math.random, source = VOCAB, filter = () => true) {
+    const eligible = source.filter((v) => levels.includes(v.level) && filter(v));
+    return shuffle2([...eligible], rng).slice(0, size);
+  }
+  function pickPoolFrom(levels, size, mine, rng = Math.random, source = VOCAB, filter = () => true) {
+    const eligible = source.filter((v) => levels.includes(v.level) && filter(v));
+    const own = mine?.size ? shuffle2(eligible.filter((v) => mine.has(v.id)), rng).slice(0, size) : [];
+    const taken = new Set(own.map((v) => v.id));
+    return shuffle2([...own, ...shuffle2(eligible.filter((v) => !taken.has(v.id)), rng).slice(0, size - own.length)], rng);
+  }
+  var ChallengeDeck;
   var init_VocabPool = __esm({
     "src/server/VocabPool.ts"() {
       "use strict";
       init_vocab2();
+      ChallengeDeck = class {
+        constructor(pool, rng = Math.random) {
+          __publicField(this, "pool", pool);
+          __publicField(this, "rng", rng);
+          __publicField(this, "queue", []);
+          __publicField(this, "last");
+        }
+        draw() {
+          if (this.queue.length === 0) {
+            this.queue = shuffle2([...this.pool], this.rng);
+            if (this.queue.length > 1 && this.queue[0] === this.last) this.queue.push(this.queue.shift());
+          }
+          this.last = this.queue.shift();
+          return this.last;
+        }
+        /** Bring a missed word back after `gap` other words. */
+        requeue(entry, gap) {
+          const i = this.queue.indexOf(entry);
+          if (i !== -1) this.queue.splice(i, 1);
+          const others = this.pool.filter((v) => v !== entry);
+          while (this.queue.length < gap && others.length > 0) this.queue.push(...shuffle2([...others], this.rng));
+          this.queue.splice(Math.min(gap, this.queue.length), 0, entry);
+        }
+      };
     }
   });
 
@@ -2318,9 +2383,10 @@
           const league2 = this.todays(u, day), key = dailyKey(day, league2);
           const mine = await this.store.daily(key, u.id);
           const board = await this.store.dailyBoard(key, 20);
+          const boards = Object.fromEntries(await Promise.all(LEAGUES.map(async (lg) => [lg, lg === league2 ? board.map(publicRow) : (await this.store.dailyBoard(dailyKey(day, lg), 20)).map(publicRow)])));
           const rank = mine ? await this.store.dailyBetter(key, mine.correct, mine.ms) + 1 : null;
           const words2 = mine ? this.words(day, league2).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === "1" : null })) : null;
-          return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), words: words2, inProgress: this.attempts.get(u.id)?.day === day, league: league2, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT };
+          return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), boards, words: words2, inProgress: this.attempts.get(u.id)?.day === day, league: league2, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT };
         }
         /** Start (or continue) today's run: returns the current word. */
         async start(u) {
@@ -2425,7 +2491,7 @@
     if (!st || typeof st !== "object" || !Array.isArray(st.lines) || !st.lines.length) return "no lines";
     if (st.lines.length > 40) return "too many lines";
     const str = (x) => typeof x === "string" ? x.trim() : "";
-    const fixRuby = (t2) => t2.replace(RUBY, (m, base, rt) => HAN.test(base) && KANA2.test(rt) ? m : base);
+    const fixRuby = (t2) => t2.replace(RUBY, (m, base, rt) => HAN2.test(base) && KANA2.test(rt) ? m : base);
     const stems = words2.map((w) => stemOf(w.kanji));
     const used = /* @__PURE__ */ new Set();
     const lines2 = [];
@@ -2520,16 +2586,16 @@ Answer with JSON only, no other text:
     );
     return d.choices?.[0]?.message?.content ?? "";
   }
-  var HAN, RUBY, KANA2, stemOf, isStoryLevel, LEVEL_HINT, geminiWay, STORY_BUDGET_MS, STORY_ATTEMPTS, StoryService;
+  var HAN2, RUBY, KANA2, stemOf, isStoryLevel, LEVEL_HINT, geminiWay, STORY_BUDGET_MS, STORY_ATTEMPTS, StoryService;
   var init_StoryService = __esm({
     "src/server/study/StoryService.ts"() {
       "use strict";
       init_vocab2();
-      HAN = /[\p{Script=Han}々]/u;
+      HAN2 = /[\p{Script=Han}々]/u;
       RUBY = /\[([^\]|]+)\|([^\]]+)\]/g;
       KANA2 = /^[぀-ゟ゠-ヿー]+$/;
       stemOf = (kanji) => {
-        const last3 = Math.max(...[...kanji].map((c, i) => HAN.test(c) ? i : -1));
+        const last3 = Math.max(...[...kanji].map((c, i) => HAN2.test(c) ? i : -1));
         return last3 < 0 ? kanji.replace(/[るうくすつぬむぶぐいだなした]$/, "") || kanji : [...kanji].slice(0, last3 + 1).join("");
       };
       isStoryLevel = (x) => typeof x === "string" && /^N[1-5]$/.test(x);
@@ -3036,7 +3102,12 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         return out ?? { status: 404, body: { error: "Not found" } };
       },
       dump: () => store3.dump(),
-      user: () => store3.findById(s.user.id)
+      user: () => store3.findById(s.user.id),
+      spellIds: async () => new Set((await store3.cards(s.user.id)).filter((c) => (c.deck ?? "all") === "all").map((c) => c.vocabId)),
+      async memberProfile() {
+        const rec = await store3.findById(s.user.id);
+        return { crit: await study.crit(s.user.id), xp: rec?.xp ?? 0, pic: rec ? picUrl(rec) : null, flame: rec?.flame ?? "blue", staff: rec?.staff ?? "verdant", border: rec?.border ?? "none", pose: poseOf(rec?.unlocks) };
+      }
     };
   }
   var LocalStore, NEEDS_NET;
@@ -3048,6 +3119,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
       init_router();
       init_DailyService();
       init_StudyService();
+      init_progress();
       init_srs();
       init_vocab2();
       LocalStore = class extends MemoryStore {
@@ -3325,7 +3397,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     });
     scheduleSnapshot();
   }
-  var offline, engine, engineFor, outbox, token, syncing, probeTimer, snapTimer, saveTimer, listeners, UID_KEY, snapKey, boxKey, storedUid, OFFLINE_ROUTES, pathOf, handles, changes, isOffline, busyCheck, probing, timeout, authHeaders, snapDue, pending;
+  var offline, engine, engineFor, outbox, token, syncing, probeTimer, snapTimer, saveTimer, listeners, UID_KEY, snapKey, boxKey, storedUid, OFFLINE_ROUTES, pathOf, handles, changes, isOffline, busyCheck, probing, localEngine, timeout, authHeaders, snapDue, pending;
   var init_offline = __esm({
     "src/client/offline/index.ts"() {
       "use strict";
@@ -3364,6 +3436,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
       isOffline = () => offline;
       busyCheck = () => false;
       probing = false;
+      localEngine = () => ensureEngine();
       timeout = (ms) => {
         const c = new AbortController();
         setTimeout(() => c.abort(), ms);
@@ -4363,6 +4436,29 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         "Light": "\u0421\u0432\u0435\u0442\u043B\u0430\u044F",
         "New a day": "\u041D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C",
         "Every giseigo, gitaigo and gij\u014Dgo: sounds (\u30EF\u30F3\u30EF\u30F3), states (\u304D\u3089\u304D\u3089) and feelings (\u30C9\u30AD\u30C9\u30AD). Choose how many new ones a day (0 = none).": "\u0412\u0441\u0435 \u0433\u0438\u0441\u044D\u0439\u0433\u043E, \u0433\u0438\u0442\u0430\u0439\u0433\u043E \u0438 \u0433\u0438\u0434\u0437\u0451\u0433\u043E: \u0437\u0432\u0443\u043A\u0438 (\u30EF\u30F3\u30EF\u30F3), \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F (\u304D\u3089\u304D\u3089) \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u0430 (\u30C9\u30AD\u30C9\u30AD). \u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C (0 \u2014 \u043D\u0438 \u043E\u0434\u043D\u043E\u0433\u043E).",
+        // 0.9.9.8.2
+        "Your own room: pick the mode, the levels and who plays \u2014 AI wizards or your friends.": "\u0421\u0432\u043E\u044F \u043A\u043E\u043C\u043D\u0430\u0442\u0430: \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0440\u0435\u0436\u0438\u043C, \u0443\u0440\u043E\u0432\u043D\u0438 \u0438 \u043A\u0442\u043E \u0438\u0433\u0440\u0430\u0435\u0442 \u2014 \u0418\u0418-\u043C\u0430\u0433\u0438 \u0438\u043B\u0438 \u0432\u0430\u0448\u0438 \u0434\u0440\u0443\u0437\u044C\u044F.",
+        "\u2014 you can still play the AI in Kanji Reading, Rapid and Boss Elimination. Friends, Writing and Deck Duel need internet.": "\u2014 \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418 \u0432\u0441\u0451 \u0435\u0449\u0451 \u043C\u043E\u0436\u043D\u043E \u0438\u0433\u0440\u0430\u0442\u044C \u0432 \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u043B\u0438\u0446 \u0438 \u0411\u043E\u0439 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C. \u0414\u043B\u044F \u0434\u0440\u0443\u0437\u0435\u0439, \u041F\u0438\u0441\u044C\u043C\u0430 \u0438 \u0414\u0443\u044D\u043B\u0438 \u043A\u043E\u043B\u043E\u0434 \u043D\u0443\u0436\u0435\u043D \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442.",
+        "Choose a mode": "\u0412\u044B\u0431\u0440\u0430\u0442\u044C \u0440\u0435\u0436\u0438\u043C",
+        "Join a friend": "\u041A \u0434\u0440\u0443\u0433\u0443",
+        "Choose a mode, then add AI players or invite friends from the lobby. Everyone marks Ready, then the game starts.": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0440\u0435\u0436\u0438\u043C, \u0437\u0430\u0442\u0435\u043C \u0432 \u043B\u043E\u0431\u0431\u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0418\u0418 \u0438\u043B\u0438 \u043F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0442\u0435 \u0434\u0440\u0443\u0437\u0435\u0439. \u0412\u0441\u0435 \u043D\u0430\u0436\u0438\u043C\u0430\u044E\u0442 \xAB\u0413\u043E\u0442\u043E\u0432\xBB \u2014 \u0438 \u0438\u0433\u0440\u0430 \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F.",
+        "AI from beginner to N1": "\u0418\u0418 \u043E\u0442 \u043D\u043E\u0432\u0438\u0447\u043A\u0430 \u0434\u043E N1",
+        "Boss Elimination with up to 3 AI teammates": "\u0411\u043E\u0439 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C \u0441 \u0442\u0440\u0435\u043C\u044F \u0418\u0418-\u0441\u043E\u044E\u0437\u043D\u0438\u043A\u0430\u043C\u0438",
+        "Pause any time against the AI": "\u041F\u0430\u0443\u0437\u0430 \u0432 \u043B\u044E\u0431\u043E\u0439 \u043C\u043E\u043C\u0435\u043D\u0442 \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418",
+        "Got a 4-letter room code from a friend? Type it here. Friends can also invite you straight from their lobby.": "\u0415\u0441\u0442\u044C \u043A\u043E\u0434 \u043A\u043E\u043C\u043D\u0430\u0442\u044B \u0438\u0437 4 \u0431\u0443\u043A\u0432 \u043E\u0442 \u0434\u0440\u0443\u0433\u0430? \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0435\u0433\u043E \u0437\u0434\u0435\u0441\u044C. \u0414\u0440\u0443\u0437\u044C\u044F \u043C\u043E\u0433\u0443\u0442 \u0438 \u043F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0442\u044C \u0432\u0430\u0441 \u043F\u0440\u044F\u043C\u043E \u0438\u0437 \u0441\u0432\u043E\u0435\u0433\u043E \u043B\u043E\u0431\u0431\u0438.",
+        "\u2190 Private game": "\u2190 \u0421\u0432\u043E\u044F \u0438\u0433\u0440\u0430",
+        "Play friends with a room code, or the AI \u2014 the AI works offline too": "\u0421 \u0434\u0440\u0443\u0437\u044C\u044F\u043C\u0438 \u043F\u043E \u043A\u043E\u0434\u0443 \u043A\u043E\u043C\u043D\u0430\u0442\u044B \u0438\u043B\u0438 \u0441 \u0418\u0418 \u2014 \u0441 \u0418\u0418 \u043C\u043E\u0436\u043D\u043E \u0438 \u043E\u0444\u043B\u0430\u0439\u043D",
+        "Look, staff, arena": "\u041E\u0431\u043B\u0438\u043A, \u043F\u043E\u0441\u043E\u0445, \u0430\u0440\u0435\u043D\u0430",
+        "Stats and badges": "\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430 \u0438 \u0437\u043D\u0430\u0447\u043A\u0438",
+        "Your recent games": "\u0412\u0430\u0448\u0438 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435 \u0438\u0433\u0440\u044B",
+        "days": "\u0434\u043D.",
+        "yours": "\u0432\u0430\u0448\u0430",
+        "Nobody in this league has played today yet.": "\u0412 \u044D\u0442\u043E\u0439 \u043B\u0438\u0433\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0435\u0449\u0451 \u043D\u0438\u043A\u0442\u043E \u043D\u0435 \u0438\u0433\u0440\u0430\u043B.",
+        "This mode needs internet \u2014 offline you can play Kanji Reading, Rapid or Boss Elimination against the AI.": "\u0414\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0440\u0435\u0436\u0438\u043C\u0430 \u043D\u0443\u0436\u0435\u043D \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u2014 \u043E\u0444\u043B\u0430\u0439\u043D \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418 \u043C\u043E\u0436\u043D\u043E \u0438\u0433\u0440\u0430\u0442\u044C \u0432 \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u043B\u0438\u0446 \u0438\u043B\u0438 \u0411\u043E\u0439 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C.",
+        "Playing with friends needs internet \u2014 offline you can play the AI.": "\u0414\u043B\u044F \u0438\u0433\u0440\u044B \u0441 \u0434\u0440\u0443\u0437\u044C\u044F\u043C\u0438 \u043D\u0443\u0436\u0435\u043D \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u2014 \u043E\u0444\u043B\u0430\u0439\u043D \u043C\u043E\u0436\u043D\u043E \u0438\u0433\u0440\u0430\u0442\u044C \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418.",
+        // 0.9.9.8.2
+        "\u2713 Ready": "\u2713 \u0413\u043E\u0442\u043E\u0432",
+        "host": "\u0445\u043E\u0441\u0442",
         // 0.9.9.8.1
         "Reading, Rapid, Boss and Deck Duel against players": "\u0427\u0442\u0435\u043D\u0438\u0435, \u0411\u043B\u0438\u0446, \u0411\u043E\u0441\u0441 \u0438 \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434 \u043F\u0440\u043E\u0442\u0438\u0432 \u0438\u0433\u0440\u043E\u043A\u043E\u0432",
         "Play friends with a room code, or the AI": "\u0418\u0433\u0440\u0430\u0439\u0442\u0435 \u0441 \u0434\u0440\u0443\u0437\u044C\u044F\u043C\u0438 \u043F\u043E \u043A\u043E\u0434\u0443 \u043A\u043E\u043C\u043D\u0430\u0442\u044B \u0438\u043B\u0438 \u0441 \u0418\u0418",
@@ -4479,7 +4575,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         "You float cross-legged in the air, both hands on the upright staff.": "\u0412\u044B \u043F\u0430\u0440\u0438\u0442\u0435 \u0432 \u0432\u043E\u0437\u0434\u0443\u0445\u0435, \u0441\u043A\u0440\u0435\u0441\u0442\u0438\u0432 \u043D\u043E\u0433\u0438, \u043E\u0431\u0435 \u0440\u0443\u043A\u0438 \u043D\u0430 \u043F\u043E\u0441\u043E\u0445\u0435.",
         "(\u8F9E\u66F8, main menu, works offline) \u2014 type a word in kanji, kana, romaji, English or Russian: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji \u2014 and \u201C+ Add to\u2026\u201D puts it in any deck.": "(\u8F9E\u66F8, \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u043C\u0435\u043D\u044E, \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430) \u2014 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u043E \u043A\u0430\u043D\u0434\u0437\u0438, \u043A\u0430\u043D\u043E\u0439, \u0440\u043E\u043C\u0430\u0434\u0437\u0438, \u043F\u043E-\u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438 \u0438\u043B\u0438 \u043F\u043E-\u0440\u0443\u0441\u0441\u043A\u0438: \u0432\u0441\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F, \u0443\u0440\u043E\u0432\u0435\u043D\u044C JLPT, \u0444\u043E\u0440\u043C\u044B \u0433\u043B\u0430\u0433\u043E\u043B\u0430, \u043F\u0440\u0438\u043C\u0435\u0440, \u043A\u0430\u0436\u0434\u044B\u0439 \u043A\u0430\u043D\u0434\u0437\u0438 \u0441 \u043A\u0430\u0440\u0442\u0438\u043D\u043A\u043E\u0439 \u0434\u043B\u044F \u0437\u0430\u043F\u043E\u043C\u0438\u043D\u0430\u043D\u0438\u044F, \u0434\u0440\u0443\u0433\u0438\u0435 \u0441\u043B\u043E\u0432\u0430 \u0441 \u044D\u0442\u0438\u043C \u043A\u0430\u043D\u0434\u0437\u0438 \u2014 \u0430 \xAB+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u2026\xBB \u043A\u043B\u0430\u0434\u0451\u0442 \u0441\u043B\u043E\u0432\u043E \u0432 \u043B\u044E\u0431\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443.",
         "\u2014 in": "\u2014 \u0432 \u0440\u0430\u0437\u0434\u0435\u043B\u0435",
-        ", choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Levitation, Duelist or Channel \u2014 they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.": "\u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0447\u0442\u043E \u0434\u0435\u043B\u0430\u0435\u0442 \u0432\u0430\u0448 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436, \u043F\u043E\u043A\u0430 \u043E\u043D \u0432 \u043E\u0433\u043D\u0435 (5 \u043F\u043E\u0434\u0440\u044F\u0434 \u0438\u043B\u0438 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E \u0432 \u0414\u0443\u044D\u043B\u0438 \u043A\u043E\u043B\u043E\u0434): \u041B\u0435\u0432\u0438\u0442\u0430\u0446\u0438\u044F, \u0414\u0443\u044D\u043B\u044F\u043D\u0442 \u0438\u043B\u0438 \u041A\u043E\u043D\u0446\u0435\u043D\u0442\u0440\u0430\u0446\u0438\u044F \u2014 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043D\u0430 100, 200 \u0438 300 \u0438\u0437\u0443\u0447\u0435\u043D\u043D\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445. \u042D\u0442\u043E \u0432\u0438\u0434\u044F\u0442 \u0432\u0441\u0435 \u0432 \u0431\u043E\u044E.",
+        ", choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Channel, Duelist or Levitation \u2014 they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.": "\u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0447\u0442\u043E \u0434\u0435\u043B\u0430\u0435\u0442 \u0432\u0430\u0448 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436, \u043F\u043E\u043A\u0430 \u043E\u043D \u0432 \u043E\u0433\u043D\u0435 (5 \u043F\u043E\u0434\u0440\u044F\u0434 \u0438\u043B\u0438 \u0412\u0441\u0435\u043C\u043E\u0433\u0443\u0449\u0435\u0441\u0442\u0432\u043E \u0432 \u0414\u0443\u044D\u043B\u0438 \u043A\u043E\u043B\u043E\u0434): \u041A\u043E\u043D\u0446\u0435\u043D\u0442\u0440\u0430\u0446\u0438\u044F, \u0414\u0443\u044D\u043B\u044F\u043D\u0442 \u0438\u043B\u0438 \u041B\u0435\u0432\u0438\u0442\u0430\u0446\u0438\u044F \u2014 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043D\u0430 100, 200 \u0438 300 \u0438\u0437\u0443\u0447\u0435\u043D\u043D\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445. \u042D\u0442\u043E \u0432\u0438\u0434\u044F\u0442 \u0432\u0441\u0435 \u0432 \u0431\u043E\u044E.",
         // 0.9.9.6.1
         "Update the app": "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435",
         "Install the update": "\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435",
@@ -4655,7 +4751,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         "You're offline \u2014 this needs an internet connection.": "\u041D\u0435\u0442 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0443 \u2014 \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u043E\u043D \u043D\u0443\u0436\u0435\u043D.",
         "You're offline.": "\u041D\u0435\u0442 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0443.",
         "Offline mode": "\u041E\u0444\u043B\u0430\u0439\u043D-\u0440\u0435\u0436\u0438\u043C",
-        "You're offline. Study spells, the quiz, reading passages, the daily challenge and Customize still work \u2014 your progress syncs when you're back online.": "\u041D\u0435\u0442 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430. \u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439, \u0442\u0435\u0441\u0442, \u0442\u0435\u043A\u0441\u0442\u044B, \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430 \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442 \u2014 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u0443\u0435\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0432\u0435\u0440\u043D\u0451\u0442\u0441\u044F.",
+        "You're offline. Study spells, the quiz, reading passages, the daily challenge, Customize and private games against the AI still work \u2014 your progress syncs when you're back online.": "\u041D\u0435\u0442 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430. \u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439, \u0442\u0435\u0441\u0442, \u0442\u0435\u043A\u0441\u0442\u044B, \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435, \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430 \u0438 \u0441\u0432\u043E\u044F \u0438\u0433\u0440\u0430 \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418 \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442 \u2014 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u0443\u0435\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0432\u0435\u0440\u043D\u0451\u0442\u0441\u044F.",
         "Back online \u2014 your progress is synced.": "\u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0441\u043D\u043E\u0432\u0430 \u0435\u0441\u0442\u044C \u2014 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u043D.",
         "No internet connection. Sign in once while online \u2014 then Study spells and more work offline too.": "\u041D\u0435\u0442 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0443. \u0412\u043E\u0439\u0434\u0438\u0442\u0435 \u043E\u0434\u0438\u043D \u0440\u0430\u0437 \u043E\u043D\u043B\u0430\u0439\u043D \u2014 \u043F\u043E\u0441\u043B\u0435 \u044D\u0442\u043E\u0433\u043E \u0438\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u0438 \u043C\u043D\u043E\u0433\u043E\u0435 \u0434\u0440\u0443\u0433\u043E\u0435 \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442 \u0438 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430.",
         "Kanji Wizards is installed \u2014 find it with your apps.": "Kanji Wizards \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E \u2014 \u043D\u0430\u0439\u0434\u0438\u0442\u0435 \u0435\u0433\u043E \u0441\u0440\u0435\u0434\u0438 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0439.",
@@ -6563,26 +6659,26 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     if (api2 && onScreen && wanted()) void activate();
   }
   function arenaForBattle(mode4, players2, you2) {
-    const me3 = players2.find((p) => p.id === you2);
+    const me4 = players2.find((p) => p.id === you2);
     const others = players2.filter((p) => p.id !== you2);
     const art = (p) => ({ id: p.id, name: p.name, character: p.avatar, flame: flameColor(p.flame), staff: p.staff, pose: p.pose, bot: !!p.bot });
     configure({
       layout: "battle",
-      me: me3 ? art(me3) : { id: you2, character: "wizard" },
+      me: me4 ? art(me4) : { id: you2, character: "wizard" },
       opp: mode4 === "boss" || !others[0] ? null : art(others[0]),
       allies: mode4 === "boss" ? others.map(art) : [],
       boss: mode4 === "boss" ? { id: "boss", svg: dragonSvg() } : null
     });
   }
   function arenaForDeck(v) {
-    const me3 = v.players.find((p) => p.id === v.you);
+    const me4 = v.players.find((p) => p.id === v.you);
     const opp = v.players.find((p) => p.id !== v.you);
-    const key = `${me3?.id}:${me3?.character}:${me3?.staff}:${me3?.pose}:${opp?.id}:${opp?.character}:${opp?.staff}:${opp?.pose}`;
+    const key = `${me4?.id}:${me4?.character}:${me4?.staff}:${me4?.pose}:${opp?.id}:${opp?.character}:${opp?.staff}:${opp?.pose}`;
     if (key === deckKey && (!api2 || pending2 === null)) return;
     deckKey = key;
     configure({
       layout: "deck",
-      me: { id: v.you, name: me3?.name, character: me3?.character ?? "wizard", flame: flameColor(me3?.flame), staff: me3?.staff, pose: me3?.pose },
+      me: { id: v.you, name: me4?.name, character: me4?.character ?? "wizard", flame: flameColor(me4?.flame), staff: me4?.staff, pose: me4?.pose },
       opp: opp ? { id: opp.id, name: opp.name, character: opp.character ?? "wizard", flame: flameColor(opp.flame), staff: opp.staff, pose: opp.pose } : null,
       allies: [],
       boss: null
@@ -7016,7 +7112,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     const m = Math.max(0, Math.round((Date.now() - t) / 6e4));
     return m < 60 ? `${m} min` : m < 60 * 24 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`;
   }
-  function showAdmin(users, me3, db, onToggle, onRole, onDelete) {
+  function showAdmin(users, me4, db, onToggle, onRole, onDelete) {
     const banned = users.filter((u) => u.banned).length;
     const online = users.filter((u) => u.online).length;
     $("adminInfo").textContent = `${online} online now \xB7 ${users.length} accounts \xB7 ${banned} banned`;
@@ -7027,17 +7123,17 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     $("userRows").replaceChildren(
       ...users.map((u) => {
         const action = h("td");
-        if (u.role !== "admin" && u.id !== me3.id) {
+        if (u.role !== "admin" && u.id !== me4.id) {
           const b = h("button", "pill" + (u.banned ? "" : " danger"), u.banned ? "Unban" : "Ban");
           b.onclick = () => onToggle(u);
           action.append(b);
         }
-        if (onRole && u.id !== me3.id && u.username.toLowerCase() !== "admin" && !u.banned) {
+        if (onRole && u.id !== me4.id && u.username.toLowerCase() !== "admin" && !u.banned) {
           const r2 = h("button", "pill" + (u.role === "admin" ? "" : " promote"), u.role === "admin" ? "Remove admin" : "Make admin");
           r2.onclick = () => onRole(u);
           action.append(r2);
         }
-        if (onDelete && u.role !== "admin" && u.id !== me3.id) {
+        if (onDelete && u.role !== "admin" && u.id !== me4.id) {
           const d = h("button", "pill danger del-user", "\u{1F5D1} Delete", { title: "Delete this account and all its progress" });
           d.onclick = () => onDelete(u);
           action.append(d);
@@ -7054,7 +7150,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         return append(
           h("tr", u.online ? "is-online" : ""),
           presence,
-          h("td", "", u.username + (u.nickname ? ` (${u.nickname})` : "") + (u.id === me3.id ? " (you)" : "")),
+          h("td", "", u.username + (u.nickname ? ` (${u.nickname})` : "") + (u.id === me4.id ? " (you)" : "")),
           h("td", "", u.role),
           h("td", "num", `Lv ${u.level ?? 0}`),
           h("td", "num", (u.xp ?? 0).toLocaleString()),
@@ -7098,9 +7194,10 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         }
         if (p.id === hostId) li.append(h("span", "tag", "host"));
         if (!p.online) li.append(h("span", "tag off", "away \u2014 seat kept"));
-        if (mode4 === "deck") li.append(h("span", "tag " + (p.ready ? "ready" : "notready"), p.ready ? "\u2713 Ready" : "Not ready"));
-        else if (p.bot) li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `${p.maxHp} HP`)));
-        else if (!p.bot) li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `${p.maxHp} HP`)));
+        const ready = !!p.bot || !!p.ready;
+        li.classList.toggle("is-ready", ready);
+        li.append(h("span", "tag " + (ready ? "ready" : "notready"), ready ? "\u2713 Ready" : "Not ready"));
+        if (mode4 !== "deck") li.append(append(h("div", "meta"), h("span", "", levelsText(p.levels)), h("span", "hpv", `${p.maxHp} HP`)));
         return li;
       }),
       ...Array.from({ length: Math.max(0, maxPlayers - players2.length) }, () => h("li", "empty", mode4 === "boss" ? "Waiting for a teammate (optional)\u2026" : "Waiting for opponent\u2026"))
@@ -7163,22 +7260,34 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     return bar;
   }
   function partyPanel(el11, players2, you2) {
-    const ordered = [...players2].sort((a, b) => a.id === you2 ? -1 : b.id === you2 ? 1 : 0);
-    el11.replaceChildren(...ordered.map((p) => {
-      const row = h("div", "party-row" + (p.id === you2 ? " me" : "") + (p.hp <= 0 ? " down" : ""));
-      const pn = h("span", "n", p.id === you2 ? `${p.name} (you)` : p.name);
-      if (p.id !== you2) markProfile(pn, p);
+    const mine = players2.find((p) => p.id === you2);
+    const mates = players2.filter((p) => p.id !== you2);
+    const out = [];
+    if (mine) {
+      const row = h("div", "party-me" + (mine.hp <= 0 ? " down" : ""));
       const name = append(
-        h("div", "pname"),
-        picEl(p.pic, "pic", p.border),
-        pn,
-        netBars(p.id),
-        h("span", "lv", `Lv ${p.level}`),
-        h("span", "combo", p.combo >= 2 ? `\xD7${p.combo}` : "")
+        h("div", "pm-name"),
+        picEl(mine.pic, "pic", mine.border),
+        h("span", "pm-you", "You"),
+        h("span", "n", mine.name),
+        netBars(mine.id),
+        h("span", "combo", mine.combo >= 2 ? `\xD7${mine.combo} combo` : "")
       );
-      row.append(name, thickBar(p.hp, p.maxHp, "ally", p.hp <= 0 ? "down" : `${p.hp} / ${p.maxHp}`));
-      return row;
-    }));
+      row.append(name, thickBar(mine.hp, mine.maxHp, "ally", mine.hp <= 0 ? "down" : `${mine.hp} / ${mine.maxHp}`));
+      out.push(row);
+    }
+    if (mates.length) {
+      const list = h("div", "party-mates");
+      for (const p of mates) {
+        const row = h("div", "party-row mate" + (p.hp <= 0 ? " down" : ""));
+        const pn = h("span", "n", p.name);
+        markProfile(pn, p);
+        row.append(append(h("div", "pname"), pn, h("span", "combo", p.combo >= 2 ? `\xD7${p.combo}` : "")), thickBar(p.hp, p.maxHp, "mate", p.hp <= 0 ? "down" : `${p.hp}`));
+        list.append(row);
+      }
+      out.push(list);
+    }
+    el11.replaceChildren(...out);
   }
   function thickBar(hp, max, side, text) {
     const pct2 = max > 0 ? Math.max(0, Math.min(100, hp / max * 100)) : 0;
@@ -7199,7 +7308,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     el11.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h("div", "hpnum", `${p.hp} / ${p.maxHp} HP`), h("span", "lvs", `\xB7 ${levelsText(p.levels)}${p.online ? "" : " \xB7 away"}`)));
   }
   function renderFighters(players2, you2, boss) {
-    const me3 = players2.find((p) => p.id === you2);
+    const me4 = players2.find((p) => p.id === you2);
     const other = players2.find((p) => p.id !== you2);
     $("meCard").classList.toggle("party", battleMode === "boss");
     $("oppCard").hidden = battleMode === "boss";
@@ -7209,21 +7318,21 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
       if (boss) bar.replaceChildren(h("div", "bname", boss.name), thickBar(boss.hp, boss.maxHp, "enemy", `${boss.hp} / ${boss.maxHp}`));
       for (const p of players2) if (p.id !== you2) allyEl(p.id)?.classList.toggle("onfire", p.combo >= 5);
     } else {
-      fighterCard($("meCard"), me3, me3 ? `${me3.name} (you)` : "", "");
+      fighterCard($("meCard"), me4, me4 ? `${me4.name} (you)` : "", "");
       fighterCard($("oppCard"), other, other?.name ?? "", "Opponent left");
       $("wizOpp").classList.toggle("onfire", (other?.combo ?? 0) >= 5);
     }
-    $("wizMe").classList.toggle("onfire", (me3?.combo ?? 0) >= 5);
+    $("wizMe").classList.toggle("onfire", (me4?.combo ?? 0) >= 5);
     const a3 = arena();
     if (a3) for (const p of players2) a3.onfire(p.id === you2 ? "me" : battleMode === "boss" ? `ally:${p.id}` : "opp", p.combo >= 5 && p.hp > 0, flameColor(p.flame));
     if (battleMode === "boss") {
       for (const p of players2) if (p.hp <= 0) knockOut(p.id === you2 ? "me" : `ally:${p.id}`);
     }
-    const combo = me3 && me3.hp > 0 ? me3.combo : 0;
+    const combo = me4 && me4.hp > 0 ? me4.combo : 0;
     const hud = $("comboHud");
     hud.hidden = combo < 2;
     hud.classList.toggle("hot", combo >= 5);
-    hud.style.setProperty("--flame", flameColor(me3?.flame));
+    hud.style.setProperty("--flame", flameColor(me4?.flame));
     if (combo >= 2) hud.replaceChildren(h("b", "", `\xD7${combo}`), h("span", "", "COMBO"));
   }
   function retrigger(el11, cls, ms) {
@@ -7574,7 +7683,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     $("resultActions").hidden = !!opts.history;
     $("historyBackRow").hidden = !opts.history;
     const otherId = Object.keys(stats).find((id) => id !== you2);
-    const me3 = stats[you2];
+    const me4 = stats[you2];
     const other = otherId ? stats[otherId] : void 0;
     const otherName = players2.find((p) => p.id === otherId)?.name ?? (mode4 === "boss" ? "Ally" : "Opponent");
     const rows2 = [
@@ -7594,20 +7703,20 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         const el11 = h("div", "h", nameOf2(id));
         return p ? markProfile(el11, p) : el11;
       }));
-      for (const [label, fmt] of rows2) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me3)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
+      for (const [label, fmt] of rows2) cmp.append(h("div", "lbl", label), h("div", "v", fmt(me4)), ...allies.map((id) => h("div", "v", fmt(stats[id]))));
     } else {
       cmp.style.gridTemplateColumns = "";
       const on = h("div", "h r", other ? otherName : "");
       const op = players2.find((p) => p.id === otherId);
       if (op) markProfile(on, op);
       cmp.replaceChildren(h("div", "h me", "You"), h("div"), on);
-      for (const [label, fmt] of rows2) cmp.append(h("div", "v", fmt(me3)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
+      for (const [label, fmt] of rows2) cmp.append(h("div", "v", fmt(me4)), h("div", "lbl", label), h("div", "v r", other ? fmt(other) : ""));
     }
-    const byKanji = new Map(me3.words.map((w) => [w.kanji, w]));
-    $("struggledBox").hidden = me3.struggled.length === 0;
+    const byKanji = new Map(me4.words.map((w) => [w.kanji, w]));
+    $("struggledBox").hidden = me4.struggled.length === 0;
     $("missedSave").hidden = true;
     $("struggled").replaceChildren(
-      ...me3.struggled.map((k) => {
+      ...me4.struggled.map((k) => {
         const w = byKanji.get(k);
         const so = h("button", "so-btn", "\u7B46", { type: "button", title: "Stroke order", "aria-label": "Stroke order", lang: "ja" });
         so.onclick = (e) => {
@@ -7620,7 +7729,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
       })
     );
     $("wordRows").replaceChildren(
-      ...me3.words.map((w) => {
+      ...me4.words.map((w) => {
         const result = w.attempts === 0 ? h("span", "na", "not seen") : w.correct === w.attempts ? h("span", "ok", `\u2713 ${w.correct}/${w.attempts}`) : h("span", "no", `\u2717 ${w.correct}/${w.attempts}`);
         const k = h("td", "k clickable", w.kanji, { lang: "ja", title: "Stroke order" });
         k.onclick = () => openStrokeDialog(w.kanji, w.reading, w.meaning);
@@ -7809,7 +7918,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         parent.append(...kids);
         return parent;
       };
-      SCREENS = ["auth", "menu", "queue", "admin", "modes", "lobby", "prep", "battle", "results", "study", "review", "quiz", "passage", "customize", "deck", "history", "progress", "daily", "friends", "dict"];
+      SCREENS = ["auth", "menu", "queue", "admin", "private", "modes", "lobby", "prep", "battle", "results", "study", "review", "quiz", "passage", "customize", "deck", "history", "progress", "daily", "friends", "dict"];
       screenListener = () => {
       };
       onScreen2 = (fn) => {
@@ -8132,7 +8241,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
   init_api();
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.8.1";
+  var VERSION = "0.9.9.8.2";
 
   // src/client/support.ts
   init_ui();
@@ -8286,8 +8395,8 @@ ${stack}`.slice(0, 2e3);
     }));
     return loading4;
   }
-  var HAN2 = /[\p{Script=Han}]/u;
-  var tappable = (ch) => HAN2.test(ch) && ch !== "\u3005";
+  var HAN3 = /[\p{Script=Han}]/u;
+  var tappable = (ch) => HAN3.test(ch) && ch !== "\u3005";
   var COLOURS = ["#e8590c", "#1c7ed6", "#2b8a3e", "#ae3ec9", "#e67700", "#0c8599"];
   var h2 = (tag, cls = "", text, attrs = {}) => {
     const e = document.createElement(tag);
@@ -8302,7 +8411,7 @@ ${stack}`.slice(0, 2e3);
     const texts = [];
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       if (n.parentElement?.closest("rt, .kj")) continue;
-      if (HAN2.test(n.nodeValue ?? "")) texts.push(n);
+      if (HAN3.test(n.nodeValue ?? "")) texts.push(n);
     }
     for (const t of texts) {
       const frag = document.createDocumentFragment();
@@ -8331,7 +8440,7 @@ ${stack}`.slice(0, 2e3);
   function wordsTappable(root) {
     void loadKanji();
     for (const r2 of root.querySelectorAll("ruby")) {
-      if (r2.closest(".kw") || !HAN2.test(r2.firstChild?.textContent ?? "")) continue;
+      if (r2.closest(".kw") || !HAN3.test(r2.firstChild?.textContent ?? "")) continue;
       const base = [...r2.childNodes].filter((n) => n.nodeName !== "RT").map((n) => n.textContent).join("");
       const reading = r2.querySelector("rt")?.textContent ?? "";
       let after = "";
@@ -8448,7 +8557,7 @@ ${stack}`.slice(0, 2e3);
         if (c) chip2.append(h2("span", "kp-pc", c, { lang: "ja" }));
         chip2.append(h2("span", "kp-pm", ru && pru ? pru : pen, { "data-no-i18n": "" }));
         chip2.onclick = () => {
-          if (c && HAN2.test(c)) void showKanji(c);
+          if (c && HAN3.test(c)) void showKanji(c);
         };
         if (i) row.append(h2("span", "kp-plus", "+"));
         row.append(chip2);
@@ -9508,11 +9617,24 @@ ${stack}`.slice(0, 2e3);
     const btn = $4("tasksBtn");
     btn.hidden = false;
     btn.classList.toggle("done", all);
-    btn.replaceChildren(
-      Object.assign(document.createElement("span"), { className: "tb-fire", textContent: "\u{1F525}" }),
-      Object.assign(document.createElement("span"), { className: "tb-text", textContent: all ? tr("Streak kept today \u2014 well done!") : `${tr("Daily streak tasks")}: ${n}/${tasks.length}` }),
-      Object.assign(document.createElement("span"), { className: "tb-days", textContent: `${p.streak ?? 0}` })
-    );
+    const mk = (tag, cls, text = "") => Object.assign(document.createElement(tag), { className: cls, textContent: text });
+    const head = mk("span", "tb-head");
+    head.append(mk("b", "tb-title", all ? tr("Streak kept today \u2014 well done!") : tr("Daily streak tasks")), mk("span", "tb-count", `${n}/${tasks.length}`));
+    const list = mk("span", "tb-tasks");
+    for (const t of tasks) {
+      const ok = t.value >= t.target;
+      const chip2 = mk("span", `tb-task${ok ? " ok" : ""}`);
+      chip2.style.setProperty("--p", `${Math.min(100, Math.round(t.value / Math.max(1, t.target) * 100))}%`);
+      const ic = mk("span", "tb-ic", ok ? "\u2713" : ICON[t.id] ?? "\u2022");
+      ic.lang = "ja";
+      chip2.append(ic, mk("span", "tb-label", tr(t.label)), mk("span", "tb-val", `${Math.min(t.value, t.target)}/${t.target}`));
+      list.append(chip2);
+    }
+    const main = mk("span", "tb-main");
+    main.append(head, list);
+    const days2 = mk("span", "tb-days");
+    days2.append(mk("b", "", `${p.streak ?? 0}`), mk("small", "", tr("days")));
+    btn.replaceChildren(mk("span", "tb-fire", "\u{1F525}"), main, days2);
     $4("ppTasks").textContent = `${tr("Today\u2019s streak tasks")}: ${n}/${tasks.length} \u203A`;
     if (!$4("tasksDialog").open) return;
     fill(p);
@@ -9688,6 +9810,32 @@ ${stack}`.slice(0, 2e3);
   // src/client/whatsnew.ts
   init_i18n();
   var PATCHES = [
+    {
+      v: "0.9.9.8.2",
+      date: "2026-11",
+      en: [
+        "Staff attacks: each staff has its own spell now (every mode but Deck Duel). Verdant \u2014 four branches burst from the ground and lash the target like tentacles; Ember \u2014 an inferno; Tide \u2014 frost; Storm \u2014 lightning from the sky; Void \u2014 a rift that swallows the light and bursts. Seasonal staffs do their base staff\u2019s spell in their own colours.",
+        "Private game has its own page (Create a room \xB7 Join a friend), and it works offline: Kanji Reading, Rapid and Boss Elimination against the AI with no internet.",
+        "Lobbies show who is Ready in every mode (\u2713 Ready / Not ready), like Deck Duel.",
+        "Daily challenge: the leaderboard has a tab for every league.",
+        "Boss Elimination: your HP is its own big frame with \u201CYou\u201D, your teammates a row of smaller blue bars; the grey box round the dragon\u2019s bar is gone.",
+        "Duelist pose in first person: like aiming a pistol \u2014 the arm stretched out, the staff pointed straight at your opponent, its core first.",
+        "Combo poses: Channel now unlocks at 100 spells learned, Levitation at 300 (Duelist stays at 200).",
+        "Main menu: the painting frames the menu and a soft violet night with a turning rune circle and drifting kanji sits behind the cards, so they read clearly; new Customize / Progress / Match history tiles; the daily streak tasks are a banner with each task\u2019s progress; Admin moved to the links at the bottom.",
+        "Fixes: Deck Duel\u2019s first Bolt no longer freezes the game for a moment; the avatar and its frame aren\u2019t clipped in phone battles; the avatar no longer turns into an oval in the name pill; the volume sliders reach 0 and 100; UI size says 100% is the default; the \u2190 Menu button no longer touches the dictionary bar."
+      ],
+      ru: [
+        "\u0410\u0442\u0430\u043A\u0438 \u043F\u043E\u0441\u043E\u0445\u043E\u0432: \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u043F\u043E\u0441\u043E\u0445\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u0441\u0432\u043E\u0451 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0435 (\u0432\u043E \u0432\u0441\u0435\u0445 \u0440\u0435\u0436\u0438\u043C\u0430\u0445, \u043A\u0440\u043E\u043C\u0435 \u0414\u0443\u044D\u043B\u0438 \u043A\u043E\u043B\u043E\u0434). \u0426\u0432\u0435\u0442\u0443\u0449\u0438\u0439 \u2014 \u0447\u0435\u0442\u044B\u0440\u0435 \u0432\u0435\u0442\u0432\u0438 \u0432\u044B\u0440\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u0438\u0437 \u0437\u0435\u043C\u043B\u0438 \u0438 \u0445\u043B\u0435\u0449\u0443\u0442 \u0446\u0435\u043B\u044C, \u043A\u0430\u043A \u0449\u0443\u043F\u0430\u043B\u044C\u0446\u0430; \u041E\u0433\u043D\u0435\u043D\u043D\u044B\u0439 \u2014 \u0438\u043D\u0444\u0435\u0440\u043D\u043E; \u041F\u0440\u0438\u043B\u0438\u0432\u043D\u044B\u0439 \u2014 \u043C\u043E\u0440\u043E\u0437; \u0413\u0440\u043E\u0437\u043E\u0432\u043E\u0439 \u2014 \u043C\u043E\u043B\u043D\u0438\u044F \u0441 \u043D\u0435\u0431\u0430; \u041F\u0443\u0441\u0442\u043E\u0442\u043D\u044B\u0439 \u2014 \u0440\u0430\u0437\u043B\u043E\u043C, \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043F\u043E\u0433\u043B\u043E\u0449\u0430\u0435\u0442 \u0441\u0432\u0435\u0442 \u0438 \u0432\u0437\u0440\u044B\u0432\u0430\u0435\u0442\u0441\u044F. \u0421\u0435\u0437\u043E\u043D\u043D\u044B\u0435 \u043F\u043E\u0441\u043E\u0445\u0438 \u0434\u0435\u043B\u0430\u044E\u0442 \u0442\u043E \u0436\u0435, \u0447\u0442\u043E \u0438\u0445 \u043E\u0441\u043D\u043E\u0432\u043D\u043E\u0439 \u043F\u043E\u0441\u043E\u0445, \u0432 \u0441\u0432\u043E\u0438\u0445 \u0446\u0432\u0435\u0442\u0430\u0445.",
+        "\u0423 \u0441\u0432\u043E\u0435\u0439 \u0438\u0433\u0440\u044B \u0442\u0435\u043F\u0435\u0440\u044C \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430 (\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u043A\u043E\u043C\u043D\u0430\u0442\u0443 \xB7 \u041A \u0434\u0440\u0443\u0433\u0443), \u0438 \u043E\u043D\u0430 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u043E\u0444\u043B\u0430\u0439\u043D: \u0427\u0442\u0435\u043D\u0438\u0435 \u043A\u0430\u043D\u0434\u0437\u0438, \u0411\u043B\u0438\u0446 \u0438 \u0411\u043E\u0439 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430.",
+        "\u0412 \u043B\u043E\u0431\u0431\u0438 \u043B\u044E\u0431\u043E\u0433\u043E \u0440\u0435\u0436\u0438\u043C\u0430 \u0432\u0438\u0434\u043D\u043E, \u043A\u0442\u043E \u0433\u043E\u0442\u043E\u0432 (\u2713 \u0413\u043E\u0442\u043E\u0432 / \u041D\u0435 \u0433\u043E\u0442\u043E\u0432), \u043A\u0430\u043A \u0432 \u0414\u0443\u044D\u043B\u0438 \u043A\u043E\u043B\u043E\u0434.",
+        "\u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435: \u0443 \u0442\u0430\u0431\u043B\u0438\u0446\u044B \u043B\u0438\u0434\u0435\u0440\u043E\u0432 \u0432\u043A\u043B\u0430\u0434\u043A\u0430 \u0434\u043B\u044F \u043A\u0430\u0436\u0434\u043E\u0439 \u043B\u0438\u0433\u0438.",
+        "\u0411\u043E\u0439 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C: \u0432\u0430\u0448\u0435 \u0437\u0434\u043E\u0440\u043E\u0432\u044C\u0435 \u2014 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u0430\u044F \u0431\u043E\u043B\u044C\u0448\u0430\u044F \u0440\u0430\u043C\u043A\u0430 \u0441 \u043D\u0430\u0434\u043F\u0438\u0441\u044C\u044E \xAB\u0412\u044B\xBB, \u0441\u043E\u044E\u0437\u043D\u0438\u043A\u0438 \u2014 \u0440\u044F\u0434 \u043C\u0435\u043D\u044C\u0448\u0438\u0445 \u0441\u0438\u043D\u0438\u0445 \u043F\u043E\u043B\u043E\u0441\u043E\u043A; \u0441\u0435\u0440\u043E\u0439 \u0440\u0430\u043C\u043A\u0438 \u0432\u043E\u043A\u0440\u0443\u0433 \u043F\u043E\u043B\u043E\u0441\u043A\u0438 \u0434\u0440\u0430\u043A\u043E\u043D\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435\u0442.",
+        "\u041F\u043E\u0437\u0430 \u0414\u0443\u044D\u043B\u044F\u043D\u0442\u0430 \u043E\u0442 \u043F\u0435\u0440\u0432\u043E\u0433\u043E \u043B\u0438\u0446\u0430: \u043A\u0430\u043A \u043F\u0440\u0438\u0446\u0435\u043B \u0438\u0437 \u043F\u0438\u0441\u0442\u043E\u043B\u0435\u0442\u0430 \u2014 \u0440\u0443\u043A\u0430 \u0432\u044B\u0442\u044F\u043D\u0443\u0442\u0430, \u043F\u043E\u0441\u043E\u0445 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D \u043F\u0440\u044F\u043C\u043E \u043D\u0430 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430, \u044F\u0434\u0440\u043E\u043C \u0432\u043F\u0435\u0440\u0451\u0434.",
+        "\u041A\u043E\u043C\u0431\u043E-\u043F\u043E\u0437\u044B: \u041A\u043E\u043D\u0446\u0435\u043D\u0442\u0440\u0430\u0446\u0438\u044F \u0442\u0435\u043F\u0435\u0440\u044C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u043D\u0430 100 \u0438\u0437\u0443\u0447\u0435\u043D\u043D\u044B\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\u0445, \u041B\u0435\u0432\u0438\u0442\u0430\u0446\u0438\u044F \u2014 \u043D\u0430 300 (\u0414\u0443\u044D\u043B\u044F\u043D\u0442 \u2014 \u043F\u043E-\u043F\u0440\u0435\u0436\u043D\u0435\u043C\u0443 200).",
+        "\u0413\u043B\u0430\u0432\u043D\u043E\u0435 \u043C\u0435\u043D\u044E: \u043A\u0430\u0440\u0442\u0438\u043D\u0430 \u043E\u0431\u0440\u0430\u043C\u043B\u044F\u0435\u0442 \u043C\u0435\u043D\u044E, \u0430 \u0437\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430\u043C\u0438 \u2014 \u043C\u044F\u0433\u043A\u0430\u044F \u0444\u0438\u043E\u043B\u0435\u0442\u043E\u0432\u0430\u044F \u043D\u043E\u0447\u044C \u0441 \u0432\u0440\u0430\u0449\u0430\u044E\u0449\u0438\u043C\u0441\u044F \u0440\u0443\u043D\u043D\u044B\u043C \u043A\u0440\u0443\u0433\u043E\u043C \u0438 \u043F\u043B\u044B\u0432\u0443\u0449\u0438\u043C\u0438 \u043A\u0430\u043D\u0434\u0437\u0438, \u0442\u0430\u043A \u0447\u0442\u043E \u0438\u0445 \u043B\u0435\u0433\u043A\u043E \u0447\u0438\u0442\u0430\u0442\u044C; \u043D\u043E\u0432\u044B\u0435 \u043F\u043B\u0438\u0442\u043A\u0438 \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430 / \u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 / \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043C\u0430\u0442\u0447\u0435\u0439; \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u0434\u043B\u044F \u0441\u0435\u0440\u0438\u0438 \u2014 \u0431\u0430\u043D\u043D\u0435\u0440 \u0441 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441\u043E\u043C \u043A\u0430\u0436\u0434\u043E\u0433\u043E; \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u0410\u0434\u043C\u0438\u043D\xBB \u043F\u0435\u0440\u0435\u0435\u0445\u0430\u043B\u0430 \u043A \u0441\u0441\u044B\u043B\u043A\u0430\u043C \u0432\u043D\u0438\u0437\u0443.",
+        "\u0418\u0441\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F: \u043F\u0435\u0440\u0432\u0430\u044F \u041C\u043E\u043B\u043D\u0438\u044F \u0432 \u0414\u0443\u044D\u043B\u0438 \u043A\u043E\u043B\u043E\u0434 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043F\u043E\u0434\u0432\u0435\u0448\u0438\u0432\u0430\u0435\u0442 \u0438\u0433\u0440\u0443; \u0430\u0432\u0430\u0442\u0430\u0440 \u0438 \u0435\u0433\u043E \u0440\u0430\u043C\u043A\u0430 \u043D\u0435 \u043E\u0431\u0440\u0435\u0437\u0430\u044E\u0442\u0441\u044F \u0432 \u0431\u043E\u044F\u0445 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435; \u0430\u0432\u0430\u0442\u0430\u0440 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u0441\u044F \u043E\u0432\u0430\u043B\u043E\u043C; \u043F\u043E\u043B\u0437\u0443\u043D\u043A\u0438 \u0433\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u0438 \u0434\u043E\u0445\u043E\u0434\u044F\u0442 \u0434\u043E 0 \u0438 100; \u0432 \u0440\u0430\u0437\u043C\u0435\u0440\u0435 \u0438\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0430 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u0443\u043A\u0430\u0437\u0430\u043D\u043E 100%; \u043A\u043D\u043E\u043F\u043A\u0430 \u2190 \u041C\u0435\u043D\u044E \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043F\u0440\u0438\u043B\u0435\u0433\u0430\u0435\u0442 \u043A \u043F\u0430\u043D\u0435\u043B\u0438 \u0441\u043B\u043E\u0432\u0430\u0440\u044F."
+      ]
+    },
     {
       v: "0.9.9.8.1",
       date: "2026-11",
@@ -11629,7 +11777,7 @@ ${stack}`.slice(0, 2e3);
     if (text !== void 0) e.textContent = String(text);
     return e;
   };
-  var RAIL_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "review", "passage", "dict", "customize", "history", "progress", "daily", "friends"]);
+  var RAIL_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "private", "modes", "lobby", "results", "study", "review", "passage", "dict", "customize", "history", "progress", "daily", "friends"]);
   var friends = [];
   var signedIn2 = false;
   var timer = 0;
@@ -11871,7 +12019,7 @@ ${stack}`.slice(0, 2e3);
   }
 
   // src/shared/dict.ts
-  var HAN3 = /\p{Script=Han}/u;
+  var HAN4 = /\p{Script=Han}/u;
   var VERBISH = /^(v[15ksz]|vs|adj-i)/;
   var JA = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー々]/u;
   var CYR = /[а-яё]/i;
@@ -11917,7 +12065,7 @@ ${stack}`.slice(0, 2e3);
       for (const v of vocab) {
         if (v.level === "KANA" || v.level === "KATA") continue;
         this.ours.set(`${v.kanji}|${v.reading}`, { id: v.id, level: v.level });
-        if (!HAN3.test(v.kanji)) this.ours.set(`kana:${katakanaToHiragana(v.kanji)}`, { id: v.id, level: v.level });
+        if (!HAN4.test(v.kanji)) this.ours.set(`kana:${katakanaToHiragana(v.kanji)}`, { id: v.id, level: v.level });
       }
       this.kanas = this.words.map((w) => w.r.map(katakanaToHiragana));
     }
@@ -11938,7 +12086,7 @@ ${stack}`.slice(0, 2e3);
       const ja = JA.test(q), ru = !ja && CYR.test(q);
       const qKana = ja ? katakanaToHiragana(q) : "";
       const kanaQs = ja ? [qKana] : ru ? [] : answerVariants(q).filter((x) => !/[a-z]/.test(x));
-      const qChars = ja ? [...new Set([...q].filter((c) => HAN3.test(c)))] : [];
+      const qChars = ja ? [...new Set([...q].filter((c) => HAN4.test(c)))] : [];
       const qFold = kanaQs.map(fold);
       const cut = !ja && !ru ? q.replace(/[^aeiou'\s-]+$/, "") : "";
       const partQs = !cut ? [] : cut !== q ? answerVariants(cut).filter((x) => x && !/[a-z]/.test(x)) : kanaQs;
@@ -11955,7 +12103,7 @@ ${stack}`.slice(0, 2e3);
           guess.add(d.word);
         }
       }
-      const typoQs = ru ? [] : (ja ? [qKana] : kanaQs).filter((x) => x.length >= 3 && !HAN3.test(x));
+      const typoQs = ru ? [] : (ja ? [qKana] : kanaQs).filter((x) => x.length >= 3 && !HAN4.test(x));
       const forms = /* @__PURE__ */ new Map(), typos = /* @__PURE__ */ new Map();
       let sure = 0;
       const near = [];
@@ -12041,7 +12189,7 @@ ${stack}`.slice(0, 2e3);
     }
     /** words written with this kanji (common and the game's own first) — "Words with 信" */
     withKanji(ch, limit = 12) {
-      if (!HAN3.test(ch)) return [];
+      if (!HAN4.test(ch)) return [];
       const out = [];
       for (let i = 0; i < this.words.length; i++) {
         const w = this.words[i];
@@ -12263,7 +12411,7 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/dictui.ts
   var $7 = $;
-  var HAN4 = /\p{Script=Han}/u;
+  var HAN5 = /\p{Script=Han}/u;
   var h3 = (tag, cls = "", text, attrs = {}) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -12499,7 +12647,7 @@ ${stack}`.slice(0, 2e3);
       body.replaceChildren(h3("p", "hint center", tr("No such word")));
       return;
     }
-    const chars0 = [...new Set([...w.kanji[0] ?? ""].filter((c) => HAN4.test(c)))];
+    const chars0 = [...new Set([...w.kanji[0] ?? ""].filter((c) => HAN5.test(c)))];
     const r2 = { withKanji: Object.fromEntries(chars0.map((c) => [c, d.withKanji(c, 8).filter((x) => x.i !== w.i)])) };
     const page2 = h3("article", "dict-word");
     const back2 = h3("button", "pill dict-back", `\u2190 ${tr("Results")}`, { type: "button" });
@@ -12516,7 +12664,7 @@ ${stack}`.slice(0, 2e3);
       acts.append(s);
     }
     acts.append(addTo(w));
-    if (w.kanji[0] && HAN4.test(w.kanji[0])) {
+    if (w.kanji[0] && HAN5.test(w.kanji[0])) {
       const so = h3("button", "pill", `\u270D ${tr("Stroke order")}`, { type: "button" });
       so.onclick = () => openStrokeDialog(w.kanji[0], w.kana[0] ?? "", w.senses[0]?.[1] ?? "");
       acts.append(so);
@@ -12586,7 +12734,7 @@ ${stack}`.slice(0, 2e3);
       }
       sec("Phrases").append(box);
     }
-    const chars2 = [...new Set([...w.kanji[0] ?? ""].filter((c) => HAN4.test(c)))];
+    const chars2 = [...new Set([...w.kanji[0] ?? ""].filter((c) => HAN5.test(c)))];
     if (chars2.length) {
       const ks = sec("Kanji");
       const info = await loadKanji();
@@ -12695,7 +12843,7 @@ ${stack}`.slice(0, 2e3);
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
     return e;
   };
-  var DICT_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "review", "passage", "customize", "history", "progress", "friends"]);
+  var DICT_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "private", "modes", "lobby", "results", "study", "review", "passage", "customize", "history", "progress", "friends"]);
   var ROOM_SCREENS = /* @__PURE__ */ new Set(["lobby", "queue", "results"]);
   var signedIn3 = false;
   var screen2 = "";
@@ -12833,6 +12981,2466 @@ ${stack}`.slice(0, 2e3);
         void search2(q.value);
       }
     });
+  }
+
+  // src/client/menuveil.ts
+  var GLYPHS = "\u706B\u6C34\u6728\u91D1\u571F\u65E5\u6708\u5C71\u5DDD\u96E8\u98A8\u96EA\u82B1\u7A7A\u661F\u5149\u5922\u529B\u5FC3\u9B54\u8853\u5263\u7ADC\u68EE\u6D77\u96F7\u6C37\u708E";
+  var RUNES = "\u16A0\u16A2\u16A6\u16A8\u16B1\u16B2\u16B7\u16B9\u16BA\u16BE\u16C1\u16C3\u16C7\u16C8\u16C9\u16CA\u16CF\u16D2\u16D6\u16D7\u16DA\u16DC\u16DE\u16DF";
+  function initMenuVeil() {
+    const veil = document.getElementById("menuVeil");
+    if (!veil || veil.childElementCount) return;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ring = (r2, n, size) => Array.from({ length: n }, (_, i) => {
+      const a = i / n * Math.PI * 2;
+      const x = 200 + Math.cos(a) * r2, y = 200 + Math.sin(a) * r2;
+      return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="${size}" text-anchor="middle" dominant-baseline="central" transform="rotate(${(a * 180 / Math.PI + 90).toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})">${RUNES[i % RUNES.length]}</text>`;
+    }).join("");
+    const star = Array.from({ length: 7 }, (_, i) => {
+      const a = i * 3 / 7 * Math.PI * 2 - Math.PI / 2;
+      return `${(200 + Math.cos(a) * 128).toFixed(1)},${(200 + Math.sin(a) * 128).toFixed(1)}`;
+    }).join(" ");
+    veil.innerHTML = `
+    <div class="mv-tint"></div>
+    <div class="mv-aurora a"></div><div class="mv-aurora b"></div>
+    <svg class="mv-circle" viewBox="0 0 400 400" aria-hidden="true" fill="none" stroke="currentColor">
+      <circle cx="200" cy="200" r="190" stroke-width="1.2"/><circle cx="200" cy="200" r="168" stroke-width=".8"/>
+      <circle cx="200" cy="200" r="132" stroke-width="1"/><polygon points="${star}" stroke-width=".9"/>
+      <g fill="currentColor" stroke="none" font-family="serif">${ring(179, 36, 13)}</g>
+      <g class="mv-inner" fill="currentColor" stroke="none" font-family="serif">${ring(118, 18, 11)}</g>
+    </svg>
+    <div class="mv-glyphs">${Array.from({ length: reduce ? 0 : 16 }, (_, i) => {
+      const g = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+      const left = 4 + Math.random() * 92, dur = 16 + Math.random() * 16, delay = -Math.random() * dur, size = 1.1 + Math.random() * 1.8;
+      return `<span lang="ja" style="left:${left.toFixed(1)}%;font-size:${size.toFixed(2)}rem;animation-duration:${dur.toFixed(1)}s;animation-delay:${delay.toFixed(1)}s;--o:${(0.12 + i % 4 * 0.05).toFixed(2)}">${g}</span>`;
+    }).join("")}</div>`;
+  }
+
+  // src/server/clock.ts
+  var PausableClock = class {
+    constructor(real = Date.now) {
+      __publicField(this, "real", real);
+      __publicField(this, "offset", 0);
+      // how long the game has been paused in total
+      __publicField(this, "pausedAt", null);
+      __publicField(this, "seq", 0);
+      __publicField(this, "pending", /* @__PURE__ */ new Map());
+      /** Game time: stands still while paused. */
+      __publicField(this, "now", () => (this.pausedAt ?? this.real()) - this.offset);
+      __publicField(this, "setTimeout", (fn, ms) => {
+        const id = ++this.seq;
+        const t = { fn, due: this.now() + Math.max(0, ms), handle: null };
+        this.pending.set(id, t);
+        if (!this.paused) this.arm(id);
+        return id;
+      });
+      __publicField(this, "clearTimeout", (id) => {
+        if (id === void 0) return;
+        const t = this.pending.get(id);
+        if (t?.handle) clearTimeout(t.handle);
+        this.pending.delete(id);
+      });
+    }
+    get paused() {
+      return this.pausedAt !== null;
+    }
+    pause() {
+      if (this.paused) return;
+      this.pausedAt = this.real();
+      for (const t of this.pending.values()) {
+        if (t.handle) clearTimeout(t.handle);
+        t.handle = null;
+      }
+    }
+    resume() {
+      if (this.pausedAt === null) return;
+      this.offset += this.real() - this.pausedAt;
+      this.pausedAt = null;
+      for (const id of this.pending.keys()) this.arm(id);
+    }
+    /** Drop every pending timer (the game is over). */
+    dispose() {
+      for (const id of [...this.pending.keys()]) this.clearTimeout(id);
+    }
+    arm(id) {
+      const t = this.pending.get(id);
+      const h6 = setTimeout(() => {
+        this.pending.delete(id);
+        t.fn();
+      }, Math.max(0, t.due - this.now()));
+      h6.unref?.();
+      t.handle = h6;
+    }
+  };
+  var REAL_TIMERS = {
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: (h6) => {
+      if (h6 !== void 0) clearTimeout(h6);
+    }
+  };
+
+  // src/shared/deck.ts
+  var CARD_COLORS = ["lightblue", "blue", "yellow", "green", "red"];
+  var CARD_SPECS = {
+    lightblue: { label: "Bolt", kind: "attack", amount: 90, cost: 10 },
+    blue: { label: "Frost", kind: "attack", amount: 150, cost: 20 },
+    yellow: { label: "Mana", kind: "mana", amount: 60, cost: 0 },
+    green: { label: "Heal", kind: "heal", amount: 140, cost: 30 },
+    red: { label: "Inferno", kind: "attack", amount: 340, cost: 45 }
+  };
+  var DECK_CHARACTERS = ["goblin", "knight", "witch", "wizard"];
+  var CHARACTER_INFO = {
+    goblin: { name: "Goblin", power: "Frenzy: play 2 cards in a row this turn (the second costs 1.5\xD7 mana). 100 mana, then 5 turns cooldown." },
+    knight: { name: "Knight", power: "Bulwark: take 45% less damage and heal 50% more for 2 turns. 100 mana, then 4 turns cooldown." },
+    witch: { name: "Witch", power: "Sight: for 2 turns see the kanji and reading of all your cards, and your attacks hit 35% harder (the card you write still hides its kanji). 100 mana, then 4 turns cooldown." },
+    wizard: { name: "Wizard", power: "Arcane reserve (passive): out of cards \u2192 draw 2 random cards before a new draft; out of mana \u2192 +30 mana. Once each.", passive: true }
+  };
+  var DECK_RULES = {
+    hp: 800,
+    maxMana: 200,
+    // and you start full
+    manaPerTurn: 10,
+    handSize: 10,
+    cardsPerLevel: 4,
+    picksPerTurn: 2,
+    pickMs: 2e4,
+    characterMs: 3e4,
+    chooseMs: 15e3,
+    // pick which card to play
+    // casting your card, in three steps: read the meaning → see the kanji → write it from memory
+    castMs: 6e4,
+    // one minute for all three steps
+    castReadMs: 15e3,
+    // reading + meaning only; press Ready (or after 15 s) to see the kanji
+    revealMs: 2e3,
+    // after a cast the correct kanji shows; nothing can be played meanwhile
+    skipPenaltyHp: 100,
+    // letting the choose clock run out without playing a card
+    matchMs: 8 * 6e4,
+    // then overtime
+    // overtime is a 1v1 Rapid duel: the cards are gone; random kanji (N5–N1), first to type the reading hits
+    overtimeCardMs: 12e3,
+    // per kanji
+    overtimeGapMs: 4500,
+    // the answer (kanji, reading, meaning) stays up before the next kanji
+    overtimeMaxMs: 3 * 6e4,
+    // then the higher HP wins
+    witchSightDamage: 1.35,
+    // Witch's attack spells hit harder while Sight is on
+    goblinSecondCost: 1.5,
+    // Frenzy's second card costs this much more mana
+    goblinCooldown: 5,
+    // Frenzy rests this many of your turns (the others: abilityCooldown)
+    knightDamageTaken: 0.55,
+    knightHealBonus: 1.5,
+    abilityTurns: 2,
+    manaRefund: 0.5,
+    // a successful spell gives back half its mana cost
+    abilityCost: 100,
+    // mana to fire your hero's power
+    abilityCooldown: 4,
+    // your turns until it can be used again
+    wizardBonusCards: 2,
+    wizardBonusMana: 30
+  };
+  var OVERTIME_DAMAGE = { N5: 60, N4: 80, N3: 100, N2: 130, N1: 170 };
+  var OVERTIME_COLOR = { N5: "lightblue", N4: "blue", N3: "green", N2: "yellow", N1: "red" };
+
+  // src/server/Bot.ts
+  var BOT_LEVELS = ["BEGINNER", "N5", "N4", "N3", "N2", "N1"];
+  var isBotLevel = (x) => BOT_LEVELS.includes(x);
+  var BOT_ACCURACY = {
+    // the tutorial's first opponent (and "Beginner" in the lobby): often wrong, and slow
+    BEGINNER: { N5: 0.55, N4: 0.3, N3: 0.15, N2: 0.05, N1: 0.02 },
+    N5: { N5: 0.9, N4: 0.5, N3: 0.2, N2: 0.1, N1: 0.05 },
+    N4: { N5: 0.92, N4: 0.75, N3: 0.35, N2: 0.15, N1: 0.1 },
+    N3: { N5: 0.95, N4: 0.85, N3: 0.7, N2: 0.3, N1: 0.18 },
+    N2: { N5: 0.99, N4: 0.9, N3: 0.8, N2: 0.6, N1: 0.3 },
+    N1: { N5: 1, N4: 0.95, N3: 0.87, N2: 0.7, N1: 0.6 }
+  };
+  function botChance(bot, word2) {
+    return BOT_ACCURACY[bot][word2 === "KANA" || word2 === "KATA" || word2 === "ONO" ? "N5" : word2];
+  }
+  var bossChance = (c) => 1 - (1 - c) * 0.3;
+  var NAMES = ["Kitsune", "Tanuki", "Tengu", "Kappa", "Oni", "Yuki", "Ryu", "Neko"];
+  var botName = (i, level2) => `${NAMES[i % NAMES.length]} (AI ${level2 === "BEGINNER" ? "Beginner" : level2})`;
+  var botLevels = (level2) => level2 === "BEGINNER" ? ["KANA", "N5"] : [level2];
+  var RAPID_BOT_MS = [2400, 6500];
+  var RAPID_BOT_MIN_MS = 2500;
+  var WRONG = "\xD7";
+  var Bot = class {
+    constructor(id, level2, host, rng = Math.random) {
+      __publicField(this, "id", id);
+      __publicField(this, "level", level2);
+      __publicField(this, "host", host);
+      __publicField(this, "rng", rng);
+      __publicField(this, "timers", /* @__PURE__ */ new Map());
+      __publicField(this, "clock", () => this.host.timers?.() ?? REAL_TIMERS);
+    }
+    dispose() {
+      for (const t of this.timers.values()) this.clock().clearTimeout(t);
+      this.timers.clear();
+    }
+    /** Every game event in the room passes through here. */
+    onEvent(e) {
+      switch (e.type) {
+        case "prep":
+          if (e.playerId === this.id) this.later("ready", this.between(2e3, 6e3), () => this.host.ready(this.id));
+          break;
+        case "challenge":
+          if (e.playerId === this.id) this.answerChallenge(e.id);
+          break;
+        case "answer_result":
+          if (e.playerId === this.id && e.retry) this.later(`giveup:${e.challengeId}`, 800, () => this.host.skip(this.id, e.challengeId));
+          break;
+        case "deck_state":
+          if (e.playerId === this.id) this.onDeck(e.view);
+          break;
+        case "game_over":
+          this.dispose();
+          break;
+      }
+    }
+    answerChallenge(challengeId2) {
+      const peek = this.host.peek(this.id);
+      if (!peek || peek.challengeId !== challengeId2) return;
+      const mode4 = this.host.mode();
+      const chance = mode4 === "boss" ? bossChance(botChance(this.level, peek.entry.level)) : botChance(this.level, peek.entry.level);
+      const right = this.rng() < chance;
+      const [lo, hi] = mode4 === "writing" ? [5e3, 13e3] : mode4 === "rapid" ? RAPID_BOT_MS : mode4 === "boss" ? [1500, 4200] : [1800, 5500];
+      let delay = this.between(lo, hi) * (right ? 1 : 1.25) * (this.level === "BEGINNER" ? 1.7 : 1);
+      if (mode4 === "rapid") delay = Math.max(RAPID_BOT_MIN_MS, delay + 160 * [...peek.entry.romaji ?? peek.entry.reading].length);
+      this.later(`ch:${challengeId2}`, delay, () => {
+        const now2 = this.host.peek(this.id);
+        if (!now2 || now2.challengeId !== challengeId2) return;
+        const e = now2.entry;
+        const text = mode4 === "writing" ? e.kanji : e.romaji ?? e.reading;
+        this.host.answer(this.id, challengeId2, right ? text : WRONG);
+      });
+    }
+    // ── Deck Duel ─────────────────────────────────────────────────────────────
+    onDeck(v) {
+      const me4 = v.players.find((p) => p.id === this.id);
+      if (!me4) return;
+      if (v.phase === "characters" && !me4.character) {
+        this.later("hero", this.between(1e3, 2500), () => this.host.deckCharacter(this.id, DECK_CHARACTERS[Math.floor(this.rng() * DECK_CHARACTERS.length)]));
+        return;
+      }
+      if (v.phase === "draft" && v.draft?.picker === this.id) {
+        const taken = v.draft.pool.filter((c) => c.takenBy).length;
+        this.later(`pick:${v.round}:${taken}`, this.between(700, 1800), () => {
+          const now2 = this.host.deckView(this.id);
+          const free = now2?.draft?.picker === this.id ? now2.draft.pool.filter((c) => !c.takenBy) : [];
+          if (free.length) this.host.deckPick(this.id, free[Math.floor(this.rng() * free.length)].cardId);
+        });
+        return;
+      }
+      const cast = v.casting;
+      if (cast && cast.ownerId === this.id && cast.stage === "read") {
+        this.later(`ready:${cast.castId}`, this.between(2e3, 6e3), () => this.host.deckCastReady(this.id, cast.castId));
+        return;
+      }
+      if (cast && cast.ownerId === this.id && cast.stage === "look") {
+        this.later(`go:${cast.castId}`, this.between(1500, 4e3), () => this.host.deckCastGo(this.id, cast.castId));
+        return;
+      }
+      if (cast && cast.overtime) {
+        this.overtimeGuess(cast.castId);
+        return;
+      }
+      if (cast && cast.ownerId === this.id) {
+        this.writeCast(cast.castId);
+        return;
+      }
+      if (v.phase === "battle" && v.turn?.active === this.id && !cast) {
+        this.later(`turn:${v.turn.active}:${v.turn.castsLeft}:${me4.handSize}:${v.matchLeftMs > 0 ? Math.round(v.matchLeftMs / 1e3) : 0}`, DECK_RULES.revealMs + this.between(400, 2500), () => this.playTurn());
+      }
+    }
+    playTurn() {
+      const v = this.host.deckView(this.id);
+      if (!v || v.phase !== "battle" || v.turn?.active !== this.id || v.casting) return;
+      const me4 = v.players.find((p) => p.id === this.id);
+      const cheapest = Math.min(...v.hand.map((c) => CARD_SPECS[c.color].cost));
+      if (me4.character !== "wizard" && me4.abilityCooldown === 0 && me4.mana >= DECK_RULES.abilityCost + cheapest && this.rng() < 0.4) {
+        this.host.deckAbility(this.id);
+      }
+      const after = this.host.deckView(this.id) ?? v;
+      const mana = after.players.find((p) => p.id === this.id).mana;
+      const f2 = after.turn?.costFactor ?? 1;
+      const affordable = after.hand.filter((c) => Math.ceil(CARD_SPECS[c.color].cost * f2) <= mana);
+      if (!affordable.length) return;
+      const of = (color) => affordable.find((c) => c.color === color);
+      const pick4 = me4.hp <= 450 && of("green") || mana < 60 && of("yellow") || this.rng() < 0.7 && (of("red") || of("blue") || of("lightblue")) || affordable[Math.floor(this.rng() * affordable.length)];
+      this.host.deckPlay(this.id, pick4.cardId);
+    }
+    overtimeGuess(castId) {
+      this.later(`ot:${castId}`, this.between(2200, 7500), () => {
+        const now2 = this.host.peek(this.id);
+        if (now2?.challengeId !== castId) return;
+        if (this.rng() < botChance(this.level, now2.entry.level)) this.host.answer(this.id, castId, now2.entry.romaji ?? now2.entry.reading);
+      });
+    }
+    writeCast(castId) {
+      this.later(`cast:${castId}`, this.between(4e3, 15e3), () => {
+        const peek = this.host.peek(this.id);
+        if (!peek || peek.challengeId !== castId) return;
+        const right = this.rng() < botChance(this.level, peek.entry.level);
+        this.host.answer(this.id, castId, right ? peek.entry.kanji : WRONG);
+      });
+    }
+    // ── helpers ───────────────────────────────────────────────────────────────
+    between(lo, hi) {
+      return lo + this.rng() * (hi - lo);
+    }
+    /** One pending action per key (state broadcasts repeat; don't schedule the same move twice). */
+    later(key, ms, fn) {
+      if (this.timers.has(key)) return;
+      const t = this.clock().setTimeout(() => {
+        this.timers.delete(key);
+        fn();
+      }, ms);
+      this.timers.set(key, t);
+    }
+  };
+
+  // src/server/Room.ts
+  init_progress();
+  init_protocol();
+  init_progress();
+
+  // src/server/Balance.ts
+  init_vocab2();
+
+  // src/server/Game.ts
+  init_kana();
+  init_progress();
+  init_vocab();
+  init_VocabPool();
+  var DEFAULT_CONFIG = {
+    prepMs: 6e4,
+    countdownMs: 3e3,
+    battleMs: 5 * 6e4,
+    challengeMs: 1e4,
+    nextDelayMs: 2500,
+    // same pause as a miss, so guessing fast and wrong is never quicker than being right
+    missPenaltyMs: 2500,
+    damagePerDifficulty: 2 / 3,
+    // N5≈10 … N2≈40 … N1≈50+
+    speed: { fastMs: 1e3, slowMs: 8e3, fastMult: 1.1, slowMult: 0.8 },
+    comboMultipliers: [1, 1.1, 1.2, 1.3, 1.5],
+    missRequeueGap: 2,
+    writingFlashMs: 3500,
+    boss: { breathEveryMs: 3e4, breathWarnMs: 3e3, breathDamage: 110, clawDamage: 45 }
+  };
+  var WRITING_CONFIG = {
+    ...DEFAULT_CONFIG,
+    challengeMs: 4e4,
+    speed: { fastMs: 6e3, slowMs: 28e3, fastMult: 1.1, slowMult: 0.8 }
+    // the kanji is shown for the first 3.5 s
+  };
+  var FIRE_COMBO = 5;
+  function computeDamage(difficulty, responseMs, combo, cfg = DEFAULT_CONFIG) {
+    const base = difficulty * cfg.damagePerDifficulty;
+    const { fastMs, slowMs, fastMult, slowMult } = cfg.speed;
+    const t = Math.min(1, Math.max(0, (responseMs - fastMs) / (slowMs - fastMs)));
+    const speed = fastMult + (slowMult - fastMult) * t;
+    const comboMult = cfg.comboMultipliers[Math.min(Math.max(combo, 1), cfg.comboMultipliers.length) - 1];
+    return Math.max(1, Math.floor(base * speed * comboMult));
+  }
+  var PlayerState = class {
+    constructor(id, pool, maxHp, rng, crit = 0) {
+      __publicField(this, "id", id);
+      __publicField(this, "pool", pool);
+      __publicField(this, "maxHp", maxHp);
+      __publicField(this, "crit", crit);
+      __publicField(this, "hp");
+      __publicField(this, "combo", 0);
+      __publicField(this, "bestCombo", 0);
+      __publicField(this, "damageDealt", 0);
+      __publicField(this, "current", null);
+      __publicField(this, "timer");
+      __publicField(this, "words", /* @__PURE__ */ new Map());
+      __publicField(this, "deck");
+      this.hp = maxHp;
+      this.deck = new ChallengeDeck(pool, rng);
+    }
+    get alive() {
+      return this.hp > 0;
+    }
+  };
+  var Game = class {
+    constructor(setups, emit, cfg = DEFAULT_CONFIG, rng = Math.random, now2 = Date.now, opts = { mode: "reading" }, timers2 = REAL_TIMERS) {
+      __publicField(this, "emit", emit);
+      __publicField(this, "cfg", cfg);
+      __publicField(this, "rng", rng);
+      __publicField(this, "now", now2);
+      __publicField(this, "opts", opts);
+      __publicField(this, "timers", timers2);
+      __publicField(this, "phase", "idle");
+      __publicField(this, "players", /* @__PURE__ */ new Map());
+      __publicField(this, "ready", /* @__PURE__ */ new Set());
+      __publicField(this, "phaseTimer");
+      __publicField(this, "breathTimers", []);
+      __publicField(this, "phaseEndsAt", 0);
+      __publicField(this, "battleEndsAt", 0);
+      __publicField(this, "nextChallengeId", 1);
+      __publicField(this, "boss");
+      // ── helpers ───────────────────────────────────────────────────────────────
+      __publicField(this, "mine", /* @__PURE__ */ new Map());
+      const minPlayers2 = opts.mode === "boss" ? 1 : 2;
+      if (setups.length < minPlayers2) throw new Error(`Game needs at least ${minPlayers2} player(s)`);
+      if (opts.mode === "boss" && !opts.boss) throw new Error("Boss mode needs a boss");
+      if (opts.mode === "writing" && !opts.judgeWriting) throw new Error("Writing mode needs a judge");
+      for (const s of setups) {
+        if (s.pool.length === 0) throw new Error("Every player needs a non-empty pool");
+        this.players.set(s.id, new PlayerState(s.id, s.pool, s.maxHp, rng, s.crit ?? 0));
+        if (s.mine) this.mine.set(s.id, s.mine);
+      }
+      this.boss = opts.boss ? { name: opts.boss.name, hp: opts.boss.maxHp, maxHp: opts.boss.maxHp } : null;
+    }
+    get mode() {
+      return this.opts.mode;
+    }
+    peek(id) {
+      const p = this.players.get(id);
+      return this.phase === "battle" && p?.alive && p.current ? { challengeId: p.current.id, entry: p.current.entry } : null;
+    }
+    get isOver() {
+      return this.phase === "over";
+    }
+    getHp(id) {
+      return this.players.get(id)?.hp ?? 0;
+    }
+    getMaxHp(id) {
+      return this.players.get(id)?.maxHp ?? 0;
+    }
+    getCombo(id) {
+      return this.players.get(id)?.combo ?? 0;
+    }
+    bossView() {
+      return this.boss ? { ...this.boss } : null;
+    }
+    start() {
+      this.phase = "prep";
+      this.phaseEndsAt = this.now() + this.cfg.prepMs;
+      for (const p of this.players.values()) {
+        this.emit({ type: "prep", playerId: p.id, pool: this.studyList(p), durationMs: this.cfg.prepMs });
+      }
+      this.phaseTimer = this.timers.setTimeout(() => this.beginBattle(), this.cfg.prepMs);
+    }
+    /** A player is done studying. When everyone is, the battle starts early. */
+    markReady(id) {
+      if (this.phase !== "prep" || !this.players.has(id) || this.ready.has(id)) return;
+      this.ready.add(id);
+      this.emit({ type: "prep_ready", readyIds: [...this.ready] });
+      if (this.ready.size === this.players.size) this.beginBattle();
+    }
+    submit(id, challengeId2, text) {
+      const p = this.active(id, challengeId2);
+      if (!p) return;
+      const responseMs = this.now() - p.current.issuedAt;
+      const { entry } = p.current;
+      if (this.opts.mode === "writing") {
+        const typed = text.normalize("NFKC").replace(/\s+/g, "");
+        const ok = isCorrectWriting(text, entry.kanji, entry.reading) || !!entry.romaji && isCorrectReading(text, [entry.reading]);
+        return ok ? this.hit(p, responseMs, typed) : this.miss(p, "wrong", responseMs, typed);
+      }
+      const formatOk = !entry.romaji || isRomajiInput(text);
+      if (formatOk && isCorrectReading(text, [entry.reading, ...entry.altReadings ?? []])) this.hit(p, responseMs);
+      else this.miss(p, "wrong", responseMs);
+    }
+    /** Writing mode: handwritten characters, judged on the server. */
+    submitWriting(id, challengeId2, chars2) {
+      const p = this.active(id, challengeId2);
+      if (!p || this.opts.mode !== "writing") return;
+      const responseMs = this.now() - p.current.issuedAt;
+      const { correct, recognized } = this.opts.judgeWriting(p.current.entry, chars2);
+      if (correct) this.hit(p, responseMs, recognized);
+      else this.miss(p, "wrong", responseMs, recognized);
+    }
+    /** "I don't know" — counts as a miss: no damage, combo reset, answer shown. */
+    skip(id, challengeId2) {
+      const p = this.active(id, challengeId2);
+      if (p) this.miss(p, "skipped", this.now() - p.current.issuedAt);
+    }
+    /** Player left mid-game (or their reconnect grace ran out). */
+    forfeit(id) {
+      const p = this.players.get(id);
+      if (!p || this.isOver) return;
+      p.hp = 0;
+      this.stopPlayer(p);
+      this.checkEnd("forfeit");
+    }
+    snapshot(id) {
+      const p = this.players.get(id);
+      const now2 = this.now();
+      const snap = { phase: this.phase };
+      if (!p) return snap;
+      if (this.phase === "prep") snap.prep = { pool: this.studyList(p), leftMs: Math.max(0, this.phaseEndsAt - now2), readyIds: [...this.ready] };
+      if (this.phase === "countdown") snap.battle = { leftMs: this.cfg.battleMs, countdownLeftMs: Math.max(0, this.phaseEndsAt - now2) };
+      if (this.phase === "battle") snap.battle = { leftMs: Math.max(0, this.battleEndsAt - now2), countdownLeftMs: 0 };
+      if (this.phase === "battle" && p.current) {
+        snap.challenge = this.challengeInfo(p.current, Math.max(500, p.current.issuedAt + p.current.limitMs - now2));
+      }
+      return snap;
+    }
+    dispose() {
+      this.timers.clearTimeout(this.phaseTimer);
+      for (const t of this.breathTimers) this.timers.clearTimeout(t);
+      this.breathTimers = [];
+      for (const p of this.players.values()) this.stopPlayer(p);
+    }
+    // ── phases ────────────────────────────────────────────────────────────────
+    beginBattle() {
+      if (this.phase !== "prep") return;
+      this.timers.clearTimeout(this.phaseTimer);
+      this.phase = "countdown";
+      this.phaseEndsAt = this.now() + this.cfg.countdownMs;
+      this.emit({ type: "battle_start", durationMs: this.cfg.battleMs, countdownMs: this.cfg.countdownMs });
+      this.phaseTimer = this.timers.setTimeout(() => {
+        this.phase = "battle";
+        this.battleEndsAt = this.now() + this.cfg.battleMs;
+        for (const p of this.players.values()) this.issueChallenge(p);
+        this.phaseTimer = this.timers.setTimeout(() => this.timeUp(), this.cfg.battleMs);
+        if (this.boss) this.scheduleBreath();
+      }, this.cfg.countdownMs);
+    }
+    scheduleBreath() {
+      const { breathEveryMs, breathWarnMs, breathDamage } = this.cfg.boss;
+      this.breathTimers.push(this.timers.setTimeout(() => {
+        if (this.phase === "battle") this.emit({ type: "battle_update", event: { kind: "breath_warning", inMs: breathWarnMs } });
+      }, breathEveryMs - breathWarnMs));
+      this.breathTimers.push(this.timers.setTimeout(() => {
+        if (this.phase !== "battle") return;
+        this.breathTimers = [];
+        const immune = [...this.players.values()].filter((p) => p.alive && p.combo >= FIRE_COMBO).map((p) => p.id);
+        const victims = [...this.players.values()].filter((p) => p.alive && !immune.includes(p.id)).map((p) => p.id);
+        for (const p of this.players.values()) if (victims.includes(p.id)) p.hp = Math.max(0, p.hp - breathDamage);
+        this.emit({ type: "battle_update", event: { kind: "breath", damage: breathDamage, immune, victims } });
+        for (const p of this.players.values()) if (!p.alive) this.stopPlayer(p);
+        if (!this.checkEnd("party_wiped")) this.scheduleBreath();
+      }, breathEveryMs));
+    }
+    timeUp() {
+      if (this.phase !== "battle") return;
+      if (this.boss) return this.finish(null, "time", true);
+      const ranked = [...this.players.values()].sort((a, b) => b.hp - a.hp);
+      const tie = ranked.length > 1 && ranked[0].hp === ranked[1].hp;
+      this.finish(tie ? null : ranked[0].id, "time", null);
+    }
+    /** Ends the game if someone (or the boss) has won. Returns true if it ended. */
+    checkEnd(reason) {
+      if (this.isOver) return true;
+      const alive = this.alivePlayers();
+      if (this.boss) {
+        if (this.boss.hp <= 0) {
+          this.finish(null, "boss_slain", true);
+          return true;
+        }
+        if (alive.length === 0) {
+          this.finish(null, reason === "forfeit" ? "forfeit" : "party_wiped", false);
+          return true;
+        }
+        return false;
+      }
+      if (alive.length <= 1) {
+        this.finish(alive[0]?.id ?? null, reason, null);
+        return true;
+      }
+      return false;
+    }
+    finish(winnerId, reason, teamWon) {
+      if (this.isOver) return;
+      this.phase = "over";
+      this.dispose();
+      const stats = {};
+      const missed = {};
+      for (const p of this.players.values()) {
+        stats[p.id] = this.statsFor(p);
+        missed[p.id] = [...p.words.values()].filter((t) => t.correct < t.attempts).map((t) => t.entry.id);
+      }
+      this.emit({ type: "game_over", winnerId, teamWon, reason, stats, missed });
+    }
+    // ── challenges ────────────────────────────────────────────────────────────
+    challengeInfo(c, limitMs) {
+      const { entry } = c;
+      if (this.opts.mode === "writing") {
+        return {
+          id: c.id,
+          kanji: entry.kanji,
+          answerMode: "writing",
+          timeLimitMs: limitMs,
+          meaning: entry.meaning,
+          reading: displayReading(entry),
+          charCount: writeTargets(entry.kanji).length,
+          flashMs: this.cfg.writingFlashMs
+        };
+      }
+      return { id: c.id, kanji: entry.kanji, answerMode: entry.romaji ? "romaji" : "reading", timeLimitMs: limitMs };
+    }
+    issueChallenge(p) {
+      if (this.phase !== "battle" || !p.alive) return;
+      const entry = p.deck.draw();
+      p.current = { id: this.nextChallengeId++, entry, issuedAt: this.now(), limitMs: this.cfg.challengeMs };
+      this.emit({ type: "challenge", playerId: p.id, ...this.challengeInfo(p.current, this.cfg.challengeMs) });
+      const cid = p.current.id;
+      this.schedule(p, () => {
+        if (p.current?.id === cid) this.miss(p, "timeout", null);
+      }, this.cfg.challengeMs);
+    }
+    active(id, challengeId2) {
+      const p = this.players.get(id);
+      if (this.phase !== "battle" || !p?.alive || !p.current || p.current.id !== challengeId2) return null;
+      return p;
+    }
+    hit(p, responseMs, recognized) {
+      const { entry, id: challengeId2 } = p.current;
+      p.current = null;
+      p.combo += 1;
+      p.bestCombo = Math.max(p.bestCombo, p.combo);
+      const crit = p.crit > 0 && this.rng() < p.crit;
+      const damage = Math.round(computeDamage(entry.difficulty, responseMs, p.combo, this.cfg) * (crit ? CRIT_MULTIPLIER : 1));
+      p.damageDealt += damage;
+      this.tally(p, entry, true, responseMs);
+      let targetId;
+      let target2;
+      if (this.boss) {
+        this.boss.hp = Math.max(0, this.boss.hp - damage);
+        targetId = "boss";
+      } else {
+        target2 = this.targetOf(p);
+        if (target2) target2.hp = Math.max(0, target2.hp - damage);
+        targetId = target2?.id ?? p.id;
+      }
+      this.emit({
+        type: "answer_result",
+        playerId: p.id,
+        challengeId: challengeId2,
+        correct: true,
+        timedOut: false,
+        skipped: false,
+        entry,
+        damage,
+        combo: p.combo,
+        responseMs,
+        nextInMs: this.cfg.nextDelayMs,
+        recognized,
+        crit
+      });
+      this.emit({ type: "battle_update", event: { kind: "hit", playerId: p.id, targetId, kanji: entry.kanji, damage, combo: p.combo, crit } });
+      if (target2 && !target2.alive) this.stopPlayer(target2);
+      if (this.checkEnd("ko")) return;
+      this.schedule(p, () => this.issueChallenge(p), this.cfg.nextDelayMs);
+    }
+    miss(p, why, responseMs, recognized) {
+      const { entry, id: challengeId2 } = p.current;
+      p.current = null;
+      p.combo = 0;
+      p.deck.requeue(entry, this.cfg.missRequeueGap);
+      this.tally(p, entry, false, 0);
+      this.emit({
+        type: "answer_result",
+        playerId: p.id,
+        challengeId: challengeId2,
+        correct: false,
+        timedOut: why === "timeout",
+        skipped: why === "skipped",
+        entry,
+        damage: 0,
+        combo: 0,
+        responseMs,
+        nextInMs: this.cfg.missPenaltyMs,
+        recognized
+      });
+      this.emit({ type: "battle_update", event: { kind: "miss", playerId: p.id, kanji: entry.kanji } });
+      if (this.boss) {
+        const damage = this.cfg.boss.clawDamage;
+        p.hp = Math.max(0, p.hp - damage);
+        this.emit({ type: "battle_update", event: { kind: "claw", playerId: p.id, damage } });
+        if (!p.alive) {
+          this.stopPlayer(p);
+          this.checkEnd("party_wiped");
+          return;
+        }
+      }
+      this.schedule(p, () => this.issueChallenge(p), this.cfg.missPenaltyMs);
+    }
+    studyList(p) {
+      const mine = this.mine.get(p.id);
+      return p.pool.map((v) => ({ kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ...mine?.has(v.id) ? { mine: true } : {} }));
+    }
+    /** Duel / free-for-all: the first living opponent. Teams would plug in here. */
+    targetOf(p) {
+      return [...this.players.values()].find((o) => o !== p && o.alive);
+    }
+    alivePlayers() {
+      return [...this.players.values()].filter((p) => p.alive);
+    }
+    schedule(p, fn, ms) {
+      this.timers.clearTimeout(p.timer);
+      p.timer = this.timers.setTimeout(fn, ms);
+    }
+    stopPlayer(p) {
+      this.timers.clearTimeout(p.timer);
+      p.current = null;
+    }
+    tally(p, entry, correct, ms) {
+      const t = p.words.get(entry.id) ?? { entry, attempts: 0, correct: 0, totalMs: 0 };
+      t.attempts += 1;
+      if (correct) {
+        t.correct += 1;
+        t.totalMs += ms;
+      }
+      p.words.set(entry.id, t);
+    }
+    statsFor(p) {
+      const tallies = [...p.words.values()];
+      const attempts = tallies.reduce((s, t) => s + t.attempts, 0);
+      const correct = tallies.reduce((s, t) => s + t.correct, 0);
+      const totalMs = tallies.reduce((s, t) => s + t.totalMs, 0);
+      const words2 = p.pool.map((entry) => {
+        const t = p.words.get(entry.id);
+        return {
+          kanji: entry.kanji,
+          reading: displayReading(entry),
+          meaning: entry.meaning,
+          attempts: t?.attempts ?? 0,
+          correct: t?.correct ?? 0,
+          avgMs: t && t.correct > 0 ? Math.round(t.totalMs / t.correct) : null
+        };
+      });
+      const struggled = tallies.filter((t) => t.correct < t.attempts).sort((a, b) => b.attempts - b.correct - (a.attempts - a.correct) || a.correct / a.attempts - b.correct / b.attempts).map((t) => t.entry.kanji);
+      return {
+        damageDealt: p.damageDealt,
+        attempts,
+        correct,
+        accuracy: attempts ? correct / attempts : 0,
+        avgResponseMs: correct ? Math.round(totalMs / correct) : null,
+        bestCombo: p.bestCombo,
+        words: words2,
+        struggled
+      };
+    }
+  };
+
+  // src/server/Balance.ts
+  var DEFAULT_BALANCE = { base: 0, perAvgDamage: 1.3 * 18, min: 100, max: 1200 };
+  function averageBaseDamage(levels, damagePerDifficulty = DEFAULT_CONFIG.damagePerDifficulty) {
+    const words2 = VOCAB.filter((v) => levels.includes(v.level));
+    if (words2.length === 0) return 0;
+    return words2.reduce((s, v) => s + v.difficulty, 0) / words2.length * damagePerDifficulty;
+  }
+  function castSeconds(levels) {
+    const words2 = VOCAB.filter((v) => levels.includes(v.level));
+    if (words2.length === 0) return CAST_REF;
+    const kana = words2.reduce((s, v) => s + [...v.reading].length, 0) / words2.length;
+    return 1.8 + 0.6 * kana;
+  }
+  var CAST_REF = 1.8 + 0.6 * 3.46;
+  var CAST_WEIGHT = 0.75;
+  function hpAgainst(opponentLevels, cfg = DEFAULT_BALANCE) {
+    const pace = Math.pow(CAST_REF / castSeconds(opponentLevels), CAST_WEIGHT);
+    const raw = cfg.base + cfg.perAvgDamage * averageBaseDamage(opponentLevels) * pace;
+    return Math.min(cfg.max, Math.max(cfg.min, Math.round(raw / 10) * 10));
+  }
+  var BOSS_HITS_PER_PLAYER = 45;
+  function bossHp(partyLevels) {
+    const total = partyLevels.reduce((s, lv) => s + averageBaseDamage(lv) * 1.15 * BOSS_HITS_PER_PLAYER, 0);
+    return Math.max(300, Math.round(total / 50) * 50);
+  }
+  var BOSS_PLAYER_HP = 1e3;
+  var BOSS_PARTY_SIZE = 4;
+  function rapidHp(levels) {
+    return Math.max(150, Math.round(averageBaseDamage(levels) * 1.15 * 10 / 10) * 10);
+  }
+
+  // src/server/RapidGame.ts
+  init_kana();
+  init_progress();
+  init_vocab();
+  init_VocabPool();
+  var RAPID = { roundMs: 12e3, revealMs: 2200 };
+  var RapidGame = class {
+    constructor(setups, pool, emit, cfg = DEFAULT_CONFIG, rng = Math.random, now2 = Date.now, timers2 = REAL_TIMERS, firstN = 0) {
+      __publicField(this, "emit", emit);
+      __publicField(this, "cfg", cfg);
+      __publicField(this, "rng", rng);
+      __publicField(this, "now", now2);
+      __publicField(this, "timers", timers2);
+      __publicField(this, "mode", "rapid");
+      __publicField(this, "phase", "idle");
+      __publicField(this, "players", /* @__PURE__ */ new Map());
+      __publicField(this, "deck");
+      __publicField(this, "current", null);
+      __publicField(this, "nextId", 1);
+      __publicField(this, "timer");
+      __publicField(this, "roundTimer");
+      __publicField(this, "capTimer");
+      __publicField(this, "battleEndsAt", 0);
+      __publicField(this, "phaseEndsAt", 0);
+      __publicField(this, "first", []);
+      if (setups.length < 2) throw new Error("Rapid needs 2 players");
+      if (pool.length === 0) throw new Error("Rapid needs words");
+      this.deck = new ChallengeDeck(pool, rng);
+      this.first = pool.slice(0, firstN);
+      for (const s of setups) {
+        this.players.set(s.id, { id: s.id, hp: s.maxHp, maxHp: s.maxHp, crit: s.crit ?? 0, combo: 0, bestCombo: 0, damageDealt: 0, gaveUp: false, attempts: 0, correct: 0, totalMs: 0, words: /* @__PURE__ */ new Map() });
+      }
+    }
+    get isOver() {
+      return this.phase === "over";
+    }
+    getHp(id) {
+      return this.players.get(id)?.hp ?? 0;
+    }
+    getMaxHp(id) {
+      return this.players.get(id)?.maxHp ?? 0;
+    }
+    getCombo(id) {
+      return this.players.get(id)?.combo ?? 0;
+    }
+    bossView() {
+      return null;
+    }
+    markReady() {
+    }
+    submitWriting(_id, _c, _chars) {
+    }
+    /** No study phase: straight to the countdown. */
+    start() {
+      this.phase = "countdown";
+      this.phaseEndsAt = this.now() + this.cfg.countdownMs;
+      this.emit({ type: "battle_start", durationMs: this.cfg.battleMs, countdownMs: this.cfg.countdownMs });
+      this.timer = this.timers.setTimeout(() => {
+        this.phase = "battle";
+        this.battleEndsAt = this.now() + this.cfg.battleMs;
+        this.nextRound();
+        this.capTimer = this.timers.setTimeout(() => this.timeUp(), this.cfg.battleMs);
+      }, this.cfg.countdownMs);
+    }
+    submit(id, challengeId2, text) {
+      const p = this.players.get(id);
+      const c = this.current;
+      if (this.phase !== "battle" || !p || !c || c.id !== challengeId2 || p.gaveUp) return;
+      const ms = this.now() - c.issuedAt;
+      const ok = (!c.entry.romaji || isRomajiInput(text)) && isCorrectReading(text, [c.entry.reading, ...c.entry.altReadings ?? []]);
+      p.attempts++;
+      const w = this.word(p, c.entry);
+      w.attempts++;
+      if (!ok) {
+        p.combo = 0;
+        this.emit({ type: "answer_result", playerId: id, challengeId: challengeId2, correct: false, timedOut: false, skipped: false, entry: c.entry, damage: 0, combo: 0, responseMs: ms, nextInMs: 0, retry: true });
+        return;
+      }
+      p.correct++;
+      p.totalMs += ms;
+      w.correct++;
+      w.totalMs += ms;
+      p.combo++;
+      p.bestCombo = Math.max(p.bestCombo, p.combo);
+      const crit = p.crit > 0 && this.rng() < p.crit;
+      const damage = Math.round(computeDamage(c.entry.difficulty, ms, p.combo, this.cfg) * (crit ? CRIT_MULTIPLIER : 1));
+      p.damageDealt += damage;
+      this.current = null;
+      this.timers.clearTimeout(this.roundTimer);
+      for (const o of this.players.values()) {
+        if (o === p) continue;
+        o.hp = Math.max(0, o.hp - damage);
+        o.combo = 0;
+        this.emit({ type: "answer_result", playerId: o.id, challengeId: challengeId2, correct: false, timedOut: false, skipped: false, entry: c.entry, damage: 0, combo: 0, responseMs: null, nextInMs: RAPID.revealMs, beaten: true });
+        this.emit({ type: "battle_update", event: { kind: "hit", playerId: p.id, targetId: o.id, kanji: c.entry.kanji, damage, combo: p.combo, crit } });
+      }
+      this.emit({ type: "answer_result", playerId: id, challengeId: challengeId2, correct: true, timedOut: false, skipped: false, entry: c.entry, damage, combo: p.combo, responseMs: ms, nextInMs: RAPID.revealMs, crit });
+      if (!this.checkEnd()) this.timer = this.timers.setTimeout(() => this.nextRound(), RAPID.revealMs);
+    }
+    /** Give up on this round. When everyone has, the answer is revealed. */
+    skip(id, challengeId2) {
+      const p = this.players.get(id);
+      if (!p || !this.current || this.current.id !== challengeId2 || p.gaveUp) return;
+      p.gaveUp = true;
+      p.combo = 0;
+      const w = this.word(p, this.current.entry);
+      w.attempts++;
+      this.emit({ type: "answer_result", playerId: id, challengeId: challengeId2, correct: false, timedOut: false, skipped: true, entry: this.current.entry, damage: 0, combo: 0, responseMs: null, nextInMs: 0 });
+      if ([...this.players.values()].every((x) => x.gaveUp)) this.endRoundNoWinner(false);
+    }
+    peek(id) {
+      const p = this.players.get(id);
+      return this.current && p && !p.gaveUp ? { challengeId: this.current.id, entry: this.current.entry } : null;
+    }
+    forfeit(id) {
+      const p = this.players.get(id);
+      if (!p || this.isOver) return;
+      p.hp = 0;
+      this.finish("forfeit");
+    }
+    snapshot(id) {
+      const snap = { phase: this.phase === "countdown" ? "countdown" : this.phase === "battle" ? "battle" : this.phase === "over" ? "over" : "idle" };
+      const now2 = this.now();
+      if (this.phase === "countdown") snap.battle = { leftMs: this.cfg.battleMs, countdownLeftMs: Math.max(0, this.phaseEndsAt - now2) };
+      if (this.phase === "battle") snap.battle = { leftMs: Math.max(0, this.battleEndsAt - now2), countdownLeftMs: 0 };
+      if (this.phase === "battle" && this.current && !this.players.get(id)?.gaveUp) {
+        const c = this.current;
+        snap.challenge = { id: c.id, kanji: c.entry.kanji, answerMode: c.entry.romaji ? "romaji" : "reading", timeLimitMs: Math.max(500, c.issuedAt + RAPID.roundMs - now2) };
+      }
+      return snap;
+    }
+    dispose() {
+      this.timers.clearTimeout(this.timer);
+      this.timers.clearTimeout(this.roundTimer);
+      this.timers.clearTimeout(this.capTimer);
+    }
+    // ── internals ─────────────────────────────────────────────────────────────
+    nextRound() {
+      if (this.phase !== "battle") return;
+      const entry = this.first.shift() ?? this.deck.draw();
+      this.current = { id: this.nextId++, entry, issuedAt: this.now() };
+      for (const p of this.players.values()) {
+        p.gaveUp = false;
+        this.emit({ type: "challenge", playerId: p.id, id: this.current.id, kanji: entry.kanji, answerMode: entry.romaji ? "romaji" : "reading", timeLimitMs: RAPID.roundMs });
+      }
+      const cid = this.current.id;
+      this.roundTimer = this.timers.setTimeout(() => {
+        if (this.current?.id === cid) this.endRoundNoWinner(true);
+      }, RAPID.roundMs);
+    }
+    endRoundNoWinner(timedOut) {
+      const c = this.current;
+      if (!c) return;
+      this.current = null;
+      this.timers.clearTimeout(this.roundTimer);
+      for (const p of this.players.values()) {
+        if (timedOut) {
+          p.combo = 0;
+          if (!p.gaveUp) this.word(p, c.entry).attempts++;
+        }
+        if (timedOut || !p.gaveUp) this.emit({ type: "answer_result", playerId: p.id, challengeId: c.id, correct: false, timedOut, skipped: !timedOut, entry: c.entry, damage: 0, combo: 0, responseMs: null, nextInMs: RAPID.revealMs });
+      }
+      this.deck.requeue(c.entry, 3);
+      this.timer = this.timers.setTimeout(() => this.nextRound(), RAPID.revealMs);
+    }
+    timeUp() {
+      if (this.phase !== "battle") return;
+      this.finish("time");
+    }
+    checkEnd() {
+      if ([...this.players.values()].some((p) => p.hp <= 0)) {
+        this.finish("ko");
+        return true;
+      }
+      return false;
+    }
+    finish(reason) {
+      if (this.isOver) return;
+      this.phase = "over";
+      this.dispose();
+      const ranked = [...this.players.values()].sort((a, b) => b.hp - a.hp);
+      const tie = ranked.length > 1 && ranked[0].hp === ranked[1].hp;
+      const stats = {};
+      const missed = {};
+      for (const p of this.players.values()) {
+        const words2 = [...p.words.values()].map((w) => ({
+          kanji: w.entry.kanji,
+          reading: displayReading(w.entry),
+          meaning: w.entry.meaning,
+          attempts: w.attempts,
+          correct: w.correct,
+          avgMs: w.correct ? Math.round(w.totalMs / w.correct) : null
+        }));
+        const struggled = [...p.words.values()].filter((w) => w.correct === 0).map((w) => w.entry);
+        stats[p.id] = {
+          damageDealt: p.damageDealt,
+          attempts: p.attempts,
+          correct: p.correct,
+          accuracy: p.attempts ? p.correct / p.attempts : 0,
+          avgResponseMs: p.correct ? Math.round(p.totalMs / p.correct) : null,
+          bestCombo: p.bestCombo,
+          words: words2,
+          struggled: struggled.map((e) => e.kanji)
+        };
+        missed[p.id] = struggled.map((e) => e.id);
+      }
+      this.emit({ type: "game_over", winnerId: tie ? null : ranked[0].id, teamWon: null, reason, stats, missed });
+    }
+    word(p, entry) {
+      let w = p.words.get(entry.id);
+      if (!w) {
+        w = { entry, attempts: 0, correct: 0, totalMs: 0 };
+        p.words.set(entry.id, w);
+      }
+      return w;
+    }
+  };
+
+  // src/server/DeckGame.ts
+  init_kana();
+  init_progress();
+  init_vocab();
+  init_VocabPool();
+  init_vocab2();
+  function buildDraftPool(vocab, writable, rng, perLevel = DECK_RULES.cardsPerLevel, spells = []) {
+    const picked4 = [];
+    for (const level2 of ["N5", "N4", "N3", "N2", "N1"]) {
+      const all = vocab.filter((v) => v.level === level2 && writable(v));
+      const taken = /* @__PURE__ */ new Set();
+      const take = (from, n) => {
+        for (const v of shuffle2(from.filter((x) => !taken.has(x.id)), rng).slice(0, n)) {
+          taken.add(v.id);
+          picked4.push(v);
+        }
+      };
+      if (spells.length) {
+        const each = Math.floor(perLevel / spells.length);
+        for (const mine of spells) take(all.filter((v) => mine.has(v.id)), each);
+      }
+      take(all, perLevel - taken.size);
+    }
+    const ranked = [...picked4].sort((a, b) => a.difficulty - b.difficulty);
+    const groupSize = Math.ceil(ranked.length / CARD_COLORS.length);
+    return ranked.map((entry, i) => ({ entry, color: CARD_COLORS[Math.min(CARD_COLORS.length - 1, Math.floor(i / groupSize))] }));
+  }
+  var DeckGame = class {
+    constructor(setups, pool, emit, judge, rng = Math.random, now2 = Date.now, rules = DECK_RULES, timers2 = REAL_TIMERS, words2) {
+      __publicField(this, "emit", emit);
+      __publicField(this, "judge", judge);
+      __publicField(this, "rng", rng);
+      __publicField(this, "now", now2);
+      __publicField(this, "rules", rules);
+      __publicField(this, "timers", timers2);
+      __publicField(this, "words", words2);
+      __publicField(this, "mode", "deck");
+      __publicField(this, "phase", "characters");
+      __publicField(this, "players");
+      __publicField(this, "draft", []);
+      __publicField(this, "picker", null);
+      __publicField(this, "picksLeft", 0);
+      __publicField(this, "coinWinner", null);
+      __publicField(this, "active", null);
+      __publicField(this, "castsLeft", 0);
+      __publicField(this, "cast", null);
+      /** after a cast the correct kanji is shown; no card or power until then */
+      __publicField(this, "holdUntil", 0);
+      __publicField(this, "playedThisTurn", false);
+      __publicField(this, "overtimeEndsAt", 0);
+      __publicField(this, "overtimeTimer");
+      __publicField(this, "overtimeUsed", /* @__PURE__ */ new Set());
+      __publicField(this, "nextCast", 1);
+      __publicField(this, "deadline", 0);
+      __publicField(this, "matchEndsAt", 0);
+      __publicField(this, "timer");
+      __publicField(this, "matchTimer");
+      __publicField(this, "firstTurn", true);
+      __publicField(this, "stageTimer");
+      // the 15 s "read" step of a cast
+      __publicField(this, "stageEndsAt", 0);
+      __publicField(this, "round", 1);
+      __publicField(this, "roundPicks", /* @__PURE__ */ new Map());
+      /** set while a new draft interrupts the battle: whose turn resumes, and the match time that was left */
+      __publicField(this, "resume", null);
+      __publicField(this, "makePool");
+      __publicField(this, "pool");
+      __publicField(this, "bandCache", null);
+      if (setups.length !== 2) throw new Error("Deck Duel needs exactly 2 players");
+      const fixed = typeof pool === "function" ? null : pool;
+      this.makePool = typeof pool === "function" ? pool : () => fixed;
+      this.pool = this.makePool();
+      this.players = setups.map((s) => ({
+        id: s.id,
+        name: s.name,
+        hp: rules.hp,
+        mana: rules.maxMana,
+        crit: s.crit ?? 0,
+        pic: s.pic ?? null,
+        flame: s.flame ?? "blue",
+        staff: s.staff ?? "verdant",
+        pose: s.pose ?? "none",
+        character: null,
+        cooldown: 0,
+        frenzy: false,
+        abilityActive: 0,
+        hand: [],
+        wizardCardsUsed: false,
+        wizardManaUsed: false,
+        casts: 0,
+        hits: 0,
+        totalMs: 0,
+        damage: 0,
+        otMisses: 0,
+        words: /* @__PURE__ */ new Map()
+      }));
+    }
+    // ── Match interface ───────────────────────────────────────────────────────
+    get isOver() {
+      return this.phase === "over";
+    }
+    getHp(id) {
+      return this.p(id)?.hp ?? 0;
+    }
+    getMaxHp() {
+      return this.rules.hp;
+    }
+    getCombo() {
+      return 0;
+    }
+    bossView() {
+      return null;
+    }
+    markReady() {
+    }
+    snapshot() {
+      return { phase: "battle" };
+    }
+    start() {
+      this.phase = "characters";
+      this.setTimer(this.rules.characterMs, () => {
+        for (const p of this.players) if (!p.character) p.character = DECK_CHARACTERS[Math.floor(this.rng() * DECK_CHARACTERS.length)];
+        this.beginDraft();
+      });
+      this.broadcastState();
+    }
+    chooseCharacter(id, ch) {
+      const p = this.p(id);
+      if (this.phase !== "characters" || !p || p.character || !DECK_CHARACTERS.includes(ch)) return;
+      p.character = ch;
+      if (this.players.every((x) => x.character)) this.beginDraft();
+      else this.broadcastState();
+    }
+    pick(id, cardId) {
+      if (this.phase !== "draft" || this.picker !== id) return;
+      const slot = this.draft.find((d) => d.card.cardId === cardId && !d.takenBy);
+      if (!slot) return;
+      this.takeDraft(id, slot);
+    }
+    /** Hero power (Wizard is passive): costs 100 mana, then rests for 4 of your turns. On your turn, before casting. */
+    ability(id) {
+      const p = this.p(id);
+      if (this.phase !== "battle" || this.active !== id || !p || p.cooldown > 0 || this.cast || !p.character || p.character === "wizard" || this.now() < this.holdUntil) return;
+      if (p.mana < this.rules.abilityCost) return;
+      p.mana -= this.rules.abilityCost;
+      p.cooldown = p.character === "goblin" ? this.rules.goblinCooldown : this.rules.abilityCooldown;
+      if (p.character === "goblin") {
+        this.castsLeft = 2;
+        p.frenzy = true;
+      } else p.abilityActive = this.rules.abilityTurns;
+      if (p.character === "witch") for (const c of p.hand) c.revealed = true;
+      this.emitEvent({ kind: "ability", playerId: id, character: p.character });
+      this.broadcastState();
+    }
+    /** Choose a card from your hand to cast this turn. */
+    play(id, cardId) {
+      const p = this.p(id);
+      if (this.phase !== "battle" || this.active !== id || !p || this.cast || this.now() < this.holdUntil) return;
+      const card = p.hand.find((c) => c.cardId === cardId);
+      if (!card || this.cost(p, card) > p.mana) return;
+      const paid = this.cost(p, card);
+      p.hand = p.hand.filter((c) => c !== card);
+      this.playedThisTurn = true;
+      p.mana -= paid;
+      card.revealed = true;
+      this.cast = { castId: this.nextCast++, card, ownerId: id, startedAt: this.now(), tried: /* @__PURE__ */ new Set(), stage: "read", paid };
+      const castId = this.cast.castId;
+      this.setTimer(this.rules.castMs, () => this.turnTimeout());
+      this.timers.clearTimeout(this.stageTimer);
+      this.stageEndsAt = this.now() + this.rules.castReadMs;
+      this.stageTimer = this.timers.setTimeout(() => this.castReady(id, castId), this.rules.castReadMs);
+      this.emitEvent({ kind: "cast", playerId: id, color: card.color });
+      this.broadcastState();
+    }
+    /** "Ready": show the kanji (step 2). Also happens by itself when the reading time is up. */
+    castReady(id, castId) {
+      const c = this.cast;
+      if (this.phase !== "battle" || !c || c.castId !== castId || c.ownerId !== id || c.stage !== "read") return;
+      c.stage = "look";
+      this.timers.clearTimeout(this.stageTimer);
+      this.broadcastState();
+    }
+    /** "CAST!": hide the kanji and write it from memory (step 3). */
+    castGo(id, castId) {
+      const c = this.cast;
+      if (this.phase !== "battle" || !c || c.castId !== castId || c.ownerId !== id || c.stage !== "look") return;
+      c.stage = "write";
+      c.startedAt = this.now();
+      this.broadcastState();
+    }
+    submit(id, castId, text) {
+      if (this.phase === "overtime") return this.submitOvertime(id, castId, text);
+      const typed = text.normalize("NFKC").replace(/\s+/g, "");
+      this.resolveAttempt(id, castId, (entry) => {
+        const ok = isCorrectWriting(text, entry.kanji, entry.reading) || !!entry.romaji && isCorrectReading(text, [entry.reading]);
+        return { correct: ok, recognized: typed };
+      });
+    }
+    submitWriting(id, castId, chars2) {
+      if (this.phase === "overtime") return;
+      this.resolveAttempt(id, castId, (entry) => this.judge(entry, chars2));
+    }
+    /** Give up on the current card (it rips). */
+    skip(id, castId) {
+      this.resolveAttempt(id, castId, () => ({ correct: false, recognized: "" }));
+    }
+    forfeit(id) {
+      const p = this.p(id);
+      if (!p || this.isOver) return;
+      p.hp = 0;
+      this.finish("forfeit");
+    }
+    /** May this player's pad be shown to the opponent right now? (only while writing their own cast) */
+    canShareInk(id, castId) {
+      const c = this.cast;
+      return this.phase === "battle" && !!c && c.castId === castId && c.ownerId === id && c.stage === "write";
+    }
+    heroOf(id) {
+      return this.p(id)?.character ?? null;
+    }
+    peek(id) {
+      const c = this.cast;
+      if (!c || c.tried.has(id) || this.phase === "battle" && c.ownerId !== id) return null;
+      return { challengeId: c.castId, entry: c.card.entry };
+    }
+    /** Hero pick or the first draft: nothing has been played yet, so the room may go back to the lobby. */
+    canReturnToLobby() {
+      return this.phase === "characters" || this.phase === "draft" && this.round === 1;
+    }
+    dispose() {
+      this.timers.clearTimeout(this.timer);
+      this.timers.clearTimeout(this.matchTimer);
+      this.timers.clearTimeout(this.stageTimer);
+      this.timers.clearTimeout(this.overtimeTimer);
+    }
+    /** Full state as one player sees it (sent after every change, and on reconnect). */
+    viewFor(id) {
+      const me4 = this.p(id);
+      const now2 = this.now();
+      const left = Math.max(0, this.deadline - now2);
+      return {
+        phase: this.phase,
+        you: id,
+        players: this.players.map((p) => this.playerView(p)),
+        hand: (me4?.hand ?? []).map((c) => this.cardView(c, c.revealed)),
+        draft: this.phase === "draft" ? { pool: this.draft.map((d) => ({ cardId: d.card.cardId, color: d.card.color, takenBy: d.takenBy })), picker: this.picker, picksLeft: this.picksLeft, coinWinner: this.coinWinner, deadlineMs: left } : null,
+        turn: this.phase === "battle" && this.active ? { active: this.active, castsLeft: this.castsLeft, deadlineMs: left, stage: this.cast ? "cast" : "choose", costFactor: this.costFactor(this.p(this.active)) } : null,
+        round: this.round,
+        deckList: this.phase === "battle" && me4 && this.active !== id ? me4.hand.map((c) => ({ kanji: c.entry.kanji, reading: displayReading(c.entry), meaning: c.entry.meaning })).sort((a, b) => a.kanji.localeCompare(b.kanji, "ja")) : null,
+        casting: this.cast ? this.castView(this.cast, now2, left) : null,
+        matchLeftMs: this.phase === "battle" ? Math.max(0, this.matchEndsAt - now2) : this.resume ? this.resume.matchLeftMs : 0,
+        overtimeLeft: this.phase === "overtime" ? Math.max(0, this.overtimeEndsAt - now2) : 0
+      };
+    }
+    // ── draft ─────────────────────────────────────────────────────────────────
+    beginDraft() {
+      if (this.phase !== "characters") return;
+      this.startDraftRound();
+    }
+    /** A draft round: 20 fresh cards, coin flip, picks of 2 until both players took 10 more. */
+    startDraftRound() {
+      this.phase = "draft";
+      if (this.round > 1) this.pool = this.makePool();
+      const prefix = this.round === 1 ? "c" : `r${this.round}c`;
+      this.draft = this.pool.map((x, i) => ({ card: { cardId: `${prefix}${i + 1}`, color: x.color, entry: x.entry, revealed: false }, takenBy: null }));
+      shuffle2(this.draft, this.rng);
+      this.roundPicks = new Map(this.players.map((p) => [p.id, 0]));
+      this.coinWinner = this.players[this.rng() < 0.5 ? 0 : 1].id;
+      this.emitEvent({ kind: "coin", winner: this.coinWinner, round: this.round });
+      this.nextPicker(this.coinWinner);
+    }
+    picksDone(id) {
+      return (this.roundPicks.get(id) ?? 0) >= this.rules.handSize;
+    }
+    nextPicker(id) {
+      this.picker = id;
+      this.picksLeft = Math.min(this.rules.picksPerTurn, this.rules.handSize - (this.roundPicks.get(id) ?? 0));
+      this.setTimer(this.rules.pickMs, () => this.autoPick());
+      this.broadcastState();
+    }
+    /** Pick timer ran out: take random cards for every pick still left this turn. */
+    autoPick() {
+      const id = this.picker;
+      for (let n = this.picksLeft; n > 0 && this.phase === "draft" && this.picker === id && id; n--) {
+        const free = this.draft.filter((d) => !d.takenBy);
+        if (!free.length) return;
+        this.takeDraft(id, free[Math.floor(this.rng() * free.length)]);
+      }
+    }
+    takeDraft(id, slot) {
+      const p = this.p(id);
+      slot.takenBy = id;
+      slot.card.entry = this.wordFor(id, slot.card);
+      if (p.character === "witch" && p.abilityActive > 0) slot.card.revealed = true;
+      p.hand.push(slot.card);
+      this.roundPicks.set(id, (this.roundPicks.get(id) ?? 0) + 1);
+      this.picksLeft--;
+      this.emitEvent({ kind: "pick", playerId: id, color: slot.card.color });
+      if (this.players.every((x) => this.picksDone(x.id)) || this.draft.every((d) => d.takenBy)) return this.endDraft();
+      const other = this.other(id);
+      if (this.picksLeft > 0 && !this.picksDone(id)) {
+        return this.broadcastState();
+      }
+      this.nextPicker(!this.picksDone(other.id) ? other.id : id);
+    }
+    /** the difficulty band of each card colour in this draft (touching bands, so every word belongs to one) */
+    bands() {
+      const span = /* @__PURE__ */ new Map();
+      for (const { entry, color } of this.pool) {
+        const b = span.get(color);
+        span.set(color, b ? [Math.min(b[0], entry.difficulty), Math.max(b[1], entry.difficulty)] : [entry.difficulty, entry.difficulty]);
+      }
+      const out = {};
+      const cols = CARD_COLORS.filter((c) => span.has(c));
+      cols.forEach((c, i) => {
+        const lo = i === 0 ? -Infinity : (span.get(cols[i - 1])[1] + span.get(c)[0]) / 2;
+        const hi = i === cols.length - 1 ? Infinity : (span.get(c)[1] + span.get(cols[i + 1])[0]) / 2;
+        out[c] = [lo, hi];
+      });
+      return out;
+    }
+    wordFor(id, card) {
+      if (!this.words) return card.entry;
+      if (this.bandCache?.pool !== this.pool) this.bandCache = { pool: this.pool, bands: this.bands() };
+      const band = this.bandCache.bands[card.color];
+      if (!band) return card.entry;
+      const inHands = new Set(this.players.flatMap((x) => x.hand.map((c) => c.entry.kanji)));
+      const fits = (v) => v.difficulty >= band[0] && v.difficulty < band[1] && /^N[1-5]$/.test(v.level) && !inHands.has(v.kanji) && this.words.writable(v);
+      const mine = this.words.spells(id);
+      const pick4 = (list) => list[Math.floor(this.rng() * list.length)];
+      if (mine?.size) {
+        const own = this.words.vocab.filter((v) => mine.has(v.id) && fits(v));
+        if (own.length) return pick4(own);
+      }
+      if (fits(card.entry)) return card.entry;
+      const any = this.words.vocab.filter(fits);
+      return any.length ? pick4(any) : card.entry;
+    }
+    endDraft() {
+      this.picker = null;
+      if (!this.resume) return this.beginBattle();
+      const { playerId, matchLeftMs } = this.resume;
+      this.resume = null;
+      this.phase = "battle";
+      this.matchEndsAt = this.now() + matchLeftMs;
+      this.matchTimer = this.timers.setTimeout(() => this.beginOvertime(), matchLeftMs);
+      this.beginTurn(playerId, true);
+    }
+    // ── battle ────────────────────────────────────────────────────────────────
+    beginBattle() {
+      this.phase = "battle";
+      this.picker = null;
+      this.matchEndsAt = this.now() + this.rules.matchMs;
+      this.matchTimer = this.timers.setTimeout(() => this.beginOvertime(), this.rules.matchMs);
+      this.beginTurn(this.other(this.coinWinner).id);
+    }
+    beginTurn(id, resumed = false) {
+      if (this.phase !== "battle") return;
+      const p = this.p(id);
+      this.active = id;
+      this.castsLeft = 1;
+      this.playedThisTurn = false;
+      this.cast = null;
+      if (!resumed && p.cooldown > 0) p.cooldown--;
+      if (!this.firstTurn && !resumed) p.mana = Math.min(this.rules.maxMana, p.mana + this.rules.manaPerTurn);
+      this.firstTurn = false;
+      if (p.hand.length === 0 && p.character === "wizard" && !p.wizardCardsUsed) {
+        p.wizardCardsUsed = true;
+        for (const x of shuffle2([...this.pool], this.rng).slice(0, this.rules.wizardBonusCards)) {
+          p.hand.push({ cardId: `w${this.nextCast++}`, color: x.color, entry: x.entry, revealed: false });
+        }
+        this.emitEvent({ kind: "wizard", playerId: id, what: "cards" });
+      }
+      if (p.hand.length > 0 && !this.canAfford(p) && p.character === "wizard" && !p.wizardManaUsed) {
+        p.wizardManaUsed = true;
+        p.mana = Math.min(this.rules.maxMana, p.mana + this.rules.wizardBonusMana);
+        this.emitEvent({ kind: "wizard", playerId: id, what: "mana" });
+      }
+      if (p.hand.length === 0) return this.redraft(id);
+      if (!this.canAfford(p)) {
+        this.emitEvent({ kind: "stuck", playerId: id, why: "no_mana" });
+        p.hp = Math.max(0, p.hp - this.rules.skipPenaltyHp);
+        this.emitEvent({ kind: "skip", playerId: id, damage: this.rules.skipPenaltyHp });
+        if (p.hp <= 0) return this.finish("ko");
+        this.holdUntil = Math.max(this.holdUntil, this.now() + this.rules.revealMs);
+        return this.endTurn();
+      }
+      this.setTimer(this.rules.chooseMs + Math.max(0, this.holdUntil - this.now()), () => this.turnTimeout());
+      this.broadcastState();
+    }
+    /** Someone ran out of cards: pause the match clock and draft again. Nothing else changes. */
+    redraft(playerId) {
+      this.timers.clearTimeout(this.matchTimer);
+      this.resume = { playerId, matchLeftMs: Math.max(0, this.matchEndsAt - this.now()) };
+      this.active = null;
+      this.round++;
+      this.emitEvent({ kind: "redraft", playerId, round: this.round });
+      this.startDraftRound();
+    }
+    turnTimeout() {
+      if (this.cast) return this.resolve(this.cast, null, { correct: false, recognized: "" }, true);
+      const p = this.active ? this.p(this.active) : void 0;
+      if (p && !this.playedThisTurn) {
+        p.hp = Math.max(0, p.hp - this.rules.skipPenaltyHp);
+        this.emitEvent({ kind: "skip", playerId: p.id, damage: this.rules.skipPenaltyHp });
+        if (p.hp <= 0) return this.finish("ko");
+      }
+      this.endTurn();
+    }
+    endTurn() {
+      const p = this.p(this.active);
+      p.frenzy = false;
+      if (p.abilityActive > 0 && p.character !== "goblin") {
+        p.abilityActive--;
+        if (p.character === "witch" && p.abilityActive === 0) for (const c of p.hand) c.revealed = false;
+      }
+      this.beginTurn(this.other(p.id).id);
+    }
+    resolveAttempt(id, castId, judge) {
+      const c = this.cast;
+      if (!c || c.castId !== castId || c.tried.has(id)) return;
+      if (this.phase !== "battle" || c.ownerId !== id || c.stage !== "write") return;
+      this.resolve(c, id, judge(c.card.entry), false);
+    }
+    /** Overtime (Rapid style): type the reading; a wrong guess may try again until the card's time is up. */
+    submitOvertime(id, castId, text) {
+      const c = this.cast;
+      const p = this.p(id);
+      if (!c || !p || c.castId !== castId || c.ownerId !== null) return;
+      const e = c.card.entry;
+      const formatOk = !e.romaji || isRomajiInput(text);
+      if (formatOk && isCorrectReading(text, [e.reading, ...e.altReadings ?? []])) return this.resolveRapid(c, id, false);
+      p.otMisses++;
+      this.emitEvent({ kind: "ot_miss", playerId: id });
+    }
+    /** Apply (or rip) the card being cast. */
+    resolve(c, by, result, timedOut) {
+      if (this.phase === "overtime") return this.resolveRapid(c, by, timedOut);
+      const casterId = by ?? c.ownerId;
+      const caster = casterId ? this.p(casterId) : null;
+      const spec = CARD_SPECS[c.card.color];
+      const ms = this.now() - c.startedAt;
+      let amount = 0;
+      let refund = 0;
+      let targetId = casterId ?? "";
+      if (caster) this.tally(caster, c.card.entry, result.correct, ms);
+      if (caster && result.correct) {
+        const paid = c.paid ?? spec.cost;
+        if (this.phase === "battle" && paid > 0) {
+          const before = caster.mana;
+          caster.mana = Math.min(this.rules.maxMana, caster.mana + Math.floor(paid * this.rules.manaRefund));
+          refund = caster.mana - before;
+        }
+        const foe = this.other(caster.id);
+        if (spec.kind === "attack") {
+          const crit = caster.crit > 0 && this.rng() < caster.crit;
+          const bulwark = foe.character === "knight" && foe.abilityActive > 0 ? this.rules.knightDamageTaken : 1;
+          const sight = caster.character === "witch" && caster.abilityActive > 0 ? this.rules.witchSightDamage : 1;
+          amount = Math.round(spec.amount * (crit ? CRIT_MULTIPLIER : 1) * bulwark * sight);
+          foe.hp = Math.max(0, foe.hp - amount);
+          caster.damage += amount;
+          targetId = foe.id;
+        } else if (spec.kind === "heal") {
+          const bonus = caster.character === "knight" && caster.abilityActive > 0 ? this.rules.knightHealBonus : 1;
+          const before = caster.hp;
+          caster.hp = Math.min(this.rules.hp, caster.hp + Math.round(spec.amount * bonus));
+          amount = caster.hp - before;
+        } else {
+          const before = caster.mana;
+          caster.mana = Math.min(this.rules.maxMana, caster.mana + spec.amount);
+          amount = caster.mana - before;
+        }
+      }
+      this.emitEvent({
+        kind: "resolve",
+        playerId: casterId ?? "",
+        color: c.card.color,
+        kanji: c.card.entry.kanji,
+        reading: displayReading(c.card.entry),
+        meaning: c.card.entry.meaning,
+        ok: result.correct,
+        amount,
+        targetId,
+        refund,
+        recognized: timedOut ? void 0 : result.recognized,
+        overtime: false
+      });
+      this.cast = null;
+      this.timers.clearTimeout(this.stageTimer);
+      if (this.players.some((p) => p.hp <= 0)) return this.finish("ko");
+      this.holdUntil = this.now() + this.rules.revealMs;
+      this.castsLeft--;
+      if (this.castsLeft > 0 && caster && caster.hand.length > 0 && this.canAfford(caster)) {
+        this.setTimer(this.rules.chooseMs + this.rules.revealMs, () => this.turnTimeout());
+        return this.broadcastState();
+      }
+      this.endTurn();
+    }
+    // ── overtime ──────────────────────────────────────────────────────────────
+    beginOvertime() {
+      if (this.phase !== "battle") return;
+      this.phase = "overtime";
+      this.active = null;
+      for (const p of this.players) {
+        p.hand = [];
+        p.abilityActive = 0;
+        p.frenzy = false;
+      }
+      this.cast = null;
+      this.timers.clearTimeout(this.stageTimer);
+      this.overtimeEndsAt = this.now() + this.rules.overtimeMaxMs;
+      this.overtimeTimer = this.timers.setTimeout(() => this.finish("time"), this.rules.overtimeMaxMs);
+      this.emitEvent({ kind: "overtime" });
+      this.nextOvertimeCard();
+    }
+    /** A random kanji word of a random level (N5–N1); the first to type its reading hits. */
+    nextOvertimeCard() {
+      if (this.phase !== "overtime") return;
+      const levels = Object.keys(OVERTIME_DAMAGE);
+      const level2 = levels[Math.floor(this.rng() * levels.length)];
+      const words2 = VOCAB.filter((v) => v.level === level2 && !this.overtimeUsed.has(v.id) && /\p{Script=Han}/u.test(v.kanji));
+      const entry = words2[Math.floor(this.rng() * words2.length)];
+      this.overtimeUsed.add(entry.id);
+      const card = { cardId: `ot${this.nextCast}`, color: OVERTIME_COLOR[level2], entry, revealed: true };
+      const c = { castId: this.nextCast++, card, ownerId: null, startedAt: this.now(), tried: /* @__PURE__ */ new Set(), stage: "write" };
+      this.cast = c;
+      for (const p of this.players) p.otMisses = 0;
+      this.setTimer(this.rules.overtimeCardMs, () => this.resolveRapid(c, null, true));
+      this.broadcastState();
+    }
+    /** Overtime hit (or nobody got it in time). */
+    resolveRapid(c, by, timedOut) {
+      if (this.cast !== c) return;
+      const e = c.card.entry;
+      const ms = this.now() - c.startedAt;
+      for (const p of this.players) if (p.otMisses) this.tally(p, e, false, 0);
+      let amount = 0, targetId = "";
+      const caster = by ? this.p(by) : void 0;
+      if (caster && !timedOut) {
+        this.tally(caster, e, true, ms);
+        const foe = this.other(caster.id);
+        const crit = caster.crit > 0 && this.rng() < caster.crit;
+        amount = Math.round(OVERTIME_DAMAGE[e.level] * (crit ? CRIT_MULTIPLIER : 1));
+        foe.hp = Math.max(0, foe.hp - amount);
+        caster.damage += amount;
+        targetId = foe.id;
+      }
+      this.emitEvent({
+        kind: "resolve",
+        playerId: caster?.id ?? "",
+        color: c.card.color,
+        kanji: e.kanji,
+        reading: displayReading(e),
+        meaning: e.meaning,
+        ok: !!caster && !timedOut,
+        amount,
+        targetId,
+        overtime: true
+      });
+      this.cast = null;
+      if (this.players.some((p) => p.hp <= 0)) return this.finish("ko");
+      this.setTimer(this.rules.overtimeGapMs, () => this.nextOvertimeCard());
+      this.broadcastState();
+    }
+    // ── end ───────────────────────────────────────────────────────────────────
+    finish(reason) {
+      if (this.isOver) return;
+      this.phase = "over";
+      this.cast = null;
+      this.dispose();
+      const [a, b] = this.players;
+      const winnerId = a.hp === b.hp ? null : a.hp > b.hp ? a.id : b.id;
+      const stats = {};
+      const missed = {};
+      for (const p of this.players) {
+        const words2 = [...p.words.values()].map((w) => ({
+          kanji: w.entry.kanji,
+          reading: displayReading(w.entry),
+          meaning: w.entry.meaning,
+          attempts: w.attempts,
+          correct: w.correct,
+          avgMs: w.correct ? Math.round(w.totalMs / w.correct) : null
+        }));
+        const struggled = [...p.words.values()].filter((w) => w.correct < w.attempts);
+        stats[p.id] = {
+          damageDealt: p.damage,
+          attempts: p.casts,
+          correct: p.hits,
+          accuracy: p.casts ? p.hits / p.casts : 0,
+          avgResponseMs: p.hits ? Math.round(p.totalMs / p.hits) : null,
+          bestCombo: 0,
+          words: words2,
+          struggled: struggled.map((w) => w.entry.kanji)
+        };
+        missed[p.id] = struggled.map((w) => w.entry.id);
+      }
+      const seen2 = [...new Set(this.players.flatMap((p) => [...p.words.keys()]))];
+      this.broadcastState();
+      this.emit({ type: "game_over", winnerId, teamWon: null, reason, stats, missed, seen: seen2 });
+    }
+    // ── helpers ───────────────────────────────────────────────────────────────
+    p(id) {
+      return this.players.find((x) => x.id === id);
+    }
+    other(id) {
+      return this.players.find((x) => x.id !== id);
+    }
+    /** Goblin's Frenzy: the second card of the turn costs more. */
+    costFactor(p) {
+      return p.frenzy && this.active === p.id && this.castsLeft === 1 && this.playedThisTurn ? this.rules.goblinSecondCost : 1;
+    }
+    cost(p, c) {
+      return Math.ceil(CARD_SPECS[c.color].cost * this.costFactor(p));
+    }
+    canAfford(p) {
+      return p.hand.some((c) => this.cost(p, c) <= p.mana);
+    }
+    setTimer(ms, fn) {
+      this.timers.clearTimeout(this.timer);
+      this.deadline = this.now() + ms;
+      this.timer = this.timers.setTimeout(fn, ms);
+    }
+    tally(p, entry, correct, ms) {
+      p.casts++;
+      if (correct) {
+        p.hits++;
+        p.totalMs += ms;
+      }
+      const w = p.words.get(entry.id) ?? { entry, attempts: 0, correct: 0, totalMs: 0 };
+      w.attempts++;
+      if (correct) {
+        w.correct++;
+        w.totalMs += ms;
+      }
+      p.words.set(entry.id, w);
+    }
+    cardView(c, reveal) {
+      return reveal ? { cardId: c.cardId, color: c.color, kanji: c.entry.kanji, reading: displayReading(c.entry), meaning: c.entry.meaning } : { cardId: c.cardId, color: c.color };
+    }
+    castView(c, now2, left) {
+      const e = c.card.entry;
+      const ot = this.phase === "overtime";
+      const showKanji2 = ot || c.stage === "look";
+      return {
+        castId: c.castId,
+        ownerId: c.ownerId ?? "",
+        card: { cardId: c.card.cardId, color: c.card.color, ...showKanji2 ? { kanji: e.kanji } : {}, ...ot ? {} : { reading: displayReading(e), meaning: e.meaning } },
+        stage: c.stage,
+        chars: writeTargets(e.kanji).length,
+        template: writeTemplate(e.kanji),
+        readLeftMs: c.stage === "read" ? Math.max(0, this.stageEndsAt - now2) : null,
+        answer: ot ? e.romaji ? "romaji" : "reading" : null,
+        rapid: ot ? { level: e.level, damage: OVERTIME_DAMAGE[e.level] ?? 0 } : null,
+        deadlineMs: left,
+        overtime: this.phase === "overtime"
+      };
+    }
+    playerView(p) {
+      const handCounts = Object.fromEntries(CARD_COLORS.map((col) => [col, p.hand.filter((c) => c.color === col).length]));
+      return {
+        id: p.id,
+        name: p.name,
+        hp: p.hp,
+        maxHp: this.rules.hp,
+        mana: p.mana,
+        maxMana: this.rules.maxMana,
+        character: p.character,
+        abilityCooldown: p.cooldown,
+        abilityActive: p.character === "goblin" ? this.active === p.id && p.frenzy ? this.castsLeft : 0 : p.abilityActive,
+        handCounts,
+        handSize: p.hand.length,
+        wizardCardsUsed: p.wizardCardsUsed,
+        wizardManaUsed: p.wizardManaUsed,
+        pic: p.pic,
+        flame: p.flame,
+        staff: p.staff,
+        pose: p.pose
+      };
+    }
+    broadcastState() {
+      for (const p of this.players) this.emit({ type: "deck_state", playerId: p.id, view: this.viewFor(p.id) });
+    }
+    emitEvent(event) {
+      this.emit({ type: "deck_event", event });
+    }
+  };
+
+  // src/server/Room.ts
+  init_vocab2();
+  init_VocabPool();
+  var DEFAULT_ROOM_OPTIONS = {
+    maxPlayers: 2,
+    poolSize: 10,
+    game: DEFAULT_CONFIG,
+    writingGame: WRITING_CONFIG,
+    graceLobbyMs: 5 * 6e4,
+    graceGameMs: 6e4
+  };
+  var DEFAULT_LEVELS = ["N3", "N2"];
+  var BOSS_NAME = "Black Dragon";
+  var Room = class {
+    constructor(code2, mode4, deps, opts = DEFAULT_ROOM_OPTIONS) {
+      __publicField(this, "code", code2);
+      __publicField(this, "mode", mode4);
+      __publicField(this, "deps", deps);
+      __publicField(this, "opts", opts);
+      __publicField(this, "roster", []);
+      __publicField(this, "clients", /* @__PURE__ */ new Map());
+      /** Deck Duel: each player's All spells, loaded when they join */
+      __publicField(this, "spells", /* @__PURE__ */ new Map());
+      /** Rapid: which player's spells a word came from (by kanji) */
+      __publicField(this, "rapidOwner", /* @__PURE__ */ new Map());
+      /** 0.9.9.7.2: spells still on their way (a queue game starts the moment it's made — it waits for them) */
+      __publicField(this, "spellsPending", /* @__PURE__ */ new Map());
+      __publicField(this, "starting", false);
+      __publicField(this, "hostId", null);
+      __publicField(this, "phase", "lobby");
+      __publicField(this, "game");
+      __publicField(this, "clock", new PausableClock());
+      __publicField(this, "rematchVotes", /* @__PURE__ */ new Set());
+      __publicField(this, "chatLog", []);
+      __publicField(this, "nextChatId", 1);
+      __publicField(this, "lastGameOver");
+      // ── AI players ────────────────────────────────────────────────────────────
+      __publicField(this, "nextBot", 0);
+      __publicField(this, "lastInk", /* @__PURE__ */ new Map());
+      /** 3D mouse look: relayed to the others in the room (a game must be on; at most ~8 a second per player) */
+      __publicField(this, "lastLook", /* @__PURE__ */ new Map());
+    }
+    loadSpells(id) {
+      if (!this.deps.spellIds) return;
+      const p = this.deps.spellIds(id).then((s) => {
+        this.spells.set(id, s);
+      }, () => {
+      }).finally(() => {
+        if (this.spellsPending.get(id) === p) this.spellsPending.delete(id);
+      });
+      this.spellsPending.set(id, p);
+    }
+    /** lobby / game / results — for the admin's "who is online" view */
+    get stage() {
+      return this.phase;
+    }
+    /** Boss mode is a party of up to 4 against the dragon; the duels are 1v1. */
+    get maxPlayers() {
+      return this.mode === "boss" ? BOSS_PARTY_SIZE : this.opts.maxPlayers;
+    }
+    get minPlayers() {
+      return this.mode === "boss" ? 1 : this.opts.maxPlayers;
+    }
+    has(id) {
+      return this.roster.some((m) => m.id === id);
+    }
+    join(id, name, client2, levels, profile4 = { crit: 0, xp: 0 }) {
+      if (this.has(id)) {
+        this.setProfile(id, profile4);
+        this.reconnect(id, client2);
+        return { ok: true };
+      }
+      if (this.phase !== "lobby") return { ok: false, error: "That battle has already started" };
+      if (this.roster.length >= this.maxPlayers) return { ok: false, error: "Room is full" };
+      const shared2 = this.mode === "rapid" ? this.roster.find((p) => !p.bot)?.levels : void 0;
+      this.roster.push({ id, name: name.slice(0, 32) || "Player", levels: shared2 ? [...shared2] : levels?.length ? levels : [...DEFAULT_LEVELS], online: true, profile: profile4, ready: false });
+      this.clients.set(id, client2);
+      this.loadSpells(id);
+      this.hostId ?? (this.hostId = id);
+      client2.send({ type: "joined", code: this.code, you: id, mode: this.mode });
+      if (this.chatLog.length) client2.send({ type: "chat", messages: this.chatLog });
+      this.broadcastLobby();
+      this.broadcastNet();
+      return { ok: true };
+    }
+    setProfile(id, profile4) {
+      const m = this.roster.find((p) => p.id === id);
+      if (m) m.profile = profile4;
+    }
+    /** Same account came back (new socket): hand them the seat and catch them up. */
+    reconnect(id, client2) {
+      const m = this.roster.find((p) => p.id === id);
+      if (!m) return;
+      clearTimeout(m.graceTimer);
+      m.online = true;
+      this.clients.set(id, client2);
+      client2.send({ type: "joined", code: this.code, you: id, mode: this.mode });
+      if (this.chatLog.length) client2.send({ type: "chat", messages: this.chatLog });
+      this.broadcastNet();
+      if (this.phase === "lobby") return this.broadcastLobby();
+      if (this.phase === "results") {
+        if (this.lastGameOver) client2.send(this.lastGameOver);
+        return client2.send({ type: "rematch_status", votes: [...this.rematchVotes] });
+      }
+      this.sendSnapshot(id, client2);
+    }
+    /** Socket dropped (app switched, network blip). Keep the seat for a while. */
+    disconnect(id, client2) {
+      if (this.clients.get(id) !== client2) return;
+      const m = this.roster.find((p) => p.id === id);
+      if (!m) return;
+      this.clients.delete(id);
+      m.online = false;
+      const grace = this.phase === "game" ? this.opts.graceGameMs : this.opts.graceLobbyMs;
+      m.graceTimer = setTimeout(() => this.leave(id), grace);
+      this.broadcastNet();
+      if (this.phase === "lobby") this.broadcastLobby();
+    }
+    /**
+     * Every player picks their own levels — they decide their own words and how hard they hit.
+     * Rapid is the exception: both race on the same kanji, so the room has one shared set of levels
+     * (whoever changes it changes it for everyone).
+     */
+    setLevels(id, levels) {
+      const m = this.roster.find((p) => p.id === id);
+      if (!m || this.phase === "game" || levels.length === 0) return;
+      if (this.mode === "rapid") {
+        for (const p of this.roster) if (!p.bot) {
+          p.levels = [...levels];
+          p.ready = false;
+        }
+      } else m.levels = levels;
+      if (this.phase === "lobby") this.broadcastLobby();
+    }
+    start(by) {
+      if (by !== this.hostId || this.phase !== "lobby" || this.mode === "deck") return;
+      if (this.roster.length < this.minPlayers) return this.clients.get(by)?.send({ type: "error", message: "Waiting for an opponent" });
+      this.startGame();
+    }
+    ready(id) {
+      this.game?.markReady(id);
+    }
+    /** Host adds an AI player (knowledge N5–N1) to the lobby: an opponent in duels, a teammate vs the dragon. */
+    addBot(by, level2) {
+      if (by !== this.hostId || this.phase !== "lobby" || !isBotLevel(level2)) return;
+      if (this.roster.length >= this.maxPlayers) return this.clients.get(by)?.send({ type: "error", message: "Room is full" });
+      const id = `ai-${this.code}-${++this.nextBot}`;
+      const bot = new Bot(id, level2, this.botHost());
+      this.roster.push({ id, name: botName(this.nextBot - 1, level2), levels: botLevels(level2), online: true, profile: { crit: 0, xp: 0, staff: STAFFS[Math.floor(Math.random() * STAFFS.length)].id, flame: FLAMES[Math.floor(Math.random() * FLAMES.length)].id, pose: POSES.filter((x) => x !== "none")[Math.floor(Math.random() * (POSES.length - 1))] }, ready: true, rtt: 1, bot });
+      this.broadcastLobby();
+      this.broadcastNet();
+    }
+    removeBot(by, botId) {
+      const m = this.roster.find((p) => p.id === botId && p.bot);
+      if (by !== this.hostId || this.phase !== "lobby" || !m) return;
+      m.bot.dispose();
+      this.roster = this.roster.filter((p) => p !== m);
+      this.broadcastLobby();
+    }
+    botHost() {
+      return {
+        mode: () => this.mode,
+        peek: (id) => this.game?.peek(id) ?? null,
+        deckView: (id) => this.game instanceof DeckGame ? this.game.viewFor(id) : null,
+        ready: (id) => this.ready(id),
+        answer: (id, cid, text) => this.answer(id, cid, text),
+        skip: (id, cid) => this.skip(id, cid),
+        deckCharacter: (id, ch) => this.deckCharacter(id, ch),
+        deckPick: (id, c) => this.deckPick(id, c),
+        deckPlay: (id, c) => this.deckPlay(id, c),
+        deckAbility: (id) => this.deckAbility(id),
+        deckCastReady: (id, c) => this.deckCastReady(id, c),
+        deckCastGo: (id, c) => this.deckCastGo(id, c),
+        timers: () => this.clock
+      };
+    }
+    get humans() {
+      return this.roster.filter((p) => !p.bot);
+    }
+    /** Connection quality for everyone in the room (shown as signal bars next to names). */
+    setRtt(id, rtt) {
+      const m = this.roster.find((p) => p.id === id);
+      if (!m) return;
+      m.rtt = Math.round(rtt);
+      this.broadcastNet();
+    }
+    broadcastNet() {
+      this.broadcast({ type: "net", rtt: Object.fromEntries(this.roster.map((p) => [p.id, p.online && p.rtt !== void 0 ? p.rtt : null])) });
+    }
+    /** Room chat (shown in Deck Duel). Plain text only, short, and at most ~1 message per 0.7 s per player. */
+    chat(id, raw, now2 = Date.now()) {
+      const m = this.roster.find((p) => p.id === id);
+      if (!m) return;
+      const text = raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, CHAT_MAX_LENGTH);
+      if (!text || m.lastChatAt !== void 0 && now2 - m.lastChatAt < 700) return;
+      m.lastChatAt = now2;
+      const msg = { id: this.nextChatId++, from: id, name: m.name, text, at: now2 };
+      this.chatLog.push(msg);
+      if (this.chatLog.length > 50) this.chatLog.shift();
+      this.broadcast({ type: "chat", messages: [msg] });
+    }
+    /** Ready / Not ready in the lobby (0.9.9.7.1: every mode, not only Deck Duel). Starts once everyone is ready. */
+    setLobbyReady(id, ready) {
+      const m = this.roster.find((p) => p.id === id);
+      if (!m || this.phase !== "lobby") return;
+      m.ready = !!ready;
+      if (this.roster.length >= this.minPlayers && this.roster.every((p) => p.ready)) return this.startGame();
+      this.broadcastLobby();
+    }
+    deckCharacter(id, ch) {
+      if (!this.clock.paused && this.game instanceof DeckGame) this.game.chooseCharacter(id, ch);
+    }
+    deckPick(id, cardId) {
+      if (!this.clock.paused && this.game instanceof DeckGame) this.game.pick(id, cardId);
+    }
+    deckPlay(id, cardId) {
+      if (!this.clock.paused && this.game instanceof DeckGame) this.game.play(id, cardId);
+    }
+    deckAbility(id) {
+      if (!this.clock.paused && this.game instanceof DeckGame) this.game.ability(id);
+    }
+    deckCastReady(id, castId) {
+      if (!this.clock.paused && this.game instanceof DeckGame) this.game.castReady(id, castId);
+    }
+    deckCastGo(id, castId) {
+      if (!this.clock.paused && this.game instanceof DeckGame) this.game.castGo(id, castId);
+    }
+    /** Relay a player's handwriting (in progress) to the others, so they can watch the spell being written. */
+    deckInk(id, castId, strokes2, cells) {
+      if (!(this.game instanceof DeckGame) || !this.game.canShareInk(id, castId)) return;
+      const now2 = Date.now();
+      if (now2 - (this.lastInk.get(id) ?? 0) < 80) return;
+      this.lastInk.set(id, now2);
+      const msg = { type: "deck_ink", castId, strokes: strokes2, cells: Math.max(1, Math.min(4, Math.round(cells))) };
+      for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
+    }
+    /** 0.9.9.7.2: typing / writing — relayed to the others (a game must be on) */
+    typing(id, on) {
+      if (!this.game) return;
+      const msg = { type: "typing", id, on };
+      for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
+    }
+    look(id, yaw, pitch, now2 = Date.now()) {
+      if (!this.game || !Number.isFinite(yaw) || !Number.isFinite(pitch)) return;
+      if (now2 - (this.lastLook.get(id) ?? 0) < 110) return;
+      this.lastLook.set(id, now2);
+      const clamp = (v, m) => Math.round(Math.max(-m, Math.min(m, v)) * 1e3) / 1e3;
+      const msg = { type: "look", id, yaw: clamp(yaw, 0.5), pitch: clamp(pitch, 0.3) };
+      for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
+    }
+    answer(id, challengeId2, text) {
+      if (this.clock.paused) return;
+      this.game?.submit(id, challengeId2, text);
+    }
+    write(id, challengeId2, chars2) {
+      if (this.clock.paused) return;
+      this.game?.submitWriting(id, challengeId2, chars2);
+    }
+    skip(id, challengeId2) {
+      if (this.clock.paused) return;
+      this.game?.skip(id, challengeId2);
+    }
+    /** Give up the battle but stay in the room: everyone goes to the results screen (mistakes + rematch). */
+    forfeit(id) {
+      if (this.clock.paused) {
+        this.clock.resume();
+        this.broadcast({ type: "paused", on: false });
+      }
+      if (this.phase !== "game" || !this.has(id)) return;
+      this.game?.forfeit(id);
+      if (this.game && !this.game.isOver && this.humans.every((h6) => this.game.getHp(h6.id) <= 0)) {
+        for (const p of this.roster) if (p.bot) this.game.forfeit(p.id);
+      }
+    }
+    /** "Back" during the study phase: the match is called off and everyone returns to the lobby. */
+    backToLobby(id) {
+      if (this.phase === "results") {
+        this.phase = "lobby";
+        this.rematchVotes.clear();
+        this.game?.dispose();
+        this.game = void 0;
+        this.broadcastLobby();
+        const who = this.roster.find((p) => p.id === id)?.name ?? "Someone";
+        this.broadcast({ type: "notice", message: `${who} went back to the lobby.` });
+        return;
+      }
+      if (this.phase !== "game" || !this.game) return;
+      const early = this.game instanceof DeckGame ? this.game.canReturnToLobby() : this.game.snapshot(id).phase === "prep";
+      if (!early) return;
+      this.callOff(id);
+    }
+    /** 0.9.9.8: only you (against AI, or a solo Boss run): Leave ends the game and you're back in the lobby — no forfeit. */
+    leaveGame(id) {
+      if (this.phase !== "game" || !this.game || !this.has(id) || this.humans.length !== 1) return;
+      if (this.clock.paused) this.clock.resume();
+      this.callOff(id, true);
+    }
+    callOff(id, quiet = false) {
+      if (!this.game) return;
+      this.game.dispose();
+      for (const p of this.roster) p.bot?.dispose();
+      this.game = void 0;
+      this.phase = "lobby";
+      const name = this.roster.find((p) => p.id === id)?.name ?? "Someone";
+      this.broadcastLobby();
+      if (!quiet) this.broadcast({ type: "notice", message: `${name} went back to the lobby.` });
+    }
+    rematch(id) {
+      if (this.phase !== "results") return;
+      if (this.roster.length < this.minPlayers) {
+        this.phase = "lobby";
+        this.rematchVotes.clear();
+        return this.broadcastLobby();
+      }
+      this.rematchVotes.add(id);
+      for (const p of this.roster) if (p.bot) this.rematchVotes.add(p.id);
+      this.broadcast({ type: "rematch_status", votes: [...this.rematchVotes] });
+      if (this.rematchVotes.size === this.roster.length) this.startGame();
+    }
+    leave(id) {
+      const m = this.roster.find((p) => p.id === id);
+      if (!m) return;
+      clearTimeout(m.graceTimer);
+      this.clients.delete(id);
+      const wasInGame = this.phase === "game";
+      if (wasInGame) this.game?.forfeit(id);
+      this.roster = this.roster.filter((p) => p.id !== id);
+      this.rematchVotes.delete(id);
+      if (this.hostId === id) this.hostId = this.humans[0]?.id ?? null;
+      this.deps.onMemberLeft?.(id);
+      if (this.humans.length === 0) {
+        for (const p of this.roster) p.bot?.dispose();
+        this.roster = [];
+        this.game?.dispose();
+        return this.deps.onEmpty();
+      }
+      if (wasInGame && this.phase !== "lobby") return;
+      if (this.phase === "lobby") this.broadcastLobby();
+      else this.broadcast({ type: "rematch_status", votes: [...this.rematchVotes] });
+    }
+    // ── internals ─────────────────────────────────────────────────────────────
+    /** Duels: your HP is set by how hard your opponents hit (their levels). Boss mode: everyone has 1000. */
+    hpFor(id) {
+      if (this.mode === "boss") return BOSS_PLAYER_HP;
+      if (this.mode === "rapid") return rapidHp(this.unionLevels());
+      const opponents = this.roster.filter((p) => p.id !== id);
+      if (opponents.length === 0) return hpAgainst(DEFAULT_LEVELS);
+      return Math.round(opponents.reduce((s, o) => s + hpAgainst(o.levels), 0) / opponents.length);
+    }
+    /** Rapid's shared levels (AI players don't add their own: they only decide how much the AI knows). */
+    unionLevels() {
+      const humans = this.roster.filter((p) => !p.bot);
+      return [...new Set((humans.length ? humans : this.roster).flatMap((p) => p.levels))];
+    }
+    startGame() {
+      const waiting = this.roster.filter((p) => !p.bot && this.spellsPending.has(p.id)).map((p) => this.spellsPending.get(p.id));
+      if (waiting.length) {
+        if (this.starting) return;
+        this.starting = true;
+        void Promise.race([Promise.all(waiting), new Promise((ok) => setTimeout(ok, 3e3))]).then(() => {
+          this.starting = false;
+          if (this.phase !== "game" && this.roster.length >= this.minPlayers) this.startGameNow();
+        });
+        return;
+      }
+      this.startGameNow();
+    }
+    startGameNow() {
+      this.game?.dispose();
+      this.rematchVotes.clear();
+      this.lastGameOver = void 0;
+      for (const p of this.roster) p.ready = !!p.bot;
+      const emit = (e) => this.onGameEvent(e);
+      this.clock.dispose();
+      const clock2 = this.clock = new PausableClock();
+      this.deps.onGameStart?.(this.mode, this.roster.filter((p) => !p.bot).map((p) => p.id));
+      if (this.mode === "deck") {
+        const judge = this.deps.judgeDeck ?? this.deps.judgeWriting;
+        if (!judge) return;
+        const writable = this.deps.writableFilter ?? (() => true);
+        this.phase = "game";
+        for (const p of this.roster) if (!p.bot) this.loadSpells(p.id);
+        const spells = () => this.roster.map((p) => this.spells.get(p.id) ?? /* @__PURE__ */ new Set());
+        this.game = new DeckGame(
+          this.roster.map((p) => ({ id: p.id, name: p.name, crit: 0, pic: p.profile.pic ?? null, flame: p.profile.flame ?? "blue", staff: p.profile.staff ?? "verdant", pose: p.profile.pose ?? "none" })),
+          () => buildDraftPool(VOCAB, writable, Math.random, void 0, spells()),
+          emit,
+          judge,
+          Math.random,
+          clock2.now,
+          void 0,
+          clock2,
+          { vocab: VOCAB, writable, spells: (id) => this.spells.get(id) }
+        );
+        this.game.start();
+        return;
+      }
+      for (const p of this.roster) if (!p.bot) this.loadSpells(p.id);
+      if (this.mode === "rapid") {
+        const levels = this.unionLevels();
+        this.rapidOwner.clear();
+        const own = [];
+        const solo = this.humans.length === 1 ? this.humans[0] : null;
+        if (solo) {
+          const mine = this.spells.get(solo.id) ?? /* @__PURE__ */ new Set();
+          const inLv = shuffle2(VOCAB.filter((v) => levels.includes(v.level) && mine.has(v.id)), Math.random);
+          const other = inLv.length >= 20 ? [] : shuffle2(VOCAB.filter((v) => !levels.includes(v.level) && mine.has(v.id)), Math.random);
+          own.push(...[...inLv, ...other].slice(0, 40));
+        } else for (const p of this.roster) {
+          const mine = this.spells.get(p.id);
+          if (!mine?.size) continue;
+          const words2 = shuffle2(VOCAB.filter((v) => levels.includes(v.level) && mine.has(v.id) && !own.includes(v)), Math.random).slice(0, 5);
+          for (const v of words2) {
+            own.push(v);
+            this.rapidOwner.set(v.kanji, p.id);
+          }
+        }
+        const rest = pickPool(levels, 40).filter((v) => !own.includes(v));
+        const pool = [...shuffle2(own, Math.random), ...rest].slice(0, 40);
+        this.phase = "game";
+        this.game = new RapidGame(this.roster.map((p) => ({ id: p.id, maxHp: this.hpFor(p.id), crit: 0 })), pool, emit, this.opts.game, Math.random, clock2.now, clock2, own.length);
+        this.game.start();
+        return;
+      }
+      const filter = this.mode === "writing" ? this.deps.writableFilter : void 0;
+      const setups = this.roster.map((p) => ({ id: p.id, pool: pickPoolFrom(p.levels, this.opts.poolSize, this.spells.get(p.id), Math.random, void 0, filter), maxHp: this.hpFor(p.id), crit: 0, mine: this.spells.get(p.id) }));
+      for (const s of setups) {
+        if (s.pool.length === 0) {
+          const name = this.roster.find((p) => p.id === s.id)?.name;
+          this.broadcast({ type: "error", message: `${name}'s levels have no words for this mode \u2014 pick other levels` });
+          return;
+        }
+      }
+      this.phase = "game";
+      this.game = new Game(
+        setups,
+        emit,
+        this.mode === "writing" ? this.opts.writingGame : this.opts.game,
+        Math.random,
+        clock2.now,
+        {
+          mode: this.mode,
+          boss: this.mode === "boss" ? { name: BOSS_NAME, maxHp: bossHp(this.roster.map((p) => p.levels)) } : void 0,
+          judgeWriting: this.deps.judgeWriting
+        },
+        clock2
+      );
+      this.game.start();
+    }
+    /** Pausing: only when you are the one human in the room (against the AI, or a solo Boss run). */
+    canPause(id) {
+      const humans = this.roster.filter((p) => !p.bot);
+      return this.phase === "game" && !!this.game && humans.length === 1 && humans[0].id === id;
+    }
+    get paused() {
+      return this.clock.paused;
+    }
+    setPaused(id, on) {
+      if (!this.canPause(id)) return "You can pause only a private game against the AI (or a solo Boss run)";
+      if (on === this.clock.paused) return null;
+      if (on) this.clock.pause();
+      else this.clock.resume();
+      this.broadcast({ type: "paused", on });
+      if (!on) for (const [pid, client2] of this.clients) this.sendSnapshot(pid, client2, true);
+      return null;
+    }
+    sendSnapshot(id, client2, resume = false) {
+      if (!this.game) return;
+      if (this.game instanceof DeckGame) return client2.send({ type: "deck_state", view: this.game.viewFor(id) });
+      const snap = this.game.snapshot(id);
+      if (snap.prep) {
+        client2.send({ type: "prep", pool: snap.prep.pool, durationMs: snap.prep.leftMs, readyIds: snap.prep.readyIds, players: this.view() });
+      } else if (snap.battle) {
+        client2.send({
+          type: "battle_start",
+          mode: this.mode,
+          players: this.view(),
+          boss: this.bossView(),
+          durationMs: snap.battle.leftMs,
+          countdownMs: snap.battle.countdownLeftMs,
+          ...resume ? { resume: true } : {}
+        });
+        if (snap.challenge) {
+          const c = snap.challenge;
+          client2.send({ type: "challenge", id: c.id, kanji: c.kanji, answer: c.answerMode, timeLimitMs: c.timeLimitMs, meaning: c.meaning, reading: c.reading, charCount: c.charCount, flashMs: c.flashMs });
+        }
+      }
+    }
+    onGameEvent(e) {
+      for (const p of this.roster) p.bot?.onEvent(e);
+      switch (e.type) {
+        case "prep":
+          return this.clients.get(e.playerId)?.send({ type: "prep", pool: e.pool, durationMs: e.durationMs, readyIds: [], players: this.view() });
+        case "prep_ready":
+          return this.broadcast({ type: "prep_ready", readyIds: e.readyIds });
+        case "battle_start":
+          return this.broadcast({ type: "battle_start", mode: this.mode, players: this.view(), boss: this.bossView(), durationMs: e.durationMs, countdownMs: e.countdownMs });
+        case "challenge": {
+          const owner = this.mode === "rapid" ? this.rapidOwner.get(e.kanji) : void 0;
+          const from = owner ? owner === e.playerId ? "you" : this.roster.find((p) => p.id === owner)?.name : void 0;
+          return this.clients.get(e.playerId)?.send({
+            type: "challenge",
+            id: e.id,
+            kanji: e.kanji,
+            answer: e.answerMode,
+            timeLimitMs: e.timeLimitMs,
+            meaning: e.meaning,
+            reading: e.reading,
+            charCount: e.charCount,
+            flashMs: e.flashMs,
+            ...from ? { from } : {}
+          });
+        }
+        case "answer_result": {
+          const { entry } = e;
+          return this.clients.get(e.playerId)?.send({
+            type: "answer_result",
+            challengeId: e.challengeId,
+            correct: e.correct,
+            timedOut: e.timedOut,
+            skipped: e.skipped,
+            kanji: entry.kanji,
+            reading: entry.romaji ?? entry.reading,
+            meaning: entry.meaning,
+            damage: e.damage,
+            combo: e.combo,
+            responseMs: e.responseMs,
+            nextInMs: e.nextInMs,
+            recognized: e.recognized,
+            crit: e.crit,
+            retry: e.retry,
+            beaten: e.beaten
+          });
+        }
+        case "deck_state":
+          return this.clients.get(e.playerId)?.send({ type: "deck_state", view: e.view });
+        case "deck_event":
+          return this.broadcast({ type: "deck_event", event: e.event });
+        case "battle_update":
+          return this.broadcast({ type: "battle_update", players: this.view(), boss: this.bossView(), event: e.event });
+        case "game_over": {
+          this.phase = "results";
+          const msg = {
+            type: "game_over",
+            mode: this.mode,
+            winnerId: e.winnerId,
+            teamWon: e.teamWon,
+            reason: e.reason,
+            players: this.view(),
+            boss: this.bossView(),
+            stats: e.stats
+          };
+          this.lastGameOver = msg;
+          this.broadcast(msg);
+          void this.awardProgress(e);
+          return;
+        }
+      }
+    }
+    /** XP for everyone (win/loss + accuracy), missed words into each player's "Struggling spells". */
+    async awardProgress(e) {
+      if (!this.deps.onMatchEnd) return;
+      const vsAi = this.roster.some((p) => p.bot);
+      const players2 = this.view();
+      const at = Date.now();
+      const characterOf = (id) => this.game?.heroOf?.(id) ?? players2.find((v) => v.id === id)?.avatar ?? "wizard";
+      const results2 = this.roster.filter((p) => e.stats[p.id] && !p.bot).map((p) => {
+        const outcome = e.teamWon !== null ? e.teamWon ? "win" : "loss" : e.winnerId === null ? "draw" : e.winnerId === p.id ? "win" : "loss";
+        return {
+          id: p.id,
+          outcome,
+          accuracy: e.stats[p.id].accuracy,
+          missed: e.missed[p.id] ?? [],
+          seen: e.seen ?? [],
+          forfeited: e.reason === "forfeit",
+          vsAi,
+          record: {
+            mode: this.mode,
+            outcome,
+            character: characterOf(p.id),
+            at,
+            opponents: this.roster.filter((o) => o.id !== p.id).map((o) => ({ id: o.id, name: o.name, bot: !!o.bot, character: characterOf(o.id) })),
+            you: p.id,
+            players: players2,
+            winnerId: e.winnerId,
+            teamWon: e.teamWon,
+            reason: e.reason,
+            stats: e.stats
+          }
+        };
+      });
+      try {
+        const out = await this.deps.onMatchEnd(this.mode, results2);
+        for (const [id, r2] of Object.entries(out)) {
+          const m = this.roster.find((p) => p.id === id);
+          const before = m ? levelOf(m.profile.xp) : 0;
+          if (m) m.profile = { ...m.profile, crit: r2.crit, xp: r2.xp };
+          this.clients.get(id)?.send({ type: "progress", gained: r2.gained, xp: r2.xp, level: levelOf(r2.xp), levelUp: levelOf(r2.xp) > before, crit: r2.crit, achievements: r2.achievements ?? [], missed: r2.missed ?? [] });
+        }
+      } catch (err) {
+        console.error("could not save match results", err);
+      }
+    }
+    bossView() {
+      return this.game?.bossView() ?? null;
+    }
+    view() {
+      const inGame = this.game && this.phase !== "lobby";
+      return this.roster.map((p) => {
+        const maxHp = inGame ? this.game.getMaxHp(p.id) || this.hpFor(p.id) : this.hpFor(p.id);
+        return {
+          id: p.id,
+          name: p.name,
+          hp: inGame ? this.game.getHp(p.id) : maxHp,
+          maxHp,
+          combo: inGame ? this.game.getCombo(p.id) : 0,
+          levels: p.levels,
+          online: p.online,
+          avatar: avatarFor(p.levels),
+          crit: p.profile.crit,
+          level: levelOf(p.profile.xp),
+          bot: p.bot?.level ?? null,
+          pic: p.profile.pic ?? null,
+          flame: p.profile.flame ?? "blue",
+          staff: p.profile.staff ?? "verdant",
+          border: p.profile.border ?? "none",
+          pose: p.profile.pose ?? "none",
+          ready: p.ready
+        };
+      });
+    }
+    broadcastLobby() {
+      if (!this.hostId) return;
+      this.broadcast({ type: "lobby", players: this.view(), hostId: this.hostId, maxPlayers: this.maxPlayers, minPlayers: this.minPlayers, mode: this.mode });
+    }
+    broadcast(msg) {
+      for (const c of this.clients.values()) c.send(msg);
+    }
+  };
+
+  // src/server/RoomManager.ts
+  var LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  var RoomManager = class {
+    constructor(deps = {}, opts = DEFAULT_ROOM_OPTIONS) {
+      __publicField(this, "deps", deps);
+      __publicField(this, "opts", opts);
+      __publicField(this, "rooms", /* @__PURE__ */ new Map());
+      __publicField(this, "seatOf", /* @__PURE__ */ new Map());
+    }
+    /** quick: the tutorial's first battle — 30 s of study, a 2-minute fight. */
+    create(mode4, quick = false) {
+      let code2;
+      do {
+        code2 = Array.from({ length: 4 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join("");
+      } while (this.rooms.has(code2));
+      const room2 = new Room(code2, mode4, {
+        onEmpty: () => this.rooms.delete(code2),
+        onMemberLeft: (id) => {
+          if (this.seatOf.get(id) === room2) this.seatOf.delete(id);
+        },
+        judgeWriting: this.deps.judgeWriting,
+        judgeDeck: this.deps.judgeDeck,
+        writableFilter: this.deps.writableFilter,
+        spellIds: this.deps.spellIds,
+        onMatchEnd: this.deps.onMatchEnd,
+        onGameStart: this.deps.onGameStart
+      }, quick ? { ...this.opts, game: { ...this.opts.game, prepMs: 3e4, battleMs: 12e4 } } : this.opts);
+      this.rooms.set(code2, room2);
+      return room2;
+    }
+    get(code2) {
+      return this.rooms.get(code2.trim().toUpperCase());
+    }
+    /** The room this account currently has a seat in, if any. */
+    roomOf(id) {
+      const r2 = this.seatOf.get(id);
+      return r2 && r2.has(id) ? r2 : void 0;
+    }
+    seat(id, room2) {
+      this.seatOf.set(id, room2);
+    }
+    get roomCount() {
+      return this.rooms.size;
+    }
+  };
+
+  // src/client/offline/localgames.ts
+  init_protocol();
+  init_offline();
+  init_vocab2();
+  var OFFLINE_MODES = ["reading", "rapid", "boss"];
+  var parseLevels = (raw) => Array.isArray(raw) ? LEVELS.filter((l) => raw.includes(l)) : [];
+  var rooms = null;
+  var room = null;
+  var me = null;
+  var deliver = () => {
+  };
+  var client = { send: (m) => {
+    setTimeout(() => deliver(m), 0);
+  } };
+  function initLocalGames(onMessage2) {
+    deliver = onMessage2;
+  }
+  var inLocalRoom = () => !!room;
+  async function profile2() {
+    const e = await localEngine();
+    return await e?.memberProfile() ?? { crit: 0, xp: 0 };
+  }
+  async function localSend(msg, user2) {
+    me = user2;
+    const m = msg;
+    if (m.type === "create") {
+      if (room) return;
+      const mode4 = MODES.includes(m.mode) ? m.mode : "reading";
+      if (!OFFLINE_MODES.includes(mode4)) return client.send({ type: "error", message: "This mode needs internet \u2014 offline you can play Kanji Reading, Rapid or Boss Elimination against the AI." });
+      await loadVocab();
+      const engine2 = await localEngine();
+      rooms ?? (rooms = new RoomManager({ spellIds: async () => await engine2?.spellIds() ?? /* @__PURE__ */ new Set() }));
+      const r3 = rooms.create(mode4);
+      const res2 = r3.join(me.id, me.name, client, parseLevels(m.levels), await profile2());
+      if (!res2.ok) return client.send({ type: "error", message: res2.error });
+      room = r3;
+      rooms.seat(me.id, r3);
+      return;
+    }
+    if (m.type === "join" || m.type === "invite" || m.type === "queue") {
+      return client.send({ type: "error", message: "Playing with friends needs internet \u2014 offline you can play the AI." });
+    }
+    if (m.type === "queue_cancel" || m.type === "where" || m.type === "pong" || m.type === "hello") return;
+    const r2 = room;
+    if (!r2) return;
+    const id = me.id;
+    switch (m.type) {
+      case "levels": {
+        const lv = parseLevels(m.levels);
+        if (lv.length) r2.setLevels(id, lv);
+        return;
+      }
+      case "pause": {
+        const err = r2.setPaused(id, m.on === true);
+        if (err) client.send({ type: "error", message: err });
+        return;
+      }
+      case "leave":
+        r2.leave(id);
+        room = null;
+        client.send({ type: "left" });
+        return;
+      case "forfeit":
+        return r2.forfeit(id);
+      case "leave_game":
+        return r2.leaveGame(id);
+      case "back_to_lobby":
+        return r2.backToLobby(id);
+      case "start":
+        return r2.start(id);
+      case "ready":
+        return r2.ready(id);
+      case "lobby_ready":
+        return r2.setLobbyReady(id, !!m.ready);
+      case "add_bot":
+        return r2.addBot(id, m.level);
+      case "remove_bot":
+        return r2.removeBot(id, m.id);
+      case "typing":
+        return r2.typing(id, m.on === true);
+      case "look":
+        if (typeof m.yaw === "number" && typeof m.pitch === "number") r2.look(id, m.yaw, m.pitch);
+        return;
+      case "chat":
+        if (typeof m.text === "string") r2.chat(id, m.text.slice(0, CHAT_MAX_LENGTH * 2));
+        return;
+      case "answer":
+        if (typeof m.challengeId === "number" && typeof m.text === "string") r2.answer(id, m.challengeId, m.text.slice(0, 40));
+        return;
+      case "skip":
+        if (typeof m.challengeId === "number") r2.skip(id, m.challengeId);
+        return;
+      case "rematch":
+        return r2.rematch(id);
+      default:
+        return;
+    }
   }
 
   // src/client/main.ts
@@ -13053,73 +15661,6 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/deckui.ts
   init_zoom();
-
-  // src/shared/deck.ts
-  var CARD_COLORS = ["lightblue", "blue", "yellow", "green", "red"];
-  var CARD_SPECS = {
-    lightblue: { label: "Bolt", kind: "attack", amount: 90, cost: 10 },
-    blue: { label: "Frost", kind: "attack", amount: 150, cost: 20 },
-    yellow: { label: "Mana", kind: "mana", amount: 60, cost: 0 },
-    green: { label: "Heal", kind: "heal", amount: 140, cost: 30 },
-    red: { label: "Inferno", kind: "attack", amount: 340, cost: 45 }
-  };
-  var DECK_CHARACTERS = ["goblin", "knight", "witch", "wizard"];
-  var CHARACTER_INFO = {
-    goblin: { name: "Goblin", power: "Frenzy: play 2 cards in a row this turn (the second costs 1.5\xD7 mana). 100 mana, then 5 turns cooldown." },
-    knight: { name: "Knight", power: "Bulwark: take 45% less damage and heal 50% more for 2 turns. 100 mana, then 4 turns cooldown." },
-    witch: { name: "Witch", power: "Sight: for 2 turns see the kanji and reading of all your cards, and your attacks hit 35% harder (the card you write still hides its kanji). 100 mana, then 4 turns cooldown." },
-    wizard: { name: "Wizard", power: "Arcane reserve (passive): out of cards \u2192 draw 2 random cards before a new draft; out of mana \u2192 +30 mana. Once each.", passive: true }
-  };
-  var DECK_RULES = {
-    hp: 800,
-    maxMana: 200,
-    // and you start full
-    manaPerTurn: 10,
-    handSize: 10,
-    cardsPerLevel: 4,
-    picksPerTurn: 2,
-    pickMs: 2e4,
-    characterMs: 3e4,
-    chooseMs: 15e3,
-    // pick which card to play
-    // casting your card, in three steps: read the meaning → see the kanji → write it from memory
-    castMs: 6e4,
-    // one minute for all three steps
-    castReadMs: 15e3,
-    // reading + meaning only; press Ready (or after 15 s) to see the kanji
-    revealMs: 2e3,
-    // after a cast the correct kanji shows; nothing can be played meanwhile
-    skipPenaltyHp: 100,
-    // letting the choose clock run out without playing a card
-    matchMs: 8 * 6e4,
-    // then overtime
-    // overtime is a 1v1 Rapid duel: the cards are gone; random kanji (N5–N1), first to type the reading hits
-    overtimeCardMs: 12e3,
-    // per kanji
-    overtimeGapMs: 4500,
-    // the answer (kanji, reading, meaning) stays up before the next kanji
-    overtimeMaxMs: 3 * 6e4,
-    // then the higher HP wins
-    witchSightDamage: 1.35,
-    // Witch's attack spells hit harder while Sight is on
-    goblinSecondCost: 1.5,
-    // Frenzy's second card costs this much more mana
-    goblinCooldown: 5,
-    // Frenzy rests this many of your turns (the others: abilityCooldown)
-    knightDamageTaken: 0.55,
-    knightHealBonus: 1.5,
-    abilityTurns: 2,
-    manaRefund: 0.5,
-    // a successful spell gives back half its mana cost
-    abilityCost: 100,
-    // mana to fire your hero's power
-    abilityCooldown: 4,
-    // your turns until it can be used again
-    wizardBonusCards: 2,
-    wizardBonusMana: 30
-  };
-
-  // src/client/deckui.ts
   init_ui();
   init_wizard();
   init_arena();
@@ -13176,10 +15717,10 @@ ${stack}`.slice(0, 2e3);
   function initDeck(hk) {
     hooks2 = hk;
     $10("dkAbility").onclick = () => {
-      const me3 = view?.players.find((p) => p.id === view.you);
-      if (me3?.character && CHARACTER_INFO[me3.character].passive) {
-        const used = [me3.wizardCardsUsed ? "cards used" : "+2 cards ready", me3.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
-        return toast(`${CHARACTER_INFO[me3.character].power} (${used})`, 6e3);
+      const me4 = view?.players.find((p) => p.id === view.you);
+      if (me4?.character && CHARACTER_INFO[me4.character].passive) {
+        const used = [me4.wizardCardsUsed ? "cards used" : "+2 cards ready", me4.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
+        return toast(`${CHARACTER_INFO[me4.character].power} (${used})`, 6e3);
       }
       hooks2.send({ type: "deck_ability" });
     };
@@ -13325,11 +15866,11 @@ ${stack}`.slice(0, 2e3);
   }
   function renderDeck(v) {
     view = v;
-    const me3 = v.players.find((p) => p.id === v.you);
+    const me4 = v.players.find((p) => p.id === v.you);
     const opp = v.players.find((p) => p.id !== v.you);
     if (opp.character) arenaForDeck(v);
     show("deck");
-    playerPanel($10("dkMe"), me3, true);
+    playerPanel($10("dkMe"), me4, true);
     playerPanel($10("dkOpp"), opp, false);
     const overlay = $10("dkOverlay");
     if (v.phase === "characters" || v.phase === "draft") {
@@ -13337,7 +15878,7 @@ ${stack}`.slice(0, 2e3);
       stopCountdown("dkTurn");
       $10("dkBanner").textContent = "";
       hideTimer("dkTurn", $10("dkTurnTimer"));
-      return v.phase === "characters" ? renderCharacters(v, me3, opp) : renderDraft(v, me3);
+      return v.phase === "characters" ? renderCharacters(v, me4, opp) : renderDraft(v, me4);
     }
     overlay.hidden = true;
     if (v.phase === "overtime") {
@@ -13369,7 +15910,7 @@ ${stack}`.slice(0, 2e3);
     const canPlay2 = myTurn && !v.casting && Date.now() >= revealUntil;
     $10("dkHand").replaceChildren(...v.hand.map((c) => {
       const costFactor = myTurn ? v.turn.costFactor : 1;
-      const el11 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me3.mana });
+      const el11 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me4.mana });
       el11.onclick = () => {
         sfx.flip();
         hooks2.send({ type: "deck_play", cardId: c.cardId });
@@ -13378,9 +15919,9 @@ ${stack}`.slice(0, 2e3);
     }));
     $10("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h5("div", "dkc back face-down")));
     const ab = $10("dkAbility");
-    const ch = me3.character;
-    ab.innerHTML = ch ? heroSvg(ch, "me", me3.staff) : "";
-    const cd = me3.abilityCooldown;
+    const ch = me4.character;
+    ab.innerHTML = ch ? heroSvg(ch, "me", me4.staff) : "";
+    const cd = me4.abilityCooldown;
     if (ch) {
       const label2 = h5("span", "ab-name");
       label2.append(h5("b", "", "Omnipotence"), h5("small", "", CHARACTER_INFO[ch].passive ? "passive \xB7 tap for info" : cd > 0 ? `ready in ${cd} turn${cd === 1 ? "" : "s"}` : `${DECK_RULES.abilityCost}\u25C6`));
@@ -13389,8 +15930,8 @@ ${stack}`.slice(0, 2e3);
     if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h5("span", "ab-cd", String(cd)));
     ab.title = ch ? CHARACTER_INFO[ch].power : "";
     ab.classList.toggle("passive", !!ch && !!CHARACTER_INFO[ch].passive);
-    ab.classList.toggle("active", me3.abilityActive > 0);
-    ab.disabled = !ch || !CHARACTER_INFO[ch].passive && (cd > 0 || me3.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting || Date.now() < revealUntil);
+    ab.classList.toggle("active", me4.abilityActive > 0);
+    ab.disabled = !ch || !CHARACTER_INFO[ch].passive && (cd > 0 || me4.mana < DECK_RULES.abilityCost || !myTurn || !!v.casting || Date.now() < revealUntil);
     renderCast(v);
     renderList(v);
   }
@@ -13539,14 +16080,14 @@ ${stack}`.slice(0, 2e3);
       writingCastId = 0;
     }
   }
-  function renderCharacters(v, me3, opp) {
+  function renderCharacters(v, me4, opp) {
     const overlay = $10("dkOverlay");
     overlay.hidden = false;
-    const title = h5("h2", "", me3.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
+    const title = h5("h2", "", me4.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
     const grid = h5("div", "char-pick");
     for (const c of DECK_CHARACTERS) {
-      const b = h5("button", "char-card" + (me3.character === c ? " on" : ""));
-      b.disabled = !!me3.character;
+      const b = h5("button", "char-card" + (me4.character === c ? " on" : ""));
+      b.disabled = !!me4.character;
       const av = h5("div", "ch-av");
       av.innerHTML = heroSvg(c, "me");
       b.append(av, h5("span", "ch-name", CHARACTER_INFO[c].name), h5("span", "ch-power", CHARACTER_INFO[c].power));
@@ -13556,7 +16097,7 @@ ${stack}`.slice(0, 2e3);
     overlay.replaceChildren(backButton(v), title, grid);
   }
   var coinShown = false;
-  function renderDraft(v, me3) {
+  function renderDraft(v, me4) {
     const d = v.draft;
     const overlay = $10("dkOverlay");
     overlay.hidden = false;
@@ -13570,7 +16111,7 @@ ${stack}`.slice(0, 2e3);
     head.append(h5("h2", "", d.coinWinner === v.you ? "You won the coin flip \u2014 you pick first" : "Your opponent won the coin flip"));
     const status = h5("p", "sub");
     const pickedNow = d.pool.filter((c) => c.takenBy === v.you).length;
-    const kept = me3.handSize - pickedNow;
+    const kept = me4.handSize - pickedNow;
     countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ""}`);
     const board = h5("div", "draft-board");
     for (const c of d.pool) {
@@ -13615,13 +16156,13 @@ ${stack}`.slice(0, 2e3);
   }
   function feedEvent(e) {
     if (!view) return;
-    const me3 = view.you;
-    const who = (id) => id === me3 ? "You" : view.players.find((p) => p.id === id)?.name ?? "Opponent";
-    const whom = (id) => id === me3 ? "you" : view.players.find((p) => p.id === id)?.name ?? "the opponent";
-    const side = (id) => id === me3 ? "me" : "opp";
+    const me4 = view.you;
+    const who = (id) => id === me4 ? "You" : view.players.find((p) => p.id === id)?.name ?? "Opponent";
+    const whom = (id) => id === me4 ? "you" : view.players.find((p) => p.id === id)?.name ?? "the opponent";
+    const side = (id) => id === me4 ? "me" : "opp";
     switch (e.kind) {
       case "coin":
-        logFeed("round", `Round ${e.round}: ${who(e.winner)} won the coin flip and pick${e.winner === me3 ? "" : "s"} first`, "sys");
+        logFeed("round", `Round ${e.round}: ${who(e.winner)} won the coin flip and pick${e.winner === me4 ? "" : "s"} first`, "sys");
         break;
       case "redraft":
         logFeed("round", `${who(e.playerId)} ran out of cards \u2014 Round ${e.round} draft (HP and mana stay)`, side(e.playerId));
@@ -13679,22 +16220,22 @@ ${stack}`.slice(0, 2e3);
   function deckEvent(e) {
     if (!view) return;
     feedEvent(e);
-    const me3 = view.you;
+    const me4 = view.you;
     const name = (id) => view.players.find((p) => p.id === id)?.name ?? "Someone";
     switch (e.kind) {
       case "coin":
         coinShown = false;
         break;
       case "redraft":
-        toast(`${e.playerId === me3 ? "You are" : `${name(e.playerId)} is`} out of cards \u2014 Round ${e.round} draft!`, 4e3);
+        toast(`${e.playerId === me4 ? "You are" : `${name(e.playerId)} is`} out of cards \u2014 Round ${e.round} draft!`, 4e3);
         break;
       case "ability":
-        if (e.playerId === me3) ultimateFx(e.character);
+        if (e.playerId === me4) ultimateFx(e.character);
         else arena()?.flashEyes("opp");
-        setTimeout(() => toast(`${e.playerId === me3 ? "You" : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(":")[0]}!`), e.playerId === me3 ? 1300 : 0);
+        setTimeout(() => toast(`${e.playerId === me4 ? "You" : name(e.playerId)} used ${CHARACTER_INFO[e.character].power.split(":")[0]}!`), e.playerId === me4 ? 1300 : 0);
         break;
       case "wizard":
-        toast(`${e.playerId === me3 ? "Your" : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === "cards" ? "+2 cards" : "+30 mana"}`);
+        toast(`${e.playerId === me4 ? "Your" : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === "cards" ? "+2 cards" : "+30 mana"}`);
         break;
       case "stuck":
         stuckId = e.playerId;
@@ -13705,11 +16246,11 @@ ${stack}`.slice(0, 2e3);
         break;
       case "skip":
         sfx.hurt();
-        toast(stuckId === e.playerId ? `${e.playerId === me3 ? "You have" : `${name(e.playerId)} has`} no mana for any card \u2014 turn skipped: \u2212${e.damage} HP` : `${e.playerId === me3 ? "You" : name(e.playerId)} skipped the turn: \u2212${e.damage} HP`, 3500);
+        toast(stuckId === e.playerId ? `${e.playerId === me4 ? "You have" : `${name(e.playerId)} has`} no mana for any card \u2014 turn skipped: \u2212${e.damage} HP` : `${e.playerId === me4 ? "You" : name(e.playerId)} skipped the turn: \u2212${e.damage} HP`, 3500);
         stuckId = "";
         break;
       case "ot_miss":
-        if (e.playerId === me3 && otInput) {
+        if (e.playerId === me4 && otInput) {
           sfx.wrong();
           otInput.classList.remove("shake");
           void otInput.offsetWidth;
@@ -13718,32 +16259,32 @@ ${stack}`.slice(0, 2e3);
         }
         break;
       case "resolve":
-        animateResolve(e, me3, e.ok ? speak(e.reading) : Promise.resolve());
+        animateResolve(e, me4, e.ok ? speak(e.reading) : Promise.resolve());
         showReveal(e);
         break;
     }
   }
   var CARD_FX = { lightblue: "bolt", blue: "frost", red: "fire" };
-  function animateResolve(e, me3, spoken = Promise.resolve()) {
+  function animateResolve(e, me4, spoken = Promise.resolve()) {
     const card = $10("dkCast").querySelector(".dkc.big");
     const fb = $10("dkFeedback");
-    const who = e.playerId === me3 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
+    const who = e.playerId === me4 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
     const spec = e.overtime ? { label: "Rapid hit", kind: "attack", amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
     if (!e.ok) {
       fb.className = "feedback bad";
-      fb.replaceChildren(h5("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me3 ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h5("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
+      fb.replaceChildren(h5("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me4 ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h5("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
       sfx.rip();
-      arena()?.fizzle(e.playerId === me3 ? "me" : "opp");
+      arena()?.fizzle(e.playerId === me4 ? "me" : "opp");
       if (card) ripCard(card);
       return;
     }
     const a3 = arena();
     if (a3) {
-      const from = e.playerId === me3 ? "me" : "opp";
-      const to = spec.kind === "attack" ? e.targetId === me3 ? "me" : "opp" : from;
+      const from = e.playerId === me4 ? "me" : "opp";
+      const to = spec.kind === "attack" ? e.targetId === me4 ? "me" : "opp" : from;
       void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind, fx: e.overtime ? void 0 : CARD_FX[e.color] });
     } else if (spec.kind === "attack" && !e.overtime && CARD_FX[e.color]) {
-      const panel = $10(e.targetId === me3 ? "dkMe" : "dkOpp");
+      const panel = $10(e.targetId === me4 ? "dkMe" : "dkOpp");
       setTimeout(() => {
         panel.classList.remove("fx-bolt", "fx-frost", "fx-fire");
         void panel.offsetWidth;
@@ -13764,7 +16305,7 @@ ${stack}`.slice(0, 2e3);
       void spoken.then(() => sfx.mana());
       ghost.classList.add("sparkle");
     } else {
-      const towardsMe = spec.kind === "heal" ? e.playerId === me3 : e.targetId === me3;
+      const towardsMe = spec.kind === "heal" ? e.playerId === me4 : e.targetId === me4;
       const target2 = zrect($10(towardsMe ? "dkMe" : "dkOpp"));
       ghost.style.setProperty("--fy", `${target2.top + target2.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
@@ -13859,7 +16400,7 @@ ${stack}`.slice(0, 2e3);
   };
   var send = () => {
   };
-  var me = () => "";
+  var me2 = () => "";
   var tick = 0;
   var searching = false;
   function guideHover(el11, mode4) {
@@ -13918,7 +16459,7 @@ ${stack}`.slice(0, 2e3);
   }
   function initQueue(sender, myId) {
     send = sender;
-    me = myId;
+    me2 = myId;
     $("qDeckHelp").addEventListener("click", (e) => {
       e.stopPropagation();
       renderDeckGuide($("guideBody"));
@@ -14006,7 +16547,7 @@ ${stack}`.slice(0, 2e3);
       $("mfAccept").focus();
     }
     const accepted = msg.accepted ?? [];
-    const mine = accepted.includes(me());
+    const mine = accepted.includes(me2());
     const btn = $("mfAccept");
     btn.disabled = mine;
     btn.textContent = mine ? "\u2713 Accepted" : "Accept";
@@ -14904,9 +17445,9 @@ ${stack}`.slice(0, 2e3);
     if (text !== void 0) e.textContent = String(text);
     return e;
   };
-  function openCustomize(profile3, isAdmin = false, onTimeChange = () => {
+  function openCustomize(profile4, isAdmin = false, onTimeChange = () => {
   }) {
-    cust = { profile: profile3, isAdmin, onTimeChange };
+    cust = { profile: profile4, isAdmin, onTimeChange };
     renderCustomize();
     show("customize");
     void ensurePreview();
@@ -14929,19 +17470,19 @@ ${stack}`.slice(0, 2e3);
   }
   var thisMonth = () => (/* @__PURE__ */ new Date()).getMonth() + 1;
   var monthName = (m) => new Date(2026, m - 1, 15).toLocaleDateString(locale(), { month: "long" });
-  function custItems(profile3, isAdmin) {
-    const lvl = levelOf(profile3.xp);
-    const best = Math.max(profile3.bestStreak ?? 0, profile3.streak ?? 0);
+  function custItems(profile4, isAdmin) {
+    const lvl = levelOf(profile4.xp);
+    const best = Math.max(profile4.bestStreak ?? 0, profile4.streak ?? 0);
     const time = resolveTime(getTimePref());
     if (custTab === "staff") {
       return STAFFS.map((s) => ({
         id: s.id,
         name: s.name,
         blurb: s.blurb,
-        locked: !isAdmin && !staffUnlocked(s.id, best, profile3.unlocks),
+        locked: !isAdmin && !staffUnlocked(s.id, best, profile4.unlocks),
         lock: s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : "",
         lockedToast: s.season ? `The ${s.name} is the ${monthName(s.season)} reward \u2014 complete that month's goals (see Progress)${s.season === thisMonth() ? " \u2014 it's on now!" : ""}` : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
-        equipped: (profile3.staff ?? "verdant") === s.id,
+        equipped: (profile4.staff ?? "verdant") === s.id,
         tile: () => {
           if (staffThumbs[s.id]) {
             const img = document.createElement("img");
@@ -14964,7 +17505,7 @@ ${stack}`.slice(0, 2e3);
         locked: !isAdmin && !beta.open && lvl < b.level,
         lock: `Level ${b.level}`,
         lockedToast: `Reach level ${b.level} to unlock ${b.name}`,
-        equipped: profile3.background === b.id,
+        equipped: profile4.background === b.id,
         tile: () => {
           const d = el7("div", "bg-thumb");
           d.innerHTML = backgroundThumb(b.id, time);
@@ -14978,23 +17519,23 @@ ${stack}`.slice(0, 2e3);
         id: b.id,
         name: b.name === "No border" ? b.name : `${b.name} border`,
         blurb: `${b.blurb} Round your profile picture \u2014 everyone sees it in lobbies, battles and on your profile card.`,
-        locked: !isAdmin && !borderUnlocked(b.id, lvl, profile3.unlocks),
+        locked: !isAdmin && !borderUnlocked(b.id, lvl, profile4.unlocks),
         lock: b.unlock ? "Tutorial" : `Level ${b.level}`,
         lockedToast: b.unlock ? "Finish the tutorial to get the Beta border" : `Reach level ${b.level} to unlock the ${b.name} border`,
-        equipped: (profile3.border ?? "none") === b.id,
-        tile: () => avatarDisc(profile3, b.id, "ci-avatar"),
+        equipped: (profile4.border ?? "none") === b.id,
+        tile: () => avatarDisc(profile4, b.id, "ci-avatar"),
         equip: () => api.setBorder(b.id)
       }));
     }
     if (custTab === "pose") {
-      const mine = poseOf(profile3.unlocks);
+      const mine = poseOf(profile4.unlocks);
       return POSE_DEFS.map((d) => ({
         id: d.id,
         name: d.name,
         blurb: `${d.blurb} ${d.id === "none" ? "" : "You strike it while you\u2019re on fire \u2014 5 correct casts in a row, or your Omnipotence \u2014 and everyone in the battle sees it."}`.trim(),
-        locked: !isAdmin && !poseUnlocked(d.id, profile3.learned ?? 0),
+        locked: !isAdmin && !poseUnlocked(d.id, profile4.learned ?? 0),
         lock: `${d.learned} spells learned`,
-        lockedToast: `Learn ${d.learned} spells to unlock the ${d.name} pose (you have ${profile3.learned ?? 0})`,
+        lockedToast: `Learn ${d.learned} spells to unlock the ${d.name} pose (you have ${profile4.learned ?? 0})`,
         equipped: mine === d.id,
         tile: () => {
           const t = el7("div", "pose-tile");
@@ -15008,10 +17549,10 @@ ${stack}`.slice(0, 2e3);
       id: f2.id,
       name: `${f2.name} flames`,
       blurb: f2.season ? `${monthName(f2.season)} reward: complete that month's goals (Progress page). Wraps you at 5 in a row and during your Omnipotence.` : "Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.",
-      locked: !isAdmin && !flameUnlocked(f2.id, profile3.xp, profile3.unlocks),
+      locked: !isAdmin && !flameUnlocked(f2.id, profile4.xp, profile4.unlocks),
       lock: f2.season ? `${monthName(f2.season)} goals` : `Level ${f2.level}`,
       lockedToast: f2.season ? `${f2.name} flames are the ${monthName(f2.season)} reward \u2014 complete that month's goals (see Progress)${f2.season === thisMonth() ? " \u2014 it's on now!" : ""}` : `Reach level ${f2.level} to unlock ${f2.name} flames`,
-      equipped: (profile3.flame ?? "blue") === f2.id,
+      equipped: (profile4.flame ?? "blue") === f2.id,
       tile: () => {
         const d = el7("span", "flame-dot big");
         d.style.setProperty("--c", f2.color);
@@ -15052,16 +17593,16 @@ ${stack}`.slice(0, 2e3);
   };
   function renderCustomize() {
     if (!cust) return;
-    const { profile: profile3, isAdmin, onTimeChange } = cust;
+    const { profile: profile4, isAdmin, onTimeChange } = cust;
     for (const b of document.querySelectorAll("#custTabs .cust-tab")) {
       const on = b.dataset.tab === custTab;
       b.classList.toggle("on", on);
       b.setAttribute("aria-selected", String(on));
     }
-    const items = custItems(profile3, isAdmin);
-    const lvl = levelOf(profile3.xp);
+    const items = custItems(profile4, isAdmin);
+    const lvl = levelOf(profile4.xp);
     const sel = items.find((i) => i.id === picked3[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
-    $11("custSub").textContent = CUST_SUB[custTab](profile3);
+    $11("custSub").textContent = CUST_SUB[custTab](profile4);
     $11("bgTimes").hidden = true;
     void onTimeChange;
     const equip = async (it) => {
@@ -15093,16 +17634,16 @@ ${stack}`.slice(0, 2e3);
     extra.hidden = custTab !== "profile";
     if (custTab === "profile") {
       const box = el7("div", "ach-box");
-      const draw3 = () => renderAchievements(box, profile3.unlocks, profile3.badges ?? [], (next3) => {
-        const before = profile3.badges ?? [];
-        profile3.badges = next3;
+      const draw3 = () => renderAchievements(box, profile4.unlocks, profile4.badges ?? [], (next3) => {
+        const before = profile4.badges ?? [];
+        profile4.badges = next3;
         renderCustomize();
         api.setBadges(next3).then((r2) => {
-          profile3.badges = r2.badges;
-          onProfile({ ...profile3 });
+          profile4.badges = r2.badges;
+          onProfile({ ...profile4 });
           renderCustomize();
         }).catch((e) => {
-          profile3.badges = before;
+          profile4.badges = before;
           renderCustomize();
           toast(e.message);
         });
@@ -15121,9 +17662,9 @@ ${stack}`.slice(0, 2e3);
     if ((custTab === "arena" || custTab === "omni" || custTab === "pose") && !arena3Tried) void ensureArena3();
     $11("poseInsetLbl").hidden = !(in3d && custTab === "pose");
     $11("custChars").hidden = !in3d;
-    const shownChar = previewChar ?? kindOf2(avatarFor(profile3.studyLevels));
+    const shownChar = previewChar ?? kindOf2(avatarFor(profile4.studyLevels));
     for (const b of document.querySelectorAll("#custChars [data-char]")) b.classList.toggle("on", b.dataset.char === shownChar);
-    if (in3d) showArena3(custTab, sel.id, profile3);
+    if (in3d) showArena3(custTab, sel.id, profile4);
     else arena3?.setActive(false);
     if (custTab === "staff") {
       if (preview3) preview3.show(sel.id);
@@ -15138,10 +17679,10 @@ ${stack}`.slice(0, 2e3);
       const card = el7("div", "cust-card");
       const meta = el7("div", "cc-meta");
       meta.append(el7("div", "pp-name", myName()), el7("div", "pp-level", `Lv ${lvl}`));
-      const row = badgeRow(profile3.badges);
+      const row = badgeRow(profile4.badges);
       if (row) meta.append(row);
       else meta.append(el7("div", "hint", "No badges yet \u2014 pick up to 3 below."));
-      card.append(avatarDisc(profile3, sel.id, "pp-pic big"), meta);
+      card.append(avatarDisc(profile4, sel.id, "pp-pic big"), meta);
       stage2.replaceChildren(card);
     } else if (custTab === "pose") {
       const big = el7("div", "pose-tile big");
@@ -15153,7 +17694,7 @@ ${stack}`.slice(0, 2e3);
       const w = el7("div", "wizard me onfire");
       paintFlame(w, sel.id);
       const sprite = el7("div", "sprite");
-      sprite.innerHTML = avatarSvg(avatarFor(profile3.studyLevels), "me", profile3.staff);
+      sprite.innerHTML = avatarSvg(avatarFor(profile4.studyLevels), "me", profile4.staff);
       w.append(el7("div", "aura"), sprite);
       const badge = el7("div", "combo-hud hot omni-badge");
       badge.style.setProperty("--flame", FLAMES.find((f2) => f2.id === sel.id).color);
@@ -15177,7 +17718,7 @@ ${stack}`.slice(0, 2e3);
       const w = el7("div", "wizard me onfire c2-char");
       paintFlame(w, sel.id);
       const sp = el7("div", "sprite");
-      sp.innerHTML = avatarSvg(avatarFor(profile3.studyLevels), "me", profile3.staff);
+      sp.innerHTML = avatarSvg(avatarFor(profile4.studyLevels), "me", profile4.staff);
       w.append(el7("div", "aura"), sp);
       t.append(w, el7("span", "hint", "2D arena"));
       info.push(t);
@@ -15185,7 +17726,7 @@ ${stack}`.slice(0, 2e3);
     if (custTab === "staff") {
       const row = el7("div", "cust-2d");
       const who = el7("div", "c2-char");
-      who.innerHTML = avatarSvg(avatarFor(profile3.studyLevels), "me", sel.id);
+      who.innerHTML = avatarSvg(avatarFor(profile4.studyLevels), "me", sel.id);
       const st = el7("div", "pixel-staff");
       st.innerHTML = staffSvg(sel.id);
       row.append(who, st, el7("span", "hint", "2D arena"));
@@ -15670,7 +18211,7 @@ ${stack}`.slice(0, 2e3);
     d.setUTCHours(24, 0, 0, 0);
     return `at ${d.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" })} your time`;
   };
-  var me2 = "";
+  var me3 = "";
   var word = null;
   var timer2 = 0;
   var busy4 = false;
@@ -15683,7 +18224,7 @@ ${stack}`.slice(0, 2e3);
     }
   }
   async function openDaily(userId) {
-    me2 = userId;
+    me3 = userId;
     show("daily");
     $13("dailyMain").replaceChildren(el9("p", "hint", "Loading\u2026"));
     try {
@@ -15692,14 +18233,40 @@ ${stack}`.slice(0, 2e3);
       toast(e.message);
     }
   }
+  var boardLeague = "";
   function renderBoard(o) {
     const list = $13("dailyBoard");
-    if (!o.board.length) {
-      list.replaceChildren(el9("li", "hint", "Nobody has played today yet \u2014 be the first!"));
+    const show5 = boardLeague || o.league || "KANA";
+    const rows2 = o.boards?.[show5] ?? (show5 === o.league ? o.board : []);
+    let tabs = document.getElementById("dailyTabs");
+    if (!tabs) {
+      tabs = el9("div", "daily-tabs");
+      tabs.id = "dailyTabs";
+      tabs.setAttribute("role", "tablist");
+      list.before(tabs);
+    }
+    tabs.hidden = !o.boards;
+    tabs.replaceChildren(...LEAGUES2.map((l) => {
+      const b = el9("button", `dt-tab${l === show5 ? " on" : ""}${l === o.league ? " mine" : ""}`, l === "KANA" ? "\u304B\u306A" : l);
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", String(l === show5));
+      b.title = LEAGUE_NAME[l];
+      const n = o.boards?.[l]?.length ?? 0;
+      if (n) b.append(el9("small", "dt-n", n));
+      b.onclick = () => {
+        boardLeague = l;
+        renderBoard(o);
+      };
+      return b;
+    }));
+    $13("dailyBoardTitle").textContent = `${tr("League")}: ${LEAGUE_NAME[show5]}${show5 === o.league ? ` \xB7 ${tr("yours")}` : ""}`;
+    if (!rows2.length) {
+      list.replaceChildren(el9("li", "hint", show5 === o.league ? "Nobody has played today yet \u2014 be the first!" : tr("Nobody in this league has played today yet.")));
       return;
     }
-    list.replaceChildren(...o.board.map((r2, i) => {
-      const li = el9("li", r2.id === me2 ? "me" : "");
+    list.replaceChildren(...rows2.map((r2, i) => {
+      const li = el9("li", r2.id === me3 ? "me" : "");
       li.append(el9("span", "db-rank", i + 1), el9("span", "db-name", r2.name), el9("span", "db-score", `${r2.correct}/${o.total}`), el9("span", "db-time", secs2(r2.ms)));
       return li;
     }));
@@ -15744,8 +18311,8 @@ ${stack}`.slice(0, 2e3);
   }
   function renderOverview(o) {
     league = o.league ?? "KANA";
+    boardLeague = "";
     renderBoard(o);
-    $13("dailyBoardTitle").textContent = `${tr("League")}: ${LEAGUE_NAME[league]}`;
     const main = $13("dailyMain");
     const date = `Challenge of ${(/* @__PURE__ */ new Date(`${o.day}T12:00:00Z`)).toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}`;
     if (o.mine) {
@@ -15796,7 +18363,7 @@ ${stack}`.slice(0, 2e3);
     } catch (e) {
       toast(e.message);
       busy4 = false;
-      return void openDaily(me2);
+      return void openDaily(me3);
     }
     busy4 = false;
     renderPlay(null);
@@ -15870,7 +18437,7 @@ ${stack}`.slice(0, 2e3);
     } catch (e) {
       busy4 = false;
       toast(e.message);
-      void openDaily(me2);
+      void openDaily(me3);
     }
   }
   $13("dailyBack").onclick = () => {
@@ -16243,13 +18810,13 @@ ${stack}`.slice(0, 2e3);
   var inApp = () => /KanjiWizards(Desktop|Android)/.test(navigator.userAgent) || matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
   var isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
   var installPrompt = null;
-  var ONLINE_ONLY = "#adminBtn, #queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove";
+  var ONLINE_ONLY = "#adminBtn, #queueBtn, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove";
   function initApp(hooks4) {
     init(getToken, () => ["review", "quiz", "daily"].includes(currentScreen() ?? ""));
     onChange((off) => {
       document.body.classList.toggle("offline", off);
       hooks4.netStatus();
-      if (off) toast("You're offline. Study spells, the quiz, reading passages, the daily challenge and Customize still work \u2014 your progress syncs when you're back online.", 6e3);
+      if (off) toast("You're offline. Study spells, the quiz, reading passages, the daily challenge, Customize and private games against the AI still work \u2014 your progress syncs when you're back online.", 6e3);
       else {
         toast("Back online \u2014 your progress is synced.", 3500);
         hooks4.backOnline();
@@ -16422,11 +18989,12 @@ ${stack}`.slice(0, 2e3);
 
   // src/client/main.ts
   initWhatsNew();
+  initMenuVeil();
   applyUiZoom();
   centerScreens();
   initReminders();
   var user = null;
-  var profile2 = null;
+  var profile3 = null;
   var you = "";
   var code = "";
   var mode3 = "reading";
@@ -16471,6 +19039,14 @@ ${stack}`.slice(0, 2e3);
     if (s === "reconnecting") void probe();
     showNetStatus();
   });
+  initLocalGames((m) => onMessage(m));
+  {
+    const toServer = socket.send.bind(socket);
+    socket.send = (m) => {
+      if (user && (inLocalRoom() || isOffline() && m.type !== "pong")) void localSend(m, { id: user.id, name: user.name ?? user.username });
+      else toServer(m);
+    };
+  }
   var netState = "";
   var lastWhere = "";
   function tellWhere() {
@@ -16506,7 +19082,7 @@ ${stack}`.slice(0, 2e3);
     title.classList.toggle("in-deck", s === "deck");
     if (s !== "battle" && document.activeElement?.id === "answer") document.activeElement.blur();
     if (!title.hidden) title.replaceChildren(modeBadge(s === "deck" ? "deck" : mode3), document.createTextNode(MODE_LABEL[s === "deck" ? "deck" : mode3]));
-    if (s === "menu" && profile2) void refreshProfile();
+    if (s === "menu" && profile3) void refreshProfile();
     if (s !== "lobby") void renderLobbyInvites(false);
     railScreen(s);
     dictRailScreen(s);
@@ -16521,7 +19097,7 @@ ${stack}`.slice(0, 2e3);
   var NO_BG_CHANGE = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
   var shownTime = "";
   function applyBackground(fade = false) {
-    const bg2 = profile2?.background ?? "forest";
+    const bg2 = profile3?.background ?? "forest";
     const time = resolveTime(getTimePref());
     if (fade && NO_BG_CHANGE.has(currentScreen() ?? "")) return;
     paintBackground($("bg"), bg2, time, fade && shownTime !== "" && shownTime !== time, !GAME_SCREENS2.has(currentScreen() ?? "menu"));
@@ -16544,7 +19120,7 @@ ${stack}`.slice(0, 2e3);
   var prevStaff = null;
   function applyProfile(p) {
     if (user) celebrateNew(user.id, p.unlocks);
-    profile2 = p;
+    profile3 = p;
     setProfile(p);
     $("kanaRow").hidden = $("kanaInfo").hidden = false;
     $("kanaMastered").checked = !kanaBeginner();
@@ -16683,13 +19259,13 @@ ${stack}`.slice(0, 2e3);
     setDictRailUser(true);
     socket.start(getToken());
     if (!inRoom) show("menu");
-    if (!profile2) void refreshProfile();
-    else applyProfile(profile2);
+    if (!profile3) void refreshProfile();
+    else applyProfile(profile3);
   }
   function showAuth(message = "") {
     $("playOffline").hidden = true;
     user = null;
-    profile2 = null;
+    profile3 = null;
     inRoom = false;
     setUser(null);
     setRailUser(false);
@@ -16872,7 +19448,7 @@ ${stack}`.slice(0, 2e3);
         if (msg.correct) {
           const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
           void speak(kana).then(() => sfx.correct(msg.combo));
-          if (mode3 !== "deck") comboMilestone(msg.combo, profile2?.unlocks);
+          if (mode3 !== "deck") comboMilestone(msg.combo, profile3?.unlocks);
         } else {
           sfx.wrong();
           arena()?.fizzle("me");
@@ -17201,11 +19777,11 @@ ${stack}`.slice(0, 2e3);
     show("modes");
   };
   $("privateBtn").onclick = () => {
-    const box = $("privateBox");
-    box.hidden = !box.hidden;
-    $("privateBtn").setAttribute("aria-expanded", String(!box.hidden));
-    if (!box.hidden && matchMedia("(pointer: fine)").matches) $("joinCode").focus({ preventScroll: true });
+    setError("");
+    $("pvOffline").hidden = !isOffline();
+    show("private");
   };
+  $("privateBack").onclick = () => show("menu");
   $("queueBtn").onclick = () => {
     setError("");
     openQueue();
@@ -17222,7 +19798,7 @@ ${stack}`.slice(0, 2e3);
     card.onclick = () => {
       const m = card.dataset.mode;
       if (!canPlay(m)) return toast(lockText(m), 5e3);
-      if (isOffline()) return toast(tr("Online games need an internet connection"), 4e3);
+      if (isOffline() && !OFFLINE_MODES.includes(m)) return toast(tr("This mode needs internet \u2014 offline you can play Kanji Reading, Rapid or Boss Elimination against the AI."), 5e3);
       if (creating) return;
       if (m === "deck") askNotifyPermission();
       const msg = { type: "create", mode: m, levels: savedLevels() };
@@ -17257,9 +19833,9 @@ ${stack}`.slice(0, 2e3);
       socket.send({ type: "create", mode: mode4, levels: savedLevels() });
     }
   }
-  $("progressBtn").onclick = () => void openProgress(profile2?.unlocks ?? [], profile2?.badges ?? [], (b) => {
-    if (profile2) {
-      profile2 = { ...profile2, badges: b };
+  $("progressBtn").onclick = () => void openProgress(profile3?.unlocks ?? [], profile3?.badges ?? [], (b) => {
+    if (profile3) {
+      profile3 = { ...profile3, badges: b };
       setBadges(b);
     }
   });
@@ -17294,7 +19870,7 @@ ${stack}`.slice(0, 2e3);
       if (!mastered) store2.set("kb:levels", JSON.stringify(["KANA"]));
     }
   });
-  $("modesBack").onclick = () => show("menu");
+  $("modesBack").onclick = () => show("private");
   var join = () => {
     const c = $("joinCode").value.trim();
     if (c.length !== 4) return setError("Room codes have 4 letters");
@@ -17309,7 +19885,7 @@ ${stack}`.slice(0, 2e3);
   $("studyBack").onclick = () => show("menu");
   $("customizeBtn").onclick = async () => {
     await refreshProfile();
-    if (profile2) openCustomize(profile2, user?.role === "admin", () => applyBackground(true));
+    if (profile3) openCustomize(profile3, user?.role === "admin", () => applyBackground(true));
   };
   $("customizeBack").onclick = () => show("menu");
   async function openAdmin() {
@@ -17518,7 +20094,7 @@ ${stack}`.slice(0, 2e3);
   }
   {
     const sel = $("uiZoom");
-    sel.replaceChildren(...UI_ZOOMS.map((z) => new Option(`${Math.round(z * 100)}%${z === 0.8 ? " (default)" : ""}`, String(z))));
+    sel.replaceChildren(...UI_ZOOMS.map((z) => new Option(`${Math.round(z * 100)}%${z === 1 ? " (default)" : ""}`, String(z))));
     sel.value = String(uiZoomPref());
     sel.onchange = () => setUiZoomPref(Number(sel.value));
   }
@@ -17643,8 +20219,8 @@ ${stack}`.slice(0, 2e3);
       e.target.value = "";
       if (!file) return;
       try {
-        const { profile: profile3 } = await api.setAvatar(await squarePicture(file));
-        setProfile(profile3);
+        const { profile: profile4 } = await api.setAvatar(await squarePicture(file));
+        setProfile(profile4);
         toast("Profile picture updated");
       } catch (err) {
         toast(err.message || "Could not use that picture");
@@ -17691,6 +20267,7 @@ ${stack}`.slice(0, 2e3);
       fx.value = String(Math.round(v.sfx * 100));
       $("musicVolVal").textContent = `${music.value}%`;
       $("sfxVolVal").textContent = `${fx.value}%`;
+      for (const r2 of [music, fx, vo]) r2.style.setProperty("--p", `${r2.value}%`);
       setAudioButtons(isRadioOn(), isSfxOn());
     };
     $("volBtn").onclick = (e) => {
