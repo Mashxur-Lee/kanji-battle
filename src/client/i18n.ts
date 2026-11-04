@@ -461,6 +461,12 @@ const RU: Record<string, string> = {
   '🔔 Reminders work': '🔔 Напоминания работают', 'This is how Kanji Wizards reminders will look.': 'Так будут выглядеть напоминания Kanji Wizards.', 'Last reminder check': 'Последняя проверка напоминаний',
   'Theme': 'Тема', 'Dark': 'Тёмная', 'Light': 'Светлая', 'New a day': 'Новых в день',
   'Every giseigo, gitaigo and gijōgo: sounds (ワンワン), states (きらきら) and feelings (ドキドキ). Choose how many new ones a day (0 = none).': 'Все гисэйго, гитайго и гидзёго: звуки (ワンワン), состояния (きらきら) и чувства (ドキドキ). Выберите, сколько новых в день (0 — ни одного).',
+  // 0.9.9.8.1
+  'Reading, Rapid, Boss and Deck Duel against players': 'Чтение, Блиц, Босс и Дуэль колод против игроков',
+  'Play friends with a room code, or the AI': 'Играйте с друзьями по коду комнаты или с ИИ',
+  '10 words a day — climb the leagues from Kana to N1': '10 слов в день — поднимайтесь по лигам от Каны до N1',
+  'Your decks, quizzes and reading passages': 'Ваши колоды, тесты и тексты для чтения',
+  'Find a match': 'Найти матч', 'Play again with the same settings?': 'Сыграть ещё раз с теми же настройками?',
   // 0.9.9.8
   'Tap again to leave': 'Нажмите ещё раз, чтобы выйти',
   'Look up a word…': 'Найти слово…', 'Look up a word': 'Найти слово', 'Full entry': 'Полная статья',
@@ -750,6 +756,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^You’ve used all (\d+) of today’s AI stories — new ones tomorrow!$/, 'Вы использовали все $1 ИИ-рассказов на сегодня — новые завтра!'],
   [/^Pick which of your words go in and the story level above, then start\. (\d+) words of “(.+)” fit\.$/, (_, n, d) => `Выберите выше, какие ваши слова войдут, и уровень рассказа, затем начните. Подходит слов из «${RU[d] ?? d}»: ${n}.`],
   [/^You can have up to (\d+) new AI stories a day — the counter next to New passage shows how many are left\. After that \(or offline\), the passage uses your words’ example sentences instead\.$/, 'В день можно получить до $1 новых ИИ-рассказов — счётчик рядом с «Новый текст» показывает, сколько осталось. Потом (или без интернета) используются примеры предложений ваших слов.'],
+  [/^(.+) wants a rematch$/, (_, n) => `${n} хочет реванш`],
   [/^A story needs at least 8 words — your Onomatopoeia deck has (\d+)\. Study a few more onomatopoeia first\.$/, (_, n) => `Для рассказа нужно хотя бы 8 слов — в вашей колоде ономатопеи их ${n}. Сначала изучите ещё немного ономатопеи.`],
   [/^A story needs at least 8 kanji words — “(.+)” has (\d+) of the levels you ticked\. Tick more levels, pick another deck, or study more words\.$/, (_, d, n) => `Для рассказа нужно хотя бы 8 слов с кандзи — в «${RU[d] ?? d}» их ${n} среди отмеченных уровней. Отметьте больше уровней, выберите другую колоду или изучите больше слов.`],
   [/^(\d+) missed → Struggling spells$/, '$1 с ошибкой → «Трудные заклинания»'],

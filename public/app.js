@@ -4363,6 +4363,13 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         "Light": "\u0421\u0432\u0435\u0442\u043B\u0430\u044F",
         "New a day": "\u041D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C",
         "Every giseigo, gitaigo and gij\u014Dgo: sounds (\u30EF\u30F3\u30EF\u30F3), states (\u304D\u3089\u304D\u3089) and feelings (\u30C9\u30AD\u30C9\u30AD). Choose how many new ones a day (0 = none).": "\u0412\u0441\u0435 \u0433\u0438\u0441\u044D\u0439\u0433\u043E, \u0433\u0438\u0442\u0430\u0439\u0433\u043E \u0438 \u0433\u0438\u0434\u0437\u0451\u0433\u043E: \u0437\u0432\u0443\u043A\u0438 (\u30EF\u30F3\u30EF\u30F3), \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F (\u304D\u3089\u304D\u3089) \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u0430 (\u30C9\u30AD\u30C9\u30AD). \u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C (0 \u2014 \u043D\u0438 \u043E\u0434\u043D\u043E\u0433\u043E).",
+        // 0.9.9.8.1
+        "Reading, Rapid, Boss and Deck Duel against players": "\u0427\u0442\u0435\u043D\u0438\u0435, \u0411\u043B\u0438\u0446, \u0411\u043E\u0441\u0441 \u0438 \u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434 \u043F\u0440\u043E\u0442\u0438\u0432 \u0438\u0433\u0440\u043E\u043A\u043E\u0432",
+        "Play friends with a room code, or the AI": "\u0418\u0433\u0440\u0430\u0439\u0442\u0435 \u0441 \u0434\u0440\u0443\u0437\u044C\u044F\u043C\u0438 \u043F\u043E \u043A\u043E\u0434\u0443 \u043A\u043E\u043C\u043D\u0430\u0442\u044B \u0438\u043B\u0438 \u0441 \u0418\u0418",
+        "10 words a day \u2014 climb the leagues from Kana to N1": "10 \u0441\u043B\u043E\u0432 \u0432 \u0434\u0435\u043D\u044C \u2014 \u043F\u043E\u0434\u043D\u0438\u043C\u0430\u0439\u0442\u0435\u0441\u044C \u043F\u043E \u043B\u0438\u0433\u0430\u043C \u043E\u0442 \u041A\u0430\u043D\u044B \u0434\u043E N1",
+        "Your decks, quizzes and reading passages": "\u0412\u0430\u0448\u0438 \u043A\u043E\u043B\u043E\u0434\u044B, \u0442\u0435\u0441\u0442\u044B \u0438 \u0442\u0435\u043A\u0441\u0442\u044B \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F",
+        "Find a match": "\u041D\u0430\u0439\u0442\u0438 \u043C\u0430\u0442\u0447",
+        "Play again with the same settings?": "\u0421\u044B\u0433\u0440\u0430\u0442\u044C \u0435\u0449\u0451 \u0440\u0430\u0437 \u0441 \u0442\u0435\u043C\u0438 \u0436\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u043C\u0438?",
         // 0.9.9.8
         "Tap again to leave": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437, \u0447\u0442\u043E\u0431\u044B \u0432\u044B\u0439\u0442\u0438",
         "Look up a word\u2026": "\u041D\u0430\u0439\u0442\u0438 \u0441\u043B\u043E\u0432\u043E\u2026",
@@ -4734,6 +4741,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         [/^You’ve used all (\d+) of today’s AI stories — new ones tomorrow!$/, "\u0412\u044B \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043B\u0438 \u0432\u0441\u0435 $1 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u2014 \u043D\u043E\u0432\u044B\u0435 \u0437\u0430\u0432\u0442\u0440\u0430!"],
         [/^Pick which of your words go in and the story level above, then start\. (\d+) words of “(.+)” fit\.$/, (_, n, d) => `\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u044B\u0448\u0435, \u043A\u0430\u043A\u0438\u0435 \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0432\u043E\u0439\u0434\u0443\u0442, \u0438 \u0443\u0440\u043E\u0432\u0435\u043D\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430, \u0437\u0430\u0442\u0435\u043C \u043D\u0430\u0447\u043D\u0438\u0442\u0435. \u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u0441\u043B\u043E\u0432 \u0438\u0437 \xAB${RU[d] ?? d}\xBB: ${n}.`],
         [/^You can have up to (\d+) new AI stories a day — the counter next to New passage shows how many are left\. After that \(or offline\), the passage uses your words’ example sentences instead\.$/, "\u0412 \u0434\u0435\u043D\u044C \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0434\u043E $1 \u043D\u043E\u0432\u044B\u0445 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u2014 \u0441\u0447\u0451\u0442\u0447\u0438\u043A \u0440\u044F\u0434\u043E\u043C \u0441 \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C. \u041F\u043E\u0442\u043E\u043C (\u0438\u043B\u0438 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430) \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442\u0441\u044F \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432."],
+        [/^(.+) wants a rematch$/, (_, n) => `${n} \u0445\u043E\u0447\u0435\u0442 \u0440\u0435\u0432\u0430\u043D\u0448`],
         [/^A story needs at least 8 words — your Onomatopoeia deck has (\d+)\. Study a few more onomatopoeia first\.$/, (_, n) => `\u0414\u043B\u044F \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u043D\u0443\u0436\u043D\u043E \u0445\u043E\u0442\u044F \u0431\u044B 8 \u0441\u043B\u043E\u0432 \u2014 \u0432 \u0432\u0430\u0448\u0435\u0439 \u043A\u043E\u043B\u043E\u0434\u0435 \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0438 \u0438\u0445 ${n}. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0438\u0437\u0443\u0447\u0438\u0442\u0435 \u0435\u0449\u0451 \u043D\u0435\u043C\u043D\u043E\u0433\u043E \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0438.`],
         [/^A story needs at least 8 kanji words — “(.+)” has (\d+) of the levels you ticked\. Tick more levels, pick another deck, or study more words\.$/, (_, d, n) => `\u0414\u043B\u044F \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u043D\u0443\u0436\u043D\u043E \u0445\u043E\u0442\u044F \u0431\u044B 8 \u0441\u043B\u043E\u0432 \u0441 \u043A\u0430\u043D\u0434\u0437\u0438 \u2014 \u0432 \xAB${RU[d] ?? d}\xBB \u0438\u0445 ${n} \u0441\u0440\u0435\u0434\u0438 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u0445 \u0443\u0440\u043E\u0432\u043D\u0435\u0439. \u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u0443\u0440\u043E\u0432\u043D\u0435\u0439, \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443 \u0438\u043B\u0438 \u0438\u0437\u0443\u0447\u0438\u0442\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u0441\u043B\u043E\u0432.`],
         [/^(\d+) missed → Struggling spells$/, "$1 \u0441 \u043E\u0448\u0438\u0431\u043A\u043E\u0439 \u2192 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB"],
@@ -5759,6 +5767,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     return `<g class="bg-mist" opacity="${op}" filter="url(#blur20)">${Array.from({ length: 6 }, (_, i) => `<ellipse cx="${f(i * 300 + r(-60, 60))}" cy="${f(y + r(-20, 20))}" rx="${f(r(220, 340))}" ry="${f(r(26, 46))}" fill="${color}"/>`).join("")}</g>`;
   }
   function arenaFloor(t, stone, accent, glyph = "#ffffff") {
+    if (MENU) return menuFore(SCENE_ID, t);
     const [top, mid, edge] = stone;
     const cy = 940, rx = 1040, ry = 220;
     let s = `<ellipse cx="800" cy="${cy + 22}" rx="${rx + 20}" ry="${ry + 16}" fill="#000" opacity=".35" filter="url(#blur20)"/>`;
@@ -5907,9 +5916,11 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     return s;
   }
   function standingStones(stone, glow, lit, moss, inner = 720) {
+    if (MENU) return "";
     return monolith(500, inner, 120, 44, stone, glow, lit, moss) + monolith(1100, inner, 120, 44, stone, glow, lit, moss) + monolith(180, 750, 190, 64, stone, glow, lit, moss) + monolith(1420, 750, 190, 64, stone, glow, lit, moss);
   }
   function brazier(x, base, s, stone, lit) {
+    if (MENU) return "";
     const flame = `<g class="bg-flicker" filter="url(#glow)"><path d="M${x - 9 * s} ${base - 34 * s} Q${x - 10 * s} ${base - 56 * s} ${x} ${base - 74 * s} Q${x + 10 * s} ${base - 56 * s} ${x + 9 * s} ${base - 34 * s} Z" fill="#ff9a2a"/><path d="M${x - 4 * s} ${base - 34 * s} Q${x - 4 * s} ${base - 48 * s} ${x} ${base - 58 * s} Q${x + 4 * s} ${base - 48 * s} ${x + 4 * s} ${base - 34 * s} Z" fill="#fff0a0"/></g>`;
     return `<path d="M${x - 14 * s} ${base} L${x - 9 * s} ${base - 26 * s} L${x - 16 * s} ${base - 34 * s} L${x + 16 * s} ${base - 34 * s} L${x + 9 * s} ${base - 26 * s} L${x + 14 * s} ${base} Z" fill="${stone}"/>${lit ? flame : `<ellipse cx="${x}" cy="${base - 36 * s}" rx="${12 * s}" ry="${4 * s}" fill="#ffb060" opacity=".7"/>`}`;
   }
@@ -6109,11 +6120,11 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     ${haze(700, pick(t, "#e8eef6", "#ff8a5a", "#1a2050"), 0.25)}
     ${grass(30, 655, 715, pick(t, "#5e7a48", "#3a2a24", "#121a22"), 10, 22)}
     ${banner(380)}${banner(1158)}
-    ${army(40, false)}${army(1560, true)}
+    ${MENU ? "" : army(40, false) + army(1560, true)}
     ${standingStones(pick(t, "#6a6878", "#3a2228", "#16162a"), "#ffb060", lit, pick(t, "#4f8a3a", "#6a6a34", "#1e4a2c"))}
     ${brazier(270, 740, 1.4, pick(t, "#4a4a56", "#2a1418", "#121222"), lit || true)}${brazier(1330, 740, 1.4, pick(t, "#4a4a56", "#2a1418", "#121222"), lit || true)}
     ${arenaFloor(t, stone, pick(t, "#ffb060", "#ffb060", "#a8a0ff"), pick(t, "#ffffff", "#fff0d0", "#e8e6ff"))}
-    <g class="bg-spark" filter="url(#glow)"><circle cx="262" cy="700" r="5" fill="#fff6c0"/><circle cx="1338" cy="700" r="5" fill="#fff6c0" style="animation-delay:2.7s"/></g>
+    ${MENU ? "" : `<g class="bg-spark" filter="url(#glow)"><circle cx="262" cy="700" r="5" fill="#fff6c0"/><circle cx="1338" cy="700" r="5" fill="#fff6c0" style="animation-delay:2.7s"/></g>`}
     ${t === "night" ? fireflies(8, 520, 700, "#ffcf6a") : ""}`;
   }
   function worldtree(t) {
@@ -6185,19 +6196,164 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     ${arenaFloor(t, stone, pick(t, "#2adfa0", "#7affd0", "#6affd0"), pick(t, "#0a5a40", "#f0fff8", "#e0fff4"))}
     ${t === "night" ? fireflies(24, 80, 520, "#bff8ff") : ""}`;
   }
-  function scene(id, t) {
+  function meadow(top, bottom, y = 716) {
+    return `<path d="M0 ${y} Q400 ${y - 10} 800 ${y - 4} Q1200 ${y - 10} 1600 ${y} V${H} H0 Z" fill="${lin([[0, top], [1, bottom]])}"/>`;
+  }
+  function trailAt(k, end = 800) {
+    const P = [[end, 722], [end + 90, 772], [end - 110, 830], [end - 10, 906]];
+    const u = 1 - k;
+    const x = u * u * u * P[0][0] + 3 * u * u * k * P[1][0] + 3 * u * k * k * P[2][0] + k * k * k * P[3][0];
+    const y = u * u * u * P[0][1] + 3 * u * u * k * P[1][1] + 3 * u * k * k * P[2][1] + k * k * k * P[3][1];
+    return { x, y, w: 6 + Math.pow(k, 1.6) * 420 };
+  }
+  function trail(t, c, cobble = false, end = 800) {
+    const N = 28, L = [], R = [];
+    for (let i = 0; i <= N; i++) {
+      const p = trailAt(i / N, end);
+      L.push(`${f(p.x - p.w / 2)} ${f(p.y)}`);
+      R.push(`${f(p.x + p.w / 2)} ${f(p.y)}`);
+    }
+    const d = `M${L.join(" L")} L${R.reverse().join(" L")} Z`;
+    let s = `<path d="${d}" fill="${lin([[0, lighten(c, 0.25)], [0.5, c], [1, dk2(c, 0.25)]])}"/>`;
+    s += `<path d="${d}" fill="none" stroke="${dk2(c, 0.4)}" stroke-width="3" opacity=".55"/>`;
+    let stones = "";
+    for (let i = 0; i < (cobble ? 170 : 60); i++) {
+      const k = Math.sqrt(rnd()), p = trailAt(k, end), ox = r(-0.45, 0.45) * p.w, sz = 1 + p.w / (cobble ? 26 : 60);
+      stones += cobble ? `<ellipse cx="${f(p.x + ox)}" cy="${f(p.y + r(-4, 4) * k)}" rx="${f(sz * r(1, 1.5))}" ry="${f(sz * 0.55)}" fill="${rnd() > 0.5 ? lighten(c, 0.18) : dk2(c, 0.12)}" stroke="${dk2(c, 0.45)}" stroke-width="1" stroke-opacity=".6"/>` : `<ellipse cx="${f(p.x + ox)}" cy="${f(p.y)}" rx="${f(sz * r(0.8, 1.6))}" ry="${f(sz * 0.6)}" fill="${rnd() > 0.5 ? lighten(c, 0.3) : dk2(c, 0.3)}" opacity=".8"/>`;
+    }
+    s += stones;
+    if (!cobble) {
+      let rut = "";
+      for (const side of [-0.18, 0.18]) {
+        const pts = Array.from({ length: 20 }, (_, i) => {
+          const p = trailAt(i / 19, end);
+          return `${f(p.x + side * p.w)} ${f(p.y)}`;
+        });
+        rut += `M${pts.join(" L")} `;
+      }
+      s += `<path d="${rut}" stroke="${dk2(c, 0.3)}" stroke-width="3" fill="none" opacity=".35" stroke-linecap="round"/>`;
+    }
+    return s;
+  }
+  function flowerField(n, y0, y1, colors, avoid = true, end = 800) {
+    let s = "";
+    for (let i = 0; i < n; i++) {
+      const y = y0 + Math.pow(rnd(), 0.7) * (y1 - y0), x = r(0, W);
+      if (avoid === true ? onTrail(x, y, end) : avoid && avoid(x, y)) continue;
+      const k = (y - y0) / (y1 - y0), sz = 1.4 + k * 4.2, c = colors[Math.floor(rnd() * colors.length)];
+      s += `<g transform="translate(${f(x)} ${f(y)})"><path d="M0 0 v${f(-sz * 2.2)}" stroke="#3e6a2e" stroke-width="${f(0.6 + k)}"/>${[0, 72, 144, 216, 288].map((a) => `<ellipse cx="0" cy="${f(-sz * 2.2 - sz * 0.7)}" rx="${f(sz * 0.45)}" ry="${f(sz * 0.75)}" fill="${c}" transform="rotate(${a} 0 ${f(-sz * 2.2)})"/>`).join("")}<circle cx="0" cy="${f(-sz * 2.2)}" r="${f(sz * 0.38)}" fill="#ffd65a"/></g>`;
+    }
+    return s;
+  }
+  function fern(x, y, s, c, flip2 = false) {
+    let out = "";
+    for (let i = 0; i < 7; i++) {
+      const a = (flip2 ? 180 : 0) + (flip2 ? 1 : -1) * (12 + i * 22), len = s * r(0.75, 1.1);
+      const rad0 = a * Math.PI / 180, ex = x + Math.cos(rad0) * len, ey = y - Math.abs(Math.sin(rad0)) * len;
+      const mx = (x + ex) / 2, my = Math.min(y, ey) - len * 0.25;
+      out += `<path d="M${f(x)} ${f(y)} Q${f(mx)} ${f(my)} ${f(ex)} ${f(ey)}" stroke="${dk2(c, 0.15)}" stroke-width="${f(s * 0.03)}" fill="none" stroke-linecap="round"/>`;
+      for (let j = 1; j < 9; j++) {
+        const q = j / 9, u = 1 - q, px = u * u * x + 2 * u * q * mx + q * q * ex, py = u * u * y + 2 * u * q * my + q * q * ey, lf = s * 0.16 * (1 - q * 0.7);
+        out += `<path d="M${f(px)} ${f(py)} q${f(lf * 0.4)} ${f(-lf)} ${f(lf * 0.1)} ${f(-lf * 1.5)} M${f(px)} ${f(py)} q${f(-lf * 0.6)} ${f(-lf * 0.4)} ${f(-lf * 1.2)} ${f(-lf * 0.6)}" stroke="${j % 2 ? c : lighten(c, 0.12)}" stroke-width="${f(Math.max(1.4, s * 0.025))}" fill="none" stroke-linecap="round"/>`;
+      }
+    }
+    return out;
+  }
+  function mushroom(x, y, s, cap, glow) {
+    return `<ellipse cx="${x}" cy="${y}" rx="${f(10 * s)}" ry="${f(2.5 * s)}" fill="#000" opacity=".3"/><path d="M${f(x - 3 * s)} ${y} Q${f(x - 2 * s)} ${f(y - 10 * s)} ${f(x - 2.5 * s)} ${f(y - 14 * s)} L${f(x + 2.5 * s)} ${f(y - 14 * s)} Q${f(x + 2 * s)} ${f(y - 10 * s)} ${f(x + 3 * s)} ${y} Z" fill="#efe6d4"/><path d="M${f(x - 11 * s)} ${f(y - 13 * s)} Q${x} ${f(y - 30 * s)} ${f(x + 11 * s)} ${f(y - 13 * s)} Z" fill="${rad([[0, lighten(cap, 0.3)], [1, dk2(cap, 0.25)]], 0.4, 0.2)}"${glow ? ' filter="url(#glow)" class="bg-flicker slow"' : ""}/><circle cx="${f(x - 4 * s)}" cy="${f(y - 20 * s)}" r="${f(1.6 * s)}" fill="#fff" opacity=".8"/><circle cx="${f(x + 4 * s)}" cy="${f(y - 17 * s)}" r="${f(1.2 * s)}" fill="#fff" opacity=".7"/>`;
+  }
+  function lantern(x, y, h6, wood, lit) {
+    return `<rect x="${f(x - 3)}" y="${f(y - h6)}" width="6" height="${f(h6)}" fill="${wood}"/><path d="M${f(x)} ${f(y - h6)} h18 v6" stroke="${wood}" stroke-width="3" fill="none"/><rect x="${f(x + 11)}" y="${f(y - h6 + 6)}" width="14" height="18" rx="3" fill="${lit ? "#ffcf6a" : "#5a5040"}" stroke="${dk2(wood, 0.3)}" stroke-width="2"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ""}/>` + (lit ? `<circle cx="${f(x + 18)}" cy="${f(y - h6 + 15)}" r="40" fill="#ffcf6a" opacity=".12"/>` : "");
+  }
+  function menuFore(id, t) {
+    const lit = t !== "day";
+    const frame = (leaf) => fern(60, 905, 230, leaf) + fern(1545, 905, 250, leaf, true) + bush(-10, 912, 90, dk2(leaf, 0.15)) + bush(1620, 912, 100, dk2(leaf, 0.15));
+    if (id === "forest") {
+      const g2 = pick(t, "#56724a", "#38262e", "#0b1612");
+      return meadow(g2, dk2(g2, 0.45)) + trail(t, pick(t, "#a08a66", "#6a4a3e", "#25222a")) + grass(60, 726, 900, pick(t, "#5a7a4a", "#4a3a3a", "#10201a"), 16, 40) + `<path d="M150 836 Q260 818 430 828 L436 852 Q260 846 148 860 Z" fill="${lin([[0, pick(t, "#6a5240", "#3a2622", "#14121a")], [1, pick(t, "#3e2e22", "#1e1212", "#08080c")]])}"/><ellipse cx="434" cy="840" rx="7" ry="12" fill="${pick(t, "#c8a880", "#7a5040", "#2a2428")}"/>${bark(160, 822, 270, 30, pick(t, "#6a5240", "#3a2622", "#14121a"))}` + [[300, 822, 1.1], [330, 828, 0.8], [1140, 800, 1], [1170, 806, 0.7], [1260, 860, 1.5], [520, 880, 1.6]].map(([x, y, k]) => mushroom(x, y, k, pick(t, "#c8402e", "#b0503a", "#3ac8d8"), t === "night")).join("") + flowerField(70, 740, 895, pick(t, ["#ffffff", "#ffe27a", "#c9b8ff"], ["#ffd0a0", "#ffb0c0"], ["#9ff5ff", "#c9b8ff"])) + frame(pick(t, "#3e6a32", "#3a3028", "#0c2018")) + (lit ? fireflies(t === "night" ? 26 : 10, 700, 880, "#e8ff9a") : "");
+    }
+    if (id === "swamp") {
+      const water = pick(t, ["#8aa898", "#3e5a4c"], ["#c4865e", "#4a2c30"], ["#24383a", "#050c0c"]);
+      const wood = pick(t, "#7a6048", "#4a3028", "#1a1614");
+      let planks = "";
+      for (let i = 0; i < 22; i++) {
+        const k0 = i / 22, k1 = (i + 0.82) / 22;
+        const a = trailAt(k0, 760), b = trailAt(k1, 760), w0 = a.w * 0.62 + 4, w1 = b.w * 0.62 + 4;
+        planks += `<path d="M${f(a.x - w0 / 2)} ${f(a.y)} L${f(a.x + w0 / 2)} ${f(a.y)} L${f(b.x + w1 / 2)} ${f(b.y)} L${f(b.x - w1 / 2)} ${f(b.y)} Z" fill="${i % 2 ? wood : lighten(wood, 0.08)}" stroke="${dk2(wood, 0.4)}" stroke-width="1"/>`;
+      }
+      const sunX = pick(t, 400, 420, 420);
+      const glint = pick(t, "#fffbe6", "#ffd9a0", "#dfe9a8");
+      let shine = "";
+      for (let i = 0; i < 24; i++) {
+        const y = 726 + i * 7.5, w = 14 + i * 3.5;
+        shine += `<rect x="${f(sunX - w / 2 + r(-10, 10))}" y="${f(y)}" width="${f(w * r(0.5, 1))}" height="2" fill="${glint}" opacity="${f(0.55 - i * 0.018)}"/>`;
+      }
+      return `<rect x="0" y="712" width="${W}" height="${H - 712}" fill="${lin([[0, water[0]], [1, water[1]]])}"/><g class="bg-drift slow">${shine}</g><g stroke="${lighten(water[0], 0.35)}" stroke-width="2" fill="none" opacity=".4">${Array.from({ length: 30 }, () => {
+        const y = r(724, 896), k = (y - 716) / 184, x = r(0, W), w = 20 + k * 120;
+        return `<path d="M${f(x)} ${f(y)} q${f(w / 2)} -3 ${f(w)} 0"/>`;
+      }).join("")}</g>` + Array.from({ length: 26 }, () => {
+        const y = r(730, 890), k = (y - 716) / 184, x = r(0, W);
+        if (Math.abs(x - 760) < 40 + k * 120) return "";
+        const w = 10 + k * 40;
+        const c = pick(t, "#5a8a44", "#6a5a34", "#1f3a1a");
+        return `<path d="M${f(x)} ${f(y)} L${f(x + w)} ${f(y - 2)} A${f(w)} ${f(w * 0.24)} 0 1 1 ${f(x + w * 0.9)} ${f(y + 3)} Z" fill="${rad([[0, lighten(c, 0.25)], [1, dk2(c, 0.2)]], 0.4, 0.3, 0.8)}"/>${rnd() > 0.6 ? `<circle cx="${f(x - w * 0.2)}" cy="${f(y - 2 - k * 4)}" r="${f(2 + k * 4)}" fill="${pick(t, "#ffd0e0", "#ffc0a0", "#c8a0ff")}"/>` : ""}`;
+      }).join("") + planks + lantern(trailAt(0.5, 760).x - trailAt(0.5, 760).w * 0.34 - 4, trailAt(0.5, 760).y, 80, wood, lit) + lantern(trailAt(0.82, 760).x + trailAt(0.82, 760).w * 0.32, trailAt(0.82, 760).y, 140, wood, lit) + frame(pick(t, "#3e6a32", "#4a3a28", "#0c2018")) + (lit ? fireflies(t === "night" ? 30 : 12, 690, 880, "#d8ff7a") : "");
+    }
+    if (id === "plains") {
+      const g2 = pick(t, "#6a9a4c", "#5a5a3a", "#14261a");
+      const wood = pick(t, "#8a6a4a", "#4a3028", "#16141a");
+      let fence = "";
+      for (let i = 0; i < 9; i++) {
+        const k = 0.12 + i * 0.1, p = trailAt(Math.min(1, k)), x = p.x + p.w / 2 + 16 + k * 40, h6 = 10 + k * 70;
+        fence += `<rect x="${f(x)}" y="${f(p.y - h6)}" width="${f(2 + k * 8)}" height="${f(h6)}" fill="${wood}"/>`;
+        if (i) {
+          const q = trailAt(0.12 + (i - 1) * 0.1), qx = q.x + q.w / 2 + 16 + (0.12 + (i - 1) * 0.1) * 40, qh = 10 + (0.12 + (i - 1) * 0.1) * 70;
+          fence += `<path d="M${f(qx)} ${f(q.y - qh * 0.75)} L${f(x)} ${f(p.y - h6 * 0.75)} M${f(qx)} ${f(q.y - qh * 0.35)} L${f(x)} ${f(p.y - h6 * 0.35)}" stroke="${wood}" stroke-width="${f(1 + k * 4)}"/>`;
+        }
+      }
+      return meadow(g2, dk2(g2, 0.35)) + trail(t, pick(t, "#c8ae7e", "#8a6a52", "#2a2830")) + grass(70, 724, 900, pick(t, "#4f7a34", "#4a4a2a", "#0e1c12"), 16, 44) + flowerField(170, 734, 898, pick(t, ["#ffe27a", "#ffffff", "#c9a0ff", "#ff9ab0"], ["#ffd0a0", "#ff9a8a", "#ffe0a0"], ["#c9b8ff", "#9fd8ff", "#ffffff"])) + fence + `<g transform="translate(300 812)"><ellipse cx="0" cy="22" rx="56" ry="10" fill="#000" opacity=".25"/><path d="M-50 20 Q-54 -26 0 -30 Q54 -26 50 20 Z" fill="${lin([[0, pick(t, "#e8c868", "#c08a50", "#3a3424")], [1, pick(t, "#a8823a", "#7a4a2a", "#1c1a14")]])}"/><path d="M-40 -6 Q0 -14 40 -6 M-46 8 Q0 0 46 8" stroke="${pick(t, "#a8823a", "#7a4a2a", "#1c1a14")}" stroke-width="2" fill="none"/></g>` + frame(pick(t, "#3e7a32", "#4a4a28", "#0c2018")) + (t === "night" ? fireflies(18, 700, 880, "#fff2a0") : "");
+    }
+    if (id === "castle") {
+      const g2 = pick(t, "#5a7050", "#2a1418", "#121628");
+      const stoneC = pick(t, "#8a8494", "#4a2a2c", "#22223a");
+      let posts = "";
+      for (const k of [0.3, 0.55, 0.85]) {
+        const p = trailAt(k), h6 = 30 + k * 120;
+        for (const side of [-1, 1]) {
+          const x = p.x + side * (p.w / 2 + 20 + k * 30);
+          posts += `<rect x="${f(x - 2 - k * 3)}" y="${f(p.y - h6)}" width="${f(4 + k * 6)}" height="${f(h6)}" fill="${pick(t, "#3a3030", "#1a0c10", "#0a0a14")}"/>` + (lit ? `<g filter="url(#glow)" class="bg-flicker"><ellipse cx="${f(x)}" cy="${f(p.y - h6 - 6 - k * 6)}" rx="${f(3 + k * 5)}" ry="${f(6 + k * 10)}" fill="#ffb347"/></g><circle cx="${f(x)}" cy="${f(p.y - h6)}" r="${f(30 + k * 40)}" fill="#ffb347" opacity=".1"/>` : `<rect x="${f(x - 4 - k * 4)}" y="${f(p.y - h6 - 6)}" width="${f(8 + k * 8)}" height="${f(6 + k * 4)}" fill="#2a2a2a"/>`);
+        }
+      }
+      const wall = (x0, x1, y, h6) => `<rect x="${x0}" y="${y - h6}" width="${x1 - x0}" height="${h6}" fill="${lin([[0, lighten(stoneC, 0.1)], [1, dk2(stoneC, 0.3)]])}"/><rect x="${x0}" y="${y - h6}" width="${x1 - x0}" height="${h6}" fill="url(#bricks)"/>${Array.from({ length: Math.floor((x1 - x0) / 40) }, (_, i) => `<rect x="${x0 + i * 40 + 4}" y="${y - h6 - 14}" width="24" height="14" fill="${stoneC}"/>`).join("")}`;
+      return meadow(g2, dk2(g2, 0.4)) + trail(t, pick(t, "#9a94a4", "#5a3a3a", "#2a2a40"), true) + grass(50, 724, 900, pick(t, "#5e7a48", "#3a2a24", "#121a22"), 14, 36) + wall(-20, 330, 880, 70) + wall(1270, 1620, 880, 70) + posts + flowerField(60, 740, 860, pick(t, ["#ffffff", "#ffe27a"], ["#ffb070", "#ffe0a0"], ["#c9b8ff", "#ffffff"])) + (t === "night" ? fireflies(14, 700, 860, "#ffcf6a") : "");
+    }
+    const g = pick(t, "#3e7a4e", "#4a3a2a", "#0e2420");
+    const pool = pick(t, ["#bfe6ff", "#5a9ac0"], ["#ffc890", "#7a4a6a"], ["#2c8a8a", "#0b1a3a"]);
+    return meadow(g, dk2(g, 0.45), 712) + `<ellipse cx="800" cy="812" rx="430" ry="70" fill="${lin([[0, pool[0]], [1, pool[1]]])}"/><ellipse cx="800" cy="812" rx="430" ry="70" fill="none" stroke="${dk2(g, 0.3)}" stroke-width="4"/><ellipse cx="800" cy="800" rx="300" ry="30" fill="${pick(t, "#ffffff", "#fff0c0", "#9ff5c8")}" opacity="${pick(t, 0.35, 0.3, 0.45)}" filter="url(#blur20)"/><g stroke="${lighten(pool[0], 0.4)}" stroke-width="2" fill="none" opacity=".5" class="bg-drift slow">${Array.from({ length: 12 }, () => {
+      const x = r(440, 1120), y = r(770, 860), w = r(30, 80);
+      return `<path d="M${f(x)} ${f(y)} q${f(w / 2)} -3 ${f(w)} 0"/>`;
+    }).join("")}</g>` + [[620, 880, 1.6], [720, 852, 1.2], [880, 860, 1.3], [1e3, 884, 1.7]].map(([x, y, k]) => `<ellipse cx="${x}" cy="${y + 4 * k}" rx="${f(36 * k)}" ry="${f(8 * k)}" fill="#000" opacity=".3"/><ellipse cx="${x}" cy="${y}" rx="${f(34 * k)}" ry="${f(10 * k)}" fill="${lin([[0, pick(t, "#a8b0a8", "#7a5a50", "#2a3a40")], [1, pick(t, "#6a726a", "#4a3030", "#121c22")]])}"/>`).join("") + grass(60, 722, 900, pick(t, "#3f8a4a", "#5a4a2a", "#0e2a1e"), 16, 40) + flowerField(110, 730, 898, pick(t, ["#ffffff", "#ffe27a", "#9fd8ff"], ["#ffd0a0", "#ffb0c0"], ["#9ff5c8", "#c9b8ff", "#7affd0"]), (x, y) => ((x - 800) / 450) ** 2 + ((y - 812) / 82) ** 2 < 1) + frame(pick(t, "#2f6a3a", "#4a4028", "#0c2a1e")) + (lit ? `<g class="bg-float">${Array.from({ length: t === "night" ? 36 : 14 }, () => `<circle cx="${f(r(300, 1300))}" cy="${f(r(560, 860))}" r="${f(r(1.5, 3.2))}" fill="#9ff5c8" filter="url(#glow)" class="bg-flicker" style="animation-delay:${f(r(0, 4))}s"/>`).join("")}</g>` : "");
+  }
+  function scene(id, t, menu = false) {
     seed = [...id + t].reduce((s, c) => s + c.charCodeAt(0) * 97, 7);
-    const key = `${id}-${t}`;
+    const key = `${id}-${t}${menu ? "-m" : ""}`;
     gdefs = [];
     gn = 0;
-    const body = SCENES[id](t);
+    MENU = menu;
+    SCENE_ID = id;
+    let body;
+    try {
+      body = SCENES[id](t);
+    } finally {
+      MENU = false;
+    }
     return (body + `<defs>${gdefs.join("")}</defs>`).replace(/id="(\w+)"/g, `id="${key}-$1"`).replace(/url\(#(\w+)\)/g, `url(#${key}-$1)`);
   }
-  function paintBackground(el11, id, time = "night", fade = false) {
-    const key = `${id}-${time}`;
+  function paintBackground(el11, id, time = "night", fade = false, menu = false) {
+    const key = `${id}-${time}${menu ? "-m" : ""}`;
     if (el11.dataset.key === key) return;
     el11.dataset.key = key;
-    if (!cache2.has(key)) cache2.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time)}</svg>`);
+    if (!cache2.has(key)) cache2.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time, menu)}</svg>`);
     const swap = () => {
       const layer = document.createElement("div");
       layer.className = "bg-layer";
@@ -6220,6 +6376,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
       else el11.prepend(layer);
       el11.dataset.bg = id;
       el11.dataset.time = time;
+      el11.classList.toggle("menu-art", menu);
     };
     clearTimeout(fadeTimer);
     el11.querySelector(".bg-veil")?.remove();
@@ -6233,8 +6390,8 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
       fadeTimer = window.setTimeout(() => veil.remove(), BG_FADE_MS / 2 + 100);
     }, BG_FADE_MS / 2);
   }
-  function sceneSvg(id, time) {
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${scene(id, time)}</svg>`;
+  function sceneSvg(id, time, menu = false) {
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${scene(id, time, menu)}</svg>`;
   }
   function backgroundThumb(id, time = "night") {
     const key = `${id}-${time}`;
@@ -6248,7 +6405,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     void TIME_KEY;
     return "auto";
   }
-  var DAY_FROM, SUNSET_FROM, NIGHT_FROM, W, H, seed, rnd, r, f, stopsOf, grad, radial, gdefs, gn, DEFS, pick, dk2, floorDefs, SCENES, cache2, stillBackground, stillUrls, BG_FADE_MS, fadeTimer, thumbUrls, TIME_KEY;
+  var DAY_FROM, SUNSET_FROM, NIGHT_FROM, W, H, seed, MENU, SCENE_ID, rnd, r, f, stopsOf, grad, radial, gdefs, gn, DEFS, pick, dk2, floorDefs, onTrail, SCENES, cache2, stillBackground, stillUrls, BG_FADE_MS, fadeTimer, thumbUrls, TIME_KEY;
   var init_backgrounds = __esm({
     "src/client/backgrounds.ts"() {
       "use strict";
@@ -6259,6 +6416,8 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
       W = 1600;
       H = 900;
       seed = 1;
+      MENU = false;
+      SCENE_ID = "forest";
       rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
       r = (a, b) => a + rnd() * (b - a);
       f = (n) => n.toFixed(1);
@@ -6274,6 +6433,11 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
         return `#${p.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
       };
       floorDefs = (stone) => grad("floorG", [[0, stone[0]], [0.5, stone[1]], [1, stone[2]]]);
+      onTrail = (x, y, end = 800) => {
+        const k = Math.max(0, Math.min(1, (y - 722) / 184));
+        const p = trailAt(k, end);
+        return Math.abs(x - p.x) < p.w / 2 + 14;
+      };
       SCENES = { forest, swamp, plains, castle, worldtree };
       cache2 = /* @__PURE__ */ new Map();
       stillBackground = () => matchMedia("(pointer: coarse), (prefers-reduced-motion: reduce)").matches;
@@ -7149,7 +7313,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
       { duration: dur, easing: "cubic-bezier(.45,.05,.75,.4)" }
       // gentle start, quickening into the hit
     );
-    const trail = reduced ? 0 : window.setInterval(() => {
+    const trail2 = reduced ? 0 : window.setInterval(() => {
       const r2 = zrect(spell);
       const dot = h("div", "spell-trail" + (friendly ? "" : " foe"));
       dot.style.left = `${r2.left - a.left + r2.width / 2}px`;
@@ -7159,7 +7323,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
     }, 40);
     return new Promise((resolve) => {
       anim.onfinish = () => {
-        clearInterval(trail);
+        clearInterval(trail2);
         spell.remove();
         const burst = h("div", "spell-burst" + (friendly ? "" : " foe"));
         burst.style.left = `${to.x + 20}px`;
@@ -7859,7 +8023,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
       try {
         const reg = await navigator.serviceWorker?.getRegistration();
         if (reg) await reg.showNotification(n.title, { body: n.body, icon: "/icons/icon-192.png", tag: `kw-${n.kind}` });
-        else new Notification(n.title, { body: n.body, icon: "/favicon.svg", tag: `kw-${n.kind}` });
+        else new Notification(n.title, { body: n.body, icon: "/icons/icon-192.png", tag: `kw-${n.kind}` });
       } catch {
       }
     }
@@ -7968,7 +8132,7 @@ IMPORTANT: your last answer could not be used (${st}). Follow the format exactly
   init_api();
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.8";
+  var VERSION = "0.9.9.8.1";
 
   // src/client/support.ts
   init_ui();
@@ -9524,6 +9688,26 @@ ${stack}`.slice(0, 2e3);
   // src/client/whatsnew.ts
   init_i18n();
   var PATCHES = [
+    {
+      v: "0.9.9.8.1",
+      date: "2026-11",
+      en: [
+        "A new main menu: four big cards \u2014 Online queue, Private game, Daily challenge, Study spells \u2014 with Customize, Progress and Match history at the top, and the links (and a glowing Get the app) at the bottom.",
+        "New paintings behind the menus: each arena\u2019s place without the arena \u2014 a forest trail, a swamp boardwalk with lanterns, a meadow road to the village, the cobbled road to the castle, and a still pool under the World Tree \u2014 by day, at sunset and at night. Battles keep the arenas.",
+        "When your opponent asks for a rematch you get a card with Rematch / Not now, like an invite (it was one small line).",
+        "Phones in battle: both HP bars sit below the clock and Leave button, and a combo no longer pushes your bar down.",
+        "The dictionary and friends bars stay with you in reviews and the reading passage too; the Dictionary button left the menu (it\u2019s in the side bar).",
+        "The website\u2019s icon is the app\u2019s icon now."
+      ],
+      ru: [
+        "\u041D\u043E\u0432\u043E\u0435 \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u043C\u0435\u043D\u044E: \u0447\u0435\u0442\u044B\u0440\u0435 \u0431\u043E\u043B\u044C\u0448\u0438\u0435 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u2014 \u041E\u043D\u043B\u0430\u0439\u043D-\u043E\u0447\u0435\u0440\u0435\u0434\u044C, \u0421\u0432\u043E\u044F \u0438\u0433\u0440\u0430, \u0415\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435, \u0418\u0437\u0443\u0447\u0435\u043D\u0438\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439 \u2014 \u0441\u0432\u0435\u0440\u0445\u0443 \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430, \u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0438 \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u043C\u0430\u0442\u0447\u0435\u0439, \u0432\u043D\u0438\u0437\u0443 \u0441\u0441\u044B\u043B\u043A\u0438 (\u0438 \u0441\u0432\u0435\u0442\u044F\u0449\u0430\u044F\u0441\u044F \xAB\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435\xBB).",
+        "\u041D\u043E\u0432\u044B\u0435 \u043A\u0430\u0440\u0442\u0438\u043D\u044B \u0437\u0430 \u043C\u0435\u043D\u044E: \u043C\u0435\u0441\u0442\u043E \u043A\u0430\u0436\u0434\u043E\u0439 \u0430\u0440\u0435\u043D\u044B \u0431\u0435\u0437 \u0430\u0440\u0435\u043D\u044B \u2014 \u043B\u0435\u0441\u043D\u0430\u044F \u0442\u0440\u043E\u043F\u0430, \u043C\u043E\u0441\u0442\u043A\u0438 \u0447\u0435\u0440\u0435\u0437 \u0431\u043E\u043B\u043E\u0442\u043E \u0441 \u0444\u043E\u043D\u0430\u0440\u044F\u043C\u0438, \u0434\u043E\u0440\u043E\u0433\u0430 \u0447\u0435\u0440\u0435\u0437 \u043B\u0443\u0433 \u043A \u0434\u0435\u0440\u0435\u0432\u043D\u0435, \u043C\u043E\u0449\u0451\u043D\u0430\u044F \u0434\u043E\u0440\u043E\u0433\u0430 \u043A \u0437\u0430\u043C\u043A\u0443 \u0438 \u0442\u0438\u0445\u0438\u0439 \u043F\u0440\u0443\u0434 \u043F\u043E\u0434 \u041C\u0438\u0440\u043E\u0432\u044B\u043C \u0434\u0440\u0435\u0432\u043E\u043C \u2014 \u0434\u043D\u0451\u043C, \u043D\u0430 \u0437\u0430\u043A\u0430\u0442\u0435 \u0438 \u043D\u043E\u0447\u044C\u044E. \u0412 \u0431\u043E\u044F\u0445 \u0430\u0440\u0435\u043D\u044B \u043E\u0441\u0442\u0430\u043B\u0438\u0441\u044C.",
+        "\u041A\u043E\u0433\u0434\u0430 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A \u043F\u0440\u043E\u0441\u0438\u0442 \u0440\u0435\u0432\u0430\u043D\u0448, \u043F\u043E\u044F\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \xAB\u0420\u0435\u0432\u0430\u043D\u0448 / \u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441\xBB, \u043A\u0430\u043A \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435 (\u0440\u0430\u043D\u044C\u0448\u0435 \u0431\u044B\u043B\u0430 \u043E\u0434\u043D\u0430 \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u0430\u044F \u0441\u0442\u0440\u043E\u0447\u043A\u0430).",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B \u0432 \u0431\u043E\u044E: \u043E\u0431\u0435 \u043F\u043E\u043B\u043E\u0441\u043A\u0438 \u0437\u0434\u043E\u0440\u043E\u0432\u044C\u044F \u043F\u043E\u0434 \u0447\u0430\u0441\u0430\u043C\u0438 \u0438 \u043A\u043D\u043E\u043F\u043A\u043E\u0439 \xAB\u0412\u044B\u0439\u0442\u0438\xBB, \u0430 \u043A\u043E\u043C\u0431\u043E \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0441\u0434\u0432\u0438\u0433\u0430\u0435\u0442 \u0432\u0430\u0448\u0443 \u043F\u043E\u043B\u043E\u0441\u043A\u0443 \u0432\u043D\u0438\u0437.",
+        "\u041F\u0430\u043D\u0435\u043B\u0438 \u0441\u043B\u043E\u0432\u0430\u0440\u044F \u0438 \u0434\u0440\u0443\u0437\u0435\u0439 \u0442\u0435\u043F\u0435\u0440\u044C \u0435\u0441\u0442\u044C \u0438 \u0432 \u043F\u043E\u0432\u0442\u043E\u0440\u0435\u043D\u0438\u0438 \u043A\u0430\u0440\u0442\u043E\u0447\u0435\u043A, \u0438 \u0432 \u0442\u0435\u043A\u0441\u0442\u0435 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F; \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u0421\u043B\u043E\u0432\u0430\u0440\u044C\xBB \u0443\u0448\u043B\u0430 \u0438\u0437 \u043C\u0435\u043D\u044E (\u043E\u043D\u0430 \u0432 \u0431\u043E\u043A\u043E\u0432\u043E\u0439 \u043F\u0430\u043D\u0435\u043B\u0438).",
+        "\u0417\u043D\u0430\u0447\u043E\u043A \u0441\u0430\u0439\u0442\u0430 \u0442\u0435\u043F\u0435\u0440\u044C \u2014 \u0437\u043D\u0430\u0447\u043E\u043A \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F."
+      ]
+    },
     {
       v: "0.9.9.8",
       date: "2026-11",
@@ -11445,7 +11629,7 @@ ${stack}`.slice(0, 2e3);
     if (text !== void 0) e.textContent = String(text);
     return e;
   };
-  var RAIL_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "customize", "history", "progress", "daily", "friends"]);
+  var RAIL_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "review", "passage", "dict", "customize", "history", "progress", "daily", "friends"]);
   var friends = [];
   var signedIn2 = false;
   var timer = 0;
@@ -12480,17 +12664,6 @@ ${stack}`.slice(0, 2e3);
     show("dict");
     void openWord(i);
   }
-  function openDict() {
-    show("dict");
-    const q = $7("dictQ");
-    if (!lastHits.length) drawHome();
-    void askOffline().then(() => {
-      if (!lastHits.length) drawHome();
-      void dictionary().catch(() => {
-      });
-    });
-    setTimeout(() => q.focus(), 50);
-  }
   $7("dictForm").onsubmit = (e) => {
     e.preventDefault();
     void search($7("dictQ").value);
@@ -12522,7 +12695,7 @@ ${stack}`.slice(0, 2e3);
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
     return e;
   };
-  var DICT_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "customize", "history", "progress", "friends"]);
+  var DICT_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "review", "passage", "customize", "history", "progress", "friends"]);
   var ROOM_SCREENS = /* @__PURE__ */ new Set(["lobby", "queue", "results"]);
   var signedIn3 = false;
   var screen2 = "";
@@ -12691,7 +12864,7 @@ ${stack}`.slice(0, 2e3);
     }, 900);
     try {
       if ("Notification" in window && Notification.permission === "granted") {
-        const n = new Notification(title, { body, icon: "/favicon.svg", tag: "kanji-wizards", renotify: true });
+        const n = new Notification(title, { body, icon: "/icons/icon-192.png", tag: "kanji-wizards", renotify: true });
         n.onclick = () => {
           window.focus();
           n.close();
@@ -15866,6 +16039,32 @@ ${stack}`.slice(0, 2e3);
     attention(`${msg.from} invites you`, `Join their ${MODE_LABEL[msg.mode]} room`);
     const t = window.setTimeout(close, 6e4);
   }
+  var rematchClose = null;
+  function onRematchAsk(from, accept) {
+    const box = $14("inviteBox");
+    const yes = el10("button", "big", "Rematch");
+    const no2 = el10("button", "pill", "Not now");
+    const close = () => {
+      box.hidden = true;
+      clearTimeout(t);
+      rematchClose = null;
+    };
+    yes.onclick = () => {
+      close();
+      accept();
+    };
+    no2.onclick = close;
+    box.replaceChildren(el10("b", "", `${from} wants a rematch`), el10("span", "", "Play again with the same settings?"), el10("div", "ib-actions"));
+    box.lastElementChild.append(yes, no2);
+    box.hidden = false;
+    sfx.go();
+    attention(`${from} wants a rematch`, "Play again?");
+    const t = window.setTimeout(close, 45e3);
+    rematchClose = close;
+  }
+  function closeRematchAsk() {
+    rematchClose?.();
+  }
   function onFriendEvent(msg) {
     toast(msg.event === "request" ? `${msg.from} wants to be your friend \u2014 see Friends` : `${msg.from} accepted your friend request`, 5e3);
     void refresh(true).then(() => {
@@ -16311,12 +16510,13 @@ ${stack}`.slice(0, 2e3);
     if (s !== "lobby") void renderLobbyInvites(false);
     railScreen(s);
     dictRailScreen(s);
+    if (s !== "results") closeRematchAsk();
     if (s === "menu" || s === "queue") void refreshOnline();
     for (const b of document.querySelectorAll("[data-pause]")) b.hidden = !(soloVsAi && ["prep", "battle", "deck"].includes(s));
     if (!["prep", "battle", "deck"].includes(s)) setPaused(false);
     setGameKb(s === "battle" && mode3 !== "writing");
     tutorialScreen(s);
-    if (!GAME_SCREENS2.has(s)) setTimeout(() => applyBackground(true), 0);
+    setTimeout(() => applyBackground(!GAME_SCREENS2.has(s)), 0);
   });
   var NO_BG_CHANGE = /* @__PURE__ */ new Set(["prep", "battle", "deck"]);
   var shownTime = "";
@@ -16324,7 +16524,7 @@ ${stack}`.slice(0, 2e3);
     const bg2 = profile2?.background ?? "forest";
     const time = resolveTime(getTimePref());
     if (fade && NO_BG_CHANGE.has(currentScreen() ?? "")) return;
-    paintBackground($("bg"), bg2, time, fade && shownTime !== "" && shownTime !== time);
+    paintBackground($("bg"), bg2, time, fade && shownTime !== "" && shownTime !== time, !GAME_SCREENS2.has(currentScreen() ?? "menu"));
     setArenaBackground(bg2, time);
     shownTime = time;
     setAmbience(bg2, time);
@@ -16338,6 +16538,7 @@ ${stack}`.slice(0, 2e3);
   scheduleCycle();
   var tutorialShown = false;
   var pendingJoin = "";
+  var rematchSeen = /* @__PURE__ */ new Set();
   var soloVsAi = false;
   var writeShape = "";
   var prevStaff = null;
@@ -16589,6 +16790,7 @@ ${stack}`.slice(0, 2e3);
         onInvite(msg);
         break;
       case "lobby":
+        closeRematchAsk();
         if (currentScreen() === "results" && !lobbyRequested) {
           pendingLobby = msg;
           $("rematch").disabled = true;
@@ -16628,6 +16830,8 @@ ${stack}`.slice(0, 2e3);
         setReady(msg.readyIds.length, players.length, msg.readyIds.includes(you));
         break;
       case "battle_start":
+        rematchSeen.clear();
+        closeRematchAsk();
         players = msg.players;
         mode3 = msg.mode;
         if (msg.resume && currentScreen() === "battle") {
@@ -16688,6 +16892,7 @@ ${stack}`.slice(0, 2e3);
         deckInk(msg.castId, msg.strokes, msg.cells);
         break;
       case "game_over": {
+        rematchSeen.clear();
         pendingLobby = null;
         lobbyRequested = false;
         $("resultLobby").classList.remove("pulse");
@@ -16731,9 +16936,14 @@ ${stack}`.slice(0, 2e3);
         }, 2100);
         void refreshProfile();
         break;
-      case "rematch_status":
+      case "rematch_status": {
         setRematchStatus(msg.votes, you, players.length, minPlayers);
+        const asker = msg.votes.find((id) => id !== you && !rematchSeen.has(id) && !players.find((p) => p.id === id)?.bot);
+        for (const id of msg.votes) rematchSeen.add(id);
+        if (msg.votes.includes(you) || !msg.votes.length) closeRematchAsk();
+        else if (asker && currentScreen() === "results") onRematchAsk(players.find((p) => p.id === asker)?.name ?? "Your opponent", () => $("rematch").click());
         break;
+      }
       case "error":
         createDone();
         if (inRoom) {
@@ -17352,7 +17562,6 @@ ${stack}`.slice(0, 2e3);
     }
   }
   $("historyBtn").onclick = () => void openHistory();
-  $("dictBtn").onclick = () => openDict();
   $("historyBack").onclick = () => show("menu");
   $("resultHistoryBack").onclick = () => void openHistory();
   {

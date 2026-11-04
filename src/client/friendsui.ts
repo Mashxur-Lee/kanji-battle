@@ -143,6 +143,26 @@ export function onInvite(msg: { fromId: string; from: string; code: string; mode
   const t = window.setTimeout(close, 60_000);
 }
 
+/** 0.9.9.8.1: the other player asks for a rematch — the same card as an invite (it was one quiet line of text) */
+let rematchClose: (() => void) | null = null;
+export function onRematchAsk(from: string, accept: () => void) {
+  const box = $('inviteBox');
+  const yes = el('button', 'big', 'Rematch') as HTMLButtonElement;
+  const no = el('button', 'pill', 'Not now') as HTMLButtonElement;
+  const close = () => { box.hidden = true; clearTimeout(t); rematchClose = null; };
+  yes.onclick = () => { close(); accept(); };
+  no.onclick = close;
+  box.replaceChildren(el('b', '', `${from} wants a rematch`), el('span', '', 'Play again with the same settings?'), el('div', 'ib-actions'));
+  box.lastElementChild!.append(yes, no);
+  box.hidden = false;
+  audio.sfx.go();
+  attention(`${from} wants a rematch`, 'Play again?');
+  const t = window.setTimeout(close, 45_000);
+  rematchClose = close;
+}
+/** the rematch card goes away (the game started, you left, or you already said yes) */
+export function closeRematchAsk() { rematchClose?.(); }
+
 export function onFriendEvent(msg: { event: 'request' | 'accepted'; from: string }) {
   ui.toast(msg.event === 'request' ? `${msg.from} wants to be your friend — see Friends` : `${msg.from} accepted your friend request`, 5000);
   void refresh(true).then(() => { if (ui.currentScreen() === 'friends') render(); });

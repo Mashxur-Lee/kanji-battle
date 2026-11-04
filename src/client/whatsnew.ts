@@ -7,6 +7,25 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.8.1', date: '2026-11',
+    en: [
+      'A new main menu: four big cards — Online queue, Private game, Daily challenge, Study spells — with Customize, Progress and Match history at the top, and the links (and a glowing Get the app) at the bottom.',
+      'New paintings behind the menus: each arena’s place without the arena — a forest trail, a swamp boardwalk with lanterns, a meadow road to the village, the cobbled road to the castle, and a still pool under the World Tree — by day, at sunset and at night. Battles keep the arenas.',
+      'When your opponent asks for a rematch you get a card with Rematch / Not now, like an invite (it was one small line).',
+      'Phones in battle: both HP bars sit below the clock and Leave button, and a combo no longer pushes your bar down.',
+      'The dictionary and friends bars stay with you in reviews and the reading passage too; the Dictionary button left the menu (it’s in the side bar).',
+      'The website’s icon is the app’s icon now.',
+    ],
+    ru: [
+      'Новое главное меню: четыре большие карточки — Онлайн-очередь, Своя игра, Ежедневное испытание, Изучение заклинаний — сверху Настройка, Прогресс и История матчей, внизу ссылки (и светящаяся «Скачать приложение»).',
+      'Новые картины за меню: место каждой арены без арены — лесная тропа, мостки через болото с фонарями, дорога через луг к деревне, мощёная дорога к замку и тихий пруд под Мировым древом — днём, на закате и ночью. В боях арены остались.',
+      'Когда соперник просит реванш, появляется карточка «Реванш / Не сейчас», как приглашение (раньше была одна маленькая строчка).',
+      'Телефоны в бою: обе полоски здоровья под часами и кнопкой «Выйти», а комбо больше не сдвигает вашу полоску вниз.',
+      'Панели словаря и друзей теперь есть и в повторении карточек, и в тексте для чтения; кнопка «Словарь» ушла из меню (она в боковой панели).',
+      'Значок сайта теперь — значок приложения.',
+    ],
+  },
+  {
     v: '0.9.9.8', date: '2026-11',
     en: [
       'Dictionary side panel: always at hand — a bar on the left on PC (friends are on the right), a 辞 button bottom-left on phones. Look a word up, read its meanings and add it to a deck without leaving the screen you’re on. (Hidden in battles, quizzes and the Daily challenge.) The main menu moved in from the edge to make room.',
