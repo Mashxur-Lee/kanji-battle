@@ -656,7 +656,9 @@ function storyLevel(): string {
   return 'N4';
 }
 /** a word that can go in a story: has kanji, isn't a かな / onomatopoeia card, and is of a ticked level (your own typed words always) */
-const storyWord = (w: PWord) => HAN_RE.test(w.kanji) && (w.custom || (!!w.level && pickedLevels().includes(w.level)));
+const storyWord = (w: PWord) => passageDeck === 'ono'
+  ? w.level === 'ONO' // 0.9.9.8: the onomatopoeia deck: its words are kana (no levels to tick)
+  : HAN_RE.test(w.kanji) && (w.custom || (!!w.level && pickedLevels().includes(w.level)));
 {
   const box = $('passageLevels');
   const draw = () => {
@@ -761,7 +763,10 @@ async function buildPassage() {
     $('passageNote').hidden = true;
     $('passageWords').replaceChildren();
     $('passageTr').replaceChildren();
-    text.replaceChildren(el('p', 'hint p-few', tr(`A story needs at least 8 kanji words — “${DECK_LABEL[passageDeck]}” has ${new Set(usable.map((w) => w.kanji)).size} of the levels you ticked. Tick more levels, pick another deck, or study more words.`)));
+    const have = new Set(usable.map((w) => w.kanji)).size;
+    text.replaceChildren(el('p', 'hint p-few', passageDeck === 'ono'
+      ? tr(`A story needs at least 8 words — your Onomatopoeia deck has ${have}. Study a few more onomatopoeia first.`)
+      : tr(`A story needs at least 8 kanji words — “${DECK_LABEL[passageDeck]}” has ${have} of the levels you ticked. Tick more levels, pick another deck, or study more words.`)));
     return;
   }
   // starred words first, then the rest at random (words with an example sentence before those without — the
@@ -804,7 +809,7 @@ async function buildPassage() {
       sec.textContent = String(Math.floor(t));
     }, 200);
     const words = pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }));
-    const r = await writeStory(words, storyLevel(), 95_000);
+    const r = await writeStory(words, storyLevel(), 165_000); // 0.9.9.8: the server keeps trying for up to 2½ min
     clearInterval(tick);
     again.disabled = false;
     drawLimit();
@@ -867,6 +872,7 @@ let passageDeck: DeckId = 'all';
 async function passageFrom(deck: DeckId) {
   passageDeck = deck;
   $<HTMLSelectElement>('passageDeck').value = deck;
+  $('passageLevels').closest<HTMLElement>('.p-set-row')!.hidden = deck === 'ono'; // (onomatopoeia have no JLPT level)
   try {
     const words = (await api.deckWords(deck)).words;
     const mapped = words.map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.vocabId, level: w.level, custom: w.custom }));
@@ -876,7 +882,7 @@ async function passageFrom(deck: DeckId) {
 }
 {
   const sel = $<HTMLSelectElement>('passageDeck');
-  for (const d of ['all', 'struggling', 'custom'] as DeckId[]) sel.append(Object.assign(el('option', '', DECK_LABEL[d]), { value: d }));
+  for (const d of ['all', 'struggling', 'custom', 'ono'] as DeckId[]) sel.append(Object.assign(el('option', '', DECK_LABEL[d]), { value: d }));
   sel.onchange = () => { storyFrom = `deck:${sel.value}`; void passageFrom(sel.value as DeckId); };
 }
 // 0.9.9.4.3: the passage stays until "New passage" (going back to look something up and coming back kept nothing)

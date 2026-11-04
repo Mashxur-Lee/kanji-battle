@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { averageBaseDamage, hpAgainst } from '../src/server/Balance';
+import { averageBaseDamage, castSeconds, hpAgainst } from '../src/server/Balance';
 
 test('HP scales with how hard the opponent hits', () => {
   const n1n2 = hpAgainst(['N2', 'N1']);
@@ -13,6 +13,16 @@ test('HP scales with how hard the opponent hits', () => {
   // about the same number of hits at every level (a beginner never runs out of time)
   for (const lv of ['KANA', 'N5', 'N3'] as const) {
     const hits = hpAgainst([lv]) / (averageBaseDamage([lv]) * 1.3);
-    assert.ok(hits >= 12 && hits <= 24, `${lv}: ${hits.toFixed(1)} hits`);
+    assert.ok(hits >= 12 && hits <= 26, `${lv}: ${hits.toFixed(1)} hits`);
   }
+});
+
+test('0.9.9.8: slow-to-cast levels need fewer hits, so games take about as long', () => {
+  const hits = (lv: 'KANA' | 'N5' | 'N3' | 'N1') => hpAgainst([lv]) / (averageBaseDamage([lv]) * 1.3);
+  assert.ok(castSeconds(['N1']) > castSeconds(['N5']) && castSeconds(['N5']) > castSeconds(['KANA']));
+  assert.ok(hits('N1') < hits('N3') && hits('N3') < hits('N5') && hits('N5') < hits('KANA'));
+  // time to win (hits × cast time): kana vs N1 within 20% (it was ~60% apart)
+  const time = (lv: 'KANA' | 'N1') => hits(lv) * castSeconds([lv]);
+  const r = time('N1') / time('KANA');
+  assert.ok(r > 0.8 && r < 1.25, `N1 / kana time ${r.toFixed(2)}`);
 });

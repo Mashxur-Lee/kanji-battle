@@ -18,8 +18,26 @@ export function averageBaseDamage(levels: readonly Level[], damagePerDifficulty 
   return (words.reduce((s, v) => s + v.difficulty, 0) / words.length) * damagePerDifficulty;
 }
 
+/**
+ * 0.9.9.8: about how long one cast takes at these levels (s): reading the word, recalling it and typing it.
+ * An N1 word is ~4 kana (8 letters of romaji) and takes longer to recall than か (1 kana), so the same 18 hits
+ * took an N1 player much longer than a kana player. Weighted by word count, like the damage.
+ */
+export function castSeconds(levels: readonly Level[]): number {
+  const words = VOCAB.filter((v) => levels.includes(v.level));
+  if (words.length === 0) return CAST_REF;
+  const kana = words.reduce((s, v) => s + [...v.reading].length, 0) / words.length;
+  return 1.8 + 0.6 * kana;
+}
+/** the reference: an N3 cast (≈ 3.9 s) needs the usual 18 hits */
+const CAST_REF = 1.8 + 0.6 * 3.46;
+/** how strongly cast time changes the hits needed (1 = fully, 0 = not at all): most, but not all of it */
+export const CAST_WEIGHT = 0.75;
+
 export function hpAgainst(opponentLevels: readonly Level[], cfg: BalanceConfig = DEFAULT_BALANCE): number {
-  const raw = cfg.base + cfg.perAvgDamage * averageBaseDamage(opponentLevels);
+  // slow casters (N1, N2) need fewer hits, fast ones (kana) more, so a game takes about as long either way
+  const pace = Math.pow(CAST_REF / castSeconds(opponentLevels), CAST_WEIGHT);
+  const raw = cfg.base + cfg.perAvgDamage * averageBaseDamage(opponentLevels) * pace;
   return Math.min(cfg.max, Math.max(cfg.min, Math.round(raw / 10) * 10));
 }
 

@@ -89,6 +89,15 @@
   </div>
 </aside>
 <button id="railFab" class="rail-fab" aria-label="Friends" aria-controls="friendRail" aria-expanded="false" hidden><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 14.5c3 0 6 1.8 6 5"/></svg><b id="railFabCount">0</b></button>
+<aside id="dictRail" class="dict-rail" aria-label="Dictionary" hidden>
+  <button id="dictRailTab" class="dr-tab" type="button" aria-expanded="false" aria-controls="dictRailPanel" title="Dictionary"><span class="dr-jp" lang="ja">辞</span><span class="dr-tabword">Dictionary</span></button>
+  <div id="dictRailPanel" class="dr-panel">
+    <div class="dr-head"><b>Dictionary</b><span class="dr-jp2" lang="ja">辞書</span><button id="dictRailClose" class="dr-x" type="button" aria-label="Close">✕</button></div>
+    <input id="dictRailQ" type="search" lang="ja" placeholder="Look up a word…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Look up a word">
+    <div id="dictRailBody" class="dr-body"></div>
+  </div>
+</aside>
+<button id="dictFab" class="dict-fab" type="button" aria-label="Dictionary" aria-controls="dictRail" aria-expanded="false" hidden><span lang="ja">辞</span></button>
 <dialog id="friendDialog" class="friend-dialog" aria-label="Friends">
   <div class="fd-tabs"><button data-ftab="add" class="cust-tab">Add friend</button><button data-ftab="requests" class="cust-tab">Friend requests</button><button id="fdClose" class="pill fd-close" type="button">Close</button></div>
   <form id="fdAdd" class="friend-add"><input id="fdName" placeholder="Player name" autocomplete="off" maxlength="24" aria-label="Player name"><button class="big" type="submit">Add friend</button></form>
@@ -846,7 +855,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.7.3</div>
+<div id="version" class="version">v0.9.9.8</div>
 <script src="/app.js"></script>
 </body>
 </html>

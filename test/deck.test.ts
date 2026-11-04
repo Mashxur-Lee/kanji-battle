@@ -411,3 +411,24 @@ test('overtime switches hero powers off (and their looks)', () => {
   assert.equal(s.view('A').phase, 'overtime');
   assert.ok(s.view('A').players.every((p) => p.abilityActive === 0));
 });
+
+test('0.9.9.8: drafted cards get words from the drafter\'s All spells, in the band of the card\'s colour (random without)', () => {
+  const events: GameEvent[] = [];
+  const pool = buildDraftPool(VOCAB, () => true, () => 0.42);
+  // A has studied 300 words across the levels; B (an AI) has none
+  const mineA = new Set(VOCAB.filter((v, i) => /^N[1-5]$/.test(v.level) && i % 20 === 0).map((v) => v.id));
+  const g = new DeckGame([{ id: 'A', name: 'Aki' }, { id: 'B', name: 'Bot' }], pool, (e) => events.push(e), () => ({ correct: true, recognized: '' }), Math.random, () => clock, RULES, undefined,
+    { vocab: VOCAB, writable: () => true, spells: (id) => (id === 'A' ? mineA : undefined) });
+  const view = (id: string) => (events.filter((e) => e.type === 'deck_state' && e.playerId === id).at(-1) as any).view as DeckView;
+  g.start(); g.chooseCharacter('A', 'knight'); g.chooseCharacter('B', 'goblin');
+  for (let i = 0; i < 40 && view('A').phase === 'draft'; i++) { const v = view('A'); g.pick(v.draft!.picker!, v.draft!.pool.find((c) => !c.takenBy)!.cardId); }
+  const hands = (g as any).players.map((p: any) => p.hand) as Array<Array<{ color: CardColor; entry: { id: string; difficulty: number; kanji: string } }>>;
+  assert.equal(hands[0].length, 10);
+  assert.ok(hands[0].every((c) => mineA.has(c.entry.id)), 'all of A\'s cards are A\'s words');
+  assert.ok(hands[1].every((c) => !mineA.has(c.entry.id) || pool.some((x) => x.entry.id === c.entry.id)), 'the AI gets random words');
+  // colours still follow difficulty: every Inferno is harder than every Bolt
+  const all = [...hands[0], ...hands[1]];
+  const d = (col: CardColor) => all.filter((c) => c.color === col).map((c) => c.entry.difficulty);
+  assert.ok(Math.min(...d('red')) > Math.max(...d('lightblue')));
+  assert.equal(new Set(all.map((c) => c.entry.kanji)).size, all.length, 'no word twice');
+});

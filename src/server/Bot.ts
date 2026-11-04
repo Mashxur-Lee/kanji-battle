@@ -25,6 +25,9 @@ export function botChance(bot: BotLevel, word: Level): number {
   return BOT_ACCURACY[bot][word === 'KANA' || word === 'KATA' || word === 'ONO' ? 'N5' : word];
 }
 
+/** 0.9.9.8: an AI teammate against the dragon makes 70% fewer mistakes (an N3 AI on N3 words: 70% → 91%) */
+export const bossChance = (c: number) => 1 - (1 - c) * 0.3;
+
 const NAMES = ['Kitsune', 'Tanuki', 'Tengu', 'Kappa', 'Oni', 'Yuki', 'Ryu', 'Neko'];
 export const botName = (i: number, level: BotLevel) => `${NAMES[i % NAMES.length]} (AI ${level === 'BEGINNER' ? 'Beginner' : level})`;
 /** The levels a bot plays with (a beginner brings かな and N5, so the words are easy). */
@@ -47,6 +50,10 @@ export interface BotHost {
   /** the room's game clock (paused with the game) */
   timers?: () => Timers;
 }
+
+/** 0.9.9.8: how long an AI takes in a Rapid race (it answered in under 2 s, which no one can beat) */
+export const RAPID_BOT_MS: [number, number] = [2_400, 6_500];
+export const RAPID_BOT_MIN_MS = 2_500;
 
 const WRONG = '×'; // never a valid answer in any mode
 
@@ -97,10 +104,15 @@ export class Bot {
     const peek = this.host.peek(this.id);
     if (!peek || peek.challengeId !== challengeId) return;
     const mode = this.host.mode();
-    const right = this.rng() < botChance(this.level, peek.entry.level);
+    // 0.9.9.8: Boss teammates are sharper — they rarely reached a combo (no shield from the dragon's fire), missed a lot
+    // (every miss is a claw) and fell halfway. Most of their mistakes are gone, and they answer a little quicker.
+    const chance = mode === 'boss' ? bossChance(botChance(this.level, peek.entry.level)) : botChance(this.level, peek.entry.level);
+    const right = this.rng() < chance;
     // writing takes longer than typing a reading; a wrong answer usually comes a bit later
-    const [lo, hi] = mode === 'writing' ? [5_000, 13_000] : mode === 'rapid' ? [1_800, 6_500] : [1_800, 5_500];
-    const delay = this.between(lo, hi) * (right ? 1 : 1.25) * (this.level === 'BEGINNER' ? 1.7 : 1);
+    const [lo, hi] = mode === 'writing' ? [5_000, 13_000] : mode === 'rapid' ? RAPID_BOT_MS : mode === 'boss' ? [1_500, 4_200] : [1_800, 5_500];
+    let delay = this.between(lo, hi) * (right ? 1 : 1.25) * (this.level === 'BEGINNER' ? 1.7 : 1);
+    // 0.9.9.8: Rapid is a race — the AI has to read and type it too (never under ~2.5 s, longer words take longer)
+    if (mode === 'rapid') delay = Math.max(RAPID_BOT_MIN_MS, delay + 160 * [...(peek.entry.romaji ?? peek.entry.reading)].length);
     this.later(`ch:${challengeId}`, delay, () => {
       const now = this.host.peek(this.id);
       if (!now || now.challengeId !== challengeId) return; // someone else won the round, or time ran out

@@ -380,7 +380,10 @@ body::before { z-index: 0; }
 .xpbar { display: block; height: 3px; border-radius: 2px; background: rgba(255,255,255,.12); margin-top: 3px; overflow: hidden; }
 .xpbar span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--gold), #ffb347); transition: width .6s; }
 .toast { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 40; background: #1f1a4a; border: 1px solid var(--accent); padding: 10px 18px; border-radius: 12px; font-weight: 700; box-shadow: 0 10px 30px rgba(0,0,0,.5); animation: toastin .3s ease-out; max-width: calc(100% - 32px); text-align: center; }
-@keyframes toastin { from { opacity: 0; transform: translate(-50%, -10px); } }
+@keyframes toastin { from { opacity: 0; transform: translate(-50%, calc(-100% - 64px)); } 60% { opacity: 1; } }
+/* 0.9.9.8: and back up the same way */
+.toast.leaving { animation: toastout .28s ease-in forwards; pointer-events: none; }
+@keyframes toastout { 40% { opacity: 1; } to { opacity: 0; transform: translate(-50%, calc(-100% - 64px)); } }
 .menu-row { display: flex; gap: 8px; } .menu-row > button { flex: 1; }
 .badge { display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--bad); font-size: .75rem; margin-left: 4px; }
 
@@ -1443,6 +1446,9 @@ body.has-rail .screen { padding-right: calc(var(--gutter) + 64px); }
 .gk.back { background: #3a3460; }
 .gk.down { transform: translateY(1px); filter: brightness(1.4); box-shadow: none; }
 .gk-preview { min-height: 26px; text-align: center; font-size: 1.25rem; font-weight: 800; color: var(--accent2); font-family: var(--jp); letter-spacing: .05em; }
+.gk-caret { display: inline-block; width: 2px; height: 1.1em; margin: 0 1px; vertical-align: -.15em; background: var(--accent); animation: gkBlink 1s steps(1) infinite; }
+@keyframes gkBlink { 50% { opacity: 0; } }
+.gk.move { color: var(--muted); }
 body.game-kb #battle { padding-bottom: 230px; }
 body.game-kb #answer { caret-color: var(--accent2); }
 
@@ -2832,3 +2838,87 @@ button.dw-phrase:hover { border-color: var(--accent); filter: none; }
 button, .pill, [role="button"], .cust-item, .mode-card, .deck-card, label, .gk { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
 :focus:not(:focus-visible) { outline: none; }
 @media (pointer: coarse) { button:focus-visible, .pill:focus-visible, [role="button"]:focus-visible { outline: none; } }
+
+/* ── 0.9.9.8: Boss on phones — the party's HP in a tidy 2×2 under the clock (it was squeezed into the left half,
+   names wrapped and one bar slid under the clock), the dragon's bar in the same top block (ui.ts moves it there) ── */
+.arena-top.boss-top > #bossBar { width: 100%; margin: 0; text-align: center; }
+.arena-top.boss-top > #bossBar .bname { font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #ff6b7a; font-size: .7rem; margin-bottom: 2px; text-shadow: 0 1px 2px #000, 0 0 10px rgba(255, 77, 94, .5); }
+.arena-top.boss-top > #bossBar .tbar { height: 20px; border-radius: 10px; border: 2px solid rgba(255, 107, 129, .5); }
+.arena-top.boss-top > #bossBar .tbar-txt { font-size: .78rem; }
+.arena-top.boss-top .party-row { min-width: 0; }
+.arena-top.boss-top .party-row .pname { flex-wrap: nowrap; white-space: nowrap; min-width: 0; font-size: .7rem; gap: 4px; margin-bottom: 1px; }
+.arena-top.boss-top .party-row .pname .n { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.arena-top.boss-top .party-row .pname :is(.pic, .net, .lv) { display: none; }
+.arena-top.boss-top .party-row .pname .combo { flex: none; }
+.arena-top.boss-top .party-row .tbar { height: 15px; border-radius: 8px; }
+.arena-top.boss-top .party-row .tbar-txt { font-size: .62rem; }
+.arena-top.boss-top .fighter.party { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3px 12px; width: 100%; max-width: none; }
+/* upright: party, then the dragon, under the clock */
+@media (max-width: 700px) {
+  .arena-top.boss-top:has(.fighter.party) { grid-template-columns: minmax(0, 1fr); row-gap: 6px; padding-top: 40px; }
+  .arena-top.boss-top > * { grid-column: 1 !important; }
+}
+/* sideways: the party on the left, the dragon on the right, the clock between them */
+@media (min-width: 701px) and (max-height: 500px) {
+  .arena-top.boss-top:has(.fighter.party) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 250px; align-items: start; padding-top: 4px; }
+  .arena-top.boss-top > #meCard { grid-column: 1; }
+  .arena-top.boss-top > #bossBar { grid-column: 2; grid-row: 1; }
+  .arena-top.boss-top > #oppCard { display: none; }
+}
+
+/* ── 0.9.9.8: the dictionary side panel — the friends bar's twin on the LEFT (PC), a 辞 button bottom-left (phones) ── */
+.dict-rail { position: fixed; top: 64px; left: 0; bottom: 16px; z-index: 23; width: 52px; display: flex;
+  background: rgba(12, 10, 32, .82); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--line); border-left: 0;
+  border-radius: 0 14px 14px 0; overflow: hidden; transition: width .2s ease, box-shadow .2s; }
+.dict-rail.open { width: min(380px, calc(100vw - 80px)); box-shadow: 12px 0 30px rgba(0, 0, 0, .45); }
+.dr-tab { flex: none; width: 52px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 14px 0; background: none; border: 0; border-radius: 0;
+  color: var(--text); cursor: pointer; box-shadow: none; }
+.dr-tab:hover { background: rgba(169, 139, 255, .14); filter: none; }
+.dr-jp { font-family: var(--jp); font-size: 1.35rem; font-weight: 800; color: var(--accent); line-height: 1; }
+.dr-tabword { writing-mode: vertical-rl; font-size: .74rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.dict-rail.open .dr-tab { display: none; }
+.dr-panel { display: none; flex: 1; min-width: 0; flex-direction: column; gap: 10px; padding: 12px 12px 10px; }
+.dict-rail.open .dr-panel { display: flex; }
+.dr-head { display: flex; align-items: baseline; gap: 8px; }
+.dr-head b { font-weight: 900; letter-spacing: .08em; text-transform: uppercase; font-size: .8rem; color: var(--muted); }
+.dr-jp2 { font-family: var(--jp); color: var(--accent); font-weight: 800; }
+.dr-x { margin-left: auto; background: none; border: 0; color: var(--muted); font-size: 1rem; padding: 4px 8px; box-shadow: none; }
+.dr-x:hover { color: var(--text); filter: none; }
+#dictRailQ { width: 100%; font-size: 1rem; padding: 10px 12px; }
+.dr-body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; margin: 0 -4px; padding: 0 4px; }
+.dr-hint { margin: 6px 2px; font-size: .88rem; }
+.dr-list { display: flex; flex-direction: column; gap: 4px; }
+button.dr-hit { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; text-align: left; padding: 8px 10px; border-radius: 10px;
+  background: rgba(255, 255, 255, .04); border: 1px solid transparent; color: var(--text); font-weight: 400; font-size: .9rem; box-shadow: none; }
+button.dr-hit:hover, button.dr-hit:focus-visible { border-color: var(--accent); background: rgba(169, 139, 255, .12); filter: none; }
+.dr-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.dr-w { font-family: var(--jp); font-size: 1.25rem; font-weight: 700; }
+.dr-k { font-family: var(--jp); color: var(--accent2); font-size: .9rem; }
+.dr-form { font-size: .72rem; color: var(--gold); }
+.dr-m { color: var(--muted); font-size: .84rem; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.dr-word { display: flex; flex-direction: column; gap: 10px; }
+.dr-back { align-self: flex-start; }
+.dr-whead .dw-head { font-size: 2.2rem; }
+.dr-senses { margin: 0; padding-left: 22px; font-size: .95rem; display: flex; flex-direction: column; gap: 3px; }
+.dr-senses li::marker { color: var(--muted); }
+.dr-senses .dr-en { list-style: none; margin-left: -22px; color: var(--muted); font-size: .82rem; }
+.dr-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (min-width: 901px) {
+  body.has-dict .screen { padding-left: calc(var(--gutter) + 52px); }
+  /* the menu steps in from the left edge, towards the middle */
+  body.has-dict #menu { padding-left: calc(var(--gutter) + 52px + clamp(0px, calc(6 * var(--vw)), 120px)); }
+}
+.dict-fab { display: none; }
+@media (max-width: 900px) {
+  /* phones: the panel slides in from the left (辞 button, bottom-left) */
+  .dict-rail { top: 0; bottom: 0; width: min(360px, 88vw) !important; border-radius: 0; z-index: 95; transform: translateX(-105%); transition: transform .22s ease;
+    background: rgba(12, 10, 32, .97); }
+  .dict-rail.open { transform: none; box-shadow: 12px 0 40px rgba(0, 0, 0, .6); }
+  .dict-rail .dr-tab { display: none; }
+  .dict-rail .dr-panel { display: flex; padding-top: calc(14px + env(safe-area-inset-top)); }
+  .dict-fab:not([hidden]) { display: grid; place-items: center; position: fixed; left: 14px; bottom: 26px; z-index: 69; width: 48px; height: 48px; padding: 0; border-radius: 50%;
+    background: linear-gradient(150deg, #5b4bd6, #2d2580); color: #fff; border: 1px solid rgba(255, 255, 255, .2); box-shadow: 0 6px 20px rgba(0, 0, 0, .5);
+    font-family: var(--jp); font-size: 1.3rem; font-weight: 800; }
+}
+:root[data-theme="light"] .dict-rail { background: rgba(255, 255, 255, .9); border-color: var(--line); color: var(--text); }
+:root[data-theme="light"] button.dr-hit { background: rgba(60, 50, 120, .05); color: var(--text); }
