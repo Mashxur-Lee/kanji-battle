@@ -90,6 +90,12 @@ export class DeckGame implements Match {
     private readonly now: () => number = Date.now,
     private readonly rules: Rules = DECK_RULES,
     private readonly timers: Timers = REAL_TIMERS,
+    /**
+     * 0.9.9.8: the words on the cards you draft come from YOUR All spells: a card's colour (Bolt … Inferno) is a band
+     * of difficulty, and when you take it, it gets one of your words of that band (a random word when you have none).
+     * The same for your opponent (an AI has no spells: random words). Without this, the pool's own words stay.
+     */
+    private readonly words?: { vocab: readonly VocabEntry[]; writable: (v: VocabEntry) => boolean; spells: (id: PlayerId) => ReadonlySet<string> | undefined },
   ) {
     if (setups.length !== 2) throw new Error('Deck Duel needs exactly 2 players');
     const fixed = typeof pool === 'function' ? null : pool;
@@ -299,6 +305,7 @@ export class DeckGame implements Match {
   private takeDraft(id: PlayerId, slot: { card: Card; takenBy: PlayerId | null }) {
     const p = this.p(id)!;
     slot.takenBy = id;
+    slot.card.entry = this.wordFor(id, slot.card);
     if (p.character === 'witch' && p.abilityActive > 0) slot.card.revealed = true; // Sight still running
     p.hand.push(slot.card);
     this.roundPicks.set(id, (this.roundPicks.get(id) ?? 0) + 1);
@@ -311,6 +318,41 @@ export class DeckGame implements Match {
       return this.broadcastState();
     }
     this.nextPicker(!this.picksDone(other.id) ? other.id : id);
+  }
+
+  /** the difficulty band of each card colour in this draft (touching bands, so every word belongs to one) */
+  private bands(): Record<CardColor, [number, number]> {
+    const span = new Map<CardColor, [number, number]>();
+    for (const { entry, color } of this.pool) {
+      const b = span.get(color);
+      span.set(color, b ? [Math.min(b[0], entry.difficulty), Math.max(b[1], entry.difficulty)] : [entry.difficulty, entry.difficulty]);
+    }
+    const out = {} as Record<CardColor, [number, number]>;
+    const cols = CARD_COLORS.filter((c) => span.has(c));
+    cols.forEach((c, i) => {
+      const lo = i === 0 ? -Infinity : (span.get(cols[i - 1])![1] + span.get(c)![0]) / 2;
+      const hi = i === cols.length - 1 ? Infinity : (span.get(c)![1] + span.get(cols[i + 1])![0]) / 2;
+      out[c] = [lo, hi];
+    });
+    return out;
+  }
+  private bandCache: { pool: DraftPool; bands: Record<CardColor, [number, number]> } | null = null;
+  private wordFor(id: PlayerId, card: Card): VocabEntry {
+    if (!this.words) return card.entry;
+    if (this.bandCache?.pool !== this.pool) this.bandCache = { pool: this.pool, bands: this.bands() };
+    const band = this.bandCache.bands[card.color];
+    if (!band) return card.entry;
+    const inHands = new Set(this.players.flatMap((x) => x.hand.map((c) => c.entry.kanji)));
+    const fits = (v: VocabEntry) => v.difficulty >= band[0] && v.difficulty < band[1] && /^N[1-5]$/.test(v.level) && !inHands.has(v.kanji) && this.words!.writable(v);
+    const mine = this.words.spells(id);
+    const pick = (list: VocabEntry[]) => list[Math.floor(this.rng() * list.length)];
+    if (mine?.size) {
+      const own = this.words.vocab.filter((v) => mine.has(v.id) && fits(v));
+      if (own.length) return pick(own);
+    }
+    if (fits(card.entry)) return card.entry; // (no word of yours in this band: the card's own random word)
+    const any = this.words.vocab.filter(fits);
+    return any.length ? pick(any) : card.entry;
   }
 
   private endDraft() {

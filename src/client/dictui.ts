@@ -63,7 +63,7 @@ async function downloadDict(onProgress: (done: number, total: number) => void): 
   await idb.set('dict:all', stored);
   return stored;
 }
-function dictionary(): Promise<Dictionary> {
+export function dictionary(): Promise<Dictionary> {
   dictP ??= (async () => {
     const kept = await storedDict();
     if (kept) {
@@ -107,7 +107,7 @@ async function askOffline(): Promise<void> {
 }
 
 /** the word with its reading over it */
-function headword(w: DictEntry, cls = 'dw-head') {
+export function headword(w: DictEntry, cls = 'dw-head') {
   const box = h('div', cls, undefined, { lang: 'ja' });
   const main = w.kanji[0];
   if (main) { const r = h('ruby'); r.append(main, h('rt', '', w.kana[0] ?? '')); box.append(r); }
@@ -123,7 +123,7 @@ function nearWord(w: DictEntry) {
   if (w.kanji[0]) box.append(w.kanji[0], h('span', 'dh-sep', ' · '), reading); else box.append(reading);
   return box;
 }
-function badges(w: DictEntry) {
+export function badges(w: DictEntry) {
   const row = h('div', 'dw-tags');
   if (w.level) row.append(h('span', `dw-tag lv lv-${w.level}`, LEVEL_LABEL[w.level], { 'data-no-i18n': '' }));
   if (w.phrase) row.append(h('span', 'dw-tag phrase', tr('phrase')));
@@ -131,14 +131,15 @@ function badges(w: DictEntry) {
   return row;
 }
 const posText = (pos: string[]) => pos.map((p) => tags[p] ?? p).join(', ');
-const ruOf = (w: DictEntry) => (lang() === 'ru' && w.ru.length ? w.ru : null);
+export const ruOf = (w: DictEntry) => (lang() === 'ru' && w.ru.length ? w.ru : null);
 
 async function search(q: string) {
   q = q.trim();
   const body = $('dictBody');
   if (!q) { drawHome(); return; }
   const n = ++busy;
-  body.replaceChildren(h('p', 'hint center', tr('Searching…')));
+  // 0.9.9.8: while you type, the last results stay up until the new ones are ready (no flicker after every letter)
+  if (!lastHits.length) body.replaceChildren(h('p', 'hint center', tr('Searching…')));
   try {
     const d = await dictionary();
     if (n !== busy) return;
@@ -328,7 +329,7 @@ async function openWord(i: number) {
 }
 
 /** "+ Add to…": any deck — a word that isn't one of the game's goes in as your own word first */
-function addTo(w: DictEntry) {
+export function addTo(w: DictEntry) {
   const sel = h('select', 'pill dw-add', undefined, { 'aria-label': tr('Add to a deck') }) as HTMLSelectElement;
   sel.append(Object.assign(h('option', '', `+ ${tr('Add to…')}`), { value: '' }));
   for (const d of ['all', 'struggling', 'custom'] as DeckId[]) sel.append(Object.assign(h('option', '', tr(DECK_LABEL[d])), { value: d }));
@@ -353,6 +354,12 @@ function addTo(w: DictEntry) {
   return sel;
 }
 
+/** 0.9.9.8: the full page for one word (from the dictionary side panel) */
+export function openDictWord(i: number) {
+  ui.show('dict');
+  void openWord(i);
+}
+
 export function openDict() {
   ui.show('dict');
   const q = $<HTMLInputElement>('dictQ');
@@ -364,7 +371,7 @@ export function openDict() {
 $('dictForm').onsubmit = (e) => { e.preventDefault(); void search($<HTMLInputElement>('dictQ').value); };
 {
   let t = 0;
-  $('dictQ').addEventListener('input', () => { clearTimeout(t); t = window.setTimeout(() => void search($<HTMLInputElement>('dictQ').value), 350); });
+  $('dictQ').addEventListener('input', () => { clearTimeout(t); t = window.setTimeout(() => void search($<HTMLInputElement>('dictQ').value), 90); }); // (after every letter)
   $('dictQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(t); void search($<HTMLInputElement>('dictQ').value); } });
 }
 $('dictBack').onclick = () => ui.show('menu');

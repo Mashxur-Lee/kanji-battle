@@ -90,3 +90,21 @@ test('stories (0.9.9.4.4.5): the reason comes back when there is no story; only 
     assert.deepEqual(await svc.story('u', [{ kanji: '山', reading: 'やま', meaning: 'mountain' }, ...words], '2026-10-28'), { story: null, why: 'limit' });
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('stories (0.9.9.8): a story that leaves a word out is asked for again, naming the word, until it is right', async () => {
+  const realFetch = globalThis.fetch;
+  const prompts: string[] = [];
+  const bad = { ...good, lines: [good.lines[0], { ...good.lines[1], ja: 'そこで[静|しず]かに[祈|いの]った。' }] };
+  globalThis.fetch = (async (_u: string, init: RequestInit) => {
+    const b = JSON.parse(String(init.body)); prompts.push(b.messages[0].content);
+    const story = prompts.length < 3 ? bad : good; // wrong twice, then right
+    return new Response(JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(story) }] }));
+  }) as unknown as typeof fetch;
+  try {
+    const r = await new StoryService({ kind: 'anthropic', key: 'k', model: 'm' }).story('u', words, '2026-11-04');
+    assert.ok(r.story, 'the third answer is used');
+    assert.equal(prompts.length, 3);
+    assert.ok(!prompts[0].includes('IMPORTANT: your last story'));
+    assert.match(prompts[1], /left out .*祈る/);
+  } finally { globalThis.fetch = realFetch; }
+});

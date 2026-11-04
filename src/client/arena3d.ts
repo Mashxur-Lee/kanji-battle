@@ -799,44 +799,47 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     mouse.set((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1);
   };
   addEventListener('pointermove', onMove, { passive: true });
-  // ── phones: turn or tilt the phone to look around (0.9.9.3; 0.9.9.3.2: from the gyroscope) — the same look as the
-  // mouse. The rotation rates are added up into how far you have turned; that slowly settles back to straight
-  // ahead, so it never drifts. (The orientation angles were laggy and jumped when the phone was held upright.)
-  const turn = { yaw: 0, pitch: 0, at: 0, live: 0 };
-  // Android reports gravity as "up" (+9.8 on the axis pointing up), iOS as "down"
-  const GRAVITY_SIGN = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? -1 : 1;
-  const screenAngle = () => (((screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) % 360) + 360) % 360;
-  const onMotion = (e: DeviceMotionEvent) => {
-    const r = e.rotationRate;
-    if (!r || r.beta === null || r.gamma === null || !active) return;
+  // ── phones: turn or tilt the phone to look around (0.9.9.3) — the same look as the mouse.
+  // 0.9.9.8: from where the BACK of the phone points (its camera direction), worked out from the phone's orientation
+  // as a whole — like aiming a camera: swing it right and you look right, tilt it up and you look up, however you
+  // hold it (upright, sideways, tipped back). Before, the rotation-rate axes were mixed up on some phones (browsers
+  // disagree which of alpha/beta/gamma is which axis), so a swing right went up and down. Where you point slowly
+  // becomes "straight ahead" again, so it never drifts and any comfortable angle works.
+  const turn = { yaw: 0, pitch: 0, refYaw: NaN, refPitch: 0, at: 0, live: 0 };
+  const D2R = Math.PI / 180;
+  const wrap = (d: number) => ((((d + 180) % 360) + 360) % 360) - 180;
+  const onOrient = (e: DeviceOrientationEvent) => {
+    if (e.alpha === null || e.beta === null || e.gamma === null || !active) return;
     const now = performance.now();
     const dt = turn.at ? Math.min(0.1, (now - turn.at) / 1000) : 0;
     turn.at = now; turn.live = now;
-    // rates (deg/s) about the screen's up and right axes: + = turning left / tilting the top towards you (looking up)
-    const ang = screenAngle();
-    // 0.9.9.4.2: turning left/right = rotating about the real "up" (from gravity), however the phone is held —
-    // upright in front of you as well as tilted down; before, only the phone's own up axis counted
-    const g = e.accelerationIncludingGravity;
-    const gl = g && g.x !== null && g.y !== null && g.z !== null ? Math.hypot(g.x, g.y, g.z!) : 0;
-    const yawRate = gl > 4
-      ? (r.beta * g!.x! + r.gamma * g!.y! + (r.alpha ?? 0) * g!.z!) / gl * GRAVITY_SIGN
-      : ang === 90 ? r.beta : ang === 270 ? -r.beta : ang === 180 ? -r.gamma : r.gamma;
-    const pitchRate = ang === 90 ? -r.gamma : ang === 270 ? r.gamma : ang === 180 ? -r.beta : r.beta;
-    const settle = Math.exp(-dt / 2.2);
-    turn.yaw = (turn.yaw + yawRate * dt) * settle;
-    turn.pitch = (turn.pitch + pitchRate * dt) * settle;
-    mouse.set(Math.max(-1, Math.min(1, -turn.yaw / 16)), Math.max(-1, Math.min(1, -turn.pitch / 14)));
+    const a = e.alpha * D2R, b = e.beta * D2R, g = e.gamma * D2R;
+    // the back of the phone (−z) in the earth's frame (x east, y north, z up): Rz(α)·Rx(β)·Ry(γ)·(0, 0, −1)
+    const sa = Math.sin(a), ca = Math.cos(a), sb = Math.sin(b), cb = Math.cos(b), sg = Math.sin(g), cg = Math.cos(g);
+    const fx = -sg * ca - cg * sb * sa, fy = -sg * sa + cg * sb * ca, fz = -cg * cb;
+    const elev = Math.asin(Math.max(-1, Math.min(1, fz))) / D2R; // + = pointing up
+    const flat = Math.abs(fz) > 0.96; // lying flat: no meaningful left/right
+    const heading = Math.atan2(fx, fy) / D2R; // + = turned right (clockwise from above)
+    if (Number.isNaN(turn.refYaw) || !dt) { turn.refYaw = heading; turn.refPitch = elev; }
+    const settle = 1 - Math.exp(-dt / 2.2); // "straight ahead" catches up in a couple of seconds
+    if (flat) turn.refYaw = heading;
+    const dy = wrap(heading - turn.refYaw), dp = elev - turn.refPitch;
+    turn.refYaw = wrap(turn.refYaw + dy * settle);
+    turn.refPitch += dp * settle;
+    turn.yaw = flat ? turn.yaw * (1 - settle) : dy;
+    turn.pitch = dp;
+    mouse.set(Math.max(-1, Math.min(1, turn.yaw / 16)), Math.max(-1, Math.min(1, -turn.pitch / 14)));
   };
-  const touchy = matchMedia('(pointer: coarse)').matches && 'DeviceMotionEvent' in window;
+  const touchy = matchMedia('(pointer: coarse)').matches && 'DeviceOrientationEvent' in window;
   // iOS asks for permission, and only from a tap: ask at the first tap on the arena
   const askTilt = () => {
     removeEventListener('touchend', askTilt);
-    const D = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> };
-    if (D.requestPermission) void D.requestPermission().then((res) => { if (res === 'granted') addEventListener('devicemotion', onMotion); }).catch(() => { /* declined */ });
+    const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
+    if (D.requestPermission) void D.requestPermission().then((res) => { if (res === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => { /* declined */ });
   };
   if (touchy) {
-    if ((DeviceMotionEvent as unknown as { requestPermission?: unknown }).requestPermission) addEventListener('touchend', askTilt, { passive: true });
-    else addEventListener('devicemotion', onMotion);
+    if ((DeviceOrientationEvent as unknown as { requestPermission?: unknown }).requestPermission) addEventListener('touchend', askTilt, { passive: true });
+    else addEventListener('deviceorientation', onOrient);
   }
   /** Your hand and staff, bottom-right — moved in on a narrow (upright phone) screen so they stay in view. */
   function placeHand() {
@@ -1451,7 +1454,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       api.setActive(false);
       ro?.disconnect();
       removeEventListener('pointermove', onMove);
-      removeEventListener('devicemotion', onMotion); removeEventListener('touchend', askTilt);
+      removeEventListener('deviceorientation', onOrient); removeEventListener('touchend', askTilt);
       removeEventListener('resize', resize);
       overlay.remove();
       if (env) { env.dispose(); env = null; }

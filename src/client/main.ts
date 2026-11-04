@@ -10,6 +10,7 @@ import { adminTab, refreshInboxBadge, setAdminTab } from './adminui';
 import { gameKbAvailable, gameKbPref, gameKbReset, setGameKb, setGameKbPref } from './gamekb';
 import { celebrate, celebrateNew, comboMilestone } from './achievements';
 import { railScreen, refreshRail, setRailUser } from './friendrail';
+import { dictRailScreen, setDictRailUser } from './dictrail';
 import { writeTargets, writeTemplate } from '../shared/kana';
 import { initI18n, lang, setLang, tr } from './i18n';
 import { applyUiZoom, centerScreens, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
@@ -120,6 +121,7 @@ ui.onScreen((s) => {
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (s !== 'lobby') void renderLobbyInvites(false);
   railScreen(s);
+  dictRailScreen(s); // 0.9.9.8: the dictionary side panel
   if (s === 'menu' || s === 'queue') void refreshOnline();
   for (const b of document.querySelectorAll<HTMLElement>('[data-pause]')) b.hidden = !(soloVsAi && ['prep', 'battle', 'deck'].includes(s));
   if (!['prep', 'battle', 'deck'].includes(s)) setPaused(false);
@@ -277,6 +279,7 @@ function signedIn(u: PublicUser) {
   if (!offline.isOffline()) void offline.signedIn(u.id); // keep a copy of the account for offline use
   ui.setUser(u);
   setRailUser(true);
+  setDictRailUser(true);
   socket.start(getToken());
   if (!inRoom) ui.show('menu');
   if (!profile) void refreshProfile();
@@ -290,6 +293,7 @@ function showAuth(message = '') {
   inRoom = false;
   ui.setUser(null);
   setRailUser(false);
+  setDictRailUser(false);
   ui.setAuthTab(authTab);
   ui.show('auth');
   let left = '';
@@ -400,6 +404,7 @@ function onMessage(msg: ServerMessage) {
       players = msg.players;
       // only you against the AI (or a solo Boss run): the game can be paused
       soloVsAi = msg.players.filter((p) => !p.bot).length === 1;
+      forfeitLabels();
       setPaused(false);
       mode = msg.mode;
       minPlayers = msg.minPlayers;
@@ -876,14 +881,23 @@ ui.$<HTMLInputElement>('answer').addEventListener('keydown', (e) => {
 });
 
 // Forfeit (two taps; no blocking confirm() dialogs) → everyone goes to the results screen
+// 0.9.9.8: only you in the room (against AI, or a solo Boss run): it's a Leave button — straight back to the lobby
 function armForfeit(btnId: string) {
   let armed = 0;
   ui.$(btnId).onclick = () => {
-    if (Date.now() - armed < 3000) { socket.send({ type: 'forfeit' }); return; }
+    const label = soloVsAi ? 'Leave' : 'Forfeit';
+    if (Date.now() - armed < 3000) { socket.send(soloVsAi ? { type: 'leave_game' } : { type: 'forfeit' }); return; }
     armed = Date.now();
-    ui.$(btnId).textContent = 'Tap again to forfeit';
-    setTimeout(() => (ui.$(btnId).textContent = 'Forfeit'), 3000);
+    ui.$(btnId).textContent = soloVsAi ? 'Tap again to leave' : 'Tap again to forfeit';
+    setTimeout(() => (ui.$(btnId).textContent = label), 3000);
   };
+}
+function forfeitLabels() {
+  for (const id of ['forfeit', 'dkForfeit']) {
+    const b = ui.$(id);
+    b.textContent = soloVsAi ? 'Leave' : 'Forfeit';
+    b.classList.toggle('leave', soloVsAi);
+  }
 }
 armForfeit('forfeit');
 armForfeit('dkForfeit');

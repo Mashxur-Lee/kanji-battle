@@ -60,8 +60,8 @@
     const hex = flameColor(f2).slice(1);
     const [r2, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
     const max = Math.max(r2, g, b), min = Math.min(r2, g, b), l = (max + min) / 2, d = max - min;
-    const h5 = d === 0 ? 0 : max === r2 ? ((g - b) / d + 6) % 6 : max === g ? (b - r2) / d + 2 : (r2 - g) / d + 4;
-    const hue = h5 * 60;
+    const h6 = d === 0 ? 0 : max === r2 ? ((g - b) / d + 6) % 6 : max === g ? (b - r2) / d + 2 : (r2 - g) / d + 4;
+    const hue = h6 * 60;
     const pale = l > 0.85;
     const rgb = (s, li) => {
       const c = (1 - Math.abs(2 * li - 1)) * s, x = c * (1 - Math.abs(hue / 60 % 2 - 1)), m = li - c / 2;
@@ -287,9 +287,9 @@
   function formatInterval(ms) {
     const m = ms / MIN;
     if (m < 60) return `${Math.max(1, Math.round(m))}m`;
-    const h5 = m / 60;
-    if (h5 < 24) return `${Math.round(h5)}h`;
-    const d = h5 / 24;
+    const h6 = m / 60;
+    if (h6 < 24) return `${Math.round(h6)}h`;
+    const d = h6 / 24;
     if (d < 30) return `${Math.round(d)}d`;
     if (d < 365) return `${(d / 30).toFixed(d < 300 ? 1 : 0).replace(/\.0$/, "")}mo`;
     return `${(d / 365).toFixed(1).replace(/\.0$/, "")}y`;
@@ -1598,7 +1598,7 @@
   var init_rng = __esm({
     "src/shared/rng.ts"() {
       "use strict";
-      hash = (s) => [...s].reduce((h5, c) => Math.imul(h5 ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
+      hash = (s) => [...s].reduce((h6, c) => Math.imul(h6 ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
       seededRng = (key) => seeded(hash(key));
     }
   });
@@ -2464,6 +2464,7 @@ Format rules for the "ja" text (very important):
 - Write every kanji with its furigana as [\u6F22\u5B57|\u304B\u3093\u3058] \u2014 e.g. [\u4ECA\u65E5|\u304D\u3087\u3046]\u306F[\u5BFA|\u3066\u3089]\u3067 \u2014 never a kanji outside these brackets.
 - Kana is written as it is, never in brackets.
 - Wrap each of the words above, where it appears, in \u3010\u3011 together with its okurigana or conjugation \u2014 e.g. \u3010[\u7948|\u3044\u306E]\u3063\u305F\u3011 or \u3010[\u9759|\u3057\u305A]\u304B\u306A\u3011. Use \u3010\u3011 only for those words, once each.
+- A word of the list written only in kana (an onomatopoeia like \u308F\u304F\u308F\u304F or \u30C9\u30AD\u30C9\u30AD) stays in that kana \u2014 e.g. \u3010\u308F\u304F\u308F\u304F\u3011\u3057\u3066 or \u3010\u30C9\u30AD\u30C9\u30AD\u3011\u3057\u305F.
 - Write the rest of the story at ${LEVEL_HINT[level2]} \u2014 the other words and the grammar should be of that level (and easier), so it is a good read for someone studying that level.
 
 Answer with JSON only, no other text:
@@ -2519,7 +2520,7 @@ Answer with JSON only, no other text:
     );
     return d.choices?.[0]?.message?.content ?? "";
   }
-  var HAN, RUBY, KANA2, stemOf, isStoryLevel, LEVEL_HINT, geminiWay, StoryService;
+  var HAN, RUBY, KANA2, stemOf, isStoryLevel, LEVEL_HINT, geminiWay, STORY_BUDGET_MS, STORY_ATTEMPTS, StoryService;
   var init_StoryService = __esm({
     "src/server/study/StoryService.ts"() {
       "use strict";
@@ -2540,6 +2541,8 @@ Answer with JSON only, no other text:
         N1: "JLPT N1: advanced vocabulary and grammar, natural written Japanese"
       };
       geminiWay = /* @__PURE__ */ new Map();
+      STORY_BUDGET_MS = 15e4;
+      STORY_ATTEMPTS = 6;
       StoryService = class {
         constructor(provider2 = providerFromEnv(), perDay = 10, allPerDay = Number(process.env.STORY_DAILY_MAX) || 400, adminPerDay = 40) {
           __publicField(this, "provider", provider2);
@@ -2618,7 +2621,7 @@ Answer with JSON only, no other text:
             this.used.set(k, { n: 0, tries: 0 });
           }
           const u = this.used.get(k);
-          if (u.n >= cap || u.tries >= Math.max(20, cap * 3)) return { story: null, why: "limit" };
+          if (u.n >= cap || u.tries >= Math.max(40, cap * 6)) return { story: null, why: "limit" };
           const serverDay = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
           if (this.all.day !== serverDay) this.all = { day: serverDay, n: 0 };
           if (this.all.n >= this.allPerDay) return { story: null, why: "busy" };
@@ -2630,13 +2633,20 @@ Answer with JSON only, no other text:
             this.busy.delete(userId);
           }
         }
+        /**
+         * 0.9.9.8: keeps trying until there is a story (up to ~2½ minutes) instead of giving up after one bad answer.
+         * A story that left a word out ("missing 雨") is asked for again with a reminder of exactly which words it missed.
+         */
         async write(u, key, words2, level2) {
           let why = "";
+          let hint = "";
           const start = Date.now();
-          for (let attempt = 0; attempt < 2 && (attempt === 0 || Date.now() - start < 3e4); attempt++) {
+          for (let attempt = 0; attempt < STORY_ATTEMPTS; attempt++) {
+            const left = STORY_BUDGET_MS - (Date.now() - start);
+            if (left < 8e3) break;
             try {
               u.tries++;
-              const s = await this.ask(words2, level2);
+              const s = await this.ask(words2, level2, hint, Math.min(55e3, left));
               const st = normalizeStory(s, words2);
               if (typeof st !== "string") {
                 this.all.n++;
@@ -2646,20 +2656,27 @@ Answer with JSON only, no other text:
                 return { story: st };
               }
               why = st;
-              console.warn("story rejected:", st);
+              hint = st.startsWith("missing ") ? `
+
+IMPORTANT: your last story left out (or did not mark with \u3010\u3011) these words: ${st.slice(8)}. This time every one of the ${words2.length} words must be in the story, each wrapped in \u3010\u3011.` : `
+
+IMPORTANT: your last answer could not be used (${st}). Follow the format exactly.`;
+              console.warn(`story rejected (try ${attempt + 1}):`, st);
             } catch (e) {
               why = e.name === "AbortError" ? "timeout" : e.message;
-              console.warn("story failed:", why);
+              console.warn(`story failed (try ${attempt + 1}):`, why);
               if (/ 4\d\d:/.test(why) && !/ 429:/.test(why)) break;
+              if (/ 429:/.test(why)) await new Promise((ok) => setTimeout(ok, 3e3));
+              hint = /^SyntaxError|JSON/.test(why) ? "\n\nIMPORTANT: answer with valid JSON only." : hint;
             }
           }
           return { story: null, why: why.slice(0, 300) };
         }
-        async ask(words2, level2) {
+        async ask(words2, level2, hint = "", ms = 55e3) {
           const ctl = new AbortController();
-          const t = setTimeout(() => ctl.abort(), 55e3);
+          const t = setTimeout(() => ctl.abort(), ms);
           try {
-            const text = await complete(this.provider, prompt(words2, level2), ctl.signal);
+            const text = await complete(this.provider, prompt(words2, level2) + hint, ctl.signal);
             const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
             return JSON.parse(json);
           } finally {
@@ -2970,14 +2987,14 @@ Answer with JSON only, no other text:
           __publicField(this, "hits", /* @__PURE__ */ new Map());
         }
         allow(key, now2 = Date.now()) {
-          const h5 = this.hits.get(key);
-          if (!h5 || h5.reset < now2) {
+          const h6 = this.hits.get(key);
+          if (!h6 || h6.reset < now2) {
             this.hits.set(key, { n: 1, reset: now2 + this.windowMs });
             return true;
           }
-          h5.n++;
+          h6.n++;
           if (this.hits.size > 1e4) this.hits.clear();
-          return h5.n <= this.limit;
+          return h6.n <= this.limit;
         }
       };
       res = (status, body) => ({ status, body });
@@ -3133,9 +3150,9 @@ Answer with JSON only, no other text:
     clearInterval(probeTimer);
     if (v) probeTimer = window.setInterval(() => void tryReconnect(), 2e4);
   }
-  function init(getToken2, busy4) {
+  function init(getToken2, busy5) {
     token = getToken2;
-    if (busy4) busyCheck = busy4;
+    if (busy5) busyCheck = busy5;
     addEventListener("online", () => void tryReconnect());
     addEventListener("offline", () => {
       if (document.visibilityState === "visible") void goOffline();
@@ -4346,6 +4363,12 @@ Answer with JSON only, no other text:
         "Light": "\u0421\u0432\u0435\u0442\u043B\u0430\u044F",
         "New a day": "\u041D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C",
         "Every giseigo, gitaigo and gij\u014Dgo: sounds (\u30EF\u30F3\u30EF\u30F3), states (\u304D\u3089\u304D\u3089) and feelings (\u30C9\u30AD\u30C9\u30AD). Choose how many new ones a day (0 = none).": "\u0412\u0441\u0435 \u0433\u0438\u0441\u044D\u0439\u0433\u043E, \u0433\u0438\u0442\u0430\u0439\u0433\u043E \u0438 \u0433\u0438\u0434\u0437\u0451\u0433\u043E: \u0437\u0432\u0443\u043A\u0438 (\u30EF\u30F3\u30EF\u30F3), \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F (\u304D\u3089\u304D\u3089) \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u0430 (\u30C9\u30AD\u30C9\u30AD). \u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043D\u043E\u0432\u044B\u0445 \u0432 \u0434\u0435\u043D\u044C (0 \u2014 \u043D\u0438 \u043E\u0434\u043D\u043E\u0433\u043E).",
+        // 0.9.9.8
+        "Tap again to leave": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437, \u0447\u0442\u043E\u0431\u044B \u0432\u044B\u0439\u0442\u0438",
+        "Look up a word\u2026": "\u041D\u0430\u0439\u0442\u0438 \u0441\u043B\u043E\u0432\u043E\u2026",
+        "Look up a word": "\u041D\u0430\u0439\u0442\u0438 \u0441\u043B\u043E\u0432\u043E",
+        "Full entry": "\u041F\u043E\u043B\u043D\u0430\u044F \u0441\u0442\u0430\u0442\u044C\u044F",
+        "Type a word in kanji, kana, romaji, English or Russian.": "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u043E \u043A\u0430\u043D\u0434\u0437\u0438, \u043A\u0430\u043D\u043E\u0439, \u0440\u043E\u043C\u0430\u0434\u0437\u0438, \u043F\u043E-\u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438 \u0438\u043B\u0438 \u043F\u043E-\u0440\u0443\u0441\u0441\u043A\u0438.",
         // 0.9.9.7.3
         "Use the dictionary offline?": "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C\u0441\u044F \u0441\u043B\u043E\u0432\u0430\u0440\u0451\u043C \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430?",
         "Download every word and phrase (about 2.5 MB) to this device \u2014 then the dictionary works without internet, anywhere.": "\u0421\u043A\u0430\u0447\u0430\u0439\u0442\u0435 \u0432\u0441\u0435 \u0441\u043B\u043E\u0432\u0430 \u0438 \u0444\u0440\u0430\u0437\u044B (\u043E\u043A\u043E\u043B\u043E 2,5 \u041C\u0411) \u043D\u0430 \u044D\u0442\u043E \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E \u2014 \u0442\u043E\u0433\u0434\u0430 \u0441\u043B\u043E\u0432\u0430\u0440\u044C \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430, \u0433\u0434\u0435 \u0443\u0433\u043E\u0434\u043D\u043E.",
@@ -4711,6 +4734,7 @@ Answer with JSON only, no other text:
         [/^You’ve used all (\d+) of today’s AI stories — new ones tomorrow!$/, "\u0412\u044B \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043B\u0438 \u0432\u0441\u0435 $1 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u043D\u0430 \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u2014 \u043D\u043E\u0432\u044B\u0435 \u0437\u0430\u0432\u0442\u0440\u0430!"],
         [/^Pick which of your words go in and the story level above, then start\. (\d+) words of “(.+)” fit\.$/, (_, n, d) => `\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u044B\u0448\u0435, \u043A\u0430\u043A\u0438\u0435 \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0432\u043E\u0439\u0434\u0443\u0442, \u0438 \u0443\u0440\u043E\u0432\u0435\u043D\u044C \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430, \u0437\u0430\u0442\u0435\u043C \u043D\u0430\u0447\u043D\u0438\u0442\u0435. \u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u0441\u043B\u043E\u0432 \u0438\u0437 \xAB${RU[d] ?? d}\xBB: ${n}.`],
         [/^You can have up to (\d+) new AI stories a day — the counter next to New passage shows how many are left\. After that \(or offline\), the passage uses your words’ example sentences instead\.$/, "\u0412 \u0434\u0435\u043D\u044C \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0434\u043E $1 \u043D\u043E\u0432\u044B\u0445 \u0418\u0418-\u0440\u0430\u0441\u0441\u043A\u0430\u0437\u043E\u0432 \u2014 \u0441\u0447\u0451\u0442\u0447\u0438\u043A \u0440\u044F\u0434\u043E\u043C \u0441 \xAB\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u043A\u0441\u0442\xBB \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C. \u041F\u043E\u0442\u043E\u043C (\u0438\u043B\u0438 \u0431\u0435\u0437 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0430) \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442\u0441\u044F \u043F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u0432\u0430\u0448\u0438\u0445 \u0441\u043B\u043E\u0432."],
+        [/^A story needs at least 8 words — your Onomatopoeia deck has (\d+)\. Study a few more onomatopoeia first\.$/, (_, n) => `\u0414\u043B\u044F \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u043D\u0443\u0436\u043D\u043E \u0445\u043E\u0442\u044F \u0431\u044B 8 \u0441\u043B\u043E\u0432 \u2014 \u0432 \u0432\u0430\u0448\u0435\u0439 \u043A\u043E\u043B\u043E\u0434\u0435 \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0438 \u0438\u0445 ${n}. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0438\u0437\u0443\u0447\u0438\u0442\u0435 \u0435\u0449\u0451 \u043D\u0435\u043C\u043D\u043E\u0433\u043E \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0438.`],
         [/^A story needs at least 8 kanji words — “(.+)” has (\d+) of the levels you ticked\. Tick more levels, pick another deck, or study more words\.$/, (_, d, n) => `\u0414\u043B\u044F \u0440\u0430\u0441\u0441\u043A\u0430\u0437\u0430 \u043D\u0443\u0436\u043D\u043E \u0445\u043E\u0442\u044F \u0431\u044B 8 \u0441\u043B\u043E\u0432 \u0441 \u043A\u0430\u043D\u0434\u0437\u0438 \u2014 \u0432 \xAB${RU[d] ?? d}\xBB \u0438\u0445 ${n} \u0441\u0440\u0435\u0434\u0438 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u0445 \u0443\u0440\u043E\u0432\u043D\u0435\u0439. \u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u0443\u0440\u043E\u0432\u043D\u0435\u0439, \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u0443\u044E \u043A\u043E\u043B\u043E\u0434\u0443 \u0438\u043B\u0438 \u0438\u0437\u0443\u0447\u0438\u0442\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u0441\u043B\u043E\u0432.`],
         [/^(\d+) missed → Struggling spells$/, "$1 \u0441 \u043E\u0448\u0438\u0431\u043A\u043E\u0439 \u2192 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB"],
         [/^Added to Struggling spells: (\d+)$/, "\u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E \u0432 \xAB\u0422\u0440\u0443\u0434\u043D\u044B\u0435 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u044F\xBB: $1"],
@@ -5150,32 +5174,32 @@ Answer with JSON only, no other text:
     pic.defs.push(...sub.defs);
     pic.raw(`<g transform="translate(${hx} ${hy}) rotate(${tilt}) scale(${s}) translate(${-25} ${-STAFF_GRIP})">${sub.body.join("")}</g>`);
   }
-  function face(pic, cx, cy, w, h5, o) {
-    pic.e(cx, cy, w, h5, pic.radial([[0, lt(o.skin, 0.12)], [0.65, o.skin], [1, dk(o.skin, 0.22)]], 0.4, 0.35, 0.75));
-    pic.p(`M${cx + w * 0.55} ${cy - h5 * 0.2} Q${cx + w * 1.02} ${cy + h5 * 0.2} ${cx + w * 0.4} ${cy + h5 * 0.95} Q${cx + w * 0.75} ${cy + h5 * 0.3} ${cx + w * 0.55} ${cy - h5 * 0.2}Z`, dk(o.skin, 0.35), 'opacity=".35"');
-    pic.p(`M${cx + w * 0.12} ${cy - h5 * 0.05} L${cx + w * 0.3} ${cy + h5 * 0.32} L${cx + w * 0.08} ${cy + h5 * 0.36}Z`, dk(o.skin, 0.3), 'opacity=".5"');
+  function face(pic, cx, cy, w, h6, o) {
+    pic.e(cx, cy, w, h6, pic.radial([[0, lt(o.skin, 0.12)], [0.65, o.skin], [1, dk(o.skin, 0.22)]], 0.4, 0.35, 0.75));
+    pic.p(`M${cx + w * 0.55} ${cy - h6 * 0.2} Q${cx + w * 1.02} ${cy + h6 * 0.2} ${cx + w * 0.4} ${cy + h6 * 0.95} Q${cx + w * 0.75} ${cy + h6 * 0.3} ${cx + w * 0.55} ${cy - h6 * 0.2}Z`, dk(o.skin, 0.35), 'opacity=".35"');
+    pic.p(`M${cx + w * 0.12} ${cy - h6 * 0.05} L${cx + w * 0.3} ${cy + h6 * 0.32} L${cx + w * 0.08} ${cy + h6 * 0.36}Z`, dk(o.skin, 0.3), 'opacity=".5"');
     for (const sx of [-1, 1]) {
-      const ex = cx + sx * w * 0.42 + w * 0.08, ey = cy - h5 * 0.06, ew = w * 0.26, eh = h5 * 0.13;
+      const ex = cx + sx * w * 0.42 + w * 0.08, ey = cy - h6 * 0.06, ew = w * 0.26, eh = h6 * 0.13;
       pic.e(ex, ey, ew, eh, o.glow ? "#ffd23a" : "#f4f0ea");
       pic.e(ex + ew * 0.25, ey + eh * 0.1, eh * 0.95, eh * 0.95, o.eye);
       pic.e(ex + ew * 0.25, ey + eh * 0.1, o.glow ? eh * 0.25 : eh * 0.45, eh * 0.7, "#140c14");
       if (!o.glow) pic.e(ex + ew * 0.05, ey - eh * 0.35, eh * 0.22, eh * 0.22, "#ffffff", 'opacity=".85"');
       pic.p(`M${ex - ew * 1.1} ${ey - eh * 1.4} L${ex + ew * 1.1} ${ey - eh * 1.4} L${ex + ew * 1.1} ${ey - eh * (1 - o.lid * 1.6)} Q${ex} ${ey - eh * (1.3 - o.lid * 1.8)} ${ex - ew * 1.1} ${ey - eh * (0.6 - o.lid)} Z`, o.skin);
-      pic.s(`M${ex - ew * 1.05} ${ey - eh * (0.55 - o.lid)} Q${ex} ${ey - eh * (1.25 - o.lid * 1.8)} ${ex + ew * 1.08} ${ey - eh * (0.95 - o.lid * 1.6)}`, "#1c1418", h5 * 0.045);
-      if (o.lashes) pic.s(`M${ex + ew * 0.8} ${ey - eh * (0.9 - o.lid * 1.6)} l${ew * 0.35} ${-eh * 0.45}`, "#1c1418", h5 * 0.03);
+      pic.s(`M${ex - ew * 1.05} ${ey - eh * (0.55 - o.lid)} Q${ex} ${ey - eh * (1.25 - o.lid * 1.8)} ${ex + ew * 1.08} ${ey - eh * (0.95 - o.lid * 1.6)}`, "#1c1418", h6 * 0.045);
+      if (o.lashes) pic.s(`M${ex + ew * 0.8} ${ey - eh * (0.9 - o.lid * 1.6)} l${ew * 0.35} ${-eh * 0.45}`, "#1c1418", h6 * 0.03);
       const inner = sx < 0 ? ex + ew : ex - ew, outer = sx < 0 ? ex - ew * 1.1 : ex + ew * 1.15;
       const by = ey - eh * 2.3;
-      pic.s(`M${inner} ${by + o.browTilt * eh} Q${(inner + outer) / 2} ${by - eh * 0.7} ${outer} ${by - o.browTilt * eh * 0.5}`, o.brow, h5 * 0.09);
+      pic.s(`M${inner} ${by + o.browTilt * eh} Q${(inner + outer) / 2} ${by - eh * 0.7} ${outer} ${by - o.browTilt * eh * 0.5}`, o.brow, h6 * 0.09);
     }
-    const my = cy + h5 * 0.55;
+    const my = cy + h6 * 0.55;
     if (o.mouth === "snarl") {
-      pic.p(`M${cx - w * 0.3} ${my} Q${cx + w * 0.1} ${my - h5 * 0.12} ${cx + w * 0.5} ${my} L${cx + w * 0.42} ${my + h5 * 0.14} Q${cx + w * 0.1} ${my + h5 * 0.2} ${cx - w * 0.22} ${my + h5 * 0.12} Z`, "#2a1416");
-      pic.p(`M${cx - w * 0.24} ${my + h5 * 0.01} L${cx + w * 0.44} ${my + h5 * 0.01} L${cx + w * 0.4} ${my + h5 * 0.07} L${cx - w * 0.2} ${my + h5 * 0.07}Z`, "#ece4cc");
-      pic.s(`M${cx - w * 0.05} ${my} v${h5 * 0.07} M${cx + w * 0.15} ${my} v${h5 * 0.07}`, "#2a1416", 0.5);
+      pic.p(`M${cx - w * 0.3} ${my} Q${cx + w * 0.1} ${my - h6 * 0.12} ${cx + w * 0.5} ${my} L${cx + w * 0.42} ${my + h6 * 0.14} Q${cx + w * 0.1} ${my + h6 * 0.2} ${cx - w * 0.22} ${my + h6 * 0.12} Z`, "#2a1416");
+      pic.p(`M${cx - w * 0.24} ${my + h6 * 0.01} L${cx + w * 0.44} ${my + h6 * 0.01} L${cx + w * 0.4} ${my + h6 * 0.07} L${cx - w * 0.2} ${my + h6 * 0.07}Z`, "#ece4cc");
+      pic.s(`M${cx - w * 0.05} ${my} v${h6 * 0.07} M${cx + w * 0.15} ${my} v${h6 * 0.07}`, "#2a1416", 0.5);
     } else if (o.mouth === "lips") {
-      pic.p(`M${cx - w * 0.25} ${my} Q${cx + w * 0.1} ${my - h5 * 0.1} ${cx + w * 0.45} ${my} Q${cx + w * 0.1} ${my + h5 * 0.16} ${cx - w * 0.25} ${my}Z`, o.lips ?? "#7a3a5a");
+      pic.p(`M${cx - w * 0.25} ${my} Q${cx + w * 0.1} ${my - h6 * 0.1} ${cx + w * 0.45} ${my} Q${cx + w * 0.1} ${my + h6 * 0.16} ${cx - w * 0.25} ${my}Z`, o.lips ?? "#7a3a5a");
     } else {
-      pic.s(`M${cx - w * 0.15} ${my} Q${cx + w * 0.12} ${my + h5 * 0.04} ${cx + w * 0.38} ${my - h5 * 0.02}`, dk(o.skin, 0.55), h5 * 0.05);
+      pic.s(`M${cx - w * 0.15} ${my} Q${cx + w * 0.12} ${my + h6 * 0.04} ${cx + w * 0.38} ${my - h6 * 0.02}`, dk(o.skin, 0.55), h6 * 0.05);
     }
   }
   function wavyHair(pic, x, y0, y1, w, c, lobes = 5) {
@@ -5203,12 +5227,12 @@ Answer with JSON only, no other text:
   }
   function wizard(pic, side, staff) {
     const robe = side === "ally" ? "#2f9070" : side === "rival" ? "#a8304a" : "#2f5ac4", deep = dk(robe, 0.35), cream = "#efe5cc", gold = "#e4b84c", skin = "#f2ddcf", hair = "#f2f0ec";
-    const band = (x0, x1, y, h5, flip2 = false) => {
+    const band = (x0, x1, y, h6, flip2 = false) => {
       const n = Math.max(2, Math.round((x1 - x0) / 9)), dx = (x1 - x0) / n;
       let d = "";
       for (let i = 0; i < n; i++) {
         const a = x0 + i * dx;
-        d += `M${a} ${y + h5 / 2} L${a + dx / 2} ${y} L${a + dx} ${y + h5 / 2} L${a + dx / 2} ${y + h5} Z `;
+        d += `M${a} ${y + h6 / 2} L${a + dx / 2} ${y} L${a + dx} ${y + h6 / 2} L${a + dx / 2} ${y + h6} Z `;
       }
       pic.p(d, "none", `stroke="${gold}" stroke-width="1.1"${flip2 ? "" : ""}`);
     };
@@ -5463,9 +5487,9 @@ Answer with JSON only, no other text:
   function lp(pic, d, base, cell = 7, light = 0.26) {
     const n = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
     const xs = n.filter((_, i) => i % 2 === 0), ys = n.filter((_, i) => i % 2 === 1);
-    let h5 = 0;
-    for (const c of d) h5 = (h5 * 31 + c.charCodeAt(0)) % 99991;
-    lowpoly(pic, d, [Math.min(...xs) - 2, Math.min(...ys) - 2, Math.max(...xs) + 2, Math.max(...ys) + 2], base, cell, light, h5 + 1);
+    let h6 = 0;
+    for (const c of d) h6 = (h6 * 31 + c.charCodeAt(0)) % 99991;
+    lowpoly(pic, d, [Math.min(...xs) - 2, Math.min(...ys) - 2, Math.max(...xs) + 2, Math.max(...ys) + 2], base, cell, light, h6 + 1);
   }
   function dragonArt() {
     const pic = new Pic();
@@ -5519,7 +5543,7 @@ Answer with JSON only, no other text:
       init_progress();
       uid = 0;
       nid = () => `a${(uid++).toString(36)}`;
-      hexRgb = (h5) => [1, 3, 5].map((i) => parseInt(h5.slice(i, i + 2), 16));
+      hexRgb = (h6) => [1, 3, 5].map((i) => parseInt(h6.slice(i, i + 2), 16));
       rgbHex = (c) => `#${c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("")}`;
       mix = (a, b, t) => {
         const x = hexRgb(a), y = hexRgb(b);
@@ -5566,8 +5590,8 @@ Answer with JSON only, no other text:
           this.body.push(s);
           return this;
         }
-        svg(w, h5, cls = "art") {
-          return `<svg viewBox="0 0 ${w} ${h5}" class="${cls}" aria-hidden="true"><defs>${this.defs.join("")}</defs>${this.body.join("")}</svg>`;
+        svg(w, h6, cls = "art") {
+          return `<svg viewBox="0 0 ${w} ${h6}" class="${cls}" aria-hidden="true"><defs>${this.defs.join("")}</defs>${this.body.join("")}</svg>`;
         }
         inner() {
           return `<defs>${this.defs.join("")}</defs>${this.body.join("")}`;
@@ -5605,15 +5629,15 @@ Answer with JSON only, no other text:
 
   // src/client/backgrounds.ts
   function resolveTime(_pref = "auto", now2 = Date.now()) {
-    const h5 = new Date(now2).getHours();
-    return h5 >= DAY_FROM && h5 < SUNSET_FROM ? "day" : h5 >= SUNSET_FROM && h5 < NIGHT_FROM ? "sunset" : "night";
+    const h6 = new Date(now2).getHours();
+    return h6 >= DAY_FROM && h6 < SUNSET_FROM ? "day" : h6 >= SUNSET_FROM && h6 < NIGHT_FROM ? "sunset" : "night";
   }
   function untilNextStep(now2 = Date.now()) {
     const d = new Date(now2);
     const next3 = new Date(d);
     next3.setMinutes(0, 0, 0);
-    const h5 = d.getHours();
-    const at = [DAY_FROM, SUNSET_FROM, NIGHT_FROM].find((x) => x > h5);
+    const h6 = d.getHours();
+    const at = [DAY_FROM, SUNSET_FROM, NIGHT_FROM].find((x) => x > h6);
     if (at === void 0) {
       next3.setDate(next3.getDate() + 1);
       next3.setHours(DAY_FROM);
@@ -5814,12 +5838,12 @@ Answer with JSON only, no other text:
     }
     return `<path d="${vine}" stroke="${dk2(c, 0.35)}" stroke-width="1.5" fill="none"/><path d="${leaves}" fill="${c}"/><path d="${lit}" fill="${lighten(c, 0.25)}"/>`;
   }
-  function leafyTree(x, base, h5, leaf, trunkC) {
-    const w = h5 * 0.07;
-    let s = `<ellipse cx="${x}" cy="${base}" rx="${f(h5 * 0.3)}" ry="${f(h5 * 0.04)}" fill="#000" opacity=".3" filter="url(#soft)"/>`;
-    s += `<path d="M${f(x - w)} ${base} Q${f(x - w * 0.5)} ${f(base - h5 * 0.4)} ${f(x - w * 0.35)} ${f(base - h5 * 0.62)} L${f(x + w * 0.35)} ${f(base - h5 * 0.62)} Q${f(x + w * 0.5)} ${f(base - h5 * 0.4)} ${f(x + w)} ${base} Z" fill="${lin([[0, lighten(trunkC, 0.15)], [1, dk2(trunkC, 0.3)]], 0, 0, 1, 0)}"/>`;
+  function leafyTree(x, base, h6, leaf, trunkC) {
+    const w = h6 * 0.07;
+    let s = `<ellipse cx="${x}" cy="${base}" rx="${f(h6 * 0.3)}" ry="${f(h6 * 0.04)}" fill="#000" opacity=".3" filter="url(#soft)"/>`;
+    s += `<path d="M${f(x - w)} ${base} Q${f(x - w * 0.5)} ${f(base - h6 * 0.4)} ${f(x - w * 0.35)} ${f(base - h6 * 0.62)} L${f(x + w * 0.35)} ${f(base - h6 * 0.62)} Q${f(x + w * 0.5)} ${f(base - h6 * 0.4)} ${f(x + w)} ${base} Z" fill="${lin([[0, lighten(trunkC, 0.15)], [1, dk2(trunkC, 0.3)]], 0, 0, 1, 0)}"/>`;
     const dark = rad([[0, dk2(leaf, 0.1)], [1, dk2(leaf, 0.45)]]), mid = rad([[0, lighten(leaf, 0.15)], [0.6, leaf], [1, dk2(leaf, 0.3)]]), top = rad([[0, lighten(leaf, 0.35)], [1, leaf]]);
-    const cy = base - h5 * 0.72, R = h5 * 0.3;
+    const cy = base - h6 * 0.72, R = h6 * 0.3;
     for (let i = 0; i < 6; i++) s += leafBlob(x + r(-R, R) * 0.9, cy + r(-R * 0.4, R * 0.6), R * r(0.45, 0.6), dark);
     for (let i = 0; i < 7; i++) s += leafBlob(x + r(-R, R) * 0.75, cy + r(-R * 0.6, R * 0.3), R * r(0.4, 0.55), mid);
     for (let i = 0; i < 4; i++) s += leafBlob(x - R * 0.2 + r(-R, R) * 0.45, cy - R * 0.35 + r(-R * 0.3, R * 0.2), R * r(0.28, 0.4), top);
@@ -5840,31 +5864,31 @@ Answer with JSON only, no other text:
     }
     return `<path d="${d}" fill="${c}" opacity=".55"/>`;
   }
-  function bark(x, y, w, h5, c) {
+  function bark(x, y, w, h6, c) {
     let dark = "", light = "";
     for (let i = 0; i < Math.round(w / 3); i++) {
-      const bx = x + r(0, w), by = y + r(0, h5), len = r(20, 90);
+      const bx = x + r(0, w), by = y + r(0, h6), len = r(20, 90);
       const p = `M${f(bx)} ${f(by)} q${f(r(-3, 3))} ${f(len / 2)} ${f(r(-2, 2))} ${f(len)} `;
       if (i % 3) dark += p;
       else light += p;
     }
-    const knots = Array.from({ length: Math.max(1, Math.round(h5 / 260)) }, () => `<ellipse cx="${f(x + r(w * 0.2, w * 0.8))}" cy="${f(y + r(0, h5))}" rx="${f(r(5, 9))}" ry="${f(r(8, 14))}" fill="none" stroke="${dk2(c, 0.5)}" stroke-width="2.5" opacity=".7"/>`).join("");
+    const knots = Array.from({ length: Math.max(1, Math.round(h6 / 260)) }, () => `<ellipse cx="${f(x + r(w * 0.2, w * 0.8))}" cy="${f(y + r(0, h6))}" rx="${f(r(5, 9))}" ry="${f(r(8, 14))}" fill="none" stroke="${dk2(c, 0.5)}" stroke-width="2.5" opacity=".7"/>`).join("");
     return `<path d="${dark}" stroke="${dk2(c, 0.45)}" stroke-width="2" fill="none" opacity=".6"/><path d="${light}" stroke="${lighten(c, 0.2)}" stroke-width="1.5" fill="none" opacity=".35"/>${knots}`;
   }
-  function monolith(x, base, h5, w, stone, glow, lit, moss = "#4f8a3a") {
+  function monolith(x, base, h6, w, stone, glow, lit, moss = "#4f8a3a") {
     const outline = dk2(stone, 0.55);
     let s = `<ellipse cx="${x + w * 0.2}" cy="${base + 2}" rx="${f(w * 1.1)}" ry="${f(w * 0.2)}" fill="#000" opacity=".4" filter="url(#soft)"/>`;
-    s += `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h5} L${x + w / 2 - 6} ${base - h5 - 8} L${x + w / 2} ${base} Z" fill="${lin([[0, lighten(stone, 0.18)], [0.45, stone], [1, dk2(stone, 0.3)]], 0, 0, 1, 0)}" stroke="${outline}" stroke-width="1" stroke-opacity=".5" stroke-linejoin="round"/><path d="M${x - w / 2} ${base} L${x + w / 2} ${base} L${x + w / 2 - 2} ${base - h5 * 0.3} L${x - w / 2 + 1} ${base - h5 * 0.3} Z" fill="${lin([[0, "#000", 0], [1, "#000", 0.35]])}"/>`;
-    s += `<path d="M${x + w * 0.1} ${base - h5 - 4} L${x + w / 2 - 6} ${base - h5 - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".28"/>`;
-    s += `<path d="M${x - w / 2 + 4} ${base - h5} L${x - w / 2 + 1} ${base}" stroke="${lighten(stone, 0.3)}" stroke-width="3" opacity=".5"/>`;
-    s += speckle(x - w / 2 + 3, base - h5, w - 8, h5 - 4, Math.round(h5 / 4), stone);
-    s += `<path d="M${f(x - w * 0.3)} ${f(base - h5 * 0.4)} l${f(w * 0.12)} ${f(h5 * 0.08)} l${f(-w * 0.05)} ${f(h5 * 0.1)} M${f(x + w * 0.2)} ${f(base - h5 * 0.75)} l${f(-w * 0.1)} ${f(h5 * 0.06)}" stroke="${outline}" stroke-width="1.6" fill="none" opacity=".8"/>`;
-    s += `<path d="M${x - w / 2 + 3} ${base - h5 + 10} Q${x - w * 0.2} ${base - h5 - 10} ${x + w / 2 - 6} ${base - h5 - 8} L${x + w / 2 - 4} ${base - h5 + 6} Q${x + w * 0.2} ${base - h5 + 16} ${x + w * 0.05} ${base - h5 + 8} Q${x - w * 0.15} ${base - h5 + 24} ${x - w * 0.25} ${base - h5 + 10} Z" fill="${lin([[0, lighten(moss, 0.25)], [1, dk2(moss, 0.25)]])}"/>`;
-    s += `<path d="M${f(x - w * 0.25)} ${base - h5 + 12} q2 14 -1 26 M${f(x + w * 0.22)} ${base - h5 + 8} q-2 10 1 18" stroke="${moss}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    s += `<path d="M${x - w / 2} ${base} L${x - w / 2 + 4} ${base - h6} L${x + w / 2 - 6} ${base - h6 - 8} L${x + w / 2} ${base} Z" fill="${lin([[0, lighten(stone, 0.18)], [0.45, stone], [1, dk2(stone, 0.3)]], 0, 0, 1, 0)}" stroke="${outline}" stroke-width="1" stroke-opacity=".5" stroke-linejoin="round"/><path d="M${x - w / 2} ${base} L${x + w / 2} ${base} L${x + w / 2 - 2} ${base - h6 * 0.3} L${x - w / 2 + 1} ${base - h6 * 0.3} Z" fill="${lin([[0, "#000", 0], [1, "#000", 0.35]])}"/>`;
+    s += `<path d="M${x + w * 0.1} ${base - h6 - 4} L${x + w / 2 - 6} ${base - h6 - 8} L${x + w / 2} ${base} L${x + w * 0.15} ${base} Z" fill="#000" opacity=".28"/>`;
+    s += `<path d="M${x - w / 2 + 4} ${base - h6} L${x - w / 2 + 1} ${base}" stroke="${lighten(stone, 0.3)}" stroke-width="3" opacity=".5"/>`;
+    s += speckle(x - w / 2 + 3, base - h6, w - 8, h6 - 4, Math.round(h6 / 4), stone);
+    s += `<path d="M${f(x - w * 0.3)} ${f(base - h6 * 0.4)} l${f(w * 0.12)} ${f(h6 * 0.08)} l${f(-w * 0.05)} ${f(h6 * 0.1)} M${f(x + w * 0.2)} ${f(base - h6 * 0.75)} l${f(-w * 0.1)} ${f(h6 * 0.06)}" stroke="${outline}" stroke-width="1.6" fill="none" opacity=".8"/>`;
+    s += `<path d="M${x - w / 2 + 3} ${base - h6 + 10} Q${x - w * 0.2} ${base - h6 - 10} ${x + w / 2 - 6} ${base - h6 - 8} L${x + w / 2 - 4} ${base - h6 + 6} Q${x + w * 0.2} ${base - h6 + 16} ${x + w * 0.05} ${base - h6 + 8} Q${x - w * 0.15} ${base - h6 + 24} ${x - w * 0.25} ${base - h6 + 10} Z" fill="${lin([[0, lighten(moss, 0.25)], [1, dk2(moss, 0.25)]])}"/>`;
+    s += `<path d="M${f(x - w * 0.25)} ${base - h6 + 12} q2 14 -1 26 M${f(x + w * 0.22)} ${base - h6 + 8} q-2 10 1 18" stroke="${moss}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
     s += `<path d="M${f(x - w * 0.3)} ${base} q${f(w * 0.2)} -14 ${f(w * 0.4)} -4 q${f(w * 0.2)} -10 ${f(w * 0.3)} 4 Z" fill="${moss}" opacity=".9"/>`;
     let rune = "";
     for (let i = 0; i < 3; i++) {
-      const ry = base - h5 * (0.78 - i * 0.22), rh = h5 * 0.12;
+      const ry = base - h6 * (0.78 - i * 0.22), rh = h6 * 0.12;
       rune += `M${f(x)} ${f(ry)} v${f(rh)} M${f(x)} ${f(ry + rh * 0.35)} l${f(rnd() > 0.5 ? 5 : -5)} -4 M${f(x)} ${f(ry + rh * 0.7)} l${f(rnd() > 0.5 ? -5 : 5)} 4 `;
     }
     s += `<path d="${rune}" stroke="${glow}" stroke-width="3.2" stroke-linecap="round" fill="none" opacity="${lit ? 0.95 : 0.7}"${lit ? ' filter="url(#glow)" class="bg-flicker slow"' : ""}/>`;
@@ -5893,8 +5917,8 @@ Answer with JSON only, no other text:
     const shades = [dk2(color, 0.25), color, lighten(color, 0.22)];
     const d = ["", "", ""];
     for (let i = 0; i < n * 6; i++) {
-      const x = r(-10, W + 10), y = r(y0, y1), h5 = r(hmin, hmax) * r(0.6, 1.2), lean = r(-9, 9);
-      d[i % 3] += `M${f(x)} ${f(y)} q${f(lean * 0.3)} ${f(-h5 * 0.55)} ${f(lean)} ${f(-h5)} `;
+      const x = r(-10, W + 10), y = r(y0, y1), h6 = r(hmin, hmax) * r(0.6, 1.2), lean = r(-9, 9);
+      d[i % 3] += `M${f(x)} ${f(y)} q${f(lean * 0.3)} ${f(-h6 * 0.55)} ${f(lean)} ${f(-h6)} `;
     }
     const flowers = Array.from({ length: Math.round(n / 3) }, () => `<circle cx="${f(r(0, W))}" cy="${f(r(y0 - 6, y1 - 4))}" r="${f(r(1.6, 2.8))}" fill="${["#fff8e0", "#ffe27a", "#ffb3d0", "#d6e4ff"][Math.floor(rnd() * 4)]}"/>`).join("");
     return `<g fill="none" stroke-linecap="round">${d.map((p, i) => `<path d="${p}" stroke="${shades[i]}" stroke-width="${[2.4, 2, 1.6][i]}"/>`).join("")}</g><g opacity=".85">${flowers}</g>`;
@@ -5902,10 +5926,10 @@ Answer with JSON only, no other text:
   function rock(x, y, s, c) {
     return `<ellipse cx="${x}" cy="${y + 2}" rx="${f(50 * s)}" ry="${f(8 * s)}" fill="#000" opacity=".3" filter="url(#soft)"/><path d="M${x - 40 * s} ${y} L${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} Z" fill="${lin([[0, lighten(c, 0.15)], [1, dk2(c, 0.2)]], 0, 0, 1, 1)}" stroke="${dk2(c, 0.4)}" stroke-width="1" stroke-opacity=".5"/><path d="M${x - 4 * s} ${y - 40 * s} L${x + 26 * s} ${y - 30 * s} L${x + 44 * s} ${y} L${x + 4 * s} ${y} Z" fill="#000" opacity=".22"/><path d="M${x - 30 * s} ${y - 26 * s} L${x - 4 * s} ${y - 40 * s}" stroke="${lighten(c, 0.35)}" stroke-width="2.5" opacity=".6"/>${speckle(x - 30 * s, y - 34 * s, 70 * s, 30 * s, 14, c)}`;
   }
-  function speckle(x, y, w, h5, n, c) {
+  function speckle(x, y, w, h6, n, c) {
     let dark = "", light = "";
     for (let i = 0; i < n; i++) {
-      const px = x + r(0, w), py = y + r(0, h5), s = r(1, 2.6);
+      const px = x + r(0, w), py = y + r(0, h6), s = r(1, 2.6);
       const p = `M${f(px)} ${f(py)} h${f(s)} v${f(s * 0.8)} h${f(-s)}Z `;
       if (i % 2) dark += p;
       else light += p;
@@ -5962,22 +5986,22 @@ Answer with JSON only, no other text:
     const tree = pick(t, "#2f3d2c", "#24182a", "#06090a");
     const water = pick(t, ["#8aa898", "#4a6656"], ["#c4865e", "#5a3438"], ["#24383a", "#081212"]);
     const stone = pick(t, ["#7a8a74", "#56644e", "#2e3628"], ["#6a5450", "#4a3638", "#22181c"], ["#2a3632", "#1c2624", "#0a100e"]);
-    const deadTree = (x, y, h5, c) => {
+    const deadTree = (x, y, h6, c) => {
       const b = (x1, y1, x2, y2, w) => {
         const mx = f((x1 + x2) / 2 + r(-15, 15)), my = f((y1 + y2) / 2);
         const d = `M${f(x1)} ${f(y1)} Q ${mx} ${my} ${f(x2)} ${f(y2)}`;
         return `<path d="${d}" stroke="${dk2(c, 0.28)}" stroke-width="${f(w + 1.5)}" opacity=".9" stroke-linecap="round" fill="none"/><path d="${d}" stroke="${c}" stroke-width="${f(w)}" stroke-linecap="round" fill="none"/><path d="${d}" transform="translate(${f(-w * 0.22)} 0)" stroke="${lighten(c, 0.25)}" stroke-width="${f(Math.max(1, w * 0.18))}" stroke-linecap="round" fill="none" opacity=".5"/>`;
       };
-      let s = b(x, y, x + 8, y - h5, h5 * 0.06) + b(x + 4, y - h5 * 0.55, x - h5 * 0.38, y - h5 * 0.86, h5 * 0.026) + b(x + 6, y - h5 * 0.72, x + h5 * 0.42, y - h5 * 0.98, h5 * 0.022) + b(x - h5 * 0.2, y - h5 * 0.74, x - h5 * 0.32, y - h5 * 1.02, h5 * 0.014) + b(x + 8, y - h5, x + 34, y - h5 * 1.16, h5 * 0.014);
+      let s = b(x, y, x + 8, y - h6, h6 * 0.06) + b(x + 4, y - h6 * 0.55, x - h6 * 0.38, y - h6 * 0.86, h6 * 0.026) + b(x + 6, y - h6 * 0.72, x + h6 * 0.42, y - h6 * 0.98, h6 * 0.022) + b(x - h6 * 0.2, y - h6 * 0.74, x - h6 * 0.32, y - h6 * 1.02, h6 * 0.014) + b(x + 8, y - h6, x + 34, y - h6 * 1.16, h6 * 0.014);
       for (let i = 0; i < 6; i++) {
-        const mx = x + r(-h5 * 0.35, h5 * 0.4), my = y - h5 * r(0.7, 1);
+        const mx = x + r(-h6 * 0.35, h6 * 0.4), my = y - h6 * r(0.7, 1);
         s += `<path class="bg-sway" d="M${f(mx)} ${f(my)} q 4 ${f(r(20, 40))} -2 ${f(r(40, 80))}" stroke="${pick(t, "#6e8a5a", "#5c4a42", "#2a3e26")}" stroke-width="3" fill="none" opacity=".85"/>`;
       }
       return s;
     };
     const reeds = (n, y0, y1, c) => Array.from({ length: n }, () => {
-      const x = r(0, W), y = r(y0, y1), h5 = r(50, 110);
-      return `<g><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h5)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h5 * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`;
+      const x = r(0, W), y = r(y0, y1), h6 = r(50, 110);
+      return `<g><line x1="${f(x)}" y1="${f(y)}" x2="${f(x + r(-6, 6))}" y2="${f(y - h6)}" stroke="${c}" stroke-width="2.6"/><ellipse cx="${f(x + r(-3, 3))}" cy="${f(y - h6 * 0.82)}" rx="4" ry="12" fill="${c}"/></g>`;
     }).join("");
     const lit = t !== "day";
     return `<defs>${grad("sk", sky)}${grad("wt", [[0, water[0]], [1, water[1]]])}${radial("wisp", [[0, "#cfff9a", 0.9], [1, "#cfff9a", 0]])}${floorDefs(stone)}${DEFS}</defs>
@@ -6016,9 +6040,9 @@ Answer with JSON only, no other text:
     const lit = t !== "day";
     const stone = pick(t, ["#8a84a4", "#625c7c", "#34304a"], ["#7a5a72", "#54405a", "#2a1e30"], ["#2a2a48", "#1c1c34", "#0c0c1a"]);
     const house = (x, y, s, wall2, roof2) => {
-      const w = 46 * s, h5 = 30 * s;
-      const win = lit ? `<rect x="${f(x + w * 0.2)}" y="${f(y - h5 * 0.62)}" width="${f(w * 0.18)}" height="${f(h5 * 0.3)}" fill="#ffcf6a" class="bg-flicker slow"/><rect x="${f(x + w * 0.6)}" y="${f(y - h5 * 0.62)}" width="${f(w * 0.18)}" height="${f(h5 * 0.3)}" fill="#ffcf6a"/>` : "";
-      return `<rect x="${f(x)}" y="${f(y - h5)}" width="${f(w)}" height="${f(h5)}" fill="${wall2}"/><polygon points="${f(x - 5 * s)},${f(y - h5)} ${f(x + w / 2)},${f(y - h5 - 22 * s)} ${f(x + w + 5 * s)},${f(y - h5)}" fill="${roof2}"/>${win}`;
+      const w = 46 * s, h6 = 30 * s;
+      const win = lit ? `<rect x="${f(x + w * 0.2)}" y="${f(y - h6 * 0.62)}" width="${f(w * 0.18)}" height="${f(h6 * 0.3)}" fill="#ffcf6a" class="bg-flicker slow"/><rect x="${f(x + w * 0.6)}" y="${f(y - h6 * 0.62)}" width="${f(w * 0.18)}" height="${f(h6 * 0.3)}" fill="#ffcf6a"/>` : "";
+      return `<rect x="${f(x)}" y="${f(y - h6)}" width="${f(w)}" height="${f(h6)}" fill="${wall2}"/><polygon points="${f(x - 5 * s)},${f(y - h6)} ${f(x + w / 2)},${f(y - h6 - 22 * s)} ${f(x + w + 5 * s)},${f(y - h6)}" fill="${roof2}"/>${win}`;
     };
     const wall = pick(t, "#e8dcc0", "#c99a7a", "#3a3550"), roof = pick(t, "#a04a3a", "#6e2e3a", "#1f1a30");
     const village = (x, y, s) => Array.from({ length: 5 }, (_, i) => house(x + i * 58 * s + r(-8, 8), y + r(-4, 6), s * r(0.85, 1.1), wall, roof)).join("");
@@ -6034,7 +6058,7 @@ Answer with JSON only, no other text:
     ${hills(630, 24, pick(t, "#86a868", "#7a5a5a", "#1e2a2a"), 0.5)}
     ${[[180, 0.7], [560, 0.85], [700, 0.6], [930, 0.75], [1420, 0.8]].map(([x, k]) => `<path d="M${f(x - 90 * k)} ${f(646)} L${f(x + 90 * k)} 640 L${f(x + 110 * k)} 660 L${f(x - 70 * k)} 668 Z" fill="${pick(t, "#c8b456", "#a07040", "#2a2a24")}" opacity=".75"/><path d="M${f(x - 80 * k)} 652 L${f(x + 96 * k)} 646 M${f(x - 76 * k)} 659 L${f(x + 102 * k)} 653" stroke="${pick(t, "#a8923e", "#7a5030", "#1a1a18")}" stroke-width="2" opacity=".6"/>`).join("")}
     ${village(240, 640, 0.6)}${village(1060, 634, 0.55)}
-    ${[[120, 640, 70], [420, 650, 90], [640, 636, 60], [900, 642, 80], [1180, 644, 64], [1360, 650, 96], [1540, 642, 72]].map(([x, y, h5]) => leafyTree(x, y, h5, pick(t, "#4f8a3a", "#6a6034", "#132a1e"), pick(t, "#5a4030", "#3a2420", "#141418"))).join("")}
+    ${[[120, 640, 70], [420, 650, 90], [640, 636, 60], [900, 642, 80], [1180, 644, 64], [1360, 650, 96], [1540, 642, 72]].map(([x, y, h6]) => leafyTree(x, y, h6, pick(t, "#4f8a3a", "#6a6034", "#132a1e"), pick(t, "#5a4030", "#3a2420", "#141418"))).join("")}
     <g transform="translate(1200 600)"><rect x="-6" y="0" width="12" height="80" fill="${pick(t, "#cbb79a", "#5a3a3a", "#1a1a28")}"/><g class="bg-spin">${[0, 90, 180, 270].map((a) => `<rect x="-4" y="-64" width="8" height="64" fill="${pick(t, "#8a6a4a", "#3a2228", "#141420")}" transform="rotate(${a + 20})"/>`).join("")}</g></g>
     ${hills(680, 26, pick(t, "#6a9a4c", "#4a5a3a", "#162418"), 1.7)}
     ${[90, 380, 720, 890, 1210, 1500].map((x) => bush(x + r(-20, 20), 700 + r(0, 10), r(18, 30), pick(t, "#4a7a34", "#5a4a2e", "#10241a"))).join("")}
@@ -6052,7 +6076,7 @@ Answer with JSON only, no other text:
     const wallG = lin([[0, lighten(stoneC, 0.14)], [0.55, stoneC], [1, dk2(stoneC, 0.25)]], 0, 0, 1, 0);
     const footG = lin([[0, "#000", 0], [1, "#000", 0.35]]);
     const roofG = lin([[0, lighten(roof, 0.15)], [0.5, roof], [1, dk2(roof, 0.3)]], 0, 0, 1, 0);
-    const tower = (x, w, h5) => `<rect x="${x}" y="${640 - h5}" width="${w}" height="${h5}" fill="${wallG}"/><rect x="${x}" y="${640 - h5 * 0.35}" width="${w}" height="${h5 * 0.35}" fill="${footG}"/><rect x="${x}" y="${640 - h5}" width="${w}" height="${h5}" fill="url(#bricks)"/><rect x="${x + w * 0.62}" y="${640 - h5}" width="${w * 0.38}" height="${h5}" fill="#000" opacity=".2"/><rect x="${x + 3}" y="${640 - h5}" width="5" height="${h5}" fill="#fff" opacity=".07"/><polygon points="${x - 10},${640 - h5} ${x + w / 2},${560 - h5} ${x + w + 10},${640 - h5}" fill="${roofG}"/><path d="M${x - 4} ${640 - h5 - 14} H${x + w + 4} M${x + 6} ${640 - h5 - 34} H${x + w - 6} M${x + 16} ${640 - h5 - 54} H${x + w - 16}" stroke="${dk2(roof, 0.35)}" stroke-width="1.5" opacity=".6"/><rect x="${x - 6}" y="${640 - h5}" width="${w + 12}" height="6" fill="${dk2(stoneC, 0.2)}"/>` + Array.from({ length: Math.floor(h5 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h5 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h5}" x2="${x + w / 2}" y2="${520 - h5}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h5} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
+    const tower = (x, w, h6) => `<rect x="${x}" y="${640 - h6}" width="${w}" height="${h6}" fill="${wallG}"/><rect x="${x}" y="${640 - h6 * 0.35}" width="${w}" height="${h6 * 0.35}" fill="${footG}"/><rect x="${x}" y="${640 - h6}" width="${w}" height="${h6}" fill="url(#bricks)"/><rect x="${x + w * 0.62}" y="${640 - h6}" width="${w * 0.38}" height="${h6}" fill="#000" opacity=".2"/><rect x="${x + 3}" y="${640 - h6}" width="5" height="${h6}" fill="#fff" opacity=".07"/><polygon points="${x - 10},${640 - h6} ${x + w / 2},${560 - h6} ${x + w + 10},${640 - h6}" fill="${roofG}"/><path d="M${x - 4} ${640 - h6 - 14} H${x + w + 4} M${x + 6} ${640 - h6 - 34} H${x + w - 6} M${x + 16} ${640 - h6 - 54} H${x + w - 16}" stroke="${dk2(roof, 0.35)}" stroke-width="1.5" opacity=".6"/><rect x="${x - 6}" y="${640 - h6}" width="${w + 12}" height="6" fill="${dk2(stoneC, 0.2)}"/>` + Array.from({ length: Math.floor(h6 / 70) }, (_, i) => `<rect x="${x + w / 2 - 6}" y="${640 - h6 + 40 + i * 70}" width="12" height="20" rx="6" fill="${lit ? "#ffcf6a" : "#20202e"}" opacity="${lit ? rnd() > 0.35 ? 0.95 : 0.2 : 0.6}"${lit ? ' class="bg-flicker slow"' : ""}/>`).join("") + `<line x1="${x + w / 2}" y1="${560 - h6}" x2="${x + w / 2}" y2="${520 - h6}" stroke="${roof}" stroke-width="3"/><path class="bg-flag" d="M${x + w / 2} ${520 - h6} q 18 6 34 0 q -16 10 0 18 q -18 -6 -34 0 z" fill="#b8263a"/>`;
     const soldier = (x, y, s, flip2, weapon) => {
       const c = pick(t, "#2c3038", "#1a0c10", "#06070e");
       const g = `<circle cx="0" cy="-58" r="7"/><path d="M-7 -62 q7 -14 14 0 z"/><rect x="-8" y="-50" width="16" height="30" rx="4"/><rect x="-8" y="-22" width="6" height="22"/><rect x="2" y="-22" width="6" height="22"/><ellipse cx="-11" cy="-36" rx="7" ry="11"/>` + (weapon === "spear" ? `<line x1="10" y1="-10" x2="16" y2="-92" stroke="${c}" stroke-width="3"/><polygon points="13,-92 16,-104 19,-92"/>` : `<g class="bg-swing"><line x1="8" y1="-40" x2="34" y2="-70" stroke="${c}" stroke-width="3"/></g>`);
@@ -6343,8 +6367,8 @@ Answer with JSON only, no other text:
     c.style.width = `${Math.ceil(viewW())}px`;
     c.style.height = `${Math.ceil(viewH() - kb)}px`;
   }
-  function arenaScreen(screen2) {
-    onScreen = GAME_SCREENS.has(screen2);
+  function arenaScreen(screen3) {
+    onScreen = GAME_SCREENS.has(screen3);
     if (onScreen) void activate();
     else deactivate();
   }
@@ -6708,7 +6732,14 @@ Answer with JSON only, no other text:
   }
   function hideToast() {
     clearTimeout(toastTimer);
-    $("toast").hidden = true;
+    const el11 = $("toast");
+    if (el11.hidden || el11.classList.contains("leaving")) return;
+    el11.classList.add("leaving");
+    clearTimeout(toastOut);
+    toastOut = window.setTimeout(() => {
+      el11.hidden = true;
+      el11.classList.remove("leaving");
+    }, 280);
   }
   function wireToast(el11) {
     toastWired = true;
@@ -6730,7 +6761,10 @@ Answer with JSON only, no other text:
       const far = Math.abs(e.clientX - x0) > 70 || y0 - e.clientY > 40;
       el11.style.transform = "";
       el11.style.opacity = "";
-      if (far) hideToast();
+      if (far) {
+        clearTimeout(toastTimer);
+        el11.hidden = true;
+      }
     };
     el11.addEventListener("pointerup", end);
     el11.addEventListener("pointercancel", end);
@@ -6745,9 +6779,15 @@ Answer with JSON only, no other text:
       hideToast();
     };
     el11.replaceChildren(h("span", "toast-t", text), x);
+    clearTimeout(toastOut);
+    if (el11.classList.contains("leaving") || el11.hidden) {
+      el11.classList.remove("leaving");
+      el11.hidden = true;
+      void el11.offsetWidth;
+    }
     el11.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => el11.hidden = true, ms);
+    toastTimer = window.setTimeout(hideToast, ms);
   }
   function setUser(user2) {
     $("whoami").hidden = !user2;
@@ -7051,6 +7091,7 @@ Answer with JSON only, no other text:
       return w;
     }));
     $("arena").dataset.party = String(boss ? players2.length : 0);
+    placeBossBar(boss);
     arenaForBattle(mode4, players2, you2);
     $("dragon").className = "dragon";
     $("dragon").querySelector(".sprite").innerHTML = dragonSvg();
@@ -7060,6 +7101,15 @@ Answer with JSON only, no other text:
     if (mode4 === "writing") mountWriteArea("writeSlot");
     else $("writeArea").hidden = true;
     $("meaningPrompt").hidden = true;
+  }
+  function placeBossBar(boss = bossShown) {
+    bossShown = boss;
+    const bar = $("bossBar");
+    const top = document.querySelector("#battle .arena-top");
+    if (boss && SMALL2.matches) {
+      if (bar.parentElement !== top) top.append(bar);
+    } else if (bar.parentElement !== $("dragon")) $("dragon").prepend(bar);
+    top.classList.toggle("boss-top", boss && SMALL2.matches);
   }
   function floatText(target2, text, cls) {
     const arena2 = $("arena");
@@ -7578,7 +7628,7 @@ Answer with JSON only, no other text:
     el11.dataset.flame = flame ?? "blue";
     flameShades(flame).forEach((c, i) => el11.style.setProperty(`--f${i}`, c));
   }
-  var $, append, SCREENS, screenListener, onScreen2, currentScreen, show, errorTimer, setError, secs, clockText, levelsText, timers, pauseAt, pausedFor, clockNow, clocksPaused, rtts, borderCls, beginnerFlag, kanaBeginner, BEGINNER_LOCK, badgeRowFn, useBadgeRow, toastTimer, toastWired, myName, sceneStaff, SPELL_KANJI, randomSpellKanji, tile, GUIDES, selectedLevels, battleMode, allyEl, actorEl, gemGone, gemBack, answerMode, currentAnswerMode, answerLocked, hideWriteArea, REASONS, MODE_ICON, dateTime, hideProfileCard;
+  var $, append, SCREENS, screenListener, onScreen2, currentScreen, show, errorTimer, setError, secs, clockText, levelsText, timers, pauseAt, pausedFor, clockNow, clocksPaused, rtts, borderCls, beginnerFlag, kanaBeginner, BEGINNER_LOCK, badgeRowFn, useBadgeRow, toastTimer, toastOut, toastWired, myName, sceneStaff, SPELL_KANJI, randomSpellKanji, tile, GUIDES, selectedLevels, battleMode, allyEl, actorEl, SMALL2, bossShown, gemGone, gemBack, answerMode, currentAnswerMode, answerLocked, hideWriteArea, REASONS, MODE_ICON, dateTime, hideProfileCard;
   var init_ui = __esm({
     "src/client/ui.ts"() {
       "use strict";
@@ -7602,12 +7652,12 @@ Answer with JSON only, no other text:
         screenListener = fn;
       };
       currentScreen = () => SCREENS.find((s) => !$(s).hidden);
-      show = (screen2) => {
-        SCREENS.forEach((s) => $(s).hidden = s !== screen2);
-        document.body.dataset.screen = screen2;
+      show = (screen3) => {
+        SCREENS.forEach((s) => $(s).hidden = s !== screen3);
+        document.body.dataset.screen = screen3;
         hideBootScreen();
         scrollTo(0, 0);
-        screenListener(screen2);
+        screenListener(screen3);
       };
       errorTimer = 0;
       setError = (text) => {
@@ -7638,6 +7688,7 @@ Answer with JSON only, no other text:
         badgeRowFn = fn;
       };
       toastTimer = 0;
+      toastOut = 0;
       toastWired = false;
       myName = () => $("whoName").textContent ?? "";
       sceneStaff = null;
@@ -7692,6 +7743,9 @@ Answer with JSON only, no other text:
       battleMode = "reading";
       allyEl = (id) => document.querySelector(`#allies .wizard[data-pid="${CSS.escape(id)}"]`);
       actorEl = (a) => a.startsWith("ally:") ? allyEl(a.slice(5)) ?? $("wizMe") : $(a === "me" ? "wizMe" : a === "opp" ? "wizOpp" : "dragon");
+      SMALL2 = matchMedia("(max-width: 700px), (max-height: 500px)");
+      bossShown = false;
+      SMALL2.addEventListener("change", () => placeBossBar());
       gemGone = () => $("wizMe").classList.add("gemless");
       gemBack = () => $("wizMe").classList.remove("gemless");
       answerMode = "reading";
@@ -7914,7 +7968,7 @@ Answer with JSON only, no other text:
   init_api();
 
   // src/shared/version.ts
-  var VERSION = "0.9.9.7.3";
+  var VERSION = "0.9.9.8";
 
   // src/client/support.ts
   init_ui();
@@ -8188,7 +8242,7 @@ ${stack}`.slice(0, 2e3);
     if (p) p.hidden = true;
     document.querySelectorAll(".kj.on, .kw.on").forEach((x) => x.classList.remove("on"));
   }
-  async function showKanji(ch, at, back) {
+  async function showKanji(ch, at, back2) {
     const info = (await loadKanji())[ch];
     const p = pop();
     const ru = lang() === "ru";
@@ -8221,7 +8275,7 @@ ${stack}`.slice(0, 2e3);
     }
     meta.append(rd);
     head.append(meta);
-    const kids = back ? [close, Object.assign(h2("button", "pill kp-back", `\u2190 ${tr("Word")}`, { type: "button" }), { onclick: back }), head] : [close, head];
+    const kids = back2 ? [close, Object.assign(h2("button", "pill kp-back", `\u2190 ${tr("Word")}`, { type: "button" }), { onclick: back2 }), head] : [close, head];
     if (parts.length) {
       const row = h2("div", "kp-parts");
       row.append(h2("span", "kp-lbl", tr("Parts")));
@@ -8474,15 +8528,15 @@ ${stack}`.slice(0, 2e3);
       card.title = tr("Ticked: goes to your deck. Tap to keep it out.");
       const tick2 = el2("span", "mc-tick", "\u2713", { "aria-hidden": "true" });
       card.prepend(tick2);
-      const show4 = (on) => {
+      const show5 = (on) => {
         card.classList.toggle("on", on);
         card.setAttribute("aria-checked", String(on));
         tick2.textContent = on ? "\u2713" : "";
       };
-      setters.set(id, show4);
+      setters.set(id, show5);
       const flip2 = () => {
         const on = !card.classList.contains("on");
-        show4(on);
+        show5(on);
         onToggle(id, on);
       };
       card.onclick = flip2;
@@ -8821,8 +8875,8 @@ ${stack}`.slice(0, 2e3);
       try {
         let vid = id;
         if (!vid) {
-          const hits = (await api.searchWords(word2)).words;
-          vid = (hits.find((w) => w.kanji === word2) ?? hits[0])?.id;
+          const hits2 = (await api.searchWords(word2)).words;
+          vid = (hits2.find((w) => w.kanji === word2) ?? hits2[0])?.id;
         }
         if (!vid) throw new Error(tr("That word is not in the dictionary"));
         const r2 = await api.deckAdd(deck2, [vid]);
@@ -8983,7 +9037,7 @@ ${stack}`.slice(0, 2e3);
     }
     return "N4";
   }
-  var storyWord = (w) => HAN_RE.test(w.kanji) && (w.custom || !!w.level && pickedLevels().includes(w.level));
+  var storyWord = (w) => passageDeck === "ono" ? w.level === "ONO" : HAN_RE.test(w.kanji) && (w.custom || !!w.level && pickedLevels().includes(w.level));
   {
     const box = $3("passageLevels");
     const draw3 = () => {
@@ -9114,7 +9168,8 @@ ${stack}`.slice(0, 2e3);
       $3("passageNote").hidden = true;
       $3("passageWords").replaceChildren();
       $3("passageTr").replaceChildren();
-      text.replaceChildren(el2("p", "hint p-few", tr(`A story needs at least 8 kanji words \u2014 \u201C${DECK_LABEL[passageDeck]}\u201D has ${new Set(usable.map((w) => w.kanji)).size} of the levels you ticked. Tick more levels, pick another deck, or study more words.`)));
+      const have = new Set(usable.map((w) => w.kanji)).size;
+      text.replaceChildren(el2("p", "hint p-few", passageDeck === "ono" ? tr(`A story needs at least 8 words \u2014 your Onomatopoeia deck has ${have}. Study a few more onomatopoeia first.`) : tr(`A story needs at least 8 kanji words \u2014 \u201C${DECK_LABEL[passageDeck]}\u201D has ${have} of the levels you ticked. Tick more levels, pick another deck, or study more words.`)));
       return;
     }
     const seen2 = /* @__PURE__ */ new Set();
@@ -9152,7 +9207,7 @@ ${stack}`.slice(0, 2e3);
         sec.textContent = String(Math.floor(t));
       }, 200);
       const words2 = pool.map((w) => ({ id: w.id, kanji: w.kanji, reading: w.reading, meaning: w.meaning }));
-      const r2 = await writeStory(words2, storyLevel(), 95e3);
+      const r2 = await writeStory(words2, storyLevel(), 165e3);
       clearInterval(tick2);
       again.disabled = false;
       drawLimit();
@@ -9221,6 +9276,7 @@ ${stack}`.slice(0, 2e3);
   async function passageFrom(deck2) {
     passageDeck = deck2;
     $3("passageDeck").value = deck2;
+    $3("passageLevels").closest(".p-set-row").hidden = deck2 === "ono";
     try {
       const words2 = (await api.deckWords(deck2)).words;
       const mapped = words2.map((w) => ({ kanji: w.kanji, reading: w.reading, meaning: w.meaning, id: w.vocabId, level: w.level, custom: w.custom }));
@@ -9235,7 +9291,7 @@ ${stack}`.slice(0, 2e3);
   }
   {
     const sel = $3("passageDeck");
-    for (const d of ["all", "struggling", "custom"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
+    for (const d of ["all", "struggling", "custom", "ono"]) sel.append(Object.assign(el2("option", "", DECK_LABEL[d]), { value: d }));
     sel.onchange = () => {
       storyFrom = `deck:${sel.value}`;
       void passageFrom(sel.value);
@@ -9468,6 +9524,36 @@ ${stack}`.slice(0, 2e3);
   // src/client/whatsnew.ts
   init_i18n();
   var PATCHES = [
+    {
+      v: "0.9.9.8",
+      date: "2026-11",
+      en: [
+        "Dictionary side panel: always at hand \u2014 a bar on the left on PC (friends are on the right), a \u8F9E button bottom-left on phones. Look a word up, read its meanings and add it to a deck without leaving the screen you\u2019re on. (Hidden in battles, quizzes and the Daily challenge.) The main menu moved in from the edge to make room.",
+        "Dictionary: suggestions after every letter \u2014 English (wat \u2192 water), Russian (\u0432\u043E\u0434 \u2192 \u0432\u043E\u0434\u0430) and half-typed romaji (tabem \u2192 \u98DF\u3079\u308B) all show the best match while you type.",
+        "Phones: the battle keyboard types where the cursor is \u2014 tap the answer box (or use \u25C0 \u25B6) to fix a letter in the middle.",
+        "Against the AI only (or a solo Boss run) the battle button is Leave, not Forfeit \u2014 straight back to your lobby.",
+        "Kanji Reading balance: N1 and N2 words take longer to cast than \u304B\u306A, so a slow-casting player now needs fewer hits and a fast one a few more \u2014 a game takes about as long at every level.",
+        "Rapid against the AI: every word is from your All spells, and the AI needs at least 2\xBD s (longer for long words) \u2014 no more instant answers.",
+        "Boss Elimination: the HP bars are tidy on phones (upright and sideways), and AI teammates are much sharper \u2014 they reach combos (shielded from the dragon\u2019s fire) and no longer fall halfway.",
+        "Deck Duel: the cards you draft carry YOUR words \u2014 each card\u2019s colour (Bolt \u2026 Inferno) is a band of difficulty, and it gets one of your All spells words of that band (a random word if you have none). The same for your opponent.",
+        "Reading passage: an Onomatopoeia deck option, and when the AI leaves a word out it tries again (telling it which word it missed) instead of giving up.",
+        "Phones: looking around by moving the phone works like aiming a camera \u2014 swing it left or right and you look left or right, tilt it and you look up or down, however you hold it.",
+        "The purple notifications slide back up the way they came down."
+      ],
+      ru: [
+        "\u0411\u043E\u043A\u043E\u0432\u0430\u044F \u043F\u0430\u043D\u0435\u043B\u044C \u0441\u043B\u043E\u0432\u0430\u0440\u044F: \u0432\u0441\u0435\u0433\u0434\u0430 \u043F\u043E\u0434 \u0440\u0443\u043A\u043E\u0439 \u2014 \u043F\u043E\u043B\u043E\u0441\u0430 \u0441\u043B\u0435\u0432\u0430 \u043D\u0430 \u041F\u041A (\u0434\u0440\u0443\u0437\u044C\u044F \u0441\u043F\u0440\u0430\u0432\u0430), \u043A\u043D\u043E\u043F\u043A\u0430 \u8F9E \u0432\u043D\u0438\u0437\u0443 \u0441\u043B\u0435\u0432\u0430 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430\u0445. \u041D\u0430\u0439\u0434\u0438\u0442\u0435 \u0441\u043B\u043E\u0432\u043E, \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0439\u0442\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0435\u0433\u043E \u0432 \u043A\u043E\u043B\u043E\u0434\u0443, \u043D\u0435 \u0443\u0445\u043E\u0434\u044F \u0441 \u044D\u043A\u0440\u0430\u043D\u0430. (\u0421\u043A\u0440\u044B\u0442\u0430 \u0432 \u0431\u043E\u044F\u0445, \u0442\u0435\u0441\u0442\u0430\u0445 \u0438 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u043E\u043C \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0438.) \u0413\u043B\u0430\u0432\u043D\u043E\u0435 \u043C\u0435\u043D\u044E \u043E\u0442\u043E\u0434\u0432\u0438\u043D\u0443\u043B\u043E\u0441\u044C \u043E\u0442 \u043A\u0440\u0430\u044F.",
+        "\u0421\u043B\u043E\u0432\u0430\u0440\u044C: \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 \u043F\u043E\u0441\u043B\u0435 \u043A\u0430\u0436\u0434\u043E\u0439 \u0431\u0443\u043A\u0432\u044B \u2014 \u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438\u0439 (wat \u2192 water), \u0440\u0443\u0441\u0441\u043A\u0438\u0439 (\u0432\u043E\u0434 \u2192 \u0432\u043E\u0434\u0430) \u0438 \u043D\u0435\u0434\u043E\u043F\u0438\u0441\u0430\u043D\u043D\u044B\u0439 \u0440\u043E\u043C\u0430\u0434\u0437\u0438 (tabem \u2192 \u98DF\u3079\u308B) \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u044E\u0442 \u043B\u0443\u0447\u0448\u0435\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0435 \u043F\u043E \u043C\u0435\u0440\u0435 \u0432\u0432\u043E\u0434\u0430.",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B: \u0431\u043E\u0435\u0432\u0430\u044F \u043A\u043B\u0430\u0432\u0438\u0430\u0442\u0443\u0440\u0430 \u043F\u0435\u0447\u0430\u0442\u0430\u0435\u0442 \u0442\u0430\u043C, \u0433\u0434\u0435 \u043A\u0443\u0440\u0441\u043E\u0440 \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043F\u043E\u043B\u0435 \u043E\u0442\u0432\u0435\u0442\u0430 (\u0438\u043B\u0438 \u25C0 \u25B6), \u0447\u0442\u043E\u0431\u044B \u0438\u0441\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u0431\u0443\u043A\u0432\u0443 \u0432 \u0441\u0435\u0440\u0435\u0434\u0438\u043D\u0435.",
+        "\u0422\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418 (\u0438\u043B\u0438 \u0432 \u043E\u0434\u0438\u043D\u043E\u0447\u043D\u043E\u043C \u0431\u043E\u044E \u0441 \u0431\u043E\u0441\u0441\u043E\u043C) \u043A\u043D\u043E\u043F\u043A\u0430 \u0432 \u0431\u043E\u044E \u2014 \xAB\u0412\u044B\u0439\u0442\u0438\xBB, \u0430 \u043D\u0435 \xAB\u0421\u0434\u0430\u0442\u044C\u0441\u044F\xBB: \u0441\u0440\u0430\u0437\u0443 \u043E\u0431\u0440\u0430\u0442\u043D\u043E \u0432 \u043B\u043E\u0431\u0431\u0438.",
+        "\u0411\u0430\u043B\u0430\u043D\u0441 \xAB\u0427\u0442\u0435\u043D\u0438\u044F \u043A\u0430\u043D\u0434\u0437\u0438\xBB: \u0441\u043B\u043E\u0432\u0430 N1 \u0438 N2 \u0434\u043E\u043B\u044C\u0448\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C, \u0447\u0435\u043C \u304B\u306A, \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u043C\u0435\u0434\u043B\u0435\u043D\u043D\u043E\u043C\u0443 \u0438\u0433\u0440\u043E\u043A\u0443 \u0442\u0435\u043F\u0435\u0440\u044C \u043D\u0443\u0436\u043D\u043E \u043C\u0435\u043D\u044C\u0448\u0435 \u043F\u043E\u043F\u0430\u0434\u0430\u043D\u0438\u0439, \u0430 \u0431\u044B\u0441\u0442\u0440\u043E\u043C\u0443 \u2014 \u0447\u0443\u0442\u044C \u0431\u043E\u043B\u044C\u0448\u0435: \u043F\u0430\u0440\u0442\u0438\u044F \u0434\u043B\u0438\u0442\u0441\u044F \u043F\u0440\u0438\u043C\u0435\u0440\u043D\u043E \u043E\u0434\u0438\u043D\u0430\u043A\u043E\u0432\u043E \u043D\u0430 \u043B\u044E\u0431\u043E\u043C \u0443\u0440\u043E\u0432\u043D\u0435.",
+        "\u0411\u043B\u0438\u0446 \u043F\u0440\u043E\u0442\u0438\u0432 \u0418\u0418: \u0432\u0441\u0435 \u0441\u043B\u043E\u0432\u0430 \u0438\u0437 \u0432\u0430\u0448\u0438\u0445 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB, \u0430 \u0418\u0418 \u043D\u0443\u0436\u043D\u043E \u043D\u0435 \u043C\u0435\u043D\u044C\u0448\u0435 2,5 \u0441 (\u043D\u0430 \u0434\u043B\u0438\u043D\u043D\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435) \u2014 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0438\u043A\u0430\u043A\u0438\u0445 \u043C\u0433\u043D\u043E\u0432\u0435\u043D\u043D\u044B\u0445 \u043E\u0442\u0432\u0435\u0442\u043E\u0432.",
+        "\u0411\u043E\u0439 \u0441 \u0431\u043E\u0441\u0441\u043E\u043C: \u043F\u043E\u043B\u043E\u0441\u043A\u0438 \u0437\u0434\u043E\u0440\u043E\u0432\u044C\u044F \u0430\u043A\u043A\u0443\u0440\u0430\u0442\u043D\u044B \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430\u0445 (\u0432\u0435\u0440\u0442\u0438\u043A\u0430\u043B\u044C\u043D\u043E \u0438 \u0433\u043E\u0440\u0438\u0437\u043E\u043D\u0442\u0430\u043B\u044C\u043D\u043E), \u0430 \u0418\u0418-\u0441\u043E\u044E\u0437\u043D\u0438\u043A\u0438 \u0433\u043E\u0440\u0430\u0437\u0434\u043E \u0441\u0438\u043B\u044C\u043D\u0435\u0435 \u2014 \u043D\u0430\u0431\u0438\u0440\u0430\u044E\u0442 \u043A\u043E\u043C\u0431\u043E (\u0437\u0430\u0449\u0438\u0442\u0430 \u043E\u0442 \u043E\u0433\u043D\u044F \u0434\u0440\u0430\u043A\u043E\u043D\u0430) \u0438 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043F\u0430\u0434\u0430\u044E\u0442 \u043D\u0430 \u043F\u043E\u043B\u043F\u0443\u0442\u0438.",
+        "\u0414\u0443\u044D\u043B\u044C \u043A\u043E\u043B\u043E\u0434: \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0435 \u043A\u0430\u0440\u0442\u044B \u043F\u043E\u043B\u0443\u0447\u0430\u044E\u0442 \u0412\u0410\u0428\u0418 \u0441\u043B\u043E\u0432\u0430 \u2014 \u0446\u0432\u0435\u0442 \u043A\u0430\u0440\u0442\u044B (\u041C\u043E\u043B\u043D\u0438\u044F \u2026 \u0418\u043D\u0444\u0435\u0440\u043D\u043E) \u2014 \u044D\u0442\u043E \u043F\u043E\u043B\u043E\u0441\u0430 \u0441\u043B\u043E\u0436\u043D\u043E\u0441\u0442\u0438, \u0438 \u043A\u0430\u0440\u0442\u0430 \u043F\u043E\u043B\u0443\u0447\u0430\u0435\u0442 \u0441\u043B\u043E\u0432\u043E \u0438\u0437 \u0432\u0430\u0448\u0438\u0445 \xAB\u0412\u0441\u0435\u0445 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439\xBB \u044D\u0442\u043E\u0439 \u0441\u043B\u043E\u0436\u043D\u043E\u0441\u0442\u0438 (\u0441\u043B\u0443\u0447\u0430\u0439\u043D\u043E\u0435, \u0435\u0441\u043B\u0438 \u0442\u0430\u043A\u0438\u0445 \u043D\u0435\u0442). \u0422\u0430\u043A \u0436\u0435 \u0438 \u0443 \u0441\u043E\u043F\u0435\u0440\u043D\u0438\u043A\u0430.",
+        "\u0422\u0435\u043A\u0441\u0442 \u0434\u043B\u044F \u0447\u0442\u0435\u043D\u0438\u044F: \u043A\u043E\u043B\u043E\u0434\u0430 \u043E\u043D\u043E\u043C\u0430\u0442\u043E\u043F\u0435\u0438, \u0430 \u0435\u0441\u043B\u0438 \u0418\u0418 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u043B \u0441\u043B\u043E\u0432\u043E, \u043E\u043D \u043F\u0440\u043E\u0431\u0443\u0435\u0442 \u0441\u043D\u043E\u0432\u0430 (\u0435\u043C\u0443 \u0433\u043E\u0432\u043E\u0440\u044F\u0442, \u043A\u0430\u043A\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u043E\u043D \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u043B), \u0430 \u043D\u0435 \u0441\u0434\u0430\u0451\u0442\u0441\u044F.",
+        "\u0422\u0435\u043B\u0435\u0444\u043E\u043D\u044B: \u043E\u0441\u043C\u0430\u0442\u0440\u0438\u0432\u0430\u0442\u044C\u0441\u044F, \u0434\u0432\u0438\u0433\u0430\u044F \u0442\u0435\u043B\u0435\u0444\u043E\u043D, \u0442\u0435\u043F\u0435\u0440\u044C \u043A\u0430\u043A \u0446\u0435\u043B\u0438\u0442\u044C\u0441\u044F \u043A\u0430\u043C\u0435\u0440\u043E\u0439 \u2014 \u043F\u043E\u0432\u0435\u0440\u043D\u0438\u0442\u0435 \u0432\u043B\u0435\u0432\u043E \u0438\u043B\u0438 \u0432\u043F\u0440\u0430\u0432\u043E, \u0438 \u0432\u044B \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u0432\u043B\u0435\u0432\u043E \u0438\u043B\u0438 \u0432\u043F\u0440\u0430\u0432\u043E; \u043D\u0430\u043A\u043B\u043E\u043D\u0438\u0442\u0435 \u2014 \u0432\u0432\u0435\u0440\u0445 \u0438\u043B\u0438 \u0432\u043D\u0438\u0437, \u043A\u0430\u043A \u0431\u044B \u0432\u044B \u043D\u0438 \u0434\u0435\u0440\u0436\u0430\u043B\u0438 \u0442\u0435\u043B\u0435\u0444\u043E\u043D.",
+        "\u0424\u0438\u043E\u043B\u0435\u0442\u043E\u0432\u044B\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0443\u0435\u0437\u0436\u0430\u044E\u0442 \u0432\u0432\u0435\u0440\u0445 \u0442\u0430\u043A \u0436\u0435, \u043A\u0430\u043A \u043F\u043E\u044F\u0432\u0438\u043B\u0438\u0441\u044C."
+      ]
+    },
     {
       v: "0.9.9.7.3",
       date: "2026-11",
@@ -10297,16 +10383,49 @@ ${stack}`.slice(0, 2e3);
     return (target ?? battle()).el;
   }
   var locked = () => target && target.el.id !== "answer" ? target.el.disabled : answerLocked();
+  var caret = (i) => {
+    const n = i.value.length;
+    const a = i.selectionStart ?? n, b = i.selectionEnd ?? n;
+    return [Math.min(a, n), Math.min(b, n)];
+  };
   function preview2() {
-    const v = input().value;
+    const i = input();
+    const v = i.value;
     const raw = target?.raw || target?.el.id === "answer" && currentAnswerMode() === "romaji";
-    $("gkPreview").textContent = raw || !v ? v : romajiToHiragana(v);
+    const pv = $("gkPreview");
+    const conv = (s) => raw ? s : romajiToHiragana(s);
+    const [a] = caret(i);
+    if (!v || a >= v.length || document.activeElement !== i) {
+      pv.textContent = conv(v);
+      return;
+    }
+    const bar = document.createElement("span");
+    bar.className = "gk-caret";
+    pv.replaceChildren(conv(v.slice(0, a)), bar, conv(v.slice(a)));
   }
-  function type(ch) {
+  function edit(fn) {
     const i = input();
     if (locked()) return;
-    i.value += ch;
+    const [a, b] = caret(i);
+    const [v, at] = fn(i.value, a, b);
+    i.value = v;
+    try {
+      i.setSelectionRange(at, at);
+    } catch {
+    }
     i.dispatchEvent(new Event("input", { bubbles: true }));
+    preview2();
+  }
+  var type = (ch) => edit((v, a, b) => [v.slice(0, a) + ch + v.slice(b), a + ch.length]);
+  var back = () => edit((v, a, b) => a !== b ? [v.slice(0, a) + v.slice(b), a] : a > 0 ? [v.slice(0, a - 1) + v.slice(a), a - 1] : [v, 0]);
+  function move(d) {
+    const i = input();
+    const [a] = caret(i);
+    const at = Math.max(0, Math.min(i.value.length, a + d));
+    try {
+      i.setSelectionRange(at, at);
+    } catch {
+    }
     preview2();
   }
   function build() {
@@ -10328,19 +10447,16 @@ ${stack}`.slice(0, 2e3);
       const row = document.createElement("div");
       row.className = "gk-row";
       for (const c of r2) row.append(key(c, "ch", () => type(c)));
-      if (i === 2) row.append(key("\u232B", "wide back", () => {
-        const el11 = input();
-        el11.value = el11.value.slice(0, -1);
-        el11.dispatchEvent(new Event("input", { bubbles: true }));
-        preview2();
-      }));
+      if (i === 2) row.append(key("\u232B", "wide back", back));
       return row;
     });
     const last3 = document.createElement("div");
     last3.className = "gk-row";
     last3.append(
       key("Skip", "wide skip", () => (target ?? battle()).skip?.()),
+      key("\u25C0", "ch move", () => move(-1)),
       key("n'", "ch", () => type("'")),
+      key("\u25B6", "ch move", () => move(1)),
       key("\u2423", "wide space", () => type(" ")),
       key("Cast \u23CE", "wide enter cast", () => {
         input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
@@ -10391,13 +10507,16 @@ ${stack}`.slice(0, 2e3);
     if (on === shownBefore) return;
     shownBefore = on;
     requestAnimationFrame(() => {
-      const h5 = on ? $("gameKb").getBoundingClientRect().height : 0;
-      document.documentElement.style.setProperty("--kb-h", `${Math.round(h5 / uiScale())}px`);
+      const h6 = on ? $("gameKb").getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty("--kb-h", `${Math.round(h6 / uiScale())}px`);
       dispatchEvent(new Event("resize"));
     });
   }
   $("answer").addEventListener("input", () => {
     if (active) preview2();
+  });
+  document.addEventListener("selectionchange", () => {
+    if (active && document.activeElement === input()) preview2();
   });
   function gameKbReset() {
     if (active) preview2();
@@ -11212,7 +11331,7 @@ ${stack}`.slice(0, 2e3);
       }
       if (!locked2 && onBadges) {
         b.classList.add("pickable");
-        const toggle2 = () => {
+        const toggle3 = () => {
           if (pinned) return onBadges(badges3.filter((x) => x !== a.id));
           if (badges3.length >= BADGES_MAX2) {
             toast(`Up to ${BADGES_MAX2} badges \u2014 click one with a \u2605 to remove it first.`);
@@ -11220,11 +11339,11 @@ ${stack}`.slice(0, 2e3);
           }
           onBadges([...badges3, a.id]);
         };
-        b.onclick = toggle2;
+        b.onclick = toggle3;
         b.onkeydown = (e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            toggle2();
+            toggle3();
           }
         };
       }
@@ -11273,9 +11392,9 @@ ${stack}`.slice(0, 2e3);
     k.textContent = "Achievement unlocked!";
     const n = document.createElement("b");
     n.textContent = a.name;
-    const h5 = document.createElement("span");
-    h5.textContent = a.how;
-    txt.append(k, n, h5);
+    const h6 = document.createElement("span");
+    h6.textContent = a.how;
+    txt.append(k, n, h6);
     box.append(rays2, badge, txt);
     box.hidden = false;
     box.classList.remove("go");
@@ -11339,14 +11458,14 @@ ${stack}`.slice(0, 2e3);
       clearInterval(timer);
     }
   }
-  function railScreen(screen2) {
-    const show4 = signedIn2 && RAIL_SCREENS.has(screen2);
-    $6("friendRail").hidden = !show4;
-    $6("railFab").hidden = !show4;
+  function railScreen(screen3) {
+    const show5 = signedIn2 && RAIL_SCREENS.has(screen3);
+    $6("friendRail").hidden = !show5;
+    $6("railFab").hidden = !show5;
     setOpen(false);
-    document.body.classList.toggle("has-rail", show4);
+    document.body.classList.toggle("has-rail", show5);
     clearInterval(timer);
-    if (show4) {
+    if (show5) {
       void refreshRail();
       timer = window.setInterval(() => void refreshRail(), 2e4);
     }
@@ -11480,10 +11599,391 @@ ${stack}`.slice(0, 2e3);
   });
   $6("railList").addEventListener("click", () => $6("friendDialog").close());
 
-  // src/client/main.ts
+  // src/client/dictui.ts
+  init_api();
+
+  // src/shared/dict.ts
   init_kana();
+
+  // src/shared/deinflect.ts
+  var GODAN = [
+    ["\u308F", "\u3044", "\u3048", "\u304A", "\u3046", "\u3063\u3066", "\u3063\u305F"],
+    ["\u304B", "\u304D", "\u3051", "\u3053", "\u304F", "\u3044\u3066", "\u3044\u305F"],
+    ["\u304C", "\u304E", "\u3052", "\u3054", "\u3050", "\u3044\u3067", "\u3044\u3060"],
+    ["\u3055", "\u3057", "\u305B", "\u305D", "\u3059", "\u3057\u3066", "\u3057\u305F"],
+    ["\u305F", "\u3061", "\u3066", "\u3068", "\u3064", "\u3063\u3066", "\u3063\u305F"],
+    ["\u306A", "\u306B", "\u306D", "\u306E", "\u306C", "\u3093\u3067", "\u3093\u3060"],
+    ["\u3070", "\u3073", "\u3079", "\u307C", "\u3076", "\u3093\u3067", "\u3093\u3060"],
+    ["\u307E", "\u307F", "\u3081", "\u3082", "\u3080", "\u3093\u3067", "\u3093\u3060"],
+    ["\u3089", "\u308A", "\u308C", "\u308D", "\u308B", "\u3063\u3066", "\u3063\u305F"]
+  ];
+  var RULES = [];
+  for (const [a, i, e, o, u, te, ta] of GODAN) {
+    RULES.push(
+      [`${a}\u306A\u3044`, u, "negative"],
+      [`${i}\u307E\u3059`, u, "polite"],
+      [`${i}\u307E\u305B\u3093`, u, "polite negative"],
+      [`${i}\u307E\u3057\u305F`, u, "polite past"],
+      [`${i}\u307E\u305B\u3093\u3067\u3057\u305F`, u, "polite past negative"],
+      [`${i}\u305F\u3044`, u, "want to"],
+      [`${i}\u306A\u304C\u3089`, u, "while"],
+      [te, u, "te form"],
+      [ta, u, "past"],
+      [`${ta}\u3089`, u, "conditional (tara)"],
+      [`${e}\u3070`, u, "conditional (ba)"],
+      [`${e}\u308B`, u, "potential"],
+      [`${a}\u308C\u308B`, u, "passive"],
+      [`${a}\u305B\u308B`, u, "causative"],
+      [`${o}\u3046`, u, "volitional"]
+    );
+  }
+  RULES.push(["\u884C\u3063\u3066", "\u884C\u304F", "te form"], ["\u884C\u3063\u305F", "\u884C\u304F", "past"], ["\u3044\u3063\u3066", "\u3044\u304F", "te form"], ["\u3044\u3063\u305F", "\u3044\u304F", "past"]);
+  var ICHIDAN_FROM = RULES.length;
+  RULES.push(
+    ["\u306A\u3044", "\u308B", "negative"],
+    ["\u307E\u3059", "\u308B", "polite"],
+    ["\u307E\u305B\u3093", "\u308B", "polite negative"],
+    ["\u307E\u3057\u305F", "\u308B", "polite past"],
+    ["\u307E\u305B\u3093\u3067\u3057\u305F", "\u308B", "polite past negative"],
+    ["\u305F\u3044", "\u308B", "want to"],
+    ["\u306A\u304C\u3089", "\u308B", "while"],
+    ["\u3066", "\u308B", "te form"],
+    ["\u305F", "\u308B", "past"],
+    ["\u305F\u3089", "\u308B", "conditional (tara)"],
+    ["\u308C\u3070", "\u308B", "conditional (ba)"],
+    ["\u3089\u308C\u308B", "\u308B", "potential / passive"],
+    ["\u3055\u305B\u308B", "\u308B", "causative"],
+    ["\u3088\u3046", "\u308B", "volitional"],
+    ["\u308D", "\u308B", "imperative"]
+  );
+  var ICHIDAN = new Set(RULES.slice(ICHIDAN_FROM));
+  var IE = /[いきぎしじちぢにひびぴみりえけげせぜてでねへべぺめれ]$/;
+  for (const [form, label] of [["\u3057\u306A\u3044", "negative"], ["\u3057\u307E\u3059", "polite"], ["\u3057\u307E\u305B\u3093", "polite negative"], ["\u3057\u307E\u3057\u305F", "polite past"], ["\u3057\u3066", "te form"], ["\u3057\u305F", "past"], ["\u3057\u305F\u3044", "want to"], ["\u3059\u308C\u3070", "conditional (ba)"], ["\u3067\u304D\u308B", "potential"], ["\u3055\u308C\u308B", "passive"], ["\u3055\u305B\u308B", "causative"], ["\u3057\u3088\u3046", "volitional"], ["\u3057\u308D", "imperative"]]) RULES.push([form, "\u3059\u308B", label]);
+  for (const [form, label] of [["\u3053\u306A\u3044", "negative"], ["\u304D\u307E\u3059", "polite"], ["\u304D\u3066", "te form"], ["\u304D\u305F", "past"], ["\u3053\u3089\u308C\u308B", "potential"], ["\u3053\u3088\u3046", "volitional"], ["\u3053\u3044", "imperative"], ["\u6765\u306A\u3044", "negative"], ["\u6765\u307E\u3059", "polite"], ["\u6765\u3066", "te form"], ["\u6765\u305F", "past"]]) RULES.push([form, form.startsWith("\u6765") ? "\u6765\u308B" : "\u304F\u308B", label]);
+  RULES.push(["\u304F\u306A\u3044", "\u3044", "negative"], ["\u304B\u3063\u305F", "\u3044", "past"], ["\u304F\u306A\u304B\u3063\u305F", "\u3044", "past negative"], ["\u304F\u3066", "\u3044", "te form"], ["\u3051\u308C\u3070", "\u3044", "conditional"]);
+  RULES.push(["\u306A\u304B\u3063\u305F", "\u306A\u3044", "past"], ["\u306A\u304F\u3066", "\u306A\u3044", "te form"], ["\u306A\u3051\u308C\u3070", "\u306A\u3044", "conditional"], ["\u305F\u304B\u3063\u305F", "\u305F\u3044", "past"], ["\u305F\u304F\u306A\u3044", "\u305F\u3044", "negative"]);
+  RULES.sort((x, y) => y[0].length - x[0].length);
+  function deinflect(s) {
+    const out = /* @__PURE__ */ new Map();
+    const walk2 = (cur, labels, depth) => {
+      if (depth >= 3) return;
+      for (const rule of RULES) {
+        const [end, rep, label] = rule;
+        if (!cur.endsWith(end)) continue;
+        const stem = cur.slice(0, -end.length);
+        if (!stem && !["\u3059\u308B", "\u304F\u308B", "\u6765\u308B", "\u884C\u304F", "\u3044\u304F"].includes(rep)) continue;
+        if (ICHIDAN.has(rule) && /[ぁ-ゖ]$/.test(stem) && !IE.test(stem)) continue;
+        const base = stem + rep;
+        if (!base || base === cur) continue;
+        const all = [label, ...labels];
+        if (!out.has(base)) out.set(base, all.join(" \xB7 "));
+        if (/(ない|たい)$/.test(base)) walk2(base, all, depth + 1);
+        if (base.endsWith("\u3059\u308B") && base.length > 2 && !out.has(base.slice(0, -2))) out.set(base.slice(0, -2), all.join(" \xB7 "));
+      }
+    };
+    walk2(s, [], 0);
+    out.delete(s);
+    return [...out].map(([word2, form]) => ({ word: word2, form }));
+  }
+
+  // src/shared/dict.ts
+  var HAN3 = /\p{Script=Han}/u;
+  var VERBISH = /^(v[15ksz]|vs|adj-i)/;
+  var JA = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー々]/u;
+  var CYR = /[а-яё]/i;
+  var esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  var stripNotes = (g) => g.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s*\{[^}]*\}\s*/g, " ").trim();
+  var fold = (s) => s.replace(/[うおー]/g, "").replace(/(?<=[えけげせぜてでねへべぺめれ])い/g, "");
+  function nearMiss(q, r2, max) {
+    if (q === r2) return null;
+    const n = q.length, m = r2.length;
+    const d = Array.from({ length: n + 1 }, (_, i2) => Array.from({ length: m + 1 }, (_2, j2) => i2 === 0 ? j2 : j2 === 0 ? i2 : 0));
+    for (let i2 = 1; i2 <= n; i2++) {
+      let best = Infinity;
+      for (let j2 = 1; j2 <= m; j2++) {
+        d[i2][j2] = Math.min(d[i2 - 1][j2] + 1, d[i2][j2 - 1] + 1, d[i2 - 1][j2 - 1] + (q[i2 - 1] === r2[j2 - 1] ? 0 : 1));
+        best = Math.min(best, d[i2][j2]);
+      }
+      if (best > max) return null;
+    }
+    if (d[n][m] > max) return null;
+    const marks = [];
+    let i = n, j = m;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && d[i][j] === d[i - 1][j - 1] + (q[i - 1] === r2[j - 1] ? 0 : 1)) {
+        if (q[i - 1] !== r2[j - 1]) marks.push(j - 1);
+        i--;
+        j--;
+      } else if (j > 0 && d[i][j] === d[i][j - 1] + 1) {
+        marks.push(j - 1);
+        j--;
+      } else i--;
+    }
+    return marks.reverse();
+  }
+  var Dictionary = class {
+    // readings in hiragana, per word
+    constructor(data, vocab) {
+      __publicField(this, "words");
+      __publicField(this, "tags");
+      __publicField(this, "ours", /* @__PURE__ */ new Map());
+      __publicField(this, "kanas");
+      this.words = data.words;
+      this.tags = data.tags;
+      for (const v of vocab) {
+        if (v.level === "KANA" || v.level === "KATA") continue;
+        this.ours.set(`${v.kanji}|${v.reading}`, { id: v.id, level: v.level });
+        if (!HAN3.test(v.kanji)) this.ours.set(`kana:${katakanaToHiragana(v.kanji)}`, { id: v.id, level: v.level });
+      }
+      this.kanas = this.words.map((w) => w.r.map(katakanaToHiragana));
+    }
+    mineOf(w) {
+      return w.k.flatMap((k) => w.r.map((r2) => this.ours.get(`${k}|${r2}`))).find(Boolean) ?? (w.k.length ? void 0 : w.r.map((r2) => this.ours.get(`kana:${katakanaToHiragana(r2)}`)).find(Boolean));
+    }
+    entry(i) {
+      const w = this.words[i];
+      const mine = this.mineOf(w);
+      return { i, kanji: w.k, kana: w.r, romaji: toRomaji(w.r[0] ?? ""), senses: w.s, ru: w.ru ?? [], common: !!w.c, ...w.x ? { phrase: true } : {}, ...mine ? { vocabId: mine.id, level: mine.level } : {} };
+    }
+    get(i) {
+      return Number.isInteger(i) && i >= 0 && i < this.words.length ? this.entry(i) : null;
+    }
+    search(raw, limit = 60) {
+      const q = String(raw ?? "").normalize("NFKC").trim().toLowerCase().slice(0, 40);
+      if (!q) return [];
+      const ja = JA.test(q), ru = !ja && CYR.test(q);
+      const qKana = ja ? katakanaToHiragana(q) : "";
+      const kanaQs = ja ? [qKana] : ru ? [] : answerVariants(q).filter((x) => !/[a-z]/.test(x));
+      const qChars = ja ? [...new Set([...q].filter((c) => HAN3.test(c)))] : [];
+      const qFold = kanaQs.map(fold);
+      const cut = !ja && !ru ? q.replace(/[^aeiou'\s-]+$/, "") : "";
+      const partQs = !cut ? [] : cut !== q ? answerVariants(cut).filter((x) => x && !/[a-z]/.test(x)) : kanaQs;
+      const near1 = (g) => Math.max(0, 8 - (g.length - q.length));
+      const word2 = ru ? new RegExp(`(^|[^\u0430-\u044F\u0451])${esc(q)}`, "i") : ja ? null : new RegExp(`(^|[^a-z])${esc(q)}($|[^a-z])`);
+      const bases = /* @__PURE__ */ new Map();
+      if (!ru) {
+        for (const x of ja ? [q, qKana] : kanaQs) for (const d of deinflect(x)) if (!bases.has(d.word)) bases.set(d.word, d.form);
+      }
+      const guess = /* @__PURE__ */ new Set();
+      if (!bases.size) {
+        for (const x of partQs.filter((x2) => x2.length >= 3)) for (const end of ["\u3059", "\u3057\u305F", "\u305B\u3093", "\u3093", "\u3044", "\u305F", "\u3066", "\u308B", "\u306A\u3044", "\u307E\u3059"]) for (const d of deinflect(x + end)) if (!bases.has(d.word)) {
+          bases.set(d.word, d.form);
+          guess.add(d.word);
+        }
+      }
+      const typoQs = ru ? [] : (ja ? [qKana] : kanaQs).filter((x) => x.length >= 3 && !HAN3.test(x));
+      const forms = /* @__PURE__ */ new Map(), typos = /* @__PURE__ */ new Map();
+      let sure = 0;
+      const near = [];
+      const scored = [];
+      for (let i = 0; i < this.words.length; i++) {
+        const w = this.words[i], kanas = this.kanas[i];
+        let s = 0;
+        if (ja) {
+          if (w.k.includes(q) || kanas.includes(qKana)) s = 100;
+          else if (w.k.some((k) => k.startsWith(q)) || kanas.some((r2) => r2.startsWith(qKana))) s = 60;
+          else if (w.k.some((k) => k.includes(q)) || q.length > 1 && kanas.some((r2) => r2.includes(qKana))) s = 40;
+          else if (qChars.length && w.k.some((k) => qChars.some((c) => k.includes(c)))) s = 14 + 6 * qChars.filter((c) => w.k[0]?.includes(c)).length;
+          else if (qKana.length > 1 && kanas.some((r2) => fold(r2) === qFold[0])) s = 30;
+        } else if (ru) {
+          for (let n = 0; n < (w.ru?.length ?? 0); n++) {
+            const glosses = w.ru[n].toLowerCase().split(/[;,]\s*|\s*\d+\)\s*/).map(stripNotes).filter(Boolean);
+            const pre = glosses.find((g) => g.startsWith(q));
+            if (glosses.includes(q)) s = Math.max(s, n === 0 ? 96 : 88);
+            else if (pre) s = Math.max(s, (n === 0 ? 70 : 60) + near1(pre));
+            else if (word2.test(w.ru[n])) s = Math.max(s, 40);
+          }
+        } else {
+          if (kanaQs.some((x) => kanas.includes(x))) s = 100;
+          else if (q.length >= 2 && kanaQs.some((x) => kanas.some((r2) => r2.startsWith(x)))) {
+            const gap = Math.min(...kanaQs.flatMap((x) => kanas.filter((r2) => r2.startsWith(x)).map((r2) => r2.length - x.length)));
+            s = 45 + Math.max(0, 4 - gap);
+          } else if (partQs.some((x) => kanas.some((r2) => r2.startsWith(x) && r2.length > x.length))) s = 42;
+          else if (q.length > 3 && qFold.some((x) => kanas.some((r2) => fold(r2) === x))) s = 32;
+          const gl = (w.s[0]?.[1].toLowerCase() ?? "").split("; ").map(stripNotes);
+          const bare = (g) => g.replace(/^to /, "");
+          const pre = q.length >= 2 ? gl.find((g) => bare(g).startsWith(q)) : void 0;
+          if (gl[0] === q || gl[0] === `to ${q}`) s = Math.max(s, 98);
+          else if (gl.some((g) => g === q || g === `to ${q}`)) s = Math.max(s, 90);
+          else if (word2.test(w.s[0]?.[1].toLowerCase() ?? "")) s = Math.max(s, 70);
+          else if (pre) s = Math.max(s, (pre === gl[0] ? 64 : 54) + near1(bare(pre)));
+          else if (w.s.slice(1).some((x) => word2.test(x[1].toLowerCase()))) s = Math.max(s, 40);
+          else if (q.length >= 3 && w.s.slice(0, 3).some((x) => x[1].toLowerCase().split("; ").some((g) => bare(stripNotes(g)).startsWith(q)))) s = Math.max(s, 30);
+        }
+        if (s < 90 && bases.size && w.s[0]?.[0].some((p) => VERBISH.test(p))) {
+          const hit2 = [...w.k, ...kanas].find((x) => bases.has(x));
+          if (hit2) {
+            s = guess.has(hit2) ? Math.max(s, 44) : 92;
+            forms.set(i, bases.get(hit2));
+          }
+        }
+        if (!s && typoQs.length) {
+          for (const tq of typoQs) {
+            const r2 = kanas[0];
+            if (!r2 || Math.abs(r2.length - tq.length) > 1) continue;
+            const marks = nearMiss(tq, r2, tq.length >= 6 ? 2 : 1);
+            if (marks) {
+              near.push([22 - Math.max(1, marks.length) * 4 + (r2.length === tq.length ? 3 : 0) + (w.c ? 12 : 0) + (this.mineOf(w) ? 10 : 0), i]);
+              typos.set(i, marks);
+              break;
+            }
+          }
+        }
+        if (!s) continue;
+        if (s >= 40) sure++;
+        if (w.c) s += 12;
+        if (this.mineOf(w)) s += 10;
+        s -= Math.min(10, (w.k[0] ?? w.r[0] ?? "").length);
+        scored.push([s, i]);
+      }
+      if (sure < 3) scored.push(...near);
+      scored.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+      return scored.slice(0, limit).map(([, i]) => ({ ...this.entry(i), ...forms.has(i) ? { form: forms.get(i) } : {}, ...typos.has(i) ? { typo: typos.get(i) } : {} }));
+    }
+    /** 0.9.9.7.2: phrases / expressions with this word in them (呼ぶ → 名前を呼ぶ …) */
+    phrasesWith(e, limit = 10) {
+      const keys = (e.kanji[0] ? [e.kanji[0]] : [e.kana[0]]).filter((x) => !!x);
+      const stem = (k) => k.length > 2 && /[うくぐすつぬぶむるい]$/.test(k) ? k.slice(0, -1) : k;
+      const out = [];
+      for (let i = 0; i < this.words.length; i++) {
+        const w = this.words[i];
+        if (!w.x || i === e.i) continue;
+        const text = e.kanji[0] ? w.k : [...w.k, ...w.r];
+        if (!keys.some((k) => text.some((t) => t !== k && t.includes(stem(k))))) continue;
+        out.push([(w.c ? 10 : 0) - (w.k[0] ?? w.r[0] ?? "").length, i]);
+      }
+      out.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+      return out.slice(0, limit).map(([, i]) => this.entry(i));
+    }
+    /** words written with this kanji (common and the game's own first) — "Words with 信" */
+    withKanji(ch, limit = 12) {
+      if (!HAN3.test(ch)) return [];
+      const out = [];
+      for (let i = 0; i < this.words.length; i++) {
+        const w = this.words[i];
+        if (!w.k.some((k) => k.includes(ch))) continue;
+        out.push([(w.c ? 10 : 0) + (this.mineOf(w) ? 8 : 0) - (w.k[0]?.length ?? 9), i]);
+      }
+      out.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+      return out.slice(0, limit).map(([, i]) => this.entry(i));
+    }
+  };
+
+  // src/client/dictui.ts
+  init_idb();
+
+  // src/client/conjugate.ts
+  var ROW = {
+    \u3046: ["\u308F", "\u3044", "\u3048", "\u304A", "\u3063\u3066", "\u3063\u305F"],
+    \u304F: ["\u304B", "\u304D", "\u3051", "\u3053", "\u3044\u3066", "\u3044\u305F"],
+    \u3050: ["\u304C", "\u304E", "\u3052", "\u3054", "\u3044\u3067", "\u3044\u3060"],
+    \u3059: ["\u3055", "\u3057", "\u305B", "\u305D", "\u3057\u3066", "\u3057\u305F"],
+    \u3064: ["\u305F", "\u3061", "\u3066", "\u3068", "\u3063\u3066", "\u3063\u305F"],
+    \u306C: ["\u306A", "\u306B", "\u306D", "\u306E", "\u3093\u3067", "\u3093\u3060"],
+    \u3076: ["\u3070", "\u3073", "\u3079", "\u307C", "\u3093\u3067", "\u3093\u3060"],
+    \u3080: ["\u307E", "\u307F", "\u3081", "\u3082", "\u3093\u3067", "\u3093\u3060"],
+    \u308B: ["\u3089", "\u308A", "\u308C", "\u308D", "\u3063\u3066", "\u3063\u305F"]
+  };
+  function conjugate(word2, pos) {
+    const p = pos.find((x) => /^(v1|v5|vk|vs-i|vs-s|adj-i|adj-ix)/.test(x)) ?? (pos.includes("vs") ? "vs" : "");
+    if (!p) return [];
+    if (p === "vs") return suru(word2, "\u3059\u308B");
+    if (p.startsWith("vs-")) return word2.endsWith("\u3059\u308B") ? suru(word2.slice(0, -2), "\u3059\u308B") : [];
+    if (p === "vk") {
+      const stem = word2.slice(0, -2) || word2.slice(0, -1).replace(/来$/, "");
+      const k = word2.endsWith("\u6765\u308B") ? "\u6765" : "";
+      return [
+        ["Dictionary", word2],
+        ["Polite", `${stem}${k || "\u304D"}\u307E\u3059`],
+        ["Negative", `${stem}${k || "\u3053"}\u306A\u3044`],
+        ["Past", `${stem}${k || "\u304D"}\u305F`],
+        ["Te form", `${stem}${k || "\u304D"}\u3066`],
+        ["Potential", `${stem}${k || "\u3053"}\u3089\u308C\u308B`],
+        ["Volitional", `${stem}${k || "\u3053"}\u3088\u3046`],
+        ["Conditional", `${stem}${k || "\u304F"}\u308C\u3070`],
+        ["Imperative", `${stem}${k || "\u3053"}\u3044`]
+      ];
+    }
+    if (p.startsWith("v1")) {
+      const s = word2.slice(0, -1);
+      return [
+        ["Dictionary", word2],
+        ["Polite", `${s}\u307E\u3059`],
+        ["Negative", `${s}\u306A\u3044`],
+        ["Past", `${s}\u305F`],
+        ["Past negative", `${s}\u306A\u304B\u3063\u305F`],
+        ["Te form", `${s}\u3066`],
+        ["Polite past", `${s}\u307E\u3057\u305F`],
+        ["Potential", `${s}\u3089\u308C\u308B`],
+        ["Passive", `${s}\u3089\u308C\u308B`],
+        ["Causative", `${s}\u3055\u305B\u308B`],
+        ["Volitional", `${s}\u3088\u3046`],
+        ["Conditional", `${s}\u308C\u3070`],
+        ["Imperative", `${s}\u308D`]
+      ];
+    }
+    if (p.startsWith("v5")) {
+      const end = word2.slice(-1), s = word2.slice(0, -1), r2 = ROW[end];
+      if (!r2) return [];
+      const iku = p === "v5k-s";
+      const aru = p === "v5aru";
+      const [a, i, e, o] = r2;
+      const te = iku ? "\u3063\u3066" : r2[4], ta = iku ? "\u3063\u305F" : r2[5];
+      const masu = aru ? "\u3044" : i;
+      return [
+        ["Dictionary", word2],
+        ["Polite", `${s}${masu}\u307E\u3059`],
+        ["Negative", p === "v5r-i" ? `${s.replace(/あ$/, "")}\u306A\u3044` : `${s}${a}\u306A\u3044`],
+        ["Past", `${s}${ta}`],
+        ["Past negative", `${s}${a}\u306A\u304B\u3063\u305F`],
+        ["Te form", `${s}${te}`],
+        ["Polite past", `${s}${masu}\u307E\u3057\u305F`],
+        ["Potential", `${s}${e}\u308B`],
+        ["Passive", `${s}${a}\u308C\u308B`],
+        ["Causative", `${s}${a}\u305B\u308B`],
+        ["Volitional", `${s}${o}\u3046`],
+        ["Conditional", `${s}${e}\u3070`],
+        ["Imperative", `${s}${aru ? "\u3044" : e}`]
+      ];
+    }
+    if (p.startsWith("adj-i")) {
+      const ii = p === "adj-ix";
+      const s = ii ? word2.slice(0, -2) + "\u3088" : word2.slice(0, -1);
+      return [
+        ["Dictionary", word2],
+        ["Negative", `${s}\u304F\u306A\u3044`],
+        ["Past", `${s}\u304B\u3063\u305F`],
+        ["Past negative", `${s}\u304F\u306A\u304B\u3063\u305F`],
+        ["Te form", `${s}\u304F\u3066`],
+        ["Adverb", `${s}\u304F`],
+        ["Conditional", `${s}\u3051\u308C\u3070`],
+        ["Polite", `${word2}\u3067\u3059`]
+      ];
+    }
+    return [];
+  }
+  function suru(stem, _s) {
+    return [
+      ["Dictionary", `${stem}\u3059\u308B`],
+      ["Polite", `${stem}\u3057\u307E\u3059`],
+      ["Negative", `${stem}\u3057\u306A\u3044`],
+      ["Past", `${stem}\u3057\u305F`],
+      ["Past negative", `${stem}\u3057\u306A\u304B\u3063\u305F`],
+      ["Te form", `${stem}\u3057\u3066`],
+      ["Polite past", `${stem}\u3057\u307E\u3057\u305F`],
+      ["Potential", `${stem}\u3067\u304D\u308B`],
+      ["Passive", `${stem}\u3055\u308C\u308B`],
+      ["Causative", `${stem}\u3055\u305B\u308B`],
+      ["Volitional", `${stem}\u3057\u3088\u3046`],
+      ["Conditional", `${stem}\u3059\u308C\u3070`],
+      ["Imperative", `${stem}\u3057\u308D`]
+    ];
+  }
+
+  // src/client/dictui.ts
   init_i18n();
-  init_zoom();
+  init_protocol();
+  init_ui();
 
   // src/client/voice.ts
   var KEY7 = "kb:voice";
@@ -11577,6 +12077,596 @@ ${stack}`.slice(0, 2e3);
     });
   }
 
+  // src/client/dictui.ts
+  var $7 = $;
+  var HAN4 = /\p{Script=Han}/u;
+  var h3 = (tag, cls = "", text, attrs = {}) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = text;
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+  var tags = {};
+  var lastQ = "";
+  var lastHits = [];
+  var shown3 = 30;
+  var busy = 0;
+  var dictP = null;
+  var DICT_V = "jmdict-2026-10-26+phrases";
+  var OFFLINE_PREF = "kb:dictOffline";
+  var offlinePref = () => {
+    try {
+      return localStorage.getItem(OFFLINE_PREF);
+    } catch {
+      return null;
+    }
+  };
+  var setOfflinePref = (v) => {
+    try {
+      localStorage.setItem(OFFLINE_PREF, v);
+    } catch {
+    }
+  };
+  async function storedDict() {
+    const s = await get("dict:all").catch(() => void 0);
+    return s && s.dict?.words?.length ? s : null;
+  }
+  async function downloadDict(onProgress) {
+    const r2 = await fetch(`/dict.json?v=${encodeURIComponent(DICT_V)}`, { cache: "no-store" });
+    if (!r2.ok || !r2.body) throw new Error(`dict ${r2.status}`);
+    const total = Number(r2.headers.get("content-length")) || 25e5;
+    const reader = r2.body.getReader();
+    const chunks = [];
+    let done2 = 0;
+    for (; ; ) {
+      const { value, done: end } = await reader.read();
+      if (end) break;
+      chunks.push(value);
+      done2 += value.length;
+      onProgress(done2, Math.max(total, done2));
+    }
+    const text = new TextDecoder().decode(await new Blob(chunks).arrayBuffer());
+    const dict = JSON.parse(text);
+    const m = await Promise.resolve().then(() => (init_vocab2(), vocab_exports));
+    await m.loadVocab().catch(() => {
+    });
+    const stored = { v: DICT_V, dict, vocab: [...m.VOCAB] };
+    await set("dict:all", stored);
+    return stored;
+  }
+  function dictionary() {
+    dictP ?? (dictP = (async () => {
+      const kept = await storedDict();
+      if (kept) {
+        if (kept.v !== DICT_V && navigator.onLine) void downloadDict(() => {
+        }).then((s) => {
+          dictP = Promise.resolve(build2(s.dict, s.vocab));
+        }).catch(() => {
+        });
+        return build2(kept.dict, kept.vocab);
+      }
+      const [data, vocab] = await Promise.all([fetch("/dict.json").then((r2) => {
+        if (!r2.ok) throw new Error(`dict ${r2.status}`);
+        return r2.json();
+      }), Promise.resolve().then(() => (init_vocab2(), vocab_exports)).then(async (m) => {
+        await m.loadVocab();
+        return m.VOCAB;
+      })]);
+      return build2(data, vocab);
+    })().catch((e) => {
+      dictP = null;
+      throw e;
+    }));
+    return dictP;
+  }
+  function build2(data, vocab) {
+    const d = new Dictionary(data, vocab);
+    tags = d.tags;
+    return d;
+  }
+  async function askOffline() {
+    if (offlinePref() || await storedDict()) return;
+    const card = h3("div", "dict-home dict-offline");
+    card.append(h3("h4", "", tr("Use the dictionary offline?")), h3("p", "hint", tr("Download every word and phrase (about 2.5 MB) to this device \u2014 then the dictionary works without internet, anywhere.")));
+    const bar = h3("div", "dl-bar");
+    const fill2 = h3("i");
+    bar.append(fill2);
+    bar.hidden = true;
+    const yes = h3("button", "pill primary", tr("Download"), { type: "button" });
+    const no2 = h3("button", "pill", tr("Not now"), { type: "button" });
+    const row = h3("div", "dict-tries");
+    row.append(yes, no2);
+    card.append(row, bar);
+    $7("dictBody").replaceChildren(card);
+    await new Promise((done2) => {
+      no2.onclick = () => {
+        setOfflinePref("no");
+        done2();
+      };
+      yes.onclick = async () => {
+        yes.disabled = true;
+        bar.hidden = false;
+        try {
+          const s = await downloadDict((d, t) => {
+            fill2.style.width = `${Math.round(d / t * 100)}%`;
+            yes.textContent = `${Math.round(d / t * 100)}%`;
+          });
+          setOfflinePref("yes");
+          dictP = Promise.resolve(build2(s.dict, s.vocab));
+          toast(tr("The dictionary is on this device now \u2014 it works offline."), 4e3);
+          done2();
+        } catch {
+          yes.disabled = false;
+          yes.textContent = tr("Download");
+          bar.hidden = true;
+          toast(tr("The download failed \u2014 check your internet and try again."), 4e3);
+        }
+      };
+    });
+  }
+  function headword(w, cls = "dw-head") {
+    const box = h3("div", cls, void 0, { lang: "ja" });
+    const main = w.kanji[0];
+    if (main) {
+      const r2 = h3("ruby");
+      r2.append(main, h3("rt", "", w.kana[0] ?? ""));
+      box.append(r2);
+    } else box.append(w.kana[0] ?? "");
+    return box;
+  }
+  function nearWord(w) {
+    const box = h3("div", "dh-word dh-near", void 0, { lang: "ja" });
+    const marks = new Set(w.typo ?? []);
+    const reading = h3("span", "dh-near-r");
+    [...w.kana[0] ?? ""].forEach((c, i) => reading.append(marks.has(i) ? h3("b", "dh-miss", c) : c));
+    if (w.kanji[0]) box.append(w.kanji[0], h3("span", "dh-sep", " \xB7 "), reading);
+    else box.append(reading);
+    return box;
+  }
+  function badges(w) {
+    const row = h3("div", "dw-tags");
+    if (w.level) row.append(h3("span", `dw-tag lv lv-${w.level}`, LEVEL_LABEL[w.level], { "data-no-i18n": "" }));
+    if (w.phrase) row.append(h3("span", "dw-tag phrase", tr("phrase")));
+    if (w.vocabId) row.append(h3("span", "dw-tag game", tr("game word")));
+    return row;
+  }
+  var posText = (pos) => pos.map((p) => tags[p] ?? p).join(", ");
+  var ruOf = (w) => lang() === "ru" && w.ru.length ? w.ru : null;
+  async function search(q) {
+    q = q.trim();
+    const body = $7("dictBody");
+    if (!q) {
+      drawHome();
+      return;
+    }
+    const n = ++busy;
+    if (!lastHits.length) body.replaceChildren(h3("p", "hint center", tr("Searching\u2026")));
+    try {
+      const d = await dictionary();
+      if (n !== busy) return;
+      lastQ = q;
+      lastHits = d.search(q, 120);
+      shown3 = 30;
+      drawList();
+    } catch {
+      if (n === busy) body.replaceChildren(h3("p", "hint center", tr("The dictionary couldn\u2019t load \u2014 open it once with internet, then it works offline too.")));
+    }
+  }
+  function drawHome() {
+    const home = h3("div", "dict-home");
+    home.append(h3("p", "hint", tr("Type a word in kanji, kana, romaji, English or Russian. Open a word for all its meanings, its kanji with memory pictures, example sentences \u2014 and add it to your decks.")));
+    const status = h3("p", "hint dict-store");
+    void storedDict().then((kept) => {
+      if (kept) {
+        status.textContent = `\u2713 ${tr("Saved on this device \u2014 works offline.")}`;
+        return;
+      }
+      const b = h3("button", "pill", tr("Save it on this device for offline use"), { type: "button" });
+      b.onclick = () => {
+        try {
+          localStorage.removeItem(OFFLINE_PREF);
+        } catch {
+        }
+        void askOffline().then(drawHome);
+      };
+      status.append(b);
+    });
+    home.append(status);
+    $7("dictBody").replaceChildren(home);
+  }
+  function drawList() {
+    const body = $7("dictBody");
+    if (!lastHits.length) {
+      body.replaceChildren(h3("p", "hint center", `${tr("Nothing found for")} \u201C${lastQ}\u201D`));
+      return;
+    }
+    const list = h3("div", "dict-list");
+    for (const w of lastHits.slice(0, shown3)) {
+      const card = h3("button", "dict-hit", void 0, { type: "button" });
+      const top = h3("div", "dh-top");
+      top.append(w.typo ? nearWord(w) : headword(w, "dh-word"), badges(w));
+      if (w.form) top.append(h3("span", "dh-form", `\u2190 ${w.form.split(" \xB7 ").map((x) => tr(x)).join(" \xB7 ")}`));
+      const ru = ruOf(w);
+      const means = h3("ol", "dh-means");
+      (ru ?? w.senses.map((s) => s[1])).slice(0, 3).forEach((m) => means.append(h3("li", "", m, { "data-no-i18n": "" })));
+      card.append(top, means);
+      card.onclick = () => void openWord(w.i);
+      list.append(card);
+    }
+    const kids = [h3("p", "hint dict-count", `${lastHits.length}${lastHits.length >= 120 ? "+" : ""} ${tr(lastHits.length === 1 ? "match" : "matches")}`), list];
+    if (lastHits.length > shown3) {
+      const more = h3("button", "pill dict-more", tr("Show more"), { type: "button" });
+      more.onclick = () => {
+        shown3 += 30;
+        drawList();
+      };
+      kids.push(more);
+    }
+    body.replaceChildren(...kids);
+    body.scrollTop = 0;
+  }
+  async function openWord(i) {
+    const body = $7("dictBody");
+    body.replaceChildren(h3("p", "hint center", tr("Loading\u2026")));
+    const d = await dictionary().catch(() => null);
+    const w = d?.get(i);
+    if (!d || !w) {
+      body.replaceChildren(h3("p", "hint center", tr("No such word")));
+      return;
+    }
+    const chars0 = [...new Set([...w.kanji[0] ?? ""].filter((c) => HAN4.test(c)))];
+    const r2 = { withKanji: Object.fromEntries(chars0.map((c) => [c, d.withKanji(c, 8).filter((x) => x.i !== w.i)])) };
+    const page2 = h3("article", "dict-word");
+    const back2 = h3("button", "pill dict-back", `\u2190 ${tr("Results")}`, { type: "button" });
+    back2.onclick = () => lastHits.length ? drawList() : drawHome();
+    const head = h3("div", "dw-top");
+    const left = h3("div", "dw-left");
+    left.append(headword(w), h3("div", "dw-romaji", w.romaji, { "data-no-i18n": "" }));
+    if (w.kana.length > 1 || w.kanji.length > 1) left.append(h3("div", "dw-alt", [...w.kanji.slice(1), ...w.kana.slice(1)].join("\u30FB"), { lang: "ja" }));
+    left.append(badges(w));
+    const acts = h3("div", "dw-acts");
+    if (voiceAvailable()) {
+      const s = h3("button", "pill", `\u{1F50A} ${tr("Listen")}`, { type: "button" });
+      s.onclick = () => void speak(w.kana[0] ?? "");
+      acts.append(s);
+    }
+    acts.append(addTo(w));
+    if (w.kanji[0] && HAN4.test(w.kanji[0])) {
+      const so = h3("button", "pill", `\u270D ${tr("Stroke order")}`, { type: "button" });
+      so.onclick = () => openStrokeDialog(w.kanji[0], w.kana[0] ?? "", w.senses[0]?.[1] ?? "");
+      acts.append(so);
+    }
+    head.append(left, acts);
+    page2.append(back2, head);
+    const sec = (title) => {
+      const s = h3("section", "dw-sec");
+      s.append(h3("h4", "", tr(title)));
+      page2.append(s);
+      return s;
+    };
+    const mean = sec("Meanings");
+    let lastPos = "";
+    const ol = h3("ol", "dw-senses");
+    w.senses.forEach(([pos2, gl, misc, info]) => {
+      const p = posText(pos2);
+      if (p && p !== lastPos) {
+        ol.append(h3("li", "dw-pos", p, { "data-no-i18n": "" }));
+        lastPos = p;
+      }
+      const li = h3("li", "dw-sense");
+      li.append(h3("span", "", gl, { "data-no-i18n": "" }));
+      for (const m of misc) li.append(h3("span", "dw-misc", tags[m] ?? m, { "data-no-i18n": "" }));
+      if (info) li.append(h3("span", "dw-info", info, { "data-no-i18n": "" }));
+      ol.append(li);
+    });
+    mean.append(ol);
+    if (w.ru.length) {
+      const ru = h3("ol", "dw-senses ru");
+      w.ru.forEach((m) => ru.append(h3("li", "dw-sense", m, { "data-no-i18n": "" })));
+      const s = sec("In Russian");
+      s.append(ru);
+      if (lang() === "ru") mean.before(s);
+    }
+    if (w.vocabId) {
+      const ex = await exampleFor(w.vocabId).catch(() => null);
+      if (ex) sec("Example").append(ex);
+    }
+    const pos = w.senses[0]?.[0] ?? [];
+    const forms = conjugate(w.kanji[0] ?? w.kana[0] ?? "", pos);
+    if (forms.length) {
+      const readings = w.kanji[0] ? conjugate(w.kana[0] ?? "", pos) : [];
+      const t = h3("table", "dw-table");
+      forms.forEach(([label, f2], n) => {
+        const row = h3("tr");
+        const cell = h3("td", "", void 0, { lang: "ja" });
+        cell.append(h3("span", "dw-f", f2));
+        const kana = readings[n]?.[1];
+        if (kana && kana !== f2) cell.append(h3("span", "dw-fk", kana));
+        row.append(h3("th", "", tr(label)), cell);
+        t.append(row);
+      });
+      sec("Forms").append(t);
+    }
+    const phrases = d.phrasesWith(w, 10);
+    if (phrases.length) {
+      const box = h3("div", "dw-phrases");
+      for (const p of phrases) {
+        const b = h3("button", "dw-phrase", void 0, { type: "button" });
+        const jp = h3("span", "dwp-jp", void 0, { lang: "ja" });
+        jp.append(p.kanji[0] ?? p.kana[0] ?? "");
+        if (p.kanji[0]) jp.append(h3("small", "", p.kana[0] ?? ""));
+        b.append(jp, h3("span", "dwp-m", ruOf(p)?.[0] ?? p.senses[0]?.[1] ?? "", { "data-no-i18n": "" }));
+        b.onclick = () => void openWord(p.i);
+        box.append(b);
+      }
+      sec("Phrases").append(box);
+    }
+    const chars2 = [...new Set([...w.kanji[0] ?? ""].filter((c) => HAN4.test(c)))];
+    if (chars2.length) {
+      const ks = sec("Kanji");
+      const info = await loadKanji();
+      const ru = lang() === "ru";
+      for (const c of chars2) {
+        const k = info[c];
+        const card = h3("div", "dw-kanji");
+        const big = h3("button", "dw-kchar", c, { type: "button", lang: "ja", title: tr("Memory picture") });
+        big.onclick = () => void showKanji(c, big);
+        const meta = h3("div", "dw-kmeta");
+        if (k) {
+          meta.append(h3("b", "", ru && k[1] ? k[1] : k[0], { "data-no-i18n": "" }));
+          const rd = h3("div", "dw-kreads", void 0, { lang: "ja" });
+          if (k[2]) rd.append(h3("span", "", `${ru ? "\u043E\u043D" : "on"}: ${k[2]}`, { "data-no-i18n": "" }));
+          if (k[3]) rd.append(h3("span", "", `${ru ? "\u043A\u0443\u043D" : "kun"}: ${k[3]}`, { "data-no-i18n": "" }));
+          meta.append(rd);
+          if (k[4].length) meta.append(h3("div", "dw-kparts", k[4].map(([pc, pen, pru]) => `${pc ? pc + " " : ""}${ru && pru ? pru : pen}`).join(" + "), { "data-no-i18n": "" }));
+        }
+        const pic = h3("button", "pill dw-kpic", `\u{1F5BC} ${tr("Memory picture")}`, { type: "button" });
+        pic.onclick = () => void showKanji(c, big);
+        meta.append(pic);
+        card.append(big, meta);
+        const more = r2.withKanji[c] ?? [];
+        if (more.length) {
+          const row = h3("div", "dw-with");
+          row.append(h3("span", "hint", `${tr("Words with")} ${c}:`));
+          for (const m of more) {
+            const b = h3("button", "dw-chip", void 0, { type: "button", lang: "ja" });
+            b.append(h3("b", "", m.kanji[0] ?? m.kana[0]), h3("small", "", m.kana[0] ?? ""));
+            b.title = ruOf(m)?.[0] ?? m.senses[0]?.[1] ?? "";
+            b.onclick = () => void openWord(m.i);
+            row.append(b);
+          }
+          card.append(row);
+        }
+        ks.append(card);
+      }
+    }
+    page2.append(h3("p", "hint dw-src", "JMdict \xA9 EDRDG (CC BY-SA 4.0)", { "data-no-i18n": "" }));
+    body.replaceChildren(page2);
+    window.scrollTo({ top: 0 });
+  }
+  function addTo(w) {
+    const sel = h3("select", "pill dw-add", void 0, { "aria-label": tr("Add to a deck") });
+    sel.append(Object.assign(h3("option", "", `+ ${tr("Add to\u2026")}`), { value: "" }));
+    for (const d of ["all", "struggling", "custom"]) sel.append(Object.assign(h3("option", "", tr(DECK_LABEL[d])), { value: d }));
+    sel.onchange = async () => {
+      const deck2 = sel.value;
+      if (!deck2) return;
+      sel.disabled = true;
+      const word2 = w.kanji[0] ?? w.kana[0] ?? "";
+      try {
+        let id = w.vocabId;
+        if (!id || deck2 === "custom") {
+          const meaning2 = lang() === "ru" && w.ru[0] || w.senses.slice(0, 2).map((s) => s[1]).join("; ");
+          const r3 = await api.addCustom(id ? { vocabId: id } : { kanji: word2, reading: w.kana[0] ?? word2, meaning: meaning2.slice(0, 120) });
+          id = r3.word.id;
+          if (deck2 === "custom") {
+            toast(r3.added ? `${word2} \u2192 ${tr(DECK_LABEL.custom)}` : `${word2}: ${tr("already in")} ${tr(DECK_LABEL.custom)}`);
+            return;
+          }
+        }
+        const r2 = await api.deckAdd(deck2, [id]);
+        toast(r2.added.length ? `${word2} \u2192 ${tr(DECK_LABEL[deck2])}` : `${word2}: ${tr("already in")} ${tr(DECK_LABEL[deck2])}`);
+      } catch (e) {
+        toast(e.message);
+      } finally {
+        sel.value = "";
+        sel.disabled = false;
+      }
+    };
+    return sel;
+  }
+  function openDictWord(i) {
+    show("dict");
+    void openWord(i);
+  }
+  function openDict() {
+    show("dict");
+    const q = $7("dictQ");
+    if (!lastHits.length) drawHome();
+    void askOffline().then(() => {
+      if (!lastHits.length) drawHome();
+      void dictionary().catch(() => {
+      });
+    });
+    setTimeout(() => q.focus(), 50);
+  }
+  $7("dictForm").onsubmit = (e) => {
+    e.preventDefault();
+    void search($7("dictQ").value);
+  };
+  {
+    let t = 0;
+    $7("dictQ").addEventListener("input", () => {
+      clearTimeout(t);
+      t = window.setTimeout(() => void search($7("dictQ").value), 90);
+    });
+    $7("dictQ").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        clearTimeout(t);
+        void search($7("dictQ").value);
+      }
+    });
+  }
+  $7("dictBack").onclick = () => show("menu");
+
+  // src/client/dictrail.ts
+  init_i18n();
+  init_ui();
+  var $8 = $;
+  var h4 = (tag, cls = "", text, attrs = {}) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== void 0) e.textContent = text;
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+  var DICT_SCREENS = /* @__PURE__ */ new Set(["menu", "queue", "admin", "modes", "lobby", "results", "study", "customize", "history", "progress", "friends"]);
+  var ROOM_SCREENS = /* @__PURE__ */ new Set(["lobby", "queue", "results"]);
+  var signedIn3 = false;
+  var screen2 = "";
+  var hits = [];
+  var busy2 = 0;
+  function setDictRailUser(on) {
+    signedIn3 = on;
+    if (!on) show3(false);
+  }
+  function dictRailScreen(s) {
+    screen2 = s;
+    show3(signedIn3 && DICT_SCREENS.has(s));
+  }
+  function show3(on) {
+    $8("dictRail").hidden = !on;
+    $8("dictFab").hidden = !on;
+    document.body.classList.toggle("has-dict", on);
+    if (!on) setOpen2(false);
+  }
+  function setOpen2(on) {
+    const rail = $8("dictRail");
+    if (rail.classList.contains("open") === on) return;
+    rail.classList.toggle("open", on);
+    $8("dictRailTab").setAttribute("aria-expanded", String(on));
+    $8("dictFab").setAttribute("aria-expanded", String(on));
+    if (on) {
+      const q = $8("dictRailQ");
+      setTimeout(() => q.focus(), 60);
+      if (!q.value.trim()) drawHint();
+      void dictionary().catch(() => {
+      });
+    }
+  }
+  var toggle2 = () => setOpen2(!$8("dictRail").classList.contains("open"));
+  $8("dictRailTab").onclick = (e) => {
+    e.stopPropagation();
+    toggle2();
+  };
+  $8("dictFab").onclick = (e) => {
+    e.stopPropagation();
+    toggle2();
+  };
+  $8("dictRailClose").onclick = () => setOpen2(false);
+  document.addEventListener("pointerdown", (e) => {
+    const t = e.target;
+    if ($8("dictRail").classList.contains("open") && !t.closest("#dictRail, #dictFab, dialog, .toast, .kanji-pop")) setOpen2(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && $8("dictRail").classList.contains("open")) {
+      setOpen2(false);
+      document.activeElement?.blur();
+    }
+  });
+  function drawHint() {
+    $8("dictRailBody").replaceChildren(h4("p", "hint dr-hint", tr("Type a word in kanji, kana, romaji, English or Russian.")));
+  }
+  async function search2(q) {
+    q = q.trim();
+    if (!q) {
+      hits = [];
+      drawHint();
+      return;
+    }
+    const n = ++busy2;
+    try {
+      const d = await dictionary();
+      if (n !== busy2) return;
+      hits = d.search(q, 25);
+      drawList2(q);
+    } catch {
+      if (n === busy2) $8("dictRailBody").replaceChildren(h4("p", "hint dr-hint", tr("The dictionary couldn\u2019t load \u2014 open it once with internet, then it works offline too.")));
+    }
+  }
+  function drawList2(q) {
+    const body = $8("dictRailBody");
+    if (!hits.length) {
+      body.replaceChildren(h4("p", "hint dr-hint", `${tr("Nothing found for")} \u201C${q}\u201D`));
+      return;
+    }
+    const list = h4("div", "dr-list");
+    for (const w of hits) {
+      const b = h4("button", "dr-hit", void 0, { type: "button" });
+      const top = h4("div", "dr-top");
+      top.append(h4("span", "dr-w", w.kanji[0] ?? w.kana[0] ?? "", { lang: "ja" }));
+      if (w.kanji[0]) top.append(h4("span", "dr-k", w.kana[0] ?? "", { lang: "ja" }));
+      if (w.form) top.append(h4("span", "dr-form", `\u2190 ${w.form.split(" \xB7 ").map((x) => tr(x)).join(" \xB7 ")}`));
+      b.append(top, h4("span", "dr-m", (ruOf(w) ?? w.senses.map((s) => s[1])).slice(0, 2).join("; "), { "data-no-i18n": "" }));
+      b.onclick = () => drawWord(w);
+      list.append(b);
+    }
+    body.replaceChildren(list);
+    body.scrollTop = 0;
+  }
+  function drawWord(w) {
+    const body = $8("dictRailBody");
+    const page2 = h4("div", "dr-word");
+    const back2 = h4("button", "pill dr-back", `\u2190 ${tr("Results")}`, { type: "button" });
+    back2.onclick = () => drawList2($8("dictRailQ").value.trim());
+    const head = h4("div", "dr-whead");
+    head.append(headword(w), h4("div", "dw-romaji", w.romaji, { "data-no-i18n": "" }), badges(w));
+    const means = h4("ol", "dr-senses");
+    const ru = ruOf(w);
+    (ru ?? w.senses.map((s) => s[1])).slice(0, 8).forEach((m) => means.append(h4("li", "", m, { "data-no-i18n": "" })));
+    if (ru && w.senses.length) means.append(h4("li", "dr-en", w.senses.slice(0, 2).map((s) => s[1]).join("; "), { "data-no-i18n": "" }));
+    const acts = h4("div", "dr-acts");
+    if (voiceAvailable()) {
+      const s = h4("button", "pill", "\u{1F50A}", { type: "button", title: tr("Listen") });
+      s.onclick = () => void speak(w.kana[0] ?? "");
+      acts.append(s);
+    }
+    acts.append(addTo(w));
+    if (!ROOM_SCREENS.has(screen2)) {
+      const full = h4("button", "pill", `${tr("Full entry")} \u2192`, { type: "button" });
+      full.onclick = () => {
+        setOpen2(false);
+        openDictWord(w.i);
+      };
+      acts.append(full);
+    }
+    page2.append(back2, head, means, acts);
+    body.replaceChildren(page2);
+    body.scrollTop = 0;
+  }
+  {
+    const q = $8("dictRailQ");
+    let t = 0;
+    q.addEventListener("input", () => {
+      clearTimeout(t);
+      t = window.setTimeout(() => void search2(q.value), 90);
+    });
+    q.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        clearTimeout(t);
+        void search2(q.value);
+      }
+    });
+  }
+
+  // src/client/main.ts
+  init_kana();
+  init_i18n();
+  init_zoom();
+
   // src/client/queue.ts
   init_protocol();
   init_zoom();
@@ -11627,7 +12717,7 @@ ${stack}`.slice(0, 2e3);
   init_api();
   init_i18n();
   init_ui();
-  var $7 = $;
+  var $9 = $;
   var el6 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -11649,8 +12739,8 @@ ${stack}`.slice(0, 2e3);
   var lockText = (mode4) => beginnerLocked(mode4) ? `Deck Duel is all kanji \u2014 tick "I've mastered hiragana" in Settings first.` : `${MODE_LABEL[mode4]} unlocks at level ${MODE_LEVEL[mode4]} \u2014 win a few games first. (A friend can still invite you.)`;
   var stage = "off";
   var hooks;
-  function initTutorial(h5) {
-    hooks = h5;
+  function initTutorial(h6) {
+    hooks = h6;
   }
   var inTutorialBattle = () => stage === "battle";
   var CARDS = [
@@ -11697,11 +12787,11 @@ ${stack}`.slice(0, 2e3);
     if (stage !== "off") return;
     stage = "cards";
     void api.event("tutorial_start");
-    show3(0);
+    show4(0);
   }
-  function show3(i) {
+  function show4(i) {
     const c = CARDS[i];
-    const box = $7("tutorial");
+    const box = $9("tutorial");
     const dots = el6("div", "tut-dots");
     CARDS.forEach((_, j) => dots.append(el6("i", j === i ? "on" : "")));
     const card = el6("div", "tut-card");
@@ -11714,12 +12804,12 @@ ${stack}`.slice(0, 2e3);
       const ru = el6("button", "big" + (lang() === "ru" ? "" : " alt"), "\u0420\u0443\u0441\u0441\u043A\u0438\u0439");
       en.dataset.noI18n = "";
       ru.dataset.noI18n = "";
-      en.onclick = () => show3(i + 1);
+      en.onclick = () => show4(i + 1);
       ru.onclick = () => {
         if (lang() !== "ru") useRussianNow();
         const sel = document.getElementById("langSel");
         if (sel) sel.value = "ru";
-        show3(i + 1);
+        show4(i + 1);
       };
       next3.hidden = true;
       queueMicrotask(() => actions.append(en, ru));
@@ -11730,7 +12820,7 @@ ${stack}`.slice(0, 2e3);
       const pickKana = (mastered) => {
         yes.disabled = no2.disabled = true;
         void api.event(mastered ? "tutorial_kana_yes" : "tutorial_kana_no");
-        void hooks.kana(mastered).finally(() => show3(i + 1));
+        void hooks.kana(mastered).finally(() => show4(i + 1));
       };
       yes.onclick = () => pickKana(true);
       no2.onclick = () => pickKana(false);
@@ -11738,7 +12828,7 @@ ${stack}`.slice(0, 2e3);
       queueMicrotask(() => actions.append(no2, yes));
     }
     next3.onclick = () => {
-      if (!last3) return show3(i + 1);
+      if (!last3) return show4(i + 1);
       stage = "battle";
       box.hidden = true;
       void api.event("tutorial_battle");
@@ -11756,23 +12846,23 @@ ${stack}`.slice(0, 2e3);
   }
   function finish() {
     stage = "off";
-    $7("tutorial").hidden = true;
+    $9("tutorial").hidden = true;
     coach(null);
     void api.tutorialDone().catch(() => {
     });
   }
-  function tutorialScreen(screen2) {
+  function tutorialScreen(screen3) {
     if (stage !== "battle") return;
-    if (screen2 === "prep") coach("Read the 10 words \u2014 reading and meaning. When the battle starts, they come back as kanji only. Press Ready when you're done.");
-    else if (screen2 === "battle") coach("Type the reading of the kanji (hiragana or romaji) and press Enter. Don't know it? Esc skips. Keep your HP above the AI's!");
-    else if (screen2 === "results") {
+    if (screen3 === "prep") coach("Read the 10 words \u2014 reading and meaning. When the battle starts, they come back as kanji only. Press Ready when you're done.");
+    else if (screen3 === "battle") coach("Type the reading of the kanji (hiragana or romaji) and press Enter. Don't know it? Esc skips. Keep your HP above the AI's!");
+    else if (screen3 === "results") {
       void api.event("tutorial_done");
       coach("Well cast! On the results screen you choose which deck the words you missed go to (Struggling spells by default). Every mode is open \u2014 try Writing, Boss or Deck Duel next.");
       setTimeout(finish, 12e3);
-    } else if (screen2 === "menu") finish();
+    } else if (screen3 === "menu") finish();
   }
   function coach(text) {
-    const c = $7("coach");
+    const c = $9("coach");
     if (!text) {
       c.hidden = true;
       return;
@@ -11861,9 +12951,9 @@ ${stack}`.slice(0, 2e3);
   init_wizard();
   init_arena();
   init_progress();
-  var $8 = $;
+  var $10 = $;
   var COLOR_NAME = { lightblue: "Light blue", blue: "Blue", yellow: "Yellow", green: "Green", red: "Red" };
-  function h3(tag, cls = "", text) {
+  function h5(tag, cls = "", text) {
     const el11 = document.createElement(tag);
     if (cls) el11.className = cls;
     if (text !== void 0) el11.textContent = String(text);
@@ -11912,7 +13002,7 @@ ${stack}`.slice(0, 2e3);
   }
   function initDeck(hk) {
     hooks2 = hk;
-    $8("dkAbility").onclick = () => {
+    $10("dkAbility").onclick = () => {
       const me3 = view?.players.find((p) => p.id === view.you);
       if (me3?.character && CHARACTER_INFO[me3.character].passive) {
         const used = [me3.wizardCardsUsed ? "cards used" : "+2 cards ready", me3.wizardManaUsed ? "mana used" : "+30 mana ready"].join(" \xB7 ");
@@ -11920,29 +13010,29 @@ ${stack}`.slice(0, 2e3);
       }
       hooks2.send({ type: "deck_ability" });
     };
-    $8("dkChatForm").addEventListener("submit", (e) => {
+    $10("dkChatForm").addEventListener("submit", (e) => {
       e.preventDefault();
-      const input2 = $8("dkChatInput");
+      const input2 = $10("dkChatInput");
       const text = input2.value.trim();
       if (text) hooks2.send({ type: "chat", text });
       input2.value = "";
     });
-    renderGuide($8("deckGuide"));
+    renderGuide($10("deckGuide"));
   }
   var seenChat = /* @__PURE__ */ new Set();
   function chatMessages(msgs) {
-    const log = $8("dkChatLog");
+    const log = $10("dkChatLog");
     for (const m of msgs) {
       if (seenChat.has(m.id)) continue;
       seenChat.add(m.id);
-      const line = h3("div", "chat-line" + (m.from === hooks2.me() ? " mine" : ""));
-      line.append(h3("b", "", m.from === hooks2.me() ? "You" : m.name), h3("span", "", m.text));
+      const line = h5("div", "chat-line" + (m.from === hooks2.me() ? " mine" : ""));
+      line.append(h5("b", "", m.from === hooks2.me() ? "You" : m.name), h5("span", "", m.text));
       log.append(line);
       if (m.from !== hooks2.me() && view && view.phase !== "over") sfx.flip();
       const panel = log.closest(".dk-panel");
       if (m.from !== hooks2.me() && panel && !panel.classList.contains("open")) {
         const hd = panel.querySelector("h4");
-        if (hd && !hd.querySelector(".dk-unread")) hd.append(h3("span", "dk-unread"));
+        if (hd && !hd.querySelector(".dk-unread")) hd.append(h5("span", "dk-unread"));
       }
     }
     while (log.children.length > 60) log.firstElementChild.remove();
@@ -11950,34 +13040,34 @@ ${stack}`.slice(0, 2e3);
   }
   function clearChat() {
     seenChat.clear();
-    $8("dkChatLog").replaceChildren();
+    $10("dkChatLog").replaceChildren();
   }
   var renderDeckGuide = (el11) => renderGuide(el11);
   function renderGuide(el11) {
     const sec = (title, ...kids) => {
-      const s = h3("section", "g-sec");
-      s.append(h3("h4", "", title), ...kids);
+      const s = h5("section", "g-sec");
+      s.append(h5("h4", "", title), ...kids);
       return s;
     };
-    const p = (t) => h3("p", "", t);
-    const heroes = h3("div", "g-heroes");
+    const p = (t) => h5("p", "", t);
+    const heroes = h5("div", "g-heroes");
     for (const c of DECK_CHARACTERS) {
-      const row = h3("div", "g-hero");
-      const av = h3("div", "g-av");
+      const row = h5("div", "g-hero");
+      const av = h5("div", "g-av");
       av.innerHTML = heroSvg(c, "me");
-      const txt = h3("div");
-      txt.append(h3("b", "", CHARACTER_INFO[c].name), h3("span", "", CHARACTER_INFO[c].power));
+      const txt = h5("div");
+      txt.append(h5("b", "", CHARACTER_INFO[c].name), h5("span", "", CHARACTER_INFO[c].power));
       row.append(av, txt);
       heroes.append(row);
     }
-    const cards = h3("div", "g-cards");
+    const cards = h5("div", "g-cards");
     for (const col of CARD_COLORS) {
       const spec = CARD_SPECS[col];
-      const fig = h3("div", "g-card");
-      fig.append(cardEl({ cardId: "", color: col }), h3("span", "", `${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heals ${spec.amount}` : `+${spec.amount} mana`} \xB7 ${spec.cost ? `${spec.cost} mana` : "free"}`));
+      const fig = h5("div", "g-card");
+      fig.append(cardEl({ cardId: "", color: col }), h5("span", "", `${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heals ${spec.amount}` : `+${spec.amount} mana`} \xB7 ${spec.cost ? `${spec.cost} mana` : "free"}`));
       cards.append(fig);
     }
-    const flow = h3("ol", "g-flow");
+    const flow = h5("ol", "g-flow");
     for (const [icon, t] of [
       ["\u{1F9B8}", "Pick a hero (30 s)."],
       ["\u{1FA99}", "Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji. The 20 cards come from both players' All spells: 4 of each level N5\u2013N1, 2 of them yours and 2 your opponent's (a random word of that level if someone has none)."],
@@ -11991,12 +13081,12 @@ ${stack}`.slice(0, 2e3);
       ["\u23F0", `After ${DECK_RULES.matchMs / 6e4} min: overtime \u2014 the cards and Omnipotence are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5\u2013N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 6e4} min, then the higher HP wins.`],
       ["\u231B", `Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`]
     ]) {
-      const li = h3("li");
-      li.append(h3("span", "g-ic", icon), h3("span", "", t));
+      const li = h5("li");
+      li.append(h5("span", "g-ic", icon), h5("span", "", t));
       flow.append(li);
     }
     el11.replaceChildren(
-      h3("h3", "", "How Deck Duel works"),
+      h5("h3", "", "How Deck Duel works"),
       sec("Goal", p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (\u2212${DECK_RULES.skipPenaltyHp} HP).`)),
       sec("Cards", cards),
       sec("A turn", flow),
@@ -12007,19 +13097,19 @@ ${stack}`.slice(0, 2e3);
   function cardEl(c, opts = {}) {
     const base = CARD_SPECS[c.color];
     const spec = { ...base, cost: Math.ceil(base.cost * (opts.costFactor ?? 1)) };
-    const el11 = h3(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
+    const el11 = h5(opts.button ? "button" : "div", `dkc c-${c.color}${opts.big ? " big" : ""}${!c.kanji && !opts.big ? " back" : ""}`);
     if (opts.button) el11.disabled = !!opts.disabled;
     el11.title = `${COLOR_NAME[c.color]} \u2014 ${spec.label}: ${spec.kind === "attack" ? `${spec.amount} damage` : spec.kind === "heal" ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ""}`;
     if (opts.big) return el11;
-    el11.append(h3("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
+    el11.append(h5("span", "dkc-cost", spec.cost ? `${spec.cost}\u25C6` : "free"));
     if (c.kanji) {
-      const k = h3("span", "dkc-k", c.kanji);
+      const k = h5("span", "dkc-k", c.kanji);
       k.lang = "ja";
-      const r2 = h3("span", "dkc-r", c.reading ?? "");
+      const r2 = h5("span", "dkc-r", c.reading ?? "");
       r2.lang = "ja";
       el11.append(k, r2);
     } else {
-      el11.append(h3("span", "dkc-lbl", spec.label), h3("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
+      el11.append(h5("span", "dkc-lbl", spec.label), h5("span", "dkc-amt", spec.kind === "attack" ? `${spec.amount}` : spec.kind === "heal" ? `+${spec.amount}\u2665` : `+${spec.amount}\u25C6`));
     }
     return el11;
   }
@@ -12028,30 +13118,30 @@ ${stack}`.slice(0, 2e3);
     paintFlame(el11, p.flame);
     el11.classList.toggle("powered", powered(p));
     arena()?.onfire(mine ? "me" : "opp", powered(p), flameColor(p.flame));
-    const av = h3("div", "dk-av");
+    const av = h5("div", "dk-av");
     av.innerHTML = p.character ? heroSvg(p.character, mine ? "me" : "opp", p.staff) : "";
-    const name = h3("div", "dk-name");
-    const nm = h3("span", "", mine ? `${p.name} (you)` : p.name);
+    const name = h5("div", "dk-name");
+    const nm = h5("span", "", mine ? `${p.name} (you)` : p.name);
     if (!mine) markProfile(nm, { id: p.id, name: p.name, bot: /\(AI (N\d)\)$/.exec(p.name)?.[1] ?? null });
     name.append(picEl(p.pic), nm);
-    if (p.character) name.append(h3("span", "tag", CHARACTER_INFO[p.character].name));
-    if (p.abilityActive > 0 && p.character !== "wizard") name.append(h3("span", "tag", `${p.character === "goblin" ? "Frenzy" : CHARACTER_INFO[p.character].power.split(":")[0]} \xD7${p.abilityActive}`));
+    if (p.character) name.append(h5("span", "tag", CHARACTER_INFO[p.character].name));
+    if (p.abilityActive > 0 && p.character !== "wizard") name.append(h5("span", "tag", `${p.character === "goblin" ? "Frenzy" : CHARACTER_INFO[p.character].power.split(":")[0]} \xD7${p.abilityActive}`));
     name.append(netBars(p.id));
     const bar = (cls, value, max, text) => {
-      const b = h3("div", `dkbar ${cls}`);
-      const fill2 = h3("div", "fill");
+      const b = h5("div", `dkbar ${cls}`);
+      const fill2 = h5("div", "fill");
       fill2.style.width = `${Math.max(0, Math.min(1, value / max)) * 100}%`;
-      b.append(fill2, h3("span", "dkbar-txt", text));
+      b.append(fill2, h5("span", "dkbar-txt", text));
       return b;
     };
     const hp = bar("hp-bar" + (p.hp / p.maxHp <= 0.25 ? " low" : ""), p.hp, p.maxHp, `\u2665 ${p.hp} / ${p.maxHp}`);
     const mana = bar("mana-bar", p.mana, p.maxMana, `\u25C6 ${p.mana} / ${p.maxMana}`);
-    const counts3 = h3("div", "dk-counts");
-    counts3.append(h3("span", "cc total", `${p.handSize} card${p.handSize === 1 ? "" : "s"}`));
+    const counts3 = h5("div", "dk-counts");
+    counts3.append(h5("span", "cc total", `${p.handSize} card${p.handSize === 1 ? "" : "s"}`));
     for (const col of Object.keys(p.handCounts)) {
       if (!p.handCounts[col]) continue;
-      const cc = h3("span", "cc");
-      const dot = h3("span", `dot dkc c-${col}`);
+      const cc = h5("span", "cc");
+      const dot = h5("span", `dot dkc c-${col}`);
       dot.style.width = "12px";
       dot.style.height = "16px";
       dot.style.padding = "0";
@@ -12066,23 +13156,23 @@ ${stack}`.slice(0, 2e3);
     const opp = v.players.find((p) => p.id !== v.you);
     if (opp.character) arenaForDeck(v);
     show("deck");
-    playerPanel($8("dkMe"), me3, true);
-    playerPanel($8("dkOpp"), opp, false);
-    const overlay = $8("dkOverlay");
+    playerPanel($10("dkMe"), me3, true);
+    playerPanel($10("dkOpp"), opp, false);
+    const overlay = $10("dkOverlay");
     if (v.phase === "characters" || v.phase === "draft") {
       renderCast(v);
       stopCountdown("dkTurn");
-      $8("dkBanner").textContent = "";
-      hideTimer("dkTurn", $8("dkTurnTimer"));
+      $10("dkBanner").textContent = "";
+      hideTimer("dkTurn", $10("dkTurnTimer"));
       return v.phase === "characters" ? renderCharacters(v, me3, opp) : renderDraft(v, me3);
     }
     overlay.hidden = true;
     if (v.phase === "overtime") {
-      countdown("dkMatch", v.overtimeLeft, (left) => $8("dkClock").textContent = `OT ${clock(left)}`);
+      countdown("dkMatch", v.overtimeLeft, (left) => $10("dkClock").textContent = `OT ${clock(left)}`);
     } else {
-      countdown("dkMatch", v.matchLeftMs, (left) => $8("dkClock").textContent = clock(left));
+      countdown("dkMatch", v.matchLeftMs, (left) => $10("dkClock").textContent = clock(left));
     }
-    const banner = $8("dkBanner");
+    const banner = $10("dkBanner");
     const myTurn = v.turn?.active === v.you;
     if (myTurn && !v.casting && !wasMyTurn && v.phase !== "over") {
       sfx.yourTurn();
@@ -12095,16 +13185,16 @@ ${stack}`.slice(0, 2e3);
     const label = v.phase === "overtime" ? "Overtime \u2014 Rapid duel! First to type the reading hits" : myTurn ? v.casting ? v.casting.stage === "read" ? "Your spell \u2014 read it" : v.casting.stage === "look" ? "Your spell \u2014 memorise the kanji" : "Write the kanji!" : `Your turn \u2014 choose a card${v.turn.castsLeft > 1 ? " (Frenzy: 2 cards)" : ""}` : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
     banner.textContent = label;
     const total = v.casting ? v.casting.overtime ? DECK_RULES.overtimeCardMs : DECK_RULES.castMs : DECK_RULES.chooseMs;
-    if (deadline > 0 && v.phase !== "over") bigTimer("dkTurn", $8("dkTurnTimer"), deadline, total, myTurn || v.phase === "overtime" ? 6e3 : 3e3);
-    else hideTimer("dkTurn", $8("dkTurnTimer"));
-    $8("dkTurnTimer").classList.toggle("mine", myTurn || v.phase === "overtime");
+    if (deadline > 0 && v.phase !== "over") bigTimer("dkTurn", $10("dkTurnTimer"), deadline, total, myTurn || v.phase === "overtime" ? 6e3 : 3e3);
+    else hideTimer("dkTurn", $10("dkTurnTimer"));
+    $10("dkTurnTimer").classList.toggle("mine", myTurn || v.phase === "overtime");
     if (v.turn && v.turn.active !== feedActive) {
       feedActive = v.turn.active;
       feedTurn++;
       logFeed("turn", v.turn.active === v.you ? "Your turn" : `${opp.name}'s turn`, v.turn.active === v.you ? "me" : "opp");
     }
     const canPlay2 = myTurn && !v.casting && Date.now() >= revealUntil;
-    $8("dkHand").replaceChildren(...v.hand.map((c) => {
+    $10("dkHand").replaceChildren(...v.hand.map((c) => {
       const costFactor = myTurn ? v.turn.costFactor : 1;
       const el11 = cardEl(c, { button: true, costFactor, disabled: !canPlay2 || Math.ceil(CARD_SPECS[c.color].cost * costFactor) > me3.mana });
       el11.onclick = () => {
@@ -12113,17 +13203,17 @@ ${stack}`.slice(0, 2e3);
       };
       return el11;
     }));
-    $8("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h3("div", "dkc back face-down")));
-    const ab = $8("dkAbility");
+    $10("dkOppHand").replaceChildren(...Array.from({ length: opp.handSize }, () => h5("div", "dkc back face-down")));
+    const ab = $10("dkAbility");
     const ch = me3.character;
     ab.innerHTML = ch ? heroSvg(ch, "me", me3.staff) : "";
     const cd = me3.abilityCooldown;
     if (ch) {
-      const label2 = h3("span", "ab-name");
-      label2.append(h3("b", "", "Omnipotence"), h3("small", "", CHARACTER_INFO[ch].passive ? "passive \xB7 tap for info" : cd > 0 ? `ready in ${cd} turn${cd === 1 ? "" : "s"}` : `${DECK_RULES.abilityCost}\u25C6`));
+      const label2 = h5("span", "ab-name");
+      label2.append(h5("b", "", "Omnipotence"), h5("small", "", CHARACTER_INFO[ch].passive ? "passive \xB7 tap for info" : cd > 0 ? `ready in ${cd} turn${cd === 1 ? "" : "s"}` : `${DECK_RULES.abilityCost}\u25C6`));
       ab.append(label2);
     }
-    if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h3("span", "ab-cd", String(cd)));
+    if (ch && !CHARACTER_INFO[ch].passive && cd > 0) ab.append(h5("span", "ab-cd", String(cd)));
     ab.title = ch ? CHARACTER_INFO[ch].power : "";
     ab.classList.toggle("passive", !!ch && !!CHARACTER_INFO[ch].passive);
     ab.classList.toggle("active", me3.abilityActive > 0);
@@ -12139,23 +13229,23 @@ ${stack}`.slice(0, 2e3);
     head.querySelector(".dk-unread")?.remove();
   });
   function renderList(v) {
-    const box = $8("dkList");
-    const head = h3("h4", "", "Your kanji");
+    const box = $10("dkList");
+    const head = h5("h4", "", "Your kanji");
     if (!v.deckList) {
-      box.replaceChildren(head, h3("p", "hint", v.phase === "overtime" ? "Overtime \u2014 the cards are gone: type the readings!" : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
+      box.replaceChildren(head, h5("p", "hint", v.phase === "overtime" ? "Overtime \u2014 the cards are gone: type the readings!" : "Hidden on your turn. While your opponent plays, the kanji in your hand show up here."));
       return;
     }
-    const ul = h3("ul", "kanji-list");
+    const ul = h5("ul", "kanji-list");
     for (const k of v.deckList) {
-      const li = h3("li");
-      const kj = h3("span", "kl-k", k.kanji);
+      const li = h5("li");
+      const kj = h5("span", "kl-k", k.kanji);
       kj.lang = "ja";
-      const rd = h3("span", "kl-r", k.reading);
+      const rd = h5("span", "kl-r", k.reading);
       rd.lang = "ja";
-      li.append(kj, rd, h3("span", "kl-m", k.meaning));
+      li.append(kj, rd, h5("span", "kl-m", k.meaning));
       ul.append(li);
     }
-    box.replaceChildren(append2(head, h3("small", "", ` \xB7 ${v.deckList.length}`)), h3("p", "hint", "Which card is which stays secret."), ul);
+    box.replaceChildren(append2(head, h5("small", "", ` \xB7 ${v.deckList.length}`)), h5("p", "hint", "Which card is which stays secret."), ul);
   }
   var append2 = (el11, ...kids) => {
     el11.append(...kids);
@@ -12163,10 +13253,10 @@ ${stack}`.slice(0, 2e3);
   };
   var castKey = "";
   function renderCast(v) {
-    const box = $8("dkCast");
+    const box = $10("dkCast");
     const c = v.casting;
     if (!c) {
-      $8("deck").classList.remove("dk-mycast", "dk-writing");
+      $10("deck").classList.remove("dk-mycast", "dk-writing");
       arena()?.channel(0);
       arena()?.oppChannel(false);
       castKey = "";
@@ -12177,7 +13267,7 @@ ${stack}`.slice(0, 2e3);
       }
       if (Date.now() < revealUntil) return;
       box.replaceChildren();
-      $8("dkFeedback").replaceChildren();
+      $10("dkFeedback").replaceChildren();
       return;
     }
     revealUntil = 0;
@@ -12190,25 +13280,25 @@ ${stack}`.slice(0, 2e3);
       castKey = key;
       const card = cardEl(c.card, { big: true });
       if (!fresh) card.style.animation = "none";
-      const top = h3("div", "dkc-half");
+      const top = h5("div", "dkc-half");
       const shown4 = c.card.kanji ?? "\uFF1F".repeat(Math.min(c.chars, 3));
-      const k = h3("span", `dkc-k l${Math.min(4, [...shown4].length)}` + (c.card.kanji ? "" : " unknown"), shown4);
+      const k = h5("span", `dkc-k l${Math.min(4, [...shown4].length)}` + (c.card.kanji ? "" : " unknown"), shown4);
       k.lang = "ja";
       top.append(k);
-      const bottom = h3("div", "dkc-half bottom");
-      if (c.overtime) bottom.append(h3("span", "dkc-r", c.rapid ? c.rapid.level : ""), h3("span", "dkc-m", c.rapid ? `Reading? \xB7 ${c.rapid.damage} damage` : "Reading?"));
+      const bottom = h5("div", "dkc-half bottom");
+      if (c.overtime) bottom.append(h5("span", "dkc-r", c.rapid ? c.rapid.level : ""), h5("span", "dkc-m", c.rapid ? `Reading? \xB7 ${c.rapid.damage} damage` : "Reading?"));
       else {
-        const r2 = h3("span", "dkc-r", c.card.reading ?? "");
+        const r2 = h5("span", "dkc-r", c.card.reading ?? "");
         r2.lang = "ja";
-        bottom.append(r2, h3("span", "dkc-m", c.card.meaning ?? ""));
+        bottom.append(r2, h5("span", "dkc-m", c.card.meaning ?? ""));
       }
       card.append(top, bottom);
-      const actions = h3("div", "cast-actions");
+      const actions = h5("div", "cast-actions");
       otInput = null;
       if (!c.overtime) useGameKb(null);
       if (c.overtime) {
         stopCountdown("dkRead");
-        const input2 = h3("input", "ot-input");
+        const input2 = h5("input", "ot-input");
         input2.lang = "ja";
         input2.autocomplete = "off";
         input2.spellcheck = false;
@@ -12222,12 +13312,12 @@ ${stack}`.slice(0, 2e3);
         });
         otInput = input2;
         setTimeout(() => useGameKb(input2), 0);
-        actions.append(input2, h3("div", "cast-timer", "First to type its reading hits \xB7 wrong? try again"));
+        actions.append(input2, h5("div", "cast-timer", "First to type its reading hits \xB7 wrong? try again"));
         setTimeout(() => input2.focus(), 30);
       } else if (mine && c.stage === "read") {
-        const t = h3("div", "cast-timer");
+        const t = h5("div", "cast-timer");
         countdown("dkRead", c.readLeftMs ?? 0, (left) => t.textContent = `Read the meaning \u2014 the kanji shows in ${Math.ceil(left / 1e3)} s`);
-        const b = h3("button", "big cast-btn", "Ready \u25B8");
+        const b = h5("button", "big cast-btn", "Ready \u25B8");
         b.onclick = () => {
           b.disabled = true;
           hooks2.send({ type: "deck_cast_ready", castId: c.castId });
@@ -12235,18 +13325,18 @@ ${stack}`.slice(0, 2e3);
         actions.append(t, b);
       } else if (mine && c.stage === "look") {
         stopCountdown("dkRead");
-        const b = h3("button", "big cast-btn go", "CAST! \u2726");
+        const b = h5("button", "big cast-btn go", "CAST! \u2726");
         b.onclick = () => {
           b.disabled = true;
           sfx.flip();
           arena()?.thrust();
           hooks2.send({ type: "deck_cast_go", castId: c.castId });
         };
-        actions.append(h3("div", "cast-timer", "Memorise it \u2014 it disappears when you cast"), b);
+        actions.append(h5("div", "cast-timer", "Memorise it \u2014 it disappears when you cast"), b);
       } else if (!mine) {
         stopCountdown("dkRead");
         const who = v.players.find((p) => p.id === c.ownerId)?.name ?? "Your opponent";
-        actions.append(h3("div", "cast-timer", c.stage === "read" ? "Reading the spell\u2026" : c.stage === "look" ? "Studying the kanji\u2026" : `${who} is writing\u2026`));
+        actions.append(h5("div", "cast-timer", c.stage === "read" ? "Reading the spell\u2026" : c.stage === "look" ? "Studying the kanji\u2026" : `${who} is writing\u2026`));
         if (c.stage === "write") {
           const cv = document.createElement("canvas");
           cv.className = "ink-view";
@@ -12260,11 +13350,11 @@ ${stack}`.slice(0, 2e3);
         }
       } else stopCountdown("dkRead");
       box.replaceChildren(card, actions);
-      if (fresh) $8("dkFeedback").replaceChildren();
+      if (fresh) $10("dkFeedback").replaceChildren();
     }
     const writeNow = mine && !c.overtime && c.stage === "write";
-    $8("deck").classList.toggle("dk-mycast", mine && !c.overtime && c.ownerId === v.you);
-    $8("deck").classList.toggle("dk-writing", writeNow);
+    $10("deck").classList.toggle("dk-mycast", mine && !c.overtime && c.ownerId === v.you);
+    $10("deck").classList.toggle("dk-writing", writeNow);
     const a3 = arena();
     a3?.channel(writeNow ? 1 : mine && c.stage === "look" ? 0.4 : c.overtime ? 0.5 : 0);
     a3?.oppChannel(!mine && c.stage === "write");
@@ -12277,16 +13367,16 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function renderCharacters(v, me3, opp) {
-    const overlay = $8("dkOverlay");
+    const overlay = $10("dkOverlay");
     overlay.hidden = false;
-    const title = h3("h2", "", me3.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
-    const grid = h3("div", "char-pick");
+    const title = h5("h2", "", me3.character ? `Waiting for ${opp.name}\u2026` : "Choose your hero");
+    const grid = h5("div", "char-pick");
     for (const c of DECK_CHARACTERS) {
-      const b = h3("button", "char-card" + (me3.character === c ? " on" : ""));
+      const b = h5("button", "char-card" + (me3.character === c ? " on" : ""));
       b.disabled = !!me3.character;
-      const av = h3("div", "ch-av");
+      const av = h5("div", "ch-av");
       av.innerHTML = heroSvg(c, "me");
-      b.append(av, h3("span", "ch-name", CHARACTER_INFO[c].name), h3("span", "ch-power", CHARACTER_INFO[c].power));
+      b.append(av, h5("span", "ch-name", CHARACTER_INFO[c].name), h5("span", "ch-power", CHARACTER_INFO[c].power));
       b.onclick = () => hooks2.send({ type: "deck_character", character: c });
       grid.append(b);
     }
@@ -12295,21 +13385,21 @@ ${stack}`.slice(0, 2e3);
   var coinShown = false;
   function renderDraft(v, me3) {
     const d = v.draft;
-    const overlay = $8("dkOverlay");
+    const overlay = $10("dkOverlay");
     overlay.hidden = false;
     const mine = d.picker === v.you;
-    const head = h3("div", "center");
+    const head = h5("div", "center");
     if (!coinShown) {
       coinShown = true;
-      head.append(h3("div", "coin"));
+      head.append(h5("div", "coin"));
     }
-    if (v.round > 1) head.append(h3("p", "round-tag", `Round ${v.round} \u2014 new cards! HP, mana and powers stay as they are.`));
-    head.append(h3("h2", "", d.coinWinner === v.you ? "You won the coin flip \u2014 you pick first" : "Your opponent won the coin flip"));
-    const status = h3("p", "sub");
+    if (v.round > 1) head.append(h5("p", "round-tag", `Round ${v.round} \u2014 new cards! HP, mana and powers stay as they are.`));
+    head.append(h5("h2", "", d.coinWinner === v.you ? "You won the coin flip \u2014 you pick first" : "Your opponent won the coin flip"));
+    const status = h5("p", "sub");
     const pickedNow = d.pool.filter((c) => c.takenBy === v.you).length;
     const kept = me3.handSize - pickedNow;
     countdown("dkDraft", d.deadlineMs, (left) => status.textContent = `${mine ? `Your pick \u2014 ${d.picksLeft} left` : "Opponent is picking"} \xB7 ${Math.ceil(left / 1e3)}s \xB7 picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ""}`);
-    const board = h3("div", "draft-board");
+    const board = h5("div", "draft-board");
     for (const c of d.pool) {
       const el11 = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
       if (c.takenBy) el11.classList.add("taken");
@@ -12319,10 +13409,10 @@ ${stack}`.slice(0, 2e3);
       };
       board.append(el11);
     }
-    overlay.replaceChildren(backButton(v), head, status, board, h3("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
+    overlay.replaceChildren(backButton(v), head, status, board, h5("p", "hint", "You only see the colour \u2014 the kanji stays hidden until the card is played."));
   }
   function backButton(v) {
-    const b = h3("button", "lobby-btn dk-back", "Back to lobby");
+    const b = h5("button", "lobby-btn dk-back", "Back to lobby");
     b.hidden = v.round > 1;
     b.onclick = () => hooks2.send({ type: "back_to_lobby" });
     return b;
@@ -12330,15 +13420,15 @@ ${stack}`.slice(0, 2e3);
   var feedTurn = 0;
   var feedActive = "";
   function logFeed(kind, text, who, color, extra) {
-    const list = $8("dkFeed");
-    const li = h3("li", `feed-${kind} by-${who}`);
+    const list = $10("dkFeed");
+    const li = h5("li", `feed-${kind} by-${who}`);
     if (kind === "turn") {
-      li.append(h3("span", "ft-turn", `Turn ${feedTurn}`), h3("span", "ft-who", text));
+      li.append(h5("span", "ft-turn", `Turn ${feedTurn}`), h5("span", "ft-who", text));
     } else {
-      li.append(h3("span", `ft-dot${color ? ` c-${color}` : ""}`));
-      const body = h3("span", "ft-text", text);
+      li.append(h5("span", `ft-dot${color ? ` c-${color}` : ""}`));
+      const body = h5("span", "ft-text", text);
       li.append(body);
-      if (extra) li.append(h3("span", "ft-extra", extra));
+      if (extra) li.append(h5("span", "ft-extra", extra));
     }
     const atEnd = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
     list.append(li);
@@ -12348,7 +13438,7 @@ ${stack}`.slice(0, 2e3);
   function resetFeed() {
     feedTurn = 0;
     feedActive = "";
-    $8("dkFeed").replaceChildren();
+    $10("dkFeed").replaceChildren();
   }
   function feedEvent(e) {
     if (!view) return;
@@ -12404,10 +13494,10 @@ ${stack}`.slice(0, 2e3);
   var EYE_CSS = { goblin: "#ff3a24", witch: "#b86bff", wizard: "#49a8ff", knight: "#ff3030" };
   function ultimateFx(character) {
     document.querySelector(".ult-fx")?.remove();
-    const o = h3("div", "ult-fx");
+    const o = h5("div", "ult-fx");
     o.style.setProperty("--eye", EYE_CSS[character] ?? "#ffcf6a");
-    o.append(h3("div", "ult-lid top"), h3("div", "ult-lid bot"), h3("div", "ult-eyes"), h3("div", "ult-text", "\u7A76\u6975\u80FD\u529B"), h3("div", "ult-burst"));
-    o.querySelector(".ult-eyes").append(h3("i"), h3("i"));
+    o.append(h5("div", "ult-lid top"), h5("div", "ult-lid bot"), h5("div", "ult-eyes"), h5("div", "ult-text", "\u7A76\u6975\u80FD\u529B"), h5("div", "ult-burst"));
+    o.querySelector(".ult-eyes").append(h5("i"), h5("i"));
     o.querySelector(".ult-text").lang = "ja";
     document.body.append(o);
     sfx.ultimate();
@@ -12462,13 +13552,13 @@ ${stack}`.slice(0, 2e3);
   }
   var CARD_FX = { lightblue: "bolt", blue: "frost", red: "fire" };
   function animateResolve(e, me3, spoken = Promise.resolve()) {
-    const card = $8("dkCast").querySelector(".dkc.big");
-    const fb = $8("dkFeedback");
+    const card = $10("dkCast").querySelector(".dkc.big");
+    const fb = $10("dkFeedback");
     const who = e.playerId === me3 ? "You" : view.players.find((p) => p.id === e.playerId)?.name ?? "";
     const spec = e.overtime ? { label: "Rapid hit", kind: "attack", amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
     if (!e.ok) {
       fb.className = "feedback bad";
-      fb.replaceChildren(h3("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me3 ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h3("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
+      fb.replaceChildren(h5("span", "big", e.overtime ? "\u2717 Nobody got it" : e.playerId === me3 ? "\u2717 The spell fizzles" : `\u2717 ${who} missed`), h5("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}${e.recognized ? ` \u2014 read: ${e.recognized}` : ""}`));
       sfx.rip();
       arena()?.fizzle(e.playerId === me3 ? "me" : "opp");
       if (card) ripCard(card);
@@ -12480,7 +13570,7 @@ ${stack}`.slice(0, 2e3);
       const to = spec.kind === "attack" ? e.targetId === me3 ? "me" : "opp" : from;
       void a3.cast(from, to, e.kanji, { damage: e.amount, kind: spec.kind, fx: e.overtime ? void 0 : CARD_FX[e.color] });
     } else if (spec.kind === "attack" && !e.overtime && CARD_FX[e.color]) {
-      const panel = $8(e.targetId === me3 ? "dkMe" : "dkOpp");
+      const panel = $10(e.targetId === me3 ? "dkMe" : "dkOpp");
       setTimeout(() => {
         panel.classList.remove("fx-bolt", "fx-frost", "fx-fire");
         void panel.offsetWidth;
@@ -12489,9 +13579,9 @@ ${stack}`.slice(0, 2e3);
       }, 500);
     }
     fb.className = "feedback good";
-    fb.replaceChildren(h3("span", "big", `\u2713 ${who}: ${spec.label} ${spec.kind === "attack" ? `\u2212${e.amount}` : spec.kind === "heal" ? `+${e.amount} \u2665` : `+${e.amount} \u25C6`}`));
-    if (e.refund) fb.append(h3("span", "refund", ` +${e.refund}\u25C6 back`));
-    if (e.overtime) fb.append(h3("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}`));
+    fb.replaceChildren(h5("span", "big", `\u2713 ${who}: ${spec.label} ${spec.kind === "attack" ? `\u2212${e.amount}` : spec.kind === "heal" ? `+${e.amount} \u2665` : `+${e.amount} \u25C6`}`));
+    if (e.refund) fb.append(h5("span", "refund", ` +${e.refund}\u25C6 back`));
+    if (e.overtime) fb.append(h5("span", "sub2", `${e.kanji} \xB7 ${e.reading} \xB7 ${e.meaning}`));
     if (!card) return;
     const ghost = card.cloneNode(true);
     const r2 = zrect(card);
@@ -12502,7 +13592,7 @@ ${stack}`.slice(0, 2e3);
       ghost.classList.add("sparkle");
     } else {
       const towardsMe = spec.kind === "heal" ? e.playerId === me3 : e.targetId === me3;
-      const target2 = zrect($8(towardsMe ? "dkMe" : "dkOpp"));
+      const target2 = zrect($10(towardsMe ? "dkMe" : "dkOpp"));
       ghost.style.setProperty("--fy", `${target2.top + target2.height / 2 - (r2.top + r2.height / 2)}px`);
       ghost.classList.add("fly-out");
       void spoken.then(() => {
@@ -12520,19 +13610,19 @@ ${stack}`.slice(0, 2e3);
   var revealUntil = 0;
   var revealTimer = 0;
   function showReveal(e) {
-    const card = h3("div", `dkc c-${e.color} big reveal ${e.ok ? "ok" : "bad"}`);
-    const top = h3("div", "dkc-half");
-    const k = h3("span", `dkc-k l${Math.min(4, [...e.kanji].length)}`, e.kanji);
+    const card = h5("div", `dkc c-${e.color} big reveal ${e.ok ? "ok" : "bad"}`);
+    const top = h5("div", "dkc-half");
+    const k = h5("span", `dkc-k l${Math.min(4, [...e.kanji].length)}`, e.kanji);
     k.lang = "ja";
     top.append(k);
-    const bottom = h3("div", "dkc-half bottom");
-    const r2 = h3("span", "dkc-r", e.reading);
+    const bottom = h5("div", "dkc-half bottom");
+    const r2 = h5("span", "dkc-r", e.reading);
     r2.lang = "ja";
-    bottom.append(r2, h3("span", "dkc-m", e.meaning));
-    card.append(h3("span", "reveal-badge", e.ok ? "\u2713" : "\u2717"), top, bottom);
-    const label = h3("div", "cast-timer", e.ok ? "Correct!" : "The correct kanji");
-    const strokesBox = h3("div", "dk-reveal-strokes");
-    $8("dkCast").replaceChildren(card, label, strokesBox);
+    bottom.append(r2, h5("span", "dkc-m", e.meaning));
+    card.append(h5("span", "reveal-badge", e.ok ? "\u2713" : "\u2717"), top, bottom);
+    const label = h5("div", "cast-timer", e.ok ? "Correct!" : "The correct kanji");
+    const strokesBox = h5("div", "dk-reveal-strokes");
+    $10("dkCast").replaceChildren(card, label, strokesBox);
     if (!e.ok && e.playerId === hooks2.me()) showWrongStrokes(strokesBox, e.kanji);
     const ms = e.overtime ? DECK_RULES.overtimeGapMs - 300 : REVEAL_MS;
     revealUntil = Date.now() + ms;
@@ -12540,15 +13630,15 @@ ${stack}`.slice(0, 2e3);
     revealTimer = window.setTimeout(() => {
       revealUntil = 0;
       if (!view?.casting) {
-        $8("dkCast").replaceChildren();
-        $8("dkFeedback").replaceChildren();
+        $10("dkCast").replaceChildren();
+        $10("dkFeedback").replaceChildren();
       }
       if (view) renderDeck(view);
     }, ms);
   }
   function ripCard(card) {
     const r2 = zrect(card);
-    const wrap = h3("div", "rip");
+    const wrap = h5("div", "rip");
     Object.assign(wrap.style, { position: "fixed", left: `${r2.left}px`, top: `${r2.top}px`, width: `${r2.width}px`, height: `${r2.height}px`, zIndex: "30" });
     for (const side of ["l", "r"]) {
       const half = card.cloneNode(true);
@@ -12572,9 +13662,9 @@ ${stack}`.slice(0, 2e3);
     writingCastId = 0;
     coinShown = false;
     resetFeed();
-    $8("deck").classList.remove("dk-mycast", "dk-writing");
+    $10("deck").classList.remove("dk-mycast", "dk-writing");
     stopCountdown("dkMatch");
-    hideTimer("dkTurn", $8("dkTurnTimer"));
+    hideTimer("dkTurn", $10("dkTurnTimer"));
     stopCountdown("dkDraft");
   };
 
@@ -13199,7 +14289,7 @@ ${stack}`.slice(0, 2e3);
   init_backgrounds();
   init_ui();
   init_i18n();
-  var $9 = $;
+  var $11 = $;
   var onProfile = () => {
   };
   var onProfileChange = (fn) => {
@@ -13223,7 +14313,7 @@ ${stack}`.slice(0, 2e3);
   function levelPlan(per) {
     savedPlan = { ...per };
     draftPlan = { ...per };
-    const box = $9("studyLevels");
+    const box = $11("studyLevels");
     box.replaceChildren(...LEVELS.map((lv) => {
       const row = document.createElement("div");
       row.className = "lp-row";
@@ -13283,20 +14373,20 @@ ${stack}`.slice(0, 2e3);
       row.classList.toggle("changed", (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
     }
     const total = planTotal(draftPlan);
-    const tot = $9("dailyTotal");
+    const tot = $11("dailyTotal");
     tot.hidden = !total;
     tot.replaceChildren(Object.assign(document.createElement("b"), { textContent: String(total) }), document.createTextNode(` ${tr("new spells a day")}`));
     const dirty = LEVELS.some((l) => (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
-    const bar = $9("planApply");
+    const bar = $11("planApply");
     bar.hidden = !dirty;
     if (!dirty) return;
     const more = LEVELS.reduce((a, l) => a + Math.max(0, (draftPlan[l] ?? 0) - (savedPlan[l] ?? 0)), 0);
-    $9("planApplyText").textContent = more ? `Adds up to ${more} new words to \u201CAll spells\u201D today` : "Fewer new words from tomorrow";
+    $11("planApplyText").textContent = more ? `Adds up to ${more} new words to \u201CAll spells\u201D today` : "Fewer new words from tomorrow";
   }
-  $9("planApplyBtn").onclick = async () => {
+  $11("planApplyBtn").onclick = async () => {
     const per = {};
     for (const l of LEVELS) if ((draftPlan[l] ?? 0) > 0) per[l] = draftPlan[l];
-    const btn = $9("planApplyBtn");
+    const btn = $11("planApplyBtn");
     btn.disabled = true;
     try {
       render3(await api.setDailyLevels(per));
@@ -13305,7 +14395,7 @@ ${stack}`.slice(0, 2e3);
     }
     btn.disabled = false;
   };
-  $9("planCancelBtn").onclick = () => levelPlan(savedPlan);
+  $11("planCancelBtn").onclick = () => levelPlan(savedPlan);
   async function openStudy() {
     show("study");
     try {
@@ -13317,17 +14407,17 @@ ${stack}`.slice(0, 2e3);
   }
   function render3(s) {
     levelPlan(s.dailyByLevel ?? Object.fromEntries(s.studyLevels.map((l) => [l, Math.round(s.dailyNew / s.studyLevels.length)])));
-    counts2($9("countsAll"), s.decks.all);
-    counts2($9("countsStruggle"), s.decks.struggling);
-    counts2($9("countsCustom"), s.decks.custom);
-    if (s.decks.ono) counts2($9("countsOno"), s.decks.ono);
+    counts2($11("countsAll"), s.decks.all);
+    counts2($11("countsStruggle"), s.decks.struggling);
+    counts2($11("countsCustom"), s.decks.custom);
+    if (s.decks.ono) counts2($11("countsOno"), s.decks.ono);
     onoSaved = s.onoDaily ?? 0;
-    $9("onoDaily").value = String(onoSaved);
+    $11("onoDaily").value = String(onoSaved);
     onoChanged();
-    $9("ssToday").textContent = String(s.profile.learnedToday);
-    $9("ssTotal").textContent = String(s.profile.learned);
-    $9("ssXp").textContent = `+${s.studyXpToday ?? 0}`;
-    const notice = $9("studyNotice");
+    $11("ssToday").textContent = String(s.profile.learnedToday);
+    $11("ssTotal").textContent = String(s.profile.learned);
+    $11("ssXp").textContent = `+${s.studyXpToday ?? 0}`;
+    const notice = $11("studyNotice");
     notice.hidden = !s.notice;
     notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? "" : "s"} added to \u201CAll spells\u201D \u2014 happy studying!` : "";
     if (!s.studyLevels.length && !s.decks.all.total) {
@@ -13335,29 +14425,29 @@ ${stack}`.slice(0, 2e3);
       notice.textContent = "Set how many new words of a level you want under \u201CAll spells\u201D (e.g. N5: 10) \u2014 they are added today and every day.";
     }
     const has2 = (c) => c.new + c.learning + c.due > 0;
-    $9("studyAll").disabled = !has2(s.decks.all);
-    $9("studyStruggle").disabled = !has2(s.decks.struggling);
-    $9("studyCustom").disabled = !has2(s.decks.custom);
-    $9("studyOno").disabled = !!s.decks.ono && !has2(s.decks.ono);
+    $11("studyAll").disabled = !has2(s.decks.all);
+    $11("studyStruggle").disabled = !has2(s.decks.struggling);
+    $11("studyCustom").disabled = !has2(s.decks.custom);
+    $11("studyOno").disabled = !!s.decks.ono && !has2(s.decks.ono);
     onProfile(s.profile);
   }
   var onoSaved = 0;
   function onoChanged() {
-    const box = $9("onoDaily");
+    const box = $11("onoDaily");
     const n = Number(box.value) || 0;
-    $9("onoPlanRow").classList.toggle("on", n > 0);
-    $9("onoPlanRow").classList.toggle("changed", n !== onoSaved);
-    $9("onoApply").hidden = n === onoSaved;
-    $9("onoApplyText").textContent = n > onoSaved ? `${n} new a day \u2014 adds ${n - onoSaved} more today` : n ? `${n} new a day` : "No new onomatopoeia";
+    $11("onoPlanRow").classList.toggle("on", n > 0);
+    $11("onoPlanRow").classList.toggle("changed", n !== onoSaved);
+    $11("onoApply").hidden = n === onoSaved;
+    $11("onoApplyText").textContent = n > onoSaved ? `${n} new a day \u2014 adds ${n - onoSaved} more today` : n ? `${n} new a day` : "No new onomatopoeia";
   }
   {
-    const box = $9("onoDaily");
+    const box = $11("onoDaily");
     const set2 = (n) => {
       box.value = String(Math.max(0, Math.min(100, Math.round(n) || 0)));
       onoChanged();
     };
-    $9("onoMinus").onclick = () => set2(Number(box.value) - 1);
-    $9("onoPlus").onclick = () => set2(Number(box.value) + 1);
+    $11("onoMinus").onclick = () => set2(Number(box.value) - 1);
+    $11("onoPlus").onclick = () => set2(Number(box.value) + 1);
     box.oninput = () => {
       box.value = box.value.replace(/\D/g, "").slice(0, 3);
       onoChanged();
@@ -13366,9 +14456,9 @@ ${stack}`.slice(0, 2e3);
     box.onkeydown = (e) => {
       if (e.key === "Enter") box.blur();
     };
-    $9("onoCancelBtn").onclick = () => set2(onoSaved);
-    $9("onoApplyBtn").onclick = async () => {
-      const btn = $9("onoApplyBtn");
+    $11("onoCancelBtn").onclick = () => set2(onoSaved);
+    $11("onoApplyBtn").onclick = async () => {
+      const btn = $11("onoApplyBtn");
       btn.disabled = true;
       try {
         render3(await api.setOnoDaily(Number(box.value) || 0));
@@ -13379,21 +14469,21 @@ ${stack}`.slice(0, 2e3);
     };
   }
   initDecks({ changed: () => {
-    if (!$9("study").hidden) void api.study().then(render3).catch(() => {
+    if (!$11("study").hidden) void api.study().then(render3).catch(() => {
     });
   }, back: () => void openStudy() });
   var queue3 = [];
   var deck = "all";
   var current = null;
   var flipped = false;
-  var busy = false;
+  var busy3 = false;
   async function startSession(d) {
     deck = d;
     history2 = [];
     undoBtn();
     void loadExamples();
     show("review");
-    $9("reviewDone").hidden = true;
+    $11("reviewDone").hidden = true;
     try {
       queue3 = (await api.queue(d)).cards;
     } catch (e) {
@@ -13406,24 +14496,24 @@ ${stack}`.slice(0, 2e3);
     current = queue3.shift() ?? null;
     flipped = false;
     const done2 = !current;
-    $9("flash").hidden = done2;
-    $9("showAnswer").hidden = done2;
-    $9("rateRow").hidden = true;
-    $9("reviewDone").hidden = !done2;
-    $9("reviewLeft").textContent = done2 ? "" : `${queue3.length + 1} left \xB7 ${DECK_LABEL[deck]}`;
+    $11("flash").hidden = done2;
+    $11("showAnswer").hidden = done2;
+    $11("rateRow").hidden = true;
+    $11("reviewDone").hidden = !done2;
+    $11("reviewLeft").textContent = done2 ? "" : `${queue3.length + 1} left \xB7 ${DECK_LABEL[deck]}`;
     if (!current) return;
     hideKanji();
-    $9("fcKanji").textContent = current.kanji;
-    $9("fcLevel").textContent = (current.custom ? "Custom" : LEVEL_LABEL[current.level]) + (current.state === "new" ? " \xB7 new" : "");
-    if (current.ono) $9("fcLevel").append(" \xB7 ", Object.assign(document.createElement("span"), { className: "ono-kind", lang: "ja", textContent: `${ONO_TYPES[current.ono].ja} ${ONO_TYPES[current.ono].romaji}` }));
-    $9("fcReading").textContent = current.reading;
-    $9("fcMeaning").textContent = current.meaning;
-    $9("fcBack").hidden = true;
-    $9("fcExample").replaceChildren();
-    $9("fcStar").replaceChildren(starButton(current.vocabId, "star-btn fc-star-btn"));
-    $9("fcStrokes").hidden = true;
-    $9("fcStrokeBox").hidden = true;
-    const card = $9("flash");
+    $11("fcKanji").textContent = current.kanji;
+    $11("fcLevel").textContent = (current.custom ? "Custom" : LEVEL_LABEL[current.level]) + (current.state === "new" ? " \xB7 new" : "");
+    if (current.ono) $11("fcLevel").append(" \xB7 ", Object.assign(document.createElement("span"), { className: "ono-kind", lang: "ja", textContent: `${ONO_TYPES[current.ono].ja} ${ONO_TYPES[current.ono].romaji}` }));
+    $11("fcReading").textContent = current.reading;
+    $11("fcMeaning").textContent = current.meaning;
+    $11("fcBack").hidden = true;
+    $11("fcExample").replaceChildren();
+    $11("fcStar").replaceChildren(starButton(current.vocabId, "star-btn fc-star-btn"));
+    $11("fcStrokes").hidden = true;
+    $11("fcStrokeBox").hidden = true;
+    const card = $11("flash");
     card.style.animation = "none";
     void card.offsetWidth;
     card.style.animation = "";
@@ -13435,44 +14525,44 @@ ${stack}`.slice(0, 2e3);
   function flip() {
     if (!current || flipped) return;
     flipped = true;
-    $9("fcBack").hidden = false;
-    $9("showAnswer").hidden = true;
-    $9("rateRow").hidden = false;
-    $9("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
+    $11("fcBack").hidden = false;
+    $11("showAnswer").hidden = true;
+    $11("rateRow").hidden = false;
+    $11("fcStrokes").hidden = !/[\p{Script=Han}々]/u.test(current.kanji);
     const card = current;
     void exampleFor(card.vocabId).then((ex) => {
       if (ex && current === card && flipped) {
         wordsTappable(ex);
-        $9("fcExample").replaceChildren(ex);
+        $11("fcExample").replaceChildren(ex);
       }
     });
-    kanjiTappable($9("fcKanji"));
+    kanjiTappable($11("fcKanji"));
   }
   function strokes() {
-    if (!current || !flipped || $9("fcStrokes").hidden) return;
-    const box = $9("fcStrokeBox");
+    if (!current || !flipped || $11("fcStrokes").hidden) return;
+    const box = $11("fcStrokeBox");
     box.hidden = false;
     void showStrokeOrder(box, current.kanji);
   }
-  $9("fcStrokes").onclick = (e) => {
+  $11("fcStrokes").onclick = (e) => {
     e.stopPropagation();
     strokes();
   };
   var sending = Promise.resolve();
   var history2 = [];
   var undoBtn = () => {
-    $9("reviewUndo").disabled = !history2.length;
+    $11("reviewUndo").disabled = !history2.length;
   };
   function undo() {
-    const h5 = history2.pop();
+    const h6 = history2.pop();
     undoBtn();
-    if (!h5) return;
+    if (!h6) return;
     const d = deck;
-    sending = sending.then(() => api.undo(h5.card.vocabId, d).then(() => {
+    sending = sending.then(() => api.undo(h6.card.vocabId, d).then(() => {
     }, (e) => {
       toast(e.message);
     }));
-    queue3 = [h5.card, ...h5.queue];
+    queue3 = [h6.card, ...h6.queue];
     next2();
   }
   var XP_SHOW = 5;
@@ -13483,7 +14573,7 @@ ${stack}`.slice(0, 2e3);
       xpShown = Number(localStorage.getItem(key)) || xpShown;
     } catch {
     }
-    if (xpShown >= XP_SHOW || $9("review").hidden) return;
+    if (xpShown >= XP_SHOW || $11("review").hidden) return;
     xpShown++;
     try {
       localStorage.setItem(key, String(xpShown));
@@ -13492,11 +14582,11 @@ ${stack}`.slice(0, 2e3);
     const p = document.createElement("div");
     p.className = "xp-pop";
     p.textContent = `+${n} XP`;
-    $9("flash").append(p);
+    $11("flash").append(p);
     setTimeout(() => p.remove(), 1200);
   }
   function rate(r2) {
-    if (!current || !flipped || busy) return;
+    if (!current || !flipped || busy3) return;
     const card = current, d = deck;
     history2.push({ card, queue: [...queue3] });
     if (history2.length > 30) history2.shift();
@@ -13515,13 +14605,13 @@ ${stack}`.slice(0, 2e3);
     await sending;
     void openStudy();
   }
-  $9("showAnswer").onclick = flip;
-  $9("flash").onclick = () => {
+  $11("showAnswer").onclick = flip;
+  $11("flash").onclick = () => {
     if (!swiped) flip();
   };
   var swiped = false;
   {
-    const card = $9("flash");
+    const card = $11("flash");
     const stamp = document.createElement("div");
     stamp.className = "fc-stamp";
     stamp.hidden = true;
@@ -13543,7 +14633,7 @@ ${stack}`.slice(0, 2e3);
       card.classList.remove("dragging");
     };
     card.addEventListener("pointerdown", (e) => {
-      if (!current || busy || e.target.closest("button, .kj")) return;
+      if (!current || busy3 || e.target.closest("button, .kj")) return;
       id = e.pointerId;
       x0 = e.clientX;
       y0 = e.clientY;
@@ -13609,7 +14699,7 @@ ${stack}`.slice(0, 2e3);
   }
   for (const b of document.querySelectorAll("#rateRow .rate")) b.onclick = () => rate(b.dataset.rating);
   addEventListener("keydown", (e) => {
-    if ($9("review").hidden || e.target instanceof HTMLInputElement) return;
+    if ($11("review").hidden || e.target instanceof HTMLInputElement) return;
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
       flipped ? rate("good") : flip();
@@ -13622,13 +14712,13 @@ ${stack}`.slice(0, 2e3);
       undo();
     }
   });
-  $9("studyAll").onclick = () => void startSession("all");
-  $9("studyStruggle").onclick = () => void startSession("struggling");
-  $9("studyCustom").onclick = () => void startSession("custom");
-  $9("studyOno").onclick = () => void startSession("ono");
-  $9("reviewBack").onclick = () => void leaveSession();
-  $9("reviewUndo").onclick = () => undo();
-  $9("reviewDoneBack").onclick = () => void leaveSession();
+  $11("studyAll").onclick = () => void startSession("all");
+  $11("studyStruggle").onclick = () => void startSession("struggling");
+  $11("studyCustom").onclick = () => void startSession("custom");
+  $11("studyOno").onclick = () => void startSession("ono");
+  $11("reviewBack").onclick = () => void leaveSession();
+  $11("reviewUndo").onclick = () => undo();
+  $11("reviewDoneBack").onclick = () => void leaveSession();
   var custTab = "profile";
   var picked3 = {};
   var cust = null;
@@ -13654,7 +14744,7 @@ ${stack}`.slice(0, 2e3);
       return;
     }
     previewTried = true;
-    preview3 = await staffPreview($9("staffCanvas"));
+    preview3 = await staffPreview($11("staffCanvas"));
     if (preview3) staffThumbs = Object.fromEntries(preview3.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
     renderCustomize();
   }
@@ -13798,8 +14888,8 @@ ${stack}`.slice(0, 2e3);
     const items = custItems(profile3, isAdmin);
     const lvl = levelOf(profile3.xp);
     const sel = items.find((i) => i.id === picked3[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
-    $9("custSub").textContent = CUST_SUB[custTab](profile3);
-    $9("bgTimes").hidden = true;
+    $11("custSub").textContent = CUST_SUB[custTab](profile3);
+    $11("bgTimes").hidden = true;
     void onTimeChange;
     const equip = async (it) => {
       if (it.locked) return toast(it.lockedToast);
@@ -13812,8 +14902,8 @@ ${stack}`.slice(0, 2e3);
         toast(e.message);
       }
     };
-    $9("custGrid").className = `cust-grid ${custTab}`;
-    $9("custGrid").replaceChildren(...items.map((it) => {
+    $11("custGrid").className = `cust-grid ${custTab}`;
+    $11("custGrid").replaceChildren(...items.map((it) => {
       const b = el7("button", "cust-item" + (it === sel ? " sel" : "") + (it.equipped ? " equipped" : "") + (it.locked ? " locked" : ""));
       b.setAttribute("aria-pressed", String(it === sel));
       const pic = el7("div", "ci-pic");
@@ -13826,7 +14916,7 @@ ${stack}`.slice(0, 2e3);
       b.ondblclick = () => void equip(it);
       return b;
     }));
-    const extra = $9("custExtra");
+    const extra = $11("custExtra");
     extra.hidden = custTab !== "profile";
     if (custTab === "profile") {
       const box = el7("div", "ach-box");
@@ -13847,17 +14937,17 @@ ${stack}`.slice(0, 2e3);
       draw3();
       extra.replaceChildren(box);
     }
-    const canvas = $9("staffCanvas");
-    const stage2 = $9("custStage2");
+    const canvas = $11("staffCanvas");
+    const stage2 = $11("custStage2");
     const showCanvas = custTab === "staff" && !!preview3;
     const in3d = (custTab === "arena" || custTab === "omni" || custTab === "pose") && !!arena3;
     canvas.hidden = !showCanvas;
-    $9("arenaPreview").hidden = !in3d;
+    $11("arenaPreview").hidden = !in3d;
     stage2.hidden = showCanvas || in3d;
-    $9("custStage").dataset.tab = custTab;
+    $11("custStage").dataset.tab = custTab;
     if ((custTab === "arena" || custTab === "omni" || custTab === "pose") && !arena3Tried) void ensureArena3();
-    $9("poseInsetLbl").hidden = !(in3d && custTab === "pose");
-    $9("custChars").hidden = !in3d;
+    $11("poseInsetLbl").hidden = !(in3d && custTab === "pose");
+    $11("custChars").hidden = !in3d;
     const shownChar = previewChar ?? kindOf2(avatarFor(profile3.studyLevels));
     for (const b of document.querySelectorAll("#custChars [data-char]")) b.classList.toggle("on", b.dataset.char === shownChar);
     if (in3d) showArena3(custTab, sel.id, profile3);
@@ -13928,7 +15018,7 @@ ${stack}`.slice(0, 2e3);
       row.append(who, st, el7("span", "hint", "2D arena"));
       info.push(row);
     }
-    $9("custInfo").replaceChildren(...info, btn);
+    $11("custInfo").replaceChildren(...info, btn);
   }
   function avatarDisc(p, border, cls) {
     const d = el7("div", `${cls}${p.pic ? " has-pic" : ""}${borderCls(border)}`);
@@ -13949,8 +15039,8 @@ ${stack}`.slice(0, 2e3);
   var arena3Bg = "";
   async function ensureArena3() {
     arena3Tried = true;
-    arena3 = await arenaPreview($9("arenaPreview"));
-    if (arena3 && !$9("customize").hidden) renderCustomize();
+    arena3 = await arenaPreview($11("arenaPreview"));
+    if (arena3 && !$11("customize").hidden) renderCustomize();
   }
   function showArena3(tab2, id, p) {
     if (!arena3) return;
@@ -13981,7 +15071,7 @@ ${stack}`.slice(0, 2e3);
     arena3.setPose("opp", tab2 === "pose" ? id : "none");
     arena3.setPose("me", tab2 === "pose" ? id : "none");
     arena3.setInset(tab2 === "pose");
-    $9("poseInsetLbl").hidden = tab2 !== "pose";
+    $11("poseInsetLbl").hidden = tab2 !== "pose";
     arena3.onfire("opp", tab2 === "omni" || tab2 === "pose", color);
     arena3.onfire("me", tab2 === "omni" || tab2 === "pose", color);
   }
@@ -14002,7 +15092,7 @@ ${stack}`.slice(0, 2e3);
   init_ui();
   init_art2d();
   init_wizard();
-  var $10 = $;
+  var $12 = $;
   var el8 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -14021,16 +15111,16 @@ ${stack}`.slice(0, 2e3);
   var page = null;
   var level = "N5";
   var unlocks = [];
-  var badges = [];
+  var badges2 = [];
   var onBadgesChanged = () => {
   };
   async function openProgress(myUnlocks = [], myBadges = [], changed = () => {
   }) {
     unlocks = myUnlocks;
-    badges = [...myBadges];
+    badges2 = [...myBadges];
     onBadgesChanged = changed;
     show("progress");
-    $10("progGrid").replaceChildren(el8("p", "hint", "Loading\u2026"));
+    $12("progGrid").replaceChildren(el8("p", "hint", "Loading\u2026"));
     try {
       page = await api.progress();
     } catch (e) {
@@ -14044,17 +15134,17 @@ ${stack}`.slice(0, 2e3);
   function render4() {
     if (!page) return;
     renderWeek(page.activity);
-    $10("progMonth").replaceChildren(...monthNodes(page.month));
+    $12("progMonth").replaceChildren(...monthNodes(page.month));
     renderHeatmap(page.activity);
-    renderAchievements($10("progAch"), unlocks, badges, (next3) => {
-      const before = badges;
-      badges = next3;
+    renderAchievements($12("progAch"), unlocks, badges2, (next3) => {
+      const before = badges2;
+      badges2 = next3;
       render4();
       api.setBadges(next3).then((r2) => {
-        badges = r2.badges;
-        onBadgesChanged(badges);
+        badges2 = r2.badges;
+        onBadgesChanged(badges2);
       }).catch((e) => {
-        badges = before;
+        badges2 = before;
         render4();
         toast(e.message);
       });
@@ -14098,7 +15188,7 @@ ${stack}`.slice(0, 2e3);
       bar.append(fill2, el8("span", "", (/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "narrow" })));
       bars.append(bar);
     }
-    $10("progWeek").replaceChildren(el8("h3", "", "This week"), grid, bars);
+    $12("progWeek").replaceChildren(el8("h3", "", "This week"), grid, bars);
   }
   var score2 = (a) => a ? a.reviews + a.games * 5 + (a.login ? 1 : 0) : 0;
   function monthNodes(m) {
@@ -14145,7 +15235,7 @@ ${stack}`.slice(0, 2e3);
     const first = `${calMonth}-01`;
     const days2 = new Date(Date.UTC(y, m, 0)).getUTCDate();
     const lead = ((/* @__PURE__ */ new Date(`${first}T12:00:00Z`)).getUTCDay() + 6) % 7;
-    const box = $10("progHeat");
+    const box = $12("progHeat");
     const oldest = shift(t, -182).slice(0, 7);
     const prev = el8("button", "pill cal-nav", "\u2039");
     const next3 = el8("button", "pill cal-nav", "\u203A");
@@ -14187,7 +15277,7 @@ ${stack}`.slice(0, 2e3);
           cell.dataset.l = String(sc === 0 ? 0 : Math.min(4, 1 + Math.floor(sc / max * 3.999)));
           cell.title = `${(/* @__PURE__ */ new Date(`${day}T12:00:00`)).toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric" })}: ${a ? `${a.reviews} cards passed, ${a.games} games${a.wins ? ` (${a.wins} won)` : ""}` : "no activity"}`;
           cell.onclick = () => {
-            $10("progHeatInfo").textContent = cell.title;
+            $12("progHeatInfo").textContent = cell.title;
             for (const x of grid.querySelectorAll(".cal-day.sel")) x.classList.remove("sel");
             cell.classList.add("sel");
           };
@@ -14208,7 +15298,7 @@ ${stack}`.slice(0, 2e3);
     const info = el8("p", "cal-info");
     info.id = "progHeatInfo";
     box.replaceChildren(head, grid, legend, why, info);
-    $10("progHeatSub").textContent = `${active2} active days this month`;
+    $12("progHeatSub").textContent = `${active2} active days this month`;
   }
   var GOJUON = "\u3042\u3044\u3046\u3048\u304A \u304B\u304D\u304F\u3051\u3053 \u3055\u3057\u3059\u305B\u305D \u305F\u3061\u3064\u3066\u3068 \u306A\u306B\u306C\u306D\u306E \u306F\u3072\u3075\u3078\u307B \u307E\u307F\u3080\u3081\u3082 \u3084_\u3086_\u3088 \u3089\u308A\u308B\u308C\u308D \u308F___\u3092 \u3093____";
   var VOICED = "\u304C\u304E\u3050\u3052\u3054 \u3056\u3058\u305A\u305C\u305E \u3060\u3062\u3065\u3067\u3069 \u3070\u3073\u3076\u3079\u307C \u3071\u3074\u3077\u307A\u307D";
@@ -14239,7 +15329,7 @@ ${stack}`.slice(0, 2e3);
     return t;
   }
   async function showWord2(at, word2, m, pct2) {
-    const pop2 = $10("mgPop");
+    const pop2 = $12("mgPop");
     for (const x of document.querySelectorAll(".mt.sel")) x.classList.remove("sel");
     at.classList.add("sel");
     try {
@@ -14275,8 +15365,8 @@ ${stack}`.slice(0, 2e3);
   }
   function renderMastery() {
     if (!page) return;
-    $10("mgPop").hidden = true;
-    const tabs = $10("progLevels");
+    $12("mgPop").hidden = true;
+    const tabs = $12("progLevels");
     const allWords = LEVELS.flatMap((l) => page.mastery[l]);
     const allTab = el8("button", "cust-tab" + (level === "ALL" ? " on" : ""), `${tr("All levels")} \xB7 ${allWords.filter(([, m]) => m >= 3).length}/${allWords.length}`);
     allTab.setAttribute("role", "tab");
@@ -14302,12 +15392,12 @@ ${stack}`.slice(0, 2e3);
     const words2 = level === "ALL" ? allWords : page.mastery[level];
     const counts3 = [0, 0, 0, 0, 0];
     for (const [, m] of words2) counts3[m]++;
-    $10("progLegend").replaceChildren(...MASTERY.map((m, i) => {
+    $12("progLegend").replaceChildren(...MASTERY.map((m, i) => {
       const item = el8("span", "ml-item");
       item.append(el8("i", m.cls), el8("span", "", `${m.label} \xB7 ${counts3[i]}`));
       return item;
     }));
-    const grid = $10("progGrid");
+    const grid = $12("progGrid");
     grid.className = "mastery-grid";
     const by = new Map(words2.map(([k, m, p]) => [k, [m, p ?? 0]]));
     if (level !== "ALL" && isKanaLevel(level)) {
@@ -14386,7 +15476,7 @@ ${stack}`.slice(0, 2e3);
     }
     grid.replaceChildren(...nodes);
   }
-  $10("progressBack").onclick = () => show("menu");
+  $12("progressBack").onclick = () => show("menu");
 
   // src/client/dailyui.ts
   init_i18n();
@@ -14394,7 +15484,7 @@ ${stack}`.slice(0, 2e3);
   init_offline();
   init_api();
   init_ui();
-  var $11 = $;
+  var $13 = $;
   var el9 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -14410,7 +15500,7 @@ ${stack}`.slice(0, 2e3);
   var me2 = "";
   var word = null;
   var timer2 = 0;
-  var busy2 = false;
+  var busy4 = false;
   var results = [];
   async function dailyPending() {
     try {
@@ -14422,7 +15512,7 @@ ${stack}`.slice(0, 2e3);
   async function openDaily(userId) {
     me2 = userId;
     show("daily");
-    $11("dailyMain").replaceChildren(el9("p", "hint", "Loading\u2026"));
+    $13("dailyMain").replaceChildren(el9("p", "hint", "Loading\u2026"));
     try {
       renderOverview(await api.daily());
     } catch (e) {
@@ -14430,7 +15520,7 @@ ${stack}`.slice(0, 2e3);
     }
   }
   function renderBoard(o) {
-    const list = $11("dailyBoard");
+    const list = $13("dailyBoard");
     if (!o.board.length) {
       list.replaceChildren(el9("li", "hint", "Nobody has played today yet \u2014 be the first!"));
       return;
@@ -14482,8 +15572,8 @@ ${stack}`.slice(0, 2e3);
   function renderOverview(o) {
     league = o.league ?? "KANA";
     renderBoard(o);
-    $11("dailyBoardTitle").textContent = `${tr("League")}: ${LEAGUE_NAME[league]}`;
-    const main = $11("dailyMain");
+    $13("dailyBoardTitle").textContent = `${tr("League")}: ${LEAGUE_NAME[league]}`;
+    const main = $13("dailyMain");
     const date = `Challenge of ${(/* @__PURE__ */ new Date(`${o.day}T12:00:00Z`)).toLocaleDateString(locale(), { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}`;
     if (o.mine) {
       const words2 = el9("div", "daily-words");
@@ -14525,22 +15615,22 @@ ${stack}`.slice(0, 2e3);
     );
   }
   async function begin() {
-    if (busy2) return;
-    busy2 = true;
+    if (busy4) return;
+    busy4 = true;
     results = [];
     try {
       word = (await api.dailyStart()).word;
     } catch (e) {
       toast(e.message);
-      busy2 = false;
+      busy4 = false;
       return void openDaily(me2);
     }
-    busy2 = false;
+    busy4 = false;
     renderPlay(null);
   }
   function renderPlay(last3) {
     if (!word) return;
-    const main = $11("dailyMain");
+    const main = $13("dailyMain");
     const dots = el9("div", "daily-dots");
     for (let i = 0; i < word.total; i++) dots.append(el9("i", i < results.length ? results[i] ? "ok" : "no" : i === word.index ? "now" : ""));
     const k = el9("div", "daily-kanji", word.kanji);
@@ -14580,8 +15670,8 @@ ${stack}`.slice(0, 2e3);
     skip2.onclick = () => void submit("");
   }
   async function submit(text) {
-    if (busy2 || !word) return;
-    busy2 = true;
+    if (busy4 || !word) return;
+    busy4 = true;
     clearInterval(timer2);
     try {
       const r2 = await api.dailyAnswer(text);
@@ -14590,12 +15680,12 @@ ${stack}`.slice(0, 2e3);
       else sfx.wrong();
       if (r2.next) {
         word = r2.next;
-        busy2 = false;
+        busy4 = false;
         renderPlay(r2);
         return;
       }
       word = null;
-      busy2 = false;
+      busy4 = false;
       useGameKb(null);
       const o = await api.daily();
       renderOverview(o);
@@ -14605,12 +15695,12 @@ ${stack}`.slice(0, 2e3);
         if (r2.done.correct === 10) sfx.go();
       }
     } catch (e) {
-      busy2 = false;
+      busy4 = false;
       toast(e.message);
       void openDaily(me2);
     }
   }
-  $11("dailyBack").onclick = () => {
+  $13("dailyBack").onclick = () => {
     clearInterval(timer2);
     word = null;
     show("menu");
@@ -14620,7 +15710,7 @@ ${stack}`.slice(0, 2e3);
   init_protocol();
   init_api();
   init_ui();
-  var $12 = $;
+  var $14 = $;
   var el10 = (tag, cls = "", text) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -14630,8 +15720,8 @@ ${stack}`.slice(0, 2e3);
   var friends2 = [];
   var fetchedAt = 0;
   var hooks3;
-  function initFriends(h5) {
-    hooks3 = h5;
+  function initFriends(h6) {
+    hooks3 = h6;
   }
   async function refresh(force = false) {
     if (!force && Date.now() - fetchedAt < 8e3) return friends2;
@@ -14653,12 +15743,12 @@ ${stack}`.slice(0, 2e3);
   var refreshFriendsBadge = () => void refresh(true);
   async function openFriends() {
     show("friends");
-    $12("friendMsg").textContent = "";
+    $14("friendMsg").textContent = "";
     await refresh(true);
     render5();
   }
   function render5() {
-    const list = $12("friendList");
+    const list = $14("friendList");
     const incoming = friends2.filter((f2) => f2.status === "incoming");
     const accepted = friends2.filter((f2) => f2.status === "accepted").sort((a, b) => Number(b.online) - Number(a.online) || a.username.localeCompare(b.username));
     const outgoing = friends2.filter((f2) => f2.status === "outgoing");
@@ -14701,30 +15791,30 @@ ${stack}`.slice(0, 2e3);
     ];
     list.replaceChildren(...nodes.length ? nodes : [el10("p", "hint", "No friends yet \u2014 add someone by their player name above.")]);
   }
-  $12("friendAdd").addEventListener("submit", async (e) => {
+  $14("friendAdd").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const input2 = $12("friendName");
+    const input2 = $14("friendName");
     const name = input2.value.trim();
     if (!name) return;
     try {
       const r2 = await api.addFriend(name);
       friends2 = r2.friends;
       fetchedAt = Date.now();
-      $12("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
+      $14("friendMsg").textContent = r2.result === "accepted" ? `You and ${name} are now friends!` : r2.result === "exists" ? `You already asked ${name}.` : `Request sent to ${name}.`;
       input2.value = "";
       render5();
     } catch (err) {
-      $12("friendMsg").textContent = err.message;
+      $14("friendMsg").textContent = err.message;
     }
   });
-  $12("friendsBack").onclick = () => show("menu");
-  $12("friendsRefresh").onclick = () => void openFriends();
+  $14("friendsBack").onclick = () => show("menu");
+  $14("friendsRefresh").onclick = () => void openFriends();
   var INVITE_COOLDOWN_MS = 1e4;
   var invitedAt = /* @__PURE__ */ new Map();
   var lobbyIds = [];
   var cooldownTimer = 0;
   async function renderLobbyInvites(isLobby, inRoom2 = lobbyIds) {
-    const box = $12("lobbyInvite");
+    const box = $14("lobbyInvite");
     lobbyIds = inRoom2;
     clearTimeout(cooldownTimer);
     if (!isLobby) {
@@ -14757,7 +15847,7 @@ ${stack}`.slice(0, 2e3);
     }, Math.min(1e3, soonest));
   }
   function onInvite(msg) {
-    const box = $12("inviteBox");
+    const box = $14("inviteBox");
     const join2 = el10("button", "big", "Join");
     const no2 = el10("button", "pill", "Decline");
     const close = () => {
@@ -15030,8 +16120,8 @@ ${stack}`.slice(0, 2e3);
     }
     const scr = currentScreen();
     if (!scr || scr === "menu" || scr === "auth") return false;
-    const back = [...document.querySelectorAll(`#${scr} .back, #${scr} [id$="Back"], #${scr} [id$="back"]`)].find((b) => b.getClientRects().length > 0 && !b.disabled);
-    back?.click();
+    const back2 = [...document.querySelectorAll(`#${scr} .back, #${scr} [id$="Back"], #${scr} [id$="back"]`)].find((b) => b.getClientRects().length > 0 && !b.disabled);
+    back2?.click();
     return true;
   }
   var away = () => !!document.querySelector("dialog[open]") || !["menu", "auth", void 0].includes(currentScreen());
@@ -15131,797 +16221,6 @@ ${stack}`.slice(0, 2e3);
     };
   }
 
-  // src/client/dictui.ts
-  init_api();
-
-  // src/shared/dict.ts
-  init_kana();
-
-  // src/shared/deinflect.ts
-  var GODAN = [
-    ["\u308F", "\u3044", "\u3048", "\u304A", "\u3046", "\u3063\u3066", "\u3063\u305F"],
-    ["\u304B", "\u304D", "\u3051", "\u3053", "\u304F", "\u3044\u3066", "\u3044\u305F"],
-    ["\u304C", "\u304E", "\u3052", "\u3054", "\u3050", "\u3044\u3067", "\u3044\u3060"],
-    ["\u3055", "\u3057", "\u305B", "\u305D", "\u3059", "\u3057\u3066", "\u3057\u305F"],
-    ["\u305F", "\u3061", "\u3066", "\u3068", "\u3064", "\u3063\u3066", "\u3063\u305F"],
-    ["\u306A", "\u306B", "\u306D", "\u306E", "\u306C", "\u3093\u3067", "\u3093\u3060"],
-    ["\u3070", "\u3073", "\u3079", "\u307C", "\u3076", "\u3093\u3067", "\u3093\u3060"],
-    ["\u307E", "\u307F", "\u3081", "\u3082", "\u3080", "\u3093\u3067", "\u3093\u3060"],
-    ["\u3089", "\u308A", "\u308C", "\u308D", "\u308B", "\u3063\u3066", "\u3063\u305F"]
-  ];
-  var RULES = [];
-  for (const [a, i, e, o, u, te, ta] of GODAN) {
-    RULES.push(
-      [`${a}\u306A\u3044`, u, "negative"],
-      [`${i}\u307E\u3059`, u, "polite"],
-      [`${i}\u307E\u305B\u3093`, u, "polite negative"],
-      [`${i}\u307E\u3057\u305F`, u, "polite past"],
-      [`${i}\u307E\u305B\u3093\u3067\u3057\u305F`, u, "polite past negative"],
-      [`${i}\u305F\u3044`, u, "want to"],
-      [`${i}\u306A\u304C\u3089`, u, "while"],
-      [te, u, "te form"],
-      [ta, u, "past"],
-      [`${ta}\u3089`, u, "conditional (tara)"],
-      [`${e}\u3070`, u, "conditional (ba)"],
-      [`${e}\u308B`, u, "potential"],
-      [`${a}\u308C\u308B`, u, "passive"],
-      [`${a}\u305B\u308B`, u, "causative"],
-      [`${o}\u3046`, u, "volitional"]
-    );
-  }
-  RULES.push(["\u884C\u3063\u3066", "\u884C\u304F", "te form"], ["\u884C\u3063\u305F", "\u884C\u304F", "past"], ["\u3044\u3063\u3066", "\u3044\u304F", "te form"], ["\u3044\u3063\u305F", "\u3044\u304F", "past"]);
-  RULES.push(
-    ["\u306A\u3044", "\u308B", "negative"],
-    ["\u307E\u3059", "\u308B", "polite"],
-    ["\u307E\u305B\u3093", "\u308B", "polite negative"],
-    ["\u307E\u3057\u305F", "\u308B", "polite past"],
-    ["\u307E\u305B\u3093\u3067\u3057\u305F", "\u308B", "polite past negative"],
-    ["\u305F\u3044", "\u308B", "want to"],
-    ["\u306A\u304C\u3089", "\u308B", "while"],
-    ["\u3066", "\u308B", "te form"],
-    ["\u305F", "\u308B", "past"],
-    ["\u305F\u3089", "\u308B", "conditional (tara)"],
-    ["\u308C\u3070", "\u308B", "conditional (ba)"],
-    ["\u3089\u308C\u308B", "\u308B", "potential / passive"],
-    ["\u3055\u305B\u308B", "\u308B", "causative"],
-    ["\u3088\u3046", "\u308B", "volitional"],
-    ["\u308D", "\u308B", "imperative"]
-  );
-  for (const [form, label] of [["\u3057\u306A\u3044", "negative"], ["\u3057\u307E\u3059", "polite"], ["\u3057\u307E\u305B\u3093", "polite negative"], ["\u3057\u307E\u3057\u305F", "polite past"], ["\u3057\u3066", "te form"], ["\u3057\u305F", "past"], ["\u3057\u305F\u3044", "want to"], ["\u3059\u308C\u3070", "conditional (ba)"], ["\u3067\u304D\u308B", "potential"], ["\u3055\u308C\u308B", "passive"], ["\u3055\u305B\u308B", "causative"], ["\u3057\u3088\u3046", "volitional"], ["\u3057\u308D", "imperative"]]) RULES.push([form, "\u3059\u308B", label]);
-  for (const [form, label] of [["\u3053\u306A\u3044", "negative"], ["\u304D\u307E\u3059", "polite"], ["\u304D\u3066", "te form"], ["\u304D\u305F", "past"], ["\u3053\u3089\u308C\u308B", "potential"], ["\u3053\u3088\u3046", "volitional"], ["\u3053\u3044", "imperative"], ["\u6765\u306A\u3044", "negative"], ["\u6765\u307E\u3059", "polite"], ["\u6765\u3066", "te form"], ["\u6765\u305F", "past"]]) RULES.push([form, form.startsWith("\u6765") ? "\u6765\u308B" : "\u304F\u308B", label]);
-  RULES.push(["\u304F\u306A\u3044", "\u3044", "negative"], ["\u304B\u3063\u305F", "\u3044", "past"], ["\u304F\u306A\u304B\u3063\u305F", "\u3044", "past negative"], ["\u304F\u3066", "\u3044", "te form"], ["\u3051\u308C\u3070", "\u3044", "conditional"]);
-  RULES.push(["\u306A\u304B\u3063\u305F", "\u306A\u3044", "past"], ["\u306A\u304F\u3066", "\u306A\u3044", "te form"], ["\u306A\u3051\u308C\u3070", "\u306A\u3044", "conditional"], ["\u305F\u304B\u3063\u305F", "\u305F\u3044", "past"], ["\u305F\u304F\u306A\u3044", "\u305F\u3044", "negative"]);
-  RULES.sort((x, y) => y[0].length - x[0].length);
-  function deinflect(s) {
-    const out = /* @__PURE__ */ new Map();
-    const walk2 = (cur, labels, depth) => {
-      if (depth >= 3) return;
-      for (const [end, rep, label] of RULES) {
-        if (!cur.endsWith(end)) continue;
-        const stem = cur.slice(0, -end.length);
-        if (!stem && !["\u3059\u308B", "\u304F\u308B", "\u6765\u308B", "\u884C\u304F", "\u3044\u304F"].includes(rep)) continue;
-        const base = stem + rep;
-        if (!base || base === cur) continue;
-        const all = [label, ...labels];
-        if (!out.has(base)) out.set(base, all.join(" \xB7 "));
-        if (/(ない|たい)$/.test(base)) walk2(base, all, depth + 1);
-        if (base.endsWith("\u3059\u308B") && base.length > 2 && !out.has(base.slice(0, -2))) out.set(base.slice(0, -2), all.join(" \xB7 "));
-      }
-    };
-    walk2(s, [], 0);
-    out.delete(s);
-    return [...out].map(([word2, form]) => ({ word: word2, form }));
-  }
-
-  // src/shared/dict.ts
-  var HAN3 = /\p{Script=Han}/u;
-  var VERBISH = /^(v[15ksz]|vs|adj-i)/;
-  var JA = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー々]/u;
-  var CYR = /[а-яё]/i;
-  var esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  var stripNotes = (g) => g.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s*\{[^}]*\}\s*/g, " ").trim();
-  var fold = (s) => s.replace(/[うおー]/g, "").replace(/(?<=[えけげせぜてでねへべぺめれ])い/g, "");
-  function nearMiss(q, r2, max) {
-    if (q === r2) return null;
-    const n = q.length, m = r2.length;
-    const d = Array.from({ length: n + 1 }, (_, i2) => Array.from({ length: m + 1 }, (_2, j2) => i2 === 0 ? j2 : j2 === 0 ? i2 : 0));
-    for (let i2 = 1; i2 <= n; i2++) {
-      let best = Infinity;
-      for (let j2 = 1; j2 <= m; j2++) {
-        d[i2][j2] = Math.min(d[i2 - 1][j2] + 1, d[i2][j2 - 1] + 1, d[i2 - 1][j2 - 1] + (q[i2 - 1] === r2[j2 - 1] ? 0 : 1));
-        best = Math.min(best, d[i2][j2]);
-      }
-      if (best > max) return null;
-    }
-    if (d[n][m] > max) return null;
-    const marks = [];
-    let i = n, j = m;
-    while (i > 0 || j > 0) {
-      if (i > 0 && j > 0 && d[i][j] === d[i - 1][j - 1] + (q[i - 1] === r2[j - 1] ? 0 : 1)) {
-        if (q[i - 1] !== r2[j - 1]) marks.push(j - 1);
-        i--;
-        j--;
-      } else if (j > 0 && d[i][j] === d[i][j - 1] + 1) {
-        marks.push(j - 1);
-        j--;
-      } else i--;
-    }
-    return marks.reverse();
-  }
-  var Dictionary = class {
-    // readings in hiragana, per word
-    constructor(data, vocab) {
-      __publicField(this, "words");
-      __publicField(this, "tags");
-      __publicField(this, "ours", /* @__PURE__ */ new Map());
-      __publicField(this, "kanas");
-      this.words = data.words;
-      this.tags = data.tags;
-      for (const v of vocab) {
-        if (v.level === "KANA" || v.level === "KATA") continue;
-        this.ours.set(`${v.kanji}|${v.reading}`, { id: v.id, level: v.level });
-        if (!HAN3.test(v.kanji)) this.ours.set(`kana:${katakanaToHiragana(v.kanji)}`, { id: v.id, level: v.level });
-      }
-      this.kanas = this.words.map((w) => w.r.map(katakanaToHiragana));
-    }
-    mineOf(w) {
-      return w.k.flatMap((k) => w.r.map((r2) => this.ours.get(`${k}|${r2}`))).find(Boolean) ?? (w.k.length ? void 0 : w.r.map((r2) => this.ours.get(`kana:${katakanaToHiragana(r2)}`)).find(Boolean));
-    }
-    entry(i) {
-      const w = this.words[i];
-      const mine = this.mineOf(w);
-      return { i, kanji: w.k, kana: w.r, romaji: toRomaji(w.r[0] ?? ""), senses: w.s, ru: w.ru ?? [], common: !!w.c, ...w.x ? { phrase: true } : {}, ...mine ? { vocabId: mine.id, level: mine.level } : {} };
-    }
-    get(i) {
-      return Number.isInteger(i) && i >= 0 && i < this.words.length ? this.entry(i) : null;
-    }
-    search(raw, limit = 60) {
-      const q = String(raw ?? "").normalize("NFKC").trim().toLowerCase().slice(0, 40);
-      if (!q) return [];
-      const ja = JA.test(q), ru = !ja && CYR.test(q);
-      const qKana = ja ? katakanaToHiragana(q) : "";
-      const kanaQs = ja ? [qKana] : ru ? [] : answerVariants(q).filter((x) => !/[a-z]/.test(x));
-      const qChars = ja ? [...new Set([...q].filter((c) => HAN3.test(c)))] : [];
-      const qFold = kanaQs.map(fold);
-      const word2 = ru ? new RegExp(`(^|[^\u0430-\u044F\u0451])${esc(q)}`, "i") : ja ? null : new RegExp(`(^|[^a-z])${esc(q)}($|[^a-z])`);
-      const bases = /* @__PURE__ */ new Map();
-      if (!ru) {
-        for (const x of ja ? [q, qKana] : kanaQs) for (const d of deinflect(x)) if (!bases.has(d.word)) bases.set(d.word, d.form);
-      }
-      const typoQs = ru ? [] : (ja ? [qKana] : kanaQs).filter((x) => x.length >= 3 && !HAN3.test(x));
-      const forms = /* @__PURE__ */ new Map(), typos = /* @__PURE__ */ new Map();
-      let sure = 0;
-      const near = [];
-      const scored = [];
-      for (let i = 0; i < this.words.length; i++) {
-        const w = this.words[i], kanas = this.kanas[i];
-        let s = 0;
-        if (ja) {
-          if (w.k.includes(q) || kanas.includes(qKana)) s = 100;
-          else if (w.k.some((k) => k.startsWith(q)) || kanas.some((r2) => r2.startsWith(qKana))) s = 60;
-          else if (w.k.some((k) => k.includes(q)) || q.length > 1 && kanas.some((r2) => r2.includes(qKana))) s = 40;
-          else if (qChars.length && w.k.some((k) => qChars.some((c) => k.includes(c)))) s = 14 + 6 * qChars.filter((c) => w.k[0]?.includes(c)).length;
-          else if (qKana.length > 1 && kanas.some((r2) => fold(r2) === qFold[0])) s = 30;
-        } else if (ru) {
-          for (let n = 0; n < (w.ru?.length ?? 0); n++) {
-            const glosses = w.ru[n].toLowerCase().split(/[;,]\s*|\s*\d+\)\s*/).map(stripNotes).filter(Boolean);
-            if (glosses.includes(q)) s = Math.max(s, n === 0 ? 96 : 88);
-            else if (glosses.some((g) => g.startsWith(q))) s = Math.max(s, n === 0 ? 70 : 60);
-            else if (word2.test(w.ru[n])) s = Math.max(s, 40);
-          }
-        } else {
-          if (kanaQs.some((x) => kanas.includes(x))) s = 100;
-          else if (q.length > 2 && kanaQs.some((x) => kanas.some((r2) => r2.startsWith(x)))) s = 45;
-          else if (q.length > 3 && qFold.some((x) => kanas.some((r2) => fold(r2) === x))) s = 32;
-          const gl = (w.s[0]?.[1].toLowerCase() ?? "").split("; ").map(stripNotes);
-          if (gl[0] === q || gl[0] === `to ${q}`) s = Math.max(s, 98);
-          else if (gl.some((g) => g === q || g === `to ${q}`)) s = Math.max(s, 90);
-          else if (word2.test(w.s[0]?.[1].toLowerCase() ?? "")) s = Math.max(s, 70);
-          else if (w.s.slice(1).some((x) => word2.test(x[1].toLowerCase()))) s = Math.max(s, 40);
-        }
-        if (s < 90 && bases.size && w.s[0]?.[0].some((p) => VERBISH.test(p))) {
-          const hit2 = [...w.k, ...kanas].find((x) => bases.has(x));
-          if (hit2) {
-            s = 92;
-            forms.set(i, bases.get(hit2));
-          }
-        }
-        if (!s && typoQs.length) {
-          for (const tq of typoQs) {
-            const r2 = kanas[0];
-            if (!r2 || Math.abs(r2.length - tq.length) > 1) continue;
-            const marks = nearMiss(tq, r2, tq.length >= 6 ? 2 : 1);
-            if (marks) {
-              near.push([22 - Math.max(1, marks.length) * 4 + (r2.length === tq.length ? 3 : 0) + (w.c ? 12 : 0) + (this.mineOf(w) ? 10 : 0), i]);
-              typos.set(i, marks);
-              break;
-            }
-          }
-        }
-        if (!s) continue;
-        if (s >= 40) sure++;
-        if (w.c) s += 12;
-        if (this.mineOf(w)) s += 10;
-        s -= Math.min(10, (w.k[0] ?? w.r[0] ?? "").length);
-        scored.push([s, i]);
-      }
-      if (sure < 3) scored.push(...near);
-      scored.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
-      return scored.slice(0, limit).map(([, i]) => ({ ...this.entry(i), ...forms.has(i) ? { form: forms.get(i) } : {}, ...typos.has(i) ? { typo: typos.get(i) } : {} }));
-    }
-    /** 0.9.9.7.2: phrases / expressions with this word in them (呼ぶ → 名前を呼ぶ …) */
-    phrasesWith(e, limit = 10) {
-      const keys = (e.kanji[0] ? [e.kanji[0]] : [e.kana[0]]).filter((x) => !!x);
-      const stem = (k) => k.length > 2 && /[うくぐすつぬぶむるい]$/.test(k) ? k.slice(0, -1) : k;
-      const out = [];
-      for (let i = 0; i < this.words.length; i++) {
-        const w = this.words[i];
-        if (!w.x || i === e.i) continue;
-        const text = e.kanji[0] ? w.k : [...w.k, ...w.r];
-        if (!keys.some((k) => text.some((t) => t !== k && t.includes(stem(k))))) continue;
-        out.push([(w.c ? 10 : 0) - (w.k[0] ?? w.r[0] ?? "").length, i]);
-      }
-      out.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
-      return out.slice(0, limit).map(([, i]) => this.entry(i));
-    }
-    /** words written with this kanji (common and the game's own first) — "Words with 信" */
-    withKanji(ch, limit = 12) {
-      if (!HAN3.test(ch)) return [];
-      const out = [];
-      for (let i = 0; i < this.words.length; i++) {
-        const w = this.words[i];
-        if (!w.k.some((k) => k.includes(ch))) continue;
-        out.push([(w.c ? 10 : 0) + (this.mineOf(w) ? 8 : 0) - (w.k[0]?.length ?? 9), i]);
-      }
-      out.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
-      return out.slice(0, limit).map(([, i]) => this.entry(i));
-    }
-  };
-
-  // src/client/dictui.ts
-  init_idb();
-
-  // src/client/conjugate.ts
-  var ROW = {
-    \u3046: ["\u308F", "\u3044", "\u3048", "\u304A", "\u3063\u3066", "\u3063\u305F"],
-    \u304F: ["\u304B", "\u304D", "\u3051", "\u3053", "\u3044\u3066", "\u3044\u305F"],
-    \u3050: ["\u304C", "\u304E", "\u3052", "\u3054", "\u3044\u3067", "\u3044\u3060"],
-    \u3059: ["\u3055", "\u3057", "\u305B", "\u305D", "\u3057\u3066", "\u3057\u305F"],
-    \u3064: ["\u305F", "\u3061", "\u3066", "\u3068", "\u3063\u3066", "\u3063\u305F"],
-    \u306C: ["\u306A", "\u306B", "\u306D", "\u306E", "\u3093\u3067", "\u3093\u3060"],
-    \u3076: ["\u3070", "\u3073", "\u3079", "\u307C", "\u3093\u3067", "\u3093\u3060"],
-    \u3080: ["\u307E", "\u307F", "\u3081", "\u3082", "\u3093\u3067", "\u3093\u3060"],
-    \u308B: ["\u3089", "\u308A", "\u308C", "\u308D", "\u3063\u3066", "\u3063\u305F"]
-  };
-  function conjugate(word2, pos) {
-    const p = pos.find((x) => /^(v1|v5|vk|vs-i|vs-s|adj-i|adj-ix)/.test(x)) ?? (pos.includes("vs") ? "vs" : "");
-    if (!p) return [];
-    if (p === "vs") return suru(word2, "\u3059\u308B");
-    if (p.startsWith("vs-")) return word2.endsWith("\u3059\u308B") ? suru(word2.slice(0, -2), "\u3059\u308B") : [];
-    if (p === "vk") {
-      const stem = word2.slice(0, -2) || word2.slice(0, -1).replace(/来$/, "");
-      const k = word2.endsWith("\u6765\u308B") ? "\u6765" : "";
-      return [
-        ["Dictionary", word2],
-        ["Polite", `${stem}${k || "\u304D"}\u307E\u3059`],
-        ["Negative", `${stem}${k || "\u3053"}\u306A\u3044`],
-        ["Past", `${stem}${k || "\u304D"}\u305F`],
-        ["Te form", `${stem}${k || "\u304D"}\u3066`],
-        ["Potential", `${stem}${k || "\u3053"}\u3089\u308C\u308B`],
-        ["Volitional", `${stem}${k || "\u3053"}\u3088\u3046`],
-        ["Conditional", `${stem}${k || "\u304F"}\u308C\u3070`],
-        ["Imperative", `${stem}${k || "\u3053"}\u3044`]
-      ];
-    }
-    if (p.startsWith("v1")) {
-      const s = word2.slice(0, -1);
-      return [
-        ["Dictionary", word2],
-        ["Polite", `${s}\u307E\u3059`],
-        ["Negative", `${s}\u306A\u3044`],
-        ["Past", `${s}\u305F`],
-        ["Past negative", `${s}\u306A\u304B\u3063\u305F`],
-        ["Te form", `${s}\u3066`],
-        ["Polite past", `${s}\u307E\u3057\u305F`],
-        ["Potential", `${s}\u3089\u308C\u308B`],
-        ["Passive", `${s}\u3089\u308C\u308B`],
-        ["Causative", `${s}\u3055\u305B\u308B`],
-        ["Volitional", `${s}\u3088\u3046`],
-        ["Conditional", `${s}\u308C\u3070`],
-        ["Imperative", `${s}\u308D`]
-      ];
-    }
-    if (p.startsWith("v5")) {
-      const end = word2.slice(-1), s = word2.slice(0, -1), r2 = ROW[end];
-      if (!r2) return [];
-      const iku = p === "v5k-s";
-      const aru = p === "v5aru";
-      const [a, i, e, o] = r2;
-      const te = iku ? "\u3063\u3066" : r2[4], ta = iku ? "\u3063\u305F" : r2[5];
-      const masu = aru ? "\u3044" : i;
-      return [
-        ["Dictionary", word2],
-        ["Polite", `${s}${masu}\u307E\u3059`],
-        ["Negative", p === "v5r-i" ? `${s.replace(/あ$/, "")}\u306A\u3044` : `${s}${a}\u306A\u3044`],
-        ["Past", `${s}${ta}`],
-        ["Past negative", `${s}${a}\u306A\u304B\u3063\u305F`],
-        ["Te form", `${s}${te}`],
-        ["Polite past", `${s}${masu}\u307E\u3057\u305F`],
-        ["Potential", `${s}${e}\u308B`],
-        ["Passive", `${s}${a}\u308C\u308B`],
-        ["Causative", `${s}${a}\u305B\u308B`],
-        ["Volitional", `${s}${o}\u3046`],
-        ["Conditional", `${s}${e}\u3070`],
-        ["Imperative", `${s}${aru ? "\u3044" : e}`]
-      ];
-    }
-    if (p.startsWith("adj-i")) {
-      const ii = p === "adj-ix";
-      const s = ii ? word2.slice(0, -2) + "\u3088" : word2.slice(0, -1);
-      return [
-        ["Dictionary", word2],
-        ["Negative", `${s}\u304F\u306A\u3044`],
-        ["Past", `${s}\u304B\u3063\u305F`],
-        ["Past negative", `${s}\u304F\u306A\u304B\u3063\u305F`],
-        ["Te form", `${s}\u304F\u3066`],
-        ["Adverb", `${s}\u304F`],
-        ["Conditional", `${s}\u3051\u308C\u3070`],
-        ["Polite", `${word2}\u3067\u3059`]
-      ];
-    }
-    return [];
-  }
-  function suru(stem, _s) {
-    return [
-      ["Dictionary", `${stem}\u3059\u308B`],
-      ["Polite", `${stem}\u3057\u307E\u3059`],
-      ["Negative", `${stem}\u3057\u306A\u3044`],
-      ["Past", `${stem}\u3057\u305F`],
-      ["Past negative", `${stem}\u3057\u306A\u304B\u3063\u305F`],
-      ["Te form", `${stem}\u3057\u3066`],
-      ["Polite past", `${stem}\u3057\u307E\u3057\u305F`],
-      ["Potential", `${stem}\u3067\u304D\u308B`],
-      ["Passive", `${stem}\u3055\u308C\u308B`],
-      ["Causative", `${stem}\u3055\u305B\u308B`],
-      ["Volitional", `${stem}\u3057\u3088\u3046`],
-      ["Conditional", `${stem}\u3059\u308C\u3070`],
-      ["Imperative", `${stem}\u3057\u308D`]
-    ];
-  }
-
-  // src/client/dictui.ts
-  init_i18n();
-  init_protocol();
-  init_ui();
-  var $13 = $;
-  var HAN4 = /\p{Script=Han}/u;
-  var h4 = (tag, cls = "", text, attrs = {}) => {
-    const e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (text !== void 0) e.textContent = text;
-    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
-    return e;
-  };
-  var tags = {};
-  var lastQ = "";
-  var lastHits = [];
-  var shown3 = 30;
-  var busy3 = 0;
-  var dictP = null;
-  var DICT_V = "jmdict-2026-10-26+phrases";
-  var OFFLINE_PREF = "kb:dictOffline";
-  var offlinePref = () => {
-    try {
-      return localStorage.getItem(OFFLINE_PREF);
-    } catch {
-      return null;
-    }
-  };
-  var setOfflinePref = (v) => {
-    try {
-      localStorage.setItem(OFFLINE_PREF, v);
-    } catch {
-    }
-  };
-  async function storedDict() {
-    const s = await get("dict:all").catch(() => void 0);
-    return s && s.dict?.words?.length ? s : null;
-  }
-  async function downloadDict(onProgress) {
-    const r2 = await fetch(`/dict.json?v=${encodeURIComponent(DICT_V)}`, { cache: "no-store" });
-    if (!r2.ok || !r2.body) throw new Error(`dict ${r2.status}`);
-    const total = Number(r2.headers.get("content-length")) || 25e5;
-    const reader = r2.body.getReader();
-    const chunks = [];
-    let done2 = 0;
-    for (; ; ) {
-      const { value, done: end } = await reader.read();
-      if (end) break;
-      chunks.push(value);
-      done2 += value.length;
-      onProgress(done2, Math.max(total, done2));
-    }
-    const text = new TextDecoder().decode(await new Blob(chunks).arrayBuffer());
-    const dict = JSON.parse(text);
-    const m = await Promise.resolve().then(() => (init_vocab2(), vocab_exports));
-    await m.loadVocab().catch(() => {
-    });
-    const stored = { v: DICT_V, dict, vocab: [...m.VOCAB] };
-    await set("dict:all", stored);
-    return stored;
-  }
-  function dictionary() {
-    dictP ?? (dictP = (async () => {
-      const kept = await storedDict();
-      if (kept) {
-        if (kept.v !== DICT_V && navigator.onLine) void downloadDict(() => {
-        }).then((s) => {
-          dictP = Promise.resolve(build2(s.dict, s.vocab));
-        }).catch(() => {
-        });
-        return build2(kept.dict, kept.vocab);
-      }
-      const [data, vocab] = await Promise.all([fetch("/dict.json").then((r2) => {
-        if (!r2.ok) throw new Error(`dict ${r2.status}`);
-        return r2.json();
-      }), Promise.resolve().then(() => (init_vocab2(), vocab_exports)).then(async (m) => {
-        await m.loadVocab();
-        return m.VOCAB;
-      })]);
-      return build2(data, vocab);
-    })().catch((e) => {
-      dictP = null;
-      throw e;
-    }));
-    return dictP;
-  }
-  function build2(data, vocab) {
-    const d = new Dictionary(data, vocab);
-    tags = d.tags;
-    return d;
-  }
-  async function askOffline() {
-    if (offlinePref() || await storedDict()) return;
-    const card = h4("div", "dict-home dict-offline");
-    card.append(h4("h4", "", tr("Use the dictionary offline?")), h4("p", "hint", tr("Download every word and phrase (about 2.5 MB) to this device \u2014 then the dictionary works without internet, anywhere.")));
-    const bar = h4("div", "dl-bar");
-    const fill2 = h4("i");
-    bar.append(fill2);
-    bar.hidden = true;
-    const yes = h4("button", "pill primary", tr("Download"), { type: "button" });
-    const no2 = h4("button", "pill", tr("Not now"), { type: "button" });
-    const row = h4("div", "dict-tries");
-    row.append(yes, no2);
-    card.append(row, bar);
-    $13("dictBody").replaceChildren(card);
-    await new Promise((done2) => {
-      no2.onclick = () => {
-        setOfflinePref("no");
-        done2();
-      };
-      yes.onclick = async () => {
-        yes.disabled = true;
-        bar.hidden = false;
-        try {
-          const s = await downloadDict((d, t) => {
-            fill2.style.width = `${Math.round(d / t * 100)}%`;
-            yes.textContent = `${Math.round(d / t * 100)}%`;
-          });
-          setOfflinePref("yes");
-          dictP = Promise.resolve(build2(s.dict, s.vocab));
-          toast(tr("The dictionary is on this device now \u2014 it works offline."), 4e3);
-          done2();
-        } catch {
-          yes.disabled = false;
-          yes.textContent = tr("Download");
-          bar.hidden = true;
-          toast(tr("The download failed \u2014 check your internet and try again."), 4e3);
-        }
-      };
-    });
-  }
-  function headword(w, cls = "dw-head") {
-    const box = h4("div", cls, void 0, { lang: "ja" });
-    const main = w.kanji[0];
-    if (main) {
-      const r2 = h4("ruby");
-      r2.append(main, h4("rt", "", w.kana[0] ?? ""));
-      box.append(r2);
-    } else box.append(w.kana[0] ?? "");
-    return box;
-  }
-  function nearWord(w) {
-    const box = h4("div", "dh-word dh-near", void 0, { lang: "ja" });
-    const marks = new Set(w.typo ?? []);
-    const reading = h4("span", "dh-near-r");
-    [...w.kana[0] ?? ""].forEach((c, i) => reading.append(marks.has(i) ? h4("b", "dh-miss", c) : c));
-    if (w.kanji[0]) box.append(w.kanji[0], h4("span", "dh-sep", " \xB7 "), reading);
-    else box.append(reading);
-    return box;
-  }
-  function badges2(w) {
-    const row = h4("div", "dw-tags");
-    if (w.level) row.append(h4("span", `dw-tag lv lv-${w.level}`, LEVEL_LABEL[w.level], { "data-no-i18n": "" }));
-    if (w.phrase) row.append(h4("span", "dw-tag phrase", tr("phrase")));
-    if (w.vocabId) row.append(h4("span", "dw-tag game", tr("game word")));
-    return row;
-  }
-  var posText = (pos) => pos.map((p) => tags[p] ?? p).join(", ");
-  var ruOf = (w) => lang() === "ru" && w.ru.length ? w.ru : null;
-  async function search(q) {
-    q = q.trim();
-    const body = $13("dictBody");
-    if (!q) {
-      drawHome();
-      return;
-    }
-    const n = ++busy3;
-    body.replaceChildren(h4("p", "hint center", tr("Searching\u2026")));
-    try {
-      const d = await dictionary();
-      if (n !== busy3) return;
-      lastQ = q;
-      lastHits = d.search(q, 120);
-      shown3 = 30;
-      drawList();
-    } catch {
-      if (n === busy3) body.replaceChildren(h4("p", "hint center", tr("The dictionary couldn\u2019t load \u2014 open it once with internet, then it works offline too.")));
-    }
-  }
-  function drawHome() {
-    const home = h4("div", "dict-home");
-    home.append(h4("p", "hint", tr("Type a word in kanji, kana, romaji, English or Russian. Open a word for all its meanings, its kanji with memory pictures, example sentences \u2014 and add it to your decks.")));
-    const status = h4("p", "hint dict-store");
-    void storedDict().then((kept) => {
-      if (kept) {
-        status.textContent = `\u2713 ${tr("Saved on this device \u2014 works offline.")}`;
-        return;
-      }
-      const b = h4("button", "pill", tr("Save it on this device for offline use"), { type: "button" });
-      b.onclick = () => {
-        try {
-          localStorage.removeItem(OFFLINE_PREF);
-        } catch {
-        }
-        void askOffline().then(drawHome);
-      };
-      status.append(b);
-    });
-    home.append(status);
-    $13("dictBody").replaceChildren(home);
-  }
-  function drawList() {
-    const body = $13("dictBody");
-    if (!lastHits.length) {
-      body.replaceChildren(h4("p", "hint center", `${tr("Nothing found for")} \u201C${lastQ}\u201D`));
-      return;
-    }
-    const list = h4("div", "dict-list");
-    for (const w of lastHits.slice(0, shown3)) {
-      const card = h4("button", "dict-hit", void 0, { type: "button" });
-      const top = h4("div", "dh-top");
-      top.append(w.typo ? nearWord(w) : headword(w, "dh-word"), badges2(w));
-      if (w.form) top.append(h4("span", "dh-form", `\u2190 ${w.form.split(" \xB7 ").map((x) => tr(x)).join(" \xB7 ")}`));
-      const ru = ruOf(w);
-      const means = h4("ol", "dh-means");
-      (ru ?? w.senses.map((s) => s[1])).slice(0, 3).forEach((m) => means.append(h4("li", "", m, { "data-no-i18n": "" })));
-      card.append(top, means);
-      card.onclick = () => void openWord(w.i);
-      list.append(card);
-    }
-    const kids = [h4("p", "hint dict-count", `${lastHits.length}${lastHits.length >= 120 ? "+" : ""} ${tr(lastHits.length === 1 ? "match" : "matches")}`), list];
-    if (lastHits.length > shown3) {
-      const more = h4("button", "pill dict-more", tr("Show more"), { type: "button" });
-      more.onclick = () => {
-        shown3 += 30;
-        drawList();
-      };
-      kids.push(more);
-    }
-    body.replaceChildren(...kids);
-    body.scrollTop = 0;
-  }
-  async function openWord(i) {
-    const body = $13("dictBody");
-    body.replaceChildren(h4("p", "hint center", tr("Loading\u2026")));
-    const d = await dictionary().catch(() => null);
-    const w = d?.get(i);
-    if (!d || !w) {
-      body.replaceChildren(h4("p", "hint center", tr("No such word")));
-      return;
-    }
-    const chars0 = [...new Set([...w.kanji[0] ?? ""].filter((c) => HAN4.test(c)))];
-    const r2 = { withKanji: Object.fromEntries(chars0.map((c) => [c, d.withKanji(c, 8).filter((x) => x.i !== w.i)])) };
-    const page2 = h4("article", "dict-word");
-    const back = h4("button", "pill dict-back", `\u2190 ${tr("Results")}`, { type: "button" });
-    back.onclick = () => lastHits.length ? drawList() : drawHome();
-    const head = h4("div", "dw-top");
-    const left = h4("div", "dw-left");
-    left.append(headword(w), h4("div", "dw-romaji", w.romaji, { "data-no-i18n": "" }));
-    if (w.kana.length > 1 || w.kanji.length > 1) left.append(h4("div", "dw-alt", [...w.kanji.slice(1), ...w.kana.slice(1)].join("\u30FB"), { lang: "ja" }));
-    left.append(badges2(w));
-    const acts = h4("div", "dw-acts");
-    if (voiceAvailable()) {
-      const s = h4("button", "pill", `\u{1F50A} ${tr("Listen")}`, { type: "button" });
-      s.onclick = () => void speak(w.kana[0] ?? "");
-      acts.append(s);
-    }
-    acts.append(addTo(w));
-    if (w.kanji[0] && HAN4.test(w.kanji[0])) {
-      const so = h4("button", "pill", `\u270D ${tr("Stroke order")}`, { type: "button" });
-      so.onclick = () => openStrokeDialog(w.kanji[0], w.kana[0] ?? "", w.senses[0]?.[1] ?? "");
-      acts.append(so);
-    }
-    head.append(left, acts);
-    page2.append(back, head);
-    const sec = (title) => {
-      const s = h4("section", "dw-sec");
-      s.append(h4("h4", "", tr(title)));
-      page2.append(s);
-      return s;
-    };
-    const mean = sec("Meanings");
-    let lastPos = "";
-    const ol = h4("ol", "dw-senses");
-    w.senses.forEach(([pos2, gl, misc, info]) => {
-      const p = posText(pos2);
-      if (p && p !== lastPos) {
-        ol.append(h4("li", "dw-pos", p, { "data-no-i18n": "" }));
-        lastPos = p;
-      }
-      const li = h4("li", "dw-sense");
-      li.append(h4("span", "", gl, { "data-no-i18n": "" }));
-      for (const m of misc) li.append(h4("span", "dw-misc", tags[m] ?? m, { "data-no-i18n": "" }));
-      if (info) li.append(h4("span", "dw-info", info, { "data-no-i18n": "" }));
-      ol.append(li);
-    });
-    mean.append(ol);
-    if (w.ru.length) {
-      const ru = h4("ol", "dw-senses ru");
-      w.ru.forEach((m) => ru.append(h4("li", "dw-sense", m, { "data-no-i18n": "" })));
-      const s = sec("In Russian");
-      s.append(ru);
-      if (lang() === "ru") mean.before(s);
-    }
-    if (w.vocabId) {
-      const ex = await exampleFor(w.vocabId).catch(() => null);
-      if (ex) sec("Example").append(ex);
-    }
-    const pos = w.senses[0]?.[0] ?? [];
-    const forms = conjugate(w.kanji[0] ?? w.kana[0] ?? "", pos);
-    if (forms.length) {
-      const readings = w.kanji[0] ? conjugate(w.kana[0] ?? "", pos) : [];
-      const t = h4("table", "dw-table");
-      forms.forEach(([label, f2], n) => {
-        const row = h4("tr");
-        const cell = h4("td", "", void 0, { lang: "ja" });
-        cell.append(h4("span", "dw-f", f2));
-        const kana = readings[n]?.[1];
-        if (kana && kana !== f2) cell.append(h4("span", "dw-fk", kana));
-        row.append(h4("th", "", tr(label)), cell);
-        t.append(row);
-      });
-      sec("Forms").append(t);
-    }
-    const phrases = d.phrasesWith(w, 10);
-    if (phrases.length) {
-      const box = h4("div", "dw-phrases");
-      for (const p of phrases) {
-        const b = h4("button", "dw-phrase", void 0, { type: "button" });
-        const jp = h4("span", "dwp-jp", void 0, { lang: "ja" });
-        jp.append(p.kanji[0] ?? p.kana[0] ?? "");
-        if (p.kanji[0]) jp.append(h4("small", "", p.kana[0] ?? ""));
-        b.append(jp, h4("span", "dwp-m", ruOf(p)?.[0] ?? p.senses[0]?.[1] ?? "", { "data-no-i18n": "" }));
-        b.onclick = () => void openWord(p.i);
-        box.append(b);
-      }
-      sec("Phrases").append(box);
-    }
-    const chars2 = [...new Set([...w.kanji[0] ?? ""].filter((c) => HAN4.test(c)))];
-    if (chars2.length) {
-      const ks = sec("Kanji");
-      const info = await loadKanji();
-      const ru = lang() === "ru";
-      for (const c of chars2) {
-        const k = info[c];
-        const card = h4("div", "dw-kanji");
-        const big = h4("button", "dw-kchar", c, { type: "button", lang: "ja", title: tr("Memory picture") });
-        big.onclick = () => void showKanji(c, big);
-        const meta = h4("div", "dw-kmeta");
-        if (k) {
-          meta.append(h4("b", "", ru && k[1] ? k[1] : k[0], { "data-no-i18n": "" }));
-          const rd = h4("div", "dw-kreads", void 0, { lang: "ja" });
-          if (k[2]) rd.append(h4("span", "", `${ru ? "\u043E\u043D" : "on"}: ${k[2]}`, { "data-no-i18n": "" }));
-          if (k[3]) rd.append(h4("span", "", `${ru ? "\u043A\u0443\u043D" : "kun"}: ${k[3]}`, { "data-no-i18n": "" }));
-          meta.append(rd);
-          if (k[4].length) meta.append(h4("div", "dw-kparts", k[4].map(([pc, pen, pru]) => `${pc ? pc + " " : ""}${ru && pru ? pru : pen}`).join(" + "), { "data-no-i18n": "" }));
-        }
-        const pic = h4("button", "pill dw-kpic", `\u{1F5BC} ${tr("Memory picture")}`, { type: "button" });
-        pic.onclick = () => void showKanji(c, big);
-        meta.append(pic);
-        card.append(big, meta);
-        const more = r2.withKanji[c] ?? [];
-        if (more.length) {
-          const row = h4("div", "dw-with");
-          row.append(h4("span", "hint", `${tr("Words with")} ${c}:`));
-          for (const m of more) {
-            const b = h4("button", "dw-chip", void 0, { type: "button", lang: "ja" });
-            b.append(h4("b", "", m.kanji[0] ?? m.kana[0]), h4("small", "", m.kana[0] ?? ""));
-            b.title = ruOf(m)?.[0] ?? m.senses[0]?.[1] ?? "";
-            b.onclick = () => void openWord(m.i);
-            row.append(b);
-          }
-          card.append(row);
-        }
-        ks.append(card);
-      }
-    }
-    page2.append(h4("p", "hint dw-src", "JMdict \xA9 EDRDG (CC BY-SA 4.0)", { "data-no-i18n": "" }));
-    body.replaceChildren(page2);
-    window.scrollTo({ top: 0 });
-  }
-  function addTo(w) {
-    const sel = h4("select", "pill dw-add", void 0, { "aria-label": tr("Add to a deck") });
-    sel.append(Object.assign(h4("option", "", `+ ${tr("Add to\u2026")}`), { value: "" }));
-    for (const d of ["all", "struggling", "custom"]) sel.append(Object.assign(h4("option", "", tr(DECK_LABEL[d])), { value: d }));
-    sel.onchange = async () => {
-      const deck2 = sel.value;
-      if (!deck2) return;
-      sel.disabled = true;
-      const word2 = w.kanji[0] ?? w.kana[0] ?? "";
-      try {
-        let id = w.vocabId;
-        if (!id || deck2 === "custom") {
-          const meaning2 = lang() === "ru" && w.ru[0] || w.senses.slice(0, 2).map((s) => s[1]).join("; ");
-          const r3 = await api.addCustom(id ? { vocabId: id } : { kanji: word2, reading: w.kana[0] ?? word2, meaning: meaning2.slice(0, 120) });
-          id = r3.word.id;
-          if (deck2 === "custom") {
-            toast(r3.added ? `${word2} \u2192 ${tr(DECK_LABEL.custom)}` : `${word2}: ${tr("already in")} ${tr(DECK_LABEL.custom)}`);
-            return;
-          }
-        }
-        const r2 = await api.deckAdd(deck2, [id]);
-        toast(r2.added.length ? `${word2} \u2192 ${tr(DECK_LABEL[deck2])}` : `${word2}: ${tr("already in")} ${tr(DECK_LABEL[deck2])}`);
-      } catch (e) {
-        toast(e.message);
-      } finally {
-        sel.value = "";
-        sel.disabled = false;
-      }
-    };
-    return sel;
-  }
-  function openDict() {
-    show("dict");
-    const q = $13("dictQ");
-    if (!lastHits.length) drawHome();
-    void askOffline().then(() => {
-      if (!lastHits.length) drawHome();
-      void dictionary().catch(() => {
-      });
-    });
-    setTimeout(() => q.focus(), 50);
-  }
-  $13("dictForm").onsubmit = (e) => {
-    e.preventDefault();
-    void search($13("dictQ").value);
-  };
-  {
-    let t = 0;
-    $13("dictQ").addEventListener("input", () => {
-      clearTimeout(t);
-      t = window.setTimeout(() => void search($13("dictQ").value), 350);
-    });
-    $13("dictQ").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        clearTimeout(t);
-        void search($13("dictQ").value);
-      }
-    });
-  }
-  $13("dictBack").onclick = () => show("menu");
-
   // src/client/main.ts
   initWhatsNew();
   applyUiZoom();
@@ -16011,6 +16310,7 @@ ${stack}`.slice(0, 2e3);
     if (s === "menu" && profile2) void refreshProfile();
     if (s !== "lobby") void renderLobbyInvites(false);
     railScreen(s);
+    dictRailScreen(s);
     if (s === "menu" || s === "queue") void refreshOnline();
     for (const b of document.querySelectorAll("[data-pause]")) b.hidden = !(soloVsAi && ["prep", "battle", "deck"].includes(s));
     if (!["prep", "battle", "deck"].includes(s)) setPaused(false);
@@ -16099,7 +16399,7 @@ ${stack}`.slice(0, 2e3);
     try {
       const { user: u, profile: p } = await api.me();
       applyProfile(p);
-      signedIn3(u);
+      signedIn4(u);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         setToken("");
@@ -16173,12 +16473,13 @@ ${stack}`.slice(0, 2e3);
     if (await goOffline()) void boot();
     else $("authError").textContent = "Nothing saved on this device yet \u2014 sign in once while online.";
   };
-  function signedIn3(u) {
+  function signedIn4(u) {
     user = u;
     remindersSignedIn();
     if (!isOffline()) void signedIn(u.id);
     setUser(u);
     setRailUser(true);
+    setDictRailUser(true);
     socket.start(getToken());
     if (!inRoom) show("menu");
     if (!profile2) void refreshProfile();
@@ -16191,6 +16492,7 @@ ${stack}`.slice(0, 2e3);
     inRoom = false;
     setUser(null);
     setRailUser(false);
+    setDictRailUser(false);
     setAuthTab(authTab);
     show("auth");
     let left = "";
@@ -16304,6 +16606,7 @@ ${stack}`.slice(0, 2e3);
         $("resultLobby").classList.remove("pulse");
         players = msg.players;
         soloVsAi = msg.players.filter((p) => !p.bot).length === 1;
+        forfeitLabels();
         setPaused(false);
         mode3 = msg.mode;
         minPlayers = msg.minPlayers;
@@ -16651,7 +16954,7 @@ ${stack}`.slice(0, 2e3);
       const res2 = authTab === "login" ? await api.login(username, password) : await api.register(username, password);
       setToken(res2.token);
       $("authPass").value = "";
-      signedIn3(res2.user);
+      signedIn4(res2.user);
       void refreshProfile();
     } catch (err) {
       $("authError").textContent = err instanceof Error ? err.message : "Something went wrong";
@@ -16904,14 +17207,22 @@ ${stack}`.slice(0, 2e3);
   function armForfeit(btnId) {
     let armed = 0;
     $(btnId).onclick = () => {
+      const label = soloVsAi ? "Leave" : "Forfeit";
       if (Date.now() - armed < 3e3) {
-        socket.send({ type: "forfeit" });
+        socket.send(soloVsAi ? { type: "leave_game" } : { type: "forfeit" });
         return;
       }
       armed = Date.now();
-      $(btnId).textContent = "Tap again to forfeit";
-      setTimeout(() => $(btnId).textContent = "Forfeit", 3e3);
+      $(btnId).textContent = soloVsAi ? "Tap again to leave" : "Tap again to forfeit";
+      setTimeout(() => $(btnId).textContent = label, 3e3);
     };
+  }
+  function forfeitLabels() {
+    for (const id of ["forfeit", "dkForfeit"]) {
+      const b = $(id);
+      b.textContent = soloVsAi ? "Leave" : "Forfeit";
+      b.classList.toggle("leave", soloVsAi);
+    }
   }
   armForfeit("forfeit");
   armForfeit("dkForfeit");
@@ -17161,7 +17472,7 @@ ${stack}`.slice(0, 2e3);
   {
     const panel = $("volPanel");
     const music = $("musicVol"), fx = $("sfxVol"), vo = $("voiceVol");
-    const show4 = () => {
+    const show5 = () => {
       const vp = getVoicePrefs();
       vo.value = String(Math.round(vp.vol * 100));
       $("voiceVolVal").textContent = `${vo.value}%`;
@@ -17177,20 +17488,20 @@ ${stack}`.slice(0, 2e3);
       e.stopPropagation();
       panel.hidden = !panel.hidden;
       $("volBtn").setAttribute("aria-expanded", String(!panel.hidden));
-      show4();
+      show5();
     };
     music.oninput = () => {
       setMusicVolume(Number(music.value) / 100);
-      show4();
+      show5();
     };
     fx.oninput = () => {
       setSfxVolume(Number(fx.value) / 100);
-      show4();
+      show5();
     };
     fx.onchange = () => previewSfx();
     vo.oninput = () => {
       setVoiceVolume(Number(vo.value) / 100);
-      show4();
+      show5();
     };
     vo.onchange = () => say("\u304B\u3093\u3058");
     addEventListener("click", (e) => {

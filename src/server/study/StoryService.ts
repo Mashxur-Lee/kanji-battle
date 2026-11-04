@@ -80,6 +80,7 @@ Format rules for the "ja" text (very important):
 - Write every kanji with its furigana as [漢字|かんじ] — e.g. [今日|きょう]は[寺|てら]で — never a kanji outside these brackets.
 - Kana is written as it is, never in brackets.
 - Wrap each of the words above, where it appears, in 【】 together with its okurigana or conjugation — e.g. 【[祈|いの]った】 or 【[静|しず]かな】. Use 【】 only for those words, once each.
+- A word of the list written only in kana (an onomatopoeia like わくわく or ドキドキ) stays in that kana — e.g. 【わくわく】して or 【ドキドキ】した.
 - Write the rest of the story at ${LEVEL_HINT[level]} — the other words and the grammar should be of that level (and easier), so it is a good read for someone studying that level.
 
 Answer with JSON only, no other text:
@@ -141,6 +142,9 @@ async function complete(p: StoryProvider, text: string, signal: AbortSignal): Pr
     { model: p.model, messages: [{ role: 'user', content: text }], response_format: { type: 'json_object' }, temperature: 0.9 });
   return d.choices?.[0]?.message?.content ?? '';
 }
+
+/** 0.9.9.8: how long (and how many answers) a story may take before the app falls back to example sentences */
+export const STORY_BUDGET_MS = 150_000, STORY_ATTEMPTS = 6;
 
 export class StoryService {
   private readonly cache = new Map<string, Story>();
@@ -206,7 +210,7 @@ export class StoryService {
     const k = `${userId}|${today}`;
     if (!this.used.has(k)) { if (this.used.size > 20_000) this.used.clear(); this.used.set(k, { n: 0, tries: 0 }); }
     const u = this.used.get(k)!;
-    if (u.n >= cap || u.tries >= Math.max(20, cap * 3)) return { story: null, why: 'limit' };
+    if (u.n >= cap || u.tries >= Math.max(40, cap * 6)) return { story: null, why: 'limit' };
     // a cap for everyone together keeps a free API plan within its daily quota — by the server's day (0.9.9.4.4.7:
     // the app's day can be yesterday or tomorrow, and switching between them mustn't reset it)
     const serverDay = new Date().toISOString().slice(0, 10);
@@ -217,14 +221,20 @@ export class StoryService {
     try { return await this.write(u, key, words, level); } finally { this.busy.delete(userId); }
   }
 
+  /**
+   * 0.9.9.8: keeps trying until there is a story (up to ~2½ minutes) instead of giving up after one bad answer.
+   * A story that left a word out ("missing 雨") is asked for again with a reminder of exactly which words it missed.
+   */
   private async write(u: { n: number; tries: number }, key: string, words: StoryWord[], level: StoryLevel): Promise<{ story: Story | null; why?: string }> {
     let why = '';
+    let hint = '';
     const start = Date.now();
-    // a second try only when the first was quick (the app waits about 90 s in all)
-    for (let attempt = 0; attempt < 2 && (attempt === 0 || Date.now() - start < 30_000); attempt++) {
+    for (let attempt = 0; attempt < STORY_ATTEMPTS; attempt++) {
+      const left = STORY_BUDGET_MS - (Date.now() - start);
+      if (left < 8_000) break; // (no time for another answer)
       try {
         u.tries++;
-        const s = await this.ask(words, level);
+        const s = await this.ask(words, level, hint, Math.min(55_000, left));
         const st = normalizeStory(s, words);
         if (typeof st !== 'string') {
           // only a story you actually get counts
@@ -235,21 +245,26 @@ export class StoryService {
           return { story: st };
         }
         why = st;
-        console.warn('story rejected:', st);
+        hint = st.startsWith('missing ')
+          ? `\n\nIMPORTANT: your last story left out (or did not mark with 【】) these words: ${st.slice(8)}. This time every one of the ${words.length} words must be in the story, each wrapped in 【】.`
+          : `\n\nIMPORTANT: your last answer could not be used (${st}). Follow the format exactly.`;
+        console.warn(`story rejected (try ${attempt + 1}):`, st);
       } catch (e) {
         why = (e as Error).name === 'AbortError' ? 'timeout' : (e as Error).message;
-        console.warn('story failed:', why);
+        console.warn(`story failed (try ${attempt + 1}):`, why);
         if (/ 4\d\d:/.test(why) && !/ 429:/.test(why)) break; // a bad key / model: trying again won't help
+        if (/ 429:/.test(why)) await new Promise((ok) => setTimeout(ok, 3000)); // (rate limit: a breath first)
+        hint = /^SyntaxError|JSON/.test(why) ? '\n\nIMPORTANT: answer with valid JSON only.' : hint;
       }
     }
     return { story: null, why: why.slice(0, 300) };
   }
 
-  private async ask(words: readonly StoryWord[], level: StoryLevel): Promise<Story | null> {
+  private async ask(words: readonly StoryWord[], level: StoryLevel, hint = '', ms = 55_000): Promise<Story | null> {
     const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 55_000);
+    const t = setTimeout(() => ctl.abort(), ms);
     try {
-      const text = await complete(this.provider!, prompt(words, level), ctl.signal);
+      const text = await complete(this.provider!, prompt(words, level) + hint, ctl.signal);
       const json = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
       return JSON.parse(json) as Story;
     } finally { clearTimeout(t); }

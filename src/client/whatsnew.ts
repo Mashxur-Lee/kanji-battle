@@ -7,6 +7,35 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.8', date: '2026-11',
+    en: [
+      'Dictionary side panel: always at hand — a bar on the left on PC (friends are on the right), a 辞 button bottom-left on phones. Look a word up, read its meanings and add it to a deck without leaving the screen you’re on. (Hidden in battles, quizzes and the Daily challenge.) The main menu moved in from the edge to make room.',
+      'Dictionary: suggestions after every letter — English (wat → water), Russian (вод → вода) and half-typed romaji (tabem → 食べる) all show the best match while you type.',
+      'Phones: the battle keyboard types where the cursor is — tap the answer box (or use ◀ ▶) to fix a letter in the middle.',
+      'Against the AI only (or a solo Boss run) the battle button is Leave, not Forfeit — straight back to your lobby.',
+      'Kanji Reading balance: N1 and N2 words take longer to cast than かな, so a slow-casting player now needs fewer hits and a fast one a few more — a game takes about as long at every level.',
+      'Rapid against the AI: every word is from your All spells, and the AI needs at least 2½ s (longer for long words) — no more instant answers.',
+      'Boss Elimination: the HP bars are tidy on phones (upright and sideways), and AI teammates are much sharper — they reach combos (shielded from the dragon’s fire) and no longer fall halfway.',
+      'Deck Duel: the cards you draft carry YOUR words — each card’s colour (Bolt … Inferno) is a band of difficulty, and it gets one of your All spells words of that band (a random word if you have none). The same for your opponent.',
+      'Reading passage: an Onomatopoeia deck option, and when the AI leaves a word out it tries again (telling it which word it missed) instead of giving up.',
+      'Phones: looking around by moving the phone works like aiming a camera — swing it left or right and you look left or right, tilt it and you look up or down, however you hold it.',
+      'The purple notifications slide back up the way they came down.',
+    ],
+    ru: [
+      'Боковая панель словаря: всегда под рукой — полоса слева на ПК (друзья справа), кнопка 辞 внизу слева на телефонах. Найдите слово, прочитайте значения и добавьте его в колоду, не уходя с экрана. (Скрыта в боях, тестах и ежедневном испытании.) Главное меню отодвинулось от края.',
+      'Словарь: подсказки после каждой буквы — английский (wat → water), русский (вод → вода) и недописанный ромадзи (tabem → 食べる) показывают лучшее совпадение по мере ввода.',
+      'Телефоны: боевая клавиатура печатает там, где курсор — нажмите на поле ответа (или ◀ ▶), чтобы исправить букву в середине.',
+      'Только против ИИ (или в одиночном бою с боссом) кнопка в бою — «Выйти», а не «Сдаться»: сразу обратно в лобби.',
+      'Баланс «Чтения кандзи»: слова N1 и N2 дольше вводить, чем かな, поэтому медленному игроку теперь нужно меньше попаданий, а быстрому — чуть больше: партия длится примерно одинаково на любом уровне.',
+      'Блиц против ИИ: все слова из ваших «Всех заклинаний», а ИИ нужно не меньше 2,5 с (на длинные слова — дольше) — больше никаких мгновенных ответов.',
+      'Бой с боссом: полоски здоровья аккуратны на телефонах (вертикально и горизонтально), а ИИ-союзники гораздо сильнее — набирают комбо (защита от огня дракона) и больше не падают на полпути.',
+      'Дуэль колод: выбранные карты получают ВАШИ слова — цвет карты (Молния … Инферно) — это полоса сложности, и карта получает слово из ваших «Всех заклинаний» этой сложности (случайное, если таких нет). Так же и у соперника.',
+      'Текст для чтения: колода ономатопеи, а если ИИ пропустил слово, он пробует снова (ему говорят, какое слово он пропустил), а не сдаётся.',
+      'Телефоны: осматриваться, двигая телефон, теперь как целиться камерой — поверните влево или вправо, и вы смотрите влево или вправо; наклоните — вверх или вниз, как бы вы ни держали телефон.',
+      'Фиолетовые уведомления уезжают вверх так же, как появились.',
+    ],
+  },
+  {
     v: '0.9.9.7.3', date: '2026-11',
     en: [
       'Dictionary offline: the first time you open it, it asks whether to save the whole dictionary (every word and phrase) on your device. Say yes and it works with no connection at all; you can also save it later from the dictionary page.',

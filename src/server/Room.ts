@@ -317,13 +317,25 @@ export class Room {
     // study phase of the classic modes, or hero pick / first draft of a Deck Duel (nothing played yet)
     const early = this.game instanceof DeckGame ? this.game.canReturnToLobby() : this.game.snapshot(id).phase === 'prep';
     if (!early) return;
+    this.callOff(id);
+  }
+
+  /** 0.9.9.8: only you (against AI, or a solo Boss run): Leave ends the game and you're back in the lobby — no forfeit. */
+  leaveGame(id: PlayerId) {
+    if (this.phase !== 'game' || !this.game || !this.has(id) || this.humans.length !== 1) return;
+    if (this.clock.paused) this.clock.resume();
+    this.callOff(id, true);
+  }
+
+  private callOff(id: PlayerId, quiet = false) {
+    if (!this.game) return;
     this.game.dispose();
     for (const p of this.roster) p.bot?.dispose();
     this.game = undefined;
     this.phase = 'lobby';
     const name = this.roster.find((p) => p.id === id)?.name ?? 'Someone';
     this.broadcastLobby();
-    this.broadcast({ type: 'notice', message: `${name} went back to the lobby.` });
+    if (!quiet) this.broadcast({ type: 'notice', message: `${name} went back to the lobby.` });
   }
 
   rematch(id: PlayerId) {
@@ -414,7 +426,8 @@ export class Room {
       // 0.9.9.4.4: the cards come from both players' All spells (an AI's share: random words)
       for (const p of this.roster) if (!p.bot) this.loadSpells(p.id); // fresh for the next draft round
       const spells = () => this.roster.map((p) => this.spells.get(p.id) ?? new Set<string>());
-      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: 0, pic: p.profile.pic ?? null, flame: p.profile.flame ?? 'blue', staff: p.profile.staff ?? 'verdant', pose: p.profile.pose ?? 'none' })), () => buildDraftPool(VOCAB, writable, Math.random, undefined, spells()), emit, judge, Math.random, clock.now, undefined, clock);
+      this.game = new DeckGame(this.roster.map((p) => ({ id: p.id, name: p.name, crit: 0, pic: p.profile.pic ?? null, flame: p.profile.flame ?? 'blue', staff: p.profile.staff ?? 'verdant', pose: p.profile.pose ?? 'none' })), () => buildDraftPool(VOCAB, writable, Math.random, undefined, spells()), emit, judge, Math.random, clock.now, undefined, clock,
+        { vocab: VOCAB, writable, spells: (id) => this.spells.get(id) });
       this.game.start();
       return;
     }
@@ -425,7 +438,14 @@ export class Room {
       const levels = this.unionLevels();
       this.rapidOwner.clear();
       const own: VocabEntry[] = [];
-      for (const p of this.roster) {
+      const solo = this.humans.length === 1 ? this.humans[0] : null;
+      if (solo) {
+        // 0.9.9.8: against the AI, every word is one of yours (All spells, your levels first; random words only if you have too few)
+        const mine = this.spells.get(solo.id) ?? new Set<string>();
+        const inLv = shuffle(VOCAB.filter((v) => levels.includes(v.level) && mine.has(v.id)), Math.random);
+        const other = inLv.length >= 20 ? [] : shuffle(VOCAB.filter((v) => !levels.includes(v.level) && mine.has(v.id)), Math.random);
+        own.push(...[...inLv, ...other].slice(0, 40)); // (no "From your spells" label: they all are)
+      } else for (const p of this.roster) {
         const mine = this.spells.get(p.id);
         if (!mine?.size) continue;
         const words = shuffle(VOCAB.filter((v) => levels.includes(v.level) && mine.has(v.id) && !own.includes(v)), Math.random).slice(0, 5);

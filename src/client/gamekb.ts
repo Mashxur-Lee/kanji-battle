@@ -30,16 +30,39 @@ let shownBefore = false;
 
 function input() { return (target ?? battle()).el; }
 const locked = () => (target && target.el.id !== 'answer' ? target.el.disabled : ui.answerLocked());
+// 0.9.9.8: the keys type where the cursor is (tap the answer box, or ◀ ▶), not always at the end
+const caret = (i: HTMLInputElement): [number, number] => {
+  const n = i.value.length;
+  const a = i.selectionStart ?? n, b = i.selectionEnd ?? n;
+  return [Math.min(a, n), Math.min(b, n)];
+};
 function preview() {
-  const v = input().value;
+  const i = input(); const v = i.value;
   const raw = target?.raw || (target?.el.id === 'answer' && ui.currentAnswerMode() === 'romaji');
-  ui.$('gkPreview').textContent = raw || !v ? v : romajiToHiragana(v);
+  const pv = ui.$('gkPreview');
+  const conv = (s: string) => (raw ? s : romajiToHiragana(s));
+  const [a] = caret(i);
+  if (!v || a >= v.length || document.activeElement !== i) { pv.textContent = conv(v); return; }
+  // the cursor is inside the word: show where
+  const bar = document.createElement('span'); bar.className = 'gk-caret';
+  pv.replaceChildren(conv(v.slice(0, a)), bar, conv(v.slice(a)));
 }
-function type(ch: string) {
+function edit(fn: (v: string, a: number, b: number) => [string, number]) {
   const i = input();
   if (locked()) return;
-  i.value += ch;
+  const [a, b] = caret(i);
+  const [v, at] = fn(i.value, a, b);
+  i.value = v;
+  try { i.setSelectionRange(at, at); } catch { /* (not a text field) */ }
   i.dispatchEvent(new Event('input', { bubbles: true })); // the staff reacts, the gem grows
+  preview();
+}
+const type = (ch: string) => edit((v, a, b) => [v.slice(0, a) + ch + v.slice(b), a + ch.length]);
+const back = () => edit((v, a, b) => (a !== b ? [v.slice(0, a) + v.slice(b), a] : a > 0 ? [v.slice(0, a - 1) + v.slice(a), a - 1] : [v, 0]));
+function move(d: number) {
+  const i = input(); const [a] = caret(i);
+  const at = Math.max(0, Math.min(i.value.length, a + d));
+  try { i.setSelectionRange(at, at); } catch { /* */ }
   preview();
 }
 
@@ -56,14 +79,16 @@ function build() {
     const row = document.createElement('div');
     row.className = 'gk-row';
     for (const c of r) row.append(key(c, 'ch', () => type(c)));
-    if (i === 2) row.append(key('⌫', 'wide back', () => { const el = input(); el.value = el.value.slice(0, -1); el.dispatchEvent(new Event('input', { bubbles: true })); preview(); }));
+    if (i === 2) row.append(key('⌫', 'wide back', back));
     return row;
   });
   const last = document.createElement('div');
   last.className = 'gk-row';
   last.append(
     key('Skip', 'wide skip', () => (target ?? battle()).skip?.()),
+    key('◀', 'ch move', () => move(-1)),
     key('n\'', 'ch', () => type('\'')),
+    key('▶', 'ch move', () => move(1)),
     key('␣', 'wide space', () => type(' ')),
     key('Cast ⏎', 'wide enter cast', () => { input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); preview(); }),
   );
@@ -110,5 +135,7 @@ function show(on: boolean) {
   });
 }
 ui.$('answer').addEventListener('input', () => { if (active) preview(); });
+// tapping in the box moves the cursor: show it in the kana preview too
+document.addEventListener('selectionchange', () => { if (active && document.activeElement === input()) preview(); });
 /** A new word: clear the preview. */
 export function gameKbReset() { if (active) preview(); }

@@ -151,6 +151,8 @@ export type ClientMessage =
   | { type: 'leave' }
   | { type: 'pause'; on: boolean }
   | { type: 'forfeit' }
+  /** 0.9.9.8: the only human in the room leaves the game (back to the lobby, no forfeit) */
+  | { type: 'leave_game' }
   | { type: 'deck_character'; character: string }
   | { type: 'deck_pick'; cardId: string }
   | { type: 'deck_play'; cardId: string }

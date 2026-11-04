@@ -98,10 +98,18 @@ export class Dictionary {
     const kanaQs = ja ? [qKana] : ru ? [] : answerVariants(q).filter((x) => !/[a-z]/.test(x));
     const qChars = ja ? [...new Set([...q].filter((c) => HAN.test(c)))] : [];
     const qFold = kanaQs.map(fold);
+    // 0.9.9.8: half-typed romaji (tabem → たべ…): the kana of what's complete, matched as the start of a reading
+    const cut = !ja && !ru ? q.replace(/[^aeiou'\s-]+$/, '') : '';
+    const partQs = !cut ? [] : cut !== q ? answerVariants(cut).filter((x) => x && !/[a-z]/.test(x)) : kanaQs;
+    /** a meaning that starts with what you typed: the closer to the whole meaning, the better (wat → water, not waterfall) */
+    const near1 = (g: string) => Math.max(0, 8 - (g.length - q.length));
     const word = ru ? new RegExp(`(^|[^а-яё])${esc(q)}`, 'i') : ja ? null : new RegExp(`(^|[^a-z])${esc(q)}($|[^a-z])`);
     // 0.9.9.7.2: the dictionary forms of what you typed (呼ばない → 呼ぶ, yobimashita → よぶ)
     const bases = new Map<string, string>();
     if (!ru) for (const x of ja ? [q, qKana] : kanaQs) for (const d of deinflect(x)) if (!bases.has(d.word)) bases.set(d.word, d.form);
+    // 0.9.9.8: half-typed forms too (tabemas → たべま… → たべます → 食べる)
+    const guess = new Set<string>(); // (a guess: ranked below what you actually typed)
+    if (!bases.size) for (const x of partQs.filter((x) => x.length >= 3)) for (const end of ['す', 'した', 'せん', 'ん', 'い', 'た', 'て', 'る', 'ない', 'ます']) for (const d of deinflect(x + end)) if (!bases.has(d.word)) { bases.set(d.word, d.form); guess.add(d.word); }
     // near misses (koshujin → ごしゅじん): kana of 3+ sounds, one sound off (two for long words)
     const typoQs = ru ? [] : (ja ? [qKana] : kanaQs).filter((x) => x.length >= 3 && !HAN.test(x));
     const forms = new Map<number, string>(), typos = new Map<number, number[]>();
@@ -122,23 +130,34 @@ export class Dictionary {
       } else if (ru) {
         for (let n = 0; n < (w.ru?.length ?? 0); n++) {
           const glosses = w.ru![n].toLowerCase().split(/[;,]\s*|\s*\d+\)\s*/).map(stripNotes).filter(Boolean); // ("1) вода; 2) …")
+          const pre = glosses.find((g) => g.startsWith(q));
           if (glosses.includes(q)) s = Math.max(s, n === 0 ? 96 : 88);
-          else if (glosses.some((g) => g.startsWith(q))) s = Math.max(s, n === 0 ? 70 : 60);
+          else if (pre) s = Math.max(s, (n === 0 ? 70 : 60) + near1(pre));
           else if (word!.test(w.ru![n])) s = Math.max(s, 40);
         }
       } else {
         if (kanaQs.some((x) => kanas.includes(x))) s = 100;
-        else if (q.length > 2 && kanaQs.some((x) => kanas.some((r) => r.startsWith(x)))) s = 45;
+        else if (q.length >= 2 && kanaQs.some((x) => kanas.some((r) => r.startsWith(x)))) {
+          // the closer to the whole word, the better (kawai → かわいい before かわいそう)
+          const gap = Math.min(...kanaQs.flatMap((x) => kanas.filter((r) => r.startsWith(x)).map((r) => r.length - x.length)));
+          s = 45 + Math.max(0, 4 - gap);
+        }
+        else if (partQs.some((x) => kanas.some((r) => r.startsWith(x) && r.length > x.length))) s = 42;
         else if (q.length > 3 && qFold.some((x) => kanas.some((r) => fold(r) === x))) s = 32;
         const gl = (w.s[0]?.[1].toLowerCase() ?? '').split('; ').map(stripNotes);
+        const bare = (g: string) => g.replace(/^to /, '');
+        const pre = q.length >= 2 ? gl.find((g) => bare(g).startsWith(q)) : undefined;
         if (gl[0] === q || gl[0] === `to ${q}`) s = Math.max(s, 98);
         else if (gl.some((g) => g === q || g === `to ${q}`)) s = Math.max(s, 90);
         else if (word!.test(w.s[0]?.[1].toLowerCase() ?? '')) s = Math.max(s, 70);
+        // 0.9.9.8: while you type (wat → water): a meaning that starts with it
+        else if (pre) s = Math.max(s, (pre === gl[0] ? 64 : 54) + near1(bare(pre)));
         else if (w.s.slice(1).some((x) => word!.test(x[1].toLowerCase()))) s = Math.max(s, 40);
+        else if (q.length >= 3 && w.s.slice(0, 3).some((x) => x[1].toLowerCase().split('; ').some((g) => bare(stripNotes(g)).startsWith(q)))) s = Math.max(s, 30);
       }
       if (s < 90 && bases.size && w.s[0]?.[0].some((p) => VERBISH.test(p))) {
         const hit = [...w.k, ...kanas].find((x) => bases.has(x));
-        if (hit) { s = 92; forms.set(i, bases.get(hit)!); }
+        if (hit) { s = guess.has(hit) ? Math.max(s, 44) : 92; forms.set(i, bases.get(hit)!); }
       }
       if (!s && typoQs.length) {
         for (const tq of typoQs) {

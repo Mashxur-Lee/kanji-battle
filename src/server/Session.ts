@@ -213,6 +213,7 @@ export class Session implements Client {
         this.send({ type: 'left' });
         break;
       case 'forfeit': return room.forfeit(user.id);
+      case 'leave_game': return room.leaveGame(user.id);
       case 'deck_character': return room.deckCharacter(user.id, msg.character);
       case 'deck_pick': return room.deckPick(user.id, msg.cardId);
       case 'deck_play': return room.deckPlay(user.id, msg.cardId);

@@ -184,7 +184,16 @@ export function setProfile(p: ProfileView | null) {
 
 let toastTimer = 0;
 // 0.9.9.4.3: a toast can be dismissed — ✕ (or a tap), or swiped away on a phone
-export function hideToast() { clearTimeout(toastTimer); $('toast').hidden = true; }
+// 0.9.9.8: the toast slides back up the way it came down (it used to just vanish)
+let toastOut = 0;
+export function hideToast() {
+  clearTimeout(toastTimer);
+  const el = $('toast');
+  if (el.hidden || el.classList.contains('leaving')) return;
+  el.classList.add('leaving');
+  clearTimeout(toastOut);
+  toastOut = window.setTimeout(() => { el.hidden = true; el.classList.remove('leaving'); }, 280);
+}
 let toastWired = false;
 function wireToast(el: HTMLElement) {
   toastWired = true;
@@ -201,7 +210,7 @@ function wireToast(el: HTMLElement) {
     id = -1;
     const far = Math.abs(e.clientX - x0) > 70 || y0 - e.clientY > 40;
     el.style.transform = ''; el.style.opacity = '';
-    if (far) hideToast();
+    if (far) { clearTimeout(toastTimer); el.hidden = true; } // (swiped away: it's already gone)
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', end);
@@ -213,9 +222,14 @@ export function toast(text: string, ms = 3500) {
   x.setAttribute('aria-label', 'Close');
   x.onclick = (e) => { e.stopPropagation(); hideToast(); };
   el.replaceChildren(h('span', 'toast-t', text), x);
+  clearTimeout(toastOut);
+  if (el.classList.contains('leaving') || el.hidden) {
+    // (re)start the slide down
+    el.classList.remove('leaving'); el.hidden = true; void el.offsetWidth; // (restarts the animation)
+  }
   el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => (el.hidden = true), ms);
+  toastTimer = window.setTimeout(hideToast, ms);
 }
 
 /** your username (Customize → Profile preview) */
@@ -611,6 +625,7 @@ export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId)
     return w;
   }));
   $('arena').dataset.party = String(boss ? players.length : 0);
+  placeBossBar(boss);
   arenaForBattle(mode, players, you); // the 3D arena, when it's on
   $('dragon').className = 'dragon';
   $('dragon').querySelector('.sprite')!.innerHTML = dragonSvg();
@@ -620,6 +635,22 @@ export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId)
   if (mode === 'writing') mountWriteArea('writeSlot'); else $('writeArea').hidden = true;
   $('meaningPrompt').hidden = true;
 }
+
+/**
+ * 0.9.9.8: on a phone (upright or sideways) the dragon's HP sits in the top row with the party's — it floated over
+ * the party or the answer box. On bigger screens it stays above the dragon's head.
+ */
+const SMALL = matchMedia('(max-width: 700px), (max-height: 500px)');
+let bossShown = false;
+function placeBossBar(boss = bossShown) {
+  bossShown = boss;
+  const bar = $('bossBar');
+  const top = document.querySelector('#battle .arena-top')!;
+  if (boss && SMALL.matches) { if (bar.parentElement !== top) top.append(bar); }
+  else if (bar.parentElement !== $('dragon')) $('dragon').prepend(bar);
+  top.classList.toggle('boss-top', boss && SMALL.matches);
+}
+SMALL.addEventListener('change', () => placeBossBar());
 
 function floatText(target: HTMLElement, text: string, cls: string) {
   const arena = $('arena');
