@@ -14,6 +14,7 @@ import { ARM_REST } from './charkit';
 import * as THREE from 'three';
 import { buildCharacter, kindFor, type Character } from './models3d';
 import { buildStaff, GEM_Y, type Staff } from './staffs3d';
+import { staffOf } from '../shared/progress';
 import { createStaffPreview } from './staffpreview';
 import { buildEnv, type Env } from './arenas';
 import { applyPose, isPose, notePose, type PoseId } from './poses3d';
@@ -199,6 +200,8 @@ interface Fighter {
   aura: THREE.Sprite;
   hurtUntil: number; lungeUntil: number; frostUntil: number; burnUntil: number;
   frosted: boolean;
+  /** 0.9.9.8.2: their staff (its attack effect) and the colours a staff's fire / frost tints them with */
+  staffId?: string; burnTint?: THREE.Color; frostTint?: THREE.Color;
   /** glowing eyes: a bright flash until then (an Omnipotence going off) */
   eyesFlashUntil: number;
   /** where they look: target (from the network, or an idle wander) and the current, eased head turn */
@@ -380,7 +383,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     aura.scale.set(height * 1.2, height * 1.2, 1); aura.position.y = height * 0.5;
     group.add(aura);
     scene.add(group);
-    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0, typing: !!art.bot };
+    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0, typing: !!art.bot, staffId: art.staff };
     fighters.set(key, f);
     return f;
   }
@@ -403,6 +406,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const sleeveMat = new THREE.MeshStandardMaterial({ color: 0x3d5ad6, roughness: 0.9, flatShading: true, side: THREE.DoubleSide });
   const skinMat = new THREE.MeshStandardMaterial({ color: 0xf0c49a, roughness: 0.75, flatShading: true });
   const staffGroup = new THREE.Group(); // pivots at the hand: the staff and the fingers around it
+  const fpArm = new THREE.Group(), fpArmRest = new THREE.Quaternion();
+  let fpSleeve: THREE.Mesh | null = null;
   fp.add(staffGroup);
   let staff: Staff = buildStaff('verdant', sparkTex);
   let staffSkin = 'verdant';
@@ -434,9 +439,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     const thumb = part(new THREE.CapsuleGeometry(0.021, 0.075, 4, 8), skinMat, staffGroup, 0.022, 0.074, 0.05);
     thumb.rotation.set(0.3, 0, 1.25);
     // the forearm runs from the wrist down to the bottom-right corner (it doesn't turn with the staff)
-    const arm = new THREE.Group(); arm.position.set(0.09, -0.08, 0.03); arm.rotation.set(-0.55, 0, 0.62); fp.add(arm);
+    const arm = fpArm; arm.position.set(0.09, -0.08, 0.03); arm.rotation.set(-0.55, 0, 0.62); fp.add(arm);
+    fpArmRest.copy(arm.quaternion);
     part(new THREE.CylinderGeometry(0.05, 0.062, 0.2, 10), skinMat, arm, 0, -0.08, 0); // wrist
-    part(new THREE.CylinderGeometry(0.1, 0.16, 0.95, 10, 1, true), sleeveMat, arm, 0, -0.6, 0); // sleeve
+    fpSleeve = part(new THREE.CylinderGeometry(0.1, 0.16, 0.95, 10, 1, true), sleeveMat, arm, 0, -0.6, 0); // sleeve
     part(new THREE.TorusGeometry(0.1, 0.028, 6, 14), gold, arm, 0, -0.14, 0).rotation.x = Math.PI / 2; // cuff
   }
   // 0.9.9.7: your other hand — it comes up onto the staff in the two-handed combo poses
@@ -572,7 +578,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   }
   // lightning bolts (Bolt card)
   const bolts: Array<{ line: THREE.Line; life: number }> = [];
-  function lightning(to: THREE.Vector3) {
+  function lightning(to: THREE.Vector3, color: THREE.ColorRepresentation = 0xbfe6ff, core: THREE.ColorRepresentation = 0x9fd8ff) {
     for (let k = 0; k < 2; k++) {
       const pts: THREE.Vector3[] = [];
       const top = to.clone().add(new THREE.Vector3(rnd(-1.5, 1.5), 9, rnd(-1, 1)));
@@ -581,21 +587,30 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         if (i > 0 && i < 12) p.add(new THREE.Vector3(rnd(-0.45, 0.45), rnd(-0.2, 0.2), rnd(-0.3, 0.3)));
         pts.push(p);
       }
-      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: k ? 0xffffff : 0x9fd8ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: k ? 0xffffff : core, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
       scene.add(line);
       bolts.push({ line, life: 0 });
       // lines are 1 px in WebGL: glowing beads along the bolt give it body
       for (let i = 0; i < pts.length - 1; i++) {
         const seg = pts[i].distanceTo(pts[i + 1]);
         for (let d = 0; d < seg; d += 0.09) {
-          spark(pts[i].clone().lerp(pts[i + 1], d / seg), k ? 0xffffff : 0x8fd0ff, { size: k ? 0.12 : 0.3, life: 0.28, opacity: k ? 1 : 0.7 });
+          spark(pts[i].clone().lerp(pts[i + 1], d / seg), k ? 0xffffff : core, { size: k ? 0.12 : 0.3, life: 0.28, opacity: k ? 1 : 0.7 });
         }
       }
     }
-    const flash = new THREE.PointLight(0xbfe6ff, 60, 16, 2); flash.position.copy(to).add(new THREE.Vector3(0, 2, 1));
-    scene.add(flash);
-    setTimeout(() => scene.remove(flash), 160);
-    burst(to, 0xbfe6ff, 30, 4, 0.18);
+    // 0.9.9.8.2: one flash light that is always in the scene (adding a light makes three.js recompile every material —
+    // the first Bolt of a Deck Duel froze the game for a moment before the lightning showed)
+    flashLight.color.set(color); flashLight.position.copy(to).add(new THREE.Vector3(0, 2, 1)); flashLight.intensity = 60; flashUntil = performance.now() + 160;
+    burst(to, color, 30, 4, 0.18);
+  }
+  const flashLight = new THREE.PointLight(0xbfe6ff, 0, 16, 2);
+  scene.add(flashLight);
+  let flashUntil = 0;
+  // (and a line that is always there, invisible, so the lightning's line shader is ready before the first bolt)
+  {
+    const warm = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -50, 0), new THREE.Vector3(0, -50.01, 0)]), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    warm.frustumCulled = false;
+    scene.add(warm);
   }
   const floats: Array<{ sprite: THREE.Sprite; life: number }> = [];
   function float(who: Who, text: string, color = '#ffd479') {
@@ -883,10 +898,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       }
       for (const m of f.model.materials) {
         m.mat.color.copy(m.color);
-        if (frost) m.mat.color.lerp(ICE, 0.75);
+        if (frost) m.mat.color.lerp(f.frostTint ?? ICE, 0.75);
         if (hurt) { m.mat.emissive.copy(RED); m.mat.emissiveIntensity = 0.6; }
-        else if (frost) { m.mat.emissive.copy(ICE_GLOW); m.mat.emissiveIntensity = 0.45; }
-        else if (burn) { m.mat.color.lerp(BURN, 0.35); m.mat.emissive.copy(BURN); m.mat.emissiveIntensity = 0.55 + 0.3 * Math.sin(now / 40); }
+        else if (frost) { m.mat.emissive.copy(f.frostTint ?? ICE_GLOW); m.mat.emissiveIntensity = 0.45; }
+        else if (burn) { const b = f.burnTint ?? BURN; m.mat.color.lerp(b, 0.35); m.mat.emissive.copy(b); m.mat.emissiveIntensity = 0.55 + 0.3 * Math.sin(now / 40); }
         else { m.mat.emissive.copy(m.emissive); m.mat.emissiveIntensity = 1; }
       }
     } else if (f.spriteMat) {
@@ -987,33 +1002,30 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       myPoseK += ((myFlame && myPose !== 'none' && !meDown ? 1 : 0) - myPoseK) * Math.min(1, realDt * 3);
       const pk = myPoseK * myPoseK * (3 - 2 * myPoseK);
       fpLeft.visible = pk > 0.02 && myPose === 'twohand';
+      if (myPose !== 'aim' || pk <= 0.001) { fpArm.quaternion.copy(fpArmRest); if (fpSleeve) { fpSleeve.scale.y = 1; fpSleeve.position.y = -0.6; } }
       if (pk > 0.001) {
         if (myPose === 'float') camera.position.y += 0.2 * pk + Math.sin(time * 1.7) * 0.04 * pk;
         if (myPose === 'aim') {
-          // 0.9.9.7.3: the hand stays on the right of the screen (the forearm from the bottom-right corner), the staff
-          // thrust forward at the opponent — the hand rolled a quarter turn round the staff, so the palm is on top,
-          // facing down, gripping it from above
-          fp.position.x += (fpBase.x * 0.85 - fpBase.x) * pk; fp.position.y += 0.06 * pk;
+          // 0.9.9.8.2: like aiming a pistol — the arm stretched out from the bottom-right corner towards the opponent,
+          // the hand gripping the staff like a handle and the staff pointed straight at them, its core first (it was
+          // bent aside so it wouldn't cover them, and didn't look like aiming at all)
+          const hand = new THREE.Vector3(fpBase.x * 0.74, fpBase.y * 0.72, fpBase.z - 0.05);
+          fp.position.lerp(hand, pk);
           const foe = fighters.get('opp') ?? fighters.get('boss');
-          const target = foe ? foe.group.position.clone().add(new THREE.Vector3(0, 0.35, 0)) : null; // (their feet, like a pointed blade: the staff doesn't hide them)
-          let yaw = 0.3, rx = -1.35;
-          if (target) {
-            camera.updateMatrixWorld(true);
-            // towards where they are ON SCREEN: the target brought to the hand's depth (far away, they are left of your
-            // hand on screen though a little right of it in the arena), plus a little forward — pointed straight at them,
-            // the staff was a stub
-            const t = camera.worldToLocal(target.clone());
-            const atHand = t.multiplyScalar(fp.position.z / t.z);
-            const d = atHand.sub(fp.position);
-            d.z = -0.45 * Math.hypot(d.x, d.y);
-            d.normalize();
-            yaw = Math.atan2(-d.x, -d.z);
-            rx = -(Math.PI / 2 - Math.atan2(d.y, Math.hypot(d.x, d.z)));
-          }
-          const want = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
-            .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), rx))
-            .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2));
+          camera.updateMatrixWorld(true);
+          const t = foe ? camera.worldToLocal(foe.group.position.clone().add(new THREE.Vector3(0, foe.height * 0.55, 0))) : new THREE.Vector3(0, -0.1, -8);
+          const d = t.sub(fp.position).normalize(); // hand → opponent, in the camera's space (fp turns with it)
+          // the staff's axis (+y) along d; the back of the hand to the right, the thumb on top — a pistol grip
+          const x = new THREE.Vector3(1, 0, 0).addScaledVector(d, -d.x).normalize();
+          const z = new THREE.Vector3().crossVectors(x, d);
+          const want = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, d, z));
           staffGroup.quaternion.slerp(want, pk);
+          // the forearm: from the wrist back past the bottom-right corner of the screen, long enough to leave it
+          const wrist = fp.position.clone().add(fpArm.position.clone().multiplyScalar(fp.scale.x));
+          const shoulder = new THREE.Vector3(fpBase.x * 0.95, fpBase.y * 2.1, -0.1);
+          const armDir = shoulder.sub(wrist).normalize();
+          fpArm.quaternion.copy(fpArmRest).slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), armDir), pk);
+          if (fpSleeve) { const k = 1 + 1.3 * pk; fpSleeve.scale.y = k; fpSleeve.position.y = -0.13 - 0.475 * k; }
         } else if (myPose === 'twohand') {
           // upright in both hands — to the right of the middle and a little low, so the staff's top never stands
           // behind the kanji you have to read (0.9.9.7.1)
@@ -1190,6 +1202,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (p.grow) p.sprite.scale.multiplyScalar(1 + p.grow * dt);
       (p.sprite.material as THREE.SpriteMaterial).opacity = 1 - p.life / p.max;
     }
+    if (flashLight.intensity > 0 && performance.now() > flashUntil) flashLight.intensity = 0;
+    if (branches.length) stepBranches(dt);
     for (let i = bolts.length - 1; i >= 0; i--) {
       const b = bolts[i];
       b.life += dt;
@@ -1228,9 +1242,122 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   function cardEffect(to: Who, fx: SpellFx | undefined, at: THREE.Vector3) {
     const t = fighters.get(to);
     const now = performance.now();
+    if (t && fx) { t.burnTint = undefined; t.frostTint = undefined; }
     if (fx === 'bolt') { lightning(t ? pointOf(to, 'head') : at); if (to === 'me') screenHit('190,230,255', 'bolt'); }
     if (fx === 'frost') { if (t) t.frostUntil = now + 1100; burst(at, 0xcff2ff, 30, 2.5, 0.16); if (to === 'me') screenHit('140,210,255', 'frost'); }
     if (fx === 'fire') { if (t) t.burnUntil = now + 1100; burst(at, 0xff7a2a, 36, 3.4, 0.24); if (to === 'me') screenHit('255,120,30', 'fire'); }
+  }
+
+  // ── 0.9.9.8.2: what your staff's spell does when it lands (every mode but Deck Duel, whose cards have their own) ──
+  // Verdant: four branches burst from the ground under them and lash up like tentacles; Ember: an inferno; Tide:
+  // frost; Storm: lightning from the sky; Void: a rift that swallows the light around them and bursts. The seasonal
+  // staffs do what their base staff does, in their own colours.
+  const branches: Array<{ mesh: THREE.Mesh; t: number; total: number; tip: THREE.Vector3; leaf: THREE.Color }> = [];
+  const barkMat = new Map<string, THREE.MeshStandardMaterial>();
+  function branchStrike(center: THREE.Vector3, chest: THREE.Vector3, bark: THREE.Color, leaf: THREE.Color) {
+    const key = bark.getHexString() + leaf.getHexString();
+    let mat = barkMat.get(key);
+    if (!mat) { mat = new THREE.MeshStandardMaterial({ color: bark, emissive: bark.clone().lerp(leaf, 0.25).multiplyScalar(0.35), roughness: 0.9, flatShading: true }); barkMat.set(key, mat); } // (wood with a faint green glow — it read as neon tubes)
+    const a0 = Math.random() * Math.PI * 2;
+    for (let i = 0; i < 4; i++) {
+      const a = a0 + (i * Math.PI) / 2 + rnd(-0.3, 0.3);
+      const r = rnd(0.75, 1.05);
+      const base = new THREE.Vector3(center.x + Math.cos(a) * r, -0.05, center.z + Math.sin(a) * r * 0.8);
+      const tip = chest.clone().add(new THREE.Vector3(rnd(-0.18, 0.18), rnd(-0.25, 0.2), rnd(-0.12, 0.12)));
+      // up out of the ground, bending outwards, then curling in onto them
+      const p1 = base.clone().add(new THREE.Vector3(Math.cos(a) * 0.35, 0.55, Math.sin(a) * 0.25));
+      const p2 = base.clone().lerp(tip, 0.6).add(new THREE.Vector3(Math.cos(a) * 0.45, 0.55, Math.sin(a) * 0.3));
+      const curve = new THREE.CatmullRomCurve3([base, p1, p2, tip]);
+      const geo = new THREE.TubeGeometry(curve, 24, 0.07, 6, false);
+      // thick at the root, thin at the tip
+      const pos = geo.attributes.position as THREE.BufferAttribute;
+      for (let v = 0; v < pos.count; v++) {
+        const seg = Math.floor(v / 7) / 24; // 7 vertices per ring (radial 6 + seam)
+        const c = curve.getPointAt(Math.min(1, seg));
+        const k = 1.25 - seg * 0.95;
+        pos.setXYZ(v, c.x + (pos.getX(v) - c.x) * k, c.y + (pos.getY(v) - c.y) * k, c.z + (pos.getZ(v) - c.z) * k);
+      }
+      geo.computeVertexNormals();
+      geo.setDrawRange(0, 0);
+      const mesh = new THREE.Mesh(geo, mat);
+      scene.add(mesh);
+      branches.push({ mesh, t: -i * 0.05, total: geo.index!.count, tip, leaf });
+      // earth thrown up where it breaks through
+      for (let k = 0; k < 8; k++) spark(base.clone(), k % 2 ? 0x6a4a2a : leaf, { size: rnd(0.06, 0.14), vel: new THREE.Vector3(rnd(-0.6, 0.6), rnd(1, 2.4), rnd(-0.6, 0.6)), life: rnd(0.4, 0.7), gravity: -6, solid: k % 2 === 1 });
+    }
+  }
+  function stepBranches(dt: number) {
+    for (let i = branches.length - 1; i >= 0; i--) {
+      const b = branches[i];
+      b.t += dt;
+      const grow = Math.min(1, Math.max(0, b.t / 0.22)), back = Math.max(0, (b.t - 0.62) / 0.3);
+      const k = Math.max(0, grow - back);
+      const n = Math.floor((b.total / 6) * k) * 6;
+      b.mesh.geometry.setDrawRange(0, n);
+      if (grow >= 1 && b.t < 0.32 && Math.random() < 0.6) spark(b.tip.clone(), b.leaf, { size: rnd(0.06, 0.12), vel: new THREE.Vector3(rnd(-0.8, 0.8), rnd(-0.2, 0.9), rnd(-0.5, 0.5)), life: 0.5 });
+      if (b.t > 0.95) { scene.remove(b.mesh); b.mesh.geometry.dispose(); branches.splice(i, 1); }
+    }
+  }
+  function voidRift(at: THREE.Vector3, color: THREE.Color) {
+    // the light around them is pulled in, a dark core swells and bursts
+    const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, color: 0x05010f, transparent: true, opacity: 0.9, depthWrite: false }));
+    core.position.copy(at); core.scale.setScalar(0.1); core.renderOrder = 5;
+    scene.add(core);
+    const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, color, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8, depthWrite: false }));
+    ring.position.copy(at); ring.scale.setScalar(2.6);
+    scene.add(ring);
+    for (let i = 0; i < 34; i++) {
+      const a = Math.random() * Math.PI * 2, r = rnd(1, 1.9), y = rnd(-0.9, 0.9);
+      const from = at.clone().add(new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r * 0.6));
+      // spiralling in: the velocity points at the core with a sideways swirl
+      const vel = at.clone().sub(from).multiplyScalar(2.2).add(new THREE.Vector3(-Math.sin(a), 0, Math.cos(a)).multiplyScalar(1.2));
+      spark(from, i % 3 ? color : 0xffffff, { size: rnd(0.06, 0.14), vel, life: 0.42 });
+    }
+    const t0 = performance.now();
+    const step = () => {
+      const t = (performance.now() - t0) / 1000;
+      if (t < 0.45) { core.scale.setScalar(0.1 + t * 2.4); ring.scale.setScalar(2.6 * (1 - t / 0.5)); (ring.material as THREE.SpriteMaterial).opacity = 0.8 * (1 - t / 0.5); requestAnimationFrame(step); return; }
+      scene.remove(core, ring); (core.material as THREE.Material).dispose(); (ring.material as THREE.Material).dispose();
+      burst(at, color, 34, 4.2, 0.2);
+      spark(at, 0xffffff, { size: 0.9, grow: 7, life: 0.3, opacity: 0.9 });
+    };
+    requestAnimationFrame(step);
+  }
+  const staffIdOf = (who: Who) => (who === 'me' ? staffSkin : fighters.get(who)?.staffId) ?? 'verdant';
+  /** the impact of a normal attack, after the caster's staff (not Deck Duel, not the dragon) */
+  function staffImpact(from: Who, to: Who, at: THREE.Vector3) {
+    if (layout === 'deck' || from === 'boss') return;
+    const def = staffOf(staffIdOf(from));
+    const kind = def.base ?? def.id;
+    const main = new THREE.Color(def.gem), tint = new THREE.Color(def.tint ?? def.gem);
+    const t = fighters.get(to);
+    const now = performance.now();
+    const firstPerson = to === 'me' && fp.visible;
+    const rgb = (c: THREE.Color) => `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`;
+    if (kind === 'verdant') {
+      const center = t ? t.group.position.clone() : new THREE.Vector3(at.x, 0, at.z);
+      const chest = firstPerson ? at.clone().add(new THREE.Vector3(0, 0.2, 0)) : pointOf(to, 'chest');
+      const bark = def.season ? tint.clone().lerp(new THREE.Color(0x3a2a1a), 0.55) : new THREE.Color(0x5a3d22);
+      // (at you, in first person, branches would grow through the camera: a burst of leaves and a green flash instead)
+      if (!firstPerson) branchStrike(center, chest, bark, main);
+      else for (let k = 0; k < 18; k++) spark(at.clone().add(new THREE.Vector3(rnd(-0.6, 0.6), rnd(-0.6, -0.1), 0)), k % 3 ? main : 0x6a4a2a, { size: rnd(0.05, 0.12), vel: new THREE.Vector3(rnd(-1, 1), rnd(1, 2.2), rnd(-0.3, 0.3)), life: rnd(0.5, 0.8), gravity: -5 });
+      if (to === 'me') screenHit(rgb(main), 'frost');
+    } else if (kind === 'ember') {
+      if (t) { t.burnTint = def.season ? main.clone() : undefined; t.burnUntil = now + 1100; for (let k = 0; k < 4; k++) setTimeout(() => flames(t, main, 3), k * 90); }
+      burst(at, main, 36, 3.4, 0.24);
+      if (to === 'me') screenHit(rgb(main), 'fire');
+    } else if (kind === 'tide') {
+      if (t) { t.frostTint = def.season ? tint.clone() : undefined; t.frostUntil = now + 1100; }
+      burst(at, tint, 30, 2.5, 0.16);
+      for (let k = 0; k < 14; k++) spark(at.clone().add(new THREE.Vector3(rnd(-0.5, 0.5), rnd(-0.7, 0.6), rnd(-0.3, 0.3))), 0xffffff, { size: rnd(0.04, 0.09), vel: new THREE.Vector3(0, rnd(-0.6, -0.2), 0), life: rnd(0.6, 1) });
+      if (to === 'me') screenHit(rgb(tint), 'frost');
+    } else if (kind === 'storm') {
+      lightning(t ? pointOf(to, 'head') : at, main.clone().lerp(new THREE.Color(0xffffff), 0.35), main);
+      if (to === 'me') screenHit(rgb(main), 'bolt');
+    } else if (kind === 'void') {
+      voidRift(firstPerson ? at : pointOf(to, 'chest'), main);
+      if (to === 'me') screenHit(rgb(main), 'frost');
+    }
   }
 
   const api: ArenaApi = {
@@ -1297,7 +1424,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const t = fighters.get(to);
       if (t) t.hurtUntil = performance.now() + 450;
       cardEffect(to, o.fx, end);
-      if (to === 'me') { if (!o.fx) screenHit(); kick(o.crit ? 0.16 : 0.09); }
+      if (!o.fx) staffImpact(from, to, end);
+      if (to === 'me') { if (!o.fx && (layout === 'deck' || from === 'boss')) screenHit(); kick(o.crit ? 0.16 : 0.09); }
       else kick(o.crit ? 0.07 : 0.035);
       if (o.damage) float(to, `−${o.damage}${o.crit ? '!' : ''}`, to === 'me' ? '#ff6b81' : o.crit ? '#ff9a3a' : '#ffd479');
     },
@@ -1462,7 +1590,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     },
   };
   if (lite) api.setLite(true);
-  if (location.search.includes('debug3d')) (globalThis as unknown as { __arenaDbg: unknown }).__arenaDbg = { get staff() { return staff; }, get gemState() { return gemState; }, scene, camera, renderer };
+  if (location.search.includes('debug3d')) (globalThis as unknown as { __arenaDbg: unknown }).__arenaDbg = { get staff() { return staff; }, get gemState() { return gemState; }, scene, camera, renderer, setStaff: (who: Who, id: string) => { if (who === 'me') setStaffSkin(id); else { const f = fighters.get(who); if (f) f.staffId = id; } } };
   resize();
   // compile every shader now (while you're in the menu), not in the first second of your first battle
   try { renderer.compile(scene, camera); } catch { /* fine — compiled on first draw */ }

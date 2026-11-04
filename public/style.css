@@ -2033,7 +2033,7 @@ span.csel { position: relative; display: inline-flex; vertical-align: middle; mi
 .app-opt p { margin: 4px 0 8px; }
 a.btn-link { display: inline-block; text-decoration: none; text-align: center; padding: 10px 16px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #6d4bff); color: #fff; font-weight: 700; }
 .app-btn { border-color: rgba(110, 231, 255, .45) !important; }
-body.offline :is(#queueBtn, #privateBtn, #create, #join, #railAdd, #railReq, #railFab) { opacity: .45; filter: grayscale(.6); }
+body.offline :is(#queueBtn, #join, #railAdd, #railReq, #railFab) { opacity: .45; filter: grayscale(.6); }
 body.offline .friend-rail .fr-list { opacity: .45; }
 body.offline .net-status { background: #1d2440; color: #9fd8ff; border-color: #3a4f80; }
 button.big kbd, .big kbd { color: rgba(255, 255, 255, .85); border-color: rgba(255, 255, 255, .45); background: rgba(0, 0, 0, .12); }
@@ -2346,7 +2346,7 @@ html, body { overflow-x: clip; }
    page in front of it reads better; the edges keep the scene */
 #bg::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .6s;
   background: radial-gradient(ellipse 62% 70% at 50% 46%, rgba(8, 6, 24, .62), rgba(8, 6, 24, .4) 55%, rgba(8, 6, 24, .08) 100%); }
-body:is([data-screen="auth"], [data-screen="study"], [data-screen="review"], [data-screen="quiz"], [data-screen="passage"], [data-screen="customize"], [data-screen="progress"], [data-screen="history"], [data-screen="dict"], [data-screen="daily"], [data-screen="friends"], [data-screen="queue"], [data-screen="modes"], [data-screen="lobby"], [data-screen="admin"], [data-screen="results"]) #bg::before { opacity: 1; }
+body:is([data-screen="auth"], [data-screen="private"], [data-screen="study"], [data-screen="review"], [data-screen="quiz"], [data-screen="passage"], [data-screen="customize"], [data-screen="progress"], [data-screen="history"], [data-screen="dict"], [data-screen="daily"], [data-screen="friends"], [data-screen="queue"], [data-screen="modes"], [data-screen="lobby"], [data-screen="admin"], [data-screen="results"]) #bg::before { opacity: 1; }
 .lp-row.locked .lp-name::after { content: " 🔒"; font-size: .85em; }
 
 /* 0.9.9.4.4.5: reading passage — the story is being written (a bar), how many AI stories are left, the first-time explainer */
@@ -2904,9 +2904,9 @@ button.dr-hit:hover, button.dr-hit:focus-visible { border-color: var(--accent); 
 .dr-senses .dr-en { list-style: none; margin-left: -22px; color: var(--muted); font-size: .82rem; }
 .dr-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 @media (min-width: 901px) {
-  body.has-dict .screen { padding-left: calc(var(--gutter) + 52px); }
+  body.has-dict .screen { padding-left: calc(var(--gutter) + 52px + 22px); }
   /* the menu steps in from the left edge, towards the middle */
-  body.has-dict #menu { padding-left: calc(var(--gutter) + 52px); }
+  body.has-dict #menu { padding-left: calc(var(--gutter) + 52px + 22px); }
 }
 .dict-fab { display: none; }
 @media (max-width: 900px) {
@@ -3003,9 +3003,9 @@ button.mc-card:hover, button.mc-card:focus-visible { transform: translateY(-5px)
 @media (max-width: 700px) {
   body.mode-shown #battle .arena-top:not(.boss-top) { margin-top: 34px; }
   #battle .arena-top:not(.boss-top) .fighter { position: relative; min-width: 0; overflow: visible; }
-  #battle .arena-top:not(.boss-top) .fighter .name { flex-wrap: nowrap; white-space: nowrap; min-width: 0; height: 1.5em; align-items: center; }
-  #battle .arena-top:not(.boss-top) .fighter .name > .n { min-width: 0; overflow: hidden; }
-  #battle .arena-top:not(.boss-top) .fighter .name > .n > .n { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  #battle .arena-top:not(.boss-top) .fighter .name { flex-wrap: nowrap; white-space: nowrap; min-width: 0; height: 30px; align-items: center; margin-bottom: 2px; }
+  #battle .arena-top:not(.boss-top) .fighter .name > .n { min-width: 0; overflow: visible; padding-left: 3px; } /* 0.9.9.8.2: (clipping it cut the avatar's frame) */
+  #battle .arena-top:not(.boss-top) .fighter .name > .n > .n { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
   #battle .arena-top:not(.boss-top) .fighter .name > .n > :is(.pic, .net, .lv) { flex: none; }
   #battle .arena-top:not(.boss-top) .fighter .name .combo { position: absolute; bottom: 0; font-size: .74rem; line-height: 1.4; pointer-events: none; }
   #battle .arena-top:not(.boss-top) .fighter.me .name .combo { right: 0; }
@@ -3015,3 +3015,187 @@ button.mc-card:hover, button.mc-card:focus-visible { transform: translateY(-5px)
 :root[data-theme="light"] #menu .mc-nav-btn { background: rgba(255, 255, 255, .92); color: #1d1838; border-color: rgba(60, 50, 120, .2); }
 :root[data-theme="light"] #menu .mc-nav-btn svg { color: #6b3fd6; }
 :root[data-theme="light"] #menu .menu-foot .how-btn:not(.app-btn) { background: rgba(255, 255, 255, .9); color: #1d1838; border-color: rgba(60, 50, 120, .2); }
+
+/* ── 0.9.9.8.2: sliders — no text-field padding/border (the thumb stopped short of 0 and 100), a filled track ── */
+input[type="range"] { -webkit-appearance: none; appearance: none; padding: 0; margin: 4px 0; border: 0; border-radius: 0; height: 26px; background: transparent; cursor: pointer; --p: 50%; }
+input[type="range"]:focus { outline: none; }
+input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) 0 var(--p), rgba(255, 255, 255, .16) var(--p) 100%); }
+input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .16); }
+input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 6px rgba(0, 0, 0, .4); }
+input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); }
+input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent2); outline-offset: 2px; }
+:root[data-theme="light"] input[type="range"]::-webkit-slider-runnable-track { background: linear-gradient(90deg, var(--accent) 0 var(--p), rgba(40, 30, 90, .15) var(--p) 100%); }
+/* 0.9.9.8.2: the avatar never shrinks sideways in a tight name pill (it turned into an upright oval on phones at 100%) */
+.avatar { flex: none; aspect-ratio: 1; }
+.who-btn > .who-lv { flex: none; }
+
+/* ── 0.9.9.8.2: the menu veil — the painting frames the edges; behind the cards a frosted violet night with a slow
+   aurora, a turning rune circle and kanji drifting up (menuveil.ts) ── */
+.menu-veil { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .6s; overflow: hidden; }
+body[data-screen="menu"] .menu-veil { opacity: 1; }
+.menu-veil .mv-tint { position: absolute; inset: 0; backdrop-filter: blur(3px) saturate(.9); -webkit-backdrop-filter: blur(3px) saturate(.9);
+  -webkit-mask-image: radial-gradient(ellipse 58% 62% at 50% 54%, #000 55%, transparent 100%); mask-image: radial-gradient(ellipse 58% 62% at 50% 54%, #000 55%, transparent 100%);
+  background: radial-gradient(ellipse 60% 64% at 50% 54%, rgba(20, 12, 52, .86) 0%, rgba(26, 14, 64, .7) 55%, rgba(26, 14, 64, 0) 100%); }
+.menu-veil .mv-aurora { position: absolute; width: 70vmax; height: 46vmax; border-radius: 50%; filter: blur(70px); opacity: .34; mix-blend-mode: screen; }
+.menu-veil .mv-aurora.a { left: 8%; top: 20%; background: radial-gradient(closest-side, #7b4dff, transparent); animation: mvDriftA 26s ease-in-out infinite alternate; }
+.menu-veil .mv-aurora.b { right: 4%; top: 38%; background: radial-gradient(closest-side, #1fb8d6, transparent); opacity: .22; animation: mvDriftB 31s ease-in-out infinite alternate; }
+@keyframes mvDriftA { to { transform: translate(14vw, 6vh) scale(1.15); } }
+@keyframes mvDriftB { to { transform: translate(-16vw, -8vh) scale(.9); } }
+.menu-veil .mv-circle { position: absolute; left: 50%; top: 54%; width: min(92vmin, 900px); height: min(92vmin, 900px); transform: translate(-50%, -50%); color: #b49bff; opacity: .1;
+  animation: mvSpin 140s linear infinite; }
+.menu-veil .mv-circle .mv-inner { transform-origin: 200px 200px; animation: mvSpin 70s linear infinite reverse; }
+@keyframes mvSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.menu-veil .mv-circle .mv-inner { animation-name: mvSpinIn; }
+@keyframes mvSpinIn { to { transform: rotate(-360deg); } }
+.menu-veil .mv-glyphs span { position: absolute; bottom: -3rem; font-family: var(--jp); font-weight: 800; color: #d9cbff; opacity: 0; text-shadow: 0 0 12px rgba(169, 139, 255, .8);
+  animation: mvRise linear infinite; }
+@keyframes mvRise { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: var(--o); } 80% { opacity: var(--o); } 100% { transform: translateY(-110vh); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .menu-veil * { animation: none !important; } }
+/* the cards themselves a touch more solid over it */
+#menu button.mc-card { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+:root[data-theme="light"] .menu-veil .mv-tint { background: radial-gradient(ellipse 60% 64% at 50% 54%, rgba(246, 242, 255, .8) 0%, rgba(240, 234, 255, .6) 55%, rgba(240, 234, 255, 0) 100%); }
+:root[data-theme="light"] .menu-veil .mv-glyphs span { color: #6b3fd6; text-shadow: none; }
+:root[data-theme="light"] .menu-veil .mv-circle { color: #6b3fd6; }
+
+/* ── 0.9.9.8.2: Customize / Progress / Match history — tiles with a coloured icon badge and a line on what's inside ── */
+#menu .mc-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; flex: 0 1 640px; }
+#menu .mc-nav-btn { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 16px; text-align: left; min-width: 0;
+  background: linear-gradient(150deg, rgba(36, 30, 86, .94), rgba(16, 14, 44, .94)); border: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .08); }
+#menu .mc-nav-btn .mn-ic { flex: none; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #fff;
+  background: var(--mn); box-shadow: 0 4px 14px color-mix(in srgb, var(--mn-c) 55%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35); }
+#menu .mc-nav-btn .mn-ic svg { color: #fff; }
+#menu .mc-nav-btn .mn-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+#menu .mc-nav-btn .mn-txt b { font-size: 1rem; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#menu .mc-nav-btn .mn-txt small { font-size: .74rem; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#menu .mc-nav-btn:hover, #menu .mc-nav-btn:focus-visible { border-color: var(--mn-c); box-shadow: 0 12px 28px rgba(0, 0, 0, .5), 0 0 0 1px var(--mn-c), 0 0 22px color-mix(in srgb, var(--mn-c) 30%, transparent); transform: translateY(-2px); }
+.mn-cust { --mn-c: #ff7ac8; --mn: linear-gradient(140deg, #ff8ad0, #a63fd6); }
+.mn-prog { --mn-c: #4fd8ff; --mn: linear-gradient(140deg, #5be0ff, #2f6bd6); }
+.mn-hist { --mn-c: #ffc451; --mn: linear-gradient(140deg, #ffd56a, #d6782f); }
+@media (max-width: 700px) {
+  #menu .mc-nav { flex: none; gap: 8px; }
+  #menu .mc-nav-btn { flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 10px 4px 9px; }
+  #menu .mc-nav-btn .mn-ic { width: 38px; height: 38px; border-radius: 11px; }
+  #menu .mc-nav-btn .mn-txt b { font-size: .82rem; }
+  #menu .mc-nav-btn .mn-txt small { display: none; }
+}
+:root[data-theme="light"] #menu .mc-nav-btn { background: rgba(255, 255, 255, .94); color: #1d1838; }
+
+/* ── 0.9.9.8.2: the streak tasks — a banner with each task's progress, a flame that breathes until they're done ── */
+#menu .tasks-btn { align-self: stretch; width: auto; display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 18px;
+  background: linear-gradient(100deg, rgba(120, 52, 16, .9), rgba(64, 26, 30, .9) 55%, rgba(40, 20, 50, .9)); border: 1px solid rgba(255, 168, 80, .65);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .4), 0 0 24px rgba(255, 140, 50, .22); animation: tbGlow 3s ease-in-out infinite; }
+#menu .tasks-btn.done { background: linear-gradient(100deg, rgba(16, 80, 56, .9), rgba(20, 40, 50, .9)); border-color: rgba(61, 220, 151, .6); animation: none; box-shadow: 0 10px 28px rgba(0, 0, 0, .35); }
+@keyframes tbGlow { 50% { box-shadow: 0 10px 28px rgba(0, 0, 0, .4), 0 0 34px rgba(255, 140, 50, .45); } }
+#menu .tasks-btn .tb-fire { font-size: 2rem; line-height: 1; filter: drop-shadow(0 0 10px rgba(255, 140, 40, .8)); animation: tbFlame 1.6s ease-in-out infinite; }
+#menu .tasks-btn.done .tb-fire { animation: none; }
+@keyframes tbFlame { 50% { transform: scale(1.12) rotate(-4deg); } }
+#menu .tasks-btn .tb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+#menu .tasks-btn .tb-head { display: flex; align-items: baseline; gap: 10px; }
+#menu .tasks-btn .tb-title { font-size: 1.05rem; font-weight: 900; color: #ffe2bf; }
+#menu .tasks-btn .tb-count { font-size: .85rem; font-weight: 800; color: #ffb066; }
+#menu .tasks-btn .tb-tasks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+#menu .tasks-btn .tb-task { position: relative; display: flex; align-items: center; gap: 7px; padding: 6px 9px 9px; border-radius: 10px; background: rgba(0, 0, 0, .28); overflow: hidden; min-width: 0; font-size: .8rem; font-weight: 700; }
+#menu .tasks-btn .tb-task::after { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: var(--p); background: linear-gradient(90deg, #ff9a3c, #ffd36a); border-radius: 0 2px 2px 0; }
+#menu .tasks-btn .tb-task.ok::after { background: #3ddc97; }
+#menu .tasks-btn .tb-ic { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; background: rgba(255, 168, 80, .25); font-family: var(--jp); font-size: .8rem; color: #ffd8a8; }
+#menu .tasks-btn .tb-task.ok .tb-ic { background: rgba(61, 220, 151, .3); color: #b6ffd9; }
+#menu .tasks-btn .tb-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff1e0; }
+#menu .tasks-btn .tb-val { flex: none; color: #ffcf9a; font-variant-numeric: tabular-nums; }
+#menu .tasks-btn .tb-days { flex: none; width: 58px; height: 58px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1;
+  background: radial-gradient(circle at 50% 35%, #ffb84a, #d6542a); color: #fff; box-shadow: 0 4px 16px rgba(255, 120, 40, .5); }
+#menu .tasks-btn .tb-days b { font-size: 1.5rem; font-weight: 900; }
+#menu .tasks-btn .tb-days small { font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; opacity: .9; }
+@media (max-width: 700px) {
+  #menu .tasks-btn { gap: 10px; padding: 10px 12px; }
+  #menu .tasks-btn .tb-fire { display: none; }
+  #menu .tasks-btn .tb-tasks { grid-template-columns: 1fr; gap: 5px; }
+  #menu .tasks-btn .tb-days { width: 52px; height: 52px; }
+}
+
+/* ── 0.9.9.8.2: the Private game page ── */
+#private .pv-wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.pv-head { display: flex; align-items: center; gap: 18px; }
+.pv-head h2 { margin: 0; font-size: clamp(1.8rem, 3.4vw, 2.6rem); }
+.pv-head .sub { margin: 4px 0 0; }
+.pv-glyph { font-family: var(--jp); font-size: 4.2rem; font-weight: 900; line-height: 1; color: #b49bff; text-shadow: 0 0 30px rgba(180, 155, 255, .55); }
+.pv-offline { margin: 0; padding: 12px 16px; border-radius: 14px; background: rgba(255, 179, 71, .14); border: 1px solid rgba(255, 179, 71, .5); color: #ffe2b5; }
+.pv-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.pv-card { display: flex; flex-direction: column; gap: 10px; padding: 24px; border-radius: 22px; border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .08); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.pv-create { background: linear-gradient(170deg, rgba(56, 44, 140, .92), rgba(20, 16, 52, .94)); }
+.pv-join { background: linear-gradient(170deg, rgba(20, 70, 96, .9), rgba(16, 18, 48, .94)); }
+.pv-card h3 { margin: 0; font-size: 1.45rem; font-weight: 900; }
+.pv-card p { margin: 0; color: #cfc8ef; line-height: 1.45; }
+.pv-ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: #fff; background: linear-gradient(140deg, #9a7bff, #5b3fd6); box-shadow: 0 6px 18px rgba(120, 90, 255, .45); }
+.pv-join .pv-ic { background: linear-gradient(140deg, #4fd8ff, #2f6bd6); box-shadow: 0 6px 18px rgba(80, 200, 255, .4); }
+.pv-points { margin: 0; padding-left: 20px; color: #e3ddff; font-size: .92rem; display: flex; flex-direction: column; gap: 3px; }
+.pv-card > .big, .pv-card .join-row { margin-top: auto; }
+.pv-card .join-row { display: flex; gap: 10px; align-items: stretch; }
+.pv-card .join-row input { margin: 0; flex: 1; text-align: center; letter-spacing: .3em; font-weight: 900; font-size: 1.3rem; text-transform: uppercase; }
+.pv-card .join-row .big { width: auto; padding-inline: 26px; }
+@media (max-width: 700px) {
+  .pv-cards { grid-template-columns: 1fr; }
+  .pv-head .pv-glyph { font-size: 3rem; }
+  .pv-card { padding: 18px; }
+}
+:root[data-theme="light"] .pv-card { color: #f4f1ff; }
+/* 0.9.9.8.2: offline games against the AI — the "Offline mode" pill would sit on the battle clock */
+body.offline:is([data-screen="battle"], [data-screen="prep"]) #netStatus { display: none; }
+/* 0.9.9.8.2: who's ready, at a glance (every mode) */
+#lobbyPlayers li .tag.ready { background: rgba(61, 220, 151, .18); border: 1px solid rgba(61, 220, 151, .6); color: #8ff0c4; font-weight: 900; padding: 2px 10px; border-radius: 999px; }
+#lobbyPlayers li .tag.notready { background: rgba(255, 179, 71, .12); border: 1px dashed rgba(255, 179, 71, .55); color: #ffcf8a; font-weight: 800; padding: 2px 10px; border-radius: 999px; }
+#lobbyPlayers li.is-ready { border-color: rgba(61, 220, 151, .55) !important; box-shadow: inset 4px 0 0 #3ddc97; }
+:root[data-theme="light"] #lobbyPlayers li .tag.ready { color: #0d7a4c; }
+:root[data-theme="light"] #lobbyPlayers li .tag.notready { color: #8a5200; }
+/* 0.9.9.8.2: the daily board's league tabs */
+.daily-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.dt-tab { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(16, 14, 44, .7); color: var(--muted); font-weight: 800; font-size: .85rem; font-family: var(--ui), var(--jp); }
+.dt-tab.mine { border-color: rgba(246, 196, 83, .6); color: #f6d48a; }
+.dt-tab.on { background: linear-gradient(135deg, var(--accent), #6b3fd6); border-color: transparent; color: #fff; box-shadow: 0 4px 14px rgba(120, 90, 255, .4); }
+.dt-tab .dt-n { font-size: .7rem; padding: 0 6px; border-radius: 999px; background: rgba(255, 255, 255, .18); }
+:root[data-theme="light"] .dt-tab:not(.on) { background: rgba(255, 255, 255, .9); color: #4a4470; }
+/* 0.9.9.8.2: battle cards never clip the avatar's frame (rings and the star stick out of the picture) */
+#battle .fighter { overflow: visible !important; }
+#battle .fighter .name .pic { margin: 0 2px; }
+
+/* ── 0.9.9.8.2: Boss Elimination — your HP is its own big frame, teammates a compact blue row; no box round the dragon's bar ── */
+#battle .fighter.party { display: flex !important; flex-direction: column; gap: 8px; align-items: stretch; }
+.party-me { width: min(440px, 100%); padding: 8px 12px 10px; border-radius: 14px; box-sizing: border-box;
+  background: linear-gradient(135deg, rgba(16, 70, 52, .62), rgba(14, 12, 36, .35)); border: 1px solid rgba(61, 220, 151, .5); box-shadow: 0 6px 20px rgba(0, 0, 0, .35); }
+.party-me.down { opacity: .55; }
+.pm-name { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 1rem; margin-bottom: 6px; min-width: 0; white-space: nowrap; text-shadow: 0 1px 2px #000; }
+.pm-name .n { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pm-name .pic { flex: none; }
+.pm-you { flex: none; background: linear-gradient(135deg, #3ddc97, #1fa577); color: #04291b; padding: 1px 9px; border-radius: 999px; font-size: .68rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; text-shadow: none; }
+.pm-name .combo { margin-left: auto; color: var(--gold); flex: none; }
+.party-me .tbar { height: 26px; border-radius: 13px; border: 2px solid rgba(61, 220, 151, .55); }
+.party-me .tbar-txt { font-size: .95rem; }
+.party-mates { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; width: min(440px, 100%); }
+.party-row.mate { min-width: 0; }
+.party-row.mate .pname { font-size: .72rem; font-weight: 800; color: #c8d6ff; margin-bottom: 2px; white-space: nowrap; display: flex; gap: 4px; min-width: 0; }
+.party-row.mate .pname .n { overflow: hidden; text-overflow: ellipsis; min-width: 0; color: #c8d6ff; }
+.party-row.mate .pname .combo { margin-left: auto; color: var(--gold); }
+.party-row.mate .tbar { height: 12px; border-radius: 6px; }
+.party-row.mate .tbar-txt { font-size: .6rem; }
+.tbar.mate .fill { background: linear-gradient(90deg, #3f5fd6, #7fa6ff); }
+.tbar.mate.low .fill { background: linear-gradient(90deg, #8a3a8a, #c77dff); }
+/* the dragon's bar floats on its own (the grey glass box round it is gone) */
+body.has-3d #bossBar { background: none; backdrop-filter: none; -webkit-backdrop-filter: none; border: 0; box-shadow: none; padding: 0; }
+body.has-3d #bossBar .tbar { box-shadow: 0 4px 18px rgba(0, 0, 0, .5); }
+/* phones: you full width, the teammates in a row, then the dragon */
+@media (max-width: 700px) {
+  .arena-top.boss-top .party-me { width: 100%; padding: 6px 10px 8px; }
+  .arena-top.boss-top .pm-name { font-size: .82rem; margin-bottom: 4px; }
+  .arena-top.boss-top .pm-name .pic { display: none; }
+  .arena-top.boss-top .party-me .tbar { height: 20px; }
+  .arena-top.boss-top .party-me .tbar-txt { font-size: .8rem; }
+  .arena-top.boss-top .party-mates { width: 100%; }
+}
+@media (min-width: 701px) and (max-height: 500px) {
+  .arena-top.boss-top .party-me { padding: 4px 10px 6px; }
+  .arena-top.boss-top .pm-name { font-size: .8rem; margin-bottom: 3px; }
+  .arena-top.boss-top .party-me .tbar { height: 18px; }
+  .arena-top.boss-top .party-mates .tbar { height: 9px; }
+}

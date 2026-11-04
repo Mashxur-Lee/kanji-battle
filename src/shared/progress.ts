@@ -243,9 +243,10 @@ export const isPose = (x: unknown): x is PoseId => POSES.includes(x as PoseId);
 export interface PoseDef { id: PoseId; name: string; learned: number; blurb: string }
 export const POSE_DEFS: readonly PoseDef[] = [
   { id: 'none', name: 'Standing', learned: 0, blurb: 'Your usual stance — feet on the ground, the staff at your side.' },
-  { id: 'float', name: 'Levitation', learned: 100, blurb: 'You rise into the air, one leg bent, as if the magic lifts you.' },
+  // 0.9.9.8.2: Channel first (100), Levitation last (300)
+  { id: 'twohand', name: 'Channel', learned: 100, blurb: 'Both hands on the staff, upright in front of you, gathering power.' },
   { id: 'aim', name: 'Duelist', learned: 200, blurb: 'Side-on to your opponent, the staff held out straight at them, its core pointed their way.' },
-  { id: 'twohand', name: 'Channel', learned: 300, blurb: 'Both hands on the staff, upright in front of you, gathering power.' },
+  { id: 'float', name: 'Levitation', learned: 300, blurb: 'You rise into the air, one leg bent, as if the magic lifts you.' },
 ];
 
 /** the pose kept in your unlocks as "pose:<id>" (no new column needed) */

@@ -50,7 +50,7 @@ export class PausableClock implements Timers {
   private arm(id: TimerHandle) {
     const t = this.pending.get(id)!;
     const h = setTimeout(() => { this.pending.delete(id); t.fn(); }, Math.max(0, t.due - this.now()));
-    h.unref?.();
+    (h as { unref?: () => void }).unref?.(); // (Node; a no-op in the app, which runs offline games too)
     t.handle = h;
   }
 }

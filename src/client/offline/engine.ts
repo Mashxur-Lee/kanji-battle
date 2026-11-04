@@ -6,7 +6,9 @@ import { AuthError, type AuthService } from '../../server/auth/AuthService';
 import { MemoryStore, SNAPSHOT_V, type Snapshot, type UserRecord } from '../../server/db/Store';
 import { createApiRouter, type ApiResponse } from '../../server/router';
 import { DailyService } from '../../server/study/DailyService';
-import { StudyService } from '../../server/study/StudyService';
+import { picUrl, StudyService } from '../../server/study/StudyService';
+import type { MemberProfile } from '../../server/Room';
+import { poseOf } from '../../shared/progress';
 import { deckOf } from '../../shared/srs';
 import { loadVocab } from './vocab';
 
@@ -51,6 +53,9 @@ export interface Engine {
   request(method: string, url: string, body?: unknown): Promise<ApiResponse>;
   dump(): Snapshot;
   user(): Promise<UserRecord | null>;
+  /** 0.9.9.8.2: for games against the AI offline — your All spells (the words you play) and how you look */
+  spellIds(): Promise<ReadonlySet<string>>;
+  memberProfile(): Promise<MemberProfile>;
 }
 
 /** Builds the engine on a snapshot. `onChange` fires after anything is saved (to store it). */
@@ -84,5 +89,10 @@ export async function createEngine(s: Snapshot, onChange: () => void): Promise<E
     },
     dump: () => store.dump(),
     user: () => store.findById(s.user.id),
+    spellIds: async () => new Set((await store.cards(s.user.id)).filter((c) => (c.deck ?? 'all') === 'all').map((c) => c.vocabId)),
+    async memberProfile() {
+      const rec = await store.findById(s.user.id);
+      return { crit: await study.crit(s.user.id), xp: rec?.xp ?? 0, pic: rec ? picUrl(rec) : null, flame: rec?.flame ?? 'blue', staff: rec?.staff ?? 'verdant', border: rec?.border ?? 'none', pose: poseOf(rec?.unlocks) };
+    },
   };
 }

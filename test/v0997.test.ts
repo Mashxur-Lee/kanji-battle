@@ -76,13 +76,14 @@ test('0.9.9.7.1: combo pose — saved in unlocks, unlocked by spells learned (10
   const store = new MemoryStore();
   const study = new StudyService(store);
   const u = await store.create({ username: 'pose1', passwordHash: 'x', role: 'user' });
-  await assert.rejects(() => study.setPose(u, 'float'), /learned 100 spells/);
+  await assert.rejects(() => study.setPose(u, 'twohand'), /learned 100 spells/); // 0.9.9.8.2: Channel at 100, Levitation at 300
   await assert.rejects(() => study.setPose(u, 'lotus'), /Unknown/);
-  // 150 learned (cards out of "new"): Levitation yes, Duelist not yet
+  // 150 learned (cards out of "new"): Channel yes, Duelist not yet
   const now = Date.now();
   await store.addCards(u.id, VOCAB.filter((v) => v.level === 'N5').slice(0, 150).map((v) => ({ vocabId: v.id, deck: 'all' as const, addedAt: now, state: 'review' as const, step: 0, ease: 2500, intervalDays: 3, due: now + 86_400_000 })));
-  await study.setPose((await store.findById(u.id))!, 'float');
-  assert.equal(poseOf((await store.findById(u.id))!.unlocks), 'float');
+  await study.setPose((await store.findById(u.id))!, 'twohand');
+  assert.equal(poseOf((await store.findById(u.id))!.unlocks), 'twohand');
+  await assert.rejects(async () => study.setPose((await store.findById(u.id))!, 'float'), /300/);
   const u2 = (await store.findById(u.id))!;
   await assert.rejects(() => study.setPose(u2, 'aim'), /200/);
   assert.equal(poseOf(['pose:lotus']), 'none'); // a saved Lotus falls back to standing

@@ -461,6 +461,21 @@ const RU: Record<string, string> = {
   '🔔 Reminders work': '🔔 Напоминания работают', 'This is how Kanji Wizards reminders will look.': 'Так будут выглядеть напоминания Kanji Wizards.', 'Last reminder check': 'Последняя проверка напоминаний',
   'Theme': 'Тема', 'Dark': 'Тёмная', 'Light': 'Светлая', 'New a day': 'Новых в день',
   'Every giseigo, gitaigo and gijōgo: sounds (ワンワン), states (きらきら) and feelings (ドキドキ). Choose how many new ones a day (0 = none).': 'Все гисэйго, гитайго и гидзёго: звуки (ワンワン), состояния (きらきら) и чувства (ドキドキ). Выберите, сколько новых в день (0 — ни одного).',
+  // 0.9.9.8.2
+  'Your own room: pick the mode, the levels and who plays — AI wizards or your friends.': 'Своя комната: выберите режим, уровни и кто играет — ИИ-маги или ваши друзья.',
+  '— you can still play the AI in Kanji Reading, Rapid and Boss Elimination. Friends, Writing and Deck Duel need internet.': '— против ИИ всё ещё можно играть в Чтение кандзи, Блиц и Бой с боссом. Для друзей, Письма и Дуэли колод нужен интернет.',
+  'Choose a mode': 'Выбрать режим', 'Join a friend': 'К другу',
+  'Choose a mode, then add AI players or invite friends from the lobby. Everyone marks Ready, then the game starts.': 'Выберите режим, затем в лобби добавьте ИИ или пригласите друзей. Все нажимают «Готов» — и игра начинается.',
+  'AI from beginner to N1': 'ИИ от новичка до N1', 'Boss Elimination with up to 3 AI teammates': 'Бой с боссом с тремя ИИ-союзниками', 'Pause any time against the AI': 'Пауза в любой момент против ИИ',
+  'Got a 4-letter room code from a friend? Type it here. Friends can also invite you straight from their lobby.': 'Есть код комнаты из 4 букв от друга? Введите его здесь. Друзья могут и пригласить вас прямо из своего лобби.',
+  '← Private game': '← Своя игра', 'Play friends with a room code, or the AI — the AI works offline too': 'С друзьями по коду комнаты или с ИИ — с ИИ можно и офлайн',
+  'Look, staff, arena': 'Облик, посох, арена', 'Stats and badges': 'Статистика и значки', 'Your recent games': 'Ваши последние игры', 'days': 'дн.',
+  'yours': 'ваша', 'Nobody in this league has played today yet.': 'В этой лиге сегодня ещё никто не играл.',
+  'This mode needs internet — offline you can play Kanji Reading, Rapid or Boss Elimination against the AI.': 'Для этого режима нужен интернет — офлайн против ИИ можно играть в Чтение кандзи, Блиц или Бой с боссом.',
+  'Playing with friends needs internet — offline you can play the AI.': 'Для игры с друзьями нужен интернет — офлайн можно играть против ИИ.',
+  // 0.9.9.8.2
+  '✓ Ready': '✓ Готов',
+  'host': 'хост',
   // 0.9.9.8.1
   'Reading, Rapid, Boss and Deck Duel against players': 'Чтение, Блиц, Босс и Дуэль колод против игроков',
   'Play friends with a room code, or the AI': 'Играйте с друзьями по коду комнаты или с ИИ',
@@ -574,7 +589,7 @@ const RU: Record<string, string> = {
   'You float cross-legged in the air, both hands on the upright staff.': 'Вы парите в воздухе, скрестив ноги, обе руки на посохе.',
   '(辞書, main menu, works offline) — type a word in kanji, kana, romaji, English or Russian: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji — and “+ Add to…” puts it in any deck.': '(辞書, главное меню, работает без интернета) — введите слово кандзи, каной, ромадзи, по-английски или по-русски: все значения, уровень JLPT, формы глагола, пример, каждый кандзи с картинкой для запоминания, другие слова с этим кандзи — а «+ Добавить в…» кладёт слово в любую колоду.',
   '— in': '— в разделе',
-  ', choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Levitation, Duelist or Channel — they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.': 'выберите, что делает ваш персонаж, пока он в огне (5 подряд или Всемогущество в Дуэли колод): Левитация, Дуэлянт или Концентрация — открываются на 100, 200 и 300 изученных заклинаниях. Это видят все в бою.',
+  ', choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Channel, Duelist or Levitation — they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.': 'выберите, что делает ваш персонаж, пока он в огне (5 подряд или Всемогущество в Дуэли колод): Концентрация, Дуэлянт или Левитация — открываются на 100, 200 и 300 изученных заклинаниях. Это видят все в бою.',
   // 0.9.9.6.1
   'Update the app': 'Обновить приложение',
   'Install the update': 'Установить обновление',
@@ -685,8 +700,8 @@ const RU: Record<string, string> = {
   'Download for Windows (.exe)': 'Скачать для Windows (.exe)', 'Download for Android (.apk)': 'Скачать для Android (.apk)',
   'Download the APK and open it; allow your browser to install apps when asked. No Google Play needed.': 'Скачайте APK и откройте его; разрешите браузеру устанавливать приложения, когда он спросит. Google Play не нужен.',
   'You\'re offline — this needs an internet connection.': 'Нет подключения к интернету — для этого он нужен.', 'You\'re offline.': 'Нет подключения к интернету.', 'Offline mode': 'Офлайн-режим',
-  'You\'re offline. Study spells, the quiz, reading passages, the daily challenge and Customize still work — your progress syncs when you\'re back online.':
-    'Нет интернета. Изучение заклинаний, тест, тексты, ежедневное испытание и настройка работают — прогресс синхронизируется, когда интернет вернётся.',
+  'You\'re offline. Study spells, the quiz, reading passages, the daily challenge, Customize and private games against the AI still work — your progress syncs when you\'re back online.':
+    'Нет интернета. Изучение заклинаний, тест, тексты, ежедневное испытание, настройка и своя игра против ИИ работают — прогресс синхронизируется, когда интернет вернётся.',
   'Back online — your progress is synced.': 'Интернет снова есть — прогресс синхронизирован.',
   'No internet connection. Sign in once while online — then Study spells and more work offline too.': 'Нет подключения к интернету. Войдите один раз онлайн — после этого изучение заклинаний и многое другое работают и без интернета.',
   'Kanji Wizards is installed — find it with your apps.': 'Kanji Wizards установлено — найдите его среди приложений.',

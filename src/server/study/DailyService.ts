@@ -77,9 +77,11 @@ export class DailyService {
     const league = this.todays(u, day), key = dailyKey(day, league);
     const mine = await this.store.daily(key, u.id);
     const board = await this.store.dailyBoard(key, 20);
+    // 0.9.9.8.2: every league's board (tabs on the page), not only yours
+    const boards = Object.fromEntries(await Promise.all(LEAGUES.map(async (lg) => [lg, lg === league ? board.map(publicRow) : (await this.store.dailyBoard(dailyKey(day, lg), 20)).map(publicRow)] as const)));
     const rank = mine ? (await this.store.dailyBetter(key, mine.correct, mine.ms)) + 1 : null;
     const words = mine ? this.words(day, league).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === '1' : null })) : null;
-    return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), words, inProgress: this.attempts.get(u.id)?.day === day, league, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT };
+    return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), boards, words, inProgress: this.attempts.get(u.id)?.day === day, league, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT };
   }
 
   /** Start (or continue) today's run: returns the current word. */
