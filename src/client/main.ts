@@ -31,13 +31,13 @@ import { customizeHidden, onProfileChange, openCustomize, openStudy } from './st
 import * as ui from './ui';
 import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
-import { initFriends, onFriendEvent, onInvite, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
+import { closeRematchAsk, initFriends, onFriendEvent, onInvite, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
 import * as offline from './offline';
 import { initApp } from './appshell';
-import { openDict } from './dictui';
+import './dictui'; // (the dictionary page; opened from the side panel)
 
 applyUiZoom(); // before anything is laid out
 centerScreens();
@@ -122,12 +122,13 @@ ui.onScreen((s) => {
   if (s !== 'lobby') void renderLobbyInvites(false);
   railScreen(s);
   dictRailScreen(s); // 0.9.9.8: the dictionary side panel
+  if (s !== 'results') closeRematchAsk(); // (a rematch card only means something there)
   if (s === 'menu' || s === 'queue') void refreshOnline();
   for (const b of document.querySelectorAll<HTMLElement>('[data-pause]')) b.hidden = !(soloVsAi && ['prep', 'battle', 'deck'].includes(s));
   if (!['prep', 'battle', 'deck'].includes(s)) setPaused(false);
   setGameKb(s === 'battle' && mode !== 'writing'); // phones: the compact battle keyboard
   tutorialScreen(s);
-  if (!GAME_SCREENS.has(s)) setTimeout(() => applyBackground(true), 0); // catch up on the cycle after a game
+  setTimeout(() => applyBackground(!GAME_SCREENS.has(s)), 0); // catch up on the cycle after a game; the arena (or not) for this screen
 });
 
 /**
@@ -141,7 +142,8 @@ function applyBackground(fade = false) {
   const bg = profile?.background ?? 'forest';
   const time = resolveTime(getTimePref());
   if (fade && NO_BG_CHANGE.has(ui.currentScreen() ?? '')) return;
-  paintBackground(ui.$('bg'), bg, time, fade && shownTime !== '' && shownTime !== time);
+  // 0.9.9.8.1: outside the games, the place without its arena (the menu has no wizards in it any more)
+  paintBackground(ui.$('bg'), bg, time, fade && shownTime !== '' && shownTime !== time, !GAME_SCREENS.has(ui.currentScreen() ?? 'menu'));
   setArenaBackground(bg, time);
   shownTime = time;
   audio.setAmbience(bg, time);
@@ -153,6 +155,7 @@ scheduleCycle();
 
 let tutorialShown = false;
 let pendingJoin = '';
+const rematchSeen = new Set<string>(); // who already asked for a rematch this round (the card shows once each)
 let soloVsAi = false; // you are the only human in the room → Pause
 let writeShape = ''; // the word being written with its kanji hidden: 必ず → □ず
 let prevStaff: string | null = null; // the staff the menu wizards hold // invited while in another room: join after leaving it
@@ -383,6 +386,7 @@ function onMessage(msg: ServerMessage) {
       onInvite(msg);
       break;
     case 'lobby':
+      closeRematchAsk();
       // someone else went back to the lobby while you are still reading the results: stay, and let
       // "Back to lobby" take you there when you're ready
       if (ui.currentScreen() === 'results' && !lobbyRequested) {
@@ -427,6 +431,7 @@ function onMessage(msg: ServerMessage) {
       ui.setReady(msg.readyIds.length, players.length, msg.readyIds.includes(you));
       break;
     case 'battle_start':
+      rematchSeen.clear(); closeRematchAsk();
       players = msg.players;
       mode = msg.mode;
       if (msg.resume && ui.currentScreen() === 'battle') { ui.resumeBattle(players, msg.boss, you, msg.durationMs); break; }
@@ -477,6 +482,7 @@ function onMessage(msg: ServerMessage) {
       deckInk(msg.castId, msg.strokes, msg.cells);
       break;
     case 'game_over': {
+      rematchSeen.clear();
       pendingLobby = null; lobbyRequested = false; ui.$('resultLobby').classList.remove('pulse');
       players = msg.players;
       ui.lockInput();
@@ -511,9 +517,15 @@ function onMessage(msg: ServerMessage) {
       }, 2100);
       void refreshProfile();
       break;
-    case 'rematch_status':
+    case 'rematch_status': {
       ui.setRematchStatus(msg.votes, you, players.length, minPlayers);
+      // 0.9.9.8.1: someone asked for a rematch and you haven't answered — a card like an invite
+      const asker = msg.votes.find((id) => id !== you && !rematchSeen.has(id) && !players.find((p) => p.id === id)?.bot);
+      for (const id of msg.votes) rematchSeen.add(id);
+      if (msg.votes.includes(you) || !msg.votes.length) closeRematchAsk();
+      else if (asker && ui.currentScreen() === 'results') onRematchAsk(players.find((p) => p.id === asker)?.name ?? 'Your opponent', () => ui.$('rematch').click());
       break;
+    }
     case 'error':
       createDone();
       if (inRoom) { ui.$('lobbyStatus').textContent = msg.message; ui.toast(msg.message); }
@@ -1013,7 +1025,6 @@ async function openMatch(id: string) {
   } catch (err) { ui.toast((err as Error).message); }
 }
 ui.$('historyBtn').onclick = () => void openHistory();
-ui.$('dictBtn').onclick = () => openDict(); // 0.9.9.7
 ui.$('historyBack').onclick = () => ui.show('menu');
 ui.$('resultHistoryBack').onclick = () => void openHistory();
 

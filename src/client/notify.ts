@@ -21,7 +21,7 @@ export function attention(title: string, body = '') {
   blink = window.setInterval(() => { on = !on; document.title = on ? `● ${title}` : baseTitle; }, 900);
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
-      const n = new Notification(title, { body, icon: '/favicon.svg', tag: 'kanji-wizards', renotify: true } as NotificationOptions);
+      const n = new Notification(title, { body, icon: '/icons/icon-192.png', tag: 'kanji-wizards', renotify: true } as NotificationOptions);
       n.onclick = () => { window.focus(); n.close(); };
     }
   } catch { /* some browsers only allow notifications from a service worker */ }

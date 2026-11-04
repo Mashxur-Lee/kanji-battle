@@ -55,7 +55,7 @@ async function check() {
     try {
       const reg = await navigator.serviceWorker?.getRegistration();
       if (reg) await reg.showNotification(n.title, { body: n.body, icon: '/icons/icon-192.png', tag: `kw-${n.kind}` });
-      else new Notification(n.title, { body: n.body, icon: '/favicon.svg', tag: `kw-${n.kind}` });
+      else new Notification(n.title, { body: n.body, icon: '/icons/icon-192.png', tag: `kw-${n.kind}` });
     } catch { /* not allowed here */ }
   }
   await put('shown', shown);

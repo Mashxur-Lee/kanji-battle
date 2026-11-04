@@ -975,7 +975,7 @@ body.has-3d #dragon .boss-bar { width: 100%; }
 /* the menu when too many struggling spells wait */
 .study-lock { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 16px; background: rgba(120, 30, 50, .45); border: 1px solid rgba(255, 107, 129, .6); }
 .study-lock b { color: #ffb3c0; }
-#menu.locked .menu-actions > :is(#queueBtn, #privateBtn, #privateBox) { opacity: .45; pointer-events: none; filter: grayscale(.6); }
+#menu.locked :is(#queueBtn, #privateBtn, #privateBox) { opacity: .45; pointer-events: none; filter: grayscale(.6); }
 
 /* Deck Duel (2D): a hero power in use wraps the hero in their combo flames; card effects on the target */
 .dk-player { position: relative; }
@@ -2906,7 +2906,7 @@ button.dr-hit:hover, button.dr-hit:focus-visible { border-color: var(--accent); 
 @media (min-width: 901px) {
   body.has-dict .screen { padding-left: calc(var(--gutter) + 52px); }
   /* the menu steps in from the left edge, towards the middle */
-  body.has-dict #menu { padding-left: calc(var(--gutter) + 52px + clamp(0px, calc(6 * var(--vw)), 120px)); }
+  body.has-dict #menu { padding-left: calc(var(--gutter) + 52px); }
 }
 .dict-fab { display: none; }
 @media (max-width: 900px) {
@@ -2922,3 +2922,96 @@ button.dr-hit:hover, button.dr-hit:focus-visible { border-color: var(--accent); 
 }
 :root[data-theme="light"] .dict-rail { background: rgba(255, 255, 255, .9); border-color: var(--line); color: var(--text); }
 :root[data-theme="light"] button.dr-hit { background: rgba(60, 50, 120, .05); color: var(--text); }
+
+/* ── 0.9.9.8.1: the Mode Cards main menu ── */
+#menu.menu-cards { display: flex; flex-direction: column; gap: clamp(14px, calc(2.4 * var(--vh)), 26px); width: 100%; max-width: 1280px; margin: 0 auto;
+  min-height: calc(100 * var(--dvh)); padding-top: 70px; padding-bottom: 22px; box-sizing: border-box; }
+#menu .mc-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px 28px; flex-wrap: wrap; }
+#menu .mc-title { font-size: clamp(2.2rem, calc(4.2 * var(--vw)), 3.6rem); margin: 0; text-shadow: 0 2px 4px rgba(0, 0, 0, .55), 0 0 26px rgba(0, 0, 0, .45); }
+#menu .mc-sub { margin: 4px 0 0; text-shadow: 0 1px 2px rgba(0, 0, 0, .9), 0 0 12px rgba(0, 0, 0, .55); }
+.mc-nav { display: flex; gap: 10px; flex-wrap: wrap; }
+.mc-nav-btn { display: inline-flex; align-items: center; gap: 10px; padding: 11px 18px 11px 14px; border-radius: 14px; font: 800 .98rem var(--ui); color: var(--text);
+  background: linear-gradient(160deg, rgba(40, 34, 96, .92), rgba(16, 14, 44, .9)); border: 1px solid rgba(169, 139, 255, .35); box-shadow: 0 6px 18px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .08);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: transform .15s, border-color .15s, box-shadow .15s; }
+.mc-nav-btn svg { color: var(--accent); flex: none; }
+.mc-nav-btn:hover, .mc-nav-btn:focus-visible { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 10px 24px rgba(0, 0, 0, .45), 0 0 0 1px rgba(169, 139, 255, .25); filter: none; }
+.mc-cards { flex: 0 1 auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(12px, 1.4vw, 20px); align-items: stretch; min-height: 0; }
+.mc-slot { position: relative; display: flex; min-width: 0; }
+.mc-slot > .mc-card { flex: 1; }
+button.mc-card { position: relative; display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 14px; min-width: 0;
+  min-height: clamp(250px, calc(40 * var(--vh)), 420px); padding: clamp(18px, 1.8vw, 26px); border-radius: 22px; text-align: left; color: #f4f1ff; font: inherit; font-weight: 400;
+  border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 16px 40px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .1); overflow: hidden;
+  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); transition: transform .18s ease, box-shadow .18s ease, border-color .18s; }
+button.mc-card::after { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 70% at 20% 0%, rgba(255, 255, 255, .12), transparent 60%); pointer-events: none; }
+button.mc-card:hover, button.mc-card:focus-visible { transform: translateY(-5px); filter: none; border-color: var(--mc, var(--accent)); box-shadow: 0 22px 50px rgba(0, 0, 0, .55), 0 0 0 1px var(--mc, var(--accent)), 0 0 34px color-mix(in srgb, var(--mc, var(--accent)) 35%, transparent); }
+.mc-glyph { font-family: var(--jp); font-size: clamp(4rem, calc(7 * var(--vw)), 7rem); font-weight: 900; line-height: 1; color: var(--mc); text-shadow: 0 0 30px color-mix(in srgb, var(--mc) 55%, transparent); }
+.mc-body { display: flex; flex-direction: column; gap: 6px; }
+.mc-name { font-size: clamp(1.25rem, calc(1.9 * var(--vw)), 1.7rem); font-weight: 900; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mc-info { font-size: .92rem; line-height: 1.35; color: color-mix(in srgb, var(--mc) 35%, #e8e4ff); }
+.mc-card .online-pill { margin: 4px 0 0; align-self: flex-start; }
+.mc-go { margin-top: 10px; padding: 11px 0; border-radius: 13px; text-align: center; font-weight: 900; font-size: 1.02rem; color: #fff; background: linear-gradient(135deg, #ff7a59, #d6334e); box-shadow: 0 8px 22px rgba(214, 51, 78, .45); }
+.mc-online { --mc: #ff8a6a; background: linear-gradient(180deg, rgba(92, 30, 52, .9) 0%, rgba(28, 14, 44, .92) 100%); border-color: rgba(255, 138, 106, .55); }
+.mc-private { --mc: #b49bff; background: linear-gradient(180deg, rgba(48, 40, 120, .88) 0%, rgba(18, 16, 48, .92) 100%); }
+.mc-daily { --mc: #f6c453; background: linear-gradient(180deg, rgba(74, 62, 18, .88) 0%, rgba(20, 16, 44, .92) 100%); }
+.mc-study { --mc: #6ee7a8; background: linear-gradient(180deg, rgba(16, 70, 58, .88) 0%, rgba(16, 18, 46, .92) 100%); }
+.mc-name .badge { font-size: .7rem; }
+.mc-private .chev { font-size: .9rem; opacity: .7; }
+/* Private game: the room box opens over the lower part of its card */
+.mc-slot > .private-box { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 3; background: rgba(14, 12, 40, .96); box-shadow: 0 14px 40px rgba(0, 0, 0, .6); }
+/* smaller screens: the cards are short — the room box opens under the card instead (the card stays tappable to close it) */
+@media (max-width: 1100px) {
+  .mc-slot { flex-direction: column; gap: 8px; }
+  .mc-slot > .private-box { position: static; }
+  .mc-slot:has(> .private-box:not([hidden])) { grid-column: 1 / -1; }
+}
+#menu .study-lock { align-self: center; max-width: 720px; }
+#menu .tasks-btn { align-self: center; width: min(560px, 100%); }
+#menu .error:empty { display: none; }
+#menu .menu-foot { position: static; margin-top: auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+#menu .menu-foot .how-btn { position: static; background: rgba(16, 14, 44, .72); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+/* Get the app: a soft glow that breathes, so it's noticed */
+#menu .app-btn:not([hidden]) { display: inline-flex; align-items: center; gap: 6px; color: #fff; font-weight: 900; border: 1px solid rgba(110, 231, 255, .8) !important;
+  background: linear-gradient(135deg, #1f8fb4, #5b4bd6 60%, #a04bd6) !important; animation: appGlow 2.4s ease-in-out infinite; }
+@keyframes appGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(110, 231, 255, .55), 0 0 12px rgba(110, 231, 255, .35); } 50% { box-shadow: 0 0 0 6px rgba(110, 231, 255, 0), 0 0 26px rgba(110, 231, 255, .75); } }
+@media (prefers-reduced-motion: reduce) { #menu .app-btn { animation: none; box-shadow: 0 0 18px rgba(110, 231, 255, .6); } }
+#menu .app-btn.update { background: linear-gradient(135deg, #b98a1c, #d6693a) !important; border-color: var(--gold) !important; }
+@media (max-width: 1100px) {
+  .mc-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  button.mc-card { min-height: 210px; }
+  .mc-glyph { font-size: 4.2rem; }
+}
+@media (max-width: 700px) {
+  #menu.menu-cards { padding-top: 62px; padding-bottom: 92px; gap: 14px; }
+  #menu .mc-top { flex-direction: column; align-items: stretch; gap: 12px; }
+  #menu .mc-title { font-size: 2.3rem; }
+  .mc-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .mc-nav-btn { flex-direction: column; gap: 4px; padding: 10px 4px; font-size: .8rem; justify-content: center; text-align: center; }
+  .mc-cards { gap: 10px; }
+  button.mc-card { min-height: 0; padding: 14px; border-radius: 18px; gap: 6px; }
+  .mc-glyph { font-size: 2.6rem; }
+  .mc-name { font-size: 1.08rem; }
+  .mc-info { font-size: .78rem; }
+  .mc-go { padding: 8px 0; font-size: .9rem; margin-top: 6px; }
+  :is(.mc-online, .mc-study) { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 16px; }
+  :is(.mc-online, .mc-study) .mc-glyph { font-size: 3.4rem; }
+}
+:root[data-theme="light"] button.mc-card { color: #f4f1ff; }
+:root[data-theme="light"] .mc-nav-btn { background: rgba(255, 255, 255, .9); color: var(--text); border-color: var(--line); }
+
+/* ── 0.9.9.8.1: phone battles — both HP bars sit below the clock and Leave button, and a combo never moves them
+   (the "×5 combo" made the name row wrap, pushing your bar down); the name stays on one line ── */
+@media (max-width: 700px) {
+  body.mode-shown #battle .arena-top:not(.boss-top) { margin-top: 34px; }
+  #battle .arena-top:not(.boss-top) .fighter { position: relative; min-width: 0; overflow: visible; }
+  #battle .arena-top:not(.boss-top) .fighter .name { flex-wrap: nowrap; white-space: nowrap; min-width: 0; height: 1.5em; align-items: center; }
+  #battle .arena-top:not(.boss-top) .fighter .name > .n { min-width: 0; overflow: hidden; }
+  #battle .arena-top:not(.boss-top) .fighter .name > .n > .n { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  #battle .arena-top:not(.boss-top) .fighter .name > .n > :is(.pic, .net, .lv) { flex: none; }
+  #battle .arena-top:not(.boss-top) .fighter .name .combo { position: absolute; bottom: 0; font-size: .74rem; line-height: 1.4; pointer-events: none; }
+  #battle .arena-top:not(.boss-top) .fighter.me .name .combo { right: 0; }
+  #battle .arena-top:not(.boss-top) .fighter.opp .name .combo { left: 0; }
+  #battle .arena-top:not(.boss-top) .fighter .name .combo:empty { display: none; }
+}
+:root[data-theme="light"] #menu .mc-nav-btn { background: rgba(255, 255, 255, .92); color: #1d1838; border-color: rgba(60, 50, 120, .2); }
+:root[data-theme="light"] #menu .mc-nav-btn svg { color: #6b3fd6; }
+:root[data-theme="light"] #menu .menu-foot .how-btn:not(.app-btn) { background: rgba(255, 255, 255, .9); color: #1d1838; border-color: rgba(60, 50, 120, .2); }

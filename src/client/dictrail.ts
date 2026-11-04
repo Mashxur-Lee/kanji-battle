@@ -2,7 +2,7 @@
 // (the friends are on the right) that opens into a quick look-up; on a phone a round 辞 button bottom-left that slides
 // it in. Results and a word's meanings show right in the panel, so looking something up never takes you off the
 // screen you're on (a lobby, the results, your deck …). "Full entry" opens the dictionary page for everything else.
-// Not shown in battles, quizzes, reviews, the reading passage or the Daily challenge (no looking up answers).
+// Not shown in battles, quizzes or the Daily challenge (0.9.9.8.1: it is in reviews and the reading passage).
 
 import type { DictEntry } from '../shared/dict';
 import { addTo, badges, dictionary, headword, openDictWord, ruOf } from './dictui';
@@ -20,7 +20,7 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: strin
 };
 
 /** where the panel is offered */
-const DICT_SCREENS = new Set(['menu', 'queue', 'admin', 'modes', 'lobby', 'results', 'study', 'customize', 'history', 'progress', 'friends']);
+const DICT_SCREENS = new Set(['menu', 'queue', 'admin', 'modes', 'lobby', 'results', 'study', 'review', 'passage', 'customize', 'history', 'progress', 'friends']);
 /** screens of a room: "Full entry" would take you out of it, so it isn't offered there */
 const ROOM_SCREENS = new Set(['lobby', 'queue', 'results']);
 let signedIn = false;
