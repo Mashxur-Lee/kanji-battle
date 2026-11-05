@@ -13,12 +13,14 @@ const PATCHES: Patch[] = [
       'Friends: the device icons are plain silhouettes now (globe, monitor, phone), easy to see on any picture.',
       'The dictionary and friends panels have thicker close bars, and a tap outside an open panel only closes it — it no longer presses the button underneath.',
       'Settings: tapping outside an open list closes just the list, not the whole Settings window.',
+      'Bug fixes: the Settings tile has a gear icon (not a sun); the music no longer dips or stutters when you tap buttons; on a phone’s browser the menu background no longer leaves an empty strip on the right while scrolling; finished daily tasks can be hidden until tomorrow (✕ on the banner).',
     ],
     ru: [
       'Приложение для Android: новая закрытая подпись, и оно больше не скачивает и не устанавливает обновления само — Play Protect начал блокировать его как «вредоносное». «Обновить приложение» скачивает новую версию через браузер. В этот раз сначала удалите старое приложение (аккаунт и прогресс сохранены на сервере).',
       'Друзья: значки устройств теперь простые силуэты (глобус, монитор, телефон) — их хорошо видно на любой картинке.',
       'У панелей словаря и друзей полосы закрытия толще, а нажатие мимо открытой панели только закрывает её — кнопка под пальцем больше не нажимается.',
       'Настройки: нажатие мимо открытого списка закрывает только список, а не всё окно настроек.',
+      'Исправления: у плитки «Настройки» значок шестерёнки (а не солнца); музыка больше не проседает и не заикается при нажатиях; в браузере телефона фон меню больше не оставляет пустую полосу справа при прокрутке; выполненные ежедневные задания можно скрыть до завтра (✕ на баннере).',
     ],
   },
   {

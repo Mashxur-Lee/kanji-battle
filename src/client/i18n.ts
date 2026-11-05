@@ -487,6 +487,7 @@ const RU: Record<string, string> = {
   'Close friends': 'Закрыть друзей',
   'Reconnecting…': 'Переподключение…',
   // 0.9.9.9.3
+  'Hide until tomorrow': 'Скрыть до завтра',
   'A one-time reinstall': 'Переустановка — один раз',
   'The app now has its own private signature (the old one was public, so Play Protect blocked new versions as harmful). Android can’t update an app to a new signature, so this one time:': 'У приложения теперь собственная закрытая подпись (старая была общедоступной, поэтому Play Protect блокировал новые версии как вредоносные). Android не может обновить приложение на новую подпись, поэтому один раз:',
   'Tap “Download the new app” — your browser downloads it.': 'Нажмите «Скачать новое приложение» — браузер его скачает.',

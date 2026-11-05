@@ -7,7 +7,7 @@
   --gutter: clamp(16px, calc(4 * var(--vw)), 48px);
   /* UI size (zoom.ts): viewport units are scaled back up by --vfix so full-height layouts stay full height */
   --ui-zoom: 1; --vfix: 1;
-  --vh: calc(1vh * var(--vfix)); --dvh: calc(1dvh * var(--vfix)); --vw: calc(1vw * var(--vfix));
+  --vh: calc(1vh * var(--vfix)); --dvh: calc(1dvh * var(--vfix)); --vw: calc(1vw * var(--vfixw, var(--vfix)));
 }
 * { box-sizing: border-box; }
 html { background: var(--bg); }
@@ -3366,3 +3366,8 @@ body:has(#netStatus:not([hidden])) :is(.screen > .back, #quiz .page-head > .back
 .reinstall-steps li::marker { color: var(--accent); font-weight: 900; }
 /* the friends panel on phones: solid, like the dictionary's (the menu showed through it) */
 @media (max-width: 900px) { .friend-rail { background: rgba(12, 10, 32, .97) !important; } }
+/* 0.9.9.9.3: put the finished daily tasks away until tomorrow */
+.tasks-btn { position: relative; }
+.tasks-btn .tb-hide { position: absolute; top: -9px; right: -9px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font-size: .8rem; font-weight: 900; color: #fff; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .25); cursor: pointer; z-index: 2; }
+.tasks-btn .tb-hide:hover, .tasks-btn .tb-hide:focus-visible { background: rgba(0, 0, 0, .6); }

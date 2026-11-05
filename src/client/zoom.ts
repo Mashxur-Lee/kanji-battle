@@ -53,6 +53,15 @@ export function applyUiZoom(pref = uiZoomPref()) {
   scale = r.width > 0 ? r.width / 100 : 1;
   const vfix = r.height > 0 ? innerHeight / r.height : 1;
   root.style.setProperty('--vfix', String(Math.round(vfix * 1000) / 1000));
+  // 0.9.9.9.3: widths get their own factor, measured on a width. They used the height's — and in a phone's browser
+  // 100vh is the height with the address bar hidden, so while it shows the factor was below 1: the background was a
+  // few percent narrower than the screen (an empty strip on the right that moved as you scrolled)
+  const wprobe = document.createElement('div');
+  wprobe.style.cssText = 'position:absolute;left:0;top:0;width:100vw;height:1px;visibility:hidden;pointer-events:none';
+  document.body.append(wprobe);
+  const ww = wprobe.getBoundingClientRect().width;
+  wprobe.remove();
+  root.style.setProperty('--vfixw', String(ww > 0 ? Math.round((innerWidth / ww) * 1000) / 1000 : 1));
   // layout switches that follow the page's own size (not the monitor's): a short page squeezes Deck Duel
   root.classList.toggle('eff-short', viewH() <= 900);
   refit();

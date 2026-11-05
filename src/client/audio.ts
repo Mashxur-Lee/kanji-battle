@@ -30,11 +30,18 @@ function ensure(): AudioContext | null {
   if (!AC) return null;
   // 0.9.9.9.1: a slightly bigger output buffer ('balanced' — the default is the smallest the phone allows): with the
   // screen busy (the menu's moving kanji, blurred panels) the music crackled when a buffer came late
-  try { ctx = new AC({ latencyHint: 'balanced' }); } catch { ctx = new AC(); }
+  // (0.9.9.9.3: 'playback' — the roomiest buffer: a busy moment on a phone, like a tap that opens a new screen, can
+  // no longer leave the sound card waiting; effects come a few hundredths of a second later, which nobody hears)
+  try { ctx = new AC({ latencyHint: 'playback' }); } catch { ctx = new AC(); }
   const comp = ctx.createDynamicsCompressor();
   comp.connect(ctx.destination);
+  // 0.9.9.9.3: the music has its own gentle compressor — sharing one with the effects, every loud effect pushed the
+  // music down for a moment (it sounded like a stutter)
+  const musicComp = ctx.createDynamicsCompressor();
+  musicComp.threshold.value = -12; musicComp.ratio.value = 3; musicComp.attack.value = 0.02; musicComp.release.value = 0.4;
+  musicComp.connect(ctx.destination);
   sfxBus = ctx.createGain(); sfxBus.gain.value = sfxGain(); sfxBus.connect(comp);
-  musicBus = ctx.createGain(); musicBus.gain.value = musicGain(); musicBus.connect(comp);
+  musicBus = ctx.createGain(); musicBus.gain.value = musicGain(); musicBus.connect(musicComp);
   menuBus = ctx.createGain(); menuBus.gain.value = 0; menuBus.connect(musicBus);
   battleBus = ctx.createGain(); battleBus.gain.value = 0; battleBus.connect(musicBus);
   ambBus = ctx.createGain(); ambBus.gain.value = 0.9; ambBus.connect(musicBus);
@@ -265,6 +272,9 @@ function makeTrack(bpm: number, bus: () => GainNode, play: (step: number, at: nu
     STEP,
     fadeIn() {
       if (!ctx) return;
+      // already playing (every tap that opens a screen asks again): leave it alone — re-starting the fade each time
+      // made the volume dip
+      if (timer !== undefined && stopTimer === undefined) return;
       clearTimeout(stopTimer); stopTimer = undefined;
       bus().gain.cancelScheduledValues(ctx.currentTime);
       bus().gain.setTargetAtTime(1, ctx.currentTime, 0.9);
