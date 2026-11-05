@@ -18,6 +18,8 @@ export const taskActions: Partial<Record<string, () => void>> = {};
 
 let last: Profile | null = null;
 let shownThisVisit = false;
+const HIDE = 'kb:tasksHiddenOn'; // the day the finished banner was put away (0.9.9.9.3)
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 
 const doneCount = (p: Profile) => (p.tasks ?? []).filter((t) => t.value >= t.target).length;
 
@@ -31,7 +33,9 @@ export function renderTasks(p: Profile) {
   if (wasAll === false && all) ui.toast(`🔥 ${tr('Daily streak kept!')} +500 XP`, 5000); // just finished the last task
   wasAll = all;
   const btn = $('tasksBtn');
-  btn.hidden = false;
+  // 0.9.9.9.3: once today's tasks are all done, the banner can be put away (✕) — until tomorrow's tasks
+  const hiddenToday = all && store.get(HIDE) === today();
+  btn.hidden = hiddenToday;
   btn.classList.toggle('done', all);
   // 0.9.9.8.2: a banner with each task and its progress (it was one thin line that was easy to miss)
   const mk = (tag: string, cls: string, text = '') => Object.assign(document.createElement(tag), { className: cls, textContent: text });
@@ -49,6 +53,15 @@ export function renderTasks(p: Profile) {
   const main = mk('span', 'tb-main'); main.append(head, list);
   const days = mk('span', 'tb-days'); days.append(mk('b', '', `${p.streak ?? 0}`), mk('small', '', tr('days')));
   btn.replaceChildren(mk('span', 'tb-fire', '🔥'), main, days);
+  if (all) {
+    const x = mk('span', 'tb-hide', '✕');
+    x.setAttribute('role', 'button'); x.tabIndex = 0;
+    x.title = tr('Hide until tomorrow'); x.setAttribute('aria-label', tr('Hide until tomorrow'));
+    const hide = (e: Event) => { e.preventDefault(); e.stopPropagation(); store.set(HIDE, today()); btn.hidden = true; };
+    x.addEventListener('click', hide);
+    x.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') hide(e); });
+    btn.append(x);
+  }
   $('ppTasks').textContent = `${tr('Today’s streak tasks')}: ${n}/${tasks.length} ›`;
   if (!$<HTMLDialogElement>('tasksDialog').open) return;
   fill(p);
