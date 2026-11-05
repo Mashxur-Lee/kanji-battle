@@ -6,12 +6,12 @@ plugins {
 // Version: -PversionName=0.9.9.4 -PversionCode=<build number> (set by .github/workflows/apps.yml)
 android {
     namespace 'com.kanjiwizards.app'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId 'com.kanjiwizards.app'
         minSdk 24
-        targetSdk 34
+        targetSdk 36
         versionCode((project.findProperty('versionCode') ?: '1') as int)
         versionName((project.findProperty('versionName') ?: '0.9.9.4') as String)
         buildConfigField 'String', 'SERVER', '"' + (project.findProperty('server') ?: 'https://kanji-battle-ev0o.onrender.com') + '"'
