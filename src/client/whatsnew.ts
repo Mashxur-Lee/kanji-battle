@@ -7,6 +7,27 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.1', date: '2026-11',
+    en: [
+      'Android app: built for Android 16 now — updating no longer gets blocked as “harmful” by Play Protect on new phones (it blocks apps made for a much older Android).',
+      'Music no longer crackles: it’s queued further ahead and with a safer sound buffer, and the menu is lighter to draw on phones.',
+      'Phones: opening the dictionary no longer makes the page jump — the keyboard comes up when you tap the search box.',
+      'Settings: the lists (3D graphics, UI size, theme, language…) open under their button, not across the whole screen.',
+      'Menu: one Settings button (the extra gear in the corner is gone); on a computer the four tiles span the full width, Settings is blue and Progress green. Your whole nickname shows (no “…”).',
+      'The drifting kanji in the menu show even with “reduce motion” / animation effects turned off (they stand still then).',
+      'Offline: the strip at the top no longer pushes your name onto the logo. ← Study on the reading passage moved clear of the dictionary bar.',
+    ],
+    ru: [
+      'Приложение для Android: теперь собрано под Android 16 — Play Protect на новых телефонах больше не блокирует обновление как «вредоносное» (он блокирует приложения для слишком старых версий Android).',
+      'Музыка больше не трещит: ноты готовятся заранее и с более надёжным звуковым буфером, а меню на телефонах рисуется легче.',
+      'Телефоны: открытие словаря больше не дёргает страницу — клавиатура появляется, когда вы нажмёте на поле поиска.',
+      'Настройки: списки (3D-графика, размер интерфейса, тема, язык…) открываются под своей кнопкой, а не на весь экран.',
+      'Меню: одна кнопка «Настройки» (лишняя шестерёнка в углу убрана); на компьютере четыре плитки во всю ширину, «Настройки» синие, «Прогресс» зелёный. Ваш ник виден целиком (без «…»).',
+      'Плывущие кандзи в меню видны и с выключенной анимацией («уменьшить движение») — тогда они просто стоят на месте.',
+      'Офлайн: полоса вверху больше не сдвигает ваше имя на логотип. «← Заклинания» в тексте для чтения отодвинута от панели словаря.',
+    ],
+  },
+  {
     v: '0.9.9.9', date: '2026-11',
     en: [
       'Settings, rebuilt: one ⚙ button (and a Settings tile on the menu) opens a window with tabs — Graphics (3D: High, Low or Off for 2D; UI size; theme), Audio (music and sounds on/off, volumes, voice), Language, and Other (reminders, battle keyboard). The music, sound and reminder buttons left the top bar, so your name fits. In a game against the AI, Settings pauses it.',

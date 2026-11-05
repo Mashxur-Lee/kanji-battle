@@ -99,7 +99,10 @@ function enhance(sel: HTMLSelectElement) {
     if (wrap.closest('.kanji-pop, #passageGloss, .settings-box, .dr-panel, .fr-list')) {
       const z = zrect(btn);
       menu.classList.add('floating');
-      menu.style.left = `${Math.max(8, Math.min(z.left, viewW() - 8 - menu.offsetWidth))}px`;
+      // 0.9.9.9.1: fixed, "at least as wide as the box" meant the whole screen — as wide as its button instead
+      menu.style.minWidth = `${Math.max(z.width, 140)}px`;
+      const want = wrap.closest('.toggle-row') ? z.right - menu.offsetWidth : z.left; // settings rows: under the button's right edge
+      menu.style.left = `${Math.max(8, Math.min(want, viewW() - 8 - menu.offsetWidth))}px`;
       if (up) menu.style.bottom = `${viewH() - z.top + 6}px`; else menu.style.top = `${z.bottom + 6}px`;
     }
     const list = items();

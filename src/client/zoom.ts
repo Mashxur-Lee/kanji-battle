@@ -57,9 +57,25 @@ export function applyUiZoom(pref = uiZoomPref()) {
   root.classList.toggle('eff-short', viewH() <= 900);
   refit();
 }
+/**
+ * 0.9.9.9.1: the phone's keyboard opening or closing (same width, only the height changes, a text field in use) is
+ * not a new window size: measuring and centring everything again then made the whole page jump behind the
+ * dictionary panel ("the app glitches out") — at 80%, the default again, pages are centred on phones too.
+ */
+let seenW = innerWidth;
+let kbResize = false; // the last resize was the keyboard (read by centerScreens' listener, which runs after this one)
+function keyboardResize() {
+  const same = innerWidth === seenW;
+  seenW = innerWidth;
+  const typing = document.activeElement?.matches('input:not([type=range]):not([type=checkbox]), textarea, [contenteditable="true"]') ?? false;
+  return (kbResize = same && typing && matchMedia('(pointer: coarse)').matches);
+}
 {
   let t = 0;
-  addEventListener('resize', () => { clearTimeout(t); t = window.setTimeout(() => { if (lastPref) applyUiZoom(lastPref); }, 150); });
+  addEventListener('resize', () => {
+    if (keyboardResize()) return;
+    clearTimeout(t); t = window.setTimeout(() => { if (lastPref) applyUiZoom(lastPref); }, 150);
+  });
 }
 
 /** getBoundingClientRect in the page's own CSS pixels (for positioning things inside the zoomed page). */
@@ -103,7 +119,7 @@ export function centerScreens() {
   for (const s of document.querySelectorAll<HTMLElement>('.screen')) {
     new MutationObserver(refit).observe(s, { attributes: true, attributeFilter: ['hidden'], childList: true, subtree: true });
   }
-  addEventListener('resize', refit);
+  addEventListener('resize', () => { if (!kbResize) refit(); });
   refit();
 }
 let refit = () => {};
