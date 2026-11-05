@@ -1,4 +1,5 @@
 import { viewH, viewW, zrect } from './zoom';
+import { swallowNextClick } from './taps';
 // 0.9.9.4: themed dropdowns. Every <select> in the page (now or added later) gets a button + popup list in
 // the game's style; the real <select> stays in the DOM, hidden, and keeps the value — so code that reads
 // `sel.value`, sets it, or listens for "change" works unchanged. Opt out with data-native.
@@ -66,7 +67,8 @@ function enhance(sel: HTMLSelectElement) {
     sel.dispatchEvent(new Event('change', { bubbles: true }));
     close(); btn.focus();
   };
-  const outside = (e: Event) => { if (!wrap.contains(e.target as Node)) close(); };
+  // a tap outside the open list only closes it (0.9.9.9.3: in Settings it closed the whole window too)
+  const outside = (e: Event) => { if (!wrap.contains(e.target as Node)) { close(); if (!(e.target as Element).closest?.('.csel-btn')) swallowNextClick(); } };
   const open = () => {
     if (menu || sel.disabled) return;
     openMenu?.close();

@@ -17,23 +17,24 @@ android {
         buildConfigField 'String', 'SERVER', '"' + (project.findProperty('server') ?: 'https://kanji-battle-ev0o.onrender.com') + '"'
     }
 
-    // A fixed key, so each new APK installs over the old one. It's a beta key kept in the repository
-    // (fine for installing the APK directly); a Play Store release would use a private key instead.
+    // 0.9.9.9.3: signed with a private key that is NOT in this repository (the old beta key and its password were
+    // public here — anyone could sign an app as Kanji Wizards, and Play Protect started blocking it as harmful).
+    // CI writes the key from the ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD secrets to release.jks
+    // (.github/workflows/apps.yml). Without it (a local build) the release falls back to the debug key.
+    def ks = rootProject.file('release.jks')
+    def ksPass = System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: (project.findProperty('keystorePassword') ?: '')
     signingConfigs {
-        beta {
-            storeFile file('../kanjiwizards-beta.jks')
-            storePassword 'kanjiwizards'
-            keyAlias 'beta'
-            keyPassword 'kanjiwizards'
+        release {
+            storeFile ks
+            storePassword ksPass
+            keyAlias 'kanjiwizards'
+            keyPassword ksPass
         }
     }
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.beta
-        }
-        debug {
-            signingConfig signingConfigs.beta
+            signingConfig ks.exists() && ksPass ? signingConfigs.release : signingConfigs.debug
         }
     }
     buildFeatures { buildConfig true }

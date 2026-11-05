@@ -486,10 +486,20 @@ const RU: Record<string, string> = {
   'Close the dictionary': 'Закрыть словарь',
   'Close friends': 'Закрыть друзей',
   'Reconnecting…': 'Переподключение…',
+  // 0.9.9.9.3
+  'A one-time reinstall': 'Переустановка — один раз',
+  'The app now has its own private signature (the old one was public, so Play Protect blocked new versions as harmful). Android can’t update an app to a new signature, so this one time:': 'У приложения теперь собственная закрытая подпись (старая была общедоступной, поэтому Play Protect блокировал новые версии как вредоносные). Android не может обновить приложение на новую подпись, поэтому один раз:',
+  'Tap “Download the new app” — your browser downloads it.': 'Нажмите «Скачать новое приложение» — браузер его скачает.',
+  'Uninstall Kanji Wizards (hold its icon → Uninstall).': 'Удалите Kanji Wizards (удерживайте значок → Удалить).',
+  'Open KanjiWizards.apk from your downloads and install it, then sign in.': 'Откройте KanjiWizards.apk в загрузках, установите и войдите.',
+  'Your account, progress and decks are on the server — nothing is lost. Stay online for a moment first so everything is synced.': 'Аккаунт, прогресс и колоды хранятся на сервере — ничего не потеряется. Сначала побудьте немного онлайн, чтобы всё синхронизировалось.',
+  'Download the new app': 'Скачать новое приложение', 'Later': 'Позже',
+  'Your browser is downloading the new version — open KanjiWizards.apk when it finishes and tap Update.': 'Браузер скачивает новую версию — когда закончит, откройте KanjiWizards.apk и нажмите «Обновить».',
   // 0.9.9.9.2
   'Chrome warns “File might be harmful” about every app from outside Google Play — it’s a general warning, not about this app. Tap': 'Chrome предупреждает «Файл может быть опасен» о любом приложении не из Google Play — это общее предупреждение, а не про это приложение. Нажмите',
   'Download anyway': 'Всё равно скачать',
-  '. If Play Protect asks while installing, choose': '. Если при установке спросит Play Protect, выберите',
+  '. If Play Protect offers to scan the app, tap': '. Если Play Protect предложит проверить приложение, нажмите',
+  'Scan app': 'Проверить', 'Install': 'Установить', ', then': ', затем',
   'Install anyway': 'Всё равно установить',
   'On the website': 'На сайте', 'On the PC app': 'В приложении на ПК', 'On the phone app': 'В приложении на телефоне',
   // 0.9.9.8.2

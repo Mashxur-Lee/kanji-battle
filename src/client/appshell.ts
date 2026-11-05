@@ -4,6 +4,7 @@
 import * as offline from './offline';
 import { getToken, OFFLINE_TEXT } from './api';
 import * as ui from './ui';
+import { tr } from './i18n';
 import { VERSION } from '../shared/version';
 
 const RELEASES = 'https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download';
@@ -115,12 +116,15 @@ function initBack() {
   (window as { kwBack?: () => boolean }).kwBack = () => { if (guarded) { history.back(); return true; } return goBack(); };
 }
 
-// ── "Update the app" (0.9.9.6.1) ────────────────────────────────────────────
-// In an older Android app, "Get the app" turns into "Update the app": one tap downloads the newest APK and opens
-// Android's installer on it (apps from 0.9.9.6.1 on). Apps from before that can't install by themselves yet, so
-// the button downloads it in the browser once — open it from there; after that, updates happen in the app.
-interface KWAndroidUpdate { version?: () => string; updateApp?: (url: string) => void; updateState?: () => string; installUpdate?: () => void }
+// ── "Update the app" (0.9.9.6.1; 0.9.9.9.3: through the browser) ─────────────────────────────────────────────
+// In an older Android app, "Get the app" turns into "Update the app". 0.9.9.9.3: the app no longer downloads and
+// installs APKs itself (Play Protect counts an app that can install other apps as harmful), so the browser downloads
+// the new one and Android installs it from there. Apps from before 0.9.9.9.3 were signed with the old (public) key:
+// once, they have to be uninstalled before the new one installs — the button explains that first.
+interface KWAndroidUpdate { version?: () => string }
 const RELEASE_API = 'https://api.github.com/repos/Mashxur-Lee/kanji-battle/releases/latest';
+/** the first app signed with the new private key */
+const NEW_KEY_FROM = '0.9.9.9.3';
 
 /** -1, 0 or 1, comparing dotted versions part by part ("0.9.9.6" < "0.9.9.6.1"). */
 export function cmpVersion(a: string, b: string): number {
@@ -137,6 +141,25 @@ async function latestRelease(): Promise<string> {
   return VERSION;
 }
 
+/** the browser downloads the newest APK (a link to GitHub opens outside the app, in the phone's browser) */
+const downloadInBrowser = () => window.open(`${RELEASES}/KanjiWizards.apk`, '_blank');
+
+/** apps signed with the old key: uninstall, then install the new one — once */
+function reinstallSteps() {
+  const d = document.createElement('dialog');
+  d.className = 'friend-dialog reinstall-dialog';
+  d.innerHTML = `<h3>${tr('A one-time reinstall')}</h3>
+    <p class="hint">${tr('The app now has its own private signature (the old one was public, so Play Protect blocked new versions as harmful). Android can’t update an app to a new signature, so this one time:')}</p>
+    <ol class="reinstall-steps"><li>${tr('Tap “Download the new app” — your browser downloads it.')}</li><li>${tr('Uninstall Kanji Wizards (hold its icon → Uninstall).')}</li><li>${tr('Open KanjiWizards.apk from your downloads and install it, then sign in.')}</li></ol>
+    <p class="hint">${tr('Your account, progress and decks are on the server — nothing is lost. Stay online for a moment first so everything is synced.')}</p>
+    <div class="fb-actions"><button class="big" type="button" data-dl>${tr('Download the new app')}</button><button class="big alt" type="button" data-close>${tr('Later')}</button></div>`;
+  document.body.append(d);
+  d.querySelector<HTMLElement>('[data-dl]')!.onclick = () => downloadInBrowser();
+  d.querySelector<HTMLElement>('[data-close]')!.onclick = () => d.close();
+  d.addEventListener('close', () => d.remove());
+  d.showModal();
+}
+
 async function offerUpdate(btn: HTMLElement) {
   const kw = (window as { KWAndroid?: KWAndroidUpdate }).KWAndroid;
   const mine = kw?.version?.();
@@ -147,27 +170,9 @@ async function offerUpdate(btn: HTMLElement) {
   btn.classList.add('update');
   btn.textContent = 'Update the app';
   btn.title = `${mine} → ${latest}`;
-  let timer = 0;
-  const watch = () => {
-    clearInterval(timer);
-    timer = window.setInterval(() => {
-      const st = kw.updateState?.() ?? 'idle';
-      if (st.startsWith('downloading')) btn.textContent = `Downloading… ${st.split(':')[1] ?? 0}%`;
-      else if (st === 'done') { clearInterval(timer); btn.textContent = 'Install the update'; }
-      else if (st === 'failed') { clearInterval(timer); btn.textContent = 'Update the app'; ui.toast('The download failed — check your internet and try again.'); }
-    }, 600);
-  };
   btn.onclick = () => {
-    if (kw.updateApp) {
-      if (kw.updateState?.() === 'done') { kw.installUpdate?.(); return; }
-      kw.updateApp(`${location.origin}/download/KanjiWizards.apk?v=${encodeURIComponent(latest)}`);
-      btn.textContent = 'Downloading… 0%';
-      ui.toast('Downloading the update — Android will ask you to install it. (The first time, allow installing from Kanji Wizards.)', 6000);
-      watch();
-    } else {
-      // an app from before 0.9.9.6.1: the browser downloads it this one time
-      window.open(`${RELEASES}/KanjiWizards.apk`, '_blank');
-      ui.toast('Your browser is downloading the new app — open KanjiWizards.apk when it finishes and tap Update. From then on, updates install right from this button.', 9000);
-    }
+    if (cmpVersion(mine, NEW_KEY_FROM) < 0) return reinstallSteps();
+    downloadInBrowser();
+    ui.toast('Your browser is downloading the new version — open KanjiWizards.apk when it finishes and tap Update.', 8000);
   };
 }

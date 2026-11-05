@@ -63,7 +63,19 @@ jobs:
           gradle-version: '8.11.1'
       - name: Version
         run: echo "VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+      # 0.9.9.9.3: the signing key lives in the repository's secrets (Settings → Secrets and variables → Actions):
+      # ANDROID_KEYSTORE_B64 (the .jks file, base64) and ANDROID_KEYSTORE_PASSWORD. A build for main without them fails
+      # rather than publishing an APK signed with a throwaway key.
+      - name: Signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then echo "$KS_B64" | base64 -d > mobile/android/release.jks; echo "signing with the release key";
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then echo "::error title=Signing key::Add the ANDROID_KEYSTORE_B64 and ANDROID_KEYSTORE_PASSWORD secrets"; exit 1;
+          else echo "::warning title=Signing key::no release key here — a debug-signed test build"; fi
       - name: Build the APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: gradle -p mobile/android assembleRelease --no-daemon -PversionName="$VERSION" -PversionCode="${{ github.run_number }}"
       - name: Rename
         run: cp mobile/android/app/build/outputs/apk/release/app-release.apk KanjiWizards.apk

@@ -1224,3 +1224,4 @@ document.addEventListener('click', (e) => {
   const tab = (e.target as Element | null)?.closest?.('.cust-tabs > button');
   if (tab) tab.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
 });
+
