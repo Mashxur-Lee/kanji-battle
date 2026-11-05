@@ -7,6 +7,21 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.3', date: '2026-11',
+    en: [
+      'Android app: a new private signature, and it no longer downloads or installs updates by itself — Play Protect had started blocking it as a “harmful app”. “Update the app” lets your browser download the new version. This one time you uninstall the old app first (your account and progress are safe on the server).',
+      'Friends: the device icons are plain silhouettes now (globe, monitor, phone), easy to see on any picture.',
+      'The dictionary and friends panels have thicker close bars, and a tap outside an open panel only closes it — it no longer presses the button underneath.',
+      'Settings: tapping outside an open list closes just the list, not the whole Settings window.',
+    ],
+    ru: [
+      'Приложение для Android: новая закрытая подпись, и оно больше не скачивает и не устанавливает обновления само — Play Protect начал блокировать его как «вредоносное». «Обновить приложение» скачивает новую версию через браузер. В этот раз сначала удалите старое приложение (аккаунт и прогресс сохранены на сервере).',
+      'Друзья: значки устройств теперь простые силуэты (глобус, монитор, телефон) — их хорошо видно на любой картинке.',
+      'У панелей словаря и друзей полосы закрытия толще, а нажатие мимо открытой панели только закрывает её — кнопка под пальцем больше не нажимается.',
+      'Настройки: нажатие мимо открытого списка закрывает только список, а не всё окно настроек.',
+    ],
+  },
+  {
     v: '0.9.9.9.2', date: '2026-11',
     en: [
       'In the background the game does nothing now: it says you’re away, closes its connection and stops (the Android app freezes completely). Coming back, it picks up exactly where you were — and a game against the AI pauses itself and waits up to 30 minutes.',

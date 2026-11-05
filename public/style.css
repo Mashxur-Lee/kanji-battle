@@ -3211,8 +3211,8 @@ body.game-kb :is(#railFab, #dictFab) { display: none !important; }
 .side-close { display: none; }
 :is(#railFab, #dictFab).panel-open { display: none !important; }
 .dict-rail.open .dr-close { display: flex; }
-.dr-close, .fr-close { align-items: center; justify-content: center; flex: none; width: 30px; padding: 0; border: 0; border-radius: 0; margin: 0;
-  background: linear-gradient(180deg, #7b5cff, #4a35c8); color: #fff; font: 900 1.6rem/1 var(--ui); box-shadow: none; cursor: pointer; }
+.dr-close, .fr-close { align-items: center; justify-content: center; flex: none; width: 40px; padding: 0; border: 0; border-radius: 0; margin: 0;
+  background: linear-gradient(180deg, #7b5cff, #4a35c8); color: #fff; font: 900 1.9rem/1 var(--ui); box-shadow: none; cursor: pointer; }
 .dr-close:hover, .fr-close:hover { filter: brightness(1.15); }
 .dr-close { border-left: 1px solid rgba(255, 255, 255, .18); }
 .dict-rail.open { display: flex; flex-direction: row; }
@@ -3220,7 +3220,7 @@ body.game-kb :is(#railFab, #dictFab) { display: none !important; }
   .friend-rail { flex-direction: row !important; }
   .friend-rail .fr-close { display: flex; order: -1; border-right: 1px solid rgba(255, 255, 255, .18); }
   .friend-rail > :not(.fr-close) { flex: none; }
-  .friend-rail { display: grid !important; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+  .friend-rail { display: grid !important; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
   .friend-rail[hidden] { display: none !important; }
   .friend-rail .fr-close { grid-column: 1; grid-row: 1 / -1; }
   .friend-rail > :is(.fr-head, .fr-list, .fr-foot) { grid-column: 2; }
@@ -3349,12 +3349,20 @@ body:has(#netStatus:not([hidden])) :is(.screen > .back, #quiz .page-head > .back
 .other-pop { z-index: 100; }
 .app-warn { margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(246, 196, 83, .1); border: 1px solid rgba(246, 196, 83, .35); }
 :root[data-theme="light"] .app-warn { background: #fff4d6; border-color: #e7c06a; }
-/* 0.9.9.9.2: where an online friend plays — a small green globe / monitor / phone at the corner of their picture */
-.fr-dev { position: absolute; right: -4px; bottom: -4px; width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center;
-  background: #3ddc84; color: #06240f; border: 2px solid #0c0a20; }
-.fr-dev svg { width: 9px; height: 9px; }
-.fr-row.away .fr-dev { background: #ffa33a; color: #2a1600; }
-.fl-who .dot.dev { width: 16px; height: 16px; display: inline-grid; place-items: center; background: #3ddc84; color: #06240f; box-shadow: 0 0 8px rgba(61, 220, 132, .6); vertical-align: middle; }
-.fl-who .dot.dev svg { width: 10px; height: 10px; }
-.fl-row.away .dot.dev { background: #ffa33a !important; color: #2a1600; }
-:root[data-theme="light"] .fr-dev { border-color: #fff; }
+/* 0.9.9.9.2: where an online friend plays — a globe / monitor / phone at the corner of their picture
+   (0.9.9.9.3: just the green silhouette with a dark outline — inside a green circle it couldn't be made out) */
+.fr-dev { position: absolute; right: -5px; bottom: -5px; width: 16px; height: 16px; display: grid; place-items: center; background: none; border: 0; color: #3ddc84;
+  filter: drop-shadow(0 0 1px #071a0e) drop-shadow(0 0 1px #071a0e) drop-shadow(0 1px 2px rgba(0, 0, 0, .8)); }
+.fr-dev svg { width: 15px; height: 15px; }
+.fr-row.away .fr-dev { color: #ffa33a; }
+.fl-who .dot.dev { width: 16px; height: 16px; display: inline-grid; place-items: center; background: none !important; box-shadow: none !important; border-radius: 0; color: #3ddc84; vertical-align: middle;
+  filter: drop-shadow(0 0 1px #071a0e) drop-shadow(0 0 1px #071a0e); }
+.fl-who .dot.dev svg { width: 15px; height: 15px; }
+.fl-row.away .dot.dev { color: #ffa33a; }
+:root[data-theme="light"] .fr-dev { color: #12895a; }
+/* 0.9.9.9.3: the one-time reinstall (new signing key) */
+.reinstall-dialog { max-width: min(460px, calc(100vw - 32px)); }
+.reinstall-steps { margin: 8px 0 10px; padding-left: 22px; display: grid; gap: 8px; line-height: 1.4; }
+.reinstall-steps li::marker { color: var(--accent); font-weight: 900; }
+/* the friends panel on phones: solid, like the dictionary's (the menu showed through it) */
+@media (max-width: 900px) { .friend-rail { background: rgba(12, 10, 32, .97) !important; } }

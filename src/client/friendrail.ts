@@ -4,6 +4,7 @@
 
 import { api, type Friend } from './api';
 import * as ui from './ui';
+import { swallowNextClick } from './taps';
 import { tr } from './i18n';
 
 const $ = ui.$;
@@ -47,7 +48,7 @@ $('railFab').onclick = (e) => { e.stopPropagation(); setOpen(!$('friendRail').cl
 $('railClose').onclick = (e) => { e.stopPropagation(); setOpen(false); };
 document.addEventListener('pointerdown', (e) => {
   const t = e.target as HTMLElement;
-  if ($('friendRail').classList.contains('open') && !t.closest('#friendRail, #railFab, #friendDialog, #otherPop')) setOpen(false);
+  if ($('friendRail').classList.contains('open') && !t.closest('#friendRail, #railFab, #friendDialog, #otherPop')) { setOpen(false); swallowNextClick(); }
 });
 
 export async function refreshRail() {
@@ -65,16 +66,17 @@ const avatar = (f: Friend) => {
 
 // 0.9.9.9.2: an online friend's dot is a small icon of where they play — a globe (the website), a monitor (the PC
 // app) or a phone (the Android app); green, orange while away
+// (0.9.9.9.3: plain filled silhouettes — no circle behind them; green, with a dark outline so they read on any picture)
 const DEVICE_SVG: Record<string, string> = {
-  web: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9S14.6 18.4 12 21M12 3C9.4 5.6 8.2 8.6 8.2 12s1.2 6.4 3.8 9"/>',
-  pc: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
-  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="M11 18.5h2"/>',
+  web: '<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.6 2.2C8.9 6 8 8.6 7.9 11H4.1a8 8 0 0 1 6.3-6.8Zm3.2 0A8 8 0 0 1 19.9 11h-3.8c-.1-2.4-1-5-2.5-6.8ZM12 4.6c1.3 1.6 2 3.9 2.1 6.4H9.9c.1-2.5.8-4.8 2.1-6.4ZM4.1 13h3.8c.1 2.4 1 5 2.5 6.8A8 8 0 0 1 4.1 13Zm5.8 0h4.2c-.1 2.5-.8 4.8-2.1 6.4-1.3-1.6-2-3.9-2.1-6.4Zm6.2 0h3.8a8 8 0 0 1-6.3 6.8c1.5-1.8 2.4-4.4 2.5-6.8Z"/>',
+  pc: '<path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h15A1.5 1.5 0 0 1 21 4.5v10a1.5 1.5 0 0 1-1.5 1.5H14l.6 3H17a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h2.4l.6-3H4.5A1.5 1.5 0 0 1 3 14.5Z"/>',
+  phone: '<path fill-rule="evenodd" d="M8 1.5h8A2.5 2.5 0 0 1 18.5 4v16a2.5 2.5 0 0 1-2.5 2.5H8A2.5 2.5 0 0 1 5.5 20V4A2.5 2.5 0 0 1 8 1.5Zm2.5 17.2a.9.9 0 0 0 0 1.8h3a.9.9 0 0 0 0-1.8Z"/>',
 };
 const DEVICE_NAME: Record<string, string> = { web: 'On the website', pc: 'On the PC app', phone: 'On the phone app' };
 export function deviceBadge(f: Friend, cls = 'fr-dev') {
   const d = f.device ?? 'web';
   const i = el('i', `${cls} dev-${d}`);
-  i.innerHTML = `<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DEVICE_SVG[d] ?? DEVICE_SVG.web}</svg>`;
+  i.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">${DEVICE_SVG[d] ?? DEVICE_SVG.web}</svg>`;
   i.title = tr(DEVICE_NAME[d] ?? DEVICE_NAME.web);
   return i;
 }

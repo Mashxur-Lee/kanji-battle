@@ -8,6 +8,7 @@ import { exactMatch, type DictEntry } from '../shared/dict';
 import { addTo, askOffline, exactFirst, badges, dictionary, headword, openDictWord, ruOf } from './dictui';
 import { tr } from './i18n';
 import * as ui from './ui';
+import { swallowNextClick } from './taps';
 import { speak, voiceAvailable } from './voice';
 
 const $ = ui.$;
@@ -67,7 +68,7 @@ $('dictFab').onclick = (e) => { e.stopPropagation(); toggle(); };
 $('dictRailClose').onclick = () => setOpen(false);
 document.addEventListener('pointerdown', (e) => {
   const t = e.target as HTMLElement;
-  if ($('dictRail').classList.contains('open') && !t.closest('#dictRail, #dictFab, dialog, .toast, .kanji-pop')) setOpen(false);
+  if ($('dictRail').classList.contains('open') && !t.closest('#dictRail, #dictFab, dialog, .toast, .kanji-pop')) { setOpen(false); swallowNextClick(); }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('dictRail').classList.contains('open')) { setOpen(false); (document.activeElement as HTMLElement | null)?.blur(); } });
 

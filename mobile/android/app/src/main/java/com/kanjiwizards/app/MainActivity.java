@@ -210,24 +210,8 @@ public class MainActivity extends Activity {
             return true;
         }
 
-        /** 0.9.9.6.1: download the newest APK and open the installer (the "Update the app" button). */
-        @JavascriptInterface
-        public void updateApp(String url) {
-            if (url == null || !url.startsWith("https://")) return;
-            runOnUiThread(() -> Updater.start(MainActivity.this, url));
-        }
-
-        /** "idle", "downloading:<percent>", "done" or "failed" */
-        @JavascriptInterface
-        public String updateState() {
-            return Updater.state(MainActivity.this);
-        }
-
-        /** the download finished but the installer was closed: open it again */
-        @JavascriptInterface
-        public void installUpdate() {
-            runOnUiThread(() -> Updater.install(MainActivity.this));
-        }
+        // (0.9.9.9.3: no more downloading and installing APKs from inside the app — Play Protect counts an app that
+        // can install other apps as harmful. "Update the app" lets the phone's browser download the new version.)
 
         @JavascriptInterface
         public boolean canSpeak() {
