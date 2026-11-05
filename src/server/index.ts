@@ -2,7 +2,7 @@ import { VERSION } from '../shared/version';
 import type { MissedWord } from '../shared/protocol';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { gzipSync } from 'node:zlib';
+import { brotliCompressSync, constants as zc, gzipSync } from 'node:zlib';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
 import { AuthService } from './auth/AuthService';
@@ -36,7 +36,7 @@ const store = makeStore();
 const tokens = new TokenSigner();
 const auth = new AuthService(store, tokens);
 const study = new StudyService(store);
-const hub = new SessionHub();
+const hub = new SessionHub((userId, at) => { void store.update(userId, { lastSeen: at }).catch(() => { /* not important */ }); });
 const daily = new DailyService(store, study.progress);
 daily.onPerfect = (id) => study.grantAchievements(id, undefined, ['perfect-day']);
 const social = new SocialService(store, hub);
@@ -114,11 +114,19 @@ const server = createServer(async (req, res) => {
     // the service worker and the page are checked for a new version every time (0.9.9.4)
     const fresh: Record<string, string> = url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : {};
     // text files go out gzipped (app.js, arena3d.js and the Russian meanings are large); cached per build
-    if (/text|json|javascript|svg/.test(type) && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? '')) && data.length > 1024) {
-      const key = `${file}:${data.length}`;
+    // 0.9.9.9: Brotli where the browser takes it (the dictionary ~25% smaller than gzip), else gzip
+    const accept = String(req.headers['accept-encoding'] ?? '');
+    const enc = /\bbr\b/.test(accept) ? 'br' : /\bgzip\b/.test(accept) ? 'gzip' : '';
+    if (enc && /text|json|javascript|svg/.test(type) && data.length > 1024) {
+      const key = `${enc}:${file}:${data.length}`;
       let gz = GZ.get(key);
-      if (!gz) { gz = gzipSync(data); GZ.set(key, gz); }
-      res.writeHead(200, { 'Content-Type': type, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding', ...fresh }).end(gz);
+      if (!gz) {
+        gz = enc === 'br'
+          ? brotliCompressSync(data, { params: { [zc.BROTLI_PARAM_QUALITY]: data.length > 2e6 ? 9 : 11, [zc.BROTLI_PARAM_SIZE_HINT]: data.length } })
+          : gzipSync(data, { level: 9 });
+        GZ.set(key, gz);
+      }
+      res.writeHead(200, { 'Content-Type': type, 'Content-Encoding': enc, Vary: 'Accept-Encoding', ...fresh }).end(gz);
       return;
     }
     res.writeHead(200, { 'Content-Type': type, ...fresh }).end(data);

@@ -5,14 +5,12 @@ import { api } from './api';
 const stars = new Set<string>();
 const listeners = new Set<() => void>();
 export const isStarred = (id: string | undefined) => !!id && stars.has(id);
-export const starredIds = () => [...stars];
 /** the profile's list (on login / profile refresh) */
 export function setStarred(ids: readonly string[] | undefined) {
   stars.clear();
   for (const id of ids ?? []) stars.add(id);
   listeners.forEach((f) => f());
 }
-export const onStarsChanged = (f: () => void) => { listeners.add(f); };
 
 /** ★ / ☆ — flips it on the server; throws (with the server's message) when it can't */
 export async function toggleStar(id: string): Promise<boolean> {

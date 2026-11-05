@@ -2,7 +2,9 @@
 // month calendar, and a mastery grid with every word of each level coloured by how well you know it.
 
 import { locale, meaningIn, tr } from './i18n';
-import { isKanaLevel, LEVEL_LABEL, LEVELS, studyLevelOf, type Level } from '../shared/protocol';
+import { isKanaLevel, LEVEL_LABEL, LEVELS as BASE_LEVELS, studyLevelOf, type Level } from '../shared/protocol';
+/** 0.9.9.9: Spell mastery shows the onomatopoeia too */
+const LEVELS = [...BASE_LEVELS, 'ONO'] as Level[];
 import { KANA_BASIC, KANA_COMBO, KANA_VOICED, toKatakana } from '../shared/vocab';
 import { loadVocab, VOCAB } from './offline/vocab';
 import { FLAMES, isoWeek, STAFFS } from '../shared/progress';
@@ -44,7 +46,7 @@ export async function openProgress(myUnlocks: readonly string[] = [], myBadges: 
   $('progGrid').replaceChildren(el('p', 'hint', 'Loading…'));
   try { page = await api.progress(); } catch (e) { ui.toast((e as Error).message); return; }
   // start on the level you have the most going on in
-  const busiest = LEVELS.map((l) => [l, page!.mastery[l].filter(([, m]) => m > 0).length] as const).sort((a, b) => b[1] - a[1])[0];
+  const busiest = LEVELS.map((l) => [l, (page!.mastery[l] ?? []).filter(([, m]) => m > 0).length] as const).sort((a, b) => b[1] - a[1])[0];
   if (busiest && busiest[1] > 0) level = busiest[0];
   render();
 }
@@ -255,13 +257,13 @@ function renderMastery() {
   if (!page) return;
   $('mgPop').hidden = true;
   const tabs = $('progLevels');
-  const allWords = LEVELS.flatMap((l) => page!.mastery[l]);
+  const allWords = LEVELS.flatMap((l) => (page!.mastery[l] ?? []));
   const allTab = el('button', 'cust-tab' + (level === 'ALL' ? ' on' : ''), `${tr('All levels')} · ${allWords.filter(([, m]) => m >= 3).length}/${allWords.length}`);
   allTab.setAttribute('role', 'tab');
   allTab.setAttribute('aria-selected', String(level === 'ALL'));
   allTab.onclick = () => { level = 'ALL'; mShown = PAGE; renderMastery(); };
   tabs.replaceChildren(allTab, ...LEVELS.map((l) => {
-    const words = page!.mastery[l];
+    const words = (page!.mastery[l] ?? []);
     const known = words.filter(([, m]) => m >= 3).length;
     const b = el('button', 'cust-tab' + (l === level ? ' on' : ''), `${LEVEL_LABEL[l]} · ${known}/${words.length}`);
     b.setAttribute('role', 'tab');
@@ -269,7 +271,7 @@ function renderMastery() {
     b.onclick = () => { level = l; mShown = PAGE; renderMastery(); };
     return b;
   }));
-  const words = level === 'ALL' ? allWords : page.mastery[level];
+  const words = level === 'ALL' ? allWords : (page.mastery[level] ?? []);
   const counts = [0, 0, 0, 0, 0];
   for (const [, m] of words) counts[m]++;
   $('progLegend').replaceChildren(...MASTERY.map((m, i) => {
@@ -325,7 +327,7 @@ function renderMastery() {
     let left = mShown;
     for (const l of LEVELS) {
       if (left <= 0) break;
-      const mine = page.mastery[l].filter(([, m]) => test(m)).sort((a, b) => b[2] - a[2]);
+      const mine = (page.mastery[l] ?? []).filter(([, m]) => test(m)).sort((a, b) => b[2] - a[2]);
       if (!mine.length) continue;
       tiles.append(el('div', 'mg-level', `${LEVEL_LABEL[l]} · ${mine.length}`));
       for (const [k, m, p] of mine.slice(0, left)) { const t = tile(k, m, p ?? 0, null); t.dataset.level = l; tiles.append(t); }

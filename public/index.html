@@ -56,35 +56,59 @@
   </div>
   <div id="modeTitle" class="mode-title" aria-live="off" hidden></div>
   <div id="netStatus" class="net-status" role="status" hidden></div>
-  <div class="audio-ctl" role="group" aria-label="Audio">
-    <button id="notifyBtn" class="pill notify-btn" type="button" aria-pressed="false" aria-label="Reminders">🔕</button>
-    <button id="radioBtn" class="pill" aria-pressed="true" aria-label="Music"></button>
-    <button id="sfxBtn" class="pill" aria-pressed="true" aria-label="Sounds"></button>
-    <button id="volBtn" class="pill" aria-label="Volume" aria-expanded="false" title="Volume"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 2v12M8 2v12M13 2v12"/><circle cx="3" cy="10" r="1.8" fill="currentColor"/><circle cx="8" cy="5" r="1.8" fill="currentColor"/><circle cx="13" cy="11" r="1.8" fill="currentColor"/></svg></button>
-    <div id="volPanel" class="vol-panel" hidden>
-      <label>♪ Music <span id="musicVolVal"></span><input id="musicVol" type="range" min="0" max="100" step="1"></label>
-      <label>Effects <span id="sfxVolVal"></span><input id="sfxVol" type="range" min="0" max="100" step="1"></label>
-      <label>Voice (word on a correct cast) <span id="voiceVolVal"></span><input id="voiceVol" type="range" min="0" max="100" step="1"></label>
-      <p id="voiceInfo" class="hint"></p>
-      <label class="toggle-row">3D arena <select id="arena3dMode" aria-label="3D arena"><option value="full">Full</option><option value="lite">Lite (phones, older PCs)</option><option value="off">Off (2D)</option></select></label>
-      <p id="arena3dInfo" class="hint"></p>
-      <label class="toggle-row">UI size <select id="uiZoom" aria-label="UI size"></select></label>
-      <label id="kanaRow" class="toggle-row" hidden><input id="kanaMastered" type="checkbox"> I've mastered hiragana</label>
-      <p id="kanaInfo" class="hint" hidden>Unlocks the kanji levels (N5–N1) for studying and battles.</p>
-      <label id="gameKbRow" class="toggle-row" hidden>Battle keyboard <select id="gameKbSel" aria-label="Battle keyboard"><option value="game">Game keyboard</option><option value="system">Phone keyboard</option></select></label>
-      <div id="remindTestRow" class="toggle-row" hidden>Reminders <button id="remindTest" class="pill" type="button">Send a test</button></div>
-      <p id="remindLast" class="hint" hidden></p>
-      <label class="toggle-row">Theme <select id="themeSel" aria-label="Theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
-      <label class="toggle-row">Language <select id="langSel" aria-label="Language" data-no-i18n><option value="en">English</option><option value="ru">Русский</option></select></label>
-    </div>
+  <div class="audio-ctl" role="group" aria-label="Settings">
+    <!-- 0.9.9.9: one Settings button; the music, sounds and reminder switches moved into Settings (the name pill had no room) -->
+    <button id="volBtn" class="pill settings-btn" aria-label="Settings" aria-expanded="false" aria-controls="volPanel" title="Settings"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </div>
 </header>
+<div id="volPanel" class="settings-overlay" role="dialog" aria-modal="true" aria-labelledby="setTitle" hidden>
+  <div class="settings-box">
+    <div class="set-head">
+      <h2 id="setTitle">Settings</h2>
+      <span id="setPaused" class="set-paused" hidden>Paused</span>
+      <button id="setClose" class="pill set-close" type="button" aria-label="Close settings">✕</button>
+    </div>
+    <div class="set-tabs" role="tablist">
+      <button class="set-tab" role="tab" data-tab="graphics" aria-selected="true">Graphics</button>
+      <button class="set-tab" role="tab" data-tab="audio" aria-selected="false">Audio</button>
+      <button class="set-tab" role="tab" data-tab="language" aria-selected="false">Language</button>
+      <button class="set-tab" role="tab" data-tab="other" aria-selected="false">Other</button>
+    </div>
+    <section class="set-sec" data-sec="graphics">
+      <label class="toggle-row">3D graphics <select id="arena3dMode" aria-label="3D graphics"><option value="full">High</option><option value="lite">Low</option><option value="off">Off (2D)</option></select></label>
+      <p id="arena3dInfo" class="hint"></p>
+      <label class="toggle-row">UI size <select id="uiZoom" aria-label="UI size"></select></label>
+      <label class="toggle-row">Theme <select id="themeSel" aria-label="Theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+    </section>
+    <section class="set-sec" data-sec="audio" hidden>
+      <div class="toggle-row">Music <button id="radioBtn" class="pill set-switch" aria-pressed="true" aria-label="Music"></button></div>
+      <label>Music volume <span id="musicVolVal"></span><input id="musicVol" type="range" min="0" max="100" step="1"></label>
+      <div class="toggle-row">Sound effects <button id="sfxBtn" class="pill set-switch" aria-pressed="true" aria-label="Sounds"></button></div>
+      <label>Effects volume <span id="sfxVolVal"></span><input id="sfxVol" type="range" min="0" max="100" step="1"></label>
+      <label>Voice (word on a correct cast) <span id="voiceVolVal"></span><input id="voiceVol" type="range" min="0" max="100" step="1"></label>
+      <p id="voiceInfo" class="hint"></p>
+    </section>
+    <section class="set-sec" data-sec="language" hidden>
+      <label class="toggle-row">Language <select id="langSel" aria-label="Language" data-no-i18n><option value="en">English</option><option value="ru">Русский</option></select></label>
+      <p class="hint">The game's text. Japanese words always stay Japanese.</p>
+    </section>
+    <section class="set-sec" data-sec="other" hidden>
+      <div class="toggle-row">Daily reminders <button id="notifyBtn" class="pill notify-btn set-switch" type="button" aria-pressed="false" aria-label="Reminders">🔕</button></div>
+      <div id="remindTestRow" class="toggle-row" hidden>Test reminder <button id="remindTest" class="pill" type="button">Send a test</button></div>
+      <p id="remindLast" class="hint" hidden></p>
+      <label id="gameKbRow" class="toggle-row" hidden>Battle keyboard <select id="gameKbSel" aria-label="Battle keyboard"><option value="game">Game keyboard</option><option value="system">Phone keyboard</option></select></label>
+      <label id="kanaRow" class="toggle-row" hidden><input id="kanaMastered" type="checkbox"> I've mastered hiragana</label>
+      <p id="kanaInfo" class="hint" hidden>Unlocks the kanji levels (N5–N1) for studying and battles.</p>
+    </section>
+  </div>
+</div>
 <div id="toast" class="toast" role="status" hidden></div>
  <dialog id="strokeDialog" class="stroke-dialog" aria-label="Stroke order">
   <div class="sd-head"><b id="sdWord" lang="ja"></b><span id="sdInfo" class="hint"></span><button id="sdClose" class="pill" type="button">Close</button></div>
   <div id="sdBox"></div>
 </dialog>
 <aside id="friendRail" class="friend-rail" aria-label="Friends" hidden>
+  <button id="railClose" class="side-close fr-close" type="button" aria-label="Close friends"><span aria-hidden="true">›</span></button>
   <div class="fr-head"><span class="fr-title">Friends</span><span class="fr-online"><i class="fr-dot"></i><b id="railOnline">0</b><span class="fr-online-word"> online</span></span></div>
   <div id="railList" class="fr-list"></div>
   <div class="fr-foot">
@@ -96,10 +120,12 @@
 <aside id="dictRail" class="dict-rail" aria-label="Dictionary" hidden>
   <button id="dictRailTab" class="dr-tab" type="button" aria-expanded="false" aria-controls="dictRailPanel" title="Dictionary"><span class="dr-jp" lang="ja">辞</span><span class="dr-tabword">Dictionary</span></button>
   <div id="dictRailPanel" class="dr-panel">
-    <div class="dr-head"><b>Dictionary</b><span class="dr-jp2" lang="ja">辞書</span><button id="dictRailClose" class="dr-x" type="button" aria-label="Close">✕</button></div>
+    <div class="dr-head"><b>Dictionary</b><span class="dr-jp2" lang="ja">辞書</span></div>
     <input id="dictRailQ" type="search" lang="ja" placeholder="Look up a word…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Look up a word">
     <div id="dictRailBody" class="dr-body"></div>
   </div>
+  <!-- 0.9.9.9: a tall close bar along the panel's edge (the little ✕ in the corner was hard to hit) -->
+  <button id="dictRailClose" class="side-close dr-close" type="button" aria-label="Close the dictionary"><span aria-hidden="true">‹</span></button>
 </aside>
 <button id="dictFab" class="dict-fab" type="button" aria-label="Dictionary" aria-controls="dictRail" aria-expanded="false" hidden><span lang="ja">辞</span></button>
 <dialog id="friendDialog" class="friend-dialog" aria-label="Friends">
@@ -277,12 +303,12 @@
     <div class="mc-top">
       <div class="mc-head">
         <h1 class="title mc-title"><span class="jp">漢字</span> Wizards</h1>
-        <p class="sub mc-sub">Study ten spells. Then cast them from memory.</p>
       </div>
       <nav class="mc-nav" aria-label="Your wizard">
-        <button id="customizeBtn" class="mc-nav-btn mn-cust" type="button"><span class="mn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 4.5 19.5h15z"/><path d="M8.2 13h7.6"/><path d="M3 21.5h18"/><circle cx="12" cy="8" r=".8" fill="currentColor"/></svg></span><span class="mn-txt"><b>Customize</b><small>Look, staff, arena</small></span></button>
+        <button id="customizeBtn" class="mc-nav-btn mn-cust" type="button"><span class="mn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M11.2 1.2c.3-.4.9-.3 1 .2l2.6 7.1c.1.3.4.5.7.5h1.4c.7 0 .9.9.3 1.2l-1.7.9c-.3.2-.4.5-.3.8l.4 1.2c.2.6-.4 1.1-1 .8l-.6-.3h-4l-.6.3c-.6.3-1.2-.2-1-.8l.4-1.2c.1-.3 0-.6-.3-.8l-1.7-.9c-.6-.3-.4-1.2.3-1.2h1.4c.3 0 .6-.2.7-.5z"/><path d="M8.6 13.4h6.8l2.7 8c.2.6-.2 1.1-.8 1.1H6.7c-.6 0-1-.5-.8-1.1z"/><path d="M19.3 6.5 18.6 22h-1.1l.9-15.5z" opacity=".85"/><circle cx="19" cy="5.6" r="1.6"/></svg></span><span class="mn-txt"><b>Customize</b><small>Look, staff, arena</small></span></button>
         <button id="progressBtn" class="mc-nav-btn mn-prog" type="button"><span class="mn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V5M16 20v-6M21.5 20h-19"/><path d="m3 8 6-4 6 5 5-4"/></svg></span><span class="mn-txt"><b>Progress</b><small>Stats and badges</small></span></button>
         <button id="historyBtn" class="mc-nav-btn mn-hist" type="button"><span class="mn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg></span><span class="mn-txt"><b>Match history</b><small>Your recent games</small></span></button>
+        <button id="menuSettingsBtn" class="mc-nav-btn mn-set" type="button"><span class="mn-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M2.5 12h3M18.5 12h3M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></span><span class="mn-txt"><b>Settings</b><small>Graphics, sound, language</small></span></button>
       </nav>
     </div>
     <button id="tasksBtn" class="tasks-btn" type="button" hidden></button>
@@ -892,7 +918,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.8.2</div>
+<div id="version" class="version">v0.9.9.9</div>
 <script src="/app.js"></script>
 </body>
 </html>

@@ -22,6 +22,8 @@ const browserServer = {
 
 await build({
   entryPoints: [r('src/client/main.ts')], bundle: true, outfile: r('public/app.js'), target: 'es2020',
+  // 0.9.9.9: minified (it was the only bundle that wasn't — 1.3 MB)
+  minify: true,
   plugins: [browserServer], define: { 'process.env.RENDER': 'undefined', 'process.env.ADMIN_PASSWORD': 'undefined' }, logLevel: 'warning',
 });
 await build({ entryPoints: [r('src/client/arena3d.ts')], bundle: true, minify: true, outfile: r('public/arena3d.js'), target: 'es2020', logLevel: 'warning' });

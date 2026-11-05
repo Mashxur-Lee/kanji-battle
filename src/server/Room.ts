@@ -145,7 +145,10 @@ export class Room {
       if (this.lastGameOver) client.send(this.lastGameOver);
       return client.send({ type: 'rematch_status', votes: [...this.rematchVotes] });
     }
-    this.sendSnapshot(id, client);
+    // 0.9.9.9: back in a running game: the battle as it stands (not a fresh start), and whether it's paused — a
+    // phone that came back from the background into a paused game sat on a dead pause screen
+    this.sendSnapshot(id, client, true);
+    client.send({ type: 'paused', on: this.clock.paused });
   }
 
   /** Socket dropped (app switched, network blip). Keep the seat for a while. */

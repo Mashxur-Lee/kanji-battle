@@ -1,3 +1,4 @@
+import { viewH, viewW, zrect } from './zoom';
 // 0.9.9.4: themed dropdowns. Every <select> in the page (now or added later) gets a button + popup list in
 // the game's style; the real <select> stays in the DOM, hidden, and keeps the value — so code that reads
 // `sel.value`, sets it, or listens for "change" works unchanged. Opt out with data-native.
@@ -91,7 +92,16 @@ function enhance(sel: HTMLSelectElement) {
     const box = (wrap.closest('dialog') ?? document.documentElement).getBoundingClientRect();
     const bottom = Math.min(box.bottom, window.innerHeight);
     const below = bottom - r.bottom, above = r.top - Math.max(box.top, 0);
-    menu.classList.toggle('up', below < Math.min(menu.getBoundingClientRect().height, 260) && above > below);
+    const up = below < Math.min(menu.getBoundingClientRect().height, 260) && above > below;
+    menu.classList.toggle('up', up);
+    // 0.9.9.9: inside a popup (the word box on a study card, the passage's word box, a side panel) the list floats
+    // above everything — it was cut off by the popup and hidden under the Again / Hard / Good / Easy buttons
+    if (wrap.closest('.kanji-pop, #passageGloss, .settings-box, .dr-panel, .fr-list')) {
+      const z = zrect(btn);
+      menu.classList.add('floating');
+      menu.style.left = `${Math.max(8, Math.min(z.left, viewW() - 8 - menu.offsetWidth))}px`;
+      if (up) menu.style.bottom = `${viewH() - z.top + 6}px`; else menu.style.top = `${z.bottom + 6}px`;
+    }
     const list = items();
     mark(Math.max(0, list.findIndex((x) => x.classList.contains('sel'))));
     openMenu = { close };

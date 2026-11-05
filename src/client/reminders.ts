@@ -78,7 +78,7 @@ async function share(on: boolean) {
 function draw() {
   const b = ui.$('notifyBtn');
   const on = remindersOn();
-  b.textContent = on ? '🔔' : '🔕';
+  b.textContent = on ? `🔔 ${tr('On')}` : `🔕 ${tr('Off')}`; // 0.9.9.9: a switch in Settings → Other
   b.classList.toggle('on', on);
   b.setAttribute('aria-pressed', String(on));
   b.title = tr(on ? 'Reminders on — tap to turn them off' : 'Reminders off — tap for daily reminders (Daily challenge, reviews, streak tasks)');
