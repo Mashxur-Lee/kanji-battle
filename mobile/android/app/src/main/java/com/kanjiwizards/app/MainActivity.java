@@ -167,12 +167,19 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        web.resumeTimers();
         web.onResume();
     }
 
+    /**
+     * 0.9.9.9.2: nothing runs while the app is in the background. The page has already told the server you're away
+     * and closed its connection (the server keeps your game as it was — a snapshot); here its timers and scripts are
+     * frozen too. Back in the app, everything carries on and the page reconnects from that point.
+     */
     @Override
     protected void onPause() {
         web.onPause();
+        web.pauseTimers();
         super.onPause();
     }
 

@@ -5,7 +5,7 @@
 // Not shown in battles, quizzes or the Daily challenge (0.9.9.8.1: it is in reviews and the reading passage).
 
 import { exactMatch, type DictEntry } from '../shared/dict';
-import { addTo, askOffline, badges, dictionary, headword, openDictWord, ruOf } from './dictui';
+import { addTo, askOffline, exactFirst, badges, dictionary, headword, openDictWord, ruOf } from './dictui';
 import { tr } from './i18n';
 import * as ui from './ui';
 import { speak, voiceAvailable } from './voice';
@@ -82,7 +82,7 @@ async function search(q: string) {
   try {
     const d = await dictionary();
     if (n !== busy) return;
-    hits = d.search(q, 25);
+    hits = exactFirst(d.search(q, 60), q).slice(0, 25); // (an exact word further down the list comes up too)
     drawList(q);
   } catch {
     if (n === busy) $('dictRailBody').replaceChildren(h('p', 'hint dr-hint', tr('The dictionary couldn’t load — open it once with internet, then it works offline too.')));

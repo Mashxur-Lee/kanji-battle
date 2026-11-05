@@ -21,22 +21,31 @@ export class GameSocket {
     private readonly onMessage: (m: ServerMessage) => void,
     private readonly onState: (s: NetState) => void,
   ) {
-    const wake = () => { if (!this.stopped && (!this.ws || this.ws.readyState > WebSocket.OPEN)) this.connect(true); };
-    // 0.9.9.9: back from the background. A phone freezes the page there, and the socket often comes back looking
-    // "open" but dead — the server dropped it long ago — so nothing was sent or received ("Reconnecting…", Resume
-    // did nothing, only restarting the app helped). After more than a few seconds away it's replaced with a fresh
-    // one straight away; the server hands your seat (and the paused game) back. While hidden, friends see you as away.
+    const wake = () => { if (!this.stopped && !(this.parked && document.visibilityState === 'hidden') && (!this.ws || this.ws.readyState > WebSocket.OPEN)) this.connect(true); };
+    // 0.9.9.9.2: in the background the game does no work at all — a "snapshot" instead: going to the background it
+    // says you're away (friends see it in orange) and closes the connection; the server keeps everything (your seat,
+    // a paused game, the battle) as it was. Coming back, a fresh connection picks it up from that point (the server
+    // sends the whole state again). (0.9.9.9 kept the connection alive in the background — a phone freezes it there
+    // anyway, and it came back "open" but dead.)
     let hiddenAt = 0;
+    let parkTimer = 0;
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         hiddenAt = Date.now();
+        if (this.stopped) return;
         if (this.open) this.ws!.send(JSON.stringify({ type: 'away', on: true } satisfies ClientMessage));
+        // in a browser, a quick look at another app (copying the room code) keeps the connection; longer, it is closed.
+        // The Android app freezes the page's timers in the background, so it closes straight away there.
+        clearTimeout(parkTimer);
+        if (/KanjiWizardsAndroid/.test(navigator.userAgent)) this.park();
+        else parkTimer = window.setTimeout(() => { if (document.visibilityState === 'hidden') this.park(); }, 4000);
         return;
       }
+      clearTimeout(parkTimer);
       const gone = hiddenAt ? Date.now() - hiddenAt : 0;
       hiddenAt = 0;
       if (this.stopped) return;
-      if (gone > 5000 || Date.now() - this.lastMsg > SILENT_MS) this.restart();
+      if (this.parked || gone > 5000 || Date.now() - this.lastMsg > SILENT_MS) this.restart();
       else if (this.open) this.ws!.send(JSON.stringify({ type: 'away', on: false } satisfies ClientMessage));
       else wake();
     });
@@ -48,6 +57,16 @@ export class GameSocket {
     }, 5000);
   }
   private lastMsg = Date.now();
+  /** closed on purpose while the app is in the background (no reconnecting until it's back) */
+  private parked = false;
+  private park() {
+    if (this.stopped || this.parked) return;
+    this.parked = true;
+    clearTimeout(this.timer);
+    const ws = this.ws;
+    this.ws = undefined;
+    try { ws?.close(1000, 'background'); } catch { /* already gone */ }
+  }
 
   start(token: string) {
     this.token = token;
@@ -72,11 +91,13 @@ export class GameSocket {
    */
   restart(msg?: ClientMessage) {
     if (this.stopped) return;
+    const quiet = this.parked; // back from the background: just connecting, not "Reconnecting…"
+    this.parked = false;
     if (msg) this.queue.push(JSON.stringify(msg));
     const ws = this.ws;
     this.ws = undefined;
     try { ws?.close(); } catch { /* already gone */ }
-    this.connect(true);
+    this.connect(!quiet);
   }
   get open() { return this.ws?.readyState === WebSocket.OPEN; }
 

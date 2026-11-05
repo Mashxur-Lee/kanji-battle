@@ -405,9 +405,10 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       if (p.id === hostId) li.append(h('span', 'tag', 'host'));
       if (!p.online) li.append(h('span', 'tag off', 'away — seat kept'));
       // 0.9.9.8.2: every mode shows who's ready (it was only Deck Duel) — the AI always is
+      // (0.9.9.9.2: no tag on the AI — it is always ready, there's nothing to wait for)
       const ready = !!p.bot || !!p.ready;
-      li.classList.toggle('is-ready', ready);
-      li.append(h('span', 'tag ' + (ready ? 'ready' : 'notready'), ready ? '✓ Ready' : 'Not ready'));
+      li.classList.toggle('is-ready', ready && !p.bot);
+      if (!p.bot) li.append(h('span', 'tag ' + (ready ? 'ready' : 'notready'), ready ? '✓ Ready' : 'Not ready'));
       if (mode !== 'deck') li.append(append(h('div', 'meta'), h('span', '', levelsText(p.levels)), h('span', 'hpv', `${p.maxHp} HP`)));
       return li;
     }),
@@ -479,7 +480,8 @@ export function showPrep(pool: StudyItem[], durationMs: number, mode: GameMode) 
 
 export function setReady(readyCount: number, total: number, youReady: boolean) {
   $<HTMLButtonElement>('ready').disabled = youReady;
-  $('readyStatus').textContent = `${readyCount}/${total} ready${youReady && readyCount < total ? ' — waiting for the others…' : ''}`;
+  // just you (against the AI): no count to show
+  $('readyStatus').textContent = total <= 1 ? '' : `${readyCount}/${total} ready${youReady && readyCount < total ? ' — waiting for the others…' : ''}`;
 }
 
 /** The study info must disappear when the battle starts (spec §11). */

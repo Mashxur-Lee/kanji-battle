@@ -59,9 +59,25 @@ const avatar = (f: Friend) => {
   const a = el('span', 'fr-av');
   if (f.pic) { const img = el('img') as HTMLImageElement; img.src = f.pic; img.alt = ''; a.append(img); }
   else a.textContent = (f.name ?? f.username).slice(0, 1).toUpperCase();
-  a.append(el('i', 'fr-dot'));
+  a.append(f.online ? deviceBadge(f) : el('i', 'fr-dot'));
   return a;
 };
+
+// 0.9.9.9.2: an online friend's dot is a small icon of where they play — a globe (the website), a monitor (the PC
+// app) or a phone (the Android app); green, orange while away
+const DEVICE_SVG: Record<string, string> = {
+  web: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9S14.6 18.4 12 21M12 3C9.4 5.6 8.2 8.6 8.2 12s1.2 6.4 3.8 9"/>',
+  pc: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="M11 18.5h2"/>',
+};
+const DEVICE_NAME: Record<string, string> = { web: 'On the website', pc: 'On the PC app', phone: 'On the phone app' };
+export function deviceBadge(f: Friend, cls = 'fr-dev') {
+  const d = f.device ?? 'web';
+  const i = el('i', `${cls} dev-${d}`);
+  i.innerHTML = `<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DEVICE_SVG[d] ?? DEVICE_SVG.web}</svg>`;
+  i.title = tr(DEVICE_NAME[d] ?? DEVICE_NAME.web);
+  return i;
+}
 
 /** 0.9.9.9: "Away" when their app is in the background; offline friends show when they were last online */
 export function friendStatus(f: Friend): string {

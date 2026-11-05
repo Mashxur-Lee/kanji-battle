@@ -45,9 +45,8 @@ export async function openProgress(myUnlocks: readonly string[] = [], myBadges: 
   ui.show('progress');
   $('progGrid').replaceChildren(el('p', 'hint', 'Loading…'));
   try { page = await api.progress(); } catch (e) { ui.toast((e as Error).message); return; }
-  // start on the level you have the most going on in
-  const busiest = LEVELS.map((l) => [l, (page!.mastery[l] ?? []).filter(([, m]) => m > 0).length] as const).sort((a, b) => b[1] - a[1])[0];
-  if (busiest && busiest[1] > 0) level = busiest[0];
+  // 0.9.9.9.2: always opens on All levels (it picked the level with the most going on — often the onomatopoeia)
+  level = 'ALL';
   render();
 }
 

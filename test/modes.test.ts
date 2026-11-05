@@ -703,3 +703,25 @@ test('boss (0.9.9.6): someone already down is not hit by the next breath', () =>
   const last = b.updates().filter((e) => e.kind === 'breath').at(-1) as { victims?: string[] } | undefined;
   if (last) assert.ok(!last.victims!.includes('A'));
 });
+
+test('0.9.9.9.2: AI ready at once in the preparation; alone against the AI, the app in the background pauses the game and it waits', () => {
+  const room = new Room('PARK', 'reading', { onEmpty: () => {} }, OPTS);
+  const a = client();
+  room.join('a', 'A', a);
+  room.addBot('a', 'N5');
+  const botId = a.last('lobby')!.players.find((p) => p.bot)!.id;
+  room.start('a');
+  assert.ok(a.last('prep_ready')?.readyIds.includes(botId), 'the AI is ready straight away');
+  room.ready('a');
+  tick(200);
+  for (let i = 0; i < 6; i++) tick(1_000);
+  assert.ok(a.last('battle_start'), 'both ready: the battle starts without waiting for the timer');
+  room.disconnect('a', a); // the app went to the background (it closes its connection there)
+  assert.equal(room.paused, true, 'paused by itself');
+  for (let i = 0; i < 60; i++) tick(1_000); // far past the usual 20 s grace
+  const a2 = client();
+  room.reconnect('a', a2);
+  assert.equal(a2.last('paused')?.on, true, 'back: still there, paused');
+  assert.ok(!a.msgs.some((m) => m.type === 'game_over') && !a2.msgs.some((m) => m.type === 'game_over'));
+  room.forfeit('a');
+});
