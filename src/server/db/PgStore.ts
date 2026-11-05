@@ -349,12 +349,14 @@ export class PgStore implements Store {
   async setAvatar(id: string, img: AvatarImage | null) {
     if (!img) {
       await this.sql`delete from kw_avatars where user_id = ${id}`;
-      await this.sql`update kw_users set avatar_v = 0 where id = ${id}`;
+      // 0.9.9.9.2: the version is kept (negative = no picture). Back to 0, the next picture got version 1 again —
+      // the same address as your very first one, which the browser had kept: removing and uploading showed that old one
+      await this.sql`update kw_users set avatar_v = -abs(avatar_v) where id = ${id}`;
       return 0;
     }
     await this.sql`insert into kw_avatars (user_id, mime, data) values (${id}, ${img.mime}, ${img.data})
       on conflict (user_id) do update set mime = excluded.mime, data = excluded.data`;
-    const [r] = await this.sql<{ avatar_v: number }[]>`update kw_users set avatar_v = avatar_v + 1 where id = ${id} returning avatar_v`;
+    const [r] = await this.sql<{ avatar_v: number }[]>`update kw_users set avatar_v = greatest(abs(avatar_v) + 1, ${Math.floor(Date.now() / 1000)}) where id = ${id} returning avatar_v`;
     return r?.avatar_v ?? 0;
   }
   async getAvatar(id: string) {

@@ -20,7 +20,8 @@ test('0.9.9.9: friends see "away" while the app is in the background, and when s
   session.away = true;
   bo = (await social.list(a.id)).find((f) => f.id === b.id)!;
   assert.equal(bo.away, true, 'the app went to the background');
-  // leaving: the time is kept (in the store too, so it survives a server restart)
+  // leaving (the app closed — not in the background): the time is kept (in the store too, so it survives a restart)
+  session.away = false;
   hub.release(b.id, session as never);
   await new Promise((ok) => setTimeout(ok, 10));
   assert.equal(saved.length, 1);

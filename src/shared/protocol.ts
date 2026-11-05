@@ -285,3 +285,6 @@ export type ServerMessage =
 
 /** The two kana levels (letters, answered in romaji). */
 export const isKanaLevel = (l: string) => l === 'KANA' || l === 'KATA';
+
+/** 0.9.9.9.2: where someone plays — the Android app, the PC app, or a website (friends see a small icon) */
+export type Device = 'web' | 'pc' | 'phone';

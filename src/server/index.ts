@@ -1,6 +1,6 @@
 import { VERSION } from '../shared/version';
 import type { MissedWord } from '../shared/protocol';
-import { createServer } from 'node:http';
+import { createServer, type IncomingMessage } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { brotliCompressSync, constants as zc, gzipSync } from 'node:zlib';
 import path from 'node:path';
@@ -16,7 +16,7 @@ import { StudyService } from './study/StudyService';
 import { DailyService } from './study/DailyService';
 import { SocialService } from './study/SocialService';
 import { RoomManager } from './RoomManager';
-import { Session, SessionHub } from './Session';
+import { deviceOf, Session, SessionHub } from './Session';
 import { Matchmaker } from './Matchmaker';
 import { StoryService } from './study/StoryService';
 import { InsightsService } from './study/InsightsService';
@@ -137,8 +137,10 @@ const server = createServer(async (req, res) => {
 
 // Handwriting answers carry stroke data, so allow bigger frames than plain JSON messages.
 const wss = new WebSocketServer({ server, maxPayload: 96 * 1024 });
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, ...rest: unknown[]) => {
+  const req = rest[0] as IncomingMessage | undefined; // (the upgrade request: its User-Agent says app or browser)
   const session = new Session(rooms, auth, hub, study, (json) => ws.readyState === ws.OPEN && ws.send(json), () => ws.close(), matchmaker, social);
+  session.device = deviceOf(req?.headers['user-agent']);
   ws.on('message', (data) => void session.onRaw(data.toString()));
   ws.on('close', () => session.onClose());
 });

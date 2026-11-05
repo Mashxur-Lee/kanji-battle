@@ -486,6 +486,12 @@ const RU: Record<string, string> = {
   'Close the dictionary': 'Закрыть словарь',
   'Close friends': 'Закрыть друзей',
   'Reconnecting…': 'Переподключение…',
+  // 0.9.9.9.2
+  'Chrome warns “File might be harmful” about every app from outside Google Play — it’s a general warning, not about this app. Tap': 'Chrome предупреждает «Файл может быть опасен» о любом приложении не из Google Play — это общее предупреждение, а не про это приложение. Нажмите',
+  'Download anyway': 'Всё равно скачать',
+  '. If Play Protect asks while installing, choose': '. Если при установке спросит Play Protect, выберите',
+  'Install anyway': 'Всё равно установить',
+  'On the website': 'На сайте', 'On the PC app': 'В приложении на ПК', 'On the phone app': 'В приложении на телефоне',
   // 0.9.9.8.2
   'Your own room: pick the mode, the levels and who plays — AI wizards or your friends.': 'Своя комната: выберите режим, уровни и кто играет — ИИ-маги или ваши друзья.',
   '— you can still play the AI in Kanji Reading, Rapid and Boss Elimination. Friends, Writing and Deck Duel need internet.': '— против ИИ всё ещё можно играть в Чтение кандзи, Блиц и Бой с боссом. Для друзей, Письма и Дуэли колод нужен интернет.',

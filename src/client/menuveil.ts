@@ -26,11 +26,10 @@ export function initMenuVeil() {
     </svg>
     <div class="mv-glyphs">${Array.from({ length: innerWidth > 900 ? 22 : 14 }, (_, i) => {
       const g = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
-      // 0.9.9.9.1: also with "reduce motion" on (Windows turns it on with its animation effects off) — then they
-      // stand still instead of disappearing (style.css)
+      // 0.9.9.9.2: also with "reduce motion" on (Windows turns it on with its animation effects off), drifting as usual
       // 0.9.9.9: most of them drift up the sides, where the cards don't cover them (on a computer they were lost behind the cards)
       const side = i % 3 !== 0, left = side ? (i % 2 ? 2 + Math.random() * 22 : 76 + Math.random() * 22) : 4 + Math.random() * 92;
       const dur = 16 + Math.random() * 16, delay = -Math.random() * dur, size = (1.3 + Math.random() * 2.2) * (innerWidth > 900 ? 1.6 : 1); // (bigger on a computer, where the page is drawn smaller)
-      return `<span lang="ja" style="left:${left.toFixed(1)}%;font-size:${size.toFixed(2)}rem;animation-duration:${dur.toFixed(1)}s;animation-delay:${delay.toFixed(1)}s;--o:${(0.22 + (i % 4) * 0.07).toFixed(2)};--y:${(8 + Math.random() * 80).toFixed(0)}%">${g}</span>`;
+      return `<span lang="ja" style="left:${left.toFixed(1)}%;font-size:${size.toFixed(2)}rem;animation-duration:${dur.toFixed(1)}s;animation-delay:${delay.toFixed(1)}s;--o:${(0.22 + (i % 4) * 0.07).toFixed(2)}">${g}</span>`;
     }).join('')}</div>`;
 }

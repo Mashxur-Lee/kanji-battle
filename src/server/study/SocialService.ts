@@ -1,10 +1,10 @@
 import type { AuthService } from '../auth/AuthService';
 import type { FriendLink, Store } from '../db/Store';
-import type { ServerMessage } from '../../shared/protocol';
+import type { Device, ServerMessage } from '../../shared/protocol';
 
 /** What friends need of the session hub (Session.ts): who's online, and a message to one player. */
 export interface FriendHub {
-  presence(userId: string): { online: boolean; away?: boolean; activity?: string; since?: number; lastSeen?: number };
+  presence(userId: string): { online: boolean; away?: boolean; activity?: string; since?: number; lastSeen?: number; device?: Device };
   sendTo(userId: string, msg: ServerMessage): unknown;
 }
 import { levelOf } from '../../shared/progress';
@@ -20,11 +20,11 @@ export class SocialService {
   async list(userId: string) {
     const links = await this.store.friends(userId);
     return Promise.all(links.map(async (f) => {
-      const p: { online: boolean; away?: boolean; activity?: string; lastSeen?: number } = f.status === 'accepted' ? this.hub.presence(f.id) : { online: false };
+      const p: { online: boolean; away?: boolean; activity?: string; lastSeen?: number; device?: Device } = f.status === 'accepted' ? this.hub.presence(f.id) : { online: false };
       const rec = await this.store.findById(f.id); // picture and level for the friends rail
       // 0.9.9.9: away (the app in the background) and when they were last online
       const lastSeen = f.status === 'accepted' && !p.online ? Math.max(p.lastSeen ?? 0, rec?.lastSeen ?? 0) || null : null;
-      return { ...f, online: p.online, away: p.online && !!p.away, activity: p.online ? p.activity : undefined, lastSeen, pic: rec ? picUrl(rec) : null, level: levelOf(rec?.xp ?? 0) };
+      return { ...f, online: p.online, away: p.online && !!p.away, activity: p.online ? p.activity : undefined, device: p.online ? p.device ?? 'web' : undefined, lastSeen, pic: rec ? picUrl(rec) : null, level: levelOf(rec?.xp ?? 0) };
     }));
   }
 

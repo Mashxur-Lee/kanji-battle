@@ -138,10 +138,15 @@ for (const [name, make] of stores) {
     const rec = (await s.findById(u.id))!;
     assert.deepEqual([rec.wins, rec.losses, rec.avatarV], [2, 1, 0]);
     const png = Buffer.from('89504e470d0a1a0a0000', 'hex');
-    assert.equal(await s.setAvatar(u.id, { mime: 'image/png', data: png }), 1);
+    const v1 = await s.setAvatar(u.id, { mime: 'image/png', data: png });
+    assert.ok(v1 > 0);
     assert.deepEqual(await s.getAvatar(u.id), { mime: 'image/png', data: png });
     assert.equal(await s.setAvatar(u.id, null), 0);
     assert.equal(await s.getAvatar(u.id), null);
+    assert.equal((await s.findById(u.id))!.avatarV <= 0, true, 'no picture');
+    // 0.9.9.9.2: a picture after removing one gets a new version — never one used before
+    const v2 = await s.setAvatar(u.id, { mime: 'image/png', data: png });
+    assert.ok(v2 > v1, `${v2} > ${v1}`);
     await s.close?.();
   });
 }
@@ -154,7 +159,13 @@ test('profile pictures: only small real PNG/JPEG/WebP files; admins have every b
   const png = 'data:image/png;base64,' + Buffer.from('89504e470d0a1a0a00000000', 'hex').toString('base64');
   await study.setAvatar(u, png);
   const prof = await study.profile((await s.findById(u.id))!);
-  assert.equal(prof.pic, `/api/avatar/${u.id}?v=1`);
+  assert.match(prof.pic ?? '', new RegExp(`^/api/avatar/${u.id}\\?v=\\d+$`));
+  // 0.9.9.9.2: removed, then a new one — a new address (it used to be ?v=1 again, showing the old cached picture)
+  await study.setAvatar(u, null);
+  assert.equal((await study.profile((await s.findById(u.id))!)).pic, null);
+  await study.setAvatar(u, png);
+  const again = (await study.profile((await s.findById(u.id))!)).pic;
+  assert.ok(again && again !== prof.pic, `${again} vs ${prof.pic}`);
   await assert.rejects(study.setAvatar(u, 'data:image/svg+xml;base64,PHN2Zz4='), /PNG, JPEG or WebP/);
   await assert.rejects(study.setAvatar(u, 'data:image/png;base64,' + Buffer.from('not a png').toString('base64')), /not a valid picture/);
   await assert.rejects(study.setAvatar(u, 'data:image/jpeg;base64,' + Buffer.alloc(70_000, 0xff).toString('base64')), /too large/);

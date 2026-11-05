@@ -7,6 +7,29 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.2', date: '2026-11',
+    en: [
+      'In the background the game does nothing now: it says you’re away, closes its connection and stops (the Android app freezes completely). Coming back, it picks up exactly where you were — and a game against the AI pauses itself and waits up to 30 minutes.',
+      'Friends: a small green icon on their picture shows where they play — a globe (website), a monitor (PC app) or a phone (Android app); orange while they’re away. A profile opened from the friends list shows above the list now.',
+      'Profile picture: after removing one, a new picture no longer shows your very first one.',
+      'Get the app: why Chrome says “File might be harmful” (it says that about every app from outside Google Play) and what to tap.',
+      'Phones: scrolling the menu on the website no longer slides the background left, leaving an empty strip on the right.',
+      'Progress → Spell mastery opens on All levels. Dictionary: exact matches (the gold ones) come first.',
+      'The AI is always ready — no Ready tag on it, and the preparation no longer waits for it. “Paused” shows above the Settings window.',
+      'The menu’s kanji drift on a computer again, even with animation effects turned off.',
+    ],
+    ru: [
+      'В фоне игра теперь ничего не делает: сообщает, что вы отошли, закрывает соединение и останавливается (приложение для Android замирает полностью). Когда вы возвращаетесь, всё продолжается с того же места, а игра против ИИ сама ставится на паузу и ждёт до 30 минут.',
+      'Друзья: маленький зелёный значок на аватаре показывает, где они играют — глобус (сайт), монитор (приложение на ПК) или телефон (приложение для Android); оранжевый, когда они отошли. Профиль из списка друзей теперь открывается поверх списка.',
+      'Аватар: после удаления новая картинка больше не показывает самую первую.',
+      '«Скачать приложение»: почему Chrome пишет «Файл может быть опасен» (он пишет это о любом приложении не из Google Play) и что нажать.',
+      'Телефоны: прокрутка меню на сайте больше не сдвигает фон влево, оставляя пустую полосу справа.',
+      'Прогресс → Освоение заклинаний открывается на «Все уровни». Словарь: точные совпадения (золотые) — первыми.',
+      'ИИ всегда готов — без метки «Готов», и подготовка его больше не ждёт. «Пауза» показывается над окном настроек.',
+      'Кандзи в меню снова плывут на компьютере, даже с выключенной анимацией.',
+    ],
+  },
+  {
     v: '0.9.9.9.1', date: '2026-11',
     en: [
       'Android app: built for Android 16 now — updating no longer gets blocked as “harmful” by Play Protect on new phones (it blocks apps made for a much older Android).',

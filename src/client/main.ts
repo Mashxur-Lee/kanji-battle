@@ -111,6 +111,11 @@ function showNetStatus() {
 }
 
 /** Who is this player on screen? You are always on the left; in boss mode the other player is your ally. */
+/** the preparation's "1/2 ready": the people only — the AI is always ready and isn't counted (0.9.9.9.2) */
+function prepReady(readyIds: readonly PlayerId[]) {
+  const humans = players.filter((p) => !p.bot);
+  ui.setReady(humans.filter((p) => readyIds.includes(p.id)).length, humans.length, readyIds.includes(you));
+}
 const actorOf = (id: PlayerId | 'boss'): ui.Actor => (id === 'boss' ? 'boss' : id === you ? 'me' : mode === 'boss' ? `ally:${id}` : 'opp');
 const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Someone';
 
@@ -434,10 +439,10 @@ function onMessage(msg: ServerMessage) {
     case 'prep':
       players = msg.players;
       ui.showPrep(msg.pool, msg.durationMs, mode);
-      ui.setReady(msg.readyIds.length, players.length, msg.readyIds.includes(you));
+      prepReady(msg.readyIds);
       break;
     case 'prep_ready':
-      ui.setReady(msg.readyIds.length, players.length, msg.readyIds.includes(you));
+      prepReady(msg.readyIds);
       break;
     case 'battle_start':
       rematchSeen.clear(); closeRematchAsk();

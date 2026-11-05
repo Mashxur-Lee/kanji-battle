@@ -4,7 +4,7 @@
 import type { GameMode } from '../shared/protocol';
 import { MODE_LABEL } from '../shared/protocol';
 import { api, type Friend } from './api';
-import { friendStatus } from './friendrail';
+import { deviceBadge, friendStatus } from './friendrail';
 import * as audio from './audio';
 import { attention } from './notify';
 import * as ui from './ui';
@@ -60,7 +60,7 @@ function render() {
     const who = el('div', 'fl-who');
     const name = el('span', 'fl-name', f.name ?? f.username);
     ui.markProfile(name, { id: f.id, name: f.name ?? f.username, bot: null });
-    who.append(el('i', 'dot'), name, el('small', '', f.status === 'accepted' ? friendStatus(f) : f.status === 'incoming' ? 'wants to be friends' : 'request sent'));
+    who.append(f.status === 'accepted' && f.online ? deviceBadge(f, 'dot dev') : el('i', 'dot'), name, el('small', '', f.status === 'accepted' ? friendStatus(f) : f.status === 'incoming' ? 'wants to be friends' : 'request sent'));
     r.append(who, el('div', 'fl-actions'));
     r.lastElementChild!.append(...actions);
     return r;

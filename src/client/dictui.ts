@@ -77,6 +77,13 @@ export function dictionary(): Promise<Dictionary> {
 }
 function build(data: DictData, vocab: readonly VocabEntry[]) { const d = new Dictionary(data, vocab); tags = d.tags; return d; }
 
+/** 0.9.9.9.2: the words that are exactly what you typed (the gold ones) come first, the rest keep their order */
+export function exactFirst(hits: DictEntry[], q: string): DictEntry[] {
+  const yes: DictEntry[] = [], no: DictEntry[] = [];
+  for (const w of hits) (exactMatch(w, q, ruOf(w)) ? yes : no).push(w);
+  return yes.length ? [...yes, ...no] : hits;
+}
+
 /** the first visit: keep the dictionary on this device? */
 /** "Use the dictionary offline?" — asked once (0.9.9.9: in the side panel the first time it opens) */
 export async function askOffline(into: HTMLElement = $('dictBody')): Promise<void> {
@@ -144,7 +151,7 @@ async function search(q: string) {
   try {
     const d = await dictionary();
     if (n !== busy) return;
-    lastQ = q; lastHits = d.search(q, 120); shown = 30;
+    lastQ = q; lastHits = exactFirst(d.search(q, 120), q); shown = 30;
     drawList();
   } catch {
     if (n === busy) body.replaceChildren(h('p', 'hint center', tr('The dictionary couldn’t load — open it once with internet, then it works offline too.')));

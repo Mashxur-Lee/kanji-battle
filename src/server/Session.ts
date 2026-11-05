@@ -1,5 +1,5 @@
 import { reportServerError } from './errors';
-import { CHAT_MAX_LENGTH, LEVELS, MODE_LABEL, MODES, type ClientMessage, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
+import { CHAT_MAX_LENGTH, LEVELS, MODE_LABEL, MODES, type ClientMessage, type Device, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
 import type { AuthService } from './auth/AuthService';
 import { toPublic } from './auth/AuthService';
 import { sanitizeDrawing } from './handwriting/judge';
@@ -20,7 +20,16 @@ function parseLevels(raw: unknown): Level[] {
 }
 
 /** Tracks the one live session per account (newest wins), so we can kick on ban / second tab. */
-export interface Presence { online: boolean; away?: boolean; activity?: string; since?: number; lastSeen?: number }
+export interface Presence { online: boolean; away?: boolean; activity?: string; since?: number; lastSeen?: number; device?: Device }
+
+/** 0.9.9.9.2: what someone plays on (friends see a small icon): the Android app, the PC app, or a browser */
+export function deviceOf(userAgent: string | undefined): Device {
+  if (/KanjiWizardsAndroid/.test(userAgent ?? '')) return 'phone';
+  if (/KanjiWizardsDesktop/.test(userAgent ?? '')) return 'pc';
+  return 'web';
+}
+/** after the app goes to the background (and closes its connection), friends still see "Away" this long */
+export const AWAY_KEEP_MS = 15 * 60_000;
 
 export class SessionHub {
   private byUser = new Map<string, Session>();
@@ -31,11 +40,18 @@ export class SessionHub {
   /** Admin → Users: is this player connected right now, and what are they doing? */
   presence(userId: string): Presence {
     const s = this.byUser.get(userId);
-    if (!s) return { online: false, lastSeen: this.lastSeen.get(userId) };
-    return { online: true, away: s.away, activity: s.activity(), since: this.onlineSince.get(userId) };
+    if (!s) {
+      // 0.9.9.9.2: in the background the app closes its connection (a "snapshot"): still away, not offline, for a while
+      const p = this.parked.get(userId);
+      if (p && Date.now() - p.at < AWAY_KEEP_MS) return { online: true, away: true, device: p.device, lastSeen: p.at };
+      return { online: false, lastSeen: this.lastSeen.get(userId) };
+    }
+    return { online: true, away: s.away, activity: s.activity(), since: this.onlineSince.get(userId), device: s.device };
   }
+  private parked = new Map<string, { at: number; device: Device }>();
   get onlineCount() { return this.byUser.size; }
   claim(userId: string, s: Session) {
+    this.parked.delete(userId);
     const old = this.byUser.get(userId);
     this.byUser.set(userId, s);
     if (!old) this.onlineSince.set(userId, Date.now());
@@ -47,6 +63,7 @@ export class SessionHub {
     this.onlineSince.delete(userId);
     const now = Date.now();
     this.lastSeen.set(userId, now);
+    if (s.away) this.parked.set(userId, { at: now, device: s.device });
     this.onLeave?.(userId, now);
   }
   kick(userId: string, message: string) { this.byUser.get(userId)?.kick(message); }
@@ -294,6 +311,8 @@ export class Session implements Client {
   private screen = '';
   /** 0.9.9.9: the app is in the background */
   away = false;
+  /** the Android app, the PC app or a browser (from the connection's User-Agent; set by index.ts) */
+  device: Device = 'web';
   /** What the player is doing (for admins): menus, searching, or in a room of some mode. */
   activity(): string {
     if (this.room) {

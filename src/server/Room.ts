@@ -11,6 +11,8 @@ import { VOCAB } from './vocab';
 import { pickPool, pickPoolFrom, shuffle } from './VocabPool';
 
 /** Transport-agnostic: Room only needs something it can send messages to. */
+/** a game against the AI waits this long for you when the app is in the background (0.9.9.9.2) */
+export const SOLO_PARK_MS = 30 * 60_000;
 export interface Client { send(msg: ServerMessage): void }
 
 export interface RoomOptions {
@@ -156,9 +158,13 @@ export class Room {
     if (this.clients.get(id) !== client) return; // an older socket closing after a reconnect
     const m = this.roster.find((p) => p.id === id);
     if (!m) return;
+    // 0.9.9.9.2: you alone against the AI and the app went to the background (it closes its connection there): the
+    // game pauses itself and waits — up to half an hour — exactly as it was; back in the app it's paused, Resume goes on
+    const solo = this.canPause(id);
+    if (solo && !this.clock.paused) this.clock.pause();
     this.clients.delete(id);
     m.online = false;
-    const grace = this.phase === 'game' ? this.opts.graceGameMs : this.opts.graceLobbyMs;
+    const grace = solo ? SOLO_PARK_MS : this.phase === 'game' ? this.opts.graceGameMs : this.opts.graceLobbyMs;
     m.graceTimer = setTimeout(() => this.leave(id), grace);
     this.broadcastNet();
     if (this.phase === 'lobby') this.broadcastLobby();
@@ -485,6 +491,9 @@ export class Room {
       clock,
     );
     this.game.start();
+    // 0.9.9.9.2: the AI is always ready in the preparation too (it never pressed Ready, so the battle waited for the
+    // timer even after you were done); the screen counts only the people
+    for (const p of this.roster) if (p.bot) this.game.markReady(p.id);
   }
 
   /** Pausing: only when you are the one human in the room (against the AI, or a solo Boss run). */

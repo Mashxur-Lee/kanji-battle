@@ -62,10 +62,10 @@
   </div>
 </header>
 <div id="volPanel" class="settings-overlay" role="dialog" aria-modal="true" aria-labelledby="setTitle" hidden>
+  <div id="setPaused" class="set-paused" hidden><span aria-hidden="true">❚❚</span> Paused</div>
   <div class="settings-box">
     <div class="set-head">
       <h2 id="setTitle">Settings</h2>
-      <span id="setPaused" class="set-paused" hidden>Paused</span>
       <button id="setClose" class="pill set-close" type="button" aria-label="Close settings">✕</button>
     </div>
     <div class="set-tabs" role="tablist">
@@ -177,6 +177,7 @@
       <p class="hint">Download the APK and open it; allow your browser to install apps when asked. No Google Play needed.</p>
       <a id="appApk" class="big btn-link" href="#" download="KanjiWizards.apk">Download for Android (.apk)</a>
       <p class="hint">Then open <b>Files → Downloads</b> (or Chrome <b>⋮ → Downloads</b>) and tap <b>KanjiWizards.apk</b>.</p>
+      <p class="hint app-warn">Chrome warns “File might be harmful” about every app from outside Google Play — it’s a general warning, not about this app. Tap <b>Download anyway</b>. If Play Protect asks while installing, choose <b>Install anyway</b>.</p>
     </div>
   </div>
   <form method="dialog" class="fb-actions"><button class="big alt">Close</button></form>
@@ -918,7 +919,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.9.1</div>
+<div id="version" class="version">v0.9.9.9.2</div>
 <script src="/app.js"></script>
 </body>
 </html>

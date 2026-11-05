@@ -239,9 +239,10 @@ export class MemoryStore implements Store {
   async setAvatar(id: string, img: AvatarImage | null) {
     const r = this.users.get(id);
     if (!r) return 0;
-    if (img) { this.avatars.set(id, img); r.avatarV = (r.avatarV || 0) + 1; } else { this.avatars.delete(id); r.avatarV = 0; }
+    // (0.9.9.9.2: a new picture always gets a new address — the version never goes back to one used before)
+    if (img) { this.avatars.set(id, img); r.avatarV = Math.max(Math.abs(r.avatarV || 0) + 1, Math.floor(Date.now() / 1000)); } else { this.avatars.delete(id); r.avatarV = -Math.abs(r.avatarV || 0); }
     this.persist();
-    return r.avatarV;
+    return Math.max(0, r.avatarV);
   }
   async getAvatar(id: string) { return this.avatars.get(id) ?? null; }
   async cardStats() {
