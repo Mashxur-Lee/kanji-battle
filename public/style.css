@@ -2432,7 +2432,10 @@ body:is([data-screen="auth"], [data-screen="private"], [data-screen="study"], [d
 .topbar > .whoami { min-width: 0; flex: 0 1 auto; }
 .topbar .who-btn { max-width: 100%; min-width: 0; }
 .who-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: 22ch; }
-@media (max-width: 480px) { .who-name { max-width: 11ch; } .who-btn { gap: 6px; padding-right: 10px; } }
+@media (max-width: 480px) { .who-btn { gap: 6px; padding-right: 10px; } }
+/* 0.9.9.9.1: the top bar is free now (sound and notifications moved into Settings): the whole name, no "…" —
+   nicknames are at most 24 letters; only a very long login is cut, plainly */
+.who-name { max-width: 24ch; text-overflow: clip; }
 
 /* 0.9.9.5.1: waking up the server */
 .wake-screen { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: var(--gutter); background: radial-gradient(ellipse at 50% 45%, rgba(8, 6, 24, .55), rgba(8, 6, 24, .85)); }
@@ -3064,9 +3067,9 @@ body[data-screen="menu"] .menu-veil { opacity: 1; }
 #menu .mc-nav-btn .mn-txt small { font-size: .74rem; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #menu .mc-nav-btn:hover, #menu .mc-nav-btn:focus-visible { border-color: var(--mn-c); box-shadow: 0 12px 28px rgba(0, 0, 0, .5), 0 0 0 1px var(--mn-c), 0 0 22px color-mix(in srgb, var(--mn-c) 30%, transparent); transform: translateY(-2px); }
 .mn-cust { --mn-c: #ff7ac8; --mn: linear-gradient(140deg, #ff8ad0, #a63fd6); }
-.mn-prog { --mn-c: #4fd8ff; --mn: linear-gradient(140deg, #5be0ff, #2f6bd6); }
+.mn-prog { --mn-c: #8ff0a4; --mn: linear-gradient(140deg, #6fe39a, #1f8a6a); }
 .mn-hist { --mn-c: #ffc451; --mn: linear-gradient(140deg, #ffd56a, #d6782f); }
-.mn-set { --mn-c: #8ff0a4; --mn: linear-gradient(140deg, #6fe39a, #1f8a6a); }
+.mn-set { --mn-c: #4fd8ff; --mn: linear-gradient(140deg, #5be0ff, #2f6bd6); }
 @media (max-width: 700px) {
   #menu .mc-nav { flex: none; gap: 6px; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
   #menu .mc-nav-btn .mn-txt b { white-space: normal; overflow: visible; line-height: 1.1; }
@@ -3199,7 +3202,7 @@ body.has-3d #bossBar .tbar { box-shadow: 0 4px 18px rgba(0, 0, 0, .5); }
 body.game-kb :is(#railFab, #dictFab) { display: none !important; }
 /* 0.9.9.9: on a computer the backs ("← Menu", "← Leave room") and the name pill sit clear of the dictionary bar */
 @media (min-width: 901px) {
-  body.has-dict :is(.screen > .back, #lobby #leaveLobby) { left: calc(var(--gutter) + 64px); }
+  body.has-dict :is(.screen > .back, #lobby #leaveLobby, #quiz .page-head > .back, #passage .page-head > .back) { left: calc(var(--gutter) + 64px); }
 }
 
 /* ── 0.9.9.9: the side panels close with a tall bar along their inner edge (dictionary: right edge, friends: left
@@ -3223,8 +3226,7 @@ body.game-kb :is(#railFab, #dictFab) { display: none !important; }
   .dict-rail .dr-panel { padding-top: calc(14px + env(safe-area-inset-top)); }
 }
 /* 0.9.9.9: a word that is exactly what you typed glows */
-:is(.dict-hit, button.dr-hit).exact { border: 1px solid #f6c453 !important; box-shadow: 0 0 0 1px rgba(246, 196, 83, .45), 0 0 18px rgba(246, 196, 83, .35); animation: exactGlow 2.4s ease-in-out infinite; }
-@keyframes exactGlow { 50% { box-shadow: 0 0 0 1px rgba(246, 196, 83, .7), 0 0 26px rgba(246, 196, 83, .55); } }
+:is(.dict-hit, button.dr-hit).exact { border: 1px solid #f6c453 !important; box-shadow: 0 0 0 1px rgba(246, 196, 83, .45), 0 0 18px rgba(246, 196, 83, .35); }
 @media (prefers-reduced-motion: reduce) { :is(.dict-hit, button.dr-hit).exact { animation: none; } }
 @media (max-width: 900px) { .friend-rail { z-index: 95 !important; } }
 
@@ -3310,3 +3312,21 @@ body.offline:is([data-screen="battle"], [data-screen="prep"]) .topbar { top: 0; 
 .csel-menu.floating { position: fixed !important; z-index: 140 !important; right: auto !important; }
 .csel-menu.floating.up { top: auto !important; }
 .p-last { margin-top: 12px; }
+
+/* ── 0.9.9.9.1 ── */
+/* on a computer the four tiles under the logo span the same width as the streak bar and the mode cards */
+@media (min-width: 901px) { #menu .mc-nav { flex: 1 1 100%; } }
+/* the menu has its own Settings tile: no second gear in the corner there */
+body[data-screen="menu"] #volBtn { display: none; }
+/* with "reduce motion" on, the menu's kanji stand still (scattered, faint) instead of vanishing */
+@media (prefers-reduced-motion: reduce) { .menu-veil .mv-glyphs span { opacity: var(--o); bottom: auto; top: var(--y); } }
+/* the offline / reconnecting strip pushes the top bar down 24px — the page under it steps down with it (on phones the
+   name pill sat on the game's logo) */
+body:has(#netStatus:not([hidden])) #menu.menu-cards { padding-top: 94px; }
+body:has(#netStatus:not([hidden])) .screen:has(> .back) { padding-top: 136px; }
+body:has(#netStatus:not([hidden])) :is(.screen > .back, #quiz .page-head > .back, #passage .page-head > .back) { top: 86px; }
+@media (max-width: 900px) { body:has(#netStatus:not([hidden])) #menu.menu-cards { padding-top: 86px; } }
+/* lighter to draw on phones: the menu's cards and tiles over the moving kanji without a live blur behind each one
+   (redrawn every frame as the kanji pass — phones stuttered, the music crackled); the gold glow of an exact
+   dictionary match stands still (an endless shadow animation repainted the whole list) */
+@media (max-width: 900px) { #menu :is(button.mc-card, .mc-nav-btn) { backdrop-filter: none; -webkit-backdrop-filter: none; } }

@@ -28,7 +28,9 @@ function ensure(): AudioContext | null {
   if (ctx) return ctx;
   const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
-  ctx = new AC();
+  // 0.9.9.9.1: a slightly bigger output buffer ('balanced' — the default is the smallest the phone allows): with the
+  // screen busy (the menu's moving kanji, blurred panels) the music crackled when a buffer came late
+  try { ctx = new AC({ latencyHint: 'balanced' }); } catch { ctx = new AC(); }
   const comp = ctx.createDynamicsCompressor();
   comp.connect(ctx.destination);
   sfxBus = ctx.createGain(); sfxBus.gain.value = sfxGain(); sfxBus.connect(comp);
@@ -38,7 +40,7 @@ function ensure(): AudioContext | null {
   ambBus = ctx.createGain(); ambBus.gain.value = 0.9; ambBus.connect(musicBus);
   // small hall reverb from generated noise (shared by music and chimes)
   reverb = ctx.createConvolver();
-  const len = ctx.sampleRate * 2.6;
+  const len = Math.round(ctx.sampleRate * 2); // (2 s: the hall sounds the same, and costs the audio thread less)
   const ir = ctx.createBuffer(2, len, ctx.sampleRate);
   for (let ch = 0; ch < 2; ch++) {
     const d = ir.getChannelData(ch);
@@ -252,9 +254,12 @@ function makeTrack(bpm: number, bus: () => GainNode, play: (step: number, at: nu
   let stopTimer: number | undefined;
   let nextTime = 0;
   let step = 0;
+  // 0.9.9.9.1: notes are queued a second ahead (was half a second) so a busy moment on a phone doesn't starve the
+  // music, and after a long stall the missed notes are skipped instead of all sounding at once (a "rough stutter")
   const schedule = () => {
     const c = ctx!;
-    while (nextTime < c.currentTime + 0.5) { play(step, nextTime); nextTime += STEP; step++; }
+    if (nextTime < c.currentTime - 0.02) { const behind = Math.ceil((c.currentTime - nextTime) / STEP); nextTime += behind * STEP; step += behind; }
+    while (nextTime < c.currentTime + 1) { play(step, nextTime); nextTime += STEP; step++; }
   };
   return {
     STEP,
@@ -267,7 +272,7 @@ function makeTrack(bpm: number, bus: () => GainNode, play: (step: number, at: nu
       nextTime = ctx.currentTime + 0.12;
       step = 0;
       schedule();
-      timer = window.setInterval(schedule, 150);
+      timer = window.setInterval(schedule, 200);
     },
     fadeOut() {
       if (!ctx || timer === undefined || stopTimer !== undefined) return;

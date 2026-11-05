@@ -53,7 +53,9 @@ function setOpen(on: boolean) {
   $('dictFab').classList.toggle('panel-open', on); // 0.9.9.9: the round button hides while its panel is out
   if (on) {
     const q = $<HTMLInputElement>('dictRailQ');
-    setTimeout(() => q.focus(), 60);
+    // on a computer the cursor is in the box straight away; on a phone the keyboard waits for a tap in it (0.9.9.9.1:
+    // popping up while the panel slid in shook the whole page)
+    if (!matchMedia('(pointer: coarse)').matches) setTimeout(() => q.focus(), 60);
     if (!q.value.trim()) drawHint();
     // asked once: keep the whole dictionary on this device? (then it starts loading while you type)
     void askOffline($('dictRailBody')).then(() => { if (!q.value.trim()) drawHint(); void dictionary().catch(() => { /* said when you search */ }); });

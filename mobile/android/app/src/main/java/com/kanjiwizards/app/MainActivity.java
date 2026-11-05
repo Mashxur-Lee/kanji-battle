@@ -12,6 +12,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.view.View;
+import android.view.WindowInsets;
+import android.widget.FrameLayout;
+import android.window.OnBackInvokedDispatcher;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -46,7 +49,24 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         web = new WebView(this);
         web.setBackgroundColor(0xFF0B0920);
-        setContentView(web);
+        // 0.9.9.9.1: targets Android 16 (Play Protect blocks apps built for a much older Android as "unsafe").
+        // From Android 15 the window is drawn edge to edge, under the status and navigation bars, and the
+        // keyboard no longer resizes it — the page is padded by the bars and the keyboard instead.
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(0xFF0B0920);
+        root.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        setContentView(root);
+        if (Build.VERSION.SDK_INT >= 35) {
+            root.setOnApplyWindowInsetsListener((v, insets) -> {
+                android.graphics.Insets b = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
+                v.setPadding(b.left, b.top, b.right, b.bottom);
+                return WindowInsets.CONSUMED;
+            });
+        }
+        // Android 16 no longer calls onBackPressed (predictive back): the same handling through the new callback
+        if (Build.VERSION.SDK_INT >= 33) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::goBack);
+        }
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -136,6 +156,10 @@ public class MainActivity extends Activity {
     public void onBackPressed() {
         // the game keeps a history entry while a dialog or a screen other than the menu is open (0.9.9.4.2):
         // back closes it or goes back; at the menu the app goes to the background
+        goBack();
+    }
+
+    private void goBack() {
         if (web.canGoBack()) web.goBack();
         else moveTaskToBack(true);
     }
