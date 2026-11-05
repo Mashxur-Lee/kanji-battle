@@ -4,6 +4,7 @@
 
 import { api, type Friend } from './api';
 import * as ui from './ui';
+import { tr } from './i18n';
 
 const $ = ui.$;
 const el = (tag: string, cls = '', text?: string | number) => {
@@ -40,8 +41,10 @@ export function railScreen(screen: string) {
 function setOpen(on: boolean) {
   $('friendRail').classList.toggle('open', on);
   $('railFab').setAttribute('aria-expanded', String(on));
+  $('railFab').classList.toggle('panel-open', on); // 0.9.9.9: the round button hides while its panel is out
 }
 $('railFab').onclick = (e) => { e.stopPropagation(); setOpen(!$('friendRail').classList.contains('open')); };
+$('railClose').onclick = (e) => { e.stopPropagation(); setOpen(false); };
 document.addEventListener('pointerdown', (e) => {
   const t = e.target as HTMLElement;
   if ($('friendRail').classList.contains('open') && !t.closest('#friendRail, #railFab, #friendDialog, #otherPop')) setOpen(false);
@@ -60,6 +63,24 @@ const avatar = (f: Friend) => {
   return a;
 };
 
+/** 0.9.9.9: "Away" when their app is in the background; offline friends show when they were last online */
+export function friendStatus(f: Friend): string {
+  if (f.online) return f.away ? tr('Away') : f.activity ? tr(f.activity) : tr('Online');
+  return f.lastSeen ? `${tr('Last online')} ${seenAgo(f.lastSeen)}` : tr('Offline');
+}
+function seenAgo(at: number): string {
+  const m = Math.max(0, Math.round((Date.now() - at) / 60_000));
+  if (m < 1) return tr('just now');
+  if (m < 60) return tr(`${m} min ago`);
+  const h = Math.round(m / 60);
+  if (h < 24) return tr(`${h} h ago`);
+  const d = new Date(at);
+  const days = Math.round(h / 24);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (days === 1) return `${tr('yesterday')} ${time}`;
+  return days < 7 ? tr(`${days} days ago`) : d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+}
+
 function render() {
   const accepted = friends.filter((f) => f.status === 'accepted').sort((a, b) => a.username.localeCompare(b.username));
   const online = accepted.filter((f) => f.online), offline = accepted.filter((f) => !f.online);
@@ -70,11 +91,11 @@ function render() {
     head.setAttribute('aria-expanded', String(!collapsed[key]));
     head.onclick = () => { collapsed[key] = !collapsed[key]; render(); };
     const rows = collapsed[key] ? [] : list.map((f) => {
-      const r = el('div', 'fr-row' + (f.online ? ' online' : ''));
+      const r = el('div', 'fr-row' + (f.online ? ' online' : '') + (f.online && f.away ? ' away' : ''));
       ui.markProfile(r, { id: f.id, name: f.name ?? f.username, bot: null });
       r.title = `${f.name ?? f.username} — view profile`;
       const txt = el('span', 'fr-txt');
-      txt.append(el('span', 'fr-name', f.name ?? f.username), el('small', 'fr-status', f.online ? f.activity ?? 'Online' : 'Offline'));
+      txt.append(el('span', 'fr-name', f.name ?? f.username), el('small', 'fr-status', friendStatus(f)));
       r.append(avatar(f), txt, el('span', 'fr-lv', `Lv ${f.level ?? 0}`));
       return r;
     });

@@ -1,4 +1,4 @@
-// UI size: the whole interface is drawn at a chosen zoom (default 100% since 0.9.9.5; it was 80% on computers, so Deck Duel's HP and
+// UI size: the whole interface is drawn at a chosen zoom (default 80% again since 0.9.9.9; 100% from 0.9.9.5; it was 80% on computers, so Deck Duel's HP and
 // mana stay on screen even with the IME candidate list open). The 3D arena stays full-screen.
 //
 // CSS `zoom` also shrinks vh/vw lengths, so style.css uses var(--vh) / var(--vw) / var(--dvh), scaled back
@@ -18,7 +18,7 @@ export function uiZoomPref(): number {
     if (UI_ZOOMS.includes(v as (typeof UI_ZOOMS)[number])) return v;
   } catch { /* private mode */ }
   // phones and tablets (touch) and small windows stay at 100%
-  return 1; // 0.9.9.5: 100% everywhere by default (it was 80% on computers)
+  return 0.8; // 0.9.9.9: 80% by default again (100% from 0.9.9.5 crowded phones)
 }
 
 export function setUiZoomPref(z: number) {

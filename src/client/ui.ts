@@ -66,7 +66,6 @@ export function setClocksPaused(on: boolean) {
   if (on && pauseAt === null) pauseAt = performance.now();
   else if (!on && pauseAt !== null) { pausedFor += performance.now() - pauseAt; pauseAt = null; }
 }
-export const clocksPaused = () => pauseAt !== null;
 export function countdown(slot: string, durationMs: number, onFrame: (leftMs: number, frac: number) => void, totalMs = durationMs) {
   stopCountdown(slot);
   const end = clockNow() + durationMs;
@@ -258,36 +257,6 @@ export function setAudioButtons(radio: boolean, sfx: boolean) {
   set('radioBtn', radio, '', 'Music');
   set('sfxBtn', sfx, '', 'Sounds');
 }
-
-/** Two wizards duelling in slow motion (menu / login backdrop). */
-let sceneStaff: string | null = null;
-/** The menu's duelling wizards — both hold the staff you have equipped. */
-export function paintScenes(staff: string | null = sceneStaff) {
-  sceneStaff = staff;
-  for (const scene of document.querySelectorAll<HTMLElement>('.duel-scene')) {
-    if (scene.childElementCount) { // already drawn: just swap the staffs
-      for (const side of ['me', 'opp'] as const) { const s = scene.querySelector(`.wizard.${side} .sprite`); if (s) s.innerHTML = wizardSvg(side, staff); }
-      continue;
-    }
-    for (const side of ['me', 'opp'] as const) {
-      const w = h('div', `wizard ${side}`);
-      const s = h('div', 'sprite');
-      s.innerHTML = wizardSvg(side, staff);
-      w.append(s, h('div', 'ground'));
-      scene.append(w);
-    }
-    // the spells they throw are kanji, a new random one every cast
-    for (const cls of ['orb', 'orb b']) {
-      const orb = h('div', cls, randomSpellKanji());
-      orb.lang = 'ja';
-      orb.addEventListener('animationiteration', () => { orb.textContent = randomSpellKanji(); });
-      scene.append(orb);
-    }
-  }
-}
-
-const SPELL_KANJI = [...'火水木金土日月山川雷風光闇炎氷剣魔力星空雲雪花龍神雨海森石鉄竜鬼夢命心刀弓盾王天地波嵐霧影'];
-const randomSpellKanji = () => SPELL_KANJI[Math.floor(Math.random() * SPELL_KANJI.length)];
 
 // ── auth ─────────────────────────────────────────────────────────────────────
 export function setAuthTab(tab: 'login' | 'register') {
@@ -520,12 +489,6 @@ export function clearStudy() {
 }
 
 // ── battle: HP cards ─────────────────────────────────────────────────────────
-function hpBar(hp: number, max: number, label: string) {
-  const pct = max > 0 ? (hp / max) * 100 : 0;
-  const bar = append(h('div', 'hp' + (pct <= 25 ? ' low' : ''), undefined, { role: 'meter', 'aria-valuemin': '0', 'aria-valuemax': String(max), 'aria-valuenow': String(hp), 'aria-label': label }), h('div'));
-  (bar.firstElementChild as HTMLElement).style.width = `${pct}%`;
-  return bar;
-}
 
 /**
  * Boss mode: the party's HP. 0.9.9.8.2: yours is its own big frame (name, "You", combo, a thick bar), the teammates
@@ -551,7 +514,9 @@ function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
       row.append(append(h('div', 'pname'), pn, h('span', 'combo', p.combo >= 2 ? `×${p.combo}` : '')), thickBar(p.hp, p.maxHp, 'mate', p.hp <= 0 ? 'down' : `${p.hp}`));
       list.append(row);
     }
-    out.push(list);
+    // 0.9.9.9: the teammates sit inside the same green frame as you (one party), under your bar
+    const frame = out[0];
+    if (frame) { list.classList.add('in-frame'); frame.append(list); } else out.push(list);
   }
   el.replaceChildren(...out);
 }
@@ -570,7 +535,12 @@ function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, 
   const nameEl = h('span', 'n', label);
   if (!label.endsWith('(you)')) markProfile(nameEl, p);
   const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic, 'pic', p.border), nameEl, netBars(p.id), h('span', 'lv', `Lv ${p.level}`)) , h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo` : ''));
-  el.replaceChildren(name, hpBar(p.hp, p.maxHp, `${p.name} HP`), append(h('div', 'hpnum', `${p.hp} / ${p.maxHp} HP`), h('span', 'lvs', `· ${levelsText(p.levels)}${p.online ? '' : ' · away'}`)));
+  // 0.9.9.9: one HP bar for every mode — thick, the numbers inside it (as in Boss Elimination and Deck Duel); green
+  // for you, red for the opponent. The levels stay as a small line under it.
+  const mine = label.endsWith('(you)');
+  const bar = thickBar(p.hp, p.maxHp, mine ? 'ally' : 'enemy', `${p.hp} / ${p.maxHp}`);
+  bar.setAttribute('aria-label', `${p.name} HP`);
+  el.replaceChildren(name, bar, h('div', 'hpnum lvs-only', `${levelsText(p.levels)}${p.online ? '' : ' · away'}`));
 }
 
 let battleMode: GameMode = 'reading';
@@ -989,10 +959,19 @@ export function showWrongStrokes(box: HTMLElement, word: string) {
   void showStrokeOrder(div, word, { stepMs: Math.max(90, Math.min(220, 2200 / (strokes * 6))), caption: 'How to write it' });
 }
 
+// 0.9.9.9: the battle log is a coloured line that pops in (red: they hit, grey-violet: they fumbled, orange: the
+// dragon) and fades after a few seconds — it was a faint grey line nobody noticed
+let logFade = 0;
 export function logLine(text: string, kanji?: string) {
   const el = $('log');
-  el.replaceChildren(h('span', '', text));
-  if (kanji) el.append(h('span', 'k', ` ${kanji}`, { lang: 'ja' }));
+  const tone = /fumbled/.test(text) ? 'miss' : /claws|Fire breath/.test(text) ? 'boss' : /cast for/.test(text) ? 'hit' : 'info';
+  const icon = { miss: '✗', boss: '🐉', hit: '⚡', info: '•' }[tone];
+  const line = h('span', `log-line ${tone}`);
+  line.append(h('span', 'log-ico', icon), h('span', 'log-t', text));
+  if (kanji) line.append(h('span', 'k', kanji, { lang: 'ja' }));
+  el.replaceChildren(line);
+  clearTimeout(logFade);
+  logFade = window.setTimeout(() => line.classList.add('fade'), 4500);
 }
 
 // ── results ─────────────────────────────────────────────────────────────────

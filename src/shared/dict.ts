@@ -39,6 +39,20 @@ const fold = (s: string) => s.replace(/[うおー]/g, '').replace(/(?<=[えけ�
  * The positions in `r` that differ from `q` when they are at most `max` sounds apart (a sound changed, added or
  * dropped), else null. Used to show the near miss in red (koshujin → [ご]しゅじん).
  */
+/**
+ * 0.9.9.9: is this word exactly what was typed — one of its meanings word for word (English or Russian, "to " and
+ * notes aside), or its spelling or reading? (the dictionary makes such a result glow)
+ */
+export function exactMatch(w: DictEntry, raw: string, ruMeanings?: readonly string[] | null): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return false;
+  if (w.kanji.includes(raw.trim()) || w.kana.includes(raw.trim())) return true;
+  const bare = (g: string) => stripNotes(g.toLowerCase()).replace(/^to /, '').trim();
+  const qb = q.replace(/^to /, '');
+  const glosses = [...w.senses.flatMap((x) => x[1].split(/;\s*/)), ...(ruMeanings ?? []).flatMap((m) => m.split(/[;,]\s*/))];
+  return glosses.some((g) => bare(g) === qb);
+}
+
 export function nearMiss(q: string, r: string, max: number): number[] | null {
   if (q === r) return null;
   const n = q.length, m = r.length;

@@ -7,6 +7,41 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9', date: '2026-11',
+    en: [
+      'Settings, rebuilt: one ⚙ button (and a Settings tile on the menu) opens a window with tabs — Graphics (3D: High, Low or Off for 2D; UI size; theme), Audio (music and sounds on/off, volumes, voice), Language, and Other (reminders, battle keyboard). The music, sound and reminder buttons left the top bar, so your name fits. In a game against the AI, Settings pauses it.',
+      'UI size is 80% by default again.',
+      'Phones: the Daily challenge (and quizzes) at 100% couldn’t scroll — the word was hidden under the top bar; fixed for every size. The battle keyboard keys are a little taller, and the friends / dictionary buttons step aside while it’s up (one sat on Enter).',
+      'The side panels close with a tall bar along their edge (no tiny ✕), and the round button that opened a panel hides until it closes.',
+      'Dictionary: a word that is exactly what you typed glows gold.',
+      'Offline and reconnecting show as a thin strip across the top instead of a pill over your name. With no internet at start, the button is “Go offline mode”.',
+      'Coming back to the app from the background: it reconnects at once (no more “Reconnecting…” that never ended), a paused game stays paused and Resume works. While the app is in the background, friends see you as Away (orange), and offline friends show when they were last online.',
+      'Battles: one HP bar everywhere — thick, with the numbers inside (green for you, red for the opponent). In Boss Elimination your teammates sit inside your green frame. The battle log is a coloured line that pops in (who hit you, who fumbled, the dragon).',
+      'Deck Duel: mana is a flame now, not a ◆.',
+      'Reading passage: tapping a word gives its meaning from the full dictionary (most words said “tap the kanji”). Your last passage is kept on the device — open it again, with your answers and score, after closing the app.',
+      'Study cards: the “+ Add to…” list of a word from an example sentence opens above the Again / Hard / Good / Easy buttons, not under them.',
+      'Progress → Spell mastery shows the onomatopoeia too.',
+      'Menu: the subtitle is gone, the drifting kanji are visible on a computer too, Customize has a wizard icon, and ← Menu no longer touches the dictionary bar.',
+      'Faster: the app downloads about a third less (smaller code, better compression); unused code removed.',
+    ],
+    ru: [
+      'Настройки заново: одна кнопка ⚙ (и плитка «Настройки» в меню) открывает окно с вкладками — Графика (3D: высокая, низкая или выкл. — 2D; размер интерфейса; тема), Звук (музыка и звуки вкл./выкл., громкость, голос), Язык и Другое (напоминания, боевая клавиатура). Кнопки музыки, звука и напоминаний ушли с верхней панели — ваше имя теперь помещается. В игре против ИИ настройки ставят её на паузу.',
+      'Размер интерфейса снова 80% по умолчанию.',
+      'Телефоны: ежедневное испытание (и тесты) на 100% не прокручивалось — слово пряталось под верхней панелью; исправлено для любого размера. Клавиши боевой клавиатуры чуть выше, а кнопки друзей и словаря прячутся, пока она открыта (одна закрывала Enter).',
+      'Боковые панели закрываются высокой полосой вдоль края (без крошечного ✕), а круглая кнопка, открывшая панель, прячется, пока панель открыта.',
+      'Словарь: слово, которое точно совпадает с введённым, светится золотом.',
+      'Офлайн и переподключение — тонкая полоса вверху вместо плашки поверх имени. Без интернета при запуске кнопка — «Офлайн-режим».',
+      'Возвращение в приложение из фона: оно сразу переподключается (больше никакого бесконечного «Переподключение…»), игра на паузе остаётся на паузе, и «Продолжить» работает. Пока приложение в фоне, друзья видят вас как «Отошёл» (оранжевый), а у друзей не в сети видно, когда они были в сети.',
+      'Бои: одна полоска здоровья везде — толстая, с числами внутри (зелёная у вас, красная у соперника). В бою с боссом союзники внутри вашей зелёной рамки. Журнал боя — цветная строка, которая всплывает (кто попал, кто ошибся, дракон).',
+      'Дуэль колод: мана теперь — пламя, а не ◆.',
+      'Текст для чтения: нажатие на слово показывает значение из полного словаря (раньше у большинства было «нажмите на кандзи»). Последний текст хранится на устройстве — откройте его снова, с ответами и счётом, даже после закрытия приложения.',
+      'Карточки: список «+ Добавить в…» у слова из примера открывается поверх кнопок «Снова / Трудно / Хорошо / Легко», а не под ними.',
+      'Прогресс → Освоение заклинаний показывает и ономатопею.',
+      'Меню: подзаголовок убран, плывущие кандзи видны и на компьютере, у «Настройки внешности» значок волшебника, а «← Меню» больше не задевает панель словаря.',
+      'Быстрее: приложение загружает примерно на треть меньше (меньше код, лучше сжатие); неиспользуемый код удалён.',
+    ],
+  },
+  {
     v: '0.9.9.8.2', date: '2026-11',
     en: [
       'Staff attacks: each staff has its own spell now (every mode but Deck Duel). Verdant — four branches burst from the ground and lash the target like tentacles; Ember — an inferno; Tide — frost; Storm — lightning from the sky; Void — a rift that swallows the light and bursts. Seasonal staffs do their base staff’s spell in their own colours.',

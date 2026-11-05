@@ -424,7 +424,8 @@ let checked = false;
  * sentence may hold two words or none; an example sentence holds its one word */
 let lines: Array<{ ws: PWord[]; ex: [string, string, string] }> = [];
 /** the story's title when the passage is one story (null: separate example sentences) */
-let storyTitle: { ja: string; en: string; ru: string } | null = null;
+type StoryTitle = { ja: string; en: string; ru: string };
+let storyTitle: StoryTitle | null = null;
 let passageBuild = 0;
 
 /** [漢字|かな] → ruby; when `tap`, each word is a button that shows its meaning */
@@ -479,7 +480,30 @@ async function lookup(base: string, reading: string, after: string): Promise<PWo
   // the dictionary form: the same kanji + okurigana, its reading starting with the furigana
   const near = VOCAB.filter((v) => v.kanji.startsWith(base) && v.reading.startsWith(reading) && v.kanji.length <= base.length + 3 && !/[一-鿿]/.test(v.kanji.slice(base.length)));
   const best = near.find((v) => after.startsWith(v.kanji.slice(base.length))) ?? near.find((v) => v.kanji.length > base.length) ?? near[0];
-  return best ? { kanji: best.kanji, reading: best.reading, meaning: best.meaning, id: best.id } : null;
+  if (best) return { kanji: best.kanji, reading: best.reading, meaning: best.meaning, id: best.id };
+  return fromDictionary(base, reading, after);
+}
+/**
+ * 0.9.9.9: not one of the game's words — the full dictionary (JMdict, the one on the dictionary page) instead; most
+ * words of a story aren't in the game's list, and tapping them only said "tap the kanji".
+ */
+async function fromDictionary(base: string, reading: string, after: string): Promise<PWord | null> {
+  try {
+    const { dictionary, ruOf } = await import('./dictui');
+    const d = await dictionary();
+    const kana = after.replace(/[^\u3040-\u309f]/g, '');
+    const fits = (w: { kanji: string[]; kana: string[] }) => w.kanji.some((k) => k.startsWith(base)) && (!reading || w.kana.some((r) => r.startsWith(reading)));
+    let hit = null;
+    // the word as written with its ending first (回って → 回る), then shorter
+    for (const q of [base + kana.slice(0, 4), base + kana.slice(0, 3), base + kana.slice(0, 2), base + kana.slice(0, 1), base]) {
+      const hits = d.search(q, 10);
+      hit = hits.find((w) => w.kanji[0] === base && fits(w)) ?? hits.find(fits) ?? null;
+      if (hit) break;
+    }
+    if (!hit) return null;
+    const meaning = (ruOf(hit) ?? hit.senses.map((x) => x[1])).slice(0, 3).join('; ');
+    return { kanji: hit.kanji[0] ?? base, reading: hit.kana[0] ?? reading, meaning };
+  } catch { return null; }
 }
 function showGloss(at: HTMLElement | null, ...kids: Node[]) {
   document.querySelectorAll('.passage-text .on').forEach((x) => x.classList.remove('on'));
@@ -559,6 +583,7 @@ function tapBlank(i: number) {
 function putWord(w: PWord) {
   if (checked || !blanks.length) return;
   blanks[picked].put = w;
+  queueMicrotask(saveLast);
   const next = blanks.findIndex((b, k) => !b.put && k > picked);
   picked = next >= 0 ? next : Math.max(0, blanks.findIndex((b) => !b.put));
   blanks.forEach((_, k) => drawBlank(k));
@@ -575,7 +600,7 @@ function drawTranslation() {
 export const passageHooks: { done?: (score: number, total: number) => void } = {};
 /** a daily task was recorded: the fresh profile (main.ts shows it) */
 export const onTaskDone = { cb: (_p: Profile) => {} };
-function check() {
+function check(restored = false) {
   checked = true;
   hideGloss();
   blanks.forEach((_, k) => drawBlank(k));
@@ -590,7 +615,7 @@ function check() {
   res.replaceChildren(el('h4', '', 'Words in this passage'), ...list);
   // 0.9.9.5: the words you got wrong go to Struggling spells, like the words you miss in a battle
   const missed = [...new Set(blanks.filter((b) => b.put?.kanji !== b.answer.kanji && b.answer.id).map((b) => b.answer.id!))];
-  if (missed.length) {
+  if (missed.length && !restored) {
     const msg = el('p', 'hint p-missed', `${missed.length} missed → ${tr('Struggling spells')}`);
     res.append(msg);
     void api.deckAdd('struggling', missed).then((r) => { msg.textContent = r.added.length ? `${tr('Added to Struggling spells')}: ${r.added.length}` : tr('Already in Struggling spells'); onChanged(); })
@@ -603,6 +628,8 @@ function check() {
   const again = el('button', 'big', 'New passage', { type: 'button' }) as HTMLButtonElement;
   again.onclick = buildPassage;
   $('passageWords').replaceChildren(el('div', 'p-score', `${right} / ${blanks.length}`), el('p', 'hint center', right === blanks.length ? 'Perfect — every word in its place!' : 'Green: right. Red: the right word, with yours crossed out.'), again);
+  if (restored) return; // (brought back from last time: already counted)
+  saveLast();
   passageHooks.done?.(right, blanks.length);
   void api.task('passage', right, blanks.length).then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task (4/8 or better)
   if (!taskPassed('passage', right, blanks.length)) ui.toast('For the daily task, get half the blanks right (4 of 8) — try a new passage!', 5000);
@@ -639,6 +666,13 @@ function showStart() {
   const go = el('button', 'big p-go', storyUsage?.enabled === false ? 'Make the passage' : '✍ Write the story', { type: 'button' }) as HTMLButtonElement;
   go.onclick = () => { if (!limitHit()) void buildPassage(); };
   box.append(go);
+  const last = loadLast();
+  if (last) {
+    const when = new Date(last.at).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const b = el('button', 'pill p-last', `↺ ${tr('Your last passage')} · ${when}${last.score ? ` · ${last.score[0]} / ${last.score[1]}` : ''}`, { type: 'button' });
+    b.onclick = () => restoreLast(last);
+    box.append(b);
+  }
   $('passageText').replaceChildren(box);
   drawLimit();
 }
@@ -829,6 +863,12 @@ async function buildPassage() {
   }
   else if (storyUsage?.enabled === false) { note.textContent = storyWhy('off'); note.hidden = false; }
   if (!lines.length) lines = pool.filter((w) => !!w.id && examples.has(w.id)).map((w) => ({ ws: [w], ex: examples.get(w.id!)! }));
+  renderPassage();
+  saveLast();
+}
+/** draws the passage in `lines` (a new one, or the last one brought back) with empty blanks and the word bank */
+function renderPassage() {
+  const text = $('passageText');
   const title = storyTitle ? el('p', 'p-title') : null;
   if (title && storyTitle) title.append(...rubyBits(storyTitle.ja, true)); // 0.9.9.5: the title's words can be tapped too
   const body = storyTitle ? el('p', 'p-story') : null;
@@ -845,10 +885,36 @@ async function buildPassage() {
     bank.append(c);
   }
   const go = el('button', 'big', 'Check', { id: 'passageCheck', type: 'button' }) as HTMLButtonElement;
-  go.onclick = check;
+  go.onclick = () => check();
   $('passageWords').replaceChildren(el('h4', '', 'Your words — tap a blank, then a word'), bank, go);
   drawBank();
   if (!lines.length) { text.replaceChildren(el('p', 'hint', 'No words with example sentences in this deck yet — pick another deck above, or study some spells first.')); $('passageWords').replaceChildren(); }
+}
+
+// ── 0.9.9.9: your last passage is kept on this device — close the app and it's still there (with how you did) ──
+const LAST_KEY = 'kb:lastPassage';
+interface SavedPassage { at: number; title: StoryTitle | null; lines: Array<{ ws: PWord[]; ex: [string, string, string] }>; put: Array<string | null>; checked: boolean; score?: [number, number] }
+function saveLast() {
+  if (!lines.length) return;
+  const save: SavedPassage = { at: Date.now(), title: storyTitle, lines, put: blanks.map((b) => b.put?.kanji ?? null), checked,
+    ...(checked ? { score: [blanks.filter((b) => b.put?.kanji === b.answer.kanji).length, blanks.length] as [number, number] } : {}) };
+  try { localStorage.setItem(LAST_KEY, JSON.stringify(save)); } catch { /* full or private: not kept */ }
+}
+function loadLast(): SavedPassage | null {
+  try { const v = JSON.parse(localStorage.getItem(LAST_KEY) ?? 'null') as SavedPassage | null; return v && Array.isArray(v.lines) && v.lines.length ? v : null; } catch { return null; }
+}
+/** the last passage, as you left it: the blanks you filled, and the result if you had checked it */
+function restoreLast(v: SavedPassage) {
+  ++passageBuild;
+  storyTitle = v.title; lines = v.lines; blanks = []; picked = 0; checked = false;
+  $('passageNote').hidden = true;
+  renderPassage();
+  const all = lines.flatMap((l) => l.ws);
+  v.put.forEach((k, i) => { if (blanks[i] && k) blanks[i].put = all.find((w) => w.kanji === k) ?? null; });
+  picked = Math.max(0, blanks.findIndex((b) => !b.put));
+  blanks.forEach((_, k) => drawBlank(k));
+  drawBank();
+  if (v.checked) check(true);
 }
 $('passageNew').onclick = () => { if (!limitHit()) void buildPassage(); };
 /** 0.9.9.6: today's AI stories are used up — the buttons say so instead of starting a story */

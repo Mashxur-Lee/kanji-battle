@@ -106,7 +106,7 @@ export class ProgressService {
     const score = (c: { state: string; intervalDays: number }) => (c.state === 'review' ? 1000 + c.intervalDays : c.state === 'new' ? 0 : 1);
     const cards = new Map<string, Awaited<ReturnType<Store['cards']>>[number]>();
     for (const c of await this.store.cards(u.id)) { const was = cards.get(c.vocabId); if (!was || score(c) > score(was)) cards.set(c.vocabId, c); }
-    const mastery = Object.fromEntries(LEVELS.map((l) => [l, [] as Array<[string, number, number]>])) as Record<Level, Array<[string, number, number]>>;
+    const mastery = Object.fromEntries([...LEVELS, 'ONO' as const].map((l) => [l, [] as Array<[string, number, number]>])) as Record<Level, Array<[string, number, number]>>;
     for (const v of VOCAB) {
       const c = cards.get(v.id);
       const m = !c ? Mastery.Unseen

@@ -56,7 +56,7 @@ export interface AdminUserRow extends PublicUser {
   banned: boolean; createdAt: string;
   xp?: number; level?: number; crit?: number; learned?: number; cards?: number;
   /** connected right now; what they're doing; since when (or, offline: last seen since the server started) */
-  online?: boolean; activity?: string; onlineSince?: number; lastSeen?: number; loginDay?: string | null;
+  online?: boolean; away?: boolean; activity?: string; onlineSince?: number; lastSeen?: number; loginDay?: string | null;
 }
 
 export type Avatar = 'goblin' | 'kid' | 'human' | 'knight' | 'witch' | 'wizard';
@@ -153,6 +153,8 @@ export type ClientMessage =
   | { type: 'forfeit' }
   /** 0.9.9.8: the only human in the room leaves the game (back to the lobby, no forfeit) */
   | { type: 'leave_game' }
+  /** 0.9.9.9: the app went to the background (true) or came back (false) */
+  | { type: 'away'; on: boolean }
   | { type: 'deck_character'; character: string }
   | { type: 'deck_pick'; cardId: string }
   | { type: 'deck_play'; cardId: string }

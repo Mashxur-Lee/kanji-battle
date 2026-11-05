@@ -891,11 +891,6 @@ svg.still .bg-comet { opacity: 0; }
 .private-box { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: rgba(16, 14, 44, .72); animation: privOpen .22s ease-out; }
 .private-box .hint { margin: 0; width: 0; min-width: 100%; } /* wraps instead of widening the menu */
 @keyframes privOpen { from { opacity: 0; transform: translateY(-6px); } }
-@media (min-width: 861px) {
-  #menu .duel-scene { position: fixed; z-index: 1; pointer-events: none; right: clamp(16px, calc(4 * var(--vw)), 72px); width: min(calc(46 * var(--vw)), 680px);
-    bottom: calc(max(calc(100 * var(--dvh)), calc(56.25 * var(--vw))) * .055); }
-  #menu .duel-scene .wizard { bottom: 0; }
-}
 /* Deck Duel: the correct kanji shows for 2 s after every cast */
 .dkc.big.reveal { position: relative; animation: castflip .45s ease-out; }
 .dkc.big.reveal.ok { box-shadow: 0 0 0 3px var(--good), 0 0 28px rgba(78, 230, 166, .45); }
@@ -1436,10 +1431,12 @@ body.has-rail .screen { padding-right: calc(var(--gutter) + 64px); }
 }
 
 /* ── 0.9.8.1: the compact battle keyboard (phones) ── */
-.game-kb { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: flex; flex-direction: column; gap: 5px; padding: 6px 4px calc(8px + env(safe-area-inset-bottom));
+/* (#gameKb, not .game-kb: the body gets the class game-kb while the keyboard is up — 0.9.9.9: the keyboard's own
+   position: fixed landed on the page itself, pinning it so it couldn't scroll) */
+#gameKb { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: flex; flex-direction: column; gap: 5px; padding: 6px 4px calc(8px + env(safe-area-inset-bottom));
   background: rgba(10, 8, 28, .9); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-top: 1px solid var(--line); touch-action: manipulation; user-select: none; -webkit-user-select: none; }
 .gk-row { display: flex; gap: 4px; justify-content: center; }
-.gk { flex: 1 1 0; max-width: 44px; height: 40px; border-radius: 7px; border: 0; background: #2b2752; color: #fff; font: 700 1.05rem var(--ui); padding: 0; box-shadow: 0 2px 0 rgba(0, 0, 0, .45); }
+.gk { flex: 1 1 0; max-width: 46px; height: 46px; border-radius: 7px; border: 0; background: #2b2752; color: #fff; font: 700 1.05rem var(--ui); padding: 0; box-shadow: 0 2px 0 rgba(0, 0, 0, .45); }
 .gk.wide { max-width: 82px; flex-grow: 1.6; font-size: .9rem; }
 .gk.enter { max-width: none; flex-grow: 3; background: linear-gradient(160deg, #8b6bff, #5a3fd8); }
 .gk.skip { background: #3a3460; color: var(--muted); }
@@ -1897,10 +1894,6 @@ body:has(#bg[data-time="day"]) .screen .sub, body:has(#bg[data-time="day"]) .men
 /* ── 0.9.9.3.1 ── */
 #userRows td:last-child { white-space: nowrap; }
 #userRows .del-user { margin-left: 4px; }
-/* the menu's duelling wizards stand in the middle of the screen (between the menu and the friends list) */
-@media (min-width: 861px) {
-  #menu .duel-scene { right: auto; width: min(calc(42 * var(--vw)), 620px); left: calc(50% - min(calc(21 * var(--vw)), 310px) + clamp(60px, calc(9 * var(--vw)), 160px)); }
-}
 
 /* ── 0.9.9.3.1: Deck Duel on phones / narrow screens — your cards and Omnipotence come right after the table;
    your kanji, the turn log and the chat are foldable sections below them ── */
@@ -2488,7 +2481,7 @@ body:is([data-screen="auth"], [data-screen="private"], [data-screen="study"], [d
 /* 0.9.9.7: a paused game freezes — every animation in the battle stops where it is */
 body.paused .screen *, body.paused .screen *::before, body.paused .screen *::after { animation-play-state: paused !important; }
 /* 0.9.9.7: the game keyboard outside battles (Daily challenge, dictionary…) */
-.game-kb.no-skip .gk.skip, .game-kb.no-space .gk.space { display: none; }
+#gameKb.no-skip .gk.skip, #gameKb.no-space .gk.space { display: none; }
 body.game-kb-other .screen:not([hidden]) { padding-bottom: calc(var(--kb-h, 230px) + 16px) !important; }
 /* 0.9.9.7: the passage's translation after you finish — open, framed and easy to spot */
 .passage-tr.shown { margin-top: 14px; padding: 12px 16px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
@@ -2569,7 +2562,7 @@ body.game-kb-other .screen:not([hidden]) { padding-bottom: calc(var(--kb-h, 230p
 :root[data-theme="light"] .fr-row.online .fr-status { color: var(--text); }
 :root[data-theme="light"] .rail-fab { background: linear-gradient(150deg, #5b4bd6, rgba(234, 233, 242, 1.00)); color: var(--text); border: 1px solid rgba(60, 50, 120, .16); --text: #1d1838; --muted: #5d5880; --accent: #6b3fd6; --accent2: #0b7d9c; --gold: #a26300; --good: #12895a; --bad: #c8284a; }
 :root[data-theme="light"] .friend-dialog { background: rgba(231, 231, 234, 1.00); --text: #1d1838; --muted: #5d5880; --accent: #6b3fd6; --accent2: #0b7d9c; --gold: #a26300; --good: #12895a; --bad: #c8284a; color: var(--text); }
-:root[data-theme="light"] .game-kb { background: rgba(230, 230, 232, .90); --text: #1d1838; --muted: #5d5880; --accent: #6b3fd6; --accent2: #0b7d9c; --gold: #a26300; --good: #12895a; --bad: #c8284a; color: var(--text); }
+:root[data-theme="light"] #gameKb { background: rgba(230, 230, 232, .90); --text: #1d1838; --muted: #5d5880; --accent: #6b3fd6; --accent2: #0b7d9c; --gold: #a26300; --good: #12895a; --bad: #c8284a; color: var(--text); }
 :root[data-theme="light"] .pause-overlay { background: rgba(230, 230, 232, .82); --text: #1d1838; --muted: #5d5880; --accent: #6b3fd6; --accent2: #0b7d9c; --gold: #a26300; --good: #12895a; --bad: #c8284a; color: var(--text); }
 :root[data-theme="light"] .pause-box { background: rgba(231, 231, 234, .95); --text: #1d1838; --muted: #5d5880; --accent: #6b3fd6; --accent2: #0b7d9c; --gold: #a26300; --good: #12895a; --bad: #c8284a; color: var(--text); }
 :root[data-theme="light"] .ii-kind.k-suggestion { color: var(--text); }
@@ -2647,7 +2640,7 @@ body.game-kb-other .screen:not([hidden]) { padding-bottom: calc(var(--kb-h, 230p
 :root[data-theme="light"] .back:hover { color: var(--text); }
 /* the scene behind a page: a soft light veil instead of the dark one */
 /* glassy dark panels from before → light glass */
-:root[data-theme="light"] :is(.friend-rail, #custSub, #auth.auth-screen .col-main, .vol-panel, .game-kb, .whoami) { background: rgba(255, 255, 255, .88); color: var(--text); border-color: var(--line); }
+:root[data-theme="light"] :is(.friend-rail, #custSub, #auth.auth-screen .col-main, .vol-panel, #gameKb, .whoami) { background: rgba(255, 255, 255, .88); color: var(--text); border-color: var(--line); }
 :root[data-theme="light"] :is(.tutorial-overlay, .pause-overlay, .mf-overlay) { background: rgba(230, 232, 250, .7); }
 :root[data-theme="light"] .gk { background: #fff; color: var(--text); box-shadow: 0 2px 0 rgba(40, 30, 90, .18); border: 1px solid var(--line); }
 :root[data-theme="light"] .gk.skip, :root[data-theme="light"] .gk.back { background: #ece9fa; }
@@ -2753,7 +2746,7 @@ button.dw-chip { width: auto; margin: 0; padding: 4px 10px; display: inline-flex
 :root[data-theme="light"] body { background: var(--bg); }
 :root[data-theme="light"] .screen, :root[data-theme="light"] .topbar { color: var(--text); --text: #f4f2ff; --muted: #d4d0ee; --accent: #c7a8ff; --accent2: #8ff0ff; --gold: #ffd479; --good: #5ef0b4; --bad: #ff8094; }
 :root[data-theme="light"] .screen h1, :root[data-theme="light"] .screen > h2, :root[data-theme="light"] .page-head h2, :root[data-theme="light"] .screen > .sub, :root[data-theme="light"] .screen > .hint { text-shadow: 0 1px 6px rgba(0, 0, 0, .55); }
-:root[data-theme="light"] :is(.pill, input, select, textarea, dialog, .toast, .how-btn, .whoami, .vol-panel, .game-kb, .tasks-btn, .friend-rail, .dict-home, .dict-hit, .dict-word, .deck-card, .prog-card, .cust-info, .mode-card, .card, .tabs, button.alt, .lp-row, .plan-apply, .ach-tip, .ach-pop, .pause-overlay > *, .tut-card, .p-settings, .passage-text, .passage-tr, .passage-words, .history-list > *, .daily-panel, .daily-main, .lobby-panel, #auth.auth-screen .col-main, .compare, .tablewrap, table, .grid.small .card, .missed-save, .modes-grid > *) {
+:root[data-theme="light"] :is(.pill, input, select, textarea, dialog, .toast, .how-btn, .whoami, .vol-panel, #gameKb, .tasks-btn, .friend-rail, .dict-home, .dict-hit, .dict-word, .deck-card, .prog-card, .cust-info, .mode-card, .card, .tabs, button.alt, .lp-row, .plan-apply, .ach-tip, .ach-pop, .pause-overlay > *, .tut-card, .p-settings, .passage-text, .passage-tr, .passage-words, .history-list > *, .daily-panel, .daily-main, .lobby-panel, #auth.auth-screen .col-main, .compare, .tablewrap, table, .grid.small .card, .missed-save, .modes-grid > *) {
   color: var(--text); --text: #1d1838; --muted: #5d5880; --accent: #6b3fd6; --accent2: #0b7d9c; --gold: #a26300; --good: #12895a; --bad: #c8284a;
 }
 :root[data-theme="light"] .whoami .who-name { color: var(--text); }
@@ -3059,7 +3052,7 @@ body[data-screen="menu"] .menu-veil { opacity: 1; }
 :root[data-theme="light"] .menu-veil .mv-circle { color: #6b3fd6; }
 
 /* ── 0.9.9.8.2: Customize / Progress / Match history — tiles with a coloured icon badge and a line on what's inside ── */
-#menu .mc-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; flex: 0 1 640px; }
+#menu .mc-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; flex: 0 1 860px; }
 #menu .mc-nav-btn { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 16px; text-align: left; min-width: 0;
   background: linear-gradient(150deg, rgba(36, 30, 86, .94), rgba(16, 14, 44, .94)); border: 1px solid rgba(255, 255, 255, .12);
   box-shadow: 0 8px 22px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .08); }
@@ -3073,8 +3066,10 @@ body[data-screen="menu"] .menu-veil { opacity: 1; }
 .mn-cust { --mn-c: #ff7ac8; --mn: linear-gradient(140deg, #ff8ad0, #a63fd6); }
 .mn-prog { --mn-c: #4fd8ff; --mn: linear-gradient(140deg, #5be0ff, #2f6bd6); }
 .mn-hist { --mn-c: #ffc451; --mn: linear-gradient(140deg, #ffd56a, #d6782f); }
+.mn-set { --mn-c: #8ff0a4; --mn: linear-gradient(140deg, #6fe39a, #1f8a6a); }
 @media (max-width: 700px) {
-  #menu .mc-nav { flex: none; gap: 8px; }
+  #menu .mc-nav { flex: none; gap: 6px; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  #menu .mc-nav-btn .mn-txt b { white-space: normal; overflow: visible; line-height: 1.1; }
   #menu .mc-nav-btn { flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 10px 4px 9px; }
   #menu .mc-nav-btn .mn-ic { width: 38px; height: 38px; border-radius: 11px; }
   #menu .mc-nav-btn .mn-txt b { font-size: .82rem; }
@@ -3199,3 +3194,119 @@ body.has-3d #bossBar .tbar { box-shadow: 0 4px 18px rgba(0, 0, 0, .5); }
   .arena-top.boss-top .party-me .tbar { height: 18px; }
   .arena-top.boss-top .party-mates .tbar { height: 9px; }
 }
+
+/* ── 0.9.9.9: with the battle keyboard up, the round friends / dictionary buttons step aside (one sat on Enter) ── */
+body.game-kb :is(#railFab, #dictFab) { display: none !important; }
+/* 0.9.9.9: on a computer the backs ("← Menu", "← Leave room") and the name pill sit clear of the dictionary bar */
+@media (min-width: 901px) {
+  body.has-dict :is(.screen > .back, #lobby #leaveLobby) { left: calc(var(--gutter) + 64px); }
+}
+
+/* ── 0.9.9.9: the side panels close with a tall bar along their inner edge (dictionary: right edge, friends: left
+   edge, on phones), in the accent colour; the round button that opened a panel hides until it closes ── */
+.side-close { display: none; }
+:is(#railFab, #dictFab).panel-open { display: none !important; }
+.dict-rail.open .dr-close { display: flex; }
+.dr-close, .fr-close { align-items: center; justify-content: center; flex: none; width: 30px; padding: 0; border: 0; border-radius: 0; margin: 0;
+  background: linear-gradient(180deg, #7b5cff, #4a35c8); color: #fff; font: 900 1.6rem/1 var(--ui); box-shadow: none; cursor: pointer; }
+.dr-close:hover, .fr-close:hover { filter: brightness(1.15); }
+.dr-close { border-left: 1px solid rgba(255, 255, 255, .18); }
+.dict-rail.open { display: flex; flex-direction: row; }
+@media (max-width: 900px) {
+  .friend-rail { flex-direction: row !important; }
+  .friend-rail .fr-close { display: flex; order: -1; border-right: 1px solid rgba(255, 255, 255, .18); }
+  .friend-rail > :not(.fr-close) { flex: none; }
+  .friend-rail { display: grid !important; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+  .friend-rail[hidden] { display: none !important; }
+  .friend-rail .fr-close { grid-column: 1; grid-row: 1 / -1; }
+  .friend-rail > :is(.fr-head, .fr-list, .fr-foot) { grid-column: 2; }
+  .dict-rail .dr-panel { padding-top: calc(14px + env(safe-area-inset-top)); }
+}
+/* 0.9.9.9: a word that is exactly what you typed glows */
+:is(.dict-hit, button.dr-hit).exact { border: 1px solid #f6c453 !important; box-shadow: 0 0 0 1px rgba(246, 196, 83, .45), 0 0 18px rgba(246, 196, 83, .35); animation: exactGlow 2.4s ease-in-out infinite; }
+@keyframes exactGlow { 50% { box-shadow: 0 0 0 1px rgba(246, 196, 83, .7), 0 0 26px rgba(246, 196, 83, .55); } }
+@media (prefers-reduced-motion: reduce) { :is(.dict-hit, button.dr-hit).exact { animation: none; } }
+@media (max-width: 900px) { .friend-rail { z-index: 95 !important; } }
+
+/* ── 0.9.9.9: Settings — a window with tabs (Graphics, Audio, Language, Other) ── */
+.settings-overlay { position: fixed; inset: 0; z-index: 110; display: grid; place-items: center; padding: 16px; background: rgba(6, 5, 20, .66);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: setIn .16s ease-out; }
+.settings-overlay[hidden] { display: none; }
+@keyframes setIn { from { opacity: 0; } }
+.settings-box { width: min(480px, 100%); max-height: calc(100 * var(--dvh) - 32px); overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 14px;
+  padding: 18px 20px 22px; border-radius: 20px; background: linear-gradient(165deg, rgba(34, 28, 82, .98), rgba(14, 12, 38, .98)); border: 1px solid rgba(169, 139, 255, .3);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .6); color: var(--text); animation: setPop .18s ease-out; }
+@keyframes setPop { from { transform: translateY(10px) scale(.98); } }
+.set-head { display: flex; align-items: center; gap: 10px; }
+.set-head h2 { margin: 0; font-size: 1.35rem; font-weight: 900; }
+.set-paused { padding: 3px 10px; border-radius: 999px; font-size: .74rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: #241a00; background: var(--gold); }
+.set-close { margin-left: auto; width: 38px; height: 38px; padding: 0; display: grid; place-items: center; font-size: 1rem; }
+.set-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: rgba(0, 0, 0, .28); }
+.set-tab { padding: 9px 4px; border-radius: 10px; border: 0; background: none; color: var(--muted); font: 800 .88rem var(--ui); box-shadow: none; min-width: 0; }
+.set-tab[aria-selected="true"] { background: linear-gradient(150deg, #7b5cff, #4a35c8); color: #fff; box-shadow: 0 4px 14px rgba(110, 80, 255, .4); }
+.set-tab:hover { color: var(--text); filter: none; }
+.set-sec { display: flex; flex-direction: column; gap: 14px; }
+.set-sec[hidden] { display: none; }
+.set-sec label { display: grid; grid-template-columns: 1fr auto; gap: 6px; font-size: .92rem; font-weight: 700; }
+.set-sec label span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.set-sec input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.set-sec .toggle-row { display: flex; align-items: center; gap: 10px; font-size: .92rem; font-weight: 700; white-space: nowrap; }
+.set-sec .toggle-row select { margin-left: auto; width: auto; min-width: 0; max-width: 62%; padding: 6px 10px; border-radius: 10px; background: var(--field); color: var(--text); border: 1px solid var(--line); font: inherit; }
+.set-sec .toggle-row .csel { margin-left: auto; max-width: 70%; }
+.set-sec .toggle-row .csel-menu { left: auto; right: 0; }
+.set-sec .toggle-row input[type=checkbox] { flex: none; margin: 0; }
+.set-sec .hint { margin: -6px 0 0; font-size: .8rem; }
+.set-switch { margin-left: auto; min-width: 96px; text-decoration: none !important; opacity: 1 !important; }
+.set-switch[aria-pressed="true"] { background: linear-gradient(150deg, #3ddc97, #1f8a6a); color: #04140c; border-color: transparent; }
+.set-switch[aria-pressed="false"] { background: rgba(255, 255, 255, .06); color: var(--muted); }
+.set-switch .ico:empty { display: none; }
+.settings-btn { width: 40px; height: 36px; padding: 0 !important; display: grid; place-items: center; }
+body.mode-shown .audio-ctl > #volBtn { display: grid !important; }
+:root[data-theme="light"] .settings-box { background: #fbfaff; border-color: var(--line); }
+:root[data-theme="light"] .set-tabs { background: rgba(60, 50, 120, .08); }
+
+/* ── 0.9.9.9: offline / reconnecting — a thin strip across the very top (the pill sat on the name and the buttons);
+   the top bar steps down under it ── */
+.net-status { position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; transform: none !important; z-index: 120;
+  height: calc(24px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 12px 0 !important; border-radius: 0 !important; border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, .12) !important; display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: .78rem !important; font-weight: 800 !important; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.net-status[hidden] { display: none !important; }
+body.offline .net-status { background: linear-gradient(90deg, #1b2c5c, #2a3f86, #1b2c5c) !important; color: #cfe6ff !important; }
+body:not(.offline) .net-status { background: linear-gradient(90deg, #5a3a0a, #8a5a12, #5a3a0a) !important; color: #ffe2a8 !important; }
+body:has(#netStatus:not([hidden])) .topbar { top: calc(24px + env(safe-area-inset-top)); }
+body.offline:is([data-screen="battle"], [data-screen="prep"]) #netStatus { display: none !important; }
+body.offline:is([data-screen="battle"], [data-screen="prep"]) .topbar { top: 0; }
+/* 0.9.9.9: the mana flame (Deck Duel) */
+.mana-ico { display: inline-flex; vertical-align: -.12em; color: #ffcf4a; filter: drop-shadow(0 0 4px rgba(255, 190, 60, .6)); margin: 0 .08em; }
+.mana-bar .mana-ico, .dkbar-txt .mana-ico { color: #fff3c4; }
+/* 0.9.9.9: the teammates inside your green frame, under a thin divider */
+.party-mates.in-frame { width: 100%; margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(61, 220, 151, .25); }
+/* 1v1: the HP bar is thick with the numbers inside (as in Boss and Deck Duel); the levels a small line under it */
+#battle .arena-top:not(.boss-top) .fighter .tbar { height: 26px; border-radius: 13px; border-width: 2px; }
+#battle .arena-top:not(.boss-top) .fighter .tbar.ally { border-color: rgba(61, 220, 151, .55); }
+#battle .arena-top:not(.boss-top) .fighter .tbar.enemy { border-color: rgba(255, 107, 129, .55); }
+#battle .fighter .tbar-txt { color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .9); }
+#battle .fighter .hpnum.lvs-only { font-size: .74rem; color: var(--muted); margin-top: 3px; }
+#battle .fighter.opp .hpnum.lvs-only { text-align: right; }
+@media (max-width: 700px) { #battle .arena-top:not(.boss-top) .fighter .tbar { height: 20px; } #battle .fighter .tbar-txt { font-size: .78rem; } }
+/* 0.9.9.9: the battle log — a coloured line that pops in */
+.log { background: none !important; backdrop-filter: none !important; }
+.log-line { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 6px 14px; border-radius: 999px; font-size: 1rem; font-weight: 800; color: #fff;
+  background: rgba(14, 12, 40, .82); border: 1px solid var(--lc, var(--line)); box-shadow: 0 4px 16px rgba(0, 0, 0, .45), 0 0 16px color-mix(in srgb, var(--lc, #a98bff) 30%, transparent);
+  animation: logPop .32s cubic-bezier(.2, 1.4, .4, 1); transition: opacity .6s; }
+.log-line.fade { opacity: .35; }
+.log-line .log-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.log-line .k { font-family: var(--jp); font-size: 1.15rem; color: var(--lc); }
+.log-line .log-ico { flex: none; }
+.log-line.hit { --lc: #ff6b7a; } .log-line.miss { --lc: #b49bff; } .log-line.boss { --lc: #ffa64d; } .log-line.info { --lc: #9fd8ff; }
+@keyframes logPop { from { transform: translateY(8px) scale(.9); opacity: 0; } }
+@media (max-width: 700px) { .log-line { font-size: .85rem; padding: 5px 11px; } }
+:root[data-theme="light"] .log-line { background: rgba(255, 255, 255, .92); color: #1d1838; }
+/* 0.9.9.9: a friend whose app is in the background — orange */
+.fr-row.away .fr-dot { background: #ffa33a !important; }
+.fr-row.away .fr-status { color: #ffc27a !important; }
+.fl-row.away .dot { background: #ffa33a !important; box-shadow: 0 0 8px #ffa33a !important; }
+.csel-menu.floating { position: fixed !important; z-index: 140 !important; right: auto !important; }
+.csel-menu.floating.up { top: auto !important; }
+.p-last { margin-top: 12px; }

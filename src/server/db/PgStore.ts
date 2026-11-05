@@ -14,7 +14,7 @@ interface UserRow {
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
   crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null; tutorial_done: boolean | null; unlocks: string[] | null;
   login_day: string | null; streak: number | null; best_streak: number | null; streak_day: string | null; border: string | null;
-  daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null; starred: string[] | null; nickname: string | null;
+  daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null; starred: string[] | null; nickname: string | null; last_seen?: string | number | null;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
@@ -28,7 +28,7 @@ const toUser = (r: UserRow): UserRecord => ({
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
   wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant', tutorialDone: r.tutorial_done ?? true, unlocks: r.unlocks ?? [],
   loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0, streakDay: r.streak_day ?? null, border: r.border ?? 'none',
-  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null, starred: r.starred ?? [], nickname: r.nickname ?? null,
+  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null, starred: r.starred ?? [], nickname: r.nickname ?? null, lastSeen: r.last_seen != null ? Number(r.last_seen) : null,
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
@@ -41,7 +41,7 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
   critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff', tutorialDone: 'tutorial_done', unlocks: 'unlocks',
   loginDay: 'login_day', streak: 'streak', streakDay: 'streak_day', border: 'border', bestStreak: 'best_streak', role: 'role',
-  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred', nickname: 'nickname',
+  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred', nickname: 'nickname', lastSeen: 'last_seen',
 };
 
 /**
@@ -116,6 +116,7 @@ export class PgStore implements Store {
       )`;
     // v0.9.2 colour of the combo flames
     await this.sql`alter table kw_users add column if not exists flame text not null default 'blue'`;
+    await this.sql`alter table kw_users add column if not exists last_seen bigint`; // 0.9.9.9
     // v0.9.3 login streaks
     await this.sql`alter table kw_users add column if not exists login_day text`;
     await this.sql`alter table kw_users add column if not exists streak integer not null default 0`;

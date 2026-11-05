@@ -489,7 +489,8 @@ function logFeed(kind: FeedKind, text: string, who: 'me' | 'opp' | 'sys', color?
   while (list.children.length > 120) list.firstElementChild!.remove();
   if (atEnd) list.scrollTop = list.scrollHeight;
 }
-export function resetFeed() { feedTurn = 0; feedActive = ''; $('dkFeed').replaceChildren(); }
+
+function resetFeed() { feedTurn = 0; feedActive = ''; $('dkFeed').replaceChildren(); }
 
 /** One line per event, as plain and complete as possible. */
 function feedEvent(e: DeckEvent) {
@@ -685,3 +686,33 @@ function ripCard(card: HTMLElement) {
 
 const clock = (ms: number) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 export const resetDeck = () => { wasMyTurn = false; resetArenaDeck(); view = null; lastCastId = 0; writingCastId = 0; coinShown = false; resetFeed(); $('deck').classList.remove('dk-mycast', 'dk-writing'); ui.stopCountdown('dkMatch'); ui.hideTimer('dkTurn', $('dkTurnTimer')); ui.stopCountdown('dkDraft'); };
+
+// ── 0.9.9.9: mana's own mark — a flame (it was a ◆ diamond). Every ◆ written on the Deck Duel screen (costs, the mana
+// bar, the log, the Omnipotence button) is drawn as the flame icon, so the texts can keep using the one character.
+const MANA_SVG = '<svg viewBox="0 0 16 20" width="0.8em" height="1em" aria-hidden="true"><path d="M8 1c.6 3-2.4 4.6-3.9 7.3C2.3 11.5 3.4 18 8 19c4.6-1 5.7-7.5 3.9-10.7-.7-1.3-1.6-2-2.1-3.5-.5 1.6-.4 2.8.2 4C8.2 7.3 7.5 4.3 8 1z" fill="currentColor"/><path d="M8 10.5c-1.6 1.9-2 3.6-1.2 5.1.5.9 2 .9 2.4 0 .8-1.5.4-3.2-1.2-5.1z" fill="#fff" opacity=".75"/></svg>';
+function manaMarks(root: Node) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const hits: Text[] = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) if ((n as Text).data.includes('◆')) hits.push(n as Text);
+  for (const t of hits) {
+    const frag = document.createDocumentFragment();
+    t.data.split('◆').forEach((part, i) => {
+      if (i) { const ic = document.createElement('span'); ic.className = 'mana-ico'; ic.setAttribute('aria-label', 'mana'); ic.innerHTML = MANA_SVG; frag.append(ic); }
+      if (part) frag.append(part);
+    });
+    t.replaceWith(frag);
+  }
+}
+{
+  const deckScreen = document.getElementById('deck');
+  if (deckScreen) {
+    manaMarks(deckScreen);
+    new MutationObserver((ms) => {
+      for (const m of ms) {
+        if (m.type === 'characterData') { if ((m.target as Text).data.includes('◆') && m.target.parentNode) manaMarks(m.target.parentNode); }
+        else for (const n of m.addedNodes) if (n.textContent?.includes('◆')) manaMarks(n);
+      }
+    })
+      .observe(deckScreen, { childList: true, subtree: true, characterData: true });
+  }
+}

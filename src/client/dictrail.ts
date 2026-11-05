@@ -4,8 +4,8 @@
 // screen you're on (a lobby, the results, your deck …). "Full entry" opens the dictionary page for everything else.
 // Not shown in battles, quizzes or the Daily challenge (0.9.9.8.1: it is in reviews and the reading passage).
 
-import type { DictEntry } from '../shared/dict';
-import { addTo, badges, dictionary, headword, openDictWord, ruOf } from './dictui';
+import { exactMatch, type DictEntry } from '../shared/dict';
+import { addTo, askOffline, badges, dictionary, headword, openDictWord, ruOf } from './dictui';
 import { tr } from './i18n';
 import * as ui from './ui';
 import { speak, voiceAvailable } from './voice';
@@ -50,11 +50,13 @@ function setOpen(on: boolean) {
   rail.classList.toggle('open', on);
   $('dictRailTab').setAttribute('aria-expanded', String(on));
   $('dictFab').setAttribute('aria-expanded', String(on));
+  $('dictFab').classList.toggle('panel-open', on); // 0.9.9.9: the round button hides while its panel is out
   if (on) {
     const q = $<HTMLInputElement>('dictRailQ');
     setTimeout(() => q.focus(), 60);
     if (!q.value.trim()) drawHint();
-    void dictionary().catch(() => { /* said when you search */ }); // starts loading while you type
+    // asked once: keep the whole dictionary on this device? (then it starts loading while you type)
+    void askOffline($('dictRailBody')).then(() => { if (!q.value.trim()) drawHint(); void dictionary().catch(() => { /* said when you search */ }); });
   }
 }
 const toggle = () => setOpen(!$('dictRail').classList.contains('open'));
@@ -90,7 +92,7 @@ function drawList(q: string) {
   if (!hits.length) { body.replaceChildren(h('p', 'hint dr-hint', `${tr('Nothing found for')} “${q}”`)); return; }
   const list = h('div', 'dr-list');
   for (const w of hits) {
-    const b = h('button', 'dr-hit', undefined, { type: 'button' });
+    const b = h('button', exactMatch(w, q, ruOf(w)) ? 'dr-hit exact' : 'dr-hit', undefined, { type: 'button' });
     const top = h('div', 'dr-top');
     top.append(h('span', 'dr-w', w.kanji[0] ?? w.kana[0] ?? '', { lang: 'ja' }));
     if (w.kanji[0]) top.append(h('span', 'dr-k', w.kana[0] ?? '', { lang: 'ja' }));

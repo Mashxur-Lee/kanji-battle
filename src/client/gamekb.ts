@@ -132,6 +132,8 @@ function show(on: boolean) {
     const h = on ? ui.$('gameKb').getBoundingClientRect().height : 0;
     document.documentElement.style.setProperty('--kb-h', `${Math.round(h / uiScale())}px`); // page px (the UI may be zoomed)
     dispatchEvent(new Event('resize'));
+    // 0.9.9.9: a field outside the battle (Daily challenge, quizzes) stays in sight above the keyboard, with the word over it
+    if (on && target && target.el.id !== 'answer') requestAnimationFrame(() => target?.el.scrollIntoView({ block: 'center', behavior: 'smooth' }));
   });
 }
 ui.$('answer').addEventListener('input', () => { if (active) preview(); });

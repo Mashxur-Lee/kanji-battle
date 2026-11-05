@@ -17,7 +17,7 @@ export interface DailyOverview { league?: string; nextLeague?: string; promoteAt
   /** 0.9.9.8.2: every league's board */
   boards?: Record<string, Array<{ id: string; name: string; correct: number; ms: number }>>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
-export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; activity?: string; pic?: string | null; level?: number }
+export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; onoDaily?: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean; ono?: OnoType }

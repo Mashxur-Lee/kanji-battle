@@ -170,7 +170,6 @@ let pendingJoin = '';
 const rematchSeen = new Set<string>(); // who already asked for a rematch this round (the card shows once each)
 let soloVsAi = false; // you are the only human in the room → Pause
 let writeShape = ''; // the word being written with its kanji hidden: 必ず → □ず
-let prevStaff: string | null = null; // the staff the menu wizards hold // invited while in another room: join after leaving it
 function applyProfile(p: Profile) {
   if (user) celebrateNew(user.id, p.unlocks); // new achievements: the celebration
   // (0.9.9.3: new unlocks — monthly rewards too — are shown by the reward box, rewards.ts)
@@ -192,7 +191,6 @@ function applyProfile(p: Profile) {
   ui.$('studyLock').hidden = !locked;
   ui.$('studyLockText').textContent = locked ? `${p.strugglingDue} struggling spells are waiting. Study them down to ${STUDY_LOCK} to unlock the game modes.` : '';
   applyBackground();
-  if ((p.staff ?? null) !== prevStaff) { prevStaff = p.staff ?? null; ui.paintScenes(prevStaff); }
   preloadArena();
 }
 onProfileChange(applyProfile);
@@ -210,7 +208,6 @@ async function refreshProfile() {
 // ── session lifecycle ────────────────────────────────────────────────────────
 async function boot() {
   applyBackground();
-  ui.paintScenes();
   ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn());
   // 0.9.9.5.1: online but the server doesn't answer → it's probably asleep: wait for it with a progress bar
   // instead of dropping into offline mode for a minute
@@ -933,14 +930,14 @@ document.documentElement.dataset.v = VERSION;
     t.value = arenaQuality();
     t.disabled = !hasWebgl(); // you can pick it while holding a phone upright: it applies once you turn it sideways
     ui.$('arena3dInfo').textContent = !hasWebgl() ? 'Your browser has no WebGL — the classic 2D view is used.'
-      : arenaSupported() ? 'First-person duel arena (move the mouse to look around). On a phone held upright it is a band above the question. Lite is lighter on phones and older computers.'
+      : arenaSupported() ? 'First-person duel arena (move the mouse to look around). Low is lighter on phones and older computers; Off uses the classic 2D view.'
       : 'This screen is too small for the 3D arena — the classic 2D view is used.';
   };
   sync();
   t.onchange = () => { setArenaQuality(t.value as ArenaQuality); sync(); };
   addEventListener('kw:arena-lite', (e) => {
     const { lowRes } = (e as CustomEvent<{ lowRes: boolean }>).detail;
-    ui.toast(lowRes ? '3D was slow — lowered its resolution. Settings → 3D arena → Off for the 2D view.' : '3D was slow on this device — switched to Lite (Settings → 3D arena).', 5000);
+    ui.toast(lowRes ? '3D was slow — lowered its resolution. Settings → Graphics → 3D graphics → Off for the 2D view.' : '3D was slow on this device — switched to Low (Settings → Graphics).', 5000);
     sync();
   });
   ui.$('volBtn').addEventListener('click', sync);
@@ -993,10 +990,10 @@ ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {
   sel.value = lang();
   sel.onchange = () => setLang(sel.value === 'ru' ? 'ru' : 'en');
 }
-// UI size (default 100% since 0.9.9.5 — the label said 80% until 0.9.9.8.2)
+// UI size (default 80% again since 0.9.9.9)
 {
   const sel = ui.$<HTMLSelectElement>('uiZoom');
-  sel.replaceChildren(...UI_ZOOMS.map((z) => new Option(`${Math.round(z * 100)}%${z === 1 ? ' (default)' : ''}`, String(z))));
+  sel.replaceChildren(...UI_ZOOMS.map((z) => new Option(`${Math.round(z * 100)}%${z === 0.8 ? ' (default)' : ''}`, String(z))));
   sel.value = String(uiZoomPref());
   sel.onchange = () => setUiZoomPref(Number(sel.value));
 }
@@ -1125,13 +1122,42 @@ async function squarePicture(file: File): Promise<string> {
     for (const r of [music, fx, vo]) r.style.setProperty('--p', `${r.value}%`); // (the filled part of the track)
     ui.setAudioButtons(audio.isRadioOn(), audio.isSfxOn());
   };
-  ui.$('volBtn').onclick = (e) => { e.stopPropagation(); panel.hidden = !panel.hidden; ui.$('volBtn').setAttribute('aria-expanded', String(!panel.hidden)); show(); };
+  // 0.9.9.9: Settings is a window with tabs. In a game against the AI only it pauses the game while open; with other
+  // players the game goes on behind it (it can't be paused).
+  let pausedBySettings = false;
+  const inGame = () => GAME_SCREENS.has(ui.currentScreen() ?? '');
+  const open = (on: boolean) => {
+    if (panel.hidden === !on) return;
+    panel.hidden = !on;
+    ui.$('volBtn').setAttribute('aria-expanded', String(on));
+    if (on) {
+      show();
+      if (inGame() && soloVsAi && !document.body.classList.contains('paused')) { pausedBySettings = true; socket.send({ type: 'pause', on: true }); }
+      ui.$('setPaused').hidden = !(inGame() && soloVsAi);
+      (panel.querySelector<HTMLElement>('.set-tab[aria-selected="true"]'))?.focus({ preventScroll: true });
+    } else if (pausedBySettings) {
+      pausedBySettings = false;
+      socket.send({ type: 'pause', on: false });
+    }
+  };
+  ui.$('volBtn').onclick = (e) => { e.stopPropagation(); open(panel.hidden !== false); };
+  ui.$('setClose').onclick = () => open(false);
+  // the menu's Settings tile
+  ui.$('menuSettingsBtn').onclick = (e) => { e.stopPropagation(); open(true); };
+  for (const tab of panel.querySelectorAll<HTMLElement>('.set-tab')) {
+    tab.onclick = () => {
+      for (const t of panel.querySelectorAll<HTMLElement>('.set-tab')) t.setAttribute('aria-selected', String(t === tab));
+      for (const sec of panel.querySelectorAll<HTMLElement>('.set-sec')) sec.hidden = sec.dataset.sec !== tab.dataset.tab;
+    };
+  }
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden) { e.stopPropagation(); open(false); } }, true);
   music.oninput = () => { audio.setMusicVolume(Number(music.value) / 100); show(); };
   fx.oninput = () => { audio.setSfxVolume(Number(fx.value) / 100); show(); };
   fx.onchange = () => audio.previewSfx();
   vo.oninput = () => { voice.setVoiceVolume(Number(vo.value) / 100); show(); };
   vo.onchange = () => voice.say('かんじ');
-  addEventListener('click', (e) => { if (!panel.hidden && !panel.contains(e.target as Node)) panel.hidden = true; });
+  // a tap on the dimmed backdrop closes it
+  panel.addEventListener('click', (e) => { if (e.target === panel) open(false); });
 }
 // Browsers only allow sound after a user gesture.
 const firstGesture = () => audio.unlock();

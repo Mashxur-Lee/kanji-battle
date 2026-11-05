@@ -3,7 +3,7 @@
 // the forms of a verb or adjective, an example sentence, each kanji (meaning, readings, parts, memory picture,
 // stroke order) and other words written with it — and add it to any of your decks.
 import { api } from './api';
-import { Dictionary, type DictData, type DictEntry } from '../shared/dict';
+import { Dictionary, exactMatch, type DictData, type DictEntry } from '../shared/dict';
 import type { VocabEntry } from '../shared/protocol';
 import * as idb from './offline/idb';
 import { conjugate } from './conjugate';
@@ -78,7 +78,8 @@ export function dictionary(): Promise<Dictionary> {
 function build(data: DictData, vocab: readonly VocabEntry[]) { const d = new Dictionary(data, vocab); tags = d.tags; return d; }
 
 /** the first visit: keep the dictionary on this device? */
-async function askOffline(): Promise<void> {
+/** "Use the dictionary offline?" — asked once (0.9.9.9: in the side panel the first time it opens) */
+export async function askOffline(into: HTMLElement = $('dictBody')): Promise<void> {
   if (offlinePref() || await storedDict()) return;
   const card = h('div', 'dict-home dict-offline');
   card.append(h('h4', '', tr('Use the dictionary offline?')), h('p', 'hint', tr('Download every word and phrase (about 2.5 MB) to this device — then the dictionary works without internet, anywhere.')));
@@ -87,7 +88,7 @@ async function askOffline(): Promise<void> {
   const no = h('button', 'pill', tr('Not now'), { type: 'button' });
   const row = h('div', 'dict-tries'); row.append(yes, no);
   card.append(row, bar);
-  $('dictBody').replaceChildren(card);
+  into.replaceChildren(card);
   await new Promise<void>((done) => {
     no.onclick = () => { setOfflinePref('no'); done(); };
     yes.onclick = async () => {
@@ -170,7 +171,7 @@ function drawList() {
   if (!lastHits.length) { body.replaceChildren(h('p', 'hint center', `${tr('Nothing found for')} “${lastQ}”`)); return; }
   const list = h('div', 'dict-list');
   for (const w of lastHits.slice(0, shown)) {
-    const card = h('button', 'dict-hit', undefined, { type: 'button' });
+    const card = h('button', exactMatch(w, lastQ, ruOf(w)) ? 'dict-hit exact' : 'dict-hit', undefined, { type: 'button' });
     const top = h('div', 'dh-top');
     top.append(w.typo ? nearWord(w) : headword(w, 'dh-word'), badges(w));
     if (w.form) top.append(h('span', 'dh-form', `← ${w.form.split(' · ').map((x) => tr(x)).join(' · ')}`));
@@ -360,13 +361,6 @@ export function openDictWord(i: number) {
   void openWord(i);
 }
 
-export function openDict() {
-  ui.show('dict');
-  const q = $<HTMLInputElement>('dictQ');
-  if (!lastHits.length) drawHome();
-  void askOffline().then(() => { if (!lastHits.length) drawHome(); void dictionary().catch(() => { /* shown when you search */ }); }); // starts loading while you type
-  setTimeout(() => q.focus(), 50); // (the phone's own keyboard: Russian and Japanese too)
-}
 
 $('dictForm').onsubmit = (e) => { e.preventDefault(); void search($<HTMLInputElement>('dictQ').value); };
 {

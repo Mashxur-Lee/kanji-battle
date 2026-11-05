@@ -20,17 +20,19 @@ function parseLevels(raw: unknown): Level[] {
 }
 
 /** Tracks the one live session per account (newest wins), so we can kick on ban / second tab. */
-export interface Presence { online: boolean; activity?: string; since?: number; lastSeen?: number }
+export interface Presence { online: boolean; away?: boolean; activity?: string; since?: number; lastSeen?: number }
 
 export class SessionHub {
   private byUser = new Map<string, Session>();
   private onlineSince = new Map<string, number>();
   private lastSeen = new Map<string, number>(); // since the server started
+  /** 0.9.9.9: saves when someone leaves (friends see "last online …" across server restarts) */
+  constructor(private readonly onLeave?: (userId: string, at: number) => void) {}
   /** Admin → Users: is this player connected right now, and what are they doing? */
   presence(userId: string): Presence {
     const s = this.byUser.get(userId);
     if (!s) return { online: false, lastSeen: this.lastSeen.get(userId) };
-    return { online: true, activity: s.activity(), since: this.onlineSince.get(userId) };
+    return { online: true, away: s.away, activity: s.activity(), since: this.onlineSince.get(userId) };
   }
   get onlineCount() { return this.byUser.size; }
   claim(userId: string, s: Session) {
@@ -43,7 +45,9 @@ export class SessionHub {
     if (this.byUser.get(userId) !== s) return;
     this.byUser.delete(userId);
     this.onlineSince.delete(userId);
-    this.lastSeen.set(userId, Date.now());
+    const now = Date.now();
+    this.lastSeen.set(userId, now);
+    this.onLeave?.(userId, now);
   }
   kick(userId: string, message: string) { this.byUser.get(userId)?.kick(message); }
   /** A message to one player, if they're connected (friend requests, invites). */
@@ -150,6 +154,8 @@ export class Session implements Client {
     if (!user) return this.send({ type: 'auth_error', message: 'Please log in' });
     if (msg.type === 'pong') return this.onPong(msg.t);
     if (msg.type === 'where') { this.screen = typeof msg.screen === 'string' && msg.screen in SCREEN_ACTIVITY ? msg.screen : ''; return; }
+    // 0.9.9.9: the app went to the background (or came back): friends see you as away (orange)
+    if (msg.type === 'away') { this.away = msg.on === true; return; }
 
     // too many struggling spells waiting: study first (checked on the server, so it can't be skipped)
     if (msg.type === 'queue' || msg.type === 'create' || msg.type === 'join') {
@@ -286,6 +292,8 @@ export class Session implements Client {
 
   /** the screen the app says it's on (outside rooms) */
   private screen = '';
+  /** 0.9.9.9: the app is in the background */
+  away = false;
   /** What the player is doing (for admins): menus, searching, or in a room of some mode. */
   activity(): string {
     if (this.room) {
