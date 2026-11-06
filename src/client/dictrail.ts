@@ -68,7 +68,7 @@ $('dictFab').onclick = (e) => { e.stopPropagation(); toggle(); };
 $('dictRailClose').onclick = () => setOpen(false);
 document.addEventListener('pointerdown', (e) => {
   const t = e.target as HTMLElement;
-  if ($('dictRail').classList.contains('open') && !t.closest('#dictRail, #dictFab, dialog, .toast, .kanji-pop')) { setOpen(false); swallowNextClick(); }
+  if ($('dictRail').classList.contains('open') && !t.closest('#dictRail, #dictFab, dialog, .toast, .kanji-pop, .csel-menu')) { setOpen(false); swallowNextClick(); }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('dictRail').classList.contains('open')) { setOpen(false); (document.activeElement as HTMLElement | null)?.blur(); } });
 

@@ -3371,3 +3371,14 @@ body:has(#netStatus:not([hidden])) :is(.screen > .back, #quiz .page-head > .back
 .tasks-btn .tb-hide { position: absolute; top: -9px; right: -9px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
   font-size: .8rem; font-weight: 900; color: #fff; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .25); cursor: pointer; z-index: 2; }
 .tasks-btn .tb-hide:hover, .tasks-btn .tb-hide:focus-visible { background: rgba(0, 0, 0, .6); }
+/* 0.9.9.9.4: the private room's chat */
+.lobby-chat { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding: 12px 14px; border-radius: 16px;
+  background: rgba(18, 14, 40, .82); border: 1px solid rgba(160, 140, 255, .3); box-shadow: 0 10px 26px rgba(0, 0, 0, .3); }
+.lobby-chat h4 { margin: 0; font-size: .95rem; letter-spacing: .04em; }
+.lobby-chat .chat-log { min-height: 90px; max-height: 190px; }
+.lobby-chat .chat-line { padding: 4px 8px; border-radius: 8px; background: rgba(255, 255, 255, .05); }
+:root[data-theme="light"] .lobby-chat { background: rgba(255, 255, 255, .92); border-color: #d6cdf5; }
+@media (pointer: coarse) { .lobby-chat .chat-form input { font-size: 16px; } }
+/* 0.9.9.9.4: a miss shows the reading in romaji too */
+.feedback .rro { margin: 0 10px 0 -4px; padding: 1px 8px; border-radius: 999px; font-size: .95rem; font-weight: 800; letter-spacing: .02em; color: #ffe6a8; background: rgba(255, 210, 120, .14); border: 1px solid rgba(255, 210, 120, .35); }
+:root[data-theme="light"] .feedback .rro { color: #7a4a00; background: #fff1cf; border-color: #e9c27a; }

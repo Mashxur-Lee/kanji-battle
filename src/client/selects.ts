@@ -68,7 +68,7 @@ function enhance(sel: HTMLSelectElement) {
     close(); btn.focus();
   };
   // a tap outside the open list only closes it (0.9.9.9.3: in Settings it closed the whole window too)
-  const outside = (e: Event) => { if (!wrap.contains(e.target as Node)) { close(); if (!(e.target as Element).closest?.('.csel-btn')) swallowNextClick(); } };
+  const outside = (e: Event) => { const t = e.target as Node; if (!wrap.contains(t) && !menu?.contains(t)) { close(); if (!(t as Element).closest?.('.csel-btn')) swallowNextClick(); } };
   const open = () => {
     if (menu || sel.disabled) return;
     openMenu?.close();
@@ -101,6 +101,9 @@ function enhance(sel: HTMLSelectElement) {
     if (wrap.closest('.kanji-pop, #passageGloss, .settings-box, .dr-panel, .fr-list')) {
       const z = zrect(btn);
       menu.classList.add('floating');
+      // 0.9.9.9.4: and lives on the page itself while open — inside the word box (moved with a transform) a "fixed"
+      // list was still placed and cut off by the box (the study card's "Add to…" list)
+      document.body.append(menu);
       // 0.9.9.9.1: fixed, "at least as wide as the box" meant the whole screen — as wide as its button instead
       menu.style.minWidth = `${Math.max(z.width, 140)}px`;
       const want = wrap.closest('.toggle-row') ? z.right - menu.offsetWidth : z.left; // settings rows: under the button's right edge

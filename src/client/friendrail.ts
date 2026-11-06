@@ -48,7 +48,7 @@ $('railFab').onclick = (e) => { e.stopPropagation(); setOpen(!$('friendRail').cl
 $('railClose').onclick = (e) => { e.stopPropagation(); setOpen(false); };
 document.addEventListener('pointerdown', (e) => {
   const t = e.target as HTMLElement;
-  if ($('friendRail').classList.contains('open') && !t.closest('#friendRail, #railFab, #friendDialog, #otherPop')) { setOpen(false); swallowNextClick(); }
+  if ($('friendRail').classList.contains('open') && !t.closest('#friendRail, #railFab, #friendDialog, #otherPop, .csel-menu')) { setOpen(false); swallowNextClick(); }
 });
 
 export async function refreshRail() {
