@@ -66,35 +66,43 @@ export function initDeck(hk: DeckHooks) {
     }
     hooks.send({ type: 'deck_ability' });
   };
-  $('dkChatForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const input = $<HTMLInputElement>('dkChatInput');
-    const text = input.value.trim();
-    if (text) hooks.send({ type: 'chat', text });
-    input.value = '';
-  });
+  // the Deck Duel's chat and (0.9.9.9.4) the private room's lobby chat: one room chat, two windows
+  for (const [form, field] of [['dkChatForm', 'dkChatInput'], ['lobbyChatForm', 'lobbyChatInput']] as const) {
+    $(form).addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = $<HTMLInputElement>(field);
+      const text = input.value.trim();
+      if (text) hooks.send({ type: 'chat', text });
+      input.value = '';
+    });
+  }
   renderGuide($('deckGuide'));
 }
 
 // ── chat ────────────────────────────────────────────────────────────────────
 const seenChat = new Set<number>();
 export function chatMessages(msgs: ChatMessage[]) {
-  const log = $('dkChatLog');
+  const logs = [$('dkChatLog'), $('lobbyChatLog')];
   for (const m of msgs) {
     if (seenChat.has(m.id)) continue;
     seenChat.add(m.id);
-    const line = h('div', 'chat-line' + (m.from === hooks.me() ? ' mine' : ''));
-    line.append(h('b', '', m.from === hooks.me() ? 'You' : m.name), h('span', '', m.text)); // textContent: never HTML
-    log.append(line);
-    if (m.from !== hooks.me() && view && view.phase !== 'over') audio.sfx.flip();
+    for (const log of logs) {
+      const line = h('div', 'chat-line' + (m.from === hooks.me() ? ' mine' : ''));
+      line.append(h('b', '', m.from === hooks.me() ? 'You' : m.name), h('span', '', m.text)); // textContent: never HTML
+      log.append(line);
+    }
+    if (m.from !== hooks.me() && ((view && view.phase !== 'over') || !$('lobby').hidden)) audio.sfx.flip();
     // a folded chat (narrow screens) shows a dot for a new message
-    const panel = log.closest('.dk-panel');
+    const panel = logs[0].closest('.dk-panel');
     if (m.from !== hooks.me() && panel && !panel.classList.contains('open')) { const hd = panel.querySelector('h4'); if (hd && !hd.querySelector('.dk-unread')) hd.append(h('span', 'dk-unread')); }
+    if (m.from !== hooks.me()) $('lobbyChat').hidden = false; // someone wrote: the lobby's chat shows
   }
-  while (log.children.length > 60) log.firstElementChild!.remove();
-  log.scrollTop = log.scrollHeight;
+  for (const log of logs) {
+    while (log.children.length > 60) log.firstElementChild!.remove();
+    log.scrollTop = log.scrollHeight;
+  }
 }
-export function clearChat() { seenChat.clear(); $('dkChatLog').replaceChildren(); }
+export function clearChat() { seenChat.clear(); $('dkChatLog').replaceChildren(); $('lobbyChatLog').replaceChildren(); $('lobbyChat').hidden = true; }
 
 // ── lobby guide ─────────────────────────────────────────────────────────────
 /** The Deck Duel instructions (lobby, and the online queue's "?"). */

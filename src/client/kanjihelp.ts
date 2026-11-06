@@ -121,7 +121,7 @@ function pop(): HTMLElement {
   document.body.append(p);
   document.addEventListener('pointerdown', (e) => {
     const q = document.getElementById('kanjiPop');
-    if (q && !q.hidden && !(e.target as Element).closest('#kanjiPop, .kj, .kw')) hideKanji();
+    if (q && !q.hidden && !(e.target as Element).closest('#kanjiPop, .kj, .kw, .csel-menu')) hideKanji();
   });
   addEventListener('keydown', (e) => { if (e.key === 'Escape') hideKanji(); }, true);
   return p;

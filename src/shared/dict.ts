@@ -1,7 +1,7 @@
 // The dictionary's search (0.9.9.7.1: shared — it runs in the app itself, offline, over public/dict.json).
 // Type a word in kanji, kana, romaji, English or Russian; matches come best first, Takoboto-style: the word
 // itself → words starting with it → words containing it → words sharing its kanji / sounding nearly the same.
-import { answerVariants, katakanaToHiragana, toRomaji } from './kana';
+import { answerVariants, isRomajiInput, katakanaToHiragana, toRomaji } from './kana';
 import { deinflect } from './deinflect';
 import type { Level } from './protocol';
 import type { VocabEntry } from './protocol';
@@ -47,6 +47,13 @@ export function exactMatch(w: DictEntry, raw: string, ruMeanings?: readonly stri
   const q = raw.trim().toLowerCase();
   if (!q) return false;
   if (w.kanji.includes(raw.trim()) || w.kana.includes(raw.trim())) return true;
+  // 0.9.9.9.4: typed in romaji ("sensei"): the reading, the same as typing せんせい
+  // (compared in romaji: コーヒー is "koohii"; "kou" and "koo" both count for こう)
+  if (isRomajiInput(q)) {
+    const nr = (r: string) => r.toLowerCase().replace(/[\s'-]/g, '').replace(/ou/g, 'oo');
+    const want = nr(q);
+    if (want && w.kana.some((k) => nr(toRomaji(k)) === want)) return true;
+  }
   const bare = (g: string) => stripNotes(g.toLowerCase()).replace(/^to /, '').trim();
   const qb = q.replace(/^to /, '');
   const glosses = [...w.senses.flatMap((x) => x[1].split(/;\s*/)), ...(ruMeanings ?? []).flatMap((m) => m.split(/[;,]\s*/))];

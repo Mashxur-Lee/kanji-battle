@@ -8,6 +8,7 @@ import {
 import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
 import { arena as arena3d, arenaForBattle } from './arena';
 import { setStarred } from './stars';
+import { toRomaji } from '../shared/kana';
 import { flameColor, flameShades, isKanaBeginner, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -925,8 +926,10 @@ export function setFeedback(f: Feedback | null) {
   $('kanji').classList.remove('gone');
   $('meaningPrompt').hidden = true;
   // Always show what the word means — on hits too, so every cast is also a review.
+  // 0.9.9.9.4: a miss also shows the reading in romaji, next to the kana (せんせい · sensei)
+  const romaji = !f.correct && /[\u3040-\u30ff]/.test(f.reading) ? toRomaji(f.reading) : '';
   const word = (cls: string) =>
-    append(h('span', cls), h('span', 'rk', f.kanji, { lang: 'ja' }), h('span', 'rr', f.reading, { lang: 'ja' }), h('span', '', f.meaning));
+    append(h('span', cls), h('span', 'rk', f.kanji, { lang: 'ja' }), h('span', 'rr', f.reading, { lang: 'ja' }), ...(romaji ? [h('span', 'rro', romaji)] : []), h('span', '', f.meaning));
   if (f.correct) {
     $('kanji').classList.add('cast');
     const combo = f.combo >= 2 ? ` · ×${f.combo} combo` : '';

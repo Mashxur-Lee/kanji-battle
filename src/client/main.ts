@@ -429,6 +429,8 @@ function onMessage(msg: ServerMessage) {
       stopWriting();
       resetDeck();
       ui.showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers);
+      // 0.9.9.9.4: the room's chat, once somebody else (a person) is here — or has already written
+      if (msg.players.filter((p) => !p.bot).length > 1 || ui.$('lobbyChatLog').childElementCount) ui.$('lobbyChat').hidden = false;
       void renderLobbyInvites(true, msg.players.map((p) => p.id));
       // the tutorial's first battle: add a beginner AI, then start
       if (inTutorialBattle() && msg.hostId === you) {

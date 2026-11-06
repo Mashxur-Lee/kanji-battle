@@ -72,7 +72,10 @@ export function unlock() {
   if (!c) return;
   if (c.state === 'suspended' && document.visibilityState === 'visible') void c.resume();
   syncMusic();
+  // record the themes' loops now, so the battle's is ready by the first battle (only with the music on)
+  if (!recordedOnce && prefs.radio && prefs.musicVol > 0) { recordedOnce = true; menuTheme.prepare(); battleTheme.prepare(); }
 }
+let recordedOnce = false;
 
 /** Tell the audio which kind of screen is showing: menu theme or battle theme. */
 export function setScene(s: 'menu' | 'game') {
@@ -252,45 +255,134 @@ export const sfx = {
 
 // ── Music ─────────────────────────────────────────────────────────────────────
 /**
- * A looping track: `play(step, at)` schedules one eighth note at time `at` (lookahead scheduler).
- * fadeIn/fadeOut crossfade its bus; the scheduler stops once it's silent.
+ * A looping track. `play(step, at)` writes one eighth note at time `at`.
+ * 0.9.9.9.4: the track is recorded once into a loop (an OfflineAudioContext renders it in the background, faster
+ * than real time) and the loop is what plays — building every note live (oscillators, filters, a reverb) is work the
+ * phone has to keep up with in real time, and when it couldn't the music stuttered, whatever the buffer size. A loop
+ * costs the audio thread almost nothing. `intro` steps play once, then `cycle` steps repeat. Until the recording is
+ * ready (a second or two, once) — or where it can't be made — the notes are built live as before.
+ * fadeIn/fadeOut crossfade its bus; it stops once silent.
  */
-function makeTrack(bpm: number, bus: () => GainNode, play: (step: number, at: number) => void) {
+function makeTrack(bpm: number, bus: () => GainNode, play: (step: number, at: number) => void, loop: { intro: number; cycle: number }) {
   const STEP = 60 / bpm / 2;
   let timer: number | undefined;
   let stopTimer: number | undefined;
   let nextTime = 0;
   let step = 0;
-  // 0.9.9.9.1: notes are queued a second ahead (was half a second) so a busy moment on a phone doesn't starve the
-  // music, and after a long stall the missed notes are skipped instead of all sounding at once (a "rough stutter")
+  let wanted = false;
+  let source: AudioBufferSourceNode | null = null;
+  let recording: Promise<RecordedLoop | null> | null = null;
+  let recorded: RecordedLoop | null = null;
+  // live notes, queued a second ahead; after a long stall the missed notes are skipped instead of all sounding at once
   const schedule = () => {
     const c = ctx!;
     if (nextTime < c.currentTime - 0.02) { const behind = Math.ceil((c.currentTime - nextTime) / STEP); nextTime += behind * STEP; step += behind; }
     while (nextTime < c.currentTime + 1) { play(step, nextTime); nextTime += STEP; step++; }
   };
+  const stopLive = () => { clearInterval(timer); timer = undefined; };
+  /** the recorded loop starts where the live notes have got to (they're queued up to nextTime) */
+  const startRecorded = (r: RecordedLoop) => {
+    if (!ctx || source) return;
+    const src = ctx.createBufferSource();
+    src.buffer = r.buffer; src.loop = true; src.loopStart = r.loopStart; src.loopEnd = r.loopEnd;
+    src.connect(bus());
+    let at = ctx.currentTime + 0.05, offset = 0;
+    if (timer !== undefined) { // taking over from the live notes, in step
+      at = Math.max(at, nextTime);
+      const s = step;
+      offset = s < loop.intro ? REC_LEAD + s * STEP : r.loopStart + (((s - loop.intro) % loop.cycle) * STEP);
+      stopLive();
+    }
+    src.start(at, offset);
+    source = src;
+  };
+  const record = () => {
+    if (!recording) recording = recordLoop(STEP, loop.intro, loop.cycle, play).then((r) => { recorded = r; if (r && wanted && !source) startRecorded(r); return r; });
+    return recording;
+  };
   return {
     STEP,
+    /** make the recording now (soon after the sound is unlocked), so it's ready when the track is wanted */
+    prepare: () => { void record(); },
     fadeIn() {
       if (!ctx) return;
+      wanted = true;
       // already playing (every tap that opens a screen asks again): leave it alone — re-starting the fade each time
       // made the volume dip
-      if (timer !== undefined && stopTimer === undefined) return;
+      if ((timer !== undefined || source) && stopTimer === undefined) return;
       clearTimeout(stopTimer); stopTimer = undefined;
       bus().gain.cancelScheduledValues(ctx.currentTime);
       bus().gain.setTargetAtTime(1, ctx.currentTime, 0.9);
-      if (timer !== undefined) return;
+      if (timer !== undefined || source) return;
+      if (recorded) { startRecorded(recorded); return; }
+      // not recorded yet: live notes meanwhile, the recording takes over (in step) when it's ready
       nextTime = ctx.currentTime + 0.12;
       step = 0;
       schedule();
       timer = window.setInterval(schedule, 200);
+      void record();
     },
     fadeOut() {
-      if (!ctx || timer === undefined || stopTimer !== undefined) return;
+      wanted = false;
+      if (!ctx || (timer === undefined && !source) || stopTimer !== undefined) return;
       bus().gain.cancelScheduledValues(ctx.currentTime);
       bus().gain.setTargetAtTime(0, ctx.currentTime, 0.45);
-      stopTimer = window.setTimeout(() => { clearInterval(timer); timer = undefined; stopTimer = undefined; }, 2200);
+      stopTimer = window.setTimeout(() => {
+        stopLive();
+        try { source?.stop(); } catch { /* not started */ }
+        source?.disconnect(); source = null;
+        stopTimer = undefined;
+      }, 2200);
     },
   };
+}
+
+interface RecordedLoop { buffer: AudioBuffer; loopStart: number; loopEnd: number }
+const REC_RATE = 32_000; // mono, 32 kHz: ~23 MB for both themes (stereo 48 kHz would be ~70 MB on a phone)
+const REC_LEAD = 0.05; // the first note's time in a recording
+const REC_TAIL = 4; // seconds of ring-out after the loop's end, folded back into its start (seamless)
+let recordQueue: Promise<unknown> = Promise.resolve();
+/** Records `intro + cycle` steps of a track into a buffer that loops seamlessly (null: can't, play live instead). */
+function recordLoop(STEP: number, intro: number, cycle: number, play: (step: number, at: number) => void): Promise<RecordedLoop | null> {
+  const run = async (): Promise<RecordedLoop | null> => {
+    const OAC = window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+    const live = ctx;
+    if (!OAC || !live) return null;
+    const lead = REC_LEAD;
+    const loopStart = lead + intro * STEP, loopEnd = lead + (intro + cycle) * STEP;
+    const off = new OAC(1, Math.ceil((loopEnd + REC_TAIL) * REC_RATE), REC_RATE);
+    // the instruments write to the module's context, buses and reverb: point them at the recording for a moment
+    // (all of it synchronous — nothing else runs in between)
+    const saved = { ctx, reverb, menuBus, battleBus, sfxBus };
+    try {
+      const out = off.createGain(); out.connect(off.destination);
+      const rv = off.createConvolver();
+      const len = Math.round(REC_RATE * 2);
+      const ir = off.createBuffer(2, len, REC_RATE);
+      for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3; }
+      rv.buffer = ir;
+      const wet = off.createGain(); wet.gain.value = 0.35; rv.connect(wet).connect(out);
+      ctx = off as unknown as AudioContext; reverb = rv; menuBus = out; battleBus = out; sfxBus = out;
+      for (let s = 0; s < intro + cycle; s++) play(s, lead + s * STEP);
+    } catch {
+      return null;
+    } finally {
+      ({ ctx, reverb, menuBus, battleBus, sfxBus } = saved);
+    }
+    let rendered: AudioBuffer;
+    try { rendered = await off.startRendering(); } catch { return null; }
+    if (!ctx) return null;
+    const a = Math.round(loopStart * REC_RATE), b = Math.round(loopEnd * REC_RATE);
+    const data = rendered.getChannelData(0);
+    for (let i = 0; i < REC_TAIL * REC_RATE && b + i < data.length; i++) data[a + i] += data[b + i]; // the ring-out wraps round
+    const buffer = ctx.createBuffer(1, b, REC_RATE);
+    buffer.copyToChannel(data.subarray(0, b), 0);
+    return { buffer, loopStart: a / REC_RATE, loopEnd: b / REC_RATE };
+  };
+  // one recording at a time (the menu's first, then the battle's)
+  const p = recordQueue.then(run, run);
+  recordQueue = p.catch(() => null);
+  return p;
 }
 
 function strings(notes: number[], at: number, dur: number, bus: AudioNode, level = 0.035, cutoff = 1100) {
@@ -378,6 +470,7 @@ const menuTheme = (() => {
     [70, 0, 0, 0, 74, 0, 72, 0, 69, 0, 0, 0, 67, 0, 0, 0], [67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   ];
   const ARP = [1, 2, 3, 4, 3, 2, 3, 4]; // chord tones for the music box, one every quarter
+  // (two times round make the whole piece: the flute plays every other time — 256 steps, 2 minutes)
   const track = makeTrack(64, () => menuBus, (step, at) => {
     const STEP = track.STEP;
     const bar = Math.floor(step / 16) % PROG.length, inBar = step % 16, chord = PROG[bar];
@@ -399,7 +492,7 @@ const menuTheme = (() => {
         flute(n, at, STEP * Math.min(len, 6) * 0.95, menuBus, 0.026);
       }
     }
-  });
+  }, { intro: 0, cycle: 16 * PROG.length * 2 });
   return track;
 })();
 
@@ -446,7 +539,7 @@ const battleTheme = (() => {
     if (loop % 2 === 1 && bar >= 4) tone(midi(chord[2] + 24 + (bar === 7 ? 1 : 0)), at, STEP * 0.45, { type: 'sawtooth', gain: 0.008, bus: battleBus, send: 0.5, attack: 0.01 });
     // a cymbal swell into every 4th bar
     if (inBar === 4 && bar % 4 === 3) noise(at, STEP * 4, 0.035, 6000, 'highpass', battleBus, true);
-  });
+  }, { intro: 8 * PROG.length, cycle: 8 * PROG.length * 2 }); // the first time round without horns, then two loops
   return track;
 })();
 

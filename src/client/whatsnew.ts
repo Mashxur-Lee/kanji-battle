@@ -7,6 +7,23 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.4', date: '2026-11',
+    en: [
+      'Private rooms have a chat in the lobby, like the one in Deck Duel — it appears once a friend joins.',
+      'Music: each theme is now recorded once into a smooth loop that plays by itself, instead of being built note by note while you play — no more stutters when the phone is busy. (The first time, it takes a few seconds; until then the music plays the old way.)',
+      'A miss in battle shows the reading in romaji too, next to the kana (せんせい · sensei).',
+      'Dictionary: a word typed in romaji (“sensei”, “koohii”) glows gold as an exact match and comes first.',
+      'Study cards: the “Add to…” list no longer gets cut off by the word box.',
+    ],
+    ru: [
+      'В приватных комнатах появился чат в лобби, как в Дуэли колод, — он показывается, когда заходит друг.',
+      'Музыка: каждая тема теперь один раз записывается в плавную петлю, которая играет сама, а не собирается нота за нотой во время игры — больше никаких заиканий, когда телефон занят. (В первый раз это занимает несколько секунд; до этого музыка играет по-старому.)',
+      'Промах в бою показывает чтение и ромадзи, рядом с каной (せんせい · sensei).',
+      'Словарь: слово, набранное ромадзи («sensei», «koohii»), светится золотом как точное совпадение и стоит первым.',
+      'Карточки: список «Добавить в…» больше не обрезается окном слова.',
+    ],
+  },
+  {
     v: '0.9.9.9.3', date: '2026-11',
     en: [
       'Android app: a new private signature, and it no longer downloads or installs updates by itself — Play Protect had started blocking it as a “harmful app”. “Update the app” lets your browser download the new version. This one time you uninstall the old app first (your account and progress are safe on the server).',
