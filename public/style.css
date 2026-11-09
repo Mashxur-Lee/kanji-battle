@@ -3816,7 +3816,9 @@ body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity
 .mc-cards.carousel { display: block; position: relative; height: clamp(360px, 50vh, 470px); perspective: 1700px; transform-style: preserve-3d; margin-bottom: 26px; }
 .mc-cards.carousel > * { position: absolute; left: 50%; top: 8px; bottom: 8px; width: clamp(270px, 21vw, 330px); transform-origin: 50% 55%;
   transition: transform .62s cubic-bezier(.2, .8, .2, 1), opacity .45s ease; will-change: transform; }
-.mc-cards.carousel > * > .mc-card, .mc-cards.carousel > .mc-card { height: 100%; width: 100%; }
+.mc-cards.carousel > .mc-slot > .mc-card { height: 100%; width: 100%; }
+.mc-cards.carousel { --cw: clamp(270px, 21vw, 330px); }
+.mc-cards.carousel > * { width: var(--cw) !important; min-width: 0; margin: 0; }
 .mc-cards.carousel .mc-card { transition: filter .45s ease, box-shadow .45s ease, border-color .3s ease; -webkit-box-reflect: below 10px linear-gradient(transparent 72%, rgba(255, 255, 255, .16)); }
 .mc-cards.carousel .mcc-side .mc-card:not(.locked), .mc-cards.carousel .mc-card.mcc-side:not(.locked) { filter: brightness(.55) saturate(.75); }
 .mc-cards.carousel .mcc-side .mc-card.locked, .mc-cards.carousel .mc-card.mcc-side.locked { filter: grayscale(1) brightness(.45); }
@@ -3829,7 +3831,7 @@ body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity
 .mcc-arrow { position: absolute; top: calc(50% - 40px); z-index: 20; width: 58px; height: 58px; padding: 0; border-radius: 50%; display: grid; place-items: center;
   color: #fff; background: rgba(16, 12, 40, .7); border: 1.5px solid rgba(255, 255, 255, .28); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
 .mcc-arrow:hover { background: rgba(110, 231, 255, .22); border-color: rgba(110, 231, 255, .8); }
-.mcc-prev { left: 0; } .mcc-next { right: 0; }
+.mcc-prev { left: calc(50% - clamp(270px, 21vw, 330px) / 2 - 92px); } .mcc-next { right: calc(50% - clamp(270px, 21vw, 330px) / 2 - 92px); }
 .mcc-dots { display: flex; justify-content: center; gap: 10px; margin-top: -8px; }
 .mcc-dots i { width: 10px; height: 10px; border-radius: 999px; background: rgba(255, 255, 255, .28); cursor: pointer; transition: width .35s var(--ease-out), background-color .3s; }
 .mcc-dots i.on { width: 34px; background: linear-gradient(90deg, #ff9ec7, #7fd1ff); }
