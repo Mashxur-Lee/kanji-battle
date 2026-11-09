@@ -3813,11 +3813,11 @@ body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity
 
 /* ── 0.9.9.9.5.1: the menu's card carousel (computers) ─────────────────────────────────────────────────────── */
 .mc-deck { position: relative; }
-.mc-cards.carousel { display: block; position: relative; height: clamp(360px, 50vh, 470px); perspective: 1700px; transform-style: preserve-3d; margin-bottom: 26px; }
+.mc-cards.carousel { display: block; position: relative; height: 470px; perspective: 1800px; transform-style: preserve-3d; margin-bottom: 40px; }
 .mc-cards.carousel > * { position: absolute; left: 50%; top: 8px; bottom: 8px; width: clamp(270px, 21vw, 330px); transform-origin: 50% 55%;
   transition: transform .62s cubic-bezier(.2, .8, .2, 1), opacity .45s ease; will-change: transform; }
 .mc-cards.carousel > .mc-slot > .mc-card { height: 100%; width: 100%; }
-.mc-cards.carousel { --cw: clamp(270px, 21vw, 330px); }
+.mc-cards.carousel { --cw: 320px; }
 .mc-cards.carousel > * { width: var(--cw) !important; min-width: 0; margin: 0; }
 .mc-cards.carousel .mc-card { transition: filter .45s ease, box-shadow .45s ease, border-color .3s ease; -webkit-box-reflect: below 10px linear-gradient(transparent 72%, rgba(255, 255, 255, .16)); }
 .mc-cards.carousel .mcc-side .mc-card:not(.locked), .mc-cards.carousel .mc-card.mcc-side:not(.locked) { filter: brightness(.55) saturate(.75); }
@@ -3828,10 +3828,15 @@ body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity
 @keyframes mccGlyph { 50% { text-shadow: 0 0 46px color-mix(in srgb, var(--mc) 85%, transparent); scale: 1.04; } }
 .mc-cards.carousel .mcc-side { cursor: pointer; }
 .mc-cards.carousel .mc-card:hover { translate: 0 0; }
-.mcc-arrow { position: absolute; top: calc(50% - 40px); z-index: 20; width: 58px; height: 58px; padding: 0; border-radius: 50%; display: grid; place-items: center;
+.mcc-nav { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.mcc-arrow { position: static; flex: none; width: 46px; height: 46px; padding: 0; border-radius: 50%; display: grid; place-items: center;
   color: #fff; background: rgba(16, 12, 40, .7); border: 1.5px solid rgba(255, 255, 255, .28); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
 .mcc-arrow:hover { background: rgba(110, 231, 255, .22); border-color: rgba(110, 231, 255, .8); }
-.mcc-prev { left: calc(50% - clamp(270px, 21vw, 330px) / 2 - 92px); } .mcc-next { right: calc(50% - clamp(270px, 21vw, 330px) / 2 - 92px); }
-.mcc-dots { display: flex; justify-content: center; gap: 10px; margin-top: -8px; }
+.mcc-dots { display: flex; justify-content: center; gap: 10px; }
 .mcc-dots i { width: 10px; height: 10px; border-radius: 999px; background: rgba(255, 255, 255, .28); cursor: pointer; transition: width .35s var(--ease-out), background-color .3s; }
 .mcc-dots i.on { width: 34px; background: linear-gradient(90deg, #ff9ec7, #7fd1ff); }
+
+.mcc-arrow[hidden], .mcc-dots[hidden] { display: none; }
+.mc-cards.carousel .mc-glyph { font-size: 6.4rem; }
+.mc-cards.carousel .mc-name { font-size: 1.8rem; }
+.mc-cards.carousel .mc-info { font-size: 1rem; }

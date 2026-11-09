@@ -95,14 +95,17 @@ export function initMenuCarousel() {
     b.setAttribute('aria-label', label);
     b.innerHTML = `<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="${by < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'}" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     b.onclick = () => turn(by);
-    wrap.append(b);
     return b;
   };
+  // under the deck: ‹ · · · · · › 
+  const nav = document.createElement('div');
+  nav.className = 'mcc-nav';
   prev = arrow('mcc-prev', 'Previous', -1);
   next = arrow('mcc-next', 'Next', 1);
   dots = document.createElement('div');
   dots.className = 'mcc-dots'; dots.hidden = true;
-  wrap.append(dots);
+  nav.append(prev, dots, next);
+  wrap.append(nav);
 
   // a click on a side card turns it to the middle instead of opening it
   box.addEventListener('click', (e) => {
