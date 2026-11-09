@@ -3741,3 +3741,26 @@ details > :not(summary) { animation: detailsIn .3s var(--ease-out); }
 body:is([data-screen="kana"], [data-screen="kanaplay"], [data-screen="quizzes"]) #bg::before { opacity: 1; }
 /* the pictures are already balanced: lighter scrims over them than over the drawn scenes */
 body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity: .6; }
+
+/* ── 0.9.9.9.5.1: smooth on phones ─────────────────────────────────────────────────────────────────────────
+   The streak flame flickers as one layer (the whole drawing moves; nothing inside it is redrawn), its glow is a
+   gradient painted once behind it (a drop-shadow filter was re-applied every frame). */
+.sf svg { filter: none; transform-origin: 50% 96%; will-change: transform; }
+.sf::before { content: ''; position: absolute; inset: -18% -30% -6%; border-radius: 50%; z-index: -1; pointer-events: none;
+  background: radial-gradient(closest-side, var(--glow), transparent); opacity: .9; }
+.sf { isolation: isolate; }
+.sf:not(.lit)::before { opacity: 0; }
+.sf .sf-body, .sf.lit .sf-body, .sf:not(.lit) .sf-body, .sf.lit .sf-core { animation: none; }
+.sf.lit svg { animation: sfFlicker 1.8s ease-in-out infinite; }
+.sf:not(.lit) svg { filter: saturate(.3) brightness(.8); animation: sfWait 2.4s ease-in-out infinite; }
+/* the Legend flame shifts colour only on computers (a moving filter is costly on phones) */
+.sf.t6 svg { animation: sfFlicker 1.8s ease-in-out infinite; }
+@media (hover: hover) and (pointer: fine) { .sf.t6.lit svg { animation: sfFlicker 1.8s ease-in-out infinite, sfHue 6s linear infinite; } }
+@keyframes sfHue { to { filter: hue-rotate(360deg); } }
+/* phones: no blur behind glass panels — the phone recomputed it every frame anything moved over them; the panels
+   are nearly opaque anyway, so they get a touch more colour instead */
+@media (pointer: coarse) {
+  *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .kp-top { background: rgba(14, 12, 40, .9); }
+  .art-fx > i { will-change: auto; }
+}
