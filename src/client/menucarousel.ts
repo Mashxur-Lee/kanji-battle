@@ -3,7 +3,8 @@
 // round. ← → / the wheel / dragging / a click on a side card turns it; a click (or Enter) on the middle card opens it.
 // Phones and narrow windows keep the grid of cards.
 
-const WIDE = '(min-width: 1101px) and (hover: hover) and (pointer: fine) and (min-height: 560px)';
+const WIDE = '(min-width: 1101px) and (min-height: 560px)';
+const TOUCH = '(pointer: coarse)'; // (phones and tablets keep the grid)
 const KEY = 'kb:menuCard';
 /** how far each place from the middle sits: sideways (× the card width), turned, pushed back, scaled, shown */
 const PLACE = [
@@ -140,9 +141,10 @@ export function initMenuCarousel() {
     else if (e.key === 'ArrowRight') { e.preventDefault(); turn(1); }
     else if (e.key === 'Enter' && !(e.target as Element | null)?.closest?.('button, a')) { e.preventDefault(); cardOf(items[active]).click(); }
   });
-  const mq = matchMedia(WIDE);
-  const apply = () => (mq.matches ? enable() : disable());
+  const mq = matchMedia(WIDE), touch = matchMedia(TOUCH);
+  const apply = () => (mq.matches && !touch.matches ? enable() : disable());
   mq.addEventListener('change', apply);
+  touch.addEventListener('change', apply);
   addEventListener('resize', () => { if (on) layout(); });
   apply();
 }
