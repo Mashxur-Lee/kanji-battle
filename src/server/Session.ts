@@ -1,7 +1,8 @@
 import { reportServerError } from './errors';
 import { CHAT_MAX_LENGTH, LEVELS, MODE_LABEL, MODES, type ClientMessage, type Device, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
 import type { AuthService } from './auth/AuthService';
-import { toPublic } from './auth/AuthService';
+import { AuthError, toPublic } from './auth/AuthService';
+import { isTransientDbError, retryDelay } from './db/transient';
 import { sanitizeDrawing } from './handwriting/judge';
 import type { Client, MemberProfile, Room } from './Room';
 import type { Matchmaker } from './Matchmaker';
@@ -289,7 +290,17 @@ export class Session implements Client {
 
   private async hello(token: unknown) {
     try {
-      const rec = await this.auth.authenticate(token);
+      // 0.9.9.9.5: the database waking up is not a bad login — tried again, and if it's still asleep the connection
+      // is closed so the app simply reconnects. (Any error here used to answer "auth_error", which LOGGED THE PLAYER
+      // OUT — one of the reasons the app got stuck offline or showed the login again.)
+      let rec: Awaited<ReturnType<AuthService['authenticate']>> | undefined;
+      for (let attempt = 0; !rec; attempt++) {
+        try { rec = await this.auth.authenticate(token); } catch (e) {
+          if (!isTransientDbError(e)) throw e;
+          if (attempt >= 2) { this.close(); return; }
+          await retryDelay(attempt);
+        }
+      }
       this.user = toPublic(rec);
       this.hub.claim(rec.id, this);
       this.send({ type: 'welcome', user: this.user });
@@ -298,7 +309,8 @@ export class Session implements Client {
       const room = this.rooms.roomOf(rec.id);
       if (room) { this.room = room; room.setProfile(rec.id, await this.profile()); room.reconnect(rec.id, this); }
     } catch (e) {
-      this.send({ type: 'auth_error', message: (e as Error).message });
+      if (e instanceof AuthError) this.send({ type: 'auth_error', message: e.message });
+      else { reportServerError('hello', e); this.close(); } // a fault of ours: reconnect, never a logout
     }
   }
 

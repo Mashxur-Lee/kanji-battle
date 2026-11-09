@@ -243,9 +243,19 @@ async function boot() {
 async function serverAnswers(ms: number): Promise<boolean> {
   // (a plain timer, not AbortSignal.timeout — older Android WebViews don't have it, and the check failed at once,
   // so the "waking up" screen showed on every start — 0.9.9.7.3)
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), ms);
-  try { const r = await fetch('/api/online', { cache: 'no-store', signal: ctl.signal }); return r.ok && /json/.test(r.headers.get('content-type') ?? ''); } catch { return false; } finally { clearTimeout(t); }
+  // 0.9.9.9.5: a quick failure (the phone's network not ready yet, a blip) is tried again until `ms` is up — one
+  // failed request at start showed "Waking up the server…" while the server was wide awake
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), Math.max(500, end - Date.now()));
+    try {
+      const r = await fetch('/api/online', { cache: 'no-store', signal: ctl.signal });
+      if (r.ok && /json/.test(r.headers.get('content-type') ?? '')) return true;
+    } catch { /* not yet */ } finally { clearTimeout(t); }
+    await new Promise((ok) => setTimeout(ok, 700));
+  }
+  return false;
 }
 const WAKE_KEY = 'kw:wake-secs';
 /**
@@ -362,6 +372,7 @@ function onMessage(msg: ServerMessage) {
       arenaTyping(msg.id, msg.on);
       break;
     case 'welcome':
+      offline.serverSeen(); // 0.9.9.9.5: the server is there — leave offline mode now
       user = msg.user;
       ui.setUser(msg.user);
       void refreshOnline(); // now this player counts too

@@ -2,6 +2,7 @@
 // app's offline engine (client/offline) feeds it the same calls while there is no internet — so offline
 // study, quizzes, passages and the daily challenge run exactly the server's code.
 import { achCounts } from '../shared/achievements';
+import { isTransientDbError, retryDelay } from './db/transient';
 import { displayName } from './db/Store';
 import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/InsightsService';
 import { AuthError, toPublic, type AuthService } from './auth/AuthService';
@@ -66,7 +67,17 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
 
-  return async (r: ApiRequest): Promise<ApiResponse | null> => {
+  // 0.9.9.9.5: a GET whose database connection failed while opening (the database waking up) is tried again —
+  // up to 3 times over ~4 s — instead of failing with "Server error" and an Inbox entry
+  const route = async (r: ApiRequest): Promise<ApiResponse | null> => {
+    for (let attempt = 0; ; attempt++) {
+      const out = await handle(r, attempt < 3 && r.method === 'GET');
+      if (out !== RETRY) return out;
+      await retryDelay(attempt);
+    }
+  };
+  const RETRY = Symbol('retry');
+  const handle = async (r: ApiRequest, canRetry: boolean): Promise<ApiResponse | null | typeof RETRY> => {
     const url = r.url;
     if (!url.startsWith('/api/')) return null;
     const query = r.query;
@@ -341,8 +352,15 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       }
     } catch (e) {
       if (e instanceof AuthError || e instanceof StudyError || e instanceof DailyError || e instanceof SocialError || e instanceof InsightsError) return res(e.status, { error: e.message });
+      if (isTransientDbError(e)) {
+        if (canRetry) return RETRY;
+        // still not reachable (or not a GET): one "database unreachable" row in the Inbox, counted, not one per URL
+        onError?.('database unreachable', e);
+        return res(503, { error: 'The server is busy — try again in a moment.' });
+      }
       onError?.(`${r.method} ${url}`, e);
       return res(500, { error: 'Server error' });
     }
   };
+  return route;
 }

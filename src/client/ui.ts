@@ -998,8 +998,12 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
   $('resultActions').hidden = !!opts.history;
   $('historyBackRow').hidden = !opts.history;
 
+  // 0.9.9.9.5: a result can lack your own numbers (a match from history saved under another id, a game you left
+  // before it ended) — it crashed the screen ("reading 'damageDealt'"); an empty column instead
+  const EMPTY: PlayerStats = { damageDealt: 0, attempts: 0, correct: 0, accuracy: 0, avgResponseMs: null, bestCombo: 0, words: [], struggled: [] };
+  stats = Object.fromEntries(Object.entries(stats ?? {}).filter(([, v]) => !!v).map(([k, v]) => [k, { ...EMPTY, ...v, words: v.words ?? [], struggled: v.struggled ?? [] }]));
   const otherId = Object.keys(stats).find((id) => id !== you);
-  const me = stats[you];
+  const me = stats[you] ?? EMPTY;
   const other = otherId ? stats[otherId] : undefined;
   const otherName = players.find((p) => p.id === otherId)?.name ?? (mode === 'boss' ? 'Ally' : 'Opponent');
   const rows: Array<[string, (s: PlayerStats) => string]> = [
@@ -1030,7 +1034,7 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
   $('struggledBox').hidden = me.struggled.length === 0;
   $('missedSave').hidden = true; // filled in when the server reports which words it saved (decks.ts)
   $('struggled').replaceChildren(
-    ...me.struggled.map((k) => {
+    ...me.struggled.filter((k) => byKanji.has(k)).map((k) => {
       const w = byKanji.get(k)!;
       // a red card; once the server says which words it saved, decks.ts adds the tick (tap to keep it out of the deck)
       const so = h('button', 'so-btn', '筆', { type: 'button', title: 'Stroke order', 'aria-label': 'Stroke order', lang: 'ja' });

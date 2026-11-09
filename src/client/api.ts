@@ -38,7 +38,7 @@ export interface StoryData { title: { ja: string; en: string; ru: string }; line
 
 export class ApiError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
-export interface AdminReport { id: string; kind: 'bug' | 'suggestion' | 'error'; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean }
+export interface AdminReport { id: string; kind: 'bug' | 'suggestion' | 'error'; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean; count?: number }
 export interface AdminStats {
   onlineNow: number; players: number; daily: Array<{ day: string; signups: number; active: number }>;
   day1: { players: number; returned: number }; day7: { players: number; returned: number };

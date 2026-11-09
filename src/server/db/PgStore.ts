@@ -168,6 +168,7 @@ export class PgStore implements Store {
         done boolean not null default false
       )`;
     await this.sql`create index if not exists kw_reports_at on kw_reports (at desc)`;
+    await this.sql`alter table kw_reports add column if not exists count integer not null default 1`; // 0.9.9.9.5: repeats on one row
     await this.sql`
       create table if not exists kw_events (
         user_id uuid references kw_users(id) on delete cascade,
@@ -411,13 +412,20 @@ export class PgStore implements Store {
     return Number(r.n);
   }
   async addReport(r: Omit<Report, 'id' | 'done'>) {
+    // 0.9.9.9.5: the same error again while its row is still open: counted on that row instead of a new one
+    if (r.kind === 'error') {
+      const bumped = await this.sql`
+        update kw_reports set count = count + 1, at = ${r.at}, meta = ${r.meta}, user_id = ${r.userId}, username = ${r.username}
+        where id = (select id from kw_reports where kind = 'error' and not done and text = ${r.text} order by at desc limit 1)`;
+      if (bumped.count > 0) return;
+    }
     await this.sql`insert into kw_reports (id, kind, user_id, username, text, meta, at) values (${randomUUID()}, ${r.kind}, ${r.userId}, ${r.username}, ${r.text}, ${r.meta}, ${r.at})`;
     await this.sql`delete from kw_reports where id in (select id from kw_reports order by at desc offset ${REPORTS_KEPT})`;
   }
   async reports(limit: number): Promise<Report[]> {
-    const rows = await this.sql<{ id: string; kind: Report['kind']; user_id: string | null; username: string; text: string; meta: string; at: string; done: boolean }[]>`
-      select id, kind, user_id, username, text, meta, at, done from kw_reports order by at desc limit ${limit}`;
-    return rows.map((r) => ({ id: r.id, kind: r.kind, userId: r.user_id, username: r.username, text: r.text, meta: r.meta, at: Number(r.at), done: r.done }));
+    const rows = await this.sql<{ id: string; kind: Report['kind']; user_id: string | null; username: string; text: string; meta: string; at: string; done: boolean; count: number }[]>`
+      select id, kind, user_id, username, text, meta, at, done, count from kw_reports order by at desc limit ${limit}`;
+    return rows.map((r) => ({ id: r.id, kind: r.kind, userId: r.user_id, username: r.username, text: r.text, meta: r.meta, at: Number(r.at), done: r.done, count: Number(r.count) || 1 }));
   }
   async setReportDone(id: string, done: boolean) { await this.sql`update kw_reports set done = ${done} where id = ${id}`; }
   async deleteReport(id: string) { await this.sql`delete from kw_reports where id = ${id}`; }

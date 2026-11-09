@@ -114,7 +114,8 @@ export interface Store {
 }
 
 export type ReportKind = 'bug' | 'suggestion' | 'error';
-export interface Report { id: string; kind: ReportKind; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean }
+/** `count`: how many times this same error happened while it was open (0.9.9.9.5 — repeats are one row) */
+export interface Report { id: string; kind: ReportKind; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean; count?: number }
 export interface GameEventRow { userId: string | null; name: string; at: number }
 export const REPORTS_KEPT = 500; // the newest; errors beyond that are dropped
 
@@ -323,7 +324,15 @@ export class MemoryStore implements Store {
   async removeFriend(userId: string, otherId: string) { this.setLink(userId, otherId, null); this.setLink(otherId, userId, null); this.persist(); }
   protected reportList: Report[] = [];
   async addReport(r: Omit<Report, 'id' | 'done'>) {
-    this.reportList.unshift({ ...r, id: randomUUID(), done: false });
+    // 0.9.9.9.5: the same error again while its row is still open: counted on that row (and moved to the top)
+    const same = r.kind === 'error' ? this.reportList.findIndex((x) => x.kind === 'error' && !x.done && x.text === r.text) : -1;
+    if (same >= 0) {
+      const [row] = this.reportList.splice(same, 1);
+      this.reportList.unshift({ ...row, at: r.at, meta: r.meta, userId: r.userId, username: r.username, count: (row.count ?? 1) + 1 });
+      this.persist();
+      return;
+    }
+    this.reportList.unshift({ ...r, id: randomUUID(), done: false, count: 1 });
     this.reportList.length = Math.min(this.reportList.length, REPORTS_KEPT);
     this.persist();
   }

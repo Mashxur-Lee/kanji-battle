@@ -32,6 +32,8 @@ addEventListener('unhandledrejection', (e) => {
   const r = e.reason as { message?: string; stack?: string } | undefined;
   const msg = r?.message ?? String(e.reason);
   if (/Failed to fetch|NetworkError|Load failed/.test(msg)) return; // offline for a moment, not a bug
+  // 0.9.9.9.5: the phone's sound device or a page in the background refusing — the browser's state, not a bug
+  if (/audio device|play\(\) request was interrupted|NotAllowedError|AbortError/.test(msg)) return;
   report(msg, r?.stack ?? '');
 });
 

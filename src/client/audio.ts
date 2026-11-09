@@ -63,14 +63,14 @@ function ensure(): AudioContext | null {
 document.addEventListener('visibilitychange', () => {
   if (!ctx) return;
   if (document.visibilityState === 'hidden') void ctx.suspend();
-  else void ctx.resume().then(() => syncMusic());
+  else ctx.resume().then(() => syncMusic(), () => { /* the phone refused the sound device for now: tried again on the next tap */ });
 });
 
 /** Call from any user gesture. */
 export function unlock() {
   const c = ensure();
   if (!c) return;
-  if (c.state === 'suspended' && document.visibilityState === 'visible') void c.resume();
+  if (c.state === 'suspended' && document.visibilityState === 'visible') c.resume().catch(() => { /* "Failed to start the audio device" — busy (a call, another app): the next tap tries again */ });
   syncMusic();
   // record the themes' loops now, so the battle's is ready by the first battle (only with the music on)
   if (!recordedOnce && prefs.radio && prefs.musicVol > 0) { recordedOnce = true; menuTheme.prepare(); battleTheme.prepare(); }
@@ -551,7 +551,7 @@ export function setRadio(on: boolean) {
   prefs.radio = on;
   savePrefs();
   ensure();
-  if (on && ctx?.state === 'suspended') void ctx.resume();
+  if (on && ctx?.state === 'suspended') ctx.resume().catch(() => { /* see unlock() */ });
   syncMusic();
 }
 

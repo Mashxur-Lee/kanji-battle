@@ -49,6 +49,8 @@ function renderInbox() {
     const card = el('article', `inbox-item k-${r.kind}${r.done ? ' done' : ''}`);
     const head = el('div', 'ii-head');
     head.append(el('span', `ii-kind k-${r.kind}`, KIND_LABEL[r.kind]), el('b', '', r.username || (r.kind === 'error' ? 'game' : '?')), el('small', 'hint', dateTime(r.at)));
+    // 0.9.9.9.5: the same error again is counted here (the latest time and details shown)
+    if ((r.count ?? 1) > 1) head.append(el('span', 'ii-count', `×${r.count}`));
     const done = el('button', 'pill', r.done ? 'Reopen' : '✓ Done') as HTMLButtonElement;
     done.onclick = async () => { await api.inboxDone(r.id, !r.done); r.done = !r.done; renderInbox(); void refreshInboxBadge(); };
     const del = el('button', 'pill danger', 'Delete') as HTMLButtonElement;
