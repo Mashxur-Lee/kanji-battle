@@ -1,6 +1,7 @@
 // The JLPT-style quiz (shared since 0.9.9.4 so it also runs offline in the app): reading, meaning or
 // "which kanji" questions about words you studied, 4 choices each, the wrong ones looking like the right one.
 
+import { KANA_BY_CHAR, kanaCells, lookalikes } from './kanachart';
 import { pickDistractors, posOf } from './distract';
 import { fakeReadings, fakeSpellings, type FactsOf } from './fakes';
 import { ONO_TYPES, type Level, type OnoType, type VocabEntry } from './protocol';
@@ -11,6 +12,29 @@ export interface QuizQuestion {
   kind: 'reading' | 'meaning' | 'kanji' | OnoKind; vocabId: string; level: Level; prompt: string; sub?: string; choices: string[]; answer: number;
   /** shown after answering (0.9.9.4): the whole word, so a right guess still teaches its meaning */
   word?: { kanji: string; reading: string; meaning: string };
+}
+
+/**
+ * 0.9.9.9.5.1: a kana question for the JLPT quiz's "Kana" level — "あ → a" or "a → あ", the wrong kana being
+ * look-alikes (ぬ for め, ちゃ for きゃ) and the wrong readings those of look-alikes.
+ */
+export function kanaQuestion(ch: string, rng: () => number = Math.random): QuizQuestion | null {
+  const cell = KANA_BY_CHAR.get(ch);
+  if (!cell) return null;
+  const pool = kanaCells(cell.script);
+  const same = pool.filter((c) => c.set === cell.set && c.ch !== ch);
+  const near = [...lookalikes(ch).map((x) => KANA_BY_CHAR.get(x)).filter((c): c is NonNullable<typeof c> => !!c && c.script === cell.script), ...shuffle([...same], rng)];
+  const wrong: typeof pool = [];
+  for (const c of near) if (!wrong.some((w) => w.romaji === c.romaji) && c.romaji !== cell.romaji) { wrong.push(c); if (wrong.length === 3) break; }
+  if (wrong.length < 3) return null;
+  const pick = rng() < 0.5;
+  const choices = shuffle([cell, ...wrong].map((c) => (pick ? c.ch : c.romaji)), rng);
+  const level = cell.script === 'hira' ? 'KANA' : 'KATA';
+  return {
+    kind: pick ? 'kanji' : 'reading', vocabId: `${cell.script === 'hira' ? 'kana' : 'kata'}:${ch}`, level, prompt: pick ? cell.romaji : ch,
+    sub: pick ? (cell.script === 'hira' ? 'hiragana' : 'katakana') : undefined, choices, answer: choices.indexOf(pick ? cell.ch : cell.romaji),
+    word: { kanji: ch, reading: cell.romaji, meaning: cell.script === 'hira' ? 'hiragana' : 'katakana' },
+  };
 }
 
 const shuffle = <T>(a: T[], rng: () => number) => {

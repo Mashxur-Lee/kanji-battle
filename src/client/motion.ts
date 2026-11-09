@@ -14,7 +14,8 @@ const FIXED = '.back, .kana-bar, #gameKb, .passage-gloss, .kanji-pop, .mode-titl
 /** per screen, the cards and blocks that rise in one after another (besides the screen's own top-level parts) */
 const PARTS: Record<string, string> = {
   menu: '.mc-title, .mc-nav-btn, .tasks-btn, .mc-card, .menu-foot > *',
-  study: '#studyGrid > *, .practice-card',
+  study: '#studyGrid > *',
+  quizzes: '.practice-card',
   progress: '.prog-card, #progGrid > *',
   history: '#historyList > *',
   customize: '#custGrid > *',

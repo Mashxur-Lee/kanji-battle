@@ -334,7 +334,13 @@
       </button>
       <button id="studyBtn" class="mc-card mc-study" type="button">
         <span class="mc-glyph" lang="ja" aria-hidden="true">学</span>
-        <span class="mc-body"><b class="mc-name">Study spells</b><span class="mc-info">Your decks, quizzes and reading passages</span></span>
+        <span class="mc-body"><b class="mc-name">Study spells</b><span class="mc-info">Your decks — kanji words as flashcards</span></span>
+        <span class="mc-lock" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M7 10V7.5a5 5 0 0 1 10 0V10h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2zm2 0h6V7.5a3 3 0 0 0-6 0zm3 4a1.6 1.6 0 0 0-.8 3V19h1.6v-2a1.6 1.6 0 0 0-.8-3z"/></svg></span>
+      </button>
+      <!-- 0.9.9.9.5.1: the JLPT quiz, the onomatopoeia quiz and the reading passage have a card of their own -->
+      <button id="quizzesBtn" class="mc-card mc-quizzes" type="button">
+        <span class="mc-glyph" lang="ja" aria-hidden="true">試</span>
+        <span class="mc-body"><b class="mc-name">Quizzes</b><span class="mc-info">JLPT quiz, onomatopoeia and reading passages</span></span>
       </button>
       <!-- 0.9.9.9.5: hiragana and katakana have a section of their own -->
       <button id="kanaBtn" class="mc-card mc-kana" type="button">
@@ -530,8 +536,15 @@
         <div class="deck-btns"><button id="studyCustom" class="big">Study</button><button class="deck-open" data-deck="custom"><span aria-hidden="true">☰</span> Words</button><button id="customAdd" class="deck-open">+ Add words</button></div>
       </div>
     </div>
+  </section>
+
+  <!-- 0.9.9.9.5.1: QUIZZES — the JLPT quiz (with kana), the onomatopoeia quiz, the reading passage -->
+  <section id="quizzes" class="screen" hidden>
+    <button id="quizzesBack" class="back" type="button">← Menu</button>
+    <h2>Quizzes</h2>
+    <p class="sub">Test what you know — a passed quiz or passage counts for your daily streak.</p>
     <div class="practice-row">
-      <button id="quizBtn" class="practice-card pc-quiz"><i class="pc-ico" aria-hidden="true">試</i><b>JLPT quiz</b><span>10 questions from the spells you studied — readings, meanings and kanji, 4 choices each.</span></button>
+      <button id="quizBtn" class="practice-card pc-quiz"><i class="pc-ico" aria-hidden="true">試</i><b>JLPT quiz</b><span>10 questions from the spells you studied — or kana — readings, meanings and kanji, 4 choices each.</span></button>
       <button id="onoQuizBtn" class="practice-card pc-ono"><i class="pc-ico" aria-hidden="true">音</i><b>Onomatopoeia quiz</b><span>10 questions on giongo, gitaigo and gijōgo — sounds, states and feelings, 4 choices each.</span></button>
       <button id="passageBtn" class="practice-card pc-read"><i class="pc-ico" aria-hidden="true">読</i><b>Reading passage</b><span>A short story written with your words — fill in the blanks from the context, then check.</span></button>
     </div>
@@ -563,7 +576,7 @@
 
   <!-- STUDY: JLPT-style quiz -->
   <section id="quiz" class="screen quiz" hidden>
-    <div class="page-head"><button id="quizBack" class="back">← Study</button><span id="quizProgress" class="tag"></span><span id="quizScore" class="tag"></span><label class="p-from q-from">Words from <select id="quizDeck" aria-label="Words from"></select></label><button id="quizList" class="pill deck-open-btn q-from" type="button"><span aria-hidden="true">☰</span> Words</button></div>
+    <div class="page-head"><button id="quizBack" class="back">← Quizzes</button><span id="quizProgress" class="tag"></span><span id="quizScore" class="tag"></span><label class="p-from q-from">Words from <select id="quizDeck" aria-label="Words from"></select></label><button id="quizList" class="pill deck-open-btn q-from" type="button"><span aria-hidden="true">☰</span> Words</button></div>
     <div id="quizSettings" class="p-settings q-settings">
       <div class="p-set-row"><span class="p-set-lbl">Your words from</span><span id="quizLevels" class="p-levels" role="group" aria-label="Your words from levels"></span><span id="quizSetTip" class="hint p-set-tip">Your own words always count</span></div>
     </div>
@@ -579,13 +592,13 @@
     <div id="quizDone" class="quiz-done" hidden>
       <h2 id="quizResult"></h2>
       <div id="quizMissed"></div>
-      <div class="quiz-done-btns"><button id="quizAgain" class="big">New quiz</button><button id="quizDoneBack" class="pill">Back to study</button></div>
+      <div class="quiz-done-btns"><button id="quizAgain" class="big">New quiz</button><button id="quizDoneBack" class="pill">Back to quizzes</button></div>
     </div>
   </section>
 
   <!-- READING PASSAGE (0.9.9.4.4: its own screen, like the quiz) -->
   <section id="passage" class="screen passage" hidden>
-    <div class="page-head"><button id="passageBack" class="back">← Study</button><label class="p-from">Words from <select id="passageDeck" aria-label="Words from"></select></label><button id="passageList" class="pill deck-open-btn" type="button"><span aria-hidden="true">☰</span> Words</button><span class="p-new"><button id="passageNew" class="pill">New passage</button><span id="passageQuota" class="p-quota" hidden></span></span></div>
+    <div class="page-head"><button id="passageBack" class="back">← Quizzes</button><label class="p-from">Words from <select id="passageDeck" aria-label="Words from"></select></label><button id="passageList" class="pill deck-open-btn" type="button"><span aria-hidden="true">☰</span> Words</button><span class="p-new"><button id="passageNew" class="pill">New passage</button><span id="passageQuota" class="p-quota" hidden></span></span></div>
     <div class="passage-card">
       <h2 class="passage-title">Reading passage</h2>
       <p class="hint">A short story with your words left out. Tap a blank, then the word that fits — the story around it is the clue. Tap any word for its meaning, and a kanji in it for its parts.</p>

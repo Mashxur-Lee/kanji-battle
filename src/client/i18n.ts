@@ -507,6 +507,11 @@ const RU: Record<string, string> = {
   // 0.9.9.9.5 — the JLPT quiz's settings
   'Your words from levels': 'Ваши слова уровней', 'Your wizard': 'Ваш волшебник', 'Your own words always count': 'Ваши собственные слова учитываются всегда', 'Changes apply to the next quiz': 'Изменения — со следующего теста',
   // 0.9.9.9.5.1
+  'Quizzes': 'Тесты', 'JLPT quiz, onomatopoeia and reading passages': 'Тест JLPT, ономатопея и тексты для чтения', 'Your decks — kanji words as flashcards': 'Ваши колоды — слова с кандзи на карточках',
+  'Test what you know — a passed quiz or passage counts for your daily streak.': 'Проверьте себя — пройденный тест или текст засчитывается в ежедневную серию.',
+  '← Quizzes': '← Тесты', 'Back to quizzes': 'К тестам',
+  'Master hiragana first — in Kana. Then tick “I’ve mastered hiragana” in Settings (or master all 46 basic hiragana).': 'Сначала освойте хирагану — в разделе «Кана». Затем отметьте «Я освоил хирагану» в настройках (или освойте все 46 основных знаков).',
+  '10 questions from the spells you studied — or kana — readings, meanings and kanji, 4 choices each.': '10 вопросов по изученным заклинаниям — или по кане — чтения, значения и кандзи, по 4 варианта.',
   'Tap to go on': 'Нажмите, чтобы продолжить', '← Kana': '← Кана',
   // 0.9.9.9.5 — the Kana section
   'All basic hiragana mastered — kanji battles unlocked!': 'Вся основная хирагана освоена — бои с кандзи открыты!',
@@ -794,7 +799,7 @@ const RU: Record<string, string> = {
   'Fill each blank with one of your words (the furigana is your clue). Tap any word in the story for its meaning.': 'Заполните пропуски своими словами (подсказка — фуригана). Нажмите на любое слово в тексте, чтобы увидеть значение.',
   'Your words — tap a blank, then a word': 'Ваши слова — нажмите на пропуск, затем на слово', 'Check': 'Проверить', 'Perfect — every word in its place!': 'Идеально — все слова на месте!',
   'Green: right. Red: the right word, with yours crossed out.': 'Зелёный — верно. Красный — правильное слово, ваше зачёркнуто.', 'Tap, then pick a word below': 'Нажмите, затем выберите слово ниже',
-  'Study 10 spells (any deck)': 'Изучите 10 заклинаний (любая колода)', 'Do a JLPT quiz': 'Пройдите тест JLPT', 'Play the daily challenge': 'Сыграйте ежедневное испытание',
+  'Study 10 spells or kana': 'Изучите 10 заклинаний или знаков каны', 'Do a JLPT quiz': 'Пройдите тест JLPT', 'Play the daily challenge': 'Сыграйте ежедневное испытание',
   'Streak kept today — well done!': 'Серия сегодня сохранена — отлично!', 'Daily streak tasks': 'Задания для серии',
   'Today’s streak tasks': 'Задания на сегодня', 'days in a row': 'дней подряд', 'Go': 'Перейти', '🔥 Keep your daily streak': '🔥 Сохраните ежедневную серию',
   'A day counts for your streak when all four tasks are done. Your best streak unlocks magic staffs.': 'День засчитывается в серию, когда выполнены все четыре задания. Лучшая серия открывает магические посохи.',

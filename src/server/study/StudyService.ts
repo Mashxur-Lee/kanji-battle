@@ -8,7 +8,7 @@ import { taskPassed, BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyT
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
-import { buildQuiz, type QuizQuestion } from '../../shared/quiz';
+import { buildQuiz, kanaQuestion, type QuizQuestion } from '../../shared/quiz';
 import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type DailyPlan, type Snapshot, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { kanjiFacts, VOCAB, VOCAB_BY_ID } from '../vocab';
@@ -419,7 +419,8 @@ export class StudyService {
   async addToDeck(u: UserRecord, deck: unknown, ids: unknown): Promise<string[]> {
     if (!isDeck(deck)) throw new StudyError('Unknown deck');
     const custom = await this.words(u.id);
-    const list = (Array.isArray(ids) ? ids : []).filter((x): x is string => typeof x === 'string' && !!this.info(x, custom)).slice(0, 500);
+    // (kana live in the Kana section, never in a deck — 0.9.9.9.5.1: the quiz's kana misses were offered to one)
+    const list = (Array.isArray(ids) ? ids : []).filter((x): x is string => typeof x === 'string' && !isKanaId(x) && !!this.info(x, custom)).slice(0, 500);
     const now = clockNow();
     return this.store.addCards(u.id, [...new Set(list)].map((id) => newCard(id, now, deck)));
   }
@@ -469,7 +470,19 @@ export class StudyService {
    */
   async quiz(u: UserRecord, n = 10, opts: { deck?: unknown; levels?: unknown } = {}): Promise<QuizQuestion[]> {
     const deck = isDeck(opts.deck) && opts.deck !== 'ono' ? opts.deck : null;
-    const levels = Array.isArray(opts.levels) ? LEVELS.filter((l) => (opts.levels as unknown[]).includes(l)) : [];
+    // 0.9.9.9.5.1: "KANA" = hiragana and katakana (the Kana section's), so a beginner can take the quiz too
+    const wantKana = Array.isArray(opts.levels) && (opts.levels as unknown[]).includes('KANA');
+    const levels = Array.isArray(opts.levels) ? LEVELS.filter((l) => l !== 'KANA' && l !== 'KATA' && (opts.levels as unknown[]).includes(l)) : [];
+    if (wantKana) {
+      // the kana you have met in Kana (all 46 basic hiragana while you have met fewer than 4), with the levels' words
+      const met = Object.entries(u.kana ?? {}).filter(([ch, k]) => isKanaChar(ch) && (k.s > 0 || k.m)).map(([ch]) => ch);
+      const kana = met.length >= 4 ? met : kanaCells('hira', 'basic').map((c) => c.ch);
+      const words = levels.length ? await this.quiz(u, n, { deck: opts.deck, levels }) : [];
+      const kq = shuffle(kana, this.rng).slice(0, n).map((ch) => kanaQuestion(ch, this.rng)).filter((q): q is QuizQuestion => !!q);
+      // both: a fair mix (kana for about half when there are enough words)
+      const take = words.length ? Math.min(kq.length, Math.max(n - words.length, Math.round(n / 2))) : kq.length;
+      return shuffle([...kq.slice(0, take), ...words.slice(0, n - take)], this.rng).slice(0, n);
+    }
     const custom = await this.words(u.id);
     const cards = (await this.store.cards(u.id)).filter((c) => !deck || deckOf(c) === deck);
     const fits = (w: WordInfo | null): w is WordInfo => !!w && w.level !== 'ONO' && !isKanaId(w.id) && (w.custom || !levels.length || levels.includes(w.level));

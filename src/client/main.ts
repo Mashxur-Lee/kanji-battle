@@ -205,7 +205,7 @@ function applyProfile(p: Profile) {
 onProfileChange(applyProfile);
 onTaskDone.cb = applyProfile;
 initTasks();
-taskActions.learn = () => ui.$('studyBtn').click();
+taskActions.learn = () => (ui.kanaBeginner() ? openKana() : ui.$('studyBtn').click());
 taskActions.quiz = () => void startQuiz();
 taskActions.daily = () => ui.$('dailyBtn').click();
 taskActions.passage = () => ui.$('passageBtn').click();
@@ -864,7 +864,18 @@ const join = () => {
 ui.$('join').onclick = join;
 ui.$<HTMLInputElement>('joinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
 ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
-ui.$('studyBtn').onclick = () => void openStudy();
+ui.$('studyBtn').onclick = () => {
+  // 0.9.9.9.5.1: kanji words only — a かな beginner learns kana first
+  if (ui.kanaBeginner()) {
+    ui.toast('Master hiragana first — in Kana. Then tick “I’ve mastered hiragana” in Settings (or master all 46 basic hiragana).', 6000);
+    const k = ui.$('kanaBtn');
+    k.classList.remove('nudge'); void k.offsetWidth; k.classList.add('nudge');
+    return;
+  }
+  void openStudy();
+};
+ui.$('quizzesBtn').onclick = () => ui.show('quizzes');
+ui.$('quizzesBack').onclick = () => ui.show('menu');
 // 0.9.9.9.5: the Kana section (a kana mastered for the first time gives XP: the level bar follows)
 ui.$('kanaBtn').onclick = () => openKana();
 initKana({

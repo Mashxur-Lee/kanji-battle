@@ -175,7 +175,7 @@ function onoChanged() {
   };
 }
 
-initDecks({ changed: () => { if (!$('study').hidden) void api.study().then(render).catch(() => {}); }, back: () => void openStudy() });
+initDecks({ changed: () => { if (!$('study').hidden) void api.study().then(render).catch(() => {}); }, back: () => ui.show('quizzes') }); // (0.9.9.9.5.1: the quizzes have their own screen)
 
 // ── flashcard session (Anki-style) ──────────────────────────────────────────
 let queue: StudyCard[] = [];

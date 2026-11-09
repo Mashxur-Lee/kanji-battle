@@ -447,3 +447,31 @@ test('0.9.9.9.5 achievements: a match grants Untouchable and Machine Breaker; a 
   await study.recordTask((await store.findById(u.id))!, 'passage', '2026-01-02', 8, 8);
   assert.ok((await store.findById(u.id))!.unlocks.includes('ach:every-word'));
 });
+
+test('0.9.9.9.5.1 JLPT quiz: a "Kana" level — hiragana and katakana both ways, look-alike answers; kana never go into a deck', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const u = await store.create({ username: 'kanaquiz2', passwordHash: 'x', role: 'user' } as never);
+  // nothing met yet: the 46 basic hiragana
+  const qs = await study.quiz(u, 10, { levels: ['KANA'] });
+  assert.equal(qs.length, 10);
+  const { KANA_BY_CHAR } = await import('../src/shared/kanachart');
+  for (const q of qs) {
+    assert.equal(new Set(q.choices).size, 4);
+    assert.ok(/^kana:/.test(q.vocabId), q.vocabId);
+    const ch = q.vocabId.slice(5);
+    assert.equal(KANA_BY_CHAR.get(ch)?.set, 'basic');
+    assert.equal(q.choices[q.answer], q.kind === 'kanji' ? ch : KANA_BY_CHAR.get(ch)!.romaji);
+  }
+  assert.ok(qs.some((q) => q.kind === 'kanji') || qs.some((q) => q.kind === 'reading'));
+  // met katakana: those
+  await store.update(u.id, { kana: { ア: { s: 2 }, イ: { s: 1 }, ウ: { s: 3, m: true }, エ: { s: 1 }, オ: { s: 1 } } });
+  const kq = await study.quiz((await store.findById(u.id))!, 10, { levels: ['KANA'] });
+  assert.equal(kq.length, 5);
+  assert.ok(kq.every((q) => /^kata:/.test(q.vocabId)));
+  // passing it counts for the daily task
+  const p = await study.recordTask((await store.findById(u.id))!, 'quiz', new Date().toISOString().slice(0, 10), 4, 5);
+  assert.ok(p.tasks?.find((t) => t.id === 'practice')!.value >= 1);
+  // kana missed in the quiz can't be added to a deck
+  assert.deepEqual(await study.addToDeck((await store.findById(u.id))!, 'struggling', ['kana:あ', 'kata:ア']), []);
+});

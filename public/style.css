@@ -3787,3 +3787,26 @@ body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity
 :root[data-theme="light"] .kp-stage { background: rgba(255, 255, 255, .94); border-color: #f3c6dc; box-shadow: 0 14px 40px rgba(60, 40, 120, .18); }
 :root[data-theme="light"] .kp-stage.intro .kp-hint { color: #c2337a; }
 @media (max-width: 640px) { #kanaplay { padding-top: 104px; } .kp-stage { padding: 18px 12px; } }
+
+/* ── 0.9.9.9.5.1: the Quizzes card; Study spells locked for a かな beginner ── */
+.mc-quizzes { --mc: #7fd1ff; background: linear-gradient(180deg, rgba(20, 60, 96, .9) 0%, rgba(16, 16, 48, .92) 100%); border-color: rgba(127, 209, 255, .5); }
+.mc-card { position: relative; }
+.mc-lock { display: none; }
+.mc-card.locked { filter: grayscale(1) brightness(.75); border-color: rgba(255, 255, 255, .18); box-shadow: none; }
+.mc-card.locked .mc-lock { display: grid; place-items: center; position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 50%;
+  color: #fff; background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .3); }
+@media (hover: hover) { .mc-card.locked:hover { translate: 0 0; } }
+.mc-card.nudge { animation: mcNudge 1s var(--ease-pop) 2; }
+@keyframes mcNudge { 0%, 100% { scale: 1; box-shadow: 0 0 0 0 rgba(255, 158, 199, 0); } 40% { scale: 1.05; box-shadow: 0 0 0 6px rgba(255, 158, 199, .45), 0 0 30px rgba(255, 158, 199, .6); } }
+/* six cards: the grid */
+@media (min-width: 1101px) { .mc-cards { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (min-width: 701px) and (max-width: 1100px) { .mc-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mc-online, .mc-kana { grid-column: 1 / -1; } }
+@media (max-width: 700px) {
+  .mc-kana { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 16px; }
+  .mc-kana .mc-glyph { font-size: 3.4rem; }
+  .mc-card.locked .mc-lock { width: 32px; height: 32px; top: 8px; right: 8px; }
+}
+/* the Quizzes screen */
+#quizzes .practice-row { width: min(1180px, 100%); }
+@media (max-width: 700px) { #quizzes .practice-row { grid-template-columns: 1fr; } }
+.p-lv.kana { font-family: var(--ui); }
