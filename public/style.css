@@ -3810,3 +3810,26 @@ body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity
 #quizzes .practice-row { width: min(1180px, 100%); }
 @media (max-width: 700px) { #quizzes .practice-row { grid-template-columns: 1fr; } }
 .p-lv.kana { font-family: var(--ui); }
+
+/* ── 0.9.9.9.5.1: the menu's card carousel (computers) ─────────────────────────────────────────────────────── */
+.mc-deck { position: relative; }
+.mc-cards.carousel { display: block; position: relative; height: clamp(360px, 50vh, 470px); perspective: 1700px; transform-style: preserve-3d; margin-bottom: 26px; }
+.mc-cards.carousel > * { position: absolute; left: 50%; top: 8px; bottom: 8px; width: clamp(270px, 21vw, 330px); transform-origin: 50% 55%;
+  transition: transform .62s cubic-bezier(.2, .8, .2, 1), opacity .45s ease; will-change: transform; }
+.mc-cards.carousel > * > .mc-card, .mc-cards.carousel > .mc-card { height: 100%; width: 100%; }
+.mc-cards.carousel .mc-card { transition: filter .45s ease, box-shadow .45s ease, border-color .3s ease; -webkit-box-reflect: below 10px linear-gradient(transparent 72%, rgba(255, 255, 255, .16)); }
+.mc-cards.carousel .mcc-side .mc-card:not(.locked), .mc-cards.carousel .mc-card.mcc-side:not(.locked) { filter: brightness(.55) saturate(.75); }
+.mc-cards.carousel .mcc-side .mc-card.locked, .mc-cards.carousel .mc-card.mcc-side.locked { filter: grayscale(1) brightness(.45); }
+.mc-cards.carousel :is(.mcc-active .mc-card, .mc-card.mcc-active) { border-color: color-mix(in srgb, var(--mc) 80%, #fff);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mc) 60%, transparent), 0 0 50px color-mix(in srgb, var(--mc) 45%, transparent), 0 30px 60px rgba(0, 0, 0, .5); }
+.mc-cards.carousel :is(.mcc-active .mc-card, .mc-card.mcc-active) .mc-glyph { animation: mccGlyph 3s ease-in-out infinite; }
+@keyframes mccGlyph { 50% { text-shadow: 0 0 46px color-mix(in srgb, var(--mc) 85%, transparent); scale: 1.04; } }
+.mc-cards.carousel .mcc-side { cursor: pointer; }
+.mc-cards.carousel .mc-card:hover { translate: 0 0; }
+.mcc-arrow { position: absolute; top: calc(50% - 40px); z-index: 20; width: 58px; height: 58px; padding: 0; border-radius: 50%; display: grid; place-items: center;
+  color: #fff; background: rgba(16, 12, 40, .7); border: 1.5px solid rgba(255, 255, 255, .28); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+.mcc-arrow:hover { background: rgba(110, 231, 255, .22); border-color: rgba(110, 231, 255, .8); }
+.mcc-prev { left: 0; } .mcc-next { right: 0; }
+.mcc-dots { display: flex; justify-content: center; gap: 10px; margin-top: -8px; }
+.mcc-dots i { width: 10px; height: 10px; border-radius: 999px; background: rgba(255, 255, 255, .28); cursor: pointer; transition: width .35s var(--ease-out), background-color .3s; }
+.mcc-dots i.on { width: 34px; background: linear-gradient(90deg, #ff9ec7, #7fd1ff); }

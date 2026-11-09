@@ -42,6 +42,7 @@ import { initSelects } from './selects';
 import * as offline from './offline';
 import { initKana, openKana, setKanaProgress } from './kanaui';
 import { initMotion } from './motion';
+import { initMenuCarousel } from './menucarousel';
 import { initApp } from './appshell';
 import './dictui'; // (the dictionary page; opened from the side panel)
 
@@ -848,6 +849,7 @@ initApp({
   netStatus: showNetStatus,
 });
 initMotion(); // 0.9.9.9.5: buttons give and spring back, new list items slide in
+initMenuCarousel(); // 0.9.9.9.5.1: the menu's cards as a carousel on computers
 initTutorial({
   firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ui.kanaBeginner() ? ['KANA'] : ['KANA', 'N5'], tutorial: true }),
   kana: async (mastered) => {
