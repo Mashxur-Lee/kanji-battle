@@ -9,9 +9,9 @@ const KEY = 'kb:menuCard';
 /** how far each place from the middle sits: sideways (× the card width), turned, pushed back, scaled, shown */
 const PLACE = [
   { x: 0, ry: 0, z: 0, s: 1, o: 1 },
-  { x: 0.84, ry: 30, z: -140, s: 0.84, o: 0.9 },
-  { x: 1.48, ry: 42, z: -280, s: 0.7, o: 0.6 },
-  { x: 1.9, ry: 50, z: -400, s: 0.58, o: 0 },
+  { x: 0.98, ry: 28, z: -140, s: 0.84, o: 0.92 },
+  { x: 1.7, ry: 40, z: -280, s: 0.7, o: 0.6 },
+  { x: 2.2, ry: 50, z: -400, s: 0.58, o: 0 },
 ];
 
 let box: HTMLElement;
