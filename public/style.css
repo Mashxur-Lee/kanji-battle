@@ -358,9 +358,8 @@ dialog.how button { width: 100%; }
   .link .ico { display: inline; font-size: 1.1rem; }
   .pad { width: min(280px, calc(78 * var(--vw)), calc(40 * var(--vh))); }
 }
-/* Windows' "Animation effects: off" sets prefers-reduced-motion. Battle animations carry game information
-   (who hit whom), so they stay on; only purely decorative motion is calmed down. */
-@media (prefers-reduced-motion: reduce) { .scene .orb, .scene .wizard .sprite, body::before { animation-duration: 12s !important; } }
+/* (0.9.9.9.5: Windows' "Animation effects: off" — prefers-reduced-motion — no longer stops or slows anything:
+   players with it off asked for the animations) */
 
 /* ── v4: backgrounds, profile, study, customize, deck duel ─────────────────── */
 .bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
@@ -1022,7 +1021,6 @@ body.has-3d .deck-screen .dk-chat .chat-log { min-height: 0; flex: 1; }
 #comboHud { position: fixed; left: 7%; bottom: 20%; z-index: 4; animation: combo-in .25s ease-out; }
 body:not(.has-3d) #comboHud { display: none; }
 @keyframes combo-in { from { transform: scale(1.6); } }
-@media (prefers-reduced-motion: reduce) { .combo-hud.hot b, #comboHud { animation: none; } }
 
 /* ── v0.9.5 Customize: magic staff · arena · omnipotence ── */
 .cust-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 16px; }
@@ -1219,7 +1217,6 @@ tr.is-online td { background: rgba(78, 230, 166, .05); }
 .so-glyph { font-family: var(--jp); font-size: 64px; fill: #2a2238; }
 @keyframes so-draw { to { stroke-dashoffset: 0; } }
 @keyframes so-num { to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .so-ink path { animation-duration: .01s !important; } }
 .so-foot { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .85rem; }
 .fc-strokes { display: block; margin: 10px auto 0; }
 .fc-stroke-box { margin: 12px auto 0; }
@@ -1601,7 +1598,6 @@ body.game-kb #comboHud { bottom: calc(var(--kb-h, 0px) + 6%); left: 4%; transfor
 .turn-timer.low { --tt: #ff4d5e; animation: ttPulse .5s ease-in-out infinite alternate; }
 .turn-timer.low b { color: #ffb3bc; }
 @keyframes ttPulse { to { transform: scale(1.12); } }
-@media (prefers-reduced-motion: reduce) { .turn-timer.low { animation: none; } }
 .challenge { position: relative; }
 .challenge > .turn-timer { position: absolute; top: 4px; right: 4px; z-index: 2; }
 .dk-turnrow { display: flex; align-items: center; justify-content: center; gap: 14px; min-height: 64px; }
@@ -2969,7 +2965,6 @@ button.mc-card:hover, button.mc-card:focus-visible { transform: translateY(-5px)
 #menu .app-btn:not([hidden]) { display: inline-flex; align-items: center; gap: 6px; color: #fff; font-weight: 900; border: 1px solid rgba(110, 231, 255, .8) !important;
   background: linear-gradient(135deg, #1f8fb4, #5b4bd6 60%, #a04bd6) !important; animation: appGlow 2.4s ease-in-out infinite; }
 @keyframes appGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(110, 231, 255, .55), 0 0 12px rgba(110, 231, 255, .35); } 50% { box-shadow: 0 0 0 6px rgba(110, 231, 255, 0), 0 0 26px rgba(110, 231, 255, .75); } }
-@media (prefers-reduced-motion: reduce) { #menu .app-btn { animation: none; box-shadow: 0 0 18px rgba(110, 231, 255, .6); } }
 #menu .app-btn.update { background: linear-gradient(135deg, #b98a1c, #d6693a) !important; border-color: var(--gold) !important; }
 @media (max-width: 1100px) {
   .mc-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -3048,7 +3043,6 @@ body[data-screen="menu"] .menu-veil { opacity: 1; }
   animation: mvRise linear infinite; }
 @keyframes mvRise { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: var(--o); } 80% { opacity: var(--o); } 100% { transform: translateY(-110vh); opacity: 0; } }
 /* (0.9.9.9.2: the kanji keep drifting even with reduce motion / Windows' animation effects off — asked for) */
-@media (prefers-reduced-motion: reduce) { .menu-veil :is(.mv-aurora, .mv-circle, .mv-circle *) { animation: none !important; } }
 /* the cards themselves a touch more solid over it */
 #menu button.mc-card { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 :root[data-theme="light"] .menu-veil .mv-tint { background: radial-gradient(ellipse 60% 64% at 50% 54%, rgba(246, 242, 255, .8) 0%, rgba(240, 234, 255, .6) 55%, rgba(240, 234, 255, 0) 100%); }
@@ -3228,7 +3222,6 @@ body.game-kb :is(#railFab, #dictFab) { display: none !important; }
 }
 /* 0.9.9.9: a word that is exactly what you typed glows */
 :is(.dict-hit, button.dr-hit).exact { border: 1px solid #f6c453 !important; box-shadow: 0 0 0 1px rgba(246, 196, 83, .45), 0 0 18px rgba(246, 196, 83, .35); }
-@media (prefers-reduced-motion: reduce) { :is(.dict-hit, button.dr-hit).exact { animation: none; } }
 @media (max-width: 900px) { .friend-rail { z-index: 95 !important; } }
 
 /* ── 0.9.9.9: Settings — a window with tabs (Graphics, Audio, Language, Other) ── */
@@ -3527,7 +3520,60 @@ body.has-dict .kana-bar { margin-left: 26px; }
 .quiz-card.loading .quiz-prompt { animation: qLoad 1s ease-in-out infinite alternate; }
 @keyframes qLoad { from { opacity: .35; } to { opacity: 1; } }
 @media (max-width: 640px) {
-  .quiz .p-from { margin-left: 0; flex: 1 1 100%; }
+  .quiz .p-from { margin-left: 0; flex: 1 1 auto; min-width: 0; }
   .quiz .p-from select { flex: 1; }
   .quiz .q-settings .p-set-lbl { min-width: 0; }
 }
+
+/* ── 0.9.9.9.5: motion — dialogs, overlays and pop-ups come in and go out smoothly ─────────────────────────
+   @starting-style gives the first frame of an element that appears; transitions on `display` / `overlay`
+   (allow-discrete) keep one that is leaving on screen until it has faded. Individual `scale` / `translate`
+   leave each element's own `transform` alone. (Browsers without these just show and hide, as before.)
+   Screens, buttons and lists move from src/client/motion.ts. */
+:root { --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-pop: cubic-bezier(.3, 1.35, .5, 1); }
+
+/* dialogs (every <dialog>) and their dimmed backdrop */
+dialog { transition: opacity .24s ease, scale .32s var(--ease-pop), translate .32s var(--ease-out), overlay .24s allow-discrete, display .24s allow-discrete; }
+dialog:not([open]) { opacity: 0; scale: .94; translate: 0 10px; transition-duration: .18s; transition-timing-function: ease-in; }
+@starting-style { dialog[open] { opacity: 0; scale: .94; translate: 0 14px; } }
+dialog::backdrop { transition: opacity .24s ease, overlay .24s allow-discrete, display .24s allow-discrete; }
+dialog:not([open])::backdrop { opacity: 0; }
+@starting-style { dialog[open]::backdrop { opacity: 0; } }
+
+/* full-screen overlays: the dim fades, the card inside pops */
+:is(.settings-overlay, .pause-overlay, .tutorial-overlay, .wake-screen, .dk-overlay) {
+  transition: opacity .26s ease, display .26s allow-discrete;
+}
+:is(.settings-overlay, .pause-overlay, .tutorial-overlay, .wake-screen, .dk-overlay)[hidden] { opacity: 0; pointer-events: none; }
+@starting-style { :is(.settings-overlay, .pause-overlay, .tutorial-overlay, .wake-screen, .dk-overlay):not([hidden]) { opacity: 0; } }
+:is(.settings-box, .tut-card, .wake-card, .pause-overlay > *) { transition: scale .34s var(--ease-pop), translate .34s var(--ease-out); }
+:is(.settings-overlay, .pause-overlay, .tutorial-overlay, .wake-screen)[hidden] :is(.settings-box, .tut-card, .wake-card), .pause-overlay[hidden] > * { scale: .95; translate: 0 10px; }
+@starting-style { :is(.settings-overlay, .pause-overlay, .tutorial-overlay, .wake-screen):not([hidden]) :is(.settings-box, .tut-card, .wake-card), .pause-overlay:not([hidden]) > * { scale: .94; translate: 0 16px; } }
+
+/* pop-ups and panels that appear in place */
+:is(.invite-box, .coach-tip, .kanji-pop, .passage-gloss, .csel-menu, .vol-panel, .other-pop, .tasks-panel, .p-quota, #quizWord, #quizNext, .quiz-feedback, .missed-save, .quiz-done, .passage-intro) {
+  transition: opacity .22s ease, translate .3s var(--ease-out), scale .3s var(--ease-pop), display .22s allow-discrete;
+}
+:is(.invite-box, .coach-tip, .kanji-pop, .passage-gloss, .csel-menu, .vol-panel, .other-pop)[hidden] { opacity: 0; translate: 0 8px; pointer-events: none; }
+@starting-style {
+  :is(.invite-box, .coach-tip, .kanji-pop, .passage-gloss, .csel-menu, .vol-panel, .other-pop, .tasks-panel, .p-quota):not([hidden]) { opacity: 0; translate: 0 10px; scale: .97; }
+  :is(#quizWord, #quizNext, .missed-save, .quiz-done, .passage-intro):not([hidden]) { opacity: 0; translate: 0 8px; }
+}
+
+/* in-page panels toggled open (details, segmented tabs, chips): colour changes glide */
+:where(button, .pill, .chip, [role="tab"], .seg > *, .p-lv, .kc, .quiz-choice, .kp-ans, .mc-card, .mc-nav-btn, .deck-card, .practice-card, input, select, textarea) {
+  transition: background-color .22s ease, border-color .22s ease, color .22s ease, box-shadow .25s ease, opacity .22s ease, filter .22s ease;
+}
+details > :not(summary) { animation: detailsIn .3s var(--ease-out); }
+@keyframes detailsIn { from { opacity: 0; translate: 0 -6px; } }
+
+/* hover: cards and buttons lift a little (mouse only — on touch screens hover sticks) */
+@media (hover: hover) {
+  :is(.mc-card, .practice-card, .deck-card, .mode-card, .prog-card.clickable, .dict-hit) { transition: translate .28s var(--ease-out), box-shadow .28s ease, border-color .22s ease, background-color .22s ease; }
+  :is(.mc-card, .practice-card, .deck-card, .mode-card, .dict-hit):hover { translate: 0 -3px; }
+}
+
+/* the toast slides from the top and settles */
+@keyframes toastin { from { opacity: 0; translate: 0 -14px; scale: .96; } 60% { opacity: 1; translate: 0 2px; scale: 1.01; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes toastout { to { opacity: 0; translate: 0 -10px; scale: .97; } }
+.toast { animation: toastin .42s var(--ease-out); }

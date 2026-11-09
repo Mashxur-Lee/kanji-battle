@@ -1,4 +1,5 @@
 import { locale } from './i18n';
+import { screenIn } from './motion';
 import { viewH, viewW, zrect } from './zoom';
 import { showStrokeOrder } from './strokes';
 import {
@@ -40,6 +41,7 @@ export const show = (screen: Screen) => {
   document.body.dataset.screen = screen; // 0.9.9.4.4.3: the background dims behind the menus (style.css)
   hideBootScreen(); // 0.9.9.7.3: the first real screen is up
   scrollTo(0, 0);
+  screenIn(screen); // 0.9.9.9.5: fades in, its parts rise one after another
   screenListener(screen);
 };
 
@@ -669,7 +671,7 @@ export function castSpell(caster: Actor, target: Actor, kanji: string, damage: n
   const fromRight = cr.left > tr.left;
   const from = { x: fromRight ? cr.left - a.left - 10 : cr.right - a.left - 30, y: cr.top - a.top + cr.height * 0.15 };
   const to = { x: tr.left - a.left + tr.width / 2 - 20, y: tr.top - a.top + tr.height * 0.4 };
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduced = false; // (0.9.9.9.5: the full flight even with "reduce motion" on)
   // a slower, bigger flight with a glowing trail, so you can follow who hit whom
   const dur = reduced ? 400 : 850;
   const mid = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 70 };
