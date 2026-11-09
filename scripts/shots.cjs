@@ -26,6 +26,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const r = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: 'secret12' }) });
       return (await r.json()).token;
     }, [user]);
+    // the welcome tutorial is skipped unless the scenario asks for it (a /*tutorial*/ comment)
+    if (!/\/\*tutorial\*\//.test(process.env.EXTRA || '')) await page.evaluate(async ([t]) => { await fetch('/api/me/tutorial', { method: 'PUT', headers: { Authorization: `Bearer ${t}` } }); }, [tok]);
     await page.evaluate(([t, lang, theme]) => {
       localStorage.setItem('kb:token', t); localStorage.setItem('kb:lang', lang); localStorage.setItem('kb:theme', theme);
       localStorage.setItem('kb:seenVersion', 'x'); localStorage.setItem('kb:arena3d', 'off');
