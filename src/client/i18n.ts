@@ -120,7 +120,7 @@ const RU: Record<string, string> = {
   'September reward. Silver light of the harvest moon.': 'Награда сентября. Серебряный свет осенней луны.',
   'November reward. Burning red like autumn leaves.': 'Награда ноября. Горит красным, как осенние листья.',
   // 0.9.8
-  "I've mastered hiragana": 'Я освоил хирагану', 'Unlocks the kanji levels (N5–N1) for studying and battles.': 'Открывает уровни кандзи (N5–N1) для учёбы и боёв.',
+  "I've mastered hiragana": 'Я освоил хирагану', 'Unlocks the kanji levels (N5–N1) in battles. Mastering the 46 basic hiragana in Kana ticks it for you.': 'Открывает уровни кандзи (N5–N1) в боях. Освойте 46 основных знаков хираганы в разделе «Кана» — и галочка поставится сама.',
   'Do you know hiragana?': 'Вы знаете хирагану?', 'Yes — I know hiragana': 'Да — я знаю хирагану', "I'm a beginner": 'Я новичок',
   'Kanji are read with hiragana (かな). If you can already read all of it, you start with kanji (N5 to N1). If not, you start with かな only — the kanji levels open once you tick "I\'ve mastered hiragana" in Settings.':
     'Кандзи читаются хираганой (かな). Если вы уже читаете её всю — начинаете с кандзи (N5–N1). Если нет — сначала только かな; уровни кандзи откроются, когда вы отметите «Я освоил хирагану» в настройках.',
@@ -486,6 +486,13 @@ const RU: Record<string, string> = {
   'Close the dictionary': 'Закрыть словарь',
   'Close friends': 'Закрыть друзей',
   'Reconnecting…': 'Переподключение…',
+  // 0.9.9.9.5 — the Kana section
+  'Kana': 'Кана', 'Learn hiragana and katakana': 'Учите хирагану и катакану',
+  'Basic': 'Основные', 'Voiced': 'Звонкие', 'Rows': 'Ряды', 'Mode': 'Режим', 'Mixed': 'Вперемешку',
+  'Stars to master each kana': 'Звёзд, чтобы освоить каждую кану', 'Shuffle the order': 'Перемешать порядок',
+  'mastered': 'освоено', 'New!': 'Новая!', 'got it': 'понятно', 'All done!': 'Готово!', 'kana practised': 'каны повторено',
+  'Practice again': 'Ещё раз', 'Back to the chart': 'К таблице', 'kana mastered!': 'кана освоена!',
+  'Stop practising': 'Закончить практику', 'Hear it': 'Послушать', 'Script': 'Азбука', 'Set': 'Набор', 'Stars': 'Звёзды',
   // 0.9.9.9.3
   'Hide until tomorrow': 'Скрыть до завтра',
   'A one-time reinstall': 'Переустановка — один раз',
@@ -674,7 +681,7 @@ const RU: Record<string, string> = {
   '— every battle plays the words of your levels from your All spells (marked ★ on the study cards); random words fill in when you have too few.': '— в каждом бою используются слова ваших уровней из «Всех заклинаний» (на карточках подготовки — ★); если их мало, добавляются случайные.',
   '— Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (− / +, then Apply); Onomatopoeia has its own “New a day” number (0 until you set it). Every card you answer gives +5 XP (up to 500 a day); ↶ Undo takes the last answer back.': '— карточки в стиле Anki в четырёх колодах: «Все заклинания», «Трудные заклинания» (туда попадают ошибки), «Свои» и «Ономатопея». Во «Всех заклинаниях» задайте, сколько новых слов каждого уровня получать в день (− / +, затем «Применить»); у «Ономатопеи» своё число «Новых в день» (0, пока вы его не зададите). Каждая карточка даёт +5 опыта (до 500 в день); ↶ «Отменить» возвращает последний ответ.',
   '— the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 10 new stories a day — the counter shows how many are left; ★ starred words go in first, and the words you miss go to Struggling spells). Tap any kanji for its parts and a memory story.': '— тест JLPT, тест по ономатопее и текст для чтения: ИИ пишет короткий рассказ с 8 вашими словами, а вы заполняете пропуски по смыслу (до 10 новых рассказов в день — счётчик показывает, сколько осталось; слова со ★ идут первыми, а слова с ошибками попадают в «Трудные заклинания»). Нажмите на любой кандзи, чтобы увидеть его части и историю для запоминания.',
-  '— beginners study ひらがな until they tick “I’ve mastered hiragana” in Settings. Until then the kanji levels are locked: they add no new words, but the numbers you set for them are kept.': '— новички учат ひらがな, пока не отметят «Я освоил хирагану» в настройках. До этого уровни кандзи закрыты: новых слов они не добавляют, но заданные для них числа сохраняются.',
+  '— hiragana and katakana have their own section,': '— у хираганы и катаканы свой раздел,', '(main menu): a chart that fills in as you master each one, and practice by rows — new kana are shown first, then asked with look-alike answers until each has its stars. Beginners battle with ひらがな until they tick “I’ve mastered hiragana” in Settings (mastering the 46 basic hiragana ticks it for you).': '(главное меню): таблица, которая заполняется по мере освоения, и практика по рядам — сначала показываются новые знаки, затем спрашиваются с похожими вариантами, пока у каждого не наберутся звёзды. Новички сражаются на ひらがな, пока не отметят «Я освоил хирагану» в настройках (освоение 46 основных знаков хираганы отмечает это само).',
   'Writing a story with your words…': 'Пишем рассказ из ваших слов…', 'AI stories left today': 'ИИ-рассказов осталось сегодня',
   'Each new AI story counts once; the same words again come free. The count starts over at midnight.': 'Каждый новый ИИ-рассказ считается один раз; те же слова снова — бесплатно. Счёт обнуляется в полночь.',
   'How reading passages work': 'Как устроен текст для чтения',
