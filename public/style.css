@@ -3690,3 +3690,4 @@ details > :not(summary) { animation: detailsIn .3s var(--ease-out); }
 :root[data-theme="light"] #menu .tasks-btn:not(.done) .tb-label { color: #3a2410; }
 :root[data-theme="light"] #menu .tasks-btn:not(.done) .tb-val { color: #8a3d00; }
 :root[data-theme="light"] #menu .tasks-btn:not(.done) .tb-ic { background: #ffd9b3; color: #8a3d00; }
+:root[data-theme="light"] .kana-bar .kana-count span { color: #1d1838; }
