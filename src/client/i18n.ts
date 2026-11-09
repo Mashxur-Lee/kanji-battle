@@ -484,6 +484,9 @@ const RU: Record<string, string> = {
   'Close the dictionary': 'Закрыть словарь',
   'Close friends': 'Закрыть друзей',
   'Reconnecting…': 'Переподключение…',
+  // 0.9.9.9.5 — the streak flame
+  'Ash': 'Пепел', 'Spark': 'Искра', 'Ember': 'Уголь', 'Blaze': 'Пламя', 'Azure': 'Лазурь', 'Legend': 'Легенда',
+  'Legend flame': 'Пламя «Легенда»', 'Show the tasks': 'Показать задания', 'Hide the tasks': 'Скрыть задания',
   // 0.9.9.9.5 — invites (push, decline)
   'Invite sent — they get a notification on their phone': 'Приглашение отправлено — оно придёт уведомлением на телефон', 'Gets a notification on their phone': 'Получит уведомление на телефон',
   'They declined — you can invite them again in a few minutes': 'Отклонил(а) — пригласить снова можно через несколько минут',
@@ -830,6 +833,8 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^(.+) wants a rematch$/, (_, n) => `${n} хочет реванш`],
   [/^A story needs at least 8 words — your Onomatopoeia deck has (\d+)\. Study a few more onomatopoeia first\.$/, (_, n) => `Для рассказа нужно хотя бы 8 слов — в вашей колоде ономатопеи их ${n}. Сначала изучите ещё немного ономатопеи.`],
   [/^A story needs at least 8 kanji words — “(.+)” has (\d+) of the levels you ticked\. Tick more levels, pick another deck, or study more words\.$/, (_, d, n) => `Для рассказа нужно хотя бы 8 слов с кандзи — в «${RU[d] ?? d}» их ${n} среди отмеченных уровней. Отметьте больше уровней, выберите другую колоду или изучите больше слов.`],
+  [/^(Ash|Spark|Ember|Blaze|Inferno|Azure) flame · next: (\w+) at (\d+)$/, (_, a, b, n) => `Пламя «${RU[a] ?? a}» · дальше: «${RU[b] ?? b}» с ${n} дн.`],
+  [/^(Ash|Spark|Ember|Blaze|Inferno|Azure|Legend) · (\d+) days$/, (_, a, n) => `${RU[a] ?? a} · ${n} дн.`],
   [/^They declined your invite — you can invite them again in (\d+) min$/, 'Приглашение отклонено — пригласить снова можно через $1 мин'],
   [/^Declined · (\d+:\d\d)$/, 'Отклонено · $1'],
   [/^(.+) declined your invite$/, '$1 отклоняет приглашение'],
