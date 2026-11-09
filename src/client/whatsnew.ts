@@ -7,6 +7,29 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.5.1', date: '2026-11',
+    en: [
+      'New painted backgrounds — the castle, the plains, the forest, the swamp and the World Tree, by day, at sunset and at night — on the main menu, behind every page and in the classic arena, alive with fireflies, twinkling stars, shooting stars, torch flames, glowing runes, mist and light.',
+      'On a computer the main menu’s cards are a carousel: the one in the middle big and lit, the others turned away to the sides. Turn it with the arrows, ← →, the mouse wheel, by dragging, or click a side card.',
+      'Quizzes have their own card: the JLPT quiz, the onomatopoeia quiz and the reading passage. The JLPT quiz has a Kana level (hiragana and katakana, both ways, with look-alike answers), so the daily quiz works before you know any kanji.',
+      'Study spells holds kanji words only — locked (grey, with a lock) until you master hiragana. The daily study task counts kana too.',
+      'Kana practice: a new kana shows on a card with its reading and moves on by itself (no more single “got it” button); a ← Kana button like every page.',
+      'Invites reach your phone as a notification when the app is in the background too (they could get stuck in the paused app). Declining blocks the same friend for 2 minutes (was 5).',
+      'The streak banner says clearly which flame comes next and how many days are left, in that flame’s colour.',
+      'Smoother on phones: lighter animations, no blur behind panels, the streak flame no longer redraws itself every frame.',
+    ],
+    ru: [
+      'Новые рисованные фоны — замок, равнины, лес, болото и Мировое древо, днём, на закате и ночью — в главном меню, за каждой страницей и в классической арене, ожившие светлячками, мерцающими звёздами, падающими звёздами, пламенем факелов, светящимися рунами, туманом и светом.',
+      'На компьютере карточки главного меню стали каруселью: центральная — большая и подсвеченная, остальные развёрнуты по сторонам. Крутите стрелками, клавишами ← →, колёсиком мыши, перетаскиванием или нажатием на боковую карточку.',
+      'У тестов своя карточка: тест JLPT, тест на ономатопею и текст для чтения. В тесте JLPT появился уровень «Кана» (хирагана и катакана, в обе стороны, с похожими вариантами) — ежедневный тест можно пройти ещё до кандзи.',
+      'В «Изучать заклинания» только слова с кандзи — раздел закрыт (серый, с замком), пока вы не освоите хирагану. Ежедневное задание на изучение засчитывает и кану.',
+      'Практика каны: новый знак показывается на карточке с чтением и переходит дальше сам (без единственной кнопки «понятно»); кнопка «← Кана», как на всех страницах.',
+      'Приглашения приходят уведомлением на телефон, даже когда приложение свёрнуто (раньше они могли застрять в приостановленном приложении). После отказа тот же друг не может пригласить снова 2 минуты (было 5).',
+      'Баннер серии ясно показывает, какое пламя следующее и сколько дней осталось, — в цвете этого пламени.',
+      'Плавнее на телефонах: лёгкие анимации, без размытия за панелями, пламя серии больше не перерисовывается каждый кадр.',
+    ],
+  },
+  {
     v: '0.9.9.9.5', date: '2026-11',
     en: [
       'Kana — a new section for hiragana and katakana (main menu). A chart that turns green as you master each one, and practice by rows: new kana are shown first, then asked with look-alike answers (ぬ or め? きゃ or ちゃ?) until each has its stars. Hiragana and katakana have left All spells; what you had learned there carries over.',
