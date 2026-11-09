@@ -61,7 +61,7 @@ const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
 const stories = new StoryService();
 console.log(`Reading passage stories: ${stories.describe}`);
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId) });
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const rooms = new RoomManager({

@@ -29,6 +29,8 @@ export const STREAK_TIERS = [
   { min: 0, name: 'Ash' }, { min: 1, name: 'Spark' }, { min: 3, name: 'Ember' }, { min: 7, name: 'Blaze' },
   { min: 14, name: 'Inferno' }, { min: 30, name: 'Azure' }, { min: 100, name: 'Legend' },
 ] as const;
+/** each flame's main colour (for the "next flame" pill) */
+const TIER_COLOR = ['#9a9aae', '#ff8a2a', '#ffb000', '#ff2e63', '#b26bff', '#3aa0ff', '#ffd84d'];
 export const streakTier = (n: number) => { let t = 0; STREAK_TIERS.forEach((x, i) => { if (n >= x.min) t = i; }); return t; };
 let flameId = 0;
 /**
@@ -81,7 +83,16 @@ export function renderTasks(p: Profile) {
   );
   // the next colour of the flame
   const next = STREAK_TIERS[tier + 1];
-  const sub = mk('span', 'tb-sub', tr(next ? `${STREAK_TIERS[tier].name} flame · next: ${next.name} at ${next.min}` : `${STREAK_TIERS[tier].name} flame`));
+  // 0.9.9.9.5.1: the next flame, in its own colour, with how far there is to go (it was a faint line of text)
+  const sub = mk('span', 'tb-next');
+  sub.style.setProperty('--nc', TIER_COLOR[next ? tier + 1 : tier]);
+  sub.style.setProperty('--np', next ? `${Math.round(((streak - STREAK_TIERS[tier].min) / (next.min - STREAK_TIERS[tier].min)) * 100)}%` : '100%');
+  const left = next ? next.min - streak : 0;
+  sub.append(
+    mk('span', 'tn-flame', '🔥'),
+    mk('span', 'tn-text', next ? tr(`Next: ${next.name} — ${left} more ${left === 1 ? 'day' : 'days'}`) : tr('Legend flame — the highest')),
+    Object.assign(mk('span', 'tn-bar'), { innerHTML: '<i></i>' }),
+  );
   const dots = mk('span', 'tb-dots');
   for (const t of tasks) dots.append(mk('i', t.value >= t.target ? 'on' : ''));
   head.append(dots);

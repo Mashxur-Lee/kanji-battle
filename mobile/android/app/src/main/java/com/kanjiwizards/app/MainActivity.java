@@ -165,9 +165,15 @@ public class MainActivity extends Activity {
         else moveTaskToBack(true);
     }
 
+    /** 0.9.9.9.5.1: the app is on screen (a friend's invite then shows in the game, not as a notification) */
+    static volatile boolean visible = false;
+    private final android.os.Handler freeze = new android.os.Handler(android.os.Looper.getMainLooper());
+
     @Override
     protected void onResume() {
         super.onResume();
+        visible = true;
+        freeze.removeCallbacksAndMessages(null);
         web.resumeTimers();
         web.onResume();
     }
@@ -179,8 +185,15 @@ public class MainActivity extends Activity {
      */
     @Override
     protected void onPause() {
-        web.onPause();
-        web.pauseTimers();
+        visible = false;
+        // 0.9.9.9.5.1: the page says it's away and closes its connection first, then it is frozen — so the server
+        // sends friends' invites as notifications (a connection left open, frozen, swallowed them)
+        web.evaluateJavascript("window.__kwPause && window.__kwPause()", null);
+        freeze.postDelayed(() -> {
+            if (visible) return;
+            web.onPause();
+            web.pauseTimers();
+        }, 350);
         super.onPause();
     }
 

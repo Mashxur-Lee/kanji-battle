@@ -59,13 +59,15 @@ export interface ApiExtras {
   onError?: (where: string, e: unknown) => void;
   /** 0.9.9.7: the dictionary (online only — the offline engine has none) */
   dict?: DictService;
+  /** 0.9.9.9.5.1: whether push to the Android app is set up (FIREBASE_SERVICE_ACCOUNT) — shown to admins */
+  pushOn?: () => boolean;
   /** 0.9.9.9.5: "Decline" on an invite notification (the app was closed — no websocket) */
   inviteDecline?: (userId: string, name: string, fromId: string) => void;
 }
 
 /** Routes one /api/* call; null for any other path. */
 export function createApiRouter(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline } = extras;
+  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline, pushOn } = extras;
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
   const signupLimiter = new RateLimiter(10, 3600_000);
@@ -126,7 +128,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         return res(200, { ok: true });
       } else if (r.method === 'GET' && url === '/api/admin/stats') {
         await auth.requireAdmin(r.token);
-        return res(200, insights ? await insights.stats(await auth.store.list(), onlineCount?.() ?? 0) : {});
+        const users = await auth.store.list();
+        const stats = insights ? await insights.stats(users, onlineCount?.() ?? 0) : {};
+        // 0.9.9.9.5.1: push — on or off on this server, and how many accounts have a phone that can get it
+        return res(200, { ...stats, push: { on: pushOn?.() ?? false, phones: users.filter((u) => (u.pushTokens?.length ?? 0) > 0).length } });
       } else if (r.method === 'GET' && url === '/api/me') {
         let u = await auth.authenticate(r.token);
         if (query.get('today')) u = await study.touchLogin(u, resolveToday(query.get('today'))); // daily login streak
