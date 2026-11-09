@@ -15,7 +15,7 @@ interface UserRow {
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
   crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null; tutorial_done: boolean | null; unlocks: string[] | null;
   login_day: string | null; streak: number | null; best_streak: number | null; streak_day: string | null; border: string | null;
-  daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null; starred: string[] | null; nickname: string | null; last_seen?: string | number | null; kana?: KanaProgress | null;
+  daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null; starred: string[] | null; nickname: string | null; last_seen?: string | number | null; kana?: KanaProgress | null; push_tokens?: string[] | null;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
@@ -29,7 +29,7 @@ const toUser = (r: UserRow): UserRecord => ({
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
   wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant', tutorialDone: r.tutorial_done ?? true, unlocks: r.unlocks ?? [],
   loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0, streakDay: r.streak_day ?? null, border: r.border ?? 'none',
-  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null, starred: r.starred ?? [], nickname: r.nickname ?? null, lastSeen: r.last_seen != null ? Number(r.last_seen) : null, kana: r.kana ?? {},
+  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null, starred: r.starred ?? [], nickname: r.nickname ?? null, lastSeen: r.last_seen != null ? Number(r.last_seen) : null, kana: r.kana ?? {}, pushTokens: r.push_tokens ?? [],
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
@@ -42,7 +42,7 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
   critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff', tutorialDone: 'tutorial_done', unlocks: 'unlocks',
   loginDay: 'login_day', streak: 'streak', streakDay: 'streak_day', border: 'border', bestStreak: 'best_streak', role: 'role',
-  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred', nickname: 'nickname', lastSeen: 'last_seen', kana: 'kana',
+  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred', nickname: 'nickname', lastSeen: 'last_seen', kana: 'kana', pushTokens: 'push_tokens',
 };
 
 /**
@@ -213,6 +213,7 @@ export class PgStore implements Store {
     await this.sql`alter table kw_users add column if not exists starred text[] not null default '{}'`;
     // 0.9.9.9.5: the Kana section's progress
     await this.sql`alter table kw_users add column if not exists kana jsonb not null default '{}'::jsonb`;
+    await this.sql`alter table kw_users add column if not exists push_tokens jsonb not null default '[]'::jsonb`;
     // 0.9.9.6: a nickname others see (the login stays for signing in)
     await this.sql`alter table kw_users add column if not exists nickname text`;
     await this.sql`alter table kw_cards add column if not exists added_at bigint`;
@@ -266,6 +267,7 @@ export class PgStore implements Store {
     }
   }
   async list() { return (await this.sql<UserRow[]>`select * from kw_users order by created_at`).map(toUser); }
+  async usersWithPushToken(token: string) { return (await this.sql<UserRow[]>`select * from kw_users where push_tokens @> ${this.sql.json([token])}`).map(toUser); }
   async deleteUser(id: string) {
     // every other table refers to kw_users with "on delete cascade" (reports: set null)
     const r = await this.sql`delete from kw_users where id = ${id}`;
@@ -273,7 +275,7 @@ export class PgStore implements Store {
   }
   async update(id: string, patch: UserPatch) {
     const set: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(patch)) if (v !== undefined) set[COLUMNS[k as keyof UserPatch]] = (k === 'dailyPlan' || k === 'kana') && v !== null ? this.sql.json(v as never) : v;
+    for (const [k, v] of Object.entries(patch)) if (v !== undefined) set[COLUMNS[k as keyof UserPatch]] = (k === 'dailyPlan' || k === 'kana' || k === 'pushTokens') && v !== null ? this.sql.json(v as never) : v;
     if (Object.keys(set).length === 0) return this.findById(id);
     const [r] = await this.sql<UserRow[]>`update kw_users set ${this.sql(set)} where id = ${id} returning *`;
     return r ? toUser(r) : null;

@@ -17,6 +17,7 @@ import { DailyService } from './study/DailyService';
 import { SocialService } from './study/SocialService';
 import { RoomManager } from './RoomManager';
 import { deviceOf, Session, SessionHub } from './Session';
+import { Push } from './push';
 import { Bucket, clientIp, inlineScriptHashes, isPublicServer, securityHeaders, viaHttps } from './security';
 import { Matchmaker } from './Matchmaker';
 import { StoryService } from './study/StoryService';
@@ -41,12 +42,26 @@ const hub = new SessionHub((userId, at) => { void store.update(userId, { lastSee
 const daily = new DailyService(store, study.progress);
 daily.onPerfect = (id) => study.grantAchievements(id, undefined, ['perfect-day']);
 const social = new SocialService(store, hub);
+// 0.9.9.9.5: invites reach a friend's phone while the app is closed (Firebase; FIREBASE_SERVICE_ACCOUNT)
+const push = new Push(process.env.FIREBASE_SERVICE_ACCOUNT);
+console.log(`Push notifications: ${push.enabled ? 'on' : 'off (set FIREBASE_SERVICE_ACCOUNT to turn them on)'}`);
+hub.setNotifier(async (userId, data) => {
+  if (!push.enabled) return false;
+  const u = await store.findById(userId);
+  const tokens = u?.pushTokens ?? [];
+  if (!tokens.length) return false;
+  try {
+    const r = await push.send(tokens, data);
+    if (r.dead.length) await store.update(userId, { pushTokens: tokens.filter((t) => !r.dead.includes(t)) });
+    return r.sent > 0;
+  } catch (e) { reportServerError('push', e); return false; }
+});
 const recognizer = Recognizer.fromFile();
 const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
 const stories = new StoryService();
 console.log(`Reading passage stories: ${stories.describe}`);
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService() });
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId) });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const rooms = new RoomManager({

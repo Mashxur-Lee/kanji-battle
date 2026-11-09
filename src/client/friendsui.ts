@@ -19,7 +19,7 @@ const el = (tag: string, cls = '', text?: string | number) => {
 
 let friends: Friend[] = [];
 let fetchedAt = 0;
-let hooks: { send: (m: { type: 'invite'; friendId: string }) => void; join: (code: string) => void; inRoom: () => boolean };
+let hooks: { send: (m: { type: 'invite'; friendId: string } | { type: 'invite_decline'; fromId: string }) => void; join: (code: string) => void; inRoom: () => boolean };
 export function initFriends(h: typeof hooks) { hooks = h; }
 
 async function refresh(force = false) {
@@ -96,29 +96,42 @@ $('friendsRefresh').onclick = () => void openFriends();
 
 const INVITE_COOLDOWN_MS = 10_000;
 const invitedAt = new Map<string, number>();
+/** 0.9.9.9.5: friends who declined your invite → until when you can't invite them again (your clock) */
+const declinedUntil = new Map<string, number>();
+const mmss = (ms: number) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 let lobbyIds: string[] = [];
 let cooldownTimer = 0;
-/** Lobby: your online friends (not already in the room) with an Invite button — again after 10 s. */
+/**
+ * Lobby: your friends (not already in the room) with an Invite button — again after 10 s. Online ones first; then
+ * (0.9.9.9.5) those with the app closed whose phone gets the invite as a notification. Declined: not for 5 minutes.
+ */
 export async function renderLobbyInvites(isLobby: boolean, inRoom: string[] = lobbyIds) {
   const box = $('lobbyInvite');
   lobbyIds = inRoom;
   clearTimeout(cooldownTimer);
   if (!isLobby) { box.hidden = true; return; }
   await refresh();
-  const online = friends.filter((f) => f.status === 'accepted' && f.online && !lobbyIds.includes(f.id));
+  const mine = friends.filter((f) => f.status === 'accepted' && !lobbyIds.includes(f.id));
+  const online = [...mine.filter((f) => f.online && !f.away), ...mine.filter((f) => f.online && f.away), ...mine.filter((f) => !f.online && f.push)];
   box.hidden = online.length === 0;
   if (!online.length) return;
   let soonest = Infinity;
+  const now = Date.now();
   box.replaceChildren(el('h4', '', 'Invite friends'), ...online.map((f) => {
-    const r = el('div', 'li-row');
+    const r = el('div', 'li-row' + (f.online && !f.away ? '' : ' away'));
     const playing = !!f.activity?.startsWith('Playing');
-    const wait = INVITE_COOLDOWN_MS - (Date.now() - (invitedAt.get(f.id) ?? 0));
+    const wait = INVITE_COOLDOWN_MS - (now - (invitedAt.get(f.id) ?? 0));
+    const declined = (declinedUntil.get(f.id) ?? 0) - now;
     if (wait > 0) soonest = Math.min(soonest, wait);
-    const b = el('button', 'pill primary', playing ? 'In a game' : wait > 0 ? `Invited · ${Math.ceil(wait / 1000)}s` : invitedAt.has(f.id) ? 'Invite again' : 'Invite') as HTMLButtonElement;
-    b.disabled = playing || wait > 0;
-    b.title = playing ? 'They are playing — invite them when their game is over' : '';
+    if (declined > 0) soonest = Math.min(soonest, declined);
+    const label = playing ? 'In a game' : declined > 0 ? `Declined · ${mmss(declined)}` : wait > 0 ? `Invited · ${Math.ceil(wait / 1000)}s` : invitedAt.has(f.id) ? 'Invite again' : 'Invite';
+    const b = el('button', 'pill primary', label) as HTMLButtonElement;
+    b.disabled = playing || wait > 0 || declined > 0;
+    b.title = playing ? 'They are playing — invite them when their game is over' : declined > 0 ? 'They declined — you can invite them again in a few minutes' : '';
     b.onclick = () => { hooks.send({ type: 'invite', friendId: f.id }); invitedAt.set(f.id, Date.now()); void renderLobbyInvites(true); };
-    r.append(el('i', 'dot'), el('span', '', f.name ?? f.username), el('small', 'hint', f.activity ?? ''), b);
+    // (the app closed: the invite comes as a notification on their phone)
+    const where = f.online && !f.away ? f.activity ?? '' : 'Gets a notification on their phone';
+    r.append(el('i', 'dot'), el('span', '', f.name ?? f.username), el('small', 'hint', where), b);
     return r;
   }));
   // tick the countdown on the buttons
@@ -135,11 +148,14 @@ export function onInvite(msg: { fromId: string; from: string; code: string; mode
     close();
     hooks.join(msg.code); // leaves the room you're in first (lobby / results)
   };
-  no.onclick = close;
+  // 0.9.9.9.5: the friend is told, and can't invite you again for 5 minutes
+  no.onclick = () => { close(); hooks.send({ type: 'invite_decline', fromId: msg.fromId }); };
   box.replaceChildren(el('b', '', `${msg.from} invites you`), el('span', '', `to ${MODE_LABEL[msg.mode]} — room ${msg.code}`), el('div', 'ib-actions'));
   box.lastElementChild!.append(join, no);
   box.hidden = false;
+  box.classList.remove('ring'); void box.offsetWidth; box.classList.add('ring'); // (the card shakes a little, like a bell)
   audio.sfx.go();
+  try { navigator.vibrate?.([90, 70, 90]); } catch { /* no vibration */ }
   attention(`${msg.from} invites you`, `Join their ${MODE_LABEL[msg.mode]} room`);
   const t = window.setTimeout(close, 60_000);
 }
@@ -168,3 +184,11 @@ export function onFriendEvent(msg: { event: 'request' | 'accepted'; from: string
   ui.toast(msg.event === 'request' ? `${msg.from} wants to be your friend — see Friends` : `${msg.from} accepted your friend request`, 5000);
   void refresh(true).then(() => { if (ui.currentScreen() === 'friends') render(); });
 }
+
+/** 0.9.9.9.5: the friend you invited said no — the lobby shows "Declined · 4:59" until you may ask again */
+export function onInviteDeclined(msg: { friendId: string; name: string; until: number }) {
+  declinedUntil.set(msg.friendId, Date.now() + DECLINE_BLOCK_MS);
+  ui.toast(`${msg.name} declined your invite`);
+  void renderLobbyInvites(!$('lobbyInvite').hidden || ui.currentScreen() === 'lobby');
+}
+const DECLINE_BLOCK_MS = 5 * 60_000;

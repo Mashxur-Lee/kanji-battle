@@ -174,6 +174,8 @@ export type ClientMessage =
   | { type: 'remove_bot'; id: string }
   /** invite a friend into the room you're in (lobby) */
   | { type: 'invite'; friendId: string }
+  /** 0.9.9.9.5: "Decline" on a friend's invite — they can't invite you again for 5 minutes */
+  | { type: 'invite_decline'; fromId: string }
   | { type: 'chat'; text: string }
   /** 3D mouse look: where you are looking (radians; + = left / up), sent a few times a second */
   | { type: 'look'; yaw: number; pitch: number }
@@ -219,6 +221,8 @@ export type ServerMessage =
   | { type: 'friend'; event: 'request' | 'accepted'; from: string }
   /** a friend invites you to their room */
   | { type: 'invite'; fromId: string; from: string; code: string; mode: GameMode }
+  /** 0.9.9.9.5: the friend you invited declined — no inviting them again until `until` (server time) */
+  | { type: 'invite_declined'; friendId: string; name: string; until: number }
   | { type: 'chat'; messages: ChatMessage[] }
   /** another player's mouse look (their model turns its head) */
   | { type: 'look'; id: PlayerId; yaw: number; pitch: number }

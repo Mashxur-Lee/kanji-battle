@@ -18,7 +18,7 @@ export interface DailyOverview { league?: string; nextLeague?: string; promoteAt
   /** 0.9.9.8.2: every league's board */
   boards?: Record<string, Array<{ id: string; name: string; correct: number; ms: number }>>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
-export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device }
+export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device; /** 0.9.9.9.5: has the app with push — an invite reaches their phone */ push?: boolean }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; onoDaily?: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean; ono?: OnoType }
@@ -120,6 +120,9 @@ export const api = {
   searchWords: (q: string) => call<{ words: WordHit[] }>('GET', `/api/study/search?q=${encodeURIComponent(q)}`),
   // the app names a new custom word itself (0.9.9.4), so one added offline keeps its id on the server
   addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', { ...w, id: `u:${uuid().slice(0, 13)}` }),
+  /** 0.9.9.9.5: the Android app's push token (friends' invites while the app is closed) */
+  pushRegister: (token: string) => call<{ ok: boolean }>('PUT', '/api/push', { token }),
+  pushUnregister: (token: string) => call<{ ok: boolean }>('DELETE', '/api/push', { token }),
   quiz: (n = 10, deck?: string, levels?: string[]) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}${deck ? `&deck=${deck}` : ''}${levels?.length ? `&levels=${levels.join(',')}` : ''}`),
   /** 0.9.9.4.4.1: one story with these words (null when the AI is off or failed) */
   story: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>, level?: string) => call<{ story: { title: { ja: string; en: string; ru: string }; lines: Array<{ ja: string; en: string; ru: string; words: number[] }> } | null; why?: string; usage?: StoryUsage }>('POST', '/api/study/story', { words, level, today: today() }),

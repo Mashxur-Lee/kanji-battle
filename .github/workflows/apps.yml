@@ -73,6 +73,12 @@ jobs:
           if [ -n "$KS_B64" ]; then echo "$KS_B64" | base64 -d > mobile/android/release.jks; echo "signing with the release key";
           elif [ "${{ github.ref }}" = "refs/heads/main" ]; then echo "::error title=Signing key::Add the ANDROID_KEYSTORE_B64 and ANDROID_KEYSTORE_PASSWORD secrets"; exit 1;
           else echo "::warning title=Signing key::no release key here — a debug-signed test build"; fi
+      - name: Firebase (push)
+        env:
+          GS_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GS_JSON" ]; then printf '%s' "$GS_JSON" > mobile/android/google-services.json; echo "push: on";
+          else echo "::warning title=Push::no GOOGLE_SERVICES_JSON secret — the app is built without push notifications"; fi
       - name: Build the APK
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}

@@ -34,7 +34,8 @@ import { customizeHidden, onProfileChange, openCustomize, openStudy } from './st
 import * as ui from './ui';
 import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
-import { closeRematchAsk, initFriends, onFriendEvent, onInvite, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
+import { closeRematchAsk, initFriends, onFriendEvent, onInvite, onInviteDeclined, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
+import { pushSignedOut, registerPush } from './push';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
@@ -333,12 +334,13 @@ function showAuth(message = '') {
 
 function logout(message = '') {
   const reminders = remindersSignedOut(); // (before the token goes)
+  const push = pushSignedOut();
   setToken('');
   socket.stop();
   // 0.9.9.6: start the page afresh, so nothing of this account (study plan, story limit, stars, settings
   // from the server) carries over to the next one who signs in
   try { sessionStorage.setItem('kw:auth-msg', message); } catch { /* private mode */ }
-  void Promise.allSettled([reminders, offline.signedOut()]).finally(() => location.reload());
+  void Promise.allSettled([reminders, push, offline.signedOut()]).finally(() => location.reload());
 }
 
 function backToMenu() {
@@ -379,6 +381,11 @@ function onMessage(msg: ServerMessage) {
       user = msg.user;
       ui.setUser(msg.user);
       void refreshOnline(); // now this player counts too
+      registerPush(msg.user.id); // 0.9.9.9.5: friends' invites reach this phone while the app is closed
+      joinFromLink();
+      break;
+    case 'invite_declined':
+      onInviteDeclined(msg);
       break;
     case 'auth_error':
       logout(msg.message);
@@ -809,15 +816,28 @@ function challengeFriend(friendId: string, name: string, mode: GameMode) {
 }
 
 ui.$('progressBtn').onclick = () => void openProgress(profile?.unlocks ?? [], profile?.badges ?? [], (b) => { if (profile) { profile = { ...profile, badges: b }; ui.setBadges(b); } });
+/**
+ * 0.9.9.9.5: "Join" on an invite notification opens the app at …/?join=CODE: once signed in, straight into that room
+ * (the link is cleared first, so a reload doesn't join again).
+ */
+function joinFromLink() {
+  let c = '';
+  try { c = new URLSearchParams(location.search).get('join') ?? ''; } catch { /* no URL */ }
+  if (!c) return;
+  try { history.replaceState(history.state, '', location.pathname + location.hash); } catch { /* fine */ }
+  if (!/^[A-Za-z0-9]{4}$/.test(c)) return;
+  joinRoom(c.toUpperCase());
+}
+function joinRoom(c: string) {
+  askNotifyPermission();
+  if (!inRoom) return socket.send({ type: 'join', code: c, levels: savedLevels() });
+  // in another room's lobby / results: leave it, then join (when the server says we've left)
+  pendingJoin = c;
+  socket.send({ type: 'leave' });
+}
 initFriends({
   send: (m) => socket.send(m),
-  join: (c) => {
-    askNotifyPermission();
-    if (!inRoom) return socket.send({ type: 'join', code: c, levels: savedLevels() });
-    // in another room's lobby / results: leave it, then join (when the server says we've left)
-    pendingJoin = c;
-    socket.send({ type: 'leave' });
-  },
+  join: (c) => joinRoom(c),
   inRoom: () => inRoom,
 });
 initSelects();

@@ -4,6 +4,27 @@ plugins {
 
 // Kanji Wizards for Android (0.9.9.4): a small WebView app around the game's website.
 // Version: -PversionName=0.9.9.4 -PversionCode=<build number> (set by .github/workflows/apps.yml)
+
+// 0.9.9.9.5: push (friends' invites) through Firebase. CI writes mobile/android/google-services.json from the
+// GOOGLE_SERVICES_JSON secret; its values become the resources Firebase starts from (what the Google Services
+// plugin would generate). Without the file the app builds the same — just without push.
+def gsFile = rootProject.file('google-services.json')
+def fb = null
+if (gsFile.exists()) {
+    def j = new groovy.json.JsonSlurper().parse(gsFile)
+    def client = j.client.find { it.client_info?.android_client_info?.package_name == 'com.kanjiwizards.app' } ?: j.client[0]
+    fb = [
+        appId: client.client_info.mobilesdk_app_id,
+        apiKey: client.api_key[0].current_key,
+        projectId: j.project_info.project_id,
+        sender: j.project_info.project_number,
+        bucket: j.project_info.storage_bucket ?: '',
+    ]
+    println "Firebase push: on (project ${fb.projectId})"
+} else {
+    println 'Firebase push: off (no google-services.json)'
+}
+
 android {
     namespace 'com.kanjiwizards.app'
     compileSdk 36
@@ -15,6 +36,14 @@ android {
         versionCode((project.findProperty('versionCode') ?: '1') as int)
         versionName((project.findProperty('versionName') ?: '0.9.9.4') as String)
         buildConfigField 'String', 'SERVER', '"' + (project.findProperty('server') ?: 'https://kanji-battle-ev0o.onrender.com') + '"'
+        buildConfigField 'boolean', 'PUSH', fb ? 'true' : 'false'
+        if (fb) {
+            resValue 'string', 'google_app_id', fb.appId
+            resValue 'string', 'gcm_defaultSenderId', fb.sender
+            resValue 'string', 'google_api_key', fb.apiKey
+            resValue 'string', 'project_id', fb.projectId
+            resValue 'string', 'google_storage_bucket', fb.bucket
+        }
     }
 
     // 0.9.9.9.3: signed with a private key that is NOT in this repository (the old beta key and its password were
@@ -42,4 +71,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+dependencies {
+    // 0.9.9.9.5: push (friends' invites) — Firebase Cloud Messaging
+    implementation 'com.google.firebase:firebase-messaging:24.1.0'
 }

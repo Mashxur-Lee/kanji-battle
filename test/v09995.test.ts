@@ -309,3 +309,95 @@ test('0.9.9.9.5 JLPT quiz: four different choices, one right; words from the dec
   assert.equal((r!.body as { questions: unknown[] }).questions.length, 10);
   assert.equal(((await ask('n=10&deck=all'))!.body as { questions: unknown[] }).questions.length, 0);
 });
+
+test('0.9.9.9.5 push: the service account JWT is RS256-signed; data messages go to each token; gone tokens come back', async () => {
+  const { generateKeyPairSync, createVerify } = await import('node:crypto');
+  const { Push, parseServiceAccount, serviceJwt } = await import('../src/server/push');
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const sa = { project_id: 'kw-test', client_email: 'push@kw-test.iam.gserviceaccount.com', private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() };
+  assert.equal(parseServiceAccount(undefined), null);
+  assert.equal(parseServiceAccount('nonsense'), null);
+  assert.equal(parseServiceAccount(JSON.stringify(sa))?.project_id, 'kw-test');
+  assert.equal(parseServiceAccount(Buffer.from(JSON.stringify(sa)).toString('base64'))?.client_email, sa.client_email, 'base64 too');
+  const jwt = serviceJwt(sa, 1_000_000);
+  const [h, c, s] = jwt.split('.');
+  const claims = JSON.parse(Buffer.from(c, 'base64url').toString());
+  assert.equal(claims.iss, sa.client_email);
+  assert.equal(claims.scope, 'https://www.googleapis.com/auth/firebase.messaging');
+  assert.equal(claims.exp - claims.iat, 3600);
+  assert.ok(createVerify('RSA-SHA256').update(`${h}.${c}`).verify(publicKey, Buffer.from(s, 'base64url')), 'signature checks out');
+  // sending
+  const calls: Array<{ url: string; body: string; auth?: string }> = [];
+  const fake = async (url: string, init: { headers: Record<string, string>; body: string }) => {
+    calls.push({ url, body: init.body, auth: init.headers.Authorization });
+    const ok = (status: number, j: unknown) => ({ ok: status < 300, status, json: async () => j, text: async () => JSON.stringify(j) });
+    if (url.includes('oauth2')) return ok(200, { access_token: 'AT', expires_in: 3600 });
+    const token = JSON.parse(init.body).message.token;
+    return token === 'gone' ? ok(404, { error: { status: 'NOT_FOUND', details: [{ errorCode: 'UNREGISTERED' }] } }) : ok(200, { name: 'm/1' });
+  };
+  const push = new Push(JSON.stringify(sa), fake as never);
+  assert.equal(push.enabled, true);
+  const r = await push.send(['tokA', 'gone'], { kind: 'invite', from: 'Mia', code: 'ABCD', mode: 'Rapid' });
+  assert.deepEqual(r, { sent: 1, dead: ['gone'] });
+  const msg = calls.find((x) => x.url.endsWith('/v1/projects/kw-test/messages:send'))!;
+  assert.equal(msg.auth, 'Bearer AT');
+  const m = JSON.parse(msg.body).message;
+  assert.equal(m.data.code, 'ABCD');
+  assert.equal(m.android.priority, 'high');
+  await push.send(['tokA'], { kind: 'invite' });
+  assert.equal(calls.filter((x) => x.url.includes('oauth2')).length, 1, 'the access token is reused');
+  assert.deepEqual(await new Push(undefined).send(['x'], {}), { sent: 0, dead: [] }, 'off without a service account');
+});
+
+test('0.9.9.9.5 invites: declined → no inviting them again for 5 minutes; invites wait for an app that was closed', async () => {
+  const { inviteRefusal, SessionHub, DECLINE_BLOCK_MS, INVITE_KEEP_MS } = await import('../src/server/Session');
+  const now = 1_000_000_000;
+  assert.match(inviteRefusal({ inRoom: false, declinedAt: now - 60_000, now })!, /declined your invite — you can invite them again in 4 min/);
+  assert.equal(inviteRefusal({ inRoom: false, declinedAt: now - DECLINE_BLOCK_MS - 1, now }), null);
+  const hub = new SessionHub();
+  const sent: Array<{ to: string; msg: unknown }> = [];
+  (hub as unknown as { sendTo: (to: string, msg: unknown) => boolean }).sendTo = (to, msg) => { sent.push({ to, msg }); return true; };
+  const inv = (code: string, fromId = 'host') => ({ type: 'invite' as const, fromId, from: 'Host', code, mode: 'rapid' as const });
+  hub.addInvite('mia', inv('AAAA'), now);
+  hub.addInvite('mia', inv('BBBB', 'other'), now + 1000);
+  hub.addInvite('mia', inv('CCCC'), now + 2000); // the same host again: replaces their first
+  assert.deepEqual(hub.takeInvites('mia', (c) => c !== 'BBBB', now + 3000).map((x) => x.code), ['CCCC'], 'only open rooms');
+  assert.deepEqual(hub.takeInvites('mia', () => true, now + 3000), [], 'taken once');
+  hub.addInvite('mia', inv('DDDD'), now);
+  assert.deepEqual(hub.takeInvites('mia', () => true, now + INVITE_KEEP_MS + 1), [], 'they run out');
+  // decline: the host is told, the waiting invite goes, and the block is on
+  hub.addInvite('mia', inv('EEEE'), now);
+  hub.decline('mia', 'Mia', 'host', now);
+  assert.deepEqual(sent.at(-1), { to: 'host', msg: { type: 'invite_declined', friendId: 'mia', name: 'Mia', until: now + DECLINE_BLOCK_MS } });
+  assert.equal(hub.declinedAt('host', 'mia'), now);
+  assert.equal(hub.declinedAt('mia', 'host'), undefined, 'one way only');
+  assert.deepEqual(hub.takeInvites('mia', () => true, now), []);
+  // push: false without a notifier, its answer with one
+  assert.equal(await hub.notify('mia', { kind: 'invite' }), false);
+  hub.setNotifier(async () => true);
+  assert.equal(await hub.notify('mia', { kind: 'invite' }), true);
+  hub.setNotifier(async () => { throw new Error('down'); });
+  assert.equal(await hub.notify('mia', { kind: 'invite' }), false, 'a failing push is just "not sent"');
+});
+
+test('0.9.9.9.5 push tokens: kept per account (newest 4); a phone signing in as someone else moves its token; routes', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const auth = new AuthService(store, new TokenSigner('t'));
+  const declined: string[] = [];
+  const route = createApiRouter(auth, study, { inviteDecline: (id, name, fromId) => declined.push(`${name}:${fromId}`) });
+  const a = await auth.register('pusha', 'secret12');
+  const b = await auth.register('pushb', 'secret12');
+  const call = (token: string, method: string, url: string, body: unknown) => route({ method, url, query: new URLSearchParams(), token, ip: '1.2.3.4', json: async () => body });
+  const tok = (n: number) => `fcm-token-${n}-${'x'.repeat(30)}`;
+  for (let i = 1; i <= 5; i++) assert.equal((await call(a.token, 'PUT', '/api/push', { token: tok(i) }))?.status, 200);
+  assert.deepEqual((await store.findById(a.user.id))!.pushTokens, [tok(2), tok(3), tok(4), tok(5)]);
+  assert.equal((await call(a.token, 'PUT', '/api/push', { token: 'bad token!' }))?.status, 400);
+  await call(b.token, 'PUT', '/api/push', { token: tok(5) });
+  assert.deepEqual((await store.findById(a.user.id))!.pushTokens, [tok(2), tok(3), tok(4)], 'the phone now belongs to b');
+  assert.deepEqual((await store.findById(b.user.id))!.pushTokens, [tok(5)]);
+  await call(b.token, 'DELETE', '/api/push', { token: tok(5) });
+  assert.deepEqual((await store.findById(b.user.id))!.pushTokens, []);
+  assert.equal((await call(b.token, 'POST', '/api/invite/decline', { fromId: a.user.id }))?.status, 200);
+  assert.deepEqual(declined, [`pushb:${a.user.id}`]);
+});

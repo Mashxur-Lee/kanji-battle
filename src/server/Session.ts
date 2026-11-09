@@ -52,6 +52,43 @@ export class SessionHub {
   }
   private parked = new Map<string, { at: number; device: Device }>();
   get onlineCount() { return this.byUser.size; }
+
+  // ── 0.9.9.9.5: invites that wait, push, and "declined" ─────────────────────
+  /** invites not yet answered, per invitee (the app in the background had no connection: they come on reconnect) */
+  private invites = new Map<string, Array<{ msg: InviteMsg; at: number }>>();
+  /** `${inviter}>${invitee}` → when the invitee declined (the inviter can't invite them again for a while) */
+  private declines = new Map<string, number>();
+  private notifier: ((userId: string, data: Record<string, string>) => Promise<boolean>) | null = null;
+  /** index.ts: how to push to someone's phone (Firebase); without it nothing is pushed */
+  setNotifier(fn: (userId: string, data: Record<string, string>) => Promise<boolean>) { this.notifier = fn; }
+  /** a push to the player's phone(s) — true when at least one got it */
+  async notify(userId: string, data: Record<string, string>): Promise<boolean> {
+    try { return this.notifier ? await this.notifier(userId, data) : false; } catch { return false; }
+  }
+  addInvite(to: string, msg: InviteMsg, now = Date.now()) {
+    const list = (this.invites.get(to) ?? []).filter((x) => now - x.at < INVITE_KEEP_MS && x.msg.fromId !== msg.fromId);
+    this.invites.set(to, [...list, { msg, at: now }].slice(-3));
+  }
+  /** invites still waiting for this player (newest last), for rooms still open — then forgotten */
+  takeInvites(to: string, open: (code: string) => boolean, now = Date.now()): InviteMsg[] {
+    const list = (this.invites.get(to) ?? []).filter((x) => now - x.at < INVITE_KEEP_MS && open(x.msg.code));
+    this.invites.delete(to);
+    return list.map((x) => x.msg);
+  }
+  dropInvites(to: string, fromId?: string) {
+    if (!fromId) { this.invites.delete(to); return; }
+    const list = (this.invites.get(to) ?? []).filter((x) => x.msg.fromId !== fromId);
+    if (list.length) this.invites.set(to, list); else this.invites.delete(to);
+  }
+  /** `who` declined `fromId`'s invite: they can't be invited by them again for 5 minutes; the inviter is told */
+  decline(who: string, whoName: string, fromId: string, now = Date.now()) {
+    if (!fromId || fromId === who) return;
+    this.dropInvites(who, fromId);
+    this.declines.set(`${fromId}>${who}`, now);
+    for (const [k, at] of this.declines) if (now - at > DECLINE_BLOCK_MS) this.declines.delete(k);
+    this.sendTo(fromId, { type: 'invite_declined', friendId: who, name: whoName, until: now + DECLINE_BLOCK_MS });
+  }
+  declinedAt(fromId: string, who: string) { return this.declines.get(`${fromId}>${who}`); }
   claim(userId: string, s: Session) {
     this.parked.delete(userId);
     const old = this.byUser.get(userId);
@@ -82,15 +119,23 @@ export const SCREEN_ACTIVITY: Record<string, string> = {
   study: 'Studying spells', review: 'Studying spells', deck: 'Studying spells', quiz: 'Taking a JLPT quiz', onoquiz: 'Taking an onomatopoeia quiz', passage: 'Reading a passage',
   daily: 'Playing the daily challenge', customize: 'Customizing', progress: 'Looking at their progress', history: 'Looking at match history', friends: 'With friends',
 };
-export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; now: number }): string | null {
+export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; declinedAt?: number; now: number }): string | null {
   if (o.inRoom) return 'Your friend is already in this room';
   if (o.activity?.startsWith('Playing')) return 'Your friend is in a game right now — invite them when it\'s over';
+  // 0.9.9.9.5: they said no — no asking again and again
+  const block = DECLINE_BLOCK_MS - (o.now - (o.declinedAt ?? -Infinity));
+  if (block > 0) return `They declined your invite — you can invite them again in ${Math.ceil(block / 60_000)} min`;
   const wait = INVITE_COOLDOWN_MS - (o.now - (o.lastAt ?? -Infinity));
   if (wait > 0) return `Wait ${Math.ceil(wait / 1000)} s before inviting them again`;
   return null;
 }
 /** A host can invite the same friend again after this long (e.g. they missed it, or left another room first). */
 export const INVITE_COOLDOWN_MS = 10_000;
+/** 0.9.9.9.5: after "Decline", the same friend can't invite you again for this long */
+export const DECLINE_BLOCK_MS = 5 * 60_000;
+/** an invite the friend couldn't get right away (app in the background) waits this long for them */
+export const INVITE_KEEP_MS = 2 * 60_000;
+type InviteMsg = Extract<ServerMessage, { type: 'invite' }>;
 
 export class Session implements Client {
   private user?: PublicUser;
@@ -206,19 +251,30 @@ export class Session implements Client {
       this.matchmaker?.cancel(user.id, false);
       const room = this.rooms.get(String(msg.code ?? ''));
       if (!room) return this.send({ type: 'error', message: 'Room not found' });
+      this.hub.dropInvites(user.id); // (answered by joining)
       return await this.enter(room, parseLevels(msg.levels));
     }
 
+    // 0.9.9.9.5: "Decline" on a friend's invite (you may be in no room at all)
+    if (msg.type === 'invite_decline') { this.hub.decline(user.id, user.name ?? user.username, String(msg.fromId ?? '')); return; }
     const room = this.room;
     if (!room) return;
     if (msg.type === 'invite') {
       const friendId = String(msg.friendId ?? '');
       if (room.stage !== 'lobby') return this.send({ type: 'error', message: 'Invite friends from the lobby' });
       if (!this.social || !(await this.social.areFriends(user.id, friendId))) return this.send({ type: 'error', message: 'You can only invite friends' });
-      const refused = inviteRefusal({ inRoom: room.has(friendId), activity: this.hub.presence(friendId).activity, lastAt: this.invitedAt.get(friendId), now: Date.now() });
+      const presence = this.hub.presence(friendId);
+      const refused = inviteRefusal({ inRoom: room.has(friendId), activity: presence.activity, lastAt: this.invitedAt.get(friendId), declinedAt: this.hub.declinedAt(user.id, friendId), now: Date.now() });
       if (refused) return this.send({ type: 'notice', message: refused });
       this.invitedAt.set(friendId, Date.now());
-      if (!this.hub.sendTo(friendId, { type: 'invite', fromId: user.id, from: user.name ?? user.username, code: room.code, mode: room.mode })) return this.send({ type: 'error', message: 'Your friend is offline' });
+      const invite: InviteMsg = { type: 'invite', fromId: user.id, from: user.name ?? user.username, code: room.code, mode: room.mode };
+      // 0.9.9.9.5: it waits for them (an app in the background has no connection — it comes when they're back), and
+      // a phone that isn't connected (or is in the background) gets a notification
+      this.hub.addInvite(friendId, invite);
+      const live = this.hub.sendTo(friendId, invite);
+      if (live && !presence.away) return;
+      const pushed = await this.hub.notify(friendId, { kind: 'invite', fromId: user.id, from: invite.from, code: room.code, mode: MODE_LABEL[room.mode] });
+      if (!live) this.send(pushed ? { type: 'notice', message: 'Invite sent — they get a notification on their phone' } : { type: 'error', message: 'Your friend is offline' });
       return;
     }
     switch (msg.type) {
@@ -310,6 +366,8 @@ export class Session implements Client {
       this.hub.claim(rec.id, this);
       this.send({ type: 'welcome', user: this.user });
       this.startPings();
+      // 0.9.9.9.5: invites that came while the app was closed / in the background
+      for (const inv of this.hub.takeInvites(rec.id, (code) => this.rooms.get(code)?.stage === 'lobby')) this.send(inv);
       // Back from the background / a refresh: take the seat back.
       const room = this.rooms.roomOf(rec.id);
       if (room) { this.room = room; room.setProfile(rec.id, await this.profile()); room.reconnect(rec.id, this); }

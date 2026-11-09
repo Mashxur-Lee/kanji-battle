@@ -39,6 +39,8 @@ export interface UserRecord {
   starred?: string[];
   /** 0.9.9.9.5: the Kana section — stars and mastery per hiragana / katakana */
   kana?: KanaProgress;
+  /** 0.9.9.9.5: the Android app's push tokens (Firebase) — friends' invites reach the phone while the app is closed */
+  pushTokens?: string[];
   /** 0.9.9.6: the name others see (null: the login) */
   nickname?: string | null;
   /** 0.9.9.9: when they were last connected (epoch ms; friends see "last online …") */
@@ -49,7 +51,7 @@ export interface UserRecord {
 export interface DailyPlan { per: Partial<Record<Level, number>>; day: string | null; done: Partial<Record<Level, number>> }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -59,6 +61,8 @@ export interface Store {
   findById(id: string): Promise<UserRecord | null>;
   create(u: NewUser): Promise<UserRecord>;
   list(): Promise<UserRecord[]>;
+  /** 0.9.9.9.5: the accounts that have this phone's push token (one phone signs in as one account at a time) */
+  usersWithPushToken?(token: string): Promise<UserRecord[]>;
   update(id: string, patch: UserPatch): Promise<UserRecord | null>;
   /** Delete an account and everything of it (cards, picture, history, friends …). */
   deleteUser(id: string): Promise<boolean>;
@@ -169,6 +173,7 @@ export class MemoryStore implements Store {
     return { ...rec };
   }
   async list() { return [...this.users.values()].map((r) => ({ ...r })).sort((a, b) => a.createdAt.localeCompare(b.createdAt)); }
+  async usersWithPushToken(token: string) { return [...this.users.values()].filter((r) => r.pushTokens?.includes(token)).map((r) => ({ ...r })); }
   async deleteUser(id: string) {
     if (!this.users.delete(id)) return false;
     this.srs.delete(id); this.custom.delete(id); this.avatars.delete(id); this.history.delete(id); this.activityLog.delete(id);

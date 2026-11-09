@@ -59,11 +59,13 @@ export interface ApiExtras {
   onError?: (where: string, e: unknown) => void;
   /** 0.9.9.7: the dictionary (online only — the offline engine has none) */
   dict?: DictService;
+  /** 0.9.9.9.5: "Decline" on an invite notification (the app was closed — no websocket) */
+  inviteDecline?: (userId: string, name: string, fromId: string) => void;
 }
 
 /** Routes one /api/* call; null for any other path. */
 export function createApiRouter(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict } = extras;
+  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline } = extras;
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
   const signupLimiter = new RateLimiter(10, 3600_000);
@@ -138,6 +140,17 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         await study.setAvatar(u, (await r.json(120 * 1024)).image);
         return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+      } else if ((r.method === 'PUT' || r.method === 'DELETE') && url === '/api/push') {
+        // 0.9.9.9.5: the Android app's push token (friends' invites while the app is closed); DELETE at logout
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        await (r.method === 'PUT' ? study.addPushToken(u, body.token) : study.dropPushToken(u, body.token));
+        return res(200, { ok: true });
+      } else if (r.method === 'POST' && url === '/api/invite/decline') {
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        inviteDecline?.(u.id, u.nickname || u.username, String(body.fromId ?? ''));
+        return res(200, { ok: true });
       } else if (r.method === 'DELETE' && url === '/api/me/avatar') {
         const u = await auth.authenticate(r.token);
         await study.setAvatar(u, null);

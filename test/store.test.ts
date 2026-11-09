@@ -303,3 +303,22 @@ for (const [name, make] of stores) {
     await s.close?.();
   });
 }
+
+for (const [name, make] of stores) {
+  test(`store: kana progress and push tokens are saved; accounts by push token (0.9.9.9.5, ${name})`, async () => {
+    const s = make();
+    await s.init();
+    const u = await s.create({ username: `push-${name}-${Date.now()}`, passwordHash: 'h', role: 'user' });
+    assert.deepEqual(u.pushTokens ?? [], []);
+    const tok = `tok-${name}-${Date.now()}-${'y'.repeat(24)}`;
+    await s.update(u.id, { pushTokens: [tok], kana: { あ: { s: 3, m: true } } });
+    const back = (await s.findById(u.id))!;
+    assert.deepEqual(back.pushTokens, [tok]);
+    assert.deepEqual(back.kana, { あ: { s: 3, m: true } });
+    assert.deepEqual((await s.usersWithPushToken!(tok)).map((x) => x.id), [u.id]);
+    assert.deepEqual(await s.usersWithPushToken!(`${tok}-none`), []);
+    await s.update(u.id, { pushTokens: [] });
+    assert.deepEqual(await s.usersWithPushToken!(tok), []);
+    await s.close?.();
+  });
+}
