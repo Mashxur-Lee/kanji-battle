@@ -47,12 +47,14 @@ let savedPlan: Partial<Record<Level, number>> = {};
 let draftPlan: Partial<Record<Level, number>> = {};
 const lockedLv = new Set<Level>();
 /** The day's total — locked levels give no words, so they don't count. */
-const planTotal = (p: Partial<Record<Level, number>>) => LEVELS.reduce((a, l) => a + (lockedLv.has(l) ? 0 : p[l] ?? 0), 0);
+const planTotal = (p: Partial<Record<Level, number>>) => PLAN_LEVELS.reduce((a, l) => a + (lockedLv.has(l) ? 0 : p[l] ?? 0), 0);
+/** 0.9.9.9.5: the word levels — hiragana and katakana are learned in the Kana section, not in All spells */
+const PLAN_LEVELS = LEVELS.filter((l) => l !== 'KANA' && l !== 'KATA');
 function levelPlan(per: Partial<Record<Level, number>>) {
   savedPlan = { ...per };
   draftPlan = { ...per };
   const box = $('studyLevels');
-  box.replaceChildren(...LEVELS.map((lv) => {
+  box.replaceChildren(...PLAN_LEVELS.map((lv) => {
     const row = document.createElement('div');
     row.className = 'lp-row';
     row.dataset.level = lv;
@@ -76,10 +78,9 @@ function levelPlan(per: Partial<Record<Level, number>>) {
     step.className = 'lp-step';
     step.append(minus, input, plus);
     row.append(name, step);
-    const locked = ui.lockLevelChip(row, lv);
-    // 0.9.9.4.4.5: a locked level (かな beginner) keeps its number — greyed out, unchangeable, no words from it
-    if (locked.classList.contains('locked')) { input.disabled = minus.disabled = plus.disabled = true; lockedLv.add(lv); } else lockedLv.delete(lv);
-    return locked;
+    // (0.9.9.9.5: no level is locked here any more — a かな beginner learns kana in the Kana section meanwhile)
+    lockedLv.delete(lv);
+    return row;
   }));
   planChanged();
 }
@@ -94,16 +95,16 @@ function planChanged() {
   const tot = $('dailyTotal');
   tot.hidden = !total;
   tot.replaceChildren(Object.assign(document.createElement('b'), { textContent: String(total) }), document.createTextNode(` ${tr('new spells a day')}`));
-  const dirty = LEVELS.some((l) => (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
+  const dirty = PLAN_LEVELS.some((l) => (draftPlan[l] ?? 0) !== (savedPlan[l] ?? 0));
   const bar = $('planApply');
   bar.hidden = !dirty;
   if (!dirty) return;
-  const more = LEVELS.reduce((a, l) => a + Math.max(0, (draftPlan[l] ?? 0) - (savedPlan[l] ?? 0)), 0);
+  const more = PLAN_LEVELS.reduce((a, l) => a + Math.max(0, (draftPlan[l] ?? 0) - (savedPlan[l] ?? 0)), 0);
   $('planApplyText').textContent = more ? `Adds up to ${more} new words to “All spells” today` : 'Fewer new words from tomorrow';
 }
 $('planApplyBtn').onclick = async () => {
   const per: Partial<Record<Level, number>> = {};
-  for (const l of LEVELS) if ((draftPlan[l] ?? 0) > 0) per[l] = draftPlan[l];
+  for (const l of PLAN_LEVELS) if ((draftPlan[l] ?? 0) > 0) per[l] = draftPlan[l];
   const btn = $<HTMLButtonElement>('planApplyBtn');
   btn.disabled = true;
   try { render(await api.setDailyLevels(per)); } catch (err) { ui.toast((err as Error).message); }

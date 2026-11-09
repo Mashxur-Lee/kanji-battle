@@ -116,6 +116,12 @@ export class ProgressService {
     for (const c of await this.store.cards(u.id)) { const was = cards.get(c.vocabId); if (!was || score(c) > score(was)) cards.set(c.vocabId, c); }
     const mastery = Object.fromEntries([...LEVELS, 'ONO' as const].map((l) => [l, [] as Array<[string, number, number]>])) as Record<Level, Array<[string, number, number]>>;
     for (const v of VOCAB) {
+      // 0.9.9.9.5: hiragana and katakana come from the Kana section
+      if (v.level === 'KANA' || v.level === 'KATA') {
+        const k = u.kana?.[v.kanji];
+        mastery[v.level].push([v.kanji, !k ? Mastery.Unseen : k.m ? Mastery.Mastered : k.s > 0 ? Mastery.Learning : Mastery.New, k ? Math.round(k.m ? 100 : 35 + 65 * Math.min(1, k.s / 5)) : 0]);
+        continue;
+      }
       const c = cards.get(v.id);
       const m = !c ? Mastery.Unseen
         : c.state === 'new' ? Mastery.New

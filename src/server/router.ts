@@ -162,6 +162,11 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         await study.setKanaMastered(u, (await r.json()).mastered === true);
         return res(200, { profile: await study.profile(await auth.authenticate(r.token)) });
+      } else if (r.method === 'PUT' && url === '/api/kana') {
+        // 0.9.9.9.5: the Kana section's stars
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        return res(200, await study.setKana(u, body.kana, resolveToday(body.today)));
       } else if (r.method === 'PUT' && url === '/api/me/tutorial') {
         const u = await auth.authenticate(r.token);
         await auth.store.update(u.id, { tutorialDone: true });

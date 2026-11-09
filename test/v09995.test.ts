@@ -147,3 +147,96 @@ test('0.9.9.9.5: the daily challenge changes at the player\'s own midnight (with
   assert.equal((await daily.overview((await store.findById(u.id))!, '2026-10-11')).mine !== null, true, 'saved on the 11th');
   assert.equal((await daily.overview((await store.findById(u.id))!, '2026-10-12')).mine, null, 'the 12th is a new challenge');
 });
+
+test('0.9.9.9.5 Kana: the chart — 104 hiragana and 104 katakana, with the word list\'s romaji', async () => {
+  const { kanaCells, KANA_BY_CHAR } = await import('../src/shared/kanachart');
+  const { VOCAB } = await import('../src/server/vocab');
+  for (const [script, level] of [['hira', 'KANA'], ['kata', 'KATA']] as const) {
+    const cells = kanaCells(script);
+    assert.deepEqual(['basic', 'voiced', 'combo'].map((s) => kanaCells(script, s as never).length), [46, 25, 33]);
+    for (const v of VOCAB.filter((x) => x.level === level)) assert.equal(KANA_BY_CHAR.get(v.kanji)?.romaji, (v as { romaji?: string }).romaji, v.kanji);
+    assert.equal(cells.length, VOCAB.filter((x) => x.level === level).length);
+  }
+});
+
+test('0.9.9.9.5 Kana: practice — new kana met first, look-alike wrong answers, stars to the target', async () => {
+  const { kanaCells, KanaPractice, lookalikes } = await import('../src/shared/kanachart');
+  assert.ok(lookalikes('ぬ').includes('め'));
+  assert.ok(lookalikes('きゃ').includes('ちゃ'), 'combinations among combinations');
+  assert.ok(!lookalikes('きゃ').some((x) => x.length === 1));
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const cells = kanaCells('hira', 'basic').slice(0, 10);
+  const p = new KanaPractice(cells, 3, 'read', {}, rnd);
+  const first = p.next()!;
+  assert.equal(first.intro, true, 'a new kana is met first');
+  assert.deepEqual(first.options, [first.cell.romaji]);
+  p.answer(first, first.answer);
+  let n = 0, q;
+  while ((q = p.next()) && n < 500) {
+    if (!q.intro) {
+      assert.equal(q.options.length, 4);
+      assert.equal(new Set(q.options).size, 4, 'no answer twice');
+      assert.ok(q.options.includes(q.answer));
+    }
+    // a wrong answer now and then: a star is lost
+    p.answer(q, !q.intro && n % 7 === 3 ? q.options.find((o) => o !== q!.answer)! : q.answer);
+    n++;
+  }
+  assert.equal(p.finished, true);
+  assert.equal(Object.keys(p.changes).length, 10);
+  assert.ok(Object.values(p.changes).every((c) => c.m), 'all mastered');
+  // already mastered kana need one right answer each
+  const again = new KanaPractice(cells, 3, 'read', p.changes, rnd);
+  let m = 0;
+  while ((q = again.next()) && m < 100) { assert.equal(q.intro, false); again.answer(q, q.answer); m++; }
+  assert.equal(m, 10);
+});
+
+test('0.9.9.9.5 Kana: kana cards leave All spells and become Kana progress; saving gives XP once', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const u = await store.create({ username: 'kanamig', passwordHash: 'x', role: 'user' } as never);
+  const { newCard } = await import('../src/shared/srs');
+  const now = Date.now();
+  const learned = { ...newCard('kana:あ', now, 'all'), state: 'review' as const, intervalDays: 12, reps: 4 };
+  const learning = { ...newCard('kana:い', now, 'all'), state: 'learning' as const, intervalDays: 0, reps: 1 };
+  await store.addCards(u.id, [learned, learning, newCard('kata:ア', now, 'struggling'), newCard('会う:あう', now, 'all')]);
+  await store.update(u.id, { studyLevels: ['KANA', 'N5'], dailyPlan: { per: { KANA: 10, N5: 10 }, day: '2026-01-01', done: {} } });
+  const p = await study.profile((await store.findById(u.id))!);
+  assert.deepEqual(p.kana['あ'], { s: 3, m: true });
+  assert.deepEqual(p.kana['い'], { s: 1 });
+  const left = (await store.cards(u.id)).map((c) => c.vocabId);
+  assert.deepEqual(left, ['会う:あう'], 'only the word stays');
+  const rec = (await store.findById(u.id))!;
+  assert.deepEqual(rec.studyLevels, ['N5']);
+  assert.deepEqual(rec.dailyPlan?.per, { N5: 10 });
+  // once only
+  await store.addCards(u.id, [newCard('kana:う', now, 'all')]);
+  await study.profile((await store.findById(u.id))!);
+  assert.ok((await store.cards(u.id)).some((c) => c.vocabId === 'kana:う'), 'not run again');
+  // saving: a newly mastered kana gives 5 XP; unknown kana are ignored; mastered stays mastered
+  const xp0 = (await store.findById(u.id))!.xp;
+  const r1 = await study.setKana((await store.findById(u.id))!, { 'う': { s: 3, m: true }, 'zz': { s: 9 }, 'あ': { s: 1 } }, '2026-01-02');
+  assert.equal(r1.xp, 5);
+  assert.deepEqual(r1.kana['あ'], { s: 1, m: true });
+  assert.equal(r1.kana['zz'], undefined);
+  const r2 = await study.setKana((await store.findById(u.id))!, { 'う': { s: 4, m: true } }, '2026-01-02');
+  assert.equal(r2.xp, 0, 'no XP twice');
+  assert.equal((await store.findById(u.id))!.xp, xp0 + 5);
+});
+
+test('0.9.9.9.5 Kana: a かな beginner graduates when the 46 basic hiragana are mastered', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const { kanaCells } = await import('../src/shared/kanachart');
+  const { KANA_BEGINNER } = await import('../src/shared/progress');
+  const u = await store.create({ username: 'kanabeg', passwordHash: 'x', role: 'user' } as never);
+  await store.update(u.id, { unlocks: [KANA_BEGINNER] });
+  const all = Object.fromEntries(kanaCells('hira', 'basic').map((c) => [c.ch, { s: 3, m: true }]));
+  const { [Object.keys(all)[0]]: _skip, ...allButOne } = all;
+  await study.setKana((await store.findById(u.id))!, allButOne, '2026-01-02');
+  assert.ok((await store.findById(u.id))!.unlocks.includes(KANA_BEGINNER), 'not yet');
+  await study.setKana((await store.findById(u.id))!, all, '2026-01-02');
+  assert.ok(!(await store.findById(u.id))!.unlocks.includes(KANA_BEGINNER), 'graduated');
+});

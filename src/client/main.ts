@@ -39,6 +39,7 @@ import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, start
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
 import * as offline from './offline';
+import { initKana, openKana, setKanaProgress } from './kanaui';
 import { initApp } from './appshell';
 import './dictui'; // (the dictionary page; opened from the side panel)
 
@@ -187,6 +188,7 @@ function applyProfile(p: Profile) {
   void dailyPending().then((open) => { ui.$('dailyBadge').hidden = !open; });
   refreshFriendsBadge();
   renderTasks(p); // the daily streak tasks
+  setKanaProgress(p.kana); // 0.9.9.9.5: the Kana section
   if (user && !inRoom && ui.currentScreen() === 'menu') checkRewards(user.id, p, user.role === 'admin', applyProfile); // something new unlocked → a reward box
   if (user && p.tutorialDone && !tutorialShown && !inRoom && ui.currentScreen() === 'menu') tasksAtLogin(p);
   if (user?.role === 'admin') void refreshInboxBadge(); // new bug reports / suggestions
@@ -841,6 +843,9 @@ ui.$('join').onclick = join;
 ui.$<HTMLInputElement>('joinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
 ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
 ui.$('studyBtn').onclick = () => void openStudy();
+// 0.9.9.9.5: the Kana section (a kana mastered for the first time gives XP: the level bar follows)
+ui.$('kanaBtn').onclick = () => openKana();
+initKana({ saved: () => void refreshProfile() });
 ui.$('studyBack').onclick = () => ui.show('menu');
 ui.$('customizeBtn').onclick = async () => { await refreshProfile(); if (profile) openCustomize(profile, user?.role === 'admin', () => applyBackground(true)); };
 ui.$('customizeBack').onclick = () => ui.show('menu');

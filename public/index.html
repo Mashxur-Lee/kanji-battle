@@ -336,6 +336,11 @@
         <span class="mc-glyph" lang="ja" aria-hidden="true">学</span>
         <span class="mc-body"><b class="mc-name">Study spells</b><span class="mc-info">Your decks, quizzes and reading passages</span></span>
       </button>
+      <!-- 0.9.9.9.5: hiragana and katakana have a section of their own -->
+      <button id="kanaBtn" class="mc-card mc-kana" type="button">
+        <span class="mc-glyph" lang="ja" aria-hidden="true">あ</span>
+        <span class="mc-body"><b class="mc-name">Kana</b><span class="mc-info">Learn hiragana and katakana</span><span id="kanaMenuProg" class="mc-prog" hidden></span></span>
+      </button>
     </div>
     <p id="error" class="error" role="alert"></p>
     <div class="menu-foot">
@@ -349,6 +354,68 @@
   </section>
 
   <!-- PROGRESS -->
+  <!-- 0.9.9.9.5: the Kana section — the chart, and practice in rows with stars -->
+  <section id="kana" class="screen" hidden>
+    <button id="kanaBack" class="back">← Menu</button>
+    <div class="page-head"><h2>Kana</h2></div>
+    <div class="kana-top">
+      <div class="kana-script seg" role="tablist" aria-label="Script">
+        <button type="button" role="tab" data-script="hira" aria-selected="true"><span lang="ja">ひらがな</span><small>Hiragana</small></button>
+        <button type="button" role="tab" data-script="kata" aria-selected="false"><span lang="ja">カタカナ</span><small>Katakana</small></button>
+      </div>
+      <div class="kana-sets" role="tablist" aria-label="Set">
+        <button type="button" role="tab" data-set="basic" aria-selected="true">Basic</button>
+        <button type="button" role="tab" data-set="voiced" aria-selected="false">Voiced</button>
+        <button type="button" role="tab" data-set="combo" aria-selected="false">Combinations</button>
+      </div>
+    </div>
+    <div id="kanaGrid" class="kana-grid" aria-live="polite"></div>
+    <div class="kana-bar">
+      <div class="kana-count"><span id="kanaCount">0 / 46</span><small id="kanaCountSub">mastered</small><i id="kanaBarFill" class="kb-fill"></i></div>
+      <button id="kanaPractice" class="big kana-go" type="button"><span aria-hidden="true">▶</span> Practice</button>
+    </div>
+  </section>
+
+  <section id="kanaplay" class="screen" hidden>
+    <div class="kp-top">
+      <button id="kanaPlayBack" class="back kp-back" type="button" aria-label="Stop practising">←</button>
+      <div class="kp-progress" aria-hidden="true"><i id="kpFill"></i></div>
+      <span id="kpCount" class="kp-count">0 / 0</span>
+    </div>
+    <div id="kpStage" class="kp-stage">
+      <div id="kpStars" class="kp-stars" aria-label="Stars"></div>
+      <div id="kpPrompt" class="kp-prompt" lang="ja"></div>
+      <div id="kpHint" class="kp-hint"></div>
+      <button id="kpSay" class="kp-say" type="button" aria-label="Hear it"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 9h4l5-4v14l-5-4H4z"/></svg></button>
+    </div>
+    <div id="kpAnswers" class="kp-answers"></div>
+  </section>
+
+  <dialog id="kanaSheet" class="kana-sheet">
+    <form method="dialog" class="ks-box">
+      <h3>Practice <small id="ksWhat"></small></h3>
+      <p class="ks-label">Rows</p>
+      <div id="ksRows" class="ks-rows"></div>
+      <p class="ks-label">Mode</p>
+      <div id="ksMode" class="ks-seg">
+        <button type="button" data-mode="read" aria-pressed="true"><span lang="ja">あ</span> → a</button>
+        <button type="button" data-mode="pick" aria-pressed="false">a → <span lang="ja">あ</span></button>
+        <button type="button" data-mode="mix" aria-pressed="false">Mixed</button>
+      </div>
+      <p class="ks-label">Stars to master each kana</p>
+      <div id="ksStars" class="ks-seg">
+        <button type="button" data-stars="1" aria-pressed="false">1 ★</button>
+        <button type="button" data-stars="3" aria-pressed="true">3 ★</button>
+        <button type="button" data-stars="5" aria-pressed="false">5 ★</button>
+      </div>
+      <label class="ks-shuffle"><input id="ksShuffle" type="checkbox"> <span>Shuffle the order</span></label>
+      <div class="ks-actions">
+        <button value="cancel" class="pill" type="submit">Cancel</button>
+        <button id="ksStart" class="big" type="button"><span aria-hidden="true">▶</span> Start</button>
+      </div>
+    </form>
+  </dialog>
+
   <section id="progress" class="screen" hidden>
     <button id="progressBack" class="back">← Menu</button>
     <div class="page-head"><h2>Progress</h2></div>

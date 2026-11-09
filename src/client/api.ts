@@ -1,10 +1,11 @@
+import type { KanaProgress } from '../shared/kanachart';
 import type { AdminUserRow, Device, Level, MatchDetail, MatchSummary, OnoType, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
 import type { CardState, DeckId, Rating } from '../shared/srs';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; wins: number; losses: number; pic: string | null; background: BackgroundId; studyLevels: Level[]; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
   tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew?: number; badges?: string[];
-  tasks?: DailyTaskState[]; streakDay?: string | null; border?: string; starred?: string[] }
+  tasks?: DailyTaskState[]; streakDay?: string | null; border?: string; starred?: string[]; kana?: KanaProgress }
 export interface MonthProgress { month: string; name: string; reward: string; goals: Array<{ id: string; label: string; target: number; value: number }>; done: boolean; unlocked: boolean }
 export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number }
 /** 0.9.9.7: a dictionary word (server/study/DictService.ts) */
@@ -154,6 +155,8 @@ export const api = {
   /** 0.9.9.6: the name others see (empty: your login) */
   setNickname: (nickname: string) => call<{ user: PublicUser }>('PUT', '/api/me/nickname', { nickname }),
   setKana: (mastered: boolean) => call<{ profile: Profile }>('PUT', '/api/me/kana', { mastered }),
+  /** 0.9.9.9.5: the Kana section's stars (only the kana that changed) */
+  saveKana: (changes: KanaProgress) => call<{ kana: KanaProgress; xp: number }>('PUT', '/api/kana', { kana: changes, today: today() }),
   progress: () => call<ProgressPage>('GET', `/api/progress?today=${today()}`),
   strokes: (chars: string) => call<{ strokes: Record<string, number[][][] | null> }>('GET', `/api/strokes?k=${encodeURIComponent(chars)}`),
   daily: () => call<DailyOverview>('GET', `/api/daily?today=${today()}`), // (0.9.9.9.5: your own date)
