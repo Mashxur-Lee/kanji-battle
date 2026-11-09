@@ -365,6 +365,11 @@ test('0.9.9.9.5 invites: declined → no inviting them again for 5 minutes; invi
   assert.deepEqual(hub.takeInvites('mia', () => true, now + 3000), [], 'taken once');
   hub.addInvite('mia', inv('DDDD'), now);
   assert.deepEqual(hub.takeInvites('mia', () => true, now + INVITE_KEEP_MS + 1), [], 'they run out');
+  // a decline without an invite does nothing (no fake "declined" messages)
+  const before = sent.length;
+  hub.decline('mia', 'Mia', 'stranger', now);
+  assert.equal(sent.length, before);
+  assert.equal(hub.declinedAt('stranger', 'mia'), undefined);
   // decline: the host is told, the waiting invite goes, and the block is on
   hub.addInvite('mia', inv('EEEE'), now);
   hub.decline('mia', 'Mia', 'host', now);

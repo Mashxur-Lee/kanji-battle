@@ -65,7 +65,11 @@ export class SessionHub {
   async notify(userId: string, data: Record<string, string>): Promise<boolean> {
     try { return this.notifier ? await this.notifier(userId, data) : false; } catch { return false; }
   }
+  /** `${inviter}>${invitee}` → when they were last invited (a decline counts only for a real invite) */
+  private asked = new Map<string, number>();
   addInvite(to: string, msg: InviteMsg, now = Date.now()) {
+    this.asked.set(`${msg.fromId}>${to}`, now);
+    for (const [k, at] of this.asked) if (now - at > DECLINE_ANSWER_MS) this.asked.delete(k);
     const list = (this.invites.get(to) ?? []).filter((x) => now - x.at < INVITE_KEEP_MS && x.msg.fromId !== msg.fromId);
     this.invites.set(to, [...list, { msg, at: now }].slice(-3));
   }
@@ -83,6 +87,10 @@ export class SessionHub {
   /** `who` declined `fromId`'s invite: they can't be invited by them again for 5 minutes; the inviter is told */
   decline(who: string, whoName: string, fromId: string, now = Date.now()) {
     if (!fromId || fromId === who) return;
+    // only an invite they really got can be declined (no "X declined your invite" out of nowhere)
+    const at = this.asked.get(`${fromId}>${who}`);
+    if (at === undefined || now - at > DECLINE_ANSWER_MS) return;
+    this.asked.delete(`${fromId}>${who}`);
     this.dropInvites(who, fromId);
     this.declines.set(`${fromId}>${who}`, now);
     for (const [k, at] of this.declines) if (now - at > DECLINE_BLOCK_MS) this.declines.delete(k);
@@ -135,6 +143,8 @@ export const INVITE_COOLDOWN_MS = 10_000;
 export const DECLINE_BLOCK_MS = 5 * 60_000;
 /** an invite the friend couldn't get right away (app in the background) waits this long for them */
 export const INVITE_KEEP_MS = 2 * 60_000;
+/** how long after an invite its Decline still counts (the notification can sit on the phone a while) */
+const DECLINE_ANSWER_MS = 10 * 60_000;
 type InviteMsg = Extract<ServerMessage, { type: 'invite' }>;
 
 export class Session implements Client {
