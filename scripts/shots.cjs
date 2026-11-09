@@ -19,7 +19,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const page = await ctx.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource|favicon/.test(m.text())) errors.push('console: ' + m.text().slice(0, 200)); });
+    page.on('console', (m) => { if (m.text().startsWith('M ')) console.log(name + ' ' + m.text()); if (m.type() === 'error' && !/Failed to load resource|favicon/.test(m.text())) errors.push('console: ' + m.text().slice(0, 200)); });
     const user = 'sw' + Date.now().toString(36).slice(-7);
     await page.goto(BASE + '/');
     const tok = await page.evaluate(async ([u]) => {
