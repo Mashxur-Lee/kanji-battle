@@ -506,6 +506,8 @@ const RU: Record<string, string> = {
   'They declined — you can invite them again in a few minutes': 'Отклонил(а) — пригласить снова можно через несколько минут',
   // 0.9.9.9.5 — the JLPT quiz's settings
   'Your words from levels': 'Ваши слова уровней', 'Your wizard': 'Ваш волшебник', 'Your own words always count': 'Ваши собственные слова учитываются всегда', 'Changes apply to the next quiz': 'Изменения — со следующего теста',
+  // 0.9.9.9.5.1
+  'Tap to go on': 'Нажмите, чтобы продолжить', '← Kana': '← Кана',
   // 0.9.9.9.5 — the Kana section
   'All basic hiragana mastered — kanji battles unlocked!': 'Вся основная хирагана освоена — бои с кандзи открыты!',
   'Kana': 'Кана', 'Learn hiragana and katakana': 'Учите хирагану и катакану',

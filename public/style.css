@@ -3764,3 +3764,26 @@ body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity
   .kp-top { background: rgba(14, 12, 40, .9); }
   .art-fx > i { will-change: auto; }
 }
+
+/* ── 0.9.9.9.5.1: kana practice — a back button like every page, the letter on a solid card, new kana move on by
+   themselves (a bar shows the time; a tap goes on sooner) ── */
+#kanaplay { padding-top: 112px; }
+.kp-stage { background: linear-gradient(160deg, rgba(26, 20, 64, .9), rgba(14, 12, 40, .92)); border: 1px solid rgba(255, 158, 199, .28);
+  border-radius: 28px; box-shadow: 0 18px 50px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .06); padding: 22px 18px; }
+.kp-stage::before { display: none; }
+.kp-new { position: absolute; top: 14px; left: 16px; padding: 3px 12px; border-radius: 999px; font-size: .8rem; font-weight: 900; letter-spacing: .04em;
+  color: #fff; background: linear-gradient(135deg, #ff6fa8, #b26bff); box-shadow: 0 4px 14px rgba(255, 111, 168, .45); opacity: 0; scale: .6; transition: opacity .25s, scale .35s var(--ease-pop); }
+.kp-stage.intro .kp-new { opacity: 1; scale: 1; }
+.kp-stage.intro .kp-hint { font-size: clamp(1.8rem, 8vw, 2.6rem); font-weight: 900; color: #ffd6e8; letter-spacing: .04em; }
+.kp-stage.intro .kp-stars { visibility: hidden; }
+.kp-stage.met { animation: kpMet .2s ease-in both; }
+@keyframes kpMet { to { opacity: .4; scale: .97; } }
+.kp-auto { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; cursor: pointer; }
+.kp-auto i { display: block; width: 100%; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .12); overflow: hidden; position: relative; }
+.kp-auto i::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, #ff9ec7, #ffd479); transform-origin: 0 50%; animation: kpAuto var(--t) linear both; }
+@keyframes kpAuto { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.kp-auto span { font-size: .85rem; font-weight: 700; color: var(--muted); }
+#kanaplay { cursor: default; }
+:root[data-theme="light"] .kp-stage { background: rgba(255, 255, 255, .94); border-color: #f3c6dc; box-shadow: 0 14px 40px rgba(60, 40, 120, .18); }
+:root[data-theme="light"] .kp-stage.intro .kp-hint { color: #c2337a; }
+@media (max-width: 640px) { #kanaplay { padding-top: 104px; } .kp-stage { padding: 18px 12px; } }
