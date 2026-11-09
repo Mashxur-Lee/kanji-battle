@@ -44,7 +44,7 @@ export const inTutorialBattle = () => stage === 'battle';
 const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement; choice?: true; language?: true }> = [
   { title: 'Language · Язык', body: 'Choose the language for the game and this tutorial. · Выберите язык игры и обучения. (You can change it later in Settings.)', language: true },
   { title: 'Welcome, apprentice', body: 'In Kanji Wizards every spell is a Japanese word. Learn a word — and you can cast it at your opponent.' },
-  { title: 'Do you know hiragana?', body: 'Kanji are read with hiragana (かな). If you can already read all of it, you start with kanji (N5 to N1). If not, you start with かな only — the kanji levels open once you tick "I\'ve mastered hiragana" in Settings.', choice: true },
+  { title: 'Do you know hiragana?', body: 'Kanji are read with hiragana (かな). If you can already read all of it, you start with kanji (N5 to N1). If not, you battle with かな first — kanji battles open once you master the 46 basic hiragana in Kana (or tick "I\'ve mastered hiragana" in Settings).', choice: true },
   {
     title: 'Cast by reading',
     body: 'A kanji appears; type how it is read — in hiragana, or in romaji with a normal keyboard — and press Enter. Fast and right in a row hits harder.',
@@ -52,7 +52,7 @@ const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement; cho
   },
   { title: 'Study makes you stronger', body: 'Study spells is a flashcard deck: the more words you know, the more spells you can cast — battles use the words in your All spells. Every card you answer gives +5 XP, and words you miss in battle come back there to review.' },
   { title: 'All modes are open', body: 'Kanji Reading, Rapid, Kanji Writing, the Boss fight and Deck Duel are all open from the start. There is also a Daily challenge, a JLPT quiz, Progress, Friends — and monthly goals with rewards.' },
-  { title: 'かな first, then kanji', body: 'Beginners: study かな in Study spells until you know it by heart. Then tick "I\'ve mastered hiragana" in Settings (the sliders button, top-right) — and the kanji levels N5 to N1 open for studying and battles.' },
+  { title: 'Learn kana in Kana', body: 'Hiragana and katakana have their own section: Kana, in the main menu. Pick a few rows, meet each new kana, then answer until each one has its stars — the chart turns green as you master them. Kanji words are in Study spells.' },
   { title: 'Your first battle', body: 'Ready? You\'ll study 10 easy words for a minute, then duel a beginner AI with them.' },
 ];
 

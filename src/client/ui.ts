@@ -139,7 +139,7 @@ export function picEl(url: string | null | undefined, cls = 'pic', border?: stri
 let beginnerFlag = false;
 /** A hiragana beginner: only かな until "I've mastered hiragana" is ticked in Settings. */
 export const kanaBeginner = () => beginnerFlag;
-export const BEGINNER_LOCK = 'Master hiragana first (Study spells → ひらがな), then tick "I\'ve mastered hiragana" in Settings';
+export const BEGINNER_LOCK = 'Master the basic hiragana in Kana first (or tick "I\'ve mastered hiragana" in Settings)';
 /** Locks a level chip a beginner can't pick yet (everything but かな). */
 export function lockLevelChip(label: HTMLElement, lv: string) {
   if (!beginnerFlag || isKanaLevel(lv)) return label; // 0.9.9.4.2: katakana is open to beginners too

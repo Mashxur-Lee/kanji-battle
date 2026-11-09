@@ -845,7 +845,14 @@ ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
 ui.$('studyBtn').onclick = () => void openStudy();
 // 0.9.9.9.5: the Kana section (a kana mastered for the first time gives XP: the level bar follows)
 ui.$('kanaBtn').onclick = () => openKana();
-initKana({ saved: () => void refreshProfile() });
+initKana({
+  saved: async () => {
+    const was = ui.kanaBeginner();
+    await refreshProfile();
+    // all 46 basic hiragana mastered: the server lifted the beginner lock
+    if (was && !ui.kanaBeginner()) { ui.toast('All basic hiragana mastered — kanji battles unlocked!', 5000); audio.sfx.win(); }
+  },
+});
 ui.$('studyBack').onclick = () => ui.show('menu');
 ui.$('customizeBtn').onclick = async () => { await refreshProfile(); if (profile) openCustomize(profile, user?.role === 'admin', () => applyBackground(true)); };
 ui.$('customizeBack').onclick = () => ui.show('menu');
@@ -985,7 +992,7 @@ ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {
   const box = e.target as HTMLInputElement;
   try {
     applyProfile((await api.setKana(box.checked)).profile);
-    ui.toast(box.checked ? 'Kanji levels unlocked — pick N5 in Study spells to start!' : 'Back to かな only: kanji levels are locked.', 5000);
+    ui.toast(box.checked ? 'Kanji battles unlocked — pick N5 when you queue!' : 'Back to かな only in battles.', 5000);
     if (!box.checked) store.set('kb:levels', JSON.stringify(['KANA']));
   } catch (err) { box.checked = !box.checked; ui.toast((err as Error).message); }
 };

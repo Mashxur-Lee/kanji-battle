@@ -122,14 +122,12 @@ const RU: Record<string, string> = {
   // 0.9.8
   "I've mastered hiragana": 'Я освоил хирагану', 'Unlocks the kanji levels (N5–N1) in battles. Mastering the 46 basic hiragana in Kana ticks it for you.': 'Открывает уровни кандзи (N5–N1) в боях. Освойте 46 основных знаков хираганы в разделе «Кана» — и галочка поставится сама.',
   'Do you know hiragana?': 'Вы знаете хирагану?', 'Yes — I know hiragana': 'Да — я знаю хирагану', "I'm a beginner": 'Я новичок',
-  'Kanji are read with hiragana (かな). If you can already read all of it, you start with kanji (N5 to N1). If not, you start with かな only — the kanji levels open once you tick "I\'ve mastered hiragana" in Settings.':
-    'Кандзи читаются хираганой (かな). Если вы уже читаете её всю — начинаете с кандзи (N5–N1). Если нет — сначала только かな; уровни кандзи откроются, когда вы отметите «Я освоил хирагану» в настройках.',
-  'かな first, then kanji': 'Сначала かな, потом кандзи',
-  'Beginners: study かな in Study spells until you know it by heart. Then tick "I\'ve mastered hiragana" in Settings (the sliders button, top-right) — and the kanji levels N5 to N1 open for studying and battles.':
-    'Новичкам: учите かな в «Изучать заклинания», пока не выучите наизусть. Затем отметьте «Я освоил хирагану» в настройках (кнопка с ползунками справа вверху) — и откроются уровни кандзи N5–N1 для учёбы и боёв.',
-  'Master hiragana first (Study spells → ひらがな), then tick "I\'ve mastered hiragana" in Settings': 'Сначала освойте хирагану («Изучать заклинания» → ひらがな), затем отметьте «Я освоил хирагану» в настройках',
-  'Kanji levels unlocked — pick N5 in Study spells to start!': 'Уровни кандзи открыты — выберите N5 в «Изучать заклинания»!',
-  'Back to かな only: kanji levels are locked.': 'Снова только かな: уровни кандзи закрыты.',
+  'Kanji are read with hiragana (かな). If you can already read all of it, you start with kanji (N5 to N1). If not, you battle with かな first — kanji battles open once you master the 46 basic hiragana in Kana (or tick "I\'ve mastered hiragana" in Settings).': 'Кандзи читаются хираганой (かな). Если вы уже читаете её свободно, начнёте с кандзи (N5–N1). Если нет — сначала сражаетесь на かな, а бои с кандзи откроются, когда освоите 46 основных знаков хираганы в разделе «Кана» (или отметите «Я освоил хирагану» в настройках).',
+  'Learn kana in Kana': 'Учите кану в разделе «Кана»',
+  'Hiragana and katakana have their own section: Kana, in the main menu. Pick a few rows, meet each new kana, then answer until each one has its stars — the chart turns green as you master them. Kanji words are in Study spells.': 'У хираганы и катаканы свой раздел — «Кана» в главном меню. Выберите несколько рядов, познакомьтесь с новыми знаками и отвечайте, пока у каждого не наберутся звёзды — таблица зеленеет по мере освоения. Слова с кандзи — в «Изучать заклинания».',
+  'Master the basic hiragana in Kana first (or tick "I\'ve mastered hiragana" in Settings)': 'Сначала освойте основную хирагану в разделе «Кана» (или отметьте «Я освоил хирагану» в настройках)',
+  'Kanji battles unlocked — pick N5 when you queue!': 'Бои с кандзи открыты — выберите N5 в очереди!',
+  'Back to かな only in battles.': 'Снова только かな в боях.',
   'Write the kanji': 'Напишите кандзи', 'the kana is written for you': 'кана уже написана за вас', 'Wk': 'Нед.',
   'online': 'в сети', 'Requests': 'Запросы', 'Friend requests': 'Запросы в друзья',
   'No friend requests right now.': 'Сейчас нет запросов в друзья.', 'No friends yet — add someone below.': 'Друзей пока нет — добавьте кого-нибудь ниже.',
@@ -487,6 +485,7 @@ const RU: Record<string, string> = {
   'Close friends': 'Закрыть друзей',
   'Reconnecting…': 'Переподключение…',
   // 0.9.9.9.5 — the Kana section
+  'All basic hiragana mastered — kanji battles unlocked!': 'Вся основная хирагана освоена — бои с кандзи открыты!',
   'Kana': 'Кана', 'Learn hiragana and katakana': 'Учите хирагану и катакану',
   'Basic': 'Основные', 'Voiced': 'Звонкие', 'Rows': 'Ряды', 'Mode': 'Режим', 'Mixed': 'Вперемешку',
   'Stars to master each kana': 'Звёзд, чтобы освоить каждую кану', 'Shuffle the order': 'Перемешать порядок',
