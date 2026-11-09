@@ -3680,3 +3680,5 @@ details > :not(summary) { animation: detailsIn .3s var(--ease-out); }
 #tasksStreak { display: flex; align-items: center; justify-content: center; gap: 12px; }
 #tasksStreak .sf-n::before { content: none; }
 :root[data-theme="light"] #tasksStreak .sf-n { color: #fff; }
+#menu .tasks-btn .tb-main { text-align: left; align-items: stretch; }
+#menu .tasks-btn .tb-label { text-align: left; }
