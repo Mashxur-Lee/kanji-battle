@@ -109,7 +109,8 @@ export function initMenuCarousel() {
 
   // a click on a side card turns it to the middle instead of opening it
   box.addEventListener('click', (e) => {
-    if (!on) return;
+    // (only a real click: the game opening a card itself — a daily task's button — still opens it)
+    if (!on || !e.isTrusted) return;
     const it = items.find((x) => x.contains(e.target as Node));
     if (!it || it.classList.contains('mcc-active')) return;
     e.preventDefault(); e.stopImmediatePropagation();
@@ -135,7 +136,7 @@ export function initMenuCarousel() {
     if (Math.abs(dx) > 70) { turn(dx < 0 ? 1 : -1); downX = e.clientX; dragged = true; }
   });
   addEventListener('pointerup', () => { downX = null; });
-  box.addEventListener('click', (e) => { if (dragged) { e.preventDefault(); e.stopImmediatePropagation(); dragged = false; } }, true);
+  box.addEventListener('click', (e) => { if (dragged && e.isTrusted) { e.preventDefault(); e.stopImmediatePropagation(); dragged = false; } }, true);
   // keys on the menu: ← → turn, Enter opens the middle card
   addEventListener('keydown', (e) => {
     if (!on || document.getElementById('menu')!.hidden || e.altKey || e.ctrlKey || e.metaKey) return;
