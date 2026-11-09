@@ -1703,7 +1703,14 @@ body.game-kb #comboHud { bottom: calc(var(--kb-h, 0px) + 6%); left: 4%; transfor
 .tut-card h2 { font-size: 1.8rem; margin: 8px 0 12px; }
 .tut-card p { line-height: 1.6; }
 .tut-card .tut-actions .big { min-width: 160px; }
-@media (max-width: 640px) { .tut-card { padding: 22px 20px; font-size: 1rem; } .tut-card h2 { font-size: 1.4rem; } }
+@media (max-width: 640px) {
+  .tut-card { padding: 22px 20px; font-size: 1rem; } .tut-card h2 { font-size: 1.4rem; }
+  /* (0.9.9.9.5: two 160px buttons and "Skip" ran off the right edge of a phone) — the choices share a row,
+     "Skip" goes on its own line below */
+  .tut-card .tut-actions { flex-wrap: wrap; }
+  .tut-card .tut-actions .big { min-width: 0; flex: 1 1 0; }
+  .tut-card .tut-actions > :not(.big) { order: 1; flex-basis: 100%; text-align: center; justify-content: center; }
+}
 /* 0.9.9: What's new */
 .news-dialog { width: min(760px, 96vw); max-height: 88vh; overflow: auto; }
 .news-body { display: flex; flex-direction: column; gap: 14px; }
