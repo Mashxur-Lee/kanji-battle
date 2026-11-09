@@ -505,7 +505,7 @@ const RU: Record<string, string> = {
   'Invite sent — they get a notification on their phone': 'Приглашение отправлено — оно придёт уведомлением на телефон', 'Gets a notification on their phone': 'Получит уведомление на телефон',
   'They declined — you can invite them again in a few minutes': 'Отклонил(а) — пригласить снова можно через несколько минут',
   // 0.9.9.9.5 — the JLPT quiz's settings
-  'Your own words always count': 'Ваши собственные слова учитываются всегда', 'Changes apply to the next quiz': 'Изменения — со следующего теста',
+  'Your words from levels': 'Ваши слова уровней', 'Your wizard': 'Ваш волшебник', 'Your own words always count': 'Ваши собственные слова учитываются всегда', 'Changes apply to the next quiz': 'Изменения — со следующего теста',
   // 0.9.9.9.5 — the Kana section
   'All basic hiragana mastered — kanji battles unlocked!': 'Вся основная хирагана освоена — бои с кандзи открыты!',
   'Kana': 'Кана', 'Learn hiragana and katakana': 'Учите хирагану и катакану',
