@@ -867,7 +867,7 @@ ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
 ui.$('studyBtn').onclick = () => {
   // 0.9.9.9.5.1: kanji words only — a かな beginner learns kana first
   if (ui.kanaBeginner()) {
-    ui.toast('Master hiragana first — in Kana. Then tick “I’ve mastered hiragana” in Settings (or master all 46 basic hiragana).', 6000);
+    ui.toast('🔒 Master hiragana first — in Kana', 4000);
     const k = ui.$('kanaBtn');
     k.classList.remove('nudge'); void k.offsetWidth; k.classList.add('nudge');
     return;

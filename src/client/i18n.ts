@@ -510,7 +510,7 @@ const RU: Record<string, string> = {
   'Quizzes': 'Тесты', 'JLPT quiz, onomatopoeia and reading passages': 'Тест JLPT, ономатопея и тексты для чтения', 'Your decks — kanji words as flashcards': 'Ваши колоды — слова с кандзи на карточках',
   'Test what you know — a passed quiz or passage counts for your daily streak.': 'Проверьте себя — пройденный тест или текст засчитывается в ежедневную серию.',
   '← Quizzes': '← Тесты', 'Back to quizzes': 'К тестам',
-  'Master hiragana first — in Kana. Then tick “I’ve mastered hiragana” in Settings (or master all 46 basic hiragana).': 'Сначала освойте хирагану — в разделе «Кана». Затем отметьте «Я освоил хирагану» в настройках (или освойте все 46 основных знаков).',
+  '🔒 Master hiragana first — in Kana': '🔒 Сначала освойте хирагану — в разделе «Кана»',
   '10 questions from the spells you studied — or kana — readings, meanings and kanji, 4 choices each.': '10 вопросов по изученным заклинаниям — или по кане — чтения, значения и кандзи, по 4 варианта.',
   'Tap to go on': 'Нажмите, чтобы продолжить', '← Kana': '← Кана',
   // 0.9.9.9.5 — the Kana section
