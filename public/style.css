@@ -3683,7 +3683,7 @@ details > :not(summary) { animation: detailsIn .3s var(--ease-out); }
 #menu .tasks-btn .tb-main { text-align: left; align-items: stretch; }
 #menu .tasks-btn .tb-label { text-align: left; }
 /* (light theme: --text stays light at the root — it's set per component, like .kanji-pop does) */
-:root[data-theme="light"] :is(#kana, #kanaplay, .kana-sheet) { --text: #1d1838; --muted: #5d5880; --line: #ddd6f5; --gold: #a26300; --good: #12895a; --bad: #c8284a; }
+:root[data-theme="light"] :is(.kana-grid, .kana-bar, .kp-stage, .kp-answers, .kp-top, .kana-sheet) { --text: #1d1838; --muted: #5d5880; --line: #ddd6f5; --gold: #a26300; --good: #12895a; --bad: #c8284a; }
 :root[data-theme="light"] .kc { box-shadow: 0 3px 10px rgba(60, 40, 120, .12); }
 :root[data-theme="light"] .kc.learning .kc-ro { color: #a26300; }
 :root[data-theme="light"] #menu .tasks-btn:not(.done) .tb-task { background: rgba(255, 255, 255, .75); }
