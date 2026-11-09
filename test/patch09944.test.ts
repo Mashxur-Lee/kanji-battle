@@ -129,5 +129,7 @@ test('Deck Duel: the shared pool takes 2 words a level from each player\'s All s
   // someone with no spells: their share is random words of the level
   const alone = buildDraftPool(VOCAB, () => true, Math.random, 4, [a, new Set()]);
   assert.equal(alone.length, 20);
-  assert.equal(alone.filter((c) => a.has(c.entry.id)).length, 10);
+  // (at least a's 10: the random share can happen to pick another of a's words)
+  assert.ok(alone.filter((c) => a.has(c.entry.id)).length >= 10);
+  assert.equal(new Set(alone.map((c) => c.entry.id)).size, 20, 'no word twice');
 });

@@ -3,13 +3,13 @@ import type { Level, VocabEntry } from '../../shared/protocol';
 import { displayReading } from '../../shared/vocab';
 import type { DailyResult, Store, UserRecord } from '../db/Store';
 import { VOCAB } from '../vocab';
-import { playerDay, type ProgressService } from './ProgressService';
+import { playerDay, resolveToday, type ProgressService } from './ProgressService';
 import { now as clockNow } from '../now';
 import { hash, seeded } from '../../shared/rng';
 
 /**
- * Daily challenge: 0.9.9.7.3 — in leagues. Everyone starts in the Kana league (ひらがな and カタカナ); 9 / 10 or
- * better moves you up one: Kana → N5 → N4 → N3 → N2 → N1. Each league has its own 10 words a day (the same
+ * Daily challenge: 0.9.9.7.3 — in leagues. Everyone starts in the Kana league (ひらがな and カタカナ); 7 / 10 or
+ * better (0.9.9.9.5; was 9) moves you up one: Kana → N5 → N4 → N3 → N2 → N1. Each league has its own 10 words a day (the same
  * for everyone in it), easiest first, and its own leaderboard. One try per player; type each reading (kana or romaji) within 15 s. Answers are checked here
  * on the server, one word at a time (the next word is only sent after you answer), and the clock runs
  * on the server too. Ranked by correct answers, then total time.
@@ -20,8 +20,8 @@ const GRACE_MS = 1_500; // network slack
 const XP_PER_CORRECT = 30;
 export const LEAGUES = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
 export type League = (typeof LEAGUES)[number];
-/** 9 / 10 or better: up a league */
-export const PROMOTE_AT = 9;
+/** 7 / 10 or better: up a league (0.9.9.9.5 — it was 9 / 10) */
+export const PROMOTE_AT = 7;
 export const isLeague = (x: unknown): x is League => LEAGUES.includes(x as League);
 /** your league (kept in your unlocks as "dleague:N5" — no new column) */
 export const leagueOf = (u: Pick<UserRecord, 'unlocks'>): League => { const l = (u.unlocks ?? []).find((x) => x.startsWith('dleague:'))?.slice(8); return isLeague(l) ? l : 'KANA'; };
@@ -60,7 +60,12 @@ export class DailyService {
   onPerfect?: (userId: string) => Promise<unknown>;
   constructor(private readonly store: Store, private readonly progress: ProgressService, private readonly now: () => number = clockNow) {}
 
-  today() { return new Date(this.now()).toISOString().slice(0, 10); }
+  /**
+   * 0.9.9.9.5: the PLAYER's date — a new challenge at midnight where they live (with the daily tasks and the
+   * streak), not at midnight UTC. The app sends its local date; it is kept within a day of the server's, so a
+   * changed clock can't fetch far-off days.
+   */
+  today(clientDay?: unknown) { return resolveToday(clientDay, this.now()); }
   private words(day: string, league: League) {
     const k = dailyKey(day, league);
     if (!this.cache.has(k)) { if (this.cache.size > 12) this.cache.clear(); this.cache.set(k, dailyWords(day, league)); }
@@ -69,11 +74,11 @@ export class DailyService {
   /** today's league for you: the one you played in, or your league now */
   private todays(u: UserRecord, day: string): League { return playedOn(u, day) ?? this.attempts.get(u.id)?.league ?? leagueOf(u); }
   /** the store key of your result today (the offline snapshot carries it) */
-  keyFor(u: UserRecord) { const day = this.today(); return dailyKey(day, this.todays(u, day)); }
+  keyFor(u: UserRecord, clientDay?: unknown) { const day = this.today(clientDay); return dailyKey(day, this.todays(u, day)); }
 
   /** Today's board (your league's), your result (and then the words with their readings), and whether you can play. */
-  async overview(u: UserRecord) {
-    const day = this.today();
+  async overview(u: UserRecord, clientDay?: unknown) {
+    const day = this.today(clientDay);
     const league = this.todays(u, day), key = dailyKey(day, league);
     const mine = await this.store.daily(key, u.id);
     const board = await this.store.dailyBoard(key, 20);
@@ -85,8 +90,8 @@ export class DailyService {
   }
 
   /** Start (or continue) today's run: returns the current word. */
-  async start(u: UserRecord): Promise<DailyWordView> {
-    const day = this.today();
+  async start(u: UserRecord, clientDay?: unknown): Promise<DailyWordView> {
+    const day = this.today(clientDay);
     if (playedOn(u, day) || await this.store.daily(dailyKey(day, leagueOf(u)), u.id)) throw new DailyError('You already played today\'s challenge — come back tomorrow!', 409);
     let a = this.attempts.get(u.id);
     if (!a || a.day !== day) { a = { day, league: leagueOf(u), index: 0, shownAt: this.now(), correct: 0, ms: 0, marks: '' }; this.attempts.set(u.id, a); }
@@ -100,11 +105,11 @@ export class DailyService {
 
   /** Answer the current word (empty text = skip). */
   async answer(u: UserRecord, raw: unknown): Promise<DailyAnswer> {
-    const day = this.today();
     const a = this.attempts.get(u.id);
-    if (!a || a.day !== day) throw new DailyError('Start the challenge first');
+    // (the run's own day: one started just before midnight is finished after it)
+    if (!a || this.now() - a.shownAt > 6 * 3600_000) throw new DailyError('Start the challenge first');
     const text = typeof raw === 'string' ? raw.slice(0, 60) : '';
-    const word = this.words(day, a.league)[a.index];
+    const word = this.words(a.day, a.league)[a.index];
     const ms = Math.min(DAILY_WORD_MS, this.now() - a.shownAt);
     const inTime = this.now() - a.shownAt <= DAILY_WORD_MS + GRACE_MS;
     // the kana league is answered in romaji (typing a shown kana back with a Japanese keyboard would be too easy)
@@ -123,7 +128,7 @@ export class DailyService {
   /** Abandoned runs finish themselves: whatever is left counts as missed. */
   async finishStale(u: UserRecord) {
     const a = this.attempts.get(u.id);
-    if (!a || a.day !== this.today()) return null;
+    if (!a) return null;
     a.ms += (DAILY_WORDS - a.index) * DAILY_WORD_MS;
     a.marks = a.marks.padEnd(DAILY_WORDS, '0');
     a.index = DAILY_WORDS;

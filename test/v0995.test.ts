@@ -97,7 +97,8 @@ test('0.9.9.6: reminder status — tasks left, the Daily challenge, reviews due'
 test('0.9.9.6: the new achievements are earned from lifetime totals', async () => {
   const { earnedAchievements } = await import('../src/shared/achievements');
   const base = { wins: 0, level: 1, bestStreak: 0, learned: 0, friends: 0, seasonal: 0 };
-  assert.deepEqual(earnedAchievements({ ...base, reviews: 60, quizzes: 10, nickname: true }).sort(), ['first-steps', 'quiz-whiz', 'true-name']);
+  // (0.9.9.9.5: "first steps" and "true name" are gone — 1,000 cards make Diligent)
+  assert.deepEqual(earnedAchievements({ ...base, reviews: 1000, quizzes: 10, nickname: true }).sort(), ['diligent', 'quiz-whiz']);
   assert.ok(earnedAchievements({ ...base, bestStreak: 100 }).includes('unbreakable'));
 });
 

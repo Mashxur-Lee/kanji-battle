@@ -784,8 +784,8 @@ function scene(id: BackgroundId, t: TimeOfDay, menu = false) {
 }
 
 const cache = new Map<string, string>();
-/** phones and tablets (or "reduce motion"): the background as a still picture */
-export const stillBackground = () => matchMedia('(pointer: coarse), (prefers-reduced-motion: reduce)').matches;
+/** phones and tablets: the background as a still picture (0.9.9.9.5: "reduce motion" no longer stills it) */
+export const stillBackground = () => matchMedia('(pointer: coarse)').matches;
 const stillUrls = new Map<string, string>();
 /** How long the time-of-day change takes: the scene fades out to dusk-dark, swaps, and fades back in. */
 export const BG_FADE_MS = 3200;

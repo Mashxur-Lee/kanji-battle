@@ -2,6 +2,7 @@
 // "which kanji" questions about words you studied, 4 choices each, the wrong ones looking like the right one.
 
 import { pickDistractors, posOf } from './distract';
+import { fakeReadings, fakeSpellings, type FactsOf } from './fakes';
 import { ONO_TYPES, type Level, type OnoType, type VocabEntry } from './protocol';
 import { displayReading } from './vocab';
 
@@ -20,8 +21,12 @@ const shuffle = <T>(a: T[], rng: () => number) => {
 // are all alike, so a meaning question had one choice, or several that only differed in "(voiced)"
 const kanaChar = (v: { meaning: string; romaji?: string }) => !!v.romaji && /^(hiragana|katakana)/.test(v.meaning);
 
-/** Questions for `words` (already picked and shuffled), wrong answers from `vocab`. */
-export function buildQuiz(words: QuizWord[], vocab: readonly VocabEntry[], rng: () => number = Math.random, byId?: (id: string) => VocabEntry | undefined): QuizQuestion[] {
+/**
+ * Questions for `words` (already picked and shuffled), wrong answers from `vocab`. With `facts` (each kanji's
+ * readings and parts — 0.9.9.9.5) the reading and "which kanji" questions get JLPT-style made-up near misses
+ * (対戦: 戦対, 大線, 大戦 · たいせん: だいせん, たいせい), real look-alike words filling any gap.
+ */
+export function buildQuiz(words: QuizWord[], vocab: readonly VocabEntry[], rng: () => number = Math.random, byId?: (id: string) => VocabEntry | undefined, facts?: FactsOf): QuizQuestion[] {
   const find = byId ?? ((id: string) => vocab.find((v) => v.id === id));
   const kinds: QuizQuestion['kind'][] = ['reading', 'meaning', 'kanji'];
   return words.map((w, i) => {
@@ -38,7 +43,11 @@ export function buildQuiz(words: QuizWord[], vocab: readonly VocabEntry[], rng: 
       .filter((v) => field !== 'reading' || v.kanji !== w.kanji);
     const text = (v: VocabEntry) => asRomaji ? v.romaji! : field === 'reading' ? displayReading(v) : v[field];
     const posBy = new Map(pool.map((v) => [text(v), posOf(v.kanji, v.meaning)]));
-    const wrong = pickDistractors(asRomaji ? 'romaji' : field, right, pool.map(text), rng, 3, asRomaji ? undefined : { right: posOf(w.kanji, w.meaning), of: (x) => posBy.get(x) });
+    const made = facts && !asRomaji && field !== 'meaning' && /[\u4e00-\u9fff]/.test(w.kanji)
+      ? (field === 'kanji' ? fakeSpellings : fakeReadings)({ kanji: w.kanji, reading: ve?.reading ?? w.reading, meaning: w.meaning }, vocab, facts, rng).filter((x) => x !== right)
+      : [];
+    const real = pickDistractors(asRomaji ? 'romaji' : field, right, pool.map(text).filter((x) => !made.includes(x)), rng, 3 - made.length, asRomaji ? undefined : { right: posOf(w.kanji, w.meaning), of: (x) => posBy.get(x) });
+    const wrong = [...made, ...real].slice(0, 3);
     const choices = shuffle([right, ...wrong], rng);
     return {
       kind, vocabId: w.id, level: w.level, choices, answer: choices.indexOf(right),

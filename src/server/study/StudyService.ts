@@ -11,8 +11,9 @@ import { displayReading } from '../../shared/vocab';
 import { buildQuiz, type QuizQuestion } from '../../shared/quiz';
 import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type DailyPlan, type Snapshot, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
-import { VOCAB, VOCAB_BY_ID } from '../vocab';
-import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress } from './ProgressService';
+import { kanjiFacts, VOCAB, VOCAB_BY_ID } from '../vocab';
+import { cleanKana, isKanaChar, kanaCells, masteredCount, type KanaProgress } from '../../shared/kanachart';
+import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress, resolveToday } from './ProgressService';
 import { now as clockNow } from '../now';
 import { seededRng } from '../../shared/rng';
 
@@ -35,7 +36,7 @@ export type { QuizQuestion } from '../../shared/quiz';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
   tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew: number; badges: string[];
-  tasks: DailyTaskState[]; streakDay: string | null; border: string; starred: string[] }
+  tasks: DailyTaskState[]; streakDay: string | null; border: string; starred: string[]; kana: KanaProgress }
 
 /** Public URL of a profile picture (versioned, so browsers can cache it forever). */
 export const picUrl = (u: { id: string; avatarV: number }) => (u.avatarV > 0 ? `/api/avatar/${u.id}?v=${u.avatarV}` : null);
@@ -51,12 +52,7 @@ export interface StudyItem {
 export class StudyError extends Error { constructor(message: string, readonly status = 400) { super(message); } }
 
 /** YYYY-MM-DD; the client's local date is trusted only within a day of the server's. */
-export function resolveToday(clientToday: unknown, at = clockNow()): string {
-  const server = new Date(at).toISOString().slice(0, 10);
-  if (typeof clientToday !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(clientToday)) return server;
-  const diff = Math.abs(Date.parse(clientToday) - Date.parse(server));
-  return diff <= 86_400_000 ? clientToday : server;
-}
+export { resolveToday }; // (lives in ProgressService since 0.9.9.9.5 — the daily challenge uses it too)
 
 /** 0.9.9.4.4: what an answer changed, so "Undo" can put it back (newest last, a few per player). */
 interface UndoEntry { deck: DeckId; before: SrsCard; today: string; counted: boolean; critCounted: boolean; xp: number }
@@ -71,6 +67,7 @@ export class StudyService {
   }
 
   async profile(u: UserRecord, now = clockNow()): Promise<Profile> {
+    u = await this.migrateKana(u); // 0.9.9.9.5: kana leave the decks for the Kana section (once per account)
     // achievements earned outside a match (streaks, spells learned, friends, level, monthly rewards)
     if ((await this.grantAchievements(u.id)).length) u = (await this.store.findById(u.id)) ?? u;
     // the Beta border: everyone who has finished the tutorial (0.9.9.3.1)
@@ -80,10 +77,11 @@ export class StudyService {
     return {
       xp: u.xp, level: levelOf(u.xp), crit: dailyCrit(u.critCount, u.critExpires, now), learned, learnedToday, background: u.background,
       studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u), flame: u.flame ?? 'blue', staff: u.staff ?? 'verdant', strugglingDue: await this.strugglingDue(u.id, now),
-      streak: liveStreak(u, new Date(now).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0,
+      streak: liveStreak(u, playerDay(u, now)), bestStreak: u.bestStreak ?? 0, // (0.9.9.9.5: on the player's date)
       tutorialDone: u.tutorialDone ?? true, unlocks: u.unlocks ?? [], month: await this.progress.month(u, playerDay(u, now)),
       dailyNew: u.dailyNew ?? DAILY_NEW, badges: u.badges ?? [],
       tasks: await this.progress.tasks(u.id, playerDay(u, now)), streakDay: u.streakDay ?? null, border: u.border ?? 'none', starred: u.starred ?? [],
+      kana: u.kana ?? {},
     };
   }
 
@@ -105,6 +103,11 @@ export class StudyService {
     // 0.9.9.4.3: only a good enough result counts (7/10 quiz, 4/8 passage); older apps send no score
     if (typeof score === 'number' && typeof total === 'number' && !taskPassed(task, score, total)) return this.profile(u);
     await this.progress.record(u.id, today, task === 'quiz' ? { quizzes: 1 } : { passages: 1 });
+    // 0.9.9.9.5: a perfect quiz (10 / 10) or passage (8 / 8)
+    if (typeof score === 'number' && typeof total === 'number' && score === total) {
+      if (task === 'quiz' && total >= 10) await this.grantAchievements(u.id, undefined, ['ace']);
+      if (task === 'passage' && total >= 8) await this.grantAchievements(u.id, undefined, ['every-word']);
+    }
     return this.profile((await this.store.findById(u.id)) ?? u);
   }
 
@@ -171,7 +174,7 @@ export class StudyService {
   async publicProfile(id: string): Promise<PublicProfile | null> {
     const u = await this.store.findById(id);
     if (!u || u.banned) return null;
-    return { id: u.id, name: displayName(u), login: u.nickname?.trim() ? u.username : undefined, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date(clockNow()).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none' };
+    return { id: u.id, name: displayName(u), login: u.nickname?.trim() ? u.username : undefined, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, playerDay(u, clockNow())), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none' };
   }
 
   matches(userId: string) { return this.store.matches(userId, MATCH_HISTORY_LIMIT); }
@@ -214,8 +217,8 @@ export class StudyService {
 
   /** "All spells": pick the levels that feed the daily new cards. Picking levels adds today's batch right away. */
   async setStudyLevels(u: UserRecord, raw: unknown, today: string) {
-    const picked = Array.isArray(raw) ? LEVELS.filter((l) => raw.includes(l)) : [];
-    const levels = isKanaBeginner(u.unlocks) && u.role !== 'admin' && picked.length ? levelsFor(picked, true) : picked;
+    // (0.9.9.9.5: kana are learned in the Kana section — never in All spells)
+    const levels = Array.isArray(raw) ? LEVELS.filter((l) => raw.includes(l) && !isKanaLevel(l)) : [];
     // (older app versions) the levels share your "new spells a day"
     const per = splitDaily(levels, clampDaily(u.dailyNew));
     const rec = (await this.store.update(u.id, { studyLevels: levels, lastNewDate: levels.length ? u.lastNewDate : null, dailyPlan: { ...planOf(u, today), per } }))!;
@@ -227,19 +230,17 @@ export class StudyService {
    * Raising a number today adds the difference right away.
    */
   async setDailyLevels(u: UserRecord, raw: unknown, today: string) {
-    const beginner = isKanaBeginner(u.unlocks) && u.role !== 'admin';
     const per: Partial<Record<Level, number>> = {};
     const obj = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
     const old = planOf(u, today).per;
     for (const l of LEVELS) {
-      // 0.9.9.4.4.5: a level locked for a かな beginner keeps its saved number (it can't be changed while locked)
-      if (beginner && !isKanaLevel(l)) { if (old[l]) per[l] = old[l]; continue; }
+      if (isKanaLevel(l)) continue; // 0.9.9.9.5: kana are learned in the Kana section
       const n = Math.round(Number(obj[l]));
       if (!Number.isFinite(n) || n <= 0) continue;
       per[l] = Math.min(DAILY_LEVEL_MAX, n);
     }
     if (old.ONO) per.ONO = old.ONO; // 0.9.9.7: the Onomatopoeia number has its own setting
-    const levels = openLevels(per, beginner);
+    const levels = openLevels(per);
     const total = levels.reduce((a, l) => a + per[l]!, 0);
     const rec = (await this.store.update(u.id, {
       studyLevels: levels, dailyNew: clampDaily(total || u.dailyNew), lastNewDate: levels.length ? u.lastNewDate : null, dailyPlan: { ...planOf(u, today), per },
@@ -248,17 +249,79 @@ export class StudyService {
     return per;
   }
 
+  // ── 0.9.9.9.5: push tokens (the Android app) ───────────────────────────────
+  /** A phone's Firebase token: friends' invites reach it while the app is closed (the newest 4 phones). */
+  async addPushToken(u: UserRecord, raw: unknown) {
+    const token = typeof raw === 'string' ? raw.trim() : '';
+    if (!/^[\w:.-]{20,400}$/.test(token)) throw new StudyError('Not a push token');
+    // one phone, one account: signing in as someone else on it takes the token away from the first account
+    for (const other of await this.store.usersWithPushToken?.(token) ?? []) if (other.id !== u.id) await this.store.update(other.id, { pushTokens: (other.pushTokens ?? []).filter((t) => t !== token) });
+    const fresh = (await this.store.findById(u.id)) ?? u;
+    await this.store.update(u.id, { pushTokens: [...(fresh.pushTokens ?? []).filter((t) => t !== token), token].slice(-4) });
+  }
+  async dropPushToken(u: UserRecord, raw: unknown) {
+    const fresh = (await this.store.findById(u.id)) ?? u;
+    await this.store.update(u.id, { pushTokens: (fresh.pushTokens ?? []).filter((t) => t !== raw) });
+  }
+
+  // ── 0.9.9.9.5: the Kana section ────────────────────────────────────────────
+  /**
+   * Once per account: the hiragana / katakana cards of All spells and Struggling spells become Kana section
+   * progress (a card well learned = mastered, one being learned = a star or two) and leave those decks; the
+   * kana levels leave the daily plan. Runs where the account is (the server, or the app offline) — the flag
+   * makes it happen once.
+   */
+  async migrateKana(u: UserRecord): Promise<UserRecord> {
+    if ((u.unlocks ?? []).includes(KANA_MIGRATED)) return u;
+    const kana: KanaProgress = { ...(u.kana ?? {}) };
+    const byDeck = new Map<DeckId, string[]>();
+    for (const c of await this.store.cards(u.id)) {
+      if (!isKanaId(c.vocabId)) continue;
+      const deck = deckOf(c);
+      if (deck === 'all' || deck === 'struggling') byDeck.set(deck, [...(byDeck.get(deck) ?? []), c.vocabId]);
+      const ch = VOCAB_BY_ID.get(c.vocabId)?.kanji;
+      if (!ch || !isKanaChar(ch)) continue;
+      const stars = c.state === 'review' ? (c.intervalDays >= 7 ? 3 : 2) : c.state === 'new' ? 0 : 1;
+      const was = kana[ch] ?? { s: 0 };
+      const s = Math.max(was.s, stars);
+      kana[ch] = was.m || (c.state === 'review' && c.intervalDays >= 7) ? { s, m: true } : { s };
+    }
+    for (const [deck, ids] of byDeck) await this.store.removeCards(u.id, deck, ids);
+    const plan = u.dailyPlan ? { ...u.dailyPlan, per: Object.fromEntries(Object.entries(u.dailyPlan.per).filter(([l]) => !isKanaLevel(l as Level))) } : u.dailyPlan;
+    return (await this.store.update(u.id, {
+      kana: cleanKana(kana), studyLevels: u.studyLevels.filter((l) => !isKanaLevel(l)), dailyPlan: plan,
+      unlocks: [...(u.unlocks ?? []), KANA_MIGRATED],
+    })) ?? u;
+  }
+
+  /**
+   * The Kana section saves its stars. A kana mastered for the first time gives 5 XP; kana that got a star count
+   * as studied today (the daily task, the month's goal). All 46 basic hiragana mastered: a かな beginner graduates.
+   */
+  async setKana(u: UserRecord, raw: unknown, today: string) {
+    const changes = cleanKana(raw);
+    const kana: KanaProgress = { ...(u.kana ?? {}) };
+    let newlyMastered = 0, starred = 0;
+    for (const [ch, v] of Object.entries(changes)) {
+      const was = kana[ch] ?? { s: 0 };
+      if (v.m && !was.m) newlyMastered++;
+      if (v.s > was.s) starred++;
+      kana[ch] = was.m || v.m ? { s: v.s, m: true } : { s: v.s }; // mastered stays mastered
+    }
+    await this.store.update(u.id, { kana });
+    const xp = newlyMastered * KANA_MASTER_XP;
+    if (xp) await this.store.addXp(u.id, xp);
+    if (starred || xp) await this.progress.record(u.id, today, { reviews: starred, xp });
+    if (isKanaBeginner(u.unlocks) && kanaCells('hira', 'basic').every((c) => kana[c.ch]?.m)) await this.setKanaMastered((await this.store.findById(u.id)) ?? u, true);
+    return { kana, xp };
+  }
+
   /** "I've mastered hiragana" (Settings) — or, for a new player who says they're a beginner, not yet. */
   async setKanaMastered(u: UserRecord, mastered: boolean) {
     const rest = (u.unlocks ?? []).filter((x) => x !== KANA_BEGINNER);
     await this.store.update(u.id, { unlocks: mastered ? rest : [...rest, KANA_BEGINNER] });
     if (mastered && isKanaBeginner(u.unlocks)) await this.grantAchievements(u.id, undefined, ['graduate']);
-    // 0.9.9.4.4.5: your numbers per level are kept either way. A beginner just gets no words from the kanji
-    // levels (they're locked) — and a brand-new player with no plan at all starts on かな.
-    const plan = planOf(u, '');
-    const per = { ...plan.per };
-    if (!mastered && !LEVELS.some((l) => (per[l] ?? 0) > 0)) per.KANA = clampDaily(u.dailyNew);
-    await this.store.update(u.id, { studyLevels: openLevels(per, !mastered), dailyPlan: { ...plan, per } });
+    // 0.9.9.9.5: a beginner learns kana in the Kana section (All spells keeps its words either way); nothing else changes
   }
 
   /**
@@ -271,9 +334,8 @@ export class StudyService {
     const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === 'all').map((c) => c.vocabId));
     const now = clockNow();
     let added = 0;
-    const beginner = isKanaBeginner(u.unlocks) && u.role !== 'admin';
     for (const l of u.studyLevels) {
-      if (beginner && !isKanaLevel(l)) continue; // locked until "I've mastered hiragana"
+      if (isKanaLevel(l)) continue; // 0.9.9.9.5: kana are learned in the Kana section
       const want = Math.max(0, (plan.per[l] ?? 0) - (done[l] ?? 0));
       if (!want) continue;
       // seeded by player + day + level (0.9.9.4): the app offline and the server pick the same words, so study
@@ -401,18 +463,22 @@ export class StudyService {
   }
 
   /**
-   * JLPT-style quiz from the words you have studied (any deck, answered at least once): reading, meaning
-   * or "which kanji" — 4 choices, the wrong ones taken from the same level.
+   * JLPT-style quiz from the words you have studied (answered at least once): reading, meaning or "which kanji" —
+   * 4 choices, made-up near misses like the real test's (0.9.9.9.5). Like the reading passage, it can take its words
+   * from one deck and the JLPT levels you tick (your own typed words always count); none given = every deck / level.
    */
-  async quiz(u: UserRecord, n = 10): Promise<QuizQuestion[]> {
+  async quiz(u: UserRecord, n = 10, opts: { deck?: unknown; levels?: unknown } = {}): Promise<QuizQuestion[]> {
+    const deck = isDeck(opts.deck) && opts.deck !== 'ono' ? opts.deck : null;
+    const levels = Array.isArray(opts.levels) ? LEVELS.filter((l) => (opts.levels as unknown[]).includes(l)) : [];
     const custom = await this.words(u.id);
-    const cards = await this.store.cards(u.id);
+    const cards = (await this.store.cards(u.id)).filter((c) => !deck || deckOf(c) === deck);
+    const fits = (w: WordInfo | null): w is WordInfo => !!w && w.level !== 'ONO' && !isKanaId(w.id) && (w.custom || !levels.length || levels.includes(w.level));
     const studied = new Map<string, WordInfo>();
-    // (onomatopoeia have their own quiz)
-    for (const c of cards) if (c.reps > 0 || c.state !== 'new') { const w = this.info(c.vocabId, custom); if (w && w.level !== 'ONO') studied.set(w.id, w); }
-    if (studied.size < 4) for (const c of cards) { const w = this.info(c.vocabId, custom); if (w && w.level !== 'ONO') studied.set(w.id, w); }
+    // (onomatopoeia have their own quiz; kana have the Kana section)
+    for (const c of cards) if (c.reps > 0 || c.state !== 'new') { const w = this.info(c.vocabId, custom); if (fits(w)) studied.set(w.id, w); }
+    if (studied.size < 4) for (const c of cards) { const w = this.info(c.vocabId, custom); if (fits(w)) studied.set(w.id, w); }
     const pool = shuffle([...studied.values()], this.rng).slice(0, Math.max(1, Math.min(30, n)));
-    return buildQuiz(pool, VOCAB, this.rng, (id) => VOCAB_BY_ID.get(id));
+    return buildQuiz(pool, VOCAB, this.rng, (id) => VOCAB_BY_ID.get(id), kanjiFacts);
   }
 
   /** Quiz / results: words you got wrong → a deck of your choice. */
@@ -536,18 +602,27 @@ export class StudyService {
     const who = await this.store.findById(userId);
     if (who) await this.progress.record(userId, playerDay(who), { games: 1, wins: outcome === 'win' ? 1 : 0, xp: gained });
     // missed words go to Struggling spells right away (pre-ticked); the results screen can undo it or move them
-    const words = [...new Set(missedIds.filter((id) => VOCAB_BY_ID.has(id)))];
+    // (0.9.9.9.5: kana aren't put in decks — they're practised in the Kana section)
+    const words = [...new Set(missedIds.filter((id) => VOCAB_BY_ID.has(id) && !isKanaId(id)))];
     const added = new Set(words.length ? await this.store.markStruggling(userId, words, clockNow()) : []);
     const missed: MissedWord[] = words.map((id) => { const v = VOCAB_BY_ID.get(id)!; return { id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, added: added.has(id) }; });
     // Deck Duel: every kanji of the duel joins All spells as a new card (cards you already have are left alone)
-    const met = seen.filter((id) => VOCAB_BY_ID.has(id));
+    const met = seen.filter((id) => VOCAB_BY_ID.has(id) && !isKanaId(id));
     if (met.length) {
       const n = (await this.store.addCards(userId, met.map((id) => newCard(id, clockNow(), 'all')))).length;
       const u = n ? await this.store.findById(userId) : null;
       if (u) await this.store.update(userId, { newNotice: u.newNotice + n });
     }
     const st = record?.stats[userId];
-    const achievements = await this.grantAchievements(userId, { mode, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited, beatAdmin });
+    // 0.9.9.9.5: the feats — your HP at the end, how fast, who you beat
+    const me = record?.players.find((p) => p.id === userId);
+    const won = outcome === 'win';
+    const achievements = await this.grantAchievements(userId, {
+      mode, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited, beatAdmin,
+      hpLeft: me && me.maxHp > 0 ? Math.max(0, me.hp) / me.maxHp : undefined, avgMs: st?.avgResponseMs ?? null, correct: st?.correct ?? 0,
+      beatN1Bot: won && !!record?.players.some((p) => p.bot === 'N1'),
+      giant: won && !!me && !!record?.players.some((p) => !p.bot && p.id !== userId && p.level >= me.level + 5),
+    });
     return { gained, xp, achievements, missed };
   }
 
@@ -568,6 +643,9 @@ export class StudyService {
       activeDays: days.filter((d) => d.login || d.reviews > 0 || d.games > 0).length,
       mastered: new Set(cards.filter((c) => c.state === 'review' && c.intervalDays >= MASTERED_DAYS).map((c) => c.vocabId)).size,
       starred: (u.starred ?? []).length, custom: cards.filter((c) => deckOf(c) === 'custom').length, nickname: !!u.nickname?.trim(),
+      // 0.9.9.9.5: the Kana section, and the most study cards answered in one day
+      kanaBasic: masteredCount(u.kana ?? {}, kanaCells('hira', 'basic')), kanaHira: masteredCount(u.kana ?? {}, kanaCells('hira')),
+      kanaKata: masteredCount(u.kana ?? {}, kanaCells('kata')), bestDay: days.reduce((a, d) => Math.max(a, d.reviews ?? 0), 0),
     };
   }
 
@@ -576,7 +654,8 @@ export class StudyService {
     if (!u) return [];
     const unlocks = u.unlocks ?? [];
     const facts = await this.achFacts(u, match);
-    const fresh = [...new Set([...earnedAchievements(facts), ...extra])].filter((id) => !unlocks.includes(ACH_PREFIX + id));
+    const had = unlocks.filter((x) => x.startsWith(ACH_PREFIX)).map((x) => x.slice(ACH_PREFIX.length));
+    const fresh = [...new Set([...earnedAchievements(facts, had), ...extra])].filter((id) => !unlocks.includes(ACH_PREFIX + id));
     if (fresh.length) await this.store.update(userId, { unlocks: [...unlocks, ...fresh.map((id) => ACH_PREFIX + id)] });
     return fresh;
   }
@@ -632,10 +711,14 @@ export function splitDaily(levels: readonly Level[], total: number): Partial<Rec
 }
 /** a player's per-level plan for `today` (an account from before 0.9.9.4.4: its levels share its daily number) */
 /** The levels that add words each day: those with a number above 0 — only かな ones for a beginner. */
-function openLevels(per: Partial<Record<Level, number>>, beginner: boolean): Level[] {
-  return LEVELS.filter((l) => (per[l] ?? 0) > 0 && (!beginner || isKanaLevel(l)));
+function openLevels(per: Partial<Record<Level, number>>): Level[] {
+  return LEVELS.filter((l) => (per[l] ?? 0) > 0 && !isKanaLevel(l)); // (0.9.9.9.5: never kana — the Kana section)
 }
 const isKanaLevel = (l: Level) => l === 'KANA' || l === 'KATA';
+/** a hiragana / katakana entry of the word list (kana:あ, kata:ア) */
+const isKanaId = (id: string) => id.startsWith('kana:') || id.startsWith('kata:');
+const KANA_MIGRATED = 'mig:kana-section';
+const KANA_MASTER_XP = 5;
 
 export function planOf(u: Pick<UserRecord, 'dailyPlan' | 'studyLevels' | 'dailyNew' | 'lastNewDate' | 'newToday'>, today: string): DailyPlan {
   const per = u.dailyPlan?.per ?? splitDaily(u.studyLevels, clampDaily(u.dailyNew));

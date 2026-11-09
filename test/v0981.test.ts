@@ -7,8 +7,8 @@ import { StudyService } from '../src/server/study/StudyService';
 const base = { wins: 0, level: 0, bestStreak: 0, learned: 0, friends: 0, seasonal: 0 };
 
 test('44 achievements (0.9.9.6), each with a name, how-to, icon and colour', () => {
-  assert.equal(ACHIEVEMENTS.length, 44);
-  assert.equal(new Set(ACHIEVEMENTS.map((a) => a.id)).size, 44);
+  assert.equal(ACHIEVEMENTS.length, 50); // (0.9.9.9.5)
+  assert.equal(new Set(ACHIEVEMENTS.map((a) => a.id)).size, 50);
   for (const a of ACHIEVEMENTS) assert.ok(a.name && a.how && a.icon && /^#[0-9a-f]{6}$/i.test(a.color), a.id);
 });
 

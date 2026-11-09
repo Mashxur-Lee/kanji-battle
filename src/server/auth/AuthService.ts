@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { displayName } from '../db/Store';
 import { dailyCrit } from '../../shared/progress';
 import type { AdminUserRow, PublicUser, Role } from '../../shared/protocol';
@@ -20,12 +21,23 @@ export class AuthService {
   constructor(readonly store: Store, private readonly tokens: TokenSigner) {}
 
   /** Creates the two starter accounts if they don't exist yet. Env vars can override the passwords. */
-  async seed(accounts: Array<{ username: string; password: string; role: Role }>) {
+  /**
+   * The built-in accounts. `publicServer` (0.9.9.9.5): a password that isn't from the environment is the one written
+   * in the public README — such an account isn't created there, and an existing one still using it is locked
+   * (given a random password nobody knows; set the environment variable to use it again).
+   */
+  async seed(accounts: Array<{ username: string; password: string; role: Role; fromEnv?: boolean }>, publicServer = false) {
     for (const a of accounts) {
       const existing = await this.store.findByUsername(a.username);
-      if (!existing) await this.store.create({ username: a.username, passwordHash: await hashPassword(a.password), role: a.role });
-      else if (a.role === 'admin' && process.env.ADMIN_PASSWORD && !(await verifyPassword(process.env.ADMIN_PASSWORD, existing.passwordHash))) {
-        await this.store.update(existing.id, { passwordHash: await hashPassword(process.env.ADMIN_PASSWORD) }); // rotate to the env password
+      const known = publicServer && a.fromEnv === false;
+      if (!existing) { if (!known) await this.store.create({ username: a.username, passwordHash: await hashPassword(a.password), role: a.role }); }
+      else if (known) {
+        if (await verifyPassword(a.password, existing.passwordHash)) {
+          await this.store.update(existing.id, { passwordHash: await hashPassword(randomBytes(24).toString('base64url')) });
+          console.warn(`"${a.username}" still had the README's default password — locked (set its password in the environment)`);
+        }
+      } else if (a.fromEnv && !(await verifyPassword(a.password, existing.passwordHash))) {
+        await this.store.update(existing.id, { passwordHash: await hashPassword(a.password) }); // rotate to the env password
       }
     }
   }

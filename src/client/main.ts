@@ -34,11 +34,14 @@ import { customizeHidden, onProfileChange, openCustomize, openStudy } from './st
 import * as ui from './ui';
 import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
-import { closeRematchAsk, initFriends, onFriendEvent, onInvite, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
+import { closeRematchAsk, initFriends, onFriendEvent, onInvite, onInviteDeclined, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
+import { pushSignedOut, registerPush } from './push';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
 import * as offline from './offline';
+import { initKana, openKana, setKanaProgress } from './kanaui';
+import { initMotion } from './motion';
 import { initApp } from './appshell';
 import './dictui'; // (the dictionary page; opened from the side panel)
 
@@ -187,6 +190,7 @@ function applyProfile(p: Profile) {
   void dailyPending().then((open) => { ui.$('dailyBadge').hidden = !open; });
   refreshFriendsBadge();
   renderTasks(p); // the daily streak tasks
+  setKanaProgress(p.kana); // 0.9.9.9.5: the Kana section
   if (user && !inRoom && ui.currentScreen() === 'menu') checkRewards(user.id, p, user.role === 'admin', applyProfile); // something new unlocked → a reward box
   if (user && p.tutorialDone && !tutorialShown && !inRoom && ui.currentScreen() === 'menu') tasksAtLogin(p);
   if (user?.role === 'admin') void refreshInboxBadge(); // new bug reports / suggestions
@@ -243,9 +247,19 @@ async function boot() {
 async function serverAnswers(ms: number): Promise<boolean> {
   // (a plain timer, not AbortSignal.timeout — older Android WebViews don't have it, and the check failed at once,
   // so the "waking up" screen showed on every start — 0.9.9.7.3)
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), ms);
-  try { const r = await fetch('/api/online', { cache: 'no-store', signal: ctl.signal }); return r.ok && /json/.test(r.headers.get('content-type') ?? ''); } catch { return false; } finally { clearTimeout(t); }
+  // 0.9.9.9.5: a quick failure (the phone's network not ready yet, a blip) is tried again until `ms` is up — one
+  // failed request at start showed "Waking up the server…" while the server was wide awake
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), Math.max(500, end - Date.now()));
+    try {
+      const r = await fetch('/api/online', { cache: 'no-store', signal: ctl.signal });
+      if (r.ok && /json/.test(r.headers.get('content-type') ?? '')) return true;
+    } catch { /* not yet */ } finally { clearTimeout(t); }
+    await new Promise((ok) => setTimeout(ok, 700));
+  }
+  return false;
 }
 const WAKE_KEY = 'kw:wake-secs';
 /**
@@ -320,12 +334,13 @@ function showAuth(message = '') {
 
 function logout(message = '') {
   const reminders = remindersSignedOut(); // (before the token goes)
+  const push = pushSignedOut();
   setToken('');
   socket.stop();
   // 0.9.9.6: start the page afresh, so nothing of this account (study plan, story limit, stars, settings
   // from the server) carries over to the next one who signs in
   try { sessionStorage.setItem('kw:auth-msg', message); } catch { /* private mode */ }
-  void Promise.allSettled([reminders, offline.signedOut()]).finally(() => location.reload());
+  void Promise.allSettled([reminders, push, offline.signedOut()]).finally(() => location.reload());
 }
 
 function backToMenu() {
@@ -362,9 +377,15 @@ function onMessage(msg: ServerMessage) {
       arenaTyping(msg.id, msg.on);
       break;
     case 'welcome':
+      offline.serverSeen(); // 0.9.9.9.5: the server is there — leave offline mode now
       user = msg.user;
       ui.setUser(msg.user);
       void refreshOnline(); // now this player counts too
+      registerPush(msg.user.id); // 0.9.9.9.5: friends' invites reach this phone while the app is closed
+      joinFromLink();
+      break;
+    case 'invite_declined':
+      onInviteDeclined(msg);
       break;
     case 'auth_error':
       logout(msg.message);
@@ -795,15 +816,28 @@ function challengeFriend(friendId: string, name: string, mode: GameMode) {
 }
 
 ui.$('progressBtn').onclick = () => void openProgress(profile?.unlocks ?? [], profile?.badges ?? [], (b) => { if (profile) { profile = { ...profile, badges: b }; ui.setBadges(b); } });
+/**
+ * 0.9.9.9.5: "Join" on an invite notification opens the app at …/?join=CODE: once signed in, straight into that room
+ * (the link is cleared first, so a reload doesn't join again).
+ */
+function joinFromLink() {
+  let c = '';
+  try { c = new URLSearchParams(location.search).get('join') ?? ''; } catch { /* no URL */ }
+  if (!c) return;
+  try { history.replaceState(history.state, '', location.pathname + location.hash); } catch { /* fine */ }
+  if (!/^[A-Za-z0-9]{4}$/.test(c)) return;
+  joinRoom(c.toUpperCase());
+}
+function joinRoom(c: string) {
+  askNotifyPermission();
+  if (!inRoom) return socket.send({ type: 'join', code: c, levels: savedLevels() });
+  // in another room's lobby / results: leave it, then join (when the server says we've left)
+  pendingJoin = c;
+  socket.send({ type: 'leave' });
+}
 initFriends({
   send: (m) => socket.send(m),
-  join: (c) => {
-    askNotifyPermission();
-    if (!inRoom) return socket.send({ type: 'join', code: c, levels: savedLevels() });
-    // in another room's lobby / results: leave it, then join (when the server says we've left)
-    pendingJoin = c;
-    socket.send({ type: 'leave' });
-  },
+  join: (c) => joinRoom(c),
   inRoom: () => inRoom,
 });
 initSelects();
@@ -813,6 +847,7 @@ initApp({
   backOnline: () => { ui.setError(''); void refreshProfile(); },
   netStatus: showNetStatus,
 });
+initMotion(); // 0.9.9.9.5: buttons give and spring back, new list items slide in
 initTutorial({
   firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ui.kanaBeginner() ? ['KANA'] : ['KANA', 'N5'], tutorial: true }),
   kana: async (mastered) => {
@@ -830,6 +865,16 @@ ui.$('join').onclick = join;
 ui.$<HTMLInputElement>('joinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
 ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
 ui.$('studyBtn').onclick = () => void openStudy();
+// 0.9.9.9.5: the Kana section (a kana mastered for the first time gives XP: the level bar follows)
+ui.$('kanaBtn').onclick = () => openKana();
+initKana({
+  saved: async () => {
+    const was = ui.kanaBeginner();
+    await refreshProfile();
+    // all 46 basic hiragana mastered: the server lifted the beginner lock
+    if (was && !ui.kanaBeginner()) { ui.toast('All basic hiragana mastered — kanji battles unlocked!', 5000); audio.sfx.win(); }
+  },
+});
 ui.$('studyBack').onclick = () => ui.show('menu');
 ui.$('customizeBtn').onclick = async () => { await refreshProfile(); if (profile) openCustomize(profile, user?.role === 'admin', () => applyBackground(true)); };
 ui.$('customizeBack').onclick = () => ui.show('menu');
@@ -969,7 +1014,7 @@ ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {
   const box = e.target as HTMLInputElement;
   try {
     applyProfile((await api.setKana(box.checked)).profile);
-    ui.toast(box.checked ? 'Kanji levels unlocked — pick N5 in Study spells to start!' : 'Back to かな only: kanji levels are locked.', 5000);
+    ui.toast(box.checked ? 'Kanji battles unlocked — pick N5 when you queue!' : 'Back to かな only in battles.', 5000);
     if (!box.checked) store.set('kb:levels', JSON.stringify(['KANA']));
   } catch (err) { box.checked = !box.checked; ui.toast((err as Error).message); }
 };

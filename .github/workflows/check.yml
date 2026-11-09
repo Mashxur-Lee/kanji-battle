@@ -1,0 +1,90 @@
+# Checks every push to a release branch (0.9.9.9.5): typecheck, all tests against a real Postgres, the build — and,
+# when started by hand with a scenario, screenshots of the running game (downloadable from the run's Artifacts).
+name: Check
+
+on:
+  push:
+    branches: ['v*', 'fix*', 'fixes*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Screenshot scenario: base64 of an async (page, shot, sleep, info) => {} function'
+        required: false
+        default: ''
+      sizes:
+        description: 'Sizes, e.g. pc:1366x768,phone:390x844'
+        required: false
+        default: 'pc:1366x768,phone:390x844'
+      lang:
+        description: 'en or ru'
+        required: false
+        default: 'en'
+
+permissions:
+  contents: write # (only to push the screenshots to the ci-shots branch)
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: kw
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Tests
+        env:
+          TEST_DATABASE_URL: postgres://postgres@localhost:5432/kw
+        run: npm test 2>&1 | tee test-output.txt; test ${PIPESTATUS[0]} -eq 0
+      - name: Build
+        run: npm run build
+      - name: Screenshots
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.scenario != '' }}
+        env:
+          SCENARIO: ${{ inputs.scenario }} # (through the environment, never pasted into the script)
+          LANG_IN: ${{ inputs.lang }}
+          SIZES_IN: ${{ inputs.sizes }}
+          DATABASE_URL: postgres://postgres@localhost:5432/kw
+          AUTH_SECRET: ci-secret
+          ADMIN_PASSWORD: ci-admin
+          PORT: '3130'
+        run: |
+          npm i --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+          node dist/server/index.js > server.log 2>&1 &
+          for i in $(seq 1 60); do curl -s localhost:3130/ >/dev/null && break; sleep 0.5; done
+          export EXTRA="$(printf '%s' "$SCENARIO" | base64 -d)"
+          node scripts/shots.cjs shots "$LANG_IN" dark "$SIZES_IN" 2>&1 | tee shots-log.txt
+      - name: Publish screenshots to the ci-shots branch
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.scenario != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p shots && cp shots-log.txt server.log shots/ 2>/dev/null || true
+          cd shots && git init -q && git checkout -q -b ci-shots && git add . \
+            && git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "shots from run $GITHUB_RUN_ID" \
+            && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-shots
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-results
+          path: |
+            test-output.txt
+            shots/
+            shots-log.txt
+            server.log
+          if-no-files-found: ignore

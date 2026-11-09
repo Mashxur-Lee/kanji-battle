@@ -1,10 +1,11 @@
+import type { KanaProgress } from '../shared/kanachart';
 import type { AdminUserRow, Device, Level, MatchDetail, MatchSummary, OnoType, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
 import type { CardState, DeckId, Rating } from '../shared/srs';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; wins: number; losses: number; pic: string | null; background: BackgroundId; studyLevels: Level[]; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
   tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew?: number; badges?: string[];
-  tasks?: DailyTaskState[]; streakDay?: string | null; border?: string; starred?: string[] }
+  tasks?: DailyTaskState[]; streakDay?: string | null; border?: string; starred?: string[]; kana?: KanaProgress }
 export interface MonthProgress { month: string; name: string; reward: string; goals: Array<{ id: string; label: string; target: number; value: number }>; done: boolean; unlocked: boolean }
 export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number }
 /** 0.9.9.7: a dictionary word (server/study/DictService.ts) */
@@ -17,7 +18,7 @@ export interface DailyOverview { league?: string; nextLeague?: string; promoteAt
   /** 0.9.9.8.2: every league's board */
   boards?: Record<string, Array<{ id: string; name: string; correct: number; ms: number }>>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
-export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device }
+export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device; /** 0.9.9.9.5: has the app with push — an invite reaches their phone */ push?: boolean }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; onoDaily?: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean; ono?: OnoType }
@@ -38,7 +39,7 @@ export interface StoryData { title: { ja: string; en: string; ru: string }; line
 
 export class ApiError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
-export interface AdminReport { id: string; kind: 'bug' | 'suggestion' | 'error'; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean }
+export interface AdminReport { id: string; kind: 'bug' | 'suggestion' | 'error'; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean; count?: number }
 export interface AdminStats {
   onlineNow: number; players: number; daily: Array<{ day: string; signups: number; active: number }>;
   day1: { players: number; returned: number }; day7: { players: number; returned: number };
@@ -119,7 +120,10 @@ export const api = {
   searchWords: (q: string) => call<{ words: WordHit[] }>('GET', `/api/study/search?q=${encodeURIComponent(q)}`),
   // the app names a new custom word itself (0.9.9.4), so one added offline keeps its id on the server
   addCustom: (w: { vocabId?: string; kanji?: string; reading?: string; meaning?: string }) => call<{ added: boolean; word: WordHit }>('POST', '/api/study/custom', { ...w, id: `u:${uuid().slice(0, 13)}` }),
-  quiz: (n = 10) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}`),
+  /** 0.9.9.9.5: the Android app's push token (friends' invites while the app is closed) */
+  pushRegister: (token: string) => call<{ ok: boolean }>('PUT', '/api/push', { token }),
+  pushUnregister: (token: string) => call<{ ok: boolean }>('DELETE', '/api/push', { token }),
+  quiz: (n = 10, deck?: string, levels?: string[]) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}${deck ? `&deck=${deck}` : ''}${levels?.length ? `&levels=${levels.join(',')}` : ''}`),
   /** 0.9.9.4.4.1: one story with these words (null when the AI is off or failed) */
   story: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>, level?: string) => call<{ story: { title: { ja: string; en: string; ru: string }; lines: Array<{ ja: string; en: string; ru: string; words: number[] }> } | null; why?: string; usage?: StoryUsage }>('POST', '/api/study/story', { words, level, today: today() }),
   /** 0.9.9.5.1: start a story in the background (returns a job id), then ask for it until it's there */
@@ -154,10 +158,12 @@ export const api = {
   /** 0.9.9.6: the name others see (empty: your login) */
   setNickname: (nickname: string) => call<{ user: PublicUser }>('PUT', '/api/me/nickname', { nickname }),
   setKana: (mastered: boolean) => call<{ profile: Profile }>('PUT', '/api/me/kana', { mastered }),
+  /** 0.9.9.9.5: the Kana section's stars (only the kana that changed) */
+  saveKana: (changes: KanaProgress) => call<{ kana: KanaProgress; xp: number }>('PUT', '/api/kana', { kana: changes, today: today() }),
   progress: () => call<ProgressPage>('GET', `/api/progress?today=${today()}`),
   strokes: (chars: string) => call<{ strokes: Record<string, number[][][] | null> }>('GET', `/api/strokes?k=${encodeURIComponent(chars)}`),
-  daily: () => call<DailyOverview>('GET', '/api/daily'),
-  dailyStart: () => call<{ word: DailyWord }>('POST', '/api/daily/start'),
+  daily: () => call<DailyOverview>('GET', `/api/daily?today=${today()}`), // (0.9.9.9.5: your own date)
+  dailyStart: () => call<{ word: DailyWord }>('POST', '/api/daily/start', { today: today() }),
   dailyAnswer: (text: string) => call<DailyAnswer>('POST', '/api/daily/answer', { text }),
   dailyFinish: () => call<{ done: DailyDone | null }>('POST', '/api/daily/finish'),
   friends: () => call<{ friends: Friend[] }>('GET', '/api/friends'),

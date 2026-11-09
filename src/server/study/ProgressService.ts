@@ -41,6 +41,14 @@ export const shiftDay = (day: string, days: number) => new Date(Date.parse(day) 
  * The player's day for things the server records without the browser's date (match results): their last
  * login day if it's within a day of the server's, otherwise the server's date.
  */
+/** The player's own date (YYYY-MM-DD from the app), if it is within a day of the server's; else the server's. */
+export function resolveToday(clientToday: unknown, at = now()): string {
+  const server = new Date(at).toISOString().slice(0, 10);
+  if (typeof clientToday !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(clientToday)) return server;
+  const diff = Math.abs(Date.parse(clientToday) - Date.parse(server));
+  return diff <= 86_400_000 ? clientToday : server;
+}
+
 export function playerDay(u: Pick<UserRecord, 'loginDay'>, at = now()) {
   const server = new Date(at).toISOString().slice(0, 10);
   if (u.loginDay && Math.abs(Date.parse(u.loginDay) - Date.parse(server)) <= DAY_MS) return u.loginDay;
@@ -108,6 +116,12 @@ export class ProgressService {
     for (const c of await this.store.cards(u.id)) { const was = cards.get(c.vocabId); if (!was || score(c) > score(was)) cards.set(c.vocabId, c); }
     const mastery = Object.fromEntries([...LEVELS, 'ONO' as const].map((l) => [l, [] as Array<[string, number, number]>])) as Record<Level, Array<[string, number, number]>>;
     for (const v of VOCAB) {
+      // 0.9.9.9.5: hiragana and katakana come from the Kana section
+      if (v.level === 'KANA' || v.level === 'KATA') {
+        const k = u.kana?.[v.kanji];
+        mastery[v.level].push([v.kanji, !k ? Mastery.Unseen : k.m ? Mastery.Mastered : k.s > 0 ? Mastery.Learning : Mastery.New, k ? Math.round(k.m ? 100 : 35 + 65 * Math.min(1, k.s / 5)) : 0]);
+        continue;
+      }
       const c = cards.get(v.id);
       const m = !c ? Mastery.Unseen
         : c.state === 'new' ? Mastery.New

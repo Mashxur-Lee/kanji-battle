@@ -19,12 +19,15 @@ export function attention(title: string, body = '') {
   baseTitle = document.title.startsWith('● ') ? baseTitle : document.title;
   let on = false;
   blink = window.setInterval(() => { on = !on; document.title = on ? `● ${title}` : baseTitle; }, 900);
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const opts = { body, icon: '/icons/icon-192.png', tag: 'kanji-wizards', renotify: true } as NotificationOptions;
   try {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const n = new Notification(title, { body, icon: '/icons/icon-192.png', tag: 'kanji-wizards', renotify: true } as NotificationOptions);
-      n.onclick = () => { window.focus(); n.close(); };
-    }
-  } catch { /* some browsers only allow notifications from a service worker */ }
+    const n = new Notification(title, opts);
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch {
+    // 0.9.9.9.5: Chrome on Android allows notifications only from the service worker
+    void navigator.serviceWorker?.getRegistration().then((reg) => reg?.showNotification(title, opts)).catch(() => { /* none */ });
+  }
 }
 
 function stop() { clearInterval(blink); blink = 0; if (document.title.startsWith('● ')) document.title = baseTitle; }

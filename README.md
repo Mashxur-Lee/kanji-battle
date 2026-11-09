@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.9.4
+# Kanji Wizards · v0.9.9.9.5
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -54,6 +54,8 @@ Two accounts are created on first start:
 
 > ⚠️ This repository is public, so these default passwords are public too. On the live site set
 > `ADMIN_PASSWORD` (and optionally `USER_PASSWORD`) — the server switches the account to it on start.
+> Since 0.9.9.9.5 a public server (Render, or `NODE_ENV=production`) never creates these accounts with the
+> default passwords, and locks an existing one still on its default password until you set the variable.
 
 Passwords are hashed with scrypt; logins are signed tokens (30 days).
 
@@ -70,6 +72,25 @@ Passwords are hashed with scrypt; logins are signed tokens (30 days).
 | `OPENAI_API_KEY` (+ `OPENAI_BASE_URL`) | Optional, instead: any OpenAI-compatible API — OpenAI (default), xAI Grok (`https://api.x.ai/v1`), Groq (`https://api.groq.com/openai/v1`), OpenRouter (`https://openrouter.ai/api/v1`). Set `STORY_MODEL` to that service's model name. |
 | `STORY_MODEL` | Optional: the model for the stories. `STORY_DAILY_MAX`: stories a day for everyone together (default 400; each player up to 40). Without any key the passage uses the words' example sentences. |
 | `USERS_FILE` | Local only: where the file store writes when there is no database (default `.data/users.json`). |
+| `FIREBASE_SERVICE_ACCOUNT` | Optional (0.9.9.9.5): push notifications to the Android app — a friend's invite reaches the phone while the app is closed. The service account JSON from Firebase (as it is, or base64). See *Push notifications* below. |
+
+### Push notifications (Android app, 0.9.9.9.5)
+
+Invites reach a friend's phone as a notification (Join / Decline) even when the app is closed. Set up once:
+
+1. [console.firebase.google.com](https://console.firebase.google.com) → **Add project** (any name; Analytics not needed).
+2. In the project: **Add app → Android**, package name `com.kanjiwizards.app` → **Register app** → download
+   **google-services.json** (skip the SDK steps).
+3. GitHub → this repository → **Settings → Secrets and variables → Actions → New repository secret**:
+   name `GOOGLE_SERVICES_JSON`, value = the whole content of google-services.json. The Apps workflow builds the
+   APK with push from now on (without the secret it builds without push, as before).
+4. Firebase → ⚙ **Project settings → Service accounts → Generate new private key** — a JSON file downloads.
+5. Render → your service → **Environment**: add `FIREBASE_SERVICE_ACCOUNT` = the whole content of that file. Save.
+   The log says `Push notifications: on`.
+6. (Firebase → Project settings → **Cloud Messaging**: "Firebase Cloud Messaging API (V1)" should say *Enabled* —
+   it is on for new projects.)
+
+Players install the new APK, sign in, and allow notifications when Android asks.
 
 ### Keeping accounts on Render (Neon Postgres)
 
@@ -201,7 +222,10 @@ with the online count) slides the same list in from the right. The menu no longe
 
 **Friends** (main menu): add players by name, accept or decline requests, see who is online and what they are
 doing. In a room's lobby your online friends appear with an **Invite** button; they get a card with Join /
-Decline (and a notification if the tab is in the background). Stored in `kw_friends`. Friends already in your room
+Decline (and a notification if the tab is in the background). Since 0.9.9.9.5 friends with the Android app closed
+are listed too — their phone gets a push notification (see *Push notifications*), and an invite waits two minutes
+for a friend whose app had no connection. **Decline** tells the inviter, who can't invite that friend again for
+5 minutes. Stored in `kw_friends`. Friends already in your room
 aren't listed, friends in a game show **In a game** (no invites mid-game), and the same friend can be invited
 again after 10 s (checked on the server too). Accepting an invite while you're in another room's lobby or results
 leaves that room and joins the new one.

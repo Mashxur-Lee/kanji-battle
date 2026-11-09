@@ -98,7 +98,7 @@
       <p id="remindLast" class="hint" hidden></p>
       <label id="gameKbRow" class="toggle-row" hidden>Battle keyboard <select id="gameKbSel" aria-label="Battle keyboard"><option value="game">Game keyboard</option><option value="system">Phone keyboard</option></select></label>
       <label id="kanaRow" class="toggle-row" hidden><input id="kanaMastered" type="checkbox"> I've mastered hiragana</label>
-      <p id="kanaInfo" class="hint" hidden>Unlocks the kanji levels (N5–N1) for studying and battles.</p>
+      <p id="kanaInfo" class="hint" hidden>Unlocks the kanji levels (N5–N1) in battles. Mastering the 46 basic hiragana in Kana ticks it for you.</p>
     </section>
   </div>
 </div>
@@ -336,6 +336,11 @@
         <span class="mc-glyph" lang="ja" aria-hidden="true">学</span>
         <span class="mc-body"><b class="mc-name">Study spells</b><span class="mc-info">Your decks, quizzes and reading passages</span></span>
       </button>
+      <!-- 0.9.9.9.5: hiragana and katakana have a section of their own -->
+      <button id="kanaBtn" class="mc-card mc-kana" type="button">
+        <span class="mc-glyph" lang="ja" aria-hidden="true">あ</span>
+        <span class="mc-body"><b class="mc-name">Kana</b><span class="mc-info">Learn hiragana and katakana</span><span id="kanaMenuProg" class="mc-prog" hidden></span></span>
+      </button>
     </div>
     <p id="error" class="error" role="alert"></p>
     <div class="menu-foot">
@@ -349,6 +354,68 @@
   </section>
 
   <!-- PROGRESS -->
+  <!-- 0.9.9.9.5: the Kana section — the chart, and practice in rows with stars -->
+  <section id="kana" class="screen" hidden>
+    <button id="kanaBack" class="back">← Menu</button>
+    <div class="page-head"><h2>Kana</h2></div>
+    <div class="kana-top">
+      <div class="kana-script seg" role="tablist" aria-label="Script">
+        <button type="button" role="tab" data-script="hira" aria-selected="true"><span lang="ja">ひらがな</span><small>Hiragana</small></button>
+        <button type="button" role="tab" data-script="kata" aria-selected="false"><span lang="ja">カタカナ</span><small>Katakana</small></button>
+      </div>
+      <div class="kana-sets" role="tablist" aria-label="Set">
+        <button type="button" role="tab" data-set="basic" aria-selected="true">Basic</button>
+        <button type="button" role="tab" data-set="voiced" aria-selected="false">Voiced</button>
+        <button type="button" role="tab" data-set="combo" aria-selected="false">Combinations</button>
+      </div>
+    </div>
+    <div id="kanaGrid" class="kana-grid" aria-live="polite"></div>
+    <div class="kana-bar">
+      <div class="kana-count"><span id="kanaCount">0 / 46</span><small id="kanaCountSub">mastered</small><i id="kanaBarFill" class="kb-fill"></i></div>
+      <button id="kanaPractice" class="big kana-go" type="button"><span aria-hidden="true">▶</span> Practice</button>
+    </div>
+  </section>
+
+  <section id="kanaplay" class="screen" hidden>
+    <div class="kp-top">
+      <button id="kanaPlayBack" class="back kp-back" type="button" aria-label="Stop practising">←</button>
+      <div class="kp-progress" aria-hidden="true"><i id="kpFill"></i></div>
+      <span id="kpCount" class="kp-count">0 / 0</span>
+    </div>
+    <div id="kpStage" class="kp-stage">
+      <div id="kpStars" class="kp-stars" aria-label="Stars"></div>
+      <div id="kpPrompt" class="kp-prompt" lang="ja"></div>
+      <div id="kpHint" class="kp-hint"></div>
+      <button id="kpSay" class="kp-say" type="button" aria-label="Hear it"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 9h4l5-4v14l-5-4H4z"/></svg></button>
+    </div>
+    <div id="kpAnswers" class="kp-answers"></div>
+  </section>
+
+  <dialog id="kanaSheet" class="kana-sheet">
+    <form method="dialog" class="ks-box">
+      <h3>Practice <small id="ksWhat"></small></h3>
+      <p class="ks-label">Rows</p>
+      <div id="ksRows" class="ks-rows"></div>
+      <p class="ks-label">Mode</p>
+      <div id="ksMode" class="ks-seg">
+        <button type="button" data-mode="read" aria-pressed="true"><span lang="ja">あ</span> → a</button>
+        <button type="button" data-mode="pick" aria-pressed="false">a → <span lang="ja">あ</span></button>
+        <button type="button" data-mode="mix" aria-pressed="false">Mixed</button>
+      </div>
+      <p class="ks-label">Stars to master each kana</p>
+      <div id="ksStars" class="ks-seg">
+        <button type="button" data-stars="1" aria-pressed="false">1 ★</button>
+        <button type="button" data-stars="3" aria-pressed="true">3 ★</button>
+        <button type="button" data-stars="5" aria-pressed="false">5 ★</button>
+      </div>
+      <label class="ks-shuffle"><input id="ksShuffle" type="checkbox"> <span>Shuffle the order</span></label>
+      <div class="ks-actions">
+        <button value="cancel" class="pill" type="submit">Cancel</button>
+        <button id="ksStart" class="big" type="button"><span aria-hidden="true">▶</span> Start</button>
+      </div>
+    </form>
+  </dialog>
+
   <section id="progress" class="screen" hidden>
     <button id="progressBack" class="back">← Menu</button>
     <div class="page-head"><h2>Progress</h2></div>
@@ -495,7 +562,10 @@
 
   <!-- STUDY: JLPT-style quiz -->
   <section id="quiz" class="screen quiz" hidden>
-    <div class="page-head"><button id="quizBack" class="back">← Study</button><span id="quizProgress" class="tag"></span><span id="quizScore" class="tag"></span></div>
+    <div class="page-head"><button id="quizBack" class="back">← Study</button><span id="quizProgress" class="tag"></span><span id="quizScore" class="tag"></span><label class="p-from q-from">Words from <select id="quizDeck" aria-label="Words from"></select></label><button id="quizList" class="pill deck-open-btn q-from" type="button"><span aria-hidden="true">☰</span> Words</button></div>
+    <div id="quizSettings" class="p-settings q-settings">
+      <div class="p-set-row"><span class="p-set-lbl">Your words from</span><span id="quizLevels" class="p-levels" role="group" aria-label="Your words from levels"></span><span id="quizSetTip" class="hint p-set-tip">Your own words always count</span></div>
+    </div>
     <div id="quizCard" class="quiz-card">
       <div id="quizAsk" class="quiz-ask"></div>
       <div id="quizPrompt" class="quiz-prompt" lang="ja"></div>
@@ -903,7 +973,7 @@
       <li><b>Practice</b> — the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 10 new stories a day — the counter shows how many are left; ★ starred words go in first, and the words you miss go to Struggling spells). Tap any kanji for its parts and a memory story.</li>
       <li><b>Dictionary</b> (辞書, main menu, works offline) — type a word in kanji, kana, romaji, English or Russian: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji — and “+ Add to…” puts it in any deck.</li>
       <li><b>Combo pose</b> — in <i>Customize</i>, choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Channel, Duelist or Levitation — they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.</li>
-      <li><b>Hiragana first</b> — beginners study ひらがな until they tick “I’ve mastered hiragana” in Settings. Until then the kanji levels are locked: they add no new words, but the numbers you set for them are kept.</li>
+      <li><b>Kana</b> — hiragana and katakana have their own section, <i>Kana</i> (main menu): a chart that fills in as you master each one, and practice by rows — new kana are shown first, then asked with look-alike answers until each has its stars. Beginners battle with ひらがな until they tick “I’ve mastered hiragana” in Settings (mastering the 46 basic hiragana ticks it for you).</li>
       <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
       <li><b>Daily streak</b> — a day counts when you do all three daily tasks: study 10 spells, a JLPT quiz (7/10) or a reading passage (4/8), and the daily challenge. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
     </ol>
@@ -928,7 +998,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.9.4</div>
+<div id="version" class="version">v0.9.9.9.5</div>
 <script src="/app.js"></script>
 </body>
 </html>

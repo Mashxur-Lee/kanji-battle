@@ -7,6 +7,35 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.5', date: '2026-11',
+    en: [
+      'Kana — a new section for hiragana and katakana (main menu). A chart that turns green as you master each one, and practice by rows: new kana are shown first, then asked with look-alike answers (ぬ or め? きゃ or ちゃ?) until each has its stars. Hiragana and katakana have left All spells; what you had learned there carries over.',
+      'The daily challenge and the daily tasks now both start over at midnight — your own midnight, wherever you live. And 7 / 10 is enough to move up a league (it was 9).',
+      'JLPT quiz: the reading passage’s settings — which deck and which levels your words come from — and wrong answers like the real test’s: made-up near misses (対戦 → 戦対, 大線, 大戦; たいせん → だいせん, たいせい).',
+      'Motion everywhere: screens glide in, their cards rise one after another, every button gives under your finger and springs back, windows and pop-ups open and close smoothly — also with Windows’ “animation effects” turned off.',
+      'Invites: a friend’s invite reaches your phone as a notification even when the app is closed, with Join and Decline. Decline, and they can’t invite you again for 5 minutes.',
+      'The daily streak: a flame whose colour climbs with your streak — Spark, Ember, Blaze, Inferno, Azure, Legend. Dim until today’s tasks are done, then it burns. The ▾ folds the tasks away and leaves the streak.',
+      'Achievements: 50 now — the ones that were just a click gave way to feats: Untouchable, Last Stand, Godlike (30× combo), Giant Slayer, Machine Breaker, Lightning Reflexes, Ace, A Year of Fire and more.',
+      'Lobby chat: “Name: message”, with the time on the right.',
+      'Connection: the app goes online faster, says “waking up” only when the server really is asleep, and comes back online by itself after being in the background.',
+      'Bug fixes: a hiccup in the database no longer signs you out; the results screen no longer breaks when a player’s numbers are missing; the welcome tutorial fits a phone screen.',
+      'Security: stricter protection for the website and the server (limits against flooding, safer headers, no default passwords on a public server).',
+    ],
+    ru: [
+      'Кана — новый раздел для хираганы и катаканы (главное меню). Таблица зеленеет по мере освоения, а практика идёт по рядам: сначала показываются новые знаки, потом спрашиваются с похожими вариантами (ぬ или め? きゃ или ちゃ?), пока у каждого не наберутся звёзды. Хирагана и катакана ушли из «Всех заклинаний»; выученное там переносится.',
+      'Ежедневный вызов и ежедневные задания теперь начинаются заново в полночь — в вашу полночь, где бы вы ни жили. А для перехода в следующую лигу хватает 7 / 10 (было 9).',
+      'Тест JLPT: настройки как у текста для чтения — из какой колоды и каких уровней берутся слова, — и неверные варианты как в настоящем экзамене: придуманные «почти верные» (対戦 → 戦対, 大線, 大戦; たいせん → だいせん, たいせい).',
+      'Анимации повсюду: экраны плавно появляются, карточки поднимаются одна за другой, каждая кнопка пружинит под пальцем, окна и всплывающие панели плавно открываются и закрываются — даже с выключенными «эффектами анимации» Windows.',
+      'Приглашения: приглашение друга приходит уведомлением на телефон, даже когда приложение закрыто, — с кнопками «Присоединиться» и «Отклонить». После отказа друг не может пригласить вас снова 5 минут.',
+      'Ежедневная серия: пламя, цвет которого растёт вместе с серией, — Искра, Уголь, Пламя, Инферно, Лазурь, Легенда. Тусклое, пока задания дня не выполнены, а потом горит. Кнопка ▾ сворачивает задания и оставляет серию.',
+      'Достижения: теперь их 50 — те, что давались за один клик, уступили место подвигам: «Неуязвимый», «Последний рубеж», «Божественный» (комбо ×30), «Победитель великанов», «Сокрушитель машин», «Молниеносная реакция», «Ас», «Год в огне» и другие.',
+      'Чат в лобби: «Имя: сообщение» и время справа.',
+      'Соединение: приложение быстрее выходит в сеть, пишет «сервер просыпается» только когда он правда спит, и само возвращается в сеть после работы в фоне.',
+      'Исправления: сбой базы данных больше не выкидывает из аккаунта; экран результатов больше не ломается, если у игрока нет каких-то чисел; приветственное обучение помещается на экран телефона.',
+      'Безопасность: строже защита сайта и сервера (ограничения от флуда, безопасные заголовки, никаких паролей по умолчанию на публичном сервере).',
+    ],
+  },
+  {
     v: '0.9.9.9.4', date: '2026-11',
     en: [
       'Private rooms have a chat in the lobby, like the one in Deck Duel — it appears once a friend joins.',

@@ -2,6 +2,7 @@
 // app's offline engine (client/offline) feeds it the same calls while there is no internet — so offline
 // study, quizzes, passages and the daily challenge run exactly the server's code.
 import { achCounts } from '../shared/achievements';
+import { isTransientDbError, retryDelay } from './db/transient';
 import { displayName } from './db/Store';
 import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/InsightsService';
 import { AuthError, toPublic, type AuthService } from './auth/AuthService';
@@ -58,15 +59,28 @@ export interface ApiExtras {
   onError?: (where: string, e: unknown) => void;
   /** 0.9.9.7: the dictionary (online only — the offline engine has none) */
   dict?: DictService;
+  /** 0.9.9.9.5: "Decline" on an invite notification (the app was closed — no websocket) */
+  inviteDecline?: (userId: string, name: string, fromId: string) => void;
 }
 
 /** Routes one /api/* call; null for any other path. */
 export function createApiRouter(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict } = extras;
+  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline } = extras;
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
+  const signupLimiter = new RateLimiter(10, 3600_000);
 
-  return async (r: ApiRequest): Promise<ApiResponse | null> => {
+  // 0.9.9.9.5: a GET whose database connection failed while opening (the database waking up) is tried again —
+  // up to 3 times over ~4 s — instead of failing with "Server error" and an Inbox entry
+  const route = async (r: ApiRequest): Promise<ApiResponse | null> => {
+    for (let attempt = 0; ; attempt++) {
+      const out = await handle(r, attempt < 3 && r.method === 'GET');
+      if (out !== RETRY) return out;
+      await retryDelay(attempt);
+    }
+  };
+  const RETRY = Symbol('retry');
+  const handle = async (r: ApiRequest, canRetry: boolean): Promise<ApiResponse | null | typeof RETRY> => {
     const url = r.url;
     if (!url.startsWith('/api/')) return null;
     const query = r.query;
@@ -74,6 +88,8 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
     try {
       if (r.method === 'POST' && (url === '/api/register' || url === '/api/login')) {
         if (!limiter.allow(ip)) throw new AuthError('Too many attempts — wait a minute', 429);
+        // 0.9.9.9.5: and at most 10 new accounts an hour from one address
+        if (url === '/api/register' && !signupLimiter.allow(ip)) throw new AuthError('Too many new accounts from here — try again later', 429);
         const body = await r.json();
         const result = url === '/api/register' ? await auth.register(body.username, body.password) : await auth.login(body.username, body.password);
         if (url === '/api/register') void insights?.event(result.user.id, 'signup');
@@ -124,6 +140,17 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         await study.setAvatar(u, (await r.json(120 * 1024)).image);
         return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+      } else if ((r.method === 'PUT' || r.method === 'DELETE') && url === '/api/push') {
+        // 0.9.9.9.5: the Android app's push token (friends' invites while the app is closed); DELETE at logout
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        await (r.method === 'PUT' ? study.addPushToken(u, body.token) : study.dropPushToken(u, body.token));
+        return res(200, { ok: true });
+      } else if (r.method === 'POST' && url === '/api/invite/decline') {
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        inviteDecline?.(u.id, u.nickname || u.username, String(body.fromId ?? ''));
+        return res(200, { ok: true });
       } else if (r.method === 'DELETE' && url === '/api/me/avatar') {
         const u = await auth.authenticate(r.token);
         await study.setAvatar(u, null);
@@ -148,6 +175,11 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         await study.setKanaMastered(u, (await r.json()).mastered === true);
         return res(200, { profile: await study.profile(await auth.authenticate(r.token)) });
+      } else if (r.method === 'PUT' && url === '/api/kana') {
+        // 0.9.9.9.5: the Kana section's stars
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        return res(200, await study.setKana(u, body.kana, resolveToday(body.today)));
       } else if (r.method === 'PUT' && url === '/api/me/tutorial') {
         const u = await auth.authenticate(r.token);
         await auth.store.update(u.id, { tutorialDone: true });
@@ -162,10 +194,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         return res(200, { strokes: Object.fromEntries(chars.map((c) => [c, strokes?.(c) ?? null])) });
       } else if (daily && r.method === 'GET' && url === '/api/daily') {
         const u = await auth.authenticate(r.token);
-        return res(200, await daily.overview(u));
+        return res(200, await daily.overview(u, query.get('today')));
       } else if (daily && r.method === 'POST' && url === '/api/daily/start') {
         const u = await auth.authenticate(r.token);
-        return res(200, { word: await daily.start(u) });
+        return res(200, { word: await daily.start(u, (await r.json()).today) });
       } else if (daily && r.method === 'POST' && url === '/api/daily/answer') {
         const u = await auth.authenticate(r.token);
         return res(200, await daily.answer(u, (await r.json()).text));
@@ -272,7 +304,8 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         return res(200, await study.addCustom(u, await r.json()));
       } else if (r.method === 'GET' && url === '/api/study/quiz') {
         const u = await auth.authenticate(r.token);
-        return res(200, { questions: await study.quiz(u, Number(query.get('n')) || 10) });
+        // 0.9.9.9.5: ?deck=all&levels=N5,N4 (the reading passage's settings)
+        return res(200, { questions: await study.quiz(u, Number(query.get('n')) || 10, { deck: query.get('deck') ?? undefined, levels: query.get('levels')?.split(',') }) });
       } else if (r.method === 'POST' && url === '/api/study/story') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();
@@ -335,14 +368,21 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/sync/snapshot') {
         // 0.9.9.4: everything the app needs to keep studying offline (see client/offline)
         const u = await auth.authenticate(r.token);
-        return res(200, await study.snapshot(u, daily?.keyFor(u)));
+        return res(200, await study.snapshot(u, daily?.keyFor(u, query.get('today'))));
       } else {
         return res(404, { error: 'Not found' });
       }
     } catch (e) {
       if (e instanceof AuthError || e instanceof StudyError || e instanceof DailyError || e instanceof SocialError || e instanceof InsightsError) return res(e.status, { error: e.message });
+      if (isTransientDbError(e)) {
+        if (canRetry) return RETRY;
+        // still not reachable (or not a GET): one "database unreachable" row in the Inbox, counted, not one per URL
+        onError?.('database unreachable', e);
+        return res(503, { error: 'The server is busy — try again in a moment.' });
+      }
       onError?.(`${r.method} ${url}`, e);
       return res(500, { error: 'Server error' });
     }
   };
+  return route;
 }

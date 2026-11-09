@@ -5,6 +5,7 @@ import { CARD_COLORS, CARD_SPECS, CHARACTER_INFO, DECK_CHARACTERS, DECK_RULES, t
 import * as audio from './audio';
 import * as ui from './ui';
 import type { ChatMessage } from '../shared/protocol';
+import { locale } from './i18n';
 import { heroSvg } from './wizard';
 import { arena, arenaForDeck, resetArenaDeck } from './arena';
 import { flameColor } from '../shared/progress';
@@ -81,6 +82,8 @@ export function initDeck(hk: DeckHooks) {
 
 // ── chat ────────────────────────────────────────────────────────────────────
 const seenChat = new Set<number>();
+/** when a chat message was sent, in the player's own clock: 14:05 */
+const chatTime = (at: number) => { try { return new Date(at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
 export function chatMessages(msgs: ChatMessage[]) {
   const logs = [$('dkChatLog'), $('lobbyChatLog')];
   for (const m of msgs) {
@@ -88,7 +91,10 @@ export function chatMessages(msgs: ChatMessage[]) {
     seenChat.add(m.id);
     for (const log of logs) {
       const line = h('div', 'chat-line' + (m.from === hooks.me() ? ' mine' : ''));
-      line.append(h('b', '', m.from === hooks.me() ? 'You' : m.name), h('span', '', m.text)); // textContent: never HTML
+      // 0.9.9.9.5: "Name: message" with the time on the right (the colon comes from style.css)
+      const time = h('time', 'cl-time', chatTime(m.at));
+      time.setAttribute('datetime', new Date(m.at).toISOString());
+      line.append(h('b', '', m.from === hooks.me() ? 'You' : m.name), h('span', 'cl-text', m.text), time); // textContent: never HTML
       log.append(line);
     }
     if (m.from !== hooks.me() && ((view && view.phase !== 'over') || !$('lobby').hidden)) audio.sfx.flip();

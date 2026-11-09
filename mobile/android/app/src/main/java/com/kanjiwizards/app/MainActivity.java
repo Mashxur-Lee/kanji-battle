@@ -8,6 +8,7 @@ import android.os.Build;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
@@ -251,6 +252,28 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public boolean remindersOn() {
             return Reminders.isOn(MainActivity.this);
+        }
+
+        /**
+         * 0.9.9.9.5: the phone's push token for the server ("" while there is none yet / no Firebase in this build).
+         * The first time, Android 13+ asks whether the app may show notifications (friends' invites).
+         */
+        @JavascriptInterface
+        public String pushToken() {
+            if (!PushService.available()) return "";
+            SharedPreferences p = getSharedPreferences(PushService.PREFS, MODE_PRIVATE);
+            if (Build.VERSION.SDK_INT >= 33 && !p.getBoolean("asked", false)
+                    && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                p.edit().putBoolean("asked", true).apply();
+                runOnUiThread(() -> requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, ASK_NOTIFY));
+            }
+            return PushService.token(MainActivity.this);
+        }
+
+        /** the sign-in token (for Decline on a notification) and the language of the notifications; "" = signed out */
+        @JavascriptInterface
+        public void setPushAuth(String auth, String lang) {
+            PushService.setAuth(MainActivity.this, auth, lang);
         }
 
         /** false when Android blocks this app's notifications (the bell then says how to allow them) */

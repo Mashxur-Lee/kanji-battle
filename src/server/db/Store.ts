@@ -1,3 +1,4 @@
+import type { KanaProgress } from '../../shared/kanachart';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -36,6 +37,10 @@ export interface UserRecord {
   badges: string[]; // up to 3 achievement ids shown under your name
   /** 0.9.9.5: words you starred (★) — the reading passage puts them in first */
   starred?: string[];
+  /** 0.9.9.9.5: the Kana section — stars and mastery per hiragana / katakana */
+  kana?: KanaProgress;
+  /** 0.9.9.9.5: the Android app's push tokens (Firebase) — friends' invites reach the phone while the app is closed */
+  pushTokens?: string[];
   /** 0.9.9.6: the name others see (null: the login) */
   nickname?: string | null;
   /** 0.9.9.9: when they were last connected (epoch ms; friends see "last online …") */
@@ -46,7 +51,7 @@ export interface UserRecord {
 export interface DailyPlan { per: Partial<Record<Level, number>>; day: string | null; done: Partial<Record<Level, number>> }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -56,6 +61,8 @@ export interface Store {
   findById(id: string): Promise<UserRecord | null>;
   create(u: NewUser): Promise<UserRecord>;
   list(): Promise<UserRecord[]>;
+  /** 0.9.9.9.5: the accounts that have this phone's push token (one phone signs in as one account at a time) */
+  usersWithPushToken?(token: string): Promise<UserRecord[]>;
   update(id: string, patch: UserPatch): Promise<UserRecord | null>;
   /** Delete an account and everything of it (cards, picture, history, friends …). */
   deleteUser(id: string): Promise<boolean>;
@@ -114,7 +121,8 @@ export interface Store {
 }
 
 export type ReportKind = 'bug' | 'suggestion' | 'error';
-export interface Report { id: string; kind: ReportKind; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean }
+/** `count`: how many times this same error happened while it was open (0.9.9.9.5 — repeats are one row) */
+export interface Report { id: string; kind: ReportKind; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean; count?: number }
 export interface GameEventRow { userId: string | null; name: string; at: number }
 export const REPORTS_KEPT = 500; // the newest; errors beyond that are dropped
 
@@ -165,6 +173,7 @@ export class MemoryStore implements Store {
     return { ...rec };
   }
   async list() { return [...this.users.values()].map((r) => ({ ...r })).sort((a, b) => a.createdAt.localeCompare(b.createdAt)); }
+  async usersWithPushToken(token: string) { return [...this.users.values()].filter((r) => r.pushTokens?.includes(token)).map((r) => ({ ...r })); }
   async deleteUser(id: string) {
     if (!this.users.delete(id)) return false;
     this.srs.delete(id); this.custom.delete(id); this.avatars.delete(id); this.history.delete(id); this.activityLog.delete(id);
@@ -323,7 +332,15 @@ export class MemoryStore implements Store {
   async removeFriend(userId: string, otherId: string) { this.setLink(userId, otherId, null); this.setLink(otherId, userId, null); this.persist(); }
   protected reportList: Report[] = [];
   async addReport(r: Omit<Report, 'id' | 'done'>) {
-    this.reportList.unshift({ ...r, id: randomUUID(), done: false });
+    // 0.9.9.9.5: the same error again while its row is still open: counted on that row (and moved to the top)
+    const same = r.kind === 'error' ? this.reportList.findIndex((x) => x.kind === 'error' && !x.done && x.text === r.text) : -1;
+    if (same >= 0) {
+      const [row] = this.reportList.splice(same, 1);
+      this.reportList.unshift({ ...row, at: r.at, meta: r.meta, userId: r.userId, username: r.username, count: (row.count ?? 1) + 1 });
+      this.persist();
+      return;
+    }
+    this.reportList.unshift({ ...r, id: randomUUID(), done: false, count: 1 });
     this.reportList.length = Math.min(this.reportList.length, REPORTS_KEPT);
     this.persist();
   }

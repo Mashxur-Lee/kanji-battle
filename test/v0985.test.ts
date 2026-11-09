@@ -29,7 +29,16 @@ test('errors: the same error is kept at most once a minute', async () => {
   await ins.error('[browser] boom', 'stack', null);
   now += 61_000;
   await ins.error('[browser] boom', 'stack', null);
-  assert.equal((await store.reports(10)).filter((x) => x.kind === 'error').length, 2);
+  // 0.9.9.9.5: the repeat a minute later is counted on the same open row (×2), not a second row
+  let rows = (await store.reports(10)).filter((x) => x.kind === 'error');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].count, 2);
+  // marked done, the same error again is a new row
+  await store.setReportDone(rows[0].id, true);
+  now += 61_000;
+  await ins.error('[browser] boom', 'stack', null);
+  rows = (await store.reports(10)).filter((x) => x.kind === 'error');
+  assert.equal(rows.length, 2);
 });
 
 test('stats: sign-ups, active players, day-1 return, tutorial funnel, games per mode', async () => {

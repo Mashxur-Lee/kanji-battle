@@ -37,6 +37,16 @@ const GLYPH: Record<AchIcon, string> = {
   tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.4"/>',
   mountain: '<path d="M2 20l7-12 4 6 3-4 6 10z"/><path d="M9 8l2 3 1.5-1"/>',
   check: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 12l3 3 5-6"/>',
+  // 0.9.9.9.5
+  nova: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5M5 5l3.5 3.5M15.5 15.5L19 19M5 19l3.5-3.5M15.5 8.5L19 5"/>',
+  heart: '<path d="M12 20s-7.5-4.6-9.2-9.4A4.8 4.8 0 0 1 12 7.2a4.8 4.8 0 0 1 9.2 3.4C19.5 15.4 12 20 12 20z"/><path d="M12.5 8.5l-2 3.5 3 1.5-2 3.5"/>',
+  feather: '<path d="M20 4C12 4 7 9 6 17l-2 3"/><path d="M20 4c0 8-5 13-14 13M9 14h6M12 10h6"/>',
+  stopwatch: '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5L15 10M10 2.5h4M12 2.5V6M18.6 6.6L20 5.2"/>',
+  robot: '<rect x="5" y="8" width="14" height="11" rx="2.5"/><path d="M12 4.5V8M9.5 16.5h5M3 12v3.5M21 12v3.5"/><circle cx="12" cy="3.6" r="1"/><circle cx="9.5" cy="12.5" r=".9"/><circle cx="14.5" cy="12.5" r=".9"/>',
+  ace: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 16.5l3-8.5 3 8.5M10.1 13.5h3.8"/>',
+  kata: '<text x="12" y="17.5" text-anchor="middle" font-size="15" font-weight="900" stroke="none" fill="currentColor" font-family="sans-serif">ア</text>',
+  infinity: '<path d="M7.2 8.5a3.5 3.5 0 1 0 0 7c2.4 0 3.4-1.8 4.8-3.5s2.4-3.5 4.8-3.5a3.5 3.5 0 1 1 0 7c-2.4 0-3.4-1.8-4.8-3.5S9.6 8.5 7.2 8.5z"/>',
+  wand: '<path d="M4 20L14.5 9.5"/><path d="M14.5 9.5l2-2M18 2.5v2.5M21.5 6H19M20.2 3.8l-1.6 1.6M12.5 4.5l1 1M18.5 10.5l1 1"/>',
 };
 
 /** A hexagon badge with the achievement's icon, in its colour (or grey and locked). */

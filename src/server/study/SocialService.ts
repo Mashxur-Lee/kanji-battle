@@ -24,7 +24,9 @@ export class SocialService {
       const rec = await this.store.findById(f.id); // picture and level for the friends rail
       // 0.9.9.9: away (the app in the background) and when they were last online
       const lastSeen = f.status === 'accepted' && !p.online ? Math.max(p.lastSeen ?? 0, rec?.lastSeen ?? 0) || null : null;
-      return { ...f, online: p.online, away: p.online && !!p.away, activity: p.online ? p.activity : undefined, device: p.online ? p.device ?? 'web' : undefined, lastSeen, pic: rec ? picUrl(rec) : null, level: levelOf(rec?.xp ?? 0) };
+      // 0.9.9.9.5: push — an invite reaches their phone even with the app closed
+      const push = f.status === 'accepted' && (rec?.pushTokens?.length ?? 0) > 0;
+      return { ...f, online: p.online, away: p.online && !!p.away, activity: p.online ? p.activity : undefined, device: p.online ? p.device ?? 'web' : undefined, lastSeen, pic: rec ? picUrl(rec) : null, level: levelOf(rec?.xp ?? 0), push };
     }));
   }
 

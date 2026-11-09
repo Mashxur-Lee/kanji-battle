@@ -21,6 +21,8 @@ const el = (tag: string, cls = '', text?: string | number, attrs: Record<string,
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
   return e;
 };
+/** the JLPT levels a word can be (the reading passage and the quiz tick them) */
+const WORD_LEVELS: Level[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 export const DECK_LABEL: Record<DeckId, string> = { all: 'All spells', struggling: 'Struggling spells', custom: 'Custom spells', ono: 'Onomatopoeia' };
 const STATE_LABEL: Record<string, string> = { new: 'new', learning: 'learning', relearning: 'learning', review: 'learned' };
 
@@ -294,20 +296,78 @@ async function onoQuestions(n: number): Promise<QuizQuestion[]> {
   return buildOnoQuiz(mix(words), VOCAB, Math.random, ja);
 }
 
+// 0.9.9.9.5: the JLPT quiz has the reading passage's settings — which deck its words come from, and which levels
+const QUIZ_DECK_KEY = 'kw:quiz-deck', QUIZ_LEVELS_KEY = 'kw:quiz-levels';
+const QUIZ_DECKS: DeckId[] = ['all', 'struggling', 'custom'];
+function quizDeck(): DeckId {
+  try { const v = localStorage.getItem(QUIZ_DECK_KEY); if (v && QUIZ_DECKS.includes(v as DeckId)) return v as DeckId; } catch { /* none saved */ }
+  return 'all';
+}
+function quizLevels(): Level[] {
+  try { const v = JSON.parse(localStorage.getItem(QUIZ_LEVELS_KEY) ?? 'null'); if (Array.isArray(v)) { const l = WORD_LEVELS.filter((x) => v.includes(x)); if (l.length) return l; } } catch { /* none saved */ }
+  return [...WORD_LEVELS];
+}
+let loadingQuiz = 0;
+/** a setting changed: before the first answer the quiz starts over with it; later it's for the next quiz */
+function quizSettingChanged() {
+  drawQuizLevels();
+  const fresh = mode === 'jlpt' && !$('quiz').hidden && (!$('quizDone').hidden || (qi === 0 && !answered));
+  if (fresh) void startQuiz('jlpt');
+  else $('quizSetTip').textContent = tr('Changes apply to the next quiz');
+}
+function drawQuizLevels() {
+  const box = $('quizLevels');
+  const on = quizLevels();
+  box.replaceChildren(...WORD_LEVELS.map((l) => {
+    const b = el('button', 'p-lv' + (on.includes(l) ? ' on' : ''), (on.includes(l) ? '✓ ' : '') + l, { type: 'button', 'aria-pressed': String(on.includes(l)) });
+    b.onclick = () => {
+      const next = on.includes(l) ? on.filter((x) => x !== l) : [...on, l];
+      if (!next.length) { ui.toast(tr('Keep at least one level')); return; }
+      try { localStorage.setItem(QUIZ_LEVELS_KEY, JSON.stringify(next)); } catch { /* private mode: this visit only */ }
+      quizSettingChanged();
+    };
+    return b;
+  }));
+}
+{
+  const sel = $<HTMLSelectElement>('quizDeck');
+  for (const d of QUIZ_DECKS) sel.append(Object.assign(el('option', '', DECK_LABEL[d]), { value: d }));
+  sel.value = quizDeck();
+  sel.onchange = () => { try { localStorage.setItem(QUIZ_DECK_KEY, sel.value); } catch { /* private mode */ } quizSettingChanged(); };
+  $('quizList').onclick = () => void openDeck(quizDeck());
+  drawQuizLevels();
+}
+
 export async function startQuiz(which: 'jlpt' | 'ono' = 'jlpt') {
   mode = which;
   ui.show('quiz');
+  const jlpt = which === 'jlpt';
+  $('quizSettings').hidden = !jlpt;
+  for (const x of document.querySelectorAll<HTMLElement>('#quiz .q-from')) x.hidden = !jlpt;
+  $('quizSetTip').textContent = tr('Your own words always count');
+  $<HTMLSelectElement>('quizDeck').value = quizDeck();
+  drawQuizLevels();
   $('quizDone').hidden = true;
   $('quizCard').hidden = false;
+  $('quizCard').classList.add('loading');
   $('quizPrompt').textContent = '…';
-  try { quiz = which === 'ono' ? await onoQuestions(10) : (await api.quiz(10)).questions; } catch (e) { ui.toast((e as Error).message); quiz = []; }
+  $('quizChoices').replaceChildren();
+  $('quizProgress').textContent = ''; $('quizScore').textContent = '';
+  const ticket = ++loadingQuiz; // (settings changed while loading: only the latest quiz is shown)
+  let got: QuizQuestion[];
+  try { got = jlpt ? (await api.quiz(10, quizDeck(), quizLevels())).questions : await onoQuestions(10); } catch (e) { ui.toast((e as Error).message); got = []; }
+  if (ticket !== loadingQuiz) return;
+  $('quizCard').classList.remove('loading');
+  quiz = got;
+  qi = 0; score = 0; wrong.length = 0; answered = false;
   if (quiz.length < 1) {
     $('quizCard').hidden = true; $('quizDone').hidden = false;
-    $('quizResult').textContent = 'Study some spells first — the quiz uses the words you have studied.';
+    $('quizResult').textContent = jlpt
+      ? tr(`No studied words in “${DECK_LABEL[quizDeck()]}” at the levels you ticked — tick more levels, pick another deck, or study some spells first.`)
+      : tr('Study some spells first — the quiz uses the words you have studied.');
     $('quizMissed').replaceChildren();
     return;
   }
-  qi = 0; score = 0; wrong.length = 0;
   question();
 }
 
@@ -678,7 +738,6 @@ function showStart() {
 }
 
 // ── 0.9.9.5: which of your words (by level) and how hard the story itself is ──
-const WORD_LEVELS: Level[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 const LEVELS_KEY = 'kw:passage-levels', STORY_LEVEL_KEY = 'kw:passage-story-level';
 const HAN_RE = /[\p{Script=Han}]/u;
 function pickedLevels(): Level[] {

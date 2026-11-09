@@ -17,6 +17,8 @@ import { DailyService } from './study/DailyService';
 import { SocialService } from './study/SocialService';
 import { RoomManager } from './RoomManager';
 import { deviceOf, Session, SessionHub } from './Session';
+import { Push } from './push';
+import { Bucket, clientIp, inlineScriptHashes, isPublicServer, securityHeaders, viaHttps } from './security';
 import { Matchmaker } from './Matchmaker';
 import { StoryService } from './study/StoryService';
 import { InsightsService } from './study/InsightsService';
@@ -40,12 +42,26 @@ const hub = new SessionHub((userId, at) => { void store.update(userId, { lastSee
 const daily = new DailyService(store, study.progress);
 daily.onPerfect = (id) => study.grantAchievements(id, undefined, ['perfect-day']);
 const social = new SocialService(store, hub);
+// 0.9.9.9.5: invites reach a friend's phone while the app is closed (Firebase; FIREBASE_SERVICE_ACCOUNT)
+const push = new Push(process.env.FIREBASE_SERVICE_ACCOUNT);
+console.log(`Push notifications: ${push.enabled ? 'on' : 'off (set FIREBASE_SERVICE_ACCOUNT to turn them on)'}`);
+hub.setNotifier(async (userId, data) => {
+  if (!push.enabled) return false;
+  const u = await store.findById(userId);
+  const tokens = u?.pushTokens ?? [];
+  if (!tokens.length) return false;
+  try {
+    const r = await push.send(tokens, data);
+    if (r.dead.length) await store.update(userId, { pushTokens: tokens.filter((t) => !r.dead.includes(t)) });
+    return r.sent > 0;
+  } catch (e) { reportServerError('push', e); return false; }
+});
 const recognizer = Recognizer.fromFile();
 const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
 const stories = new StoryService();
 console.log(`Reading passage stories: ${stories.describe}`);
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService() });
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId) });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const rooms = new RoomManager({
@@ -91,6 +107,8 @@ async function latestApk(want?: string): Promise<Buffer> {
 }
 
 const GZ = new Map<string, Buffer>();
+let pageHashes: string[] = [];
+let pageHashesFor = -1;
 const server = createServer(async (req, res) => {
   if (await api(req, res)) return;
   const pathOnly = (req.url ?? '/').split('?')[0];
@@ -107,12 +125,14 @@ const server = createServer(async (req, res) => {
   }
   const url = pathOnly === '/' ? '/index.html' : pathOnly; // '/?anything' is the app too
   const file = path.join(PUBLIC_DIR, path.normalize(url));
-  if (!file.startsWith(PUBLIC_DIR)) { res.writeHead(403).end(); return; }
+  if (!file.startsWith(PUBLIC_DIR + path.sep)) { res.writeHead(403).end(); return; } // (+ sep: not a sibling folder)
   try {
     const data = await readFile(file);
     const type = TYPES[path.extname(file)] ?? 'application/octet-stream';
     // the service worker and the page are checked for a new version every time (0.9.9.4)
-    const fresh: Record<string, string> = url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : {};
+    // 0.9.9.9.5: + the security headers (the page's inline script allowed by its hash)
+    if (url === '/index.html' && pageHashesFor !== data.length) { pageHashes = inlineScriptHashes(data.toString('utf8')); pageHashesFor = data.length; }
+    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : {}) };
     // text files go out gzipped (app.js, arena3d.js and the Russian meanings are large); cached per build
     // 0.9.9.9: Brotli where the browser takes it (the dictionary ~25% smaller than gzip), else gzip
     const accept = String(req.headers['accept-encoding'] ?? '');
@@ -131,18 +151,34 @@ const server = createServer(async (req, res) => {
     }
     res.writeHead(200, { 'Content-Type': type, ...fresh }).end(data);
   } catch {
-    res.writeHead(404).end('Not found');
+    res.writeHead(404, { 'X-Content-Type-Options': 'nosniff' }).end('Not found');
   }
 });
 
 // Handwriting answers carry stroke data, so allow bigger frames than plain JSON messages.
 const wss = new WebSocketServer({ server, maxPayload: 96 * 1024 });
+// 0.9.9.9.5: at most 12 game connections from one address at once (a family or a school shares one; a script
+// opening hundreds doesn't get them), and each connection may send a few messages a second — a flood is cut off
+const perIp = new Map<string, number>();
 wss.on('connection', (ws, ...rest: unknown[]) => {
   const req = rest[0] as IncomingMessage | undefined; // (the upgrade request: its User-Agent says app or browser)
+  const ip = req ? clientIp(req) : '';
+  const n = (perIp.get(ip) ?? 0) + 1;
+  if (n > 12) { ws.close(1008, 'Too many connections'); return; }
+  perIp.set(ip, n);
   const session = new Session(rooms, auth, hub, study, (json) => ws.readyState === ws.OPEN && ws.send(json), () => ws.close(), matchmaker, social);
   session.device = deviceOf(req?.headers['user-agent']);
-  ws.on('message', (data) => void session.onRaw(data.toString()));
-  ws.on('close', () => session.onClose());
+  const bucket = new Bucket(60, 20);
+  let dropped = 0;
+  ws.on('message', (data) => {
+    if (!bucket.take()) { if (++dropped > 200) ws.close(1008, 'Too many messages'); return; }
+    void session.onRaw(data.toString());
+  });
+  ws.on('close', () => {
+    session.onClose();
+    const left = (perIp.get(ip) ?? 1) - 1;
+    if (left > 0) perIp.set(ip, left); else perIp.delete(ip);
+  });
 });
 
 // stability: an unexpected error is logged and reported, and the server keeps running for everyone else
@@ -160,10 +196,12 @@ for (const sig of ['SIGTERM', 'SIGINT'] as const) {
 }
 
 const port = Number(process.env.PORT ?? 3000);
+// 0.9.9.9.5: the built-in accounts' default passwords are in the public README — on a public server they are
+// only made with passwords from the environment, and if one still has its default password it gets locked
 store.init().then(() => auth.seed([
-  { username: 'user', password: process.env.USER_PASSWORD ?? 'user123', role: 'user' },
-  { username: 'admin', password: process.env.ADMIN_PASSWORD ?? 'adminn123', role: 'admin' },
-])).then(() => {
+  { username: 'user', password: process.env.USER_PASSWORD ?? 'user123', role: 'user', fromEnv: !!process.env.USER_PASSWORD },
+  { username: 'admin', password: process.env.ADMIN_PASSWORD ?? 'adminn123', role: 'admin', fromEnv: !!process.env.ADMIN_PASSWORD },
+], isPublicServer())).then(() => {
   server.listen(port, () => {
     console.log(`Kanji Battle running on http://localhost:${port}`);
     console.log(`Kanji Wizards v${VERSION}`);
@@ -171,7 +209,7 @@ store.init().then(() => auth.seed([
     if (process.env.RENDER && !process.env.DATABASE_URL) {
       console.warn('DATABASE_URL is not set: accounts, XP and study sets live on Render\'s disk and are wiped on every deploy. Add your Neon connection string in Render → Environment.');
     }
-    if (!process.env.ADMIN_PASSWORD) console.warn('ADMIN_PASSWORD not set: the admin account uses the default password from the README');
+    if (!process.env.ADMIN_PASSWORD) console.warn(isPublicServer() ? 'ADMIN_PASSWORD not set: no admin account with the README password on a public server — set ADMIN_PASSWORD to sign in as admin' : 'ADMIN_PASSWORD not set: the admin account uses the default password from the README');
   });
 }).catch((e) => {
   console.error('Could not start (database unreachable? check DATABASE_URL)', e);

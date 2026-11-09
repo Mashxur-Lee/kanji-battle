@@ -19,7 +19,7 @@ let engineFor = '';
 let outbox: OutboxEntry[] = [];
 let token: () => string = () => '';
 let syncing: Promise<boolean> | null = null;
-let probeTimer = 0;
+let probeTimer = 0; // the next look for the server while offline
 let snapTimer = 0;
 let saveTimer = 0;
 const listeners: Listener[] = [];
@@ -33,7 +33,7 @@ const storedUid = () => { try { return localStorage.getItem(UID_KEY) ?? ''; } ca
 const OFFLINE_ROUTES: Array<[string, RegExp]> = [
   ['GET', /^\/api\/(me|study|study\/queue|study\/deck|study\/search|study\/quiz|progress|daily|matches|matches\/[\w-]+)$/],
   // 0.9.9.7.2: ★ stars and the Onomatopoeia number work offline too (saved, then sent when you're back online)
-  ['PUT', /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-levels|study\/daily-new|study\/star|study\/ono-daily)$/],
+  ['PUT', /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-levels|study\/daily-new|study\/star|study\/ono-daily|kana)$/], // (0.9.9.9.5: + the Kana section)
   ['POST', /^\/api\/(study\/(review|undo|deck\/remove|deck\/add|custom|task)|daily\/(start|answer|finish))$/],
 ];
 const pathOf = (url: string) => url.split('?')[0];
@@ -46,19 +46,39 @@ export function onChange(fn: Listener) { listeners.push(fn); }
 function setOffline(v: boolean) {
   if (offline === v) return;
   offline = v;
+  if (v) offlineSince = Date.now();
   for (const fn of listeners) fn(v);
-  clearInterval(probeTimer);
-  if (v) probeTimer = window.setInterval(() => void tryReconnect(), 20_000);
+  clearTimeout(probeTimer);
+  if (v) scheduleRetry(0);
 }
+/**
+ * 0.9.9.9.5: offline, the server is looked for again soon and then less often — 3, 6, 10, 15 s, then every 20 s —
+ * (it was every 20 s from the start, and a phone freezes timers in the background, so coming back online took long)
+ */
+let offlineSince = 0;
+let retryN = 0;
+function scheduleRetry(n: number) {
+  retryN = n;
+  clearTimeout(probeTimer);
+  const ms = [3_000, 6_000, 10_000, 15_000][n] ?? 20_000;
+  probeTimer = window.setTimeout(async () => { if (offline && !(await tryReconnect()) && offline) scheduleRetry(retryN + 1); }, ms);
+}
+/** The game's connection reached the server (it said welcome): offline mode ends now, not at the next try. */
+export function serverSeen() { if (offline) { scheduleRetry(0); void tryReconnect(); } }
 
 let busyCheck: () => boolean = () => false;
 export function init(getToken: () => string, busy?: () => boolean) {
   token = getToken;
   if (busy) busyCheck = busy;
-  addEventListener('online', () => void tryReconnect());
+  addEventListener('online', () => { if (offline) { scheduleRetry(0); void tryReconnect(); } });
   addEventListener('offline', () => { if (document.visibilityState === 'visible') void goOffline(); });
-  // back in the app: if we were offline, look for the server straight away
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && offline) void tryReconnect(); });
+  // back in the app: if we were offline, look for the server straight away (and soon again: the phone's network
+  // often needs a few seconds to wake up)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    visibleAt = Date.now();
+    if (offline) { scheduleRetry(0); void tryReconnect(); }
+  });
 }
 
 /**
@@ -67,14 +87,17 @@ export function init(getToken: () => string, busy?: () => boolean) {
  * if it's still gone a few seconds later.
  */
 let probing = false;
+let visibleAt = Date.now();
 export async function probe() {
   if (offline || probing || !storedUid() || document.visibilityState !== 'visible') return;
   probing = true;
   try {
-    for (let i = 0; i < 2; i++) {
+    // 0.9.9.9.5: more patient — 4 looks over ~12 s, and never within 12 s of coming back to the app (the phone's
+    // network is often still waking up then: it went "offline" after switching apps)
+    for (let i = 0; i < 4 || Date.now() - visibleAt < 12_000; i++) {
       if (navigator.onLine && await reachable()) return;
       await new Promise((r) => setTimeout(r, 3000));
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible' || i > 8) return;
     }
     await goOffline();
   } finally { probing = false; }
@@ -173,13 +196,17 @@ export function tryReconnect(): Promise<boolean> {
         try {
           res = await fetch(x.url, { method: x.method, headers: { ...authHeaders(), 'X-KW-At': String(x.at), ...(x.op ? { 'X-KW-Op': x.op } : {}) }, body: x.body === undefined ? undefined : JSON.stringify(x.body), signal: timeout(20_000) });
         } catch { return false; } // gone again: try later
-        if (res.status === 401 || res.status === 403) return false; // signed out: keep it for after signing in
+        // signed out (the login expired): keep it for after signing in — and leave offline mode, so the game can ask
+        // you to sign in again (it stayed offline for good here)
+        if (res.status === 401 || res.status === 403) { setOffline(false); return true; }
         if (res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504) return false;
         outbox.shift(); // done (or refused for good: a 4xx won't get better by retrying)
         await kv.set(boxKey(uid), outbox);
       }
-      await refreshSnapshot();
+      // online again now; the fresh copy of the account follows in the background (it can be large — waiting for it
+      // kept the game offline for many seconds more)
       setOffline(false);
+      void refreshSnapshot();
       return true;
     } finally { syncing = null; }
   })();
@@ -191,7 +218,8 @@ export async function refreshSnapshot() {
   const uid = storedUid();
   if (!uid || !token() || outbox.length) return;
   try {
-    const res = await fetch('/api/sync/snapshot', { headers: authHeaders(), cache: 'no-store', signal: timeout(30_000) });
+    const d = new Date(), day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const res = await fetch(`/api/sync/snapshot?today=${day}`, { headers: authHeaders(), cache: 'no-store', signal: timeout(30_000) });
     if (!res.ok) return;
     const snap = (await res.json()) as Snapshot;
     if (snap.user?.id !== uid) return;
