@@ -22,7 +22,7 @@ on:
         default: 'en'
 
 permissions:
-  contents: read
+  contents: write # (only to push the screenshots to the ci-shots branch)
 
 jobs:
   check:
@@ -65,6 +65,15 @@ jobs:
           for i in $(seq 1 60); do curl -s localhost:3130/ >/dev/null && break; sleep 0.5; done
           export EXTRA="$(echo '${{ inputs.scenario }}' | base64 -d)"
           node scripts/shots.cjs shots ${{ inputs.lang }} dark ${{ inputs.sizes }} 2>&1 | tee shots-log.txt
+      - name: Publish screenshots to the ci-shots branch
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.scenario != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p shots && cp shots-log.txt server.log shots/ 2>/dev/null || true
+          cd shots && git init -q && git checkout -q -b ci-shots && git add . \
+            && git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "shots from run $GITHUB_RUN_ID" \
+            && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-shots
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
