@@ -12,7 +12,7 @@ import { buildQuiz, type QuizQuestion } from '../../shared/quiz';
 import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type DailyPlan, type Snapshot, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { kanjiFacts, VOCAB, VOCAB_BY_ID } from '../vocab';
-import { cleanKana, isKanaChar, kanaCells, type KanaProgress } from '../../shared/kanachart';
+import { cleanKana, isKanaChar, kanaCells, masteredCount, type KanaProgress } from '../../shared/kanachart';
 import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress, resolveToday } from './ProgressService';
 import { now as clockNow } from '../now';
 import { seededRng } from '../../shared/rng';
@@ -103,6 +103,11 @@ export class StudyService {
     // 0.9.9.4.3: only a good enough result counts (7/10 quiz, 4/8 passage); older apps send no score
     if (typeof score === 'number' && typeof total === 'number' && !taskPassed(task, score, total)) return this.profile(u);
     await this.progress.record(u.id, today, task === 'quiz' ? { quizzes: 1 } : { passages: 1 });
+    // 0.9.9.9.5: a perfect quiz (10 / 10) or passage (8 / 8)
+    if (typeof score === 'number' && typeof total === 'number' && score === total) {
+      if (task === 'quiz' && total >= 10) await this.grantAchievements(u.id, undefined, ['ace']);
+      if (task === 'passage' && total >= 8) await this.grantAchievements(u.id, undefined, ['every-word']);
+    }
     return this.profile((await this.store.findById(u.id)) ?? u);
   }
 
@@ -609,7 +614,15 @@ export class StudyService {
       if (u) await this.store.update(userId, { newNotice: u.newNotice + n });
     }
     const st = record?.stats[userId];
-    const achievements = await this.grantAchievements(userId, { mode, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited, beatAdmin });
+    // 0.9.9.9.5: the feats — your HP at the end, how fast, who you beat
+    const me = record?.players.find((p) => p.id === userId);
+    const won = outcome === 'win';
+    const achievements = await this.grantAchievements(userId, {
+      mode, outcome, accuracy, attempts: st?.attempts ?? 0, bestCombo: st?.bestCombo ?? 0, forfeited, beatAdmin,
+      hpLeft: me && me.maxHp > 0 ? Math.max(0, me.hp) / me.maxHp : undefined, avgMs: st?.avgResponseMs ?? null, correct: st?.correct ?? 0,
+      beatN1Bot: won && !!record?.players.some((p) => p.bot === 'N1'),
+      giant: won && !!me && !!record?.players.some((p) => !p.bot && p.id !== userId && p.level >= me.level + 5),
+    });
     return { gained, xp, achievements, missed };
   }
 
@@ -630,6 +643,9 @@ export class StudyService {
       activeDays: days.filter((d) => d.login || d.reviews > 0 || d.games > 0).length,
       mastered: new Set(cards.filter((c) => c.state === 'review' && c.intervalDays >= MASTERED_DAYS).map((c) => c.vocabId)).size,
       starred: (u.starred ?? []).length, custom: cards.filter((c) => deckOf(c) === 'custom').length, nickname: !!u.nickname?.trim(),
+      // 0.9.9.9.5: the Kana section, and the most study cards answered in one day
+      kanaBasic: masteredCount(u.kana ?? {}, kanaCells('hira', 'basic')), kanaHira: masteredCount(u.kana ?? {}, kanaCells('hira')),
+      kanaKata: masteredCount(u.kana ?? {}, kanaCells('kata')), bestDay: days.reduce((a, d) => Math.max(a, d.reviews ?? 0), 0),
     };
   }
 
@@ -638,7 +654,8 @@ export class StudyService {
     if (!u) return [];
     const unlocks = u.unlocks ?? [];
     const facts = await this.achFacts(u, match);
-    const fresh = [...new Set([...earnedAchievements(facts), ...extra])].filter((id) => !unlocks.includes(ACH_PREFIX + id));
+    const had = unlocks.filter((x) => x.startsWith(ACH_PREFIX)).map((x) => x.slice(ACH_PREFIX.length));
+    const fresh = [...new Set([...earnedAchievements(facts, had), ...extra])].filter((id) => !unlocks.includes(ACH_PREFIX + id));
     if (fresh.length) await this.store.update(userId, { unlocks: [...unlocks, ...fresh.map((id) => ACH_PREFIX + id)] });
     return fresh;
   }

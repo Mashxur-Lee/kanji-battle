@@ -401,3 +401,44 @@ test('0.9.9.9.5 push tokens: kept per account (newest 4); a phone signing in as 
   assert.equal((await call(b.token, 'POST', '/api/invite/decline', { fromId: a.user.id }))?.status, 200);
   assert.deepEqual(declined, [`pushb:${a.user.id}`]);
 });
+
+test('0.9.9.9.5 achievements: 50 of them; the new feats', async () => {
+  const { ACHIEVEMENTS, earnedAchievements } = await import('../src/shared/achievements');
+  assert.equal(ACHIEVEMENTS.length, 50);
+  for (const gone of ['true-name', 'collector', 'wordsmith', 'first-steps', 'brawler', 'regular', 'steadfast']) assert.ok(!ACHIEVEMENTS.some((a) => a.id === gone), gone);
+  const base = { wins: 1, level: 1, bestStreak: 0, learned: 0, friends: 0, seasonal: 0 };
+  const m = { mode: 'reading', outcome: 'win' as const, accuracy: 0.9, attempts: 20, bestCombo: 4, forfeited: false };
+  const got = (match: Partial<typeof m> & Record<string, unknown>) => earnedAchievements({ ...base, match: { ...m, ...match } });
+  assert.ok(got({ hpLeft: 1 }).includes('untouchable'));
+  assert.ok(!got({ hpLeft: 1, attempts: 5 }).includes('untouchable'), 'needs 10 answers');
+  assert.ok(got({ hpLeft: 0.08 }).includes('last-stand'));
+  assert.ok(!got({ hpLeft: 0.08, outcome: 'loss' }).includes('last-stand'));
+  assert.ok(got({ avgMs: 1800, correct: 15 }).includes('lightning'));
+  assert.ok(!got({ avgMs: 1800, correct: 9 }).includes('lightning'));
+  assert.ok(got({ giant: true }).includes('giant-slayer'));
+  assert.ok(got({ beatN1Bot: true }).includes('machine-breaker'));
+  assert.ok(got({ bestCombo: 30 }).includes('combo-30'));
+  assert.ok(!got({ bestCombo: 30, forfeited: true }).includes('combo-30'));
+  assert.ok(earnedAchievements({ ...base, match: { ...m, mode: 'deck' } }, ['quickdraw', 'calligrapher', 'dragon-slayer']).includes('all-schools'));
+  assert.ok(!earnedAchievements(base, ['quickdraw', 'calligrapher', 'dragon-slayer']).includes('all-schools'));
+  assert.deepEqual(earnedAchievements({ ...base, wins: 0, kanaBasic: 46, kanaHira: 60, kanaKata: 104, bestDay: 300, bestStreak: 365 }).sort(),
+    ['devoted', 'eternal', 'graduate', 'katakana-knight', 'marathon', 'unbreakable', 'year-of-fire']);
+});
+
+test('0.9.9.9.5 achievements: a match grants Untouchable and Machine Breaker; a perfect quiz grants Ace', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const u = await store.create({ username: 'feats', passwordHash: 'x', role: 'user' } as never);
+  const view = (id: string, hp: number, bot: string | null, level = 1) => ({ id, name: id, hp, maxHp: 1000, combo: 0, levels: [], online: true, avatar: 'apprentice', crit: 0, level, ready: true, bot } as never);
+  const stats = { attempts: 12, correct: 12, accuracy: 1, avgResponseMs: 2500, bestCombo: 12, damageDealt: 900, words: [], struggled: [] };
+  const record = { at: Date.now(), mode: 'reading', outcome: 'win', you: u.id, players: [view(u.id, 1000, null), view('bot', 0, 'N1')], winnerId: u.id, teamWon: null, reason: 'ko', stats: { [u.id]: stats } } as never;
+  const r = await study.recordMatch(u.id, 'win', 1, 'reading', [], false, true, record);
+  for (const id of ['untouchable', 'machine-breaker', 'flawless', 'combo-10']) assert.ok(r.achievements.includes(id), id);
+  assert.ok(!r.achievements.includes('lightning'), '2.5 s is not lightning');
+  const p = await study.recordTask((await store.findById(u.id))!, 'quiz', '2026-01-02', 10, 10);
+  assert.ok(p.unlocks.includes('ach:ace'));
+  await study.recordTask((await store.findById(u.id))!, 'passage', '2026-01-02', 7, 8);
+  assert.ok(!(await store.findById(u.id))!.unlocks.includes('ach:every-word'));
+  await study.recordTask((await store.findById(u.id))!, 'passage', '2026-01-02', 8, 8);
+  assert.ok((await store.findById(u.id))!.unlocks.includes('ach:every-word'));
+});
