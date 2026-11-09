@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { reportServerError } from './errors';
+import { clientIp } from './security';
 import { AuthError, type AuthService } from './auth/AuthService';
 import type { StudyService } from './study/StudyService';
 import { createApiRouter, MAX_BODY, type ApiExtras, type ApiResponse } from './router';
@@ -55,7 +56,7 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
   return async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
     const [url, qs] = (req.url ?? '/').split('?');
     if (!url.startsWith('/api/')) return false;
-    const ip = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '').split(',')[0].trim();
+    const ip = clientIp(req); // (0.9.9.9.5: the proxy's entry, not one the caller can make up)
     const call = () => route({
       method: req.method ?? 'GET', url, query: new URLSearchParams(qs ?? ''), ip,
       token: (req.headers.authorization ?? '').replace(/^Bearer\s+/i, ''),
@@ -67,8 +68,9 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
     const seen = op ? recalledOp(`${token}:${op}`) : null;
     const out = seen ?? (at === null ? await call() : await requestTime.run(at, call))!;
     if (op && !seen && out.status < 500) rememberOp(`${token}:${op}`, out);
-    if (out.raw) res.writeHead(out.status, { 'Content-Type': out.raw.mime, 'Content-Length': out.raw.data.length, ...out.raw.headers }).end(out.raw.data);
-    else res.writeHead(out.status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }).end(JSON.stringify(out.body));
+    // (0.9.9.9.5: never sniffed as something else; a served file — a profile picture — can't run anything)
+    if (out.raw) res.writeHead(out.status, { 'Content-Type': out.raw.mime, 'Content-Length': out.raw.data.length, 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", ...out.raw.headers }).end(out.raw.data);
+    else res.writeHead(out.status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }).end(JSON.stringify(out.body));
     return true;
   };
 }

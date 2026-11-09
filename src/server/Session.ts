@@ -3,6 +3,7 @@ import { CHAT_MAX_LENGTH, LEVELS, MODE_LABEL, MODES, type ClientMessage, type De
 import type { AuthService } from './auth/AuthService';
 import { AuthError, toPublic } from './auth/AuthService';
 import { isTransientDbError, retryDelay } from './db/transient';
+import { Bucket } from './security';
 import { sanitizeDrawing } from './handwriting/judge';
 import type { Client, MemberProfile, Room } from './Room';
 import type { Matchmaker } from './Matchmaker';
@@ -261,7 +262,11 @@ export class Session implements Client {
         if (typeof msg.yaw === 'number' && typeof msg.pitch === 'number') room.look(user.id, msg.yaw, msg.pitch);
         break;
       case 'chat':
-        if (typeof msg.text === 'string') room.chat(user.id, msg.text.slice(0, CHAT_MAX_LENGTH * 2));
+        // (0.9.9.9.5: 6 messages at once, then one every 2 s — no flooding the room)
+        if (typeof msg.text === 'string') {
+          if (!this.chatBucket.take()) { this.send({ type: 'error', message: 'Slow down a little — wait a moment before chatting again.' }); break; }
+          room.chat(user.id, msg.text.slice(0, CHAT_MAX_LENGTH * 2));
+        }
         break;
       case 'answer':
         if (typeof msg.challengeId === 'number' && typeof msg.text === 'string') {
@@ -323,6 +328,7 @@ export class Session implements Client {
   private screen = '';
   /** 0.9.9.9: the app is in the background */
   away = false;
+  private readonly chatBucket = new Bucket(6, 0.5);
   /** the Android app, the PC app or a browser (from the connection's User-Agent; set by index.ts) */
   device: Device = 'web';
   /** What the player is doing (for admins): menus, searching, or in a room of some mode. */

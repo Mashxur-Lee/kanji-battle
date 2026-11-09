@@ -282,3 +282,24 @@ for (const [name, make] of stores) {
     assert.equal(await s.deleteUser(a.id), false, 'already gone');
   });
 }
+
+for (const [name, make] of stores) {
+  test(`store: the same open error is one row with a count (0.9.9.9.5, ${name})`, async () => {
+    const s = make();
+    await s.init();
+    const text = `[server] test-${name}-${Date.now()}: boom`;
+    await s.addReport({ kind: 'error', userId: null, username: '', text, meta: 'a', at: 1 });
+    await s.addReport({ kind: 'error', userId: null, username: '', text, meta: 'b', at: 2 });
+    await s.addReport({ kind: 'bug', userId: null, username: '', text, meta: '', at: 3 }); // a bug report is never merged
+    let mine = (await s.reports(300)).filter((r) => r.text === text);
+    const err = mine.find((r) => r.kind === 'error')!;
+    assert.equal(mine.filter((r) => r.kind === 'error').length, 1);
+    assert.deepEqual([err.count, err.meta, err.at], [2, 'b', 2]);
+    await s.setReportDone(err.id, true);
+    await s.addReport({ kind: 'error', userId: null, username: '', text, meta: 'c', at: 4 });
+    mine = (await s.reports(300)).filter((r) => r.text === text && r.kind === 'error');
+    assert.equal(mine.length, 2, 'after Done: a new row');
+    for (const r of await s.reports(300)) if (r.text === text) await s.deleteReport(r.id);
+    await s.close?.();
+  });
+}

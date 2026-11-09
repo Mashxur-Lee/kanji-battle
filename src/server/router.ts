@@ -66,6 +66,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
   const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict } = extras;
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
+  const signupLimiter = new RateLimiter(10, 3600_000);
 
   // 0.9.9.9.5: a GET whose database connection failed while opening (the database waking up) is tried again —
   // up to 3 times over ~4 s — instead of failing with "Server error" and an Inbox entry
@@ -85,6 +86,8 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
     try {
       if (r.method === 'POST' && (url === '/api/register' || url === '/api/login')) {
         if (!limiter.allow(ip)) throw new AuthError('Too many attempts — wait a minute', 429);
+        // 0.9.9.9.5: and at most 10 new accounts an hour from one address
+        if (url === '/api/register' && !signupLimiter.allow(ip)) throw new AuthError('Too many new accounts from here — try again later', 429);
         const body = await r.json();
         const result = url === '/api/register' ? await auth.register(body.username, body.password) : await auth.login(body.username, body.password);
         if (url === '/api/register') void insights?.event(result.user.id, 'signup');

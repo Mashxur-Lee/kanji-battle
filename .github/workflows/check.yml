@@ -54,6 +54,9 @@ jobs:
       - name: Screenshots
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.scenario != '' }}
         env:
+          SCENARIO: ${{ inputs.scenario }} # (through the environment, never pasted into the script)
+          LANG_IN: ${{ inputs.lang }}
+          SIZES_IN: ${{ inputs.sizes }}
           DATABASE_URL: postgres://postgres@localhost:5432/kw
           AUTH_SECRET: ci-secret
           ADMIN_PASSWORD: ci-admin
@@ -63,8 +66,8 @@ jobs:
           npx playwright install --with-deps chromium
           node dist/server/index.js > server.log 2>&1 &
           for i in $(seq 1 60); do curl -s localhost:3130/ >/dev/null && break; sleep 0.5; done
-          export EXTRA="$(echo '${{ inputs.scenario }}' | base64 -d)"
-          node scripts/shots.cjs shots ${{ inputs.lang }} dark ${{ inputs.sizes }} 2>&1 | tee shots-log.txt
+          export EXTRA="$(printf '%s' "$SCENARIO" | base64 -d)"
+          node scripts/shots.cjs shots "$LANG_IN" dark "$SIZES_IN" 2>&1 | tee shots-log.txt
       - name: Publish screenshots to the ci-shots branch
         if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.scenario != '' }}
         env:
