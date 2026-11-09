@@ -6,7 +6,7 @@ import { LEVEL_LABEL, LEVELS, ONO_TYPES, type Level } from '../shared/protocol';
 import { avatarFor, BACKGROUNDS, beta, BORDERS, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS, POSE_DEFS, poseOf, poseUnlocked } from '../shared/progress';
 import { arenaPreview, staffPreview } from './arena';
 import type { ArenaApi } from './arena3d';
-import { sceneSvg } from './backgrounds';
+import { artUrl } from './backgrounds';
 import type { StaffPreview } from './staffpreview';
 import { avatarSvg } from './wizard';
 import { staffSvg } from './art2d';
@@ -668,11 +668,11 @@ function showArena3(tab: 'arena' | 'omni' | 'pose', id: string, p: Profile) {
   // the fighters are built once; picking another arena only swaps the arena (0.9.9.3.3: no rebuild, no stutter)
   if (who !== arena3Key) {
     arena3Key = who; arena3Bg = bg;
-    arena3.setup({ layout: 'battle', bgSvg: sceneSvg(bgId, time), bgKey: bg, time,
+    arena3.setup({ layout: 'battle', bgSvg: artUrl(bgId, time), bgKey: bg, time,
       me: { id: 'me', character, staff: p.staff }, opp: { id: 'you', name: ui.myName(), character, staff: p.staff }, allies: [], boss: null });
   } else if (bg !== arena3Bg) {
     arena3Bg = bg;
-    arena3.setBackground(bg, time, sceneSvg(bgId, time));
+    arena3.setBackground(bg, time, artUrl(bgId, time));
   }
   arena3.setActive(true);
   if (tab === 'arena') arena3.prewarm(BACKGROUNDS.map((b) => b.id), time); // the other arenas get built while you look

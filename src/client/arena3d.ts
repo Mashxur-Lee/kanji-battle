@@ -26,7 +26,7 @@ export interface FighterArt { id: string; name?: string; character?: string; svg
 export interface ArenaSetup {
   /** battle screens: you stand left, the opponent right of the centre panel; Deck Duel: you bottom-right */
   layout: 'battle' | 'deck';
-  bgSvg: string; // the chosen background (full SVG markup), shown far behind the arena
+  bgSvg: string; // the chosen background: the painted picture's address (0.9.9.9.5.1) or SVG markup, shown far behind the arena
   bgKey: string;
   time: TimeOfDay;
   me: FighterArt;
@@ -157,17 +157,19 @@ function svgTexture(svg: string, onReady: (t: THREE.Texture, aspect: number) => 
     URL.revokeObjectURL(url);
     onReady(canvasTex(c), w / h);
   };
-  img.onerror = () => URL.revokeObjectURL(url);
+  img.onerror = () => { if (!picture) URL.revokeObjectURL(url); };
   img.src = url;
 }
 /** The 2D background as a big picture (and the average colour of its ground, for the fog). */
+/** the classic arena's backdrop: an SVG scene, or (0.9.9.9.5.1) the painted picture's address */
 function backgroundTexture(svg: string, onReady: (t: THREE.Texture, ground: THREE.Color, sky: THREE.Color) => void) {
-  const url = URL.createObjectURL(new Blob([svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="1152" ')], { type: 'image/svg+xml' }));
+  const picture = svg.startsWith('/');
+  const url = picture ? svg : URL.createObjectURL(new Blob([svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="1152" ')], { type: 'image/svg+xml' }));
   const img = new Image();
   img.onload = () => {
     const c = document.createElement('canvas'); c.width = 2048; c.height = 1152;
     const g = c.getContext('2d')!; g.drawImage(img, 0, 0, 2048, 1152);
-    URL.revokeObjectURL(url);
+    if (!picture) URL.revokeObjectURL(url);
     const avg = (y0: number, y1: number) => {
       const d = g.getImageData(0, y0, 2048, y1 - y0).data;
       let r = 0, gg = 0, b = 0, n = 0;

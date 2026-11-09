@@ -783,6 +783,81 @@ function scene(id: BackgroundId, t: TimeOfDay, menu = false) {
   return (body + `<defs>${gdefs.join('')}</defs>`).replace(/id="(\w+)"/g, `id="${key}-$1"`).replace(/url\(#(\w+)\)/g, `url(#${key}-$1)`);
 }
 
+// ── 0.9.9.9.5.1: painted pictures (public/bg/<place>-<time>.webp) with the animated details on top ───────────
+// The picture and its details sit in one box with the picture's own shape (1672 × 940), scaled to cover the screen
+// from the bottom centre — so a torch flame stays on its torch on any screen. Everything moves with transform /
+// opacity only (no filters, nothing redrawn each frame), and phones get fewer details.
+export const artUrl = (id: BackgroundId, t: TimeOfDay, small = false) => `/bg/${id}-${t}${small ? '-s' : ''}.webp`;
+interface ArtSpots {
+  /** the four rune stones: x and the top / bottom of their runes (% of the picture) */
+  stones: Array<[number, number, number]>;
+  /** torch flames (% of the picture) */
+  torches: Array<[number, number]>;
+  /** the colour of the runes and the floor circle; the top of the circle (% of the height) */
+  rune: string; ringTop: number;
+  /** when fireflies fly; a band of mist (its top, % of the height); sun rays through the trees */
+  flies: TimeOfDay[]; mist?: number; rays?: boolean;
+}
+const SPOTS: Record<BackgroundId, ArtSpots> = {
+  castle: { stones: [[11.3, 66, 79], [31, 68, 77], [68.8, 68, 77], [88.7, 66, 79]], torches: [[17, 72], [82.8, 72]], rune: '#ffb347', ringTop: 87, flies: [] },
+  plains: { stones: [[11.8, 58, 76], [31, 60, 73], [68.8, 60, 73], [88.5, 58, 76]], torches: [[18.8, 68.5], [81, 68.5]], rune: '#ffb347', ringTop: 85, flies: ['night'] },
+  forest: { stones: [[11.7, 61, 77], [32, 63, 75], [68.6, 63, 75], [88.8, 61, 77]], torches: [], rune: '#5fb8ff', ringTop: 83, flies: ['sunset', 'night'], mist: 62, rays: true },
+  swamp: { stones: [[11.7, 54, 72], [31.3, 57, 71], [69, 57, 71], [89, 54, 72]], torches: [], rune: '#5dff8a', ringTop: 84, flies: ['sunset', 'night'], mist: 55 },
+  worldtree: { stones: [[11.1, 60, 77], [31.5, 62, 75], [69.4, 62, 75], [89, 60, 77]], torches: [], rune: '#45f0a0', ringTop: 87, flies: ['sunset', 'night'] },
+};
+const lite = () => matchMedia('(pointer: coarse)').matches;
+function artStage(id: BackgroundId, t: TimeOfDay, onFail: () => void): HTMLElement {
+  const sp = SPOTS[id];
+  let r = [...(id + t)].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0;
+  const rnd = () => ((r = (r * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const few = lite();
+  const stage = document.createElement('div');
+  stage.className = 'art-stage';
+  const img = document.createElement('img');
+  img.className = 'art-img'; img.alt = ''; img.decoding = 'async';
+  img.onerror = onFail; // (no picture: the drawn scene)
+  img.src = artUrl(id, t);
+  stage.append(img);
+  const fx = document.createElement('div');
+  fx.className = `art-fx t-${t}`;
+  fx.style.setProperty('--rune', sp.rune);
+  const add = (cls: string, x: number, y: number, vars: Record<string, string | number> = {}) => {
+    const e = document.createElement('i');
+    e.className = cls;
+    e.style.left = `${x}%`; e.style.top = `${y}%`;
+    for (const [k, v] of Object.entries(vars)) e.style.setProperty(k, String(v));
+    fx.append(e);
+    return e;
+  };
+  // the floor circle breathes; the runes on the stones glow in turn
+  add('fx-ring', 50, sp.ringTop);
+  sp.stones.forEach(([x, y0, y1], i) => add('fx-rune', x, y0, { '--h': `${y1 - y0}%`, '--d': `${i * 0.9}s` }));
+  // torches: the flame flickers, sparks rise
+  for (const [x, y] of sp.torches) {
+    add('fx-torch', x, y, { '--d': `${(rnd() * 1.5).toFixed(2)}s` });
+    for (let k = 0; k < (few ? 2 : 5); k++) add('fx-ember', x + (rnd() - 0.5) * 1.2, y - 1, { '--d': `${(rnd() * 3).toFixed(2)}s`, '--dx': `${((rnd() - 0.5) * 40).toFixed(0)}px`, '--dur': `${(2.2 + rnd() * 1.6).toFixed(2)}s` });
+  }
+  // mist drifting over the water / between the trees
+  if (sp.mist !== undefined) for (let k = 0; k < 2; k++) add('fx-mist', -20 + k * 45, sp.mist + k * 3, { '--d': `${-k * 18}s`, '--o': t === 'day' ? 0.35 : 0.5 });
+  // light through the trees, slowly breathing
+  if (sp.rays) add('fx-rays', 40, 0, { '--o': t === 'night' ? 0.28 : 0.4 });
+  // fireflies
+  if (sp.flies.includes(t)) for (let k = 0; k < (few ? 9 : 22); k++) {
+    add('fx-fly', 4 + rnd() * 92, 38 + rnd() * 44, { '--d': `${(rnd() * 6).toFixed(2)}s`, '--dur': `${(5 + rnd() * 6).toFixed(2)}s`, '--dx': `${((rnd() - 0.5) * 70).toFixed(0)}px`, '--dy': `${((rnd() - 0.5) * 50).toFixed(0)}px` });
+  }
+  // the night sky: twinkling stars and now and then a shooting star
+  if (t === 'night') {
+    for (let k = 0; k < (few ? 10 : 26); k++) add('fx-star', rnd() * 100, rnd() * 34, { '--d': `${(rnd() * 4).toFixed(2)}s`, '--dur': `${(2 + rnd() * 3).toFixed(2)}s`, '--s': (0.6 + rnd() * 0.9).toFixed(2) });
+    add('fx-comet', 20 + rnd() * 50, 4 + rnd() * 12, { '--d': `${(3 + rnd() * 6).toFixed(1)}s` });
+    if (!few) add('fx-comet', 10 + rnd() * 60, 6 + rnd() * 10, { '--d': `${(11 + rnd() * 6).toFixed(1)}s` });
+  } else {
+    // day / sunset: motes drifting up in the light
+    for (let k = 0; k < (few ? 6 : 16); k++) add('fx-mote', rnd() * 100, 45 + rnd() * 45, { '--d': `${(rnd() * 8).toFixed(2)}s`, '--dur': `${(7 + rnd() * 6).toFixed(2)}s`, '--dx': `${((rnd() - 0.5) * 60).toFixed(0)}px` });
+  }
+  stage.append(fx);
+  return stage;
+}
+
 const cache = new Map<string, string>();
 /** phones and tablets: the background as a still picture (0.9.9.9.5: "reduce motion" no longer stills it) */
 export const stillBackground = () => matchMedia('(pointer: coarse)').matches;
@@ -794,26 +869,47 @@ let fadeTimer = 0;
 export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfDay = 'night', fade = false, menu = false) {
   const key = `${id}-${time}${menu ? '-m' : ''}`;
   if (el.dataset.key === key) return;
+  // the menu and the other screens show the same picture: only the menu look changes
+  const sameArt = el.dataset.key?.replace(/-m$/, '') === `${id}-${time}` && !!el.querySelector('.bg-layer.art');
   el.dataset.key = key;
-  if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time, menu)}</svg>`);
+  if (sameArt) { el.classList.toggle('menu-art', menu); return; }
+  // (the drawn scene is made only when needed — a picture that failed to load)
+  const svgOf = () => { if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time, menu)}</svg>`); return cache.get(key)!; };
   const swap = () => {
     const layer = document.createElement('div');
     layer.className = 'bg-layer';
+    // 0.9.9.9.5.1: the painted picture (the drawn scene only if it can't load)
+    const drawn = () => { layer.className = 'bg-layer'; layer.replaceChildren(); drawScene(layer); };
+    layer.classList.add('art');
+    const stage = artStage(id, time, drawn);
+    layer.append(stage);
+    const put = () => {
+      if (el.dataset.key !== key) return; // (another picture was asked for meanwhile)
+      const old = el.querySelector('.bg-layer');
+      if (old) old.replaceWith(layer); else el.prepend(layer);
+      el.dataset.bg = id;
+      el.dataset.time = time;
+      el.classList.toggle('menu-art', menu);
+    };
+    // the old picture stays until the new one is ready (no dark flash between them)
+    const img = stage.querySelector('img')!;
+    if (!el.querySelector('.bg-layer')) return put();
+    let done = false;
+    const once = () => { if (!done) { done = true; put(); } };
+    img.decode().then(once, once);
+    window.setTimeout(once, 1500);
+  };
+  const drawScene = (layer: HTMLElement) => {
     if (stillBackground()) {
       // 0.9.9.7.1: phones get the scene as one still picture — the live SVG (dozens of animated parts with glow
       // filters, redrawn every frame under blurred panels) flickered and lagged in the Android app
       const img = document.createElement('img');
       img.alt = ''; img.decoding = 'async'; img.className = 'bg-still';
-      const svg = cache.get(key)!.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replace(/(<svg[^>]*>)/, '$1<style>.bg-comet,.bg-spark circle{display:none}</style>');
+      const svg = svgOf().replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replace(/(<svg[^>]*>)/, '$1<style>.bg-comet,.bg-spark circle{display:none}</style>');
       if (stillUrls.has(key)) img.src = stillUrls.get(key)!;
       else { const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' })); stillUrls.set(key, url); img.src = url; }
       layer.append(img);
-    } else layer.innerHTML = cache.get(key)!;
-    const old = el.querySelector('.bg-layer');
-    if (old) old.replaceWith(layer); else el.prepend(layer);
-    el.dataset.bg = id;
-    el.dataset.time = time;
-    el.classList.toggle('menu-art', menu);
+    } else layer.innerHTML = svgOf();
   };
   clearTimeout(fadeTimer);
   el.querySelector('.bg-veil')?.remove();
@@ -840,6 +936,11 @@ export function sceneSvg(id: BackgroundId, time: TimeOfDay, menu = false): strin
  */
 const thumbUrls = new Map<string, string>();
 export function backgroundThumb(id: BackgroundId, time: TimeOfDay = 'night'): string {
+  // 0.9.9.9.5.1: the painted picture, small
+  return `<img class="bg-thumb-img" src="${artUrl(id, time, true)}" alt="" decoding="async">`;
+}
+/** the drawn scene as a small picture (before 0.9.9.9.5.1) */
+export function drawnThumb(id: BackgroundId, time: TimeOfDay = 'night'): string {
   const key = `${id}-${time}`;
   if (!thumbUrls.has(key)) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice"><style>.bg-comet,.bg-spark circle{display:none}</style>${scene(id, time)}</svg>`;
@@ -854,3 +955,10 @@ export function getTimePref(): TimePref {
   void TIME_KEY;
   return 'auto'; // 0.9.9.6: always your clock (an old saved choice is ignored)
 }
+
+// (screenshots of every place: the harness paints them itself — only with this local flag)
+try {
+  if (localStorage.getItem('kb:debugui') === '1') {
+    (window as unknown as { __kwPaint: (id: BackgroundId, t: TimeOfDay) => void }).__kwPaint = (id, t) => paintBackground(document.getElementById('bg')!, id, t);
+  }
+} catch { /* no storage */ }
