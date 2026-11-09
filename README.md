@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.9.5
+# Kanji Wizards · v0.9.9.9.5.1
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -225,7 +225,7 @@ doing. In a room's lobby your online friends appear with an **Invite** button; t
 Decline (and a notification if the tab is in the background). Since 0.9.9.9.5 friends with the Android app closed
 are listed too — their phone gets a push notification (see *Push notifications*), and an invite waits two minutes
 for a friend whose app had no connection. **Decline** tells the inviter, who can't invite that friend again for
-5 minutes. Stored in `kw_friends`. Friends already in your room
+2 minutes. Stored in `kw_friends`. Friends already in your room
 aren't listed, friends in a game show **In a game** (no invites mid-game), and the same friend can be invited
 again after 10 s (checked on the server too). Accepting an invite while you're in another room's lobby or results
 leaves that room and joins the new one.

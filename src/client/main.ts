@@ -42,6 +42,7 @@ import { initSelects } from './selects';
 import * as offline from './offline';
 import { initKana, openKana, setKanaProgress } from './kanaui';
 import { initMotion } from './motion';
+import { initMenuCarousel } from './menucarousel';
 import { initApp } from './appshell';
 import './dictui'; // (the dictionary page; opened from the side panel)
 
@@ -205,7 +206,7 @@ function applyProfile(p: Profile) {
 onProfileChange(applyProfile);
 onTaskDone.cb = applyProfile;
 initTasks();
-taskActions.learn = () => ui.$('studyBtn').click();
+taskActions.learn = () => (ui.kanaBeginner() ? openKana() : ui.$('studyBtn').click());
 taskActions.quiz = () => void startQuiz();
 taskActions.daily = () => ui.$('dailyBtn').click();
 taskActions.passage = () => ui.$('passageBtn').click();
@@ -848,6 +849,7 @@ initApp({
   netStatus: showNetStatus,
 });
 initMotion(); // 0.9.9.9.5: buttons give and spring back, new list items slide in
+initMenuCarousel(); // 0.9.9.9.5.1: the menu's cards as a carousel on computers
 initTutorial({
   firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ui.kanaBeginner() ? ['KANA'] : ['KANA', 'N5'], tutorial: true }),
   kana: async (mastered) => {
@@ -864,7 +866,18 @@ const join = () => {
 ui.$('join').onclick = join;
 ui.$<HTMLInputElement>('joinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
 ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
-ui.$('studyBtn').onclick = () => void openStudy();
+ui.$('studyBtn').onclick = () => {
+  // 0.9.9.9.5.1: kanji words only — a かな beginner learns kana first
+  if (ui.kanaBeginner()) {
+    ui.toast('🔒 Master hiragana first — in Kana', 4000);
+    const k = ui.$('kanaBtn');
+    k.classList.remove('nudge'); void k.offsetWidth; k.classList.add('nudge');
+    return;
+  }
+  void openStudy();
+};
+ui.$('quizzesBtn').onclick = () => ui.show('quizzes');
+ui.$('quizzesBack').onclick = () => ui.show('menu');
 // 0.9.9.9.5: the Kana section (a kana mastered for the first time gives XP: the level bar follows)
 ui.$('kanaBtn').onclick = () => openKana();
 initKana({

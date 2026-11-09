@@ -103,7 +103,7 @@ let lobbyIds: string[] = [];
 let cooldownTimer = 0;
 /**
  * Lobby: your friends (not already in the room) with an Invite button — again after 10 s. Online ones first; then
- * (0.9.9.9.5) those with the app closed whose phone gets the invite as a notification. Declined: not for 5 minutes.
+ * (0.9.9.9.5) those with the app closed whose phone gets the invite as a notification. Declined: not for 2 minutes.
  */
 export async function renderLobbyInvites(isLobby: boolean, inRoom: string[] = lobbyIds) {
   const box = $('lobbyInvite');
@@ -148,7 +148,7 @@ export function onInvite(msg: { fromId: string; from: string; code: string; mode
     close();
     hooks.join(msg.code); // leaves the room you're in first (lobby / results)
   };
-  // 0.9.9.9.5: the friend is told, and can't invite you again for 5 minutes
+  // 0.9.9.9.5: the friend is told, and can't invite you again for 2 minutes
   no.onclick = () => { close(); hooks.send({ type: 'invite_decline', fromId: msg.fromId }); };
   box.replaceChildren(el('b', '', `${msg.from} invites you`), el('span', '', `to ${MODE_LABEL[msg.mode]} — room ${msg.code}`), el('div', 'ib-actions'));
   box.lastElementChild!.append(join, no);
@@ -185,10 +185,10 @@ export function onFriendEvent(msg: { event: 'request' | 'accepted'; from: string
   void refresh(true).then(() => { if (ui.currentScreen() === 'friends') render(); });
 }
 
-/** 0.9.9.9.5: the friend you invited said no — the lobby shows "Declined · 4:59" until you may ask again */
+/** 0.9.9.9.5: the friend you invited said no — the lobby shows "Declined · 1:59" until you may ask again */
 export function onInviteDeclined(msg: { friendId: string; name: string; until: number }) {
   declinedUntil.set(msg.friendId, Date.now() + DECLINE_BLOCK_MS);
   ui.toast(`${msg.name} declined your invite`);
   void renderLobbyInvites(!$('lobbyInvite').hidden || ui.currentScreen() === 'lobby');
 }
-const DECLINE_BLOCK_MS = 5 * 60_000;
+const DECLINE_BLOCK_MS = 2 * 60_000;

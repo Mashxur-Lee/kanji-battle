@@ -84,7 +84,7 @@ export class SessionHub {
     const list = (this.invites.get(to) ?? []).filter((x) => x.msg.fromId !== fromId);
     if (list.length) this.invites.set(to, list); else this.invites.delete(to);
   }
-  /** `who` declined `fromId`'s invite: they can't be invited by them again for 5 minutes; the inviter is told */
+  /** `who` declined `fromId`'s invite: they can't be invited by them again for 2 minutes (0.9.9.9.5.1; it was 5); the inviter is told */
   decline(who: string, whoName: string, fromId: string, now = Date.now()) {
     if (!fromId || fromId === who) return;
     // only an invite they really got can be declined (no "X declined your invite" out of nowhere)
@@ -140,7 +140,7 @@ export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: 
 /** A host can invite the same friend again after this long (e.g. they missed it, or left another room first). */
 export const INVITE_COOLDOWN_MS = 10_000;
 /** 0.9.9.9.5: after "Decline", the same friend can't invite you again for this long */
-export const DECLINE_BLOCK_MS = 5 * 60_000;
+export const DECLINE_BLOCK_MS = 2 * 60_000;
 /** an invite the friend couldn't get right away (app in the background) waits this long for them */
 export const INVITE_KEEP_MS = 2 * 60_000;
 /** how long after an invite its Decline still counts (the notification can sit on the phone a while) */
@@ -282,7 +282,9 @@ export class Session implements Client {
       // a phone that isn't connected (or is in the background) gets a notification
       this.hub.addInvite(friendId, invite);
       const live = this.hub.sendTo(friendId, invite);
-      if (live && !presence.away) return;
+      // 0.9.9.9.5.1: a friend on the phone app gets the push even when their connection looks live — Android can
+      // freeze the app with the connection still open (the app shows no notification while it's on screen)
+      if (live && !presence.away && presence.device !== 'phone') return;
       const pushed = await this.hub.notify(friendId, { kind: 'invite', fromId: user.id, from: invite.from, code: room.code, mode: MODE_LABEL[room.mode] });
       if (!live) this.send(pushed ? { type: 'notice', message: 'Invite sent — they get a notification on their phone' } : { type: 'error', message: 'Your friend is offline' });
       return;

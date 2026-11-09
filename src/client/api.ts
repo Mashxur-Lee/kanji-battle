@@ -44,6 +44,8 @@ export interface AdminStats {
   onlineNow: number; players: number; daily: Array<{ day: string; signups: number; active: number }>;
   day1: { players: number; returned: number }; day7: { players: number; returned: number };
   funnel: Array<{ name: string; players: number }>; modes: Record<string, { started: number; finished: number }>;
+  /** 0.9.9.9.5.1: push to the Android app set up on the server; accounts with a phone that can get it */
+  push?: { on: boolean; phones: number };
 }
 /** Network trouble (no answer at all), as opposed to the server saying no. */
 const isNetworkError = (e: unknown) => e instanceof TypeError || (e instanceof DOMException && e.name === 'AbortError');

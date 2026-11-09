@@ -7,7 +7,7 @@ import type { StaffPreview } from './staffpreview';
 import type { GameMode, PlayerId, PlayerView } from '../shared/protocol';
 import type { DeckView } from '../shared/deck';
 import type { BackgroundId } from '../shared/progress';
-import { sceneSvg, type TimeOfDay } from './backgrounds';
+import { artUrl, type TimeOfDay } from './backgrounds';
 import { dragonSvg } from './wizard';
 import { flameColor } from '../shared/progress';
 import { uiScale, viewH, viewW } from './zoom';
@@ -97,7 +97,7 @@ async function activate() {
   if (!wanted()) return;
   const a = await load();
   if (!a || !onScreen || !wanted()) return;
-  if (pending) { a.setup({ ...pending, bgSvg: sceneSvg(bg.id, bg.time), bgKey: `${bg.id}-${bg.time}`, time: bg.time }); pending = null; }
+  if (pending) { a.setup({ ...pending, bgSvg: artUrl(bg.id, bg.time) /* 0.9.9.9.5.1: the painted picture */, bgKey: `${bg.id}-${bg.time}`, time: bg.time }); pending = null; }
   document.body.classList.add('has-3d');
   sizeCanvas();
   a.setActive(true);

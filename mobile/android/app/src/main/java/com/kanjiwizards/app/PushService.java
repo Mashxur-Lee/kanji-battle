@@ -64,6 +64,8 @@ public class PushService extends FirebaseMessagingService {
     public void onMessageReceived(RemoteMessage msg) {
         Map<String, String> d = msg.getData();
         if (!"invite".equals(d.get("kind"))) return;
+        // the game is on screen: the invite card shows there (no notification on top of it)
+        if (MainActivity.visible) return;
         SharedPreferences p = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String auth = p.getString("auth", "");
         if (auth == null || auth.isEmpty()) return; // signed out on this phone

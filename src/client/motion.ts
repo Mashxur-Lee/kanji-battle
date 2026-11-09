@@ -14,7 +14,8 @@ const FIXED = '.back, .kana-bar, #gameKb, .passage-gloss, .kanji-pop, .mode-titl
 /** per screen, the cards and blocks that rise in one after another (besides the screen's own top-level parts) */
 const PARTS: Record<string, string> = {
   menu: '.mc-title, .mc-nav-btn, .tasks-btn, .mc-card, .menu-foot > *',
-  study: '#studyGrid > *, .practice-card',
+  study: '#studyGrid > *',
+  quizzes: '.practice-card',
   progress: '.prog-card, #progGrid > *',
   history: '#historyList > *',
   customize: '#custGrid > *',
@@ -29,6 +30,8 @@ const PARTS: Record<string, string> = {
 /** no fade: the battle starts on the server's clock (its own animations show it) */
 const STILL = new Set(['battle']);
 
+/** 0.9.9.9.5.1: phones and tablets get a lighter version (no whole-screen fade, fewer parts moving) */
+const touch = () => matchMedia('(pointer: coarse)').matches;
 const alive = (el: Element) => (el as HTMLElement).offsetParent !== null || getComputedStyle(el).position === 'fixed';
 
 /** parts rising into place one after another (at most ~10 steps, so long lists don't drag) */
@@ -39,7 +42,7 @@ export function rise(items: Element[], { step = 34, from = 14, start = 0, max = 
     const delay = start + Math.min(i, max) * step;
     el.animate(
       [{ opacity: 0, translate: `0 ${from}px` }, { opacity: 1, translate: '0 0' }],
-      { duration: 420, delay, easing: EASE_OUT, fill: 'backwards' },
+      { duration: touch() ? 320 : 420, delay, easing: EASE_OUT, fill: 'backwards' },
     );
     i++;
   }
@@ -53,12 +56,16 @@ export function screenIn(id: string) {
   if (prev === id || STILL.has(id)) return;
   const screen = document.getElementById(id);
   if (!screen) return;
-  screen.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
+  const light = touch();
+  // (fading a whole screen makes the phone redraw every panel on it each frame: on phones only the parts move)
+  if (!light) screen.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
   const top = [...screen.children].filter((c) => !c.matches(FIXED) && !c.querySelector(FIXED) && !(c as HTMLElement).hidden);
   const deep = PARTS[id] ? [...screen.querySelectorAll(PARTS[id])].filter((c) => !c.closest('[hidden]') && !c.matches(FIXED) && !c.querySelector(FIXED)) : [];
   // a part already rising as one of the top-level blocks isn't moved twice
   const parts = [...top.filter((t) => !deep.some((d) => t.contains(d))), ...deep];
-  rise(parts.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)), { start: 40 });
+  const ordered = parts.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+  if (light) rise(ordered.slice(0, 8), { start: 0, step: 28, from: 10, max: 6 });
+  else rise(ordered, { start: 40 });
 }
 
 // ── pressing anything: it gives a little, then springs back ──────────────────
@@ -96,7 +103,7 @@ function watchList(box: HTMLElement) {
     seen = now;
     if (!fresh.length || !alive(box)) return;
     // a chat or feed: only the newest lines; a whole new list: the first rows, one after another
-    const rows = fresh.slice(0, 24);
+    const rows = fresh.slice(0, touch() ? 10 : 24);
     if (box.tagName === 'TBODY') for (const [i, r] of rows.entries()) r.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: Math.min(i, 10) * 22, easing: 'ease-out', fill: 'backwards' });
     else rise(rows, { step: 26, from: 10 });
   }).observe(box, { childList: true });

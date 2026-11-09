@@ -199,27 +199,40 @@ function nextQuestion() {
   const stage = $('kpStage');
   if (!question) return finish();
   const q = question;
-  stage.classList.remove('right', 'wrong', 'enter', 'intro');
+  stage.classList.remove('right', 'wrong', 'enter', 'intro', 'met');
   void stage.offsetWidth; // (restart the entry animation)
   stage.classList.add('enter');
   stage.classList.toggle('intro', q.intro);
   stage.dataset.kind = q.kind;
   const prompt = $('kpPrompt');
-  prompt.lang = q.kind === 'read' ? 'ja' : 'en';
-  prompt.textContent = q.kind === 'read' ? q.cell.ch : q.cell.romaji;
-  // a new kana: met with its reading (and its sound) before it's asked
-  $('kpHint').textContent = q.intro ? (q.kind === 'read' ? `${tr('New!')} ${q.cell.romaji}` : `${tr('New!')} ${q.cell.ch}`) : '';
+  // a new kana: shown big with its reading and its sound — then it moves on by itself (0.9.9.9.5.1: there was a
+  // single "got it" button to press); a tap anywhere moves on sooner
+  prompt.lang = q.intro || q.kind === 'read' ? 'ja' : 'en';
+  prompt.textContent = q.intro || q.kind === 'read' ? q.cell.ch : q.cell.romaji;
+  $('kpHint').textContent = q.intro ? q.cell.romaji : '';
   $('kpSay').hidden = !q.intro && q.kind === 'read';
   stars();
   const box = $('kpAnswers');
   box.classList.toggle('single', q.intro);
+  clearTimeout(introTimer);
+  if (q.intro) {
+    const bar = document.createElement('div');
+    bar.className = 'kp-auto';
+    bar.style.setProperty('--t', `${INTRO_MS}ms`);
+    bar.append(document.createElement('i'), Object.assign(document.createElement('span'), { textContent: tr('Tap to go on') }));
+    box.replaceChildren(bar);
+    introTimer = window.setTimeout(() => meet(q), INTRO_MS);
+    locked = false;
+    void speak(q.cell.ch);
+    return;
+  }
   box.replaceChildren(...q.options.map((o, i) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'kp-ans';
     b.style.setProperty('--i', String(i));
     if (q.kind === 'pick') b.lang = 'ja';
-    b.textContent = q.intro ? (q.kind === 'read' ? `${o} — ${tr('got it')}` : `${o} — ${tr('got it')}`) : o;
+    b.textContent = o;
     b.dataset.v = o;
     b.onclick = () => choose(o, b);
     return b;
@@ -228,17 +241,28 @@ function nextQuestion() {
   if (q.intro || q.kind === 'pick') void speak(q.cell.ch);
 }
 
+const INTRO_MS = 2600;
+let introTimer = 0;
+/** a new kana has been met: on to its first question */
+function meet(q: NonNullable<typeof question>) {
+  clearTimeout(introTimer);
+  if (!practice || question !== q || !q.intro || locked) return;
+  locked = true;
+  practice.answer(q, q.answer);
+  $('kpStage').classList.add('met');
+  setTimeout(nextQuestion, 180);
+}
+$('kanaplay').addEventListener('click', (e) => {
+  // a tap anywhere (but on a button) while a new kana is shown
+  if (question?.intro && !(e.target as Element).closest('button')) meet(question);
+});
+
 function choose(o: string, btn: HTMLElement) {
   if (!practice || !question || locked) return;
   locked = true;
   const q = question;
   const right = practice.answer(q, o);
   const stage = $('kpStage');
-  if (q.intro) {
-    btn.classList.add('right');
-    setTimeout(nextQuestion, 260);
-    return;
-  }
   stars();
   for (const b of $('kpAnswers').querySelectorAll<HTMLElement>('.kp-ans')) {
     if (b.dataset.v === q.answer) b.classList.add('right');
@@ -279,6 +303,7 @@ function finish() {
 function openSheetFromPlay() { practice = null; openKana(); openSheet(); }
 
 function stop() {
+  clearTimeout(introTimer);
   scheduleSave(true);
   practice = null;
   question = null;
@@ -292,6 +317,7 @@ addEventListener('keydown', (e) => {
   if ($('kanaplay').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
   const n = Number(e.key);
   if (n >= 1 && n <= 4) { const b = $('kpAnswers').querySelectorAll<HTMLElement>('.kp-ans')[n - 1]; b?.click(); }
+  else if ((e.key === 'Enter' || e.key === 'ArrowRight') && question?.intro) { e.preventDefault(); meet(question); }
   else if (e.key === ' ' && question) { e.preventDefault(); void speak(question.cell.ch); }
   else if (e.key === 'Escape') stop();
 });

@@ -24,7 +24,7 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
 }
 const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { parent.append(...kids); return parent; };
 
-const SCREENS = ['auth', 'menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict', 'kana', 'kanaplay'] as const;
+const SCREENS = ['auth', 'menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict', 'kana', 'kanaplay', 'quizzes'] as const;
 export type Screen = (typeof SCREENS)[number];
 let screenListener: (s: Screen) => void = () => {};
 /** 0.9.9.7.3: the loading screen in index.html (it covers the page from the first moment) fades out */
@@ -161,6 +161,9 @@ export function setProfile(p: ProfileView | null) {
   if (!p) return;
   setBadges(p.badges);
   beginnerFlag = isKanaBeginner(p.unlocks);
+  // 0.9.9.9.5.1: Study spells holds kanji words only — locked until hiragana is mastered
+  $('studyBtn').classList.toggle('locked', beginnerFlag);
+  $('studyBtn').setAttribute('aria-disabled', String(beginnerFlag));
   if ('starred' in p) setStarred((p as { starred?: string[] }).starred);
   const lx = levelXp(p.xp);
   $('whoLv').textContent = String(lx.level);

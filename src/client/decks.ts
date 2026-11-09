@@ -303,9 +303,12 @@ function quizDeck(): DeckId {
   try { const v = localStorage.getItem(QUIZ_DECK_KEY); if (v && QUIZ_DECKS.includes(v as DeckId)) return v as DeckId; } catch { /* none saved */ }
   return 'all';
 }
+/** 0.9.9.9.5.1: "Kana" (hiragana and katakana) besides the JLPT levels — a かな beginner starts on it */
+const QUIZ_LEVEL_CHOICES: Level[] = ['KANA', ...WORD_LEVELS];
+const levelLabel = (l: Level) => (l === 'KANA' ? 'Kana' : l);
 function quizLevels(): Level[] {
-  try { const v = JSON.parse(localStorage.getItem(QUIZ_LEVELS_KEY) ?? 'null'); if (Array.isArray(v)) { const l = WORD_LEVELS.filter((x) => v.includes(x)); if (l.length) return l; } } catch { /* none saved */ }
-  return [...WORD_LEVELS];
+  try { const v = JSON.parse(localStorage.getItem(QUIZ_LEVELS_KEY) ?? 'null'); if (Array.isArray(v)) { const l = QUIZ_LEVEL_CHOICES.filter((x) => v.includes(x)); if (l.length) return l; } } catch { /* none saved */ }
+  return ui.kanaBeginner() ? ['KANA'] : [...WORD_LEVELS];
 }
 let loadingQuiz = 0;
 /** a setting changed: before the first answer the quiz starts over with it; later it's for the next quiz */
@@ -318,8 +321,8 @@ function quizSettingChanged() {
 function drawQuizLevels() {
   const box = $('quizLevels');
   const on = quizLevels();
-  box.replaceChildren(...WORD_LEVELS.map((l) => {
-    const b = el('button', 'p-lv' + (on.includes(l) ? ' on' : ''), (on.includes(l) ? '✓ ' : '') + l, { type: 'button', 'aria-pressed': String(on.includes(l)) });
+  box.replaceChildren(...QUIZ_LEVEL_CHOICES.map((l) => {
+    const b = el('button', 'p-lv' + (on.includes(l) ? ' on' : '') + (l === 'KANA' ? ' kana' : ''), (on.includes(l) ? '✓ ' : '') + tr(levelLabel(l)), { type: 'button', 'aria-pressed': String(on.includes(l)) });
     b.onclick = () => {
       const next = on.includes(l) ? on.filter((x) => x !== l) : [...on, l];
       if (!next.length) { ui.toast(tr('Keep at least one level')); return; }
@@ -438,19 +441,21 @@ function nextQuestion() {
     if (!taskPassed('quiz', score, quiz.length)) ui.toast('For the daily task, get 7 out of 10 or better — try another quiz!', 5000);
   }
   const box = $('quizMissed');
-  if (!wrong.length) { box.replaceChildren(); return; }
+  // (missed kana go back to the Kana section, not into a deck)
+  const words = wrong.filter((q) => !/^(kana|kata):/.test(q.vocabId));
+  if (!words.length) { box.replaceChildren(); return; }
   const sel = el('select', 'ms-deck') as HTMLSelectElement;
   for (const d of (mode === 'ono' ? ['ono', 'struggling', 'custom'] : ['struggling', 'all', 'custom']) as DeckId[]) sel.append(Object.assign(el('option', '', DECK_LABEL[d]), { value: d }));
   const save = el('button', 'pill', 'Add the ones I missed') as HTMLButtonElement;
   const msg = el('span', 'hint');
   save.onclick = async () => {
-    try { const r = await api.deckAdd(sel.value as DeckId, wrong.map((q) => q.vocabId)); msg.textContent = `${r.added.length} added to ${tr(DECK_LABEL[sel.value as DeckId])}.`; save.disabled = true; onChanged(); }
+    try { const r = await api.deckAdd(sel.value as DeckId, words.map((q) => q.vocabId)); msg.textContent = `${r.added.length} added to ${tr(DECK_LABEL[sel.value as DeckId])}.`; save.disabled = true; onChanged(); }
     catch (e) { msg.textContent = (e as Error).message; }
   };
   const head = el('div', 'ms-head');
-  head.append(el('span', '', `You missed ${wrong.length}:`), sel, save, msg);
+  head.append(el('span', '', `You missed ${words.length}:`), sel, save, msg);
   const list = el('div', 'ms-words');
-  list.append(...wrong.map((q) => el('span', 'ms-word on', q.word?.kanji ?? (q.kind === 'kanji' ? q.choices[q.answer] : q.prompt), { lang: 'ja' })));
+  list.append(...words.map((q) => el('span', 'ms-word on', q.word?.kanji ?? (q.kind === 'kanji' ? q.choices[q.answer] : q.prompt), { lang: 'ja' })));
   box.replaceChildren(head, list);
 }
 

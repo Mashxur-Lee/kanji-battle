@@ -29,18 +29,22 @@ export class GameSocket {
     // anyway, and it came back "open" but dead.)
     let hiddenAt = 0;
     let parkTimer = 0;
+    const app = /KanjiWizardsAndroid/.test(navigator.userAgent);
+    const goingAway = () => {
+      if (!hiddenAt) hiddenAt = Date.now();
+      if (this.stopped || this.parked) return;
+      if (this.open) this.ws!.send(JSON.stringify({ type: 'away', on: true } satisfies ClientMessage));
+      // in a browser, a quick look at another app (copying the room code) keeps the connection; longer, it is closed.
+      // The Android app freezes the page's timers in the background, so it closes straight away there.
+      clearTimeout(parkTimer);
+      if (app) this.park();
+      else parkTimer = window.setTimeout(() => { if (document.visibilityState === 'hidden') this.park(); }, 4000);
+    };
+    // 0.9.9.9.5.1: the Android app calls this just before it freezes the page (the page's own "hidden" event could
+    // come too late — the connection then stayed open, frozen, and a friend's invite went to it instead of a push)
+    (window as unknown as { __kwPause?: () => void }).__kwPause = goingAway;
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') {
-        hiddenAt = Date.now();
-        if (this.stopped) return;
-        if (this.open) this.ws!.send(JSON.stringify({ type: 'away', on: true } satisfies ClientMessage));
-        // in a browser, a quick look at another app (copying the room code) keeps the connection; longer, it is closed.
-        // The Android app freezes the page's timers in the background, so it closes straight away there.
-        clearTimeout(parkTimer);
-        if (/KanjiWizardsAndroid/.test(navigator.userAgent)) this.park();
-        else parkTimer = window.setTimeout(() => { if (document.visibilityState === 'hidden') this.park(); }, 4000);
-        return;
-      }
+      if (document.visibilityState === 'hidden') { goingAway(); return; }
       clearTimeout(parkTimer);
       const gone = hiddenAt ? Date.now() - hiddenAt : 0;
       hiddenAt = 0;

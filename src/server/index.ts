@@ -26,7 +26,7 @@ import { onServerError, reportServerError } from './errors';
 import { DictService } from './study/DictService';
 
 const PUBLIC_DIR = path.resolve(__dirname, '../../public');
-const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8' };
+const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8' };
 
 // ── accounts ──────────────────────────────────────────────────────────────────
 /** Neon / any Postgres when DATABASE_URL is set; otherwise a local JSON file (wiped on Render's free disk!). */
@@ -61,7 +61,7 @@ const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
 const stories = new StoryService();
 console.log(`Reading passage stories: ${stories.describe}`);
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId) });
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const rooms = new RoomManager({
@@ -132,7 +132,7 @@ const server = createServer(async (req, res) => {
     // the service worker and the page are checked for a new version every time (0.9.9.4)
     // 0.9.9.9.5: + the security headers (the page's inline script allowed by its hash)
     if (url === '/index.html' && pageHashesFor !== data.length) { pageHashes = inlineScriptHashes(data.toString('utf8')); pageHashesFor = data.length; }
-    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : {}) };
+    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : url.startsWith('/bg/') ? { 'Cache-Control': 'public, max-age=604800' } : {}) };
     // text files go out gzipped (app.js, arena3d.js and the Russian meanings are large); cached per build
     // 0.9.9.9: Brotli where the browser takes it (the dictionary ~25% smaller than gzip), else gzip
     const accept = String(req.headers['accept-encoding'] ?? '');

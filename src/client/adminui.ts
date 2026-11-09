@@ -91,6 +91,7 @@ async function loadStats() {
     tile(s.players, 'accounts'),
     tile(pct(s.day1.returned, s.day1.players), 'back on day 1', `${s.day1.returned} of ${s.day1.players} (last 30 days)`),
     tile(pct(s.day7.returned, s.day7.players), 'back on day 7', `${s.day7.returned} of ${s.day7.players}`),
+    tile(s.push?.on ? 'on' : 'off', 'phone push', s.push?.on ? `${s.push.phones} phones can get invites` : 'set FIREBASE_SERVICE_ACCOUNT on the server'),
   );
   // last 14 days: bars for active players, a dot count for sign-ups
   const max = Math.max(1, ...s.daily.map((d) => d.active));
