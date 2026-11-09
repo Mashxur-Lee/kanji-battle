@@ -157,11 +157,10 @@ function svgTexture(svg: string, onReady: (t: THREE.Texture, aspect: number) => 
     URL.revokeObjectURL(url);
     onReady(canvasTex(c), w / h);
   };
-  img.onerror = () => { if (!picture) URL.revokeObjectURL(url); };
+  img.onerror = () => URL.revokeObjectURL(url);
   img.src = url;
 }
-/** The 2D background as a big picture (and the average colour of its ground, for the fog). */
-/** the classic arena's backdrop: an SVG scene, or (0.9.9.9.5.1) the painted picture's address */
+/** The 2D background as a big picture (and the average colour of its ground, for the fog) — the classic arena's backdrop: an SVG scene, or (0.9.9.9.5.1) the painted picture's address */
 function backgroundTexture(svg: string, onReady: (t: THREE.Texture, ground: THREE.Color, sky: THREE.Color) => void) {
   const picture = svg.startsWith('/');
   const url = picture ? svg : URL.createObjectURL(new Blob([svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="1152" ')], { type: 'image/svg+xml' }));
@@ -178,7 +177,7 @@ function backgroundTexture(svg: string, onReady: (t: THREE.Texture, ground: THRE
     };
     onReady(canvasTex(c), avg(980, 1150), avg(40, 300));
   };
-  img.onerror = () => URL.revokeObjectURL(url);
+  img.onerror = () => { if (!picture) URL.revokeObjectURL(url); };
   img.src = url;
 }
 
