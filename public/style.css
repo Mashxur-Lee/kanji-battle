@@ -3739,3 +3739,5 @@ details > :not(summary) { animation: detailsIn .3s var(--ease-out); }
 @keyframes fxMote { 0% { opacity: 0; translate: 0 0; } 20%, 70% { opacity: .8; } 100% { opacity: 0; translate: var(--dx) -120px; } }
 /* the kana screens dim the middle of the picture too (the letters read better) */
 body:is([data-screen="kana"], [data-screen="kanaplay"], [data-screen="quizzes"]) #bg::before { opacity: 1; }
+/* the pictures are already balanced: lighter scrims over them than over the drawn scenes */
+body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity: .6; }
