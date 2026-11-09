@@ -923,10 +923,11 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Reward: (.+) \(only this month\)$/, (_, x) => `Награда: ${tr(x)} (только в этом месяце)`],
   [/^(\d+) active days in the last 6 months$/, (_, n) => `${n} ${plural(+n, 'активный день', 'активных дня', 'активных дней')} за последние 6 месяцев`],
   [/^([+−-]?[\d,]+) vs last week$/, '$1 к прошлой неделе'],
-  [/^Every correct word gives 30 XP \(\+100 for a perfect 10\)\. New words at (.+) your time\.$/, 'Каждое верное слово — 30 опыта (+100 за все 10). Новые слова в $1 по вашему времени.'],
+  // 0.9.9.9.5: the challenge changes at the player's own midnight
+  [/^Every correct word gives 30 XP \(\+100 for a perfect 10\)\. New words at midnight — in (?:(\d+) h )?(\d+) min\.$/, (_, h, m) => `Каждое верное слово — 30 опыта (+100 за все 10). Новые слова в полночь — через ${h ? `${h} ч ` : ''}${m} мин.`],
   [/^Challenge of (.+)$/, 'Испытание: $1'],
   [/^Two words each from N5 to N1, easiest first\. Type the reading \(kana or romaji\) and press Enter — (\d+) s per word\. One try a day: most correct wins, then fastest\.$/, 'По два слова с N5 до N1, от простых к сложным. Напишите чтение (кана или ромадзи) и нажмите Enter — $1 с на слово. Одна попытка в день: побеждает больше верных, затем быстрее.'],
-  [/^10 new words at (.+) your time\.$/, '10 новых слов в $1 по вашему времени.'],
+  [/^10 new words at midnight — in (?:(\d+) h )?(\d+) min\.$/, (_, h, m) => `10 новых слов в полночь — через ${h ? `${h} ч ` : ''}${m} мин.`],
   [/^Word (\d+) of (\d+) · (.+)$/, 'Слово $1 из $2 · $3'],
   [/^Show more \((\d+) left\)$/, 'Показать ещё (осталось $1)'],
   [/^Offline mode · (\d+) to sync$/, 'Офлайн-режим · ждут синхронизации: $1'],

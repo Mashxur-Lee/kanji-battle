@@ -41,6 +41,14 @@ export const shiftDay = (day: string, days: number) => new Date(Date.parse(day) 
  * The player's day for things the server records without the browser's date (match results): their last
  * login day if it's within a day of the server's, otherwise the server's date.
  */
+/** The player's own date (YYYY-MM-DD from the app), if it is within a day of the server's; else the server's. */
+export function resolveToday(clientToday: unknown, at = now()): string {
+  const server = new Date(at).toISOString().slice(0, 10);
+  if (typeof clientToday !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(clientToday)) return server;
+  const diff = Math.abs(Date.parse(clientToday) - Date.parse(server));
+  return diff <= 86_400_000 ? clientToday : server;
+}
+
 export function playerDay(u: Pick<UserRecord, 'loginDay'>, at = now()) {
   const server = new Date(at).toISOString().slice(0, 10);
   if (u.loginDay && Math.abs(Date.parse(u.loginDay) - Date.parse(server)) <= DAY_MS) return u.loginDay;

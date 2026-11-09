@@ -176,10 +176,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         return res(200, { strokes: Object.fromEntries(chars.map((c) => [c, strokes?.(c) ?? null])) });
       } else if (daily && r.method === 'GET' && url === '/api/daily') {
         const u = await auth.authenticate(r.token);
-        return res(200, await daily.overview(u));
+        return res(200, await daily.overview(u, query.get('today')));
       } else if (daily && r.method === 'POST' && url === '/api/daily/start') {
         const u = await auth.authenticate(r.token);
-        return res(200, { word: await daily.start(u) });
+        return res(200, { word: await daily.start(u, (await r.json()).today) });
       } else if (daily && r.method === 'POST' && url === '/api/daily/answer') {
         const u = await auth.authenticate(r.token);
         return res(200, await daily.answer(u, (await r.json()).text));
@@ -349,7 +349,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/sync/snapshot') {
         // 0.9.9.4: everything the app needs to keep studying offline (see client/offline)
         const u = await auth.authenticate(r.token);
-        return res(200, await study.snapshot(u, daily?.keyFor(u)));
+        return res(200, await study.snapshot(u, daily?.keyFor(u, query.get('today'))));
       } else {
         return res(404, { error: 'Not found' });
       }

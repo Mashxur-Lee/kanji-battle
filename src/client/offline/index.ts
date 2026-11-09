@@ -218,7 +218,8 @@ export async function refreshSnapshot() {
   const uid = storedUid();
   if (!uid || !token() || outbox.length) return;
   try {
-    const res = await fetch('/api/sync/snapshot', { headers: authHeaders(), cache: 'no-store', signal: timeout(30_000) });
+    const d = new Date(), day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const res = await fetch(`/api/sync/snapshot?today=${day}`, { headers: authHeaders(), cache: 'no-store', signal: timeout(30_000) });
     if (!res.ok) return;
     const snap = (await res.json()) as Snapshot;
     if (snap.user?.id !== uid) return;

@@ -19,10 +19,12 @@ const el = (tag: string, cls = '', text?: string | number) => {
   return e;
 };
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
-/** The words change at midnight UTC: say when that is for this player. */
+/** 0.9.9.9.5: the words change at midnight where you are (with the daily tasks and the streak): in how long */
 const nextReset = () => {
-  const d = new Date(); d.setUTCHours(24, 0, 0, 0);
-  return `at ${d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })} your time`;
+  const d = new Date(); d.setHours(24, 0, 0, 0);
+  const min = Math.max(1, Math.round((d.getTime() - Date.now()) / 60_000));
+  const h = Math.floor(min / 60), m = min % 60;
+  return `at midnight — in ${h ? `${h} h ` : ''}${m} min`; // (Russian: a pattern in i18n.ts)
 };
 
 let me = '';
@@ -89,7 +91,7 @@ function missedBlock(o: DailyOverview): HTMLElement[] {
   return [el('h4', '', 'Missed — ticked words go to Struggling spells'), grid];
 }
 
-// 0.9.9.7.3: leagues — Kana → N5 → N4 → N3 → N2 → N1; 9 / 10 or better moves you up one
+// 0.9.9.7.3: leagues — Kana → N5 → N4 → N3 → N2 → N1; 7 / 10 or better (0.9.9.9.5; was 9) moves you up one
 const LEAGUES = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
 const LEAGUE_NAME: Record<string, string> = { KANA: 'ひらがな・カタカナ', N5: 'N5', N4: 'N4', N3: 'N3', N2: 'N2', N1: 'N1' };
 let league = 'KANA';
@@ -126,7 +128,7 @@ function renderOverview(o: DailyOverview) {
       el('p', 'sub', date),
       ladder(league, o.nextLeague),
       el('div', 'daily-score', `${o.mine.correct} / ${o.total}`),
-      el('p', `center league-note${up ? ' up' : ''}`, up ? `▲ ${tr('Promoted')}: ${LEAGUE_NAME[o.nextLeague!]} — ${tr('tomorrow you play in the new league')}` : `${tr('Get')} ${o.promoteAt ?? 9}/${o.total} ${tr('to move up a league')}`),
+      el('p', `center league-note${up ? ' up' : ''}`, up ? `▲ ${tr('Promoted')}: ${LEAGUE_NAME[o.nextLeague!]} — ${tr('tomorrow you play in the new league')}` : `${tr('Get')} ${o.promoteAt ?? 7}/${o.total} ${tr('to move up a league')}`),
       el('p', 'center', `${secs(o.mine.ms)} · rank ${o.rank} today`),
       el('p', 'hint center', `10 new words ${nextReset()}.`),
       el('h4', '', "Today's words"), words,
@@ -141,8 +143,8 @@ function renderOverview(o: DailyOverview) {
     ladder(league),
     el('h3', '', `${tr('League')}: ${LEAGUE_NAME[league]}`),
     el('p', '', league === 'KANA'
-      ? `Ten kana, the same for everyone in your league today: five hiragana, five katakana. Type each in romaji and press Enter — ${o.wordMs / 1000} s each. Get ${o.promoteAt ?? 9}/10 or better to move up to N5.`
-      : `Ten ${league} words, the same for everyone in your league today, easiest first. Type the reading (kana or romaji) and press Enter — ${o.wordMs / 1000} s per word. Get ${o.promoteAt ?? 9}/10 or better to move up a league.`),
+      ? `Ten kana, the same for everyone in your league today: five hiragana, five katakana. Type each in romaji and press Enter — ${o.wordMs / 1000} s each. Get ${o.promoteAt ?? 7}/10 or better to move up to N5.`
+      : `Ten ${league} words, the same for everyone in your league today, easiest first. Type the reading (kana or romaji) and press Enter — ${o.wordMs / 1000} s per word. Get ${o.promoteAt ?? 7}/10 or better to move up a league.`),
     el('p', 'hint', 'One try a day: most correct wins, then fastest. Everyone starts in the kana league.'),
     el('p', 'hint', `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
     start,

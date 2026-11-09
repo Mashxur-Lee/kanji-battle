@@ -156,8 +156,8 @@ export const api = {
   setKana: (mastered: boolean) => call<{ profile: Profile }>('PUT', '/api/me/kana', { mastered }),
   progress: () => call<ProgressPage>('GET', `/api/progress?today=${today()}`),
   strokes: (chars: string) => call<{ strokes: Record<string, number[][][] | null> }>('GET', `/api/strokes?k=${encodeURIComponent(chars)}`),
-  daily: () => call<DailyOverview>('GET', '/api/daily'),
-  dailyStart: () => call<{ word: DailyWord }>('POST', '/api/daily/start'),
+  daily: () => call<DailyOverview>('GET', `/api/daily?today=${today()}`), // (0.9.9.9.5: your own date)
+  dailyStart: () => call<{ word: DailyWord }>('POST', '/api/daily/start', { today: today() }),
   dailyAnswer: (text: string) => call<DailyAnswer>('POST', '/api/daily/answer', { text }),
   dailyFinish: () => call<{ done: DailyDone | null }>('POST', '/api/daily/finish'),
   friends: () => call<{ friends: Friend[] }>('GET', '/api/friends'),

@@ -12,7 +12,7 @@ import { buildQuiz, type QuizQuestion } from '../../shared/quiz';
 import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type DailyPlan, type Snapshot, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { VOCAB, VOCAB_BY_ID } from '../vocab';
-import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress } from './ProgressService';
+import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress, resolveToday } from './ProgressService';
 import { now as clockNow } from '../now';
 import { seededRng } from '../../shared/rng';
 
@@ -51,12 +51,7 @@ export interface StudyItem {
 export class StudyError extends Error { constructor(message: string, readonly status = 400) { super(message); } }
 
 /** YYYY-MM-DD; the client's local date is trusted only within a day of the server's. */
-export function resolveToday(clientToday: unknown, at = clockNow()): string {
-  const server = new Date(at).toISOString().slice(0, 10);
-  if (typeof clientToday !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(clientToday)) return server;
-  const diff = Math.abs(Date.parse(clientToday) - Date.parse(server));
-  return diff <= 86_400_000 ? clientToday : server;
-}
+export { resolveToday }; // (lives in ProgressService since 0.9.9.9.5 — the daily challenge uses it too)
 
 /** 0.9.9.4.4: what an answer changed, so "Undo" can put it back (newest last, a few per player). */
 interface UndoEntry { deck: DeckId; before: SrsCard; today: string; counted: boolean; critCounted: boolean; xp: number }
@@ -80,7 +75,7 @@ export class StudyService {
     return {
       xp: u.xp, level: levelOf(u.xp), crit: dailyCrit(u.critCount, u.critExpires, now), learned, learnedToday, background: u.background,
       studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u), flame: u.flame ?? 'blue', staff: u.staff ?? 'verdant', strugglingDue: await this.strugglingDue(u.id, now),
-      streak: liveStreak(u, new Date(now).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0,
+      streak: liveStreak(u, playerDay(u, now)), bestStreak: u.bestStreak ?? 0, // (0.9.9.9.5: on the player's date)
       tutorialDone: u.tutorialDone ?? true, unlocks: u.unlocks ?? [], month: await this.progress.month(u, playerDay(u, now)),
       dailyNew: u.dailyNew ?? DAILY_NEW, badges: u.badges ?? [],
       tasks: await this.progress.tasks(u.id, playerDay(u, now)), streakDay: u.streakDay ?? null, border: u.border ?? 'none', starred: u.starred ?? [],
@@ -171,7 +166,7 @@ export class StudyService {
   async publicProfile(id: string): Promise<PublicProfile | null> {
     const u = await this.store.findById(id);
     if (!u || u.banned) return null;
-    return { id: u.id, name: displayName(u), login: u.nickname?.trim() ? u.username : undefined, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, new Date(clockNow()).toISOString().slice(0, 10)), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none' };
+    return { id: u.id, name: displayName(u), login: u.nickname?.trim() ? u.username : undefined, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, playerDay(u, clockNow())), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none' };
   }
 
   matches(userId: string) { return this.store.matches(userId, MATCH_HISTORY_LIMIT); }

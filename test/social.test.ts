@@ -50,7 +50,7 @@ test('daily challenge: the same 10 words for everyone in a league (0.9.9.7.3: yo
   assert.equal(o.nextLeague, 'KANA', '8 / 10 is not enough to move up');
 });
 
-test('daily challenge leagues (0.9.9.7.3): 9 / 10 or better moves you up one — Kana → N5 → … → N1', async () => {
+test('daily challenge leagues (0.9.9.7.3; 7 / 10 since 0.9.9.9.5): 7 / 10 or better moves you up one — Kana → N5 → … → N1', async () => {
   const store = new MemoryStore();
   let now = Date.parse('2026-10-11T08:00:00Z');
   const daily = new DailyService(store, new ProgressService(store), () => now);
@@ -74,6 +74,12 @@ test('daily challenge leagues (0.9.9.7.3): 9 / 10 or better moves you up one —
   d = await play(5);
   assert.deepEqual([d.league, d.promoted], ['N4', null]);
   assert.equal((await daily.overview((await store.findById(u.id))!)).nextLeague, 'N4');
+  now += 86_400_000;
+  d = await play(6);
+  assert.deepEqual([d.league, d.promoted], ['N4', null], '6 / 10 stays');
+  now += 86_400_000;
+  d = await play(7);
+  assert.deepEqual([d.league, d.promoted], ['N4', 'N3'], '7 / 10 moves up');
 });
 
 test('monthly goals: play 12 days, win 10, pass 150 cards → the month\'s reward unlocks once', async () => {

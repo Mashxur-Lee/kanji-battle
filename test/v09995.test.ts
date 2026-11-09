@@ -125,3 +125,25 @@ test('0.9.9.9.5: the same open error is one Inbox row with a count', async () =>
   assert.equal(rows.length, 2);
   assert.equal(rows.find((r) => r.text.includes('database'))!.count, 4);
 });
+
+test('0.9.9.9.5: the daily challenge changes at the player\'s own midnight (with the tasks and the streak)', async () => {
+  const { DailyService, DAILY_WORDS } = await import('../src/server/study/DailyService');
+  const { ProgressService } = await import('../src/server/study/ProgressService');
+  const store = new MemoryStore();
+  // 20:00 UTC on the 11th = 05:00 on the 12th in Tokyo
+  let now = Date.parse('2026-10-11T20:00:00Z');
+  const daily = new DailyService(store, new ProgressService(store), () => now);
+  const u = await store.create({ username: 'tokyo1', passwordHash: 'x', role: 'user' } as never);
+  assert.equal((await daily.overview(u, '2026-10-12')).day, '2026-10-12', 'Tokyo already has the 12th');
+  assert.equal((await daily.overview(u, '2026-10-11')).day, '2026-10-11', 'New York still the 11th');
+  assert.equal((await daily.overview(u, '2026-10-20')).day, '2026-10-11', 'a far-off date is not accepted');
+  // a run started just before midnight finishes after it, on its own day
+  now = Date.parse('2026-10-11T14:59:00Z'); // 23:59 in Tokyo
+  await daily.start(u, '2026-10-11');
+  now += 2 * 60_000; // 00:01 on the 12th
+  let r;
+  for (let i = 0; i < DAILY_WORDS; i++) { r = await daily.answer(u, 'x'); now += 1000; }
+  assert.ok(r!.done, 'finished');
+  assert.equal((await daily.overview((await store.findById(u.id))!, '2026-10-11')).mine !== null, true, 'saved on the 11th');
+  assert.equal((await daily.overview((await store.findById(u.id))!, '2026-10-12')).mine, null, 'the 12th is a new challenge');
+});
