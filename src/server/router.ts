@@ -291,7 +291,8 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         return res(200, await study.addCustom(u, await r.json()));
       } else if (r.method === 'GET' && url === '/api/study/quiz') {
         const u = await auth.authenticate(r.token);
-        return res(200, { questions: await study.quiz(u, Number(query.get('n')) || 10) });
+        // 0.9.9.9.5: ?deck=all&levels=N5,N4 (the reading passage's settings)
+        return res(200, { questions: await study.quiz(u, Number(query.get('n')) || 10, { deck: query.get('deck') ?? undefined, levels: query.get('levels')?.split(',') }) });
       } else if (r.method === 'POST' && url === '/api/study/story') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();

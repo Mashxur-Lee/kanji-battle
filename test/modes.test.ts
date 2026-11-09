@@ -667,7 +667,7 @@ test('the Beta border (0.9.9.3.1): given once the tutorial is done, equippable; 
   await assert.rejects(study.setBorder(u, 'master'), /level 10/);
 });
 
-test('JLPT quiz (0.9.9.3.3): single hiragana are asked by romaji, every question has 4 different choices', async () => {
+test('JLPT quiz: kana are not quizzed (0.9.9.9.5: they have the Kana section); kanji words get 4 different choices', async () => {
   const { StudyService } = await import('../src/server/study/StudyService');
   const { MemoryStore } = await import('../src/server/db/Store');
   const { VOCAB } = await import('../src/server/vocab');
@@ -676,14 +676,14 @@ test('JLPT quiz (0.9.9.3.3): single hiragana are asked by romaji, every question
   const study = new StudyService(store);
   const u = await store.create({ username: 'kanaquiz', passwordHash: 'x', role: 'user' } as any);
   for (const v of VOCAB.filter((x) => x.level === 'KANA').slice(0, 30)) await store.saveCard(u.id, { ...newCard(v.id, Date.now()), reps: 1, state: 'review' });
+  assert.equal((await study.quiz(u, 20)).length, 0);
+  for (const v of VOCAB.filter((x) => x.jlpt === 'N4').slice(0, 30)) await store.saveCard(u.id, { ...newCard(v.id, Date.now()), reps: 1, state: 'review' });
   const qs = await study.quiz(u, 20);
-  assert.ok(qs.length >= 10);
+  assert.equal(qs.length, 20);
   for (const q of qs) {
     assert.equal(new Set(q.choices).size, 4, `4 different choices: ${q.prompt} ${q.choices}`);
-    assert.ok(!q.choices.some((c) => /^hiragana/.test(c)), 'never "hiragana" / "hiragana (voiced)" as choices');
+    assert.ok(!/^(kana|kata):/.test(q.vocabId));
   }
-  const kana = qs.find((q) => /^[ぁ-ん]$/.test(q.prompt));
-  if (kana) assert.ok(kana.choices.every((c) => /^[a-z]+$/.test(c)), 'romaji choices for a single kana');
 });
 
 test('boss (0.9.9.6): the breath names who it hit — a fallen teammate is not among them', () => {

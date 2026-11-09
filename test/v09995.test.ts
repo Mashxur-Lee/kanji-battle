@@ -240,3 +240,72 @@ test('0.9.9.9.5 Kana: a かな beginner graduates when the 46 basic hiragana are
   await study.setKana((await store.findById(u.id))!, all, '2026-01-02');
   assert.ok(!(await store.findById(u.id))!.unlocks.includes(KANA_BEGINNER), 'graduated');
 });
+
+test('0.9.9.9.5 JLPT quiz: made-up near misses like the real test — never a right answer', async () => {
+  const { align, fakeReadings, fakeSpellings } = await import('../src/shared/fakes');
+  const { VOCAB, kanjiFacts } = await import('../src/server/vocab');
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const word = (k: string) => VOCAB.find((v) => v.kanji === k)!;
+  assert.deepEqual(align(word('学校'), kanjiFacts)?.map((p) => p.ch + p.r), ['学がっ', '校こう'], 'sound changes: がく → がっ');
+  assert.deepEqual(align(word('会う'), kanjiFacts)?.map((p) => p.ch + p.r), ['会あ', 'うう']);
+  // 先生: swapped kanji, same-sounding kanji; a reading of the same kind (せい → しょう) or a slip
+  const sp = new Set<string>(), rd = new Set<string>();
+  for (let i = 0; i < 12; i++) { for (const x of fakeSpellings(word('先生'), VOCAB, kanjiFacts, rnd)) sp.add(x); for (const x of fakeReadings(word('先生'), VOCAB, kanjiFacts, rnd)) rd.add(x); }
+  assert.ok(sp.has('生先'), [...sp].join(' '));
+  assert.ok(!sp.has('先生'));
+  assert.ok([...sp].every((x) => [...x].length === 2));
+  assert.ok(rd.has('せんしょう') || rd.has('ぜんせい'), [...rd].join(' '));
+  assert.ok(!rd.has('せんせい'));
+  // over the whole list: never the word itself or another real way to read / write it
+  let made = 0;
+  for (const w of VOCAB.filter((v) => /[一-龯]/.test(v.kanji) && v.level !== 'ONO').slice(0, 1500)) {
+    const reals = new Set(VOCAB.filter((v) => v.kanji === w.kanji).map((v) => v.reading));
+    for (const r of fakeReadings(w, VOCAB, kanjiFacts, rnd)) { made++; assert.ok(!reals.has(r), `${w.kanji}: ${r} is a real reading`); assert.ok(!/^[っゃゅょん]/.test(r), r); }
+    for (const s of fakeSpellings(w, VOCAB, kanjiFacts, rnd)) { made++; assert.ok(!VOCAB.some((v) => v.kanji === s && v.reading === w.reading), `${w.kanji}: ${s} is right too`); }
+  }
+  assert.ok(made > 3000, `made ${made}`);
+});
+
+test('0.9.9.9.5 JLPT quiz: four different choices, one right; words from the deck and levels you pick', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const { VOCAB } = await import('../src/server/vocab');
+  const { newCard } = await import('../src/shared/srs');
+  const u = await store.create({ username: 'quizset', passwordHash: 'x', role: 'user' } as never);
+  const now = Date.now();
+  const { studyLevelOf } = await import('../src/shared/protocol');
+  const n5 = VOCAB.filter((v) => studyLevelOf(v) === 'N5' && /[一-龯]/.test(v.kanji)).slice(0, 12);
+  const n1 = VOCAB.filter((v) => studyLevelOf(v) === 'N1' && /[一-龯]/.test(v.kanji)).slice(0, 12);
+  await store.addCards(u.id, n5.map((v) => ({ ...newCard(v.id, now, 'all'), reps: 1, state: 'review' as const, intervalDays: 2 })));
+  await store.addCards(u.id, n1.map((v) => ({ ...newCard(v.id, now, 'struggling'), reps: 1, state: 'review' as const, intervalDays: 2 })));
+  const me = (await store.findById(u.id))!;
+  const qs = await study.quiz(me, 10);
+  assert.equal(qs.length, 10);
+  for (const q of qs) {
+    assert.equal(q.choices.length, 4, `${q.prompt}: ${q.choices.join(' ')}`);
+    assert.equal(new Set(q.choices).size, 4);
+    assert.ok(q.answer >= 0 && q.answer < 4);
+  }
+  const lvl = (id: string) => studyLevelOf(VOCAB.find((v) => v.id === id)!);
+  const only = async (opts: { deck?: string; levels?: string[] }, level: string) => {
+    const got = await study.quiz(me, 10, opts);
+    assert.equal(got.length, 10, JSON.stringify(opts));
+    assert.ok(got.every((q) => lvl(q.vocabId) === level), JSON.stringify(opts));
+  };
+  await only({ deck: 'all' }, 'N5');
+  await only({ deck: 'struggling' }, 'N1');
+  await only({ levels: ['N1'] }, 'N1');
+  await only({ levels: ['N5', 'N2'] }, 'N5');
+  assert.equal((await study.quiz(me, 10, { deck: 'all', levels: ['N1'] })).length, 0, 'nothing fits');
+  // the route: ?deck=…&levels=…
+  const auth = new AuthService(store, new TokenSigner('t'));
+  const route = createApiRouter(auth, study);
+  const { token, user } = await auth.register('quizroute', 'secret12');
+  await store.addCards(user.id, n1.map((v) => ({ ...newCard(v.id, now, 'struggling'), reps: 1, state: 'review' as const, intervalDays: 2 })));
+  const ask = (q: string) => route({ method: 'GET', url: '/api/study/quiz', query: new URLSearchParams(q), token, ip: '1.2.3.4', json: async () => ({}) });
+  const r = await ask('n=10&deck=struggling&levels=N1,N2');
+  assert.equal(r?.status, 200);
+  assert.equal((r!.body as { questions: unknown[] }).questions.length, 10);
+  assert.equal(((await ask('n=10&deck=all'))!.body as { questions: unknown[] }).questions.length, 0);
+});

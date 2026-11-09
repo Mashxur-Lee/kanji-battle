@@ -562,7 +562,10 @@
 
   <!-- STUDY: JLPT-style quiz -->
   <section id="quiz" class="screen quiz" hidden>
-    <div class="page-head"><button id="quizBack" class="back">← Study</button><span id="quizProgress" class="tag"></span><span id="quizScore" class="tag"></span></div>
+    <div class="page-head"><button id="quizBack" class="back">← Study</button><span id="quizProgress" class="tag"></span><span id="quizScore" class="tag"></span><label class="p-from q-from">Words from <select id="quizDeck" aria-label="Words from"></select></label><button id="quizList" class="pill deck-open-btn q-from" type="button"><span aria-hidden="true">☰</span> Words</button></div>
+    <div id="quizSettings" class="p-settings q-settings">
+      <div class="p-set-row"><span class="p-set-lbl">Your words from</span><span id="quizLevels" class="p-levels" role="group" aria-label="Your words from levels"></span><span id="quizSetTip" class="hint p-set-tip">Your own words always count</span></div>
+    </div>
     <div id="quizCard" class="quiz-card">
       <div id="quizAsk" class="quiz-ask"></div>
       <div id="quizPrompt" class="quiz-prompt" lang="ja"></div>

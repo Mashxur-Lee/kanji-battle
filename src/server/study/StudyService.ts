@@ -11,7 +11,7 @@ import { displayReading } from '../../shared/vocab';
 import { buildQuiz, type QuizQuestion } from '../../shared/quiz';
 import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type DailyPlan, type Snapshot, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
-import { VOCAB, VOCAB_BY_ID } from '../vocab';
+import { kanjiFacts, VOCAB, VOCAB_BY_ID } from '../vocab';
 import { cleanKana, isKanaChar, kanaCells, type KanaProgress } from '../../shared/kanachart';
 import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress, resolveToday } from './ProgressService';
 import { now as clockNow } from '../now';
@@ -443,18 +443,22 @@ export class StudyService {
   }
 
   /**
-   * JLPT-style quiz from the words you have studied (any deck, answered at least once): reading, meaning
-   * or "which kanji" — 4 choices, the wrong ones taken from the same level.
+   * JLPT-style quiz from the words you have studied (answered at least once): reading, meaning or "which kanji" —
+   * 4 choices, made-up near misses like the real test's (0.9.9.9.5). Like the reading passage, it can take its words
+   * from one deck and the JLPT levels you tick (your own typed words always count); none given = every deck / level.
    */
-  async quiz(u: UserRecord, n = 10): Promise<QuizQuestion[]> {
+  async quiz(u: UserRecord, n = 10, opts: { deck?: unknown; levels?: unknown } = {}): Promise<QuizQuestion[]> {
+    const deck = isDeck(opts.deck) && opts.deck !== 'ono' ? opts.deck : null;
+    const levels = Array.isArray(opts.levels) ? LEVELS.filter((l) => (opts.levels as unknown[]).includes(l)) : [];
     const custom = await this.words(u.id);
-    const cards = await this.store.cards(u.id);
+    const cards = (await this.store.cards(u.id)).filter((c) => !deck || deckOf(c) === deck);
+    const fits = (w: WordInfo | null): w is WordInfo => !!w && w.level !== 'ONO' && !isKanaId(w.id) && (w.custom || !levels.length || levels.includes(w.level));
     const studied = new Map<string, WordInfo>();
-    // (onomatopoeia have their own quiz)
-    for (const c of cards) if (c.reps > 0 || c.state !== 'new') { const w = this.info(c.vocabId, custom); if (w && w.level !== 'ONO') studied.set(w.id, w); }
-    if (studied.size < 4) for (const c of cards) { const w = this.info(c.vocabId, custom); if (w && w.level !== 'ONO') studied.set(w.id, w); }
+    // (onomatopoeia have their own quiz; kana have the Kana section)
+    for (const c of cards) if (c.reps > 0 || c.state !== 'new') { const w = this.info(c.vocabId, custom); if (fits(w)) studied.set(w.id, w); }
+    if (studied.size < 4) for (const c of cards) { const w = this.info(c.vocabId, custom); if (fits(w)) studied.set(w.id, w); }
     const pool = shuffle([...studied.values()], this.rng).slice(0, Math.max(1, Math.min(30, n)));
-    return buildQuiz(pool, VOCAB, this.rng, (id) => VOCAB_BY_ID.get(id));
+    return buildQuiz(pool, VOCAB, this.rng, (id) => VOCAB_BY_ID.get(id), kanjiFacts);
   }
 
   /** Quiz / results: words you got wrong → a deck of your choice. */

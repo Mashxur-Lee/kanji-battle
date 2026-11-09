@@ -3518,3 +3518,16 @@ body.has-dict .kana-bar { margin-left: 26px; }
 :root[data-theme="light"] .kp-top .kp-count { color: var(--text); }
 :root[data-theme="light"] .kp-stage::before { background: radial-gradient(closest-side, rgba(255, 255, 255, .7), rgba(255, 255, 255, .3) 60%, transparent); }
 :root[data-theme="light"] :is(.kana-bar, .kana-sheet) { background: rgba(255, 255, 255, .97); }
+
+/* ── 0.9.9.9.5: the JLPT quiz's settings (the reading passage's) ───────────── */
+#quiz .page-head { flex-wrap: wrap; gap: 8px; }
+.quiz .p-from select { width: auto; margin: 0; padding: 6px 8px; border-radius: 10px; background: var(--field); color: var(--text); border: 1px solid var(--line); }
+.quiz .page-head .deck-open-btn { padding: 6px 12px; }
+.quiz .q-settings { margin: 0 0 12px; }
+.quiz-card.loading .quiz-prompt { animation: qLoad 1s ease-in-out infinite alternate; }
+@keyframes qLoad { from { opacity: .35; } to { opacity: 1; } }
+@media (max-width: 640px) {
+  .quiz .p-from { margin-left: 0; flex: 1 1 100%; }
+  .quiz .p-from select { flex: 1; }
+  .quiz .q-settings .p-set-lbl { min-width: 0; }
+}

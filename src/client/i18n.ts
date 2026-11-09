@@ -484,6 +484,8 @@ const RU: Record<string, string> = {
   'Close the dictionary': 'Закрыть словарь',
   'Close friends': 'Закрыть друзей',
   'Reconnecting…': 'Переподключение…',
+  // 0.9.9.9.5 — the JLPT quiz's settings
+  'Your own words always count': 'Ваши собственные слова учитываются всегда', 'Changes apply to the next quiz': 'Изменения — со следующего теста',
   // 0.9.9.9.5 — the Kana section
   'All basic hiragana mastered — kanji battles unlocked!': 'Вся основная хирагана освоена — бои с кандзи открыты!',
   'Kana': 'Кана', 'Learn hiragana and katakana': 'Учите хирагану и катакану',
@@ -825,6 +827,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^(.+) wants a rematch$/, (_, n) => `${n} хочет реванш`],
   [/^A story needs at least 8 words — your Onomatopoeia deck has (\d+)\. Study a few more onomatopoeia first\.$/, (_, n) => `Для рассказа нужно хотя бы 8 слов — в вашей колоде ономатопеи их ${n}. Сначала изучите ещё немного ономатопеи.`],
   [/^A story needs at least 8 kanji words — “(.+)” has (\d+) of the levels you ticked\. Tick more levels, pick another deck, or study more words\.$/, (_, d, n) => `Для рассказа нужно хотя бы 8 слов с кандзи — в «${RU[d] ?? d}» их ${n} среди отмеченных уровней. Отметьте больше уровней, выберите другую колоду или изучите больше слов.`],
+  [/^No studied words in “(.+)” at the levels you ticked — tick more levels, pick another deck, or study some spells first\.$/, (_, d) => `В «${RU[d] ?? d}» нет изученных слов отмеченных уровней — отметьте больше уровней, выберите другую колоду или сначала поучите заклинания.`],
   [/^(\d+) missed → Struggling spells$/, '$1 с ошибкой → «Трудные заклинания»'],
   [/^Added to Struggling spells: (\d+)$/, 'Добавлено в «Трудные заклинания»: $1'],
   [/^All levels · (\d+)\/(\d+)$/, 'Все уровни · $1/$2'],
