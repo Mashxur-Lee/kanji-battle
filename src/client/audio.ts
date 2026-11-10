@@ -16,6 +16,9 @@ const savePrefs = () => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(p
 
 let ctx: AudioContext | null = null;
 let sfxBus: GainNode;
+/** 0.9.9.9.5.2: the echo of effects / music goes into the reverb through these — they follow the volume sliders
+ *  (the correct-answer chime is mostly echo: it stayed loud with the effects turned down) */
+let sfxSend: AudioNode, musicSend: AudioNode;
 let musicBus: GainNode; // master music volume
 let menuBus: GainNode; // the menu theme (crossfaded)
 let battleBus: GainNode; // the battle theme (crossfaded)
@@ -56,6 +59,8 @@ function ensure(): AudioContext | null {
   reverb.buffer = ir;
   const wet = ctx.createGain(); wet.gain.value = 0.35;
   reverb.connect(wet).connect(comp);
+  const fs = ctx.createGain(); fs.gain.value = sfxGain(); fs.connect(reverb); sfxSend = fs;
+  const ms = ctx.createGain(); ms.gain.value = musicGain(); ms.connect(reverb); musicSend = ms;
   return ctx;
 }
 
@@ -107,7 +112,7 @@ function tone(freq: number, at: number, dur: number, opts: ToneOpts = {}) {
   g.gain.exponentialRampToValueAtTime(peak, at + (opts.attack ?? 0.008));
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
   o.connect(g).connect(opts.bus ?? sfxBus);
-  if (opts.send) { const s = c.createGain(); s.gain.value = opts.send; g.connect(s).connect(reverb); }
+  if (opts.send) { const s = c.createGain(); s.gain.value = opts.send; g.connect(s).connect((opts.bus ?? sfxBus) === sfxBus ? sfxSend : musicSend); }
   o.start(at);
   o.stop(at + dur + 0.05);
 }
@@ -353,7 +358,7 @@ function recordLoop(STEP: number, intro: number, cycle: number, play: (step: num
     const off = new OAC(1, Math.ceil((loopEnd + REC_TAIL) * REC_RATE), REC_RATE);
     // the instruments write to the module's context, buses and reverb: point them at the recording for a moment
     // (all of it synchronous — nothing else runs in between)
-    const saved = { ctx, reverb, menuBus, battleBus, sfxBus };
+    const saved = { ctx, reverb, menuBus, battleBus, sfxBus, sfxSend, musicSend };
     try {
       const out = off.createGain(); out.connect(off.destination);
       const rv = off.createConvolver();
@@ -362,12 +367,12 @@ function recordLoop(STEP: number, intro: number, cycle: number, play: (step: num
       for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3; }
       rv.buffer = ir;
       const wet = off.createGain(); wet.gain.value = 0.35; rv.connect(wet).connect(out);
-      ctx = off as unknown as AudioContext; reverb = rv; menuBus = out; battleBus = out; sfxBus = out;
+      ctx = off as unknown as AudioContext; reverb = rv; menuBus = out; battleBus = out; sfxBus = out; sfxSend = rv; musicSend = rv;
       for (let s = 0; s < intro + cycle; s++) play(s, lead + s * STEP);
     } catch {
       return null;
     } finally {
-      ({ ctx, reverb, menuBus, battleBus, sfxBus } = saved);
+      ({ ctx, reverb, menuBus, battleBus, sfxBus, sfxSend, musicSend } = saved);
     }
     let rendered: AudioBuffer;
     try { rendered = await off.startRendering(); } catch { return null; }
@@ -394,7 +399,7 @@ function strings(notes: number[], at: number, dur: number, bus: AudioNode, level
   g.gain.setValueAtTime(level, at + dur - 0.6);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.5);
   lp.connect(g).connect(bus);
-  const s = c.createGain(); s.gain.value = 0.5; g.connect(s).connect(reverb);
+  const s = c.createGain(); s.gain.value = 0.5; g.connect(s).connect(musicSend);
   for (const n of notes) for (const d of [-7, 7]) {
     const o = c.createOscillator();
     o.type = 'sawtooth'; o.frequency.value = midi(n); o.detune.value = d;
@@ -414,7 +419,7 @@ function flute(n: number, at: number, dur: number, bus: AudioNode, level = 0.045
   g.gain.setValueAtTime(level * 0.9, at + dur * 0.7);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
   o.connect(g).connect(bus);
-  const s = c.createGain(); s.gain.value = 0.7; g.connect(s).connect(reverb);
+  const s = c.createGain(); s.gain.value = 0.7; g.connect(s).connect(musicSend);
   o.start(at); vib.start(at); o.stop(at + dur + 0.05); vib.stop(at + dur + 0.05);
 }
 
@@ -431,7 +436,7 @@ function horn(n: number, at: number, dur: number, bus: AudioNode, level = 0.05) 
   g.gain.setValueAtTime(level * 0.85, at + dur * 0.75);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
   lp.connect(g).connect(bus);
-  const s = c.createGain(); s.gain.value = 0.45; g.connect(s).connect(reverb);
+  const s = c.createGain(); s.gain.value = 0.45; g.connect(s).connect(musicSend);
   for (const d of [-9, 9]) {
     const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = midi(n); o.detune.value = d;
     o.connect(lp); o.start(at); o.stop(at + dur + 0.05);
@@ -449,7 +454,7 @@ function pad(notes: number[], at: number, dur: number, bus: AudioNode, level = 0
   g.gain.setValueAtTime(level, at + dur - 1);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 1.2);
   lp.connect(g).connect(bus);
-  const s = c.createGain(); s.gain.value = 0.8; g.connect(s).connect(reverb);
+  const s = c.createGain(); s.gain.value = 0.8; g.connect(s).connect(musicSend);
   for (const n of notes) for (const [type, d] of [['sine', -4], ['triangle', 5]] as const) {
     const o = c.createOscillator();
     o.type = type; o.frequency.value = midi(n); o.detune.value = d;
@@ -566,7 +571,7 @@ export function setMusicVolume(v: number) {
   if (prefs.musicVol > 0) prefs.radio = true;
   savePrefs();
   ensure();
-  if (ctx) musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05);
+  if (ctx) { musicBus.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05); (musicSend as GainNode).gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.05); }
   syncMusic();
 }
 export function setSfxVolume(v: number) {
@@ -574,7 +579,7 @@ export function setSfxVolume(v: number) {
   if (prefs.sfxVol > 0) prefs.sfx = true;
   savePrefs();
   ensure();
-  if (ctx) sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05);
+  if (ctx) { sfxBus.gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05); (sfxSend as GainNode).gain.setTargetAtTime(sfxGain(), ctx.currentTime, 0.05); }
 }
 /** A short chime so you can hear the effects volume you just picked. */
 export function previewSfx() { if (sfxOk()) bell(midi(76), ctx!.currentTime, 0.8, 0.18); }
@@ -622,7 +627,7 @@ function owl(at: number) {
     g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.09, t0 + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f0; bp.Q.value = 2;
     o.connect(bp).connect(g).connect(ambBus);
-    const s = c.createGain(); s.gain.value = 0.8; g.connect(s).connect(reverb);
+    const s = c.createGain(); s.gain.value = 0.8; g.connect(s).connect(musicSend);
     o.start(t0); vib.start(t0); o.stop(t0 + dur + 0.05); vib.stop(t0 + dur + 0.05);
   };
   const f0 = 360 + Math.random() * 40;
@@ -648,7 +653,7 @@ function frogs(at: number) {
         g.gain.setValueAtTime(0.0001, tp); g.gain.linearRampToValueAtTime(0.05, tp + 0.006); g.gain.linearRampToValueAtTime(0.0001, tp + 0.02);
       }
       o.connect(bp).connect(g).connect(ambBus);
-      const s = c.createGain(); s.gain.value = 0.35; g.connect(s).connect(reverb);
+      const s = c.createGain(); s.gain.value = 0.35; g.connect(s).connect(musicSend);
       o.start(t0 + off); o.stop(t0 + off + len + 0.03);
     }
   };
@@ -664,7 +669,7 @@ function goblins(at: number) {
     const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = formant; bp.Q.value = 5;
     const g = c.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(level, t0 + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     o.connect(bp).connect(g).connect(ambBus);
-    const s = c.createGain(); s.gain.value = 0.4; g.connect(s).connect(reverb);
+    const s = c.createGain(); s.gain.value = 0.4; g.connect(s).connect(musicSend);
     o.start(t0); o.stop(t0 + dur + 0.02);
   };
   let t = at;
@@ -686,7 +691,7 @@ function roar(at: number) {
   const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
   const g = c.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.05, at + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, at + 1.6);
   o.connect(lp).connect(g).connect(ambBus);
-  const s = c.createGain(); s.gain.value = 0.9; g.connect(s).connect(reverb);
+  const s = c.createGain(); s.gain.value = 0.9; g.connect(s).connect(musicSend);
   o.start(at); o.stop(at + 1.7);
 }
 function sparkle(at: number) {

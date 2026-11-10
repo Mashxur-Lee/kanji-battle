@@ -506,6 +506,8 @@ const RU: Record<string, string> = {
   'They declined — you can invite them again in a few minutes': 'Отклонил(а) — пригласить снова можно через несколько минут',
   // 0.9.9.9.5 — the JLPT quiz's settings
   'Your words from levels': 'Ваши слова уровней', 'Your wizard': 'Ваш волшебник', 'Your own words always count': 'Ваши собственные слова учитываются всегда', 'Changes apply to the next quiz': 'Изменения — со следующего теста',
+  // 0.9.9.9.5.2
+  '✕ Remove friend': '✕ Удалить из друзей',
   // 0.9.9.9.5.1
   'Quizzes': 'Тесты', 'JLPT quiz, onomatopoeia and reading passages': 'Тест JLPT, ономатопея и тексты для чтения', 'Your decks — kanji words as flashcards': 'Ваши колоды — слова с кандзи на карточках',
   'Test what you know — a passed quiz or passage counts for your daily streak.': 'Проверьте себя — пройденный тест или текст засчитывается в ежедневную серию.',
@@ -857,6 +859,8 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^(Ash|Spark|Ember|Blaze|Inferno|Azure) flame · next: (\w+) at (\d+)$/, (_, a, b, n) => `Пламя «${RU[a] ?? a}» · дальше: «${RU[b] ?? b}» с ${n} дн.`],
   [/^(Ash|Spark|Ember|Blaze|Inferno|Azure|Legend) · (\d+) days$/, (_, a, n) => `${RU[a] ?? a} · ${n} дн.`],
   [/^Next: (\w+) — (\d+) more days?$/, (_, a, n) => `Дальше: «${RU[a] ?? a}» — ещё ${n} дн.`],
+  [/^Remove (.+)\?$/, 'Удалить $1?'],
+  [/^(.+) is no longer your friend$/, '$1 больше не ваш друг'],
   [/^They declined your invite — you can invite them again in (\d+) min$/, 'Приглашение отклонено — пригласить снова можно через $1 мин'],
   [/^Declined · (\d+:\d\d)$/, 'Отклонено · $1'],
   [/^(.+) declined your invite$/, '$1 отклоняет приглашение'],

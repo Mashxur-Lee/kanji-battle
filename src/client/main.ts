@@ -1120,6 +1120,7 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
         accept: async () => { await api.acceptFriend(id); void refreshRail(); },
         challenge: (m) => challengeFriend(id, p.name, m),
         canChallenge: !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? ''),
+        remove: async () => { await api.removeFriend(id); void refreshRail(); },
       });
     } catch { if (shownFor === id) ui.showProfileCard(el, 'missing'); }
   };
