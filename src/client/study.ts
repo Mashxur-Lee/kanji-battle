@@ -3,7 +3,7 @@ import { exampleFor, loadExamples } from './examples';
 import { hideKanji, kanjiTappable, wordsTappable } from './kanjihelp';
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, ONO_TYPES, type Level } from '../shared/protocol';
-import { BACKGROUNDS, beta, BORDERS, CHARACTER_DEFS, characterOf, characterUnlocked, leagueIn, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS, POSE_DEFS, poseOf, poseUnlocked } from '../shared/progress';
+import { BACKGROUNDS, beta, BORDERS, CHARACTER_DEFS, characterOf, characterUnlocked, leagueIn, type CharacterId, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS, POSE_DEFS, poseOf, poseUnlocked } from '../shared/progress';
 import { arenaPreview, staffPreview } from './arena';
 import type { ArenaApi } from './arena3d';
 import { artUrl } from './backgrounds';
@@ -615,7 +615,7 @@ function renderCustomize() {
     card.append(avatarDisc(profile, sel.id, 'pp-pic big'), meta);
     stage2.replaceChildren(card);
   } else if (custTab === 'character') {
-    const big = el('div', 'char-tile big'); big.innerHTML = avatarSvg(sel.id, 'me', profile.staff);
+    const big = el('div', 'char-tile big'); big.innerHTML = avatarSvg(sel.id as CharacterId, 'me', profile.staff);
     stage2.replaceChildren(big);
   } else if (custTab === 'pose') {
     const big = el('div', 'pose-tile big'); big.innerHTML = poseArt(sel.id);
@@ -647,7 +647,7 @@ function renderCustomize() {
   if (custTab === 'character' && in3d) {
     // 0.9.9.9.5.2: the 2D version too (the 2D arena, and the 3D one above)
     const row = el('div', 'cust-2d');
-    const who = el('div', 'c2-char'); who.innerHTML = avatarSvg(sel.id, 'me', profile.staff);
+    const who = el('div', 'c2-char'); who.innerHTML = avatarSvg(sel.id as CharacterId, 'me', profile.staff);
     row.append(who, el('span', 'hint', '2D arena'));
     info.push(row);
   }

@@ -380,9 +380,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       svgTexture(art.svg, (t, aspect) => { spriteMat!.map = t; spriteMat!.needsUpdate = true; sprite!.scale.set(height * aspect, height, 1); });
       group.add(sprite);
     } else {
-      model = buildModel(key, art);
-      glb = !!model.glb;
-      notePose(model);
+      const built = buildModel(key, art);
+      model = built; glb = !!built.glb;
+      notePose(built);
       height = model.height;
       group.add(model.root);
     }
