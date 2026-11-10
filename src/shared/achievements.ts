@@ -9,7 +9,8 @@ export type AchIcon = 'sword' | 'swords' | 'crown' | 'flame' | 'flame2' | 'comet
   | 'book' | 'tome' | 'kana' | 'sun' | 'moon' | 'calendar' | 'people' | 'leaf' | 'star' | 'kingslayer'
   | 'hourglass' | 'scroll' | 'shield' | 'gem' | 'quill' | 'bookmark' | 'tag' | 'mountain' | 'check'
   | 'nova' | 'heart' | 'feather' | 'stopwatch' | 'robot' | 'ace' | 'kata' | 'infinity' | 'wand';
-export interface AchievementDef { id: string; name: string; how: string; icon: AchIcon; color: string; tier: 1 | 2 | 3 }
+/** tier: 1 bronze ★, 2 silver ★★, 3 gold ★★★, 4 ruby (0.9.9.9.5.3: the very hardest — Kingslayer, Godlike …) */
+export interface AchievementDef { id: string; name: string; how: string; icon: AchIcon; color: string; tier: 1 | 2 | 3 | 4 }
 
 export const ACHIEVEMENTS: readonly AchievementDef[] = [
   // ── battles ──
@@ -20,20 +21,20 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'combo-5', name: 'On Fire', how: 'Cast 5 correct spells in a row in a battle.', icon: 'flame', color: '#6ee7ff', tier: 1 },
   { id: 'combo-10', name: 'Inferno', how: 'Reach a 10× combo in a battle.', icon: 'flame2', color: '#b26bff', tier: 2 },
   { id: 'combo-20', name: 'Unstoppable', how: 'Reach a 20× combo in a battle.', icon: 'comet', color: '#ff4fd8', tier: 3 },
-  { id: 'combo-30', name: 'Godlike', how: 'Reach a 30× combo in a battle. The arena trembles.', icon: 'nova', color: '#fff27a', tier: 3 },
+  { id: 'combo-30', name: 'Godlike', how: 'Reach a 30× combo in a battle. The arena trembles.', icon: 'nova', color: '#fff27a', tier: 4 },
   { id: 'flawless', name: 'Flawless', how: 'Win a battle with 100% accuracy (at least 10 answers).', icon: 'target', color: '#3ddc84', tier: 2 },
   { id: 'untouchable', name: 'Untouchable', how: 'Win a battle without losing a single HP (at least 10 answers).', icon: 'feather', color: '#bfe9ff', tier: 2 },
   { id: 'last-stand', name: 'Last Stand', how: 'Win a battle with 10% HP or less left.', icon: 'heart', color: '#ff4d6d', tier: 2 },
-  { id: 'lightning', name: 'Lightning Reflexes', how: 'Win a battle answering in under 2 seconds on average (at least 15 right).', icon: 'stopwatch', color: '#ffe14d', tier: 3 },
+  { id: 'lightning', name: 'Lightning Reflexes', how: 'Win a battle answering in under 2 seconds on average (at least 15 right).', icon: 'stopwatch', color: '#ffe14d', tier: 4 },
   { id: 'giant-slayer', name: 'Giant Slayer', how: 'Beat a player 5 or more levels above you.', icon: 'mountain', color: '#ffa94d', tier: 3 },
   { id: 'machine-breaker', name: 'Machine Breaker', how: 'Beat the N1 AI.', icon: 'robot', color: '#7df9ff', tier: 2 },
-  { id: 'kingslayer', name: 'Kingslayer', how: 'Beat an admin in a battle.', icon: 'kingslayer', color: '#ff3d6e', tier: 3 },
+  { id: 'kingslayer', name: 'Kingslayer', how: 'Beat an admin in a battle.', icon: 'kingslayer', color: '#ff3d6e', tier: 4 },
   // ── the modes ──
   { id: 'quickdraw', name: 'Quickdraw', how: 'Win a Rapid duel.', icon: 'bolt', color: '#ffe14d', tier: 1 },
   { id: 'calligrapher', name: 'Calligrapher', how: 'Win a Kanji Writing duel.', icon: 'brush', color: '#e8d5a8', tier: 1 },
   { id: 'dragon-slayer', name: 'Dragon Slayer', how: 'Defeat the Black Dragon in Boss Elimination.', icon: 'dragon', color: '#ff5a3a', tier: 2 },
   { id: 'card-sage', name: 'Card Sage', how: 'Win a Deck Duel.', icon: 'cards', color: '#5aa8e8', tier: 2 },
-  { id: 'all-schools', name: 'Master of All Schools', how: 'Earn Quickdraw, Calligrapher, Dragon Slayer and Card Sage.', icon: 'wand', color: '#d6a8ff', tier: 3 },
+  { id: 'all-schools', name: 'Master of All Schools', how: 'Earn Quickdraw, Calligrapher, Dragon Slayer and Card Sage.', icon: 'wand', color: '#d6a8ff', tier: 4 },
   // ── studying ──
   { id: 'scholar', name: 'Scholar', how: 'Learn 100 spells in Study spells.', icon: 'book', color: '#7fd1ff', tier: 1 },
   { id: 'word-hoard', name: 'Word Hoard', how: 'Learn 500 spells.', icon: 'book', color: '#ffb84d', tier: 2 },
@@ -61,7 +62,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'devoted', name: 'Devoted', how: 'Keep a 7-day daily streak.', icon: 'sun', color: '#ffb84d', tier: 1 },
   { id: 'eternal', name: 'Eternal Flame', how: 'Keep a 30-day daily streak.', icon: 'moon', color: '#ff7a1a', tier: 2 },
   { id: 'unbreakable', name: 'Unbreakable', how: 'Keep a 100-day daily streak.', icon: 'flame2', color: '#ff3d6e', tier: 3 },
-  { id: 'year-of-fire', name: 'A Year of Fire', how: 'Keep a 365-day daily streak. Legendary.', icon: 'infinity', color: '#fff0a8', tier: 3 },
+  { id: 'year-of-fire', name: 'A Year of Fire', how: 'Keep a 365-day daily streak. Legendary.', icon: 'infinity', color: '#fff0a8', tier: 4 },
   // ── levels and friends ──
   { id: 'rising-star', name: 'Rising Star', how: 'Reach level 5.', icon: 'star', color: '#9fd8ff', tier: 1 },
   { id: 'grand-wizard', name: 'Grand Wizard', how: 'Reach level 10.', icon: 'star', color: '#ffd479', tier: 2 },

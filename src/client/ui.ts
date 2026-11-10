@@ -738,6 +738,14 @@ export function clawHit(victim: Actor, damage: number) {
   }, 180);
 }
 
+/** 0.9.9.9.5.3: someone reached a 30× combo (Godlike): the arena trembles for everyone in it */
+export function arenaTremble(seconds = 1.8) {
+  arena3d()?.tremble(seconds);
+  const b = document.getElementById('battle');
+  if (b) { b.classList.remove('trembling'); void b.offsetWidth; b.classList.add('trembling'); setTimeout(() => b.classList.remove('trembling'), seconds * 1000); }
+  try { navigator.vibrate?.([90, 60, 120, 60, 160, 80, 90]); } catch { /* not allowed */ }
+}
+
 export function breathWarning(inMs: number) {
   const el = $('breathWarn');
   el.hidden = false;

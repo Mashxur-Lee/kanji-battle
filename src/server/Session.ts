@@ -97,11 +97,15 @@ export class SessionHub {
     this.sendTo(fromId, { type: 'invite_declined', friendId: who, name: whoName, until: now + DECLINE_BLOCK_MS });
   }
   declinedAt(fromId: string, who: string) { return this.declines.get(`${fromId}>${who}`); }
+  /** 0.9.9.9.5.3: index.ts — someone came online / went offline: their friends are told (friend_presence) */
+  private presenceHook: ((userId: string, online: boolean) => void) | null = null;
+  setPresenceHook(fn: (userId: string, online: boolean) => void) { this.presenceHook = fn; }
   claim(userId: string, s: Session) {
     this.parked.delete(userId);
     const old = this.byUser.get(userId);
     this.byUser.set(userId, s);
     if (!old) this.onlineSince.set(userId, Date.now());
+    if (!old) this.presenceHook?.(userId, true); // (back from the background too: away → online)
     if (old && old !== s) old.kick('You opened Kanji Battle somewhere else.');
   }
   release(userId: string, s: Session) {
@@ -112,6 +116,7 @@ export class SessionHub {
     this.lastSeen.set(userId, now);
     if (s.away) this.parked.set(userId, { at: now, device: s.device });
     this.onLeave?.(userId, now);
+    this.presenceHook?.(userId, false);
   }
   kick(userId: string, message: string) { this.byUser.get(userId)?.kick(message); }
   /** A message to one player, if they're connected (friend requests, invites). */

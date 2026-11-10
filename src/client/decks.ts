@@ -372,8 +372,10 @@ export async function startQuiz(which: 'jlpt' | 'ono' = 'jlpt') {
     $('quizMissed').replaceChildren();
     return;
   }
+  quizStartedAt = Date.now(); // (0.9.9.9.5.3: the Quizzes page keeps your times)
   question();
 }
+let quizStartedAt = 0, passageShownAt = 0;
 
 /** a choice (or the prompt) as the player reads it */
 function shown(q: QuizQuestion, text: string, isPrompt = false): Node[] {
@@ -437,7 +439,7 @@ function nextQuestion() {
   $('quizCard').hidden = true;
   $('quizDone').hidden = false;
   $('quizResult').textContent = `${score} / ${quiz.length} correct${score === quiz.length ? ' — perfect!' : ''}`;
-  recordQuiz(mode === 'ono' ? 'ono' : 'jlpt', score, quiz.length); // (the Quizzes screen's best / last)
+  recordQuiz(mode === 'ono' ? 'ono' : 'jlpt', score, quiz.length, Date.now() - quizStartedAt); // (the Quizzes screen's best / last / times)
   if (mode === 'jlpt') {
     void api.task('quiz', score, quiz.length).then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task (7/10 or better)
     if (!taskPassed('quiz', score, quiz.length)) ui.toast('For the daily task, get 7 out of 10 or better — try another quiz!', 5000);
@@ -697,7 +699,7 @@ function check(restored = false) {
   $('passageWords').replaceChildren(el('div', 'p-score', `${right} / ${blanks.length}`), el('p', 'hint center', right === blanks.length ? 'Perfect — every word in its place!' : 'Green: right. Red: the right word, with yours crossed out.'), again);
   if (restored) return; // (brought back from last time: already counted)
   saveLast();
-  recordQuiz('passage', right, blanks.length);
+  recordQuiz('passage', right, blanks.length, passageShownAt ? Date.now() - passageShownAt : 0);
   passageHooks.done?.(right, blanks.length);
   void api.task('passage', right, blanks.length).then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task (4/8 or better)
   if (!taskPassed('passage', right, blanks.length)) ui.toast('For the daily task, get half the blanks right (4 of 8) — try a new passage!', 5000);
@@ -935,6 +937,7 @@ async function buildPassage() {
 }
 /** draws the passage in `lines` (a new one, or the last one brought back) with empty blanks and the word bank */
 function renderPassage() {
+  if (!checked) passageShownAt = Date.now();
   const text = $('passageText');
   const title = storyTitle ? el('p', 'p-title') : null;
   if (title && storyTitle) title.append(...rubyBits(storyTitle.ja, true)); // 0.9.9.5: the title's words can be tapped too

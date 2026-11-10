@@ -219,6 +219,8 @@ export type ServerMessage =
   | { type: 'net'; rtt: Record<PlayerId, number | null> }
   /** friends: someone sent you a request / accepted yours */
   | { type: 'friend'; event: 'request' | 'accepted'; from: string }
+  /** 0.9.9.9.5.3: a friend came online / went offline (the friends list and the lobby's invite list update at once) */
+  | { type: 'friend_presence'; friendId: string; online: boolean }
   /** a friend invites you to their room */
   | { type: 'invite'; fromId: string; from: string; code: string; mode: GameMode }
   /** 0.9.9.9.5: the friend you invited declined — no inviting them again until `until` (server time) */

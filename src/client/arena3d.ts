@@ -49,6 +49,8 @@ export interface ArenaApi {
   setPose(who: Who, pose: string): void;
   /** Customize preview: bring the camera up close to the opponent (no hand and staff in view) */
   focusOpp(on: boolean): void;
+  /** 0.9.9.9.5.3: Customize (the Hero Locker): you turn slowly, as on a pedestal */
+  spin(on: boolean): void;
   /** 0.9.9.7.1: Customize → Combo pose: a small first-person view in the corner, next to you seen from outside */
   setInset(on: boolean): void;
   /** change only the arena and the time of day (the fighters stay) */
@@ -66,6 +68,8 @@ export interface ArenaApi {
   /** 0.9.9.7.2: one player typing / writing (their staff traces ∞ only then); `auto`: always (the AI) */
   typing(who: Who, on: boolean): void;
   inhale(on: boolean): void;
+  /** 0.9.9.9.5.3: the whole arena trembles (someone reached a 30× combo — Godlike) */
+  tremble(seconds: number): void;
   breath(victims: Who[], damage: number): void;
   claw(victim: Who, damage: number): void;
   float(who: Who, text: string, color?: string): void;
@@ -415,7 +419,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   }
   /** 0.9.9.9.5.2: a character from its model (the shapes built in code while it loads) */
   function buildModel(key: string, art: FighterArt): Character & { glb?: boolean } {
-    const kind = kindFor(art.character ?? 'wizard'), side = key === 'me' ? 'me' : key.startsWith('ally:') ? 'ally' : 'opp';
+    // (0.9.9.9.5.3: allies look like you — no green team clothes)
+    const kind = kindFor(art.character ?? 'wizard'), side = key === 'me' || key.startsWith('ally:') ? 'me' : 'opp';
     const m = kind === 'kid' || kind === 'human' ? null : buildGlbCharacter(kind, side, sparkTex, art.staff);
     return m ? Object.assign(m, { glb: true }) : buildCharacter(kind, side, sparkTex, art.staff);
   }
@@ -687,6 +692,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     overlay.className = `arena3d-hit on ${cls}`;
   }
   let shake = 0;
+  let spinning = false; // (Customize: you turn round on the pedestal)
+  let trembleUntil = 0, trembleFor = 1; // (0.9.9.9.5.3: a long rumble, on top of the short kicks)
   const kick = (amount: number) => { if (!reduced()) shake = Math.max(shake, amount); };
 
   // spells in flight
@@ -1020,6 +1027,12 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       myLook.sentAt = nowMs; myLook.sentYaw = myLook.yaw; myLook.sentPitch = myLook.pitch;
       dispatchEvent(new CustomEvent('kw:look', { detail: { yaw: +myLook.yaw.toFixed(3), pitch: +myLook.pitch.toFixed(3) } }));
     }
+    if (trembleUntil > now) {
+      // the ground rumbles: strong at first, then fading out
+      const k = (trembleUntil - now) / trembleFor, amp = (reduced() ? 0.012 : 0.05) * Math.min(1, k * 1.6);
+      camera.position.add(new THREE.Vector3(Math.sin(now * 0.061) * amp, Math.sin(now * 0.083 + 1) * amp * 0.8, 0));
+      camera.rotation.z += Math.sin(now * 0.047) * amp * 0.12;
+    }
     if (shake > 0) {
       camera.position.add(new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), 0).multiplyScalar(shake));
       camera.rotation.z += rnd(-1, 1) * shake * 0.15;
@@ -1177,6 +1190,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
           m.crystal.getWorldPosition(tmp);
           spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), m.staff.color.getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
         }
+        if (spinning && key === 'opp' && !f.ko) m.root.rotation.y += dt * 0.5;
       } else if (f.dragon) {
         dragonInhale += ((inhaling ? 1 : 0) - dragonInhale) * Math.min(1, dt * 2.5);
         const left = Math.max(0, dragonBreathUntil - now) / 1300; // 1 → 0 over the fire
@@ -1560,6 +1574,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (f) f.pose = p;
     },
     focusOpp(on) { focusOn = on; fp.visible = !on; },
+    spin(on) { if (spinning && !on) placeFighters(); spinning = on; },
     setInset(on) { inset = on; },
     prewarm(ids, time) {
       if (!opts.preview) return;
@@ -1600,6 +1615,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     oppChannel(on) { oppChannelOn = on; },
     typing(who, on) { const f = fighters.get(who); if (f) f.typing = on; },
     inhale(on) { inhaling = on; },
+    tremble(seconds) { trembleFor = seconds * 1000; trembleUntil = performance.now() + trembleFor; },
     breath(victims, damage) {
       inhaling = false;
       dragonBreathUntil = performance.now() + 1300;

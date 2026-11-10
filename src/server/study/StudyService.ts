@@ -259,13 +259,15 @@ export class StudyService {
 
   // ── 0.9.9.9.5: push tokens (the Android app) ───────────────────────────────
   /** A phone's Firebase token: friends' invites reach it while the app is closed (the newest 4 phones). */
-  async addPushToken(u: UserRecord, raw: unknown) {
+  async addPushToken(u: UserRecord, raw: unknown, lang?: unknown) {
     const token = typeof raw === 'string' ? raw.trim() : '';
     if (!/^[\w:.-]{20,400}$/.test(token)) throw new StudyError('Not a push token');
     // one phone, one account: signing in as someone else on it takes the token away from the first account
     for (const other of await this.store.usersWithPushToken?.(token) ?? []) if (other.id !== u.id) await this.store.update(other.id, { pushTokens: (other.pushTokens ?? []).filter((t) => t !== token) });
     const fresh = (await this.store.findById(u.id)) ?? u;
-    await this.store.update(u.id, { pushTokens: [...(fresh.pushTokens ?? []).filter((t) => t !== token), token].slice(-4) });
+    // 0.9.9.9.5.3: and the game's language on that phone (the notification is written in it), as "plang:ru"
+    const unlocks = lang === 'ru' || lang === 'en' ? [...(fresh.unlocks ?? []).filter((x) => !x.startsWith('plang:')), `plang:${lang}`] : fresh.unlocks;
+    await this.store.update(u.id, { pushTokens: [...(fresh.pushTokens ?? []).filter((t) => t !== token), token].slice(-4), ...(unlocks !== fresh.unlocks ? { unlocks } : {}) });
   }
   async dropPushToken(u: UserRecord, raw: unknown) {
     const fresh = (await this.store.findById(u.id)) ?? u;

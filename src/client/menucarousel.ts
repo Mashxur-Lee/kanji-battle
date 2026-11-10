@@ -7,16 +7,19 @@ const WIDE = '(min-width: 1101px) and (min-height: 560px)';
 const TOUCH = '(pointer: coarse)'; // (phones and tablets keep the grid)
 const KEY = 'kb:menuCard';
 /**
- * 0.9.9.9.5.2: where each place from the middle sits — sideways (× the card width), turned, pushed back, scaled,
- * shown, lit. Three cards are fully readable (the middle one and its neighbours, nearly facing you), one more peeks
- * from behind on each side; the rest wait out of sight.
+ * where each place from the middle sits — sideways (× the card width), turned, pushed back, scaled, shown.
+ * 0.9.9.9.5.3 (the player's concept picture): a flat row — the middle card and its two neighbours the same size,
+ * side by side, the middle one lit; a smaller, dimmer card at each end; the rest out of sight.
  */
+const GAP = 0.08; // (between cards, × the card width)
 const PLACE = [
   { x: 0, ry: 0, z: 0, s: 1, o: 1 },
-  { x: 1.05, ry: 14, z: -90, s: 0.87, o: 1 },
-  { x: 1.8, ry: 38, z: -260, s: 0.7, o: 0.62 },
-  { x: 2.25, ry: 52, z: -420, s: 0.55, o: 0 },
+  { x: 1 + GAP, ry: 0, z: 0, s: 1, o: 1 },
+  { x: 2 + GAP * 2 - 0.08, ry: 0, z: -40, s: 0.84, o: 0.82 },
+  { x: 2.7, ry: 0, z: -80, s: 0.6, o: 0 },
 ];
+/** half the row's width (× the card width): the arrows sit just outside it */
+const HALF = PLACE[2].x + PLACE[2].s / 2;
 const EDGE = PLACE.length - 1;
 
 let box: HTMLElement;
@@ -40,11 +43,14 @@ function place(d: number, w: number) {
   const p = PLACE[a], sign = Math.sign(d);
   return { a, o: p.o, t: `translateX(calc(-50% + ${(sign * p.x * w).toFixed(1)}px)) translateZ(${p.z}px) rotateY(${-sign * p.ry}deg) scale(${p.s})` };
 }
-/** the card width: five cards (three and two halves) fit across the window, never wider than 300 px */
+/** the card width: the row of five and the arrows beside it fit across the window, never wider than 270 px */
 function size() {
   const zoom = box.getBoundingClientRect().width / (box.offsetWidth || 1) || 1;
-  const across = innerWidth / zoom - 120; // (the rails on both sides)
-  box.style.setProperty('--cw', `${Math.round(Math.min(300, Math.max(228, across / 4.5)))}px`);
+  const across = innerWidth / zoom - 120 - 2 * 70; // (the rails on both sides, the arrows)
+  const w = Math.round(Math.min(270, Math.max(190, across / (HALF * 2))));
+  box.style.setProperty('--cw', `${w}px`);
+  box.parentElement!.style.setProperty('--cw', `${w}px`); // (the arrows beside the row use it too)
+  box.parentElement!.style.setProperty('--edge', `${Math.round(HALF * w + 18)}px`);
 }
 
 function layout() {
@@ -156,8 +162,9 @@ export function initMenuCarousel() {
   next = arrow('mcc-next', 'Next', 1);
   dots = document.createElement('div');
   dots.className = 'mcc-dots'; dots.hidden = true;
-  nav.append(prev, dots, next);
-  wrap.append(nav);
+  nav.append(dots);
+  // 0.9.9.9.5.3: the arrows at the sides of the row (they were under it, around the dots)
+  wrap.append(prev, next, nav);
 
   // a click on a side card turns it to the middle instead of opening it
   box.addEventListener('click', (e) => {

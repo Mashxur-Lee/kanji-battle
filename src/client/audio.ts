@@ -194,6 +194,14 @@ export const sfx = {
   },
   flip() { if (sfxOk()) noise(ctx!.currentTime, 0.08, 0.12, 4000, 'highpass'); },
   inhale() { if (sfxOk()) tone(55, ctx!.currentTime, 2.6, { type: 'sawtooth', gain: 0.08, to: 110, attack: 1.5 }); },
+  /** 0.9.9.9.5.3: the arena trembles (a 30× combo): a deep rumble */
+  quake() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    noise(t, 1.6, 0.42, 180);
+    tone(42, t, 1.7, { type: 'sawtooth', gain: 0.1, to: 30, attack: 0.08 });
+    tone(63, t + 0.05, 1.2, { type: 'triangle', gain: 0.07, to: 40, attack: 0.05 });
+  },
   fire() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;

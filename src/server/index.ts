@@ -17,7 +17,7 @@ import { DailyService } from './study/DailyService';
 import { SocialService } from './study/SocialService';
 import { RoomManager } from './RoomManager';
 import { deviceOf, Session, SessionHub } from './Session';
-import { Push } from './push';
+import { Push, type PushNote } from './push';
 import { Bucket, clientIp, inlineScriptHashes, isPublicServer, securityHeaders, viaHttps } from './security';
 import { Matchmaker } from './Matchmaker';
 import { StoryService } from './study/StoryService';
@@ -42,16 +42,34 @@ const hub = new SessionHub((userId, at) => { void store.update(userId, { lastSee
 const daily = new DailyService(store, study.progress);
 daily.onPerfect = (id) => study.grantAchievements(id, undefined, ['perfect-day']);
 const social = new SocialService(store, hub);
+// 0.9.9.9.5.3: a friend coming online (or leaving) shows at once — the friends list and the lobby's invite list
+// used to wait for their next refresh (the lobby's never came until the room changed)
+hub.setPresenceHook((userId, online) => {
+  void store.friends(userId).then((links) => {
+    for (const f of links) if (f.status === 'accepted') hub.sendTo(f.id, { type: 'friend_presence', friendId: userId, online });
+  }).catch(() => { /* not important */ });
+});
 // 0.9.9.9.5: invites reach a friend's phone while the app is closed (Firebase; FIREBASE_SERVICE_ACCOUNT)
 const push = new Push(process.env.FIREBASE_SERVICE_ACCOUNT);
 console.log(`Push notifications: ${push.enabled ? 'on' : 'off (set FIREBASE_SERVICE_ACCOUNT to turn them on)'}`);
+/** 0.9.9.9.5.3: the notification itself, in the language of the game on that phone */
+function noteFor(data: Record<string, string>, unlocks: readonly string[] | undefined): PushNote | undefined {
+  const ru = (unlocks ?? []).includes('plang:ru');
+  if (data.kind === 'invite') return ru
+    ? { title: `⚔ ${data.from} приглашает вас`, body: `Комната ${data.mode} · ${data.code} — нажмите, чтобы присоединиться`, tag: `invite-${data.fromId}` }
+    : { title: `⚔ ${data.from} invites you`, body: `Join their ${data.mode} room · ${data.code} — tap to join`, tag: `invite-${data.fromId}` };
+  if (data.kind === 'test') return ru
+    ? { title: '✓ Уведомления работают', body: 'Так придёт приглашение друга, даже когда игра закрыта.', tag: 'test' }
+    : { title: '✓ Invite notifications work', body: 'This is how a friend’s invite reaches you, even with the game closed.', tag: 'test' };
+  return undefined;
+}
 hub.setNotifier(async (userId, data) => {
   if (!push.enabled) return false;
   const u = await store.findById(userId);
   const tokens = u?.pushTokens ?? [];
   if (!tokens.length) return false;
   try {
-    const r = await push.send(tokens, data);
+    const r = await push.send(tokens, data, 120, noteFor(data, u?.unlocks));
     if (r.dead.length) await store.update(userId, { pushTokens: tokens.filter((t) => !r.dead.includes(t)) });
     // 0.9.9.9.5.2: a push Google refused shows in the admin's errors (it failed without a word before)
     if (!r.sent && r.errors.length && r.dead.length < tokens.length) reportServerError('push', new Error(r.errors.join(' | ')));
@@ -66,14 +84,15 @@ const stories = new StoryService();
 console.log(`Reading passage stories: ${stories.describe}`);
 const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled,
   // 0.9.9.9.5.2: Settings → "Test invite notification": the whole way, with what went wrong
-  pushTest: async (userId) => {
+  pushTest: async (userId, delaySec = 0) => {
     if (!push.enabled) return { ok: false, reason: 'server-off' };
     if ((pushTested.get(userId) ?? 0) > Date.now() - 8000) return { ok: false, reason: 'wait' };
     pushTested.set(userId, Date.now());
     const u = await store.findById(userId);
     const tokens = u?.pushTokens ?? [];
     if (!tokens.length) return { ok: false, reason: 'no-phone' };
-    const r = await push.send(tokens, { kind: 'test' }, 60);
+    if (delaySec > 0) await new Promise((ok) => setTimeout(ok, delaySec * 1000)); // (time to leave the app: the real case)
+    const r = await push.send(tokens, { kind: 'test' }, 60, noteFor({ kind: 'test' }, u?.unlocks));
     if (r.dead.length) await store.update(userId, { pushTokens: tokens.filter((t) => !r.dead.includes(t)) });
     return r.sent ? { ok: true, sent: r.sent, phones: tokens.length } : { ok: false, reason: r.dead.length === tokens.length ? 'stale' : 'refused', errors: r.errors.slice(0, 3) };
   } });

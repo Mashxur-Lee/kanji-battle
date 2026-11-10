@@ -653,36 +653,35 @@
   </section>
 
   <!-- CUSTOMIZE -->
-  <section id="customize" class="screen" hidden>
+  <section id="customize" class="screen locker-screen" hidden>
     <button id="customizeBack" class="back">← Menu</button>
-    <h2>Customize</h2>
-    <div id="custTabs" class="cust-tabs" role="tablist" aria-label="What to customize">
-      <button role="tab" data-tab="profile" class="cust-tab">Profile</button>
-      <button role="tab" data-tab="character" class="cust-tab">Character</button>
-      <button role="tab" data-tab="arena" class="cust-tab">Arena</button>
-      <button role="tab" data-tab="staff" class="cust-tab">Magic staff</button>
-      <button role="tab" data-tab="omni" class="cust-tab">Omnipotence</button>
-      <button role="tab" data-tab="pose" class="cust-tab">Combo pose</button>
+    <!-- 0.9.9.9.5.3: the Hero Locker — you in the middle on a pedestal, your loadout in slots on both sides; pick a
+         slot and its items come up in the tray below -->
+    <header class="lk-head"><h2>Customize</h2></header>
+    <div class="locker">
+      <div id="lkLeft" class="lk-slots lk-left" role="tablist" aria-label="What to customize"></div>
+      <div class="lk-center">
+        <div class="cust-preview">
+          <div id="custStage" class="cust-stage">
+            <canvas id="staffCanvas" class="staff-canvas" aria-label="Staff preview"></canvas>
+            <canvas id="arenaPreview" class="staff-canvas arena-prev" aria-label="3D preview" hidden></canvas>
+            <div id="poseInsetLbl" class="pose-inset-lbl" hidden><span>3rd person</span><span>1st person</span></div>
+            <div id="custStage2" class="cust-stage2"></div>
+          </div>
+          <div class="lk-pedestal" aria-hidden="true"><i></i><i></i></div>
+          <div id="custChars" class="cust-chars" role="group" aria-label="Preview character" hidden>
+            <button type="button" class="pill" data-char="goblin">Goblin</button><button type="button" class="pill" data-char="knight">Knight</button><button type="button" class="pill" data-char="witch">Witch</button><button type="button" class="pill" data-char="wizard">Wizard</button>
+          </div>
+        </div>
+        <div id="custInfo" class="cust-info lk-info"></div>
+      </div>
+      <div id="lkRight" class="lk-slots lk-right" role="tablist" aria-label="What to customize"></div>
     </div>
-    <div class="cust-body">
-      <div class="cust-preview">
-        <div id="custStage" class="cust-stage">
-          <canvas id="staffCanvas" class="staff-canvas" aria-label="Staff preview"></canvas>
-          <canvas id="arenaPreview" class="staff-canvas arena-prev" aria-label="3D preview" hidden></canvas>
-          <div id="poseInsetLbl" class="pose-inset-lbl" hidden><span>3rd person</span><span>1st person</span></div>
-          <div id="custStage2" class="cust-stage2"></div>
-        </div>
-        <div id="custChars" class="cust-chars" role="group" aria-label="Preview character" hidden>
-          <button type="button" class="pill" data-char="goblin">Goblin</button><button type="button" class="pill" data-char="knight">Knight</button><button type="button" class="pill" data-char="witch">Witch</button><button type="button" class="pill" data-char="wizard">Wizard</button>
-        </div>
-        <div id="custInfo" class="cust-info"></div>
-      </div>
-      <div class="cust-list">
-        <p id="custSub" class="sub"></p>
-        <div id="bgTimes" class="bg-times" role="group" aria-label="Time of day"></div>
-        <div id="custGrid" class="cust-grid"></div>
-        <div id="custExtra" class="cust-extra" hidden></div>
-      </div>
+    <div id="lkTray" class="lk-tray">
+      <div class="lk-tray-head"><b id="lkTrayTitle"></b><p id="custSub" class="sub"></p></div>
+      <div id="bgTimes" class="bg-times" role="group" aria-label="Time of day"></div>
+      <div id="custGrid" class="cust-grid"></div>
+      <div id="custExtra" class="cust-extra" hidden></div>
     </div>
   </section>
 
