@@ -220,8 +220,8 @@ interface Fighter {
 interface Particle { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max: number; grow: number; gravity: number }
 
 const TREE_BGS = ['forest', 'swamp', 'worldtree'];
-/** 0.9.9.9.5.2: the dragon model (4.5 m tall, 8.5 m nose to tail) a little smaller in the arena */
-const DRAGON_SCALE = 0.85;
+/** 0.9.9.9.5.2: the dragon model (4.5 m tall, 8.5 m nose to tail) a little bigger in the arena: it is far back */
+const DRAGON_SCALE = 1.2;
 
 export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; preview?: boolean } = {}): ArenaApi | null {
   let renderer: THREE.WebGLRenderer;
