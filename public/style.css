@@ -4007,3 +4007,17 @@ body.mode-shown #bg:has(> .bg-layer.art)::after { opacity: .55; }
 .char-tile.big { width: 220px; height: 220px; border-radius: 28px; }
 .char-tile.big svg { width: 190px; height: 190px; }
 .cust-item.locked .char-tile svg { filter: grayscale(.85) brightness(.6); }
+
+/* 0.9.9.9.5.2: changing the language: the page dims with a spinner until it comes back in the new language */
+body.lang-switching::after { content: ""; position: fixed; inset: 0; z-index: 100000; pointer-events: all;
+  background: radial-gradient(circle at 50% 50%, transparent 0 26px, rgba(8, 6, 24, .72) 27px),
+    conic-gradient(from 0deg at 50% 50%, #b993ff, #7fd1ff, transparent 70%) center / 56px 56px no-repeat;
+  -webkit-mask: radial-gradient(circle at 50% 50%, #000 0 20px, transparent 21px 28px, #000 29px); mask: radial-gradient(circle at 50% 50%, #000 0 20px, transparent 21px 28px, #000 29px); }
+
+/* ── 0.9.9.9.5.2: smoother on phones — nothing that has to be re-blurred or re-filtered while something moves ── */
+@media (pointer: coarse) {
+  .art-img { filter: none; } /* (a filter on the picture made the phone redraw the whole, huge picture layer) */
+  .menu-veil .mv-aurora { filter: none; mix-blend-mode: normal; opacity: .2; }
+  .menu-veil .mv-aurora.b { display: none; }
+  .t-sunset .fx-cloud { filter: none; opacity: calc(var(--o) * .8); }
+}

@@ -50,7 +50,9 @@ function ensure(): AudioContext | null {
   ambBus = ctx.createGain(); ambBus.gain.value = 0.9; ambBus.connect(musicBus);
   // small hall reverb from generated noise (shared by music and chimes)
   reverb = ctx.createConvolver();
-  const len = Math.round(ctx.sampleRate * 2); // (2 s: the hall sounds the same, and costs the audio thread less)
+  // (2 s: the hall sounds the same, and costs the audio thread less — 0.9.9.9.5.2: phones 1.2 s, the sound stuttered
+  // again when the phone was busy drawing)
+  const len = Math.round(ctx.sampleRate * (matchMedia('(pointer: coarse)').matches ? 1.2 : 2));
   const ir = ctx.createBuffer(2, len, ctx.sampleRate);
   for (let ch = 0; ch < 2; ch++) {
     const d = ir.getChannelData(ch);

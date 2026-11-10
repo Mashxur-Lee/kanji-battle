@@ -10,14 +10,20 @@
 export type Lang = 'en' | 'ru';
 const KEY = 'kb:lang';
 
+// (read once: the language only changes with a reload — or the tutorial's switch to Russian, which sets it here)
+let current: Lang | null = null;
 export function lang(): Lang {
-  try { return localStorage.getItem(KEY) === 'ru' ? 'ru' : 'en'; } catch { return 'en'; }
+  if (current) return current;
+  try { current = localStorage.getItem(KEY) === 'ru' ? 'ru' : 'en'; } catch { current = 'en'; }
+  return current;
 }
 /** The locale for dates and times. */
 export const locale = () => (lang() === 'ru' ? 'ru-RU' : 'en-US');
 export function setLang(l: Lang) {
   try { localStorage.setItem(KEY, l); } catch { /* private mode */ }
-  location.reload(); // simplest way to redraw every screen in the new language
+  // 0.9.9.9.5.2: a word on screen right away (on a phone the reload can take a moment)
+  document.body.classList.add('lang-switching');
+  requestAnimationFrame(() => setTimeout(() => location.reload(), 30)); // simplest way to redraw every screen in the new language
 }
 
 // ── the Russian dictionary ──────────────────────────────────────────────────
@@ -1046,8 +1052,23 @@ function trMeaning(s: string): string | undefined {
   return undefined;
 }
 
+/**
+ * 0.9.9.9.5.2: each text is worked out once — the page has thousands of texts (every word's square on the
+ * Progress page has one) and each one not in the dictionary was tried against every pattern, on every redraw:
+ * on a phone the Russian page took up to a minute to come up.
+ */
+const memo = new Map<string, string>();
 export function tr(s: string): string {
   if (lang() !== 'ru') return s;
+  let t = memo.get(s);
+  if (t === undefined) {
+    t = trOnce(s);
+    if (memo.size > 30000) memo.clear();
+    memo.set(s, t);
+  }
+  return t;
+}
+function trOnce(s: string): string {
   const exact = RU[s] ?? trMeaning(s);
   if (exact) return exact;
   for (const [re, rep] of PATTERNS) {
@@ -1098,6 +1119,7 @@ let started = false;
 /** First-run tutorial: switch to Russian at once (no reload), so the tutorial goes on in Russian. */
 export function useRussianNow() {
   try { localStorage.setItem(KEY, 'ru'); } catch { /* private mode */ }
+  current = 'ru'; memo.clear();
   initI18n();
 }
 export function initI18n() {
@@ -1107,7 +1129,7 @@ export function initI18n() {
   walk(document.body);
   fetch('/meanings-ru.json')
     .then((r) => (r.ok ? r.json() : null))
-    .then((m: Record<string, string> | null) => { if (m) { MEANINGS = m; walk(document.body); } })
+    .then((m: Record<string, string> | null) => { if (m) { MEANINGS = m; memo.clear(); walk(document.body); } })
     .catch(() => { /* meanings stay English */ });
   new MutationObserver((list) => {
     for (const m of list) {
