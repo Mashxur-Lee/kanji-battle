@@ -3863,8 +3863,8 @@ body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity
 :root[data-theme="light"] #menu .tasks-btn .tn-text { color: #3a2410; }
 
 /* 0.9.9.9.5.2: a friend's profile — Challenge and (red) Remove friend side by side */
-.pp-row { display: flex; gap: 6px; width: 100%; }
-.pp-row > .pill { flex: 1; justify-content: center; }
+.pp-row { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.pp-row > .pill { flex: 1 1 auto; min-width: 0; justify-content: center; white-space: nowrap; }
 .remove-friend-btn { background: linear-gradient(180deg, #d63a52, #a3203a) !important; border-color: #ff6b81 !important; color: #fff !important; }
 .remove-friend-btn.sure { animation: rmPulse .7s ease-in-out infinite alternate; }
 @keyframes rmPulse { to { box-shadow: 0 0 0 3px rgba(255, 107, 129, .45), 0 0 16px rgba(255, 60, 90, .6); } }
