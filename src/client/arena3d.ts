@@ -1020,8 +1020,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (focus > 0.001 && fo) {
       const p = fo.group.position;
       const k = focus * focus * (3 - 2 * focus);
-      camera.position.lerp(new THREE.Vector3(p.x + 1.1, 1.75 + sway, p.z + 3.4), k);
-      camera.lookAt(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).multiplyScalar(4).add(camera.position).lerp(new THREE.Vector3(p.x - 0.1, 1.45, p.z), k));
+      // (0.9.9.9.5.3: on the Hero Locker's pedestal — turning — straight on, the whole of you in view)
+      camera.position.lerp(spinning ? new THREE.Vector3(p.x + 0.15, 1.5 + sway, p.z + 3.5) : new THREE.Vector3(p.x + 1.1, 1.75 + sway, p.z + 3.4), k);
+      camera.lookAt(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).multiplyScalar(4).add(camera.position).lerp(new THREE.Vector3(p.x - 0.1, spinning ? 1.3 : 1.45, p.z), k));
     }
     if (!opts.preview && active && current && (current.opp || current.allies.length) && nowMs - myLook.sentAt > 150 && (Math.abs(myLook.yaw - myLook.sentYaw) > 0.02 || Math.abs(myLook.pitch - myLook.sentPitch) > 0.02)) {
       myLook.sentAt = nowMs; myLook.sentYaw = myLook.yaw; myLook.sentPitch = myLook.pitch;

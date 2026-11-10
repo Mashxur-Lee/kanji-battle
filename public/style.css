@@ -3871,7 +3871,7 @@ body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity
 
 /* ── 0.9.9.9.5.2: calmer pictures — a shade over them so the menus read, softer colours ─────────────────────
    (the pictures were as bright as a postcard: the cards and buttons drowned in them) */
-.art-img { filter: saturate(.8) brightness(.9); }
+/* (0.9.9.9.5.3: no filter on the picture — redrawing a filtered picture every frame was heavy; the shade over it is enough) */
 #bg:has(> .bg-layer.art)::after { opacity: 1;
   background: radial-gradient(ellipse 78% 72% at 50% 46%, rgba(10, 8, 30, .34), rgba(10, 8, 30, .5) 62%, rgba(10, 8, 30, .74) 100%),
     linear-gradient(180deg, rgba(10, 8, 30, .3), transparent 26%, transparent 70%, rgba(10, 8, 30, .36)); }
@@ -4135,8 +4135,10 @@ body.lang-switching::after { content: ""; position: fixed; inset: 0; z-index: 10
 .lk-pedestal { position: relative; width: 62%; height: 34px; margin: -26px auto 0; pointer-events: none; z-index: 2; }
 .lk-pedestal i { position: absolute; inset: 0; border-radius: 50%; }
 .lk-pedestal i:first-child { background: radial-gradient(closest-side, rgba(255, 212, 121, .45), rgba(185, 147, 255, .18) 60%, transparent); filter: blur(2px); }
-.lk-pedestal i:last-child { border: 2px dashed rgba(255, 212, 121, .5); animation: lkTurn 18s linear infinite; }
-@keyframes lkTurn { to { rotate: 360deg; } }
+.lk-pedestal i:last-child { inset: auto; left: 50%; top: 50%; width: 100%; aspect-ratio: 1; border: 2px dashed rgba(255, 212, 121, .5);
+  transform: translate(-50%, -50%) scaleY(.12) rotate(0deg); animation: lkTurn 18s linear infinite; }
+/* (a circle turning, seen from the side: squashed after the turn, so it stays a flat ring) */
+@keyframes lkTurn { to { transform: translate(-50%, -50%) scaleY(.12) rotate(360deg); } }
 .lk-info.cust-info { width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 16px; padding: 12px 18px; }
 .lk-info.cust-info h3 { grid-column: 1; margin: 0; font-size: 1.35rem; }
 .lk-info.cust-info .sub { grid-column: 1; margin: 0; font-size: .9rem; }
