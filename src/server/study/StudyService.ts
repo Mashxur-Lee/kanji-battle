@@ -4,7 +4,7 @@ import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry }
 import type { Level, OnoType } from '../../shared/protocol';
 import { LEVELS, studyLevelOf } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
-import { taskPassed, BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked } from '../../shared/progress';
+import { taskPassed, BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked, isCharacter, CHARACTER_DEFS, characterUnlocked } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
@@ -154,6 +154,14 @@ export class StudyService {
     const def = POSE_DEFS.find((x) => x.id === p)!;
     if (u.role !== 'admin' && !poseUnlocked(p, (await this.profile(u)).learned)) throw new StudyError(`Unlocks when you have learned ${def.learned} spells`, 403);
     await this.store.update(u.id, { unlocks: [...(u.unlocks ?? []).filter((x) => !x.startsWith('pose:')), ...(p === 'none' ? [] : [`pose:${p}`])] });
+  }
+
+  /** 0.9.9.9.5.2: your character (kept in unlocks as "char:<id>"; unlocked by your Daily challenge league; admins have all). */
+  async setCharacter(u: UserRecord, c: unknown) {
+    if (!isCharacter(c)) throw new StudyError('Unknown character');
+    const def = CHARACTER_DEFS.find((x) => x.id === c)!;
+    if (u.role !== 'admin' && !characterUnlocked(c, u.unlocks)) throw new StudyError(`Unlocks when you reach the ${def.league} league in the Daily challenge`, 403);
+    await this.store.update(u.id, { unlocks: [...(u.unlocks ?? []).filter((x) => !x.startsWith('char:')), ...(c === 'goblin' ? [] : [`char:${c}`])] });
   }
 
   /** Magic staff skin (unlocked by your best login streak; admins have all). */

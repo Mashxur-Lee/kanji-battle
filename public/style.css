@@ -4000,3 +4000,10 @@ body.mode-shown #bg:has(> .bg-layer.art)::after { opacity: .55; }
 .qz-card h3 { text-transform: none; letter-spacing: 0; }
 .push-test-out.ok { color: #8affc0; } .push-test-out.bad { color: #ffb3b3; }
 :root[data-theme="light"] .push-test-out.ok { color: #12895a; } :root[data-theme="light"] .push-test-out.bad { color: #c8284a; }
+
+/* ── 0.9.9.9.5.2: Customize → Character ── */
+.char-tile { display: grid; place-items: center; width: 88px; height: 88px; margin: 0 auto; border-radius: 16px; background: radial-gradient(circle at 50% 45%, rgba(127, 209, 255, .32), rgba(127, 209, 255, .06) 70%); }
+.char-tile svg { width: 76px; height: 76px; image-rendering: pixelated; }
+.char-tile.big { width: 220px; height: 220px; border-radius: 28px; }
+.char-tile.big svg { width: 190px; height: 190px; }
+.cust-item.locked .char-tile svg { filter: grayscale(.85) brightness(.6); }

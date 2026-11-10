@@ -173,6 +173,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         await study.setFlame(u, (await r.json()).flame);
         return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+      } else if (r.method === 'PUT' && url === '/api/me/character') {
+        const u = await auth.authenticate(r.token);
+        await study.setCharacter(u, (await r.json()).character);
+        return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
       } else if (r.method === 'PUT' && url === '/api/me/pose') {
         const u = await auth.authenticate(r.token);
         await study.setPose(u, (await r.json()).pose);

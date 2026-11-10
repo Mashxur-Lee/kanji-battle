@@ -13,6 +13,7 @@
 import { ARM_REST } from './charkit';
 import * as THREE from 'three';
 import { buildCharacter, kindFor, type Character } from './models3d';
+import { buildDragon, buildGlbCharacter, onModelLoaded, preloadModels, type Dragon, type GlbKind } from './glbchars';
 import { buildStaff, GEM_Y, type Staff } from './staffs3d';
 import { staffOf } from '../shared/progress';
 import { createStaffPreview } from './staffpreview';
@@ -193,7 +194,11 @@ interface Fighter {
   key: string;
   group: THREE.Group; // position on the floor
   model: Character | null; // 3D character …
-  sprite: THREE.Sprite | null; // … or a pixel sprite (the dragon)
+  sprite: THREE.Sprite | null; // … or a pixel sprite (the dragon, until its model has loaded)
+  /** 0.9.9.9.5.2: the Black Dragon's model */
+  dragon?: Dragon | null;
+  /** what they look like (to swap the stand-in for the model once it has loaded), and whether the model is in */
+  art: FighterArt; glb: boolean;
   spriteMat: THREE.SpriteMaterial | null;
   height: number;
   ko: boolean;
@@ -215,6 +220,8 @@ interface Fighter {
 interface Particle { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max: number; grow: number; gravity: number }
 
 const TREE_BGS = ['forest', 'swamp', 'worldtree'];
+/** 0.9.9.9.5.2: the dragon model (4.5 m tall, 8.5 m nose to tail) a little smaller in the arena */
+const DRAGON_SCALE = 0.85;
 
 export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; preview?: boolean } = {}): ArenaApi | null {
   let renderer: THREE.WebGLRenderer;
@@ -357,8 +364,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   function makeFighter(key: string, art: FighterArt): Fighter {
     const group = new THREE.Group();
     let model: Character | null = null, sprite: THREE.Sprite | null = null, spriteMat: THREE.SpriteMaterial | null = null;
-    let height = 1.95;
-    if (art.svg) {
+    let dragon: Dragon | null = null;
+    let height = 1.95, glb = false;
+    // 0.9.9.9.5.2: the dragon as a model (its picture until the model has loaded)
+    if (key === 'boss' && (dragon = buildDragon())) {
+      dragon.root.scale.setScalar(DRAGON_SCALE);
+      height = dragon.height * DRAGON_SCALE; glb = true;
+      group.add(dragon.root);
+    } else if (art.svg) {
       height = 4.6;
       spriteMat = new THREE.SpriteMaterial({ transparent: true, alphaTest: 0.05 });
       sprite = new THREE.Sprite(spriteMat);
@@ -367,7 +380,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       svgTexture(art.svg, (t, aspect) => { spriteMat!.map = t; spriteMat!.needsUpdate = true; sprite!.scale.set(height * aspect, height, 1); });
       group.add(sprite);
     } else {
-      model = buildCharacter(kindFor(art.character ?? 'wizard'), key === 'me' ? 'me' : key.startsWith('ally:') ? 'ally' : 'opp', sparkTex, art.staff);
+      model = buildModel(key, art);
+      glb = !!model.glb;
       notePose(model);
       height = model.height;
       group.add(model.root);
@@ -384,17 +398,54 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     aura.scale.set(height * 1.2, height * 1.2, 1); aura.position.y = height * 0.5;
     group.add(aura);
     scene.add(group);
-    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0, typing: !!art.bot, staffId: art.staff };
+    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0, typing: !!art.bot, staffId: art.staff, dragon, art, glb };
     fighters.set(key, f);
     return f;
   }
   function clearFighters() {
     for (const f of fighters.values()) {
       scene.remove(f.group);
-      f.group.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose?.(); const mm = m.material as THREE.Material | undefined; mm?.dispose?.(); });
+      disposeTree(f.group);
     }
     fighters.clear();
   }
+  // (a model's shape is shared by every copy of it: only its own materials go)
+  function disposeTree(o: THREE.Object3D) {
+    o.traverse((x) => { const m = x as THREE.Mesh; if (!m.geometry?.userData?.shared) m.geometry?.dispose?.(); const mm = m.material as THREE.Material | undefined; mm?.dispose?.(); });
+  }
+  /** 0.9.9.9.5.2: a character from its model (the shapes built in code while it loads) */
+  function buildModel(key: string, art: FighterArt): Character & { glb?: boolean } {
+    const kind = kindFor(art.character ?? 'wizard'), side = key === 'me' ? 'me' : key.startsWith('ally:') ? 'ally' : 'opp';
+    const m = kind === 'kid' || kind === 'human' ? null : buildGlbCharacter(kind, side, sparkTex, art.staff);
+    return m ? Object.assign(m, { glb: true }) : buildCharacter(kind, side, sparkTex, art.staff);
+  }
+  // a model that arrives after the battle started: the stand-in is swapped for it where it stands
+  onModelLoaded((k: GlbKind) => {
+    for (const [key, f] of fighters) {
+      if (f.glb || f.ko) continue;
+      if (k === 'dragon' && key === 'boss' && f.sprite) {
+        const d = buildDragon();
+        if (!d) continue;
+        d.root.scale.setScalar(DRAGON_SCALE);
+        f.group.remove(f.sprite); f.spriteMat?.map?.dispose(); f.spriteMat?.dispose();
+        f.sprite = null; f.spriteMat = null; f.dragon = d; f.glb = true;
+        f.group.add(d.root);
+        placeFighters();
+      } else if (f.model && k !== 'dragon' && kindFor(f.art.character ?? 'wizard') === k) {
+        const old = f.model;
+        const m = buildModel(key, f.art);
+        if (!m.glb) continue;
+        notePose(m);
+        m.root.rotation.copy(old.root.rotation);
+        m.staff.group.visible = old.staff.group.visible;
+        f.group.remove(old.root); disposeTree(old.root);
+        f.group.add(m.root);
+        f.model = m; f.glb = true; f.frosted = false;
+        if (m.eyes && old.eyes) m.eyes.visible = old.eyes.visible;
+      }
+    }
+  });
+  void preloadModels();
 
   // ── you, in first person: your hand holding your staff (sleeve and skin after your character) ──
   const fp = new THREE.Group();
@@ -542,6 +593,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (f.model && part === 'staff') { f.model.crystal.getWorldPosition(tmp); return tmp.clone(); }
     const p = f.group.position.clone();
     const h = f.height * f.group.scale.y;
+    if (f.dragon) { f.group.updateMatrixWorld(true); return part === 'mouth' ? f.dragon.mouth(new THREE.Vector3()) : part === 'head' ? f.dragon.head(new THREE.Vector3()) : p.add(new THREE.Vector3(0, h * 0.45, 0)); }
     if (who === 'boss' && part === 'mouth') return p.add(new THREE.Vector3(-f.height * 0.55, f.height * 0.62, 0.3));
     return p.add(new THREE.Vector3(0, h * (part === 'head' ? 0.85 : 0.6), 0));
   }
@@ -723,6 +775,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const twitchRot = new THREE.Euler(), twitchTarget = new THREE.Euler();
   let oppChannelOn = false;
   let inhaling = false;
+  let dragonInhale = 0, dragonBreathUntil = 0; // (the dragon model: rearing back, jaws wide on the fire)
   let spriteTint = new THREE.Color(0xffffff);
   let current: ArenaSetup | null = null;
 
@@ -747,6 +800,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     // everyone faces their target: you face the opponent / dragon, the opponent faces you
     const foe = (boss ?? opp)?.group.position;
     for (const [key, f] of fighters) {
+      if (f.dragon) { f.dragon.root.rotation.y = Math.atan2(CAM.x - f.group.position.x, CAM.z - f.group.position.z); continue; }
       if (!f.model) continue;
       const target = key === 'opp' ? CAM : foe ?? new THREE.Vector3(0, 0, -3);
       f.model.root.rotation.y = Math.atan2(target.x - f.group.position.x, target.z - f.group.position.z);
@@ -888,16 +942,17 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const KO_GREY = new THREE.Color(0x6a6a78), RED = new THREE.Color(0xff2a2a), ICE = new THREE.Color(0x8fdcff), ICE_GLOW = new THREE.Color(0x2a7cff), BURN = new THREE.Color(0xff6a1a);
   function tintModel(f: Fighter, now: number) {
     const hurt = now < f.hurtUntil, frost = now < f.frostUntil, burn = now < f.burnUntil;
-    if (f.model && f.ko) {
-      for (const m of f.model.materials) { m.mat.color.copy(m.color).lerp(KO_GREY, 0.55); m.mat.emissive.setRGB(0, 0, 0); }
+    const mats = f.model?.materials ?? f.dragon?.materials;
+    if (mats && f.ko) {
+      for (const m of mats) { m.mat.color.copy(m.color).lerp(KO_GREY, 0.55); m.mat.emissive.setRGB(0, 0, 0); }
       return;
     }
-    if (f.model) {
+    if (mats) {
       if (frost !== f.frosted) {
         f.frosted = frost;
-        for (const m of f.model.materials) { m.mat.opacity = frost ? 0.5 : 1; m.mat.depthWrite = !frost; }
+        for (const m of mats) { m.mat.opacity = frost ? 0.5 : 1; m.mat.depthWrite = !frost; }
       }
-      for (const m of f.model.materials) {
+      for (const m of mats) {
         m.mat.color.copy(m.color);
         if (frost) m.mat.color.lerp(f.frostTint ?? ICE, 0.75);
         if (hurt) { m.mat.emissive.copy(RED); m.mat.emissiveIntensity = 0.6; }
@@ -1122,6 +1177,11 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
           m.crystal.getWorldPosition(tmp);
           spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), m.staff.color.getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
         }
+      } else if (f.dragon) {
+        dragonInhale += ((inhaling ? 1 : 0) - dragonInhale) * Math.min(1, dt * 2.5);
+        const left = Math.max(0, dragonBreathUntil - now) / 1300; // 1 → 0 over the fire
+        const breathK = left > 0 ? Math.min(1, (1 - left) * 6, left * 3) : 0; // jaws snap open, hold, close
+        f.dragon.update(time, dt, { inhale: dragonInhale, breath: breathK, lunge: Math.sin(Math.min(1, lunge) * Math.PI), still });
       } else if (f.sprite) {
         f.sprite.position.y = still ? 0 : Math.abs(Math.sin(time * 2)) * 0.05;
         f.sprite.position.z = lunge * 0.4;
@@ -1476,6 +1536,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         const e = t * t;
         // falls over sideways and lies on the ground
         if (f.model) { f.model.root.rotation.z = (Math.PI / 2) * e; f.model.root.position.y = 0.24 * e; }
+        else if (f.dragon) { f.dragon.root.rotation.z = 0.9 * e; f.dragon.root.position.y = -0.4 * e; } // (the dragon slumps onto its side)
         else if (f.spriteMat) { f.spriteMat.rotation = (Math.PI / 2) * t * -1; f.spriteMat.opacity = 1 - t * 0.6; }
         if (t < 1) requestAnimationFrame(fall);
       };
@@ -1541,9 +1602,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     inhale(on) { inhaling = on; },
     breath(victims, damage) {
       inhaling = false;
-      const mo = pointOf('boss', 'mouth');
+      dragonBreathUntil = performance.now() + 1300;
       for (let i = 0; i < 160; i++) {
         setTimeout(() => {
+          const mo = pointOf('boss', 'mouth'); // (from the jaws, wherever the head is now)
           const target = victims.length ? pointOf(victims[i % victims.length]) : camera.localToWorld(new THREE.Vector3(0, -0.2, -1));
           const v = target.clone().add(new THREE.Vector3(rnd(-1.5, 1.5), rnd(-0.8, 0.8), 0)).sub(mo).normalize().multiplyScalar(rnd(7, 11));
           spark(mo, Math.random() < 0.4 ? 0xffd25a : 0xff5a1a, { size: rnd(0.3, 0.7), vel: v, life: rnd(0.6, 0.9), grow: 1.2 });

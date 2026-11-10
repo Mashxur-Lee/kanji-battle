@@ -208,13 +208,37 @@ export const STUDY_LOCK = 100;
 
 // ── characters ─────────────────────────────────────────────────────────────────
 export type { Avatar };
-const AVATAR_BY_LEVEL: Record<Level, Avatar> = { KANA: 'goblin', KATA: 'goblin', N5: 'kid', N4: 'human', N3: 'knight', N2: 'witch', N1: 'wizard', ONO: 'kid' };
-const ORDER: Level[] = ['KANA', 'KATA', 'N5', 'N4', 'N3', 'N2', 'N1'];
-/** Your fighter is decided by the hardest level you picked. */
-export function avatarFor(levels: readonly Level[]): Avatar {
-  const top = [...levels].sort((a, b) => ORDER.indexOf(b) - ORDER.indexOf(a))[0] ?? 'N5';
-  return AVATAR_BY_LEVEL[top];
-}
+/**
+ * 0.9.9.9.5.2: your character is yours to choose (Customize → Character) — it was decided by the hardest level you
+ * picked (hiragana: a goblin … N1: a wizard). Everyone starts as the Goblin; climbing the Daily challenge leagues
+ * unlocks the Knight (N4), the Witch (N3) and the Wizard (N2).
+ */
+export const CHARACTERS = ['goblin', 'knight', 'witch', 'wizard'] as const;
+export type CharacterId = (typeof CHARACTERS)[number];
+export const isCharacter = (x: unknown): x is CharacterId => CHARACTERS.includes(x as CharacterId);
+export interface CharacterDef { id: CharacterId; name: string; league: string | null; blurb: string }
+export const CHARACTER_DEFS: readonly CharacterDef[] = [
+  { id: 'goblin', name: 'Goblin', league: null, blurb: 'Small, quick and up to mischief — every wizard-to-be starts out as a goblin.' },
+  { id: 'knight', name: 'Knight', league: 'N4', blurb: 'Plate armour, a red plume and a steady hand on the staff.' },
+  { id: 'witch', name: 'Witch', league: 'N3', blurb: 'A wide hat, a moon at her belt and a robe the colour of night.' },
+  { id: 'wizard', name: 'Wizard', league: 'N2', blurb: 'The tall hat and the long cloak — a master of the kanji arts.' },
+];
+/** the Daily challenge leagues, low to high (as the server's DailyService) */
+export const DAILY_LEAGUES = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
+/** your league, from your unlocks ("dleague:N4"; none = the Kana league) */
+export const leagueIn = (unlocks: readonly string[] | null | undefined): string => {
+  const l = (unlocks ?? []).find((x) => x.startsWith('dleague:'))?.slice(8);
+  return l && (DAILY_LEAGUES as readonly string[]).includes(l) ? l : 'KANA';
+};
+export const characterUnlocked = (id: CharacterId, unlocks: readonly string[] | null | undefined) => {
+  const need = CHARACTER_DEFS.find((d) => d.id === id)?.league;
+  return beta.open || !need || DAILY_LEAGUES.indexOf(leagueIn(unlocks) as never) >= DAILY_LEAGUES.indexOf(need as never);
+};
+/** the character kept in your unlocks as "char:<id>" (no new column); the Goblin until you pick another */
+export const characterOf = (unlocks: readonly string[] | null | undefined): CharacterId => {
+  const c = (unlocks ?? []).find((x) => x.startsWith('char:'))?.slice(5);
+  return isCharacter(c) ? c : 'goblin';
+};
 
 // ── hiragana first: a new player who hasn't mastered かな yet only gets かな words (Settings → "I've mastered hiragana") ──
 export const KANA_BEGINNER = 'flag:kana-beginner';

@@ -106,6 +106,7 @@ export const api = {
   setAvatar: (image: string) => call<{ profile: Profile }>('PUT', '/api/me/avatar', { image }),
   removeAvatar: () => call<{ profile: Profile }>('DELETE', '/api/me/avatar'),
   setPose: (pose: string) => call<{ profile: Profile }>('PUT', '/api/me/pose', { pose }),
+  setCharacter: (character: string) => call<{ profile: Profile }>('PUT', '/api/me/character', { character }),
   setFlame: (flame: FlameId) => call<{ profile: Profile }>('PUT', '/api/me/flame', { flame }),
   setStaff: (staff: StaffId) => call<{ profile: Profile }>('PUT', '/api/me/staff', { staff }),
   setBackground: (background: BackgroundId) => call<{ profile: Profile }>('PUT', '/api/me/background', { background }),

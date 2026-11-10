@@ -69,7 +69,7 @@ export interface PlayerView {
   combo: number;
   levels: Level[];
   online: boolean;
-  avatar: Avatar; // decided by the hardest level picked
+  avatar: Avatar; // 0.9.9.9.5.2: the character they picked in Customize (it was decided by the hardest level picked)
   crit: number; // 0–0.5, from learned flashcards
   level: number; // account level (XP)
   ready: boolean; // Deck Duel lobby: starts when everyone is ready

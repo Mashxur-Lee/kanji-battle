@@ -2,7 +2,7 @@ import { PausableClock } from './clock';
 import { Bot, botLevels, botName, isBotLevel, type BotHost } from './Bot';
 import { FLAMES, POSES, STAFFS } from '../shared/progress';
 import { CHAT_MAX_LENGTH, type BossView, type MatchDetail, type MissedWord, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
-import { avatarFor, levelOf, type MatchOutcome } from '../shared/progress';
+import { CHARACTERS, levelOf, type MatchOutcome } from '../shared/progress';
 import { BOSS_PARTY_SIZE, BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
 import { DEFAULT_CONFIG, Game, WRITING_CONFIG, type GameConfig, type GameEvent, type Match, type WritingJudge } from './Game';
 import { RapidGame } from './RapidGame';
@@ -32,7 +32,7 @@ export const DEFAULT_LEVELS: Level[] = ['N3', 'N2'];
 export const BOSS_NAME = 'Black Dragon';
 
 /** Per-player progress the room shows and uses (crit chance, account level). */
-export interface MemberProfile { crit: number; xp: number; pic?: string | null; flame?: string; staff?: string; border?: string; pose?: string }
+export interface MemberProfile { crit: number; xp: number; pic?: string | null; flame?: string; staff?: string; border?: string; pose?: string; /** 0.9.9.9.5.2: Customize → Character */ character?: string }
 
 /** `forfeited`: someone gave up or left — nobody gets XP (stops win-trading between accounts). */
 export interface MatchResult {
@@ -200,7 +200,7 @@ export class Room {
     if (this.roster.length >= this.maxPlayers) return this.clients.get(by)?.send({ type: 'error', message: 'Room is full' });
     const id = `ai-${this.code}-${++this.nextBot}`;
     const bot = new Bot(id, level, this.botHost());
-    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: botLevels(level), online: true, profile: { crit: 0, xp: 0, staff: STAFFS[Math.floor(Math.random() * STAFFS.length)].id, flame: FLAMES[Math.floor(Math.random() * FLAMES.length)].id, pose: POSES.filter((x) => x !== 'none')[Math.floor(Math.random() * (POSES.length - 1))] }, ready: true, rtt: 1, bot }); // each AI holds a random staff (and flame colour)
+    this.roster.push({ id, name: botName(this.nextBot - 1, level), levels: botLevels(level), online: true, profile: { crit: 0, xp: 0, staff: STAFFS[Math.floor(Math.random() * STAFFS.length)].id, flame: FLAMES[Math.floor(Math.random() * FLAMES.length)].id, pose: POSES.filter((x) => x !== 'none')[Math.floor(Math.random() * (POSES.length - 1))], character: CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)] }, ready: true, rtt: 1, bot }); // each AI holds a random staff (and flame colour), and is a random character
     this.broadcastLobby();
     this.broadcastNet();
   }
@@ -628,7 +628,7 @@ export class Room {
         combo: inGame ? this.game!.getCombo(p.id) : 0,
         levels: p.levels,
         online: p.online,
-        avatar: avatarFor(p.levels),
+        avatar: (p.profile.character as PlayerView['avatar'] | undefined) ?? 'goblin', // 0.9.9.9.5.2: the one they picked (it was by level)
         crit: p.profile.crit,
         level: levelOf(p.profile.xp),
         bot: p.bot?.level ?? null,
