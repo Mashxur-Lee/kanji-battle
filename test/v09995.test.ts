@@ -338,7 +338,8 @@ test('0.9.9.9.5 push: the service account JWT is RS256-signed; data messages go 
   const push = new Push(JSON.stringify(sa), fake as never);
   assert.equal(push.enabled, true);
   const r = await push.send(['tokA', 'gone'], { kind: 'invite', from: 'Mia', code: 'ABCD', mode: 'Rapid' });
-  assert.deepEqual(r, { sent: 1, dead: ['gone'] });
+  assert.deepEqual({ sent: r.sent, dead: r.dead }, { sent: 1, dead: ['gone'] });
+  assert.match(r.errors[0], /^404 .*UNREGISTERED/, '0.9.9.9.5.2: what Google said is kept');
   const msg = calls.find((x) => x.url.endsWith('/v1/projects/kw-test/messages:send'))!;
   assert.equal(msg.auth, 'Bearer AT');
   const m = JSON.parse(msg.body).message;
@@ -346,7 +347,7 @@ test('0.9.9.9.5 push: the service account JWT is RS256-signed; data messages go 
   assert.equal(m.android.priority, 'high');
   await push.send(['tokA'], { kind: 'invite' });
   assert.equal(calls.filter((x) => x.url.includes('oauth2')).length, 1, 'the access token is reused');
-  assert.deepEqual(await new Push(undefined).send(['x'], {}), { sent: 0, dead: [] }, 'off without a service account');
+  assert.deepEqual(await new Push(undefined).send(['x'], {}), { sent: 0, dead: [], errors: [] }, 'off without a service account');
 });
 
 test('0.9.9.9.5 invites: declined → no inviting them again for 2 minutes; invites wait for an app that was closed', async () => {

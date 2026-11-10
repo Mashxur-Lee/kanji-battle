@@ -3,7 +3,7 @@ import { exampleFor, loadExamples } from './examples';
 import { hideKanji, kanjiTappable, wordsTappable } from './kanjihelp';
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, ONO_TYPES, type Level } from '../shared/protocol';
-import { avatarFor, BACKGROUNDS, beta, BORDERS, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS, POSE_DEFS, poseOf, poseUnlocked } from '../shared/progress';
+import { BACKGROUNDS, beta, BORDERS, CHARACTER_DEFS, characterOf, characterUnlocked, leagueIn, type CharacterId, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS, POSE_DEFS, poseOf, poseUnlocked } from '../shared/progress';
 import { arenaPreview, staffPreview } from './arena';
 import type { ArenaApi } from './arena3d';
 import { artUrl } from './backgrounds';
@@ -382,7 +382,7 @@ $('reviewUndo').onclick = () => undo();
 $('reviewDoneBack').onclick = () => void leaveSession();
 
 // ── customize: magic staff (login streak) · arena (level) · omnipotence (level) ──────────────────
-type CustTab = 'staff' | 'arena' | 'omni' | 'profile' | 'pose';
+type CustTab = 'staff' | 'arena' | 'omni' | 'profile' | 'pose' | 'character';
 interface CustItem {
   id: string; name: string; blurb: string; locked: boolean; lock: string; equipped: boolean;
   tile: () => Node; equip: () => Promise<{ profile: Profile }>; lockedToast: string;
@@ -463,6 +463,18 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
       equip: () => api.setBorder(b.id),
     }));
   }
+  if (custTab === 'character') {
+    // 0.9.9.9.5.2: your character — picked here (it came from your levels); the Daily challenge leagues unlock them
+    const mine = characterOf(profile.unlocks), league = leagueIn(profile.unlocks);
+    return CHARACTER_DEFS.map((d) => ({
+      id: d.id, name: d.name, blurb: `${d.blurb} Everyone sees your character in battles.`,
+      locked: !isAdmin && !characterUnlocked(d.id, profile.unlocks), lock: `${d.league} league`,
+      lockedToast: `Reach the ${d.league} league in the Daily challenge to unlock the ${d.name} (you are in the ${league === 'KANA' ? 'Kana' : league} league)`,
+      equipped: mine === d.id,
+      tile: () => { const t = el('div', 'char-tile'); t.innerHTML = avatarSvg(d.id, 'me', profile.staff); return t; },
+      equip: () => api.setCharacter(d.id),
+    }));
+  }
   if (custTab === 'pose') {
     const mine = poseOf(profile.unlocks);
     return POSE_DEFS.map((d) => ({
@@ -515,6 +527,7 @@ const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
   staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak — your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
   arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
   profile: () => 'Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.',
+  character: (p) => `Your character in battles. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight (N4), the Witch (N3) and the Wizard (N2). You are in the ${leagueIn(p.unlocks) === 'KANA' ? 'Kana' : leagueIn(p.unlocks)} league.`,
   pose: () => 'Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300). Pick a character under the preview to see it on them.',
   omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up.',
 };
@@ -576,17 +589,17 @@ function renderCustomize() {
   const canvas = $<HTMLCanvasElement>('staffCanvas');
   const stage2 = $('custStage2');
   const showCanvas = custTab === 'staff' && !!preview;
-  const in3d = (custTab === 'arena' || custTab === 'omni' || custTab === 'pose') && !!arena3;
+  const in3d = (custTab === 'arena' || custTab === 'omni' || custTab === 'pose' || custTab === 'character') && !!arena3;
   canvas.hidden = !showCanvas;
   $('arenaPreview').hidden = !in3d;
   stage2.hidden = showCanvas || in3d;
   $('custStage').dataset.tab = custTab;
-  if ((custTab === 'arena' || custTab === 'omni' || custTab === 'pose') && !arena3Tried) void ensureArena3();
+  if ((custTab === 'arena' || custTab === 'omni' || custTab === 'pose' || custTab === 'character') && !arena3Tried) void ensureArena3();
   $('poseInsetLbl').hidden = !(in3d && custTab === 'pose');
-  $('custChars').hidden = !in3d;
-  const shownChar = previewChar ?? kindOf(avatarFor(profile.studyLevels));
+  $('custChars').hidden = !in3d || custTab === 'character'; // (the Character tab picks one itself)
+  const shownChar = previewChar ?? kindOf(characterOf(profile.unlocks));
   for (const b of document.querySelectorAll<HTMLElement>('#custChars [data-char]')) b.classList.toggle('on', b.dataset.char === shownChar);
-  if (in3d) showArena3(custTab as 'arena' | 'omni' | 'pose', sel.id, profile); else arena3?.setActive(false);
+  if (in3d) showArena3(custTab as 'arena' | 'omni' | 'pose' | 'character', sel.id, profile); else arena3?.setActive(false);
   if (custTab === 'staff') {
     if (preview) preview.show(sel.id);
     else { const g = el('div', 'pixel-staff big'); g.innerHTML = staffSvg(sel.id); stage2.replaceChildren(g); }
@@ -601,6 +614,9 @@ function renderCustomize() {
     if (row) meta.append(row); else meta.append(el('div', 'hint', 'No badges yet — pick up to 3 below.'));
     card.append(avatarDisc(profile, sel.id, 'pp-pic big'), meta);
     stage2.replaceChildren(card);
+  } else if (custTab === 'character') {
+    const big = el('div', 'char-tile big'); big.innerHTML = avatarSvg(sel.id as CharacterId, 'me', profile.staff);
+    stage2.replaceChildren(big);
   } else if (custTab === 'pose') {
     const big = el('div', 'pose-tile big'); big.innerHTML = poseArt(sel.id);
     const box = el('div', 'pose-2d'); box.append(big, el('p', 'hint', 'Combo poses show in the 3D arena (Settings → 3D arena: Full or Lite).'));
@@ -608,7 +624,7 @@ function renderCustomize() {
   } else {
     const w = el('div', 'wizard me onfire');
     ui.paintFlame(w, sel.id);
-    const sprite = el('div', 'sprite'); sprite.innerHTML = avatarSvg(avatarFor(profile.studyLevels), 'me', profile.staff);
+    const sprite = el('div', 'sprite'); sprite.innerHTML = avatarSvg(characterOf(profile.unlocks), 'me', profile.staff);
     w.append(el('div', 'aura'), sprite);
     const badge = el('div', 'combo-hud hot omni-badge'); badge.style.setProperty('--flame', FLAMES.find((f) => f.id === sel.id)!.color);
     badge.append(el('b', '', '×5'), el('span', '', 'COMBO'));
@@ -616,7 +632,7 @@ function renderCustomize() {
   }
 
   // name, description, Equip
-  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? (sel.lock.startsWith('Level') ? `Unlocks at ${sel.lock.replace('Level', 'level')}` : sel.lock === 'Tutorial' ? 'Finish the tutorial to unlock' : sel.lock.endsWith('goals') ? `Unlocks with the ${sel.lock}` : sel.lock.endsWith('learned') ? `Unlocks at ${sel.lock}` : `Unlocks at a ${sel.lock}`) : 'Equip') as HTMLButtonElement;
+  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? (sel.lock.startsWith('Level') ? `Unlocks at ${sel.lock.replace('Level', 'level')}` : sel.lock === 'Tutorial' ? 'Finish the tutorial to unlock' : sel.lock.endsWith('goals') ? `Unlocks with the ${sel.lock}` : sel.lock.endsWith('learned') ? `Unlocks at ${sel.lock}` : sel.lock.endsWith('league') ? `Unlocks in the ${sel.lock}` : `Unlocks at a ${sel.lock}`) : 'Equip') as HTMLButtonElement;
   btn.disabled = sel.equipped;
   btn.classList.toggle('locked', sel.locked);
   btn.onclick = () => void equip(sel);
@@ -625,13 +641,20 @@ function renderCustomize() {
   if (in3d && custTab === 'omni') {
     const t = el('div', 'cust-2d');
     const w = el('div', 'wizard me onfire c2-char'); ui.paintFlame(w, sel.id);
-    const sp = el('div', 'sprite'); sp.innerHTML = avatarSvg(avatarFor(profile.studyLevels), 'me', profile.staff);
+    const sp = el('div', 'sprite'); sp.innerHTML = avatarSvg(characterOf(profile.unlocks), 'me', profile.staff);
     w.append(el('div', 'aura'), sp); t.append(w, el('span', 'hint', '2D arena')); info.push(t);
+  }
+  if (custTab === 'character' && in3d) {
+    // 0.9.9.9.5.2: the 2D version too (the 2D arena, and the 3D one above)
+    const row = el('div', 'cust-2d');
+    const who = el('div', 'c2-char'); who.innerHTML = avatarSvg(sel.id as CharacterId, 'me', profile.staff);
+    row.append(who, el('span', 'hint', '2D arena'));
+    info.push(row);
   }
   if (custTab === 'staff') {
     // the pixel version: what the 2D arena shows, in your character's hand
     const row = el('div', 'cust-2d');
-    const who = el('div', 'c2-char'); who.innerHTML = avatarSvg(avatarFor(profile.studyLevels), 'me', sel.id);
+    const who = el('div', 'c2-char'); who.innerHTML = avatarSvg(characterOf(profile.unlocks), 'me', sel.id);
     const st = el('div', 'pixel-staff'); st.innerHTML = staffSvg(sel.id);
     row.append(who, st, el('span', 'hint', '2D arena'));
     info.push(row);
@@ -660,10 +683,10 @@ async function ensureArena3() {
   if (arena3 && !$('customize').hidden) renderCustomize();
 }
 /** you stand across the arena (as others see you): the chosen arena, or your flames burning round you */
-function showArena3(tab: 'arena' | 'omni' | 'pose', id: string, p: Profile) {
+function showArena3(tab: 'arena' | 'omni' | 'pose' | 'character', id: string, p: Profile) {
   if (!arena3) return;
   const bgId = (tab === 'arena' ? id : p.background) as BackgroundId, time = resolveTime(getTimePref());
-  const character = previewChar ?? avatarFor(p.studyLevels); // 0.9.9.7.3: or the one you picked under the preview
+  const character = tab === 'character' ? id : previewChar ?? characterOf(p.unlocks); // 0.9.9.7.3: or the one you picked under the preview
   const who = `${character}-${p.staff}`, bg = `${bgId}-${time}`;
   // the fighters are built once; picking another arena only swaps the arena (0.9.9.3.3: no rebuild, no stutter)
   if (who !== arena3Key) {
@@ -676,7 +699,7 @@ function showArena3(tab: 'arena' | 'omni' | 'pose', id: string, p: Profile) {
   }
   arena3.setActive(true);
   if (tab === 'arena') arena3.prewarm(BACKGROUNDS.map((b) => b.id), time); // the other arenas get built while you look
-  arena3.focusOpp(tab === 'omni' || tab === 'pose'); // the flames / the pose: up close; the arena: the whole view
+  arena3.focusOpp(tab === 'omni' || tab === 'pose' || tab === 'character'); // the flames / the pose / the character: up close; the arena: the whole view
   const color = tab === 'omni' ? flameColor(id) : tab === 'pose' ? flameColor(p.flame) : undefined;
   arena3.setPose('opp', tab === 'pose' ? id : 'none'); // 0.9.9.7: you, in the combo pose you're looking at
   arena3.setPose('me', tab === 'pose' ? id : 'none'); // … and in the corner as you see it yourself (0.9.9.7.1)

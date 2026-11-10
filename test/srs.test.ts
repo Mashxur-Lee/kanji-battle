@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { answer, formatInterval, newCard, previewIntervals } from '../src/shared/srs';
-import { avatarFor, critFor, dailyCrit, nextLocalMidnight, levelOf, levelXp, unlocked, xpFor, xpForLevel } from '../src/shared/progress';
+import { characterOf, characterUnlocked, critFor, dailyCrit, nextLocalMidnight, levelOf, levelXp, unlocked, xpFor, xpForLevel } from '../src/shared/progress';
 import { beta } from '../src/shared/progress';
 beta.open = false; // these tests check the normal unlock rules (the closed beta opens everything)
 
@@ -49,7 +49,14 @@ test('progress: XP, levels, crit, backgrounds, characters', () => {
   assert.equal(Math.round(dailyCrit(10, midnight, midnight - 1) * 100), 11);
   assert.equal(dailyCrit(10, midnight, midnight), 0.01, 'resets at midnight');
   assert.ok(unlocked('forest', 0) && !unlocked('swamp', 5_999) && unlocked('swamp', 6_000) && !unlocked('worldtree', xpForLevel(10) - 1) && unlocked('worldtree', xpForLevel(10)));
-  assert.deepEqual([avatarFor(['KANA']), avatarFor(['N5', 'KANA']), avatarFor(['N4']), avatarFor(['N3', 'N5']), avatarFor(['N1']), avatarFor(['N2', 'N3'])], ['goblin', 'kid', 'human', 'knight', 'wizard', 'witch']);
+  // 0.9.9.9.5.2: the character is picked (Customize), not decided by the levels; the leagues unlock them
+  assert.equal(characterOf([]), 'goblin');
+  assert.equal(characterOf(['char:witch']), 'witch');
+  assert.equal(characterOf(['char:dragon']), 'goblin', 'nothing unknown');
+  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, [])), [true, false, false, false], 'the Kana league: only the goblin');
+  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N4'])), [true, true, false, false]);
+  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N3'])), [true, true, true, false]);
+  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N1'])), [true, true, true, true]);
 });
 
 test('study: each passed card adds +1% crit once a day; Again does not; next day starts at 1%', async () => {

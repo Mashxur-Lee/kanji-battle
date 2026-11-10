@@ -7,6 +7,31 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.5.2', date: '2026-11',
+    en: [
+      'Choose your character: Customize → Character, with a 3D and a 2D preview. Everyone starts as the Goblin; climbing the Daily challenge leagues unlocks the Knight (N4), the Witch (N3) and the Wizard (N2). Your levels no longer decide who you are.',
+      'New 3D models for the Goblin, the Knight, the Witch and the Wizard — and the Black Dragon, which now rears back, spreads its wings and opens its jaws to breathe fire.',
+      'The main menu’s carousel shows three cards you can read, with one more peeking on each side, and every card turns smoothly (some used to jump into place); the cards are dealt out when you open the menu.',
+      'Calmer backgrounds: softer colours and a shade over the pictures so the menus and buttons stand out; the 漢字 Wizards title stands out too. And more life in them: clouds, birds, falling leaves and petals, glints on the water, and a slow camera drift on computers.',
+      'A proper Quizzes page: today’s streak task on top, a card for each quiz with what it asks, and your best and last scores.',
+      'Remove a friend from their profile card (the red button beside Challenge).',
+      'The effects volume now lowers every sound, the correct-answer chime too.',
+      'Settings → Invite notifications → Test: sends a notification to your phone and says what’s wrong if it doesn’t arrive.',
+      'Phones: switching the language no longer freezes the game, lighter menu animations, and steadier sound.',
+    ],
+    ru: [
+      'Выбирайте персонажа: Кастомизация → Персонаж, с 3D- и 2D-просмотром. Все начинают Гоблином; лиги ежедневного испытания открывают Рыцаря (N4), Ведьму (N3) и Волшебника (N2). Уровни больше не решают, кто вы.',
+      'Новые 3D-модели Гоблина, Рыцаря, Ведьмы и Волшебника — и Чёрного дракона, который теперь встаёт на дыбы, расправляет крылья и раскрывает пасть, чтобы выдохнуть огонь.',
+      'Карусель главного меню показывает три читаемые карточки и ещё по одной с каждой стороны, а все карточки поворачиваются плавно (некоторые раньше прыгали на место); при открытии меню карточки раздаются.',
+      'Спокойнее фоны: мягче цвета и затемнение поверх картин, чтобы меню и кнопки было лучше видно; заголовок 漢字 Wizards тоже хорошо видно. И больше жизни: облака, птицы, падающие листья и лепестки, блики на воде и медленный «облёт камеры» на компьютерах.',
+      'Настоящая страница тестов: сверху сегодняшнее задание серии, у каждого теста своя карточка с описанием и вашими лучшим и последним результатами.',
+      'Удаление из друзей в карточке профиля (красная кнопка рядом с «Вызовом»).',
+      'Громкость эффектов теперь приглушает все звуки, и сигнал верного ответа тоже.',
+      'Настройки → Уведомления о приглашениях → Проверить: отправляет уведомление на телефон и объясняет, что не так, если оно не пришло.',
+      'Телефоны: смена языка больше не подвешивает игру, лёгкие анимации меню и ровнее звук.',
+    ],
+  },
+  {
     v: '0.9.9.9.5.1', date: '2026-11',
     en: [
       'New painted backgrounds — the castle, the plains, the forest, the swamp and the World Tree, by day, at sunset and at night — on the main menu, behind every page and in the classic arena, alive with fireflies, twinkling stars, shooting stars, torch flames, glowing runes, mist and light.',

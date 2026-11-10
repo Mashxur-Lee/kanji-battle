@@ -5,7 +5,7 @@
 
 import { BACKGROUNDS, BORDERS, borderUnlocked, FLAMES, flameUnlocked, levelOf, STAFFS, staffUnlocked, unlocked, type BackgroundId, type FlameId, type StaffId } from '../shared/progress';
 import { api, type Profile } from './api';
-import { avatarFor } from '../shared/progress';
+import { characterOf } from '../shared/progress';
 import { backgroundThumb, getTimePref, resolveTime } from './backgrounds';
 import { staffSvg } from './art2d';
 import { avatarSvg } from './wizard';
@@ -49,10 +49,10 @@ function preview(r: Reward, p: Profile): HTMLElement {
   const box = document.createElement('div');
   box.className = `rw-preview rw-${r.kind}`;
   if (r.kind === 'arena') box.innerHTML = backgroundThumb(r.id as BackgroundId, resolveTime(getTimePref()));
-  else if (r.kind === 'staff') { const w = document.createElement('div'); w.className = 'rw-char'; w.innerHTML = avatarSvg(avatarFor(p.studyLevels), 'me', r.id); const s = document.createElement('div'); s.className = 'pixel-staff big'; s.innerHTML = staffSvg(r.id); box.append(s, w); }
+  else if (r.kind === 'staff') { const w = document.createElement('div'); w.className = 'rw-char'; w.innerHTML = avatarSvg(characterOf(p.unlocks), 'me', r.id); const s = document.createElement('div'); s.className = 'pixel-staff big'; s.innerHTML = staffSvg(r.id); box.append(s, w); }
   else if (r.kind === 'flame') {
     const w = document.createElement('div'); w.className = 'wizard me onfire'; ui.paintFlame(w, r.id);
-    const sp = document.createElement('div'); sp.className = 'sprite'; sp.innerHTML = avatarSvg(avatarFor(p.studyLevels), 'me', p.staff);
+    const sp = document.createElement('div'); sp.className = 'sprite'; sp.innerHTML = avatarSvg(characterOf(p.unlocks), 'me', p.staff);
     const au = document.createElement('div'); au.className = 'aura';
     w.append(au, sp); box.append(w);
   } else {

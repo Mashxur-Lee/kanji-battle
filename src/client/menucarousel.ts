@@ -6,38 +6,69 @@
 const WIDE = '(min-width: 1101px) and (min-height: 560px)';
 const TOUCH = '(pointer: coarse)'; // (phones and tablets keep the grid)
 const KEY = 'kb:menuCard';
-/** how far each place from the middle sits: sideways (× the card width), turned, pushed back, scaled, shown */
+/**
+ * 0.9.9.9.5.2: where each place from the middle sits — sideways (× the card width), turned, pushed back, scaled,
+ * shown, lit. Three cards are fully readable (the middle one and its neighbours, nearly facing you), one more peeks
+ * from behind on each side; the rest wait out of sight.
+ */
 const PLACE = [
   { x: 0, ry: 0, z: 0, s: 1, o: 1 },
-  { x: 0.98, ry: 28, z: -140, s: 0.84, o: 0.92 },
-  { x: 1.7, ry: 40, z: -280, s: 0.7, o: 0.6 },
-  { x: 2.2, ry: 50, z: -400, s: 0.58, o: 0 },
+  { x: 1.05, ry: 14, z: -90, s: 0.87, o: 1 },
+  { x: 1.8, ry: 38, z: -260, s: 0.7, o: 0.62 },
+  { x: 2.25, ry: 52, z: -420, s: 0.55, o: 0 },
 ];
+const EDGE = PLACE.length - 1;
 
 let box: HTMLElement;
 let items: HTMLElement[] = [];
 let active = 0;
 let on = false;
 let prev: HTMLButtonElement, next: HTMLButtonElement, dots: HTMLElement;
+/** each card's place before the last turn (a card going round the back jumps instead of flying across) */
+const was = new Map<HTMLElement, number>();
 
 const cardOf = (it: HTMLElement) => (it.matches('.mc-card') ? it : it.querySelector<HTMLElement>('.mc-card')!);
+/** the shortest way round from the middle card: -3 … +3 for seven cards */
+function offset(i: number) {
+  const n = items.length;
+  let d = (((i - active) % n) + n) % n;
+  if (d > n / 2) d -= n;
+  return d;
+}
+function place(d: number, w: number) {
+  const a = Math.min(Math.abs(d), EDGE);
+  const p = PLACE[a], sign = Math.sign(d);
+  return { a, o: p.o, t: `translateX(calc(-50% + ${(sign * p.x * w).toFixed(1)}px)) translateZ(${p.z}px) rotateY(${-sign * p.ry}deg) scale(${p.s})` };
+}
+/** the card width: five cards (three and two halves) fit across the window, never wider than 300 px */
+function size() {
+  const zoom = box.getBoundingClientRect().width / (box.offsetWidth || 1) || 1;
+  const across = innerWidth / zoom - 120; // (the rails on both sides)
+  box.style.setProperty('--cw', `${Math.round(Math.min(300, Math.max(228, across / 4.5)))}px`);
+}
 
 function layout() {
-  const n = items.length;
   const w = items[0]?.offsetWidth || 300;
   items.forEach((it, i) => {
-    // the shortest way round: -2 … +3 for six cards
-    let d = (((i - active) % n) + n) % n;
-    if (d > n / 2) d -= n;
-    const a = Math.min(Math.abs(d), PLACE.length - 1);
-    const p = PLACE[a];
-    const sign = Math.sign(d);
-    it.style.transform = `translateX(calc(-50% + ${sign * p.x * w}px)) translateZ(${p.z}px) rotateY(${-sign * p.ry}deg) scale(${p.s})`;
-    it.style.opacity = String(p.o);
+    const d = offset(i);
+    const { a, o, t } = place(d, w);
+    const before = was.get(it);
+    if (before !== undefined && Math.abs(d - before) > 1) {
+      // it went round the back: put it out of sight on the side it comes in from, then let it slide in
+      it.style.transition = 'none';
+      it.style.transform = place(Math.sign(d) * EDGE, w).t;
+      it.style.opacity = '0';
+      void it.offsetWidth;
+      it.style.transition = '';
+    }
+    was.set(it, d);
+    it.style.transform = t;
+    it.style.opacity = String(o);
     it.style.zIndex = String(10 - a);
     it.classList.toggle('mcc-active', d === 0);
     it.classList.toggle('mcc-side', d !== 0);
-    it.setAttribute('aria-hidden', String(p.o === 0));
+    it.classList.toggle('mcc-far', a >= 2);
+    it.setAttribute('aria-hidden', String(o === 0));
     cardOf(it).tabIndex = d === 0 ? 0 : -1;
   });
   dots.querySelectorAll('i').forEach((d, i) => d.classList.toggle('on', i === active));
@@ -49,6 +80,24 @@ export function turn(by: number) {
   layout();
 }
 function focusOn(i: number) { active = i; layout(); }
+
+/** coming to the menu: the cards are dealt out from the middle, the nearest first */
+function dealIn() {
+  if (!on) return;
+  size(); layout(); // (sized now: while the menu was hidden its size was unknown)
+  const w = items[0]?.offsetWidth || 300;
+  const from = place(0, w).t;
+  items.forEach((it, i) => {
+    const d = offset(i);
+    const { a, o, t } = place(d, w);
+    if (!o) return;
+    it.getAnimations().forEach((x) => { if (x instanceof CSSTransition) return; x.cancel(); });
+    it.animate(
+      [{ transform: `${from} translateY(60px) scale(.82)`, opacity: 0 }, { transform: t, opacity: o }],
+      { duration: 640, delay: 60 + a * 95, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'backwards' },
+    );
+  });
+}
 
 function enable() {
   if (on) return;
@@ -66,6 +115,8 @@ function enable() {
   let saved = 0;
   try { saved = Number(sessionStorage.getItem(KEY) ?? 0) || 0; } catch { /* fine */ }
   active = Math.min(Math.max(0, saved), items.length - 1);
+  was.clear();
+  size();
   layout();
 }
 function disable() {
@@ -74,9 +125,10 @@ function disable() {
   box.classList.remove('carousel');
   box.parentElement!.classList.remove('has-carousel');
   prev.hidden = next.hidden = dots.hidden = true;
+  box.style.removeProperty('--cw');
   for (const it of items) {
     it.style.transform = it.style.opacity = it.style.zIndex = '';
-    it.classList.remove('mcc-active', 'mcc-side');
+    it.classList.remove('mcc-active', 'mcc-side', 'mcc-far');
     it.removeAttribute('aria-hidden');
     cardOf(it).tabIndex = 0;
   }
@@ -149,6 +201,8 @@ export function initMenuCarousel() {
   const apply = () => (mq.matches && !touch.matches ? enable() : disable());
   mq.addEventListener('change', apply);
   touch.addEventListener('change', apply);
-  addEventListener('resize', () => { if (on) layout(); });
+  addEventListener('resize', () => { if (on) { size(); layout(); } });
+  // motion.ts tells when a screen comes in
+  addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail === 'menu') dealIn(); });
   apply();
 }

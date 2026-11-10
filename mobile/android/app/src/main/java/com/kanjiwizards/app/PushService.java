@@ -35,9 +35,13 @@ public class PushService extends FirebaseMessagingService {
         String t = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("token", "");
         if (t == null || t.isEmpty()) {
             try {
-                FirebaseMessaging.getInstance().getToken().addOnSuccessListener(tok -> save(ctx, tok));
-            } catch (Exception ignored) {
+                FirebaseMessaging.getInstance().getToken()
+                    .addOnSuccessListener(tok -> save(ctx, tok))
+                    // 0.9.9.9.5.2: why there is no token (Settings → Test shows it)
+                    .addOnFailureListener(e -> ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("error", String.valueOf(e.getMessage())).apply());
+            } catch (Exception e) {
                 // Firebase couldn't start (no configuration)
+                ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("error", "Firebase: " + e.getMessage()).apply();
             }
             return "";
         }
@@ -45,7 +49,14 @@ public class PushService extends FirebaseMessagingService {
     }
 
     private static void save(Context ctx, String tok) {
-        if (tok != null) ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("token", tok).apply();
+        if (tok != null) ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("token", tok).remove("error").apply();
+    }
+
+    /** why Firebase gave no token ("" = no problem known) */
+    static String error(Context ctx) {
+        if (!available()) return "This build of the app has no push (Firebase) set up";
+        String e = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("error", "");
+        return e == null ? "" : e;
     }
 
     /** The sign-in token and language from the page ("" = signed out: Decline then does nothing). */
@@ -63,6 +74,12 @@ public class PushService extends FirebaseMessagingService {
     @Override
     public void onMessageReceived(RemoteMessage msg) {
         Map<String, String> d = msg.getData();
+        // 0.9.9.9.5.2: Settings → "Test": shown even with the game on screen
+        if ("test".equals(d.get("kind"))) {
+            boolean ru = "ru".equals(getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("lang", "en"));
+            showTest(this, ru);
+            return;
+        }
         if (!"invite".equals(d.get("kind"))) return;
         // the game is on screen: the invite card shows there (no notification on top of it)
         if (MainActivity.visible) return;
@@ -77,17 +94,35 @@ public class PushService extends FirebaseMessagingService {
         showInvite(this, from, mode, code, fromId, ru);
     }
 
-    static int idFor(String fromId) { return 5000 + (fromId == null ? 0 : (fromId.hashCode() & 0xfff)); }
-
-    static void showInvite(Context ctx, String from, String mode, String code, String fromId, boolean ru) {
-        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm == null) return;
+    static void channel(NotificationManager nm, boolean ru) {
         if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL) == null) {
             NotificationChannel ch = new NotificationChannel(CHANNEL, ru ? "Приглашения друзей" : "Friend invites", NotificationManager.IMPORTANCE_HIGH);
             ch.enableVibration(true);
             ch.setVibrationPattern(new long[] { 0, 90, 70, 90 });
             nm.createNotificationChannel(ch);
         }
+    }
+
+    static void showTest(Context ctx, boolean ru) {
+        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm == null) return;
+        channel(nm, ru);
+        Intent open = new Intent(ctx, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pi = PendingIntent.getActivity(ctx, 4999, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(ctx, CHANNEL) : new Notification.Builder(ctx);
+        b.setSmallIcon(R.drawable.ic_notify).setContentTitle(ru ? "✓ Уведомления работают" : "✓ Invite notifications work")
+            .setContentText(ru ? "Так придёт приглашение друга, даже когда игра закрыта." : "This is how a friend's invite reaches you, even with the game closed.")
+            .setContentIntent(pi).setAutoCancel(true);
+        if (Build.VERSION.SDK_INT >= 26) b.setTimeoutAfter(60_000);
+        try { nm.notify(4999, b.build()); } catch (SecurityException ignored) { /* notifications not allowed */ }
+    }
+
+    static int idFor(String fromId) { return 5000 + (fromId == null ? 0 : (fromId.hashCode() & 0xfff)); }
+
+    static void showInvite(Context ctx, String from, String mode, String code, String fromId, boolean ru) {
+        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm == null) return;
+        channel(nm, ru);
         int id = idFor(fromId);
         // tap: the app opens and the invite card is there; Join: straight into the room
         Intent open = new Intent(ctx, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);

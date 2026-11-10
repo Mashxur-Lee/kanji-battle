@@ -283,6 +283,20 @@ public class MainActivity extends Activity {
             return PushService.token(MainActivity.this);
         }
 
+        /** 0.9.9.9.5.2: why there is no push token ("" = none known) */
+        @JavascriptInterface
+        public String pushError() {
+            return PushService.error(MainActivity.this);
+        }
+
+        /** 0.9.9.9.5.2: asks again whether the app may show notifications (Settings → Test) */
+        @JavascriptInterface
+        public void askNotifications() {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                runOnUiThread(() -> requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, ASK_NOTIFY));
+            }
+        }
+
         /** the sign-in token (for Decline on a notification) and the language of the notifications; "" = signed out */
         @JavascriptInterface
         public void setPushAuth(String auth, String lang) {

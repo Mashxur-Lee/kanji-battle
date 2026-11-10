@@ -10,14 +10,20 @@
 export type Lang = 'en' | 'ru';
 const KEY = 'kb:lang';
 
+// (read once: the language only changes with a reload — or the tutorial's switch to Russian, which sets it here)
+let current: Lang | null = null;
 export function lang(): Lang {
-  try { return localStorage.getItem(KEY) === 'ru' ? 'ru' : 'en'; } catch { return 'en'; }
+  if (current) return current;
+  try { current = localStorage.getItem(KEY) === 'ru' ? 'ru' : 'en'; } catch { current = 'en'; }
+  return current;
 }
 /** The locale for dates and times. */
 export const locale = () => (lang() === 'ru' ? 'ru-RU' : 'en-US');
 export function setLang(l: Lang) {
   try { localStorage.setItem(KEY, l); } catch { /* private mode */ }
-  location.reload(); // simplest way to redraw every screen in the new language
+  // 0.9.9.9.5.2: a word on screen right away (on a phone the reload can take a moment)
+  document.body.classList.add('lang-switching');
+  requestAnimationFrame(() => setTimeout(() => location.reload(), 30)); // simplest way to redraw every screen in the new language
 }
 
 // ── the Russian dictionary ──────────────────────────────────────────────────
@@ -226,7 +232,7 @@ const RU: Record<string, string> = {
   'Keyboard': 'Клавиатура',
   '— pick a hero, draft cards by colour, then cast them by writing their kanji. Bolt 90 dmg (10 mana), Frost 150 (20), Mana +60, Heal 140 (30), Inferno 340 (45). 15 s to choose a card, then 1 minute to read its meaning, look at the kanji and write it. +10 mana each turn. Out of cards → a new draft round (HP and mana stay). No mana for any of your cards → your turn is skipped (−100 HP). When time runs out: overtime, a Rapid duel. Every kanji of the duel joins your': '— выберите героя, наберите карты по цвету, затем разыгрывайте их, записывая кандзи. Молния 90 урона (10 маны), Мороз 150 (20), Мана +60, Лечение 140 (30), Инферно 340 (45). 15 с на выбор карты, затем 1 минута, чтобы прочитать значение, посмотреть на кандзи и написать его. +10 маны каждый ход. Карты кончились → новый набор (HP и мана сохраняются). Нет маны ни на одну карту → ход пропускается (−100 HP). Когда время выходит — овертайм, дуэль Блиц. Все кандзи дуэли попадают в',
   '— win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in': '— победа: 300 + точность%; поражение: 50 + точность%; Дуэль колод: 4000 / 1500. Сданные матчи не дают опыта. Каждый уровень требует на 1000 опыта больше предыдущего (1000, затем 2000, 3000 …) и открывает фоны и цвета пламени в',
-  'ひらがな (hiragana) and カタカナ (katakana) are the kana letters (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (ひらがな / カタカナ), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.': 'ひらがな (хирагана) и カタカナ (катакана) — это азбуки каны (ответ ромадзи); N5 — самый лёгкий, N1 — самый трудный. Ваш персонаж зависит от самого трудного уровня: Гоблин (ひらがな / カタカナ), Ученик (N5), Искатель приключений (N4), Рыцарь (N3), Ведьма (N2), Волшебник (N1). Каждый держит магический посох, выбранный в Кастомизации. Трудные слова бьют сильнее, поэтому у соперника больше HP.',
+  'ひらがな (hiragana) and カタカナ (katakana) are the kana letters (romaji answers); N5 is easiest, N1 hardest. You pick your character in Customize → Character: the Goblin from the start; the Knight, the Witch and the Wizard unlock in the Daily challenge leagues N4, N3 and N2. Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.': 'ひらがな (хирагана) и カタカナ (катакана) — это азбуки каны (ответ ромадзи); N5 — самый лёгкий, N1 — самый трудный. Персонажа вы выбираете в Кастомизации → Персонаж: Гоблин — с самого начала; Рыцарь, Ведьма и Волшебник открываются в лигах ежедневного испытания N4, N3 и N2. Каждый держит магический посох, выбранный в Кастомизации. Трудные слова бьют сильнее, поэтому у соперника больше HP.',
   'Master hiragana first': 'Сначала освойте хирагану',
   'Deck Duel is all kanji — tick "I\'ve mastered hiragana" in Settings first.': 'Дуэль колод — это только кандзи: сначала отметьте «Я освоил хирагану» в настройках.',
   'Paused': 'Пауза',
@@ -506,6 +512,30 @@ const RU: Record<string, string> = {
   'They declined — you can invite them again in a few minutes': 'Отклонил(а) — пригласить снова можно через несколько минут',
   // 0.9.9.9.5 — the JLPT quiz's settings
   'Your words from levels': 'Ваши слова уровней', 'Your wizard': 'Ваш волшебник', 'Your own words always count': 'Ваши собственные слова учитываются всегда', 'Changes apply to the next quiz': 'Изменения — со следующего теста',
+  // 0.9.9.9.5.2
+  '✕ Remove friend': '✕ Удалить из друзей',
+  'Test what you know — a passed JLPT quiz or reading passage counts for your daily streak.': 'Проверьте себя — пройденный тест JLPT или текст для чтения засчитывается в ежедневную серию.',
+  'Counts for the streak': 'Засчитывается в серию', '10 questions from the spells you studied — or kana: readings, meanings and kanji.': '10 вопросов по изученным заклинаниям — или по кане: чтения, значения и кандзи.',
+  'Giongo, gitaigo and gijōgo — the sounds, states and feelings Japanese is full of.': 'Гионго, гитайго и гидзё:го — звуки, состояния и чувства, которыми полон японский.',
+  '10 questions': '10 вопросов', '4 choices': '4 варианта', '≈ 3 min': '≈ 3 мин', '≈ 5 min': '≈ 5 мин', 'Pass: 7 / 10': 'Зачёт: 7 / 10', 'A short story': 'Короткий рассказ',
+  'Fill the blanks': 'Заполните пропуски', 'Pass: half right': 'Зачёт: половина верно', 'Start the quiz': 'Начать тест', 'Read a passage': 'Читать текст',
+  'Invite notifications': 'Уведомления о приглашениях', 'Test': 'Проверить', 'Testing…': 'Проверяем…',
+  'Only the Android app gets invite notifications.': 'Уведомления о приглашениях приходят только в приложение для Android.',
+  'Notifications are blocked for Kanji Wizards. Allow them (Android settings → Apps → Kanji Wizards → Notifications), then test again.': 'Уведомления для Kanji Wizards запрещены. Разрешите их (Настройки Android → Приложения → Kanji Wizards → Уведомления) и проверьте снова.',
+  'Sent ✓ — a notification should appear in a few seconds. If it doesn’t, update the app (menu → Get the app) and check that battery saving doesn’t stop it.': 'Отправлено ✓ — уведомление должно появиться через несколько секунд. Если нет — обновите приложение (меню → Скачать приложение) и проверьте, не мешает ли экономия батареи.',
+  'Push is not switched on on the game’s server yet — the admin has to set it up.': 'На сервере игры push-уведомления ещё не включены — их должен настроить админ.',
+  'The server has no phone for your account — test again in a moment.': 'У сервера нет телефона для вашего аккаунта — проверьте ещё раз через минуту.',
+  'Google says this phone’s token is out of date. Reopen the app and test again.': 'Google сообщает, что токен телефона устарел. Откройте приложение заново и проверьте ещё раз.',
+  'Wait a few seconds between tests.': 'Подождите несколько секунд между проверками.',
+  'Character': 'Персонаж',
+  'Small, quick and up to mischief — every wizard-to-be starts out as a goblin. Everyone sees your character in battles.': 'Маленький, шустрый и любит пошалить — каждый будущий волшебник начинает гоблином. Вашего персонажа видят все в битвах.',
+  'Plate armour, a red plume and a steady hand on the staff. Everyone sees your character in battles.': 'Латы, красный плюмаж и твёрдая рука на посохе. Вашего персонажа видят все в битвах.',
+  'A wide hat, a moon at her belt and a robe the colour of night. Everyone sees your character in battles.': 'Широкополая шляпа, луна на поясе и мантия цвета ночи. Вашего персонажа видят все в битвах.',
+  'The tall hat and the long cloak — a master of the kanji arts. Everyone sees your character in battles.': 'Высокая шляпа и длинный плащ — мастер искусства кандзи. Вашего персонажа видят все в битвах.',
+  'Unknown character': 'Неизвестный персонаж',
+  'today': 'сегодня', 'Best': 'Лучший', 'Last': 'Последний', 'Played': 'Сыграно', 'Not played yet — good luck!': 'Ещё не пройден — удачи!',
+  'Today’s quiz task is done — nice work!': 'Задание с тестом на сегодня выполнено — отлично!',
+  'Today’s streak task: pass a JLPT quiz (7 / 10) or a reading passage (half right).': 'Задание серии на сегодня: пройдите тест JLPT (7 / 10) или текст для чтения (половина верно).',
   // 0.9.9.9.5.1
   'Quizzes': 'Тесты', 'JLPT quiz, onomatopoeia and reading passages': 'Тест JLPT, ономатопея и тексты для чтения', 'Your decks — kanji words as flashcards': 'Ваши колоды — слова с кандзи на карточках',
   'Test what you know — a passed quiz or passage counts for your daily streak.': 'Проверьте себя — пройденный тест или текст засчитывается в ежедневную серию.',
@@ -857,6 +887,18 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^(Ash|Spark|Ember|Blaze|Inferno|Azure) flame · next: (\w+) at (\d+)$/, (_, a, b, n) => `Пламя «${RU[a] ?? a}» · дальше: «${RU[b] ?? b}» с ${n} дн.`],
   [/^(Ash|Spark|Ember|Blaze|Inferno|Azure|Legend) · (\d+) days$/, (_, a, n) => `${RU[a] ?? a} · ${n} дн.`],
   [/^Next: (\w+) — (\d+) more days?$/, (_, a, n) => `Дальше: «${RU[a] ?? a}» — ещё ${n} дн.`],
+  [/^Remove (.+)\?$/, 'Удалить $1?'],
+  [/^(.+) is no longer your friend$/, '$1 больше не ваш друг'],
+  // 0.9.9.9.5.2: the push test
+  [/^Your character in battles\. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight \(N4\), the Witch \(N3\) and the Wizard \(N2\)\. You are in the (.+) league\.$/, (_, l) => `Ваш персонаж в битвах. Гоблин — ваш с самого начала; поднимайтесь по лигам ежедневного испытания, чтобы открыть Рыцаря (N4), Ведьму (N3) и Волшебника (N2). Вы в лиге ${l === 'Kana' ? 'Кана' : l}.`],
+  [/^Reach the (\S+) league in the Daily challenge to unlock the (\w+) \(you are in the (\S+) league\)$/, (_, a, b, c) => `Дойдите до лиги ${a} в ежедневном испытании, чтобы открыть: ${RU[b] ?? b} (вы в лиге ${c === 'Kana' ? 'Кана' : c})`],
+  [/^Unlocks in the (\S+) league$/, 'Откроется в лиге $1'],
+  [/^Locked · (\S+) league$/, 'Закрыто · лига $1'],
+  [/^Unlocks when you reach the (\S+) league in the Daily challenge$/, 'Откроется, когда вы дойдёте до лиги $1 в ежедневном испытании'],
+  [/^This phone has no push token from Google yet(.*)\. Check that Google Play services are on and the internet works, then test again\.$/s, 'Телефон ещё не получил push-токен от Google$1. Проверьте, что сервисы Google Play включены и интернет работает, и проверьте снова.'],
+  [/^Could not reach the server: (.*)$/s, 'Не удалось связаться с сервером: $1'],
+  [/^Google refused the push(.*)\.$/s, 'Google отклонил push-уведомление$1.'],
+  [/^It didn’t work(.*)\.$/s, 'Не получилось$1.'],
   [/^They declined your invite — you can invite them again in (\d+) min$/, 'Приглашение отклонено — пригласить снова можно через $1 мин'],
   [/^Declined · (\d+:\d\d)$/, 'Отклонено · $1'],
   [/^(.+) declined your invite$/, '$1 отклоняет приглашение'],
@@ -1010,8 +1052,23 @@ function trMeaning(s: string): string | undefined {
   return undefined;
 }
 
+/**
+ * 0.9.9.9.5.2: each text is worked out once — the page has thousands of texts (every word's square on the
+ * Progress page has one) and each one not in the dictionary was tried against every pattern, on every redraw:
+ * on a phone the Russian page took up to a minute to come up.
+ */
+const memo = new Map<string, string>();
 export function tr(s: string): string {
   if (lang() !== 'ru') return s;
+  let t = memo.get(s);
+  if (t === undefined) {
+    t = trOnce(s);
+    if (memo.size > 30000) memo.clear();
+    memo.set(s, t);
+  }
+  return t;
+}
+function trOnce(s: string): string {
   const exact = RU[s] ?? trMeaning(s);
   if (exact) return exact;
   for (const [re, rep] of PATTERNS) {
@@ -1062,6 +1119,7 @@ let started = false;
 /** First-run tutorial: switch to Russian at once (no reload), so the tutorial goes on in Russian. */
 export function useRussianNow() {
   try { localStorage.setItem(KEY, 'ru'); } catch { /* private mode */ }
+  current = 'ru'; memo.clear();
   initI18n();
 }
 export function initI18n() {
@@ -1071,7 +1129,7 @@ export function initI18n() {
   walk(document.body);
   fetch('/meanings-ru.json')
     .then((r) => (r.ok ? r.json() : null))
-    .then((m: Record<string, string> | null) => { if (m) { MEANINGS = m; walk(document.body); } })
+    .then((m: Record<string, string> | null) => { if (m) { MEANINGS = m; memo.clear(); walk(document.body); } })
     .catch(() => { /* meanings stay English */ });
   new MutationObserver((list) => {
     for (const m of list) {

@@ -96,6 +96,8 @@
       <div class="toggle-row">Daily reminders <button id="notifyBtn" class="pill notify-btn set-switch" type="button" aria-pressed="false" aria-label="Reminders">🔕</button></div>
       <div id="remindTestRow" class="toggle-row" hidden>Test reminder <button id="remindTest" class="pill" type="button">Send a test</button></div>
       <p id="remindLast" class="hint" hidden></p>
+      <div id="pushTestRow" class="toggle-row" hidden>Invite notifications <button id="pushTest" class="pill" type="button">Test</button></div>
+      <p id="pushTestOut" class="hint push-test-out" hidden></p>
       <label id="gameKbRow" class="toggle-row" hidden>Battle keyboard <select id="gameKbSel" aria-label="Battle keyboard"><option value="game">Game keyboard</option><option value="system">Phone keyboard</option></select></label>
       <label id="kanaRow" class="toggle-row" hidden><input id="kanaMastered" type="checkbox"> I've mastered hiragana</label>
       <p id="kanaInfo" class="hint" hidden>Unlocks the kanji levels (N5–N1) in battles. Mastering the 46 basic hiragana in Kana ticks it for you.</p>
@@ -539,14 +541,39 @@
   </section>
 
   <!-- 0.9.9.9.5.1: QUIZZES — the JLPT quiz (with kana), the onomatopoeia quiz, the reading passage -->
-  <section id="quizzes" class="screen" hidden>
+  <section id="quizzes" class="screen quizzes-screen" hidden>
     <button id="quizzesBack" class="back" type="button">← Menu</button>
-    <h2>Quizzes</h2>
-    <p class="sub">Test what you know — a passed quiz or passage counts for your daily streak.</p>
-    <div class="practice-row">
-      <button id="quizBtn" class="practice-card pc-quiz"><i class="pc-ico" aria-hidden="true">試</i><b>JLPT quiz</b><span>10 questions from the spells you studied — or kana — readings, meanings and kanji, 4 choices each.</span></button>
-      <button id="onoQuizBtn" class="practice-card pc-ono"><i class="pc-ico" aria-hidden="true">音</i><b>Onomatopoeia quiz</b><span>10 questions on giongo, gitaigo and gijōgo — sounds, states and feelings, 4 choices each.</span></button>
-      <button id="passageBtn" class="practice-card pc-read"><i class="pc-ico" aria-hidden="true">読</i><b>Reading passage</b><span>A short story written with your words — fill in the blanks from the context, then check.</span></button>
+    <!-- 0.9.9.9.5.2: a screen of its own — today's goal on top, a big card for each quiz with your best and last results -->
+    <header class="qz-head">
+      <span class="qz-emblem" lang="ja" aria-hidden="true">試</span>
+      <div class="qz-titles"><h2>Quizzes</h2><p class="sub">Test what you know — a passed JLPT quiz or reading passage counts for your daily streak.</p></div>
+    </header>
+    <div id="qzGoal" class="qz-goal" hidden></div>
+    <div class="qz-grid">
+      <article class="qz-card" data-quiz="jlpt" style="--qc:#b993ff">
+        <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">試</span><span class="qz-streak">🔥 <span>Counts for the streak</span></span></div>
+        <h3>JLPT quiz</h3>
+        <p class="qz-desc">10 questions from the spells you studied — or kana: readings, meanings and kanji.</p>
+        <ul class="qz-facts"><li>10 questions</li><li>4 choices</li><li>≈ 3 min</li><li>Pass: 7 / 10</li></ul>
+        <div class="qz-stats" data-stats="jlpt"></div>
+        <button id="quizBtn" class="qz-go" type="button">Start the quiz</button>
+      </article>
+      <article class="qz-card" data-quiz="ono" style="--qc:#ffb347">
+        <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">音</span></div>
+        <h3>Onomatopoeia quiz</h3>
+        <p class="qz-desc">Giongo, gitaigo and gijōgo — the sounds, states and feelings Japanese is full of.</p>
+        <ul class="qz-facts"><li>10 questions</li><li>4 choices</li><li>≈ 3 min</li></ul>
+        <div class="qz-stats" data-stats="ono"></div>
+        <button id="onoQuizBtn" class="qz-go" type="button">Start the quiz</button>
+      </article>
+      <article class="qz-card" data-quiz="passage" style="--qc:#4fd1c5">
+        <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">読</span><span class="qz-streak">🔥 <span>Counts for the streak</span></span></div>
+        <h3>Reading passage</h3>
+        <p class="qz-desc">A short story written with your words — fill in the blanks from the context, then check.</p>
+        <ul class="qz-facts"><li>A short story</li><li>Fill the blanks</li><li>≈ 5 min</li><li>Pass: half right</li></ul>
+        <div class="qz-stats" data-stats="passage"></div>
+        <button id="passageBtn" class="qz-go" type="button">Read a passage</button>
+      </article>
     </div>
   </section>
 
@@ -631,6 +658,7 @@
     <h2>Customize</h2>
     <div id="custTabs" class="cust-tabs" role="tablist" aria-label="What to customize">
       <button role="tab" data-tab="profile" class="cust-tab">Profile</button>
+      <button role="tab" data-tab="character" class="cust-tab">Character</button>
       <button role="tab" data-tab="arena" class="cust-tab">Arena</button>
       <button role="tab" data-tab="staff" class="cust-tab">Magic staff</button>
       <button role="tab" data-tab="omni" class="cust-tab">Omnipotence</button>
@@ -971,7 +999,7 @@
     <h2>How to play</h2>
     <ol>
       <li><b>Create a room</b>, pick a mode, and send the 4-letter code to a friend. The battle starts when every player presses <b>Ready</b>. On a phone you can switch apps to send it — your seat is kept for 5 minutes.</li>
-      <li><b>Pick your levels.</b> ひらがな (hiragana) and カタカナ (katakana) are the kana letters (romaji answers); N5 is easiest, N1 hardest. Your character follows your hardest level: Goblin (ひらがな / カタカナ), Apprentice (N5), Adventurer (N4), Knight (N3), Witch (N2), Wizard (N1). Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.</li>
+      <li><b>Pick your levels.</b> ひらがな (hiragana) and カタカナ (katakana) are the kana letters (romaji answers); N5 is easiest, N1 hardest. You pick your character in Customize → Character: the Goblin from the start; the Knight, the Witch and the Wizard unlock in the Daily challenge leagues N4, N3 and N2. Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.</li>
       <li><b>Modes</b>
         <ul>
           <li><b>Reading</b> — study 10 of your words, then type each reading (かな or romaji).</li>
@@ -1012,7 +1040,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.9.5.1</div>
+<div id="version" class="version">v0.9.9.9.5.2</div>
 <script src="/app.js"></script>
 </body>
 </html>

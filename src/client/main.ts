@@ -35,7 +35,7 @@ import * as ui from './ui';
 import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
 import { closeRematchAsk, initFriends, onFriendEvent, onInvite, onInviteDeclined, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
-import { pushSignedOut, registerPush } from './push';
+import { canPush, pushSignedOut, registerPush, testPush } from './push';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
@@ -43,6 +43,7 @@ import * as offline from './offline';
 import { initKana, openKana, setKanaProgress } from './kanaui';
 import { initMotion } from './motion';
 import { initMenuCarousel } from './menucarousel';
+import { initQuizzes, quizzesProfile } from './quizzesui';
 import { initApp } from './appshell';
 import './dictui'; // (the dictionary page; opened from the side panel)
 
@@ -191,6 +192,7 @@ function applyProfile(p: Profile) {
   void dailyPending().then((open) => { ui.$('dailyBadge').hidden = !open; });
   refreshFriendsBadge();
   renderTasks(p); // the daily streak tasks
+  quizzesProfile(p); // (the Quizzes screen shows today's quiz task)
   setKanaProgress(p.kana); // 0.9.9.9.5: the Kana section
   if (user && !inRoom && ui.currentScreen() === 'menu') checkRewards(user.id, p, user.role === 'admin', applyProfile); // something new unlocked → a reward box
   if (user && p.tutorialDone && !tutorialShown && !inRoom && ui.currentScreen() === 'menu') tasksAtLogin(p);
@@ -850,6 +852,18 @@ initApp({
 });
 initMotion(); // 0.9.9.9.5: buttons give and spring back, new list items slide in
 initMenuCarousel(); // 0.9.9.9.5.1: the menu's cards as a carousel on computers
+initQuizzes(); // 0.9.9.9.5.2: the Quizzes screen
+// 0.9.9.9.5.2: Settings → Invite notifications → Test (the Android app): says where push stops, if it does
+{
+  ui.$('pushTestRow').hidden = !canPush();
+  const btn = ui.$<HTMLButtonElement>('pushTest'), out = ui.$('pushTestOut');
+  btn.onclick = async () => {
+    btn.disabled = true; out.hidden = false; out.classList.remove('ok', 'bad'); out.textContent = tr('Testing…');
+    const r = await testPush();
+    out.textContent = tr(r.text); out.classList.add(r.ok ? 'ok' : 'bad');
+    btn.disabled = false;
+  };
+}
 initTutorial({
   firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ui.kanaBeginner() ? ['KANA'] : ['KANA', 'N5'], tutorial: true }),
   kana: async (mastered) => {
@@ -1120,6 +1134,7 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
         accept: async () => { await api.acceptFriend(id); void refreshRail(); },
         challenge: (m) => challengeFriend(id, p.name, m),
         canChallenge: !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? ''),
+        remove: async () => { await api.removeFriend(id); void refreshRail(); },
       });
     } catch { if (shownFor === id) ui.showProfileCard(el, 'missing'); }
   };

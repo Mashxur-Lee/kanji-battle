@@ -26,7 +26,7 @@ import { onServerError, reportServerError } from './errors';
 import { DictService } from './study/DictService';
 
 const PUBLIC_DIR = path.resolve(__dirname, '../../public');
-const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8' };
+const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8' };
 
 // ── accounts ──────────────────────────────────────────────────────────────────
 /** Neon / any Postgres when DATABASE_URL is set; otherwise a local JSON file (wiped on Render's free disk!). */
@@ -53,15 +53,30 @@ hub.setNotifier(async (userId, data) => {
   try {
     const r = await push.send(tokens, data);
     if (r.dead.length) await store.update(userId, { pushTokens: tokens.filter((t) => !r.dead.includes(t)) });
+    // 0.9.9.9.5.2: a push Google refused shows in the admin's errors (it failed without a word before)
+    if (!r.sent && r.errors.length && r.dead.length < tokens.length) reportServerError('push', new Error(r.errors.join(' | ')));
     return r.sent > 0;
   } catch (e) { reportServerError('push', e); return false; }
 });
+const pushTested = new Map<string, number>(); // (one test every few seconds)
 const recognizer = Recognizer.fromFile();
 const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
 const stories = new StoryService();
 console.log(`Reading passage stories: ${stories.describe}`);
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled });
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled,
+  // 0.9.9.9.5.2: Settings → "Test invite notification": the whole way, with what went wrong
+  pushTest: async (userId) => {
+    if (!push.enabled) return { ok: false, reason: 'server-off' };
+    if ((pushTested.get(userId) ?? 0) > Date.now() - 8000) return { ok: false, reason: 'wait' };
+    pushTested.set(userId, Date.now());
+    const u = await store.findById(userId);
+    const tokens = u?.pushTokens ?? [];
+    if (!tokens.length) return { ok: false, reason: 'no-phone' };
+    const r = await push.send(tokens, { kind: 'test' }, 60);
+    if (r.dead.length) await store.update(userId, { pushTokens: tokens.filter((t) => !r.dead.includes(t)) });
+    return r.sent ? { ok: true, sent: r.sent, phones: tokens.length } : { ok: false, reason: r.dead.length === tokens.length ? 'stale' : 'refused', errors: r.errors.slice(0, 3) };
+  } });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const rooms = new RoomManager({
@@ -132,12 +147,12 @@ const server = createServer(async (req, res) => {
     // the service worker and the page are checked for a new version every time (0.9.9.4)
     // 0.9.9.9.5: + the security headers (the page's inline script allowed by its hash)
     if (url === '/index.html' && pageHashesFor !== data.length) { pageHashes = inlineScriptHashes(data.toString('utf8')); pageHashesFor = data.length; }
-    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : url.startsWith('/bg/') ? { 'Cache-Control': 'public, max-age=604800' } : {}) };
+    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : url.startsWith('/bg/') || url.startsWith('/models/') ? { 'Cache-Control': 'public, max-age=604800' } : {}) };
     // text files go out gzipped (app.js, arena3d.js and the Russian meanings are large); cached per build
     // 0.9.9.9: Brotli where the browser takes it (the dictionary ~25% smaller than gzip), else gzip
     const accept = String(req.headers['accept-encoding'] ?? '');
     const enc = /\bbr\b/.test(accept) ? 'br' : /\bgzip\b/.test(accept) ? 'gzip' : '';
-    if (enc && /text|json|javascript|svg/.test(type) && data.length > 1024) {
+    if (enc && /text|json|javascript|svg|gltf/.test(type) && data.length > 1024) { // (0.9.9.9.5.2: the 3D models too — about half the size)
       const key = `${enc}:${file}:${data.length}`;
       let gz = GZ.get(key);
       if (!gz) {

@@ -11,6 +11,7 @@ import type { DeckId } from '../shared/srs';
 import { api, ApiError, OFFLINE_TEXT, type DeckRow, type StoryData, type StoryUsage, type Profile, type QuizQuestion, type WordHit } from './api';
 import { lang, locale, meaningIn, tr } from './i18n';
 import { openStrokeDialog } from './ui';
+import { recordQuiz } from './quizzesui';
 import * as ui from './ui';
 
 const $ = ui.$;
@@ -436,6 +437,7 @@ function nextQuestion() {
   $('quizCard').hidden = true;
   $('quizDone').hidden = false;
   $('quizResult').textContent = `${score} / ${quiz.length} correct${score === quiz.length ? ' — perfect!' : ''}`;
+  recordQuiz(mode === 'ono' ? 'ono' : 'jlpt', score, quiz.length); // (the Quizzes screen's best / last)
   if (mode === 'jlpt') {
     void api.task('quiz', score, quiz.length).then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task (7/10 or better)
     if (!taskPassed('quiz', score, quiz.length)) ui.toast('For the daily task, get 7 out of 10 or better — try another quiz!', 5000);
@@ -695,6 +697,7 @@ function check(restored = false) {
   $('passageWords').replaceChildren(el('div', 'p-score', `${right} / ${blanks.length}`), el('p', 'hint center', right === blanks.length ? 'Perfect — every word in its place!' : 'Green: right. Red: the right word, with yours crossed out.'), again);
   if (restored) return; // (brought back from last time: already counted)
   saveLast();
+  recordQuiz('passage', right, blanks.length);
   passageHooks.done?.(right, blanks.length);
   void api.task('passage', right, blanks.length).then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task (4/8 or better)
   if (!taskPassed('passage', right, blanks.length)) ui.toast('For the daily task, get half the blanks right (4 of 8) — try a new passage!', 5000);

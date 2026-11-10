@@ -7,7 +7,8 @@
 import { createSign } from 'node:crypto';
 
 interface ServiceAccount { project_id: string; client_email: string; private_key: string; token_uri?: string }
-export interface PushResult { sent: number; dead: string[] }
+/** 0.9.9.9.5.2: also what went wrong (Google's answer), for the test button and the admin's error list */
+export interface PushResult { sent: number; dead: string[]; errors: string[] }
 type Fetch = (url: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown>; text(): Promise<string> }>;
 
 const b64url = (b: Buffer | string) => Buffer.from(b).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -61,22 +62,26 @@ export class Push {
    * itself (with Join / Decline). Tokens the phone no longer has (app uninstalled) come back in `dead`.
    */
   async send(tokens: readonly string[], data: Record<string, string>, ttlSec = 120): Promise<PushResult> {
-    if (!this.sa || !tokens.length) return { sent: 0, dead: [] };
-    const auth = await this.accessToken();
+    if (!this.sa || !tokens.length) return { sent: 0, dead: [], errors: [] };
+    let auth: string;
+    try { auth = await this.accessToken(); } catch (e) { return { sent: 0, dead: [], errors: [(e as Error).message] }; }
     const url = `https://fcm.googleapis.com/v1/projects/${this.sa.project_id}/messages:send`;
     let sent = 0;
     const dead: string[] = [];
+    const errors: string[] = [];
     await Promise.all(tokens.map(async (token) => {
+      let failed = '';
       const r = await this.fetcher(url, {
         method: 'POST', headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: { token, data, android: { priority: 'high', ttl: `${ttlSec}s` } } }),
-      }).catch(() => null);
-      if (r?.ok) sent++;
-      else if (r && (r.status === 404 || r.status === 400)) {
-        const t = await r.text().catch(() => '');
-        if (r.status === 404 || /UNREGISTERED|INVALID_ARGUMENT.*token|registration token/i.test(t)) dead.push(token);
-      } else if (r?.status === 401) this.access = null; // (the next send asks for a new access token)
+      }).catch((e: Error) => { failed = `network: ${e?.message ?? e}`; return null; });
+      if (r?.ok) { sent++; return; }
+      if (!r) { errors.push(failed || 'network'); return; }
+      const t = await r.text().catch(() => '');
+      errors.push(`${r.status} ${t.replace(/\s+/g, ' ').slice(0, 240)}`);
+      if (r.status === 404 || (r.status === 400 && /UNREGISTERED|INVALID_ARGUMENT.*token|registration token/i.test(t))) dead.push(token);
+      else if (r.status === 401) this.access = null; // (the next send asks for a new access token)
     }));
-    return { sent, dead };
+    return { sent, dead, errors };
   }
 }

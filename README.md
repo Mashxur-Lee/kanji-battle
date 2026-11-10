@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.9.5.1
+# Kanji Wizards · v0.9.9.9.5.2
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -91,6 +91,11 @@ Invites reach a friend's phone as a notification (Join / Decline) even when the 
    it is on for new projects.)
 
 Players install the new APK, sign in, and allow notifications when Android asks.
+
+**Checking it (0.9.9.9.5.2):** in the Android app, Settings → *Invite notifications* → **Test** goes the whole way —
+the phone's permission, its Firebase token, the server's push, Google's answer — and says in words where it stops
+("Push is not switched on on the game's server", "Google refused the push (403 …)", …). A push Google refuses
+also shows in Admin → errors.
 
 ### Keeping accounts on Render (Neon Postgres)
 
@@ -256,7 +261,10 @@ the 2D layout with a bigger writing pad, a compact top bar and stacked pages.
 
 ## Customize
 
-Three sections, each with a live preview and an **Equip** button:
+Sections, each with a live preview and an **Equip** button:
+- **🧙 Character** (0.9.9.9.5.2) — Goblin (from the start), Knight, Witch, Wizard, with a 3D and a 2D preview. The
+  Daily challenge leagues unlock them: Knight at N4, Witch at N3, Wizard at N2 (kept in `unlocks` as `char:<id>`,
+  `PUT /api/me/character`).
 - **🪄 Magic staff** — the staff in your hand in the 3D arena (and in your character's hand for everyone else);
   turning 3D preview (`src/client/staffpreview.ts`, models in `src/client/staffs3d.ts`). Unlocked by login streak.
 - **🏟 Arena** — the background and time of day (unlocked by level).
@@ -296,7 +304,7 @@ always Ready. Matches with an AI give half XP; a room with only AI left closes.
 - **Levels** get steeper: 1000 XP for Lv 1, then 2000 more for Lv 2, 3000 more for Lv 3 … (Lv 5 = 15,000 total,
   Lv 10 = 55,000, Lv 20 = 210,000).
 - **Customize**: backgrounds unlock at Lv 0 forest, 5 swamp, 10 plains, 15 castle, 20 world tree.
-- **Fighters** depend on the levels you play: goblin (かな), kid (N5), human (N4), knight (N3), witch (N2), wizard (N1) — each holding the staff you equipped (pixel versions of the 3D staffs).
+- **Fighters** are the character you picked in Customize → Character (0.9.9.9.5.2; it used to follow your levels): goblin, knight, witch or wizard — each holding the staff you equipped (pixel versions of the 3D staffs).
 - **Study spells**: *All spells* — tick levels and 25 new words are added each day; after a Deck Duel every kanji
   cast in it is added too. *Struggling spells* —
   words you missed in battles. Anki-style cards (Again / Hard / Okay / Easy, SM-2 scheduling,
@@ -317,9 +325,9 @@ Duel) sets your staff on fire and sends mana fire in your flame colour flowing a
 shader, a soft animated band over the lower quarter of the screen), with a big combo counter. The flames end with the
 game. Ambient motion (fire, sway, the gem) runs even with the system's "reduce motion" on; only camera shake follows it. Opponents and teammates cast the same way: a short wind-up, then the staff thrust forward at the target. In Boss fights, downed
 teammates lie on the ground (and you lose your staff). The others
-are low-poly 3D characters holding staffs (wizard, witch, goblin, knight, apprentice, adventurer — their level's
-avatar, or their Deck Duel hero). Deck Duel cards hit with their own effect: Bolt → lightning, Frost → the target turns see-through
-icy blue for a second, Inferno → it burns. The dragon stays a pixel sprite. Only the look changed — all rules are the
+are rigged 3D models holding staffs (0.9.9.9.5.2: `public/models/*.glb`, loaded by `src/client/glbchars.ts`;
+the shapes built in code stand in while a model loads) — the character they picked, or their Deck Duel hero. Deck Duel cards hit with their own effect: Bolt → lightning, Frost → the target turns see-through
+icy blue for a second, Inferno → it burns. The Black Dragon is a rigged model too (0.9.9.9.5.2): it breathes, sways its neck and tail, rears back with its wings spread while it gathers its fire and opens its jaws to breathe it. Only the look changed — all rules are the
 same. Switch it off in the sound/settings panel (🏟 3D arena); phones, small windows and browsers without WebGL
 use the classic 2D view.
 

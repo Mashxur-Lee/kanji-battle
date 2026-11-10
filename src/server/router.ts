@@ -61,13 +61,15 @@ export interface ApiExtras {
   dict?: DictService;
   /** 0.9.9.9.5.1: whether push to the Android app is set up (FIREBASE_SERVICE_ACCOUNT) — shown to admins */
   pushOn?: () => boolean;
+  /** 0.9.9.9.5.2: sends a test push to the user's phones; what happened */
+  pushTest?: (userId: string) => Promise<{ ok: boolean; reason?: string; sent?: number; phones?: number; errors?: string[] }>;
   /** 0.9.9.9.5: "Decline" on an invite notification (the app was closed — no websocket) */
   inviteDecline?: (userId: string, name: string, fromId: string) => void;
 }
 
 /** Routes one /api/* call; null for any other path. */
 export function createApiRouter(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline, pushOn } = extras;
+  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline, pushOn, pushTest } = extras;
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
   const signupLimiter = new RateLimiter(10, 3600_000);
@@ -151,6 +153,9 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const body = await r.json();
         await (r.method === 'PUT' ? study.addPushToken(u, body.token) : study.dropPushToken(u, body.token));
         return res(200, { ok: true });
+      } else if (r.method === 'POST' && url === '/api/push/test') {
+        const u = await auth.authenticate(r.token);
+        return res(200, pushTest ? await pushTest(u.id) : { ok: false, reason: 'server-off' });
       } else if (r.method === 'POST' && url === '/api/invite/decline') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();
@@ -167,6 +172,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'PUT' && url === '/api/me/flame') {
         const u = await auth.authenticate(r.token);
         await study.setFlame(u, (await r.json()).flame);
+        return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+      } else if (r.method === 'PUT' && url === '/api/me/character') {
+        const u = await auth.authenticate(r.token);
+        await study.setCharacter(u, (await r.json()).character);
         return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
       } else if (r.method === 'PUT' && url === '/api/me/pose') {
         const u = await auth.authenticate(r.token);

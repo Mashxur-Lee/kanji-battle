@@ -1,4 +1,4 @@
-import { locale } from './i18n';
+import { locale, tr } from './i18n';
 import { screenIn } from './motion';
 import { viewH, viewW, zrect } from './zoom';
 import { showStrokeOrder } from './strokes';
@@ -1122,7 +1122,7 @@ export function markProfile(el: HTMLElement, p: { id: string; bot?: string | nul
 export const dateTime = (at: number) => new Date(at).toLocaleString(locale(), { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /** A small floating card next to the clicked name. */
-export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean }
+export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean; /** 0.9.9.9.5.2 */ remove?: () => Promise<void> }
 export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing', actions?: ProfileActions) {
   const pop = $('otherPop');
   const body: HTMLElement[] = [];
@@ -1195,7 +1195,25 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     c.disabled = !a.canChallenge;
     if (!a.canChallenge) c.title = 'Finish your game first';
     c.onclick = () => { modes.hidden = !modes.hidden; clampProfileCard(); };
-    box.append(c, modes);
+    // 0.9.9.9.5.2: remove a friend — a second tap confirms (no unfriending by a stray tap)
+    const rm = h('button', 'pill danger remove-friend-btn', '✕ Remove friend') as HTMLButtonElement;
+    let sure = 0;
+    rm.onclick = async () => {
+      if (!a.remove) return;
+      if (!sure) {
+        rm.textContent = tr(`Remove ${p.name}?`);
+        rm.classList.add('sure');
+        sure = window.setTimeout(() => { sure = 0; rm.textContent = tr('✕ Remove friend'); rm.classList.remove('sure'); }, 3500);
+        return;
+      }
+      clearTimeout(sure);
+      rm.disabled = true;
+      try { await a.remove(); hideProfileCard(); toast(tr(`${p.name} is no longer your friend`)); }
+      catch (e) { msg.textContent = (e as Error).message; rm.disabled = false; }
+    };
+    const row = h('div', 'pp-row');
+    row.append(c, rm);
+    box.append(row, modes);
   }
   box.append(msg);
   return box;
