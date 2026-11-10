@@ -3819,7 +3819,7 @@ body:not(.mode-shown) #bg[data-time="day"]:has(> .bg-layer.art)::after { opacity
 .mc-cards.carousel > .mc-slot > .mc-card { height: 100%; width: 100%; }
 .mc-cards.carousel { --cw: 320px; }
 .mc-cards.carousel > * { width: var(--cw) !important; min-width: 0; margin: 0; }
-.mc-cards.carousel .mc-card { transition: filter .45s ease, box-shadow .45s ease, border-color .3s ease; -webkit-box-reflect: below 10px linear-gradient(transparent 72%, rgba(255, 255, 255, .16)); }
+.mc-cards.carousel .mc-card { transition: filter .45s ease, box-shadow .45s ease, border-color .3s ease; }
 .mc-cards.carousel .mcc-side .mc-card:not(.locked), .mc-cards.carousel .mc-card.mcc-side:not(.locked) { filter: brightness(.55) saturate(.75); }
 .mc-cards.carousel .mcc-side .mc-card.locked, .mc-cards.carousel .mc-card.mcc-side.locked { filter: grayscale(1) brightness(.45); }
 /* 0.9.9.9.5.2: three cards to read — the neighbours only a little dimmer — and one peeking on each side */
@@ -4031,8 +4031,8 @@ body.lang-switching::after { content: ""; position: fixed; inset: 0; z-index: 10
 
 /* ── 0.9.9.9.5.3: the menu row as in the player's concept: flat, three big cards, a smaller one at each end,
    the arrows at the sides ── */
-.mc-cards.carousel { perspective: none; transform-style: flat; height: calc(var(--cw) * 1.42 + 16px); margin-bottom: 24px; }
-.mc-cards.carousel .mc-card { -webkit-box-reflect: none; }
+.mc-cards.carousel { perspective: none; transform-style: flat; height: calc(var(--cw) * 1.42 + 16px); margin-bottom: 46px; }
+/* (0.9.9.9.5.3: no mirror image under the cards) */
 .mc-cards.carousel .mcc-side:not(.mcc-far) .mc-card:not(.locked), .mc-cards.carousel .mc-card.mcc-side:not(.mcc-far):not(.locked) { filter: none; }
 .mc-cards.carousel .mcc-side:not(.mcc-far) .mc-card.locked, .mc-cards.carousel .mc-card.mcc-side:not(.mcc-far).locked { filter: grayscale(.85) brightness(.75); }
 .mc-cards.carousel .mcc-far .mc-card:not(.locked), .mc-cards.carousel .mc-card.mcc-far:not(.locked) { filter: brightness(.62) saturate(.8); }
