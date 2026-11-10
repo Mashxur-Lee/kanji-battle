@@ -4100,9 +4100,9 @@ body.lang-switching::after { content: ""; position: fixed; inset: 0; z-index: 10
 }
 
 /* ── 0.9.9.9.5.3: Customize — the Hero Locker ──────────────────────────────────────────────────────────────── */
-#customize.locker-screen { width: 100%; max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; padding-bottom: 40px; }
+#customize.locker-screen { width: 100%; max-width: 1640px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; padding-bottom: 40px; }
 .lk-head h2 { margin: 6px 0 0; text-align: center; font-size: clamp(1.8rem, 3vw, 2.4rem); text-shadow: 0 2px 10px rgba(0, 0, 0, .6); }
-.locker { display: grid; grid-template-columns: minmax(200px, 270px) minmax(0, 1fr) minmax(200px, 270px); gap: clamp(14px, 2vw, 28px); align-items: center; }
+.locker { display: grid; grid-template-columns: minmax(200px, 320px) minmax(0, 1fr) minmax(200px, 320px); gap: clamp(14px, 2vw, 28px); align-items: center; }
 .lk-slots { display: flex; flex-direction: column; gap: 14px; }
 .lk-slot { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 18px; cursor: pointer; text-align: left; color: #fff;
   background: linear-gradient(135deg, rgba(36, 28, 84, .86), rgba(16, 12, 42, .9)); border: 1.5px solid rgba(255, 255, 255, .12);
@@ -4129,7 +4129,7 @@ body.lang-switching::after { content: ""; position: fixed; inset: 0; z-index: 10
 /* the middle: you, on a glowing pedestal */
 .lk-center { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
 .locker-screen .cust-preview { position: relative; top: auto; width: 100%; }
-.locker-screen .cust-stage { height: min(460px, calc(52 * var(--vh))); border-radius: 26px; border: 1.5px solid rgba(185, 147, 255, .28);
+.locker-screen .cust-stage { height: min(560px, calc(54 * var(--vh))); border-radius: 26px; border: 1.5px solid rgba(185, 147, 255, .28);
   box-shadow: 0 0 60px rgba(120, 80, 255, .18), 0 18px 40px rgba(0, 0, 0, .45); }
 .locker-screen .cust-stage[data-tab="arena"], .locker-screen .cust-stage[data-tab="omni"] { height: auto; aspect-ratio: 16 / 9; }
 .lk-pedestal { position: relative; width: 62%; height: 34px; margin: -26px auto 0; pointer-events: none; z-index: 2; }
@@ -4173,3 +4173,6 @@ body.lang-switching::after { content: ""; position: fixed; inset: 0; z-index: 10
 :root[data-theme="light"] .lk-txt small, :root[data-theme="light"] .lk-count { color: #5d5880; } :root[data-theme="light"] .lk-slot.on .lk-txt small { color: #a26300; }
 :root[data-theme="light"] .lk-tray { background: linear-gradient(180deg, rgba(255, 255, 255, .94), rgba(244, 240, 252, .94)); border-color: rgba(40, 30, 90, .12); }
 :root[data-theme="light"] .lk-tray-head b { color: #a26300; }
+
+/* 0.9.9.9.5.3: the private lobby's "Your levels": wide enough for all seven in one row (N2 and N1 wrapped) */
+@media (min-width: 901px) { #lobby .levels { max-width: 680px; } #lobby .levels .chips { flex-wrap: nowrap; } #lobby .levels .chip { padding: 9px 13px; } }

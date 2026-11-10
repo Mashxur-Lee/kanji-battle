@@ -7,6 +7,35 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.5.3', date: '2026-11',
+    en: [
+      'Customize is now a Hero Locker: you stand in the middle, turning slowly, with your loadout in slots on both sides (character, staff, arena, flames, pose, profile card). Pick a slot and its items come up in the tray below.',
+      'The main menu row follows your concept: the middle card and its two neighbours the same size, a smaller one at each end, and the arrows at the sides.',
+      'Badges in metal: bronze ★, silver ★★ with a shine running over it, gold ★★★ that glows, and ruby for the very hardest (Kingslayer, Godlike, Lightning Reflexes, Master of All Schools, A Year of Fire).',
+      'Godlike: when anyone reaches a 30× combo, the whole arena trembles for everyone in it.',
+      'Quizzes keep more stats: best, last and average score (out of 10), and best, last and average time, for every quiz.',
+      'Friends coming online show at once — in the friends list and in the lobby’s invite list — without reloading.',
+      'Invites now reach a phone even when the app is closed or asleep: Android shows the notification itself. The notification test waits 5 seconds, so you can check this on your home screen.',
+      'Android: “Update the app” downloads and installs the update inside the app again, with a percentage. It installs only Kanji Wizards’ own update, signed with the app’s own key. The first time, Android asks you to allow installs from the app.',
+      'The knight’s eyes glow behind his visor (they glowed from his mouth). Allies no longer wear green.',
+      'Phones: screens fade in as one smooth piece (no more dark flash between screens), and the background no longer dims and brightens as you go.',
+      'Calmer backgrounds, and the private lobby’s “Your levels” fits all seven levels on one row.',
+    ],
+    ru: [
+      'Кастомизация теперь — «Шкафчик героя»: вы стоите в центре и медленно поворачиваетесь, а снаряжение — в ячейках по обе стороны (персонаж, посох, арена, пламя, поза, карточка профиля). Выберите ячейку — её предметы появятся в лотке ниже.',
+      'Ряд карточек главного меню — как в вашем концепте: центральная и две соседние одного размера, по меньшей с каждого края, стрелки по бокам.',
+      'Значки из металла: бронза ★, серебро ★★ с бегущим бликом, золото ★★★ сияет, а рубин — для самых трудных (Цареубийца, Божественный, Молниеносная реакция, Мастер всех школ, Год огня).',
+      'Божественный: когда кто-то набирает комбо ×30, вся арена дрожит — для всех в ней.',
+      'У тестов больше статистики: лучший, последний и средний счёт (из 10), лучшее, последнее и среднее время — для каждого теста.',
+      'Друзья, вошедшие в игру, видны сразу — в списке друзей и в списке приглашений лобби — без перезагрузки.',
+      'Приглашения приходят на телефон, даже когда приложение закрыто или спит: уведомление показывает сам Android. Проверка уведомлений ждёт 5 секунд — можно проверить с главного экрана.',
+      'Android: «Обновить приложение» снова скачивает и ставит обновление внутри приложения, с процентами. Ставится только собственное обновление Kanji Wizards с подписью приложения. В первый раз Android попросит разрешить установку из приложения.',
+      'Глаза рыцаря светятся за забралом (раньше — изо рта). Союзники больше не в зелёном.',
+      'Телефоны: экраны появляются одним плавным переходом (без тёмной вспышки), а фон больше не темнеет и не светлеет при переходах.',
+      'Спокойнее фоны, а в «Ваших уровнях» частного лобби все семь уровней помещаются в один ряд.',
+    ],
+  },
+  {
     v: '0.9.9.9.5.2', date: '2026-11',
     en: [
       'Choose your character: Customize → Character, with a 3D and a 2D preview. Everyone starts as the Goblin; climbing the Daily challenge leagues unlocks the Knight (N4), the Witch (N3) and the Wizard (N2). Your levels no longer decide who you are.',
