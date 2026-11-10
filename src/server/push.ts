@@ -36,6 +36,18 @@ export function serviceJwt(sa: ServiceAccount, nowSec = Math.floor(Date.now() / 
   return `${head}.${claims}.${b64url(sig)}`;
 }
 
+/**
+ * 0.9.9.9.5.3: what the phone shows by itself. A data-only push needs the app to wake up and draw the notification —
+ * many phones (battery savers, an app swiped away) never wake it, so invites didn't arrive while the test (sent
+ * with the app open) did. With a notification in the push, Android shows it even then; an app that is open gets
+ * the data instead (and shows the invite card).
+ */
+export interface PushNote { title: string; body: string; tag: string }
+const androidNote = (n: PushNote) => ({
+  title: n.title, body: n.body, tag: n.tag, channel_id: 'invites', icon: 'ic_notify', color: '#8b5cf6',
+  sound: 'default', default_vibrate_timings: true, notification_priority: 'PRIORITY_HIGH', visibility: 'PUBLIC',
+});
+
 export class Push {
   private readonly sa: ServiceAccount | null;
   private access: { token: string; until: number } | null = null;
@@ -61,7 +73,7 @@ export class Push {
    * Sends `data` (all strings) to each token as a high-priority data message — the app draws the notification
    * itself (with Join / Decline). Tokens the phone no longer has (app uninstalled) come back in `dead`.
    */
-  async send(tokens: readonly string[], data: Record<string, string>, ttlSec = 120): Promise<PushResult> {
+  async send(tokens: readonly string[], data: Record<string, string>, ttlSec = 120, note?: PushNote): Promise<PushResult> {
     if (!this.sa || !tokens.length) return { sent: 0, dead: [], errors: [] };
     let auth: string;
     try { auth = await this.accessToken(); } catch (e) { return { sent: 0, dead: [], errors: [(e as Error).message] }; }
@@ -73,7 +85,7 @@ export class Push {
       let failed = '';
       const r = await this.fetcher(url, {
         method: 'POST', headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: { token, data, android: { priority: 'high', ttl: `${ttlSec}s` } } }),
+        body: JSON.stringify({ message: { token, data, android: { priority: 'high', ttl: `${ttlSec}s`, ...(note ? { notification: androidNote(note) } : {}) } } }),
       }).catch((e: Error) => { failed = `network: ${e?.message ?? e}`; return null; });
       if (r?.ok) { sent++; return; }
       if (!r) { errors.push(failed || 'network'); return; }

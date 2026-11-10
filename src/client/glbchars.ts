@@ -105,15 +105,19 @@ function ownMaterials(scene: THREE.Object3D, tweak: (name: string, m: THREE.Mesh
 const lift = (m: THREE.MeshStandardMaterial, k: number) => { m.emissive.copy(m.color).multiplyScalar(k).add(new THREE.Color(0x0c0a14)); };
 
 /** where a mesh's vertices are (bind pose, model space): the centres of its left and right halves */
-function eyeSpots(scene: THREE.Object3D, names: string[]): THREE.Vector3[] {
+function eyeSpots(scene: THREE.Object3D, names: string[], top = 0): THREE.Vector3[] {
   for (const n of names) {
     const meshes: THREE.Mesh[] = [];
     scene.traverse((o) => { if ((o as THREE.Mesh).isMesh && (((o as THREE.Mesh).material as THREE.Material).name === n || o.name === n)) meshes.push(o as THREE.Mesh); });
     if (!meshes.length) continue;
     const sides = [new THREE.Vector3(), new THREE.Vector3()], count = [0, 0];
+    // (`top`: only the highest band of it — the knight's visor has its eye slit above the breathing holes)
+    let maxY = -Infinity;
+    if (top) for (const m of meshes) { const pos = m.geometry.getAttribute('position'); for (let i = 0; i < pos.count; i++) maxY = Math.max(maxY, pos.getY(i)); }
     for (const m of meshes) {
       const pos = m.geometry.getAttribute('position');
       for (let i = 0; i < pos.count; i++) {
+        if (top && pos.getY(i) < maxY - top) continue;
         const x = pos.getX(i), s = x < 0 ? 0 : 1;
         sides[s].add(new THREE.Vector3(x, pos.getY(i), pos.getZ(i))); count[s]++;
       }
@@ -125,18 +129,20 @@ function eyeSpots(scene: THREE.Object3D, names: string[]): THREE.Vector3[] {
 }
 
 // ── the four characters ──────────────────────────────────────────────────────
-/** per character: how bright the cloth is lifted, the parts recoloured for allies (green), where the eyes are */
-const LOOK: Record<Exclude<GlbKind, 'dragon'>, { lift: number; team: string[]; eyes: string[]; brighten?: Record<string, number> }> = {
-  goblin: { lift: 0.1, team: ['Scarf', 'ScarfDark', 'Loin'], eyes: ['Pupil', 'Eye'] },
-  knight: { lift: 0.08, team: ['Red', 'Plume'], eyes: ['Slit'] },
+/**
+ * per character: how bright the cloth is lifted, where the eyes are (`eyesTop`: only the top band of that mesh).
+ * 0.9.9.9.5.3: allies keep their own colours (they wore green).
+ */
+const LOOK: Record<Exclude<GlbKind, 'dragon'>, { lift: number; eyes: string[]; eyesTop?: number; brighten?: Record<string, number> }> = {
+  goblin: { lift: 0.1, eyes: ['Pupil', 'Eye'] },
+  knight: { lift: 0.08, eyes: ['Slit'], eyesTop: 0.03 }, // (the visor's eye slit, not its breathing holes)
   // (the witch's black dress and hat vanished on the night arenas: a touch lighter)
-  witch: { lift: 0.16, team: ['Robe', 'RobeTrim', 'Hat', 'HatBand'], eyes: ['Iris'], brighten: { Dress: 2.4, DressPanel: 2, Boots: 2, Robe: 1.5, Hat: 1.4, Belt: 1.6 } },
-  wizard: { lift: 0.1, team: ['Tunic', 'TunicDark', 'Cloak', 'CloakInner', 'Hat', 'HatUnder', 'Boots'], eyes: ['Iris'] },
+  witch: { lift: 0.16, eyes: ['Iris'], brighten: { Dress: 2.4, DressPanel: 2, Boots: 2, Robe: 1.5, Hat: 1.4, Belt: 1.6 } },
+  wizard: { lift: 0.1, eyes: ['Iris'] },
 };
-const ALLY = new THREE.Color(0x2f9070);
 
 /** A character from its model, or null while the model isn't loaded. */
-export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, side: Side, glowTex: THREE.Texture, staffSkin?: string): Character | null {
+export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side, glowTex: THREE.Texture, staffSkin?: string): Character | null {
   const tpl = templates.get(kind);
   if (!tpl) return null;
   const look = LOOK[kind];
@@ -144,7 +150,6 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, side: Side, 
   const materials = ownMaterials(scene, (name, m) => {
     const b = look.brighten?.[name];
     if (b) m.color.multiplyScalar(b);
-    if (side === 'ally' && look.team.includes(name)) { const hsl = { h: 0, s: 0, l: 0 }; m.color.getHSL(hsl); m.color.setHSL(ALLY.getHSL({ h: 0, s: 0, l: 0 }).h, Math.max(0.35, hsl.s), hsl.l); }
     lift(m, look.lift);
   });
   const root = new THREE.Group(), body = new THREE.Group();
@@ -175,7 +180,7 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, side: Side, 
     return { hip, knee, thigh: thigh as unknown as THREE.Group, shin: shin as unknown as THREE.Group };
   });
   // glowing eyes (on fire), where the model's eyes are
-  const spots = eyeSpots(tpl.scene, look.eyes).map((p) => [p.x, p.y - headAt.y, p.z - headAt.z + 0.01] as V3);
+  const spots = eyeSpots(tpl.scene, look.eyes, look.eyesTop).map((p) => [p.x, p.y - headAt.y, p.z - headAt.z + 0.01] as V3);
   const eyes = spots.length ? glowEyes(head, spots, EYE_COLORS[kind], glowTex) : undefined;
   return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, legs };
 }

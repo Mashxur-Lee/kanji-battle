@@ -34,9 +34,9 @@ export function registerPush(userId: string) {
   // the first time, Firebase takes a few seconds to give a token
   if (!token) { if (tries++ < 6) timer = window.setTimeout(() => registerPush(userId), 5000); return; }
   tries = 0;
-  const key = `${userId}:${token}:${new Date().toDateString()}`;
+  const key = `${userId}:${token}:${lang()}:${new Date().toDateString()}`; // (0.9.9.9.5.3: with the language)
   try { if (localStorage.getItem(SENT_KEY) === key) return; } catch { /* private mode */ }
-  void api.pushRegister(token).then(() => { try { localStorage.setItem(SENT_KEY, key); } catch { /* private mode */ } }).catch(() => { /* next time */ });
+  void api.pushRegister(token, lang()).then(() => { try { localStorage.setItem(SENT_KEY, key); } catch { /* private mode */ } }).catch(() => { /* next time */ });
 }
 
 /** signing out: this phone stops getting the account's invites (called while the sign-in token still works) */
@@ -55,7 +55,7 @@ export async function pushSignedOut() {
  * 0.9.9.9.5.2: Settings → "Test invite notifications": goes the whole way (the phone's permission, its Firebase
  * token, the server's push, Google) and says in words where it stops.
  */
-export async function testPush(): Promise<{ ok: boolean; text: string }> {
+export async function testPush(onWait?: () => void): Promise<{ ok: boolean; text: string }> {
   const b = android();
   if (!b) return { ok: false, text: 'Only the Android app gets invite notifications.' };
   if (b.notificationsAllowed && !b.notificationsAllowed()) {
@@ -72,11 +72,13 @@ export async function testPush(): Promise<{ ok: boolean; text: string }> {
     try { why = b.pushError?.() ?? ''; } catch { /* an older app */ }
     return { ok: false, text: `This phone has no push token from Google yet${why ? ` (${why})` : ''}. Check that Google Play services are on and the internet works, then test again.` };
   }
-  try { await api.pushRegister(token); } catch (e) { return { ok: false, text: `Could not reach the server: ${(e as Error).message}` }; }
+  try { await api.pushRegister(token, lang()); } catch (e) { return { ok: false, text: `Could not reach the server: ${(e as Error).message}` }; }
   try { localStorage.removeItem(SENT_KEY); } catch { /* private mode */ }
   let r: Awaited<ReturnType<typeof api.pushTest>>;
-  try { r = await api.pushTest(); } catch (e) { return { ok: false, text: `Could not reach the server: ${(e as Error).message}` }; }
-  if (r.ok) return { ok: true, text: 'Sent ✓ — a notification should appear in a few seconds. If it doesn’t, update the app (menu → Get the app) and check that battery saving doesn’t stop it.' };
+  // 0.9.9.9.5.3: sent after 5 s — time to go to the home screen, where a real invite would find the phone
+  onWait?.();
+  try { r = await api.pushTest(5); } catch (e) { return { ok: false, text: `Could not reach the server: ${(e as Error).message}` }; }
+  if (r.ok) return { ok: true, text: 'Sent ✓ — the notification should be on your phone now. If it isn’t, update the app (menu → Get the app) and check that battery saving doesn’t stop it.' };
   const err = r.errors?.length ? ` (${r.errors[0]})` : '';
   const text = {
     'server-off': 'Push is not switched on on the game’s server yet — the admin has to set it up.',

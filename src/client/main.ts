@@ -34,7 +34,7 @@ import { customizeHidden, onProfileChange, openCustomize, openStudy } from './st
 import * as ui from './ui';
 import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
-import { closeRematchAsk, initFriends, onFriendEvent, onInvite, onInviteDeclined, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
+import { closeRematchAsk, initFriends, onFriendEvent, onFriendPresence, onInvite, onInviteDeclined, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
 import { canPush, pushSignedOut, registerPush, testPush } from './push';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
 import { askNotifyPermission } from './notify';
@@ -416,6 +416,10 @@ function onMessage(msg: ServerMessage) {
     case 'notice':
       ui.toast(msg.message);
       break;
+    case 'friend_presence': // 0.9.9.9.5.3: a friend came online / left — the lists update now
+      void refreshRail();
+      onFriendPresence();
+      break;
     case 'friend':
       onFriendEvent(msg);
       void refreshRail();
@@ -589,6 +593,11 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
         else if (caster === 'me') audio.sfx.impact();
       });
       if (e.playerId !== you) ui.logLine(`${nameOf(e.playerId)} cast for ${e.damage}${e.crit ? ' (CRIT!)' : ''}${e.combo >= 2 ? ` (×${e.combo})` : ''}:`, e.kanji);
+      // 0.9.9.9.5.3: a 30× combo (Godlike) — the arena trembles, and everyone in it feels it
+      if (e.combo === 30) {
+        ui.arenaTremble(1.8); audio.sfx.quake();
+        ui.toast(e.playerId === you ? '30× combo — the arena trembles!' : `${nameOf(e.playerId)} reached a 30× combo — the arena trembles!`);
+      }
       break;
     }
     case 'miss':
@@ -859,7 +868,7 @@ initQuizzes(); // 0.9.9.9.5.2: the Quizzes screen
   const btn = ui.$<HTMLButtonElement>('pushTest'), out = ui.$('pushTestOut');
   btn.onclick = async () => {
     btn.disabled = true; out.hidden = false; out.classList.remove('ok', 'bad'); out.textContent = tr('Testing…');
-    const r = await testPush();
+    const r = await testPush(() => { out.textContent = tr('Go to your home screen now — the test notification comes in 5 seconds…'); });
     out.textContent = tr(r.text); out.classList.add(r.ok ? 'ok' : 'bad');
     btn.disabled = false;
   };

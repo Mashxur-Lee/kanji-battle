@@ -62,7 +62,7 @@ export interface ApiExtras {
   /** 0.9.9.9.5.1: whether push to the Android app is set up (FIREBASE_SERVICE_ACCOUNT) — shown to admins */
   pushOn?: () => boolean;
   /** 0.9.9.9.5.2: sends a test push to the user's phones; what happened */
-  pushTest?: (userId: string) => Promise<{ ok: boolean; reason?: string; sent?: number; phones?: number; errors?: string[] }>;
+  pushTest?: (userId: string, delaySec?: number) => Promise<{ ok: boolean; reason?: string; sent?: number; phones?: number; errors?: string[] }>;
   /** 0.9.9.9.5: "Decline" on an invite notification (the app was closed — no websocket) */
   inviteDecline?: (userId: string, name: string, fromId: string) => void;
 }
@@ -151,11 +151,12 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         // 0.9.9.9.5: the Android app's push token (friends' invites while the app is closed); DELETE at logout
         const u = await auth.authenticate(r.token);
         const body = await r.json();
-        await (r.method === 'PUT' ? study.addPushToken(u, body.token) : study.dropPushToken(u, body.token));
+        await (r.method === 'PUT' ? study.addPushToken(u, body.token, body.lang) : study.dropPushToken(u, body.token));
         return res(200, { ok: true });
       } else if (r.method === 'POST' && url === '/api/push/test') {
         const u = await auth.authenticate(r.token);
-        return res(200, pushTest ? await pushTest(u.id) : { ok: false, reason: 'server-off' });
+        const body = await r.json().catch(() => ({} as Record<string, unknown>));
+        return res(200, pushTest ? await pushTest(u.id, Math.min(10, Math.max(0, Number(body.delay) || 0))) : { ok: false, reason: 'server-off' });
       } else if (r.method === 'POST' && url === '/api/invite/decline') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();

@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.9.5.2
+# Kanji Wizards · v0.9.9.9.5.3
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -30,8 +30,12 @@ Production: `npm run build && npm start` (`PORT` supported). On Render the build
   service worker gives it offline mode too; `offline.html` is shown only if the very first start has no
   internet. Built into `KanjiWizards-Setup.exe` by electron-builder.
 - **Android app** — `mobile/android/` (a small WebView app, no Google Play needed). Adds Android's
-  text-to-speech for spoken words, the file picker for profile pictures and invite links. Signed with the
-  beta key `mobile/android/kanjiwizards-beta.jks`, so new APKs install over old ones.
+  text-to-speech for spoken words, the file picker for profile pictures and invite links. Signed with a
+  private key (GitHub secrets `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD`), so new APKs install over old ones.
+  **Updating (0.9.9.9.5.3, `Updater.java`):** "Update the app" downloads the APK from the game's own server (a fixed
+  address — the page can't name one) with a percentage on the button, checks it is this same app signed with this
+  app's own key and newer, and installs it with `PackageInstaller` as a self-update (Android 12+: no extra tap; older
+  phones show Android's "Update"). The first time, Android asks to allow installs from the app.
 - **Builds** — `.github/workflows/apps.yml` builds both on every pull request (download them from the
   run's *Artifacts*) and, on `main`, publishes them as the GitHub release `v<version>`; the game links to
   `releases/latest/download/KanjiWizards-Setup.exe` and `…/KanjiWizards.apk`.
@@ -91,6 +95,11 @@ Invites reach a friend's phone as a notification (Join / Decline) even when the 
    it is on for new projects.)
 
 Players install the new APK, sign in, and allow notifications when Android asks.
+
+**Notifications the phone shows itself (0.9.9.9.5.3):** an invite push carries an Android notification as well as its
+data — a data-only push needs the app woken up to draw it, and battery savers / an app swiped away never woke it.
+Android shows the notification on its own (in the game's language on that phone, sent with the token); an open app
+gets the data instead and shows the invite card.
 
 **Checking it (0.9.9.9.5.2):** in the Android app, Settings → *Invite notifications* → **Test** goes the whole way —
 the phone's permission, its Firebase token, the server's push, Google's answer — and says in words where it stops
@@ -261,7 +270,8 @@ the 2D layout with a bigger writing pad, a compact top bar and stacked pages.
 
 ## Customize
 
-Sections, each with a live preview and an **Equip** button:
+0.9.9.9.5.3: a **Hero Locker** — you in the middle, turning on a pedestal (the 3D preview), your loadout in slots on
+both sides; the open slot's items come up in a tray below. The slots, each with a live preview and an **Equip** button:
 - **🧙 Character** (0.9.9.9.5.2) — Goblin (from the start), Knight, Witch, Wizard, with a 3D and a 2D preview. The
   Daily challenge leagues unlock them: Knight at N4, Witch at N3, Wizard at N2 (kept in `unlocks` as `char:<id>`,
   `PUT /api/me/character`).

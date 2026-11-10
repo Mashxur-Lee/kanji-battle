@@ -70,6 +70,8 @@ public class Reminders extends BroadcastReceiver {
         String action = intent.getAction();
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             schedule(ctx);
+            // 0.9.9.9.5.3: updated from inside the app — Android closed it to put the new version in: one tap opens it
+            if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) Updater.updated(ctx);
             return;
         }
         schedule(ctx); // the next alarm

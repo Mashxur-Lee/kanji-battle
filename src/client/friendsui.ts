@@ -114,7 +114,7 @@ export async function renderLobbyInvites(isLobby: boolean, inRoom: string[] = lo
   const mine = friends.filter((f) => f.status === 'accepted' && !lobbyIds.includes(f.id));
   const online = [...mine.filter((f) => f.online && !f.away), ...mine.filter((f) => f.online && f.away), ...mine.filter((f) => !f.online && f.push)];
   box.hidden = online.length === 0;
-  if (!online.length) return;
+  if (!online.length) { cooldownTimer = window.setTimeout(() => { if (ui.currentScreen() === 'lobby') void refresh(true).then(() => renderLobbyInvites(true)); }, 15_000); return; }
   let soonest = Infinity;
   const now = Date.now();
   box.replaceChildren(el('h4', '', 'Invite friends'), ...online.map((f) => {
@@ -136,6 +136,7 @@ export async function renderLobbyInvites(isLobby: boolean, inRoom: string[] = lo
   }));
   // tick the countdown on the buttons
   if (soonest < Infinity) cooldownTimer = window.setTimeout(() => { if (!box.hidden) void renderLobbyInvites(true); }, Math.min(1000, soonest));
+  else cooldownTimer = window.setTimeout(() => { if (ui.currentScreen() === 'lobby') void refresh(true).then(() => renderLobbyInvites(true)); }, 15_000); // (and a look every 15 s)
 }
 
 /** A friend invites you: a card with Join / Decline (and an alert if the tab is in the background). */
@@ -183,6 +184,14 @@ export function closeRematchAsk() { rematchClose?.(); }
 export function onFriendEvent(msg: { event: 'request' | 'accepted'; from: string }) {
   ui.toast(msg.event === 'request' ? `${msg.from} wants to be your friend — see Friends` : `${msg.from} accepted your friend request`, 5000);
   void refresh(true).then(() => { if (ui.currentScreen() === 'friends') render(); });
+}
+
+/** 0.9.9.9.5.3: a friend came online or went offline: the Friends page and the lobby's invite list update */
+export function onFriendPresence() {
+  void refresh(true).then(() => {
+    if (ui.currentScreen() === 'friends') render();
+    if (ui.currentScreen() === 'lobby') void renderLobbyInvites(true);
+  });
 }
 
 /** 0.9.9.9.5: the friend you invited said no — the lobby shows "Declined · 1:59" until you may ask again */

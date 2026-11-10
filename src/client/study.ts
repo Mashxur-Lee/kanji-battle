@@ -387,7 +387,7 @@ interface CustItem {
   id: string; name: string; blurb: string; locked: boolean; lock: string; equipped: boolean;
   tile: () => Node; equip: () => Promise<{ profile: Profile }>; lockedToast: string;
 }
-let custTab: CustTab = 'profile';
+let custTab: CustTab = 'character'; // (0.9.9.9.5.3: the Hero Locker opens on your character)
 const picked: Partial<Record<CustTab, string>> = {};
 let cust: { profile: Profile; isAdmin: boolean; onTimeChange: () => void } | null = null;
 let preview: StaffPreview | null = null;
@@ -417,18 +417,25 @@ async function ensurePreview() {
   renderCustomize();
 }
 
-for (const b of document.querySelectorAll<HTMLButtonElement>('#custTabs .cust-tab')) {
-  b.onclick = () => { custTab = b.dataset.tab as CustTab; renderCustomize(); };
-}
+/** 0.9.9.9.5.3: the Hero Locker's slots — your loadout, on both sides of you (they were tabs along the top) */
+const SLOTS: { tab: CustTab; label: string; side: 'left' | 'right' }[] = [
+  { tab: 'character', label: 'Character', side: 'left' },
+  { tab: 'staff', label: 'Magic staff', side: 'left' },
+  { tab: 'arena', label: 'Arena', side: 'left' },
+  { tab: 'omni', label: 'Omnipotence', side: 'right' },
+  { tab: 'pose', label: 'Combo pose', side: 'right' },
+  { tab: 'profile', label: 'Profile card', side: 'right' },
+];
+let trayTab: CustTab | null = null; // (the tray slides up when the slot changes)
 
 const thisMonth = () => new Date().getMonth() + 1;
 const monthName = (m: number) => new Date(2026, m - 1, 15).toLocaleDateString(locale(), { month: 'long' });
 
-function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
+function custItems(profile: Profile, isAdmin: boolean, tab: CustTab = custTab): CustItem[] {
   const lvl = levelOf(profile.xp);
   const best = Math.max(profile.bestStreak ?? 0, profile.streak ?? 0);
   const time = resolveTime(getTimePref());
-  if (custTab === 'staff') {
+  if (tab === 'staff') {
     // every staff is listed — seasonal ones stay locked until you complete their month's goals
     return STAFFS.map((s) => ({
       id: s.id, name: s.name, blurb: s.blurb,
@@ -443,7 +450,7 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
       equip: () => api.setStaff(s.id),
     }));
   }
-  if (custTab === 'arena') {
+  if (tab === 'arena') {
     return BACKGROUNDS.map((b) => ({
       id: b.id, name: b.name, blurb: 'The scene behind every battle (and its sounds in the menus).',
       locked: !isAdmin && !beta.open && lvl < b.level, lock: `Level ${b.level}`,
@@ -453,7 +460,7 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
       equip: () => api.setBackground(b.id as BackgroundId),
     }));
   }
-  if (custTab === 'profile') {
+  if (tab === 'profile') {
     return BORDERS.map((b) => ({
       id: b.id, name: b.name === 'No border' ? b.name : `${b.name} border`, blurb: `${b.blurb} Round your profile picture — everyone sees it in lobbies, battles and on your profile card.`,
       locked: !isAdmin && !borderUnlocked(b.id, lvl, profile.unlocks), lock: b.unlock ? 'Tutorial' : `Level ${b.level}`,
@@ -463,7 +470,7 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
       equip: () => api.setBorder(b.id),
     }));
   }
-  if (custTab === 'character') {
+  if (tab === 'character') {
     // 0.9.9.9.5.2: your character — picked here (it came from your levels); the Daily challenge leagues unlock them
     const mine = characterOf(profile.unlocks), league = leagueIn(profile.unlocks);
     return CHARACTER_DEFS.map((d) => ({
@@ -475,7 +482,7 @@ function custItems(profile: Profile, isAdmin: boolean): CustItem[] {
       equip: () => api.setCharacter(d.id),
     }));
   }
-  if (custTab === 'pose') {
+  if (tab === 'pose') {
     const mine = poseOf(profile.unlocks);
     return POSE_DEFS.map((d) => ({
       id: d.id, name: d.name, blurb: `${d.blurb} ${d.id === 'none' ? '' : 'You strike it while you’re on fire — 5 correct casts in a row, or your Omnipotence — and everyone in the battle sees it.'}`.trim(),
@@ -535,9 +542,27 @@ const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
 function renderCustomize() {
   if (!cust) return;
   const { profile, isAdmin, onTimeChange } = cust;
-  for (const b of document.querySelectorAll<HTMLButtonElement>('#custTabs .cust-tab')) {
-    const on = b.dataset.tab === custTab;
-    b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on));
+  // the slots: each shows what you have on (its picture and name); the open one is lit
+  for (const side of ['left', 'right'] as const) {
+    $(side === 'left' ? 'lkLeft' : 'lkRight').replaceChildren(...SLOTS.filter((x) => x.side === side).map((slot) => {
+      const its = custItems(profile, isAdmin, slot.tab);
+      const on = its.find((i) => i.equipped) ?? its[0];
+      const have = its.filter((i) => !i.locked).length;
+      const b = el('button', `lk-slot${slot.tab === custTab ? ' on' : ''}`) as HTMLButtonElement;
+      b.type = 'button'; b.dataset.tab = slot.tab;
+      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(slot.tab === custTab));
+      const pic = el('div', `lk-pic ${slot.tab}`); if (on) pic.append(on.tile());
+      const txt = el('div', 'lk-txt');
+      txt.append(el('small', '', slot.label), el('b', '', on?.name ?? '—'), el('span', 'lk-count', `${have} / ${its.length}`));
+      b.append(pic, txt);
+      b.onclick = () => { if (custTab === slot.tab) return; custTab = slot.tab; renderCustomize(); };
+      return b;
+    }));
+  }
+  $('lkTrayTitle').textContent = SLOTS.find((x) => x.tab === custTab)!.label;
+  if (trayTab !== custTab) {
+    trayTab = custTab;
+    $('lkTray').animate([{ opacity: 0, translate: '0 26px' }, { opacity: 1, translate: '0 0' }], { duration: 380, easing: 'cubic-bezier(.2, .8, .2, 1)' });
   }
   const items = custItems(profile, isAdmin);
   const lvl = levelOf(profile.xp);
@@ -700,6 +725,7 @@ function showArena3(tab: 'arena' | 'omni' | 'pose' | 'character', id: string, p:
   arena3.setActive(true);
   if (tab === 'arena') arena3.prewarm(BACKGROUNDS.map((b) => b.id), time); // the other arenas get built while you look
   arena3.focusOpp(tab === 'omni' || tab === 'pose' || tab === 'character'); // the flames / the pose / the character: up close; the arena: the whole view
+  arena3.spin(tab === 'character'); // 0.9.9.9.5.3: on the pedestal, turning
   const color = tab === 'omni' ? flameColor(id) : tab === 'pose' ? flameColor(p.flame) : undefined;
   arena3.setPose('opp', tab === 'pose' ? id : 'none'); // 0.9.9.7: you, in the combo pose you're looking at
   arena3.setPose('me', tab === 'pose' ? id : 'none'); // … and in the corner as you see it yourself (0.9.9.7.1)

@@ -49,15 +49,35 @@ const GLYPH: Record<AchIcon, string> = {
   wand: '<path d="M4 20L14.5 9.5"/><path d="M14.5 9.5l2-2M18 2.5v2.5M21.5 6H19M20.2 3.8l-1.6 1.6M12.5 4.5l1 1M18.5 10.5l1 1"/>',
 };
 
-/** A hexagon badge with the achievement's icon, in its colour (or grey and locked). */
+/**
+ * 0.9.9.9.5.3: the four kinds of badge — the frame and the stars in their metal: bronze (★), silver (★★, a shine
+ * runs round it), gold (★★★, very shiny) and ruby (★★★ in red, the very hardest: a deep red glow and sparkles). The icon keeps
+ * the achievement's own colour.
+ */
+export const TIERS = [
+  null,
+  { name: 'Bronze', hi: '#ffd2a6', mid: '#cd7f32', lo: '#7a4519', star: '#e7a466' },
+  { name: 'Silver', hi: '#ffffff', mid: '#c4ccd8', lo: '#6e7787', star: '#eef2f8' },
+  { name: 'Gold', hi: '#fff6c2', mid: '#ffc93c', lo: '#a86a00', star: '#ffe066' },
+  { name: 'Ruby', hi: '#ffb3c9', mid: '#e0115f', lo: '#6b0026', star: '#ff5c8d' },
+] as const;
+const STAR = 'M0-4.2l1.23 2.5 2.77.4-2 1.95.47 2.75L0 2.1l-2.47 1.3.47-2.75-2-1.95 2.77-.4z';
+
+/** A hexagon badge with the achievement's icon, a metal frame and its stars (or grey and locked). */
 export function badgeSvg(a: AchievementDef, locked: boolean): string {
   const c = a.color; // locked ones are dimmed in CSS, but keep their colour
+  const t = TIERS[a.tier]!;
   const id = `g${a.id.replace(/\W/g, '')}${locked ? 'l' : ''}`;
-  return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${locked ? '#2a2840' : '#2b2160'}"/><stop offset="1" stop-color="${locked ? '#16152a' : '#120c34'}"/></linearGradient></defs>`
-    + `<path d="M32 3l25 14.5v29L32 61 7 46.5v-29z" fill="url(#${id})" stroke="${c}" stroke-width="3"/>`
-    + `<path d="M32 9.5l19.5 11.3v22.4L32 54.5 12.5 43.2V20.8z" fill="none" stroke="${c}" stroke-opacity=".35" stroke-width="1.2"/>`
-    + `<g transform="translate(20 20)" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" color="${c}"><g transform="scale(1)">${GLYPH[a.icon]}</g></g>`
-    + `${Array.from({ length: a.tier }, (_, i) => `<circle cx="${32 + (i - (a.tier - 1) / 2) * 7}" cy="52" r="2.2" fill="${c}"/>`).join('')}</svg>`;
+  const stars = Math.min(3, a.tier);
+  return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs>`
+    + `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${locked ? '#2a2840' : '#2b2160'}"/><stop offset="1" stop-color="${locked ? '#16152a' : '#120c34'}"/></linearGradient>`
+    + `<linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${t.hi}"/><stop offset=".45" stop-color="${t.mid}"/><stop offset=".7" stop-color="${t.lo}"/><stop offset="1" stop-color="${t.mid}"/></linearGradient>`
+    + `</defs>`
+    + `<path d="M32 3l25 14.5v29L32 61 7 46.5v-29z" fill="url(#${id})" stroke="url(#${id}m)" stroke-width="3.6"/>`
+    + `<path d="M32 8.6l20.2 11.7v23.4L32 55.4 11.8 43.7V20.3z" fill="none" stroke="${t.mid}" stroke-opacity=".45" stroke-width="1.1"/>`
+    + `<g transform="translate(20 17)" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" color="${c}">${GLYPH[a.icon]}</g>`
+    + Array.from({ length: stars }, (_, i) => `<path transform="translate(${32 + (i - (stars - 1) / 2) * 9} 49.5)" d="${STAR}" fill="${t.star}" stroke="${t.lo}" stroke-width=".6"/>`).join('')
+    + `</svg>`;
 }
 
 const has = (unlocks: readonly string[] | undefined, id: string) => !!unlocks?.includes(ACH_PREFIX + id);
@@ -70,7 +90,7 @@ export function badgeRow(ids: readonly string[] | undefined): HTMLElement | '' {
   row.className = 'badge-row';
   for (const a of list) {
     const b = document.createElement('span');
-    b.className = 'ach mini';
+    b.className = `ach mini tier-${a.tier}`;
     b.tabIndex = 0;
     b.style.setProperty('--ac', a.color);
     b.setAttribute('aria-label', `${a.name}: ${a.how}`);
@@ -103,7 +123,7 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
   for (const a of ACHIEVEMENTS) {
     const locked = !has(unlocks, a.id);
     const b = document.createElement('div');
-    b.className = 'ach' + (locked ? ' locked' : '');
+    b.className = `ach tier-${a.tier}` + (locked ? ' locked' : '');
     b.tabIndex = 0;
     b.style.setProperty('--ac', a.color);
     b.setAttribute('aria-label', `${a.name}: ${locked ? 'locked — ' : ''}${a.how}`);
@@ -113,8 +133,9 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
     const t = document.createElement('b'); t.textContent = a.name;
     const s = document.createElement('span'); s.textContent = a.how;
     const pinned = badges.includes(a.id);
+    const tn = document.createElement('small'); tn.className = `ach-tier t${a.tier}`; tn.textContent = `${TIERS[a.tier]!.name} ${'★'.repeat(Math.min(3, a.tier))}`;
     const st = document.createElement('small'); st.textContent = locked ? 'Locked' : pinned ? 'On your profile ✓ — click to remove' : onBadges ? 'Unlocked ✓ — click to show on your profile' : 'Unlocked ✓';
-    tip.append(t, s);
+    tip.append(tn, t, s);
     const goal = locked ? ACH_GOALS[a.id] : undefined;
     const have = goal && counts ? counts[goal[0]] : undefined;
     if (goal && typeof have === 'number') { // 0.9.9.6.1: how far along a locked one is
@@ -172,7 +193,7 @@ function next() {
   box.style.setProperty('--ac', a.color);
   box.innerHTML = '';
   const rays = document.createElement('div'); rays.className = 'ach-rays';
-  const badge = document.createElement('div'); badge.className = 'ach-badge'; badge.innerHTML = badgeSvg(a, false);
+  const badge = document.createElement('div'); badge.className = `ach-badge tier-${a.tier}`; badge.innerHTML = badgeSvg(a, false);
   const txt = document.createElement('div'); txt.className = 'ach-text';
   const k = document.createElement('small'); k.textContent = 'Achievement unlocked!';
   const n = document.createElement('b'); n.textContent = a.name;
