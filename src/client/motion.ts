@@ -13,9 +13,9 @@ const SPRING = 'cubic-bezier(.3, 1.5, .55, 1)';
 const FIXED = '.back, .kana-bar, #gameKb, .passage-gloss, .kanji-pop, .mode-title, #comboHud, .clock-col, .dk-overlay, .pause-overlay, .menu-veil, .arena3d-hit, .ult-fx, .coach-tip, .other-pop, .guide-pop, .rail-fab, .dict-fab, #dragon, .invite-box, .csel-menu.floating, dialog';
 /** per screen, the cards and blocks that rise in one after another (besides the screen's own top-level parts) */
 const PARTS: Record<string, string> = {
-  menu: '.mc-title, .mc-nav-btn, .tasks-btn, .mc-card, .menu-foot > *',
+  menu: '.mc-title, .mc-nav-btn, .tasks-btn, .mc-card, .mcc-nav, .menu-foot > *',
   study: '#studyGrid > *',
-  quizzes: '.practice-card',
+  quizzes: '.qz-head, .qz-goal, .qz-card',
   progress: '.prog-card, #progGrid > *',
   history: '#historyList > *',
   customize: '#custGrid > *',
@@ -59,8 +59,10 @@ export function screenIn(id: string) {
   const light = touch();
   // (fading a whole screen makes the phone redraw every panel on it each frame: on phones only the parts move)
   if (!light) screen.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
-  const top = [...screen.children].filter((c) => !c.matches(FIXED) && !c.querySelector(FIXED) && !(c as HTMLElement).hidden);
-  const deep = PARTS[id] ? [...screen.querySelectorAll(PARTS[id])].filter((c) => !c.closest('[hidden]') && !c.matches(FIXED) && !c.querySelector(FIXED)) : [];
+  dispatchEvent(new CustomEvent('kw:screenin', { detail: id }));
+  const top = [...screen.children].filter((c) => !c.matches(FIXED) && !c.querySelector(FIXED) && !(c as HTMLElement).hidden && !c.querySelector('.mc-cards.carousel'));
+  // (the menu's carousel deals its cards itself: menucarousel.ts)
+  const deep = PARTS[id] ? [...screen.querySelectorAll(PARTS[id])].filter((c) => !c.closest('[hidden]') && !c.closest('.mc-cards.carousel') && !c.matches(FIXED) && !c.querySelector(FIXED)) : [];
   // a part already rising as one of the top-level blocks isn't moved twice
   const parts = [...top.filter((t) => !deep.some((d) => t.contains(d))), ...deep];
   const ordered = parts.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));

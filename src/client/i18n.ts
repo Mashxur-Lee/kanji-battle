@@ -508,6 +508,14 @@ const RU: Record<string, string> = {
   'Your words from levels': 'Ваши слова уровней', 'Your wizard': 'Ваш волшебник', 'Your own words always count': 'Ваши собственные слова учитываются всегда', 'Changes apply to the next quiz': 'Изменения — со следующего теста',
   // 0.9.9.9.5.2
   '✕ Remove friend': '✕ Удалить из друзей',
+  'Test what you know — a passed JLPT quiz or reading passage counts for your daily streak.': 'Проверьте себя — пройденный тест JLPT или текст для чтения засчитывается в ежедневную серию.',
+  'Counts for the streak': 'Засчитывается в серию', '10 questions from the spells you studied — or kana: readings, meanings and kanji.': '10 вопросов по изученным заклинаниям — или по кане: чтения, значения и кандзи.',
+  'Giongo, gitaigo and gijōgo — the sounds, states and feelings Japanese is full of.': 'Гионго, гитайго и гидзё:го — звуки, состояния и чувства, которыми полон японский.',
+  '10 questions': '10 вопросов', '4 choices': '4 варианта', '≈ 3 min': '≈ 3 мин', '≈ 5 min': '≈ 5 мин', 'Pass: 7 / 10': 'Зачёт: 7 / 10', 'A short story': 'Короткий рассказ',
+  'Fill the blanks': 'Заполните пропуски', 'Pass: half right': 'Зачёт: половина верно', 'Start the quiz': 'Начать тест', 'Read a passage': 'Читать текст',
+  'today': 'сегодня', 'Best': 'Лучший', 'Last': 'Последний', 'Played': 'Сыграно', 'Not played yet — good luck!': 'Ещё не пройден — удачи!',
+  'Today’s quiz task is done — nice work!': 'Задание с тестом на сегодня выполнено — отлично!',
+  'Today’s streak task: pass a JLPT quiz (7 / 10) or a reading passage (half right).': 'Задание серии на сегодня: пройдите тест JLPT (7 / 10) или текст для чтения (половина верно).',
   // 0.9.9.9.5.1
   'Quizzes': 'Тесты', 'JLPT quiz, onomatopoeia and reading passages': 'Тест JLPT, ономатопея и тексты для чтения', 'Your decks — kanji words as flashcards': 'Ваши колоды — слова с кандзи на карточках',
   'Test what you know — a passed quiz or passage counts for your daily streak.': 'Проверьте себя — пройденный тест или текст засчитывается в ежедневную серию.',

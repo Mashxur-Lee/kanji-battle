@@ -539,14 +539,39 @@
   </section>
 
   <!-- 0.9.9.9.5.1: QUIZZES — the JLPT quiz (with kana), the onomatopoeia quiz, the reading passage -->
-  <section id="quizzes" class="screen" hidden>
+  <section id="quizzes" class="screen quizzes-screen" hidden>
     <button id="quizzesBack" class="back" type="button">← Menu</button>
-    <h2>Quizzes</h2>
-    <p class="sub">Test what you know — a passed quiz or passage counts for your daily streak.</p>
-    <div class="practice-row">
-      <button id="quizBtn" class="practice-card pc-quiz"><i class="pc-ico" aria-hidden="true">試</i><b>JLPT quiz</b><span>10 questions from the spells you studied — or kana — readings, meanings and kanji, 4 choices each.</span></button>
-      <button id="onoQuizBtn" class="practice-card pc-ono"><i class="pc-ico" aria-hidden="true">音</i><b>Onomatopoeia quiz</b><span>10 questions on giongo, gitaigo and gijōgo — sounds, states and feelings, 4 choices each.</span></button>
-      <button id="passageBtn" class="practice-card pc-read"><i class="pc-ico" aria-hidden="true">読</i><b>Reading passage</b><span>A short story written with your words — fill in the blanks from the context, then check.</span></button>
+    <!-- 0.9.9.9.5.2: a screen of its own — today's goal on top, a big card for each quiz with your best and last results -->
+    <header class="qz-head">
+      <span class="qz-emblem" lang="ja" aria-hidden="true">試</span>
+      <div class="qz-titles"><h2>Quizzes</h2><p class="sub">Test what you know — a passed JLPT quiz or reading passage counts for your daily streak.</p></div>
+    </header>
+    <div id="qzGoal" class="qz-goal" hidden></div>
+    <div class="qz-grid">
+      <article class="qz-card" data-quiz="jlpt" style="--qc:#b993ff">
+        <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">試</span><span class="qz-streak">🔥 <span>Counts for the streak</span></span></div>
+        <h3>JLPT quiz</h3>
+        <p class="qz-desc">10 questions from the spells you studied — or kana: readings, meanings and kanji.</p>
+        <ul class="qz-facts"><li>10 questions</li><li>4 choices</li><li>≈ 3 min</li><li>Pass: 7 / 10</li></ul>
+        <div class="qz-stats" data-stats="jlpt"></div>
+        <button id="quizBtn" class="qz-go" type="button">Start the quiz</button>
+      </article>
+      <article class="qz-card" data-quiz="ono" style="--qc:#ffb347">
+        <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">音</span></div>
+        <h3>Onomatopoeia quiz</h3>
+        <p class="qz-desc">Giongo, gitaigo and gijōgo — the sounds, states and feelings Japanese is full of.</p>
+        <ul class="qz-facts"><li>10 questions</li><li>4 choices</li><li>≈ 3 min</li></ul>
+        <div class="qz-stats" data-stats="ono"></div>
+        <button id="onoQuizBtn" class="qz-go" type="button">Start the quiz</button>
+      </article>
+      <article class="qz-card" data-quiz="passage" style="--qc:#4fd1c5">
+        <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">読</span><span class="qz-streak">🔥 <span>Counts for the streak</span></span></div>
+        <h3>Reading passage</h3>
+        <p class="qz-desc">A short story written with your words — fill in the blanks from the context, then check.</p>
+        <ul class="qz-facts"><li>A short story</li><li>Fill the blanks</li><li>≈ 5 min</li><li>Pass: half right</li></ul>
+        <div class="qz-stats" data-stats="passage"></div>
+        <button id="passageBtn" class="qz-go" type="button">Read a passage</button>
+      </article>
     </div>
   </section>
 

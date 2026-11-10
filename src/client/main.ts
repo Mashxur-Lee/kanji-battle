@@ -43,6 +43,7 @@ import * as offline from './offline';
 import { initKana, openKana, setKanaProgress } from './kanaui';
 import { initMotion } from './motion';
 import { initMenuCarousel } from './menucarousel';
+import { initQuizzes, quizzesProfile } from './quizzesui';
 import { initApp } from './appshell';
 import './dictui'; // (the dictionary page; opened from the side panel)
 
@@ -191,6 +192,7 @@ function applyProfile(p: Profile) {
   void dailyPending().then((open) => { ui.$('dailyBadge').hidden = !open; });
   refreshFriendsBadge();
   renderTasks(p); // the daily streak tasks
+  quizzesProfile(p); // (the Quizzes screen shows today's quiz task)
   setKanaProgress(p.kana); // 0.9.9.9.5: the Kana section
   if (user && !inRoom && ui.currentScreen() === 'menu') checkRewards(user.id, p, user.role === 'admin', applyProfile); // something new unlocked → a reward box
   if (user && p.tutorialDone && !tutorialShown && !inRoom && ui.currentScreen() === 'menu') tasksAtLogin(p);
@@ -850,6 +852,7 @@ initApp({
 });
 initMotion(); // 0.9.9.9.5: buttons give and spring back, new list items slide in
 initMenuCarousel(); // 0.9.9.9.5.1: the menu's cards as a carousel on computers
+initQuizzes(); // 0.9.9.9.5.2: the Quizzes screen
 initTutorial({
   firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ui.kanaBeginner() ? ['KANA'] : ['KANA', 'N5'], tutorial: true }),
   kana: async (mastered) => {
