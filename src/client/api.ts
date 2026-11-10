@@ -125,6 +125,8 @@ export const api = {
   /** 0.9.9.9.5: the Android app's push token (friends' invites while the app is closed) */
   pushRegister: (token: string) => call<{ ok: boolean }>('PUT', '/api/push', { token }),
   pushUnregister: (token: string) => call<{ ok: boolean }>('DELETE', '/api/push', { token }),
+  /** 0.9.9.9.5.2: a test push to this account's phones, and what happened */
+  pushTest: () => call<{ ok: boolean; reason?: string; sent?: number; phones?: number; errors?: string[] }>('POST', '/api/push/test'),
   quiz: (n = 10, deck?: string, levels?: string[]) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}${deck ? `&deck=${deck}` : ''}${levels?.length ? `&levels=${levels.join(',')}` : ''}`),
   /** 0.9.9.4.4.1: one story with these words (null when the AI is off or failed) */
   story: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>, level?: string) => call<{ story: { title: { ja: string; en: string; ru: string }; lines: Array<{ ja: string; en: string; ru: string; words: number[] }> } | null; why?: string; usage?: StoryUsage }>('POST', '/api/study/story', { words, level, today: today() }),

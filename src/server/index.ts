@@ -53,15 +53,30 @@ hub.setNotifier(async (userId, data) => {
   try {
     const r = await push.send(tokens, data);
     if (r.dead.length) await store.update(userId, { pushTokens: tokens.filter((t) => !r.dead.includes(t)) });
+    // 0.9.9.9.5.2: a push Google refused shows in the admin's errors (it failed without a word before)
+    if (!r.sent && r.errors.length && r.dead.length < tokens.length) reportServerError('push', new Error(r.errors.join(' | ')));
     return r.sent > 0;
   } catch (e) { reportServerError('push', e); return false; }
 });
+const pushTested = new Map<string, number>(); // (one test every few seconds)
 const recognizer = Recognizer.fromFile();
 const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
 const stories = new StoryService();
 console.log(`Reading passage stories: ${stories.describe}`);
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled });
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled,
+  // 0.9.9.9.5.2: Settings → "Test invite notification": the whole way, with what went wrong
+  pushTest: async (userId) => {
+    if (!push.enabled) return { ok: false, reason: 'server-off' };
+    if ((pushTested.get(userId) ?? 0) > Date.now() - 8000) return { ok: false, reason: 'wait' };
+    pushTested.set(userId, Date.now());
+    const u = await store.findById(userId);
+    const tokens = u?.pushTokens ?? [];
+    if (!tokens.length) return { ok: false, reason: 'no-phone' };
+    const r = await push.send(tokens, { kind: 'test' }, 60);
+    if (r.dead.length) await store.update(userId, { pushTokens: tokens.filter((t) => !r.dead.includes(t)) });
+    return r.sent ? { ok: true, sent: r.sent, phones: tokens.length } : { ok: false, reason: r.dead.length === tokens.length ? 'stale' : 'refused', errors: r.errors.slice(0, 3) };
+  } });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const rooms = new RoomManager({

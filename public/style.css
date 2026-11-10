@@ -3996,3 +3996,7 @@ body.mode-shown #bg:has(> .bg-layer.art)::after { opacity: .55; }
 :root[data-theme="light"] .qz-goal .qg-text { color: #3a2410; } :root[data-theme="light"] .qz-goal .qg-val { color: #8a3d00; }
 :root[data-theme="light"] .qz-goal.done { background: linear-gradient(90deg, rgba(60, 220, 140, .22), rgba(246, 244, 252, .92) 60%); }
 :root[data-theme="light"] .qz-goal.done .qg-text { color: #0d4f30; } :root[data-theme="light"] .qz-goal.done .qg-val { color: #12895a; }
+#quizzes.quizzes-screen { width: 100%; max-width: 1180px; margin-left: auto; margin-right: auto; }
+.qz-card h3 { text-transform: none; letter-spacing: 0; }
+.push-test-out.ok { color: #8affc0; } .push-test-out.bad { color: #ffb3b3; }
+:root[data-theme="light"] .push-test-out.ok { color: #12895a; } :root[data-theme="light"] .push-test-out.bad { color: #c8284a; }

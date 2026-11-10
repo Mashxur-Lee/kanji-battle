@@ -10,7 +10,13 @@ interface Bridge {
   pushToken?: () => string;
   /** the sign-in token for the notification's Decline ('' = signed out), and the notifications' language */
   setPushAuth?: (token: string, lang: string) => void;
+  /** 0.9.9.9.5.2: why there is no token; may it show notifications; ask again */
+  pushError?: () => string;
+  notificationsAllowed?: () => boolean;
+  askNotifications?: () => void;
 }
+/** whether this is the Android app with push (Settings shows the test then) */
+export const canPush = () => !!android();
 const android = (): Bridge | null => { const b = (window as unknown as { KWAndroid?: Bridge }).KWAndroid; return b?.pushToken ? b : null; };
 
 const SENT_KEY = 'kb:pushSent';
@@ -43,4 +49,41 @@ export async function pushSignedOut() {
   try { token = b.pushToken?.() ?? ''; } catch { /* an older app */ }
   try { localStorage.removeItem(SENT_KEY); } catch { /* private mode */ }
   if (token) await api.pushUnregister(token).catch(() => { /* offline: the next account to sign in here takes the token over anyway */ });
+}
+
+/**
+ * 0.9.9.9.5.2: Settings → "Test invite notifications": goes the whole way (the phone's permission, its Firebase
+ * token, the server's push, Google) and says in words where it stops.
+ */
+export async function testPush(): Promise<{ ok: boolean; text: string }> {
+  const b = android();
+  if (!b) return { ok: false, text: 'Only the Android app gets invite notifications.' };
+  if (b.notificationsAllowed && !b.notificationsAllowed()) {
+    b.askNotifications?.();
+    return { ok: false, text: 'Notifications are blocked for Kanji Wizards. Allow them (Android settings → Apps → Kanji Wizards → Notifications), then test again.' };
+  }
+  let token = '';
+  for (let i = 0; i < 4 && !token; i++) {
+    try { token = b.pushToken?.() ?? ''; } catch { /* an older app */ }
+    if (!token) await new Promise((r) => setTimeout(r, 1500));
+  }
+  if (!token) {
+    let why = '';
+    try { why = b.pushError?.() ?? ''; } catch { /* an older app */ }
+    return { ok: false, text: `This phone has no push token from Google yet${why ? ` (${why})` : ''}. Check that Google Play services are on and the internet works, then test again.` };
+  }
+  try { await api.pushRegister(token); } catch (e) { return { ok: false, text: `Could not reach the server: ${(e as Error).message}` }; }
+  try { localStorage.removeItem(SENT_KEY); } catch { /* private mode */ }
+  let r: Awaited<ReturnType<typeof api.pushTest>>;
+  try { r = await api.pushTest(); } catch (e) { return { ok: false, text: `Could not reach the server: ${(e as Error).message}` }; }
+  if (r.ok) return { ok: true, text: 'Sent ✓ — a notification should appear in a few seconds. If it doesn’t, update the app (menu → Get the app) and check that battery saving doesn’t stop it.' };
+  const err = r.errors?.length ? ` (${r.errors[0]})` : '';
+  const text = {
+    'server-off': 'Push is not switched on on the game’s server yet — the admin has to set it up.',
+    'no-phone': 'The server has no phone for your account — test again in a moment.',
+    stale: 'Google says this phone’s token is out of date. Reopen the app and test again.',
+    wait: 'Wait a few seconds between tests.',
+    refused: `Google refused the push${err}.`,
+  }[r.reason ?? 'refused'] ?? `It didn’t work${err}.`;
+  return { ok: false, text };
 }

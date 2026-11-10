@@ -35,7 +35,7 @@ import * as ui from './ui';
 import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
 import { closeRematchAsk, initFriends, onFriendEvent, onInvite, onInviteDeclined, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
-import { pushSignedOut, registerPush } from './push';
+import { canPush, pushSignedOut, registerPush, testPush } from './push';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
@@ -853,6 +853,17 @@ initApp({
 initMotion(); // 0.9.9.9.5: buttons give and spring back, new list items slide in
 initMenuCarousel(); // 0.9.9.9.5.1: the menu's cards as a carousel on computers
 initQuizzes(); // 0.9.9.9.5.2: the Quizzes screen
+// 0.9.9.9.5.2: Settings → Invite notifications → Test (the Android app): says where push stops, if it does
+{
+  ui.$('pushTestRow').hidden = !canPush();
+  const btn = ui.$<HTMLButtonElement>('pushTest'), out = ui.$('pushTestOut');
+  btn.onclick = async () => {
+    btn.disabled = true; out.hidden = false; out.classList.remove('ok', 'bad'); out.textContent = tr('Testing…');
+    const r = await testPush();
+    out.textContent = tr(r.text); out.classList.add(r.ok ? 'ok' : 'bad');
+    btn.disabled = false;
+  };
+}
 initTutorial({
   firstBattle: () => socket.send({ type: 'create', mode: 'reading', levels: ui.kanaBeginner() ? ['KANA'] : ['KANA', 'N5'], tutorial: true }),
   kana: async (mastered) => {
