@@ -614,7 +614,7 @@ const RU: Record<string, string> = {
   "to move up a league": "чтобы подняться в лигу выше",
   "One try a day: most correct wins, then fastest. Everyone starts in the kana league.": "Одна попытка в день: побеждает больше верных, затем самый быстрый. Все начинают с лиги каны.",
   "romaji": "ромадзи",
-  "Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300). Pick a character under the preview to see it on them.": "Поза комбо: что делает ваш персонаж, пока он в огне (5 подряд или Всемогущество) — парит, целится или держит посох обеими руками. Новые позы открываются по мере изучения заклинаний (100, 200, 300). Выберите персонажа под превью, чтобы посмотреть на нём.",
+  "Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300).": "Поза комбо: что делает ваш персонаж, пока он в огне (5 подряд или Всемогущество) — парит, целится или держит посох обеими руками. Новые позы открываются по мере изучения заклинаний (100, 200, 300).",
   // 0.9.9.7.2
   "negative": "отрицание",
   "polite": "вежливая",
