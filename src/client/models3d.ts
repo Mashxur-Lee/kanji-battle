@@ -35,6 +35,8 @@ export interface Character {
   legs?: Leg[];
   /** 0.9.9.9.5.4: the rigged models breathe (chest, shoulders, neck) — called every frame with the time */
   breathe?: (time: number) => void;
+  /** 0.9.9.9.5.5: knocked out (0 → 1): down on one knee, head bowed (the rigged models) */
+  kneel?: (k: number) => void;
   /** how far the staff tips forward inside its pivot (holdStaff: 0.3; the older builds: 0) */
   staffLean?: number;
 }

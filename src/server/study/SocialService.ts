@@ -4,7 +4,7 @@ import type { Device, ServerMessage } from '../../shared/protocol';
 
 /** What friends need of the session hub (Session.ts): who's online, and a message to one player. */
 export interface FriendHub {
-  presence(userId: string): { online: boolean; away?: boolean; activity?: string; since?: number; lastSeen?: number; device?: Device };
+  presence(userId: string): { online: boolean; away?: boolean; activity?: string; since?: number; lastSeen?: number; device?: Device; party?: { size: number; max: number; mode: string; code?: string } };
   sendTo(userId: string, msg: ServerMessage): unknown;
 }
 import { levelOf } from '../../shared/progress';
@@ -20,13 +20,13 @@ export class SocialService {
   async list(userId: string) {
     const links = await this.store.friends(userId);
     return Promise.all(links.map(async (f) => {
-      const p: { online: boolean; away?: boolean; activity?: string; lastSeen?: number; device?: Device } = f.status === 'accepted' ? this.hub.presence(f.id) : { online: false };
+      const p: { online: boolean; away?: boolean; activity?: string; lastSeen?: number; device?: Device; party?: { size: number; max: number; mode: string; code?: string } } = f.status === 'accepted' ? this.hub.presence(f.id) : { online: false };
       const rec = await this.store.findById(f.id); // picture and level for the friends rail
       // 0.9.9.9: away (the app in the background) and when they were last online
       const lastSeen = f.status === 'accepted' && !p.online ? Math.max(p.lastSeen ?? 0, rec?.lastSeen ?? 0) || null : null;
       // 0.9.9.9.5: push — an invite reaches their phone even with the app closed
       const push = f.status === 'accepted' && (rec?.pushTokens?.length ?? 0) > 0;
-      return { ...f, online: p.online, away: p.online && !!p.away, activity: p.online ? p.activity : undefined, device: p.online ? p.device ?? 'web' : undefined, lastSeen, pic: rec ? picUrl(rec) : null, level: levelOf(rec?.xp ?? 0), push };
+      return { ...f, online: p.online, away: p.online && !!p.away, activity: p.online ? p.activity : undefined, party: p.online ? p.party : undefined, device: p.online ? p.device ?? 'web' : undefined, lastSeen, pic: rec ? picUrl(rec) : null, level: levelOf(rec?.xp ?? 0), push };
     }));
   }
 

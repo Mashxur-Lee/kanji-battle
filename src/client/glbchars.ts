@@ -193,8 +193,33 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side,
     neck.rotation.x = 0.016 * b;
     shoulders[0].rotation.z = 0.035 * in_; shoulders[1].rotation.z = -0.035 * in_;
   };
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, legs, breathe };
+  // 0.9.9.9.5.5: knocked out — down on one knee: the right foot planted in front (thigh level, shin upright), the left
+  // knee on the ground (thigh upright, shin flat behind); the body drops by what that leaves, leans in, the head bows
+  root.updateMatrixWorld(true);
+  const wy = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3()).y;
+  const hipY = wy(legs[0].hip), kneeY = wy(legs[0].knee), footY = wy(bone('Foot.R'));
+  const thighLen = Math.max(0.01, hipY - kneeY), shinLen = Math.max(0.01, kneeY - footY);
+  const back = 0.12; // (the kneeling thigh, a little back)
+  const hipDown = thighLen * Math.cos(back) + footY * 0.6; // where the hips end up
+  const drop = Math.max(0, hipY - hipDown);
+  const front = Math.acos(Math.max(-1, Math.min(1, (hipDown - shinLen - footY * 0.6) / thighLen)));
+  const kneel = (k: number) => {
+    const e = Math.max(0, Math.min(1, k));
+    const [fr, bk] = legs; // (R in front, L kneeling)
+    fr.hip.rotation.set(-front * e, 0, -0.08 * e); fr.knee.rotation.set(front * e, 0, 0);
+    bk.hip.rotation.set(back * e, 0, 0.06 * e); bk.knee.rotation.set((Math.PI / 2 - back) * e, 0, 0);
+    root.position.y = -drop * e;
+    chest.scale.set(1, 1, 1);
+    spine.rotation.x = 0.32 * e;
+    neck.rotation.x = 0.28 * e;
+    head.rotation.set(0.4 * e, 0, 0);
+    shoulders[0].rotation.z = -0.06 * e; shoulders[1].rotation.z = 0.06 * e; // (slumped)
+    leftArm.rotation.set(lerpN(-0.3, -0.75, e), 0, lerpN(-0.16, 0.05, e)); // the free hand on the front knee
+    arm.rotation.set(lerpN(arm.rotation.x, 0.2, e), 0, ARM_REST); // the staff arm hangs, the staff leaning on the ground
+  };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, legs, breathe, kneel };
 }
+const lerpN = (a: number, b: number, t: number) => a + (b - a) * t;
 
 // ── the Black Dragon (Boss Elimination) ─────────────────────────────────────
 export interface Dragon {
@@ -206,6 +231,8 @@ export interface Dragon {
   /** where the fire comes from (world space) */
   mouth(out: THREE.Vector3): THREE.Vector3;
   head(out: THREE.Vector3): THREE.Vector3;
+  /** 0.9.9.9.5.5: beaten (0 → 1): it lies down on its stomach — legs folded out, neck and head on the ground, wings spread flat */
+  ko(k: number): void;
 }
 export function buildDragon(): Dragon | null {
   const tpl = templates.get('dragon');
@@ -227,6 +254,10 @@ export function buildDragon(): Dragon | null {
   const wings = (['L', 'R'] as const).map((s) => ({ s: s === 'L' ? 1 : -1, arm: bone(`WingArm.${s}`), fore: bone(`WingForearm.${s}`), f: [1, 2, 3].map((i) => bone(`WingFinger${i}.${s}`)) }));
   const fronts = (['L', 'R'] as const).map((s) => bone(`FrontUpper.${s}`));
   const mouthAt = new THREE.Vector3(0, -0.05, 0.75); // (in the head bone: between the jaws, in front)
+  const hinds = (['L', 'R'] as const).map((s) => ({ s: s === 'L' ? 1 : -1, up: bone(`HindUpper.${s}`), low: bone(`HindLower.${s}`) }));
+  const frontLow = (['L', 'R'] as const).map((s) => bone(`FrontLower.${s}`));
+  root.updateMatrixWorld(true);
+  const hipsY = bone('Hips').getWorldPosition(new THREE.Vector3()).y; // (how far the belly comes down)
   return {
     root, height: tpl.height, materials,
     update(time, dt, st) {
@@ -259,5 +290,26 @@ export function buildDragon(): Dragon | null {
     },
     mouth(out) { return headB.localToWorld(out.copy(mouthAt)); },
     head(out) { return headB.getWorldPosition(out); },
+    ko(k) {
+      const e = Math.max(0, Math.min(1, k));
+      chest.scale.set(1, 1, 1);
+      body.position.set(0, -hipsY * 0.62 * e, 0);
+      body.rotation.set(0.04 * e, 0, 0);
+      // the legs fold out to the sides, the feet flat
+      for (const [i, f] of fronts.entries()) { const sd = i === 0 ? 1 : -1; f.rotation.set(-0.55 * e, 0, sd * 0.95 * e); frontLow[i].rotation.set(0.9 * e, 0, -sd * 0.35 * e); }
+      for (const h of hinds) { h.up.rotation.set(0.35 * e, 0, h.s * 0.9 * e); h.low.rotation.set(-0.4 * e, 0, -h.s * 0.3 * e); }
+      // the neck lowers, the head comes to rest on the ground in front, jaws a little open
+      necks.forEach((n, i) => n.rotation.set((i < 2 ? 0.42 : 0.18) * e, 0, 0));
+      headB.rotation.set(-0.15 * e, 0.12 * e, 0);
+      jaw.rotation.x = 0.12 * e;
+      // the tail lies along the ground, curled a little
+      tail.forEach((b, i) => b.rotation.set(-0.06 * e, (0.08 + i * 0.03) * e, 0));
+      // the wings: half open and flat on the ground
+      for (const w of wings) {
+        w.arm.rotation.set(0.1 * e, 0, w.s * -0.55 * e);
+        w.fore.rotation.set(0, 0, w.s * 0.35 * e);
+        w.f.forEach((f, i) => { f.rotation.z = w.s * 0.12 * (i - 1) * e; });
+      }
+    },
   };
 }

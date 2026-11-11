@@ -80,10 +80,7 @@ public class MainActivity extends Activity {
         s.setUserAgentString(s.getUserAgentString() + " KanjiWizardsAndroid/" + BuildConfig.VERSION_NAME);
 
         tts = new TextToSpeech(this, status -> {
-            if (status == TextToSpeech.SUCCESS) {
-                int r = tts.setLanguage(Locale.JAPANESE);
-                ttsReady = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED;
-            }
+            if (status == TextToSpeech.SUCCESS) { ttsInit = true; checkVoice(); }
         });
         web.addJavascriptInterface(new Bridge(), "KWAndroid");
         Reminders.schedule(this); // 0.9.9.7: moves alarms set by an older version to the new kind
@@ -118,8 +115,24 @@ public class MainActivity extends Activity {
             }
         });
 
-        Uri link = getIntent() != null ? getIntent().getData() : null;
+        Uri link = linkOf(getIntent());
         web.loadUrl(link != null && isGame(link) ? link.toString() : SERVER);
+    }
+
+    /**
+     * The page to open: a game link (Join on an invite) — or, 0.9.9.9.5.5, an invite notification tapped: Android
+     * showed it by itself (the app was closed) and hands its data over as extras; tapping it joins the room too.
+     */
+    static Uri linkOf(Intent intent) {
+        if (intent == null) return null;
+        Uri link = intent.getData();
+        if (link != null) return link;
+        android.os.Bundle x = intent.getExtras();
+        if (x == null || !"invite".equals(x.getString("kind"))) return null;
+        String code = x.getString("code");
+        if (code == null || !code.matches("[A-Za-z0-9]{4}")) return null;
+        intent.removeExtra("kind"); // (once: coming back to the app later doesn't join again)
+        return Uri.parse(SERVER + "/?join=" + Uri.encode(code));
     }
 
     private static boolean isGame(Uri u) {
@@ -138,7 +151,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        Uri link = intent.getData();
+        Uri link = linkOf(intent);
         if (link != null && isGame(link)) web.loadUrl(link.toString()); // an invite link while the app is open
     }
 
@@ -169,10 +182,21 @@ public class MainActivity extends Activity {
     static volatile boolean visible = false;
     private final android.os.Handler freeze = new android.os.Handler(android.os.Looper.getMainLooper());
 
+    private volatile boolean ttsInit;
+    /** is there a Japanese voice? (asked again when you come back to the app — maybe from installing one) */
+    private void checkVoice() {
+        if (!ttsInit || tts == null) return;
+        try {
+            int r = tts.setLanguage(Locale.JAPANESE);
+            ttsReady = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED;
+        } catch (Exception e) { ttsReady = false; }
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
         visible = true;
+        checkVoice(); // 0.9.9.9.5.5: back from installing the Japanese voice
         freeze.removeCallbacksAndMessages(null);
         web.resumeTimers();
         web.onResume();
@@ -227,6 +251,19 @@ public class MainActivity extends Activity {
         // (0.9.9.9.3: no more downloading and installing APKs from inside the app — Play Protect counts an app that
         // can install other apps as harmful. 0.9.9.9.5.3 tried it again, carefully: Play Protect blocked it again.
         // "Update the app" lets the phone's browser download the new version.)
+
+        /** 0.9.9.9.5.5: Settings → "Download the Japanese voice": Android's own screen for the voice data (or the Google speech app in the store) */
+        @JavascriptInterface
+        public void installVoice() {
+            runOnUiThread(() -> {
+                try {
+                    startActivity(new Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                } catch (ActivityNotFoundException e) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.tts")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+                    catch (ActivityNotFoundException e2) { openOutside(Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.tts")); }
+                }
+            });
+        }
 
         @JavascriptInterface
         public boolean canSpeak() {

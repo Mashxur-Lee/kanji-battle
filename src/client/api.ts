@@ -1,3 +1,4 @@
+import type { QuizStats } from '../shared/quizstats';
 import type { KanaProgress } from '../shared/kanachart';
 import type { AdminUserRow, Device, Level, MatchDetail, MatchSummary, OnoType, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
@@ -5,7 +6,7 @@ import type { CardState, DeckId, Rating } from '../shared/srs';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; wins: number; losses: number; pic: string | null; background: BackgroundId; studyLevels: Level[]; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
   tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew?: number; badges?: string[];
-  tasks?: DailyTaskState[]; streakDay?: string | null; border?: string; starred?: string[]; kana?: KanaProgress }
+  tasks?: DailyTaskState[]; streakDay?: string | null; border?: string; starred?: string[]; kana?: KanaProgress; /** 0.9.9.9.5.5 */ quizStats?: QuizStats }
 export interface MonthProgress { month: string; name: string; reward: string; goals: Array<{ id: string; label: string; target: number; value: number }>; done: boolean; unlocked: boolean }
 export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number }
 /** 0.9.9.7: a dictionary word (server/study/DictService.ts) */
@@ -18,7 +19,7 @@ export interface DailyOverview { league?: string; nextLeague?: string; promoteAt
   /** 0.9.9.8.2: every league's board */
   boards?: Record<string, Array<{ id: string; name: string; correct: number; ms: number }>>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
-export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device; /** 0.9.9.9.5: has the app with push — an invite reaches their phone */ push?: boolean }
+export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device; /** 0.9.9.9.5: has the app with push — an invite reaches their phone */ push?: boolean; /** 0.9.9.9.5.5: the room they're in (a code when it's open to friends) */ party?: { size: number; max: number; mode: string; code?: string } }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; onoDaily?: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean; ono?: OnoType }
@@ -162,6 +163,9 @@ export const api = {
   notifyStatus: () => call<{ day: string; tasksLeft: number; tasksTotal: number; challengeDone: boolean; allDue: number; streak: number }>('GET', `/api/notify/status?today=${today()}`),
   /** 0.9.9.6: the name others see (empty: your login) */
   setNickname: (nickname: string) => call<{ user: PublicUser }>('PUT', '/api/me/nickname', { nickname }),
+  /** 0.9.9.9.5.5: the Quizzes screen's records, with the account */
+  recordQuiz: (kind: string, score: number, total: number, ms: number) => call<{ quizStats: QuizStats }>('POST', '/api/me/quiz', { kind, score, total, ms }),
+  mergeQuizStats: (stats: QuizStats) => call<{ quizStats: QuizStats }>('PUT', '/api/me/quizstats', { stats }),
   setKana: (mastered: boolean) => call<{ profile: Profile }>('PUT', '/api/me/kana', { mastered }),
   /** 0.9.9.9.5: the Kana section's stars (only the kana that changed) */
   saveKana: (changes: KanaProgress) => call<{ kana: KanaProgress; xp: number }>('PUT', '/api/kana', { kana: changes, today: today() }),

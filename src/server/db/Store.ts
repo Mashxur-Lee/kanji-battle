@@ -1,4 +1,5 @@
 import type { KanaProgress } from '../../shared/kanachart';
+import type { QuizStats } from '../../shared/quizstats';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -39,6 +40,8 @@ export interface UserRecord {
   starred?: string[];
   /** 0.9.9.9.5: the Kana section — stars and mastery per hiragana / katakana */
   kana?: KanaProgress;
+  /** 0.9.9.9.5.5: the Quizzes screen's records (best / last / plays / times), the same on every device */
+  quizStats?: QuizStats;
   /** 0.9.9.9.5: the Android app's push tokens (Firebase) — friends' invites reach the phone while the app is closed */
   pushTokens?: string[];
   /** 0.9.9.6: the name others see (null: the login) */
@@ -51,7 +54,7 @@ export interface UserRecord {
 export interface DailyPlan { per: Partial<Record<Level, number>>; day: string | null; done: Partial<Record<Level, number>> }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens' | 'quizStats'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {

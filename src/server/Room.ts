@@ -96,6 +96,11 @@ export class Room {
   private clock = new PausableClock();
   private rematchVotes = new Set<PlayerId>();
   private chatLog: ChatMessage[] = [];
+  /** 0.9.9.9.5.5: open to friends (they can join from the host's profile) — or closed: invite / code only */
+  private isOpen = false;
+  get open() { return this.isOpen; }
+  /** people in the room (not the AI) — friends see "+1" beside them */
+  get size() { return this.roster.filter((p) => !p.bot).length; }
   private nextChatId = 1;
   private lastGameOver?: ServerMessage;
 
@@ -121,7 +126,8 @@ export class Room {
     this.loadSpells(id);
     this.hostId ??= id;
     client.send({ type: 'joined', code: this.code, you: id, mode: this.mode });
-    if (this.chatLog.length) client.send({ type: 'chat', messages: this.chatLog });
+    if (this.chatLog.length) client.send({ type: 'chat', messages: [...this.chatLog] });
+    if (this.humans.length > 1) this.sysChat(id, this.roster[this.roster.length - 1].name, 'join'); // 0.9.9.9.5.5
     this.broadcastLobby();
     this.broadcastNet();
     return { ok: true };
@@ -140,7 +146,7 @@ export class Room {
     m.online = true;
     this.clients.set(id, client);
     client.send({ type: 'joined', code: this.code, you: id, mode: this.mode });
-    if (this.chatLog.length) client.send({ type: 'chat', messages: this.chatLog });
+    if (this.chatLog.length) client.send({ type: 'chat', messages: [...this.chatLog] });
     this.broadcastNet();
     if (this.phase === 'lobby') return this.broadcastLobby();
     if (this.phase === 'results') {
@@ -278,6 +284,30 @@ export class Room {
     const msg: ServerMessage = { type: 'deck_ink', castId, strokes, cells: Math.max(1, Math.min(4, Math.round(cells))) };
     for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
   }
+  /** 0.9.9.9.5.5: typing in the chat — relayed to the others (a few times a minute at most per player) */
+  private lastChatTyping = new Map<PlayerId, number>();
+  chatTyping(id: PlayerId, on: boolean, now = Date.now()) {
+    const m = this.roster.find((p) => p.id === id);
+    if (!m || m.bot) return;
+    if (on && now - (this.lastChatTyping.get(id) ?? -Infinity) < 1500) return;
+    if (on) this.lastChatTyping.set(id, now); else this.lastChatTyping.delete(id);
+    const msg: ServerMessage = { type: 'chat_typing', id, name: m.name, on };
+    for (const [pid, c] of this.clients) if (pid !== id) c.send(msg);
+  }
+  /** 0.9.9.9.5.5: the host opens / closes the lobby */
+  setOpen(by: PlayerId, open: boolean) {
+    if (by !== this.hostId || this.phase !== 'lobby') return;
+    this.isOpen = open;
+    this.broadcastLobby();
+  }
+  /** a line from the game in the chat: "Ann joined" / "Ann left the lobby" */
+  private sysChat(from: PlayerId, name: string, sys: 'join' | 'leave', now = Date.now()) {
+    const msg: ChatMessage = { id: this.nextChatId++, from, name, text: '', at: now, sys };
+    this.chatLog.push(msg);
+    if (this.chatLog.length > 50) this.chatLog.shift();
+    for (const [pid, c] of this.clients) if (pid !== from) c.send({ type: 'chat', messages: [msg] }); // (not to whoever it is about)
+  }
+
   /** 0.9.9.7.2: typing / writing — relayed to the others (a game must be on) */
   typing(id: PlayerId, on: boolean) {
     if (!this.game) return;
@@ -371,6 +401,7 @@ export class Room {
     if (wasInGame) this.game?.forfeit(id);
     this.roster = this.roster.filter((p) => p.id !== id);
     this.rematchVotes.delete(id);
+    if (!m.bot && this.humans.length && !wasInGame) this.sysChat(m.id, m.name, 'leave'); // 0.9.9.9.5.5: the others see they left
     if (this.hostId === id) this.hostId = this.humans[0]?.id ?? null;
     this.deps.onMemberLeft?.(id);
 
@@ -644,7 +675,7 @@ export class Room {
 
   private broadcastLobby() {
     if (!this.hostId) return;
-    this.broadcast({ type: 'lobby', players: this.view(), hostId: this.hostId, maxPlayers: this.maxPlayers, minPlayers: this.minPlayers, mode: this.mode });
+    this.broadcast({ type: 'lobby', players: this.view(), hostId: this.hostId, maxPlayers: this.maxPlayers, minPlayers: this.minPlayers, mode: this.mode, open: this.isOpen });
   }
 
   private broadcast(msg: ServerMessage) {

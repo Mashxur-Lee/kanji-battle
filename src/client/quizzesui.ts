@@ -1,47 +1,73 @@
 // 0.9.9.9.5.2: the Quizzes screen — today's streak goal on top, then a card for each quiz (JLPT, onomatopoeia, the
 // reading passage) with its facts and your own record on this device: best score, last score, how many played.
 // The Start buttons keep their ids (quizBtn / onoQuizBtn / passageBtn): decks.ts opens the quizzes.
+// (0.9.9.9.5.5: the records are your account's now — the same on every device)
 
-import type { Profile } from './api';
+import { api, type Profile } from './api';
 import { locale, tr } from './i18n';
+import { addPlay, mergeStats, type QuizKind, type QuizStats } from '../shared/quizstats';
 
-export type QuizKind = 'jlpt' | 'ono' | 'passage';
-/**
- * your record of one quiz on this device. 0.9.9.9.5.3: also the average (as correct answers out of 10) and the
- * times — best (fastest), last and average (`timed`: how many of the plays had a time).
- */
-interface Record_ {
-  best: number; bestOf: number; last: number; lastOf: number; plays: number; at: number;
-  sum10?: number; bestMs?: number; lastMs?: number; sumMs?: number; timed?: number;
+export type { QuizKind };
+// 0.9.9.9.5.5: the records live with your account (the server); every device shows the same. A play made offline
+// waits here and is sent later. The old records of this device (kb:quizStats, from before) are added to the
+// account once, by the first account to sign in here.
+const OLD_KEY = 'kb:quizStats';
+let me = '';
+let server: QuizStats = {};
+const queueKey = () => `kb:quizQueue:${me}`;
+type Play = { kind: QuizKind; score: number; total: number; ms: number; at: number };
+function queue(): Play[] { try { return JSON.parse(localStorage.getItem(queueKey()) ?? '[]') ?? []; } catch { return []; } }
+function setQueue(q: Play[]) { try { if (q.length) localStorage.setItem(queueKey(), JSON.stringify(q.slice(-50))); else localStorage.removeItem(queueKey()); } catch { /* private mode */ } }
+
+function load(): QuizStats {
+  let all: QuizStats = { ...server };
+  for (const p of queue()) all = { ...all, [p.kind]: addPlay(all[p.kind], p.score, p.total, p.ms, p.at) };
+  return all;
 }
-const KEY = 'kb:quizStats';
-
-function load(): Partial<Record<QuizKind, Record_>> {
-  try { return JSON.parse(localStorage.getItem(KEY) ?? '{}') ?? {}; } catch { return {}; }
+let flushing = false;
+async function flush() {
+  if (flushing || !me) return;
+  flushing = true;
+  try {
+    for (let q = queue(); q.length; q = queue()) {
+      const p = q[0];
+      const r = await api.recordQuiz(p.kind, p.score, p.total, p.ms);
+      if (r.quizStats) keep(r.quizStats);
+      setQueue(queue().slice(1));
+    }
+  } catch { /* offline: later */ } finally { flushing = false; }
+  if (!document.getElementById('quizzes')?.hidden) render();
+}
+/** main.ts: signed in (or the profile came) — the account's records, and this device's old ones added once */
+const cacheKey = () => `kb:quizCache:${me}`;
+function keep(s: QuizStats) { server = s; try { localStorage.setItem(cacheKey(), JSON.stringify(s)); } catch { /* private mode */ } }
+function syncFrom(p: Profile, userId: string) {
+  if (userId !== me) {
+    me = userId;
+    try { server = JSON.parse(localStorage.getItem(cacheKey()) ?? '{}') ?? {}; } catch { server = {}; } // (offline: the last known)
+  }
+  if (p.quizStats) keep(p.quizStats);
+  let old: QuizStats | null = null;
+  try { old = JSON.parse(localStorage.getItem(OLD_KEY) ?? 'null'); } catch { old = null; }
+  if (old && Object.keys(old).length && me) {
+    try { localStorage.removeItem(OLD_KEY); } catch { /* fine */ }
+    server = mergeStats(server, old); // (shown at once; the server adds them too)
+    api.mergeQuizStats(old).then((r) => { if (r.quizStats) keep(r.quizStats); if (!document.getElementById('quizzes')?.hidden) render(); })
+      .catch(() => { try { localStorage.setItem(OLD_KEY, JSON.stringify(old)); } catch { /* fine */ } });
+  }
+  if (queue().length) void flush();
 }
 /** decks.ts: a quiz (or passage) was finished with this score */
 export function recordQuiz(kind: QuizKind, score: number, total: number, ms = 0) {
   if (!(total > 0)) return;
-  const all = load();
-  const r = all[kind] ?? { best: 0, bestOf: total, last: 0, lastOf: total, plays: 0, at: 0 };
-  // (records from 0.9.9.9.5.2 had no average: it starts from what they had, the last score for each play)
-  if (r.sum10 === undefined) r.sum10 = r.plays * (r.last / Math.max(1, r.lastOf)) * 10;
-  if (r.plays === 0 || score / total > r.best / Math.max(1, r.bestOf)) { r.best = score; r.bestOf = total; }
-  r.last = score; r.lastOf = total; r.plays++; r.at = Date.now();
-  r.sum10 += (score / total) * 10;
-  // a time that makes sense (not a quiz left open overnight)
-  if (ms > 2000 && ms < 45 * 60_000) {
-    r.lastMs = ms; r.bestMs = Math.min(r.bestMs ?? Infinity, ms);
-    r.sumMs = (r.sumMs ?? 0) + ms; r.timed = (r.timed ?? 0) + 1;
-  }
-  all[kind] = r;
-  try { localStorage.setItem(KEY, JSON.stringify(all)); } catch { /* private mode */ }
+  setQueue([...queue(), { kind, score, total, ms: Math.round(ms), at: Date.now() }]);
+  void flush();
   if (!document.getElementById('quizzes')?.hidden) render();
 }
 
 let profile: Profile | null = null;
 /** main.ts: every profile update (for today's goal) */
-export function quizzesProfile(p: Profile) { profile = p; if (!document.getElementById('quizzes')?.hidden) render(); }
+export function quizzesProfile(p: Profile, userId = '') { profile = p; if (userId) syncFrom(p, userId); if (!document.getElementById('quizzes')?.hidden) render(); }
 
 const mk = (tag: string, cls: string, text = '') => Object.assign(document.createElement(tag), { className: cls, textContent: text });
 const when = (t: number) => {

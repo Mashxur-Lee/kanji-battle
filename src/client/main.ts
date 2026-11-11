@@ -27,7 +27,8 @@ import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, 
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
-import { chatMessages, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
+import { showPlayer } from './playerview';
+import { chatMessages, chatTyping, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
 import { HandwritingPad } from './pad';
 import { customizeHidden, onProfileChange, openCustomize, openStudy } from './study';
@@ -192,7 +193,7 @@ function applyProfile(p: Profile) {
   void dailyPending().then((open) => { ui.$('dailyBadge').hidden = !open; });
   refreshFriendsBadge();
   renderTasks(p); // the daily streak tasks
-  quizzesProfile(p); // (the Quizzes screen shows today's quiz task)
+  quizzesProfile(p, user?.id ?? ''); // (the Quizzes screen shows today's quiz task; 0.9.9.9.5.5: and the account's records)
   setKanaProgress(p.kana); // 0.9.9.9.5: the Kana section
   if (user && !inRoom && ui.currentScreen() === 'menu') checkRewards(user.id, p, user.role === 'admin', applyProfile); // something new unlocked → a reward box
   if (user && p.tutorialDone && !tutorialShown && !inRoom && ui.currentScreen() === 'menu') tasksAtLogin(p);
@@ -373,6 +374,9 @@ function onMessage(msg: ServerMessage) {
     case 'chat':
       chatMessages(msg.messages);
       break;
+    case 'chat_typing':
+      chatTyping(msg.id, msg.name, msg.on);
+      break;
     case 'look':
       arenaLook(msg.id, msg.yaw, msg.pitch);
       break;
@@ -456,7 +460,7 @@ function onMessage(msg: ServerMessage) {
       minPlayers = msg.minPlayers;
       stopWriting();
       resetDeck();
-      ui.showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers);
+      ui.showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers, msg.open === true);
       // 0.9.9.9.4: the room's chat, once somebody else (a person) is here — or has already written
       if (msg.players.filter((p) => !p.bot).length > 1 || ui.$('lobbyChatLog').childElementCount) ui.$('lobbyChat').hidden = false;
       void renderLobbyInvites(true, msg.players.map((p) => p.id));
@@ -595,7 +599,7 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
       if (e.playerId !== you) ui.logLine(`${nameOf(e.playerId)} cast for ${e.damage}${e.crit ? ' (CRIT!)' : ''}${e.combo >= 2 ? ` (×${e.combo})` : ''}:`, e.kanji);
       // 0.9.9.9.5.3: a 30× combo (Godlike) — the arena trembles, and everyone in it feels it
       if (e.combo === 30) {
-        ui.arenaTremble(1.8); audio.sfx.quake();
+        ui.arenaTremble(); audio.sfx.quake();
         ui.toast(e.playerId === you ? '30× combo — the arena trembles!' : `${nameOf(e.playerId)} reached a 30× combo — the arena trembles!`);
       }
       break;
@@ -946,7 +950,15 @@ ui.$('levelChips').addEventListener('change', (e) => {
   store.set('kb:levels', JSON.stringify(levels));
   socket.send({ type: 'levels', levels });
 });
-ui.$('leaveLobby').onclick = () => socket.send({ type: 'leave' });
+// 0.9.9.9.5.5: "← Leave room" asks first
+ui.$('leaveLobby').onclick = async () => {
+  if (inTutorialBattle() || await ui.confirmBox('Leave the room?', players.filter((p) => !p.bot).length > 1 ? 'The others stay in the lobby without you.' : 'The room closes when you leave.')) socket.send({ type: 'leave' });
+};
+ui.$('lobbyOpen').onclick = () => {
+  const sw = ui.$<HTMLButtonElement>('lobbyOpen');
+  if (sw.disabled) return;
+  socket.send({ type: 'set_open', open: !sw.classList.contains('on') });
+};
 ui.$('start').onclick = () => socket.send({ type: 'start' });
 ui.$('addBotBtn').onclick = () => socket.send({ type: 'add_bot', level: ui.$<HTMLSelectElement>('botLevel').value });
 ui.$('lobbyPlayers').addEventListener('click', (e) => {
@@ -1144,6 +1156,10 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
         challenge: (m) => challengeFriend(id, p.name, m),
         canChallenge: !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? ''),
         remove: async () => { await api.removeFriend(id); void refreshRail(); },
+        view: () => showPlayer(p),
+        // 0.9.9.9.5.5: their lobby is open (and has room): join it
+        join: link?.status === 'accepted' && link.party?.code && link.party.code !== (inRoom ? code : '') && !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? '')
+          ? { label: `${link.party.size}/${link.party.max}`, mode: link.party.mode, go: () => joinRoom(link.party!.code!) } : undefined,
       });
     } catch { if (shownFor === id) ui.showProfileCard(el, 'missing'); }
   };
@@ -1200,11 +1216,22 @@ async function squarePicture(file: File): Promise<string> {
 {
   const panel = ui.$('volPanel');
   const music = ui.$<HTMLInputElement>('musicVol'), fx = ui.$<HTMLInputElement>('sfxVol'), vo = ui.$<HTMLInputElement>('voiceVol');
+  ui.$('voiceGet').onclick = () => {
+    if (!voice.installAndroidVoice()) { ui.$('voiceHelp').textContent = voice.voiceHelp(); ui.$('voiceGet').hidden = true; }
+  };
+  // back in the app after installing it: say so
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !ui.$('volPanel').closest('[hidden]')) setTimeout(show, 600); });
   const show = () => {
     const vp = voice.getVoicePrefs();
     vo.value = String(Math.round(vp.vol * 100));
     ui.$('voiceVolVal').textContent = `${vo.value}%`;
-    ui.$('voiceInfo').textContent = !voice.voiceAvailable() ? 'This browser has no speech voice.' : vp.name ? `Voice: ${vp.name}${vp.male ? '' : ' (pitched down)'}` : 'No Japanese voice found on this device.';
+    // 0.9.9.9.5.5: the app said "no Japanese voice" even when Android's speaks Japanese; and with none, it can be downloaded
+    const av = voice.androidVoice();
+    const noVoice = av ? av === 'missing' : !vp.name;
+    ui.$('voiceInfo').textContent = av === 'ready' ? 'Voice: Android text-to-speech (Japanese)' : !voice.voiceAvailable() ? 'This browser has no speech voice.' : vp.name ? `Voice: ${vp.name}${vp.male ? '' : ' (pitched down)'}` : 'No Japanese voice found on this device.';
+    ui.$('voiceFix').hidden = !noVoice || !voice.voiceAvailable();
+    ui.$('voiceGet').hidden = !av;
+    ui.$('voiceHelp').textContent = av ? 'Downloads the Japanese voice for Android\'s text-to-speech (like the offline dictionary). Come back to the app when it\'s done.' : voice.voiceHelp();
     const v = audio.getVolumes();
     music.value = String(Math.round(v.music * 100)); fx.value = String(Math.round(v.sfx * 100));
     ui.$('musicVolVal').textContent = `${music.value}%`; ui.$('sfxVolVal').textContent = `${fx.value}%`;

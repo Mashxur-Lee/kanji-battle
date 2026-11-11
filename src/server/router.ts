@@ -186,6 +186,14 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         await study.setStaff(u, (await r.json()).staff);
         return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+      } else if (r.method === 'POST' && url === '/api/me/quiz') {
+        // 0.9.9.9.5.5: a finished quiz → the Quizzes screen's records, with the account
+        const u = await auth.authenticate(r.token);
+        const b = await r.json();
+        return res(200, { quizStats: await study.recordQuiz(u, b.kind, b.score, b.total, b.ms) });
+      } else if (r.method === 'PUT' && url === '/api/me/quizstats') {
+        const u = await auth.authenticate(r.token);
+        return res(200, { quizStats: await study.mergeQuizStats(u, (await r.json()).stats) });
       } else if (r.method === 'PUT' && url === '/api/me/kana') {
         const u = await auth.authenticate(r.token);
         await study.setKanaMastered(u, (await r.json()).mastered === true);

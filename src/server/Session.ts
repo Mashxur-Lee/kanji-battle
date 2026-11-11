@@ -22,7 +22,9 @@ function parseLevels(raw: unknown): Level[] {
 }
 
 /** Tracks the one live session per account (newest wins), so we can kick on ban / second tab. */
-export interface Presence { online: boolean; away?: boolean; activity?: string; since?: number; lastSeen?: number; device?: Device }
+/** party (0.9.9.9.5.5): the room they're in — how many, how many fit, and its code when the host opened it to friends */
+export interface Party { size: number; max: number; mode: string; code?: string }
+export interface Presence { online: boolean; away?: boolean; activity?: string; since?: number; lastSeen?: number; device?: Device; party?: Party }
 
 /** 0.9.9.9.2: what someone plays on (friends see a small icon): the Android app, the PC app, or a browser */
 export function deviceOf(userAgent: string | undefined): Device {
@@ -48,7 +50,7 @@ export class SessionHub {
       if (p && Date.now() - p.at < AWAY_KEEP_MS) return { online: true, away: true, device: p.device, lastSeen: p.at };
       return { online: false, lastSeen: this.lastSeen.get(userId) };
     }
-    return { online: true, away: s.away, activity: s.activity(), since: this.onlineSince.get(userId), device: s.device };
+    return { online: true, away: s.away, activity: s.activity(), since: this.onlineSince.get(userId), device: s.device, party: s.party?.() };
   }
   private parked = new Map<string, { at: number; device: Device }>();
   get onlineCount() { return this.byUser.size; }
@@ -334,6 +336,8 @@ export class Session implements Client {
       case 'add_bot': return room.addBot(user.id, msg.level);
       case 'remove_bot': return room.removeBot(user.id, msg.id);
       case 'typing': return room.typing(user.id, msg.on === true);
+      case 'chat_typing': return room.chatTyping(user.id, msg.on === true);
+      case 'set_open': return room.setOpen(user.id, msg.open === true);
       case 'look':
         if (typeof msg.yaw === 'number' && typeof msg.pitch === 'number') room.look(user.id, msg.yaw, msg.pitch);
         break;
@@ -417,6 +421,13 @@ export class Session implements Client {
     }
     if (this.user && this.matchmaker?.isQueued(this.user.id)) return 'In the online queue';
     return SCREEN_ACTIVITY[this.screen] ?? 'In the menus';
+  }
+
+  /** 0.9.9.9.5.5: the room they're in, for their friends ("+1" beside them; "Join lobby" when it's open) */
+  party(): Party | undefined {
+    const r = this.room;
+    if (!r) return undefined;
+    return { size: r.size, max: r.maxPlayers, mode: MODE_LABEL[r.mode] ?? r.mode, ...(r.open && r.stage === 'lobby' && r.size < r.maxPlayers ? { code: r.code } : {}) };
   }
 
   /** Crit chance and XP shown in rooms (crit comes from learned flashcards). */

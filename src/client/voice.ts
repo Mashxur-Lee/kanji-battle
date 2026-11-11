@@ -26,11 +26,24 @@ function pick() {
 if (synth) { pick(); synth.addEventListener?.('voiceschanged', pick); }
 
 // 0.9.9.4: the Android app's WebView has no speechSynthesis — it lends Android's text-to-speech instead
-interface AndroidVoice { speak(text: string, rate: number, pitch: number): boolean; canSpeak(): boolean }
+interface AndroidVoice { speak(text: string, rate: number, pitch: number): boolean; canSpeak(): boolean; /** 0.9.9.9.5.5 */ installVoice?(): void }
 const android = (window as { KWAndroid?: AndroidVoice }).KWAndroid ?? null;
 const androidSay = (kana: string) => { try { return !!android?.canSpeak() && android.speak(kana, 0.95, 0.85); } catch { return false; } };
 
 export const voiceAvailable = () => !!synth || !!android;
+/** 0.9.9.9.5.5: in the Android app — 'ready' (Android's voice speaks Japanese), 'missing' (it can't yet); null on the web */
+export const androidVoice = (): 'ready' | 'missing' | null => { if (!android) return null; try { return android.canSpeak() ? 'ready' : 'missing'; } catch { return 'missing'; } };
+/** the app opens Android's screen to download the Japanese voice (false: an app from before 0.9.9.9.5.5) */
+export const installAndroidVoice = (): boolean => { try { if (!android?.installVoice) return false; android.installVoice(); return true; } catch { return false; } };
+/** what to tell someone with no Japanese voice in their browser: where their system adds one */
+export function voiceHelp(): string {
+  const ua = navigator.userAgent;
+  if (/Android/i.test(ua)) return 'Android: Settings → System → Languages → Text-to-speech → the gear by "Speech Recognition & Synthesis" (Google) → Install voice data → Japanese. Then reload this page.';
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'iPhone / iPad: Settings → Accessibility → Spoken Content → Voices → Japanese → download a voice (e.g. Kyoko). Then reload this page.';
+  if (/Mac OS X/i.test(ua)) return 'Mac: System Settings → Accessibility → Spoken Content → System voice → Manage Voices… → Japanese → download one. Then restart the browser.';
+  if (/Windows/i.test(ua)) return 'Windows: Settings → Time & language → Speech → Manage voices → Add voices → Japanese. Then restart the browser (Edge and Chrome both use it).';
+  return 'Add a Japanese voice in your system\'s speech / text-to-speech settings, then restart the browser.';
+}
 export const getVoicePrefs = () => ({ ...prefs, name: voice?.name ?? null, male });
 export function setVoiceVolume(v: number) { prefs.vol = Math.max(0, Math.min(1, v)); prefs.on = prefs.vol > 0; save(); }
 

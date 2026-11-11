@@ -409,9 +409,25 @@ function renderModeGuide(mode: GameMode) {
 }
 
 // ── lobby ───────────────────────────────────────────────────────────────────
-export function showLobby(code: string, mode: GameMode, players: PlayerView[], you: PlayerId, hostId: PlayerId, maxPlayers: number, minPlayers: number) {
+export function showLobby(code: string, mode: GameMode, players: PlayerView[], you: PlayerId, hostId: PlayerId, maxPlayers: number, minPlayers: number, open = false) {
   $('code').textContent = code;
-  $('lobbyMode').textContent = MODE_LABEL[mode];
+  // 0.9.9.9.5.5: the mode as a banner at the top centre, with its kanji
+  const lm = $('lobbyMode');
+  if (lm.dataset.mode !== mode) {
+    lm.dataset.mode = mode;
+    lm.className = `lobby-mode ${mode}`;
+    lm.replaceChildren(modeBadge(mode), h('span', 'lm-name', MODE_LABEL[mode]));
+  }
+  // open / closed: the host flips it; the others see which it is
+  const isHost0 = you === hostId;
+  const sw = $<HTMLButtonElement>('lobbyOpen');
+  $('lobbyOpenRow').hidden = false;
+  sw.classList.toggle('on', open);
+  sw.setAttribute('aria-checked', String(open));
+  sw.disabled = !isHost0;
+  sw.title = isHost0 ? '' : tr('Only the host can change this');
+  sw.querySelector('.os-text')!.textContent = tr(open ? 'Open' : 'Closed');
+  $('lobbyOpenHint').textContent = tr(open ? (isHost0 ? 'Friends can join from your profile' : 'The host’s friends can join from their profile') : 'Only invited friends or the code can join');
   $('lobbyPlayers').replaceChildren(
     ...players.map((p) => {
       const li = h('li');
@@ -592,11 +608,66 @@ export function renderFighters(players: PlayerView[], you: PlayerId, boss: BossV
   if (battleMode === 'boss') for (const p of players) if (p.hp <= 0) knockOut(p.id === you ? 'me' : `ally:${p.id}`);
   // your combo, big enough to notice (3D arena)
   const combo = me && me.hp > 0 ? me.combo : 0;
+  if (me && me.hp <= 0 && shownCombo) { shownCombo = 0; $('comboHud').hidden = true; } // (down: no "combo broken")
+  comboHud(combo, flameColor(me?.flame));
+}
+
+// ── 0.9.9.9.5.5: the combo counter grows with the combo ─────────────────────
+// ×2–4 COMBO · ×5 ON FIRE (your flames) · ×10 INFERNO (sparks, a ring on every cast) · ×20 UNSTOPPABLE (rays, the
+// screen's edges glow) · ×30 GODLIKE (all of it, in ruby and gold). Every cast punches it; each new tier flies a
+// banner across the arena; a combo of 5+ that breaks shatters.
+const COMBO_TIERS: ReadonlyArray<[number, string, number]> = [[30, 'GODLIKE', 5], [20, 'UNSTOPPABLE', 4], [10, 'INFERNO', 3], [5, 'ON FIRE', 2], [2, 'COMBO', 1]];
+const comboTier = (n: number) => COMBO_TIERS.find(([min]) => n >= min) ?? null;
+let shownCombo = 0;
+export function comboHud(combo: number, flame: string) {
   const hud = $('comboHud');
-  hud.hidden = combo < 2;
-  hud.classList.toggle('hot', combo >= 5);
-  hud.style.setProperty('--flame', flameColor(me?.flame));
-  if (combo >= 2) hud.replaceChildren(h('b', '', `×${combo}`), h('span', '', 'COMBO'));
+  const glow = document.getElementById('comboGlow');
+  const prev = shownCombo;
+  shownCombo = combo;
+  const t = comboTier(combo);
+  hud.style.setProperty('--flame', flame);
+  glow?.style.setProperty('--flame', flame);
+  if (glow) glow.dataset.tier = String(t?.[2] ?? 0);
+  if (combo === prev) return;
+  // broken: a 5+ combo shatters
+  if (combo < prev && prev >= 5) comboBroken(prev, flame);
+  hud.hidden = !t;
+  if (!t) { hud.className = 'combo-hud'; return; }
+  const tier = t[2];
+  hud.className = `combo-hud tier-${tier}${tier >= 2 ? ' hot' : ''}`;
+  const rays = h('i', 'ch-rays');
+  hud.replaceChildren(rays, h('b', '', `×${combo}`), h('span', '', t[1]));
+  if (combo > prev) {
+    retrigger(hud, 'bump', 420);
+    if (tier >= 2) comboSparks(hud, Math.min(22, 6 + combo), flame, tier);
+    if (tier >= 3) { const ring = h('i', 'ch-ring'); hud.append(ring); setTimeout(() => ring.remove(), 700); }
+    if (prev < t[0] && tier >= 2) comboBanner(combo, t[1], tier, flame); // a new tier
+  }
+}
+function comboSparks(host: HTMLElement, n: number, flame: string, tier: number) {
+  for (let i = 0; i < n; i++) {
+    const sp = h('i', 'ch-spark');
+    const a = (i / n) * Math.PI * 2 + Math.random() * 0.5, d = 46 + Math.random() * (30 + tier * 14);
+    sp.style.setProperty('--dx', `${Math.cos(a) * d}px`); sp.style.setProperty('--dy', `${Math.sin(a) * d * 0.8 - 10}px`);
+    sp.style.setProperty('--c', tier >= 5 && i % 2 ? '#ffd34d' : flame);
+    sp.style.animationDelay = `${Math.random() * 60}ms`;
+    host.append(sp);
+    setTimeout(() => sp.remove(), 800);
+  }
+}
+function comboBanner(combo: number, label: string, tier: number, flame: string) {
+  const b = h('div', `combo-banner tier-${tier}`);
+  b.style.setProperty('--flame', flame);
+  b.append(h('b', '', `×${combo}`), h('span', '', `${label}!`));
+  ($('battle') ?? document.body).append(b);
+  setTimeout(() => b.remove(), 1700);
+}
+function comboBroken(n: number, flame: string) {
+  const b = h('div', 'combo-broken');
+  b.style.setProperty('--flame', flame);
+  b.textContent = tr(`×${n} combo broken`);
+  $('battle').append(b);
+  setTimeout(() => b.remove(), 1300);
 }
 
 // ── battle: wizards, dragon & spell effects ──────────────────────────────────
@@ -614,6 +685,7 @@ function retrigger(el: HTMLElement, cls: string, ms: number) {
 
 export function setupArena(mode: GameMode, players: PlayerView[], you: PlayerId) {
   battleMode = mode;
+  shownCombo = 0; $('comboHud').hidden = true; // (a new battle)
   const boss = mode === 'boss';
   const others = players.filter((p) => p.id !== you);
   $('wizOpp').hidden = boss;
@@ -755,11 +827,12 @@ export function clawHit(victim: Actor, damage: number) {
 }
 
 /** 0.9.9.9.5.3: someone reached a 30× combo (Godlike): the arena trembles for everyone in it */
-export function arenaTremble(seconds = 1.8) {
+// (0.9.9.9.5.5: longer — 3.2 s — and gentler; the CSS shake lasts as long)
+export function arenaTremble(seconds = 3.2) {
   arena3d()?.tremble(seconds);
   const b = document.getElementById('battle');
-  if (b) { b.classList.remove('trembling'); void b.offsetWidth; b.classList.add('trembling'); setTimeout(() => b.classList.remove('trembling'), seconds * 1000); }
-  try { navigator.vibrate?.([90, 60, 120, 60, 160, 80, 90]); } catch { /* not allowed */ }
+  if (b) { b.style.setProperty('--tremble', `${seconds}s`); b.classList.remove('trembling'); void b.offsetWidth; b.classList.add('trembling'); setTimeout(() => b.classList.remove('trembling'), seconds * 1000); }
+  try { navigator.vibrate?.([70, 70, 90, 70, 110, 90, 90, 110, 70, 140, 50]); } catch { /* not allowed */ }
 }
 
 export function breathWarning(inMs: number) {
@@ -1146,7 +1219,8 @@ export function markProfile(el: HTMLElement, p: { id: string; bot?: string | nul
 export const dateTime = (at: number) => new Date(at).toLocaleString(locale(), { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /** A small floating card next to the clicked name. */
-export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean; /** 0.9.9.9.5.2 */ remove?: () => Promise<void> }
+export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean; /** 0.9.9.9.5.2 */ remove?: () => Promise<void>;
+  /** 0.9.9.9.5.5: their whole profile (look + achievements) */ view?: () => void; /** 0.9.9.9.5.5: their lobby is open */ join?: { label: string; mode: string; go: () => void } }
 export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing', actions?: ProfileActions) {
   const pop = $('otherPop');
   const body: HTMLElement[] = [];
@@ -1197,6 +1271,18 @@ function clampProfileCard() {
 function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
   const box = h('div', 'pp-actions');
   const msg = h('p', 'hint pp-msg');
+  // 0.9.9.9.5.5: an open lobby — join it from here
+  if (a.join) {
+    const j = h('button', 'pill primary pp-join', `⇥ Join their lobby · ${a.join.label}`) as HTMLButtonElement;
+    j.title = a.join.mode;
+    j.onclick = () => { hideProfileCard(); a.join!.go(); };
+    box.append(j);
+  }
+  if (a.view) {
+    const v = h('button', 'pill pp-view', '👤 View profile') as HTMLButtonElement;
+    v.onclick = () => a.view!();
+    box.append(v);
+  }
   if (a.relation === 'none' || a.relation === 'incoming') {
     const b = h('button', 'pill primary', a.relation === 'incoming' ? '✓ Accept friend request' : '+ Add friend') as HTMLButtonElement;
     b.onclick = async () => {
@@ -1243,6 +1329,26 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
   return box;
 }
 
+/** 0.9.9.9.5.5: "Are you sure?" — resolves true for yes (Esc / the backdrop / "Stay" is no) */
+export function confirmBox(title: string, text: string, yes = 'Leave', no = 'Stay'): Promise<boolean> {
+  const d = $<HTMLDialogElement>('confirmDialog');
+  $('confirmTitle').textContent = tr(title);
+  $('confirmText').textContent = tr(text);
+  $('confirmYes').textContent = tr(yes);
+  $('confirmNo').textContent = tr(no);
+  return new Promise((done) => {
+    let answered = false;
+    const finish = (v: boolean) => { if (answered) return; answered = true; d.removeEventListener('close', onClose); if (d.open) d.close(); done(v); };
+    const onClose = () => finish(false);
+    $('confirmYes').onclick = () => finish(true);
+    $('confirmNo').onclick = () => finish(false);
+    d.onclick = (e) => { if (e.target === d) finish(false); };
+    d.addEventListener('close', onClose);
+    if (!d.open) d.showModal();
+    $('confirmNo').focus();
+  });
+}
+
 /** Match history: one row per game, newest first. */
 export function showHistory(list: MatchSummary[] | null, onOpen: (id: string) => void) {
   const box = $('historyList');
@@ -1279,3 +1385,8 @@ document.addEventListener('click', (e) => {
   if (tab) tab.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
 });
 
+
+// (screenshots in CI: kb:debugui=1 lets a scenario show the combo counter at any count)
+try {
+  if (localStorage.getItem('kb:debugui') === '1') (window as unknown as { __kwCombo: (n: number, flame?: string) => void }).__kwCombo = (n, flame = '#ff7a2a') => comboHud(n, flame);
+} catch { /* no storage */ }

@@ -4,7 +4,7 @@ import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry }
 import type { Level, OnoType } from '../../shared/protocol';
 import { LEVELS, studyLevelOf } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
-import { taskPassed, BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked, isCharacter, CHARACTER_DEFS, characterUnlocked } from '../../shared/progress';
+import { taskPassed, BETA_BORDER, BORDERS, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked, isCharacter, CHARACTER_DEFS, characterUnlocked, characterOf, poseOf } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
@@ -16,6 +16,7 @@ import { cleanKana, isKanaChar, kanaCells, masteredCount, type KanaProgress } fr
 import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress, resolveToday } from './ProgressService';
 import { now as clockNow } from '../now';
 import { seededRng } from '../../shared/rng';
+import { addPlay, cleanStats, isQuizKind, mergeStats, type QuizStats } from '../../shared/quizstats';
 
 export const DAILY_NEW = 25; // default new words a day in "All spells"
 export const DAILY_NEW_MIN = 10, DAILY_NEW_MAX = 150;
@@ -35,7 +36,7 @@ export interface DeckRow { vocabId: string; kanji: string; reading: string; mean
 export type { QuizQuestion } from '../../shared/quiz';
 
 export interface Profile { xp: number; level: number; crit: number; learned: number; learnedToday: number; background: BackgroundId; studyLevels: Level[]; wins: number; losses: number; pic: string | null; flame: FlameId; staff: StaffId; strugglingDue: number; streak: number; bestStreak: number;
-  tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew: number; badges: string[];
+  tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew: number; badges: string[]; quizStats: QuizStats;
   tasks: DailyTaskState[]; streakDay: string | null; border: string; starred: string[]; kana: KanaProgress }
 
 /** Public URL of a profile picture (versioned, so browsers can cache it forever). */
@@ -82,6 +83,7 @@ export class StudyService {
       dailyNew: u.dailyNew ?? DAILY_NEW, badges: u.badges ?? [],
       tasks: await this.progress.tasks(u.id, playerDay(u, now)), streakDay: u.streakDay ?? null, border: u.border ?? 'none', starred: u.starred ?? [],
       kana: u.kana ?? {},
+      quizStats: u.quizStats ?? {}, // 0.9.9.9.5.5
     };
   }
 
@@ -182,7 +184,10 @@ export class StudyService {
   async publicProfile(id: string): Promise<PublicProfile | null> {
     const u = await this.store.findById(id);
     if (!u || u.banned) return null;
-    return { id: u.id, name: displayName(u), login: u.nickname?.trim() ? u.username : undefined, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, playerDay(u, clockNow())), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none' };
+    return { id: u.id, name: displayName(u), login: u.nickname?.trim() ? u.username : undefined, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, playerDay(u, clockNow())), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: u.border ?? 'none',
+      // 0.9.9.9.5.5: "View profile" — what they wear (as Customize shows it) and the achievements they have
+      look: { character: characterOf(u.unlocks), staff: u.staff ?? 'verdant', arena: u.background, flame: u.flame ?? 'blue', pose: poseOf(u.unlocks), border: u.border ?? 'none' },
+      achievements: (u.unlocks ?? []).filter((x) => x.startsWith(ACH_PREFIX)).map((x) => x.slice(ACH_PREFIX.length)) };
   }
 
   matches(userId: string) { return this.store.matches(userId, MATCH_HISTORY_LIMIT); }
@@ -706,6 +711,24 @@ export class StudyService {
     if (u.role !== 'admin' && !borderUnlocked(b, levelOf(u.xp), u.unlocks)) throw new StudyError(def.unlock ? 'Finish the tutorial to get the Beta border' : `Unlocks at level ${def.level}`, 403);
     await this.store.update(u.id, { border: b });
     return this.profile((await this.store.findById(u.id)) ?? u);
+  }
+
+  /** 0.9.9.9.5.5: a finished quiz (Quizzes screen records — with the account, the same on every device) */
+  async recordQuiz(u: UserRecord, kind: unknown, score: unknown, total: unknown, ms: unknown): Promise<QuizStats> {
+    if (!isQuizKind(kind)) throw new StudyError('No such quiz');
+    const t = Number(total), sc = Number(score), time = Number(ms) || 0;
+    if (!Number.isInteger(t) || t < 1 || t > 200 || !Number.isInteger(sc) || sc < 0 || sc > t) throw new StudyError('Bad score');
+    const now = (await this.store.findById(u.id)) ?? u;
+    const stats: QuizStats = { ...(now.quizStats ?? {}), [kind]: addPlay(now.quizStats?.[kind], sc, t, Number.isFinite(time) ? time : 0, clockNow()) };
+    await this.store.update(u.id, { quizStats: stats });
+    return stats;
+  }
+  /** 0.9.9.9.5.5: a device's records from before (they were kept only there) — added to the account's, once */
+  async mergeQuizStats(u: UserRecord, local: unknown): Promise<QuizStats> {
+    const now = (await this.store.findById(u.id)) ?? u;
+    const stats = mergeStats(now.quizStats ?? {}, cleanStats(local));
+    await this.store.update(u.id, { quizStats: stats });
+    return stats;
   }
 
   /** Profile badges: up to 3 of your achievements, shown under your name. */

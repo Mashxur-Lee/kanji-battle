@@ -87,6 +87,7 @@
       <label>Effects volume <span id="sfxVolVal"></span><input id="sfxVol" type="range" min="0" max="100" step="1"></label>
       <label>Voice (word on a correct cast) <span id="voiceVolVal"></span><input id="voiceVol" type="range" min="0" max="100" step="1"></label>
       <p id="voiceInfo" class="hint"></p>
+      <div id="voiceFix" class="voice-fix" hidden><button id="voiceGet" class="pill primary" type="button">⬇ Download the Japanese voice</button><p id="voiceHelp" class="hint"></p></div>
     </section>
     <section class="set-sec" data-sec="language" hidden>
       <label class="toggle-row">Language <select id="langSel" aria-label="Language" data-no-i18n><option value="en">English</option><option value="ru">Русский</option></select></label>
@@ -217,6 +218,17 @@
   <p id="rewardWhy" class="hint center"></p>
   <div id="rewardPreview" class="rw-stage"></div>
   <div class="rw-btns"><button id="rewardOk" class="big alt">OK</button><button id="rewardEquip" class="big">Equip</button></div>
+</dialog>
+<!-- 0.9.9.9.5.5: someone's full profile — what they wear and their achievements -->
+<dialog id="playerDialog" class="friend-dialog player-dialog" aria-label="Profile">
+  <button id="playerClose" class="pill dlg-x" aria-label="Close">✕</button>
+  <div id="playerBody"></div>
+</dialog>
+<!-- 0.9.9.9.5.5: "Are you sure?" -->
+<dialog id="confirmDialog" class="friend-dialog confirm-dialog" aria-labelledby="confirmTitle">
+  <h3 id="confirmTitle"></h3>
+  <p id="confirmText" class="hint"></p>
+  <div class="cf-btns"><button id="confirmNo" class="big alt">Stay</button><button id="confirmYes" class="big danger">Leave</button></div>
 </dialog>
 <dialog id="tasksDialog" class="friend-dialog tasks-dialog" aria-label="Daily streak">
   <div class="dd-head"><h3>🔥 Keep your daily streak</h3></div>
@@ -784,11 +796,17 @@
   <section id="lobby" class="screen split" hidden>
     <div class="col-main">
       <button id="leaveLobby" class="back">← Leave room</button>
-      <p id="lobbyMode" class="mode-tag"></p>
+      <!-- 0.9.9.9.5.5: the mode, big, at the top centre (the "← Leave room" button covered it) -->
+      <h2 id="lobbyMode" class="lobby-mode"></h2>
       <p class="sub">Room code — share it with your friend</p>
       <div class="code-row">
         <div id="code" class="code"></div>
         <button id="copyCode" class="pill">Copy</button>
+      </div>
+      <!-- 0.9.9.9.5.5: open (friends join from your profile) or closed (invite / code only) -->
+      <div id="lobbyOpenRow" class="lobby-open" hidden>
+        <button id="lobbyOpen" class="open-switch" role="switch" aria-checked="false"><span class="os-text">Closed</span><span class="os-knob"></span></button>
+        <span id="lobbyOpenHint" class="hint">Only invited friends or the code can join</span>
       </div>
       <ul id="lobbyPlayers" class="players"></ul>
       <div id="addBot" class="add-bot" hidden>
@@ -890,6 +908,7 @@
     </div>
     <div id="log" class="log" aria-live="polite"></div>
     <div id="comboHud" class="combo-hud" hidden aria-live="polite"></div>
+    <div id="comboGlow" class="combo-glow" aria-hidden="true"></div>
   </section>
 
   <!-- DECK DUEL -->
@@ -1037,7 +1056,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.9.5.4</div>
+<div id="version" class="version">v0.9.9.9.5.5</div>
 <script src="/app.js"></script>
 </body>
 </html>

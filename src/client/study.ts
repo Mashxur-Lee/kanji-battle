@@ -13,6 +13,8 @@ import { staffSvg } from './art2d';
 import { showStrokeOrder } from './strokes';
 import type { Rating } from '../shared/srs';
 import { api, type DeckCounts, type Profile, type StudyCard } from './api';
+import type { ProfileLook } from '../shared/protocol';
+import { VERSION } from '../shared/version';
 import type { DeckId } from '../shared/srs';
 import { DECK_LABEL, initDecks } from './decks';
 import { backgroundThumb, getTimePref, resolveTime } from './backgrounds';
@@ -402,19 +404,49 @@ const el = (tag: string, cls = '', text?: string | number) => {
 };
 
 /** Staffs unlock by login streak, backgrounds and flames by level; admins have everything. */
+// 0.9.9.9.5.5: Customize opened only after ~10 s on a phone — the 3D previews were made (and every staff drawn for
+// its tile) before the screen could show. Now the screen shows at once; the 3D starts a moment later, and the staff
+// pictures are drawn one at a time while the phone is idle (and kept for the next visit).
+let heavyOk = false;
 export function openCustomize(profile: Profile, isAdmin = false, onTimeChange: () => void = () => {}) {
   cust = { profile, isAdmin, onTimeChange };
+  heavyOk = false;
+  orbitIdle = true;
   renderCustomize();
   ui.show('customize');
-  void ensurePreview();
+  requestAnimationFrame(() => setTimeout(() => {
+    heavyOk = true;
+    if ($('customize').hidden) return;
+    renderCustomize();
+    void ensurePreview();
+  }, 60));
 }
 
+const THUMBS_KEY = `kb:staffThumbs:${VERSION}`; // (new pictures with each version: the staffs may have changed)
+const idle = (cb: () => void) => ((globalThis as unknown as { requestIdleCallback?: (f: () => void, o?: object) => number }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 120)))(cb, { timeout: 1500 });
 async function ensurePreview() {
   if (previewTried) { if (custTab === 'staff') renderCustomize(); return; }
   previewTried = true;
+  try { staffThumbs = { ...JSON.parse(localStorage.getItem(THUMBS_KEY) ?? '{}'), ...staffThumbs }; } catch { /* none kept */ }
   preview = await staffPreview($<HTMLCanvasElement>('staffCanvas'));
-  if (preview) staffThumbs = Object.fromEntries(preview.thumbs(STAFFS.map((s) => s.id), 200, 200).map((u, i) => [STAFFS[i].id, u]));
   renderCustomize();
+  if (!preview) return;
+  const todo = STAFFS.map((s) => s.id).filter((id) => !staffThumbs[id]);
+  if (!todo.length) return;
+  const step = () => {
+    const id = todo.shift();
+    if (!id || !preview) {
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k?.startsWith('kb:staffThumbs:') && k !== THUMBS_KEY) localStorage.removeItem(k); }
+        localStorage.setItem(THUMBS_KEY, JSON.stringify(staffThumbs));
+      } catch { /* full */ }
+      if (!$('customize').hidden) renderCustomize();
+      return;
+    }
+    try { staffThumbs[id] = preview.thumbs([id], 128, 128)[0]; } catch { /* skip it */ }
+    idle(step);
+  };
+  idle(step);
 }
 
 /** 0.9.9.9.5.3: the Hero Locker's slots — your loadout, on both sides of you (they were tabs along the top) */
@@ -427,6 +459,8 @@ const SLOTS: { tab: CustTab; label: string; side: 'left' | 'right' }[] = [
   { tab: 'profile', label: 'Profile card', side: 'right' },
 ];
 let trayTab: CustTab | null = null; // (the tray slides up when the slot changes)
+/** 0.9.9.9.5.5: no slot picked — the camera swings slowly round you (tap the open slot again to get back here) */
+let orbitIdle = true;
 
 const thisMonth = () => new Date().getMonth() + 1;
 const monthName = (m: number) => new Date(2026, m - 1, 15).toLocaleDateString(locale(), { month: 'long' });
@@ -547,17 +581,27 @@ function renderCustomize() {
       const its = custItems(profile, isAdmin, slot.tab);
       const on = its.find((i) => i.equipped) ?? its[0];
       const have = its.filter((i) => !i.locked).length;
-      const b = el('button', `lk-slot${slot.tab === custTab ? ' on' : ''}`) as HTMLButtonElement;
+      const sel0 = !orbitIdle && slot.tab === custTab;
+      const b = el('button', `lk-slot${sel0 ? ' on' : ''}`) as HTMLButtonElement;
       b.type = 'button'; b.dataset.tab = slot.tab;
-      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(slot.tab === custTab));
+      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(sel0));
       const pic = el('div', `lk-pic ${slot.tab}`); if (on) pic.append(on.tile());
       const txt = el('div', 'lk-txt');
       txt.append(el('small', '', slot.label), el('b', '', on?.name ?? '—'), el('span', 'lk-count', `${have} / ${its.length}`));
       b.append(pic, txt);
-      b.onclick = () => { if (custTab === slot.tab) return; custTab = slot.tab; renderCustomize(); };
+      // (0.9.9.9.5.5: the open slot, tapped again, closes — nothing picked, the camera goes round you)
+      b.onclick = () => { if (sel0) orbitIdle = true; else { orbitIdle = false; custTab = slot.tab; } renderCustomize(); };
       return b;
     }));
   }
+  $('customize').classList.toggle('lk-idle', orbitIdle);
+  $('lkTray').hidden = orbitIdle;
+  if (orbitIdle) {
+    trayTab = null;
+    renderIdle();
+    return;
+  }
+  arena3?.orbit?.(false);
   $('lkTrayTitle').textContent = SLOTS.find((x) => x.tab === custTab)!.label;
   if (trayTab !== custTab) {
     trayTab = custTab;
@@ -618,7 +662,7 @@ function renderCustomize() {
   $('arenaPreview').hidden = !in3d;
   stage2.hidden = showCanvas || in3d;
   $('custStage').dataset.tab = custTab;
-  if ((custTab === 'arena' || custTab === 'omni' || custTab === 'pose' || custTab === 'character') && !arena3Tried) void ensureArena3();
+  if (heavyOk && (custTab === 'arena' || custTab === 'omni' || custTab === 'pose' || custTab === 'character' || orbitIdle) && !arena3Tried) void ensureArena3();
   $('poseInsetLbl').hidden = !(in3d && custTab === 'pose');
   if (in3d) showArena3(custTab as 'arena' | 'omni' | 'pose' | 'character', sel.id, profile); else arena3?.setActive(false);
   if (custTab === 'staff') {
@@ -683,6 +727,62 @@ function renderCustomize() {
   $('custInfo').replaceChildren(...info, btn);
 }
 
+// ── 0.9.9.9.5.5: someone else's Customize ("View profile") ─────────────────────────────────────────────
+/** What they wear: their arena behind their character (on fire in their colour), then the six slots as the Locker shows them. */
+export function lookCard(look: ProfileLook, pic: string | null, name: string): HTMLElement {
+  const unlocks = [`char:${look.character}`, `pose:${look.pose}`];
+  const p = { xp: 0, level: 0, learned: 0, bestStreak: 0, streak: 0, unlocks, staff: look.staff, background: look.arena, border: look.border, flame: look.flame, pic } as unknown as Profile;
+  const box = el('div', 'look');
+  // the scene
+  const scene = el('div', 'look-scene');
+  const bg = el('div', 'look-bg'); bg.innerHTML = backgroundThumb(look.arena as BackgroundId, resolveTime(getTimePref()));
+  const w = el('div', 'wizard me onfire look-char');
+  ui.paintFlame(w, look.flame);
+  const sprite = el('div', 'sprite'); sprite.innerHTML = avatarSvg(characterOf(unlocks), 'me', look.staff);
+  w.append(el('div', 'aura'), sprite);
+  scene.append(bg, w);
+  // the slots
+  const grid = el('div', 'look-slots');
+  for (const slot of SLOTS) {
+    const its = custItems(p, true, slot.tab);
+    const on = its.find((i) => i.equipped) ?? its[0];
+    const cell = el('div', 'look-slot');
+    const tile = el('div', `lk-pic ${slot.tab}`);
+    if (slot.tab === 'profile') {
+      const d = el('div', `ci-avatar${pic ? ' has-pic' : ''}${ui.borderCls(look.border)}`);
+      if (pic) { const img = ui.picEl(pic, 'pic fill'); if (img) d.append(img); } else d.textContent = (name || '✦').slice(0, 1).toUpperCase();
+      tile.append(d);
+    } else if (on) tile.append(on.tile());
+    const txt = el('div', 'lk-txt'); txt.append(el('small', '', slot.label), el('b', '', on?.name ?? '—'));
+    cell.append(tile, txt);
+    grid.append(cell);
+  }
+  box.append(scene, grid);
+  return box;
+}
+
+/** 0.9.9.9.5.5: nothing picked — you on the pedestal, the camera swinging round; a line on what to do */
+function renderIdle() {
+  const { profile } = cust!;
+  const canvas = $<HTMLCanvasElement>('staffCanvas');
+  canvas.hidden = true;
+  const stage2 = $('custStage2');
+  $('custStage').dataset.tab = 'idle';
+  $('poseInsetLbl').hidden = true;
+  if (heavyOk && !arena3Tried) void ensureArena3();
+  if (arena3) {
+    $('arenaPreview').hidden = false; stage2.hidden = true;
+    showArena3('character', characterOf(profile.unlocks), profile);
+    arena3.spin(false);
+    arena3.orbit?.(true);
+  } else {
+    $('arenaPreview').hidden = true; stage2.hidden = false;
+    const big = el('div', 'char-tile big'); big.innerHTML = avatarSvg(characterOf(profile.unlocks), 'me', profile.staff);
+    stage2.replaceChildren(big);
+  }
+  $('custInfo').replaceChildren(el('h3', '', ui.myName() || 'Your hero'), el('p', 'sub', 'Pick a slot on either side to change it — tap it again to close it.'));
+}
+
 /** Your picture (or initial) in a round frame with the given border — the Profile tab's tiles and preview. */
 function avatarDisc(p: Profile, border: string, cls: string) {
   const d = el('div', `${cls}${p.pic ? ' has-pic' : ''}${ui.borderCls(border)}`);
@@ -702,6 +802,7 @@ async function ensureArena3() {
   arena3 = await arenaPreview($<HTMLCanvasElement>('arenaPreview'));
   if (arena3 && !$('customize').hidden) renderCustomize();
 }
+
 /** you stand across the arena (as others see you): the chosen arena, or your flames burning round you */
 function showArena3(tab: 'arena' | 'omni' | 'pose' | 'character', id: string, p: Profile) {
   if (!arena3) return;

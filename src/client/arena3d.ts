@@ -51,6 +51,8 @@ export interface ArenaApi {
   focusOpp(on: boolean): void;
   /** 0.9.9.9.5.3: Customize (the Hero Locker): you turn slowly, as on a pedestal */
   spin(on: boolean): void;
+  /** 0.9.9.9.5.5: Customize with nothing picked — the camera swings slowly round you (with focusOpp) */
+  orbit?(on: boolean): void;
   /** 0.9.9.7.1: Customize → Combo pose: a small first-person view in the corner, next to you seen from outside */
   setInset(on: boolean): void;
   /** change only the arena and the time of day (the fighters stay) */
@@ -693,6 +695,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   }
   let shake = 0;
   let spinning = false; // (Customize: you turn round on the pedestal)
+  let orbiting = false, orbitT = 0, orbitK = 0;
   let trembleUntil = 0, trembleFor = 1; // (0.9.9.9.5.3: a long rumble, on top of the short kicks)
   const kick = (amount: number) => { if (!reduced()) shake = Math.max(shake, amount); };
 
@@ -872,7 +875,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const onMove = (e: PointerEvent) => {
     if (e.pointerType !== 'mouse' || e.buttons) return; // not while drawing (or on a phone)
     const t = e.target as Element | null;
-    if (t?.closest?.('.pad, canvas:not(#arena3d), input, textarea, button, select, .dkc, .deck-hand, .challenge, dialog')) return;
+    if (t?.closest?.('.pad, canvas:not(#arena3d):not(#arenaPreview), input, textarea, button, select, .dkc, .deck-hand, .challenge, dialog')) return; // (0.9.9.9.5.5: the Customize preview follows the mouse over it too)
     mouse.set((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1);
   };
   addEventListener('pointermove', onMove, { passive: true });
@@ -1026,8 +1029,17 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const p = fo.group.position;
       const k = focus * focus * (3 - 2 * focus);
       // (0.9.9.9.5.3: on the Hero Locker's pedestal — turning — straight on, the whole of you in view)
-      camera.position.lerp(spinning ? new THREE.Vector3(p.x + 0.15, 1.45 + sway, p.z + 3.0) : new THREE.Vector3(p.x + 1.1, 1.75 + sway, p.z + 3.4), k);
-      camera.lookAt(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).multiplyScalar(4).add(camera.position).lerp(new THREE.Vector3(p.x - 0.1, spinning ? 1.3 : 1.45, p.z), k));
+      // (0.9.9.9.5.5: nothing picked — the camera swings round you, 70° each way, slowly; eased in and out)
+      orbitK += ((orbiting ? 1 : 0) - orbitK) * Math.min(1, dt * 2);
+      if (orbitK > 0.001) orbitT += dt;
+      const a = Math.sin(orbitT * 0.32) * 1.22 * orbitK;
+      const R = 3.0 + 0.25 * orbitK;
+      const base = spinning ? new THREE.Vector3(p.x + 0.15, 1.45 + sway, p.z + 3.0) : new THREE.Vector3(p.x + 1.1, 1.75 + sway, p.z + 3.4);
+      const round = new THREE.Vector3(p.x + Math.sin(a) * R, 1.5 + sway + 0.12 * Math.sin(orbitT * 0.21), p.z + Math.cos(a) * R);
+      // (0.9.9.9.5.5: up close the mouse still moves the view a little — it went dead over the preview)
+      const par = opts.preview ? new THREE.Vector3(look.x * 0.35, -look.y * 0.16, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), a) : new THREE.Vector3();
+      camera.position.lerp(base.lerp(round, orbitK).add(par), k);
+      camera.lookAt(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).multiplyScalar(4).add(camera.position).lerp(new THREE.Vector3(p.x - 0.1 * (1 - orbitK), spinning ? 1.3 : 1.45 - 0.17 * orbitK, p.z), k));
     }
     if (!opts.preview && active && current && (current.opp || current.allies.length) && nowMs - myLook.sentAt > 150 && (Math.abs(myLook.yaw - myLook.sentYaw) > 0.02 || Math.abs(myLook.pitch - myLook.sentPitch) > 0.02)) {
       myLook.sentAt = nowMs; myLook.sentYaw = myLook.yaw; myLook.sentPitch = myLook.pitch;
@@ -1035,9 +1047,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     }
     if (trembleUntil > now) {
       // the ground rumbles: strong at first, then fading out
-      const k = (trembleUntil - now) / trembleFor, amp = (reduced() ? 0.012 : 0.05) * Math.min(1, k * 1.6);
-      camera.position.add(new THREE.Vector3(Math.sin(now * 0.061) * amp, Math.sin(now * 0.083 + 1) * amp * 0.8, 0));
-      camera.rotation.z += Math.sin(now * 0.047) * amp * 0.12;
+      // (0.9.9.9.5.5: about half as strong, a slower roll — it lasts longer now)
+      const k = (trembleUntil - now) / trembleFor, amp = (reduced() ? 0.008 : 0.026) * Math.min(1, k * 2.2) * (0.75 + 0.25 * Math.sin(now * 0.009));
+      camera.position.add(new THREE.Vector3(Math.sin(now * 0.043) * amp, Math.sin(now * 0.057 + 1) * amp * 0.8, 0));
+      camera.rotation.z += Math.sin(now * 0.031) * amp * 0.1;
     }
     if (shake > 0) {
       camera.position.add(new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), 0).multiplyScalar(shake));
@@ -1555,11 +1568,15 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const fall = () => {
         const t = Math.min(1, (performance.now() - start) / 700);
         const e = t * t;
-        // falls over sideways and lies on the ground
-        if (f.model) { f.model.root.rotation.z = (Math.PI / 2) * e; f.model.root.position.y = 0.24 * e; }
-        else if (f.dragon) { f.dragon.root.rotation.z = 0.9 * e; f.dragon.root.position.y = -0.4 * e; } // (the dragon slumps onto its side)
+        // 0.9.9.9.5.5: the rigged ones go down on one knee (a little give at the end); the dragon lies down on its stomach
+        const t2 = Math.min(1, (performance.now() - start) / 900);
+        const k = t2 < 0.8 ? 1 - (1 - t2 / 0.8) ** 3 : 1 + Math.sin(((t2 - 0.8) / 0.2) * Math.PI) * 0.04;
+        if (f.model?.kneel) f.model.kneel(k);
+        // (the older models: fall over sideways and lie on the ground)
+        else if (f.model) { f.model.root.rotation.z = (Math.PI / 2) * e; f.model.root.position.y = 0.24 * e; }
+        else if (f.dragon) f.dragon.ko(1 - (1 - Math.min(1, (performance.now() - start) / 1400)) ** 2);
         else if (f.spriteMat) { f.spriteMat.rotation = (Math.PI / 2) * t * -1; f.spriteMat.opacity = 1 - t * 0.6; }
-        if (t < 1) requestAnimationFrame(fall);
+        if (t < 1 || (t2 < 1 && f.model?.kneel) || (f.dragon && performance.now() - start < 1400)) requestAnimationFrame(fall);
       };
       fall();
       burst(pointOf(who), 0xffffff, 40, 3, 0.25);
@@ -1582,6 +1599,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     },
     focusOpp(on) { focusOn = on; fp.visible = !on; },
     spin(on) { if (spinning && !on) placeFighters(); spinning = on; },
+    orbit(on) { if (on && !orbiting) orbitT = 0; orbiting = on; },
     setInset(on) { inset = on; },
     prewarm(ids, time) {
       if (!opts.preview) return;

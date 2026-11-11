@@ -5,7 +5,7 @@ import { CARD_COLORS, CARD_SPECS, CHARACTER_INFO, DECK_CHARACTERS, DECK_RULES, t
 import * as audio from './audio';
 import * as ui from './ui';
 import type { ChatMessage } from '../shared/protocol';
-import { locale } from './i18n';
+import { locale, tr } from './i18n';
 import { heroSvg } from './wizard';
 import { arena, arenaForDeck, resetArenaDeck } from './arena';
 import { flameColor } from '../shared/progress';
@@ -22,7 +22,7 @@ function h(tag: string, cls = '', text?: string | number): HTMLElement {
 }
 
 export interface DeckHooks {
-  send: (msg: { type: 'deck_character'; character: string } | { type: 'deck_pick'; cardId: string } | { type: 'deck_play'; cardId: string } | { type: 'deck_ability' } | { type: 'chat'; text: string } | { type: 'back_to_lobby' } | { type: 'deck_cast_ready'; castId: number } | { type: 'deck_cast_go'; castId: number } | { type: 'answer'; challengeId: number; text: string }) => void;
+  send: (msg: { type: 'deck_character'; character: string } | { type: 'deck_pick'; cardId: string } | { type: 'deck_play'; cardId: string } | { type: 'deck_ability' } | { type: 'chat'; text: string } | { type: 'chat_typing'; on: boolean } | { type: 'back_to_lobby' } | { type: 'deck_cast_ready'; castId: number } | { type: 'deck_cast_go'; castId: number } | { type: 'answer'; challengeId: number; text: string }) => void;
   /** your player id (chat arrives before the first deck view) */
   me: () => string;
   /** It's your turn to write this card: set up the pad/IME. */
@@ -75,12 +75,51 @@ export function initDeck(hk: DeckHooks) {
       const text = input.value.trim();
       if (text) hooks.send({ type: 'chat', text });
       input.value = '';
+      typingOff();
     });
+    // 0.9.9.9.5.5: the others see "Ann is typing…" (on at most every 1.5 s; off after 3 s without a key, or when sent)
+    $(field).addEventListener('input', () => {
+      const v = $<HTMLInputElement>(field).value.trim();
+      if (!v) return typingOff();
+      const now = Date.now();
+      if (!typingSent || now - typingSent > 1500) { typingSent = now; hooks.send({ type: 'chat_typing', on: true }); }
+      clearTimeout(typingIdle);
+      typingIdle = window.setTimeout(typingOff, 3000);
+    });
+    $(field).addEventListener('blur', typingOff);
   }
   renderGuide($('deckGuide'));
 }
 
 // ── chat ────────────────────────────────────────────────────────────────────
+let typingSent = 0;
+let typingIdle = 0;
+function typingOff() {
+  clearTimeout(typingIdle);
+  if (!typingSent) return;
+  typingSent = 0;
+  hooks.send({ type: 'chat_typing', on: false });
+}
+/** 0.9.9.9.5.5: who is typing in the chat right now (each clears itself after 5 s with no news) */
+const typers = new Map<string, { name: string; timer: number }>();
+export function chatTyping(id: string, name: string, on: boolean) {
+  const old = typers.get(id);
+  if (old) clearTimeout(old.timer);
+  if (on) typers.set(id, { name, timer: window.setTimeout(() => chatTyping(id, name, false), 5000) });
+  else typers.delete(id);
+  renderTyping();
+}
+function renderTyping() {
+  const names = [...typers.values()].map((x) => x.name);
+  const text = tr(!names.length ? '' : names.length === 1 ? `${names[0]} is typing…` : names.length === 2 ? `${names[0]} and ${names[1]} are typing…` : 'Several people are typing…');
+  for (const log of [$('dkChatLog'), $('lobbyChatLog')]) {
+    let el = log.nextElementSibling as HTMLElement | null;
+    if (!el?.classList.contains('chat-typing')) { el = h('div', 'chat-typing'); el.setAttribute('aria-live', 'polite'); log.after(el); }
+    el.classList.toggle('on', !!text);
+    if (text) { el.replaceChildren(h('span', 'ct-dots', ''), document.createTextNode(text)); el.querySelector('.ct-dots')!.append(h('i'), h('i'), h('i')); }
+  }
+  if (text) $('lobbyChat').hidden = false;
+}
 const seenChat = new Set<number>();
 /** when a chat message was sent, in the player's own clock: 14:05 */
 const chatTime = (at: number) => { try { return new Date(at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
@@ -89,6 +128,20 @@ export function chatMessages(msgs: ChatMessage[]) {
   for (const m of msgs) {
     if (seenChat.has(m.id)) continue;
     seenChat.add(m.id);
+    if (m.sys) {
+      // 0.9.9.9.5.5: "Ann joined the lobby" / "Ann left the lobby" — from the game, not from a player
+      if (m.sys === 'leave' && typers.has(m.from)) chatTyping(m.from, m.name, false);
+      for (const log of logs) {
+        const line = h('div', 'chat-line sys ' + m.sys);
+        line.append(h('span', 'cl-text', tr(m.sys === 'leave' ? `${m.name} left the lobby` : `${m.name} joined the lobby`)), h('time', 'cl-time', chatTime(m.at)));
+        log.append(line);
+      }
+      $('lobbyChat').hidden = false;
+      continue;
+    }
+    // a message came: they stopped typing
+    const tp = typers.get(m.from);
+    if (tp) chatTyping(m.from, tp.name, false);
     for (const log of logs) {
       const line = h('div', 'chat-line' + (m.from === hooks.me() ? ' mine' : ''));
       // 0.9.9.9.5: "Name: message" with the time on the right (the colon comes from style.css)
@@ -108,7 +161,7 @@ export function chatMessages(msgs: ChatMessage[]) {
     log.scrollTop = log.scrollHeight;
   }
 }
-export function clearChat() { seenChat.clear(); $('dkChatLog').replaceChildren(); $('lobbyChatLog').replaceChildren(); $('lobbyChat').hidden = true; }
+export function clearChat() { seenChat.clear(); for (const t of typers.values()) clearTimeout(t.timer); typers.clear(); renderTyping(); $('dkChatLog').replaceChildren(); $('lobbyChatLog').replaceChildren(); $('lobbyChat').hidden = true; }
 
 // ── lobby guide ─────────────────────────────────────────────────────────────
 /** The Deck Duel instructions (lobby, and the online queue's "?"). */

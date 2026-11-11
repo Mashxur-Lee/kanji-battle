@@ -81,7 +81,8 @@ export interface PlayerView {
   pose?: string; // 0.9.9.7: combo pose (Customize)
 }
 
-export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number }
+/** sys (0.9.9.9.5.5): a line from the game — someone joined or left the lobby (`name` is who) */
+export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number; sys?: 'join' | 'leave' }
 export const CHAT_MAX_LENGTH = 140;
 
 export interface BossView { name: string; hp: number; maxHp: number }
@@ -110,7 +111,10 @@ export type GameOverReason = 'ko' | 'time' | 'forfeit' | 'boss_slain' | 'party_w
 
 /** Another player's public card (shown when you click their name). */
 export interface MissedWord { id: string; kanji: string; reading: string; meaning: string; level: Level; added: boolean }
-export interface PublicProfile { id: string; name: string; /** the login under the nickname (0.9.9.6) */ login?: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string; streak: number; bestStreak: number; badges?: string[]; border?: string }
+export interface PublicProfile { id: string; name: string; /** the login under the nickname (0.9.9.6) */ login?: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string; streak: number; bestStreak: number; badges?: string[]; border?: string;
+  /** 0.9.9.9.5.5: what they wear (Customize) and the achievements they have (ids) */
+  look?: ProfileLook; achievements?: string[] }
+export interface ProfileLook { character: string; staff: string; arena: string; flame: string; pose: string; border: string }
 
 /** One line of your match history. `character`: Deck Duel hero, otherwise the wizard avatar you played. */
 export interface MatchSummary {
@@ -177,6 +181,10 @@ export type ClientMessage =
   /** 0.9.9.9.5: "Decline" on a friend's invite — they can't invite you again for 5 minutes */
   | { type: 'invite_decline'; fromId: string }
   | { type: 'chat'; text: string }
+  /** 0.9.9.9.5.5: typing in the lobby chat (the others see "Ann is typing…") */
+  | { type: 'chat_typing'; on: boolean }
+  /** 0.9.9.9.5.5: the host opens the lobby to friends (they can join from your profile) or closes it (invite / code only) */
+  | { type: 'set_open'; open: boolean }
   /** 3D mouse look: where you are looking (radians; + = left / up), sent a few times a second */
   | { type: 'look'; yaw: number; pitch: number }
   /** 0.9.9.7.2: you started / stopped typing or writing (the others see your staff move only then) */
@@ -234,7 +242,9 @@ export type ServerMessage =
   | { type: 'kicked'; message: string }
   | { type: 'joined'; code: string; you: PlayerId; mode: GameMode }
   | { type: 'left' }
-  | { type: 'lobby'; players: PlayerView[]; hostId: PlayerId; maxPlayers: number; minPlayers: number; mode: GameMode }
+  | { type: 'lobby'; players: PlayerView[]; hostId: PlayerId; maxPlayers: number; minPlayers: number; mode: GameMode; /** 0.9.9.9.5.5 */ open?: boolean }
+  /** 0.9.9.9.5.5: someone in the room is typing in the chat (or stopped) */
+  | { type: 'chat_typing'; id: PlayerId; name: string; on: boolean }
   | { type: 'prep'; pool: StudyItem[]; durationMs: number; readyIds: PlayerId[]; players: PlayerView[] }
   | { type: 'prep_ready'; readyIds: PlayerId[] }
   | {
