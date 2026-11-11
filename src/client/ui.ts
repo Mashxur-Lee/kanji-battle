@@ -1384,3 +1384,8 @@ document.addEventListener('click', (e) => {
   if (tab) tab.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
 });
 
+
+// (screenshots in CI: kb:debugui=1 lets a scenario show the combo counter at any count)
+try {
+  if (localStorage.getItem('kb:debugui') === '1') (window as unknown as { __kwCombo: (n: number, flame?: string) => void }).__kwCombo = (n, flame = '#ff7a2a') => comboHud(n, flame);
+} catch { /* no storage */ }
