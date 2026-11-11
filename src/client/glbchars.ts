@@ -182,7 +182,18 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side,
   // glowing eyes (on fire), where the model's eyes are
   const spots = eyeSpots(tpl.scene, look.eyes, look.eyesTop).map((p) => [p.x, p.y - headAt.y, p.z - headAt.z + 0.01] as V3);
   const eyes = spots.length ? glowEyes(head, spots, EYE_COLORS[kind], glowTex) : undefined;
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, legs };
+  // 0.9.9.9.5.4: breathing — the chest swells a little, the shoulders lift, the neck follows; each fighter at their own pace
+  const chest = bone('Chest'), spine = bone('Spine'), neck = bone('Neck');
+  const shoulders = [bone('Shoulder.L'), bone('Shoulder.R')];
+  const pace = 1.7 + Math.random() * 0.35, phase = Math.random() * 6;
+  const breathe = (t: number) => {
+    const b = Math.sin(t * pace + phase), in_ = Math.max(0, b);
+    chest.scale.set(1 + 0.022 * b, 1 + 0.014 * b, 1 + 0.035 * b);
+    spine.rotation.x = -0.018 * b;
+    neck.rotation.x = 0.016 * b;
+    shoulders[0].rotation.z = 0.035 * in_; shoulders[1].rotation.z = -0.035 * in_;
+  };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, legs, breathe };
 }
 
 // ── the Black Dragon (Boss Elimination) ─────────────────────────────────────

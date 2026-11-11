@@ -87,7 +87,7 @@ public class PushService extends FirebaseMessagingService {
         String auth = p.getString("auth", "");
         if (auth == null || auth.isEmpty()) return; // signed out on this phone
         boolean ru = "ru".equals(p.getString("lang", "en"));
-        String from = d.containsKey("from") ? d.get("from") : "?";
+        String from = d.containsKey("fromName") ? d.get("fromName") : "?"; // ("from" is Google's own key)
         String mode = d.containsKey("mode") ? d.get("mode") : "";
         String code = d.containsKey("code") ? d.get("code") : "";
         String fromId = d.containsKey("fromId") ? d.get("fromId") : "";

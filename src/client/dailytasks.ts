@@ -181,3 +181,6 @@ export function initTasks() {
   $('tasksOk').onclick = () => $<HTMLDialogElement>('tasksDialog').close();
   $<HTMLInputElement>('tasksNever').onchange = (e) => store.set(NEVER, (e.target as HTMLInputElement).checked ? '1' : '');
 }
+
+// 0.9.9.9.5.4: the profile cards (yours and your friends') show the streak flames too
+ui.useStreakFlame(streakFlame);

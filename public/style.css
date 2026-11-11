@@ -4176,3 +4176,51 @@ body.lang-switching::after { content: ""; position: fixed; inset: 0; z-index: 10
 
 /* 0.9.9.9.5.3: the private lobby's "Your levels": wide enough for all seven in one row (N2 and N1 wrapped) */
 @media (min-width: 901px) { #lobby .levels { max-width: 680px; } #lobby .levels .chips { flex-wrap: nowrap; } #lobby .levels .chip { padding: 9px 13px; } }
+
+/* ── 0.9.9.9.5.4: phones — no blurring what is behind anything. A blur behind a full-screen layer (the menu's
+   shade, Settings, the dialogs) had to be redone over the moving background each frame: when the menu or Settings
+   came up, the phone showed black for a moment while it caught up. A plain darker shade instead. ── */
+@media (pointer: coarse) {
+  *, *::before, *::after, ::backdrop { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .settings-overlay { background: rgba(6, 5, 20, .82); animation: none; }
+  dialog::backdrop { background: rgba(5, 4, 18, .72); }
+  /* the menu's shade waits, still drawn, while you are elsewhere (not rebuilt each time you come back) */
+  body:not([data-screen="menu"]) .menu-veil * { animation-play-state: paused; }
+}
+
+/* ── 0.9.9.9.5.4: the Hero Locker on phones — a smaller stage, the slots as a neat 3 × 2 grid of tiles ── */
+@media (max-width: 900px) {
+  .locker-screen .cust-stage, .locker-screen .cust-stage[data-tab] { height: min(250px, calc(34 * var(--vh))); aspect-ratio: auto; }
+  .locker-screen .cust-stage[data-tab="arena"], .locker-screen .cust-stage[data-tab="omni"] { height: auto; aspect-ratio: 16 / 9; max-height: 230px; }
+  .locker-screen .pose-tile.big { width: 110px; height: 110px; }
+  .locker-screen #custStage[data-tab="profile"] .cust-stage2 > * { scale: .78; }
+  .locker-screen .cust-stage2 .wizard .sprite { width: 110px; }
+  .lk-pedestal { display: none; }
+  .locker-screen .lk-info .cust-2d { display: none; } /* (the 2D look shows in the slot's tile) */
+  .lk-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; overflow: visible; }
+  .lk-slot { flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 7px 4px 6px; }
+  .lk-txt { align-items: center; width: 100%; }
+  .lk-txt small { font-size: .6rem; letter-spacing: .04em; }
+  .lk-txt b { font-size: .78rem; max-width: 100%; }
+  .lk-info.cust-info { padding: 10px 12px; }
+  .lk-info.cust-info h3 { font-size: 1.1rem; }
+  .lk-info.cust-info .sub { font-size: .82rem; }
+  .lk-head h2 { font-size: 1.5rem; margin: 0; }
+}
+
+/* ── 0.9.9.9.5.4: a badge is all its metal — the name and the words too; bronze is plain (no glow, no shine) ── */
+.ach:not(.locked) .ach-tip b, .ach:not(.locked) .ach-tip span { color: var(--ac); }
+.ach:not(.locked) .ach-tip span { color: color-mix(in srgb, var(--ac) 75%, #fff); }
+.ach-pop .ach-txt b, .ach-pop b { color: var(--ac); }
+.ach:not(.locked).tier-1 svg, .ach-badge.tier-1 svg { filter: none !important; animation: none !important; }
+.ach.tier-1::before, .ach-badge.tier-1::before { display: none; }
+:root[data-theme="light"] .ach:not(.locked) .ach-tip span { color: color-mix(in srgb, var(--ac) 70%, #1d1838); }
+:root[data-theme="light"] .ach:not(.locked) .ach-tip b { color: color-mix(in srgb, var(--ac) 80%, #1d1838); }
+.ach-pop .ach-text span { color: color-mix(in srgb, var(--ac) 70%, #fff); }
+
+/* ── 0.9.9.9.5.4: the streak flames on the profile cards ── */
+.pp-stats .streak-box:has(.sf) { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 10px; text-align: left; }
+.pp-stats .streak-box .sf { width: 40px; }
+.pp-stats .streak-box .sf .sf-n { font-size: 1rem; -webkit-text-stroke: 3px rgba(40, 10, 0, .55); }
+.pp-stats .streak-box > .sf ~ b, .pp-stats .streak-box .sf ~ .sb-txt b { display: none; }
+.pp-stats .streak-box .sb-txt { display: flex; flex-direction: column; }

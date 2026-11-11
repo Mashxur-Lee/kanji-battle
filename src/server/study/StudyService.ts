@@ -311,17 +311,19 @@ export class StudyService {
   async setKana(u: UserRecord, raw: unknown, today: string) {
     const changes = cleanKana(raw);
     const kana: KanaProgress = { ...(u.kana ?? {}) };
-    let newlyMastered = 0, starred = 0;
+    let newlyMastered = 0;
     for (const [ch, v] of Object.entries(changes)) {
       const was = kana[ch] ?? { s: 0 };
       if (v.m && !was.m) newlyMastered++;
-      if (v.s > was.s) starred++;
       kana[ch] = was.m || v.m ? { s: v.s, m: true } : { s: v.s }; // mastered stays mastered
     }
     await this.store.update(u.id, { kana });
     const xp = newlyMastered * KANA_MASTER_XP;
     if (xp) await this.store.addXp(u.id, xp);
-    if (starred || xp) await this.progress.record(u.id, today, { reviews: starred, xp });
+    // 0.9.9.9.5.4: every kana practised counts for the day (the activity calendar, friends, the streak task) —
+    // it counted only the ones that gained a star, so a session of mixed answers could leave no trace
+    const practised = Object.keys(changes).length;
+    if (practised || xp) await this.progress.record(u.id, today, { reviews: practised, xp });
     if (isKanaBeginner(u.unlocks) && kanaCells('hira', 'basic').every((c) => kana[c.ch]?.m)) await this.setKanaMastered((await this.store.findById(u.id)) ?? u, true);
     return { kana, xp };
   }

@@ -529,8 +529,8 @@ const RU: Record<string, string> = {
   'Google says this phone’s token is out of date. Reopen the app and test again.': 'Google сообщает, что токен телефона устарел. Откройте приложение заново и проверьте ещё раз.',
   'Wait a few seconds between tests.': 'Подождите несколько секунд между проверками.',
   'Character': 'Персонаж', 'Profile card': 'Карточка профиля',
-  'Installing…': 'Установка…',
-  'Allow “Install unknown apps” for Kanji Wizards (Android shows the switch), then come back and tap Update again — only the first time.': 'Разрешите «Установку неизвестных приложений» для Kanji Wizards (Android покажет переключатель), вернитесь и снова нажмите «Обновить» — только в первый раз.',
+  // 0.9.9.9.5.4
+  'Studying kana': 'Изучает кану', 'Choosing a quiz': 'Выбирает тест', 'In the dictionary': 'В словаре',
   'Score': 'Счёт', 'Time': 'Время', 'Avg': 'Средн.',
   '30× combo — the arena trembles!': 'Комбо ×30 — арена дрожит!',
   'Small, quick and up to mischief — every wizard-to-be starts out as a goblin. Everyone sees your character in battles.': 'Маленький, шустрый и любит пошалить — каждый будущий волшебник начинает гоблином. Вашего персонажа видят все в битвах.',
@@ -614,7 +614,7 @@ const RU: Record<string, string> = {
   "to move up a league": "чтобы подняться в лигу выше",
   "One try a day: most correct wins, then fastest. Everyone starts in the kana league.": "Одна попытка в день: побеждает больше верных, затем самый быстрый. Все начинают с лиги каны.",
   "romaji": "ромадзи",
-  "Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300). Pick a character under the preview to see it on them.": "Поза комбо: что делает ваш персонаж, пока он в огне (5 подряд или Всемогущество) — парит, целится или держит посох обеими руками. Новые позы открываются по мере изучения заклинаний (100, 200, 300). Выберите персонажа под превью, чтобы посмотреть на нём.",
+  "Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300).": "Поза комбо: что делает ваш персонаж, пока он в огне (5 подряд или Всемогущество) — парит, целится или держит посох обеими руками. Новые позы открываются по мере изучения заклинаний (100, 200, 300).",
   // 0.9.9.7.2
   "negative": "отрицание",
   "polite": "вежливая",
@@ -896,8 +896,6 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^(.+) is no longer your friend$/, '$1 больше не ваш друг'],
   // 0.9.9.9.5.3: badge tiers
   [/^(Bronze|Silver|Gold|Ruby) (★+)$/, (_, t, st) => `${({ Bronze: 'Бронза', Silver: 'Серебро', Gold: 'Золото', Ruby: 'Рубин' } as Record<string, string>)[t]} ${st}`],
-  [/^Updating… (\d+)%$/, 'Обновление… $1%'],
-  [/^The update didn’t work \((.*)\) — tap again, or it downloads in your browser\.$/, 'Обновление не удалось ($1) — нажмите ещё раз, и оно скачается в браузере.'],
   // 0.9.9.9.5.2: the push test
   [/^(.+) reached a 30× combo — the arena trembles!$/, '$1 набирает комбо ×30 — арена дрожит!'],
   [/^Your character in battles\. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight \(N4\), the Witch \(N3\) and the Wizard \(N2\)\. You are in the (.+) league\.$/, (_, l) => `Ваш персонаж в битвах. Гоблин — ваш с самого начала; поднимайтесь по лигам ежедневного испытания, чтобы открыть Рыцаря (N4), Ведьму (N3) и Волшебника (N2). Вы в лиге ${l === 'Kana' ? 'Кана' : l}.`],

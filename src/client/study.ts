@@ -528,14 +528,13 @@ function poseArt(id: string): string {
   }
   return `<svg viewBox="4 4 78 74" aria-hidden="true">${art}</svg>`;
 }
-const kindOf = (avatar: string) => (['goblin', 'knight', 'witch', 'wizard'].includes(avatar) ? avatar : 'goblin'); // (the Apprentice and Adventurer are goblins in 3D)
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
   staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak — your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
   arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
   profile: () => 'Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.',
   character: (p) => `Your character in battles. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight (N4), the Witch (N3) and the Wizard (N2). You are in the ${leagueIn(p.unlocks) === 'KANA' ? 'Kana' : leagueIn(p.unlocks)} league.`,
-  pose: () => 'Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300). Pick a character under the preview to see it on them.',
+  pose: () => 'Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300).',
   omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up.',
 };
 
@@ -621,9 +620,6 @@ function renderCustomize() {
   $('custStage').dataset.tab = custTab;
   if ((custTab === 'arena' || custTab === 'omni' || custTab === 'pose' || custTab === 'character') && !arena3Tried) void ensureArena3();
   $('poseInsetLbl').hidden = !(in3d && custTab === 'pose');
-  $('custChars').hidden = !in3d || custTab === 'character'; // (the Character tab picks one itself)
-  const shownChar = previewChar ?? kindOf(characterOf(profile.unlocks));
-  for (const b of document.querySelectorAll<HTMLElement>('#custChars [data-char]')) b.classList.toggle('on', b.dataset.char === shownChar);
   if (in3d) showArena3(custTab as 'arena' | 'omni' | 'pose' | 'character', sel.id, profile); else arena3?.setActive(false);
   if (custTab === 'staff') {
     if (preview) preview.show(sel.id);
@@ -697,8 +693,7 @@ function avatarDisc(p: Profile, border: string, cls: string) {
 // ── Customize → Arena / Omnipotence: a small live 3D arena with you in it (0.9.9.3.2) ──────────────────
 let arena3: ArenaApi | null = null;
 /** 0.9.9.7.3: which character the 3D preview shows (Goblin / Knight / Witch / Wizard; yours until you pick) */
-let previewChar: string | null = null;
-for (const b of document.querySelectorAll<HTMLButtonElement>('#custChars [data-char]')) b.onclick = () => { previewChar = b.dataset.char!; renderCustomize(); };
+// (0.9.9.9.5.4: no more "preview as Goblin / Knight / …" buttons — the preview is you, as the Character slot says)
 let arena3Tried = false;
 let arena3Key = '';
 let arena3Bg = '';
@@ -711,7 +706,7 @@ async function ensureArena3() {
 function showArena3(tab: 'arena' | 'omni' | 'pose' | 'character', id: string, p: Profile) {
   if (!arena3) return;
   const bgId = (tab === 'arena' ? id : p.background) as BackgroundId, time = resolveTime(getTimePref());
-  const character = tab === 'character' ? id : previewChar ?? characterOf(p.unlocks); // 0.9.9.7.3: or the one you picked under the preview
+  const character = tab === 'character' ? id : characterOf(p.unlocks);
   const who = `${character}-${p.staff}`, bg = `${bgId}-${time}`;
   // the fighters are built once; picking another arena only swaps the arena (0.9.9.3.3: no rebuild, no stutter)
   if (who !== arena3Key) {

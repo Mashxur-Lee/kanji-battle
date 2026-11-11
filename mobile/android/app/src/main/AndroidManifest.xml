@@ -8,8 +8,6 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 0.9.9.9.5: an invite vibrates (the page's navigator.vibrate) -->
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- 0.9.9.9.5.3: "Update the app" installs the app's own new version (only this app, only with its own signature) -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"
@@ -46,7 +44,6 @@
             </intent-filter>
         </service>
         <receiver android:name=".InviteActions" android:exported="false" />
-        <receiver android:name=".Updater$Result" android:exported="false" />
         <receiver android:name=".Reminders" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
