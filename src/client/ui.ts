@@ -427,7 +427,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   sw.disabled = !isHost0;
   sw.title = isHost0 ? '' : tr('Only the host can change this');
   sw.querySelector('.os-text')!.textContent = tr(open ? 'Open' : 'Closed');
-  $('lobbyOpenHint').textContent = tr(open ? 'Friends can join from your profile' : 'Only invited friends or the code can join');
+  $('lobbyOpenHint').textContent = tr(open ? (isHost0 ? 'Friends can join from your profile' : 'The host’s friends can join from their profile') : 'Only invited friends or the code can join');
   $('lobbyPlayers').replaceChildren(
     ...players.map((p) => {
       const li = h('li');
@@ -1220,7 +1220,7 @@ export const dateTime = (at: number) => new Date(at).toLocaleString(locale(), { 
 
 /** A small floating card next to the clicked name. */
 export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean; /** 0.9.9.9.5.2 */ remove?: () => Promise<void>;
-  /** 0.9.9.9.5.5: their whole profile (look + achievements) */ view?: () => void; /** 0.9.9.9.5.5: their lobby is open */ join?: { label: string; go: () => void } }
+  /** 0.9.9.9.5.5: their whole profile (look + achievements) */ view?: () => void; /** 0.9.9.9.5.5: their lobby is open */ join?: { label: string; mode: string; go: () => void } }
 export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing', actions?: ProfileActions) {
   const pop = $('otherPop');
   const body: HTMLElement[] = [];
@@ -1273,7 +1273,8 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
   const msg = h('p', 'hint pp-msg');
   // 0.9.9.9.5.5: an open lobby — join it from here
   if (a.join) {
-    const j = h('button', 'pill primary pp-join', `⇥ Join lobby · ${a.join.label}`) as HTMLButtonElement;
+    const j = h('button', 'pill primary pp-join', `⇥ Join their lobby · ${a.join.label}`) as HTMLButtonElement;
+    j.title = a.join.mode;
     j.onclick = () => { hideProfileCard(); a.join!.go(); };
     box.append(j);
   }

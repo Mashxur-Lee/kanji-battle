@@ -531,7 +531,7 @@ const RU: Record<string, string> = {
   'Character': 'Персонаж', 'Profile card': 'Карточка профиля',
   // 0.9.9.9.5.5
   'Open': 'Открыто', 'Closed': 'Закрыто', 'Friends can join from your profile': 'Друзья могут войти через ваш профиль', 'Only invited friends or the code can join': 'Войти можно только по приглашению или коду',
-  'Only the host can change this': 'Это может изменить только хозяин комнаты', 'Leave the room?': 'Покинуть комнату?', 'The others stay in the lobby without you.': 'Остальные останутся в лобби без вас.',
+  'Only the host can change this': 'Это может изменить только хозяин комнаты', 'The host’s friends can join from their profile': 'Друзья хозяина могут войти через его профиль', 'Leave the room?': 'Покинуть комнату?', 'The others stay in the lobby without you.': 'Остальные останутся в лобби без вас.',
   'The room closes when you leave.': 'Комната закроется, когда вы выйдете.', 'Stay': 'Остаться', 'Several people are typing…': 'Несколько человек печатают…',
   '👤 View profile': '👤 Открыть профиль', 'Open lobby': 'Открытое лобби', 'Their look': 'Их облик', 'On their profile ✓': 'В их профиле ✓',
   'COMBO': 'КОМБО', 'ON FIRE': 'В ОГНЕ', 'INFERNO': 'ИНФЕРНО', 'UNSTOPPABLE': 'НЕУДЕРЖИМ', 'GODLIKE': 'БОЖЕСТВЕННО',
@@ -917,7 +917,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^(.+) left the lobby$/, '$1 покинул(а) лобби'],
   [/^(.+) joined the lobby$/, '$1 вошёл (вошла) в лобби'],
   [/^×(\d+) combo broken$/, 'Комбо ×$1 прервано'],
-  [/^⇥ Join lobby · (.+) · (\d+)\/(\d+)$/, (_, m, a, b) => `⇥ Войти в лобби · ${MODE_RU[m] ?? m} · ${a}/${b}`],
+  [/^⇥ Join their lobby · (\d+)\/(\d+)$/, '⇥ Войти в их лобби · $1/$2'],
   // 0.9.9.9.5.2: the push test
   [/^(.+) reached a 30× combo — the arena trembles!$/, '$1 набирает комбо ×30 — арена дрожит!'],
   [/^Your character in battles\. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight \(N4\), the Witch \(N3\) and the Wizard \(N2\)\. You are in the (.+) league\.$/, (_, l) => `Ваш персонаж в битвах. Гоблин — ваш с самого начала; поднимайтесь по лигам ежедневного испытания, чтобы открыть Рыцаря (N4), Ведьму (N3) и Волшебника (N2). Вы в лиге ${l === 'Kana' ? 'Кана' : l}.`],

@@ -1159,7 +1159,7 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
         view: () => showPlayer(p),
         // 0.9.9.9.5.5: their lobby is open (and has room): join it
         join: link?.status === 'accepted' && link.party?.code && link.party.code !== (inRoom ? code : '') && !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? '')
-          ? { label: `${link.party.mode} · ${link.party.size}/${link.party.max}`, go: () => joinRoom(link.party!.code!) } : undefined,
+          ? { label: `${link.party.size}/${link.party.max}`, mode: link.party.mode, go: () => joinRoom(link.party!.code!) } : undefined,
       });
     } catch { if (shownFor === id) ui.showProfileCard(el, 'missing'); }
   };
