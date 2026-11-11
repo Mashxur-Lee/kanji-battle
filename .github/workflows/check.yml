@@ -63,7 +63,8 @@ jobs:
           PORT: '3130'
         run: |
           npm i --no-save --no-audit --no-fund playwright@1.49.1
-          npx playwright install --with-deps chromium
+          # (the runner's Ubuntu mirror sometimes can't be reached: without the extra packages the runner's own libraries do)
+          npx playwright install --with-deps chromium || npx playwright install chromium
           node dist/server/index.js > server.log 2>&1 &
           for i in $(seq 1 60); do curl -s localhost:3130/ >/dev/null && break; sleep 0.5; done
           export EXTRA="$(printf '%s' "$SCENARIO" | base64 -d)"
