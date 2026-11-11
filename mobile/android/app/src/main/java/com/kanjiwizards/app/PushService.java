@@ -20,7 +20,7 @@ import java.util.Map;
  * 0.9.9.9.5: push from the game's server (Firebase Cloud Messaging). In the background the app closes its connection,
  * so a friend's invite comes this way: a notification with Join (opens the app straight into their room) and Decline
  * (tells the server without opening the app — the friend can't invite again for 5 minutes). Tapping the
- * notification itself opens the app, where the invite card is waiting.
+ * notification itself joins too (0.9.9.9.5.5).
  */
 public class PushService extends FirebaseMessagingService {
     static final String PREFS = "kw-push";
@@ -124,21 +124,19 @@ public class PushService extends FirebaseMessagingService {
         if (nm == null) return;
         channel(nm, ru);
         int id = idFor(fromId);
-        // tap: the app opens and the invite card is there; Join: straight into the room
-        Intent open = new Intent(ctx, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        // tap or Join: straight into the room (0.9.9.9.5.5: tapping only opened the menu); Decline: no
         Intent join = new Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.SERVER + "/?join=" + Uri.encode(code)), ctx, MainActivity.class)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         Intent decline = new Intent(ctx, InviteActions.class).setAction(InviteActions.DECLINE)
             .putExtra("fromId", fromId).putExtra("id", id);
         int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
-        PendingIntent piOpen = PendingIntent.getActivity(ctx, id, open, flags);
-        PendingIntent piJoin = PendingIntent.getActivity(ctx, id + 1, join, flags);
+                PendingIntent piJoin = PendingIntent.getActivity(ctx, id + 1, join, flags);
         PendingIntent piDecline = PendingIntent.getBroadcast(ctx, id + 2, decline, flags);
         String title = ru ? from + " приглашает вас" : from + " invites you";
         String text = ru ? "Комната " + mode + " · " + code + " — присоединяйтесь!" : "Join their " + mode + " room · " + code;
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(ctx, CHANNEL) : new Notification.Builder(ctx);
         b.setSmallIcon(R.drawable.ic_notify).setContentTitle("⚔ " + title).setContentText(text)
-            .setContentIntent(piOpen).setAutoCancel(true)
+            .setContentIntent(piJoin).setAutoCancel(true)
             .setCategory(Notification.CATEGORY_SOCIAL)
             .addAction(new Notification.Action.Builder(null, ru ? "Присоединиться" : "Join", piJoin).build())
             .addAction(new Notification.Action.Builder(null, ru ? "Отклонить" : "Decline", piDecline).build());

@@ -114,6 +114,16 @@ function render() {
       r.title = `${f.name ?? f.username} — view profile`;
       const txt = el('span', 'fr-txt');
       txt.append(el('span', 'fr-name', f.name ?? f.username), el('small', 'fr-status', friendStatus(f)));
+      // 0.9.9.9.5.5: in a lobby with others — a lobby icon and "+1" (+3 in a full Boss party); green when it's open to join
+      const pt = f.online ? f.party : undefined;
+      if (pt && (pt.size > 1 || pt.code)) {
+        const party = el('small', 'fr-party' + (pt.code ? ' open' : ''));
+        const ic = el('i', 'fr-party-ic');
+        ic.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.5-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 19.2C2 16 5 13.5 9 13.5s7 2.5 7 5.7c0 .5-.4.8-.9.8H2.9c-.5 0-.9-.3-.9-.8Zm15.3.8c.1-.3.2-.5.2-.8 0-1.9-.8-3.6-2.2-4.9.4-.1.8-.1 1.2-.1 3.4 0 5.5 2 5.5 4.6 0 .7-.4 1.2-1 1.2Z"/></svg>';
+        party.append(ic, el('b', '', pt.size > 1 ? `+${pt.size - 1}` : ''), el('span', '', pt.code ? tr('Open lobby') : tr(pt.mode)));
+        party.title = `${tr(pt.mode)} · ${pt.size}/${pt.max}${pt.code ? ` · ${tr('Open lobby')}` : ''}`;
+        txt.append(party);
+      }
       r.append(avatar(f), txt, el('span', 'fr-lv', `Lv ${f.level ?? 0}`));
       return r;
     });

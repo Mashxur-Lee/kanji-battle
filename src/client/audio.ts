@@ -198,9 +198,10 @@ export const sfx = {
   quake() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;
-    noise(t, 1.6, 0.42, 180);
-    tone(42, t, 1.7, { type: 'sawtooth', gain: 0.1, to: 30, attack: 0.08 });
-    tone(63, t + 0.05, 1.2, { type: 'triangle', gain: 0.07, to: 40, attack: 0.05 });
+    // (0.9.9.9.5.5: a longer rumble, as long as the tremble)
+    noise(t, 3.0, 0.34, 170);
+    tone(42, t, 3.1, { type: 'sawtooth', gain: 0.085, to: 28, attack: 0.1 });
+    tone(63, t + 0.05, 1.8, { type: 'triangle', gain: 0.06, to: 40, attack: 0.05 });
   },
   fire() {
     if (!sfxOk()) return;

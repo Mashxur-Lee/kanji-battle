@@ -808,6 +808,30 @@ const SPOTS: Record<BackgroundId, ArtSpots> = {
   worldtree: { stones: [[11.1, 60, 77], [31.5, 62, 75], [69.4, 62, 75], [89, 60, 77]], torches: [], rune: '#45f0a0', ringTop: 87, flies: ['sunset', 'night'], birds: true, leaves: { day: '#ffc2dc', sunset: '#ffb28a', night: '#7dffc4' } },
 };
 const lite = () => matchMedia('(pointer: coarse)').matches;
+
+// ── 0.9.9.9.5.5: the weather ────────────────────────────────────────────────
+// Each place has its own weather by the season, and it changes every few hours: autumn leaves, rain (now and then a
+// thunderstorm), snow in winter, cherry petals in spring, dandelion seeds over the plains, glowing spores in the swamp.
+export type Weather = 'clear' | 'leaves' | 'rain' | 'storm' | 'snow' | 'petals' | 'seeds' | 'spores';
+const WEATHERS: Record<BackgroundId, Record<'winter' | 'spring' | 'summer' | 'autumn', Weather[]>> = {
+  castle: { winter: ['snow', 'snow', 'clear', 'rain'], spring: ['petals', 'clear', 'rain'], summer: ['clear', 'rain', 'storm'], autumn: ['leaves', 'rain', 'leaves', 'storm'] },
+  plains: { winter: ['snow', 'snow', 'clear'], spring: ['petals', 'seeds', 'rain'], summer: ['seeds', 'clear', 'rain', 'storm'], autumn: ['leaves', 'leaves', 'rain', 'seeds'] },
+  forest: { winter: ['snow', 'snow', 'leaves'], spring: ['leaves', 'rain', 'petals'], summer: ['leaves', 'rain', 'storm'], autumn: ['leaves', 'leaves', 'rain'] },
+  swamp: { winter: ['snow', 'rain', 'spores'], spring: ['rain', 'spores', 'clear'], summer: ['spores', 'rain', 'storm'], autumn: ['rain', 'spores', 'leaves'] },
+  worldtree: { winter: ['snow', 'petals'], spring: ['petals', 'petals', 'spores'], summer: ['petals', 'spores', 'rain'], autumn: ['leaves', 'petals', 'spores'] },
+};
+const WEATHER_LIST: Weather[] = ['clear', 'leaves', 'rain', 'storm', 'snow', 'petals', 'seeds', 'spores'];
+export function weatherFor(id: BackgroundId, d = new Date()): Weather {
+  try { const w = localStorage.getItem('kb:weather') as Weather | null; if (w && WEATHER_LIST.includes(w)) return w; } catch { /* no storage */ }
+  const m = d.getMonth();
+  const season = m === 11 || m <= 1 ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'autumn';
+  const list = WEATHERS[id]?.[season] ?? ['clear'];
+  const slot = `${d.getFullYear()}-${m}-${d.getDate()}-${Math.floor(d.getHours() / 4)}-${id}`; // (every 4 hours)
+  const hsh = [...slot].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 11);
+  return list[hsh % list.length];
+}
+const AUTUMN = ['#e8914a', '#d9573a', '#f2c14a', '#b8642a', '#c9452f'];
+
 function artStage(id: BackgroundId, t: TimeOfDay, onFail: () => void): HTMLElement {
   const sp = SPOTS[id];
   let r = [...(id + t)].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0;
@@ -869,9 +893,27 @@ function artStage(id: BackgroundId, t: TimeOfDay, onFail: () => void): HTMLEleme
       flock.append(bird);
     }
   }
-  const leaf = sp.leaves?.[t];
-  if (leaf) for (let k = 0; k < (few ? 5 : 14); k++) {
-    add('fx-leaf', rnd() * 100, -4 - rnd() * 10, { '--c': leaf, '--d': `${(-rnd() * 16).toFixed(2)}s`, '--dur': `${(11 + rnd() * 9).toFixed(1)}s`, '--dx': `${((rnd() - 0.3) * 160).toFixed(0)}px`, '--s': (0.7 + rnd() * 0.7).toFixed(2), '--glow': t === 'night' ? 1 : 0 });
+  // 0.9.9.9.5.5: the weather (leaves bigger and easier to see; rain, storms, snow, petals, seeds, spores)
+  const weather = weatherFor(id);
+  fx.dataset.weather = weather;
+  const night = t === 'night' ? 1 : 0;
+  const leafCol = (k: number) => (new Date().getMonth() >= 8 && new Date().getMonth() <= 10 ? AUTUMN[k % AUTUMN.length] : sp.leaves?.[t] ?? (t === 'night' ? '#6f8fb8' : '#8cc85a'));
+  if (weather === 'leaves') for (let k = 0; k < (few ? 9 : 24); k++) {
+    add('fx-leaf', rnd() * 100, -4 - rnd() * 10, { '--c': leafCol(k), '--d': `${(-rnd() * 16).toFixed(2)}s`, '--dur': `${(10 + rnd() * 8).toFixed(1)}s`, '--dx': `${((rnd() - 0.3) * 200).toFixed(0)}px`, '--s': (0.9 + rnd() * 0.9).toFixed(2), '--glow': night, '--fl': `${(1.2 + rnd() * 1.4).toFixed(2)}s` });
+  } else if (weather === 'petals') for (let k = 0; k < (few ? 10 : 28); k++) {
+    add('fx-petal', rnd() * 100, -4 - rnd() * 10, { '--c': ['#ffc2dc', '#ffd6e7', '#ff9ec7', '#fff0f6'][k % 4], '--d': `${(-rnd() * 14).toFixed(2)}s`, '--dur': `${(9 + rnd() * 7).toFixed(1)}s`, '--dx': `${((rnd() - 0.2) * 240).toFixed(0)}px`, '--s': (0.8 + rnd() * 0.8).toFixed(2), '--glow': night, '--fl': `${(0.8 + rnd() * 0.9).toFixed(2)}s` });
+  } else if (weather === 'snow') {
+    for (let k = 0; k < (few ? 22 : 60); k++) add('fx-snow', rnd() * 104 - 2, -4 - rnd() * 8, { '--d': `${(-rnd() * 18).toFixed(2)}s`, '--dur': `${(9 + rnd() * 10).toFixed(1)}s`, '--dx': `${((rnd() - 0.5) * 90).toFixed(0)}px`, '--s': (0.5 + rnd() * 1.3).toFixed(2), '--sw': `${(2.4 + rnd() * 2).toFixed(2)}s` });
+    add('fx-frost', 0, 0);
+  } else if (weather === 'rain' || weather === 'storm') {
+    add('fx-dim', 0, 0, { '--o': weather === 'storm' ? 0.42 : 0.26 });
+    for (let k = 0; k < (few ? 26 : 70); k++) add('fx-rain', rnd() * 115 - 10, -12 - rnd() * 10, { '--d': `${(-rnd() * 2).toFixed(2)}s`, '--dur': `${(0.55 + rnd() * 0.45).toFixed(2)}s`, '--s': (0.6 + rnd() * 0.8).toFixed(2), '--o': (0.35 + rnd() * 0.4).toFixed(2) });
+    for (let k = 0; k < (few ? 8 : 22); k++) add('fx-splash', rnd() * 100, 78 + rnd() * 20, { '--d': `${(rnd() * 1.6).toFixed(2)}s`, '--dur': `${(0.7 + rnd() * 0.7).toFixed(2)}s` });
+    if (weather === 'storm') add('fx-flash', 0, 0, { '--d': `${(2 + rnd() * 4).toFixed(1)}s`, '--dur': `${(9 + rnd() * 6).toFixed(1)}s` });
+  } else if (weather === 'seeds') for (let k = 0; k < (few ? 8 : 20); k++) {
+    add('fx-seed', rnd() * 100, 30 + rnd() * 60, { '--d': `${(-rnd() * 20).toFixed(2)}s`, '--dur': `${(14 + rnd() * 10).toFixed(1)}s`, '--dx': `${(60 + rnd() * 220).toFixed(0)}px`, '--dy': `${(-40 - rnd() * 160).toFixed(0)}px`, '--s': (0.7 + rnd() * 0.7).toFixed(2) });
+  } else if (weather === 'spores') for (let k = 0; k < (few ? 10 : 26); k++) {
+    add('fx-spore', rnd() * 100, 40 + rnd() * 55, { '--c': id === 'swamp' ? ['#9dff7a', '#5dff8a', '#d4ff6a'][k % 3] : ['#7dffc4', '#b8a4ff', '#ffe9a8'][k % 3], '--d': `${(-rnd() * 12).toFixed(2)}s`, '--dur': `${(8 + rnd() * 8).toFixed(1)}s`, '--dx': `${((rnd() - 0.5) * 120).toFixed(0)}px`, '--s': (0.6 + rnd() * 1.1).toFixed(2) });
   }
   if (sp.water !== undefined) for (let k = 0; k < (few ? 6 : 16); k++) {
     add('fx-glint', 6 + rnd() * 88, sp.water + rnd() * 12, { '--d': `${(rnd() * 5).toFixed(2)}s`, '--dur': `${(2.6 + rnd() * 2.4).toFixed(2)}s` });

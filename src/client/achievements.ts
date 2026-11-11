@@ -65,10 +65,13 @@ export const TIERS = [
 const STAR = 'M0-4.2l1.23 2.5 2.77.4-2 1.95.47 2.75L0 2.1l-2.47 1.3.47-2.75-2-1.95 2.77-.4z';
 
 /** A hexagon badge with the achievement's icon, a metal frame and its stars (or grey and locked). */
+let svgSeq = 0;
 export function badgeSvg(a: AchievementDef, locked: boolean): string {
   const t = TIERS[a.tier]!;
   const c = t.ink; // (locked ones are dimmed in CSS)
-  const id = `g${a.id.replace(/\W/g, '')}${locked ? 'l' : ''}`;
+  // 0.9.9.9.5.5: a gradient id of its own for every copy — with one id per achievement, the profile's badge used
+  // the gradient of the copy in a hidden screen (Progress / Customize), which draws nothing: only the thin inner line was left
+  const id = `g${a.id.replace(/\W/g, '')}${locked ? 'l' : ''}${++svgSeq}`;
   const stars = Math.min(3, a.tier);
   return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs>`
     + `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${locked ? '#2a2840' : '#2b2160'}"/><stop offset="1" stop-color="${locked ? '#16152a' : '#120c34'}"/></linearGradient>`
@@ -116,8 +119,10 @@ ui.useBadgeRow(badgeRow);
  */
 /** 0.9.9.6.1: the last progress counts the server sent (the Customize view reuses them). */
 let lastCounts: Partial<Record<string, number>> | undefined;
-export function renderAchievements(box: HTMLElement, unlocks: readonly string[] = [], badges: readonly string[] = [], onBadges?: (next: string[]) => void, counts?: Partial<Record<string, number>>) {
-  if (counts) lastCounts = counts; else counts = lastCounts;
+export function renderAchievements(box: HTMLElement, unlocks: readonly string[] = [], badges: readonly string[] = [], onBadges?: (next: string[]) => void, counts?: Partial<Record<string, number>> | null) {
+  // (null: someone else's — no progress counts, and yours are kept)
+  const other = counts === null;
+  if (counts) lastCounts = counts; else if (counts === undefined) counts = lastCounts; else counts = undefined;
   const earned = ACHIEVEMENTS.filter((a) => has(unlocks, a.id)).length;
   const grid = document.createElement('div');
   grid.className = 'ach-grid';
@@ -135,7 +140,7 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
     const s = document.createElement('span'); s.textContent = a.how;
     const pinned = badges.includes(a.id);
     const tn = document.createElement('small'); tn.className = `ach-tier t${a.tier}`; tn.textContent = `${TIERS[a.tier]!.name} ${'★'.repeat(Math.min(3, a.tier))}`;
-    const st = document.createElement('small'); st.textContent = locked ? 'Locked' : pinned ? 'On your profile ✓ — click to remove' : onBadges ? 'Unlocked ✓ — click to show on your profile' : 'Unlocked ✓';
+    const st = document.createElement('small'); st.textContent = locked ? 'Locked' : pinned && other ? 'On their profile ✓' : pinned ? 'On your profile ✓ — click to remove' : onBadges ? 'Unlocked ✓ — click to show on your profile' : 'Unlocked ✓';
     tip.append(tn, t, s);
     const goal = locked ? ACH_GOALS[a.id] : undefined;
     const have = goal && counts ? counts[goal[0]] : undefined;
@@ -151,7 +156,7 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
     }
     tip.append(st);
     b.append(tip);
-    if (pinned) { b.classList.add('pinned'); const pin = document.createElement('i'); pin.className = 'ach-pin'; pin.textContent = '★'; b.append(pin); }
+    if (pinned) { b.classList.add('pinned'); const pin = document.createElement('i'); pin.className = 'ach-pin'; pin.textContent = '★'; const ring = document.createElement('i'); ring.className = 'ach-ring'; b.append(ring, pin); }
     if (!locked && onBadges) {
       b.classList.add('pickable');
       const toggle = () => {

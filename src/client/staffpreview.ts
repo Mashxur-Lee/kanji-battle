@@ -95,7 +95,7 @@ export function createStaffPreview(canvas: HTMLCanvasElement): StaffPreview | nu
         const s = use(id);
         s.update(1.2, 0, 0);
         renderer.render(scene, camera);
-        out.push(canvas.toDataURL('image/png'));
+        out.push(canvas.toDataURL('image/webp', 0.86)); // (0.9.9.9.5.5: small webp — they're kept between visits)
       }
       holder.rotation.y = rot; holder.position.y = py;
       renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));

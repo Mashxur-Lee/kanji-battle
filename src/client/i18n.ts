@@ -529,6 +529,21 @@ const RU: Record<string, string> = {
   'Google says this phone’s token is out of date. Reopen the app and test again.': 'Google сообщает, что токен телефона устарел. Откройте приложение заново и проверьте ещё раз.',
   'Wait a few seconds between tests.': 'Подождите несколько секунд между проверками.',
   'Character': 'Персонаж', 'Profile card': 'Карточка профиля',
+  // 0.9.9.9.5.5
+  'Open': 'Открыто', 'Closed': 'Закрыто', 'Friends can join from your profile': 'Друзья могут войти через ваш профиль', 'Only invited friends or the code can join': 'Войти можно только по приглашению или коду',
+  'Only the host can change this': 'Это может изменить только хозяин комнаты', 'Leave the room?': 'Покинуть комнату?', 'The others stay in the lobby without you.': 'Остальные останутся в лобби без вас.',
+  'The room closes when you leave.': 'Комната закроется, когда вы выйдете.', 'Stay': 'Остаться', 'Several people are typing…': 'Несколько человек печатают…',
+  '👤 View profile': '👤 Открыть профиль', 'Open lobby': 'Открытое лобби', 'Their look': 'Их облик', 'On their profile ✓': 'В их профиле ✓',
+  'COMBO': 'КОМБО', 'ON FIRE': 'В ОГНЕ', 'INFERNO': 'ИНФЕРНО', 'UNSTOPPABLE': 'НЕУДЕРЖИМ', 'GODLIKE': 'БОЖЕСТВЕННО',
+  'ON FIRE!': 'В ОГНЕ!', 'INFERNO!': 'ИНФЕРНО!', 'UNSTOPPABLE!': 'НЕУДЕРЖИМ!', 'GODLIKE!': 'БОЖЕСТВЕННО!',
+  'Your hero': 'Ваш герой', 'Pick a slot on either side to change it — tap it again to close it.': 'Выберите ячейку слева или справа, чтобы изменить её, — нажмите ещё раз, чтобы закрыть.',
+  'Voice: Android text-to-speech (Japanese)': 'Голос: синтез речи Android (японский)', '⬇ Download the Japanese voice': '⬇ Скачать японский голос',
+  'Downloads the Japanese voice for Android\'s text-to-speech (like the offline dictionary). Come back to the app when it\'s done.': 'Скачивает японский голос для синтеза речи Android (как офлайн-словарь). Когда загрузка закончится, вернитесь в игру.',
+  'Android: Settings → System → Languages → Text-to-speech → the gear by "Speech Recognition & Synthesis" (Google) → Install voice data → Japanese. Then reload this page.': 'Android: Настройки → Система → Языки → Синтез речи → шестерёнка у «Распознавание и синтез речи» (Google) → Установить голосовые данные → японский. Затем обновите страницу.',
+  'iPhone / iPad: Settings → Accessibility → Spoken Content → Voices → Japanese → download a voice (e.g. Kyoko). Then reload this page.': 'iPhone / iPad: Настройки → Универсальный доступ → Устный контент → Голоса → японский → скачайте голос (например, Kyoko). Затем обновите страницу.',
+  'Mac: System Settings → Accessibility → Spoken Content → System voice → Manage Voices… → Japanese → download one. Then restart the browser.': 'Mac: Системные настройки → Универсальный доступ → Устный контент → Системный голос → Управление голосами… → японский → скачайте голос. Затем перезапустите браузер.',
+  'Windows: Settings → Time & language → Speech → Manage voices → Add voices → Japanese. Then restart the browser (Edge and Chrome both use it).': 'Windows: Параметры → Время и язык → Речь → Управление голосами → Добавить голоса → японский. Затем перезапустите браузер (Edge и Chrome используют его).',
+  'Add a Japanese voice in your system\'s speech / text-to-speech settings, then restart the browser.': 'Добавьте японский голос в настройках синтеза речи системы, затем перезапустите браузер.',
   // 0.9.9.9.5.4
   'Studying kana': 'Изучает кану', 'Choosing a quiz': 'Выбирает тест', 'In the dictionary': 'В словаре',
   'Score': 'Счёт', 'Time': 'Время', 'Avg': 'Средн.',
@@ -896,6 +911,13 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^(.+) is no longer your friend$/, '$1 больше не ваш друг'],
   // 0.9.9.9.5.3: badge tiers
   [/^(Bronze|Silver|Gold|Ruby) (★+)$/, (_, t, st) => `${({ Bronze: 'Бронза', Silver: 'Серебро', Gold: 'Золото', Ruby: 'Рубин' } as Record<string, string>)[t]} ${st}`],
+  // 0.9.9.9.5.5: the lobby chat, combos, friends in a party
+  [/^(.+) is typing…$/, '$1 печатает…'],
+  [/^(.+) and (.+) are typing…$/, '$1 и $2 печатают…'],
+  [/^(.+) left the lobby$/, '$1 покинул(а) лобби'],
+  [/^(.+) joined the lobby$/, '$1 вошёл (вошла) в лобби'],
+  [/^×(\d+) combo broken$/, 'Комбо ×$1 прервано'],
+  [/^⇥ Join lobby · (.+) · (\d+)\/(\d+)$/, (_, m, a, b) => `⇥ Войти в лобби · ${MODE_RU[m] ?? m} · ${a}/${b}`],
   // 0.9.9.9.5.2: the push test
   [/^(.+) reached a 30× combo — the arena trembles!$/, '$1 набирает комбо ×30 — арена дрожит!'],
   [/^Your character in battles\. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight \(N4\), the Witch \(N3\) and the Wizard \(N2\)\. You are in the (.+) league\.$/, (_, l) => `Ваш персонаж в битвах. Гоблин — ваш с самого начала; поднимайтесь по лигам ежедневного испытания, чтобы открыть Рыцаря (N4), Ведьму (N3) и Волшебника (N2). Вы в лиге ${l === 'Kana' ? 'Кана' : l}.`],

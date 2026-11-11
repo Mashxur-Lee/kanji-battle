@@ -7,6 +7,39 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.5.5', date: '2026-11',
+    en: [
+      'Private lobby: the mode is a big banner at the top (“← Leave room” covered it), leaving asks first, the chat says “Ann is typing…” and when someone joins or leaves.',
+      'Open or closed lobby: the host flips the switch. Open — friends can join from your profile (“Join lobby”); closed — only by invite or the code.',
+      'Friends: “+1” (up to “+3”) with a party icon under a friend who is in a lobby with others; “View profile” shows their look (character, staff, arena, flames, pose, border) and all their achievements.',
+      'Tapping an invite notification joins the room straight away (it only opened the menu).',
+      'Combos you can’t miss: the counter grows with your combo — On Fire, Inferno, Unstoppable, Godlike — with sparks, rings, rays, a banner for each new tier and glowing screen edges; a broken combo shatters. It shows in the 2D arena too.',
+      'The 30× tremble lasts longer and is gentler.',
+      'Knocked out, the heroes drop to one knee; the dragon lies down on its stomach.',
+      'Weather over the arenas: autumn leaves (bigger and easier to see), rain and thunderstorms, snow in winter, cherry petals, dandelion seeds and glowing spores — by place and season, changing every few hours.',
+      'Customize opens at once (it froze for seconds), the camera swings round you when no slot is open (tap the open slot again to close it), the mouse moves the 3D preview even over it, and the phone slot pictures are smaller.',
+      'Badges: one picked for your profile gets a blue ring; its border no longer turns thin on your profile.',
+      'Quiz records are kept with your account — the same on every device.',
+      'No Japanese voice? The Android app downloads one from Settings → Audio; in a browser, Settings says how to add one.',
+      'Phones: the big see-through layers over the arena picture hold still (some arenas made the screen flicker again).',
+    ],
+    ru: [
+      'Частное лобби: режим — крупной надписью вверху (кнопка «← Покинуть комнату» его закрывала), выход спрашивает подтверждение, а в чате видно «Аня печатает…» и кто вошёл или вышел.',
+      'Открытое или закрытое лобби: переключатель у хозяина. Открытое — друзья входят через ваш профиль («Войти в лобби»); закрытое — только по приглашению или коду.',
+      'Друзья: «+1» (до «+3») со значком группы под другом, который в лобби с другими; «Открыть профиль» показывает его облик (персонаж, посох, арена, пламя, поза, рамка) и все достижения.',
+      'Нажатие на уведомление о приглашении сразу входит в комнату (раньше открывалось меню).',
+      'Комбо, которые не пропустишь: счётчик растёт вместе с комбо — В огне, Инферно, Неудержим, Божественно — с искрами, кольцами, лучами, надписью на каждой новой ступени и светящимися краями экрана; прерванное комбо разбивается. Теперь и на 2D-арене.',
+      'Дрожь арены на ×30 длится дольше и мягче.',
+      'Побеждённые герои опускаются на одно колено, а дракон ложится на живот.',
+      'Погода над аренами: осенние листья (крупнее и заметнее), дождь и гроза, снег зимой, лепестки сакуры, пух одуванчиков и светящиеся споры — по месту и сезону, меняется каждые несколько часов.',
+      'Кастомизация открывается сразу (раньше замирала на секунды), когда ячейка не выбрана, камера облетает вас (нажмите открытую ячейку ещё раз, чтобы закрыть её), мышь двигает 3D-просмотр и над ним, а картинки ячеек на телефоне меньше.',
+      'Значки: выбранный для профиля обведён синим; его рамка в профиле больше не становится тонкой.',
+      'Результаты викторин хранятся в аккаунте — одинаковые на всех устройствах.',
+      'Нет японского голоса? Приложение Android скачивает его в Настройках → Звук; в браузере Настройки подскажут, как его добавить.',
+      'Телефоны: большие прозрачные слои поверх картинки арены не двигаются (на некоторых аренах экран снова мерцал).',
+    ],
+  },
+  {
     v: '0.9.9.9.5.4', date: '2026-11',
     en: [
       'Invites reach your friend’s phone now. One word in the invite (“from”) made Google refuse every invite notification, so the game said your friend was offline.',
