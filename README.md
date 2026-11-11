@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.9.5.3
+# Kanji Wizards · v0.9.9.9.5.4
 
 (The repository is still called `kanji-battle`; only the name in the game changed.)
 
@@ -32,10 +32,8 @@ Production: `npm run build && npm start` (`PORT` supported). On Render the build
 - **Android app** — `mobile/android/` (a small WebView app, no Google Play needed). Adds Android's
   text-to-speech for spoken words, the file picker for profile pictures and invite links. Signed with a
   private key (GitHub secrets `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD`), so new APKs install over old ones.
-  **Updating (0.9.9.9.5.3, `Updater.java`):** "Update the app" downloads the APK from the game's own server (a fixed
-  address — the page can't name one) with a percentage on the button, checks it is this same app signed with this
-  app's own key and newer, and installs it with `PackageInstaller` as a self-update (Android 12+: no extra tap; older
-  phones show Android's "Update"). The first time, Android asks to allow installs from the app.
+  **Updating:** "Update the app" lets the phone's browser download the new APK (an in-app installer was tried in
+  0.9.9.9.3 and again in 0.9.9.9.5.3 — Play Protect blocks an app that can install apps as harmful, both times).
 - **Builds** — `.github/workflows/apps.yml` builds both on every pull request (download them from the
   run's *Artifacts*) and, on `main`, publishes them as the GitHub release `v<version>`; the game links to
   `releases/latest/download/KanjiWizards-Setup.exe` and `…/KanjiWizards.apk`.
@@ -95,6 +93,10 @@ Invites reach a friend's phone as a notification (Join / Decline) even when the 
    it is on for new projects.)
 
 Players install the new APK, sign in, and allow notifications when Android asks.
+
+**Data keys (0.9.9.9.5.4):** FCM refuses a whole message whose data has a reserved key (`from`, `notification`,
+`message_type`, `google.*`, `gcm.*`) — the invites carried `from` and none ever went out. The inviter's name is
+`fromName`; `Push.send` refuses reserved keys itself, with the reason, before sending.
 
 **Notifications the phone shows itself (0.9.9.9.5.3):** an invite push carries an Android notification as well as its
 data — a data-only push needs the app woken up to draw it, and battery savers / an app swiped away never woke it.

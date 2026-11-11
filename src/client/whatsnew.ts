@@ -7,6 +7,29 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.5.4', date: '2026-11',
+    en: [
+      'Invites reach your friend’s phone now. One word in the invite (“from”) made Google refuse every invite notification, so the game said your friend was offline.',
+      '“Update the app” downloads the update in your browser again — Play Protect blocked the in-app updater.',
+      'Studying kana shows on your activity calendar and to your friends (“Studying kana”), even in a session where no star was gained.',
+      'The characters breathe: their chest, shoulders and neck move gently instead of standing frozen.',
+      'Badges are all their metal — the icon, the name and the description in bronze, silver, gold or ruby — with an even border; bronze doesn’t shine.',
+      'Your friends’ profile cards (and yours) show the streak flames.',
+      'Customize: the previews keep their shape when you come back (they came out stretched), the phone layout is neater with smaller previews, and the “preview as Goblin / Knight …” buttons are gone (the preview is you).',
+      'Phones: no more black flash when you go back to the main menu or open Settings.',
+    ],
+    ru: [
+      'Приглашения теперь доходят до телефона друга. Из-за одного слова в приглашении («from») Google отклонял все уведомления о приглашениях, и игра говорила, что друг не в сети.',
+      '«Обновить приложение» снова скачивает обновление в браузере — Play Protect заблокировал встроенное обновление.',
+      'Изучение каны видно в календаре активности и друзьям («Изучает кану»), даже если за занятие не прибавилось ни одной звезды.',
+      'Персонажи дышат: грудь, плечи и шея мягко двигаются, а не стоят замерев.',
+      'Значки целиком из своего металла — иконка, название и описание в бронзе, серебре, золоте или рубине — с ровной рамкой; бронза не блестит.',
+      'В карточках профиля друзей (и вашей) — огоньки серии.',
+      'Кастомизация: просмотр сохраняет форму при возвращении (раньше растягивался), на телефоне аккуратнее и меньше, а кнопок «показать как Гоблин / Рыцарь …» больше нет (в просмотре — вы).',
+      'Телефоны: больше нет чёрной вспышки при возврате в главное меню и при открытии настроек.',
+    ],
+  },
+  {
     v: '0.9.9.9.5.3', date: '2026-11',
     en: [
       'Customize is now a Hero Locker: you stand in the middle, turning slowly, with your loadout in slots on both sides (character, staff, arena, flames, pose, profile card). Pick a slot and its items come up in the tray below.',

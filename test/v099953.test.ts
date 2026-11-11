@@ -28,7 +28,7 @@ test('0.9.9.9.5.3 an invite push carries a notification the phone shows by itsel
   const bodies: unknown[] = [];
   const ok = (j: unknown) => ({ ok: true, status: 200, json: async () => j, text: async () => JSON.stringify(j) });
   const push = new Push(sa, (async (url: string, init: { body: string }) => { if (!url.includes('oauth2')) bodies.push(JSON.parse(init.body)); return ok({ access_token: 'AT', name: 'm' }); }) as never);
-  const r = await push.send(['tok'], { kind: 'invite', from: 'Ann', code: 'ABCD' }, 120, { title: '⚔ Ann invites you', body: 'Join their room · ABCD', tag: 'invite-a' });
+  const r = await push.send(['tok'], { kind: 'invite', fromName: 'Ann', code: 'ABCD' }, 120, { title: '⚔ Ann invites you', body: 'Join their room · ABCD', tag: 'invite-a' });
   assert.equal(r.sent, 1);
   const m = (bodies[0] as { message: { data: Record<string, string>; android: { priority: string; notification: Record<string, unknown> } } }).message;
   assert.equal(m.data.kind, 'invite', 'the data is still there (an open app shows its own card)');

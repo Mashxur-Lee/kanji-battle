@@ -47,7 +47,9 @@ export function createStaffPreview(canvas: HTMLCanvasElement): StaffPreview | nu
     gemLight.color.copy(staff.color); gemLight.position.set(0.3, GEM_Y + 0.2, 0.6);
     return staff;
   }
+  let sizedW = -1, sizedH = -1; // (0.9.9.9.5.4: what the picture was made for — remade when the box changes)
   function size() {
+    sizedW = canvas.clientWidth; sizedH = canvas.clientHeight;
     const w = canvas.clientWidth || 300, h = canvas.clientHeight || 420;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
@@ -64,6 +66,7 @@ export function createStaffPreview(canvas: HTMLCanvasElement): StaffPreview | nu
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
     if (!staff) return;
+    if (canvas.clientWidth !== sizedW || canvas.clientHeight !== sizedH) size(); // (coming back to Customize: it was stretched)
     holder.rotation.y += dt * 0.6;
     holder.position.y = Math.sin(time * 1.3) * 0.04;
     staff.gem.rotation.y += dt * 1.5;

@@ -33,6 +33,8 @@ export interface Character {
   /** 0.9.9.7: the left arm (shoulder pivot) and both legs (left, right) — for the combo poses */
   leftArm?: THREE.Group;
   legs?: Leg[];
+  /** 0.9.9.9.5.4: the rigged models breathe (chest, shoulders, neck) — called every frame with the time */
+  breathe?: (time: number) => void;
   /** how far the staff tips forward inside its pivot (holdStaff: 0.3; the older builds: 0) */
   staffLean?: number;
 }

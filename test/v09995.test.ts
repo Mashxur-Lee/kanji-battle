@@ -337,7 +337,7 @@ test('0.9.9.9.5 push: the service account JWT is RS256-signed; data messages go 
   };
   const push = new Push(JSON.stringify(sa), fake as never);
   assert.equal(push.enabled, true);
-  const r = await push.send(['tokA', 'gone'], { kind: 'invite', from: 'Mia', code: 'ABCD', mode: 'Rapid' });
+  const r = await push.send(['tokA', 'gone'], { kind: 'invite', fromName: 'Mia', code: 'ABCD', mode: 'Rapid' });
   assert.deepEqual({ sent: r.sent, dead: r.dead }, { sent: 1, dead: ['gone'] });
   assert.match(r.errors[0], /^404 .*UNREGISTERED/, '0.9.9.9.5.2: what Google said is kept');
   const msg = calls.find((x) => x.url.endsWith('/v1/projects/kw-test/messages:send'))!;

@@ -131,6 +131,8 @@ export class SessionHub {
 export const SCREEN_ACTIVITY: Record<string, string> = {
   study: 'Studying spells', review: 'Studying spells', deck: 'Studying spells', quiz: 'Taking a JLPT quiz', onoquiz: 'Taking an onomatopoeia quiz', passage: 'Reading a passage',
   daily: 'Playing the daily challenge', customize: 'Customizing', progress: 'Looking at their progress', history: 'Looking at match history', friends: 'With friends',
+  // 0.9.9.9.5.4: the Kana section (it showed "In the menus"), the Quizzes page, the dictionary
+  kana: 'Studying kana', kanaplay: 'Studying kana', quizzes: 'Choosing a quiz', dict: 'In the dictionary',
 };
 export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; declinedAt?: number; now: number }): string | null {
   if (o.inRoom) return 'Your friend is already in this room';
@@ -290,7 +292,8 @@ export class Session implements Client {
       // 0.9.9.9.5.1: a friend on the phone app gets the push even when their connection looks live — Android can
       // freeze the app with the connection still open (the app shows no notification while it's on screen)
       if (live && !presence.away && presence.device !== 'phone') return;
-      const pushed = await this.hub.notify(friendId, { kind: 'invite', fromId: user.id, from: invite.from, code: room.code, mode: MODE_LABEL[room.mode] });
+      // (0.9.9.9.5.4: "fromName", not "from" — Google refuses the whole push for that key: no invite push ever went out)
+      const pushed = await this.hub.notify(friendId, { kind: 'invite', fromId: user.id, fromName: invite.from, code: room.code, mode: MODE_LABEL[room.mode] });
       if (!live) this.send(pushed ? { type: 'notice', message: 'Invite sent — they get a notification on their phone' } : { type: 'error', message: 'Your friend is offline' });
       return;
     }

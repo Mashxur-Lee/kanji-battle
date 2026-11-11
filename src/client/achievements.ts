@@ -56,25 +56,26 @@ const GLYPH: Record<AchIcon, string> = {
  */
 export const TIERS = [
   null,
-  { name: 'Bronze', hi: '#ffd2a6', mid: '#cd7f32', lo: '#7a4519', star: '#e7a466' },
-  { name: 'Silver', hi: '#ffffff', mid: '#c4ccd8', lo: '#6e7787', star: '#eef2f8' },
-  { name: 'Gold', hi: '#fff6c2', mid: '#ffc93c', lo: '#a86a00', star: '#ffe066' },
-  { name: 'Ruby', hi: '#ffb3c9', mid: '#e0115f', lo: '#6b0026', star: '#ff5c8d' },
+  // (ink: the icon, the name and the words — 0.9.9.9.5.4: all in the badge's metal, not the achievement's own colour)
+  { name: 'Bronze', hi: '#f2b47a', mid: '#c27a3a', lo: '#7a4519', star: '#e7a466', ink: '#e09a5c' },
+  { name: 'Silver', hi: '#ffffff', mid: '#c4ccd8', lo: '#6e7787', star: '#eef2f8', ink: '#d6dde8' },
+  { name: 'Gold', hi: '#fff6c2', mid: '#ffc93c', lo: '#a86a00', star: '#ffe066', ink: '#ffd34d' },
+  { name: 'Ruby', hi: '#ffb3c9', mid: '#e0115f', lo: '#6b0026', star: '#ff5c8d', ink: '#ff6b98' },
 ] as const;
 const STAR = 'M0-4.2l1.23 2.5 2.77.4-2 1.95.47 2.75L0 2.1l-2.47 1.3.47-2.75-2-1.95 2.77-.4z';
 
 /** A hexagon badge with the achievement's icon, a metal frame and its stars (or grey and locked). */
 export function badgeSvg(a: AchievementDef, locked: boolean): string {
-  const c = a.color; // locked ones are dimmed in CSS, but keep their colour
   const t = TIERS[a.tier]!;
+  const c = t.ink; // (locked ones are dimmed in CSS)
   const id = `g${a.id.replace(/\W/g, '')}${locked ? 'l' : ''}`;
   const stars = Math.min(3, a.tier);
   return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs>`
     + `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${locked ? '#2a2840' : '#2b2160'}"/><stop offset="1" stop-color="${locked ? '#16152a' : '#120c34'}"/></linearGradient>`
-    + `<linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${t.hi}"/><stop offset=".45" stop-color="${t.mid}"/><stop offset=".7" stop-color="${t.lo}"/><stop offset="1" stop-color="${t.mid}"/></linearGradient>`
+    + `<linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${t.hi}"/><stop offset=".5" stop-color="${t.mid}"/><stop offset="1" stop-color="${t.hi}"/></linearGradient>`
     + `</defs>`
-    + `<path d="M32 3l25 14.5v29L32 61 7 46.5v-29z" fill="url(#${id})" stroke="url(#${id}m)" stroke-width="3.6"/>`
-    + `<path d="M32 8.6l20.2 11.7v23.4L32 55.4 11.8 43.7V20.3z" fill="none" stroke="${t.mid}" stroke-opacity=".45" stroke-width="1.1"/>`
+    + `<path d="M32 3l25 14.5v29L32 61 7 46.5v-29z" fill="url(#${id})" stroke="url(#${id}m)" stroke-width="4.2" stroke-linejoin="round"/>`
+    + `<path d="M32 8.6l20.2 11.7v23.4L32 55.4 11.8 43.7V20.3z" fill="none" stroke="${t.mid}" stroke-opacity=".6" stroke-width="1.4"/>`
     + `<g transform="translate(20 17)" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" color="${c}">${GLYPH[a.icon]}</g>`
     + Array.from({ length: stars }, (_, i) => `<path transform="translate(${32 + (i - (stars - 1) / 2) * 9} 49.5)" d="${STAR}" fill="${t.star}" stroke="${t.lo}" stroke-width=".6"/>`).join('')
     + `</svg>`;
@@ -92,7 +93,7 @@ export function badgeRow(ids: readonly string[] | undefined): HTMLElement | '' {
     const b = document.createElement('span');
     b.className = `ach mini tier-${a.tier}`;
     b.tabIndex = 0;
-    b.style.setProperty('--ac', a.color);
+    b.style.setProperty('--ac', TIERS[a.tier]!.ink);
     b.setAttribute('aria-label', `${a.name}: ${a.how}`);
     b.innerHTML = badgeSvg(a, false);
     const tip = document.createElement('div');
@@ -125,7 +126,7 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
     const b = document.createElement('div');
     b.className = `ach tier-${a.tier}` + (locked ? ' locked' : '');
     b.tabIndex = 0;
-    b.style.setProperty('--ac', a.color);
+    b.style.setProperty('--ac', TIERS[a.tier]!.ink);
     b.setAttribute('aria-label', `${a.name}: ${locked ? 'locked — ' : ''}${a.how}`);
     b.innerHTML = badgeSvg(a, locked);
     const tip = document.createElement('div');
@@ -190,7 +191,7 @@ function next() {
   if (!id) { playing = false; box.hidden = true; return; }
   playing = true;
   const a = achById(id)!;
-  box.style.setProperty('--ac', a.color);
+  box.style.setProperty('--ac', TIERS[a.tier]!.ink);
   box.innerHTML = '';
   const rays = document.createElement('div'); rays.className = 'ach-rays';
   const badge = document.createElement('div'); badge.className = `ach-badge tier-${a.tier}`; badge.innerHTML = badgeSvg(a, false);

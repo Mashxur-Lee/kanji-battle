@@ -121,8 +121,7 @@ function initBack() {
 // installs APKs itself (Play Protect counts an app that can install other apps as harmful), so the browser downloads
 // the new one and Android installs it from there. Apps from before 0.9.9.9.3 were signed with the old (public) key:
 // once, they have to be uninstalled before the new one installs — the button explains that first.
-/** 0.9.9.9.5.3: apps from now on update themselves again (updateSelf / updateState) */
-interface KWAndroidUpdate { version?: () => string; updateSelf?: () => void; updateState?: () => string }
+interface KWAndroidUpdate { version?: () => string }
 const RELEASE_API = 'https://api.github.com/repos/Mashxur-Lee/kanji-battle/releases/latest';
 /** the first app signed with the new private key */
 const NEW_KEY_FROM = '0.9.9.9.3';
@@ -171,31 +170,8 @@ async function offerUpdate(btn: HTMLElement) {
   btn.classList.add('update');
   btn.textContent = 'Update the app';
   btn.title = `${mine} → ${latest}`;
-  let timer = 0;
-  // 0.9.9.9.5.3: the app downloads and installs its update itself — the button shows how far along it is
-  const watch = () => {
-    clearInterval(timer);
-    timer = window.setInterval(() => {
-      const st = kw.updateState?.() ?? 'idle';
-      if (st.startsWith('downloading')) btn.textContent = tr(`Updating… ${st.split(':')[1] ?? 0}%`);
-      else if (st === 'installing') btn.textContent = tr('Installing…');
-      else if (st === 'permission') { clearInterval(timer); btn.textContent = 'Update the app'; ui.toast(tr('Allow “Install unknown apps” for Kanji Wizards (Android shows the switch), then come back and tap Update again — only the first time.'), 9000); }
-      else if (st.startsWith('failed')) {
-        clearInterval(timer); btn.textContent = 'Update the app';
-        ui.toast(tr(`The update didn’t work (${st.slice(7)}) — tap again, or it downloads in your browser.`), 8000);
-        btn.dataset.browser = '1';
-      } else { clearInterval(timer); btn.textContent = 'Update the app'; }
-    }, 400);
-  };
   btn.onclick = () => {
     if (cmpVersion(mine, NEW_KEY_FROM) < 0) return reinstallSteps();
-    if (kw.updateSelf && !btn.dataset.browser) {
-      kw.updateSelf();
-      btn.textContent = tr('Updating… 0%');
-      setTimeout(watch, 150);
-      return;
-    }
-    delete btn.dataset.browser;
     downloadInBrowser();
     ui.toast('Your browser is downloading the new version — open KanjiWizards.apk when it finishes and tap Update.', 8000);
   };

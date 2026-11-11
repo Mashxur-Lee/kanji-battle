@@ -156,6 +156,16 @@ export function setBadges(ids: readonly string[] | undefined) { $('ppBadges').re
 let badgeRowFn: ((ids: readonly string[] | undefined) => HTMLElement | '') | null = null;
 /** achievements.ts registers how badges are drawn (it imports ui, so not the other way round). */
 export const useBadgeRow = (fn: (ids: readonly string[] | undefined) => HTMLElement | '') => { badgeRowFn = fn; };
+/** 0.9.9.9.5.4: the streak flames (dailytasks.ts) on the profile cards — yours and your friends' */
+let flameFn: ((n: number, lit: boolean) => HTMLElement) | null = null;
+export const useStreakFlame = (fn: (n: number, lit: boolean) => HTMLElement) => { flameFn = fn; };
+function streakBox(n: number, best: boolean, label: string): HTMLElement {
+  const box = h('div', `streak-box${best ? ' best' : ''}`);
+  const txt = append(h('div', 'sb-txt'), h('b', '', n), h('span', '', label));
+  if (flameFn) box.append(flameFn(n, n > 0));
+  box.append(txt);
+  return box;
+}
 
 export function setProfile(p: ProfileView | null) {
   if (!p) return;
@@ -176,6 +186,12 @@ export function setProfile(p: ProfileView | null) {
   $('ppToday').textContent = String(p.learnedToday ?? 0);
   $('ppStreak').textContent = String(p.streak ?? 0);
   $('ppBestStreak').textContent = String(Math.max(p.bestStreak ?? 0, p.streak ?? 0));
+  // 0.9.9.9.5.4: the flames there too (as on the menu)
+  if (flameFn) for (const [id, n] of [['ppStreak', p.streak ?? 0], ['ppBestStreak', Math.max(p.bestStreak ?? 0, p.streak ?? 0)]] as const) {
+    const box = $(id).parentElement!;
+    box.querySelector('.sf')?.remove();
+    box.prepend(flameFn(n, n > 0));
+  }
   for (const id of ['whoPic', 'ppPic']) {
     const el = $(id);
     el.replaceChildren(p.pic ? picEl(p.pic, 'pic fill') : '✦');
@@ -1153,8 +1169,8 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
         append(h('div'), h('b', '', p.learned), h('span', '', 'spells learned')),
       ),
       append(h('div', 'pp-stats pp-streaks'),
-        append(h('div', 'streak-box'), h('b', '', p.streak ?? 0), h('span', '', 'daily streak (days)')),
-        append(h('div', 'streak-box best'), h('b', '', Math.max(p.bestStreak ?? 0, p.streak ?? 0)), h('span', '', 'best streak (days)')),
+        streakBox(p.streak ?? 0, false, 'daily streak (days)'),
+        streakBox(Math.max(p.bestStreak ?? 0, p.streak ?? 0), true, 'best streak (days)'),
       ),
       h('p', 'hint', `Playing since ${new Date(p.since).toLocaleDateString(locale(), { year: 'numeric', month: 'short', day: 'numeric' })}`),
     );

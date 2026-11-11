@@ -224,17 +224,9 @@ public class MainActivity extends Activity {
             return true;
         }
 
-        /** 0.9.9.9.5.3: "Update the app" — downloads this app's own new version from the game's server and installs it */
-        @JavascriptInterface
-        public void updateSelf() {
-            runOnUiThread(() -> Updater.start(MainActivity.this));
-        }
-
-        /** "idle", "downloading:<0–100>", "installing", "permission" (allow installs first) or "failed:<why>" */
-        @JavascriptInterface
-        public String updateState() {
-            return Updater.state();
-        }
+        // (0.9.9.9.3: no more downloading and installing APKs from inside the app — Play Protect counts an app that
+        // can install other apps as harmful. 0.9.9.9.5.3 tried it again, carefully: Play Protect blocked it again.
+        // "Update the app" lets the phone's browser download the new version.)
 
         @JavascriptInterface
         public boolean canSpeak() {

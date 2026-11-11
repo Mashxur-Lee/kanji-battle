@@ -48,6 +48,9 @@ const androidNote = (n: PushNote) => ({
   sound: 'default', default_vibrate_timings: true, notification_priority: 'PRIORITY_HIGH', visibility: 'PUBLIC',
 });
 
+/** keys FCM keeps for itself in a message's data */
+export const reservedKey = (k: string) => k === 'from' || k === 'notification' || k === 'message_type' || k.startsWith('google.') || k.startsWith('gcm.');
+
 export class Push {
   private readonly sa: ServiceAccount | null;
   private access: { token: string; until: number } | null = null;
@@ -75,6 +78,10 @@ export class Push {
    */
   async send(tokens: readonly string[], data: Record<string, string>, ttlSec = 120, note?: PushNote): Promise<PushResult> {
     if (!this.sa || !tokens.length) return { sent: 0, dead: [], errors: [] };
+    // 0.9.9.9.5.4: Google refuses the whole push for a reserved data key ("from", "notification", "message_type",
+    // "google.…", "gcm.…") — the invites carried "from" and never went out. Caught here, loudly, before sending.
+    const bad = Object.keys(data).find(reservedKey);
+    if (bad) return { sent: 0, dead: [], errors: [`push: reserved data key "${bad}"`] };
     let auth: string;
     try { auth = await this.accessToken(); } catch (e) { return { sent: 0, dead: [], errors: [(e as Error).message] }; }
     const url = `https://fcm.googleapis.com/v1/projects/${this.sa.project_id}/messages:send`;

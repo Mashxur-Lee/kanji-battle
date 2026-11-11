@@ -926,8 +926,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     fpBase.set(halfW * 0.78, -halfH * 0.62, base.z);
     fp.scale.setScalar(size * Math.max(0.5, Math.min(1, camera.aspect * 0.9)));
   }
+  let lastW = 0, lastH = 0; // (the canvas size the picture was last made for)
   function resize() {
-    const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
+    // 0.9.9.9.5.4: a canvas not laid out yet (hidden, just shown) has no size: wait for the ResizeObserver. It used to
+    // take the window's size then, and the observer, still remembering the last size, never put it right — coming
+    // back to Customize, the preview came out stretched (very wide or very thin).
+    lastW = canvas.clientWidth; lastH = canvas.clientHeight;
+    if (opts.preview && (!lastW || !lastH)) return;
+    const w = lastW || innerWidth, h = lastH || innerHeight;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.fov = camera.aspect < 1 ? 60 : camera.aspect < 1.3 ? 66 : 55; // upright phone: the sides are cropped, the arena a bit closer
@@ -938,10 +944,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   }
   addEventListener('resize', resize);
   // the canvas can also change size on its own (phone keyboard, browser bars)
-  let lastW = 0, lastH = 0;
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => {
     if (!active || (canvas.clientWidth === lastW && canvas.clientHeight === lastH)) return;
-    lastW = canvas.clientWidth; lastH = canvas.clientHeight; resize();
+    resize();
   }) : null;
   ro?.observe(canvas);
 
@@ -1192,6 +1197,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
           spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), m.staff.color.getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
         }
         if (spinning && key === 'opp' && !f.ko) m.root.rotation.y += dt * 0.5;
+        if (!f.ko) m.breathe?.(still ? 0 : time); // 0.9.9.9.5.4: the rigged models breathe
       } else if (f.dragon) {
         dragonInhale += ((inhaling ? 1 : 0) - dragonInhale) * Math.min(1, dt * 2.5);
         const left = Math.max(0, dragonBreathUntil - now) / 1300; // 1 → 0 over the fire
@@ -1442,7 +1448,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (on === active) return;
       active = on;
       canvas.classList.toggle('on', on);
-      if (on) { resize(); last = performance.now(); perfSkip = 0; perfFrames = 0; perfTime = 0; raf = requestAnimationFrame(frame); }
+      if (on) { resize(); requestAnimationFrame(() => { if (active && (canvas.clientWidth !== lastW || canvas.clientHeight !== lastH)) resize(); }); last = performance.now(); perfSkip = 0; perfFrames = 0; perfTime = 0; raf = requestAnimationFrame(frame); }
       else cancelAnimationFrame(raf);
     },
     async cast(from, to, kanji, o = {}) {
