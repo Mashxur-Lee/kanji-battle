@@ -4366,7 +4366,7 @@ body:not(.has-3d) #comboHud { display: flex; left: auto; right: 4%; bottom: auto
 body.has-3d .combo-broken { right: auto; left: 7%; top: auto; bottom: 24%; }
 @keyframes cbBreak { 0% { scale: 1.4; opacity: 0; } 12% { scale: 1; opacity: 1; } 22% { translate: -3px 0; } 30% { translate: 3px 0; } 38% { translate: 0 0; } 100% { translate: 0 40px; opacity: 0; filter: blur(2px); } }
 /* the screen's edges glow at ×10, ×20, ×30 */
-.combo-glow { position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity .6s;
+.combo-glow { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; transition: opacity .6s;
   box-shadow: inset 0 0 90px 10px color-mix(in srgb, var(--flame, #6ee7ff) 70%, transparent); }
 #battle[hidden] .combo-glow { display: none; }
 .combo-glow[data-tier="3"] { opacity: .35; } .combo-glow[data-tier="4"] { opacity: .55; animation: cgPulse 1.4s ease-in-out infinite; }
