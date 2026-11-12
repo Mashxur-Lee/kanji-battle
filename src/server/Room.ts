@@ -430,7 +430,9 @@ export class Room {
     if (this.mode === 'rapid') return rapidHp(this.unionLevels());
     const opponents = this.roster.filter((p) => p.id !== id);
     if (opponents.length === 0) return hpAgainst(DEFAULT_LEVELS);
-    return Math.round(opponents.reduce((s, o) => s + hpAgainst(o.levels), 0) / opponents.length);
+    const hp = Math.round(opponents.reduce((s, o) => s + hpAgainst(o.levels), 0) / opponents.length);
+    // 0.9.9.9.6: the tutorial's AI goes down in about half the spells (a first battle should be short)
+    return this.opts.tutorial && this.roster.find((p) => p.id === id)?.bot ? Math.round(hp * 0.5) : hp;
   }
 
   /** Rapid's shared levels (AI players don't add their own: they only decide how much the AI knows). */

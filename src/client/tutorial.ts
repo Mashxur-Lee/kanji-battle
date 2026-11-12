@@ -143,7 +143,7 @@ const MENU_TOUR: Step[] = [
   { sel: '#tasksBtn:not([hidden])', title: 'Daily streak', text: 'Three small tasks a day keep your streak alight — the flame grows the longer it lasts.' },
   { sel: '.mc-cards', title: 'Play and learn', text: 'Battles online or with friends, Study spells (flashcards), Quizzes, the Daily challenge and Kana — every card is one of them.' },
   { sel: '.mc-nav', title: 'Your wizard', text: 'Customize your hero, see your Progress and past matches, and Settings (language, sound, theme).' },
-  { sel: '#friendRail:not([hidden]), #railFab:not([hidden])', title: 'Friends', text: 'Who is online, invites to your room, and their profiles.' },
+  { sel: '#railFab:not([hidden]), #friendRail:not([hidden])', title: 'Friends', text: 'Who is online, invites to your room, and their profiles.' },
   { sel: '#inboxBtn', title: 'Messages', text: 'Chat with friends — and write to the team: bugs, ideas, questions. We answer here.' },
 ];
 const BATTLE_TOUR: Step[] = [
@@ -154,8 +154,18 @@ const BATTLE_TOUR: Step[] = [
   { sel: '#oppCard', title: 'Your opponent', text: 'Its health — bring it to zero to win. Right and fast in a row (a combo) hits harder.' },
 ];
 let tourAbort: (() => void) | null = null;
+/** the first of the selector's choices that is really on screen (a hidden rail is still in the page, off to the side) */
+function pick(sel: string): HTMLElement | null {
+  for (const one of sel.split(',')) {
+    const e = document.querySelector<HTMLElement>(one.trim());
+    if (!e || !e.getClientRects().length) continue;
+    const r = e.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth) return e;
+  }
+  return null;
+}
 async function spotlight(steps: Step[], opts: { finalLabel: string; onSkip?: () => void }): Promise<'done' | 'skip'> {
-  const live = steps.filter((s) => { const e = document.querySelector<HTMLElement>(s.sel); return !!e && e.getClientRects().length > 0; });
+  const live = steps.filter((s) => !!pick(s.sel));
   const spot = el('div', 'tut-spot');
   const hole = el('div', 'tut-hole');
   const bub = el('div', 'tut-bubble');
@@ -167,7 +177,7 @@ async function spotlight(steps: Step[], opts: { finalLabel: string; onSkip?: () 
     tourAbort = () => end('skip');
     const place = () => {
       const s = live[i];
-      const t = s && document.querySelector<HTMLElement>(s.sel);
+      const t = s && pick(s.sel);
       if (!t) return;
       const r = zrect(t), pad = 8;
       const x = Math.max(4, r.left - pad), y = Math.max(4, r.top - pad), w = Math.min(viewW() - x - 4, r.width + pad * 2), hh = Math.min(viewH() - y - 4, r.height + pad * 2);
@@ -191,6 +201,10 @@ async function spotlight(steps: Step[], opts: { finalLabel: string; onSkip?: () 
       sk.onclick = () => { opts.onSkip?.(); end('skip'); };
       const acts = el('div', 'tb-acts'); acts.append(sk, nx);
       bub.replaceChildren(n, el('b', 'tb-title', s.title), el('p', '', s.text), acts);
+      // (a part below the fold — the menu's foot on a phone — is scrolled to first)
+      const t = pick(s.sel);
+      const tr = t?.getBoundingClientRect();
+      if (t && tr && (tr.bottom > innerHeight - 20 || tr.top < 0)) { t.scrollIntoView({ block: 'center' }); setTimeout(place, 350); }
       place();
       requestAnimationFrame(place);
       nx.focus();

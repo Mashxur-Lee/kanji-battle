@@ -4457,9 +4457,9 @@ body.has-3d .combo-broken { right: auto; left: 7%; top: auto; bottom: 24%; }
 /* ══ 0.9.9.9.6 ═════════════════════════════════════════════════════════════════════════════════════════════════ */
 /* phones: the combo counter sits up top, under your name — above the keyboard it hid the answers */
 @media (max-width: 760px), (pointer: coarse) and (max-height: 560px) {
-  #comboHud, body:not(.has-3d) #comboHud { left: calc(env(safe-area-inset-left) + 10px); right: auto; top: calc(env(safe-area-inset-top) + 64px); bottom: auto;
-    transform-origin: top left; scale: .62; align-items: flex-start; }
-  .combo-broken, body.has-3d .combo-broken { left: calc(env(safe-area-inset-left) + 12px); right: auto; top: calc(env(safe-area-inset-top) + 92px); bottom: auto; font-size: 1rem; }
+  #comboHud, body:not(.has-3d) #comboHud { left: calc(env(safe-area-inset-left) + 8px); right: auto; top: calc(env(safe-area-inset-top) + 122px); bottom: auto;
+    transform-origin: top left; scale: .5; align-items: flex-start; }
+  .combo-broken, body.has-3d .combo-broken { left: calc(env(safe-area-inset-left) + 12px); right: auto; top: calc(env(safe-area-inset-top) + 124px); bottom: auto; font-size: 1rem; }
   .combo-banner { top: 24%; }
 }
 
