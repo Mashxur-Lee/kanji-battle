@@ -111,3 +111,8 @@ export async function showLeagueUp(uid: string, league: string) {
 let onEquipped: (p: Profile) => void = () => {};
 /** main.ts: what to do with the profile after equipping (the menu, Customize…) */
 export function onLeagueEquip(fn: (p: Profile) => void) { onEquipped = fn; }
+
+// (screenshots in CI: kb:debugui=1 lets a scenario open the league-up screen)
+try {
+  if (localStorage.getItem('kb:debugui') === '1') (window as unknown as { __kwLeagueUp: (l: string) => void }).__kwLeagueUp = (l) => void showLeagueUp('debug', l);
+} catch { /* no storage */ }
