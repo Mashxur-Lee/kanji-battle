@@ -4600,7 +4600,7 @@ body.has-3d .combo-broken { right: auto; left: 7%; top: auto; bottom: 24%; }
 /* ── 0.9.9.9.6.1: the league borders — drawn frames laid over the picture (src/client/borders.ts: a ring, its
    ornaments and the league's plaque; no emoji). The picture keeps a soft glow in the league's colour. ─────────── */
 :is(div, span, button).bd[class*="bd-lg-"]::before { content: ""; position: absolute; inset: -34%; z-index: 2; pointer-events: none;
-  background: center / 100% 100% no-repeat; }
+  background-position: center; background-size: 100% 100%; background-repeat: no-repeat; }
 :is(div, span, button).bd[class*="bd-lg-"]::after { content: none; }
 .bd-lg-kana { box-shadow: 0 0 14px 4px rgba(255, 140, 190, .45); }
 .bd-lg-n5 { box-shadow: 0 0 14px 4px rgba(80, 200, 130, .45); }

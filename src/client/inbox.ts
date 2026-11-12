@@ -76,7 +76,7 @@ function renderList() {
     const top = h('span', 'msg-c-top');
     top.append(h('b', 'msg-c-name', c.support ? tr('Kanji Wizards team') : c.name), h('time', 'msg-c-time', time(c.last.at)));
     const mine = c.last.from === myId();
-    const preview = (mine && c.last.at ? `${tr('You')}: ` : '') + (c.last.kind ? c.last.text.replace(/\n/, ' — ') : c.last.text);
+    const preview = (mine && c.last.at ? `${tr('You')}: ` : '') + (c.last.kind ? c.last.text.replace(/\n/, ' — ') : (splitQuote(c.last.text).body || c.last.text));
     txt.append(top, h('span', 'msg-c-last', c.last.at ? preview : tr(c.last.text)));
     b.append(avatar(c), txt);
     if (c.muted) { const m = h('span', 'msg-c-muted'); m.innerHTML = BELL_OFF; m.title = tr('Muted'); b.append(m); }
@@ -250,6 +250,7 @@ async function send() {
     input.value = '';
     setQuote('');
     grow();
+    $('msgEmojiPick').hidden = true;
     add(r.message);
   } catch (e) { ui.toast((e as Error).message, 3500); } finally { btn.disabled = false; }
 }

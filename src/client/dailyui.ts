@@ -336,7 +336,7 @@ function toggleCalendar(anchor: HTMLElement, chosen: string) {
   const cal = el('div', 'dp-cal');
   cal.id = 'dpCal';
   cal.setAttribute('role', 'dialog'); cal.setAttribute('aria-label', tr('Pick a day'));
-  anchor.after(cal);
+  anchor.append(cal);
   drawCalendar(cal, chosen);
   setTimeout(() => document.addEventListener('pointerdown', function away(e) {
     if (!cal.isConnected) return document.removeEventListener('pointerdown', away);
