@@ -16,7 +16,7 @@ const el = (tag: string, cls = '', text?: string | number) => {
 };
 
 /** Screens where the rail shows (not in games, not on the login page). */
-const RAIL_SCREENS = new Set(['menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'results', 'study', 'review', 'passage', 'dict', 'customize', 'history', 'progress', 'daily', 'friends']);
+const RAIL_SCREENS = new Set(['menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'results', 'study', 'review', 'passage', 'dict', 'customize', 'history', 'progress', 'daily', 'friends', 'inbox', 'quizzes', 'kana']); // (0.9.9.9.6.1: and Messages)
 let friends: Friend[] = [];
 let signedIn = false;
 let timer = 0;

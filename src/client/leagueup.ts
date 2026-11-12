@@ -41,15 +41,30 @@ function borderPreview(p: Profile | null, border: string) {
   return d;
 }
 
-/** the little preview of the next league's rewards (the daily page) */
-export function nextLeagueRow(next: string): HTMLElement | null {
+/** 0.9.9.9.6.1: what the next league brings (the daily page) — a card: its crest, the rewards as tiles, how to get there */
+export function nextLeagueRow(next: string, promoteAt = 7): HTMLElement | null {
   const { border, character } = leagueRewards(next);
   if (!border && !character) return null;
-  const row = h('div', 'lg-next');
-  row.append(h('span', 'lg-next-lbl', `${tr('Reach')} ${LEAGUE_TITLE[next]} ${tr('to unlock')}:`));
-  if (border) { const b = h('span', 'lg-next-it'); const d = h('span', `avatar lg-mini${ui.borderCls(border.id)}`, (ui.myName() || '✦').slice(0, 1).toUpperCase()); b.append(d, h('small', '', tr(`${border.name} border`))); row.append(b); }
-  if (character) { const c = h('span', 'lg-next-it'); const s = h('span', 'lg-mini-char'); s.innerHTML = avatarSvg(character.id, 'me', 'verdant'); c.append(s, h('small', '', tr(`The ${character.name}`))); row.append(c); }
-  return row;
+  const card = h('div', 'lg-next');
+  const left = h('div', 'lg-next-head');
+  left.append(leagueCrest(next, 'small'), h('div', 'lg-next-txt'));
+  (left.lastChild as HTMLElement).append(h('small', 'lg-next-k', tr('Next league')), h('b', 'lg-next-n', `${LEAGUE_TITLE[next]} ${tr('league')}`), h('span', 'lg-next-how', tr(`Score ${promoteAt}/10 or better to move up`)));
+  const tiles = h('div', 'lg-next-tiles');
+  if (border) {
+    const t = h('div', 'lg-tile');
+    const d = h('span', `avatar lg-tile-av${ui.borderCls(border.id)}`, (ui.myName() || '✦').slice(0, 1).toUpperCase());
+    t.append(h('span', 'lg-tile-pic'), h('small', '', tr('Border')), h('b', '', tr(`${border.name} border`)));
+    (t.firstChild as HTMLElement).append(d);
+    tiles.append(t);
+  }
+  if (character) {
+    const t = h('div', 'lg-tile');
+    const s = h('span', 'lg-tile-pic char'); s.innerHTML = avatarSvg(character.id, 'me', 'verdant');
+    t.append(s, h('small', '', tr('Character')), h('b', '', tr(`The ${character.name}`)));
+    tiles.append(t);
+  }
+  card.append(left, tiles);
+  return card;
 }
 
 export async function showLeagueUp(uid: string, league: string) {

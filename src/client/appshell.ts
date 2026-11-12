@@ -5,7 +5,7 @@ import * as offline from './offline';
 import { getToken, OFFLINE_TEXT } from './api';
 import * as ui from './ui';
 import { tr } from './i18n';
-import { VERSION } from '../shared/version';
+import { APP_NEEDS, VERSION } from '../shared/version';
 
 const RELEASES = 'https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download';
 export const DOWNLOADS = { windows: `${RELEASES}/KanjiWizards-Setup.exe`, android: '/download/KanjiWizards.apk' }; // the APK from our own address (0.9.9.4.1)
@@ -164,6 +164,9 @@ async function offerUpdate(btn: HTMLElement) {
   const kw = (window as { KWAndroid?: KWAndroidUpdate }).KWAndroid;
   const mine = kw?.version?.();
   if (!kw || !mine) return;
+  // 0.9.9.9.6.1: only when this app is missing something (APP_NEEDS) — a new patch of the game reaches the app by
+  // itself (it loads the game from the server), so "Update the app" isn't shown after every release any more
+  if (cmpVersion(mine, APP_NEEDS) >= 0) return;
   const latest = await latestRelease();
   if (cmpVersion(mine, latest) >= 0) return;
   btn.hidden = false;

@@ -6,7 +6,8 @@ import { locale, tr } from './i18n';
 import { LEVEL_LABEL } from '../shared/protocol';
 import * as offline from './offline';
 import { api, type DailyAnswer, type DailyOverview, type DailyPast, type DailyWord } from './api';
-import { nextLeagueRow, showLeagueUp } from './leagueup';
+import { leagueCrest, leagueRewards, nextLeagueRow, showLeagueUp } from './leagueup';
+import { avatarSvg } from './wizard';
 import * as audio from './audio';
 import * as ui from './ui';
 import { tickCards } from './decks';
@@ -97,12 +98,29 @@ function missedBlock(o: DailyOverview): HTMLElement[] {
 const LEAGUES = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
 const LEAGUE_NAME: Record<string, string> = { KANA: 'ひらがな・カタカナ', N5: 'N5', N4: 'N4', N3: 'N3', N2: 'N2', N1: 'N1' };
 let league = 'KANA';
+// 0.9.9.9.6.1: the leagues as a track of crests — the ones behind you lit, yours big with a "you" marker, the ones
+// ahead dim with what they bring under them (that league's frame on your picture; a character at N4, N3, N2)
 function ladder(current: string, next?: string) {
-  const row = el('div', 'league-ladder');
+  const row = el('div', 'lg-track');
+  const ci = LEAGUES.indexOf(current as never);
+  next ??= LEAGUES[ci + 1]; // (the one you're climbing to glows even before today's try)
+  const fill = el('div', 'lg-track-line');
+  fill.style.setProperty('--p', `${(Math.max(0, ci) / (LEAGUES.length - 1)) * 100}%`);
+  row.append(fill);
   LEAGUES.forEach((l, i) => {
-    if (i) row.append(el('span', 'll-arrow', '›'));
-    const step = el('span', `ll-step${l === current ? ' on' : ''}${LEAGUES.indexOf(l) < LEAGUES.indexOf(current as never) ? ' done' : ''}${next && next !== current && l === next ? ' next' : ''}`, LEAGUE_NAME[l]);
-    step.lang = 'ja';
+    const state = i < ci ? 'done' : i === ci ? 'now' : 'ahead';
+    const step = el('div', `lg-step ${state}${next && next !== current && l === next ? ' next' : ''}`);
+    step.append(leagueCrest(l, state === 'now' ? 'mid' : 'small'));
+    const name = el('span', 'lg-name', l === 'KANA' ? 'かな' : l); name.lang = 'ja';
+    step.append(name);
+    if (state === 'now') step.append(el('span', 'lg-you', tr('You')));
+    const { border, character } = leagueRewards(l);
+    if (state === 'ahead' && (border || character)) {
+      const rw = el('div', 'lg-rw');
+      if (border) { const d = el('span', `avatar lg-rw-av${ui.borderCls(border.id)}`, (ui.myName() || '✦').slice(0, 1).toUpperCase()); d.title = tr(`${border.name} border`); rw.append(d); }
+      if (character) { const c = el('span', 'lg-rw-char'); c.innerHTML = avatarSvg(character.id, 'me', 'verdant'); c.title = tr(`The ${character.name}`); rw.append(c); }
+      step.append(rw);
+    }
     row.append(step);
   });
   return row;
@@ -130,7 +148,7 @@ function renderOverview(o: DailyOverview) {
     main.replaceChildren(
       el('p', 'sub', date),
       ladder(league, o.nextLeague),
-      ...[nextL ? nextLeagueRow(nextL) : null].filter((x): x is HTMLElement => !!x),
+      ...[nextL ? nextLeagueRow(nextL, o.promoteAt ?? 7) : null].filter((x): x is HTMLElement => !!x),
       el('div', 'daily-score', `${o.mine.correct} / ${o.total}`),
       el('p', `center league-note${up ? ' up' : ''}`, up ? `▲ ${tr('Promoted')}: ${LEAGUE_NAME[o.nextLeague!]} — ${tr('tomorrow you play in the new league')}` : `${tr('Get')} ${o.promoteAt ?? 7}/${o.total} ${tr('to move up a league')}`),
       el('p', 'center', `${secs(o.mine.ms)} · rank ${o.rank} today`),
@@ -146,7 +164,7 @@ function renderOverview(o: DailyOverview) {
   main.replaceChildren(
     el('p', 'sub', date),
     ladder(league),
-    ...[nextL ? nextLeagueRow(nextL) : null].filter((x): x is HTMLElement => !!x),
+    ...[nextL ? nextLeagueRow(nextL, o.promoteAt ?? 7) : null].filter((x): x is HTMLElement => !!x),
     el('h3', '', `${tr('League')}: ${LEAGUE_NAME[league]}`),
     el('p', '', league === 'KANA'
       ? `Ten kana, the same for everyone in your league today: five hiragana, five katakana. Type each in romaji and press Enter — ${o.wordMs / 1000} s each. Get ${o.promoteAt ?? 7}/10 or better to move up to N5.`
@@ -263,7 +281,12 @@ function renderPast(o: DailyPast) {
   prev.disabled = back >= 7; next.disabled = back <= 1;
   prev.onclick = () => void openPast(dayShift(pastDay, -1));
   next.onclick = () => void openPast(dayShift(pastDay, 1));
-  const title = el('b', 'dp-day', back === 1 ? tr('Yesterday') : new Date(`${o.day}T12:00:00Z`).toLocaleDateString(locale(), { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }));
+  // 0.9.9.9.6.1: the date opens a calendar (the game's own, not the browser's)
+  const title = el('button', 'dp-day', '') as HTMLButtonElement;
+  title.type = 'button';
+  title.append(el('span', 'dp-cal-ic', '暦'), el('span', '', back === 1 ? tr('Yesterday') : new Date(`${o.day}T12:00:00Z`).toLocaleDateString(locale(), { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })), el('span', 'dp-caret', '▾'));
+  title.setAttribute('aria-haspopup', 'dialog');
+  title.onclick = (e) => { e.stopPropagation(); toggleCalendar(nav, o.day); };
   nav.append(prev, title, next);
   const tabs = el('div', 'daily-tabs');
   tabs.setAttribute('role', 'tablist');
@@ -302,6 +325,53 @@ function renderPast(o: DailyPast) {
   const body = el('div', 'daily-body dp-body');
   body.append(left, right);
   box.replaceChildren(nav, tabs, body);
+}
+// ── 0.9.9.9.6.1: the calendar — this month in kanji (十一月), the days you can look at lit, the chosen one gold ──
+const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
+const MONTH_K = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+let calMonth = '';
+function toggleCalendar(anchor: HTMLElement, chosen: string) {
+  const open = document.getElementById('dpCal');
+  if (open) { open.remove(); return; }
+  calMonth = chosen.slice(0, 7);
+  const cal = el('div', 'dp-cal');
+  cal.id = 'dpCal';
+  cal.setAttribute('role', 'dialog'); cal.setAttribute('aria-label', tr('Pick a day'));
+  anchor.append(cal);
+  drawCalendar(cal, chosen);
+  setTimeout(() => document.addEventListener('pointerdown', function away(e) {
+    if (!cal.isConnected) return document.removeEventListener('pointerdown', away);
+    if (!(e.target as Element).closest('#dpCal, .dp-day')) { cal.remove(); document.removeEventListener('pointerdown', away); }
+  }), 0);
+}
+function drawCalendar(cal: HTMLElement, chosen: string) {
+  const today = localToday();
+  const first = dayShift(today, -7), last = dayShift(today, -1); // (the days the server shows)
+  const [y, m] = calMonth.split('-').map(Number);
+  const start = new Date(Date.UTC(y, m - 1, 1)), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const head = el('div', 'dp-cal-head');
+  const pm = el('button', 'dp-cal-nav', '‹') as HTMLButtonElement, nm = el('button', 'dp-cal-nav', '›') as HTMLButtonElement;
+  pm.type = nm.type = 'button';
+  const prevMonth = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7), nextMonth = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7);
+  pm.disabled = prevMonth < first.slice(0, 7); nm.disabled = nextMonth > last.slice(0, 7);
+  pm.onclick = () => { calMonth = prevMonth; drawCalendar(cal, chosen); };
+  nm.onclick = () => { calMonth = nextMonth; drawCalendar(cal, chosen); };
+  const t = el('div', 'dp-cal-title');
+  const mk = el('b', 'dp-cal-k', MONTH_K[m - 1]); mk.lang = 'ja';
+  t.append(mk, el('span', '', `${new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(locale(), { month: 'long', timeZone: 'UTC' })} ${y}`));
+  head.append(pm, t, nm);
+  const grid = el('div', 'dp-cal-grid');
+  for (const w of WEEK) { const c = el('span', `dp-cal-w${w === '日' ? ' sun' : w === '土' ? ' sat' : ''}`, w); c.lang = 'ja'; grid.append(c); }
+  for (let i = 0; i < start.getUTCDay(); i++) grid.append(el('span', 'dp-cal-pad'));
+  for (let d = 1; d <= days; d++) {
+    const iso = `${calMonth}-${String(d).padStart(2, '0')}`;
+    const ok = iso >= first && iso <= last;
+    const b = el('button', `dp-cal-d${iso === chosen ? ' on' : ''}${iso === today ? ' today' : ''}${ok ? ' ok' : ''}`, d) as HTMLButtonElement;
+    b.type = 'button'; b.disabled = !ok;
+    if (ok) b.onclick = () => { cal.remove(); void openPast(iso); };
+    grid.append(b);
+  }
+  cal.replaceChildren(head, grid, el('p', 'dp-cal-note', tr('The last 7 days can be looked at')));
 }
 for (const b of document.querySelectorAll<HTMLElement>('#dailyWhen [data-when]')) {
   b.onclick = () => {

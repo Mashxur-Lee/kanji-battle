@@ -7,6 +7,27 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.6.1', date: '2026-11',
+    en: [
+      'Messages: the envelope is at the top right now (with its number). Quote a message (↩) — the team’s replies to a bug report or a suggestion quote it — and ✓ turns into ✓✓ the moment it’s read. An emoji button, no stray scrollbar in the box, and two mutes: all your messages, or one chat (no notifications from them). The dictionary and friends stay at the sides; friends see you as “Chatting”.',
+      'League borders redrawn — no emoji: cherry blossom (Kana), a jade laurel (N5), riveted steel with a shield (N4), moonlit violet with feathers and a crescent (N3), arcane gold with runes and small wings (N2), and great golden wings with a jewelled crown (N1). Each with its league on a plaque.',
+      'Daily challenge: the leagues as a track of crests (you on yours, the rewards under the ones ahead) and a proper card for the next league’s rewards. Earlier days: tap the date for the game’s own calendar.',
+      'Streak flames: the kanji is easy to read, every tier burns in its own shape (more and taller tongues as you climb), and each tongue flickers on its own.',
+      '“View profile”: badge descriptions show above the picture; the slot pictures are small and centred.',
+      'Phones: the daily tasks banner and Settings no longer flicker.',
+      '“Update the app” shows only when the Android app itself needs it — every other patch reaches the app by itself.',
+    ],
+    ru: [
+      'Сообщения: конверт теперь вверху справа (с числом). Цитируйте сообщение (↩) — ответы команды на сообщение об ошибке или предложение цитируют его, — а ✓ становится ✓✓, как только сообщение прочитано. Кнопка эмодзи, без лишней полосы прокрутки и два выключателя: все сообщения или один чат (без уведомлений). Словарь и друзья остаются по бокам; друзья видят вас как «Переписывается».',
+      'Рамки лиг нарисованы заново — без эмодзи: сакура (кана), нефритовый лавр (N5), сталь с заклёпками и щитом (N4), лунный фиолетовый с перьями и полумесяцем (N3), тайное золото с рунами и крылышками (N2) и большие золотые крылья с короной в самоцветах (N1). У каждой — табличка с лигой.',
+      'Ежедневный вызов: лиги — дорожка из гербов (вы на своём, награды под следующими) и карточка с наградами следующей лиги. Прошлые дни: нажмите на дату — откроется календарь игры.',
+      'Пламя серии: кандзи легко читается, у каждой ступени своя форма огня (больше и выше языков по мере роста), и каждый язык пламени мерцает сам по себе.',
+      '«Открыть профиль»: описания значков поверх картинки; картинки ячеек маленькие и по центру.',
+      'Телефоны: баннер ежедневных заданий и настройки больше не мерцают.',
+      '«Обновить приложение» появляется, только когда это нужно самому приложению Android, — остальные обновления приходят в приложение сами.',
+    ],
+  },
+  {
     v: '0.9.9.9.6', date: '2026-11',
     en: [
       'Messages: a ✉ button in the menu. Chat with your friends (“✉ Message” on their profile) and with the team — your Feedback lands there and we answer there. New messages show a number, and reach your phone when the app is closed.',
