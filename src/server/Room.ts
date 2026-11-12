@@ -9,6 +9,7 @@ import { RapidGame } from './RapidGame';
 import { buildDraftPool, DeckGame } from './DeckGame';
 import { VOCAB } from './vocab';
 import { pickPool, pickPoolFrom, shuffle } from './VocabPool';
+import { toRomaji } from '../shared/kana';
 
 /** Transport-agnostic: Room only needs something it can send messages to. */
 /** a game against the AI waits this long for you when the app is in the background (0.9.9.9.2) */
@@ -23,6 +24,9 @@ export interface RoomOptions {
   /** How long a disconnected player keeps their seat (phones drop sockets when you switch apps). */
   graceLobbyMs: number;
   graceGameMs: number;
+  /** 0.9.9.9.6: the tutorial's first battle — the answer is shown under each word, and the AI casts only once
+   * for every two of your spells (you learn, and you win) */
+  tutorial?: boolean;
 }
 export const DEFAULT_ROOM_OPTIONS: RoomOptions = {
   maxPlayers: 2, poolSize: 10, game: DEFAULT_CONFIG, writingGame: WRITING_CONFIG,
@@ -232,6 +236,7 @@ export class Room {
       deckCastReady: (id, c) => this.deckCastReady(id, c),
       deckCastGo: (id, c) => this.deckCastGo(id, c),
       timers: () => this.clock,
+      ...(this.opts.tutorial ? { tutorialHits: () => this.humanHits } : {}),
     };
   }
   private get humans() { return this.roster.filter((p) => !p.bot); }
@@ -425,7 +430,9 @@ export class Room {
     if (this.mode === 'rapid') return rapidHp(this.unionLevels());
     const opponents = this.roster.filter((p) => p.id !== id);
     if (opponents.length === 0) return hpAgainst(DEFAULT_LEVELS);
-    return Math.round(opponents.reduce((s, o) => s + hpAgainst(o.levels), 0) / opponents.length);
+    const hp = Math.round(opponents.reduce((s, o) => s + hpAgainst(o.levels), 0) / opponents.length);
+    // 0.9.9.9.6: the tutorial's AI goes down in about half the spells (a first battle should be short)
+    return this.opts.tutorial && this.roster.find((p) => p.id === id)?.bot ? Math.round(hp * 0.5) : hp;
   }
 
   /** Rapid's shared levels (AI players don't add their own: they only decide how much the AI knows). */
@@ -557,12 +564,23 @@ export class Room {
       });
       if (snap.challenge) {
         const c = snap.challenge;
-        client.send({ type: 'challenge', id: c.id, kanji: c.kanji, answer: c.answerMode, timeLimitMs: c.timeLimitMs, meaning: c.meaning, reading: c.reading, charCount: c.charCount, flashMs: c.flashMs });
+        client.send({ type: 'challenge', id: c.id, kanji: c.kanji, answer: c.answerMode, timeLimitMs: c.timeLimitMs, meaning: c.meaning, reading: c.reading, charCount: c.charCount, flashMs: c.flashMs, ...this.hintFor(id) });
       }
     }
   }
 
+  /** 0.9.9.9.6: the tutorial's answer under the word: its kana, its romaji and its meaning */
+  private hintFor(id: PlayerId): { hint?: { kana: string; romaji: string; meaning: string } } {
+    if (!this.opts.tutorial || this.roster.find((p) => p.id === id)?.bot) return {};
+    const e = this.game?.peek(id)?.entry;
+    if (!e) return {};
+    const kana = e.reading;
+    return { hint: { kana, romaji: e.romaji ?? toRomaji(kana), meaning: e.meaning } };
+  }
+  /** 0.9.9.9.6: how many spells the people here have cast (the tutorial's AI waits for two of them per cast) */
+  private humanHits = 0;
   private onGameEvent(e: GameEvent) {
+    if (e.type === 'answer_result' && e.correct && !this.roster.find((p) => p.id === e.playerId)?.bot) this.humanHits++;
     for (const p of this.roster) p.bot?.onEvent(e); // AI players react (always with a delay)
     switch (e.type) {
       case 'prep':
@@ -576,7 +594,7 @@ export class Room {
         const from = owner ? (owner === e.playerId ? 'you' : this.roster.find((p) => p.id === owner)?.name) : undefined;
         return this.clients.get(e.playerId)?.send({
           type: 'challenge', id: e.id, kanji: e.kanji, answer: e.answerMode, timeLimitMs: e.timeLimitMs,
-          meaning: e.meaning, reading: e.reading, charCount: e.charCount, flashMs: e.flashMs, ...(from ? { from } : {}),
+          meaning: e.meaning, reading: e.reading, charCount: e.charCount, flashMs: e.flashMs, ...(from ? { from } : {}), ...this.hintFor(e.playerId),
         });
       }
       case 'answer_result': {

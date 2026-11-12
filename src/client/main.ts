@@ -9,7 +9,7 @@ initWhatsNew();
 import { adminTab, refreshInboxBadge, setAdminTab } from './adminui';
 import { gameKbAvailable, gameKbPref, gameKbReset, setGameKb, setGameKbPref } from './gamekb';
 import { celebrate, celebrateNew, comboMilestone } from './achievements';
-import { railScreen, refreshRail, setRailUser } from './friendrail';
+import { knownFriends, railScreen, refreshRail, setRailUser } from './friendrail';
 import { dictRailScreen, setDictRailUser } from './dictrail';
 import { initMenuVeil } from './menuveil';
 import { inLocalRoom, initLocalGames, localSend, OFFLINE_MODES } from './offline/localgames';
@@ -23,11 +23,13 @@ import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
 import { arena, arenaLook, arenaTyping, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
-import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicUser, type ServerMessage } from '../shared/protocol';
+import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicProfile, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
 import { showPlayer } from './playerview';
+import { initInbox, inboxUser, onDm, openInbox } from './inbox';
+import { onLeagueEquip } from './leagueup';
 import { chatMessages, chatTyping, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
 import { HandwritingPad } from './pad';
@@ -37,7 +39,7 @@ import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
 import { closeRematchAsk, initFriends, onFriendEvent, onFriendPresence, onInvite, onInviteDeclined, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
 import { canPush, pushSignedOut, registerPush, testPush } from './push';
-import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialScreen } from './tutorial';
+import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialChallenge, tutorialScreen, tutorialTouring } from './tutorial';
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
 import * as offline from './offline';
@@ -80,7 +82,19 @@ const savedLevels = (): Level[] => {
   } catch { return ui.kanaBeginner() ? ['KANA'] : ['N3', 'N2']; }
 };
 
-const socket = new GameSocket(onMessage, (s) => {
+// 0.9.9.9.6: a game against the AI started offline goes on when the connection comes back. The server may still
+// keep a seat for you in a room from before (it hands it back on reconnecting) — that took you out of the battle
+// and into that lobby. While a game here runs, the server's room messages are ignored and that seat is given up.
+const NOT_ROOM = new Set(['welcome', 'auth_error', 'kicked', 'ping', 'friend', 'friend_presence', 'invite', 'invite_declined', 'notice', 'progress']);
+function fromServer(m: ServerMessage) {
+  if (inLocalRoom() && !NOT_ROOM.has(m.type)) {
+    if (m.type === 'joined') toServerRaw?.({ type: 'leave' });
+    return;
+  }
+  onMessage(m);
+}
+let toServerRaw: ((m: ClientMessage) => void) | null = null;
+const socket = new GameSocket(fromServer, (s) => {
   netState = s;
   if (s === 'online') { lastWhere = ''; tellWhere(); }
   if (s === 'reconnecting') void offline.probe();
@@ -90,6 +104,7 @@ const socket = new GameSocket(onMessage, (s) => {
 initLocalGames((m) => onMessage(m));
 {
   const toServer = socket.send.bind(socket);
+  toServerRaw = toServer;
   socket.send = (m: ClientMessage) => {
     if (user && (inLocalRoom() || (offline.isOffline() && m.type !== 'pong'))) void localSend(m, { id: user.id, name: user.name ?? user.username });
     else toServer(m);
@@ -377,6 +392,9 @@ function onMessage(msg: ServerMessage) {
     case 'chat_typing':
       chatTyping(msg.id, msg.name, msg.on);
       break;
+    case 'dm': // 0.9.9.9.6: the messenger
+      onDm(msg.message, msg.fromName);
+      break;
     case 'look':
       arenaLook(msg.id, msg.yaw, msg.pitch);
       break;
@@ -389,6 +407,7 @@ function onMessage(msg: ServerMessage) {
       ui.setUser(msg.user);
       void refreshOnline(); // now this player counts too
       registerPush(msg.user.id); // 0.9.9.9.5: friends' invites reach this phone while the app is closed
+      inboxUser(msg.user.id, msg.user.role === 'admin'); // 0.9.9.9.6: Messages (unread)
       joinFromLink();
       break;
     case 'invite_declined':
@@ -489,7 +508,8 @@ function onMessage(msg: ServerMessage) {
     case 'challenge':
       challengeId = msg.id;
       arena()?.channel(0);
-      ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs, from: msg.from });
+      ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs, from: msg.from, hint: msg.hint });
+      tutorialChallenge(); // 0.9.9.9.6: the first word of the tutorial's battle: the tour of the battle screen
       gameKbReset();
       sendTyping(false); // a new word: nothing typed yet
       arena()?.oppChannel(true); // a word is up: the AI's staff traces ∞, a player's only while they type (0.9.9.7.2)
@@ -838,6 +858,14 @@ ui.$('progressBtn').onclick = () => void openProgress(profile?.unlocks ?? [], pr
  */
 function joinFromLink() {
   let c = '';
+  // 0.9.9.9.6: a message notification tapped → that conversation
+  let ib = '';
+  try { ib = new URLSearchParams(location.search).get('inbox') ?? ''; } catch { /* no URL */ }
+  if (ib) {
+    try { history.replaceState(history.state, '', location.pathname + location.hash); } catch { /* fine */ }
+    if (!inRoom) void openInbox(/^[\w-]{1,64}$/.test(ib) && ib !== '1' ? ib : undefined);
+    return;
+  }
   try { c = new URLSearchParams(location.search).get('join') ?? ''; } catch { /* no URL */ }
   if (!c) return;
   try { history.replaceState(history.state, '', location.pathname + location.hash); } catch { /* fine */ }
@@ -866,6 +894,8 @@ initApp({
 initMotion(); // 0.9.9.9.5: buttons give and spring back, new list items slide in
 initMenuCarousel(); // 0.9.9.9.5.1: the menu's cards as a carousel on computers
 initQuizzes(); // 0.9.9.9.5.2: the Quizzes screen
+initInbox(); // 0.9.9.9.6: Messages
+onLeagueEquip((p) => applyProfile(p)); // 0.9.9.9.6: the league-up screen's Equip buttons
 // 0.9.9.9.5.2: Settings → Invite notifications → Test (the Android app): says where push stops, if it does
 {
   ui.$('pushTestRow').hidden = !canPush();
@@ -883,6 +913,8 @@ initTutorial({
     try { applyProfile((await api.setKana(mastered)).profile); } catch (e) { ui.toast((e as Error).message); }
     if (!mastered) store.set('kb:levels', JSON.stringify(['KANA']));
   },
+  pause: (on) => socket.send({ type: 'pause', on }), // 0.9.9.9.6: the battle screen's tour
+
 });
 ui.$('modesBack').onclick = () => ui.show('private');
 const join = () => {
@@ -1051,7 +1083,7 @@ document.documentElement.dataset.v = VERSION;
 }
 // Pause (only you against the AI): the server stops the clock; the overlay waits for Resume
 function setPaused(on: boolean) {
-  ui.$('pauseOverlay').hidden = !on;
+  ui.$('pauseOverlay').hidden = !on || tutorialTouring(); // (the tutorial's tour pauses quietly)
   document.body.classList.toggle('paused', on);
   ui.setClocksPaused(on); // 0.9.9.7: the timers on screen stop too, and the arena freezes (arena3d checks the class)
 }
@@ -1135,8 +1167,35 @@ ui.$('historyBack').onclick = () => ui.show('menu');
 ui.$('resultHistoryBack').onclick = () => void openHistory();
 
 // ── other players' profiles: click (or Enter on) any name marked with data-profile ──
+// 0.9.9.9.6: the card opens at once — a profile seen in the last minutes (or fetched while the pointer was on the
+// name) is shown straight away and refreshed behind it; the friends list is the rail's (it waited for both before)
 {
   let shownFor = '';
+  const cache = new Map<string, { p: PublicProfile; at: number }>();
+  const inflight = new Map<string, Promise<PublicProfile>>();
+  const fetchProfile = (id: string) => {
+    let f = inflight.get(id);
+    if (!f) {
+      f = api.player(id).then((r) => { cache.set(id, { p: r.profile, at: Date.now() }); return r.profile; }).finally(() => inflight.delete(id));
+      inflight.set(id, f);
+    }
+    return f;
+  };
+  const friendsNow = async (): Promise<Friend[]> => {
+    const k = knownFriends();
+    if (k && Date.now() - k.at < 60_000) return k.friends;
+    try { return (await api.friends()).friends; } catch { return k?.friends ?? []; }
+  };
+  // (the pointer on a name, or a finger down on it: start fetching before the click)
+  const warm = (e: Event) => {
+    const el = (e.target as HTMLElement | null)?.closest?.<HTMLElement>('[data-profile]');
+    const id = el?.dataset.profile;
+    if (!id || el?.dataset.bot || /\(AI /.test(el?.textContent ?? '')) return;
+    const c = cache.get(id);
+    if (!c || Date.now() - c.at > 60_000) void fetchProfile(id).catch(() => {});
+  };
+  addEventListener('pointerover', warm, { passive: true });
+  addEventListener('pointerdown', warm, { passive: true });
   const open = async (el: HTMLElement) => {
     const id = el.dataset.profile!;
     if (shownFor === id && !ui.$('otherPop').hidden) { ui.hideProfileCard(); shownFor = ''; return; }
@@ -1144,10 +1203,17 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
     const name = el.dataset.name ?? el.textContent ?? '';
     const bot = el.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
     if (bot) return ui.showProfileCard(el, { bot, name });
-    ui.showProfileCard(el, 'loading');
+    const cached = cache.get(id);
+    if (cached) show(el, id, cached.p, knownFriends()?.friends ?? []);
+    else ui.showProfileCard(el, 'loading');
     try {
-      const [{ profile: p }, fr] = await Promise.all([api.player(id), api.friends().catch(() => ({ friends: [] as Friend[] }))]);
-      const link = fr.friends.find((f) => f.id === id);
+      const fresh = !cached || Date.now() - cached.at > 20_000;
+      const [p, friends] = await Promise.all([fresh ? fetchProfile(id) : Promise.resolve(cached.p), friendsNow()]);
+      if (shownFor === id && (!cached || fresh)) show(el, id, p, friends);
+    } catch { if (shownFor === id && !cached) ui.showProfileCard(el, 'missing'); }
+  };
+  const show = (el: HTMLElement, id: string, p: PublicProfile, friends: Friend[]) => {
+      const link = friends.find((f) => f.id === id);
       const relation = id === you || id === user?.id ? 'self' : link?.status === 'accepted' ? 'friend' : link?.status ?? 'none';
       if (shownFor === id) ui.showProfileCard(el, p, {
         relation,
@@ -1157,11 +1223,12 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
         canChallenge: !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? ''),
         remove: async () => { await api.removeFriend(id); void refreshRail(); },
         view: () => showPlayer(p),
+        // 0.9.9.9.6: Messages, at this friend
+        message: link?.status === 'accepted' ? () => { ui.hideProfileCard(); void openInbox(id); } : undefined,
         // 0.9.9.9.5.5: their lobby is open (and has room): join it
         join: link?.status === 'accepted' && link.party?.code && link.party.code !== (inRoom ? code : '') && !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? '')
           ? { label: `${link.party.size}/${link.party.max}`, mode: link.party.mode, go: () => joinRoom(link.party!.code!) } : undefined,
       });
-    } catch { if (shownFor === id) ui.showProfileCard(el, 'missing'); }
   };
   addEventListener('click', (e) => {
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-profile]');

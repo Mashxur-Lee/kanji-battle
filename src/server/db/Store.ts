@@ -115,6 +115,15 @@ export interface Store {
   reports(limit: number): Promise<Report[]>;
   setReportDone(id: string, done: boolean): Promise<void>;
   deleteReport(id: string): Promise<void>;
+  /** 0.9.9.9.6: the messenger — direct messages between players, and with the team (SUPPORT) */
+  addMessage(m: Omit<DirectMessage, 'id' | 'readAt'>): Promise<DirectMessage>;
+  /** the newest `limit` between a and b (before `before`), oldest first */
+  messagesBetween(a: string, b: string, limit: number, before?: number): Promise<DirectMessage[]>;
+  /** each conversation of `me`: the other side, the last message, how many unread from them */
+  conversations(me: string, limit: number): Promise<ConversationRow[]>;
+  /** messages from `other` to `me` read now; how many */
+  markRead(me: string, other: string, at: number): Promise<number>;
+  unreadMessages(me: string): Promise<number>;
   /** Measurement: one row per event (tutorial steps, games started / finished …). */
   addEvent(userId: string | null, name: string, at?: number): Promise<void>;
   events(since: number): Promise<GameEventRow[]>;
@@ -124,6 +133,12 @@ export interface Store {
 }
 
 export type ReportKind = 'bug' | 'suggestion' | 'error';
+/** 0.9.9.9.6: `kind` — bug / suggestion when it came from Feedback; `by` — which admin wrote it for the team */
+export interface DirectMessage { id: string; fromId: string; toId: string; text: string; at: number; readAt: number | null; kind?: string | null; by?: string | null }
+export interface ConversationRow { other: string; last: DirectMessage; unread: number }
+/** the team's side of the messenger (admins read and answer for it) */
+export const SUPPORT_ID = 'support';
+export const MESSAGES_PER_USER_KEPT = 2000;
 /** `count`: how many times this same error happened while it was open (0.9.9.9.5 — repeats are one row) */
 export interface Report { id: string; kind: ReportKind; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean; count?: number }
 export interface GameEventRow { userId: string | null; name: string; at: number }
@@ -183,6 +198,7 @@ export class MemoryStore implements Store {
     for (const m of this.dailyResults.values()) m.delete(id);
     this.friendLinks.delete(id);
     for (const m of this.friendLinks.values()) m.delete(id);
+    this.dms = this.dms.filter((m) => m.fromId !== id && m.toId !== id);
     this.persist();
     return true;
   }
@@ -350,6 +366,37 @@ export class MemoryStore implements Store {
   async reports(limit: number) { return this.reportList.slice(0, limit).map((r) => ({ ...r })); }
   async setReportDone(id: string, done: boolean) { const r = this.reportList.find((x) => x.id === id); if (r) { r.done = done; this.persist(); } }
   async deleteReport(id: string) { this.reportList = this.reportList.filter((x) => x.id !== id); this.persist(); }
+  protected dms: DirectMessage[] = [];
+  async addMessage(m: Omit<DirectMessage, 'id' | 'readAt'>) {
+    const msg: DirectMessage = { ...m, id: randomUUID(), readAt: null };
+    this.dms.push(msg);
+    if (this.dms.length > 50_000) this.dms.splice(0, 10_000);
+    this.persist();
+    return { ...msg };
+  }
+  async messagesBetween(a: string, b: string, limit: number, before = Infinity) {
+    const all = this.dms.filter((m) => ((m.fromId === a && m.toId === b) || (m.fromId === b && m.toId === a)) && m.at < before);
+    return all.slice(-limit).map((m) => ({ ...m }));
+  }
+  async conversations(me: string, limit: number) {
+    const by = new Map<string, ConversationRow>();
+    for (const m of this.dms) {
+      if (m.fromId !== me && m.toId !== me) continue;
+      const other = m.fromId === me ? m.toId : m.fromId;
+      const row = by.get(other) ?? { other, last: m, unread: 0 };
+      if (m.at >= row.last.at) row.last = m;
+      if (m.toId === me && m.readAt === null) row.unread++;
+      by.set(other, row);
+    }
+    return [...by.values()].sort((x, y) => y.last.at - x.last.at).slice(0, limit).map((r) => ({ ...r, last: { ...r.last } }));
+  }
+  async markRead(me: string, other: string, at: number) {
+    let n = 0;
+    for (const m of this.dms) if (m.toId === me && m.fromId === other && m.readAt === null) { m.readAt = at; n++; }
+    if (n) this.persist();
+    return n;
+  }
+  async unreadMessages(me: string) { return this.dms.filter((m) => m.toId === me && m.readAt === null).length; }
   protected eventLog: GameEventRow[] = [];
   async addEvent(userId: string | null, name: string, at = Date.now()) { this.eventLog.push({ userId, name, at }); if (this.eventLog.length > 50_000) this.eventLog.splice(0, 10_000); this.persist(); }
   async events(since: number) { return this.eventLog.filter((e) => e.at >= since).map((e) => ({ ...e })); }
@@ -380,6 +427,7 @@ export class FileStore extends MemoryStore {
       for (const [day, rows] of Object.entries((data.daily ?? {}) as Record<string, Record<string, { correct: number; ms: number }>>)) this.dailyResults.set(day, new Map(Object.entries(rows)));
       for (const [from, links] of Object.entries((data.friends ?? {}) as Record<string, Record<string, 'pending' | 'accepted'>>)) this.friendLinks.set(from, new Map(Object.entries(links)));
       this.reportList = (data.reports ?? []) as Report[];
+      this.dms = (data.messages ?? []) as DirectMessage[];
       this.eventLog = (data.events ?? []) as GameEventRow[];
       for (const [uid, cards] of Object.entries((data.srs ?? {}) as Record<string, SrsCard[]>)) {
         const m = new Map<string, SrsCard>();
@@ -403,7 +451,7 @@ export class FileStore extends MemoryStore {
     const activity = Object.fromEntries([...this.activityLog].map(([uid, m]) => [uid, [...m.values()]]));
     const daily = Object.fromEntries([...this.dailyResults].map(([day, m]) => [day, Object.fromEntries(m)]));
     const friends = Object.fromEntries([...this.friendLinks].map(([uid, m]) => [uid, Object.fromEntries(m)]));
-    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history), activity, daily, friends, reports: this.reportList, events: this.eventLog, custom: Object.fromEntries(this.custom) }));
+    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history), activity, daily, friends, reports: this.reportList, events: this.eventLog, messages: this.dms, custom: Object.fromEntries(this.custom) }));
     renameSync(tmp, this.file); // atomic replace
   }
 }

@@ -24,7 +24,7 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
 }
 const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { parent.append(...kids); return parent; };
 
-const SCREENS = ['auth', 'menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict', 'kana', 'kanaplay', 'quizzes'] as const;
+const SCREENS = ['auth', 'menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict', 'kana', 'kanaplay', 'quizzes', 'inbox'] as const;
 export type Screen = (typeof SCREENS)[number];
 let screenListener: (s: Screen) => void = () => {};
 /** 0.9.9.7.3: the loading screen in index.html (it covers the page from the first moment) fades out */
@@ -915,7 +915,7 @@ export function resumeBattle(players: PlayerView[], boss: BossView | null, you: 
 let answerMode: AnswerMode = 'reading';
 export const currentAnswerMode = () => answerMode;
 
-export interface ChallengeView { kanji: string; answer: AnswerMode; timeLimitMs: number; meaning?: string; reading?: string; charCount?: number; flashMs?: number; from?: string }
+export interface ChallengeView { kanji: string; answer: AnswerMode; timeLimitMs: number; meaning?: string; reading?: string; charCount?: number; flashMs?: number; from?: string; hint?: { kana: string; romaji: string; meaning: string } }
 
 export function showChallenge(c: ChallengeView) {
   answerMode = c.answer;
@@ -927,6 +927,13 @@ export function showChallenge(c: ChallengeView) {
   wf.hidden = !c.from;
   wf.textContent = c.from ? (c.from === 'you' ? '★ From your spells' : `From ${c.from}'s spells`) : '';
   wf.classList.toggle('mine', c.from === 'you');
+  // 0.9.9.9.6: the tutorial — the answer, right under the word (a first-timer may not read any kana yet)
+  const th = $('tutHint');
+  th.hidden = !c.hint;
+  if (c.hint) {
+    const kana = h('b', 'th-kana', c.hint.kana, { lang: 'ja' });
+    th.replaceChildren(h('small', 'th-lbl', tr('Type')), h('b', 'th-romaji', c.hint.romaji), h('span', 'th-or', tr('or')), kana, h('span', 'th-m', `— ${c.hint.meaning}`));
+  }
   setFeedback(null);
   countdown('challenge', c.timeLimitMs, (_l, frac) => ($('challengeBar').style.width = `${frac * 100}%`));
   bigTimer('challengeRing', $('turnTimer'), c.timeLimitMs, c.timeLimitMs, Math.min(5000, c.timeLimitMs / 3));
@@ -1220,7 +1227,7 @@ export const dateTime = (at: number) => new Date(at).toLocaleString(locale(), { 
 
 /** A small floating card next to the clicked name. */
 export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean; /** 0.9.9.9.5.2 */ remove?: () => Promise<void>;
-  /** 0.9.9.9.5.5: their whole profile (look + achievements) */ view?: () => void; /** 0.9.9.9.5.5: their lobby is open */ join?: { label: string; mode: string; go: () => void } }
+  /** 0.9.9.9.5.5: their whole profile (look + achievements) */ view?: () => void; /** 0.9.9.9.6: Messages */ message?: () => void; /** 0.9.9.9.5.5: their lobby is open */ join?: { label: string; mode: string; go: () => void } }
 export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing', actions?: ProfileActions) {
   const pop = $('otherPop');
   const body: HTMLElement[] = [];
@@ -1278,10 +1285,11 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     j.onclick = () => { hideProfileCard(); a.join!.go(); };
     box.append(j);
   }
-  if (a.view) {
-    const v = h('button', 'pill pp-view', '👤 View profile') as HTMLButtonElement;
-    v.onclick = () => a.view!();
-    box.append(v);
+  if (a.view || a.message) {
+    const row = h('div', 'pp-row2');
+    if (a.view) { const v = h('button', 'pill pp-view', '👤 View profile') as HTMLButtonElement; v.onclick = () => a.view!(); row.append(v); }
+    if (a.message) { const m = h('button', 'pill pp-msg-btn', '✉ Message') as HTMLButtonElement; m.onclick = () => a.message!(); row.append(m); }
+    box.append(row);
   }
   if (a.relation === 'none' || a.relation === 'incoming') {
     const b = h('button', 'pill primary', a.relation === 'incoming' ? '✓ Accept friend request' : '+ Add friend') as HTMLButtonElement;

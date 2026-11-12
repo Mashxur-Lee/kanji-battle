@@ -1,4 +1,7 @@
 import type { QuizStats } from '../shared/quizstats';
+import type { DmView } from '../shared/protocol';
+/** 0.9.9.9.6: one conversation of the messenger */
+export interface Conversation { id: string; name: string; pic: string | null; online: boolean; support: boolean; last: DmView; unread: number; friend: boolean }
 import type { KanaProgress } from '../shared/kanachart';
 import type { AdminUserRow, Device, Level, MatchDetail, MatchSummary, OnoType, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
@@ -18,6 +21,8 @@ export interface DailyOverview { league?: string; nextLeague?: string; promoteAt
   board: Array<{ id: string; name: string; correct: number; ms: number }>;
   /** 0.9.9.8.2: every league's board */
   boards?: Record<string, Array<{ id: string; name: string; correct: number; ms: number }>>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
+export interface DailyPast { day: string; total: number; played: string | null; league: string;
+  leagues: Record<string, { board: Array<{ id: string; name: string; correct: number; ms: number }>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }>; mine: { correct: number; ms: number } | null }> }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
 export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device; /** 0.9.9.9.5: has the app with push — an invite reaches their phone */ push?: boolean; /** 0.9.9.9.5.5: the room they're in (a code when it's open to friends) */ party?: { size: number; max: number; mode: string; code?: string } }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
@@ -155,6 +160,11 @@ export const api = {
   inboxDone: (id: string, done: boolean) => call<{ ok: boolean }>('POST', `/api/admin/inbox/${encodeURIComponent(id)}`, { done }),
   inboxDelete: (id: string) => call<{ ok: boolean }>('DELETE', `/api/admin/inbox/${encodeURIComponent(id)}`),
   adminStats: () => call<AdminStats>('GET', '/api/admin/stats'),
+  // 0.9.9.9.6: the messenger (?as=support: an admin, the team's conversations)
+  conversations: (support = false) => call<{ conversations: Conversation[]; unread: number }>('GET', `/api/messages${support ? '?as=support' : ''}`),
+  messagesUnread: () => call<{ unread: number; support?: number }>('GET', '/api/messages/unread'),
+  thread: (other: string, support = false, before?: number) => call<{ messages: DmView[]; with: Conversation | null }>('GET', `/api/messages/${encodeURIComponent(other)}?${support ? 'as=support&' : ''}${before ? `before=${before}` : ''}`),
+  sendMessage: (other: string, text: string, support = false) => call<{ message: DmView }>('POST', `/api/messages/${encodeURIComponent(other)}${support ? '?as=support' : ''}`, { text }),
   feedback: (kind: 'bug' | 'suggestion', text: string, meta: string) => call<{ ok: boolean }>('POST', '/api/feedback', { kind, text, meta }),
   event: (name: string) => call<{ ok: boolean }>('POST', '/api/event', { name }).catch(() => ({ ok: false })),
   online: () => call<{ online: number }>('GET', '/api/online'),
@@ -173,6 +183,8 @@ export const api = {
   strokes: (chars: string) => call<{ strokes: Record<string, number[][][] | null> }>('GET', `/api/strokes?k=${encodeURIComponent(chars)}`),
   daily: () => call<DailyOverview>('GET', `/api/daily?today=${today()}`), // (0.9.9.9.5: your own date)
   dailyStart: () => call<{ word: DailyWord }>('POST', '/api/daily/start', { today: today() }),
+  /** 0.9.9.9.6: an earlier day (yesterday by default), every league */
+  dailyPast: (day?: string) => call<DailyPast>('GET', `/api/daily/past?today=${today()}${day ? `&day=${day}` : ''}`),
   dailyAnswer: (text: string) => call<DailyAnswer>('POST', '/api/daily/answer', { text }),
   dailyFinish: () => call<{ done: DailyDone | null }>('POST', '/api/daily/finish'),
   friends: () => call<{ friends: Friend[] }>('GET', '/api/friends'),

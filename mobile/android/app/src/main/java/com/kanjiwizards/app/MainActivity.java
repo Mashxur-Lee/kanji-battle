@@ -128,7 +128,14 @@ public class MainActivity extends Activity {
         Uri link = intent.getData();
         if (link != null) return link;
         android.os.Bundle x = intent.getExtras();
-        if (x == null || !"invite".equals(x.getString("kind"))) return null;
+        if (x == null) return null;
+        // 0.9.9.9.6: a message notification opens the conversation
+        if ("dm".equals(x.getString("kind"))) {
+            String from = x.getString("fromId");
+            intent.removeExtra("kind");
+            return from != null && from.matches("[A-Za-z0-9-]{1,64}") ? Uri.parse(SERVER + "/?inbox=" + Uri.encode(from)) : Uri.parse(SERVER + "/?inbox=1");
+        }
+        if (!"invite".equals(x.getString("kind"))) return null;
         String code = x.getString("code");
         if (code == null || !code.matches("[A-Za-z0-9]{4}")) return null;
         intent.removeExtra("kind"); // (once: coming back to the app later doesn't join again)

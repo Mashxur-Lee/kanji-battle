@@ -22,6 +22,9 @@ let signedIn = false;
 let timer = 0;
 let collapsed: Record<'online' | 'offline', boolean> = { online: false, offline: true };
 
+/** 0.9.9.9.6: the friends list as last fetched (a profile card opens with it at once) */
+export const knownFriends = () => (friendsAt ? { friends, at: friendsAt } : null);
+let friendsAt = 0;
 export function setRailUser(on: boolean) {
   signedIn = on;
   if (!on) { $('friendRail').hidden = true; $('railFab').hidden = true; clearInterval(timer); }
@@ -52,7 +55,7 @@ document.addEventListener('pointerdown', (e) => {
 });
 
 export async function refreshRail() {
-  try { friends = (await api.friends()).friends; } catch { return; }
+  try { friends = (await api.friends()).friends; friendsAt = Date.now(); } catch { return; }
   render();
 }
 

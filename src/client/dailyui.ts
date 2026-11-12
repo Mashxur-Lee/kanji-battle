@@ -5,7 +5,8 @@
 import { locale, tr } from './i18n';
 import { LEVEL_LABEL } from '../shared/protocol';
 import * as offline from './offline';
-import { api, type DailyAnswer, type DailyOverview, type DailyWord } from './api';
+import { api, type DailyAnswer, type DailyOverview, type DailyPast, type DailyWord } from './api';
+import { nextLeagueRow, showLeagueUp } from './leagueup';
 import * as audio from './audio';
 import * as ui from './ui';
 import { tickCards } from './decks';
@@ -40,6 +41,7 @@ export async function dailyPending(): Promise<boolean> {
 
 export async function openDaily(userId: string) {
   me = userId;
+  setWhen('today');
   ui.show('daily');
   $('dailyMain').replaceChildren(el('p', 'hint', 'Loading…'));
   try { renderOverview(await api.daily()); } catch (e) { ui.toast((e as Error).message); }
@@ -124,9 +126,11 @@ function renderOverview(o: DailyOverview) {
       words.append(row);
     }
     const up = o.nextLeague && o.nextLeague !== league;
+    const nextL = LEAGUES[LEAGUES.indexOf((o.nextLeague ?? league) as never) + 1];
     main.replaceChildren(
       el('p', 'sub', date),
       ladder(league, o.nextLeague),
+      ...[nextL ? nextLeagueRow(nextL) : null].filter((x): x is HTMLElement => !!x),
       el('div', 'daily-score', `${o.mine.correct} / ${o.total}`),
       el('p', `center league-note${up ? ' up' : ''}`, up ? `▲ ${tr('Promoted')}: ${LEAGUE_NAME[o.nextLeague!]} — ${tr('tomorrow you play in the new league')}` : `${tr('Get')} ${o.promoteAt ?? 7}/${o.total} ${tr('to move up a league')}`),
       el('p', 'center', `${secs(o.mine.ms)} · rank ${o.rank} today`),
@@ -138,9 +142,11 @@ function renderOverview(o: DailyOverview) {
   }
   const start = el('button', 'big', o.inProgress ? 'Continue' : 'Start') as HTMLButtonElement;
   start.onclick = () => void begin();
+  const nextL = LEAGUES[LEAGUES.indexOf(league as never) + 1];
   main.replaceChildren(
     el('p', 'sub', date),
     ladder(league),
+    ...[nextL ? nextLeagueRow(nextL) : null].filter((x): x is HTMLElement => !!x),
     el('h3', '', `${tr('League')}: ${LEAGUE_NAME[league]}`),
     el('p', '', league === 'KANA'
       ? `Ten kana, the same for everyone in your league today: five hiragana, five katakana. Type each in romaji and press Enter — ${o.wordMs / 1000} s each. Get ${o.promoteAt ?? 7}/10 or better to move up to N5.`
@@ -211,7 +217,8 @@ async function submit(text: string) {
       ui.toast(offline.isOffline()
         ? `Daily challenge: ${r.done.correct}/10${r.done.xp ? ` · +${r.done.xp} XP` : ''} · your rank comes when you're back online`
         : `Daily challenge: ${r.done.correct}/10 · rank ${r.done.rank} of ${r.done.players}${r.done.xp ? ` · +${r.done.xp} XP` : ''}`, 6000);
-      if (r.done.promoted) setTimeout(() => ui.toast(`▲ ${tr('Promoted')}: ${LEAGUE_NAME[r.done!.promoted!] ?? r.done!.promoted} ${tr('league')}!`, 6000), 1800);
+      // 0.9.9.9.6: a league up is a moment — its own screen, with the rewards (it was a toast)
+      if (r.done.promoted) { const lg = r.done.promoted; setTimeout(() => void showLeagueUp(me, lg), 1200); }
       if (r.done.correct === 10) audio.sfx.go();
     }
   } catch (e) {
@@ -222,3 +229,84 @@ async function submit(text: string) {
 }
 
 $('dailyBack').onclick = () => { clearInterval(timer); word = null; ui.show('menu'); };
+
+// ── 0.9.9.9.6: earlier days — each league's ten words (with readings and meanings), its board, and how you did ──
+let pastDay = '';
+let pastLeague = '';
+function setWhen(w: 'today' | 'past') {
+  for (const b of document.querySelectorAll<HTMLElement>('#dailyWhen [data-when]')) b.setAttribute('aria-selected', String(b.dataset.when === w));
+  $('dailyToday').hidden = w !== 'today';
+  $('dailyPast').hidden = w !== 'past';
+}
+const dayShift = (day: string, n: number) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+async function openPast(day?: string) {
+  setWhen('past');
+  if (word) return; // (not in the middle of today's run)
+  const box = $('dailyPast');
+  box.replaceChildren(el('p', 'hint', 'Loading…'));
+  let o: DailyPast;
+  try { o = await api.dailyPast(day); } catch (e) { box.replaceChildren(el('p', 'hint', (e as Error).message)); return; }
+  pastDay = o.day;
+  if (!pastLeague || !o.leagues[pastLeague]) pastLeague = o.played ?? o.league ?? 'KANA';
+  renderPast(o);
+}
+function renderPast(o: DailyPast) {
+  const box = $('dailyPast');
+  const today = localToday();
+  const nav = el('div', 'dp-nav');
+  const prev = el('button', 'pill', '‹') as HTMLButtonElement;
+  const next = el('button', 'pill', '›') as HTMLButtonElement;
+  prev.type = next.type = 'button';
+  prev.setAttribute('aria-label', tr('Earlier')); next.setAttribute('aria-label', tr('Later'));
+  const back = Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${o.day}T12:00:00Z`)) / 86_400_000);
+  prev.disabled = back >= 7; next.disabled = back <= 1;
+  prev.onclick = () => void openPast(dayShift(pastDay, -1));
+  next.onclick = () => void openPast(dayShift(pastDay, 1));
+  const title = el('b', 'dp-day', back === 1 ? tr('Yesterday') : new Date(`${o.day}T12:00:00Z`).toLocaleDateString(locale(), { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }));
+  nav.append(prev, title, next);
+  const tabs = el('div', 'daily-tabs');
+  tabs.setAttribute('role', 'tablist');
+  for (const l of LEAGUES) {
+    const b = el('button', `dt-tab${l === pastLeague ? ' on' : ''}${l === o.played ? ' mine' : ''}`, l === 'KANA' ? 'かな' : l) as HTMLButtonElement;
+    b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(l === pastLeague));
+    if (l === o.played) b.title = tr('You played this one');
+    b.onclick = () => { pastLeague = l; renderPast(o); };
+    tabs.append(b);
+  }
+  const lg = o.leagues[pastLeague];
+  const left = el('div', 'prog-card dp-words');
+  left.append(el('h3', '', `${tr('League')}: ${LEAGUE_NAME[pastLeague]}`));
+  if (lg.mine) left.append(el('p', 'dp-mine', `${tr('You')}: ${lg.mine.correct} / ${o.total} · ${secs(lg.mine.ms)}`));
+  const words = el('div', 'daily-words');
+  for (const w of lg.words) {
+    const row = el('div', 'dw' + (w.ok === true ? ' ok' : w.ok === false ? ' no' : ''));
+    const k = el('span', 'dw-k', w.kanji); k.lang = 'ja';
+    const rd = el('span', 'dw-r', w.reading); rd.lang = 'ja';
+    const lv = el('span', 'dw-l', LEVEL_LABEL[w.level]);
+    if (w.ok !== null) lv.prepend(el('b', 'dw-mark', w.ok ? '✓ ' : '✗ '));
+    row.append(lv, k, rd, el('span', 'dw-m', w.meaning));
+    words.append(row);
+  }
+  left.append(words);
+  const right = el('div', 'prog-card daily-side');
+  right.append(el('h3', '', tr('Results')));
+  const ol = el('ol', 'daily-board');
+  if (!lg.board.length) ol.append(el('li', 'hint', tr('Nobody played this league that day.')));
+  lg.board.forEach((r, i) => {
+    const li = el('li', r.id === me ? 'me' : '');
+    li.append(el('span', 'db-rank', i + 1), el('span', 'db-name', r.name), el('span', 'db-score', `${r.correct}/${o.total}`), el('span', 'db-time', secs(r.ms)));
+    ol.append(li);
+  });
+  right.append(ol);
+  const body = el('div', 'daily-body dp-body');
+  body.append(left, right);
+  box.replaceChildren(nav, tabs, body);
+}
+for (const b of document.querySelectorAll<HTMLElement>('#dailyWhen [data-when]')) {
+  b.onclick = () => {
+    if (word) return ui.toast(tr('Finish today’s challenge first'), 2500);
+    if (b.dataset.when === 'past') void openPast(pastDay || undefined);
+    else setWhen('today');
+  };
+}
