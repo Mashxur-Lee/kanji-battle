@@ -22,7 +22,7 @@ import { Bucket, clientIp, inlineScriptHashes, isPublicServer, securityHeaders, 
 import { Matchmaker } from './Matchmaker';
 import { StoryService } from './study/StoryService';
 import { InsightsService } from './study/InsightsService';
-import { MessageService } from './study/MessageService';
+import { isMuted, MessageService } from './study/MessageService';
 import { onServerError, reportServerError } from './errors';
 import { DictService } from './study/DictService';
 
@@ -83,7 +83,15 @@ hub.setNotifier(async (userId, data) => {
 const messages = new MessageService(store, {
   deliver: (to, message, fromName) => {
     const msg = { type: 'dm' as const, message, fromName };
-    if (to === 'admins') hub.sendAdmins(msg); else for (const id of to) hub.sendTo(id, msg);
+    if (to === 'admins') hub.sendAdmins(msg);
+    else for (const id of to) {
+      // (0.9.9.9.6.1: muted: it still arrives, marked, and the app shows no note for it)
+      void store.findById(id).then((u) => hub.sendTo(id, isMuted(u?.unlocks, message.from) ? { ...msg, muted: true } : msg)).catch(() => hub.sendTo(id, msg));
+    }
+  },
+  read: (writer, reader) => {
+    const msg = { type: 'dm_read' as const, reader: reader };
+    if (writer === 'support') hub.sendAdmins(msg); else hub.sendTo(writer, msg);
   },
   push: (to, fromId, fromName, text) => { void hub.notify(to, { kind: 'dm', fromId, fromName, text: text.slice(0, 160) }); },
   online: (id) => hub.online(id),

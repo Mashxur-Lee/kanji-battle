@@ -1,6 +1,8 @@
 import { locale, tr } from './i18n';
 import { screenIn } from './motion';
 import { viewH, viewW, zrect } from './zoom';
+import { injectBorderStyles } from './borders';
+injectBorderStyles(); // 0.9.9.9.6.1: the league frames (drawn, as a style sheet)
 import { showStrokeOrder } from './strokes';
 import {
   LEVEL_LABEL, LEVELS, MODE_LABEL, isKanaLevel, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,

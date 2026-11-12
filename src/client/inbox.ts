@@ -25,6 +25,7 @@ let openWith: Conversation | null = null;
 let log: DmView[] = [];
 let unreadMine = 0, unreadTeam = 0;
 let loading = false;
+const EMOJI = ['😀', '😂', '🥹', '😊', '😍', '😎', '🤔', '😅', '😭', '😡', '😴', '🤯', '👍', '👎', '👏', '🙏', '💪', '🙌', '🤝', '👋', '❤️', '🔥', '✨', '⭐', '🎉', '🏆', '⚔️', '🛡️', '🐉', '🪄', '📚', '✍️', '🧠', '🍜', '🍵', '🌸', '🗻', '⛩️', '🎌', '✅'];
 
 export function inboxUser(id: string, admin: boolean) {
   me = id; isAdmin = admin;
@@ -78,7 +79,8 @@ function renderList() {
     const preview = (mine && c.last.at ? `${tr('You')}: ` : '') + (c.last.kind ? c.last.text.replace(/\n/, ' — ') : c.last.text);
     txt.append(top, h('span', 'msg-c-last', c.last.at ? preview : tr(c.last.text)));
     b.append(avatar(c), txt);
-    if (c.unread) b.append(h('span', 'badge msg-c-n', String(c.unread)));
+    if (c.muted) { const m = h('span', 'msg-c-muted'); m.innerHTML = BELL_OFF; m.title = tr('Muted'); b.append(m); }
+    if (c.unread) b.append(h('span', `badge msg-c-n${c.muted ? ' muted' : ''}`, String(c.unread)));
     b.onclick = () => void openThread(c.id);
     return b;
   }));
@@ -86,7 +88,7 @@ function renderList() {
 
 async function loadList() {
   loading = true;
-  try { const r = await api.conversations(side === 'support'); convs = r.conversations; }
+  try { const r = await api.conversations(side === 'support'); convs = r.conversations; if (r.mutedAll !== undefined) mutedAll = r.mutedAll; paintMuteAll(); }
   catch (e) { $('msgList').replaceChildren(h('p', 'hint msg-empty', (e as Error).message)); return; }
   finally { loading = false; }
   renderList();
@@ -106,14 +108,70 @@ function bubble(m: DmView, prev?: DmView) {
   fillBubble(row, m, mine);
   return row;
 }
+// 0.9.9.9.6.1: a message can quote another — its first lines start with "> "
+function splitQuote(text: string): { quote: string; body: string } {
+  const lines = text.split('\n');
+  let i = 0;
+  while (i < lines.length && lines[i].startsWith('> ')) i++;
+  return { quote: lines.slice(0, i).map((l) => l.slice(2)).join('\n'), body: lines.slice(i).join('\n') };
+}
 function fillBubble(row: HTMLElement, m: DmView, mine: boolean) {
   const b = h('div', 'msg-b');
-  const [first, ...rest] = m.text.split('\n');
+  const { quote, body } = splitQuote(m.text);
+  if (quote) b.append(h('span', 'msg-quote', quote));
+  const [first, ...rest] = body.split('\n');
   if (m.kind) { b.append(h('b', 'msg-kind', first)); if (rest.length) b.append(h('span', '', rest.join('\n'))); }
-  else b.append(h('span', '', m.text));
-  const meta = h('span', 'msg-meta', time(m.at) + (mine && m.to !== SUPPORT ? (m.read ? ' ✓✓' : ' ✓') : ''));
+  else b.append(h('span', '', body));
+  // ✓ sent, ✓✓ read (it turns as soon as they open it)
+  const meta = h('span', 'msg-meta', time(m.at));
+  if (mine) { const t = h('span', `msg-tick${m.read ? ' read' : ''}`, m.read ? '✓✓' : '✓'); t.title = tr(m.read ? 'Read' : 'Sent'); meta.append(t); }
   b.append(meta);
-  row.append(b);
+  // quote it in your answer
+  const q = h('button', 'msg-qbtn', '↩') as HTMLButtonElement;
+  q.type = 'button'; q.title = tr('Quote'); q.setAttribute('aria-label', tr('Quote'));
+  q.onclick = (e) => { e.stopPropagation(); setQuote(body.replace(/^🐞 Bug report\n|^💡 Suggestion\n/, '')); };
+  row.append(b, q);
+}
+
+let quoteText = '';
+function setQuote(text: string) {
+  quoteText = text.trim().slice(0, 240);
+  const bar = $('msgQuote');
+  bar.hidden = !quoteText;
+  if (quoteText) {
+    const x = h('button', 'msg-q-x', '✕') as HTMLButtonElement;
+    x.type = 'button'; x.setAttribute('aria-label', tr('Remove the quote'));
+    x.onclick = () => setQuote('');
+    bar.replaceChildren(h('span', 'msg-q-lbl', tr('Replying to')), h('span', 'msg-q-text', quoteText), x);
+    $<HTMLTextAreaElement>('msgInput').focus();
+  }
+}
+
+// 0.9.9.9.6.1: muted — all your messages, or one conversation (no notes, no pushes; the number still counts)
+let mutedAll = false;
+const BELL = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>';
+const BELL_OFF = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.7 3A6 6 0 0 1 18 8c0 2.8.5 4.8 1.1 6.2M17 17H3s3-2 3-9c0-.9.2-1.8.6-2.6"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/><path d="M2 2l20 20"/></svg>';
+function muteButton(on: boolean, label: [string, string], toggle: () => void) {
+  const b = h('button', `pill msg-mute${on ? ' on' : ''}`) as HTMLButtonElement;
+  b.type = 'button';
+  b.innerHTML = on ? BELL_OFF : BELL;
+  b.title = tr(on ? label[1] : label[0]); b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(on));
+  b.onclick = toggle;
+  return b;
+}
+function paintMuteAll() {
+  const slot = $('msgMuteAll');
+  slot.replaceChildren(muteButton(mutedAll, ['Mute all messages', 'Messages muted — tap to unmute'], async () => {
+    try { await api.muteMessages('all', !mutedAll); mutedAll = !mutedAll; paintMuteAll(); ui.toast(tr(mutedAll ? 'All messages muted' : 'Messages unmuted'), 2500); } catch (e) { ui.toast((e as Error).message); }
+  }));
+  slot.hidden = side === 'support';
+}
+export function onDmRead(reader: string) {
+  // (on the team's side the reader is the player; on yours it's them, or the team)
+  if (!openId || openId !== reader) return;
+  let changed = false;
+  for (const m of log) if (m.from === myId() && !m.read) { m.read = true; changed = true; }
+  if (changed) renderLog(false);
 }
 
 function renderLog(stick = true) {
@@ -133,6 +191,15 @@ function renderHead() {
   const who = h('span', 'msg-who');
   who.append(h('b', '', openWith.support ? tr('Kanji Wizards team') : openWith.name), h('small', '', openWith.support ? (side === 'support' ? tr('You answer as the team') : tr('The game’s team — we read every message')) : openWith.online ? tr('Online') : ''));
   head.replaceChildren(back, avatar(openWith), who);
+  // this conversation: mute it (yours only — not the team's side)
+  if (side === 'me') {
+    const w = openWith;
+    const c = convs.find((x) => x.id === w.id);
+    const on = !!c?.muted;
+    head.append(muteButton(on, ['Mute this chat', 'This chat is muted — tap to unmute'], async () => {
+      try { await api.muteMessages(w.id, !on); if (c) c.muted = !on; w.muted = !on; renderHead(); renderList(); } catch (e) { ui.toast((e as Error).message); }
+    }));
+  }
 }
 
 export async function openThread(id: string) {
@@ -157,7 +224,7 @@ export async function openThread(id: string) {
 }
 
 /** the menu's ✉ (or a friend's "Message" button, or a notification): the messenger, maybe at one conversation */
-export async function openInbox(with_?: string, asTeam = false) {
+export async function openInbox(with_?: string, asTeam = false, quote = '') {
   side = asTeam && isAdmin ? 'support' : 'me';
   for (const b of document.querySelectorAll<HTMLElement>('#msgSide [data-side]')) b.setAttribute('aria-selected', String(b.dataset.side === side));
   openId = '';
@@ -165,19 +232,23 @@ export async function openInbox(with_?: string, asTeam = false) {
   $('msgThread').hidden = true;
   ui.show('inbox');
   await loadList();
-  if (with_) await openThread(with_);
+  setQuote('');
+  if (with_) { await openThread(with_); if (quote) setQuote(quote); }
   else if (matchMedia('(min-width: 761px)').matches && convs[0]) await openThread(convs[0].id);
 }
 
 async function send() {
   const input = $<HTMLTextAreaElement>('msgInput');
-  const text = input.value.trim();
-  if (!text || !openId) return;
+  const typed = input.value.trim();
+  if (!typed || !openId) return;
+  // (a quote goes first, each line marked "> ")
+  const text = quoteText ? `${quoteText.split('\n').map((l) => `> ${l}`).join('\n')}\n${typed}` : typed;
   const btn = $<HTMLButtonElement>('msgSend');
   btn.disabled = true;
   try {
     const r = await api.sendMessage(openId, text, side === 'support');
     input.value = '';
+    setQuote('');
     grow();
     add(r.message);
   } catch (e) { ui.toast((e as Error).message, 3500); } finally { btn.disabled = false; }
@@ -190,10 +261,11 @@ function add(m: DmView) {
   const c = convs.find((x) => x.id === openId);
   if (c) { c.last = m; convs = [c, ...convs.filter((x) => x !== c)]; renderList(); } else void loadList();
 }
-function grow() { const i = $<HTMLTextAreaElement>('msgInput'); i.style.height = 'auto'; i.style.height = `${Math.min(140, i.scrollHeight)}px`; }
+// (the box grows with what you write; a scrollbar only once it's at its tallest)
+function grow() { const i = $<HTMLTextAreaElement>('msgInput'); i.style.height = 'auto'; i.style.height = `${Math.min(140, i.scrollHeight)}px`; i.style.overflowY = i.scrollHeight > 140 ? 'auto' : 'hidden'; }
 
 /** main.ts: a message came over the game's connection */
-export function onDm(m: DmView, fromName: string) {
+export function onDm(m: DmView, fromName: string, muted = false) {
   const toTeam = isAdmin && m.to !== me && m.from !== me; // (an admin: the team's conversations)
   const viewing = !$('inbox').hidden;
   const otherSide = (sideOf: 'me' | 'support') => (sideOf === 'support' ? (m.from === SUPPORT ? m.to : m.from) : m.from === me ? m.to : m.from);
@@ -209,8 +281,8 @@ export function onDm(m: DmView, fromName: string) {
   if (mySide === 'support') unreadTeam++; else unreadMine++;
   paintBadges();
   if (viewing && side === mySide) void loadList();
-  // a small note, outside battles
-  if (!['battle', 'deck', 'prep'].includes(ui.currentScreen() ?? '')) ui.toast(`✉ ${mySide === 'support' ? `${fromName} → ${tr('team')}` : fromName}: ${m.text.split('\n').slice(-1)[0].slice(0, 80)}`, 4000);
+  // a small note, outside battles (not for a muted chat)
+  if (!muted && !(mutedAll && mySide === 'me') && !['battle', 'deck', 'prep'].includes(ui.currentScreen() ?? '')) ui.toast(`✉ ${mySide === 'support' ? `${fromName} → ${tr('team')}` : fromName}: ${m.text.split('\n').slice(-1)[0].slice(0, 80)}`, 4000);
 }
 
 export function initInbox() {
@@ -222,6 +294,22 @@ export function initInbox() {
   // Enter sends (Shift+Enter: a new line) — on a computer; on a phone Enter is a new line and the button sends
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer: fine)').matches) { e.preventDefault(); void send(); } });
   for (const b of document.querySelectorAll<HTMLElement>('#msgSide [data-side]')) b.onclick = () => void openInbox(undefined, b.dataset.side === 'support');
+  // 0.9.9.9.6.1: emoji
+  const pick = $('msgEmojiPick');
+  pick.replaceChildren(...EMOJI.map((e) => {
+    const b = h('button', 'msg-emo', e) as HTMLButtonElement;
+    b.type = 'button';
+    b.onclick = () => {
+      const i = $<HTMLTextAreaElement>('msgInput');
+      const a = i.selectionStart ?? i.value.length, z = i.selectionEnd ?? a;
+      i.value = i.value.slice(0, a) + e + i.value.slice(z);
+      i.selectionStart = i.selectionEnd = a + e.length;
+      i.focus(); grow();
+    };
+    return b;
+  }));
+  $('msgEmoji').onclick = (e) => { e.stopPropagation(); pick.hidden = !pick.hidden; };
+  document.addEventListener('pointerdown', (e) => { if (!pick.hidden && !(e.target as Element).closest('#msgEmojiPick, #msgEmoji')) pick.hidden = true; });
   // older messages: scrolled to the top
   $('msgLog').addEventListener('scroll', async () => {
     const box = $('msgLog');

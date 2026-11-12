@@ -15,7 +15,7 @@ export class MessageError extends Error {
 
 /** what the app shows of a message */
 export type MessageView = DmView;
-export interface ConversationView { id: string; name: string; pic: string | null; online: boolean; support: boolean; last: MessageView; unread: number; friend: boolean }
+export interface ConversationView { id: string; name: string; pic: string | null; online: boolean; support: boolean; last: MessageView; unread: number; friend: boolean; /** 0.9.9.9.6.1 */ muted?: boolean }
 
 export interface MessageHooks {
   /** the message, live, to whoever is connected: the recipient (or every admin, for the team) and the sender's other side */
@@ -23,7 +23,13 @@ export interface MessageHooks {
   /** the recipient isn't connected: a push to their phone */
   push?(toUserId: string, fromId: string, fromName: string, text: string): void;
   online?(userId: string): boolean;
+  /** 0.9.9.9.6.1: `reader` has read what `writer` sent them (the writer's ✓ becomes ✓✓) — 'admins' when the team read it */
+  read?(writer: string, reader: string): void;
 }
+/** 0.9.9.9.6.1: muted — all your messages ("mute:all"), or one conversation ("mute:<id>"): no notifications, no pushes */
+export const MUTE_ALL = 'mute:all';
+export const muteKey = (id: string) => `mute:${id}`;
+export const isMuted = (unlocks: readonly string[] | undefined, from: string) => !!unlocks?.includes(MUTE_ALL) || !!unlocks?.includes(muteKey(from));
 
 const view = (m: DirectMessage): MessageView => ({ id: m.id, from: m.fromId, to: m.toId, text: m.text, at: m.at, read: m.readAt !== null, ...(m.kind ? { kind: m.kind } : {}), ...(m.by ? { by: m.by } : {}) });
 
@@ -37,7 +43,7 @@ export class MessageService {
     return asSupport ? SUPPORT_ID : u.id;
   }
 
-  async list(u: UserRecord, asSupport = false): Promise<{ conversations: ConversationView[]; unread: number }> {
+  async list(u: UserRecord, asSupport = false): Promise<{ conversations: ConversationView[]; unread: number; mutedAll?: boolean }> {
     const me = this.side(u, asSupport);
     const rows = await this.store.conversations(me, 60);
     const friends = asSupport ? new Set<string>() : new Set((await this.store.friends(u.id)).filter((f) => f.status === 'accepted').map((f) => f.id));
@@ -53,7 +59,18 @@ export class MessageService {
       out.push({ id: SUPPORT_ID, name: 'Kanji Wizards team', pic: null, online: true, support: true, unread: 0, friend: false,
         last: { id: '', from: SUPPORT_ID, to: u.id, text: 'Questions, bugs, ideas — write to us here.', at: 0, read: true } });
     }
-    return { conversations: out, unread: out.reduce((n, c) => n + c.unread, 0) };
+    if (!asSupport) for (const c of out) if ((u.unlocks ?? []).includes(muteKey(c.id))) c.muted = true;
+    return { conversations: out, unread: out.reduce((n, c) => n + c.unread, 0), ...(asSupport ? {} : { mutedAll: (u.unlocks ?? []).includes(MUTE_ALL) }) };
+  }
+
+  /** 0.9.9.9.6.1: mute (or unmute) all your messages, or one conversation */
+  async mute(u: UserRecord, who: unknown, on: boolean) {
+    if (typeof who !== 'string' || !/^[\w-]{1,64}$/.test(who)) throw new MessageError('Mute what?');
+    const key = who === 'all' ? MUTE_ALL : muteKey(who);
+    const now = (await this.store.findById(u.id)) ?? u;
+    const rest = (now.unlocks ?? []).filter((x) => x !== key);
+    await this.store.update(u.id, { unlocks: on ? [...rest, key] : rest });
+    return { muted: on };
   }
 
   async unread(u: UserRecord): Promise<{ unread: number; support?: number }> {
@@ -65,7 +82,8 @@ export class MessageService {
   async thread(u: UserRecord, other: string, asSupport = false, before?: number): Promise<{ messages: MessageView[]; with: ConversationView | null }> {
     const me = this.side(u, asSupport);
     const msgs = await this.store.messagesBetween(me, other, 60, before);
-    await this.store.markRead(me, other, this.now());
+    // 0.9.9.9.6.1: tell the writer it was read (their ✓ turns into ✓✓)
+    if (await this.store.markRead(me, other, this.now())) this.hooks.read?.(other, me);
     return { messages: msgs.map(view), with: await this.who(u, other) };
   }
 
@@ -102,7 +120,8 @@ export class MessageService {
     if (to === SUPPORT_ID) this.hooks.deliver('admins', v, fromName);
     else {
       this.hooks.deliver([to], v, fromName);
-      if (!(this.hooks.online?.(to) ?? false)) this.hooks.push?.(to, me, fromName, t);
+      const rec = await this.store.findById(to);
+      if (!(this.hooks.online?.(to) ?? false) && !isMuted(rec?.unlocks, me)) this.hooks.push?.(to, me, fromName, t);
     }
     // the sender's own other screens (and, for the team, the other admins)
     if (asSupport) this.hooks.deliver('admins', v, fromName);

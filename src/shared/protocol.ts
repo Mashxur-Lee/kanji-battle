@@ -250,7 +250,9 @@ export type ServerMessage =
   /** 0.9.9.9.5.5: someone in the room is typing in the chat (or stopped) */
   | { type: 'chat_typing'; id: PlayerId; name: string; on: boolean }
   /** 0.9.9.9.6: a new message in the messenger (to you — or, for admins, to the team) */
-  | { type: 'dm'; message: DmView; fromName: string }
+  | { type: 'dm'; message: DmView; fromName: string; /** 0.9.9.9.6.1: you muted this (no note) */ muted?: boolean }
+  /** 0.9.9.9.6.1: `reader` read your messages to them (✓ → ✓✓); reader 'support': the team */
+  | { type: 'dm_read'; reader: string }
   | { type: 'prep'; pool: StudyItem[]; durationMs: number; readyIds: PlayerId[]; players: PlayerView[] }
   | { type: 'prep_ready'; readyIds: PlayerId[] }
   | {

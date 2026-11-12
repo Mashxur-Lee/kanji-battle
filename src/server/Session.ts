@@ -138,7 +138,7 @@ export const SCREEN_ACTIVITY: Record<string, string> = {
   daily: 'Playing the daily challenge', customize: 'Customizing', progress: 'Looking at their progress', history: 'Looking at match history', friends: 'With friends',
   // 0.9.9.9.5.4: the Kana section (it showed "In the menus"), the Quizzes page, the dictionary
   kana: 'Studying kana', kanaplay: 'Studying kana', quizzes: 'Choosing a quiz', dict: 'In the dictionary',
-  inbox: 'Reading messages', // 0.9.9.9.6
+  inbox: 'Chatting', // 0.9.9.9.6 (0.9.9.9.6.1: "Chatting")
 };
 export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; declinedAt?: number; now: number }): string | null {
   if (o.inRoom) return 'Your friend is already in this room';

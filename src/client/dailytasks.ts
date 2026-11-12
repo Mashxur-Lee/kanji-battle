@@ -39,6 +39,25 @@ export const streakTier = (n: number) => { let t = 0; STREAK_TIERS.forEach((x, i
 // gold, with a halo. The number is also written plainly underneath (it was in the middle of the flame and often
 // lost in it), and the flame just breathes (it used to skew from side to side).
 let flameId = 0;
+// 0.9.9.9.6.1: every tier has its own fire, not only its own colour — more tongues, taller, wider, with the tiers
+// above: Ash smoulders (a glowing heap, smoke); Spark is one small flame; Ember has two side tongues; Blaze is tall,
+// three-tongued; Inferno is wide with a second fire behind; Azure is tall and slim, blue, with rays; Legend spreads
+// its tongues like wings, with a halo. Every tongue flickers on its own (taller and back, a little sway).
+type Tongue = [cx: number, h: number, w: number, lean: number, layer: 'o' | 'm' | 'c'];
+const FIRES: Tongue[][] = [
+  [],
+  [[32, 44, 14, 0, 'o'], [32, 28, 8, 1, 'm'], [32, 16, 4.5, 0, 'c']],
+  [[32, 52, 15, 0, 'o'], [21, 34, 8, -5, 'o'], [43, 36, 8, 5, 'o'], [32, 34, 9, 1, 'm'], [32, 20, 5, 0, 'c']],
+  [[32, 64, 15, 2, 'o'], [19, 46, 9, -7, 'o'], [45, 48, 9, 7, 'o'], [32, 46, 10, -1, 'm'], [26, 30, 5, -3, 'm'], [32, 26, 6, 0, 'c']],
+  [[32, 70, 19, 0, 'o'], [15, 52, 10, -9, 'o'], [49, 54, 10, 9, 'o'], [8, 34, 6, -10, 'o'], [56, 36, 6, 10, 'o'], [24, 56, 9, -3, 'm'], [40, 58, 9, 3, 'm'], [32, 34, 7, 0, 'c']],
+  [[32, 76, 12, 3, 'o'], [21, 60, 8, -6, 'o'], [43, 62, 8, 7, 'o'], [32, 58, 8, -2, 'm'], [27, 40, 5, -3, 'm'], [37, 42, 5, 3, 'm'], [32, 36, 5, 1, 'c']],
+  [[32, 76, 16, 0, 'o'], [13, 56, 9, -12, 'o'], [51, 56, 9, 12, 'o'], [5, 40, 6, -15, 'o'], [59, 40, 6, 15, 'o'], [32, 58, 10, 0, 'm'], [22, 40, 6, -5, 'm'], [42, 40, 6, 5, 'm'], [32, 36, 6, 0, 'c']],
+];
+const BASE = 74;
+const tongue = ([cx, hh, w, lean]: Tongue) => {
+  const tip = cx + lean, y = BASE - hh;
+  return `M${cx - w} ${BASE}C${cx - w * 1.1} ${BASE - hh * 0.45} ${tip - w * 0.35} ${y + hh * 0.3} ${tip} ${y}C${tip + w * 0.35} ${y + hh * 0.3} ${cx + w * 1.1} ${BASE - hh * 0.45} ${cx + w} ${BASE}Q${cx} ${BASE + 4} ${cx - w} ${BASE}Z`;
+};
 /**
  * The streak emblem. `lit`: today's tasks are done (dim until then — still yours until midnight).
  * Size by CSS (.sf's width in its container; everything inside scales with it).
@@ -49,13 +68,14 @@ export function streakFlame(n: number, lit: boolean): HTMLElement {
   const box = document.createElement('span');
   box.className = `sf t${tier}${lit ? ' lit' : ''} k${Math.min(5, [...k].length)}`;
   box.title = tr(`${STREAK_TIERS[tier].name} · ${n} days`);
-  const g = `sfg${++flameId}`;
-  // (a fixed drawing; only the numbers are data) the flame behind, then the kanji, then the plain number
-  box.innerHTML = `<svg class="sf-fire" viewBox="0 0 64 80" aria-hidden="true"><defs>`
-    + `<linearGradient id="${g}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" style="stop-color:var(--f1)"/><stop offset=".55" style="stop-color:var(--f2)"/><stop offset="1" style="stop-color:var(--f3)" stop-opacity=".2"/></linearGradient></defs>`
-    + `<path class="sf-back" fill="url(#${g})" d="M33 2c3 13 15 20 19 33 5 16 0 32-12 39-9 6-22 5-29-4C2 59 6 46 13 37c2 7 5 11 10 12-5-14 0-32 10-47z"/>`
-    + `<path class="sf-back2" fill="url(#${g})" d="M20 20c1 9 8 13 9 22 2 9-2 18-9 20-6 1-11-5-10-12 0-7 5-10 6-16 1 3 2 5 4 5-2-6-2-12 0-19zM46 18c1 8 7 12 8 20 1 9-3 16-9 17-5 0-9-5-8-11 0-6 4-9 5-14 1 3 2 4 3 4-1-5-1-11 1-16z"/></svg>`
-    + `<i class="sf-halo" aria-hidden="true"></i>`;
+  const id = ++flameId;
+  const grad = (name: string, a: string, b: string, c: string) => `<linearGradient id="${name}${id}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" style="stop-color:var(${a})"/><stop offset=".6" style="stop-color:var(${b})"/><stop offset="1" style="stop-color:var(${c})"/></linearGradient>`;
+  const fire = FIRES[tier].map((t, i) => `<path class="tg tg-${t[4]}" style="--d:${(i * 0.37) % 1.3}s;--s:${(1.1 + (i % 3) * 0.35).toFixed(2)}s" fill="url(#${t[4]}${id})" d="${tongue(t)}"/>`).join('');
+  // Ash: a smouldering heap and smoke
+  const ash = tier === 0 ? `<ellipse cx="32" cy="70" rx="20" ry="7" fill="url(#o${id})"/><ellipse cx="32" cy="68" rx="11" ry="3.5" fill="#ff7a3a" opacity=".55" class="sf-glow"/>`
+    + `<path class="sf-smoke" d="M27 62c-4-6 4-9 0-15s3-9 1-14" stroke="#9a9aae" stroke-width="3" fill="none" stroke-linecap="round" opacity=".55"/><path class="sf-smoke s2" d="M37 62c4-6-4-9 0-15s-3-9-1-14" stroke="#9a9aae" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".45"/>` : '';
+  box.innerHTML = `<svg class="sf-fire" viewBox="0 0 64 80" aria-hidden="true"><defs>${grad('o', '--f1', '--f2', '--f3')}${grad('m', '--f2', '--f3', '--k1')}${grad('c', '--f3', '--k1', '--k1')}</defs>`
+    + `<g class="sf-flames">${ash}${fire}</g></svg><i class="sf-halo" aria-hidden="true"></i>`;
   const kan = document.createElement('b');
   kan.className = 'sf-k'; kan.lang = 'ja'; kan.textContent = k; kan.setAttribute('aria-hidden', 'true');
   const num = document.createElement('i');

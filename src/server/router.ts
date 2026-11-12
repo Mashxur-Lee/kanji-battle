@@ -122,6 +122,11 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         // 0.9.9.9.6: your conversations (an admin: ?as=support — the team's)
         const u = await auth.authenticate(r.token);
         return res(200, await messages.list(u, query.get('as') === 'support'));
+      } else if (messages && r.method === 'PUT' && url === '/api/messages/mute') {
+        // 0.9.9.9.6.1: mute all your messages, or one conversation
+        const u = await auth.authenticate(r.token);
+        const b = await r.json();
+        return res(200, await messages.mute(u, b.who, b.on === true));
       } else if (messages && r.method === 'GET' && url === '/api/messages/unread') {
         return res(200, await messages.unread(await auth.authenticate(r.token)));
       } else if (messages && r.method === 'GET' && /^\/api\/messages\/[\w-]{1,64}$/.test(url)) {

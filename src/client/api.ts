@@ -1,7 +1,7 @@
 import type { QuizStats } from '../shared/quizstats';
 import type { DmView } from '../shared/protocol';
 /** 0.9.9.9.6: one conversation of the messenger */
-export interface Conversation { id: string; name: string; pic: string | null; online: boolean; support: boolean; last: DmView; unread: number; friend: boolean }
+export interface Conversation { id: string; name: string; pic: string | null; online: boolean; support: boolean; last: DmView; unread: number; friend: boolean; muted?: boolean }
 import type { KanaProgress } from '../shared/kanachart';
 import type { AdminUserRow, Device, Level, MatchDetail, MatchSummary, OnoType, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
@@ -161,7 +161,8 @@ export const api = {
   inboxDelete: (id: string) => call<{ ok: boolean }>('DELETE', `/api/admin/inbox/${encodeURIComponent(id)}`),
   adminStats: () => call<AdminStats>('GET', '/api/admin/stats'),
   // 0.9.9.9.6: the messenger (?as=support: an admin, the team's conversations)
-  conversations: (support = false) => call<{ conversations: Conversation[]; unread: number }>('GET', `/api/messages${support ? '?as=support' : ''}`),
+  conversations: (support = false) => call<{ conversations: Conversation[]; unread: number; mutedAll?: boolean }>('GET', `/api/messages${support ? '?as=support' : ''}`),
+  muteMessages: (who: string, on: boolean) => call<{ muted: boolean }>('PUT', '/api/messages/mute', { who, on }),
   messagesUnread: () => call<{ unread: number; support?: number }>('GET', '/api/messages/unread'),
   thread: (other: string, support = false, before?: number) => call<{ messages: DmView[]; with: Conversation | null }>('GET', `/api/messages/${encodeURIComponent(other)}?${support ? 'as=support&' : ''}${before ? `before=${before}` : ''}`),
   sendMessage: (other: string, text: string, support = false) => call<{ message: DmView }>('POST', `/api/messages/${encodeURIComponent(other)}${support ? '?as=support' : ''}`, { text }),

@@ -28,7 +28,7 @@ import { api, ApiError, getToken, setToken, type Friend, type Profile } from './
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
 import { showPlayer } from './playerview';
-import { initInbox, inboxUser, onDm, openInbox } from './inbox';
+import { initInbox, inboxUser, onDm, onDmRead, openInbox } from './inbox';
 import { onLeagueEquip } from './leagueup';
 import { chatMessages, chatTyping, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
@@ -393,7 +393,10 @@ function onMessage(msg: ServerMessage) {
       chatTyping(msg.id, msg.name, msg.on);
       break;
     case 'dm': // 0.9.9.9.6: the messenger
-      onDm(msg.message, msg.fromName);
+      onDm(msg.message, msg.fromName, msg.muted === true);
+      break;
+    case 'dm_read': // 0.9.9.9.6.1: ✓ → ✓✓
+      onDmRead(msg.reader);
       break;
     case 'look':
       arenaLook(msg.id, msg.yaw, msg.pitch);

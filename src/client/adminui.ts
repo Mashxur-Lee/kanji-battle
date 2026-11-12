@@ -61,7 +61,7 @@ function renderInbox() {
     if (r.userId && r.kind !== 'error') {
       const reply = el('button', 'pill primary', '✉ Reply') as HTMLButtonElement;
       const uid = r.userId;
-      reply.onclick = () => void openInbox(uid, true);
+      reply.onclick = () => void openInbox(uid, true, r.text); // (0.9.9.9.6.1: quoting what they wrote)
       head.append(reply);
     }
     head.append(done, del);
