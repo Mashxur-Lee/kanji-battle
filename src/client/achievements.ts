@@ -240,7 +240,10 @@ function keepTipOnScreen(e: Event) {
   requestAnimationFrame(() => {
     const r = tip.getBoundingClientRect();
     if (!r.width) return;
-    const pad = 8, dx = r.left < pad ? pad - r.left : r.right > innerWidth - pad ? innerWidth - pad - r.right : 0;
+    // (inside a dialog — View profile — its edges clip the tip, so keep it within those)
+    const box = tip.closest('dialog')?.getBoundingClientRect();
+    const lo = Math.max(0, box?.left ?? 0) + 8, hi = Math.min(innerWidth, box?.right ?? innerWidth) - 8;
+    const dx = r.left < lo ? lo - r.left : r.right > hi ? hi - r.right : 0;
     tip.style.setProperty('--tip-dx', `${Math.round(dx / (r.width / tip.offsetWidth || 1))}px`);
   });
 }

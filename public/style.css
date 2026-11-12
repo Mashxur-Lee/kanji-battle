@@ -4768,7 +4768,8 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .lg-step .lg-crest.small b { font-size: .95rem; }
 .lg-step .lg-crest.mid { width: 60px; margin-top: -8px; }
 .lg-step .lg-crest.mid b { font-size: 1.3rem; }
-.lg-step.ahead .lg-crest { filter: grayscale(.85) brightness(.6); }
+.lg-step.ahead .lg-crest { filter: grayscale(.8) brightness(.72); }
+.lg-step.ahead .lg-crest b { color: #fff; text-shadow: 0 1px 2px #000, 0 0 6px rgba(0, 0, 0, .8); }
 .lg-step.ahead .lg-crest .lg-rays, .lg-step.done .lg-crest .lg-rays { display: none; }
 .lg-step.next .lg-crest { filter: none; animation: lgNext 1.6s ease-in-out infinite; }
 @keyframes lgNext { 50% { scale: 1.08; } }

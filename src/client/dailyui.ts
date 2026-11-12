@@ -103,6 +103,7 @@ let league = 'KANA';
 function ladder(current: string, next?: string) {
   const row = el('div', 'lg-track');
   const ci = LEAGUES.indexOf(current as never);
+  next ??= LEAGUES[ci + 1]; // (the one you're climbing to glows even before today's try)
   const fill = el('div', 'lg-track-line');
   fill.style.setProperty('--p', `${(Math.max(0, ci) / (LEAGUES.length - 1)) * 100}%`);
   row.append(fill);
