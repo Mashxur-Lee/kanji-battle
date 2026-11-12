@@ -1,6 +1,7 @@
 // Admin: Inbox (players' bug reports and suggestions, and the game's own errors) and Stats (new players,
 // daily active players, how many come back on day 1 / day 7, the tutorial funnel, games per mode).
 
+import { openInbox } from './inbox';
 import { api, type AdminReport, type AdminStats } from './api';
 import { dateTime } from './ui';
 import * as ui from './ui';
@@ -55,7 +56,15 @@ function renderInbox() {
     done.onclick = async () => { await api.inboxDone(r.id, !r.done); r.done = !r.done; renderInbox(); void refreshInboxBadge(); };
     const del = el('button', 'pill danger', 'Delete') as HTMLButtonElement;
     del.onclick = async () => { await api.inboxDelete(r.id); reports = reports.filter((x) => x.id !== r.id); renderInbox(); void refreshInboxBadge(); };
-    head.append(el('span', 'ii-sp'), done, del);
+    head.append(el('span', 'ii-sp'));
+    // 0.9.9.9.6: answer the player — in their conversation with the team (Messages)
+    if (r.userId && r.kind !== 'error') {
+      const reply = el('button', 'pill primary', '✉ Reply') as HTMLButtonElement;
+      const uid = r.userId;
+      reply.onclick = () => void openInbox(uid, true);
+      head.append(reply);
+    }
+    head.append(done, del);
     const text = el('p', 'ii-text', r.text);
     card.append(head, text);
     if (r.meta) { const m = el('details', 'ii-meta'); m.append(el('summary', '', 'Details'), el('pre', '', r.meta)); card.append(m); }

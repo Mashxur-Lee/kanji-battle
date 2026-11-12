@@ -54,6 +54,9 @@ export function screenIn(id: string) {
   const prev = lastScreen;
   lastScreen = id;
   if (prev === id || STILL.has(id)) return;
+  // 0.9.9.9.6: phones — the main menu comes back without any fade or rise: its cards (see-through, over the moving
+  // picture) flickered black while a layer as big as the screen faded in over them
+  if (id === 'menu' && touch()) { dispatchEvent(new CustomEvent('kw:screenin', { detail: id })); return; }
   const screen = document.getElementById(id);
   if (!screen) return;
   const light = touch();

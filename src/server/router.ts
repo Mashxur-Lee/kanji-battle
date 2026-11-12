@@ -5,6 +5,7 @@ import { achCounts } from '../shared/achievements';
 import { isTransientDbError, retryDelay } from './db/transient';
 import { displayName } from './db/Store';
 import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/InsightsService';
+import { MessageError, type MessageService } from './study/MessageService';
 import { AuthError, toPublic, type AuthService } from './auth/AuthService';
 import { resolveToday, StudyError, type StudyService } from './study/StudyService';
 import { isDeck, type DeckId } from '../shared/srs';
@@ -65,11 +66,13 @@ export interface ApiExtras {
   pushTest?: (userId: string, delaySec?: number) => Promise<{ ok: boolean; reason?: string; sent?: number; phones?: number; errors?: string[] }>;
   /** 0.9.9.9.5: "Decline" on an invite notification (the app was closed — no websocket) */
   inviteDecline?: (userId: string, name: string, fromId: string) => void;
+  /** 0.9.9.9.6: the messenger */
+  messages?: MessageService;
 }
 
 /** Routes one /api/* call; null for any other path. */
 export function createApiRouter(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline, pushOn, pushTest } = extras;
+  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline, pushOn, pushTest, messages } = extras;
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
   const signupLimiter = new RateLimiter(10, 3600_000);
@@ -111,7 +114,24 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const body = await r.json();
         await insights?.feedback(u, body.kind, body.text, body.meta);
+        // 0.9.9.9.6: it's in your conversation with the team too — an admin can answer it there
+        const text = typeof body.text === 'string' ? body.text.trim() : '';
+        if (messages && text.length >= 3) await messages.feedback(u, body.kind === 'suggestion' ? 'suggestion' : 'bug', text).catch(() => { /* the report itself is in */ });
         return res(200, { ok: true });
+      } else if (messages && r.method === 'GET' && url === '/api/messages') {
+        // 0.9.9.9.6: your conversations (an admin: ?as=support — the team's)
+        const u = await auth.authenticate(r.token);
+        return res(200, await messages.list(u, query.get('as') === 'support'));
+      } else if (messages && r.method === 'GET' && url === '/api/messages/unread') {
+        return res(200, await messages.unread(await auth.authenticate(r.token)));
+      } else if (messages && r.method === 'GET' && /^\/api\/messages\/[\w-]{1,64}$/.test(url)) {
+        const u = await auth.authenticate(r.token);
+        const before = Number(query.get('before')) || undefined;
+        return res(200, await messages.thread(u, url.split('/')[3], query.get('as') === 'support', before));
+      } else if (messages && r.method === 'POST' && /^\/api\/messages\/[\w-]{1,64}$/.test(url)) {
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        return res(200, { message: await messages.send(u, url.split('/')[3], body.text, query.get('as') === 'support') });
       } else if (r.method === 'POST' && url === '/api/event') {
         const u = await auth.authenticate(r.token);
         const name = String((await r.json()).name ?? '');
@@ -218,6 +238,10 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (daily && r.method === 'GET' && url === '/api/daily') {
         const u = await auth.authenticate(r.token);
         return res(200, await daily.overview(u, query.get('today')));
+      } else if (daily && r.method === 'GET' && url === '/api/daily/past') {
+        // 0.9.9.9.6: an earlier day's words and boards, every league
+        const u = await auth.authenticate(r.token);
+        return res(200, await daily.past(u, query.get('day'), query.get('today')));
       } else if (daily && r.method === 'POST' && url === '/api/daily/start') {
         const u = await auth.authenticate(r.token);
         return res(200, { word: await daily.start(u, (await r.json()).today) });
@@ -396,7 +420,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         return res(404, { error: 'Not found' });
       }
     } catch (e) {
-      if (e instanceof AuthError || e instanceof StudyError || e instanceof DailyError || e instanceof SocialError || e instanceof InsightsError) return res(e.status, { error: e.message });
+      if (e instanceof AuthError || e instanceof StudyError || e instanceof DailyError || e instanceof SocialError || e instanceof InsightsError || e instanceof MessageError) return res(e.status, { error: e.message });
       if (isTransientDbError(e)) {
         if (canRetry) return RETRY;
         // still not reachable (or not a GET): one "database unreachable" row in the Inbox, counted, not one per URL

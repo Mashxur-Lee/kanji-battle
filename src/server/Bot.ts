@@ -49,6 +49,8 @@ export interface BotHost {
   deckCastGo: (id: PlayerId, castId: number) => void;
   /** the room's game clock (paused with the game) */
   timers?: () => Timers;
+  /** 0.9.9.9.6: the tutorial — the people's spells so far (the AI casts once for every two of them) */
+  tutorialHits?: () => number;
 }
 
 /** 0.9.9.8: how long an AI takes in a Rapid race (it answered in under 2 s, which no one can beat) */
@@ -100,10 +102,23 @@ export class Bot {
     }
   }
 
+  private lastAttackAt = 0;
   private answerChallenge(challengeId: number) {
     const peek = this.host.peek(this.id);
     if (!peek || peek.challengeId !== challengeId) return;
     const mode = this.host.mode();
+    // 0.9.9.9.6: the tutorial's AI: one spell for every two of yours — never more (a first battle is won)
+    const hits = this.host.tutorialHits;
+    if (hits) {
+      this.later(`ch:${challengeId}`, this.between(2_500, 4_500), () => {
+        const now = this.host.peek(this.id);
+        if (!now || now.challengeId !== challengeId) return;
+        const go = hits() - this.lastAttackAt >= 2;
+        if (go) this.lastAttackAt = hits();
+        this.host.answer(this.id, challengeId, go ? now.entry.romaji ?? now.entry.reading : WRONG);
+      });
+      return;
+    }
     // 0.9.9.8: Boss teammates are sharper — they rarely reached a combo (no shield from the dragon's fire), missed a lot
     // (every miss is a claw) and fell halfway. Most of their mistakes are gone, and they answer a little quicker.
     const chance = mode === 'boss' ? bossChance(botChance(this.level, peek.entry.level)) : botChance(this.level, peek.entry.level);

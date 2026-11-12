@@ -22,6 +22,7 @@ import { Bucket, clientIp, inlineScriptHashes, isPublicServer, securityHeaders, 
 import { Matchmaker } from './Matchmaker';
 import { StoryService } from './study/StoryService';
 import { InsightsService } from './study/InsightsService';
+import { MessageService } from './study/MessageService';
 import { onServerError, reportServerError } from './errors';
 import { DictService } from './study/DictService';
 
@@ -58,6 +59,8 @@ function noteFor(data: Record<string, string>, unlocks: readonly string[] | unde
   if (data.kind === 'invite') return ru
     ? { title: `⚔ ${data.fromName} приглашает вас`, body: `Комната ${data.mode} · ${data.code} — нажмите, чтобы присоединиться`, tag: `invite-${data.fromId}` }
     : { title: `⚔ ${data.fromName} invites you`, body: `Join their ${data.mode} room · ${data.code} — tap to join`, tag: `invite-${data.fromId}` };
+  // 0.9.9.9.6: a message in the messenger
+  if (data.kind === 'dm') return { title: `✉ ${data.fromName}`, body: data.text, tag: `dm-${data.fromId}` };
   if (data.kind === 'test') return ru
     ? { title: '✓ Уведомления работают', body: 'Так придёт приглашение друга, даже когда игра закрыта.', tag: 'test' }
     : { title: '✓ Invite notifications work', body: 'This is how a friend’s invite reaches you, even with the game closed.', tag: 'test' };
@@ -69,12 +72,21 @@ hub.setNotifier(async (userId, data) => {
   const tokens = u?.pushTokens ?? [];
   if (!tokens.length) return false;
   try {
-    const r = await push.send(tokens, data, 120, noteFor(data, u?.unlocks));
+    const r = await push.send(tokens, data, data.kind === 'dm' ? 86_400 : 120, noteFor(data, u?.unlocks));
     if (r.dead.length) await store.update(userId, { pushTokens: tokens.filter((t) => !r.dead.includes(t)) });
     // 0.9.9.9.5.2: a push Google refused shows in the admin's errors (it failed without a word before)
     if (!r.sent && r.errors.length && r.dead.length < tokens.length) reportServerError('push', new Error(r.errors.join(' | ')));
     return r.sent > 0;
   } catch (e) { reportServerError('push', e); return false; }
+});
+// 0.9.9.9.6: the messenger — live over the game's connection, or a push when the app is closed
+const messages = new MessageService(store, {
+  deliver: (to, message, fromName) => {
+    const msg = { type: 'dm' as const, message, fromName };
+    if (to === 'admins') hub.sendAdmins(msg); else for (const id of to) hub.sendTo(id, msg);
+  },
+  push: (to, fromId, fromName, text) => { void hub.notify(to, { kind: 'dm', fromId, fromName, text: text.slice(0, 160) }); },
+  online: (id) => hub.online(id),
 });
 const pushTested = new Map<string, number>(); // (one test every few seconds)
 const recognizer = Recognizer.fromFile();
@@ -82,7 +94,7 @@ const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
 const stories = new StoryService();
 console.log(`Reading passage stories: ${stories.describe}`);
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled,
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled, messages,
   // 0.9.9.9.5.2: Settings → "Test invite notification": the whole way, with what went wrong
   pushTest: async (userId, delaySec = 0) => {
     if (!push.enabled) return { ok: false, reason: 'server-off' };

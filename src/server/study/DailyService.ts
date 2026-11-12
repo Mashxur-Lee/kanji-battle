@@ -3,7 +3,7 @@ import type { Level, VocabEntry } from '../../shared/protocol';
 import { displayReading } from '../../shared/vocab';
 import type { DailyResult, Store, UserRecord } from '../db/Store';
 import { VOCAB } from '../vocab';
-import { playerDay, resolveToday, type ProgressService } from './ProgressService';
+import { playerDay, resolveToday, shiftDay, type ProgressService } from './ProgressService';
 import { now as clockNow } from '../now';
 import { hash, seeded } from '../../shared/rng';
 
@@ -87,6 +87,25 @@ export class DailyService {
     const rank = mine ? (await this.store.dailyBetter(key, mine.correct, mine.ms)) + 1 : null;
     const words = mine ? this.words(day, league).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === '1' : null })) : null;
     return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), boards, words, inProgress: this.attempts.get(u.id)?.day === day, league, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT };
+  }
+
+  /**
+   * 0.9.9.9.6: an earlier day (yesterday, up to a week back) — every league's ten words with their readings, its
+   * board, and your own answers in the league you played that day.
+   */
+  async past(u: UserRecord, day: unknown, clientDay?: unknown) {
+    const today = this.today(clientDay);
+    const d = typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : shiftDay(today, -1);
+    const back = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${d}T00:00:00Z`)) / 86_400_000);
+    if (!(back >= 1 && back <= 7)) throw new DailyError('Only the last 7 days can be looked at');
+    const leagues = Object.fromEntries(await Promise.all(LEAGUES.map(async (lg) => {
+      const key = dailyKey(d, lg);
+      const [board, mine] = await Promise.all([this.store.dailyBoard(key, 20), this.store.daily(key, u.id)]);
+      const words = this.words(d, lg).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine?.marks ? mine.marks[i] === '1' : null }));
+      return [lg, { board: board.map(publicRow), words, mine: mine ? { correct: mine.correct, ms: mine.ms } : null }] as const;
+    })));
+    const played = LEAGUES.find((lg) => leagues[lg].mine) ?? null;
+    return { day: d, total: DAILY_WORDS, leagues, played, league: leagueOf(u) };
   }
 
   /** Start (or continue) today's run: returns the current word. */

@@ -5,7 +5,7 @@ import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protoc
 import type { BackgroundId, FlameId, StaffId } from '../../shared/progress';
 import { deckOf, type CardState, type CustomWord, type DeckId, type SrsCard } from '../../shared/srs';
 import { randomUUID } from 'node:crypto';
-import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, type ActivityDelta, type GameEventRow, type Report, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, type ActivityDelta, type GameEventRow, type Report, type DirectMessage, type ConversationRow, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
 /**
  * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
@@ -171,6 +171,20 @@ export class PgStore implements Store {
       )`;
     await this.sql`create index if not exists kw_reports_at on kw_reports (at desc)`;
     await this.sql`alter table kw_reports add column if not exists count integer not null default 1`; // 0.9.9.9.5: repeats on one row
+    // 0.9.9.9.6: the messenger (from / to: a player's id, or 'support' for the team)
+    await this.sql`
+      create table if not exists kw_messages (
+        id uuid primary key,
+        from_id text not null,
+        to_id text not null,
+        text text not null,
+        at bigint not null,
+        read_at bigint,
+        kind text,
+        by_id text
+      )`;
+    await this.sql`create index if not exists kw_messages_to on kw_messages (to_id, at desc)`;
+    await this.sql`create index if not exists kw_messages_from on kw_messages (from_id, at desc)`;
     await this.sql`
       create table if not exists kw_events (
         user_id uuid references kw_users(id) on delete cascade,
@@ -274,6 +288,7 @@ export class PgStore implements Store {
   async deleteUser(id: string) {
     // every other table refers to kw_users with "on delete cascade" (reports: set null)
     const r = await this.sql`delete from kw_users where id = ${id}`;
+    if (r.count > 0) await this.sql`delete from kw_messages where from_id = ${id} or to_id = ${id}`;
     return r.count > 0;
   }
   async update(id: string, patch: UserPatch) {
@@ -435,6 +450,37 @@ export class PgStore implements Store {
       select id, kind, user_id, username, text, meta, at, done, count from kw_reports order by at desc limit ${limit}`;
     return rows.map((r) => ({ id: r.id, kind: r.kind, userId: r.user_id, username: r.username, text: r.text, meta: r.meta, at: Number(r.at), done: r.done, count: Number(r.count) || 1 }));
   }
+  // ── 0.9.9.9.6: the messenger ──
+  async addMessage(m: Omit<DirectMessage, 'id' | 'readAt'>): Promise<DirectMessage> {
+    const id = randomUUID();
+    await this.sql`insert into kw_messages (id, from_id, to_id, text, at, kind, by_id) values (${id}, ${m.fromId}, ${m.toId}, ${m.text}, ${m.at}, ${m.kind ?? null}, ${m.by ?? null})`;
+    return { ...m, id, readAt: null };
+  }
+  async messagesBetween(a: string, b: string, limit: number, before = Number.MAX_SAFE_INTEGER): Promise<DirectMessage[]> {
+    const rows = await this.sql<MsgRow[]>`
+      select * from kw_messages where ((from_id = ${a} and to_id = ${b}) or (from_id = ${b} and to_id = ${a})) and at < ${before}
+      order by at desc limit ${limit}`;
+    return rows.map(toMsg).reverse();
+  }
+  async conversations(me: string, limit: number): Promise<ConversationRow[]> {
+    const last = await this.sql<Array<MsgRow & { other: string }>>`
+      select * from (
+        select distinct on (other) *, case when from_id = ${me} then to_id else from_id end as other
+        from kw_messages where from_id = ${me} or to_id = ${me} order by other, at desc
+      ) x order by at desc limit ${limit}`;
+    const unread = await this.sql<Array<{ from_id: string; n: number }>>`
+      select from_id, count(*)::int as n from kw_messages where to_id = ${me} and read_at is null group by from_id`;
+    const u = new Map(unread.map((x) => [x.from_id, Number(x.n)]));
+    return last.map((r) => ({ other: r.other, last: toMsg(r), unread: u.get(r.other) ?? 0 }));
+  }
+  async markRead(me: string, other: string, at: number) {
+    const r = await this.sql`update kw_messages set read_at = ${at} where to_id = ${me} and from_id = ${other} and read_at is null`;
+    return r.count;
+  }
+  async unreadMessages(me: string) {
+    const [r] = await this.sql<Array<{ n: number }>>`select count(*)::int as n from kw_messages where to_id = ${me} and read_at is null`;
+    return Number(r?.n ?? 0);
+  }
   async setReportDone(id: string, done: boolean) { await this.sql`update kw_reports set done = ${done} where id = ${id}`; }
   async deleteReport(id: string) { await this.sql`delete from kw_reports where id = ${id}`; }
   async addEvent(userId: string | null, name: string, at = Date.now()) { await this.sql`insert into kw_events (user_id, name, at) values (${userId}, ${name}, ${at})`; }
@@ -478,4 +524,9 @@ export class PgStore implements Store {
     await this.sql`delete from kw_friends where (user_id = ${userId} and friend_id = ${otherId}) or (user_id = ${otherId} and friend_id = ${userId})`;
   }
   async close() { await this.sql.end({ timeout: 5 }); }
+}
+
+interface MsgRow { id: string; from_id: string; to_id: string; text: string; at: string | number; read_at: string | number | null; kind: string | null; by_id: string | null }
+function toMsg(r: MsgRow): DirectMessage {
+  return { id: r.id, fromId: r.from_id, toId: r.to_id, text: r.text, at: Number(r.at), readAt: r.read_at === null ? null : Number(r.read_at), kind: r.kind, by: r.by_id };
 }

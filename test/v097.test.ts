@@ -24,13 +24,13 @@ test('the beginner AI: easy words (かな + N5), often wrong', () => {
   assert.match(botName(0, 'BEGINNER'), /AI Beginner/);
 });
 
-test('the tutorial room is quicker: 30 s of study, a 2-minute battle', () => {
+test('the tutorial room is quicker: 20 s of study (0.9.9.9.6; was 30), a 2.5-minute battle', () => {
   const rooms = new RoomManager();
   const opts = (r: object) => (r as unknown as { opts: { game: { prepMs: number; battleMs: number } } }).opts.game;
   const quick = opts(rooms.create('reading', true));
   const normal = opts(rooms.create('reading'));
-  assert.equal(quick.prepMs, 30_000);
-  assert.equal(quick.battleMs, 120_000);
+  assert.equal(quick.prepMs, 20_000);
+  assert.equal(quick.battleMs, 150_000);
   assert.ok(normal.prepMs > quick.prepMs);
 });
 

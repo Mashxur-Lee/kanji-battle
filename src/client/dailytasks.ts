@@ -2,6 +2,7 @@
 // passage (one task since 0.9.9.7.1), and the daily challenge. Shown when you log in (unless you tick "don't show again"), from the menu,
 // and in your profile card.
 
+import { kanjiNumber } from '../shared/kanjinum';
 import type { Profile } from './api';
 import { tr } from './i18n';
 import * as ui from './ui';
@@ -32,27 +33,36 @@ export const STREAK_TIERS = [
 /** each flame's main colour (for the "next flame" pill) */
 const TIER_COLOR = ['#9a9aae', '#ff8a2a', '#ffb000', '#ff2e63', '#b26bff', '#3aa0ff', '#ffd84d'];
 export const streakTier = (n: number) => { let t = 0; STREAK_TIERS.forEach((x, i) => { if (n >= x.min) t = i; }); return t; };
+// ── 0.9.9.9.6: the streak emblem — the day count written in kanji (一, 二, 三 … 十二 … 百), set alight ────────────
+// Each tier burns differently and better: Ash smoulders grey; Spark is a small orange flame; Ember has sparks
+// rising; Blaze burns crimson; Inferno purple, with a second flame; Azure blue and white-hot, with rays; Legend
+// gold, with a halo. The number is also written plainly underneath (it was in the middle of the flame and often
+// lost in it), and the flame just breathes (it used to skew from side to side).
 let flameId = 0;
 /**
- * A flame with the day count on it. `lit`: today's tasks are done (dim until then — still yours until midnight).
- * Size by CSS (.sf in its container).
+ * The streak emblem. `lit`: today's tasks are done (dim until then — still yours until midnight).
+ * Size by CSS (.sf's width in its container; everything inside scales with it).
  */
 export function streakFlame(n: number, lit: boolean): HTMLElement {
   const tier = streakTier(n);
+  const k = kanjiNumber(n);
   const box = document.createElement('span');
-  box.className = `sf t${tier}${lit ? ' lit' : ''}`;
+  box.className = `sf t${tier}${lit ? ' lit' : ''} k${Math.min(5, [...k].length)}`;
   box.title = tr(`${STREAK_TIERS[tier].name} · ${n} days`);
-  const g = `sfg${++flameId}`, c = `sfc${flameId}`;
-  // (a fixed drawing; only the numbers are data)
-  box.innerHTML = `<svg viewBox="0 0 64 80" aria-hidden="true"><defs>`
-    + `<linearGradient id="${g}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" style="stop-color:var(--f1)"/><stop offset=".55" style="stop-color:var(--f2)"/><stop offset="1" style="stop-color:var(--f3)"/></linearGradient>`
-    + `<linearGradient id="${c}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" style="stop-color:var(--c1)"/><stop offset="1" style="stop-color:var(--c2)"/></linearGradient></defs>`
-    + `<g class="sf-body"><path class="sf-outer" fill="url(#${g})" d="M33 2c3 13 15 20 19 33 5 16 0 32-12 39-9 6-22 5-29-4C2 59 6 46 13 37c2 7 5 11 10 12-5-14 0-32 10-47z"/>`
-    + `<path class="sf-core" fill="url(#${c})" d="M33 34c2 8 9 12 10 21 1 10-5 17-11 17-7 0-12-6-11-14 0-6 4-10 6-15 1 4 3 6 6 6-2-5-2-10 0-15z"/></g></svg>`;
-  const num = document.createElement('b');
+  const g = `sfg${++flameId}`;
+  // (a fixed drawing; only the numbers are data) the flame behind, then the kanji, then the plain number
+  box.innerHTML = `<svg class="sf-fire" viewBox="0 0 64 80" aria-hidden="true"><defs>`
+    + `<linearGradient id="${g}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" style="stop-color:var(--f1)"/><stop offset=".55" style="stop-color:var(--f2)"/><stop offset="1" style="stop-color:var(--f3)" stop-opacity=".2"/></linearGradient></defs>`
+    + `<path class="sf-back" fill="url(#${g})" d="M33 2c3 13 15 20 19 33 5 16 0 32-12 39-9 6-22 5-29-4C2 59 6 46 13 37c2 7 5 11 10 12-5-14 0-32 10-47z"/>`
+    + `<path class="sf-back2" fill="url(#${g})" d="M20 20c1 9 8 13 9 22 2 9-2 18-9 20-6 1-11-5-10-12 0-7 5-10 6-16 1 3 2 5 4 5-2-6-2-12 0-19zM46 18c1 8 7 12 8 20 1 9-3 16-9 17-5 0-9-5-8-11 0-6 4-9 5-14 1 3 2 4 3 4-1-5-1-11 1-16z"/></svg>`
+    + `<i class="sf-halo" aria-hidden="true"></i>`;
+  const kan = document.createElement('b');
+  kan.className = 'sf-k'; kan.lang = 'ja'; kan.textContent = k; kan.setAttribute('aria-hidden', 'true');
+  const num = document.createElement('i');
   num.className = 'sf-n';
   num.textContent = String(n);
-  box.append(num);
+  box.append(kan, num);
+  if (tier >= 2) for (let i = 0; i < Math.min(5, tier); i++) { const e = document.createElement('i'); e.className = 'sf-e'; e.style.setProperty('--i', String(i)); box.append(e); }
   return box;
 }
 
@@ -88,11 +98,14 @@ export function renderTasks(p: Profile) {
   sub.style.setProperty('--nc', TIER_COLOR[next ? tier + 1 : tier]);
   sub.style.setProperty('--np', next ? `${Math.round(((streak - STREAK_TIERS[tier].min) / (next.min - STREAK_TIERS[tier].min)) * 100)}%` : '100%');
   const left = next ? next.min - streak : 0;
-  sub.append(
-    mk('span', 'tn-flame', '🔥'),
-    mk('span', 'tn-text', next ? tr(`Next: ${next.name} — ${left} more ${left === 1 ? 'day' : 'days'}`) : tr('Legend flame — the highest')),
-    Object.assign(mk('span', 'tn-bar'), { innerHTML: '<i></i>' }),
-  );
+  // 0.9.9.9.6: the next flame itself, small, with its name and how many days — and a bar to it
+  const nextPic = next ? streakFlame(next.min, true) : streakFlame(streak, true);
+  nextPic.classList.add('tn-pic');
+  const txt = mk('span', 'tn-text');
+  if (next) {
+    txt.append(mk('small', 'tn-lbl', tr('Next flame')), mk('b', 'tn-name', tr(next.name)), mk('span', 'tn-left', tr(`in ${left} ${left === 1 ? 'day' : 'days'}`)));
+  } else txt.append(mk('small', 'tn-lbl', tr('Your flame')), mk('b', 'tn-name', tr('Legend — the highest')));
+  sub.append(nextPic, txt, Object.assign(mk('span', 'tn-bar'), { innerHTML: '<i></i>' }));
   const dots = mk('span', 'tb-dots');
   for (const t of tasks) dots.append(mk('i', t.value >= t.target ? 'on' : ''));
   head.append(dots);

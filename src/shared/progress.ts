@@ -94,7 +94,7 @@ export const SEASONS = [
 ] as const;
 /** The same three goals every month (counted on the player's own calendar days). */
 // ── avatar borders (0.9.9.3): round your profile picture, by level ──────────────────────────────────
-export interface BorderDef { id: string; name: string; level: number; blurb: string; /** earned another way (an unlock id), not by level */ unlock?: string }
+export interface BorderDef { id: string; name: string; level: number; blurb: string; /** earned another way (an unlock id), not by level */ unlock?: string; /** 0.9.9.9.6: a Daily challenge league's */ league?: string }
 export const BORDERS: readonly BorderDef[] = [
   { id: 'none', name: 'No border', level: 0, blurb: 'Just your picture.' },
   { id: 'apprentice', name: 'Apprentice', level: 1, blurb: 'A plain silver ring.' },
@@ -102,10 +102,25 @@ export const BORDERS: readonly BorderDef[] = [
   { id: 'master', name: 'Master', level: 10, blurb: 'A golden ring with a star at the top.' },
   { id: 'archmage', name: 'Archmage', level: 15, blurb: 'A glowing ring of moving arcane light.' },
   { id: 'beta', name: 'Beta', level: 0, unlock: 'border:beta', blurb: 'A platinum ring with a BETA tag — for everyone who finished the tutorial during the beta.' },
+  // 0.9.9.9.6: the Daily challenge leagues — each league reached, its own frame with the league's name at the foot
+  { id: 'lg-kana', name: 'Kana League', level: 0, league: 'KANA', blurb: 'Cherry-blossom pink, かな at its foot — play your first Daily challenge.' },
+  { id: 'lg-n5', name: 'N5 League', level: 0, league: 'N5', blurb: 'Jade and bronze with a leaf crest — reach the N5 league.' },
+  { id: 'lg-n4', name: 'N4 League', level: 0, league: 'N4', blurb: 'Knight’s steel, riveted, with a shield crest — reach the N4 league.' },
+  { id: 'lg-n3', name: 'N3 League', level: 0, league: 'N3', blurb: 'Moonlit violet with a crescent and drifting stars — reach the N3 league.' },
+  { id: 'lg-n2', name: 'N2 League', level: 0, league: 'N2', blurb: 'Arcane gold, a ring of turning runes and a star crown — reach the N2 league.' },
+  { id: 'lg-n1', name: 'N1 League', level: 0, league: 'N1', blurb: 'The legend: a ruby flame ring with golden wings and a crown — reach the N1 league, the highest.' },
 ];
+/** 0.9.9.9.6: a league's border, reached once you're in that league (or higher); the Kana one after your first Daily challenge */
+const leagueReached = (need: string, unlocks: readonly string[]) => {
+  const i = DAILY_LEAGUES.indexOf(leagueIn(unlocks) as never), n = DAILY_LEAGUES.indexOf(need as never);
+  if (n < 0) return false;
+  if (n === 0) return i > 0 || unlocks.some((x) => x.startsWith('dplayed:'));
+  return i >= n;
+};
 export const isBorder = (b: unknown): b is string => typeof b === 'string' && BORDERS.some((x) => x.id === b);
 export const borderUnlocked = (id: string, level: number, unlocks: readonly string[] = []) => {
   const b = BORDERS.find((x) => x.id === id);
+  if (b?.league) return leagueReached(b.league, unlocks);
   return !!b && (b.unlock ? unlocks.includes(b.unlock) : b.level <= level);
 };
 /** the beta border: given to every account that has finished the tutorial */

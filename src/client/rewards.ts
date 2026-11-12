@@ -5,13 +5,13 @@
 
 import { BACKGROUNDS, BORDERS, borderUnlocked, FLAMES, flameUnlocked, levelOf, STAFFS, staffUnlocked, unlocked, type BackgroundId, type FlameId, type StaffId } from '../shared/progress';
 import { api, type Profile } from './api';
-import { characterOf } from '../shared/progress';
+import { characterOf, CHARACTER_DEFS, characterUnlocked, type CharacterId } from '../shared/progress';
 import { backgroundThumb, getTimePref, resolveTime } from './backgrounds';
 import { staffSvg } from './art2d';
 import { avatarSvg } from './wizard';
 import * as ui from './ui';
 
-interface Reward { key: string; kind: 'arena' | 'flame' | 'staff' | 'border'; id: string; name: string; why: string }
+interface Reward { key: string; kind: 'arena' | 'flame' | 'staff' | 'border' | 'character'; id: string; name: string; why: string }
 
 const KEY = (uid: string) => `kb:seenRewards:${uid}`;
 const load = (uid: string): string[] | null => { try { const r = localStorage.getItem(KEY(uid)); return r ? JSON.parse(r) : null; } catch { return null; } };
@@ -23,13 +23,19 @@ function haveNow(p: Profile): Reward[] {
   for (const b of BACKGROUNDS) if (b.level > 0 && unlocked(b.id, p.xp)) out.push({ key: `arena:${b.id}`, kind: 'arena', id: b.id, name: `${b.name} arena`, why: `You reached level ${b.level}` });
   for (const f of FLAMES) if ((f.level > 0 || f.season) && flameUnlocked(f.id as FlameId, p.xp, un)) out.push({ key: `flame:${f.id}`, kind: 'flame', id: f.id, name: `${f.name} flames`, why: f.season ? 'Monthly goals complete' : `You reached level ${f.level}` });
   for (const s of STAFFS) if ((s.streak || s.season) && staffUnlocked(s.id as StaffId, best, un)) out.push({ key: `staff:${s.id}`, kind: 'staff', id: s.id, name: s.name, why: s.season ? 'Monthly goals complete' : `A ${s.streak}-day daily streak` });
-  for (const b of BORDERS) if ((b.level > 0 || b.unlock) && borderUnlocked(b.id, lvl, un)) out.push({ key: `border:${b.id}`, kind: 'border', id: b.id, name: `${b.name} border`, why: b.unlock ? 'Thank you for playing the beta!' : `You reached level ${b.level}` });
+  for (const b of BORDERS) if ((b.level > 0 || b.unlock || b.league) && borderUnlocked(b.id, lvl, un)) out.push({ key: `border:${b.id}`, kind: 'border', id: b.id, name: `${b.name} border`, why: b.league ? (b.league === 'KANA' ? 'Your first Daily challenge' : `You reached the ${b.league} league`) : b.unlock ? 'Thank you for playing the beta!' : `You reached level ${b.level}` });
+  // 0.9.9.9.6: the characters of the Daily challenge leagues
+  for (const c of CHARACTER_DEFS) if (c.league && characterUnlocked(c.id, un)) out.push({ key: `char:${c.id}`, kind: 'character', id: c.id, name: `The ${c.name}`, why: `You reached the ${c.league} league` });
   return out;
 }
 
 let queue: Reward[] = [];
 let profile: Profile | null = null;
 let onEquipped: (p: Profile) => void = () => {};
+
+/** 0.9.9.9.6: the league-up screen showed these already — the box won't show them again */
+export function markRewardsSeen(uid: string, keys: string[]) { save(uid, [...new Set([...(load(uid) ?? []), ...keys])]); }
+export { preview as rewardPreview };
 
 /** On the menu: anything new since last time? (Admins have everything — no boxes for them.) */
 export function checkRewards(uid: string, p: Profile, isAdmin: boolean, equipped: (p: Profile) => void) {
@@ -49,6 +55,7 @@ function preview(r: Reward, p: Profile): HTMLElement {
   const box = document.createElement('div');
   box.className = `rw-preview rw-${r.kind}`;
   if (r.kind === 'arena') box.innerHTML = backgroundThumb(r.id as BackgroundId, resolveTime(getTimePref()));
+  else if (r.kind === 'character') { const w = document.createElement('div'); w.className = 'rw-char big'; w.innerHTML = avatarSvg(r.id as CharacterId, 'me', p.staff); box.append(w); }
   else if (r.kind === 'staff') { const w = document.createElement('div'); w.className = 'rw-char'; w.innerHTML = avatarSvg(characterOf(p.unlocks), 'me', r.id); const s = document.createElement('div'); s.className = 'pixel-staff big'; s.innerHTML = staffSvg(r.id); box.append(s, w); }
   else if (r.kind === 'flame') {
     const w = document.createElement('div'); w.className = 'wizard me onfire'; ui.paintFlame(w, r.id);
@@ -71,14 +78,14 @@ function showNext() {
   ui.$('rewardWhy').textContent = r.why;
   ui.$('rewardName').textContent = r.name;
   ui.$('rewardPreview').replaceChildren(preview(r, p));
-  const equipped = (r.kind === 'arena' && p.background === r.id) || (r.kind === 'flame' && p.flame === r.id) || (r.kind === 'staff' && p.staff === r.id) || (r.kind === 'border' && (p.border ?? 'none') === r.id);
+  const equipped = (r.kind === 'character' && characterOf(p.unlocks) === r.id) || (r.kind === 'arena' && p.background === r.id) || (r.kind === 'flame' && p.flame === r.id) || (r.kind === 'staff' && p.staff === r.id) || (r.kind === 'border' && (p.border ?? 'none') === r.id);
   const eq = ui.$<HTMLButtonElement>('rewardEquip');
   eq.hidden = equipped;
   eq.disabled = false;
   eq.onclick = async () => {
     eq.disabled = true;
     try {
-      const res = r.kind === 'arena' ? await api.setBackground(r.id as BackgroundId) : r.kind === 'flame' ? await api.setFlame(r.id as FlameId) : r.kind === 'staff' ? await api.setStaff(r.id as StaffId) : await api.setBorder(r.id);
+      const res = r.kind === 'character' ? await api.setCharacter(r.id) : r.kind === 'arena' ? await api.setBackground(r.id as BackgroundId) : r.kind === 'flame' ? await api.setFlame(r.id as FlameId) : r.kind === 'staff' ? await api.setStaff(r.id as StaffId) : await api.setBorder(r.id);
       profile = res.profile;
       onEquipped(res.profile);
       ui.toast(`${r.name} equipped`);

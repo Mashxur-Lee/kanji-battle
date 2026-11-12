@@ -82,6 +82,8 @@ export interface PlayerView {
 }
 
 /** sys (0.9.9.9.5.5): a line from the game — someone joined or left the lobby (`name` is who) */
+/** 0.9.9.9.6: one message of the messenger (`from` / `to`: a player's id or 'support', the team) */
+export interface DmView { id: string; from: string; to: string; text: string; at: number; read: boolean; kind?: string; by?: string }
 export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number; sys?: 'join' | 'leave' }
 export const CHAT_MAX_LENGTH = 140;
 
@@ -210,6 +212,8 @@ export interface ChallengeMsg {
   flashMs?: number;
   /** 0.9.9.4.4.2 (Rapid): whose All spells the word comes from — 'you', a player's name, or none (a random word) */
   from?: string;
+  /** 0.9.9.9.6: the tutorial's first battle — the answer, shown under the word */
+  hint?: { kana: string; romaji: string; meaning: string };
 }
 
 export type ServerMessage =
@@ -245,6 +249,8 @@ export type ServerMessage =
   | { type: 'lobby'; players: PlayerView[]; hostId: PlayerId; maxPlayers: number; minPlayers: number; mode: GameMode; /** 0.9.9.9.5.5 */ open?: boolean }
   /** 0.9.9.9.5.5: someone in the room is typing in the chat (or stopped) */
   | { type: 'chat_typing'; id: PlayerId; name: string; on: boolean }
+  /** 0.9.9.9.6: a new message in the messenger (to you — or, for admins, to the team) */
+  | { type: 'dm'; message: DmView; fromName: string }
   | { type: 'prep'; pool: StudyItem[]; durationMs: number; readyIds: PlayerId[]; players: PlayerView[] }
   | { type: 'prep_ready'; readyIds: PlayerId[] }
   | {

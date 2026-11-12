@@ -28,7 +28,7 @@ export class RoomManager {
       spellIds: this.deps.spellIds,
       onMatchEnd: this.deps.onMatchEnd,
       onGameStart: this.deps.onGameStart,
-    }, quick ? { ...this.opts, game: { ...this.opts.game, prepMs: 30_000, battleMs: 120_000 } } : this.opts);
+    }, quick ? { ...this.opts, tutorial: true, game: { ...this.opts.game, prepMs: 20_000, battleMs: 150_000 } } : this.opts); // (0.9.9.9.6: the tutorial)
     this.rooms.set(code, room);
     return room;
   }

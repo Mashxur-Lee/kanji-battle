@@ -7,6 +7,31 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.6', date: '2026-11',
+    en: [
+      'Messages: a ✉ button in the menu. Chat with your friends (“✉ Message” on their profile) and with the team — your Feedback lands there and we answer there. New messages show a number, and reach your phone when the app is closed.',
+      'A new tutorial: short, and it shows the game — your first spell (type yama, written out big), a lit-up tour of the menu, then a short battle where the answer is under every word, the battle screen is explained, and the AI casts only once for every two of your spells.',
+      'Daily challenge: “Earlier days” — the last week’s words of every league with their readings, and each league’s results.',
+      'League up! Reaching a new league is a moment now: its crest, and its rewards with Equip buttons — a new border for every league (Kana to N1, each grander, the league on a plaque at the foot) and the characters at N4, N3 and N2. The page also shows what the next league brings.',
+      'Streak flames rebuilt: your day count written in kanji (一, 二, 三 … 十二 …) and set alight — each tier burns better (sparks, a second flame, blue rays, a golden halo), the number is always readable under it, and no more odd wobble. The banner shows the next flame itself.',
+      'Friends’ profiles open at once (they’re fetched while your pointer is on the name, and kept a minute).',
+      'Phones: picking levels — the tick sits on the chip’s corner, so the row no longer jumps as you pick several; the combo counter sits up top under your name (it covered the answers above the keyboard); the menu cards no longer flicker when you scroll or come back.',
+      'The “Study 10 spells or kana” task opens Kana until you’ve mastered hiragana.',
+      'A game against the AI started offline goes on when you come back online (it took you to an old lobby).',
+    ],
+    ru: [
+      'Сообщения: кнопка ✉ в меню. Переписывайтесь с друзьями («✉ Написать» в их профиле) и с командой — ваши отзывы попадают туда же, и мы отвечаем там. Новые сообщения видны по числу и приходят на телефон, когда игра закрыта.',
+      'Новое обучение: короткое и показывает саму игру — первое заклинание (напечатайте yama, ответ написан крупно), подсвеченный обзор меню, затем короткий бой, где ответ написан под каждым словом, экран боя объяснён, а ИИ колдует только раз на два ваших заклинания.',
+      'Ежедневный вызов: «Прошлые дни» — слова каждой лиги за последнюю неделю с чтениями и результаты каждой лиги.',
+      'Новая лига! Переход в новую лигу теперь — событие: её герб и награды с кнопками «Надеть» — новая рамка для каждой лиги (от каны до N1, каждая роскошнее, с названием лиги внизу) и персонажи на N4, N3 и N2. На странице видно, что даст следующая лига.',
+      'Пламя серии переделано: число дней написано кандзи (一, 二, 三 … 十二 …) и горит — каждая ступень горит ярче (искры, второе пламя, синие лучи, золотой ореол), число всегда читается под ним, и без странного покачивания. В баннере видно само следующее пламя.',
+      'Профили друзей открываются сразу (загружаются, пока указатель на имени, и хранятся минуту).',
+      'Телефоны: выбор уровней — галочка в углу кнопки, ряд больше не прыгает; счётчик комбо — вверху под вашим именем (над клавиатурой он закрывал ответы); карточки меню больше не мерцают при прокрутке и возвращении.',
+      'Задание «Изучите 10 заклинаний или каны» открывает Кану, пока хирагана не освоена.',
+      'Игра против ИИ, начатая офлайн, продолжается, когда связь возвращается (раньше выбрасывало в старое лобби).',
+    ],
+  },
+  {
     v: '0.9.9.9.5.5', date: '2026-11',
     en: [
       'Private lobby: the mode is a big banner at the top (“← Leave room” covered it), leaving asks first, the chat says “Ann is typing…” and when someone joins or leaves.',

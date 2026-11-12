@@ -123,6 +123,9 @@ export class SessionHub {
   kick(userId: string, message: string) { this.byUser.get(userId)?.kick(message); }
   /** A message to one player, if they're connected (friend requests, invites). */
   sendTo(userId: string, msg: ServerMessage) { const s = this.byUser.get(userId); if (s) s.send(msg); return !!s; }
+  /** 0.9.9.9.6: a message to every admin connected (the team's messages) */
+  sendAdmins(msg: ServerMessage) { for (const s of this.byUser.values()) if (s.isAdmin()) s.send(msg); }
+  online(userId: string) { return this.byUser.has(userId); }
   /** A message to everyone connected (e.g. "the game is updating"). */
   broadcast(msg: ServerMessage) { for (const s of this.byUser.values()) s.send(msg); }
 }
@@ -135,6 +138,7 @@ export const SCREEN_ACTIVITY: Record<string, string> = {
   daily: 'Playing the daily challenge', customize: 'Customizing', progress: 'Looking at their progress', history: 'Looking at match history', friends: 'With friends',
   // 0.9.9.9.5.4: the Kana section (it showed "In the menus"), the Quizzes page, the dictionary
   kana: 'Studying kana', kanaplay: 'Studying kana', quizzes: 'Choosing a quiz', dict: 'In the dictionary',
+  inbox: 'Reading messages', // 0.9.9.9.6
 };
 export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; declinedAt?: number; now: number }): string | null {
   if (o.inRoom) return 'Your friend is already in this room';
@@ -196,6 +200,7 @@ export class Session implements Client {
   inRoom() { return !!this.room; }
 
   send(msg: ServerMessage) { this.out(JSON.stringify(msg)); }
+  isAdmin() { return this.user?.role === 'admin'; }
 
   /** Connection quality: ping every few seconds, the room shows everyone's round-trip time. */
   private pingTimer?: ReturnType<typeof setInterval>;

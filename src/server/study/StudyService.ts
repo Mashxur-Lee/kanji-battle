@@ -708,7 +708,7 @@ export class StudyService {
   async setBorder(u: UserRecord, b: unknown) {
     if (!isBorder(b)) throw new StudyError('Unknown border');
     const def = BORDERS.find((x) => x.id === b)!;
-    if (u.role !== 'admin' && !borderUnlocked(b, levelOf(u.xp), u.unlocks)) throw new StudyError(def.unlock ? 'Finish the tutorial to get the Beta border' : `Unlocks at level ${def.level}`, 403);
+    if (u.role !== 'admin' && !borderUnlocked(b, levelOf(u.xp), u.unlocks)) throw new StudyError(def.league ? `Reach the ${def.league === 'KANA' ? 'Kana' : def.league} league in the Daily challenge first` : def.unlock ? 'Finish the tutorial to get the Beta border' : `Unlocks at level ${def.level}`, 403);
     await this.store.update(u.id, { border: b });
     return this.profile((await this.store.findById(u.id)) ?? u);
   }
