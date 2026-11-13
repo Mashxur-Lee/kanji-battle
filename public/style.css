@@ -5005,3 +5005,11 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .pc-streak { grid-template-columns: auto minmax(0, 1fr) auto; }
 .pc-ring.none { background: conic-gradient(rgba(255, 255, 255, .14) 0 100%); }
 #otherPop { overflow-x: hidden; }
+.pp-grid .pill { white-space: normal; line-height: 1.15; text-align: center; padding: 7px 8px; gap: 6px; }
+.pp-grid .pill span { overflow: visible; }
+@media (max-width: 560px) { .pp-grid .pill { font-size: .8rem; } .pp-ic svg { width: 15px; height: 15px; } }
+/* the flame pictures are square (the old drawn flame was taller than wide): a little bigger in the banner */
+#menu .tasks-btn .sf.sf2 { width: 72px; }
+#menu .tasks-btn.folded .sf.sf2 { width: 50px; }
+@media (max-width: 640px) { #menu .tasks-btn .sf.sf2 { width: 60px; } }
+#menu .tasks-btn .tb-next .tn-pic.sf2 { width: 26px; }

@@ -799,13 +799,15 @@ interface ArtSpots {
   flies: TimeOfDay[]; mist?: number; rays?: boolean;
   /** 0.9.9.9.5.2: falling leaves (their colour by time of day), birds crossing the sky, glints on the water (top of the band, %) */
   leaves?: Partial<Record<TimeOfDay, string>>; birds?: boolean; water?: number;
+  /** 0.9.9.9.6.2: no drifting clouds (over the World Tree's crown they looked like fog in front of it) */
+  noClouds?: boolean;
 }
 const SPOTS: Record<BackgroundId, ArtSpots> = {
   castle: { stones: [[11.3, 66, 79], [31, 68, 77], [68.8, 68, 77], [88.7, 66, 79]], torches: [[17, 72], [82.8, 72]], rune: '#ffb347', ringTop: 87, flies: [], birds: true },
   plains: { stones: [[11.8, 58, 76], [31, 60, 73], [68.8, 60, 73], [88.5, 58, 76]], torches: [[18.8, 68.5], [81, 68.5]], rune: '#ffb347', ringTop: 85, flies: ['night'], birds: true, leaves: { day: '#9bd16a', sunset: '#f2a35a' } },
   forest: { stones: [[11.7, 61, 77], [32, 63, 75], [68.6, 63, 75], [88.8, 61, 77]], torches: [], rune: '#5fb8ff', ringTop: 83, flies: ['sunset', 'night'], mist: 62, rays: true, leaves: { day: '#8cc85a', sunset: '#e8914a', night: '#6f8fb8' } },
   swamp: { stones: [[11.7, 54, 72], [31.3, 57, 71], [69, 57, 71], [89, 54, 72]], torches: [], rune: '#5dff8a', ringTop: 84, flies: ['sunset', 'night'], mist: 55, water: 74 },
-  worldtree: { stones: [[11.1, 60, 77], [31.5, 62, 75], [69.4, 62, 75], [89, 60, 77]], torches: [], rune: '#45f0a0', ringTop: 87, flies: ['sunset', 'night'], birds: true, leaves: { day: '#ffc2dc', sunset: '#ffb28a', night: '#7dffc4' } },
+  worldtree: { stones: [[11.1, 60, 77], [31.5, 62, 75], [69.4, 62, 75], [89, 60, 77]], torches: [], rune: '#45f0a0', ringTop: 87, flies: ['sunset', 'night'], birds: true, noClouds: true, leaves: { day: '#ffc2dc', sunset: '#ffb28a', night: '#7dffc4' } },
 };
 const lite = () => matchMedia('(pointer: coarse)').matches;
 
@@ -906,7 +908,7 @@ function artStage(id: BackgroundId, t: TimeOfDay, onFail: () => void): HTMLEleme
     for (let k = 0; k < (few ? 6 : 16); k++) add('fx-mote', rnd() * 100, 45 + rnd() * 45, { '--d': `${(rnd() * 8).toFixed(2)}s`, '--dur': `${(7 + rnd() * 6).toFixed(2)}s`, '--dx': `${((rnd() - 0.5) * 60).toFixed(0)}px` });
   }
   // 0.9.9.9.5.2: clouds sailing by, birds crossing, leaves (or the world tree's glowing petals) falling, glints on the water
-  if (t !== 'night') for (let k = 0; k < (few ? 2 : 4); k++) {
+  if (t !== 'night' && !sp.noClouds) for (let k = 0; k < (few ? 2 : 4); k++) {
     add('fx-cloud', -30, 2 + rnd() * 22, { '--d': `${(-rnd() * 120).toFixed(1)}s`, '--dur': `${(110 + rnd() * 70).toFixed(0)}s`, '--w': `${(18 + rnd() * 16).toFixed(1)}%`, '--o': (t === 'day' ? 0.5 : 0.38) + rnd() * 0.2 });
   }
   if (sp.birds && t !== 'night') for (let k = 0; k < (few ? 1 : 2); k++) {
