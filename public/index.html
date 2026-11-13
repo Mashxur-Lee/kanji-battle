@@ -35,17 +35,9 @@
         <div><div class="pp-name-row"><div id="ppName" class="pp-name"></div><button id="ppRename" class="pp-rename" type="button" title="Change your nickname" aria-label="Change your nickname">✎</button></div><div id="ppLogin" class="pp-login" hidden></div><form id="ppRenameForm" class="pp-rename-form" hidden><input id="ppRenameInput" maxlength="24" placeholder="Nickname (empty: your login)" autocomplete="off"><button type="submit" class="pill primary">Save</button></form><div id="whoLevel" class="pp-level">Lv 0</div><div id="ppBadges"></div></div>
       </div>
       <div class="xpbar" title="XP to next level"><span id="whoXp"></span></div>
-      <div class="pp-stats">
-        <div><b id="ppWins">0</b><span>wins</span></div>
-        <div><b id="ppLosses">0</b><span>losses</span></div>
-        <div><b id="ppRate">—</b><span>win rate</span></div>
-        <div><b id="ppLearned">0</b><span>spells learned</span></div>
-        <div><b id="ppToday">0</b><span>learned today</span></div>
-      </div>
-      <div class="pp-stats pp-streaks">
-        <div class="streak-box"><b id="ppStreak">0</b><span>daily streak (days)</span></div>
-        <div class="streak-box best"><b id="ppBestStreak">0</b><span>best streak (days)</span></div>
-      </div>
+      <!-- 0.9.9.9.6.2: the stats and the streak, drawn by ui.ts (statsCard / streakCard — the same as a friend's) -->
+      <div id="ppStatsBox"></div>
+      <div id="ppStreakBox"></div>
       <button id="ppTasks" class="pp-tasks link" type="button"></button>
       <div class="pp-actions">
         <label class="pill" title="PNG, JPEG or WebP">Change picture<input id="picInput" type="file" accept="image/png,image/jpeg,image/webp,image/*" hidden></label>

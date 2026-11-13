@@ -41,29 +41,27 @@ function borderPreview(p: Profile | null, border: string) {
   return d;
 }
 
-/** 0.9.9.9.6.1: what the next league brings (the daily page) — a card: its crest, the rewards as tiles, how to get there */
-export function nextLeagueRow(next: string, promoteAt = 7): HTMLElement | null {
-  const { border, character } = leagueRewards(next);
-  if (!border && !character) return null;
-  const card = h('div', 'lg-next');
-  const left = h('div', 'lg-next-head');
-  left.append(leagueCrest(next, 'small'), h('div', 'lg-next-txt'));
-  (left.lastChild as HTMLElement).append(h('small', 'lg-next-k', tr('Next league')), h('b', 'lg-next-n', `${LEAGUE_TITLE[next]} ${tr('league')}`), h('span', 'lg-next-how', tr(`Score ${promoteAt}/10 or better to move up`)));
-  const tiles = h('div', 'lg-next-tiles');
-  if (border) {
-    const t = h('div', 'lg-tile');
-    const d = h('span', `avatar lg-tile-av${ui.borderCls(border.id)}`, (ui.myName() || '✦').slice(0, 1).toUpperCase());
-    t.append(h('span', 'lg-tile-pic'), h('small', '', tr('Border')), h('b', '', tr(`${border.name} border`)));
-    (t.firstChild as HTMLElement).append(d);
-    tiles.append(t);
-  }
-  if (character) {
-    const t = h('div', 'lg-tile');
-    const s = h('span', 'lg-tile-pic char'); s.innerHTML = avatarSvg(character.id, 'me', 'verdant');
-    t.append(s, h('small', '', tr('Character')), h('b', '', tr(`The ${character.name}`)));
-    tiles.append(t);
-  }
-  card.append(left, tiles);
+/** 0.9.9.9.6.2: the daily page — your league, big (crest, name), and the next one small under it with how to get
+ * there and what it brings (the next league's big card made it look like the league you're in) */
+export function leagueCard(current: string, next: string | undefined, promoteAt = 7): HTMLElement {
+  const card = h('div', `lg-mine lg-${current.toLowerCase()}`);
+  const head = h('div', 'lg-mine-head');
+  const t = h('div', 'lg-mine-txt');
+  t.append(h('small', 'lg-mine-k', tr('Your league')), h('b', 'lg-mine-n', `${LEAGUE_TITLE[current] ?? current} ${tr('league')}`));
+  head.append(leagueCrest(current, 'mid'), t);
+  card.append(head);
+  if (next) {
+    const { border, character } = leagueRewards(next);
+    const nx = h('div', 'lg-nx');
+    const lbl = h('span', 'lg-nx-l');
+    lbl.append(h('small', '', tr('Next')), leagueCrest(next, 'tiny'), h('b', '', LEAGUE_TITLE[next] ?? next));
+    nx.append(lbl, h('span', 'lg-nx-how', tr(`Score ${promoteAt}/10 or better to move up`)));
+    const rw = h('span', 'lg-nx-rw');
+    if (border) { const d = h('span', `avatar lg-nx-av${ui.borderCls(border.id)}`, (ui.myName() || '✦').slice(0, 1).toUpperCase()); d.title = tr(`${border.name} border`); rw.append(d); }
+    if (character) { const c = h('span', 'lg-nx-char'); c.innerHTML = avatarSvg(character.id, 'me', 'verdant'); c.title = tr(`The ${character.name}`); rw.append(c); }
+    if (rw.childElementCount) nx.append(rw);
+    card.append(nx);
+  } else card.append(h('p', 'lg-nx-top', tr('The highest league — stay on top!')));
   return card;
 }
 

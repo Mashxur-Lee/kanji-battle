@@ -45,15 +45,20 @@ export class MessageService {
 
   async list(u: UserRecord, asSupport = false): Promise<{ conversations: ConversationView[]; unread: number; mutedAll?: boolean }> {
     const me = this.side(u, asSupport);
-    const rows = await this.store.conversations(me, 60);
-    const friends = asSupport ? new Set<string>() : new Set((await this.store.friends(u.id)).filter((f) => f.status === 'accepted').map((f) => f.id));
+    // 0.9.9.9.6.2: the lookups run side by side (they used to go one after another), and a slow list is logged
+    const t0 = this.now();
+    const [rows, fl] = await Promise.all([this.store.conversations(me, 60), asSupport ? Promise.resolve([]) : this.store.friends(u.id)]);
+    const friends = new Set(fl.filter((f) => f.status === 'accepted').map((f) => f.id));
+    const people = await Promise.all(rows.map((r) => (r.other === SUPPORT_ID ? Promise.resolve(null) : this.store.findById(r.other))));
     const out: ConversationView[] = [];
-    for (const r of rows) {
-      if (r.other === SUPPORT_ID) { out.push({ id: SUPPORT_ID, name: 'Kanji Wizards team', pic: null, online: true, support: true, last: view(r.last), unread: r.unread, friend: false }); continue; }
-      const o = await this.store.findById(r.other);
-      if (!o) continue;
+    rows.forEach((r, i) => {
+      if (r.other === SUPPORT_ID) { out.push({ id: SUPPORT_ID, name: 'Kanji Wizards team', pic: null, online: true, support: true, last: view(r.last), unread: r.unread, friend: false }); return; }
+      const o = people[i];
+      if (!o) return;
       out.push({ id: o.id, name: o.nickname || o.username, pic: picUrl(o), online: this.hooks.online?.(o.id) ?? false, support: false, last: view(r.last), unread: r.unread, friend: friends.has(o.id) });
-    }
+    });
+    const took = this.now() - t0;
+    if (took > 2000) console.warn(`[messages] the list took ${took} ms (${rows.length} conversations)`);
     // a player always has the team in their list (to write to it), even before the first message
     if (!asSupport && !out.some((c) => c.support)) {
       out.push({ id: SUPPORT_ID, name: 'Kanji Wizards team', pic: null, online: true, support: true, unread: 0, friend: false,

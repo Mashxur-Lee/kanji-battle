@@ -1,6 +1,6 @@
 import { PausableClock } from './clock';
 import { Bot, botLevels, botName, isBotLevel, type BotHost } from './Bot';
-import { FLAMES, POSES, STAFFS } from '../shared/progress';
+import { borderOf, FLAMES, POSES, STAFFS } from '../shared/progress';
 import { CHAT_MAX_LENGTH, type BossView, type MatchDetail, type MissedWord, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { CHARACTERS, levelOf, type MatchOutcome } from '../shared/progress';
 import { BOSS_PARTY_SIZE, BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
@@ -684,7 +684,7 @@ export class Room {
         pic: p.profile.pic ?? null,
         flame: p.profile.flame ?? 'blue',
         staff: p.profile.staff ?? 'verdant',
-        border: p.profile.border ?? 'none',
+        border: borderOf(p.profile.border),
         pose: p.profile.pose ?? 'none',
         ready: p.ready,
       };

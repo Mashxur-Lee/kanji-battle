@@ -567,8 +567,8 @@ const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
   staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak — your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
   arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
-  profile: () => 'Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.',
-  character: (p) => `Your character in battles. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight (N4), the Witch (N3) and the Wizard (N2). You are in the ${leagueIn(p.unlocks) === 'KANA' ? 'Kana' : leagueIn(p.unlocks)} league.`,
+  profile: () => 'Your profile card: a frame round your picture (the Beta one, and one for each Daily challenge league you reach) and up to 3 achievement badges under your name.',
+  character: (p) => `Your character in battles. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight (N5), the Witch (N3) and the Wizard (N2). You are in the ${leagueIn(p.unlocks) === 'KANA' ? 'Kana' : leagueIn(p.unlocks)} league.`,
   pose: () => 'Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300).',
   omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up.',
 };

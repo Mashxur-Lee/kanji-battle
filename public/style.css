@@ -1841,26 +1841,12 @@ body.has-3d .fighter .hpnum, body.has-3d .fighter .name { color: #f1eefc; }
 
 /* ── 0.9.9.3: avatar borders (Customize → Profile) ── */
 .bd { position: relative; }
-.bd-apprentice { box-shadow: 0 0 0 3.5px #e6ebf3, 0 0 0 6px rgba(40, 44, 60, .85); }
-.bd-adept { box-shadow: 0 0 0 4px #b79cff, 0 0 0 6.5px #4a2e9a, 0 0 12px 3px rgba(169, 139, 255, .6); }
-.bd-master { box-shadow: 0 0 0 4px #ffe29a, 0 0 0 7px #b8821e, 0 0 16px 4px rgba(255, 200, 90, .6); }
-.bd-archmage { animation: bd-arcane 4s linear infinite; }
-@keyframes bd-arcane {
-  0%, 100% { box-shadow: 0 0 0 4px #7af0ff, 0 0 0 7.5px #6b3dff, 0 0 18px 5px rgba(122, 240, 255, .6); }
-  33% { box-shadow: 0 0 0 4px #ff8cf0, 0 0 0 7.5px #2e7dff, 0 0 20px 6px rgba(255, 140, 240, .6); }
-  66% { box-shadow: 0 0 0 4px #ffe27a, 0 0 0 7.5px #b03dff, 0 0 18px 5px rgba(255, 226, 122, .55); }
-}
 /* the Beta border: platinum, with a BETA tag at the bottom */
 .bd-beta { box-shadow: 0 0 0 2px #f7f9fc, 0 0 0 5px #b9c3cf, 0 0 0 7px #6f7b8a, 0 0 14px 3px rgba(220, 232, 245, .55); }
 div.bd-beta::after { content: "BETA"; position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); padding: 1px 6px; border-radius: 6px; font: 900 9px/1.3 system-ui, sans-serif; letter-spacing: .12em;
   color: #2a313c; background: linear-gradient(180deg, #ffffff, #b9c3cf); border: 1px solid #6f7b8a; box-shadow: 0 2px 6px rgba(0, 0, 0, .4); z-index: 1; pointer-events: none; }
 .pp-pic.big.bd-beta::after { font-size: 13px; bottom: -12px; padding: 2px 10px; }
 .avatar.bd-beta::after { font-size: 6px; bottom: -6px; padding: 0 3px; letter-spacing: .06em; }
-/* bigger frames carry an ornament: rune studs (adept), a star on top (master, archmage) */
-div.bd-adept::after, div.bd-master::after, div.bd-archmage::after { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 1; line-height: 1; }
-div.bd-adept::after { content: "◆"; top: -9px; font-size: 12px; color: #d9c8ff; text-shadow: 0 0 6px #8a5cff; }
-div.bd-master::after { content: "★"; top: -12px; font-size: 16px; color: #ffe29a; text-shadow: 0 0 8px #ffb84a, 0 1px 0 #6b4a0a; }
-div.bd-archmage::after { content: "✦"; top: -13px; font-size: 18px; color: #c9fbff; text-shadow: 0 0 10px #7af0ff, 0 0 18px #b03dff; }
 .avatar.bd, .pp-pic.bd { overflow: visible; }
 .avatar.bd > img, .pp-pic.bd > img { border-radius: 50%; }
 .ci-avatar { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); margin: 10px auto; }
@@ -4420,7 +4406,6 @@ body.has-3d .combo-broken { right: auto; left: 7%; top: auto; bottom: 24%; }
 .art-fx[data-weather="rain"] .fx-mote, .art-fx[data-weather="storm"] .fx-mote, .art-fx[data-weather="rain"] .fx-rays, .art-fx[data-weather="storm"] .fx-rays,
 .art-fx[data-weather="rain"] .fx-fly, .art-fx[data-weather="storm"] .fx-fly, .art-fx[data-weather="rain"] .fx-flock, .art-fx[data-weather="storm"] .fx-flock { display: none; }
 .art-fx[data-weather="storm"] .fx-cloud { filter: brightness(.55); }
-@media (prefers-reduced-motion: reduce) { .fx-flash { display: none; } }
 
 /* ══ 0.9.9.9.5.5: Customize ══════════════════════════════════════════════════════════════════════════════════ */
 /* phones: the slot pictures smaller (they filled the tiles) */
@@ -4585,7 +4570,6 @@ body.has-3d .combo-broken { right: auto; left: 7%; top: auto; bottom: 24%; }
 .sf:not(.lit) .sf-k { filter: saturate(.2) brightness(.85); }
 .sf:not(.lit) .sf-halo { opacity: .25; }
 .sf:not(.lit) .sf-n { border-color: rgba(255, 255, 255, .3); }
-@media (prefers-reduced-motion: reduce) { .sf.lit svg.sf-fire, .sf.lit .sf-k, .sf.lit .sf-e, .sf .sf-halo { animation: none !important; } }
 /* the banner's "next flame": the flame itself, small, with its name and the days to go */
 #menu .tasks-btn .tb-next { gap: 10px; padding: 4px 14px 4px 6px; }
 #menu .tasks-btn .tb-next .tn-pic { width: 26px; }
@@ -4603,18 +4587,6 @@ body.has-3d .combo-broken { right: auto; left: 7%; top: auto; bottom: 24%; }
   background-position: center; background-size: 100% 100%; background-repeat: no-repeat; }
 :is(div, span, button).bd[class*="bd-lg-"]::after { content: none; }
 .bd-lg-kana { box-shadow: 0 0 14px 4px rgba(255, 140, 190, .45); }
-.bd-lg-n5 { box-shadow: 0 0 14px 4px rgba(80, 200, 130, .45); }
-.bd-lg-n4 { box-shadow: 0 0 14px 4px rgba(190, 210, 235, .45); }
-.bd-lg-n3 { box-shadow: 0 0 18px 5px rgba(150, 110, 255, .55); animation: bdGlowN3 4s ease-in-out infinite; }
-.bd-lg-n2 { box-shadow: 0 0 20px 6px rgba(255, 200, 60, .6); animation: bdGlowN2 3s ease-in-out infinite; }
-.bd-lg-n1 { box-shadow: 0 0 24px 8px rgba(255, 50, 90, .6); animation: bdGlowN1 2.2s ease-in-out infinite; }
-@keyframes bdGlowN3 { 50% { box-shadow: 0 0 26px 8px rgba(170, 130, 255, .75); } }
-@keyframes bdGlowN2 { 50% { box-shadow: 0 0 30px 10px rgba(255, 220, 90, .8); } }
-@keyframes bdGlowN1 { 50% { box-shadow: 0 0 34px 12px rgba(255, 80, 110, .85), 0 -8px 30px 6px rgba(255, 190, 60, .5); } }
-/* the wings of N2 and N1 lift a little */
-.bd-lg-n1::before { animation: bdWings 2.6s ease-in-out infinite; transform-origin: 50% 55%; }
-@keyframes bdWings { 50% { transform: scale(1.04, .985) translateY(-1.5%); } }
-@media (prefers-reduced-motion: reduce) { .bd-lg-n3, .bd-lg-n2, .bd-lg-n1, .bd-lg-n1::before { animation: none; } }
 /* room for the frame: the plaque hangs below small avatars in lists */
 .avatar.bd[class*="bd-lg-"] { margin: 3px 4px 6px; }
 
@@ -4847,7 +4819,6 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .sf:not(.lit) svg.sf-fire { filter: saturate(.25) brightness(.7); }
 /* the higher tiers glow behind */
 .sf.t4::before, .sf.t5::before, .sf.t6::before { opacity: 1; inset: -20% -34% -6%; }
-@media (prefers-reduced-motion: reduce) { .sf .tg, .sf .sf-smoke, .sf .sf-glow { animation: none !important; } }
 /* phones: the flames move as whole tongues (each one a layer: cheap) */
 @media (pointer: coarse) { .sf .tg { will-change: transform; } }
 /* "View profile": the badges' descriptions above the scene; the slot pictures smaller and centred */
@@ -4869,4 +4840,143 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
   .sf .sf-e, .sf .sf-halo { display: none; }
   .sf::before { display: none; }
   .sf .tg { animation-duration: calc(var(--s, 1.4s) * 1.4); }
+}
+
+/* ── 0.9.9.9.6.2 ─────────────────────────────────────────────────────────────────────────────────────────────── */
+/* messenger: swipe a message left to answer it (its ↩ lights up when letting go will quote it) */
+.msg-row { touch-action: pan-y; }
+.msg-row .msg-b { transform: translateX(var(--sw, 0px)); transition: transform .22s cubic-bezier(.2, .9, .3, 1.2); }
+.msg-row.swiping .msg-b { transition: none; }
+.msg-row.swiping .msg-qbtn { opacity: .9; transform: translateX(calc(var(--sw, 0px) * .5)) scale(.9); }
+.msg-row.armed .msg-qbtn { opacity: 1; color: #fff; background: var(--accent); transform: translateX(calc(var(--sw, 0px) * .5)) scale(1.15); }
+.msg-row .msg-qbtn { transition: opacity .15s, transform .15s, background .15s; }
+/* phones: the chat stands clear of the 辞 and Friends buttons at the bottom corners (they covered emoji and send) */
+@media (max-width: 900px) {
+  .inbox-screen .msgr { height: calc(100 * var(--vh, 1vh) - 236px); min-height: 300px; }
+  .inbox-screen .msg-top h2 { font-size: 1.35rem; margin: 0; }
+  .inbox-screen .msg-top { margin-bottom: 8px; }
+}
+/* league frames N5–N1 (0.9.9.9.6.2): the player's own animated paintings (public/frames/lg-*.webp — square, the
+   picture's hole is about half the frame). The picture inside turns into a rounded square and the frame, twice its
+   size, lies over it. Every picture with a frame is drawn a little smaller in its spot, so the frame stays clear of
+   the name and level beside it. (Animated pictures play whatever the system's "reduce motion" says.) */
+.bd.bd-fr { box-shadow: none; animation: none; border-radius: 20% !important; scale: .7; }
+.bd.bd-fr > img, .bd.bd-fr > .pic { border-radius: 20% !important; }
+:is(div, span, button).bd.bd-fr::before { inset: -50%; background-size: 100% 100%; }
+.bd-lg-n5::before { background-image: url(/frames/lg-n5.webp); }
+.bd-lg-n4::before { background-image: url(/frames/lg-n4.webp); }
+.bd-lg-n3::before { background-image: url(/frames/lg-n3.webp); }
+.bd-lg-n2::before { background-image: url(/frames/lg-n2.webp); }
+.bd-lg-n1::before { background-image: url(/frames/lg-n1.webp); }
+.pp-pic.big.bd-fr, .ci-avatar.bd-fr, .lu-card .pp-pic.bd-fr { scale: .8; }
+.avatar.bd.bd-fr { margin: 2px; }
+/* a framed picture in a list (<img> can't carry the frame — it's wrapped) */
+.pic-wrap { display: inline-block; position: relative; vertical-align: middle; flex: none; border: 0 !important; overflow: visible; }
+.pic-wrap > img.pic.fill { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* the streak flame (0.9.9.9.6.2): the player's own 30 weekly flames — a new fire every week, a new colour every six;
+   the day count in kanji sits in its bright core, the plain number on a tag at its foot */
+.sf.sf2 { --ink: rgba(26, 12, 4, .85); aspect-ratio: 1; }
+.sf.sf2::before { content: ''; inset: -8% -12% -2%; background: radial-gradient(closest-side, color-mix(in srgb, var(--fc) 50%, transparent), transparent); opacity: .75; }
+.sf.sf2.lost::before, .sf.sf2:not(.lit)::before { opacity: .2; }
+.sf.sf2 .sf-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 0; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.sf.sf2:not(.lit) .sf-img { filter: saturate(.35) brightness(.78); }
+.sf.sf2 .sf-k { margin-top: 34%; font-size: 36cqw; color: #fffaf0; -webkit-text-stroke: max(2px, 4.5cqw) var(--ink);
+  filter: drop-shadow(0 0 2cqw color-mix(in srgb, var(--fc) 80%, transparent)) drop-shadow(0 1px 1px rgba(0, 0, 0, .6)); }
+.sf.sf2.k2 .sf-k { font-size: 29cqw; } .sf.sf2.k3 .sf-k { font-size: 23cqw; } .sf.sf2.k4 .sf-k { font-size: 18cqw; } .sf.sf2.k5 .sf-k { font-size: 15cqw; }
+.sf.sf2.lost .sf-k { color: #e6e6f2; }
+.sf.sf2 .sf-n { bottom: -6%; background: var(--ink); border-color: color-mix(in srgb, var(--fc) 70%, #fff); }
+#menu .tasks-btn { border-color: color-mix(in srgb, var(--fc, #9a9aae) 45%, rgba(255, 255, 255, .12)); }
+/* profile cards (yours and a friend's, 0.9.9.9.6.2): a win-rate ring beside wins / losses / spells; one streak card */
+.pc-stats { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; margin: 10px 0 8px; padding: 10px 12px; border-radius: 14px;
+  background: linear-gradient(160deg, rgba(160, 140, 255, .12), rgba(255, 255, 255, .03)); border: 1px solid rgba(160, 140, 255, .18); }
+.pc-ring { --p: 0%; width: 76px; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: conic-gradient(#3ddc97 var(--p), rgba(255, 92, 120, .55) 0); box-shadow: 0 0 0 1px rgba(255, 255, 255, .08) inset; }
+.pc-ring-in { width: 78%; aspect-ratio: 1; border-radius: 50%; display: grid; place-content: center; text-align: center; background: #17132f; box-shadow: 0 2px 8px rgba(0, 0, 0, .35) inset; }
+.pc-ring-in b { font-size: 1.05rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.pc-ring-in small { font-size: .56rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+.pc-list { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.pc-row { display: grid; grid-template-columns: 22px auto 1fr; align-items: center; gap: 7px; font-size: .82rem; }
+.pc-row b { font-weight: 900; font-variant-numeric: tabular-nums; font-size: .98rem; min-width: 1.4em; }
+.pc-row span:last-child { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-ic { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; }
+.pc-ic svg { width: 14px; height: 14px; }
+.pc-win .pc-ic { color: #ffd34d; background: rgba(255, 211, 77, .14); } .pc-win b { color: #ffe08a; }
+.pc-loss .pc-ic { color: #ff7a8f; background: rgba(255, 92, 120, .14); }
+.pc-book .pc-ic { color: #8fd3ff; background: rgba(110, 200, 255, .14); }
+.pc-today .pc-ic { color: #b99bff; background: rgba(185, 155, 255, .14); }
+.pc-streak { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 8px 12px 8px 8px; border-radius: 14px; margin-bottom: 6px;
+  background: linear-gradient(110deg, color-mix(in srgb, var(--fc, #9a9aae) 22%, transparent), rgba(255, 255, 255, .03) 70%); border: 1px solid color-mix(in srgb, var(--fc, #9a9aae) 35%, transparent); }
+.pc-streak .pc-flame { width: 50px; }
+.pc-streak .pc-flame-sm { width: 30px; }
+.pc-streak .pc-flame-sm .sf-n { display: none; }
+.pc-s-now { display: flex; flex-direction: column; min-width: 0; }
+.pc-s-now b { font-size: 1.2rem; font-weight: 900; line-height: 1.1; }
+.pc-s-now small, .pc-s-best small { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.pc-s-best { display: flex; align-items: center; gap: 6px; padding-left: 10px; border-left: 1px solid rgba(255, 255, 255, .1); }
+.pc-s-best-t { display: flex; flex-direction: column; line-height: 1.15; }
+.pc-s-best b { font-size: .9rem; color: var(--gold); }
+.pc-since { margin: 2px 0 0; font-size: .74rem; }
+:root[data-theme="light"] .pc-ring-in { background: #fff; }
+/* the buttons under a friend's card: an even grid, two to a row */
+.pp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+.pp-grid:empty { display: none; }
+.pp-grid .pill { margin: 0; width: 100%; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 10px; font-size: .86rem; white-space: nowrap; }
+.pp-grid .pill span { overflow: hidden; text-overflow: ellipsis; }
+.pp-ic { display: inline-grid; flex: none; } .pp-ic svg { width: 17px; height: 17px; }
+.pp-actions > .pill { width: 100%; margin: 0; }
+/* Customize slots and View profile's "their look" (0.9.9.9.6.2): every slot's picture the same size, centred in its
+   tile — a character, a staff, an arena, a flame, a pose or your picture (they each kept their own size before) */
+:is(.lk-slot, .look-slot) .lk-pic { --t: 64px; width: var(--t) !important; height: var(--t) !important; padding: 0 !important; box-sizing: border-box;
+  display: grid !important; place-items: center; overflow: hidden; border-radius: 14px; }
+:is(.lk-slot, .look-slot) .lk-pic > * { margin: 0 !important; flex: none; box-sizing: border-box; }
+:is(.lk-slot, .look-slot) .lk-pic > :is(.char-tile, .pose-tile) { width: 100% !important; height: 100% !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; display: grid; place-items: center; }
+:is(.lk-slot, .look-slot) .lk-pic > :is(.char-tile, .pose-tile) > svg { width: 84% !important; height: 84% !important; }
+:is(.lk-slot, .look-slot) .lk-pic > img { width: 86% !important; height: 86% !important; object-fit: contain; }
+:is(.lk-slot, .look-slot) .lk-pic > .pixel-staff { width: auto !important; height: 82% !important; }
+:is(.lk-slot, .look-slot) .lk-pic > .pixel-staff svg { width: 100%; height: 100%; }
+:is(.lk-slot, .look-slot) .lk-pic > .bg-thumb { width: 100% !important; height: 100% !important; border-radius: 0 !important; }
+:is(.lk-slot, .look-slot) .lk-pic > .bg-thumb :is(img, svg) { width: 100% !important; height: 100% !important; object-fit: cover; }
+:is(.lk-slot, .look-slot) .lk-pic > .flame-dot { width: 44% !important; height: 60% !important; }
+:is(.lk-slot, .look-slot) .lk-pic.profile, .look-slot .lk-pic:has(> .ci-avatar) { overflow: visible; }
+:is(.lk-slot, .look-slot) .lk-pic > .ci-avatar { width: 62% !important; height: 62% !important; font-size: calc(var(--t) * .28) !important; scale: 1; }
+:is(.lk-slot, .look-slot) .lk-pic > .ci-avatar.bd-fr { width: 48% !important; height: 48% !important; }
+:is(.lk-slot, .look-slot) .lk-pic > .ci-avatar.bd-lg-kana { width: 54% !important; height: 54% !important; }
+.look-slot .lk-pic { --t: 44px; border-radius: 10px; }
+@media (max-width: 900px) {
+  .lk-slot .lk-pic { --t: 40px; border-radius: 10px; }
+  .lk-slots .lk-pic { --t: 32px; border-radius: 8px; }
+  .look-slot .lk-pic { --t: 38px; }
+}
+/* the daily page (0.9.9.9.6.2): your league, big — the next one a small line under it */
+.lg-mine { margin: 4px 0 14px; padding: 14px 16px 12px; border-radius: 18px; border: 1.5px solid color-mix(in srgb, var(--lc, #ff9ec7) 55%, transparent);
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--lc, #ff9ec7) 26%, transparent), rgba(255, 255, 255, .03) 70%); box-shadow: 0 8px 26px rgba(0, 0, 0, .25); }
+.lg-mine.lg-kana { --lc: #ff9ec7; } .lg-mine.lg-n5 { --lc: #7fd6a0; } .lg-mine.lg-n4 { --lc: #c9d3df; } .lg-mine.lg-n3 { --lc: #a98bff; } .lg-mine.lg-n2 { --lc: #ffd23a; } .lg-mine.lg-n1 { --lc: #ff4d6d; }
+.lg-mine-head { display: flex; align-items: center; gap: 16px; }
+.lg-mine-head .lg-crest.mid { width: 84px; flex: none; }
+.lg-mine-head .lg-crest.mid b { font-size: 1.9rem; }
+.lg-mine-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lg-mine-k { font-size: .72rem; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--lc); }
+.lg-mine-n { font-size: 1.6rem; font-weight: 900; line-height: 1.1; }
+.lg-nx { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255, 255, 255, .14); font-size: .84rem; }
+.lg-nx-l { display: inline-flex; align-items: center; gap: 6px; }
+.lg-nx-l small { font-size: .68rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.lg-crest.tiny { width: 24px; border-width: 1.5px; }
+.lg-crest.tiny b { font-size: .58rem; }
+.lg-crest.tiny .lg-rays { display: none; }
+.lg-nx-how { color: var(--muted); flex: 1; min-width: 150px; }
+.lg-nx-rw { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.lg-nx-av { width: 26px; height: 26px; font-size: .7rem; font-weight: 900; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+.lg-nx-char { width: 26px; height: 34px; display: inline-block; } .lg-nx-char svg { width: 100%; height: 100%; }
+.lg-nx-top { margin: 10px 0 0; color: var(--lc); font-weight: 800; }
+@media (max-width: 560px) { .lg-mine-head .lg-crest.mid { width: 64px; } .lg-mine-n { font-size: 1.3rem; } }
+/* phones: Settings still flickered (0.9.9.9.6.2). It is now an opaque page of its own — nothing behind it shows
+   through, so nothing behind it has to be drawn: the moving background is hidden and paused while it's open, the box
+   sits on its own layer, and nothing in it fades or slides */
+@media (pointer: coarse) {
+  .settings-overlay { background: #0b0920 !important; transition: none !important; animation: none !important; }
+  .settings-box { background: #1a1540 !important; transition: none !important; animation: none !important; scale: 1 !important; translate: 0 0 !important;
+    contain: layout paint; transform: translateZ(0); will-change: transform; box-shadow: none; }
+  .settings-box *, .settings-box *::before, .settings-box *::after { transition: none !important; }
+  body.settings-open :is(#bg, .menu-veil) { visibility: hidden; }
+  body.settings-open :is(#bg, .menu-veil) * { animation-play-state: paused !important; }
 }
