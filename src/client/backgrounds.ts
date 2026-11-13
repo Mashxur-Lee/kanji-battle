@@ -809,6 +809,20 @@ const SPOTS: Record<BackgroundId, ArtSpots> = {
 };
 const lite = () => matchMedia('(pointer: coarse)').matches;
 
+// ── 0.9.9.9.6.2: parts of the painting that move — the World Tree's floating islands drift up and down, the castle's
+// flags flutter and its banners sway. Each part is cut out of the painting (public/bg/parts/), and the painting under
+// it has it painted out (<place>-<time>-p.webp: only this stage uses that one — the 3D arena keeps the whole picture).
+// [file, kind, left, top, width, height (% of the picture), the point it turns about (% of the part)]
+type Part = [file: string, kind: 'isle' | 'flag' | 'banner', x: number, y: number, w: number, h: number, ox: number, oy: number];
+const PARTS: Record<string, Part[]> = {
+  'castle-day': [['flag0', 'flag', 49.701, 10.319, 3.768, 3.617, 9.5, 48.5], ['flag1', 'flag', 33.672, 21.064, 3.589, 3.83, 10.0, 48.6], ['flag2', 'flag', 65.67, 20.851, 4.785, 3.936, 7.5, 48.6], ['banner0', 'banner', 23.565, 52.979, 4.665, 15.745, 49.4, 4.1], ['banner1', 'banner', 72.129, 52.979, 4.605, 15.638, 49.4, 4.1]],
+  'castle-night': [['flag0', 'flag', 49.821, 10.319, 3.349, 3.404, 10.7, 48.4], ['flag1', 'flag', 34.211, 20.106, 2.99, 3.298, 12.0, 48.4], ['flag2', 'flag', 65.849, 20.0, 3.11, 3.404, 11.5, 48.4], ['banner0', 'banner', 23.385, 50.426, 4.964, 17.872, 49.4, 3.6], ['banner1', 'banner', 72.01, 50.638, 4.844, 17.234, 49.4, 3.7]],
+  'castle-sunset': [['flag0', 'flag', 49.821, 5.745, 3.888, 3.83, 9.2, 48.6], ['flag1', 'flag', 33.373, 18.085, 3.289, 3.617, 10.9, 48.5], ['flag2', 'flag', 66.089, 18.085, 3.529, 4.255, 10.2, 48.8], ['banner0', 'banner', 22.727, 48.936, 5.502, 18.83, 49.5, 3.4], ['banner1', 'banner', 71.352, 48.936, 6.34, 19.362, 49.5, 3.3]],
+  'worldtree-day': [['isle0', 'isle', 10.227, 22.34, 8.792, 16.809, 50.0, 50.0], ['isle1', 'isle', 82.117, 32.979, 6.878, 13.936, 50.0, 50.0]],
+  'worldtree-night': [['isle0', 'isle', 11.603, 25.319, 7.835, 13.723, 50.0, 50.0], ['isle1', 'isle', 81.579, 33.723, 7.536, 9.681, 50.0, 50.0]],
+  'worldtree-sunset': [['isle0', 'isle', 11.244, 23.83, 7.775, 16.915, 50.0, 50.0], ['isle1', 'isle', 82.297, 33.723, 5.921, 12.234, 50.0, 50.0]],
+};
+
 // ── 0.9.9.9.5.5: the weather ────────────────────────────────────────────────
 // Each place has its own weather by the season, and it changes every few hours: autumn leaves, rain (now and then a
 // thunderstorm), snow in winter, cherry petals in spring, dandelion seeds over the plains, glowing spores in the swamp.
@@ -841,12 +855,23 @@ function artStage(id: BackgroundId, t: TimeOfDay, onFail: () => void): HTMLEleme
   stage.className = 'art-stage';
   const img = document.createElement('img');
   img.className = 'art-img'; img.alt = ''; img.decoding = 'async';
+  const parts = PARTS[`${id}-${t}`];
   img.onerror = onFail; // (no picture: the drawn scene)
-  img.src = artUrl(id, t);
+  img.src = parts ? `/bg/${id}-${t}-p.webp` : artUrl(id, t);
   stage.append(img);
   const fx = document.createElement('div');
   fx.className = `art-fx t-${t}`;
   fx.style.setProperty('--rune', sp.rune);
+  // the moving parts, right on the picture (under the weather and the rest)
+  for (const [file, kind, x, y, w, hh, ox, oy] of parts ?? []) {
+    const p = document.createElement('img');
+    p.className = `fx-part k-${kind}`; p.alt = ''; p.decoding = 'async'; p.draggable = false;
+    p.src = `/bg/parts/${id}-${t}-${file}.webp`;
+    Object.assign(p.style, { left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${hh}%`, transformOrigin: `${ox}% ${oy}%` });
+    p.style.setProperty('--d', `${(-rnd() * 6).toFixed(2)}s`);
+    p.style.setProperty('--dur', `${(kind === 'isle' ? 6 + rnd() * 3 : kind === 'flag' ? 1.1 + rnd() * 0.5 : 3.2 + rnd() * 1.4).toFixed(2)}s`);
+    fx.append(p);
+  }
   const add = (cls: string, x: number, y: number, vars: Record<string, string | number> = {}) => {
     const e = document.createElement('i');
     e.className = cls;

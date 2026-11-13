@@ -192,7 +192,7 @@ const ICON = {
 export function statsCard(s: { wins: number; losses: number; learned: number; today?: number }): HTMLElement {
   const games = s.wins + s.losses;
   const pct = games ? Math.round((100 * s.wins) / games) : 0;
-  const ring = h('div', 'pc-ring');
+  const ring = h('div', `pc-ring${games ? '' : ' none'}`);
   ring.style.setProperty('--p', `${pct}%`);
   ring.append(append(h('div', 'pc-ring-in'), h('b', '', games ? `${pct}%` : '—'), h('small', '', tr('win rate'))));
   const row = (cls: keyof typeof ICON, n: number, label: string) => {

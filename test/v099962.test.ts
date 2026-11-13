@@ -97,3 +97,19 @@ test('0.9.9.9.6.2 messenger: the list is the same with the lookups side by side'
   assert.ok(r.conversations.every((c) => c.support || c.friend));
   assert.equal(r.unread, 3);
 });
+
+test('0.9.9.9.6.2 the paintings\' moving parts: every part and the painting under it are there', () => {
+  const src = readFileSync(join(root, 'src/client/backgrounds.ts'), 'utf8');
+  const table = src.slice(src.indexOf('const PARTS: Record<string, Part[]> = {'), src.indexOf('};', src.indexOf('const PARTS: Record<string, Part[]> = {')));
+  const keys = [...table.matchAll(/'([a-z]+-(?:day|sunset|night))': \[(.*)\],/g)];
+  assert.ok(keys.length >= 6, 'the World Tree and the castle at every time of day');
+  for (const [, key, list] of keys) {
+    assert.ok(existsSync(join(root, 'public/bg', `${key}-p.webp`)), `${key}: the painting with its parts painted out`);
+    for (const [, file, kind, ...nums] of list.matchAll(/\['(\w+)', '(\w+)', ([\d.]+), ([\d.]+), ([\d.]+), ([\d.]+), ([\d.]+), ([\d.]+)\]/g)) {
+      assert.ok(existsSync(join(root, 'public/bg/parts', `${key}-${file}.webp`)), `${key}-${file}`);
+      assert.ok(['isle', 'flag', 'banner'].includes(kind));
+      const [x, y, w, h] = nums.map(Number);
+      assert.ok(x >= 0 && y >= 0 && x + w <= 100.01 && y + h <= 100.01 && w > 0 && h > 0, `${key}-${file}: inside the picture`);
+    }
+  }
+});

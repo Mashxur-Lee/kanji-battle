@@ -4980,3 +4980,28 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
   body.settings-open :is(#bg, .menu-veil) { visibility: hidden; }
   body.settings-open :is(#bg, .menu-veil) * { animation-play-state: paused !important; }
 }
+/* the painting's moving parts (0.9.9.9.6.2): the World Tree's floating islands drift, the castle's flags flutter
+   and its banners sway — each cut out of the picture, the picture under it painted over */
+.art-fx > .fx-part { position: absolute; display: block; max-width: none; pointer-events: none; user-select: none; -webkit-user-drag: none;
+  animation-duration: var(--dur, 6s); animation-delay: var(--d, 0s); animation-iteration-count: infinite; will-change: transform; }
+.fx-part.k-isle { animation-name: partIsle; animation-timing-function: ease-in-out; }
+@keyframes partIsle { 0%, 100% { transform: translateY(0) rotate(0deg); } 30% { transform: translateY(-6%) rotate(-1.4deg); } 65% { transform: translateY(-2.5%) rotate(1deg); } }
+.fx-part.k-flag { animation-name: partFlag; animation-timing-function: ease-in-out; }
+@keyframes partFlag {
+  0%, 100% { transform: skewY(0deg) scaleX(1); } 22% { transform: skewY(-7deg) scaleX(.92); }
+  48% { transform: skewY(4deg) scaleX(.98); } 74% { transform: skewY(-3deg) scaleX(.95); }
+}
+.fx-part.k-banner { animation-name: partBanner; animation-timing-function: ease-in-out; animation-direction: alternate; }
+@keyframes partBanner { 0% { transform: rotate(-1.6deg) skewX(1deg); } 100% { transform: rotate(1.6deg) skewX(-1deg); } }
+/* (0.9.9.9.6.2, after a look: the kanji smaller, in the flame's core — it hid the fire; the crest round; the card's
+   buttons and streak inside the card; a ring with no games is neutral) */
+.sf.sf2 .sf-k { margin-top: 30%; font-size: 30cqw; -webkit-text-stroke: max(1.5px, 3cqw) var(--ink); }
+.sf.sf2.k2 .sf-k { font-size: 23cqw; } .sf.sf2.k3 .sf-k { font-size: 18cqw; } .sf.sf2.k4 .sf-k { font-size: 14cqw; } .sf.sf2.k5 .sf-k { font-size: 12cqw; }
+.lg-mine-head .lg-crest { min-height: 0; } .lg-mine-head .lg-crest b { white-space: nowrap; font-size: 1.45rem; }
+@media (max-width: 560px) { .lg-mine-head .lg-crest b { font-size: 1.1rem; } }
+.pp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pp-grid .pill { min-width: 0; }
+.pc-stats { grid-template-columns: auto minmax(0, 1fr); }
+.pc-streak { grid-template-columns: auto minmax(0, 1fr) auto; }
+.pc-ring.none { background: conic-gradient(rgba(255, 255, 255, .14) 0 100%); }
+#otherPop { overflow-x: hidden; }
