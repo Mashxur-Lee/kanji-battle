@@ -28,9 +28,33 @@ let loading = false;
 const EMOJI = ['😀', '😂', '🥹', '😊', '😍', '😎', '🤔', '😅', '😭', '😡', '😴', '🤯', '👍', '👎', '👏', '🙏', '💪', '🙌', '🤝', '👋', '❤️', '🔥', '✨', '⭐', '🎉', '🏆', '⚔️', '🛡️', '🐉', '🪄', '📚', '✍️', '🧠', '🍜', '🍵', '🌸', '🗻', '⛩️', '🎌', '✅'];
 
 export function inboxUser(id: string, admin: boolean) {
+  const changed = me !== id;
   me = id; isAdmin = admin;
   $('msgSide').hidden = !admin;
   void refreshUnread();
+  // 0.9.9.9.6.2: Messages opens at once — the list is fetched in the background soon after the menu is up (and the
+  // last one is kept on this device), so the first open never waits on the network
+  if (changed) {
+    convs = []; threads.clear(); listCache.clear();
+    try { const c = JSON.parse(localStorage.getItem(`kb:convs:${id}`) ?? 'null'); if (Array.isArray(c)) listCache.set('me', c); } catch { /* none */ }
+    setTimeout(() => { if (me === id) void fetchList('me').catch(() => { /* the open tries again */ }); }, 2500);
+  }
+}
+/** the last list of each side, and the last messages of each conversation (shown at once, then refreshed) */
+const listCache = new Map<'me' | 'support', Conversation[]>();
+const threads = new Map<string, DmView[]>();
+const inflight = new Map<string, Promise<Conversation[]>>();
+function fetchList(which: 'me' | 'support') {
+  const was = inflight.get(which);
+  if (was) return was;
+  const p = api.conversations(which === 'support').then((r) => {
+    if (r.mutedAll !== undefined) mutedAll = r.mutedAll;
+    listCache.set(which, r.conversations);
+    if (which === 'me') try { localStorage.setItem(`kb:convs:${me}`, JSON.stringify(r.conversations.slice(0, 30))); } catch { /* full */ }
+    return r.conversations;
+  }).finally(() => inflight.delete(which));
+  inflight.set(which, p);
+  return p;
 }
 
 /** the ✉ button's number (and the admin's "Team inbox") */
@@ -88,8 +112,13 @@ function renderList() {
 
 async function loadList() {
   loading = true;
-  try { const r = await api.conversations(side === 'support'); convs = r.conversations; if (r.mutedAll !== undefined) mutedAll = r.mutedAll; paintMuteAll(); }
-  catch (e) { $('msgList').replaceChildren(h('p', 'hint msg-empty', (e as Error).message)); return; }
+  const which = side;
+  // what we had (this session, or saved on this device) is shown at once; "Loading…" only the very first time
+  const had = listCache.get(which);
+  if (had) { convs = had; paintMuteAll(); renderList(); }
+  else if (!convs.length) $('msgList').replaceChildren(h('p', 'hint msg-empty', tr('Loading…')));
+  try { const c = await fetchList(which); if (side !== which) return; convs = c; paintMuteAll(); }
+  catch (e) { if (!had) $('msgList').replaceChildren(h('p', 'hint msg-empty', (e as Error).message)); return; }
   finally { loading = false; }
   renderList();
 }
@@ -208,11 +237,14 @@ export async function openThread(id: string) {
   $('msgThread').hidden = false;
   openWith = convs.find((c) => c.id === id) ?? null;
   renderHead(); renderList();
-  $('msgLog').replaceChildren(h('p', 'hint msg-empty', tr('Loading…')));
+  const key = `${side}:${id}`;
+  const cached = threads.get(key);
+  if (cached) { log = cached; renderLog(); } else $('msgLog').replaceChildren(h('p', 'hint msg-empty', tr('Loading…')));
   try {
     const r = await api.thread(id, side === 'support');
     if (openId !== id) return;
     log = r.messages;
+    threads.set(key, log);
     openWith = r.with ?? openWith;
     const c = convs.find((x) => x.id === id);
     if (c && c.unread) { if (side === 'support') unreadTeam = Math.max(0, unreadTeam - c.unread); else unreadMine = Math.max(0, unreadMine - c.unread); c.unread = 0; paintBadges(); }
@@ -260,7 +292,7 @@ function add(m: DmView) {
   renderLog(m.from === myId());
   // the list: this conversation to the top with its new last line
   const c = convs.find((x) => x.id === openId);
-  if (c) { c.last = m; convs = [c, ...convs.filter((x) => x !== c)]; renderList(); } else void loadList();
+  if (c) { c.last = m; convs = [c, ...convs.filter((x) => x !== c)]; listCache.set(side, convs); renderList(); } else void loadList();
 }
 // (the box grows with what you write; a scrollbar only once it's at its tallest)
 function grow() { const i = $<HTMLTextAreaElement>('msgInput'); i.style.height = 'auto'; i.style.height = `${Math.min(140, i.scrollHeight)}px`; i.style.overflowY = i.scrollHeight > 140 ? 'auto' : 'hidden'; }
@@ -286,7 +318,46 @@ export function onDm(m: DmView, fromName: string, muted = false) {
   if (!muted && !(mutedAll && mySide === 'me') && !['battle', 'deck', 'prep'].includes(ui.currentScreen() ?? '')) ui.toast(`✉ ${mySide === 'support' ? `${fromName} → ${tr('team')}` : fromName}: ${m.text.split('\n').slice(-1)[0].slice(0, 80)}`, 4000);
 }
 
+// 0.9.9.9.6.2: on a phone, swiping a message to the left answers it (the same as its ↩): the bubble follows the
+// finger, the ↩ lights up past the point where letting go quotes it; an up-down move is a scroll as before
+function swipeToReply(box: HTMLElement) {
+  let row: HTMLElement | null = null, id = -1, x0 = 0, y0 = 0, dx = 0, dir: 'x' | 'y' | null = null, armed = false;
+  const reset = () => {
+    if (row) { row.classList.remove('swiping', 'armed'); row.style.removeProperty('--sw'); }
+    row = null; id = -1; dx = 0; dir = null; armed = false;
+  };
+  box.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || (e.target as HTMLElement).closest('button, a')) return;
+    reset();
+    row = (e.target as HTMLElement).closest<HTMLElement>('.msg-row');
+    if (!row) return;
+    id = e.pointerId; x0 = e.clientX; y0 = e.clientY;
+  });
+  box.addEventListener('pointermove', (e) => {
+    if (!row || e.pointerId !== id) return;
+    const mx = e.clientX - x0, my = e.clientY - y0;
+    if (!dir) {
+      if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      dir = Math.abs(mx) > Math.abs(my) * 1.3 && mx < 0 ? 'x' : 'y';
+      if (dir === 'y') { reset(); return; }
+      row.classList.add('swiping');
+    }
+    dx = Math.max(-96, Math.min(0, mx));
+    row.style.setProperty('--sw', `${dx}px`);
+    const now = dx < -58;
+    if (now !== armed) { armed = now; row.classList.toggle('armed', armed); if (armed) try { navigator.vibrate?.(12); } catch { /* no buzz */ } }
+  });
+  const end = (e: PointerEvent) => {
+    if (!row || e.pointerId !== id) return;
+    if (armed && e.type === 'pointerup') row.querySelector<HTMLButtonElement>('.msg-qbtn')?.click();
+    reset();
+  };
+  box.addEventListener('pointerup', end);
+  box.addEventListener('pointercancel', end);
+}
+
 export function initInbox() {
+  swipeToReply($('msgLog'));
   $('inboxBtn').onclick = () => void openInbox();
   $('inboxBack').onclick = () => ui.show('menu');
   $('msgForm').addEventListener('submit', (e) => { e.preventDefault(); void send(); });
@@ -320,7 +391,7 @@ export function initInbox() {
       const r = await api.thread(openId, side === 'support', log[0].at);
       if (!r.messages.length) { box.dataset.more = 'none'; return; }
       const h0 = box.scrollHeight;
-      log = [...r.messages, ...log];
+      log = [...r.messages, ...log]; threads.set(`${side}:${openId}`, log);
       renderLog(false);
       box.scrollTop = box.scrollHeight - h0;
     } catch { /* later */ } finally { loading = false; }

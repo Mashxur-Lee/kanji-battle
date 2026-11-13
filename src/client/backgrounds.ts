@@ -799,15 +799,31 @@ interface ArtSpots {
   flies: TimeOfDay[]; mist?: number; rays?: boolean;
   /** 0.9.9.9.5.2: falling leaves (their colour by time of day), birds crossing the sky, glints on the water (top of the band, %) */
   leaves?: Partial<Record<TimeOfDay, string>>; birds?: boolean; water?: number;
+  /** 0.9.9.9.6.2: no drifting clouds (over the World Tree's crown they looked like fog in front of it) */
+  noClouds?: boolean;
 }
 const SPOTS: Record<BackgroundId, ArtSpots> = {
   castle: { stones: [[11.3, 66, 79], [31, 68, 77], [68.8, 68, 77], [88.7, 66, 79]], torches: [[17, 72], [82.8, 72]], rune: '#ffb347', ringTop: 87, flies: [], birds: true },
   plains: { stones: [[11.8, 58, 76], [31, 60, 73], [68.8, 60, 73], [88.5, 58, 76]], torches: [[18.8, 68.5], [81, 68.5]], rune: '#ffb347', ringTop: 85, flies: ['night'], birds: true, leaves: { day: '#9bd16a', sunset: '#f2a35a' } },
   forest: { stones: [[11.7, 61, 77], [32, 63, 75], [68.6, 63, 75], [88.8, 61, 77]], torches: [], rune: '#5fb8ff', ringTop: 83, flies: ['sunset', 'night'], mist: 62, rays: true, leaves: { day: '#8cc85a', sunset: '#e8914a', night: '#6f8fb8' } },
   swamp: { stones: [[11.7, 54, 72], [31.3, 57, 71], [69, 57, 71], [89, 54, 72]], torches: [], rune: '#5dff8a', ringTop: 84, flies: ['sunset', 'night'], mist: 55, water: 74 },
-  worldtree: { stones: [[11.1, 60, 77], [31.5, 62, 75], [69.4, 62, 75], [89, 60, 77]], torches: [], rune: '#45f0a0', ringTop: 87, flies: ['sunset', 'night'], birds: true, leaves: { day: '#ffc2dc', sunset: '#ffb28a', night: '#7dffc4' } },
+  worldtree: { stones: [[11.1, 60, 77], [31.5, 62, 75], [69.4, 62, 75], [89, 60, 77]], torches: [], rune: '#45f0a0', ringTop: 87, flies: ['sunset', 'night'], birds: true, noClouds: true, leaves: { day: '#ffc2dc', sunset: '#ffb28a', night: '#7dffc4' } },
 };
 const lite = () => matchMedia('(pointer: coarse)').matches;
+
+// ── 0.9.9.9.6.2: parts of the painting that move — the World Tree's floating islands drift up and down, the castle's
+// flags flutter and its banners sway. Each part is cut out of the painting (public/bg/parts/), and the painting under
+// it has it painted out (<place>-<time>-p.webp: only this stage uses that one — the 3D arena keeps the whole picture).
+// [file, kind, left, top, width, height (% of the picture), the point it turns about (% of the part)]
+type Part = [file: string, kind: 'isle' | 'flag' | 'banner', x: number, y: number, w: number, h: number, ox: number, oy: number];
+const PARTS: Record<string, Part[]> = {
+  'castle-day': [['flag0', 'flag', 49.701, 10.319, 3.768, 3.617, 9.5, 48.5], ['flag1', 'flag', 33.672, 21.064, 3.589, 3.83, 10.0, 48.6], ['flag2', 'flag', 65.67, 20.851, 4.785, 3.936, 7.5, 48.6], ['banner0', 'banner', 23.565, 52.979, 4.665, 15.745, 49.4, 4.1], ['banner1', 'banner', 72.129, 52.979, 4.605, 15.638, 49.4, 4.1]],
+  'castle-night': [['flag0', 'flag', 49.821, 10.319, 3.349, 3.404, 10.7, 48.4], ['flag1', 'flag', 34.211, 20.106, 2.99, 3.298, 12.0, 48.4], ['flag2', 'flag', 65.849, 20.0, 3.11, 3.404, 11.5, 48.4], ['banner0', 'banner', 23.385, 50.426, 4.964, 17.872, 49.4, 3.6], ['banner1', 'banner', 72.01, 50.638, 4.844, 17.234, 49.4, 3.7]],
+  'castle-sunset': [['flag0', 'flag', 49.821, 5.745, 3.888, 3.83, 9.2, 48.6], ['flag1', 'flag', 33.373, 18.085, 3.289, 3.617, 10.9, 48.5], ['flag2', 'flag', 66.089, 18.085, 3.529, 4.255, 10.2, 48.8], ['banner0', 'banner', 22.727, 48.936, 5.502, 18.83, 49.5, 3.4], ['banner1', 'banner', 71.352, 48.936, 6.34, 19.362, 49.5, 3.3]],
+  'worldtree-day': [['isle0', 'isle', 10.227, 22.34, 8.792, 16.809, 50.0, 50.0], ['isle1', 'isle', 82.117, 32.979, 6.878, 13.936, 50.0, 50.0]],
+  'worldtree-night': [['isle0', 'isle', 11.603, 25.319, 7.835, 13.723, 50.0, 50.0], ['isle1', 'isle', 81.579, 33.723, 7.536, 9.681, 50.0, 50.0]],
+  'worldtree-sunset': [['isle0', 'isle', 11.244, 23.83, 7.775, 16.915, 50.0, 50.0], ['isle1', 'isle', 82.297, 33.723, 5.921, 12.234, 50.0, 50.0]],
+};
 
 // ── 0.9.9.9.5.5: the weather ────────────────────────────────────────────────
 // Each place has its own weather by the season, and it changes every few hours: autumn leaves, rain (now and then a
@@ -841,12 +857,23 @@ function artStage(id: BackgroundId, t: TimeOfDay, onFail: () => void): HTMLEleme
   stage.className = 'art-stage';
   const img = document.createElement('img');
   img.className = 'art-img'; img.alt = ''; img.decoding = 'async';
+  const parts = PARTS[`${id}-${t}`];
   img.onerror = onFail; // (no picture: the drawn scene)
-  img.src = artUrl(id, t);
+  img.src = parts ? `/bg/${id}-${t}-p.webp` : artUrl(id, t);
   stage.append(img);
   const fx = document.createElement('div');
   fx.className = `art-fx t-${t}`;
   fx.style.setProperty('--rune', sp.rune);
+  // the moving parts, right on the picture (under the weather and the rest)
+  for (const [file, kind, x, y, w, hh, ox, oy] of parts ?? []) {
+    const p = document.createElement('img');
+    p.className = `fx-part k-${kind}`; p.alt = ''; p.decoding = 'async'; p.draggable = false;
+    p.src = `/bg/parts/${id}-${t}-${file}.webp`;
+    Object.assign(p.style, { left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${hh}%`, transformOrigin: `${ox}% ${oy}%` });
+    p.style.setProperty('--d', `${(-rnd() * 6).toFixed(2)}s`);
+    p.style.setProperty('--dur', `${(kind === 'isle' ? 6 + rnd() * 3 : kind === 'flag' ? 1.1 + rnd() * 0.5 : 3.2 + rnd() * 1.4).toFixed(2)}s`);
+    fx.append(p);
+  }
   const add = (cls: string, x: number, y: number, vars: Record<string, string | number> = {}) => {
     const e = document.createElement('i');
     e.className = cls;
@@ -881,7 +908,7 @@ function artStage(id: BackgroundId, t: TimeOfDay, onFail: () => void): HTMLEleme
     for (let k = 0; k < (few ? 6 : 16); k++) add('fx-mote', rnd() * 100, 45 + rnd() * 45, { '--d': `${(rnd() * 8).toFixed(2)}s`, '--dur': `${(7 + rnd() * 6).toFixed(2)}s`, '--dx': `${((rnd() - 0.5) * 60).toFixed(0)}px` });
   }
   // 0.9.9.9.5.2: clouds sailing by, birds crossing, leaves (or the world tree's glowing petals) falling, glints on the water
-  if (t !== 'night') for (let k = 0; k < (few ? 2 : 4); k++) {
+  if (t !== 'night' && !sp.noClouds) for (let k = 0; k < (few ? 2 : 4); k++) {
     add('fx-cloud', -30, 2 + rnd() * 22, { '--d': `${(-rnd() * 120).toFixed(1)}s`, '--dur': `${(110 + rnd() * 70).toFixed(0)}s`, '--w': `${(18 + rnd() * 16).toFixed(1)}%`, '--o': (t === 'day' ? 0.5 : 0.38) + rnd() * 0.2 });
   }
   if (sp.birds && t !== 'night') for (let k = 0; k < (few ? 1 : 2); k++) {

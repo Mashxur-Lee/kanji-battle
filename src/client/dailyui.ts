@@ -6,7 +6,7 @@ import { locale, tr } from './i18n';
 import { LEVEL_LABEL } from '../shared/protocol';
 import * as offline from './offline';
 import { api, type DailyAnswer, type DailyOverview, type DailyPast, type DailyWord } from './api';
-import { leagueCrest, leagueRewards, nextLeagueRow, showLeagueUp } from './leagueup';
+import { leagueCrest, leagueRewards, leagueCard, showLeagueUp } from './leagueup';
 import { avatarSvg } from './wizard';
 import * as audio from './audio';
 import * as ui from './ui';
@@ -148,7 +148,7 @@ function renderOverview(o: DailyOverview) {
     main.replaceChildren(
       el('p', 'sub', date),
       ladder(league, o.nextLeague),
-      ...[nextL ? nextLeagueRow(nextL, o.promoteAt ?? 7) : null].filter((x): x is HTMLElement => !!x),
+      leagueCard(up ? o.nextLeague! : league, nextL, o.promoteAt ?? 7),
       el('div', 'daily-score', `${o.mine.correct} / ${o.total}`),
       el('p', `center league-note${up ? ' up' : ''}`, up ? `▲ ${tr('Promoted')}: ${LEAGUE_NAME[o.nextLeague!]} — ${tr('tomorrow you play in the new league')}` : `${tr('Get')} ${o.promoteAt ?? 7}/${o.total} ${tr('to move up a league')}`),
       el('p', 'center', `${secs(o.mine.ms)} · rank ${o.rank} today`),
@@ -164,8 +164,7 @@ function renderOverview(o: DailyOverview) {
   main.replaceChildren(
     el('p', 'sub', date),
     ladder(league),
-    ...[nextL ? nextLeagueRow(nextL, o.promoteAt ?? 7) : null].filter((x): x is HTMLElement => !!x),
-    el('h3', '', `${tr('League')}: ${LEAGUE_NAME[league]}`),
+    leagueCard(league, nextL, o.promoteAt ?? 7),
     el('p', '', league === 'KANA'
       ? `Ten kana, the same for everyone in your league today: five hiragana, five katakana. Type each in romaji and press Enter — ${o.wordMs / 1000} s each. Get ${o.promoteAt ?? 7}/10 or better to move up to N5.`
       : `Ten ${league} words, the same for everyone in your league today, easiest first. Type the reading (kana or romaji) and press Enter — ${o.wordMs / 1000} s per word. Get ${o.promoteAt ?? 7}/10 or better to move up a league.`),

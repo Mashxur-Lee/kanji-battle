@@ -12,7 +12,7 @@ import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
 import { arena as arena3d, arenaForBattle } from './arena';
 import { setStarred } from './stars';
 import { toRomaji } from '../shared/kana';
-import { flameColor, flameShades, isKanaBeginner, levelOf, levelProgress, levelXp } from '../shared/progress';
+import { borderOf, flameColor, flameShades, isKanaBeginner, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -39,11 +39,16 @@ export function hideBootScreen() {
 export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };
 export const currentScreen = () => SCREENS.find((s) => !$(s).hidden);
 export const show = (screen: Screen) => {
+  // 0.9.9.9.6.2: showing the screen you're already on (the lobby, after every room update — picking a level) stays
+  // where you are: no jump to the top, no replayed entrance
+  const again = currentScreen() === screen;
   SCREENS.forEach((s) => ($(s).hidden = s !== screen));
   document.body.dataset.screen = screen; // 0.9.9.4.4.3: the background dims behind the menus (style.css)
   hideBootScreen(); // 0.9.9.7.3: the first real screen is up
-  scrollTo(0, 0);
-  screenIn(screen); // 0.9.9.9.5: fades in, its parts rise one after another
+  if (!again) {
+    scrollTo(0, 0);
+    screenIn(screen); // 0.9.9.9.5: fades in, its parts rise one after another
+  }
   screenListener(screen);
 };
 
@@ -132,12 +137,26 @@ export function setNet(map: Record<string, number | null>) {
 // ── top bar ──────────────────────────────────────────────────────────────────
 export interface ProfileView { xp: number; level: number; crit: number; learned: number; learnedToday?: number; wins?: number; losses?: number; pic?: string | null; streak?: number; bestStreak?: number; unlocks?: string[]; badges?: string[]; border?: string }
 /** The CSS class of an avatar border (0.9.9.3; '' for none). */
-export const borderCls = (b?: string | null) => (b && b !== 'none' ? ` bd bd-${b}` : '');
+// (0.9.9.9.6.2: a saved border that no longer exists — the old level borders — shows as none; the N5–N1 league
+// frames are square paintings, "fr" — the picture in them becomes a rounded square)
+export const borderCls = (b?: string | null) => {
+  const id = borderOf(b);
+  return id !== 'none' ? ` bd bd-${id}${FRAMED.has(id) ? ' bd-fr' : ''}` : '';
+};
+const FRAMED = new Set(['lg-n5', 'lg-n4', 'lg-n3', 'lg-n2', 'lg-n1']);
 /** A round profile picture (or nothing). */
 export function picEl(url: string | null | undefined, cls = 'pic', border?: string | null): HTMLElement | '' {
   if (!url) return '';
   const img = h('img', cls + borderCls(border), undefined, { src: url, alt: '', loading: 'lazy', decoding: 'async' }) as HTMLImageElement;
   img.onerror = () => img.remove();
+  // 0.9.9.9.6.2: a picture can't carry a frame drawn over it (no ::before on an <img>) — a league frame wraps it
+  if (border && borderOf(border).startsWith('lg-')) {
+    const wrap = h('span', `${cls} pic-wrap${borderCls(border)}`);
+    img.className = 'pic fill';
+    img.onerror = () => wrap.remove();
+    wrap.append(img);
+    return wrap;
+  }
   return img;
 }
 let beginnerFlag = false;
@@ -161,12 +180,43 @@ export const useBadgeRow = (fn: (ids: readonly string[] | undefined) => HTMLElem
 /** 0.9.9.9.5.4: the streak flames (dailytasks.ts) on the profile cards — yours and your friends' */
 let flameFn: ((n: number, lit: boolean) => HTMLElement) | null = null;
 export const useStreakFlame = (fn: (n: number, lit: boolean) => HTMLElement) => { flameFn = fn; };
-function streakBox(n: number, best: boolean, label: string): HTMLElement {
-  const box = h('div', `streak-box${best ? ' best' : ''}`);
-  const txt = append(h('div', 'sb-txt'), h('b', '', n), h('span', '', label));
-  if (flameFn) box.append(flameFn(n, n > 0));
-  box.append(txt);
-  return box;
+// ── 0.9.9.9.6.2: a player's numbers, the same on your card and a friend's ─────────────────────────────────────
+// A ring with the win rate, next to wins, losses and spells learned (each with its own small icon); under it one
+// streak card — the flame big with the days in a row, and the best streak beside it with its own small flame.
+const ICON = {
+  win: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v3a5 5 0 0 1-10 0z" fill="currentColor"/><path d="M7 5H4v1.5A3.5 3.5 0 0 0 7.5 10M17 5h3v1.5a3.5 3.5 0 0 1-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 12v4M8.5 20h7l-1-4h-5z" fill="currentColor"/></svg>',
+  loss: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>',
+  book: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5C6.5 4 9.5 4 12 6c2.5-2 5.5-2 8-.5V19c-2.5-1.5-5.5-1.5-8 .5-2.5-2-5.5-2-8-.5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 6v13.5" stroke="currentColor" stroke-width="1.9"/></svg>',
+  today: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" fill="currentColor"/></svg>',
+};
+export function statsCard(s: { wins: number; losses: number; learned: number; today?: number }): HTMLElement {
+  const games = s.wins + s.losses;
+  const pct = games ? Math.round((100 * s.wins) / games) : 0;
+  const ring = h('div', `pc-ring${games ? '' : ' none'}`);
+  ring.style.setProperty('--p', `${pct}%`);
+  ring.append(append(h('div', 'pc-ring-in'), h('b', '', games ? `${pct}%` : '—'), h('small', '', tr('win rate'))));
+  const row = (cls: keyof typeof ICON, n: number, label: string) => {
+    const r = h('div', `pc-row pc-${cls}`);
+    const i = h('span', 'pc-ic'); i.innerHTML = ICON[cls];
+    r.append(i, h('b', '', n.toLocaleString(locale())), h('span', '', tr(label)));
+    return r;
+  };
+  const list = append(h('div', 'pc-list'), row('win', s.wins, s.wins === 1 ? 'win' : 'wins'), row('loss', s.losses, s.losses === 1 ? 'loss' : 'losses'), row('book', s.learned, 'spells learned'));
+  if (s.today !== undefined) list.append(row('today', s.today, 'learned today'));
+  return append(h('div', 'pc-stats'), ring, list);
+}
+export function streakCard(streak: number, best: number): HTMLElement {
+  const card = h('div', `pc-streak${streak > 0 ? ' on' : ''}`);
+  const big = flameFn ? flameFn(streak, streak > 0) : h('span');
+  big.classList.add('pc-flame');
+  const now = append(h('div', 'pc-s-now'), h('b', '', tr(streak === 1 ? '1 day' : `${streak} days`)), h('small', '', tr('daily streak')));
+  const bestBox = h('div', 'pc-s-best');
+  const small = flameFn ? flameFn(best, best > 0) : h('span');
+  small.classList.add('pc-flame-sm');
+  bestBox.append(small, append(h('div', 'pc-s-best-t'), h('small', '', tr('best')), h('b', '', tr(best === 1 ? '1 day' : `${best} days`))));
+  card.style.setProperty('--fc', big.style.getPropertyValue('--fc') || '#9a9aae'); // (the flame's colour)
+  card.append(big, now, bestBox);
+  return card;
 }
 
 export function setProfile(p: ProfileView | null) {
@@ -180,25 +230,14 @@ export function setProfile(p: ProfileView | null) {
   const lx = levelXp(p.xp);
   $('whoLv').textContent = String(lx.level);
   $('whoLevel').textContent = `Lv ${lx.level} · ${lx.into.toLocaleString()} / ${lx.need.toLocaleString()} XP`;
-  $('ppWins').textContent = String(p.wins ?? 0);
-  $('ppLosses').textContent = String(p.losses ?? 0);
-  const games = (p.wins ?? 0) + (p.losses ?? 0);
-  $('ppRate').textContent = games ? `${Math.round(((p.wins ?? 0) / games) * 100)}%` : '—';
-  $('ppLearned').textContent = String(p.learned);
-  $('ppToday').textContent = String(p.learnedToday ?? 0);
-  $('ppStreak').textContent = String(p.streak ?? 0);
-  $('ppBestStreak').textContent = String(Math.max(p.bestStreak ?? 0, p.streak ?? 0));
-  // 0.9.9.9.5.4: the flames there too (as on the menu)
-  if (flameFn) for (const [id, n] of [['ppStreak', p.streak ?? 0], ['ppBestStreak', Math.max(p.bestStreak ?? 0, p.streak ?? 0)]] as const) {
-    const box = $(id).parentElement!;
-    box.querySelector('.sf')?.remove();
-    box.prepend(flameFn(n, n > 0));
-  }
+  // 0.9.9.9.6.2: the same cards as a friend's (statsCard / streakCard), with "learned today" too
+  $('ppStatsBox').replaceChildren(statsCard({ wins: p.wins ?? 0, losses: p.losses ?? 0, learned: p.learned, today: p.learnedToday ?? 0 }));
+  $('ppStreakBox').replaceChildren(streakCard(p.streak ?? 0, Math.max(p.bestStreak ?? 0, p.streak ?? 0)));
   for (const id of ['whoPic', 'ppPic']) {
     const el = $(id);
     el.replaceChildren(p.pic ? picEl(p.pic, 'pic fill') : '✦');
     el.classList.toggle('has-pic', !!p.pic);
-    el.className = el.className.replace(/\s*\bbd(-\w+)?\b/g, '') + borderCls(p.border);
+    el.className = el.className.replace(/(^|\s)bd(-[\w-]+)?(?=\s|$)/g, '') + borderCls(p.border); // (all of bd, bd-lg-n5, bd-fr)
   }
   $('picRemove').hidden = !p.pic;
   $('whoXp').style.width = `${levelProgress(p.xp) * 100}%`;
@@ -1242,20 +1281,11 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
     const pic = h('div', 'pp-pic' + (p.pic ? ' has-pic' : '') + borderCls(p.border), p.pic ? '' : p.name.slice(0, 1).toUpperCase());
     const img = picEl(p.pic, 'pic fill');
     if (img) pic.append(img);
-    const games = p.wins + p.losses;
     body.push(
       append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), ...(p.login ? [h('div', 'pp-login', `@${p.login}`)] : []), h('div', 'pp-level', `Lv ${p.level}`), ...[badgeRowFn?.(p.badges)].filter((x): x is HTMLElement => !!x))),
-      append(h('div', 'pp-stats'),
-        append(h('div'), h('b', '', p.wins), h('span', '', 'wins')),
-        append(h('div'), h('b', '', p.losses), h('span', '', 'losses')),
-        append(h('div'), h('b', '', games ? `${Math.round((100 * p.wins) / games)}%` : '—'), h('span', '', 'win rate')),
-        append(h('div'), h('b', '', p.learned), h('span', '', 'spells learned')),
-      ),
-      append(h('div', 'pp-stats pp-streaks'),
-        streakBox(p.streak ?? 0, false, 'daily streak (days)'),
-        streakBox(Math.max(p.bestStreak ?? 0, p.streak ?? 0), true, 'best streak (days)'),
-      ),
-      h('p', 'hint', `Playing since ${new Date(p.since).toLocaleDateString(locale(), { year: 'numeric', month: 'short', day: 'numeric' })}`),
+      statsCard({ wins: p.wins, losses: p.losses, learned: p.learned }),
+      streakCard(p.streak ?? 0, Math.max(p.bestStreak ?? 0, p.streak ?? 0)),
+      h('p', 'hint pc-since', `Playing since ${new Date(p.since).toLocaleDateString(locale(), { year: 'numeric', month: 'short', day: 'numeric' })}`),
     );
     if (actions && actions.relation !== 'self') body.push(profileActions(p, actions));
   }
@@ -1276,6 +1306,20 @@ function clampProfileCard() {
   if (top + hgt > viewH() - 12) pop.style.top = `${Math.max(12, viewH() - 12 - hgt)}px`;
 }
 
+const ACT_ICON: Record<string, string> = {
+  view: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20c1.2-4 4.3-6 8-6s6.8 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  message: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+  challenge: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4l9 9M20 4l-9 9M7 17l-3 3M17 17l3 3M5 13l6 6M19 13l-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  remove: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 20c1-3.6 3.6-5.5 7-5.5 1.3 0 2.5.3 3.5.8M16 15l5 5M21 15l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+/** a button with a drawn icon and its words (the words in a span: they can change) */
+function actBtn(cls: string, icon: keyof typeof ACT_ICON, text: string): HTMLButtonElement {
+  const b = h('button', cls) as HTMLButtonElement;
+  b.type = 'button';
+  const i = h('i', 'pp-ic'); i.innerHTML = ACT_ICON[icon];
+  b.append(i, h('span', '', tr(text)));
+  return b;
+}
 /** Under someone's profile: Add friend (or accept their request), and Challenge a friend to a game. */
 function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
   const box = h('div', 'pp-actions');
@@ -1287,12 +1331,11 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     j.onclick = () => { hideProfileCard(); a.join!.go(); };
     box.append(j);
   }
-  if (a.view || a.message) {
-    const row = h('div', 'pp-row2');
-    if (a.view) { const v = h('button', 'pill pp-view', '👤 View profile') as HTMLButtonElement; v.onclick = () => a.view!(); row.append(v); }
-    if (a.message) { const m = h('button', 'pill pp-msg-btn', '✉ Message') as HTMLButtonElement; m.onclick = () => a.message!(); row.append(m); }
-    box.append(row);
-  }
+  // 0.9.9.9.6.2: the buttons in an even grid — two to a row, the same size, each with a drawn icon
+  const grid = h('div', 'pp-grid');
+  if (a.view) { const v = actBtn('pill pp-view', 'view', 'View profile'); v.onclick = () => a.view!(); grid.append(v); }
+  if (a.message) { const m = actBtn('pill pp-msg-btn', 'message', 'Message'); m.onclick = () => a.message!(); grid.append(m); }
+  box.append(grid);
   if (a.relation === 'none' || a.relation === 'incoming') {
     const b = h('button', 'pill primary', a.relation === 'incoming' ? '✓ Accept friend request' : '+ Add friend') as HTMLButtonElement;
     b.onclick = async () => {
@@ -1303,7 +1346,7 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     box.append(b);
   } else if (a.relation === 'outgoing') box.append(h('button', 'pill', '✓ Request sent', { disabled: '' }));
   if (a.relation === 'friend') {
-    const c = h('button', 'pill primary challenge-btn', '⚔ Challenge') as HTMLButtonElement;
+    const c = actBtn('pill primary challenge-btn', 'challenge', 'Challenge');
     const modes = h('div', 'pp-modes');
     modes.hidden = true;
     for (const m of ['reading', 'writing', 'rapid', 'boss', 'deck'] as GameMode[]) {
@@ -1316,14 +1359,15 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     if (!a.canChallenge) c.title = 'Finish your game first';
     c.onclick = () => { modes.hidden = !modes.hidden; clampProfileCard(); };
     // 0.9.9.9.5.2: remove a friend — a second tap confirms (no unfriending by a stray tap)
-    const rm = h('button', 'pill danger remove-friend-btn', '✕ Remove friend') as HTMLButtonElement;
+    const rm = actBtn('pill danger remove-friend-btn', 'remove', 'Remove friend');
+    const rmText = rm.querySelector('span')!;
     let sure = 0;
     rm.onclick = async () => {
       if (!a.remove) return;
       if (!sure) {
-        rm.textContent = tr(`Remove ${p.name}?`);
+        rmText.textContent = tr(`Remove ${p.name}?`);
         rm.classList.add('sure');
-        sure = window.setTimeout(() => { sure = 0; rm.textContent = tr('✕ Remove friend'); rm.classList.remove('sure'); }, 3500);
+        sure = window.setTimeout(() => { sure = 0; rmText.textContent = tr('Remove friend'); rm.classList.remove('sure'); }, 3500);
         return;
       }
       clearTimeout(sure);
@@ -1331,9 +1375,8 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
       try { await a.remove(); hideProfileCard(); toast(tr(`${p.name} is no longer your friend`)); }
       catch (e) { msg.textContent = (e as Error).message; rm.disabled = false; }
     };
-    const row = h('div', 'pp-row');
-    row.append(c, rm);
-    box.append(row, modes);
+    grid.append(c, rm);
+    box.append(modes);
   }
   box.append(msg);
   return box;

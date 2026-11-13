@@ -97,18 +97,15 @@ export const SEASONS = [
 export interface BorderDef { id: string; name: string; level: number; blurb: string; /** earned another way (an unlock id), not by level */ unlock?: string; /** 0.9.9.9.6: a Daily challenge league's */ league?: string }
 export const BORDERS: readonly BorderDef[] = [
   { id: 'none', name: 'No border', level: 0, blurb: 'Just your picture.' },
-  { id: 'apprentice', name: 'Apprentice', level: 1, blurb: 'A plain silver ring.' },
-  { id: 'adept', name: 'Adept', level: 5, blurb: 'A violet ring with four rune studs.' },
-  { id: 'master', name: 'Master', level: 10, blurb: 'A golden ring with a star at the top.' },
-  { id: 'archmage', name: 'Archmage', level: 15, blurb: 'A glowing ring of moving arcane light.' },
+  // 0.9.9.9.6.2: the level borders (Apprentice, Adept, Master, Archmage) are gone — the Beta one and the leagues' stay
   { id: 'beta', name: 'Beta', level: 0, unlock: 'border:beta', blurb: 'A platinum ring with a BETA tag — for everyone who finished the tutorial during the beta.' },
-  // 0.9.9.9.6: the Daily challenge leagues — each league reached, its own frame with the league's name at the foot
+  // 0.9.9.9.6: the Daily challenge leagues — each league reached, its own frame (0.9.9.9.6.2: N5–N1 animated, painted)
   { id: 'lg-kana', name: 'Kana League', level: 0, league: 'KANA', blurb: 'Cherry-blossom pink, かな at its foot — play your first Daily challenge.' },
-  { id: 'lg-n5', name: 'N5 League', level: 0, league: 'N5', blurb: 'Jade and bronze with a leaf crest — reach the N5 league.' },
-  { id: 'lg-n4', name: 'N4 League', level: 0, league: 'N4', blurb: 'Knight’s steel, riveted, with a shield crest — reach the N4 league.' },
-  { id: 'lg-n3', name: 'N3 League', level: 0, league: 'N3', blurb: 'Moonlit violet with a crescent and drifting stars — reach the N3 league.' },
-  { id: 'lg-n2', name: 'N2 League', level: 0, league: 'N2', blurb: 'Arcane gold, a ring of turning runes and a star crown — reach the N2 league.' },
-  { id: 'lg-n1', name: 'N1 League', level: 0, league: 'N1', blurb: 'The legend: a ruby flame ring with golden wings and a crown — reach the N1 league, the highest.' },
+  { id: 'lg-n5', name: 'N5 League', level: 0, league: 'N5', blurb: 'Polished silver with four glinting gems — reach the N5 league.' },
+  { id: 'lg-n4', name: 'N4 League', level: 0, league: 'N4', blurb: 'Ice-blue crystal with sharp shards and drifting sparkles — reach the N4 league.' },
+  { id: 'lg-n3', name: 'N3 League', level: 0, league: 'N3', blurb: 'Gilded gold wrapped in flowing ribbons, a star gem at the crest — reach the N3 league.' },
+  { id: 'lg-n2', name: 'N2 League', level: 0, league: 'N2', blurb: 'An arcane ring of violet light around a horned gold frame — reach the N2 league.' },
+  { id: 'lg-n1', name: 'N1 League', level: 0, league: 'N1', blurb: 'The legend: a radiant crown of gold rays around a ring of runes — reach the N1 league, the highest.' },
 ];
 /** 0.9.9.9.6: a league's border, reached once you're in that league (or higher); the Kana one after your first Daily challenge */
 const leagueReached = (need: string, unlocks: readonly string[]) => {
@@ -118,6 +115,8 @@ const leagueReached = (need: string, unlocks: readonly string[]) => {
   return i >= n;
 };
 export const isBorder = (b: unknown): b is string => typeof b === 'string' && BORDERS.some((x) => x.id === b);
+/** 0.9.9.9.6.2: what's shown for a saved border — one that no longer exists (an old level border) is none */
+export const borderOf = (b: unknown): string => (isBorder(b) ? b : 'none');
 export const borderUnlocked = (id: string, level: number, unlocks: readonly string[] = []) => {
   const b = BORDERS.find((x) => x.id === id);
   if (b?.league) return leagueReached(b.league, unlocks);
@@ -226,7 +225,7 @@ export type { Avatar };
 /**
  * 0.9.9.9.5.2: your character is yours to choose (Customize → Character) — it was decided by the hardest level you
  * picked (hiragana: a goblin … N1: a wizard). Everyone starts as the Goblin; climbing the Daily challenge leagues
- * unlocks the Knight (N4), the Witch (N3) and the Wizard (N2).
+ * unlocks the Knight (N5; 0.9.9.9.6.2 — it was N4), the Witch (N3) and the Wizard (N2).
  */
 export const CHARACTERS = ['goblin', 'knight', 'witch', 'wizard'] as const;
 export type CharacterId = (typeof CHARACTERS)[number];
@@ -234,7 +233,7 @@ export const isCharacter = (x: unknown): x is CharacterId => CHARACTERS.includes
 export interface CharacterDef { id: CharacterId; name: string; league: string | null; blurb: string }
 export const CHARACTER_DEFS: readonly CharacterDef[] = [
   { id: 'goblin', name: 'Goblin', league: null, blurb: 'Small, quick and up to mischief — every wizard-to-be starts out as a goblin.' },
-  { id: 'knight', name: 'Knight', league: 'N4', blurb: 'Plate armour, a red plume and a steady hand on the staff.' },
+  { id: 'knight', name: 'Knight', league: 'N5', blurb: 'Plate armour, a red plume and a steady hand on the staff.' },
   { id: 'witch', name: 'Witch', league: 'N3', blurb: 'A wide hat, a moon at her belt and a robe the colour of night.' },
   { id: 'wizard', name: 'Wizard', league: 'N2', blurb: 'The tall hat and the long cloak — a master of the kanji arts.' },
 ];

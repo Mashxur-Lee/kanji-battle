@@ -83,9 +83,8 @@ export interface ArenaApi {
 }
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
-// Only screen shake follows the system's reduce-motion setting: with Windows "animation effects" off the
-// whole arena (fire, sway, gem) used to freeze, which read as broken rather than calm.
-const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+// 0.9.9.9.6.2: nothing follows the system's reduce-motion setting any more (Windows "animation effects: off"),
+// not even the screen shake — players with it off asked for every animation
 
 // ── textures drawn on canvases ──────────────────────────────────────────────
 function canvasTex(c: HTMLCanvasElement, pixel = false) {
@@ -697,7 +696,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   let spinning = false; // (Customize: you turn round on the pedestal)
   let orbiting = false, orbitT = 0, orbitK = 0;
   let trembleUntil = 0, trembleFor = 1; // (0.9.9.9.5.3: a long rumble, on top of the short kicks)
-  const kick = (amount: number) => { if (!reduced()) shake = Math.max(shake, amount); };
+  const kick = (amount: number) => { shake = Math.max(shake, amount); };
 
   // spells in flight
   interface Flight { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; mid: THREE.Vector3; t: number; dur: number; color: THREE.Color; size: number; done: () => void; trailAt: number; gem?: THREE.Mesh; incoming?: boolean; target?: Who }
@@ -1048,7 +1047,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (trembleUntil > now) {
       // the ground rumbles: strong at first, then fading out
       // (0.9.9.9.5.5: about half as strong, a slower roll — it lasts longer now)
-      const k = (trembleUntil - now) / trembleFor, amp = (reduced() ? 0.008 : 0.026) * Math.min(1, k * 2.2) * (0.75 + 0.25 * Math.sin(now * 0.009));
+      const k = (trembleUntil - now) / trembleFor, amp = 0.026 * Math.min(1, k * 2.2) * (0.75 + 0.25 * Math.sin(now * 0.009));
       camera.position.add(new THREE.Vector3(Math.sin(now * 0.043) * amp, Math.sin(now * 0.057 + 1) * amp * 0.8, 0));
       camera.rotation.z += Math.sin(now * 0.031) * amp * 0.1;
     }

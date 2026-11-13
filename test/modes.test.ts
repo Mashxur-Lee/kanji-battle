@@ -664,7 +664,7 @@ test('the Beta border (0.9.9.3.1): given once the tutorial is done, equippable; 
   assert.ok((await study.profile(u)).unlocks.includes('border:beta'));
   u = (await store.findById(u.id))!;
   assert.equal((await study.setBorder(u, 'beta')).border, 'beta');
-  await assert.rejects(study.setBorder(u, 'master'), /level 10/);
+  await assert.rejects(study.setBorder(u, 'master'), /Unknown border/); // (0.9.9.9.6.2: the level borders are gone)
 });
 
 test('JLPT quiz: kana are not quizzed (0.9.9.9.5: they have the Kana section); kanji words get 4 different choices', async () => {

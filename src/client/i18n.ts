@@ -529,6 +529,12 @@ const RU: Record<string, string> = {
   'Google says this phone’s token is out of date. Reopen the app and test again.': 'Google сообщает, что токен телефона устарел. Откройте приложение заново и проверьте ещё раз.',
   'Wait a few seconds between tests.': 'Подождите несколько секунд между проверками.',
   'Character': 'Персонаж', 'Profile card': 'Карточка профиля',
+  // 0.9.9.9.6.2
+  'win': 'победа', 'loss': 'поражение', 'daily streak': 'серия дней', 'best': 'рекорд', '1 day': '1 день', 'Remove friend': 'Удалить из друзей',
+  'Your league': 'Ваша лига', 'The highest league — stay on top!': 'Высшая лига — удержитесь на вершине!',
+  'Classic flame': 'Классическое пламя', 'Sparks': 'Искры', 'Hitodama': 'Хитодама', 'Arcane flame': 'Тайное пламя', 'Trident': 'Трезубец',
+  'No flame yet': 'Пламени пока нет', 'The last flame — the highest': 'Последнее пламя — высшее',
+  "No streak yet — do today's tasks to light the flame": 'Серии пока нет — выполните задания дня, чтобы зажечь пламя',
   // 0.9.9.9.6.1
   'Quote': 'Цитировать',
   'Remove the quote': 'Убрать цитату',
@@ -986,7 +992,7 @@ const RU: Record<string, string> = {
   'A short story with blanks — fill them in with your struggling words, then check.': 'Короткий рассказ с пропусками — заполните их трудными словами и проверьте.',
   'Swipe the card: ← Again · Hard   |   Okay · Easy →': 'Смахните карточку: ← Снова · Трудно   |   Нормально · Легко →',
   'Profile': 'Профиль', '✦ Unlocked ✦': '✦ Открыто ✦', 'No border': 'Без рамки',
-  'Your profile card: a border round your picture (unlocks at levels 1, 5, 10 and 15) and up to 3 achievement badges under your name.': 'Ваша карточка профиля: рамка вокруг фото (открываются на 1, 5, 10 и 15 уровнях) и до 3 значков достижений под именем.',
+  'Your profile card: a frame round your picture (the Beta one, and one for each Daily challenge league you reach) and up to 3 achievement badges under your name.': 'Ваша карточка профиля: рамка вокруг фото (бета-рамка и по одной за каждую достигнутую лигу ежедневного испытания) и до 3 значков достижений под именем.',
   'Tap an achievement you have earned to show it under your name; tap it again to take it off.': 'Нажмите на полученное достижение, чтобы показать его под именем; нажмите ещё раз, чтобы убрать.',
   'No badges yet — pick up to 3 below.': 'Значков пока нет — выберите до 3 ниже.',
 };
@@ -1055,9 +1061,12 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^You reached the (\S+) league$/, 'Вы достигли лиги $1'],
   [/^(.+) → team: (.*)$/, '$1 → команде: $2'],
   [/^Score (\d+)\/10 or better to move up$/, 'Наберите $1/10 или больше, чтобы перейти выше'],
+  // 0.9.9.9.6.2: the streak flame's weeks and days
+  [/^week (\d+)$/, (_, n) => `неделя ${n}`],
+  [/^(\d+) days$/, (_, n) => `${n} ${plural(+n, 'день', 'дня', 'дней')}`],
   // 0.9.9.9.5.2: the push test
   [/^(.+) reached a 30× combo — the arena trembles!$/, '$1 набирает комбо ×30 — арена дрожит!'],
-  [/^Your character in battles\. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight \(N4\), the Witch \(N3\) and the Wizard \(N2\)\. You are in the (.+) league\.$/, (_, l) => `Ваш персонаж в битвах. Гоблин — ваш с самого начала; поднимайтесь по лигам ежедневного испытания, чтобы открыть Рыцаря (N4), Ведьму (N3) и Волшебника (N2). Вы в лиге ${l === 'Kana' ? 'Кана' : l}.`],
+  [/^Your character in battles\. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight \(N5\), the Witch \(N3\) and the Wizard \(N2\)\. You are in the (.+) league\.$/, (_, l) => `Ваш персонаж в битвах. Гоблин — ваш с самого начала; поднимайтесь по лигам ежедневного испытания, чтобы открыть Рыцаря (N4), Ведьму (N3) и Волшебника (N2). Вы в лиге ${l === 'Kana' ? 'Кана' : l}.`],
   [/^Reach the (\S+) league in the Daily challenge to unlock the (\w+) \(you are in the (\S+) league\)$/, (_, a, b, c) => `Дойдите до лиги ${a} в ежедневном испытании, чтобы открыть: ${RU[b] ?? b} (вы в лиге ${c === 'Kana' ? 'Кана' : c})`],
   [/^Unlocks in the (\S+) league$/, 'Откроется в лиге $1'],
   [/^Locked · (\S+) league$/, 'Закрыто · лига $1'],

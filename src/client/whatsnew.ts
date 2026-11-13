@@ -7,6 +7,31 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.6.2', date: '2026-11',
+    en: [
+      'League borders: N5 to N1 are new animated frames — silver, crystal, gilded gold with ribbons, an arcane ring, and the radiant crown — and your picture sits in them as a rounded square. They stay clear of names and levels. The old level borders are gone (Beta and the leagues’ stay).',
+      'Streak flames: 30 new animated flames — the fire changes every week (classic, sparks, hitodama, arcane, blaze, trident), then the colour (orange, red, blue, green, purple). The tasks banner shows next week’s flame and how many days to it.',
+      'The backgrounds come alive: the World Tree’s floating islands drift, the castle’s flags flutter and its banners sway.',
+      'Every animation plays even with Windows’ “Animation effects” off.',
+      'Profiles (yours and your friends’): a win-rate ring, wins, losses and spells with icons, one streak card with your best; the buttons are all the same size.',
+      'Customize and “View profile”: every slot picture is the same size and centred.',
+      'Daily challenge: your league is the big one now; the next league is a small line with what it brings. The Knight is the N5 league’s reward (N4 brings its border).',
+      'Messages: swipe a message to the left to reply to it; the list opens at once; on phones the chat sits above the 辞 and Friends buttons.',
+      'Phones: picking your levels in a room no longer jumps to the top; Settings no longer flickers.',
+    ],
+    ru: [
+      'Рамки лиг: от N5 до N1 — новые анимированные рамки (серебро, кристалл, золото с лентами, тайное кольцо и сияющая корона); фото в них — квадрат со скруглёнными углами. Они больше не закрывают имена и уровни. Старые рамки за уровни убраны (остались бета-рамка и рамки лиг).',
+      'Пламя серии: 30 новых анимированных огней — огонь меняется каждую неделю (классический, искры, хитодама, тайный, пламя, трезубец), потом меняется цвет (оранжевый, красный, синий, зелёный, фиолетовый). На баннере заданий — огонь следующей недели и сколько до него дней.',
+      'Фоны ожили: летающие острова у Мирового древа плывут, флаги замка развеваются, а знамёна покачиваются.',
+      'Все анимации работают, даже если в Windows выключены «Эффекты анимации».',
+      'Профили (ваш и друзей): кольцо с долей побед, победы, поражения и заклинания со значками, одна карточка серии с рекордом; все кнопки одного размера.',
+      '«Облик» и «Открыть профиль»: картинки всех слотов одного размера и по центру.',
+      'Ежедневное испытание: крупно — ваша лига, следующая — маленькой строкой с наградами. Рыцарь — награда лиги N5 (N4 даёт рамку).',
+      'Сообщения: смахните сообщение влево, чтобы ответить; список открывается сразу; на телефонах чат выше кнопок 辞 и «Друзья».',
+      'Телефоны: выбор уровней в комнате больше не прокручивает страницу наверх; «Настройки» больше не мерцают.',
+    ],
+  },
+  {
     v: '0.9.9.9.6.1', date: '2026-11',
     en: [
       'Messages: the envelope is at the top right now (with its number). Quote a message (↩) — the team’s replies to a bug report or a suggestion quote it — and ✓ turns into ✓✓ the moment it’s read. An emoji button, no stray scrollbar in the box, and two mutes: all your messages, or one chat (no notifications from them). The dictionary and friends stay at the sides; friends see you as “Chatting”.',

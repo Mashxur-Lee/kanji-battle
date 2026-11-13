@@ -113,11 +113,11 @@ test('0.9.9.9.5.5 "View profile": what they wear and their achievements', async 
   const study = new StudyService(store);
   const auth = new AuthService(store, new TokenSigner('t'));
   const { user } = await auth.register('looker', 'secret12');
-  await store.update(user.id, { unlocks: ['char:knight', 'pose:aim', 'ach:first-win', 'flame:x'], staff: 'ember', border: 'gold', flame: 'blue' });
+  await store.update(user.id, { unlocks: ['char:knight', 'pose:aim', 'ach:first-win', 'flame:x'], staff: 'ember', border: 'lg-n3', flame: 'blue' });
   const p = (await study.publicProfile(user.id))!;
   assert.equal(p.look?.character, 'knight');
   assert.equal(p.look?.pose, 'aim');
   assert.equal(p.look?.staff, 'ember');
-  assert.equal(p.look?.border, 'gold');
+  assert.equal(p.look?.border, 'lg-n3');
   assert.deepEqual(p.achievements, ['first-win']);
 });

@@ -1315,6 +1315,7 @@ async function squarePicture(file: File): Promise<string> {
   const open = (on: boolean) => {
     if (panel.hidden === !on) return;
     panel.hidden = !on;
+    document.body.classList.toggle('settings-open', on); // (0.9.9.9.6.2: phones stop drawing what's behind it)
     ui.$('volBtn').setAttribute('aria-expanded', String(on));
     if (on) {
       show();
