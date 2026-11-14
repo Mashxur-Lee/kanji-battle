@@ -333,18 +333,25 @@ function renderRow(m: DmView, prev?: DmView, next?: DmView): HTMLElement {
 // ── a message's menu, and reactions ──
 function closeMenus() { document.querySelectorAll('.msg-menu, .msg-rbar').forEach((x) => x.remove()); }
 /** a small pop-up by `r` (above it when there's room, else below), closed by a tap elsewhere */
-function placeAt(pop: HTMLElement, r: DOMRect) {
+// (0.9.9.9.6.4: a message's menu stays inside the chat — it went over the chat's header and the top bar for a
+// message near the top; the bell's menu drops below the bell)
+function placeAt(pop: HTMLElement, r: DOMRect, prefer: 'above' | 'below' = 'above') {
   document.body.append(pop);
   const w = pop.offsetWidth, hh = pop.offsetHeight;
   const left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2));
-  const top = r.top - hh - 8 > 8 ? r.top - hh - 8 : Math.max(8, Math.min(innerHeight - hh - 8, r.bottom + 8));
+  const head = document.getElementById('msgHead');
+  const minTop = Math.max(8, prefer === 'above' && head && !$('inbox').hidden ? head.getBoundingClientRect().bottom + 4 : 8);
+  const above = r.top - hh - 8, below = r.bottom + 8, maxTop = innerHeight - hh - 8;
+  const top = prefer === 'below'
+    ? (below <= maxTop ? below : above >= 8 ? above : Math.max(8, maxTop))
+    : (above >= minTop ? above : below <= maxTop ? below : Math.max(minTop, Math.min(maxTop, above)));
   pop.style.left = `${left}px`; pop.style.top = `${top}px`;
   setTimeout(() => document.addEventListener('pointerdown', function away(e) {
     if (!pop.isConnected) { document.removeEventListener('pointerdown', away, true); return; }
     if (!pop.contains(e.target as Node)) { pop.remove(); document.removeEventListener('pointerdown', away, true); }
   }, true));
 }
-const place = (pop: HTMLElement, anchor: HTMLElement) => placeAt(pop, anchor.getBoundingClientRect());
+const place = (pop: HTMLElement, anchor: HTMLElement, prefer: 'above' | 'below' = 'above') => placeAt(pop, anchor.getBoundingClientRect(), prefer);
 function reactRow(m: DmView, done: () => void) {
   const bar = h('div', 'msg-rrow');
   const mineNow = Object.entries(m.reactions ?? {}).find(([, ids]) => ids.includes(myId()))?.[0];
@@ -515,7 +522,7 @@ function notifyButton(c: Conversation) {
       it.onclick = async () => { pop.remove(); await setNotify(c.id, m).catch((err) => ui.toast((err as Error).message)); };
       pop.append(it);
     }
-    place(pop, b);
+    place(pop, b, 'below');
   };
   return b;
 }
