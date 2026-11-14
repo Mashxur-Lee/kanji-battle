@@ -11,6 +11,8 @@ import { api, type Conversation, type GroupInfo, type NotifyMode } from './api';
 import type { DmView } from '../shared/protocol';
 import { locale, tr } from './i18n';
 import * as ui from './ui';
+import { viewH, viewW, zrect } from './zoom';
+type ZRect = ReturnType<typeof zrect>;
 import * as audio from './audio';
 import { knowPlayer, mentionsMe, withMentions } from './mentions';
 import { emojiPanel, insertAtCaret, QUICK_REACTIONS, useEmoji } from './emojis';
@@ -335,13 +337,15 @@ function closeMenus() { document.querySelectorAll('.msg-menu, .msg-rbar').forEac
 /** a small pop-up by `r` (above it when there's room, else below), closed by a tap elsewhere */
 // (0.9.9.9.6.4: a message's menu stays inside the chat — it went over the chat's header and the top bar for a
 // message near the top; the bell's menu drops below the bell)
-function placeAt(pop: HTMLElement, r: DOMRect, prefer: 'above' | 'below' = 'above') {
+// (0.9.9.9.6.4: in the page's own pixels — at a UI size under 100% the page is zoomed, and window pixels put the
+// pop-up far from its message)
+function placeAt(pop: HTMLElement, r: ZRect, prefer: 'above' | 'below' = 'above') {
   document.body.append(pop);
   const w = pop.offsetWidth, hh = pop.offsetHeight;
-  const left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+  const left = Math.max(8, Math.min(viewW() - w - 8, r.left + r.width / 2 - w / 2));
   const head = document.getElementById('msgHead');
-  const minTop = Math.max(8, prefer === 'above' && head && !$('inbox').hidden ? head.getBoundingClientRect().bottom + 4 : 8);
-  const above = r.top - hh - 8, below = r.bottom + 8, maxTop = innerHeight - hh - 8;
+  const minTop = Math.max(8, prefer === 'above' && head && !$('inbox').hidden ? zrect(head).bottom + 4 : 8);
+  const above = r.top - hh - 8, below = r.bottom + 8, maxTop = viewH() - hh - 8;
   const top = prefer === 'below'
     ? (below <= maxTop ? below : above >= 8 ? above : Math.max(8, maxTop))
     : (above >= minTop ? above : below <= maxTop ? below : Math.max(minTop, Math.min(maxTop, above)));
@@ -354,11 +358,11 @@ function placeAt(pop: HTMLElement, r: DOMRect, prefer: 'above' | 'below' = 'abov
 const place = (pop: HTMLElement, anchor: HTMLElement, prefer: 'above' | 'below' = 'above') => {
   // (a hover-only button that has hidden, or whose message was just drawn again, has no box: use the message
   // as it is on screen now)
-  let r = anchor.getBoundingClientRect();
+  let r = zrect(anchor);
   if (!r.width && !r.height) {
     const id = anchor.closest<HTMLElement>('.msg-row')?.dataset.id;
     const row = id ? $('msgLog').querySelector<HTMLElement>(`.msg-row[data-id="${CSS.escape(id)}"]`) : null;
-    if (row) r = (row.querySelector('.msg-b') ?? row).getBoundingClientRect();
+    if (row) r = zrect(row.querySelector('.msg-b') ?? row);
   }
   placeAt(pop, r, prefer);
 };
@@ -375,7 +379,7 @@ function reactRow(m: DmView, done: () => void) {
   more.type = 'button'; more.title = tr('More emoji'); more.setAttribute('aria-label', tr('More emoji'));
   more.onclick = (ev) => {
     ev.stopPropagation();
-    const r = (bar.closest('.msg-menu, .msg-rbar') ?? bar).getBoundingClientRect();
+    const r = zrect(bar.closest('.msg-menu, .msg-rbar') ?? bar);
     done();
     const pop = h('div', 'msg-rbar big');
     pop.append(emojiPanel((e) => { pop.remove(); void react(m, e); }));

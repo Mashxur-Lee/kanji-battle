@@ -1,6 +1,7 @@
 // 0.9.9.9.6.4: typing "@" in a chat suggests people — your friends (and the group's members, the room's players) —
 // narrowed with every letter; tap one (or ↑ ↓ and Enter / Tab) and it becomes "@login ".
 import * as ui from './ui';
+import { viewH, viewW, zrect } from './zoom';
 import { tr } from './i18n';
 
 export interface Mentionable { id: string; name: string; login: string; pic?: string | null }
@@ -65,17 +66,17 @@ export function attachMentionSuggest(input: HTMLInputElement | HTMLTextAreaEleme
       r.onclick = () => pick(p);
       return r;
     }));
-    const rc = input.getBoundingClientRect();
+    const rc = zrect(input); // (the page's own pixels: the page may be zoomed)
     const w = Math.min(320, Math.max(220, rc.width));
     box.style.width = `${w}px`;
-    box.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, rc.left))}px`;
-    box.style.bottom = `${Math.max(8, innerHeight - rc.top + 6)}px`;
+    box.style.left = `${Math.max(8, Math.min(viewW() - w - 8, rc.left))}px`;
+    box.style.bottom = `${Math.max(8, viewH() - rc.top + 6)}px`;
   };
   const update = () => {
     tok = tokenAt(input);
     if (!tok) { close(); return; }
     list = rank(people(), tok.q);
-    if (!list.length) { box.hidden = false; box.replaceChildren(h('p', 'ms-none', tr('No friend by that name'))); const rc = input.getBoundingClientRect(); box.style.left = `${Math.max(8, rc.left)}px`; box.style.bottom = `${innerHeight - rc.top + 6}px`; box.style.width = '220px'; list = []; return; }
+    if (!list.length) { box.hidden = false; box.replaceChildren(h('p', 'ms-none', tr('No friend by that name'))); const rc = zrect(input); box.style.left = `${Math.max(8, rc.left)}px`; box.style.bottom = `${viewH() - rc.top + 6}px`; box.style.width = '220px'; list = []; return; }
     at = Math.min(at, list.length - 1);
     box.hidden = false;
     paint();
