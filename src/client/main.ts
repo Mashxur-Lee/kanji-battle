@@ -1218,7 +1218,7 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
         el.dataset.profile = p.id;
         if (shownFor !== '@' + login) return; // (closed meanwhile)
         shownFor = '';
-      } catch { if (shownFor === '@' + login) ui.showProfileCard(el, 'missing'); return; }
+      } catch { if (shownFor === '@' + login) { ui.hideProfileCard(); shownFor = ''; ui.toast(`${tr('No such player')}: @${login}`, 2500); } return; }
     }
     const id = el.dataset.profile!;
     if (shownFor === id && !ui.$('otherPop').hidden) { ui.hideProfileCard(); shownFor = ''; return; }
