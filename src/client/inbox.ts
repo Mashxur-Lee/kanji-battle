@@ -351,7 +351,17 @@ function placeAt(pop: HTMLElement, r: DOMRect, prefer: 'above' | 'below' = 'abov
     if (!pop.contains(e.target as Node)) { pop.remove(); document.removeEventListener('pointerdown', away, true); }
   }, true));
 }
-const place = (pop: HTMLElement, anchor: HTMLElement, prefer: 'above' | 'below' = 'above') => placeAt(pop, anchor.getBoundingClientRect(), prefer);
+const place = (pop: HTMLElement, anchor: HTMLElement, prefer: 'above' | 'below' = 'above') => {
+  // (a hover-only button that has hidden, or whose message was just drawn again, has no box: use the message
+  // as it is on screen now)
+  let r = anchor.getBoundingClientRect();
+  if (!r.width && !r.height) {
+    const id = anchor.closest<HTMLElement>('.msg-row')?.dataset.id;
+    const row = id ? $('msgLog').querySelector<HTMLElement>(`.msg-row[data-id="${CSS.escape(id)}"]`) : null;
+    if (row) r = (row.querySelector('.msg-b') ?? row).getBoundingClientRect();
+  }
+  placeAt(pop, r, prefer);
+};
 function reactRow(m: DmView, done: () => void) {
   const bar = h('div', 'msg-rrow');
   const mineNow = Object.entries(m.reactions ?? {}).find(([, ids]) => ids.includes(myId()))?.[0];
