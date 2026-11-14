@@ -105,6 +105,10 @@ export class Room {
   get open() { return this.isOpen; }
   /** people in the room (not the AI) — friends see "+1" beside them */
   get size() { return this.roster.filter((p) => !p.bot).length; }
+  /** 0.9.9.9.6.3: who's in it (not the AI) — friends in the same room are shown together, "Playing with you" */
+  get memberIds(): PlayerId[] { return this.roster.filter((p) => !p.bot).map((p) => p.id); }
+  /** 0.9.9.9.6.3: a name for the room that isn't its code (the code lets people in) */
+  readonly partyId = Math.random().toString(36).slice(2, 10);
   private nextChatId = 1;
   private lastGameOver?: ServerMessage;
 

@@ -150,7 +150,7 @@ export function chatMessages(msgs: ChatMessage[]) {
       line.append(h('b', '', m.from === hooks.me() ? 'You' : m.name), h('span', 'cl-text', m.text), time); // textContent: never HTML
       log.append(line);
     }
-    if (m.from !== hooks.me() && ((view && view.phase !== 'over') || !$('lobby').hidden)) audio.sfx.flip();
+    if (m.from !== hooks.me() && ((view && view.phase !== 'over') || !$('lobby').hidden)) audio.sfx.message(); // (0.9.9.9.6.3: a soft chime, not the noise burst)
     // a folded chat (narrow screens) shows a dot for a new message
     const panel = logs[0].closest('.dk-panel');
     if (m.from !== hooks.me() && panel && !panel.classList.contains('open')) { const hd = panel.querySelector('h4'); if (hd && !hd.querySelector('.dk-unread')) hd.append(h('span', 'dk-unread')); }

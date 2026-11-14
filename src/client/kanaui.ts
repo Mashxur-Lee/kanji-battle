@@ -2,13 +2,13 @@
 // know each, and practice: pick rows, a mode and how many stars it takes; new kana are met first, then asked with
 // look-alike wrong answers until each has its stars. Progress is saved on the server (offline: in the app, synced
 // later) — the practice logic itself is in shared/kanachart.ts.
-import { api } from './api';
+import { api, today } from './api';
 import * as audio from './audio';
 import { tr } from './i18n';
 import { speak } from './voice';
 import * as ui from './ui';
 import {
-  KANA_CHART, kanaCells, KanaPractice, masteredCount, STAR_TARGETS,
+  KANA_CHART, kanaCells, KanaPractice, masteredCount, STAR_TARGETS, isMasteredMark, kanaPercent,
   type KanaCell, type KanaProgress, type KanaQuestion, type KanaScript, type KanaSet, type PracticeMode, type StarTarget,
 } from '../shared/kanachart';
 
@@ -71,13 +71,20 @@ function renderChart() {
     const p = progress[c.ch];
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = `kc ${p?.m ? 'mastered' : p && p.s > 0 ? 'learning' : 'new'}`;
+    const done = isMasteredMark(p);
+    b.className = `kc ${done ? 'mastered' : p && p.s > 0 ? 'learning' : 'new'}`;
     b.style.setProperty('--i', String(ri * 5 + ci)); // a quick ripple as the chart appears
     const big = document.createElement('span'); big.className = 'kc-ch'; big.lang = 'ja'; big.textContent = c.ch;
     const ro = document.createElement('span'); ro.className = 'kc-ro'; ro.textContent = c.romaji;
     b.append(big, ro);
-    if (p && !p.m && p.s > 0) { const bar = document.createElement('i'); bar.className = 'kc-bar'; bar.style.setProperty('--k', String(Math.min(1, p.s / 3))); b.append(bar); }
-    b.setAttribute('aria-label', `${c.ch} ${c.romaji}${p?.m ? ` — ${tr('mastered')}` : ''}`);
+    // 0.9.9.9.6.3: how far along it is, under the letter (10 stars = 100%: mastered)
+    if (p && !done && p.s > 0) {
+      const bar = document.createElement('i'); bar.className = 'kc-bar'; bar.style.setProperty('--k', String(kanaPercent(p) / 100));
+      const pc = document.createElement('small'); pc.className = 'kc-pct'; pc.textContent = `${kanaPercent(p)}%`;
+      b.append(bar, pc);
+    }
+    b.title = done ? tr('Mastered') : `${kanaPercent(p)}% · ${tr('a kana grows up to 3 stars a day — 10 stars masters it')}`;
+    b.setAttribute('aria-label', `${c.ch} ${c.romaji}${done ? ` — ${tr('mastered')}` : ` — ${kanaPercent(p)}%`}`);
     b.onclick = () => { void speak(c.ch); b.classList.remove('ping'); void b.offsetWidth; b.classList.add('ping'); };
     return b;
   })));
@@ -116,7 +123,7 @@ function openSheet() {
     const first = r.cells.find(Boolean)!;
     const ch = document.createElement('span'); ch.lang = 'ja'; ch.textContent = first.ch;
     b.append(ch, document.createTextNode(` ${r.row.toUpperCase()}`));
-    const done = r.cells.every((c) => !c || progress[c.ch]?.m);
+    const done = r.cells.every((c) => !c || isMasteredMark(progress[c.ch]));
     b.classList.toggle('done', done);
     b.onclick = () => { if (chosen.has(r.row)) chosen.delete(r.row); else chosen.add(r.row); sync(); };
     return b;
@@ -168,7 +175,7 @@ function scheduleSave(now = false) {
 }
 
 function start(cells: KanaCell[], stars: StarTarget, mode: PracticeMode, shuffle: boolean) {
-  practice = new KanaPractice(cells, stars, mode, progress, Math.random, shuffle);
+  practice = new KanaPractice(cells, stars, mode, progress, Math.random, shuffle, today());
   streak = 0;
   ui.show('kanaplay');
   $('kanaplay').classList.remove('finished');

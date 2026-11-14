@@ -7,6 +7,27 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.6.3', date: '2026-11',
+    en: [
+      'Daily streak: a missed day now ends the streak at midnight (it used to last until you finished the next day). The streak window shows your days in a row and which flame it is.',
+      'Kana: mastering a letter takes real practice now — 10 stars, at most 3 a day, and a miss takes 2 away. Each letter shows how far along it is. The Hiragana / Katakana switch is back in shape.',
+      'Study spells: a Pause button on All spells, Onomatopoeia and Struggling — paused, no new words come in (Struggling: no missed words) until you resume.',
+      'Friends: friends in the same room are shown together under one bracket, and if you’re in it with them it says “Playing with you”.',
+      'Messages: a new message plays a soft chime (it was a harsh noise), the message box has a proper Kanji Wizards look, and on phones the 辞 and Friends buttons step aside while you type.',
+      '3D arena: the characters hold the staff in their hand (not at the wrist), and their feet stay on the floor.',
+      'Smaller things: “Change picture” is centred; the N1 frame no longer covers your level in Customize.',
+    ],
+    ru: [
+      'Ежедневная серия: пропущенный день теперь обрывает серию в полночь (раньше она держалась до конца следующего дня). В окне серии — дни подряд и какое у вас пламя.',
+      'Кана: чтобы освоить знак, нужно по-настоящему потренироваться — 10 звёзд, не больше 3 в день, а ошибка снимает 2. Под каждым знаком — процент. Переключатель хирагана / катакана снова ровный.',
+      'Изучение: кнопка «Пауза» у «Всех заклинаний», «Ономатопеи» и «Трудных» — на паузе новые слова не добавляются (в «Трудные» — ошибки), пока вы не продолжите.',
+      'Друзья: друзья в одной комнате показаны вместе под одной скобкой, а если вы с ними — «Играет с вами».',
+      'Сообщения: новое сообщение звучит мягким звоном (был резкий шум), у поля ввода — оформление Kanji Wizards, а на телефонах кнопки 辞 и «Друзья» уходят, пока вы пишете.',
+      '3D-арена: персонажи держат посох в руке (а не запястьем), а ноги не уходят под пол.',
+      'Мелочи: «Сменить фото» по центру; рамка N1 больше не закрывает уровень в «Облике».',
+    ],
+  },
+  {
     v: '0.9.9.9.6.2', date: '2026-11',
     en: [
       'League borders: N5 to N1 are new animated frames — silver, crystal, gilded gold with ribbons, an arcane ring, and the radiant crown — and your picture sits in them as a rounded square. They stay clear of names and levels. The old level borders are gone (Beta and the leagues’ stay).',

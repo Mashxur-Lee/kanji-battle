@@ -6,10 +6,10 @@ import { initTasks, renderTasks, taskActions, tasksAtLogin } from './dailytasks'
 import { checkRewards } from './rewards';
 import { initWhatsNew } from './whatsnew';
 initWhatsNew();
-import { adminTab, refreshInboxBadge, setAdminTab } from './adminui';
+import { adminTab, onAdminSelfTest, refreshInboxBadge, setAdminTab } from './adminui';
 import { gameKbAvailable, gameKbPref, gameKbReset, setGameKb, setGameKbPref } from './gamekb';
 import { celebrate, celebrateNew, comboMilestone } from './achievements';
-import { knownFriends, railScreen, refreshRail, setRailUser } from './friendrail';
+import { knownFriends, railScreen, refreshRail, setRailMe, setRailUser } from './friendrail';
 import { dictRailScreen, setDictRailUser } from './dictrail';
 import { initMenuVeil } from './menuveil';
 import { inLocalRoom, initLocalGames, localSend, OFFLINE_MODES } from './offline/localgames';
@@ -411,6 +411,7 @@ function onMessage(msg: ServerMessage) {
       void refreshOnline(); // now this player counts too
       registerPush(msg.user.id); // 0.9.9.9.5: friends' invites reach this phone while the app is closed
       inboxUser(msg.user.id, msg.user.role === 'admin'); // 0.9.9.9.6: Messages (unread)
+      setRailMe(msg.user.id); // 0.9.9.9.6.3: friends in your room: "Playing with you"
       joinFromLink();
       break;
     case 'invite_declined':
@@ -899,6 +900,7 @@ initMenuCarousel(); // 0.9.9.9.5.1: the menu's cards as a carousel on computers
 initQuizzes(); // 0.9.9.9.5.2: the Quizzes screen
 initInbox(); // 0.9.9.9.6: Messages
 onLeagueEquip((p) => applyProfile(p)); // 0.9.9.9.6: the league-up screen's Equip buttons
+onAdminSelfTest((p) => applyProfile(p)); // 0.9.9.9.6.3: the admin's test tools (streak, record)
 // 0.9.9.9.5.2: Settings → Invite notifications → Test (the Android app): says where push stops, if it does
 {
   ui.$('pushTestRow').hidden = !canPush();

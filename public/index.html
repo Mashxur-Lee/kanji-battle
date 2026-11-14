@@ -225,7 +225,7 @@
   <div class="cf-btns"><button id="confirmNo" class="big alt">Stay</button><button id="confirmYes" class="big danger">Leave</button></div>
 </dialog>
 <dialog id="tasksDialog" class="friend-dialog tasks-dialog" aria-label="Daily streak">
-  <div class="dd-head"><h3>🔥 Keep your daily streak</h3></div>
+  <div class="dd-head"><h3>Keep your daily streak</h3></div>
   <p class="hint">A day counts for your streak when all three tasks are done — and gives +500 XP. Your best streak unlocks magic staffs.</p>
   <div id="tasksStreak" class="tasks-streak"></div>
   <ul id="tasksList" class="tasks-list"></ul>
@@ -522,7 +522,8 @@
     <div id="studyNotice" class="notice" hidden></div>
     <div class="study-decks">
       <div class="deck-card all">
-        <h3>All spells</h3>
+        <div class="deck-head"><h3>All spells</h3><button type="button" class="deck-pause" data-deck-pause="all" aria-pressed="false"></button></div>
+        <p class="deck-paused-note" hidden></p>
         <p class="hint">How many new words of each level are added every day (0 = none).</p>
         <div id="studyLevels" class="level-plan" role="group" aria-label="New words a day per level"></div>
         <p id="dailyTotal" class="daily-total" hidden></p>
@@ -531,7 +532,8 @@
         <div class="deck-btns"><button id="studyAll" class="big">Study</button><button class="deck-open" data-deck="all"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
       <div class="deck-card ono">
-        <h3>Onomatopoeia</h3>
+        <div class="deck-head"><h3>Onomatopoeia</h3><button type="button" class="deck-pause" data-deck-pause="ono" aria-pressed="false"></button></div>
+        <p class="deck-paused-note" hidden></p>
         <p class="hint">Every giseigo, gitaigo and gijōgo: sounds (ワンワン), states (きらきら) and feelings (ドキドキ). Choose how many new ones a day (0 = none).</p>
         <div class="level-plan ono-plan"><div class="lp-row" id="onoPlanRow"><span class="lp-name">New a day</span><div class="lp-step"><button type="button" class="lp-btn" id="onoMinus" aria-label="New a day −1">−</button><input id="onoDaily" type="text" inputmode="numeric" maxlength="3" value="0" aria-label="New onomatopoeia a day"><button type="button" class="lp-btn" id="onoPlus" aria-label="New a day +1">+</button></div></div></div>
         <div id="onoApply" class="plan-apply" role="group" hidden><span id="onoApplyText"></span><button id="onoCancelBtn" type="button" class="pill">Cancel</button><button id="onoApplyBtn" type="button" class="pill plan-ok">Apply</button></div>
@@ -539,7 +541,8 @@
         <div class="deck-btns"><button id="studyOno" class="big">Study</button><button class="deck-open" data-deck="ono"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
       <div class="deck-card struggle">
-        <h3>Struggling spells</h3>
+        <div class="deck-head"><h3>Struggling spells</h3><button type="button" class="deck-pause" data-deck-pause="struggling" aria-pressed="false"></button></div>
+        <p class="deck-paused-note" hidden></p>
         <p class="hint">Words you missed in games — you choose on the results screen.</p>
         <div id="countsStruggle" class="counts"></div>
         <div class="deck-btns"><button id="studyStruggle" class="big">Study</button><button class="deck-open" data-deck="struggling"><span aria-hidden="true">☰</span> Words</button></div>
@@ -1084,7 +1087,7 @@
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>
-<div id="version" class="version">v0.9.9.9.6.2</div>
+<div id="version" class="version">v0.9.9.9.6.3</div>
 <script src="/app.js"></script>
 </body>
 </html>

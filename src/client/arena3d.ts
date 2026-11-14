@@ -1210,6 +1210,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         }
         if (spinning && key === 'opp' && !f.ko) m.root.rotation.y += dt * 0.5;
         if (!f.ko) m.breathe?.(still ? 0 : time); // 0.9.9.9.5.4: the rigged models breathe
+        m.groundFix?.(); // 0.9.9.9.6.3: feet never under the floor (poses, the bob, the kneel)
       } else if (f.dragon) {
         dragonInhale += ((inhaling ? 1 : 0) - dragonInhale) * Math.min(1, dt * 2.5);
         const left = Math.max(0, dragonBreathUntil - now) / 1300; // 1 → 0 over the fire
@@ -1570,7 +1571,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         // 0.9.9.9.5.5: the rigged ones go down on one knee (a little give at the end); the dragon lies down on its stomach
         const t2 = Math.min(1, (performance.now() - start) / 900);
         const k = t2 < 0.8 ? 1 - (1 - t2 / 0.8) ** 3 : 1 + Math.sin(((t2 - 0.8) / 0.2) * Math.PI) * 0.04;
-        if (f.model?.kneel) f.model.kneel(k);
+        if (f.model?.kneel) { f.model.kneel(k); f.model.groundFix?.(); }
         // (the older models: fall over sideways and lie on the ground)
         else if (f.model) { f.model.root.rotation.z = (Math.PI / 2) * e; f.model.root.position.y = 0.24 * e; }
         else if (f.dragon) f.dragon.ko(1 - (1 - Math.min(1, (performance.now() - start) / 1400)) ** 2);

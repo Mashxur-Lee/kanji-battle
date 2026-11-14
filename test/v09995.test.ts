@@ -185,9 +185,10 @@ test('0.9.9.9.5 Kana: practice — new kana met first, look-alike wrong answers,
   }
   assert.equal(p.finished, true);
   assert.equal(Object.keys(p.changes).length, 10);
-  assert.ok(Object.values(p.changes).every((c) => c.m), 'all mastered');
+  // (0.9.9.9.6.3: one run doesn't master anything — at most 3 stars a day, 10 to master)
+  assert.ok(Object.values(p.changes).every((c) => !c.m && c.s <= 3), 'none mastered in one go');
   // already mastered kana need one right answer each
-  const again = new KanaPractice(cells, 3, 'read', p.changes, rnd);
+  const again = new KanaPractice(cells, 3, 'read', Object.fromEntries(cells.map((c) => [c.ch, { s: 10, m: true }])), rnd);
   let m = 0;
   while ((q = again.next()) && m < 100) { assert.equal(q.intro, false); again.answer(q, q.answer); m++; }
   assert.equal(m, 10);
@@ -204,7 +205,7 @@ test('0.9.9.9.5 Kana: kana cards leave All spells and become Kana progress; savi
   await store.addCards(u.id, [learned, learning, newCard('kata:ア', now, 'struggling'), newCard('会う:あう', now, 'all')]);
   await store.update(u.id, { studyLevels: ['KANA', 'N5'], dailyPlan: { per: { KANA: 10, N5: 10 }, day: '2026-01-01', done: {} } });
   const p = await study.profile((await store.findById(u.id))!);
-  assert.deepEqual(p.kana['あ'], { s: 3, m: true });
+  assert.deepEqual(p.kana['あ'], { s: 10, m: true }); // (0.9.9.9.6.3: learned for a week+ = all 10 stars)
   assert.deepEqual(p.kana['い'], { s: 1 });
   const left = (await store.cards(u.id)).map((c) => c.vocabId);
   assert.deepEqual(left, ['会う:あう'], 'only the word stays');
@@ -215,13 +216,16 @@ test('0.9.9.9.5 Kana: kana cards leave All spells and become Kana progress; savi
   await store.addCards(u.id, [newCard('kana:う', now, 'all')]);
   await study.profile((await store.findById(u.id))!);
   assert.ok((await store.cards(u.id)).some((c) => c.vocabId === 'kana:う'), 'not run again');
-  // saving: a newly mastered kana gives 5 XP; unknown kana are ignored; mastered stays mastered
+  // saving: a newly mastered kana (its 10th star) gives 5 XP; unknown kana are ignored; a mastered one that falls
+  // under 7 stars isn't mastered any more (0.9.9.9.6.3)
+  await store.update(u.id, { kana: { ...(await store.findById(u.id))!.kana, 'う': { s: 9, d: '2026-01-01', g: 3 } } });
   const xp0 = (await store.findById(u.id))!.xp;
-  const r1 = await study.setKana((await store.findById(u.id))!, { 'う': { s: 3, m: true }, 'zz': { s: 9 }, 'あ': { s: 1 } }, '2026-01-02');
+  const r1 = await study.setKana((await store.findById(u.id))!, { 'う': { s: 10, m: true }, 'zz': { s: 9 }, 'あ': { s: 1 } }, '2026-01-02');
   assert.equal(r1.xp, 5);
-  assert.deepEqual(r1.kana['あ'], { s: 1, m: true });
+  assert.equal(r1.kana['う'].m, true);
+  assert.deepEqual(r1.kana['あ'], { s: 1 });
   assert.equal(r1.kana['zz'], undefined);
-  const r2 = await study.setKana((await store.findById(u.id))!, { 'う': { s: 4, m: true } }, '2026-01-02');
+  const r2 = await study.setKana((await store.findById(u.id))!, { 'う': { s: 10, m: true } }, '2026-01-02');
   assert.equal(r2.xp, 0, 'no XP twice');
   assert.equal((await store.findById(u.id))!.xp, xp0 + 5);
 });
@@ -233,7 +237,9 @@ test('0.9.9.9.5 Kana: a かな beginner graduates when the 46 basic hiragana are
   const { KANA_BEGINNER } = await import('../src/shared/progress');
   const u = await store.create({ username: 'kanabeg', passwordHash: 'x', role: 'user' } as never);
   await store.update(u.id, { unlocks: [KANA_BEGINNER] });
-  const all = Object.fromEntries(kanaCells('hira', 'basic').map((c) => [c.ch, { s: 3, m: true }]));
+  // (0.9.9.9.6.3: mastered = 10 stars, at most 3 a day — nine of them from the days before)
+  await store.update(u.id, { kana: Object.fromEntries(kanaCells('hira', 'basic').map((c) => [c.ch, { s: 9, d: '2026-01-01', g: 3 }])) });
+  const all = Object.fromEntries(kanaCells('hira', 'basic').map((c) => [c.ch, { s: 10 }]));
   const { [Object.keys(all)[0]]: _skip, ...allButOne } = all;
   await study.setKana((await store.findById(u.id))!, allButOne, '2026-01-02');
   assert.ok((await store.findById(u.id))!.unlocks.includes(KANA_BEGINNER), 'not yet');

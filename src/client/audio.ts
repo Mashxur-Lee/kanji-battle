@@ -236,6 +236,19 @@ export const sfx = {
     noise(t, 0.18, 0.4, 6000);
     tone(160, t + 0.05, 0.2, { gain: 0.3, to: 60 });
   },
+  /**
+   * 0.9.9.9.6.3: a new message — a soft, warm two-note chime (a fifth up, round sine tones with a gentle start and a
+   * little room). The chat used a burst of noise, which was dull and harsh.
+   */
+  message() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    for (const [n, at, g] of [[76, 0, 0.075], [83, 0.11, 0.065]] as const) {
+      tone(midi(n), t + at, 0.55, { gain: g, attack: 0.014, send: 0.35 });
+      tone(midi(n) * 2, t + at, 0.28, { gain: g * 0.18, attack: 0.01, send: 0.35 });
+      tone(midi(n) / 2, t + at, 0.3, { type: 'triangle', gain: g * 0.22, attack: 0.02, send: 0.2 });
+    }
+  },
   tick() { if (sfxOk()) bell(1320, ctx!.currentTime, 0.25, 0.08); },
   go() { if (sfxOk()) bell(midi(88), ctx!.currentTime, 0.8, 0.14); },
   /** Deck Duel: your turn — two bright rising bells. */

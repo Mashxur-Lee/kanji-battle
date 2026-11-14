@@ -44,6 +44,7 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff', tutorialDone: 'tutorial_done', unlocks: 'unlocks',
   loginDay: 'login_day', streak: 'streak', streakDay: 'streak_day', border: 'border', bestStreak: 'best_streak', role: 'role',
   dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred', nickname: 'nickname', lastSeen: 'last_seen', kana: 'kana', pushTokens: 'push_tokens', quizStats: 'quiz_stats',
+  wins: 'wins', losses: 'losses', // (0.9.9.9.6.3: the admin's own test tools can reset them)
 };
 
 /**

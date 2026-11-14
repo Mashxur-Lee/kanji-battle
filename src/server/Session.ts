@@ -23,7 +23,7 @@ function parseLevels(raw: unknown): Level[] {
 
 /** Tracks the one live session per account (newest wins), so we can kick on ban / second tab. */
 /** party (0.9.9.9.5.5): the room they're in — how many, how many fit, and its code when the host opened it to friends */
-export interface Party { size: number; max: number; mode: string; code?: string }
+export interface Party { size: number; max: number; mode: string; code?: string; /** 0.9.9.9.6.3 */ id?: string; members?: string[] }
 export interface Presence { online: boolean; away?: boolean; activity?: string; since?: number; lastSeen?: number; device?: Device; party?: Party }
 
 /** 0.9.9.9.2: what someone plays on (friends see a small icon): the Android app, the PC app, or a browser */
@@ -432,7 +432,7 @@ export class Session implements Client {
   party(): Party | undefined {
     const r = this.room;
     if (!r) return undefined;
-    return { size: r.size, max: r.maxPlayers, mode: MODE_LABEL[r.mode] ?? r.mode, ...(r.open && r.stage === 'lobby' && r.size < r.maxPlayers ? { code: r.code } : {}) };
+    return { size: r.size, max: r.maxPlayers, mode: MODE_LABEL[r.mode] ?? r.mode, id: r.partyId, members: r.memberIds, ...(r.open && r.stage === 'lobby' && r.size < r.maxPlayers ? { code: r.code } : {}) };
   }
 
   /** Crit chance and XP shown in rooms (crit comes from learned flashcards). */

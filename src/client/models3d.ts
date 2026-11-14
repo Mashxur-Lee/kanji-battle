@@ -37,6 +37,8 @@ export interface Character {
   breathe?: (time: number) => void;
   /** 0.9.9.9.5.5: knocked out (0 → 1): down on one knee, head bowed (the rigged models) */
   kneel?: (k: number) => void;
+  /** 0.9.9.9.6.3: keeps the feet (and a kneeling knee) on the floor — called after every pose (the rigged models) */
+  groundFix?: () => void;
   /** how far the staff tips forward inside its pivot (holdStaff: 0.3; the older builds: 0) */
   staffLean?: number;
 }

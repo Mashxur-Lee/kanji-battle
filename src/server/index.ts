@@ -23,6 +23,7 @@ import { Matchmaker } from './Matchmaker';
 import { StoryService } from './study/StoryService';
 import { InsightsService } from './study/InsightsService';
 import { isMuted, MessageService } from './study/MessageService';
+import { runMigrations } from './migrations';
 import { onServerError, reportServerError } from './errors';
 import { DictService } from './study/DictService';
 
@@ -255,7 +256,7 @@ const port = Number(process.env.PORT ?? 3000);
 store.init().then(() => auth.seed([
   { username: 'user', password: process.env.USER_PASSWORD ?? 'user123', role: 'user', fromEnv: !!process.env.USER_PASSWORD },
   { username: 'admin', password: process.env.ADMIN_PASSWORD ?? 'adminn123', role: 'admin', fromEnv: !!process.env.ADMIN_PASSWORD },
-], isPublicServer())).then(() => {
+], isPublicServer())).then(() => runMigrations(store).catch((e) => console.error('[migrations] failed', e))).then(() => {
   server.listen(port, () => {
     console.log(`Kanji Battle running on http://localhost:${port}`);
     console.log(`Kanji Wizards v${VERSION}`);
