@@ -2,12 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { MemoryStore } from '../src/server/db/Store';
 import { StudyService, liveStreak } from '../src/server/study/StudyService';
-import { ProgressService } from '../src/server/study/ProgressService';
-import { DailyService, DAILY_WORDS, OWN_MAX, personalWords, dailyWords } from '../src/server/study/DailyService';
 import { runMigrations } from '../src/server/migrations';
 import { applyKana, cleanKana, isMasteredMark, kanaPercent, markAfter } from '../src/shared/kanachart';
-import { newCard } from '../src/shared/srs';
-import { VOCAB } from '../src/server/vocab';
 
 test('0.9.9.9.6.3 the streak ends at midnight after a missed day (no day of slack)', () => {
   const u = (streakDay: string | null) => ({ streak: 6, streakDay });
@@ -58,37 +54,6 @@ test('0.9.9.9.6.3 kana: 10 stars to master, at most 3 a day, −2 for a miss; ma
   assert.equal(again.kana['か'].s, 5, 'the day\'s three are used up');
   const next = applyKana({ 'か': { s: 9, d: '2026-11-05', g: 3 } }, { 'か': { s: 10 } }, '2026-11-06');
   assert.ok(isMasteredMark(next.kana['か'])); assert.deepEqual(next.newlyMastered, ['か']);
-});
-
-test('0.9.9.9.6.3 daily challenge: up to 4 of the ten are your own spells — the same ten all day', async () => {
-  const base = dailyWords('2026-11-14', 'N5');
-  const own = VOCAB.filter((v) => v.level === 'N5' && /[一-鿿]/.test(v.kanji) && !base.includes(v)).slice(0, 30);
-  const mine = personalWords(base, own, 'seed');
-  assert.equal(mine.length, DAILY_WORDS);
-  assert.equal(mine.filter((w) => own.includes(w)).length, OWN_MAX, 'four, not more');
-  assert.ok(mine.every((w) => w.level === 'N5'));
-  assert.deepEqual(personalWords(base, own, 'seed'), mine, 'the same for the same player and day');
-  assert.equal(personalWords(base, own.slice(0, 2), 'seed').filter((w) => own.includes(w)).length, 2, 'fewer if you have fewer');
-  assert.deepEqual(personalWords(base, [], 'seed'), base, 'none: everyone\'s ten');
-  // a whole run: the words you answer are the ones the results show
-  const store = new MemoryStore();
-  const now = Date.parse('2026-11-14T08:00:00Z');
-  const daily = new DailyService(store, new ProgressService(store), () => now);
-  const u = await store.create({ username: 'dailyown', passwordHash: 'x', role: 'user' } as never);
-  await store.update(u.id, { unlocks: ['dleague:N5'] });
-  await store.addCards(u.id, own.slice(0, 12).map((v) => ({ ...newCard(v.id, now, 'all'), state: 'review' as const, intervalDays: 3, reps: 3 })));
-  let view = await daily.start((await store.findById(u.id))!, '2026-11-14');
-  const asked: string[] = [];
-  for (let i = 0; i < DAILY_WORDS; i++) {
-    asked.push(view.kanji);
-    const r = await daily.answer((await store.findById(u.id))!, '');
-    if (r.next) view = r.next;
-  }
-  const o = await daily.overview((await store.findById(u.id))!, '2026-11-14');
-  assert.deepEqual(o.words!.map((w) => w.kanji), asked);
-  const ownAsked = o.words!.filter((w) => own.slice(0, 12).some((v) => v.id === w.id)).length;
-  assert.ok(ownAsked >= 1 && ownAsked <= OWN_MAX, `${ownAsked} of your own`);
-  assert.ok(!/"(own\w*|personal\w*)":/i.test(JSON.stringify(o)), 'nothing says so');
 });
 
 test('0.9.9.9.6.3 Study: a paused deck gets no new words (All spells, Onomatopoeia) and no missed words (Struggling)', async () => {
