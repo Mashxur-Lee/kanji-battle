@@ -1297,8 +1297,10 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
   const w = Math.min(300, viewW() - 24);
   pop.style.width = `${w}px`;
   pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r.left + r.width / 2 - w / 2))}px`;
-  const below = r.bottom + 8;
-  pop.style.top = `${below + 240 > viewH() ? Math.max(12, r.top - 8 - pop.offsetHeight) : below}px`;
+  // (0.9.9.9.6.3: by the card's real height — it outgrew the old 240 px guess and ran off the bottom; above the
+  // name when there's room there, otherwise as low as it fits)
+  const below = r.bottom + 8, hgt = pop.offsetHeight, room = viewH() - 12;
+  pop.style.top = `${below + hgt <= room ? below : r.top - 8 - hgt >= 12 ? r.top - 8 - hgt : Math.max(12, room - hgt)}px`;
 }
 export const hideProfileCard = () => { $('otherPop').hidden = true; };
 /** keep the whole card on screen (it grows when the Challenge mode list opens) */
