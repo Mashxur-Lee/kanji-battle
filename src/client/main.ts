@@ -29,7 +29,7 @@ import { api, ApiError, getToken, setToken, type Friend, type Profile } from './
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
 import { showPlayer } from './playerview';
-import { initInbox, inboxUser, onDm, onDmRead, openInbox } from './inbox';
+import { initInbox, inboxLeft, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket } from './inbox';
 import { onLeagueEquip } from './leagueup';
 import { chatMessages, chatTyping, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
@@ -159,6 +159,7 @@ ui.onScreen((s) => {
   if (!title.hidden) title.replaceChildren(ui.modeBadge(s === 'deck' ? 'deck' : mode), document.createTextNode(MODE_LABEL[s === 'deck' ? 'deck' : mode]));
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (s !== 'lobby') void renderLobbyInvites(false);
+  if (s !== 'inbox') inboxLeft(); // 0.9.9.9.6.4: "typing…" stops, menus close
   railScreen(s);
   dictRailScreen(s); // 0.9.9.8: the dictionary side panel
   if (s !== 'results') closeRematchAsk(); // (a rematch card only means something there)
@@ -400,6 +401,15 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'dm_read': // 0.9.9.9.6.1: ✓ → ✓✓
       onDmRead(msg.reader);
+      break;
+    case 'dm_update': // 0.9.9.9.6.4: edited, deleted, reacted to
+      onDmUpdate(msg.message);
+      break;
+    case 'dm_typing': // 0.9.9.9.6.4: "typing…"
+      onDmTyping(msg.conv, msg.from, msg.name, msg.on);
+      break;
+    case 'dm_group': // 0.9.9.9.6.4: a group changed (or you left it)
+      onDmGroup(msg.group, msg.event);
       break;
     case 'look':
       arenaLook(msg.id, msg.yaw, msg.pitch);
@@ -874,7 +884,7 @@ function joinFromLink() {
   try { ib = new URLSearchParams(location.search).get('inbox') ?? ''; } catch { /* no URL */ }
   if (ib) {
     try { history.replaceState(history.state, '', location.pathname + location.hash); } catch { /* fine */ }
-    if (!inRoom) void openInbox(/^[\w-]{1,64}$/.test(ib) && ib !== '1' ? ib : undefined);
+    if (!inRoom) void openInbox(/^(g:)?[\w-]{1,64}$/.test(ib) && ib !== '1' ? ib : undefined); // (0.9.9.9.6.4: or a group)
     return;
   }
   try { c = new URLSearchParams(location.search).get('join') ?? ''; } catch { /* no URL */ }
@@ -906,6 +916,7 @@ initMotion(); // 0.9.9.9.5: buttons give and spring back, new list items slide i
 initMenuCarousel(); // 0.9.9.9.5.1: the menu's cards as a carousel on computers
 initQuizzes(); // 0.9.9.9.5.2: the Quizzes screen
 initInbox(); // 0.9.9.9.6: Messages
+setInboxSocket((m) => socket.send(m)); // 0.9.9.9.6.4: "typing…"
 onLeagueEquip((p) => applyProfile(p)); // 0.9.9.9.6: the league-up screen's Equip buttons
 onAdminSelfTest((p) => applyProfile(p)); // 0.9.9.9.6.3: the admin's test tools (streak, record)
 // 0.9.9.9.5.2: Settings → Invite notifications → Test (the Android app): says where push stops, if it does

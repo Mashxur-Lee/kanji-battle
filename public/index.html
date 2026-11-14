@@ -575,6 +575,8 @@
         <form id="msgForm" class="msgr-form" autocomplete="off">
           <button id="msgEmoji" class="pill msg-emoji-btn" type="button" aria-label="Emoji" title="Emoji"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14.5s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="9.5" r=".6" fill="currentColor"/><circle cx="15" cy="9.5" r=".6" fill="currentColor"/></svg></button>
           <div id="msgEmojiPick" class="msg-emoji-pick" hidden></div>
+          <!-- 0.9.9.9.6.4: photos -->
+          <button id="msgAttach" class="pill msg-attach-btn" type="button" aria-label="Photos" title="Photos"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 11.5 12.4 19.6a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg></button>
           <textarea id="msgInput" rows="1" maxlength="1000" placeholder="Write a message…" aria-label="Message"></textarea>
           <button id="msgSend" class="pill primary" type="submit" aria-label="Send"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4l17.4-7.5c.8-.4.8-1.5 0-1.8L3.4 3.6c-.7-.3-1.4.3-1.2 1l1.9 6.4 8.4 1-8.4 1-1.9 6.4c-.2.7.5 1.3 1.2 1z"/></svg></button>
         </form>
@@ -859,6 +861,9 @@
         <h4>Chat</h4>
         <div id="lobbyChatLog" class="chat-log" aria-live="polite"></div>
         <form id="lobbyChatForm" class="chat-form" autocomplete="off">
+          <!-- 0.9.9.9.6.4: emoji here too -->
+          <button id="lobbyEmoji" class="pill chat-emoji-btn" type="button" aria-label="Emoji" title="Emoji"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14.5s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="9.5" r=".6" fill="currentColor"/><circle cx="15" cy="9.5" r=".6" fill="currentColor"/></svg></button>
+          <div id="lobbyEmojiPick" class="chat-emoji-pick" hidden></div>
           <input id="lobbyChatInput" maxlength="140" placeholder="Say something…" enterkeyhint="send">
           <button class="pill primary">Send</button>
         </form>

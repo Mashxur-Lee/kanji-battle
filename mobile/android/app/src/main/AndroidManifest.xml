@@ -8,6 +8,10 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 0.9.9.9.5: an invite vibrates (the page's navigator.vibrate) -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 0.9.9.9.6.4: Messages — your recent photos to send, like Telegram (Android 14+ can share only some of them) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
     <application
         android:allowBackup="true"

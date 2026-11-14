@@ -11,6 +11,9 @@ import { arena, arenaForDeck, resetArenaDeck } from './arena';
 import { flameColor } from '../shared/progress';
 import { useGameKb } from './gamekb';
 import { knowPlayer, mentionsMe, withMentions } from './mentions';
+import { emojiPanel, insertAtCaret } from './emojis';
+import { attachMentionSuggest, type Mentionable } from './mentionsuggest';
+import { knownFriends } from './friendrail';
 
 const $ = ui.$;
 const COLOR_NAME: Record<CardColor, string> = { lightblue: 'Light blue', blue: 'Blue', yellow: 'Yellow', green: 'Green', red: 'Red' };
@@ -89,6 +92,25 @@ export function initDeck(hk: DeckHooks) {
     });
     $(field).addEventListener('blur', typingOff);
   }
+  // 0.9.9.9.6.4: emoji in the room's chat, and "@" suggests your friends and the players in the room
+  const pick = $('lobbyEmojiPick');
+  $('lobbyEmoji').onclick = (e) => {
+    e.stopPropagation();
+    if (!pick.childElementCount) pick.append(emojiPanel((em) => insertAtCaret($<HTMLInputElement>('lobbyChatInput'), em)));
+    pick.hidden = !pick.hidden;
+  };
+  document.addEventListener('pointerdown', (e) => { if (!pick.hidden && !(e.target as Element).closest('#lobbyEmojiPick, #lobbyEmoji')) pick.hidden = true; });
+  $('lobbyChatForm').addEventListener('submit', () => { pick.hidden = true; });
+  const roomPeople = (): Mentionable[] => {
+    const out: Mentionable[] = [];
+    for (const el of document.querySelectorAll<HTMLElement>('#lobbyPlayers [data-profile]')) {
+      const name = (el.dataset.name || el.textContent || '').replace(/\s*\(you\)\s*$/i, '').trim();
+      if (el.dataset.profile && el.dataset.profile !== hooks.me() && name && !/\s/.test(name) && !/^ai-/.test(el.dataset.profile)) out.push({ id: el.dataset.profile, name, login: name });
+    }
+    for (const f of knownFriends()?.friends ?? []) if (f.status === 'accepted') out.push({ id: f.id, name: f.name ?? f.username, login: f.username, pic: f.pic ?? null });
+    return out;
+  };
+  for (const f of ['lobbyChatInput', 'dkChatInput'] as const) attachMentionSuggest($<HTMLInputElement>(f), roomPeople);
   renderGuide($('deckGuide'));
 }
 

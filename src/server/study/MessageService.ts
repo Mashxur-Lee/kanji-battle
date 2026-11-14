@@ -333,7 +333,7 @@ export class MessageService {
 
   // ── conversations ──
   /** a conversation, oldest first (the newest 60, or the 60 before `before`); what came in is read now */
-  async thread(u: UserRecord, other: string, asSupport = false, before?: number): Promise<{ messages: MessageView[]; with: ConversationView | null; people?: Record<string, { name: string; pic: string | null }> }> {
+  async thread(u: UserRecord, other: string, asSupport = false, before?: number): Promise<{ messages: MessageView[]; with: ConversationView | null; people?: Record<string, { name: string; pic: string | null; login: string }> }> {
     if (GROUP.test(other) && !asSupport) {
       const { group, members, me } = await this.membership(u, other);
       const msgs = await this.store.messagesTo(other, 60, before);
@@ -347,8 +347,8 @@ export class MessageService {
       // ✓✓ when someone else in the group has read it
       const othersRead = Math.max(0, ...members.filter((m) => m.userId !== u.id).map((m) => m.lastRead));
       const recs = await Promise.all([...new Set([...members.map((m) => m.userId), ...msgs.map((m) => m.fromId)])].map((id) => this.store.findById(id)));
-      const people: Record<string, { name: string; pic: string | null }> = {};
-      for (const r of recs) if (r) people[r.id] = { name: nameOf(r), pic: picUrl(r) };
+      const people: Record<string, { name: string; pic: string | null; login: string }> = {};
+      for (const r of recs) if (r) people[r.id] = { name: nameOf(r), pic: picUrl(r), login: r.username };
       const sums = await this.store.groupSummaries([{ to: other, since: at }], u.id);
       const withV: ConversationView = { id: other, name: group.name, pic: group.pic ? mediaUrl(group.pic) : null, online: false, support: false, friend: false, unread: 0,
         last: sums.get(other)?.last ? view(sums.get(other)!.last!) : blank(), group: { members: members.length, online: members.filter((m) => this.online(m.userId)).length, role: me.role } };

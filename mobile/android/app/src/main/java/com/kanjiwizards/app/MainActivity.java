@@ -37,6 +37,7 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private static final int PICK_FILE = 1;
     private static final int ASK_NOTIFY = 2;
+    private static final int ASK_PHOTOS = 3;
     private static final String SERVER = BuildConfig.SERVER;
 
     private WebView web;
@@ -133,7 +134,7 @@ public class MainActivity extends Activity {
         if ("dm".equals(x.getString("kind"))) {
             String from = x.getString("fromId");
             intent.removeExtra("kind");
-            return from != null && from.matches("[A-Za-z0-9-]{1,64}") ? Uri.parse(SERVER + "/?inbox=" + Uri.encode(from)) : Uri.parse(SERVER + "/?inbox=1");
+            return from != null && from.matches("(g:)?[A-Za-z0-9-]{1,64}") ? Uri.parse(SERVER + "/?inbox=" + Uri.encode(from)) : Uri.parse(SERVER + "/?inbox=1");
         }
         if (!"invite".equals(x.getString("kind"))) return null;
         String code = x.getString("code");
@@ -170,6 +171,13 @@ public class MainActivity extends Activity {
             return;
         }
         super.onActivityResult(request, result, data);
+    }
+
+    /** 0.9.9.9.6.4: the answer to "may the app see your photos?" goes to the page (the photo sheet fills in) */
+    @Override
+    public void onRequestPermissionsResult(int request, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(request, perms, results);
+        if (request == ASK_PHOTOS) web.evaluateJavascript("window.__kwPhotos && window.__kwPhotos.access('" + Photos.access(this) + "')", null);
     }
 
     @Override
@@ -347,6 +355,31 @@ public class MainActivity extends Activity {
         public void setPushAuth(String auth, String lang) {
             PushService.setAuth(MainActivity.this, auth, lang);
         }
+
+        // ── 0.9.9.9.6.4: Messages — your recent photos (Photos.java) ──
+        /** "full", "partial" (Android 14+: only the photos you chose) or "none" */
+        @JavascriptInterface
+        public String photoAccess() { return Photos.access(MainActivity.this); }
+
+        /** asks for the photos (the answer comes back through window.__kwPhotos.access) */
+        @JavascriptInterface
+        public void askPhotos() {
+            final String[] want = Build.VERSION.SDK_INT >= 34 ? new String[] { Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED }
+                : Build.VERSION.SDK_INT >= 33 ? new String[] { Manifest.permission.READ_MEDIA_IMAGES } : new String[] { Manifest.permission.READ_EXTERNAL_STORAGE };
+            runOnUiThread(() -> requestPermissions(want, ASK_PHOTOS));
+        }
+
+        /** the newest photos, newest first: JSON [{id, w, h, at}] */
+        @JavascriptInterface
+        public String recentPhotos(int limit) { return Photos.recent(MainActivity.this, Math.max(1, Math.min(limit, 300))); }
+
+        /** small pictures for the grid, one by one, to window.__kwPhotos.thumb(id, dataUrl) */
+        @JavascriptInterface
+        public void photoThumbs(String idsJson, int size) { Photos.thumbs(MainActivity.this, web, idsJson, Math.max(64, Math.min(size, 512))); }
+
+        /** one photo made smaller (its longest side at most maxSide) as a JPEG, to window.__kwPhotos.full(req, dataUrl) */
+        @JavascriptInterface
+        public void photoFull(String id, int maxSide, String req) { Photos.full(MainActivity.this, web, id, Math.max(256, Math.min(maxSide, 2560)), req); }
 
         /** false when Android blocks this app's notifications (the bell then says how to allow them) */
         @JavascriptInterface
