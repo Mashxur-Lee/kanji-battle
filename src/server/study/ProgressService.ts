@@ -3,6 +3,7 @@ import { DAILY_TASKS, MONTH_GOALS, seasonOf, type DailyTaskState, type MonthGoal
 import type { DayActivity, Store, UserRecord } from '../db/Store';
 import { VOCAB } from '../vocab';
 import { now } from '../now';
+import { isMasteredMark, kanaPercent } from '../../shared/kanachart';
 
 /** How a word stands in your study set (Progress → mastery grid). */
 export const Mastery = { Unseen: 0, New: 1, Learning: 2, Learned: 3, Mastered: 4 } as const;
@@ -119,7 +120,7 @@ export class ProgressService {
       // 0.9.9.9.5: hiragana and katakana come from the Kana section
       if (v.level === 'KANA' || v.level === 'KATA') {
         const k = u.kana?.[v.kanji];
-        mastery[v.level].push([v.kanji, !k ? Mastery.Unseen : k.m ? Mastery.Mastered : k.s > 0 ? Mastery.Learning : Mastery.New, k ? Math.round(k.m ? 100 : 35 + 65 * Math.min(1, k.s / 5)) : 0]);
+        mastery[v.level].push([v.kanji, !k ? Mastery.Unseen : isMasteredMark(k) ? Mastery.Mastered : k.s > 0 ? Mastery.Learning : Mastery.New, k ? (isMasteredMark(k) ? 100 : kanaPercent(k)) : 0]); // (0.9.9.9.6.3: 10 stars to master)
         continue;
       }
       const c = cards.get(v.id);

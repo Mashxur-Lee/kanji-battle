@@ -2,7 +2,7 @@
 // daily active players, how many come back on day 1 / day 7, the tutorial funnel, games per mode).
 
 import { openInbox } from './inbox';
-import { api, type AdminReport, type AdminStats } from './api';
+import { api, type AdminReport, type AdminStats, type Profile } from './api';
 import { dateTime } from './ui';
 import * as ui from './ui';
 
@@ -127,4 +127,30 @@ async function loadStats() {
   const c1 = el('section'); c1.append(el('h3', '', 'Tutorial funnel (last 30 days)'), funnel);
   const c2 = el('section'); c2.append(el('h3', '', 'Games this week'), rows.length ? modes : el('p', 'hint', 'No games yet.'));
   cols.append(c1, c2);
+  box.append(selfTest());
 }
+
+/** 0.9.9.9.6.3: testing on your own account — set your streak (to see its flame), wipe your wins and losses */
+function selfTest() {
+  const sec = el('section', 'admin-self');
+  sec.append(el('h3', '', 'Testing — your own account'));
+  const row = el('div', 'admin-self-row');
+  const inp = el('input') as HTMLInputElement;
+  inp.type = 'number'; inp.min = '0'; inp.max = '3650'; inp.value = '20'; inp.className = 'admin-self-n';
+  const set = el('button', 'pill', 'Set my streak') as HTMLButtonElement;
+  const wipe = el('button', 'pill danger', 'Reset my wins & losses') as HTMLButtonElement;
+  const note = el('span', 'hint', '');
+  const run = async (b: { streak?: number; resetRecord?: boolean }, done: string) => {
+    set.disabled = wipe.disabled = true;
+    try { const r = await api.adminSelfTest(b); onSelfTest(r.profile); note.textContent = done; } catch (e) { note.textContent = (e as Error).message; }
+    finally { set.disabled = wipe.disabled = false; }
+  };
+  set.onclick = () => void run({ streak: Number(inp.value) }, `Streak set to ${Number(inp.value)} days.`);
+  wipe.onclick = () => void run({ resetRecord: true }, 'Wins and losses are 0 now.');
+  row.append(inp, set, wipe, note);
+  sec.append(row);
+  return sec;
+}
+let onSelfTest: (p: Profile) => void = () => {};
+/** main.ts: what to do with the profile afterwards (the menu's banner, your card) */
+export function onAdminSelfTest(fn: (p: Profile) => void) { onSelfTest = fn; }

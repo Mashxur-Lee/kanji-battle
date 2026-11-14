@@ -25,6 +25,9 @@ let collapsed: Record<'online' | 'offline', boolean> = { online: false, offline:
 /** 0.9.9.9.6: the friends list as last fetched (a profile card opens with it at once) */
 export const knownFriends = () => (friendsAt ? { friends, at: friendsAt } : null);
 let friendsAt = 0;
+/** 0.9.9.9.6.3: who you are (a friend in your room is "Playing with you") */
+let meId = '';
+export function setRailMe(id: string) { meId = id; }
 export function setRailUser(on: boolean) {
   signedIn = on;
   if (!on) { $('friendRail').hidden = true; $('railFab').hidden = true; clearInterval(timer); }
@@ -111,7 +114,13 @@ function render() {
     head.append(el('b', 'fr-count', list.length), el('span', 'fr-sec-name', title), el('span', 'fr-chev', collapsed[key] ? '▾' : '▴'));
     head.setAttribute('aria-expanded', String(!collapsed[key]));
     head.onclick = () => { collapsed[key] = !collapsed[key]; render(); };
-    const rows = collapsed[key] ? [] : list.map((f) => {
+    // 0.9.9.9.6.3: friends in the same room stand together under one bracket (like Steam) — "Playing together", or
+    // "Playing with you" when you're in it too; "+N" counts only the people in it you don't know
+    const groups = new Map<string, Friend[]>();
+    if (key === 'online') for (const f of list) { const id = f.party?.id; if (id) groups.set(id, [...(groups.get(id) ?? []), f]); }
+    const together = (f: Friend) => { const id = f.party?.id; return !!id && ((groups.get(id)?.length ?? 0) > 1 || !!f.party?.members?.includes(meId)); };
+    const ordered = key === 'online' ? [...list.filter(together).sort((a, b) => (a.party!.id! < b.party!.id! ? -1 : a.party!.id! > b.party!.id! ? 1 : 0)), ...list.filter((f) => !together(f))] : list;
+    const rowOf = (f: Friend) => {
       const r = el('div', 'fr-row' + (f.online ? ' online' : '') + (f.online && f.away ? ' away' : ''));
       ui.markProfile(r, { id: f.id, name: f.name ?? f.username, bot: null });
       r.title = `${f.name ?? f.username} — view profile`;
@@ -119,7 +128,12 @@ function render() {
       txt.append(el('span', 'fr-name', f.name ?? f.username), el('small', 'fr-status', friendStatus(f)));
       // 0.9.9.9.5.5: in a lobby with others — a lobby icon and "+1" (+3 in a full Boss party); green when it's open to join
       const pt = f.online ? f.party : undefined;
-      if (pt && (pt.size > 1 || pt.code)) {
+      const known = pt?.members ? pt.members.filter((id) => id === meId || friends.some((x) => x.id === id && x.status === 'accepted')).length : 1;
+      const others = pt ? Math.max(0, pt.size - (pt.members ? known : 1)) : 0;
+      if (pt && together(f)) {
+        // (in a group: the bracket's head says it; a row only adds the people in the room you don't know)
+        if (others > 0) { const party = el('small', 'fr-party with'); party.append(el('b', '', `+${others}`), el('span', '', tr(others === 1 ? 'other player' : 'other players'))); txt.append(party); }
+      } else if (pt && (pt.size > 1 || pt.code)) {
         const party = el('small', 'fr-party' + (pt.code ? ' open' : ''));
         const ic = el('i', 'fr-party-ic');
         ic.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.5-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 19.2C2 16 5 13.5 9 13.5s7 2.5 7 5.7c0 .5-.4.8-.9.8H2.9c-.5 0-.9-.3-.9-.8Zm15.3.8c.1-.3.2-.5.2-.8 0-1.9-.8-3.6-2.2-4.9.4-.1.8-.1 1.2-.1 3.4 0 5.5 2 5.5 4.6 0 .7-.4 1.2-1 1.2Z"/></svg>';
@@ -129,7 +143,23 @@ function render() {
       }
       r.append(avatar(f), txt, el('span', 'fr-lv', `Lv ${f.level ?? 0}`));
       return r;
-    });
+    };
+    const rows: HTMLElement[] = [];
+    if (!collapsed[key]) {
+      for (let i = 0; i < ordered.length; i++) {
+        const f = ordered[i];
+        if (!together(f)) { rows.push(rowOf(f)); continue; }
+        const id = f.party!.id!;
+        const members = ordered.filter((x) => x.party?.id === id);
+        i += members.length - 1;
+        const withMe = !!f.party?.members?.includes(meId);
+        const g = el('div', `fr-group${withMe ? ' with-me' : ''}`);
+        const gh = el('div', 'fr-group-head');
+        gh.append(el('b', '', withMe ? tr('Playing with you') : tr('Playing together')), el('span', '', tr(f.party!.mode)));
+        g.append(gh, ...members.map(rowOf));
+        rows.push(g);
+      }
+    }
     return [head, ...rows];
   };
   const list = $('railList');

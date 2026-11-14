@@ -5013,3 +5013,76 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 #menu .tasks-btn.folded .sf.sf2 { width: 50px; }
 @media (max-width: 640px) { #menu .tasks-btn .sf.sf2 { width: 60px; } }
 #menu .tasks-btn .tb-next .tn-pic.sf2 { width: 26px; }
+
+/* ── 0.9.9.9.6.3 ─────────────────────────────────────────────────────────────────────────────────────────────── */
+.admin-self { margin-top: 18px; }
+.admin-self-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.admin-self-n { width: 90px; }
+/* the streak dialog (0.9.9.9.6.3): the flame, and the days in a row with which flame it is; the kanji held in the
+   flame's core in every place the flame is shown (in the dialog it drifted out to the side) */
+.sf.sf2 { display: grid !important; place-items: center; position: relative; container-type: inline-size; }
+.sf.sf2 > .sf-k { grid-area: 1 / 1; position: relative; left: auto; right: auto; top: auto; transform: none; line-height: 1; white-space: nowrap; }
+#tasksStreak { gap: 16px; }
+#tasksStreak .sf.sf2 { width: 96px; flex: none; }
+#tasksStreak .sf.sf2 .sf-n { font-size: 1.15rem; }
+.ts-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.ts-n { font-size: 2.2rem; font-weight: 900; color: color-mix(in srgb, var(--fc, #fff) 60%, #fff); }
+.ts-l { font-weight: 700; }
+.ts-f { color: var(--fc, var(--muted)); font-weight: 800; font-size: .8rem; margin-top: 3px; }
+/* kana: the Hiragana / Katakana switch is two equal halves again (the general .seg look of 0.9.9.9.6.1 had squeezed
+   it into a pill with カタカナ pushed to the left) */
+.kana-script.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 0; width: 100%; padding: 4px; border-radius: 16px; background: rgba(10, 9, 30, .72); border: 1px solid var(--line); }
+.kana-script.seg > button { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 6px; border-radius: 12px; font-size: 1rem; }
+.kana-script.seg > button[aria-selected="true"] { background: linear-gradient(135deg, #e0559a, #8a4bd6); box-shadow: 0 6px 18px rgba(224, 85, 154, .35); }
+/* kana chart: how far along each letter is (0.9.9.9.6.3 — 10 stars masters it, at most 3 a day) */
+.kc .kc-pct { display: block; margin-top: 1px; line-height: 1; font-size: .64rem; font-weight: 900; color: #ffd27a; opacity: .9; font-variant-numeric: tabular-nums; }
+/* Study spells: a pause on All spells, Onomatopoeia and Struggling (0.9.9.9.6.3) — easy to see, amber while paused */
+.deck-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.deck-head h3 { margin: 0; }
+.deck-pause { display: inline-flex; align-items: center; gap: 6px; flex: none; margin: 0; padding: 7px 14px 7px 10px; border-radius: 999px; font-weight: 900; font-size: .85rem;
+  color: #fff; background: rgba(255, 255, 255, .08); border: 1.5px solid rgba(255, 255, 255, .22); box-shadow: none; }
+.deck-pause svg { width: 16px; height: 16px; }
+.deck-pause:hover { background: rgba(255, 255, 255, .14); }
+.deck-pause[aria-pressed="true"] { color: #1d1300; background: linear-gradient(135deg, #ffd34d, #ff9f2e); border-color: transparent; box-shadow: 0 4px 14px rgba(255, 170, 40, .4); }
+.deck-card.paused { border-color: rgba(255, 190, 60, .55) !important; }
+.deck-paused-note { margin: 8px 0 0; padding: 7px 10px; border-radius: 10px; font-size: .82rem; font-weight: 700; color: #ffd98a; background: rgba(255, 190, 60, .12); border: 1px solid rgba(255, 190, 60, .3); }
+/* the message box (0.9.9.9.6.3): a Kanji Wizards composer, not the browser's white box — dark glass, a violet edge
+   that glows when you write, the emoji and send buttons as round gems either side */
+.msgr-form { gap: 8px; padding: 10px 12px 12px; background: linear-gradient(180deg, rgba(14, 11, 36, 0), rgba(14, 11, 36, .55)); }
+.msgr-form textarea, .msgr-form textarea:focus {
+  background: linear-gradient(180deg, rgba(26, 21, 62, .96), rgba(18, 14, 44, .96)) !important; color: var(--text) !important;
+  border: 1.5px solid rgba(160, 140, 255, .32) !important; border-radius: 22px; padding: 11px 16px; caret-color: #c9b6ff;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, .35); outline: none; transition: border-color .18s, box-shadow .18s; }
+.msgr-form textarea:focus { border-color: rgba(185, 160, 255, .85) !important; box-shadow: inset 0 2px 6px rgba(0, 0, 0, .35), 0 0 0 3px rgba(150, 120, 255, .22), 0 0 18px rgba(150, 120, 255, .25); }
+.msgr-form textarea::placeholder { color: rgba(200, 190, 240, .45); }
+.msgr-form .msg-emoji-btn { background: rgba(255, 255, 255, .06); border: 1.5px solid rgba(160, 140, 255, .3); color: #d9ccff; }
+.msgr-form .msg-emoji-btn:hover, .msgr-form .msg-emoji-btn[aria-expanded="true"] { background: rgba(160, 140, 255, .18); color: #fff; }
+.msgr-form #msgSend { background: linear-gradient(135deg, #8b5cff, #e0559a); border: 0; color: #fff; box-shadow: 0 4px 14px rgba(160, 90, 255, .45); }
+.msgr-form #msgSend:active { transform: scale(.94); }
+:root[data-theme="light"] .msgr-form textarea { background: #fff !important; color: #1d1840 !important; }
+/* phones: while you write a message (the keyboard is up), the 辞 and Friends buttons step aside — they covered the box */
+@media (pointer: coarse), (max-width: 900px) {
+  body:has(#msgInput:focus) :is(#railFab, #dictFab) { display: none !important; }
+}
+/* your card's buttons: "Change picture" (a label) centred like the others */
+.pp-actions > .pill { display: flex; align-items: center; justify-content: center; text-align: center; }
+/* Customize → Profile card preview: a league frame (twice the picture) kept clear of the name and level beside it */
+.cust-card .pp-pic.bd-fr { scale: .74; margin: 0 14px; }
+.cust-card .pp-pic.bd-lg-kana { margin: 0 8px; }
+.cust-card { gap: 30px; }
+/* friends playing together (0.9.9.9.6.3): one bracket around them, like Steam — "Playing together · mode", or
+   "Playing with you" in gold when you're in the room too */
+.fr-group { position: relative; margin: 4px 0 6px; padding: 2px 0 2px 14px; }
+.fr-group::before { content: ''; position: absolute; left: 6px; top: 18px; bottom: 16px; width: 7px; border: 2px solid #7fd3a0; border-right: 0; border-radius: 6px 0 0 6px; opacity: .85; }
+.fr-group.with-me::before { border-color: #ffd34d; }
+.fr-group-head { display: flex; align-items: baseline; gap: 6px; padding: 2px 6px 3px 4px; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; }
+.fr-group-head b { color: #7fd3a0; font-weight: 900; }
+.fr-group.with-me .fr-group-head b { color: #ffd34d; }
+.fr-group-head span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0; font-size: .74rem; }
+.fr-group .fr-row { position: relative; }
+.fr-group .fr-row::before { content: ''; position: absolute; left: -8px; top: 50%; width: 8px; border-top: 2px solid #7fd3a0; opacity: .85; }
+.fr-group.with-me .fr-row::before { border-color: #ffd34d; }
+.friend-rail:not(:hover):not(:focus-within):not(.open) .fr-group-head { height: 6px; padding: 0; overflow: hidden; visibility: hidden; }
+.friend-rail:not(:hover):not(:focus-within):not(.open) .fr-group { padding-left: 8px; }
+.friend-rail:not(:hover):not(:focus-within):not(.open) .fr-group::before { left: 2px; top: 10px; bottom: 10px; width: 5px; }
+.friend-rail:not(:hover):not(:focus-within):not(.open) .fr-group .fr-row::before { display: none; }

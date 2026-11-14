@@ -6,6 +6,7 @@ import { api, type Conversation } from './api';
 import type { DmView } from '../shared/protocol';
 import { locale, tr } from './i18n';
 import * as ui from './ui';
+import * as audio from './audio';
 
 const $ = ui.$;
 const SUPPORT = 'support';
@@ -307,6 +308,7 @@ export function onDm(m: DmView, fromName: string, muted = false) {
   const mineNow = (mySide === 'support' ? m.from === SUPPORT : m.from === me);
   if (viewing && side === mySide && openId === other) {
     add(m);
+    if (!mineNow && !muted) audio.sfx.message(); // 0.9.9.9.6.3: a soft chime for a new message
     if (!mineNow) void api.thread(other, side === 'support').catch(() => {}); // (read now)
     return;
   }
@@ -315,6 +317,7 @@ export function onDm(m: DmView, fromName: string, muted = false) {
   paintBadges();
   if (viewing && side === mySide) void loadList();
   // a small note, outside battles (not for a muted chat)
+  if (!muted && !(mutedAll && mySide === 'me') && !['battle', 'deck', 'prep'].includes(ui.currentScreen() ?? '')) audio.sfx.message();
   if (!muted && !(mutedAll && mySide === 'me') && !['battle', 'deck', 'prep'].includes(ui.currentScreen() ?? '')) ui.toast(`✉ ${mySide === 'support' ? `${fromName} → ${tr('team')}` : fromName}: ${m.text.split('\n').slice(-1)[0].slice(0, 80)}`, 4000);
 }
 

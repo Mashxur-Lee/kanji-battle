@@ -2,8 +2,9 @@ import { isCorrectReading, isRomajiInput } from '../../shared/kana';
 import type { Level, VocabEntry } from '../../shared/protocol';
 import { displayReading } from '../../shared/vocab';
 import type { DailyResult, Store, UserRecord } from '../db/Store';
-import { VOCAB } from '../vocab';
+import { VOCAB, VOCAB_BY_ID } from '../vocab';
 import { playerDay, resolveToday, shiftDay, type ProgressService } from './ProgressService';
+import { isPaused } from './StudyService';
 import { now as clockNow } from '../now';
 import { hash, seeded } from '../../shared/rng';
 
@@ -36,7 +37,7 @@ export interface DailyAnswer {
   next: DailyWordView | null;
   done: { correct: number; ms: number; rank: number; players: number; xp: number; league?: League; promoted?: League | null } | null;
 }
-interface Attempt { day: string; league: League; index: number; shownAt: number; correct: number; ms: number; marks: string }
+interface Attempt { day: string; league: League; index: number; shownAt: number; correct: number; ms: number; marks: string; /** 0.9.9.9.6.3: this player's ten */ words: VocabEntry[] }
 
 export function dailyWords(day: string, league: League = 'N5'): VocabEntry[] {
   const rnd = seeded(hash(`kanji-wizards:${day}:${league}`));
@@ -49,6 +50,31 @@ export function dailyWords(day: string, league: League = 'N5'): VocabEntry[] {
   // easiest first (within the kana: hiragana, then katakana)
   return league === 'KANA' ? picked : picked.sort((a, b) => (a.difficulty ?? 0) - (b.difficulty ?? 0));
 }
+
+/**
+ * 0.9.9.9.6.3: up to 4 of the day's ten come from the player's own spells in that league (words they've studied;
+ * in the Kana league, kana they've practised) — it makes moving up a little easier. Never more than 4, each in the
+ * place of a word of the same level; which ones is fixed per player and day. Not shown anywhere.
+ */
+export const OWN_MAX = 4;
+export function personalWords(base: VocabEntry[], own: VocabEntry[], seedKey: string): VocabEntry[] {
+  const rnd = seeded(hash(seedKey));
+  const words = [...base];
+  const ids = new Set(words.map((w) => w.id));
+  const pool = own.filter((v) => !ids.has(v.id));
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  let have = words.filter((w) => own.some((o) => o.id === w.id)).length;
+  const taken = new Set<number>();
+  for (const v of pool) {
+    if (have >= OWN_MAX) break;
+    const spots = words.map((w, i) => i).filter((i) => !taken.has(i) && words[i].level === v.level && !own.some((o) => o.id === words[i].id));
+    if (!spots.length) continue;
+    const at = spots[Math.floor(rnd() * spots.length)];
+    words[at] = v; taken.add(at); have++;
+  }
+  return words;
+}
+const WORDS_MARK = 'dwords:';
 
 export class DailyError extends Error { constructor(message: string, readonly status = 400) { super(message); } }
 
@@ -71,6 +97,30 @@ export class DailyService {
     if (!this.cache.has(k)) { if (this.cache.size > 12) this.cache.clear(); this.cache.set(k, dailyWords(day, league)); }
     return this.cache.get(k)!;
   }
+  /** your ten for a day and league: the ones fixed when you started (with your own words in them), else everyone's */
+  private wordsOf(u: Pick<UserRecord, 'unlocks'>, day: string, league: League): VocabEntry[] {
+    return this.fixedWords(u, day, league) ?? this.words(day, league);
+  }
+  private fixedWords(u: Pick<UserRecord, 'unlocks'>, day: string, league: League): VocabEntry[] | null {
+    const mark = (u.unlocks ?? []).find((x) => x.startsWith(`${WORDS_MARK}${day}:${league}:`));
+    if (!mark) return null;
+    const list = mark.slice(`${WORDS_MARK}${day}:${league}:`.length).split('|').map((id) => VOCAB_BY_ID.get(id));
+    return list.length === DAILY_WORDS && list.every(Boolean) ? (list as VocabEntry[]) : null;
+  }
+  /** the player's own spells in a league: studied words (or practised kana, in the Kana league) */
+  private async ownSpells(u: UserRecord, league: League): Promise<VocabEntry[]> {
+    if (league === 'KANA') {
+      const chars = new Set(Object.entries(u.kana ?? {}).filter(([, k]) => k.s > 0 || k.m).map(([ch]) => ch));
+      return VOCAB.filter((v) => (v.level === 'KANA' || v.level === 'KATA') && chars.has(v.kanji));
+    }
+    const out: VocabEntry[] = [];
+    for (const c of await this.store.cards(u.id)) {
+      if (c.state === 'new') continue;
+      const v = VOCAB_BY_ID.get(c.vocabId);
+      if (v && v.level === league && /[一-鿿]/.test(v.kanji) && !out.includes(v)) out.push(v);
+    }
+    return out;
+  }
   /** today's league for you: the one you played in, or your league now */
   private todays(u: UserRecord, day: string): League { return playedOn(u, day) ?? this.attempts.get(u.id)?.league ?? leagueOf(u); }
   /** the store key of your result today (the offline snapshot carries it) */
@@ -85,7 +135,7 @@ export class DailyService {
     // 0.9.9.8.2: every league's board (tabs on the page), not only yours
     const boards = Object.fromEntries(await Promise.all(LEAGUES.map(async (lg) => [lg, lg === league ? board.map(publicRow) : (await this.store.dailyBoard(dailyKey(day, lg), 20)).map(publicRow)] as const)));
     const rank = mine ? (await this.store.dailyBetter(key, mine.correct, mine.ms)) + 1 : null;
-    const words = mine ? this.words(day, league).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === '1' : null })) : null;
+    const words = mine ? this.wordsOf(u, day, league).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === '1' : null })) : null;
     return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), boards, words, inProgress: this.attempts.get(u.id)?.day === day, league, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT };
   }
 
@@ -101,7 +151,7 @@ export class DailyService {
     const leagues = Object.fromEntries(await Promise.all(LEAGUES.map(async (lg) => {
       const key = dailyKey(d, lg);
       const [board, mine] = await Promise.all([this.store.dailyBoard(key, 20), this.store.daily(key, u.id)]);
-      const words = this.words(d, lg).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine?.marks ? mine.marks[i] === '1' : null }));
+      const words = this.wordsOf(u, d, lg).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine?.marks ? mine.marks[i] === '1' : null }));
       return [lg, { board: board.map(publicRow), words, mine: mine ? { correct: mine.correct, ms: mine.ms } : null }] as const;
     })));
     const played = LEAGUES.find((lg) => leagues[lg].mine) ?? null;
@@ -113,7 +163,16 @@ export class DailyService {
     const day = this.today(clientDay);
     if (playedOn(u, day) || await this.store.daily(dailyKey(day, leagueOf(u)), u.id)) throw new DailyError('You already played today\'s challenge — come back tomorrow!', 409);
     let a = this.attempts.get(u.id);
-    if (!a || a.day !== day) { a = { day, league: leagueOf(u), index: 0, shownAt: this.now(), correct: 0, ms: 0, marks: '' }; this.attempts.set(u.id, a); }
+    if (!a || a.day !== day) {
+      const league = leagueOf(u);
+      // your ten, fixed now (and kept with your account: the results and the earlier days show the same ones)
+      const words = this.fixedWords(u, day, league) ?? personalWords(this.words(day, league), await this.ownSpells(u, league), `own:${day}:${league}:${u.id}`);
+      const fresh = (await this.store.findById(u.id)) ?? u;
+      const keep = (fresh.unlocks ?? []).filter((x) => !x.startsWith(WORDS_MARK) || x.slice(WORDS_MARK.length, WORDS_MARK.length + 10) >= shiftDay(day, -8));
+      await this.store.update(u.id, { unlocks: [...keep.filter((x) => !x.startsWith(`${WORDS_MARK}${day}:`)), `${WORDS_MARK}${day}:${league}:${words.map((w) => w.id).join('|')}`] });
+      a = { day, league, index: 0, shownAt: this.now(), correct: 0, ms: 0, marks: '', words };
+      this.attempts.set(u.id, a);
+    }
     // a word left open too long (closed the tab to look it up?) counts as a miss
     while (a.index < DAILY_WORDS && this.now() - a.shownAt > DAILY_WORD_MS + GRACE_MS) {
       a.ms += DAILY_WORD_MS; a.index++; a.marks += '0'; a.shownAt = this.now();
@@ -128,7 +187,7 @@ export class DailyService {
     // (the run's own day: one started just before midnight is finished after it)
     if (!a || this.now() - a.shownAt > 6 * 3600_000) throw new DailyError('Start the challenge first');
     const text = typeof raw === 'string' ? raw.slice(0, 60) : '';
-    const word = this.words(a.day, a.league)[a.index];
+    const word = a.words[a.index];
     const ms = Math.min(DAILY_WORD_MS, this.now() - a.shownAt);
     const inTime = this.now() - a.shownAt <= DAILY_WORD_MS + GRACE_MS;
     // the kana league is answered in romaji (typing a shown kana back with a Japanese keyboard would be too easy)
@@ -170,8 +229,9 @@ export class DailyService {
     }
     // the words you got wrong go to Struggling spells, like after a battle
     if (saved) {
-      const missed = this.words(a.day, a.league).filter((_, i) => a.marks[i] !== '1').map((v) => v.id);
-      if (missed.length) await this.store.markStruggling(u.id, missed, this.now()); // (adds the card if you didn't have it)
+      const missed = a.words.filter((_, i) => a.marks[i] !== '1').map((v) => v.id);
+      // (adds the card if you didn't have it; 0.9.9.9.6.3: not while Struggling spells is paused)
+      if (missed.length && !isPaused((await this.store.findById(u.id)) ?? u, 'struggling')) await this.store.markStruggling(u.id, missed, this.now());
     }
     const xp = saved ? a.correct * XP_PER_CORRECT + (a.correct === DAILY_WORDS ? 100 : 0) : 0;
     if (xp) await this.store.addXp(u.id, xp);
@@ -183,7 +243,7 @@ export class DailyService {
   }
 
   private view(a: Attempt): DailyWordView {
-    const w = this.words(a.day, a.league)[a.index];
+    const w = a.words[a.index];
     return { index: a.index, total: DAILY_WORDS, kanji: w.kanji, level: w.level, timeLimitMs: DAILY_WORD_MS };
   }
 }

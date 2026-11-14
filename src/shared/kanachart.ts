@@ -83,25 +83,76 @@ export function lookalikes(ch: string): string[] {
 }
 
 // ── a player's progress ─────────────────────────────────────────────────────
-/** One kana: `s` stars (0–10, a right answer +1, a wrong one −1), `m` mastered (reached the stars you aimed for, once). */
-export interface KanaMark { s: number; m?: boolean }
+/**
+ * One kana: `s` stars (0–10), `m` mastered. 0.9.9.9.6.3: mastering takes real practice — all 10 stars, and a kana
+ * gains at most 3 stars a day (so four days at least); a wrong answer takes 2 away. A mastered kana stays mastered
+ * until it falls under 7. (It used to be mastered by reaching the run's target once — one right answer could do.)
+ * `d` / `g`: the day it last gained stars and how many that day.
+ */
+export interface KanaMark { s: number; m?: boolean; d?: string; g?: number }
 export type KanaProgress = Record<string, KanaMark>;
 export const KANA_STAR_MAX = 10;
+export const KANA_MASTER = 10;
+export const KANA_KEEP = 7;
+export const KANA_DAY_GAIN = 3;
+export const KANA_WRONG = 2;
 export const STAR_TARGETS = [1, 3, 5] as const;
 export type StarTarget = (typeof STAR_TARGETS)[number];
 
-/** Clean progress from the app (unknown kana dropped, numbers clamped). */
+/** mastered: all 10 stars — or mastered before and still 7 or more (old marks are judged the same way) */
+export const isMasteredMark = (k: KanaMark | undefined) => !!k && (k.s >= KANA_MASTER || (k.m === true && k.s >= KANA_KEEP));
+/** how far along a kana is, 0–100 */
+export const kanaPercent = (k: KanaMark | undefined) => Math.round((Math.min(KANA_STAR_MAX, k?.s ?? 0) / KANA_STAR_MAX) * 100);
+const isDay = (d: unknown): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+
+/** a kana's mark after one answer on `today` (right: +1 star, up to 3 a day · wrong: −2) */
+export function markAfter(was: KanaMark | undefined, right: boolean, today: string): KanaMark {
+  const w = was ?? { s: 0 };
+  const g = w.d === today ? w.g ?? 0 : 0;
+  let s = w.s, ng = g;
+  if (right) { if (g < KANA_DAY_GAIN && s < KANA_STAR_MAX) { s++; ng++; } }
+  else s = Math.max(0, s - KANA_WRONG);
+  return withMastery({ s, m: w.m, d: today, g: ng });
+}
+function withMastery(k: KanaMark): KanaMark {
+  const out: KanaMark = { s: k.s };
+  if (isMasteredMark(k)) out.m = true;
+  if (isDay(k.d)) { out.d = k.d; out.g = Math.max(0, Math.min(KANA_DAY_GAIN, Math.round(k.g ?? 0))); }
+  return out;
+}
+
+/** Clean progress from the app (unknown kana dropped, numbers clamped, mastery judged by the rule above). */
 export function cleanKana(raw: unknown): KanaProgress {
   const out: KanaProgress = {};
   if (!raw || typeof raw !== 'object') return out;
   for (const [ch, v] of Object.entries(raw as Record<string, unknown>)) {
     if (!isKanaChar(ch) || !v || typeof v !== 'object') continue;
-    const s = Math.max(0, Math.min(KANA_STAR_MAX, Math.round(Number((v as KanaMark).s) || 0)));
-    out[ch] = (v as KanaMark).m === true ? { s, m: true } : { s };
+    const k = v as KanaMark;
+    const s = Math.max(0, Math.min(KANA_STAR_MAX, Math.round(Number(k.s) || 0)));
+    out[ch] = withMastery({ s, m: k.m === true, d: k.d, g: Number(k.g) || 0 });
   }
   return out;
 }
-export const masteredCount = (p: KanaProgress | undefined, cells: KanaCell[]) => cells.filter((c) => p?.[c.ch]?.m).length;
+/**
+ * The server's side of a save: the app's new marks, held to the rules — no more than 3 stars a day per kana
+ * (counted from what's saved), mastery by the rule.
+ */
+export function applyKana(saved: KanaProgress, changes: KanaProgress, today: string): { kana: KanaProgress; newlyMastered: string[] } {
+  const kana: KanaProgress = { ...saved };
+  const newlyMastered: string[] = [];
+  for (const [ch, v] of Object.entries(changes)) {
+    const was = kana[ch] ?? { s: 0 };
+    const usedToday = was.d === today ? was.g ?? 0 : 0;
+    const most = was.s + Math.max(0, KANA_DAY_GAIN - usedToday);
+    const s = Math.max(0, Math.min(KANA_STAR_MAX, v.s, most));
+    const gained = Math.max(0, s - was.s);
+    const next = withMastery({ s, m: was.m, d: gained || was.d === today ? today : was.d, g: (was.d === today ? usedToday : 0) + gained });
+    if (isMasteredMark(next) && !isMasteredMark(was) && !was.m) newlyMastered.push(ch);
+    kana[ch] = next;
+  }
+  return { kana, newlyMastered };
+}
+export const masteredCount = (p: KanaProgress | undefined, cells: KanaCell[]) => cells.filter((c) => isMasteredMark(p?.[c.ch])).length;
 
 // ── practice ────────────────────────────────────────────────────────────────
 export type PracticeMode = 'read' | 'pick' | 'mix';
@@ -118,7 +169,7 @@ export interface KanaQuestion {
 /**
  * One practice run over some kana. New kana come in a few at a time (each met once with its romaji), then are
  * asked among the others in play until each has `target` stars in this run. Wrong answers come from look-alikes
- * and the same row, so guessing doesn't work. Already mastered kana only need one right answer to pass.
+ * and the same row, so guessing doesn't work. Already mastered kana only need one right answer to pass the run.
  */
 export class KanaPractice {
   private stars = new Map<string, number>();
@@ -131,12 +182,13 @@ export class KanaPractice {
   /** stars changed in this run, to save */
   readonly changes: KanaProgress = {};
 
-  constructor(cells: KanaCell[], readonly target: StarTarget, readonly mode: PracticeMode, private readonly progress: KanaProgress, private readonly rnd: () => number = Math.random, shuffle = false) {
+  constructor(cells: KanaCell[], readonly target: StarTarget, readonly mode: PracticeMode, private readonly progress: KanaProgress, private readonly rnd: () => number = Math.random, shuffle = false, private readonly today = new Date().toISOString().slice(0, 10)) {
     this.total = cells.length;
-    // mastered kana: one right answer passes; the rest start from their saved stars
+    // mastered kana: one right answer passes the run; the rest start the run from nothing (0.9.9.9.6.3: the saved
+    // stars are a separate, slower count — see markAfter)
     for (const c of cells) {
       const p = progress[c.ch];
-      this.stars.set(c.ch, p?.m ? target - 1 : Math.min(target - 1, p?.s ?? 0));
+      this.stars.set(c.ch, isMasteredMark(p) ? target - 1 : 0);
       if (p && (p.m || p.s > 0)) this.met.add(c.ch);
     }
     this.queue = shuffle ? this.shuffled(cells) : [...cells];
@@ -197,11 +249,8 @@ export class KanaPractice {
     const before = this.stars.get(ch) ?? 0;
     const now = right ? Math.min(this.target, before + 1) : Math.max(0, before - 1);
     this.stars.set(ch, now);
-    // the saved progress: a right answer adds a star (up to 10) and reaching the target masters it
-    const saved = { ...(this.changes[ch] ?? this.progress[ch] ?? { s: 0 }) };
-    saved.s = Math.max(0, Math.min(KANA_STAR_MAX, saved.s + (right ? 1 : -1)));
-    if (now >= this.target) saved.m = true;
-    this.changes[ch] = saved.m ? { s: saved.s, m: true } : { s: saved.s };
+    // the saved progress (0.9.9.9.6.3): +1 star for a right answer, at most 3 a day; −2 for a wrong one; mastered at 10
+    this.changes[ch] = markAfter(this.changes[ch] ?? this.progress[ch], right, this.today);
     return right;
   }
 }

@@ -132,10 +132,18 @@ export function renderTasks(p: Profile) {
 function fill(p: Profile) {
   const tasks = p.tasks ?? [];
   const all = doneCount(p) === tasks.length;
-  $('tasksStreak').replaceChildren(
-    streakFlame(p.streak ?? 0, all),
-    Object.assign(document.createElement('span'), { textContent: tr('days in a row') }),
+  // 0.9.9.9.6.3: the flame, and beside it the days in a row and which flame it is (week N)
+  const streak = p.streak ?? 0;
+  const fl = flameOf(streak);
+  const txt = document.createElement('div');
+  txt.className = 'ts-txt';
+  txt.append(
+    Object.assign(document.createElement('b'), { className: 'ts-n', textContent: String(streak) }),
+    Object.assign(document.createElement('span'), { className: 'ts-l', textContent: tr(streak === 1 ? 'day in a row' : 'days in a row') }),
+    Object.assign(document.createElement('small'), { className: 'ts-f', textContent: fl.week ? `${tr(fl.name)} · ${tr(`week ${fl.week}`)}` : tr('No flame yet') }),
   );
+  txt.style.setProperty('--fc', fl.hex);
+  $('tasksStreak').replaceChildren(streakFlame(streak, all), txt);
   $('tasksList').replaceChildren(...tasks.map((t) => {
     const li = document.createElement('li');
     const ok = t.value >= t.target;

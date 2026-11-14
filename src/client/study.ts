@@ -125,6 +125,7 @@ export async function openStudy() {
 
 function render(s: Awaited<ReturnType<typeof api.study>>) {
   levelPlan(s.dailyByLevel ?? Object.fromEntries(s.studyLevels.map((l) => [l, Math.round(s.dailyNew / s.studyLevels.length)])));
+  paintPaused(s.paused);
   counts($('countsAll'), s.decks.all);
   counts($('countsStruggle'), s.decks.struggling);
   counts($('countsCustom'), s.decks.custom);
@@ -833,3 +834,35 @@ function showArena3(tab: 'arena' | 'omni' | 'pose' | 'character', id: string, p:
 }
 /** leaving Customize: the preview stops drawing */
 export function customizeHidden() { arena3?.setActive(false); }
+
+// ── 0.9.9.9.6.3: pause a deck ────────────────────────────────────────────────────────────────────────────────
+// One button on each of All spells, Onomatopoeia and Struggling: paused, All spells and Onomatopoeia get no new words
+// each day from now on, Struggling gets none of the words you miss. Pressing it again resumes.
+const PAUSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="currentColor"/></svg>';
+const PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z" fill="currentColor"/></svg>';
+const PAUSED_NOTE: Record<string, string> = {
+  all: 'Paused — no new words are added each day. What you have can still be studied.',
+  ono: 'Paused — no new onomatopoeia are added each day. What you have can still be studied.',
+  struggling: 'Paused — words you miss aren\'t added here. What you have can still be studied.',
+};
+let pausedNow: Record<string, boolean> = {};
+function paintPaused(p: Awaited<ReturnType<typeof api.study>>['paused']) {
+  pausedNow = { ...(p ?? {}) };
+  for (const b of document.querySelectorAll<HTMLButtonElement>('#study .deck-pause')) {
+    const deck = b.dataset.pause!;
+    const on = !!pausedNow[deck];
+    b.innerHTML = `${on ? PLAY_ICON : PAUSE_ICON}<span>${tr(on ? 'Resume' : 'Pause')}</span>`;
+    b.setAttribute('aria-pressed', String(on));
+    b.title = tr(on ? 'Resume: new words come in again' : 'Pause: stop adding new words');
+    const card = b.closest<HTMLElement>('.deck-card')!;
+    card.classList.toggle('paused', on);
+    const note = card.querySelector<HTMLElement>('.deck-paused-note')!;
+    note.hidden = !on; note.textContent = tr(PAUSED_NOTE[deck]);
+    b.onclick = async () => {
+      b.disabled = true;
+      try { const r = await api.setPaused(deck as 'all' | 'ono' | 'struggling', !on); render(r); ui.toast(tr(!on ? 'Paused' : 'Resumed'), 1600); }
+      catch (e) { ui.toast((e as Error).message); }
+      finally { b.disabled = false; }
+    };
+  }
+}

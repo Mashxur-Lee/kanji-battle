@@ -128,6 +128,33 @@ function eyeSpots(scene: THREE.Object3D, names: string[], top = 0): THREE.Vector
   return [];
 }
 
+/**
+ * 0.9.9.9.6.3: the middle of a hand — where the vertices that move with the hand bone are, in that bone's own space
+ * (bind pose). Null if no vertex follows it.
+ */
+function palmOf(scene: THREE.Object3D, hand: THREE.Object3D): THREE.Vector3 | null {
+  const sum = new THREE.Vector3(), v = new THREE.Vector3();
+  let n = 0;
+  scene.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (!m.isSkinnedMesh || !m.skeleton) return;
+    const bi = m.skeleton.bones.indexOf(hand as THREE.Bone);
+    if (bi < 0) return;
+    const g = m.geometry, attr = (n: string) => g.getAttribute(n) as THREE.BufferAttribute | undefined;
+    const pos = attr('position'), si = attr('skinIndex'), sw = attr('skinWeight');
+    if (!pos || !si || !sw) return;
+    const inv = m.skeleton.boneInverses[bi];
+    for (let i = 0; i < pos.count; i++) {
+      let w = 0;
+      for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === bi) w += sw.getComponent(i, k);
+      if (w < 0.6) continue;
+      v.fromBufferAttribute(pos, i).applyMatrix4(m.bindMatrix).applyMatrix4(inv);
+      sum.add(v); n++;
+    }
+  });
+  return n ? sum.divideScalar(n) : null;
+}
+
 // ── the four characters ──────────────────────────────────────────────────────
 /**
  * per character: how bright the cloth is lifted, where the eyes are (`eyesTop`: only the top band of that mesh).
@@ -152,8 +179,10 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side,
     if (b) m.color.multiplyScalar(b);
     lift(m, look.lift);
   });
-  const root = new THREE.Group(), body = new THREE.Group();
-  root.add(body); body.add(scene);
+  // (0.9.9.9.6.3: `ground` sits between the root and the body — it lifts the body when a pose, a bob or the kneel would
+  // put a foot or a knee under the floor)
+  const root = new THREE.Group(), ground = new THREE.Group(), body = new THREE.Group();
+  root.add(ground); ground.add(body); body.add(scene);
   const bone = boneFinder(scene);
 
   // the staff arm (the model's left: +x) and the free arm hang straight down at rest
@@ -165,7 +194,10 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side,
   lowL.rotation.x = -1.0;
   lowR.rotation.x = -0.35;
   scene.updateMatrixWorld(true);
-  const hand = arm.worldToLocal(handL.getWorldPosition(new THREE.Vector3()));
+  // 0.9.9.9.6.3: the staff goes through the middle of the hand (the palm), not the wrist joint where the hand bone
+  // starts — the models have no finger bones, so the palm is where the hand's own vertices are
+  const palm = palmOf(scene, handL);
+  const hand = arm.worldToLocal(palm ? handL.localToWorld(palm) : handL.getWorldPosition(new THREE.Vector3()));
   arm.rotation.z = ARM_REST;
   leftArm.rotation.set(-0.3, 0, -0.16);
   const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [hand.x, hand.y, hand.z + 0.02], materials, glowTex, staffSkin);
@@ -217,7 +249,23 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side,
     leftArm.rotation.set(lerpN(-0.3, -0.75, e), 0, lerpN(-0.16, 0.05, e)); // the free hand on the front knee
     arm.rotation.set(lerpN(arm.rotation.x, 0.2, e), 0, ARM_REST); // the staff arm hangs, the staff leaning on the ground
   };
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, legs, breathe, kneel };
+  // 0.9.9.9.6.3: feet on the floor — after every pose, the lowest foot sole (or a kneeling knee) is kept at or above
+  // the floor (y = 0 under the root): the body lifts by whatever would have gone under it
+  const feet = [bone('Foot.L'), bone('Foot.R')];
+  const sole = footY; // the ankle's height over the floor, standing
+  const kneeR = sole * 0.85;
+  const tv = new THREE.Vector3(), ts = new THREE.Vector3();
+  const groundFix = () => {
+    ground.position.y = 0;
+    root.updateMatrixWorld(true);
+    const floor = root.parent ? root.parent.localToWorld(tv.set(root.position.x, 0, root.position.z)).y : 0;
+    const sc = root.getWorldScale(ts).y || 1;
+    let low = Infinity;
+    for (const f of feet) low = Math.min(low, (f.getWorldPosition(tv).y - floor) / sc - sole);
+    for (const l of legs) low = Math.min(low, (l.knee.getWorldPosition(tv).y - floor) / sc - kneeR);
+    if (low < -0.002) { ground.position.y = -low; root.updateMatrixWorld(true); }
+  };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, legs, breathe, kneel, groundFix };
 }
 const lerpN = (a: number, b: number, t: number) => a + (b - a) * t;
 

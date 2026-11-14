@@ -153,6 +153,21 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         await auth.requireAdmin(r.token);
         await auth.store.deleteReport(url.split('/')[4]);
         return res(200, { ok: true });
+      } else if (r.method === 'POST' && url === '/api/admin/self-test') {
+        // 0.9.9.9.6.3: an admin testing the game on their own account — a streak of any length (to see its flame), and
+        // the win/loss record wiped (test forfeits). Only ever their own account.
+        const u = await auth.requireAdmin(r.token);
+        const b = await r.json();
+        const patch: Record<string, unknown> = {};
+        if (b.streak !== undefined) {
+          const n = Math.round(Number(b.streak));
+          if (!Number.isFinite(n) || n < 0 || n > 3650) return res(400, { error: 'A streak from 0 to 3650 days' });
+          patch.streak = n; patch.streakDay = n > 0 ? playerDay(u) : null; patch.bestStreak = Math.max(u.bestStreak ?? 0, n);
+        }
+        if (b.resetRecord === true) { patch.wins = 0; patch.losses = 0; }
+        if (!Object.keys(patch).length) return res(400, { error: 'Nothing to change' });
+        const now = (await auth.store.update(u.id, patch as never))!;
+        return res(200, { user: toPublic(now), profile: await study.profile(now) });
       } else if (r.method === 'GET' && url === '/api/admin/stats') {
         await auth.requireAdmin(r.token);
         const users = await auth.store.list();
@@ -285,6 +300,12 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/study') {
         const u = await auth.authenticate(r.token);
         return res(200, await study.summary(u, resolveToday(query.get('today'))));
+      } else if (r.method === 'PUT' && url === '/api/study/pause') {
+        // 0.9.9.9.6.3: pause / resume a deck (All spells, Onomatopoeia, Struggling)
+        const u = await auth.authenticate(r.token);
+        const body = await r.json();
+        await study.setPaused(u, body.deck, body.on === true);
+        return res(200, await study.summary(await auth.authenticate(r.token), resolveToday(body.today)));
       } else if (r.method === 'PUT' && url === '/api/study/ono-daily') {
         // 0.9.9.7: new Onomatopoeia words a day
         const u = await auth.authenticate(r.token);

@@ -24,9 +24,9 @@ export interface DailyOverview { league?: string; nextLeague?: string; promoteAt
 export interface DailyPast { day: string; total: number; played: string | null; league: string;
   leagues: Record<string, { board: Array<{ id: string; name: string; correct: number; ms: number }>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }>; mine: { correct: number; ms: number } | null }> }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
-export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device; /** 0.9.9.9.5: has the app with push — an invite reaches their phone */ push?: boolean; /** 0.9.9.9.5.5: the room they're in (a code when it's open to friends) */ party?: { size: number; max: number; mode: string; code?: string } }
+export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device; /** 0.9.9.9.5: has the app with push — an invite reaches their phone */ push?: boolean; /** 0.9.9.9.5.5: the room they're in (a code when it's open to friends) */ party?: { size: number; max: number; mode: string; code?: string; /** 0.9.9.9.6.3: the room (not its code) and who's in it */ id?: string; members?: string[] } }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
-export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; onoDaily?: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile }
+export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; onoDaily?: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile; /** 0.9.9.9.6.3 */ paused?: { all: boolean; ono: boolean; struggling: boolean } }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean; ono?: OnoType }
 export interface DeckRow { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean; state: CardState; addedAt: number | null; due: number; intervalDays: number; starred?: boolean }
 export interface WordHit { id: string; kanji: string; reading: string; meaning: string; level: Level; custom: boolean }
@@ -149,6 +149,8 @@ export const api = {
   setDailyNew: (n: number) => call<StudySummary>('PUT', '/api/study/daily-new', { n, today: today() }),
   /** 0.9.9.4.4: new words a day per level */
   setOnoDaily: (n: number) => call<StudySummary>('PUT', '/api/study/ono-daily', { n, today: today() }),
+  /** 0.9.9.9.6.3: pause / resume a deck's new words */
+  setPaused: (deck: 'all' | 'ono' | 'struggling', on: boolean) => call<StudySummary>('PUT', '/api/study/pause', { deck, on, today: today() }),
   setDailyLevels: (levels: Partial<Record<Level, number>>) => call<StudySummary>('PUT', '/api/study/daily-levels', { levels, today: today() }),
   setBorder: (border: string) => call<{ profile: Profile }>('PUT', '/api/me/border', { border }),
   setBadges: (badges: string[]) => call<{ badges: string[] }>('PUT', '/api/me/badges', { badges }),
@@ -160,6 +162,8 @@ export const api = {
   inboxDone: (id: string, done: boolean) => call<{ ok: boolean }>('POST', `/api/admin/inbox/${encodeURIComponent(id)}`, { done }),
   inboxDelete: (id: string) => call<{ ok: boolean }>('DELETE', `/api/admin/inbox/${encodeURIComponent(id)}`),
   adminStats: () => call<AdminStats>('GET', '/api/admin/stats'),
+  /** 0.9.9.9.6.3: an admin's own account, for testing — a streak of any length, or the win/loss record wiped */
+  adminSelfTest: (b: { streak?: number; resetRecord?: boolean }) => call<{ user: PublicUser; profile: Profile }>('POST', '/api/admin/self-test', b),
   // 0.9.9.9.6: the messenger (?as=support: an admin, the team's conversations)
   conversations: (support = false) => call<{ conversations: Conversation[]; unread: number; mutedAll?: boolean }>('GET', `/api/messages${support ? '?as=support' : ''}`),
   muteMessages: (who: string, on: boolean) => call<{ muted: boolean }>('PUT', '/api/messages/mute', { who, on }),

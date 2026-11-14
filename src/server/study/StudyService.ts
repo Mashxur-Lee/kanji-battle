@@ -12,7 +12,7 @@ import { buildQuiz, kanaQuestion, type QuizQuestion } from '../../shared/quiz';
 import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type DailyPlan, type Snapshot, type Store, type UserRecord } from '../db/Store';
 import { shuffle } from '../VocabPool';
 import { kanjiFacts, VOCAB, VOCAB_BY_ID } from '../vocab';
-import { cleanKana, isKanaChar, kanaCells, masteredCount, type KanaProgress } from '../../shared/kanachart';
+import { applyKana, cleanKana, isKanaChar, isMasteredMark, kanaCells, masteredCount, type KanaProgress } from '../../shared/kanachart';
 import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress, resolveToday } from './ProgressService';
 import { now as clockNow } from '../now';
 import { seededRng } from '../../shared/rng';
@@ -82,7 +82,7 @@ export class StudyService {
       tutorialDone: u.tutorialDone ?? true, unlocks: u.unlocks ?? [], month: await this.progress.month(u, playerDay(u, now)),
       dailyNew: u.dailyNew ?? DAILY_NEW, badges: u.badges ?? [],
       tasks: await this.progress.tasks(u.id, playerDay(u, now)), streakDay: u.streakDay ?? null, border: borderOf(u.border), starred: u.starred ?? [],
-      kana: u.kana ?? {},
+      kana: cleanKana(u.kana ?? {}), // (0.9.9.9.6.3: old marks judged by the new rule — mastered needs 10 stars)
       quizStats: u.quizStats ?? {}, // 0.9.9.9.5.5
     };
   }
@@ -299,7 +299,8 @@ export class StudyService {
       const stars = c.state === 'review' ? (c.intervalDays >= 7 ? 3 : 2) : c.state === 'new' ? 0 : 1;
       const was = kana[ch] ?? { s: 0 };
       const s = Math.max(was.s, stars);
-      kana[ch] = was.m || (c.state === 'review' && c.intervalDays >= 7) ? { s, m: true } : { s };
+      // (0.9.9.9.6.3: a card learned for a week or more is a mastered kana — all 10 stars, as mastering needs now)
+      kana[ch] = was.m || (c.state === 'review' && c.intervalDays >= 7) ? { s: 10, m: true } : { s };
     }
     for (const [deck, ids] of byDeck) await this.store.removeCards(u.id, deck, ids);
     const plan = u.dailyPlan ? { ...u.dailyPlan, per: Object.fromEntries(Object.entries(u.dailyPlan.per).filter(([l]) => !isKanaLevel(l as Level))) } : u.dailyPlan;
@@ -315,21 +316,16 @@ export class StudyService {
    */
   async setKana(u: UserRecord, raw: unknown, today: string) {
     const changes = cleanKana(raw);
-    const kana: KanaProgress = { ...(u.kana ?? {}) };
-    let newlyMastered = 0;
-    for (const [ch, v] of Object.entries(changes)) {
-      const was = kana[ch] ?? { s: 0 };
-      if (v.m && !was.m) newlyMastered++;
-      kana[ch] = was.m || v.m ? { s: v.s, m: true } : { s: v.s }; // mastered stays mastered
-    }
+    // 0.9.9.9.6.3: the server holds the marks to the rules (at most 3 stars a day per kana, mastered at 10)
+    const { kana, newlyMastered } = applyKana(cleanKana(u.kana ?? {}), changes, today);
     await this.store.update(u.id, { kana });
-    const xp = newlyMastered * KANA_MASTER_XP;
+    const xp = newlyMastered.length * KANA_MASTER_XP;
     if (xp) await this.store.addXp(u.id, xp);
     // 0.9.9.9.5.4: every kana practised counts for the day (the activity calendar, friends, the streak task) —
     // it counted only the ones that gained a star, so a session of mixed answers could leave no trace
     const practised = Object.keys(changes).length;
     if (practised || xp) await this.progress.record(u.id, today, { reviews: practised, xp });
-    if (isKanaBeginner(u.unlocks) && kanaCells('hira', 'basic').every((c) => kana[c.ch]?.m)) await this.setKanaMastered((await this.store.findById(u.id)) ?? u, true);
+    if (isKanaBeginner(u.unlocks) && kanaCells('hira', 'basic').every((c) => isMasteredMark(kana[c.ch]))) await this.setKanaMastered((await this.store.findById(u.id)) ?? u, true);
     return { kana, xp };
   }
 
@@ -346,6 +342,7 @@ export class StudyService {
    * by the levels you ticked); tops up if you raised a number.
    */
   private async addDaily(u: UserRecord, today: string): Promise<number> {
+    if (isPaused(u, 'all')) return 0; // 0.9.9.9.6.3: paused — no new words from today on (until it's resumed)
     const plan = planOf(u, today);
     const done = { ...plan.done };
     const have = new Set((await this.store.cards(u.id)).filter((c) => deckOf(c) === 'all').map((c) => c.vocabId));
@@ -367,6 +364,19 @@ export class StudyService {
     return added;
   }
 
+  /**
+   * 0.9.9.9.6.3: pause a deck — All spells and Onomatopoeia stop getting their new words each day, Struggling stops
+   * getting the words you miss (in games, in the daily challenge). What's already in them can still be studied.
+   */
+  async setPaused(u: UserRecord, deck: unknown, on: boolean) {
+    if (deck !== 'all' && deck !== 'ono' && deck !== 'struggling') throw new StudyError('Pause what?');
+    const key = `${PAUSE}${deck}`;
+    const now = (await this.store.findById(u.id)) ?? u;
+    const rest = (now.unlocks ?? []).filter((x) => x !== key);
+    await this.store.update(u.id, { unlocks: on ? [...rest, key] : rest });
+    return { paused: on };
+  }
+
   /** Study → "New spells a day" (10–150), older app versions: shared by the ticked levels. */
   /** 0.9.9.7: new Onomatopoeia words a day (0 = none; it held every word as new before). */
   async setOnoDaily(u: UserRecord, raw: unknown, today: string) {
@@ -377,6 +387,7 @@ export class StudyService {
   }
   /** new Onomatopoeia words still allowed today */
   private onoLeft(u: UserRecord, today: string) {
+    if (isPaused(u, 'ono')) return 0; // (0.9.9.9.6.3: paused)
     const plan = planOf(u, today);
     return Math.max(0, (plan.per.ONO ?? 0) - (plan.done.ONO ?? 0));
   }
@@ -528,6 +539,7 @@ export class StudyService {
       notice,
       decks: { all: counts(cards.filter((c) => deckOf(c) === 'all'), now), struggling: counts(cards.filter((c) => deckOf(c) === 'struggling'), now), custom: counts(cards.filter((c) => deckOf(c) === 'custom'), now), ono: onoCounts(counts(cards.filter((c) => deckOf(c) === 'ono'), now), this.onoLeft(fresh, today)) },
       onoDaily: planOf(fresh, today).per.ONO ?? 0,
+      paused: { all: isPaused(fresh, 'all'), ono: isPaused(fresh, 'ono'), struggling: isPaused(fresh, 'struggling') },
       dailyNew: fresh.dailyNew ?? DAILY_NEW,
       dailyByLevel: planOf(fresh, today).per,
       studyXpToday: (await this.store.activity(u.id, today)).find((a) => a.day === today)?.studyXp ?? 0,
@@ -634,7 +646,9 @@ export class StudyService {
     // missed words go to Struggling spells right away (pre-ticked); the results screen can undo it or move them
     // (0.9.9.9.5: kana aren't put in decks — they're practised in the Kana section)
     const words = [...new Set(missedIds.filter((id) => VOCAB_BY_ID.has(id) && !isKanaId(id)))];
-    const added = new Set(words.length ? await this.store.markStruggling(userId, words, clockNow()) : []);
+    // (0.9.9.9.6.3: Struggling paused — nothing goes in by itself; the results screen can still add a word)
+    const paused = isPaused((await this.store.findById(userId)) ?? { unlocks: [] }, 'struggling');
+    const added = new Set(words.length && !paused ? await this.store.markStruggling(userId, words, clockNow()) : []);
     const missed: MissedWord[] = words.map((id) => { const v = VOCAB_BY_ID.get(id)!; return { id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, added: added.has(id) }; });
     // Deck Duel: every kanji of the duel joins All spells as a new card (cards you already have are left alone)
     const met = seen.filter((id) => VOCAB_BY_ID.has(id) && !isKanaId(id));
@@ -747,6 +761,9 @@ export const DAILY_LEVEL_MAX = 150;
 export const STUDY_XP = 5, STUDY_XP_DAILY = 500;
 /** new onomatopoeia cards a day: at most (0.9.9.7: you choose; it was 20 a session) */
 export const ONO_DAILY_MAX = 100;
+/** 0.9.9.9.6.3: a paused deck ("pause:all", "pause:ono", "pause:struggling" in the unlocks) */
+const PAUSE = 'pause:';
+export const isPaused = (u: Pick<UserRecord, 'unlocks'>, deck: 'all' | 'ono' | 'struggling') => (u.unlocks ?? []).includes(`${PAUSE}${deck}`);
 /** the Onomatopoeia deck's "new": only as many as today still allows */
 const onoCounts = (c: DeckCounts, left: number): DeckCounts => ({ ...c, new: Math.min(c.new, left) });
 // (a function: in the app's offline engine the word list loads after this module)
@@ -777,10 +794,14 @@ export function planOf(u: Pick<UserRecord, 'dailyPlan' | 'studyLevels' | 'dailyN
 }
 const clampDaily = (n: number) => Math.max(DAILY_NEW_MIN, Math.min(DAILY_NEW_MAX, Math.round(Number.isFinite(n) ? n : DAILY_NEW)));
 const dayBefore = (d: string) => new Date(Date.parse(d) - 86_400_000).toISOString().slice(0, 10);
-/** A streak still counts if the last login was today or yesterday (a day of slack for time zones). */
-function liveStreak(u: UserRecord, today: string) {
+/**
+ * A streak counts while its last day is today or yesterday (yesterday's still yours until tonight's midnight). The
+ * day is the player's own date (playerDay), so there's no slack any more: 0.9.9.9.6.3 — with a day of slack a missed
+ * day went unnoticed until the next day's tasks were done, instead of the streak ending at midnight.
+ */
+export function liveStreak(u: Pick<UserRecord, 'streakDay' | 'streak'>, today: string) {
   if (!u.streakDay) return 0;
-  return u.streakDay >= dayBefore(dayBefore(today)) ? u.streak ?? 0 : 0; // done today or yesterday (a day of slack for time zones)
+  return u.streakDay >= dayBefore(today) ? u.streak ?? 0 : 0;
 }
 
 function counts(cards: SrsCard[], now: number): DeckCounts {
