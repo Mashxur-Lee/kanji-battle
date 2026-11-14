@@ -105,10 +105,10 @@ function paintBar() {
   barEl.classList.toggle('on', picked.length > 0);
   sendEl.textContent = picked.length > 1 ? `${tr('Send')} ${picked.length}` : tr('Send');
   sendEl.disabled = !picked.length;
-  for (const el of gridEl.querySelectorAll<HTMLElement>('.ps-item')) {
+  for (const el of gridEl.querySelectorAll<HTMLElement>('.ps-item:not(.ps-device)')) {
     const n = picked.indexOf(el.dataset.key ?? '');
     el.classList.toggle('picked', n >= 0);
-    el.querySelector('.ps-n')!.textContent = n >= 0 ? String(n + 1) : '';
+    const num = el.querySelector('.ps-n'); if (num) num.textContent = n >= 0 ? String(n + 1) : '';
   }
 }
 
