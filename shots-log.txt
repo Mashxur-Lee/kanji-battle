@@ -1,0 +1,5 @@
+M world g:37a62ca6-3b89-4a89-a19c-a1c5a2037e77
+M btn box {"x":861.15625,"y":294.046875,"width":14.96875,"height":14.96875}
+M after click: btn connected=true relog=0 bar=1339.72px,453.553px
+M relogs in 8s idle: 0
+pc: no issues

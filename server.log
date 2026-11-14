@@ -1,0 +1,6 @@
+Push notifications: off (set FIREBASE_SERVICE_ACCOUNT to turn them on)
+Reading passage stories: off
+[migrations] admin: a 20-day streak, wins and losses reset (0.9.9.9.6.3)
+Kanji Battle running on http://localhost:3130
+Kanji Wizards v0.9.9.9.6.4
+Accounts: postgres
