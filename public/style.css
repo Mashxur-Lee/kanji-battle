@@ -5114,3 +5114,10 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
   .art-stage { animation: none !important; }
   #appBtn { animation: none !important; }
 }
+/* 0.9.9.9.6.3: @mentions — a name you can tap (its card, Add friend when you aren't friends), and lines that name you */
+.mention { color: #9fd0ff; font-weight: 700; cursor: pointer; border-radius: 5px; padding: 0 2px; margin: 0 -2px; background: rgba(120, 180, 255, .12); }
+.mention:hover, .mention:focus-visible { background: rgba(120, 180, 255, .26); outline: none; text-decoration: underline; }
+.mention.me { color: #ffe08a; background: rgba(255, 200, 80, .2); }
+.msg-row.mine .mention { color: #fff; background: rgba(255, 255, 255, .2); }
+.chat-line.to-me { background: linear-gradient(90deg, rgba(255, 200, 80, .16), rgba(255, 200, 80, .04)); box-shadow: inset 3px 0 0 #ffc850; border-radius: 6px; padding-left: 6px; margin-left: -6px; }
+.msg-row.to-me .msg-b { box-shadow: 0 0 0 1.5px rgba(255, 200, 80, .7); }

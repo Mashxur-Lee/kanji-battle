@@ -16,6 +16,9 @@ const PATCHES: Patch[] = [
       'Messages: a new message plays a soft chime (it was a harsh noise), the message box has a proper Kanji Wizards look, and on phones the 辞 and Friends buttons step aside while you type.',
       '3D arena: the characters hold the staff in their hand (not at the wrist), and their feet stay on the floor.',
       'Smaller things: “Change picture” is centred; the N1 frame no longer covers your level in Customize.',
+      'Chat: write @login (in a room’s chat or in Messages) and the name lights up — tap it to see their profile and add them as a friend. A message that names you is marked for you.',
+      'Phones: smoother menus and sound (lighter flames and a lighter echo), High graphics can be picked again, and the kana Practice bar sits above the Friends button.',
+      'Coming back to the game after switching away no longer leaves buttons that don’t respond.',
     ],
     ru: [
       'Ежедневная серия: пропущенный день теперь обрывает серию в полночь (раньше она держалась до конца следующего дня). В окне серии — дни подряд и какое у вас пламя.',
@@ -25,6 +28,9 @@ const PATCHES: Patch[] = [
       'Сообщения: новое сообщение звучит мягким звоном (был резкий шум), у поля ввода — оформление Kanji Wizards, а на телефонах кнопки 辞 и «Друзья» уходят, пока вы пишете.',
       '3D-арена: персонажи держат посох в руке (а не запястьем), а ноги не уходят под пол.',
       'Мелочи: «Сменить фото» по центру; рамка N1 больше не закрывает уровень в «Облике».',
+      'Чат: напишите @логин (в чате комнаты или в «Сообщениях») — имя подсветится; нажмите, чтобы открыть профиль и добавить в друзья. Сообщение, где упомянули вас, выделено.',
+      'Телефоны: меню и звук идут плавнее (облегчённое пламя и эхо), снова можно выбрать «Высокую» графику, а панель «Практика» в кане — над кнопкой «Друзья».',
+      'После возвращения в игру из другого окна кнопки снова нажимаются.',
     ],
   },
   {

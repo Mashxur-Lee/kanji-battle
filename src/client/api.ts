@@ -157,6 +157,8 @@ export const api = {
   matches: () => call<{ matches: MatchSummary[] }>('GET', '/api/matches'),
   match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),
   player: (id: string) => call<{ profile: PublicProfile }>('GET', `/api/users/${encodeURIComponent(id)}`),
+  /** 0.9.9.9.6.3: an @mention's login → their profile */
+  playerByLogin: (login: string) => call<{ profile: PublicProfile }>('GET', `/api/users/by-login/${encodeURIComponent(login)}`),
   users: () => call<{ users: AdminUserRow[]; storage: string; persistent: boolean }>('GET', '/api/admin/users'),
   inbox: () => call<{ reports: AdminReport[] }>('GET', '/api/admin/inbox'),
   inboxDone: (id: string, done: boolean) => call<{ ok: boolean }>('POST', `/api/admin/inbox/${encodeURIComponent(id)}`, { done }),

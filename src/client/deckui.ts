@@ -10,6 +10,7 @@ import { heroSvg } from './wizard';
 import { arena, arenaForDeck, resetArenaDeck } from './arena';
 import { flameColor } from '../shared/progress';
 import { useGameKb } from './gamekb';
+import { knowPlayer, mentionsMe, withMentions } from './mentions';
 
 const $ = ui.$;
 const COLOR_NAME: Record<CardColor, string> = { lightblue: 'Light blue', blue: 'Blue', yellow: 'Yellow', green: 'Green', red: 'Red' };
@@ -142,12 +143,16 @@ export function chatMessages(msgs: ChatMessage[]) {
     // a message came: they stopped typing
     const tp = typers.get(m.from);
     if (tp) chatTyping(m.from, tp.name, false);
+    knowPlayer(m.from, m.name);
+    // 0.9.9.9.6.3: "@admin" — tap it for their card; a line that names you is marked
+    const forMe = m.from !== hooks.me() && mentionsMe(m.text);
     for (const log of logs) {
-      const line = h('div', 'chat-line' + (m.from === hooks.me() ? ' mine' : ''));
+      const line = h('div', 'chat-line' + (m.from === hooks.me() ? ' mine' : '') + (forMe ? ' to-me' : ''));
       // 0.9.9.9.5: "Name: message" with the time on the right (the colon comes from style.css)
       const time = h('time', 'cl-time', chatTime(m.at));
+      const text = h('span', 'cl-text'); text.append(withMentions(m.text)); // text nodes and spans: never HTML
       time.setAttribute('datetime', new Date(m.at).toISOString());
-      line.append(h('b', '', m.from === hooks.me() ? 'You' : m.name), h('span', 'cl-text', m.text), time); // textContent: never HTML
+      line.append(h('b', '', m.from === hooks.me() ? 'You' : m.name), text, time);
       log.append(line);
     }
     if (m.from !== hooks.me() && ((view && view.phase !== 'over') || !$('lobby').hidden)) audio.sfx.message(); // (0.9.9.9.6.3: a soft chime, not the noise burst)

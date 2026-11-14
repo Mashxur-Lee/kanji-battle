@@ -1,5 +1,6 @@
 import { locale, tr } from './i18n';
 import { screenIn } from './motion';
+import { knowPlayer } from './mentions';
 import { viewH, viewW, zrect } from './zoom';
 import { injectBorderStyles } from './borders';
 injectBorderStyles(); // 0.9.9.9.6.1: the league frames (drawn, as a style sheet)
@@ -1254,6 +1255,7 @@ export function characterEl(character: string, mode: GameMode, side: 'me' | 'opp
 
 /** Clicking this name shows the player's profile card. */
 export function markProfile(el: HTMLElement, p: { id: string; bot?: string | null; name?: string }) {
+  if (!p.bot) knowPlayer(p.id, p.name); // (0.9.9.9.6.3: "@name" in a chat now leads to them)
   el.dataset.profile = p.id;
   if (p.bot) el.dataset.bot = p.bot;
   if (p.name) el.dataset.name = p.name;

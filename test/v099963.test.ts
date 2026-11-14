@@ -73,3 +73,27 @@ test('0.9.9.9.6.3 Study: a paused deck gets no new words (All spells, Onomatopoe
   assert.ok(s.decks.all.total > 0, 'resumed: the day\'s words come in');
   await assert.rejects(study.setPaused(u, 'custom', true), /Pause what/);
 });
+
+test('0.9.9.9.6.3 @mentions: logins in chat text, not e-mail addresses; the sentence keeps its full stop', async () => {
+  const { mentionsIn, mentionsMe, setMentionSelf, knowPlayer } = await import('../src/client/mentions');
+  assert.deepEqual(mentionsIn('hi @admin, gg @Frenzyy_fan.'), ['admin', 'Frenzyy_fan']);
+  assert.deepEqual(mentionsIn('mail me at a@b.com'), []);
+  assert.deepEqual(mentionsIn('@a.b-c- ok'), ['a.b-c']);
+  assert.deepEqual(mentionsIn('@x and @@y'), ['x']);
+  setMentionSelf('u1', 'admin', 'Boss');
+  assert.ok(mentionsMe('look @ADMIN')); assert.ok(mentionsMe('@boss!'));
+  assert.ok(!mentionsMe('@admins')); assert.ok(!mentionsMe('admin'));
+  knowPlayer('u1', 'Shown');
+  assert.ok(mentionsMe('@shown'), 'the name you show in the lobby counts too');
+});
+
+test('0.9.9.9.6.3 a mention opens the card of the player with that login (not banned ones)', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const a = await store.create({ username: 'admin', passwordHash: 'x', role: 'admin' } as never);
+  const b = await store.create({ username: 'gone', passwordHash: 'x', role: 'user' } as never);
+  await store.update(b.id, { banned: true } as never);
+  assert.equal((await study.publicProfileByLogin('Admin'))?.id, a.id);
+  assert.equal(await study.publicProfileByLogin('gone'), null);
+  assert.equal(await study.publicProfileByLogin('nobody'), null);
+});

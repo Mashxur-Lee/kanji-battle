@@ -293,6 +293,11 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const m = await study.match(u.id, url.split('/')[3]);
         return m ? res(200, { match: m }) : res(404, { error: 'No such match' });
+      } else if (r.method === 'GET' && /^\/api\/users\/by-login\/[\w.-]{1,32}$/.test(url)) {
+        // 0.9.9.9.6.3: "@admin" in a chat — the card of the player with that login
+        await auth.authenticate(r.token); // players only
+        const p = await study.publicProfileByLogin(decodeURIComponent(url.split('/')[4]));
+        return p ? res(200, { profile: p }) : res(404, { error: 'No such player' });
       } else if (r.method === 'GET' && /^\/api\/users\/[\w-]+$/.test(url)) {
         await auth.authenticate(r.token); // players only
         const p = await study.publicProfile(url.split('/')[3]);
