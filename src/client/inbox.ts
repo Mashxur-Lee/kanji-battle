@@ -7,6 +7,7 @@ import type { DmView } from '../shared/protocol';
 import { locale, tr } from './i18n';
 import * as ui from './ui';
 import * as audio from './audio';
+import { mentionsMe, withMentions } from './mentions';
 
 const $ = ui.$;
 const SUPPORT = 'support';
@@ -150,8 +151,11 @@ function fillBubble(row: HTMLElement, m: DmView, mine: boolean) {
   const { quote, body } = splitQuote(m.text);
   if (quote) b.append(h('span', 'msg-quote', quote));
   const [first, ...rest] = body.split('\n');
-  if (m.kind) { b.append(h('b', 'msg-kind', first)); if (rest.length) b.append(h('span', '', rest.join('\n'))); }
-  else b.append(h('span', '', body));
+  // 0.9.9.9.6.3: "@admin" — tap it for their card; a message that names you is marked
+  const said = (t: string) => { const sp = h('span', ''); sp.append(withMentions(t)); return sp; };
+  if (m.kind) { b.append(h('b', 'msg-kind', first)); if (rest.length) b.append(said(rest.join('\n'))); }
+  else b.append(said(body));
+  if (!mine && mentionsMe(body)) row.classList.add('to-me');
   // ✓ sent, ✓✓ read (it turns as soon as they open it)
   const meta = h('span', 'msg-meta', time(m.at));
   if (mine) { const t = h('span', `msg-tick${m.read ? ' read' : ''}`, m.read ? '✓✓' : '✓'); t.title = tr(m.read ? 'Read' : 'Sent'); meta.append(t); }

@@ -36,8 +36,9 @@ const smallOrTouch = () => innerWidth < 900 || innerHeight < 560 || matchMedia('
 export function arenaQuality(): ArenaQuality {
   let v: string | null = null;
   try { v = localStorage.getItem(KEY); } catch { /* private mode */ }
-  const q: ArenaQuality = v === 'off' ? 'off' : v === 'lite' ? 'lite' : v === 'on' || v === 'full' ? 'full' : smallOrTouch() ? 'lite' : 'full';
-  return q === 'full' && smallOrTouch() && innerWidth < 900 ? 'lite' : q;
+  // (0.9.9.9.6.3: a phone that picked High gets High — it was always turned back to Low on a small touch screen;
+  // Low stays the default there, and a phone that can't keep up still drops to Low by itself for the session)
+  return v === 'off' ? 'off' : v === 'lite' ? 'lite' : v === 'on' || v === 'full' ? 'full' : smallOrTouch() ? 'lite' : 'full';
 }
 export const arenaPref = () => arenaQuality() !== 'off';
 export function setArenaQuality(q: ArenaQuality) {

@@ -180,6 +180,12 @@ export class StudyService {
     return u ? dailyCrit(u.critCount, u.critExpires, now) : CRIT_BASE;
   }
 
+  /** 0.9.9.9.6.3: the same, found by login (an @mention) */
+  async publicProfileByLogin(login: string): Promise<PublicProfile | null> {
+    const u = await this.store.findByUsername(String(login ?? '').trim());
+    return u ? this.publicProfile(u.id) : null;
+  }
+
   /** What other players see when they click your name. */
   async publicProfile(id: string): Promise<PublicProfile | null> {
     const u = await this.store.findById(id);

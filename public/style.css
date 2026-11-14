@@ -5097,3 +5097,27 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
   #study .deck-card:not(.all) > .deck-head { grid-area: t; }
   #study .deck-card:not(.all) > .deck-paused-note { grid-area: n; margin: 0; }
 }
+
+/* ── 0.9.9.9.6.3 (follow-up) ── */
+/* phones: the kana bar (count + Practice) sits above the 辞 and Friends buttons — the Friends button covered Practice */
+@media (max-width: 900px) {
+  .kana-bar { bottom: calc(78px + env(safe-area-inset-bottom)); left: 12px; right: 12px; transform: none; width: auto; max-width: none; margin-left: 0 !important; justify-content: space-between; animation-name: barUpM; }
+  #kana .kana-grid { padding-bottom: 170px; }
+}
+@keyframes barUpM { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+/* phones (0.9.9.9.6.3): the menu ran at a third of its speed with the CPU slowed like a mid-range phone's. The
+   menu's veil (the turning circle and rising kanji) stands still, and the painting no longer slowly zooms; the
+   painting's own details (weather, runes, islands, flags) keep moving. With the lighter flame and a lighter echo
+   for the sound, the phone has room for the music again. */
+@media (pointer: coarse) {
+  .menu-veil, .menu-veil * { animation: none !important; }
+  .art-stage { animation: none !important; }
+  #appBtn { animation: none !important; }
+}
+/* 0.9.9.9.6.3: @mentions — a name you can tap (its card, Add friend when you aren't friends), and lines that name you */
+.mention { color: #9fd0ff; font-weight: 700; cursor: pointer; border-radius: 5px; padding: 0 2px; margin: 0 -2px; background: rgba(120, 180, 255, .12); }
+.mention:hover, .mention:focus-visible { background: rgba(120, 180, 255, .26); outline: none; text-decoration: underline; }
+.mention.me { color: #ffe08a; background: rgba(255, 200, 80, .2); }
+.msg-row.mine .mention { color: #fff; background: rgba(255, 255, 255, .2); }
+.chat-line.to-me { background: linear-gradient(90deg, rgba(255, 200, 80, .16), rgba(255, 200, 80, .04)); box-shadow: inset 3px 0 0 #ffc850; border-radius: 6px; padding-left: 6px; margin-left: -6px; }
+.msg-row.to-me .msg-b { box-shadow: 0 0 0 1.5px rgba(255, 200, 80, .7); }

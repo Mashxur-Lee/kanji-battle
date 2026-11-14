@@ -1,3 +1,4 @@
+import { knowPlayer, setMentionSelf } from './mentions';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
 import './support'; // error reporting first, so early errors are caught too
 import { refreshOnline } from './support';
@@ -325,6 +326,7 @@ ui.$('playOffline').onclick = async () => {
 
 function signedIn(u: PublicUser) {
   user = u;
+  setMentionSelf(u.id, u.username, u.name);
   remindersSignedIn();
   if (!offline.isOffline()) void offline.signedIn(u.id); // keep a copy of the account for offline use
   ui.setUser(u);
@@ -407,6 +409,7 @@ function onMessage(msg: ServerMessage) {
     case 'welcome':
       offline.serverSeen(); // 0.9.9.9.5: the server is there — leave offline mode now
       user = msg.user;
+      setMentionSelf(msg.user.id, msg.user.username, msg.user.name);
       ui.setUser(msg.user);
       void refreshOnline(); // now this player counts too
       registerPush(msg.user.id); // 0.9.9.9.5: friends' invites reach this phone while the app is closed
@@ -804,6 +807,7 @@ ui.$('ppRenameForm').addEventListener('submit', async (e) => {
   try {
     const r = await api.setNickname(i.value);
     user = r.user;
+    setMentionSelf(r.user.id, r.user.username, r.user.name);
     ui.setUser(r.user);
     ui.$('ppRenameForm').hidden = true;
     ui.toast(r.user.nickname ? `${tr('Your nickname')}: ${r.user.nickname}` : tr('Nickname cleared — others see your login'));
@@ -1202,6 +1206,20 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
   addEventListener('pointerover', warm, { passive: true });
   addEventListener('pointerdown', warm, { passive: true });
   const open = async (el: HTMLElement) => {
+    // 0.9.9.9.6.3: "@login" in a chat we hadn't met yet — find them by their login first
+    if (!el.dataset.profile && el.dataset.mention) {
+      const login = el.dataset.mention;
+      shownFor = '@' + login;
+      ui.showProfileCard(el, 'loading');
+      try {
+        const p = (await api.playerByLogin(login)).profile;
+        cache.set(p.id, { p, at: Date.now() });
+        knowPlayer(p.id, login, p.name);
+        el.dataset.profile = p.id;
+        if (shownFor !== '@' + login) return; // (closed meanwhile)
+        shownFor = '';
+      } catch { if (shownFor === '@' + login) { ui.hideProfileCard(); shownFor = ''; ui.toast(`${tr('No such player')}: @${login}`, 2500); } return; }
+    }
     const id = el.dataset.profile!;
     if (shownFor === id && !ui.$('otherPop').hidden) { ui.hideProfileCard(); shownFor = ''; return; }
     shownFor = id;
@@ -1236,12 +1254,12 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
       });
   };
   addEventListener('click', (e) => {
-    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-profile]');
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-profile], [data-mention]');
     if (el) { e.stopPropagation(); void open(el); return; }
     if (!ui.$('otherPop').contains(e.target as Node)) { ui.hideProfileCard(); shownFor = ''; }
   }, true);
   addEventListener('keydown', (e) => {
-    const el = (e.target as HTMLElement).closest?.<HTMLElement>('[data-profile]');
+    const el = (e.target as HTMLElement).closest?.<HTMLElement>('[data-profile], [data-mention]');
     if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); void open(el); }
     else if (e.key === 'Escape') ui.hideProfileCard();
   });

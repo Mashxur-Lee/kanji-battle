@@ -3,6 +3,7 @@
 // their profile. At the bottom: Add friend and Friend requests, which open a small window.
 
 import { api, type Friend } from './api';
+import { knowPlayer } from './mentions';
 import * as ui from './ui';
 import { swallowNextClick } from './taps';
 import { tr } from './i18n';
@@ -122,7 +123,7 @@ function render() {
     const ordered = key === 'online' ? [...list.filter(together).sort((a, b) => (a.party!.id! < b.party!.id! ? -1 : a.party!.id! > b.party!.id! ? 1 : 0)), ...list.filter((f) => !together(f))] : list;
     const rowOf = (f: Friend) => {
       const r = el('div', 'fr-row' + (f.online ? ' online' : '') + (f.online && f.away ? ' away' : ''));
-      ui.markProfile(r, { id: f.id, name: f.name ?? f.username, bot: null });
+      ui.markProfile(r, { id: f.id, name: f.name ?? f.username, bot: null }); knowPlayer(f.id, f.username);
       r.title = `${f.name ?? f.username} — view profile`;
       const txt = el('span', 'fr-txt');
       txt.append(el('span', 'fr-name', f.name ?? f.username), el('small', 'fr-status', friendStatus(f)));

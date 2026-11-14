@@ -124,5 +124,24 @@ export function initMotion() {
   addEventListener('pointerdown', press, { capture: true, passive: true });
   for (const t of ['pointerup', 'pointercancel', 'dragstart'] as const) addEventListener(t, release, { capture: true, passive: true });
   addEventListener('blur', release);
+  // 0.9.9.9.6.3: back from another tab or app — nothing left half-pressed, and no open dialog that can't be seen (an
+  // invisible modal dialog makes everything behind it unclickable: "no button works after coming back")
+  const back = () => {
+    if (document.visibilityState !== 'visible') return;
+    release();
+    // (after a moment: a dialog that is just fading in is left alone)
+    setTimeout(() => {
+      for (const d of document.querySelectorAll<HTMLDialogElement>('dialog[open]')) {
+        const cs = getComputedStyle(d), r = d.getBoundingClientRect();
+        const fading = d.getAnimations().some((a) => a.playState === 'running');
+        if (!fading && (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) < 0.05 || r.width < 2 || r.height < 2)) d.close();
+      }
+    }, 800);
+    const t = document.getElementById('toast');
+    if (t?.classList.contains('leaving')) { t.hidden = true; t.classList.remove('leaving'); }
+  };
+  document.addEventListener('visibilitychange', back);
+  addEventListener('pageshow', back);
+  addEventListener('focus', back);
   for (const id of LISTS) { const el = document.getElementById(id); if (el) watchList(el); }
 }

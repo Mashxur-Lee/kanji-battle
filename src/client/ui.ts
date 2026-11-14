@@ -1,5 +1,6 @@
 import { locale, tr } from './i18n';
 import { screenIn } from './motion';
+import { knowPlayer } from './mentions';
 import { viewH, viewW, zrect } from './zoom';
 import { injectBorderStyles } from './borders';
 injectBorderStyles(); // 0.9.9.9.6.1: the league frames (drawn, as a style sheet)
@@ -178,8 +179,8 @@ let badgeRowFn: ((ids: readonly string[] | undefined) => HTMLElement | '') | nul
 /** achievements.ts registers how badges are drawn (it imports ui, so not the other way round). */
 export const useBadgeRow = (fn: (ids: readonly string[] | undefined) => HTMLElement | '') => { badgeRowFn = fn; };
 /** 0.9.9.9.5.4: the streak flames (dailytasks.ts) on the profile cards — yours and your friends' */
-let flameFn: ((n: number, lit: boolean) => HTMLElement) | null = null;
-export const useStreakFlame = (fn: (n: number, lit: boolean) => HTMLElement) => { flameFn = fn; };
+let flameFn: ((n: number, lit: boolean, still?: boolean) => HTMLElement) | null = null;
+export const useStreakFlame = (fn: (n: number, lit: boolean, still?: boolean) => HTMLElement) => { flameFn = fn; };
 // ── 0.9.9.9.6.2: a player's numbers, the same on your card and a friend's ─────────────────────────────────────
 // A ring with the win rate, next to wins, losses and spells learned (each with its own small icon); under it one
 // streak card — the flame big with the days in a row, and the best streak beside it with its own small flame.
@@ -211,7 +212,7 @@ export function streakCard(streak: number, best: number): HTMLElement {
   big.classList.add('pc-flame');
   const now = append(h('div', 'pc-s-now'), h('b', '', tr(streak === 1 ? '1 day' : `${streak} days`)), h('small', '', tr('daily streak')));
   const bestBox = h('div', 'pc-s-best');
-  const small = flameFn ? flameFn(best, best > 0) : h('span');
+  const small = flameFn ? flameFn(best, best > 0, true) : h('span'); // (a still picture: it's small)
   small.classList.add('pc-flame-sm');
   bestBox.append(small, append(h('div', 'pc-s-best-t'), h('small', '', tr('best')), h('b', '', tr(best === 1 ? '1 day' : `${best} days`))));
   card.style.setProperty('--fc', big.style.getPropertyValue('--fc') || '#9a9aae'); // (the flame's colour)
@@ -1254,6 +1255,7 @@ export function characterEl(character: string, mode: GameMode, side: 'me' | 'opp
 
 /** Clicking this name shows the player's profile card. */
 export function markProfile(el: HTMLElement, p: { id: string; bot?: string | null; name?: string }) {
+  if (!p.bot) knowPlayer(p.id, p.name); // (0.9.9.9.6.3: "@name" in a chat now leads to them)
   el.dataset.profile = p.id;
   if (p.bot) el.dataset.bot = p.bot;
   if (p.name) el.dataset.name = p.name;
@@ -1295,8 +1297,10 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
   const w = Math.min(300, viewW() - 24);
   pop.style.width = `${w}px`;
   pop.style.left = `${Math.max(12, Math.min(viewW() - w - 12, r.left + r.width / 2 - w / 2))}px`;
-  const below = r.bottom + 8;
-  pop.style.top = `${below + 240 > viewH() ? Math.max(12, r.top - 8 - pop.offsetHeight) : below}px`;
+  // (0.9.9.9.6.3: by the card's real height — it outgrew the old 240 px guess and ran off the bottom; above the
+  // name when there's room there, otherwise as low as it fits)
+  const below = r.bottom + 8, hgt = pop.offsetHeight, room = viewH() - 12;
+  pop.style.top = `${below + hgt <= room ? below : r.top - 8 - hgt >= 12 ? r.top - 8 - hgt : Math.max(12, room - hgt)}px`;
 }
 export const hideProfileCard = () => { $('otherPop').hidden = true; };
 /** keep the whole card on screen (it grows when the Challenge mode list opens) */

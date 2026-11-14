@@ -2,6 +2,7 @@
 // your room from the lobby. Invites arrive as a small card with Join / Decline.
 
 import type { GameMode } from '../shared/protocol';
+import { knowPlayer } from './mentions';
 import { MODE_LABEL } from '../shared/protocol';
 import { api, type Friend } from './api';
 import { deviceBadge, friendStatus } from './friendrail';
@@ -59,7 +60,7 @@ function render() {
     const r = el('div', 'fl-row' + (f.online ? ' online' : '') + (f.online && f.away ? ' away' : ''));
     const who = el('div', 'fl-who');
     const name = el('span', 'fl-name', f.name ?? f.username);
-    ui.markProfile(name, { id: f.id, name: f.name ?? f.username, bot: null });
+    ui.markProfile(name, { id: f.id, name: f.name ?? f.username, bot: null }); knowPlayer(f.id, f.username);
     who.append(f.status === 'accepted' && f.online ? deviceBadge(f, 'dot dev') : el('i', 'dot'), name, el('small', '', f.status === 'accepted' ? friendStatus(f) : f.status === 'incoming' ? 'wants to be friends' : 'request sent'));
     r.append(who, el('div', 'fl-actions'));
     r.lastElementChild!.append(...actions);

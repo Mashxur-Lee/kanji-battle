@@ -191,10 +191,16 @@ export function initMenuCarousel() {
   box.addEventListener('pointerdown', (e) => { if (on && e.pointerType === 'mouse' && e.button === 0) { downX = e.clientX; dragged = false; } });
   addEventListener('pointermove', (e) => {
     if (downX === null) return;
+    // (0.9.9.9.6.3: only while the button is still held — a press whose release was never seen (alt-tab, the
+    // release outside the window) kept "dragging": every move turned the row and the next click was eaten)
+    if (!(e.buttons & 1)) { downX = null; dragged = false; return; }
     const dx = e.clientX - downX;
     if (Math.abs(dx) > 70) { turn(dx < 0 ? 1 : -1); downX = e.clientX; dragged = true; }
   });
   addEventListener('pointerup', () => { downX = null; });
+  const drop = () => { downX = null; dragged = false; };
+  addEventListener('pointercancel', drop); addEventListener('blur', drop);
+  document.addEventListener('visibilitychange', drop);
   box.addEventListener('click', (e) => { if (dragged && e.isTrusted) { e.preventDefault(); e.stopImmediatePropagation(); dragged = false; } }, true);
   // keys on the menu: ← → turn, Enter opens the middle card
   addEventListener('keydown', (e) => {
