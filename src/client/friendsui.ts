@@ -9,6 +9,7 @@ import { deviceBadge, friendStatus } from './friendrail';
 import * as audio from './audio';
 import { attention } from './notify';
 import * as ui from './ui';
+import { tr } from './i18n';
 
 const $ = ui.$;
 const el = (tag: string, cls = '', text?: string | number) => {
@@ -61,7 +62,7 @@ function render() {
     const who = el('div', 'fl-who');
     const name = el('span', 'fl-name', f.name ?? f.username);
     ui.markProfile(name, { id: f.id, name: f.name ?? f.username, bot: null }); knowPlayer(f.id, f.username);
-    who.append(f.status === 'accepted' && f.online ? deviceBadge(f, 'dot dev') : el('i', 'dot'), name, el('small', '', f.status === 'accepted' ? friendStatus(f) : f.status === 'incoming' ? 'wants to be friends' : 'request sent'));
+    who.append(f.status === 'accepted' && f.online ? deviceBadge(f, 'dot dev') : el('i', 'dot'), name, el('small', '', f.status === 'accepted' ? friendStatus(f) + (f.today ? ` · ${tr(f.today === 1 ? '1 word today' : `${f.today} words today`)}` : '') : f.status === 'incoming' ? 'wants to be friends' : 'request sent'));
     r.append(who, el('div', 'fl-actions'));
     r.lastElementChild!.append(...actions);
     return r;

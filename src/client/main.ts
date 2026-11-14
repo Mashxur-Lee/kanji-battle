@@ -48,7 +48,7 @@ import { initKana, openKana, setKanaProgress } from './kanaui';
 import { initMotion } from './motion';
 import { initMenuCarousel } from './menucarousel';
 import { initQuizzes, quizzesProfile } from './quizzesui';
-import { initApp } from './appshell';
+import { initApp, checkBuild } from './appshell';
 import './dictui'; // (the dictionary page; opened from the side panel)
 
 applyUiZoom(); // before anything is laid out
@@ -373,7 +373,8 @@ function backToMenu() {
   resetDeck();
   clearChat();
   ui.stopCountdown();
-  ui.show('menu');
+  if (ui.isLobbyAside()) ui.setLobbyAside(false); // (reading Messages: stay there; its back button now leads to the menu)
+  else ui.show('menu');
 }
 
 // ── server messages ──────────────────────────────────────────────────────────
@@ -408,6 +409,7 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'welcome':
       offline.serverSeen(); // 0.9.9.9.5: the server is there — leave offline mode now
+      checkBuild(msg.build); // 0.9.9.9.6.4: an older app updates itself
       user = msg.user;
       setMentionSelf(msg.user.id, msg.user.username, msg.user.name);
       ui.setUser(msg.user);
@@ -436,6 +438,7 @@ function onMessage(msg: ServerMessage) {
       code = msg.code;
       mode = msg.mode;
       inRoom = true;
+      if (ui.isLobbyAside()) ui.show('lobby'); // (a different room: its lobby)
       ui.setError('');
       break;
     case 'left':

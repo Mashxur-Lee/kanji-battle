@@ -2,6 +2,7 @@ import { VERSION } from '../shared/version';
 import type { MissedWord } from '../shared/protocol';
 import { createServer, type IncomingMessage } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { brotliCompressSync, constants as zc, gzipSync } from 'node:zlib';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
@@ -16,18 +17,19 @@ import { StudyService } from './study/StudyService';
 import { DailyService } from './study/DailyService';
 import { SocialService } from './study/SocialService';
 import { RoomManager } from './RoomManager';
-import { deviceOf, Session, SessionHub } from './Session';
+import { deviceOf, Session, SessionHub, setServerBuild } from './Session';
 import { Push, type PushNote } from './push';
 import { Bucket, clientIp, inlineScriptHashes, isPublicServer, securityHeaders, viaHttps } from './security';
 import { Matchmaker } from './Matchmaker';
 import { StoryService } from './study/StoryService';
 import { InsightsService } from './study/InsightsService';
-import { isMuted, MessageService } from './study/MessageService';
+import { MessageService } from './study/MessageService';
 import { runMigrations } from './migrations';
 import { onServerError, reportServerError } from './errors';
 import { DictService } from './study/DictService';
 
 const PUBLIC_DIR = path.resolve(__dirname, '../../public');
+try { setServerBuild(readFileSync(path.join(PUBLIC_DIR, 'build.txt'), 'utf8')); } catch { /* not built (tests, dev) */ }
 const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8' };
 
 // ── accounts ──────────────────────────────────────────────────────────────────
@@ -82,21 +84,26 @@ hub.setNotifier(async (userId, data) => {
 });
 // 0.9.9.9.6: the messenger — live over the game's connection, or a push when the app is closed
 const messages = new MessageService(store, {
+  // (0.9.9.9.6.1: muted: it still arrives, marked, and the app shows no note for it — 0.9.9.9.6.4: decided per player
+  // by the service: muted chats, "only @mentions", the sender's own other screens)
   deliver: (to, message, fromName) => {
     const msg = { type: 'dm' as const, message, fromName };
     if (to === 'admins') hub.sendAdmins(msg);
-    else for (const id of to) {
-      // (0.9.9.9.6.1: muted: it still arrives, marked, and the app shows no note for it)
-      void store.findById(id).then((u) => hub.sendTo(id, isMuted(u?.unlocks, message.from) ? { ...msg, muted: true } : msg)).catch(() => hub.sendTo(id, msg));
-    }
+    else for (const r of to) hub.sendTo(r.id, r.muted ? { ...msg, muted: true } : msg);
   },
   read: (writer, reader) => {
-    const msg = { type: 'dm_read' as const, reader: reader };
-    if (writer === 'support') hub.sendAdmins(msg); else hub.sendTo(writer, msg);
+    const msg = { type: 'dm_read' as const, reader };
+    for (const w of Array.isArray(writer) ? writer : [writer]) { if (w === 'support') hub.sendAdmins(msg); else hub.sendTo(w, msg); }
   },
+  // 0.9.9.9.6.4: edits, deletions and reactions; "typing…"; a group changed; a friend's status
+  update: (to, message) => { const msg = { type: 'dm_update' as const, message }; if (to === 'admins') hub.sendAdmins(msg); else for (const id of to) hub.sendTo(id, msg); },
+  typing: (to, conv, from, name, on) => { for (const id of to) hub.sendTo(id, { type: 'dm_typing', conv, from, name, on }); },
+  group: (to, group, event) => { for (const id of to) hub.sendTo(id, { type: 'dm_group', group, event }); },
+  status: (id) => social.statusOf(id),
   push: (to, fromId, fromName, text) => { void hub.notify(to, { kind: 'dm', fromId, fromName, text: text.slice(0, 160) }); },
   online: (id) => hub.online(id),
 });
+hub.onDmTyping = (userId, to, on) => { void store.findById(userId).then((u) => (u ? messages.typing(u, to, on) : undefined)).catch(() => { /* not important */ }); };
 const pushTested = new Map<string, number>(); // (one test every few seconds)
 const recognizer = Recognizer.fromFile();
 const insights = new InsightsService(store);

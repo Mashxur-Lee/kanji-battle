@@ -267,7 +267,12 @@ export async function openInbox(with_?: string, asTeam = false, quote = '') {
   openId = '';
   document.getElementById('inbox')!.classList.remove('thread-open');
   $('msgThread').hidden = true;
+  const from = ui.currentScreen();
+  if (from !== 'inbox') ui.setLobbyAside(from === 'lobby'); // 0.9.9.9.6.4: from a room's lobby — back leads there
+  const aside = from === 'lobby' || (from === 'inbox' && ui.isLobbyAside());
   ui.show('inbox');
+  ui.setLobbyAside(aside);
+  $('inboxBack').textContent = tr(aside ? '← Back to the room' : '← Menu');
   await loadList();
   setQuote('');
   if (with_) { await openThread(with_); if (quote) setQuote(quote); }
@@ -366,7 +371,7 @@ function swipeToReply(box: HTMLElement) {
 export function initInbox() {
   swipeToReply($('msgLog'));
   $('inboxBtn').onclick = () => void openInbox();
-  $('inboxBack').onclick = () => ui.show('menu');
+  $('inboxBack').onclick = () => ui.show(ui.isLobbyAside() ? 'lobby' : 'menu');
   $('msgForm').addEventListener('submit', (e) => { e.preventDefault(); void send(); });
   const input = $<HTMLTextAreaElement>('msgInput');
   input.addEventListener('input', grow);

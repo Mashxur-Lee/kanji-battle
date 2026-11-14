@@ -12,6 +12,10 @@ import { picUrl, type StudyService } from './study/StudyService';
 import type { SocialService } from './study/SocialService';
 import { borderOf, characterOf, isKanaBeginner, levelsFor, MODE_LEVEL, modeUnlocked, poseOf } from '../shared/progress';
 
+/** 0.9.9.9.6.4: the client build this server serves (public/build.txt), sent in every welcome */
+let serverBuild = '';
+export const setServerBuild = (b: string) => { serverBuild = b.trim(); };
+
 const MAX_ANSWER_LENGTH = 40;
 const MAX_WRITTEN_CHARS = 8;
 const PING_EVERY_MS = 3_000;
@@ -41,6 +45,8 @@ export class SessionHub {
   private lastSeen = new Map<string, number>(); // since the server started
   /** 0.9.9.9: saves when someone leaves (friends see "last online …" across server restarts) */
   constructor(private readonly onLeave?: (userId: string, at: number) => void) {}
+  /** 0.9.9.9.6.4: someone typing in Messages (index.ts hands it to the messenger) */
+  onDmTyping?: (userId: string, to: string, on: boolean) => void;
   /** Admin → Users: is this player connected right now, and what are they doing? */
   presence(userId: string): Presence {
     const s = this.byUser.get(userId);
@@ -244,6 +250,8 @@ export class Session implements Client {
     if (msg.type === 'where') { this.screen = typeof msg.screen === 'string' && msg.screen in SCREEN_ACTIVITY ? msg.screen : ''; return; }
     // 0.9.9.9: the app went to the background (or came back): friends see you as away (orange)
     if (msg.type === 'away') { this.away = msg.on === true; return; }
+    // 0.9.9.9.6.4: "typing…" in Messages (the messenger checks who may see it)
+    if (msg.type === 'dm_typing') { if (typeof msg.to === 'string') this.hub.onDmTyping?.(user.id, msg.to, msg.on === true); return; }
 
     // too many struggling spells waiting: study first (checked on the server, so it can't be skipped)
     if (msg.type === 'queue' || msg.type === 'create' || msg.type === 'join') {
@@ -393,7 +401,7 @@ export class Session implements Client {
       }
       this.user = toPublic(rec);
       this.hub.claim(rec.id, this);
-      this.send({ type: 'welcome', user: this.user });
+      this.send({ type: 'welcome', user: this.user, ...(serverBuild ? { build: serverBuild } : {}) });
       this.startPings();
       // 0.9.9.9.5: invites that came while the app was closed / in the background
       for (const inv of this.hub.takeInvites(rec.id, (code) => this.rooms.get(code)?.stage === 'lobby')) this.send(inv);

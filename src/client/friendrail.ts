@@ -142,6 +142,8 @@ function render() {
         party.title = `${tr(pt.mode)} · ${pt.size}/${pt.max}${pt.code ? ` · ${tr('Open lobby')}` : ''}`;
         txt.append(party);
       }
+      // 0.9.9.9.6.4: how many words they learned today
+      if (f.today) { const t = el('small', 'fr-today', tr(f.today === 1 ? '1 word today' : `${f.today} words today`)); txt.append(t); }
       r.append(avatar(f), txt, el('span', 'fr-lv', `Lv ${f.level ?? 0}`));
       return r;
     };

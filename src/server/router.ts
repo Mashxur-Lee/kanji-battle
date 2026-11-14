@@ -129,14 +129,55 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         return res(200, await messages.mute(u, b.who, b.on === true));
       } else if (messages && r.method === 'GET' && url === '/api/messages/unread') {
         return res(200, await messages.unread(await auth.authenticate(r.token)));
-      } else if (messages && r.method === 'GET' && /^\/api\/messages\/[\w-]{1,64}$/.test(url)) {
+      } else if (messages && r.method === 'PUT' && url === '/api/messages/notify') {
+        // 0.9.9.9.6.4: a conversation notifies for everything, only @mentions, or nothing
+        const u = await auth.authenticate(r.token);
+        const b = await r.json();
+        return res(200, await messages.setNotify(u, b.who, b.mode));
+      } else if (messages && r.method === 'POST' && url === '/api/messages/media') {
+        // 0.9.9.9.6.4: a photo (made smaller by the app first), sent with a message or as a group's picture
+        const u = await auth.authenticate(r.token);
+        return res(200, await messages.upload(u, (await r.json(1024 * 1024)).image));
+      } else if (messages && r.method === 'GET' && /^\/api\/media\/[\w-]{10,40}$/.test(url)) {
+        // (behind an address nobody can guess; kept forever by the browser — a photo never changes)
+        const img = await messages.media(url.split('/')[3]);
+        if (!img) return res(404, { error: 'No such photo' });
+        return { status: 200, raw: { mime: img.mime, data: img.data, headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } } };
+      } else if (messages && /^\/api\/messages\/m\/[0-9a-f-]{36}(\/react|\/forward)?$/i.test(url)) {
+        // 0.9.9.9.6.4: one message — edit it, delete it, react to it, forward it
+        const u = await auth.authenticate(r.token);
+        const [, , , , id, what] = url.split('/');
+        if (what === 'react' && r.method === 'PUT') return res(200, { message: await messages.react(u, id, (await r.json()).emoji ?? null) });
+        if (what === 'forward' && r.method === 'POST') return res(200, { messages: await messages.forward(u, id, (await r.json()).to) });
+        if (!what && r.method === 'PATCH') return res(200, { message: await messages.edit(u, id, (await r.json()).text) });
+        if (!what && r.method === 'DELETE') return res(200, { message: await messages.remove(u, id) });
+        return res(405, { error: 'Not allowed' });
+      } else if (messages && r.method === 'POST' && url === '/api/groups') {
+        // 0.9.9.9.6.4: group chats
+        const u = await auth.authenticate(r.token);
+        const b = await r.json(8 * 1024);
+        return res(200, await messages.createGroup(u, b.name, b.members, b.pic));
+      } else if (messages && /^\/api\/groups\/(g(:|%3A))?[0-9a-f-]{36}(\/[\w-]+){0,2}$/i.test(url)) {
+        const u = await auth.authenticate(r.token);
+        const [, , , raw, sub, who] = url.split('/');
+        const key = `g:${decodeURIComponent(raw).replace(/^g:/, '')}`;
+        if (!sub && r.method === 'GET') return res(200, { group: await messages.groupInfo(u, key) });
+        if (!sub && r.method === 'PATCH') { const b = await r.json(); return res(200, { group: await messages.updateGroup(u, key, { name: b.name, pic: b.pic, perms: b.perms }) }); }
+        if (!sub && r.method === 'DELETE') return res(200, await messages.deleteGroup(u, key));
+        if (sub === 'leave' && r.method === 'POST') return res(200, await messages.leave(u, key));
+        if (sub === 'members' && !who && r.method === 'POST') return res(200, { group: await messages.addMembers(u, key, (await r.json(8 * 1024)).ids) });
+        if (sub === 'members' && who && r.method === 'DELETE') return res(200, { group: await messages.removeMember(u, key, who) });
+        if (sub === 'members' && who && r.method === 'PUT') return res(200, { group: await messages.setRole(u, key, who, (await r.json()).role) });
+        return res(405, { error: 'Not allowed' });
+      } else if (messages && r.method === 'GET' && /^\/api\/messages\/(g(:|%3A))?[\w-]{1,64}$/i.test(url)) {
         const u = await auth.authenticate(r.token);
         const before = Number(query.get('before')) || undefined;
-        return res(200, await messages.thread(u, url.split('/')[3], query.get('as') === 'support', before));
-      } else if (messages && r.method === 'POST' && /^\/api\/messages\/[\w-]{1,64}$/.test(url)) {
+        return res(200, await messages.thread(u, decodeURIComponent(url.split('/')[3]), query.get('as') === 'support', before));
+      } else if (messages && r.method === 'POST' && /^\/api\/messages\/(g(:|%3A))?[\w-]{1,64}$/i.test(url)) {
         const u = await auth.authenticate(r.token);
         const body = await r.json();
-        return res(200, { message: await messages.send(u, url.split('/')[3], body.text, query.get('as') === 'support') });
+        // (0.9.9.9.6.4: with a photo — its id from /api/messages/media)
+        return res(200, { message: await messages.send(u, decodeURIComponent(url.split('/')[3]), body.text, query.get('as') === 'support', undefined, { media: body.media }) });
       } else if (r.method === 'POST' && url === '/api/event') {
         const u = await auth.authenticate(r.token);
         const name = String((await r.json()).name ?? '');
@@ -295,12 +336,15 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         return m ? res(200, { match: m }) : res(404, { error: 'No such match' });
       } else if (r.method === 'GET' && /^\/api\/users\/by-login\/[\w.-]{1,32}$/.test(url)) {
         // 0.9.9.9.6.3: "@admin" in a chat — the card of the player with that login
-        await auth.authenticate(r.token); // players only
+        const viewer = await auth.authenticate(r.token); // players only
         const p = await study.publicProfileByLogin(decodeURIComponent(url.split('/')[4]));
+        if (p && social && p.id !== viewer.id && (await social.areFriends(viewer.id, p.id) || (messages && await messages.shareGroup(viewer.id, p.id)))) p.status = await social.statusOf(p.id);
         return p ? res(200, { profile: p }) : res(404, { error: 'No such player' });
       } else if (r.method === 'GET' && /^\/api\/users\/[\w-]+$/.test(url)) {
-        await auth.authenticate(r.token); // players only
+        const viewer = await auth.authenticate(r.token); // players only
         const p = await study.publicProfile(url.split('/')[3]);
+        // 0.9.9.9.6.4: a friend's card says what they're up to (online, playing, away, last seen)
+        if (p && social && p.id !== viewer.id && (await social.areFriends(viewer.id, p.id) || (messages && await messages.shareGroup(viewer.id, p.id)))) p.status = await social.statusOf(p.id);
         return p ? res(200, { profile: p }) : res(404, { error: 'No such player' });
       } else if (r.method === 'GET' && url === '/api/study') {
         const u = await auth.authenticate(r.token);

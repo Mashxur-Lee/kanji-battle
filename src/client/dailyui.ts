@@ -98,6 +98,7 @@ function missedBlock(o: DailyOverview): HTMLElement[] {
 const LEAGUES = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
 const LEAGUE_NAME: Record<string, string> = { KANA: 'ひらがな・カタカナ', N5: 'N5', N4: 'N4', N3: 'N3', N2: 'N2', N1: 'N1' };
 let league = 'KANA';
+let passedNow: string[] = []; // 0.9.9.9.6.4: the leagues you've passed (their rewards are yours)
 // 0.9.9.9.6.1: the leagues as a track of crests — the ones behind you lit, yours big with a "you" marker, the ones
 // ahead dim with what they bring under them (that league's frame on your picture; a character at N4, N3, N2)
 function ladder(current: string, next?: string) {
@@ -114,8 +115,9 @@ function ladder(current: string, next?: string) {
     const name = el('span', 'lg-name', l === 'KANA' ? 'かな' : l); name.lang = 'ja';
     step.append(name);
     if (state === 'now') step.append(el('span', 'lg-you', tr('You')));
+    // (0.9.9.9.6.4: a league's rewards come when you pass it — shown on yours and the ones ahead)
     const { border, character } = leagueRewards(l);
-    if (state === 'ahead' && (border || character)) {
+    if (state !== 'done' && !passedNow.includes(l) && (border || character)) {
       const rw = el('div', 'lg-rw');
       if (border) { const d = el('span', `avatar lg-rw-av${ui.borderCls(border.id)}`, (ui.myName() || '✦').slice(0, 1).toUpperCase()); d.title = tr(`${border.name} border`); rw.append(d); }
       if (character) { const c = el('span', 'lg-rw-char'); c.innerHTML = avatarSvg(character.id, 'me', 'verdant'); c.title = tr(`The ${character.name}`); rw.append(c); }
@@ -127,6 +129,7 @@ function ladder(current: string, next?: string) {
 }
 function renderOverview(o: DailyOverview) {
   league = o.league ?? 'KANA';
+  passedNow = o.passed ?? [];
   boardLeague = '';
   renderBoard(o);
   const main = $('dailyMain');
@@ -148,7 +151,7 @@ function renderOverview(o: DailyOverview) {
     main.replaceChildren(
       el('p', 'sub', date),
       ladder(league, o.nextLeague),
-      leagueCard(up ? o.nextLeague! : league, nextL, o.promoteAt ?? 7),
+      leagueCard(up ? o.nextLeague! : league, nextL, o.promoteAt ?? 7, passedNow),
       el('div', 'daily-score', `${o.mine.correct} / ${o.total}`),
       el('p', `center league-note${up ? ' up' : ''}`, up ? `▲ ${tr('Promoted')}: ${LEAGUE_NAME[o.nextLeague!]} — ${tr('tomorrow you play in the new league')}` : `${tr('Get')} ${o.promoteAt ?? 7}/${o.total} ${tr('to move up a league')}`),
       el('p', 'center', `${secs(o.mine.ms)} · rank ${o.rank} today`),
@@ -164,7 +167,7 @@ function renderOverview(o: DailyOverview) {
   main.replaceChildren(
     el('p', 'sub', date),
     ladder(league),
-    leagueCard(league, nextL, o.promoteAt ?? 7),
+    leagueCard(league, nextL, o.promoteAt ?? 7, passedNow),
     el('p', '', league === 'KANA'
       ? `Ten kana, the same for everyone in your league today: five hiragana, five katakana. Type each in romaji and press Enter — ${o.wordMs / 1000} s each. Get ${o.promoteAt ?? 7}/10 or better to move up to N5.`
       : `Ten ${league} words, the same for everyone in your league today, easiest first. Type the reading (kana or romaji) and press Enter — ${o.wordMs / 1000} s per word. Get ${o.promoteAt ?? 7}/10 or better to move up a league.`),
@@ -235,7 +238,8 @@ async function submit(text: string) {
         ? `Daily challenge: ${r.done.correct}/10${r.done.xp ? ` · +${r.done.xp} XP` : ''} · your rank comes when you're back online`
         : `Daily challenge: ${r.done.correct}/10 · rank ${r.done.rank} of ${r.done.players}${r.done.xp ? ` · +${r.done.xp} XP` : ''}`, 6000);
       // 0.9.9.9.6: a league up is a moment — its own screen, with the rewards (it was a toast)
-      if (r.done.promoted) { const lg = r.done.promoted; setTimeout(() => void showLeagueUp(me, lg), 1200); }
+      // (0.9.9.9.6.4: with the rewards of the league you just passed — the top one has no next league)
+      if (r.done.promoted || r.done.passed) { const up = r.done.promoted ?? null, passed = r.done.passed ?? r.done.league ?? 'KANA'; setTimeout(() => void showLeagueUp(me, up, passed), 1200); }
       if (r.done.correct === 10) audio.sfx.go();
     }
   } catch (e) {

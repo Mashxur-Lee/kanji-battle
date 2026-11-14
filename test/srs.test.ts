@@ -55,7 +55,9 @@ test('progress: XP, levels, crit, backgrounds, characters', () => {
   assert.equal(characterOf(['char:dragon']), 'goblin', 'nothing unknown');
   assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, [])), [true, false, false, false], 'the Kana league: only the goblin');
   assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N4'])), [true, true, false, false]);
-  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N3'])), [true, true, true, false]);
+  // (0.9.9.9.6.4: a league's character comes when you pass that league — the Witch (N3) once you're in N2)
+  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N3'])), [true, true, false, false]);
+  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N2'])), [true, true, true, false]);
   assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N1'])), [true, true, true, true]);
 });
 

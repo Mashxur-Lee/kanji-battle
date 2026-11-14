@@ -83,7 +83,9 @@ export interface PlayerView {
 
 /** sys (0.9.9.9.5.5): a line from the game — someone joined or left the lobby (`name` is who) */
 /** 0.9.9.9.6: one message of the messenger (`from` / `to`: a player's id or 'support', the team) */
-export interface DmView { id: string; from: string; to: string; text: string; at: number; read: boolean; kind?: string; by?: string }
+export interface DmView { id: string; from: string; to: string; text: string; at: number; read: boolean; kind?: string; by?: string;
+  /** 0.9.9.9.6.4: edited (when); reactions (emoji → who); a photo (its address); forwarded from (a name); deleted */
+  edited?: number; reactions?: Record<string, string[]>; media?: string; fwd?: string; deleted?: true }
 export interface ChatMessage { id: number; from: PlayerId; name: string; text: string; at: number; sys?: 'join' | 'leave' }
 export const CHAT_MAX_LENGTH = 140;
 
@@ -115,7 +117,10 @@ export type GameOverReason = 'ko' | 'time' | 'forfeit' | 'boss_slain' | 'party_w
 export interface MissedWord { id: string; kanji: string; reading: string; meaning: string; level: Level; added: boolean }
 export interface PublicProfile { id: string; name: string; /** the login under the nickname (0.9.9.6) */ login?: string; level: number; wins: number; losses: number; learned: number; pic: string | null; since: string; streak: number; bestStreak: number; badges?: string[]; border?: string;
   /** 0.9.9.9.5.5: what they wear (Customize) and the achievements they have (ids) */
-  look?: ProfileLook; achievements?: string[] }
+  look?: ProfileLook; achievements?: string[];
+  /** 0.9.9.9.6.4: their Daily challenge league, and how many words they learned today */ league?: string; today?: number;
+  /** 0.9.9.9.6.4: online / playing / away / last seen — for friends (and group members) only */ status?: PlayerStatus }
+export interface PlayerStatus { online: boolean; away?: boolean; activity?: string; lastSeen?: number | null }
 export interface ProfileLook { character: string; staff: string; arena: string; flame: string; pose: string; border: string }
 
 /** One line of your match history. `character`: Deck Duel hero, otherwise the wizard avatar you played. */
@@ -185,6 +190,8 @@ export type ClientMessage =
   | { type: 'chat'; text: string }
   /** 0.9.9.9.5.5: typing in the lobby chat (the others see "Ann is typing…") */
   | { type: 'chat_typing'; on: boolean }
+  /** 0.9.9.9.6.4: typing in Messages (to a friend, or to a group: g:<id>) */
+  | { type: 'dm_typing'; to: string; on: boolean }
   /** 0.9.9.9.5.5: the host opens the lobby to friends (they can join from your profile) or closes it (invite / code only) */
   | { type: 'set_open'; open: boolean }
   /** 3D mouse look: where you are looking (radians; + = left / up), sent a few times a second */
@@ -217,7 +224,7 @@ export interface ChallengeMsg {
 }
 
 export type ServerMessage =
-  | { type: 'welcome'; user: PublicUser }
+  | { type: 'welcome'; user: PublicUser; /** 0.9.9.9.6.4: the build the server serves — an older app updates itself */ build?: string }
   | { type: 'ping'; t: number }
   /**
    * online queue: searching (since = server time it started; requeued = the other player didn't accept),
@@ -253,6 +260,12 @@ export type ServerMessage =
   | { type: 'dm'; message: DmView; fromName: string; /** 0.9.9.9.6.1: you muted this (no note) */ muted?: boolean }
   /** 0.9.9.9.6.1: `reader` read your messages to them (✓ → ✓✓); reader 'support': the team */
   | { type: 'dm_read'; reader: string }
+  /** 0.9.9.9.6.4: a message edited, deleted or reacted to */
+  | { type: 'dm_update'; message: DmView }
+  /** 0.9.9.9.6.4: someone typing in a conversation (conv: their id, or g:<group id>) */
+  | { type: 'dm_typing'; conv: string; from: string; name: string; on: boolean }
+  /** 0.9.9.9.6.4: a group changed (name, picture, members) — or you're no longer in it */
+  | { type: 'dm_group'; group: string; event: 'changed' | 'removed' }
   | { type: 'prep'; pool: StudyItem[]; durationMs: number; readyIds: PlayerId[]; players: PlayerView[] }
   | { type: 'prep_ready'; readyIds: PlayerId[] }
   | {

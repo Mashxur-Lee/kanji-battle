@@ -4823,6 +4823,8 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 @media (pointer: coarse) { .sf .tg { will-change: transform; } }
 /* "View profile": the badges' descriptions above the scene; the slot pictures smaller and centred */
 .player-dialog .pv-head { position: relative; z-index: 6; }
+/* 0.9.9.9.6.4: the ✕ above that header (it was under it, so "View profile" couldn't be closed but with Esc) */
+.player-dialog .dlg-x { z-index: 9; }
 .player-dialog .pv-sec { position: relative; z-index: 1; }
 .look-slot .lk-pic { width: 40px; height: 40px; display: grid; place-items: center; overflow: hidden; padding: 3px; box-sizing: border-box; }
 .look-slot .lk-pic > *, .look-slot .lk-pic > * > :is(img, svg, canvas) { width: 100% !important; height: 100% !important; max-width: 100%; max-height: 100%; margin: 0 !important; object-fit: contain; }
@@ -5121,3 +5123,11 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .msg-row.mine .mention { color: #fff; background: rgba(255, 255, 255, .2); }
 .chat-line.to-me { background: linear-gradient(90deg, rgba(255, 200, 80, .16), rgba(255, 200, 80, .04)); box-shadow: inset 3px 0 0 #ffc850; border-radius: 6px; padding-left: 6px; margin-left: -6px; }
 .msg-row.to-me .msg-b { box-shadow: 0 0 0 1.5px rgba(255, 200, 80, .7); }
+/* 0.9.9.9.6.4: the Daily challenge league on profiles (yours, friends', anyone's), and a friend's status */
+.pp-league { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 2px 9px 2px 3px; border-radius: 999px; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .12); font-size: .74rem; font-weight: 700; color: #e9e4ff; white-space: nowrap; }
+.pp-league .lg-crest.tiny { width: 20px; height: 20px; font-size: .5rem; }
+.pp-status { font-size: .74rem; color: #a9a6c4; margin-top: 1px; }
+.pp-status.on { color: #6fe39a; } .pp-status.playing { color: #8fc8ff; } .pp-status.away { color: #f2c46d; }
+.lg-pass { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 216, 120, .08); border: 1px solid rgba(255, 216, 120, .22); }
+.lg-pass-how { font-size: .8rem; color: #ffe2a6; font-weight: 600; }
+.fr-today { display: block; font-size: .68rem; color: #9fe3b7; font-weight: 600; }

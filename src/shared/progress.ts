@@ -100,26 +100,29 @@ export const BORDERS: readonly BorderDef[] = [
   // 0.9.9.9.6.2: the level borders (Apprentice, Adept, Master, Archmage) are gone — the Beta one and the leagues' stay
   { id: 'beta', name: 'Beta', level: 0, unlock: 'border:beta', blurb: 'A platinum ring with a BETA tag — for everyone who finished the tutorial during the beta.' },
   // 0.9.9.9.6: the Daily challenge leagues — each league reached, its own frame (0.9.9.9.6.2: N5–N1 animated, painted)
-  { id: 'lg-kana', name: 'Kana League', level: 0, league: 'KANA', blurb: 'Cherry-blossom pink, かな at its foot — play your first Daily challenge.' },
-  { id: 'lg-n5', name: 'N5 League', level: 0, league: 'N5', blurb: 'Polished silver with four glinting gems — reach the N5 league.' },
-  { id: 'lg-n4', name: 'N4 League', level: 0, league: 'N4', blurb: 'Ice-blue crystal with sharp shards and drifting sparkles — reach the N4 league.' },
-  { id: 'lg-n3', name: 'N3 League', level: 0, league: 'N3', blurb: 'Gilded gold wrapped in flowing ribbons, a star gem at the crest — reach the N3 league.' },
-  { id: 'lg-n2', name: 'N2 League', level: 0, league: 'N2', blurb: 'An arcane ring of violet light around a horned gold frame — reach the N2 league.' },
-  { id: 'lg-n1', name: 'N1 League', level: 0, league: 'N1', blurb: 'The legend: a radiant crown of gold rays around a ring of runes — reach the N1 league, the highest.' },
+  { id: 'lg-kana', name: 'Kana League', level: 0, league: 'KANA', blurb: 'Cherry-blossom pink, かな at its foot — pass the Kana league.' },
+  { id: 'lg-n5', name: 'N5 League', level: 0, league: 'N5', blurb: 'Polished silver with four glinting gems — pass the N5 league.' },
+  { id: 'lg-n4', name: 'N4 League', level: 0, league: 'N4', blurb: 'Ice-blue crystal with sharp shards and drifting sparkles — pass the N4 league.' },
+  { id: 'lg-n3', name: 'N3 League', level: 0, league: 'N3', blurb: 'Gilded gold wrapped in flowing ribbons, a star gem at the crest — pass the N3 league.' },
+  { id: 'lg-n2', name: 'N2 League', level: 0, league: 'N2', blurb: 'An arcane ring of violet light around a horned gold frame — pass the N2 league.' },
+  { id: 'lg-n1', name: 'N1 League', level: 0, league: 'N1', blurb: 'The legend: a radiant crown of gold rays around a ring of runes — pass the N1 league, the highest.' },
 ];
-/** 0.9.9.9.6: a league's border, reached once you're in that league (or higher); the Kana one after your first Daily challenge */
-const leagueReached = (need: string, unlocks: readonly string[]) => {
-  const i = DAILY_LEAGUES.indexOf(leagueIn(unlocks) as never), n = DAILY_LEAGUES.indexOf(need as never);
-  if (n < 0) return false;
-  if (n === 0) return i > 0 || unlocks.some((x) => x.startsWith('dplayed:'));
-  return i >= n;
+/**
+ * 0.9.9.9.6.4: a league's rewards (its border, and a character for some) come when you PASS it — 7 / 10 or better in
+ * it, which moves you up; the top league (N1) keeps a mark, "dpassed:N1". (They used to come on reaching the league:
+ * the Kana border with your very first Daily challenge.)
+ */
+export const leaguePassed = (league: string, unlocks: readonly string[] | null | undefined) => {
+  const un = unlocks ?? [];
+  const i = DAILY_LEAGUES.indexOf(leagueIn(un) as never), n = DAILY_LEAGUES.indexOf(league as never);
+  return n >= 0 && (i > n || un.includes(`dpassed:${league}`));
 };
 export const isBorder = (b: unknown): b is string => typeof b === 'string' && BORDERS.some((x) => x.id === b);
 /** 0.9.9.9.6.2: what's shown for a saved border — one that no longer exists (an old level border) is none */
 export const borderOf = (b: unknown): string => (isBorder(b) ? b : 'none');
 export const borderUnlocked = (id: string, level: number, unlocks: readonly string[] = []) => {
   const b = BORDERS.find((x) => x.id === id);
-  if (b?.league) return leagueReached(b.league, unlocks);
+  if (b?.league) return leaguePassed(b.league, unlocks);
   return !!b && (b.unlock ? unlocks.includes(b.unlock) : b.level <= level);
 };
 /** the beta border: given to every account that has finished the tutorial */
@@ -246,7 +249,7 @@ export const leagueIn = (unlocks: readonly string[] | null | undefined): string 
 };
 export const characterUnlocked = (id: CharacterId, unlocks: readonly string[] | null | undefined) => {
   const need = CHARACTER_DEFS.find((d) => d.id === id)?.league;
-  return beta.open || !need || DAILY_LEAGUES.indexOf(leagueIn(unlocks) as never) >= DAILY_LEAGUES.indexOf(need as never);
+  return beta.open || !need || leaguePassed(need, unlocks); // (0.9.9.9.6.4: on passing that league)
 };
 /** the character kept in your unlocks as "char:<id>" (no new column); the Goblin until you pick another */
 export const characterOf = (unlocks: readonly string[] | null | undefined): CharacterId => {
