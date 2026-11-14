@@ -1818,7 +1818,7 @@ body.has-3d .fighter .hpnum, body.has-3d .fighter .name { color: #f1eefc; }
 .tasks-dialog { width: min(480px, 94vw); }
 .tasks-streak { display: flex; align-items: baseline; justify-content: center; gap: 8px; margin: 4px 0 10px; }
 .tasks-streak b { font-size: 2.4rem; font-weight: 900; color: #ffb066; }
-.tasks-streak b::before { content: "🔥 "; font-size: 1.6rem; }
+/* (0.9.9.9.6.3: no 🔥 before every bold word in the streak window — it sat in front of the flame and pushed its kanji aside) */
 .tasks-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .tasks-list li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
 .tasks-list li.ok { border-color: rgba(61, 220, 151, .55); background: rgba(61, 220, 151, .08); }
@@ -5086,3 +5086,6 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .friend-rail:not(:hover):not(:focus-within):not(.open) .fr-group { padding-left: 8px; }
 .friend-rail:not(:hover):not(:focus-within):not(.open) .fr-group::before { left: 2px; top: 10px; bottom: 10px; width: 5px; }
 .friend-rail:not(:hover):not(:focus-within):not(.open) .fr-group .fr-row::before { display: none; }
+.fr-group-head { flex-wrap: nowrap; min-width: 0; }
+.fr-group-head b { white-space: nowrap; flex: none; }
+.fr-group-head span { min-width: 0; flex: 1; }

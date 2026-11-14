@@ -27,7 +27,7 @@ export const knownFriends = () => (friendsAt ? { friends, at: friendsAt } : null
 let friendsAt = 0;
 /** 0.9.9.9.6.3: who you are (a friend in your room is "Playing with you") */
 let meId = '';
-export function setRailMe(id: string) { meId = id; }
+export function setRailMe(id: string) { if (meId === id) return; meId = id; if (friends.length) render(); } // (re-drawn: the list may have come first)
 export function setRailUser(on: boolean) {
   signedIn = on;
   if (!on) { $('friendRail').hidden = true; $('railFab').hidden = true; clearInterval(timer); }
