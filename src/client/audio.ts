@@ -23,7 +23,7 @@ let musicBus: GainNode; // master music volume
 let menuBus: GainNode; // the menu theme (crossfaded)
 let battleBus: GainNode; // the battle theme (crossfaded)
 let ambBus: GainNode; // background ambience (owls, frogs, goblins, clashes)
-let reverb: ConvolverNode;
+let reverb: AudioNode; // (a convolver; on phones a light room of delays — 0.9.9.9.6.3)
 /** Menus play the calm theme; battles play the tense one. They crossfade. */
 let scene: 'menu' | 'game' = 'menu';
 
@@ -49,21 +49,42 @@ function ensure(): AudioContext | null {
   battleBus = ctx.createGain(); battleBus.gain.value = 0; battleBus.connect(musicBus);
   ambBus = ctx.createGain(); ambBus.gain.value = 0.9; ambBus.connect(musicBus);
   // small hall reverb from generated noise (shared by music and chimes)
-  reverb = ctx.createConvolver();
   // (2 s: the hall sounds the same, and costs the audio thread less — 0.9.9.9.5.2: phones 1.2 s, the sound stuttered
   // again when the phone was busy drawing)
-  const len = Math.round(ctx.sampleRate * (matchMedia('(pointer: coarse)').matches ? 1.2 : 2));
-  const ir = ctx.createBuffer(2, len, ctx.sampleRate);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = ir.getChannelData(ch);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
+  // 0.9.9.9.6.3: phones — no convolver at all: it works all the time, even in silence, and still made the sound
+  // stutter on a busy phone. A small room of two short echoes with a soft top instead (the music's loops are recorded
+  // with the hall in them, so only the effects use this)
+  if (matchMedia('(pointer: coarse)').matches) reverb = lightRoom(ctx);
+  else {
+    const cv = ctx.createConvolver();
+    const len = Math.round(ctx.sampleRate * 2);
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
+    }
+    cv.buffer = ir;
+    reverb = cv;
   }
-  reverb.buffer = ir;
   const wet = ctx.createGain(); wet.gain.value = 0.35;
   reverb.connect(wet).connect(comp);
   const fs = ctx.createGain(); fs.gain.value = sfxGain(); fs.connect(reverb); sfxSend = fs;
   const ms = ctx.createGain(); ms.gain.value = musicGain(); ms.connect(reverb); musicSend = ms;
   return ctx;
+}
+
+/** 0.9.9.9.6.3: a light "room" for phones: two short feedback echoes through a soft low-pass (a few nodes, almost no work) */
+function lightRoom(c: AudioContext): AudioNode {
+  const input = c.createGain(), out = c.createGain();
+  out.gain.value = 0.8;
+  for (const [t, fb] of [[0.037, 0.42], [0.053, 0.38]] as const) {
+    const d = c.createDelay(0.2), g = c.createGain(), lp = c.createBiquadFilter();
+    d.delayTime.value = t; g.gain.value = fb; lp.type = 'lowpass'; lp.frequency.value = 2600;
+    input.connect(d); d.connect(lp); lp.connect(g); g.connect(d); lp.connect(out);
+  }
+  // (what connects to the room goes in; what the room connects to comes out)
+  (input as unknown as { connect: AudioNode['connect'] }).connect = out.connect.bind(out) as AudioNode['connect'];
+  return input;
 }
 
 // Phones keep playing a page's audio after you switch apps — stop it when the tab is hidden.

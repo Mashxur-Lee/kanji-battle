@@ -33,7 +33,11 @@ const doneCount = (p: Profile) => (p.tasks ?? []).filter((t) => t.value >= t.tar
  * The streak emblem. `lit`: today's tasks are done (dim until then — still yours until midnight).
  * Size by CSS (.sf's width in its container; everything inside scales with it).
  */
-export function streakFlame(n: number, lit: boolean): HTMLElement {
+// 0.9.9.9.6.3: phones get a lighter copy of the moving flame (smaller, half the frames — the full one was the menu's
+// biggest single cost there), and the small previews a still picture
+const PHONE = matchMedia('(pointer: coarse)').matches;
+const flameSrc = (src: string, still: boolean) => (still ? src.replace('/flames/', '/flames/s/').replace(/\.webp$/, '.png') : PHONE ? src.replace('/flames/', '/flames/m/') : src);
+export function streakFlame(n: number, lit: boolean, still = false): HTMLElement {
   const fl = flameOf(n);
   const k = kanjiNumber(n);
   const box = document.createElement('span');
@@ -41,7 +45,7 @@ export function streakFlame(n: number, lit: boolean): HTMLElement {
   box.style.setProperty('--fc', fl.hex);
   box.title = fl.week ? `${tr(fl.name)} · ${tr(`week ${fl.week}`)} · ${tr(`${n} days`)}` : tr('No streak yet — do today\'s tasks to light the flame');
   const img = document.createElement('img');
-  img.className = 'sf-img'; img.src = fl.src; img.alt = ''; img.decoding = 'async'; img.draggable = false;
+  img.className = 'sf-img'; img.src = flameSrc(fl.src, still); img.alt = ''; img.decoding = 'async'; img.draggable = false;
   const kan = document.createElement('b');
   kan.className = 'sf-k'; kan.lang = 'ja'; kan.textContent = k; kan.setAttribute('aria-hidden', 'true');
   const num = document.createElement('i');
@@ -84,7 +88,7 @@ export function renderTasks(p: Profile) {
   const from = fl.week ? weekStart(fl.week) - 1 : 0, to = nextWeek ? weekStart(nextWeek) - 1 : 0;
   sub.style.setProperty('--np', nextWeek ? `${Math.round(((streak - from) / Math.max(1, to + 1 - from)) * 100)}%` : '100%');
   const left = nextWeek ? weekStart(nextWeek) - streak : 0;
-  const nextPic = nextWeek ? streakFlame(weekStart(nextWeek), true) : streakFlame(streak, true);
+  const nextPic = nextWeek ? streakFlame(weekStart(nextWeek), true, true) : streakFlame(streak, true, true);
   nextPic.classList.add('tn-pic');
   const txt = mk('span', 'tn-text');
   if (nextWeek) {

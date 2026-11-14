@@ -5105,3 +5105,12 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
   #kana .kana-grid { padding-bottom: 170px; }
 }
 @keyframes barUpM { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+/* phones (0.9.9.9.6.3): the menu ran at a third of its speed with the CPU slowed like a mid-range phone's. The
+   menu's veil (the turning circle and rising kanji) stands still, and the painting no longer slowly zooms; the
+   painting's own details (weather, runes, islands, flags) keep moving. With the lighter flame and a lighter echo
+   for the sound, the phone has room for the music again. */
+@media (pointer: coarse) {
+  .menu-veil, .menu-veil * { animation: none !important; }
+  .art-stage { animation: none !important; }
+  #appBtn { animation: none !important; }
+}
