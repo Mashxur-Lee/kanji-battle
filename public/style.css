@@ -5089,3 +5089,10 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .fr-group-head { flex-wrap: nowrap; min-width: 0; }
 .fr-group-head b { white-space: nowrap; flex: none; }
 .fr-group-head span { min-width: 0; flex: 1; }
+/* the deck cards on wide screens are grids: the title row (with the pause) and the paused note get their places */
+@media (min-width: 901px) {
+  #study .deck-card:not(.all) { grid-template-areas: "t c" "n n" "h h" "b b"; }
+  #study .deck-card.ono { grid-template-areas: "t c" "n n" "h h" "p p" "a a" "b b"; }
+  #study .deck-card:not(.all) > .deck-head { grid-area: t; }
+  #study .deck-card:not(.all) > .deck-paused-note { grid-area: n; margin: 0; }
+}

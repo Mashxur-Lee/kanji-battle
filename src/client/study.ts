@@ -849,7 +849,7 @@ let pausedNow: Record<string, boolean> = {};
 function paintPaused(p: Awaited<ReturnType<typeof api.study>>['paused']) {
   pausedNow = { ...(p ?? {}) };
   for (const b of document.querySelectorAll<HTMLButtonElement>('#study .deck-pause')) {
-    const deck = b.dataset.pause!;
+    const deck = b.dataset.deckPause!;
     const on = !!pausedNow[deck];
     b.innerHTML = `${on ? PLAY_ICON : PAUSE_ICON}<span>${tr(on ? 'Resume' : 'Pause')}</span>`;
     b.setAttribute('aria-pressed', String(on));

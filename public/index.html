@@ -522,7 +522,7 @@
     <div id="studyNotice" class="notice" hidden></div>
     <div class="study-decks">
       <div class="deck-card all">
-        <div class="deck-head"><h3>All spells</h3><button type="button" class="deck-pause" data-pause="all" aria-pressed="false"></button></div>
+        <div class="deck-head"><h3>All spells</h3><button type="button" class="deck-pause" data-deck-pause="all" aria-pressed="false"></button></div>
         <p class="deck-paused-note" hidden></p>
         <p class="hint">How many new words of each level are added every day (0 = none).</p>
         <div id="studyLevels" class="level-plan" role="group" aria-label="New words a day per level"></div>
@@ -532,7 +532,7 @@
         <div class="deck-btns"><button id="studyAll" class="big">Study</button><button class="deck-open" data-deck="all"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
       <div class="deck-card ono">
-        <div class="deck-head"><h3>Onomatopoeia</h3><button type="button" class="deck-pause" data-pause="ono" aria-pressed="false"></button></div>
+        <div class="deck-head"><h3>Onomatopoeia</h3><button type="button" class="deck-pause" data-deck-pause="ono" aria-pressed="false"></button></div>
         <p class="deck-paused-note" hidden></p>
         <p class="hint">Every giseigo, gitaigo and gijōgo: sounds (ワンワン), states (きらきら) and feelings (ドキドキ). Choose how many new ones a day (0 = none).</p>
         <div class="level-plan ono-plan"><div class="lp-row" id="onoPlanRow"><span class="lp-name">New a day</span><div class="lp-step"><button type="button" class="lp-btn" id="onoMinus" aria-label="New a day −1">−</button><input id="onoDaily" type="text" inputmode="numeric" maxlength="3" value="0" aria-label="New onomatopoeia a day"><button type="button" class="lp-btn" id="onoPlus" aria-label="New a day +1">+</button></div></div></div>
@@ -541,7 +541,7 @@
         <div class="deck-btns"><button id="studyOno" class="big">Study</button><button class="deck-open" data-deck="ono"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
       <div class="deck-card struggle">
-        <div class="deck-head"><h3>Struggling spells</h3><button type="button" class="deck-pause" data-pause="struggling" aria-pressed="false"></button></div>
+        <div class="deck-head"><h3>Struggling spells</h3><button type="button" class="deck-pause" data-deck-pause="struggling" aria-pressed="false"></button></div>
         <p class="deck-paused-note" hidden></p>
         <p class="hint">Words you missed in games — you choose on the results screen.</p>
         <div id="countsStruggle" class="counts"></div>
