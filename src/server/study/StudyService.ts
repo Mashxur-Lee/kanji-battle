@@ -4,7 +4,7 @@ import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry }
 import type { Level, OnoType } from '../../shared/protocol';
 import { LEVELS, studyLevelOf } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
-import { taskPassed, BETA_BORDER, BORDERS, borderOf, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked, isCharacter, CHARACTER_DEFS, characterUnlocked, characterOf, poseOf } from '../../shared/progress';
+import { taskPassed, BETA_BORDER, BORDERS, borderOf, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked, isCharacter, CHARACTER_DEFS, characterUnlocked, characterOf, poseOf, leagueIn } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
@@ -162,7 +162,7 @@ export class StudyService {
   async setCharacter(u: UserRecord, c: unknown) {
     if (!isCharacter(c)) throw new StudyError('Unknown character');
     const def = CHARACTER_DEFS.find((x) => x.id === c)!;
-    if (u.role !== 'admin' && !characterUnlocked(c, u.unlocks)) throw new StudyError(`Unlocks when you reach the ${def.league} league in the Daily challenge`, 403);
+    if (u.role !== 'admin' && !characterUnlocked(c, u.unlocks)) throw new StudyError(`Unlocks when you pass the ${def.league} league in the Daily challenge`, 403);
     await this.store.update(u.id, { unlocks: [...(u.unlocks ?? []).filter((x) => !x.startsWith('char:')), ...(c === 'goblin' ? [] : [`char:${c}`])] });
   }
 
@@ -193,7 +193,8 @@ export class StudyService {
     return { id: u.id, name: displayName(u), login: u.nickname?.trim() ? u.username : undefined, level: levelOf(u.xp), wins: u.wins, losses: u.losses, learned: await this.store.learnedCount(u.id), pic: picUrl(u), since: u.createdAt, streak: liveStreak(u, playerDay(u, clockNow())), bestStreak: u.bestStreak ?? 0, badges: u.badges ?? [], border: borderOf(u.border),
       // 0.9.9.9.5.5: "View profile" — what they wear (as Customize shows it) and the achievements they have
       look: { character: characterOf(u.unlocks), staff: u.staff ?? 'verdant', arena: u.background, flame: u.flame ?? 'blue', pose: poseOf(u.unlocks), border: borderOf(u.border) },
-      achievements: (u.unlocks ?? []).filter((x) => x.startsWith(ACH_PREFIX)).map((x) => x.slice(ACH_PREFIX.length)) };
+      achievements: (u.unlocks ?? []).filter((x) => x.startsWith(ACH_PREFIX)).map((x) => x.slice(ACH_PREFIX.length)),
+      league: leagueIn(u.unlocks), today: clockNow() < u.critExpires ? u.critCount : 0 };
   }
 
   matches(userId: string) { return this.store.matches(userId, MATCH_HISTORY_LIMIT); }
@@ -728,7 +729,7 @@ export class StudyService {
   async setBorder(u: UserRecord, b: unknown) {
     if (!isBorder(b)) throw new StudyError('Unknown border');
     const def = BORDERS.find((x) => x.id === b)!;
-    if (u.role !== 'admin' && !borderUnlocked(b, levelOf(u.xp), u.unlocks)) throw new StudyError(def.league ? `Reach the ${def.league === 'KANA' ? 'Kana' : def.league} league in the Daily challenge first` : def.unlock ? 'Finish the tutorial to get the Beta border' : `Unlocks at level ${def.level}`, 403);
+    if (u.role !== 'admin' && !borderUnlocked(b, levelOf(u.xp), u.unlocks)) throw new StudyError(def.league ? `Pass the ${def.league === 'KANA' ? 'Kana' : def.league} league in the Daily challenge first` : def.unlock ? 'Finish the tutorial to get the Beta border' : `Unlocks at level ${def.level}`, 403);
     await this.store.update(u.id, { border: b });
     return this.profile((await this.store.findById(u.id)) ?? u);
   }

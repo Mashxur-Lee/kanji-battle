@@ -124,6 +124,26 @@ export interface Store {
   /** messages from `other` to `me` read now; how many */
   markRead(me: string, other: string, at: number): Promise<number>;
   unreadMessages(me: string): Promise<number>;
+  // ── 0.9.9.9.6.4: the messenger, like Telegram — edits, reactions, photos, group chats ──
+  message(id: string): Promise<DirectMessage | null>;
+  updateMessage(id: string, patch: MessagePatch): Promise<void>;
+  /** a group's messages (sent "to" g:<id>), the newest `limit` before `before`, oldest first */
+  messagesTo(toId: string, limit: number, before?: number): Promise<DirectMessage[]>;
+  /** each group's last message and how many came after `since` (not from `me`), by group */
+  groupSummaries(groups: Array<{ to: string; since: number }>, me: string): Promise<Map<string, { last: DirectMessage | null; unread: number }>>;
+  createGroup(g: Omit<ChatGroup, 'id'>, members: Array<Omit<GroupMember, 'groupId'>>): Promise<ChatGroup>;
+  group(id: string): Promise<ChatGroup | null>;
+  updateGroup(id: string, patch: Partial<Pick<ChatGroup, 'name' | 'pic' | 'ownerId' | 'perms'>>): Promise<void>;
+  /** the group, its members and its messages */
+  deleteGroup(id: string): Promise<void>;
+  groupMembers(groupId: string): Promise<GroupMember[]>;
+  groupsOf(userId: string): Promise<Array<{ group: ChatGroup; me: GroupMember }>>;
+  addGroupMember(m: GroupMember): Promise<void>;
+  updateGroupMember(groupId: string, userId: string, patch: Partial<Pick<GroupMember, 'role' | 'lastRead'>>): Promise<void>;
+  removeGroupMember(groupId: string, userId: string): Promise<void>;
+  addMedia(m: MediaFile): Promise<void>;
+  media(id: string): Promise<MediaFile | null>;
+  mediaCountSince(ownerId: string, since: number): Promise<number>;
   /** Measurement: one row per event (tutorial steps, games started / finished …). */
   addEvent(userId: string | null, name: string, at?: number): Promise<void>;
   events(since: number): Promise<GameEventRow[]>;
@@ -134,7 +154,18 @@ export interface Store {
 
 export type ReportKind = 'bug' | 'suggestion' | 'error';
 /** 0.9.9.9.6: `kind` — bug / suggestion when it came from Feedback; `by` — which admin wrote it for the team */
-export interface DirectMessage { id: string; fromId: string; toId: string; text: string; at: number; readAt: number | null; kind?: string | null; by?: string | null }
+export interface DirectMessage { id: string; fromId: string; toId: string; text: string; at: number; readAt: number | null; kind?: string | null; by?: string | null;
+  /** 0.9.9.9.6.4: when it was last edited; who reacted with what; a photo (a media id); forwarded from (a name); deleted */
+  editedAt?: number | null; reactions?: Record<string, string[]> | null; media?: string | null; fwd?: string | null; deleted?: boolean }
+export type MessagePatch = Partial<Pick<DirectMessage, 'text' | 'editedAt' | 'reactions' | 'deleted' | 'media'>>;
+/** 0.9.9.9.6.4: group chats — the owner, admins (who manage it) and members; what members may do */
+export type GroupRole = 'owner' | 'admin' | 'member';
+export interface GroupPerms { /** add people */ invite: 'all' | 'admins'; /** change the name and picture */ info: 'all' | 'admins'; /** write */ send: 'all' | 'admins' }
+export const DEFAULT_PERMS: GroupPerms = { invite: 'all', info: 'admins', send: 'all' };
+export interface ChatGroup { id: string; name: string; pic: string | null; ownerId: string; createdAt: number; perms: GroupPerms }
+export interface GroupMember { groupId: string; userId: string; role: GroupRole; joinedAt: number; lastRead: number }
+/** a photo sent in a chat (or a group's picture) */
+export interface MediaFile { id: string; ownerId: string; mime: string; data: Buffer; at: number }
 export interface ConversationRow { other: string; last: DirectMessage; unread: number }
 /** the team's side of the messenger (admins read and answer for it) */
 export const SUPPORT_ID = 'support';
@@ -198,6 +229,7 @@ export class MemoryStore implements Store {
     for (const m of this.dailyResults.values()) m.delete(id);
     this.friendLinks.delete(id);
     for (const m of this.friendLinks.values()) m.delete(id);
+    this.members = this.members.filter((m) => m.userId !== id);
     this.dms = this.dms.filter((m) => m.fromId !== id && m.toId !== id);
     this.persist();
     return true;
@@ -381,7 +413,7 @@ export class MemoryStore implements Store {
   async conversations(me: string, limit: number) {
     const by = new Map<string, ConversationRow>();
     for (const m of this.dms) {
-      if (m.fromId !== me && m.toId !== me) continue;
+      if ((m.fromId !== me && m.toId !== me) || m.toId.startsWith('g:')) continue; // (0.9.9.9.6.4: group messages are the groups')
       const other = m.fromId === me ? m.toId : m.fromId;
       const row = by.get(other) ?? { other, last: m, unread: 0 };
       if (m.at >= row.last.at) row.last = m;
@@ -397,6 +429,40 @@ export class MemoryStore implements Store {
     return n;
   }
   async unreadMessages(me: string) { return this.dms.filter((m) => m.toId === me && m.readAt === null).length; }
+  // ── 0.9.9.9.6.4 ──
+  protected groups = new Map<string, ChatGroup>();
+  protected members: GroupMember[] = [];
+  protected mediaFiles = new Map<string, MediaFile>();
+  async message(id: string) { const m = this.dms.find((x) => x.id === id); return m ? { ...m } : null; }
+  async updateMessage(id: string, patch: MessagePatch) { const m = this.dms.find((x) => x.id === id); if (m) { Object.assign(m, patch); this.persist(); } }
+  async messagesTo(toId: string, limit: number, before = Infinity) { return this.dms.filter((m) => m.toId === toId && m.at < before).slice(-limit).map((m) => ({ ...m })); }
+  async groupSummaries(groups: Array<{ to: string; since: number }>, me: string) {
+    const out = new Map<string, { last: DirectMessage | null; unread: number }>();
+    for (const g of groups) {
+      let last: DirectMessage | null = null, unread = 0;
+      for (const m of this.dms) if (m.toId === g.to) { if (!last || m.at >= last.at) last = m; if (m.at > g.since && m.fromId !== me && !m.deleted) unread++; }
+      out.set(g.to, { last: last ? { ...last } : null, unread });
+    }
+    return out;
+  }
+  async createGroup(g: Omit<ChatGroup, 'id'>, members: Array<Omit<GroupMember, 'groupId'>>) {
+    const group: ChatGroup = { ...g, id: randomUUID(), perms: { ...g.perms } };
+    this.groups.set(group.id, group);
+    for (const m of members) this.members.push({ ...m, groupId: group.id });
+    this.persist();
+    return { ...group, perms: { ...group.perms } };
+  }
+  async group(id: string) { const g = this.groups.get(id); return g ? { ...g, perms: { ...g.perms } } : null; }
+  async updateGroup(id: string, patch: Partial<Pick<ChatGroup, 'name' | 'pic' | 'ownerId' | 'perms'>>) { const g = this.groups.get(id); if (g) { Object.assign(g, patch); this.persist(); } }
+  async deleteGroup(id: string) { this.groups.delete(id); this.members = this.members.filter((m) => m.groupId !== id); this.dms = this.dms.filter((m) => m.toId !== `g:${id}`); this.persist(); }
+  async groupMembers(groupId: string) { return this.members.filter((m) => m.groupId === groupId).map((m) => ({ ...m })); }
+  async groupsOf(userId: string) { return this.members.filter((m) => m.userId === userId && this.groups.has(m.groupId)).map((m) => ({ group: { ...this.groups.get(m.groupId)!, perms: { ...this.groups.get(m.groupId)!.perms } }, me: { ...m } })); }
+  async addGroupMember(m: GroupMember) { if (!this.members.some((x) => x.groupId === m.groupId && x.userId === m.userId)) { this.members.push({ ...m }); this.persist(); } }
+  async updateGroupMember(groupId: string, userId: string, patch: Partial<Pick<GroupMember, 'role' | 'lastRead'>>) { const m = this.members.find((x) => x.groupId === groupId && x.userId === userId); if (m) { Object.assign(m, patch); this.persist(); } }
+  async removeGroupMember(groupId: string, userId: string) { this.members = this.members.filter((x) => !(x.groupId === groupId && x.userId === userId)); this.persist(); }
+  async addMedia(m: MediaFile) { this.mediaFiles.set(m.id, { ...m }); if (this.mediaFiles.size > 2000) this.mediaFiles.delete(this.mediaFiles.keys().next().value!); this.persist(); }
+  async media(id: string) { const m = this.mediaFiles.get(id); return m ? { ...m } : null; }
+  async mediaCountSince(ownerId: string, since: number) { let n = 0; for (const m of this.mediaFiles.values()) if (m.ownerId === ownerId && m.at >= since) n++; return n; }
   protected eventLog: GameEventRow[] = [];
   async addEvent(userId: string | null, name: string, at = Date.now()) { this.eventLog.push({ userId, name, at }); if (this.eventLog.length > 50_000) this.eventLog.splice(0, 10_000); this.persist(); }
   async events(since: number) { return this.eventLog.filter((e) => e.at >= since).map((e) => ({ ...e })); }
@@ -428,6 +494,9 @@ export class FileStore extends MemoryStore {
       for (const [from, links] of Object.entries((data.friends ?? {}) as Record<string, Record<string, 'pending' | 'accepted'>>)) this.friendLinks.set(from, new Map(Object.entries(links)));
       this.reportList = (data.reports ?? []) as Report[];
       this.dms = (data.messages ?? []) as DirectMessage[];
+      for (const g of (data.groups ?? []) as ChatGroup[]) this.groups.set(g.id, g);
+      this.members = (data.groupMembers ?? []) as GroupMember[];
+      for (const m of (data.media ?? []) as Array<Omit<MediaFile, 'data'> & { b64: string }>) this.mediaFiles.set(m.id, { id: m.id, ownerId: m.ownerId, mime: m.mime, at: m.at, data: Buffer.from(m.b64, 'base64') });
       this.eventLog = (data.events ?? []) as GameEventRow[];
       for (const [uid, cards] of Object.entries((data.srs ?? {}) as Record<string, SrsCard[]>)) {
         const m = new Map<string, SrsCard>();
@@ -451,7 +520,7 @@ export class FileStore extends MemoryStore {
     const activity = Object.fromEntries([...this.activityLog].map(([uid, m]) => [uid, [...m.values()]]));
     const daily = Object.fromEntries([...this.dailyResults].map(([day, m]) => [day, Object.fromEntries(m)]));
     const friends = Object.fromEntries([...this.friendLinks].map(([uid, m]) => [uid, Object.fromEntries(m)]));
-    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history), activity, daily, friends, reports: this.reportList, events: this.eventLog, messages: this.dms, custom: Object.fromEntries(this.custom) }));
+    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history), activity, daily, friends, reports: this.reportList, events: this.eventLog, messages: this.dms, custom: Object.fromEntries(this.custom), groups: [...this.groups.values()], groupMembers: this.members, media: [...this.mediaFiles.values()].map((m) => ({ id: m.id, ownerId: m.ownerId, mime: m.mime, at: m.at, b64: m.data.toString('base64') })) }));
     renameSync(tmp, this.file); // atomic replace
   }
 }

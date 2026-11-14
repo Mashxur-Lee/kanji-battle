@@ -39,7 +39,7 @@ test('0.9.9.9.6 messenger: friends write to each other; strangers can\'t; unread
   const sent = await ask(w.route, a.token, 'POST', `/api/messages/${b.user.id}`, { text: '  hello there  ' });
   assert.equal(sent?.status, 200);
   assert.equal((sent!.body as { message: MessageView }).message.text, 'hello there');
-  assert.deepEqual(w.live.at(-1)!.to, [b.user.id], 'delivered live');
+  assert.ok(w.live.some((x) => Array.isArray(x.to) && (x.to as Array<{ id: string; muted: boolean }>).some((r) => r.id === b.user.id && !r.muted)), 'delivered live'); // (0.9.9.9.6.4: and to Anna's other screens, quietly)
   assert.equal(w.pushed.length, 0, 'online: no push');
   w.online.delete(b.user.id);
   await ask(w.route, a.token, 'POST', `/api/messages/${b.user.id}`, { text: 'are you there?' });
@@ -120,14 +120,16 @@ test('0.9.9.9.6 daily challenge: an earlier day — every league\'s words, its b
   await assert.rejects(() => daily.past(user as never, '2026-04-01', '2026-05-10'), /last 7 days/);
 });
 
-test('0.9.9.9.6 league borders: one per league reached (the Kana one after a first Daily challenge)', () => {
+test('0.9.9.9.6 league borders: one per league — 0.9.9.9.6.4: earned by PASSING that league', () => {
   const lg = BORDERS.filter((b) => b.league).map((b) => b.id);
   assert.deepEqual(lg, ['lg-kana', 'lg-n5', 'lg-n4', 'lg-n3', 'lg-n2', 'lg-n1']);
   assert.ok(!borderUnlocked('lg-kana', 99, []), 'not before playing');
-  assert.ok(borderUnlocked('lg-kana', 0, ['dplayed:2026-05-09:KANA']));
+  assert.ok(!borderUnlocked('lg-kana', 0, ['dplayed:2026-05-09:KANA']), 'playing the Kana league is not passing it');
+  assert.ok(borderUnlocked('lg-kana', 0, ['dleague:N5']), 'in N5: Kana passed');
   const n3 = ['dleague:N3'];
-  for (const id of ['lg-kana', 'lg-n5', 'lg-n4', 'lg-n3']) assert.ok(borderUnlocked(id, 0, n3), id);
-  for (const id of ['lg-n2', 'lg-n1']) assert.ok(!borderUnlocked(id, 99, n3), id);
+  for (const id of ['lg-kana', 'lg-n5', 'lg-n4']) assert.ok(borderUnlocked(id, 0, n3), id);
+  for (const id of ['lg-n3', 'lg-n2', 'lg-n1']) assert.ok(!borderUnlocked(id, 99, n3), id);
+  assert.ok(borderUnlocked('lg-n1', 0, ['dleague:N1', 'dpassed:N1']), 'the top league: passed with 7/10 in it');
 });
 
 test('0.9.9.9.6 tutorial battle: the answer comes with each word; the AI casts once for every two of yours', () => {

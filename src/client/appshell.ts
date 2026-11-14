@@ -21,7 +21,41 @@ let installPrompt: InstallPrompt | null = null;
 // things that need the server: online games, rooms, friends
 const ONLINE_ONLY = '#adminBtn, #queueBtn, #join, #railAdd, #railReq, #railList, #railFab, #friendAdd, #friendsRefresh, #picInput, #picRemove';
 
+// 0.9.9.9.6.4: updates. The page used to update only when the service worker happened to look for a new version
+// (opening the page) and then only on the next visit — an app left open (a phone's app comes back from the
+// background without reloading) ran the old version for days. Now the server says which build it serves in every
+// welcome (the connection comes back after each release), and an app on an older build fetches the new one and
+// reloads into it at the first quiet moment (on the menu, not in a room).
+declare const __KW_BUILD__: string | undefined;
+export const CLIENT_BUILD = typeof __KW_BUILD__ === 'string' ? __KW_BUILD__ : '';
+let reloadOk: () => boolean = () => false;
+let updating = false;
+export function checkBuild(server: string | undefined) {
+  if (!server || !CLIENT_BUILD || server === CLIENT_BUILD || updating) return;
+  // (once per new build: if the reload still brought the old one, don't loop — the next welcome tries again later)
+  let tried = '';
+  try { tried = sessionStorage.getItem('kw:update-to') ?? ''; } catch { /* private mode */ }
+  if (tried === server) return;
+  updating = true;
+  void (async () => {
+    const reg = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
+    await reg?.update().catch(() => undefined); // the new service worker installs (it fetches the new files) and takes over
+    const go = async () => {
+      if (!reloadOk()) { setTimeout(() => void go(), 3000); return; }
+      try { sessionStorage.setItem('kw:update-to', server); } catch { /* private mode */ }
+      // whatever the old worker kept is dropped, so the reload can only bring the new version
+      try { for (const k of await caches.keys()) if (k.startsWith('kw-shell-')) await caches.delete(k); } catch { /* no caches */ }
+      ui.toast(tr('Updating to the new version…'), 2500);
+      setTimeout(() => location.reload(), 900);
+    };
+    setTimeout(() => void go(), reg ? 4000 : 0);
+  })();
+}
+
 export function initApp(hooks: { canReload: () => boolean; backOnline: () => void; netStatus: () => void }) {
+  reloadOk = hooks.canReload;
+  // back from the background: also ask the service worker to look for a new version
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void navigator.serviceWorker?.getRegistration().then((r) => r?.update()).catch(() => { /* offline */ }); });
   offline.init(getToken, () => ['review', 'quiz', 'daily'].includes(ui.currentScreen() ?? ''));
   offline.onChange((off) => {
     document.body.classList.toggle('offline', off);

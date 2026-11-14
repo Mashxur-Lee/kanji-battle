@@ -7,6 +7,7 @@ import { playerDay, resolveToday, shiftDay, type ProgressService } from './Progr
 import { isPaused } from './StudyService';
 import { now as clockNow } from '../now';
 import { hash, seeded } from '../../shared/rng';
+import { leaguePassed } from '../../shared/progress';
 
 /**
  * Daily challenge: 0.9.9.7.3 — in leagues. Everyone starts in the Kana league (ひらがな and カタカナ); 7 / 10 or
@@ -35,7 +36,7 @@ export interface DailyWordView { index: number; total: number; kanji: string; le
 export interface DailyAnswer {
   correct: boolean; kanji: string; reading: string; meaning: string; ms: number;
   next: DailyWordView | null;
-  done: { correct: number; ms: number; rank: number; players: number; xp: number; league?: League; promoted?: League | null } | null;
+  done: { correct: number; ms: number; rank: number; players: number; xp: number; league?: League; promoted?: League | null; /** 0.9.9.9.6.4: a league passed for the first time — its rewards are yours */ passed?: League | null } | null;
 }
 interface Attempt { day: string; league: League; index: number; shownAt: number; correct: number; ms: number; marks: string; /** 0.9.9.9.6.3: this player's ten */ words: VocabEntry[] }
 
@@ -87,7 +88,7 @@ export class DailyService {
     const boards = Object.fromEntries(await Promise.all(LEAGUES.map(async (lg) => [lg, lg === league ? board.map(publicRow) : (await this.store.dailyBoard(dailyKey(day, lg), 20)).map(publicRow)] as const)));
     const rank = mine ? (await this.store.dailyBetter(key, mine.correct, mine.ms)) + 1 : null;
     const words = mine ? this.words(day, league).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === '1' : null })) : null;
-    return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), boards, words, inProgress: this.attempts.get(u.id)?.day === day, league, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT };
+    return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), boards, words, inProgress: this.attempts.get(u.id)?.day === day, league, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT, passed: LEAGUES.filter((l) => leaguePassed(l, u.unlocks)) };
   }
 
   /**
@@ -161,14 +162,17 @@ export class DailyService {
     const key = dailyKey(a.day, a.league);
     const saved = await this.store.saveDaily(key, u.id, a.correct, a.ms, a.marks);
     // the league: today's is remembered; 9 / 10 or better moves you up one
-    let promoted: League | null = null;
+    let promoted: League | null = null, passed: League | null = null;
     if (saved) {
       const fresh = (await this.store.findById(u.id)) ?? u;
       const i = LEAGUES.indexOf(a.league);
+      // 0.9.9.9.6.4: passing a league (7 / 10) is what earns its rewards — the top one keeps a mark ("dpassed:N1")
+      if (a.correct >= PROMOTE_AT && !leaguePassed(a.league, fresh.unlocks)) passed = a.league;
       if (a.correct >= PROMOTE_AT && i < LEAGUES.length - 1) promoted = LEAGUES[i + 1];
       const now = promoted ?? leagueOf(fresh);
       const rest = (fresh.unlocks ?? []).filter((x) => !x.startsWith('dleague:') && !x.startsWith('dplayed:') && !x.startsWith('dwords:')); // (dwords: 0.9.9.9.6.3's own-words lists, taken back)
-      await this.store.update(u.id, { unlocks: [...rest, ...(now === 'KANA' ? [] : [`dleague:${now}`]), `dplayed:${a.day}:${a.league}`] });
+      const mark = passed === 'N1' ? ['dpassed:N1'] : [];
+      await this.store.update(u.id, { unlocks: [...rest, ...(now === 'KANA' ? [] : [`dleague:${now}`]), `dplayed:${a.day}:${a.league}`, ...mark] });
     }
     // the words you got wrong go to Struggling spells, like after a battle
     if (saved) {
@@ -182,7 +186,7 @@ export class DailyService {
     if (saved && a.correct === DAILY_WORDS) await this.onPerfect?.(u.id);
     const rank = (await this.store.dailyBetter(key, a.correct, a.ms)) + 1;
     const players = (await this.store.dailyBoard(key, 100_000)).length;
-    return { correct: a.correct, ms: a.ms, rank, players, xp, league: a.league, promoted };
+    return { correct: a.correct, ms: a.ms, rank, players, xp, league: a.league, promoted, passed };
   }
 
   private view(a: Attempt): DailyWordView {

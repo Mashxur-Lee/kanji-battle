@@ -7,6 +7,27 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.6.4', date: '2026-11',
+    en: [
+      'Messages, like Telegram: tap a message to react, reply, copy, forward, edit or delete it (on a computer a smiley shows beside it for a quick reaction). Edited messages say "edited".',
+      'Photos in chats: the Android app shows your newest photos in a grid to pick from (after you allow it once); on a computer you can also paste a picture or drop it onto the chat.',
+      'Group chats: make a group with a name and a picture and add your friends. Tap the group’s name for its members, roles (owner, admins) and what members may do. Under the name: how many are online.',
+      'The bell on each chat: all messages, only @mentions, or mute. "Typing…" shows in Messages, and a friend’s status (online, playing, away, last seen) under their name — tap it for their profile.',
+      'Typing "@" suggests your friends, narrowing with every letter. More emoji, in categories — and an emoji button in the room’s chat.',
+      'Daily challenge: a league’s rewards (its border, and a character for some) now come when you PASS that league (7/10), not when you arrive. Profiles show the Daily challenge league — yours and your friends’ — and friends show how many words they learned today.',
+      'Fixed: "View profile" couldn’t be closed (in battle and elsewhere); Messages can be used from a private room’s lobby (back returns to the room); the game updates itself after a new version instead of keeping the old one.',
+    ],
+    ru: [
+      'Сообщения, как в Telegram: нажмите на сообщение, чтобы поставить реакцию, ответить, скопировать, переслать, изменить или удалить его (на компьютере рядом появляется смайлик для быстрой реакции). Изменённые сообщения помечены «изменено».',
+      'Фото в чатах: в приложении на Android — сетка ваших последних фото (после разрешения); на компьютере картинку можно вставить или перетащить в чат.',
+      'Группы: создайте группу с названием и фото и добавьте друзей. Нажмите на название — участники, роли (владелец, админы) и что могут участники. Под названием — сколько в сети.',
+      'Колокольчик в каждом чате: все сообщения, только @упоминания или без звука. В «Сообщениях» видно «печатает…», а под именем друга — его статус (в сети, играет, отошёл, был в сети); нажмите — откроется профиль.',
+      '«@» подсказывает друзей и сужает список с каждой буквой. Больше эмодзи, по разделам — и кнопка эмодзи в чате комнаты.',
+      'Ежедневный вызов: награды лиги (её рамка, а у некоторых — персонаж) теперь даются, когда вы ПРОХОДИТЕ лигу (7/10), а не когда попадаете в неё. В профилях видна лига — ваша и друзей, — а у друзей видно, сколько слов они выучили сегодня.',
+      'Исправлено: «Профиль» нельзя было закрыть (в бою и не только); «Сообщения» работают из лобби комнаты (кнопка назад возвращает в комнату); игра сама обновляется после выхода новой версии.',
+    ],
+  },
+  {
     v: '0.9.9.9.6.3', date: '2026-11',
     en: [
       'Daily streak: a missed day now ends the streak at midnight (it used to last until you finished the next day). The streak window shows your days in a row and which flame it is.',

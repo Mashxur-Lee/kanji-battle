@@ -1,7 +1,13 @@
 import type { QuizStats } from '../shared/quizstats';
-import type { DmView } from '../shared/protocol';
+import type { DmView, PlayerStatus } from '../shared/protocol';
 /** 0.9.9.9.6: one conversation of the messenger */
-export interface Conversation { id: string; name: string; pic: string | null; online: boolean; support: boolean; last: DmView; unread: number; friend: boolean; muted?: boolean }
+export interface Conversation { id: string; name: string; pic: string | null; online: boolean; support: boolean; last: DmView; unread: number; friend: boolean; muted?: boolean;
+  /** 0.9.9.9.6.4 */ notify?: NotifyMode; group?: { members: number; online: number; role: GroupRole }; status?: PlayerStatus }
+export type NotifyMode = 'all' | 'mentions' | 'none';
+export type GroupRole = 'owner' | 'admin' | 'member';
+export interface GroupPerms { invite: 'all' | 'admins'; info: 'all' | 'admins'; send: 'all' | 'admins' }
+export interface GroupMemberView { id: string; name: string; login: string; pic: string | null; role: GroupRole; online: boolean; status?: PlayerStatus; friend: boolean }
+export interface GroupInfo { id: string; name: string; pic: string | null; perms: GroupPerms; createdAt: number; role: GroupRole; members: GroupMemberView[]; notify: NotifyMode }
 import type { KanaProgress } from '../shared/kanachart';
 import type { AdminUserRow, Device, Level, MatchDetail, MatchSummary, OnoType, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
@@ -16,15 +22,15 @@ export interface DayActivity { day: string; login: boolean; reviews: number; gam
 export interface DictEntry { i: number; kanji: string[]; kana: string[]; romaji: string; senses: Array<[string[], string, string[], string]>; ru: string[]; common: boolean; vocabId?: string; level?: Level }
 export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, Array<[kanji: string, mastery: number, progress: number]>>; month: MonthProgress; achCounts?: Partial<Record<string, number>> }
 export interface DailyWord { index: number; total: number; kanji: string; level: Level; timeLimitMs: number }
-export interface DailyDone { correct: number; ms: number; rank: number; players: number; xp: number; league?: string; promoted?: string | null }
-export interface DailyOverview { league?: string; nextLeague?: string; promoteAt?: number; day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
+export interface DailyDone { correct: number; ms: number; rank: number; players: number; xp: number; league?: string; promoted?: string | null; /** 0.9.9.9.6.4 */ passed?: string | null }
+export interface DailyOverview { league?: string; nextLeague?: string; promoteAt?: number; /** 0.9.9.9.6.4: the leagues you've passed (their rewards are yours) */ passed?: string[]; day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
   board: Array<{ id: string; name: string; correct: number; ms: number }>;
   /** 0.9.9.8.2: every league's board */
   boards?: Record<string, Array<{ id: string; name: string; correct: number; ms: number }>>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
 export interface DailyPast { day: string; total: number; played: string | null; league: string;
   leagues: Record<string, { board: Array<{ id: string; name: string; correct: number; ms: number }>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }>; mine: { correct: number; ms: number } | null }> }
 export interface DailyAnswer { correct: boolean; kanji: string; reading: string; meaning: string; ms: number; next: DailyWord | null; done: DailyDone | null }
-export interface Friend { id: string; username: string; name?: string; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device; /** 0.9.9.9.5: has the app with push — an invite reaches their phone */ push?: boolean; /** 0.9.9.9.5.5: the room they're in (a code when it's open to friends) */ party?: { size: number; max: number; mode: string; code?: string; /** 0.9.9.9.6.3: the room (not its code) and who's in it */ id?: string; members?: string[] } }
+export interface Friend { id: string; username: string; name?: string; /** 0.9.9.9.6.4: words learned today */ today?: number; status: 'accepted' | 'incoming' | 'outgoing'; online: boolean; away?: boolean; activity?: string; lastSeen?: number | null; pic?: string | null; level?: number; device?: Device; /** 0.9.9.9.5: has the app with push — an invite reaches their phone */ push?: boolean; /** 0.9.9.9.5.5: the room they're in (a code when it's open to friends) */ party?: { size: number; max: number; mode: string; code?: string; /** 0.9.9.9.6.3: the room (not its code) and who's in it */ id?: string; members?: string[] } }
 export interface DeckCounts { new: number; learning: number; due: number; total: number }
 export interface StudySummary { studyLevels: Level[]; notice: number; decks: Record<DeckId, DeckCounts>; dailyNew: number; onoDaily?: number; dailyByLevel?: Partial<Record<Level, number>>; studyXpToday?: number; profile: Profile; /** 0.9.9.9.6.3 */ paused?: { all: boolean; ono: boolean; struggling: boolean } }
 export interface StudyCard { vocabId: string; kanji: string; reading: string; meaning: string; level: Level; state: CardState; intervals: Record<Rating, string>; custom?: boolean; ono?: OnoType }
@@ -170,8 +176,23 @@ export const api = {
   conversations: (support = false) => call<{ conversations: Conversation[]; unread: number; mutedAll?: boolean }>('GET', `/api/messages${support ? '?as=support' : ''}`),
   muteMessages: (who: string, on: boolean) => call<{ muted: boolean }>('PUT', '/api/messages/mute', { who, on }),
   messagesUnread: () => call<{ unread: number; support?: number }>('GET', '/api/messages/unread'),
-  thread: (other: string, support = false, before?: number) => call<{ messages: DmView[]; with: Conversation | null }>('GET', `/api/messages/${encodeURIComponent(other)}?${support ? 'as=support&' : ''}${before ? `before=${before}` : ''}`),
-  sendMessage: (other: string, text: string, support = false) => call<{ message: DmView }>('POST', `/api/messages/${encodeURIComponent(other)}${support ? '?as=support' : ''}`, { text }),
+  thread: (other: string, support = false, before?: number) => call<{ messages: DmView[]; with: Conversation | null; people?: Record<string, { name: string; pic: string | null; login: string }> }>('GET', `/api/messages/${encodeURIComponent(other)}?${support ? 'as=support&' : ''}${before ? `before=${before}` : ''}`),
+  sendMessage: (other: string, text: string, support = false, media?: string) => call<{ message: DmView }>('POST', `/api/messages/${encodeURIComponent(other)}${support ? '?as=support' : ''}`, { text, ...(media ? { media } : {}) }),
+  // 0.9.9.9.6.4: the messenger, like Telegram
+  setNotify: (who: string, mode: NotifyMode) => call<{ notify: NotifyMode }>('PUT', '/api/messages/notify', { who, mode }),
+  uploadPhoto: (image: string) => call<{ id: string; url: string }>('POST', '/api/messages/media', { image }),
+  editMessage: (id: string, text: string) => call<{ message: DmView }>('PATCH', `/api/messages/m/${id}`, { text }),
+  deleteMessage: (id: string) => call<{ message: DmView }>('DELETE', `/api/messages/m/${id}`),
+  react: (id: string, emoji: string | null) => call<{ message: DmView }>('PUT', `/api/messages/m/${id}/react`, { emoji }),
+  forward: (id: string, to: string[]) => call<{ messages: DmView[] }>('POST', `/api/messages/m/${id}/forward`, { to }),
+  createGroup: (name: string, members: string[], pic?: string) => call<{ id: string }>('POST', '/api/groups', { name, members, ...(pic ? { pic } : {}) }),
+  group: (id: string) => call<{ group: GroupInfo }>('GET', `/api/groups/${encodeURIComponent(id)}`),
+  updateGroup: (id: string, patch: { name?: string; pic?: string | null; perms?: Partial<GroupPerms> }) => call<{ group: GroupInfo }>('PATCH', `/api/groups/${encodeURIComponent(id)}`, patch),
+  addToGroup: (id: string, ids: string[]) => call<{ group: GroupInfo }>('POST', `/api/groups/${encodeURIComponent(id)}/members`, { ids }),
+  removeFromGroup: (id: string, who: string) => call<{ group: GroupInfo }>('DELETE', `/api/groups/${encodeURIComponent(id)}/members/${who}`),
+  setGroupRole: (id: string, who: string, role: GroupRole) => call<{ group: GroupInfo }>('PUT', `/api/groups/${encodeURIComponent(id)}/members/${who}`, { role }),
+  leaveGroup: (id: string) => call<{ left: boolean }>('POST', `/api/groups/${encodeURIComponent(id)}/leave`),
+  deleteGroup: (id: string) => call<{ deleted: boolean }>('DELETE', `/api/groups/${encodeURIComponent(id)}`),
   feedback: (kind: 'bug' | 'suggestion', text: string, meta: string) => call<{ ok: boolean }>('POST', '/api/feedback', { kind, text, meta }),
   event: (name: string) => call<{ ok: boolean }>('POST', '/api/event', { name }).catch(() => ({ ok: false })),
   online: () => call<{ online: number }>('GET', '/api/online'),

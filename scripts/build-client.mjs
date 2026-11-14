@@ -20,11 +20,15 @@ const browserServer = {
   },
 };
 
+// 0.9.9.9.6.4: this build's id — in the app (__KW_BUILD__) and in public/build.txt for the server, which tells every
+// connected app; one that was built earlier updates itself instead of running the old version for days
+const BUILD_ID = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+writeFileSync(r('public/build.txt'), BUILD_ID);
 await build({
   entryPoints: [r('src/client/main.ts')], bundle: true, outfile: r('public/app.js'), target: 'es2020',
   // 0.9.9.9: minified (it was the only bundle that wasn't — 1.3 MB)
   minify: true,
-  plugins: [browserServer], define: { 'process.env.RENDER': 'undefined', 'process.env.ADMIN_PASSWORD': 'undefined' }, logLevel: 'warning',
+  plugins: [browserServer], define: { 'process.env.RENDER': 'undefined', 'process.env.ADMIN_PASSWORD': 'undefined', __KW_BUILD__: JSON.stringify(BUILD_ID) }, logLevel: 'warning',
 });
 await build({ entryPoints: [r('src/client/arena3d.ts')], bundle: true, minify: true, outfile: r('public/arena3d.js'), target: 'es2020', logLevel: 'warning' });
 copyFileSync(r('data/vocab.json'), r('public/vocab.json'));

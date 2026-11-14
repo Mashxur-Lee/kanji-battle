@@ -21,7 +21,10 @@ export function showPlayer(p: PublicProfile, extra?: HTMLElement) {
   const meta = h('div', 'pv-meta');
   meta.append(h('div', 'pp-name', p.name));
   if (p.login) meta.append(h('div', 'pp-login', `@${p.login}`));
+  if (p.status) meta.append(ui.statusLine(p.status)); // 0.9.9.9.6.4
   meta.append(h('div', 'pp-level', `Lv ${p.level}`));
+  const lg = ui.leagueChip(p.league); // 0.9.9.9.6.4: their Daily challenge league
+  if (lg) meta.append(lg);
   const row = badgeRow(p.badges);
   if (row) meta.append(row);
   const head = h('div', 'pv-head');

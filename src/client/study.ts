@@ -499,7 +499,7 @@ function custItems(profile: Profile, isAdmin: boolean, tab: CustTab = custTab): 
     return BORDERS.map((b) => ({
       id: b.id, name: b.name === 'No border' ? b.name : `${b.name} border`, blurb: `${b.blurb} Round your profile picture — everyone sees it in lobbies, battles and on your profile card.`,
       locked: !isAdmin && !borderUnlocked(b.id, lvl, profile.unlocks), lock: b.league ? `${b.league === 'KANA' ? 'Kana' : b.league} league` : b.unlock ? 'Tutorial' : `Level ${b.level}`,
-      lockedToast: b.league ? (b.league === 'KANA' ? 'Play your first Daily challenge to get the Kana League border' : `Reach the ${b.league} league in the Daily challenge to unlock the ${b.name} border`)
+      lockedToast: b.league ? `Pass the ${b.league === 'KANA' ? 'Kana' : b.league} league in the Daily challenge to unlock the ${b.name} border`
         : b.unlock ? 'Finish the tutorial to get the Beta border' : `Reach level ${b.level} to unlock the ${b.name} border`,
       equipped: (profile.border ?? 'none') === b.id,
       tile: () => avatarDisc(profile, b.id, 'ci-avatar'),
@@ -512,7 +512,7 @@ function custItems(profile: Profile, isAdmin: boolean, tab: CustTab = custTab): 
     return CHARACTER_DEFS.map((d) => ({
       id: d.id, name: d.name, blurb: `${d.blurb} Everyone sees your character in battles.`,
       locked: !isAdmin && !characterUnlocked(d.id, profile.unlocks), lock: `${d.league} league`,
-      lockedToast: `Reach the ${d.league} league in the Daily challenge to unlock the ${d.name} (you are in the ${league === 'KANA' ? 'Kana' : league} league)`,
+      lockedToast: `Pass the ${d.league} league in the Daily challenge to unlock the ${d.name} (you are in the ${league === 'KANA' ? 'Kana' : league} league)`,
       equipped: mine === d.id,
       tile: () => { const t = el('div', 'char-tile'); t.innerHTML = avatarSvg(d.id, 'me', profile.staff); return t; },
       equip: () => api.setCharacter(d.id),

@@ -7,13 +7,13 @@ injectBorderStyles(); // 0.9.9.9.6.1: the league frames (drawn, as a style sheet
 import { showStrokeOrder } from './strokes';
 import {
   LEVEL_LABEL, LEVELS, MODE_LABEL, isKanaLevel, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
-  type Level, type MatchSummary, type PlayerId, type PlayerStats, type PlayerView, type PublicProfile, type PublicUser, type StudyItem, type Avatar,
+  type Level, type MatchSummary, type PlayerId, type PlayerStats, type PlayerView, type PublicProfile, type PlayerStatus, type PublicUser, type StudyItem, type Avatar,
 } from '../shared/protocol';
 import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
 import { arena as arena3d, arenaForBattle } from './arena';
 import { setStarred } from './stars';
 import { toRomaji } from '../shared/kana';
-import { borderOf, flameColor, flameShades, isKanaBeginner, levelOf, levelProgress, levelXp } from '../shared/progress';
+import { borderOf, flameColor, flameShades, isKanaBeginner, leagueIn, levelOf, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -39,7 +39,16 @@ export function hideBootScreen() {
 }
 export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };
 export const currentScreen = () => SCREENS.find((s) => !$(s).hidden);
+/**
+ * 0.9.9.9.6.4: Messages opened from a room's lobby — you're still in the room. Its updates (someone picks a level)
+ * no longer pull you back to the lobby, and Messages' back button returns there (it used to go to the menu with
+ * the room still open behind it).
+ */
+let lobbyAside = false;
+export const setLobbyAside = (on: boolean) => { lobbyAside = on; };
+export const isLobbyAside = () => lobbyAside && currentScreen() === 'inbox';
 export const show = (screen: Screen) => {
+  if (screen !== 'inbox') lobbyAside = false;
   // 0.9.9.9.6.2: showing the screen you're already on (the lobby, after every room update — picking a level) stays
   // where you are: no jump to the top, no replayed entrance
   const again = currentScreen() === screen;
@@ -190,6 +199,33 @@ const ICON = {
   book: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5C6.5 4 9.5 4 12 6c2.5-2 5.5-2 8-.5V19c-2.5-1.5-5.5-1.5-8 .5-2.5-2-5.5-2-8-.5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 6v13.5" stroke="currentColor" stroke-width="1.9"/></svg>',
   today: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" fill="currentColor"/></svg>',
 };
+/** 0.9.9.9.6.4: a Daily challenge league as a small seal and its name (profiles: yours, friends', anyone's) */
+export function leagueChip(league?: string | null): HTMLElement | null {
+  if (!league) return null;
+  const l = league.toLowerCase();
+  const c = h('span', `pp-league lg-${l}`);
+  const crest = h('span', `lg-crest lg-${l} tiny`);
+  const t = h('b', '', league === 'KANA' ? 'かな' : league); t.lang = 'ja';
+  crest.append(h('i', 'lg-rays'), t);
+  c.append(crest, h('span', '', `${league === 'KANA' ? tr('Kana') : league} ${tr('league')}`));
+  c.title = tr('Daily challenge league');
+  return c;
+}
+/** 0.9.9.9.6.4: online / playing / away / last seen, as a line under a name */
+export function statusText(s: PlayerStatus): string {
+  if (s.online) return s.away ? tr('Away') : s.activity ? tr(s.activity) : tr('Online');
+  if (!s.lastSeen) return tr('Offline');
+  const m = Math.max(0, Math.round((Date.now() - s.lastSeen) / 60_000));
+  if (m < 1) return tr('Last seen just now');
+  if (m < 60) return tr(`Last seen ${m} min ago`);
+  const hr = Math.round(m / 60);
+  if (hr < 24) return tr(`Last seen ${hr} h ago`);
+  const d = new Date(s.lastSeen);
+  return `${tr('Last seen')} ${d.toLocaleDateString(locale(), { day: 'numeric', month: 'short' })}`;
+}
+export function statusLine(s: PlayerStatus): HTMLElement {
+  return h('div', `pp-status${s.online ? (s.away ? ' away' : s.activity?.startsWith('Playing') ? ' playing' : ' on') : ''}`, statusText(s));
+}
 export function statsCard(s: { wins: number; losses: number; learned: number; today?: number }): HTMLElement {
   const games = s.wins + s.losses;
   const pct = games ? Math.round((100 * s.wins) / games) : 0;
@@ -231,6 +267,10 @@ export function setProfile(p: ProfileView | null) {
   const lx = levelXp(p.xp);
   $('whoLv').textContent = String(lx.level);
   $('whoLevel').textContent = `Lv ${lx.level} · ${lx.into.toLocaleString()} / ${lx.need.toLocaleString()} XP`;
+  // 0.9.9.9.6.4: your Daily challenge league, under your level
+  const lgOld = document.getElementById('ppLeague'); lgOld?.remove();
+  const lg = leagueChip(leagueIn(p.unlocks));
+  if (lg) { lg.id = 'ppLeague'; $('whoLevel').after(lg); }
   // 0.9.9.9.6.2: the same cards as a friend's (statsCard / streakCard), with "learned today" too
   $('ppStatsBox').replaceChildren(statsCard({ wins: p.wins ?? 0, losses: p.losses ?? 0, learned: p.learned, today: p.learnedToday ?? 0 }));
   $('ppStreakBox').replaceChildren(streakCard(p.streak ?? 0, Math.max(p.bestStreak ?? 0, p.streak ?? 0)));
@@ -535,7 +575,7 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
     ? (deck ? 'Share the code, or add an AI opponent — then press Ready. The duel starts when both are ready.' : 'Share the code with a friend, or add an AI player — then press Ready.')
     : meReady ? (solo ? 'Starting…' : 'Waiting for the others to be ready…')
     : solo ? 'Press Ready to start your solo run (or wait for a teammate).' : 'Press Ready — the battle starts when every player is ready.';
-  show('lobby');
+  if (!isLobbyAside()) show('lobby');
 }
 
 export const selectedLevels = (): Level[] =>
@@ -1284,8 +1324,8 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
     const img = picEl(p.pic, 'pic fill');
     if (img) pic.append(img);
     body.push(
-      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), ...(p.login ? [h('div', 'pp-login', `@${p.login}`)] : []), h('div', 'pp-level', `Lv ${p.level}`), ...[badgeRowFn?.(p.badges)].filter((x): x is HTMLElement => !!x))),
-      statsCard({ wins: p.wins, losses: p.losses, learned: p.learned }),
+      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), ...(p.login ? [h('div', 'pp-login', `@${p.login}`)] : []), ...(p.status ? [statusLine(p.status)] : []), h('div', 'pp-level', `Lv ${p.level}`), ...[leagueChip(p.league), badgeRowFn?.(p.badges)].filter((x): x is HTMLElement => !!x))),
+      statsCard({ wins: p.wins, losses: p.losses, learned: p.learned, ...(p.today !== undefined ? { today: p.today } : {}) }),
       streakCard(p.streak ?? 0, Math.max(p.bestStreak ?? 0, p.streak ?? 0)),
       h('p', 'hint pc-since', `Playing since ${new Date(p.since).toLocaleDateString(locale(), { year: 'numeric', month: 'short', day: 'numeric' })}`),
     );

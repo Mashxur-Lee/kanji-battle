@@ -1,6 +1,6 @@
 import type { AuthService } from '../auth/AuthService';
 import type { FriendLink, Store } from '../db/Store';
-import type { Device, ServerMessage } from '../../shared/protocol';
+import type { Device, PlayerStatus, ServerMessage } from '../../shared/protocol';
 
 /** What friends need of the session hub (Session.ts): who's online, and a message to one player. */
 export interface FriendHub {
@@ -26,7 +26,9 @@ export class SocialService {
       const lastSeen = f.status === 'accepted' && !p.online ? Math.max(p.lastSeen ?? 0, rec?.lastSeen ?? 0) || null : null;
       // 0.9.9.9.5: push — an invite reaches their phone even with the app closed
       const push = f.status === 'accepted' && (rec?.pushTokens?.length ?? 0) > 0;
-      return { ...f, online: p.online, away: p.online && !!p.away, activity: p.online ? p.activity : undefined, party: p.online ? p.party : undefined, device: p.online ? p.device ?? 'web' : undefined, lastSeen, pic: rec ? picUrl(rec) : null, level: levelOf(rec?.xp ?? 0), push };
+      return { ...f, online: p.online, away: p.online && !!p.away, activity: p.online ? p.activity : undefined, party: p.online ? p.party : undefined, device: p.online ? p.device ?? 'web' : undefined, lastSeen, pic: rec ? picUrl(rec) : null, level: levelOf(rec?.xp ?? 0), push,
+        // 0.9.9.9.6.4: words they learned today (what "learned today" shows on your own profile)
+        ...(f.status === 'accepted' && rec ? { today: Date.now() < rec.critExpires ? rec.critCount : 0 } : {}) };
     }));
   }
 
@@ -51,6 +53,14 @@ export class SocialService {
   async remove(userId: string, otherId: string) {
     if (!UUID.test(otherId)) return;
     await this.store.removeFriend(userId, otherId);
+  }
+
+  /** 0.9.9.9.6.4: what a friend (or someone you share a group with) is up to — online, playing, away, last seen */
+  async statusOf(otherId: string): Promise<PlayerStatus> {
+    const p = this.hub.presence(otherId);
+    if (p.online) return { online: true, ...(p.away ? { away: true } : {}), ...(p.activity ? { activity: p.activity } : {}) };
+    const rec = await this.store.findById(otherId);
+    return { online: false, lastSeen: Math.max(p.lastSeen ?? 0, rec?.lastSeen ?? 0) || null };
   }
 
   async areFriends(a: string, b: string) {

@@ -5,7 +5,7 @@ import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protoc
 import type { BackgroundId, FlameId, StaffId } from '../../shared/progress';
 import { deckOf, type CardState, type CustomWord, type DeckId, type SrsCard } from '../../shared/srs';
 import { randomUUID } from 'node:crypto';
-import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, type ActivityDelta, type GameEventRow, type Report, type DirectMessage, type ConversationRow, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, type ActivityDelta, type GameEventRow, type Report, type DirectMessage, type ConversationRow, type MessagePatch, type ChatGroup, type GroupMember, type GroupRole, type MediaFile, DEFAULT_PERMS, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
 /**
  * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
@@ -186,6 +186,40 @@ export class PgStore implements Store {
       )`;
     await this.sql`create index if not exists kw_messages_to on kw_messages (to_id, at desc)`;
     await this.sql`create index if not exists kw_messages_from on kw_messages (from_id, at desc)`;
+    // 0.9.9.9.6.4: edits, reactions, photos, forwards; group chats (their messages go "to" g:<group id>)
+    await this.sql`alter table kw_messages add column if not exists edited_at bigint`;
+    await this.sql`alter table kw_messages add column if not exists reactions text`;
+    await this.sql`alter table kw_messages add column if not exists media text`;
+    await this.sql`alter table kw_messages add column if not exists fwd text`;
+    await this.sql`alter table kw_messages add column if not exists deleted boolean not null default false`;
+    await this.sql`
+      create table if not exists kw_groups (
+        id uuid primary key,
+        name text not null,
+        pic text,
+        owner_id uuid not null,
+        created_at bigint not null,
+        perms text not null default '{}'
+      )`;
+    await this.sql`
+      create table if not exists kw_group_members (
+        group_id uuid not null references kw_groups(id) on delete cascade,
+        user_id uuid not null references kw_users(id) on delete cascade,
+        role text not null default 'member',
+        joined_at bigint not null,
+        last_read bigint not null default 0,
+        primary key (group_id, user_id)
+      )`;
+    await this.sql`create index if not exists kw_group_members_user on kw_group_members (user_id)`;
+    await this.sql`
+      create table if not exists kw_media (
+        id text primary key,
+        owner_id uuid references kw_users(id) on delete cascade,
+        mime text not null,
+        data bytea not null,
+        at bigint not null
+      )`;
+    await this.sql`create index if not exists kw_media_owner on kw_media (owner_id, at)`;
     await this.sql`
       create table if not exists kw_events (
         user_id uuid references kw_users(id) on delete cascade,
@@ -454,7 +488,7 @@ export class PgStore implements Store {
   // ── 0.9.9.9.6: the messenger ──
   async addMessage(m: Omit<DirectMessage, 'id' | 'readAt'>): Promise<DirectMessage> {
     const id = randomUUID();
-    await this.sql`insert into kw_messages (id, from_id, to_id, text, at, kind, by_id) values (${id}, ${m.fromId}, ${m.toId}, ${m.text}, ${m.at}, ${m.kind ?? null}, ${m.by ?? null})`;
+    await this.sql`insert into kw_messages (id, from_id, to_id, text, at, kind, by_id, media, fwd) values (${id}, ${m.fromId}, ${m.toId}, ${m.text}, ${m.at}, ${m.kind ?? null}, ${m.by ?? null}, ${m.media ?? null}, ${m.fwd ?? null})`;
     return { ...m, id, readAt: null };
   }
   async messagesBetween(a: string, b: string, limit: number, before = Number.MAX_SAFE_INTEGER): Promise<DirectMessage[]> {
@@ -467,7 +501,7 @@ export class PgStore implements Store {
     const last = await this.sql<Array<MsgRow & { other: string }>>`
       select * from (
         select distinct on (other) *, case when from_id = ${me} then to_id else from_id end as other
-        from kw_messages where from_id = ${me} or to_id = ${me} order by other, at desc
+        from kw_messages where (from_id = ${me} or to_id = ${me}) and to_id not like 'g:%' order by other, at desc
       ) x order by at desc limit ${limit}`;
     const unread = await this.sql<Array<{ from_id: string; n: number }>>`
       select from_id, count(*)::int as n from kw_messages where to_id = ${me} and read_at is null group by from_id`;
@@ -480,6 +514,89 @@ export class PgStore implements Store {
   }
   async unreadMessages(me: string) {
     const [r] = await this.sql<Array<{ n: number }>>`select count(*)::int as n from kw_messages where to_id = ${me} and read_at is null`;
+    return Number(r?.n ?? 0);
+  }
+  // ── 0.9.9.9.6.4: edits, reactions, photos, group chats ──
+  async message(id: string): Promise<DirectMessage | null> {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+    const [r] = await this.sql<MsgRow[]>`select * from kw_messages where id = ${id}`;
+    return r ? toMsg(r) : null;
+  }
+  async updateMessage(id: string, patch: MessagePatch) {
+    const set: Record<string, unknown> = {};
+    if (patch.text !== undefined) set.text = patch.text;
+    if (patch.editedAt !== undefined) set.edited_at = patch.editedAt;
+    if (patch.reactions !== undefined) set.reactions = patch.reactions && Object.keys(patch.reactions).length ? JSON.stringify(patch.reactions) : null;
+    if (patch.deleted !== undefined) set.deleted = patch.deleted;
+    if (patch.media !== undefined) set.media = patch.media;
+    if (!Object.keys(set).length) return;
+    await this.sql`update kw_messages set ${this.sql(set)} where id = ${id}`;
+  }
+  async messagesTo(toId: string, limit: number, before = Number.MAX_SAFE_INTEGER): Promise<DirectMessage[]> {
+    const rows = await this.sql<MsgRow[]>`select * from kw_messages where to_id = ${toId} and at < ${before} order by at desc limit ${limit}`;
+    return rows.map(toMsg).reverse();
+  }
+  async groupSummaries(groups: Array<{ to: string; since: number }>, me: string) {
+    const out = new Map<string, { last: DirectMessage | null; unread: number }>();
+    if (!groups.length) return out;
+    const tos = groups.map((g) => g.to);
+    const last = await this.sql<MsgRow[]>`select distinct on (to_id) * from kw_messages where to_id in ${this.sql(tos)} order by to_id, at desc`;
+    const lastBy = new Map(last.map((r) => [r.to_id, toMsg(r)]));
+    await Promise.all(groups.map(async (g) => {
+      const [r] = await this.sql<Array<{ n: number }>>`select count(*)::int as n from kw_messages where to_id = ${g.to} and at > ${g.since} and from_id <> ${me} and not deleted`;
+      out.set(g.to, { last: lastBy.get(g.to) ?? null, unread: Number(r?.n ?? 0) });
+    }));
+    return out;
+  }
+  async createGroup(g: Omit<ChatGroup, 'id'>, members: Array<Omit<GroupMember, 'groupId'>>): Promise<ChatGroup> {
+    const id = randomUUID();
+    await this.sql.begin(async (tx) => {
+      await tx`insert into kw_groups (id, name, pic, owner_id, created_at, perms) values (${id}, ${g.name}, ${g.pic}, ${g.ownerId}, ${g.createdAt}, ${JSON.stringify(g.perms)})`;
+      for (const m of members) await tx`insert into kw_group_members (group_id, user_id, role, joined_at, last_read) values (${id}, ${m.userId}, ${m.role}, ${m.joinedAt}, ${m.lastRead}) on conflict do nothing`;
+    });
+    return { ...g, id };
+  }
+  async group(id: string): Promise<ChatGroup | null> {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+    const [r] = await this.sql<GroupRow[]>`select * from kw_groups where id = ${id}`;
+    return r ? toGroup(r) : null;
+  }
+  async updateGroup(id: string, patch: Partial<Pick<ChatGroup, 'name' | 'pic' | 'ownerId' | 'perms'>>) {
+    const set: Record<string, unknown> = {};
+    if (patch.name !== undefined) set.name = patch.name;
+    if (patch.pic !== undefined) set.pic = patch.pic;
+    if (patch.ownerId !== undefined) set.owner_id = patch.ownerId;
+    if (patch.perms !== undefined) set.perms = JSON.stringify(patch.perms);
+    if (Object.keys(set).length) await this.sql`update kw_groups set ${this.sql(set)} where id = ${id}`;
+  }
+  async deleteGroup(id: string) {
+    await this.sql`delete from kw_messages where to_id = ${`g:${id}`}`;
+    await this.sql`delete from kw_groups where id = ${id}`;
+  }
+  async groupMembers(groupId: string): Promise<GroupMember[]> {
+    const rows = await this.sql<MemberRow[]>`select * from kw_group_members where group_id = ${groupId} order by joined_at`;
+    return rows.map(toMember);
+  }
+  async groupsOf(userId: string) {
+    const rows = await this.sql<Array<GroupRow & { m_role: string; m_joined: string; m_read: string }>>`
+      select g.*, m.role as m_role, m.joined_at as m_joined, m.last_read as m_read from kw_group_members m join kw_groups g on g.id = m.group_id where m.user_id = ${userId}`;
+    return rows.map((r) => ({ group: toGroup(r), me: { groupId: r.id, userId, role: r.m_role as GroupRole, joinedAt: Number(r.m_joined), lastRead: Number(r.m_read) } }));
+  }
+  async addGroupMember(m: GroupMember) {
+    await this.sql`insert into kw_group_members (group_id, user_id, role, joined_at, last_read) values (${m.groupId}, ${m.userId}, ${m.role}, ${m.joinedAt}, ${m.lastRead}) on conflict do nothing`;
+  }
+  async updateGroupMember(groupId: string, userId: string, patch: Partial<Pick<GroupMember, 'role' | 'lastRead'>>) {
+    if (patch.role !== undefined) await this.sql`update kw_group_members set role = ${patch.role} where group_id = ${groupId} and user_id = ${userId}`;
+    if (patch.lastRead !== undefined) await this.sql`update kw_group_members set last_read = greatest(last_read, ${patch.lastRead}) where group_id = ${groupId} and user_id = ${userId}`;
+  }
+  async removeGroupMember(groupId: string, userId: string) { await this.sql`delete from kw_group_members where group_id = ${groupId} and user_id = ${userId}`; }
+  async addMedia(m: MediaFile) { await this.sql`insert into kw_media (id, owner_id, mime, data, at) values (${m.id}, ${m.ownerId}, ${m.mime}, ${m.data}, ${m.at})`; }
+  async media(id: string): Promise<MediaFile | null> {
+    const [r] = await this.sql<Array<{ id: string; owner_id: string; mime: string; data: Buffer; at: string }>>`select * from kw_media where id = ${id}`;
+    return r ? { id: r.id, ownerId: r.owner_id, mime: r.mime, data: Buffer.from(r.data), at: Number(r.at) } : null;
+  }
+  async mediaCountSince(ownerId: string, since: number) {
+    const [r] = await this.sql<Array<{ n: number }>>`select count(*)::int as n from kw_media where owner_id = ${ownerId} and at >= ${since}`;
     return Number(r?.n ?? 0);
   }
   async setReportDone(id: string, done: boolean) { await this.sql`update kw_reports set done = ${done} where id = ${id}`; }
@@ -527,7 +644,18 @@ export class PgStore implements Store {
   async close() { await this.sql.end({ timeout: 5 }); }
 }
 
-interface MsgRow { id: string; from_id: string; to_id: string; text: string; at: string | number; read_at: string | number | null; kind: string | null; by_id: string | null }
+interface MsgRow { id: string; from_id: string; to_id: string; text: string; at: string | number; read_at: string | number | null; kind: string | null; by_id: string | null; edited_at?: string | number | null; reactions?: string | null; media?: string | null; fwd?: string | null; deleted?: boolean }
 function toMsg(r: MsgRow): DirectMessage {
-  return { id: r.id, fromId: r.from_id, toId: r.to_id, text: r.text, at: Number(r.at), readAt: r.read_at === null ? null : Number(r.read_at), kind: r.kind, by: r.by_id };
+  let reactions: Record<string, string[]> | null = null;
+  try { reactions = r.reactions ? JSON.parse(r.reactions) : null; } catch { /* a broken one: none */ }
+  return { id: r.id, fromId: r.from_id, toId: r.to_id, text: r.text, at: Number(r.at), readAt: r.read_at === null ? null : Number(r.read_at), kind: r.kind, by: r.by_id,
+    editedAt: r.edited_at == null ? null : Number(r.edited_at), reactions, media: r.media ?? null, fwd: r.fwd ?? null, deleted: !!r.deleted };
 }
+interface GroupRow { id: string; name: string; pic: string | null; owner_id: string; created_at: string | number; perms: string }
+function toGroup(r: GroupRow): ChatGroup {
+  let perms = { ...DEFAULT_PERMS };
+  try { perms = { ...DEFAULT_PERMS, ...JSON.parse(r.perms || '{}') }; } catch { /* the defaults */ }
+  return { id: r.id, name: r.name, pic: r.pic, ownerId: r.owner_id, createdAt: Number(r.created_at), perms };
+}
+interface MemberRow { group_id: string; user_id: string; role: string; joined_at: string | number; last_read: string | number }
+const toMember = (r: MemberRow): GroupMember => ({ groupId: r.group_id, userId: r.user_id, role: r.role as GroupRole, joinedAt: Number(r.joined_at), lastRead: Number(r.last_read) });

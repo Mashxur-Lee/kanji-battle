@@ -28,7 +28,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
-  if (url.pathname.startsWith('/api/avatar/')) { e.respondWith(cacheFirst(req, RUNTIME)); return; }
+  if (url.pathname.startsWith('/api/avatar/') || url.pathname.startsWith('/api/media/')) { e.respondWith(cacheFirst(req, RUNTIME)); return; }
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/download/')) return; // live data / app downloads: never the cached page
   if (req.mode === 'navigate') { e.respondWith(shell('/index.html', req)); return; }
   e.respondWith(shell(url.pathname, req));
