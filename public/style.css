@@ -5376,3 +5376,14 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 :is(.pic-wrap, #whoPic, .avatar).bd-lg-n3::before { background-image: url(/frames/s/lg-n3.webp); }
 :is(.pic-wrap, #whoPic, .avatar).bd-lg-n2::before { background-image: url(/frames/s/lg-n2.webp); }
 :is(.pic-wrap, #whoPic, .avatar).bd-lg-n1::before { background-image: url(/frames/s/lg-n1.webp); }
+/* 0.9.9.9.6.5: what passing your league brings — the frame on a real-size picture and the character, each named */
+.lg-pass { flex-direction: column; align-items: stretch; gap: 8px; }
+.lg-pass-rw { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+.lg-pass-it { display: inline-flex; align-items: center; gap: 14px; }
+.lg-pass-it b { font-size: .9rem; color: #fff; }
+.lg-pass-av { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; position: relative; font-size: 1.05rem; font-weight: 900; color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent2)); margin: 10px 8px 14px 10px; flex: none; }
+.lg-pass-char { width: 40px; height: 52px; display: inline-block; flex: none; } .lg-pass-char svg { width: 100%; height: 100%; }
+/* 0.9.9.9.6.5: Feedback's Close was stretched to Send's height and looked like a ball */
+.fb-actions { align-items: center; }
+.fb-actions .pill { align-self: center; padding: 10px 18px; }

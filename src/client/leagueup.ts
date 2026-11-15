@@ -55,9 +55,18 @@ export function leagueCard(current: string, next: string | undefined, promoteAt 
   if ((border || character) && !passed.includes(current)) {
     const pr = h('div', 'lg-pass');
     pr.append(h('span', 'lg-pass-how', tr(`Pass it — ${promoteAt}/10 or better — to get:`)));
-    const rw = h('span', 'lg-nx-rw');
-    if (border) { const d = h('span', `avatar lg-nx-av${ui.borderCls(border.id)}`, (ui.myName() || '✦').slice(0, 1).toUpperCase()); d.title = tr(`${border.name} border`); rw.append(d); }
-    if (character) { const c = h('span', 'lg-nx-char'); c.innerHTML = avatarSvg(character.id, 'me', 'verdant'); c.title = tr(`The ${character.name}`); rw.append(c); }
+    // (0.9.9.9.6.5: each reward big enough to see, with its name — it was a tiny circle in an empty box)
+    const rw = h('span', 'lg-pass-rw');
+    if (border) {
+      const it = h('span', 'lg-pass-it');
+      const d = h('span', `avatar lg-pass-av${ui.borderCls(border.id)}`, (ui.myName() || '✦').slice(0, 1).toUpperCase());
+      it.append(d, h('b', '', tr(`${border.name} border`))); rw.append(it);
+    }
+    if (character) {
+      const it = h('span', 'lg-pass-it');
+      const c = h('span', 'lg-pass-char'); c.innerHTML = avatarSvg(character.id, 'me', 'verdant');
+      it.append(c, h('b', '', tr(`The ${character.name}`))); rw.append(it);
+    }
     pr.append(rw);
     card.append(pr);
   }
