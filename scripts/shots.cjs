@@ -23,7 +23,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const user = 'sw' + Date.now().toString(36).slice(-7);
     await page.goto(BASE + '/');
     const tok = await page.evaluate(async ([u]) => {
-      const r = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: 'secret12' }) });
+      const r = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: 'secret12', email: `${u}@shots.test` }) });
       return (await r.json()).token;
     }, [user]);
     // the welcome tutorial is skipped unless the scenario asks for it (a /*tutorial*/ comment)

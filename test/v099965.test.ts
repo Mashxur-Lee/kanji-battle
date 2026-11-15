@@ -88,7 +88,7 @@ import { TokenSigner } from '../src/server/auth/tokens';
 test('0.9.9.9.6.5 change your password: the current one first; every other device is signed out', async () => {
   const store = new MemoryStore();
   const auth = new AuthService(store, new TokenSigner('secret'));
-  const { token: phone } = await auth.register('walker', 'first-pass');
+  const { token: phone } = await auth.register('walker', 'first-pass', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await new Promise((r) => setTimeout(r, 1100)); // (a token from an earlier second)
   const u = await auth.authenticate(phone);
   await assert.rejects(auth.changePassword(u, 'wrong', 'second-pass'), /current password is wrong/);

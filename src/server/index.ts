@@ -26,6 +26,8 @@ import { InsightsService } from './study/InsightsService';
 import { MessageService } from './study/MessageService';
 import { runMigrations } from './migrations';
 import { onServerError, reportServerError } from './errors';
+import { createMailer, type Mailer } from './mail';
+import type { ResetMail } from './auth/AuthService';
 import { DictService } from './study/DictService';
 
 const PUBLIC_DIR = path.resolve(__dirname, '../../public');
@@ -111,7 +113,21 @@ const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
 const stories = new StoryService();
 console.log(`Reading passage stories: ${stories.describe}`);
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled, messages,
+// 0.9.9.9.6.6: password-reset codes by email (SMTP_URL or RESEND_API_KEY); without email the code goes to the admin's
+// inbox, so the admin can pass it on
+let mailer: Mailer;
+try { mailer = createMailer(); } catch (e) { console.error('[mail]', (e as Error).message); mailer = createMailer({}); }
+const resetMail = async (m: ResetMail) => {
+  const name = m.user.nickname || m.user.username;
+  const ru = m.lang === 'ru';
+  const subject = ru ? `Kanji Wizards — код для сброса пароля: ${m.code}` : `Kanji Wizards — your password reset code: ${m.code}`;
+  const text = ru
+    ? `Здравствуйте, ${name}!\n\nВаш код для сброса пароля в Kanji Wizards: ${m.code}\n\nВведите его в игре в течение 30 минут. Если вы не просили сбросить пароль, просто не обращайте внимания на это письмо — ваш пароль не изменится.\n\n— Kanji Wizards`
+    : `Hi ${name},\n\nYour Kanji Wizards password reset code is: ${m.code}\n\nEnter it in the game within 30 minutes. If you didn't ask to reset your password, ignore this email — your password stays the same.\n\n— Kanji Wizards`;
+  if (mailer.enabled) { await mailer.send(m.email, subject, text); return; }
+  await store.addReport({ kind: 'error', userId: m.user.id, username: m.user.username, text: `Password reset asked by ${m.user.username} — code ${m.code} (30 min). Email is not set up on the server (SMTP_URL or RESEND_API_KEY), so pass the code on yourself.`, meta: m.email, at: Date.now() });
+};
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled, messages, resetMail,
   // 0.9.9.9.5.2: Settings → "Test invite notification": the whole way, with what went wrong
   pushTest: async (userId, delaySec = 0) => {
     if (!push.enabled) return { ok: false, reason: 'server-off' };
@@ -270,6 +286,7 @@ store.init().then(() => auth.seed([
   server.listen(port, () => {
     console.log(`Kanji Battle running on http://localhost:${port}`);
     console.log(`Kanji Wizards v${VERSION}`);
+    console.log(`Email (password resets): ${mailer.how}`);
     console.log(`Accounts: ${auth.store.name}${tokens.ephemeral ? ' · AUTH_SECRET not set: logins reset on restart' : ''}`);
     if (process.env.RENDER && !process.env.DATABASE_URL) {
       console.warn('DATABASE_URL is not set: accounts, XP and study sets live on Render\'s disk and are wiped on every deploy. Add your Neon connection string in Render → Environment.');

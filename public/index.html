@@ -42,6 +42,7 @@
       <div class="pp-actions">
         <label class="pill" title="PNG, JPEG or WebP">Change picture<input id="picInput" type="file" accept="image/png,image/jpeg,image/webp,image/*" hidden></label>
         <button id="picRemove" class="pill">Remove picture</button>
+        <button id="emailChange" class="pill" type="button">Email</button>
         <button id="pwChange" class="pill" type="button">Change password</button>
         <button id="logout" class="pill danger">⎋ Log out</button>
       </div>
@@ -266,7 +267,10 @@
       <form id="authForm" class="form" autocomplete="on">
         <label class="field"><span>Login</span><input id="authUser" name="username" autocomplete="username" maxlength="32" required></label>
         <label class="field"><span>Password</span><input id="authPass" name="password" type="password" autocomplete="current-password" maxlength="72" required></label>
+        <!-- 0.9.9.9.6.6: an email for every account (to get back in; nobody else sees it) -->
+        <label id="authEmailRow" class="field" hidden><span>Email</span><input id="authEmail" name="email" type="email" autocomplete="email" maxlength="254" inputmode="email"></label>
         <button id="authSubmit" type="submit">Log in</button>
+        <button id="authForgot" type="button" class="link auth-forgot">Forgot password?</button>
         <p id="authError" class="error" role="alert"></p>
         <button id="playOffline" type="button" class="big alt" hidden>Play offline</button>
         <p id="authHint" class="hint"></p>

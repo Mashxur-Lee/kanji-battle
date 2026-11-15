@@ -40,7 +40,7 @@ test('0.9.9.9.5: a GET whose database is waking up is tried again — no "Server
   const study = new StudyService(store);
   const errors: string[] = [];
   const route = createApiRouter(auth, study, { onError: (where) => errors.push(where) });
-  const { token } = await auth.register('sleepy1', 'secret12');
+  const { token } = await auth.register('sleepy1', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   const ask = (method: string, url: string) => route({ method, url, query: new URLSearchParams(), token, ip: '1.2.3.4', json: async () => ({}) });
   arm();
   const r = await ask('GET', '/api/me');
@@ -54,7 +54,7 @@ test('0.9.9.9.5: still unreachable → 503 and one "database unreachable" report
   const study = new StudyService(store);
   const errors: string[] = [];
   const route = createApiRouter(auth, study, { onError: (where) => errors.push(where) });
-  const { token } = await auth.register('sleepy2', 'secret12');
+  const { token } = await auth.register('sleepy2', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   arm();
   const r = await route({ method: 'POST', url: '/api/feedback', query: new URLSearchParams(), token, ip: '1.2.3.4', json: async () => ({ kind: 'bug', text: 'hello there' }) });
   assert.equal(r?.status, 503);
@@ -307,7 +307,7 @@ test('0.9.9.9.5 JLPT quiz: four different choices, one right; words from the dec
   // the route: ?deck=…&levels=…
   const auth = new AuthService(store, new TokenSigner('t'));
   const route = createApiRouter(auth, study);
-  const { token, user } = await auth.register('quizroute', 'secret12');
+  const { token, user } = await auth.register('quizroute', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await store.addCards(user.id, n1.map((v) => ({ ...newCard(v.id, now, 'struggling'), reps: 1, state: 'review' as const, intervalDays: 2 })));
   const ask = (q: string) => route({ method: 'GET', url: '/api/study/quiz', query: new URLSearchParams(q), token, ip: '1.2.3.4', json: async () => ({}) });
   const r = await ask('n=10&deck=struggling&levels=N1,N2');
@@ -398,8 +398,8 @@ test('0.9.9.9.5 push tokens: kept per account (newest 4); a phone signing in as 
   const auth = new AuthService(store, new TokenSigner('t'));
   const declined: string[] = [];
   const route = createApiRouter(auth, study, { inviteDecline: (id, name, fromId) => declined.push(`${name}:${fromId}`) });
-  const a = await auth.register('pusha', 'secret12');
-  const b = await auth.register('pushb', 'secret12');
+  const a = await auth.register('pusha', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
+  const b = await auth.register('pushb', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   const call = (token: string, method: string, url: string, body: unknown) => route({ method, url, query: new URLSearchParams(), token, ip: '1.2.3.4', json: async () => body });
   const tok = (n: number) => `fcm-token-${n}-${'x'.repeat(30)}`;
   for (let i = 1; i <= 5; i++) assert.equal((await call(a.token, 'PUT', '/api/push', { token: tok(i) }))?.status, 200);

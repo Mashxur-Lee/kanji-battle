@@ -48,19 +48,24 @@ export interface UserRecord {
   nickname?: string | null;
   /** 0.9.9.9: when they were last connected (epoch ms; friends see "last online …") */
   lastSeen?: number | null;
+  /** 0.9.9.9.6.6: the account's email (lower case) and its mailbox key (one account per key — auth/email.ts) */
+  email?: string | null;
+  emailKey?: string | null;
   /** 0.9.9.4.4: new words a day per level (All spells), and how many of each were added on `day` */
   dailyPlan: DailyPlan | null;
 }
 export interface DailyPlan { per: Partial<Record<Level, number>>; day: string | null; done: Partial<Record<Level, number>> }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
-export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'>;
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens' | 'quizStats' | 'wins' | 'losses'>>;
+export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'> & { email?: string | null; emailKey?: string | null };
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens' | 'quizStats' | 'wins' | 'losses' | 'email' | 'emailKey'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
   readonly name: string;
   init(): Promise<void>;
   findByUsername(username: string): Promise<UserRecord | null>;
+  /** 0.9.9.9.6.6: the account with this mailbox key */
+  findByEmailKey(key: string): Promise<UserRecord | null>;
   findById(id: string): Promise<UserRecord | null>;
   create(u: NewUser): Promise<UserRecord>;
   list(): Promise<UserRecord[]>;
@@ -175,6 +180,8 @@ export interface GameEventRow { userId: string | null; name: string; at: number 
 export const REPORTS_KEPT = 500; // the newest; errors beyond that are dropped
 
 export class UsernameTakenError extends Error {}
+/** 0.9.9.9.6.6: that mailbox already has an account */
+export class EmailTakenError extends Error {}
 
 /** One player's activity on one of their local days (progress page, monthly goals). */
 export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number; quizzes: number; challenges: number; passages: number; /** XP from study cards (0.9.9.4.4.2) */ studyXp?: number }
@@ -212,9 +219,14 @@ export class MemoryStore implements Store {
     for (const r of this.users.values()) if (r.username === u) return { ...r };
     return null;
   }
+  async findByEmailKey(key: string) {
+    for (const r of this.users.values()) if (r.emailKey && r.emailKey === key) return { ...r };
+    return null;
+  }
   async findById(id: string) { const r = this.users.get(id); return r ? { ...r } : null; }
   async create(u: NewUser) {
     if (await this.findByUsername(u.username)) throw new UsernameTakenError();
+    if (u.emailKey && (await this.findByEmailKey(u.emailKey))) throw new EmailTakenError();
     const rec: UserRecord = { ...blankProgress(), tutorialDone: false, ...u, username: u.username.toLowerCase(), banned: false, id: randomUUID(), createdAt: new Date().toISOString() };
     this.users.set(rec.id, rec);
     this.persist();
@@ -236,6 +248,7 @@ export class MemoryStore implements Store {
   async update(id: string, patch: UserPatch) {
     const r = this.users.get(id);
     if (!r) return null;
+    if (patch.emailKey) for (const o of this.users.values()) if (o.id !== id && o.emailKey === patch.emailKey) throw new EmailTakenError();
     Object.assign(r, patch);
     this.persist();
     return { ...r };

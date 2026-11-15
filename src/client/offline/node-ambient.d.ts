@@ -6,7 +6,7 @@ declare var Buffer: any;
 type Buffer = any;
 declare module 'node:crypto' {
   export const randomUUID: () => string;
-  export const randomBytes: any, timingSafeEqual: any, createHmac: any;
+  export const randomBytes: any, timingSafeEqual: any, createHmac: any, createHash: any, randomInt: any;
   export function scrypt(pw: string, salt: any, len: number, opts: object, cb: (e: Error | null, k: any) => void): void;
 }
 declare module 'node:fs' { export const existsSync: any, mkdirSync: any, readFileSync: any, renameSync: any, writeFileSync: any; }

@@ -29,6 +29,7 @@ import { api, ApiError, getToken, setToken, type Friend, type Profile } from './
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
 import { showPlayer } from './playerview';
+import { emailDialog, forgotDialog } from './account';
 import { initInbox, inboxLeft, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket, setInviteJoin } from './inbox';
 import { onLeagueEquip } from './leagueup';
 import { chatMessages, chatTyping, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
@@ -426,6 +427,7 @@ function onMessage(msg: ServerMessage) {
       void refreshOnline(); // now this player counts too
       registerPush(msg.user.id); // 0.9.9.9.5: friends' invites reach this phone while the app is closed
       inboxUser(msg.user.id, msg.user.role === 'admin'); // 0.9.9.9.6: Messages (unread)
+      askEmail(); // 0.9.9.9.6.6: an account from before emails adds one, once
       setRailMe(msg.user.id); // 0.9.9.9.6.3: friends in your room: "Playing with you"
       joinFromLink();
       break;
@@ -797,7 +799,7 @@ ui.$('authForm').addEventListener('submit', async (e) => {
   btn.disabled = true;
   ui.$('authError').textContent = '';
   try {
-    const res = authTab === 'login' ? await api.login(username, password) : await api.register(username, password);
+    const res = authTab === 'login' ? await api.login(username, password) : await api.register(username, password, ui.$<HTMLInputElement>('authEmail').value.trim());
     setToken(res.token);
     ui.$<HTMLInputElement>('authPass').value = '';
     signedIn(res.user);
@@ -809,6 +811,17 @@ ui.$('authForm').addEventListener('submit', async (e) => {
   }
 });
 ui.$('logout').onclick = () => logout();
+// 0.9.9.9.6.6: "Forgot password?" — a code by email; your email (added once by older accounts, changed in your profile)
+ui.$('authForgot').onclick = () => forgotDialog(ui.$<HTMLInputElement>('authUser').value.trim(), (_t, u) => { ui.$<HTMLInputElement>('authPass').value = ''; signedIn(u); void refreshProfile(); ui.toast(tr('Password changed — you are signed in'), 3500); });
+let emailAsked = false;
+function emailLabel() { ui.$('emailChange').textContent = user?.email ? `${tr('Email')}: ${user.email}` : tr('Add your email'); }
+function askEmail() {
+  emailLabel();
+  if (!user || user.email || emailAsked || offline.isOffline()) return;
+  emailAsked = true;
+  emailDialog({ required: true, onDone: (u) => { if (user) user = { ...user, email: u.email }; emailLabel(); ui.toast(tr('Email saved'), 2500); }, onLogout: () => { emailAsked = false; logout(); } });
+}
+ui.$('emailChange').onclick = () => emailDialog({ required: false, current: user?.email ?? null, onDone: (u) => { if (user) user = { ...user, email: u.email }; emailLabel(); ui.toast(tr('Email saved'), 2500); } });
 // 0.9.9.9.6.5: change your password (the current one first) — every other device is signed out
 ui.$('pwChange').onclick = () => {
   const d = document.createElement('dialog');

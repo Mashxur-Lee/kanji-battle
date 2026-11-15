@@ -113,7 +113,11 @@ async function local<T>(method: string, url: string, body?: unknown, op?: string
 
 export const api = {
   login: (username: string, password: string) => call<{ token: string; user: PublicUser }>('POST', '/api/login', { username, password }),
-  register: (username: string, password: string) => call<{ token: string; user: PublicUser }>('POST', '/api/register', { username, password }),
+  register: (username: string, password: string, email: string) => call<{ token: string; user: PublicUser }>('POST', '/api/register', { username, password, email }),
+  /** 0.9.9.9.6.6: your email (with your password); forgot your password → a code by email → a new one */
+  setEmail: (email: string, password: string) => call<{ user: PublicUser }>('PUT', '/api/me/email', { email, password }),
+  forgotPassword: (login: string) => call<{ sent: boolean }>('POST', '/api/password/forgot', { login }),
+  resetPassword: (login: string, code: string, password: string) => call<{ token: string; user: PublicUser }>('POST', '/api/password/reset', { login, code, password }),
   me: () => call<{ user: PublicUser; profile: Profile }>('GET', `/api/me?today=${today()}`),
   setAvatar: (image: string) => call<{ profile: Profile }>('PUT', '/api/me/avatar', { image }),
   removeAvatar: () => call<{ profile: Profile }>('DELETE', '/api/me/avatar'),

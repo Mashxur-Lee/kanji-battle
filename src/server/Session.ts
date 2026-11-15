@@ -1,7 +1,7 @@
 import { reportServerError } from './errors';
 import { CHAT_MAX_LENGTH, LEVELS, MODE_LABEL, MODES, type ClientMessage, type Device, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
 import type { AuthService } from './auth/AuthService';
-import { AuthError, toPublic } from './auth/AuthService';
+import { AuthError, toSelf } from './auth/AuthService';
 import { isTransientDbError, retryDelay } from './db/transient';
 import { Bucket } from './security';
 import { sanitizeDrawing } from './handwriting/judge';
@@ -412,7 +412,7 @@ export class Session implements Client {
           await retryDelay(attempt);
         }
       }
-      this.user = toPublic(rec);
+      this.user = toSelf(rec); // (0.9.9.9.6.6: with your masked email — only you get it)
       this.hub.claim(rec.id, this);
       this.send({ type: 'welcome', user: this.user, ...(serverBuild ? { build: serverBuild } : {}) });
       this.startPings();

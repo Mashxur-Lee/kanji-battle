@@ -19,7 +19,7 @@ async function world() {
   const reads: Array<[string, string]> = [];
   const messages = new MessageService(store, { deliver: () => {}, push: (to) => pushed.push(to), online: () => false, read: (w, r) => reads.push([w, r]) });
   const route = createApiRouter(auth, new StudyService(store), { messages });
-  const a = await auth.register('ann61', 'secret12'), b = await auth.register('bob61', 'secret12');
+  const a = await auth.register('ann61', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), b = await auth.register('bob61', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await store.requestFriend(a.user.id, b.user.id); await store.acceptFriend(b.user.id, a.user.id);
   return { store, route, pushed, reads, a, b };
 }
@@ -32,7 +32,7 @@ test('0.9.9.9.6.1 messenger: reading a chat tells the writer (✓ → ✓✓), o
   await ask(w.route, w.b.token, 'GET', `/api/messages/${w.a.user.id}`);
   assert.equal(w.reads.length, 1, 'nothing new read: no second notice');
   // the team reading a player's message: the player is told (reader: the team)
-  const adm = await (async () => { const r = await new AuthService(w.store, new TokenSigner('t')).register('adm61', 'secret12'); await w.store.update(r.user.id, { role: 'admin' }); return r; })();
+  const adm = await (async () => { const r = await new AuthService(w.store, new TokenSigner('t')).register('adm61', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`); await w.store.update(r.user.id, { role: 'admin' }); return r; })();
   await ask(w.route, w.a.token, 'POST', `/api/messages/${SUPPORT_ID}`, { text: 'help' });
   await ask(w.route, adm.token, 'GET', `/api/messages/${w.a.user.id}`, {}, 'as=support');
   assert.deepEqual(w.reads.at(-1), [w.a.user.id, SUPPORT_ID]);

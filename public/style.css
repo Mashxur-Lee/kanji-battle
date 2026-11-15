@@ -5411,3 +5411,13 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .pw-field input { padding: 10px 12px; border-radius: 12px; font-size: 1rem; }
 .pw-msg:empty { display: none; }
 .pw-msg { color: #ff8a9a; }
+
+/* ── 0.9.9.9.6.6: an email for every account; forgot your password ── */
+.auth-forgot { align-self: center; margin-top: -4px; font-size: .85rem; }
+.auth-forgot[hidden], #authEmailRow[hidden] { display: none; }
+.email-dialog .em-now { margin: 0; font-weight: 700; color: var(--text); }
+.forgot-dialog .fg-step { display: flex; flex-direction: column; gap: 10px; }
+.forgot-dialog .fg-step[hidden] { display: none; }
+.forgot-dialog .link { align-self: flex-start; font-size: .85rem; }
+.au-who { display: flex; flex-direction: column; }
+.au-who .au-mail { font-size: .72rem; color: var(--muted); font-weight: 600; }
