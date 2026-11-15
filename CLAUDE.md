@@ -22,7 +22,7 @@ serves the web game, the Android app (a WebView shell) and the Windows app (Elec
 - `npm test` (or `npx tsx --test test/*.test.ts`) runs everything against MemoryStore. `store.test.ts` needs
   Postgres and fails locally, which is expected.
 - `npm run typecheck` checks the server and client. Locally the three.js typings may be missing; CI has them.
-- `npm run dev` builds the client and runs the server on :3130.
+- `npm run dev` builds the client and runs the server on :3000 (`PORT`); without `DATABASE_URL` it keeps data in a local JSON file.
 
 ## Releasing (how every version so far was shipped)
 1. Branch `v<version>` off `main`.
@@ -54,3 +54,6 @@ serves the web game, the Android app (a WebView shell) and the Windows app (Elec
 - Comments start with the version that introduced the code (`// 0.9.9.9.6.7: ...`), which makes the history
   easy to follow.
 - Check UI changes on a computer size and a phone size, in English and Russian, dark and light themes.
+
+## Promo material
+`docs/promo/` (README cards, `trailer.webp` loop, `trailer.mp4`) is generated: see `scripts/promo/README.md`.
