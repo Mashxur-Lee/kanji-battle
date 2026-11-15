@@ -5497,3 +5497,30 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 @media (max-width: 900px) { #menu > .copyright { position: static; margin: 12px 0 64px; } }
 #auth .copyright { margin-top: 10px; }
 :root[data-theme="light"] .copyright { color: rgba(0, 0, 0, .45); }
+
+/* 0.9.9.9.6.7: on a computer the main menu fits the window (it scales with it) — the page never scrolls there; after
+   Messages it could scroll on into empty space below the menu */
+@media (min-width: 901px) and (min-height: 480px) and (pointer: fine) {
+  html:has(> body[data-screen="menu"]), body[data-screen="menu"] { overflow: hidden; }
+}
+
+/* 0.9.9.9.6.7: the 2D arena — the wizards were small against the painting (about a sixth of the window's height);
+   now sized from the window itself (about a quarter of its height, the scene isn't scaled by the UI zoom either),
+   allies and parties of three and four in step */
+body:not(.has-3d) #battle .wizard .sprite { width: max(110px, min(calc(21 * var(--vh)), calc(17 * var(--vw)))); }
+body:not(.has-3d) #battle .wizard.ally .sprite { width: max(92px, min(calc(17 * var(--vh)), calc(13.5 * var(--vw)))); }
+body:not(.has-3d) #arena[data-party="3"] .wizard .sprite { width: max(84px, min(calc(16 * var(--vh)), calc(11 * var(--vw)))); }
+body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(calc(13.5 * var(--vh)), calc(9 * var(--vw)))); }
+@media (max-width: 640px) {
+  body:not(.has-3d) #battle .wizard .sprite { width: min(132px, calc(34 * var(--vw))); }
+  body:not(.has-3d) #battle .wizard.ally .sprite { width: min(104px, calc(27 * var(--vw))); }
+  body:not(.has-3d) #arena[data-party="3"] .wizard .sprite, body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: 62px; }
+}
+
+/* 0.9.9.9.6.7: a tutorial question (language, hiragana) — on a computer the two answers wrapped onto two uneven lines
+   next to "Skip tutorial"; now they share one line at equal width, Skip centred under them */
+.tut-card .tut-actions.tut-choice { display: grid; grid-template-columns: 1fr 1fr; }
+.tut-card .tut-actions.tut-choice > .big { min-width: 0; }
+@media (min-width: 601px) { .tut-card .tut-actions.tut-choice > .big { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
+.tut-card .tut-actions.tut-choice > :not(.big) { order: 1; grid-column: 1 / -1; justify-self: center; flex-basis: auto; }
+.tut-card .tut-actions.tut-choice > [hidden] { display: none; }

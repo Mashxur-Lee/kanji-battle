@@ -7,6 +7,21 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.6.7', date: '2026-11',
+    en: [
+      'The 2D arena: the wizards are bigger — they fill the arena the way they should, on computers and phones.',
+      'The tutorial: on a computer the two answers sit side by side on one line again.',
+      'The main menu on a computer never scrolls into empty space after Messages.',
+      'A new trailer and new pictures on the game’s page.',
+    ],
+    ru: [
+      '2D-арена: волшебники стали крупнее — теперь они заполняют арену как надо, на компьютере и на телефоне.',
+      'Обучение: на компьютере два ответа снова стоят рядом в одну строку.',
+      'Главное меню на компьютере больше не прокручивается в пустоту после «Сообщений».',
+      'Новый трейлер и новые картинки на странице игры.',
+    ],
+  },
+  {
     v: '0.9.9.9.6.6', date: '2026-11',
     en: [
       'Your account has an email now: give it when you register (older accounts are asked once). It is only for getting back in — nobody else sees it, and it is one account per person.',

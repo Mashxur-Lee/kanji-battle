@@ -110,6 +110,7 @@ function show(i: number) {
     en.onclick = () => show(i + 1);
     ru.onclick = () => { if (lang() !== 'ru') useRussianNow(); const sel = document.getElementById('langSel') as HTMLSelectElement | null; if (sel) sel.value = 'ru'; show(i + 1); };
     next.hidden = true;
+    actions.classList.add('tut-choice');
     queueMicrotask(() => actions.append(en, ru));
   }
   if (c.choice) {
@@ -120,6 +121,7 @@ function show(i: number) {
     yes.onclick = () => pickKana(true);
     no.onclick = () => pickKana(false);
     next.hidden = true;
+    actions.classList.add('tut-choice'); // 0.9.9.9.6.7: the two answers side by side on one line, Skip under them
     queueMicrotask(() => actions.append(no, yes)); // after "Skip tutorial"
   }
   next.onclick = () => {

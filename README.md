@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.9.6.6
+# Kanji Wizards · v0.9.9.9.6.7
 
 <p align="center"><img src="docs/promo/banner.webp" alt="Kanji Wizards — learn Japanese by casting it" width="100%"></p>
 
@@ -13,34 +13,56 @@ on the web, on Android or on Windows.
   <a href="https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download/KanjiWizards-Setup.exe">Windows app</a>
 </p>
 
-<p align="center"><img src="docs/promo/gameplay.gif" alt="From the menu into a battle" width="85%"></p>
+<p align="center"><img src="docs/promo/trailer.webp" alt="Gameplay: a duel, handwriting, the Black Dragon, Deck Duel and flashcards" width="100%"></p>
+<p align="center"><a href="docs/promo/trailer.mp4"><b>Watch the full trailer</b></a> (about 90 seconds, every mode)</p>
 
 ## What's inside
 
 - **Five battle modes**: 1v1 Kanji Reading, 1v1 Kanji Writing (handwriting recognition), 1v1 Rapid, Deck Duel
   (a card game built from your own words), and Boss Elimination (up to four players against the Black Dragon).
-- **Study that sticks**: Anki-style flashcards for every JLPT level (N5–N1), a Kana trainer for hiragana and
-  katakana, JLPT quizzes, onomatopoeia and reading passages, and a full Japanese–English–Russian dictionary.
+- **Combos that matter**: answer fast and right to chain combos, go *On fire* at ×5, and land critical hits.
+- **Study that sticks**: Anki-style flashcards for every JLPT level (N5–N1) with stroke-order animations, a Kana
+  trainer for hiragana and katakana, JLPT quizzes, onomatopoeia and reading passages, and a full
+  Japanese–English–Russian dictionary.
 - **Daily challenge leagues**: ten words a day, the same for everyone in your league. Pass a league to earn its
-  animated frame and move up.
+  animated frame and move up, or race the best of your friends word by word.
 - **Friends**: a friends list, invites, and a messenger with groups, photos, reactions and @mentions.
-- **Your wizard**: four characters, magic staffs, flames, frames and painted arenas, earned by playing and
+- **Your wizard**: four characters, magic staffs, flames, poses, frames and painted arenas, earned by playing and
   studying. The battles play in a 3D arena or in 2D.
 - **Everywhere**: phone, tablet and computer, with an offline mode for studying. English and Russian.
 
-## Screenshots
+## A closer look
 
-| | |
-|---|---|
-| <img src="docs/promo/pc-menu.webp" alt="Main menu"> | <img src="docs/promo/pc-battle3d.webp" alt="A battle in the 3D arena"> |
-| <img src="docs/promo/pc-daily.webp" alt="Daily challenge leagues"> | <img src="docs/promo/pc-messages.webp" alt="Messages with friends"> |
-
-<p align="center">
-  <img src="docs/promo/phone-menu.webp" alt="Menu on a phone" width="24%">
-  <img src="docs/promo/phone-battle.webp" alt="A battle on a phone" width="24%">
-  <img src="docs/promo/phone-messages.webp" alt="Messages on a phone" width="24%">
-  <img src="docs/promo/pc-kana.webp" alt="The Kana trainer" width="24%">
-</p>
+<table>
+  <tr>
+    <td width="50%"><img src="docs/promo/duel.webp" alt="Duel in real time: read the kanji, type its reading, and your wizard casts it"></td>
+    <td width="50%"><img src="docs/promo/arena3d.webp" alt="The 3D arena: your staff in your hand, spells in the air"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/promo/writing.webp" alt="Write it by hand: handwriting recognition checks every stroke"></td>
+    <td><img src="docs/promo/boss.webp" alt="Boss Elimination: up to four wizards against the Black Dragon"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/promo/deck.webp" alt="Deck Duel: draft a hand, play your cards, cast their kanji"></td>
+    <td><img src="docs/promo/rapid.webp" alt="Rapid: short words, quick answers, big combos"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/promo/study.webp" alt="Spaced-repetition flashcards with stroke order"></td>
+    <td><img src="docs/promo/kana.webp" alt="The Kana trainer"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/promo/daily.webp" alt="Daily challenge leagues"></td>
+    <td><img src="docs/promo/progress.webp" alt="Progress: what you know, reviews ahead, achievements"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/promo/customize.webp" alt="Customize your wizard"></td>
+    <td><img src="docs/promo/friends.webp" alt="Messages and groups with friends"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/promo/dict.webp" alt="The dictionary, open from any screen"></td>
+    <td><img src="docs/promo/menu.webp" alt="The main menu on a computer and a phone"></td>
+  </tr>
+</table>
 
 ## Built with
 

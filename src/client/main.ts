@@ -1,7 +1,7 @@
 import { knowPlayer, setMentionSelf } from './mentions';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
 import './support'; // error reporting first, so early errors are caught too
-import { refreshOnline } from './support';
+import { refreshOnline, reportLayout } from './support';
 import { onTaskDone, quizMode, showMissedSave, startQuiz } from './decks';
 import { initTasks, renderTasks, taskActions, tasksAtLogin } from './dailytasks';
 import { checkRewards } from './rewards';
@@ -169,6 +169,13 @@ ui.onScreen((s) => {
     applyUiZoom(); centerScreens();
     const se = document.scrollingElement;
     if (se && se.scrollTop > Math.max(0, se.scrollHeight - innerHeight)) se.scrollTop = Math.max(0, se.scrollHeight - innerHeight);
+    // 0.9.9.9.6.7: on a computer the menu fits the window — if the page is taller anyway, tell the admin what made it
+    // so (style.css keeps it from scrolling there now; this finds the cause)
+    if (s === 'menu' && innerWidth >= 901 && se && se.scrollHeight > innerHeight + 40) {
+      const tall = [...document.body.querySelectorAll<HTMLElement>('*')].map((e) => ({ e, b: e.getBoundingClientRect().bottom + se.scrollTop })).filter((x) => x.b > innerHeight + 40).sort((a, b) => b.b - a.b).slice(0, 5)
+        .map(({ e, b }) => `${e.tagName.toLowerCase()}#${e.id}.${String(e.className).slice(0, 30)} ↓${Math.round(b)} ${getComputedStyle(e).position}${e.hidden ? ' hidden' : ''}`);
+      reportLayout('Menu taller than the window after Messages', `page ${se.scrollHeight} > window ${innerHeight}\n${tall.join('\n')}`);
+    }
   }, 450);
   lastScreen = s;
   railScreen(s);
