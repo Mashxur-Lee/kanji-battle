@@ -261,7 +261,7 @@ for (const sig of ['SIGTERM', 'SIGINT'] as const) {
 }
 
 const port = Number(process.env.PORT ?? 3000);
-// 0.9.9.9.5: the built-in accounts' default passwords are in the public README — on a public server they are
+// 0.9.9.9.5: the built-in accounts' default passwords are in the public source code — on a public server they are
 // only made with passwords from the environment, and if one still has its default password it gets locked
 store.init().then(() => auth.seed([
   { username: 'user', password: process.env.USER_PASSWORD ?? 'user123', role: 'user', fromEnv: !!process.env.USER_PASSWORD },
@@ -274,7 +274,7 @@ store.init().then(() => auth.seed([
     if (process.env.RENDER && !process.env.DATABASE_URL) {
       console.warn('DATABASE_URL is not set: accounts, XP and study sets live on Render\'s disk and are wiped on every deploy. Add your Neon connection string in Render → Environment.');
     }
-    if (!process.env.ADMIN_PASSWORD) console.warn(isPublicServer() ? 'ADMIN_PASSWORD not set: no admin account with the README password on a public server — set ADMIN_PASSWORD to sign in as admin' : 'ADMIN_PASSWORD not set: the admin account uses the default password from the README');
+    if (!process.env.ADMIN_PASSWORD) console.warn(isPublicServer() ? 'ADMIN_PASSWORD not set: no admin account with the built-in password on a public server — set ADMIN_PASSWORD to sign in as admin' : 'ADMIN_PASSWORD not set: the admin account uses the built-in development password (set ADMIN_PASSWORD)');
   });
 }).catch((e) => {
   console.error('Could not start (database unreachable? check DATABASE_URL)', e);

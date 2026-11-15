@@ -258,6 +258,11 @@ const RU: Record<string, string> = {
   ', CC BY). Those lists draw on': ', CC BY). Эти списки опираются на', 'by the Electronic Dictionary Research and Development Group, used under': 'от Electronic Dictionary Research and Development Group, используется по лицензии',
   'Handwriting recognition:': 'Распознавание почерка:', 'by Dominik Klein (MIT); its reference strokes come from': 'Доминика Кляйна (MIT); эталонные черты взяты из',
   'by Ulrich Apel (CC BY-SA 3.0).': 'Ульриха Апеля (CC BY-SA 3.0).', '3D:': '3D:',
+  // 0.9.9.9.6.5: the credits — software and art; the privacy note with messages and notifications
+  'Software:': 'Программы:', '(MIT) for the 3D arena;': '(MIT) — 3D-арена;', '(MIT) and': '(MIT) и', '(Unlicense) on the server;': '(Unlicense) — на сервере;',
+  '(MIT) for the Windows app; Firebase Cloud Messaging (Apache 2.0) for the Android app\'s notifications.': '(MIT) — приложение для Windows; Firebase Cloud Messaging (Apache 2.0) — уведомления в приложении для Android.',
+  'Art: the painted backgrounds, league frames and streak flames were made for this game; the 3D characters, the dragon, staffs and arenas were modelled for it, and the 2D characters, icons and sounds are drawn and synthesised in code.': 'Графика: нарисованные фоны, рамки лиг и пламя серий созданы для этой игры; 3D-персонажи, дракон, посохи и арены смоделированы для неё, а 2D-персонажи, значки и звуки нарисованы и синтезированы в коде.',
+  'We store your player name, a scrambled (hashed) password, your progress, match history, friends, your messages (text, photos, reactions, groups — seen only by the people in that chat) and — if you upload one — your profile picture. The Android app keeps a notification token so invites and messages reach your phone (through Google\'s Firebase). Bug reports and suggestions you send are kept with your player name; errors include your browser type. If the server has AI stories turned on, only your study words are sent to make a story. Nothing is sold. Ask the admin to delete your account and all of it is removed.': 'Мы храним ваше имя игрока, зашифрованный (хэшированный) пароль, прогресс, историю матчей, друзей, ваши сообщения (текст, фото, реакции, группы — их видят только участники чата) и — если вы его загрузили — фото профиля. Приложение для Android хранит токен уведомлений, чтобы приглашения и сообщения доходили до телефона (через Firebase от Google). Отчёты об ошибках и предложения хранятся с вашим именем игрока; в ошибках указан тип браузера. Если на сервере включены ИИ-истории, для истории отправляются только ваши учебные слова. Ничего не продаётся. Попросите администратора удалить аккаунт — и всё это будет удалено.',
   'Russian word meanings: translated for this game from the English meanings.': 'Русские значения слов: переведены для этой игры с английских значений.',
   'We store your player name, a scrambled (hashed) password, your progress, match history, friends and — if you upload one — your profile picture. Bug reports and suggestions you send are kept with your player name; errors include your browser type. Nothing is sold or shared. Ask the admin to delete your account and all of it is removed.':
     'Мы храним ваше имя игрока, зашифрованный (хешированный) пароль, прогресс, историю матчей, друзей и — если вы его загрузили — фото профиля. Ваши сообщения об ошибках и предложения хранятся с вашим именем игрока; к ошибкам прикладывается тип браузера. Ничего не продаётся и не передаётся. Попросите администратора удалить аккаунт — и всё это будет удалено.',
@@ -534,6 +539,13 @@ const RU: Record<string, string> = {
   'Updating to the new version…': 'Обновляемся до новой версии…',
   'League passed!': 'Лига пройдена!',
   // 0.9.9.9.6.5: invites in the chat
+  'Remove the group picture?': 'Убрать фото группы?', 'removed the group picture': 'убрал(а) фото группы',
+  'Change password': 'Сменить пароль', 'Current password': 'Текущий пароль', 'New password': 'Новый пароль', 'New password again': 'Новый пароль ещё раз',
+  'You stay signed in here; every other device is signed out.': 'Здесь вы останетесь в аккаунте, а на всех других устройствах — выйдете.',
+  'The new passwords don’t match': 'Новые пароли не совпадают', 'Password changed': 'Пароль изменён',
+  'Your current password is wrong': 'Текущий пароль неверный', 'Your password was changed — log in again': 'Пароль был изменён — войдите снова',
+  'Change': 'Сменить', 'Change the game mode': 'Сменить режим игры', 'Too many players for this mode': 'Слишком много игроков для этого режима',
+  'Only the host can change the mode': 'Режим меняет только хозяин комнаты', 'Change the mode in the lobby': 'Режим меняется в лобби',
   'You challenged them': 'Вы бросили вызов', 'Challenges you': 'Бросает вам вызов', 'You invited them': 'Вы пригласили',
   'Invites you to play': 'Зовёт сыграть', 'Room': 'Комната', 'You are in this room': 'Вы в этой комнате',
   'Waiting for them': 'Ждём ответа', 'Expired': 'Истекло', 'Invite to play': 'Приглашение в игру',
@@ -1146,6 +1158,9 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Pass it — (\d+)\/10 or better — to get:$/, 'Пройдите её — $1/10 или лучше — и получите:'],
   [/^You passed the (\S+) league! You're in the (\S+) league now — tomorrow's ten words come from it\.$/, (_, a, b) => `Вы прошли лигу ${a === 'Kana' ? 'Кана' : a}! Теперь вы в лиге ${b} — завтрашние десять слов из неё.`],
   [/^You passed the (\S+) league — the highest there is\.$/, 'Вы прошли лигу $1 — самую высокую.'],
+  // 0.9.9.9.6.5: the host changes the room's mode
+  [/^(.+) switched the game to (.+)$/, (_, n, m) => `${n} сменил(а) режим: ${mode(m)}`],
+  [/^Too many players for (.+) — it is for (\d+)$/, (_, m, n) => `Слишком много игроков для режима «${mode(m)}» — он на ${n}`],
   // 0.9.9.9.5.2: the push test
   [/^(.+) reached a 30× combo — the arena trembles!$/, '$1 набирает комбо ×30 — арена дрожит!'],
   [/^Your character in battles\. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight \(N5\), the Witch \(N3\) and the Wizard \(N2\)\. You are in the (.+) league\.$/, (_, l) => `Ваш персонаж в битвах. Гоблин — ваш с самого начала; поднимайтесь по лигам ежедневного испытания, чтобы открыть Рыцаря (N4), Ведьму (N3) и Волшебника (N2). Вы в лиге ${l === 'Kana' ? 'Кана' : l}.`],

@@ -349,6 +349,16 @@ export class Session implements Client {
       case 'start': return room.start(user.id);
       case 'ready': return room.ready(user.id);
       case 'lobby_ready': return room.setLobbyReady(user.id, !!msg.ready);
+      case 'set_mode': {
+        // 0.9.9.9.6.5: the host switches the room's mode (a mode still locked for them can't be picked)
+        const m = MODES.includes(msg.mode as GameMode) ? (msg.mode as GameMode) : null;
+        if (!m) return;
+        const lock = await this.modeLock([m]);
+        if (lock) return this.send({ type: 'error', message: lock });
+        const err = room.setMode(user.id, m);
+        if (err) this.send({ type: 'error', message: err });
+        return;
+      }
       case 'add_bot': return room.addBot(user.id, msg.level);
       case 'remove_bot': return room.removeBot(user.id, msg.id);
       case 'typing': return room.typing(user.id, msg.on === true);

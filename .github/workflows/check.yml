@@ -43,6 +43,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
+      # 0.9.9.9.6.5: known vulnerabilities in what the server runs on — reported here (and in the run's summary),
+      # never failing the check; the Dependencies workflow (deps.yml) applies the fixes
+      - name: Security audit (report)
+        continue-on-error: true
+        run: |
+          echo '## npm audit (production packages)' >> "$GITHUB_STEP_SUMMARY"
+          { echo '```'; npm audit --omit=dev 2>&1 || true; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Typecheck
         run: npm run typecheck
       - name: Tests

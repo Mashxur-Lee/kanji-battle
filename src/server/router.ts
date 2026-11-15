@@ -459,6 +459,12 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const body = await r.json();
         await study.setDailyNew(u, body.n, resolveToday(body.today));
         return res(200, await study.summary(await auth.authenticate(r.token), resolveToday(body.today)));
+      } else if (r.method === 'PUT' && url === '/api/me/password') {
+        // 0.9.9.9.6.5: change your password (with the current one); every other device is signed out
+        const u = await auth.authenticate(r.token);
+        if (!limiter.allow(`pw:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const body = await r.json();
+        return res(200, await auth.changePassword(u, body.current, body.password));
       } else if (r.method === 'PUT' && url === '/api/me/border') {
         const u = await auth.authenticate(r.token);
         return res(200, { profile: await study.setBorder(u, (await r.json()).border) });

@@ -1,7 +1,7 @@
 import { PausableClock } from './clock';
 import { Bot, botLevels, botName, isBotLevel, type BotHost } from './Bot';
 import { borderOf, FLAMES, POSES, STAFFS } from '../shared/progress';
-import { CHAT_MAX_LENGTH, type BossView, type MatchDetail, type MissedWord, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
+import { CHAT_MAX_LENGTH, MODE_LABEL, type BossView, type MatchDetail, type MissedWord, type ChatMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type ServerMessage, type VocabEntry } from '../shared/protocol';
 import { CHARACTERS, levelOf, type MatchOutcome } from '../shared/progress';
 import { BOSS_PARTY_SIZE, BOSS_PLAYER_HP, bossHp, hpAgainst, rapidHp } from './Balance';
 import { DEFAULT_CONFIG, Game, WRITING_CONFIG, type GameConfig, type GameEvent, type Match, type WritingJudge } from './Game';
@@ -114,10 +114,42 @@ export class Room {
 
   constructor(
     readonly code: string,
-    readonly mode: GameMode,
+    private roomMode: GameMode,
     private readonly deps: RoomDeps,
     private readonly opts: RoomOptions = DEFAULT_ROOM_OPTIONS,
   ) {}
+  /** the game mode — 0.9.9.9.6.5: the host may change it in the lobby (setMode) */
+  get mode(): GameMode { return this.roomMode; }
+
+  /**
+   * 0.9.9.9.6.5: the host switches the room to another game mode, in the lobby. People who don't fit (a party of
+   * four can't play a duel) stop it; AI players who don't fit leave. Everyone confirms Ready again, and Rapid's
+   * shared levels become the host's. Returns an error to show the host, or null.
+   */
+  setMode(by: PlayerId, mode: GameMode): string | null {
+    if (by !== this.hostId) return 'Only the host can change the mode';
+    if (this.phase !== 'lobby') return 'Change the mode in the lobby';
+    if (this.opts.tutorial || mode === this.roomMode) return null;
+    const max = mode === 'boss' ? BOSS_PARTY_SIZE : this.opts.maxPlayers;
+    if (this.humans.length > max) return `Too many players for ${MODE_LABEL[mode]} — it is for ${max}`;
+    while (this.roster.length > max) {
+      const b = [...this.roster].reverse().find((p) => p.bot);
+      if (!b) break;
+      b.bot!.dispose();
+      this.roster = this.roster.filter((p) => p !== b);
+    }
+    this.roomMode = mode;
+    const host = this.roster.find((p) => p.id === by);
+    for (const p of this.roster) if (!p.bot) p.ready = false;
+    if (mode === 'rapid' && host) for (const p of this.roster) if (!p.bot) p.levels = [...host.levels];
+    for (const [id, c] of this.clients) {
+      c.send({ type: 'joined', code: this.code, you: id, mode });
+      if (id !== by) c.send({ type: 'notice', message: `${host?.name ?? 'The host'} switched the game to ${MODE_LABEL[mode]}` });
+    }
+    this.broadcastLobby();
+    this.broadcastNet();
+    return null;
+  }
 
   /** Boss mode is a party of up to 4 against the dragon; the duels are 1v1. */
   get maxPlayers() { return this.mode === 'boss' ? BOSS_PARTY_SIZE : this.opts.maxPlayers; }

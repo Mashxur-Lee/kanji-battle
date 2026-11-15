@@ -169,7 +169,6 @@ export interface MediaFile { id: string; ownerId: string; mime: string; data: Bu
 export interface ConversationRow { other: string; last: DirectMessage; unread: number }
 /** the team's side of the messenger (admins read and answer for it) */
 export const SUPPORT_ID = 'support';
-export const MESSAGES_PER_USER_KEPT = 2000;
 /** `count`: how many times this same error happened while it was open (0.9.9.9.5 — repeats are one row) */
 export interface Report { id: string; kind: ReportKind; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean; count?: number }
 export interface GameEventRow { userId: string | null; name: string; at: number }

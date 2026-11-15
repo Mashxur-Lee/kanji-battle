@@ -158,6 +158,8 @@ export const api = {
   /** 0.9.9.9.6.3: pause / resume a deck's new words */
   setPaused: (deck: 'all' | 'ono' | 'struggling', on: boolean) => call<StudySummary>('PUT', '/api/study/pause', { deck, on, today: today() }),
   setDailyLevels: (levels: Partial<Record<Level, number>>) => call<StudySummary>('PUT', '/api/study/daily-levels', { levels, today: today() }),
+  /** 0.9.9.9.6.5: every other device is signed out; this one gets a new token */
+  changePassword: (current: string, password: string) => call<{ token: string }>('PUT', '/api/me/password', { current, password }),
   setBorder: (border: string) => call<{ profile: Profile }>('PUT', '/api/me/border', { border }),
   setBadges: (badges: string[]) => call<{ badges: string[] }>('PUT', '/api/me/badges', { badges }),
   matches: () => call<{ matches: MatchSummary[] }>('GET', '/api/matches'),

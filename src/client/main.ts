@@ -499,6 +499,7 @@ function onMessage(msg: ServerMessage) {
       minPlayers = msg.minPlayers;
       stopWriting();
       resetDeck();
+      ui.lockLobbyMode(inTutorialBattle());
       ui.showLobby(code, msg.mode, msg.players, you, msg.hostId, msg.maxPlayers, msg.minPlayers, msg.open === true);
       // 0.9.9.9.4: the room's chat, once somebody else (a person) is here — or has already written
       if (msg.players.filter((p) => !p.bot).length > 1 || ui.$('lobbyChatLog').childElementCount) ui.$('lobbyChat').hidden = false;
@@ -808,6 +809,43 @@ ui.$('authForm').addEventListener('submit', async (e) => {
   }
 });
 ui.$('logout').onclick = () => logout();
+// 0.9.9.9.6.5: change your password (the current one first) — every other device is signed out
+ui.$('pwChange').onclick = () => {
+  const d = document.createElement('dialog');
+  d.className = 'friend-dialog pw-dialog';
+  const f = document.createElement('form');
+  const field = (label: string, ac: AutoFill) => {
+    const l = document.createElement('label'); l.className = 'pw-field';
+    const i = document.createElement('input'); i.type = 'password'; i.autocomplete = ac; i.required = true; i.maxLength = 72;
+    l.append(tr(label), i); return { l, i };
+  };
+  const cur = field('Current password', 'current-password'), nw = field('New password', 'new-password'), again = field('New password again', 'new-password');
+  nw.i.minLength = 6; again.i.minLength = 6;
+  const msg = document.createElement('p'); msg.className = 'hint pw-msg'; msg.setAttribute('role', 'status');
+  const note = document.createElement('p'); note.className = 'hint'; note.textContent = tr('You stay signed in here; every other device is signed out.');
+  const row = document.createElement('div'); row.className = 'fb-actions';
+  const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'pill'; cancel.textContent = tr('Cancel'); cancel.onclick = () => d.close();
+  const ok = document.createElement('button'); ok.type = 'submit'; ok.className = 'big'; ok.textContent = tr('Change password');
+  row.append(cancel, ok);
+  const h3 = document.createElement('h3'); h3.textContent = tr('Change password');
+  f.append(h3, cur.l, nw.l, again.l, note, msg, row);
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    if (nw.i.value !== again.i.value) { msg.textContent = tr('The new passwords don’t match'); return; }
+    ok.disabled = true;
+    try {
+      const r = await api.changePassword(cur.i.value, nw.i.value);
+      setToken(r.token);
+      d.close();
+      ui.toast(tr('Password changed'), 3000);
+    } catch (err) { msg.textContent = (err as Error).message; ok.disabled = false; }
+  };
+  d.append(f);
+  d.addEventListener('close', () => d.remove());
+  document.body.append(d);
+  d.showModal();
+  cur.i.focus();
+};
 // 0.9.9.6: change your nickname (the name others see; your login stays for signing in)
 ui.$('ppRename').onclick = () => {
   const f = ui.$('ppRenameForm');
@@ -918,6 +956,7 @@ initQuizzes(); // 0.9.9.9.5.2: the Quizzes screen
 initInbox(); // 0.9.9.9.6: Messages
 setInboxSocket((m) => socket.send(m)); // 0.9.9.9.6.4: "typing…"
 setInviteJoin((c) => joinRoom(c), () => (inRoom && code ? code : null)); // 0.9.9.9.6.5: Join on an invite in the chat
+ui.setModePicker((m) => { if (!canPlay(m)) { ui.toast(lockText(m), 5000); return; } socket.send({ type: 'set_mode', mode: m }); }); // 0.9.9.9.6.5: the host changes the room's mode
 onLeagueEquip((p) => applyProfile(p)); // 0.9.9.9.6: the league-up screen's Equip buttons
 onAdminSelfTest((p) => applyProfile(p)); // 0.9.9.9.6.3: the admin's test tools (streak, record)
 // 0.9.9.9.5.2: Settings → Invite notifications → Test (the Android app): says where push stops, if it does
