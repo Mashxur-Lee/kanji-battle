@@ -16,7 +16,7 @@ Production: `npm run build && npm start` (`PORT` supported). On Render the build
 Every account has an email (since 0.9.9.9.6.6): it is asked for when you register (older accounts add one the next
 time they sign in), one account per mailbox (Gmail dots and `+tags` count as the same mailbox; throwaway inboxes are
 refused), and only the player (masked) and admins (Admin → Users) see it. **Forgot password?** on the login screen
-sends a 6-digit code (30 minutes, 5 tries); with neither `SMTP_URL` nor `RESEND_API_KEY` set, the code goes to the
+sends a 6-digit code (30 minutes, 5 tries); with no email service set (or if sending fails), the code goes to the
 admin's inbox (Admin → errors) so the admin can pass it on. The server log says which: `Email (password resets): …`.
 
 On first start on your own computer the server creates two demo accounts, `admin` (admin) and `user`. Give them
@@ -35,7 +35,8 @@ password) signs out every other device.
 | `AUTH_SECRET` | **Set this.** Any long random string. Without it, everyone is logged out whenever the server restarts. |
 | `ADMIN_PASSWORD` | **Set this.** The `admin` account's password. |
 | `USER_PASSWORD` | Optional: password for the demo `user` account. |
-| `SMTP_URL` | Optional (0.9.9.9.6.6): sends the "Forgot password?" codes by email. Any mail server over TLS, e.g. Gmail with an [app password](https://myaccount.google.com/apppasswords): `smtps://you%40gmail.com:app-password@smtp.gmail.com:465` (an `@` in the login is written `%40`). |
+| `BREVO_API_KEY` | Optional (0.9.9.9.6.6): sends the "Forgot password?" codes through [Brevo](https://www.brevo.com)'s HTTPS API (free: 300 a day). **Use this on Render's free plan** — it blocks the mail ports (25, 465, 587), so `SMTP_URL` can't work there. Needs `MAIL_FROM` = a sender verified in Brevo, e.g. `Kanji Wizards <you@gmail.com>`. |
+| `SMTP_URL` | Optional (0.9.9.9.6.6): sends the "Forgot password?" codes by email. Any mail server over TLS (not on Render's free plan — see above), e.g. Gmail with an [app password](https://myaccount.google.com/apppasswords): `smtps://you%40gmail.com:app-password@smtp.gmail.com:465` (an `@` in the login is written `%40`). |
 | `RESEND_API_KEY` | Optional, instead of SMTP: [Resend](https://resend.com)'s email API. `MAIL_FROM` sets the sender (e.g. `Kanji Wizards <noreply@yourdomain>`). |
 | `GEMINI_API_KEY` | Optional: turns on the reading passage's AI stories (one short story written with the player's words) using Google Gemini — it has a free tier (get a key at aistudio.google.com). Default model `gemini-flash-lite-latest`. |
 | `ANTHROPIC_API_KEY` | Optional, instead of Gemini: the stories come from Claude (default `claude-haiku-5-5`). Pay-as-you-go from console.anthropic.com. |
