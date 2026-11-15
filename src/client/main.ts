@@ -29,7 +29,7 @@ import { api, ApiError, getToken, setToken, type Friend, type Profile } from './
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
 import { showPlayer } from './playerview';
-import { initInbox, inboxLeft, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket } from './inbox';
+import { initInbox, inboxLeft, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket, setInviteJoin } from './inbox';
 import { onLeagueEquip } from './leagueup';
 import { chatMessages, chatTyping, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
@@ -485,7 +485,7 @@ function onMessage(msg: ServerMessage) {
       pendingLobby = null;
       // a challenge from a friend's profile: the room is made — invite them right away
       if (pendingChallenge && msg.hostId === you && msg.mode === pendingChallenge.mode) {
-        socket.send({ type: 'invite', friendId: pendingChallenge.friendId });
+        socket.send({ type: 'invite', friendId: pendingChallenge.friendId, challenge: true });
         ui.toast(`Challenge sent to ${pendingChallenge.name} — they get an invite to your ${MODE_LABEL[msg.mode]} room.`, 5000);
         pendingChallenge = null;
       }
@@ -917,6 +917,7 @@ initMenuCarousel(); // 0.9.9.9.5.1: the menu's cards as a carousel on computers
 initQuizzes(); // 0.9.9.9.5.2: the Quizzes screen
 initInbox(); // 0.9.9.9.6: Messages
 setInboxSocket((m) => socket.send(m)); // 0.9.9.9.6.4: "typing…"
+setInviteJoin((c) => joinRoom(c), () => (inRoom && code ? code : null)); // 0.9.9.9.6.5: Join on an invite in the chat
 onLeagueEquip((p) => applyProfile(p)); // 0.9.9.9.6: the league-up screen's Equip buttons
 onAdminSelfTest((p) => applyProfile(p)); // 0.9.9.9.6.3: the admin's test tools (streak, record)
 // 0.9.9.9.5.2: Settings → Invite notifications → Test (the Android app): says where push stops, if it does

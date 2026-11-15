@@ -533,6 +533,10 @@ const RU: Record<string, string> = {
   '← Back to the room': '← В комнату',
   'Updating to the new version…': 'Обновляемся до новой версии…',
   'League passed!': 'Лига пройдена!',
+  // 0.9.9.9.6.5: invites in the chat
+  'You challenged them': 'Вы бросили вызов', 'Challenges you': 'Бросает вам вызов', 'You invited them': 'Вы пригласили',
+  'Invites you to play': 'Зовёт сыграть', 'Room': 'Комната', 'You are in this room': 'Вы в этой комнате',
+  'Waiting for them': 'Ждём ответа', 'Expired': 'Истекло', 'Invite to play': 'Приглашение в игру',
   // 0.9.9.9.6.4: Messages like Telegram
   'typing…': 'печатает…', 'is typing…': 'печатает…', 'people are typing…': 'печатают…',
   'created the group': 'создал(а) группу', 'added': 'добавил(а)', 'removed': 'удалил(а)', 'left the group': 'вышел(ла) из группы',

@@ -103,6 +103,7 @@ const messages = new MessageService(store, {
   push: (to, fromId, fromName, text) => { void hub.notify(to, { kind: 'dm', fromId, fromName, text: text.slice(0, 160) }); },
   online: (id) => hub.online(id),
 });
+hub.onInviteSent = (fromId, to, mode, code, challenge) => { void store.findById(fromId).then((u) => (u ? messages.invite(u, to, mode, code, challenge) : null)).catch(() => { /* the invite itself went out */ }); };
 hub.onDmTyping = (userId, to, on) => { void store.findById(userId).then((u) => (u ? messages.typing(u, to, on) : undefined)).catch(() => { /* not important */ }); };
 const pushTested = new Map<string, number>(); // (one test every few seconds)
 const recognizer = Recognizer.fromFile();

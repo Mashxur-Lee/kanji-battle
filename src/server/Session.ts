@@ -47,6 +47,8 @@ export class SessionHub {
   constructor(private readonly onLeave?: (userId: string, at: number) => void) {}
   /** 0.9.9.9.6.4: someone typing in Messages (index.ts hands it to the messenger) */
   onDmTyping?: (userId: string, to: string, on: boolean) => void;
+  /** 0.9.9.9.6.5: an invite or a challenge also goes into your conversation with the friend, as a card with Join */
+  onInviteSent?: (fromId: string, friendId: string, mode: GameMode, code: string, challenge: boolean) => void;
   /** Admin → Users: is this player connected right now, and what are they doing? */
   presence(userId: string): Presence {
     const s = this.byUser.get(userId);
@@ -303,6 +305,7 @@ export class Session implements Client {
       // 0.9.9.9.5: it waits for them (an app in the background has no connection — it comes when they're back), and
       // a phone that isn't connected (or is in the background) gets a notification
       this.hub.addInvite(friendId, invite);
+      this.hub.onInviteSent?.(user.id, friendId, room.mode, room.code, msg.challenge === true);
       const live = this.hub.sendTo(friendId, invite);
       // 0.9.9.9.5.1: a friend on the phone app gets the push even when their connection looks live — Android can
       // freeze the app with the connection still open (the app shows no notification while it's on screen)

@@ -5328,3 +5328,51 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .fwd-dialog .big { width: 100%; margin-top: 12px; }
 .plink { cursor: pointer; }
 .plink:hover { text-decoration: underline; }
+
+/* ── 0.9.9.9.6.5: the names in battle — the picture was 22 px (13 px at a computer's usual UI size), the frame
+   around it smaller still, and the name small. Bigger now, on computers and phones; a framed picture keeps
+   room for its frame and plaque, and sits in its frame's middle (its own 1 px outline pushed it right). ── */
+.pic-wrap > img.pic.fill { position: absolute; inset: 0; margin: 0; border: 0; box-sizing: border-box; }
+#battle .fighter .name { font-size: 1.12rem; align-items: center; }
+#battle .fighter .name > .n { gap: 9px; }
+#battle .fighter .name .pic { width: 40px; height: 40px; border-width: 2px; box-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+#battle .fighter .name .pic-wrap { margin: 4px 8px 8px 6px; }
+#battle .fighter .name .lv { font-size: .78rem; }
+#battle .pm-name { font-size: 1.12rem; }
+#battle .pm-name .pic { width: 36px; height: 36px; border-width: 2px; }
+#battle .pm-name .pic-wrap { margin: 4px 8px 8px 4px; }
+.dk-player .dk-name { font-size: 1.1rem; }
+.dk-player .dk-name .pic { width: 34px; height: 34px; border-width: 2px; }
+@media (max-width: 700px) {
+  #battle .arena-top:not(.boss-top) .fighter .name { height: 40px; font-size: .95rem; }
+  #battle .fighter .name .pic { width: 30px; height: 30px; }
+  #battle .fighter .name .pic-wrap { margin: 2px 6px 6px 4px; }
+  #battle .fighter .name .lv { font-size: .68rem; }
+  .dk-player .dk-name { font-size: .95rem; }
+  .dk-player .dk-name .pic { width: 28px; height: 28px; }
+}
+
+/* ── 0.9.9.9.6.5: an invite / a challenge in the chat — a card with the mode and Join (as in Steam) ── */
+.msg-b.has-inv { padding: 6px; min-width: min(280px, 100%); }
+.msg-inv { --ic: #8a7bff; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ic t" "act act"; gap: 10px 12px; align-items: center;
+  padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(106, 92, 255, .32), rgba(30, 24, 70, .55)); border: 1px solid color-mix(in srgb, var(--ic) 55%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); text-align: left; }
+.msg-inv.chal { --ic: #ff6b7d; background: linear-gradient(135deg, rgba(255, 90, 110, .3), rgba(50, 18, 40, .6)); }
+.msg-inv.m-boss { --ic: #ffb347; } .msg-inv.m-deck { --ic: #4fd1c5; } .msg-inv.m-writing { --ic: #7fd6a0; } .msg-inv.m-rapid { --ic: #ffd23a; }
+.msg-inv-ic { grid-area: ic; width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 1.6rem; font-weight: 900; color: #fff;
+  font-family: var(--jp, serif); background: linear-gradient(135deg, var(--ic), color-mix(in srgb, var(--ic) 45%, #120d30)); box-shadow: 0 4px 14px color-mix(in srgb, var(--ic) 45%, transparent); }
+.msg-inv-t { grid-area: t; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.msg-inv-t small { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: color-mix(in srgb, var(--ic) 70%, #fff); }
+.msg-inv-t b { font-size: 1.02rem; line-height: 1.2; color: #fff; }
+.msg-inv-code { font-size: .78rem; color: rgba(255, 255, 255, .7); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.msg-inv-join { grid-area: act; justify-self: stretch; text-align: center; padding: 9px 14px !important; font-weight: 900; }
+.msg-inv.chal .msg-inv-join { background: linear-gradient(135deg, #ff6b7d, #c2335a); }
+.msg-inv-state { grid-area: act; font-size: .8rem; font-weight: 700; color: rgba(255, 255, 255, .65); text-align: center; padding: 4px; border-radius: 10px; background: rgba(0, 0, 0, .18); }
+:root[data-theme="light"] .msg-inv-code { color: rgba(255, 255, 255, .8); }
+/* 0.9.9.9.6.5: a small picture (lists, battle, chat, the top bar) takes the frame at half size and half the
+   frames — the same moving painting at a fifth of the download (1.2 MB → 0.27 MB for N1); big pictures keep it whole */
+:is(.pic-wrap, #whoPic, .avatar).bd-lg-n5::before { background-image: url(/frames/s/lg-n5.webp); }
+:is(.pic-wrap, #whoPic, .avatar).bd-lg-n4::before { background-image: url(/frames/s/lg-n4.webp); }
+:is(.pic-wrap, #whoPic, .avatar).bd-lg-n3::before { background-image: url(/frames/s/lg-n3.webp); }
+:is(.pic-wrap, #whoPic, .avatar).bd-lg-n2::before { background-image: url(/frames/s/lg-n2.webp); }
+:is(.pic-wrap, #whoPic, .avatar).bd-lg-n1::before { background-image: url(/frames/s/lg-n1.webp); }
