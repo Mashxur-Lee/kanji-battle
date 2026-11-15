@@ -33,16 +33,24 @@ test('0.9.9.9.6.6 sign up needs an email; the same mailbox can\'t make a second 
   assert.equal('email' in toPublic(rec), false, 'what other players get has no email');
 });
 
-test('0.9.9.9.6.6 an older account adds its email (with its password); a taken mailbox is refused', async () => {
+test('0.9.9.9.6.6 an older account adds its email (no password needed); changing it needs the password, once a week', async () => {
   const store = new MemoryStore();
   const auth = new AuthService(store, new TokenSigner('s'));
   const old = await store.create({ username: 'oldtimer', passwordHash: await hashPassword('secret12'), role: 'user' });
   await auth.register('owner', 'secret12', 'taken@mail.ru');
-  await assert.rejects(auth.setEmail(old, 'me@mail.ru', 'wrong'), /password is wrong/);
-  await assert.rejects(auth.setEmail(old, 'taken+2@mail.ru', 'secret12'), /already has an account/);
-  const u = await auth.setEmail(old, 'Me@Mail.ru', 'secret12');
-  assert.equal(u.email, 'me•••@mail.ru');
-  assert.equal((await store.findById(old.id))!.emailKey, 'me@mail.ru');
+  await assert.rejects(auth.setEmail(old, 'taken+2@mail.ru', ''), /already has an account/);
+  const t0 = Date.now();
+  const u = await auth.setEmail(old, 'Me@Mail.ru', '', t0);
+  assert.equal(u.email, 'me•••@mail.ru', 'the first email: just the email');
+  const rec = (await store.findById(old.id))!;
+  assert.equal(rec.emailKey, 'me@mail.ru');
+  await assert.rejects(auth.setEmail(rec, 'new@mail.ru', 'wrong', t0 + 8 * 86_400_000), /password is wrong/);
+  await assert.rejects(auth.setEmail(rec, 'new@mail.ru', 'secret12', t0 + 3 * 86_400_000), /again in 4 days/);
+  assert.equal((await auth.setEmail(rec, 'new@mail.ru', 'secret12', t0 + 8 * 86_400_000)).email, 'ne•••@mail.ru');
+  // a new account: a week from sign-up
+  await auth.register('fresh', 'secret12', 'fresh@gmail.com');
+  const f = (await store.findByUsername('fresh'))!;
+  await assert.rejects(auth.setEmail(f, 'other@gmail.com', 'secret12'), /again in 7 days/);
 });
 
 test('0.9.9.9.6.6 forgot password: a code by email (by login or email), 30 minutes, 5 tries, then every device is signed out', async () => {

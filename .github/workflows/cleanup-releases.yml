@@ -1,0 +1,31 @@
+# Deletes old GitHub releases, keeping the newest few (their git tags stay). Run it by hand:
+# Actions → "Clean up releases" → Run workflow → how many to keep (default 5).
+name: Clean up releases
+on:
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: How many of the newest releases to keep
+        required: true
+        default: '5'
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all but the newest releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP: ${{ inputs.keep }}
+        run: |
+          set -euo pipefail
+          case "$KEEP" in ''|*[!0-9]*) echo "keep must be a number"; exit 1;; esac
+          if [ "$KEEP" -lt 1 ]; then echo "keep at least 1"; exit 1; fi
+          gh api "repos/${{ github.repository }}/releases?per_page=100" --paginate -q '.[] | "\(.id) \(.tag_name)"' > rels.txt
+          echo "Releases: $(wc -l < rels.txt), keeping the newest $KEEP"
+          tail -n +"$((KEEP + 1))" rels.txt | while read -r id tag; do
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" && echo "deleted $tag"
+          done
+          echo "## Kept" >> "$GITHUB_STEP_SUMMARY"
+          head -n "$KEEP" rels.txt | awk '{print "- " $2}' >> "$GITHUB_STEP_SUMMARY"

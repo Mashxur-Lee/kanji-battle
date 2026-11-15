@@ -5489,3 +5489,11 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
   .inbox-screen .msg-b { max-width: min(640px, 72%); }
   .inbox-screen .msg-photo { max-width: min(360px, 100%); max-height: 420px; }
 }
+
+/* 0.9.9.9.6.6: the copyright — under the menu and on the login screen */
+.copyright { margin: 0; font-size: .7rem; color: rgba(255, 255, 255, .45); letter-spacing: .02em; text-align: center; }
+#menu > .copyright { position: absolute; left: 0; right: 0; bottom: 6px; pointer-events: none; }
+#menu > .menu-foot { bottom: 24px; }
+@media (max-width: 900px) { #menu > .copyright { position: static; margin: 12px 0 64px; } }
+#auth .copyright { margin-top: 10px; }
+:root[data-theme="light"] .copyright { color: rgba(0, 0, 0, .45); }
