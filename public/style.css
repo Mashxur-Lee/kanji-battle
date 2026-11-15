@@ -5348,7 +5348,8 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
   #battle .arena-top:not(.boss-top) .fighter .name { height: 40px; font-size: .95rem; }
   #battle .fighter .name > .n > :is(img.pic, .pic-wrap), .dk-player .dk-name > :is(img.pic, .pic-wrap) { width: 30px; height: 30px; }
   #battle .pic-wrap.bd.bd-fr, .dk-player .pic-wrap.bd.bd-fr { margin: 0 9px; }
-  #battle .fighter .name .lv { font-size: .68rem; }
+  /* (the level chip gives its room to the name on a phone — "FrenZyy" was cut to "FrenZ…") */
+  #battle .arena-top:not(.boss-top) .fighter .name .lv { display: none; }
   .dk-player .dk-name { font-size: .95rem; }
 }
 
