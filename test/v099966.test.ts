@@ -101,3 +101,22 @@ test('0.9.9.9.6.6 SMTP: the conversation (EHLO, AUTH LOGIN, MAIL, RCPT, DATA) wi
   assert.ok(msg.endsWith('\r\n.\r\n'));
   await assert.rejects(smtpSend({ host: 'h', port: 465, user: 'u', pass: 'p', from: 'f' }, 'a@b.c\r\nBcc: x', 's', 't', () => sock as never), /Bad header/);
 });
+
+import { DailyService } from '../src/server/study/DailyService';
+test('0.9.9.9.6.6 Daily challenge: you race the best of your friends who played today\'s ten in your league', async () => {
+  const store = new MemoryStore();
+  const daily = new DailyService(store);
+  const me = await store.create({ username: 'racer', passwordHash: 'x', role: 'user' } as never);
+  const a = await store.create({ username: 'slowpoke', passwordHash: 'x', role: 'user' } as never);
+  const b = await store.create({ username: 'speedy', passwordHash: 'x', role: 'user' } as never);
+  const c = await store.create({ username: 'stranger', passwordHash: 'x', role: 'user' } as never);
+  for (const f of [a, b]) { await store.requestFriend(me.id, f.id); await store.acceptFriend(f.id, me.id); }
+  assert.equal((await daily.overview(me)).ghost, null, 'nobody played yet');
+  const key = daily.keyFor(me);
+  await store.saveDaily(key, a.id, 8, 90_000, '1111111100');
+  await store.saveDaily(key, b.id, 8, 60_000, '1101111110');
+  await store.saveDaily(key, c.id, 10, 30_000, '1111111111');
+  const g = (await daily.overview(me)).ghost!;
+  assert.equal(g.name, 'speedy', 'the same score, faster — and not the stranger who did better');
+  assert.equal(g.marks, '1101111110');
+});

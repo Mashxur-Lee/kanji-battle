@@ -23,7 +23,7 @@ export interface DictEntry { i: number; kanji: string[]; kana: string[]; romaji:
 export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, Array<[kanji: string, mastery: number, progress: number]>>; month: MonthProgress; achCounts?: Partial<Record<string, number>> }
 export interface DailyWord { index: number; total: number; kanji: string; level: Level; timeLimitMs: number }
 export interface DailyDone { correct: number; ms: number; rank: number; players: number; xp: number; league?: string; promoted?: string | null; /** 0.9.9.9.6.4 */ passed?: string | null }
-export interface DailyOverview { league?: string; nextLeague?: string; promoteAt?: number; /** 0.9.9.9.6.4: the leagues you've passed (their rewards are yours) */ passed?: string[]; day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
+export interface DailyOverview { /** 0.9.9.9.6.6: the friend you race today (null: none of your friends played yet) */ ghost?: { name: string; correct: number; ms: number; marks: string } | null; league?: string; nextLeague?: string; promoteAt?: number; /** 0.9.9.9.6.4: the leagues you've passed (their rewards are yours) */ passed?: string[]; day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
   board: Array<{ id: string; name: string; correct: number; ms: number }>;
   /** 0.9.9.8.2: every league's board */
   boards?: Record<string, Array<{ id: string; name: string; correct: number; ms: number }>>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }

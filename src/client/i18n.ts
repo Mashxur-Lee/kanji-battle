@@ -539,6 +539,7 @@ const RU: Record<string, string> = {
   'Updating to the new version…': 'Обновляемся до новой версии…',
   'League passed!': 'Лига пройдена!',
   // 0.9.9.9.6.6: an email for every account; forgot your password
+  'Race a friend': 'Гонка с другом', 'No one yet — play an AI while you wait?': 'Пока никого — сыграть с ИИ, пока ждёте?', 'AI': 'ИИ', 'Beginner': 'Новичок',
   'Forgot password?': 'Забыли пароль?', 'Email': 'Почта', 'Add your email': 'Добавьте почту', 'Change your email': 'Сменить почту', 'Now:': 'Сейчас:',
   'Every account has an email now: it is how you get back in if you forget your password, and one account per person. We send nothing else, and nobody else sees it.': 'Теперь у каждого аккаунта есть почта: по ней можно вернуться, если забыли пароль, и один аккаунт на человека. Больше мы ничего не присылаем, и никто другой её не видит.',
   'Your password': 'Ваш пароль', 'Log out': 'Выйти', 'Forgot your password?': 'Забыли пароль?', 'Your login or email': 'Ваш логин или почта',

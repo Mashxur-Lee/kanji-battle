@@ -88,7 +88,23 @@ export class DailyService {
     const boards = Object.fromEntries(await Promise.all(LEAGUES.map(async (lg) => [lg, lg === league ? board.map(publicRow) : (await this.store.dailyBoard(dailyKey(day, lg), 20)).map(publicRow)] as const)));
     const rank = mine ? (await this.store.dailyBetter(key, mine.correct, mine.ms)) + 1 : null;
     const words = mine ? this.words(day, league).map((v, i) => ({ id: v.id, kanji: v.kanji, reading: displayReading(v), meaning: v.meaning, level: v.level, ok: mine.marks ? mine.marks[i] === '1' : null })) : null;
-    return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, board: board.map(publicRow), boards, words, inProgress: this.attempts.get(u.id)?.day === day, league, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT, passed: LEAGUES.filter((l) => leaguePassed(l, u.unlocks)) };
+    const ghost = await this.ghostFor(u, key);
+    return { day, total: DAILY_WORDS, wordMs: DAILY_WORD_MS, mine, rank, ghost, board: board.map(publicRow), boards, words, inProgress: this.attempts.get(u.id)?.day === day, league, nextLeague: leagueOf(u), promoteAt: PROMOTE_AT, passed: LEAGUES.filter((l) => leaguePassed(l, u.unlocks)) };
+  }
+
+  /**
+   * 0.9.9.9.6.6: race a friend — the best of your friends who already played today's ten in your league (their
+   * marks word by word and their time), shown beside you while you play
+   */
+  private async ghostFor(u: UserRecord, key: string): Promise<{ name: string; correct: number; ms: number; marks: string } | null> {
+    const friends = (await this.store.friends(u.id)).filter((f) => f.status === 'accepted').slice(0, 60);
+    let best: { name: string; correct: number; ms: number; marks: string } | null = null;
+    for (const f of friends) {
+      const r = await this.store.daily(key, f.id);
+      if (!r) continue;
+      if (!best || r.correct > best.correct || (r.correct === best.correct && r.ms < best.ms)) best = { name: f.name ?? f.username, correct: r.correct, ms: r.ms, marks: r.marks ?? '' };
+    }
+    return best;
   }
 
   /**

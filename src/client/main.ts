@@ -19,7 +19,7 @@ import { writeTargets, writeTemplate } from '../shared/kana';
 import { initI18n, lang, setLang, tr } from './i18n';
 import { applyUiZoom, centerScreens, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
 import * as voice from './voice';
-import { initQueue, onQueue, openQueue, resetQueue } from './queue';
+import { setPlayAi, initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
@@ -506,6 +506,12 @@ function onMessage(msg: ServerMessage) {
       // 0.9.9.9.4: the room's chat, once somebody else (a person) is here — or has already written
       if (msg.players.filter((p) => !p.bot).length > 1 || ui.$('lobbyChatLog').childElementCount) ui.$('lobbyChat').hidden = false;
       void renderLobbyInvites(true, msg.players.map((p) => p.id));
+      // 0.9.9.9.6.6: the AI game from the queue: the AI (a party of three against the dragon), then Ready
+      if (pendingAi && msg.hostId === you && msg.mode === pendingAi.mode) {
+        const bots = msg.players.filter((p) => p.bot).length;
+        if (bots < (pendingAi.mode === 'boss' ? 3 : 1)) socket.send({ type: 'add_bot', level: pendingAi.level });
+        else { pendingAi = null; socket.send({ type: 'lobby_ready', ready: true }); }
+      }
       // the tutorial's first battle: add a beginner AI, then start
       if (inTutorialBattle() && msg.hostId === you) {
         if (msg.players.length < 2) socket.send({ type: 'add_bot', level: 'BEGINNER' });
@@ -886,6 +892,13 @@ ui.$('privateBtn').onclick = () => { ui.setError(''); ui.$('pvOffline').hidden =
 ui.$('privateBack').onclick = () => ui.show('menu');
 ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
 initQueue((m) => socket.send(m), () => user?.id ?? '');
+// 0.9.9.9.6.6: nobody in the queue yet → an AI game while you wait: a room of that mode, the AI in it, Ready
+let pendingAi: { mode: GameMode; level: string } | null = null;
+setPlayAi((m, level, levels) => {
+  if (!canPlay(m)) { ui.toast(lockText(m), 5000); return; }
+  pendingAi = { mode: m, level };
+  socket.send({ type: 'create', mode: m, levels: levels.length ? levels : savedLevels() });
+});
 // 0.9.9.6: picking a mode shows that it's working; if the server doesn't answer (a dead connection on a phone)
 // the app reconnects and asks again, and says so if that doesn't help either
 let creating: { timers: number[] } | null = null;
