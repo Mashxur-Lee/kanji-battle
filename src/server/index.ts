@@ -124,7 +124,15 @@ const resetMail = async (m: ResetMail) => {
   const text = ru
     ? `Здравствуйте, ${name}!\n\nВаш код для сброса пароля в Kanji Wizards: ${m.code}\n\nВведите его в игре в течение 30 минут. Если вы не просили сбросить пароль, просто не обращайте внимания на это письмо — ваш пароль не изменится.\n\n— Kanji Wizards`
     : `Hi ${name},\n\nYour Kanji Wizards password reset code is: ${m.code}\n\nEnter it in the game within 30 minutes. If you didn't ask to reset your password, ignore this email — your password stays the same.\n\n— Kanji Wizards`;
-  if (mailer.enabled) { await mailer.send(m.email, subject, text); return; }
+  if (mailer.enabled) {
+    // (if the mail service fails, the code still reaches the admin's inbox — nobody is left locked out)
+    try { await mailer.send(m.email, subject, text); console.log(`[reset mail] sent to ${m.user.username} (${mailer.how})`); return; }
+    catch (e) {
+      console.error('[reset mail] failed:', (e as Error).message);
+      await store.addReport({ kind: 'error', userId: m.user.id, username: m.user.username, text: `Password reset asked by ${m.user.username} — code ${m.code} (30 min). The email could not be sent (${(e as Error).message.slice(0, 160)}), so pass the code on yourself.`, meta: m.email, at: Date.now() });
+      return;
+    }
+  }
   await store.addReport({ kind: 'error', userId: m.user.id, username: m.user.username, text: `Password reset asked by ${m.user.username} — code ${m.code} (30 min). Email is not set up on the server (SMTP_URL or RESEND_API_KEY), so pass the code on yourself.`, meta: m.email, at: Date.now() });
 };
 const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled, messages, resetMail,

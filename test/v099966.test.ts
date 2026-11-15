@@ -161,3 +161,19 @@ test('0.9.9.9.6.6 Progress: reviews due the next 7 days; learned cards remembere
   a = (await store.activity(u.id, day))[0];
   assert.equal(a.recalled, 1);
 });
+
+import { createMailer, parseFrom } from '../src/server/mail';
+test('0.9.9.9.6.6 Brevo: the sender from MAIL_FROM; an HTTPS call (Render\'s free plan blocks the mail ports)', async () => {
+  assert.deepEqual(parseFrom('Kanji Wizards <kw@gmail.com>'), { name: 'Kanji Wizards', email: 'kw@gmail.com' });
+  assert.deepEqual(parseFrom('kw@gmail.com'), { name: '', email: 'kw@gmail.com' });
+  assert.throws(() => createMailer({ BREVO_API_KEY: 'x' }), /MAIL_FROM/);
+  const m = createMailer({ BREVO_API_KEY: 'xkeysib-test', MAIL_FROM: 'Kanji Wizards <kw@gmail.com>', SMTP_URL: 'smtps://a:b@c:465' });
+  assert.equal(m.how, 'brevo (kw@gmail.com)', 'Brevo comes first');
+  const real = globalThis.fetch;
+  let seen: { url: string; init: RequestInit } | null = null;
+  globalThis.fetch = (async (url: string, init: RequestInit) => { seen = { url, init }; return new Response('{"messageId":"1"}', { status: 201 }); }) as typeof fetch;
+  try { await m.send('you@test.dev', 'Code: 123456', 'Hi'); } finally { globalThis.fetch = real; }
+  assert.equal(seen!.url, 'https://api.brevo.com/v3/smtp/email');
+  assert.equal((seen!.init.headers as Record<string, string>)['api-key'], 'xkeysib-test');
+  assert.deepEqual(JSON.parse(String(seen!.init.body)), { sender: { name: 'Kanji Wizards', email: 'kw@gmail.com' }, to: [{ email: 'you@test.dev' }], subject: 'Code: 123456', textContent: 'Hi' });
+});

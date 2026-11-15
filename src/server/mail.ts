@@ -1,5 +1,9 @@
 /**
- * 0.9.9.9.6.6: sending an email (only ever a password-reset code). Two ways, from the environment:
+ * 0.9.9.9.6.6: sending an email (only ever a password-reset code). From the environment:
+ *
+ *   BREVO_API_KEY=xkeysib-…                            Brevo's HTTPS API (brevo.com, free: 300 a day) — the way on
+ *                                                      Render's free plan, which blocks the mail ports (25, 465, 587)
+ *                                                      since September 2025; MAIL_FROM must be a sender verified in Brevo
  *
  *   SMTP_URL=smtps://user:password@smtp.gmail.com:465   any mail server over TLS (port 465) — e.g. a Gmail
  *                                                      account with an app password
@@ -19,6 +23,22 @@ const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
 const word = (s: string) => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(s)}?=`);
 
 export function createMailer(env: NodeJS.ProcessEnv = process.env): Mailer {
+  if (env.BREVO_API_KEY) {
+    const from = parseFrom(env.MAIL_FROM || '');
+    if (!from.email) throw new Error('BREVO_API_KEY is set: set MAIL_FROM too — a sender verified in Brevo, e.g. "Kanji Wizards <you@gmail.com>"');
+    return {
+      enabled: true, how: `brevo (${from.email})`,
+      async send(to, subject, text) {
+        const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: { 'api-key': String(env.BREVO_API_KEY), 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ sender: { name: from.name || 'Kanji Wizards', email: from.email }, to: [{ email: to }], subject, textContent: text }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!r.ok) throw new Error(`Brevo refused the email (${r.status}): ${(await r.text()).slice(0, 200)}`);
+      },
+    };
+  }
   if (env.RESEND_API_KEY) {
     const from = env.MAIL_FROM || 'Kanji Wizards <onboarding@resend.dev>';
     return {
@@ -42,6 +62,13 @@ export function createMailer(env: NodeJS.ProcessEnv = process.env): Mailer {
     return { enabled: true, how: `smtp ${u.hostname}`, send: (to, subject, text) => smtpSend({ host: u.hostname, port: Number(u.port || 465), user, pass, from }, to, subject, text) };
   }
   return { enabled: false, how: 'off', async send() { throw new Error('Email is not set up on this server'); } };
+}
+
+/** "Kanji Wizards <you@gmail.com>" → its name and address */
+export function parseFrom(s: string): { name: string; email: string } {
+  const m = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(s);
+  if (m) return { name: m[1].trim(), email: m[2].trim() };
+  return { name: '', email: s.includes('@') ? s.trim() : '' };
 }
 
 interface SmtpOpts { host: string; port: number; user: string; pass: string; from: string }

@@ -471,7 +471,8 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         // 0.9.9.9.6.6: a code by email — the same answer whether or not the account exists
         if (!limiter.allow(`fg:${ip}`)) throw new AuthError('Too many attempts — wait a minute', 429);
         const body = await r.json();
-        await auth.forgot(body.login, (m) => extras.resetMail ? extras.resetMail(m) : Promise.resolve()).catch((e) => console.error('[reset mail]', e));
+        // (answered at once — the email goes out in the background; a slow mail service doesn't keep the player waiting)
+        void auth.forgot(body.login, (m) => extras.resetMail ? extras.resetMail(m) : Promise.resolve()).catch((e) => console.error('[reset mail]', e));
         return res(200, { sent: true });
       } else if (r.method === 'POST' && url === '/api/password/reset') {
         if (!limiter.allow(`rs:${ip}`)) throw new AuthError('Too many attempts — wait a minute', 429);
