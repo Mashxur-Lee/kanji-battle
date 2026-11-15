@@ -539,6 +539,11 @@ const RU: Record<string, string> = {
   'Updating to the new version…': 'Обновляемся до новой версии…',
   'League passed!': 'Лига пройдена!',
   // 0.9.9.9.6.6: an email for every account; forgot your password
+  'What you know': 'Что вы знаете', 'of': 'из', 'words': 'слов', 'learned': 'выучено', 'Reviews coming': 'Скоро повторения',
+  'Mastered (10 stars in Kana)': 'Освоено (10 звёзд в «Кане»)', 'Known: learned or mastered (mastered = remembered for 3+ weeks)': 'Знаете: выучено или освоено (освоено = помните 3+ недели)',
+  'Do today’s and the rest stays light.': 'Сделайте сегодняшние — и дальше будет легко.', 'Nothing due today — new words, or a game?': 'Сегодня повторять нечего — новые слова или бой?',
+  'How well you remember': 'Как хорошо вы помните', 'of learned words remembered when they came back': 'выученных слов вы вспомнили, когда они вернулись',
+  'reviews, last 30 days': 'повторений за 30 дней', 'Review a few learned cards and it shows here how many you remember.': 'Повторите несколько выученных карточек — и здесь будет видно, сколько вы помните.',
   'Race a friend': 'Гонка с другом', 'No one yet — play an AI while you wait?': 'Пока никого — сыграть с ИИ, пока ждёте?', 'AI': 'ИИ', 'Beginner': 'Новичок',
   'Forgot password?': 'Забыли пароль?', 'Email': 'Почта', 'Add your email': 'Добавьте почту', 'Change your email': 'Сменить почту', 'Now:': 'Сейчас:',
   'Every account has an email now: it is how you get back in if you forget your password, and one account per person. We send nothing else, and nobody else sees it.': 'Теперь у каждого аккаунта есть почта: по ней можно вернуться, если забыли пароль, и один аккаунт на человека. Больше мы ничего не присылаем, и никто другой её не видит.',

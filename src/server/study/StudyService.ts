@@ -56,7 +56,7 @@ export class StudyError extends Error { constructor(message: string, readonly st
 export { resolveToday }; // (lives in ProgressService since 0.9.9.9.5 — the daily challenge uses it too)
 
 /** 0.9.9.4.4: what an answer changed, so "Undo" can put it back (newest last, a few per player). */
-interface UndoEntry { deck: DeckId; before: SrsCard; today: string; counted: boolean; critCounted: boolean; xp: number }
+interface UndoEntry { deck: DeckId; before: SrsCard; today: string; counted: boolean; critCounted: boolean; xp: number; recall?: 'recalled' | 'forgot' | null }
 const UNDO_MAX = 30;
 export const STAR_MAX = 300;
 
@@ -584,7 +584,7 @@ export class StudyService {
     const xp = todayXp + STUDY_XP <= STUDY_XP_DAILY ? STUDY_XP : 0;
     if (xp) { await this.store.addXp(u.id, xp); await this.store.addActivity(u.id, today, { studyXp: xp, xp }); }
     const stack = this.undos.get(u.id) ?? [];
-    stack.push({ deck: d, before: card, today, counted: rating !== 'again', critCounted: rating !== 'again' && card.critDay !== today, xp });
+    stack.push({ deck: d, before: card, today, counted: rating !== 'again', critCounted: rating !== 'again' && card.critDay !== today, xp, recall: card.state === 'review' ? (rating === 'again' ? 'forgot' : 'recalled') : null });
     if (stack.length > UNDO_MAX) stack.shift();
     this.undos.set(u.id, stack);
     // daily crit: a passed card (anything but Again) counts once per day
@@ -604,6 +604,8 @@ export class StudyService {
       await this.store.update(u.id, { dailyPlan: { ...plan, done: { ...plan.done, ONO: (plan.done.ONO ?? 0) + 1 } } });
     }
     if (rating !== 'again') await this.progress.record(u.id, today, { reviews: 1 });
+    // 0.9.9.9.6.6: a learned card (in review) remembered or forgotten — Progress → how well you remember
+    if (card.state === 'review') await this.store.addActivity(u.id, today, rating === 'again' ? { forgot: 1 } : { recalled: 1 });
     return { card: next, crit: await this.crit(u.id, now), xp };
   }
 
@@ -624,6 +626,7 @@ export class StudyService {
       await this.store.update(u.id, { dailyPlan: { ...plan, done: { ...plan.done, ONO: Math.max(0, (plan.done.ONO ?? 0) - 1) } } });
     }
     if (last.counted) await this.store.addActivity(u.id, last.today, { reviews: -1 });
+    if (last.recall) await this.store.addActivity(u.id, last.today, { [last.recall]: -1 });
     if (last.xp) { await this.store.addXp(u.id, -last.xp); await this.store.addActivity(u.id, last.today, { studyXp: -last.xp, xp: -last.xp }); }
     if (last.critCounted) {
       const fresh = (await this.store.findById(u.id)) ?? u;

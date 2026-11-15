@@ -120,3 +120,36 @@ test('0.9.9.9.6.6 Daily challenge: you race the best of your friends who played 
   assert.equal(g.name, 'speedy', 'the same score, faster — and not the stranger who did better');
   assert.equal(g.marks, '1101111110');
 });
+
+import { StudyService } from '../src/server/study/StudyService';
+import { ProgressService } from '../src/server/study/ProgressService';
+import { newCard } from '../src/shared/srs';
+import { VOCAB } from '../src/server/vocab';
+test('0.9.9.9.6.6 Progress: reviews due the next 7 days; learned cards remembered or forgotten (undo takes it back)', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const u = await store.create({ username: 'learner', passwordHash: 'x', role: 'user' } as never);
+  const day = '2026-11-15', t0 = Date.parse(`${day}T09:00:00Z`);
+  const words = VOCAB.filter((v) => v.level === 'N5').slice(0, 6);
+  const review = (i: number, dueInDays: number) => ({ ...newCard(words[i].id, t0), state: 'review' as const, intervalDays: 5, reps: 4, due: t0 + dueInDays * 86_400_000 });
+  await store.saveCard(u.id, review(0, -3)); // overdue → today
+  await store.saveCard(u.id, review(1, 0));
+  await store.saveCard(u.id, review(2, 2));
+  await store.saveCard(u.id, review(3, 6));
+  await store.saveCard(u.id, review(4, 9)); // past the week
+  await store.saveCard(u.id, newCard(words[5].id, t0)); // new: not a review
+  const page = await new ProgressService(store).page(u, day);
+  assert.deepEqual(page.forecast, [2, 0, 1, 0, 0, 0, 1]);
+  // answering learned cards: remembered / forgotten — and undo
+  await study.review(u, words[0].id, 'good', t0, day);
+  await study.review(u, words[1].id, 'again', t0, day);
+  let a = (await store.activity(u.id, day))[0];
+  assert.equal(a.recalled, 1); assert.equal(a.forgot, 1);
+  await study.undo(u, words[1].id);
+  a = (await store.activity(u.id, day))[0];
+  assert.equal(a.forgot, 0, 'undo takes the forgotten one back');
+  // a new card answered isn't "remembering"
+  await study.review(u, words[5].id, 'good', t0, day);
+  a = (await store.activity(u.id, day))[0];
+  assert.equal(a.recalled, 1);
+});
