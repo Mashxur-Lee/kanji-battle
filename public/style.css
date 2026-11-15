@@ -5504,22 +5504,23 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
   html:has(> body[data-screen="menu"]), body[data-screen="menu"] { overflow: hidden; }
 }
 
-/* 0.9.9.9.6.7: the 2D arena — the wizards were small against the painting; about a third bigger (on phones too),
-   parties of three and four in step */
-body:not(.has-3d) #battle .wizard .sprite { width: clamp(124px, calc(15 * var(--vw)), 210px); }
-body:not(.has-3d) #battle .wizard.ally .sprite { width: clamp(104px, calc(12 * var(--vw)), 170px); }
-body:not(.has-3d) #arena[data-party="3"] .wizard .sprite { width: clamp(92px, calc(10.5 * var(--vw)), 150px); }
-body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: clamp(78px, calc(8.6 * var(--vw)), 124px); }
-@media (max-width: 600px) {
-  body:not(.has-3d) #battle .wizard .sprite { width: 106px; }
-  body:not(.has-3d) #battle .wizard.ally .sprite { width: 84px; }
-  body:not(.has-3d) #arena[data-party="3"] .wizard .sprite, body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: 58px; }
+/* 0.9.9.9.6.7: the 2D arena — the wizards were small against the painting (about a sixth of the window's height);
+   now sized from the window itself (about a quarter of its height, the scene isn't scaled by the UI zoom either),
+   allies and parties of three and four in step */
+body:not(.has-3d) #battle .wizard .sprite { width: max(110px, min(calc(21 * var(--vh)), calc(17 * var(--vw)))); }
+body:not(.has-3d) #battle .wizard.ally .sprite { width: max(92px, min(calc(17 * var(--vh)), calc(13.5 * var(--vw)))); }
+body:not(.has-3d) #arena[data-party="3"] .wizard .sprite { width: max(84px, min(calc(16 * var(--vh)), calc(11 * var(--vw)))); }
+body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(calc(13.5 * var(--vh)), calc(9 * var(--vw)))); }
+@media (max-width: 640px) {
+  body:not(.has-3d) #battle .wizard .sprite { width: min(132px, calc(34 * var(--vw))); }
+  body:not(.has-3d) #battle .wizard.ally .sprite { width: min(104px, calc(27 * var(--vw))); }
+  body:not(.has-3d) #arena[data-party="3"] .wizard .sprite, body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: 62px; }
 }
 
 /* 0.9.9.9.6.7: a tutorial question (language, hiragana) — on a computer the two answers wrapped onto two uneven lines
    next to "Skip tutorial"; now they share one line at equal width, Skip centred under them */
-.tut-card .tut-actions.tut-choice { flex-wrap: wrap; justify-content: center; }
-.tut-card .tut-actions.tut-choice > .big { flex: 1 1 0; min-width: 0; }
+.tut-card .tut-actions.tut-choice { display: grid; grid-template-columns: 1fr 1fr; }
+.tut-card .tut-actions.tut-choice > .big { min-width: 0; }
 @media (min-width: 601px) { .tut-card .tut-actions.tut-choice > .big { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
-.tut-card .tut-actions.tut-choice > :not(.big) { order: 1; flex-basis: 100%; justify-content: center; text-align: center; }
+.tut-card .tut-actions.tut-choice > :not(.big) { order: 1; grid-column: 1 / -1; justify-self: center; flex-basis: auto; }
 .tut-card .tut-actions.tut-choice > [hidden] { display: none; }
