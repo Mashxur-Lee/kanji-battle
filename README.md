@@ -1,491 +1,53 @@
 # Kanji Wizards · v0.9.9.9.6.5
 
-(The repository is still called `kanji-battle`; only the name in the game changed.)
+<p align="center"><img src="docs/promo/banner.webp" alt="Kanji Wizards — learn Japanese by casting it" width="100%"></p>
 
-Real-time kanji battles in the browser. Five modes:
+**Learn Japanese by casting it.** Kanji Wizards is a free multiplayer game where every word you study becomes a
+spell. Read a kanji, type its reading or write it by hand, and your wizard casts it at your opponent. Study with
+spaced-repetition flashcards, climb the Daily challenge leagues from Kana to N1, and play your friends in real time
+on the web, on Android or on Windows.
 
-| Mode | How you cast |
+<p align="center">
+  <a href="https://kanji-battle-ev0o.onrender.com/"><b>Play in the browser</b></a> ·
+  <a href="https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download/KanjiWizards.apk">Android app</a> ·
+  <a href="https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download/KanjiWizards-Setup.exe">Windows app</a>
+</p>
+
+<p align="center"><img src="docs/promo/gameplay.gif" alt="From the menu into a battle" width="85%"></p>
+
+## What's inside
+
+- **Five battle modes**: 1v1 Kanji Reading, 1v1 Kanji Writing (handwriting recognition), 1v1 Rapid, Deck Duel
+  (a card game built from your own words), and Boss Elimination (up to four players against the Black Dragon).
+- **Study that sticks**: Anki-style flashcards for every JLPT level (N5–N1), a Kana trainer for hiragana and
+  katakana, JLPT quizzes, onomatopoeia and reading passages, and a full Japanese–English–Russian dictionary.
+- **Daily challenge leagues**: ten words a day, the same for everyone in your league. Pass a league to earn its
+  animated frame and move up.
+- **Friends**: a friends list, invites, and a messenger with groups, photos, reactions and @mentions.
+- **Your wizard**: four characters, magic staffs, flames, frames and painted arenas, earned by playing and
+  studying. The battles play in a 3D arena or in 2D.
+- **Everywhere**: phone, tablet and computer, with an offline mode for studying. English and Russian.
+
+## Screenshots
+
+| | |
 |---|---|
-| **1v1 Kanji Reading** | Study 10 words for 60 s, then see the kanji and type its reading (IME kana or romaji). |
-| **1v1 Kanji Writing** | Look at the kanji (up to 3.5 s) and press **CAST!** (or Enter): it vanishes and only then the pad / Japanese keyboard appear, with the reading + meaning. Pasting into the answer box is blocked and the kanji can't be selected. Type the kanji with a Japanese IME or draw it on the pad. Only kanji count (kana only at the かな level). |
-| **Boss Elimination** | 1–4 players vs the Black Dragon (its HP grows with the party). Correct answers hit it; a mistake gets you clawed; fire breath every 30 s hits everyone who isn't on fire (5+ combo = immune). |
-| **1v1 Rapid** | Both players get the same kanji. First correct reading (kana or romaji) deals the damage. Levels are shared: in a room one set for both, in the online queue only players with a level in common are matched. |
-| **Deck Duel** | Pick a hero, draft 10 kanji cards from a pool made of both players' All spells, then spend mana to cast them by writing the kanji. 800 HP each. |
-
-```
-npm install
-npm run dev        # http://localhost:3000
-npm test           # unit tests
-```
-
-Production: `npm run build && npm start` (`PORT` supported). On Render the build command must include
-`npm install` (e.g. `npm install && npm run build`) so the `postgres` package gets installed.
-
-## Apps and offline mode (0.9.9.4)
-
-- **Install from the browser (PWA)** — `public/manifest.webmanifest` + the service worker `public/sw.js`
-  (generated from `src/client/sw.js` by `scripts/build-client.mjs`, with the list of files to keep).
-  Phones and PCs can install the site as an app (menu → **Get the app**); it opens without internet.
-- **Windows app** — `desktop/` (Electron). It opens the live site (always the newest version), so the
-  service worker gives it offline mode too; `offline.html` is shown only if the very first start has no
-  internet. Built into `KanjiWizards-Setup.exe` by electron-builder.
-- **Android app** — `mobile/android/` (a small WebView app, no Google Play needed). Adds Android's
-  text-to-speech for spoken words, the file picker for profile pictures and invite links. Signed with a
-  private key (GitHub secrets `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD`), so new APKs install over old ones.
-  **Updating:** "Update the app" lets the phone's browser download the new APK (an in-app installer was tried in
-  0.9.9.9.3 and again in 0.9.9.9.5.3 — Play Protect blocks an app that can install apps as harmful, both times).
-- **Builds** — `.github/workflows/apps.yml` builds both on every pull request (download them from the
-  run's *Artifacts*) and, on `main`, publishes them as the GitHub release `v<version>`; the game links to
-  `releases/latest/download/KanjiWizards-Setup.exe` and `…/KanjiWizards.apk`.
-- **Offline mode** — `src/client/offline/`. The app keeps a snapshot of your account
-  (`GET /api/sync/snapshot`) and, without internet, answers the study calls itself with the server's own
-  code (`src/server/router.ts`, `StudyService`, `DailyService` bundled for the browser). Changes go to an
-  outbox that is replayed in order once the server answers again, each call stamped with `X-KW-At` (the
-  moment it really happened, at most a week back) — so cards, streaks and daily-challenge times come out
-  as if you'd been online. Online queue, private games, friends and the admin pages need the server.
-- Icons: `assets/icon.svg` → `node scripts/build-icons.mjs` (needs `sharp`).
-
-## Accounts and saving progress
-
-Two accounts are created on first start:
-
-| Login | Password | Role |
-|---|---|---|
-| `user` | `user123` | user |
-| `admin` | `adminn123` | admin — sees **👥 Users** in the menu and can ban/unban players |
-
-> ⚠️ This repository is public, so these default passwords are public too. On the live site set
-> `ADMIN_PASSWORD` (and optionally `USER_PASSWORD`) — the server switches the account to it on start.
-> Since 0.9.9.9.5 a public server (Render, or `NODE_ENV=production`) never creates these accounts with the
-> default passwords, and locks an existing one still on its default password until you set the variable.
-
-Passwords are hashed with scrypt; logins are signed tokens (30 days).
-
-### Environment variables (Render → your service → Environment)
-
-| Variable | What it does |
-|---|---|
-| `DATABASE_URL` | **Needed on Render** to keep accounts, XP and study cards (Neon, see below). |
-| `AUTH_SECRET` | **Set this.** Any long random string. Without it, everyone is logged out whenever the server restarts. |
-| `ADMIN_PASSWORD` | **Set this.** Replaces the public default admin password. |
-| `USER_PASSWORD` | Optional: password for the demo `user` account. |
-| `GEMINI_API_KEY` | Optional: turns on the reading passage's AI stories (one short story written with the player's words) using Google Gemini — it has a free tier (get a key at aistudio.google.com). Default model `gemini-flash-lite-latest`. |
-| `ANTHROPIC_API_KEY` | Optional, instead of Gemini: the stories come from Claude (default `claude-haiku-5-5`). Pay-as-you-go from console.anthropic.com. |
-| `OPENAI_API_KEY` (+ `OPENAI_BASE_URL`) | Optional, instead: any OpenAI-compatible API — OpenAI (default), xAI Grok (`https://api.x.ai/v1`), Groq (`https://api.groq.com/openai/v1`), OpenRouter (`https://openrouter.ai/api/v1`). Set `STORY_MODEL` to that service's model name. |
-| `STORY_MODEL` | Optional: the model for the stories. `STORY_DAILY_MAX`: stories a day for everyone together (default 400; each player up to 40). Without any key the passage uses the words' example sentences. |
-| `USERS_FILE` | Local only: where the file store writes when there is no database (default `.data/users.json`). |
-| `FIREBASE_SERVICE_ACCOUNT` | Optional (0.9.9.9.5): push notifications to the Android app — a friend's invite reaches the phone while the app is closed. The service account JSON from Firebase (as it is, or base64). See *Push notifications* below. |
-
-### Push notifications (Android app, 0.9.9.9.5)
-
-Invites reach a friend's phone as a notification (Join / Decline) even when the app is closed. Set up once:
-
-1. [console.firebase.google.com](https://console.firebase.google.com) → **Add project** (any name; Analytics not needed).
-2. In the project: **Add app → Android**, package name `com.kanjiwizards.app` → **Register app** → download
-   **google-services.json** (skip the SDK steps).
-3. GitHub → this repository → **Settings → Secrets and variables → Actions → New repository secret**:
-   name `GOOGLE_SERVICES_JSON`, value = the whole content of google-services.json. The Apps workflow builds the
-   APK with push from now on (without the secret it builds without push, as before).
-4. Firebase → ⚙ **Project settings → Service accounts → Generate new private key** — a JSON file downloads.
-5. Render → your service → **Environment**: add `FIREBASE_SERVICE_ACCOUNT` = the whole content of that file. Save.
-   The log says `Push notifications: on`.
-6. (Firebase → Project settings → **Cloud Messaging**: "Firebase Cloud Messaging API (V1)" should say *Enabled* —
-   it is on for new projects.)
-
-Players install the new APK, sign in, and allow notifications when Android asks.
-
-**Data keys (0.9.9.9.5.4):** FCM refuses a whole message whose data has a reserved key (`from`, `notification`,
-`message_type`, `google.*`, `gcm.*`) — the invites carried `from` and none ever went out. The inviter's name is
-`fromName`; `Push.send` refuses reserved keys itself, with the reason, before sending.
-
-**Notifications the phone shows itself (0.9.9.9.5.3):** an invite push carries an Android notification as well as its
-data — a data-only push needs the app woken up to draw it, and battery savers / an app swiped away never woke it.
-Android shows the notification on its own (in the game's language on that phone, sent with the token); an open app
-gets the data instead and shows the invite card.
-
-**Checking it (0.9.9.9.5.2):** in the Android app, Settings → *Invite notifications* → **Test** goes the whole way —
-the phone's permission, its Firebase token, the server's push, Google's answer — and says in words where it stops
-("Push is not switched on on the game's server", "Google refused the push (403 …)", …). A push Google refuses
-also shows in Admin → errors.
-
-### Keeping accounts on Render (Neon Postgres)
-
-Render's free plan wipes the server's disk on every deploy and restart, so without a database all
-registrations disappear. Neon has a free Postgres plan:
-
-1. Sign up at [neon.tech](https://neon.tech) and create a project (any name, pick the region closest to
-   your Render service).
-2. On the project dashboard click **Connect**, and copy the connection string. It looks like
-   `postgresql://neondb_owner:…@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require`.
-3. In Render → your service → **Environment**, add `DATABASE_URL` with that string. Also add
-   `AUTH_SECRET` (any long random text) and `ADMIN_PASSWORD`. Save — Render redeploys.
-4. In Render's **Logs**, look for `Accounts: postgres`. The server creates its tables (`kw_users`,
-   `kw_cards`) by itself; no SQL needed.
-
-The connection string is a password: keep it only in Render's environment, never in the code (the
-browser only talks to this server, never to the database).
-
-## Profile
-
-Click your name (top left) for your stats: level and XP, wins, losses, win rate and spells
-learned. You can upload a profile picture there; it's cropped to a square, shrunk to 128×128 in your browser
-and shown next to your name in lobbies and games (`GET /api/avatar/:id`, max 60 KB, PNG/JPEG/WebP only).
-
-## Backgrounds
-
-Five painted scenes, each in **day, sunset and night** (Customize → Cycle: day → sunset → night, 3 minutes each, fading out and back in; it never changes during a game): a forest with
-comets and red eyes in the dark, a misty swamp with will-o'-wisps, plains with villages, a windmill and
-wandering goblins, a castle with the Black Dragon circling above and soldiers clashing at the sides, and the
-World Tree. Each has its own sounds in the menus (owls, frogs, goblin chatter, sword clashes, chimes) at the
-music volume. Admins have every background unlocked.
-
-**3D arenas (0.9.9).** In the 3D arena each background is its own place, ported from the Blender scripts
-(`src/client/arenas/`: a shared kit plus `forest`, `swamp`, `plains`, `castle`, `worldtree`): a painted sky dome
-(colour by elevation, sun / moon glow, far ridges, a Milky Way at night), a slowly turning cloud dome, crisp
-star points and twinkling sparkle stars, then each scene's own parts — swaying trees with blinking red eyes,
-water with ripples and mist, 3D mountains with snow and twin suns, two castles with waving flags and clashing
-warrior silhouettes, the giant World Tree above a sea of clouds. Shape keys became morph targets; keyframed
-animation runs off a 30 fps clock. Sunset and night use the scripts' themes; day is derived from sunset. Lite
-builds fewer trees, tufts and lights and a smaller sky texture.
-
-**3D staffs (0.9.9).** The five staffs are ports of the Blender staff scripts (`src/client/staffs3d.ts`, helpers in
-`src/client/geokit.ts`) with their animations: Verdant's leaves sway, Ember drips lava, Tide's crescent waves melt
-into a whirling stream every few seconds, Storm's shock rings and bolts crackle, Void pulls stars into its core.
-
-**Mouse look (0.9.9).** In Full 3D the mouse turns your head (not over the pad, buttons or cards, and not while
-drawing); a `look` message (≤ 8/s, relayed by the room) turns your character's head on the other players'
-screens. Lite keeps the old parallax.
-
-## Admin
-
-The **Users** page (admins only) shows who is **online right now** and what they are doing (in the menus, in the
-queue, in a lobby, playing a mode), and for offline players when they were last seen (since the server started)
-or their last login day. Online players are listed first; the page refreshes itself every 15 s.
-
-**Inbox** collects what players send with **Feedback** (main menu): bug reports and suggestions, each with the
-player's name, the game version and the device type — plus **errors** caught automatically (a crash in a
-browser, or an unexpected server error; the same error is stored once a minute at most). Mark items done or delete
-them; the Admin button shows how many are open. Players can send 5 messages per 10 minutes.
-
-**Stats** shows players online, active today, accounts, how many came back on day 1 and day 7, a 14-day chart of
-active and new players, the tutorial funnel (signed up → started → kana question → first battle → finished or
-skipped) and games started/finished per mode this week (`src/server/study/InsightsService.ts`).
-
-## Online queue
-
-**Private game** (main menu, under the queue) opens *Create room* and *Join by code* for playing with friends.
-
-The Online queue button shows **how many players are online**.
-
-**Online queue** on the main menu: tick the modes you'd play (Reading, Writing, Rapid, Boss) and the levels you
-bring, then **Find match** — or queue for **Deck Duel** on its own. A timer counts while it searches; as soon
-as another player wants a mode you ticked, everyone accepts, a room is made and the game starts right away
-(same as joining by code and pressing Start). **Boss Elimination waits for a full party of 4** (always 4 vs the
-dragon in the queue — never 1, 2 or 3); the search screen shows how many are queued for it. First come, first
-served (`src/server/Matchmaker.ts`).
-
-## Match history & profiles
-
-**📜 Match history** on the main menu lists your last 15 games (older ones are deleted): the character you played, the mode's logo, VICTORY /
-DEFEAT and the date. Open one to see its results screen again. Click any player's name (lobby, battle, results,
-history) to see their profile: level, wins, losses, win rate and spells learned. Stored in `kw_matches` (Postgres).
-
-## Login streaks
-
-Opening the game on consecutive days builds a 🔥 login streak (by your own calendar day); your current and best
-streak have their own boxes in your profile and on your profile card for others. Your **best** streak unlocks magic
-staffs (so a broken streak never takes one away): Verdant (everyone), Ember 3 days, Tide 5, Storm 8, Void 10.
-
-## New players: tutorial and unlocks
-
-New accounts get a short first-run tutorial (a "try it" box: 山 → yama), then a guided first battle against a
-beginner AI with tips on each screen — a quick one (30 s of study, a 2-minute fight) with かな and N5 words. Modes unlock with levels: **Kanji Reading** and **Rapid** from the start,
-**Kanji Writing** and **Boss** at level 1, **Deck Duel** at level 2 — for creating rooms and the online queue
-(checked on the server). Joining a friend's room by code or invite always works. Accounts from before 0.9.6
-skip the tutorial.
-
-**Hiragana first**: the tutorial asks whether you know hiragana. Beginners get only かな — for studying, rooms
-and the queue (checked on the server), and no Deck Duel (it is all kanji) — until they tick **I've mastered hiragana** in Settings; then N5–N1 open.
-Stored as a flag in the account's `unlocks`.
-
-## Daily challenge
-
-The same 10 words for everyone each day (UTC), two each from N5 up to N1. Type each reading (kana or romaji)
-within 15 s; answers are checked one at a time on the server and the clock runs there too (leaving a word
-open counts it as missed). One try a day, ranked by correct answers then total time; 30 XP per correct word
-(+100 for 10/10). After playing you see the words with their readings, each marked ✓ or ✗, and the missed ones go to
-Struggling spells (`src/server/study/DailyService.ts`; per-word marks in `kw_daily.marks`).
-
-## Progress page and monthly goals
-
-**Progress** (main menu): this week vs last week (days active, cards passed, games, wins, XP), an activity
-calendar (one month, Monday first, ISO week numbers, ‹ › back up to six months), and a mastery grid for every word of each level (not yet in your spells / new / learning /
-learned / mastered = review interval of 3+ weeks). Activity is logged per player per local day (`kw_activity`).
-
-Every month has the same three goals — play on 12 days, win 10 games, pass 150 flashcards — and a seasonal
-reward: even months a flame colour (Sakura, Rain, Sun, Thunder, Harvest, Starlight), odd months a staff
-(Frost, Blossom, Jade, Abyss, Moon, Maple — recoloured Verdant, Ember and Tide staffs, in 3D and pixel art; Storm
-and Void stay exclusive to long login streaks). Rewards are kept
-forever once earned. Customize lists every seasonal staff and flame — locked ones show which month's goals unlock
-them. The goals panel shows the reward itself (the pixel staff, or a little wizard in the flames).
-
-## Friends and invites
-
-**Friends rail** (right edge of the menus, like Valorant's): pictures only; hover it and it opens with names,
-levels and what everyone is doing (online / offline groups). Click a friend for their profile. **Add friend** and
-**Requests** at the bottom open a small window. Hidden in games. On phones a round **Friends** button (bottom-right,
-with the online count) slides the same list in from the right. The menu no longer has a Friends button.
-
-**Friends** (main menu): add players by name, accept or decline requests, see who is online and what they are
-doing. In a room's lobby your online friends appear with an **Invite** button; they get a card with Join /
-Decline (and a notification if the tab is in the background). Since 0.9.9.9.5 friends with the Android app closed
-are listed too — their phone gets a push notification (see *Push notifications*), and an invite waits two minutes
-for a friend whose app had no connection. **Decline** tells the inviter, who can't invite that friend again for
-2 minutes. Stored in `kw_friends`. Friends already in your room
-aren't listed, friends in a game show **In a game** (no invites mid-game), and the same friend can be invited
-again after 10 s (checked on the server too). Accepting an invite while you're in another room's lobby or results
-leaves that room and joins the new one.
-
-## Stroke order
-
-Study spells: after flipping a card, **Stroke order** (or S) draws each stroke of the kanji in order, numbered.
-After a wrong or missed write in Kanji Writing or Deck Duel the correct strokes play right away, and on the
-results screen every word opens its stroke order. The strokes are the handwriting recogniser's reference data
-(`/api/strokes`).
-
-## Alerts
-
-Deck Duel plays a chime when your turn starts; "Your turn", "Match found" and invites blink the tab title and
-show a system notification while the game is in the background (the browser asks for permission once, when you
-start queueing or create a Deck Duel).
-
-## Phones
-
-The 3D arena now has **Full / Lite / Off** (settings panel). Lite (default on phones and small screens) uses less
-grass and particles, no anti-aliasing and a lower resolution. On a phone held upright the 3D arena fills the
-screen too: cropped at the sides, your hand and staff moved in so they stay in view, and the profile and settings
-buttons hidden while you play (they return after the game). The page shrinks with the keyboard
-(`interactive-widget=resizes-content`), and the answer box stays enabled between words (locked, not disabled), so the
-keyboard stays up instead of closing and reopening on every word. Sideways it fills the screen as on a computer. If 3D runs slowly the arena drops to
-Lite by itself (then to a lower resolution) and says so. On phones the mode's name sits under the top bar. Upright phones use
-the 2D layout with a bigger writing pad, a compact top bar and stacked pages.
-
-## Customize
-
-0.9.9.9.5.3: a **Hero Locker** — you in the middle, turning on a pedestal (the 3D preview), your loadout in slots on
-both sides; the open slot's items come up in a tray below. The slots, each with a live preview and an **Equip** button:
-- **🧙 Character** (0.9.9.9.5.2) — Goblin (from the start), Knight, Witch, Wizard, with a 3D and a 2D preview. The
-  Daily challenge leagues unlock them: Knight at N4, Witch at N3, Wizard at N2 (kept in `unlocks` as `char:<id>`,
-  `PUT /api/me/character`).
-- **🪄 Magic staff** — the staff in your hand in the 3D arena (and in your character's hand for everyone else);
-  turning 3D preview (`src/client/staffpreview.ts`, models in `src/client/staffs3d.ts`). Unlocked by login streak.
-- **🏟 Arena** — the background and time of day (unlocked by level).
-- **✨ Omnipotence** — the flames of a 5× combo (Reading, Writing, Rapid, Boss) and of your Omnipotence (hero ultimate) in Deck Duel
-  (there is no combo in Deck Duel). Colours unlock by level.
-
-## Combo flames & study lock
-
-At 5 correct casts in a row you are wrapped in flames — and in Deck Duel while your Omnipotence (hero power) is active. The colour
-is yours to pick in **Customize**: light blue (default) or purple (from level 5; admins have everything), and
-everyone sees it. If more than **100 Struggling spells** are waiting (new, learning or due), the game modes lock
-until you study them down to 100 (checked on the server too; admins are never locked).
-
-## AI players
-
-The host can add AI players in the lobby (🤖 Add AI) and pick how much they know: **Beginner** (かな + N5 words,
-slow, wrong about half the time — the tutorial's opponent) or N5 to N1. Each AI holds a random staff and flame colour. They fill an
-opponent's seat in the duels, Rapid and Deck Duel, or join your party against the dragon (up to 3 AI). The
-chance that an AI gets a word right (`src/server/Bot.ts`):
-
-| AI knows → / word level ↓ | N5 | N4 | N3 | N2 | N1 |
-|---|---|---|---|---|---|
-| **AI Beginner** | 55 % | 30 % | 15 % | 5 % | 2 % |
-| **AI N5** | 90 % | 50 % | 20 % | 10 % | 5 % |
-| **AI N4** | 92 % | 75 % | 35 % | 15 % | 10 % |
-| **AI N3** | 95 % | 85 % | 70 % | 30 % | 18 % |
-| **AI N2** | 99 % | 90 % | 80 % | 60 % | 30 % |
-| **AI N1** | 100 % | 95 % | 87 % | 70 % | 60 % |
-
-(Hiragana words count as N5.) AI players answer after a human-like pause, always vote for a rematch and are
-always Ready. Matches with an AI give half XP; a room with only AI left closes.
-
-## Progress
-
-- **XP**: win = 300 + accuracy %, loss = 50 + accuracy %. Deck Duel: win 4000, loss 1500. A forfeited match
-  (someone gave up or left) gives nobody XP.
-- **Levels** get steeper: 1000 XP for Lv 1, then 2000 more for Lv 2, 3000 more for Lv 3 … (Lv 5 = 15,000 total,
-  Lv 10 = 55,000, Lv 20 = 210,000).
-- **Customize**: backgrounds unlock at Lv 0 forest, 5 swamp, 10 plains, 15 castle, 20 world tree.
-- **Fighters** are the character you picked in Customize → Character (0.9.9.9.5.2; it used to follow your levels): goblin, knight, witch or wizard — each holding the staff you equipped (pixel versions of the 3D staffs).
-- **Study spells**: *All spells* — tick levels and 25 new words are added each day; after a Deck Duel every kanji
-  cast in it is added too. *Struggling spells* —
-  words you missed in battles. Anki-style cards (Again / Hard / Okay / Easy, SM-2 scheduling,
-  `src/shared/srs.ts`).
-- **No critical hits** (removed in 0.9.8.3): damage comes from the word's difficulty, your speed and your combo.
-
-## 3D arena
-
-Battles and Deck Duels are shown **first person** in a 3D arena (Three.js, `src/client/arena3d.ts`, loaded on demand
-as `public/arena3d.js`): your hand holding your staff in the foreground, the opponent (or the dragon and your party)
-across a stone arena with torches, your chosen background and time of day far behind. Move the
-mouse to look around a little — the camera turns towards the mouse. Spells are kanji that fly across with a trail; hits flash and shake the
-camera. You play in first person: your hand (sleeve and skin after your character) and your staff skin — while you
-write or type the staff tilts back, charges and traces a figure-eight (∞) in the air; when you cast it thrusts forward
-and its gem flies off with the spell. The gem is gone until you start writing or typing again, when a new one builds
-up — a miss or a wrong answer shatters it the same way (also in 2D). A 5× combo (or your Omnipotence in Deck
-Duel) sets your staff on fire and sends mana fire in your flame colour flowing along the bottom of the screen (a
-shader, a soft animated band over the lower quarter of the screen), with a big combo counter. The flames end with the
-game. Ambient motion (fire, sway, the gem) runs even with the system's "reduce motion" on; only camera shake follows it. Opponents and teammates cast the same way: a short wind-up, then the staff thrust forward at the target. In Boss fights, downed
-teammates lie on the ground (and you lose your staff). The others
-are rigged 3D models holding staffs (0.9.9.9.5.2: `public/models/*.glb`, loaded by `src/client/glbchars.ts`;
-the shapes built in code stand in while a model loads) — the character they picked, or their Deck Duel hero. Deck Duel cards hit with their own effect: Bolt → lightning, Frost → the target turns see-through
-icy blue for a second, Inferno → it burns. The Black Dragon is a rigged model too (0.9.9.9.5.2): it breathes, sways its neck and tail, rears back with its wings spread while it gathers its fire and opens its jaws to breathe it. Only the look changed — all rules are the
-same. Switch it off in the sound/settings panel (🏟 3D arena); phones, small windows and browsers without WebGL
-use the classic 2D view.
-
-**UI size**: the interface is drawn at 80% by default on computers (so Deck Duel's HP and mana stay on screen even
-with the Japanese keyboard's candidate list open); change it in the settings panel (70–100%, saved per browser;
-`src/client/zoom.ts`). Phones and small windows stay at 100%.
-
-## Language
-
-Settings → **Language**: English or Русский. Dates and times always follow the chosen language (not the browser's).
-Russian is a translation layer over the English interface (`src/client/i18n.ts`: exact strings plus patterns for texts
-with numbers and names); Japanese text stays as it is. Word meanings are shown in Russian too, from
-`public/meanings-ru.json` (all 6,316 English meanings, translated for this game; loaded only in Russian).
-
-## Achievements
-
-Twenty badges on the Progress page, beside the activity calendar: hexagons with their own icon and colour, one to
-three dots for how hard they are; locked ones are dimmed, and hovering one says how to earn it. First Victory,
-Veteran (25 wins), Champion (100), On Fire / Inferno / Unstoppable (5× / 10× / 20× combo), Flawless (a win at 100%
-with 10+ answers), Dragon Slayer, Card Sage, Calligrapher, Quickdraw (a win in Boss / Deck Duel / Writing / Rapid),
-Scholar (100 spells learned), Archmage (1,000), Kana Graduate, Devoted (7-day streak), Eternal Flame (30), Perfect
-Day (10/10 daily), Fellowship (a friend), Seasonal (a monthly reward), Grand Wizard (level 10). They are checked on the
-server after every match and whenever the profile loads, and stored as `ach:<id>` in the account's `unlocks`
-(`src/shared/achievements.ts`). Earning one plays an "Achievement unlocked!" animation — combo badges the moment the
-combo happens in the battle.
-
-## Pause (against the AI)
-
-In a private game where you are the only human (against AI players, or a solo Boss run), **❚❚ Pause** (under the
-clock) stops the game: the server's game clock stands still (`PausableClock`, `src/server/clock.ts` — timers, AI moves,
-dragon breath, Deck Duel turns), answers are ignored, and Resume sends everyone the clocks again. Not available when
-another human is in the room.
-
-## Battle keyboard (phones)
-
-In Reading, Rapid and Boss on a touch screen, a compact keyboard (letters, -, n', ⌫, Skip, Cast) replaces the phone's
-own: about a third of the height, it never pops in and out, and it shows the typed romaji as kana above the keys.
-Settings → **Battle keyboard** switches back to the phone keyboard. The 3D arena then fills only the space above the
-keyboard, so your staff, combo counter and flames stay in view. Writing modes keep the phone keyboard (for the
-Japanese IME), with the pre-written kana shown big beside the typing box (お□ → お [ ], □ず → [ ] ず). On phones the
-party's HP in Boss fights is two compact columns. The 3D canvas is sized from the zoom-corrected viewport, so it
-covers the screen at every UI size. Opponents (and your party) trace the ∞ with their staffs while they work on a word.
-
-## Levels follow stroke count
-
-Since 0.9.8 the levels N5 → N1 are re-sorted by how complex a word looks — the total stroke count of its kanji — so
-an "N5" word is never harder to write than an "N1" one (study sets, battles and Deck Duel). Each level keeps its size;
-a word's JLPT list is kept as `jlpt` (`rebinByStrokes` in `src/server/vocab.ts`). かな is unchanged.
-Since 0.9.8.5 the JLPT list counts a little too: the sort score is strokes + 3 × JLPT step (N5 = 0 … N1 = 4), so
-stroke count still leads but an N1 word rarely lands in N5.
-
-## Writing only the kanji
-
-In Kanji Writing and Deck Duel you write only the kanji: the kana of the word are filled in — the pad shows them printed
-in their own shaded cells between and after the empty ones (必ず → [ ][ず], 売り場 → [ ][り][ ]). Writing the whole word still counts. Words of 2+ kanji forgive one shaky character (4+: two) if it has
-about the right number of strokes and shape; with a Japanese keyboard, the kanji alone count, and in words of 3+
-kanji one wrongly picked kanji is forgiven (`writeTargets` / `isCorrectWriting` in `src/shared/kana.ts`).
-
-## Readings: small slips are forgiven
-
-Typed readings accept one missing or swapped long vowel (おう / うう / おお: *kyoto* for きょうと, *benkyo* for べんきょう)
-and a missing する at the end (*seikatsu* for せいかつする) — `isCorrectReading` in `src/shared/kana.ts`.
-
-## Deck Duel
-
-Heroes (their ultimate is **Omnipotence**, button bottom-left: costs 100 mana, then rests for 4 of your turns — Goblin 5; effects last 2 turns): **Goblin** casts 2 cards in a row
-(the second costs 1.5× mana), **Knight** −45 % damage taken and +50 % healing, **Witch** sees your hand's spells and readings and her
-attacks hit 35 % harder (the card she is writing still hides its kanji); **Wizard** is passive (2 random cards when out of cards, or +30 mana when out of
-mana, once each).
-
-The lobby has no level picker (it shows an illustrated guide instead): both players press **Ready** and the
-duel starts. Hero pick and the first draft can still go **← Back to lobby**. In battle there's a chat, and
-while your opponent plays you can read the list of kanji in your hand (sorted, so you can't tell which card
-is which). A card's mana is paid when you play it, even if you then write it wrong.
-
-Draft pool (0.9.9.4.4): 4 words of each level N5–N1 — 2 from each player's **All spells** (a random word of that level when a player has
-too few, and for the AI). Draft: 20 cards (4 per colour), coin flip, picks of 2 (one 20 s clock for both) until each player has 10. Colours, ranked by word
-difficulty (JLPT level, stroke count and word length):
-
-| Colour | Effect | Mana |
-|---|---|---|
-| Red | 340 damage | 45 |
-| Green | heal 140 | 30 |
-| Yellow | +60 mana | 0 |
-| Blue | 150 damage | 20 |
-| Light blue | 90 damage | 10 |
-
-Mana starts at 200/200, +10 each turn. You get 15 s to choose a card. Then one minute to cast it: the card flips and
-shows only its reading and meaning (15 s, or press **Ready**), then the kanji; press **CAST!** and the kanji
-disappears while you write it from memory. Right or wrong, the card then turns over to show the correct
-kanji with its reading and meaning for 2 s (nothing can be played meanwhile). A successful spell gives back half its mana. Writing is judged extra forgivingly here: besides stroke matching, the overall
-shape is compared with all ~2,300 characters (`src/server/handwriting/shape.ts`), and one shaky character in a word is forgiven. Wrong or too slow → the card rips. Out of cards → a new draft round
-(Round 2, 3 …: 20 fresh cards, each player picks 10 more; HP, mana, powers and unplayed cards stay, and the
-match clock pauses). Having cards but no mana for any of them skips your turn (−100 HP, like any skipped turn); mana keeps coming back. After 8 minutes, overtime: the cards are gone and the duel becomes a
-1v1 Rapid duel with the HP you have left — random kanji words (N5–N1, only the kanji shows), the first to type the reading
-(hiragana or romaji, wrong guesses may retry) hits: N5 60 · N4 80 · N3 100 · N2 130 · N1 170 damage. 12 s per word;
-after 3 minutes of overtime the higher HP wins. Letting the choose clock run out without playing a card costs 100 HP.
-
-## Gameplay details
-
-- **Words**: 6,616 (N5 523 · N4 520 · N3 1832 · N2 1354 · N1 2285 · かな 102). N5/N4 lists only have ~520
-  words with kanji in them. Built by `scripts/build-vocab.ts` from
-  [open-anki-jlpt-decks](https://github.com/jamsinclair/open-anki-jlpt-decks) (MIT), which is based on
-  Jonathan Waller's JLPT lists ([tanos.co.uk](http://www.tanos.co.uk/jlpt/), CC BY). Licence in `data/sources/`.
-- **Damage** = difficulty × ⅔ × speed × combo. After every answer, right or wrong, there's the same 2.5 s pause
-  (the answer is shown), so guessing fast is never quicker than knowing it. Numbers in `DEFAULT_CONFIG` (`src/server/Game.ts`).
-- **Fair HP in duels**: your HP depends on how hard your opponent hits (`src/server/Balance.ts`).
-- **Handwriting** is checked on the server by a TypeScript port of
-  [KanjiCanvas](https://github.com/asdfjkl/kanjicanvas) (MIT, `src/server/handwriting/KANJICANVAS-LICENSE.txt`).
-  It's forgiving: a character counts if it's in the top 10 guesses or close to the best guess
-  (`JUDGE` in `src/server/handwriting/judge.ts`).
-- **Pronunciation**: after a correct cast the word is spoken (its kana reading) with the browser's Japanese
-  text-to-speech, preferring a male voice when the device has one (Windows Ichiro/Keita, Apple Otoya/Hattori);
-  otherwise the default voice is pitched down. Open recordings (Kanji alive, Lingua Libre) only cover a small
-  part of the 6,600 words, so they weren't used. Voice volume is in the 🎚 panel.
-- **Handwriting a word**: write the whole word on one wide pad, left to right (faint dividers mark each
-  character). The server tries the most likely ways to split the strokes into characters and keeps the one
-  that reads best (`src/server/handwriting/segment.ts`).
-- **Connection bars** next to every player: 3 green < 150 ms, 2 yellow < 400 ms, 1 red slower (app-level ping
-  every 3 s).
-- **Saved progress**: accounts, XP and study sets live in Postgres and are never reset by an update. XP saved
-  before the steeper level curve was converted once so nobody lost a level. The admin **Users** page shows each
-  player's level, XP, learned spells / study-set size, and warns if no database is connected.
-- **Forfeit** goes to the results screen; in the preparation phase **← Lobby** returns everyone to the lobby.
-- **Audio** is synthesised in the browser (no files): a chime that gets deeper and longer with the combo,
-  win/lose jingles, a calm dark-fantasy theme in menus and a tenser battle theme (driving strings, war drums,
-  horns) while you play — they crossfade. Music and effects have their own volume sliders (🎚, saved per
-  browser). It pauses when the tab is hidden.
-
-## Stability
-
-Uncaught server errors are logged to the admin Inbox instead of going unnoticed. On a restart (deploy) the server
-tells everyone "The game is updating — you'll be reconnected in a moment." before closing. Static files are sent
-gzipped.
-
-## Credits & licences
-
-See **About** in the main menu and [CREDITS.md](CREDITS.md): word data from open-anki-jlpt-decks (MIT) / Jonathan
-Waller's JLPT lists (CC BY) / JMdict (EDRDG, CC BY-SA 4.0), handwriting recognition from KanjiCanvas (MIT) with
-KanjiVG data (CC BY-SA 3.0), kanji meanings and readings from KANJIDIC2 (EDRDG, CC BY-SA 4.0) via kanji-data (MIT),
-three.js (MIT). The About box also has a short privacy note.
-
-## Structure
-
-- `src/shared` protocol · vocab helpers · progress (XP, backgrounds, achievements) · srs · deck rules
-- `src/server` `Game` (reading, writing, boss) · `RapidGame` · `DeckGame` · `Balance` · `Room` · `RoomManager` ·
-  `Session` · `http` (REST API) · `db/` (memory, file and Postgres stores) · `auth/` · `study/` · `handwriting/`
-- `src/client` `net` · `api` · `ui` · `deckui` · `study` · `pad` · `wizard` (pixel sprites) · `backgrounds` · `audio` · `main`
-- `scripts/` vocab and handwriting data builders · `test/` node:test suites
+| <img src="docs/promo/pc-menu.webp" alt="Main menu"> | <img src="docs/promo/pc-battle3d.webp" alt="A battle in the 3D arena"> |
+| <img src="docs/promo/pc-daily.webp" alt="Daily challenge leagues"> | <img src="docs/promo/pc-messages.webp" alt="Messages with friends"> |
+
+<p align="center">
+  <img src="docs/promo/phone-menu.webp" alt="Menu on a phone" width="24%">
+  <img src="docs/promo/phone-battle.webp" alt="A battle on a phone" width="24%">
+  <img src="docs/promo/phone-messages.webp" alt="Messages on a phone" width="24%">
+  <img src="docs/promo/pc-kana.webp" alt="The Kana trainer" width="24%">
+</p>
+
+## Built with
+
+TypeScript on both sides: a Node.js server (WebSocket games, REST API, PostgreSQL) and a browser client bundled
+with esbuild, with three.js for the 3D arena. The Android app is a small WebView shell with push notifications;
+the Windows app is Electron.
+
+- Running your own server, building the apps, environment variables: [docs/SETUP.md](docs/SETUP.md)
+- Credits and licences of the word data, the dictionary and the libraries: [CREDITS.md](CREDITS.md)
+- Found a bug or have an idea? Use **Feedback** in the game's main menu.

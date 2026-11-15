@@ -27,7 +27,7 @@ export class AuthService {
   /** Creates the two starter accounts if they don't exist yet. Env vars can override the passwords. */
   /**
    * The built-in accounts. `publicServer` (0.9.9.9.5): a password that isn't from the environment is the one written
-   * in the public README — such an account isn't created there, and an existing one still using it is locked
+   * in the public source code — such an account isn't created there, and an existing one still using it is locked
    * (given a random password nobody knows; set the environment variable to use it again).
    */
   async seed(accounts: Array<{ username: string; password: string; role: Role; fromEnv?: boolean }>, publicServer = false) {
@@ -38,7 +38,7 @@ export class AuthService {
       else if (known) {
         if (await verifyPassword(a.password, existing.passwordHash)) {
           await this.store.update(existing.id, { passwordHash: await hashPassword(randomBytes(24).toString('base64url')) });
-          console.warn(`"${a.username}" still had the README's default password — locked (set its password in the environment)`);
+          console.warn(`"${a.username}" still had its built-in default password — locked (set its password in the environment)`);
         }
       } else if (a.fromEnv && !(await verifyPassword(a.password, existing.passwordHash))) {
         await this.store.update(existing.id, { passwordHash: await hashPassword(a.password) }); // rotate to the env password

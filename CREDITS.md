@@ -18,6 +18,28 @@ The same list is shown in the game under **About** (main menu).
 | Onomatopoeia list and example sentences | `data/sources/onomatopoeia.tsv`, `data/examples/*.tsv` | Written for this game | — |
 | 3D arena | `public/arena3d.js` (bundled) | [three.js](https://threejs.org/) | MIT |
 | 3D staffs and arenas | `src/client/staffs3d.ts`, `src/client/arenas/` | ported from the project's own Blender scripts (made by the game's author) | — |
+| 3D characters (goblin, knight, witch, wizard) and the Black Dragon | `public/models/*.glb` | Made for this game with the project's own low-poly modelling scripts | — |
+| Painted backgrounds (five places, day / sunset / night) and their moving parts | `public/bg/` | Made for this game, provided by the game's author | — |
+| League frames (Kana–N1) and the weekly streak flames | `public/frames/`, `public/flames/` | Animated paintings made for this game, provided by the game's author | — |
+| 2D characters, staffs, icons, interface and sounds | `src/client/` | Drawn and synthesised in code for this game | — |
+
+## Software
+
+| What | Where it is used | Licence |
+| --- | --- | --- |
+| [three.js](https://threejs.org/) | the 3D arena, staffs and character previews | MIT |
+| [ws](https://github.com/websockets/ws) | the game server's live connections | MIT |
+| [Postgres.js](https://github.com/porsager/postgres) | the game server's database | Unlicense |
+| [Electron](https://www.electronjs.org/) and [electron-builder](https://www.electron.build/) | the Windows app | MIT |
+| [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging) (Android SDK) | invite and message notifications in the Android app | Apache 2.0 |
+| [esbuild](https://esbuild.github.io/), [TypeScript](https://www.typescriptlang.org/), [tsx](https://tsx.is/) | building and testing (not shipped) | MIT / Apache 2.0 / MIT |
+
+## Services
+
+- **Google Firebase Cloud Messaging** delivers notifications to the Android app (an invite, a message) when it is closed.
+- **AI stories** (optional, only when the server has a key): the reading passage can ask Google Gemini, Anthropic
+  Claude or an OpenAI-compatible service for a short story built from the player's study words. Only the words are
+  sent — no name or account details.
 
 ## Attribution notes
 
@@ -27,7 +49,10 @@ The same list is shown in the game under **About** (main menu).
 
 ## Privacy (short version)
 
-The game stores a player's name, a hashed password, study progress, match history, friends and — if uploaded — a
-profile picture. Feedback (bug reports, suggestions) is stored with the player's name, the game version and the
-device type; automatic error reports include the browser type. Nothing is sold or shared with third parties. The
-admin can delete an account, which removes all of its data.
+The game stores a player's name, a hashed password, study progress, match history, friends, messages (text, photos,
+reactions, groups) and — if uploaded — a profile picture. Messages and photos are visible only to the people in that
+chat (a photo sits at an address nobody can guess). The Android app stores a notification token so invites and
+messages can reach the phone. Feedback (bug reports, suggestions) is stored with the player's name, the game version
+and the device type; automatic error reports include the browser type. Nothing is sold. Notifications go through
+Google's Firebase, and the optional AI stories send only study words (see *Services*). The admin can delete an
+account, which removes all of its data.
