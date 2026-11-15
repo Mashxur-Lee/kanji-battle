@@ -30,5 +30,12 @@ export class TokenSigner {
     return userId;
   }
 
+  /** 0.9.9.9.6.5: when a (valid) token was issued — tokens from before a password change are refused */
+  issuedAt(token: string): number | null {
+    const id = this.verify(token);
+    if (!id) return null;
+    return Number(String(token).split('.')[1]) - this.ttlMs;
+  }
+
   private mac(s: string) { return createHmac('sha256', this.secret).update(s).digest('base64url'); }
 }

@@ -10,6 +10,10 @@ export class AuthError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
 }
 
+/** 0.9.9.9.6.5: when the password last changed (a marker among the account's unlocks) */
+const PW_MARK = 'pwat:';
+export const passwordChangedAt = (u: { unlocks?: string[] }) => Number((u.unlocks ?? []).find((x) => x.startsWith(PW_MARK))?.slice(PW_MARK.length)) || 0;
+
 /** The seeded admin account (index.ts): it can never lose its admin role. */
 export const OWNER = 'admin';
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
@@ -71,7 +75,21 @@ export class AuthService {
     const rec = await this.store.findById(id);
     if (!rec) throw new AuthError('Please log in again', 401);
     if (rec.banned) throw new AuthError('This account has been banned', 403);
+    // 0.9.9.9.6.5: a password change signs out every other device (their tokens are older than the change)
+    const changed = passwordChangedAt(rec);
+    if (changed && (this.tokens.issuedAt(String(token)) ?? 0) < changed) throw new AuthError('Your password was changed — log in again', 401);
     return rec;
+  }
+
+  /** 0.9.9.9.6.5: change your password (the current one first); every other device is signed out */
+  async changePassword(u: UserRecord, current: unknown, next: unknown) {
+    const p = String(next ?? '');
+    if (!(await verifyPassword(String(current ?? ''), u.passwordHash))) throw new AuthError('Your current password is wrong', 403);
+    if (p.length < 6 || p.length > 72) throw new AuthError('Password: at least 6 characters');
+    const at = Math.floor(Date.now() / 1000) * 1000; // (tokens carry whole milliseconds; the new one is issued at or after this)
+    const unlocks = [...(u.unlocks ?? []).filter((x) => !x.startsWith(PW_MARK)), `${PW_MARK}${at}`];
+    await this.store.update(u.id, { passwordHash: await hashPassword(p), unlocks });
+    return { token: this.tokens.sign(u.id, Math.max(Date.now(), at)) };
   }
 
   async requireAdmin(token: unknown) {

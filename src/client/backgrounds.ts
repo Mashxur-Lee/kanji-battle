@@ -1016,30 +1016,14 @@ export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfD
   }, BG_FADE_MS / 2);
 }
 
-/** The whole scene as standalone SVG markup (the 3D arena paints it far behind the fighters). */
-export function sceneSvg(id: BackgroundId, time: TimeOfDay, menu = false): string {
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${scene(id, time, menu)}</svg>`;
-}
-
 /**
  * A small picture of a background. 0.9.9.7.3: as an <img> of its own — inline, the scenes' gradients and shapes
  * share names (#sky, #glow …), so one picture took another's (the World Tree thumbnail came out broken).
  */
-const thumbUrls = new Map<string, string>();
 export function backgroundThumb(id: BackgroundId, time: TimeOfDay = 'night'): string {
   // 0.9.9.9.5.1: the painted picture, small
   return `<img class="bg-thumb-img" src="${artUrl(id, time, true)}" alt="" decoding="async">`;
 }
-/** the drawn scene as a small picture (before 0.9.9.9.5.1) */
-export function drawnThumb(id: BackgroundId, time: TimeOfDay = 'night'): string {
-  const key = `${id}-${time}`;
-  if (!thumbUrls.has(key)) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice"><style>.bg-comet,.bg-spark circle{display:none}</style>${scene(id, time)}</svg>`;
-    thumbUrls.set(key, URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' })));
-  }
-  return `<img class="bg-thumb-img" src="${thumbUrls.get(key)}" alt="" decoding="async">`;
-}
-
 // ── the player's time-of-day choice (saved in this browser) ──────────────────
 const TIME_KEY = 'kb:bgtime';
 export function getTimePref(): TimePref {

@@ -57,7 +57,6 @@ export const MUTE_ALL = 'mute:all';
 export const muteKey = (id: string) => `mute:${id}`;
 /** 0.9.9.9.6.4: a conversation that only notifies for @mentions of you ("ment:<id>") */
 export const mentionKey = (id: string) => `ment:${id}`;
-export const isMuted = (unlocks: readonly string[] | undefined, from: string) => !!unlocks?.includes(MUTE_ALL) || !!unlocks?.includes(muteKey(from));
 export const notifyMode = (unlocks: readonly string[] | undefined, conv: string): NotifyMode => (unlocks?.includes(muteKey(conv)) ? 'none' : unlocks?.includes(mentionKey(conv)) ? 'mentions' : 'all');
 const MENTION = /(^|[^\w@.-])@([A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,30}[A-Za-z0-9_])?)/g;
 /** "@login" or "@nickname" of this player in the text */
@@ -242,7 +241,7 @@ export class MessageService {
       if (!n) throw new MessageError('Give the group a name');
       if (n !== group.name) { await this.store.updateGroup(group.id, { name: n }); await this.system(group, u, 'renamed', n); }
     }
-    if (patch.pic !== undefined) { await this.store.updateGroup(group.id, { pic: await this.ownMedia(u, patch.pic) }); await this.system(group, u, 'photo'); }
+    if (patch.pic !== undefined) { const pic = await this.ownMedia(u, patch.pic); await this.store.updateGroup(group.id, { pic }); await this.system(group, u, pic ? 'photo' : 'nophoto'); } // (0.9.9.9.6.5: null takes it away)
     if (patch.perms !== undefined) {
       if (me.role !== 'owner') throw new MessageError('Only the group\'s owner can change what members may do', 403);
       const p = patch.perms as Partial<Record<keyof GroupPerms, unknown>>;

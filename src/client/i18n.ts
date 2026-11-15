@@ -534,6 +534,13 @@ const RU: Record<string, string> = {
   'Updating to the new version…': 'Обновляемся до новой версии…',
   'League passed!': 'Лига пройдена!',
   // 0.9.9.9.6.5: invites in the chat
+  'Remove the group picture?': 'Убрать фото группы?', 'removed the group picture': 'убрал(а) фото группы',
+  'Change password': 'Сменить пароль', 'Current password': 'Текущий пароль', 'New password': 'Новый пароль', 'New password again': 'Новый пароль ещё раз',
+  'You stay signed in here; every other device is signed out.': 'Здесь вы останетесь в аккаунте, а на всех других устройствах — выйдете.',
+  'The new passwords don’t match': 'Новые пароли не совпадают', 'Password changed': 'Пароль изменён',
+  'Your current password is wrong': 'Текущий пароль неверный', 'Your password was changed — log in again': 'Пароль был изменён — войдите снова',
+  'Change': 'Сменить', 'Change the game mode': 'Сменить режим игры', 'Too many players for this mode': 'Слишком много игроков для этого режима',
+  'Only the host can change the mode': 'Режим меняет только хозяин комнаты', 'Change the mode in the lobby': 'Режим меняется в лобби',
   'You challenged them': 'Вы бросили вызов', 'Challenges you': 'Бросает вам вызов', 'You invited them': 'Вы пригласили',
   'Invites you to play': 'Зовёт сыграть', 'Room': 'Комната', 'You are in this room': 'Вы в этой комнате',
   'Waiting for them': 'Ждём ответа', 'Expired': 'Истекло', 'Invite to play': 'Приглашение в игру',
@@ -1146,6 +1153,9 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Pass it — (\d+)\/10 or better — to get:$/, 'Пройдите её — $1/10 или лучше — и получите:'],
   [/^You passed the (\S+) league! You're in the (\S+) league now — tomorrow's ten words come from it\.$/, (_, a, b) => `Вы прошли лигу ${a === 'Kana' ? 'Кана' : a}! Теперь вы в лиге ${b} — завтрашние десять слов из неё.`],
   [/^You passed the (\S+) league — the highest there is\.$/, 'Вы прошли лигу $1 — самую высокую.'],
+  // 0.9.9.9.6.5: the host changes the room's mode
+  [/^(.+) switched the game to (.+)$/, (_, n, m) => `${n} сменил(а) режим: ${mode(m)}`],
+  [/^Too many players for (.+) — it is for (\d+)$/, (_, m, n) => `Слишком много игроков для режима «${mode(m)}» — он на ${n}`],
   // 0.9.9.9.5.2: the push test
   [/^(.+) reached a 30× combo — the arena trembles!$/, '$1 набирает комбо ×30 — арена дрожит!'],
   [/^Your character in battles\. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight \(N5\), the Witch \(N3\) and the Wizard \(N2\)\. You are in the (.+) league\.$/, (_, l) => `Ваш персонаж в битвах. Гоблин — ваш с самого начала; поднимайтесь по лигам ежедневного испытания, чтобы открыть Рыцаря (N4), Ведьму (N3) и Волшебника (N2). Вы в лиге ${l === 'Kana' ? 'Кана' : l}.`],

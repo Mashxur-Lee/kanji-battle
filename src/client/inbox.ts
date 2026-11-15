@@ -179,6 +179,7 @@ function sysText(m: DmView): string {
     case 'left': return `${who} ${tr('left the group')}`;
     case 'renamed': return `${who} ${tr('renamed the group to')} «${detail}»`;
     case 'photo': return `${who} ${tr('changed the group picture')}`;
+    case 'nophoto': return `${who} ${tr('removed the group picture')}`;
     case 'admin': return `${who} ${tr('made an admin:')} ${detail}`;
     case 'unadmin': return `${who} ${tr('took admin away from')} ${detail}`;
     case 'owner': return `${who} ${tr('gave the group to')} ${detail}`;

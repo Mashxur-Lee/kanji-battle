@@ -170,7 +170,17 @@ export async function openGroupInfo(key: string, hooks: GroupHooks) {
       title.append(ed);
     }
     const top = h('div', 'gp-top');
-    top.append(pic.el, title);
+    // 0.9.9.9.6.5: a picture once set can be taken away again
+    const picBox = h('div', 'gp-pic-box');
+    picBox.append(pic.el);
+    if (canInfo && g.pic) {
+      const rm = btn(tr('Remove picture'), 'pill gp-pic-rm', async () => {
+        if (!(await ui.confirmBox(tr('Remove the group picture?'), '', tr('Remove'), tr('Cancel')))) return;
+        try { g = (await api.updateGroup(g.id, { pic: null })).group; hooks.changed(g); render(); } catch (e) { ui.toast((e as Error).message); }
+      });
+      picBox.append(rm);
+    }
+    top.append(picBox, title);
     // notifications (Discord's bell: all, only @mentions, nothing)
     const notif = h('div', 'gp-sec gp-notify');
     notif.append(h('h4', '', tr('Notifications')));

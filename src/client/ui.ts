@@ -6,7 +6,7 @@ import { injectBorderStyles } from './borders';
 injectBorderStyles(); // 0.9.9.9.6.1: the league frames (drawn, as a style sheet)
 import { showStrokeOrder } from './strokes';
 import {
-  LEVEL_LABEL, LEVELS, MODE_LABEL, isKanaLevel, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
+  LEVEL_LABEL, LEVELS, MODE_LABEL, MODES, isKanaLevel, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
   type Level, type MatchSummary, type PlayerId, type PlayerStats, type PlayerView, type PublicProfile, type PlayerStatus, type PublicUser, type StudyItem, type Avatar,
 } from '../shared/protocol';
 import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
@@ -491,15 +491,52 @@ function renderModeGuide(mode: GameMode) {
 }
 
 // ── lobby ───────────────────────────────────────────────────────────────────
+/** 0.9.9.9.6.5: the host picks another mode for the room (main.ts sends it) */
+let onPickMode: ((m: GameMode) => void) | null = null;
+let lobbyModeLocked = false;
+export function setModePicker(fn: (m: GameMode) => void) { onPickMode = fn; }
+/** the tutorial's room keeps its mode */
+export function lockLobbyMode(on: boolean) { lobbyModeLocked = on; }
+function openModeMenu(anchor: HTMLElement, current: GameMode, humans: number) {
+  document.querySelector('.lm-menu')?.remove();
+  const pop = h('div', 'lm-menu');
+  pop.setAttribute('role', 'menu');
+  for (const m of MODES) {
+    const max = m === 'boss' ? 4 : 2;
+    const b = h('button', `lm-opt ${m}${m === current ? ' on' : ''}`) as HTMLButtonElement;
+    b.type = 'button'; b.setAttribute('role', 'menuitemradio'); b.setAttribute('aria-checked', String(m === current));
+    b.append(modeBadge(m), h('span', 'lm-opt-n', MODE_LABEL[m]));
+    if (humans > max) { b.disabled = true; b.title = tr('Too many players for this mode'); }
+    b.onclick = (e) => { e.stopPropagation(); pop.remove(); if (m !== current) onPickMode?.(m); };
+    pop.append(b);
+  }
+  document.body.append(pop);
+  const r = zrect(anchor);
+  const w = pop.offsetWidth;
+  pop.style.left = `${Math.max(8, Math.min(viewW() - w - 8, r.left + r.width / 2 - w / 2))}px`;
+  pop.style.top = `${Math.min(viewH() - pop.offsetHeight - 8, r.bottom + 8)}px`;
+  const shut = (e: Event) => { if (!pop.contains(e.target as Node)) { pop.remove(); removeEventListener('pointerdown', shut, true); } };
+  setTimeout(() => addEventListener('pointerdown', shut, true));
+}
 export function showLobby(code: string, mode: GameMode, players: PlayerView[], you: PlayerId, hostId: PlayerId, maxPlayers: number, minPlayers: number, open = false) {
   $('code').textContent = code;
   // 0.9.9.9.5.5: the mode as a banner at the top centre, with its kanji
   const lm = $('lobbyMode');
-  if (lm.dataset.mode !== mode) {
+  const humans = players.filter((p) => !p.bot).length;
+  const canChange = you === hostId && !lobbyModeLocked;
+  if (lm.dataset.mode !== mode || lm.dataset.can !== String(canChange)) {
     lm.dataset.mode = mode;
-    lm.className = `lobby-mode ${mode}`;
+    lm.dataset.can = String(canChange);
+    lm.className = `lobby-mode ${mode}${canChange ? ' can-change' : ''}`;
     lm.replaceChildren(modeBadge(mode), h('span', 'lm-name', MODE_LABEL[mode]));
+    // 0.9.9.9.6.5: the host can switch the room to another mode here
+    if (canChange) {
+      const caret = h('span', 'lm-change', tr('Change'));
+      lm.append(caret);
+    }
   }
+  lm.onclick = canChange ? (e) => { e.stopPropagation(); openModeMenu(lm, mode, humans); } : null;
+  lm.title = canChange ? tr('Change the game mode') : '';
   // open / closed: the host flips it; the others see which it is
   const isHost0 = you === hostId;
   const sw = $<HTMLButtonElement>('lobbyOpen');
