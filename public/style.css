@@ -5492,7 +5492,8 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 
 /* 0.9.9.9.6.6: the copyright — under the menu and on the login screen */
 .copyright { margin: 0; font-size: .7rem; color: rgba(255, 255, 255, .45); letter-spacing: .02em; text-align: center; }
-#menu > .copyright { position: absolute; left: 0; right: 0; bottom: -18px; pointer-events: none; }
+#menu > .copyright { position: absolute; left: 0; right: 0; bottom: -4px; pointer-events: none; }
+#menu > .menu-foot { bottom: 14px; }
 @media (max-width: 900px) { #menu > .copyright { position: static; margin: 12px 0 64px; } }
 #auth .copyright { margin-top: 10px; }
 :root[data-theme="light"] .copyright { color: rgba(0, 0, 0, .45); }
