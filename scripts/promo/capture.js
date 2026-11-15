@@ -57,6 +57,7 @@ async (page, shot, sleep, info) => {
   await page.goto('about:blank'); // the harness's own page would keep drawing the menu in software GL
 
   const { chromium } = require('playwright');
+  setTimeout(() => { log('watchdog'); process.exit(0); }, 85 * 60e3).unref();
   // software raster on all four cores: about 20 frames a second at 1280×720 (the default SwiftShader GL manages 1–2)
   const fast = await chromium.launch({ args: ['--disable-gpu', '--num-raster-threads=4', '--autoplay-policy=no-user-gesture-required'] });
   const open = async (opts, { threeD = false, lang = 'en', token = tok, browser = fast } = {}) => {
@@ -64,7 +65,7 @@ async (page, shot, sleep, info) => {
     const p = await ctx.newPage();
     p.on('pageerror', (e) => log('pageerror ' + String(e).slice(0, 200)));
     await p.goto(url);
-    await p.evaluate(([t, l, d3]) => { localStorage.setItem('kb:token', t); localStorage.setItem('kb:lang', l); localStorage.setItem('kb:seenVersion', 'x'); localStorage.setItem('kb:3d', d3 ? 'on' : 'off'); localStorage.setItem('kb:tasksNoticeOff', '1'); localStorage.setItem('kb:uizoom', '1'); }, [token, lang, threeD]);
+    await p.evaluate(([t, l, d3]) => { localStorage.setItem('kb:token', t); localStorage.setItem('kb:lang', l); localStorage.setItem('kb:seenVersion', 'x'); localStorage.setItem('kb:3d', d3 ? 'on' : 'off'); localStorage.setItem('kb:tasksNoticeOff', '1'); localStorage.setItem('kb:uizoom', '1'); localStorage.setItem('kb:filming', '1'); }, [token, lang, threeD]);
     await p.reload(); await p.waitForSelector('#menu:not([hidden])', { timeout: 90000 }); await sleep(3000);
     await p.evaluate(() => { for (const d of document.querySelectorAll('dialog[open]')) d.close(); });
     return { ctx, p };
@@ -135,10 +136,10 @@ async (page, shot, sleep, info) => {
       if (i % 10 === 5) await unpause(p);
       if ((st.go || st.pad) && st.k && st.k !== lastWord) {
         lastWord = st.k;
-        if (st.go) { await sleep(700); await p.click('#castGo').catch(() => {}); await sleep(450); }
+        if (st.go) { await sleep(700); await p.evaluate(() => document.getElementById('castGo').click()); await sleep(450); }
         log('pad ' + JSON.stringify(await p.locator('#pad').boundingBox()) + ' ' + st.k);
         if (!(await drawChars(p, st.k))) return 'no pad';
-        await sleep(350); await p.click('#padNext').catch(() => {}); await sleep(900);
+        await sleep(350); await p.evaluate(() => document.getElementById('padNext').click()); await sleep(900);
         const good = await p.evaluate(() => document.getElementById('feedback').className);
         return `wrote ${st.k}[${/good/.test(good) ? 'ok' : good}]`;
       }
@@ -177,21 +178,9 @@ async (page, shot, sleep, info) => {
     await sleep(500); await stop(); await still(p, 'menu');
   });
 
-  await step('battle2d', () => battleClip('02-battle2d', 'reading', 1, async (p) => {
-    const got = []; for (let i = 0; i < 5; i++) { got.push(await answer(p)); await sleep(1300); if (i === 2) await still(p, 'battle2d'); }
-    return got;
-  }));
   await step('writing', () => battleClip('04-writing', 'writing', 1, async (p) => {
     const got = []; for (let i = 0; i < 3; i++) { const r = await write(p); got.push(r); if (/no word|left/.test(r)) break; await sleep(700); if (i === 0) await still(p, 'writing'); }
     return got;
-  }));
-  await step('boss', () => battleClip('05-boss', 'boss', 3, async (p) => {
-    const got = []; for (let i = 0; i < 4; i++) { got.push(await answer(p)); await sleep(1300); if (i === 1) await still(p, 'boss'); }
-    return got;
-  }));
-  await step('rapid', () => battleClip('06-rapid', 'rapid', 1, async (p) => {
-    const got = []; for (let i = 0; i < 6; i++) got.push(await answer(p));
-    await still(p, 'rapid'); await sleep(800); return got;
   }));
   await step('deck', () => battleClip('07-deck', 'deck', 1, async (p) => {
     const got = []; let seen = '', wrote = '';
@@ -292,22 +281,132 @@ async (page, shot, sleep, info) => {
   });
   await fast.close();
 
-  // ── WebGL pictures (the runner's SwiftShader: slow, stills only) ──
-  await step('battle3d', async () => {
-    const { ctx: c3, p: p3 } = await open(W, { threeD: true, token: await freshTok('Yuki'), browser: info.browser });
-    await lobby(p3, 'reading', 1, 'N5'); await go(p3); await sleep(8000);
-    await unpause(p3); log('3d raf ' + await rafFps(p3));
-    const stop = await rec(p3, '03-battle3d');
-    const got = []; for (let i = 0; i < 3; i++) { got.push(await answer(p3)); await sleep(1800); if (i === 1) { await unpause(p3); await still(p3, 'battle3d'); } }
-    await stop(); log('3d answers ' + got.join(' '));
-    log('3d ' + await p3.evaluate(() => document.body.classList.contains('has-3d')));
-    await c3.close();
+  // ── The 3D arena (and the menu), filmed frame by frame in virtual time (0.9.9.9.6.8) ──
+  // Chrome runs with begin-frame control: nothing is drawn until we ask, and the page's clock only moves when we
+  // move it (40 ms a frame), so every frame is full quality however long the software renderer takes. The battles
+  // run in the browser itself (offline mode, the same Room and AI), so they keep to the same clock.
+  const withTimeout = (pr, ms, what) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout ' + what)), ms))]);
+  const det = await chromium.launch({ args: ['--deterministic-mode', '--enable-begin-frame-control', '--disable-new-content-rendering-timeout', '--run-all-compositor-stages-before-draw', '--disable-threaded-animation', '--disable-threaded-scrolling', '--disable-checker-imaging', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  let adminTok = null;
+  try { adminTok = (await (await fetch(BASE + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'ci-admin' }) })).json()).token; } catch { /* none */ }
+  log('admin ' + !!adminTok);
+  // a wizard with everything unlocked (admin role) and a chosen look
+  let starTok = null;
+  const star = async (name, look) => {
+    if (!starTok) {
+      const r = await register(page, 'Akira');
+      if (!r.user) { log('register failed ' + JSON.stringify(r).slice(0, 120)); return tok; }
+      await call(page, 'PUT', '/api/me/tutorial', null, r.token);
+      if (adminTok) await call(page, 'POST', `/api/admin/users/${r.user.id}/role`, { role: 'admin' }, adminTok);
+      starTok = r.token;
+    }
+    for (const [k, v] of Object.entries(look)) { const x = await call(page, 'PUT', `/api/me/${k}`, { [k]: v }, starTok); if (x.error) log(`look ${k}=${v}: ${x.error}`); }
+    return starTok;
+  };
+  const detOpen = async (token) => {
+    const ctx = await det.newContext({ viewport: { width: 1280, height: 720 } });
+    const p = await withTimeout(ctx.newPage(), 30000, 'newPage');
+    p.on('pageerror', (e) => log('det pageerror ' + String(e).slice(0, 200)));
+    const cdp = await ctx.newCDPSession(p);
+    const st = { pumping: true };
+    st.pump = (async () => { while (st.pumping) { try { await withTimeout(cdp.send('HeadlessExperimental.beginFrame', { interval: 33 }), 120000, 'bf'); } catch { await sleep(300); } await sleep(15); } })();
+    await withTimeout(p.goto(url), 90000, 'goto');
+    await p.evaluate(([t]) => { const o = { 'kb:token': t, 'kb:lang': 'en', 'kb:seenVersion': 'x', 'kb:3d': 'on', 'kb:tasksNoticeOff': '1', 'kb:uizoom': '1', 'kb:filming': '1' }; for (const [k, v] of Object.entries(o)) localStorage.setItem(k, v); }, [token]);
+    await withTimeout(p.reload(), 90000, 'reload');
+    let ok = false;
+    for (let i = 0; i < 60 && !ok; i++) { ok = await withTimeout(p.evaluate(() => document.body?.dataset.screen === 'menu' && !document.getElementById('menu').hidden), 15000, 'eval').catch(() => false); if (!ok) await sleep(2000); }
+    log('det menu ' + ok);
+    await sleep(4000);
+    await p.evaluate(() => { for (const d of document.querySelectorAll('dialog[open]')) d.close(); });
+    return { ctx, p, cdp, st };
+  };
+  // from here the page's time is ours
+  const vclip = async (o, name, frames, onFrame) => {
+    o.st.pumping = false; await o.st.pump;
+    await o.cdp.send('Emulation.setVirtualTimePolicy', { policy: 'pause' });
+    let ticks = Number(process.hrtime.bigint() / 1000000n) + 2000;
+    const dir = `${out}/f-${name}`; fs.mkdirSync(dir, { recursive: true });
+    const ts = []; let prev = null; const t0 = Date.now();
+    for (let f = 0; f < frames; f++) {
+      if (onFrame) await onFrame(f);
+      await withTimeout(new Promise((res) => { o.cdp.once('Emulation.virtualTimeBudgetExpired', res); o.cdp.send('Emulation.setVirtualTimePolicy', { policy: 'advance', budget: 40 }); }), 120000, 'budget');
+      ticks += 40;
+      let r = null;
+      for (let k = 0; k < 40 && !r; k++) {
+        try { r = await withTimeout(o.cdp.send('HeadlessExperimental.beginFrame', { frameTimeTicks: ticks, interval: 40, screenshot: { format: 'jpeg', quality: 90 } }), 180000, 'frame'); }
+        catch (e) { if (!/pending/.test(String(e))) throw e; await sleep(500); } // (the last frame of the warm-up still drawing)
+      }
+      if (!r) throw new Error('no frame');
+      const data = r.screenshotData ? Buffer.from(r.screenshotData, 'base64') : prev;
+      if (data) { prev = data; fs.writeFileSync(`${dir}/${String(ts.length + 1).padStart(5, '0')}.jpg`, data); ts.push(f * 40); }
+      if (f % 50 === 0) log(`${name} frame ${f}/${frames}, ${((Date.now() - t0) / (f + 1) / 1000).toFixed(2)} s/frame`);
+    }
+    fs.writeFileSync(`${dir}/times.json`, JSON.stringify({ ts, end: frames * 40 }));
+    log(`${name}: ${ts.length} frames`);
+  };
+  // the player, frame by frame: a new word → read it for a moment, type it a letter every 2 frames, Enter
+  const typist = (p) => {
+    let plan = null, last = '';
+    const got = [];
+    const fn = async (f) => {
+      if (f % 40 === 20) await p.evaluate(() => { const b = document.getElementById('resumeBtn'); if (b && b.offsetParent) b.click(); });
+      if (!plan) {
+        if (f % 2) return;
+        const st = await p.evaluate(() => { const i = document.getElementById('answer'); return { k: document.getElementById('kanji').textContent.trim(), ok: !!i && !i.disabled && i.dataset.locked !== '1' }; });
+        if (st.ok && st.k && st.k !== last) { last = st.k; const r = reading.get(st.k); plan = { text: r ? toRomaji(r) : 'nani', at: f + 12, k: st.k }; }
+      } else if (f >= plan.at) {
+        const i = Math.floor((f - plan.at) / 2);
+        if (i <= plan.text.length) await p.evaluate((v) => { const el = document.getElementById('answer'); if (el.value !== v) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); } }, plan.text.slice(0, i));
+        if (i === plan.text.length + 2) { await p.evaluate(() => document.getElementById('answer').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))); got.push(plan.k); plan = null; }
+      }
+    };
+    fn.got = got;
+    return fn;
+  };
+  // a battle against the AI that runs in the page (offline mode)
+  const detBattle = async (name, mode, bots, look, frames) => step(name, async () => {
+    const o = await detOpen(await star(look.n, look.l));
+    try {
+      await o.p.context().route('**/api/online', (r) => r.abort()); // stays offline once there
+      await o.p.evaluate(() => window.dispatchEvent(new Event('offline')));
+      await sleep(800);
+      await o.p.evaluate(() => document.getElementById('privateBtn').click()); await sleep(1500);
+      await o.p.evaluate(() => document.getElementById('create').click()); await sleep(2000);
+      await o.p.evaluate((m) => document.querySelector(`.mode-card[data-mode="${m}"]`)?.click(), mode); await sleep(2500);
+      for (let i = 0; i < bots; i++) { await o.p.evaluate(() => { const s = document.getElementById('botLevel'); if (s) s.value = 'N5'; document.getElementById('addBotBtn')?.click(); }); await sleep(1500); }
+      await o.p.evaluate(() => document.getElementById('readyBtn')?.click()); await sleep(1200);
+      await o.p.evaluate(() => { const s = document.getElementById('start'); if (s && !s.hidden) s.click(); }); await sleep(2000);
+      await o.p.evaluate(() => document.getElementById('ready')?.click());
+      for (let i = 0; i < 90 && (await o.p.evaluate(() => document.body.dataset.screen)) !== 'battle'; i++) await sleep(1000);
+      log(`${name}: ${await o.p.evaluate(() => `${document.body.dataset.screen} 3d=${document.body.classList.contains('has-3d')} ${document.getElementById('error')?.textContent || ''}`)}`);
+      await sleep(4000);
+      const t = typist(o.p);
+      await vclip(o, name, frames, t);
+      log(`${name} answered ${t.got.join(' ')}`);
+    } finally { await withTimeout(o.ctx.close(), 30000, 'close').catch(() => {}); }
   });
-  await step('customize', async () => {
-    const { ctx: c4, p: p4 } = await open(W, { browser: info.browser });
-    await p4.evaluate(() => document.getElementById('customizeBtn').click()); await sleep(9000);
-    await still(p4, 'customize');
-    await c4.close();
+
+  await step('det-menu', async () => {
+    const o = await detOpen(tok);
+    try {
+      await vclip(o, 'd-menu', 160, async (f) => { if (f === 30 || f === 62 || f === 94 || f === 126) await o.p.evaluate(() => document.querySelector('.mcc-next')?.click()); });
+    } finally { await withTimeout(o.ctx.close(), 30000, 'close').catch(() => {}); }
   });
+  await detBattle('d-duel', 'reading', 1, { n: 'Akira', l: { character: 'wizard', staff: 'storm', flame: 'thunder', background: 'worldtree' } }, 330);
+  await detBattle('d-boss', 'boss', 3, { n: 'Sora', l: { character: 'witch', staff: 'void', flame: 'starlight', background: 'castle' } }, 330);
+  await detBattle('d-rapid', 'rapid', 1, { n: 'Kaito', l: { character: 'knight', staff: 'moon', flame: 'ember', background: 'swamp' } }, 260);
+  await step('det-customize', async () => {
+    const o = await detOpen(await star('Rin', { character: 'witch', staff: 'abyss', flame: 'sakura', background: 'forest' }));
+    try {
+      await o.p.evaluate(() => document.getElementById('customizeBtn').click()); await sleep(15000);
+      await vclip(o, 'd-customize', 240, async (f) => {
+        if (f === 110) await o.p.evaluate(() => document.querySelector('#lkLeft .lk-slot')?.click());
+        if (f === 150) await o.p.evaluate(() => { const b = [...document.querySelectorAll('#lkTray button')].filter((x) => x.offsetParent); (b[3] || b[1])?.click(); });
+        if (f === 195) await o.p.evaluate(() => { const b = [...document.querySelectorAll('#lkTray button')].filter((x) => x.offsetParent); (b[1] || b[0])?.click(); });
+      });
+    } finally { await withTimeout(o.ctx.close(), 30000, 'close').catch(() => {}); }
+  });
+  await withTimeout(det.close(), 30000, 'det close').catch(() => {});
+
   log('done');
 }

@@ -7,6 +7,17 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.6.8', date: '2026-11',
+    en: [
+      'Achievements: the description of a badge is no longer hidden behind the blue star of the badge above it.',
+      'A new trailer on the game’s page: the 3D arena up close, with the menu music.',
+    ],
+    ru: [
+      'Достижения: описание значка больше не закрывает синяя звёздочка значка над ним.',
+      'Новый трейлер на странице игры: 3D-арена крупным планом, с музыкой из меню.',
+    ],
+  },
+  {
     v: '0.9.9.9.6.7', date: '2026-11',
     en: [
       'The 2D arena: the wizards are bigger — they fill the arena the way they should, on computers and phones.',

@@ -10,7 +10,7 @@ SHOTS, OUT = sys.argv[1], sys.argv[2]
 HERE = os.path.dirname(os.path.abspath(__file__))
 CAPS = os.path.join(HERE, 'caps')
 os.makedirs(f'{OUT}/clips', exist_ok=True)
-FPS, T = 25, 0.4  # frame rate, cross-fade length
+FPS, T = 25, 0.6  # frame rate, cross-fade length (0.9.9.9.6.8: slower, calmer)
 
 # (clip, start s, length s) in trailer order; edited after looking at the clips
 ORDER = json.load(open(os.path.join(HERE, sys.argv[3] if len(sys.argv) > 3 else 'order.json')))
@@ -85,7 +85,14 @@ def build():
         cur = nxt
     filters.append(f"[{cur}]fade=in:st=0:d=0.5[out]" if not BARE else f"[{cur}]null[out]")
     total = sum(durs) - T * (len(durs) - 1)
-    run(['ffmpeg', '-y', '-loglevel', 'error', *inputs, '-filter_complex', ';'.join(filters), '-map', '[out]',
+    music = os.environ.get('MUSIC')
+    amap = []
+    if music:
+        # the menu theme under it all: in gently, out with the end card
+        inputs += ['-i', music]
+        filters.append(f"[{len([x for x in inputs if x == '-i']) - 1}:a]atrim=0:{total:.2f},asetpts=PTS-STARTPTS,aformat=channel_layouts=stereo,loudnorm=I=-17:TP=-1.5:LRA=11,afade=t=in:d=1.5,afade=t=out:st={total - 3.2:.2f}:d=3.2[aout]")
+        amap = ['-map', '[aout]', '-c:a', 'aac', '-b:a', '160k', '-ar', '48000']
+    run(['ffmpeg', '-y', '-loglevel', 'error', *inputs, '-filter_complex', ';'.join(filters), '-map', '[out]', *amap,
          '-c:v', 'libx264', '-crf', '22', '-preset', 'slower', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-r', str(FPS), f'{OUT}/{NAME}.mp4'])
     print(f'{NAME} {total:.1f}s', os.path.getsize(f'{OUT}/{NAME}.mp4') // 1024, 'KB')
 
