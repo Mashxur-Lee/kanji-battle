@@ -24,6 +24,8 @@ function report(message: string, stack = '') {
     keepalive: true,
   }).catch(() => {});
 }
+/** 0.9.9.9.6.7: a layout bug report (no exception) — e.g. the menu taller than the window on a computer */
+export function reportLayout(message: string, details: string) { report(message, details); }
 addEventListener('error', (e) => {
   if (!e.message || /ResizeObserver loop/.test(e.message)) return; // harmless browser noise
   report(e.message, e.error?.stack ?? `${e.filename}:${e.lineno}:${e.colno}`);
