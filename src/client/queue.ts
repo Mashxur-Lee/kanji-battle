@@ -5,6 +5,7 @@ import { canPlay, lockText } from './tutorial';
 import * as ui from './ui';
 import * as audio from './audio';
 import { renderDeckGuide } from './deckui';
+import { tr } from './i18n';
 
 // The online queue screen: pick modes + levels (or Deck Duel on its own) and search for a player.
 
@@ -108,7 +109,40 @@ export function openQueue() {
   ui.show('queue');
 }
 
+// ── 0.9.9.9.6.6: nobody yet? after 20 s, an AI game while you wait (an AI, and it says so) ──
+const AI_AFTER_S = 20;
+let onPlayAi: ((mode: GameMode, level: string, levels: Level[]) => void) | null = null;
+export function setPlayAi(fn: (mode: GameMode, level: string, levels: Level[]) => void) { onPlayAi = fn; }
+let aiModes: GameMode[] = [];
+function aiLevel(levels: Level[]): string {
+  const jlpt = (['N1', 'N2', 'N3', 'N4', 'N5'] as const).find((l) => levels.includes(l));
+  return jlpt ?? 'BEGINNER';
+}
+function showAiOffer(on: boolean) {
+  let box = document.getElementById('qAi');
+  if (!on) { if (box) box.hidden = true; return; }
+  const levels = load().levels;
+  const mode = aiModes.find((m) => m !== 'boss') ?? aiModes[0] ?? 'reading';
+  const lv = aiLevel(mode === 'deck' ? ['N3'] : levels);
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'qAi'; box.className = 'q-ai';
+    ui.$('qCancel').before(box);
+  }
+  if (box.dataset.key === `${mode}|${lv}` && !box.hidden) return;
+  box.dataset.key = `${mode}|${lv}`;
+  const p = document.createElement('p');
+  p.textContent = tr('No one yet — play an AI while you wait?');
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'pill primary q-ai-btn';
+  b.append(ui.modeBadge(mode), document.createTextNode(` ${tr(MODE_LABEL[mode])} · ${tr('AI')} ${lv === 'BEGINNER' ? tr('Beginner') : lv}`));
+  b.onclick = () => { send({ type: 'queue_cancel' }); stopSearching(); onPlayAi?.(mode, lv, levels); };
+  box.replaceChildren(p, b);
+  box.hidden = false;
+}
+
 function stopSearching() {
+  showAiOffer(false);
   searching = false;
   clearInterval(tick);
   ui.$('queuePick').hidden = false;
@@ -183,11 +217,12 @@ export function onQueue(msg: Extract<ServerMessage, { type: 'queue' }>) {
   const started = Date.now() - ((msg.now ?? 0) - (msg.since ?? 0));
   const others = (msg.searching ?? 1) - 1;
   const boss = (msg.modes ?? []).includes('boss') ? ` · Boss needs 4 players: ${Math.min(4, msg.boss ?? 1)} / 4 queued` : '';
+  aiModes = msg.modes ?? [];
   ui.$('qInfo').textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(' · ')} — ${others > 0 ? `${others} other player${others === 1 ? '' : 's'} searching` : 'no one else searching yet'}${boss}`;
   if (!searching) {
     searching = true;
     clearInterval(tick);
-    const paint = () => { const s = Math.floor((Date.now() - started) / 1000); ui.$('qTimer').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+    const paint = () => { const s = Math.floor((Date.now() - started) / 1000); ui.$('qTimer').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; if (s >= AI_AFTER_S && searching) showAiOffer(true); };
     paint();
     tick = window.setInterval(paint, 500);
   }

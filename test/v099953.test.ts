@@ -46,7 +46,7 @@ test('0.9.9.9.5.3 the phone\'s game language is kept with its push token (the no
   const store = new MemoryStore();
   const study = new StudyService(store);
   const auth = new AuthService(store, new TokenSigner('t'));
-  const { user } = await auth.register('plang', 'secret12');
+  const { user } = await auth.register('plang', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   const tok = 'f'.repeat(40);
   await study.addPushToken((await store.findById(user.id))!, tok, 'ru');
   let u = (await store.findById(user.id))!;

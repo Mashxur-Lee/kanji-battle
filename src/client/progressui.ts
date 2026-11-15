@@ -53,6 +53,7 @@ export async function openProgress(myUnlocks: readonly string[] = [], myBadges: 
 function render() {
   if (!page) return;
   renderWeek(page.activity);
+  renderKnow(page);
   $('progMonth').replaceChildren(...monthNodes(page.month));
   renderHeatmap(page.activity);
   renderAchievements($('progAch'), unlocks, badges, (next) => {
@@ -99,6 +100,68 @@ function renderWeek(activity: DayActivity[]) {
     bars.append(bar);
   }
   $('progWeek').replaceChildren(el('h3', '', 'This week'), grid, bars);
+}
+
+// ── 0.9.9.9.6.6: what you know (per level), what's coming (reviews due), how well you remember ──
+function renderKnow(p: ProgressPage) {
+  const box = $('progKnow');
+  // 1) words you know — learned (in review) or mastered — of every word in the level
+  const levels = el('div', 'pk-levels');
+  let knownAll = 0, totalAll = 0;
+  for (const l of BASE_LEVELS) {
+    const words = p.mastery[l] ?? [];
+    if (!words.length) continue;
+    const mastered = words.filter((w) => w[1] === 4).length;
+    const known = words.filter((w) => w[1] >= 3).length;
+    const kana = isKanaLevel(l);
+    const knownN = kana ? mastered : known; // (kana: mastered = 10 stars)
+    knownAll += knownN; totalAll += words.length;
+    const row = el('div', 'pk-row');
+    const bar = el('div', 'pk-bar');
+    const a = el('i', 'pk-m'); a.style.width = `${(mastered / words.length) * 100}%`;
+    const b = el('i', 'pk-k'); b.style.width = `${(Math.max(0, knownN - mastered) / words.length) * 100}%`;
+    bar.append(a, b);
+    const name = el('span', 'pk-name', LEVEL_LABEL[l]); name.lang = kana ? 'ja' : '';
+    row.append(name, bar, el('span', 'pk-n', `${knownN.toLocaleString()} / ${words.length.toLocaleString()}`));
+    row.title = tr(kana ? 'Mastered (10 stars in Kana)' : 'Known: learned or mastered (mastered = remembered for 3+ weeks)');
+    levels.append(row);
+  }
+  const head = el('div', 'pk-head');
+  head.append(el('h3', '', tr('What you know')), el('span', 'pk-total', `${knownAll.toLocaleString()} ${tr('of')} ${totalAll.toLocaleString()} ${tr('words')}`));
+  const legend = el('div', 'pk-legend');
+  legend.append(el('span', 'm', tr('mastered')), el('span', 'k', tr('learned')));
+  // 2) reviews coming in the next 7 days
+  const fc = p.forecast ?? [];
+  const coming = el('div', 'pk-side');
+  const max = Math.max(1, ...fc);
+  const bars = el('div', 'pk-fc');
+  fc.forEach((n, i) => {
+    const d = el('div', 'pk-fc-day');
+    const f = el('i'); f.style.height = `${Math.max(n ? 8 : 0, Math.round((n / max) * 100))}%`;
+    const dayName = i === 0 ? tr('today') : new Date(`${shift(today(), i)}T12:00:00`).toLocaleDateString(locale(), { weekday: 'short' });
+    d.title = `${dayName}: ${n}`;
+    d.append(el('b', '', String(n)), el('span', 'pk-fc-bar'), el('small', '', dayName));
+    d.querySelector('.pk-fc-bar')!.append(f);
+    bars.append(d);
+  });
+  coming.append(el('h4', '', tr('Reviews coming')), bars, el('p', 'hint', tr(fc[0] ? 'Do today’s and the rest stays light.' : 'Nothing due today — new words, or a game?')));
+  // 3) how well you remember: learned words answered right when they came back, last 30 days
+  const from = shift(today(), -29);
+  const recent = p.activity.filter((a) => a.day >= from);
+  const ok = recent.reduce((n, a) => n + (a.recalled ?? 0), 0), miss = recent.reduce((n, a) => n + (a.forgot ?? 0), 0);
+  const ret = el('div', 'pk-side pk-ret');
+  ret.append(el('h4', '', tr('How well you remember')));
+  if (ok + miss >= 5) {
+    const pct = Math.round((ok / (ok + miss)) * 100);
+    const ring = el('div', `pk-ring${pct >= 85 ? ' good' : pct >= 70 ? ' ok' : ' low'}`);
+    ring.style.setProperty('--p', String(pct));
+    ring.append(el('b', '', `${pct}%`));
+    ret.append(ring, el('p', 'hint', `${tr('of learned words remembered when they came back')} · ${(ok + miss).toLocaleString()} ${tr('reviews, last 30 days')}`));
+  } else ret.append(el('p', 'hint', tr('Review a few learned cards and it shows here how many you remember.')));
+  const cols = el('div', 'pk-cols');
+  const left = el('div', 'pk-main'); left.append(head, levels, legend);
+  cols.append(left, coming, ret);
+  box.replaceChildren(cols);
 }
 
 const score = (a?: DayActivity) => (a ? a.reviews + a.games * 5 + (a.login ? 1 : 0) : 0);

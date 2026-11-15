@@ -1,6 +1,6 @@
 # Credits and licences
 
-Kanji Wizards uses the following third-party work. Thank you to everyone who made it freely available.
+Kanji Wizards is © its author, all rights reserved (see [LICENSE](LICENSE)). It uses the following third-party work, which keeps its own licence. Thank you to everyone who made it freely available.
 The same list is shown in the game under **About** (main menu).
 
 | What | Where it is used | Source | Licence |
@@ -19,8 +19,8 @@ The same list is shown in the game under **About** (main menu).
 | 3D arena | `public/arena3d.js` (bundled) | [three.js](https://threejs.org/) | MIT |
 | 3D staffs and arenas | `src/client/staffs3d.ts`, `src/client/arenas/` | ported from the project's own Blender scripts (made by the game's author) | — |
 | 3D characters (goblin, knight, witch, wizard) and the Black Dragon | `public/models/*.glb` | Made for this game with the project's own low-poly modelling scripts | — |
-| Painted backgrounds (five places, day / sunset / night) and their moving parts | `public/bg/` | Made for this game, provided by the game's author | — |
-| League frames (Kana–N1) and the weekly streak flames | `public/frames/`, `public/flames/` | Animated paintings made for this game, provided by the game's author | — |
+| Painted backgrounds (five places, day / sunset / night) and their moving parts | `public/bg/` | Generated with AI image tools for this game by its author, then cut and animated for the game | — |
+| League frames (Kana–N1) and the weekly streak flames | `public/frames/`, `public/flames/` | Generated with AI image and animation tools for this game by its author | — |
 | 2D characters, staffs, icons, interface and sounds | `src/client/` | Drawn and synthesised in code for this game | — |
 
 ## Software

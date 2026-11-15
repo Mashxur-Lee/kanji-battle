@@ -31,6 +31,8 @@ export interface ProgressPage {
   /** per level: every word as [kanji, Mastery] in the vocab order */
   mastery: Record<Level, Array<[string, number, number]>>;
   month: MonthProgress;
+  /** 0.9.9.9.6.6: reviews due on each of the next 7 days (today counts what's overdue too) */
+  forecast: number[];
 }
 
 const DAY_MS = 86_400_000;
@@ -130,6 +132,14 @@ export class ProgressService {
         : Mastery.Learning;
       mastery[studyLevelOf(v)]?.push([v.kanji, m, progressOf(c)]);
     }
-    return { activity: await this.store.activity(u.id, shiftDay(day, -26 * 7)), mastery, month: await this.month(u, day) };
+    // 0.9.9.9.6.6: what's coming — every card (each deck keeps its own schedule), by the day it's due
+    const forecast = Array.from({ length: 7 }, () => 0);
+    const dayStart = Date.parse(`${day}T00:00:00Z`);
+    for (const c of await this.store.cards(u.id)) {
+      if (c.state === 'new') continue;
+      const i = Math.max(0, Math.floor((c.due - dayStart) / DAY_MS));
+      if (i < 7) forecast[i]++;
+    }
+    return { activity: await this.store.activity(u.id, shiftDay(day, -26 * 7)), mastery, month: await this.month(u, day), forecast };
   }
 }

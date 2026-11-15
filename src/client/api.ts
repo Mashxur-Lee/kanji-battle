@@ -17,13 +17,13 @@ export interface Profile { xp: number; level: number; crit: number; learned: num
   tutorialDone: boolean; unlocks: string[]; month: MonthProgress; dailyNew?: number; badges?: string[];
   tasks?: DailyTaskState[]; streakDay?: string | null; border?: string; starred?: string[]; kana?: KanaProgress; /** 0.9.9.9.5.5 */ quizStats?: QuizStats }
 export interface MonthProgress { month: string; name: string; reward: string; goals: Array<{ id: string; label: string; target: number; value: number }>; done: boolean; unlocked: boolean }
-export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number }
+export interface DayActivity { day: string; login: boolean; reviews: number; games: number; wins: number; xp: number; /** 0.9.9.9.6.6 */ recalled?: number; forgot?: number }
 /** 0.9.9.7: a dictionary word (server/study/DictService.ts) */
 export interface DictEntry { i: number; kanji: string[]; kana: string[]; romaji: string; senses: Array<[string[], string, string[], string]>; ru: string[]; common: boolean; vocabId?: string; level?: Level }
-export interface ProgressPage { activity: DayActivity[]; mastery: Record<Level, Array<[kanji: string, mastery: number, progress: number]>>; month: MonthProgress; achCounts?: Partial<Record<string, number>> }
+export interface ProgressPage { /** 0.9.9.9.6.6 */ forecast?: number[]; activity: DayActivity[]; mastery: Record<Level, Array<[kanji: string, mastery: number, progress: number]>>; month: MonthProgress; achCounts?: Partial<Record<string, number>> }
 export interface DailyWord { index: number; total: number; kanji: string; level: Level; timeLimitMs: number }
 export interface DailyDone { correct: number; ms: number; rank: number; players: number; xp: number; league?: string; promoted?: string | null; /** 0.9.9.9.6.4 */ passed?: string | null }
-export interface DailyOverview { league?: string; nextLeague?: string; promoteAt?: number; /** 0.9.9.9.6.4: the leagues you've passed (their rewards are yours) */ passed?: string[]; day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
+export interface DailyOverview { /** 0.9.9.9.6.6: the friend you race today (null: none of your friends played yet) */ ghost?: { name: string; correct: number; ms: number; marks: string } | null; league?: string; nextLeague?: string; promoteAt?: number; /** 0.9.9.9.6.4: the leagues you've passed (their rewards are yours) */ passed?: string[]; day: string; total: number; wordMs: number; mine: { correct: number; ms: number } | null; rank: number | null; inProgress: boolean;
   board: Array<{ id: string; name: string; correct: number; ms: number }>;
   /** 0.9.9.8.2: every league's board */
   boards?: Record<string, Array<{ id: string; name: string; correct: number; ms: number }>>; words: Array<{ id?: string; kanji: string; reading: string; meaning: string; level: Level; ok: boolean | null }> | null }
@@ -113,7 +113,11 @@ async function local<T>(method: string, url: string, body?: unknown, op?: string
 
 export const api = {
   login: (username: string, password: string) => call<{ token: string; user: PublicUser }>('POST', '/api/login', { username, password }),
-  register: (username: string, password: string) => call<{ token: string; user: PublicUser }>('POST', '/api/register', { username, password }),
+  register: (username: string, password: string, email: string) => call<{ token: string; user: PublicUser }>('POST', '/api/register', { username, password, email }),
+  /** 0.9.9.9.6.6: your email (with your password); forgot your password → a code by email → a new one */
+  setEmail: (email: string, password: string) => call<{ user: PublicUser }>('PUT', '/api/me/email', { email, password }),
+  forgotPassword: (login: string) => call<{ sent: boolean }>('POST', '/api/password/forgot', { login }),
+  resetPassword: (login: string, code: string, password: string) => call<{ token: string; user: PublicUser }>('POST', '/api/password/reset', { login, code, password }),
   me: () => call<{ user: PublicUser; profile: Profile }>('GET', `/api/me?today=${today()}`),
   setAvatar: (image: string) => call<{ profile: Profile }>('PUT', '/api/me/avatar', { image }),
   removeAvatar: () => call<{ profile: Profile }>('DELETE', '/api/me/avatar'),

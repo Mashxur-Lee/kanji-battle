@@ -7,6 +7,8 @@ export const randomBytes = no('randomBytes');
 export const scrypt = no('scrypt');
 export const timingSafeEqual = no('timingSafeEqual');
 export const createHmac = no('createHmac');
+export const createHash = no('createHash'); // (0.9.9.9.6.6: password-reset codes — never offline)
+export const randomInt = no('randomInt');
 export const existsSync = () => false;
 export const mkdirSync = no('mkdirSync');
 export const readFileSync = no('readFileSync');

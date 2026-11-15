@@ -34,6 +34,8 @@ let word: DailyWord | null = null;
 let timer = 0;
 let busy = false;
 let results: boolean[] = [];
+/** 0.9.9.9.6.6: the friend you race (the best of your friends who played today's ten in your league) */
+let ghost: DailyOverview['ghost'] = null;
 
 /** Whether today's challenge is still open for you (menu badge). */
 export async function dailyPending(): Promise<boolean> {
@@ -129,6 +131,7 @@ function ladder(current: string, next?: string) {
 }
 function renderOverview(o: DailyOverview) {
   league = o.league ?? 'KANA';
+  ghost = o.ghost ?? null;
   passedNow = o.passed ?? [];
   boardLeague = '';
   renderBoard(o);
@@ -173,8 +176,32 @@ function renderOverview(o: DailyOverview) {
       : `Ten ${league} words, the same for everyone in your league today, easiest first. Type the reading (kana or romaji) and press Enter — ${o.wordMs / 1000} s per word. Get ${o.promoteAt ?? 7}/10 or better to move up a league.`),
     el('p', 'hint', 'One try a day: most correct wins, then fastest. Everyone starts in the kana league.'),
     el('p', 'hint', `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
+    ...(ghost ? [ghostCard(ghost)] : []),
     start,
   );
+}
+
+// ── 0.9.9.9.6.6: race a friend — their run word by word beside yours ──
+function ghostCard(g: NonNullable<DailyOverview['ghost']>) {
+  const c = el('div', 'daily-ghost');
+  const who = el('span', 'dg-who'); who.append(el('i', 'dg-ic', '影'), el('b', '', g.name));
+  c.append(el('small', 'dg-lbl', tr('Race a friend')), who, el('span', 'dg-score', `${g.correct}/10 · ${secs(g.ms)}`));
+  return c;
+}
+/** while you play: your dots and theirs, up to the word you're on */
+function ghostRace(g: NonNullable<DailyOverview['ghost']>, index: number, total: number) {
+  const box = el('div', 'daily-race');
+  const row = (name: string, marks: Array<boolean | null>, cls: string) => {
+    const r = el('div', `dr-row ${cls}`);
+    const d = el('span', 'dr-dots');
+    for (let i = 0; i < total; i++) d.append(el('i', marks[i] === true ? 'ok' : marks[i] === false ? 'no' : ''));
+    r.append(el('span', 'dr-name', name), d, el('b', 'dr-n', String(marks.filter((x) => x === true).length)));
+    return r;
+  };
+  const theirs = Array.from({ length: total }, (_, i) => (i < index ? g.marks[i] === '1' : null));
+  const yours = Array.from({ length: total }, (_, i) => (i < results.length ? results[i] : null));
+  box.append(row(tr('You'), yours, 'me'), row(g.name, theirs, 'them'));
+  return box;
 }
 
 async function begin() {
@@ -204,7 +231,7 @@ function renderPlay(last: DailyAnswer | null) {
     const rr = el('span', 'rr', last.reading); rr.lang = 'ja';
     fb.append(el('b', '', last.correct ? '✓' : '✗'), kk, rr, el('span', '', last.meaning));
   }
-  main.replaceChildren(el('div', 'daily-head', `Word ${word.index + 1} of ${word.total} · ${LEVEL_LABEL[word.level]}`), dots, k, bar, input, skip, fb);
+  main.replaceChildren(el('div', 'daily-head', `Word ${word.index + 1} of ${word.total} · ${LEVEL_LABEL[word.level]}`), ghost ? ghostRace(ghost, word.index, word.total) : dots, k, bar, input, skip, fb);
   input.focus();
   useGameKb(input, { skip: () => void submit('') }); // 0.9.9.7: phones type with the game keyboard here too
   // the clock (the server keeps the real one)

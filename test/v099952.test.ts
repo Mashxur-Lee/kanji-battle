@@ -19,7 +19,7 @@ test('0.9.9.9.5.2 character: picked in Customize, unlocked by the Daily challeng
   const study = new StudyService(store);
   const auth = new AuthService(store, new TokenSigner('t'));
   const route = createApiRouter(auth, study, {});
-  const { token, user } = await auth.register('charpick', 'secret12');
+  const { token, user } = await auth.register('charpick', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   const set = (c: string) => ask(route, token, 'PUT', '/api/me/character', { character: c });
   // a new player: the goblin, nothing else
   assert.equal(characterOf((await store.findById(user.id))!.unlocks), 'goblin');
@@ -71,7 +71,7 @@ test('0.9.9.9.5.2 push: Google\'s answer is kept; the test route says where it s
   const store = new MemoryStore();
   const study = new StudyService(store);
   const auth = new AuthService(store, new TokenSigner('t'));
-  const { token } = await auth.register('pushtest', 'secret12');
+  const { token } = await auth.register('pushtest', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   const off = createApiRouter(auth, study, {});
   assert.deepEqual((await ask(off, token, 'POST', '/api/push/test'))?.body, { ok: false, reason: 'server-off' });
   const on = createApiRouter(auth, study, { pushTest: async () => ({ ok: true, sent: 1, phones: 1 }) });

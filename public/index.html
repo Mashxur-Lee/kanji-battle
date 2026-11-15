@@ -42,6 +42,7 @@
       <div class="pp-actions">
         <label class="pill" title="PNG, JPEG or WebP">Change picture<input id="picInput" type="file" accept="image/png,image/jpeg,image/webp,image/*" hidden></label>
         <button id="picRemove" class="pill">Remove picture</button>
+        <button id="emailChange" class="pill" type="button">Email</button>
         <button id="pwChange" class="pill" type="button">Change password</button>
         <button id="logout" class="pill danger">⎋ Log out</button>
       </div>
@@ -190,9 +191,10 @@
     <li>Handwriting recognition: <a href="https://github.com/asdfjkl/kanjicanvas" target="_blank" rel="noopener">KanjiCanvas</a> by Dominik Klein (MIT); its reference strokes come from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> by Ulrich Apel (CC BY-SA 3.0).</li>
     <li>Kanji meanings and readings (tap a kanji): <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project" target="_blank" rel="noopener">KANJIDIC2</a> by the Electronic Dictionary Research and Development Group (<a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">CC BY-SA 4.0</a>), via <a href="https://github.com/davidluzgouveia/kanji-data" target="_blank" rel="noopener">kanji-data</a> by David Gouveia (MIT); the parts of each kanji from <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noopener">KanjiVG</a> (CC BY-SA 3.0). The memory stories and Russian meanings were written for this game.</li>
     <li>Software: <a href="https://threejs.org/" target="_blank" rel="noopener">three.js</a> (MIT) for the 3D arena; <a href="https://github.com/websockets/ws" target="_blank" rel="noopener">ws</a> (MIT) and <a href="https://github.com/porsager/postgres" target="_blank" rel="noopener">Postgres.js</a> (Unlicense) on the server; <a href="https://www.electronjs.org/" target="_blank" rel="noopener">Electron</a> (MIT) for the Windows app; Firebase Cloud Messaging (Apache 2.0) for the Android app's notifications.</li>
-    <li>Art: the painted backgrounds, league frames and streak flames were made for this game; the 3D characters, the dragon, staffs and arenas were modelled for it, and the 2D characters, icons and sounds are drawn and synthesised in code.</li>
+    <li>Art: the painted backgrounds, league frames and streak flames were generated with AI tools for this game by its author; the 3D characters, the dragon, staffs and arenas were modelled for it, and the 2D characters, icons and sounds are drawn and synthesised in code.</li>
     <li>Russian word meanings: translated for this game from the English meanings.</li>
   </ul>
+  <p class="hint">© Kanji Wizards. All rights reserved. The data and libraries above keep their own licences.</p>
   <h4>Privacy</h4>
   <p class="hint">We store your player name, a scrambled (hashed) password, your progress, match history, friends, your messages (text, photos, reactions, groups — seen only by the people in that chat) and — if you upload one — your profile picture. The Android app keeps a notification token so invites and messages reach your phone (through Google's Firebase). Bug reports and suggestions you send are kept with your player name; errors include your browser type. If the server has AI stories turned on, only your study words are sent to make a story. Nothing is sold. Ask the admin to delete your account and all of it is removed.</p>
   <form method="dialog" class="fb-actions"><button class="big">Close</button></form>
@@ -266,7 +268,10 @@
       <form id="authForm" class="form" autocomplete="on">
         <label class="field"><span>Login</span><input id="authUser" name="username" autocomplete="username" maxlength="32" required></label>
         <label class="field"><span>Password</span><input id="authPass" name="password" type="password" autocomplete="current-password" maxlength="72" required></label>
+        <!-- 0.9.9.9.6.6: an email for every account (to get back in; nobody else sees it) -->
+        <label id="authEmailRow" class="field" hidden><span>Email</span><input id="authEmail" name="email" type="email" autocomplete="email" maxlength="254" inputmode="email"></label>
         <button id="authSubmit" type="submit">Log in</button>
+        <button id="authForgot" type="button" class="link auth-forgot">Forgot password?</button>
         <p id="authError" class="error" role="alert"></p>
         <button id="playOffline" type="button" class="big alt" hidden>Play offline</button>
         <p id="authHint" class="hint"></p>
@@ -440,6 +445,8 @@
       <div id="progWeek" class="prog-card"></div>
       <div id="progMonth" class="prog-card"></div>
     </div>
+    <!-- 0.9.9.9.6.6: what you know, what's coming, how well you remember -->
+    <div id="progKnow" class="prog-card prog-know"></div>
     <div class="prog-card">
       <div class="act-row">
         <div class="act-cal">

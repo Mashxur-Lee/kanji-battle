@@ -31,7 +31,7 @@ async function world() {
 
 test('0.9.9.9.6 messenger: friends write to each other; strangers can\'t; unread counts and reading', async () => {
   const w = await world();
-  const a = await w.auth.register('anna', 'secret12'), b = await w.auth.register('boris', 'secret12'), c = await w.auth.register('cyril', 'secret12');
+  const a = await w.auth.register('anna', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), b = await w.auth.register('boris', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), c = await w.auth.register('cyril', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   // not friends: refused
   assert.equal((await ask(w.route, a.token, 'POST', `/api/messages/${b.user.id}`, { text: 'hi' }))?.status, 403);
   await w.store.requestFriend(a.user.id, b.user.id); await w.store.acceptFriend(b.user.id, a.user.id);
@@ -65,7 +65,7 @@ test('0.9.9.9.6 messenger: friends write to each other; strangers can\'t; unread
 
 test('0.9.9.9.6 messenger: Feedback lands in the conversation with the team; an admin answers as the team', async () => {
   const w = await world();
-  const p = await w.auth.register('player', 'secret12'), adm = await w.auth.register('admin1', 'secret12');
+  const p = await w.auth.register('player', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), adm = await w.auth.register('admin1', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await w.store.update(adm.user.id, { role: 'admin' });
   assert.equal((await ask(w.route, p.token, 'POST', '/api/feedback', { kind: 'bug', text: 'The dragon is stuck', meta: '' }))?.status, 200);
   assert.equal(w.live.at(-1)!.to, 'admins', 'every admin sees it at once');
@@ -89,7 +89,7 @@ test('0.9.9.9.6 messenger: Feedback lands in the conversation with the team; an 
 
 test('0.9.9.9.6 messenger: no more than 20 messages a minute', async () => {
   const w = await world();
-  const a = await w.auth.register('fast1', 'secret12');
+  const a = await w.auth.register('fast1', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   for (let i = 0; i < 20; i++) assert.equal((await ask(w.route, a.token, 'POST', `/api/messages/${SUPPORT_ID}`, { text: `m${i}` }))?.status, 200);
   assert.equal((await ask(w.route, a.token, 'POST', `/api/messages/${SUPPORT_ID}`, { text: 'one more' }))?.status, 429);
 });
@@ -100,7 +100,7 @@ test('0.9.9.9.6 daily challenge: an earlier day — every league\'s words, its b
   const auth = new AuthService(store, new TokenSigner('t'));
   let now = Date.parse('2026-05-10T12:00:00Z');
   const daily = new DailyService(store, study.progress, () => now);
-  const { user } = await auth.register('dpast', 'secret12');
+  const { user } = await auth.register('dpast', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   const u = () => store.findById(user.id).then((x) => x!);
   // yesterday: played the Kana league, 8/10
   now = Date.parse('2026-05-09T12:00:00Z');

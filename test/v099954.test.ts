@@ -26,7 +26,7 @@ test('0.9.9.9.5.4 kana practice counts for the day even when no star was gained 
   const store = new MemoryStore();
   const study = new StudyService(store);
   const auth = new AuthService(store, new TokenSigner('t'));
-  const { user } = await auth.register('kanaday', 'secret12');
+  const { user } = await auth.register('kanaday', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await study.setKana((await store.findById(user.id))!, { 'あ': { s: 0 }, 'い': { s: 0 } }, '2026-03-03'); // (two wrong answers)
   const day = (await store.activity(user.id, '2026-03-01')).find((a) => a.day === '2026-03-03');
   assert.ok(day, 'the day shows in the activity');

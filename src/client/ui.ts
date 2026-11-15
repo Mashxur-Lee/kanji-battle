@@ -371,7 +371,11 @@ export function setAuthTab(tab: 'login' | 'register') {
   $('tabRegister').setAttribute('aria-selected', String(!login));
   $('authSubmit').textContent = login ? 'Log in' : 'Create account';
   $<HTMLInputElement>('authPass').autocomplete = login ? 'current-password' : 'new-password';
-  $('authHint').textContent = login ? '' : 'Login: 3–16 letters, numbers or _. Password: at least 6 characters.';
+  $('authHint').textContent = login ? '' : 'Login: 3–32 letters, numbers, _ . or -. Password: at least 6 characters. Your email is only for getting back in if you forget your password — nobody else sees it.';
+  // 0.9.9.9.6.6: an email on Register; "Forgot password?" on Log in
+  $('authEmailRow').hidden = login;
+  $<HTMLInputElement>('authEmail').required = !login;
+  $('authForgot').hidden = !login;
   $('authError').textContent = '';
 }
 
@@ -419,7 +423,7 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
           h('small', '', u.online ? `${u.activity ?? ''}${u.onlineSince ? ` · ${ago(u.onlineSince)}` : ''}` : u.lastSeen ? `seen ${ago(u.lastSeen)} ago` : u.loginDay ? `last day: ${u.loginDay}` : 'never logged in')));
       return append(h('tr', u.online ? 'is-online' : ''),
         presence,
-        h('td', '', u.username + (u.nickname ? ` (${u.nickname})` : '') + (u.id === me.id ? ' (you)' : '')),
+        append(h('td', 'au-who'), u.username + (u.nickname ? ` (${u.nickname})` : '') + (u.id === me.id ? ' (you)' : ''), h('small', 'au-mail', u.email ?? tr('no email yet'))), // (0.9.9.9.6.6: the email — admins only)
         h('td', '', u.role),
         h('td', 'num', `Lv ${u.level ?? 0}`),
         h('td', 'num', (u.xp ?? 0).toLocaleString()),

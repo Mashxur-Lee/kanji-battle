@@ -1,10 +1,11 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { displayName } from '../db/Store';
 import { dailyCrit } from '../../shared/progress';
 import type { AdminUserRow, PublicUser, Role } from '../../shared/protocol';
 import { hashPassword, verifyPassword } from './passwords';
 import type { TokenSigner } from './tokens';
-import { UsernameTakenError, type Store, type UserRecord } from '../db/Store';
+import { EmailTakenError, UsernameTakenError, type Store, type UserRecord } from '../db/Store';
+import { cleanEmail, EmailError, emailKey, maskEmail } from './email';
 
 export class AuthError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
@@ -18,6 +19,12 @@ export const passwordChangedAt = (u: { unlocks?: string[] }) => Number((u.unlock
 export const OWNER = 'admin';
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
 export const toPublic = (u: UserRecord): PublicUser => ({ id: u.id, username: u.username, role: u.role, name: displayName(u), nickname: u.nickname ?? null });
+/** 0.9.9.9.6.6: you, to yourself — with your email (masked: "fr•••@gmail.com"; null: none yet) */
+export const toSelf = (u: UserRecord): PublicUser => ({ ...toPublic(u), email: maskEmail(u.email) });
+/** a password-reset code: 6 digits, half an hour, 5 tries */
+const RESET_MS = 30 * 60_000, RESET_TRIES = 5, RESET_GAP_MS = 60_000;
+const sha = (s: string) => createHash('sha256').update(s).digest();
+export interface ResetMail { user: UserRecord; email: string; code: string; lang: 'en' | 'ru' }
 
 export class AuthService {
   private banListeners: Array<(userId: string) => void> = [];
@@ -46,18 +53,81 @@ export class AuthService {
     }
   }
 
-  async register(username: unknown, password: unknown) {
+  async register(username: unknown, password: unknown, email?: unknown) {
     const u = String(username ?? '').trim();
     const p = String(password ?? '');
     if (!USERNAME_RE.test(u)) throw new AuthError('Login: 3–32 letters, numbers, _ . or -');
     if (p.length < 6 || p.length > 72) throw new AuthError('Password: at least 6 characters');
+    // 0.9.9.9.6.6: an email for every account (to get back in; one account per mailbox)
+    const mail = this.emailOrThrow(email);
+    const key = emailKey(mail);
+    if (await this.store.findByEmailKey(key)) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
     try {
-      const rec = await this.store.create({ username: u, passwordHash: await hashPassword(p), role: 'user' });
-      return { token: this.tokens.sign(rec.id), user: toPublic(rec) };
+      const rec = await this.store.create({ username: u, passwordHash: await hashPassword(p), role: 'user', email: mail, emailKey: key });
+      return { token: this.tokens.sign(rec.id), user: toSelf(rec) };
     } catch (e) {
       if (e instanceof UsernameTakenError) throw new AuthError('That username is taken', 409);
+      if (e instanceof EmailTakenError) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
       throw e;
     }
+  }
+
+  private emailOrThrow(raw: unknown): string {
+    try { return cleanEmail(raw); } catch (e) { if (e instanceof EmailError) throw new AuthError(e.message); throw e; }
+  }
+
+  /** 0.9.9.9.6.6: add or change your email — your password first (a borrowed session can't take the account) */
+  async setEmail(u: UserRecord, email: unknown, password: unknown) {
+    if (!(await verifyPassword(String(password ?? ''), u.passwordHash))) throw new AuthError('Your password is wrong', 403);
+    const mail = this.emailOrThrow(email);
+    const key = emailKey(mail);
+    const other = await this.store.findByEmailKey(key);
+    if (other && other.id !== u.id) throw new AuthError('That email already has an account', 409);
+    try {
+      const rec = await this.store.update(u.id, { email: mail, emailKey: key });
+      return toSelf(rec ?? u);
+    } catch (e) {
+      if (e instanceof EmailTakenError) throw new AuthError('That email already has an account', 409);
+      throw e;
+    }
+  }
+
+  // ── 0.9.9.9.6.6: forgot your password — a code by email ──
+  private resets = new Map<string, { hash: Buffer; until: number; tries: number; sentAt: number }>();
+  /** sends the code through `mail`; says nothing about whether the account exists (the caller always answers the same) */
+  async forgot(login: unknown, mail: (m: ResetMail) => Promise<void>, now = Date.now()): Promise<void> {
+    const rec = await this.byLogin(login);
+    if (!rec?.email || rec.banned) return;
+    const was = this.resets.get(rec.id);
+    if (was && now - was.sentAt < RESET_GAP_MS) return; // (one a minute)
+    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    this.resets.set(rec.id, { hash: sha(code), until: now + RESET_MS, tries: 0, sentAt: now });
+    const lang = (rec.unlocks ?? []).includes('plang:ru') ? 'ru' : 'en';
+    await mail({ user: rec, email: rec.email, code, lang });
+  }
+  async resetPassword(login: unknown, code: unknown, next: unknown, now = Date.now()) {
+    const rec = await this.byLogin(login);
+    const r = rec ? this.resets.get(rec.id) : undefined;
+    const bad = new AuthError('That code is wrong or has expired — ask for a new one', 400);
+    if (!rec || !r || now > r.until || r.tries >= RESET_TRIES) throw bad;
+    r.tries++;
+    const given = sha(String(code ?? '').replace(/\s/g, ''));
+    if (!timingSafeEqual(given, r.hash)) throw bad;
+    const p = String(next ?? '');
+    if (p.length < 6 || p.length > 72) throw new AuthError('Password: at least 6 characters');
+    this.resets.delete(rec.id);
+    const at = Math.floor(now / 1000) * 1000;
+    const unlocks = [...(rec.unlocks ?? []).filter((x) => !x.startsWith(PW_MARK)), `${PW_MARK}${at}`]; // (every device signed out)
+    const fresh = await this.store.update(rec.id, { passwordHash: await hashPassword(p), unlocks });
+    if (rec.banned) throw new AuthError('This account has been banned', 403);
+    return { token: this.tokens.sign(rec.id, Math.max(now, at)), user: toSelf(fresh ?? rec) };
+  }
+  /** a login or an email */
+  private async byLogin(login: unknown) {
+    const s = String(login ?? '').trim().toLowerCase();
+    if (!s) return null;
+    if (s.includes('@')) { try { return await this.store.findByEmailKey(emailKey(cleanEmail(s))); } catch { return null; } }
+    return this.store.findByUsername(s);
   }
 
   async login(username: unknown, password: unknown) {
@@ -65,7 +135,7 @@ export class AuthService {
     // same message for unknown user and wrong password, so usernames can't be probed
     if (!rec || !(await verifyPassword(String(password ?? ''), rec.passwordHash))) throw new AuthError('Wrong username or password', 401);
     if (rec.banned) throw new AuthError('This account has been banned', 403);
-    return { token: this.tokens.sign(rec.id), user: toPublic(rec) };
+    return { token: this.tokens.sign(rec.id), user: toSelf(rec) };
   }
 
   /** Resolves a token to an active (not banned) user. */
@@ -111,7 +181,7 @@ export class AuthService {
   }
 
   async listUsers(): Promise<AdminUserRow[]> {
-    return (await this.store.list()).map((u) => ({ ...toPublic(u), banned: u.banned, createdAt: u.createdAt, xp: u.xp, crit: dailyCrit(u.critCount, u.critExpires), loginDay: u.loginDay ?? null }));
+    return (await this.store.list()).map((u) => ({ ...toPublic(u), email: u.email ?? null, banned: u.banned, createdAt: u.createdAt, xp: u.xp, crit: dailyCrit(u.critCount, u.critExpires), loginDay: u.loginDay ?? null }));
   }
 
   async setBanned(admin: UserRecord, targetId: string, banned: boolean): Promise<AdminUserRow> {

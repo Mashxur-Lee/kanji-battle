@@ -24,7 +24,7 @@ test('0.9.9.9.6.2 borders: only the Beta one and the leagues\' are left; an old 
   const store = new MemoryStore();
   const study = new StudyService(store);
   const auth = new AuthService(store, new TokenSigner('t'));
-  const { user } = await auth.register('oldframe', 'secret12');
+  const { user } = await auth.register('oldframe', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await store.update(user.id, { border: 'archmage' });
   const u = (await store.findById(user.id))!;
   assert.equal((await study.profile(u)).border, 'none');
@@ -84,8 +84,8 @@ test('0.9.9.9.6.2 messenger: the list is the same with the lookups side by side'
   const store = new MemoryStore();
   const auth = new AuthService(store, new TokenSigner('t'));
   const messages = new MessageService(store, { deliver: () => {}, online: () => false });
-  const me = await auth.register('lister', 'secret12');
-  const others = await Promise.all(['ana62', 'ben62', 'cid62'].map((n) => auth.register(n, 'secret12')));
+  const me = await auth.register('lister', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
+  const others = await Promise.all(['ana62', 'ben62', 'cid62'].map((n) => auth.register(n, 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`)));
   let t = 1000;
   for (const o of others) {
     await store.requestFriend(me.user.id, o.user.id); await store.acceptFriend(o.user.id, me.user.id);

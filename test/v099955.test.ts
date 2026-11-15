@@ -77,7 +77,7 @@ test('0.9.9.9.5.5 quiz records: kept with the account (the same on every device)
   const study = new StudyService(store);
   const auth = new AuthService(store, new TokenSigner('t'));
   const route = createApiRouter(auth, study, {});
-  const { token } = await auth.register('quizzer', 'secret12');
+  const { token } = await auth.register('quizzer', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   const r1 = await ask(route, token, 'POST', '/api/me/quiz', { kind: 'jlpt', score: 7, total: 10, ms: 60_000 });
   assert.equal(r1?.status, 200);
   const r2 = await ask(route, token, 'POST', '/api/me/quiz', { kind: 'jlpt', score: 9, total: 10, ms: 40_000 });
@@ -112,7 +112,7 @@ test('0.9.9.9.5.5 "View profile": what they wear and their achievements', async 
   const store = new MemoryStore();
   const study = new StudyService(store);
   const auth = new AuthService(store, new TokenSigner('t'));
-  const { user } = await auth.register('looker', 'secret12');
+  const { user } = await auth.register('looker', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await store.update(user.id, { unlocks: ['char:knight', 'pose:aim', 'ach:first-win', 'flame:x'], staff: 'ember', border: 'lg-n3', flame: 'blue' });
   const p = (await study.publicProfile(user.id))!;
   assert.equal(p.look?.character, 'knight');

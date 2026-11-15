@@ -5,7 +5,7 @@ import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protoc
 import type { BackgroundId, FlameId, StaffId } from '../../shared/progress';
 import { deckOf, type CardState, type CustomWord, type DeckId, type SrsCard } from '../../shared/srs';
 import { randomUUID } from 'node:crypto';
-import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, type ActivityDelta, type GameEventRow, type Report, type DirectMessage, type ConversationRow, type MessagePatch, type ChatGroup, type GroupMember, type GroupRole, type MediaFile, DEFAULT_PERMS, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, EmailTakenError, type ActivityDelta, type GameEventRow, type Report, type DirectMessage, type ConversationRow, type MessagePatch, type ChatGroup, type GroupMember, type GroupRole, type MediaFile, DEFAULT_PERMS, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
 /**
  * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
@@ -16,7 +16,7 @@ interface UserRow {
   xp: number; background: BackgroundId; study_levels: Level[]; last_new_date: string | null; new_notice: number;
   crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null; tutorial_done: boolean | null; unlocks: string[] | null;
   login_day: string | null; streak: number | null; best_streak: number | null; streak_day: string | null; border: string | null;
-  daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null; starred: string[] | null; nickname: string | null; last_seen?: string | number | null; kana?: KanaProgress | null; push_tokens?: string[] | null; quiz_stats?: QuizStats | null;
+  daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null; starred: string[] | null; nickname: string | null; last_seen?: string | number | null; email?: string | null; email_key?: string | null; kana?: KanaProgress | null; push_tokens?: string[] | null; quiz_stats?: QuizStats | null;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
@@ -30,7 +30,7 @@ const toUser = (r: UserRow): UserRecord => ({
   critCount: r.crit_count ?? 0, critExpires: Number(r.crit_expires ?? 0),
   wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant', tutorialDone: r.tutorial_done ?? true, unlocks: r.unlocks ?? [],
   loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0, streakDay: r.streak_day ?? null, border: r.border ?? 'none',
-  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null, starred: r.starred ?? [], nickname: r.nickname ?? null, lastSeen: r.last_seen != null ? Number(r.last_seen) : null, kana: r.kana ?? {}, pushTokens: r.push_tokens ?? [], quizStats: r.quiz_stats ?? {},
+  dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null, starred: r.starred ?? [], nickname: r.nickname ?? null, lastSeen: r.last_seen != null ? Number(r.last_seen) : null, email: r.email ?? null, emailKey: r.email_key ?? null, kana: r.kana ?? {}, pushTokens: r.push_tokens ?? [], quizStats: r.quiz_stats ?? {},
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
@@ -43,7 +43,7 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   studyLevels: 'study_levels', lastNewDate: 'last_new_date', newNotice: 'new_notice',
   critCount: 'crit_count', critExpires: 'crit_expires', flame: 'flame', staff: 'staff', tutorialDone: 'tutorial_done', unlocks: 'unlocks',
   loginDay: 'login_day', streak: 'streak', streakDay: 'streak_day', border: 'border', bestStreak: 'best_streak', role: 'role',
-  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred', nickname: 'nickname', lastSeen: 'last_seen', kana: 'kana', pushTokens: 'push_tokens', quizStats: 'quiz_stats',
+  dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred', nickname: 'nickname', lastSeen: 'last_seen', email: 'email', emailKey: 'email_key', kana: 'kana', pushTokens: 'push_tokens', quizStats: 'quiz_stats',
   wins: 'wins', losses: 'losses', // (0.9.9.9.6.3: the admin's own test tools can reset them)
 };
 
@@ -120,6 +120,10 @@ export class PgStore implements Store {
     // v0.9.2 colour of the combo flames
     await this.sql`alter table kw_users add column if not exists flame text not null default 'blue'`;
     await this.sql`alter table kw_users add column if not exists last_seen bigint`; // 0.9.9.9
+    // 0.9.9.9.6.6: the email, and its mailbox key — one account per mailbox
+    await this.sql`alter table kw_users add column if not exists email text`;
+    await this.sql`alter table kw_users add column if not exists email_key text`;
+    await this.sql`create unique index if not exists kw_users_email_key on kw_users (email_key) where email_key is not null`;
     // v0.9.3 login streaks
     await this.sql`alter table kw_users add column if not exists login_day text`;
     await this.sql`alter table kw_users add column if not exists streak integer not null default 0`;
@@ -145,6 +149,8 @@ export class PgStore implements Store {
     await this.sql`alter table kw_activity add column if not exists challenges integer not null default 0`;
     await this.sql`alter table kw_activity add column if not exists passages integer not null default 0`;
     await this.sql`alter table kw_activity add column if not exists study_xp integer not null default 0`;
+    await this.sql`alter table kw_activity add column if not exists recalled integer not null default 0`; // 0.9.9.9.6.6
+    await this.sql`alter table kw_activity add column if not exists forgot integer not null default 0`;
     await this.sql`alter table kw_users add column if not exists streak_day text`;
     await this.sql`alter table kw_users add column if not exists border text not null default 'none'`;
     await this.sql`update kw_users set streak_day = login_day where streak_day is null and login_day is not null`; // a running streak carries on
@@ -302,6 +308,10 @@ export class PgStore implements Store {
     const [r] = await this.sql<UserRow[]>`select * from kw_users where username = ${username.toLowerCase()}`;
     return r ? toUser(r) : null;
   }
+  async findByEmailKey(key: string) {
+    const [r] = await this.sql<UserRow[]>`select * from kw_users where email_key = ${key}`;
+    return r ? toUser(r) : null;
+  }
   async findById(id: string) {
     if (!/^[0-9a-f-]{36}$/i.test(id)) return null; // not a uuid → no such user (avoids a cast error)
     const [r] = await this.sql<UserRow[]>`select * from kw_users where id = ${id}`;
@@ -310,11 +320,11 @@ export class PgStore implements Store {
   async create(u: NewUser) {
     try {
       const [r] = await this.sql<UserRow[]>`
-        insert into kw_users (username, password_hash, role, xp_scheme, tutorial_done) values (${u.username.toLowerCase()}, ${u.passwordHash}, ${u.role}, 2, false)
+        insert into kw_users (username, password_hash, role, xp_scheme, tutorial_done, email, email_key) values (${u.username.toLowerCase()}, ${u.passwordHash}, ${u.role}, 2, false, ${u.email ?? null}, ${u.emailKey ?? null})
         returning *`;
       return toUser(r);
     } catch (e) {
-      if ((e as { code?: string }).code === '23505') throw new UsernameTakenError();
+      if ((e as { code?: string }).code === '23505') throw /email/.test(String((e as { constraint_name?: string }).constraint_name ?? '')) ? new EmailTakenError() : new UsernameTakenError();
       throw e;
     }
   }
@@ -330,8 +340,13 @@ export class PgStore implements Store {
     const set: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(patch)) if (v !== undefined) set[COLUMNS[k as keyof UserPatch]] = (k === 'dailyPlan' || k === 'kana' || k === 'pushTokens' || k === 'quizStats') && v !== null ? this.sql.json(v as never) : v;
     if (Object.keys(set).length === 0) return this.findById(id);
-    const [r] = await this.sql<UserRow[]>`update kw_users set ${this.sql(set)} where id = ${id} returning *`;
-    return r ? toUser(r) : null;
+    try {
+      const [r] = await this.sql<UserRow[]>`update kw_users set ${this.sql(set)} where id = ${id} returning *`;
+      return r ? toUser(r) : null;
+    } catch (e) {
+      if ((e as { code?: string }).code === '23505' && /email/.test(String((e as { constraint_name?: string }).constraint_name ?? ''))) throw new EmailTakenError();
+      throw e;
+    }
   }
   async addXp(id: string, delta: number) {
     const [r] = await this.sql<{ xp: number }[]>`update kw_users set xp = greatest(0, xp + ${Math.round(delta)}) where id = ${id} returning xp`;
@@ -440,16 +455,17 @@ export class PgStore implements Store {
   }
   async addActivity(userId: string, day: string, d: ActivityDelta) {
     await this.sql`
-      insert into kw_activity (user_id, day, login, reviews, games, wins, xp, quizzes, challenges, passages, study_xp)
-      values (${userId}, ${day}, ${!!d.login}, ${d.reviews ?? 0}, ${d.games ?? 0}, ${d.wins ?? 0}, ${d.xp ?? 0}, ${d.quizzes ?? 0}, ${d.challenges ?? 0}, ${d.passages ?? 0}, ${d.studyXp ?? 0})
+      insert into kw_activity (user_id, day, login, reviews, games, wins, xp, quizzes, challenges, passages, study_xp, recalled, forgot)
+      values (${userId}, ${day}, ${!!d.login}, ${d.reviews ?? 0}, ${d.games ?? 0}, ${d.wins ?? 0}, ${d.xp ?? 0}, ${d.quizzes ?? 0}, ${d.challenges ?? 0}, ${d.passages ?? 0}, ${d.studyXp ?? 0}, ${d.recalled ?? 0}, ${d.forgot ?? 0})
       on conflict (user_id, day) do update set
         login = kw_activity.login or excluded.login,
         reviews = kw_activity.reviews + excluded.reviews, games = kw_activity.games + excluded.games,
         wins = kw_activity.wins + excluded.wins, xp = kw_activity.xp + excluded.xp,
-        quizzes = kw_activity.quizzes + excluded.quizzes, challenges = kw_activity.challenges + excluded.challenges, passages = kw_activity.passages + excluded.passages, study_xp = kw_activity.study_xp + excluded.study_xp`;
+        quizzes = kw_activity.quizzes + excluded.quizzes, challenges = kw_activity.challenges + excluded.challenges, passages = kw_activity.passages + excluded.passages, study_xp = kw_activity.study_xp + excluded.study_xp,
+        recalled = kw_activity.recalled + excluded.recalled, forgot = kw_activity.forgot + excluded.forgot`;
   }
   async activity(userId: string, fromDay: string): Promise<DayActivity[]> {
-    return this.sql<DayActivity[]>`select day, login, reviews, games, wins, xp, quizzes, challenges, passages, study_xp as "studyXp" from kw_activity where user_id = ${userId} and day >= ${fromDay} order by day`;
+    return this.sql<DayActivity[]>`select day, login, reviews, games, wins, xp, quizzes, challenges, passages, study_xp as "studyXp", recalled, forgot from kw_activity where user_id = ${userId} and day >= ${fromDay} order by day`;
   }
   async saveDaily(day: string, userId: string, correct: number, ms: number, marks = '') {
     const r = await this.sql`insert into kw_daily (day, user_id, correct, ms, marks) values (${day}, ${userId}, ${correct}, ${ms}, ${marks}) on conflict do nothing returning day`;

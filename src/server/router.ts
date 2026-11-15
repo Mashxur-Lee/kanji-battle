@@ -6,7 +6,7 @@ import { isTransientDbError, retryDelay } from './db/transient';
 import { displayName } from './db/Store';
 import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/InsightsService';
 import { MessageError, type MessageService } from './study/MessageService';
-import { AuthError, toPublic, type AuthService } from './auth/AuthService';
+import { AuthError, toPublic, toSelf, type AuthService } from './auth/AuthService';
 import { resolveToday, StudyError, type StudyService } from './study/StudyService';
 import { isDeck, type DeckId } from '../shared/srs';
 import type { Role } from '../shared/protocol';
@@ -47,6 +47,8 @@ export interface ApiResponse { status: number; body?: unknown; raw?: { mime: str
 const res = (status: number, body: unknown): ApiResponse => ({ status, body });
 
 export interface ApiExtras {
+  /** 0.9.9.9.6.6: send a password-reset code (index.ts: by email, or to the admin's inbox when email is off) */
+  resetMail?: (m: import('./auth/AuthService').ResetMail) => Promise<void>;
   presence?: (userId: string) => { online: boolean; activity?: string; since?: number; lastSeen?: number };
   daily?: DailyService;
   social?: SocialService;
@@ -98,7 +100,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         // 0.9.9.9.5: and at most 10 new accounts an hour from one address
         if (url === '/api/register' && !signupLimiter.allow(ip)) throw new AuthError('Too many new accounts from here — try again later', 429);
         const body = await r.json();
-        const result = url === '/api/register' ? await auth.register(body.username, body.password) : await auth.login(body.username, body.password);
+        const result = url === '/api/register' ? await auth.register(body.username, body.password, body.email) : await auth.login(body.username, body.password);
         if (url === '/api/register') void insights?.event(result.user.id, 'signup');
         return res(200, result);
       } else if (r.method === 'GET' && url === '/api/online') {
@@ -208,7 +210,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         if (b.resetRecord === true) { patch.wins = 0; patch.losses = 0; }
         if (!Object.keys(patch).length) return res(400, { error: 'Nothing to change' });
         const now = (await auth.store.update(u.id, patch as never))!;
-        return res(200, { user: toPublic(now), profile: await study.profile(now) });
+        return res(200, { user: toSelf(now), profile: await study.profile(now) });
       } else if (r.method === 'GET' && url === '/api/admin/stats') {
         await auth.requireAdmin(r.token);
         const users = await auth.store.list();
@@ -218,7 +220,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/me') {
         let u = await auth.authenticate(r.token);
         if (query.get('today')) u = await study.touchLogin(u, resolveToday(query.get('today'))); // daily login streak
-        return res(200, { user: toPublic(u), profile: await study.profile(u) });
+        return res(200, { user: toSelf(u), profile: await study.profile(u) });
       } else if (r.method === 'GET' && /^\/api\/avatar\/[\w-]+$/.test(url)) {
         // profile pictures are public (shown next to names in games); versioned URLs → cache forever
         const img = await study.avatar(url.split('/')[3]);
@@ -459,6 +461,22 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const body = await r.json();
         await study.setDailyNew(u, body.n, resolveToday(body.today));
         return res(200, await study.summary(await auth.authenticate(r.token), resolveToday(body.today)));
+      } else if (r.method === 'PUT' && url === '/api/me/email') {
+        // 0.9.9.9.6.6: add or change your email (with your password)
+        const u = await auth.authenticate(r.token);
+        if (!limiter.allow(`em:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const body = await r.json();
+        return res(200, { user: await auth.setEmail(u, body.email, body.password) });
+      } else if (r.method === 'POST' && url === '/api/password/forgot') {
+        // 0.9.9.9.6.6: a code by email — the same answer whether or not the account exists
+        if (!limiter.allow(`fg:${ip}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const body = await r.json();
+        await auth.forgot(body.login, (m) => extras.resetMail ? extras.resetMail(m) : Promise.resolve()).catch((e) => console.error('[reset mail]', e));
+        return res(200, { sent: true });
+      } else if (r.method === 'POST' && url === '/api/password/reset') {
+        if (!limiter.allow(`rs:${ip}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const body = await r.json();
+        return res(200, await auth.resetPassword(body.login, body.code, body.password));
       } else if (r.method === 'PUT' && url === '/api/me/password') {
         // 0.9.9.9.6.5: change your password (with the current one); every other device is signed out
         const u = await auth.authenticate(r.token);

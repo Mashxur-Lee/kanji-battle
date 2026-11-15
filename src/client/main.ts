@@ -19,7 +19,7 @@ import { writeTargets, writeTemplate } from '../shared/kana';
 import { initI18n, lang, setLang, tr } from './i18n';
 import { applyUiZoom, centerScreens, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
 import * as voice from './voice';
-import { initQueue, onQueue, openQueue, resetQueue } from './queue';
+import { setPlayAi, initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
@@ -29,6 +29,7 @@ import { api, ApiError, getToken, setToken, type Friend, type Profile } from './
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
 import { showPlayer } from './playerview';
+import { emailDialog, forgotDialog } from './account';
 import { initInbox, inboxLeft, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket, setInviteJoin } from './inbox';
 import { onLeagueEquip } from './leagueup';
 import { chatMessages, chatTyping, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
@@ -144,6 +145,7 @@ const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Some
 // Music only in menus (not during study phase, battles or the deck duel).
 // battle theme while playing (study phase, battle, Deck Duel); the calm theme returns on the results screen and in menus
 const GAME_SCREENS = new Set(['prep', 'battle', 'deck']);
+let lastScreen = '';
 ui.onScreen((s) => {
   audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu');
   arenaScreen(s); // the 3D arena on battle screens
@@ -160,6 +162,15 @@ ui.onScreen((s) => {
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (s !== 'lobby') void renderLobbyInvites(false);
   if (s !== 'inbox') inboxLeft(); // 0.9.9.9.6.4: "typing…" stops, menus close
+  // 0.9.9.9.6.6: leaving Messages with the phone's keyboard up: let go of the message box, and once the keyboard has
+  // gone measure the page again — the menu could scroll on into empty space after Messages
+  if (s !== 'inbox' && document.activeElement?.closest?.('#inbox')) (document.activeElement as HTMLElement).blur();
+  if (s !== 'inbox' && lastScreen === 'inbox') setTimeout(() => {
+    applyUiZoom(); centerScreens();
+    const se = document.scrollingElement;
+    if (se && se.scrollTop > Math.max(0, se.scrollHeight - innerHeight)) se.scrollTop = Math.max(0, se.scrollHeight - innerHeight);
+  }, 450);
+  lastScreen = s;
   railScreen(s);
   dictRailScreen(s); // 0.9.9.8: the dictionary side panel
   if (s !== 'results') closeRematchAsk(); // (a rematch card only means something there)
@@ -426,6 +437,7 @@ function onMessage(msg: ServerMessage) {
       void refreshOnline(); // now this player counts too
       registerPush(msg.user.id); // 0.9.9.9.5: friends' invites reach this phone while the app is closed
       inboxUser(msg.user.id, msg.user.role === 'admin'); // 0.9.9.9.6: Messages (unread)
+      askEmail(); // 0.9.9.9.6.6: an account from before emails adds one, once
       setRailMe(msg.user.id); // 0.9.9.9.6.3: friends in your room: "Playing with you"
       joinFromLink();
       break;
@@ -504,6 +516,12 @@ function onMessage(msg: ServerMessage) {
       // 0.9.9.9.4: the room's chat, once somebody else (a person) is here — or has already written
       if (msg.players.filter((p) => !p.bot).length > 1 || ui.$('lobbyChatLog').childElementCount) ui.$('lobbyChat').hidden = false;
       void renderLobbyInvites(true, msg.players.map((p) => p.id));
+      // 0.9.9.9.6.6: the AI game from the queue: the AI (a party of three against the dragon), then Ready
+      if (pendingAi && msg.hostId === you && msg.mode === pendingAi.mode) {
+        const bots = msg.players.filter((p) => p.bot).length;
+        if (bots < (pendingAi.mode === 'boss' ? 3 : 1)) socket.send({ type: 'add_bot', level: pendingAi.level });
+        else { pendingAi = null; socket.send({ type: 'lobby_ready', ready: true }); }
+      }
       // the tutorial's first battle: add a beginner AI, then start
       if (inTutorialBattle() && msg.hostId === you) {
         if (msg.players.length < 2) socket.send({ type: 'add_bot', level: 'BEGINNER' });
@@ -797,7 +815,7 @@ ui.$('authForm').addEventListener('submit', async (e) => {
   btn.disabled = true;
   ui.$('authError').textContent = '';
   try {
-    const res = authTab === 'login' ? await api.login(username, password) : await api.register(username, password);
+    const res = authTab === 'login' ? await api.login(username, password) : await api.register(username, password, ui.$<HTMLInputElement>('authEmail').value.trim());
     setToken(res.token);
     ui.$<HTMLInputElement>('authPass').value = '';
     signedIn(res.user);
@@ -809,6 +827,17 @@ ui.$('authForm').addEventListener('submit', async (e) => {
   }
 });
 ui.$('logout').onclick = () => logout();
+// 0.9.9.9.6.6: "Forgot password?" — a code by email; your email (added once by older accounts, changed in your profile)
+ui.$('authForgot').onclick = () => forgotDialog(ui.$<HTMLInputElement>('authUser').value.trim(), (_t, u) => { ui.$<HTMLInputElement>('authPass').value = ''; signedIn(u); void refreshProfile(); ui.toast(tr('Password changed — you are signed in'), 3500); });
+let emailAsked = false;
+function emailLabel() { ui.$('emailChange').textContent = user?.email ? `${tr('Email')}: ${user.email}` : tr('Add your email'); }
+function askEmail() {
+  emailLabel();
+  if (!user || user.email || emailAsked || offline.isOffline()) return;
+  emailAsked = true;
+  emailDialog({ required: true, onDone: (u) => { if (user) user = { ...user, email: u.email }; emailLabel(); ui.toast(tr('Email saved'), 2500); }, onLogout: () => { emailAsked = false; logout(); } });
+}
+ui.$('emailChange').onclick = () => emailDialog({ required: false, current: user?.email ?? null, onDone: (u) => { if (user) user = { ...user, email: u.email }; emailLabel(); ui.toast(tr('Email saved'), 2500); } });
 // 0.9.9.9.6.5: change your password (the current one first) — every other device is signed out
 ui.$('pwChange').onclick = () => {
   const d = document.createElement('dialog');
@@ -873,6 +902,13 @@ ui.$('privateBtn').onclick = () => { ui.setError(''); ui.$('pvOffline').hidden =
 ui.$('privateBack').onclick = () => ui.show('menu');
 ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
 initQueue((m) => socket.send(m), () => user?.id ?? '');
+// 0.9.9.9.6.6: nobody in the queue yet → an AI game while you wait: a room of that mode, the AI in it, Ready
+let pendingAi: { mode: GameMode; level: string } | null = null;
+setPlayAi((m, level, levels) => {
+  if (!canPlay(m)) { ui.toast(lockText(m), 5000); return; }
+  pendingAi = { mode: m, level };
+  socket.send({ type: 'create', mode: m, levels: levels.length ? levels : savedLevels() });
+});
 // 0.9.9.6: picking a mode shows that it's working; if the server doesn't answer (a dead connection on a phone)
 // the app reconnects and asks again, and says so if that doesn't help either
 let creating: { timers: number[] } | null = null;

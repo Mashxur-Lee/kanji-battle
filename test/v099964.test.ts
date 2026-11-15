@@ -96,7 +96,7 @@ test('0.9.9.9.6.4 migration: a league border or character worn without having pa
 
 test('0.9.9.9.6.4 messages: edit ("edited"), delete, one reaction each, forward ("Forwarded from")', async () => {
   const w = await world();
-  const a = await w.auth.register('anna', 'secret12'), b = await w.auth.register('boris', 'secret12'), c = await w.auth.register('cyril', 'secret12');
+  const a = await w.auth.register('anna', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), b = await w.auth.register('boris', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), c = await w.auth.register('cyril', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await w.friends(a.user.id, b.user.id); await w.friends(a.user.id, c.user.id);
   const m = ((await ask(w.route, a.token, 'POST', `/api/messages/${b.user.id}`, { text: 'helo' }))!.body as Body).message as MessageView;
   // edit: hers only
@@ -129,7 +129,7 @@ test('0.9.9.9.6.4 messages: edit ("edited"), delete, one reaction each, forward 
 
 test('0.9.9.9.6.4 photos: checked, kept behind an unguessable address, sent with a message', async () => {
   const w = await world();
-  const a = await w.auth.register('anna', 'secret12'), b = await w.auth.register('boris', 'secret12');
+  const a = await w.auth.register('anna', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), b = await w.auth.register('boris', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await w.friends(a.user.id, b.user.id);
   assert.equal((await ask(w.route, a.token, 'POST', '/api/messages/media', { image: 'data:image/png;base64,AAAA' }))?.status, 400, 'not a PNG');
   const up = (await ask(w.route, a.token, 'POST', '/api/messages/media', { image: PNG }))!.body as Body;
@@ -144,7 +144,7 @@ test('0.9.9.9.6.4 photos: checked, kept behind an unguessable address, sent with
 
 test('0.9.9.9.6.4 groups: owner, admins, members — who may add, remove, rename, write; leaving passes the crown', async () => {
   const w = await world();
-  const [o, a, m, x, s] = await Promise.all(['owner1', 'admin1', 'member1', 'extra1', 'stranger'].map((n) => w.auth.register(n, 'secret12')));
+  const [o, a, m, x, s] = await Promise.all(['owner1', 'admin1', 'member1', 'extra1', 'stranger'].map((n) => w.auth.register(n, 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`)));
   for (const f of [a, m, x]) await w.friends(o.user.id, f.user.id);
   await w.friends(m.user.id, x.user.id);
   // only friends can be put in
@@ -205,7 +205,7 @@ test('0.9.9.9.6.4 groups: owner, admins, members — who may add, remove, rename
 
 test('0.9.9.9.6.4 notifications: all, only @mentions, or nothing — per conversation; pushes follow it', async () => {
   const w = await world();
-  const a = await w.auth.register('anna', 'secret12'), b = await w.auth.register('boris', 'secret12');
+  const a = await w.auth.register('anna', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), b = await w.auth.register('boris', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await w.friends(a.user.id, b.user.id);
   const g = ((await ask(w.route, a.token, 'POST', '/api/groups', { name: 'G', members: [b.user.id] }))!.body as Body).id as string;
   assert.equal((await ask(w.route, b.token, 'PUT', '/api/messages/notify', { who: g, mode: 'mentions' }))?.status, 200);
@@ -228,7 +228,7 @@ test('0.9.9.9.6.4 notifications: all, only @mentions, or nothing — per convers
 
 test('0.9.9.9.6.4 typing… and a friend\'s status (online, playing, away, last seen)', async () => {
   const w = await world();
-  const a = await w.auth.register('anna', 'secret12'), b = await w.auth.register('boris', 'secret12'), s = await w.auth.register('stranger', 'secret12');
+  const a = await w.auth.register('anna', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), b = await w.auth.register('boris', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), s = await w.auth.register('stranger', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await w.friends(a.user.id, b.user.id);
   await w.messages.typing((await w.store.findById(a.user.id))!, b.user.id, true);
   assert.deepEqual(w.live.at(-1), { kind: 'typing', to: [b.user.id], data: { conv: a.user.id, from: a.user.id, name: 'anna', on: true } });
@@ -246,7 +246,7 @@ test('0.9.9.9.6.4 typing… and a friend\'s status (online, playing, away, last 
 
 test('0.9.9.9.6.4 profiles: the Daily challenge league; friends: words learned today', async () => {
   const w = await world();
-  const a = await w.auth.register('anna', 'secret12'), b = await w.auth.register('boris', 'secret12');
+  const a = await w.auth.register('anna', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), b = await w.auth.register('boris', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   await w.friends(a.user.id, b.user.id);
   await w.store.update(b.user.id, { unlocks: ['dleague:N4'], critCount: 12, critExpires: Date.now() + 3600_000 });
   const p = ((await ask(w.route, a.token, 'GET', `/api/users/${b.user.id}`))!.body as Body).profile;
