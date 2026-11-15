@@ -66,11 +66,17 @@ writeFileSync(r('public/examples.json'), JSON.stringify(examples));
   writeFileSync(r('public/kanji.json'), JSON.stringify(kanji));
 }
 
-// the service worker caches these for offline use; its version changes whenever any of them does
-const SHELL = ['/', '/index.html', '/app.js', '/arena3d.js', '/style.css', '/favicon.svg', '/favicon.ico', '/icons/favicon-32.png', '/icons/favicon-64.png', '/vocab.json', '/examples.json', '/kanji.json', '/meanings-ru.json', '/dict.json', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
-const h = createHash('sha256');
-for (const f of SHELL) if (f !== '/') { try { h.update(readFileSync(r('public', f))); } catch { /* not built yet */ } }
+// the service worker caches these for offline use; its version changes whenever any of them does.
+// 0.9.9.9.6.5: two caches — the game's code (new with every build, ~1 MB) and the word lists (their own version:
+// downloaded again only when the words change). Before, every build made every player download all of it again,
+// the 8 MB dictionary too; the dictionary isn't in here at all now (it comes when you open it, and is kept on the
+// device then — dictui.ts).
+const SHELL = ['/', '/index.html', '/app.js', '/arena3d.js', '/style.css', '/favicon.svg', '/favicon.ico', '/icons/favicon-32.png', '/icons/favicon-64.png', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
+const DATA = ['/vocab.json', '/examples.json', '/kanji.json', '/meanings-ru.json'];
+const hashOf = (files) => { const h = createHash('sha256'); for (const f of files) if (f !== '/') { try { h.update(readFileSync(r('public', f))); } catch { /* not built yet */ } } return h.digest('hex').slice(0, 12); };
 const sw = readFileSync(r('src/client/sw.js'), 'utf8')
   .replace('__SHELL__', JSON.stringify(SHELL))
-  .replace('__BUILD__', h.digest('hex').slice(0, 12));
+  .replace('__DATA__', JSON.stringify(DATA))
+  .replace('__DATA_V__', hashOf(DATA))
+  .replace('__BUILD__', hashOf(SHELL));
 writeFileSync(r('public/sw.js'), sw);
