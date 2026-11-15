@@ -5332,24 +5332,24 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 /* ── 0.9.9.9.6.5: the names in battle — the picture was 22 px (13 px at a computer's usual UI size), the frame
    around it smaller still, and the name small. Bigger now, on computers and phones; a framed picture keeps
    room for its frame and plaque, and sits in its frame's middle (its own 1 px outline pushed it right). ── */
-.pic-wrap > img.pic.fill { position: absolute; inset: 0; margin: 0; border: 0; box-sizing: border-box; }
+/* (the picture inside a frame always fills it exactly — no size, outline or margin from rules meant for the frame) */
+.pic-wrap > img.pic.fill { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; margin: 0 !important; border: 0 !important; box-sizing: border-box; }
 #battle .fighter .name { font-size: 1.12rem; align-items: center; }
 #battle .fighter .name > .n { gap: 9px; }
-#battle .fighter .name .pic { width: 40px; height: 40px; border-width: 2px; box-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
-#battle .fighter .name .pic-wrap { margin: 4px 8px 8px 6px; }
+#battle :is(.fighter .name, .pm-name, .dk-name) > :is(img.pic, .pic-wrap), .dk-player .dk-name > :is(img.pic, .pic-wrap) { width: 40px; height: 40px; }
+#battle :is(.fighter .name, .pm-name) img.pic:not(.fill), .dk-player .dk-name > img.pic { border-width: 2px; box-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+#battle .fighter .name > .n > :is(img.pic, .pic-wrap) { width: 40px; height: 40px; }
+/* a framed picture: a frame is twice the picture's size and was drawn at 70% (a 16 px face in battle) — 90% here */
+#battle .pic-wrap.bd.bd-fr, .dk-player .pic-wrap.bd.bd-fr { scale: .9; margin: 0 12px; }
 #battle .fighter .name .lv { font-size: .78rem; }
 #battle .pm-name { font-size: 1.12rem; }
-#battle .pm-name .pic { width: 36px; height: 36px; border-width: 2px; }
-#battle .pm-name .pic-wrap { margin: 4px 8px 8px 4px; }
 .dk-player .dk-name { font-size: 1.1rem; }
-.dk-player .dk-name .pic { width: 34px; height: 34px; border-width: 2px; }
 @media (max-width: 700px) {
   #battle .arena-top:not(.boss-top) .fighter .name { height: 40px; font-size: .95rem; }
-  #battle .fighter .name .pic { width: 30px; height: 30px; }
-  #battle .fighter .name .pic-wrap { margin: 2px 6px 6px 4px; }
+  #battle .fighter .name > .n > :is(img.pic, .pic-wrap), .dk-player .dk-name > :is(img.pic, .pic-wrap) { width: 30px; height: 30px; }
+  #battle .pic-wrap.bd.bd-fr, .dk-player .pic-wrap.bd.bd-fr { margin: 0 9px; }
   #battle .fighter .name .lv { font-size: .68rem; }
   .dk-player .dk-name { font-size: .95rem; }
-  .dk-player .dk-name .pic { width: 28px; height: 28px; }
 }
 
 /* ── 0.9.9.9.6.5: an invite / a challenge in the chat — a card with the mode and Join (as in Steam) ── */
