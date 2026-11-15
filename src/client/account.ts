@@ -36,11 +36,15 @@ const err = (e: unknown) => (e instanceof Error ? e.message : tr('Something went
  */
 export function emailDialog(opts: { required: boolean; current?: string | null; onDone: (u: PublicUser) => void; onLogout?: () => void }) {
   const { d, f } = dialog('email-dialog', !opts.required);
-  const h3 = el('h3', '', tr(opts.required ? 'Add your email' : opts.current ? 'Change your email' : 'Add your email'));
+  const h3 = el('h3', '', tr(opts.current ? 'Change your email' : 'Add your email'));
   const why = el('p', 'hint', tr('Every account has an email now: it is how you get back in if you forget your password, and one account per person. We send nothing else, and nobody else sees it.'));
   const now = opts.current ? el('p', 'hint em-now', `${tr('Now:')} ${opts.current}`) : null;
   const mail = field('Email', 'email', 'email', { mode: 'email' });
+  // (only changing an email asks for the password — and it changes at most once a week)
+  const changing = !!opts.current;
   const pass = field('Your password', 'password', 'current-password', { max: 72 });
+  pass.i.required = changing;
+  const weekly = el('p', 'hint', tr('You can change your email once a week.'));
   const msg = msgLine();
   const row = el('div', 'fb-actions');
   const ok = el('button', 'big', tr('Save'));
@@ -55,7 +59,7 @@ export function emailDialog(opts: { required: boolean; current?: string | null; 
     cancel.type = 'button'; cancel.onclick = () => d.close();
     row.append(cancel, ok);
   }
-  f.append(h3, why, ...(now ? [now] : []), mail.l, pass.l, msg, row);
+  f.append(h3, why, ...(now ? [now] : []), mail.l, ...(changing ? [pass.l, weekly] : []), msg, row);
   f.onsubmit = async (e) => {
     e.preventDefault();
     ok.disabled = true; msg.textContent = '';

@@ -548,7 +548,7 @@ const RU: Record<string, string> = {
   'Race a friend': 'Гонка с другом', 'No one yet — play an AI while you wait?': 'Пока никого — сыграть с ИИ, пока ждёте?', 'AI': 'ИИ', 'Beginner': 'Новичок',
   'Forgot password?': 'Забыли пароль?', 'Email': 'Почта', 'Add your email': 'Добавьте почту', 'Change your email': 'Сменить почту', 'Now:': 'Сейчас:',
   'Every account has an email now: it is how you get back in if you forget your password, and one account per person. We send nothing else, and nobody else sees it.': 'Теперь у каждого аккаунта есть почта: по ней можно вернуться, если забыли пароль, и один аккаунт на человека. Больше мы ничего не присылаем, и никто другой её не видит.',
-  'Your password': 'Ваш пароль', 'Log out': 'Выйти', 'Forgot your password?': 'Забыли пароль?', 'Your login or email': 'Ваш логин или почта',
+  'Your password': 'Ваш пароль', 'You can change your email once a week.': 'Почту можно менять раз в неделю.', 'Log out': 'Выйти', 'Forgot your password?': 'Забыли пароль?', 'Your login or email': 'Ваш логин или почта',
   'We send a 6-digit code to the email of your account.': 'Мы пришлём 6-значный код на почту вашего аккаунта.', 'Code from the email': 'Код из письма',
   'If that account has an email, the code is on its way (check spam too). It works for 30 minutes.': 'Если у аккаунта есть почта, код уже в пути (проверьте и «Спам»). Он действует 30 минут.',
   'Send a new code': 'Прислать новый код', 'Send the code': 'Прислать код', 'Set the new password': 'Задать новый пароль',
@@ -1179,6 +1179,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^You passed the (\S+) league! You're in the (\S+) league now — tomorrow's ten words come from it\.$/, (_, a, b) => `Вы прошли лигу ${a === 'Kana' ? 'Кана' : a}! Теперь вы в лиге ${b} — завтрашние десять слов из неё.`],
   [/^You passed the (\S+) league — the highest there is\.$/, 'Вы прошли лигу $1 — самую высокую.'],
   // 0.9.9.9.6.5: the host changes the room's mode
+  [/^You can change your email again in (\d+) days?$/, (_, n) => `Почту можно будет сменить через ${n} ${n === '1' ? 'день' : Number(n) < 5 ? 'дня' : 'дней'}`],
   [/^(.+) switched the game to (.+)$/, (_, n, m) => `${n} сменил(а) режим: ${mode(m)}`],
   [/^Too many players for (.+) — it is for (\d+)$/, (_, m, n) => `Слишком много игроков для режима «${mode(m)}» — он на ${n}`],
   // 0.9.9.9.5.2: the push test

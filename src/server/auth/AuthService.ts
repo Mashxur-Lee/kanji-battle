@@ -11,6 +11,11 @@ export class AuthError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
 }
 
+/** 0.9.9.9.6.6: when the email was last set — it can change once a week */
+const EMAIL_MARK = 'emailat:';
+const EMAIL_GAP_MS = 7 * 86_400_000;
+export const emailChangedAt = (u: { unlocks?: string[] }) => Number((u.unlocks ?? []).find((x) => x.startsWith(EMAIL_MARK))?.slice(EMAIL_MARK.length)) || 0;
+
 /** 0.9.9.9.6.5: when the password last changed (a marker among the account's unlocks) */
 const PW_MARK = 'pwat:';
 export const passwordChangedAt = (u: { unlocks?: string[] }) => Number((u.unlocks ?? []).find((x) => x.startsWith(PW_MARK))?.slice(PW_MARK.length)) || 0;
@@ -76,15 +81,27 @@ export class AuthService {
     try { return cleanEmail(raw); } catch (e) { if (e instanceof EmailError) throw new AuthError(e.message); throw e; }
   }
 
-  /** 0.9.9.9.6.6: add or change your email — your password first (a borrowed session can't take the account) */
-  async setEmail(u: UserRecord, email: unknown, password: unknown) {
-    if (!(await verifyPassword(String(password ?? ''), u.passwordHash))) throw new AuthError('Your password is wrong', 403);
+  /**
+   * 0.9.9.9.6.6: add or change your email. The first one needs nothing more; changing it needs your password (a
+   * borrowed phone that's still signed in can't move your account to another inbox and reset the password) and
+   * happens at most once a week (no hopping between inboxes).
+   */
+  async setEmail(u: UserRecord, email: unknown, password: unknown, now = Date.now()) {
+    const changing = !!u.email;
+    if (changing && !(await verifyPassword(String(password ?? ''), u.passwordHash))) throw new AuthError('Your password is wrong', 403);
     const mail = this.emailOrThrow(email);
     const key = emailKey(mail);
+    if (changing && key === u.emailKey) return toSelf(u);
+    const last = emailChangedAt(u) || Date.parse(u.createdAt) || 0; // (given at sign-up: a week from then)
+    if (changing && last && now - last < EMAIL_GAP_MS) {
+      const days = Math.max(1, Math.ceil((last + EMAIL_GAP_MS - now) / 86_400_000));
+      throw new AuthError(`You can change your email again in ${days} day${days === 1 ? '' : 's'}`, 429);
+    }
     const other = await this.store.findByEmailKey(key);
     if (other && other.id !== u.id) throw new AuthError('That email already has an account', 409);
+    const unlocks = [...(u.unlocks ?? []).filter((x) => !x.startsWith(EMAIL_MARK)), `${EMAIL_MARK}${now}`];
     try {
-      const rec = await this.store.update(u.id, { email: mail, emailKey: key });
+      const rec = await this.store.update(u.id, { email: mail, emailKey: key, unlocks });
       return toSelf(rec ?? u);
     } catch (e) {
       if (e instanceof EmailTakenError) throw new AuthError('That email already has an account', 409);
