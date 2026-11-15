@@ -425,6 +425,21 @@ export class MessageService {
     return v;
   }
 
+  /**
+   * 0.9.9.9.6.5: an invite to your room (or a challenge from their profile) also lands in your conversation with
+   * the friend — like Steam's: a card with the mode and Join. The text is what the card reads from:
+   * "invite <mode> <code>" (+ " challenge"). The invite itself already rang and pushed, so this one is quiet.
+   */
+  async invite(u: UserRecord, to: string, mode: string, code: string, challenge: boolean): Promise<MessageView | null> {
+    if (!/^[a-z_]{2,24}$/.test(mode) || !/^[A-Z0-9]{4}$/.test(code) || to === u.id || GROUP.test(to) || to === SUPPORT_ID) return null;
+    const m = await this.store.addMessage({ fromId: u.id, toId: to, text: `invite ${mode} ${code}${challenge ? ' challenge' : ''}`, at: this.now(), kind: 'invite', by: null });
+    const v = view(m);
+    const fromName = nameOf(u);
+    this.hooks.deliver([{ id: to, muted: true }], v, fromName);
+    this.hooks.deliver([{ id: u.id, muted: true }], v, fromName);
+    return v;
+  }
+
   /** Feedback (a bug report or a suggestion) also goes into the player's conversation with the team */
   async feedback(u: UserRecord, kind: 'bug' | 'suggestion', text: string) {
     const label = kind === 'bug' ? '🐞 Bug report' : '💡 Suggestion';
@@ -460,7 +475,7 @@ export class MessageService {
 
   async edit(u: UserRecord, id: unknown, text: unknown) {
     const { m, as } = await this.visible(u, id);
-    if (m.fromId !== as || m.deleted || m.kind === 'sys') throw new MessageError('You can edit your own messages', 403);
+    if (m.fromId !== as || m.deleted || m.kind === 'sys' || m.kind === 'invite') throw new MessageError('You can edit your own messages', 403);
     if (m.fwd) throw new MessageError('A forwarded message can\'t be edited');
     if (this.now() - m.at > EDIT_WINDOW_MS) throw new MessageError('Messages can be edited for 48 hours');
     const t = typeof text === 'string' ? text.replace(/\r\n?/g, '\n').trim().slice(0, MESSAGE_MAX) : '';
@@ -500,7 +515,7 @@ export class MessageService {
   /** forward a message to other conversations ("Forwarded from …") */
   async forward(u: UserRecord, id: unknown, targets: unknown) {
     const { m } = await this.visible(u, id);
-    if (m.deleted || m.kind === 'sys') throw new MessageError('Can\'t forward that');
+    if (m.deleted || m.kind === 'sys' || m.kind === 'invite') throw new MessageError('Can\'t forward that');
     const list = Array.isArray(targets) ? [...new Set(targets.filter((x): x is string => typeof x === 'string'))].slice(0, 10) : [];
     if (!list.length) throw new MessageError('Forward to whom?');
     let from = m.fwd;

@@ -7,6 +7,23 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.6.5', date: '2026-11',
+    en: [
+      'Invites in Messages: when a friend invites you to their room or challenges you, it also shows in your chat with them, as a card with the mode and a Join button (as in Steam).',
+      'Battle: bigger names and pictures, on computers and phones; a framed picture sits right in the middle of its frame.',
+      'Fixed: a group’s picture taken from a phone stretched far down the group’s page; and with many photos on your phone, the photo picker laid them over each other in strips.',
+      'Lighter updates: a new version no longer downloads the whole dictionary and word lists again — only what changed. Small league frames load at a fifth of the size.',
+      'Smaller things: the Daily challenge shows what passing your league brings properly; Feedback’s Close button.',
+    ],
+    ru: [
+      'Приглашения в «Сообщениях»: когда друг зовёт вас в комнату или бросает вызов, это появляется и в чате с ним — карточкой с режимом и кнопкой «Войти» (как в Steam).',
+      'Бой: крупнее имена и фото — на компьютере и на телефоне; фото в рамке стоит точно по её центру.',
+      'Исправлено: фото группы с телефона растягивалось далеко вниз; а при множестве фото на телефоне окно выбора накладывало их друг на друга полосками.',
+      'Обновления легче: новая версия больше не скачивает заново весь словарь и списки слов — только то, что изменилось. Маленькие рамки лиг грузятся в пять раз быстрее.',
+      'Мелочи: «Ежедневное испытание» нормально показывает награду за лигу; кнопка «Закрыть» в «Отзыве».',
+    ],
+  },
+  {
     v: '0.9.9.9.6.4', date: '2026-11',
     en: [
       'Messages, like Telegram: tap a message to react, reply, copy, forward, edit or delete it (on a computer a smiley shows beside it for a quick reaction). Edited messages say "edited".',

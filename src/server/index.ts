@@ -103,6 +103,7 @@ const messages = new MessageService(store, {
   push: (to, fromId, fromName, text) => { void hub.notify(to, { kind: 'dm', fromId, fromName, text: text.slice(0, 160) }); },
   online: (id) => hub.online(id),
 });
+hub.onInviteSent = (fromId, to, mode, code, challenge) => { void store.findById(fromId).then((u) => (u ? messages.invite(u, to, mode, code, challenge) : null)).catch(() => { /* the invite itself went out */ }); };
 hub.onDmTyping = (userId, to, on) => { void store.findById(userId).then((u) => (u ? messages.typing(u, to, on) : undefined)).catch(() => { /* not important */ }); };
 const pushTested = new Map<string, number>(); // (one test every few seconds)
 const recognizer = Recognizer.fromFile();
@@ -194,7 +195,9 @@ const server = createServer(async (req, res) => {
     // the service worker and the page are checked for a new version every time (0.9.9.4)
     // 0.9.9.9.5: + the security headers (the page's inline script allowed by its hash)
     if (url === '/index.html' && pageHashesFor !== data.length) { pageHashes = inlineScriptHashes(data.toString('utf8')); pageHashesFor = data.length; }
-    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : url.startsWith('/bg/') || url.startsWith('/models/') || url.startsWith('/frames/') || url.startsWith('/flames/') ? { 'Cache-Control': 'public, max-age=604800' } : {}) };
+    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : url.startsWith('/bg/') || url.startsWith('/models/') || url.startsWith('/frames/') || url.startsWith('/flames/') ? { 'Cache-Control': 'public, max-age=604800' }
+      // 0.9.9.9.6.5: the dictionary is asked for as /dict.json?v=<its version> — the browser may keep it a month
+      : url === '/dict.json' && /[?&]v=/.test(req.url ?? '') ? { 'Cache-Control': 'public, max-age=2592000' } : {}) };
     // text files go out gzipped (app.js, arena3d.js and the Russian meanings are large); cached per build
     // 0.9.9.9: Brotli where the browser takes it (the dictionary ~25% smaller than gzip), else gzip
     const accept = String(req.headers['accept-encoding'] ?? '');

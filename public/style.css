@@ -764,6 +764,9 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .who-btn:hover { border-color: var(--accent); }
 .avatar.has-pic, .pp-pic.has-pic { padding: 0; overflow: hidden; background: none; }
 .pic { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; vertical-align: middle; flex: none; border: 1px solid rgba(255,255,255,.3); }
+/* 0.9.9.9.6.5: a picture is always square (and cropped). In a box laid out as a grid, "height: 100%" counts for
+   nothing, so a tall photo (a phone screenshot as a group's picture) stretched far below its circle. */
+.pic { aspect-ratio: 1 / 1; }
 .pic.fill { width: 100%; height: 100%; border: 0; }
 .profile-pop { position: absolute; left: 0; top: calc(100% + 8px); z-index: 60; width: min(320px, calc(calc(100 * var(--vw)) - 32px)); display: flex; flex-direction: column; gap: 12px;
   background: rgba(16, 14, 44, .97); border: 1px solid var(--line); border-radius: 16px; padding: 16px; box-shadow: 0 12px 34px rgba(0, 0, 0, .55); }
@@ -5248,7 +5251,12 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .ps-note[hidden] { display: none; }
 .ps-grid { flex: 1; min-height: 160px; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; border-radius: 12px; overscroll-behavior: contain; }
 @media (min-width: 560px) { .ps-grid { grid-template-columns: repeat(4, 1fr); } }
-.ps-item { all: unset; box-sizing: border-box; position: relative; aspect-ratio: 1; border-radius: 8px; cursor: pointer; background: rgba(255, 255, 255, .06) center / cover no-repeat; overflow: hidden; transition: transform .14s; }
+.ps-item { all: unset; display: block; box-sizing: border-box; position: relative; aspect-ratio: 1; min-height: 0; border-radius: 8px; cursor: pointer; background: rgba(255, 255, 255, .06) center / cover no-repeat; transition: transform .14s; }
+/* 0.9.9.9.6.5: with hundreds of photos the rows were squeezed to fit the sheet (a clipped tile may shrink to
+   nothing), and the photos lay over each other in strips. The tiles keep their squares and the sheet scrolls;
+   the shine is clipped by its own corners instead. */
+.ps-grid { align-content: start; grid-auto-rows: max-content; }
+.ps-item:not(.ready):not(.ps-device)::after { border-radius: inherit; }
 .ps-item:not(.ready):not(.ps-device)::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .08) 50%, transparent 70%); background-size: 200% 100%; animation: psShine 1.2s linear infinite; }
 @keyframes psShine { from { background-position: 150% 0; } to { background-position: -50% 0; } }
 .ps-item.picked { transform: scale(.9); box-shadow: 0 0 0 3px var(--accent); }
@@ -5320,3 +5328,63 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .fwd-dialog .big { width: 100%; margin-top: 12px; }
 .plink { cursor: pointer; }
 .plink:hover { text-decoration: underline; }
+
+/* ── 0.9.9.9.6.5: the names in battle — the picture was 22 px (13 px at a computer's usual UI size), the frame
+   around it smaller still, and the name small. Bigger now, on computers and phones; a framed picture keeps
+   room for its frame and plaque, and sits in its frame's middle (its own 1 px outline pushed it right). ── */
+/* (the picture inside a frame always fills it exactly — no size, outline or margin from rules meant for the frame) */
+.pic-wrap > img.pic.fill { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; margin: 0 !important; border: 0 !important; box-sizing: border-box; }
+#battle .fighter .name { font-size: 1.12rem; align-items: center; }
+#battle .fighter .name > .n { gap: 9px; }
+#battle :is(.fighter .name, .pm-name, .dk-name) > :is(img.pic, .pic-wrap), .dk-player .dk-name > :is(img.pic, .pic-wrap) { width: 40px; height: 40px; }
+#battle :is(.fighter .name, .pm-name) img.pic:not(.fill), .dk-player .dk-name > img.pic { border-width: 2px; box-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+#battle .fighter .name > .n > :is(img.pic, .pic-wrap) { width: 40px; height: 40px; }
+/* a framed picture: a frame is twice the picture's size and was drawn at 70% (a 16 px face in battle) — 90% here */
+#battle .pic-wrap.bd.bd-fr, .dk-player .pic-wrap.bd.bd-fr { scale: .9; margin: 0 12px; }
+#battle .fighter .name .lv { font-size: .78rem; }
+#battle .pm-name { font-size: 1.12rem; }
+.dk-player .dk-name { font-size: 1.1rem; }
+@media (max-width: 700px) {
+  #battle .arena-top:not(.boss-top) .fighter .name { height: 40px; font-size: .95rem; }
+  #battle .fighter .name > .n > :is(img.pic, .pic-wrap), .dk-player .dk-name > :is(img.pic, .pic-wrap) { width: 30px; height: 30px; }
+  #battle .pic-wrap.bd.bd-fr, .dk-player .pic-wrap.bd.bd-fr { margin: 0 9px; }
+  /* (the level chip gives its room to the name on a phone — "FrenZyy" was cut to "FrenZ…") */
+  #battle .arena-top:not(.boss-top) .fighter .name .lv { display: none; }
+  .dk-player .dk-name { font-size: .95rem; }
+}
+
+/* ── 0.9.9.9.6.5: an invite / a challenge in the chat — a card with the mode and Join (as in Steam) ── */
+.msg-b.has-inv { padding: 6px; min-width: min(280px, 100%); }
+.msg-inv { --ic: #8a7bff; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ic t" "act act"; gap: 10px 12px; align-items: center;
+  padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(106, 92, 255, .32), rgba(30, 24, 70, .55)); border: 1px solid color-mix(in srgb, var(--ic) 55%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); text-align: left; }
+.msg-inv.chal { --ic: #ff6b7d; background: linear-gradient(135deg, rgba(255, 90, 110, .3), rgba(50, 18, 40, .6)); }
+.msg-inv.m-boss { --ic: #ffb347; } .msg-inv.m-deck { --ic: #4fd1c5; } .msg-inv.m-writing { --ic: #7fd6a0; } .msg-inv.m-rapid { --ic: #ffd23a; }
+.msg-inv-ic { grid-area: ic; width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 1.6rem; font-weight: 900; color: #fff;
+  font-family: var(--jp, serif); background: linear-gradient(135deg, var(--ic), color-mix(in srgb, var(--ic) 45%, #120d30)); box-shadow: 0 4px 14px color-mix(in srgb, var(--ic) 45%, transparent); }
+.msg-inv-t { grid-area: t; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.msg-inv-t small { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: color-mix(in srgb, var(--ic) 70%, #fff); }
+.msg-inv-t b { font-size: 1.02rem; line-height: 1.2; color: #fff; }
+.msg-inv-code { font-size: .78rem; color: rgba(255, 255, 255, .7); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.msg-inv-join { grid-area: act; justify-self: stretch; text-align: center; padding: 9px 14px !important; font-weight: 900; }
+.msg-inv.chal .msg-inv-join { background: linear-gradient(135deg, #ff6b7d, #c2335a); }
+.msg-inv-state { grid-area: act; font-size: .8rem; font-weight: 700; color: rgba(255, 255, 255, .65); text-align: center; padding: 4px; border-radius: 10px; background: rgba(0, 0, 0, .18); }
+:root[data-theme="light"] .msg-inv-code { color: rgba(255, 255, 255, .8); }
+/* 0.9.9.9.6.5: a small picture (lists, battle, chat, the top bar) takes the frame at half size and half the
+   frames — the same moving painting at a fifth of the download (1.2 MB → 0.27 MB for N1); big pictures keep it whole */
+:is(.pic-wrap, #whoPic, .avatar).bd-lg-n5::before { background-image: url(/frames/s/lg-n5.webp); }
+:is(.pic-wrap, #whoPic, .avatar).bd-lg-n4::before { background-image: url(/frames/s/lg-n4.webp); }
+:is(.pic-wrap, #whoPic, .avatar).bd-lg-n3::before { background-image: url(/frames/s/lg-n3.webp); }
+:is(.pic-wrap, #whoPic, .avatar).bd-lg-n2::before { background-image: url(/frames/s/lg-n2.webp); }
+:is(.pic-wrap, #whoPic, .avatar).bd-lg-n1::before { background-image: url(/frames/s/lg-n1.webp); }
+/* 0.9.9.9.6.5: what passing your league brings — the frame on a real-size picture and the character, each named */
+.lg-pass { flex-direction: column; align-items: stretch; gap: 8px; }
+.lg-pass-rw { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+.lg-pass-it { display: inline-flex; align-items: center; gap: 14px; }
+.lg-pass-it b { font-size: .9rem; color: #fff; }
+.lg-pass-av { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; position: relative; font-size: 1.05rem; font-weight: 900; color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent2)); margin: 10px 8px 14px 10px; flex: none; }
+.lg-pass-char { width: 40px; height: 52px; display: inline-block; flex: none; } .lg-pass-char svg { width: 100%; height: 100%; }
+/* 0.9.9.9.6.5: Feedback's Close was stretched to Send's height and looked like a ball */
+.fb-actions { align-items: center; }
+.fb-actions .pill { align-self: center; padding: 10px 18px; }

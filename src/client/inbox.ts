@@ -8,7 +8,7 @@
 // with "7 members, 3 online" under the name; "typing…"; a friend's status under their name (tap it for their
 // profile); "@" suggests friends; the bell: all messages, only @mentions, or nothing.
 import { api, type Conversation, type GroupInfo, type NotifyMode } from './api';
-import type { DmView } from '../shared/protocol';
+import { MODE_LABEL, MODES, type DmView, type GameMode } from '../shared/protocol';
 import { locale, tr } from './i18n';
 import * as ui from './ui';
 import { viewH, viewW, zrect } from './zoom';
@@ -186,12 +186,48 @@ function sysText(m: DmView): string {
     default: return m.text;
   }
 }
+// ── 0.9.9.9.6.5: an invite / a challenge in the chat (as in Steam: a card with the mode and Join) ──
+const INVITE_FRESH_MS = 30 * 60_000;
+function parseInvite(m: DmView): { mode: GameMode; code: string; challenge: boolean } | null {
+  if (m.kind !== 'invite') return null;
+  const x = /^invite (\w+) ([A-Z0-9]{4})( challenge)?$/.exec(m.text);
+  return x && (MODES as readonly string[]).includes(x[1]) ? { mode: x[1] as GameMode, code: x[2], challenge: !!x[3] } : null;
+}
+let joinFn: ((code: string) => void) | null = null;
+let roomCode: () => string | null = () => null;
+/** main.ts: how to join a room by its code, and which room you're in */
+export function setInviteJoin(join: (code: string) => void, current: () => string | null) { joinFn = join; roomCode = current; }
+function inviteCard(m: DmView, inv: NonNullable<ReturnType<typeof parseInvite>>, mine: boolean): HTMLElement {
+  const card = h('div', `msg-inv m-${inv.mode}${inv.challenge ? ' chal' : ''}`);
+  const icon = h('span', 'msg-inv-ic', ui.MODE_ICON[inv.mode]); icon.lang = 'ja';
+  const txt = h('div', 'msg-inv-t');
+  txt.append(h('small', '', tr(inv.challenge ? (mine ? 'You challenged them' : 'Challenges you') : (mine ? 'You invited them' : 'Invites you to play'))), h('b', '', tr(MODE_LABEL[inv.mode])), h('span', 'msg-inv-code', `${tr('Room')} ${inv.code}`));
+  card.append(icon, txt);
+  const here = roomCode() === inv.code;
+  const fresh = Date.now() - m.at < INVITE_FRESH_MS;
+  if (here) card.append(h('span', 'msg-inv-state', tr('You are in this room')));
+  else if (mine) card.append(h('span', 'msg-inv-state', tr(fresh ? 'Waiting for them' : 'Expired')));
+  else if (!fresh) card.append(h('span', 'msg-inv-state', tr('Expired')));
+  else {
+    const join = h('button', 'pill primary msg-inv-join', tr('Join')) as HTMLButtonElement;
+    join.type = 'button';
+    join.onclick = (e) => { e.stopPropagation(); join.disabled = true; joinFn?.(inv.code); };
+    card.append(join);
+  }
+  return card;
+}
+function invitePreview(m: DmView): string | null {
+  const inv = parseInvite(m);
+  return inv ? `${tr(inv.challenge ? 'Challenge' : 'Invite to play')} · ${tr(MODE_LABEL[inv.mode])}` : null;
+}
+
 function previewOf(c: Conversation): string {
   const m = c.last;
   if (!m.at) return c.group ? tr('No messages yet') : tr(m.text);
   if (m.kind === 'sys') return sysText(m);
   if (m.deleted) return tr('Message deleted');
-  const body = m.kind ? m.text.replace(/\n/, ' — ') : (splitQuote(m.text).body || m.text);
+  const inv = invitePreview(m);
+  const body = inv ?? (m.kind ? m.text.replace(/\n/, ' — ') : (splitQuote(m.text).body || m.text));
   const what = m.media ? `📷 ${body || tr('Photo')}` : body;
   const who = m.from === myId() ? `${tr('You')}: ` : c.group ? `${nameOf(m.from)}: ` : '';
   return who + what;
@@ -242,7 +278,7 @@ function splitQuote(text: string): { quote: string; body: string } {
   while (i < lines.length && lines[i].startsWith('> ')) i++;
   return { quote: lines.slice(0, i).map((l) => l.slice(2)).join('\n'), body: lines.slice(i).join('\n') };
 }
-const canEdit = (m: DmView) => m.from === myId() && !m.deleted && m.kind !== 'sys' && !m.fwd && Date.now() - m.at < 48 * 3600_000;
+const canEdit = (m: DmView) => m.from === myId() && !m.deleted && m.kind !== 'sys' && m.kind !== 'invite' && !m.fwd && Date.now() - m.at < 48 * 3600_000;
 const canDelete = (m: DmView) => !m.deleted && m.kind !== 'sys' && (m.from === myId() || (!!openWith?.group && openWith.group.role !== 'member'));
 
 function bubble(m: DmView, prev?: DmView, next?: DmView) {
@@ -280,7 +316,9 @@ function renderRow(m: DmView, prev?: DmView, next?: DmView): HTMLElement {
     return row;
   }
   if (m.fwd) { const f = h('span', 'msg-fwd'); f.append(h('small', '', tr('Forwarded from')), h('b', '', m.fwd)); b.append(f); }
-  const { quote, body } = splitQuote(m.text);
+  const inv = parseInvite(m);
+  if (inv) { b.append(inviteCard(m, inv, mine)); b.classList.add('has-inv'); }
+  const { quote, body } = inv ? { quote: '', body: '' } : splitQuote(m.text);
   if (quote) b.append(h('span', 'msg-quote', quote));
   if (m.media) {
     const img = document.createElement('img');
@@ -293,7 +331,8 @@ function renderRow(m: DmView, prev?: DmView, next?: DmView): HTMLElement {
   const [first, ...rest] = body.split('\n');
   // 0.9.9.9.6.3: "@admin" — tap it for their card; a message that names you is marked
   const said = (t: string) => { const sp = h('span', 'msg-txt'); sp.append(withMentions(t)); return sp; };
-  if (m.kind) { b.append(h('b', 'msg-kind', first)); if (rest.length) b.append(said(rest.join('\n'))); }
+  if (inv) { /* the card says it all */ }
+  else if (m.kind) { b.append(h('b', 'msg-kind', first)); if (rest.length) b.append(said(rest.join('\n'))); }
   else if (body) b.append(said(body));
   if (!mine && mentionsMe(body)) row.classList.add('to-me');
   // edited · time · ✓ sent, ✓✓ read
@@ -328,7 +367,7 @@ function renderRow(m: DmView, prev?: DmView, next?: DmView): HTMLElement {
   const q = h('button', 'msg-qbtn', '↩') as HTMLButtonElement;
   q.type = 'button'; q.title = tr('Reply'); q.setAttribute('aria-label', tr('Reply'));
   q.onclick = (e) => { e.stopPropagation(); setQuote(body.replace(/^🐞 Bug report\n|^💡 Suggestion\n/, '') || (m.media ? tr('Photo') : '')); };
-  row.append(b, ...(m.kind ? [] : [quick]), q);
+  row.append(b, ...(m.kind && m.kind !== 'invite' ? [] : [quick]), ...(m.kind === 'invite' ? [] : [q]));
   return row;
 }
 
@@ -406,7 +445,7 @@ function openMenu(m: DmView, anchor: HTMLElement) {
   if (m.deleted || m.kind === 'sys') return;
   const pop = h('div', 'msg-menu');
   pop.setAttribute('role', 'menu');
-  if (!m.kind) pop.append(reactRow(m, () => pop.remove()));
+  if (!m.kind || m.kind === 'invite') pop.append(reactRow(m, () => pop.remove()));
   const item = (icon: string, label: string, fn: () => void, danger = false) => {
     const b = h('button', `msg-mi${danger ? ' danger' : ''}`) as HTMLButtonElement;
     b.type = 'button'; b.setAttribute('role', 'menuitem');
@@ -415,10 +454,10 @@ function openMenu(m: DmView, anchor: HTMLElement) {
     b.onclick = (e) => { e.stopPropagation(); pop.remove(); fn(); };
     pop.append(b);
   };
-  const { body } = splitQuote(m.text);
-  item(ICON.reply, tr('Reply'), () => setQuote(body || (m.media ? tr('Photo') : '')));
+  const { body } = m.kind === 'invite' ? { body: '' } : splitQuote(m.text);
+  if (m.kind !== 'invite') item(ICON.reply, tr('Reply'), () => setQuote(body || (m.media ? tr('Photo') : '')));
   if (body) item(ICON.copy, tr('Copy'), () => { void navigator.clipboard?.writeText(body).then(() => ui.toast(tr('Copied'), 1500)).catch(() => { /* not allowed */ }); });
-  if (side === 'me') item(ICON.fwd, tr('Forward'), () => forwardDialog(m));
+  if (side === 'me' && m.kind !== 'invite') item(ICON.fwd, tr('Forward'), () => forwardDialog(m));
   if (canEdit(m)) item(ICON.edit, tr('Edit'), () => startEdit(m));
   if (canDelete(m)) item(ICON.del, tr('Delete'), () => void (async () => {
     if (!(await ui.confirmBox(tr('Delete this message?'), tr('It is deleted for everyone in the chat.'), tr('Delete'), tr('Cancel')))) return;

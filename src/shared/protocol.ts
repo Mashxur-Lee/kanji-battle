@@ -184,7 +184,7 @@ export type ClientMessage =
   | { type: 'queue_accept'; matchId: number }
   | { type: 'remove_bot'; id: string }
   /** invite a friend into the room you're in (lobby) */
-  | { type: 'invite'; friendId: string }
+  | { type: 'invite'; friendId: string; /** 0.9.9.9.6.5: from "Challenge" on their profile (the chat's card says so) */ challenge?: boolean }
   /** 0.9.9.9.5: "Decline" on a friend's invite — they can't invite you again for 5 minutes */
   | { type: 'invite_decline'; fromId: string }
   | { type: 'chat'; text: string }

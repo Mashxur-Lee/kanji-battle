@@ -5,20 +5,31 @@
 const BUILD = '__BUILD__';
 const SHELL = __SHELL__;
 const CACHE = `kw-shell-${BUILD}`;
+// 0.9.9.9.6.5: the word lists in a cache of their own, versioned by their content — a new build of the game no
+// longer downloads them again (nor the dictionary, which isn't cached here at all)
+const DATA = __DATA__;
+const DATA_CACHE = `kw-data-__DATA_V__`;
 const RUNTIME = 'kw-runtime';
+const NEVER = new Set(['/dict.json']); // (kept on the device by the dictionary itself, when you choose to)
 
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
     // one by one, fresh from the network: a missing file doesn't stop the rest
-    await Promise.all(SHELL.map((u) => fetch(u, { cache: 'reload' }).then((r) => (r.ok ? c.put(u, r) : null)).catch(() => null)));
+    const get = (cache, u) => fetch(u, { cache: 'reload' }).then((r) => (r.ok ? cache.put(u, r) : null)).catch(() => null);
+    const d = await caches.open(DATA_CACHE);
+    const missing = [];
+    for (const u of DATA) if (!(await d.match(u))) missing.push(u);
+    await Promise.all([...SHELL.map((u) => get(c, u)), ...missing.map((u) => get(d, u))]);
     await self.skipWaiting();
   })());
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k.startsWith('kw-shell-') && k !== CACHE) await caches.delete(k);
+    for (const k of await caches.keys()) if ((k.startsWith('kw-shell-') && k !== CACHE) || (k.startsWith('kw-data-') && k !== DATA_CACHE)) await caches.delete(k);
+    // (older builds kept the dictionary and the word lists in the runtime cache too)
+    try { const rt = await caches.open(RUNTIME); for (const u of [...NEVER, ...DATA]) await rt.delete(u, { ignoreSearch: true }); } catch { /* fine */ }
     await self.clients.claim();
   })());
 });
@@ -30,13 +41,14 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith('/api/avatar/') || url.pathname.startsWith('/api/media/')) { e.respondWith(cacheFirst(req, RUNTIME)); return; }
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/download/')) return; // live data / app downloads: never the cached page
+  if (NEVER.has(url.pathname)) return; // the network (and the browser's own cache) — not 8 MB in ours
   if (req.mode === 'navigate') { e.respondWith(shell('/index.html', req)); return; }
   e.respondWith(shell(url.pathname, req));
 });
 
 /** From this build's cache; anything not in it from the network (kept for next time). */
 async function shell(path, req) {
-  const hit = await caches.match(path, { cacheName: CACHE });
+  const hit = (await caches.match(path, { cacheName: CACHE })) ?? (await caches.match(path, { cacheName: DATA_CACHE }));
   if (hit) return hit;
   try {
     const res = await fetch(req);

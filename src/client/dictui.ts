@@ -70,7 +70,7 @@ export function dictionary(): Promise<Dictionary> {
       if (kept.v !== DICT_V && navigator.onLine) void downloadDict(() => {}).then((s) => { dictP = Promise.resolve(build(s.dict, s.vocab)); }).catch(() => {}); // a newer one, quietly
       return build(kept.dict, kept.vocab);
     }
-    const [data, vocab] = await Promise.all([fetch('/dict.json').then((r) => { if (!r.ok) throw new Error(`dict ${r.status}`); return r.json(); }), import('./offline/vocab').then(async (m) => { await m.loadVocab(); return m.VOCAB; })]);
+    const [data, vocab] = await Promise.all([fetch(`/dict.json?v=${encodeURIComponent(DICT_V)}`).then((r) => { if (!r.ok) throw new Error(`dict ${r.status}`); return r.json(); }), import('./offline/vocab').then(async (m) => { await m.loadVocab(); return m.VOCAB; })]);
     return build(data, vocab);
   })().catch((e) => { dictP = null; throw e; });
   return dictP;
