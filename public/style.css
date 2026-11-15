@@ -5482,7 +5482,7 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 
 /* 0.9.9.9.6.6: Messages on a computer — it was a small box in the middle (1100 px wide at most, 720 px tall, at the
    UI size's zoom); now it takes the screen like a messenger: up to 1500 px wide, the window's height, bigger text */
-@media (min-width: 901px) and (pointer: fine) {
+@media (min-width: 901px) {
   .inbox-screen { max-width: min(1500px, calc(100 * var(--vw, 1vw) - 180px)); padding-top: 64px; padding-bottom: 16px; }
   .inbox-screen .msgr { height: calc(100 * var(--vh, 1vh) - 150px); max-height: none; min-height: 460px; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 16px; font-size: 1.06rem; }
   .inbox-screen .msg-av { width: 46px; height: 46px; }
