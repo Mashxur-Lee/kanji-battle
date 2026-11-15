@@ -7,6 +7,25 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.6.6', date: '2026-11',
+    en: [
+      'Your account has an email now: give it when you register (older accounts are asked once). It is only for getting back in — nobody else sees it, and it is one account per person.',
+      'Forgot your password? On the login screen: we email you a 6-digit code, and you choose a new password. You can also change your password and email in your profile.',
+      'Online queue: nobody there yet? After 20 seconds you can play an AI while you wait (it is clearly an AI).',
+      'Daily challenge: race a friend — the best of your friends who already played today runs beside you, word by word.',
+      'Progress: what you know (words per level), the reviews coming this week, and how well you remember.',
+      'The host can change the game mode in the lobby; a group’s picture can be removed; Messages uses the whole screen on a computer.',
+    ],
+    ru: [
+      'У аккаунта теперь есть почта: укажите её при регистрации (старые аккаунты попросят один раз). Она нужна только чтобы вернуться — её никто не видит, и один аккаунт на человека.',
+      'Забыли пароль? На экране входа: мы пришлём на почту 6-значный код, и вы зададите новый пароль. Пароль и почту можно сменить в профиле.',
+      'Онлайн-очередь: пока никого? Через 20 секунд можно сыграть с ИИ, пока ждёте (это явно ИИ).',
+      'Ежедневное испытание: гонка с другом — лучший из друзей, кто уже сыграл сегодня, идёт рядом с вами, слово за словом.',
+      'Прогресс: что вы знаете (слова по уровням), повторения на неделю вперёд и как хорошо вы помните.',
+      'Хозяин комнаты может сменить режим в лобби; фото группы можно убрать; на компьютере «Сообщения» занимают весь экран.',
+    ],
+  },
+  {
     v: '0.9.9.9.6.5', date: '2026-11',
     en: [
       'Invites in Messages: when a friend invites you to their room or challenges you, it also shows in your chat with them, as a card with the mode and a Join button (as in Steam).',

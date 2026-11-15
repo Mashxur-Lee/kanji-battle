@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.9.6.5
+# Kanji Wizards · v0.9.9.9.6.6
 
 <p align="center"><img src="docs/promo/banner.webp" alt="Kanji Wizards — learn Japanese by casting it" width="100%"></p>
 
@@ -51,3 +51,5 @@ the Windows app is Electron.
 - Running your own server, building the apps, environment variables: [docs/SETUP.md](docs/SETUP.md)
 - Credits and licences of the word data, the dictionary and the libraries: [CREDITS.md](CREDITS.md)
 - Found a bug or have an idea? Use **Feedback** in the game's main menu.
+
+© Kanji Wizards — all rights reserved. The source is public to read, not to reuse: see [LICENSE](LICENSE).

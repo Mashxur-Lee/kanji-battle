@@ -145,6 +145,7 @@ const nameOf = (id: PlayerId) => players.find((p) => p.id === id)?.name ?? 'Some
 // Music only in menus (not during study phase, battles or the deck duel).
 // battle theme while playing (study phase, battle, Deck Duel); the calm theme returns on the results screen and in menus
 const GAME_SCREENS = new Set(['prep', 'battle', 'deck']);
+let lastScreen = '';
 ui.onScreen((s) => {
   audio.setScene(GAME_SCREENS.has(s) ? 'game' : 'menu');
   arenaScreen(s); // the 3D arena on battle screens
@@ -161,6 +162,15 @@ ui.onScreen((s) => {
   if (s === 'menu' && profile) void refreshProfile(); // e.g. the study lock lifts after studying
   if (s !== 'lobby') void renderLobbyInvites(false);
   if (s !== 'inbox') inboxLeft(); // 0.9.9.9.6.4: "typing…" stops, menus close
+  // 0.9.9.9.6.6: leaving Messages with the phone's keyboard up: let go of the message box, and once the keyboard has
+  // gone measure the page again — the menu could scroll on into empty space after Messages
+  if (s !== 'inbox' && document.activeElement?.closest?.('#inbox')) (document.activeElement as HTMLElement).blur();
+  if (s !== 'inbox' && lastScreen === 'inbox') setTimeout(() => {
+    applyUiZoom(); centerScreens();
+    const se = document.scrollingElement;
+    if (se && se.scrollTop > Math.max(0, se.scrollHeight - innerHeight)) se.scrollTop = Math.max(0, se.scrollHeight - innerHeight);
+  }, 450);
+  lastScreen = s;
   railScreen(s);
   dictRailScreen(s); // 0.9.9.8: the dictionary side panel
   if (s !== 'results') closeRematchAsk(); // (a rematch card only means something there)

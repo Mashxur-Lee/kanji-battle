@@ -1,6 +1,7 @@
 {
   "name": "kanji-battle",
-  "version": "0.9.9.9.6.5",
+  "version": "0.9.9.9.6.6",
+  "license": "UNLICENSED",
   "private": true,
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",

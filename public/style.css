@@ -5479,3 +5479,13 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .pk-ring b { font-size: 1.4rem; font-weight: 900; }
 .pk-ret .hint { margin: 8px 0 0; }
 :root[data-theme="light"] .pk-ring { background: radial-gradient(closest-side, #fff 79%, transparent 80% 100%), conic-gradient(var(--c) calc(var(--p) * 1%), rgba(0, 0, 0, .1) 0); }
+
+/* 0.9.9.9.6.6: Messages on a computer — it was a small box in the middle (1100 px wide at most, 720 px tall, at the
+   UI size's zoom); now it takes the screen like a messenger: up to 1500 px wide, the window's height, bigger text */
+@media (min-width: 901px) and (pointer: fine) {
+  .inbox-screen { max-width: min(1500px, calc(100 * var(--vw, 1vw) - 180px)); padding-top: 64px; padding-bottom: 16px; }
+  .inbox-screen .msgr { height: calc(100 * var(--vh, 1vh) - 150px); max-height: none; min-height: 460px; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 16px; font-size: 1.06rem; }
+  .inbox-screen .msg-av { width: 46px; height: 46px; }
+  .inbox-screen .msg-b { max-width: min(640px, 72%); }
+  .inbox-screen .msg-photo { max-width: min(360px, 100%); max-height: 420px; }
+}
