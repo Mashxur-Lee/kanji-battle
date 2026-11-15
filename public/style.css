@@ -5524,3 +5524,7 @@ body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(
 @media (min-width: 601px) { .tut-card .tut-actions.tut-choice > .big { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
 .tut-card .tut-actions.tut-choice > :not(.big) { order: 1; grid-column: 1 / -1; justify-self: center; flex-basis: auto; }
 .tut-card .tut-actions.tut-choice > [hidden] { display: none; }
+
+/* 0.9.9.9.6.8: achievements — the hovered badge (and its description) sits above its neighbours: a pinned badge's
+   blue star (z-index 2) above it covered the description of the badge under it */
+.ach:hover, .ach:focus-visible, .ach:focus-within { z-index: 60; }

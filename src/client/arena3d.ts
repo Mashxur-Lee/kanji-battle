@@ -227,6 +227,8 @@ interface Particle { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max
 const TREE_BGS = ['forest', 'swamp', 'worldtree'];
 /** 0.9.9.9.5.2: the dragon model (4.5 m tall, 8.5 m nose to tail) a little bigger in the arena: it is far back */
 const DRAGON_SCALE = 1.2;
+/** 0.9.9.9.6.8: filming the trailer (localStorage kb:filming = 1): a steady camera and full quality all the way */
+const filming = (() => { try { return localStorage.getItem('kb:filming') === '1'; } catch { return false; } })();
 
 export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; preview?: boolean } = {}): ArenaApi | null {
   let renderer: THREE.WebGLRenderer;
@@ -696,7 +698,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   let spinning = false; // (Customize: you turn round on the pedestal)
   let orbiting = false, orbitT = 0, orbitK = 0;
   let trembleUntil = 0, trembleFor = 1; // (0.9.9.9.5.3: a long rumble, on top of the short kicks)
-  const kick = (amount: number) => { shake = Math.max(shake, amount); };
+  const kick = (amount: number) => { if (!filming) shake = Math.max(shake, amount); };
 
   // spells in flight
   interface Flight { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; mid: THREE.Vector3; t: number; dur: number; color: THREE.Color; size: number; done: () => void; trailAt: number; gem?: THREE.Mesh; incoming?: boolean; target?: Who }
@@ -986,7 +988,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   // adaptive quality: a slow machine drops to Lite (then lower resolution) by itself, instead of lagging
   let perfFrames = 0, perfTime = 0, perfSkip = 0;
   function watchPerf(ms: number) {
-    if (lowRes || document.hidden) return;
+    if (lowRes || document.hidden || filming) return;
     if (perfSkip < 45) { perfSkip++; return; } // the first frames compile shaders, upload textures
     perfFrames++; perfTime += ms;
     if (perfTime < 2500) return;
