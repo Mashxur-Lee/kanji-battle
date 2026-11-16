@@ -20,12 +20,18 @@ export const emailChangedAt = (u: { unlocks?: string[] }) => Number((u.unlocks ?
 const PW_MARK = 'pwat:';
 export const passwordChangedAt = (u: { unlocks?: string[] }) => Number((u.unlocks ?? []).find((x) => x.startsWith(PW_MARK))?.slice(PW_MARK.length)) || 0;
 
+/** 0.9.9.9.6.9: a guest — playing without an account (no email, no password of their own) until they save it */
+export const GUEST_MARK = 'guest';
+export const isGuest = (u: { unlocks?: string[] }) => (u.unlocks ?? []).includes(GUEST_MARK);
+/** a guest who hasn't been seen for this long is removed (their progress was never saved to an account) */
+export const GUEST_TTL_MS = 30 * 86_400_000;
+
 /** The seeded admin account (index.ts): it can never lose its admin role. */
 export const OWNER = 'admin';
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
 export const toPublic = (u: UserRecord): PublicUser => ({ id: u.id, username: u.username, role: u.role, name: displayName(u), nickname: u.nickname ?? null });
 /** 0.9.9.9.6.6: you, to yourself — with your email (masked: "fr•••@gmail.com"; null: none yet) */
-export const toSelf = (u: UserRecord): PublicUser => ({ ...toPublic(u), email: maskEmail(u.email) });
+export const toSelf = (u: UserRecord): PublicUser => ({ ...toPublic(u), email: maskEmail(u.email), ...(isGuest(u) ? { guest: true } : {}) });
 /** a password-reset code: 6 digits, half an hour, 5 tries */
 const RESET_MS = 30 * 60_000, RESET_TRIES = 5, RESET_GAP_MS = 60_000;
 const sha = (s: string) => createHash('sha256').update(s).digest();
@@ -62,6 +68,7 @@ export class AuthService {
     const u = String(username ?? '').trim();
     const p = String(password ?? '');
     if (!USERNAME_RE.test(u)) throw new AuthError('Login: 3–32 letters, numbers, _ . or -');
+    if (/^guest-/i.test(u)) throw new AuthError('Pick a login of your own'); // (0.9.9.9.6.9: those are the guests')
     if (p.length < 6 || p.length > 72) throw new AuthError('Password: at least 6 characters');
     // 0.9.9.9.6.6: an email for every account (to get back in; one account per mailbox)
     const mail = this.emailOrThrow(email);
@@ -75,6 +82,59 @@ export class AuthService {
       if (e instanceof EmailTakenError) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
       throw e;
     }
+  }
+
+  /**
+   * 0.9.9.9.6.9: play at once, no account — a guest gets a made-up login ("guest-k3x9q2") and a password nobody knows.
+   * Everything works (battles, study, the daily), except messages and friends; `claim` turns it into a real account.
+   */
+  async guest() {
+    for (let i = 0; i < 5; i++) {
+      const name = `guest-${randomBytes(5).toString('hex').slice(0, 7)}`;
+      try {
+        const rec = await this.store.create({ username: name, passwordHash: await hashPassword(randomBytes(24).toString('base64url')), role: 'user' });
+        const saved = (await this.store.update(rec.id, { unlocks: [...(rec.unlocks ?? []), GUEST_MARK] })) ?? rec;
+        return { token: this.tokens.sign(saved.id), user: toSelf(saved) };
+      } catch (e) { if (!(e instanceof UsernameTakenError)) throw e; }
+    }
+    throw new AuthError('Try again in a moment', 503);
+  }
+
+  /** 0.9.9.9.6.9: save a guest's progress — a login, a password and an email, the same rules as signing up */
+  async claim(u: UserRecord, username: unknown, password: unknown, email: unknown) {
+    if (!isGuest(u)) throw new AuthError('This account is already saved', 409);
+    const name = String(username ?? '').trim();
+    const p = String(password ?? '');
+    if (!USERNAME_RE.test(name)) throw new AuthError('Login: 3–32 letters, numbers, _ . or -');
+    if (/^guest-/i.test(name)) throw new AuthError('Pick a login of your own');
+    if (p.length < 6 || p.length > 72) throw new AuthError('Password: at least 6 characters');
+    const mail = this.emailOrThrow(email);
+    const key = emailKey(mail);
+    if (await this.store.findByEmailKey(key)) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
+    const other = await this.store.findByUsername(name);
+    if (other && other.id !== u.id) throw new AuthError('That username is taken', 409);
+    try {
+      const rec = await this.store.update(u.id, {
+        username: name.toLowerCase(), passwordHash: await hashPassword(p), email: mail, emailKey: key,
+        unlocks: (u.unlocks ?? []).filter((x) => x !== GUEST_MARK),
+      });
+      return { token: this.tokens.sign(u.id), user: toSelf(rec ?? u) };
+    } catch (e) {
+      if (e instanceof UsernameTakenError) throw new AuthError('That username is taken', 409);
+      if (e instanceof EmailTakenError) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
+      throw e;
+    }
+  }
+
+  /** 0.9.9.9.6.9: guests not seen for a month are removed; returns how many */
+  async sweepGuests(now = Date.now()): Promise<number> {
+    let n = 0;
+    for (const u of await this.store.list()) {
+      if (!isGuest(u)) continue;
+      const seen = Math.max(Number(u.lastSeen) || 0, Date.parse(u.createdAt) || 0);
+      if (now - seen > GUEST_TTL_MS && (await this.store.deleteUser(u.id))) n++;
+    }
+    return n;
   }
 
   private emailOrThrow(raw: unknown): string {

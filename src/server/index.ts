@@ -1,3 +1,4 @@
+import { keepAwake } from './keepAwake';
 import { VERSION } from '../shared/version';
 import type { MissedWord } from '../shared/protocol';
 import { createServer, type IncomingMessage } from 'node:http';
@@ -296,6 +297,11 @@ store.init().then(() => auth.seed([
     console.log(`Kanji Wizards v${VERSION}`);
     console.log(`Email (password resets): ${mailer.how}`);
     console.log(`Accounts: ${auth.store.name}${tokens.ephemeral ? ' · AUTH_SECRET not set: logins reset on restart' : ''}`);
+    // 0.9.9.9.6.9: guests not seen for a month are removed (once at start, then daily)
+    const sweep = () => auth.sweepGuests().then((n) => { if (n) console.log(`Removed ${n} guest${n === 1 ? '' : 's'} not seen for a month`); }).catch((e) => console.error('[guests]', e));
+    setTimeout(sweep, 60_000).unref(); setInterval(sweep, 86_400_000).unref();
+    const awake = keepAwake();
+    if (awake) console.log(`Keep awake: asking ${awake.url} every 10 minutes (KEEP_AWAKE=0 turns it off)`);
     if (process.env.RENDER && !process.env.DATABASE_URL) {
       console.warn('DATABASE_URL is not set: accounts, XP and study sets live on Render\'s disk and are wiped on every deploy. Add your Neon connection string in Render → Environment.');
     }

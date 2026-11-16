@@ -52,7 +52,8 @@ export interface StudyItem { kanji: string; reading: string; meaning: string; le
 export type Role = 'user' | 'admin';
 /** `username` is the login; `name` (0.9.9.6) what others see — your nickname, or the login when you have none */
 export interface PublicUser { id: string; username: string; role: Role; name?: string; nickname?: string | null;
-  /** 0.9.9.9.6.6: only to yourself (masked) and to admins (whole); null: no email yet */ email?: string | null }
+  /** 0.9.9.9.6.6: only to yourself (masked) and to admins (whole); null: no email yet */ email?: string | null;
+  /** 0.9.9.9.6.9: playing as a guest (no account saved yet) — only to yourself */ guest?: boolean }
 export interface AdminUserRow extends PublicUser {
   banned: boolean; createdAt: string;
   xp?: number; level?: number; crit?: number; learned?: number; cards?: number;
@@ -297,6 +298,8 @@ export type ServerMessage =
       nextInMs: number;
       /** writing mode: what the recogniser read for each character (best guess) */
       recognized?: string;
+      /** 0.9.9.9.6.9: the word's id — the client shows its example sentence after a miss */
+      vocabId?: string;
       crit?: boolean;
       retry?: boolean; // rapid: wrong guess, keep trying
       beaten?: boolean; // rapid: the opponent answered first

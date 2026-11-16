@@ -45,6 +45,7 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   loginDay: 'login_day', streak: 'streak', streakDay: 'streak_day', border: 'border', bestStreak: 'best_streak', role: 'role',
   dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred', nickname: 'nickname', lastSeen: 'last_seen', email: 'email', emailKey: 'email_key', kana: 'kana', pushTokens: 'push_tokens', quizStats: 'quiz_stats',
   wins: 'wins', losses: 'losses', // (0.9.9.9.6.3: the admin's own test tools can reset them)
+  username: 'username', // (0.9.9.9.6.9: a guest saving their account picks a login)
 };
 
 /**
@@ -344,7 +345,7 @@ export class PgStore implements Store {
       const [r] = await this.sql<UserRow[]>`update kw_users set ${this.sql(set)} where id = ${id} returning *`;
       return r ? toUser(r) : null;
     } catch (e) {
-      if ((e as { code?: string }).code === '23505' && /email/.test(String((e as { constraint_name?: string }).constraint_name ?? ''))) throw new EmailTakenError();
+      if ((e as { code?: string }).code === '23505') throw /email/.test(String((e as { constraint_name?: string }).constraint_name ?? '')) ? new EmailTakenError() : new UsernameTakenError();
       throw e;
     }
   }

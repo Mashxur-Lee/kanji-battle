@@ -3,7 +3,7 @@ import { initReminders, remindersSignedIn, remindersSignedOut } from './reminder
 import './support'; // error reporting first, so early errors are caught too
 import { refreshOnline, reportLayout } from './support';
 import { onTaskDone, quizMode, showMissedSave, startQuiz } from './decks';
-import { initTasks, renderTasks, taskActions, tasksAtLogin } from './dailytasks';
+import { initTasks, noteBattle, renderTasks, taskActions, tasksAtLogin } from './dailytasks';
 import { checkRewards } from './rewards';
 import { initWhatsNew } from './whatsnew';
 initWhatsNew();
@@ -29,7 +29,7 @@ import { api, ApiError, getToken, setToken, type Friend, type Profile } from './
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
 import { showPlayer } from './playerview';
-import { emailDialog, forgotDialog } from './account';
+import { claimDialog, emailDialog, forgotDialog } from './account';
 import { initInbox, inboxLeft, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket, setInviteJoin } from './inbox';
 import { onLeagueEquip } from './leagueup';
 import { chatMessages, chatTyping, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
@@ -248,6 +248,14 @@ taskActions.learn = () => (ui.kanaBeginner() ? openKana() : ui.$('studyBtn').cli
 taskActions.quiz = () => void startQuiz();
 taskActions.daily = () => ui.$('dailyBtn').click();
 taskActions.passage = () => ui.$('passageBtn').click();
+taskActions.practice = () => void startQuiz(); // (0.9.9.9.6.9: Today's quiz step)
+// 0.9.9.9.6.9: Today's battle — a Kanji Reading duel against the AI at your level
+taskActions.battle = () => {
+  if (!canPlay('reading')) { ui.toast(lockText('reading'), 5000); return; }
+  const lv = savedLevels();
+  pendingAi = { mode: 'reading', level: lv[0] ?? 'N5' };
+  socket.send({ type: 'create', mode: 'reading', levels: lv.length ? lv : ['N5'] });
+};
 
 async function refreshProfile() {
   try { applyProfile((await api.me()).profile); } catch { /* offline: keep what we have */ }
@@ -596,6 +604,7 @@ function onMessage(msg: ServerMessage) {
       deckInk(msg.castId, msg.strokes, msg.cells);
       break;
     case 'game_over': {
+      noteBattle(); // (0.9.9.9.6.9: Today's battle is done)
       rematchSeen.clear();
       pendingLobby = null; lobbyRequested = false; ui.$('resultLobby').classList.remove('pulse');
       players = msg.players;
@@ -833,14 +842,42 @@ ui.$('authForm').addEventListener('submit', async (e) => {
     btn.disabled = false;
   }
 });
-ui.$('logout').onclick = () => logout();
+ui.$('logout').onclick = () => {
+  // 0.9.9.9.6.9: a guest who signs out can't come back to this account
+  if (user?.guest && !confirm(tr('You are playing as a guest. If you log out now, this progress is gone — save it first (Save progress at the top). Log out anyway?'))) return;
+  logout();
+};
+// ── 0.9.9.9.6.9: guests — play at once; save the account later ──
+ui.$('guestPlay').onclick = async () => {
+  const btn = ui.$<HTMLButtonElement>('guestPlay');
+  btn.disabled = true;
+  ui.$('authError').textContent = '';
+  try {
+    const res = await api.guest();
+    setToken(res.token);
+    signedIn(res.user);
+    void refreshProfile();
+  } catch (err) {
+    ui.$('authError').textContent = err instanceof Error ? err.message : 'Something went wrong';
+  } finally { btn.disabled = false; }
+};
+function saveGuest(why?: string) {
+  claimDialog({ why, onDone: (_t, u) => { user = u; ui.setUser(u); setMentionSelf(u.id, u.username, u.name); emailLabel(); ui.toast(tr('Saved — this is your account now'), 3500); } });
+}
+ui.$('guestSave').onclick = () => saveGuest();
+// messages and friends need an account: a guest is offered to save it first
+ui.$('inboxBtn').addEventListener('click', (e) => {
+  if (!user?.guest) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  saveGuest(tr('Messages and friends need an account. Save your progress — it takes a moment, and everything you have done so far stays.'));
+}, true);
 // 0.9.9.9.6.6: "Forgot password?" — a code by email; your email (added once by older accounts, changed in your profile)
 ui.$('authForgot').onclick = () => forgotDialog(ui.$<HTMLInputElement>('authUser').value.trim(), (_t, u) => { ui.$<HTMLInputElement>('authPass').value = ''; signedIn(u); void refreshProfile(); ui.toast(tr('Password changed — you are signed in'), 3500); });
 let emailAsked = false;
 function emailLabel() { ui.$('emailChange').textContent = user?.email ? `${tr('Email')}: ${user.email}` : tr('Add your email'); }
 function askEmail() {
   emailLabel();
-  if (!user || user.email || emailAsked || offline.isOffline()) return;
+  if (!user || user.email || user.guest || emailAsked || offline.isOffline()) return; // (0.9.9.9.6.9: a guest saves the account instead)
   emailAsked = true;
   emailDialog({ required: true, onDone: (u) => { if (user) user = { ...user, email: u.email }; emailLabel(); ui.toast(tr('Email saved'), 2500); }, onLogout: () => { emailAsked = false; logout(); } });
 }

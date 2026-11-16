@@ -801,7 +801,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     const s = current;
     const opp = fighters.get('opp');
     if (opp?.model) opp.group.scale.setScalar(1.3); // across the arena: a little larger than life, so you can see them
-    if (opp) opp.group.position.set(screenSpot(camera.aspect < 1 ? 0.08 : s.layout === 'deck' ? 0.36 : 0.46, -2.2), 0, -2.2); // upright phone: near the middle, clear of your hand
+    // (0.9.9.9.6.9: in a duel they stand closer — they looked small and far away)
+    const oz = s.layout === 'deck' ? -2.2 : -0.9;
+    if (opp) opp.group.position.set(screenSpot(camera.aspect < 1 ? 0.08 : s.layout === 'deck' ? 0.36 : 0.46, oz), 0, oz); // upright phone: near the middle, clear of your hand
     const boss = fighters.get('boss');
     if (boss) boss.group.position.set(screenSpot(camera.aspect < 1 ? 0.15 : 0.5, -5.5), 0, -5.5);
     s.allies.forEach((a, i) => {
@@ -828,6 +830,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     placeHand();
     setStaffSkin(s.me.staff ?? 'verdant');
     meDown = false; fp.visible = true; gemState = 'ready';
+    cine = null; cineW = 0; introPending = true; lastImpact = -1e9; // (0.9.9.9.6.9: each battle opens with the fly-in)
     myFlame = null; fireU.uAmount.value = 0; fireBand.visible = false; // a new game starts without last game's flames
     myPose = isPose(s.me.pose) ? s.me.pose : 'none'; myPoseK = 0;
     if (s.opp) makeFighter('opp', s.opp);
@@ -984,6 +987,41 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
 
   // ── the frame loop ─────────────────────────────────────────────────────────
   let active = false, raf = 0, last = performance.now(), time = 0;
+  // ── 0.9.9.9.6.9: the cinematic camera — a fly-in as the battle starts, a short side shot when a big spell of yours
+  // lands (a critical, or on fire), a slow orbit round the fallen foe when you win. Smooth eases only; then back in
+  // your eyes. localStorage kb:cinema = off turns it off.
+  type Cine = { kind: 'intro' | 'impact' | 'victory'; t0: number; dur: number; who?: Who; a0?: number };
+  let cine: Cine | null = null, cineW = 0, introPending = false, lastImpact = -1e9;
+  const cinemaOn = (() => { try { return localStorage.getItem('kb:cinema') !== 'off'; } catch { return true; } })();
+  const smooth = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
+  const cineTmp = new THREE.PerspectiveCamera(); // (a camera: lookAt points its -Z at the target, like the real one)
+  /** where the camera wants to be for the current shot, and how much of it (0: your eyes … 1: all the shot) */
+  function cinePose(nowMs: number): { pos: THREE.Vector3; look: THREE.Vector3; w: number } | null {
+    if (!cine) return null;
+    const t = (nowMs - cine.t0) / 1000;
+    if (cine.kind === 'intro') {
+      if (t >= cine.dur) { cine = null; return null; }
+      // high behind you, swinging in from the side, down into your eyes
+      const k = smooth(t / cine.dur), w = 1 - k;
+      const side = 2.4 * w; // (inside the ring of trees: they start about 15 out)
+      return { pos: new THREE.Vector3(CAM.x + side, CAM.y + 2.4 * w, CAM.z + 3.2 * w), look: LOOK.clone().add(new THREE.Vector3(0, -0.4 * w, -2.5 * w)), w };
+    }
+    const f = cine.who ? fighters.get(cine.who) : undefined;
+    if (!f) { cine = null; return null; }
+    const at = f.group.position, big = cine.who === 'boss';
+    if (cine.kind === 'impact') {
+      if (t >= cine.dur) { cine = null; return null; }
+      const w = t < 0.35 ? smooth(t / 0.35) : t > cine.dur - 0.45 ? smooth((cine.dur - t) / 0.45) : 1;
+      const drift = (t / cine.dur) * 0.5; // (a slow push while it holds)
+      const off = big ? new THREE.Vector3(-4.6 + drift, 2.6, 5.6 - drift) : new THREE.Vector3(-2.3 + drift * 0.6, 1.35, 2.9 - drift * 0.6);
+      return { pos: at.clone().add(off), look: at.clone().add(new THREE.Vector3(0, big ? 2.2 : 1.05, 0)), w };
+    }
+    // victory: round the fallen foe, slowly, until the battle closes
+    const w = smooth(t / 0.9);
+    const a = (cine.a0 ?? 0) + t * 0.22, R = big ? 7.5 : 3.4;
+    return { pos: at.clone().add(new THREE.Vector3(Math.sin(a) * R, big ? 3.2 : 1.55, Math.cos(a) * R)), look: at.clone().add(new THREE.Vector3(0, big ? 1.4 : 0.7, 0)), w };
+  }
+  function startCine(c: Cine) { if (!opts.preview && cinemaOn) cine = c; }
   let focusOn = false, focus = 0;
   // adaptive quality: a slow machine drops to Lite (then lower resolution) by itself, instead of lagging
   let perfFrames = 0, perfTime = 0, perfSkip = 0;
@@ -1045,6 +1083,15 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (!opts.preview && active && current && (current.opp || current.allies.length) && nowMs - myLook.sentAt > 150 && (Math.abs(myLook.yaw - myLook.sentYaw) > 0.02 || Math.abs(myLook.pitch - myLook.sentPitch) > 0.02)) {
       myLook.sentAt = nowMs; myLook.sentYaw = myLook.yaw; myLook.sentPitch = myLook.pitch;
       dispatchEvent(new CustomEvent('kw:look', { detail: { yaw: +myLook.yaw.toFixed(3), pitch: +myLook.pitch.toFixed(3) } }));
+    }
+    // 0.9.9.9.6.9: the cinematic camera (see cinePose)
+    if (introPending && active && !opts.preview) { introPending = false; startCine({ kind: 'intro', t0: nowMs, dur: 2.4 }); }
+    const shot = cinePose(performance.now()); // (performance.now, like the shots' start times)
+    cineW = shot ? shot.w : 0;
+    if (shot && shot.w > 0.001) {
+      cineTmp.position.copy(shot.pos); cineTmp.lookAt(shot.look);
+      camera.position.lerp(shot.pos, shot.w);
+      camera.quaternion.slerp(cineTmp.quaternion, shot.w);
     }
     if (trembleUntil > now) {
       // the ground rumbles: strong at first, then fading out
@@ -1314,6 +1361,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       (f.sprite.material as THREE.SpriteMaterial).opacity = Math.min(1, 2.2 - f.life * 2);
       if (f.life > 1.1) { scene.remove(f.sprite); (f.sprite.material as THREE.SpriteMaterial).map?.dispose(); (f.sprite.material as THREE.Material).dispose(); floats.splice(i, 1); }
     }
+    if (cineW > 0.001) fp.position.y -= cineW * 1.6; // (your hand out of the shot)
     renderer.render(scene, camera);
     if (inset && focus > 0.5) {
       // the same moment as you see it yourself: the camera back in your eyes, your hand and staff in front
@@ -1507,6 +1555,11 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const end = firstPerson ? chest.clone().add(new THREE.Vector3(screenSpot(0.42, chest.z) - chest.x, -0.5, 0)) : chest;
       const size = (o.crit ? 1.5 : 1) * 1.15;
       const flight = fly(start, end, kanji, color, size, 0.85, firstPerson);
+      // 0.9.9.9.6.9: your big ones (a critical, or while you're on fire) — a side shot as it lands, now and then
+      if (from === 'me' && (to === 'opp' || to === 'boss') && (o.crit || myFlame) && !cine && performance.now() - lastImpact > 9000) {
+        lastImpact = performance.now();
+        startCine({ kind: 'impact', t0: performance.now(), dur: 1.9, who: to });
+      }
       flights[flights.length - 1].target = to;
       if (from === 'me') {
         // your staff thrusts and its gem launches forward with the spell; a new one builds up when you next write
@@ -1564,6 +1617,11 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const f = fighters.get(who);
       if (!f || f.ko) return;
       f.ko = true;
+      // 0.9.9.9.6.9: you won — the camera walks round them
+      if ((who === 'opp' || who === 'boss') && !meDown) {
+        const d = camera.position.clone().sub(f.group.position);
+        startCine({ kind: 'victory', t0: performance.now(), dur: 0, who, a0: Math.atan2(d.x, d.z) });
+      }
       f.flame = null;
       (f.aura.material as THREE.SpriteMaterial).opacity = 0;
       const start = performance.now();

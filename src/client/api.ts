@@ -113,6 +113,9 @@ async function local<T>(method: string, url: string, body?: unknown, op?: string
 
 export const api = {
   login: (username: string, password: string) => call<{ token: string; user: PublicUser }>('POST', '/api/login', { username, password }),
+  // 0.9.9.9.6.9: play as a guest; later make it your account
+  guest: () => call<{ token: string; user: PublicUser }>('POST', '/api/guest'),
+  claim: (username: string, password: string, email: string) => call<{ token: string; user: PublicUser }>('POST', '/api/guest/claim', { username, password, email }),
   register: (username: string, password: string, email: string) => call<{ token: string; user: PublicUser }>('POST', '/api/register', { username, password, email }),
   /** 0.9.9.9.6.6: your email (with your password); forgot your password → a code by email → a new one */
   setEmail: (email: string, password = '') => call<{ user: PublicUser }>('PUT', '/api/me/email', { email, password }),

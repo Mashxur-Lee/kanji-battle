@@ -63,7 +63,7 @@ export class InsightsService {
     };
     const events = await this.store.events(this.now() - 30 * DAY);
     const who = (name: string) => new Set(events.filter((e) => e.name === name).map((e) => e.userId)).size;
-    const funnel = ['signup', 'tutorial_start', 'tutorial_kana_yes', 'tutorial_kana_no', 'tutorial_battle', 'tutorial_done', 'tutorial_skip'].map((name) => ({ name, players: who(name) }));
+    const funnel = ['guest', 'signup', 'tutorial_start', 'tutorial_kana_yes', 'tutorial_kana_no', 'tutorial_battle', 'tutorial_done', 'tutorial_skip'].map((name) => ({ name, players: who(name) }));
     const week = events.filter((e) => e.at >= this.now() - 7 * DAY);
     const modes: Record<string, { started: number; finished: number }> = {};
     for (const e of week) {

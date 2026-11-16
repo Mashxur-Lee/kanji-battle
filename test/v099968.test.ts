@@ -7,7 +7,7 @@ const css = readFileSync('public/style.css', 'utf8');
 const src = (f: string) => readFileSync(f, 'utf8');
 
 test('0.9.9.9.6.8 version and patch notes', () => {
-  assert.equal(VERSION, '0.9.9.9.6.8');
+  assert.ok(VERSION >= '0.9.9.9.6.8');
   assert.match(src('src/client/whatsnew.ts'), /v: '0\.9\.9\.9\.6\.8'/);
 });
 

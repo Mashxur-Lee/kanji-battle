@@ -5528,3 +5528,46 @@ body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(
 /* 0.9.9.9.6.8: achievements — the hovered badge (and its description) sits above its neighbours: a pinned badge's
    blue star (z-index 2) above it covered the description of the badge under it */
 .ach:hover, .ach:focus-visible, .ach:focus-within { z-index: 60; }
+
+/* 0.9.9.9.6.9: play as a guest — "Play now" first on the sign-in screen, "Save progress" by your name */
+.guest-start { display: grid; gap: 6px; justify-items: center; margin: 4px 0 2px; }
+.guest-start .guest-play { width: min(100%, 360px); font-size: 1.15rem; padding: 14px 20px; }
+.guest-start .hint { margin: 0; text-align: center; }
+.or-line { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: .85rem; margin: 10px 0 6px; }
+.or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.guest-save { border: 1px solid var(--gold); color: var(--gold); background: rgba(255, 205, 96, .08); border-radius: 999px; padding: 5px 12px; font-size: .85rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.guest-save:hover { background: rgba(255, 205, 96, .18); }
+
+/* 0.9.9.9.6.9: the 3D arena on a computer — the word and the answer box sit lower and a little smaller, so the arena
+   (and your opponent, now closer) shows in the middle of the screen */
+@media (min-width: 901px) and (min-aspect-ratio: 5/4) {
+  body.has-3d #battle .arena .stage { align-self: end; place-items: end center; min-height: 0; padding-bottom: calc(1.5 * var(--vh)); }
+  body.has-3d #battle .challenge .kanji { font-size: min(calc(8 * var(--vw)), calc(11.5 * var(--vh)), 6.4rem); margin: 0 0 2px; }
+  body.has-3d #battle .challenge { padding-top: 0; }
+}
+
+/* 0.9.9.9.6.9: after a miss in battle, the word in a sentence (one line each, under the answer) */
+.feedback .fb-example { display: grid; gap: 1px; margin: 6px auto 0; padding: 0; border: 0; max-width: min(560px, 92vw); text-align: center; animation: fbExIn .35s ease both; }
+.feedback .fb-example .fc-ex-ja { margin: 0; color: var(--text); font-size: 1.05rem; line-height: 1.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feedback .fb-example .fc-ex-ja rt { font-size: .55em; }
+.feedback .fb-example .fc-ex-tr { margin: 0; font-size: .85rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feedback .fb-example mark { background: none; color: var(--gold); font-weight: 700; padding: 0; }
+@keyframes fbExIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* 0.9.9.9.6.9: Today — the next step in one press, at the right of the streak banner */
+#menu .tasks-btn .tb-go { flex: none; margin: 0 44px 0 auto; display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 8px; padding: 8px 14px; border-radius: 12px;
+  background: linear-gradient(135deg, #ffcf6a, #ff9f43); color: #2a1606; box-shadow: 0 4px 14px rgba(255, 170, 70, .35); cursor: pointer; text-align: left; transition: transform .15s, box-shadow .15s; }
+#menu .tasks-btn .tb-go:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(255, 170, 70, .5); }
+#menu .tasks-btn .tb-go .tg-lbl { grid-column: 1 / -1; font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+#menu .tasks-btn .tb-go .tg-what { font-size: 1rem; white-space: nowrap; }
+#menu .tasks-btn .tb-go .tg-n { font-size: .75rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgba(42, 22, 6, .15); }
+#menu .tasks-btn .tb-go.done { background: rgba(110, 231, 160, .14); color: var(--good, #6ee7a0); box-shadow: none; cursor: default; }
+#menu .tasks-btn.folded .tb-go { padding: 4px 10px; }
+#menu .tasks-btn.folded .tb-go .tg-lbl { display: none; }
+@media (max-width: 600px) {
+  /* (a phone: its own row under the tasks, so their names keep their room) */
+  #menu .tasks-btn { flex-wrap: wrap; }
+  #menu .tasks-btn .tb-go { order: 5; flex: 1 0 100%; margin: 8px 0 0; padding: 7px 12px; justify-content: center; grid-template-columns: auto auto auto; }
+  #menu .tasks-btn .tb-go .tg-lbl { grid-column: auto; }
+  #menu .tasks-btn.folded .tb-go { margin-top: 4px; }
+}

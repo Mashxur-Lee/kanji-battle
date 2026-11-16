@@ -12,15 +12,31 @@ const DATA_CACHE = `kw-data-__DATA_V__`;
 const RUNTIME = 'kw-runtime';
 const NEVER = new Set(['/dict.json']); // (kept on the device by the dictionary itself, when you choose to)
 
+// 0.9.9.9.6.9: only the game's own files go in the cache. While Render wakes a sleeping server it answers every
+// request with its own "waking up" page (HTML, 200) — kept as /index.html, that page came back on every start,
+// instead of the game and its own waking-up screen.
+const KIND = (u) => (u === '/' || u.endsWith('.html') ? 'html' : u.endsWith('.js') ? 'javascript' : u.endsWith('.css') ? 'css' : u.endsWith('.json') ? 'json' : '');
+async function genuine(u, r) {
+  if (!r || !r.ok) return false;
+  const k = KIND(new URL(u, location.origin).pathname);
+  if (k && !(r.headers.get('content-type') || '').includes(k)) return false;
+  if (k === 'html') return (await r.clone().text()).includes('id="wakeScreen"');
+  return true;
+}
+const CORE = ['/index.html', '/app.js', '/style.css'];
+
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    // one by one, fresh from the network: a missing file doesn't stop the rest
-    const get = (cache, u) => fetch(u, { cache: 'reload' }).then((r) => (r.ok ? cache.put(u, r) : null)).catch(() => null);
+    // one by one, fresh from the network: a missing file doesn't stop the rest — but without the game's own page,
+    // script and styles this version isn't installed at all (the one before stays; the browser tries again later)
+    const bad = [];
+    const get = (cache, u) => fetch(u, { cache: 'reload' }).then(async (r) => { if (await genuine(u, r)) return cache.put(u, r); bad.push(u); return null; }).catch(() => { bad.push(u); return null; });
     const d = await caches.open(DATA_CACHE);
     const missing = [];
     for (const u of DATA) if (!(await d.match(u))) missing.push(u);
     await Promise.all([...SHELL.map((u) => get(c, u)), ...missing.map((u) => get(d, u))]);
+    if (CORE.some((u) => bad.includes(u))) { await caches.delete(CACHE); throw new Error('the server is waking up — not installing yet'); }
     await self.skipWaiting();
   })());
 });
@@ -52,7 +68,7 @@ async function shell(path, req) {
   if (hit) return hit;
   try {
     const res = await fetch(req);
-    if (res.ok && req.mode !== 'navigate') (await caches.open(RUNTIME)).put(req, res.clone());
+    if (req.mode !== 'navigate' && (await genuine(req.url, res))) (await caches.open(RUNTIME)).put(req, res.clone());
     return res;
   } catch (err) {
     const old = await caches.match(req);

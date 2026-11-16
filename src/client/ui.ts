@@ -1,3 +1,4 @@
+import { exampleFor } from './examples';
 import { locale, tr } from './i18n';
 import { screenIn } from './motion';
 import { knowPlayer } from './mentions';
@@ -348,6 +349,8 @@ export function setUser(user: PublicUser | null) {
   $('ppLogin').hidden = !user?.nickname;
   $('whoRole').hidden = user?.role !== 'admin';
   $('adminBtn').hidden = user?.role !== 'admin';
+  $('guestSave').hidden = !user?.guest; // 0.9.9.9.6.9
+  document.body.classList.toggle('guest', !!user?.guest);
 }
 
 export function setNetStatus(text: string | null) {
@@ -1152,6 +1155,7 @@ export const hideWriteArea = () => { $('writeArea').hidden = true; };
 interface Feedback {
   correct: boolean; timedOut: boolean; skipped: boolean; kanji: string; reading: string; meaning: string;
   damage: number; combo: number; responseMs: number | null; recognized?: string; crit?: boolean; retry?: boolean; beaten?: boolean;
+  vocabId?: string; nextInMs?: number;
 }
 export function setFeedback(f: Feedback | null) {
   const el = $('feedback');
@@ -1176,6 +1180,11 @@ export function setFeedback(f: Feedback | null) {
     if (f.recognized && !f.skipped && !f.timedOut) kids.push(h('span', 'sub2', `The pad read: ${f.recognized}`));
     el.replaceChildren(...kids);
     if (answerMode === 'writing' && !f.beaten) showWrongStrokes(el, f.kanji);
+    // 0.9.9.9.6.9: the word in a sentence — a miss is when it helps (there's a moment to read it then)
+    else if (f.vocabId && (f.nextInMs ?? 0) >= 1200) {
+      const id = f.vocabId, shown = el.firstChild;
+      void exampleFor(id).then((ex) => { if (ex && el.firstChild === shown) { ex.classList.add('fb-example'); el.append(ex); } });
+    }
   }
 }
 

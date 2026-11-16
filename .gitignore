@@ -1,6 +1,10 @@
 node_modules
 dist
+# 0.9.9.9.6.9: the built bundles — made by `npm run build` (Render builds on deploy); a stale tracked copy made a
+# fresh clone look broken
 public/app.js
+public/arena3d.js
+public/sw.js
 .data
 public/vocab.json
 public/examples.json

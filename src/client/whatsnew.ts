@@ -7,6 +7,23 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.6.9', date: '2026-11',
+    en: [
+      'Play now: no account needed to start — play as a guest, and save your progress (a login, a password and your email) whenever you like.',
+      'The 3D arena is more cinematic: the camera flies in as the battle starts, cuts to a side shot when one of your big spells lands, and circles your fallen opponent when you win. Your opponent stands closer, and the word and the answer box sit lower, so you see the arena.',
+      'Today: one button on the streak banner takes you through your day — study, a quiz, the daily challenge and a battle.',
+      'After a miss in battle, the word in an example sentence.',
+      'The server no longer falls asleep, so the game opens straight away (no more waiting on the host’s “waking up” page).',
+    ],
+    ru: [
+      'Играть сейчас: для начала аккаунт не нужен — играйте как гость и сохраните прогресс (логин, пароль и почта), когда захотите.',
+      '3D-арена стала кинематографичнее: камера влетает в начале боя, показывает удар сбоку, когда попадает ваше сильное заклинание, и облетает поверженного соперника при победе. Соперник стоит ближе, а слово и поле ответа ниже — арену видно.',
+      'Сегодня: одна кнопка на плашке серии ведёт по всему дню — учёба, тест, ежедневное испытание и битва.',
+      'После промаха в бою — слово в примере предложения.',
+      'Сервер больше не засыпает, и игра открывается сразу (без ожидания на странице хостинга «просыпаемся»).',
+    ],
+  },
+  {
     v: '0.9.9.9.6.8', date: '2026-11',
     en: [
       'Achievements: the description of a badge is no longer hidden behind the blue star of the badge above it.',
