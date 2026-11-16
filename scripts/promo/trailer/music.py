@@ -118,25 +118,29 @@ def song(kind):
     B = [('Bm', 'B1', 'B1b'), ('G', 'B2', 'B2b'), ('D', 'B3', 'B3b'), ('A', 'B4', 'B4b')]
     bars = []
     add = lambda prog, layers, n=None, last='': bars.extend((c, layers + (last if i == len(prog[:n]) - 1 else ''), a, b) for i, (c, a, b) in enumerate(prog[:n]))
-    if kind == 'full':
-        bars += [('D', 'pe', 'I1', None), ('Bm', 'pew', 'I2', None)]          # title
-        add(A, 'pbksem', last='w')                                              # duel
-        add(B, 'pbktsemr', last='w')                                            # boss
-        add(A, 'pbksfmr', 2, last='')                                           # rapid
-        add([A[2], A[3]], 'pbksem', last='w')                                   # the five modes
-        add([A[0], A[1], A[2]], 'pbemg', last='w')                              # customize (lighter)
-        add([B[0], B[1], B[2]], 'pbsemr', last='')                              # study
+    if kind == 'full':                                                          # 36 bars
+        bars += [('D', 'pe', 'I1', None), ('Bm', 'pew', 'I2', None)]            # title
+        add(A, 'pbksem', 3, last='w')                                           # duel
+        add(B[:3], 'pbktsemr', last='w')                                        # boss
+        add([A[3], A[0]], 'pbktsfmr', last='')                                  # combo
+        add([A[1], A[2]], 'pbksfmr', last='w')                                  # rapid
+        add([A[3], A[0], A[1]], 'pbksemr', last='')                             # the lobby
+        add([A[2]], 'pbksem', last='w')                                         # the five modes
+        add([A[3], A[0], A[1]], 'pbemg', last='w')                              # customize (lighter)
+        add([B[1], B[2]], 'pbsemr', last='')                                    # study
         add([A[3]], 'pbksem', last='')                                          # kana
-        add([A[0], A[1]], 'pbksemr', last='w')                                  # daily
+        add([A[0]], 'pbksemr', last='w')                                        # daily
         add(B, 'pbktsemgr', last='w')                                           # progress
         add(A, 'pbksemgr', last='')                                             # friends, dictionary
-        add([B[3]], 'pbktsemgr', last='w')                                      # menu
+        add([B[2], B[3]], 'pbktsemgr', last='')                                 # phones
+        add([A[3]], 'pbksemgr', last='w')                                       # menu
         bars += [('D', 'pbeg', 'END', None), ('D', 'p', None, None)]            # end card
-    else:
+    else:                                                                       # 16 bars
         bars += [('D', 'pew', 'I1', None)]
-        add(A, 'pbksemr', last='w')
-        add(B, 'pbktsemgr', last='w')
-        add([A[0], A[1]], 'pbksemgr', last='w')
+        add(A, 'pbksemr', last='w')                                             # duel, boss
+        add(B, 'pbktsemgr', last='w')                                           # combo, lobby, customize, study
+        add(A, 'pbksemgr', last='')                                             # progress, daily, messages
+        add([B[3]], 'pbktsemgr', last='w')                                      # phones
         bars += [('D', 'pbeg', 'END', None), ('D', 'p', None, None)]
     return bars
 

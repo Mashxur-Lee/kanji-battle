@@ -17,6 +17,9 @@ os.makedirs(f'{OUT}/scenes', exist_ok=True)
 CAPS = {
     'duel': ('戦', 'Duel in a living 3D arena', 'Read the kanji, type its reading, and your staff casts it'),
     'boss': ('竜', 'Boss Elimination', 'Up to four wizards against the Black Dragon'),
+    'combo': ('炎', 'Combos that burn', 'Chain right answers: at ×5 you are On fire and hit harder'),
+    'lobby': ('対', 'Play real people', 'Private rooms with a code, the online queue, and lobby chat'),
+    'mobile': ('携', 'On your phone too', 'The same game on Android and in any mobile browser'),
     'rapid': ('速', 'Rapid', 'The same word for both of you: the faster wizard lands the hit'),
     'modes': ('五', 'Five battle modes', 'Reading, handwriting, Rapid, Deck Duel and the Boss'),
     'customize': ('杖', 'Make it yours', 'Characters, staffs, flames and arenas, earned by playing and studying'),
@@ -29,14 +32,14 @@ CAPS = {
     'menu': ('門', 'Everything in one place', 'Web, Android and Windows, with an offline mode'),
 }
 
-def caption(key):
+def caption(key, right=False):
     """a lower-left card (RGBA, full frame) that leaves the middle of the picture free"""
     k, title, line = CAPS[key]
     tf, lf = font('ExtraBold', 46), font('Medium', 25)
     d0 = ImageDraw.Draw(Image.new('RGB', (8, 8)))
     tw = max(d0.textlength(title, font=tf), d0.textlength(line, font=lf))
     pw, ph = int(tw) + 158, 122
-    x, y = 56, H - 56 - ph - 34
+    x, y = (W - 56 - pw if right else 56), H - 56 - ph - 34   # (right: where the left of the screen is the subject)
     im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     sh = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     ImageDraw.Draw(sh).rounded_rectangle((x, y + 10, x + pw, y + ph + 10), 24, fill=(0, 0, 0, 160))
@@ -83,11 +86,10 @@ def card_text(kind):
         glow((W // 2, H // 2 + 62), 'Learn Japanese by casting it', font('SemiBold', 54), GOLD)
         glow((W // 2, H // 2 + 146), 'A real-time multiplayer kanji game', font('SemiBold', 34), (236, 230, 255))
     else:
-        glow((W // 2, H // 2 - 130), 'Kanji Wizards', font('Black', 136), (255, 255, 255))
-        glow((W // 2, H // 2 - 14), 'Free to play', font('SemiBold', 56), GOLD)
-        glow((W // 2, H // 2 + 72), 'In the browser  ·  Android  ·  Windows', font('Medium', 38), (214, 206, 246))
-        glow((W // 2, H // 2 + 146), 'kanji-battle-ev0o.onrender.com', font('SemiBold', 34), (255, 255, 255))
-        glow((W // 2, H // 2 + 204), 'English and Russian', font('Medium', 28), (176, 168, 216))
+        glow((W // 2, H // 2 - 110), 'Kanji Wizards', font('Black', 140), (255, 255, 255))
+        glow((W // 2, H // 2 + 14), 'Free to play', font('SemiBold', 58), GOLD)
+        glow((W // 2, H // 2 + 104), 'In the browser  ·  Android  ·  Windows', font('Medium', 40), (224, 216, 250))
+        glow((W // 2, H // 2 + 172), 'English and Russian', font('Medium', 30), (190, 182, 226))
     return im
 
 def encode(name, frames):
@@ -105,8 +107,8 @@ def encode(name, frames):
     print(name, n, 'frames')
     return out
 
-def scene(name, clip, start, n, cap=None, cap_len=118, fade_in=0, fade_out=0):
-    c = caption(cap) if cap else None
+def scene(name, clip, start, n, cap=None, cap_len=118, fade_in=0, fade_out=0, cap_right=False):
+    c = caption(cap, cap_right) if cap else None
     def gen():
         for i in range(n):
             im = frame_of(clip, start + i)
@@ -143,6 +145,34 @@ def montage(name, clip, parts, cap=None, cap_len=118):
             yield im
     return encode(name, gen())
 
+def phones(name, clips, n, cap=None, cap_len=118, art='plains-sunset'):
+    """three phone windows side by side over a painted arena: clips = [(clip, first frame), ...]"""
+    c = caption(cap) if cap else None
+    ph, pw, bez, rad = 786, round(786 * 585 / 1266), 12, 44
+    xs = [W // 2 - pw // 2 + d for d in (-470, 0, 470)]
+    top = 40
+    frame = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    sh = Image.new('RGBA', (W, H), (0, 0, 0, 0)); ds = ImageDraw.Draw(sh)
+    for x in xs: ds.rounded_rectangle((x - bez, top - bez + 16, x + pw + bez, top + ph + bez + 16), rad + bez, fill=(0, 0, 0, 190))
+    frame.alpha_composite(sh.filter(ImageFilter.GaussianBlur(22)))
+    df = ImageDraw.Draw(frame)
+    for x in xs: df.rounded_rectangle((x - bez, top - bez, x + pw + bez, top + ph + bez), rad + bez, fill=(14, 11, 30, 255), outline=(150, 132, 220, 255), width=2)
+    mask = Image.new('L', (pw, ph), 0); ImageDraw.Draw(mask).rounded_rectangle((0, 0, pw - 1, ph - 1), rad, fill=255)
+    def gen():
+        for i in range(n):
+            im = backdrop(art, i, n, dark=0.5).convert('RGBA')
+            im.alpha_composite(frame)
+            for x, (clip, start) in zip(xs, clips):
+                im.paste(frame_of(clip, start + i).resize((pw, ph), Image.LANCZOS), (x, top), mask)
+            if c is not None:
+                a = min(1, max(0, (i - 8) / 10), max(0, (min(cap_len, n - 6) - i) / 12))
+                if a > 0:
+                    ea = a * a * (3 - 2 * a)
+                    layer = c if ea >= 1 else Image.composite(c, Image.new('RGBA', c.size, (0, 0, 0, 0)), c.getchannel('A').point(lambda v: int(v * ea)))
+                    im.alpha_composite(layer, (0, int((1 - ea) * 18)))
+            yield im.convert('RGB')
+    return encode(name, gen())
+
 def card(name, kind, clip, start, n, fade_in=0, fade_out=0, step=1):
     text = card_text(kind)
     def gen():
@@ -157,38 +187,46 @@ def card(name, kind, clip, start, n, fade_in=0, fade_out=0, step=1):
     return encode(name, gen())
 
 B = BAR
-def full():
+PHONES = [('ph-menu', 10), ('ph-battle', 30), ('ph-study', 10)]
+def full():   # 36 bars = 90 s, and 1.2 s for the last chord to ring out
     return [
-        card('f00-title', 'title', 'worldtree-sunset', 1, 2 * B, fade_in=14),
-        scene('f01-duel', '3d-duel', 25, 4 * B, 'duel'),
-        scene('f02-boss', '3d-boss', 20, 4 * B, 'boss'),
-        scene('f03-rapid', '3d-rapid', 30, 2 * B, 'rapid'),
-        scene('f04-modes', '2d-modes', 1, 2 * B, 'modes'),
-        montage('f05-customize', 'still-customize', [(1, 3), (3, 2), (4, 2), (5, 2), (6, 3)], 'customize'),
-        scene('f06-study', '2d-study', 60, 3 * B, 'study'),
-        scene('f07-kana', '2d-kana', 30, 1 * B, 'kana', cap_len=66),
-        scene('f08-daily', '2d-daily', 1, 2 * B, 'daily'),
-        scene('f09-progress', '2d-progress', 30, 4 * B, 'progress', cap_len=96),
-        scene('f10-messages', '2d-messages', 30, 2 * B, 'messages'),
-        scene('f11-dict', '2d-dict', 20, 2 * B, 'dict'),
-        scene('f12-menu', '2d-menu', 35, 1 * B, 'menu', cap_len=66),
-        card('f13-end', 'end', 'forest-night', 1, 2 * B + 36, fade_out=30),
+        card('g00-title', 'title', 'worldtree-sunset', 1, 2 * B, fade_in=14),
+        scene('g01-duel', '3d-duel', 25, 3 * B, 'duel'),
+        scene('g02-boss', '3d-boss', 20, 3 * B, 'boss'),
+        scene('g03-combo', '3d-combo', 285, 2 * B, 'combo', cap_len=92),
+        scene('g04-rapid', '3d-rapid', 30, 2 * B, 'rapid'),
+        scene('g05-lobby', '2d-lobby', 5, 3 * B, 'lobby', cap_len=110, cap_right=True),
+        scene('g06-modes', '2d-modes', 1, 1 * B, 'modes', cap_len=68),
+        scene('g07-customize', 'v-customize', 38, 3 * B, 'customize', cap_len=100),
+        scene('g08-study', '2d-study', 60, 2 * B, 'study'),
+        scene('g09-kana', '2d-kana', 30, 1 * B, 'kana', cap_len=66),
+        scene('g10-daily', '2d-daily', 1, 1 * B, 'daily', cap_len=68),
+        scene('g11-progress', '2d-progress', 30, 4 * B, 'progress', cap_len=96),
+        scene('g12-messages', '2d-messages', 30, 2 * B, 'messages'),
+        scene('g13-dict', '2d-dict', 20, 2 * B, 'dict'),
+        phones('g14-mobile', PHONES, 2 * B, 'mobile'),
+        scene('g15-menu', '2d-menu', 35, 1 * B, 'menu', cap_len=66),
+        card('g16-end', 'end', 'forest-night', 1, 2 * B + 36, fade_out=30),
     ]
-def short():
+def short():  # 16 bars = 40 s
     return [
-        card('s00-title', 'title', 'worldtree-sunset', 1, 1 * B, fade_in=10),
-        scene('s01-duel', '3d-duel', 60, 2 * B, 'duel'),
-        scene('s02-boss', '3d-boss', 60, 2 * B, 'boss'),
-        montage('s03-customize', 'still-customize', [(4, 2), (6, 2)], 'customize', cap_len=66),
-        scene('s04-study', '2d-study', 120, 1 * B, 'study', cap_len=66),
-        scene('s05-progress', '2d-progress', 60, 2 * B, 'progress', cap_len=96),
-        scene('s06-daily', '2d-daily', 1, 1 * B, 'daily', cap_len=66),
-        scene('s07-messages', '2d-messages', 120, 1 * B, 'messages', cap_len=66),
-        card('s08-end', 'end', 'forest-night', 1, 2 * B + 36, fade_out=30),
+        card('h00-title', 'title', 'worldtree-sunset', 1, 1 * B, fade_in=10),
+        scene('h01-duel', '3d-duel', 60, 2 * B, 'duel'),
+        scene('h02-boss', '3d-boss', 60, 2 * B, 'boss'),
+        scene('h03-combo', '3d-combo', 360, 1 * B, 'combo', cap_len=60),
+        scene('h04-lobby', '2d-lobby', 130, 1 * B, 'lobby', cap_len=66, cap_right=True),
+        scene('h05-customize', 'v-customize', 120, 1 * B, 'customize', cap_len=66),
+        scene('h06-study', '2d-study', 120, 1 * B, 'study', cap_len=66),
+        scene('h07-progress', '2d-progress', 60, 2 * B, 'progress', cap_len=96),
+        scene('h08-daily', '2d-daily', 1, 1 * B, 'daily', cap_len=66),
+        scene('h09-messages', '2d-messages', 120, 1 * B, 'messages', cap_len=66),
+        phones('h10-mobile', PHONES, 1 * B, 'mobile', cap_len=66),
+        card('h11-end', 'end', 'forest-night', 1, 2 * B + 36, fade_out=30),
     ]
 def loop():
     # the README loop: gameplay only, no captions (the page has the words)
-    return [scene('l0-duel', '3d-duel', 60, 180), scene('l1-boss', '3d-boss', 60, 180), montage('l2-customize', 'still-customize', [(1, 2), (3, 1.6), (4, 1.6), (5, 1.6), (6, 2)]), scene('l3-progress', '2d-progress', 40, 165)]
+    return [scene('m0-duel', '3d-duel', 60, 120), scene('m1-combo', '3d-combo', 345, 90), scene('m2-boss', '3d-boss', 60, 150),
+            scene('m3-customize', 'v-customize', 60, 150), scene('m4-progress', '2d-progress', 40, 150)]
 
 if __name__ == '__main__':
     only = os.environ.get('ONLY')
