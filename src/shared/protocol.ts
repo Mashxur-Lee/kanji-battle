@@ -298,6 +298,8 @@ export type ServerMessage =
       nextInMs: number;
       /** writing mode: what the recogniser read for each character (best guess) */
       recognized?: string;
+      /** 0.9.9.9.6.9: the word's id — the client shows its example sentence after a miss */
+      vocabId?: string;
       crit?: boolean;
       retry?: boolean; // rapid: wrong guess, keep trying
       beaten?: boolean; // rapid: the opponent answered first

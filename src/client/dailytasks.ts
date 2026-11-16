@@ -15,8 +15,22 @@ const store = {
   set: (k: string, v: string) => { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch { /* private mode */ } },
 };
 const ICON: Record<string, string> = { learn: '学', practice: '問', daily: '日' };
-/** what each task's "Go" button opens (set by main.ts) */
+/** what each task's "Go" button opens (set by main.ts); `battle` (0.9.9.9.6.9): a battle against the AI */
 export const taskActions: Partial<Record<string, () => void>> = {};
+// ── 0.9.9.9.6.9: "Today" — one button that takes you through the day: the streak tasks in order, then one battle.
+// Each press opens the next thing still to do; coming back to the menu, the button says what's next.
+const BATTLE_DAY = 'kb:todayBattle';
+const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+/** a battle finished today (main.ts, at the end of a game) */
+export function noteBattle() { store.set(BATTLE_DAY, localDay()); if (last) renderTasks(last); }
+const TODAY_ORDER = ['learn', 'practice', 'daily'] as const;
+const NEXT_LABEL: Record<string, string> = { learn: 'Study', practice: 'A quiz', daily: 'Daily challenge', battle: 'A battle' };
+/** the next step of today, or null when all of it is done */
+export function todayNext(p: Profile): { id: string; label: string } | null {
+  const tasks = p.tasks ?? [];
+  for (const id of TODAY_ORDER) { const t = tasks.find((x) => x.id === id); if (t && t.value < t.target) return { id, label: NEXT_LABEL[id]! }; }
+  return store.get(BATTLE_DAY) === localDay() ? null : { id: 'battle', label: NEXT_LABEL.battle! };
+}
 
 let last: Profile | null = null;
 let shownThisVisit = false;
@@ -127,7 +141,17 @@ export function renderTasks(p: Profile) {
   };
   toggle.addEventListener('click', flip);
   toggle.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') flip(e); });
-  btn.replaceChildren(flame, main, toggle);
+  // 0.9.9.9.6.9: Today — the next step in one press
+  const next = todayNext(p);
+  const go = mk('span', `tb-go${next ? '' : ' done'}`);
+  go.setAttribute('role', 'button'); go.tabIndex = 0;
+  const steps = tasks.length + 1, doneSteps = n + (store.get(BATTLE_DAY) === localDay() ? 1 : 0);
+  go.append(mk('small', 'tg-lbl', next ? tr(doneSteps ? 'Next today' : 'Play today') : tr('Today: all done')), mk('b', 'tg-what', next ? tr(NEXT_LABEL[next.id]!) : '✓'), mk('span', 'tg-n', `${doneSteps}/${steps}`));
+  go.title = tr('Today, in one go: your study, a quiz, the daily challenge and a battle');
+  const run = (e: Event) => { e.preventDefault(); e.stopPropagation(); const nx = last && todayNext(last); if (nx) (taskActions[nx.id] ?? taskActions.learn)?.(); };
+  go.addEventListener('click', run);
+  go.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') run(e); });
+  btn.replaceChildren(flame, main, go, toggle);
   $('ppTasks').textContent = `${tr('Today’s streak tasks')}: ${n}/${tasks.length} ›`;
   if (!$<HTMLDialogElement>('tasksDialog').open) return;
   fill(p);

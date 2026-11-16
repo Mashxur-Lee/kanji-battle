@@ -538,6 +538,9 @@ const RU: Record<string, string> = {
   '← Back to the room': '← В комнату',
   'Updating to the new version…': 'Обновляемся до новой версии…',
   'League passed!': 'Лига пройдена!',
+  // 0.9.9.9.6.9: Today
+  'Next today': 'Дальше сегодня', 'Play today': 'Начать день', 'Today: all done': 'Сегодня всё сделано', 'A quiz': 'Тест', 'A battle': 'Битва',
+  'Today, in one go: your study, a quiz, the daily challenge and a battle': 'Весь день за раз: учёба, тест, ежедневное испытание и битва',
   // 0.9.9.9.6.9: play as a guest
   'Play now': 'Играть сейчас', 'No account needed — save your progress whenever you like.': 'Аккаунт не нужен — сохраните прогресс, когда захотите.',
   'Save progress': 'Сохранить прогресс', 'Make it your account: a login, a password and your email': 'Сделайте его своим аккаунтом: логин, пароль и почта',

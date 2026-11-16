@@ -639,7 +639,7 @@ export class Room {
           type: 'answer_result', challengeId: e.challengeId, correct: e.correct, timedOut: e.timedOut, skipped: e.skipped,
           kanji: entry.kanji, reading: entry.romaji ?? entry.reading, meaning: entry.meaning,
           damage: e.damage, combo: e.combo, responseMs: e.responseMs, nextInMs: e.nextInMs, recognized: e.recognized,
-          crit: e.crit, retry: e.retry, beaten: e.beaten,
+          crit: e.crit, retry: e.retry, beaten: e.beaten, vocabId: entry.id, // (0.9.9.9.6.9: for the example sentence)
         });
       }
       case 'deck_state':

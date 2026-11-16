@@ -3,7 +3,7 @@ import { initReminders, remindersSignedIn, remindersSignedOut } from './reminder
 import './support'; // error reporting first, so early errors are caught too
 import { refreshOnline, reportLayout } from './support';
 import { onTaskDone, quizMode, showMissedSave, startQuiz } from './decks';
-import { initTasks, renderTasks, taskActions, tasksAtLogin } from './dailytasks';
+import { initTasks, noteBattle, renderTasks, taskActions, tasksAtLogin } from './dailytasks';
 import { checkRewards } from './rewards';
 import { initWhatsNew } from './whatsnew';
 initWhatsNew();
@@ -248,6 +248,14 @@ taskActions.learn = () => (ui.kanaBeginner() ? openKana() : ui.$('studyBtn').cli
 taskActions.quiz = () => void startQuiz();
 taskActions.daily = () => ui.$('dailyBtn').click();
 taskActions.passage = () => ui.$('passageBtn').click();
+taskActions.practice = () => void startQuiz(); // (0.9.9.9.6.9: Today's quiz step)
+// 0.9.9.9.6.9: Today's battle — a Kanji Reading duel against the AI at your level
+taskActions.battle = () => {
+  if (!canPlay('reading')) { ui.toast(lockText('reading'), 5000); return; }
+  const lv = savedLevels();
+  pendingAi = { mode: 'reading', level: lv[0] ?? 'N5' };
+  socket.send({ type: 'create', mode: 'reading', levels: lv.length ? lv : ['N5'] });
+};
 
 async function refreshProfile() {
   try { applyProfile((await api.me()).profile); } catch { /* offline: keep what we have */ }
@@ -596,6 +604,7 @@ function onMessage(msg: ServerMessage) {
       deckInk(msg.castId, msg.strokes, msg.cells);
       break;
     case 'game_over': {
+      noteBattle(); // (0.9.9.9.6.9: Today's battle is done)
       rematchSeen.clear();
       pendingLobby = null; lobbyRequested = false; ui.$('resultLobby').classList.remove('pulse');
       players = msg.players;

@@ -5545,3 +5545,26 @@ body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(
   body.has-3d #battle .challenge .kanji { font-size: min(calc(8 * var(--vw)), calc(11.5 * var(--vh)), 6.4rem); margin: 0 0 2px; }
   body.has-3d #battle .challenge { padding-top: 0; }
 }
+
+/* 0.9.9.9.6.9: after a miss in battle, the word in a sentence (one line each, under the answer) */
+.feedback .fb-example { display: grid; gap: 1px; margin: 6px auto 0; padding: 0; border: 0; max-width: min(560px, 92vw); text-align: center; animation: fbExIn .35s ease both; }
+.feedback .fb-example .fc-ex-ja { margin: 0; color: var(--text); font-size: 1.05rem; line-height: 1.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feedback .fb-example .fc-ex-ja rt { font-size: .55em; }
+.feedback .fb-example .fc-ex-tr { margin: 0; font-size: .85rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feedback .fb-example mark { background: none; color: var(--gold); font-weight: 700; padding: 0; }
+@keyframes fbExIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* 0.9.9.9.6.9: Today — the next step in one press, at the right of the streak banner */
+#menu .tasks-btn .tb-go { flex: none; margin: 0 44px 0 auto; display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 8px; padding: 8px 14px; border-radius: 12px;
+  background: linear-gradient(135deg, #ffcf6a, #ff9f43); color: #2a1606; box-shadow: 0 4px 14px rgba(255, 170, 70, .35); cursor: pointer; text-align: left; transition: transform .15s, box-shadow .15s; }
+#menu .tasks-btn .tb-go:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(255, 170, 70, .5); }
+#menu .tasks-btn .tb-go .tg-lbl { grid-column: 1 / -1; font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+#menu .tasks-btn .tb-go .tg-what { font-size: 1rem; white-space: nowrap; }
+#menu .tasks-btn .tb-go .tg-n { font-size: .75rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgba(42, 22, 6, .15); }
+#menu .tasks-btn .tb-go.done { background: rgba(110, 231, 160, .14); color: var(--good, #6ee7a0); box-shadow: none; cursor: default; }
+#menu .tasks-btn.folded .tb-go { padding: 4px 10px; }
+#menu .tasks-btn.folded .tb-go .tg-lbl { display: none; }
+@media (max-width: 600px) {
+  #menu .tasks-btn .tb-go { margin-right: 38px; padding: 6px 10px; }
+  #menu .tasks-btn .tb-go .tg-lbl { display: none; }
+}
