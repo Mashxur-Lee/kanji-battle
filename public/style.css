@@ -5537,3 +5537,11 @@ body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(
 .or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .guest-save { border: 1px solid var(--gold); color: var(--gold); background: rgba(255, 205, 96, .08); border-radius: 999px; padding: 5px 12px; font-size: .85rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .guest-save:hover { background: rgba(255, 205, 96, .18); }
+
+/* 0.9.9.9.6.9: the 3D arena on a computer — the word and the answer box sit lower and a little smaller, so the arena
+   (and your opponent, now closer) shows in the middle of the screen */
+@media (min-width: 901px) and (min-aspect-ratio: 5/4) {
+  body.has-3d #battle .arena .stage { align-self: end; place-items: end center; min-height: 0; padding-bottom: calc(1.5 * var(--vh)); }
+  body.has-3d #battle .challenge .kanji { font-size: min(calc(8 * var(--vw)), calc(11.5 * var(--vh)), 6.4rem); margin: 0 0 2px; }
+  body.has-3d #battle .challenge { padding-top: 0; }
+}
