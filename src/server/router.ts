@@ -6,7 +6,7 @@ import { isTransientDbError, retryDelay } from './db/transient';
 import { displayName } from './db/Store';
 import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/InsightsService';
 import { MessageError, type MessageService } from './study/MessageService';
-import { AuthError, toPublic, toSelf, type AuthService } from './auth/AuthService';
+import { AuthError, isGuest, toPublic, toSelf, type AuthService } from './auth/AuthService';
 import { resolveToday, StudyError, type StudyService } from './study/StudyService';
 import { isDeck, type DeckId } from '../shared/srs';
 import type { Role } from '../shared/protocol';
@@ -89,12 +89,34 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
     }
   };
   const RETRY = Symbol('retry');
+  const GUEST_BLOCKED = /^\/api\/(messages|groups|friends|push|invite)(\/|$)|^\/api\/me\/(avatar|nickname|email|password)$/;
   const handle = async (r: ApiRequest, canRetry: boolean): Promise<ApiResponse | null | typeof RETRY> => {
     const url = r.url;
     if (!url.startsWith('/api/')) return null;
     const query = r.query;
     const ip = r.ip;
     try {
+      // 0.9.9.9.6.9: guests play, study and race the daily — writing to people (messages, groups, friends, a picture,
+      // a nickname, push) waits until the account is saved
+      if (r.method !== 'GET' && GUEST_BLOCKED.test(url) && r.token) {
+        const g = await auth.authenticate(r.token).catch(() => null);
+        if (g && isGuest(g)) throw new AuthError('Save your account first (it takes a moment) — then you can message and add friends', 403);
+      }
+      if (r.method === 'POST' && url === '/api/guest') {
+        // 0.9.9.9.6.9: play at once, no account
+        if (!limiter.allow(ip) || !signupLimiter.allow(ip)) throw new AuthError('Too many new accounts from here — try again later', 429);
+        const result = await auth.guest();
+        void insights?.event(result.user.id, 'guest');
+        return res(200, result);
+      }
+      if (r.method === 'POST' && url === '/api/guest/claim') {
+        const u = await auth.authenticate(r.token);
+        if (!limiter.allow(`cl:${ip}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const body = await r.json();
+        const result = await auth.claim(u, body.username, body.password, body.email);
+        void insights?.event(u.id, 'signup');
+        return res(200, result);
+      }
       if (r.method === 'POST' && (url === '/api/register' || url === '/api/login')) {
         if (!limiter.allow(ip)) throw new AuthError('Too many attempts — wait a minute', 429);
         // 0.9.9.9.5: and at most 10 new accounts an hour from one address

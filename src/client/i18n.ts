@@ -538,6 +538,17 @@ const RU: Record<string, string> = {
   '← Back to the room': '← В комнату',
   'Updating to the new version…': 'Обновляемся до новой версии…',
   'League passed!': 'Лига пройдена!',
+  // 0.9.9.9.6.9: play as a guest
+  'Play now': 'Играть сейчас', 'No account needed — save your progress whenever you like.': 'Аккаунт не нужен — сохраните прогресс, когда захотите.',
+  'Save progress': 'Сохранить прогресс', 'Make it your account: a login, a password and your email': 'Сделайте его своим аккаунтом: логин, пароль и почта',
+  'Save your progress': 'Сохраните прогресс',
+  'Make this your account: everything you have done so far stays — your level, spells and wizard. Then you can sign in on any device, message friends and get back in if you forget your password.': 'Сделайте это своим аккаунтом: всё, что вы уже сделали, останется — уровень, заклинания и волшебник. Тогда можно входить с любого устройства, писать друзьям и вернуться, если забудете пароль.',
+  'Your email is only for getting back in. We send nothing else, and nobody else sees it.': 'Почта нужна только чтобы вернуться в аккаунт. Мы больше ничего не присылаем, и её никто не видит.',
+  'Saved — this is your account now': 'Сохранено — теперь это ваш аккаунт',
+  'Messages and friends need an account. Save your progress — it takes a moment, and everything you have done so far stays.': 'Для сообщений и друзей нужен аккаунт. Сохраните прогресс — это быстро, и всё, что вы уже сделали, останется.',
+  'You are playing as a guest. If you log out now, this progress is gone — save it first (Save progress at the top). Log out anyway?': 'Вы играете как гость. Если выйти сейчас, этот прогресс пропадёт — сначала сохраните его («Сохранить прогресс» вверху). Всё равно выйти?',
+  'Save your account first (it takes a moment) — then you can message and add friends': 'Сначала сохраните аккаунт (это быстро) — потом можно писать и добавлять друзей',
+  'Pick a login of your own': 'Придумайте свой логин', 'This account is already saved': 'Этот аккаунт уже сохранён',
   // 0.9.9.9.6.6: an email for every account; forgot your password
   '© Kanji Wizards. All rights reserved. The data and libraries above keep their own licences.': '© Kanji Wizards. Все права защищены. У данных и библиотек выше — свои лицензии.',
   'What you know': 'Что вы знаете', 'of': 'из', 'words': 'слов', 'learned': 'выучено', 'Reviews coming': 'Скоро повторения',

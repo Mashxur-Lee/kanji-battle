@@ -348,6 +348,8 @@ export function setUser(user: PublicUser | null) {
   $('ppLogin').hidden = !user?.nickname;
   $('whoRole').hidden = user?.role !== 'admin';
   $('adminBtn').hidden = user?.role !== 'admin';
+  $('guestSave').hidden = !user?.guest; // 0.9.9.9.6.9
+  document.body.classList.toggle('guest', !!user?.guest);
 }
 
 export function setNetStatus(text: string | null) {

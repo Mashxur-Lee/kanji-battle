@@ -57,7 +57,7 @@ export interface UserRecord {
 export interface DailyPlan { per: Partial<Record<Level, number>>; day: string | null; done: Partial<Record<Level, number>> }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'> & { email?: string | null; emailKey?: string | null };
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens' | 'quizStats' | 'wins' | 'losses' | 'email' | 'emailKey'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens' | 'quizStats' | 'wins' | 'losses' | 'email' | 'emailKey' | 'username'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -250,6 +250,8 @@ export class MemoryStore implements Store {
     const r = this.users.get(id);
     if (!r) return null;
     if (patch.emailKey) for (const o of this.users.values()) if (o.id !== id && o.emailKey === patch.emailKey) throw new EmailTakenError();
+    // 0.9.9.9.6.9: a guest saving their account picks a login
+    if (patch.username !== undefined) { patch = { ...patch, username: patch.username.toLowerCase() }; for (const o of this.users.values()) if (o.id !== id && o.username === patch.username) throw new UsernameTakenError(); }
     Object.assign(r, patch);
     this.persist();
     return { ...r };

@@ -73,6 +73,42 @@ export function emailDialog(opts: { required: boolean; current?: string | null; 
   mail.i.focus();
 }
 
+/**
+ * 0.9.9.9.6.9: a guest keeps what they've done — a login, a password and an email turn the guest into an account
+ * (same XP, spells and everything). `why`: the line on top (e.g. what needs an account).
+ */
+export function claimDialog(opts: { why?: string; onDone: (token: string, u: PublicUser) => void }) {
+  const { d, f } = dialog('claim-dialog');
+  const h3 = el('h3', '', tr('Save your progress'));
+  const why = el('p', 'hint', opts.why ?? tr('Make this your account: everything you have done so far stays — your level, spells and wizard. Then you can sign in on any device, message friends and get back in if you forget your password.'));
+  const login = field('Login', 'text', 'username', { max: 32 });
+  login.i.minLength = 3; login.i.pattern = '[A-Za-z0-9_.\\-]{3,32}';
+  const pass = field('Password', 'password', 'new-password', { max: 72 });
+  pass.i.minLength = 6;
+  const mail = field('Email', 'email', 'email', { mode: 'email' });
+  const note = el('p', 'hint', tr('Your email is only for getting back in. We send nothing else, and nobody else sees it.'));
+  const msg = msgLine();
+  const row = el('div', 'fb-actions');
+  const cancel = el('button', 'pill', tr('Later'));
+  cancel.type = 'button'; cancel.onclick = () => d.close();
+  const ok = el('button', 'big', tr('Save'));
+  ok.type = 'submit';
+  row.append(cancel, ok);
+  f.append(h3, why, login.l, pass.l, mail.l, note, msg, row);
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    ok.disabled = true; msg.textContent = '';
+    try {
+      const r = await api.claim(login.i.value.trim(), pass.i.value, mail.i.value.trim());
+      setToken(r.token);
+      d.close();
+      opts.onDone(r.token, r.user);
+    } catch (x) { msg.textContent = err(x); ok.disabled = false; }
+  };
+  d.showModal();
+  login.i.focus();
+}
+
 /** "Forgot password?": your login or email → a code by email → a new password (and you're in) */
 export function forgotDialog(prefill: string, onSignedIn: (token: string, u: PublicUser) => void) {
   const { d, f } = dialog('forgot-dialog');

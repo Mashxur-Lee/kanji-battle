@@ -29,6 +29,8 @@
       <span id="whoPic" class="avatar" aria-hidden="true">✦</span>
       <span id="whoName" class="who-name"></span><span id="whoRole" class="tag" hidden>admin</span>
     </button>
+    <!-- 0.9.9.9.6.9: playing as a guest — keep what you've done -->
+    <button id="guestSave" class="guest-save" hidden title="Make it your account: a login, a password and your email">Save progress</button>
     <div id="profilePop" class="profile-pop" hidden>
       <div class="pp-head">
         <div id="ppPic" class="pp-pic">✦</div>
@@ -261,6 +263,12 @@
     <div class="col-main">
       <h1 class="title"><span class="jp">漢字</span> Wizards</h1>
       <p class="sub">Study ten spells. Then cast them from memory.</p>
+      <!-- 0.9.9.9.6.9: no account needed to start -->
+      <div class="guest-start">
+        <button id="guestPlay" type="button" class="big guest-play">Play now</button>
+        <p class="hint">No account needed — save your progress whenever you like.</p>
+      </div>
+      <div class="or-line"><span>or</span></div>
       <div class="tabs" role="tablist">
         <button id="tabLogin" class="tab on" role="tab" aria-selected="true">Log in</button>
         <button id="tabRegister" class="tab" role="tab" aria-selected="false">Register</button>

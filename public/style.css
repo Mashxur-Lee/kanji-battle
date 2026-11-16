@@ -5528,3 +5528,12 @@ body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(
 /* 0.9.9.9.6.8: achievements — the hovered badge (and its description) sits above its neighbours: a pinned badge's
    blue star (z-index 2) above it covered the description of the badge under it */
 .ach:hover, .ach:focus-visible, .ach:focus-within { z-index: 60; }
+
+/* 0.9.9.9.6.9: play as a guest — "Play now" first on the sign-in screen, "Save progress" by your name */
+.guest-start { display: grid; gap: 6px; justify-items: center; margin: 4px 0 2px; }
+.guest-start .guest-play { width: min(100%, 360px); font-size: 1.15rem; padding: 14px 20px; }
+.guest-start .hint { margin: 0; text-align: center; }
+.or-line { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: .85rem; margin: 10px 0 6px; }
+.or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.guest-save { border: 1px solid var(--gold); color: var(--gold); background: rgba(255, 205, 96, .08); border-radius: 999px; padding: 5px 12px; font-size: .85rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.guest-save:hover { background: rgba(255, 205, 96, .18); }
