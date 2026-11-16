@@ -5,6 +5,9 @@ const SCENES = {
     pan: [[0, 0, 0], [20, -0.85, -0.1], [95, 0.8, -0.25], [150, 0, 0]] },
   boss: { who: 'sora', mode: 'boss', bots: 3, level: 'N4', bg: 'castle', time: 'sunset', frames: 340, think: 9, per: 2,
     pan: [[0, 0, 0], [25, 0.8, -0.3], [100, -0.8, -0.35], [160, 0, -0.1]] },
+  // a long run of right answers: the combo counter, On fire at x5
+  combo: { who: 'haru', mode: 'reading', bots: 1, level: 'N5', bg: 'worldtree', time: 'night', frames: 450, think: 5, per: 1,
+    pan: [[0, 0, 0], [30, 0.45, -0.15], [130, -0.35, -0.1], [210, 0, 0]] },
   rapid: { who: 'kaito', mode: 'rapid', bots: 1, level: 'N5', bg: 'forest', time: 'night', frames: 220, think: 7, per: 2,
     pan: [[0, 0, 0], [15, 0.6, -0.2], [70, -0.5, -0.2], [110, 0, 0]] },
 };

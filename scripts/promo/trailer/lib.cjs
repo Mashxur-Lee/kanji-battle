@@ -27,7 +27,9 @@ const HOUR = { day: 11, sunset: 18, night: 22 };
 
 /** opens the game signed in; frames are pumped until vclip takes over the clock */
 async function detOpen(browser, token, { w = 1280, h = 720, dsf = 1.5, time = 'day', threeD = true, lang = 'en', store = {}, mobile = false } = {}) {
-  const ctx = await browser.newContext({ viewport: null, serviceWorkers: 'block', timezoneId: tzFor(HOUR[time] ?? 11), ...(mobile ? { isMobile: true, hasTouch: true } : {}) });
+  // a phone: Chrome's own mobile emulation (touch, a coarse pointer), in a window started at the phone's size
+  const ctx = await browser.newContext({ serviceWorkers: 'block', timezoneId: tzFor(HOUR[time] ?? 11),
+    ...(mobile ? { viewport: { width: w, height: h }, deviceScaleFactor: dsf, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36' } : { viewport: null }) });
   await ctx.addInitScript((o) => { try { if (location.origin.startsWith('http')) for (const [k, v] of Object.entries(o)) localStorage.setItem(k, v); } catch { /* about:blank */ } },
     { 'kb:token': token, 'kb:lang': lang, 'kb:seenVersion': 'x', 'kb:3d': threeD ? 'on' : 'off', 'kb:tasksNoticeOff': '1', 'kb:uizoom': '1', 'kb:filming': '1', ...store });
   const p = await withTimeout(ctx.newPage(), 30000, 'newPage');

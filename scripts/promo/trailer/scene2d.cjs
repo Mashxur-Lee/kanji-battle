@@ -1,5 +1,5 @@
 // The screens around the battles, filmed frame by frame as the hero (months of study, friends, a league).
-// (Customize is not here: its WebGL previews stall under begin-frame control — stills.cjs takes it as stills.)
+// (Customize is not here: its WebGL previews stall under begin-frame control — customize.cjs films it another way.)
 const L = require('./lib.cjs');
 const click = (p, sel, i = 0) => p.evaluate(([s, i]) => { const e = [...document.querySelectorAll(s)].filter((x) => x.offsetParent)[i]; if (e) e.click(); return !!e; }, [sel, i]);
 const clickText = (p, sel, re) => p.evaluate(([s, r]) => { const e = [...document.querySelectorAll(s)].filter((x) => x.offsetParent).find((x) => new RegExp(r).test(x.textContent)); if (e) e.click(); return !!e; }, [sel, re]);
