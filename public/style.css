@@ -5565,6 +5565,9 @@ body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(
 #menu .tasks-btn.folded .tb-go { padding: 4px 10px; }
 #menu .tasks-btn.folded .tb-go .tg-lbl { display: none; }
 @media (max-width: 600px) {
-  #menu .tasks-btn .tb-go { margin-right: 38px; padding: 6px 10px; }
-  #menu .tasks-btn .tb-go .tg-lbl { display: none; }
+  /* (a phone: its own row under the tasks, so their names keep their room) */
+  #menu .tasks-btn { flex-wrap: wrap; }
+  #menu .tasks-btn .tb-go { order: 5; flex: 1 0 100%; margin: 8px 0 0; padding: 7px 12px; justify-content: center; grid-template-columns: auto auto auto; }
+  #menu .tasks-btn .tb-go .tg-lbl { grid-column: auto; }
+  #menu .tasks-btn.folded .tb-go { margin-top: 4px; }
 }
