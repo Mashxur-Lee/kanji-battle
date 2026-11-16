@@ -994,7 +994,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   let cine: Cine | null = null, cineW = 0, introPending = false, lastImpact = -1e9;
   const cinemaOn = (() => { try { return localStorage.getItem('kb:cinema') !== 'off'; } catch { return true; } })();
   const smooth = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
-  const cineTmp = new THREE.Object3D();
+  const cineTmp = new THREE.PerspectiveCamera(); // (a camera: lookAt points its -Z at the target, like the real one)
   /** where the camera wants to be for the current shot, and how much of it (0: your eyes … 1: all the shot) */
   function cinePose(nowMs: number): { pos: THREE.Vector3; look: THREE.Vector3; w: number } | null {
     if (!cine) return null;
@@ -1003,8 +1003,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (t >= cine.dur) { cine = null; return null; }
       // high behind you, swinging in from the side, down into your eyes
       const k = smooth(t / cine.dur), w = 1 - k;
-      const side = 3.2 * w;
-      return { pos: new THREE.Vector3(CAM.x + side, CAM.y + 3.1 * w, CAM.z + 5.5 * w), look: LOOK.clone().add(new THREE.Vector3(0, -0.4 * w, -2.5 * w)), w };
+      const side = 2.4 * w; // (inside the ring of trees: they start about 15 out)
+      return { pos: new THREE.Vector3(CAM.x + side, CAM.y + 2.4 * w, CAM.z + 3.2 * w), look: LOOK.clone().add(new THREE.Vector3(0, -0.4 * w, -2.5 * w)), w };
     }
     const f = cine.who ? fighters.get(cine.who) : undefined;
     if (!f) { cine = null; return null; }
