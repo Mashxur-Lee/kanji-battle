@@ -24,10 +24,15 @@ CAPS = {
     '12-customize': ('杖', 'Make it yours', 'Characters, staffs, flames, frames and arenas'),
     '13-messages': ('友', 'Play with friends', 'Messages, groups, invites and reactions'),
     '14-dict': ('辞', 'A full dictionary', 'Japanese, English and Russian, one tap away'),
+    'd-menu': ('門', 'Every mode, one menu', 'Online, private rooms, daily, study, quizzes, kana'),
+    'd-duel': ('戦', 'Duel in a living 3D arena', 'Read the kanji, type its reading, and your staff casts it'),
+    'd-boss': ('竜', 'Boss Elimination', 'Up to four wizards against the Black Dragon'),
+    'd-rapid': ('戦', 'Duel in a living 3D arena', 'Read the kanji, type its reading, and your staff casts it'),
+    'd-customize': ('杖', 'Make it yours', 'Characters, staffs, flames, poses and arenas'),
 }
 
 
-TOP = {'02-battle2d', '03-battle3d', '05-boss', '06-rapid'}
+TOP = {'02-battle2d', '03-battle3d', '05-boss', '06-rapid', 'd-duel', 'd-boss', 'd-rapid'}
 TOPLEFT = {'04-writing'}
 
 

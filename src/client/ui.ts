@@ -169,6 +169,8 @@ export function picEl(url: string | null | undefined, cls = 'pic', border?: stri
   }
   return img;
 }
+/** 0.9.9.9.6.8: filming the trailer (localStorage kb:filming = 1): no screen shake */
+const filming = () => { try { return localStorage.getItem('kb:filming') === '1'; } catch { return false; } };
 let beginnerFlag = false;
 /** A hiragana beginner: only かな until "I've mastered hiragana" is ticked in Settings. */
 export const kanaBeginner = () => beginnerFlag;
@@ -917,7 +919,7 @@ export function castSpell(caster: Actor, target: Actor, kanji: string, damage: n
       arena.append(burst);
       setTimeout(() => burst.remove(), 600);
       retrigger(t, 'hurt', 700);
-      if (!reduced) retrigger(arena, 'shake', 350);
+      if (!reduced && !filming()) retrigger(arena, 'shake', 350); // (0.9.9.9.6.8: not while filming the trailer)
       floatText(t, `−${damage}`, friendly ? '' : 'taken');
       resolve();
     };

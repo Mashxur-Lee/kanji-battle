@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.9.6.7
+# Kanji Wizards · v0.9.9.9.6.8
 
 <p align="center"><img src="docs/promo/banner.webp" alt="Kanji Wizards — learn Japanese by casting it" width="100%"></p>
 
@@ -13,8 +13,8 @@ on the web, on Android or on Windows.
   <a href="https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download/KanjiWizards-Setup.exe">Windows app</a>
 </p>
 
-<p align="center"><img src="docs/promo/trailer.webp" alt="Gameplay: a duel, handwriting, the Black Dragon, Deck Duel and flashcards" width="100%"></p>
-<p align="center"><a href="docs/promo/trailer.mp4"><b>Watch the full trailer</b></a> (about 90 seconds, every mode)</p>
+<p align="center"><img src="docs/promo/trailer.webp" alt="Gameplay: a duel and the Black Dragon in the 3D arena, the wizards, handwriting" width="100%"></p>
+<p align="center"><a href="docs/promo/trailer.mp4"><b>Watch the full trailer</b></a> (about a minute, with the game's music)</p>
 
 ## What's inside
 
@@ -35,32 +35,28 @@ on the web, on Android or on Windows.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/promo/duel.webp" alt="Duel in real time: read the kanji, type its reading, and your wizard casts it"></td>
-    <td width="50%"><img src="docs/promo/arena3d.webp" alt="The 3D arena: your staff in your hand, spells in the air"></td>
+    <td width="50%"><img src="docs/promo/duel.webp" alt="Duel in the 3D arena: read the kanji, type its reading, and your staff casts it"></td>
+    <td width="50%"><img src="docs/promo/boss.webp" alt="Boss Elimination: up to four wizards against the Black Dragon"></td>
   </tr>
   <tr>
-    <td><img src="docs/promo/writing.webp" alt="Write it by hand: handwriting recognition checks every stroke"></td>
-    <td><img src="docs/promo/boss.webp" alt="Boss Elimination: up to four wizards against the Black Dragon"></td>
+    <td width="50%"><img src="docs/promo/customize.webp" alt="Customize your wizard in 3D"></td>
+    <td width="50%"><img src="docs/promo/writing.webp" alt="Write it by hand: handwriting recognition checks every stroke"></td>
   </tr>
   <tr>
-    <td><img src="docs/promo/deck.webp" alt="Deck Duel: draft a hand, play your cards, cast their kanji"></td>
-    <td><img src="docs/promo/rapid.webp" alt="Rapid: short words, quick answers, big combos"></td>
+    <td width="50%"><img src="docs/promo/deck.webp" alt="Deck Duel: draft a hand, play your cards, cast their kanji"></td>
+    <td width="50%"><img src="docs/promo/study.webp" alt="Spaced-repetition flashcards with stroke order"></td>
   </tr>
   <tr>
-    <td><img src="docs/promo/study.webp" alt="Spaced-repetition flashcards with stroke order"></td>
-    <td><img src="docs/promo/kana.webp" alt="The Kana trainer"></td>
+    <td width="50%"><img src="docs/promo/kana.webp" alt="The Kana trainer"></td>
+    <td width="50%"><img src="docs/promo/daily.webp" alt="Daily challenge leagues"></td>
   </tr>
   <tr>
-    <td><img src="docs/promo/daily.webp" alt="Daily challenge leagues"></td>
-    <td><img src="docs/promo/progress.webp" alt="Progress: what you know, reviews ahead, achievements"></td>
+    <td width="50%"><img src="docs/promo/progress.webp" alt="Progress: what you know, reviews ahead, achievements"></td>
+    <td width="50%"><img src="docs/promo/friends.webp" alt="Messages and groups with friends"></td>
   </tr>
   <tr>
-    <td><img src="docs/promo/customize.webp" alt="Customize your wizard"></td>
-    <td><img src="docs/promo/friends.webp" alt="Messages and groups with friends"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/promo/dict.webp" alt="The dictionary, open from any screen"></td>
-    <td><img src="docs/promo/menu.webp" alt="The main menu on a computer and a phone"></td>
+    <td width="50%"><img src="docs/promo/dict.webp" alt="The dictionary, open from any screen"></td>
+    <td width="50%"><img src="docs/promo/menu.webp" alt="The main menu on a computer and a phone"></td>
   </tr>
 </table>
 
