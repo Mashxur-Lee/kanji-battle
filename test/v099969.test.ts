@@ -113,3 +113,45 @@ test('0.9.9.9.6.9 the client: Play now on the sign-in screen, Save progress by y
   const ignore = src('.gitignore');
   for (const f of ['public/app.js', 'public/arena3d.js', 'public/sw.js']) assert.match(ignore, new RegExp(`^${f.replace('.', '\\.')}$`, 'm'));
 });
+
+test('0.9.9.9.6.9 the service worker keeps only the game\'s own files (never Render\'s "waking up" page)', async () => {
+  const sw = src('src/client/sw.js');
+  assert.match(sw, /if \(k === 'html'\) return \(await r\.clone\(\)\.text\(\)\)\.includes\('id="wakeScreen"'\);/);
+  assert.match(sw, /if \(CORE\.some\(\(u\) => bad\.includes\(u\)\)\) \{ await caches\.delete\(CACHE\); throw/);
+  assert.match(src('public/index.html'), /id="wakeScreen"/, 'the marker the worker looks for');
+  // run genuine() itself
+  const body = sw.slice(sw.indexOf('const KIND'), sw.indexOf('const CORE'));
+  const genuine = new Function('location', `${body}; return genuine;`)({ origin: 'https://x' }) as (u: string, r: Response) => Promise<boolean>;
+  const res = (text: string, type: string, status = 200) => new Response(text, { status, headers: { 'content-type': type } });
+  assert.equal(await genuine('/index.html', res('<html>Render: Service waking up</html>', 'text/html')), false);
+  assert.equal(await genuine('/index.html', res('<div id="wakeScreen"></div>', 'text/html; charset=utf-8')), true);
+  assert.equal(await genuine('/app.js', res('<html>waking</html>', 'text/html')), false);
+  assert.equal(await genuine('/app.js', res('x()', 'text/javascript')), true);
+  assert.equal(await genuine('/style.css', res('a{}', 'text/css', 503)), false);
+  assert.equal(await genuine('/icons/a.png', res('png', 'image/png')), true);
+});
+
+test('0.9.9.9.6.9 Today: the streak tasks in order, then one battle; each press opens the next', async () => {
+  const dt = src('src/client/dailytasks.ts');
+  assert.match(dt, /const TODAY_ORDER = \['learn', 'practice', 'daily'\] as const;/);
+  assert.match(dt, /return store\.get\(BATTLE_DAY\) === localDay\(\) \? null : \{ id: 'battle'/);
+  const main = src('src/client/main.ts');
+  assert.match(main, /taskActions\.battle = \(\) => \{/);
+  assert.match(main, /taskActions\.practice = \(\) => void startQuiz\(\);/);
+  assert.match(main, /case 'game_over': \{\n      noteBattle\(\);/);
+});
+
+test('0.9.9.9.6.9 the 3D arena: a fly-in, an impact shot for big spells, a victory orbit; the opponent closer; the HUD lower', () => {
+  const a3 = src('src/client/arena3d.ts');
+  assert.match(a3, /introPending = true; lastImpact = -1e9;/, 'every battle opens with the fly-in');
+  assert.match(a3, /\(o\.crit \|\| myFlame\) && !cine && performance\.now\(\) - lastImpact > 9000/, 'big spells only, now and then');
+  assert.match(a3, /startCine\(\{ kind: 'victory'/);
+  assert.match(a3, /localStorage\.getItem\('kb:cinema'\) !== 'off'/, 'can be turned off');
+  assert.match(a3, /const oz = s\.layout === 'deck' \? -2\.2 : -0\.9;/);
+  assert.match(src('public/style.css'), /body\.has-3d #battle \.arena \.stage \{ align-self: end;/);
+});
+
+test('0.9.9.9.6.9 a miss in battle shows the word in a sentence (the server says which word)', () => {
+  assert.match(src('src/server/Room.ts'), /vocabId: entry\.id/);
+  assert.match(src('src/client/ui.ts'), /void exampleFor\(id\)\.then/);
+});

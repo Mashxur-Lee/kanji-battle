@@ -13,6 +13,7 @@ serves the web game, the Android app (a WebView shell) and the Windows app (Elec
   framework, just plain DOM. `ui.ts` handles screens, `main.ts` wiring, `i18n.ts` English to Russian, `zoom.ts` the UI
   scale, `arena3d.ts` and friends the three.js arena (2D sprites when 3D is off), `whatsnew.ts` the patch notes.
 - `src/shared`: code both sides use (protocol, SRS, kana, dictionary helpers).
+- `public/app.js`, `arena3d.js` and `sw.js` are built, not tracked (0.9.9.9.6.9): run `npm run build` after cloning.
 - `public/`: `index.html`, `style.css` (one big file; later rules override earlier ones, and each block is
   commented with the version that added it), assets, the service worker comes from `src/client/sw.js`.
 - `mobile/` is the Android app, `desktop/` the Electron app. Both are built by `.github/workflows/apps.yml`.
@@ -48,6 +49,8 @@ serves the web game, the Android app (a WebView shell) and the Windows app (Elec
 - Never put credentials or setup secrets in the README. Keep the README a description; setup lives in
   `docs/SETUP.md`.
 - Each account needs an email. An email can be changed once a week, and changing it asks for the password.
+  Guests (0.9.9.9.6.9, `POST /api/guest`) are the exception: no email until they save the account
+  (`/api/guest/claim`); they can't write to people (messages, friends, groups, picture, nickname); unseen for 30 days → removed.
 - License: all rights reserved (see `LICENSE`). Art is AI-generated and credited in `CREDITS.md`.
 
 ## Style

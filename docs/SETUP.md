@@ -35,6 +35,7 @@ password) signs out every other device.
 | `AUTH_SECRET` | **Set this.** Any long random string. Without it, everyone is logged out whenever the server restarts. |
 | `ADMIN_PASSWORD` | **Set this.** The `admin` account's password. |
 | `USER_PASSWORD` | Optional: password for the demo `user` account. |
+| `KEEP_AWAKE` | Optional (0.9.9.9.6.9): on Render the server asks itself (`RENDER_EXTERNAL_URL`, set by Render) every 10 minutes, so the free plan never puts it to sleep and nobody waits on Render's "waking up" page. Awake all month uses about 744 of the free plan's 750 instance hours per workspace — set `KEEP_AWAKE=0` if you run other free services there. `KEEP_AWAKE_URL` points it somewhere else. |
 | `BREVO_API_KEY` | Optional (0.9.9.9.6.6): sends the "Forgot password?" codes through [Brevo](https://www.brevo.com)'s HTTPS API (free: 300 a day). **Use this on Render's free plan** — it blocks the mail ports (25, 465, 587), so `SMTP_URL` can't work there. Needs `MAIL_FROM` = a sender verified in Brevo, e.g. `Kanji Wizards <you@gmail.com>`. |
 | `SMTP_URL` | Optional (0.9.9.9.6.6): sends the "Forgot password?" codes by email. Any mail server over TLS (not on Render's free plan — see above), e.g. Gmail with an [app password](https://myaccount.google.com/apppasswords): `smtps://you%40gmail.com:app-password@smtp.gmail.com:465` (an `@` in the login is written `%40`). |
 | `RESEND_API_KEY` | Optional, instead of SMTP: [Resend](https://resend.com)'s email API. `MAIL_FROM` sets the sender (e.g. `Kanji Wizards <noreply@yourdomain>`). |
