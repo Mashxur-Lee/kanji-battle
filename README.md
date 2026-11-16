@@ -13,8 +13,8 @@ on the web, on Android or on Windows.
   <a href="https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download/KanjiWizards-Setup.exe">Windows app</a>
 </p>
 
-<p align="center"><img src="docs/promo/trailer.webp" alt="Gameplay: a duel and the Black Dragon in the 3D arena, the wizards, handwriting" width="100%"></p>
-<p align="center"><a href="docs/promo/trailer.mp4"><b>Watch the full trailer</b></a> (about a minute, with the game's music)</p>
+<p align="center"><img src="docs/promo/trailer.webp" alt="Gameplay: a duel and the Black Dragon in the 3D arena, the wizards, the Progress page" width="100%"></p>
+<p align="center"><a href="docs/promo/trailer.mp4"><b>Watch the full trailer</b></a> (a minute and a half, with its own soundtrack) · <a href="docs/promo/trailer-short.mp4">the 30-second cut</a></p>
 
 ## What's inside
 
