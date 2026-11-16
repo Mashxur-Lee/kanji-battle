@@ -22,6 +22,7 @@ The same list is shown in the game under **About** (main menu).
 | Painted backgrounds (five places, day / sunset / night) and their moving parts | `public/bg/` | Generated with AI image tools for this game by its author, then cut and animated for the game | — |
 | League frames (Kana–N1) and the weekly streak flames | `public/frames/`, `public/flames/` | Generated with AI image and animation tools for this game by its author | — |
 | 2D characters, staffs, icons, interface and sounds | `src/client/` | Drawn and synthesised in code for this game | — |
+| The trailer and its music | `docs/promo/trailer*.mp4`, `scripts/promo/trailer/` | Filmed from the running game; the soundtrack is an original theme synthesised in code for it (`music.py`), written with an AI assistant. Captions are set in [Inter](https://rsms.me/inter/) and [Noto CJK](https://github.com/notofonts/noto-cjk) | Fonts: SIL Open Font License 1.1 |
 
 ## Software
 
