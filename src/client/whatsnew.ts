@@ -7,6 +7,23 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.7.2', date: '2026-11',
+    en: [
+      'No more frozen battles after an update: the game’s files come ready-compressed, so the server no longer stops for several seconds the first time each one is asked for.',
+      'Writing duels and Deck Duel: drawings are judged alongside the game, so one player’s big drawing no longer makes everyone’s battle stutter.',
+      'An opponent whose connection is lost is noticed within half a minute (it could take minutes), so their 60 seconds to come back start right away.',
+      'Private rooms are harder to stumble into: after 10 wrong room codes in a minute you wait a moment before trying more.',
+      'Steadier server: it can’t be run out of memory by repeated requests or by many app downloads at once.',
+    ],
+    ru: [
+      'Бои больше не замирают после обновления: файлы игры приходят уже сжатыми, и сервер не останавливается на несколько секунд при первом запросе каждого.',
+      'Дуэли письма и Дуэль колод: рисунки проверяются параллельно с игрой, и большой рисунок одного игрока больше не притормаживает бой у всех.',
+      'Если соперник потерял связь, это видно в течение полуминуты (раньше — через минуты), и его 60 секунд на возвращение начинаются сразу.',
+      'В приватную комнату труднее попасть случайно: после 10 неверных кодов комнат за минуту нужно немного подождать.',
+      'Сервер стабильнее: его нельзя вывести из строя повторяющимися запросами или множеством одновременных скачиваний приложения.',
+    ],
+  },
+  {
     v: '0.9.9.9.7.1', date: '2026-11',
     en: [
       'A fair Daily challenge: it is played online now, on the server’s clock — the times on the leaderboard are the times people really took. (Played offline, the app reported its own times.)',

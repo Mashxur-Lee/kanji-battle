@@ -40,11 +40,43 @@ export function replayTime(header: unknown, real = Date.now()): number | null {
 // 0.9.9.4.2: a change sent with `X-KW-Op: <id>` is done once — the same id again (the app timed out, did it
 // offline and replays it) gets the first answer back. Kept for an hour.
 const OP_TTL = 60 * 60_000;
-const done = new Map<string, { at: number; out: ApiResponse }>();
+/**
+ * 0.9.9.9.7.2: how much is kept — all the answers together, and one sign-in's (`op` is "<token tail>:<id>"). It was
+ * 50,000 whole answers for an hour, whatever their size, and nothing stopped one player sending a new id with every
+ * call: a script could fill the server's memory. The oldest go first; one answer bigger than a sign-in's share isn't kept.
+ */
+export const OP_MAX_BYTES = 16 * 1024 * 1024, OP_MAX_BYTES_EACH = 1024 * 1024, OP_MAX_COUNT = 50_000;
+const done = new Map<string, { at: number; out: ApiResponse; bytes: number; who: string }>();
+const byWho = new Map<string, { bytes: number; count: number; keys: string[] }>();
+let doneBytes = 0;
+const forgetOp = (k: string) => {
+  const v = done.get(k);
+  if (!v) return;
+  done.delete(k);
+  doneBytes -= v.bytes;
+  const w = byWho.get(v.who);
+  if (w) { w.bytes -= v.bytes; w.count--; if (w.count <= 0) byWho.delete(v.who); }
+};
 export function rememberOp(op: string, out: ApiResponse, now = Date.now()) {
-  done.set(op, { at: now, out });
-  if (done.size > 50_000) for (const [k, v] of done) { if (now - v.at > OP_TTL || done.size > 40_000) done.delete(k); else break; }
+  const who = op.slice(0, Math.max(0, op.lastIndexOf(':')));
+  const bytes = 96 + op.length + (out.raw ? out.raw.data.length : JSON.stringify(out.body ?? null).length);
+  forgetOp(op);
+  if (bytes > OP_MAX_BYTES_EACH) return;
+  // the oldest go first: expired ones, then as many as it takes to stay within the limits
+  for (const [k, v] of done) { if (now - v.at > OP_TTL || doneBytes + bytes > OP_MAX_BYTES || done.size >= OP_MAX_COUNT) forgetOp(k); else break; }
+  const mine = byWho.get(who) ?? { bytes: 0, count: 0, keys: [] };
+  while (mine.bytes + bytes > OP_MAX_BYTES_EACH && mine.keys.length) forgetOp(mine.keys.shift()!);
+  // (keys forgotten some other way stay in the list until it is tidied — now and then, not on every call)
+  if (mine.keys.length > 2 * mine.count + 64) mine.keys = mine.keys.filter((k) => done.has(k));
+  done.set(op, { at: now, out, bytes, who });
+  doneBytes += bytes;
+  mine.bytes += bytes;
+  mine.count++;
+  mine.keys.push(op);
+  byWho.set(who, mine);
 }
+/** for the tests: what is kept, in bytes */
+export const opMemory = () => ({ bytes: doneBytes, count: done.size });
 export function recalledOp(op: string, now = Date.now()) {
   const d = done.get(op);
   return d && now - d.at < OP_TTL ? d.out : null;

@@ -245,7 +245,9 @@ export class Session implements Client {
     try { msg = JSON.parse(raw); } catch { return; }
     if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return;
 
-    if (msg.type === 'hello') return this.hello(msg.token);
+    // 0.9.9.9.7.2: one connection, one account — a second "hello" is ignored (the app sends one, when it connects).
+    // Signing in as someone else on the same connection left the first account "online" until the server restarted.
+    if (msg.type === 'hello') return this.user ? undefined : this.hello(msg.token);
     const user = this.user;
     if (!user) return this.send({ type: 'auth_error', message: 'Please log in' });
     if (msg.type === 'pong') return this.onPong(msg.t);
@@ -283,8 +285,12 @@ export class Session implements Client {
     if (msg.type === 'join') {
       if (this.room) return;
       this.matchmaker?.cancel(user.id, false);
+      // 0.9.9.9.7.2: room codes are 4 letters (about 330,000) — wrong ones are limited, per account and per address,
+      // so a script can't try them all and walk into private lobbies
+      const who = { user: user.id, ip: this.ip };
+      if (this.rooms.codesBlocked(who)) return this.send({ type: 'error', message: 'Too many wrong room codes — wait a minute' });
       const room = this.rooms.get(String(msg.code ?? ''));
-      if (!room) return this.send({ type: 'error', message: 'Room not found' });
+      if (!room) { this.rooms.wrongCode(who); return this.send({ type: 'error', message: 'Room not found' }); }
       this.hub.dropInvites(user.id); // (answered by joining)
       return await this.enter(room, parseLevels(msg.levels));
     }
@@ -439,6 +445,8 @@ export class Session implements Client {
   private readonly chatBucket = new Bucket(6, 0.5);
   /** the Android app, the PC app or a browser (from the connection's User-Agent; set by index.ts) */
   device: Device = 'web';
+  /** 0.9.9.9.7.2: the caller's address (set by index.ts) */
+  ip = '';
   /** What the player is doing (for admins): menus, searching, or in a room of some mode. */
   activity(): string {
     if (this.room) {

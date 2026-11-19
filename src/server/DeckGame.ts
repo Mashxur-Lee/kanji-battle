@@ -5,7 +5,7 @@ import { isCorrectReading, isCorrectWriting, isRomajiInput, writeTargets, writeT
 import { CRIT_MULTIPLIER } from '../shared/progress';
 import type { BossView, DrawnChar, PlayerId, PlayerStats, VocabEntry, WordStat } from '../shared/protocol';
 import { displayReading } from '../shared/vocab';
-import type { GameEvent, GameSnapshot, Match, WritingJudge } from './Game';
+import { whenJudged, type GameEvent, type GameSnapshot, type JudgeResult, type Match, type WritingJudge } from './Game';
 import { shuffle, type Rng } from './VocabPool';
 import { VOCAB } from './vocab';
 
@@ -448,12 +448,16 @@ export class DeckGame implements Match {
     this.beginTurn(this.other(p.id).id);
   }
 
-  private resolveAttempt(id: PlayerId, castId: number, judge: (e: VocabEntry) => { correct: boolean; recognized: string }) {
+  private resolveAttempt(id: PlayerId, castId: number, judge: (e: VocabEntry) => JudgeResult | Promise<JudgeResult>) {
     const c = this.cast;
-    if (!c || c.castId !== castId || c.tried.has(id)) return;
-    if (this.phase !== 'battle' || c.ownerId !== id || c.stage !== 'write') return; // only the caster, and only in the writing step
-    this.resolve(c, id, judge(c.card.entry), false);
+    const open = () => this.cast === c && !!c && c.castId === castId && !c.tried.has(id) && this.phase === 'battle' && c.ownerId === id && c.stage === 'write';
+    if (!open() || this.judging) return; // only the caster, and only in the writing step
+    // 0.9.9.9.7.2: a drawing is judged on its own thread — the answer counts if the cast is still waiting for it
+    const judged = whenJudged(judge(c!.card.entry), (r) => { if (open()) this.resolve(c!, id, r, false); });
+    if (judged) { this.judging = true; void judged.finally(() => { this.judging = false; }); }
   }
+  /** a drawing is being judged */
+  private judging = false;
 
   /** Overtime (Rapid style): type the reading; a wrong guess may try again until the card's time is up. */
   private submitOvertime(id: PlayerId, castId: number, text: string) {

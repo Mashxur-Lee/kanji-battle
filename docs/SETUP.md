@@ -126,7 +126,13 @@ browser only talks to this server, never to the database).
 
 Uncaught server errors are logged to the admin Inbox instead of going unnoticed. On a restart (deploy) the server
 tells everyone "The game is updating — you'll be reconnected in a moment." before closing. Static files are sent
-gzipped.
+compressed (Brotli or gzip). 0.9.9.9.7.2: the compressed copies are made by `npm run build` (`npm run build:compress`
+→ `dist/precompressed`, checked against each file's sha256), not by the running server — compressing them there froze
+every battle for about 13 s after a deploy. A file that isn't in that set is compressed quickly, off the main thread.
+
+Also 0.9.9.9.7.2: handwriting is judged on a thread of its own (`src/server/handwriting/pool.ts`), a connection that
+stops answering pings is closed within 30 s (`heartbeat.ts`), the "do this once" answers (`X-KW-Op`) are kept within
+16 MB, and the APK is downloaded from GitHub once at a time (`apk.ts`).
 
 
 ## Structure

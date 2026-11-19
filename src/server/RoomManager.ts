@@ -1,6 +1,7 @@
 import type { GameMode, PlayerId, VocabEntry } from '../shared/protocol';
 import type { WritingJudge } from './Game';
 import { DEFAULT_ROOM_OPTIONS, Room, type MatchEndHook, type RoomOptions } from './Room';
+import { Strikes } from './strikes';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
@@ -46,4 +47,10 @@ export class RoomManager {
   seat(id: PlayerId, room: Room) { this.seatOf.set(id, room); }
 
   get roomCount() { return this.rooms.size; }
+
+  // ── 0.9.9.9.7.2: wrong room codes — 10 a minute per account, 20 per address (a family or a school shares one) ──
+  private wrongByUser = new Strikes(10, 60_000);
+  private wrongByIp = new Strikes(20, 60_000);
+  codesBlocked(who: { user: string; ip?: string }, now = Date.now()) { return this.wrongByUser.blocked(who.user, now) || (!!who.ip && this.wrongByIp.blocked(who.ip, now)); }
+  wrongCode(who: { user: string; ip?: string }, now = Date.now()) { this.wrongByUser.add(who.user, now); if (who.ip) this.wrongByIp.add(who.ip, now); }
 }
