@@ -1269,8 +1269,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         // 0.9.9.9.7: hit — the body snaps back, the head after it, the staff arm flung out, a step away
         const since = now - f.hitAt;
         const lean = hitCurve(since, 70, 140, 650) * f.hitPow, step = hitCurve(since, 150, 320, 1150) * f.hitPow;
-        if (lean > 0) { m.body.rotation.x -= 0.36 * lean; m.head.rotation.x -= 0.28 * lean; m.arm.rotation.x -= 0.5 * lean; m.arm.rotation.z += 0.25 * lean; }
-        m.root.position.x = f.hitDir.x * 0.32 * step; m.root.position.z = f.hitDir.z * 0.32 * step;
+        if (lean > 0) { m.body.rotation.x -= 0.5 * lean; m.head.rotation.x -= 0.35 * lean; m.arm.rotation.x -= 0.5 * lean; m.arm.rotation.z += 0.25 * lean; }
+        m.root.rotation.x = -0.12 * lean; // (the whole body rocks back on its heels)
+        m.root.position.x = f.hitDir.x * 0.4 * step; m.root.position.z = f.hitDir.z * 0.4 * step;
         if (glowLevel > 0.5 && Math.random() < glowLevel * 0.6) {
           m.crystal.getWorldPosition(tmp);
           spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), m.staff.color.getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
