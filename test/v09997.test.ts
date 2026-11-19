@@ -96,7 +96,8 @@ test('0.9.9.9.7 the client: a code box after sign-up, a new email and saving a g
 test('0.9.9.9.7 the 3D arena: a hit rocks them back and a step away; the fly-in counts drawn frames, not the clock', () => {
   const a3 = src('src/client/arena3d.ts');
   assert.match(a3, /function react\(f: Fighter, from: THREE\.Vector3 \| null, pow: number\)/);
-  assert.match(a3, /if \(lean > 0\) \{ m\.body\.rotation\.x -= 0\.5 \* lean;/);
+  // (0.9.9.9.7.3: the rigged models bend back at the spine — the whole-model lean of 0.5 is the older models' only)
+  assert.match(a3, /const tip = m\.flinch \? 0\.12 : 0\.5;\s*if \(lean > 0\) \{ m\.body\.rotation\.x -= tip \* lean;/);
   assert.match(a3, /m\.root\.position\.x = f\.hitDir\.x \* 0\.4 \* step;/);
   assert.match(a3, /react\(t, start, o\.crit \? 1\.5/);
   assert.match(a3, /if \(cine\) cine\.t \+= dt;/);

@@ -38,6 +38,10 @@ export interface ArenaSetup {
 export type SpellFx = 'bolt' | 'frost' | 'fire';
 export interface ArenaApi {
   setup(s: ArenaSetup): void;
+  /** 0.9.9.9.7.3: build the coming battle's arena now, unseen (the study phase) — its first frames are quick then */
+  prime(s: ArenaSetup): void;
+  /** 0.9.9.9.7.3: the first word is up: a fly-in still going glides into your eyes now */
+  endIntro(): void;
   setActive(on: boolean): void;
   cast(from: Who, to: Who, kanji: string, o?: { damage?: number; crit?: boolean; kind?: 'attack' | 'heal' | 'mana'; fx?: SpellFx }): Promise<void>;
   fizzle(who: Who): void;
@@ -212,6 +216,8 @@ interface Fighter {
   hurtUntil: number; lungeUntil: number; frostUntil: number; burnUntil: number;
   /** 0.9.9.9.7: hit by a spell — when, how hard, and which way it pushed them (they lean back and step away) */
   hitAt: number; hitPow: number; hitDir: THREE.Vector3;
+  /** 0.9.9.9.7.3: the leg that steps back (0 / 1 — the other one each hit) */
+  hitLeg: number;
   frosted: boolean;
   /** 0.9.9.8.2: their staff (its attack effect) and the colours a staff's fire / frost tints them with */
   staffId?: string; burnTint?: THREE.Color; frostTint?: THREE.Color;
@@ -407,7 +413,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     aura.scale.set(height * 1.2, height * 1.2, 1); aura.position.y = height * 0.5;
     group.add(aura);
     scene.add(group);
-    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, hitAt: -1e9, hitPow: 1, hitDir: new THREE.Vector3(0, 0, -1), frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0, typing: !!art.bot, staffId: art.staff, dragon, art, glb };
+    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, hitAt: -1e9, hitPow: 1, hitDir: new THREE.Vector3(0, 0, -1), hitLeg: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0, typing: !!art.bot, staffId: art.staff, dragon, art, glb };
     fighters.set(key, f);
     return f;
   }
@@ -994,7 +1000,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   // your eyes. localStorage kb:cinema = off turns it off.
   // (0.9.9.9.7: a shot's time is counted in drawn frames, each at most 1/20 s — the first frames of a battle can take
   // a second each while the arena is built, and on the clock the fly-in was over before anything showed)
-  type Cine = { kind: 'intro' | 'impact' | 'victory'; t: number; dur: number; who?: Who; a0?: number };
+  /**
+   * `end`: 0.9.9.9.7.3 — the intro was cut there (the battle began): it glides back into your eyes in INTRO_OUT_MS of
+   * real time from `endAt` (not counted in frames: on a slow device that took seconds)
+   */
+  type Cine = { kind: 'intro' | 'impact' | 'victory'; t: number; dur: number; who?: Who; a0?: number; end?: number; endAt?: number };
+  const INTRO_OUT_MS = 400;
+  /** 0.9.9.9.7.3 (?debug3d only, for screenshots): a fighter held at this moment of a hit's reaction */
+  let heldHit: { who: string; ms: number } | null = null;
   let cine: Cine | null = null, cineW = 0, introPending = false, lastImpact = -1e9;
   const cinemaOn = (() => { try { return localStorage.getItem('kb:cinema') !== 'off'; } catch { return true; } })();
   const smooth = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
@@ -1004,9 +1017,11 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (!cine) return null;
     const t = cine.t;
     if (cine.kind === 'intro') {
-      if (t >= cine.dur) { cine = null; return null; }
-      // high behind you, swinging in from the side, down into your eyes
-      const k = smooth(t / cine.dur), w = 1 - k;
+      const outMs = cine.endAt !== undefined ? performance.now() - cine.endAt : 0;
+      if (t >= cine.dur || outMs >= INTRO_OUT_MS) { cine = null; return null; }
+      // high behind you, swinging in from the side, down into your eyes (cut short: from where it was, quickly)
+      const out = cine.end !== undefined ? smooth(outMs / INTRO_OUT_MS) : 0;
+      const k = smooth(Math.min(t, cine.end ?? t) / cine.dur), w = (1 - k) * (1 - out);
       const side = 2.4 * w; // (inside the ring of trees: they start about 15 out)
       return { pos: new THREE.Vector3(CAM.x + side, CAM.y + 2.4 * w, CAM.z + 3.2 * w), look: LOOK.clone().add(new THREE.Vector3(0, -0.4 * w, -2.5 * w)), w };
     }
@@ -1028,6 +1043,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   // ── 0.9.9.9.7: a hit lands — they feel it: a snap back at the waist and the head, a step away, then they settle
   function react(f: Fighter, from: THREE.Vector3 | null, pow: number) {
     f.hitAt = performance.now(); f.hitPow = pow;
+    f.hitLeg = 1 - f.hitLeg; // (0.9.9.9.7.3: one leg steps back — the other one next time)
     const d = f.group.position.clone().sub(from ?? camera.position); d.y = 0;
     if (d.lengthSq() > 1e-6) f.hitDir.copy(d.normalize());
   }
@@ -1267,17 +1283,33 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         f.poseK += ((f.flame && f.pose !== 'none' ? 1 : 0) - f.poseK) * Math.min(1, dt * 3);
         applyPose(m, f.pose, f.poseK, time); // (always: back to standing resets the last pose — 0.9.9.7.3)
         // 0.9.9.9.7: hit — the body snaps back, the head after it, the staff arm flung out, a step away
-        const since = now - f.hitAt;
+        const since = heldHit?.who === key ? heldHit.ms : now - f.hitAt;
         const lean = hitCurve(since, 70, 140, 650) * f.hitPow, step = hitCurve(since, 150, 320, 1150) * f.hitPow;
-        if (lean > 0) { m.body.rotation.x -= 0.5 * lean; m.head.rotation.x -= 0.35 * lean; m.arm.rotation.x -= 0.5 * lean; m.arm.rotation.z += 0.25 * lean; }
-        m.root.rotation.x = -0.12 * lean; // (the whole body rocks back on its heels)
+        // (0.9.9.9.7.3: the rigged models bend back at the spine — m.flinch, after breathe below; tipping the whole model
+        // back tipped the legs too, like a plank: "they just lean backwards". Only a little of it is left, on the heels.)
+        const tip = m.flinch ? 0.12 : 0.5;
+        if (lean > 0) { m.body.rotation.x -= tip * lean; m.head.rotation.x -= (m.flinch ? 0.2 : 0.35) * lean; m.arm.rotation.x -= 0.5 * lean; m.arm.rotation.z += 0.25 * lean; }
+        m.root.rotation.x = -(m.flinch ? 0.05 : 0.12) * lean; // (the whole body rocks back on its heels)
         m.root.position.x = f.hitDir.x * 0.4 * step; m.root.position.z = f.hitDir.z * 0.4 * step;
+        // 0.9.9.9.7.3: …and they step back on one leg, feeling it: that foot comes up and goes back (the knee bends
+        // as it lifts), then plants and takes the weight while the body settles; the other leg braces and gives a
+        // little at the impact. (applyPose has just put the legs back to standing, so this goes on top.)
+        const legs = m.legs;
+        if (legs?.length === 2 && (step > 0.001 || lean > 0.001)) {
+          const back = legs[f.hitLeg], front = legs[1 - f.hitLeg];
+          const lift = since > 0 && since < 380 ? Math.sin((Math.PI * since) / 380) * f.hitPow : 0;
+          back.hip.rotation.x += 0.45 * step + 0.12 * lift;
+          back.knee.rotation.x += 0.2 * step + 0.6 * lift;
+          front.hip.rotation.x -= 0.12 * step;
+          front.knee.rotation.x += 0.22 * lean;
+        }
         if (glowLevel > 0.5 && Math.random() < glowLevel * 0.6) {
           m.crystal.getWorldPosition(tmp);
           spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), m.staff.color.getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
         }
         if (spinning && key === 'opp' && !f.ko) m.root.rotation.y += dt * 0.5;
         if (!f.ko) m.breathe?.(still ? 0 : time); // 0.9.9.9.5.4: the rigged models breathe
+        m.flinch?.(lean); // 0.9.9.9.7.3: a hit snaps the chest back (after breathe: it sets the same bones)
         m.groundFix?.(); // 0.9.9.9.6.3: feet never under the floor (poses, the bob, the kneel)
       } else if (f.dragon) {
         dragonInhale += ((inhaling ? 1 : 0) - dragonInhale) * Math.min(1, dt * 2.5);
@@ -1529,6 +1561,18 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
 
   const api: ArenaApi = {
     setup,
+    prime(s) {
+      // 0.9.9.9.7.3: the arena, its fighters, every shader and texture, drawn once off screen — while you study.
+      // Built at the start of the battle, its first frames took a second each: the fly-in ran on into the battle
+      // (counted in frames), your word wasn't on screen yet, and the AI was already casting.
+      if (active) return;
+      setup(s);
+      try { renderer.compile(scene, camera); renderer.render(scene, camera); } catch { /* drawn on the first frame then */ }
+    },
+    endIntro() {
+      introPending = false; // (not started yet: no fly-in into a battle that's on)
+      if (cine?.kind === 'intro' && cine.end === undefined) { cine.end = cine.t; cine.endAt = performance.now(); }
+    },
     setActive(on) {
       if (on === active) return;
       active = on;
@@ -1648,13 +1692,26 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       f.flame = null;
       (f.aura.material as THREE.SpriteMaterial).opacity = 0;
       const start = performance.now();
+      // 0.9.9.9.7.3: what the last frames left on them — they're knocked out by a hit, mid-reaction (bent back, rocked
+      // on their heels, a step off), maybe mid-cast or in their combo pose. The frame loop stops moving a fallen
+      // fighter, so all that stayed frozen under the kneel (it went down leaning far back): it eases out as they kneel.
+      const m = f.model;
+      const was = m ? { rx: m.root.rotation.x, px: m.root.position.x, pz: m.root.position.z, bx: m.body.rotation.x, by: m.body.rotation.y, bodyY: m.body.position.y, sx: m.staffPivot.rotation.x, pose: f.poseK } : null;
       const fall = () => {
         const t = Math.min(1, (performance.now() - start) / 700);
         const e = t * t;
         // 0.9.9.9.5.5: the rigged ones go down on one knee (a little give at the end); the dragon lies down on its stomach
         const t2 = Math.min(1, (performance.now() - start) / 900);
         const k = t2 < 0.8 ? 1 - (1 - t2 / 0.8) ** 3 : 1 + Math.sin(((t2 - 0.8) / 0.2) * Math.PI) * 0.04;
-        if (f.model?.kneel) { f.model.kneel(k); f.model.groundFix?.(); }
+        if (m?.kneel && was) {
+          const r = 1 - Math.min(1, k); // (1 → 0: the leftovers go)
+          m.root.rotation.x = was.rx * r; m.root.position.x = was.px * r; m.root.position.z = was.pz * r;
+          m.body.rotation.x = was.bx * r; m.body.rotation.y = was.by * r; m.body.position.y = was.bodyY * r;
+          m.staffPivot.rotation.x = was.sx * r;
+          applyPose(m, f.pose, was.pose * r, time); // (the legs back to standing first — the kneel bends them)
+          m.flinch?.(0); // (the chest straight again — the kneel sets the spine and the neck itself)
+          m.kneel(k); m.groundFix?.();
+        }
         // (the older models: fall over sideways and lie on the ground)
         else if (f.model) { f.model.root.rotation.z = (Math.PI / 2) * e; f.model.root.position.y = 0.24 * e; }
         else if (f.dragon) f.dragon.ko(1 - (1 - Math.min(1, (performance.now() - start) / 1400)) ** 2);
@@ -1779,7 +1836,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     },
   };
   if (lite) api.setLite(true);
-  if (location.search.includes('debug3d')) (globalThis as unknown as { __arenaDbg: unknown }).__arenaDbg = { get staff() { return staff; }, get gemState() { return gemState; }, scene, camera, renderer, setStaff: (who: Who, id: string) => { if (who === 'me') setStaffSkin(id); else { const f = fighters.get(who); if (f) f.staffId = id; } } };
+  if (location.search.includes('debug3d')) (globalThis as unknown as { __arenaDbg: unknown }).__arenaDbg = { get staff() { return staff; }, get gemState() { return gemState; }, /** 0.9.9.9.7.3: the camera shot now (screenshots) */ get cine() { return cine ? { kind: cine.kind, t: cine.t, end: cine.end ?? null, w: cineW } : null; },
+    /** 0.9.9.9.7.3: hold a fighter at `ms` into a hit's reaction (null lets go) — screenshots of a moment */
+    holdHit: (who: string | null, ms = 0, leg = 0) => { heldHit = who ? { who, ms } : null; const f = who ? fighters.get(who as Who) : undefined; if (f) { f.hitPow = 1; f.hitLeg = leg; f.hitDir.set(0, 0, -1); } }, scene, camera, renderer, setStaff: (who: Who, id: string) => { if (who === 'me') setStaffSkin(id); else { const f = fighters.get(who); if (f) f.staffId = id; } } };
   resize();
   // compile every shader now (while you're in the menu), not in the first second of your first battle
   try { renderer.compile(scene, camera); } catch { /* fine — compiled on first draw */ }

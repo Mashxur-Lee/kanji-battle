@@ -3,7 +3,7 @@
 // study, quizzes, passages and the daily challenge run exactly the server's code.
 import { achCounts } from '../shared/achievements';
 import { isTransientDbError, retryDelay } from './db/transient';
-import { displayName } from './db/Store';
+import { displayName, type UserRecord } from './db/Store';
 import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/InsightsService';
 import { MessageError, type MessageService } from './study/MessageService';
 import { AuthError, isGuest, toPublic, toSelf, type AuthService } from './auth/AuthService';
@@ -80,6 +80,8 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
   const signupLimiter = new RateLimiter(10, 3600_000);
   const loginFails = new Strikes(20, 60_000); // 0.9.9.9.7.1: wrong passwords per address
+  /** 0.9.9.9.7.3: the player as they are now, after a change (the sign-in was checked a moment ago — it was checked again) */
+  const fresh = async (u: UserRecord) => (await auth.store.findById(u.id)) ?? u;
 
   // 0.9.9.9.5: a GET whose database connection failed while opening (the database waking up) is tried again —
   // up to 3 times over ~4 s — instead of failing with "Server error" and an Inbox entry
@@ -127,7 +129,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         // limit too (AuthService.login)
         if (loginFails.blocked(ip)) throw new AuthError('Too many attempts — wait a minute', 429);
         const body = await r.json();
-        try { return res(200, await auth.login(body.username, body.password)); } catch (e) { if (e instanceof AuthError && e.status === 401) loginFails.add(ip); throw e; }
+        try { return res(200, await auth.login(body.username, body.password, undefined, ip)); } catch (e) { if (e instanceof AuthError && e.status === 401) loginFails.add(ip); throw e; }
       } else if (r.method === 'POST' && url === '/api/register') {
         if (!limiter.allow(ip)) throw new AuthError('Too many attempts — wait a minute', 429);
         // 0.9.9.9.5: and at most 10 new accounts an hour from one address
@@ -262,7 +264,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'PUT' && url === '/api/me/avatar') {
         const u = await auth.authenticate(r.token);
         await study.setAvatar(u, (await r.json(120 * 1024)).image);
-        return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+        return res(200, { profile: await study.profile(await fresh(u)) });
       } else if ((r.method === 'PUT' || r.method === 'DELETE') && url === '/api/push') {
         // 0.9.9.9.5: the Android app's push token (friends' invites while the app is closed); DELETE at logout
         const u = await auth.authenticate(r.token);
@@ -281,27 +283,27 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'DELETE' && url === '/api/me/avatar') {
         const u = await auth.authenticate(r.token);
         await study.setAvatar(u, null);
-        return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+        return res(200, { profile: await study.profile(await fresh(u)) });
       } else if (r.method === 'PUT' && url === '/api/me/background') {
         const u = await auth.authenticate(r.token);
         await study.setBackground(u, (await r.json()).background);
-        return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+        return res(200, { profile: await study.profile(await fresh(u)) });
       } else if (r.method === 'PUT' && url === '/api/me/flame') {
         const u = await auth.authenticate(r.token);
         await study.setFlame(u, (await r.json()).flame);
-        return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+        return res(200, { profile: await study.profile(await fresh(u)) });
       } else if (r.method === 'PUT' && url === '/api/me/character') {
         const u = await auth.authenticate(r.token);
         await study.setCharacter(u, (await r.json()).character);
-        return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+        return res(200, { profile: await study.profile(await fresh(u)) });
       } else if (r.method === 'PUT' && url === '/api/me/pose') {
         const u = await auth.authenticate(r.token);
         await study.setPose(u, (await r.json()).pose);
-        return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+        return res(200, { profile: await study.profile(await fresh(u)) });
       } else if (r.method === 'PUT' && url === '/api/me/staff') {
         const u = await auth.authenticate(r.token);
         await study.setStaff(u, (await r.json()).staff);
-        return res(200, { profile: await study.profile((await auth.authenticate(r.token))) });
+        return res(200, { profile: await study.profile(await fresh(u)) });
       } else if (r.method === 'POST' && url === '/api/me/quiz') {
         // 0.9.9.9.5.5: a finished quiz → the Quizzes screen's records, with the account
         const u = await auth.authenticate(r.token);
@@ -313,7 +315,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'PUT' && url === '/api/me/kana') {
         const u = await auth.authenticate(r.token);
         await study.setKanaMastered(u, (await r.json()).mastered === true);
-        return res(200, { profile: await study.profile(await auth.authenticate(r.token)) });
+        return res(200, { profile: await study.profile(await fresh(u)) });
       } else if (r.method === 'PUT' && url === '/api/kana') {
         // 0.9.9.9.5: the Kana section's stars
         const u = await auth.authenticate(r.token);
@@ -389,24 +391,24 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const body = await r.json();
         await study.setPaused(u, body.deck, body.on === true);
-        return res(200, await study.summary(await auth.authenticate(r.token), resolveToday(body.today)));
+        return res(200, await study.summary(await fresh(u), resolveToday(body.today)));
       } else if (r.method === 'PUT' && url === '/api/study/ono-daily') {
         // 0.9.9.7: new Onomatopoeia words a day
         const u = await auth.authenticate(r.token);
         const body = await r.json();
         await study.setOnoDaily(u, body.n, resolveToday(body.today));
-        return res(200, await study.summary(await auth.authenticate(r.token), resolveToday(body.today)));
+        return res(200, await study.summary(await fresh(u), resolveToday(body.today)));
       } else if (r.method === 'PUT' && url === '/api/study/daily-levels') {
         // 0.9.9.4.4: new words a day per level
         const u = await auth.authenticate(r.token);
         const body = await r.json();
         await study.setDailyLevels(u, body.levels, resolveToday(body.today));
-        return res(200, await study.summary(await auth.authenticate(r.token), resolveToday(body.today)));
+        return res(200, await study.summary(await fresh(u), resolveToday(body.today)));
       } else if (r.method === 'PUT' && url === '/api/study/levels') {
         const u = await auth.authenticate(r.token);
         const body = await r.json();
         await study.setStudyLevels(u, body.levels, resolveToday(body.today));
-        return res(200, await study.summary(await auth.authenticate(r.token), resolveToday(body.today)));
+        return res(200, await study.summary(await fresh(u), resolveToday(body.today)));
       } else if (r.method === 'GET' && url === '/api/study/queue') {
         const u = await auth.authenticate(r.token);
         const deck = query.get('deck');
@@ -493,7 +495,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const body = await r.json();
         await study.setDailyNew(u, body.n, resolveToday(body.today));
-        return res(200, await study.summary(await auth.authenticate(r.token), resolveToday(body.today)));
+        return res(200, await study.summary(await fresh(u), resolveToday(body.today)));
       } else if (r.method === 'PUT' && url === '/api/me/email') {
         // 0.9.9.9.6.6: add or change your email (with your password)
         const u = await auth.authenticate(r.token);

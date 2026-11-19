@@ -17,6 +17,8 @@ let serverBuild = '';
 export const setServerBuild = (b: string) => { serverBuild = b.trim(); };
 
 const MAX_ANSWER_LENGTH = 40;
+/** 0.9.9.9.7.3: what the lobby and results buttons send (answered with "left" when there's no room any more) */
+const ROOM_BUTTONS = new Set(['leave', 'rematch', 'back_to_lobby', 'start', 'lobby_ready', 'forfeit', 'leave_game']);
 const MAX_WRITTEN_CHARS = 8;
 const PING_EVERY_MS = 3_000;
 
@@ -298,7 +300,15 @@ export class Session implements Client {
     // 0.9.9.9.5: "Decline" on a friend's invite (you may be in no room at all)
     if (msg.type === 'invite_decline') { this.hub.decline(user.id, user.name ?? user.username, String(msg.fromId ?? '')); return; }
     const room = this.room;
-    if (!room) return;
+    if (!room) {
+      // 0.9.9.9.7.3: a room button pressed when there is no room (it closed while the app was away): an answer, not
+      // silence — the app goes back to the menu (it waited for one forever, every button dead)
+      if (ROOM_BUTTONS.has(msg.type)) {
+        if (msg.type !== 'leave') this.send({ type: 'notice', message: 'The room closed while you were away' });
+        this.send({ type: 'left' });
+      }
+      return;
+    }
     if (msg.type === 'invite') {
       const friendId = String(msg.friendId ?? '');
       if (room.stage !== 'lobby') return this.send({ type: 'error', message: 'Invite friends from the lobby' });
@@ -420,7 +430,9 @@ export class Session implements Client {
       }
       this.user = toSelf(rec); // (0.9.9.9.6.6: with your masked email — only you get it)
       this.hub.claim(rec.id, this);
-      this.send({ type: 'welcome', user: this.user, ...(serverBuild ? { build: serverBuild } : {}) });
+      // (0.9.9.9.7.3: and whether your seat is still there — an app left in the background past the room's grace came
+      // back to a room that had closed: its results screen stayed up, and none of its buttons did anything)
+      this.send({ type: 'welcome', user: this.user, ...(serverBuild ? { build: serverBuild } : {}), seated: !!this.rooms.roomOf(rec.id) });
       this.startPings();
       // 0.9.9.9.5: invites that came while the app was closed / in the background
       for (const inv of this.hub.takeInvites(rec.id, (code) => this.rooms.get(code)?.stage === 'lobby')) this.send(inv);

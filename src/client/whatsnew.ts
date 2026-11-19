@@ -7,6 +7,25 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.7.3', date: '2026-11',
+    en: [
+      'The 3D arena: the fly-in at the start of a battle is over by the time your first word comes up — the arena is built while you study, so the AI no longer casts at you while the camera is still flying.',
+      'The 3D arena: a hit really lands — your opponent rocks back and steps back with one leg before finding their feet.',
+      'The 3D arena: a beaten opponent kneels cleanly — they no longer go down still bent back from the last hit.',
+      'Back from a long break on the results screen: if the room closed while you were away, the game takes you to the menu and says so (the buttons did nothing).',
+      'Photos in messages are kept within a daily limit, and ones no message uses any more are cleared away.',
+      'Faster pages for Daily challenge, Progress and Study, and a quicker server start.',
+    ],
+    ru: [
+      '3D-арена: облёт камеры в начале боя заканчивается к вашему первому слову — арена строится, пока вы учите слова, и ИИ больше не атакует, пока камера ещё летит.',
+      '3D-арена: удар действительно ощущается — соперник откидывается назад и отступает на шаг одной ногой, прежде чем выпрямиться.',
+      '3D-арена: побеждённый соперник аккуратно опускается на колено — больше не падает, всё ещё отклонившись назад после последнего удара.',
+      'Вернулись после долгого перерыва на экран результатов: если комната закрылась, пока вас не было, игра вернёт вас в меню и скажет об этом (кнопки не работали).',
+      'Фото в сообщениях ограничены дневным лимитом, а те, что больше нигде не используются, удаляются.',
+      'Ежедневное испытание, Прогресс и Учёба открываются быстрее, а сервер запускается быстрее.',
+    ],
+  },
+  {
     v: '0.9.9.9.7.2', date: '2026-11',
     en: [
       'No more frozen battles after an update: the game’s files come ready-compressed, so the server no longer stops for several seconds the first time each one is asked for.',
