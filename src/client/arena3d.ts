@@ -1285,8 +1285,11 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         // 0.9.9.9.7: hit — the body snaps back, the head after it, the staff arm flung out, a step away
         const since = heldHit?.who === key ? heldHit.ms : now - f.hitAt;
         const lean = hitCurve(since, 70, 140, 650) * f.hitPow, step = hitCurve(since, 150, 320, 1150) * f.hitPow;
-        if (lean > 0) { m.body.rotation.x -= 0.5 * lean; m.head.rotation.x -= 0.35 * lean; m.arm.rotation.x -= 0.5 * lean; m.arm.rotation.z += 0.25 * lean; }
-        m.root.rotation.x = -0.12 * lean; // (the whole body rocks back on its heels)
+        // (0.9.9.9.7.3: the rigged models bend back at the spine — m.flinch, after breathe below; tipping the whole model
+        // back tipped the legs too, like a plank: "they just lean backwards". Only a little of it is left, on the heels.)
+        const tip = m.flinch ? 0.12 : 0.5;
+        if (lean > 0) { m.body.rotation.x -= tip * lean; m.head.rotation.x -= (m.flinch ? 0.2 : 0.35) * lean; m.arm.rotation.x -= 0.5 * lean; m.arm.rotation.z += 0.25 * lean; }
+        m.root.rotation.x = -(m.flinch ? 0.05 : 0.12) * lean; // (the whole body rocks back on its heels)
         m.root.position.x = f.hitDir.x * 0.4 * step; m.root.position.z = f.hitDir.z * 0.4 * step;
         // 0.9.9.9.7.3: …and they step back on one leg, feeling it: that foot comes up and goes back (the knee bends
         // as it lifts), then plants and takes the weight while the body settles; the other leg braces and gives a
@@ -1306,6 +1309,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         }
         if (spinning && key === 'opp' && !f.ko) m.root.rotation.y += dt * 0.5;
         if (!f.ko) m.breathe?.(still ? 0 : time); // 0.9.9.9.5.4: the rigged models breathe
+        m.flinch?.(lean); // 0.9.9.9.7.3: a hit snaps the chest back (after breathe: it sets the same bones)
         m.groundFix?.(); // 0.9.9.9.6.3: feet never under the floor (poses, the bob, the kneel)
       } else if (f.dragon) {
         dragonInhale += ((inhaling ? 1 : 0) - dragonInhale) * Math.min(1, dt * 2.5);
@@ -1705,6 +1709,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
           m.body.rotation.x = was.bx * r; m.body.rotation.y = was.by * r; m.body.position.y = was.bodyY * r;
           m.staffPivot.rotation.x = was.sx * r;
           applyPose(m, f.pose, was.pose * r, time); // (the legs back to standing first — the kneel bends them)
+          m.flinch?.(0); // (the chest straight again — the kneel sets the spine and the neck itself)
           m.kneel(k); m.groundFix?.();
         }
         // (the older models: fall over sideways and lie on the ground)

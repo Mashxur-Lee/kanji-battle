@@ -249,6 +249,15 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side,
     leftArm.rotation.set(lerpN(-0.3, -0.75, e), 0, lerpN(-0.16, 0.05, e)); // the free hand on the front knee
     arm.rotation.set(lerpN(arm.rotation.x, 0.2, e), 0, ARM_REST); // the staff arm hangs, the staff leaning on the ground
   };
+  // 0.9.9.9.7.3: hit — the chest snaps back at the spine and the neck after it (the whole model tipped back before,
+  // legs and all, like a plank; now the legs stay under them and one steps back — arena3d)
+  // (call it every frame — 0 too: nothing else sets the chest's turn; the spine and neck are breathe's, set each frame)
+  const flinch = (k: number) => {
+    chest.rotation.x = -0.18 * k;
+    if (k <= 0) return;
+    spine.rotation.x -= 0.42 * k;
+    neck.rotation.x -= 0.16 * k;
+  };
   // 0.9.9.9.6.3: feet on the floor — after every pose, the lowest foot sole (or a kneeling knee) is kept at or above
   // the floor (y = 0 under the root): the body lifts by whatever would have gone under it
   const feet = [bone('Foot.L'), bone('Foot.R')];
@@ -265,7 +274,7 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side,
     for (const l of legs) low = Math.min(low, (l.knee.getWorldPosition(tv).y - floor) / sc - kneeR);
     if (low < -0.002) { ground.position.y = -low; root.updateMatrixWorld(true); }
   };
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, legs, breathe, kneel, groundFix };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, legs, breathe, kneel, flinch, groundFix };
 }
 const lerpN = (a: number, b: number, t: number) => a + (b - a) * t;
 
