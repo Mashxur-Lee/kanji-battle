@@ -6,7 +6,7 @@ import { isTransientDbError, retryDelay } from './db/transient';
 import { displayName, type UserRecord } from './db/Store';
 import { CLIENT_EVENTS, InsightsError, type InsightsService } from './study/InsightsService';
 import { MessageError, type MessageService } from './study/MessageService';
-import { AuthError, isGuest, toPublic, toSelf, type AuthService } from './auth/AuthService';
+import { AuthError, isGuest, toSelf, type AuthService } from './auth/AuthService';
 import { resolveToday, StudyError, type StudyService } from './study/StudyService';
 import { isDeck, type DeckId } from '../shared/srs';
 import type { Role } from '../shared/protocol';
@@ -95,7 +95,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
   const RETRY = Symbol('retry');
   // 0.9.9.9.7: emails (a reset code, a code to confirm an address) go out in the background
   const sendMail = (m: import('./auth/AuthService').ResetMail) => (extras.resetMail ? extras.resetMail(m) : Promise.resolve());
-  const GUEST_BLOCKED = /^\/api\/(messages|groups|friends|push|invite)(\/|$)|^\/api\/me\/(avatar|nickname|email|password)$/;
+  const GUEST_BLOCKED = /^\/api\/(messages|groups|friends|push|invite|block|report)(\/|$)|^\/api\/me\/(avatar|nickname|email|password)$/; // (0.9.9.9.7.4: + block, report)
   const handle = async (r: ApiRequest, canRetry: boolean): Promise<ApiResponse | null | typeof RETRY> => {
     const url = r.url;
     if (!url.startsWith('/api/')) return null;
@@ -349,6 +349,17 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (daily && r.method === 'POST' && url === '/api/daily/finish') {
         const u = await auth.authenticate(r.token);
         return res(200, { done: await daily.finishStale(u) });
+      } else if (social && r.method === 'PUT' && url === '/api/block') {
+        // 0.9.9.9.7.4: block or unblock a player (they can't message, befriend or invite you)
+        const u = await auth.authenticate(r.token);
+        const b = await r.json();
+        return res(200, { blocked: await social.block(u, b.id, b.on === true) });
+      } else if (social && r.method === 'POST' && url === '/api/report') {
+        // 0.9.9.9.7.4: report a player to the team (admin → Inbox)
+        const u = await auth.authenticate(r.token);
+        const b = await r.json();
+        await social.report(u, b.id, b.reason, b.text, b.messageId);
+        return res(200, { ok: true });
       } else if (social && r.method === 'GET' && url === '/api/friends') {
         const u = await auth.authenticate(r.token);
         return res(200, { friends: await social.list(u.id) });

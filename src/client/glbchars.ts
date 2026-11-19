@@ -25,7 +25,6 @@ const listeners = new Set<(k: GlbKind) => void>();
 
 /** a model finished loading (the arena swaps the stand-in for it) */
 export function onModelLoaded(fn: (k: GlbKind) => void) { listeners.add(fn); return () => listeners.delete(fn); }
-export const modelReady = (k: GlbKind) => templates.has(k);
 
 const v = (location.search.match(/[?&]v=([^&]+)/)?.[1] ?? document.documentElement.dataset.v ?? '');
 export function loadModel(k: GlbKind): Promise<boolean> {
@@ -252,11 +251,12 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side,
   // 0.9.9.9.7.3: hit — the chest snaps back at the spine and the neck after it (the whole model tipped back before,
   // legs and all, like a plank; now the legs stay under them and one steps back — arena3d)
   // (call it every frame — 0 too: nothing else sets the chest's turn; the spine and neck are breathe's, set each frame)
+  // (0.9.9.9.7.4: about 15° in all at the chest — it was ~45°, and with the head ~55°: a limbo, not a hit)
   const flinch = (k: number) => {
-    chest.rotation.x = -0.18 * k;
+    chest.rotation.x = -0.08 * k;
     if (k <= 0) return;
-    spine.rotation.x -= 0.42 * k;
-    neck.rotation.x -= 0.16 * k;
+    spine.rotation.x -= 0.16 * k;
+    neck.rotation.x -= 0.04 * k;
   };
   // 0.9.9.9.6.3: feet on the floor — after every pose, the lowest foot sole (or a kneeling knee) is kept at or above
   // the floor (y = 0 under the root): the body lifts by whatever would have gone under it

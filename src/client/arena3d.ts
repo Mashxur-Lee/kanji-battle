@@ -218,6 +218,8 @@ interface Fighter {
   hitAt: number; hitPow: number; hitDir: THREE.Vector3;
   /** 0.9.9.9.7.3: the leg that steps back (0 / 1 — the other one each hit) */
   hitLeg: number;
+  /** 0.9.9.9.7.4: the staff arm's eased turn (a hit's jolt goes on top of it, not into it) */
+  armX?: number;
   frosted: boolean;
   /** 0.9.9.8.2: their staff (its attack effect) and the colours a staff's fire / frost tints them with */
   staffId?: string; burnTint?: THREE.Color; frostTint?: THREE.Color;
@@ -243,6 +245,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   let lite = !!opts.lite;
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: !lite, powerPreference: lite ? 'default' : 'high-performance' });
+    // 0.9.9.9.7.4: no shader error check outside ?debug3d — it reads every shader's compile log, so each one is waited
+    // for in turn (the profile of opening Customize on a phone: most of its time in getProgramInfoLog / getShaderInfoLog)
+    renderer.debug.checkShaderErrors = location.search.includes('debug3d');
   } catch { return null; }
   let lowRes = false; // slow even in Lite: render at ¾ resolution
   const pixelRatio = () => (lowRes ? 0.75 : lite ? 1 : Math.min(devicePixelRatio || 1, 1.5));
@@ -1270,7 +1275,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         // while they type or write, the staff traces a figure-eight (∞) in the air — like yours
         const inf = key === 'me' ? 0 : writing * (1 - Math.max(0, thrust));
         const ax = -0.15 - writing * 0.75 - Math.max(0, thrust) * 0.9 + (key === 'me' ? twitchRot.x : 0) + Math.sin(time * 4.4) * 0.22 * inf;
-        m.arm.rotation.x += (ax - m.arm.rotation.x) * Math.min(1, dt * 10);
+        // (0.9.9.9.7.4: the arm eases on a value of its own — a hit's offset added to the arm's turn fed back into this
+        // easing every frame and ran away with the hand)
+        f.armX = (f.armX ?? m.arm.rotation.x) + (ax - (f.armX ?? m.arm.rotation.x)) * Math.min(1, dt * 10);
+        m.arm.rotation.x = f.armX;
         m.arm.rotation.z = ARM_REST + (key === 'me' ? twitchRot.z : 0) + Math.sin(time * 2.2) * 0.32 * inf;
         m.arm.rotation.y = key === 'me' ? twitchRot.y : 0;
         const glowLevel = key === 'me' ? channelShown : writing;
@@ -1282,26 +1290,37 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         // 0.9.9.7: on fire, they strike their combo pose (Customize)
         f.poseK += ((f.flame && f.pose !== 'none' ? 1 : 0) - f.poseK) * Math.min(1, dt * 3);
         applyPose(m, f.pose, f.poseK, time); // (always: back to standing resets the last pose — 0.9.9.7.3)
-        // 0.9.9.9.7: hit — the body snaps back, the head after it, the staff arm flung out, a step away
+        // 0.9.9.9.7.4: a hit, as a body takes one (the way hit reactions are animated): the impact snaps the chest back
+        // and the head a beat later; the knees give and the hips drop to absorb it; the weight goes back, so one foot
+        // steps back to catch it — lifted, then planted — and the torso turns a little to that side; the arms jolt with
+        // it but keep their grip; then a small sway forward as they recover. Every part has its own timing (one curve
+        // for all looked mechanical). Before: the whole body tipped back ~55° (goofy), and the staff arm ran away.
         const since = heldHit?.who === key ? heldHit.ms : now - f.hitAt;
-        const lean = hitCurve(since, 70, 140, 650) * f.hitPow, step = hitCurve(since, 150, 320, 1150) * f.hitPow;
-        // (0.9.9.9.7.3: the rigged models bend back at the spine — m.flinch, after breathe below; tipping the whole model
-        // back tipped the legs too, like a plank: "they just lean backwards". Only a little of it is left, on the heels.)
-        const tip = m.flinch ? 0.12 : 0.5;
-        if (lean > 0) { m.body.rotation.x -= tip * lean; m.head.rotation.x -= (m.flinch ? 0.2 : 0.35) * lean; m.arm.rotation.x -= 0.5 * lean; m.arm.rotation.z += 0.25 * lean; }
-        m.root.rotation.x = -(m.flinch ? 0.05 : 0.12) * lean; // (the whole body rocks back on its heels)
-        m.root.position.x = f.hitDir.x * 0.4 * step; m.root.position.z = f.hitDir.z * 0.4 * step;
-        // 0.9.9.9.7.3: …and they step back on one leg, feeling it: that foot comes up and goes back (the knee bends
-        // as it lifts), then plants and takes the weight while the body settles; the other leg braces and gives a
-        // little at the impact. (applyPose has just put the legs back to standing, so this goes on top.)
+        const pow = f.hitPow;
+        const hit = hitCurve(since, 60, 110, 520) * pow; // the jolt: chest, arms
+        const head = hitCurve(since - 40, 60, 120, 560) * pow; // the head, a beat later
+        const absorb = hitCurve(since, 110, 230, 780) * pow; // knees give, hips drop
+        const step = hitCurve(since, 150, 340, 1000) * pow; // the catch step, and the body carried back with it
+        const lift = since > 0 && since < 320 ? Math.sin((Math.PI * since) / 320) * pow : 0; // that foot off the floor
+        const rebound = hitCurve(since - 430, 150, 200, 650) * pow; // a sway forward as they recover
+        const side = f.hitLeg === 0 ? 1 : -1;
+        // the upper body: the rigged models bend at the spine (m.flinch, after breathe below); the older ones lean whole
+        m.body.rotation.x += (m.flinch ? -0.04 : -0.2) * hit + 0.06 * rebound;
+        m.body.rotation.y += 0.1 * side * hit;
+        m.body.position.y -= 0.025 * absorb;
+        m.head.rotation.x -= (m.flinch ? 0.1 : 0.18) * head;
+        m.arm.rotation.x -= 0.15 * hit; m.arm.rotation.z += 0.06 * hit; // (the arm's turn is set afresh each frame above)
+        if (m.leftArm) m.leftArm.rotation.x -= 0.18 * hit;
+        m.root.rotation.x = 0; m.root.rotation.z = 0.035 * side * step;
+        m.root.position.x = f.hitDir.x * 0.28 * step; m.root.position.z = f.hitDir.z * 0.28 * step;
+        // the legs (applyPose has just stood them straight, so this goes on top)
         const legs = m.legs;
-        if (legs?.length === 2 && (step > 0.001 || lean > 0.001)) {
+        if (legs?.length === 2 && (step > 0.001 || absorb > 0.001)) {
           const back = legs[f.hitLeg], front = legs[1 - f.hitLeg];
-          const lift = since > 0 && since < 380 ? Math.sin((Math.PI * since) / 380) * f.hitPow : 0;
-          back.hip.rotation.x += 0.45 * step + 0.12 * lift;
-          back.knee.rotation.x += 0.2 * step + 0.6 * lift;
-          front.hip.rotation.x -= 0.12 * step;
-          front.knee.rotation.x += 0.22 * lean;
+          back.hip.rotation.x += 0.38 * step + 0.15 * lift - 0.08 * absorb;
+          back.knee.rotation.x += 0.12 * step + 0.55 * lift + 0.16 * absorb;
+          front.hip.rotation.x -= 0.05 * step + 0.1 * absorb;
+          front.knee.rotation.x += 0.2 * absorb;
         }
         if (glowLevel > 0.5 && Math.random() < glowLevel * 0.6) {
           m.crystal.getWorldPosition(tmp);
@@ -1309,7 +1328,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         }
         if (spinning && key === 'opp' && !f.ko) m.root.rotation.y += dt * 0.5;
         if (!f.ko) m.breathe?.(still ? 0 : time); // 0.9.9.9.5.4: the rigged models breathe
-        m.flinch?.(lean); // 0.9.9.9.7.3: a hit snaps the chest back (after breathe: it sets the same bones)
+        m.flinch?.(hit); // 0.9.9.9.7.3: a hit snaps the chest back (after breathe: it sets the same bones)
         m.groundFix?.(); // 0.9.9.9.6.3: feet never under the floor (poses, the bob, the kneel)
       } else if (f.dragon) {
         dragonInhale += ((inhaling ? 1 : 0) - dragonInhale) * Math.min(1, dt * 2.5);
@@ -1696,7 +1715,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       // on their heels, a step off), maybe mid-cast or in their combo pose. The frame loop stops moving a fallen
       // fighter, so all that stayed frozen under the kneel (it went down leaning far back): it eases out as they kneel.
       const m = f.model;
-      const was = m ? { rx: m.root.rotation.x, px: m.root.position.x, pz: m.root.position.z, bx: m.body.rotation.x, by: m.body.rotation.y, bodyY: m.body.position.y, sx: m.staffPivot.rotation.x, pose: f.poseK } : null;
+      const was = m ? { rx: m.root.rotation.x, rz: m.root.rotation.z, px: m.root.position.x, pz: m.root.position.z, bx: m.body.rotation.x, by: m.body.rotation.y, bodyY: m.body.position.y, sx: m.staffPivot.rotation.x, pose: f.poseK } : null;
       const fall = () => {
         const t = Math.min(1, (performance.now() - start) / 700);
         const e = t * t;
@@ -1705,7 +1724,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         const k = t2 < 0.8 ? 1 - (1 - t2 / 0.8) ** 3 : 1 + Math.sin(((t2 - 0.8) / 0.2) * Math.PI) * 0.04;
         if (m?.kneel && was) {
           const r = 1 - Math.min(1, k); // (1 → 0: the leftovers go)
-          m.root.rotation.x = was.rx * r; m.root.position.x = was.px * r; m.root.position.z = was.pz * r;
+          m.root.rotation.x = was.rx * r; m.root.rotation.z = was.rz * r; m.root.position.x = was.px * r; m.root.position.z = was.pz * r;
           m.body.rotation.x = was.bx * r; m.body.rotation.y = was.by * r; m.body.position.y = was.bodyY * r;
           m.staffPivot.rotation.x = was.sx * r;
           applyPose(m, f.pose, was.pose * r, time); // (the legs back to standing first — the kneel bends them)

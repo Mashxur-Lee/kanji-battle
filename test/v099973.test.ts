@@ -23,7 +23,7 @@ const src = (f: string) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 
 test('0.9.9.9.7.3 version, patch notes, Russian for the new messages', () => {
-  assert.equal(VERSION, '0.9.9.9.7.3');
+  assert.ok(VERSION >= '0.9.9.9.7.3');
   assert.match(src('src/client/whatsnew.ts'), /v: '0\.9\.9\.9\.7\.3'/);
   const ru = src('src/client/i18n.ts');
   for (const s of ["'The room closed while you were away':", "'This account still has its built-in password"]) assert.ok(ru.includes(s), s);

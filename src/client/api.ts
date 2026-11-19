@@ -51,7 +51,7 @@ export interface StoryData { title: { ja: string; en: string; ru: string }; line
 
 export class ApiError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
-export interface AdminReport { id: string; kind: 'bug' | 'suggestion' | 'error'; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean; count?: number }
+export interface AdminReport { id: string; kind: 'bug' | 'suggestion' | 'error' | 'report'; userId: string | null; username: string; text: string; meta: string; at: number; done: boolean; count?: number }
 export interface AdminStats {
   onlineNow: number; players: number; daily: Array<{ day: string; signups: number; active: number }>;
   day1: { players: number; returned: number }; day7: { players: number; returned: number };
@@ -231,6 +231,9 @@ export const api = {
   addFriend: (username: string) => call<{ result: 'requested' | 'accepted' | 'exists'; friends: Friend[] }>('POST', '/api/friends', { username }),
   acceptFriend: (id: string) => call<{ friends: Friend[] }>('POST', `/api/friends/${encodeURIComponent(id)}/accept`),
   removeFriend: (id: string) => call<{ friends: Friend[] }>('DELETE', `/api/friends/${encodeURIComponent(id)}`),
+  /** 0.9.9.9.7.4: block / unblock a player; report one to the team */
+  block: (id: string, on: boolean) => call<{ blocked: string[] }>('PUT', '/api/block', { id, on }),
+  report: (id: string, reason: string, text: string, messageId?: string) => call<{ ok: true }>('POST', '/api/report', { id, reason, text, messageId }),
   setRole: (id: string, role: 'admin' | 'user') => call<{ user: AdminUserRow }>('POST', `/api/admin/users/${encodeURIComponent(id)}/role`, { role }),
   deleteUser: (id: string) => call<{ ok: boolean }>('DELETE', `/api/admin/users/${encodeURIComponent(id)}`),
   setBanned: (id: string, banned: boolean) => call<{ user: AdminUserRow }>('POST', `/api/admin/users/${encodeURIComponent(id)}/ban`, { banned }),

@@ -28,7 +28,7 @@ import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, 
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
-import { showPlayer } from './playerview';
+import { setPlayerViewer, showPlayer } from './playerview';
 import { claimDialog, codeDialog, emailDialog, forgotDialog } from './account';
 import { initInbox, inboxLeft, inboxReconnected, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket, setInviteJoin } from './inbox';
 import { onLeagueEquip } from './leagueup';
@@ -39,7 +39,7 @@ import { customizeHidden, onProfileChange, openCustomize, openStudy } from './st
 import * as ui from './ui';
 import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
-import { closeRematchAsk, initFriends, onFriendEvent, onFriendPresence, onInvite, onInviteDeclined, onRematchAsk, openFriends, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
+import { closeRematchAsk, initFriends, onFriendEvent, onFriendPresence, onInvite, onInviteDeclined, onRematchAsk, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
 import { canPush, pushSignedOut, registerPush, testPush } from './push';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialChallenge, tutorialScreen, tutorialTouring } from './tutorial';
 import { askNotifyPermission } from './notify';
@@ -59,6 +59,12 @@ initReminders();
 // ── state ────────────────────────────────────────────────────────────────────
 let user: PublicUser | null = null;
 let profile: Profile | null = null;
+// 0.9.9.9.7.4: who looks at a player's card (Block / Report), and whom they've blocked ("block:<id>" in their unlocks)
+setPlayerViewer(() => (user ? {
+  id: user.id, guest: !!user.guest,
+  blocked: () => (profile?.unlocks ?? []).filter((x) => x.startsWith('block:')).map((x) => x.slice(6)),
+  setBlocked: (ids) => { if (profile) profile = { ...profile, unlocks: [...(profile.unlocks ?? []).filter((x) => !x.startsWith('block:')), ...ids.map((i) => `block:${i}`)] }; },
+} : null));
 let you: PlayerId = '';
 let code = '';
 let mode: GameMode = 'reading';
@@ -1092,7 +1098,7 @@ ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
 ui.$('studyBtn').onclick = () => {
   // 0.9.9.9.5.1: kanji words only — a かな beginner learns kana first
   if (ui.kanaBeginner()) {
-    ui.toast('🔒 Master hiragana first — in Kana', 4000);
+    ui.toast('Master hiragana first — in Kana', 4000);
     const k = ui.$('kanaBtn');
     k.classList.remove('nudge'); void k.offsetWidth; k.classList.add('nudge');
     return;

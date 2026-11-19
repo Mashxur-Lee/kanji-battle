@@ -41,7 +41,7 @@ async function loadInbox() {
   renderInbox();
 }
 
-const KIND_LABEL: Record<AdminReport['kind'], string> = { bug: 'Bug report', suggestion: 'Suggestion', error: 'Error' };
+const KIND_LABEL: Record<AdminReport['kind'], string> = { bug: 'Bug report', suggestion: 'Suggestion', error: 'Error', report: 'Player report' }; // (0.9.9.9.7.4: + reports)
 function renderInbox() {
   const kind = document.querySelector<HTMLInputElement>('input[name="inboxKind"]:checked')?.value ?? 'all';
   const showDone = $<HTMLInputElement>('inboxShowDone').checked;
@@ -59,7 +59,7 @@ function renderInbox() {
     head.append(el('span', 'ii-sp'));
     // 0.9.9.9.6: answer the player — in their conversation with the team (Messages)
     if (r.userId && r.kind !== 'error') {
-      const reply = el('button', 'pill primary', '✉ Reply') as HTMLButtonElement;
+      const reply = el('button', 'pill primary', 'Reply') as HTMLButtonElement;
       const uid = r.userId;
       reply.onclick = () => void openInbox(uid, true, r.text); // (0.9.9.9.6.1: quoting what they wrote)
       head.append(reply);

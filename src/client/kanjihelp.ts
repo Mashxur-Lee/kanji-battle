@@ -173,7 +173,7 @@ export async function showKanji(ch: string, at?: HTMLElement, back?: () => void)
   }
   const story = ru && sru ? sru : sen;
   if (story) {
-    const btn = h('button', 'pill kp-pic', `🖼 ${tr('Memory picture')}`, { type: 'button', 'aria-expanded': 'false' });
+    const btn = h('button', 'pill kp-pic', tr('Memory picture'), { type: 'button', 'aria-expanded': 'false' });
     const box = h('div', 'kp-story');
     box.hidden = true;
     btn.onclick = async () => {

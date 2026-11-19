@@ -7,6 +7,23 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.7.4', date: '2026-11',
+    en: [
+      'The 3D arena: a hit looks like a hit — the chest snaps back and the head a moment later, the knees give, one foot steps back to catch it, and they come back up. The staff hand no longer jumps around.',
+      'Block and Report, on a player’s profile: someone you block can’t message you, add you or invite you (and isn’t told); a report goes straight to the team.',
+      'Confirming your email: “Later” now says what it means — until your email is confirmed, “Forgot password?” can’t send you a code.',
+      'Faster on phones: the 3D arena loads when you go into a battle, not while you’re in the menus; Customize opens much quicker; the menu’s moving background rests on other screens.',
+      'Cleaner screens: plain words and the game’s own drawings instead of emoji.',
+    ],
+    ru: [
+      '3D-арена: удар выглядит как удар — грудь откидывается назад, голова чуть позже, колени пружинят, одна нога отступает, чтобы удержаться, и соперник выпрямляется. Рука с посохом больше не дёргается.',
+      'Заблокировать и Пожаловаться — в профиле игрока: заблокированный не сможет писать вам, добавлять вас и приглашать (ему об этом не сообщат); жалоба сразу уходит команде.',
+      'Подтверждение почты: «Позже» теперь объясняет, что это значит — пока почта не подтверждена, «Забыли пароль?» не сможет прислать вам код.',
+      'Быстрее на телефонах: 3D-арена загружается, когда вы идёте в бой, а не пока вы в меню; Настройка открывается гораздо быстрее; движущийся фон меню замирает на других экранах.',
+      'Чище экраны: слова и рисунки самой игры вместо эмодзи.',
+    ],
+  },
+  {
     v: '0.9.9.9.7.3', date: '2026-11',
     en: [
       'The 3D arena: the fly-in at the start of a battle is over by the time your first word comes up — the arena is built while you study, so the AI no longer casts at you while the camera is still flying.',

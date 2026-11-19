@@ -1,5 +1,5 @@
-import type { AuthService } from '../auth/AuthService';
-import type { FriendLink, Store } from '../db/Store';
+import type { FriendLink, Store, UserRecord } from '../db/Store';
+import { Strikes } from '../strikes';
 import type { Device, PlayerStatus, ServerMessage } from '../../shared/protocol';
 
 /** What friends need of the session hub (Session.ts): who's online, and a message to one player. */
@@ -15,7 +15,7 @@ const UUID = /^[0-9a-f-]{36}$/i;
 
 /** Friends: requests by name, accept / remove, who is online; invites go through the hub (websocket). */
 export class SocialService {
-  constructor(private readonly store: Store, private readonly hub: FriendHub, private readonly auth?: AuthService) {}
+  constructor(private readonly store: Store, private readonly hub: FriendHub) {}
 
   async list(userId: string) {
     const links = await this.store.friends(userId);
@@ -38,6 +38,8 @@ export class SocialService {
     const other = await this.store.findByUsername(name);
     if (!other || other.banned) throw new SocialError('No player with that name', 404);
     if (other.id === userId) throw new SocialError('That\'s you!');
+    // 0.9.9.9.7.4: either of you has blocked the other
+    if (blocks(other, userId) || blocks(await this.store.findById(userId), other.id)) throw new SocialError('You can\'t add this player', 403);
     const r = await this.store.requestFriend(userId, other.id);
     if (r === 'requested') this.hub.sendTo(other.id, { type: 'friend', event: 'request', from: myName });
     if (r === 'accepted') this.hub.sendTo(other.id, { type: 'friend', event: 'accepted', from: myName });
@@ -67,4 +69,53 @@ export class SocialService {
     if (!UUID.test(b)) return false;
     return (await this.store.friends(a)).some((f: FriendLink) => f.id === b && f.status === 'accepted');
   }
+
+  // ── 0.9.9.9.7.4: block and report ──────────────────────────────────────────
+  /**
+   * Block (or unblock) a player: they can't message you, add you as a friend or invite you (invites and groups need a
+   * friend — blocking ends the friendship). They aren't told. Kept as "block:<id>" in your unlocks, at most BLOCK_MAX.
+   */
+  async block(u: UserRecord, otherId: unknown, on: boolean): Promise<string[]> {
+    if (typeof otherId !== 'string' || !UUID.test(otherId) || otherId === u.id) throw new SocialError('Block whom?');
+    const fresh = (await this.store.findById(u.id)) ?? u;
+    const rest = (fresh.unlocks ?? []).filter((x) => x !== BLOCK + otherId);
+    if (on && rest.filter((x) => x.startsWith(BLOCK)).length >= BLOCK_MAX) throw new SocialError(`You can block up to ${BLOCK_MAX} players`);
+    if (on && !(await this.store.findById(otherId))) throw new SocialError('No such player', 404);
+    const unlocks = on ? [...rest, BLOCK + otherId] : rest;
+    await this.store.update(u.id, { unlocks });
+    if (on) await this.store.removeFriend(u.id, otherId);
+    return unlocks.filter((x) => x.startsWith(BLOCK)).map((x) => x.slice(BLOCK.length));
+  }
+
+  private reported = new Strikes(10, 3_600_000);
+  /** Report a player to the team (admin → Inbox): why, a few words, and the message, if it was one (and yours to see). */
+  async report(u: UserRecord, otherId: unknown, reason: unknown, text: unknown, messageId: unknown) {
+    if (typeof otherId !== 'string' || !UUID.test(otherId) || otherId === u.id) throw new SocialError('Report whom?');
+    const other = await this.store.findById(otherId);
+    if (!other) throw new SocialError('No such player', 404);
+    if (this.reported.blocked(u.id)) throw new SocialError('That\'s a lot of reports — try again later', 429);
+    this.reported.add(u.id);
+    const why = REPORT_REASONS.includes(reason as ReportReason) ? (reason as ReportReason) : 'other';
+    const note = typeof text === 'string' ? text.replace(/\s+/g, ' ').trim().slice(0, 500) : '';
+    let quoted = '';
+    if (typeof messageId === 'string' && UUID.test(messageId)) {
+      const m = await this.store.message(messageId);
+      const seen = m && m.fromId === otherId && (m.toId === u.id || (m.toId.startsWith('g:') && (await this.store.groupMembers(m.toId.slice(2))).some((x) => x.userId === u.id)));
+      if (seen) quoted = m.deleted ? '(deleted)' : m.text.slice(0, 1000);
+    }
+    await this.store.addReport({
+      kind: 'report', userId: u.id, username: u.username,
+      text: `Report on @${other.username}: ${REPORT_LABEL[why]}${note ? ` — ${note}` : ''}${quoted ? `\nThe message: “${quoted}”` : ''}`,
+      meta: JSON.stringify({ target: other.id, targetLogin: other.username, reason: why, message: typeof messageId === 'string' ? messageId : null }),
+      at: Date.now(),
+    });
+  }
 }
+
+/** 0.9.9.9.7.4 */
+export const BLOCK = 'block:', BLOCK_MAX = 300;
+/** whether `u` has blocked `otherId` */
+export const blocks = (u: Pick<UserRecord, 'unlocks'> | null | undefined, otherId: string) => !!u?.unlocks?.includes(BLOCK + otherId);
+export const REPORT_REASONS = ['rude', 'spam', 'cheating', 'name', 'other'] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number];
+const REPORT_LABEL: Record<ReportReason, string> = { rude: 'rude or hurtful', spam: 'spam', cheating: 'cheating', name: 'an inappropriate name or picture', other: 'something else' };

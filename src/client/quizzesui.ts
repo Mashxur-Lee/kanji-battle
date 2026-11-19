@@ -87,7 +87,7 @@ function render() {
     const done = t.value >= t.target;
     goal.classList.toggle('done', done);
     goal.replaceChildren(
-      mk('span', 'qg-ic', done ? '✓' : '🔥'),
+      mk('span', 'qg-ic', done ? '✓' : '○'),
       mk('span', 'qg-text', done ? tr('Today’s quiz task is done — nice work!') : tr('Today’s streak task: pass a JLPT quiz (7 / 10) or a reading passage (half right).')),
       mk('b', 'qg-val', `${Math.min(t.value, t.target)}/${t.target}`),
     );

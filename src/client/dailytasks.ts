@@ -77,7 +77,7 @@ export function renderTasks(p: Profile) {
   if (!tasks.length) return;
   const n = doneCount(p), all = n === tasks.length;
   const justDone = wasAll === false && all;
-  if (justDone) ui.toast(`🔥 ${tr('Daily streak kept!')} +500 XP`, 5000); // just finished the last task
+  if (justDone) ui.toast(`${tr('Daily streak kept!')} +500 XP`, 5000); // just finished the last task
   wasAll = all;
   const btn = $('tasksBtn');
   btn.hidden = false;

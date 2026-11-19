@@ -1,4 +1,4 @@
-import type { Avatar, Level } from './protocol';
+import type { Avatar } from './protocol';
 
 // ── XP & levels ────────────────────────────────────────────────────────────────
 /**

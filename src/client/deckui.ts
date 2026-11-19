@@ -212,19 +212,20 @@ function renderGuide(el: HTMLElement) {
     cards.append(fig);
   }
   const flow = h('ol', 'g-flow');
-  for (const [icon, t] of [
-    ['🦸', 'Pick a hero (30 s).'],
-    ['🪙', "Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji. The 20 cards come from both players' All spells: 4 of each level N5–N1, 2 of them yours and 2 your opponent's (a random word of that level if someone has none)."],
-    ['🃏', `Your turn: ${DECK_RULES.chooseMs / 1000} s to choose a card. Its mana is paid right away — even if you then miss.`],
-    ['📖', `The card flips: read its reading and meaning (up to ${DECK_RULES.castReadMs / 1000} s), then press Ready to look at the kanji.`],
-    ['✍️', `Press CAST! — the kanji disappears and you write it from memory (pad with eraser, or Japanese keyboard). ${DECK_RULES.castMs / 60000} minute for all three steps. Your opponent watches you write.`],
-    ['✅', `Right → the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow → the card rips. Either way the correct kanji shows for ${DECK_RULES.revealMs / 1000} s.`],
-    ['📜', 'While your opponent plays, you can read the list of kanji in your hand (not which card is which).'],
-    ['🔄', 'Out of cards → Round 2 draft. HP, mana and powers stay.'],
-    ['⚡', 'Omnipotence: once per cooldown, fire your hero\'s ultimate power with the button bottom-left. While it\'s active you burn in your flame colour (Customize → Omnipotence).'],
-    ['⏰', `After ${DECK_RULES.matchMs / 60000} min: overtime — the cards and Omnipotence are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5–N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 60000} min, then the higher HP wins.`],
-    ['⌛', `Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`],
-  ] as const) { const li = h('li'); li.append(h('span', 'g-ic', icon), h('span', '', t)); flow.append(li); }
+  // (0.9.9.9.7.4: numbered — an emoji on every step was design by emoji)
+  for (const [t] of [
+    ['Pick a hero (30 s).'],
+    ["Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji. The 20 cards come from both players' All spells: 4 of each level N5–N1, 2 of them yours and 2 your opponent's (a random word of that level if someone has none)."],
+    [`Your turn: ${DECK_RULES.chooseMs / 1000} s to choose a card. Its mana is paid right away — even if you then miss.`],
+    [`The card flips: read its reading and meaning (up to ${DECK_RULES.castReadMs / 1000} s), then press Ready to look at the kanji.`],
+    [`Press CAST! — the kanji disappears and you write it from memory (pad with eraser, or Japanese keyboard). ${DECK_RULES.castMs / 60000} minute for all three steps. Your opponent watches you write.`],
+    [`Right → the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow → the card rips. Either way the correct kanji shows for ${DECK_RULES.revealMs / 1000} s.`],
+    ['While your opponent plays, you can read the list of kanji in your hand (not which card is which).'],
+    ['Out of cards → Round 2 draft. HP, mana and powers stay.'],
+    ['Omnipotence: once per cooldown, fire your hero\'s ultimate power with the button bottom-left. While it\'s active you burn in your flame colour (Customize → Omnipotence).'],
+    [`After ${DECK_RULES.matchMs / 60000} min: overtime — the cards and Omnipotence are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5–N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 60000} min, then the higher HP wins.`],
+    [`Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`],
+  ] as const) { const li = h('li'); li.append(h('span', 'g-ic g-num', String(flow.children.length + 1)), h('span', '', t)); flow.append(li); }
   el.replaceChildren(
     h('h3', '', 'How Deck Duel works'),
     sec('Goal', p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (−${DECK_RULES.skipPenaltyHp} HP).`)),

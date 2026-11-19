@@ -11,6 +11,7 @@ import type { ChatGroup, DirectMessage, GroupMember, GroupPerms, GroupRole, Stor
 import { DEFAULT_PERMS, SUPPORT_ID } from '../db/Store';
 import type { DmView, PlayerStatus } from '../../shared/protocol';
 import { picUrl } from './StudyService';
+import { blocks } from './SocialService';
 
 export const MESSAGE_MAX = 1000;
 const PER_MINUTE = 20;
@@ -382,6 +383,8 @@ export class MessageService {
   private async mayWrite(u: UserRecord, me: string, to: string) {
     if (to === SUPPORT_ID || me === SUPPORT_ID) return true;
     if (to === me) return false;
+    // 0.9.9.9.7.4: either of you has blocked the other
+    if (blocks(await this.store.findById(to), me) || blocks(u, to)) return false;
     if ((await this.friendIds(u.id)).has(to)) return true;
     return (await this.store.messagesBetween(me, to, 1)).some((m) => m.fromId === to);
   }
@@ -406,7 +409,7 @@ export class MessageService {
       this.hooks.deliver(members.map((x, i) => ({ id: x.userId, muted: x.userId === u.id || quietFor(recs[i], to, t) })), v, fromName);
       for (const [i, x] of members.entries()) {
         if (x.userId === u.id || this.online(x.userId) || quietFor(recs[i], to, t)) continue;
-        this.hooks.push?.(x.userId, to, `${fromName} · ${group.name}`, t || '📷'); // (tapping it opens the group)
+        this.hooks.push?.(x.userId, to, `${fromName} · ${group.name}`, t || 'Photo'); // (tapping it opens the group)
       }
       return v;
     }
@@ -421,7 +424,7 @@ export class MessageService {
       const rec = await this.store.findById(to);
       const quiet = quietFor(rec, me, t);
       this.hooks.deliver([{ id: to, muted: quiet }], v, fromName);
-      if (!this.online(to) && !quiet) this.hooks.push?.(to, me, fromName, t || '📷');
+      if (!this.online(to) && !quiet) this.hooks.push?.(to, me, fromName, t || 'Photo');
     }
     // the sender's own other screens (and, for the team, the other admins)
     if (asSupport) this.hooks.deliver('admins', v, fromName);
@@ -446,7 +449,7 @@ export class MessageService {
 
   /** Feedback (a bug report or a suggestion) also goes into the player's conversation with the team */
   async feedback(u: UserRecord, kind: 'bug' | 'suggestion', text: string) {
-    const label = kind === 'bug' ? '🐞 Bug report' : '💡 Suggestion';
+    const label = kind === 'bug' ? 'Bug report' : 'Suggestion'; // (0.9.9.9.7.4: no emojis — older messages keep theirs)
     const m = await this.store.addMessage({ fromId: u.id, toId: SUPPORT_ID, text: `${label}\n${text.slice(0, MESSAGE_MAX)}`, at: this.now(), kind, by: null });
     this.hooks.deliver('admins', view(m), nameOf(u));
   }

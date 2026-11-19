@@ -43,7 +43,6 @@ export function onChange(fn: Listener) { listeners.push(fn); }
 function setOffline(v: boolean) {
   if (offline === v) return;
   offline = v;
-  if (v) offlineSince = Date.now();
   for (const fn of listeners) fn(v);
   clearTimeout(probeTimer);
   if (v) scheduleRetry(0);
@@ -52,7 +51,6 @@ function setOffline(v: boolean) {
  * 0.9.9.9.5: offline, the server is looked for again soon and then less often — 3, 6, 10, 15 s, then every 20 s —
  * (it was every 20 s from the start, and a phone freezes timers in the background, so coming back online took long)
  */
-let offlineSince = 0;
 let retryN = 0;
 function scheduleRetry(n: number) {
   retryN = n;

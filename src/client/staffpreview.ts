@@ -24,6 +24,7 @@ function glowTexture() {
 export function createStaffPreview(canvas: HTMLCanvasElement): StaffPreview | null {
   let renderer: THREE.WebGLRenderer;
   try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); } catch { return null; }
+  renderer.debug.checkShaderErrors = location.search.includes('debug3d'); // (0.9.9.9.7.4: see arena3d.ts)
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setClearColor(0x000000, 0);
