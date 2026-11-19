@@ -20,12 +20,26 @@ test('0.9.9.9.6.6 emails: cleaned, one account per mailbox (Gmail dots and +tags
   assert.equal(maskEmail('frenzyy@gmail.com'), 'fr•••••@gmail.com');
 });
 
+// (0.9.9.9.7: an email is the account's once it's confirmed with the code mailed to it — these follow that)
+async function confirmed(auth: AuthService, name: string, email: string, now = Date.now()) {
+  let code = '';
+  const r = await auth.register(name, 'secret12', email, async (m) => { code = m.code; });
+  const u = await auth.authenticate(r.token);
+  await auth.confirmEmail(u, code, now);
+  return r;
+}
+
 test('0.9.9.9.6.6 sign up needs an email; the same mailbox can\'t make a second account; others never see it', async () => {
   const store = new MemoryStore();
   const auth = new AuthService(store, new TokenSigner('s'));
   await assert.rejects(auth.register('noemail', 'secret12'), /Enter your email/);
-  const a = await auth.register('first', 'secret12', 'Jo.Doe@gmail.com');
-  assert.equal(a.user.email, 'jo••••@gmail.com', 'you see it masked');
+  let code = '';
+  const a = await auth.register('first', 'secret12', 'Jo.Doe@gmail.com', async (m) => { code = m.code; });
+  assert.equal(a.pending, 'jo••••@gmail.com', 'a code went to it (you see it masked)');
+  assert.equal(a.user.email, null, 'not the account\'s until confirmed');
+  const me = (await auth.confirmEmail(await auth.authenticate(a.token), code)).user;
+  assert.equal(me.email, 'jo••••@gmail.com');
+  assert.equal(me.emailVerified, true);
   await assert.rejects(auth.register('second', 'secret12', 'jodoe+alt@gmail.com'), /already has an account/);
   assert.equal(await store.findByUsername('second'), null);
   const rec = (await store.findByUsername('first'))!;
@@ -37,18 +51,23 @@ test('0.9.9.9.6.6 an older account adds its email (no password needed); changing
   const store = new MemoryStore();
   const auth = new AuthService(store, new TokenSigner('s'));
   const old = await store.create({ username: 'oldtimer', passwordHash: await hashPassword('secret12'), role: 'user' });
-  await auth.register('owner', 'secret12', 'taken@mail.ru');
+  await confirmed(auth, 'owner', 'taken@mail.ru');
   await assert.rejects(auth.setEmail(old, 'taken+2@mail.ru', ''), /already has an account/);
   const t0 = Date.now();
-  const u = await auth.setEmail(old, 'Me@Mail.ru', '', t0);
-  assert.equal(u.email, 'me•••@mail.ru', 'the first email: just the email');
+  let code = '';
+  const mail = async (m: ResetMail) => { code = m.code; };
+  const ask = await auth.setEmail(old, 'Me@Mail.ru', '', mail, t0);
+  assert.equal(ask.pending, 'me•••@mail.ru', 'the first email: just the email (and its code)');
+  assert.equal((await auth.confirmEmail(old, code, t0)).user.email, 'me•••@mail.ru');
   const rec = (await store.findById(old.id))!;
   assert.equal(rec.emailKey, 'me@mail.ru');
-  await assert.rejects(auth.setEmail(rec, 'new@mail.ru', 'wrong', t0 + 8 * 86_400_000), /password is wrong/);
-  await assert.rejects(auth.setEmail(rec, 'new@mail.ru', 'secret12', t0 + 3 * 86_400_000), /again in 4 days/);
-  assert.equal((await auth.setEmail(rec, 'new@mail.ru', 'secret12', t0 + 8 * 86_400_000)).email, 'ne•••@mail.ru');
+  await assert.rejects(auth.setEmail(rec, 'new@mail.ru', 'wrong', mail, t0 + 8 * 86_400_000), /password is wrong/);
+  await assert.rejects(auth.setEmail(rec, 'new@mail.ru', 'secret12', mail, t0 + 3 * 86_400_000), /again in 4 days/);
+  assert.equal((await auth.setEmail(rec, 'new@mail.ru', 'secret12', mail, t0 + 8 * 86_400_000)).pending, 'ne•••@mail.ru');
+  assert.equal((await store.findById(old.id))!.emailKey, 'me@mail.ru', 'the old one stays until the new one is confirmed');
+  assert.equal((await auth.confirmEmail(rec, code, t0 + 8 * 86_400_000 + 1000)).user.email, 'ne•••@mail.ru');
   // a new account: a week from sign-up
-  await auth.register('fresh', 'secret12', 'fresh@gmail.com');
+  await confirmed(auth, 'fresh', 'fresh@gmail.com');
   const f = (await store.findByUsername('fresh'))!;
   await assert.rejects(auth.setEmail(f, 'other@gmail.com', 'secret12'), /again in 7 days/);
 });
@@ -56,7 +75,7 @@ test('0.9.9.9.6.6 an older account adds its email (no password needed); changing
 test('0.9.9.9.6.6 forgot password: a code by email (by login or email), 30 minutes, 5 tries, then every device is signed out', async () => {
   const store = new MemoryStore();
   const auth = new AuthService(store, new TokenSigner('s'));
-  const { token: oldTok } = await auth.register('forgetful', 'secret12', 'forget@gmail.com');
+  const { token: oldTok } = await confirmed(auth, 'forgetful', 'forget@gmail.com');
   const sent: ResetMail[] = [];
   const mail = async (m: ResetMail) => { sent.push(m); };
   await auth.forgot('nobody', mail);
@@ -79,9 +98,10 @@ test('0.9.9.9.6.6 forgot password: a code by email (by login or email), 30 minut
 
 test('0.9.9.9.6.6 reset codes: five wrong tries and the code is gone', async () => {
   const auth = new AuthService(new MemoryStore(), new TokenSigner('s'));
-  await auth.register('guesser', 'secret12', 'guess@gmail.com');
+  await confirmed(auth, 'guesser', 'guess@gmail.com');
   let code = '';
   await auth.forgot('guesser', async (m) => { code = m.code; });
+  assert.match(code, /^\d{6}$/);
   const wrong = code === '123456' ? '654321' : '123456';
   for (let i = 0; i < 5; i++) await assert.rejects(auth.resetPassword('guesser', wrong, 'newpass12'));
   await assert.rejects(auth.resetPassword('guesser', code, 'newpass12'), /wrong or has expired/);

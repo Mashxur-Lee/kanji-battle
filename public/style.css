@@ -5571,3 +5571,8 @@ body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(
   #menu .tasks-btn .tb-go .tg-lbl { grid-column: auto; }
   #menu .tasks-btn.folded .tb-go { margin-top: 4px; }
 }
+
+/* 0.9.9.9.7: confirm your email — the code box */
+.code-dialog .code-input { display: block; width: 100%; max-width: 240px; margin: 10px auto 4px; padding: 10px 12px; text-align: center; font-size: 1.7rem; font-weight: 800; letter-spacing: .45em; font-variant-numeric: tabular-nums; border-radius: 12px; }
+.code-dialog .code-extra { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 6px 0 2px; }
+.code-dialog .code-extra .pill:disabled { opacity: .55; cursor: default; }

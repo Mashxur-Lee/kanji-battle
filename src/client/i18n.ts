@@ -538,6 +538,14 @@ const RU: Record<string, string> = {
   '← Back to the room': '← В комнату',
   'Updating to the new version…': 'Обновляемся до новой версии…',
   'League passed!': 'Лига пройдена!',
+  // 0.9.9.9.7: an email is confirmed with a code
+  'Confirm your email': 'Подтвердите почту', 'We sent a 6-digit code to': 'Мы отправили 6-значный код на', 'Enter it here — it works for 15 minutes.': 'Введите его здесь — он действует 15 минут.',
+  'is not confirmed yet. Confirm it, so a password reset can reach you.': 'ещё не подтверждена. Подтвердите её, чтобы письмо для сброса пароля могло до вас дойти.',
+  'Send it again': 'Отправить ещё раз', 'A different email': 'Другая почта', 'Send me a code': 'Прислать код', 'not confirmed': 'не подтверждена', 'Email confirmed': 'Почта подтверждена',
+  'Wait a minute before asking for another code': 'Подождите минуту, прежде чем запросить новый код',
+  'Too many codes today — try again tomorrow': 'Слишком много кодов за сегодня — попробуйте завтра', 'Too many codes went to that address — try again in an hour': 'На этот адрес ушло слишком много кодов — попробуйте через час',
+  'There is no email to confirm — add one first': 'Нет почты для подтверждения — сначала добавьте её',
+  'Confirm': 'Подтвердить', 'Your email': 'Ваша почта',
   // 0.9.9.9.6.9: Today
   'Next today': 'Дальше сегодня', 'Play today': 'Начать день', 'Today: all done': 'Сегодня всё сделано', 'A quiz': 'Тест', 'A battle': 'Битва',
   'Today, in one go: your study, a quiz, the daily challenge and a battle': 'Весь день за раз: учёба, тест, ежедневное испытание и битва',

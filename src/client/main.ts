@@ -29,8 +29,8 @@ import { api, ApiError, getToken, setToken, type Friend, type Profile } from './
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
 import { showPlayer } from './playerview';
-import { claimDialog, emailDialog, forgotDialog } from './account';
-import { initInbox, inboxLeft, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket, setInviteJoin } from './inbox';
+import { claimDialog, codeDialog, emailDialog, forgotDialog } from './account';
+import { initInbox, inboxLeft, inboxReconnected, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket, setInviteJoin } from './inbox';
 import { onLeagueEquip } from './leagueup';
 import { chatMessages, chatTyping, clearChat, deckEvent, deckInk, initDeck, renderDeck, resetDeck } from './deckui';
 import { GameSocket } from './net';
@@ -96,9 +96,16 @@ function fromServer(m: ServerMessage) {
   onMessage(m);
 }
 let toServerRaw: ((m: ClientMessage) => void) | null = null;
+let wasDown = false;
 const socket = new GameSocket(fromServer, (s) => {
   netState = s;
-  if (s === 'online') { lastWhere = ''; tellWhere(); }
+  if (s === 'online') {
+    lastWhere = ''; tellWhere();
+    // 0.9.9.9.7: back after the connection was lost (a sleeping server waking up, the app back from the background):
+    // what came in meanwhile — messages, the badge, the profile — is fetched again (it stayed empty until a restart)
+    if (wasDown && user) { void refreshProfile(); inboxReconnected(); }
+    wasDown = false;
+  } else if (s === 'reconnecting' || s === 'stopped') wasDown = true;
   if (s === 'reconnecting') void offline.probe();
   showNetStatus();
 });
@@ -836,6 +843,9 @@ ui.$('authForm').addEventListener('submit', async (e) => {
     ui.$<HTMLInputElement>('authPass').value = '';
     signedIn(res.user);
     void refreshProfile();
+    // 0.9.9.9.7: a new account — the code that went to its email
+    const pending = (res as { pending?: string }).pending;
+    if (pending) { emailAsked = true; codeDialog({ to: pending, onDone: emailSaved, onChange: changeEmail }); }
   } catch (err) {
     ui.$('authError').textContent = err instanceof Error ? err.message : 'Something went wrong';
   } finally {
@@ -874,14 +884,20 @@ ui.$('inboxBtn').addEventListener('click', (e) => {
 // 0.9.9.9.6.6: "Forgot password?" — a code by email; your email (added once by older accounts, changed in your profile)
 ui.$('authForgot').onclick = () => forgotDialog(ui.$<HTMLInputElement>('authUser').value.trim(), (_t, u) => { ui.$<HTMLInputElement>('authPass').value = ''; signedIn(u); void refreshProfile(); ui.toast(tr('Password changed — you are signed in'), 3500); });
 let emailAsked = false;
-function emailLabel() { ui.$('emailChange').textContent = user?.email ? `${tr('Email')}: ${user.email}` : tr('Add your email'); }
+function emailLabel() { ui.$('emailChange').textContent = user?.email ? `${tr('Email')}: ${user.email}${user.emailVerified ? '' : ` (${tr('not confirmed')})`}` : tr('Add your email'); }
+// 0.9.9.9.7: an email is confirmed with a code before it's the account's
+function emailSaved(u: PublicUser) { if (user) user = { ...user, email: u.email, emailVerified: u.emailVerified }; emailLabel(); ui.toast(tr('Email confirmed'), 2500); }
+function changeEmail() { emailDialog({ required: false, current: user?.email ?? null, onDone: emailSaved }); }
 function askEmail() {
   emailLabel();
-  if (!user || user.email || user.guest || emailAsked || offline.isOffline()) return; // (0.9.9.9.6.9: a guest saves the account instead)
+  if (!user || user.guest || emailAsked || offline.isOffline()) return; // (0.9.9.9.6.9: a guest saves the account instead)
+  // an email from before 0.9.9.9.7, never confirmed: ask (once a session) — the code goes out only if they want it
+  if (user.email && !user.emailVerified) { emailAsked = true; codeDialog({ to: user.email, ask: true, onDone: emailSaved, onChange: changeEmail }); return; }
+  if (user.email) return;
   emailAsked = true;
-  emailDialog({ required: true, onDone: (u) => { if (user) user = { ...user, email: u.email }; emailLabel(); ui.toast(tr('Email saved'), 2500); }, onLogout: () => { emailAsked = false; logout(); } });
+  emailDialog({ required: true, onDone: emailSaved, onLogout: () => { emailAsked = false; logout(); } });
 }
-ui.$('emailChange').onclick = () => emailDialog({ required: false, current: user?.email ?? null, onDone: (u) => { if (user) user = { ...user, email: u.email }; emailLabel(); ui.toast(tr('Email saved'), 2500); } });
+ui.$('emailChange').onclick = () => user?.email && !user.emailVerified ? codeDialog({ to: user.email, ask: true, onDone: emailSaved, onChange: changeEmail }) : emailDialog({ required: false, current: user?.email ?? null, onDone: emailSaved });
 // 0.9.9.9.6.5: change your password (the current one first) — every other device is signed out
 ui.$('pwChange').onclick = () => {
   const d = document.createElement('dialog');

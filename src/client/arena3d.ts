@@ -210,6 +210,8 @@ interface Fighter {
   flame: THREE.Color | null; // combo flames / power aura
   aura: THREE.Sprite;
   hurtUntil: number; lungeUntil: number; frostUntil: number; burnUntil: number;
+  /** 0.9.9.9.7: hit by a spell — when, how hard, and which way it pushed them (they lean back and step away) */
+  hitAt: number; hitPow: number; hitDir: THREE.Vector3;
   frosted: boolean;
   /** 0.9.9.8.2: their staff (its attack effect) and the colours a staff's fire / frost tints them with */
   staffId?: string; burnTint?: THREE.Color; frostTint?: THREE.Color;
@@ -405,7 +407,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     aura.scale.set(height * 1.2, height * 1.2, 1); aura.position.y = height * 0.5;
     group.add(aura);
     scene.add(group);
-    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0, typing: !!art.bot, staffId: art.staff, dragon, art, glb };
+    const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, hitAt: -1e9, hitPow: 1, hitDir: new THREE.Vector3(0, 0, -1), frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0, typing: !!art.bot, staffId: art.staff, dragon, art, glb };
     fighters.set(key, f);
     return f;
   }
@@ -990,15 +992,17 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   // ── 0.9.9.9.6.9: the cinematic camera — a fly-in as the battle starts, a short side shot when a big spell of yours
   // lands (a critical, or on fire), a slow orbit round the fallen foe when you win. Smooth eases only; then back in
   // your eyes. localStorage kb:cinema = off turns it off.
-  type Cine = { kind: 'intro' | 'impact' | 'victory'; t0: number; dur: number; who?: Who; a0?: number };
+  // (0.9.9.9.7: a shot's time is counted in drawn frames, each at most 1/20 s — the first frames of a battle can take
+  // a second each while the arena is built, and on the clock the fly-in was over before anything showed)
+  type Cine = { kind: 'intro' | 'impact' | 'victory'; t: number; dur: number; who?: Who; a0?: number };
   let cine: Cine | null = null, cineW = 0, introPending = false, lastImpact = -1e9;
   const cinemaOn = (() => { try { return localStorage.getItem('kb:cinema') !== 'off'; } catch { return true; } })();
   const smooth = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
   const cineTmp = new THREE.PerspectiveCamera(); // (a camera: lookAt points its -Z at the target, like the real one)
   /** where the camera wants to be for the current shot, and how much of it (0: your eyes … 1: all the shot) */
-  function cinePose(nowMs: number): { pos: THREE.Vector3; look: THREE.Vector3; w: number } | null {
+  function cinePose(): { pos: THREE.Vector3; look: THREE.Vector3; w: number } | null {
     if (!cine) return null;
-    const t = (nowMs - cine.t0) / 1000;
+    const t = cine.t;
     if (cine.kind === 'intro') {
       if (t >= cine.dur) { cine = null; return null; }
       // high behind you, swinging in from the side, down into your eyes
@@ -1021,6 +1025,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     const a = (cine.a0 ?? 0) + t * 0.22, R = big ? 7.5 : 3.4;
     return { pos: at.clone().add(new THREE.Vector3(Math.sin(a) * R, big ? 3.2 : 1.55, Math.cos(a) * R)), look: at.clone().add(new THREE.Vector3(0, big ? 1.4 : 0.7, 0)), w };
   }
+  // ── 0.9.9.9.7: a hit lands — they feel it: a snap back at the waist and the head, a step away, then they settle
+  function react(f: Fighter, from: THREE.Vector3 | null, pow: number) {
+    f.hitAt = performance.now(); f.hitPow = pow;
+    const d = f.group.position.clone().sub(from ?? camera.position); d.y = 0;
+    if (d.lengthSq() > 1e-6) f.hitDir.copy(d.normalize());
+  }
+  /** 0 → 1 → 0: up in `rise` ms, held to `hold`, back by `end` */
+  const hitCurve = (ms: number, rise: number, hold: number, end: number) => (ms < 0 || ms > end ? 0 : ms < rise ? smooth(ms / rise) : ms < hold ? 1 : 1 - smooth((ms - hold) / (end - hold)));
   function startCine(c: Cine) { if (!opts.preview && cinemaOn) cine = c; }
   let focusOn = false, focus = 0;
   // adaptive quality: a slow machine drops to Lite (then lower resolution) by itself, instead of lagging
@@ -1085,8 +1097,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       dispatchEvent(new CustomEvent('kw:look', { detail: { yaw: +myLook.yaw.toFixed(3), pitch: +myLook.pitch.toFixed(3) } }));
     }
     // 0.9.9.9.6.9: the cinematic camera (see cinePose)
-    if (introPending && active && !opts.preview) { introPending = false; startCine({ kind: 'intro', t0: nowMs, dur: 2.4 }); }
-    const shot = cinePose(performance.now()); // (performance.now, like the shots' start times)
+    if (introPending && active && !opts.preview) { introPending = false; startCine({ kind: 'intro', t: 0, dur: 3 }); } // (over the 3-2-1)
+    if (cine) cine.t += dt;
+    const shot = cinePose();
     cineW = shot ? shot.w : 0;
     if (shot && shot.w > 0.001) {
       cineTmp.position.copy(shot.pos); cineTmp.lookAt(shot.look);
@@ -1253,6 +1266,11 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         // 0.9.9.7: on fire, they strike their combo pose (Customize)
         f.poseK += ((f.flame && f.pose !== 'none' ? 1 : 0) - f.poseK) * Math.min(1, dt * 3);
         applyPose(m, f.pose, f.poseK, time); // (always: back to standing resets the last pose — 0.9.9.7.3)
+        // 0.9.9.9.7: hit — the body snaps back, the head after it, the staff arm flung out, a step away
+        const since = now - f.hitAt;
+        const lean = hitCurve(since, 70, 140, 650) * f.hitPow, step = hitCurve(since, 150, 320, 1150) * f.hitPow;
+        if (lean > 0) { m.body.rotation.x -= 0.36 * lean; m.head.rotation.x -= 0.28 * lean; m.arm.rotation.x -= 0.5 * lean; m.arm.rotation.z += 0.25 * lean; }
+        m.root.position.x = f.hitDir.x * 0.32 * step; m.root.position.z = f.hitDir.z * 0.32 * step;
         if (glowLevel > 0.5 && Math.random() < glowLevel * 0.6) {
           m.crystal.getWorldPosition(tmp);
           spark(tmp.clone().add(new THREE.Vector3(rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1))), m.staff.color.getHex(), { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-0.2, 0.2), rnd(0.2, 0.6), 0), life: 0.7 });
@@ -1265,9 +1283,12 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         const left = Math.max(0, dragonBreathUntil - now) / 1300; // 1 → 0 over the fire
         const breathK = left > 0 ? Math.min(1, (1 - left) * 6, left * 3) : 0; // jaws snap open, hold, close
         f.dragon.update(time, dt, { inhale: dragonInhale, breath: breathK, lunge: Math.sin(Math.min(1, lunge) * Math.PI), still });
+        // 0.9.9.9.7: even the dragon is pushed back a little by a hit
+        const dstep = hitCurve(now - f.hitAt, 150, 300, 1100) * f.hitPow;
+        f.dragon.root.position.x = f.hitDir.x * 0.5 * dstep; f.dragon.root.position.z = f.hitDir.z * 0.5 * dstep;
       } else if (f.sprite) {
         f.sprite.position.y = still ? 0 : Math.abs(Math.sin(time * 2)) * 0.05;
-        f.sprite.position.z = lunge * 0.4;
+        f.sprite.position.z = lunge * 0.4 + f.hitDir.z * 0.3 * hitCurve(now - f.hitAt, 150, 320, 1150); // (0.9.9.9.7: and pushed back)
       }
       const auraOn = (key === 'opp' && oppChannelOn && layout === 'deck') || (key === 'boss' && inhaling);
       const am = f.aura.material as THREE.SpriteMaterial;
@@ -1558,7 +1579,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       // 0.9.9.9.6.9: your big ones (a critical, or while you're on fire) — a side shot as it lands, now and then
       if (from === 'me' && (to === 'opp' || to === 'boss') && (o.crit || myFlame) && !cine && performance.now() - lastImpact > 9000) {
         lastImpact = performance.now();
-        startCine({ kind: 'impact', t0: performance.now(), dur: 1.9, who: to });
+        startCine({ kind: 'impact', t: 0, dur: 1.9, who: to });
       }
       flights[flights.length - 1].target = to;
       if (from === 'me') {
@@ -1573,6 +1594,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (firstPerson) burst(end, color, o.crit ? 14 : 8, o.crit ? 1.6 : 1.1, 0.12); else burst(end, color, o.crit ? 46 : 28, o.crit ? 4.4 : 3.2, 0.2);
       const t = fighters.get(to);
       if (t) t.hurtUntil = performance.now() + 450;
+      if (t && to !== 'me' && (o.kind ?? 'attack') === 'attack') react(t, start, o.crit ? 1.5 : myFlame && from === 'me' ? 1.25 : 1); // (0.9.9.9.7)
       cardEffect(to, o.fx, end);
       if (!o.fx) staffImpact(from, to, end);
       if (to === 'me') { if (!o.fx && (layout === 'deck' || from === 'boss')) screenHit(); kick(o.crit ? 0.16 : 0.09); }
@@ -1620,7 +1642,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       // 0.9.9.9.6.9: you won — the camera walks round them
       if ((who === 'opp' || who === 'boss') && !meDown) {
         const d = camera.position.clone().sub(f.group.position);
-        startCine({ kind: 'victory', t0: performance.now(), dur: 0, who, a0: Math.atan2(d.x, d.z) });
+        startCine({ kind: 'victory', t: 0, dur: 0, who, a0: Math.atan2(d.x, d.z) });
       }
       f.flame = null;
       (f.aura.material as THREE.SpriteMaterial).opacity = 0;
@@ -1713,7 +1735,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         }, i * 5);
       }
       setTimeout(() => {
-        for (const v of victims) { const f = fighters.get(v); if (f) { f.hurtUntil = performance.now() + 500; f.burnUntil = performance.now() + 900; } float(v, `−${damage}`, '#ff9a3a'); }
+        const bossAt = fighters.get('boss')?.group.position ?? null;
+        for (const v of victims) { const f = fighters.get(v); if (f) { f.hurtUntil = performance.now() + 500; f.burnUntil = performance.now() + 900; if (v !== 'me') react(f, bossAt, 1.2); } float(v, `−${damage}`, '#ff9a3a'); }
         if (victims.includes('me')) { screenHit('255,120,30'); kick(0.16); }
       }, 450);
     },
@@ -1723,6 +1746,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       setTimeout(() => {
         const f = fighters.get(victim);
         if (f) f.hurtUntil = performance.now() + 450;
+        if (f && victim !== 'me') react(f, fighters.get('boss')?.group.position ?? null, 1.3); // (0.9.9.9.7)
         if (victim === 'me') { screenHit('255,40,60', 'claw'); kick(0.13); }
         float(victim, `−${damage}`, '#ff6b81');
       }, 200);

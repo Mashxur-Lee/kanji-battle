@@ -121,6 +121,17 @@ try { mailer = createMailer(); } catch (e) { console.error('[mail]', (e as Error
 const resetMail = async (m: ResetMail) => {
   const name = m.user.nickname || m.user.username;
   const ru = m.lang === 'ru';
+  if (m.kind === 'confirm') {
+    // 0.9.9.9.7: confirming an email — the code, and what to ignore if it wasn't you
+    const subject = ru ? `Kanji Wizards — код подтверждения: ${m.code}` : `Kanji Wizards — your confirmation code: ${m.code}`;
+    const text = ru
+      ? `Здравствуйте, ${name}!\n\nВаш код подтверждения почты в Kanji Wizards: ${m.code}\n\nВведите его в игре в течение 15 минут. Если это были не вы, просто проигнорируйте письмо — без кода почта ни к какому аккаунту не привяжется.\n\n— Kanji Wizards`
+      : `Hi ${name},\n\nYour Kanji Wizards email confirmation code is: ${m.code}\n\nEnter it in the game within 15 minutes. If this wasn't you, ignore this email — without the code your address isn't added to any account.\n\n— Kanji Wizards`;
+    if (!mailer.enabled) { console.log(`[confirm mail] email is not set up — code for ${m.user.username}: ${m.code}`); return; }
+    try { await mailer.send(m.email, subject, text); console.log(`[confirm mail] sent to ${m.user.username} (${mailer.how})`); }
+    catch (e) { console.error('[confirm mail] failed:', (e as Error).message); }
+    return;
+  }
   const subject = ru ? `Kanji Wizards — код для сброса пароля: ${m.code}` : `Kanji Wizards — your password reset code: ${m.code}`;
   const text = ru
     ? `Здравствуйте, ${name}!\n\nВаш код для сброса пароля в Kanji Wizards: ${m.code}\n\nВведите его в игре в течение 30 минут. Если вы не просили сбросить пароль, просто не обращайте внимания на это письмо — ваш пароль не изменится.\n\n— Kanji Wizards`

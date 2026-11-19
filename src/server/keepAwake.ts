@@ -12,7 +12,11 @@ export function keepAwake(env: NodeJS.ProcessEnv = process.env, every = 10 * 60_
   if (!base || env.KEEP_AWAKE === '0') return null;
   let url: string;
   try { url = new URL('/api/online', base).toString(); } catch { return null; }
-  const t = setInterval(() => { get(url).catch(() => { /* the next one */ }); }, every);
+  // (0.9.9.9.7: the first answer goes to the log, so Render's log shows whether it works; failures are logged too)
+  let first = true;
+  const ping = () => get(url).then((r) => { if (first) { first = false; console.log(`[keep awake] ${url} answered (${(r as { status?: number })?.status ?? 'ok'})`); } })
+    .catch((e) => console.warn(`[keep awake] ${url}: ${(e as Error)?.message ?? e}`));
+  const t = setInterval(() => void ping(), every);
   t.unref?.();
   return { url, stop: () => clearInterval(t) };
 }
