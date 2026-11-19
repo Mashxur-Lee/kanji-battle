@@ -23,7 +23,7 @@ import { setPlayAi, initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
 import { STUDY_LOCK } from '../shared/progress';
-import { arena, arenaLook, arenaTyping, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
+import { arena, arenaLook, arenaTyping, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, primeArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
 import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicProfile, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
 import * as audio from './audio';
@@ -461,6 +461,9 @@ function onMessage(msg: ServerMessage) {
       inboxUser(msg.user.id, msg.user.role === 'admin'); // 0.9.9.9.6: Messages (unread)
       askEmail(); // 0.9.9.9.6.6: an account from before emails adds one, once
       setRailMe(msg.user.id); // 0.9.9.9.6.3: friends in your room: "Playing with you"
+      // 0.9.9.9.7.3: back after a long while away (the app in the background) and the room has closed meanwhile: to the
+      // menu, saying so (the results screen stayed up with every button dead)
+      if (msg.seated === false && inRoom && !inLocalRoom()) { backToMenu(); ui.toast('The room closed while you were away'); } // (not a game against the AI run offline, in the app)
       joinFromLink();
       break;
     case 'invite_declined':
@@ -554,6 +557,7 @@ function onMessage(msg: ServerMessage) {
       players = msg.players;
       ui.showPrep(msg.pool, msg.durationMs, mode);
       prepReady(msg.readyIds);
+      primeArena(mode, players, you); // 0.9.9.9.7.3: the arena is built while you study (its fly-in fits the 3-2-1 then)
       break;
     case 'prep_ready':
       prepReady(msg.readyIds);
@@ -568,6 +572,7 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'challenge':
       challengeId = msg.id;
+      arena()?.endIntro(); // 0.9.9.9.7.3: your word is up — no more fly-in (the AI could cast while you were still in it)
       arena()?.channel(0);
       ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs, from: msg.from, hint: msg.hint });
       tutorialChallenge(); // 0.9.9.9.6: the first word of the tutorial's battle: the tour of the battle screen

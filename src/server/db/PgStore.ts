@@ -4,8 +4,8 @@ import postgres from 'postgres';
 import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protocol';
 import type { BackgroundId, FlameId, StaffId } from '../../shared/progress';
 import { deckOf, type CardState, type CustomWord, type DeckId, type SrsCard } from '../../shared/srs';
-import { randomUUID } from 'node:crypto';
-import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, EmailTakenError, type ActivityDelta, type GameEventRow, type Report, type DirectMessage, type ConversationRow, type MessagePatch, type ChatGroup, type GroupMember, type GroupRole, type MediaFile, DEFAULT_PERMS, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+import { createHash, randomUUID } from 'node:crypto';
+import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, EmailTakenError, type AchStats, type ActivityDelta, type GameEventRow, type Report, type DirectMessage, type ConversationRow, type MessagePatch, type ChatGroup, type GroupMember, type GroupRole, type MediaFile, DEFAULT_PERMS, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
 
 /**
  * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
@@ -71,7 +71,20 @@ export class PgStore implements Store {
     this.sql = postgres(url, { ssl: local ? false : 'require', max: 5, idle_timeout: 20, onnotice: () => {} });
   }
 
+  /**
+   * 0.9.9.9.7.3: the tables are brought up to date only when this code's schema changed since the last start: its
+   * fingerprint (a hash of `migrate`'s own source — any change to it counts) is kept in kw_values. Every start ran
+   * all ~80 statements, a round trip each to the database: a second or two more on every cold start.
+   */
   async init() {
+    await this.sql`create table if not exists kw_values (key text primary key, value text not null)`;
+    const schema = createHash('sha256').update(this.migrate.toString()).digest('hex').slice(0, 16);
+    if ((await this.getValue('schema')) === schema) return;
+    await this.migrate();
+    await this.setValue('schema', schema);
+  }
+
+  private async migrate() {
     await this.sql`
       create table if not exists kw_users (
         id uuid primary key default gen_random_uuid(),
@@ -305,6 +318,8 @@ export class PgStore implements Store {
       )`;
     // v0.9.9.4.4: new words a day per level
     await this.sql`alter table kw_users add column if not exists daily_plan jsonb`;
+    // 0.9.9.9.7.3: unused photos are swept away (sweepMedia looks messages up by their photo)
+    await this.sql`create index if not exists kw_messages_media on kw_messages (media) where media is not null`;
   }
 
   async findByUsername(username: string) {
@@ -484,6 +499,32 @@ export class PgStore implements Store {
       where d.day = ${day} order by d.correct desc, d.ms asc limit ${limit}`;
     return rows.map((r) => ({ userId: r.user_id, username: r.username, correct: r.correct, ms: r.ms }));
   }
+  async achStats(userId: string, masteredDays: number): Promise<AchStats> {
+    const [[a], [c], [f]] = await Promise.all([
+      this.sql<Array<Record<string, number>>>`
+        select coalesce(sum(reviews), 0)::int as reviews, coalesce(sum(games), 0)::int as games, coalesce(sum(quizzes), 0)::int as quizzes,
+          coalesce(sum(passages), 0)::int as passages, coalesce(sum(challenges), 0)::int as challenges,
+          (count(*) filter (where login or reviews > 0 or games > 0))::int as active_days, greatest(coalesce(max(reviews), 0), 0)::int as best_day
+        from kw_activity where user_id = ${userId}`,
+      this.sql<Array<Record<string, number>>>`
+        select (count(distinct vocab_id) filter (where state = 'review' and interval_days >= ${masteredDays}))::int as mastered,
+          (count(*) filter (where deck = 'custom'))::int as custom
+        from kw_cards where user_id = ${userId}`,
+      this.sql<Array<{ n: number }>>`select count(*)::int as n from kw_friends f join kw_users u on u.id = f.friend_id where f.user_id = ${userId} and f.status = 'accepted'`,
+    ]);
+    return { reviews: a.reviews, games: a.games, quizzes: a.quizzes, passages: a.passages, challenges: a.challenges, activeDays: a.active_days, bestDay: a.best_day, mastered: c.mastered, custom: c.custom, friends: f.n };
+  }
+  async dailyCount(day: string) {
+    const [r] = await this.sql<{ n: string }[]>`select count(*) as n from kw_daily where day = ${day}`;
+    return Number(r.n);
+  }
+  async dailyOf(day: string, userIds: string[]) {
+    const out = new Map<string, { correct: number; ms: number; marks?: string }>();
+    if (!userIds.length) return out;
+    const rows = await this.sql<{ user_id: string; correct: number; ms: number; marks: string }[]>`select user_id, correct, ms, marks from kw_daily where day = ${day} and user_id in ${this.sql(userIds)}`;
+    for (const r of rows) out.set(r.user_id, { correct: r.correct, ms: r.ms, marks: r.marks });
+    return out;
+  }
   async dailyBetter(day: string, correct: number, ms: number) {
     const [r] = await this.sql<{ n: string }[]>`select count(*) as n from kw_daily where day = ${day} and (correct > ${correct} or (correct = ${correct} and ms < ${ms}))`;
     return Number(r.n);
@@ -617,6 +658,17 @@ export class PgStore implements Store {
   async mediaCountSince(ownerId: string, since: number) {
     const [r] = await this.sql<Array<{ n: number }>>`select count(*)::int as n from kw_media where owner_id = ${ownerId} and at >= ${since}`;
     return Number(r?.n ?? 0);
+  }
+  async mediaBytesSince(ownerId: string, since: number) {
+    const [r] = await this.sql<Array<{ n: string | null }>>`select sum(octet_length(data)) as n from kw_media where owner_id = ${ownerId} and at >= ${since}`;
+    return Number(r?.n ?? 0);
+  }
+  async sweepMedia(before: number) {
+    const r = await this.sql`
+      delete from kw_media m where m.at < ${before}
+        and not exists (select 1 from kw_messages x where x.media = m.id and not x.deleted)
+        and not exists (select 1 from kw_groups g where g.pic = m.id)`;
+    return r.count;
   }
   async setReportDone(id: string, done: boolean) { await this.sql`update kw_reports set done = ${done} where id = ${id}`; }
   async deleteReport(id: string) { await this.sql`delete from kw_reports where id = ${id}`; }

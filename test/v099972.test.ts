@@ -38,7 +38,7 @@ async function longestStall(work: () => Promise<unknown>) {
 }
 
 test('0.9.9.9.7.2 version, patch notes, Russian for the new message, the build compresses', () => {
-  assert.equal(VERSION, '0.9.9.9.7.2');
+  assert.ok(VERSION >= '0.9.9.9.7.2');
   assert.match(src('src/client/whatsnew.ts'), /v: '0\.9\.9\.9\.7\.2'/);
   assert.ok(src('src/client/i18n.ts').includes("'Too many wrong room codes — wait a minute':"));
   assert.match(JSON.parse(src('package.json')).scripts.build, /build:compress/);

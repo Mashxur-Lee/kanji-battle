@@ -175,6 +175,17 @@ export function arenaForBattle(mode: GameMode, players: PlayerView[], you: Playe
   });
 }
 
+/**
+ * 0.9.9.9.7.3: the study phase: the coming battle's arena is built and drawn once, unseen, so the battle's first frames
+ * are quick and its fly-in fits in the 3-2-1 (built only as the battle began, the fly-in ran on into the fight).
+ */
+export function primeArena(mode: GameMode, players: PlayerView[], you: PlayerId) {
+  if (!wanted() || onScreen) return;
+  arenaForBattle(mode, players, you);
+  const s = pending;
+  void load().then((a) => { if (a && s && !onScreen && pending === s) a.prime({ ...s, bgSvg: artUrl(bg.id, bg.time), bgKey: `${bg.id}-${bg.time}`, time: bg.time }); });
+}
+
 let deckKey = '';
 /** Deck Duel: you and the opponent as your heroes (set again when the heroes are picked). */
 export function arenaForDeck(v: DeckView) {

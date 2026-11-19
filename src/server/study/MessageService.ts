@@ -20,6 +20,11 @@ export const GROUP_NAME_MAX = 48;
 export const EDIT_WINDOW_MS = 48 * 3600_000;
 export const MEDIA_MAX_BYTES = 700 * 1024;
 export const MEDIA_PER_DAY = 60;
+/**
+ * 0.9.9.9.7.3: and at most this much a day — 60 photos of up to 700 KB was 42 MB a player a day, against a free database
+ * of 0.5 GB (the app makes a photo much smaller first: a day's worth of real chatting fits easily)
+ */
+export const MEDIA_BYTES_PER_DAY = 10 * 1024 * 1024;
 const GROUP = /^g:([0-9a-f-]{36})$/i;
 export const groupKey = (id: string) => `g:${id}`;
 
@@ -556,7 +561,8 @@ export class MessageService {
     const ok = m[1] === 'image/png' ? hex === '89504e47' : m[1] === 'image/jpeg' ? hex.startsWith('ffd8ff') : m[1] === 'image/gif' ? data.subarray(0, 3).toString('latin1') === 'GIF'
       : data.subarray(0, 4).toString('latin1') === 'RIFF' && data.subarray(8, 12).toString('latin1') === 'WEBP';
     if (!ok) throw new MessageError('That file is not a valid picture');
-    if ((await this.store.mediaCountSince(u.id, this.now() - 86_400_000)) >= MEDIA_PER_DAY) throw new MessageError('That\'s a lot of photos for one day — try again tomorrow', 429);
+    const dayAgo = this.now() - 86_400_000;
+    if ((await this.store.mediaCountSince(u.id, dayAgo)) >= MEDIA_PER_DAY || (await this.store.mediaBytesSince(u.id, dayAgo)) + data.length > MEDIA_BYTES_PER_DAY) throw new MessageError('That\'s a lot of photos for one day — try again tomorrow', 429);
     const id = randomBytes(16).toString('base64url');
     await this.store.addMedia({ id, ownerId: u.id, mime: m[1], data, at: this.now() });
     return { id, url: mediaUrl(id) };

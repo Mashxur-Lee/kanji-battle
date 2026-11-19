@@ -207,8 +207,9 @@ export class DailyService {
   private async ghostFor(u: UserRecord, key: string): Promise<{ name: string; correct: number; ms: number; marks: string } | null> {
     const friends = (await this.store.friends(u.id)).filter((f) => f.status === 'accepted').slice(0, 60);
     let best: { name: string; correct: number; ms: number; marks: string } | null = null;
+    const results = await this.store.dailyOf(key, friends.map((f) => f.id)); // (0.9.9.9.7.3: one query — it was one per friend)
     for (const f of friends) {
-      const r = await this.store.daily(key, f.id);
+      const r = results.get(f.id);
       if (!r) continue;
       if (!best || r.correct > best.correct || (r.correct === best.correct && r.ms < best.ms)) best = { name: f.name ?? f.username, correct: r.correct, ms: r.ms, marks: r.marks ?? '' };
     }
@@ -333,7 +334,7 @@ export class DailyService {
     if (saved) await this.progress.record(u.id, playerDay(u, this.now()), { xp, challenges: 1 }); // a daily task (the streak)
     if (saved && a.correct === DAILY_WORDS) await this.onPerfect?.(u.id);
     const rank = (await this.store.dailyBetter(key, a.correct, a.ms)) + 1;
-    const players = (await this.store.dailyBoard(key, 100_000)).length;
+    const players = await this.store.dailyCount(key); // (0.9.9.9.7.3: counted — the whole board was fetched to count it)
     return { correct: a.correct, ms: a.ms, rank, players, xp, league: a.league, promoted, passed };
   }
 

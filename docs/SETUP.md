@@ -22,7 +22,9 @@ admin's inbox (Admin → errors) so the admin can pass it on. The server log say
 On first start on your own computer the server creates two demo accounts, `admin` (admin) and `user`. Give them
 passwords in the environment: `ADMIN_PASSWORD` and `USER_PASSWORD`. On a public server (Render, or
 `NODE_ENV=production`) the built-in accounts are only created with passwords from the environment, and one still
-on its built-in default is locked until you set the variable.
+on its built-in default is locked until you set the variable. 0.9.9.9.7.3: anywhere else, the built-in default
+password works only from the server's own computer (`localhost`) — a game put online somewhere else without
+`ADMIN_PASSWORD` can't be signed into as `admin` with the password from the code.
 
 Passwords are hashed with scrypt; logins are signed tokens (30 days). Changing your password (profile → Change
 password) signs out every other device.

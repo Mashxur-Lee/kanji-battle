@@ -1,4 +1,4 @@
-# Kanji Wizards · v0.9.9.9.7.2
+# Kanji Wizards · v0.9.9.9.7.3
 
 <p align="center"><img src="docs/promo/banner.webp" alt="Kanji Wizards — learn Japanese by casting it" width="100%"></p>
 

@@ -49,6 +49,8 @@ export const LOGIN_FAILS = 10, LOGIN_WINDOW_MS = 15 * 60_000;
 const DAY_MS = 86_400_000;
 interface ResetRecord { hash: string; until: number; tries: number; sentAt: number; /** when codes were sent / wrong ones tried (the last day) */ sent: number[]; wrong: number[] }
 interface ConfirmRecord { email: string; key: string; hash: string; until: number; tries: number; sentAt: number; day: string; today: number }
+/** 0.9.9.9.7.3: a call from the server's own computer */
+export const isLoopback = (ip: string) => /^(127\.|::1$|::ffff:127\.)/.test(ip);
 const readJson = <T>(raw: string | null): T | null => { if (!raw) return null; try { return JSON.parse(raw) as T; } catch { return null; } };
 export interface ResetMail { user: UserRecord; email: string; code: string; lang: 'en' | 'ru'; /** 0.9.9.9.7: a reset code, or a code to confirm an email */ kind?: 'reset' | 'confirm' }
 const CONFIRM_MS = 15 * 60_000, CONFIRM_TRIES = 5, CONFIRM_GAP_MS = 60_000, CONFIRM_PER_DAY = 6, CONFIRM_PER_ADDRESS_HOUR = 3;
@@ -66,6 +68,7 @@ export class AuthService {
    */
   async seed(accounts: Array<{ username: string; password: string; role: Role; fromEnv?: boolean }>, publicServer = false) {
     for (const a of accounts) {
+      if (!a.fromEnv && !publicServer) this.builtIn.set(a.username.toLowerCase(), a.password); // (0.9.9.9.7.3: see login)
       const existing = await this.store.findByUsername(a.username);
       const known = publicServer && a.fromEnv === false;
       if (!existing) { if (!known) await this.store.create({ username: a.username, passwordHash: await hashPassword(a.password), role: a.role }); }
@@ -295,7 +298,14 @@ export class AuthService {
    * so it says nothing about which do. "Forgot password?" still works meanwhile.
    */
   private loginFails = new Strikes(LOGIN_FAILS, LOGIN_WINDOW_MS);
-  async login(username: unknown, password: unknown, now = Date.now()) {
+  /**
+   * 0.9.9.9.7.3: the built-in accounts still on their built-in password (it is in the public code) → that password.
+   * It signs in only from the server's own computer: a server that isn't Render (or NODE_ENV=production) made `admin`
+   * with it — anyone could sign in as the admin of a game put online elsewhere without ADMIN_PASSWORD.
+   */
+  private builtIn = new Map<string, string>();
+  /** `ip`: the caller's address (none: a call from the server's own code) */
+  async login(username: unknown, password: unknown, now = Date.now(), ip?: string) {
     const name = String(username ?? '').trim();
     const key = name.toLowerCase();
     if (this.loginFails.blocked(key, now)) {
@@ -305,6 +315,9 @@ export class AuthService {
     const rec = await this.store.findByUsername(name);
     // same message for unknown user and wrong password, so usernames can't be probed
     if (!rec || !(await verifyPassword(String(password ?? ''), rec.passwordHash))) { this.loginFails.add(key, now); throw new AuthError('Wrong username or password', 401); }
+    if (ip !== undefined && !isLoopback(ip) && this.builtIn.get(rec.username.toLowerCase()) === String(password)) {
+      throw new AuthError('This account still has its built-in password — it signs in only on the server itself. Set ADMIN_PASSWORD (or USER_PASSWORD) on the server.', 403);
+    }
     if (rec.banned) throw new AuthError('This account has been banned', 403);
     return { token: this.tokens.sign(rec.id), user: toSelf(rec) };
   }

@@ -229,7 +229,8 @@ export interface ChallengeMsg {
 }
 
 export type ServerMessage =
-  | { type: 'welcome'; user: PublicUser; /** 0.9.9.9.6.4: the build the server serves — an older app updates itself */ build?: string }
+  | { type: 'welcome'; user: PublicUser; /** 0.9.9.9.6.4: the build the server serves — an older app updates itself */ build?: string;
+      /** 0.9.9.9.7.3: whether you still have a seat in a room (false: the room closed while you were away) */ seated?: boolean }
   | { type: 'ping'; t: number }
   /**
    * online queue: searching (since = server time it started; requeued = the other player didn't accept),

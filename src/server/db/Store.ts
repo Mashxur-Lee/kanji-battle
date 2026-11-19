@@ -110,6 +110,15 @@ export interface Store {
   dailyBoard(day: string, limit: number): Promise<DailyResult[]>;
   /** How many results beat this one (rank = that + 1). */
   dailyBetter(day: string, correct: number, ms: number): Promise<number>;
+  /**
+   * 0.9.9.9.7.3: the lifetime totals the achievements are checked against, added up by the store — every profile loaded
+   * the player's whole activity history, every card and every friend to count them
+   */
+  achStats(userId: string, masteredDays: number): Promise<AchStats>;
+  /** 0.9.9.9.7.3: how many played (it fetched the whole board — up to 100,000 rows — to count them) */
+  dailyCount(day: string): Promise<number>;
+  /** 0.9.9.9.7.3: these players' results, in one go (the friends' race asked once per friend) */
+  dailyOf(day: string, userIds: string[]): Promise<Map<string, { correct: number; ms: number; marks?: string }>>;
   friends(userId: string): Promise<FriendLink[]>;
   /** A request from → to. If `to` had already asked `from`, they become friends at once. */
   requestFriend(from: string, to: string): Promise<'requested' | 'accepted' | 'exists'>;
@@ -149,6 +158,13 @@ export interface Store {
   addMedia(m: MediaFile): Promise<void>;
   media(id: string): Promise<MediaFile | null>;
   mediaCountSince(ownerId: string, since: number): Promise<number>;
+  /** 0.9.9.9.7.3: the bytes of the photos a player uploaded since then */
+  mediaBytesSince(ownerId: string, since: number): Promise<number>;
+  /**
+   * 0.9.9.9.7.3: removes photos uploaded before `before` that no message and no group picture uses (a deleted message's
+   * photo, one uploaded and never sent); returns how many. Photos were kept forever.
+   */
+  sweepMedia(before: number): Promise<number>;
   /** Measurement: one row per event (tutorial steps, games started / finished …). */
   addEvent(userId: string | null, name: string, at?: number): Promise<void>;
   events(since: number): Promise<GameEventRow[]>;
@@ -197,6 +213,8 @@ export type ActivityDelta = Partial<Omit<DayActivity, 'day'>>;
 /** A daily-challenge result. */
 export interface DailyResult { userId: string; username: string; correct: number; ms: number }
 /** Friends: accepted both ways; a request is 'outgoing' for the sender and 'incoming' for the other player. */
+/** 0.9.9.9.7.3: lifetime totals for the achievements (Store.achStats) */
+export interface AchStats { reviews: number; games: number; quizzes: number; passages: number; challenges: number; activeDays: number; bestDay: number; mastered: number; custom: number; friends: number }
 export interface FriendLink { id: string; username: string; status: 'accepted' | 'incoming' | 'outgoing'; /** the name to show (0.9.9.6) */ name?: string }
 /** the name others see: the nickname, or the login (0.9.9.6) */
 export const displayName = (u: { username: string; nickname?: string | null }) => u.nickname?.trim() || u.username;
@@ -372,6 +390,25 @@ export class MemoryStore implements Store {
   async dailyBetter(day: string, correct: number, ms: number) {
     return [...(this.dailyResults.get(day)?.values() ?? [])].filter((r) => r.correct > correct || (r.correct === correct && r.ms < ms)).length;
   }
+  async dailyCount(day: string) { return this.dailyResults.get(day)?.size ?? 0; }
+  async achStats(userId: string, masteredDays: number): Promise<AchStats> {
+    const days = await this.activity(userId, '0000-01-01');
+    const sum = (k: 'reviews' | 'games' | 'quizzes' | 'passages' | 'challenges') => days.reduce((a, d) => a + (d[k] ?? 0), 0);
+    const cards = await this.cards(userId);
+    return {
+      reviews: sum('reviews'), games: sum('games'), quizzes: sum('quizzes'), passages: sum('passages'), challenges: sum('challenges'),
+      activeDays: days.filter((d) => d.login || d.reviews > 0 || d.games > 0).length, bestDay: days.reduce((a, d) => Math.max(a, d.reviews ?? 0), 0),
+      mastered: new Set(cards.filter((c) => c.state === 'review' && c.intervalDays >= masteredDays).map((c) => c.vocabId)).size,
+      custom: cards.filter((c) => deckOf(c) === 'custom').length,
+      friends: (await this.friends(userId)).filter((f) => f.status === 'accepted').length,
+    };
+  }
+  async dailyOf(day: string, userIds: string[]) {
+    const out = new Map<string, { correct: number; ms: number; marks?: string }>();
+    const d = this.dailyResults.get(day);
+    for (const id of userIds) { const r = d?.get(id); if (r) out.set(id, { ...r }); }
+    return out;
+  }
   protected friendLinks = new Map<string, Map<string, 'pending' | 'accepted'>>(); // from → to → status
   private link(a: string, b: string) { return this.friendLinks.get(a)?.get(b); }
   private setLink(a: string, b: string, s: 'pending' | 'accepted' | null) {
@@ -485,6 +522,16 @@ export class MemoryStore implements Store {
   async addMedia(m: MediaFile) { this.mediaFiles.set(m.id, { ...m }); if (this.mediaFiles.size > 2000) this.mediaFiles.delete(this.mediaFiles.keys().next().value!); this.persist(); }
   async media(id: string) { const m = this.mediaFiles.get(id); return m ? { ...m } : null; }
   async mediaCountSince(ownerId: string, since: number) { let n = 0; for (const m of this.mediaFiles.values()) if (m.ownerId === ownerId && m.at >= since) n++; return n; }
+  async mediaBytesSince(ownerId: string, since: number) { let n = 0; for (const m of this.mediaFiles.values()) if (m.ownerId === ownerId && m.at >= since) n += m.data.length; return n; }
+  async sweepMedia(before: number) {
+    const used = new Set<string>();
+    for (const m of this.dms) if (m.media && !m.deleted) used.add(m.media);
+    for (const g of this.groups.values()) if (g.pic) used.add(g.pic);
+    let n = 0;
+    for (const [id, m] of this.mediaFiles) if (m.at < before && !used.has(id)) { this.mediaFiles.delete(id); n++; }
+    if (n) this.persist();
+    return n;
+  }
   protected eventLog: GameEventRow[] = [];
   async addEvent(userId: string | null, name: string, at = Date.now()) { this.eventLog.push({ userId, name, at }); if (this.eventLog.length > 50_000) this.eventLog.splice(0, 10_000); this.persist(); }
   async events(since: number) { return this.eventLog.filter((e) => e.at >= since).map((e) => ({ ...e })); }

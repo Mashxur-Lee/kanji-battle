@@ -539,8 +539,10 @@ export class StudyService {
     const notice = fresh.newNotice;
     if (notice) await this.store.update(u.id, { newNotice: 0 });
     const custom = await this.words(u.id);
-    await this.fillOno(u.id);
-    const cards = (await this.store.cards(u.id)).filter((c) => !!this.info(c.vocabId, custom));
+    // (0.9.9.9.7.3: the cards once — loaded again only if the Onomatopoeia deck was just filled)
+    let mine = await this.store.cards(u.id);
+    if (await this.fillOno(u.id, mine)) mine = await this.store.cards(u.id);
+    const cards = mine.filter((c) => !!this.info(c.vocabId, custom));
     return {
       studyLevels: fresh.studyLevels,
       notice,
@@ -686,20 +688,19 @@ export class StudyService {
     const userId = u.id;
     const unlocks = u.unlocks ?? [];
     // 0.9.9.6: lifetime totals from the daily activity, mastered and custom words, stars, a nickname
-    const days = await this.store.activity(userId, '0000-01-01');
-    const sum = (k: 'reviews' | 'games' | 'quizzes' | 'passages' | 'challenges') => days.reduce((a, d) => a + (d[k] ?? 0), 0);
-    const cards = await this.store.cards(userId);
+    // (0.9.9.9.7.3: added up by the store — this loaded the whole history, every card and every friend, on each profile)
+    const [s, learned] = await Promise.all([this.store.achStats(userId, MASTERED_DAYS), this.store.learnedCount(userId)]);
     return {
-      wins: u.wins, level: levelOf(u.xp), bestStreak: u.bestStreak ?? 0, learned: await this.store.learnedCount(userId),
-      friends: (await this.store.friends(userId)).filter((f) => f.status === 'accepted').length,
+      wins: u.wins, level: levelOf(u.xp), bestStreak: u.bestStreak ?? 0, learned,
+      friends: s.friends,
       seasonal: unlocks.filter((x) => x.startsWith('flame:') || x.startsWith('staff:')).length, match,
-      reviews: sum('reviews'), games: sum('games'), quizzes: sum('quizzes'), passages: sum('passages'), challenges: sum('challenges'),
-      activeDays: days.filter((d) => d.login || d.reviews > 0 || d.games > 0).length,
-      mastered: new Set(cards.filter((c) => c.state === 'review' && c.intervalDays >= MASTERED_DAYS).map((c) => c.vocabId)).size,
-      starred: (u.starred ?? []).length, custom: cards.filter((c) => deckOf(c) === 'custom').length, nickname: !!u.nickname?.trim(),
+      reviews: s.reviews, games: s.games, quizzes: s.quizzes, passages: s.passages, challenges: s.challenges,
+      activeDays: s.activeDays,
+      mastered: s.mastered,
+      starred: (u.starred ?? []).length, custom: s.custom, nickname: !!u.nickname?.trim(),
       // 0.9.9.9.5: the Kana section, and the most study cards answered in one day
       kanaBasic: masteredCount(u.kana ?? {}, kanaCells('hira', 'basic')), kanaHira: masteredCount(u.kana ?? {}, kanaCells('hira')),
-      kanaKata: masteredCount(u.kana ?? {}, kanaCells('kata')), bestDay: days.reduce((a, d) => Math.max(a, d.reviews ?? 0), 0),
+      kanaKata: masteredCount(u.kana ?? {}, kanaCells('kata')), bestDay: s.bestDay,
     };
   }
 
@@ -721,11 +722,13 @@ export class StudyService {
   }
 
   /** 0.9.9.4.4: the Onomatopoeia deck holds every onomatopoeia word — put them in when it is empty (new words too) */
-  private async fillOno(userId: string) {
+  /** `have`: the player's cards, if already loaded (0.9.9.9.7.3); true when it filled the deck */
+  private async fillOno(userId: string, have?: SrsCard[]): Promise<boolean> {
     // only an empty deck is filled (a word you took out stays out)
-    if ((await this.store.cards(userId)).some((c) => deckOf(c) === 'ono')) return;
+    if ((have ?? await this.store.cards(userId)).some((c) => deckOf(c) === 'ono')) return false;
     const now = clockNow();
     await this.store.addCards(userId, onoWords().map((v) => newCard(v.id, now, 'ono')));
+    return true;
   }
 
   /** Avatar border (Customize → Profile), unlocked by level; admins have all. */
