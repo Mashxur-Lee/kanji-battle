@@ -15,7 +15,7 @@ import { createWritingJudge, isWritable } from './handwriting/judge';
 import { Recognizer } from './handwriting/recognizer';
 import { createApiHandler } from './http';
 import { StudyService } from './study/StudyService';
-import { DailyService } from './study/DailyService';
+import { DailyService, secretSeed } from './study/DailyService';
 import { SocialService } from './study/SocialService';
 import { RoomManager } from './RoomManager';
 import { deviceOf, Session, SessionHub, setServerBuild } from './Session';
@@ -46,7 +46,11 @@ const tokens = new TokenSigner();
 const auth = new AuthService(store, tokens);
 const study = new StudyService(store);
 const hub = new SessionHub((userId, at) => { void store.update(userId, { lastSeen: at }).catch(() => { /* not important */ }); });
-const daily = new DailyService(store, study.progress);
+// 0.9.9.9.7.1: the Daily challenge's words from a secret (the code is public: without it anyone can work out any
+// day's ten words). At least 16 characters; set it once and keep it (see docs/SETUP.md).
+const DAILY_SECRET = (process.env.DAILY_SECRET ?? '').trim();
+const dailySeed = secretSeed(DAILY_SECRET);
+const daily = new DailyService(store, study.progress, undefined, { seed: dailySeed });
 daily.onPerfect = (id) => study.grantAchievements(id, undefined, ['perfect-day']);
 const social = new SocialService(store, hub);
 // 0.9.9.9.5.3: a friend coming online (or leaving) shows at once — the friends list and the lobby's invite list
@@ -307,6 +311,8 @@ store.init().then(() => auth.seed([
     console.log(`Kanji Battle running on http://localhost:${port}`);
     console.log(`Kanji Wizards v${VERSION}`);
     console.log(`Email (password resets): ${mailer.how}`);
+    if (dailySeed) console.log('Daily challenge words: picked with DAILY_SECRET');
+    else console.warn(`DAILY_SECRET not set${DAILY_SECRET ? ' (it needs at least 16 characters)' : ''}: anyone with the game's code can work out the Daily challenge's words — see docs/SETUP.md`);
     console.log(`Accounts: ${auth.store.name}${tokens.ephemeral ? ' · AUTH_SECRET not set: logins reset on restart' : ''}`);
     // 0.9.9.9.6.9: guests not seen for a month are removed (once at start, then daily)
     const sweep = () => auth.sweepGuests().then((n) => { if (n) console.log(`Removed ${n} guest${n === 1 ? '' : 's'} not seen for a month`); }).catch((e) => console.error('[guests]', e));

@@ -1,4 +1,5 @@
-import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { Strikes } from '../strikes';
 import { displayName } from '../db/Store';
 import { dailyCrit } from '../../shared/progress';
 import type { AdminUserRow, PublicUser, Role } from '../../shared/protocol';
@@ -41,7 +42,14 @@ export const emailVerified = (u: { email?: string | null; unlocks?: string[] }) 
 export const toSelf = (u: UserRecord): PublicUser => ({ ...toPublic(u), email: maskEmail(u.email), emailVerified: emailVerified(u), ...(isGuest(u) ? { guest: true } : {}) });
 /** a password-reset code: 6 digits, half an hour, 5 tries */
 const RESET_MS = 30 * 60_000, RESET_TRIES = 5, RESET_GAP_MS = 60_000;
-const sha = (s: string) => createHash('sha256').update(s).digest();
+/** 0.9.9.9.7.1: per account and day — reset emails, and wrong reset codes before resets stop until tomorrow */
+export const RESET_PER_DAY = 5, RESET_WRONG_PER_DAY = 20;
+/** 0.9.9.9.7.1: wrong passwords per account before it rests */
+export const LOGIN_FAILS = 10, LOGIN_WINDOW_MS = 15 * 60_000;
+const DAY_MS = 86_400_000;
+interface ResetRecord { hash: string; until: number; tries: number; sentAt: number; /** when codes were sent / wrong ones tried (the last day) */ sent: number[]; wrong: number[] }
+interface ConfirmRecord { email: string; key: string; hash: string; until: number; tries: number; sentAt: number; day: string; today: number }
+const readJson = <T>(raw: string | null): T | null => { if (!raw) return null; try { return JSON.parse(raw) as T; } catch { return null; } };
 export interface ResetMail { user: UserRecord; email: string; code: string; lang: 'en' | 'ru'; /** 0.9.9.9.7: a reset code, or a code to confirm an email */ kind?: 'reset' | 'confirm' }
 const CONFIRM_MS = 15 * 60_000, CONFIRM_TRIES = 5, CONFIRM_GAP_MS = 60_000, CONFIRM_PER_DAY = 6, CONFIRM_PER_ADDRESS_HOUR = 3;
 
@@ -175,30 +183,37 @@ export class AuthService {
   }
 
   // ── 0.9.9.9.7: confirming an email — a code to it, then it's the account's ──
-  private confirms = new Map<string, { email: string; key: string; hash: Buffer; until: number; tries: number; sentAt: number; day: string; today: number }>();
-  private sentTo = new Map<string, number[]>();
+  // (0.9.9.9.7.1: the codes and their counters are kept in the store, not in memory — a deploy no longer loses a code
+  // on its way, or forgives the limits; a code is kept as a keyed hash: tokens.digest)
+  private async confirmOf(userId: string): Promise<ConfirmRecord | null> { return readJson<ConfirmRecord>(await this.store.getValue(`confirm:${userId}`)); }
+  private codeHash(what: string, userId: string, code: string) { return this.tokens.digest(`${what}:${userId}:${code}`); }
+  private codeOk(what: string, userId: string, code: unknown, hash: string) {
+    const given = Buffer.from(this.codeHash(what, userId, String(code ?? '').replace(/\s/g, '')), 'hex');
+    const want = Buffer.from(hash, 'hex');
+    return given.length === want.length && timingSafeEqual(given, want);
+  }
   /** sends a code to `email` for `u`; returns the address, masked (what the player sees: "a code went to h***@gmail.com") */
   private async askConfirm(u: UserRecord, email: string, sendMail: (m: ResetMail) => Promise<void>, now = Date.now()): Promise<string> {
     const key = emailKey(email);
-    const was = this.confirms.get(u.id);
+    const was = await this.confirmOf(u.id);
     if (was && was.key === key && now - was.sentAt < CONFIRM_GAP_MS) return maskEmail(email)!; // (the last one is still on its way)
     if (was && now - was.sentAt < CONFIRM_GAP_MS) throw new AuthError('Wait a minute before asking for another code', 429);
     const day = new Date(now).toISOString().slice(0, 10);
     const today = was && was.day === day ? was.today : 0;
     if (today >= CONFIRM_PER_DAY) throw new AuthError('Too many codes today — try again tomorrow', 429);
     // (one mailbox gets at most 3 codes an hour, from all accounts together: nobody can flood someone else's inbox)
-    const times = (this.sentTo.get(key) ?? []).filter((t) => now - t < 3_600_000);
+    const times = (readJson<number[]>(await this.store.getValue(`sentto:${key}`)) ?? []).filter((t) => now - t < 3_600_000);
     if (times.length >= CONFIRM_PER_ADDRESS_HOUR) throw new AuthError('Too many codes went to that address — try again in an hour', 429);
-    this.sentTo.set(key, [...times, now]);
+    await this.store.setValue(`sentto:${key}`, JSON.stringify([...times, now]));
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    this.confirms.set(u.id, { email, key, hash: sha(code), until: now + CONFIRM_MS, tries: 0, sentAt: now, day, today: today + 1 });
+    await this.store.setValue(`confirm:${u.id}`, JSON.stringify({ email, key, hash: this.codeHash('confirm', u.id, code), until: now + CONFIRM_MS, tries: 0, sentAt: now, day, today: today + 1 } satisfies ConfirmRecord));
     const lang = (u.unlocks ?? []).includes('plang:ru') ? 'ru' : 'en';
     void sendMail({ user: u, email, code, lang, kind: 'confirm' }).catch((e) => console.error('[confirm mail]', e));
     return maskEmail(email)!;
   }
   /** "Send it again": the address waiting for a code — or, for an email from before 0.9.9.9.7, the account's own */
   async resendConfirm(u: UserRecord, sendMail: (m: ResetMail) => Promise<void>, now = Date.now()) {
-    const was = this.confirms.get(u.id);
+    const was = await this.confirmOf(u.id);
     const email = was && now < was.until + 3_600_000 ? was.email : !emailVerified(u) ? u.email : null;
     if (!email) throw new AuthError('There is no email to confirm — add one first', 400);
     if (was && now - was.sentAt < CONFIRM_GAP_MS) throw new AuthError('Wait a minute before asking for another code', 429);
@@ -206,12 +221,13 @@ export class AuthService {
   }
   /** the code from the email: the address becomes the account's (and confirmed) */
   async confirmEmail(u: UserRecord, code: unknown, now = Date.now()) {
-    const c = this.confirms.get(u.id);
+    const c = await this.confirmOf(u.id);
     const bad = new AuthError('That code is wrong or has expired — ask for a new one', 400);
-    if (!c || now > c.until || c.tries >= CONFIRM_TRIES) throw bad;
+    if (!c || !c.hash || now > c.until || c.tries >= CONFIRM_TRIES) throw bad;
     c.tries++;
-    if (!timingSafeEqual(sha(String(code ?? '').replace(/\s/g, '')), c.hash)) throw bad;
-    this.confirms.delete(u.id);
+    if (!this.codeOk('confirm', u.id, code, c.hash)) { await this.store.setValue(`confirm:${u.id}`, JSON.stringify(c)); throw bad; }
+    // (the code is used up; the day's count stays — "6 codes a day" holds across a restart)
+    await this.store.setValue(`confirm:${u.id}`, JSON.stringify({ ...c, hash: '', until: 0, sentAt: 0 }));
     const other = await this.store.findByEmailKey(c.key);
     if (other && other.id !== u.id) throw new AuthError('That email already has an account', 409);
     const fresh = (await this.store.findById(u.id)) ?? u;
@@ -227,29 +243,38 @@ export class AuthService {
   }
 
   // ── 0.9.9.9.6.6: forgot your password — a code by email ──
-  private resets = new Map<string, { hash: Buffer; until: number; tries: number; sentAt: number }>();
+  // (0.9.9.9.7.1: kept in the store with its counters — at most 5 codes a day per account, and after 20 wrong codes in
+  // a day no more codes and no more tries until the next day. It was one a minute, all day: 1,440 emails to someone
+  // who never asked, and 5 more guesses with each new code.)
+  private async resetOf(userId: string): Promise<ResetRecord | null> { return readJson<ResetRecord>(await this.store.getValue(`reset:${userId}`)); }
   /** sends the code through `mail`; says nothing about whether the account exists (the caller always answers the same) */
   async forgot(login: unknown, mail: (m: ResetMail) => Promise<void>, now = Date.now()): Promise<void> {
     const rec = await this.byLogin(login);
     if (!rec?.email || rec.banned || !emailVerified(rec)) return; // (0.9.9.9.7: only to a confirmed address)
-    const was = this.resets.get(rec.id);
+    const was = await this.resetOf(rec.id);
     if (was && now - was.sentAt < RESET_GAP_MS) return; // (one a minute)
+    const sent = (was?.sent ?? []).filter((t) => now - t < DAY_MS);
+    const wrong = (was?.wrong ?? []).filter((t) => now - t < DAY_MS);
+    if (sent.length >= RESET_PER_DAY || wrong.length >= RESET_WRONG_PER_DAY) return; // (0.9.9.9.7.1: enough for today)
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    this.resets.set(rec.id, { hash: sha(code), until: now + RESET_MS, tries: 0, sentAt: now });
+    await this.store.setValue(`reset:${rec.id}`, JSON.stringify({ hash: this.codeHash('reset', rec.id, code), until: now + RESET_MS, tries: 0, sentAt: now, sent: [...sent, now], wrong } satisfies ResetRecord));
     const lang = (rec.unlocks ?? []).includes('plang:ru') ? 'ru' : 'en';
     await mail({ user: rec, email: rec.email, code, lang, kind: 'reset' });
   }
   async resetPassword(login: unknown, code: unknown, next: unknown, now = Date.now()) {
     const rec = await this.byLogin(login);
-    const r = rec ? this.resets.get(rec.id) : undefined;
+    const r = rec ? await this.resetOf(rec.id) : null;
     const bad = new AuthError('That code is wrong or has expired — ask for a new one', 400);
-    if (!rec || !r || now > r.until || r.tries >= RESET_TRIES) throw bad;
+    if (!rec || !r) throw bad;
+    r.wrong = r.wrong.filter((t) => now - t < DAY_MS);
+    if (r.wrong.length >= RESET_WRONG_PER_DAY) throw new AuthError('Too many wrong codes — try again tomorrow', 429);
+    if (!r.hash || now > r.until || r.tries >= RESET_TRIES) throw bad;
     r.tries++;
-    const given = sha(String(code ?? '').replace(/\s/g, ''));
-    if (!timingSafeEqual(given, r.hash)) throw bad;
+    if (!this.codeOk('reset', rec.id, code, r.hash)) { r.wrong.push(now); await this.store.setValue(`reset:${rec.id}`, JSON.stringify(r)); throw bad; }
     const p = String(next ?? '');
-    if (p.length < 6 || p.length > 72) throw new AuthError('Password: at least 6 characters');
-    this.resets.delete(rec.id);
+    if (p.length < 6 || p.length > 72) { await this.store.setValue(`reset:${rec.id}`, JSON.stringify(r)); throw new AuthError('Password: at least 6 characters'); }
+    // (the code is used up; the day's counts stay)
+    await this.store.setValue(`reset:${rec.id}`, JSON.stringify({ ...r, hash: '', until: 0, sentAt: 0 }));
     const at = Math.floor(now / 1000) * 1000;
     const unlocks = [...(rec.unlocks ?? []).filter((x) => !x.startsWith(PW_MARK)), `${PW_MARK}${at}`]; // (every device signed out)
     const fresh = await this.store.update(rec.id, { passwordHash: await hashPassword(p), unlocks });
@@ -264,10 +289,22 @@ export class AuthService {
     return this.store.findByUsername(s);
   }
 
-  async login(username: unknown, password: unknown) {
-    const rec = await this.store.findByUsername(String(username ?? '').trim());
+  /**
+   * 0.9.9.9.7.1: wrong passwords per account — after 10 in 15 minutes the account takes no password for a while (the
+   * limit per address alone let many addresses keep guessing one account). Counted for logins that don't exist too,
+   * so it says nothing about which do. "Forgot password?" still works meanwhile.
+   */
+  private loginFails = new Strikes(LOGIN_FAILS, LOGIN_WINDOW_MS);
+  async login(username: unknown, password: unknown, now = Date.now()) {
+    const name = String(username ?? '').trim();
+    const key = name.toLowerCase();
+    if (this.loginFails.blocked(key, now)) {
+      const min = Math.max(1, Math.ceil(this.loginFails.waitMs(key, now) / 60_000));
+      throw new AuthError(`Too many wrong passwords for this account — try again in ${min} min`, 429);
+    }
+    const rec = await this.store.findByUsername(name);
     // same message for unknown user and wrong password, so usernames can't be probed
-    if (!rec || !(await verifyPassword(String(password ?? ''), rec.passwordHash))) throw new AuthError('Wrong username or password', 401);
+    if (!rec || !(await verifyPassword(String(password ?? ''), rec.passwordHash))) { this.loginFails.add(key, now); throw new AuthError('Wrong username or password', 401); }
     if (rec.banned) throw new AuthError('This account has been banned', 403);
     return { token: this.tokens.sign(rec.id), user: toSelf(rec) };
   }

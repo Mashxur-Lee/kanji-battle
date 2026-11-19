@@ -69,6 +69,7 @@ test('0.9.9.9.6.4 daily leagues: a league\'s rewards come when you PASS it (7/10
   assert.equal(d2.promoted, null);
   assert.equal(d2.passed, 'N1');
   assert.ok(borderUnlocked('lg-n1', 0, (await store.findById(top.id))!.unlocks));
+  now += 86_400_000; // (0.9.9.9.7.1: the next day's challenge comes the next day — at 08:00 UTC no time zone is on the 15th yet)
   const d3 = await run(top, '2026-11-15', 'N1', 9);
   assert.equal(d3.passed, null, 'passed already: no second reward screen');
   // fewer than 7: nothing

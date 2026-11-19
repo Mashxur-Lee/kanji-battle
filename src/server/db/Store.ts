@@ -154,6 +154,13 @@ export interface Store {
   events(since: number): Promise<GameEventRow[]>;
   /** Everyone's sign-up day and the days they were active (admin → Stats: retention). */
   activityAll(fromDay: string): Promise<Array<{ userId: string; day: string; games: number }>>;
+  /**
+   * 0.9.9.9.7.1: small things the server must not forget when it restarts (a deploy): a password-reset or email code
+   * on its way, a Daily challenge run half played, from which day the Daily's words are picked with the secret.
+   * null removes it.
+   */
+  getValue(key: string): Promise<string | null>;
+  setValue(key: string, value: string | null): Promise<void>;
   close?(): Promise<void>;
 }
 
@@ -486,6 +493,9 @@ export class MemoryStore implements Store {
     for (const [userId, days] of this.activityLog) for (const a of days.values()) if (a.day >= fromDay) out.push({ userId, day: a.day, games: a.games });
     return out;
   }
+  protected values = new Map<string, string>(); // 0.9.9.9.7.1
+  async getValue(key: string) { return this.values.get(key) ?? null; }
+  async setValue(key: string, value: string | null) { if (value === null) this.values.delete(key); else this.values.set(key, value); this.persist(); }
   protected persist() { /* memory only */ }
 }
 
@@ -525,6 +535,7 @@ export class FileStore extends MemoryStore {
         this.srs.set(uid, m);
       }
       for (const [uid, words] of Object.entries((data.custom ?? {}) as Record<string, CustomWord[]>)) this.custom.set(uid, words);
+      for (const [k, v] of Object.entries((data.values ?? {}) as Record<string, string>)) this.values.set(k, v); // 0.9.9.9.7.1
     }
   }
   protected persist() {
@@ -535,7 +546,7 @@ export class FileStore extends MemoryStore {
     const activity = Object.fromEntries([...this.activityLog].map(([uid, m]) => [uid, [...m.values()]]));
     const daily = Object.fromEntries([...this.dailyResults].map(([day, m]) => [day, Object.fromEntries(m)]));
     const friends = Object.fromEntries([...this.friendLinks].map(([uid, m]) => [uid, Object.fromEntries(m)]));
-    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history), activity, daily, friends, reports: this.reportList, events: this.eventLog, messages: this.dms, custom: Object.fromEntries(this.custom), groups: [...this.groups.values()], groupMembers: this.members, media: [...this.mediaFiles.values()].map((m) => ({ id: m.id, ownerId: m.ownerId, mime: m.mime, at: m.at, b64: m.data.toString('base64') })) }));
+    writeFileSync(tmp, JSON.stringify({ xpScheme: 2, users: [...this.users.values()], srs, avatars, matches: Object.fromEntries(this.history), activity, daily, friends, reports: this.reportList, events: this.eventLog, messages: this.dms, custom: Object.fromEntries(this.custom), groups: [...this.groups.values()], groupMembers: this.members, media: [...this.mediaFiles.values()].map((m) => ({ id: m.id, ownerId: m.ownerId, mime: m.mime, at: m.at, b64: m.data.toString('base64') })), values: Object.fromEntries(this.values) }));
     renameSync(tmp, this.file); // atomic replace
   }
 }

@@ -44,12 +44,30 @@ export const shiftDay = (day: string, days: number) => new Date(Date.parse(day) 
  * The player's day for things the server records without the browser's date (match results): their last
  * login day if it's within a day of the server's, otherwise the server's date.
  */
-/** The player's own date (YYYY-MM-DD from the app), if it is within a day of the server's; else the server's. */
+/** 0.9.9.9.7.1: the UTC offsets real time zones use, in minutes (UTC−12 … UTC+14) */
+export const TZ_MIN = -12 * 60, TZ_MAX = 14 * 60;
+/**
+ * 0.9.9.9.7.1: the UTC offsets (minutes, inclusive) at which `day` is the date on the clock at the real moment `at` —
+ * null when no real time zone has that date now.
+ */
+export function offsetsFor(day: string, at: number): [number, number] | null {
+  const start = /^\d{4}-\d{2}-\d{2}$/.test(day) ? Date.parse(`${day}T00:00:00Z`) : NaN;
+  if (!Number.isFinite(start)) return null;
+  const lo = Math.max(TZ_MIN, Math.ceil((start - at) / 60_000));
+  const hi = Math.min(TZ_MAX, Math.floor((start + DAY_MS - 1 - at) / 60_000));
+  return lo <= hi ? [lo, hi] : null;
+}
+
+/**
+ * The player's own date (YYYY-MM-DD from the app), if some real time zone is on that date now; else the server's.
+ * (0.9.9.9.7.1: it was "within a day of the server's date" — yesterday, today and tomorrow were all taken at any hour,
+ * so a daily limit could be had three times; now only the dates the world is really on at that moment — two, except
+ * from 10:00 to 12:00 UTC, when UTC+14 is already on tomorrow and UTC−12 still on yesterday.)
+ */
 export function resolveToday(clientToday: unknown, at = now()): string {
   const server = new Date(at).toISOString().slice(0, 10);
-  if (typeof clientToday !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(clientToday)) return server;
-  const diff = Math.abs(Date.parse(clientToday) - Date.parse(server));
-  return diff <= 86_400_000 ? clientToday : server;
+  if (typeof clientToday !== 'string' || !offsetsFor(clientToday, at)) return server;
+  return clientToday;
 }
 
 export function playerDay(u: Pick<UserRecord, 'loginDay'>, at = now()) {

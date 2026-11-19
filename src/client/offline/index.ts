@@ -1,5 +1,6 @@
 // Offline mode (0.9.9.4). While the server can't be reached, the API calls that make sense alone — Study
-// spells, decks, the JLPT quiz, reading passages, the daily challenge, Customize, Progress, match history —
+// spells, decks, the JLPT quiz, reading passages, Customize, Progress, match history (0.9.9.9.7.1: no longer the
+// daily challenge — it needs the internet) —
 // are answered by the offline engine (the server's own code, in the browser) on a snapshot of your account.
 // Every change is also written to an outbox; once the server answers again the outbox is replayed in order,
 // each call stamped with the moment you made it (X-KW-At), and a fresh snapshot replaces the local one.
@@ -8,6 +9,7 @@ import type { Snapshot } from '../../server/db/Store';
 import { SNAPSHOT_V } from '../../server/db/Store';
 import { createEngine, type Engine } from './engine';
 import * as kv from './idb';
+import { handles } from '../../shared/offline';
 
 /** `op`: the call's id — the server answers a repeated id from memory instead of doing it twice (0.9.9.4.2) */
 export interface OutboxEntry { method: string; url: string; body?: unknown; at: number; op?: string }
@@ -30,14 +32,9 @@ const boxKey = (uid: string) => `outbox:${uid}`;
 const storedUid = () => { try { return localStorage.getItem(UID_KEY) ?? ''; } catch { return ''; } };
 
 // ── which calls work offline ────────────────────────────────────────────────
-const OFFLINE_ROUTES: Array<[string, RegExp]> = [
-  ['GET', /^\/api\/(me|study|study\/queue|study\/deck|study\/search|study\/quiz|progress|daily|matches|matches\/[\w-]+)$/],
-  // 0.9.9.7.2: ★ stars and the Onomatopoeia number work offline too (saved, then sent when you're back online)
-  ['PUT', /^\/api\/(me\/(flame|staff|background|border|badges|kana|tutorial)|study\/levels|study\/daily-levels|study\/daily-new|study\/star|study\/ono-daily|kana)$/], // (0.9.9.9.5: + the Kana section)
-  ['POST', /^\/api\/(study\/(review|undo|deck\/remove|deck\/add|custom|task)|daily\/(start|answer|finish))$/],
-];
+// (0.9.9.9.7.1: the list is shared with the server — src/shared/offline.ts)
+export { handles };
 const pathOf = (url: string) => url.split('?')[0];
-export const handles = (method: string, url: string) => OFFLINE_ROUTES.some(([m, re]) => m === method && re.test(pathOf(url)));
 /** Calls that change something (replayed later). GET /api/me records the day's login, GET /api/study adds the day's new cards. */
 const changes = (method: string, url: string) => method !== 'GET' || /^\/api\/(me|study)$/.test(pathOf(url));
 

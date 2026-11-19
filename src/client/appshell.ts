@@ -60,7 +60,7 @@ export function initApp(hooks: { canReload: () => boolean; backOnline: () => voi
   offline.onChange((off) => {
     document.body.classList.toggle('offline', off);
     hooks.netStatus();
-    if (off) ui.toast('You\'re offline. Study spells, the quiz, reading passages, the daily challenge, Customize and private games against the AI still work — your progress syncs when you\'re back online.', 6000);
+    if (off) ui.toast('You\'re offline. Study spells, the quiz, reading passages, Customize and private games against the AI still work — your progress syncs when you\'re back online.', 6000); // (0.9.9.9.7.1: the daily challenge needs internet)
     else { ui.toast('Back online — your progress is synced.', 3500); hooks.backOnline(); }
   });
   // offline: online-only buttons explain themselves instead of doing nothing

@@ -6,6 +6,7 @@ import { AuthError, type AuthService } from './auth/AuthService';
 import type { StudyService } from './study/StudyService';
 import { createApiRouter, MAX_BODY, type ApiExtras, type ApiResponse } from './router';
 import { setNowProvider } from './now';
+import { DAILY_PLAY, handles } from '../shared/offline';
 
 export type { ApiExtras } from './router';
 
@@ -62,7 +63,17 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
       token: (req.headers.authorization ?? '').replace(/^Bearer\s+/i, ''),
       json: (max) => readJson(req, max),
     });
-    const at = replayTime(req.headers['x-kw-at']);
+    // 0.9.9.9.7.1: the moment a call was made offline counts only for the calls the app really does offline (study,
+    // decks, Customize…). Any call could set the server's clock up to a week back before — the Daily challenge's
+    // timer too: 10 / 10 "in 2 seconds" with all the time in the world. A Daily move sent as a replay (an older app
+    // that played it offline) is refused: its timing can't be trusted, and the app drops it from its outbox.
+    const stamped = req.headers['x-kw-at'] !== undefined;
+    if (stamped && req.method === 'POST' && DAILY_PLAY.test(url)) {
+      res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
+        .end(JSON.stringify({ error: 'The Daily challenge is played online — a run played offline can\'t be counted' }));
+      return true;
+    }
+    const at = stamped && handles(req.method ?? 'GET', url) ? replayTime(req.headers['x-kw-at']) : null;
     const op = req.method !== 'GET' ? opOf(req.headers['x-kw-op']) : null;
     const token = (req.headers.authorization ?? '').slice(-16);
     const seen = op ? recalledOp(`${token}:${op}`) : null;

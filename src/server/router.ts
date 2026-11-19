@@ -16,6 +16,7 @@ import { playerDay } from './study/ProgressService';
 import { now as clockNow } from './now';
 import { isStoryLevel, StoryService } from './study/StoryService';
 import type { DictService } from './study/DictService';
+import { Strikes } from './strikes';
 
 export const MAX_BODY = 4 * 1024;
 
@@ -78,6 +79,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
   const signupLimiter = new RateLimiter(10, 3600_000);
+  const loginFails = new Strikes(20, 60_000); // 0.9.9.9.7.1: wrong passwords per address
 
   // 0.9.9.9.5: a GET whose database connection failed while opening (the database waking up) is tried again —
   // up to 3 times over ~4 s — instead of failing with "Server error" and an Inbox entry
@@ -119,13 +121,20 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         void insights?.event(u.id, 'signup');
         return res(200, result);
       }
-      if (r.method === 'POST' && (url === '/api/register' || url === '/api/login')) {
+      if (r.method === 'POST' && url === '/api/login') {
+        // 0.9.9.9.7.1: an address is limited on its wrong passwords, not on every login (a school or a mobile network
+        // shares one address: one busy minute of right passwords locked everyone there out); each account has its own
+        // limit too (AuthService.login)
+        if (loginFails.blocked(ip)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const body = await r.json();
+        try { return res(200, await auth.login(body.username, body.password)); } catch (e) { if (e instanceof AuthError && e.status === 401) loginFails.add(ip); throw e; }
+      } else if (r.method === 'POST' && url === '/api/register') {
         if (!limiter.allow(ip)) throw new AuthError('Too many attempts — wait a minute', 429);
         // 0.9.9.9.5: and at most 10 new accounts an hour from one address
-        if (url === '/api/register' && !signupLimiter.allow(ip)) throw new AuthError('Too many new accounts from here — try again later', 429);
+        if (!signupLimiter.allow(ip)) throw new AuthError('Too many new accounts from here — try again later', 429);
         const body = await r.json();
-        const result = url === '/api/register' ? await auth.register(body.username, body.password, body.email, sendMail) : await auth.login(body.username, body.password);
-        if (url === '/api/register') void insights?.event(result.user.id, 'signup');
+        const result = await auth.register(body.username, body.password, body.email, sendMail);
+        void insights?.event(result.user.id, 'signup');
         return res(200, result);
       } else if (r.method === 'GET' && url === '/api/online') {
         return res(200, { online: onlineCount?.() ?? 0 });
