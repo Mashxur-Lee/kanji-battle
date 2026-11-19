@@ -88,7 +88,10 @@ export async function arenaPreview(canvas: HTMLCanvasElement): Promise<ArenaApi 
   return create?.(canvas, { lite: arenaQuality() === 'lite', preview: true }) ?? null;
 }
 /** Start loading early (after login) so the first battle doesn't wait. */
-export function preloadArena() { if (wanted()) setTimeout(() => void load(), 1500); }
+// (0.9.9.9.7.4: not on a phone or tablet — 820 KB of 3D, a WebGL context and every shader compiled, right after login,
+// while you're only in the menus: that's when phones lagged. There it comes with the study phase before a battle
+// (primeArena), or when Customize needs it.)
+export function preloadArena() { if (wanted() && !smallOrTouch()) setTimeout(() => void load(), 1500); }
 
 function deactivate() {
   api?.setActive(false);

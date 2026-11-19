@@ -120,7 +120,7 @@ function drawWord(w: DictEntry) {
   (ru ?? w.senses.map((s) => s[1])).slice(0, 8).forEach((m) => means.append(h('li', '', m, { 'data-no-i18n': '' })));
   if (ru && w.senses.length) means.append(h('li', 'dr-en', w.senses.slice(0, 2).map((s) => s[1]).join('; '), { 'data-no-i18n': '' }));
   const acts = h('div', 'dr-acts');
-  if (voiceAvailable()) { const s = h('button', 'pill', '🔊', { type: 'button', title: tr('Listen') }); s.onclick = () => void speak(w.kana[0] ?? ''); acts.append(s); }
+  if (voiceAvailable()) { const s = h('button', 'pill', '', { type: 'button', title: tr('Listen'), 'aria-label': tr('Listen') }); s.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M4 9h3.5L12 5v14l-4.5-4H4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'; s.onclick = () => void speak(w.kana[0] ?? ''); acts.append(s); }
   acts.append(addTo(w));
   if (!ROOM_SCREENS.has(screen)) {
     const full = h('button', 'pill', `${tr('Full entry')} →`, { type: 'button' });

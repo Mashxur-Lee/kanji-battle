@@ -5,12 +5,42 @@ import { ACH_PREFIX, ACHIEVEMENTS } from '../shared/achievements';
 import { badgeRow, renderAchievements } from './achievements';
 import { lookCard } from './study';
 import * as ui from './ui';
+import { api } from './api';
+import { reportDialog } from './account';
+import { tr } from './i18n';
 
 function h(tag: string, cls = '', text?: string | number): HTMLElement {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
   if (text !== undefined) e.textContent = String(text);
   return e;
+}
+
+// ── 0.9.9.9.7.4: block and report — on someone else's card, for a signed-in player (not a guest) ──
+export interface Viewer { id: string; guest: boolean; blocked(): string[]; setBlocked(ids: string[]): void }
+let viewer: () => Viewer | null = () => null;
+export function setPlayerViewer(fn: () => Viewer | null) { viewer = fn; }
+function safety(p: PublicProfile): HTMLElement | null {
+  const v = viewer();
+  if (!v || v.guest || v.id === p.id) return null;
+  const row = h('div', 'pv-safety');
+  const blk = h('button', 'pill small') as HTMLButtonElement;
+  blk.type = 'button';
+  const paint = () => { blk.textContent = tr(v.blocked().includes(p.id) ? 'Unblock' : 'Block'); };
+  paint();
+  blk.onclick = async () => {
+    const on = !v.blocked().includes(p.id);
+    if (on && !confirm(tr('Block this player? They can’t message you, add you as a friend or invite you, and they stop being your friend. They aren’t told.'))) return;
+    blk.disabled = true;
+    try { const r = await api.block(p.id, on); v.setBlocked(r.blocked); paint(); ui.toast(tr(on ? 'Blocked' : 'Unblocked'), 2000); }
+    catch (e) { ui.toast((e as Error).message); }
+    finally { blk.disabled = false; }
+  };
+  const rep = h('button', 'pill small', tr('Report')) as HTMLButtonElement;
+  rep.type = 'button';
+  rep.onclick = () => reportDialog({ id: p.id, name: p.name }, () => ui.toast(tr('Thanks — the team will look at it'), 3000));
+  row.append(blk, rep);
+  return row;
 }
 
 export function showPlayer(p: PublicProfile, extra?: HTMLElement) {
@@ -36,6 +66,8 @@ export function showPlayer(p: PublicProfile, extra?: HTMLElement) {
     sec.append(h('h3', '', 'Their look'), lookCard(p.look, p.pic, p.name));
     body.push(sec);
   }
+  const safe = safety(p);
+  if (safe) body.push(safe);
   const ach = h('section', 'pv-sec ach-box');
   const have = new Set(p.achievements ?? []);
   renderAchievements(ach, [...have].filter((id) => ACHIEVEMENTS.some((a) => a.id === id)).map((id) => ACH_PREFIX + id), p.badges ?? [], undefined, null);

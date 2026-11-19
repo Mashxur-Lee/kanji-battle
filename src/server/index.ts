@@ -70,13 +70,13 @@ console.log(`Push notifications: ${push.enabled ? 'on' : 'off (set FIREBASE_SERV
 function noteFor(data: Record<string, string>, unlocks: readonly string[] | undefined): PushNote | undefined {
   const ru = (unlocks ?? []).includes('plang:ru');
   if (data.kind === 'invite') return ru
-    ? { title: `⚔ ${data.fromName} приглашает вас`, body: `Комната ${data.mode} · ${data.code} — нажмите, чтобы присоединиться`, tag: `invite-${data.fromId}` }
-    : { title: `⚔ ${data.fromName} invites you`, body: `Join their ${data.mode} room · ${data.code} — tap to join`, tag: `invite-${data.fromId}` };
+    ? { title: `${data.fromName} приглашает вас`, body: `Комната ${data.mode} · ${data.code} — нажмите, чтобы присоединиться`, tag: `invite-${data.fromId}` }
+    : { title: `${data.fromName} invites you`, body: `Join their ${data.mode} room · ${data.code} — tap to join`, tag: `invite-${data.fromId}` };
   // 0.9.9.9.6: a message in the messenger
-  if (data.kind === 'dm') return { title: `✉ ${data.fromName}`, body: data.text, tag: `dm-${data.fromId}` };
+  if (data.kind === 'dm') return { title: data.fromName, body: data.text, tag: `dm-${data.fromId}` };
   if (data.kind === 'test') return ru
-    ? { title: '✓ Уведомления работают', body: 'Так придёт приглашение друга, даже когда игра закрыта.', tag: 'test' }
-    : { title: '✓ Invite notifications work', body: 'This is how a friend’s invite reaches you, even with the game closed.', tag: 'test' };
+    ? { title: 'Уведомления работают', body: 'Так придёт приглашение друга, даже когда игра закрыта.', tag: 'test' }
+    : { title: 'Invite notifications work', body: 'This is how a friend’s invite reaches you, even with the game closed.', tag: 'test' };
   return undefined;
 }
 hub.setNotifier(async (userId, data) => {

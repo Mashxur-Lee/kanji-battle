@@ -514,8 +514,6 @@ function rubyBits(text: string, tap: boolean): Node[] {
   });
   return out;
 }
-/** the form the word takes in the sentence (【[回|まわ]って】 → 回って), as ruby */
-const formOf = (marked: string) => marked.replace(/\[([^\]|]+)\|[^\]]+\]/g, '$1');
 
 function jaLine(n: number) {
   const { ws, ex } = lines[n];
@@ -715,7 +713,7 @@ export function openPassage(words: PWord[]) {
 
 /**
  * 0.9.9.5.1: nothing is written until you ask — set your word levels and the story level first, then
- * "✍ Write the story".
+ * "Write the story".
  */
 function showStart() {
   ++passageBuild; // (a story still on its way for an older passage is dropped)
@@ -733,7 +731,7 @@ function showStart() {
   box.append(el('p', 'hint', fromDeck
     ? tr(`Pick which of your words go in and the story level above, then start. ${n} words of “${DECK_LABEL[passageDeck]}” fit.`)
     : tr('The words you missed go into a story — set the story level above, then start.')));
-  const go = el('button', 'big p-go', storyUsage?.enabled === false ? 'Make the passage' : '✍ Write the story', { type: 'button' }) as HTMLButtonElement;
+  const go = el('button', 'big p-go', storyUsage?.enabled === false ? 'Make the passage' : 'Write the story', { type: 'button' }) as HTMLButtonElement;
   go.onclick = () => { if (!limitHit()) void buildPassage(); };
   box.append(go);
   const last = loadLast();
@@ -893,7 +891,7 @@ async function buildPassage() {
     const bar = el('i');
     const sec = el('span', '', '0');
     const msg = el('p', 'hint');
-    msg.append(`✍ ${tr('Writing a story with your words…')} `, sec, ' s');
+    msg.append(`${tr('Writing a story with your words…')} `, sec, ' s');
     const box = el('div', 'p-load', undefined, { lang: lang() });
     box.append(Object.assign(el('div', 'p-load-bar'), { role: 'progressbar' }), msg);
     box.firstElementChild!.append(bar);

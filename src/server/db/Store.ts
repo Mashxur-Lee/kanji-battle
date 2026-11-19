@@ -180,7 +180,7 @@ export interface Store {
   close?(): Promise<void>;
 }
 
-export type ReportKind = 'bug' | 'suggestion' | 'error';
+export type ReportKind = 'bug' | 'suggestion' | 'error' | 'report'; // (0.9.9.9.7.4: + a player reported by another)
 /** 0.9.9.9.6: `kind` — bug / suggestion when it came from Feedback; `by` — which admin wrote it for the team */
 export interface DirectMessage { id: string; fromId: string; toId: string; text: string; at: number; readAt: number | null; kind?: string | null; by?: string | null;
   /** 0.9.9.9.6.4: when it was last edited; who reacted with what; a photo (a media id); forwarded from (a name); deleted */

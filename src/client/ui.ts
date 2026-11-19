@@ -10,11 +10,11 @@ import {
   LEVEL_LABEL, LEVELS, MODE_LABEL, MODES, isKanaLevel, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
   type Level, type MatchSummary, type PlayerId, type PlayerStats, type PlayerView, type PublicProfile, type PlayerStatus, type PublicUser, type StudyItem, type Avatar,
 } from '../shared/protocol';
-import { avatarSvg, dragonSvg, heroSvg, wizardSvg } from './wizard';
+import { avatarSvg, dragonSvg, heroSvg } from './wizard';
 import { arena as arena3d, arenaForBattle } from './arena';
 import { setStarred } from './stars';
 import { toRomaji } from '../shared/kana';
-import { borderOf, flameColor, flameShades, isKanaBeginner, leagueIn, levelOf, levelProgress, levelXp } from '../shared/progress';
+import { borderOf, flameColor, flameShades, isKanaBeginner, leagueIn, levelProgress, levelXp } from '../shared/progress';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -419,7 +419,7 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
       }
       // delete the account for good (test accounts): not yourself, not an admin
       if (onDelete && u.role !== 'admin' && u.id !== me.id) {
-        const d = h('button', 'pill danger del-user', '🗑 Delete', { title: 'Delete this account and all its progress' }) as HTMLButtonElement;
+        const d = h('button', 'pill danger del-user', 'Delete', { title: 'Delete this account and all its progress' }) as HTMLButtonElement;
         d.onclick = () => onDelete(u);
         action.append(d);
       }
@@ -442,48 +442,51 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
 }
 
 // ── lobby: mini guides ──────────────────────────────────────────────────────
+// (0.9.9.9.7.4: numbered steps and the game's own drawings — an emoji on every step, and an emoji party against an
+// emoji dragon, broke the "no emojis as design" rule)
+const art = (svg: string, cls = '') => { const e = h('span', `g-art ${cls}`); e.innerHTML = svg; return e; };
 const tile = (k: string, cls = '') => h('span', 'g-tile ' + cls, k, { lang: 'ja' });
-const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTMLElement; steps: Array<[string, string]> }> = {
+const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTMLElement; steps: string[] }> = {
   reading: {
     title: 'How Kanji Reading works',
     pic: () => append(h('div', 'g-pic'), tile('漢字'), h('span', 'g-arrow', '→'), tile('かんじ', 'ok'), h('span', 'g-or', 'or'), h('span', 'g-tile ok', 'kanji')),
     steps: [
-      ['📖', '60 s to study your 10 words (reading + meaning). Then they disappear.'],
-      ['⌨️', 'A kanji appears: type its reading in kana or romaji, Enter.'],
-      ['⚔️', 'Right = a spell at your opponent. Faster and in a row = more damage (combo up to ×1.5; 5 in a row sets you on fire 🔥).'],
-      ['💨', 'Wrong or Skip (Esc) = a miss; the answer is shown and the word comes back later.'],
-      ['❤️', 'Your HP depends on how hard your opponent hits (their levels). Most HP after 5 min wins.'],
+      '60 s to study your 10 words (reading + meaning). Then they disappear.',
+      'A kanji appears: type its reading in kana or romaji, Enter.',
+      'Right = a spell at your opponent. Faster and in a row = more damage (combo up to ×1.5; 5 in a row sets you on fire).',
+      'Wrong or Skip (Esc) = a miss; the answer is shown and the word comes back later.',
+      'Your HP depends on how hard your opponent hits (their levels). Most HP after 5 min wins.',
     ],
   },
   writing: {
     title: 'How Kanji Writing works',
     pic: () => append(h('div', 'g-pic'), h('span', 'g-hint', 'かんじ — kanji'), h('span', 'g-arrow', '→'), append(h('span', 'g-pad'), tile('漢'), tile('字'))),
     steps: [
-      ['👁️', 'Look at the kanji (up to 3.5 s), then press CAST! (or Enter): it vanishes and the pad and keyboard appear. Pasting is off.'],
-      ['🖌️', 'Write the whole word on the pad, left to right (one cell per character) — or type it with a Japanese keyboard.'],
-      ['✅', 'Only kanji count (kana only at the かな level). Messy is fine — it’s judged by shape.'],
-      ['⚔️', 'Right = damage, with the same combo and speed bonus as Reading.'],
+      'Look at the kanji (up to 3.5 s), then press CAST! (or Enter): it vanishes and the pad and keyboard appear. Pasting is off.',
+      'Write the whole word on the pad, left to right (one cell per character) — or type it with a Japanese keyboard.',
+      'Only kanji count (kana only at the かな level). Messy is fine — it’s judged by shape.',
+      'Right = damage, with the same combo and speed bonus as Reading.',
     ],
   },
   boss: {
     title: 'How Boss Elimination works',
-    pic: () => append(h('div', 'g-pic'), h('span', 'g-emoji', '🧙🧙🧙🧙'), h('span', 'g-arrow', '⚔'), h('span', 'g-emoji', '🐉')),
+    pic: () => append(h('div', 'g-pic'), art(avatarSvg('wizard', 'me'), 'g-party'), h('span', 'g-arrow', 'vs'), art(dragonSvg())),
     steps: [
-      ['👥', 'Up to 4 players (friends or AI) against the Black Dragon; the online queue always makes a full party of 4. Its HP grows with the party.'],
-      ['⌨️', 'Each of you gets your own kanji: type the reading. Right answers hit the dragon.'],
-      ['🦴', 'A mistake gets you clawed (−45).'],
-      ['🔥', 'Every 30 s it breathes fire on everyone (−110) — unless you are on fire yourself (5 in a row): then you are immune.'],
-      ['🏆', 'Slay it within 5 minutes. If everyone falls, the dragon wins.'],
+      'Up to 4 players (friends or AI) against the Black Dragon; the online queue always makes a full party of 4. Its HP grows with the party.',
+      'Each of you gets your own kanji: type the reading. Right answers hit the dragon.',
+      'A mistake gets you clawed (−45).',
+      'Every 30 s it breathes fire on everyone (−110) — unless you are on fire yourself (5 in a row): then you are immune.',
+      'Slay it within 5 minutes. If everyone falls, the dragon wins.',
     ],
   },
   rapid: {
     title: 'How 1v1 Rapid works',
-    pic: () => append(h('div', 'g-pic'), tile('早い'), h('span', 'g-arrow', '→'), h('span', 'g-tile ok', 'はやい ⚡')),
+    pic: () => append(h('div', 'g-pic'), tile('早い'), h('span', 'g-arrow', '→'), h('span', 'g-tile ok', 'はやい')),
     steps: [
-      ['🎯', 'Both players get the same kanji — no study phase.'],
-      ['⚡', 'First correct reading (kana or romaji) hits the other player.'],
-      ['🔁', 'Wrong? Try again until the 12 s round ends.'],
-      ['❤️', 'Same HP for both. Last wizard standing wins.'],
+      'Both players get the same kanji — no study phase.',
+      'First correct reading (kana or romaji) hits the other player.',
+      'Wrong? Try again until the 12 s round ends.',
+      'Same HP for both. Last wizard standing wins.',
     ],
   },
 };
@@ -491,7 +494,7 @@ const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTML
 export function modeGuideNodes(mode: Exclude<GameMode, 'deck'>): HTMLElement[] {
   const g = GUIDES[mode];
   const ol = h('ol', 'g-flow');
-  for (const [icon, text] of g.steps) ol.append(append(h('li'), h('span', 'g-ic', icon), h('span', '', text)));
+  g.steps.forEach((text, i) => ol.append(append(h('li'), h('span', 'g-ic g-num', String(i + 1)), h('span', '', text))));
   return [h('h3', '', g.title), g.pic(), ol, h('p', 'g-foot', 'Playing with AI gives half XP; a forfeit gives none.')];
 }
 function renderModeGuide(mode: GameMode) {
@@ -1213,7 +1216,7 @@ let logFade = 0;
 export function logLine(text: string, kanji?: string) {
   const el = $('log');
   const tone = /fumbled/.test(text) ? 'miss' : /claws|Fire breath/.test(text) ? 'boss' : /cast for/.test(text) ? 'hit' : 'info';
-  const icon = { miss: '✗', boss: '🐉', hit: '⚡', info: '•' }[tone];
+  const icon = { miss: '✗', boss: '▲', hit: '✦', info: '•' }[tone]; // (0.9.9.9.7.4: no emoji)
   const line = h('span', `log-line ${tone}`);
   line.append(h('span', 'log-ico', icon), h('span', 'log-t', text));
   if (kanji) line.append(h('span', 'k', kanji, { lang: 'ja' }));

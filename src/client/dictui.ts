@@ -218,10 +218,10 @@ async function openWord(i: number) {
   if (w.kana.length > 1 || w.kanji.length > 1) left.append(h('div', 'dw-alt', [...w.kanji.slice(1), ...w.kana.slice(1)].join('・'), { lang: 'ja' }));
   left.append(badges(w));
   const acts = h('div', 'dw-acts');
-  if (voiceAvailable()) { const s = h('button', 'pill', `🔊 ${tr('Listen')}`, { type: 'button' }); s.onclick = () => void speak(w.kana[0] ?? ''); acts.append(s); }
+  if (voiceAvailable()) { const s = h('button', 'pill', tr('Listen'), { type: 'button' }); s.onclick = () => void speak(w.kana[0] ?? ''); acts.append(s); }
   acts.append(addTo(w));
   if (w.kanji[0] && HAN.test(w.kanji[0])) {
-    const so = h('button', 'pill', `✍ ${tr('Stroke order')}`, { type: 'button' });
+    const so = h('button', 'pill', tr('Stroke order'), { type: 'button' });
     so.onclick = () => ui.openStrokeDialog(w.kanji[0], w.kana[0] ?? '', w.senses[0]?.[1] ?? '');
     acts.append(so);
   }
@@ -311,7 +311,7 @@ async function openWord(i: number) {
         meta.append(rd);
         if (k[4].length) meta.append(h('div', 'dw-kparts', k[4].map(([pc, pen, pru]) => `${pc ? pc + ' ' : ''}${ru && pru ? pru : pen}`).join(' + '), { 'data-no-i18n': '' }));
       }
-      const pic = h('button', 'pill dw-kpic', `🖼 ${tr('Memory picture')}`, { type: 'button' });
+      const pic = h('button', 'pill dw-kpic', tr('Memory picture'), { type: 'button' });
       pic.onclick = () => void showKanji(c, big);
       meta.append(pic);
       card.append(big, meta);

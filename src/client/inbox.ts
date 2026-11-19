@@ -229,7 +229,7 @@ function previewOf(c: Conversation): string {
   if (m.deleted) return tr('Message deleted');
   const inv = invitePreview(m);
   const body = inv ?? (m.kind ? m.text.replace(/\n/, ' — ') : (splitQuote(m.text).body || m.text));
-  const what = m.media ? `📷 ${body || tr('Photo')}` : body;
+  const what = m.media ? (body ? `${tr('Photo')} · ${body}` : tr('Photo')) : body; // (0.9.9.9.7.4: words, not 📷)
   const who = m.from === myId() ? `${tr('You')}: ` : c.group ? `${nameOf(m.from)}: ` : '';
   return who + what;
 }
@@ -380,7 +380,7 @@ function renderRow(m: DmView, prev?: DmView, next?: DmView): HTMLElement {
   // quote it in your answer (and swipe left on a phone)
   const q = h('button', 'msg-qbtn', '↩') as HTMLButtonElement;
   q.type = 'button'; q.title = tr('Reply'); q.setAttribute('aria-label', tr('Reply'));
-  q.onclick = (e) => { e.stopPropagation(); setQuote(body.replace(/^🐞 Bug report\n|^💡 Suggestion\n/, '') || (m.media ? tr('Photo') : '')); };
+  q.onclick = (e) => { e.stopPropagation(); setQuote(body.replace(/^(🐞 )?Bug report\n|^(💡 )?Suggestion\n/, '') || (m.media ? tr('Photo') : '')); };
   row.append(b, ...(m.kind && m.kind !== 'invite' ? [] : [quick]), ...(m.kind === 'invite' ? [] : [q]));
   return row;
 }
@@ -612,7 +612,7 @@ function renderLog(stick = true) {
   const box = $('msgLog');
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
   box.replaceChildren(...log.map((m, i) => bubble(m, log[i - 1], log[i + 1])));
-  if (!log.length) box.append(h('p', 'hint msg-empty', openId === SUPPORT ? 'Write to the team — questions, bugs, ideas. We answer here.' : openWith?.group ? tr('Say hi to the group! 👋') : 'Say hi! 👋'));
+  if (!log.length) box.append(h('p', 'hint msg-empty', openId === SUPPORT ? 'Write to the team — questions, bugs, ideas. We answer here.' : openWith?.group ? tr('Say hi to the group!') : 'Say hi!'));
   if (stick || atBottom) box.scrollTop = box.scrollHeight;
 }
 
@@ -812,8 +812,8 @@ export function onDm(m: DmView, fromName: string, muted = false) {
   if (muted || (mutedAll && mySide === 'me') || ['battle', 'deck', 'prep'].includes(ui.currentScreen() ?? '')) return;
   audio.sfx.message();
   const where = grp ? ` · ${convs.find((c) => c.id === m.to)?.name ?? tr('group')}` : '';
-  const what = m.media ? `📷 ${m.text || tr('Photo')}` : m.text.split('\n').slice(-1)[0].slice(0, 80);
-  ui.toast(`✉ ${mySide === 'support' ? `${fromName} → ${tr('team')}` : fromName + where}: ${what}`, 4000);
+  const what = m.media ? (m.text ? `${tr('Photo')} · ${m.text}` : tr('Photo')) : m.text.split('\n').slice(-1)[0].slice(0, 80);
+  ui.toast(`${mySide === 'support' ? `${fromName} → ${tr('team')}` : fromName + where}: ${what}`, 4000);
 }
 /** 0.9.9.9.6.4: a message edited, deleted or reacted to */
 export function onDmUpdate(m: DmView) {

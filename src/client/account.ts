@@ -103,6 +103,9 @@ export function codeDialog(opts: { to: string; ask?: boolean; onDone: (u: Public
   const send = el('button', 'big', tr('Send me a code'));
   send.type = 'button';
   const extra = el('div', 'code-extra');
+  // 0.9.9.9.7.4: what "Later" means, said before it's pressed — the email is the account's only once it is confirmed,
+  // so until then "Forgot password?" has nowhere to send a code
+  const laterNote = el('p', 'hint code-later', tr('Later: you can play now, but until your email is confirmed “Forgot password?” can’t send you a code — a forgotten password couldn’t be recovered.'));
   const row = el('div', 'fb-actions');
   // "Send it again": once a minute
   let wait = 0, timer = 0;
@@ -119,7 +122,7 @@ export function codeDialog(opts: { to: string; ask?: boolean; onDone: (u: Public
   if (!opts.onChange) change.hidden = true;
   extra.append(again, change);
   row.append(later, send, ok);
-  f.append(h3, line, code, msg, extra, row);
+  f.append(h3, line, code, msg, extra, laterNote, row);
   if (opts.ask) { setLine(false); code.hidden = true; ok.hidden = true; again.hidden = true; }
   else { setLine(true); send.hidden = true; wait = 60; tick(); }
   code.addEventListener('input', () => { code.value = code.value.replace(/\D/g, '').slice(0, 6); if (code.value.length === 6) f.requestSubmit(); });
@@ -136,6 +139,40 @@ export function codeDialog(opts: { to: string; ask?: boolean; onDone: (u: Public
   d.addEventListener('close', () => clearTimeout(timer));
   d.showModal();
   if (!opts.ask) code.focus();
+}
+
+/** 0.9.9.9.7.4: report a player to the team — why, a few words; the message too, when reporting one */
+export function reportDialog(target: { id: string; name: string }, onSent: () => void, messageId?: string) {
+  const { d, f } = dialog('report-dialog');
+  const h3 = el('h3', '', `${tr('Report')} ${target.name}`);
+  const hint = el('p', 'hint', tr('The team reads every report. They aren’t told who reported them.'));
+  const reasons: Array<[string, string]> = [['rude', 'Rude or hurtful'], ['spam', 'Spam'], ['cheating', 'Cheating'], ['name', 'Inappropriate name or picture'], ['other', 'Something else']];
+  const list = el('div', 'report-reasons');
+  for (const [v, label] of reasons) {
+    const l = el('label', 'chip');
+    const i = el('input'); i.type = 'radio'; i.name = 'reportWhy'; i.value = v; i.required = true;
+    l.append(i, document.createTextNode(` ${tr(label)}`));
+    list.append(l);
+  }
+  const more = el('textarea', 'report-text');
+  more.maxLength = 500; more.rows = 3; more.placeholder = tr('Anything the team should know (optional)');
+  const msg = msgLine();
+  const row = el('div', 'fb-actions');
+  const cancel = el('button', 'pill', tr('Cancel'));
+  cancel.type = 'button'; cancel.onclick = () => d.close();
+  const ok = el('button', 'big', tr('Send report'));
+  ok.type = 'submit';
+  row.append(cancel, ok);
+  f.append(h3, hint, list, more, msg, row);
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const why = f.querySelector<HTMLInputElement>('input[name="reportWhy"]:checked')?.value;
+    if (!why) return;
+    ok.disabled = true; msg.textContent = '';
+    try { await api.report(target.id, why, more.value, messageId); d.close(); onSent(); }
+    catch (x) { msg.textContent = err(x); ok.disabled = false; }
+  };
+  d.showModal();
 }
 
 export function claimDialog(opts: { why?: string; onDone: (token: string, u: PublicUser) => void }) {
@@ -178,7 +215,7 @@ export function forgotDialog(prefill: string, onSignedIn: (token: string, u: Pub
   const step1 = el('div', 'fg-step');
   const who = field('Your login or email', 'text', 'username', { max: 254 });
   who.i.value = prefill;
-  step1.append(el('p', 'hint', tr('We send a 6-digit code to the email of your account.')), who.l);
+  step1.append(el('p', 'hint', tr('We send a 6-digit code to the email of your account.')), el('p', 'hint', tr('(Only to a confirmed email — one you entered the code for.)')), who.l); // (0.9.9.9.7.4)
   const step2 = el('div', 'fg-step');
   step2.hidden = true;
   const code = field('Code from the email', 'text', 'one-time-code', { max: 8, mode: 'numeric' });

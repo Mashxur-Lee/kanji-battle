@@ -10,3 +10,6 @@ public/vocab.json
 public/examples.json
 public/kanji.json
 public/build.txt
+
+# 0.9.9.9.7.4: the GitHub CLI's own settings (your login) when it keeps them next to the project — never commit them
+GitHub CLI/

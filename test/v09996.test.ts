@@ -82,7 +82,7 @@ test('0.9.9.9.6 messenger: Feedback lands in the conversation with the team; an 
   // the player reads it in their conversation with the team
   const t = (await ask(w.route, p.token, 'GET', `/api/messages/${SUPPORT_ID}`))!.body as { messages: MessageView[] };
   assert.deepEqual(t.messages.map((m) => m.from), [p.user.id, SUPPORT_ID]);
-  assert.match(t.messages[0].text, /^🐞 Bug report\nThe dragon is stuck$/);
+  assert.match(t.messages[0].text, /^Bug report\nThe dragon is stuck$/); // (0.9.9.9.7.4: no emoji in the label)
   // and can write to the team any time
   assert.equal((await ask(w.route, p.token, 'POST', `/api/messages/${SUPPORT_ID}`, { text: 'Thank you!' }))?.status, 200);
 });

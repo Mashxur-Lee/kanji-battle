@@ -4,7 +4,7 @@ import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry }
 import type { Level, OnoType } from '../../shared/protocol';
 import { LEVELS, studyLevelOf } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
-import { taskPassed, BETA_BORDER, BORDERS, borderOf, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, levelsFor, BACKGROUNDS, CRIT_BASE, critFor, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked, isCharacter, CHARACTER_DEFS, characterUnlocked, characterOf, poseOf, leagueIn } from '../../shared/progress';
+import { taskPassed, BETA_BORDER, BORDERS, borderOf, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, BACKGROUNDS, CRIT_BASE, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked, isCharacter, CHARACTER_DEFS, characterUnlocked, characterOf, poseOf, leagueIn } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';

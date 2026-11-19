@@ -35,9 +35,9 @@ async function get<T>(k: string): Promise<T | undefined> {
 export function decide(s: { tasksLeft: number; tasksTotal: number; challengeDone: boolean; allDue: number }, hour: number, ru: boolean) {
   const out: Array<{ kind: string; title: string; body: string }> = [];
   if (hour < 12 || hour >= 23) return out; // not in the morning or at night
-  if (!s.challengeDone) out.push({ kind: 'challenge', title: ru ? '⚔ Ежедневный вызов ждёт' : '⚔ Today’s Daily challenge is waiting', body: ru ? 'Десять слов, одинаковых для всех, — насколько вы быстры?' : 'Ten words, the same for everyone — how fast are you?' });
-  if (s.allDue >= 50) out.push({ kind: 'reviews', title: ru ? `📚 ${s.allDue} заклинаний ждут повторения` : `📚 ${s.allDue} spells are waiting for review`, body: ru ? `В колоде «Все заклинания» ${s.allDue} карточек к повторению.` : `Your All spells deck has ${s.allDue} cards to review.` });
-  if (hour >= 18 && s.tasksLeft > 0) out.push({ kind: 'tasks', title: ru ? '🔥 Сохраните серию' : '🔥 Keep your streak', body: ru ? `Осталось заданий на сегодня: ${s.tasksLeft} из ${s.tasksTotal}.` : `${s.tasksLeft} of ${s.tasksTotal} daily tasks left today.` });
+  if (!s.challengeDone) out.push({ kind: 'challenge', title: ru ? 'Ежедневный вызов ждёт' : 'Today’s Daily challenge is waiting', body: ru ? 'Десять слов, одинаковых для всех, — насколько вы быстры?' : 'Ten words, the same for everyone — how fast are you?' });
+  if (s.allDue >= 50) out.push({ kind: 'reviews', title: ru ? `${s.allDue} заклинаний ждут повторения` : `${s.allDue} spells are waiting for review`, body: ru ? `В колоде «Все заклинания» ${s.allDue} карточек к повторению.` : `Your All spells deck has ${s.allDue} cards to review.` });
+  if (hour >= 18 && s.tasksLeft > 0) out.push({ kind: 'tasks', title: ru ? 'Сохраните серию' : 'Keep your streak', body: ru ? `Осталось заданий на сегодня: ${s.tasksLeft} из ${s.tasksTotal}.` : `${s.tasksLeft} of ${s.tasksTotal} daily tasks left today.` });
   return out;
 }
 const dayOf = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -78,7 +78,7 @@ async function share(on: boolean) {
 function draw() {
   const b = ui.$('notifyBtn');
   const on = remindersOn();
-  b.textContent = on ? `🔔 ${tr('On')}` : `🔕 ${tr('Off')}`; // 0.9.9.9: a switch in Settings → Other
+  b.textContent = tr(on ? 'On' : 'Off'); // 0.9.9.9: a switch in Settings → Other
   b.classList.toggle('on', on);
   b.setAttribute('aria-pressed', String(on));
   b.title = tr(on ? 'Reminders on — tap to turn them off' : 'Reminders off — tap for daily reminders (Daily challenge, reviews, streak tasks)');
@@ -119,7 +119,7 @@ export function initReminders() {
     const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
     if (p !== 'granted') { ui.toast(tr('Notifications are blocked — allow them for this site in the browser settings, then tap the bell again.'), 6000); return; }
     const reg = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
-    const title = tr('🔔 Reminders work'), body = tr('This is how Kanji Wizards reminders will look.');
+    const title = tr('Reminders work'), body = tr('This is how Kanji Wizards reminders will look.');
     try { if (reg) await reg.showNotification(title, { body, icon: '/icons/icon-192.png', tag: 'kw-test' }); else new Notification(title, { body }); } catch { /* not here */ }
   };
   const last = b?.reminderLast?.();

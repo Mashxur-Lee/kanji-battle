@@ -5,7 +5,6 @@
 export type KanaScript = 'hira' | 'kata';
 export type KanaSet = 'basic' | 'voiced' | 'combo';
 export const KANA_SCRIPTS: readonly KanaScript[] = ['hira', 'kata'];
-export const KANA_SETS: readonly KanaSet[] = ['basic', 'voiced', 'combo'];
 
 export interface KanaCell { ch: string; romaji: string; row: string; set: KanaSet; script: KanaScript }
 export interface KanaRow { row: string; set: KanaSet; cells: Array<KanaCell | null> }

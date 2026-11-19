@@ -1,0 +1,5 @@
+# 0.9.9.9.7.4: text files have LF line endings on every computer. A Windows clone (git's autocrlf) had CRLF, and a test
+# that reads the source failed there only.
+* text=auto eol=lf
+# (the JLPT source lists came with CRLF — kept exactly as they are)
+data/sources/*.csv -text

@@ -33,7 +33,9 @@ jobs:
           echo "FILEVER=$(echo "$V" | cut -d. -f1-4)" >> "$GITHUB_ENV"  # Windows file versions have at most 4 parts
       - name: Install
         working-directory: desktop
-        run: npm install --no-audit --no-fund
+        # (0.9.9.9.7.4: exactly the versions in desktop/package-lock.json — a package published a minute before the build
+        # could be listed but not downloadable yet: node-abi 4.42.0 failed the Windows build with a 404)
+        run: npm ci --no-audit --no-fund
       - name: Build the installer
         working-directory: desktop
         shell: bash

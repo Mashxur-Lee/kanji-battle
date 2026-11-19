@@ -19,7 +19,7 @@ import type { DeckId } from '../shared/srs';
 import { DECK_LABEL, initDecks } from './decks';
 import { backgroundThumb, getTimePref, resolveTime } from './backgrounds';
 import * as ui from './ui';
-import { BADGES_MAX, badgeRow, renderAchievements } from './achievements';
+import { badgeRow, renderAchievements } from './achievements';
 import { tr } from './i18n';
 
 const $ = ui.$;
@@ -425,22 +425,34 @@ export function openCustomize(profile: Profile, isAdmin = false, onTimeChange: (
 
 const THUMBS_KEY = `kb:staffThumbs:${VERSION}`; // (new pictures with each version: the staffs may have changed)
 const idle = (cb: () => void) => ((globalThis as unknown as { requestIdleCallback?: (f: () => void, o?: object) => number }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 120)))(cb, { timeout: 1500 });
+/** 0.9.9.9.7.4: staffs whose picture is still to be drawn (drawn only while Customize is open — see step) */
+let thumbsTodo: string[] = [];
+let thumbsRunning = false;
 async function ensurePreview() {
-  if (previewTried) { if (custTab === 'staff') renderCustomize(); return; }
+  if (previewTried) { if (custTab === 'staff') renderCustomize(); drawThumbs(); return; }
   previewTried = true;
   try { staffThumbs = { ...JSON.parse(localStorage.getItem(THUMBS_KEY) ?? '{}'), ...staffThumbs }; } catch { /* none kept */ }
   preview = await staffPreview($<HTMLCanvasElement>('staffCanvas'));
   renderCustomize();
   if (!preview) return;
-  const todo = STAFFS.map((s) => s.id).filter((id) => !staffThumbs[id]);
-  if (!todo.length) return;
+  thumbsTodo = STAFFS.map((s) => s.id).filter((id) => !staffThumbs[id]);
+  drawThumbs();
+}
+function drawThumbs() {
+  if (thumbsRunning || !thumbsTodo.length) return;
+  thumbsRunning = true;
+  const todo = thumbsTodo;
   const step = () => {
+    // (0.9.9.9.7.4: only while Customize is open — it went on drawing every staff after you left, and the screens
+    // after it stayed busy for seconds on a phone; the rest is drawn on your next visit)
+    if ($('customize').hidden) { thumbsRunning = false; return; }
     const id = todo.shift();
     if (!id || !preview) {
       try {
         for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k?.startsWith('kb:staffThumbs:') && k !== THUMBS_KEY) localStorage.removeItem(k); }
         localStorage.setItem(THUMBS_KEY, JSON.stringify(staffThumbs));
       } catch { /* full */ }
+      thumbsRunning = false;
       if (!$('customize').hidden) renderCustomize();
       return;
     }

@@ -139,21 +139,6 @@ function hills(y: number, amp: number, color: string, phase = 0) {
   const g = lin([[0, lighten(color, 0.1)], [0.35, color], [1, dk2(color, 0.25)]]);
   return `<path d="${d} L${W} ${H} Z" fill="${g}"/><path d="${top}" stroke="${lighten(color, 0.3)}" stroke-width="2" fill="none" opacity=".35"/>`;
 }
-/** A pine with ragged tiers (prettier than a plain triangle). */
-function pine(x: number, base: number, h: number, color: string) {
-  const w = h * 0.42;
-  let s = `<rect x="${f(x - w * 0.04)}" y="${f(base - h * 0.12)}" width="${f(w * 0.08)}" height="${f(h * 0.14)}" fill="${color}"/>`;
-  for (let t = 0; t < 4; t++) {
-    const top = base - h * (0.35 + t * 0.21), bw = w * (1 - t * 0.2), by = base - h * (0.08 + t * 0.2);
-    s += `<polygon points="${f(x - bw / 2)},${f(by)} ${f(x - bw * 0.3)},${f(by - 6)} ${f(x)},${f(top)} ${f(x + bw * 0.3)},${f(by - 6)} ${f(x + bw / 2)},${f(by)}" fill="${color}"/>`;
-  }
-  return s;
-}
-function forestRow(base: number, count: number, minH: number, maxH: number, color: string) {
-  let s = '';
-  for (let i = 0; i < count; i++) s += pine((i / count) * W + r(-20, W / count), base + r(-6, 6), r(minH, maxH), color);
-  return s + `<rect x="0" y="${base}" width="${W}" height="${H - base}" fill="${color}"/>`;
-}
 /**
  * Pairs of red eyes in the dark between the trees; each pair blinks on its own rhythm. 0.9.9.5: only in the
  * gaps between trunks (`trees`: [left, right] of each trunk), drawn behind the nearer trees.
@@ -193,7 +178,7 @@ const dk2 = (c: string, t: number) => { const p = [1, 3, 5].map((i) => parseInt(
  */
 function arenaFloor(t: TimeOfDay, stone: string[], accent: string, glyph = '#ffffff') {
   if (MENU) return menuFore(SCENE_ID, t);
-  const [top, mid, edge] = stone;
+  const [, mid, edge] = stone;
   const cy = 940, rx = 1040, ry = 220; // the dais: its top edge at y ≈ 720
   let s = `<ellipse cx="800" cy="${cy + 22}" rx="${rx + 20}" ry="${ry + 16}" fill="#000" opacity=".35" filter="url(#blur20)"/>`;
   s += `<ellipse cx="800" cy="${cy + 20}" rx="${rx}" ry="${ry}" fill="${edge}"/>`; // the lip (its side)
