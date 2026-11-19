@@ -53,14 +53,16 @@ test('a review replayed with X-KW-At is scheduled from when it really happened',
   } finally { server.close(); }
 });
 
-test('the daily challenge replays with its real timing', async () => {
+// 0.9.9.9.7.1: the daily challenge is no longer played offline — a replayed run (times the app reported) was a cheat:
+// 10 / 10 "in 2 seconds". A replay of one is refused and nothing is recorded (see v099971.test.ts).
+test('the daily challenge isn\'t replayed: an offline run is refused, nothing is saved', async () => {
   const { server, call } = await serve();
   try {
     const t0 = Date.now() - 60_000;
-    assert.equal((await call('POST', '/api/daily/start', undefined, t0)).status, 200);
-    for (let i = 0; i < 10; i++) await call('POST', '/api/daily/answer', { text: '' }, t0 + (i + 1) * 2000);
+    assert.equal((await call('POST', '/api/daily/start', undefined, t0)).status, 409);
+    for (let i = 0; i < 10; i++) assert.equal((await call('POST', '/api/daily/answer', { text: '' }, t0 + (i + 1) * 2000)).status, 409);
     const { body } = await call('GET', '/api/daily');
-    assert.equal(body.mine.ms, 20_000, '2 s a word, as played — not the instant of the replay');
+    assert.equal(body.mine, null);
   } finally { server.close(); }
 });
 
@@ -127,7 +129,7 @@ test('snapshot → the offline engine\'s store → the same answers', async () =
   } finally { server.close(); }
 });
 
-test('what works offline: study, quiz, daily, customize — not games, friends or admin', () => {
-  for (const [m, u] of [['GET', '/api/study?today=2026-10-25'], ['POST', '/api/study/review'], ['GET', '/api/study/quiz?n=10'], ['POST', '/api/daily/answer'], ['PUT', '/api/me/background'], ['GET', '/api/matches/abc']]) assert.ok(handles(m, u), `${m} ${u}`);
-  for (const [m, u] of [['POST', '/api/login'], ['GET', '/api/friends'], ['GET', '/api/admin/users'], ['PUT', '/api/me/avatar'], ['GET', '/api/sync/snapshot']]) assert.ok(!handles(m, u), `${m} ${u}`);
+test('what works offline: study, quiz, customize — not games, friends, admin (0.9.9.9.7.1: or the daily challenge)', () => {
+  for (const [m, u] of [['GET', '/api/study?today=2026-10-25'], ['POST', '/api/study/review'], ['GET', '/api/study/quiz?n=10'], ['PUT', '/api/me/background'], ['GET', '/api/matches/abc']]) assert.ok(handles(m, u), `${m} ${u}`);
+  for (const [m, u] of [['POST', '/api/login'], ['GET', '/api/friends'], ['GET', '/api/admin/users'], ['PUT', '/api/me/avatar'], ['GET', '/api/sync/snapshot'], ['GET', '/api/daily?today=2026-10-25'], ['POST', '/api/daily/answer']]) assert.ok(!handles(m, u), `${m} ${u}`);
 });

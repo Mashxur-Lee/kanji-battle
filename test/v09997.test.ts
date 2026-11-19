@@ -11,7 +11,7 @@ const src = (f: string) => readFileSync(f, 'utf8');
 const box = () => { const sent: ResetMail[] = []; return { sent, mail: async (m: ResetMail) => { sent.push(m); } }; };
 
 test('0.9.9.9.7 version and patch notes', () => {
-  assert.equal(VERSION, '0.9.9.9.7');
+  assert.ok(VERSION >= '0.9.9.9.7');
   assert.match(src('src/client/whatsnew.ts'), /v: '0\.9\.9\.9\.7'/);
 });
 

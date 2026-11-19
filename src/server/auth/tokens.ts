@@ -37,5 +37,8 @@ export class TokenSigner {
     return Number(String(token).split('.')[1]) - this.ttlMs;
   }
 
+  /** 0.9.9.9.7.1: a keyed hash of a code kept in the database (no use to anyone who reads it without AUTH_SECRET) */
+  digest(s: string) { return createHmac('sha256', this.secret).update(`code:${s}`).digest('hex'); }
+
   private mac(s: string) { return createHmac('sha256', this.secret).update(s).digest('base64url'); }
 }

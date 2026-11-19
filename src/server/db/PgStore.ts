@@ -234,6 +234,8 @@ export class PgStore implements Store {
         at bigint not null
       )`;
     await this.sql`create index if not exists kw_events_at on kw_events (at)`;
+    // 0.9.9.9.7.1: what must survive a restart (codes on their way, a half-played Daily run, the Daily's seed day)
+    await this.sql`create table if not exists kw_values (key text primary key, value text not null)`;
     await this.sql`
       create table if not exists kw_friends (
         user_id uuid not null references kw_users(id) on delete cascade,
@@ -657,6 +659,14 @@ export class PgStore implements Store {
   }
   async removeFriend(userId: string, otherId: string) {
     await this.sql`delete from kw_friends where (user_id = ${userId} and friend_id = ${otherId}) or (user_id = ${otherId} and friend_id = ${userId})`;
+  }
+  async getValue(key: string) {
+    const [r] = await this.sql<{ value: string }[]>`select value from kw_values where key = ${key}`;
+    return r?.value ?? null;
+  }
+  async setValue(key: string, value: string | null) {
+    if (value === null) await this.sql`delete from kw_values where key = ${key}`;
+    else await this.sql`insert into kw_values (key, value) values (${key}, ${value}) on conflict (key) do update set value = excluded.value`;
   }
   async close() { await this.sql.end({ timeout: 5 }); }
 }

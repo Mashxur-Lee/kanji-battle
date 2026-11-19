@@ -1072,8 +1072,8 @@ const RU: Record<string, string> = {
   'Then open': 'Затем откройте', 'Files → Downloads': 'Файлы → Загрузки', '(or Chrome': '(или в Chrome', '⋮ → Downloads': '⋮ → Скачанные файлы', ') and tap': ') и нажмите',
   // 0.9.9.4
   'Get the app': 'Скачать приложение', 'Install Kanji Wizards': 'Установить Kanji Wizards', 'Phone or PC — from this browser': 'Телефон или ПК — прямо из браузера',
-  'The app opens straight into the game and works offline too: Study spells, the JLPT quiz, reading passages, the daily challenge, Customize, Progress and match history. Online queue and private games need internet. Your account and progress are the same everywhere.':
-    'Приложение сразу открывает игру и работает без интернета: изучение заклинаний, тест JLPT, тексты для чтения, ежедневное испытание, настройка, прогресс и история матчей. Для онлайн-очереди и приватных игр нужен интернет. Аккаунт и прогресс везде одни и те же.',
+  'The app opens straight into the game and works offline too: Study spells, the JLPT quiz, reading passages, Customize, Progress and match history. Online queue, private games and the daily challenge need internet. Your account and progress are the same everywhere.':
+    'Приложение сразу открывает игру и работает без интернета: изучение заклинаний, тест JLPT, тексты для чтения, настройка, прогресс и история матчей. Для онлайн-очереди, приватных игр и ежедневного испытания нужен интернет. Аккаунт и прогресс везде одни и те же.',
   'No store needed: it installs like an app, with its own icon.': 'Магазин не нужен: устанавливается как приложение, со своим значком.',
   'On iPhone / iPad (Safari): tap': 'На iPhone / iPad (Safari): нажмите', 'Share': 'Поделиться', 'Add to Home Screen': 'На экран «Домой»',
   'In Chrome or Edge: open the browser menu': 'В Chrome или Edge: откройте меню браузера', 'Install app': 'Установить приложение', '(or': '(или', 'Add to Home screen': 'Добавить на главный экран', 'or': 'или',
@@ -1083,8 +1083,11 @@ const RU: Record<string, string> = {
   'Download for Windows (.exe)': 'Скачать для Windows (.exe)', 'Download for Android (.apk)': 'Скачать для Android (.apk)',
   'Download the APK and open it; allow your browser to install apps when asked. No Google Play needed.': 'Скачайте APK и откройте его; разрешите браузеру устанавливать приложения, когда он спросит. Google Play не нужен.',
   'You\'re offline — this needs an internet connection.': 'Нет подключения к интернету — для этого он нужен.', 'You\'re offline.': 'Нет подключения к интернету.', 'Offline mode': 'Офлайн-режим',
-  'You\'re offline. Study spells, the quiz, reading passages, the daily challenge, Customize and private games against the AI still work — your progress syncs when you\'re back online.':
-    'Нет интернета. Изучение заклинаний, тест, тексты, ежедневное испытание, настройка и своя игра против ИИ работают — прогресс синхронизируется, когда интернет вернётся.',
+  'You\'re offline. Study spells, the quiz, reading passages, Customize and private games against the AI still work — your progress syncs when you\'re back online.':
+    'Нет интернета. Изучение заклинаний, тест, тексты, настройка и своя игра против ИИ работают — прогресс синхронизируется, когда интернет вернётся.',
+  // 0.9.9.9.7.1
+  'That day isn\'t over everywhere yet — its words show in a few hours': 'Этот день ещё не закончился везде — его слова появятся через несколько часов',
+  'Too many wrong codes — try again tomorrow': 'Слишком много неверных кодов — попробуйте завтра',
   'Back online — your progress is synced.': 'Интернет снова есть — прогресс синхронизирован.',
   'No internet connection. Sign in once while online — then Study spells and more work offline too.': 'Нет подключения к интернету. Войдите один раз онлайн — после этого изучение заклинаний и многое другое работают и без интернета.',
   'Kanji Wizards is installed — find it with your apps.': 'Kanji Wizards установлено — найдите его среди приложений.',
@@ -1331,7 +1334,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Word (\d+) of (\d+) · (.+)$/, 'Слово $1 из $2 · $3'],
   [/^Show more \((\d+) left\)$/, 'Показать ещё (осталось $1)'],
   [/^Offline mode · (\d+) to sync$/, 'Офлайн-режим · ждут синхронизации: $1'],
-  [/^Daily challenge: (\d+)\/10(?: · \+(\d+) XP)? · your rank comes when you're back online$/, (_, c, x) => `Ежедневное испытание: ${c}/10${x ? ` · +${x} опыта` : ''} · место узнаете, когда появится интернет`],
+  [/^Too many wrong passwords for this account — try again in (\d+) min$/, 'Слишком много неверных паролей для этого аккаунта — попробуйте через $1 мин'], // 0.9.9.9.7.1
   [/^Daily challenge: (\d+)\/10 · rank (\d+) of (\d+)(?: · \+(\d+) XP)?$/, (_, c, r, p, x) => `Ежедневное испытание: ${c}/10 · место ${r} из ${p}${x ? ` · +${x} опыта` : ''}`],
   [/^([\d.]+) s · rank (\d+) today$/, '$1 с · место $2 сегодня'],
   [/^Read the meaning — the kanji shows in (\d+) s$/, 'Прочитайте значение — кандзи появится через $1 с'],

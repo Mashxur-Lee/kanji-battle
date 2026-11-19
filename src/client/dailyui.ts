@@ -47,7 +47,8 @@ export async function openDaily(userId: string) {
   setWhen('today');
   ui.show('daily');
   $('dailyMain').replaceChildren(el('p', 'hint', 'Loading…'));
-  try { renderOverview(await api.daily()); } catch (e) { ui.toast((e as Error).message); }
+  // (0.9.9.9.7.1: the Daily challenge is played online only — offline, the page says so instead of "Loading…")
+  try { renderOverview(await api.daily()); } catch (e) { if (offline.isOffline()) $('dailyMain').replaceChildren(el('p', 'hint', (e as Error).message)); else ui.toast((e as Error).message); }
 }
 
 // 0.9.9.8.2: a tab per league above the board (yours first selected); each shows that league's results today
@@ -261,9 +262,7 @@ async function submit(text: string) {
     const o = await api.daily();
     renderOverview(o);
     if (r.done) {
-      ui.toast(offline.isOffline()
-        ? `Daily challenge: ${r.done.correct}/10${r.done.xp ? ` · +${r.done.xp} XP` : ''} · your rank comes when you're back online`
-        : `Daily challenge: ${r.done.correct}/10 · rank ${r.done.rank} of ${r.done.players}${r.done.xp ? ` · +${r.done.xp} XP` : ''}`, 6000);
+      ui.toast(`Daily challenge: ${r.done.correct}/10 · rank ${r.done.rank} of ${r.done.players}${r.done.xp ? ` · +${r.done.xp} XP` : ''}`, 6000); // (0.9.9.9.7.1: always online now)
       // 0.9.9.9.6: a league up is a moment — its own screen, with the rewards (it was a toast)
       // (0.9.9.9.6.4: with the rewards of the league you just passed — the top one has no next league)
       if (r.done.promoted || r.done.passed) { const up = r.done.promoted ?? null, passed = r.done.passed ?? r.done.league ?? 'KANA'; setTimeout(() => void showLeagueUp(me, up, passed), 1200); }

@@ -7,6 +7,23 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.7.1', date: '2026-11',
+    en: [
+      'A fair Daily challenge: it is played online now, on the server’s clock — the times on the leaderboard are the times people really took. (Played offline, the app reported its own times.)',
+      'The Daily challenge’s ten words can’t be worked out ahead any more, and an earlier day’s words show once that day is over for you.',
+      'One Daily challenge a day: changing the phone’s date no longer gives yesterday’s challenge on top, or a new one every few hours.',
+      'A challenge half played stays half played, even when the server restarts — it doesn’t start over from the first word.',
+      'Safer accounts: after 10 wrong passwords in 15 minutes an account waits a little before taking more (“Forgot password?” still works), and at most 5 password-reset emails a day go to an address.',
+    ],
+    ru: [
+      'Честное ежедневное испытание: теперь оно проходит онлайн, по часам сервера — время в таблице лидеров то, которое игроки действительно потратили. (Без интернета приложение само сообщало время.)',
+      'Десять слов ежедневного испытания больше нельзя вычислить заранее, а слова прошедшего дня видны, когда этот день для вас закончился.',
+      'Одно ежедневное испытание в день: смена даты на телефоне больше не даёт вдобавок вчерашнее испытание или новое каждые несколько часов.',
+      'Испытание, пройденное наполовину, так и остаётся наполовину пройденным, даже если сервер перезапустился, — оно не начинается заново с первого слова.',
+      'Аккаунты надёжнее: после 10 неверных паролей за 15 минут аккаунт ненадолго перестаёт их принимать («Забыли пароль?» по-прежнему работает), а писем для сброса пароля на один адрес — не больше 5 в день.',
+    ],
+  },
+  {
     v: '0.9.9.9.7', date: '2026-11',
     en: [
       'Your email is confirmed with a code: when you add or change it, a 6-digit code goes to it, and it becomes your account’s only once you enter it. (So nobody can put your address on their account.) An email added before this update needs confirming once — the game asks.',

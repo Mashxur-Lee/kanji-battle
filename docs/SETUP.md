@@ -34,6 +34,7 @@ password) signs out every other device.
 | `DATABASE_URL` | **Needed on Render** to keep accounts, XP and study cards (Neon, see below). |
 | `AUTH_SECRET` | **Set this.** Any long random string. Without it, everyone is logged out whenever the server restarts. |
 | `ADMIN_PASSWORD` | **Set this.** The `admin` account's password. |
+| `DAILY_SECRET` | **Set this** (0.9.9.9.7.1). Any random string of 16+ characters. The Daily challenge's words are picked with it — without it anyone with the game's code can work out any day's ten words. It takes effect from the first day no time zone has reached yet (today's words never change halfway). Set it once and keep it: changing it later changes the words of the days since. |
 | `USER_PASSWORD` | Optional: password for the demo `user` account. |
 | `KEEP_AWAKE` | Optional (0.9.9.9.6.9): on Render the server asks itself (`RENDER_EXTERNAL_URL`, set by Render) every 10 minutes, so the free plan never puts it to sleep and nobody waits on Render's "waking up" page. Awake all month uses about 744 of the free plan's 750 instance hours per workspace — set `KEEP_AWAKE=0` if you run other free services there. `KEEP_AWAKE_URL` points it somewhere else. |
 | `BREVO_API_KEY` | Optional (0.9.9.9.6.6): sends the "Forgot password?" codes through [Brevo](https://www.brevo.com)'s HTTPS API (free: 300 a day). **Use this on Render's free plan** — it blocks the mail ports (25, 465, 587), so `SMTP_URL` can't work there. Needs `MAIL_FROM` = a sender verified in Brevo, e.g. `Kanji Wizards <you@gmail.com>`. |
@@ -115,8 +116,10 @@ browser only talks to this server, never to the database).
   (`GET /api/sync/snapshot`) and, without internet, answers the study calls itself with the server's own
   code (`src/server/router.ts`, `StudyService`, `DailyService` bundled for the browser). Changes go to an
   outbox that is replayed in order once the server answers again, each call stamped with `X-KW-At` (the
-  moment it really happened, at most a week back) — so cards, streaks and daily-challenge times come out
-  as if you'd been online. Online queue, private games, friends and the admin pages need the server.
+  moment it really happened, at most a week back) — so cards and streaks come out as if you'd been online.
+  The server honours `X-KW-At` only for the calls in `src/shared/offline.ts` (0.9.9.9.7.1). Online queue,
+  private games, the daily challenge (0.9.9.9.7.1: its timing must be the server's), friends and the admin
+  pages need the server.
 - Icons: `assets/icon.svg` → `node scripts/build-icons.mjs` (needs `sharp`).
 
 ## Stability
