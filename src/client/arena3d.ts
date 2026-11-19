@@ -1000,9 +1000,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   // your eyes. localStorage kb:cinema = off turns it off.
   // (0.9.9.9.7: a shot's time is counted in drawn frames, each at most 1/20 s — the first frames of a battle can take
   // a second each while the arena is built, and on the clock the fly-in was over before anything showed)
-  /** `end`: 0.9.9.9.7.3 — the intro was cut there (the battle began): it glides back into your eyes in INTRO_OUT s */
-  type Cine = { kind: 'intro' | 'impact' | 'victory'; t: number; dur: number; who?: Who; a0?: number; end?: number };
-  const INTRO_OUT = 0.4;
+  /**
+   * `end`: 0.9.9.9.7.3 — the intro was cut there (the battle began): it glides back into your eyes in INTRO_OUT_MS of
+   * real time from `endAt` (not counted in frames: on a slow device that took seconds)
+   */
+  type Cine = { kind: 'intro' | 'impact' | 'victory'; t: number; dur: number; who?: Who; a0?: number; end?: number; endAt?: number };
+  const INTRO_OUT_MS = 400;
+  /** 0.9.9.9.7.3 (?debug3d only, for screenshots): a fighter held at this moment of a hit's reaction */
+  let heldHit: { who: string; ms: number } | null = null;
   let cine: Cine | null = null, cineW = 0, introPending = false, lastImpact = -1e9;
   const cinemaOn = (() => { try { return localStorage.getItem('kb:cinema') !== 'off'; } catch { return true; } })();
   const smooth = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
@@ -1012,9 +1017,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (!cine) return null;
     const t = cine.t;
     if (cine.kind === 'intro') {
-      if (t >= (cine.end !== undefined ? Math.min(cine.dur, cine.end + INTRO_OUT) : cine.dur)) { cine = null; return null; }
+      const outMs = cine.endAt !== undefined ? performance.now() - cine.endAt : 0;
+      if (t >= cine.dur || outMs >= INTRO_OUT_MS) { cine = null; return null; }
       // high behind you, swinging in from the side, down into your eyes (cut short: from where it was, quickly)
-      const out = cine.end !== undefined ? smooth((t - cine.end) / INTRO_OUT) : 0;
+      const out = cine.end !== undefined ? smooth(outMs / INTRO_OUT_MS) : 0;
       const k = smooth(Math.min(t, cine.end ?? t) / cine.dur), w = (1 - k) * (1 - out);
       const side = 2.4 * w; // (inside the ring of trees: they start about 15 out)
       return { pos: new THREE.Vector3(CAM.x + side, CAM.y + 2.4 * w, CAM.z + 3.2 * w), look: LOOK.clone().add(new THREE.Vector3(0, -0.4 * w, -2.5 * w)), w };
@@ -1277,7 +1283,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         f.poseK += ((f.flame && f.pose !== 'none' ? 1 : 0) - f.poseK) * Math.min(1, dt * 3);
         applyPose(m, f.pose, f.poseK, time); // (always: back to standing resets the last pose — 0.9.9.7.3)
         // 0.9.9.9.7: hit — the body snaps back, the head after it, the staff arm flung out, a step away
-        const since = now - f.hitAt;
+        const since = heldHit?.who === key ? heldHit.ms : now - f.hitAt;
         const lean = hitCurve(since, 70, 140, 650) * f.hitPow, step = hitCurve(since, 150, 320, 1150) * f.hitPow;
         if (lean > 0) { m.body.rotation.x -= 0.5 * lean; m.head.rotation.x -= 0.35 * lean; m.arm.rotation.x -= 0.5 * lean; m.arm.rotation.z += 0.25 * lean; }
         m.root.rotation.x = -0.12 * lean; // (the whole body rocks back on its heels)
@@ -1561,7 +1567,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     },
     endIntro() {
       introPending = false; // (not started yet: no fly-in into a battle that's on)
-      if (cine?.kind === 'intro' && cine.end === undefined) cine.end = cine.t;
+      if (cine?.kind === 'intro' && cine.end === undefined) { cine.end = cine.t; cine.endAt = performance.now(); }
     },
     setActive(on) {
       if (on === active) return;
@@ -1825,7 +1831,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     },
   };
   if (lite) api.setLite(true);
-  if (location.search.includes('debug3d')) (globalThis as unknown as { __arenaDbg: unknown }).__arenaDbg = { get staff() { return staff; }, get gemState() { return gemState; }, /** 0.9.9.9.7.3: the camera shot now (screenshots) */ get cine() { return cine ? { kind: cine.kind, t: cine.t, end: cine.end ?? null, w: cineW } : null; }, scene, camera, renderer, setStaff: (who: Who, id: string) => { if (who === 'me') setStaffSkin(id); else { const f = fighters.get(who); if (f) f.staffId = id; } } };
+  if (location.search.includes('debug3d')) (globalThis as unknown as { __arenaDbg: unknown }).__arenaDbg = { get staff() { return staff; }, get gemState() { return gemState; }, /** 0.9.9.9.7.3: the camera shot now (screenshots) */ get cine() { return cine ? { kind: cine.kind, t: cine.t, end: cine.end ?? null, w: cineW } : null; },
+    /** 0.9.9.9.7.3: hold a fighter at `ms` into a hit's reaction (null lets go) — screenshots of a moment */
+    holdHit: (who: string | null, ms = 0, leg = 0) => { heldHit = who ? { who, ms } : null; const f = who ? fighters.get(who as Who) : undefined; if (f) { f.hitPow = 1; f.hitLeg = leg; f.hitDir.set(0, 0, -1); } }, scene, camera, renderer, setStaff: (who: Who, id: string) => { if (who === 'me') setStaffSkin(id); else { const f = fighters.get(who); if (f) f.staffId = id; } } };
   resize();
   // compile every shader now (while you're in the menu), not in the first second of your first battle
   try { renderer.compile(scene, camera); } catch { /* fine — compiled on first draw */ }
