@@ -1088,6 +1088,7 @@ const RU: Record<string, string> = {
   // 0.9.9.9.7.1
   'That day isn\'t over everywhere yet — its words show in a few hours': 'Этот день ещё не закончился везде — его слова появятся через несколько часов',
   'Too many wrong codes — try again tomorrow': 'Слишком много неверных кодов — попробуйте завтра',
+  'Too many wrong room codes — wait a minute': 'Слишком много неверных кодов комнат — подождите минуту', // 0.9.9.9.7.2
   'Back online — your progress is synced.': 'Интернет снова есть — прогресс синхронизирован.',
   'No internet connection. Sign in once while online — then Study spells and more work offline too.': 'Нет подключения к интернету. Войдите один раз онлайн — после этого изучение заклинаний и многое другое работают и без интернета.',
   'Kanji Wizards is installed — find it with your apps.': 'Kanji Wizards установлено — найдите его среди приложений.',

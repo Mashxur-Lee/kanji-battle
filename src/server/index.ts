@@ -4,7 +4,9 @@ import type { MissedWord } from '../shared/protocol';
 import { createServer, type IncomingMessage } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
-import { brotliCompressSync, constants as zc, gzipSync } from 'node:zlib';
+import { Compressed } from './compressed';
+import { apkSource } from './apk';
+import { heartbeat } from './heartbeat';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
 import { AuthService } from './auth/AuthService';
@@ -13,6 +15,7 @@ import { PgStore } from './db/PgStore';
 import { FileStore, type Store } from './db/Store';
 import { createWritingJudge, isWritable } from './handwriting/judge';
 import { Recognizer } from './handwriting/recognizer';
+import { createJudgePool } from './handwriting/pool';
 import { createApiHandler } from './http';
 import { StudyService } from './study/StudyService';
 import { DailyService, secretSeed } from './study/DailyService';
@@ -167,9 +170,15 @@ const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), 
   } });
 
 // ── game ──────────────────────────────────────────────────────────────────────
+const judges = createJudgePool({
+  fallback: { normal: createWritingJudge(recognizer), lenient: createWritingJudge(recognizer, { lenient: true }) },
+  onError: (e) => reportServerError('handwriting judge', e),
+});
+judges.warm();
 const rooms = new RoomManager({
-  judgeWriting: createWritingJudge(recognizer),
-  judgeDeck: createWritingJudge(recognizer, { lenient: true }), // Deck Duel: extra forgiving
+  // 0.9.9.9.7.2: drawings are judged on their own thread (a big one held up every battle for most of a second)
+  judgeWriting: judges.normal,
+  judgeDeck: judges.lenient, // Deck Duel: extra forgiving
   writableFilter: isWritable(recognizer),
   // Deck Duel drafts from both players' All spells (0.9.9.4.4)
   spellIds: async (id) => new Set((await store.cards(id)).filter((c) => (c.deck ?? 'all') === 'all').map((c) => c.vocabId)),
@@ -195,21 +204,11 @@ auth.onBan((userId) => hub.kick(userId, 'This account has been banned.'));
 
 // 0.9.9.4.1: the Android app from the game's own address. Opening GitHub's link from the installed game
 // went through an in-app browser tab where Chrome can't ask "download this APK?" — the download failed
-// at 100%. Same address = the download stays in the game's window. Fetched from the latest GitHub release
-// and kept for 10 minutes.
+// at 100%. Same address = the download stays in the game's window. (0.9.9.9.7.2: apk.ts — one download at a time)
 const APK_URL = process.env.APK_URL ?? 'https://github.com/Mashxur-Lee/kanji-battle/releases/latest/download/KanjiWizards.apk';
-let apkCache: { at: number; data: Buffer; v?: string } | null = null;
-/** `want`: the release the in-app updater (0.9.9.6.1) saw — a cached copy from before it is fetched again. */
-async function latestApk(want?: string): Promise<Buffer> {
-  const age = apkCache ? Date.now() - apkCache.at : Infinity;
-  if (apkCache && (age < 60_000 || (age < 10 * 60_000 && (!want || apkCache.v === want)))) return apkCache.data;
-  const r = await fetch(APK_URL, { redirect: 'follow' });
-  if (!r.ok) throw new Error(`APK ${r.status}`);
-  apkCache = { at: Date.now(), data: Buffer.from(await r.arrayBuffer()), v: want };
-  return apkCache.data;
-}
+const latestApk = apkSource(APK_URL);
 
-const GZ = new Map<string, Buffer>();
+const compressed = new Compressed();
 let pageHashes: string[] = [];
 let pageHashesFor = -1;
 const server = createServer(async (req, res) => {
@@ -243,14 +242,8 @@ const server = createServer(async (req, res) => {
     const accept = String(req.headers['accept-encoding'] ?? '');
     const enc = /\bbr\b/.test(accept) ? 'br' : /\bgzip\b/.test(accept) ? 'gzip' : '';
     if (enc && /text|json|javascript|svg|gltf/.test(type) && data.length > 1024) { // (0.9.9.9.5.2: the 3D models too — about half the size)
-      const key = `${enc}:${file}:${data.length}`;
-      let gz = GZ.get(key);
-      if (!gz) {
-        gz = enc === 'br'
-          ? brotliCompressSync(data, { params: { [zc.BROTLI_PARAM_QUALITY]: data.length > 2e6 ? 9 : 11, [zc.BROTLI_PARAM_SIZE_HINT]: data.length } })
-          : gzipSync(data, { level: 9 });
-        GZ.set(key, gz);
-      }
+      // (0.9.9.9.7.2: made at build time; it was compressed here, on the server's only thread — 13 s of frozen battles)
+      const gz = await compressed.get(path.relative(PUBLIC_DIR, file).split(path.sep).join('/'), data, enc);
       res.writeHead(200, { 'Content-Type': type, 'Content-Encoding': enc, Vary: 'Accept-Encoding', ...fresh }).end(gz);
       return;
     }
@@ -273,6 +266,8 @@ wss.on('connection', (ws, ...rest: unknown[]) => {
   perIp.set(ip, n);
   const session = new Session(rooms, auth, hub, study, (json) => ws.readyState === ws.OPEN && ws.send(json), () => ws.close(), matchmaker, social);
   session.device = deviceOf(req?.headers['user-agent']);
+  session.ip = ip; // (0.9.9.9.7.2: wrong room codes are counted per address too)
+  heartbeat(ws); // 0.9.9.9.7.2: a connection that stopped answering is closed (it held a seat for minutes)
   const bucket = new Bucket(60, 20);
   let dropped = 0;
   ws.on('message', (data) => {
@@ -296,7 +291,7 @@ for (const sig of ['SIGTERM', 'SIGINT'] as const) {
     if (stopping) return;
     stopping = true;
     hub.broadcast({ type: 'notice', message: 'The game is updating — you\'ll be reconnected in a moment.' });
-    setTimeout(() => { server.close(); void store.close?.(); process.exit(0); }, 1200).unref();
+    setTimeout(() => { server.close(); void store.close?.(); void judges.close(); process.exit(0); }, 1200).unref();
   });
 }
 

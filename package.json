@@ -1,13 +1,14 @@
 {
   "name": "kanji-battle",
-  "version": "0.9.9.9.7.1",
+  "version": "0.9.9.9.7.2",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "build:client": "node scripts/build-client.mjs",
     "build:server": "tsc -p tsconfig.json",
-    "build": "npm run build:client && npm run build:server",
+    "build:compress": "node scripts/precompress.mjs",
+    "build": "npm run build:client && npm run build:server && npm run build:compress",
     "dev": "npm run build:client && tsx src/server/index.ts",
     "start": "node dist/server/index.js",
     "test": "node --import tsx --test test/*.test.ts"

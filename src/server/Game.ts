@@ -59,7 +59,14 @@ export function computeDamage(difficulty: number, responseMs: number, combo: num
 }
 
 /** Judges a handwritten answer: true if every drawn character matches. `recognized` is shown to the player. */
-export type WritingJudge = (entry: VocabEntry, chars: DrawnChar[]) => { correct: boolean; recognized: string };
+export interface JudgeResult { correct: boolean; recognized: string }
+/** 0.9.9.9.7.2: on the server the answer comes a moment later, from the judge's own thread (handwriting/pool.ts) */
+export type WritingJudge = (entry: VocabEntry, chars: DrawnChar[]) => JudgeResult | Promise<JudgeResult>;
+/** Applies a judge's answer now (a plain one) or when it comes (a promise); a judge that fails counts as a miss. */
+export function whenJudged(out: JudgeResult | Promise<JudgeResult>, apply: (r: JudgeResult) => void): Promise<void> | undefined {
+  if (!(out instanceof Promise)) { apply(out); return undefined; }
+  return out.then(apply, () => apply({ correct: false, recognized: '?' }));
+}
 
 export interface ChallengeInfo { id: number; kanji: string; answerMode: 'reading' | 'romaji' | 'writing'; timeLimitMs: number; meaning?: string; reading?: string; charCount?: number; flashMs?: number }
 
@@ -223,12 +230,19 @@ export class Game implements Match {
   /** Writing mode: handwritten characters, judged on the server. */
   submitWriting(id: PlayerId, challengeId: number, chars: DrawnChar[]) {
     const p = this.active(id, challengeId);
-    if (!p || this.opts.mode !== 'writing') return;
-    const responseMs = this.now() - p.current!.issuedAt;
-    const { correct, recognized } = this.opts.judgeWriting!(p.current!.entry, chars);
-    if (correct) this.hit(p, responseMs, recognized);
-    else this.miss(p, 'wrong', responseMs, recognized);
+    if (!p || this.opts.mode !== 'writing' || this.judging.has(id)) return;
+    const responseMs = this.now() - p.current!.issuedAt; // (the moment you sent it — the judging isn't your time)
+    // 0.9.9.9.7.2: the answer may come a moment later — it counts if this word is still the one you're on (not timed
+    // out meanwhile, the game not over); one drawing at a time
+    const judged = whenJudged(this.opts.judgeWriting!(p.current!.entry, chars), ({ correct, recognized }) => {
+      if (this.active(id, challengeId) !== p) return;
+      if (correct) this.hit(p, responseMs, recognized);
+      else this.miss(p, 'wrong', responseMs, recognized);
+    });
+    if (judged) { this.judging.add(id); void judged.finally(() => this.judging.delete(id)); }
   }
+  /** players whose drawing is being judged right now */
+  private readonly judging = new Set<PlayerId>();
 
   /** "I don't know" — counts as a miss: no damage, combo reset, answer shown. */
   skip(id: PlayerId, challengeId: number) {
