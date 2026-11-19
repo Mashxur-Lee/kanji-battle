@@ -78,7 +78,7 @@ export class PgStore implements Store {
    */
   async init() {
     await this.sql`create table if not exists kw_values (key text primary key, value text not null)`;
-    const schema = createHash('sha256').update(this.migrate.toString()).digest('hex').slice(0, 16);
+    const schema = createHash('sha256').update(PgStore.prototype.migrate.toString()).digest('hex').slice(0, 16); // (the class's own code)
     if ((await this.getValue('schema')) === schema) return;
     await this.migrate();
     await this.setValue('schema', schema);

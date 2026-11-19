@@ -108,10 +108,12 @@ if (process.env.TEST_DATABASE_URL) {
     const u = await s.create({ username: 'veteran', passwordHash: 'h', role: 'user' });
     await s.addCards(u.id, [newCard('v1', 0)]);
     await (s as any).sql`update kw_users set xp = 5400, xp_scheme = 1 where id = ${u.id}`;
-    await s.init(); // what a deploy does
+    // (0.9.9.9.7.3: a start runs the one-off fixes only when the schema code changed — a deploy of such a version)
+    const deploy = async () => { await s.setValue('schema', null); await s.init(); };
+    await deploy(); // what a deploy does
     const after = (await s.findById(u.id))!;
     assert.equal(after.xp, 15_000 + Math.round(0.4 * 6000));
-    await s.init();
+    await deploy();
     assert.equal((await s.findById(u.id))!.xp, after.xp, 'only once');
     // the SQL conversion matches legacyXpToCurrent exactly
     const { legacyXpToCurrent } = await import('../src/shared/progress');
@@ -122,7 +124,7 @@ if (process.env.TEST_DATABASE_URL) {
       await (s as any).sql`update kw_users set xp = ${xp}, xp_scheme = 1 where id = ${v.id}`;
       users.push(v.id);
     }
-    await s.init();
+    await deploy();
     for (const [i, id] of users.entries()) assert.equal((await s.findById(id))!.xp, legacyXpToCurrent(samples[i]), `xp ${samples[i]}`);
     assert.equal((await s.cards(u.id)).length, 1, 'study set untouched');
     await s.close!();
