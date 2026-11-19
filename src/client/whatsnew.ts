@@ -7,6 +7,21 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.7', date: '2026-11',
+    en: [
+      'Your email is confirmed with a code: when you add or change it, a 6-digit code goes to it, and it becomes your account’s only once you enter it. (So nobody can put your address on their account.) An email added before this update needs confirming once — the game asks.',
+      'The 3D arena: your spells hit hard — your opponent rocks back and staggers a step away (the dragon too).',
+      'The 3D arena: the fly-in at the start of a battle now always plays, even when the arena takes a moment to load.',
+      'Messages: back after a long break (or after the server woke up), your conversations load by themselves — no restart needed.',
+    ],
+    ru: [
+      'Почта подтверждается кодом: когда вы добавляете или меняете её, на неё приходит 6-значный код, и к аккаунту она привязывается только после ввода кода. (Так никто не сможет указать ваш адрес у себя.) Почту, добавленную до этого обновления, нужно подтвердить один раз — игра попросит.',
+      '3D-арена: ваши заклинания бьют ощутимо — соперник откидывается назад и отступает на шаг (дракон тоже).',
+      '3D-арена: облёт камеры в начале боя теперь всегда виден, даже если арена загружается не сразу.',
+      'Сообщения: после долгого перерыва (или когда сервер проснулся) переписка загружается сама — перезапуск не нужен.',
+    ],
+  },
+  {
     v: '0.9.9.9.6.9', date: '2026-11',
     en: [
       'Play now: no account needed to start — play as a guest, and save your progress (a login, a password and your email) whenever you like.',

@@ -66,7 +66,9 @@ export function emailDialog(opts: { required: boolean; current?: string | null; 
     try {
       const r = await api.setEmail(mail.i.value.trim(), pass.i.value);
       d.close();
-      opts.onDone(r.user);
+      // 0.9.9.9.7: a code went to it — the email is yours once you enter it
+      if (r.pending) codeDialog({ to: r.pending, onDone: opts.onDone });
+      else opts.onDone(r.user);
     } catch (x) { msg.textContent = err(x); ok.disabled = false; }
   };
   d.showModal();
@@ -77,6 +79,65 @@ export function emailDialog(opts: { required: boolean; current?: string | null; 
  * 0.9.9.9.6.9: a guest keeps what they've done — a login, a password and an email turn the guest into an account
  * (same XP, spells and everything). `why`: the line on top (e.g. what needs an account).
  */
+/**
+ * 0.9.9.9.7: confirm an email — the 6-digit code that went to it. `to`: the address, masked; `ask`: an older email that
+ * was never confirmed — the code goes out only when you press "Send me a code" (no mail to an address that may not be yours).
+ */
+export function codeDialog(opts: { to: string; ask?: boolean; onDone: (u: PublicUser) => void; onChange?: () => void }) {
+  const { d, f } = dialog('code-dialog');
+  const h3 = el('h3', '', tr('Confirm your email'));
+  const line = el('p', 'hint');
+  const setLine = (sent: boolean) => { line.textContent = sent ? `${tr('We sent a 6-digit code to')} ${opts.to}. ${tr('Enter it here — it works for 15 minutes.')}` : `${tr('Your email')} ${opts.to} ${tr('is not confirmed yet. Confirm it, so a password reset can reach you.')}`; };
+  const code = el('input', 'code-input');
+  code.inputMode = 'numeric'; code.autocomplete = 'one-time-code'; code.maxLength = 6; code.pattern = '[0-9]{6}'; code.placeholder = '000000';
+  code.required = true;
+  const msg = msgLine();
+  const again = el('button', 'pill', tr('Send it again'));
+  again.type = 'button';
+  const change = el('button', 'pill', tr('A different email'));
+  change.type = 'button';
+  const later = el('button', 'pill', tr('Later'));
+  later.type = 'button'; later.onclick = () => d.close();
+  const ok = el('button', 'big', tr('Confirm'));
+  ok.type = 'submit';
+  const send = el('button', 'big', tr('Send me a code'));
+  send.type = 'button';
+  const extra = el('div', 'code-extra');
+  const row = el('div', 'fb-actions');
+  // "Send it again": once a minute
+  let wait = 0, timer = 0;
+  const tick = () => { again.disabled = wait > 0; again.textContent = wait > 0 ? `${tr('Send it again')} (${wait})` : tr('Send it again'); if (wait-- > 0) timer = window.setTimeout(tick, 1000); };
+  const sending = async () => {
+    msg.textContent = '';
+    try { const r = await api.resendEmail(); opts.to = r.pending; showInput(); wait = 60; tick(); }
+    catch (x) { msg.textContent = err(x); }
+  };
+  const showInput = () => { setLine(true); code.hidden = false; send.hidden = true; ok.hidden = false; again.hidden = false; code.focus(); };
+  again.onclick = () => void sending();
+  send.onclick = () => void sending();
+  change.onclick = () => { d.close(); opts.onChange?.(); };
+  if (!opts.onChange) change.hidden = true;
+  extra.append(again, change);
+  row.append(later, send, ok);
+  f.append(h3, line, code, msg, extra, row);
+  if (opts.ask) { setLine(false); code.hidden = true; ok.hidden = true; again.hidden = true; }
+  else { setLine(true); send.hidden = true; wait = 60; tick(); }
+  code.addEventListener('input', () => { code.value = code.value.replace(/\D/g, '').slice(0, 6); if (code.value.length === 6) f.requestSubmit(); });
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    if (code.hidden) return;
+    ok.disabled = true; msg.textContent = '';
+    try {
+      const r = await api.confirmEmail(code.value);
+      d.close();
+      opts.onDone(r.user);
+    } catch (x) { msg.textContent = err(x); ok.disabled = false; code.select(); }
+  };
+  d.addEventListener('close', () => clearTimeout(timer));
+  d.showModal();
+  if (!opts.ask) code.focus();
+}
+
 export function claimDialog(opts: { why?: string; onDone: (token: string, u: PublicUser) => void }) {
   const { d, f } = dialog('claim-dialog');
   const h3 = el('h3', '', tr('Save your progress'));
@@ -103,6 +164,7 @@ export function claimDialog(opts: { why?: string; onDone: (token: string, u: Pub
       setToken(r.token);
       d.close();
       opts.onDone(r.token, r.user);
+      if (r.pending) codeDialog({ to: r.pending, onDone: (u) => opts.onDone(r.token, u) }); // (0.9.9.9.7: its code)
     } catch (x) { msg.textContent = err(x); ok.disabled = false; }
   };
   d.showModal();

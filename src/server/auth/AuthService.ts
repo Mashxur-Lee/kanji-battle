@@ -31,11 +31,19 @@ export const OWNER = 'admin';
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
 export const toPublic = (u: UserRecord): PublicUser => ({ id: u.id, username: u.username, role: u.role, name: displayName(u), nickname: u.nickname ?? null });
 /** 0.9.9.9.6.6: you, to yourself — with your email (masked: "fr•••@gmail.com"; null: none yet) */
-export const toSelf = (u: UserRecord): PublicUser => ({ ...toPublic(u), email: maskEmail(u.email), ...(isGuest(u) ? { guest: true } : {}) });
+/**
+ * 0.9.9.9.7: an email belongs to an account only once it's confirmed with a code sent to it — otherwise anyone could
+ * type someone else's address and send them "Forgot password?" mails. (Emails given before 0.9.9.9.7 aren't confirmed:
+ * no reset mail goes to them until they are.)
+ */
+const VERIFIED = 'emailok';
+export const emailVerified = (u: { email?: string | null; unlocks?: string[] }) => !!u.email && (u.unlocks ?? []).includes(VERIFIED);
+export const toSelf = (u: UserRecord): PublicUser => ({ ...toPublic(u), email: maskEmail(u.email), emailVerified: emailVerified(u), ...(isGuest(u) ? { guest: true } : {}) });
 /** a password-reset code: 6 digits, half an hour, 5 tries */
 const RESET_MS = 30 * 60_000, RESET_TRIES = 5, RESET_GAP_MS = 60_000;
 const sha = (s: string) => createHash('sha256').update(s).digest();
-export interface ResetMail { user: UserRecord; email: string; code: string; lang: 'en' | 'ru' }
+export interface ResetMail { user: UserRecord; email: string; code: string; lang: 'en' | 'ru'; /** 0.9.9.9.7: a reset code, or a code to confirm an email */ kind?: 'reset' | 'confirm' }
+const CONFIRM_MS = 15 * 60_000, CONFIRM_TRIES = 5, CONFIRM_GAP_MS = 60_000, CONFIRM_PER_DAY = 6, CONFIRM_PER_ADDRESS_HOUR = 3;
 
 export class AuthService {
   private banListeners: Array<(userId: string) => void> = [];
@@ -64,7 +72,7 @@ export class AuthService {
     }
   }
 
-  async register(username: unknown, password: unknown, email?: unknown) {
+  async register(username: unknown, password: unknown, email?: unknown, sendMail: (m: ResetMail) => Promise<void> = async () => {}) {
     const u = String(username ?? '').trim();
     const p = String(password ?? '');
     if (!USERNAME_RE.test(u)) throw new AuthError('Login: 3–32 letters, numbers, _ . or -');
@@ -75,8 +83,10 @@ export class AuthService {
     const key = emailKey(mail);
     if (await this.store.findByEmailKey(key)) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
     try {
-      const rec = await this.store.create({ username: u, passwordHash: await hashPassword(p), role: 'user', email: mail, emailKey: key });
-      return { token: this.tokens.sign(rec.id), user: toSelf(rec) };
+      // 0.9.9.9.7: the email is the account's once it's confirmed (a code goes to it now)
+      const rec = await this.store.create({ username: u, passwordHash: await hashPassword(p), role: 'user' });
+      const pending = await this.askConfirm(rec, mail, sendMail);
+      return { token: this.tokens.sign(rec.id), user: toSelf(rec), pending };
     } catch (e) {
       if (e instanceof UsernameTakenError) throw new AuthError('That username is taken', 409);
       if (e instanceof EmailTakenError) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
@@ -101,7 +111,7 @@ export class AuthService {
   }
 
   /** 0.9.9.9.6.9: save a guest's progress — a login, a password and an email, the same rules as signing up */
-  async claim(u: UserRecord, username: unknown, password: unknown, email: unknown) {
+  async claim(u: UserRecord, username: unknown, password: unknown, email: unknown, sendMail: (m: ResetMail) => Promise<void> = async () => {}) {
     if (!isGuest(u)) throw new AuthError('This account is already saved', 409);
     const name = String(username ?? '').trim();
     const p = String(password ?? '');
@@ -115,10 +125,11 @@ export class AuthService {
     if (other && other.id !== u.id) throw new AuthError('That username is taken', 409);
     try {
       const rec = await this.store.update(u.id, {
-        username: name.toLowerCase(), passwordHash: await hashPassword(p), email: mail, emailKey: key,
+        username: name.toLowerCase(), passwordHash: await hashPassword(p),
         unlocks: (u.unlocks ?? []).filter((x) => x !== GUEST_MARK),
       });
-      return { token: this.tokens.sign(u.id), user: toSelf(rec ?? u) };
+      const pending = await this.askConfirm(rec ?? u, mail, sendMail); // (0.9.9.9.7: the email once it's confirmed)
+      return { token: this.tokens.sign(u.id), user: toSelf(rec ?? u), pending };
     } catch (e) {
       if (e instanceof UsernameTakenError) throw new AuthError('That username is taken', 409);
       if (e instanceof EmailTakenError) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
@@ -146,23 +157,69 @@ export class AuthService {
    * borrowed phone that's still signed in can't move your account to another inbox and reset the password) and
    * happens at most once a week (no hopping between inboxes).
    */
-  async setEmail(u: UserRecord, email: unknown, password: unknown, now = Date.now()) {
+  async setEmail(u: UserRecord, email: unknown, password: unknown, sendMail: (m: ResetMail) => Promise<void> = async () => {}, now = Date.now()) {
+    // (0.9.9.9.7: nothing changes yet — a code goes to the new address; `confirmEmail` makes it the account's)
     const changing = !!u.email;
     if (changing && !(await verifyPassword(String(password ?? ''), u.passwordHash))) throw new AuthError('Your password is wrong', 403);
     const mail = this.emailOrThrow(email);
     const key = emailKey(mail);
-    if (changing && key === u.emailKey) return toSelf(u);
+    if (changing && key === u.emailKey && emailVerified(u)) return { user: toSelf(u), pending: null };
     const last = emailChangedAt(u) || Date.parse(u.createdAt) || 0; // (given at sign-up: a week from then)
-    if (changing && last && now - last < EMAIL_GAP_MS) {
+    if (emailVerified(u) && key !== u.emailKey && last && now - last < EMAIL_GAP_MS) {
       const days = Math.max(1, Math.ceil((last + EMAIL_GAP_MS - now) / 86_400_000));
       throw new AuthError(`You can change your email again in ${days} day${days === 1 ? '' : 's'}`, 429);
     }
     const other = await this.store.findByEmailKey(key);
     if (other && other.id !== u.id) throw new AuthError('That email already has an account', 409);
-    const unlocks = [...(u.unlocks ?? []).filter((x) => !x.startsWith(EMAIL_MARK)), `${EMAIL_MARK}${now}`];
+    return { user: toSelf(u), pending: await this.askConfirm(u, mail, sendMail, now) };
+  }
+
+  // ── 0.9.9.9.7: confirming an email — a code to it, then it's the account's ──
+  private confirms = new Map<string, { email: string; key: string; hash: Buffer; until: number; tries: number; sentAt: number; day: string; today: number }>();
+  private sentTo = new Map<string, number[]>();
+  /** sends a code to `email` for `u`; returns the address, masked (what the player sees: "a code went to h***@gmail.com") */
+  private async askConfirm(u: UserRecord, email: string, sendMail: (m: ResetMail) => Promise<void>, now = Date.now()): Promise<string> {
+    const key = emailKey(email);
+    const was = this.confirms.get(u.id);
+    if (was && was.key === key && now - was.sentAt < CONFIRM_GAP_MS) return maskEmail(email)!; // (the last one is still on its way)
+    if (was && now - was.sentAt < CONFIRM_GAP_MS) throw new AuthError('Wait a minute before asking for another code', 429);
+    const day = new Date(now).toISOString().slice(0, 10);
+    const today = was && was.day === day ? was.today : 0;
+    if (today >= CONFIRM_PER_DAY) throw new AuthError('Too many codes today — try again tomorrow', 429);
+    // (one mailbox gets at most 3 codes an hour, from all accounts together: nobody can flood someone else's inbox)
+    const times = (this.sentTo.get(key) ?? []).filter((t) => now - t < 3_600_000);
+    if (times.length >= CONFIRM_PER_ADDRESS_HOUR) throw new AuthError('Too many codes went to that address — try again in an hour', 429);
+    this.sentTo.set(key, [...times, now]);
+    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    this.confirms.set(u.id, { email, key, hash: sha(code), until: now + CONFIRM_MS, tries: 0, sentAt: now, day, today: today + 1 });
+    const lang = (u.unlocks ?? []).includes('plang:ru') ? 'ru' : 'en';
+    void sendMail({ user: u, email, code, lang, kind: 'confirm' }).catch((e) => console.error('[confirm mail]', e));
+    return maskEmail(email)!;
+  }
+  /** "Send it again": the address waiting for a code — or, for an email from before 0.9.9.9.7, the account's own */
+  async resendConfirm(u: UserRecord, sendMail: (m: ResetMail) => Promise<void>, now = Date.now()) {
+    const was = this.confirms.get(u.id);
+    const email = was && now < was.until + 3_600_000 ? was.email : !emailVerified(u) ? u.email : null;
+    if (!email) throw new AuthError('There is no email to confirm — add one first', 400);
+    if (was && now - was.sentAt < CONFIRM_GAP_MS) throw new AuthError('Wait a minute before asking for another code', 429);
+    return { pending: await this.askConfirm(u, email, sendMail, now) };
+  }
+  /** the code from the email: the address becomes the account's (and confirmed) */
+  async confirmEmail(u: UserRecord, code: unknown, now = Date.now()) {
+    const c = this.confirms.get(u.id);
+    const bad = new AuthError('That code is wrong or has expired — ask for a new one', 400);
+    if (!c || now > c.until || c.tries >= CONFIRM_TRIES) throw bad;
+    c.tries++;
+    if (!timingSafeEqual(sha(String(code ?? '').replace(/\s/g, '')), c.hash)) throw bad;
+    this.confirms.delete(u.id);
+    const other = await this.store.findByEmailKey(c.key);
+    if (other && other.id !== u.id) throw new AuthError('That email already has an account', 409);
+    const fresh = (await this.store.findById(u.id)) ?? u;
+    const changed = !!fresh.email && fresh.emailKey !== c.key;
+    const unlocks = [...(fresh.unlocks ?? []).filter((x) => x !== VERIFIED && !(changed && x.startsWith(EMAIL_MARK))), VERIFIED, ...(changed ? [`${EMAIL_MARK}${now}`] : [])];
     try {
-      const rec = await this.store.update(u.id, { email: mail, emailKey: key, unlocks });
-      return toSelf(rec ?? u);
+      const rec = await this.store.update(u.id, { email: c.email, emailKey: c.key, unlocks });
+      return { user: toSelf(rec ?? fresh) };
     } catch (e) {
       if (e instanceof EmailTakenError) throw new AuthError('That email already has an account', 409);
       throw e;
@@ -174,13 +231,13 @@ export class AuthService {
   /** sends the code through `mail`; says nothing about whether the account exists (the caller always answers the same) */
   async forgot(login: unknown, mail: (m: ResetMail) => Promise<void>, now = Date.now()): Promise<void> {
     const rec = await this.byLogin(login);
-    if (!rec?.email || rec.banned) return;
+    if (!rec?.email || rec.banned || !emailVerified(rec)) return; // (0.9.9.9.7: only to a confirmed address)
     const was = this.resets.get(rec.id);
     if (was && now - was.sentAt < RESET_GAP_MS) return; // (one a minute)
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     this.resets.set(rec.id, { hash: sha(code), until: now + RESET_MS, tries: 0, sentAt: now });
     const lang = (rec.unlocks ?? []).includes('plang:ru') ? 'ru' : 'en';
-    await mail({ user: rec, email: rec.email, code, lang });
+    await mail({ user: rec, email: rec.email, code, lang, kind: 'reset' });
   }
   async resetPassword(login: unknown, code: unknown, next: unknown, now = Date.now()) {
     const rec = await this.byLogin(login);

@@ -89,6 +89,8 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
     }
   };
   const RETRY = Symbol('retry');
+  // 0.9.9.9.7: emails (a reset code, a code to confirm an address) go out in the background
+  const sendMail = (m: import('./auth/AuthService').ResetMail) => (extras.resetMail ? extras.resetMail(m) : Promise.resolve());
   const GUEST_BLOCKED = /^\/api\/(messages|groups|friends|push|invite)(\/|$)|^\/api\/me\/(avatar|nickname|email|password)$/;
   const handle = async (r: ApiRequest, canRetry: boolean): Promise<ApiResponse | null | typeof RETRY> => {
     const url = r.url;
@@ -113,7 +115,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         if (!limiter.allow(`cl:${ip}`)) throw new AuthError('Too many attempts — wait a minute', 429);
         const body = await r.json();
-        const result = await auth.claim(u, body.username, body.password, body.email);
+        const result = await auth.claim(u, body.username, body.password, body.email, sendMail);
         void insights?.event(u.id, 'signup');
         return res(200, result);
       }
@@ -122,7 +124,7 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         // 0.9.9.9.5: and at most 10 new accounts an hour from one address
         if (url === '/api/register' && !signupLimiter.allow(ip)) throw new AuthError('Too many new accounts from here — try again later', 429);
         const body = await r.json();
-        const result = url === '/api/register' ? await auth.register(body.username, body.password, body.email) : await auth.login(body.username, body.password);
+        const result = url === '/api/register' ? await auth.register(body.username, body.password, body.email, sendMail) : await auth.login(body.username, body.password);
         if (url === '/api/register') void insights?.event(result.user.id, 'signup');
         return res(200, result);
       } else if (r.method === 'GET' && url === '/api/online') {
@@ -488,7 +490,17 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         if (!limiter.allow(`em:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
         const body = await r.json();
-        return res(200, { user: await auth.setEmail(u, body.email, body.password) });
+        return res(200, await auth.setEmail(u, body.email, body.password, sendMail)); // (0.9.9.9.7: { user, pending } — a code went to it)
+      } else if (r.method === 'POST' && url === '/api/me/email/confirm') {
+        // 0.9.9.9.7: the code from the email
+        const u = await auth.authenticate(r.token);
+        if (!limiter.allow(`ec:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const body = await r.json();
+        return res(200, await auth.confirmEmail(u, body.code));
+      } else if (r.method === 'POST' && url === '/api/me/email/resend') {
+        const u = await auth.authenticate(r.token);
+        if (!limiter.allow(`em:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        return res(200, await auth.resendConfirm(u, sendMail));
       } else if (r.method === 'POST' && url === '/api/password/forgot') {
         // 0.9.9.9.6.6: a code by email — the same answer whether or not the account exists
         if (!limiter.allow(`fg:${ip}`)) throw new AuthError('Too many attempts — wait a minute', 429);

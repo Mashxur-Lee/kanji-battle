@@ -55,7 +55,7 @@ test('0.9.9.9.6.9 a guest saves the account: same id and progress, a login, a pa
   try {
     const g = await call('POST', '/api/guest');
     await store.addXp(g.body.user.id, 120);
-    await auth.register('takenname', 'secret12', 'taken@mail.ru');
+    { let code = ''; const t = await auth.register('takenname', 'secret12', 'taken@mail.ru', async (m) => { code = m.code; }); await auth.confirmEmail(await auth.authenticate(t.token), code); }
     assert.equal((await call('POST', '/api/guest/claim', g.body.token, { username: 'takenname', password: 'secret12', email: 'me@mail.ru' })).status, 409);
     assert.match((await call('POST', '/api/guest/claim', g.body.token, { username: 'mine', password: 'secret12', email: 'taken+x@mail.ru' })).body.error, /already has an account/);
     assert.match((await call('POST', '/api/guest/claim', g.body.token, { username: 'guest-me', password: 'secret12', email: 'me@mail.ru' })).body.error, /login of your own/);
@@ -67,7 +67,7 @@ test('0.9.9.9.6.9 a guest saves the account: same id and progress, a login, a pa
     const rec = (await store.findById(g.body.user.id))!;
     assert.equal(rec.xp, 120, 'progress kept');
     assert.equal(isGuest(rec), false);
-    assert.equal(rec.emailKey, 'me@mail.ru');
+    assert.equal(c.body.pending, 'me•••@mail.ru', '(0.9.9.9.7) the email waits for its code');
     // the guest's token still works; the login and password too
     assert.equal((await call('GET', '/api/me', g.body.token)).status, 200);
     assert.equal((await call('POST', '/api/login', undefined, { username: 'hikari', password: 'secret12' })).status, 200);

@@ -53,7 +53,8 @@ export type Role = 'user' | 'admin';
 /** `username` is the login; `name` (0.9.9.6) what others see — your nickname, or the login when you have none */
 export interface PublicUser { id: string; username: string; role: Role; name?: string; nickname?: string | null;
   /** 0.9.9.9.6.6: only to yourself (masked) and to admins (whole); null: no email yet */ email?: string | null;
-  /** 0.9.9.9.6.9: playing as a guest (no account saved yet) — only to yourself */ guest?: boolean }
+  /** 0.9.9.9.6.9: playing as a guest (no account saved yet) — only to yourself */ guest?: boolean;
+  /** 0.9.9.9.7: your email was confirmed with a code (only to yourself) */ emailVerified?: boolean }
 export interface AdminUserRow extends PublicUser {
   banned: boolean; createdAt: string;
   xp?: number; level?: number; crit?: number; learned?: number; cards?: number;

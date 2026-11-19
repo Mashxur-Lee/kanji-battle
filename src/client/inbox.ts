@@ -256,6 +256,14 @@ function renderList() {
   }));
 }
 
+let listRetry = 0, listRetryTimer = 0;
+/** 0.9.9.9.7 (main.ts): the connection is back after being lost — the badge, and the open list and conversation again */
+export function inboxReconnected() {
+  void refreshUnread();
+  if (ui.currentScreen() !== 'inbox') return;
+  listRetry = 0; listCache.delete(side);
+  void loadList().then(() => { if (openId) void openThread(openId); });
+}
 async function loadList() {
   loading = true;
   const which = side;
@@ -263,8 +271,13 @@ async function loadList() {
   const had = listCache.get(which);
   if (had) { convs = had; paintTop(); renderList(); }
   else if (!convs.length) $('msgList').replaceChildren(h('p', 'hint msg-empty', tr('Loading…')));
-  try { const c = await fetchList(which); if (side !== which) return; convs = c; paintTop(); }
-  catch (e) { if (!had) $('msgList').replaceChildren(h('p', 'hint msg-empty', (e as Error).message)); return; }
+  try { const c = await fetchList(which); if (side !== which) return; convs = c; paintTop(); listRetry = 0; }
+  catch (e) {
+    if (!had) $('msgList').replaceChildren(h('p', 'hint msg-empty', (e as Error).message));
+    // 0.9.9.9.7: the server waking up (or the network back a moment later): try again, a little later each time
+    if (listRetry < 8) { clearTimeout(listRetryTimer); listRetryTimer = window.setTimeout(() => { if (ui.currentScreen() === 'inbox') void loadList(); }, 2000 * 2 ** Math.min(listRetry++, 4)); }
+    return;
+  }
   finally { loading = false; }
   renderList();
   // (the open conversation's row may have changed: a group's name, how many are online)
