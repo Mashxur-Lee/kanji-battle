@@ -2,8 +2,8 @@
 // includes the server's study code (StudyService, DailyService, the API router) so the app can keep
 // studying without internet; Node-only imports are swapped for browser stand-ins, and server/vocab.ts for
 // a version that loads public/vocab.json. Also writes vocab.json and the service worker's file list.
-import { build } from 'esbuild';
-import { copyFileSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { build, transform } from 'esbuild';
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +32,12 @@ await build({
 });
 await build({ entryPoints: [r('src/client/arena3d.ts')], bundle: true, minify: true, outfile: r('public/arena3d.js'), target: 'es2020', logLevel: 'warning' });
 copyFileSync(r('data/vocab.json'), r('public/vocab.json'));
+// 0.9.9.9.8: the page and the stylesheet as they are sent — without the notes written for whoever works on the code
+// (every block's version and why), the stylesheet minified: dist/public. The server sends these when they are newer
+// than the files in public/ (which stay the ones to edit). The stylesheet was half a megabyte of mostly notes.
+mkdirSync(r('dist/public'), { recursive: true });
+writeFileSync(r('dist/public/style.css'), (await transform(readFileSync(r('public/style.css'), 'utf8'), { loader: 'css', minify: true, legalComments: 'none', logLevel: 'warning' })).code);
+writeFileSync(r('dist/public/index.html'), readFileSync(r('public/index.html'), 'utf8').replace(/[ \t]*<!--[\s\S]*?-->\n?/g, ''));
 // example sentences (0.9.9.4.2): data/examples/*.tsv — id, sentence with the word in 【】, English, Russian
 const examples = {};
 for (const f of readdirSync(r('data/examples')).filter((x) => x.endsWith('.tsv')).sort()) {

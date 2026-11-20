@@ -21,7 +21,7 @@ async function serve() {
   const server: Server = createServer((req, res) => void api(req, res).then((ok) => { if (!ok) res.writeHead(404).end(); }));
   await new Promise<void>((r) => server.listen(0, r));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  const { token, user } = (await (await fetch(`${base}/api/register`, { method: 'POST', body: JSON.stringify({ username: `p${Date.now() % 100000}`, password: 'secret1', email: `p${Date.now()}@test.dev` }) })).json()) as { token: string; user: { id: string } };
+  const { token, user } = (await (await fetch(`${base}/api/register`, { method: 'POST', body: JSON.stringify({ username: `p${Date.now() % 100000}`, password: 'secret12', email: `p${Date.now()}@test.dev` }) })).json()) as { token: string; user: { id: string } };
   const call = async (method: string, url: string, body?: unknown, at?: number) => {
     const r = await fetch(base + url, { method, headers: { Authorization: `Bearer ${token}`, ...(at ? { 'X-KW-At': String(at) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: r.status, body: (await r.json()) as any };

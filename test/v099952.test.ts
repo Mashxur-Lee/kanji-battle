@@ -72,9 +72,6 @@ test('0.9.9.9.5.2 push: Google\'s answer is kept; the test route says where it s
   const study = new StudyService(store);
   const auth = new AuthService(store, new TokenSigner('t'));
   const { token } = await auth.register('pushtest', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
-  const off = createApiRouter(auth, study, {});
-  assert.deepEqual((await ask(off, token, 'POST', '/api/push/test'))?.body, { ok: false, reason: 'server-off' });
-  const on = createApiRouter(auth, study, { pushTest: async () => ({ ok: true, sent: 1, phones: 1 }) });
-  assert.deepEqual((await ask(on, token, 'POST', '/api/push/test'))?.body, { ok: true, sent: 1, phones: 1 });
-  assert.equal((await ask(on, '', 'POST', '/api/push/test'))?.status, 401, 'signed in only');
+  // (0.9.9.9.8: the test notification is gone — the app has an on/off switch instead)
+  assert.equal((await ask(createApiRouter(auth, study, {}), token, 'POST', '/api/push/test'))?.status, 404);
 });

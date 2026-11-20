@@ -32,10 +32,12 @@ for await (const f of walk(PUBLIC)) if (COMPRESSIBLE.test(f)) files.push(f);
 const manifest = {};
 let saved = 0;
 // (zlib's async calls run on the thread pool: several files at once)
+// (0.9.9.9.8: the page and the stylesheet as they are sent — dist/public, from build-client.mjs)
+const SENT = process.env.KW_SENT_DIR ?? path.join(root, 'dist', 'public');
 await Promise.all(files.map(async (f) => {
-  const data = await readFile(f);
-  if (data.length <= 1024) return;
   const rel = path.relative(PUBLIC, f).split(path.sep).join('/');
+  const data = await readFile(path.join(SENT, rel)).catch(() => readFile(f));
+  if (data.length <= 1024) return;
   const [b, g] = await Promise.all([
     br(data, { params: { [zc.BROTLI_PARAM_QUALITY]: data.length > 2e6 ? 9 : 11, [zc.BROTLI_PARAM_SIZE_HINT]: data.length } }),
     gz(data, { level: 9 }),

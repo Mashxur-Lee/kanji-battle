@@ -40,7 +40,21 @@ async function flush() {
 }
 /** main.ts: signed in (or the profile came) — the account's records, and this device's old ones added once */
 const cacheKey = () => `kb:quizCache:${me}`;
-function keep(s: QuizStats) { server = s; try { localStorage.setItem(cacheKey(), JSON.stringify(s)); } catch { /* private mode */ } }
+/**
+ * 0.9.9.9.8: records only move forward. A finished quiz is sent, and the daily task is reported at the same time; the
+ * task's answer carries the profile as it was a moment before — without the new play — and it came back last, so
+ * the screen went back to the old numbers ("Back to quizzes" showed nothing new until the screen was opened again).
+ * Each quiz keeps whichever record has more plays (the same number: the later one).
+ */
+function newer(a: QuizStats, b: QuizStats): QuizStats {
+  const out: QuizStats = { ...a };
+  for (const k of Object.keys(b) as QuizKind[]) {
+    const x = a[k], y = b[k];
+    if (!x || (y && (y.plays > x.plays || (y.plays === x.plays && y.at >= x.at)))) out[k] = y;
+  }
+  return out;
+}
+function keep(s: QuizStats) { server = newer(server, s); try { localStorage.setItem(cacheKey(), JSON.stringify(server)); } catch { /* private mode */ } }
 function syncFrom(p: Profile, userId: string) {
   if (userId !== me) {
     me = userId;
@@ -88,7 +102,7 @@ function render() {
     goal.classList.toggle('done', done);
     goal.replaceChildren(
       mk('span', 'qg-ic', done ? '✓' : '○'),
-      mk('span', 'qg-text', done ? tr('Today’s quiz task is done — nice work!') : tr('Today’s streak task: pass a JLPT quiz (7 / 10) or a reading passage (half right).')),
+      mk('span', 'qg-text', done ? tr('Today’s quiz task is done - nice work!') : tr('Today’s streak task: pass a JLPT quiz (7 / 10) or a reading passage (half right).')),
       mk('b', 'qg-val', `${Math.min(t.value, t.target)}/${t.target}`),
     );
   }
@@ -96,7 +110,7 @@ function render() {
   const all = load();
   for (const box of document.querySelectorAll<HTMLElement>('#quizzes .qz-stats')) {
     const r = all[box.dataset.stats as QuizKind];
-    if (!r?.plays) { box.classList.add('empty'); box.replaceChildren(mk('span', 'qs-none', tr('Not played yet — good luck!'))); continue; }
+    if (!r?.plays) { box.classList.add('empty'); box.replaceChildren(mk('span', 'qs-none', tr('Not played yet - good luck!'))); continue; }
     box.classList.remove('empty');
     const pct = Math.round((r.best / Math.max(1, r.bestOf)) * 100);
     const ring = mk('span', 'qs-ring');

@@ -86,7 +86,7 @@ async function search(q: string) {
     hits = exactFirst(d.search(q, 60), q).slice(0, 25); // (an exact word further down the list comes up too)
     drawList(q);
   } catch {
-    if (n === busy) $('dictRailBody').replaceChildren(h('p', 'hint dr-hint', tr('The dictionary couldn’t load — open it once with internet, then it works offline too.')));
+    if (n === busy) $('dictRailBody').replaceChildren(h('p', 'hint dr-hint', tr('The dictionary couldn’t load - open it once with internet, then it works offline too.')));
   }
 }
 

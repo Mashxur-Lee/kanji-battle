@@ -106,7 +106,7 @@ export class MessageService {
   private limit(u: UserRecord) {
     const now = this.now();
     const times = (this.sent.get(u.id) ?? []).filter((x) => now - x < 60_000);
-    if (times.length >= PER_MINUTE) throw new MessageError('That\'s a lot of messages — wait a moment', 429);
+    if (times.length >= PER_MINUTE) throw new MessageError('That\'s a lot of messages - wait a moment', 429);
     this.sent.set(u.id, [...times, now]);
   }
 
@@ -141,7 +141,7 @@ export class MessageService {
     // a player always has the team in their list (to write to it), even before the first message
     if (!asSupport && !out.some((c) => c.support)) {
       out.push({ id: SUPPORT_ID, name: 'Kanji Wizards team', pic: null, online: true, support: true, unread: 0, friend: false,
-        last: { id: '', from: SUPPORT_ID, to: u.id, text: 'Questions, bugs, ideas — write to us here.', at: 0, read: true } });
+        last: { id: '', from: SUPPORT_ID, to: u.id, text: 'Questions, bugs, ideas - write to us here.', at: 0, read: true } });
     }
     if (!asSupport) for (const c of out) { const n = notifyMode(u.unlocks, c.id); if (n !== 'all') { c.notify = n; if (n === 'none') c.muted = true; } }
     return { conversations: out, unread: out.reduce((n, c) => n + c.unread, 0), ...(asSupport ? {} : { mutedAll: (u.unlocks ?? []).includes(MUTE_ALL) }) };
@@ -565,7 +565,7 @@ export class MessageService {
       : data.subarray(0, 4).toString('latin1') === 'RIFF' && data.subarray(8, 12).toString('latin1') === 'WEBP';
     if (!ok) throw new MessageError('That file is not a valid picture');
     const dayAgo = this.now() - 86_400_000;
-    if ((await this.store.mediaCountSince(u.id, dayAgo)) >= MEDIA_PER_DAY || (await this.store.mediaBytesSince(u.id, dayAgo)) + data.length > MEDIA_BYTES_PER_DAY) throw new MessageError('That\'s a lot of photos for one day — try again tomorrow', 429);
+    if ((await this.store.mediaCountSince(u.id, dayAgo)) >= MEDIA_PER_DAY || (await this.store.mediaBytesSince(u.id, dayAgo)) + data.length > MEDIA_BYTES_PER_DAY) throw new MessageError('That\'s a lot of photos for one day - try again tomorrow', 429);
     const id = randomBytes(16).toString('base64url');
     await this.store.addMedia({ id, ownerId: u.id, mime: m[1], data, at: this.now() });
     return { id, url: mediaUrl(id) };

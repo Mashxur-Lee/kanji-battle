@@ -131,7 +131,7 @@ export class Room {
     if (this.phase !== 'lobby') return 'Change the mode in the lobby';
     if (this.opts.tutorial || mode === this.roomMode) return null;
     const max = mode === 'boss' ? BOSS_PARTY_SIZE : this.opts.maxPlayers;
-    if (this.humans.length > max) return `Too many players for ${MODE_LABEL[mode]} — it is for ${max}`;
+    if (this.humans.length > max) return `Too many players for ${MODE_LABEL[mode]} - it is for ${max}`;
     while (this.roster.length > max) {
       const b = [...this.roster].reverse().find((p) => p.bot);
       if (!b) break;
@@ -548,7 +548,7 @@ export class Room {
     for (const s of setups) {
       if (s.pool.length === 0) {
         const name = this.roster.find((p) => p.id === s.id)?.name;
-        this.broadcast({ type: 'error', message: `${name}'s levels have no words for this mode — pick other levels` });
+        this.broadcast({ type: 'error', message: `${name}'s levels have no words for this mode - pick other levels` });
         return;
       }
     }
@@ -577,7 +577,7 @@ export class Room {
   }
   get paused() { return this.clock.paused; }
   setPaused(id: PlayerId, on: boolean): string | null {
-    if (!this.canPause(id)) return 'You can pause only a private game against the AI (or a solo Boss run)';
+    if (!this.canPause(id)) return 'You can pause only a private game against bots (or a solo Boss run)';
     if (on === this.clock.paused) return null;
     if (on) this.clock.pause();
     else this.clock.resume();

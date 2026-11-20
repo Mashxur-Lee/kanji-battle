@@ -61,7 +61,7 @@ $('feedbackForm').addEventListener('submit', async (e) => {
     await api.feedback(kind, text, `v${VERSION} · ${device()}`);
     $<HTMLTextAreaElement>('fbText').value = '';
     $<HTMLDialogElement>('feedbackDialog').close();
-    ui.toast(kind === 'bug' ? 'Bug report sent — thank you!' : 'Suggestion sent — thank you!', 4000);
+    ui.toast(kind === 'bug' ? 'Bug report sent - thank you!' : 'Suggestion sent - thank you!', 4000);
   } catch (err) {
     $('fbMsg').textContent = (err as Error).message;
     $<HTMLButtonElement>('fbSend').disabled = false;

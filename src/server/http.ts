@@ -102,7 +102,7 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
     const stamped = req.headers['x-kw-at'] !== undefined;
     if (stamped && req.method === 'POST' && DAILY_PLAY.test(url)) {
       res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
-        .end(JSON.stringify({ error: 'The Daily challenge is played online — a run played offline can\'t be counted' }));
+        .end(JSON.stringify({ error: 'The Daily challenge is played online - a run played offline can\'t be counted' }));
       return true;
     }
     const at = stamped && handles(req.method ?? 'GET', url) ? replayTime(req.headers['x-kw-at']) : null;
@@ -112,7 +112,7 @@ export function createApiHandler(auth: AuthService, study: StudyService, extras:
     const out = seen ?? (at === null ? await call() : await requestTime.run(at, call))!;
     if (op && !seen && out.status < 500) rememberOp(`${token}:${op}`, out);
     // (0.9.9.9.5: never sniffed as something else; a served file — a profile picture — can't run anything)
-    if (out.raw) res.writeHead(out.status, { 'Content-Type': out.raw.mime, 'Content-Length': out.raw.data.length, 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", ...out.raw.headers }).end(out.raw.data);
+    if (out.raw) res.writeHead(out.status, { 'Content-Type': out.raw.mime, 'Content-Length': out.raw.data.length, 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Cross-Origin-Resource-Policy': 'same-origin', ...out.raw.headers }).end(out.raw.data);
     else res.writeHead(out.status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }).end(JSON.stringify(out.body));
     return true;
   };

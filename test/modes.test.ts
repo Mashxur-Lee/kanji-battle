@@ -426,7 +426,7 @@ test('AI opponent in a reading duel: readies, answers, and the host can remove i
   room.addBot('a', 'N1');
   const bot = a.last('lobby')!.players.find((p) => p.bot)!;
   assert.equal(bot.bot, 'N1');
-  assert.match(bot.name, /AI N1/);
+  assert.match(bot.name, /Bot N1/); // (0.9.9.9.8: bots)
   room.removeBot('a', bot.id);
   assert.equal(a.last('lobby')!.players.length, 1);
   room.addBot('a', 'N1');

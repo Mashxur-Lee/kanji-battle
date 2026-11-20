@@ -90,7 +90,8 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 Uri u = req.getUrl();
-                if (isGame(u) || "file".equals(u.getScheme())) return false;
+                // (0.9.9.9.8: of the app's own files only its offline page)
+                if (isGame(u) || "file:///android_asset/offline.html".equals(u.toString().split("[?#]")[0])) return false;
                 openOutside(u); // other links: the browser
                 return true;
             }
@@ -145,7 +146,8 @@ public class MainActivity extends Activity {
 
     private static boolean isGame(Uri u) {
         Uri home = Uri.parse(SERVER);
-        return home.getHost() != null && home.getHost().equals(u.getHost());
+        // 0.9.9.9.8: the same host and the same scheme as the game (https): an http:// link to it could be changed on the way
+        return home.getHost() != null && home.getHost().equals(u.getHost()) && home.getScheme() != null && home.getScheme().equals(u.getScheme());
     }
 
     private void openOutside(Uri u) {

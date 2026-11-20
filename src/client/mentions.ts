@@ -20,7 +20,7 @@ export function setMentionSelf(id: string, ...names: Array<string | null | undef
 /** a player we've met (chat, lobby, friends): their name now leads straight to them */
 export function knowPlayer(id: string, ...names: Array<string | null | undefined>) {
   if (!id) return;
-  for (const n of names) if (n && !/\s/.test(n) && !/\(AI /.test(n)) known.set(n.toLowerCase(), id);
+  for (const n of names) if (n && !/\s/.test(n) && !/\((?:AI|Bot) /.test(n)) known.set(n.toLowerCase(), id);
 }
 
 export function mentionsIn(text: string): string[] {

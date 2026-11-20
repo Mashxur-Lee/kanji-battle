@@ -85,7 +85,7 @@ export function buildQuiz(words: QuizWord[], vocab: readonly VocabEntry[], rng: 
 // ── the onomatopoeia quiz (0.9.9.4.4) ────────────────────────────────────────
 /** what it means · which word means this · which word fits the sentence (0.9.9.4.4.7: no "which kind is it" — the kind is shown on the cards, not tested) */
 export type OnoKind = 'onomean' | 'onoword' | 'onoctx';
-export const onoTypeLabel = (t: OnoType) => `${ONO_TYPES[t].ja} (${ONO_TYPES[t].romaji}) — ${ONO_TYPES[t].en}`;
+export const onoTypeLabel = (t: OnoType) => `${ONO_TYPES[t].ja} (${ONO_TYPES[t].romaji}) - ${ONO_TYPES[t].en}`;
 
 /**
  * Questions about onomatopoeia `words` (picked and shuffled), wrong answers from the other onomatopoeia in `vocab`.

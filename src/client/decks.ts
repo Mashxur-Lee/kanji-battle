@@ -103,7 +103,7 @@ function render() {
     return tr_;
   }));
   if (!rows.length) $('deckRows').replaceChildren(el('tr', 'empty', undefined));
-  if (!rows.length) $('deckRows').firstElementChild!.append(Object.assign(el('td', 'hint', open === 'custom' ? 'No custom spells yet — search the dictionary above or type your own word.' : 'No spells in this deck yet.'), { colSpan: 9 }));
+  if (!rows.length) $('deckRows').firstElementChild!.append(Object.assign(el('td', 'hint', open === 'custom' ? 'No custom spells yet - search the dictionary above or type your own word.' : 'No spells in this deck yet.'), { colSpan: 9 }));
   tools();
 }
 function tools() {
@@ -146,7 +146,7 @@ $('customSearch').addEventListener('input', () => {
       const { words } = await api.searchWords(q);
       if (seq !== searchSeq) return;
       const have = new Set(rows.map((r) => r.vocabId));
-      $('customHits').replaceChildren(...(words.length ? words.map((w) => hit(w, have.has(w.id))) : [el('p', 'hint', 'Not in the dictionary — add it as your own word below.')]));
+      $('customHits').replaceChildren(...(words.length ? words.map((w) => hit(w, have.has(w.id))) : [el('p', 'hint', 'Not in the dictionary - add it as your own word below.')]));
       if (!words.length) { $<HTMLInputElement>('cwKanji').value = /[一-鿿ぁ-ゟァ-ヿ]/.test(q) ? q : ''; }
     } catch (e) { ui.toast((e as Error).message); }
   }, 220);
@@ -367,8 +367,8 @@ export async function startQuiz(which: 'jlpt' | 'ono' = 'jlpt') {
   if (quiz.length < 1) {
     $('quizCard').hidden = true; $('quizDone').hidden = false;
     $('quizResult').textContent = jlpt
-      ? tr(`No studied words in “${DECK_LABEL[quizDeck()]}” at the levels you ticked — tick more levels, pick another deck, or study some spells first.`)
-      : tr('Study some spells first — the quiz uses the words you have studied.');
+      ? tr(`No studied words in “${DECK_LABEL[quizDeck()]}” at the levels you ticked - tick more levels, pick another deck, or study some spells first.`)
+      : tr('Study some spells first - the quiz uses the words you have studied.');
     $('quizMissed').replaceChildren();
     return;
   }
@@ -438,11 +438,11 @@ function nextQuestion() {
   if (qi < quiz.length) return question();
   $('quizCard').hidden = true;
   $('quizDone').hidden = false;
-  $('quizResult').textContent = `${score} / ${quiz.length} correct${score === quiz.length ? ' — perfect!' : ''}`;
+  $('quizResult').textContent = `${score} / ${quiz.length} correct${score === quiz.length ? ' - perfect!' : ''}`;
   recordQuiz(mode === 'ono' ? 'ono' : 'jlpt', score, quiz.length, Date.now() - quizStartedAt); // (the Quizzes screen's best / last / times)
   if (mode === 'jlpt') {
     void api.task('quiz', score, quiz.length).then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task (7/10 or better)
-    if (!taskPassed('quiz', score, quiz.length)) ui.toast('For the daily task, get 7 out of 10 or better — try another quiz!', 5000);
+    if (!taskPassed('quiz', score, quiz.length)) ui.toast('For the daily task, get 7 out of 10 or better - try another quiz!', 5000);
   }
   const box = $('quizMissed');
   // (missed kana go back to the Kana section, not into a deck)
@@ -694,13 +694,13 @@ function check(restored = false) {
   if (trBox) { trBox.open = true; trBox.classList.add('shown'); setTimeout(() => trBox.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350); }
   const again = el('button', 'big', 'New passage', { type: 'button' }) as HTMLButtonElement;
   again.onclick = buildPassage;
-  $('passageWords').replaceChildren(el('div', 'p-score', `${right} / ${blanks.length}`), el('p', 'hint center', right === blanks.length ? 'Perfect — every word in its place!' : 'Green: right. Red: the right word, with yours crossed out.'), again);
+  $('passageWords').replaceChildren(el('div', 'p-score', `${right} / ${blanks.length}`), el('p', 'hint center', right === blanks.length ? 'Perfect - every word in its place!' : 'Green: right. Red: the right word, with yours crossed out.'), again);
   if (restored) return; // (brought back from last time: already counted)
   saveLast();
   recordQuiz('passage', right, blanks.length, passageShownAt ? Date.now() - passageShownAt : 0);
   passageHooks.done?.(right, blanks.length);
   void api.task('passage', right, blanks.length).then((p) => onTaskDone.cb(p)).catch(() => { /* offline */ }); // a daily streak task (4/8 or better)
-  if (!taskPassed('passage', right, blanks.length)) ui.toast('For the daily task, get half the blanks right (4 of 8) — try a new passage!', 5000);
+  if (!taskPassed('passage', right, blanks.length)) ui.toast('For the daily task, get half the blanks right (4 of 8) - try a new passage!', 5000);
 }
 
 export function openPassage(words: PWord[]) {
@@ -730,7 +730,7 @@ function showStart() {
   const box = el('div', 'p-start');
   box.append(el('p', 'hint', fromDeck
     ? tr(`Pick which of your words go in and the story level above, then start. ${n} words of “${DECK_LABEL[passageDeck]}” fit.`)
-    : tr('The words you missed go into a story — set the story level above, then start.')));
+    : tr('The words you missed go into a story - set the story level above, then start.')));
   const go = el('button', 'big p-go', storyUsage?.enabled === false ? 'Make the passage' : 'Write the story', { type: 'button' }) as HTMLButtonElement;
   go.onclick = () => { if (!limitHit()) void buildPassage(); };
   box.append(go);
@@ -778,7 +778,7 @@ const storyWord = (w: PWord) => passageDeck === 'ono'
   };
   draw();
   const sel = $<HTMLSelectElement>('passageStoryLevel');
-  for (const l of WORD_LEVELS) sel.append(Object.assign(el('option', '', `${l} ${tr(l === 'N5' ? '— easiest' : l === 'N1' ? '— hardest' : '')}`.trim()), { value: l }));
+  for (const l of WORD_LEVELS) sel.append(Object.assign(el('option', '', `${l} ${tr(l === 'N5' ? '- easiest' : l === 'N1' ? '- hardest' : '')}`.trim()), { value: l }));
   sel.value = storyLevel();
   sel.onchange = () => { try { localStorage.setItem(STORY_LEVEL_KEY, sel.value); } catch { /* private mode */ } };
 }
@@ -829,7 +829,7 @@ function showQuota(u: StoryUsage) {
   q.classList.toggle('low', left <= 5);
   drawLimit();
   $('passageIntroQuota').hidden = !u.enabled;
-  $('passageIntroQuota').textContent = tr(`You can have up to ${u.limit} new AI stories a day — the counter next to New passage shows how many are left. After that (or offline), the passage uses your words’ example sentences instead.`);
+  $('passageIntroQuota').textContent = tr(`You can have up to ${u.limit} new AI stories a day - the counter next to New passage shows how many are left. After that (or offline), the passage uses your words’ example sentences instead.`);
 }
 const INTRO_KEY = 'kw:passage-intro';
 function showIntro() {
@@ -840,14 +840,14 @@ function showIntro() {
 $('passageIntroOk').onclick = () => { $('passageIntro').hidden = true; try { localStorage.setItem(INTRO_KEY, '1'); } catch { /* private mode */ } };
 /** what to tell the player when the AI didn't write the story */
 function storyWhy(why: string): string {
-  if (why === 'off') return tr('AI stories are switched off on the server — here are your words’ example sentences instead.');
-  if (why === 'limit') return tr('You’ve used all of today’s AI stories — here are your words’ example sentences instead. New stories tomorrow!');
-  if (why === 'wait') return tr('Your last story is still being written — try “New passage” again in a moment.');
-  if (why === 'busy') return tr('Today’s AI stories for everyone are used up — here are your words’ example sentences instead.');
-  if (why === 'timeout') return tr('The story took too long — here are your words’ example sentences instead. Try “New passage” again.');
-  if (why === 'few words') return tr('Too few words for a story — here are their example sentences.');
-  if (why === OFFLINE_TEXT) return tr('You’re offline — here are your words’ example sentences instead.');
-  return `${tr('The AI couldn’t write a story this time — here are your words’ example sentences instead. Try “New passage” again.')} (${why.slice(0, 120)})`;
+  if (why === 'off') return tr('AI stories are switched off on the server - here are your words’ example sentences instead.');
+  if (why === 'limit') return tr('You’ve used all of today’s AI stories - here are your words’ example sentences instead. New stories tomorrow!');
+  if (why === 'wait') return tr('Your last story is still being written - try “New passage” again in a moment.');
+  if (why === 'busy') return tr('Today’s AI stories for everyone are used up - here are your words’ example sentences instead.');
+  if (why === 'timeout') return tr('The story took too long - here are your words’ example sentences instead. Try “New passage” again.');
+  if (why === 'few words') return tr('Too few words for a story - here are their example sentences.');
+  if (why === OFFLINE_TEXT) return tr('You’re offline - here are your words’ example sentences instead.');
+  return `${tr('The AI couldn’t write a story this time - here are your words’ example sentences instead. Try “New passage” again.')} (${why.slice(0, 120)})`;
 }
 async function buildPassage() {
   $('passageResult').hidden = true;
@@ -866,8 +866,8 @@ async function buildPassage() {
     $('passageTr').replaceChildren();
     const have = new Set(usable.map((w) => w.kanji)).size;
     text.replaceChildren(el('p', 'hint p-few', passageDeck === 'ono'
-      ? tr(`A story needs at least 8 words — your Onomatopoeia deck has ${have}. Study a few more onomatopoeia first.`)
-      : tr(`A story needs at least 8 kanji words — “${DECK_LABEL[passageDeck]}” has ${have} of the levels you ticked. Tick more levels, pick another deck, or study more words.`)));
+      ? tr(`A story needs at least 8 words - your Onomatopoeia deck has ${have}. Study a few more onomatopoeia first.`)
+      : tr(`A story needs at least 8 kanji words - “${DECK_LABEL[passageDeck]}” has ${have} of the levels you ticked. Tick more levels, pick another deck, or study more words.`)));
     return;
   }
   // starred words first, then the rest at random (words with an example sentence before those without — the
@@ -954,9 +954,9 @@ function renderPassage() {
   }
   const go = el('button', 'big', 'Check', { id: 'passageCheck', type: 'button' }) as HTMLButtonElement;
   go.onclick = () => check();
-  $('passageWords').replaceChildren(el('h4', '', 'Your words — tap a blank, then a word'), bank, go);
+  $('passageWords').replaceChildren(el('h4', '', 'Your words - tap a blank, then a word'), bank, go);
   drawBank();
-  if (!lines.length) { text.replaceChildren(el('p', 'hint', 'No words with example sentences in this deck yet — pick another deck above, or study some spells first.')); $('passageWords').replaceChildren(); }
+  if (!lines.length) { text.replaceChildren(el('p', 'hint', 'No words with example sentences in this deck yet - pick another deck above, or study some spells first.')); $('passageWords').replaceChildren(); }
 }
 
 // ── 0.9.9.9: your last passage is kept on this device — close the app and it's still there (with how you did) ──
@@ -988,7 +988,7 @@ $('passageNew').onclick = () => { if (!limitHit()) void buildPassage(); };
 /** 0.9.9.6: today's AI stories are used up — the buttons say so instead of starting a story */
 function limitHit(): boolean {
   if (!(storyUsage?.enabled && storyUsage.used >= storyUsage.limit)) return false;
-  ui.toast(tr(`You’ve used all ${storyUsage.limit} of today’s AI stories — new ones tomorrow!`), 5000);
+  ui.toast(tr(`You’ve used all ${storyUsage.limit} of today’s AI stories - new ones tomorrow!`), 5000);
   return true;
 }
 function drawLimit() {

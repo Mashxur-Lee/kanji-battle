@@ -124,7 +124,7 @@ function render() {
     const rowOf = (f: Friend) => {
       const r = el('div', 'fr-row' + (f.online ? ' online' : '') + (f.online && f.away ? ' away' : ''));
       ui.markProfile(r, { id: f.id, name: f.name ?? f.username, bot: null }); knowPlayer(f.id, f.username);
-      r.title = `${f.name ?? f.username} — view profile`;
+      r.title = `${f.name ?? f.username} - view profile`;
       const txt = el('span', 'fr-txt');
       txt.append(el('span', 'fr-name', f.name ?? f.username), el('small', 'fr-status', friendStatus(f)));
       // 0.9.9.9.5.5: in a lobby with others — a lobby icon and "+1" (+3 in a full Boss party); green when it's open to join
@@ -169,7 +169,7 @@ function render() {
   list.replaceChildren(
     ...section('online', 'Online', online),
     ...section('offline', 'Offline', offline),
-    ...(accepted.length ? [] : [el('p', 'fr-empty', 'No friends yet — add someone below.')]),
+    ...(accepted.length ? [] : [el('p', 'fr-empty', 'No friends yet - add someone below.')]),
   );
   $('railOnline').textContent = String(online.length);
   $('railFabCount').textContent = String(online.length);

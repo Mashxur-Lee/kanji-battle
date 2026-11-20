@@ -60,8 +60,8 @@ export function initApp(hooks: { canReload: () => boolean; backOnline: () => voi
   offline.onChange((off) => {
     document.body.classList.toggle('offline', off);
     hooks.netStatus();
-    if (off) ui.toast('You\'re offline. Study spells, the quiz, reading passages, Customize and private games against the AI still work — your progress syncs when you\'re back online.', 6000); // (0.9.9.9.7.1: the daily challenge needs internet)
-    else { ui.toast('Back online — your progress is synced.', 3500); hooks.backOnline(); }
+    if (off) ui.toast('You\'re offline. Study spells, the quiz, reading passages, Customize and private games against bots still work - your progress syncs when you\'re back online.', 6000); // (0.9.9.9.7.1: the daily challenge needs internet)
+    else { ui.toast('Back online - your progress is synced.', 3500); hooks.backOnline(); }
   });
   // offline: online-only buttons explain themselves instead of doing nothing
   document.addEventListener('click', (e) => {
@@ -90,7 +90,7 @@ export function initApp(hooks: { canReload: () => boolean; backOnline: () => voi
 
   // ── "Get the app" ──
   addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e as InstallPrompt; renderAppDialog(); });
-  addEventListener('appinstalled', () => { installPrompt = null; renderAppDialog(); ui.toast('Kanji Wizards is installed — find it with your apps.'); });
+  addEventListener('appinstalled', () => { installPrompt = null; renderAppDialog(); ui.toast('Kanji Wizards is installed - find it with your apps.'); });
   const btn = ui.$('appBtn');
   btn.hidden = inApp();
   btn.onclick = () => { renderAppDialog(); ui.$<HTMLDialogElement>('appDialog').showModal(); };
@@ -184,8 +184,8 @@ function reinstallSteps() {
   d.className = 'friend-dialog reinstall-dialog';
   d.innerHTML = `<h3>${tr('A one-time reinstall')}</h3>
     <p class="hint">${tr('The app now has its own private signature (the old one was public, so Play Protect blocked new versions as harmful). Android can’t update an app to a new signature, so this one time:')}</p>
-    <ol class="reinstall-steps"><li>${tr('Tap “Download the new app” — your browser downloads it.')}</li><li>${tr('Uninstall Kanji Wizards (hold its icon → Uninstall).')}</li><li>${tr('Open KanjiWizards.apk from your downloads and install it, then sign in.')}</li></ol>
-    <p class="hint">${tr('Your account, progress and decks are on the server — nothing is lost. Stay online for a moment first so everything is synced.')}</p>
+    <ol class="reinstall-steps"><li>${tr('Tap “Download the new app” - your browser downloads it.')}</li><li>${tr('Uninstall Kanji Wizards (hold its icon → Uninstall).')}</li><li>${tr('Open KanjiWizards.apk from your downloads and install it, then sign in.')}</li></ol>
+    <p class="hint">${tr('Your account, progress and decks are on the server - nothing is lost. Stay online for a moment first so everything is synced.')}</p>
     <div class="fb-actions"><button class="big" type="button" data-dl>${tr('Download the new app')}</button><button class="big alt" type="button" data-close>${tr('Later')}</button></div>`;
   document.body.append(d);
   d.querySelector<HTMLElement>('[data-dl]')!.onclick = () => downloadInBrowser();
@@ -210,6 +210,6 @@ async function offerUpdate(btn: HTMLElement) {
   btn.onclick = () => {
     if (cmpVersion(mine, NEW_KEY_FROM) < 0) return reinstallSteps();
     downloadInBrowser();
-    ui.toast('Your browser is downloading the new version — open KanjiWizards.apk when it finishes and tap Update.', 8000);
+    ui.toast('Your browser is downloading the new version - open KanjiWizards.apk when it finishes and tap Update.', 8000);
   };
 }

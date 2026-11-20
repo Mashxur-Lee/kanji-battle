@@ -139,7 +139,7 @@ export class StudyService {
   async playLock(u: { id: string; role: string }): Promise<string | null> {
     if (u.role === 'admin') return null;
     const n = await this.strugglingDue(u.id);
-    return n > STUDY_LOCK ? `You have ${n} struggling spells waiting — study them down to ${STUDY_LOCK} to play again (Study spells → Struggling).` : null;
+    return n > STUDY_LOCK ? `You have ${n} struggling spells waiting - study them down to ${STUDY_LOCK} to play again (Study spells → Struggling).` : null;
   }
 
   /** Colour of the combo flames (Purple from level 5; admins have all). */
@@ -486,7 +486,7 @@ export class StudyService {
     if (!kanji) throw new StudyError('Write the word (kanji or kana)');
     const known = VOCAB.find((v) => v.kanji === kanji && (!reading || isCorrectReading(reading, [v.reading, ...(v.altReadings ?? [])])));
     if (known) return { added: (await this.addToDeck(u, 'custom', [known.id])).length > 0, word: fromVocab(known) };
-    if (!/^[぀-ゟ゠-ヿー]+$/.test(reading)) throw new StudyError('Not in the dictionary — add its reading in kana (e.g. まほう)');
+    if (!/^[぀-ゟ゠-ヿー]+$/.test(reading)) throw new StudyError('Not in the dictionary - add its reading in kana (e.g. まほう)');
     if (!meaning) throw new StudyError('Add a meaning');
     const mine = await this.store.customWords(u.id);
     if (mine.length >= 1000) throw new StudyError('Custom spells are full (1000 words)');

@@ -120,7 +120,7 @@ test('0.9.9.9.7.3 #15 the built-in password (it is in the public code) signs in 
   const store = new MemoryStore();
   const auth = new AuthService(store, new TokenSigner('s'));
   await auth.seed([{ username: 'admin', password: 'adminn123', role: 'admin', fromEnv: false }], false); // a server that isn't Render
-  await assert.rejects(auth.login('admin', 'adminn123', Date.now(), '203.0.113.5'), /built-in password — it signs in only on the server itself/);
+  await assert.rejects(auth.login('admin', 'adminn123', Date.now(), '203.0.113.5'), /built-in password - it signs in only on the server itself/);
   assert.ok((await auth.login('admin', 'adminn123', Date.now(), '127.0.0.1')).token, 'on your own computer it works, as before');
   assert.ok((await auth.login('admin', 'adminn123', Date.now(), '::1')).token);
   // the admin gives it a password of their own: from anywhere then

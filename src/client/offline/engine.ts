@@ -46,7 +46,7 @@ export class LocalStore extends MemoryStore {
   protected persist() { this.onChange?.(); }
 }
 
-const NEEDS_NET = 'You\'re offline — this needs an internet connection.';
+const NEEDS_NET = 'You\'re offline - this needs an internet connection.';
 
 export interface Engine {
   readonly userId: string;

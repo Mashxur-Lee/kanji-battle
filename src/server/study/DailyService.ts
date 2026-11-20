@@ -238,7 +238,7 @@ export class DailyService {
     const played = LEAGUES.find((lg) => leagues[lg].mine) ?? null;
     const c = clockOf(u);
     const over = t >= Date.parse(`${d}T00:00:00Z`) + DAY_MS - rangeOf(c)[0] * 60_000; // (the westmost time zone it allows)
-    if (!played && !(c && d < c.day) && !over) throw new DailyError('That day isn\'t over everywhere yet — its words show in a few hours', 409);
+    if (!played && !(c && d < c.day) && !over) throw new DailyError('That day isn\'t over everywhere yet - its words show in a few hours', 409);
     return { day: d, total: DAILY_WORDS, leagues, played, league: leagueOf(u) };
   }
 
@@ -251,7 +251,7 @@ export class DailyService {
     // 0.9.9.9.7.1: a run of an earlier day left open counts as played (whatever is left, missed) — it used to be
     // dropped, and the day could be started afresh
     if (a && a.day !== day) { await this.finish(u, this.timeOut(a, true)); a = undefined; u = (await this.store.findById(u.id)) ?? u; }
-    if (playedOn(u, day) || await this.store.daily(dailyKey(day, leagueOf(u)), u.id)) throw new DailyError('You already played today\'s challenge — come back tomorrow!', 409);
+    if (playedOn(u, day) || await this.store.daily(dailyKey(day, leagueOf(u)), u.id)) throw new DailyError('You already played today\'s challenge - come back tomorrow!', 409);
     if (!a) {
       a = { day, league: leagueOf(u), index: 0, shownAt: t, correct: 0, ms: 0, marks: '', words: this.words(day, leagueOf(u)) };
       this.attempts.set(u.id, a);
@@ -262,7 +262,7 @@ export class DailyService {
     // a word left open too long (closed the tab to look it up?) counts as a miss
     this.timeOut(a);
     await this.saveRun(u.id, a);
-    if (a.index >= DAILY_WORDS) throw new DailyError('Time ran out on the remaining words — send your answers to finish.', 409);
+    if (a.index >= DAILY_WORDS) throw new DailyError('Time ran out on the remaining words - send your answers to finish.', 409);
     return this.view(a);
   }
   /** words left open past their time count as missed (`all`: every word that is left) */

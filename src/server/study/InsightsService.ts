@@ -27,7 +27,7 @@ export class InsightsService {
     const t = typeof text === 'string' ? text.trim().slice(0, 2000) : '';
     if (t.length < 3) throw new InsightsError('Write a few words first');
     const times = (this.recent.get(u.id) ?? []).filter((x) => this.now() - x < 10 * 60_000);
-    if (times.length >= 5) throw new InsightsError('Thanks! That\'s a lot at once — try again in a few minutes', 429);
+    if (times.length >= 5) throw new InsightsError('Thanks! That\'s a lot at once - try again in a few minutes', 429);
     this.recent.set(u.id, [...times, this.now()]);
     await this.store.addReport({ kind: k, userId: u.id, username: u.username, text: t, meta: typeof meta === 'string' ? meta.slice(0, 500) : '', at: this.now() });
   }

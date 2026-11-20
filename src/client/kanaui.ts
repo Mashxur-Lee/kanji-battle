@@ -83,8 +83,8 @@ function renderChart() {
       const pc = document.createElement('small'); pc.className = 'kc-pct'; pc.textContent = `${kanaPercent(p)}%`;
       b.append(bar, pc);
     }
-    b.title = done ? tr('Mastered') : `${kanaPercent(p)}% · ${tr('a kana grows up to 3 stars a day — 10 stars masters it')}`;
-    b.setAttribute('aria-label', `${c.ch} ${c.romaji}${done ? ` — ${tr('mastered')}` : ` — ${kanaPercent(p)}%`}`);
+    b.title = done ? tr('Mastered') : `${kanaPercent(p)}% · ${tr('a kana grows up to 3 stars a day - 10 stars masters it')}`;
+    b.setAttribute('aria-label', `${c.ch} ${c.romaji}${done ? ` - ${tr('mastered')}` : ` - ${kanaPercent(p)}%`}`);
     b.onclick = () => { void speak(c.ch); b.classList.remove('ping'); void b.offsetWidth; b.classList.add('ping'); };
     return b;
   })));
@@ -164,7 +164,7 @@ function scheduleSave(now = false) {
         const r = await api.saveKana(changes);
         progress = r.kana;
         menuBadge();
-        if (r.xp) { ui.toast(`+${r.xp} XP — ${tr('kana mastered!')}`, 2600); onSaved(r.xp); }
+        if (r.xp) { ui.toast(`+${r.xp} XP - ${tr('kana mastered!')}`, 2600); onSaved(r.xp); }
       } catch {
         // not saved (offline without a copy, a hiccup): kept for the next save
         if (practice) for (const [k, v] of Object.entries(changes)) if (!practice.changes[k]) practice.changes[k] = v;

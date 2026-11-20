@@ -92,7 +92,7 @@ export async function showWord(base: string, reading: string, after: string, at?
   const meta = h('div', 'kp-meta');
   meta.append(h('span', 'kp-wr', reading, { lang: 'ja' }));
   if (w && w.kanji !== base) meta.append(h('span', 'kp-wr dict', `→ ${w.kanji}`, { lang: 'ja' }));
-  meta.append(h('span', 'kp-mean', w ? meaningIn(w.meaning) : tr('Not in the dictionary — tap a kanji below'), { 'data-no-i18n': '' }));
+  meta.append(h('span', 'kp-mean', w ? meaningIn(w.meaning) : tr('Not in the dictionary - tap a kanji below'), { 'data-no-i18n': '' }));
   if (w && wordHooks.addTo) meta.append(wordHooks.addTo(w.kanji, w.id));
   head.append(meta);
   const row = h('div', 'kp-parts kp-kanji');

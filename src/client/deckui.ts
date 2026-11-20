@@ -216,14 +216,14 @@ function renderGuide(el: HTMLElement) {
   for (const [t] of [
     ['Pick a hero (30 s).'],
     ["Coin flip, then draft: take 2 face-down cards at a time (20 s for both) until you each have 10. You see colours, not kanji. The 20 cards come from both players' All spells: 4 of each level N5–N1, 2 of them yours and 2 your opponent's (a random word of that level if someone has none)."],
-    [`Your turn: ${DECK_RULES.chooseMs / 1000} s to choose a card. Its mana is paid right away — even if you then miss.`],
+    [`Your turn: ${DECK_RULES.chooseMs / 1000} s to choose a card. Its mana is paid right away - even if you then miss.`],
     [`The card flips: read its reading and meaning (up to ${DECK_RULES.castReadMs / 1000} s), then press Ready to look at the kanji.`],
-    [`Press CAST! — the kanji disappears and you write it from memory (pad with eraser, or Japanese keyboard). ${DECK_RULES.castMs / 60000} minute for all three steps. Your opponent watches you write.`],
+    [`Press CAST! - the kanji disappears and you write it from memory (pad with eraser, or Japanese keyboard). ${DECK_RULES.castMs / 60000} minute for all three steps. Your opponent watches you write.`],
     [`Right → the spell hits / heals / gives mana, and you get ${DECK_RULES.manaRefund * 100}% of its mana back. Wrong or too slow → the card rips. Either way the correct kanji shows for ${DECK_RULES.revealMs / 1000} s.`],
     ['While your opponent plays, you can read the list of kanji in your hand (not which card is which).'],
     ['Out of cards → Round 2 draft. HP, mana and powers stay.'],
     ['Omnipotence: once per cooldown, fire your hero\'s ultimate power with the button bottom-left. While it\'s active you burn in your flame colour (Customize → Omnipotence).'],
-    [`After ${DECK_RULES.matchMs / 60000} min: overtime — the cards and Omnipotence are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5–N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 60000} min, then the higher HP wins.`],
+    [`After ${DECK_RULES.matchMs / 60000} min: overtime - the cards and Omnipotence are gone and it becomes a 1v1 Rapid duel with the HP you have: random kanji (N5–N1), the first to type the reading (hiragana or romaji) hits, harder words hit harder. ${DECK_RULES.overtimeMaxMs / 60000} min, then the higher HP wins.`],
     [`Letting the clock run out without playing a card costs ${DECK_RULES.skipPenaltyHp} HP.`],
   ] as const) { const li = h('li'); li.append(h('span', 'g-ic g-num', String(flow.children.length + 1)), h('span', '', t)); flow.append(li); }
   el.replaceChildren(
@@ -231,8 +231,8 @@ function renderGuide(el: HTMLElement) {
     sec('Goal', p(`Both start with ${DECK_RULES.hp} HP and ${DECK_RULES.maxMana} mana (+${DECK_RULES.manaPerTurn} each turn). Bring your opponent to 0. No mana for any of your cards = your turn is skipped (−${DECK_RULES.skipPenaltyHp} HP).`)),
     sec('Cards', cards),
     sec('A turn', flow),
-    sec(`Heroes and their Omnipotence — ${DECK_RULES.abilityCost} mana, then ${DECK_RULES.abilityCooldown} turns cooldown (Goblin ${DECK_RULES.goblinCooldown})`, heroes),
-    sec('Rewards', p('Win 4000 XP · draw 2500 · lose 1500 · forfeit 0 (half against AI). Every kanji of the duel joins your All spells.')),
+    sec(`Heroes and their Omnipotence - ${DECK_RULES.abilityCost} mana, then ${DECK_RULES.abilityCooldown} turns cooldown (Goblin ${DECK_RULES.goblinCooldown})`, heroes),
+    sec('Rewards', p('Win 4000 XP · draw 2500 · lose 1500 · forfeit 0 (half against bots). Every kanji of the duel joins your All spells.')),
   );
 }
 
@@ -242,7 +242,7 @@ function cardEl(c: DeckCardView, opts: { big?: boolean; button?: boolean; disabl
   const spec = { ...base, cost: Math.ceil(base.cost * (opts.costFactor ?? 1)) }; // Goblin's Frenzy: the second card costs more
   const el = h(opts.button ? 'button' : 'div', `dkc c-${c.color}${opts.big ? ' big' : ''}${!c.kanji && !opts.big ? ' back' : ''}`);
   if (opts.button) (el as HTMLButtonElement).disabled = !!opts.disabled;
-  el.title = `${COLOR_NAME[c.color]} — ${spec.label}: ${spec.kind === 'attack' ? `${spec.amount} damage` : spec.kind === 'heal' ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ''}`;
+  el.title = `${COLOR_NAME[c.color]} - ${spec.label}: ${spec.kind === 'attack' ? `${spec.amount} damage` : spec.kind === 'heal' ? `heal ${spec.amount}` : `+${spec.amount} mana`}${spec.cost ? `, costs ${spec.cost} mana` : ''}`;
   if (opts.big) return el;
   el.append(h('span', 'dkc-cost', spec.cost ? `${spec.cost}◆` : 'free'));
   if (c.kanji) {
@@ -266,7 +266,7 @@ function playerPanel(el: HTMLElement, p: DeckPlayerView, mine: boolean) {
   av.innerHTML = p.character ? heroSvg(p.character, mine ? 'me' : 'opp', p.staff) : '';
   const name = h('div', 'dk-name');
   const nm = h('span', '', mine ? `${p.name} (you)` : p.name);
-  if (!mine) ui.markProfile(nm, { id: p.id, name: p.name, bot: /\(AI (N\d)\)$/.exec(p.name)?.[1] ?? null });
+  if (!mine) ui.markProfile(nm, { id: p.id, name: p.name, bot: /\(Bot (N\d)\)$/.exec(p.name)?.[1] ?? null });
   name.append(ui.picEl(p.pic), nm);
   if (p.character) name.append(h('span', 'tag', CHARACTER_INFO[p.character].name));
   if (p.abilityActive > 0 && p.character !== 'wizard') name.append(h('span', 'tag', `${p.character === 'goblin' ? 'Frenzy' : CHARACTER_INFO[p.character!].power.split(':')[0]} ×${p.abilityActive}`));
@@ -321,14 +321,14 @@ export function renderDeck(v: DeckView) {
   const banner = $('dkBanner');
   const myTurn = v.turn?.active === v.you;
   // your turn starts: a chime, and a blinking tab / notification if you're looking elsewhere
-  if (myTurn && !v.casting && !wasMyTurn && v.phase !== 'over') { audio.sfx.yourTurn(); attention('Your turn!', 'Deck Duel — choose a card'); }
+  if (myTurn && !v.casting && !wasMyTurn && v.phase !== 'over') { audio.sfx.yourTurn(); attention('Your turn!', 'Deck Duel - choose a card'); }
   if (!myTurn) wasMyTurn = false; else if (!v.casting) wasMyTurn = true;
   banner.classList.toggle('mine', myTurn || v.phase === 'overtime');
   const deadline = v.casting?.deadlineMs ?? v.turn?.deadlineMs ?? 0;
   const label = v.phase === 'overtime'
-    ? 'Overtime — Rapid duel! First to type the reading hits'
+    ? 'Overtime - Rapid duel! First to type the reading hits'
     : myTurn
-      ? (v.casting ? (v.casting.stage === 'read' ? 'Your spell — read it' : v.casting.stage === 'look' ? 'Your spell — memorise the kanji' : 'Write the kanji!') : `Your turn — choose a card${v.turn!.castsLeft > 1 ? ' (Frenzy: 2 cards)' : ''}`)
+      ? (v.casting ? (v.casting.stage === 'read' ? 'Your spell - read it' : v.casting.stage === 'look' ? 'Your spell - memorise the kanji' : 'Write the kanji!') : `Your turn - choose a card${v.turn!.castsLeft > 1 ? ' (Frenzy: 2 cards)' : ''}`)
       : v.casting ? `${opp.name} is casting` : `${opp.name} is choosing a card`;
   banner.textContent = label;
   // the turn clock: big, by the banner, red in the last seconds (so nobody misses their turn)
@@ -388,7 +388,7 @@ function renderList(v: DeckView) {
   const box = $('dkList');
   const head = h('h4', '', 'Your kanji');
   if (!v.deckList) {
-    box.replaceChildren(head, h('p', 'hint', v.phase === 'overtime' ? 'Overtime — the cards are gone: type the readings!' : 'Hidden on your turn. While your opponent plays, the kanji in your hand show up here.'));
+    box.replaceChildren(head, h('p', 'hint', v.phase === 'overtime' ? 'Overtime - the cards are gone: type the readings!' : 'Hidden on your turn. While your opponent plays, the kanji in your hand show up here.'));
     return;
   }
   const ul = h('ul', 'kanji-list');
@@ -472,7 +472,7 @@ function renderCast(v: DeckView) {
       setTimeout(() => input.focus(), 30);
     } else if (mine && c.stage === 'read') {
       const t = h('div', 'cast-timer');
-      ui.countdown('dkRead', c.readLeftMs ?? 0, (left) => (t.textContent = `Read the meaning — the kanji shows in ${Math.ceil(left / 1000)} s`));
+      ui.countdown('dkRead', c.readLeftMs ?? 0, (left) => (t.textContent = `Read the meaning - the kanji shows in ${Math.ceil(left / 1000)} s`));
       const b = h('button', 'big cast-btn', 'Ready ▸') as HTMLButtonElement;
       b.onclick = () => { b.disabled = true; hooks.send({ type: 'deck_cast_ready', castId: c.castId }); };
       actions.append(t, b);
@@ -480,7 +480,7 @@ function renderCast(v: DeckView) {
       ui.stopCountdown('dkRead');
       const b = h('button', 'big cast-btn go', 'CAST! ✦') as HTMLButtonElement;
       b.onclick = () => { b.disabled = true; audio.sfx.flip(); arena()?.thrust(); hooks.send({ type: 'deck_cast_go', castId: c.castId }); };
-      actions.append(h('div', 'cast-timer', 'Memorise it — it disappears when you cast'), b);
+      actions.append(h('div', 'cast-timer', 'Memorise it - it disappears when you cast'), b);
     } else if (!mine) {
       ui.stopCountdown('dkRead');
       const who = v.players.find((p) => p.id === c.ownerId)?.name ?? 'Your opponent';
@@ -539,12 +539,12 @@ function renderDraft(v: DeckView, me: DeckPlayerView) {
   const mine = d.picker === v.you;
   const head = h('div', 'center');
   if (!coinShown) { coinShown = true; head.append(h('div', 'coin')); }
-  if (v.round > 1) head.append(h('p', 'round-tag', `Round ${v.round} — new cards! HP, mana and powers stay as they are.`));
-  head.append(h('h2', '', d.coinWinner === v.you ? 'You won the coin flip — you pick first' : 'Your opponent won the coin flip'));
+  if (v.round > 1) head.append(h('p', 'round-tag', `Round ${v.round} - new cards! HP, mana and powers stay as they are.`));
+  head.append(h('h2', '', d.coinWinner === v.you ? 'You won the coin flip - you pick first' : 'Your opponent won the coin flip'));
   const status = h('p', 'sub');
   const pickedNow = d.pool.filter((c) => c.takenBy === v.you).length;
   const kept = me.handSize - pickedNow;
-  ui.countdown('dkDraft', d.deadlineMs, (left) => (status.textContent = `${mine ? `Your pick — ${d.picksLeft} left` : 'Opponent is picking'} · ${Math.ceil(left / 1000)}s · picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ''}`));
+  ui.countdown('dkDraft', d.deadlineMs, (left) => (status.textContent = `${mine ? `Your pick - ${d.picksLeft} left` : 'Opponent is picking'} · ${Math.ceil(left / 1000)}s · picked ${pickedNow}/10${kept > 0 ? ` (+${kept} kept)` : ''}`));
   const board = h('div', 'draft-board');
   for (const c of d.pool) {
     const el = cardEl({ cardId: c.cardId, color: c.color }, { button: true, disabled: !mine || !!c.takenBy });
@@ -552,7 +552,7 @@ function renderDraft(v: DeckView, me: DeckPlayerView) {
     el.onclick = () => { audio.sfx.flip(); hooks.send({ type: 'deck_pick', cardId: c.cardId }); };
     board.append(el);
   }
-  overlay.replaceChildren(backButton(v), head, status, board, h('p', 'hint', 'You only see the colour — the kanji stays hidden until the card is played.'));
+  overlay.replaceChildren(backButton(v), head, status, board, h('p', 'hint', 'You only see the colour - the kanji stays hidden until the card is played.'));
 }
 
 /** Hero pick and the first draft can still be called off: everyone goes back to the lobby. */
@@ -596,25 +596,25 @@ function feedEvent(e: DeckEvent) {
   const side = (id: string): 'me' | 'opp' => (id === me ? 'me' : 'opp');
   switch (e.kind) {
     case 'coin': logFeed('round', `Round ${e.round}: ${who(e.winner)} won the coin flip and pick${e.winner === me ? '' : 's'} first`, 'sys'); break;
-    case 'redraft': logFeed('round', `${who(e.playerId)} ran out of cards — Round ${e.round} draft (HP and mana stay)`, side(e.playerId)); break;
-    case 'ability': logFeed('power', `${who(e.playerId)} used Omnipotence — ${CHARACTER_INFO[e.character].power.split(':')[0]}`, side(e.playerId), undefined, CHARACTER_INFO[e.character].power.split(':').slice(1).join(':').split('. ')[0].trim()); break;
-    case 'wizard': logFeed('power', `${who(e.playerId)}: Arcane reserve — ${e.what === 'cards' ? '+2 random cards' : '+30 mana'}`, side(e.playerId)); break;
+    case 'redraft': logFeed('round', `${who(e.playerId)} ran out of cards - Round ${e.round} draft (HP and mana stay)`, side(e.playerId)); break;
+    case 'ability': logFeed('power', `${who(e.playerId)} used Omnipotence - ${CHARACTER_INFO[e.character].power.split(':')[0]}`, side(e.playerId), undefined, CHARACTER_INFO[e.character].power.split(':').slice(1).join(':').split('. ')[0].trim()); break;
+    case 'wizard': logFeed('power', `${who(e.playerId)}: Arcane reserve - ${e.what === 'cards' ? '+2 random cards' : '+30 mana'}`, side(e.playerId)); break;
     case 'cast': { const s = CARD_SPECS[e.color]; logFeed('cast', `${who(e.playerId)} played a ${s.label} card${s.cost ? ` (−${s.cost}◆)` : ''}`, side(e.playerId), e.color); break; }
     case 'resolve': {
       const word = `${e.kanji} (${e.reading} · ${e.meaning})`;
       if (e.overtime) {
-        if (e.ok) logFeed('hit', `${who(e.playerId)} read ${e.kanji} first — −${e.amount} HP to ${whom(e.targetId)}`, side(e.playerId), e.color, `${e.reading} · ${e.meaning}`);
+        if (e.ok) logFeed('hit', `${who(e.playerId)} read ${e.kanji} first - −${e.amount} HP to ${whom(e.targetId)}`, side(e.playerId), e.color, `${e.reading} · ${e.meaning}`);
         else logFeed('miss', `Nobody read ${e.kanji} in time`, 'sys', e.color, `${e.reading} · ${e.meaning}`);
         break;
       }
       const s = CARD_SPECS[e.color];
-      if (!e.ok) { logFeed('miss', `${who(e.playerId)} missed ${e.kanji} — the ${s.label} fizzled`, side(e.playerId), e.color, `${e.reading} · ${e.meaning}${e.recognized && e.recognized !== '×' ? ` · wrote ${e.recognized}` : ''}`); break; }
+      if (!e.ok) { logFeed('miss', `${who(e.playerId)} missed ${e.kanji} - the ${s.label} fizzled`, side(e.playerId), e.color, `${e.reading} · ${e.meaning}${e.recognized && e.recognized !== '×' ? ` · wrote ${e.recognized}` : ''}`); break; }
       const what = s.kind === 'attack' ? `${s.label} hit ${whom(e.targetId)} for −${e.amount} HP` : s.kind === 'heal' ? `${s.label}: +${e.amount} HP` : `${s.label}: +${e.amount}◆ mana`;
-      logFeed(s.kind === 'attack' ? 'hit' : s.kind === 'heal' ? 'heal' : 'mana', `${who(e.playerId)} cast ${e.kanji} ✓ — ${what}${e.refund ? ` (+${e.refund}◆ back)` : ''}`, side(e.playerId), e.color, word.slice(e.kanji.length + 1));
+      logFeed(s.kind === 'attack' ? 'hit' : s.kind === 'heal' ? 'heal' : 'mana', `${who(e.playerId)} cast ${e.kanji} ✓ - ${what}${e.refund ? ` (+${e.refund}◆ back)` : ''}`, side(e.playerId), e.color, word.slice(e.kanji.length + 1));
       break;
     }
-    case 'overtime': logFeed('overtime', 'Overtime! The cards are gone — first to type the reading hits', 'sys'); break;
-    case 'skip': logFeed('skip', `${who(e.playerId)} ${stuckId === e.playerId ? 'had no mana for any card' : 'ran out of time'} — turn skipped, −${e.damage} HP`, side(e.playerId)); break;
+    case 'overtime': logFeed('overtime', 'Overtime! The cards are gone - first to type the reading hits', 'sys'); break;
+    case 'skip': logFeed('skip', `${who(e.playerId)} ${stuckId === e.playerId ? 'had no mana for any card' : 'ran out of time'} - turn skipped, −${e.damage} HP`, side(e.playerId)); break;
     case 'ot_miss': logFeed('miss', `${who(e.playerId)} guessed wrong`, side(e.playerId)); break;
   }
 }
@@ -644,7 +644,7 @@ export function deckEvent(e: DeckEvent) {
   const name = (id: string) => view!.players.find((p) => p.id === id)?.name ?? 'Someone';
   switch (e.kind) {
     case 'coin': coinShown = false; break;
-    case 'redraft': ui.toast(`${e.playerId === me ? 'You are' : `${name(e.playerId)} is`} out of cards — Round ${e.round} draft!`, 4000); break;
+    case 'redraft': ui.toast(`${e.playerId === me ? 'You are' : `${name(e.playerId)} is`} out of cards - Round ${e.round} draft!`, 4000); break;
     case 'ability':
       if (e.playerId === me) ultimateFx(e.character); // eyes shut, 究極能力, eyes open in fire
       else arena()?.flashEyes('opp'); // their eyes blaze in their colour
@@ -652,11 +652,11 @@ export function deckEvent(e: DeckEvent) {
       break;
     case 'wizard': ui.toast(`${e.playerId === me ? 'Your' : `${name(e.playerId)}'s`} Arcane reserve: ${e.what === 'cards' ? '+2 cards' : '+30 mana'}`); break;
     case 'stuck': stuckId = e.playerId; break; // the 'skip' event right after explains it
-    case 'overtime': ui.toast('Overtime! The cards are gone — it\'s a Rapid duel now: first to type the reading hits.', 5000); break;
+    case 'overtime': ui.toast('Overtime! The cards are gone - it\'s a Rapid duel now: first to type the reading hits.', 5000); break;
     case 'skip':
       audio.sfx.hurt();
       ui.toast(stuckId === e.playerId
-        ? `${e.playerId === me ? 'You have' : `${name(e.playerId)} has`} no mana for any card — turn skipped: −${e.damage} HP`
+        ? `${e.playerId === me ? 'You have' : `${name(e.playerId)} has`} no mana for any card - turn skipped: −${e.damage} HP`
         : `${e.playerId === me ? 'You' : name(e.playerId)} skipped the turn: −${e.damage} HP`, 3500);
       stuckId = '';
       break;
@@ -686,7 +686,7 @@ function animateResolve(e: Extract<DeckEvent, { kind: 'resolve' }>, me: string, 
   const spec = e.overtime ? { label: 'Rapid hit', kind: 'attack' as const, amount: e.amount, cost: 0 } : CARD_SPECS[e.color];
   if (!e.ok) {
     fb.className = 'feedback bad';
-    fb.replaceChildren(h('span', 'big', e.overtime ? '✗ Nobody got it' : e.playerId === me ? '✗ The spell fizzles' : `✗ ${who} missed`), h('span', 'sub2', `${e.kanji} · ${e.reading} · ${e.meaning}${e.recognized ? ` — read: ${e.recognized}` : ''}`));
+    fb.replaceChildren(h('span', 'big', e.overtime ? '✗ Nobody got it' : e.playerId === me ? '✗ The spell fizzles' : `✗ ${who} missed`), h('span', 'sub2', `${e.kanji} · ${e.reading} · ${e.meaning}${e.recognized ? ` - read: ${e.recognized}` : ''}`));
     audio.sfx.rip();
     arena()?.fizzle(e.playerId === me ? 'me' : 'opp');
     if (card) ripCard(card);

@@ -25,7 +25,7 @@ const word = (s: string) => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(s)}
 export function createMailer(env: NodeJS.ProcessEnv = process.env): Mailer {
   if (env.BREVO_API_KEY) {
     const from = parseFrom(env.MAIL_FROM || '');
-    if (!from.email) throw new Error('BREVO_API_KEY is set: set MAIL_FROM too — a sender verified in Brevo, e.g. "Kanji Wizards <you@gmail.com>"');
+    if (!from.email) throw new Error('BREVO_API_KEY is set: set MAIL_FROM too - a sender verified in Brevo, e.g. "Kanji Wizards <you@gmail.com>"');
     return {
       enabled: true, how: `brevo (${from.email})`,
       async send(to, subject, text) {

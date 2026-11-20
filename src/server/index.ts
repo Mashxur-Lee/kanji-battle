@@ -2,7 +2,7 @@ import { keepAwake } from './keepAwake';
 import { VERSION } from '../shared/version';
 import type { MissedWord } from '../shared/protocol';
 import { createServer, type IncomingMessage } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { Compressed } from './compressed';
 import { apkSource } from './apk';
@@ -23,7 +23,7 @@ import { SocialService } from './study/SocialService';
 import { RoomManager } from './RoomManager';
 import { deviceOf, Session, SessionHub, setServerBuild } from './Session';
 import { Push, type PushNote } from './push';
-import { Bucket, clientIp, inlineScriptHashes, isPublicServer, securityHeaders, viaHttps } from './security';
+import { Bucket, clientIp, inlineScriptHashes, isPublicServer, originAllowed, securityHeaders, viaHttps } from './security';
 import { Matchmaker } from './Matchmaker';
 import { StoryService } from './study/StoryService';
 import { InsightsService } from './study/InsightsService';
@@ -35,6 +35,18 @@ import type { ResetMail } from './auth/AuthService';
 import { DictService } from './study/DictService';
 
 const PUBLIC_DIR = path.resolve(__dirname, '../../public');
+// 0.9.9.9.8: the page and the stylesheet as they are sent (no comments; scripts/build-client.mjs) — when they are at
+// least as new as the files in public/
+const SENT_DIR = path.resolve(__dirname, '../../dist/public');
+const SENT = new Set(['/index.html', '/style.css']);
+async function sentCopy(url: string, file: string): Promise<Buffer | null> {
+  if (!SENT.has(url)) return null;
+  try {
+    const copy = path.join(SENT_DIR, url.slice(1));
+    const [a, b] = await Promise.all([stat(copy), stat(file)]);
+    return a.mtimeMs >= b.mtimeMs ? await readFile(copy) : null;
+  } catch { return null; }
+}
 try { setServerBuild(readFileSync(path.join(PUBLIC_DIR, 'build.txt'), 'utf8')); } catch { /* not built (tests, dev) */ }
 const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8' };
 
@@ -71,12 +83,9 @@ function noteFor(data: Record<string, string>, unlocks: readonly string[] | unde
   const ru = (unlocks ?? []).includes('plang:ru');
   if (data.kind === 'invite') return ru
     ? { title: `${data.fromName} приглашает вас`, body: `Комната ${data.mode} · ${data.code} — нажмите, чтобы присоединиться`, tag: `invite-${data.fromId}` }
-    : { title: `${data.fromName} invites you`, body: `Join their ${data.mode} room · ${data.code} — tap to join`, tag: `invite-${data.fromId}` };
+    : { title: `${data.fromName} invites you`, body: `Join their ${data.mode} room · ${data.code} - tap to join`, tag: `invite-${data.fromId}` };
   // 0.9.9.9.6: a message in the messenger
   if (data.kind === 'dm') return { title: data.fromName, body: data.text, tag: `dm-${data.fromId}` };
-  if (data.kind === 'test') return ru
-    ? { title: 'Уведомления работают', body: 'Так придёт приглашение друга, даже когда игра закрыта.', tag: 'test' }
-    : { title: 'Invite notifications work', body: 'This is how a friend’s invite reaches you, even with the game closed.', tag: 'test' };
   return undefined;
 }
 hub.setNotifier(async (userId, data) => {
@@ -115,7 +124,6 @@ const messages = new MessageService(store, {
 });
 hub.onInviteSent = (fromId, to, mode, code, challenge) => { void store.findById(fromId).then((u) => (u ? messages.invite(u, to, mode, code, challenge) : null)).catch(() => { /* the invite itself went out */ }); };
 hub.onDmTyping = (userId, to, on) => { void store.findById(userId).then((u) => (u ? messages.typing(u, to, on) : undefined)).catch(() => { /* not important */ }); };
-const pushTested = new Map<string, number>(); // (one test every few seconds)
 const recognizer = Recognizer.fromFile();
 const insights = new InsightsService(store);
 onServerError((message, details) => void insights.error(message, details, null));
@@ -130,44 +138,31 @@ const resetMail = async (m: ResetMail) => {
   const ru = m.lang === 'ru';
   if (m.kind === 'confirm') {
     // 0.9.9.9.7: confirming an email — the code, and what to ignore if it wasn't you
-    const subject = ru ? `Kanji Wizards — код подтверждения: ${m.code}` : `Kanji Wizards — your confirmation code: ${m.code}`;
+    const subject = ru ? `Kanji Wizards — код подтверждения: ${m.code}` : `Kanji Wizards - your confirmation code: ${m.code}`;
     const text = ru
       ? `Здравствуйте, ${name}!\n\nВаш код подтверждения почты в Kanji Wizards: ${m.code}\n\nВведите его в игре в течение 15 минут. Если это были не вы, просто проигнорируйте письмо — без кода почта ни к какому аккаунту не привяжется.\n\n— Kanji Wizards`
-      : `Hi ${name},\n\nYour Kanji Wizards email confirmation code is: ${m.code}\n\nEnter it in the game within 15 minutes. If this wasn't you, ignore this email — without the code your address isn't added to any account.\n\n— Kanji Wizards`;
-    if (!mailer.enabled) { console.log(`[confirm mail] email is not set up — code for ${m.user.username}: ${m.code}`); return; }
+      : `Hi ${name},\n\nYour Kanji Wizards email confirmation code is: ${m.code}\n\nEnter it in the game within 15 minutes. If this wasn't you, ignore this email - without the code your address isn't added to any account.\n\n— Kanji Wizards`;
+    if (!mailer.enabled) { console.log(`[confirm mail] email is not set up - code for ${m.user.username}: ${m.code}`); return; }
     try { await mailer.send(m.email, subject, text); console.log(`[confirm mail] sent to ${m.user.username} (${mailer.how})`); }
     catch (e) { console.error('[confirm mail] failed:', (e as Error).message); }
     return;
   }
-  const subject = ru ? `Kanji Wizards — код для сброса пароля: ${m.code}` : `Kanji Wizards — your password reset code: ${m.code}`;
+  const subject = ru ? `Kanji Wizards — код для сброса пароля: ${m.code}` : `Kanji Wizards - your password reset code: ${m.code}`;
   const text = ru
     ? `Здравствуйте, ${name}!\n\nВаш код для сброса пароля в Kanji Wizards: ${m.code}\n\nВведите его в игре в течение 30 минут. Если вы не просили сбросить пароль, просто не обращайте внимания на это письмо — ваш пароль не изменится.\n\n— Kanji Wizards`
-    : `Hi ${name},\n\nYour Kanji Wizards password reset code is: ${m.code}\n\nEnter it in the game within 30 minutes. If you didn't ask to reset your password, ignore this email — your password stays the same.\n\n— Kanji Wizards`;
+    : `Hi ${name},\n\nYour Kanji Wizards password reset code is: ${m.code}\n\nEnter it in the game within 30 minutes. If you didn't ask to reset your password, ignore this email - your password stays the same.\n\n— Kanji Wizards`;
   if (mailer.enabled) {
     // (if the mail service fails, the code still reaches the admin's inbox — nobody is left locked out)
     try { await mailer.send(m.email, subject, text); console.log(`[reset mail] sent to ${m.user.username} (${mailer.how})`); return; }
     catch (e) {
       console.error('[reset mail] failed:', (e as Error).message);
-      await store.addReport({ kind: 'error', userId: m.user.id, username: m.user.username, text: `Password reset asked by ${m.user.username} — code ${m.code} (30 min). The email could not be sent (${(e as Error).message.slice(0, 160)}), so pass the code on yourself.`, meta: m.email, at: Date.now() });
+      await store.addReport({ kind: 'error', userId: m.user.id, username: m.user.username, text: `Password reset asked by ${m.user.username} - code ${m.code} (30 min). The email could not be sent (${(e as Error).message.slice(0, 160)}), so pass the code on yourself.`, meta: m.email, at: Date.now() });
       return;
     }
   }
-  await store.addReport({ kind: 'error', userId: m.user.id, username: m.user.username, text: `Password reset asked by ${m.user.username} — code ${m.code} (30 min). Email is not set up on the server (SMTP_URL or RESEND_API_KEY), so pass the code on yourself.`, meta: m.email, at: Date.now() });
+  await store.addReport({ kind: 'error', userId: m.user.id, username: m.user.username, text: `Password reset asked by ${m.user.username} - code ${m.code} (30 min). Email is not set up on the server (SMTP_URL or RESEND_API_KEY), so pass the code on yourself.`, meta: m.email, at: Date.now() });
 };
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled, messages, resetMail,
-  // 0.9.9.9.5.2: Settings → "Test invite notification": the whole way, with what went wrong
-  pushTest: async (userId, delaySec = 0) => {
-    if (!push.enabled) return { ok: false, reason: 'server-off' };
-    if ((pushTested.get(userId) ?? 0) > Date.now() - 8000) return { ok: false, reason: 'wait' };
-    pushTested.set(userId, Date.now());
-    const u = await store.findById(userId);
-    const tokens = u?.pushTokens ?? [];
-    if (!tokens.length) return { ok: false, reason: 'no-phone' };
-    if (delaySec > 0) await new Promise((ok) => setTimeout(ok, delaySec * 1000)); // (time to leave the app: the real case)
-    const r = await push.send(tokens, { kind: 'test' }, 60, noteFor({ kind: 'test' }, u?.unlocks));
-    if (r.dead.length) await store.update(userId, { pushTokens: tokens.filter((t) => !r.dead.includes(t)) });
-    return r.sent ? { ok: true, sent: r.sent, phones: tokens.length } : { ok: false, reason: r.dead.length === tokens.length ? 'stale' : 'refused', errors: r.errors.slice(0, 3) };
-  } });
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled, messages, resetMail });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const judges = createJudgePool({
@@ -229,7 +224,7 @@ const server = createServer(async (req, res) => {
   const file = path.join(PUBLIC_DIR, path.normalize(url));
   if (!file.startsWith(PUBLIC_DIR + path.sep)) { res.writeHead(403).end(); return; } // (+ sep: not a sibling folder)
   try {
-    const data = await readFile(file);
+    const data = (await sentCopy(url, file)) ?? await readFile(file); // (0.9.9.9.8: the page and the stylesheet without comments)
     const type = TYPES[path.extname(file)] ?? 'application/octet-stream';
     // the service worker and the page are checked for a new version every time (0.9.9.4)
     // 0.9.9.9.5: + the security headers (the page's inline script allowed by its hash)
@@ -261,6 +256,8 @@ const perIp = new Map<string, number>();
 wss.on('connection', (ws, ...rest: unknown[]) => {
   const req = rest[0] as IncomingMessage | undefined; // (the upgrade request: its User-Agent says app or browser)
   const ip = req ? clientIp(req) : '';
+  // 0.9.9.9.8: only the game's own pages (security.ts: originAllowed)
+  if (req && !originAllowed(req.headers.origin, req.headers.host)) { ws.close(1008, 'Not allowed'); return; }
   const n = (perIp.get(ip) ?? 0) + 1;
   if (n > 12) { ws.close(1008, 'Too many connections'); return; }
   perIp.set(ip, n);
@@ -290,7 +287,7 @@ for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.on(sig, () => {
     if (stopping) return;
     stopping = true;
-    hub.broadcast({ type: 'notice', message: 'The game is updating — you\'ll be reconnected in a moment.' });
+    hub.broadcast({ type: 'notice', message: 'The game is updating - you\'ll be reconnected in a moment.' });
     setTimeout(() => { server.close(); void store.close?.(); void judges.close(); process.exit(0); }, 1200).unref();
   });
 }
@@ -307,7 +304,7 @@ store.init().then(() => auth.seed([
     console.log(`Kanji Wizards v${VERSION}`);
     console.log(`Email (password resets): ${mailer.how}`);
     if (dailySeed) console.log('Daily challenge words: picked with DAILY_SECRET');
-    else console.warn(`DAILY_SECRET not set${DAILY_SECRET ? ' (it needs at least 16 characters)' : ''}: anyone with the game's code can work out the Daily challenge's words — see docs/SETUP.md`);
+    else console.warn(`DAILY_SECRET not set${DAILY_SECRET ? ' (it needs at least 16 characters)' : ''}: anyone with the game's code can work out the Daily challenge's words - see docs/SETUP.md`);
     console.log(`Accounts: ${auth.store.name}${tokens.ephemeral ? ' · AUTH_SECRET not set: logins reset on restart' : ''}`);
     // 0.9.9.9.6.9: guests not seen for a month are removed (once at start, then daily)
     const sweep = () => auth.sweepGuests().then((n) => { if (n) console.log(`Removed ${n} guest${n === 1 ? '' : 's'} not seen for a month`); }).catch((e) => console.error('[guests]', e));
@@ -320,7 +317,7 @@ store.init().then(() => auth.seed([
     if (process.env.RENDER && !process.env.DATABASE_URL) {
       console.warn('DATABASE_URL is not set: accounts, XP and study sets live on Render\'s disk and are wiped on every deploy. Add your Neon connection string in Render → Environment.');
     }
-    if (!process.env.ADMIN_PASSWORD) console.warn(isPublicServer() ? 'ADMIN_PASSWORD not set: no admin account with the built-in password on a public server — set ADMIN_PASSWORD to sign in as admin' : 'ADMIN_PASSWORD not set: the admin account uses the built-in development password (set ADMIN_PASSWORD)');
+    if (!process.env.ADMIN_PASSWORD) console.warn(isPublicServer() ? 'ADMIN_PASSWORD not set: no admin account with the built-in password on a public server - set ADMIN_PASSWORD to sign in as admin' : 'ADMIN_PASSWORD not set: the admin account uses the built-in development password (set ADMIN_PASSWORD)');
   });
 }).catch((e) => {
   console.error('Could not start (database unreachable? check DATABASE_URL)', e);

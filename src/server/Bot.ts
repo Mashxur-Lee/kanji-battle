@@ -29,7 +29,7 @@ export function botChance(bot: BotLevel, word: Level): number {
 export const bossChance = (c: number) => 1 - (1 - c) * 0.3;
 
 const NAMES = ['Kitsune', 'Tanuki', 'Tengu', 'Kappa', 'Oni', 'Yuki', 'Ryu', 'Neko'];
-export const botName = (i: number, level: BotLevel) => `${NAMES[i % NAMES.length]} (AI ${level === 'BEGINNER' ? 'Beginner' : level})`;
+export const botName = (i: number, level: BotLevel) => `${NAMES[i % NAMES.length]} (Bot ${level === 'BEGINNER' ? 'Beginner' : level})`;
 /** The levels a bot plays with (a beginner brings かな and N5, so the words are easy). */
 export const botLevels = (level: BotLevel): Level[] => (level === 'BEGINNER' ? ['KANA', 'N5'] : [level]);
 

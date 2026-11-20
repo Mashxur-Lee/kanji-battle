@@ -26,7 +26,7 @@ const nextReset = () => {
   const d = new Date(); d.setHours(24, 0, 0, 0);
   const min = Math.max(1, Math.round((d.getTime() - Date.now()) / 60_000));
   const h = Math.floor(min / 60), m = min % 60;
-  return `at midnight — in ${h ? `${h} h ` : ''}${m} min`; // (Russian: a pattern in i18n.ts)
+  return `at midnight - in ${h ? `${h} h ` : ''}${m} min`; // (Russian: a pattern in i18n.ts)
 };
 
 let me = '';
@@ -70,7 +70,7 @@ function renderBoard(o: DailyOverview) {
     return b;
   }));
   $('dailyBoardTitle').textContent = `${tr('League')}: ${LEAGUE_NAME[show]}${show === o.league ? ` · ${tr('yours')}` : ''}`;
-  if (!rows.length) { list.replaceChildren(el('li', 'hint', show === o.league ? 'Nobody has played today yet — be the first!' : tr('Nobody in this league has played today yet.'))); return; }
+  if (!rows.length) { list.replaceChildren(el('li', 'hint', show === o.league ? 'Nobody has played today yet - be the first!' : tr('Nobody in this league has played today yet.'))); return; }
   list.replaceChildren(...rows.map((r, i) => {
     const li = el('li', r.id === me ? 'me' : '');
     li.append(el('span', 'db-rank', i + 1), el('span', 'db-name', r.name), el('span', 'db-score', `${r.correct}/${o.total}`), el('span', 'db-time', secs(r.ms)));
@@ -94,7 +94,7 @@ function missedBlock(o: DailyOverview): HTMLElement[] {
   const set = tickCards(cards, (id, on) => { void (on ? api.deckAdd('struggling', [id]) : api.deckRemove('struggling', [id])).catch((e) => ui.toast((e as Error).message)); });
   // as they are now: a word you unticked earlier is no longer in Struggling spells (0.9.9.3.2)
   void api.deckWords('struggling').then((r) => { const have = new Set(r.words.map((w) => w.vocabId)); for (const c of cards) set(c.id, have.has(c.id)); }).catch(() => { /* offline: keep the ticks */ });
-  return [el('h4', '', 'Missed — ticked words go to Struggling spells'), grid];
+  return [el('h4', '', 'Missed - ticked words go to Struggling spells'), grid];
 }
 
 // 0.9.9.7.3: leagues — Kana → N5 → N4 → N3 → N2 → N1; 7 / 10 or better (0.9.9.9.5; was 9) moves you up one
@@ -157,7 +157,7 @@ function renderOverview(o: DailyOverview) {
       ladder(league, o.nextLeague),
       leagueCard(up ? o.nextLeague! : league, nextL, o.promoteAt ?? 7, passedNow),
       el('div', 'daily-score', `${o.mine.correct} / ${o.total}`),
-      el('p', `center league-note${up ? ' up' : ''}`, up ? `▲ ${tr('Promoted')}: ${LEAGUE_NAME[o.nextLeague!]} — ${tr('tomorrow you play in the new league')}` : `${tr('Get')} ${o.promoteAt ?? 7}/${o.total} ${tr('to move up a league')}`),
+      el('p', `center league-note${up ? ' up' : ''}`, up ? `▲ ${tr('Promoted')}: ${LEAGUE_NAME[o.nextLeague!]} - ${tr('tomorrow you play in the new league')}` : `${tr('Get')} ${o.promoteAt ?? 7}/${o.total} ${tr('to move up a league')}`),
       el('p', 'center', `${secs(o.mine.ms)} · rank ${o.rank} today`),
       el('p', 'hint center', `10 new words ${nextReset()}.`),
       el('h4', '', "Today's words"), words,
@@ -173,8 +173,8 @@ function renderOverview(o: DailyOverview) {
     ladder(league),
     leagueCard(league, nextL, o.promoteAt ?? 7, passedNow),
     el('p', '', league === 'KANA'
-      ? `Ten kana, the same for everyone in your league today: five hiragana, five katakana. Type each in romaji and press Enter — ${o.wordMs / 1000} s each. Get ${o.promoteAt ?? 7}/10 or better to move up to N5.`
-      : `Ten ${league} words, the same for everyone in your league today, easiest first. Type the reading (kana or romaji) and press Enter — ${o.wordMs / 1000} s per word. Get ${o.promoteAt ?? 7}/10 or better to move up a league.`),
+      ? `Ten kana, the same for everyone in your league today: five hiragana, five katakana. Type each in romaji and press Enter - ${o.wordMs / 1000} s each. Get ${o.promoteAt ?? 7}/10 or better to move up to N5.`
+      : `Ten ${league} words, the same for everyone in your league today, easiest first. Type the reading (kana or romaji) and press Enter - ${o.wordMs / 1000} s per word. Get ${o.promoteAt ?? 7}/10 or better to move up a league.`),
     el('p', 'hint', 'One try a day: most correct wins, then fastest. Everyone starts in the kana league.'),
     el('p', 'hint', `Every correct word gives 30 XP (+100 for a perfect 10). New words ${nextReset()}.`),
     ...(ghost ? [ghostCard(ghost)] : []),

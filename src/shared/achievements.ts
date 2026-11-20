@@ -27,7 +27,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'last-stand', name: 'Last Stand', how: 'Win a battle with 10% HP or less left.', icon: 'heart', color: '#ff4d6d', tier: 2 },
   { id: 'lightning', name: 'Lightning Reflexes', how: 'Win a battle answering in under 2 seconds on average (at least 15 right).', icon: 'stopwatch', color: '#ffe14d', tier: 4 },
   { id: 'giant-slayer', name: 'Giant Slayer', how: 'Beat a player 5 or more levels above you.', icon: 'mountain', color: '#ffa94d', tier: 3 },
-  { id: 'machine-breaker', name: 'Machine Breaker', how: 'Beat the N1 AI.', icon: 'robot', color: '#7df9ff', tier: 2 },
+  { id: 'machine-breaker', name: 'Machine Breaker', how: 'Beat the N1 bot.', icon: 'robot', color: '#7df9ff', tier: 2 },
   { id: 'kingslayer', name: 'Kingslayer', how: 'Beat an admin in a battle.', icon: 'kingslayer', color: '#ff3d6e', tier: 4 },
   // ── the modes ──
   { id: 'quickdraw', name: 'Quickdraw', how: 'Win a Rapid duel.', icon: 'bolt', color: '#ffe14d', tier: 1 },
@@ -46,7 +46,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'marathon', name: 'Marathon Mind', how: 'Answer 300 study cards in one day.', icon: 'stopwatch', color: '#ff9a5a', tier: 2 },
   // ── kana ──
   { id: 'graduate', name: 'Kana Graduate', how: 'Master the 46 basic hiragana in Kana.', icon: 'kana', color: '#ff9ec7', tier: 1 },
-  { id: 'hiragana-hero', name: 'Hiragana Hero', how: 'Master all 104 hiragana in Kana — voiced and combinations too.', icon: 'kana', color: '#ff6fa8', tier: 2 },
+  { id: 'hiragana-hero', name: 'Hiragana Hero', how: 'Master all 104 hiragana in Kana - voiced and combinations too.', icon: 'kana', color: '#ff6fa8', tier: 2 },
   { id: 'katakana-knight', name: 'Katakana Knight', how: 'Master all 104 katakana in Kana.', icon: 'kata', color: '#6fc8ff', tier: 2 },
   // ── quizzes, passages, the Daily challenge ──
   { id: 'quiz-whiz', name: 'Quiz Whiz', how: 'Pass 10 JLPT quizzes (7/10 or better).', icon: 'check', color: '#8be37a', tier: 1 },

@@ -103,7 +103,7 @@ async function stillDown(): Promise<boolean> {
 }
 /** crypto.randomUUID needs https; plain-http LAN testing gets a random fallback */
 export const uuid = () => (typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, () => (Math.random() * 16 | 0).toString(16)));
-export const OFFLINE_TEXT = 'You\'re offline — this needs an internet connection.';
+export const OFFLINE_TEXT = 'You\'re offline - this needs an internet connection.';
 async function local<T>(method: string, url: string, body?: unknown, op?: string): Promise<T> {
   if (!offline.handles(method, url)) throw new ApiError(OFFLINE_TEXT, 0);
   const out = await offline.call(method, url, body, op);
@@ -149,7 +149,6 @@ export const api = {
   pushRegister: (token: string, lang?: string) => call<{ ok: boolean }>('PUT', '/api/push', { token, lang }),
   pushUnregister: (token: string) => call<{ ok: boolean }>('DELETE', '/api/push', { token }),
   /** 0.9.9.9.5.2: a test push to this account's phones, and what happened */
-  pushTest: (delay = 0) => call<{ ok: boolean; reason?: string; sent?: number; phones?: number; errors?: string[] }>('POST', '/api/push/test', { delay }),
   quiz: (n = 10, deck?: string, levels?: string[]) => call<{ questions: QuizQuestion[] }>('GET', `/api/study/quiz?n=${n}${deck ? `&deck=${deck}` : ''}${levels?.length ? `&levels=${levels.join(',')}` : ''}`),
   /** 0.9.9.4.4.1: one story with these words (null when the AI is off or failed) */
   story: (words: Array<{ id?: string; kanji: string; reading: string; meaning: string }>, level?: string) => call<{ story: { title: { ja: string; en: string; ru: string }; lines: Array<{ ja: string; en: string; ru: string; words: number[] }> } | null; why?: string; usage?: StoryUsage }>('POST', '/api/study/story', { words, level, today: today() }),
@@ -169,6 +168,7 @@ export const api = {
   setPaused: (deck: 'all' | 'ono' | 'struggling', on: boolean) => call<StudySummary>('PUT', '/api/study/pause', { deck, on, today: today() }),
   setDailyLevels: (levels: Partial<Record<Level, number>>) => call<StudySummary>('PUT', '/api/study/daily-levels', { levels, today: today() }),
   /** 0.9.9.9.6.5: every other device is signed out; this one gets a new token */
+  signOutOthers: () => call<{ token: string }>('POST', '/api/me/signout-others'), // 0.9.9.9.8
   changePassword: (current: string, password: string) => call<{ token: string }>('PUT', '/api/me/password', { current, password }),
   setBorder: (border: string) => call<{ profile: Profile }>('PUT', '/api/me/border', { border }),
   setBadges: (badges: string[]) => call<{ badges: string[] }>('PUT', '/api/me/badges', { badges }),

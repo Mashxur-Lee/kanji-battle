@@ -57,7 +57,7 @@ export function streakFlame(n: number, lit: boolean, still = false): HTMLElement
   const box = document.createElement('span');
   box.className = `sf sf2 s-${fl.shape}${fl.colour ? ` c-${fl.colour}` : ' lost'}${lit ? ' lit' : ''} k${Math.min(5, [...k].length)}`;
   box.style.setProperty('--fc', fl.hex);
-  box.title = fl.week ? `${tr(fl.name)} · ${tr(`week ${fl.week}`)} · ${tr(`${n} days`)}` : tr('No streak yet — do today\'s tasks to light the flame');
+  box.title = fl.week ? `${tr(fl.name)} · ${tr(`week ${fl.week}`)} · ${tr(`${n} days`)}` : tr('No streak yet - do today\'s tasks to light the flame');
   const img = document.createElement('img');
   img.className = 'sf-img'; img.src = flameSrc(fl.src, still); img.alt = ''; img.decoding = 'async'; img.draggable = false;
   const kan = document.createElement('b');
@@ -91,7 +91,7 @@ export function renderTasks(p: Profile) {
   const mk = (tag: string, cls: string, text = '') => Object.assign(document.createElement(tag), { className: cls, textContent: text });
   const head = mk('span', 'tb-head');
   head.append(
-    mk('b', 'tb-title', all ? tr('Streak kept today — well done!') : tr('Daily streak tasks')),
+    mk('b', 'tb-title', all ? tr('Streak kept today - well done!') : tr('Daily streak tasks')),
     mk('span', 'tb-count', `${n}/${tasks.length}`),
   );
   // 0.9.9.9.6.2: the next flame — next week's (the fire changes every 7 days), in its colour, with the days to it
@@ -107,7 +107,7 @@ export function renderTasks(p: Profile) {
   const txt = mk('span', 'tn-text');
   if (nextWeek) {
     txt.append(mk('small', 'tn-lbl', tr('Next flame')), mk('b', 'tn-name', tr(nx.name)), mk('span', 'tn-left', tr(`in ${left} ${left === 1 ? 'day' : 'days'}`)));
-  } else txt.append(mk('small', 'tn-lbl', tr('Your flame')), mk('b', 'tn-name', tr('The last flame — the highest')));
+  } else txt.append(mk('small', 'tn-lbl', tr('Your flame')), mk('b', 'tn-name', tr('The last flame - the highest')));
   sub.append(nextPic, txt, Object.assign(mk('span', 'tn-bar'), { innerHTML: '<i></i>' }));
   const dots = mk('span', 'tb-dots');
   for (const t of tasks) dots.append(mk('i', t.value >= t.target ? 'on' : ''));

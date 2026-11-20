@@ -31,7 +31,7 @@ export function starButton(id: string, cls = 'star-btn'): HTMLButtonElement {
     const on = stars.has(id);
     b.textContent = on ? '★' : '☆';
     b.classList.toggle('on', on);
-    b.title = on ? 'Starred — used first in reading passages. Tap to unstar' : 'Star this word — reading passages use starred words first';
+    b.title = on ? 'Starred - used first in reading passages. Tap to unstar' : 'Star this word - reading passages use starred words first';
     b.setAttribute('aria-pressed', String(on));
   };
   draw();

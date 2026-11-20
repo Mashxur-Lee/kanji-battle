@@ -40,7 +40,7 @@ async function longestStall(work: () => Promise<unknown>) {
 test('0.9.9.9.7.2 version, patch notes, Russian for the new message, the build compresses', () => {
   assert.ok(VERSION >= '0.9.9.9.7.2');
   assert.match(src('src/client/whatsnew.ts'), /v: '0\.9\.9\.9\.7\.2'/);
-  assert.ok(src('src/client/i18n.ts').includes("'Too many wrong room codes — wait a minute':"));
+  assert.ok(src('src/client/i18n.ts').includes("'Too many wrong room codes - wait a minute':"));
   assert.match(JSON.parse(src('package.json')).scripts.build, /build:compress/);
   assert.doesNotMatch(src('src/server/index.ts'), /CompressSync|gzipSync/, 'nothing compressed on the main thread');
 });
@@ -233,14 +233,14 @@ test('0.9.9.9.7.2 #11 wrong room codes are limited — 10 a minute per account, 
   for (let i = 0; i < 10; i++) await guesser.say({ type: 'join', code: wrong });
   assert.equal(guesser.got.filter((m) => m.type === 'error' && m.message === 'Room not found').length, 10);
   await guesser.say({ type: 'join', code });
-  assert.ok(guesser.got.some((m) => m.type === 'error' && m.message === 'Too many wrong room codes — wait a minute'), 'even the right code waits: a script learns nothing');
+  assert.ok(guesser.got.some((m) => m.type === 'error' && m.message === 'Too many wrong room codes - wait a minute'), 'even the right code waits: a script learns nothing');
   assert.ok(!guesser.got.some((m) => m.type === 'joined'));
   // more accounts from the same address: 20 wrong a minute in all
   for (const name of ['second', 'third']) {
     const c = w.connect();
     await c.say({ type: 'hello', token: await w.signUp(name) });
     for (let i = 0; i < 10; i++) await c.say({ type: 'join', code: wrong });
-    if (name === 'third') assert.ok(c.got.some((m) => m.type === 'error' && m.message === 'Too many wrong room codes — wait a minute'), 'the address has had its 20');
+    if (name === 'third') assert.ok(c.got.some((m) => m.type === 'error' && m.message === 'Too many wrong room codes - wait a minute'), 'the address has had its 20');
   }
   // a friend with the right code, from elsewhere, gets in
   const friend = w.connect('10.5.5.5');

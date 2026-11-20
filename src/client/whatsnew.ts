@@ -7,11 +7,32 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.8', date: '2026-11',
+    en: [
+      'Every staff has its own spell sound when you get a word right: Verdant grows, Storm cracks with thunder, Tide splashes, Ember catches fire, Void folds the air, and the seasonal staffs have theirs. It gets bigger with your combo. Tap a staff in Customize to hear it.',
+      'The results screen shows your opponent\'s words too: tap their name above the word list.',
+      'Settings > Other > Notifications: turn invite and message notifications on or off on this device. The test buttons are gone.',
+      'The lobby shows a letter for players without a profile picture.',
+      'Quizzes: your records update as soon as you go back to the list.',
+      'Safer accounts: new passwords need 8 characters and can\'t be a common one, and you can sign out on all other devices (Change password). The Windows and Android apps only open the game\'s own address.',
+      'The computer players are called bots now.',
+    ],
+    ru: [
+      'У каждого посоха свой звук заклинания, когда вы отвечаете верно: Листва прорастает, Буря бьёт громом, Прилив плещет, Угли вспыхивают, Пустота сворачивает воздух, а у сезонных посохов свои звуки. С комбо звук становится мощнее. Нажмите на посох в Настройке, чтобы услышать.',
+      'На экране результатов видны и слова соперника: нажмите на его имя над списком слов.',
+      'Настройки > Другое > Уведомления: включайте и выключайте уведомления о приглашениях и сообщениях на этом устройстве. Кнопок проверки больше нет.',
+      'В лобби у игроков без фото профиля теперь буква.',
+      'Тесты: рекорды обновляются сразу, как только вы возвращаетесь к списку.',
+      'Надёжнее аккаунты: новый пароль — не меньше 8 символов и не из самых частых, а ещё можно выйти на всех других устройствах (Сменить пароль). Приложения для Windows и Android открывают только адрес игры.',
+      'Компьютерные игроки теперь называются ботами.',
+    ],
+  },
+  {
     v: '0.9.9.9.7.4', date: '2026-11',
     en: [
-      'The 3D arena: a hit looks like a hit — the chest snaps back and the head a moment later, the knees give, one foot steps back to catch it, and they come back up. The staff hand no longer jumps around.',
+      'The 3D arena: a hit looks like a hit - the chest snaps back and the head a moment later, the knees give, one foot steps back to catch it, and they come back up. The staff hand no longer jumps around.',
       'Block and Report, on a player’s profile: someone you block can’t message you, add you or invite you (and isn’t told); a report goes straight to the team.',
-      'Confirming your email: “Later” now says what it means — until your email is confirmed, “Forgot password?” can’t send you a code.',
+      'Confirming your email: “Later” now says what it means - until your email is confirmed, “Forgot password?” can’t send you a code.',
       'Faster on phones: the 3D arena loads when you go into a battle, not while you’re in the menus; Customize opens much quicker; the menu’s moving background rests on other screens.',
       'Cleaner screens: plain words and the game’s own drawings instead of emoji.',
     ],
@@ -26,9 +47,9 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.7.3', date: '2026-11',
     en: [
-      'The 3D arena: the fly-in at the start of a battle is over by the time your first word comes up — the arena is built while you study, so the AI no longer casts at you while the camera is still flying.',
-      'The 3D arena: a hit really lands — your opponent rocks back and steps back with one leg before finding their feet.',
-      'The 3D arena: a beaten opponent kneels cleanly — they no longer go down still bent back from the last hit.',
+      'The 3D arena: the fly-in at the start of a battle is over by the time your first word comes up - the arena is built while you study, so the bot no longer casts at you while the camera is still flying.',
+      'The 3D arena: a hit really lands - your opponent rocks back and steps back with one leg before finding their feet.',
+      'The 3D arena: a beaten opponent kneels cleanly - they no longer go down still bent back from the last hit.',
       'Back from a long break on the results screen: if the room closed while you were away, the game takes you to the menu and says so (the buttons did nothing).',
       'Photos in messages are kept within a daily limit, and ones no message uses any more are cleared away.',
       'Faster pages for Daily challenge, Progress and Study, and a quicker server start.',
@@ -62,10 +83,10 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.7.1', date: '2026-11',
     en: [
-      'A fair Daily challenge: it is played online now, on the server’s clock — the times on the leaderboard are the times people really took. (Played offline, the app reported its own times.)',
+      'A fair Daily challenge: it is played online now, on the server’s clock - the times on the leaderboard are the times people really took. (Played offline, the app reported its own times.)',
       'The Daily challenge’s ten words can’t be worked out ahead any more, and an earlier day’s words show once that day is over for you.',
       'One Daily challenge a day: changing the phone’s date no longer gives yesterday’s challenge on top, or a new one every few hours.',
-      'A challenge half played stays half played, even when the server restarts — it doesn’t start over from the first word.',
+      'A challenge half played stays half played, even when the server restarts - it doesn’t start over from the first word.',
       'Safer accounts: after 10 wrong passwords in 15 minutes an account waits a little before taking more (“Forgot password?” still works), and at most 5 password-reset emails a day go to an address.',
     ],
     ru: [
@@ -79,10 +100,10 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.7', date: '2026-11',
     en: [
-      'Your email is confirmed with a code: when you add or change it, a 6-digit code goes to it, and it becomes your account’s only once you enter it. (So nobody can put your address on their account.) An email added before this update needs confirming once — the game asks.',
-      'The 3D arena: your spells hit hard — your opponent rocks back and staggers a step away (the dragon too).',
+      'Your email is confirmed with a code: when you add or change it, a 6-digit code goes to it, and it becomes your account’s only once you enter it. (So nobody can put your address on their account.) An email added before this update needs confirming once - the game asks.',
+      'The 3D arena: your spells hit hard - your opponent rocks back and staggers a step away (the dragon too).',
       'The 3D arena: the fly-in at the start of a battle now always plays, even when the arena takes a moment to load.',
-      'Messages: back after a long break (or after the server woke up), your conversations load by themselves — no restart needed.',
+      'Messages: back after a long break (or after the server woke up), your conversations load by themselves - no restart needed.',
     ],
     ru: [
       'Почта подтверждается кодом: когда вы добавляете или меняете её, на неё приходит 6-значный код, и к аккаунту она привязывается только после ввода кода. (Так никто не сможет указать ваш адрес у себя.) Почту, добавленную до этого обновления, нужно подтвердить один раз — игра попросит.',
@@ -94,9 +115,9 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.6.9', date: '2026-11',
     en: [
-      'Play now: no account needed to start — play as a guest, and save your progress (a login, a password and your email) whenever you like.',
+      'Play now: no account needed to start - play as a guest, and save your progress (a login, a password and your email) whenever you like.',
       'The 3D arena is more cinematic: the camera flies in as the battle starts, cuts to a side shot when one of your big spells lands, and circles your fallen opponent when you win. Your opponent stands closer, and the word and the answer box sit lower, so you see the arena.',
-      'Today: one button on the streak banner takes you through your day — study, a quiz, the daily challenge and a battle.',
+      'Today: one button on the streak banner takes you through your day - study, a quiz, the daily challenge and a battle.',
       'After a miss in battle, the word in an example sentence.',
       'The server no longer falls asleep, so the game opens straight away (no more waiting on the host’s “waking up” page).',
     ],
@@ -122,7 +143,7 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.6.7', date: '2026-11',
     en: [
-      'The 2D arena: the wizards are bigger — they fill the arena the way they should, on computers and phones.',
+      'The 2D arena: the wizards are bigger - they fill the arena the way they should, on computers and phones.',
       'The tutorial: on a computer the two answers sit side by side on one line again.',
       'The main menu on a computer never scrolls into empty space after Messages.',
       'A new trailer and new pictures on the game’s page.',
@@ -137,10 +158,10 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.6.6', date: '2026-11',
     en: [
-      'Your account has an email now: give it when you register (older accounts are asked once). It is only for getting back in — nobody else sees it, and it is one account per person.',
+      'Your account has an email now: give it when you register (older accounts are asked once). It is only for getting back in - nobody else sees it, and it is one account per person.',
       'Forgot your password? On the login screen: we email you a 6-digit code, and you choose a new password. You can also change your password and email in your profile.',
-      'Online queue: nobody there yet? After 20 seconds you can play an AI while you wait (it is clearly an AI).',
-      'Daily challenge: race a friend — the best of your friends who already played today runs beside you, word by word.',
+      'Online queue: nobody there yet? After 20 seconds you can play a bot while you wait (it is clearly an AI).',
+      'Daily challenge: race a friend - the best of your friends who already played today runs beside you, word by word.',
       'Progress: what you know (words per level), the reviews coming this week, and how well you remember.',
       'The host can change the game mode in the lobby; a group’s picture can be removed; Messages uses the whole screen on a computer.',
     ],
@@ -159,7 +180,7 @@ const PATCHES: Patch[] = [
       'Invites in Messages: when a friend invites you to their room or challenges you, it also shows in your chat with them, as a card with the mode and a Join button (as in Steam).',
       'Battle: bigger names and pictures, on computers and phones; a framed picture sits right in the middle of its frame.',
       'Fixed: a group’s picture taken from a phone stretched far down the group’s page; and with many photos on your phone, the photo picker laid them over each other in strips.',
-      'Lighter updates: a new version no longer downloads the whole dictionary and word lists again — only what changed. Small league frames load at a fifth of the size.',
+      'Lighter updates: a new version no longer downloads the whole dictionary and word lists again - only what changed. Small league frames load at a fifth of the size.',
       'Smaller things: the Daily challenge shows what passing your league brings properly; Feedback’s Close button.',
     ],
     ru: [
@@ -176,9 +197,9 @@ const PATCHES: Patch[] = [
       'Messages, like Telegram: tap a message to react, reply, copy, forward, edit or delete it (on a computer a smiley shows beside it for a quick reaction). Edited messages say "edited".',
       'Photos in chats: the Android app shows your newest photos in a grid to pick from (after you allow it once); on a computer you can also paste a picture or drop it onto the chat.',
       'Group chats: make a group with a name and a picture and add your friends. Tap the group’s name for its members, roles (owner, admins) and what members may do. Under the name: how many are online.',
-      'The bell on each chat: all messages, only @mentions, or mute. "Typing…" shows in Messages, and a friend’s status (online, playing, away, last seen) under their name — tap it for their profile.',
-      'Typing "@" suggests your friends, narrowing with every letter. More emoji, in categories — and an emoji button in the room’s chat.',
-      'Daily challenge: a league’s rewards (its border, and a character for some) now come when you PASS that league (7/10), not when you arrive. Profiles show the Daily challenge league — yours and your friends’ — and friends show how many words they learned today.',
+      'The bell on each chat: all messages, only @mentions, or mute. "Typing…" shows in Messages, and a friend’s status (online, playing, away, last seen) under their name - tap it for their profile.',
+      'Typing "@" suggests your friends, narrowing with every letter. More emoji, in categories - and an emoji button in the room’s chat.',
+      'Daily challenge: a league’s rewards (its border, and a character for some) now come when you PASS that league (7/10), not when you arrive. Profiles show the Daily challenge league - yours and your friends’ - and friends show how many words they learned today.',
       'Fixed: "View profile" couldn’t be closed (in battle and elsewhere); Messages can be used from a private room’s lobby (back returns to the room); the game updates itself after a new version instead of keeping the old one.',
     ],
     ru: [
@@ -195,13 +216,13 @@ const PATCHES: Patch[] = [
     v: '0.9.9.9.6.3', date: '2026-11',
     en: [
       'Daily streak: a missed day now ends the streak at midnight (it used to last until you finished the next day). The streak window shows your days in a row and which flame it is.',
-      'Kana: mastering a letter takes real practice now — 10 stars, at most 3 a day, and a miss takes 2 away. Each letter shows how far along it is. The Hiragana / Katakana switch is back in shape.',
-      'Study spells: a Pause button on All spells, Onomatopoeia and Struggling — paused, no new words come in (Struggling: no missed words) until you resume.',
+      'Kana: mastering a letter takes real practice now - 10 stars, at most 3 a day, and a miss takes 2 away. Each letter shows how far along it is. The Hiragana / Katakana switch is back in shape.',
+      'Study spells: a Pause button on All spells, Onomatopoeia and Struggling - paused, no new words come in (Struggling: no missed words) until you resume.',
       'Friends: friends in the same room are shown together under one bracket, and if you’re in it with them it says “Playing with you”.',
       'Messages: a new message plays a soft chime (it was a harsh noise), the message box has a proper Kanji Wizards look, and on phones the 辞 and Friends buttons step aside while you type.',
       '3D arena: the characters hold the staff in their hand (not at the wrist), and their feet stay on the floor.',
       'Smaller things: “Change picture” is centred; the N1 frame no longer covers your level in Customize.',
-      'Chat: write @login (in a room’s chat or in Messages) and the name lights up — tap it to see their profile and add them as a friend. A message that names you is marked for you.',
+      'Chat: write @login (in a room’s chat or in Messages) and the name lights up - tap it to see their profile and add them as a friend. A message that names you is marked for you.',
       'Phones: smoother menus and sound (lighter flames and a lighter echo), High graphics can be picked again, and the kana Practice bar sits above the Friends button.',
       'Coming back to the game after switching away no longer leaves buttons that don’t respond.',
     ],
@@ -221,8 +242,8 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.6.2', date: '2026-11',
     en: [
-      'League borders: N5 to N1 are new animated frames — silver, crystal, gilded gold with ribbons, an arcane ring, and the radiant crown — and your picture sits in them as a rounded square. They stay clear of names and levels. The old level borders are gone (Beta and the leagues’ stay).',
-      'Streak flames: 30 new animated flames — the fire changes every week (classic, sparks, hitodama, arcane, blaze, trident), then the colour (orange, red, blue, green, purple). The tasks banner shows next week’s flame and how many days to it.',
+      'League borders: N5 to N1 are new animated frames - silver, crystal, gilded gold with ribbons, an arcane ring, and the radiant crown - and your picture sits in them as a rounded square. They stay clear of names and levels. The old level borders are gone (Beta and the leagues’ stay).',
+      'Streak flames: 30 new animated flames - the fire changes every week (classic, sparks, hitodama, arcane, blaze, trident), then the colour (orange, red, blue, green, purple). The tasks banner shows next week’s flame and how many days to it.',
       'The backgrounds come alive: the World Tree’s floating islands drift, the castle’s flags flutter and its banners sway.',
       'Every animation plays even with Windows’ “Animation effects” off.',
       'Profiles (yours and your friends’): a win-rate ring, wins, losses and spells with icons, one streak card with your best; the buttons are all the same size.',
@@ -246,13 +267,13 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.6.1', date: '2026-11',
     en: [
-      'Messages: the envelope is at the top right now (with its number). Quote a message (↩) — the team’s replies to a bug report or a suggestion quote it — and ✓ turns into ✓✓ the moment it’s read. An emoji button, no stray scrollbar in the box, and two mutes: all your messages, or one chat (no notifications from them). The dictionary and friends stay at the sides; friends see you as “Chatting”.',
-      'League borders redrawn — no emoji: cherry blossom (Kana), a jade laurel (N5), riveted steel with a shield (N4), moonlit violet with feathers and a crescent (N3), arcane gold with runes and small wings (N2), and great golden wings with a jewelled crown (N1). Each with its league on a plaque.',
+      'Messages: the envelope is at the top right now (with its number). Quote a message (↩) - the team’s replies to a bug report or a suggestion quote it - and ✓ turns into ✓✓ the moment it’s read. An emoji button, no stray scrollbar in the box, and two mutes: all your messages, or one chat (no notifications from them). The dictionary and friends stay at the sides; friends see you as “Chatting”.',
+      'League borders redrawn - no emoji: cherry blossom (Kana), a jade laurel (N5), riveted steel with a shield (N4), moonlit violet with feathers and a crescent (N3), arcane gold with runes and small wings (N2), and great golden wings with a jewelled crown (N1). Each with its league on a plaque.',
       'Daily challenge: the leagues as a track of crests (you on yours, the rewards under the ones ahead) and a proper card for the next league’s rewards. Earlier days: tap the date for the game’s own calendar.',
       'Streak flames: the kanji is easy to read, every tier burns in its own shape (more and taller tongues as you climb), and each tongue flickers on its own.',
       '“View profile”: badge descriptions show above the picture; the slot pictures are small and centred.',
       'Phones: the daily tasks banner and Settings no longer flicker.',
-      '“Update the app” shows only when the Android app itself needs it — every other patch reaches the app by itself.',
+      '“Update the app” shows only when the Android app itself needs it - every other patch reaches the app by itself.',
     ],
     ru: [
       'Сообщения: конверт теперь вверху справа (с числом). Цитируйте сообщение (↩) — ответы команды на сообщение об ошибке или предложение цитируют его, — а ✓ становится ✓✓, как только сообщение прочитано. Кнопка эмодзи, без лишней полосы прокрутки и два выключателя: все сообщения или один чат (без уведомлений). Словарь и друзья остаются по бокам; друзья видят вас как «Переписывается».',
@@ -267,15 +288,15 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.6', date: '2026-11',
     en: [
-      'Messages: a ✉ button in the menu. Chat with your friends (“✉ Message” on their profile) and with the team — your Feedback lands there and we answer there. New messages show a number, and reach your phone when the app is closed.',
-      'A new tutorial: short, and it shows the game — your first spell (type yama, written out big), a lit-up tour of the menu, then a short battle where the answer is under every word, the battle screen is explained, and the AI casts only once for every two of your spells.',
-      'Daily challenge: “Earlier days” — the last week’s words of every league with their readings, and each league’s results.',
-      'League up! Reaching a new league is a moment now: its crest, and its rewards with Equip buttons — a new border for every league (Kana to N1, each grander, the league on a plaque at the foot) and the characters at N4, N3 and N2. The page also shows what the next league brings.',
-      'Streak flames rebuilt: your day count written in kanji (一, 二, 三 … 十二 …) and set alight — each tier burns better (sparks, a second flame, blue rays, a golden halo), the number is always readable under it, and no more odd wobble. The banner shows the next flame itself.',
+      'Messages: a ✉ button in the menu. Chat with your friends (“✉ Message” on their profile) and with the team - your Feedback lands there and we answer there. New messages show a number, and reach your phone when the app is closed.',
+      'A new tutorial: short, and it shows the game - your first spell (type yama, written out big), a lit-up tour of the menu, then a short battle where the answer is under every word, the battle screen is explained, and the AI casts only once for every two of your spells.',
+      'Daily challenge: “Earlier days” - the last week’s words of every league with their readings, and each league’s results.',
+      'League up! Reaching a new league is a moment now: its crest, and its rewards with Equip buttons - a new border for every league (Kana to N1, each grander, the league on a plaque at the foot) and the characters at N4, N3 and N2. The page also shows what the next league brings.',
+      'Streak flames rebuilt: your day count written in kanji (一, 二, 三 … 十二 …) and set alight - each tier burns better (sparks, a second flame, blue rays, a golden halo), the number is always readable under it, and no more odd wobble. The banner shows the next flame itself.',
       'Friends’ profiles open at once (they’re fetched while your pointer is on the name, and kept a minute).',
-      'Phones: picking levels — the tick sits on the chip’s corner, so the row no longer jumps as you pick several; the combo counter sits up top under your name (it covered the answers above the keyboard); the menu cards no longer flicker when you scroll or come back.',
+      'Phones: picking levels - the tick sits on the chip’s corner, so the row no longer jumps as you pick several; the combo counter sits up top under your name (it covered the answers above the keyboard); the menu cards no longer flicker when you scroll or come back.',
       'The “Study 10 spells or kana” task opens Kana until you’ve mastered hiragana.',
-      'A game against the AI started offline goes on when you come back online (it took you to an old lobby).',
+      'A game against bots started offline goes on when you come back online (it took you to an old lobby).',
     ],
     ru: [
       'Сообщения: кнопка ✉ в меню. Переписывайтесь с друзьями («✉ Написать» в их профиле) и с командой — ваши отзывы попадают туда же, и мы отвечаем там. Новые сообщения видны по числу и приходят на телефон, когда игра закрыта.',
@@ -293,16 +314,16 @@ const PATCHES: Patch[] = [
     v: '0.9.9.9.5.5', date: '2026-11',
     en: [
       'Private lobby: the mode is a big banner at the top (“← Leave room” covered it), leaving asks first, the chat says “Ann is typing…” and when someone joins or leaves.',
-      'Open or closed lobby: the host flips the switch. Open — friends can join from your profile (“Join lobby”); closed — only by invite or the code.',
+      'Open or closed lobby: the host flips the switch. Open - friends can join from your profile (“Join lobby”); closed - only by invite or the code.',
       'Friends: “+1” (up to “+3”) with a party icon under a friend who is in a lobby with others; “View profile” shows their look (character, staff, arena, flames, pose, border) and all their achievements.',
       'Tapping an invite notification joins the room straight away (it only opened the menu).',
-      'Combos you can’t miss: the counter grows with your combo — On Fire, Inferno, Unstoppable, Godlike — with sparks, rings, rays, a banner for each new tier and glowing screen edges; a broken combo shatters. It shows in the 2D arena too.',
+      'Combos you can’t miss: the counter grows with your combo - On Fire, Inferno, Unstoppable, Godlike - with sparks, rings, rays, a banner for each new tier and glowing screen edges; a broken combo shatters. It shows in the 2D arena too.',
       'The 30× tremble lasts longer and is gentler.',
       'Knocked out, the heroes drop to one knee; the dragon lies down on its stomach.',
-      'Weather over the arenas: autumn leaves (bigger and easier to see), rain and thunderstorms, snow in winter, cherry petals, dandelion seeds and glowing spores — by place and season, changing every few hours.',
+      'Weather over the arenas: autumn leaves (bigger and easier to see), rain and thunderstorms, snow in winter, cherry petals, dandelion seeds and glowing spores - by place and season, changing every few hours.',
       'Customize opens at once (it froze for seconds), the camera swings round you when no slot is open (tap the open slot again to close it), the mouse moves the 3D preview even over it, and the phone slot pictures are smaller.',
       'Badges: one picked for your profile gets a blue ring; its border no longer turns thin on your profile.',
-      'Quiz records are kept with your account — the same on every device.',
+      'Quiz records are kept with your account - the same on every device.',
       'No Japanese voice? The Android app downloads one from Settings → Audio; in a browser, Settings says how to add one.',
       'Phones: the big see-through layers over the arena picture hold still (some arenas made the screen flicker again).',
     ],
@@ -326,10 +347,10 @@ const PATCHES: Patch[] = [
     v: '0.9.9.9.5.4', date: '2026-11',
     en: [
       'Invites reach your friend’s phone now. One word in the invite (“from”) made Google refuse every invite notification, so the game said your friend was offline.',
-      '“Update the app” downloads the update in your browser again — Play Protect blocked the in-app updater.',
+      '“Update the app” downloads the update in your browser again - Play Protect blocked the in-app updater.',
       'Studying kana shows on your activity calendar and to your friends (“Studying kana”), even in a session where no star was gained.',
       'The characters breathe: their chest, shoulders and neck move gently instead of standing frozen.',
-      'Badges are all their metal — the icon, the name and the description in bronze, silver, gold or ruby — with an even border; bronze doesn’t shine.',
+      'Badges are all their metal - the icon, the name and the description in bronze, silver, gold or ruby - with an even border; bronze doesn’t shine.',
       'Your friends’ profile cards (and yours) show the streak flames.',
       'Customize: the previews keep their shape when you come back (they came out stretched), the phone layout is neater with smaller previews, and the “preview as Goblin / Knight …” buttons are gone (the preview is you).',
       'Phones: no more black flash when you go back to the main menu or open Settings.',
@@ -353,7 +374,7 @@ const PATCHES: Patch[] = [
       'Badges in metal: bronze ★, silver ★★ with a shine running over it, gold ★★★ that glows, and ruby for the very hardest (Kingslayer, Godlike, Lightning Reflexes, Master of All Schools, A Year of Fire).',
       'Godlike: when anyone reaches a 30× combo, the whole arena trembles for everyone in it.',
       'Quizzes keep more stats: best, last and average score (out of 10), and best, last and average time, for every quiz.',
-      'Friends coming online show at once — in the friends list and in the lobby’s invite list — without reloading.',
+      'Friends coming online show at once - in the friends list and in the lobby’s invite list - without reloading.',
       'Invites now reach a phone even when the app is closed or asleep: Android shows the notification itself. The notification test waits 5 seconds, so you can check this on your home screen.',
       'Android: “Update the app” downloads and installs the update inside the app again, with a percentage. It installs only Kanji Wizards’ own update, signed with the app’s own key. The first time, Android asks you to allow installs from the app.',
       'The knight’s eyes glow behind his visor (they glowed from his mouth). Allies no longer wear green.',
@@ -378,7 +399,7 @@ const PATCHES: Patch[] = [
     v: '0.9.9.9.5.2', date: '2026-11',
     en: [
       'Choose your character: Customize → Character, with a 3D and a 2D preview. Everyone starts as the Goblin; climbing the Daily challenge leagues unlocks the Knight (N4), the Witch (N3) and the Wizard (N2). Your levels no longer decide who you are.',
-      'New 3D models for the Goblin, the Knight, the Witch and the Wizard — and the Black Dragon, which now rears back, spreads its wings and opens its jaws to breathe fire.',
+      'New 3D models for the Goblin, the Knight, the Witch and the Wizard - and the Black Dragon, which now rears back, spreads its wings and opens its jaws to breathe fire.',
       'The main menu’s carousel shows three cards you can read, with one more peeking on each side, and every card turns smoothly (some used to jump into place); the cards are dealt out when you open the menu.',
       'Calmer backgrounds: softer colours and a shade over the pictures so the menus and buttons stand out; the 漢字 Wizards title stands out too. And more life in them: clouds, birds, falling leaves and petals, glints on the water, and a slow camera drift on computers.',
       'A proper Quizzes page: today’s streak task on top, a card for each quiz with what it asks, and your best and last scores.',
@@ -402,10 +423,10 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.5.1', date: '2026-11',
     en: [
-      'New painted backgrounds — the castle, the plains, the forest, the swamp and the World Tree, by day, at sunset and at night — on the main menu, behind every page and in the classic arena, alive with fireflies, twinkling stars, shooting stars, torch flames, glowing runes, mist and light.',
+      'New painted backgrounds - the castle, the plains, the forest, the swamp and the World Tree, by day, at sunset and at night - on the main menu, behind every page and in the classic arena, alive with fireflies, twinkling stars, shooting stars, torch flames, glowing runes, mist and light.',
       'On a computer the main menu’s cards are a carousel: the one in the middle big and lit, the others turned away to the sides. Turn it with the arrows, ← →, the mouse wheel, by dragging, or click a side card.',
       'Quizzes have their own card: the JLPT quiz, the onomatopoeia quiz and the reading passage. The JLPT quiz has a Kana level (hiragana and katakana, both ways, with look-alike answers), so the daily quiz works before you know any kanji.',
-      'Study spells holds kanji words only — locked (grey, with a lock) until you master hiragana. The daily study task counts kana too.',
+      'Study spells holds kanji words only - locked (grey, with a lock) until you master hiragana. The daily study task counts kana too.',
       'Kana practice: a new kana shows on a card with its reading and moves on by itself (no more single “got it” button); a ← Kana button like every page.',
       'Invites reach your phone as a notification when the app is in the background too (they could get stuck in the paused app). Declining blocks the same friend for 2 minutes (was 5).',
       'The streak banner says clearly which flame comes next and how many days are left, in that flame’s colour.',
@@ -425,13 +446,13 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.5', date: '2026-11',
     en: [
-      'Kana — a new section for hiragana and katakana (main menu). A chart that turns green as you master each one, and practice by rows: new kana are shown first, then asked with look-alike answers (ぬ or め? きゃ or ちゃ?) until each has its stars. Hiragana and katakana have left All spells; what you had learned there carries over.',
-      'The daily challenge and the daily tasks now both start over at midnight — your own midnight, wherever you live. And 7 / 10 is enough to move up a league (it was 9).',
-      'JLPT quiz: the reading passage’s settings — which deck and which levels your words come from — and wrong answers like the real test’s: made-up near misses (対戦 → 戦対, 大線, 大戦; たいせん → だいせん, たいせい).',
-      'Motion everywhere: screens glide in, their cards rise one after another, every button gives under your finger and springs back, windows and pop-ups open and close smoothly — also with Windows’ “animation effects” turned off.',
+      'Kana - a new section for hiragana and katakana (main menu). A chart that turns green as you master each one, and practice by rows: new kana are shown first, then asked with look-alike answers (ぬ or め? きゃ or ちゃ?) until each has its stars. Hiragana and katakana have left All spells; what you had learned there carries over.',
+      'The daily challenge and the daily tasks now both start over at midnight - your own midnight, wherever you live. And 7 / 10 is enough to move up a league (it was 9).',
+      'JLPT quiz: the reading passage’s settings - which deck and which levels your words come from - and wrong answers like the real test’s: made-up near misses (対戦 → 戦対, 大線, 大戦; たいせん → だいせん, たいせい).',
+      'Motion everywhere: screens glide in, their cards rise one after another, every button gives under your finger and springs back, windows and pop-ups open and close smoothly - also with Windows’ “animation effects” turned off.',
       'Invites: a friend’s invite reaches your phone as a notification even when the app is closed, with Join and Decline. Decline, and they can’t invite you again for 5 minutes.',
-      'The daily streak: a flame whose colour climbs with your streak — Spark, Ember, Blaze, Inferno, Azure, Legend. Dim until today’s tasks are done, then it burns. The ▾ folds the tasks away and leaves the streak.',
-      'Achievements: 50 now — the ones that were just a click gave way to feats: Untouchable, Last Stand, Godlike (30× combo), Giant Slayer, Machine Breaker, Lightning Reflexes, Ace, A Year of Fire and more.',
+      'The daily streak: a flame whose colour climbs with your streak - Spark, Ember, Blaze, Inferno, Azure, Legend. Dim until today’s tasks are done, then it burns. The ▾ folds the tasks away and leaves the streak.',
+      'Achievements: 50 now - the ones that were just a click gave way to feats: Untouchable, Last Stand, Godlike (30× combo), Giant Slayer, Machine Breaker, Lightning Reflexes, Ace, A Year of Fire and more.',
       'Lobby chat: “Name: message”, with the time on the right.',
       'Connection: the app goes online faster, says “waking up” only when the server really is asleep, and comes back online by itself after being in the background.',
       'Bug fixes: a hiccup in the database no longer signs you out; the results screen no longer breaks when a player’s numbers are missing; the welcome tutorial fits a phone screen.',
@@ -454,8 +475,8 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.4', date: '2026-11',
     en: [
-      'Private rooms have a chat in the lobby, like the one in Deck Duel — it appears once a friend joins.',
-      'Music: each theme is now recorded once into a smooth loop that plays by itself, instead of being built note by note while you play — no more stutters when the phone is busy. (The first time, it takes a few seconds; until then the music plays the old way.)',
+      'Private rooms have a chat in the lobby, like the one in Deck Duel - it appears once a friend joins.',
+      'Music: each theme is now recorded once into a smooth loop that plays by itself, instead of being built note by note while you play - no more stutters when the phone is busy. (The first time, it takes a few seconds; until then the music plays the old way.)',
       'A miss in battle shows the reading in romaji too, next to the kana (せんせい · sensei).',
       'Dictionary: a word typed in romaji (“sensei”, “koohii”) glows gold as an exact match and comes first.',
       'Study cards: the “Add to…” list no longer gets cut off by the word box.',
@@ -471,9 +492,9 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.3', date: '2026-11',
     en: [
-      'Android app: a new private signature, and it no longer downloads or installs updates by itself — Play Protect had started blocking it as a “harmful app”. “Update the app” lets your browser download the new version. This one time you uninstall the old app first (your account and progress are safe on the server).',
+      'Android app: a new private signature, and it no longer downloads or installs updates by itself - Play Protect had started blocking it as a “harmful app”. “Update the app” lets your browser download the new version. This one time you uninstall the old app first (your account and progress are safe on the server).',
       'Friends: the device icons are plain silhouettes now (globe, monitor, phone), easy to see on any picture.',
-      'The dictionary and friends panels have thicker close bars, and a tap outside an open panel only closes it — it no longer presses the button underneath.',
+      'The dictionary and friends panels have thicker close bars, and a tap outside an open panel only closes it - it no longer presses the button underneath.',
       'Settings: tapping outside an open list closes just the list, not the whole Settings window.',
       'Bug fixes: the Settings tile has a gear icon (not a sun); the music no longer dips or stutters when you tap buttons; on a phone’s browser the menu background no longer leaves an empty strip on the right while scrolling; finished daily tasks can be hidden until tomorrow (✕ on the banner).',
     ],
@@ -488,13 +509,13 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.2', date: '2026-11',
     en: [
-      'In the background the game does nothing now: it says you’re away, closes its connection and stops (the Android app freezes completely). Coming back, it picks up exactly where you were — and a game against the AI pauses itself and waits up to 30 minutes.',
-      'Friends: a small green icon on their picture shows where they play — a globe (website), a monitor (PC app) or a phone (Android app); orange while they’re away. A profile opened from the friends list shows above the list now.',
+      'In the background the game does nothing now: it says you’re away, closes its connection and stops (the Android app freezes completely). Coming back, it picks up exactly where you were - and a game against bots pauses itself and waits up to 30 minutes.',
+      'Friends: a small green icon on their picture shows where they play - a globe (website), a monitor (PC app) or a phone (Android app); orange while they’re away. A profile opened from the friends list shows above the list now.',
       'Profile picture: after removing one, a new picture no longer shows your very first one.',
       'Get the app: why Chrome says “File might be harmful” (it says that about every app from outside Google Play) and what to tap.',
       'Phones: scrolling the menu on the website no longer slides the background left, leaving an empty strip on the right.',
       'Progress → Spell mastery opens on All levels. Dictionary: exact matches (the gold ones) come first.',
-      'The AI is always ready — no Ready tag on it, and the preparation no longer waits for it. “Paused” shows above the Settings window.',
+      'The AI is always ready - no Ready tag on it, and the preparation no longer waits for it. “Paused” shows above the Settings window.',
       'The menu’s kanji drift on a computer again, even with animation effects turned off.',
     ],
     ru: [
@@ -511,9 +532,9 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9.1', date: '2026-11',
     en: [
-      'Android app: built for Android 16 now — updating no longer gets blocked as “harmful” by Play Protect on new phones (it blocks apps made for a much older Android).',
+      'Android app: built for Android 16 now - updating no longer gets blocked as “harmful” by Play Protect on new phones (it blocks apps made for a much older Android).',
       'Music no longer crackles: it’s queued further ahead and with a safer sound buffer, and the menu is lighter to draw on phones.',
-      'Phones: opening the dictionary no longer makes the page jump — the keyboard comes up when you tap the search box.',
+      'Phones: opening the dictionary no longer makes the page jump - the keyboard comes up when you tap the search box.',
       'Settings: the lists (3D graphics, UI size, theme, language…) open under their button, not across the whole screen.',
       'Menu: one Settings button (the extra gear in the corner is gone); on a computer the four tiles span the full width, Settings is blue and Progress green. Your whole nickname shows (no “…”).',
       'The drifting kanji in the menu show even with “reduce motion” / animation effects turned off (they stand still then).',
@@ -532,16 +553,16 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.9', date: '2026-11',
     en: [
-      'Settings, rebuilt: one ⚙ button (and a Settings tile on the menu) opens a window with tabs — Graphics (3D: High, Low or Off for 2D; UI size; theme), Audio (music and sounds on/off, volumes, voice), Language, and Other (reminders, battle keyboard). The music, sound and reminder buttons left the top bar, so your name fits. In a game against the AI, Settings pauses it.',
+      'Settings, rebuilt: one ⚙ button (and a Settings tile on the menu) opens a window with tabs - Graphics (3D: High, Low or Off for 2D; UI size; theme), Audio (music and sounds on/off, volumes, voice), Language, and Other (reminders, battle keyboard). The music, sound and reminder buttons left the top bar, so your name fits. In a game against bots, Settings pauses it.',
       'UI size is 80% by default again.',
-      'Phones: the Daily challenge (and quizzes) at 100% couldn’t scroll — the word was hidden under the top bar; fixed for every size. The battle keyboard keys are a little taller, and the friends / dictionary buttons step aside while it’s up (one sat on Enter).',
+      'Phones: the Daily challenge (and quizzes) at 100% couldn’t scroll - the word was hidden under the top bar; fixed for every size. The battle keyboard keys are a little taller, and the friends / dictionary buttons step aside while it’s up (one sat on Enter).',
       'The side panels close with a tall bar along their edge (no tiny ✕), and the round button that opened a panel hides until it closes.',
       'Dictionary: a word that is exactly what you typed glows gold.',
       'Offline and reconnecting show as a thin strip across the top instead of a pill over your name. With no internet at start, the button is “Go offline mode”.',
       'Coming back to the app from the background: it reconnects at once (no more “Reconnecting…” that never ended), a paused game stays paused and Resume works. While the app is in the background, friends see you as Away (orange), and offline friends show when they were last online.',
-      'Battles: one HP bar everywhere — thick, with the numbers inside (green for you, red for the opponent). In Boss Elimination your teammates sit inside your green frame. The battle log is a coloured line that pops in (who hit you, who fumbled, the dragon).',
+      'Battles: one HP bar everywhere - thick, with the numbers inside (green for you, red for the opponent). In Boss Elimination your teammates sit inside your green frame. The battle log is a coloured line that pops in (who hit you, who fumbled, the dragon).',
       'Deck Duel: mana is a flame now, not a ◆.',
-      'Reading passage: tapping a word gives its meaning from the full dictionary (most words said “tap the kanji”). Your last passage is kept on the device — open it again, with your answers and score, after closing the app.',
+      'Reading passage: tapping a word gives its meaning from the full dictionary (most words said “tap the kanji”). Your last passage is kept on the device - open it again, with your answers and score, after closing the app.',
       'Study cards: the “+ Add to…” list of a word from an example sentence opens above the Again / Hard / Good / Easy buttons, not under them.',
       'Progress → Spell mastery shows the onomatopoeia too.',
       'Menu: the subtitle is gone, the drifting kanji are visible on a computer too, Customize has a wizard icon, and ← Menu no longer touches the dictionary bar.',
@@ -567,12 +588,12 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.8.2', date: '2026-11',
     en: [
-      'Staff attacks: each staff has its own spell now (every mode but Deck Duel). Verdant — four branches burst from the ground and lash the target like tentacles; Ember — an inferno; Tide — frost; Storm — lightning from the sky; Void — a rift that swallows the light and bursts. Seasonal staffs do their base staff’s spell in their own colours.',
-      'Private game has its own page (Create a room · Join a friend), and it works offline: Kanji Reading, Rapid and Boss Elimination against the AI with no internet.',
+      'Staff attacks: each staff has its own spell now (every mode but Deck Duel). Verdant - four branches burst from the ground and lash the target like tentacles; Ember - an inferno; Tide - frost; Storm - lightning from the sky; Void - a rift that swallows the light and bursts. Seasonal staffs do their base staff’s spell in their own colours.',
+      'Private game has its own page (Create a room · Join a friend), and it works offline: Kanji Reading, Rapid and Boss Elimination against bots with no internet.',
       'Lobbies show who is Ready in every mode (✓ Ready / Not ready), like Deck Duel.',
       'Daily challenge: the leaderboard has a tab for every league.',
       'Boss Elimination: your HP is its own big frame with “You”, your teammates a row of smaller blue bars; the grey box round the dragon’s bar is gone.',
-      'Duelist pose in first person: like aiming a pistol — the arm stretched out, the staff pointed straight at your opponent, its core first.',
+      'Duelist pose in first person: like aiming a pistol - the arm stretched out, the staff pointed straight at your opponent, its core first.',
       'Combo poses: Channel now unlocks at 100 spells learned, Levitation at 300 (Duelist stays at 200).',
       'Main menu: the painting frames the menu and a soft violet night with a turning rune circle and drifting kanji sits behind the cards, so they read clearly; new Customize / Progress / Match history tiles; the daily streak tasks are a banner with each task’s progress; Admin moved to the links at the bottom.',
       'Fixes: Deck Duel’s first Bolt no longer freezes the game for a moment; the avatar and its frame aren’t clipped in phone battles; the avatar no longer turns into an oval in the name pill; the volume sliders reach 0 and 100; UI size says 100% is the default; the ← Menu button no longer touches the dictionary bar.',
@@ -592,8 +613,8 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.8.1', date: '2026-11',
     en: [
-      'A new main menu: four big cards — Online queue, Private game, Daily challenge, Study spells — with Customize, Progress and Match history at the top, and the links (and a glowing Get the app) at the bottom.',
-      'New paintings behind the menus: each arena’s place without the arena — a forest trail, a swamp boardwalk with lanterns, a meadow road to the village, the cobbled road to the castle, and a still pool under the World Tree — by day, at sunset and at night. Battles keep the arenas.',
+      'A new main menu: four big cards - Online queue, Private game, Daily challenge, Study spells - with Customize, Progress and Match history at the top, and the links (and a glowing Get the app) at the bottom.',
+      'New paintings behind the menus: each arena’s place without the arena - a forest trail, a swamp boardwalk with lanterns, a meadow road to the village, the cobbled road to the castle, and a still pool under the World Tree - by day, at sunset and at night. Battles keep the arenas.',
       'When your opponent asks for a rematch you get a card with Rematch / Not now, like an invite (it was one small line).',
       'Phones in battle: both HP bars sit below the clock and Leave button, and a combo no longer pushes your bar down.',
       'The dictionary and friends bars stay with you in reviews and the reading passage too; the Dictionary button left the menu (it’s in the side bar).',
@@ -611,16 +632,16 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.8', date: '2026-11',
     en: [
-      'Dictionary side panel: always at hand — a bar on the left on PC (friends are on the right), a 辞 button bottom-left on phones. Look a word up, read its meanings and add it to a deck without leaving the screen you’re on. (Hidden in battles, quizzes and the Daily challenge.) The main menu moved in from the edge to make room.',
+      'Dictionary side panel: always at hand - a bar on the left on PC (friends are on the right), a 辞 button bottom-left on phones. Look a word up, read its meanings and add it to a deck without leaving the screen you’re on. (Hidden in battles, quizzes and the Daily challenge.) The main menu moved in from the edge to make room.',
       'Dictionary: suggestions after every letter — English (wat → water), Russian (вод → вода) and half-typed romaji (tabem → 食べる) all show the best match while you type.',
-      'Phones: the battle keyboard types where the cursor is — tap the answer box (or use ◀ ▶) to fix a letter in the middle.',
-      'Against the AI only (or a solo Boss run) the battle button is Leave, not Forfeit — straight back to your lobby.',
-      'Kanji Reading balance: N1 and N2 words take longer to cast than かな, so a slow-casting player now needs fewer hits and a fast one a few more — a game takes about as long at every level.',
-      'Rapid against the AI: every word is from your All spells, and the AI needs at least 2½ s (longer for long words) — no more instant answers.',
-      'Boss Elimination: the HP bars are tidy on phones (upright and sideways), and AI teammates are much sharper — they reach combos (shielded from the dragon’s fire) and no longer fall halfway.',
-      'Deck Duel: the cards you draft carry YOUR words — each card’s colour (Bolt … Inferno) is a band of difficulty, and it gets one of your All spells words of that band (a random word if you have none). The same for your opponent.',
+      'Phones: the battle keyboard types where the cursor is - tap the answer box (or use ◀ ▶) to fix a letter in the middle.',
+      'Against the AI only (or a solo Boss run) the battle button is Leave, not Forfeit - straight back to your lobby.',
+      'Kanji Reading balance: N1 and N2 words take longer to cast than かな, so a slow-casting player now needs fewer hits and a fast one a few more - a game takes about as long at every level.',
+      'Rapid against bots: every word is from your All spells, and the AI needs at least 2½ s (longer for long words) - no more instant answers.',
+      'Boss Elimination: the HP bars are tidy on phones (upright and sideways), and bot teammates are much sharper - they reach combos (shielded from the dragon’s fire) and no longer fall halfway.',
+      'Deck Duel: the cards you draft carry YOUR words - each card’s colour (Bolt … Inferno) is a band of difficulty, and it gets one of your All spells words of that band (a random word if you have none). The same for your opponent.',
       'Reading passage: an Onomatopoeia deck option, and when the AI leaves a word out it tries again (telling it which word it missed) instead of giving up.',
-      'Phones: looking around by moving the phone works like aiming a camera — swing it left or right and you look left or right, tilt it and you look up or down, however you hold it.',
+      'Phones: looking around by moving the phone works like aiming a camera - swing it left or right and you look left or right, tilt it and you look up or down, however you hold it.',
       'The purple notifications slide back up the way they came down.',
     ],
     ru: [
@@ -659,12 +680,12 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.7.2', date: '2026-11',
     en: [
-      'Dictionary: type any form of a word and it finds the word — yobanai or 呼ばない shows 呼ぶ (“← negative”), よびました, tabetakatta, 勉強します all work. A small mistake is forgiven too: koshujin shows ご主人 with the wrong sound (ご) in red.',
+      'Dictionary: type any form of a word and it finds the word - yobanai or 呼ばない shows 呼ぶ (“← negative”), よびました, tabetakatta, 勉強します all work. A small mistake is forgiven too: koshujin shows ご主人 with the wrong sound (ご) in red.',
       'Dictionary: a word’s forms are always shown now, each with its reading in kana; a new Phrases section lists expressions with the word (呼ぶ → 医者を呼ぶ, 人気を呼ぶ …), and 13,000 phrases can be searched. The “common” tag is gone (almost every word had it).',
-      '★ Stars work offline — they’re saved and sent when you’re back online, like your study cards.',
+      '★ Stars work offline - they’re saved and sent when you’re back online, like your study cards.',
       'Online queue: Kanji Reading now plays your own words of your levels. The game used to start before your deck had loaded, so you got random words.',
       'Phones: the settings button stays in the corner during battles; in the 2D arena the fighters now stand on the arena floor above the keyboard (they floated in the trees), and the arena ends where the keyboard begins.',
-      '3D: the Duelist pose in first person holds the staff the way it did before, turned to point at your opponent. The Apprentice and Adventurer are goblins now (the plain models are gone). Staffs are a little smaller again. A player’s staff traces ∞ only while they actually type or write (the AI still always does), and AI opponents always strike a combo pose.',
+      '3D: the Duelist pose in first person holds the staff the way it did before, turned to point at your opponent. The Apprentice and Adventurer are goblins now (the plain models are gone). Staffs are a little smaller again. A player’s staff traces ∞ only while they actually type or write (the AI still always does), and bots always strike a combo pose.',
     ],
     ru: [
       'Словарь: введите любую форму слова — и он найдёт слово: yobanai или 呼ばない покажут 呼ぶ («← отрицание»), работают よびました, tabetakatta, 勉強します. Небольшая ошибка тоже прощается: koshujin покажет ご主人, а неверный звук (ご) — красным.',
@@ -685,10 +706,10 @@ const PATCHES: Patch[] = [
       'The Apprentice and Adventurer characters now float, aim and bend their legs in the poses like everyone else.',
       'Characters: both hands are the same size now, and the staffs are a little smaller.',
       'Every lobby starts when all players press Ready (like Deck Duel).',
-      'Daily streak: three tasks now — study 10 spells, a JLPT quiz (7/10) OR a reading passage (4/8), and the daily challenge.',
+      'Daily streak: three tasks now - study 10 spells, a JLPT quiz (7/10) OR a reading passage (4/8), and the daily challenge.',
       'Onomatopoeia: the New a day number waits for Apply (or Cancel), like All spells.',
-      'Reading passage: starred words come first but no longer fill the whole story — up to 6 of the 8 words, the rest from your other words.',
-      'Phones: the menu background is now a still picture and nothing is blurred behind the panels — that was what made it flicker and lag in the app.',
+      'Reading passage: starred words come first but no longer fill the whole story - up to 6 of the 8 words, the rest from your other words.',
+      'Phones: the menu background is now a still picture and nothing is blurred behind the panels - that was what made it flicker and lag in the app.',
     ],
     ru: [
       'Словарь теперь работает без интернета — он идёт вместе с приложением и ищет прямо на устройстве. Можно искать и по-русски (вода → 水), а поиск по-японски показывает гораздо больше совпадений — и слова с тем же кандзи или почти тем же звучанием («Показать ещё» — остальные). На телефоне используется ваша клавиатура, так что можно печатать по-русски и по-японски. Кнопки с примерами убраны.',
@@ -707,12 +728,12 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.7', date: '2026-11',
     en: [
-      'Dictionary (辞書) in the main menu: type a word in kanji, kana, romaji or English and see every match — readings, JLPT level, all meanings (English and Russian), verb and adjective forms, an example sentence, each kanji with its memory picture and stroke order, and other words written with it. “+ Add to…” puts any word in any of your decks.',
+      'Dictionary (辞書) in the main menu: type a word in kanji, kana, romaji or English and see every match - readings, JLPT level, all meanings (English and Russian), verb and adjective forms, an example sentence, each kanji with its memory picture and stroke order, and other words written with it. “+ Add to…” puts any word in any of your decks.',
       'Light theme: Settings → Theme → Light gives light panels and buttons with dark text. Dark stays the default.',
       'Combo poses (Customize → Combo pose): while you’re on fire, your character can float with one leg bent (Levitation), turn side-on and aim the staff’s core at the opponent (Duelist), hold the staff upright in both hands (Channel), or float cross-legged (Lotus). Everyone sees it, and you see it in first person too. They unlock at levels 3, 6, 9 and 12.',
       'Pause now freezes everything on screen: the timers, the arena and the opponent stop until you press Resume.',
-      'Romaji fixes: a single “n” before a vowel or “y” now counts as ん when it should — 信用 as shinyou, 原因 as genin, 金曜日 as kinyoubi — and Hepburn spellings work too (shimbun, tōkyō, nyaa for ニャー, o for を). Every word in the game was checked.',
-      'Onomatopoeia: no more 243 new words at once — set how many new ones you want a day (− / +, 0 by default), like in All spells.',
+      'Romaji fixes: a single “n” before a vowel or “y” now counts as ん when it should - 信用 as shinyou, 原因 as genin, 金曜日 as kinyoubi - and Hepburn spellings work too (shimbun, tōkyō, nyaa for ニャー, o for を). Every word in the game was checked.',
+      'Onomatopoeia: no more 243 new words at once - set how many new ones you want a day (− / +, 0 by default), like in All spells.',
       'Phones: the purple game keyboard now also comes up for the Daily challenge, Deck Duel’s overtime and the dictionary search.',
       'Reading passage: when you finish, the translation opens by itself, framed so it’s easy to spot.',
       'Android reminders: the check now runs as a background job that waits for the internet and gives the server time to wake up (it used to be cut off after 10 seconds, so no reminder came), and the alarms fire even when the phone is asleep. If the server can’t be reached, you still get a plain reminder. Settings → Reminders → “Send a test” shows one right away. (Update the app from the menu to get this.)',
@@ -733,9 +754,9 @@ const PATCHES: Patch[] = [
     v: '0.9.9.6.1', date: '2026-10',
     en: [
       'Achievements show your progress: hover or tap a locked badge to see how far along you are (e.g. 37 / 100 words learned), with a small bar under the badge.',
-      'Nicknames can now be anything — even the same as another player’s login or nickname. Players are still told apart by their logins.',
-      'Android app: when a newer version is out, “Get the app” turns into “Update the app” — tap it and the app downloads the update and opens the installer by itself. (Apps from before this version need one last download from the browser; the button starts it.)',
-      '3D characters: both arms show again — the left arm had been sitting under the floor, so the hands looked like they came out of the belly. Now both arms hang from the shoulders and the staff is held out to the side.',
+      'Nicknames can now be anything - even the same as another player’s login or nickname. Players are still told apart by their logins.',
+      'Android app: when a newer version is out, “Get the app” turns into “Update the app” - tap it and the app downloads the update and opens the installer by itself. (Apps from before this version need one last download from the browser; the button starts it.)',
+      '3D characters: both arms show again - the left arm had been sitting under the floor, so the hands looked like they came out of the belly. Now both arms hang from the shoulders and the staff is held out to the side.',
     ],
     ru: [
       'Достижения показывают прогресс: наведите или нажмите на закрытый значок, чтобы увидеть, сколько уже сделано (например, 37 / 100 изученных слов), с полоской под значком.',
@@ -747,9 +768,9 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.6', date: '2026-10',
     en: [
-      'Reminders 🔔: the bell next to the sound buttons turns on daily reminders — the Daily challenge, 50+ spells waiting in All spells, and your streak tasks in the evening. In the Android app they come even when it’s closed.',
+      'Reminders 🔔: the bell next to the sound buttons turns on daily reminders - the Daily challenge, 50+ spells waiting in All spells, and your streak tasks in the evening. In the Android app they come even when it’s closed.',
       'Nicknames: tap ✎ next to your name in your profile to pick the name others see; your login stays for signing in and shows under it.',
-      '23 new achievements (44 in all) — from easy (answer 50 cards, pick a nickname) to very hard (a 100-day streak, level 25). The dots under each badge show how hard it is.',
+      '23 new achievements (44 in all) - from easy (answer 50 cards, pick a nickname) to very hard (a 100-day streak, level 25). The dots under each badge show how hard it is.',
       'The arena’s time of day follows your clock: day until 17:00, sunset until 20:00, then night (no more 3-minute cycle).',
       'A calmer, softer menu tune, and the music starts quieter.',
       '3D battles: spells fly as glowing orbs (no more kanji in the air); the last spell lands before the opponent falls; the characters hold their staff out to the side, with bigger hands; the Void staff’s handle lights up ice-blue while you cast.',
@@ -772,9 +793,9 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.5.1', date: '2026-10',
     en: [
-      'Reading passage: nothing is written until you press “✍ Write the story” — set your word levels and the story level first.',
+      'Reading passage: nothing is written until you press “✍ Write the story” - set your word levels and the story level first.',
       'Reading passage: the story is written in the background and the app checks on it, so a phone’s network hiccup no longer loses it (it used to fail after ~20 s and then turn up on the next try). The progress bar follows how long stories usually take and fills to the end.',
-      'Starting the app while the server is asleep: a “Waking up the server…” screen with a progress bar (about a minute on free hosting) instead of a minute of offline mode — or “Play offline meanwhile”.',
+      'Starting the app while the server is asleep: a “Waking up the server…” screen with a progress bar (about a minute on free hosting) instead of a minute of offline mode - or “Play offline meanwhile”.',
       'The background no longer shifts a little when you open Progress or Customize.',
       'Phones: a long player name no longer pushes the sound and settings buttons off the screen.',
     ],
@@ -789,12 +810,12 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.5', date: '2026-10',
     en: [
-      'Study cards: in the example sentence a whole word (帽子) is one tap — its meaning, “+ Add to…” a deck, and its kanji one by one underneath.',
-      'Star words ★ on a study card or in any deck’s word list — reading passages put your starred words in first.',
+      'Study cards: in the example sentence a whole word (帽子) is one tap - its meaning, “+ Add to…” a deck, and its kanji one by one underneath.',
+      'Star words ★ on a study card or in any deck’s word list - reading passages put your starred words in first.',
       'Reading passage: pick which of your words go in (by level, N5–N1) and how hard the story itself is (story level N5–N1). Words come only from the deck you chose (All spells by default), at least 8 kanji words; “☰ Words” shows that deck’s list.',
       'Reading passage: the words you get wrong go to Struggling spells; the story’s title can be tapped too; 10 new AI stories a day.',
       'Battles: spells flying at you come in low and fade as they get close, so they don’t cover the word you’re answering.',
-      'Progress → Spell mastery: an “All levels” tab — every level in order, each under its own heading.',
+      'Progress → Spell mastery: an “All levels” tab - every level in order, each under its own heading.',
       'The UI size is 100% by default; at a smaller size the pages sit in the middle of the window instead of at the top. “← Study” on the quizzes and the reading passage is at the top left, like “← Menu”.',
       'Forest arena: the red eyes peer out from between the trees and blink.',
     ],
@@ -812,8 +833,8 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.4.4.7', date: '2026-10',
     en: [
-      'Onomatopoeia quiz: no more “which kind is it” questions — just the meanings, the words and the sentences.',
-      'Answers: ぢ / づ also accept じ / ず — “tsuzuku” is right for 続く, “hanaji” for 鼻血.',
+      'Onomatopoeia quiz: no more “which kind is it” questions - just the meanings, the words and the sentences.',
+      'Answers: ぢ / づ also accept じ / ず - “tsuzuku” is right for 続く, “hanaji” for 鼻血.',
       'Phones: nothing hides under the Friends button any more; the level names in All spells (ひらがな, カタカナ) aren’t cut off; the study card header fits; no keyboard hints (Esc, Space) on touch screens.',
       'Study cards before a battle: long words (引っ越す) stay on one line.',
       'Reading passage: “New passage” waits while a story is being written, and the daily AI-story limit can’t be got round.',
@@ -833,7 +854,7 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.4.4.6', date: '2026-10',
     en: [
-      'Reading passage: fixed the AI story failing with “invalid argument” on newer Gemini models — it now finds the settings your model accepts by itself.',
+      'Reading passage: fixed the AI story failing with “invalid argument” on newer Gemini models - it now finds the settings your model accepts by itself.',
       'Study spells: “learned in total” now includes the words you learned today.',
     ],
     ru: [
@@ -844,11 +865,11 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.4.4.5', date: '2026-10',
     en: [
-      'Reading passage: the AI now writes one flowing story where your 8 words appear wherever they fit — a sentence can hold two of them, or none — instead of one sentence per word. Fill in the blanks from the context.',
+      'Reading passage: the AI now writes one flowing story where your 8 words appear wherever they fit - a sentence can hold two of them, or none - instead of one sentence per word. Fill in the blanks from the context.',
       'Reading passage: a progress bar while the story is written (it can take a few seconds), a counter of how many AI stories you have left today (40 a day), and a short explainer the first time you open it. When there is no AI story, it says why.',
       'Reading passage: stories are far less often thrown away over a small slip, and the app waits long enough for them.',
-      'All spells: unticking “I’ve mastered hiragana” no longer resets your numbers per level — the kanji levels are just locked (greyed out, no new words) until you tick it again.',
-      'How to play: updated — your own words in battles, the four study decks, +5 XP per card, the practice modes and hiragana first.',
+      'All spells: unticking “I’ve mastered hiragana” no longer resets your numbers per level - the kanji levels are just locked (greyed out, no new words) until you tick it again.',
+      'How to play: updated - your own words in battles, the four study decks, +5 XP per card, the practice modes and hiragana first.',
     ],
     ru: [
       'Текст для чтения: ИИ теперь пишет один связный рассказ, где ваши 8 слов стоят там, где они к месту (в предложении может быть два слова или ни одного), а не по предложению на слово. Заполняйте пропуски по смыслу.',
@@ -861,7 +882,7 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.4.4.4', date: '2026-10',
     en: [
-      'World Tree: a much fuller crown — a solid mass of leaves shaded from dark underneath to sunlit on top, branches showing through, no leaves hanging loose in the air — and shaded roots with ridges and moss that blend into the trunk.',
+      'World Tree: a much fuller crown - a solid mass of leaves shaded from dark underneath to sunlit on top, branches showing through, no leaves hanging loose in the air - and shaded roots with ridges and moss that blend into the trunk.',
       'Rune stones: every stone sits in a little mound of earth with grass and pebbles at its foot; in the forest they stand on the forest floor.',
       'Castle: the soldiers stand behind the rune stones now.',
     ],
@@ -874,7 +895,7 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.4.4.3', date: '2026-10',
     en: [
-      '2D arenas repainted in more detail: soft light and shadow instead of outlines, fluffy clouds, snowy mountain peaks, leafy trees and bushes, ivy, brick walls and banners on the castle, lily pads in the swamp, fields around the villages — and no more film-grain filter.',
+      '2D arenas repainted in more detail: soft light and shadow instead of outlines, fluffy clouds, snowy mountain peaks, leafy trees and bushes, ivy, brick walls and banners on the castle, lily pads in the swamp, fields around the villages - and no more film-grain filter.',
       'Menus: behind every screen except the main menu, the middle of the background is dimmed a little, so text and cards are easier to read.',
     ],
     ru: [
@@ -885,13 +906,13 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.4.4.2', date: '2026-10',
     en: [
-      'Battles use your own words: 1v1 Kanji Reading, Kanji Writing and Boss take the words of your levels from your All spells (random words fill up when you have too few) — marked ★ on the study cards.',
+      'Battles use your own words: 1v1 Kanji Reading, Kanji Writing and Boss take the words of your levels from your All spells (random words fill up when you have too few) - marked ★ on the study cards.',
       '1v1 Rapid: the first 10 rounds are 5 words from each player’s All spells, and each round says whose word it is.',
       'Study spells: every card you answer gives +5 XP (up to 500 a day). The first few each day show “+5 XP”, then it stays quiet.',
       'Study spells: “learned today”, “learned in total” and today’s study XP are big tiles at the top, and the new-spells-a-day total is big too.',
-      'New 2D arenas look: a painted style with fine grain — faceted mountains, outlined clouds, dense grass with little flowers, bark, stone brickwork — and the World Tree’s four rune stones now stand in every arena.',
+      'New 2D arenas look: a painted style with fine grain - faceted mountains, outlined clouds, dense grass with little flowers, bark, stone brickwork - and the World Tree’s four rune stones now stand in every arena.',
       'Fixes: “← Leave room” looks like “← Menu”; the menu’s small buttons no longer overlap the menu on short screens; the quizzes have room under “← Study”.',
-      'Reading passage stories can now be written by Google Gemini (free tier), Claude or any OpenAI-compatible AI — whichever key the server has.',
+      'Reading passage stories can now be written by Google Gemini (free tier), Claude or any OpenAI-compatible AI - whichever key the server has.',
     ],
     ru: [
       'Бои — вашими словами: «Чтение кандзи», «Написание кандзи» и «Босс» берут слова ваших уровней из «Всех заклинаний» (если мало — добавляются случайные), на карточках подготовки они отмечены ★.',
@@ -906,12 +927,12 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.4.4.1', date: '2026-10',
     en: [
-      'All spells: each level has its own − / + buttons (steps of 1), and nothing changes until you press Apply — it tells you how many words that adds today, so a misclick can’t flood your deck.',
-      'Study spells: a tidier layout on PC — All spells on the left, the other three decks compact beside it, and the JLPT quiz, Onomatopoeia quiz and Reading passage as bright cards below. The “Words” buttons stand out.',
+      'All spells: each level has its own − / + buttons (steps of 1), and nothing changes until you press Apply - it tells you how many words that adds today, so a misclick can’t flood your deck.',
+      'Study spells: a tidier layout on PC - All spells on the left, the other three decks compact beside it, and the JLPT quiz, Onomatopoeia quiz and Reading passage as bright cards below. The “Words” buttons stand out.',
       'Onomatopoeia cards: the kind (擬態語 gitaigo …) is in a dark, readable colour on the card.',
-      'Reading passage: one short story with all your words again — written for you by a small AI (when the server has it switched on), with furigana and translations. Without it, the words’ example sentences are used.',
-      'Deck Duel: every instruction now says where the cards come from — both players’ All spells.',
-      'PC: the interface keeps the same proportions on every monitor — a laptop and a big screen show the same layout, scaled to the screen. The UI size (70–100%) still makes everything smaller or bigger.',
+      'Reading passage: one short story with all your words again - written for you by a small AI (when the server has it switched on), with furigana and translations. Without it, the words’ example sentences are used.',
+      'Deck Duel: every instruction now says where the cards come from - both players’ All spells.',
+      'PC: the interface keeps the same proportions on every monitor - a laptop and a big screen show the same layout, scaled to the screen. The UI size (70–100%) still makes everything smaller or bigger.',
       'Customize: the badges section sits on its own panel and is easy to read.',
       '2D arenas: the castle and the World Tree stand firmly on the ground, and the forest’s ground reaches the edges of the screen.',
     ],
@@ -929,15 +950,15 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.4.4', date: '2026-10',
     en: [
-      'Study spells: an ↶ Undo button (or Z) brings back the card you just answered — for a misclick or a wrong swipe.',
-      'Study spells: swiping is more sensitive — a short drag or a quick flick is enough.',
+      'Study spells: an ↶ Undo button (or Z) brings back the card you just answered - for a misclick or a wrong swipe.',
+      'Study spells: swiping is more sensitive - a short drag or a quick flick is enough.',
       'Study spells: on a flipped card, tap any kanji (in the word or the example) for its meaning, on/kun readings and the parts it is built from. “🖼 Memory picture” draws the kanji with each part in its own colour, plus a short story that links the parts to the meaning (休 = a person 亻 leaning on a tree 木 → rest). Every kanji in the game has one.',
-      'All spells: instead of ticks and one slider, each level has its own number — how many of its words are added a day (e.g. N5: 10, N3: 5).',
-      'New deck: Onomatopoeia — 240+ giseigo, gitaigo and gijōgo (sounds, states and feelings), each marked with its kind, with an example sentence. 20 new cards a session.',
-      'New: the Onomatopoeia quiz (between the JLPT quiz and the reading passage) — meanings, words, kinds and “which word fits the sentence”.',
-      'Reading passage: now a screen of its own (centred on phones) instead of a window. Each blank sits in a real sentence for the word — no furigana over the blank, the context is the clue. Tap a word for its meaning; the box has a proper ✕.',
-      'Deck Duel: the 20 cards you draft from come from both players’ All spells — 2 of each level from each of you (a random word if someone has none of that level). The colours (difficulty) are unchanged.',
-      'Word lists: 9 words that were skipped because of notes like “(する)” are back — 結婚, 散歩, 掃除, 勉強, 練習, お金持ち, 回る, 回す, 生ける.',
+      'All spells: instead of ticks and one slider, each level has its own number - how many of its words are added a day (e.g. N5: 10, N3: 5).',
+      'New deck: Onomatopoeia - 240+ giseigo, gitaigo and gijōgo (sounds, states and feelings), each marked with its kind, with an example sentence. 20 new cards a session.',
+      'New: the Onomatopoeia quiz (between the JLPT quiz and the reading passage) - meanings, words, kinds and “which word fits the sentence”.',
+      'Reading passage: now a screen of its own (centred on phones) instead of a window. Each blank sits in a real sentence for the word - no furigana over the blank, the context is the clue. Tap a word for its meaning; the box has a proper ✕.',
+      'Deck Duel: the 20 cards you draft from come from both players’ All spells - 2 of each level from each of you (a random word if someone has none of that level). The colours (difficulty) are unchanged.',
+      'Word lists: 9 words that were skipped because of notes like “(する)” are back - 結婚, 散歩, 掃除, 勉強, 練習, お金持ち, 回る, 回す, 生ける.',
       'Credits: kanji data from KANJIDIC2 (EDRDG) via kanji-data, and the kanji parts from KanjiVG.',
     ],
     ru: [
@@ -956,9 +977,9 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.4.3', date: '2026-10',
     en: [
-      'Study spells: every word on every level (N5 to N1, 6,500+) now has an example sentence, with furigana — the reading in small hiragana above each kanji.',
+      'Study spells: every word on every level (N5 to N1, 6,500+) now has an example sentence, with furigana - the reading in small hiragana above each kanji.',
       'Study spells: swiping a card right (Good / Easy) no longer lags on phones.',
-      'Study spells: your whole due queue comes at once — no more “60 cards, then 50 more appear” after you finish.',
+      'Study spells: your whole due queue comes at once - no more “60 cards, then 50 more appear” after you finish.',
       'Friends see “Studying spells”, “Taking a JLPT quiz” or “Reading a passage” as your activity instead of “In the menus”.',
       'Daily challenge: the JLPT quiz counts at 7/10 or better, the reading passage at 4/8 or better.',
       'Reading passage: a red ✕ at the top right closes it, and reopening brings back the same story until you press “New story”. The JLPT quiz “← Study” button now looks like “← Menu”.',
@@ -981,9 +1002,9 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.4.2', date: '2026-10',
     en: [
-      'Kana: ひらがな (hiragana) and the new カタカナ (katakana) are two separate levels — only letters now: the basic ones, with ゛/゜ and every combination (きゃ, シュ …). Both work in Study spells and in every game mode, answered in romaji.',
-      'Study spells: each answer shows an example sentence with the word marked, and its translation (N5 and N4 words for now — more levels coming).',
-      'Study spells: swiping a card is instant — the next card no longer waits for the server, and losing the connection mid-session doesn’t freeze the buttons.',
+      'Kana: ひらがな (hiragana) and the new カタカナ (katakana) are two separate levels - only letters now: the basic ones, with ゛/゜ and every combination (きゃ, シュ …). Both work in Study spells and in every game mode, answered in romaji.',
+      'Study spells: each answer shows an example sentence with the word marked, and its translation (N5 and N4 words for now - more levels coming).',
+      'Study spells: swiping a card is instant - the next card no longer waits for the server, and losing the connection mid-session doesn’t freeze the buttons.',
       'Spell mastery: tiles with the word and a progress bar, like a kana chart; the kana levels are laid out as the kana table. Tap a tile for its reading and meaning (phones too). Kanji levels have filters and “show more”.',
       'Activity: a legend explains the shades (the brighter, the more you did that day); tap a day for its details.',
       'Reading passage: the word bank stays at the bottom while the story scrolls; no more “Add to…” on words that are already in your deck.',
@@ -1005,16 +1026,16 @@ const PATCHES: Patch[] = [
   },
   {
     v: '0.9.9.4.1', date: '2026-10',
-    en: ['Get the app: the Android download works from the installed game too (it stopped at 100% before) — then open Downloads and tap KanjiWizards.apk.'],
+    en: ['Get the app: the Android download works from the installed game too (it stopped at 100% before) - then open Downloads and tap KanjiWizards.apk.'],
     ru: ['«Скачать приложение»: загрузка для Android работает и из установленной игры (раньше она останавливалась на 100%) — затем откройте «Загрузки» и нажмите KanjiWizards.apk.'],
   },
   {
     v: '0.9.9.4', date: '2026-10',
     en: [
-      'Kanji Wizards is an app now: install it from the browser on any phone or PC (menu → Get the app), or download the Windows app (.exe) or the Android app (.apk) — no store needed.',
+      'Kanji Wizards is an app now: install it from the browser on any phone or PC (menu → Get the app), or download the Windows app (.exe) or the Android app (.apk) - no store needed.',
       'Offline mode: without internet you can still study spells, take the JLPT quiz, read passages, play the daily challenge, customize and look at your progress and match history. Everything syncs when you’re back online. Online queue and private games need internet.',
       'All dropdown menus are in the game’s style now.',
-      'JLPT quiz: after every answer you see the whole word — kanji, reading and meaning — even when you got it right.',
+      'JLPT quiz: after every answer you see the whole word - kanji, reading and meaning - even when you got it right.',
       'Reading passages have six different stories: the school of magic, a trip to Kyoto, a detective case, a sea voyage, a journey to the Moon and a little café.',
       'Study spells: the “learned today” counter is readable.',
     ],
@@ -1030,10 +1051,10 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.3.4', date: '2026-10',
     en: [
-      'Every mode is open from the start — Kanji Writing, the Boss fight and Deck Duel no longer wait for level 1.',
+      'Every mode is open from the start - Kanji Writing, the Boss fight and Deck Duel no longer wait for level 1.',
       'Reading passage: a much bigger window on PCs, with larger story text, furigana, word bank and meanings.',
-      'JLPT quiz: the wrong answers now look like the right one — readings that share kana, kanji that share a character, meanings of the same kind.',
-      'New achievement: Kingslayer — beat an admin in a battle.',
+      'JLPT quiz: the wrong answers now look like the right one - readings that share kana, kanji that share a character, meanings of the same kind.',
+      'New achievement: Kingslayer - beat an admin in a battle.',
     ],
     ru: [
       'Все режимы открыты сразу — Написание кандзи, Битва с боссом и Дуэль колод больше не ждут 1 уровня.',
@@ -1069,7 +1090,7 @@ const PATCHES: Patch[] = [
       'Customize: Profile comes first, then Arena, Magic staff and Omnipotence. Arena and Omnipotence now have a live 3D preview (your character in the arena, or wrapped in your flames up close), with the 2D look beside it.',
       'Reading passage: choose which deck the story takes its words from, and add any word of the story to any of your decks.',
       'Study → Words: tap Spell, Reading, Meaning, Level, Added or Status to sort the list (again to reverse it).',
-      'Omnipotence: the eyes now close the right way — fully shut, then open again.',
+      'Omnipotence: the eyes now close the right way - fully shut, then open again.',
       'Deck Duel: no mode name over the table, slim scrollbars, and no hero picture in the lobby (you pick your hero in the game).',
       'Daily challenge: skipping words no longer adds 15 s each to your time, and words you unticked stay unticked when you come back.',
       'New-look checkboxes and scrollbars; the Archmage border animates on PCs with reduced animations too; turning your phone to look around is smoother and quicker.',
@@ -1087,7 +1108,7 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.3.1', date: '2026-10',
     en: [
-      'Deck Duel Omnipotence: your eyes close, 究極能力 (“ultimate power”) flashes, and they open again in a burst of fire — and your opponent sees your character’s eyes blaze (Goblin red, Witch purple, Wizard blue, Knight red). In every mode, eyes glow while you are on fire.',
+      'Deck Duel Omnipotence: your eyes close, 究極能力 (“ultimate power”) flashes, and they open again in a burst of fire - and your opponent sees your character’s eyes blaze (Goblin red, Witch purple, Wizard blue, Knight red). In every mode, eyes glow while you are on fire.',
       'Deck Duel on phones: your cards and Omnipotence are right under the table; your kanji, the turn log and the chat are foldable sections below (a dot shows a new chat message). The mode name no longer covers the Omnipotence button.',
       'Avatar borders are bolder, and there is a new platinum Beta border with a BETA tag for everyone who finished the tutorial.',
       'Admins can delete accounts.',
@@ -1104,10 +1125,10 @@ const PATCHES: Patch[] = [
   {
     v: '0.9.9.3', date: '2026-10',
     en: [
-      'New 2D art: the Wizard, Witch, Knight, Goblin, Apprentice and Adventurer, the Black Dragon and every staff are painted after the concept sheets (no more pixels), and all five arenas are repainted to match the 3D ones — with a stone arena the fighters stand on, by day, sunset and night.',
-      'Daily streak: a day now counts when you do four tasks — study 10 spells, a JLPT quiz, the daily challenge and a reading passage. You see them when you log in (tick “don’t show again” to stop it), on the menu and in your profile card.',
-      'Reading passage: your words are blanks now — fill them from the word bank under the story (the furigana is your clue), then check your score. Every word of the story can be tapped for its meaning.',
-      'Study: swipe the flashcard like in Quizlet — far left Again, left Hard, right Okay, far right Easy.',
+      'New 2D art: the Wizard, Witch, Knight, Goblin, Apprentice and Adventurer, the Black Dragon and every staff are painted after the concept sheets (no more pixels), and all five arenas are repainted to match the 3D ones - with a stone arena the fighters stand on, by day, sunset and night.',
+      'Daily streak: a day now counts when you do four tasks - study 10 spells, a JLPT quiz, the daily challenge and a reading passage. You see them when you log in (tick “don’t show again” to stop it), on the menu and in your profile card.',
+      'Reading passage: your words are blanks now - fill them from the word bank under the story (the furigana is your clue), then check your score. Every word of the story can be tapped for its meaning.',
+      'Study: swipe the flashcard like in Quizlet - far left Again, left Hard, right Okay, far right Easy.',
       'After a game (and the daily challenge) the words you missed are red cards again, pre-ticked with a small tick in the corner; tap a card to keep it out of your deck.',
       'Customize → Profile: avatar borders (levels 1, 5, 10, 15) and your badges, with a preview. When you unlock something, the menu shows it with OK and Equip.',
       'Battles: the clock, Forfeit and Pause sit together at the top centre (the mode name moved to the bottom left); no more grey box round the HP bars.',
@@ -1145,7 +1166,7 @@ const PATCHES: Patch[] = [
     v: '0.9.9.1', date: '2026-10',
     en: [
       'Unlocks are earned again (the closed beta is over), but easier: Kanji Writing, the Boss fight and Deck Duel open at level 1; backgrounds at levels 3 / 5 / 8 / 10; staffs at a 3 / 5 / 8 / 10-day login streak.',
-      'A new Witch: a tall, low-poly witch after her concept art — a sculpted face with painted eyes, brows and lips, a wide hat with a crescent moon, long wavy hair, open coat with bell sleeves and a pointed hem, heeled boots.',
+      'A new Witch: a tall, low-poly witch after her concept art - a sculpted face with painted eyes, brows and lips, a wide hat with a crescent moon, long wavy hair, open coat with bell sleeves and a pointed hem, heeled boots.',
       'Verdant staff: the branches now rise out of the shaft and curl in over the orb (no more cut end or tips sticking out).',
       'The rotating kanji circle is back under the fighters in every 3D arena; the orange V on the Plains is gone; the Castle’s warriors now fight each to their own rhythm.',
       '“← Menu” is a clear button at the top left of every page; the Study spells cards are centred; Back to lobby no longer covers the Preparation title; the Challenge mode list fits inside the profile card.',
@@ -1163,18 +1184,18 @@ const PATCHES: Patch[] = [
     en: [
       'Study: All, Struggling and Custom spells are three separate decks. Open any deck to see every word, when it was added, and remove words.',
       'Custom spells: add words from the dictionary (search by kanji, kana or meaning) or type in your own word with its reading and meaning.',
-      'After a game you choose which deck the words you missed go to (pre-ticked: Struggling spells) — or untick them.',
-      'New in Study: a JLPT-style quiz from the spells you studied, and a reading passage — a short story with your struggling words, with furigana, readings and meanings.',
+      'After a game you choose which deck the words you missed go to (pre-ticked: Struggling spells) - or untick them.',
+      'New in Study: a JLPT-style quiz from the spells you studied, and a reading passage - a short story with your struggling words, with furigana, readings and meanings.',
       'New spells a day: pick 10–150 (was always 25).',
       'Deck Duel: a turn log under your kanji (who played what, hits, heals, misses, powers), a big turn timer that turns red, no more scrolling on smaller screens, and a longer look at the answer in overtime.',
-      'Big round turn timers in every mode, a red Forfeit button, and the same big “Back to lobby” button everywhere — plus Back to lobby and Main menu on the results screen.',
+      'Big round turn timers in every mode, a red Forfeit button, and the same big “Back to lobby” button everywhere - plus Back to lobby and Main menu on the results screen.',
       'Profiles: show up to 3 achievement badges under your name (Progress → click a badge). Add friend from anyone’s profile, and Challenge a friend to any mode.',
       'Boss Elimination: holding out until the time runs out is now a victory.',
       'Fixes: pausing no longer revives downed teammates or loses your combo; the beginner AI fight no longer runs out of time (HP is balanced to ~18 hits at every level); Rapid in the online queue finds a partner even without a level in common; writing on iPhone no longer scrolls the page.',
       'Closed beta: every mode, staff, flame and arena is open from level 1. Admins can make other players admins.',
       'The tutorial starts by asking for your language, and its window is bigger.',
-      'New 3D magic staffs (Verdant, Ember, Tide, Storm, Void — each with its own animation) and five new 3D arenas: Forest, Swamp, Plains, Castle and World Tree, with painted skies, moving trees, water, flags and fireflies.',
-      'Full 3D: the mouse now turns your head instead of sliding the camera — and the other players see your character look where you look. Lite keeps the lighter parallax.',
+      'New 3D magic staffs (Verdant, Ember, Tide, Storm, Void - each with its own animation) and five new 3D arenas: Forest, Swamp, Plains, Castle and World Tree, with painted skies, moving trees, water, flags and fireflies.',
+      'Full 3D: the mouse now turns your head instead of sliding the camera - and the other players see your character look where you look. Lite keeps the lighter parallax.',
     ],
     ru: [
       'Учёба: «Все», «Трудные» и «Свои» заклинания — теперь три отдельные колоды. Откройте любую, чтобы увидеть все слова, дату добавления и удалить лишние.',
@@ -1200,12 +1221,12 @@ const PATCHES: Patch[] = [
   },
   {
     v: '0.9.8.3', date: '2026-10',
-    en: ['No more critical hits.', 'Kana are printed in their own cells on the writing pad.', 'AI players use random staffs and flames.', 'Pause button next to Forfeit.'],
+    en: ['No more critical hits.', 'Kana are printed in their own cells on the writing pad.', 'bots use random staffs and flames.', 'Pause button next to Forfeit.'],
     ru: ['Критических ударов больше нет.', 'Кана печатается в своих клетках на панели письма.', 'ИИ-игроки получают случайные посохи и пламя.', 'Кнопка паузы рядом с «Сдаться».'],
   },
   {
     v: '0.9.8.2', date: '2026-10',
-    en: ['Pause games against the AI.', 'Daily challenge results show right and wrong words; missed ones go to Struggling spells.', 'The phone keyboard no longer hides the arena.'],
+    en: ['Pause games against bots.', 'Daily challenge results show right and wrong words; missed ones go to Struggling spells.', 'The phone keyboard no longer hides the arena.'],
     ru: ['Пауза в играх против ИИ.', 'Итоги ежедневного испытания показывают верные и неверные слова; ошибки идут в «Трудные».', 'Клавиатура телефона больше не закрывает арену.'],
   },
   {
@@ -1228,7 +1249,7 @@ export function initWhatsNew() {
     document.getElementById('newsVersion')!.textContent = `v${VERSION}`;
     document.getElementById('newsBody')!.replaceChildren(...PATCHES.slice(0, 3).map((p, i) => {
       const sec = el('section', 'news-patch' + (i === 0 ? ' latest' : ''));
-      const head = el('h4', '', `${p.v}${p.v === VERSION ? (ru ? ' — сейчас' : ' — current') : ''}`);
+      const head = el('h4', '', `${p.v}${p.v === VERSION ? (ru ? ' — сейчас' : ' - current') : ''}`);
       const ul = el('ul');
       for (const line of ru ? p.ru : p.en) ul.append(el('li', '', line));
       sec.append(head, ul);

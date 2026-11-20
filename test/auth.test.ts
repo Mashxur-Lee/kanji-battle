@@ -45,14 +45,14 @@ test('seeded accounts log in; seeding twice is harmless', async () => {
 
 test('register validates and rejects duplicates', async () => {
   const auth = await setup();
-  const r = await auth.register('Kenji_99', 'secret1', `t${Math.random().toString(36).slice(2)}@test.dev`);
+  const r = await auth.register('Kenji_99', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`);
   assert.equal(r.user.username, 'kenji_99');
   assert.equal(r.user.role, 'user');
   assert.equal((await auth.authenticate(r.token)).id, r.user.id);
-  await assert.rejects(auth.register('kenji_99', 'secret1', `t${Math.random().toString(36).slice(2)}@test.dev`), /taken/);
-  await assert.rejects(auth.register('a', 'secret1', `t${Math.random().toString(36).slice(2)}@test.dev`), /Login/);
-  await assert.rejects(auth.register('bad name!', 'secret1', `t${Math.random().toString(36).slice(2)}@test.dev`), /Login/);
-  assert.ok(await auth.register('a_much_longer_login.name-2026', 'secret1', `t${Math.random().toString(36).slice(2)}@test.dev`), 'logins up to 32 characters');
+  await assert.rejects(auth.register('kenji_99', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), /taken/);
+  await assert.rejects(auth.register('a', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), /Login/);
+  await assert.rejects(auth.register('bad name!', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), /Login/);
+  assert.ok(await auth.register('a_much_longer_login.name-2026', 'secret12', `t${Math.random().toString(36).slice(2)}@test.dev`), 'logins up to 32 characters');
   await assert.rejects(auth.register('okname', '123', `t${Math.random().toString(36).slice(2)}@test.dev`), /Password/);
 });
 

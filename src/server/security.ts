@@ -33,6 +33,7 @@ export function securityHeaders(scriptHashes: string[], https: boolean): Record<
     "base-uri 'none'",
     "form-action 'self'",
     "frame-ancestors 'none'",
+    ...(https ? ['upgrade-insecure-requests'] : []), // (0.9.9.9.8)
   ].join('; ');
   return {
     'Content-Security-Policy': csp,
@@ -41,7 +42,10 @@ export function securityHeaders(scriptHashes: string[], https: boolean): Record<
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
     'Cross-Origin-Opener-Policy': 'same-origin',
-    ...(https ? { 'Strict-Transport-Security': 'max-age=15552000' } : {}),
+    // 0.9.9.9.8: other sites can't load the game's files into their pages (profile pictures, photos, the bundles);
+    // and the browser keeps to https for a year (it was half a year)
+    'Cross-Origin-Resource-Policy': 'same-origin',
+    ...(https ? { 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' } : {}),
   };
 }
 
@@ -81,3 +85,19 @@ export class Bucket {
 
 /** A public server (Render, or NODE_ENV=production): no built-in accounts with the passwords in the README. */
 export const isPublicServer = () => !!process.env.RENDER || process.env.NODE_ENV === 'production';
+
+/**
+ * 0.9.9.9.8: which pages may open the game's live connection. A browser always says which page a WebSocket comes from
+ * (the Origin header): only the game's own pages (the same address as the server) may connect. Programs that aren't
+ * browsers send no Origin; they need a login token to do anything anyway. Before, any website could open connections
+ * to the game from its visitors' browsers. KW_ORIGINS (comma-separated) adds other addresses, for a test server.
+ */
+export function originAllowed(origin: unknown, host: unknown, extra = process.env.KW_ORIGINS ?? ''): boolean {
+  if (origin === undefined || origin === '') return true;
+  const o = String(origin);
+  try {
+    const u = new URL(o);
+    if (u.host === String(host ?? '')) return true;
+    return extra.split(',').map((x) => x.trim()).filter(Boolean).includes(u.origin);
+  } catch { return false; }
+}
