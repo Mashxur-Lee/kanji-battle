@@ -1,5 +1,7 @@
 // All sound is synthesised with the Web Audio API: no audio files, no licensing questions.
 // Browsers only allow audio after a user gesture, so nothing plays until the first click/keypress.
+import { staffOf } from '../shared/progress';
+import { staffCast } from './staffsfx';
 
 type Prefs = { radio: boolean; sfx: boolean; musicVol: number; sfxVol: number };
 const PREFS_KEY = 'kb:audio';
@@ -181,6 +183,12 @@ export const sfx = {
     if (step >= 1) tone(midi(root - 24), t, ring * 1.2, { gain: 0.12 + step * 0.05, send: 0.3, attack: 0.01 }); // sub swell
     if (step >= 4) [0.16, 0.32].forEach((dt) => bell(midi(root + 12), t + dt, 1.2, 0.1)); // full-power shimmer
     noise(t, 0.25, 0.05, 6000, 'highpass'); // sparkle
+  },
+  /** 0.9.9.9.8: a right answer in a battle: your staff's own cast sound (staffsfx.ts), bigger with the combo */
+  cast(staff: string | null | undefined, combo = 1) {
+    if (!sfxOk()) return;
+    const def = staffOf(staff);
+    staffCast({ c: ctx!, dry: sfxBus, wet: sfxSend }, def.id, combo, ctx!.currentTime, def.base);
   },
   /** Miss / skip / timeout — soft descending fizzle. */
   wrong() {

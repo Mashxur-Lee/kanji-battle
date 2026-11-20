@@ -15,8 +15,6 @@ interface Bridge {
   notificationsAllowed?: () => boolean;
   askNotifications?: () => void;
 }
-/** whether this is the Android app with push (Settings shows the test then) */
-export const canPush = () => !!android();
 const android = (): Bridge | null => { const b = (window as unknown as { KWAndroid?: Bridge }).KWAndroid; return b?.pushToken ? b : null; };
 
 const SENT_KEY = 'kb:pushSent';
@@ -26,7 +24,7 @@ let timer = 0;
 /** signed in (each connection): hand the phone's token to the server — once a day per account and token */
 export function registerPush(userId: string) {
   const b = android();
-  if (!b) return;
+  if (!b || !alertsOn()) return; // (0.9.9.9.8: turned off on this device)
   clearTimeout(timer);
   try { b.setPushAuth?.(getToken() ?? '', lang()); } catch { /* an older app */ }
   let token = '';
@@ -52,40 +50,31 @@ export async function pushSignedOut() {
 }
 
 /**
- * 0.9.9.9.5.2: Settings → "Test invite notifications": goes the whole way (the phone's permission, its Firebase
- * token, the server's push, Google) and says in words where it stops.
+ * 0.9.9.9.8: Settings → Notifications → "Invites and messages". Off: this device gets no notifications for friends'
+ * invites and messages — the phone app hands its token back to the server (nothing is pushed to it), a browser shows
+ * no system notifications. On: the phone registers again; a browser asks for permission if it hasn't yet.
+ * (It is this device's choice: a phone can be quiet while the computer still notifies.)
  */
-export async function testPush(onWait?: () => void): Promise<{ ok: boolean; text: string }> {
+const OFF_KEY = 'kb:alertsOff';
+export const alertsOn = () => { try { return localStorage.getItem(OFF_KEY) !== '1'; } catch { return true; } };
+export async function setAlerts(on: boolean, userId: string): Promise<'on' | 'off' | 'blocked'> {
+  try { if (on) localStorage.removeItem(OFF_KEY); else localStorage.setItem(OFF_KEY, '1'); } catch { /* private mode */ }
   const b = android();
-  if (!b) return { ok: false, text: 'Only the Android app gets invite notifications.' };
-  if (b.notificationsAllowed && !b.notificationsAllowed()) {
-    b.askNotifications?.();
-    return { ok: false, text: 'Notifications are blocked for Kanji Wizards. Allow them (Android settings → Apps → Kanji Wizards → Notifications), then test again.' };
+  if (b) {
+    if (!on) {
+      clearTimeout(timer);
+      let token = '';
+      try { token = b.pushToken?.() ?? ''; } catch { /* an older app */ }
+      try { localStorage.removeItem(SENT_KEY); } catch { /* private mode */ }
+      if (token) await api.pushUnregister(token).catch(() => { /* offline: tried again when it's turned off next time */ });
+      return 'off';
+    }
+    if (b.notificationsAllowed && !b.notificationsAllowed()) { b.askNotifications?.(); return 'blocked'; }
+    if (userId) { tries = 0; registerPush(userId); }
+    return 'on';
   }
-  let token = '';
-  for (let i = 0; i < 4 && !token; i++) {
-    try { token = b.pushToken?.() ?? ''; } catch { /* an older app */ }
-    if (!token) await new Promise((r) => setTimeout(r, 1500));
-  }
-  if (!token) {
-    let why = '';
-    try { why = b.pushError?.() ?? ''; } catch { /* an older app */ }
-    return { ok: false, text: `This phone has no push token from Google yet${why ? ` (${why})` : ''}. Check that Google Play services are on and the internet works, then test again.` };
-  }
-  try { await api.pushRegister(token, lang()); } catch (e) { return { ok: false, text: `Could not reach the server: ${(e as Error).message}` }; }
-  try { localStorage.removeItem(SENT_KEY); } catch { /* private mode */ }
-  let r: Awaited<ReturnType<typeof api.pushTest>>;
-  // 0.9.9.9.5.3: sent after 5 s — time to go to the home screen, where a real invite would find the phone
-  onWait?.();
-  try { r = await api.pushTest(5); } catch (e) { return { ok: false, text: `Could not reach the server: ${(e as Error).message}` }; }
-  if (r.ok) return { ok: true, text: 'Sent ✓ — the notification should be on your phone now. If it isn’t, update the app (menu → Get the app) and check that battery saving doesn’t stop it.' };
-  const err = r.errors?.length ? ` (${r.errors[0]})` : '';
-  const text = {
-    'server-off': 'Push is not switched on on the game’s server yet — the admin has to set it up.',
-    'no-phone': 'The server has no phone for your account — test again in a moment.',
-    stale: 'Google says this phone’s token is out of date. Reopen the app and test again.',
-    wait: 'Wait a few seconds between tests.',
-    refused: `Google refused the push${err}.`,
-  }[r.reason ?? 'refused'] ?? `It didn’t work${err}.`;
-  return { ok: false, text };
+  if (!on) return 'off';
+  if (!('Notification' in window)) return 'blocked';
+  const p = Notification.permission === 'default' ? await Notification.requestPermission().catch(() => 'denied' as NotificationPermission) : Notification.permission;
+  return p === 'granted' ? 'on' : 'blocked';
 }

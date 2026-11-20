@@ -132,7 +132,7 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
     b.className = `ach tier-${a.tier}` + (locked ? ' locked' : '');
     b.tabIndex = 0;
     b.style.setProperty('--ac', TIERS[a.tier]!.ink);
-    b.setAttribute('aria-label', `${a.name}: ${locked ? 'locked — ' : ''}${a.how}`);
+    b.setAttribute('aria-label', `${a.name}: ${locked ? 'locked - ' : ''}${a.how}`);
     b.innerHTML = badgeSvg(a, locked);
     const tip = document.createElement('div');
     tip.className = 'ach-tip';
@@ -140,7 +140,7 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
     const s = document.createElement('span'); s.textContent = a.how;
     const pinned = badges.includes(a.id);
     const tn = document.createElement('small'); tn.className = `ach-tier t${a.tier}`; tn.textContent = `${TIERS[a.tier]!.name} ${'★'.repeat(Math.min(3, a.tier))}`;
-    const st = document.createElement('small'); st.textContent = locked ? 'Locked' : pinned && other ? 'On their profile ✓' : pinned ? 'On your profile ✓ — click to remove' : onBadges ? 'Unlocked ✓ — click to show on your profile' : 'Unlocked ✓';
+    const st = document.createElement('small'); st.textContent = locked ? 'Locked' : pinned && other ? 'On their profile ✓' : pinned ? 'On your profile ✓ - click to remove' : onBadges ? 'Unlocked ✓ - click to show on your profile' : 'Unlocked ✓';
     tip.append(tn, t, s);
     const goal = locked ? ACH_GOALS[a.id] : undefined;
     const have = goal && counts ? counts[goal[0]] : undefined;
@@ -152,7 +152,7 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
       pr.append(n, bar); tip.append(pr);
       const mini = document.createElement('i'); mini.className = 'ach-bar'; mini.style.setProperty('--p', `${(pct * 100).toFixed(1)}%`);
       b.append(mini);
-      b.setAttribute('aria-label', `${a.name}: locked — ${a.how} (${Math.min(have, goal[1])} / ${goal[1]})`);
+      b.setAttribute('aria-label', `${a.name}: locked - ${a.how} (${Math.min(have, goal[1])} / ${goal[1]})`);
     }
     tip.append(st);
     b.append(tip);
@@ -161,7 +161,7 @@ export function renderAchievements(box: HTMLElement, unlocks: readonly string[] 
       b.classList.add('pickable');
       const toggle = () => {
         if (pinned) return onBadges(badges.filter((x) => x !== a.id));
-        if (badges.length >= BADGES_MAX) { ui.toast(`Up to ${BADGES_MAX} badges — click one with a ★ to remove it first.`); return; }
+        if (badges.length >= BADGES_MAX) { ui.toast(`Up to ${BADGES_MAX} badges - click one with a ★ to remove it first.`); return; }
         onBadges([...badges, a.id]);
       };
       b.onclick = toggle;

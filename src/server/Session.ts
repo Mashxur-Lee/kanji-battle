@@ -152,10 +152,10 @@ export const SCREEN_ACTIVITY: Record<string, string> = {
 };
 export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; declinedAt?: number; now: number }): string | null {
   if (o.inRoom) return 'Your friend is already in this room';
-  if (o.activity?.startsWith('Playing')) return 'Your friend is in a game right now — invite them when it\'s over';
+  if (o.activity?.startsWith('Playing')) return 'Your friend is in a game right now - invite them when it\'s over';
   // 0.9.9.9.5: they said no — no asking again and again
   const block = DECLINE_BLOCK_MS - (o.now - (o.declinedAt ?? -Infinity));
-  if (block > 0) return `They declined your invite — you can invite them again in ${Math.ceil(block / 60_000)} min`;
+  if (block > 0) return `They declined your invite - you can invite them again in ${Math.ceil(block / 60_000)} min`;
   const wait = INVITE_COOLDOWN_MS - (o.now - (o.lastAt ?? -Infinity));
   if (wait > 0) return `Wait ${Math.ceil(wait / 1000)} s before inviting them again`;
   return null;
@@ -191,7 +191,7 @@ export class Session implements Client {
     if (this.user?.role === 'admin') return null;
     const rec = await this.auth.store.findById(this.user!.id);
     const locked = modes.find((m) => !modeUnlocked(m, rec?.xp ?? 0));
-    return locked ? `${MODE_LABEL[locked]} unlocks at level ${MODE_LEVEL[locked]} — win a few games first (or join a friend's room).` : null;
+    return locked ? `${MODE_LABEL[locked]} unlocks at level ${MODE_LEVEL[locked]} - win a few games first (or join a friend's room).` : null;
   }
 
   /** Levels this player may play: a hiragana beginner gets only かな (Settings → "I've mastered hiragana"). */
@@ -290,7 +290,7 @@ export class Session implements Client {
       // 0.9.9.9.7.2: room codes are 4 letters (about 330,000) — wrong ones are limited, per account and per address,
       // so a script can't try them all and walk into private lobbies
       const who = { user: user.id, ip: this.ip };
-      if (this.rooms.codesBlocked(who)) return this.send({ type: 'error', message: 'Too many wrong room codes — wait a minute' });
+      if (this.rooms.codesBlocked(who)) return this.send({ type: 'error', message: 'Too many wrong room codes - wait a minute' });
       const room = this.rooms.get(String(msg.code ?? ''));
       if (!room) { this.rooms.wrongCode(who); return this.send({ type: 'error', message: 'Room not found' }); }
       this.hub.dropInvites(user.id); // (answered by joining)
@@ -328,7 +328,7 @@ export class Session implements Client {
       if (live && !presence.away && presence.device !== 'phone') return;
       // (0.9.9.9.5.4: "fromName", not "from" — Google refuses the whole push for that key: no invite push ever went out)
       const pushed = await this.hub.notify(friendId, { kind: 'invite', fromId: user.id, fromName: invite.from, code: room.code, mode: MODE_LABEL[room.mode] });
-      if (!live) this.send(pushed ? { type: 'notice', message: 'Invite sent — they get a notification on their phone' } : { type: 'error', message: 'Your friend is offline' });
+      if (!live) this.send(pushed ? { type: 'notice', message: 'Invite sent - they get a notification on their phone' } : { type: 'error', message: 'Your friend is offline' });
       return;
     }
     switch (msg.type) {
@@ -386,7 +386,7 @@ export class Session implements Client {
       case 'chat':
         // (0.9.9.9.5: 6 messages at once, then one every 2 s — no flooding the room)
         if (typeof msg.text === 'string') {
-          if (!this.chatBucket.take()) { this.send({ type: 'error', message: 'Slow down a little — wait a moment before chatting again.' }); break; }
+          if (!this.chatBucket.take()) { this.send({ type: 'error', message: 'Slow down a little - wait a moment before chatting again.' }); break; }
           room.chat(user.id, msg.text.slice(0, CHAT_MAX_LENGTH * 2));
         }
         break;

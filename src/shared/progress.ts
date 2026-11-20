@@ -98,14 +98,14 @@ export interface BorderDef { id: string; name: string; level: number; blurb: str
 export const BORDERS: readonly BorderDef[] = [
   { id: 'none', name: 'No border', level: 0, blurb: 'Just your picture.' },
   // 0.9.9.9.6.2: the level borders (Apprentice, Adept, Master, Archmage) are gone — the Beta one and the leagues' stay
-  { id: 'beta', name: 'Beta', level: 0, unlock: 'border:beta', blurb: 'A platinum ring with a BETA tag — for everyone who finished the tutorial during the beta.' },
+  { id: 'beta', name: 'Beta', level: 0, unlock: 'border:beta', blurb: 'A platinum ring with a BETA tag - for everyone who finished the tutorial during the beta.' },
   // 0.9.9.9.6: the Daily challenge leagues — each league reached, its own frame (0.9.9.9.6.2: N5–N1 animated, painted)
-  { id: 'lg-kana', name: 'Kana League', level: 0, league: 'KANA', blurb: 'Cherry-blossom pink, かな at its foot — pass the Kana league.' },
-  { id: 'lg-n5', name: 'N5 League', level: 0, league: 'N5', blurb: 'Polished silver with four glinting gems — pass the N5 league.' },
-  { id: 'lg-n4', name: 'N4 League', level: 0, league: 'N4', blurb: 'Ice-blue crystal with sharp shards and drifting sparkles — pass the N4 league.' },
-  { id: 'lg-n3', name: 'N3 League', level: 0, league: 'N3', blurb: 'Gilded gold wrapped in flowing ribbons, a star gem at the crest — pass the N3 league.' },
-  { id: 'lg-n2', name: 'N2 League', level: 0, league: 'N2', blurb: 'An arcane ring of violet light around a horned gold frame — pass the N2 league.' },
-  { id: 'lg-n1', name: 'N1 League', level: 0, league: 'N1', blurb: 'The legend: a radiant crown of gold rays around a ring of runes — pass the N1 league, the highest.' },
+  { id: 'lg-kana', name: 'Kana League', level: 0, league: 'KANA', blurb: 'Cherry-blossom pink, かな at its foot - pass the Kana league.' },
+  { id: 'lg-n5', name: 'N5 League', level: 0, league: 'N5', blurb: 'Polished silver with four glinting gems - pass the N5 league.' },
+  { id: 'lg-n4', name: 'N4 League', level: 0, league: 'N4', blurb: 'Ice-blue crystal with sharp shards and drifting sparkles - pass the N4 league.' },
+  { id: 'lg-n3', name: 'N3 League', level: 0, league: 'N3', blurb: 'Gilded gold wrapped in flowing ribbons, a star gem at the crest - pass the N3 league.' },
+  { id: 'lg-n2', name: 'N2 League', level: 0, league: 'N2', blurb: 'An arcane ring of violet light around a horned gold frame - pass the N2 league.' },
+  { id: 'lg-n1', name: 'N1 League', level: 0, league: 'N1', blurb: 'The legend: a radiant crown of gold rays around a ring of runes - pass the N1 league, the highest.' },
 ];
 /**
  * 0.9.9.9.6.4: a league's rewards (its border, and a character for some) come when you PASS it — 7 / 10 or better in
@@ -235,10 +235,10 @@ export type CharacterId = (typeof CHARACTERS)[number];
 export const isCharacter = (x: unknown): x is CharacterId => CHARACTERS.includes(x as CharacterId);
 export interface CharacterDef { id: CharacterId; name: string; league: string | null; blurb: string }
 export const CHARACTER_DEFS: readonly CharacterDef[] = [
-  { id: 'goblin', name: 'Goblin', league: null, blurb: 'Small, quick and up to mischief — every wizard-to-be starts out as a goblin.' },
+  { id: 'goblin', name: 'Goblin', league: null, blurb: 'Small, quick and up to mischief - every wizard-to-be starts out as a goblin.' },
   { id: 'knight', name: 'Knight', league: 'N5', blurb: 'Plate armour, a red plume and a steady hand on the staff.' },
   { id: 'witch', name: 'Witch', league: 'N3', blurb: 'A wide hat, a moon at her belt and a robe the colour of night.' },
-  { id: 'wizard', name: 'Wizard', league: 'N2', blurb: 'The tall hat and the long cloak — a master of the kanji arts.' },
+  { id: 'wizard', name: 'Wizard', league: 'N2', blurb: 'The tall hat and the long cloak - a master of the kanji arts.' },
 ];
 /** the Daily challenge leagues, low to high (as the server's DailyService) */
 export const DAILY_LEAGUES = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
@@ -283,7 +283,7 @@ export const isPose = (x: unknown): x is PoseId => POSES.includes(x as PoseId);
 /** `learned`: unlocks once you have learned that many spells (0.9.9.7.1 — it was a level) */
 export interface PoseDef { id: PoseId; name: string; learned: number; blurb: string }
 export const POSE_DEFS: readonly PoseDef[] = [
-  { id: 'none', name: 'Standing', learned: 0, blurb: 'Your usual stance — feet on the ground, the staff at your side.' },
+  { id: 'none', name: 'Standing', learned: 0, blurb: 'Your usual stance - feet on the ground, the staff at your side.' },
   // 0.9.9.8.2: Channel first (100), Levitation last (300)
   { id: 'twohand', name: 'Channel', learned: 100, blurb: 'Both hands on the staff, upright in front of you, gathering power.' },
   { id: 'aim', name: 'Duelist', learned: 200, blurb: 'Side-on to your opponent, the staff held out straight at them, its core pointed their way.' },

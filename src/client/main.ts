@@ -40,7 +40,7 @@ import * as ui from './ui';
 import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
 import { closeRematchAsk, initFriends, onFriendEvent, onFriendPresence, onInvite, onInviteDeclined, onRematchAsk, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
-import { canPush, pushSignedOut, registerPush, testPush } from './push';
+import { alertsOn, pushSignedOut, registerPush, setAlerts } from './push';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialChallenge, tutorialScreen, tutorialTouring } from './tutorial';
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
@@ -299,7 +299,7 @@ async function boot() {
     ui.show('auth');
     const canOffline = await offline.canGoOffline();
     ui.$('authError').textContent = canOffline ? 'The server can\'t be reached right now.'
-      : e instanceof ApiError && e.status === 0 ? 'No internet connection. Sign in once while online — then Study spells and more work offline too.' : 'Server unreachable — try again in a moment.';
+      : e instanceof ApiError && e.status === 0 ? 'No internet connection. Sign in once while online - then Study spells and more work offline too.' : 'Server unreachable - try again in a moment.';
     ui.$('playOffline').hidden = !canOffline;
   }
 }
@@ -361,7 +361,7 @@ async function wakeServer(): Promise<'up' | 'offline' | 'gave-up'> {
 ui.$('playOffline').onclick = async () => {
   ui.$('playOffline').hidden = true;
   if (await offline.goOffline()) void boot();
-  else ui.$('authError').textContent = 'Nothing saved on this device yet — sign in once while online.';
+  else ui.$('authError').textContent = 'Nothing saved on this device yet - sign in once while online.';
 };
 
 function signedIn(u: PublicUser) {
@@ -520,7 +520,7 @@ function onMessage(msg: ServerMessage) {
       if (ui.currentScreen() === 'results' && !lobbyRequested) {
         pendingLobby = msg;
         ui.$<HTMLButtonElement>('rematch').disabled = true;
-        ui.$('rematchStatus').textContent = 'The room is back in its lobby — press Back to lobby when you\'re ready.';
+        ui.$('rematchStatus').textContent = 'The room is back in its lobby - press Back to lobby when you\'re ready.';
         ui.$('resultLobby').classList.add('pulse');
         break;
       }
@@ -529,7 +529,7 @@ function onMessage(msg: ServerMessage) {
       // a challenge from a friend's profile: the room is made — invite them right away
       if (pendingChallenge && msg.hostId === you && msg.mode === pendingChallenge.mode) {
         socket.send({ type: 'invite', friendId: pendingChallenge.friendId, challenge: true });
-        ui.toast(`Challenge sent to ${pendingChallenge.name} — they get an invite to your ${MODE_LABEL[msg.mode]} room.`, 5000);
+        ui.toast(`Challenge sent to ${pendingChallenge.name} - they get an invite to your ${MODE_LABEL[msg.mode]} room.`, 5000);
         pendingChallenge = null;
       }
       ui.$('resultLobby').classList.remove('pulse');
@@ -604,7 +604,8 @@ function onMessage(msg: ServerMessage) {
       if (msg.correct) {
         // say the word first (romaji answers at the kana level: say the kana itself), then the success chime
         const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
-        void voice.speak(kana).then(() => audio.sfx.correct(msg.combo));
+        // (0.9.9.9.8: the sound of your staff — each has its own)
+        void voice.speak(kana).then(() => audio.sfx.cast(profile?.staff, msg.combo));
         if (mode !== 'deck') comboMilestone(msg.combo, profile?.unlocks); // "On Fire" / "Inferno" / "Unstoppable" right away
       } else { audio.sfx.wrong(); arena()?.fizzle('me'); }
       break;
@@ -693,7 +694,7 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
       // 0.9.9.9.5.3: a 30× combo (Godlike) — the arena trembles, and everyone in it feels it
       if (e.combo === 30) {
         ui.arenaTremble(); audio.sfx.quake();
-        ui.toast(e.playerId === you ? '30× combo — the arena trembles!' : `${nameOf(e.playerId)} reached a 30× combo — the arena trembles!`);
+        ui.toast(e.playerId === you ? '30× combo - the arena trembles!' : `${nameOf(e.playerId)} reached a 30× combo - the arena trembles!`);
       }
       break;
     }
@@ -716,10 +717,10 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
       const immune = e.immune ?? [];
       const victims = (e.victims ? players.filter((p) => e.victims!.includes(p.id)) : players.filter((p) => !immune.includes(p.id) && p.hp > 0)).map((p) => actorOf(p.id));
       ui.breathFire(e.damage, victims, immune.map((id) => actorOf(id)));
-      if (immune.includes(you)) ui.toast('You are on fire — immune to dragon breath!');
+      if (immune.includes(you)) ui.toast('You are on fire - immune to dragon breath!');
       audio.sfx.fire();
       setTimeout(render, 450);
-      ui.logLine(immune.length ? `Fire breath! ${e.damage} damage — ${immune.map(nameOf).join(', ')} immune (on fire)` : `Fire breath! Everyone takes ${e.damage}`);
+      ui.logLine(immune.length ? `Fire breath! ${e.damage} damage - ${immune.map(nameOf).join(', ')} immune (on fire)` : `Fire breath! Everyone takes ${e.damage}`);
       break;
     }
   }
@@ -816,7 +817,7 @@ ui.$('padNext').onclick = () => {
 };
 // typed kanji with a Japanese IME (the first Enter confirms the conversion, the next one sends)
 for (const id of ['imeInput', 'answer']) {
-  for (const ev of ['paste', 'drop'] as const) ui.$(id).addEventListener(ev, (e) => { e.preventDefault(); ui.toast('Pasting is off — write it yourself!'); });
+  for (const ev of ['paste', 'drop'] as const) ui.$(id).addEventListener(ev, (e) => { e.preventDefault(); ui.toast('Pasting is off - write it yourself!'); });
 }
 ui.$<HTMLInputElement>('imeInput').addEventListener('keydown', (e) => {
   const input = e.currentTarget as HTMLInputElement;
@@ -865,7 +866,7 @@ ui.$('authForm').addEventListener('submit', async (e) => {
 });
 ui.$('logout').onclick = () => {
   // 0.9.9.9.6.9: a guest who signs out can't come back to this account
-  if (user?.guest && !confirm(tr('You are playing as a guest. If you log out now, this progress is gone — save it first (Save progress at the top). Log out anyway?'))) return;
+  if (user?.guest && !confirm(tr('You are playing as a guest. If you log out now, this progress is gone - save it first (Save progress at the top). Log out anyway?'))) return;
   logout();
 };
 // ── 0.9.9.9.6.9: guests — play at once; save the account later ──
@@ -883,17 +884,17 @@ ui.$('guestPlay').onclick = async () => {
   } finally { btn.disabled = false; }
 };
 function saveGuest(why?: string) {
-  claimDialog({ why, onDone: (_t, u) => { user = u; ui.setUser(u); setMentionSelf(u.id, u.username, u.name); emailLabel(); ui.toast(tr('Saved — this is your account now'), 3500); } });
+  claimDialog({ why, onDone: (_t, u) => { user = u; ui.setUser(u); setMentionSelf(u.id, u.username, u.name); emailLabel(); ui.toast(tr('Saved - this is your account now'), 3500); } });
 }
 ui.$('guestSave').onclick = () => saveGuest();
 // messages and friends need an account: a guest is offered to save it first
 ui.$('inboxBtn').addEventListener('click', (e) => {
   if (!user?.guest) return;
   e.preventDefault(); e.stopImmediatePropagation();
-  saveGuest(tr('Messages and friends need an account. Save your progress — it takes a moment, and everything you have done so far stays.'));
+  saveGuest(tr('Messages and friends need an account. Save your progress - it takes a moment, and everything you have done so far stays.'));
 }, true);
 // 0.9.9.9.6.6: "Forgot password?" — a code by email; your email (added once by older accounts, changed in your profile)
-ui.$('authForgot').onclick = () => forgotDialog(ui.$<HTMLInputElement>('authUser').value.trim(), (_t, u) => { ui.$<HTMLInputElement>('authPass').value = ''; signedIn(u); void refreshProfile(); ui.toast(tr('Password changed — you are signed in'), 3500); });
+ui.$('authForgot').onclick = () => forgotDialog(ui.$<HTMLInputElement>('authUser').value.trim(), (_t, u) => { ui.$<HTMLInputElement>('authPass').value = ''; signedIn(u); void refreshProfile(); ui.toast(tr('Password changed - you are signed in'), 3500); });
 let emailAsked = false;
 function emailLabel() { ui.$('emailChange').textContent = user?.email ? `${tr('Email')}: ${user.email}${user.emailVerified ? '' : ` (${tr('not confirmed')})`}` : tr('Add your email'); }
 // 0.9.9.9.7: an email is confirmed with a code before it's the account's
@@ -920,7 +921,7 @@ ui.$('pwChange').onclick = () => {
     l.append(tr(label), i); return { l, i };
   };
   const cur = field('Current password', 'current-password'), nw = field('New password', 'new-password'), again = field('New password again', 'new-password');
-  nw.i.minLength = 6; again.i.minLength = 6;
+  nw.i.minLength = 8; again.i.minLength = 8; // (0.9.9.9.8: 8)
   const msg = document.createElement('p'); msg.className = 'hint pw-msg'; msg.setAttribute('role', 'status');
   const note = document.createElement('p'); note.className = 'hint'; note.textContent = tr('You stay signed in here; every other device is signed out.');
   const row = document.createElement('div'); row.className = 'fb-actions';
@@ -928,7 +929,14 @@ ui.$('pwChange').onclick = () => {
   const ok = document.createElement('button'); ok.type = 'submit'; ok.className = 'big'; ok.textContent = tr('Change password');
   row.append(cancel, ok);
   const h3 = document.createElement('h3'); h3.textContent = tr('Change password');
-  f.append(h3, cur.l, nw.l, again.l, note, msg, row);
+  // 0.9.9.9.8: or keep the password and only sign the other devices out (a lost phone, a shared computer)
+  const others = document.createElement('button'); others.type = 'button'; others.className = 'link pw-others'; others.textContent = tr('Sign out on all other devices');
+  others.onclick = async () => {
+    others.disabled = true;
+    try { setToken((await api.signOutOthers()).token); d.close(); ui.toast(tr('Signed out on all other devices. You stay signed in here.'), 4000); }
+    catch (err) { msg.textContent = (err as Error).message; others.disabled = false; }
+  };
+  f.append(h3, cur.l, nw.l, again.l, note, msg, row, others);
   f.onsubmit = async (e) => {
     e.preventDefault();
     if (nw.i.value !== again.i.value) { msg.textContent = tr('The new passwords don’t match'); return; }
@@ -961,7 +969,7 @@ ui.$('ppRenameForm').addEventListener('submit', async (e) => {
     setMentionSelf(r.user.id, r.user.username, r.user.name);
     ui.setUser(r.user);
     ui.$('ppRenameForm').hidden = true;
-    ui.toast(r.user.nickname ? `${tr('Your nickname')}: ${r.user.nickname}` : tr('Nickname cleared — others see your login'));
+    ui.toast(r.user.nickname ? `${tr('Your nickname')}: ${r.user.nickname}` : tr('Nickname cleared - others see your login'));
   } catch (err) { ui.toast((err as Error).message, 5000); }
 });
 
@@ -993,7 +1001,7 @@ for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {
   card.onclick = () => {
     const m = card.dataset.mode as GameMode;
     if (!canPlay(m)) return ui.toast(lockText(m), 5000);
-    if (offline.isOffline() && !OFFLINE_MODES.includes(m)) return ui.toast(tr('This mode needs internet — offline you can play Kanji Reading, Rapid or Boss Elimination against the AI.'), 5000);
+    if (offline.isOffline() && !OFFLINE_MODES.includes(m)) return ui.toast(tr('This mode needs internet - offline you can play Kanji Reading, Rapid or Boss Elimination against bots.'), 5000);
     if (creating) return; // already on its way
     if (m === 'deck') askNotifyPermission(); // "your turn" while you look at another tab
     const msg: ClientMessage = { type: 'create', mode: m, levels: savedLevels() };
@@ -1002,7 +1010,7 @@ for (const card of document.querySelectorAll<HTMLButtonElement>('.mode-card')) {
     socket.send(msg);
     creating.timers.push(
       window.setTimeout(() => { if (creating && ui.currentScreen() === 'modes') socket.restart(msg); }, 4000),
-      window.setTimeout(() => { if (!creating) return; createDone(); if (ui.currentScreen() === 'modes') ui.toast(tr('Couldn’t reach the game server — check your connection and try again.'), 5000); }, 12_000),
+      window.setTimeout(() => { if (!creating) return; createDone(); if (ui.currentScreen() === 'modes') ui.toast(tr('Couldn’t reach the game server - check your connection and try again.'), 5000); }, 12_000),
     );
   };
 }
@@ -1066,15 +1074,16 @@ setInviteJoin((c) => joinRoom(c), () => (inRoom && code ? code : null)); // 0.9.
 ui.setModePicker((m) => { if (!canPlay(m)) { ui.toast(lockText(m), 5000); return; } socket.send({ type: 'set_mode', mode: m }); }); // 0.9.9.9.6.5: the host changes the room's mode
 onLeagueEquip((p) => applyProfile(p)); // 0.9.9.9.6: the league-up screen's Equip buttons
 onAdminSelfTest((p) => applyProfile(p)); // 0.9.9.9.6.3: the admin's test tools (streak, record)
-// 0.9.9.9.5.2: Settings → Invite notifications → Test (the Android app): says where push stops, if it does
+// 0.9.9.9.8: Settings → Notifications → "Invites and messages" (on the phone app and in browsers; the tests are gone)
 {
-  ui.$('pushTestRow').hidden = !canPush();
-  const btn = ui.$<HTMLButtonElement>('pushTest'), out = ui.$('pushTestOut');
+  const btn = ui.$<HTMLButtonElement>('alertsBtn');
+  const draw = () => { const on = alertsOn(); btn.textContent = tr(on ? 'On' : 'Off'); btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', String(on)); };
+  draw();
   btn.onclick = async () => {
-    btn.disabled = true; out.hidden = false; out.classList.remove('ok', 'bad'); out.textContent = tr('Testing…');
-    const r = await testPush(() => { out.textContent = tr('Go to your home screen now — the test notification comes in 5 seconds…'); });
-    out.textContent = tr(r.text); out.classList.add(r.ok ? 'ok' : 'bad');
-    btn.disabled = false;
+    const r = await setAlerts(!alertsOn(), user?.id ?? '');
+    draw();
+    if (r === 'blocked') ui.toast(tr('Notifications are blocked for this game. Allow them in your phone or browser settings.'), 6000);
+    else ui.toast(tr(r === 'on' ? 'Invite and message notifications on' : 'Invite and message notifications off'));
   };
 }
 initTutorial({
@@ -1098,7 +1107,7 @@ ui.$('howBtn').onclick = () => ui.$<HTMLDialogElement>('howDialog').showModal();
 ui.$('studyBtn').onclick = () => {
   // 0.9.9.9.5.1: kanji words only — a かな beginner learns kana first
   if (ui.kanaBeginner()) {
-    ui.toast('Master hiragana first — in Kana', 4000);
+    ui.toast('Master hiragana first - in Kana', 4000);
     const k = ui.$('kanaBtn');
     k.classList.remove('nudge'); void k.offsetWidth; k.classList.add('nudge');
     return;
@@ -1114,7 +1123,7 @@ initKana({
     const was = ui.kanaBeginner();
     await refreshProfile();
     // all 46 basic hiragana mastered: the server lifted the beginner lock
-    if (was && !ui.kanaBeginner()) { ui.toast('All basic hiragana mastered — kanji battles unlocked!', 5000); audio.sfx.win(); }
+    if (was && !ui.kanaBeginner()) { ui.toast('All basic hiragana mastered - kanji battles unlocked!', 5000); audio.sfx.win(); }
   },
 });
 ui.$('studyBack').onclick = () => ui.show('menu');
@@ -1231,15 +1240,15 @@ document.documentElement.dataset.v = VERSION;
   const sync = () => {
     t.value = arenaQuality();
     t.disabled = !hasWebgl(); // you can pick it while holding a phone upright: it applies once you turn it sideways
-    ui.$('arena3dInfo').textContent = !hasWebgl() ? 'Your browser has no WebGL — the classic 2D view is used.'
+    ui.$('arena3dInfo').textContent = !hasWebgl() ? 'Your browser has no WebGL - the classic 2D view is used.'
       : arenaSupported() ? 'First-person duel arena (move the mouse to look around). Low is lighter on phones and older computers; Off uses the classic 2D view.'
-      : 'This screen is too small for the 3D arena — the classic 2D view is used.';
+      : 'This screen is too small for the 3D arena - the classic 2D view is used.';
   };
   sync();
   t.onchange = () => { setArenaQuality(t.value as ArenaQuality); sync(); };
   addEventListener('kw:arena-lite', (e) => {
     const { lowRes } = (e as CustomEvent<{ lowRes: boolean }>).detail;
-    ui.toast(lowRes ? '3D was slow — lowered its resolution. Settings → Graphics → 3D graphics → Off for the 2D view.' : '3D was slow on this device — switched to Low (Settings → Graphics).', 5000);
+    ui.toast(lowRes ? '3D was slow - lowered its resolution. Settings → Graphics → 3D graphics → Off for the 2D view.' : '3D was slow on this device - switched to Low (Settings → Graphics).', 5000);
     sync();
   });
   ui.$('volBtn').addEventListener('click', sync);
@@ -1264,7 +1273,7 @@ ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {
   const box = e.target as HTMLInputElement;
   try {
     applyProfile((await api.setKana(box.checked)).profile);
-    ui.toast(box.checked ? 'Kanji battles unlocked — pick N5 when you queue!' : 'Back to かな only in battles.', 5000);
+    ui.toast(box.checked ? 'Kanji battles unlocked - pick N5 when you queue!' : 'Back to かな only in battles.', 5000);
     if (!box.checked) store.set('kb:levels', JSON.stringify(['KANA']));
   } catch (err) { box.checked = !box.checked; ui.toast((err as Error).message); }
 };
@@ -1360,7 +1369,7 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
   const warm = (e: Event) => {
     const el = (e.target as HTMLElement | null)?.closest?.<HTMLElement>('[data-profile]');
     const id = el?.dataset.profile;
-    if (!id || el?.dataset.bot || /\(AI /.test(el?.textContent ?? '')) return;
+    if (!id || el?.dataset.bot || /\((?:AI|Bot) /.test(el?.textContent ?? '')) return;
     const c = cache.get(id);
     if (!c || Date.now() - c.at > 60_000) void fetchProfile(id).catch(() => {});
   };
@@ -1385,7 +1394,7 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
     if (shownFor === id && !ui.$('otherPop').hidden) { ui.hideProfileCard(); shownFor = ''; return; }
     shownFor = id;
     const name = el.dataset.name ?? el.textContent ?? '';
-    const bot = el.dataset.bot ?? /\(AI (N\d)\)$/.exec(name)?.[1];
+    const bot = el.dataset.bot ?? /\(Bot (N\d)\)$/.exec(name)?.[1];
     if (bot) return ui.showProfileCard(el, { bot, name });
     const cached = cache.get(id);
     if (cached) show(el, id, cached.p, knownFriends()?.friends ?? []);

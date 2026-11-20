@@ -92,11 +92,10 @@
       <p class="hint">The game's text. Japanese words always stay Japanese.</p>
     </section>
     <section class="set-sec" data-sec="other" hidden>
-      <div class="toggle-row">Daily reminders <button id="notifyBtn" class="pill notify-btn set-switch" type="button" aria-pressed="false" aria-label="Reminders">Off</button></div>
-      <div id="remindTestRow" class="toggle-row" hidden>Test reminder <button id="remindTest" class="pill" type="button">Send a test</button></div>
-      <p id="remindLast" class="hint" hidden></p>
-      <div id="pushTestRow" class="toggle-row" hidden>Invite notifications <button id="pushTest" class="pill" type="button">Test</button></div>
-      <p id="pushTestOut" class="hint push-test-out" hidden></p>
+      <h4 class="set-h">Notifications</h4>
+      <div class="toggle-row">Daily reminders <button id="notifyBtn" class="pill notify-btn set-switch" type="button" aria-pressed="false" aria-label="Daily reminders">Off</button></div>
+      <div class="toggle-row">Invites and messages <button id="alertsBtn" class="pill notify-btn set-switch on" type="button" aria-pressed="true" aria-label="Invites and messages">On</button></div>
+      <p class="hint">On this device. Reminders: the Daily challenge, reviews and streak tasks, at most once a day each.</p>
       <label id="gameKbRow" class="toggle-row" hidden>Battle keyboard <select id="gameKbSel" aria-label="Battle keyboard"><option value="game">Game keyboard</option><option value="system">Phone keyboard</option></select></label>
       <label id="kanaRow" class="toggle-row" hidden><input id="kanaMastered" type="checkbox"> I've mastered hiragana</label>
       <p id="kanaInfo" class="hint" hidden>Unlocks the kanji levels (N5–N1) in battles. Mastering the 46 basic hiragana in Kana ticks it for you.</p>
@@ -158,7 +157,7 @@
   <p class="hint">The app opens straight into the game and works offline too: Study spells, the JLPT quiz, reading passages, Customize, Progress and match history. Online queue, private games and the daily challenge need internet. Your account and progress are the same everywhere.</p>
   <div class="app-opt">
     <img src="/icons/icon-192.png" alt="" width="44" height="44">
-    <div><b>Phone or PC — from this browser</b>
+    <div><b>Phone or PC - from this browser</b>
       <p class="hint">No store needed: it installs like an app, with its own icon.</p>
       <button id="appInstall" class="big" hidden>Install Kanji Wizards</button>
       <p id="appIos" class="hint" hidden>On iPhone / iPad (Safari): tap <b>Share</b> <span aria-hidden="true">⎙</span> → <b>Add to Home Screen</b>.</p>
@@ -178,7 +177,7 @@
       <p class="hint">Download the APK and open it; allow your browser to install apps when asked. No Google Play needed.</p>
       <a id="appApk" class="big btn-link" href="#" download="KanjiWizards.apk">Download for Android (.apk)</a>
       <p class="hint">Then open <b>Files → Downloads</b> (or Chrome <b>⋮ → Downloads</b>) and tap <b>KanjiWizards.apk</b>.</p>
-      <p class="hint app-warn">Chrome warns “File might be harmful” about every app from outside Google Play — it’s a general warning, not about this app. Tap <b>Download anyway</b>. If Play Protect offers to scan the app, tap <b>Scan app</b>, then <b>Install</b>.</p>
+      <p class="hint app-warn">Chrome warns “File might be harmful” about every app from outside Google Play - it’s a general warning, not about this app. Tap <b>Download anyway</b>. If Play Protect offers to scan the app, tap <b>Scan app</b>, then <b>Install</b>.</p>
     </div>
   </div>
   <form method="dialog" class="fb-actions"><button class="big alt">Close</button></form>
@@ -198,7 +197,7 @@
   </ul>
   <p class="hint">© Kanji Wizards. All rights reserved. The data and libraries above keep their own licences.</p>
   <h4>Privacy</h4>
-  <p class="hint">We store your player name, a scrambled (hashed) password, your progress, match history, friends, your messages (text, photos, reactions, groups — seen only by the people in that chat) and — if you upload one — your profile picture. The Android app keeps a notification token so invites and messages reach your phone (through Google's Firebase). Bug reports and suggestions you send are kept with your player name; errors include your browser type. If the server has AI stories turned on, only your study words are sent to make a story. Nothing is sold. Ask the admin to delete your account and all of it is removed.</p>
+  <p class="hint">We store your player name, a scrambled (hashed) password, your progress, match history, friends, your messages (text, photos, reactions, groups - seen only by the people in that chat) and - if you upload one - your profile picture. The Android app keeps a notification token so invites and messages reach your phone (through Google's Firebase). Bug reports and suggestions you send are kept with your player name; errors include your browser type. If the server has AI stories turned on, only your study words are sent to make a story. Nothing is sold. Ask the admin to delete your account and all of it is removed.</p>
   <form method="dialog" class="fb-actions"><button class="big">Close</button></form>
 </dialog>
  <dialog id="deckDialog" class="friend-dialog deck-dialog" aria-label="Spells">
@@ -210,7 +209,7 @@
     <p id="customMsg" class="hint" role="status"></p>
   </div>
   <div class="dd-tools"><input id="deckFilter" placeholder="Filter…" autocomplete="off"><label class="toggle-row"><input id="deckAllBox" type="checkbox"> Select all</label><button id="deckRemove" class="pill danger" disabled>Remove selected</button></div>
-  <div class="dd-list"><table class="deck-table"><thead><tr><th></th><th class="sortable star-th" data-sort="star" title="Starred — reading passages use these first">★</th><th class="sortable" data-sort="kanji">Spell</th><th class="sortable" data-sort="reading">Reading</th><th class="sortable" data-sort="meaning">Meaning</th><th class="sortable" data-sort="level">Level</th><th class="sortable" data-sort="added">Added</th><th class="sortable" data-sort="state">Status</th><th></th></tr></thead><tbody id="deckRows"></tbody></table></div>
+  <div class="dd-list"><table class="deck-table"><thead><tr><th></th><th class="sortable star-th" data-sort="star" title="Starred - reading passages use these first">★</th><th class="sortable" data-sort="kanji">Spell</th><th class="sortable" data-sort="reading">Reading</th><th class="sortable" data-sort="meaning">Meaning</th><th class="sortable" data-sort="level">Level</th><th class="sortable" data-sort="added">Added</th><th class="sortable" data-sort="state">Status</th><th></th></tr></thead><tbody id="deckRows"></tbody></table></div>
 </dialog>
 <dialog id="rewardDialog" class="friend-dialog reward-dialog" aria-label="New unlock">
   <div class="rw-ribbon">✦ Unlocked ✦</div>
@@ -232,14 +231,14 @@
 </dialog>
 <dialog id="tasksDialog" class="friend-dialog tasks-dialog" aria-label="Daily streak">
   <div class="dd-head"><h3>Keep your daily streak</h3></div>
-  <p class="hint">A day counts for your streak when all three tasks are done — and gives +500 XP. Your best streak unlocks magic staffs.</p>
+  <p class="hint">A day counts for your streak when all three tasks are done - and gives +500 XP. Your best streak unlocks magic staffs.</p>
   <div id="tasksStreak" class="tasks-streak"></div>
   <ul id="tasksList" class="tasks-list"></ul>
   <label class="tasks-never"><input id="tasksNever" type="checkbox"> Don’t show this when I log in</label>
   <div class="tasks-foot"><button id="tasksOk" class="big">OK</button></div>
 </dialog>
 <div id="pauseOverlay" class="pause-overlay" role="dialog" aria-modal="true" aria-label="Paused" hidden>
-  <div class="pause-box"><h2>Paused</h2><p class="sub">The clock, the AI and the dragon wait for you.</p><button id="resumeBtn" class="big">Resume</button></div>
+  <div class="pause-box"><h2>Paused</h2><p class="sub">The clock, the bots and the dragon wait for you.</p><button id="resumeBtn" class="big">Resume</button></div>
 </div>
 <div id="achPop" class="ach-pop" role="status" aria-live="polite" hidden></div>
 <div id="inviteBox" class="invite-box" role="alertdialog" aria-live="assertive" hidden></div>
@@ -266,7 +265,7 @@
       <!-- 0.9.9.9.6.9: no account needed to start -->
       <div class="guest-start">
         <button id="guestPlay" type="button" class="big guest-play">Play now</button>
-        <p class="hint">No account needed — save your progress whenever you like.</p>
+        <p class="hint">No account needed - save your progress whenever you like.</p>
       </div>
       <div class="or-line"><span>or</span></div>
       <div class="tabs" role="tablist">
@@ -305,7 +304,7 @@
       <div class="queue-card deck" data-q="deck" role="radio" tabindex="0">
         <span class="q-radio" aria-hidden="true"></span>
         <h3>Deck Duel</h3>
-        <p class="sub">Queued on its own. No levels to pick: the cards come from both players' All spells — 2 words of each level (N5–N1) from each of you.</p>
+        <p class="sub">Queued on its own. No levels to pick: the cards come from both players' All spells - 2 words of each level (N5–N1) from each of you.</p>
         <button id="qDeckHelp" class="q-help" type="button" title="How Deck Duel works" aria-label="How Deck Duel works">?</button>
         <div class="q-deck-pic" aria-hidden="true"><span class="dkc c-red"></span><span class="dkc c-green"></span><span class="dkc c-yellow"></span><span class="dkc c-blue"></span><span class="dkc c-lightblue"></span></div>
       </div>
@@ -349,16 +348,16 @@
       <div class="mc-slot">
         <button id="privateBtn" class="mc-card mc-private" type="button">
           <span class="mc-glyph" lang="ja" aria-hidden="true">友</span>
-          <span class="mc-body"><b class="mc-name">Private game</b><span class="mc-info">Play friends with a room code, or the AI — the AI works offline too</span></span>
+          <span class="mc-body"><b class="mc-name">Private game</b><span class="mc-info">Play friends with a room code, or bots - bots work offline too</span></span>
         </button>
       </div>
       <button id="dailyBtn" class="mc-card mc-daily daily-btn" type="button">
         <span class="mc-glyph" lang="ja" aria-hidden="true">日</span>
-        <span class="mc-body"><b class="mc-name">Daily challenge <span id="dailyBadge" class="badge" hidden>new</span></b><span class="mc-info">10 words a day — climb the leagues from Kana to N1</span></span>
+        <span class="mc-body"><b class="mc-name">Daily challenge <span id="dailyBadge" class="badge" hidden>new</span></b><span class="mc-info">10 words a day - climb the leagues from Kana to N1</span></span>
       </button>
       <button id="studyBtn" class="mc-card mc-study" type="button">
         <span class="mc-glyph" lang="ja" aria-hidden="true">学</span>
-        <span class="mc-body"><b class="mc-name">Study spells</b><span class="mc-info">Your decks — kanji words as flashcards</span></span>
+        <span class="mc-body"><b class="mc-name">Study spells</b><span class="mc-info">Your decks - kanji words as flashcards</span></span>
         <span class="mc-lock" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M7 10V7.5a5 5 0 0 1 10 0V10h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2zm2 0h6V7.5a3 3 0 0 0-6 0zm3 4a1.6 1.6 0 0 0-.8 3V19h1.6v-2a1.6 1.6 0 0 0-.8-3z"/></svg></span>
       </button>
       <!-- 0.9.9.9.5.1: the JLPT quiz, the onomatopoeia quiz and the reading passage have a card of their own -->
@@ -467,7 +466,7 @@
       </div>
     </div>
     <div class="prog-card">
-      <h3>Spell mastery <small class="hint">every word of each level — tap one to see it</small></h3>
+      <h3>Spell mastery <small class="hint">every word of each level - tap one to see it</small></h3>
       <div id="progLevels" class="cust-tabs" role="tablist" aria-label="Level"></div>
       <div id="progLegend" class="mastery-legend"></div>
       <div id="progGrid" class="mastery-grid" lang="ja"></div>
@@ -562,7 +561,7 @@
       <div class="deck-card struggle">
         <div class="deck-head"><h3>Struggling spells</h3><button type="button" class="deck-pause" data-deck-pause="struggling" aria-pressed="false"></button></div>
         <p class="deck-paused-note" hidden></p>
-        <p class="hint">Words you missed in games — you choose on the results screen.</p>
+        <p class="hint">Words you missed in games - you choose on the results screen.</p>
         <div id="countsStruggle" class="counts"></div>
         <div class="deck-btns"><button id="studyStruggle" class="big">Study</button><button class="deck-open" data-deck="struggling"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
@@ -608,14 +607,14 @@
     <!-- 0.9.9.9.5.2: a screen of its own — today's goal on top, a big card for each quiz with your best and last results -->
     <header class="qz-head">
       <span class="qz-emblem" lang="ja" aria-hidden="true">試</span>
-      <div class="qz-titles"><h2>Quizzes</h2><p class="sub">Test what you know — a passed JLPT quiz or reading passage counts for your daily streak.</p></div>
+      <div class="qz-titles"><h2>Quizzes</h2><p class="sub">Test what you know - a passed JLPT quiz or reading passage counts for your daily streak.</p></div>
     </header>
     <div id="qzGoal" class="qz-goal" hidden></div>
     <div class="qz-grid">
       <article class="qz-card" data-quiz="jlpt" style="--qc:#b993ff">
         <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">試</span><span class="qz-streak"><span>Counts for the streak</span></span></div>
         <h3>JLPT quiz</h3>
-        <p class="qz-desc">10 questions from the spells you studied — or kana: readings, meanings and kanji.</p>
+        <p class="qz-desc">10 questions from the spells you studied - or kana: readings, meanings and kanji.</p>
         <ul class="qz-facts"><li>10 questions</li><li>4 choices</li><li>≈ 3 min</li><li>Pass: 7 / 10</li></ul>
         <div class="qz-stats" data-stats="jlpt"></div>
         <button id="quizBtn" class="qz-go" type="button">Start the quiz</button>
@@ -623,7 +622,7 @@
       <article class="qz-card" data-quiz="ono" style="--qc:#ffb347">
         <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">音</span></div>
         <h3>Onomatopoeia quiz</h3>
-        <p class="qz-desc">Giongo, gitaigo and gijōgo — the sounds, states and feelings Japanese is full of.</p>
+        <p class="qz-desc">Giongo, gitaigo and gijōgo - the sounds, states and feelings Japanese is full of.</p>
         <ul class="qz-facts"><li>10 questions</li><li>4 choices</li><li>≈ 3 min</li></ul>
         <div class="qz-stats" data-stats="ono"></div>
         <button id="onoQuizBtn" class="qz-go" type="button">Start the quiz</button>
@@ -631,7 +630,7 @@
       <article class="qz-card" data-quiz="passage" style="--qc:#4fd1c5">
         <div class="qz-top"><span class="qz-ico" lang="ja" aria-hidden="true">読</span><span class="qz-streak"><span>Counts for the streak</span></span></div>
         <h3>Reading passage</h3>
-        <p class="qz-desc">A short story written with your words — fill in the blanks from the context, then check.</p>
+        <p class="qz-desc">A short story written with your words - fill in the blanks from the context, then check.</p>
         <ul class="qz-facts"><li>A short story</li><li>Fill the blanks</li><li>≈ 5 min</li><li>Pass: half right</li></ul>
         <div class="qz-stats" data-stats="passage"></div>
         <button id="passageBtn" class="qz-go" type="button">Read a passage</button>
@@ -658,7 +657,7 @@
     </div>
     <div id="reviewDone" class="review-done" hidden>
       <h2>All done for now</h2>
-      <p class="sub">Come back later — cards return when they are due.</p>
+      <p class="sub">Come back later - cards return when they are due.</p>
       <button id="reviewDoneBack" class="big">Back to study</button>
     </div>
   </section>
@@ -690,14 +689,14 @@
     <div class="page-head"><button id="passageBack" class="back">← Quizzes</button><label class="p-from">Words from <select id="passageDeck" aria-label="Words from"></select></label><button id="passageList" class="pill deck-open-btn" type="button"><span aria-hidden="true">☰</span> Words</button><span class="p-new"><button id="passageNew" class="pill">New passage</button><span id="passageQuota" class="p-quota" hidden></span></span></div>
     <div class="passage-card">
       <h2 class="passage-title">Reading passage</h2>
-      <p class="hint">A short story with your words left out. Tap a blank, then the word that fits — the story around it is the clue. Tap any word for its meaning, and a kanji in it for its parts.</p>
+      <p class="hint">A short story with your words left out. Tap a blank, then the word that fits - the story around it is the clue. Tap any word for its meaning, and a kanji in it for its parts.</p>
       <div id="passageIntro" class="passage-intro" hidden>
         <h4>How reading passages work</h4>
         <ul>
-          <li>An AI writes one short story with 8 of your words in it — each word appears where it makes sense, not in a sentence of its own.</li>
+          <li>An AI writes one short story with 8 of your words in it - each word appears where it makes sense, not in a sentence of its own.</li>
           <li>The words are blanked out. Tap a blank, then the word that fits from the context. Check shows what you got right.</li>
-          <li>Writing a story takes a few seconds — the bar shows how far along it is.</li>
-          <li id="passageIntroQuota">You can have up to 10 new AI stories a day — the counter next to New passage shows how many are left. After that (or offline), the passage uses your words’ example sentences instead.</li>
+          <li>Writing a story takes a few seconds - the bar shows how far along it is.</li>
+          <li id="passageIntroQuota">You can have up to 10 new AI stories a day - the counter next to New passage shows how many are left. After that (or offline), the passage uses your words’ example sentences instead.</li>
         </ul>
         <button id="passageIntroOk" class="pill" type="button">Got it</button>
       </div>
@@ -788,15 +787,15 @@
     <div class="pv-wrap">
       <header class="pv-head">
         <span class="pv-glyph" lang="ja" aria-hidden="true">友</span>
-        <div><h2>Private game</h2><p class="sub">Your own room: pick the mode, the levels and who plays — AI wizards or your friends.</p></div>
+        <div><h2>Private game</h2><p class="sub">Your own room: pick the mode, the levels and who plays - bot wizards or your friends.</p></div>
       </header>
-      <p id="pvOffline" class="pv-offline" hidden><b>Offline</b> — you can still play the AI in Kanji Reading, Rapid and Boss Elimination. Friends, Writing and Deck Duel need internet.</p>
+      <p id="pvOffline" class="pv-offline" hidden><b>Offline</b> - you can still play bots in Kanji Reading, Rapid and Boss Elimination. Friends, Writing and Deck Duel need internet.</p>
       <div class="pv-cards">
         <div class="pv-card pv-create">
           <span class="pv-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           <h3>Create a room</h3>
-          <p>Choose a mode, then add AI players or invite friends from the lobby. Everyone marks Ready, then the game starts.</p>
-          <ul class="pv-points"><li>AI from beginner to N1</li><li>Boss Elimination with up to 3 AI teammates</li><li>Pause any time against the AI</li></ul>
+          <p>Choose a mode, then add bots or invite friends from the lobby. Everyone marks Ready, then the game starts.</p>
+          <ul class="pv-points"><li>Bots from beginner to N1</li><li>Boss Elimination with up to 3 bot teammates</li><li>Pause any time against bots</li></ul>
           <button id="create" class="big">Choose a mode</button>
         </div>
         <div class="pv-card pv-join">
@@ -823,12 +822,12 @@
       <button class="mode-card" data-mode="rapid">
         <span class="mode-icon jp">速</span>
         <span class="mode-name">1v1 Rapid</span>
-        <span class="mode-desc">No study. Same kanji for both — first to type the reading (かな or romaji) hits.</span>
+        <span class="mode-desc">No study. Same kanji for both - first to type the reading (かな or romaji) hits.</span>
       </button>
       <button class="mode-card" data-mode="writing">
         <span class="mode-icon jp">書</span>
         <span class="mode-name">1v1 Kanji Writing</span>
-        <span class="mode-desc">Look at the kanji, press CAST! — it vanishes, and you write it from memory, by hand on the pad or with a Japanese keyboard.</span>
+        <span class="mode-desc">Look at the kanji, press CAST! - it vanishes, and you write it from memory, by hand on the pad or with a Japanese keyboard.</span>
       </button>
       <button class="mode-card boss" data-mode="boss">
         <span class="mode-icon jp">竜</span>
@@ -849,7 +848,7 @@
       <button id="leaveLobby" class="back">← Leave room</button>
       <!-- 0.9.9.9.5.5: the mode, big, at the top centre (the "← Leave room" button covered it) -->
       <h2 id="lobbyMode" class="lobby-mode"></h2>
-      <p class="sub">Room code — share it with your friend</p>
+      <p class="sub">Room code - share it with your friend</p>
       <div class="code-row">
         <div id="code" class="code"></div>
         <button id="copyCode" class="pill">Copy</button>
@@ -861,16 +860,16 @@
       </div>
       <ul id="lobbyPlayers" class="players"></ul>
       <div id="addBot" class="add-bot" hidden>
-        <label for="botLevel">Add an AI player</label>
-        <select id="botLevel" title="How much the AI knows">
-          <option value="BEGINNER">Beginner — slow, makes mistakes</option>
+        <label for="botLevel">Add a bot</label>
+        <select id="botLevel" title="How much the bot knows">
+          <option value="BEGINNER">Beginner - slow, makes mistakes</option>
           <option value="N5">N5</option>
           <option value="N4">N4</option>
-          <option value="N3" selected>N3 — intermediate</option>
+          <option value="N3" selected>N3 - intermediate</option>
           <option value="N2">N2</option>
-          <option value="N1">N1 — expert</option>
+          <option value="N1">N1 - expert</option>
         </select>
-        <button id="addBotBtn" class="pill primary">+ Add AI</button>
+        <button id="addBotBtn" class="pill primary">+ Add bot</button>
       </div>
       <div id="lobbyInvite" class="lobby-invite" hidden></div>
       <button id="start" class="big" hidden>Start battle</button>
@@ -1038,11 +1037,12 @@
     <div id="xpLine" class="xp-line" hidden></div>
     <div id="statCompare" class="compare"></div>
     <div id="struggledBox" class="struggled">
-      <h3>Review — you struggled with <small>(ticked words go to your deck · tap a card to untick · 筆 = stroke order)</small></h3>
+      <h3>Review - you struggled with <small>(ticked words go to your deck · tap a card to untick · 筆 = stroke order)</small></h3>
       <div id="missedSave" class="missed-save" hidden></div>
       <div id="struggled" class="grid small"></div>
     </div>
     <h3>Vocabulary performance</h3>
+    <div id="wordTabs" class="word-tabs" role="tablist" aria-label="Whose words" hidden></div>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Word</th><th>Reading</th><th>Meaning</th><th>Result</th><th>Avg time</th></tr></thead>
@@ -1070,26 +1070,26 @@
   <form method="dialog">
     <h2>How to play</h2>
     <ol>
-      <li><b>Create a room</b>, pick a mode, and send the 4-letter code to a friend. The battle starts when every player presses <b>Ready</b>. On a phone you can switch apps to send it — your seat is kept for 5 minutes.</li>
+      <li><b>Create a room</b>, pick a mode, and send the 4-letter code to a friend. The battle starts when every player presses <b>Ready</b>. On a phone you can switch apps to send it - your seat is kept for 5 minutes.</li>
       <li><b>Pick your levels.</b> ひらがな (hiragana) and カタカナ (katakana) are the kana letters (romaji answers); N5 is easiest, N1 hardest. You pick your character in Customize → Character: the Goblin from the start; the Knight, the Witch and the Wizard unlock in the Daily challenge leagues N4, N3 and N2. Everyone holds the magic staff they equipped in Customize. Harder words hit harder, so your opponent gets more HP.</li>
       <li><b>Modes</b>
         <ul>
-          <li><b>Reading</b> — study 10 of your words, then type each reading (かな or romaji).</li>
-          <li><b>Rapid</b> — no study; both get the same kanji, first correct reading hits. The first 10 are 5 words from each player’s All spells — the round shows whose word it is.</li>
-          <li><b>Writing</b> — look at the kanji, press CAST! (up to 3.5 s), then write it from memory on the pad or type it with a Japanese keyboard. Messy is fine.</li>
-          <li><b>Boss</b> — 1 to 4 players team up against the Black Dragon (it gets tougher with every player). Mistakes get you clawed; fire breath every 30 s.</li>
-          <li><b>Deck Duel</b> — pick a hero, draft cards by colour, then cast them by writing their kanji. Bolt 90 dmg (10 mana), Frost 150 (20), Mana +60, Heal 140 (30), Inferno 340 (45). 15 s to choose a card, then 1 minute to read its meaning, look at the kanji and write it. +10 mana each turn. Out of cards → a new draft round (HP and mana stay). No mana for any of your cards → your turn is skipped (−100 HP). When time runs out: overtime, a Rapid duel. Every kanji of the duel joins your <i>All spells</i>.</li>
+          <li><b>Reading</b> - study 10 of your words, then type each reading (かな or romaji).</li>
+          <li><b>Rapid</b> - no study; both get the same kanji, first correct reading hits. The first 10 are 5 words from each player’s All spells - the round shows whose word it is.</li>
+          <li><b>Writing</b> - look at the kanji, press CAST! (up to 3.5 s), then write it from memory on the pad or type it with a Japanese keyboard. Messy is fine.</li>
+          <li><b>Boss</b> - 1 to 4 players team up against the Black Dragon (it gets tougher with every player). Mistakes get you clawed; fire breath every 30 s.</li>
+          <li><b>Deck Duel</b> - pick a hero, draft cards by colour, then cast them by writing their kanji. Bolt 90 dmg (10 mana), Frost 150 (20), Mana +60, Heal 140 (30), Inferno 340 (45). 15 s to choose a card, then 1 minute to read its meaning, look at the kanji and write it. +10 mana each turn. Out of cards → a new draft round (HP and mana stay). No mana for any of your cards → your turn is skipped (−100 HP). When time runs out: overtime, a Rapid duel. Every kanji of the duel joins your <i>All spells</i>.</li>
         </ul>
       </li>
-      <li><b>Your own words</b> — every battle plays the words of your levels from your All spells (marked ★ on the study cards); random words fill in when you have too few.</li>
+      <li><b>Your own words</b> - every battle plays the words of your levels from your All spells (marked ★ on the study cards); random words fill in when you have too few.</li>
       <li><b>Fast + correct = more damage.</b> Combos build up to ×1.5 (5 in a row sets you on fire). <b>Skip</b> (Esc) shows the answer.</li>
-      <li><b>Study spells</b> — Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (− / +, then Apply); Onomatopoeia has its own “New a day” number (0 until you set it). Every card you answer gives +5 XP (up to 500 a day); ↶ Undo takes the last answer back.</li>
-      <li><b>Practice</b> — the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 10 new stories a day — the counter shows how many are left; ★ starred words go in first, and the words you miss go to Struggling spells). Tap any kanji for its parts and a memory story.</li>
-      <li><b>Dictionary</b> (辞書, main menu, works offline) — type a word in kanji, kana, romaji, English or Russian: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji — and “+ Add to…” puts it in any deck.</li>
-      <li><b>Combo pose</b> — in <i>Customize</i>, choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Channel, Duelist or Levitation — they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.</li>
-      <li><b>Kana</b> — hiragana and katakana have their own section, <i>Kana</i> (main menu): a chart that fills in as you master each one, and practice by rows — new kana are shown first, then asked with look-alike answers until each has its stars. Beginners battle with ひらがな until they tick “I’ve mastered hiragana” in Settings (mastering the 46 basic hiragana ticks it for you).</li>
-      <li><b>XP</b> — win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
-      <li><b>Daily streak</b> — a day counts when you do all three daily tasks: study 10 spells, a JLPT quiz (7/10) or a reading passage (4/8), and the daily challenge. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
+      <li><b>Study spells</b> - Anki-style flashcards in four decks: All spells, Struggling spells (the words you miss go there), Custom and Onomatopoeia. In All spells, set how many new words of each level you get a day (− / +, then Apply); Onomatopoeia has its own “New a day” number (0 until you set it). Every card you answer gives +5 XP (up to 500 a day); ↶ Undo takes the last answer back.</li>
+      <li><b>Practice</b> - the JLPT quiz, the Onomatopoeia quiz and the Reading passage: an AI writes one short story with 8 of your words, and you fill in the blanks from the context (up to 10 new stories a day - the counter shows how many are left; ★ starred words go in first, and the words you miss go to Struggling spells). Tap any kanji for its parts and a memory story.</li>
+      <li><b>Dictionary</b> (辞書, main menu, works offline) - type a word in kanji, kana, romaji, English or Russian: every meaning, its JLPT level, verb forms, an example, each kanji with its memory picture, other words with that kanji - and “+ Add to…” puts it in any deck.</li>
+      <li><b>Combo pose</b> - in <i>Customize</i>, choose what your character does while on fire (5 in a row, or Omnipotence in Deck Duel): Channel, Duelist or Levitation - they unlock at 100, 200 and 300 spells learned. Everyone in the battle sees it.</li>
+      <li><b>Kana</b> - hiragana and katakana have their own section, <i>Kana</i> (main menu): a chart that fills in as you master each one, and practice by rows - new kana are shown first, then asked with look-alike answers until each has its stars. Beginners battle with ひらがな until they tick “I’ve mastered hiragana” in Settings (mastering the 46 basic hiragana ticks it for you).</li>
+      <li><b>XP</b> - win: 300 + accuracy%; loss: 50 + accuracy%; Deck Duel: 4000 / 1500. Forfeited matches give no XP. Each level needs 1000 XP more than the last (1000, then 2000, 3000 …) and unlocks backgrounds and flame colours in <i>Customize</i>.</li>
+      <li><b>Daily streak</b> - a day counts when you do all three daily tasks: study 10 spells, a JLPT quiz (7/10) or a reading passage (4/8), and the daily challenge. Your best streak unlocks magic staffs in <i>Customize</i>: Ember at 3 days, Tide at 5, Storm at 8, Void at 10.</li>
     </ol>
     <button value="close" class="big">Got it</button>
   </form>
@@ -1108,7 +1108,7 @@
     <h2><span class="jp">漢字</span> Wizards</h2>
     <p class="wake-title">Waking up the server…</p>
     <div class="wake-bar"><i id="wakeBar"></i></div>
-    <p class="hint"><span id="wakeSec">0</span> s · The free server sleeps when nobody has played for a while — it takes about a minute to start.</p>
+    <p class="hint"><span id="wakeSec">0</span> s · The free server sleeps when nobody has played for a while - it takes about a minute to start.</p>
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>

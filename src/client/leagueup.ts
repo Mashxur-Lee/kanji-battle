@@ -54,7 +54,7 @@ export function leagueCard(current: string, next: string | undefined, promoteAt 
   const { border, character } = leagueRewards(current);
   if ((border || character) && !passed.includes(current)) {
     const pr = h('div', 'lg-pass');
-    pr.append(h('span', 'lg-pass-how', tr(`Pass it — ${promoteAt}/10 or better — to get:`)));
+    pr.append(h('span', 'lg-pass-how', tr(`Pass it - ${promoteAt}/10 or better - to get:`)));
     // (0.9.9.9.6.5: each reward big enough to see, with its name — it was a tiny circle in an empty box)
     const rw = h('span', 'lg-pass-rw');
     if (border) {
@@ -76,7 +76,7 @@ export function leagueCard(current: string, next: string | undefined, promoteAt 
     lbl.append(h('small', '', tr('Next')), leagueCrest(next, 'tiny'), h('b', '', LEAGUE_TITLE[next] ?? next));
     nx.append(lbl, h('span', 'lg-nx-how', tr(`Score ${promoteAt}/10 or better to move up`)));
     card.append(nx);
-  } else card.append(h('p', 'lg-nx-top', tr('The highest league — stay on top!')));
+  } else card.append(h('p', 'lg-nx-top', tr('The highest league - stay on top!')));
   return card;
 }
 
@@ -102,7 +102,7 @@ export async function showLeagueUp(uid: string, league: string | null, passed: s
   const head = h('div', 'lu-head');
   head.append(h('small', 'lu-kicker', tr('Daily challenge')), h('h2', 'lu-title', tr(league ? 'League up!' : 'League passed!')));
   body.push(head, leagueCrest(league ?? passed, 'big'));
-  body.push(h('p', 'lu-sub', league ? tr(`You passed the ${LEAGUE_TITLE[passed]} league! You're in the ${LEAGUE_TITLE[league]} league now — tomorrow's ten words come from it.`) : tr(`You passed the ${LEAGUE_TITLE[passed]} league — the highest there is.`)));
+  body.push(h('p', 'lu-sub', league ? tr(`You passed the ${LEAGUE_TITLE[passed]} league! You're in the ${LEAGUE_TITLE[league]} league now - tomorrow's ten words come from it.`) : tr(`You passed the ${LEAGUE_TITLE[passed]} league - the highest there is.`)));
   const rewards = h('div', 'lu-rewards');
   const keys: string[] = [];
   const card = (title: string, pic: HTMLElement, equip: (() => Promise<{ profile: Profile }>) | null, isOn: boolean) => {

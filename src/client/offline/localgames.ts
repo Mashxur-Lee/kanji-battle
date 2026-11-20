@@ -38,7 +38,7 @@ export async function localSend(msg: ClientMessage, user: { id: string; name: st
   if (m.type === 'create') {
     if (room) return;
     const mode: GameMode = MODES.includes(m.mode as GameMode) ? (m.mode as GameMode) : 'reading';
-    if (!OFFLINE_MODES.includes(mode)) return client.send({ type: 'error', message: 'This mode needs internet — offline you can play Kanji Reading, Rapid or Boss Elimination against the AI.' });
+    if (!OFFLINE_MODES.includes(mode)) return client.send({ type: 'error', message: 'This mode needs internet - offline you can play Kanji Reading, Rapid or Boss Elimination against bots.' });
     await loadVocab();
     const engine = await localEngine();
     rooms ??= new RoomManager({ spellIds: async () => (await engine?.spellIds()) ?? new Set() });
@@ -50,7 +50,7 @@ export async function localSend(msg: ClientMessage, user: { id: string; name: st
     return;
   }
   if (m.type === 'join' || m.type === 'invite' || m.type === 'queue') {
-    return client.send({ type: 'error', message: 'Playing with friends needs internet — offline you can play the AI.' });
+    return client.send({ type: 'error', message: 'Playing with friends needs internet - offline you can play bots.' });
   }
   if (m.type === 'queue_cancel' || m.type === 'where' || m.type === 'pong' || m.type === 'hello') return;
   const r = room;

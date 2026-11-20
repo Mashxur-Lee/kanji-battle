@@ -228,7 +228,7 @@ function previewOf(c: Conversation): string {
   if (m.kind === 'sys') return sysText(m);
   if (m.deleted) return tr('Message deleted');
   const inv = invitePreview(m);
-  const body = inv ?? (m.kind ? m.text.replace(/\n/, ' — ') : (splitQuote(m.text).body || m.text));
+  const body = inv ?? (m.kind ? m.text.replace(/\n/, ' - ') : (splitQuote(m.text).body || m.text));
   const what = m.media ? (body ? `${tr('Photo')} · ${body}` : tr('Photo')) : body; // (0.9.9.9.7.4: words, not 📷)
   const who = m.from === myId() ? `${tr('You')}: ` : c.group ? `${nameOf(m.from)}: ` : '';
   return who + what;
@@ -236,7 +236,7 @@ function previewOf(c: Conversation): string {
 const BELL_MENTION = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.6"/><path d="M15.6 12v1.4a2.6 2.6 0 0 0 5.2 0V12a8.8 8.8 0 1 0-3.5 7"/></svg>';
 function renderList() {
   const list = $('msgList');
-  if (!convs.length) { list.replaceChildren(h('p', 'hint msg-empty', side === 'support' ? 'No messages to the team yet.' : 'No messages yet — write to a friend from their profile.')); return; }
+  if (!convs.length) { list.replaceChildren(h('p', 'hint msg-empty', side === 'support' ? 'No messages to the team yet.' : 'No messages yet - write to a friend from their profile.')); return; }
   list.replaceChildren(...convs.map((c) => {
     const b = h('button', `msg-conv${c.id === openId ? ' on' : ''}${c.unread ? ' unread' : ''}`) as HTMLButtonElement;
     b.type = 'button'; b.dataset.id = c.id;
@@ -565,7 +565,7 @@ function paintTop() {
   const slot = $('msgMuteAll');
   const ng = button('pill msg-newgroup', NEW_GROUP, tr('New group'), () => void openNewGroup((id) => { listCache.delete('me'); void loadList().then(() => openThread(id)); }));
   ng.append(h('span', 'msg-ng-t', tr('New group')));
-  slot.replaceChildren(ng, muteButton(mutedAll, ['Mute all messages', 'Messages muted — tap to unmute'], async () => {
+  slot.replaceChildren(ng, muteButton(mutedAll, ['Mute all messages', 'Messages muted - tap to unmute'], async () => {
     try { await api.muteMessages('all', !mutedAll); mutedAll = !mutedAll; paintTop(); ui.toast(tr(mutedAll ? 'All messages muted' : 'Messages unmuted'), 2500); } catch (e) { ui.toast((e as Error).message); }
   }));
   slot.hidden = side === 'support';
@@ -612,14 +612,14 @@ function renderLog(stick = true) {
   const box = $('msgLog');
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
   box.replaceChildren(...log.map((m, i) => bubble(m, log[i - 1], log[i + 1])));
-  if (!log.length) box.append(h('p', 'hint msg-empty', openId === SUPPORT ? 'Write to the team — questions, bugs, ideas. We answer here.' : openWith?.group ? tr('Say hi to the group!') : 'Say hi!'));
+  if (!log.length) box.append(h('p', 'hint msg-empty', openId === SUPPORT ? 'Write to the team - questions, bugs, ideas. We answer here.' : openWith?.group ? tr('Say hi to the group!') : 'Say hi!'));
   if (stick || atBottom) box.scrollTop = box.scrollHeight;
 }
 
 function subLine(c: Conversation): { text: string; cls: string } {
   const t = typingText(c.id);
   if (t) return { text: t, cls: 'typing' };
-  if (c.support) return { text: side === 'support' ? tr('You answer as the team') : tr('The game’s team — we read every message'), cls: '' };
+  if (c.support) return { text: side === 'support' ? tr('You answer as the team') : tr('The game’s team - we read every message'), cls: '' };
   if (c.group) return { text: `${tr(c.group.members === 1 ? '1 member' : `${c.group.members} members`)}, ${tr(`${c.group.online} online`)}`, cls: '' };
   if (c.status) return { text: ui.statusText(c.status), cls: c.status.online ? (c.status.away ? 'away' : c.status.activity?.startsWith('Playing') ? 'playing' : 'on') : '' };
   return { text: c.online ? tr('Online') : '', cls: c.online ? 'on' : '' };

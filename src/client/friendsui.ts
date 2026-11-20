@@ -77,7 +77,7 @@ function render() {
     ...section(`Friends (${accepted.length}) · ${accepted.filter((f) => f.online).length} online`, accepted.map((f) => row(f, [btn('Remove', 'danger', () => api.removeFriend(f.id))]))),
     ...section('Sent requests', outgoing.map((f) => row(f, [btn('Cancel', '', () => api.removeFriend(f.id))]))),
   ];
-  list.replaceChildren(...(nodes.length ? nodes : [el('p', 'hint', 'No friends yet — add someone by their player name above.')]));
+  list.replaceChildren(...(nodes.length ? nodes : [el('p', 'hint', 'No friends yet - add someone by their player name above.')]));
 }
 
 $('friendAdd').addEventListener('submit', async (e) => {
@@ -129,7 +129,7 @@ export async function renderLobbyInvites(isLobby: boolean, inRoom: string[] = lo
     const label = playing ? 'In a game' : declined > 0 ? `Declined · ${mmss(declined)}` : wait > 0 ? `Invited · ${Math.ceil(wait / 1000)}s` : invitedAt.has(f.id) ? 'Invite again' : 'Invite';
     const b = el('button', 'pill primary', label) as HTMLButtonElement;
     b.disabled = playing || wait > 0 || declined > 0;
-    b.title = playing ? 'They are playing — invite them when their game is over' : declined > 0 ? 'They declined — you can invite them again in a few minutes' : '';
+    b.title = playing ? 'They are playing - invite them when their game is over' : declined > 0 ? 'They declined - you can invite them again in a few minutes' : '';
     b.onclick = () => { hooks.send({ type: 'invite', friendId: f.id }); invitedAt.set(f.id, Date.now()); void renderLobbyInvites(true); };
     // (the app closed: the invite comes as a notification on their phone)
     const where = f.online && !f.away ? f.activity ?? '' : 'Gets a notification on their phone';
@@ -153,7 +153,7 @@ export function onInvite(msg: { fromId: string; from: string; code: string; mode
   };
   // 0.9.9.9.5: the friend is told, and can't invite you again for 2 minutes
   no.onclick = () => { close(); hooks.send({ type: 'invite_decline', fromId: msg.fromId }); };
-  box.replaceChildren(el('b', '', `${msg.from} invites you`), el('span', '', `to ${MODE_LABEL[msg.mode]} — room ${msg.code}`), el('div', 'ib-actions'));
+  box.replaceChildren(el('b', '', `${msg.from} invites you`), el('span', '', `to ${MODE_LABEL[msg.mode]} - room ${msg.code}`), el('div', 'ib-actions'));
   box.lastElementChild!.append(join, no);
   box.hidden = false;
   box.classList.remove('ring'); void box.offsetWidth; box.classList.add('ring'); // (the card shakes a little, like a bell)
@@ -184,7 +184,7 @@ export function onRematchAsk(from: string, accept: () => void) {
 export function closeRematchAsk() { rematchClose?.(); }
 
 export function onFriendEvent(msg: { event: 'request' | 'accepted'; from: string }) {
-  ui.toast(msg.event === 'request' ? `${msg.from} wants to be your friend — see Friends` : `${msg.from} accepted your friend request`, 5000);
+  ui.toast(msg.event === 'request' ? `${msg.from} wants to be your friend - see Friends` : `${msg.from} accepted your friend request`, 5000);
   void refresh(true).then(() => { if (ui.currentScreen() === 'friends') render(); });
 }
 

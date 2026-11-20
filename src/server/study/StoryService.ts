@@ -70,18 +70,18 @@ const LEVEL_HINT: Record<StoryLevel, string> = {
 };
 
 function prompt(words: readonly StoryWord[], level: StoryLevel = 'N4') {
-  const list = words.map((w, i) => `${i + 1}. ${w.kanji} (${w.reading}) — ${w.meaning}`).join('\n');
-  return `Write ONE short, simple, coherent story in Japanese for a learner (about ${Math.max(6, words.length + 2)}–${words.length * 2} short sentences). It must use every one of these ${words.length} words, each exactly once, woven naturally into the story so that the context shows what the word means. The words should not each get their own separate sentence — it is one flowing story with a small cast, one setting and a clear little plot from beginning to end; a sentence may hold two of the words, and some sentences may hold none.
+  const list = words.map((w, i) => `${i + 1}. ${w.kanji} (${w.reading}) - ${w.meaning}`).join('\n');
+  return `Write ONE short, simple, coherent story in Japanese for a learner (about ${Math.max(6, words.length + 2)}–${words.length * 2} short sentences). It must use every one of these ${words.length} words, each exactly once, woven naturally into the story so that the context shows what the word means. The words should not each get their own separate sentence - it is one flowing story with a small cast, one setting and a clear little plot from beginning to end; a sentence may hold two of the words, and some sentences may hold none.
 
 Words:
 ${list}
 
 Format rules for the "ja" text (very important):
-- Write every kanji with its furigana as [漢字|かんじ] — e.g. [今日|きょう]は[寺|てら]で — never a kanji outside these brackets.
+- Write every kanji with its furigana as [漢字|かんじ] - e.g. [今日|きょう]は[寺|てら]で - never a kanji outside these brackets.
 - Kana is written as it is, never in brackets.
-- Wrap each of the words above, where it appears, in 【】 together with its okurigana or conjugation — e.g. 【[祈|いの]った】 or 【[静|しず]かな】. Use 【】 only for those words, once each.
-- A word of the list written only in kana (an onomatopoeia like わくわく or ドキドキ) stays in that kana — e.g. 【わくわく】して or 【ドキドキ】した.
-- Write the rest of the story at ${LEVEL_HINT[level]} — the other words and the grammar should be of that level (and easier), so it is a good read for someone studying that level.
+- Wrap each of the words above, where it appears, in 【】 together with its okurigana or conjugation - e.g. 【[祈|いの]った】 or 【[静|しず]かな】. Use 【】 only for those words, once each.
+- A word of the list written only in kana (an onomatopoeia like わくわく or ドキドキ) stays in that kana - e.g. 【わくわく】して or 【ドキドキ】した.
+- Write the rest of the story at ${LEVEL_HINT[level]} - the other words and the grammar should be of that level (and easier), so it is a good read for someone studying that level.
 
 Answer with JSON only, no other text:
 {"title":{"ja":"…","en":"…","ru":"…"},"lines":[{"ja":"one sentence","en":"its English translation","ru":"its Russian translation"}]}

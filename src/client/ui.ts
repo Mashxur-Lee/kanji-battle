@@ -170,6 +170,18 @@ export function picEl(url: string | null | undefined, cls = 'pic', border?: stri
   }
   return img;
 }
+/**
+ * 0.9.9.9.8: a profile picture, or a circle with the first letter of the name when there is none (or it can't load)
+ * — the lobby showed nothing at all for a player without a picture, while the friends list showed their letter
+ */
+export function picOrLetter(url: string | null | undefined, name: string, cls = 'pic', border?: string | null): HTMLElement {
+  const letter = () => h('span', `${cls} pic-letter${borderCls(border)}`, (name.trim()[0] ?? '?').toUpperCase(), { 'aria-hidden': 'true' });
+  const pic = picEl(url, cls, border);
+  if (!pic) return letter();
+  const img = pic instanceof HTMLImageElement ? pic : pic.querySelector('img');
+  if (img) img.onerror = () => pic.replaceWith(letter());
+  return pic;
+}
 /** 0.9.9.9.6.8: filming the trailer (localStorage kb:filming = 1): no screen shake */
 const filming = () => { try { return localStorage.getItem('kb:filming') === '1'; } catch { return false; } };
 let beginnerFlag = false;
@@ -376,7 +388,7 @@ export function setAuthTab(tab: 'login' | 'register') {
   $('tabRegister').setAttribute('aria-selected', String(!login));
   $('authSubmit').textContent = login ? 'Log in' : 'Create account';
   $<HTMLInputElement>('authPass').autocomplete = login ? 'current-password' : 'new-password';
-  $('authHint').textContent = login ? '' : 'Login: 3–32 letters, numbers, _ . or -. Password: at least 6 characters. Your email is only for getting back in if you forget your password — nobody else sees it.';
+  $('authHint').textContent = login ? '' : 'Login: 3–32 letters, numbers, _ . or -. Password: at least 8 characters. Your email is only for getting back in if you forget your password. Nobody else sees it.';
   // 0.9.9.9.6.6: an email on Register; "Forgot password?" on Log in
   $('authEmailRow').hidden = login;
   $<HTMLInputElement>('authEmail').required = !login;
@@ -399,7 +411,7 @@ export function showAdmin(users: AdminUserRow[], me: PublicUser, db: { storage: 
   const st = $('adminStorage');
   st.className = 'storage ' + (db.persistent ? 'ok' : 'warn');
   st.textContent = db.storage === 'postgres'
-    ? '✓ Accounts, XP and study sets are saved in the Postgres database — updates and restarts keep them.'
+    ? '✓ Accounts, XP and study sets are saved in the Postgres database - updates and restarts keep them.'
     : db.persistent
       ? `Saved to a local file (${db.storage}).`
       : 'No database connected: accounts, XP and study sets are saved on the server disk, which Render wipes on every deploy and restart. Set DATABASE_URL (Neon) in Render → Environment.';
@@ -460,11 +472,11 @@ const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTML
   },
   writing: {
     title: 'How Kanji Writing works',
-    pic: () => append(h('div', 'g-pic'), h('span', 'g-hint', 'かんじ — kanji'), h('span', 'g-arrow', '→'), append(h('span', 'g-pad'), tile('漢'), tile('字'))),
+    pic: () => append(h('div', 'g-pic'), h('span', 'g-hint', 'かんじ - kanji'), h('span', 'g-arrow', '→'), append(h('span', 'g-pad'), tile('漢'), tile('字'))),
     steps: [
       'Look at the kanji (up to 3.5 s), then press CAST! (or Enter): it vanishes and the pad and keyboard appear. Pasting is off.',
-      'Write the whole word on the pad, left to right (one cell per character) — or type it with a Japanese keyboard.',
-      'Only kanji count (kana only at the かな level). Messy is fine — it’s judged by shape.',
+      'Write the whole word on the pad, left to right (one cell per character) - or type it with a Japanese keyboard.',
+      'Only kanji count (kana only at the かな level). Messy is fine - it’s judged by shape.',
       'Right = damage, with the same combo and speed bonus as Reading.',
     ],
   },
@@ -472,10 +484,10 @@ const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTML
     title: 'How Boss Elimination works',
     pic: () => append(h('div', 'g-pic'), art(avatarSvg('wizard', 'me'), 'g-party'), h('span', 'g-arrow', 'vs'), art(dragonSvg())),
     steps: [
-      'Up to 4 players (friends or AI) against the Black Dragon; the online queue always makes a full party of 4. Its HP grows with the party.',
+      'Up to 4 players (friends or bots) against the Black Dragon; the online queue always makes a full party of 4. Its HP grows with the party.',
       'Each of you gets your own kanji: type the reading. Right answers hit the dragon.',
       'A mistake gets you clawed (−45).',
-      'Every 30 s it breathes fire on everyone (−110) — unless you are on fire yourself (5 in a row): then you are immune.',
+      'Every 30 s it breathes fire on everyone (−110) - unless you are on fire yourself (5 in a row): then you are immune.',
       'Slay it within 5 minutes. If everyone falls, the dragon wins.',
     ],
   },
@@ -483,7 +495,7 @@ const GUIDES: Record<Exclude<GameMode, 'deck'>, { title: string; pic: () => HTML
     title: 'How 1v1 Rapid works',
     pic: () => append(h('div', 'g-pic'), tile('早い'), h('span', 'g-arrow', '→'), h('span', 'g-tile ok', 'はやい')),
     steps: [
-      'Both players get the same kanji — no study phase.',
+      'Both players get the same kanji - no study phase.',
       'First correct reading (kana or romaji) hits the other player.',
       'Wrong? Try again until the 12 s round ends.',
       'Same HP for both. Last wizard standing wins.',
@@ -495,7 +507,7 @@ export function modeGuideNodes(mode: Exclude<GameMode, 'deck'>): HTMLElement[] {
   const g = GUIDES[mode];
   const ol = h('ol', 'g-flow');
   g.steps.forEach((text, i) => ol.append(append(h('li'), h('span', 'g-ic g-num', String(i + 1)), h('span', '', text))));
-  return [h('h3', '', g.title), g.pic(), ol, h('p', 'g-foot', 'Playing with AI gives half XP; a forfeit gives none.')];
+  return [h('h3', '', g.title), g.pic(), ol, h('p', 'g-foot', 'Playing with bots gives half XP; a forfeit gives none.')];
 }
 function renderModeGuide(mode: GameMode) {
   if (mode === 'deck') return;
@@ -567,12 +579,12 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       if (mode !== 'deck') av.innerHTML = avatarSvg(p.avatar, p.id === you ? 'me' : 'opp', p.staff); else av.hidden = true;
       const who = h('span', 'who', p.id === you ? `${p.name} (you)` : p.name);
       if (p.id !== you) markProfile(who, p);
-      li.append(av, picEl(p.pic, 'pic', p.border), who);
-      if (p.bot) li.append(h('span', 'tag ai', p.bot === 'BEGINNER' ? 'AI · beginner' : `AI · knows ${p.bot}`));
+      li.append(av, p.bot ? picEl(p.pic, 'pic', p.border) : picOrLetter(p.pic, p.name, 'pic', p.border), who); // (0.9.9.9.8: a letter without a picture)
+      if (p.bot) li.append(h('span', 'tag ai', p.bot === 'BEGINNER' ? 'Bot · beginner' : `Bot · knows ${p.bot}`));
       else li.append(netBars(p.id), h('span', 'lv', `Lv ${p.level}`));
-      if (p.bot && you === hostId) { const x = h('button', 'pill rm-bot', '✕', { title: 'Remove this AI' }); x.dataset.removeBot = p.id; li.append(x); }
+      if (p.bot && you === hostId) { const x = h('button', 'pill rm-bot', '✕', { title: 'Remove this bot' }); x.dataset.removeBot = p.id; li.append(x); }
       if (p.id === hostId) li.append(h('span', 'tag', 'host'));
-      if (!p.online) li.append(h('span', 'tag off', 'away — seat kept'));
+      if (!p.online) li.append(h('span', 'tag off', 'away - seat kept'));
       // 0.9.9.8.2: every mode shows who's ready (it was only Deck Duel) — the AI always is
       // (0.9.9.9.2: no tag on the AI — it is always ready, there's nothing to wait for)
       const ready = !!p.bot || !!p.ready;
@@ -603,8 +615,8 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
       : mode === 'boss'
     ? 'Each player picks their own. The dragon gets tougher when the party picks harder levels.'
     : mode === 'writing'
-      ? 'Each player picks their own. You will write these words by hand. Harder levels hit harder — so your opponent gets more HP.'
-      : 'Each player picks their own. ひらがな and カタカナ = the two kana alphabets, answered in romaji. Harder levels hit harder — so your opponent gets more HP.';
+      ? 'Each player picks their own. You will write these words by hand. Harder levels hit harder - so your opponent gets more HP.'
+      : 'Each player picks their own. ひらがな and カタカナ = the two kana alphabets, answered in romaji. Harder levels hit harder - so your opponent gets more HP.';
   const isHost = you === hostId;
   const canStart = players.length >= minPlayers;
   $('addBot').hidden = !isHost || players.length >= maxPlayers;
@@ -621,9 +633,9 @@ export function showLobby(code: string, mode: GameMode, players: PlayerView[], y
   $('start').hidden = true;
   const solo = mode === 'boss' && players.length === 1;
   $('lobbyStatus').textContent = !canStart
-    ? (deck ? 'Share the code, or add an AI opponent — then press Ready. The duel starts when both are ready.' : 'Share the code with a friend, or add an AI player — then press Ready.')
+    ? (deck ? 'Share the code, or add a bot - then press Ready. The duel starts when both are ready.' : 'Share the code with a friend, or add a bot - then press Ready.')
     : meReady ? (solo ? 'Starting…' : 'Waiting for the others to be ready…')
-    : solo ? 'Press Ready to start your solo run (or wait for a teammate).' : 'Press Ready — the battle starts when every player is ready.';
+    : solo ? 'Press Ready to start your solo run (or wait for a teammate).' : 'Press Ready - the battle starts when every player is ready.';
   if (!isLobbyAside()) show('lobby');
 }
 
@@ -650,7 +662,7 @@ export function showPrep(pool: StudyItem[], durationMs: number, mode: GameMode) 
 export function setReady(readyCount: number, total: number, youReady: boolean) {
   $<HTMLButtonElement>('ready').disabled = youReady;
   // just you (against the AI): no count to show
-  $('readyStatus').textContent = total <= 1 ? '' : `${readyCount}/${total} ready${youReady && readyCount < total ? ' — waiting for the others…' : ''}`;
+  $('readyStatus').textContent = total <= 1 ? '' : `${readyCount}/${total} ready${youReady && readyCount < total ? ' - waiting for the others…' : ''}`;
 }
 
 /** The study info must disappear when the battle starts (spec §11). */
@@ -1063,7 +1075,7 @@ export function showChallenge(c: ChallengeView) {
   th.hidden = !c.hint;
   if (c.hint) {
     const kana = h('b', 'th-kana', c.hint.kana, { lang: 'ja' });
-    th.replaceChildren(h('small', 'th-lbl', tr('Type')), h('b', 'th-romaji', c.hint.romaji), h('span', 'th-or', tr('or')), kana, h('span', 'th-m', `— ${c.hint.meaning}`));
+    th.replaceChildren(h('small', 'th-lbl', tr('Type')), h('b', 'th-romaji', c.hint.romaji), h('span', 'th-or', tr('or')), kana, h('span', 'th-m', `- ${c.hint.meaning}`));
   }
   setFeedback(null);
   countdown('challenge', c.timeLimitMs, (_l, frac) => ($('challengeBar').style.width = `${frac * 100}%`));
@@ -1073,7 +1085,7 @@ export function showChallenge(c: ChallengeView) {
     // flash the kanji, then only the meaning remains
     const mp = $('meaningPrompt');
     mp.hidden = false;
-    mp.replaceChildren(h('span', 'mp-reading', c.reading ?? '', { lang: 'ja' }), h('span', '', ` — ${c.meaning ?? ''}`), h('small', '', `write ${c.charCount} kanji`));
+    mp.replaceChildren(h('span', 'mp-reading', c.reading ?? '', { lang: 'ja' }), h('span', '', ` - ${c.meaning ?? ''}`), h('small', '', `write ${c.charCount} kanji`));
     // look at the kanji, then CAST!: it disappears and only then the pad / keyboard appear (main.ts)
     const ime = $<HTMLInputElement>('imeInput');
     ime.value = '';
@@ -1088,7 +1100,7 @@ export function showChallenge(c: ChallengeView) {
   input.value = '';
   input.placeholder = c.answer === 'romaji' ? 'romaji, then Enter' : 'かな or romaji, then Enter';
   input.lang = c.answer === 'romaji' ? 'en' : 'ja';
-  setInputHint(c.answer === 'romaji' ? 'Hiragana spell — answer in romaji' : '');
+  setInputHint(c.answer === 'romaji' ? 'Hiragana spell - answer in romaji' : '');
   $<HTMLButtonElement>('skip').disabled = false;
   input.focus();
 }
@@ -1177,7 +1189,7 @@ export function setFeedback(f: Feedback | null) {
     const big = h('span', 'big' + (f.crit ? ' crit' : ''), f.crit ? `✦ CRIT! ${f.damage} damage` : `✓ CAST! ${f.damage} damage`);
     el.replaceChildren(big, word('mean'), h('span', 'sub2', `${secs(f.responseMs ?? 0)}${combo}`));
   } else {
-    if (f.retry) { el.replaceChildren(h('span', 'big', '✗ Not quite — try again!')); return; }
+    if (f.retry) { el.replaceChildren(h('span', 'big', '✗ Not quite - try again!')); return; }
     const title = f.beaten ? 'Opponent was faster!' : f.skipped ? '↷ Skipped' : f.timedOut ? '✗ Too slow!' : '✗ MISS!';
     const kids = [h('span', 'big', title), word('reveal')];
     if (f.recognized && !f.skipped && !f.timedOut) kids.push(h('span', 'sub2', `The pad read: ${f.recognized}`));
@@ -1195,7 +1207,7 @@ export function setFeedback(f: Feedback | null) {
 export function openStrokeDialog(word: string, reading: string, meaning: string) {
   const d = $<HTMLDialogElement>('strokeDialog');
   $('sdWord').textContent = word;
-  $('sdInfo').textContent = `${reading} — ${meaning}`;
+  $('sdInfo').textContent = `${reading} - ${meaning}`;
   void showStrokeOrder($('sdBox'), word);
   if (!d.open) d.showModal();
 }
@@ -1239,8 +1251,8 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
   const title = $('resultTitle');
   title.className = `result-title ${outcome}`;
   title.textContent = outcome === 'win' ? 'VICTORY' : outcome === 'loss' ? 'DEFEAT' : 'DRAW';
-  if (mode === 'boss') $('resultReason').textContent = reason === 'time' && teamWon ? 'Time up — you held the dragon off!' : teamWon ? REASONS.boss_slain : reason === 'time' ? 'Time up — you held the dragon off!' : REASONS[reason];
-  else $('resultReason').textContent = reason === 'time' ? 'Time up — most HP left wins' : REASONS[reason];
+  if (mode === 'boss') $('resultReason').textContent = reason === 'time' && teamWon ? 'Time up - you held the dragon off!' : teamWon ? REASONS.boss_slain : reason === 'time' ? 'Time up - you held the dragon off!' : REASONS[reason];
+  else $('resultReason').textContent = reason === 'time' ? 'Time up - most HP left wins' : REASONS[reason];
   $('resultActions').hidden = !!opts.history;
   $('historyBackRow').hidden = !opts.history;
 
@@ -1291,8 +1303,34 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
     }),
   );
 
+  // 0.9.9.9.8: the words of everyone in the match — yours first, then a tab for each other player (their words, how
+  // they did on each, how fast); it was only your own
+  const tabs = $('wordTabs');
+  const who = [you, ...Object.keys(stats).filter((id) => id !== you)].filter((id) => stats[id]);
+  tabs.hidden = who.length < 2;
+  const showWords = (id: string) => {
+    for (const b of tabs.querySelectorAll<HTMLElement>('button')) b.setAttribute('aria-selected', String(b.dataset.who === id));
+    fillWords(stats[id] ?? EMPTY);
+  };
+  tabs.replaceChildren(...who.map((id) => {
+    const p = players.find((x) => x.id === id);
+    const b = h('button', 'word-tab', id === you ? 'You' : p?.name ?? (mode === 'boss' ? 'Ally' : 'Opponent'), { type: 'button', role: 'tab', 'aria-selected': String(id === you) });
+    b.dataset.who = id;
+    b.onclick = () => showWords(id);
+    return b;
+  }));
+  showWords(you);
+  $('xpLine').hidden = true;
+  $<HTMLButtonElement>('rematch').disabled = false;
+  $('rematch').textContent = 'Rematch';
+  $('rematchStatus').textContent = '';
+  show('results');
+}
+
+/** the results table: one player's words */
+function fillWords(s: PlayerStats) {
   $('wordRows').replaceChildren(
-    ...me.words.map((w) => {
+    ...s.words.map((w) => {
       const result =
         w.attempts === 0 ? h('span', 'na', 'not seen')
         : w.correct === w.attempts ? h('span', 'ok', `✓ ${w.correct}/${w.attempts}`)
@@ -1304,17 +1342,14 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
         append(h('td'), result), h('td', '', w.avgMs !== null ? secs(w.avgMs) : '—'));
     }),
   );
-  $('xpLine').hidden = true;
-  $<HTMLButtonElement>('rematch').disabled = false;
-  $('rematch').textContent = 'Rematch';
-  $('rematchStatus').textContent = '';
-  show('results');
+  // (a player who saw no words — they left at once — still gets a line, not an empty table)
+  if (!s.words.length) $('wordRows').append(append(h('tr'), h('td', 'na', 'No words in this match', { colspan: '5' })));
 }
 
 export function showXp(gained: number, level: number, levelUp: boolean) {
   const el = $('xpLine');
   el.hidden = false;
-  el.replaceChildren(h('span', '', gained > 0 ? `+${gained} XP` : 'No XP — the match was forfeited'));
+  el.replaceChildren(h('span', '', gained > 0 ? `+${gained} XP` : 'No XP - the match was forfeited'));
   if (levelUp) el.append(h('span', 'lvup', `Level ${level}!`));
 }
 
@@ -1372,7 +1407,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
   if (p === 'loading') body.push(h('p', 'hint', 'Loading…'));
   else if (p === 'missing') body.push(h('p', 'hint', 'This player can no longer be viewed.'));
   else if ('bot' in p) {
-    body.push(append(h('div', 'pp-head'), h('div', 'pp-pic', 'AI'), append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', p.bot === 'BEGINNER' ? 'AI player · beginner' : `AI player · knows ${p.bot}`))),
+    body.push(append(h('div', 'pp-head'), h('div', 'pp-pic', 'Bot'), append(h('div'), h('div', 'pp-name', p.name), h('div', 'pp-level', p.bot === 'BEGINNER' ? 'Bot · beginner' : `Bot · knows ${p.bot}`))),
       h('p', 'hint', 'A computer opponent. It gets words right about as often as a learner of its level would.'));
   } else {
     const pic = h('div', 'pp-pic' + (p.pic ? ' has-pic' : '') + borderCls(p.border), p.pic ? '' : p.name.slice(0, 1).toUpperCase());
@@ -1505,13 +1540,13 @@ export function confirmBox(title: string, text: string, yes = 'Leave', no = 'Sta
 export function showHistory(list: MatchSummary[] | null, onOpen: (id: string) => void) {
   const box = $('historyList');
   if (!list) box.replaceChildren(h('p', 'hint center', 'Loading…'));
-  else if (!list.length) box.replaceChildren(h('p', 'hint center', 'No matches yet — your finished games will show up here.'));
+  else if (!list.length) box.replaceChildren(h('p', 'hint center', 'No matches yet - your finished games will show up here.'));
   else box.replaceChildren(...list.map((m) => {
     const row = h('button', `hist-row ${m.outcome}`);
     const vs = h('span', 'hist-vs');
     m.opponents.forEach((o, i) => {
       if (i) vs.append(', ');
-      vs.append(markProfile(h('span', '', o.name), { id: o.id, bot: o.bot ? (o.name.match(/AI (N\d)/)?.[1] ?? 'AI') : null, name: o.name }));
+      vs.append(markProfile(h('span', '', o.name), { id: o.id, bot: o.bot ? (o.name.match(/(?:AI|Bot) (N\d)/)?.[1] ?? 'Bot') : null, name: o.name }));
     });
     row.append(
       characterEl(m.character, m.mode),

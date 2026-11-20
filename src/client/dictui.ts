@@ -89,7 +89,7 @@ export function exactFirst(hits: DictEntry[], q: string): DictEntry[] {
 export async function askOffline(into: HTMLElement = $('dictBody')): Promise<void> {
   if (offlinePref() || await storedDict()) return;
   const card = h('div', 'dict-home dict-offline');
-  card.append(h('h4', '', tr('Use the dictionary offline?')), h('p', 'hint', tr('Download every word and phrase (about 2.5 MB) to this device — then the dictionary works without internet, anywhere.')));
+  card.append(h('h4', '', tr('Use the dictionary offline?')), h('p', 'hint', tr('Download every word and phrase (about 2.5 MB) to this device - then the dictionary works without internet, anywhere.')));
   const bar = h('div', 'dl-bar'); const fill = h('i'); bar.append(fill); bar.hidden = true;
   const yes = h('button', 'pill primary', tr('Download'), { type: 'button' }) as HTMLButtonElement;
   const no = h('button', 'pill', tr('Not now'), { type: 'button' });
@@ -104,11 +104,11 @@ export async function askOffline(into: HTMLElement = $('dictBody')): Promise<voi
         const s = await downloadDict((d, t) => { fill.style.width = `${Math.round((d / t) * 100)}%`; yes.textContent = `${Math.round((d / t) * 100)}%`; });
         setOfflinePref('yes');
         dictP = Promise.resolve(build(s.dict, s.vocab));
-        ui.toast(tr('The dictionary is on this device now — it works offline.'), 4000);
+        ui.toast(tr('The dictionary is on this device now - it works offline.'), 4000);
         done();
       } catch {
         yes.disabled = false; yes.textContent = tr('Download'); bar.hidden = true;
-        ui.toast(tr('The download failed — check your internet and try again.'), 4000);
+        ui.toast(tr('The download failed - check your internet and try again.'), 4000);
       }
     };
   });
@@ -154,17 +154,17 @@ async function search(q: string) {
     lastQ = q; lastHits = exactFirst(d.search(q, 120), q); shown = 30;
     drawList();
   } catch {
-    if (n === busy) body.replaceChildren(h('p', 'hint center', tr('The dictionary couldn’t load — open it once with internet, then it works offline too.')));
+    if (n === busy) body.replaceChildren(h('p', 'hint center', tr('The dictionary couldn’t load - open it once with internet, then it works offline too.')));
   }
 }
 
 function drawHome() {
   const home = h('div', 'dict-home');
-  home.append(h('p', 'hint', tr('Type a word in kanji, kana, romaji, English or Russian. Open a word for all its meanings, its kanji with memory pictures, example sentences — and add it to your decks.')));
+  home.append(h('p', 'hint', tr('Type a word in kanji, kana, romaji, English or Russian. Open a word for all its meanings, its kanji with memory pictures, example sentences - and add it to your decks.')));
   // 0.9.9.7.3: offline or not — and a way to change your mind
   const status = h('p', 'hint dict-store');
   void storedDict().then((kept) => {
-    if (kept) { status.textContent = `✓ ${tr('Saved on this device — works offline.')}`; return; }
+    if (kept) { status.textContent = `✓ ${tr('Saved on this device - works offline.')}`; return; }
     const b = h('button', 'pill', tr('Save it on this device for offline use'), { type: 'button' });
     b.onclick = () => { try { localStorage.removeItem(OFFLINE_PREF); } catch { /* private mode */ } void askOffline().then(drawHome); };
     status.append(b);

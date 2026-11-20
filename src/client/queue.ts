@@ -61,7 +61,7 @@ function choose(p: 'battle' | 'deck', silent = false) {
     c.classList.toggle('chosen', on);
     c.setAttribute('aria-checked', String(on));
   });
-  ui.$('qStart').textContent = p === 'deck' ? 'Start queue — Deck Duel' : 'Start queue';
+  ui.$('qStart').textContent = p === 'deck' ? 'Start queue - Deck Duel' : 'Start queue';
   remember();
 }
 
@@ -132,10 +132,10 @@ function showAiOffer(on: boolean) {
   if (box.dataset.key === `${mode}|${lv}` && !box.hidden) return;
   box.dataset.key = `${mode}|${lv}`;
   const p = document.createElement('p');
-  p.textContent = tr('No one yet — play an AI while you wait?');
+  p.textContent = tr('No one yet - play a bot while you wait?');
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'pill primary q-ai-btn';
-  b.append(ui.modeBadge(mode), document.createTextNode(` ${tr(MODE_LABEL[mode])} · ${tr('AI')} ${lv === 'BEGINNER' ? tr('Beginner') : lv}`));
+  b.append(ui.modeBadge(mode), document.createTextNode(` ${tr(MODE_LABEL[mode])} · ${tr('Bot')} ${lv === 'BEGINNER' ? tr('Beginner') : lv}`));
   b.onclick = () => { send({ type: 'queue_cancel' }); stopSearching(); onPlayAi?.(mode, lv, levels); };
   box.replaceChildren(p, b);
   box.hidden = false;
@@ -157,7 +157,7 @@ function showFound(msg: Extract<ServerMessage, { type: 'queue' }>) {
   if (foundId !== msg.matchId) {
     // a fresh match: start the 5 s ring
     foundId = msg.matchId!;
-    attention('Match found!', `${MODE_LABEL[msg.mode!]} — press Accept`);
+    attention('Match found!', `${MODE_LABEL[msg.mode!]} - press Accept`);
     ui.$('mfBadge').replaceChildren(ui.modeBadge(msg.mode!));
     ui.$('mfMode').textContent = MODE_LABEL[msg.mode!];
     const until = Date.now() + (msg.acceptMs ?? 5000), total = msg.acceptMs ?? 5000;
@@ -182,7 +182,7 @@ function showFound(msg: Extract<ServerMessage, { type: 'queue' }>) {
   btn.textContent = mine ? '✓ Accepted' : 'Accept';
   const n = msg.players ?? 2;
   ui.$('mfStatus').textContent = n > 2
-    ? `${accepted.length} / ${n} accepted${mine ? ' — waiting for the others…' : ''}`
+    ? `${accepted.length} / ${n} accepted${mine ? ' - waiting for the others…' : ''}`
     : mine ? 'Waiting for your opponent…' : accepted.length ? 'Your opponent accepted!' : '';
 }
 function hideFound() {
@@ -196,8 +196,8 @@ export function onQueue(msg: Extract<ServerMessage, { type: 'queue' }>) {
   if (msg.state === 'found') return showFound(msg);
   if (foundId) {
     hideFound();
-    if (msg.state === 'searching' && msg.requeued) ui.toast('Your opponent didn\'t accept — you\'re back in the queue.', 4000);
-    if (msg.state === 'idle' && msg.reason === 'missed') ui.toast('You didn\'t accept in time — the queue stopped.', 4000);
+    if (msg.state === 'searching' && msg.requeued) ui.toast('Your opponent didn\'t accept - you\'re back in the queue.', 4000);
+    if (msg.state === 'idle' && msg.reason === 'missed') ui.toast('You didn\'t accept in time - the queue stopped.', 4000);
   }
   if (msg.state === 'idle') return stopSearching();
   ui.$('queuePick').hidden = true;
@@ -206,7 +206,7 @@ export function onQueue(msg: Extract<ServerMessage, { type: 'queue' }>) {
   if (msg.state === 'matched') {
     searching = false;
     clearInterval(tick);
-    ui.$('qTitle').textContent = `Player found — ${MODE_LABEL[msg.mode!]}!`;
+    ui.$('qTitle').textContent = `Player found - ${MODE_LABEL[msg.mode!]}!`;
     ui.$('qInfo').textContent = 'Starting…';
     ui.$('qCancel').hidden = true;
     return;
@@ -218,7 +218,7 @@ export function onQueue(msg: Extract<ServerMessage, { type: 'queue' }>) {
   const others = (msg.searching ?? 1) - 1;
   const boss = (msg.modes ?? []).includes('boss') ? ` · Boss needs 4 players: ${Math.min(4, msg.boss ?? 1)} / 4 queued` : '';
   aiModes = msg.modes ?? [];
-  ui.$('qInfo').textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(' · ')} — ${others > 0 ? `${others} other player${others === 1 ? '' : 's'} searching` : 'no one else searching yet'}${boss}`;
+  ui.$('qInfo').textContent = `${(msg.modes ?? []).map((m) => MODE_LABEL[m]).join(' · ')} - ${others > 0 ? `${others} other player${others === 1 ? '' : 's'} searching` : 'no one else searching yet'}${boss}`;
   if (!searching) {
     searching = true;
     clearInterval(tick);

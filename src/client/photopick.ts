@@ -136,7 +136,7 @@ function renderGrid() {
   thumbs = new Map();
   const tiles = items.map((it) => { const t = tile(it); if (it.native) thumbs.set(it.key.slice(2), t); return t; });
   gridEl.replaceChildren(pick, ...tiles);
-  if (!items.length && !nativeGallery()) gridEl.append(h('p', 'ps-empty', tr(matchMedia('(pointer: fine)').matches ? 'Choose photos from your device — or drop them here, or paste one into the message box (Ctrl+V).' : 'Choose photos from your device.')));
+  if (!items.length && !nativeGallery()) gridEl.append(h('p', 'ps-empty', tr(matchMedia('(pointer: fine)').matches ? 'Choose photos from your device - or drop them here, or paste one into the message box (Ctrl+V).' : 'Choose photos from your device.')));
   paintBar();
 }
 

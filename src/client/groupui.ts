@@ -57,7 +57,7 @@ function friendPicker(friends: Friend[], skip: Set<string>, onChange: (ids: stri
       t.append(h('b', '', f.name ?? f.username), h('small', '', f.online ? tr('Online') : `@${f.username}`));
       r.append(cb, avatar(f.pic, f.name ?? f.username), t);
       return r;
-    }) : [h('p', 'hint', friends.length ? tr('No one by that name') : tr('Add friends first — then you can put them in a group.'))]));
+    }) : [h('p', 'hint', friends.length ? tr('No one by that name') : tr('Add friends first - then you can put them in a group.'))]));
   };
   search.oninput = paint;
   paint();

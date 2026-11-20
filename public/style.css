@@ -5588,3 +5588,15 @@ body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(
    while you're on any other screen — measured: 39 animations on a phone and 149 on a PC kept running behind every
    screen, the battle too. On the menu (and the login) they move as before. */
 body:not([data-screen="menu"]):not([data-screen="auth"]) :is(.art-stage, .art-stage *, .menu-veil, .menu-veil *) { animation-play-state: paused !important; }
+
+/* 0.9.9.9.8: a player without a profile picture shows the first letter of their name in a circle (the lobby) */
+.pic-letter { display: inline-grid; place-items: center; background: linear-gradient(150deg, #5d4bb8, #2f2672); color: #fff; font: 800 .8em/1 var(--ui); text-transform: uppercase; user-select: none; }
+.players li .pic-letter { font-size: .95rem; }
+:root[data-theme="light"] .pic-letter { background: linear-gradient(150deg, #8f7ee6, #5b4bc4); }
+/* 0.9.9.9.8: the results' word table — a tab for each player (your words, then theirs) */
+.word-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.word-tab { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-weight: 800; box-shadow: none; min-width: 0; }
+.word-tab[aria-selected="true"] { background: var(--accent); border-color: transparent; color: #fff; }
+#wordRows td.na { text-align: center; color: var(--muted); padding: 14px; }
+/* 0.9.9.9.8: Settings → Other: the notification switches under their own heading */
+.set-sec .set-h { margin: 2px 0 -2px; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }

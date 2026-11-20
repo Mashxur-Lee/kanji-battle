@@ -2,6 +2,8 @@
 // allowed it) a system notification pops up. Used for "Your turn" in Deck Duel, "Match found" and
 // friend invites.
 
+import { alertsOn } from './push';
+
 let blink = 0;
 let baseTitle = document.title;
 
@@ -19,7 +21,7 @@ export function attention(title: string, body = '') {
   baseTitle = document.title.startsWith('● ') ? baseTitle : document.title;
   let on = false;
   blink = window.setInterval(() => { on = !on; document.title = on ? `● ${title}` : baseTitle; }, 900);
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!alertsOn() || !('Notification' in window) || Notification.permission !== 'granted') return; // (0.9.9.9.8: Settings → Notifications)
   const opts = { body, icon: '/icons/icon-192.png', tag: 'kanji-wizards', renotify: true } as NotificationOptions;
   try {
     const n = new Notification(title, opts);

@@ -57,7 +57,7 @@ test('0.9.9.9.7.1 version, patch notes, Russian for the new messages, DAILY_SECR
   assert.ok(VERSION >= '0.9.9.9.7.1');
   assert.match(src('src/client/whatsnew.ts'), /v: '0\.9\.9\.9\.7\.1'/);
   const ru = src('src/client/i18n.ts');
-  for (const s of ['That day isn\\\'t over everywhere yet', 'Too many wrong codes — try again tomorrow', 'Too many wrong passwords for this account']) assert.ok(ru.includes(s), s);
+  for (const s of ['That day isn\\\'t over everywhere yet', 'Too many wrong codes - try again tomorrow', 'Too many wrong passwords for this account']) assert.ok(ru.includes(s), s);
   assert.match(src('docs/SETUP.md'), /`DAILY_SECRET`/);
   assert.doesNotMatch(src('src/client/appshell.ts'), /reading passages, the daily challenge/, 'the offline toast no longer promises the daily challenge');
 });
@@ -137,7 +137,7 @@ test('0.9.9.9.7.1 #2 with DAILY_SECRET nobody can work the words out from the co
 
 // ── #3: several Daily challenges a day ──────────────────────────────────────────────────────────────────────────
 test('0.9.9.9.7.1 #3 the app\'s date counts only if a real time zone (UTC−12 … UTC+14) is on it at that moment', () => {
-  assert.equal(resolveToday('2026-11-21', at('2026-11-20T08:00:00Z')), '2026-11-20', 'at 08:00 UTC nobody is on the 21st (UTC+14 is at 22:00) — it was accepted');
+  assert.equal(resolveToday('2026-11-21', at('2026-11-20T08:00:00Z')), '2026-11-20', 'at 08:00 UTC nobody is on the 21st (UTC+14 is at 22:00) - it was accepted');
   assert.equal(resolveToday('2026-11-21', at('2026-11-20T10:00:00Z')), '2026-11-21', 'from 10:00 UTC Kiribati is');
   assert.equal(resolveToday('2026-11-19', at('2026-11-20T11:59:00Z')), '2026-11-19', 'UTC−12 is still on the 19th…');
   assert.equal(resolveToday('2026-11-19', at('2026-11-20T12:00:00Z')), '2026-11-20', '…until 12:00 UTC');
@@ -264,7 +264,7 @@ test('0.9.9.9.7.1 #7 after 20 wrong codes in a day the guessing stops — no new
   const codes = sent.length;
   await auth.forgot('target', mail, t);
   assert.equal(sent.length, codes, 'no more codes today');
-  await assert.rejects(auth.resetPassword('target', sent.at(-1)!.code, 'hacked12', t), /Too many wrong codes — try again tomorrow/);
+  await assert.rejects(auth.resetPassword('target', sent.at(-1)!.code, 'hacked12', t), /Too many wrong codes - try again tomorrow/);
   t += 86_400_000;
   await auth.forgot('target', mail, t);
   assert.ok((await auth.resetPassword('target', sent.at(-1)!.code, 'mine1234', t)).token, 'the real owner gets in the next day');
@@ -277,7 +277,7 @@ test('0.9.9.9.7.1 #14 10 wrong passwords lock that account for 15 minutes — ev
   for (const name of ['victim', 'bystander']) await store.create({ username: name, passwordHash: await hashPassword('secret12'), role: 'user' });
   let t = at('2026-11-20T00:00:00Z');
   for (let i = 0; i < LOGIN_FAILS; i++) await assert.rejects(auth.login('victim', `guess${i}`, t), /Wrong username or password/);
-  await assert.rejects(auth.login('victim', 'secret12', t), /Too many wrong passwords for this account — try again in 15 min/);
+  await assert.rejects(auth.login('victim', 'secret12', t), /Too many wrong passwords for this account - try again in 15 min/);
   await assert.rejects(auth.login(' VICTIM ', 'secret12', t), /Too many wrong passwords/, 'written another way: the same account');
   assert.ok((await auth.login('bystander', 'secret12', t)).token);
   t += 15 * 60_000;

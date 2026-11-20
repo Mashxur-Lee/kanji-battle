@@ -87,7 +87,7 @@ export function codeDialog(opts: { to: string; ask?: boolean; onDone: (u: Public
   const { d, f } = dialog('code-dialog');
   const h3 = el('h3', '', tr('Confirm your email'));
   const line = el('p', 'hint');
-  const setLine = (sent: boolean) => { line.textContent = sent ? `${tr('We sent a 6-digit code to')} ${opts.to}. ${tr('Enter it here — it works for 15 minutes.')}` : `${tr('Your email')} ${opts.to} ${tr('is not confirmed yet. Confirm it, so a password reset can reach you.')}`; };
+  const setLine = (sent: boolean) => { line.textContent = sent ? `${tr('We sent a 6-digit code to')} ${opts.to}. ${tr('Enter it here - it works for 15 minutes.')}` : `${tr('Your email')} ${opts.to} ${tr('is not confirmed yet. Confirm it, so a password reset can reach you.')}`; };
   const code = el('input', 'code-input');
   code.inputMode = 'numeric'; code.autocomplete = 'one-time-code'; code.maxLength = 6; code.pattern = '[0-9]{6}'; code.placeholder = '000000';
   code.required = true;
@@ -105,7 +105,7 @@ export function codeDialog(opts: { to: string; ask?: boolean; onDone: (u: Public
   const extra = el('div', 'code-extra');
   // 0.9.9.9.7.4: what "Later" means, said before it's pressed — the email is the account's only once it is confirmed,
   // so until then "Forgot password?" has nowhere to send a code
-  const laterNote = el('p', 'hint code-later', tr('Later: you can play now, but until your email is confirmed “Forgot password?” can’t send you a code — a forgotten password couldn’t be recovered.'));
+  const laterNote = el('p', 'hint code-later', tr('Later: you can play now, but until your email is confirmed “Forgot password?” can’t send you a code - a forgotten password couldn’t be recovered.'));
   const row = el('div', 'fb-actions');
   // "Send it again": once a minute
   let wait = 0, timer = 0;
@@ -178,11 +178,11 @@ export function reportDialog(target: { id: string; name: string }, onSent: () =>
 export function claimDialog(opts: { why?: string; onDone: (token: string, u: PublicUser) => void }) {
   const { d, f } = dialog('claim-dialog');
   const h3 = el('h3', '', tr('Save your progress'));
-  const why = el('p', 'hint', opts.why ?? tr('Make this your account: everything you have done so far stays — your level, spells and wizard. Then you can sign in on any device, message friends and get back in if you forget your password.'));
+  const why = el('p', 'hint', opts.why ?? tr('Make this your account: everything you have done so far stays - your level, spells and wizard. Then you can sign in on any device, message friends and get back in if you forget your password.'));
   const login = field('Login', 'text', 'username', { max: 32 });
   login.i.minLength = 3; login.i.pattern = '[A-Za-z0-9_.\\-]{3,32}';
   const pass = field('Password', 'password', 'new-password', { max: 72 });
-  pass.i.minLength = 6;
+  pass.i.minLength = 8; // (0.9.9.9.8: 8)
   const mail = field('Email', 'email', 'email', { mode: 'email' });
   const note = el('p', 'hint', tr('Your email is only for getting back in. We send nothing else, and nobody else sees it.'));
   const msg = msgLine();
@@ -215,14 +215,14 @@ export function forgotDialog(prefill: string, onSignedIn: (token: string, u: Pub
   const step1 = el('div', 'fg-step');
   const who = field('Your login or email', 'text', 'username', { max: 254 });
   who.i.value = prefill;
-  step1.append(el('p', 'hint', tr('We send a 6-digit code to the email of your account.')), el('p', 'hint', tr('(Only to a confirmed email — one you entered the code for.)')), who.l); // (0.9.9.9.7.4)
+  step1.append(el('p', 'hint', tr('We send a 6-digit code to the email of your account.')), el('p', 'hint', tr('(Only to a confirmed email - one you entered the code for.)')), who.l); // (0.9.9.9.7.4)
   const step2 = el('div', 'fg-step');
   step2.hidden = true;
   const code = field('Code from the email', 'text', 'one-time-code', { max: 8, mode: 'numeric' });
   const p1 = field('New password', 'password', 'new-password', { max: 72 });
   const p2 = field('New password again', 'password', 'new-password', { max: 72 });
   [code.i, p1.i, p2.i].forEach((i) => { i.required = false; });
-  p1.i.minLength = 6; p2.i.minLength = 6;
+  p1.i.minLength = 8; p2.i.minLength = 8;
   const sentNote = el('p', 'hint', tr('If that account has an email, the code is on its way (check spam too). It works for 30 minutes.'));
   const again = el('button', 'link', tr('Send a new code'));
   again.type = 'button';

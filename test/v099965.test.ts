@@ -48,7 +48,7 @@ test('0.9.9.9.6.5 the host changes the room\'s mode in the lobby (others told; A
   // three people can't go into a duel
   room.setMode('a', 'boss');
   const c0 = client(); room.join('x', 'Xi', c0);
-  assert.equal(room.setMode('a', 'deck'), 'Too many players for Deck Duel — it is for 2');
+  assert.equal(room.setMode('a', 'deck'), 'Too many players for Deck Duel - it is for 2');
   room.leave('x'); room.leave('b');
   room.addBot('a', 'N3'); room.addBot('a', 'N5');
   assert.equal(room.setMode('a', 'deck'), null);
@@ -92,7 +92,7 @@ test('0.9.9.9.6.5 change your password: the current one first; every other devic
   await new Promise((r) => setTimeout(r, 1100)); // (a token from an earlier second)
   const u = await auth.authenticate(phone);
   await assert.rejects(auth.changePassword(u, 'wrong', 'second-pass'), /current password is wrong/);
-  await assert.rejects(auth.changePassword(u, 'first-pass', '123'), /at least 6/);
+  await assert.rejects(auth.changePassword(u, 'first-pass', '123'), /at least 8/);
   const { token: pc } = await auth.changePassword(u, 'first-pass', 'second-pass');
   await assert.rejects(auth.authenticate(phone), /password was changed/);
   assert.equal((await auth.authenticate(pc)).id, u.id, 'the device that changed it stays signed in');

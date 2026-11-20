@@ -17,7 +17,7 @@ import { VERSION } from '../src/shared/version';
 const src = (f: string) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
 
 test('0.9.9.9.7.4 version, patch notes, Russian for the new words', () => {
-  assert.equal(VERSION, '0.9.9.9.7.4');
+  assert.ok(VERSION >= '0.9.9.9.7.4');
   assert.match(src('src/client/whatsnew.ts'), /v: '0\.9\.9\.9\.7\.4'/);
   const ru = src('src/client/i18n.ts');
   for (const s of ["'Block':", "'Unblock':", "'Report':", "'Send report':", "'Rude or hurtful':", "'Later: you can play now, but until your email is confirmed", "'(Only to a confirmed email"]) assert.ok(ru.includes(s), s);
@@ -42,7 +42,7 @@ test('0.9.9.9.7.4 "Later" on the email code says what it means before it is pres
   const acc = src('src/client/account.ts');
   assert.match(acc, /const laterNote = el\('p', 'hint code-later', tr\('Later: you can play now, but until your email is confirmed “Forgot password\?” can’t send you a code/);
   assert.match(acc, /f\.append\(h3, line, code, msg, extra, laterNote, row\);/);
-  assert.match(acc, /'\(Only to a confirmed email — one you entered the code for\.\)'/, 'and Forgot password? says so too');
+  assert.match(acc, /'\(Only to a confirmed email - one you entered the code for\.\)'/, 'and Forgot password? says so too');
 });
 
 // ── #13: block and report ────────────────────────────────────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ test('0.9.9.9.7.4 #13 a report reaches the team\'s inbox — with the message on
   await social.report(await me(ann), bob.id, 'rude', 'keeps saying this', m.id);
   const [r] = await store.reports(10);
   assert.equal(r.kind, 'report');
-  assert.match(r.text, /^Report on @bob: rude or hurtful — keeps saying this\nThe message: “you are terrible”$/);
+  assert.match(r.text, /^Report on @bob: rude or hurtful - keeps saying this\nThe message: “you are terrible”$/);
   assert.equal(JSON.parse(r.meta).target, bob.id);
   // someone else's message isn't quoted
   const carl = await store.create({ username: 'carl', passwordHash: 'x', role: 'user' } as never);

@@ -4,6 +4,7 @@ import { displayName } from '../db/Store';
 import { dailyCrit } from '../../shared/progress';
 import type { AdminUserRow, PublicUser, Role } from '../../shared/protocol';
 import { hashPassword, verifyPassword } from './passwords';
+import { passwordProblem } from './strength';
 import type { TokenSigner } from './tokens';
 import { EmailTakenError, UsernameTakenError, type Store, type UserRecord } from '../db/Store';
 import { cleanEmail, EmailError, emailKey, maskEmail } from './email';
@@ -19,6 +20,9 @@ export const emailChangedAt = (u: { unlocks?: string[] }) => Number((u.unlocks ?
 
 /** 0.9.9.9.6.5: when the password last changed (a marker among the account's unlocks) */
 const PW_MARK = 'pwat:';
+/** 0.9.9.9.8: "Sign out on all other devices": tokens issued before this moment are refused */
+const OUT_MARK = 'outat:';
+export const signedOutAt = (u: { unlocks?: string[] }) => Number((u.unlocks ?? []).find((x) => x.startsWith(OUT_MARK))?.slice(OUT_MARK.length)) || 0;
 export const passwordChangedAt = (u: { unlocks?: string[] }) => Number((u.unlocks ?? []).find((x) => x.startsWith(PW_MARK))?.slice(PW_MARK.length)) || 0;
 
 /** 0.9.9.9.6.9: a guest — playing without an account (no email, no password of their own) until they save it */
@@ -75,7 +79,7 @@ export class AuthService {
       else if (known) {
         if (await verifyPassword(a.password, existing.passwordHash)) {
           await this.store.update(existing.id, { passwordHash: await hashPassword(randomBytes(24).toString('base64url')) });
-          console.warn(`"${a.username}" still had its built-in default password — locked (set its password in the environment)`);
+          console.warn(`"${a.username}" still had its built-in default password - locked (set its password in the environment)`);
         }
       } else if (a.fromEnv && !(await verifyPassword(a.password, existing.passwordHash))) {
         await this.store.update(existing.id, { passwordHash: await hashPassword(a.password) }); // rotate to the env password
@@ -88,11 +92,11 @@ export class AuthService {
     const p = String(password ?? '');
     if (!USERNAME_RE.test(u)) throw new AuthError('Login: 3–32 letters, numbers, _ . or -');
     if (/^guest-/i.test(u)) throw new AuthError('Pick a login of your own'); // (0.9.9.9.6.9: those are the guests')
-    if (p.length < 6 || p.length > 72) throw new AuthError('Password: at least 6 characters');
+    { const why = passwordProblem(p, u); if (why) throw new AuthError(why); } // (0.9.9.9.8: 8+ characters, not a common one)
     // 0.9.9.9.6.6: an email for every account (to get back in; one account per mailbox)
     const mail = this.emailOrThrow(email);
     const key = emailKey(mail);
-    if (await this.store.findByEmailKey(key)) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
+    if (await this.store.findByEmailKey(key)) throw new AuthError('That email already has an account - log in, or use "Forgot password?"', 409);
     try {
       // 0.9.9.9.7: the email is the account's once it's confirmed (a code goes to it now)
       const rec = await this.store.create({ username: u, passwordHash: await hashPassword(p), role: 'user' });
@@ -100,7 +104,7 @@ export class AuthService {
       return { token: this.tokens.sign(rec.id), user: toSelf(rec), pending };
     } catch (e) {
       if (e instanceof UsernameTakenError) throw new AuthError('That username is taken', 409);
-      if (e instanceof EmailTakenError) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
+      if (e instanceof EmailTakenError) throw new AuthError('That email already has an account - log in, or use "Forgot password?"', 409);
       throw e;
     }
   }
@@ -128,10 +132,10 @@ export class AuthService {
     const p = String(password ?? '');
     if (!USERNAME_RE.test(name)) throw new AuthError('Login: 3–32 letters, numbers, _ . or -');
     if (/^guest-/i.test(name)) throw new AuthError('Pick a login of your own');
-    if (p.length < 6 || p.length > 72) throw new AuthError('Password: at least 6 characters');
+    { const why = passwordProblem(p, name); if (why) throw new AuthError(why); }
     const mail = this.emailOrThrow(email);
     const key = emailKey(mail);
-    if (await this.store.findByEmailKey(key)) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
+    if (await this.store.findByEmailKey(key)) throw new AuthError('That email already has an account - log in, or use "Forgot password?"', 409);
     const other = await this.store.findByUsername(name);
     if (other && other.id !== u.id) throw new AuthError('That username is taken', 409);
     try {
@@ -143,7 +147,7 @@ export class AuthService {
       return { token: this.tokens.sign(u.id), user: toSelf(rec ?? u), pending };
     } catch (e) {
       if (e instanceof UsernameTakenError) throw new AuthError('That username is taken', 409);
-      if (e instanceof EmailTakenError) throw new AuthError('That email already has an account — log in, or use "Forgot password?"', 409);
+      if (e instanceof EmailTakenError) throw new AuthError('That email already has an account - log in, or use "Forgot password?"', 409);
       throw e;
     }
   }
@@ -203,10 +207,10 @@ export class AuthService {
     if (was && now - was.sentAt < CONFIRM_GAP_MS) throw new AuthError('Wait a minute before asking for another code', 429);
     const day = new Date(now).toISOString().slice(0, 10);
     const today = was && was.day === day ? was.today : 0;
-    if (today >= CONFIRM_PER_DAY) throw new AuthError('Too many codes today — try again tomorrow', 429);
+    if (today >= CONFIRM_PER_DAY) throw new AuthError('Too many codes today - try again tomorrow', 429);
     // (one mailbox gets at most 3 codes an hour, from all accounts together: nobody can flood someone else's inbox)
     const times = (readJson<number[]>(await this.store.getValue(`sentto:${key}`)) ?? []).filter((t) => now - t < 3_600_000);
-    if (times.length >= CONFIRM_PER_ADDRESS_HOUR) throw new AuthError('Too many codes went to that address — try again in an hour', 429);
+    if (times.length >= CONFIRM_PER_ADDRESS_HOUR) throw new AuthError('Too many codes went to that address - try again in an hour', 429);
     await this.store.setValue(`sentto:${key}`, JSON.stringify([...times, now]));
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     await this.store.setValue(`confirm:${u.id}`, JSON.stringify({ email, key, hash: this.codeHash('confirm', u.id, code), until: now + CONFIRM_MS, tries: 0, sentAt: now, day, today: today + 1 } satisfies ConfirmRecord));
@@ -218,14 +222,14 @@ export class AuthService {
   async resendConfirm(u: UserRecord, sendMail: (m: ResetMail) => Promise<void>, now = Date.now()) {
     const was = await this.confirmOf(u.id);
     const email = was && now < was.until + 3_600_000 ? was.email : !emailVerified(u) ? u.email : null;
-    if (!email) throw new AuthError('There is no email to confirm — add one first', 400);
+    if (!email) throw new AuthError('There is no email to confirm - add one first', 400);
     if (was && now - was.sentAt < CONFIRM_GAP_MS) throw new AuthError('Wait a minute before asking for another code', 429);
     return { pending: await this.askConfirm(u, email, sendMail, now) };
   }
   /** the code from the email: the address becomes the account's (and confirmed) */
   async confirmEmail(u: UserRecord, code: unknown, now = Date.now()) {
     const c = await this.confirmOf(u.id);
-    const bad = new AuthError('That code is wrong or has expired — ask for a new one', 400);
+    const bad = new AuthError('That code is wrong or has expired - ask for a new one', 400);
     if (!c || !c.hash || now > c.until || c.tries >= CONFIRM_TRIES) throw bad;
     c.tries++;
     if (!this.codeOk('confirm', u.id, code, c.hash)) { await this.store.setValue(`confirm:${u.id}`, JSON.stringify(c)); throw bad; }
@@ -267,15 +271,15 @@ export class AuthService {
   async resetPassword(login: unknown, code: unknown, next: unknown, now = Date.now()) {
     const rec = await this.byLogin(login);
     const r = rec ? await this.resetOf(rec.id) : null;
-    const bad = new AuthError('That code is wrong or has expired — ask for a new one', 400);
+    const bad = new AuthError('That code is wrong or has expired - ask for a new one', 400);
     if (!rec || !r) throw bad;
     r.wrong = r.wrong.filter((t) => now - t < DAY_MS);
-    if (r.wrong.length >= RESET_WRONG_PER_DAY) throw new AuthError('Too many wrong codes — try again tomorrow', 429);
+    if (r.wrong.length >= RESET_WRONG_PER_DAY) throw new AuthError('Too many wrong codes - try again tomorrow', 429);
     if (!r.hash || now > r.until || r.tries >= RESET_TRIES) throw bad;
     r.tries++;
     if (!this.codeOk('reset', rec.id, code, r.hash)) { r.wrong.push(now); await this.store.setValue(`reset:${rec.id}`, JSON.stringify(r)); throw bad; }
     const p = String(next ?? '');
-    if (p.length < 6 || p.length > 72) { await this.store.setValue(`reset:${rec.id}`, JSON.stringify(r)); throw new AuthError('Password: at least 6 characters'); }
+    { const why = passwordProblem(p, rec.username); if (why) { await this.store.setValue(`reset:${rec.id}`, JSON.stringify(r)); throw new AuthError(why); } }
     // (the code is used up; the day's counts stay)
     await this.store.setValue(`reset:${rec.id}`, JSON.stringify({ ...r, hash: '', until: 0, sentAt: 0 }));
     const at = Math.floor(now / 1000) * 1000;
@@ -310,13 +314,13 @@ export class AuthService {
     const key = name.toLowerCase();
     if (this.loginFails.blocked(key, now)) {
       const min = Math.max(1, Math.ceil(this.loginFails.waitMs(key, now) / 60_000));
-      throw new AuthError(`Too many wrong passwords for this account — try again in ${min} min`, 429);
+      throw new AuthError(`Too many wrong passwords for this account - try again in ${min} min`, 429);
     }
     const rec = await this.store.findByUsername(name);
     // same message for unknown user and wrong password, so usernames can't be probed
     if (!rec || !(await verifyPassword(String(password ?? ''), rec.passwordHash))) { this.loginFails.add(key, now); throw new AuthError('Wrong username or password', 401); }
     if (ip !== undefined && !isLoopback(ip) && this.builtIn.get(rec.username.toLowerCase()) === String(password)) {
-      throw new AuthError('This account still has its built-in password — it signs in only on the server itself. Set ADMIN_PASSWORD (or USER_PASSWORD) on the server.', 403);
+      throw new AuthError('This account still has its built-in password - it signs in only on the server itself. Set ADMIN_PASSWORD (or USER_PASSWORD) on the server.', 403);
     }
     if (rec.banned) throw new AuthError('This account has been banned', 403);
     return { token: this.tokens.sign(rec.id), user: toSelf(rec) };
@@ -331,15 +335,24 @@ export class AuthService {
     if (rec.banned) throw new AuthError('This account has been banned', 403);
     // 0.9.9.9.6.5: a password change signs out every other device (their tokens are older than the change)
     const changed = passwordChangedAt(rec);
-    if (changed && (this.tokens.issuedAt(String(token)) ?? 0) < changed) throw new AuthError('Your password was changed — log in again', 401);
+    if (changed && (this.tokens.issuedAt(String(token)) ?? 0) < changed) throw new AuthError('Your password was changed - log in again', 401);
+    const out = signedOutAt(rec);
+    if (out && (this.tokens.issuedAt(String(token)) ?? 0) < out) throw new AuthError('You were signed out on this device. Log in again.', 401);
     return rec;
+  }
+
+  /** 0.9.9.9.8: sign out every other device (a lost phone, a shared computer); this one gets a new token */
+  async signOutOthers(u: UserRecord) {
+    const at = Math.floor(Date.now() / 1000) * 1000; // (tokens carry whole milliseconds; the new one is issued at or after this)
+    await this.store.update(u.id, { unlocks: [...(u.unlocks ?? []).filter((x) => !x.startsWith(OUT_MARK)), `${OUT_MARK}${at}`] });
+    return { token: this.tokens.sign(u.id, Math.max(Date.now(), at)) };
   }
 
   /** 0.9.9.9.6.5: change your password (the current one first); every other device is signed out */
   async changePassword(u: UserRecord, current: unknown, next: unknown) {
     const p = String(next ?? '');
     if (!(await verifyPassword(String(current ?? ''), u.passwordHash))) throw new AuthError('Your current password is wrong', 403);
-    if (p.length < 6 || p.length > 72) throw new AuthError('Password: at least 6 characters');
+    { const why = passwordProblem(p, u.username); if (why) throw new AuthError(why); }
     const at = Math.floor(Date.now() / 1000) * 1000; // (tokens carry whole milliseconds; the new one is issued at or after this)
     const unlocks = [...(u.unlocks ?? []).filter((x) => !x.startsWith(PW_MARK)), `${PW_MARK}${at}`];
     await this.store.update(u.id, { passwordHash: await hashPassword(p), unlocks });
@@ -383,7 +396,7 @@ export class AuthService {
     const target = await this.store.findById(targetId);
     if (!target) throw new AuthError('No such user', 404);
     if (target.id === admin.id) throw new AuthError("You can't delete yourself");
-    if (target.role === 'admin') throw new AuthError('Admins can’t be deleted — take away their admin role first');
+    if (target.role === 'admin') throw new AuthError('Admins can’t be deleted - take away their admin role first');
     for (const l of this.banListeners) l(targetId); // kick their open sessions
     await this.store.deleteUser(targetId);
   }

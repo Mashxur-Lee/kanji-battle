@@ -21,7 +21,7 @@ test('the beginner AI: easy words (かな + N5), often wrong', () => {
   assert.deepEqual(botLevels('N3'), ['N3']);
   assert.ok(botChance('BEGINNER', 'KANA') <= 0.6);
   assert.ok(BOT_ACCURACY.BEGINNER.N5 < BOT_ACCURACY.N5.N5);
-  assert.match(botName(0, 'BEGINNER'), /AI Beginner/);
+  assert.match(botName(0, 'BEGINNER'), /Bot Beginner/);
 });
 
 test('the tutorial room is quicker: 20 s of study (0.9.9.9.6; was 30), a 2.5-minute battle', () => {

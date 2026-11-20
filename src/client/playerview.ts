@@ -38,7 +38,7 @@ function safety(p: PublicProfile): HTMLElement | null {
   };
   const rep = h('button', 'pill small', tr('Report')) as HTMLButtonElement;
   rep.type = 'button';
-  rep.onclick = () => reportDialog({ id: p.id, name: p.name }, () => ui.toast(tr('Thanks — the team will look at it'), 3000));
+  rep.onclick = () => reportDialog({ id: p.id, name: p.name }, () => ui.toast(tr('Thanks - the team will look at it'), 3000));
   row.append(blk, rep);
   return row;
 }

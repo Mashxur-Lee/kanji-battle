@@ -10,6 +10,7 @@ import { artUrl } from './backgrounds';
 import type { StaffPreview } from './staffpreview';
 import { avatarSvg } from './wizard';
 import { staffSvg } from './art2d';
+import * as audio from './audio';
 import { showStrokeOrder } from './strokes';
 import type { Rating } from '../shared/srs';
 import { api, type DeckCounts, type Profile, type StudyCard } from './api';
@@ -138,10 +139,10 @@ function render(s: Awaited<ReturnType<typeof api.study>>) {
   $('ssXp').textContent = `+${s.studyXpToday ?? 0}`;
   const notice = $('studyNotice');
   notice.hidden = !s.notice;
-  notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? '' : 's'} added to “All spells” — happy studying!` : '';
+  notice.textContent = s.notice ? `${s.notice} new spell${s.notice === 1 ? '' : 's'} added to “All spells” - happy studying!` : '';
   if (!s.studyLevels.length && !s.decks.all.total) {
     notice.hidden = false;
-    notice.textContent = 'Set how many new words of a level you want under “All spells” (e.g. N5: 10) — they are added today and every day.';
+    notice.textContent = 'Set how many new words of a level you want under “All spells” (e.g. N5: 10) - they are added today and every day.';
   }
   const has = (c: DeckCounts) => c.new + c.learning + c.due > 0;
   $<HTMLButtonElement>('studyAll').disabled = !has(s.decks.all);
@@ -159,7 +160,7 @@ function onoChanged() {
   $('onoPlanRow').classList.toggle('on', n > 0);
   $('onoPlanRow').classList.toggle('changed', n !== onoSaved);
   $('onoApply').hidden = n === onoSaved;
-  $('onoApplyText').textContent = n > onoSaved ? `${n} new a day — adds ${n - onoSaved} more today` : n ? `${n} new a day` : 'No new onomatopoeia';
+  $('onoApplyText').textContent = n > onoSaved ? `${n} new a day - adds ${n - onoSaved} more today` : n ? `${n} new a day` : 'No new onomatopoeia';
 }
 {
   const box = $<HTMLInputElement>('onoDaily');
@@ -488,7 +489,7 @@ function custItems(profile: Profile, isAdmin: boolean, tab: CustTab = custTab): 
       id: s.id, name: s.name, blurb: s.blurb,
       locked: !isAdmin && !staffUnlocked(s.id, best, profile.unlocks),
       lock: s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : '',
-      lockedToast: s.season ? `The ${s.name} is the ${monthName(s.season)} reward — complete that month's goals (see Progress)${s.season === thisMonth() ? ' — it\'s on now!' : ''}` : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
+      lockedToast: s.season ? `The ${s.name} is the ${monthName(s.season)} reward - complete that month's goals (see Progress)${s.season === thisMonth() ? ' - it\'s on now!' : ''}` : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
       equipped: (profile.staff ?? 'verdant') === s.id,
       tile: () => {
         if (staffThumbs[s.id]) { const img = document.createElement('img'); img.src = staffThumbs[s.id]; img.alt = ''; return img; }
@@ -509,7 +510,7 @@ function custItems(profile: Profile, isAdmin: boolean, tab: CustTab = custTab): 
   }
   if (tab === 'profile') {
     return BORDERS.map((b) => ({
-      id: b.id, name: b.name === 'No border' ? b.name : `${b.name} border`, blurb: `${b.blurb} Round your profile picture — everyone sees it in lobbies, battles and on your profile card.`,
+      id: b.id, name: b.name === 'No border' ? b.name : `${b.name} border`, blurb: `${b.blurb} Round your profile picture - everyone sees it in lobbies, battles and on your profile card.`,
       locked: !isAdmin && !borderUnlocked(b.id, lvl, profile.unlocks), lock: b.league ? `${b.league === 'KANA' ? 'Kana' : b.league} league` : b.unlock ? 'Tutorial' : `Level ${b.level}`,
       lockedToast: b.league ? `Pass the ${b.league === 'KANA' ? 'Kana' : b.league} league in the Daily challenge to unlock the ${b.name} border`
         : b.unlock ? 'Finish the tutorial to get the Beta border' : `Reach level ${b.level} to unlock the ${b.name} border`,
@@ -533,7 +534,7 @@ function custItems(profile: Profile, isAdmin: boolean, tab: CustTab = custTab): 
   if (tab === 'pose') {
     const mine = poseOf(profile.unlocks);
     return POSE_DEFS.map((d) => ({
-      id: d.id, name: d.name, blurb: `${d.blurb} ${d.id === 'none' ? '' : 'You strike it while you’re on fire — 5 correct casts in a row, or your Omnipotence — and everyone in the battle sees it.'}`.trim(),
+      id: d.id, name: d.name, blurb: `${d.blurb} ${d.id === 'none' ? '' : 'You strike it while you’re on fire - 5 correct casts in a row, or your Omnipotence - and everyone in the battle sees it.'}`.trim(),
       locked: !isAdmin && !poseUnlocked(d.id, profile.learned ?? 0), lock: `${d.learned} spells learned`,
       lockedToast: `Learn ${d.learned} spells to unlock the ${d.name} pose (you have ${profile.learned ?? 0})`,
       equipped: mine === d.id,
@@ -544,7 +545,7 @@ function custItems(profile: Profile, isAdmin: boolean, tab: CustTab = custTab): 
   return FLAMES.map((f) => ({
     id: f.id, name: `${f.name} flames`, blurb: f.season ? `${monthName(f.season)} reward: complete that month's goals (Progress page). Wraps you at 5 in a row and during your Omnipotence.` : 'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.',
     locked: !isAdmin && !flameUnlocked(f.id, profile.xp, profile.unlocks), lock: f.season ? `${monthName(f.season)} goals` : `Level ${f.level}`,
-    lockedToast: f.season ? `${f.name} flames are the ${monthName(f.season)} reward — complete that month's goals (see Progress)${f.season === thisMonth() ? ' — it\'s on now!' : ''}` : `Reach level ${f.level} to unlock ${f.name} flames`,
+    lockedToast: f.season ? `${f.name} flames are the ${monthName(f.season)} reward - complete that month's goals (see Progress)${f.season === thisMonth() ? ' - it\'s on now!' : ''}` : `Reach level ${f.level} to unlock ${f.name} flames`,
     equipped: (profile.flame ?? 'blue') === f.id,
     tile: () => { const d = el('span', 'flame-dot big'); d.style.setProperty('--c', f.color); return d; },
     equip: () => api.setFlame(f.id),
@@ -578,11 +579,11 @@ function poseArt(id: string): string {
 }
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
-  staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak — your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress).`,
+  staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak - your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress). Tap a staff to hear its spell.`,
   arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
   profile: () => 'Your profile card: a frame round your picture (the Beta one, and one for each Daily challenge league you reach) and up to 3 achievement badges under your name.',
-  character: (p) => `Your character in battles. The Goblin is yours from the start — climb the Daily challenge leagues to unlock the Knight (N5), the Witch (N3) and the Wizard (N2). You are in the ${leagueIn(p.unlocks) === 'KANA' ? 'Kana' : leagueIn(p.unlocks)} league.`,
-  pose: () => 'Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) — float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300).',
+  character: (p) => `Your character in battles. The Goblin is yours from the start - climb the Daily challenge leagues to unlock the Knight (N5), the Witch (N3) and the Wizard (N2). You are in the ${leagueIn(p.unlocks) === 'KANA' ? 'Kana' : leagueIn(p.unlocks)} league.`,
+  pose: () => 'Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) - float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300).',
   omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up.',
 };
 
@@ -647,7 +648,8 @@ function renderCustomize() {
     b.setAttribute('aria-pressed', String(it === sel));
     const pic = el('div', 'ci-pic'); pic.append(it.tile());
     b.append(pic, el('div', 'ci-name', it.name), el('div', 'ci-state', it.equipped ? '✓ Equipped' : it.locked ? `Locked · ${it.lock}` : 'Unlocked'));
-    b.onclick = () => { picked[custTab] = it.id; renderCustomize(); };
+    // (0.9.9.9.8: a staff, tapped, casts its sound — every staff has its own)
+    b.onclick = () => { picked[custTab] = it.id; if (custTab === 'staff') audio.sfx.cast(it.id, 1); renderCustomize(); };
     b.ondblclick = () => void equip(it);
     return b;
   }));
@@ -690,7 +692,7 @@ function renderCustomize() {
     const meta = el('div', 'cc-meta');
     meta.append(el('div', 'pp-name', ui.myName()), el('div', 'pp-level', `Lv ${lvl}`));
     const row = badgeRow(profile.badges);
-    if (row) meta.append(row); else meta.append(el('div', 'hint', 'No badges yet — pick up to 3 below.'));
+    if (row) meta.append(row); else meta.append(el('div', 'hint', 'No badges yet - pick up to 3 below.'));
     card.append(avatarDisc(profile, sel.id, 'pp-pic big'), meta);
     stage2.replaceChildren(card);
   } else if (custTab === 'character') {
@@ -794,7 +796,7 @@ function renderIdle() {
     const big = el('div', 'char-tile big'); big.innerHTML = avatarSvg(characterOf(profile.unlocks), 'me', profile.staff);
     stage2.replaceChildren(big);
   }
-  $('custInfo').replaceChildren(el('h3', '', ui.myName() || 'Your hero'), el('p', 'sub', 'Pick a slot on either side to change it — tap it again to close it.'));
+  $('custInfo').replaceChildren(el('h3', '', ui.myName() || 'Your hero'), el('p', 'sub', 'Pick a slot on either side to change it - tap it again to close it.'));
 }
 
 /** Your picture (or initial) in a round frame with the given border — the Profile tab's tiles and preview. */
@@ -853,9 +855,9 @@ export function customizeHidden() { arena3?.setActive(false); }
 const PAUSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="currentColor"/></svg>';
 const PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10-6.5a1 1 0 0 0 0-1.72l-10-6.5A1 1 0 0 0 8 5.5z" fill="currentColor"/></svg>';
 const PAUSED_NOTE: Record<string, string> = {
-  all: 'Paused — no new words are added each day. What you have can still be studied.',
-  ono: 'Paused — no new onomatopoeia are added each day. What you have can still be studied.',
-  struggling: 'Paused — words you miss aren\'t added here. What you have can still be studied.',
+  all: 'Paused - no new words are added each day. What you have can still be studied.',
+  ono: 'Paused - no new onomatopoeia are added each day. What you have can still be studied.',
+  struggling: 'Paused - words you miss aren\'t added here. What you have can still be studied.',
 };
 let pausedNow: Record<string, boolean> = {};
 function paintPaused(p: Awaited<ReturnType<typeof api.study>>['paused']) {

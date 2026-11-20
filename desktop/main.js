@@ -8,6 +8,11 @@ const path = require('node:path');
 
 const SERVER = process.env.KW_SERVER || 'https://kanji-battle-ev0o.onrender.com';
 const ORIGIN = new URL(SERVER).origin;
+// 0.9.9.9.8: the game's own pages are the ones on exactly its address. A check of how the address starts let
+// "https://<the game's address>.another-site.com" in too: it opened inside the app and was allowed the microphone.
+const ours = (url) => { try { return new URL(url).origin === ORIGIN; } catch { return false; } };
+const OFFLINE = require('node:url').pathToFileURL(path.join(__dirname, 'offline.html')).href;
+const offlinePage = (url) => String(url).split(/[?#]/)[0] === OFFLINE;
 
 if (!app.requestSingleInstanceLock()) app.quit();
 app.setAppUserModelId('com.kanjiwizards.app');
@@ -51,13 +56,13 @@ function createWindow() {
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (e, url) => {
-    if (url.startsWith(ORIGIN) || url.startsWith('file:')) return;
+    if (ours(url) || offlinePage(url)) return; // (0.9.9.9.8: of all the files on the computer, only the app's own offline page)
     e.preventDefault();
     if (/^https?:/.test(url)) void shell.openExternal(url);
   });
   // no internet and nothing saved yet (first start): a friendly page with "Try again"
   win.webContents.on('did-fail-load', (_e, code, _desc, url, isMain) => {
-    if (isMain && code !== -3 && url.startsWith(ORIGIN)) showOffline();
+    if (isMain && code !== -3 && ours(url)) showOffline();
   });
   // F11 full screen, F5 / Ctrl+R reload
   win.webContents.on('before-input-event', (e, input) => {
@@ -75,7 +80,7 @@ app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(
 app.whenReady().then(() => {
   // the game may use the microphone (voice) and notifications (friend invites); only for the game's site
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
-    cb(wc.getURL().startsWith(ORIGIN) && ['media', 'notifications', 'fullscreen', 'clipboard-sanitized-write'].includes(permission));
+    cb(ours(wc.getURL()) && ['media', 'notifications', 'fullscreen', 'clipboard-sanitized-write'].includes(permission));
   });
   createWindow();
 });

@@ -359,7 +359,7 @@ test('0.9.9.9.5 push: the service account JWT is RS256-signed; data messages go 
 test('0.9.9.9.5 invites: declined → no inviting them again for 2 minutes; invites wait for an app that was closed', async () => {
   const { inviteRefusal, SessionHub, DECLINE_BLOCK_MS, INVITE_KEEP_MS } = await import('../src/server/Session');
   const now = 1_000_000_000;
-  assert.match(inviteRefusal({ inRoom: false, declinedAt: now - 60_000, now })!, /declined your invite — you can invite them again in 1 min/);
+  assert.match(inviteRefusal({ inRoom: false, declinedAt: now - 60_000, now })!, /declined your invite - you can invite them again in 1 min/);
   assert.equal(inviteRefusal({ inRoom: false, declinedAt: now - DECLINE_BLOCK_MS - 1, now }), null);
   const hub = new SessionHub();
   const sent: Array<{ to: string; msg: unknown }> = [];

@@ -133,7 +133,7 @@ async function loadStats() {
 /** 0.9.9.9.6.3: testing on your own account — set your streak (to see its flame), wipe your wins and losses */
 function selfTest() {
   const sec = el('section', 'admin-self');
-  sec.append(el('h3', '', 'Testing — your own account'));
+  sec.append(el('h3', '', 'Testing - your own account'));
   const row = el('div', 'admin-self-row');
   const inp = el('input') as HTMLInputElement;
   inp.type = 'number'; inp.min = '0'; inp.max = '3650'; inp.value = '20'; inp.className = 'admin-self-n';

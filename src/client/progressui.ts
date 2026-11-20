@@ -144,7 +144,7 @@ function renderKnow(p: ProgressPage) {
     d.querySelector('.pk-fc-bar')!.append(f);
     bars.append(d);
   });
-  coming.append(el('h4', '', tr('Reviews coming')), bars, el('p', 'hint', tr(fc[0] ? 'Do today’s and the rest stays light.' : 'Nothing due today — new words, or a game?')));
+  coming.append(el('h4', '', tr('Reviews coming')), bars, el('p', 'hint', tr(fc[0] ? 'Do today’s and the rest stays light.' : 'Nothing due today - new words, or a game?')));
   // 3) how well you remember: learned words answered right when they came back, last 30 days
   const from = shift(today(), -29);
   const recent = p.activity.filter((a) => a.day >= from);
@@ -183,7 +183,7 @@ export function monthNodes(m: MonthProgress): HTMLElement[] {
   const monthName = new Date(`${m.month}-15T12:00:00`).toLocaleDateString(locale(), { month: 'long' });
   const head = el('h3', '', `${monthName}: ${m.name} season`);
   const rw = el('div', 'reward-line');
-  rw.append(sw, el('span', '', m.unlocked ? `Unlocked: ${reward?.name}${kind === 'flame' ? ' flames' : ''} — equip it in Customize` : `Reward: ${reward?.name}${kind === 'flame' ? ' flames' : ''} (only this month)`));
+  rw.append(sw, el('span', '', m.unlocked ? `Unlocked: ${reward?.name}${kind === 'flame' ? ' flames' : ''} - equip it in Customize` : `Reward: ${reward?.name}${kind === 'flame' ? ' flames' : ''} (only this month)`));
   const goals = el('div', 'goals');
   for (const g of m.goals) {
     const row = el('div', 'goal' + (g.value >= g.target ? ' done' : ''));
@@ -256,7 +256,7 @@ function renderCalendar() {
   legend.append(el('span', '', 'Less'));
   for (let l = 0; l <= 4; l++) { const i = el('i', 'cal-day'); i.dataset.l = String(l); legend.append(i); }
   legend.append(el('span', '', 'More'));
-  const why = el('p', 'hint cal-why', 'The brighter a day, the more you did — cards passed and games played, compared with your busiest day. Tap a day for details.');
+  const why = el('p', 'hint cal-why', 'The brighter a day, the more you did - cards passed and games played, compared with your busiest day. Tap a day for details.');
   const info = el('p', 'cal-info'); info.id = 'progHeatInfo';
   box.replaceChildren(head, grid, legend, why, info);
   $('progHeatSub').textContent = `${active} active days this month`;
@@ -286,7 +286,7 @@ function tile(word: string, m: number, pct: number, kana: string | null) {
   if (kana !== null) t.append(el('span', 'mt-r', ROMAJI.get(kana) ?? ''));
   const bar = el('span', 'mt-bar'); const fill = el('i'); fill.style.width = `${pct}%`; bar.append(fill);
   t.append(bar);
-  t.title = `${word} — ${tr(MASTERY[m].label)}`;
+  t.title = `${word} - ${tr(MASTERY[m].label)}`;
   t.onclick = () => void showWord(t, word, m, pct);
   return t;
 }

@@ -93,7 +93,7 @@ export class SocialService {
     if (typeof otherId !== 'string' || !UUID.test(otherId) || otherId === u.id) throw new SocialError('Report whom?');
     const other = await this.store.findById(otherId);
     if (!other) throw new SocialError('No such player', 404);
-    if (this.reported.blocked(u.id)) throw new SocialError('That\'s a lot of reports — try again later', 429);
+    if (this.reported.blocked(u.id)) throw new SocialError('That\'s a lot of reports - try again later', 429);
     this.reported.add(u.id);
     const why = REPORT_REASONS.includes(reason as ReportReason) ? (reason as ReportReason) : 'other';
     const note = typeof text === 'string' ? text.replace(/\s+/g, ' ').trim().slice(0, 500) : '';
@@ -105,7 +105,7 @@ export class SocialService {
     }
     await this.store.addReport({
       kind: 'report', userId: u.id, username: u.username,
-      text: `Report on @${other.username}: ${REPORT_LABEL[why]}${note ? ` — ${note}` : ''}${quoted ? `\nThe message: “${quoted}”` : ''}`,
+      text: `Report on @${other.username}: ${REPORT_LABEL[why]}${note ? ` - ${note}` : ''}${quoted ? `\nThe message: “${quoted}”` : ''}`,
       meta: JSON.stringify({ target: other.id, targetLogin: other.username, reason: why, message: typeof messageId === 'string' ? messageId : null }),
       at: Date.now(),
     });
