@@ -1,0 +1,10 @@
+Push notifications: off (set FIREBASE_SERVICE_ACCOUNT to turn them on)
+Reading passage stories: off
+[migrations] admin: a 20-day streak, wins and losses reset (0.9.9.9.6.3)
+Kanji Battle running on http://localhost:3130
+Kanji Wizards v0.9.9.9.8
+Email (password resets): off
+DAILY_SECRET not set: anyone with the game's code can work out the Daily challenge's words - see docs/SETUP.md
+Accounts: postgres
+[confirm mail] email is not set up - code for swwoo5bov: 395313
+[confirm mail] email is not set up - code for swwoo6l7u: 300088
