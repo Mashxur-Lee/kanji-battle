@@ -22,6 +22,8 @@
 <div id="bg" class="bg" aria-hidden="true"></div>
 <div id="menuVeil" class="menu-veil" aria-hidden="true"></div>
 <canvas id="arena3d" class="arena3d" aria-hidden="true"></canvas>
+<!-- 0.9.9.9.9: watching a friend's game, or a replay -->
+<div id="watchBar" class="watch-bar" role="region" aria-label="Watching" hidden><span class="wb-dot" aria-hidden="true"></span><b id="watchTitle"></b><button id="watchSpeed" class="pill small" type="button">1×</button><button id="watchSide" class="pill small" type="button">Switch side</button><button id="watchAgain" class="pill small" type="button">Watch again</button><button id="watchCopy" class="pill small" type="button">Copy link</button><button id="watchExit" class="pill small danger" type="button">Exit</button></div>
 <header class="topbar">
   <div id="whoami" class="whoami" hidden>
     <button id="whoBtn" class="who-btn" aria-expanded="false" aria-controls="profilePop" title="Your profile">
@@ -292,6 +294,7 @@
     <button id="queueBack" class="back">← Menu</button>
     <div class="page-head"><h2>Online queue</h2></div>
     <p class="sub">Tick what you'd like to play. You'll be matched with the first player who wants the same, and the game starts straight away. Boss Elimination waits for a full party of 4.</p>
+    <div id="rankBox" class="rank-box" hidden></div>
     <div id="queuePick" class="queue-pick">
     <div class="queue-grid" role="radiogroup" aria-label="What to queue for">
       <div class="queue-card" data-q="battle" role="radio" tabindex="0">
@@ -922,7 +925,7 @@
     <div class="arena-top">
       <div id="meCard" class="fighter me"></div>
       <div class="clock-col">
-        <div id="battleClock" class="clock small"></div>
+        <div id="battleClock" data-watchers="" class="clock small"></div>
         <div class="clock-btns"><button id="forfeit" class="link forfeit">Forfeit</button><button class="link pause-btn" data-pause hidden title="Pause">❚❚</button></div>
       </div>
       <div id="oppCard" class="fighter opp"></div>
@@ -1049,6 +1052,7 @@
         <tbody id="wordRows"></tbody>
       </table>
     </div>
+    <div id="replayRow" class="row replay-row" hidden><button id="replayWatch" class="pill" type="button">Watch replay</button><button id="replayCopy" class="pill" type="button">Copy replay link</button></div>
     <div id="resultActions">
       <div class="row result-btns">
         <button id="rematch" class="big">Rematch</button>

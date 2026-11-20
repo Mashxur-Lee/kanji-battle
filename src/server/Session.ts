@@ -174,6 +174,14 @@ export class Session implements Client {
   private user?: PublicUser;
   private invitedAt = new Map<string, number>();
   private room?: Room;
+  /** 0.9.9.9.9: the game you're watching (a friend's) */
+  private watched?: Room;
+  private stopWatching(tell = true) {
+    if (!this.watched || !this.user) return;
+    this.watched.unwatch(this.user.id);
+    this.watched = undefined;
+    if (tell) this.send({ type: 'watching', on: false });
+  }
 
   constructor(
     private readonly rooms: RoomManager,
@@ -258,6 +266,25 @@ export class Session implements Client {
     if (msg.type === 'away') { this.away = msg.on === true; return; }
     // 0.9.9.9.6.4: "typing…" in Messages (the messenger checks who may see it)
     if (msg.type === 'dm_typing') { if (typeof msg.to === 'string') this.hub.onDmTyping?.(user.id, msg.to, msg.on === true); return; }
+    // 0.9.9.9.9: watch a friend's game — only a friend's, only while you're not playing yourself
+    if (msg.type === 'unwatch') return this.stopWatching();
+    if (msg.type === 'watch') {
+      const friendId = String(msg.userId ?? '');
+      if (this.room) return this.send({ type: 'watching', on: false, reason: 'Leave your room first' });
+      if (!this.social || !(await this.social.areFriends(user.id, friendId))) return this.send({ type: 'watching', on: false, reason: 'You can watch your friends’ games' });
+      const target = this.rooms.roomOf(friendId);
+      if (!target || target.stage === 'lobby') return this.send({ type: 'watching', on: false, reason: 'Your friend isn’t in a game right now' });
+      this.stopWatching(false);
+      this.matchmaker?.cancel(user.id, false);
+      const friend = await this.auth.store.findById(friendId);
+      const name = friend?.nickname || friend?.username || '';
+      const refused = target.watch(user.id, this, name, friendId);
+      if (refused) return this.send({ type: 'watching', on: false, reason: refused });
+      this.watched = target;
+      return;
+    }
+    // (playing yourself ends watching)
+    if (this.watched && (msg.type === 'queue' || msg.type === 'create' || msg.type === 'join')) this.stopWatching();
 
     // too many struggling spells waiting: study first (checked on the server, so it can't be skipped)
     if (msg.type === 'queue' || msg.type === 'create' || msg.type === 'join') {
@@ -412,6 +439,7 @@ export class Session implements Client {
     clearInterval(this.pingTimer);
     if (this.user) this.matchmaker?.cancel(this.user.id, false);
     if (this.user && this.room) this.room.disconnect(this.user.id, this);
+    this.stopWatching(false); // (0.9.9.9.9)
     if (this.user) this.hub.release(this.user.id, this);
   }
 

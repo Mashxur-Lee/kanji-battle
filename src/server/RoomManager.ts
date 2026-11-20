@@ -1,11 +1,11 @@
 import type { GameMode, PlayerId, VocabEntry } from '../shared/protocol';
 import type { WritingJudge } from './Game';
-import { DEFAULT_ROOM_OPTIONS, Room, type MatchEndHook, type RoomOptions } from './Room';
+import { DEFAULT_ROOM_OPTIONS, Room, type MatchEndHook, type ReplayData, type RoomOptions } from './Room';
 import { Strikes } from './strikes';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-export interface ManagerDeps { judgeWriting?: WritingJudge; judgeDeck?: WritingJudge; writableFilter?: (v: VocabEntry) => boolean; spellIds?: (id: string) => Promise<ReadonlySet<string>>; onMatchEnd?: MatchEndHook; onGameStart?: (mode: GameMode, playerIds: PlayerId[]) => void }
+export interface ManagerDeps { judgeWriting?: WritingJudge; judgeDeck?: WritingJudge; writableFilter?: (v: VocabEntry) => boolean; spellIds?: (id: string) => Promise<ReadonlySet<string>>; onMatchEnd?: MatchEndHook; onGameStart?: (mode: GameMode, playerIds: PlayerId[]) => void; /** 0.9.9.9.9 */ saveReplay?: (data: ReplayData) => Promise<string | null> }
 
 /** Owns all rooms and remembers which room each account is sitting in (for reconnects). */
 export class RoomManager {
@@ -29,6 +29,7 @@ export class RoomManager {
       spellIds: this.deps.spellIds,
       onMatchEnd: this.deps.onMatchEnd,
       onGameStart: this.deps.onGameStart,
+      saveReplay: this.deps.saveReplay,
     }, quick ? { ...this.opts, tutorial: true, game: { ...this.opts.game, prepMs: 20_000, battleMs: 150_000 } } : this.opts); // (0.9.9.9.6: the tutorial)
     this.rooms.set(code, room);
     return room;

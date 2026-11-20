@@ -53,11 +53,14 @@ export interface UserRecord {
   emailKey?: string | null;
   /** 0.9.9.4.4: new words a day per level (All spells), and how many of each were added on `day` */
   dailyPlan: DailyPlan | null;
+  /** 0.9.9.9.9: the ranked ladder — the rating (1000 to start) and how many ranked matches were played */
+  rating?: number;
+  rated?: number;
 }
 export interface DailyPlan { per: Partial<Record<Level, number>>; day: string | null; done: Partial<Record<Level, number>> }
 export interface AvatarImage { mime: 'image/png' | 'image/jpeg' | 'image/webp'; data: Buffer }
 export type NewUser = Pick<UserRecord, 'username' | 'passwordHash' | 'role'> & { email?: string | null; emailKey?: string | null };
-export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens' | 'quizStats' | 'wins' | 'losses' | 'email' | 'emailKey' | 'username'>>;
+export type UserPatch = Partial<Pick<UserRecord, 'banned' | 'passwordHash' | 'background' | 'studyLevels' | 'lastNewDate' | 'newNotice' | 'critCount' | 'critExpires' | 'flame' | 'staff' | 'tutorialDone' | 'unlocks' | 'loginDay' | 'streak' | 'streakDay' | 'border' | 'bestStreak' | 'role' | 'dailyNew' | 'newToday' | 'badges' | 'dailyPlan' | 'starred' | 'nickname' | 'lastSeen' | 'kana' | 'pushTokens' | 'quizStats' | 'wins' | 'losses' | 'email' | 'emailKey' | 'username' | 'rating' | 'rated'>>;
 
 /** Storage port: users, progress and flashcards. Swap the implementation without touching the rest. */
 export interface Store {
@@ -177,6 +180,14 @@ export interface Store {
    */
   getValue(key: string): Promise<string | null>;
   setValue(key: string, value: string | null): Promise<void>;
+  /** 0.9.9.9.9: the ranked ladder — players with at least `minGames` ranked matches, highest rating first (not banned) */
+  ladder(limit: number, minGames: number): Promise<UserRecord[]>;
+  /** how many such players are rated above `rating` */
+  ratedAbove(rating: number, minGames: number): Promise<number>;
+  /** 0.9.9.9.9: a match's replay (compressed), by its id; removed after a while (sweepReplays) */
+  saveReplay(id: string, at: number, data: Buffer): Promise<void>;
+  replay(id: string): Promise<Buffer | null>;
+  sweepReplays(before: number): Promise<number>;
   close?(): Promise<void>;
 }
 
@@ -544,6 +555,15 @@ export class MemoryStore implements Store {
   async getValue(key: string) { return this.values.get(key) ?? null; }
   async setValue(key: string, value: string | null) { if (value === null) this.values.delete(key); else this.values.set(key, value); this.persist(); }
   protected persist() { /* memory only */ }
+  // 0.9.9.9.9: the ladder and replays (replays aren't written to the local file: big, and kept two weeks anyway)
+  async ladder(limit: number, minGames: number) {
+    return [...this.users.values()].filter((r) => !r.banned && (r.rated ?? 0) >= minGames).sort((a, b) => (b.rating ?? 1000) - (a.rating ?? 1000) || a.username.localeCompare(b.username)).slice(0, limit).map((r) => ({ ...r }));
+  }
+  async ratedAbove(rating: number, minGames: number) { let n = 0; for (const r of this.users.values()) if (!r.banned && (r.rated ?? 0) >= minGames && (r.rating ?? 1000) > rating) n++; return n; }
+  protected replays = new Map<string, { at: number; data: Buffer }>();
+  async saveReplay(id: string, at: number, data: Buffer) { this.replays.set(id, { at, data }); }
+  async replay(id: string) { return this.replays.get(id)?.data ?? null; }
+  async sweepReplays(before: number) { let n = 0; for (const [id, r] of this.replays) if (r.at < before) { this.replays.delete(id); n++; } return n; }
 }
 
 /** JSON-file store for local play. On Render's free plan the disk is wiped — use Postgres (Neon) there. */

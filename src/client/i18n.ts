@@ -1127,6 +1127,22 @@ const RU: Record<string, string> = {
   'Sign out on all other devices': 'Выйти на всех других устройствах',
   'Signed out on all other devices. You stay signed in here.': 'Вы вышли на всех других устройствах. Здесь вы остаётесь в аккаунте.',
   'You were signed out on this device. Log in again.': 'На этом устройстве вы вышли из аккаунта. Войдите снова.',
+  // 0.9.9.9.9: ranked, watching, replays
+  'Leave your room first': 'Сначала выйдите из комнаты', 'Ranked': 'Рейтинг', 'Ladder': 'Таблица', 'Ranked ladder': 'Рейтинговая таблица', 'Top players': 'Лучшие игроки', 'Placement': 'Калибровка',
+  'Not ranked yet': 'Пока без рейтинга', 'Your first ranked game sets your rating': 'Первая рейтинговая игра задаст ваш рейтинг',
+  'Ranked: 1v1 games from the online queue': 'Рейтинг: игры 1 на 1 из онлайн-очереди', 'rating': 'рейтинга',
+  'Apprentice': 'Ученик', 'Adept': 'Адепт', 'Mage': 'Маг', 'Sage': 'Мудрец', 'Grand Sage': 'Великий мудрец',
+  'Nobody has finished their placement games yet - be the first!': 'Пока никто не прошёл калибровку — будьте первым!',
+  'None of your friends has played ranked yet.': 'Никто из ваших друзей ещё не играл рейтинговые игры.',
+  'Every 1v1 from the online queue is ranked: beat someone rated higher and you gain more. Private rooms, bots, Boss and rematches don’t count; leaving a ranked game is a loss. Your tier shows after 5 games.': 'Каждая игра 1 на 1 из онлайн-очереди — рейтинговая: победа над тем, у кого рейтинг выше, даёт больше. Свои комнаты, боты, Бой с боссом и реванши не считаются; выход из рейтинговой игры — поражение. Ранг появится после 5 игр.',
+  'Watching': 'Вы смотрите', 'Replay': 'Повтор', 'Switch side': 'Другая сторона', 'Watch again': 'Смотреть снова', 'Exit': 'Выйти',
+  'Watch replay': 'Смотреть повтор', 'Copy replay link': 'Скопировать ссылку на повтор', 'Replay link': 'Ссылка на повтор', 'Replay link copied': 'Ссылка на повтор скопирована',
+  'Replay link copied - anyone can watch it for two weeks': 'Ссылка на повтор скопирована — две недели её может посмотреть кто угодно',
+  'Watch their game': 'Смотреть их игру', '1 watching': '1 зритель',
+  'You can watch your friends’ games': 'Смотреть можно игры друзей', 'Your friend isn’t in a game right now': 'Ваш друг сейчас не в игре',
+  'Deck Duel can’t be watched': 'Дуэль колод нельзя смотреть', 'This game can’t be watched': 'Эту игру нельзя смотреть',
+  'You’re playing in this game': 'Вы играете в этой игре', 'This game has as many watchers as it can take': 'У этой игры уже максимум зрителей',
+  'The game is over': 'Игра закончилась', 'This replay is gone (they are kept for two weeks)': 'Этого повтора больше нет (повторы хранятся две недели)',
 };
 
 // names of the monthly seasons and the staffs (staff names in the genitive: «Посох Бури»)
@@ -1281,6 +1297,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^(\S+) goals$/, 'Цели месяца: $1'],
   [/^(\d+)-day streak$/, (_, n) => `серия ${n} ${plural(+n, 'день', 'дня', 'дней')}`],
   [/^Bot · knows (N\d)$/, 'Бот · знает $1'],
+  [/^(\d+) watching$/, (_, n) => `${n} ${plural(+n, 'зритель', 'зрителя', 'зрителей')}`], // 0.9.9.9.9
   [/^(.+) \((?:AI|Bot) Beginner\)$/, '$1 (бот-новичок)'], // (0.9.9.9.8: "AI" in older match history)
   [/^(.+) \((?:AI|Bot) (N\d)\)$/, '$1 (бот $2)'],
   [/^Level (\d+)$/, 'Уровень $1'],

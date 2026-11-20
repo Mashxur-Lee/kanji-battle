@@ -126,6 +126,7 @@ export class Matchmaker {
     try {
       for (const t of group) t.client.send({ type: 'queue', state: 'matched', mode });
       const room = this.rooms.create(mode);
+      room.ranked = mode !== 'boss'; // 0.9.9.9.9: a 1v1 from the queue is ranked (its first game)
       const seated: Ticket[] = [];
       // Rapid: both race on the same words — the levels everyone picked, or (no level in common) all of them
       const common = group[0].levels.filter((l) => group.every((t) => t.levels.includes(l)));

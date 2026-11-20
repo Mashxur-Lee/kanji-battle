@@ -56,7 +56,8 @@ test('0.9.9.9.8 every staff has a cast sound of its own (a seasonal one at least
   staffCast({ c: f.c as never, dry: out as never, wet: out as never }, 'nonsense', 1, 0);
   assert.ok(f.count() > 5);
   // played on a right answer in a battle, with your staff — and in Customize when you tap one
-  assert.match(src('src/client/main.ts'), /audio\.sfx\.cast\(profile\?\.staff, msg\.combo\)/);
+  // (0.9.9.9.9: the staff of the player whose side you see — yours, or the player you watch)
+  assert.match(src('src/client/main.ts'), /audio\.sfx\.cast\(players\.find\(\(p\) => p\.id === you\)\?\.staff \?\? profile\?\.staff, msg\.combo\)/);
   assert.match(src('src/client/study.ts'), /if \(custTab === 'staff'\) audio\.sfx\.cast\(it\.id, 1\);/);
 });
 

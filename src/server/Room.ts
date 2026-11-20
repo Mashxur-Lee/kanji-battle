@@ -10,10 +10,13 @@ import { buildDraftPool, DeckGame } from './DeckGame';
 import { VOCAB } from './vocab';
 import { pickPool, pickPoolFrom, shuffle } from './VocabPool';
 import { toRomaji } from '../shared/kana';
+import type { RatingChange } from '../shared/protocol';
 
 /** Transport-agnostic: Room only needs something it can send messages to. */
 /** a game against the AI waits this long for you when the app is in the background (0.9.9.9.2) */
 export const SOLO_PARK_MS = 30 * 60_000;
+/** 0.9.9.9.9: the messages watchers get and a replay keeps (the battle as everyone sees it) */
+const WATCHED = new Set<ServerMessage['type']>(['battle_start', 'battle_update', 'typing', 'game_over', 'paused', 'notice']);
 export interface Client { send(msg: ServerMessage): void }
 
 export interface RoomOptions {
@@ -41,12 +44,19 @@ export interface MemberProfile { crit: number; xp: number; pic?: string | null; 
 /** `forfeited`: someone gave up or left — nobody gets XP (stops win-trading between accounts). */
 export interface MatchResult {
   id: PlayerId; outcome: MatchOutcome; accuracy: number; missed: string[]; forfeited: boolean; vsAi: boolean;
+  /** 0.9.9.9.9: a ranked 1v1 from the online queue (the room's first game, two people) — the ratings move */
+  ranked?: boolean;
   /** words met in the match that join the player's All spells (Deck Duel) */
   seen?: string[];
   /** what goes into the player's match history */
   record?: Omit<MatchDetail, 'id'>;
 }
-export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number; achievements?: string[]; missed?: MissedWord[] }>>;
+export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number; achievements?: string[]; missed?: MissedWord[]; rating?: RatingChange }>>;
+/** 0.9.9.9.9: a match's tape — what everyone saw, and each player's own words and answers (`to`), with the time */
+export type TapeEntry = [ms: number, to: PlayerId | null, msg: ServerMessage];
+export interface ReplayData { v: 1; mode: GameMode; at: number; tape: TapeEntry[] }
+/** the longest tape kept (a long Boss fight); a match that goes on past it is replayed up to there */
+export const TAPE_MAX = 6000;
 
 /** Things the Room needs from the outside world. */
 export interface RoomDeps {
@@ -61,6 +71,8 @@ export interface RoomDeps {
   writableFilter?: (v: VocabEntry) => boolean;
   /** 0.9.9.4.4: a player's "All spells" word ids (Deck Duel drafts from them) */
   spellIds?: (id: PlayerId) => Promise<ReadonlySet<string>>;
+  /** 0.9.9.9.9: keep a match's replay; resolves to its id (null: not kept) */
+  saveReplay?: (data: ReplayData) => Promise<string | null>;
 }
 
 type Phase = 'lobby' | 'game' | 'results';
@@ -111,6 +123,38 @@ export class Room {
   readonly partyId = Math.random().toString(36).slice(2, 10);
   private nextChatId = 1;
   private lastGameOver?: ServerMessage;
+  /** 0.9.9.9.9: a room made by the online queue for a 1v1 — its first game is ranked (a rematch isn't) */
+  ranked = false;
+  private gamesPlayed = 0;
+  /** 0.9.9.9.9: the match being recorded (replays); its start (ms) */
+  private tape: TapeEntry[] | null = null;
+  private tapeAt = 0;
+  private record(to: PlayerId | null, msg: ServerMessage) {
+    if (!this.tape || this.tape.length >= TAPE_MAX) return;
+    this.tape.push([Date.now() - this.tapeAt, to, msg]);
+  }
+  /** 0.9.9.9.9: people watching (friends of a player): they see what everyone sees, never anyone's word before it's cast */
+  private watchers = new Map<PlayerId, Client>();
+  get watching() { return this.watchers.size; }
+  /** start watching: null, or why not */
+  watch(id: PlayerId, client: Client, name: string, target?: PlayerId): string | null {
+    if (this.mode === 'deck') return 'Deck Duel can’t be watched';
+    if (this.opts.tutorial) return 'This game can’t be watched';
+    if (this.roster.some((p) => p.id === id)) return 'You’re playing in this game';
+    if (this.watchers.size >= 8 && !this.watchers.has(id)) return 'This game has as many watchers as it can take';
+    this.watchers.set(id, client);
+    client.send({ type: 'watching', on: true, code: this.code, mode: this.mode, players: this.view(), name, ...(target ? { target } : {}) });
+    if (this.phase === 'results' && this.lastGameOver) client.send(this.lastGameOver);
+    else if (this.phase === 'game' && this.game && !(this.game instanceof DeckGame)) {
+      const snap = this.game.snapshot(this.roster.find((p) => !p.bot)?.id ?? this.roster[0]?.id);
+      if (snap.battle) client.send({ type: 'battle_start', mode: this.mode, players: this.view(), boss: this.bossView(), durationMs: snap.battle.leftMs, countdownMs: snap.battle.countdownLeftMs });
+    }
+    this.tellWatchers();
+    return null;
+  }
+  unwatch(id: PlayerId) { if (this.watchers.delete(id)) this.tellWatchers(); }
+  /** the players see how many are watching */
+  private tellWatchers() { const n = this.watchers.size; for (const c of this.clients.values()) c.send({ type: 'watchers', count: n }); }
 
   constructor(
     readonly code: string,
@@ -451,6 +495,8 @@ export class Room {
       for (const p of this.roster) p.bot?.dispose();
       this.roster = [];
       this.game?.dispose();
+      for (const c of this.watchers.values()) c.send({ type: 'watching', on: false, reason: 'The game is over' }); // (0.9.9.9.9)
+      this.watchers.clear();
       return this.deps.onEmpty();
     }
     if (wasInGame && this.phase !== 'lobby') return;
@@ -500,6 +546,9 @@ export class Room {
     this.clock.dispose();
     const clock = (this.clock = new PausableClock());
     this.deps.onGameStart?.(this.mode, this.roster.filter((p) => !p.bot).map((p) => p.id)); // a fresh game clock (pausable against the AI)
+    this.gamesPlayed++; // (0.9.9.9.9: only a ranked room's first game is ranked)
+    this.tape = this.mode !== 'deck' && !this.opts.tutorial && this.deps.saveReplay ? [] : null;
+    this.tapeAt = Date.now();
     if (this.mode === 'deck') {
       const judge = this.deps.judgeDeck ?? this.deps.judgeWriting;
       if (!judge) return;
@@ -628,19 +677,23 @@ export class Room {
       case 'challenge': {
         const owner = this.mode === 'rapid' ? this.rapidOwner.get(e.kanji) : undefined;
         const from = owner ? (owner === e.playerId ? 'you' : this.roster.find((p) => p.id === owner)?.name) : undefined;
-        return this.clients.get(e.playerId)?.send({
+        const msg: ServerMessage = {
           type: 'challenge', id: e.id, kanji: e.kanji, answer: e.answerMode, timeLimitMs: e.timeLimitMs,
           meaning: e.meaning, reading: e.reading, charCount: e.charCount, flashMs: e.flashMs, ...(from ? { from } : {}), ...this.hintFor(e.playerId),
-        });
+        };
+        if (!this.roster.find((p) => p.id === e.playerId)?.bot) this.record(e.playerId, msg); // (0.9.9.9.9: the replay shows each player's words)
+        return this.clients.get(e.playerId)?.send(msg);
       }
       case 'answer_result': {
         const { entry } = e;
-        return this.clients.get(e.playerId)?.send({
+        const msg: ServerMessage = {
           type: 'answer_result', challengeId: e.challengeId, correct: e.correct, timedOut: e.timedOut, skipped: e.skipped,
           kanji: entry.kanji, reading: entry.romaji ?? entry.reading, meaning: entry.meaning,
           damage: e.damage, combo: e.combo, responseMs: e.responseMs, nextInMs: e.nextInMs, recognized: e.recognized,
           crit: e.crit, retry: e.retry, beaten: e.beaten, vocabId: entry.id, // (0.9.9.9.6.9: for the example sentence)
-        });
+        };
+        if (!this.roster.find((p) => p.id === e.playerId)?.bot) this.record(e.playerId, msg);
+        return this.clients.get(e.playerId)?.send(msg);
       }
       case 'deck_state':
         return this.clients.get(e.playerId)?.send({ type: 'deck_state', view: e.view });
@@ -656,16 +709,26 @@ export class Room {
         };
         this.lastGameOver = msg;
         this.broadcast(msg);
-        void this.awardProgress(e);
+        const tape = this.tape;
+        this.tape = null;
+        void this.keepReplay(tape).then((replay) => this.awardProgress(e, replay));
         return;
       }
     }
   }
 
+  /** 0.9.9.9.9: the match's replay, kept (its id) — or null */
+  private async keepReplay(tape: TapeEntry[] | null): Promise<string | null> {
+    if (!tape?.length || !this.deps.saveReplay) return null;
+    try { return await this.deps.saveReplay({ v: 1, mode: this.mode, at: this.tapeAt, tape }); } catch { return null; }
+  }
+
   /** XP for everyone (win/loss + accuracy), missed words into each player's "Struggling spells". */
-  private async awardProgress(e: Extract<GameEvent, { type: 'game_over' }>) {
+  private async awardProgress(e: Extract<GameEvent, { type: 'game_over' }>, replay: string | null = null) {
     if (!this.deps.onMatchEnd) return;
     const vsAi = this.roster.some((p) => p.bot);
+    const humans = this.roster.filter((p) => !p.bot);
+    const ranked = this.ranked && this.gamesPlayed === 1 && !vsAi && humans.length === 2 && this.mode !== 'boss';
     const players = this.view();
     const at = Date.now();
     const characterOf = (id: PlayerId) => this.game?.heroOf?.(id) ?? players.find((v) => v.id === id)?.avatar ?? 'wizard';
@@ -679,10 +742,12 @@ export class Room {
         seen: e.seen ?? [],
         forfeited: e.reason === 'forfeit',
         vsAi,
+        ranked,
         record: {
           mode: this.mode, outcome, character: characterOf(p.id), at,
           opponents: this.roster.filter((o) => o.id !== p.id).map((o) => ({ id: o.id, name: o.name, bot: !!o.bot, character: characterOf(o.id) })),
           you: p.id, players, winnerId: e.winnerId, teamWon: e.teamWon, reason: e.reason, stats: e.stats,
+          ...(replay ? { replay } : {}), ...(ranked ? { ranked: true } : {}),
         },
       };
     });
@@ -692,7 +757,7 @@ export class Room {
         const m = this.roster.find((p) => p.id === id);
         const before = m ? levelOf(m.profile.xp) : 0;
         if (m) m.profile = { ...m.profile, crit: r.crit, xp: r.xp };
-        this.clients.get(id)?.send({ type: 'progress', gained: r.gained, xp: r.xp, level: levelOf(r.xp), levelUp: levelOf(r.xp) > before, crit: r.crit, achievements: r.achievements ?? [], missed: r.missed ?? [] });
+        this.clients.get(id)?.send({ type: 'progress', gained: r.gained, xp: r.xp, level: levelOf(r.xp), levelUp: levelOf(r.xp) > before, crit: r.crit, achievements: r.achievements ?? [], missed: r.missed ?? [], ...(replay ? { replay } : {}), ...(r.rating ? { rating: r.rating } : {}) });
       }
     } catch (err) {
       console.error('could not save match results', err);
@@ -734,5 +799,10 @@ export class Room {
 
   private broadcast(msg: ServerMessage) {
     for (const c of this.clients.values()) c.send(msg);
+    // 0.9.9.9.9: what watchers see and what goes on the tape: the battle as everyone sees it
+    if (WATCHED.has(msg.type)) {
+      for (const c of this.watchers.values()) c.send(msg);
+      this.record(null, msg);
+    }
   }
 }

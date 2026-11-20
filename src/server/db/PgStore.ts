@@ -17,6 +17,7 @@ interface UserRow {
   crit_count: number; crit_expires: string | number; wins: number; losses: number; avatar_v: number; flame: FlameId | null; staff: StaffId | null; tutorial_done: boolean | null; unlocks: string[] | null;
   login_day: string | null; streak: number | null; best_streak: number | null; streak_day: string | null; border: string | null;
   daily_new: number | null; new_today: number | null; badges: string[] | null; daily_plan: DailyPlan | null; starred: string[] | null; nickname: string | null; last_seen?: string | number | null; email?: string | null; email_key?: string | null; kana?: KanaProgress | null; push_tokens?: string[] | null; quiz_stats?: QuizStats | null;
+  rating?: number | null; rated?: number | null;
 }
 interface CardRow {
   vocab_id: string; state: CardState; step: number; ease: number; interval_days: number; due: string | number;
@@ -31,6 +32,7 @@ const toUser = (r: UserRow): UserRecord => ({
   wins: r.wins ?? 0, losses: r.losses ?? 0, avatarV: r.avatar_v ?? 0, flame: r.flame ?? 'blue', staff: r.staff ?? 'verdant', tutorialDone: r.tutorial_done ?? true, unlocks: r.unlocks ?? [],
   loginDay: r.login_day ?? null, streak: r.streak ?? 0, bestStreak: r.best_streak ?? 0, streakDay: r.streak_day ?? null, border: r.border ?? 'none',
   dailyNew: r.daily_new ?? 25, newToday: r.new_today ?? 0, badges: r.badges ?? [], dailyPlan: r.daily_plan ?? null, starred: r.starred ?? [], nickname: r.nickname ?? null, lastSeen: r.last_seen != null ? Number(r.last_seen) : null, email: r.email ?? null, emailKey: r.email_key ?? null, kana: r.kana ?? {}, pushTokens: r.push_tokens ?? [], quizStats: r.quiz_stats ?? {},
+  rating: r.rating ?? 1000, rated: r.rated ?? 0, // 0.9.9.9.9
 });
 const toCard = (r: CardRow): SrsCard => ({
   vocabId: r.vocab_id, state: r.state, step: r.step, ease: r.ease, intervalDays: r.interval_days,
@@ -46,6 +48,7 @@ const COLUMNS: Record<keyof UserPatch, string> = {
   dailyNew: 'daily_new', newToday: 'new_today', badges: 'badges', dailyPlan: 'daily_plan', starred: 'starred', nickname: 'nickname', lastSeen: 'last_seen', email: 'email', emailKey: 'email_key', kana: 'kana', pushTokens: 'push_tokens', quizStats: 'quiz_stats',
   wins: 'wins', losses: 'losses', // (0.9.9.9.6.3: the admin's own test tools can reset them)
   username: 'username', // (0.9.9.9.6.9: a guest saving their account picks a login)
+  rating: 'rating', rated: 'rated', // 0.9.9.9.9: the ranked ladder
 };
 
 /**
@@ -167,6 +170,12 @@ export class PgStore implements Store {
     await this.sql`alter table kw_activity add column if not exists forgot integer not null default 0`;
     await this.sql`alter table kw_users add column if not exists streak_day text`;
     await this.sql`alter table kw_users add column if not exists border text not null default 'none'`;
+    // 0.9.9.9.9: the ranked ladder, and match replays (kept two weeks)
+    await this.sql`alter table kw_users add column if not exists rating integer not null default 1000`;
+    await this.sql`alter table kw_users add column if not exists rated integer not null default 0`;
+    await this.sql`create index if not exists kw_users_ladder on kw_users (rating desc) where rated > 0`;
+    await this.sql`create table if not exists kw_replays (id text primary key, at bigint not null, data bytea not null)`;
+    await this.sql`create index if not exists kw_replays_at on kw_replays (at)`;
     await this.sql`update kw_users set streak_day = login_day where streak_day is null and login_day is not null`; // a running streak carries on
     await this.sql`
       create table if not exists kw_daily (
@@ -670,6 +679,17 @@ export class PgStore implements Store {
         and not exists (select 1 from kw_groups g where g.pic = m.id)`;
     return r.count;
   }
+  // 0.9.9.9.9: the ladder and replays
+  async ladder(limit: number, minGames: number) {
+    return (await this.sql<UserRow[]>`select * from kw_users where not banned and rated >= ${minGames} order by rating desc, username asc limit ${limit}`).map(toUser);
+  }
+  async ratedAbove(rating: number, minGames: number) {
+    const [r] = await this.sql<Array<{ n: string }>>`select count(*) as n from kw_users where not banned and rated >= ${minGames} and rating > ${rating}`;
+    return Number(r?.n ?? 0);
+  }
+  async saveReplay(id: string, at: number, data: Buffer) { await this.sql`insert into kw_replays (id, at, data) values (${id}, ${at}, ${data}) on conflict (id) do nothing`; }
+  async replay(id: string) { const [r] = await this.sql<Array<{ data: Buffer }>>`select data from kw_replays where id = ${id}`; return r ? Buffer.from(r.data) : null; }
+  async sweepReplays(before: number) { return (await this.sql`delete from kw_replays where at < ${before}`).count; }
   async setReportDone(id: string, done: boolean) { await this.sql`update kw_reports set done = ${done} where id = ${id}`; }
   async deleteReport(id: string) { await this.sql`delete from kw_reports where id = ${id}`; }
   async addEvent(userId: string | null, name: string, at = Date.now()) { await this.sql`insert into kw_events (user_id, name, at) values (${userId}, ${name}, ${at})`; }

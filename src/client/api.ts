@@ -9,6 +9,12 @@ export interface GroupPerms { invite: 'all' | 'admins'; info: 'all' | 'admins'; 
 export interface GroupMemberView { id: string; name: string; login: string; pic: string | null; role: GroupRole; online: boolean; status?: PlayerStatus; friend: boolean }
 export interface GroupInfo { id: string; name: string; pic: string | null; perms: GroupPerms; createdAt: number; role: GroupRole; members: GroupMemberView[]; notify: NotifyMode }
 import type { KanaProgress } from '../shared/kanachart';
+import type { RankView } from '../shared/ranked';
+import type { PlayerId, ServerMessage } from '../shared/protocol';
+/** 0.9.9.9.9: the ranked ladder */
+export interface LadderRow extends RankView { id: string; name: string; login: string; pic: string | null; place: number }
+export interface LadderView { top: LadderRow[]; me: RankView & { id: string }; friends: LadderRow[] }
+export interface ReplayView { v: 1; mode: string; at: number; tape: Array<[number, PlayerId | null, ServerMessage]> }
 import type { AdminUserRow, Device, Level, MatchDetail, MatchSummary, OnoType, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
 import type { CardState, DeckId, Rating } from '../shared/srs';
@@ -173,6 +179,8 @@ export const api = {
   setBorder: (border: string) => call<{ profile: Profile }>('PUT', '/api/me/border', { border }),
   setBadges: (badges: string[]) => call<{ badges: string[] }>('PUT', '/api/me/badges', { badges }),
   matches: () => call<{ matches: MatchSummary[] }>('GET', '/api/matches'),
+  ladder: () => call<LadderView>('GET', '/api/ladder'), // 0.9.9.9.9
+  replay: (id: string) => call<{ replay: ReplayView }>('GET', `/api/replays/${encodeURIComponent(id)}`),
   match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),
   player: (id: string) => call<{ profile: PublicProfile }>('GET', `/api/users/${encodeURIComponent(id)}`),
   /** 0.9.9.9.6.3: an @mention's login → their profile */
