@@ -188,6 +188,8 @@ export interface Store {
   saveReplay(id: string, at: number, data: Buffer): Promise<void>;
   replay(id: string): Promise<Buffer | null>;
   sweepReplays(before: number): Promise<number>;
+  /** 0.9.9.9.9.2: keep only the newest `keep` replays; how many went */
+  trimReplays(keep: number): Promise<number>;
   close?(): Promise<void>;
 }
 
@@ -564,6 +566,11 @@ export class MemoryStore implements Store {
   async saveReplay(id: string, at: number, data: Buffer) { this.replays.set(id, { at, data }); }
   async replay(id: string) { return this.replays.get(id)?.data ?? null; }
   async sweepReplays(before: number) { let n = 0; for (const [id, r] of this.replays) if (r.at < before) { this.replays.delete(id); n++; } return n; }
+  async trimReplays(keep: number) {
+    const old = [...this.replays].sort((a, b) => b[1].at - a[1].at).slice(Math.max(0, keep));
+    for (const [id] of old) this.replays.delete(id);
+    return old.length;
+  }
 }
 
 /** JSON-file store for local play. On Render's free plan the disk is wiped — use Postgres (Neon) there. */

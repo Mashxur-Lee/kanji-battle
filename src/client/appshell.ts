@@ -129,18 +129,18 @@ function goBack(): boolean {
   return true; // in a game: stay (no leaving by accident)
 }
 const away = () => !!document.querySelector('dialog[open]') || !['menu', 'auth', undefined].includes(ui.currentScreen());
-let guarded = false, consuming = false;
+let guarded = false;
+// 0.9.9.9.9.2: back at the menu by the game's own buttons, the extra entry stays (it used to be taken away with a
+// history.back() of our own — two of those close together, leaving a room for a replay and then the replay, raced, and
+// the next one went back past the game: Exit in a replay left Kanji Wizards). The next back press just uses it up.
 function syncGuard() {
   if (away() && !guarded) { history.pushState({ kwGuard: 1 }, ''); guarded = true; }
-  // back at the menu by the game's own buttons: take the extra entry away again, quietly
-  else if (!away() && guarded) { guarded = false; consuming = true; history.back(); }
 }
 function initBack() {
   addEventListener('popstate', () => {
-    if (consuming) { consuming = false; return; }
     if (!guarded) return; // not ours
     guarded = false;
-    goBack();
+    if (away()) goBack(); // (at the menu: it was the spare entry — nothing to do)
     setTimeout(syncGuard, 0);
   });
   // screens and dialogs opening

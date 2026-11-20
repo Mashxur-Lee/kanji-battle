@@ -10,7 +10,7 @@ import { buildDraftPool, DeckGame } from './DeckGame';
 import { VOCAB } from './vocab';
 import { pickPool, pickPoolFrom, shuffle } from './VocabPool';
 import { toRomaji } from '../shared/kana';
-import type { RatingChange } from '../shared/protocol';
+import type { PlayerStats, RatingChange } from '../shared/protocol';
 
 /** Transport-agnostic: Room only needs something it can send messages to. */
 /** a game against the AI waits this long for you when the app is in the background (0.9.9.9.2) */
@@ -52,6 +52,17 @@ export interface MatchResult {
   record?: Omit<MatchDetail, 'id'>;
 }
 export type MatchEndHook = (mode: GameMode, results: MatchResult[]) => Promise<Record<PlayerId, { gained: number; xp: number; crit: number; achievements?: string[]; missed?: MissedWord[]; rating?: RatingChange }>>;
+/**
+ * 0.9.9.9.9.2: too fast to be a person — right answers this fast on average (read the kanji, think, type its
+ * reading), over at least this many words: a script, most likely. A ranked match like that doesn't move anyone's
+ * rating, and the team hears of it (a person answers in 1.5–4 s; a quick one, now and then, under 1 s).
+ */
+export const TOO_FAST = { ms: 700, words: 8 } as const;
+export interface Suspect { id: PlayerId; name: string; avgMs: number; correct: number }
+export function tooFast(stats: PlayerStats | undefined): boolean {
+  return !!stats && stats.correct >= TOO_FAST.words && stats.avgResponseMs !== null && stats.avgResponseMs < TOO_FAST.ms;
+}
+
 /** 0.9.9.9.9: a match's tape — what everyone saw, and each player's own words and answers (`to`), with the time */
 export type TapeEntry = [ms: number, to: PlayerId | null, msg: ServerMessage];
 export interface ReplayData { v: 1; mode: GameMode; at: number; tape: TapeEntry[] }
@@ -73,6 +84,8 @@ export interface RoomDeps {
   spellIds?: (id: PlayerId) => Promise<ReadonlySet<string>>;
   /** 0.9.9.9.9: keep a match's replay; resolves to its id (null: not kept) */
   saveReplay?: (data: ReplayData) => Promise<string | null>;
+  /** 0.9.9.9.9.2: a ranked match not counted — someone answered faster than a person can (the team is told) */
+  onSuspect?: (who: Suspect[], mode: GameMode) => void;
 }
 
 type Phase = 'lobby' | 'game' | 'results';
@@ -728,7 +741,11 @@ export class Room {
     if (!this.deps.onMatchEnd) return;
     const vsAi = this.roster.some((p) => p.bot);
     const humans = this.roster.filter((p) => !p.bot);
-    const ranked = this.ranked && this.gamesPlayed === 1 && !vsAi && humans.length === 2 && this.mode !== 'boss';
+    const rankable = this.ranked && this.gamesPlayed === 1 && !vsAi && humans.length === 2 && this.mode !== 'boss';
+    // 0.9.9.9.9.2: answers faster than a person can give them: not counted for rating, and the team is told
+    const suspects = rankable ? humans.filter((p) => tooFast(e.stats[p.id])) : [];
+    const ranked = rankable && suspects.length === 0;
+    if (suspects.length) this.deps.onSuspect?.(suspects.map((p) => ({ id: p.id, name: p.name, avgMs: Math.round(e.stats[p.id].avgResponseMs ?? 0), correct: e.stats[p.id].correct })), this.mode);
     const players = this.view();
     const at = Date.now();
     const characterOf = (id: PlayerId) => this.game?.heroOf?.(id) ?? players.find((v) => v.id === id)?.avatar ?? 'wizard';

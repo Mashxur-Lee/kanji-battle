@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { keepAwake } from './keepAwake';
 import { VERSION } from '../shared/version';
 import type { MissedWord, RatingChange } from '../shared/protocol';
@@ -182,6 +183,10 @@ const rooms = new RoomManager({
   spellIds: async (id) => new Set((await store.cards(id)).filter((c) => (c.deck ?? 'all') === 'all').map((c) => c.vocabId)),
   // after every match: XP + missed words into each player's "Struggling spells"
   onGameStart: (mode, playerIds) => { for (const id of playerIds) void insights.event(id, `game_start:${mode}`); },
+  // 0.9.9.9.9.2: a ranked match not counted (answers faster than a person can give them): to the admin's inbox
+  onSuspect: (who, mode) => {
+    for (const s of who) void store.addReport({ kind: 'report', userId: s.id, username: s.name, text: `Ranked match not counted: ${s.name} answered ${s.correct} words right in ${s.avgMs} ms on average (${mode}) - faster than a person can read and type. A script?`, meta: `auto · ${mode}`, at: Date.now() }).catch(() => {});
+  },
   onMatchEnd: async (mode, results) => {
     for (const r of results) void insights.event(r.id, `game_end:${mode}`);
     const out: Record<string, { gained: number; xp: number; crit: number; achievements: string[]; missed: MissedWord[]; rating?: RatingChange }> = {};
@@ -237,6 +242,14 @@ const server = createServer(async (req, res) => {
     const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : url.startsWith('/bg/') || url.startsWith('/models/') || url.startsWith('/frames/') || url.startsWith('/flames/') ? { 'Cache-Control': 'public, max-age=604800' }
       // 0.9.9.9.6.5: the dictionary is asked for as /dict.json?v=<its version> — the browser may keep it a month
       : url === '/dict.json' && /[?&]v=/.test(req.url ?? '') ? { 'Cache-Control': 'public, max-age=2592000' } : {}) };
+    // 0.9.9.9.9.2: the game's code and look are checked every time too (with an ETag: unchanged, only "304"). They had
+    // no rule, so a phone could keep an old app.js under a new page — 0.9.9.9.7.4's code, under 0.9.9.9.8's page without
+    // its push-test buttons, crashed at the start ("Cannot set properties of null (setting 'onclick')")
+    if (SHELL_CODE.has(url)) {
+      const tag = etagOf(url, data);
+      fresh['Cache-Control'] = 'no-cache'; fresh.ETag = tag;
+      if (req.headers['if-none-match'] === tag) { res.writeHead(304, fresh).end(); return; }
+    }
     // text files go out gzipped (app.js, arena3d.js and the Russian meanings are large); cached per build
     // 0.9.9.9: Brotli where the browser takes it (the dictionary ~25% smaller than gzip), else gzip
     const accept = String(req.headers['accept-encoding'] ?? '');
@@ -252,6 +265,17 @@ const server = createServer(async (req, res) => {
     res.writeHead(404, { 'X-Content-Type-Options': 'nosniff' }).end('Not found');
   }
 });
+
+/** 0.9.9.9.9.2: the game's code and look, checked on every load (an ETag each, made once per build) */
+const SHELL_CODE = new Set(['/app.js', '/style.css', '/arena3d.js']);
+const etags = new Map<string, { len: number; tag: string }>();
+function etagOf(url: string, data: Buffer): string {
+  const hit = etags.get(url);
+  if (hit && hit.len === data.length) return hit.tag;
+  const tag = `"${createHash('sha1').update(data).digest('base64url').slice(0, 20)}"`;
+  etags.set(url, { len: data.length, tag });
+  return tag;
+}
 
 // Handwriting answers carry stroke data, so allow bigger frames than plain JSON messages.
 const wss = new WebSocketServer({ server, maxPayload: 96 * 1024 });

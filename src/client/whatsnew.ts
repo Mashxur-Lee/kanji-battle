@@ -7,6 +7,31 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.9.2', date: '2026-11',
+    en: [
+      'Replays: Exit is at the top, where Leave is in a game. The eye button shows the match through anyone’s eyes, a bot’s too. Jumping on the timeline no longer plays the fly-in, and nobody stays down when you jump back from the end. Exit no longer leaves the game.',
+      'The results have a Back button, and Watch replay sits right under the result.',
+      'Block and Report are on a player’s card (where Message is). Report reasons light up when you pick one.',
+      'Ranked: a match where someone answers faster than a person can doesn’t count, and the team is told.',
+      'The time of day now fades smoothly from one picture to the next.',
+      'Less text: explanations fold behind a small (i) in Customize, the results and Settings.',
+      'Softer cores on the Verdant and Tide staffs. Combo flames no longer cover your staff.',
+      'The dragon beats its wings slowly as it rears up, and spreads them wide when it breathes fire.',
+      'Fixed: the Boss guide’s pictures were missing; the staff colours showed on Customize’s main view; the menu could scroll after Messages; a crash on start after an update.',
+    ],
+    ru: [
+      'Повторы: «Выйти» вверху, где «Покинуть» в игре. Кнопка с глазом показывает матч глазами любого игрока, и бота тоже. Перемотка больше не запускает пролёт камеры, а после прыжка назад от конца никто не остаётся поверженным. «Выйти» больше не закрывает игру.',
+      'У результатов есть кнопка «Назад», а «Смотреть повтор» — сразу под итогом.',
+      '«Заблокировать» и «Пожаловаться» — в карточке игрока (рядом с «Написать»). Выбранная причина жалобы подсвечивается.',
+      'Рейтинг: матч, где кто-то отвечает быстрее, чем может человек, не засчитывается, а команда получает сообщение.',
+      'Смена времени суток теперь плавно перетекает из одной картинки в другую.',
+      'Меньше текста: пояснения спрятаны за маленькой (i) в кастомизации, результатах и настройках.',
+      'Ядра посохов Листвы и Прилива светятся мягче. Пламя комбо больше не закрывает посох.',
+      'Дракон медленно бьёт крыльями, вставая на дыбы, и широко раскрывает их, когда дышит огнём.',
+      'Исправлено: пропали картинки в подсказке «Битвы с боссом»; цвета посоха были видны на главном виде кастомизации; меню могло прокручиваться после «Сообщений»; вылет при запуске после обновления.',
+    ],
+  },
+  {
     v: '0.9.9.9.9.1', date: '2026-11',
     en: [
       'Customize > Magic staff shows the five staffs. Each has its colours as buttons on the preview: tap one to see it and put it on. A locked colour says how to get it.',

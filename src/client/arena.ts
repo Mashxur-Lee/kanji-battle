@@ -99,7 +99,9 @@ function deactivate() {
 }
 async function activate() {
   if (!wanted()) return;
-  const a = await load();
+  // (0.9.9.9.9.2: no wait when it is loaded — a replay jumping to a moment sets the arena up and then turns its
+  // fly-in off; set up a moment later, the fly-in came back on every jump)
+  const a = api ?? await load();
   if (!a || !onScreen || !wanted()) return;
   if (pending) { a.setup({ ...pending, bgSvg: artUrl(bg.id, bg.time) /* 0.9.9.9.5.1: the painted picture */, bgKey: `${bg.id}-${bg.time}`, time: bg.time, weather: weatherFor(bg.id) /* 0.9.9.9.9.1 */ }); pending = null; }
   document.body.classList.add('has-3d');
