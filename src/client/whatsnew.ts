@@ -7,6 +7,21 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.9', date: '2026-11',
+    en: [
+      'Ranked: every 1v1 from the online queue now counts for your rating. Beat someone rated higher and you gain more. After 5 games you get a tier: Apprentice, Adept, Mage, Archmage, Sage, Grand Sage. Private rooms, bots, Boss and rematches don\'t count, and leaving a ranked game is a loss.',
+      'The Ladder (Online queue > Ladder): the top 50 players and your friends. Your tier shows on your profile card.',
+      'Watch your friends: when a friend is in a game, tap their name and Watch their game. You see what everyone sees, never their word before they cast it. Players see how many are watching.',
+      'Replays: every battle is kept for two weeks. Watch it again from the results or Match history, switch sides, play it at 2x, and copy the link to share it. Anyone with the link can watch, no account needed.',
+    ],
+    ru: [
+      'Рейтинг: каждая игра 1 на 1 из онлайн-очереди теперь меняет ваш рейтинг. Победа над тем, у кого рейтинг выше, даёт больше. После 5 игр появится ранг: Ученик, Адепт, Маг, Архимаг, Мудрец, Великий мудрец. Свои комнаты, боты, Бой с боссом и реванши не считаются, а выход из рейтинговой игры — поражение.',
+      'Таблица (Онлайн-очередь > Таблица): 50 лучших игроков и ваши друзья. Ваш ранг виден в карточке профиля.',
+      'Смотрите игры друзей: когда друг в игре, нажмите на его имя и «Смотреть их игру». Вы видите то же, что и все, — но не слово до того, как его сыграют. Игроки видят, сколько у них зрителей.',
+      'Повторы: каждый бой хранится две недели. Пересмотрите его из результатов или истории матчей, переключите сторону, включите 2x и скопируйте ссылку, чтобы поделиться. По ссылке может смотреть кто угодно, даже без аккаунта.',
+    ],
+  },
+  {
     v: '0.9.9.9.8', date: '2026-11',
     en: [
       'Every staff has its own spell sound when you get a word right: Verdant grows, Storm cracks with thunder, Tide splashes, Ember catches fire, Void folds the air, and the seasonal staffs have theirs. It gets bigger with your combo. Tap a staff in Customize to hear it.',

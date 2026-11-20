@@ -122,7 +122,8 @@ export interface PublicProfile { id: string; name: string; /** the login under t
   /** 0.9.9.9.5.5: what they wear (Customize) and the achievements they have (ids) */
   look?: ProfileLook; achievements?: string[];
   /** 0.9.9.9.6.4: their Daily challenge league, and how many words they learned today */ league?: string; today?: number;
-  /** 0.9.9.9.6.4: online / playing / away / last seen — for friends (and group members) only */ status?: PlayerStatus }
+  /** 0.9.9.9.6.4: online / playing / away / last seen — for friends (and group members) only */ status?: PlayerStatus;
+  /** 0.9.9.9.9: ranked — rating, tier (after the placement games) */ rank?: import('./ranked').RankView }
 export interface PlayerStatus { online: boolean; away?: boolean; activity?: string; lastSeen?: number | null }
 export interface ProfileLook { character: string; staff: string; arena: string; flame: string; pose: string; border: string }
 
@@ -134,7 +135,12 @@ export interface MatchSummary {
   character: string;
   at: number; // epoch ms
   opponents: Array<{ id: string; name: string; bot: boolean; character: string }>;
+  /** 0.9.9.9.9: the match's replay (kept two weeks), and whether it was ranked */
+  replay?: string;
+  ranked?: boolean;
 }
+/** 0.9.9.9.9: a ranked match moved your rating */
+export interface RatingChange { before: number; after: number; games: number }
 /** …and everything the results screen needs to show it again. */
 export interface MatchDetail extends MatchSummary {
   you: PlayerId;
@@ -159,6 +165,9 @@ export type DrawnChar = Array<Array<[number, number]>>;
 
 export type ClientMessage =
   | { type: 'hello'; token: string }
+  /** 0.9.9.9.9: watch a friend's game (live), and stop */
+  | { type: 'watch'; userId: string }
+  | { type: 'unwatch' }
   | { type: 'create'; mode: GameMode; levels?: Level[]; /** the tutorial's short first battle */ tutorial?: boolean }
   | { type: 'join'; code: string; levels?: Level[] }
   | { type: 'levels'; levels: Level[] }
@@ -321,8 +330,14 @@ export type ServerMessage =
   | { type: 'paused'; on: boolean }
   | { type: 'progress'; gained: number; xp: number; level: number; levelUp: boolean; crit: number; achievements?: string[];
       /** words you missed this game; `added` = they were just put in Struggling spells (the results screen lets you undo or move them) */
-      missed?: MissedWord[] }
+      missed?: MissedWord[];
+      /** 0.9.9.9.9: the match's replay id, and a ranked match's rating change */
+      replay?: string; rating?: RatingChange }
   | { type: 'notice'; message: string }
+  /** 0.9.9.9.9: you're watching a game (on) — its room, mode and players; or not any more */
+  | { type: 'watching'; on: boolean; code?: string; mode?: GameMode; players?: PlayerView[]; name?: string; reason?: string; /** whose side you see */ target?: PlayerId }
+  /** 0.9.9.9.9: how many are watching your game */
+  | { type: 'watchers'; count: number }
   | { type: 'deck_state'; view: DeckView }
   | { type: 'deck_event'; event: DeckEvent }
   | { type: 'deck_ink'; castId: number; strokes: DrawnChar; cells: number }

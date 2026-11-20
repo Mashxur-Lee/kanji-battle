@@ -138,7 +138,7 @@ test('0.9.9.9.6.9 Today: the streak tasks in order, then one battle; each press 
   const main = src('src/client/main.ts');
   assert.match(main, /taskActions\.battle = \(\) => \{/);
   assert.match(main, /taskActions\.practice = \(\) => void startQuiz\(\);/);
-  assert.match(main, /case 'game_over': \{\n      noteBattle\(\);/);
+  assert.match(main, /case 'game_over': \{\n      if \(!watching\(\)\) noteBattle\(\);/); // (0.9.9.9.9: watching a battle isn't playing one)
 });
 
 test('0.9.9.9.6.9 the 3D arena: a fly-in, an impact shot for big spells, a victory orbit; the opponent closer; the HUD lower', () => {

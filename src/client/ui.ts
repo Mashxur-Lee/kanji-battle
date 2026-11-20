@@ -1,4 +1,5 @@
 import { exampleFor } from './examples';
+import { TIERS, type RankView } from '../shared/ranked';
 import { locale, tr } from './i18n';
 import { screenIn } from './motion';
 import { knowPlayer } from './mentions';
@@ -181,6 +182,33 @@ export function picOrLetter(url: string | null | undefined, name: string, cls = 
   const img = pic instanceof HTMLImageElement ? pic : pic.querySelector('img');
   if (img) img.onerror = () => pic.replaceWith(letter());
   return pic;
+}
+/** 0.9.9.9.9: watching someone else's game (a friend's, a replay): "You" is them — their name */
+const watchingNow = () => !!document.body.dataset.watch;
+const youLabel = (players: PlayerView[], you: PlayerId) => (watchingNow() ? players.find((p) => p.id === you)?.name ?? 'You' : 'You');
+/** 0.9.9.9.9: how many are watching your game (under the clock; nothing when no one is) */
+export function setWatchers(n: number) {
+  const c = $('battleClock');
+  c.dataset.watchers = n > 0 ? (n === 1 ? tr('1 watching') : tr(`${n} watching`)) : '';
+}
+/** 0.9.9.9.9: a ranked match moved your rating — next to the XP */
+export function showRating(r: { before: number; after: number; games: number }) {
+  const d = r.after - r.before;
+  const el = h('span', `rating-change ${d >= 0 ? 'up' : 'down'}`, `${d >= 0 ? '+' : ''}${d} ${tr('rating')} · ${r.after}`);
+  if (r.games < 5) el.append(h('small', '', ` (${tr('Placement')} ${r.games}/5)`));
+  $('xpLine').hidden = false;
+  $('xpLine').append(el);
+}
+/** 0.9.9.9.9: a ranked chip — the tier's colour and name and the rating, or the placement games so far */
+export function rankChip(r: RankView | undefined | null, withRating = true): HTMLElement | null {
+  if (!r || (!r.tier && !r.games)) return null;
+  const t = TIERS.find((x) => x.id === r.tier) ?? null;
+  const c = h('span', `rank-chip${t ? ` rk-${t.id}` : ' rk-placement'}`);
+  if (t) c.style.setProperty('--rk', t.color);
+  c.append(h('i', 'rk-crest', undefined, { 'aria-hidden': 'true' }), h('span', '', t ? tr(t.name) : `${tr('Placement')} ${r.placement ?? 0}/5`));
+  if (t && withRating) c.append(h('b', '', String(r.rating)));
+  c.title = tr('Ranked: 1v1 games from the online queue');
+  return c;
 }
 /** 0.9.9.9.6.8: filming the trailer (localStorage kb:filming = 1): no screen shake */
 const filming = () => { try { return localStorage.getItem('kb:filming') === '1'; } catch { return false; } };
@@ -683,7 +711,7 @@ function partyPanel(el: HTMLElement, players: PlayerView[], you: PlayerId) {
   const out: HTMLElement[] = [];
   if (mine) {
     const row = h('div', 'party-me' + (mine.hp <= 0 ? ' down' : ''));
-    const name = append(h('div', 'pm-name'), picEl(mine.pic, 'pic', mine.border), h('span', 'pm-you', 'You'), h('span', 'n', mine.name), netBars(mine.id),
+    const name = append(h('div', 'pm-name'), picEl(mine.pic, 'pic', mine.border), ...(watchingNow() ? [] : [h('span', 'pm-you', 'You')]), h('span', 'n', mine.name), netBars(mine.id),
       h('span', 'combo', mine.combo >= 2 ? `×${mine.combo} combo` : ''));
     row.append(name, thickBar(mine.hp, mine.maxHp, 'ally', mine.hp <= 0 ? 'down' : `${mine.hp} / ${mine.maxHp}`));
     out.push(row);
@@ -715,12 +743,13 @@ function thickBar(hp: number, max: number, side: 'ally' | 'enemy' | 'mate', text
 
 function fighterCard(el: HTMLElement, p: PlayerView | undefined, label: string, emptyText: string) {
   if (!p) { el.replaceChildren(h('div', 'name', emptyText)); return; }
-  const nameEl = h('span', 'n', label);
-  if (!label.endsWith('(you)')) markProfile(nameEl, p);
+  const mine = label.endsWith('(you)');
+  // (0.9.9.9.9: watching — the side you see is theirs: their name, and it opens their card)
+  const nameEl = h('span', 'n', mine && watchingNow() ? p.name : label);
+  if (!mine || watchingNow()) markProfile(nameEl, p);
   const name = append(h('div', 'name'), append(h('span', 'n'), picEl(p.pic, 'pic', p.border), nameEl, netBars(p.id), h('span', 'lv', `Lv ${p.level}`)) , h('span', 'combo', p.combo >= 2 ? `×${p.combo} combo` : ''));
   // 0.9.9.9: one HP bar for every mode — thick, the numbers inside it (as in Boss Elimination and Deck Duel); green
   // for you, red for the opponent. The levels stay as a small line under it.
-  const mine = label.endsWith('(you)');
   const bar = thickBar(p.hp, p.maxHp, mine ? 'ally' : 'enemy', `${p.hp} / ${p.maxHp}`);
   bar.setAttribute('aria-label', `${p.name} HP`);
   el.replaceChildren(name, bar, h('div', 'hpnum lvs-only', `${levelsText(p.levels)}${p.online ? '' : ' · away'}`));
@@ -1277,14 +1306,14 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
     // a bigger boss party: one column per player, labels on the left
     cmp.style.gridTemplateColumns = `auto repeat(${allies.length + 1}, minmax(0, 1fr))`;
     const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? 'Ally';
-    cmp.replaceChildren(h('div'), h('div', 'h me', 'You'), ...allies.map((id) => { const p = players.find((x) => x.id === id); const el = h('div', 'h', nameOf(id)); return p ? markProfile(el, p) : el; }));
+    cmp.replaceChildren(h('div'), h('div', 'h me', youLabel(players, you)), ...allies.map((id) => { const p = players.find((x) => x.id === id); const el = h('div', 'h', nameOf(id)); return p ? markProfile(el, p) : el; }));
     for (const [label, fmt] of rows) cmp.append(h('div', 'lbl', label), h('div', 'v', fmt(me)), ...allies.map((id) => h('div', 'v', fmt(stats[id]))));
   } else {
     cmp.style.gridTemplateColumns = '';
     const on = h('div', 'h r', other ? otherName : '');
     const op = players.find((p) => p.id === otherId);
     if (op) markProfile(on, op);
-    cmp.replaceChildren(h('div', 'h me', 'You'), h('div'), on);
+    cmp.replaceChildren(h('div', 'h me', youLabel(players, you)), h('div'), on);
     for (const [label, fmt] of rows) cmp.append(h('div', 'v', fmt(me)), h('div', 'lbl', label), h('div', 'v r', other ? fmt(other) : ''));
   }
 
@@ -1314,7 +1343,7 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
   };
   tabs.replaceChildren(...who.map((id) => {
     const p = players.find((x) => x.id === id);
-    const b = h('button', 'word-tab', id === you ? 'You' : p?.name ?? (mode === 'boss' ? 'Ally' : 'Opponent'), { type: 'button', role: 'tab', 'aria-selected': String(id === you) });
+    const b = h('button', 'word-tab', id === you ? youLabel(players, you) : p?.name ?? (mode === 'boss' ? 'Ally' : 'Opponent'), { type: 'button', role: 'tab', 'aria-selected': String(id === you) });
     b.dataset.who = id;
     b.onclick = () => showWords(id);
     return b;
@@ -1400,7 +1429,8 @@ export const dateTime = (at: number) => new Date(at).toLocaleString(locale(), { 
 
 /** A small floating card next to the clicked name. */
 export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean; /** 0.9.9.9.5.2 */ remove?: () => Promise<void>;
-  /** 0.9.9.9.5.5: their whole profile (look + achievements) */ view?: () => void; /** 0.9.9.9.6: Messages */ message?: () => void; /** 0.9.9.9.5.5: their lobby is open */ join?: { label: string; mode: string; go: () => void } }
+  /** 0.9.9.9.5.5: their whole profile (look + achievements) */ view?: () => void; /** 0.9.9.9.6: Messages */ message?: () => void; /** 0.9.9.9.5.5: their lobby is open */ join?: { label: string; mode: string; go: () => void };
+  /** 0.9.9.9.9: they're in a game — watch it */ watch?: () => void }
 export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing', actions?: ProfileActions) {
   const pop = $('otherPop');
   const body: HTMLElement[] = [];
@@ -1414,7 +1444,7 @@ export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: s
     const img = picEl(p.pic, 'pic fill');
     if (img) pic.append(img);
     body.push(
-      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), ...(p.login ? [h('div', 'pp-login', `@${p.login}`)] : []), ...(p.status ? [statusLine(p.status)] : []), h('div', 'pp-level', `Lv ${p.level}`), ...[leagueChip(p.league), badgeRowFn?.(p.badges)].filter((x): x is HTMLElement => !!x))),
+      append(h('div', 'pp-head'), pic, append(h('div'), h('div', 'pp-name', p.name), ...(p.login ? [h('div', 'pp-login', `@${p.login}`)] : []), ...(p.status ? [statusLine(p.status)] : []), h('div', 'pp-level', `Lv ${p.level}`), ...[leagueChip(p.league), rankChip(p.rank), badgeRowFn?.(p.badges)].filter((x): x is HTMLElement => !!x))),
       statsCard({ wins: p.wins, losses: p.losses, learned: p.learned, ...(p.today !== undefined ? { today: p.today } : {}) }),
       streakCard(p.streak ?? 0, Math.max(p.bestStreak ?? 0, p.streak ?? 0)),
       h('p', 'hint pc-since', `Playing since ${new Date(p.since).toLocaleDateString(locale(), { year: 'numeric', month: 'short', day: 'numeric' })}`),
@@ -1465,6 +1495,8 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     j.onclick = () => { hideProfileCard(); a.join!.go(); };
     box.append(j);
   }
+  // 0.9.9.9.9: in a game: watch it
+  if (a.watch) { const w = h('button', 'pill primary pp-watch', tr('Watch their game')) as HTMLButtonElement; w.type = 'button'; w.onclick = () => a.watch!(); box.append(w); }
   // 0.9.9.9.6.2: the buttons in an even grid — two to a row, the same size, each with a drawn icon
   const grid = h('div', 'pp-grid');
   if (a.view) { const v = actBtn('pill pp-view', 'view', 'View profile'); v.onclick = () => a.view!(); grid.append(v); }

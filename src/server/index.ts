@@ -1,6 +1,6 @@
 import { keepAwake } from './keepAwake';
 import { VERSION } from '../shared/version';
-import type { MissedWord } from '../shared/protocol';
+import type { MissedWord, RatingChange } from '../shared/protocol';
 import { createServer, type IncomingMessage } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
@@ -33,6 +33,7 @@ import { onServerError, reportServerError } from './errors';
 import { createMailer, type Mailer } from './mail';
 import type { ResetMail } from './auth/AuthService';
 import { DictService } from './study/DictService';
+import { RankedService } from './study/RankedService';
 
 const PUBLIC_DIR = path.resolve(__dirname, '../../public');
 // 0.9.9.9.8: the page and the stylesheet as they are sent (no comments; scripts/build-client.mjs) — when they are at
@@ -162,7 +163,8 @@ const resetMail = async (m: ResetMail) => {
   }
   await store.addReport({ kind: 'error', userId: m.user.id, username: m.user.username, text: `Password reset asked by ${m.user.username} - code ${m.code} (30 min). Email is not set up on the server (SMTP_URL or RESEND_API_KEY), so pass the code on yourself.`, meta: m.email, at: Date.now() });
 };
-const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled, messages, resetMail });
+const ranked = new RankedService(store); // 0.9.9.9.9: the ladder and replays
+const api = createApiHandler(auth, study, { presence: (id) => hub.presence(id), daily, social, strokes: (ch) => recognizer.strokes(ch), insights, onlineCount: () => hub.onlineCount, stories, dict: new DictService(), inviteDecline: (id, name, fromId) => hub.decline(id, name, fromId), pushOn: () => push.enabled, messages, resetMail, ranked });
 
 // ── game ──────────────────────────────────────────────────────────────────────
 const judges = createJudgePool({
@@ -171,6 +173,7 @@ const judges = createJudgePool({
 });
 judges.warm();
 const rooms = new RoomManager({
+  saveReplay: (data) => ranked.saveReplay(data),
   // 0.9.9.9.7.2: drawings are judged on their own thread (a big one held up every battle for most of a second)
   judgeWriting: judges.normal,
   judgeDeck: judges.lenient, // Deck Duel: extra forgiving
@@ -181,14 +184,16 @@ const rooms = new RoomManager({
   onGameStart: (mode, playerIds) => { for (const id of playerIds) void insights.event(id, `game_start:${mode}`); },
   onMatchEnd: async (mode, results) => {
     for (const r of results) void insights.event(r.id, `game_end:${mode}`);
-    const out: Record<string, { gained: number; xp: number; crit: number; achievements: string[]; missed: MissedWord[] }> = {};
+    const out: Record<string, { gained: number; xp: number; crit: number; achievements: string[]; missed: MissedWord[]; rating?: RatingChange }> = {};
+    // 0.9.9.9.9: a ranked 1v1 moves both ratings
+    const ratings = await ranked.settle(results).catch((e) => { reportServerError('ranked', e); return {} as Record<string, RatingChange>; });
     // 0.9.9.3.4: "Kingslayer" — winning against an admin who played it out (no forfeit)
     const admins = new Set<string>();
     for (const r of results) if ((await store.findById(r.id))?.role === 'admin') admins.add(r.id);
     for (const r of results) {
       const beatAdmin = r.outcome === 'win' && results.some((o) => o.id !== r.id && o.outcome === 'loss' && !o.forfeited && admins.has(o.id));
       const { gained, xp, achievements, missed } = await study.recordMatch(r.id, r.outcome, r.accuracy, mode, r.missed, r.forfeited, r.vsAi, r.record, r.seen, beatAdmin);
-      out[r.id] = { gained, xp, crit: await study.crit(r.id), achievements, missed };
+      out[r.id] = { gained, xp, crit: await study.crit(r.id), achievements, missed, ...(ratings[r.id] ? { rating: ratings[r.id] } : {}) };
     }
     return out;
   },
@@ -312,6 +317,9 @@ store.init().then(() => auth.seed([
     // 0.9.9.9.7.3: photos nothing uses any more (a deleted message's, one uploaded and never sent) — a day after upload
     const sweepPhotos = () => store.sweepMedia(Date.now() - 86_400_000).then((n) => { if (n) console.log(`Removed ${n} unused photo${n === 1 ? '' : 's'}`); }).catch((e) => console.error('[photos]', e));
     setTimeout(sweepPhotos, 120_000).unref(); setInterval(sweepPhotos, 6 * 3_600_000).unref();
+    // 0.9.9.9.9: replays are kept two weeks
+    const sweepReplays = () => ranked.sweep().then((n) => { if (n) console.log(`Removed ${n} old replay${n === 1 ? '' : 's'}`); }).catch((e) => console.error('[replays]', e));
+    setTimeout(sweepReplays, 180_000).unref(); setInterval(sweepReplays, 12 * 3_600_000).unref();
     const awake = keepAwake();
     if (awake) console.log(`Keep awake: asking ${awake.url} every 10 minutes (KEEP_AWAKE=0 turns it off)`);
     if (process.env.RENDER && !process.env.DATABASE_URL) {

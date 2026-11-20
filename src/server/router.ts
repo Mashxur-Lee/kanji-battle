@@ -65,6 +65,8 @@ export interface ApiExtras {
   dict?: DictService;
   /** 0.9.9.9.5.1: whether push to the Android app is set up (FIREBASE_SERVICE_ACCOUNT) — shown to admins */
   pushOn?: () => boolean;
+  /** 0.9.9.9.9: the ranked ladder and replays */
+  ranked?: { ladder(me: UserRecord, friendIds: string[]): Promise<unknown>; replay(id: string): Promise<unknown | null> }; // (study/RankedService — kept out of the offline app's bundle)
   /** 0.9.9.9.5: "Decline" on an invite notification (the app was closed — no websocket) */
   inviteDecline?: (userId: string, name: string, fromId: string) => void;
   /** 0.9.9.9.6: the messenger */
@@ -73,7 +75,7 @@ export interface ApiExtras {
 
 /** Routes one /api/* call; null for any other path. */
 export function createApiRouter(auth: AuthService, study: StudyService, extras: ApiExtras = {}) {
-  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline, pushOn, messages } = extras;
+  const { presence, daily, social, strokes, insights, onlineCount, onError, stories, dict, inviteDecline, pushOn, messages, ranked } = extras;
   const limiter = new RateLimiter(20, 60_000);
   const errorLimiter = new RateLimiter(30, 60_000); // browser error reports per IP
   const signupLimiter = new RateLimiter(10, 3600_000);
@@ -369,6 +371,16 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         await social.remove(u.id, url.split('/')[3]);
         return res(200, { friends: await social.list(u.id) });
+      } else if (ranked && r.method === 'GET' && url === '/api/ladder') {
+        // 0.9.9.9.9: the ranked ladder: the top 50, you, your friends
+        const u = await auth.authenticate(r.token);
+        const friends = social ? (await social.list(u.id)).filter((f) => f.status === 'accepted').map((f) => f.id) : [];
+        return res(200, await ranked.ladder(u, friends));
+      } else if (ranked && r.method === 'GET' && /^\/api\/replays\/[\w-]{16}$/.test(url)) {
+        // 0.9.9.9.9: a match's replay — anyone with the link (the id can't be guessed); kept two weeks
+        if (!limiter.allow(`rp:${ip}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const rp = await ranked.replay(url.split('/')[3]);
+        return rp ? res(200, { replay: rp }) : res(404, { error: 'This replay is gone (they are kept for two weeks)' });
       } else if (r.method === 'GET' && url === '/api/matches') {
         const u = await auth.authenticate(r.token);
         return res(200, { matches: await study.matches(u.id) });

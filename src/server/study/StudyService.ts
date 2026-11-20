@@ -1,4 +1,5 @@
 import { displayName } from '../db/Store';
+import { rankView } from '../../shared/ranked';
 import { randomUUID } from 'node:crypto';
 import type { AdminUserRow, MatchDetail, MissedWord, PublicProfile, VocabEntry } from '../../shared/protocol';
 import type { Level, OnoType } from '../../shared/protocol';
@@ -194,7 +195,8 @@ export class StudyService {
       // 0.9.9.9.5.5: "View profile" — what they wear (as Customize shows it) and the achievements they have
       look: { character: characterOf(u.unlocks), staff: u.staff ?? 'verdant', arena: u.background, flame: u.flame ?? 'blue', pose: poseOf(u.unlocks), border: borderOf(u.border) },
       achievements: (u.unlocks ?? []).filter((x) => x.startsWith(ACH_PREFIX)).map((x) => x.slice(ACH_PREFIX.length)),
-      league: leagueIn(u.unlocks), today: clockNow() < u.critExpires ? u.critCount : 0 };
+      league: leagueIn(u.unlocks), today: clockNow() < u.critExpires ? u.critCount : 0,
+      ...((u.rated ?? 0) > 0 ? { rank: rankView(u.rating, u.rated) } : {}) }; // (0.9.9.9.9: once they've played ranked)
   }
 
   matches(userId: string) { return this.store.matches(userId, MATCH_HISTORY_LIMIT); }

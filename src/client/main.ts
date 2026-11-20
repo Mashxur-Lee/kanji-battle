@@ -41,6 +41,8 @@ import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
 import { closeRematchAsk, initFriends, onFriendEvent, onFriendPresence, onInvite, onInviteDeclined, onRematchAsk, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
 import { alertsOn, pushSignedOut, registerPush, setAlerts } from './push';
+import { initWatch, LEAVING, liveEnded, liveStarted, mayWhileWatching, playReplay, replayLink, stopWatching, watching } from './watch';
+import { renderRankBox } from './ladder';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialChallenge, tutorialScreen, tutorialTouring } from './tutorial';
 import { askNotifyPermission } from './notify';
 import { initSelects } from './selects';
@@ -121,6 +123,8 @@ initLocalGames((m) => onMessage(m));
   const toServer = socket.send.bind(socket);
   toServerRaw = toServer;
   socket.send = (m: ClientMessage) => {
+    // 0.9.9.9.9: watching (a friend's game, a replay): nothing that acts on a game goes out; leaving leaves the watching
+    if (watching()) { if (LEAVING.has(m.type)) { stopWatching(); return; } if (!mayWhileWatching(m.type)) return; }
     if (user && (inLocalRoom() || (offline.isOffline() && m.type !== 'pong'))) void localSend(m, { id: user.id, name: user.name ?? user.username });
     else toServer(m);
   };
@@ -391,6 +395,7 @@ function showAuth(message = '') {
   let left = '';
   try { left = sessionStorage.getItem('kw:auth-msg') ?? ''; sessionStorage.removeItem('kw:auth-msg'); } catch { /* private mode */ }
   ui.$('authError').textContent = message || left;
+  if (!watching()) replayFromLink(); // 0.9.9.9.9: a shared replay plays without signing in
 }
 
 function logout(message = '') {
@@ -405,6 +410,7 @@ function logout(message = '') {
 }
 
 function backToMenu() {
+  ui.setWatchers(0); // (0.9.9.9.9)
   inRoom = false;
   you = '';
   code = '';
@@ -474,6 +480,13 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'invite_declined':
       onInviteDeclined(msg);
+      break;
+    case 'watching': // 0.9.9.9.9: watching a friend's game (or not any more)
+      if (msg.on) liveStarted(msg);
+      else { liveEnded(); if (msg.reason) ui.toast(tr(msg.reason)); }
+      break;
+    case 'watchers': // 0.9.9.9.9: how many are watching your game
+      ui.setWatchers(msg.count);
       break;
     case 'auth_error':
       logout(msg.message);
@@ -574,6 +587,7 @@ function onMessage(msg: ServerMessage) {
       mode = msg.mode;
       if (msg.resume && ui.currentScreen() === 'battle') { ui.resumeBattle(players, msg.boss, you, msg.durationMs); break; }
       pendingMissed = null;
+      if (watching() !== 'live') ui.setWatchers(0); // (0.9.9.9.9: a new battle: the count comes again if anyone watches)
       ui.showBattle(msg.mode, players, msg.boss, you, msg.countdownMs, msg.durationMs, (n) => (n > 0 ? audio.sfx.tick() : audio.sfx.go()));
       break;
     case 'challenge':
@@ -605,7 +619,7 @@ function onMessage(msg: ServerMessage) {
         // say the word first (romaji answers at the kana level: say the kana itself), then the success chime
         const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
         // (0.9.9.9.8: the sound of your staff — each has its own)
-        void voice.speak(kana).then(() => audio.sfx.cast(profile?.staff, msg.combo));
+        void voice.speak(kana).then(() => audio.sfx.cast(players.find((p) => p.id === you)?.staff ?? profile?.staff, msg.combo));
         if (mode !== 'deck') comboMilestone(msg.combo, profile?.unlocks); // "On Fire" / "Inferno" / "Unstoppable" right away
       } else { audio.sfx.wrong(); arena()?.fizzle('me'); }
       break;
@@ -623,7 +637,7 @@ function onMessage(msg: ServerMessage) {
       deckInk(msg.castId, msg.strokes, msg.cells);
       break;
     case 'game_over': {
-      noteBattle(); // (0.9.9.9.6.9: Today's battle is done)
+      if (!watching()) noteBattle(); // (0.9.9.9.6.9: Today's battle is done; 0.9.9.9.9: not by watching one)
       rematchSeen.clear();
       pendingLobby = null; lobbyRequested = false; ui.$('resultLobby').classList.remove('pulse');
       players = msg.players;
@@ -652,8 +666,10 @@ function onMessage(msg: ServerMessage) {
     case 'progress':
       // the server's report usually arrives before the results screen is up: keep it until then
       if (msg.missed?.length) { if (ui.currentScreen() === 'results') showMissedSave(msg.missed); else pendingMissed = msg.missed; }
+      lastReplay = msg.replay ?? null; showReplayRow(lastReplay, false); // 0.9.9.9.9
       setTimeout(() => {
         ui.showXp(msg.gained, msg.level, msg.levelUp);
+        if (msg.rating) ui.showRating(msg.rating); // 0.9.9.9.9: a ranked match moved your rating
         if (msg.levelUp) ui.toast(`Level ${msg.level}! Check Customize for new unlocks.`, 5000);
         for (const id of msg.achievements ?? []) celebrate(id);
       }, 2100);
@@ -1040,6 +1056,7 @@ function joinFromLink() {
     if (!inRoom) void openInbox(/^(g:)?[\w-]{1,64}$/.test(ib) && ib !== '1' ? ib : undefined); // (0.9.9.9.6.4: or a group)
     return;
   }
+  if (replayFromLink()) return; // 0.9.9.9.9
   try { c = new URLSearchParams(location.search).get('join') ?? ''; } catch { /* no URL */ }
   if (!c) return;
   try { history.replaceState(history.state, '', location.pathname + location.hash); } catch { /* fine */ }
@@ -1339,11 +1356,50 @@ async function openMatch(id: string) {
   try {
     const m = (await api.match(id)).match;
     ui.showResults(m.mode, m.players, m.you, m.winnerId, m.teamWon, m.reason, m.stats, { history: { at: m.at } });
+    showReplayRow(m.replay ?? null, true, m.you); // 0.9.9.9.9: watch it again (two weeks)
   } catch (err) { ui.toast((err as Error).message); }
 }
 ui.$('historyBtn').onclick = () => void openHistory();
 ui.$('historyBack').onclick = () => ui.show('menu');
 ui.$('resultHistoryBack').onclick = () => void openHistory();
+
+// ── 0.9.9.9.9: replays and watching ───────────────────────────────────────────
+let lastReplay: string | null = null;
+/** the results' Watch replay / Copy link (a fresh match: once the server says it's kept; history: kept two weeks) */
+function showReplayRow(id: string | null, history: boolean, side?: string) {
+  const row = ui.$('replayRow');
+  row.hidden = !id;
+  if (!id) return;
+  ui.$('replayWatch').onclick = () => void openReplay(id, side ?? you);
+  ui.$('replayCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(replayLink(id)); ui.toast(tr('Replay link copied - anyone can watch it for two weeks'), 3000); }
+    catch { prompt(tr('Replay link'), replayLink(id)); }
+  };
+}
+async function openReplay(id: string, side?: string) {
+  try {
+    const r = (await api.replay(id)).replay;
+    if (inRoom && !watching()) socket.send({ type: 'leave' });
+    playReplay(id, r, side);
+  } catch (e) { ui.toast((e as Error).message, 5000); }
+}
+/** ?replay=<id>: a shared link — it plays (signed in or not) */
+function replayFromLink(): boolean {
+  let id = '';
+  try { id = new URLSearchParams(location.search).get('replay') ?? ''; } catch { /* no URL */ }
+  if (!/^[\w-]{16}$/.test(id)) return false;
+  try { history.replaceState(history.state, '', location.pathname + location.hash); } catch { /* fine */ }
+  void openReplay(id);
+  return true;
+}
+initWatch({
+  feed: (m) => onMessage(m),
+  leave: () => { backToMenu(); if (!user) showAuth(); },
+  unwatch: () => socket.send({ type: 'unwatch' }),
+  toast: (s) => ui.toast(s, 3000),
+});
+function watchFriend(id: string) { ui.hideProfileCard(); socket.send({ type: 'watch', userId: id }); }
+addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail === 'queue') void renderRankBox(); });
 
 // ── other players' profiles: click (or Enter on) any name marked with data-profile ──
 // 0.9.9.9.6: the card opens at once — a profile seen in the last minutes (or fetched while the pointer was on the
@@ -1394,7 +1450,7 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
     if (shownFor === id && !ui.$('otherPop').hidden) { ui.hideProfileCard(); shownFor = ''; return; }
     shownFor = id;
     const name = el.dataset.name ?? el.textContent ?? '';
-    const bot = el.dataset.bot ?? /\(Bot (N\d)\)$/.exec(name)?.[1];
+    const bot = el.dataset.bot ?? /\((?:AI|Bot) (N\d)\)$/.exec(name)?.[1];
     if (bot) return ui.showProfileCard(el, { bot, name });
     const cached = cache.get(id);
     if (cached) show(el, id, cached.p, knownFriends()?.friends ?? []);
@@ -1419,6 +1475,8 @@ ui.$('resultHistoryBack').onclick = () => void openHistory();
         // 0.9.9.9.6: Messages, at this friend
         message: link?.status === 'accepted' ? () => { ui.hideProfileCard(); void openInbox(id); } : undefined,
         // 0.9.9.9.5.5: their lobby is open (and has room): join it
+        // 0.9.9.9.9: a friend in a game: watch it
+        watch: link?.status === 'accepted' && link.online && /^Playing /.test(link.activity ?? '') && !/Deck Duel/.test(link.activity ?? '') && !inRoom ? () => watchFriend(id) : undefined,
         join: link?.status === 'accepted' && link.party?.code && link.party.code !== (inRoom ? code : '') && !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? '')
           ? { label: `${link.party.size}/${link.party.max}`, mode: link.party.mode, go: () => joinRoom(link.party!.code!) } : undefined,
       });
