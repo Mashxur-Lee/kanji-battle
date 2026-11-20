@@ -1446,7 +1446,7 @@ export const dateTime = (at: number) => new Date(at).toLocaleString(locale(), { 
 /** A small floating card next to the clicked name. */
 export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean; /** 0.9.9.9.5.2 */ remove?: () => Promise<void>;
   /** 0.9.9.9.5.5: their whole profile (look + achievements) */ view?: () => void; /** 0.9.9.9.6: Messages */ message?: () => void; /** 0.9.9.9.5.5: their lobby is open */ join?: { label: string; mode: string; go: () => void };
-  /** 0.9.9.9.9: they're in a game — watch it */ watch?: () => void }
+  /** 0.9.9.9.9: they're in a game — watch it */ watch?: () => void; /** 0.9.9.9.9.2: Block and Report */ safety?: HTMLElement | null }
 export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing', actions?: ProfileActions) {
   const pop = $('otherPop');
   const body: HTMLElement[] = [];
@@ -1560,6 +1560,7 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     grid.append(c, rm);
     box.append(modes);
   }
+  if (a.safety) box.append(a.safety);
   box.append(msg);
   return box;
 }

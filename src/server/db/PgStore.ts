@@ -690,6 +690,7 @@ export class PgStore implements Store {
   async saveReplay(id: string, at: number, data: Buffer) { await this.sql`insert into kw_replays (id, at, data) values (${id}, ${at}, ${data}) on conflict (id) do nothing`; }
   async replay(id: string) { const [r] = await this.sql<Array<{ data: Buffer }>>`select data from kw_replays where id = ${id}`; return r ? Buffer.from(r.data) : null; }
   async sweepReplays(before: number) { return (await this.sql`delete from kw_replays where at < ${before}`).count; }
+  async trimReplays(keep: number) { return (await this.sql`delete from kw_replays where id in (select id from kw_replays order by at desc offset ${Math.max(0, keep)})`).count; }
   async setReportDone(id: string, done: boolean) { await this.sql`update kw_reports set done = ${done} where id = ${id}`; }
   async deleteReport(id: string) { await this.sql`delete from kw_reports where id = ${id}`; }
   async addEvent(userId: string | null, name: string, at = Date.now()) { await this.sql`insert into kw_events (user_id, name, at) values (${userId}, ${name}, ${at})`; }

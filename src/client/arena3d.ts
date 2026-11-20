@@ -772,6 +772,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   interface Flight { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; mid: THREE.Vector3; t: number; dur: number; color: THREE.Color; size: number; done: () => void; trailAt: number; gem?: THREE.Mesh; incoming?: boolean; target?: Who }
   const flights: Flight[] = [];
   const koWait = new Set<Who>(); // knocked out, waiting for the spell that did it to land
+  let koGen = 0; // (0.9.9.9.9.2: a new setup — a replay jumping back — drops the knock-outs still waiting)
   /** a soft glowing ball in a colour (shared per colour) */
   const orbs = new Map<string, THREE.Texture>();
   function orbTexture(color: string): THREE.Texture {
@@ -905,6 +906,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     setStaffSkin(s.me.staff ?? 'verdant');
     meDown = false; fp.visible = true; gemState = 'ready';
     cine = null; cineW = 0; introPending = true; lastImpact = -1e9; // (0.9.9.9.6.9: each battle opens with the fly-in)
+    koGen++; koWait.clear();
     myFlame = null; fireU.uAmount.value = 0; fireBand.visible = false; // a new game starts without last game's flames
     myPose = isPose(s.me.pose) ? s.me.pose : 'none'; myPoseK = 0;
     if (s.opp) makeFighter('opp', s.opp);
@@ -1297,13 +1299,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
           spark(from, staff.color.clone().lerp(new THREE.Color(0xffffff), 0.4), { size: rnd(0.02, 0.05), vel: tmp.clone().sub(from).multiplyScalar(2.6), life: 0.38 });
         }
       }
-      if (myFlame && !still && fp.visible) {
-        // combo / Omnipotence: your staff and hand burn (and the mana fire below)
-        for (let k = 0; k < 2; k++) {
-          const p = staffGroup.localToWorld(new THREE.Vector3(rnd(-0.05, 0.05), rnd(-0.15, 1.3), rnd(-0.05, 0.05)));
-          spark(p, myFlame, { size: rnd(0.05, 0.12), vel: new THREE.Vector3(rnd(-0.05, 0.05), rnd(0.35, 0.8), 0), life: rnd(0.25, 0.45), solid: Math.random() < 0.4, opacity: 0.9 });
-        }
-      }
+      // (0.9.9.9.9.2: your staff no longer burns with your combo / Omnipotence flames — they covered it, and stayed in
+      // the side shot of a big hit, floating where your hand had been; the mana fire along the bottom stays)
       // the mana fire along the bottom of the screen fades in and out
       fireU.uTime.value = still ? 0 : time;
       fireU.uAmount.value += ((myFlame && !inset && (fp.visible || focusOn) ? 1 : 0) - fireU.uAmount.value) * Math.min(1, realDt * 3);
@@ -1667,10 +1664,11 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       // 0.9.9.6: the finishing spell lands first, then they fall (the KO came in while it was still flying)
       if (flights.some((fl) => fl.target === who) && !koWait.has(who)) {
         koWait.add(who);
-        const t0 = performance.now();
+        const t0 = performance.now(), g = koGen;
         const wait = () => {
+          if (g !== koGen) return;
           if (flights.some((fl) => fl.target === who) && performance.now() - t0 < 2500) { setTimeout(wait, 60); return; }
-          setTimeout(() => { koWait.delete(who); api.ko(who); }, 120);
+          setTimeout(() => { if (g !== koGen) return; koWait.delete(who); api.ko(who); }, 120);
         };
         wait();
         return;

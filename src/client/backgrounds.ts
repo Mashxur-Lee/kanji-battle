@@ -963,7 +963,7 @@ export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfD
   if (sameArt) { el.classList.toggle('menu-art', menu); return; }
   // (the drawn scene is made only when needed — a picture that failed to load)
   const svgOf = () => { if (!cache.has(key)) cache.set(key, `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${scene(id, time, menu)}</svg>`); return cache.get(key)!; };
-  const swap = () => {
+  const swap = (cross = false) => {
     const layer = document.createElement('div');
     layer.className = 'bg-layer';
     // 0.9.9.9.5.1: the painted picture (the drawn scene only if it can't load)
@@ -973,8 +973,16 @@ export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfD
     layer.append(stage);
     const put = () => {
       if (el.dataset.key !== key) return; // (another picture was asked for meanwhile)
-      const old = el.querySelector('.bg-layer');
-      if (old) old.replaceWith(layer); else el.prepend(layer);
+      const olds = [...el.querySelectorAll('.bg-layer')];
+      if (cross && olds.length) {
+        // 0.9.9.9.9.2: the time of day changing — the new picture fades in over the old one, then the old one goes (it
+        // went dark and the pictures swapped behind the veil, and on a slow load you saw the swap)
+        layer.classList.add('bg-xfade');
+        layer.style.transitionDuration = `${BG_FADE_MS}ms`;
+        olds[olds.length - 1].after(layer);
+        requestAnimationFrame(() => requestAnimationFrame(() => layer.classList.add('in')));
+        fadeTimer = window.setTimeout(() => { for (const o of olds) o.remove(); layer.classList.remove('bg-xfade', 'in'); layer.style.transitionDuration = ''; }, BG_FADE_MS + 80);
+      } else if (olds.length) { olds[0].replaceWith(layer); for (const o of olds.slice(1)) o.remove(); } else el.prepend(layer);
       el.dataset.bg = id;
       el.dataset.time = time;
       el.classList.toggle('menu-art', menu);
@@ -985,7 +993,7 @@ export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfD
     let done = false;
     const once = () => { if (!done) { done = true; put(); } };
     img.decode().then(once, once);
-    window.setTimeout(once, 1500);
+    window.setTimeout(once, cross ? 6000 : 1500); // (a crossfade keeps the old picture up until the new one is ready)
   };
   const drawScene = (layer: HTMLElement) => {
     if (stillBackground()) {
@@ -1002,15 +1010,7 @@ export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfD
   clearTimeout(fadeTimer);
   el.querySelector('.bg-veil')?.remove();
   if (!fade || !el.querySelector('.bg-layer')) return swap(); // a fade is not motion: it plays even with "reduce motion"
-  // a dark veil fades in, the scene changes behind it, and the veil fades away
-  const veil = document.createElement('div');
-  veil.className = 'bg-veil';
-  veil.style.animationDuration = `${BG_FADE_MS}ms`;
-  el.append(veil);
-  fadeTimer = window.setTimeout(() => {
-    swap();
-    fadeTimer = window.setTimeout(() => veil.remove(), BG_FADE_MS / 2 + 100);
-  }, BG_FADE_MS / 2);
+  swap(true);
 }
 
 /**

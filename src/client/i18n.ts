@@ -1147,6 +1147,8 @@ const RU: Record<string, string> = {
   'Copy link': 'Скопировать ссылку', 'Play': 'Пуск', 'Speed': 'Скорость', 'Replay position': 'Место в повторе', 'hits': 'попадания', 'misses': 'промахи', 'miss': 'промах',
   'The dragon': 'Дракон', 'Colours': 'Цвета',
   'Menu weather': 'Погода в меню', 'Changes by itself': 'Меняется сама', 'Clear sky': 'Ясно', 'Falling leaves': 'Листопад', 'Thunderstorm': 'Гроза',
+  // 0.9.9.9.9.2
+  '← Back': '← Назад', 'Whose eyes': 'Чьими глазами',
   'Rain': 'Дождь', 'Snow': 'Снег', 'Cherry petals': 'Лепестки сакуры', 'Dandelion seeds': 'Семена одуванчика', 'Glowing spores': 'Светящиеся споры',
 };
 

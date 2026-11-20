@@ -17,16 +17,19 @@ function h(tag: string, cls = '', text?: string | number): HTMLElement {
 }
 
 // ── 0.9.9.9.7.4: block and report — on someone else's card, for a signed-in player (not a guest) ──
+const ICON_BLOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M6 18 18 6" stroke="currentColor" stroke-width="2.2"/></svg>';
+const ICON_FLAG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4m0 1h11l-2.5 4L17 13H6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/></svg>';
 export interface Viewer { id: string; guest: boolean; blocked(): string[]; setBlocked(ids: string[]): void }
 let viewer: () => Viewer | null = () => null;
 export function setPlayerViewer(fn: () => Viewer | null) { viewer = fn; }
-function safety(p: PublicProfile): HTMLElement | null {
+/** 0.9.9.9.9.2: on the player's card (where Add friend and Message are), with icons — it was down in View profile, among their looks */
+export function safetyRow(p: PublicProfile): HTMLElement | null {
   const v = viewer();
   if (!v || v.guest || v.id === p.id) return null;
   const row = h('div', 'pv-safety');
-  const blk = h('button', 'pill small') as HTMLButtonElement;
+  const blk = h('button', 'pill small pv-btn') as HTMLButtonElement;
   blk.type = 'button';
-  const paint = () => { blk.textContent = tr(v.blocked().includes(p.id) ? 'Unblock' : 'Block'); };
+  const paint = () => { blk.innerHTML = `${ICON_BLOCK}<span></span>`; blk.querySelector('span')!.textContent = tr(v.blocked().includes(p.id) ? 'Unblock' : 'Block'); };
   paint();
   blk.onclick = async () => {
     const on = !v.blocked().includes(p.id);
@@ -36,8 +39,9 @@ function safety(p: PublicProfile): HTMLElement | null {
     catch (e) { ui.toast((e as Error).message); }
     finally { blk.disabled = false; }
   };
-  const rep = h('button', 'pill small', tr('Report')) as HTMLButtonElement;
+  const rep = h('button', 'pill small pv-btn') as HTMLButtonElement;
   rep.type = 'button';
+  rep.innerHTML = `${ICON_FLAG}<span></span>`; rep.querySelector('span')!.textContent = tr('Report');
   rep.onclick = () => reportDialog({ id: p.id, name: p.name }, () => ui.toast(tr('Thanks - the team will look at it'), 3000));
   row.append(blk, rep);
   return row;
@@ -68,8 +72,6 @@ export function showPlayer(p: PublicProfile, extra?: HTMLElement) {
     sec.append(h('h3', '', 'Their look'), lookCard(p.look, p.pic, p.name));
     body.push(sec);
   }
-  const safe = safety(p);
-  if (safe) body.push(safe);
   const ach = h('section', 'pv-sec ach-box');
   const have = new Set(p.achievements ?? []);
   renderAchievements(ach, [...have].filter((id) => ACHIEVEMENTS.some((a) => a.id === id)).map((id) => ACH_PREFIX + id), p.badges ?? [], undefined, null);

@@ -19,6 +19,8 @@ const zip = promisify(gzip), unzip = promisify(gunzip);
 export const REPLAY_DAYS = 14;
 /** a replay bigger than this (compressed) isn't kept — a normal match is 10–40 KB */
 export const REPLAY_MAX_BYTES = 600 * 1024;
+/** 0.9.9.9.9.2: the most replays kept (about 25 KB each: some 75 MB, well inside a free 0.5 GB database) */
+export const REPLAYS_KEPT = 3000;
 export const isReplayId = (s: string) => /^[\w-]{16}$/.test(s);
 
 export interface LadderRow extends RankView { id: string; name: string; login: string; pic: string | null; place: number }
@@ -70,6 +72,8 @@ export class RankedService {
     if (bytes.length > REPLAY_MAX_BYTES) return null;
     const id = randomBytes(12).toString('base64url');
     await this.store.saveReplay(id, data.at, bytes);
+    // 0.9.9.9.9.2: at most REPLAYS_KEPT (the oldest go first) — two weeks of a busy game would fill the free database
+    if (++this.saved % 25 === 0) await this.store.trimReplays(REPLAYS_KEPT).catch(() => 0);
     return id;
   }
 
@@ -80,5 +84,6 @@ export class RankedService {
     try { return JSON.parse((await unzip(bytes)).toString('utf8')) as ReplayData; } catch { return null; }
   }
 
-  sweep(now = Date.now()) { return this.store.sweepReplays(now - REPLAY_DAYS * 86_400_000); }
+  private saved = 0;
+  async sweep(now = Date.now()) { const n = await this.store.sweepReplays(now - REPLAY_DAYS * 86_400_000); return n + (await this.store.trimReplays(REPLAYS_KEPT)); }
 }

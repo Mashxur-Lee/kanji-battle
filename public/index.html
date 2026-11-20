@@ -25,12 +25,14 @@
 <!-- 0.9.9.9.9: watching a friend's game, or a replay -->
 <!-- 0.9.9.9.9.1: a replay has a timeline: play / pause, drag anywhere, the speed, and both sides' hits and misses on it -->
 <div id="watchBar" class="watch-bar" role="region" aria-label="Watching" hidden>
-  <div class="wb-top"><span class="wb-dot" aria-hidden="true"></span><b id="watchTitle"></b><button id="watchSide" class="pill small" type="button">Switch side</button><button id="watchCopy" class="pill small" type="button">Copy link</button><button id="watchExit" class="pill small danger" type="button">Exit</button></div>
+  <div class="wb-top"><span class="wb-dot" aria-hidden="true"></span><b id="watchTitle"></b></div>
   <div id="watchTime" class="wb-time" hidden>
     <button id="watchPlay" class="wb-play" type="button" aria-label="Pause" data-state="playing"><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg><svg class="i-again" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a7 7 0 1 1-6.6 4.7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M3.2 4.6 5.6 10l5-2.4z"/></svg></button>
     <span id="watchClock" class="wb-clock">0:00 / 0:00</span>
     <div id="watchTrack" class="wb-track" role="slider" tabindex="0" aria-label="Replay position"><div class="wb-rail"><i class="wb-fill"></i></div><div class="wb-marks"></div><i class="wb-thumb"></i></div>
     <button id="watchSpeed" class="pill small wb-speed" type="button" title="Speed">1×</button>
+    <button id="watchSide" class="pill small wb-pov" type="button" title="Whose eyes"><i class="wb-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/></svg></i><span id="watchPov"></span></button>
+    <button id="watchCopy" class="pill small wb-icon" type="button" title="Copy link" aria-label="Copy link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   </div>
   <div id="watchLegend" class="wb-legend" hidden></div>
 </div>
@@ -938,7 +940,7 @@
       <div id="meCard" class="fighter me"></div>
       <div class="clock-col">
         <div id="battleClock" data-watchers="" class="clock small"></div>
-        <div class="clock-btns"><button id="forfeit" class="link forfeit">Forfeit</button><button class="link pause-btn" data-pause hidden title="Pause">❚❚</button></div>
+        <div class="clock-btns"><button id="watchExit" class="link forfeit watch-exit" type="button">Exit</button><button id="forfeit" class="link forfeit">Forfeit</button><button class="link pause-btn" data-pause hidden title="Pause">❚❚</button></div>
       </div>
       <div id="oppCard" class="fighter opp"></div>
     </div>
@@ -1046,10 +1048,13 @@
 
   <!-- RESULTS -->
   <section id="results" class="screen" hidden>
+    <!-- 0.9.9.9.9.2: ← Back at the top (like every other screen); Watch replay right under the result -->
+    <button id="resultBack" class="back" type="button">← Back</button>
     <div id="resultMode" class="result-mode"></div>
     <h2 id="resultTitle" class="result-title"></h2>
     <p id="resultReason" class="sub center"></p>
     <div id="xpLine" class="xp-line" hidden></div>
+    <div id="replayRow" class="row replay-row" hidden><button id="replayWatch" class="big replay-watch" type="button"><i class="wb-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z" fill="currentColor"/></svg></i><span>Watch replay</span></button><button id="replayCopy" class="pill wb-icon" type="button" title="Copy replay link" aria-label="Copy replay link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
     <div id="statCompare" class="compare"></div>
     <div id="struggledBox" class="struggled">
       <h3>Review - you struggled with <small>(ticked words go to your deck · tap a card to untick · 筆 = stroke order)</small></h3>
@@ -1064,7 +1069,6 @@
         <tbody id="wordRows"></tbody>
       </table>
     </div>
-    <div id="replayRow" class="row replay-row" hidden><button id="replayWatch" class="pill" type="button">Watch replay</button><button id="replayCopy" class="pill" type="button">Copy replay link</button></div>
     <div id="resultActions">
       <div class="row result-btns">
         <button id="rematch" class="big">Rematch</button>

@@ -315,6 +315,7 @@ export function buildDragon(): Dragon | null {
   const frontLow = (['L', 'R'] as const).map((s) => bone(`FrontLower.${s}`));
   root.updateMatrixWorld(true);
   const hipsY = bone('Hips').getWorldPosition(new THREE.Vector3()).y; // (how far the belly comes down)
+  let wingPh = 0;
   return {
     root, height: tpl.height, materials,
     update(time, dt, st) {
@@ -331,19 +332,22 @@ export function buildDragon(): Dragon | null {
       // the jaw: a slow breath through the teeth, half open while it inhales, wide open on the fire
       jaw.rotation.x = Math.max(0.04 + 0.04 * Math.max(0, breathe), 0.35 * st.inhale, 0.75 * st.breath);
       tail.forEach((b, i) => { b.rotation.set(Math.sin(t * 1.2 + i * 0.6) * 0.03, Math.sin(t * 0.9 - i * 0.55) * (0.08 + i * 0.03), 0); });
-      // wings: folded, breathing with it; spread wide and beating while it rears up for fire
-      const open = Math.max(st.inhale, st.breath * 0.8);
-      const beat = Math.sin(t * (2 + open * 4)) * (0.06 + open * 0.3);
+      // wings: folded, breathing with it; rearing up for fire: a few slow, heavy beats; breathing fire: spread wide open
+      // and held. (0.9.9.9.9.2: the beat had its speed multiplied by the whole clock — sin(t × speed) — so as the
+      // speed rose the wings jumped about frantically; they keep a phase of their own now)
+      const open = Math.max(st.inhale, st.breath);
+      if (!st.still) wingPh += dt * (1.8 + 2.2 * st.inhale * (1 - st.breath));
+      const beat = Math.sin(wingPh) * (0.05 + 0.24 * st.inhale) * (1 - st.breath);
+      const spread = st.breath;
       for (const w of wings) {
-        w.arm.rotation.set(-0.15 * open, 0, w.s * (beat - 0.25 * open));
-        w.fore.rotation.set(0, 0, w.s * (0.12 * open + beat * 0.5));
-        w.f.forEach((f, i) => { f.rotation.z = w.s * (open * 0.15 * (i - 1) + beat * 0.3); });
+        w.arm.rotation.set(-0.15 * open - 0.1 * spread, 0, w.s * (beat - 0.25 * open - 0.45 * spread));
+        w.fore.rotation.set(0, 0, w.s * (0.12 * open + 0.3 * spread + beat * 0.5));
+        w.f.forEach((f, i) => { f.rotation.z = w.s * (open * 0.15 * (i - 1) + spread * 0.22 * (i - 1) + beat * 0.3); });
       }
       // a claw strike: the front legs and the chest lunge
       for (const [i, f] of fronts.entries()) f.rotation.x = -0.9 * st.lunge * (i === 0 ? 1 : 0.6);
       body.rotation.x = -0.12 * st.inhale + 0.1 * st.lunge;
       body.position.z = 0.4 * st.lunge + 0.25 * st.breath;
-      void dt;
     },
     mouth(out) { return headB.localToWorld(out.copy(mouthAt)); },
     head(out) { return headB.getWorldPosition(out); },

@@ -551,6 +551,8 @@ function buildVoid(k: Kit): Orb {
 }
 
 const BUILDERS: Record<string, (k: Kit) => Orb> = { verdant: buildVerdant, ember: buildEmber, tide: buildTide, storm: buildStorm, void: buildVoid };
+/** 0.9.9.9.9.2: how brightly each staff's core glows (1: as made) */
+const GLOW_SOFT: Record<string, number> = { verdant: 0.45, tide: 0.5, ember: 0.85, storm: 0.9, void: 1 };
 const SEEDS: Record<string, number> = { verdant: 7, ember: 8, tide: 9, storm: 10, void: 11 };
 
 export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture): Staff {
@@ -589,6 +591,11 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
   const coreMat = kit.m.core(tint ? orb.hot.clone().lerp(color, 0.7) : orb.hot, tint ? orb.mid.clone().lerp(color, 0.5) : orb.mid, 6);
   const core = new THREE.Mesh(new THREE.SphereGeometry(orb.r * S * 0.6, 14, 10), coreMat);
   gem.add(core);
+  // 0.9.9.9.9.2: the Verdant's and the Tide's cores (green and sky blue: bright colours to the eye) glowed far too much
+  // once the arena's light began to glow (0.9.9.9.9.1) — a softer core, orb and halo for those two
+  const soft = GLOW_SOFT[kind] ?? 1;
+  coreMat.emissiveIntensity *= soft;
+  gemMat.emissive.multiplyScalar(soft);
   const coreEI = coreMat.emissiveIntensity;
   anims.push((f) => {
     if (orb.style === 'flicker') {
@@ -606,6 +613,7 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
   }
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: color.getHex(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.5 }));
   glow.scale.setScalar(0.45);
+  glow.material.color.multiplyScalar(soft);
   glow.position.y = gem.position.y;
   group.add(glow);
 

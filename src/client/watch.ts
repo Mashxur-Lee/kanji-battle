@@ -42,7 +42,7 @@ function setBar(title: string, replay: boolean) {
   document.body.dataset.watch = kind ?? '';
   $('watchBar').hidden = false;
   $('watchTitle').textContent = title;
-  for (const id of ['watchSide', 'watchCopy', 'watchTime', 'watchLegend']) $(id).hidden = !replay;
+  for (const id of ['watchTime', 'watchLegend']) $(id).hidden = !replay;
 }
 
 // ── live ─────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -65,14 +65,16 @@ const RATES = [1, 2, 0.5];
 export function playReplay(id: string, data: { mode: string; at: number; tape: TapeEntry[] }, side?: PlayerId, from?: number) {
   if (kind === 'live') { unwatch(); kind = null; }
   stopReplay();
-  const humans = sidesOf(data.tape).filter((p) => !p.bot);
-  const who = side && humans.some((p) => p.id === side) ? side : humans[0]?.id ?? '';
+  // (0.9.9.9.9.2: anyone's eyes — the bots' too; their own words are only known for people)
+  const all = sidesOf(data.tape), humans = all.filter((p) => !p.bot);
+  const who = side && all.some((p) => p.id === side) ? side : humans[0]?.id ?? all[0]?.id ?? '';
   const clip = clipOf(data.tape, data.mode as GameMode, who);
   replay = { data, id, clip };
   kind = 'replay';
   const names = sidesOf(data.tape).map((p) => p.name).join(' vs ');
   setBar(`${tr('Replay')} · ${names}`, true);
-  $('watchSide').hidden = humans.length < 2;
+  $('watchSide').hidden = all.length < 2;
+  $('watchPov').textContent = all.find((p) => p.id === who)?.name ?? '';
   drawMarks();
   setClockSource(() => pos); // (the battle's clocks follow the replay)
   feed({ type: 'joined', code: '', you: who, mode: data.mode as GameMode });
@@ -185,8 +187,9 @@ function initWatchBar() {
   $('watchExit').onclick = () => stopWatching();
   $('watchSide').onclick = () => {
     if (!replay) return;
-    const other = sidesOf(replay.data.tape).find((p) => !p.bot && p.id !== replay!.clip.side);
-    if (other) { const was = playing; playReplay(replay.id, replay.data, other.id, pos); setPlaying(was); }
+    const all = sidesOf(replay.data.tape), i = all.findIndex((p) => p.id === replay!.clip.side);
+    const other = all[(i + 1) % all.length];
+    if (other && other.id !== replay.clip.side) { const was = playing; playReplay(replay.id, replay.data, other.id, pos); setPlaying(was); }
   };
   const sp = $('watchSpeed');
   sp.onclick = () => { rate = RATES[(RATES.indexOf(rate) + 1) % RATES.length]; sp.textContent = `${rate}×`; lastNow = performance.now(); };

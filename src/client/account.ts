@@ -154,6 +154,8 @@ export function reportDialog(target: { id: string; name: string }, onSent: () =>
     l.append(i, document.createTextNode(` ${tr(label)}`));
     list.append(l);
   }
+  // (0.9.9.9.9.2: the picked reason lights up — the chips hide their radio button, so a tap seemed to do nothing)
+  list.onchange = () => { for (const c of list.querySelectorAll('label')) c.classList.toggle('on', !!c.querySelector('input')?.checked); };
   const more = el('textarea', 'report-text');
   more.maxLength = 500; more.rows = 3; more.placeholder = tr('Anything the team should know (optional)');
   const msg = msgLine();

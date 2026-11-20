@@ -15,6 +15,8 @@ import { dictRailScreen, setDictRailUser } from './dictrail';
 import { initMenuVeil } from './menuveil';
 import { inLocalRoom, initLocalGames, localSend, OFFLINE_MODES } from './offline/localgames';
 initMenuVeil();
+import { initTips } from './tips';
+initTips(); // 0.9.9.9.9.2: explanations fold behind an (i)
 import { writeTargets, writeTemplate } from '../shared/kana';
 import { initI18n, lang, setLang, tr } from './i18n';
 import { applyUiZoom, centerScreens, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';
@@ -28,7 +30,7 @@ import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, 
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
 import * as audio from './audio';
 import { getTimePref, paintBackground, resolveTime, setWeatherPref, untilNextStep, weatherPref, type Weather } from './backgrounds';
-import { setPlayerViewer, showPlayer } from './playerview';
+import { safetyRow, setPlayerViewer, showPlayer } from './playerview';
 import { claimDialog, codeDialog, emailDialog, forgotDialog } from './account';
 import { initInbox, inboxLeft, inboxReconnected, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket, setInviteJoin } from './inbox';
 import { onLeagueEquip } from './leagueup';
@@ -1384,6 +1386,16 @@ async function openMatch(id: string) {
 ui.$('historyBtn').onclick = () => void openHistory();
 ui.$('historyBack').onclick = () => ui.show('menu');
 ui.$('resultHistoryBack').onclick = () => void openHistory();
+// 0.9.9.9.9.2: ← Back on the results: out of a replay, to the match history (an old match), to the room's lobby, or to
+// the menu — whichever the results were opened from (the phone's back button presses it too)
+ui.$('resultBack').onclick = () => {
+  if (watching()) return stopWatching();
+  if (!ui.$('historyBackRow').hidden) return void openHistory();
+  const lobby = ui.$('resultLobby');
+  if (inRoom && lobby.getClientRects().length && !(lobby as HTMLButtonElement).disabled) return lobby.click();
+  if (inRoom) return ui.$('leave').click();
+  ui.show('menu');
+};
 
 // ── 0.9.9.9.9: replays and watching ───────────────────────────────────────────
 let lastReplay: string | null = null;
@@ -1521,6 +1533,7 @@ addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail =
         canChallenge: !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? ''),
         remove: async () => { await api.removeFriend(id); void refreshRail(); },
         view: () => showPlayer(p),
+        safety: safetyRow(p), // (0.9.9.9.9.2: Block and Report on the card)
         // 0.9.9.9.6: Messages, at this friend
         message: link?.status === 'accepted' ? () => { ui.hideProfileCard(); void openInbox(id); } : undefined,
         // 0.9.9.9.5.5: their lobby is open (and has room): join it

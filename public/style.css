@@ -373,6 +373,9 @@ dialog.how button { width: 100%; }
 .bg-layer { position: absolute; inset: 0; }
 .bg-veil { position: absolute; inset: 0; z-index: 2; background: #06051a; opacity: 0; animation: bgVeil 3.2s ease-in-out both; }
 @keyframes bgVeil { 0% { opacity: 0; } 42%, 58% { opacity: .92; } 100% { opacity: 0; } }
+/* 0.9.9.9.9.2: the time of day changing: the new picture fades in over the old one */
+.bg-layer.bg-xfade { opacity: 0; transition-property: opacity; transition-timing-function: ease-in-out; }
+.bg-layer.bg-xfade.in { opacity: 1; }
 .bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,6,24,.5), rgba(8,6,24,.3) 40%, rgba(8,6,24,.55)); }
 /* lighter veil by day so the colours show, but text on top stays readable */
 .bg[data-time="day"]::after { background: linear-gradient(180deg, rgba(8,6,24,.32), rgba(8,6,24,.12) 40%, rgba(8,6,24,.45)); }
@@ -690,6 +693,10 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .g-tile { font-family: var(--jp); font-size: 1.5rem; font-weight: 700; padding: 4px 12px; border-radius: 10px; background: #f6f3e8; color: #1b1530; }
 .g-tile.ok { background: rgba(78, 230, 166, .15); color: var(--good); border: 1px solid #2f7d5e; font-size: 1.1rem; }
 .g-arrow { font-size: 1.4rem; color: var(--gold); } .g-or { color: var(--muted); font-size: .85rem; }
+/* 0.9.9.9.9.2: the Boss guide's party and dragon drawings had no size, so only "vs" showed */
+.g-art { display: inline-block; width: 64px; height: 72px; flex: none; }
+.g-art:last-child { width: 112px; height: 84px; }
+.g-art svg { display: block; width: 100%; height: 100%; }
 .g-hint { font-family: var(--jp); color: var(--accent2); font-weight: 700; }
 .g-pad { display: inline-flex; gap: 0; border: 2px dashed #d8d2bd; border-radius: 10px; background: #f6f3e8; }
 .g-pad .g-tile { background: transparent; }
@@ -5247,7 +5254,9 @@ body:is([data-screen="battle"], [data-screen="prep"], [data-screen="deck"], [dat
 .ms-none { margin: 6px 8px; font-size: .82rem; color: var(--muted); }
 
 /* the photo sheet (Telegram's attach panel) */
-.photo-sheet { width: min(560px, calc(100vw - 20px)); max-height: min(86vh, 760px); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+/* (0.9.9.9.9.2: display only when open — a display here beat the closed dialog's display: none, and the closed photo
+   sheet stayed in the page, out of sight: after Messages the menu was taller than the window and could scroll) */
+.photo-sheet { width: min(560px, calc(100vw - 20px)); max-height: min(86vh, 760px); padding: 14px; flex-direction: column; gap: 10px; }
 .photo-sheet[open] { display: flex; }
 .ps-head { display: flex; align-items: center; justify-content: space-between; }
 .ps-head h3 { margin: 0; }
@@ -5584,6 +5593,11 @@ body:not(.has-3d) #arena[data-party="4"] .wizard .sprite { width: max(72px, min(
 
 /* 0.9.9.9.7.4: Block / Report on a player's card, and the report form */
 .pv-safety { display: flex; gap: 8px; justify-content: flex-end; margin: 4px 0 10px; }
+/* 0.9.9.9.9.2: Block and Report on the player's card, small and quiet, with icons */
+.pp-actions .pv-safety { justify-content: center; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--line); }
+.pv-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.pv-btn svg { width: 15px; height: 15px; }
+.pv-btn:hover { color: var(--bad, #ff6b81); }
 .report-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
 .report-reasons .chip { cursor: pointer; }
 .report-text { width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px; }
@@ -5654,6 +5668,25 @@ body[data-watch] #struggledBox h3 small { display: none; }
   body[data-watch] :is(#railFab, #dictFab, #friendRail, #dictRail) { display: none !important; }
 }
 
+/* 0.9.9.9.9.2: Exit (watching) sits where Leave is in a game, and looks like it; the replay's icon buttons */
+#watchExit { display: none; }
+body[data-watch] #watchExit { display: inline-flex; }
+.wb-icon { display: inline-grid; place-items: center; width: 34px; height: 34px; min-width: 0; padding: 0; }
+.wb-icon svg { width: 18px; height: 18px; }
+.wb-pov { display: inline-flex; align-items: center; gap: 6px; max-width: 11em; }
+.wb-pov span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-ic { display: inline-grid; place-items: center; }
+.wb-ic svg { width: 18px; height: 18px; }
+/* the results: ← Back at the top; Watch replay under the result, big enough to find */
+#results { position: relative; }
+#results > #resultBack { position: absolute; left: 0; top: 0; }
+.replay-row { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 6px 0 14px; }
+.replay-row > * { flex: none !important; width: auto !important; }
+.replay-row > .wb-icon { width: 42px !important; height: 42px; }
+.replay-watch { display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; }
+.replay-watch svg { width: 18px; height: 18px; }
+@media (max-width: 640px) { #results > #resultBack { position: static; margin-bottom: 6px; } .wb-pov { max-width: 7.5em; } }
+
 /* ══ 0.9.9.9.9.1: the replay player — the bar's top row (who, switch side, copy link, exit), then the timeline: play /
    pause, the time, the track with both sides' hits and misses (the watched side above the line, the other below),
    the speed; a legend under it. Live watching keeps the one row. ══════════════════════════════════════════════ */
@@ -5718,3 +5751,11 @@ body[data-watch="replay"] .watch-bar { top: auto; bottom: max(12px, env(safe-are
 :root[data-theme="light"] .cust-swatches { background: rgba(255, 255, 255, .7); border-color: rgba(30, 20, 80, .15); }
 :root[data-theme="light"] .cust-how { color: #7a4b00; background: rgba(255, 190, 60, .16); }
 @media (max-width: 640px) { .cust-swatches { gap: 10px; bottom: 10px; } .cs-sw { width: 34px; height: 34px; } }
+
+/* 0.9.9.9.9.2: explanations fold behind a small (i) — tap it to read */
+.tip-text:not(.open) { display: none !important; }
+.tip-text.open { display: block; flex-basis: 100%; margin-top: 4px; }
+.tip-btn { display: inline-grid; place-items: center; width: 24px; height: 24px; min-width: 0; padding: 0; margin: 0 0 0 6px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); box-shadow: none; vertical-align: middle; cursor: pointer; }
+.tip-btn svg { width: 18px; height: 18px; }
+.tip-btn:hover, .tip-btn[aria-expanded="true"] { color: var(--accent2); }
+.lk-tray-head { display: flex; flex-wrap: wrap; align-items: center; }

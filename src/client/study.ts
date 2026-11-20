@@ -849,6 +849,7 @@ function renderIdle() {
   canvas.hidden = true;
   const stage2 = $('custStage2');
   $('custStage').dataset.tab = 'idle';
+  $('custSwatches').hidden = true; // (0.9.9.9.9.2: the staff's colours belong to the Magic staff slot only)
   $('poseInsetLbl').hidden = true;
   if (heavyOk && !arena3Tried) void ensureArena3();
   if (arena3) {
