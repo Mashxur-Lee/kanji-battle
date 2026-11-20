@@ -83,7 +83,10 @@ const levelsText = (levels: Level[]) => levels.map((l) => LEVEL_LABEL[l]).join('
 const timers = new Map<string, number>();
 // 0.9.9.7: a paused game freezes every countdown on screen (the server's clock stands still too)
 let pauseAt: number | null = null, pausedFor = 0;
-const clockNow = () => (pauseAt ?? performance.now()) - pausedFor;
+/** 0.9.9.9.9.1: a replay's own clock (its position): the countdowns stop with it, run fast at 2× and jump with it */
+let clockSrc: (() => number) | null = null;
+export function setClockSource(f: (() => number) | null) { clockSrc = f; }
+const clockNow = () => (clockSrc ? clockSrc() : (pauseAt ?? performance.now()) - pausedFor);
 export function setClocksPaused(on: boolean) {
   if (on && pauseAt === null) pauseAt = performance.now();
   else if (!on && pauseAt !== null) { pausedFor += performance.now() - pauseAt; pauseAt = null; }
@@ -782,6 +785,14 @@ export function renderFighters(players: PlayerView[], you: PlayerId, boss: BossV
   const combo = me && me.hp > 0 ? me.combo : 0;
   if (me && me.hp <= 0 && shownCombo) { shownCombo = 0; $('comboHud').hidden = true; } // (down: no "combo broken")
   comboHud(combo, flameColor(me?.flame));
+  // 0.9.9.9.9.1: a staff feels it when its enemy is nearly down (from 45% of their HP; all of it at 10%)
+  if (a3) {
+    const fury = (hp: number, max: number) => (hp > 0 && max > 0 ? Math.max(0, Math.min(1, (0.45 - hp / max) / 0.35)) : 0);
+    const foe = battleMode === 'boss' ? (boss ? fury(boss.hp, boss.maxHp) : 0) : other ? fury(other.hp, other.maxHp) : 0;
+    a3.fury('me', me && me.hp > 0 ? foe : 0);
+    if (battleMode !== 'boss' && other) a3.fury('opp', other.hp > 0 && me ? fury(me.hp, me.maxHp) : 0);
+    else for (const p of players) if (p.id !== you) a3.fury(`ally:${p.id}`, p.hp > 0 ? foe : 0);
+  }
 }
 
 // ── 0.9.9.9.5.5: the combo counter grows with the combo ─────────────────────
@@ -1074,7 +1085,9 @@ export function showBattle(mode: GameMode, players: PlayerView[], boss: BossView
       if (left <= 0) setTimeout(() => (cd.hidden = true), 500);
     });
   } else cd.hidden = true;
-  setTimeout(() => countdown('battle', battleMs, (left) => ($('battleClock').textContent = clockText(left))), countdownMs);
+  // (0.9.9.9.9.1: one countdown through the 3-2-1 and the battle — it was started after a timer, which a replay's
+  // clock can't stop or speed up, and a battle shown again within the 3-2-1 got the old battle's clock back)
+  countdown('battle', countdownMs + battleMs, (left) => ($('battleClock').textContent = clockText(Math.min(battleMs, left))));
 }
 
 /** Back from a pause: the same battle goes on — keep the arena (who is down, who is on fire), only restart the clock. */
@@ -1087,7 +1100,9 @@ export function resumeBattle(players: PlayerView[], boss: BossView | null, you: 
 let answerMode: AnswerMode = 'reading';
 export const currentAnswerMode = () => answerMode;
 
-export interface ChallengeView { kanji: string; answer: AnswerMode; timeLimitMs: number; meaning?: string; reading?: string; charCount?: number; flashMs?: number; from?: string; hint?: { kana: string; romaji: string; meaning: string } }
+export interface ChallengeView { kanji: string; answer: AnswerMode; timeLimitMs: number; meaning?: string; reading?: string; charCount?: number; flashMs?: number; from?: string; hint?: { kana: string; romaji: string; meaning: string };
+  /** 0.9.9.9.9.1: a replay jumping into the middle of a word: the time it still has */
+  leftMs?: number }
 
 export function showChallenge(c: ChallengeView) {
   answerMode = c.answer;
@@ -1107,8 +1122,9 @@ export function showChallenge(c: ChallengeView) {
     th.replaceChildren(h('small', 'th-lbl', tr('Type')), h('b', 'th-romaji', c.hint.romaji), h('span', 'th-or', tr('or')), kana, h('span', 'th-m', `- ${c.hint.meaning}`));
   }
   setFeedback(null);
-  countdown('challenge', c.timeLimitMs, (_l, frac) => ($('challengeBar').style.width = `${frac * 100}%`));
-  bigTimer('challengeRing', $('turnTimer'), c.timeLimitMs, c.timeLimitMs, Math.min(5000, c.timeLimitMs / 3));
+  const left = c.leftMs ?? c.timeLimitMs;
+  countdown('challenge', left, (_l, frac) => ($('challengeBar').style.width = `${frac * 100}%`), c.timeLimitMs);
+  bigTimer('challengeRing', $('turnTimer'), left, c.timeLimitMs, Math.min(5000, c.timeLimitMs / 3));
 
   if (c.answer === 'writing') {
     // flash the kanji, then only the meaning remains

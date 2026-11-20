@@ -15,6 +15,8 @@ import * as THREE from 'three';
 import { buildCharacter, kindFor, type Character } from './models3d';
 import { buildDragon, buildGlbCharacter, onModelLoaded, preloadModels, type Dragon, type GlbKind } from './glbchars';
 import { buildStaff, GEM_Y, type Staff } from './staffs3d';
+import { createHits } from './staffhits';
+import { createPost, createWeather, floorWear, roomLight, shadowsFor, type Post, type Weather, type Weather3D } from './arenalook';
 import { staffOf } from '../shared/progress';
 import { createStaffPreview } from './staffpreview';
 import { buildEnv, type Env } from './arenas';
@@ -34,6 +36,8 @@ export interface ArenaSetup {
   opp: FighterArt | null;
   allies: FighterArt[];
   boss: FighterArt | null; // the dragon
+  /** 0.9.9.9.9.1: the place's weather (as in the menu): rain, snow, leaves… in 3D round the arena */
+  weather?: string;
 }
 export type SpellFx = 'bolt' | 'frost' | 'fire';
 export interface ArenaApi {
@@ -47,6 +51,8 @@ export interface ArenaApi {
   fizzle(who: Who): void;
   /** knocked out: lies down (you, in first person: your staff is gone) */
   ko(who: Who): void;
+  /** 0.9.9.9.9.1: how close their enemy is to falling (0 … 1): their staff feels it */
+  fury(who: Who, k: number): void;
   /** combo flames (5+ in a row) or a Deck Duel power: flames in the player's colour around them */
   onfire(who: Who, on: boolean, color?: string): void;
   /** 0.9.9.7: change someone's combo pose (Customize preview) */
@@ -223,6 +229,8 @@ interface Fighter {
   frosted: boolean;
   /** 0.9.9.8.2: their staff (its attack effect) and the colours a staff's fire / frost tints them with */
   staffId?: string; burnTint?: THREE.Color; frostTint?: THREE.Color;
+  /** 0.9.9.9.9.1: how close their enemy is to falling — their staff feels it */
+  fury?: number;
   /** glowing eyes: a bright flash until then (an Omnipotence going off) */
   eyesFlashUntil: number;
   /** where they look: target (from the network, or an idle wander) and the current, eased head turn */
@@ -254,8 +262,13 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   renderer.setPixelRatio(pixelRatio());
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15; // 0.9.7.1: a little brighter
+  // 0.9.9.9.9.1: soft shadows (High only — the lights cast them then; see look())
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
+  // 0.9.9.9.9.1: light from all round (a soft studio, reflected): metal and stone aren't flat colours any more
+  try { scene.environment = roomLight(renderer); scene.environmentIntensity = 0.3; } catch { /* without it */ }
   scene.fog = new THREE.Fog(0x1a1630, 20, 58);
   const camera = new THREE.PerspectiveCamera(55, 16 / 9, 0.05, 200);
   const CAM = new THREE.Vector3(0, 1.75, 7.2);
@@ -346,6 +359,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const rune = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), new THREE.MeshBasicMaterial({ map: ringTexture('#a98bff'), transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false }));
   rune.rotation.x = -Math.PI / 2; rune.position.y = 0.03; rune.scale.x = -1;
   scene.add(rune); // the rotating kanji circle the fighters stand on — kept in the 3D arenas too
+  const wear = floorWear(); // (0.9.9.9.9.1: wear on the floor, every arena)
+  wear.position.y = 0.012;
+  scene.add(wear);
 
   // pillars with torches around the far half
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0x5a5466, roughness: 0.9 });
@@ -375,6 +391,31 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   moteGeo.setAttribute('position', new THREE.BufferAttribute(motePos, 3));
   const moteMat = new THREE.PointsMaterial({ size: 0.12, map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffffff, sizeAttenuation: true });
   classic.add(new THREE.Points(moteGeo, moteMat));
+
+  // ── 0.9.9.9.9.1: the look on High — the glow, the shadows (Low and the previews: as before) ──
+  let post: Post | null = null;
+  function applyLook() {
+    const high = !lite && !opts.preview;
+    if (high && !post) { try { post = createPost(renderer, scene, camera); } catch { post = null; } }
+    if (!high && post) { post.dispose(); post = null; }
+    for (const l of [envKey, sun]) {
+      l.castShadow = high;
+      l.shadow.mapSize.set(2048, 2048);
+      const c = l.shadow.camera as THREE.OrthographicCamera;
+      c.left = -15; c.right = 15; c.top = 15; c.bottom = -15; c.near = 1; c.far = 150; c.updateProjectionMatrix();
+      l.shadow.bias = -0.0005; l.shadow.normalBias = 0.04;
+    }
+    if (post) { const sz = renderer.getSize(new THREE.Vector2()); post.setSize(sz.x, sz.y); }
+  }
+  // the weather of the place, round the arena (not in the Customize previews)
+  let weather: Weather | null = null;
+  const WEATHERS = new Set(['clear', 'leaves', 'rain', 'storm', 'snow', 'petals', 'seeds', 'spores']);
+  function setWeather(w: string | undefined) {
+    const kind = (opts.preview || !w || !WEATHERS.has(w) ? 'clear' : w) as Weather3D;
+    if (weather?.kind === kind) return;
+    weather?.dispose(); weather = null;
+    if (kind !== 'clear') weather = createWeather(scene, kind, lite, (p) => { const was = hemi.intensity; hemi.intensity = was * (1 + 2.5 * p); setTimeout(() => { hemi.intensity = was; }, 110); });
+  }
 
   // ── fighters ───────────────────────────────────────────────────────────────
   const sparkTex = glowTexture();
@@ -418,6 +459,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     aura.scale.set(height * 1.2, height * 1.2, 1); aura.position.y = height * 0.5;
     group.add(aura);
     scene.add(group);
+    castFrom(group);
     const f: Fighter = { key, group, model, sprite, spriteMat, height, ko: false, flame: null, aura, hurtUntil: 0, lungeUntil: 0, frostUntil: 0, burnUntil: 0, hitAt: -1e9, hitPow: 1, hitDir: new THREE.Vector3(0, 0, -1), hitLeg: 0, frosted: false, eyesFlashUntil: 0, look: { yaw: 0, pitch: 0, at: -1e9, curYaw: 0, curPitch: 0, seed: Math.random() * 100 }, pose: isPose(art.pose) ? art.pose : 'none', poseK: 0, typing: !!art.bot, staffId: art.staff, dragon, art, glb };
     fighters.set(key, f);
     return f;
@@ -461,12 +503,15 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         m.staff.group.visible = old.staff.group.visible;
         f.group.remove(old.root); disposeTree(old.root);
         f.group.add(m.root);
+        castFrom(m.root);
         f.model = m; f.glb = true; f.frosted = false;
         if (m.eyes && old.eyes) m.eyes.visible = old.eyes.visible;
       }
     }
   });
   void preloadModels();
+  /** 0.9.9.9.9.1: a fighter (and the staff in their hand) casts a shadow */
+  function castFrom(o: THREE.Object3D) { o.traverse((x) => { const m = x as THREE.Mesh; if (m.isMesh && !(m.material as THREE.Material).transparent) m.castShadow = true; }); }
 
   // ── you, in first person: your hand holding your staff (sleeve and skin after your character) ──
   const fp = new THREE.Group();
@@ -664,6 +709,16 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: k ? 0xffffff : core, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
       scene.add(line);
       bolts.push({ line, life: 0 });
+      // 0.9.9.9.9.1: forks branching off the main bolt, thinner, dying out in the air
+      if (k === 0) for (let f = 0; f < (lite ? 1 : 3); f++) {
+        const from = pts[2 + Math.floor(Math.random() * 7)], fork = [from.clone()];
+        const dir = new THREE.Vector3(rnd(-1, 1), -rnd(0.6, 1.2), rnd(-0.5, 0.5)).normalize();
+        for (let i = 0; i < 4; i++) fork.push(fork[i].clone().addScaledVector(dir, rnd(0.35, 0.6)).add(new THREE.Vector3(rnd(-0.18, 0.18), rnd(-0.1, 0.1), rnd(-0.12, 0.12))));
+        const fl = new THREE.Line(new THREE.BufferGeometry().setFromPoints(fork), new THREE.LineBasicMaterial({ color: core, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+        scene.add(fl);
+        bolts.push({ line: fl, life: 0.04 });
+        for (let i = 0; i < fork.length - 1; i++) for (let dd = 0; dd < 1; dd += 0.25) spark(fork[i].clone().lerp(fork[i + 1], dd), core, { size: 0.16 * (1 - i / fork.length), life: 0.22, opacity: 0.6 });
+      }
       // lines are 1 px in WebGL: glowing beads along the bolt give it body
       for (let i = 0; i < pts.length - 1; i++) {
         const seg = pts[i].distanceTo(pts[i + 1]);
@@ -760,6 +815,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const envKey = new THREE.DirectionalLight(0xffffff, 1);
   envKey.visible = false;
   scene.add(envKey, envKey.target);
+  applyLook(); // (0.9.9.9.9.1)
   const fromBlender = (p: readonly number[], floor: number) => new THREE.Vector3(p[0], p[2] - floor, -p[1]);
   function setEnv(id: string, time: TimeOfDay) {
     if (env) { scene.remove(env.group); if (!opts.preview) env.dispose(); env = null; }
@@ -771,10 +827,12 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (env && opts.preview) envCache.set(ck, env);
     classic.visible = !env;
     rune.position.y = env ? 0.1 : 0.03;
+    wear.position.y = env ? 0.06 : 0.012;
     envKey.visible = !!env;
     if (!env) { bgKeyClassic = ''; return; }
     env.group.rotation.x = -Math.PI / 2; env.group.position.y = -env.floor;
     scene.add(env.group);
+    shadowsFor(env.group); // (0.9.9.9.9.1)
     env.group.traverse((o) => { if (o.name === 'centre-pattern') o.visible = false; });
     for (const l of lite ? env.lights.slice(0, 2) : env.lights) { // Lite: only the main glow lights
       const p = new THREE.PointLight(new THREE.Color(...l.color), l.intensity * 8, l.dist, 2);
@@ -792,6 +850,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     stage.intensity *= 0.45; fill.intensity *= 0.5; // still lights the fighters, without flooding the stone
     const fog = scene.fog as THREE.Fog;
     fog.color.setRGB(...e.fog.color); fog.near = e.fog.near; fog.far = e.fog.far;
+    // (0.9.9.9.9.1: the light from all round, softer at night; the key light a little stronger on High, now that it casts shadows)
+    scene.environmentIntensity = current?.time === 'night' ? 0.12 : current?.time === 'sunset' ? 0.18 : 0.22;
+    if (post) envKey.intensity *= 1.35;
     renderer.setClearColor(fog.color);
   }
   let channelLevel = 0, channelShown = 0;
@@ -854,6 +915,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   }
   /** the arena, its light and the time of day (also on its own: Customize switching arenas, 0.9.9.3.3) */
   function applyBackground(s: ArenaSetup) {
+    setWeather(s.weather);
     const L = LIGHT[s.time];
     hemi.color.set(L.sky); hemi.groundColor.set(L.ground); hemi.intensity = L.hemi * 1.25;
     stage.intensity = s.time === 'night' ? 1.3 : s.time === 'sunset' ? 1 : 0.7;
@@ -955,6 +1017,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (opts.preview && (!lastW || !lastH)) return;
     const w = lastW || innerWidth, h = lastH || innerHeight;
     renderer.setSize(w, h, false);
+    post?.setSize(w, h);
     camera.aspect = w / h;
     camera.fov = camera.aspect < 1 ? 60 : camera.aspect < 1.3 ? 66 : 55; // upright phone: the sides are cropped, the arena a bit closer
     camera.updateProjectionMatrix();
@@ -1071,7 +1134,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   }
   function frame(nowMs: number) {
     raf = requestAnimationFrame(frame);
-    if (!opts.preview && document.body.classList.contains('paused')) { last = nowMs; return; } // 0.9.9.7: a paused game is a still picture
+    if (!opts.preview && (document.body.classList.contains('paused') || document.body.classList.contains('replay-paused'))) { last = nowMs; return; } // 0.9.9.7: a paused game is a still picture (0.9.9.9.9.1: a paused replay too)
     if (!opts.preview) watchPerf(nowMs - last); // a Customize preview never switches the game to Lite
     const realDt = Math.min(1, Math.max(0, (nowMs - last) / 1000));
     const dt = Math.min(0.05, realDt); last = nowMs; time += dt;
@@ -1224,7 +1287,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       staff.glow.scale.setScalar((0.3 + charge * (0.32 + pulse * 0.18) + thrust * 0.6) * gemScale);
       (staff.glow.material as THREE.SpriteMaterial).opacity = 0.3 + charge * 0.35;
       staff.gem.rotation.y += dt * (0.8 + charge * 6);
-      staff.update(time, dt, charge);
+      staff.update(time, dt, charge, still ? 0 : myFury);
       if (gemScale > 0.9 && !still && fp.visible) {
         staff.gem.getWorldPosition(tmp);
         // the ∞ drawn in the air by the gem
@@ -1286,7 +1349,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         m.glow.scale.setScalar(0.45 + glowLevel * (0.5 + pulse * 0.3) + lunge * 0.6);
         (m.glow.material as THREE.SpriteMaterial).opacity = 0.45 + glowLevel * 0.5;
         m.crystal.rotation.y += dt * (0.8 + glowLevel * 6);
-        m.staff.update(time, dt, glowLevel);
+        m.staff.update(time, dt, glowLevel, f.fury ?? 0);
         // 0.9.9.7: on fire, they strike their combo pose (Customize)
         f.poseK += ((f.flame && f.pose !== 'none' ? 1 : 0) - f.poseK) * Math.min(1, dt * 3);
         applyPose(m, f.pose, f.poseK, time); // (always: back to standing resets the last pose — 0.9.9.7.3)
@@ -1420,7 +1483,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       (p.sprite.material as THREE.SpriteMaterial).opacity = 1 - p.life / p.max;
     }
     if (flashLight.intensity > 0 && performance.now() > flashUntil) flashLight.intensity = 0;
-    if (branches.length) stepBranches(dt);
+    hits.step(dt); // (0.9.9.9.9.1: the staffs' hits)
+    weather?.update(dt);
     for (let i = bolts.length - 1; i >= 0; i--) {
       const b = bolts[i];
       b.life += dt;
@@ -1435,7 +1499,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (f.life > 1.1) { scene.remove(f.sprite); (f.sprite.material as THREE.SpriteMaterial).map?.dispose(); (f.sprite.material as THREE.Material).dispose(); floats.splice(i, 1); }
     }
     if (cineW > 0.001) fp.position.y -= cineW * 1.6; // (your hand out of the shot)
-    renderer.render(scene, camera);
+    if (post) post.render(); else renderer.render(scene, camera); // (0.9.9.9.9.1: on High, through the glow)
     if (inset && focus > 0.5) {
       // the same moment as you see it yourself: the camera back in your eyes, your hand and staff in front
       const pos = camera.position.clone(), quat = camera.quaternion.clone(), fpWas = fp.visible;
@@ -1467,81 +1531,15 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   }
 
   // ── 0.9.9.8.2: what your staff's spell does when it lands (every mode but Deck Duel, whose cards have their own) ──
-  // Verdant: four branches burst from the ground under them and lash up like tentacles; Ember: an inferno; Tide:
-  // frost; Storm: lightning from the sky; Void: a rift that swallows the light around them and bursts. The seasonal
-  // staffs do what their base staff does, in their own colours.
-  const branches: Array<{ mesh: THREE.Mesh; t: number; total: number; tip: THREE.Vector3; leaf: THREE.Color }> = [];
-  const barkMat = new Map<string, THREE.MeshStandardMaterial>();
-  function branchStrike(center: THREE.Vector3, chest: THREE.Vector3, bark: THREE.Color, leaf: THREE.Color) {
-    const key = bark.getHexString() + leaf.getHexString();
-    let mat = barkMat.get(key);
-    if (!mat) { mat = new THREE.MeshStandardMaterial({ color: bark, emissive: bark.clone().lerp(leaf, 0.25).multiplyScalar(0.35), roughness: 0.9, flatShading: true }); barkMat.set(key, mat); } // (wood with a faint green glow — it read as neon tubes)
-    const a0 = Math.random() * Math.PI * 2;
-    for (let i = 0; i < 4; i++) {
-      const a = a0 + (i * Math.PI) / 2 + rnd(-0.3, 0.3);
-      const r = rnd(0.75, 1.05);
-      const base = new THREE.Vector3(center.x + Math.cos(a) * r, -0.05, center.z + Math.sin(a) * r * 0.8);
-      const tip = chest.clone().add(new THREE.Vector3(rnd(-0.18, 0.18), rnd(-0.25, 0.2), rnd(-0.12, 0.12)));
-      // up out of the ground, bending outwards, then curling in onto them
-      const p1 = base.clone().add(new THREE.Vector3(Math.cos(a) * 0.35, 0.55, Math.sin(a) * 0.25));
-      const p2 = base.clone().lerp(tip, 0.6).add(new THREE.Vector3(Math.cos(a) * 0.45, 0.55, Math.sin(a) * 0.3));
-      const curve = new THREE.CatmullRomCurve3([base, p1, p2, tip]);
-      const geo = new THREE.TubeGeometry(curve, 24, 0.07, 6, false);
-      // thick at the root, thin at the tip
-      const pos = geo.attributes.position as THREE.BufferAttribute;
-      for (let v = 0; v < pos.count; v++) {
-        const seg = Math.floor(v / 7) / 24; // 7 vertices per ring (radial 6 + seam)
-        const c = curve.getPointAt(Math.min(1, seg));
-        const k = 1.25 - seg * 0.95;
-        pos.setXYZ(v, c.x + (pos.getX(v) - c.x) * k, c.y + (pos.getY(v) - c.y) * k, c.z + (pos.getZ(v) - c.z) * k);
-      }
-      geo.computeVertexNormals();
-      geo.setDrawRange(0, 0);
-      const mesh = new THREE.Mesh(geo, mat);
-      scene.add(mesh);
-      branches.push({ mesh, t: -i * 0.05, total: geo.index!.count, tip, leaf });
-      // earth thrown up where it breaks through
-      for (let k = 0; k < 8; k++) spark(base.clone(), k % 2 ? 0x6a4a2a : leaf, { size: rnd(0.06, 0.14), vel: new THREE.Vector3(rnd(-0.6, 0.6), rnd(1, 2.4), rnd(-0.6, 0.6)), life: rnd(0.4, 0.7), gravity: -6, solid: k % 2 === 1 });
-    }
-  }
-  function stepBranches(dt: number) {
-    for (let i = branches.length - 1; i >= 0; i--) {
-      const b = branches[i];
-      b.t += dt;
-      const grow = Math.min(1, Math.max(0, b.t / 0.22)), back = Math.max(0, (b.t - 0.62) / 0.3);
-      const k = Math.max(0, grow - back);
-      const n = Math.floor((b.total / 6) * k) * 6;
-      b.mesh.geometry.setDrawRange(0, n);
-      if (grow >= 1 && b.t < 0.32 && Math.random() < 0.6) spark(b.tip.clone(), b.leaf, { size: rnd(0.06, 0.12), vel: new THREE.Vector3(rnd(-0.8, 0.8), rnd(-0.2, 0.9), rnd(-0.5, 0.5)), life: 0.5 });
-      if (b.t > 0.95) { scene.remove(b.mesh); b.mesh.geometry.dispose(); branches.splice(i, 1); }
-    }
-  }
-  function voidRift(at: THREE.Vector3, color: THREE.Color) {
-    // the light around them is pulled in, a dark core swells and bursts
-    const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, color: 0x05010f, transparent: true, opacity: 0.9, depthWrite: false }));
-    core.position.copy(at); core.scale.setScalar(0.1); core.renderOrder = 5;
-    scene.add(core);
-    const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, color, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8, depthWrite: false }));
-    ring.position.copy(at); ring.scale.setScalar(2.6);
-    scene.add(ring);
-    for (let i = 0; i < 34; i++) {
-      const a = Math.random() * Math.PI * 2, r = rnd(1, 1.9), y = rnd(-0.9, 0.9);
-      const from = at.clone().add(new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r * 0.6));
-      // spiralling in: the velocity points at the core with a sideways swirl
-      const vel = at.clone().sub(from).multiplyScalar(2.2).add(new THREE.Vector3(-Math.sin(a), 0, Math.cos(a)).multiplyScalar(1.2));
-      spark(from, i % 3 ? color : 0xffffff, { size: rnd(0.06, 0.14), vel, life: 0.42 });
-    }
-    const t0 = performance.now();
-    const step = () => {
-      const t = (performance.now() - t0) / 1000;
-      if (t < 0.45) { core.scale.setScalar(0.1 + t * 2.4); ring.scale.setScalar(2.6 * (1 - t / 0.5)); (ring.material as THREE.SpriteMaterial).opacity = 0.8 * (1 - t / 0.5); requestAnimationFrame(step); return; }
-      scene.remove(core, ring); (core.material as THREE.Material).dispose(); (ring.material as THREE.Material).dispose();
-      burst(at, color, 34, 4.2, 0.2);
-      spark(at, 0xffffff, { size: 0.9, grow: 7, life: 0.3, opacity: 0.9 });
-    };
-    requestAnimationFrame(step);
-  }
+  // 0.9.9.9.9.1: remade in staffhits.ts — every staff's hit in its own colours (Jade's fire is green), and the Void's
+  // a black hole. The seasonal staffs do what their classic staff does.
+  const hits = createHits({
+    scene, camera, sparkTex, lite: () => lite, spark, burst,
+    flash: (c, at, power, ms) => { flashLight.color.set(c); flashLight.position.copy(at).add(new THREE.Vector3(0, 1.2, 1)); flashLight.intensity = power; flashUntil = performance.now() + ms; },
+  });
   const staffIdOf = (who: Who) => (who === 'me' ? staffSkin : fighters.get(who)?.staffId) ?? 'verdant';
+  /** the colour a staff's spell flies in (its gem), as a CSS colour */
+  const spellColour = (who: Who) => `#${new THREE.Color(staffOf(staffIdOf(who)).gem).getHexString()}`;
   /** the impact of a normal attack, after the caster's staff (not Deck Duel, not the dragon) */
   function staffImpact(from: Who, to: Who, at: THREE.Vector3) {
     if (layout === 'deck' || from === 'boss') return;
@@ -1552,34 +1550,20 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     const now = performance.now();
     const firstPerson = to === 'me' && fp.visible;
     const rgb = (c: THREE.Color) => `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`;
-    if (kind === 'verdant') {
-      const center = t ? t.group.position.clone() : new THREE.Vector3(at.x, 0, at.z);
-      const chest = firstPerson ? at.clone().add(new THREE.Vector3(0, 0.2, 0)) : pointOf(to, 'chest');
-      const bark = def.season ? tint.clone().lerp(new THREE.Color(0x3a2a1a), 0.55) : new THREE.Color(0x5a3d22);
-      // (at you, in first person, branches would grow through the camera: a burst of leaves and a green flash instead)
-      if (!firstPerson) branchStrike(center, chest, bark, main);
-      else for (let k = 0; k < 18; k++) spark(at.clone().add(new THREE.Vector3(rnd(-0.6, 0.6), rnd(-0.6, -0.1), 0)), k % 3 ? main : 0x6a4a2a, { size: rnd(0.05, 0.12), vel: new THREE.Vector3(rnd(-1, 1), rnd(1, 2.2), rnd(-0.3, 0.3)), life: rnd(0.5, 0.8), gravity: -5 });
-      if (to === 'me') screenHit(rgb(main), 'frost');
-    } else if (kind === 'ember') {
-      if (t) { t.burnTint = def.season ? main.clone() : undefined; t.burnUntil = now + 1100; for (let k = 0; k < 4; k++) setTimeout(() => flames(t, main, 3), k * 90); }
-      burst(at, main, 36, 3.4, 0.24);
-      if (to === 'me') screenHit(rgb(main), 'fire');
-    } else if (kind === 'tide') {
-      if (t) { t.frostTint = def.season ? tint.clone() : undefined; t.frostUntil = now + 1100; }
-      burst(at, tint, 30, 2.5, 0.16);
-      for (let k = 0; k < 14; k++) spark(at.clone().add(new THREE.Vector3(rnd(-0.5, 0.5), rnd(-0.7, 0.6), rnd(-0.3, 0.3))), 0xffffff, { size: rnd(0.04, 0.09), vel: new THREE.Vector3(0, rnd(-0.6, -0.2), 0), life: rnd(0.6, 1) });
-      if (to === 'me') screenHit(rgb(tint), 'frost');
-    } else if (kind === 'storm') {
-      lightning(t ? pointOf(to, 'head') : at, main.clone().lerp(new THREE.Color(0xffffff), 0.35), main);
-      if (to === 'me') screenHit(rgb(main), 'bolt');
-    } else if (kind === 'void') {
-      voidRift(firstPerson ? at : pointOf(to, 'chest'), main);
-      if (to === 'me') screenHit(rgb(main), 'frost');
-    }
+    const ground = t ? t.group.position.clone().setY(0) : new THREE.Vector3(at.x, 0, at.z);
+    const chest = firstPerson ? at.clone().add(new THREE.Vector3(0, 0.2, 0)) : pointOf(to, 'chest');
+    const height = t ? t.height * t.group.scale.y : 1.6;
+    hits.impact(kind, { ground, chest, height, main, tint, seasonal: !!def.season, firstPerson }, lightning);
+    // their body takes the colour of it a moment (burning, frozen) — the staff's colour
+    if (t && kind === 'ember') { t.burnTint = def.season ? main.clone() : undefined; t.burnUntil = now + 1100; for (let k = 0; k < 4; k++) setTimeout(() => flames(t, main, 2), k * 90); }
+    if (t && kind === 'tide') { t.frostTint = def.season ? tint.clone() : undefined; t.frostUntil = now + 1100; }
+    if (to === 'me') screenHit(rgb(kind === 'tide' ? tint : main), kind === 'ember' ? 'fire' : kind === 'storm' ? 'bolt' : kind === 'tide' ? 'frost' : kind === 'void' ? 'rift' : 'leaf');
   }
 
+  let myFury = 0;
   const api: ArenaApi = {
     setup,
+    fury(who, k) { if (who === 'me') myFury = k; else { const f = fighters.get(who); if (f) f.fury = k; } },
     prime(s) {
       // 0.9.9.9.7.3: the arena, its fighters, every shader and texture, drawn once off screen — while you study.
       // Built at the start of the battle, its first frames took a second each: the fly-in ran on into the battle
@@ -1602,7 +1586,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     async cast(from, to, kanji, o = {}) {
       const kind = o.kind ?? 'attack';
       const friendly = from === 'me' || from.startsWith('ally:');
-      const color = kind === 'heal' ? '#5dffa8' : kind === 'mana' ? '#ffd479' : o.fx === 'bolt' ? '#bfe6ff' : o.fx === 'frost' ? '#8fdcff' : o.fx === 'fire' ? '#ff8a3a' : friendly ? '#a98bff' : '#ff6b6b';
+      // (0.9.9.9.9.1: a staff's spell flies in the staff's colour — it was violet for yours, red for theirs)
+      const color = kind === 'heal' ? '#5dffa8' : kind === 'mana' ? '#ffd479' : o.fx === 'bolt' ? '#bfe6ff' : o.fx === 'frost' ? '#8fdcff' : o.fx === 'fire' ? '#ff8a3a' : layout !== 'deck' && from !== 'boss' ? spellColour(from) : friendly ? '#a98bff' : '#ff6b6b';
       const caster = fighters.get(from);
       if (caster) caster.lungeUntil = performance.now() + 450;
       if (from === 'me') { channelShown = 0; channelLevel = 0; }
@@ -1839,6 +1824,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       lite = on;
       if (changed && env && current) { bgKey = ''; setup(current); } // the arena again, with less in it
       renderer.setPixelRatio(pixelRatio());
+      applyLook();
       grass.count = on ? 900 : GRASS;
       moteGeo.setDrawRange(0, on ? 90 : MOTES);
       resize();

@@ -235,6 +235,8 @@ export interface ChallengeMsg {
   from?: string;
   /** 0.9.9.9.6: the tutorial's first battle — the answer, shown under the word */
   hint?: { kana: string; romaji: string; meaning: string };
+  /** 0.9.9.9.9.1: only a replay sets this — it jumped into the middle of the word: the time it still has */
+  leftMs?: number;
 }
 
 export type ServerMessage =

@@ -995,9 +995,13 @@ body.has-3d #dragon .boss-bar { width: 100%; }
 .dk-player.fx-fire .dk-av { animation: fxFire 1.1s ease-out; }
 @keyframes fxFire { 0%, 75% { filter: drop-shadow(0 0 6px #ffb347) drop-shadow(0 -6px 14px #ff5a1a) brightness(1.15) saturate(1.3); } 100% { filter: none; } }
 /* 3D: hits on you with a card effect */
-.arena3d-hit.bolt { background: radial-gradient(ellipse at center, rgba(220, 240, 255, .25), rgba(160, 210, 255, .65) 100%); }
-.arena3d-hit.frost { background: radial-gradient(ellipse at center, transparent 35%, rgba(150, 215, 255, .75) 100%); animation-duration: 1.1s; }
-.arena3d-hit.fire { background: radial-gradient(ellipse at 50% 120%, rgba(255, 140, 40, .7), transparent 60%), radial-gradient(ellipse at center, transparent 45%, rgba(255, 90, 20, .55) 100%); animation-duration: 1.1s; }
+/* (0.9.9.9.9.1: in the colour of the staff that cast it - a Jade staff's fire is green, an Abyss staff's frost deep blue;
+   the card effects keep their own colours, set by the arena) */
+.arena3d-hit.bolt { background: radial-gradient(ellipse at center, rgba(var(--hit, 160, 210, 255), .2), rgba(var(--hit, 160, 210, 255), .65) 100%); }
+.arena3d-hit.frost { background: radial-gradient(ellipse at center, transparent 35%, rgba(var(--hit, 150, 215, 255), .75) 100%); animation-duration: 1.1s; }
+.arena3d-hit.fire { background: radial-gradient(ellipse at 50% 120%, rgba(var(--hit, 255, 140, 40), .7), transparent 60%), radial-gradient(ellipse at center, transparent 45%, rgba(var(--hit, 255, 90, 20), .55) 100%); animation-duration: 1.1s; }
+.arena3d-hit.leaf { background: radial-gradient(ellipse at 50% 110%, rgba(var(--hit), .55), transparent 55%), radial-gradient(ellipse at center, transparent 42%, rgba(var(--hit), .6) 100%); animation-duration: 1s; }
+.arena3d-hit.rift { background: radial-gradient(circle at center, rgba(0, 0, 0, .0) 20%, rgba(4, 2, 16, .55) 60%, rgba(var(--hit), .7) 100%); animation-duration: 1.2s; }
 /* Deck Duel in 3D: a shorter chat, so your character shows below it */
 body.has-3d .deck-screen .dk-chat { max-height: 230px; align-self: start; }
 body.has-3d .deck-screen .dk-chat { max-height: none; height: 250px; }
@@ -2487,6 +2491,8 @@ body:is([data-screen="auth"], [data-screen="private"], [data-screen="study"], [d
 .app-btn.update { border-color: var(--gold) !important; color: var(--gold); box-shadow: 0 0 12px color-mix(in srgb, var(--gold) 35%, transparent); }
 /* 0.9.9.7: a paused game freezes — every animation in the battle stops where it is */
 body.paused .screen *, body.paused .screen *::before, body.paused .screen *::after { animation-play-state: paused !important; }
+/* (0.9.9.9.9.1: a paused replay stands still too) */
+body.replay-paused :is(#battle, #battle *, #battle *::before, #battle *::after, #comboHud, #comboHud *) { animation-play-state: paused !important; }
 /* 0.9.9.7: the game keyboard outside battles (Daily challenge, dictionary…) */
 #gameKb.no-skip .gk.skip, #gameKb.no-space .gk.space { display: none; }
 body.game-kb-other .screen:not([hidden]) { padding-bottom: calc(var(--kb-h, 230px) + 16px) !important; }
@@ -3915,11 +3921,8 @@ body.mode-shown #bg:has(> .bg-layer.art)::after { opacity: .55; }
 .fx-glint { width: 14px; height: 3px; border-radius: 50%; background: radial-gradient(closest-side, #fff, rgba(200, 255, 230, .4), transparent); opacity: 0;
   animation: fxGlint var(--dur) ease-in-out var(--d) infinite; }
 @keyframes fxGlint { 0%, 100% { opacity: 0; scale: .4 1; } 50% { opacity: .9; scale: 1.3 1; } }
-/* computers: the picture breathes, slowly drifting in like a camera (phones keep it still: it is a big layer) */
-@media not (pointer: coarse) {
-  .art-stage { transform-origin: 50% 100%; animation: artDrift 52s ease-in-out infinite alternate; will-change: transform; }
-  @keyframes artDrift { from { translate: -50% 0; scale: 1; } to { translate: -51.4% 0; scale: 1.055; } }
-}
+/* (0.9.9.9.9.1: the picture no longer slowly zooms in and out on computers - it stands still, like on phones; its
+   weather, runes, flags and islands still move) */
 
 /* ── 0.9.9.9.5.2: the 漢字 Wizards title stands out on any picture ─────────────────────────────────────────── */
 #menu .mc-head { position: relative; isolation: isolate; }
@@ -4371,6 +4374,7 @@ body.has-3d .combo-broken { right: auto; left: 7%; top: auto; bottom: 24%; }
   .combo-hud.tier-3 b { font-size: 3.6rem; } .combo-hud.tier-4 b { font-size: 4rem; } .combo-hud.tier-5 b { font-size: 4.4rem; }
   .combo-banner b { font-size: 3rem; } .combo-banner span { font-size: 1.7rem; }
   .ch-rays { width: 170px; height: 170px; margin: -85px 0 0 -85px; }
+  .combo-hud.tier-5 .ch-rays { width: 210px; height: 210px; margin: -105px 0 0 -105px; } /* (0.9.9.9.9.1: it stayed computer-sized) */
 }
 
 /* ══ 0.9.9.9.5.5: the weather over the painted scenes ═════════════════════════════════════════════════════════ */
@@ -4446,7 +4450,8 @@ body.has-3d .combo-broken { right: auto; left: 7%; top: auto; bottom: 24%; }
 /* phones: the combo counter sits up top, under your name — above the keyboard it hid the answers */
 @media (max-width: 760px), (pointer: coarse) and (max-height: 560px) {
   #comboHud, body:not(.has-3d) #comboHud { left: calc(env(safe-area-inset-left) + 8px); right: auto; top: calc(env(safe-area-inset-top) + 122px); bottom: auto;
-    transform-origin: top left; scale: .5; align-items: flex-start; }
+    transform-origin: top left; scale: .5; align-items: center; } /* (0.9.9.9.9.1: centred - the rays, rings and sparks are
+    drawn round the middle of the counter; left-aligned, the number sat to one side of its Unstoppable sun) */
   .combo-broken, body.has-3d .combo-broken { left: calc(env(safe-area-inset-left) + 12px); right: auto; top: calc(env(safe-area-inset-top) + 124px); bottom: auto; font-size: 1rem; }
   .combo-banner { top: 24%; }
 }
@@ -5648,3 +5653,68 @@ body[data-watch] #struggledBox h3 small { display: none; }
   .watch-bar .wb-dot { display: none; }
   body[data-watch] :is(#railFab, #dictFab, #friendRail, #dictRail) { display: none !important; }
 }
+
+/* ══ 0.9.9.9.9.1: the replay player — the bar's top row (who, switch side, copy link, exit), then the timeline: play /
+   pause, the time, the track with both sides' hits and misses (the watched side above the line, the other below),
+   the speed; a legend under it. Live watching keeps the one row. ══════════════════════════════════════════════ */
+.watch-bar { flex-direction: column; align-items: stretch; gap: 6px; }
+.watch-bar .wb-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; }
+/* (a replay's bar sits at the bottom, where the answer box was: on top it covered the names, the HP and the clock) */
+body[data-watch="replay"] .watch-bar { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); border-radius: 18px; width: min(780px, calc(100vw - 24px)); padding: 8px 12px 8px; }
+.wb-time { display: flex; align-items: center; gap: 10px; }
+.wb-time[hidden], .wb-legend[hidden] { display: none; }
+.wb-play { flex: none; width: 38px; height: 38px; min-width: 0; padding: 0; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; border: 0; box-shadow: 0 4px 14px rgba(124, 92, 255, .45); }
+.wb-play svg { width: 20px; height: 20px; fill: currentColor; display: none; }
+.wb-play[data-state="playing"] .i-pause, .wb-play[data-state="paused"] .i-play, .wb-play[data-state="ended"] .i-again { display: block; }
+.wb-clock { flex: none; font-variant-numeric: tabular-nums; font-weight: 800; font-size: .82rem; color: var(--muted); min-width: 7.2em; text-align: center; }
+.wb-speed { flex: none; min-width: 3.2em; }
+.wb-track { --at: 0%; position: relative; flex: 1; min-width: 0; height: 40px; cursor: pointer; touch-action: none; outline: none; border-radius: 10px; }
+.wb-track:focus-visible { box-shadow: 0 0 0 2px var(--accent2); }
+.wb-rail { position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: 3px; background: rgba(255, 255, 255, .16); overflow: hidden; }
+.wb-fill { position: absolute; inset: 0 auto 0 0; width: var(--at); background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.wb-thumb { position: absolute; left: var(--at); top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px var(--accent), 0 2px 8px rgba(0, 0, 0, .5); pointer-events: none; transition: scale .12s; }
+.wb-track.drag .wb-thumb, .wb-track:hover .wb-thumb { scale: 1.2; }
+.wb-marks { position: absolute; inset: 0; }
+/* a mark: a filled dot for a hit (a bigger one for a critical), a ring for a miss */
+.wb-m { position: absolute; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; display: inline-block; }
+.wb-marks .wb-m.mine { top: 4px; } .wb-marks .wb-m.theirs { bottom: 4px; }
+.wb-m.hit { background: var(--mk); box-shadow: 0 0 6px color-mix(in srgb, var(--mk) 70%, transparent); }
+.wb-m.miss { border: 2px solid var(--mk); background: transparent; }
+.wb-m.crit { width: 11px; height: 11px; margin-left: -5.5px; }
+.wb-marks .wb-m.mine.crit { top: 2px; } .wb-marks .wb-m.theirs.crit { bottom: 2px; }
+.wb-m.mine, .wb-key.mine .wb-m { --mk: #5dffa8; }
+.wb-m.theirs, .wb-key.theirs .wb-m { --mk: #ff6b81; }
+.wb-marks .wb-m::after { content: ""; position: absolute; inset: -7px; } /* (easier to tap) */
+.wb-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; font-size: .74rem; color: var(--muted); font-weight: 700; }
+.wb-key { display: inline-flex; align-items: center; gap: 5px; }
+.wb-key b { color: var(--text, #fff); font-size: .78rem; max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 2px 0 0; }
+.wb-key .wb-m { position: static; flex: none; margin: 0 0 0 4px; }
+:root[data-theme="light"] .wb-rail { background: rgba(20, 16, 60, .16); }
+:root[data-theme="light"] .wb-m.mine, :root[data-theme="light"] .wb-key.mine .wb-m { --mk: #12a35f; }
+:root[data-theme="light"] .wb-m.theirs, :root[data-theme="light"] .wb-key.theirs .wb-m { --mk: #d63a55; }
+:root[data-theme="light"] .wb-key b { color: #241d4d; }
+@media (max-width: 640px) {
+  body[data-watch="replay"] .watch-bar { left: 8px; right: 8px; width: auto; max-width: none; translate: none; padding: 8px 10px; gap: 4px; }
+  .watch-bar .wb-top b { flex-basis: auto; flex: 1 1 100%; }
+  .wb-time { gap: 8px; }
+  .wb-clock { min-width: 0; font-size: .76rem; }
+  .wb-play { width: 36px; height: 36px; }
+  .wb-legend { font-size: .7rem; gap: 2px 12px; }
+}
+
+/* 0.9.9.9.9.1: Customize → Magic staff — the staff's colours as round buttons along the foot of its preview (the
+   one on show is ringed; a locked one is dimmed with a lock, and says how to get it) */
+.cust-swatches { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; z-index: 3; display: flex; gap: 12px; padding: 8px 12px; border-radius: 999px;
+  background: rgba(10, 8, 28, .55); border: 1px solid rgba(255, 255, 255, .14); backdrop-filter: blur(6px); }
+.cust-swatches[hidden], .cust-swatches:empty { display: none; }
+.cs-sw { position: relative; width: 38px; height: 38px; min-width: 0; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .35); box-shadow: 0 2px 8px rgba(0, 0, 0, .45);
+  background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, .85) 0, var(--g) 34%, color-mix(in srgb, var(--t) 55%, #05031a) 100%); transition: scale .15s, box-shadow .15s; }
+.cs-sw:hover { scale: 1.08; }
+.cs-sw.on { border-color: #fff; box-shadow: 0 0 0 3px var(--g), 0 0 18px var(--g); }
+.cs-sw.equipped::after { content: ""; position: absolute; right: -3px; bottom: -3px; width: 13px; height: 13px; border-radius: 50%; background: var(--good, #36d399); border: 2px solid #0e0b24; }
+.cs-sw.locked { filter: saturate(.45) brightness(.7); }
+.cs-sw .cs-lock { position: absolute; inset: 9px; width: 16px; height: 16px; margin: auto; fill: #fff; color: #fff; filter: drop-shadow(0 1px 2px #000); }
+.cust-how { margin: -4px 0 12px; padding: 8px 10px; border-radius: 10px; font-size: .88rem; font-weight: 700; color: #ffe39a; background: rgba(255, 200, 80, .1); border: 1px solid rgba(255, 200, 80, .35); }
+:root[data-theme="light"] .cust-swatches { background: rgba(255, 255, 255, .7); border-color: rgba(30, 20, 80, .15); }
+:root[data-theme="light"] .cust-how { color: #7a4b00; background: rgba(255, 190, 60, .16); }
+@media (max-width: 640px) { .cust-swatches { gap: 10px; bottom: 10px; } .cs-sw { width: 34px; height: 34px; } }

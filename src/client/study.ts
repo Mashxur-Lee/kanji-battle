@@ -3,7 +3,7 @@ import { exampleFor, loadExamples } from './examples';
 import { hideKanji, kanjiTappable, wordsTappable } from './kanjihelp';
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, ONO_TYPES, type Level } from '../shared/protocol';
-import { BACKGROUNDS, beta, BORDERS, CHARACTER_DEFS, characterOf, characterUnlocked, leagueIn, type CharacterId, borderUnlocked, flameColor, flameUnlocked, levelOf, staffUnlocked, type BackgroundId, FLAMES, STAFFS, POSE_DEFS, poseOf, poseUnlocked } from '../shared/progress';
+import { BACKGROUNDS, beta, BORDERS, CHARACTER_DEFS, characterOf, characterUnlocked, leagueIn, type CharacterId, borderUnlocked, flameColor, flameUnlocked, levelOf, staffOf, staffUnlocked, type StaffDef, type BackgroundId, FLAMES, STAFFS, POSE_DEFS, poseOf, poseUnlocked } from '../shared/progress';
 import { arenaPreview, staffPreview } from './arena';
 import type { ArenaApi } from './arena3d';
 import { artUrl } from './backgrounds';
@@ -479,24 +479,62 @@ let orbitIdle = true;
 const thisMonth = () => new Date().getMonth() + 1;
 const monthName = (m: number) => new Date(2026, m - 1, 15).toLocaleDateString(locale(), { month: 'long' });
 
+// ── 0.9.9.9.9.1: a staff and its colours ───────────────────────────────────────────────────────────────────────
+/** a classic staff and the seasonal colours made from it (the classic one first) */
+const staffColours = (family: string) => STAFFS.filter((s) => s.id === family || s.base === family);
+const staffLock = (s: StaffDef) => (s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : '');
+const staffToast = (s: StaffDef, best: number) => (s.season
+  ? `The ${s.name} is the ${monthName(s.season)} reward - complete that month's goals (see Progress)${s.season === thisMonth() ? ' - it\'s on now!' : ''}`
+  : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`);
+function staffTile(id: string): Node {
+  if (staffThumbs[id]) { const img = document.createElement('img'); img.src = staffThumbs[id]; img.alt = ''; return img; }
+  const g = el('div', 'pixel-staff'); g.innerHTML = staffSvg(id); return g;
+}
+/** the colour picked for each staff on its preview (until then: the one you have on, or the classic one) */
+const staffShade: Record<string, string> = {};
+/** one colour of a staff, as Customize shows it (its name, how to get it, Equip) */
+function colourItem(v: StaffDef, profile: Profile, isAdmin: boolean): CustItem {
+  const best = Math.max(profile.bestStreak ?? 0, profile.streak ?? 0);
+  return {
+    id: v.id, name: v.name, blurb: v.blurb,
+    locked: !isAdmin && !staffUnlocked(v.id, best, profile.unlocks), lock: staffLock(v), lockedToast: staffToast(v, best),
+    equipped: staffOf(profile.staff).id === v.id,
+    tile: () => staffTile(v.id), equip: () => api.setStaff(v.id),
+  };
+}
+function lockIcon(): Node {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true'); s.classList.add('cs-lock');
+  s.innerHTML = '<rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.4"/>';
+  return s;
+}
+function shownColour(family: string, profile: Profile): StaffDef {
+  const vars = staffColours(family);
+  return vars.find((v) => v.id === staffShade[family]) ?? vars.find((v) => v.id === staffOf(profile.staff).id) ?? vars[0];
+}
+
 function custItems(profile: Profile, isAdmin: boolean, tab: CustTab = custTab): CustItem[] {
   const lvl = levelOf(profile.xp);
   const best = Math.max(profile.bestStreak ?? 0, profile.streak ?? 0);
   const time = resolveTime(getTimePref());
   if (tab === 'staff') {
-    // every staff is listed — seasonal ones stay locked until you complete their month's goals
-    return STAFFS.map((s) => ({
-      id: s.id, name: s.name, blurb: s.blurb,
-      locked: !isAdmin && !staffUnlocked(s.id, best, profile.unlocks),
-      lock: s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : '',
-      lockedToast: s.season ? `The ${s.name} is the ${monthName(s.season)} reward - complete that month's goals (see Progress)${s.season === thisMonth() ? ' - it\'s on now!' : ''}` : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`,
-      equipped: (profile.staff ?? 'verdant') === s.id,
-      tile: () => {
-        if (staffThumbs[s.id]) { const img = document.createElement('img'); img.src = staffThumbs[s.id]; img.alt = ''; return img; }
-        const g = el('div', 'pixel-staff'); g.innerHTML = staffSvg(s.id); return g;
-      },
-      equip: () => api.setStaff(s.id),
-    }));
+    // 0.9.9.9.9.1: the five staffs, each with its colours — the seasonal staffs are colours of a classic one (Blossom
+    // and Moon of the Verdant, Jade and Maple of the Ember, Frost and Abyss of the Tide), picked with the buttons on
+    // the preview. The tile shows the colour you have on.
+    const mine = staffOf(profile.staff).id;
+    return STAFFS.filter((s) => !s.base).map((fam) => {
+      const vars = staffColours(fam.id);
+      const on = vars.find((v) => v.id === mine);
+      const face = on ?? fam;
+      const open = vars.filter((v) => isAdmin || staffUnlocked(v.id, best, profile.unlocks));
+      return {
+        id: fam.id, name: face.name, blurb: face.blurb,
+        locked: !open.length, lock: staffLock(fam), lockedToast: staffToast(fam, best),
+        equipped: !!on,
+        tile: () => staffTile(face.id),
+        equip: () => api.setStaff(face.id),
+      };
+    });
   }
   if (tab === 'arena') {
     return BACKGROUNDS.map((b) => ({
@@ -579,7 +617,7 @@ function poseArt(id: string): string {
 }
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
-  staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak - your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Seasonal staffs are monthly rewards (see Progress). Tap a staff to hear its spell.`,
+  staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak - your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Each has seasonal colours, the monthly rewards (see Progress): pick one with the buttons on the preview. Tap a staff to hear its spell.`,
   arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
   profile: () => 'Your profile card: a frame round your picture (the Beta one, and one for each Daily challenge league you reach) and up to 3 achievement badges under your name.',
   character: (p) => `Your character in battles. The Goblin is yours from the start - climb the Daily challenge leagues to unlock the Knight (N5), the Witch (N3) and the Wizard (N2). You are in the ${leagueIn(p.unlocks) === 'KANA' ? 'Kana' : leagueIn(p.unlocks)} league.`,
@@ -595,14 +633,16 @@ function renderCustomize() {
     $(side === 'left' ? 'lkLeft' : 'lkRight').replaceChildren(...SLOTS.filter((x) => x.side === side).map((slot) => {
       const its = custItems(profile, isAdmin, slot.tab);
       const on = its.find((i) => i.equipped) ?? its[0];
-      const have = its.filter((i) => !i.locked).length;
+      // (0.9.9.9.9.1: the staffs count their colours too)
+      const have = slot.tab === 'staff' ? STAFFS.filter((x) => isAdmin || staffUnlocked(x.id, Math.max(profile.bestStreak ?? 0, profile.streak ?? 0), profile.unlocks)).length : its.filter((i) => !i.locked).length;
+      const all = slot.tab === 'staff' ? STAFFS.length : its.length;
       const sel0 = !orbitIdle && slot.tab === custTab;
       const b = el('button', `lk-slot${sel0 ? ' on' : ''}`) as HTMLButtonElement;
       b.type = 'button'; b.dataset.tab = slot.tab;
       b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(sel0));
       const pic = el('div', `lk-pic ${slot.tab}`); if (on) pic.append(on.tile());
       const txt = el('div', 'lk-txt');
-      txt.append(el('small', '', slot.label), el('b', '', on?.name ?? '—'), el('span', 'lk-count', `${have} / ${its.length}`));
+      txt.append(el('small', '', slot.label), el('b', '', on?.name ?? '—'), el('span', 'lk-count', `${have} / ${all}`));
       b.append(pic, txt);
       // (0.9.9.9.5.5: the open slot, tapped again, closes — nothing picked, the camera goes round you)
       b.onclick = () => { if (sel0) orbitIdle = true; else { orbitIdle = false; custTab = slot.tab; } renderCustomize(); };
@@ -625,6 +665,8 @@ function renderCustomize() {
   const items = custItems(profile, isAdmin);
   const lvl = levelOf(profile.xp);
   const sel = items.find((i) => i.id === picked[custTab]) ?? items.find((i) => i.equipped) ?? items[0];
+  // 0.9.9.9.9.1: a staff: what the preview, the name and Equip are about is the colour picked on its preview
+  const cur: CustItem = custTab === 'staff' ? colourItem(shownColour(sel.id, profile), profile, isAdmin) : sel;
   $('custSub').textContent = CUST_SUB[custTab](profile);
 
   // time of day (arena only)
@@ -649,8 +691,8 @@ function renderCustomize() {
     const pic = el('div', 'ci-pic'); pic.append(it.tile());
     b.append(pic, el('div', 'ci-name', it.name), el('div', 'ci-state', it.equipped ? '✓ Equipped' : it.locked ? `Locked · ${it.lock}` : 'Unlocked'));
     // (0.9.9.9.8: a staff, tapped, casts its sound — every staff has its own)
-    b.onclick = () => { picked[custTab] = it.id; if (custTab === 'staff') audio.sfx.cast(it.id, 1); renderCustomize(); };
-    b.ondblclick = () => void equip(it);
+    b.onclick = () => { picked[custTab] = it.id; if (custTab === 'staff') audio.sfx.cast(shownColour(it.id, profile).id, 1); renderCustomize(); };
+    b.ondblclick = () => void equip(custTab === 'staff' ? colourItem(shownColour(it.id, profile), profile, isAdmin) : it);
     return b;
   }));
 
@@ -681,9 +723,31 @@ function renderCustomize() {
   if (heavyOk && (custTab === 'arena' || custTab === 'omni' || custTab === 'pose' || custTab === 'character' || orbitIdle) && !arena3Tried) void ensureArena3();
   $('poseInsetLbl').hidden = !(in3d && custTab === 'pose');
   if (in3d) showArena3(custTab as 'arena' | 'omni' | 'pose' | 'character', sel.id, profile); else arena3?.setActive(false);
+  // 0.9.9.9.9.1: the staff's colours, as buttons on its preview: one tapped shows it and puts it on (a locked one says
+  // how to get it)
+  const sw = $('custSwatches');
+  sw.hidden = custTab !== 'staff';
   if (custTab === 'staff') {
-    if (preview) preview.show(sel.id);
-    else { const g = el('div', 'pixel-staff big'); g.innerHTML = staffSvg(sel.id); stage2.replaceChildren(g); }
+    if (preview) preview.show(cur.id);
+    else { const g = el('div', 'pixel-staff big'); g.innerHTML = staffSvg(cur.id); stage2.replaceChildren(g); }
+    const vars = staffColours(sel.id);
+    sw.replaceChildren(...(vars.length > 1 ? vars : []).map((v) => {
+      const it = colourItem(v, profile, isAdmin);
+      const b = el('button', `cs-sw${v.id === cur.id ? ' on' : ''}${it.locked ? ' locked' : ''}${it.equipped ? ' equipped' : ''}`) as HTMLButtonElement;
+      b.type = 'button';
+      b.style.setProperty('--g', v.gem); b.style.setProperty('--t', v.tint ?? v.gem);
+      b.title = it.locked ? `${v.name} · ${it.lockedToast}` : v.name;
+      b.setAttribute('aria-label', v.name); b.setAttribute('aria-pressed', String(v.id === cur.id));
+      if (it.locked) b.append(lockIcon());
+      b.onclick = () => {
+        staffShade[sel.id] = v.id;
+        audio.sfx.cast(v.id, 1);
+        if (it.locked) { ui.toast(it.lockedToast, 4500); renderCustomize(); return; }
+        if (it.equipped) { renderCustomize(); return; }
+        void equip(it);
+      };
+      return b;
+    }));
   } else if (custTab === 'arena') {
     stage2.innerHTML = backgroundThumb(sel.id as BackgroundId, resolveTime(getTimePref()));
   } else if (custTab === 'profile') {
@@ -713,11 +777,12 @@ function renderCustomize() {
   }
 
   // name, description, Equip
-  const btn = el('button', 'big cust-equip', sel.equipped ? '✓ Equipped' : sel.locked ? (sel.lock.startsWith('Level') ? `Unlocks at ${sel.lock.replace('Level', 'level')}` : sel.lock === 'Tutorial' ? 'Finish the tutorial to unlock' : sel.lock.endsWith('goals') ? `Unlocks with the ${sel.lock}` : sel.lock.endsWith('learned') ? `Unlocks at ${sel.lock}` : sel.lock.endsWith('league') ? `Unlocks in the ${sel.lock}` : `Unlocks at a ${sel.lock}`) : 'Equip') as HTMLButtonElement;
-  btn.disabled = sel.equipped;
-  btn.classList.toggle('locked', sel.locked);
-  btn.onclick = () => void equip(sel);
-  const info: Node[] = [el('h3', '', sel.name), el('p', 'sub', sel.blurb)];
+  const btn = el('button', 'big cust-equip', cur.equipped ? '✓ Equipped' : cur.locked ? (cur.lock.startsWith('Level') ? `Unlocks at ${cur.lock.replace('Level', 'level')}` : cur.lock === 'Tutorial' ? 'Finish the tutorial to unlock' : cur.lock.endsWith('goals') ? `Unlocks with the ${cur.lock}` : cur.lock.endsWith('learned') ? `Unlocks at ${cur.lock}` : cur.lock.endsWith('league') ? `Unlocks in the ${cur.lock}` : `Unlocks at a ${cur.lock}`) : 'Equip') as HTMLButtonElement;
+  btn.disabled = cur.equipped;
+  btn.classList.toggle('locked', cur.locked);
+  btn.onclick = () => void equip(cur);
+  const info: Node[] = [el('h3', '', cur.name), el('p', 'sub', cur.blurb)];
+  if (custTab === 'staff' && cur.locked) info.push(el('p', 'cust-how', cur.lockedToast)); // (0.9.9.9.9.1: how to get it)
   if (in3d && custTab === 'arena') { const t = el('div', 'cust-2d'); const th = el('div', 'bg-thumb'); th.innerHTML = backgroundThumb(sel.id as BackgroundId, resolveTime(getTimePref())); t.append(th, el('span', 'hint', '2D arena')); info.push(t); }
   if (in3d && custTab === 'omni') {
     const t = el('div', 'cust-2d');
@@ -735,8 +800,8 @@ function renderCustomize() {
   if (custTab === 'staff') {
     // the pixel version: what the 2D arena shows, in your character's hand
     const row = el('div', 'cust-2d');
-    const who = el('div', 'c2-char'); who.innerHTML = avatarSvg(characterOf(profile.unlocks), 'me', sel.id);
-    const st = el('div', 'pixel-staff'); st.innerHTML = staffSvg(sel.id);
+    const who = el('div', 'c2-char'); who.innerHTML = avatarSvg(characterOf(profile.unlocks), 'me', cur.id);
+    const st = el('div', 'pixel-staff'); st.innerHTML = staffSvg(cur.id);
     row.append(who, st, el('span', 'hint', '2D arena'));
     info.push(row);
   }

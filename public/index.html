@@ -23,7 +23,17 @@
 <div id="menuVeil" class="menu-veil" aria-hidden="true"></div>
 <canvas id="arena3d" class="arena3d" aria-hidden="true"></canvas>
 <!-- 0.9.9.9.9: watching a friend's game, or a replay -->
-<div id="watchBar" class="watch-bar" role="region" aria-label="Watching" hidden><span class="wb-dot" aria-hidden="true"></span><b id="watchTitle"></b><button id="watchSpeed" class="pill small" type="button">1×</button><button id="watchSide" class="pill small" type="button">Switch side</button><button id="watchAgain" class="pill small" type="button">Watch again</button><button id="watchCopy" class="pill small" type="button">Copy link</button><button id="watchExit" class="pill small danger" type="button">Exit</button></div>
+<!-- 0.9.9.9.9.1: a replay has a timeline: play / pause, drag anywhere, the speed, and both sides' hits and misses on it -->
+<div id="watchBar" class="watch-bar" role="region" aria-label="Watching" hidden>
+  <div class="wb-top"><span class="wb-dot" aria-hidden="true"></span><b id="watchTitle"></b><button id="watchSide" class="pill small" type="button">Switch side</button><button id="watchCopy" class="pill small" type="button">Copy link</button><button id="watchExit" class="pill small danger" type="button">Exit</button></div>
+  <div id="watchTime" class="wb-time" hidden>
+    <button id="watchPlay" class="wb-play" type="button" aria-label="Pause" data-state="playing"><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg><svg class="i-again" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a7 7 0 1 1-6.6 4.7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M3.2 4.6 5.6 10l5-2.4z"/></svg></button>
+    <span id="watchClock" class="wb-clock">0:00 / 0:00</span>
+    <div id="watchTrack" class="wb-track" role="slider" tabindex="0" aria-label="Replay position"><div class="wb-rail"><i class="wb-fill"></i></div><div class="wb-marks"></div><i class="wb-thumb"></i></div>
+    <button id="watchSpeed" class="pill small wb-speed" type="button" title="Speed">1×</button>
+  </div>
+  <div id="watchLegend" class="wb-legend" hidden></div>
+</div>
 <header class="topbar">
   <div id="whoami" class="whoami" hidden>
     <button id="whoBtn" class="who-btn" aria-expanded="false" aria-controls="profilePop" title="Your profile">
@@ -79,6 +89,7 @@
       <p id="arena3dInfo" class="hint"></p>
       <label class="toggle-row">UI size <select id="uiZoom" aria-label="UI size"></select></label>
       <label class="toggle-row">Theme <select id="themeSel" aria-label="Theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+      <label class="toggle-row">Menu weather <select id="weatherSel" aria-label="Menu weather"><option value="auto">Changes by itself</option><option value="clear">Clear sky</option><option value="leaves">Falling leaves</option><option value="rain">Rain</option><option value="storm">Thunderstorm</option><option value="snow">Snow</option><option value="petals">Cherry petals</option><option value="seeds">Dandelion seeds</option><option value="spores">Glowing spores</option></select></label>
     </section>
     <section class="set-sec" data-sec="audio" hidden>
       <div class="toggle-row">Music <button id="radioBtn" class="pill set-switch" aria-pressed="true" aria-label="Music"></button></div>
@@ -731,6 +742,7 @@
             <canvas id="arenaPreview" class="staff-canvas arena-prev" aria-label="3D preview" hidden></canvas>
             <div id="poseInsetLbl" class="pose-inset-lbl" hidden><span>3rd person</span><span>1st person</span></div>
             <div id="custStage2" class="cust-stage2"></div>
+            <div id="custSwatches" class="cust-swatches" role="group" aria-label="Colours" hidden></div>
           </div>
           <div class="lk-pedestal" aria-hidden="true"><i></i><i></i></div>
 
