@@ -7,6 +7,29 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.9.1', date: '2026-11',
+    en: [
+      'Customize > Magic staff shows the five staffs. Each has its colours as buttons on the preview: tap one to see it and put it on. A locked colour says how to get it.',
+      'New staff sounds, three for each staff, taking turns so they don\'t get old. A staff and its colours sound the same: Jade burns like Ember, Abyss and Frost sound like the Tide.',
+      'Staff hits in the staff\'s own colours, remade: branches that flower and drop their leaves, a column of fire, ice that grows and shatters, forked lightning struck twice, and a black hole for the Void.',
+      'When the enemy is nearly down, your staff feels it: Verdant\'s leaves thrash, Ember\'s lava drips faster, Tide\'s water whirls without stopping, Storm\'s lightning and gems race, Void pulls stars in from further. The Void staff itself is rebuilt too.',
+      'The 3D arena on High: light glows, fighters cast soft shadows, the floor shows its wear, and the place\'s weather falls round the arena (rain, storms, snow, leaves, petals).',
+      'Replays have a timeline: play, pause, drag to any moment, 0.5x to 2x, with every hit and miss of both sides marked. A replay starts with everyone as they were, and it waits while the app is in the background.',
+      'The weather changes every 2 hours and brings rain, storms and snow more often. Settings > Graphics > Menu weather picks one for good. The menu picture no longer zooms in and out.',
+      'Phones: the Unstoppable sun sits behind the combo counter again.',
+    ],
+    ru: [
+      'Кастомизация > Магический посох: пять посохов. Цвета каждого — кнопки на просмотре: нажмите, чтобы увидеть и надеть. Закрытый цвет подскажет, как его получить.',
+      'Новые звуки посохов, по три на каждый, по очереди — чтобы не надоедали. Посох и его цвета звучат одинаково: Нефрит горит, как Угли, Бездна и Иней звучат, как Прилив.',
+      'Удары посохов заново и в цвет посоха: ветви, которые цветут и роняют листья, столб огня, лёд, который вырастает и разлетается, раздвоенная молния дважды, а у Пустоты — чёрная дыра.',
+      'Когда враг почти повержен, посох это чувствует: листья Листвы мечутся, лава Углей капает чаще, вода Прилива кружит без остановки, молнии и камни Бури ускоряются, Пустота тянет звёзды издалека. Сам посох Пустоты тоже переделан.',
+      'Трёхмерная арена на высоком качестве: свет сияет, бойцы отбрасывают мягкие тени, на полу видны следы времени, а вокруг арены идёт погода этого места (дождь, гроза, снег, листья, лепестки).',
+      'У повторов есть шкала: пуск, пауза, перемотка в любой момент, скорость от 0,5x до 2x, все попадания и промахи обеих сторон отмечены. Повтор начинается со всеми такими, какими они были, и ждёт, пока приложение свёрнуто.',
+      'Погода меняется каждые 2 часа и чаще приносит дождь, грозу и снег. Настройки > Графика > Погода в меню — выбрать навсегда. Картинка меню больше не приближается и не отдаляется.',
+      'Телефоны: солнце «Неудержим» снова за счётчиком комбо.',
+    ],
+  },
+  {
     v: '0.9.9.9.9', date: '2026-11',
     en: [
       'Ranked: every 1v1 from the online queue now counts for your rating. Beat someone rated higher and you gain more. After 5 games you get a tier: Apprentice, Adept, Mage, Archmage, Sage, Grand Sage. Private rooms, bots, Boss and rematches don\'t count, and leaving a ranked game is a loss.',

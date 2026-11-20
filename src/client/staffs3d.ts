@@ -8,7 +8,11 @@
 //   Storm   — a Tesla-coil handle: shock rings race up it, arcs jump between the collars, bolts crackle round the
 //             orb; two rings turn and six plumbob gems orbit.
 //   Void    — nine floating spindles on an energy thread, silver ribbons wrapping the orb, three turning rings;
-//             stars and sparkles are pulled into the core.
+//             stars and sparkles are pulled into the core (0.9.9.9.9.1: the spindles float and turn, a disc of light
+//             spins round the orb with motes falling in).
+// 0.9.9.9.9.1: every staff feels it when the enemy is nearly down (update's `fury`): the Verdant's leaves thrash, the
+// Ember's lava drips faster and more of it, the Tide's waves whirl round the orb without stopping, the Storm's
+// lightning crackles and its gems race and spin, the Void pulls its stars in from twice as far.
 // The script models are Z-up, in metres, the orb at z≈3; here a group turns them Y-up and scales them so the
 // orb (the gem) sits at GEM_Y above the hand. Seasonal staffs are a classic staff, recoloured.
 
@@ -27,8 +31,11 @@ export interface Staff {
   color: THREE.Color; // the gem colour
   /** every material except the gem (characters tint them when hurt / frozen) */
   materials: THREE.MeshStandardMaterial[];
-  /** the animations (leaves sway, lava drips, waves whirl, bolts crackle…) — faster while charging */
-  update(time: number, dt: number, charge: number): void;
+  /**
+   * the animations (leaves sway, lava drips, waves whirl, bolts crackle…) — faster while charging; `fury` (0.9.9.9.9.1):
+   * how close the enemy is to falling, 0 … 1 — the staff feels it
+   */
+  update(time: number, dt: number, charge: number, fury?: number): void;
 }
 
 type Anim = (f: number, dt: number) => void;
@@ -43,6 +50,11 @@ interface Kit {
   anim(fn: Anim): void;
   /** how charged the staff is now (0 at rest … 1 casting) — 0.9.9.6 */
   charge(): number;
+  /** 0.9.9.9.9.1: how close the enemy is to falling (0 … 1, eased) — the staff feels it */
+  fury(): number;
+  /** 0.9.9.9.9.1: frames a part moves in `dt` at `rate` (× the charge's speed-up): parts that speed up with the fury keep
+   *  a clock of their own, so they speed up without jumping */
+  frames(dt: number, rate?: number): number;
   m: Mats;
 }
 const col = (r: number, g: number, b: number) => new THREE.Color(r, g, b);
@@ -129,7 +141,7 @@ function setInst(m: THREE.InstancedMesh, i: number, p: P3, s: number | P3, rot?:
 const ICO = new THREE.IcosahedronGeometry(1, 1);
 const flow = (k: Kit, mat: THREE.MeshStandardMaterial, speed: number) => {
   const maps = [mat.map, mat.emissiveMap].filter(Boolean) as THREE.Texture[];
-  k.anim((_f, dt) => { for (const t of maps) t.offset.x -= dt * speed; });
+  k.anim((_f, dt) => { for (const t of maps) t.offset.x -= dt * speed * (1 + 1.6 * k.fury()); });
 };
 
 // ── 1. VERDANT ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -170,8 +182,11 @@ function buildVerdant(k: Kit): Orb {
     }
   });
   const lm = k.inst(leafGeo(), leaf, leaves.length);
-  k.anim((f) => { // every leaf sways in the wind, each at its own pace
-    leaves.forEach((l, i) => setInst(lm, i, l.p, l.s, [l.rx + 0.16 * Math.sin(f * 0.2094 + l.ph), l.ry, l.rz + 0.1 * Math.sin(f * 0.1309 + l.ph * 1.7)]));
+  let lf = rng.uniform(0, 500);
+  k.anim((_f, dt) => { // every leaf sways in the wind, each at its own pace (0.9.9.9.9.1: the enemy nearly down — a gale)
+    const fu = k.fury(), amp = 1 + 1.5 * fu;
+    lf += k.frames(dt, 1 + 2.8 * fu);
+    leaves.forEach((l, i) => setInst(lm, i, l.p, l.s, [l.rx + 0.16 * amp * Math.sin(lf * 0.2094 + l.ph), l.ry + 0.14 * fu * Math.sin(lf * 0.37 + l.ph * 2.3), l.rz + 0.1 * amp * Math.sin(lf * 0.1309 + l.ph * 1.7)]));
     lm.instanceMatrix.needsUpdate = true;
   });
   return { z: 3.0, r: 0.16, glass: col(0.45, 1, 0.35), hot: col(0.7, 1, 0.3), mid: col(0.15, 0.8, 0.05) };
@@ -212,15 +227,19 @@ function buildEmber(k: Kit): Orb {
   for (let i = 0; i < 8; i++) k.stat(flamePetalGeo((2 * Math.PI * i) / 8 + 0.1, 2.5, rng.uniform(0.62, 0.85) + 0.12, 0.04, 0.13, 0.08, 0.6, 0.9), fire);
   // a lava rim round the core's border, and lava dripping from it
   k.stat(ringGeo(0.165, [0, 0, 0], 0.007, 14, 0), lava, [0, 0, 2.86]);
-  const nd = 6, drips: Array<{ p: P3; s: number; ph: number }> = [];
+  // (0.9.9.9.9.1: four more drips that only fall in a fury, and all of them faster)
+  const nd = 10, drips: Array<{ p: P3; s: number; ph: number }> = [];
   for (let i = 0; i < nd; i++) {
     const a = (2 * Math.PI * i) / nd + rng.uniform(-0.2, 0.2), r = rng.uniform(0.16, 0.2);
     drips.push({ p: [r * Math.cos(a), r * Math.sin(a), 2.9], s: rng.uniform(0.01, 0.016), ph: rng.random() });
   }
   const dm = k.inst(ICO, m.emissive(col(1, 0.45, 0.05), 10), nd);
-  k.anim((f) => {
+  let df = rng.uniform(0, 500);
+  k.anim((_f, dt) => {
+    const fu = k.fury();
+    df += k.frames(dt, 1 + 3 * fu);
     drips.forEach((d, i) => {
-      const u = fract(f / 60 + d.ph), w = d.s * Math.min(1, u * 6) * (1 - 0.6 * u);
+      const u = fract(df / 60 + d.ph), w = d.s * Math.min(1, u * 6) * (1 - 0.6 * u) * (i < 6 ? 1 : Math.min(1, fu * 2)) * (1 + 0.35 * fu);
       setInst(dm, i, [d.p[0], d.p[1], 2.9 - 0.8 * u ** 1.6], [0.85 * w, 0.85 * w, 7 * w]);
     });
     dm.instanceMatrix.needsUpdate = true;
@@ -253,7 +272,8 @@ function buildTide(k: Kit): Orb {
     tube.set(pts, rad);
     k.mesh(tube.geo, water);
     const now = rad.slice();
-    k.anim((f) => { for (let i = 0; i < n; i++) now[i] = rad[i] * (1 + 0.6 * Math.sin(f * 0.2618 - i * 0.7)); tube.set(pts, now); });
+    let rf = 0;
+    k.anim((_f, dt) => { rf += k.frames(dt, 1 + 2 * k.fury()); for (let i = 0; i < n; i++) now[i] = rad[i] * (1 + 0.6 * Math.sin(rf * 0.2618 - i * 0.7)); tube.set(pts, now); });
   }
   // glowing runes
   [0.7, 1.0, 1.35, 1.7, 2.05].forEach((z, i) => { const a = i * 2.1; k.stat(crystalGeo(0.035, 0.035, 0.014, 4, [0, 0, a]), gem, [0.047 * Math.cos(a), 0.047 * Math.sin(a), z]); });
@@ -273,8 +293,12 @@ function buildTide(k: Kit): Orb {
     const pts: P3[] = base.map(() => [0, 0, 0]), rad = base.map(() => 0);
     const mesh = k.mesh(tube.geo, water, [0, 0, 3]);
     mesh.renderOrder = 2;
-    const step = (f: number) => {
-      const sp = occasionalSpin(f, 120, 1, off, dirn), mm = morph(f, 120, off, 12), kk = Math.floor((f + off) / 120);
+    let spin = 0;
+    const step = (f: number, dt = 0) => {
+      // (0.9.9.9.9.1: the enemy nearly down — the waves melt into a stream and whirl round the orb without stopping)
+      const fu = k.fury();
+      spin += k.frames(dt, 1) * 0.12 * dirn * Math.min(1, fu * 1.6);
+      const sp = occasionalSpin(f, 120, 1, off, dirn) + spin, mm = Math.max(morph(f, 120, off, 12), Math.min(1, fu * 1.6)), kk = Math.floor((f + off) / 120);
       const T = (x: number[]) => x[0] * Math.sin(f * x[1] + x[2] + kk * x[3]);
       base.forEach((p, i) => {
         const tt = terms[i];
@@ -331,14 +355,19 @@ function buildStorm(k: Kit): Orb {
     const em = m.emissive(col(0.65, 0.4, 1), 4), full = em.emissiveIntensity;
     em.transparent = true;
     const sh = k.mesh(shockGeo, em);
-    k.anim((f) => {
-      const u = fract(f / 60 + i / 4);
+    let sf = 0;
+    k.anim((_f, dt) => {
+      sf += k.frames(dt, 1 + 2.2 * k.fury());
+      const u = fract(sf / 60 + i / 4);
       sh.position.z = 0.95 + 1.45 * u; sh.scale.set(1 + 0.3 * u, 1 + 0.3 * u, 1);
       const a = Math.min(1, u * 8) * Math.min(1, (1 - u) * 3);
       em.emissiveIntensity = full * a; em.opacity = a;
     });
   }
   const flick = (f: number, ph: number, cut: number) => clamp01((Math.sin(f * 0.9 + ph) + Math.sin(f * 0.37 + ph * 2.3) - cut) * 3);
+  // (0.9.9.9.9.1: a clock of its own for the lightning — in a fury it crackles faster and is on far more of the time)
+  let lt = 0;
+  k.anim((_f, dt) => { lt += k.frames(dt, 1 + 2.5 * k.fury()); });
   // …and electric arcs jump between the collars
   for (let i = 0; i < zc.length - 1; i++) {
     const a = rng.uniform(0, 6.28);
@@ -346,7 +375,7 @@ function buildStorm(k: Kit): Orb {
     const mid: P3 = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (p0[2] + p1[2]) / 2];
     const arc = k.mesh(boltGeo(rng, [p0[0] - mid[0], p0[1] - mid[1], p0[2] - mid[2]], [p1[0] - mid[0], p1[1] - mid[1], p1[2] - mid[2]], 6, 0.012, 0.005), boltM, mid);
     const ph = rng.uniform(0, 6.28);
-    k.anim((f) => { arc.scale.setScalar(Math.max(1e-4, flick(f, ph, 0.3))); });
+    k.anim(() => { arc.scale.setScalar(Math.max(1e-4, flick(lt, ph, 0.3 - 0.9 * k.fury()))); });
   }
   // lightning along the shaft and round the orb
   for (let i = 0; i < 3; i++) {
@@ -357,9 +386,9 @@ function buildStorm(k: Kit): Orb {
     const d = new THREE.Vector3(rng.gauss(), rng.gauss(), rng.gauss()).normalize(), far = rng.uniform(0.32, 0.5);
     const b = k.mesh(boltGeo(rng, [d.x * 0.16, d.y * 0.16, d.z * 0.16], [d.x * far, d.y * far, d.z * far], 7, 0.03, 0.005), boltM, [0, 0, 3]);
     const ph = rng.uniform(0, 6.28);
-    k.anim((f) => { // crackle: re-aim every few frames, and flicker
-      b.rotation.set(Math.floor(f / 5 + ph) * 1.7, 0, Math.floor(f / 4 + ph) * 2.4, 'ZYX');
-      b.scale.setScalar(Math.max(1e-4, flick(f, ph, 0.5)));
+    k.anim(() => { // crackle: re-aim every few frames, and flicker
+      b.rotation.set(Math.floor(lt / 5 + ph) * 1.7, 0, Math.floor(lt / 4 + ph) * 2.4, 'ZYX');
+      b.scale.setScalar(Math.max(1e-4, flick(lt, ph, 0.5 - 1.1 * k.fury()) * (1 + 0.4 * k.fury())));
     });
   }
   // silver prongs hugging the orb
@@ -370,7 +399,8 @@ function buildStorm(k: Kit): Orb {
   // two turning rings and the central spike
   ([[0.3, [75, 10, 20], 0.011, 0.02618], [0.23, [-25, 15, 60], 0.009, -0.05236]] as const).forEach(([rad, eu, th, sp]) => {
     const rg = k.mesh(ringGeo(rad, eu.map((d) => (d * Math.PI) / 180) as P3, th, 10), silver, [0, 0, 3]);
-    k.anim((f) => { rg.rotation.z = f * sp; });
+    let rz = 0;
+    k.anim((_f, dt) => { rz += k.frames(dt, 1 + 2.5 * k.fury()) * sp; rg.rotation.z = rz; });
   });
   k.stat(crystalGeo(0.58, 0.06, 0.03, 4), silver, [0, 0, 3.14]);
   // plumbob gems glide round the core on 3 tilted orbits, staying upright
@@ -382,10 +412,14 @@ function buildStorm(k: Kit): Orb {
     return { e1, e2, R: rng.uniform(0.32, 0.5), th0: Math.floor(i / 3) * Math.PI + rng.uniform(-0.3, 0.3), w: speeds[i % 3] * 0.02618, ph: rng.uniform(0, 6.28) };
   });
   const pm = k.inst(crystalGeo(0.11, 0.11, 0.035, 4), gem, bobs.length);
-  k.anim((f) => {
+  // (0.9.9.9.9.1: in a fury the gems race round the orb and spin as they go)
+  let bf = 0, bspin = 0;
+  k.anim((_f, dt) => {
+    const fu = k.fury(), d = k.frames(dt, 1 + 2.6 * fu);
+    bf += d; bspin += d * 0.25 * fu;
     bobs.forEach((b, i) => {
-      const th = b.th0 + f * b.w, r = b.R * (1 + 0.12 * Math.sin(f * 0.05236 + b.ph));
-      setInst(pm, i, [r * (b.e1.x * Math.cos(th) + b.e2.x * Math.sin(th)), r * (b.e1.y * Math.cos(th) + b.e2.y * Math.sin(th)), 3 + r * (b.e1.z * Math.cos(th) + b.e2.z * Math.sin(th))], 1);
+      const th = b.th0 + bf * b.w, r = b.R * (1 + 0.12 * Math.sin(bf * 0.05236 + b.ph));
+      setInst(pm, i, [r * (b.e1.x * Math.cos(th) + b.e2.x * Math.sin(th)), r * (b.e1.y * Math.cos(th) + b.e2.y * Math.sin(th)), 3 + r * (b.e1.z * Math.cos(th) + b.e2.z * Math.sin(th))], 1, [0, 0, bspin + i]);
     });
     pm.instanceMatrix.needsUpdate = true;
   });
@@ -394,18 +428,49 @@ function buildStorm(k: Kit): Orb {
 }
 
 // ── 5. VOID ─────────────────────────────────────────────────────────────────────────────────────────────────
+// 0.9.9.9.9.1: the highest staff looked the stillest. Now the nine spindles float on their thread, each bobbing and
+// turning on its own; a disc of light spins round the orb like matter round a black hole, with motes racing round
+// it and falling in; the stars are pulled in from further, faster, and in a fury (the enemy nearly down) from twice
+// as far, and the whole handle glows.
+let diskTexture: THREE.Texture | null = null;
+function voidDiskTex() {
+  if (diskTexture) return diskTexture;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d')!, h = 128;
+  const grd = g.createRadialGradient(h, h, h * 0.45, h, h, h);
+  grd.addColorStop(0, 'rgba(255,255,255,0)'); grd.addColorStop(0.05, 'rgba(255,255,255,1)'); grd.addColorStop(0.3, 'rgba(255,255,255,.45)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 46; i++) {
+    const r = h * (0.48 + Math.random() * 0.48), a0 = Math.random() * Math.PI * 2;
+    g.strokeStyle = `rgba(255,255,255,${0.08 + Math.random() * 0.25})`; g.lineWidth = 1 + Math.random() * 2;
+    g.beginPath(); g.arc(h, h, r, a0, a0 + 0.5 + Math.random() * 1.4); g.stroke();
+  }
+  diskTexture = new THREE.CanvasTexture(c); diskTexture.colorSpace = THREE.SRGBColorSpace;
+  return diskTexture;
+}
 function buildVoid(k: Kit): Orb {
   const { rng, m } = k;
   const vein = m.veins(col(0.02, 0.03, 0.05), col(0.5, 0.85, 1), 6, 6, 0.06, 0.15);
   vein.flatShading = true;
   const silver = m.metal(col(0.8, 0.86, 0.95), 0.15), gem = m.crystal(col(0.25, 0.65, 1), 4);
   const star = m.emissive(col(0.7, 0.9, 1), 14), energy = m.emissive(col(0.3, 0.7, 1), 9);
-  // the handle: nine floating obsidian spindles strung on a glowing thread, silver rings drifting in the gaps
+  // the handle: nine obsidian spindles floating on a glowing thread, silver rings drifting in the gaps
   k.stat(tubeGeo([[0, 0, 0.3], [0, 0, 1.4], [0, 0, 2.55]], [0.01, 0.01, 0.013], { radial: 6 }), energy);
-  for (let i = 0; i < 9; i++) k.stat(crystalGeo(0.092, 0.092, 0.03 + 0.0045 * i, 6, [0, 0, i * 0.5]), vein, [0, 0, 0.55 + 0.21 * i]);
+  const spindles = Array.from({ length: 9 }, (_, i) => ({ m: k.mesh(crystalGeo(0.092, 0.092, 0.03 + 0.0045 * i, 6), vein, [0, 0, 0.55 + 0.21 * i]), z: 0.55 + 0.21 * i, a: i * 0.5, w: (i % 2 ? -1 : 1) * rng.uniform(0.6, 1.1), ph: i * 0.75 }));
+  let sf = 0;
+  k.anim((_f, dt) => {
+    const fu = k.fury();
+    sf += k.frames(dt, 1 + 1.5 * fu);
+    for (const p of spindles) {
+      p.m.position.z = p.z + (0.014 + 0.012 * fu) * Math.sin(sf * 0.085 + p.ph);
+      p.m.rotation.z = p.a + sf * 0.02 * p.w;
+    }
+  });
   for (let i = 0; i < 4; i++) {
     const rg = k.mesh(ringGeo(0.058 + 0.006 * i, [0, 0, 0], 0.006, 12, 0.6), silver, [0, 0, 0.655 + 0.42 * i]);
-    k.anim((f) => { rg.rotation.z = f * (i % 2 === 0 ? 1 : -1) * 0.05236; });
+    let rz = 0;
+    k.anim((_f, dt) => { rz += k.frames(dt, 1 + 2 * k.fury()) * (i % 2 === 0 ? 1 : -1) * 0.05236; rg.rotation.z = rz; rg.position.z = 0.655 + 0.42 * i + 0.01 * Math.sin(sf * 0.07 + i); });
   }
   // two big silver ribbons spiral up and wrap the orb
   const rfn = (t: number) => { const top = Math.max(0, (t - 0.7) / 0.3); return 0.05 + 0.26 * spow(Math.sin((top * Math.PI) / 2), 1.5); };
@@ -416,37 +481,66 @@ function buildVoid(k: Kit): Orb {
   // three turning rings
   ([[0.36, [72, 10, 0], 0.01, 0.02618], [0.31, [-35, 0, 40], 0.009, -0.03927], [0.27, [100, 0, 75], 0.008, 0.05236]] as const).forEach(([rad, eu, th, sp]) => {
     const rg = k.mesh(ringGeo(rad, eu.map((d) => (d * Math.PI) / 180) as P3, th, 10), silver, [0, 0, 3]);
-    k.anim((f) => { rg.rotation.z = f * sp; });
+    let rz = 0;
+    k.anim((_f, dt) => { rz += k.frames(dt, 1 + 2 * k.fury()) * sp; rg.rotation.z = rz; });
   });
   k.stat(crystalGeo(0.62, 0.05, 0.032, 4), gem, [0, 0, 3.17]); // the spire above the orb
+  // the disc of light round the orb, tipped like a planet's ring, spinning; motes race round it and fall in
+  const diskMat = new THREE.MeshBasicMaterial({ map: voidDiskTex(), color: col(0.35, 0.6, 1), transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const disk = k.mesh(new THREE.RingGeometry(0.19, 0.46, 48, 1), diskMat, [0, 0, 3]);
+  disk.rotation.set(0.42, 0.18, 0);
+  disk.renderOrder = 3;
+  const tiltQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.42, 0.18, 0));
+  const motes = Array.from({ length: N(40) + 6 }, () => ({ r: rng.uniform(0.2, 0.5), a: rng.uniform(0, 6.28), s: rng.uniform(0.006, 0.014), y: rng.uniform(-0.012, 0.012) }));
+  const mm = k.inst(ICO, star, motes.length);
+  let df = 0;
+  const v = new THREE.Vector3();
+  k.anim((_f, dt) => {
+    const fu = k.fury(), d = k.frames(dt, 1 + 2 * fu);
+    df += d;
+    disk.rotation.z = -df * (0.05 + 0.04 * fu);
+    diskMat.opacity = 0.6 + 0.25 * Math.sin(df * 0.09) + 0.15 * fu;
+    disk.scale.setScalar(1 + 0.12 * fu);
+    for (let i = 0; i < motes.length; i++) {
+      const o = motes[i];
+      o.a += d * (0.006 / (o.r * o.r)) * 0.18; // (faster near the middle)
+      o.r -= d * 0.0009 * (1 + 2 * fu);
+      if (o.r < 0.17) { o.r = rng.uniform(0.38, 0.5) * (1 + 0.3 * fu); o.a = rng.uniform(0, 6.28); }
+      v.set(Math.cos(o.a) * o.r, Math.sin(o.a) * o.r, o.y).applyQuaternion(tiltQ);
+      setInst(mm, i, [v.x, v.y, 3 + v.z], o.s * Math.min(1, (o.r - 0.17) * 12));
+    }
+    mm.instanceMatrix.needsUpdate = true;
+  });
   // 0.9.9.6: casting wakes the handle — the obsidian veins, the thread and the silver light up ice-blue as the
-  // orb builds, and settle again after
+  // orb builds, and settle again after (0.9.9.9.9.1: so does a fury)
   {
     const vEI = vein.emissiveIntensity, eEI = energy.emissiveIntensity, ice = col(0.45, 0.82, 1);
     let c = 0;
     k.anim((_f, dt) => {
-      c += (k.charge() - c) * Math.min(1, dt * 5);
+      c += (Math.max(k.charge(), 0.65 * k.fury()) - c) * Math.min(1, dt * 5);
       vein.emissiveIntensity = vEI * (1 + 5 * c);
       energy.emissiveIntensity = eEI * (1 + 2.5 * c);
       silver.emissive.copy(ice).multiplyScalar(0.85 * c);
     });
   }
-  // every star and every white sparkle is pulled into the core, over and over
+  // every star and every white sparkle is pulled into the core, over and over (in a fury: from further, and faster)
   const rels = scatterSphere(rng, N(110), 0.35, 0.85);
   for (let i = 0; i < N(40); i++) rels.push([rng.uniform(-0.12, 0.12), rng.uniform(-0.12, 0.12), rng.uniform(-1.2, 0.35)]);
   const absorbers = (list: P3[], size: () => number) => list.map((rel) => ({ rel, s: size(), per: rng.choice([48, 60, 80, 96, 120]), ph: rng.random() }));
-  const stars = absorbers(rels, () => rng.uniform(0.004, 0.011));
+  const stars = absorbers(rels, () => rng.uniform(0.005, 0.013));
   const sparkles = absorbers(scatterSphere(rng, Math.max(N(30), 8), 0.4, 0.9), () => rng.uniform(0.02, 0.045));
   const sparkGeo = mergeGeos([crystalGeo(1, 1, 0.14, 4), crystalGeo(1, 1, 0.14, 4, [Math.PI / 2, 0, 0])].map((g) => { g.setIndex(Array.from({ length: g.attributes.position.count }, (_, i) => i)); return g; }));
   const sm = k.inst(ICO, star, stars.length), km = k.inst(sparkGeo, star, sparkles.length);
-  const absorb = (im: THREE.InstancedMesh, list: typeof stars, f: number) => {
+  let af = 0;
+  const absorb = (im: THREE.InstancedMesh, list: typeof stars, fu: number) => {
+    const far = 1 + 1.1 * fu, big = 1 + 0.7 * fu;
     list.forEach((a, i) => {
-      const u = fract(f / a.per + a.ph), k2 = (1 - u) ** 1.6;
-      setInst(im, i, [a.rel[0] * k2, a.rel[1] * k2, 3 + a.rel[2] * k2], a.s * Math.min(1, u * 8) * (1 - u) ** 0.5);
+      const u = fract(af / a.per + a.ph), k2 = (1 - u) ** 1.6 * far;
+      setInst(im, i, [a.rel[0] * k2, a.rel[1] * k2, 3 + a.rel[2] * k2], a.s * big * Math.min(1, u * 8) * (1 - u) ** 0.5);
     });
     im.instanceMatrix.needsUpdate = true;
   };
-  k.anim((f) => { absorb(sm, stars, f); absorb(km, sparkles, f); });
+  k.anim((_f, dt) => { const fu = k.fury(); af += k.frames(dt, 1 + 1.8 * fu); absorb(sm, stars, fu); absorb(km, sparkles, fu); });
   // the crystal foot with silver claws
   k.stat(crystalGeo(0.08, 0.31, 0.05, 6), gem, [0, 0, 0.33]);
   for (let i = 0; i < 3; i++) {
@@ -468,7 +562,7 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
   group.add(B);
   const materials: THREE.MeshStandardMaterial[] = [], glassy: THREE.Material[] = [];
   const anims: Anim[] = [];
-  let chargeNow = 0;
+  let chargeNow = 0, furyNow = 0;
   const batch = new Batch();
   const kit: Kit = {
     B, batch, rng: seeded(SEEDS[kind]), m: mats(materials, glassy),
@@ -477,6 +571,8 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
     inst: (geo, mat, count) => { const o = new THREE.InstancedMesh(geo, mat, count); o.frustumCulled = false; B.add(o); return o; },
     anim: (fn) => { anims.push(fn); },
     charge: () => chargeNow,
+    fury: () => furyNow,
+    frames: (dt, rate = 1) => dt * 24 * (1 + chargeNow * 1.5) * rate,
   };
   const orb = BUILDERS[kind](kit);
   batch.build(B);
@@ -514,11 +610,17 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
   group.add(glow);
 
   let clock = Math.random() * 20; // staffs in the same arena don't move in step
-  const step = (dt: number, charge: number) => { chargeNow = charge; clock += dt * (1 + charge * 1.5); const f = clock * 24; for (const a of anims) a(f, dt); };
+  const step = (dt: number, charge: number, fury = 0) => {
+    chargeNow = charge;
+    furyNow += (Math.max(0, Math.min(1, fury)) - furyNow) * Math.min(1, dt * 1.5); // (0.9.9.9.9.1: it builds up over a second or so)
+    clock += dt * (1 + charge * 1.5);
+    const f = clock * 24;
+    for (const a of anims) a(f, dt);
+  };
   step(0, 0);
   return {
     group, gem, gemMat, glow, color, materials,
-    update(_time, dt, charge) { step(dt, charge); },
+    update(_time, dt, charge, fury) { step(dt, charge, fury); },
   };
 }
 

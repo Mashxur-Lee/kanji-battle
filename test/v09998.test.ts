@@ -14,7 +14,7 @@ import { originAllowed, securityHeaders } from '../src/server/security';
 import { StudyService } from '../src/server/study/StudyService';
 import { STAFFS } from '../src/shared/progress';
 import { VERSION } from '../src/shared/version';
-import { STAFF_SOUNDS, staffCast } from '../src/client/staffsfx';
+import { spellsOf, staffCast } from '../src/client/staffsfx';
 
 const src = (f: string) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
 const mail = () => `t${Math.random().toString(36).slice(2)}@test.dev`;
@@ -46,9 +46,10 @@ function fakeContext() {
 }
 
 test('0.9.9.9.8 every staff has a cast sound of its own (a seasonal one at least its classic staff\'s), bigger with the combo', () => {
-  for (const s of STAFFS) assert.ok(STAFF_SOUNDS.includes(s.id), `${s.id} has its own sound`);
+  // (0.9.9.9.9.1: a seasonal staff sounds like its classic staff — the same staff in another colour — and every staff has spells that take turns)
+  for (const s of STAFFS) assert.ok(spellsOf(s.base ?? s.id) >= 2, `${s.id} has its staff's sounds`);
   for (const s of STAFFS) {
-    const sizes = [1, 5].map((combo) => { const f = fakeContext(); const out = f.c.createGain(); staffCast({ c: f.c as never, dry: out as never, wet: out as never }, s.id, combo, 0, s.base); return f.count(); });
+    const sizes = [1, 5].map((combo) => { const f = fakeContext(); const out = f.c.createGain(); staffCast({ c: f.c as never, dry: out as never, wet: out as never }, s.id, combo, 0, s.base, 0); return f.count(); }); // (0.9.9.9.9.1: the same spell both times — they take turns at random)
     assert.ok(sizes[1] >= sizes[0], `${s.id}: a 5× combo is at least as big as a single cast`);
   }
   // an unknown staff (an old save) still sounds
@@ -58,7 +59,7 @@ test('0.9.9.9.8 every staff has a cast sound of its own (a seasonal one at least
   // played on a right answer in a battle, with your staff — and in Customize when you tap one
   // (0.9.9.9.9: the staff of the player whose side you see — yours, or the player you watch)
   assert.match(src('src/client/main.ts'), /audio\.sfx\.cast\(players\.find\(\(p\) => p\.id === you\)\?\.staff \?\? profile\?\.staff, msg\.combo\)/);
-  assert.match(src('src/client/study.ts'), /if \(custTab === 'staff'\) audio\.sfx\.cast\(it\.id, 1\);/);
+  assert.match(src('src/client/study.ts'), /if \(custTab === 'staff'\) audio\.sfx\.cast\(shownColour\(it\.id, profile\)\.id, 1\);/); // (0.9.9.9.9.1: the colour on show)
 });
 
 // ── results, lobby, quizzes ──────────────────────────────────────────────────────────────────────────────────────

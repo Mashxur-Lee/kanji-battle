@@ -814,20 +814,31 @@ const PARTS: Record<string, Part[]> = {
 // Each place has its own weather by the season, and it changes every few hours: autumn leaves, rain (now and then a
 // thunderstorm), snow in winter, cherry petals in spring, dandelion seeds over the plains, glowing spores in the swamp.
 export type Weather = 'clear' | 'leaves' | 'rain' | 'storm' | 'snow' | 'petals' | 'seeds' | 'spores';
+// 0.9.9.9.9.1: it was nearly always leaves - in autumn most places had leaves two turns in three, and rain or snow
+// came seldom (snow only in winter). Now every place has rain and a storm in most seasons, November and March can
+// snow, the weather changes every 2 hours, and Settings → Graphics → Menu weather can pick one.
 const WEATHERS: Record<BackgroundId, Record<'winter' | 'spring' | 'summer' | 'autumn', Weather[]>> = {
-  castle: { winter: ['snow', 'snow', 'clear', 'rain'], spring: ['petals', 'clear', 'rain'], summer: ['clear', 'rain', 'storm'], autumn: ['leaves', 'rain', 'leaves', 'storm'] },
-  plains: { winter: ['snow', 'snow', 'clear'], spring: ['petals', 'seeds', 'rain'], summer: ['seeds', 'clear', 'rain', 'storm'], autumn: ['leaves', 'leaves', 'rain', 'seeds'] },
-  forest: { winter: ['snow', 'snow', 'leaves'], spring: ['leaves', 'rain', 'petals'], summer: ['leaves', 'rain', 'storm'], autumn: ['leaves', 'leaves', 'rain'] },
-  swamp: { winter: ['snow', 'rain', 'spores'], spring: ['rain', 'spores', 'clear'], summer: ['spores', 'rain', 'storm'], autumn: ['rain', 'spores', 'leaves'] },
-  worldtree: { winter: ['snow', 'petals'], spring: ['petals', 'petals', 'spores'], summer: ['petals', 'spores', 'rain'], autumn: ['leaves', 'petals', 'spores'] },
+  castle: { winter: ['snow', 'snow', 'clear', 'rain', 'snow'], spring: ['petals', 'clear', 'rain', 'storm'], summer: ['clear', 'rain', 'storm', 'clear'], autumn: ['leaves', 'rain', 'storm', 'clear'] },
+  plains: { winter: ['snow', 'snow', 'clear', 'rain'], spring: ['petals', 'seeds', 'rain', 'storm'], summer: ['seeds', 'clear', 'rain', 'storm'], autumn: ['leaves', 'rain', 'seeds', 'storm'] },
+  forest: { winter: ['snow', 'snow', 'rain', 'clear'], spring: ['leaves', 'rain', 'petals', 'storm'], summer: ['leaves', 'rain', 'storm', 'clear'], autumn: ['leaves', 'rain', 'storm', 'clear'] },
+  swamp: { winter: ['snow', 'rain', 'spores', 'snow'], spring: ['rain', 'spores', 'clear', 'storm'], summer: ['spores', 'rain', 'storm', 'clear'], autumn: ['rain', 'spores', 'leaves', 'storm'] },
+  worldtree: { winter: ['snow', 'petals', 'snow', 'spores'], spring: ['petals', 'rain', 'spores', 'clear'], summer: ['petals', 'spores', 'rain', 'storm'], autumn: ['leaves', 'petals', 'rain', 'spores'] },
 };
-const WEATHER_LIST: Weather[] = ['clear', 'leaves', 'rain', 'storm', 'snow', 'petals', 'seeds', 'spores'];
-export function weatherFor(id: BackgroundId, d = new Date()): Weather {
+export const WEATHER_LIST: Weather[] = ['clear', 'leaves', 'rain', 'storm', 'snow', 'petals', 'seeds', 'spores'];
+/** 0.9.9.9.9.1: the weather picked in Settings ('auto': it changes by itself) */
+export function weatherPref(): Weather | 'auto' {
   try { const w = localStorage.getItem('kb:weather') as Weather | null; if (w && WEATHER_LIST.includes(w)) return w; } catch { /* no storage */ }
+  return 'auto';
+}
+export function setWeatherPref(w: Weather | 'auto') { try { if (w === 'auto') localStorage.removeItem('kb:weather'); else localStorage.setItem('kb:weather', w); } catch { /* no storage */ } }
+export function weatherFor(id: BackgroundId, d = new Date()): Weather {
+  const pick = weatherPref();
+  if (pick !== 'auto') return pick;
   const m = d.getMonth();
   const season = m === 11 || m <= 1 ? 'winter' : m <= 4 ? 'spring' : m <= 7 ? 'summer' : 'autumn';
-  const list = WEATHERS[id]?.[season] ?? ['clear'];
-  const slot = `${d.getFullYear()}-${m}-${d.getDate()}-${Math.floor(d.getHours() / 4)}-${id}`; // (every 4 hours)
+  const list = [...(WEATHERS[id]?.[season] ?? ['clear'])];
+  if (m === 10 || m === 2) list.push('snow'); // (the first snow, the last snow)
+  const slot = `${d.getFullYear()}-${m}-${d.getDate()}-${Math.floor(d.getHours() / 2)}-${id}`; // (every 2 hours)
   const hsh = [...slot].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 11);
   return list[hsh % list.length];
 }
@@ -943,10 +954,11 @@ export const BG_FADE_MS = 3200;
 let fadeTimer = 0;
 /** Draws a background into the fixed #bg layer. `fade`: fade out and back in (the time of day changing). */
 export function paintBackground(el: HTMLElement, id: BackgroundId, time: TimeOfDay = 'night', fade = false, menu = false) {
-  const key = `${id}-${time}${menu ? '-m' : ''}`;
+  const wx = weatherFor(id); // (0.9.9.9.9.1: new weather, a new picture)
+  const key = `${id}-${time}-${wx}${menu ? '-m' : ''}`;
   if (el.dataset.key === key) return;
   // the menu and the other screens show the same picture: only the menu look changes
-  const sameArt = el.dataset.key?.replace(/-m$/, '') === `${id}-${time}` && !!el.querySelector('.bg-layer.art');
+  const sameArt = el.dataset.key?.replace(/-m$/, '') === `${id}-${time}-${wx}` && !!el.querySelector('.bg-layer.art');
   el.dataset.key = key;
   if (sameArt) { el.classList.toggle('menu-art', menu); return; }
   // (the drawn scene is made only when needed — a picture that failed to load)

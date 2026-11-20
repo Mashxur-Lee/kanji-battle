@@ -27,7 +27,7 @@ import { arena, arenaLook, arenaTyping, arenaQuality, arenaScreen, arenaSupporte
 import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicProfile, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
 import * as audio from './audio';
-import { getTimePref, paintBackground, resolveTime, untilNextStep } from './backgrounds';
+import { getTimePref, paintBackground, resolveTime, setWeatherPref, untilNextStep, weatherPref, type Weather } from './backgrounds';
 import { setPlayerViewer, showPlayer } from './playerview';
 import { claimDialog, codeDialog, emailDialog, forgotDialog } from './account';
 import { initInbox, inboxLeft, inboxReconnected, inboxUser, onDm, onDmGroup, onDmRead, onDmTyping, onDmUpdate, openInbox, setInboxSocket, setInviteJoin } from './inbox';
@@ -41,7 +41,7 @@ import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
 import { closeRematchAsk, initFriends, onFriendEvent, onFriendPresence, onInvite, onInviteDeclined, onRematchAsk, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
 import { alertsOn, pushSignedOut, registerPush, setAlerts } from './push';
-import { initWatch, LEAVING, liveEnded, liveStarted, mayWhileWatching, playReplay, replayLink, stopWatching, watching } from './watch';
+import { initWatch, LEAVING, liveEnded, liveStarted, mayWhileWatching, playReplay, replayLink, stopWatching, watching, type ReplayState } from './watch';
 import { renderRankBox } from './ladder';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialChallenge, tutorialScreen, tutorialTouring } from './tutorial';
 import { askNotifyPermission } from './notify';
@@ -74,6 +74,12 @@ let players: PlayerView[] = [];
 let minPlayers = 2;
 let challengeId = 0;
 let inRoom = false;
+/** 0.9.9.9.9.1: a replay rebuilding a moment — its messages go in without sounds, banners or spells flying */
+let quiet = false;
+/** 0.9.9.9.9.1: the results coming up after a game_over (stopped when a replay jumps back, or you leave) */
+let overTimers: number[] = [];
+/** 0.9.9.9.9.1: what to do once the server says you've left the room (watch a replay) */
+let afterLeft: (() => void) | null = null;
 // writing (battle writing mode and Deck Duel casts)
 let writing = false;
 let charCount = 0;
@@ -410,6 +416,9 @@ function logout(message = '') {
 }
 
 function backToMenu() {
+  if (watching()) stopWatching(); // (0.9.9.9.9.1: a replay doesn't play on behind the menu)
+  for (const t of overTimers) clearTimeout(t);
+  overTimers = [];
   ui.setWatchers(0); // (0.9.9.9.9)
   inRoom = false;
   you = '';
@@ -475,7 +484,9 @@ function onMessage(msg: ServerMessage) {
       setRailMe(msg.user.id); // 0.9.9.9.6.3: friends in your room: "Playing with you"
       // 0.9.9.9.7.3: back after a long while away (the app in the background) and the room has closed meanwhile: to the
       // menu, saying so (the results screen stayed up with every button dead)
-      if (msg.seated === false && inRoom && !inLocalRoom()) { backToMenu(); ui.toast('The room closed while you were away'); } // (not a game against the AI run offline, in the app)
+      // (not a game against the AI run offline, in the app; 0.9.9.9.9.1: nor a replay — it has no seat: back from the
+      // background it sent you to the menu while the replay played on, its sounds too)
+      if (msg.seated === false && inRoom && !inLocalRoom() && !watching()) { backToMenu(); ui.toast('The room closed while you were away'); }
       joinFromLink();
       break;
     case 'invite_declined':
@@ -508,6 +519,8 @@ function onMessage(msg: ServerMessage) {
       ui.setError('');
       break;
     case 'left':
+      if (afterLeft) { const go = afterLeft; afterLeft = null; backToMenu(); go(); break; } // (0.9.9.9.9.1: left to watch a replay)
+      if (watching() === 'replay') break; // (a late one: it isn't the replay's to end)
       backToMenu();
       if (pendingJoin) { socket.send({ type: 'join', code: pendingJoin, levels: savedLevels() }); pendingJoin = ''; }
       if (pendingChallenge && !pendingChallenge.sent) { pendingChallenge.sent = true; socket.send({ type: 'create', mode: pendingChallenge.mode, levels: savedLevels() }); }
@@ -588,13 +601,13 @@ function onMessage(msg: ServerMessage) {
       if (msg.resume && ui.currentScreen() === 'battle') { ui.resumeBattle(players, msg.boss, you, msg.durationMs); break; }
       pendingMissed = null;
       if (watching() !== 'live') ui.setWatchers(0); // (0.9.9.9.9: a new battle: the count comes again if anyone watches)
-      ui.showBattle(msg.mode, players, msg.boss, you, msg.countdownMs, msg.durationMs, (n) => (n > 0 ? audio.sfx.tick() : audio.sfx.go()));
+      ui.showBattle(msg.mode, players, msg.boss, you, msg.countdownMs, msg.durationMs, (n) => { if (!quiet) { if (n > 0) audio.sfx.tick(); else audio.sfx.go(); } });
       break;
     case 'challenge':
       challengeId = msg.id;
       arena()?.endIntro(); // 0.9.9.9.7.3: your word is up — no more fly-in (the AI could cast while you were still in it)
       arena()?.channel(0);
-      ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs, from: msg.from, hint: msg.hint });
+      ui.showChallenge({ kanji: msg.kanji, answer: msg.answer, timeLimitMs: msg.timeLimitMs, meaning: msg.meaning, reading: msg.reading, charCount: msg.charCount, flashMs: msg.flashMs, from: msg.from, hint: msg.hint, leftMs: msg.leftMs });
       tutorialChallenge(); // 0.9.9.9.6: the first word of the tutorial's battle: the tour of the battle screen
       gameKbReset();
       sendTyping(false); // a new word: nothing typed yet
@@ -615,10 +628,11 @@ function onMessage(msg: ServerMessage) {
       ui.lockInput();
       if (mode === 'writing') ui.setCharSlots(charCount, written.map(() => ''), false, writeShape);
       ui.setFeedback(msg);
+      if (quiet) break; // (0.9.9.9.9.1: a replay rebuilding a moment: the answer shows, without its sounds)
       if (msg.correct) {
         // say the word first (romaji answers at the kana level: say the kana itself), then the success chime
         const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
-        // (0.9.9.9.8: the sound of your staff — each has its own)
+        // (0.9.9.9.8: the sound of your staff — each has its own; 0.9.9.9.9.1: the enemy's HP decides how fierce)
         void voice.speak(kana).then(() => audio.sfx.cast(players.find((p) => p.id === you)?.staff ?? profile?.staff, msg.combo));
         if (mode !== 'deck') comboMilestone(msg.combo, profile?.unlocks); // "On Fire" / "Inferno" / "Unstoppable" right away
       } else { audio.sfx.wrong(); arena()?.fizzle('me'); }
@@ -643,21 +657,23 @@ function onMessage(msg: ServerMessage) {
       players = msg.players;
       ui.lockInput();
       stopWriting();
+      const loud = !quiet;
       if (msg.mode !== 'deck') {
-        setTimeout(() => {
+        overTimers.push(window.setTimeout(() => {
           ui.renderFighters(players, you, msg.boss);
           if (msg.mode === 'boss' && msg.teamWon) ui.knockOut('boss');
           if (msg.reason !== 'forfeit') for (const p of players) if (p.hp <= 0) ui.knockOut(actorOf(p.id));
-        }, 450);
+        }, 450));
       }
-      setTimeout(() => {
+      overTimers.push(window.setTimeout(() => {
         const won = msg.mode === 'boss' ? msg.teamWon : msg.winnerId === you;
-        if (won) audio.sfx.win();
-        else if (msg.mode === 'boss' || msg.winnerId) audio.sfx.lose();
+        // (0.9.9.9.9.1: a replay jumping past the end shows the results without the fanfare)
+        if (loud && won) audio.sfx.win();
+        else if (loud && (msg.mode === 'boss' || msg.winnerId)) audio.sfx.lose();
         resetDeck();
         ui.showResults(msg.mode, msg.players, you, msg.winnerId, msg.teamWon, msg.reason, msg.stats);
         if (pendingMissed) { showMissedSave(pendingMissed); pendingMissed = null; } // the words you missed: untick to keep them out of the deck
-      }, msg.reason === 'forfeit' ? 400 : 2000);
+      }, msg.reason === 'forfeit' ? 400 : 2000));
       break;
     }
     case 'paused':
@@ -1312,6 +1328,12 @@ ui.$<HTMLInputElement>('kanaMastered').onchange = async (e) => {
   sel.value = saved; apply(saved);
   sel.onchange = () => { try { localStorage.setItem('kb:theme', sel.value); } catch { /* private mode */ } apply(sel.value); };
 }
+// 0.9.9.9.9.1: the menu's weather — by itself (the place and the season, every 2 hours), or the one you like
+{
+  const sel = ui.$<HTMLSelectElement>('weatherSel');
+  sel.value = weatherPref();
+  sel.onchange = () => { setWeatherPref(sel.value as Weather | 'auto'); applyBackground(); };
+}
 // Language (English / Russian): reloads the page in the new language
 {
   const sel = ui.$<HTMLSelectElement>('langSel');
@@ -1379,9 +1401,35 @@ function showReplayRow(id: string | null, history: boolean, side?: string) {
 async function openReplay(id: string, side?: string) {
   try {
     const r = (await api.replay(id)).replay;
-    if (inRoom && !watching()) socket.send({ type: 'leave' });
+    // 0.9.9.9.9.1: from the results you're still in the room — leave it first. The replay began at once, and the
+    // server's "you left" came a moment later and cleared you out of it: you were in it without your HP, as the
+    // default character with the default staff, until the next message put you back.
+    if (inRoom && !watching()) {
+      await new Promise<void>((done) => {
+        afterLeft = done;
+        socket.send({ type: 'leave' });
+        setTimeout(() => { if (afterLeft === done) { afterLeft = null; backToMenu(); done(); } }, 2500);
+      });
+    }
     playReplay(id, r, side);
   } catch (e) { ui.toast((e as Error).message, 5000); }
+}
+/** 0.9.9.9.9.1: a replay jumped to a moment: the battle as it stood then, built quietly */
+function restoreReplay(s: ReplayState) {
+  quiet = true;
+  try {
+    for (const t of overTimers) clearTimeout(t);
+    overTimers = [];
+    ui.stopCountdown();
+    onMessage(s.start); // the battle screen, the arena and the clocks as they were then
+    if (s.start.countdownMs <= 0) arena()?.endIntro();
+    players = s.players;
+    ui.renderFighters(players, you, s.boss);
+    if (mode === 'boss') for (const p of players) if (p.hp <= 0) ui.knockOut(actorOf(p.id));
+    if (s.challenge) onMessage(s.challenge);
+    if (s.answer) onMessage(s.answer);
+    if (s.over) onMessage(s.over);
+  } finally { quiet = false; }
 }
 /** ?replay=<id>: a shared link — it plays (signed in or not) */
 function replayFromLink(): boolean {
@@ -1394,6 +1442,7 @@ function replayFromLink(): boolean {
 }
 initWatch({
   feed: (m) => onMessage(m),
+  restore: restoreReplay,
   leave: () => { backToMenu(); if (!user) showAuth(); },
   unwatch: () => socket.send({ type: 'unwatch' }),
   toast: (s) => ui.toast(s, 3000),

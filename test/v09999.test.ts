@@ -160,8 +160,10 @@ test('0.9.9.9.9 the app: watching sends nothing that acts on a game; a replay li
   assert.match(main, /if \(watching\(\)\) \{ if \(LEAVING\.has\(m\.type\)\) \{ stopWatching\(\); return; \} if \(!mayWhileWatching\(m\.type\)\) return; \}/);
   const w = src('src/client/watch.ts');
   assert.match(w, /const ALLOWED = new Set\(\['pong', 'where', 'away', 'dm_typing', 'unwatch', 'watch', 'hello'\]\);/);
-  assert.match(w, /if \(to !== null && to !== who\) continue;/, 'a replay shows only the watched side\'s own words');
-  assert.match(w, /const GAP_MS = 3000;/, 'long pauses are shortened');
+  // (0.9.9.9.9.1: the clip is made in replayclip.ts — a pause in the game is cut out, a long silence shortened)
+  const clip = src('src/client/replayclip.ts');
+  assert.match(clip, /if \(to !== null && to !== side\) continue;/, 'a replay shows only the watched side\'s own words');
+  assert.match(clip, /const SILENCE_MS = 15000;/, 'long silences are shortened');
   assert.match(main, /if \(!watching\(\)\) replayFromLink\(\); \/\/ 0\.9\.9\.9\.9: a shared replay plays without signing in/);
   assert.match(main, /if \(!watching\(\)\) noteBattle\(\);/, 'watching a battle isn\'t playing one');
   assert.match(main, /watch: link\?\.status === 'accepted' && link\.online && \/\^Playing \/\.test/);

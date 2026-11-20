@@ -74,7 +74,7 @@ test('0.9.9.9.7.3 back after the room closed: told at once, and a results button
   await back.say({ type: 'rematch' }); // an older app still showing the results: it presses Rematch
   assert.ok(back.got.some((m) => m.type === 'notice' && m.message === 'The room closed while you were away'));
   assert.ok(back.got.some((m) => m.type === 'left'), 'an answer: back to the menu (the button did nothing)');
-  assert.match(src('src/client/main.ts'), /msg\.seated === false && inRoom && !inLocalRoom\(\)\) \{ backToMenu\(\)/);
+  assert.match(src('src/client/main.ts'), /msg\.seated === false && inRoom && !inLocalRoom\(\) && !watching\(\)\) \{ backToMenu\(\)/); // (0.9.9.9.9.1: not while watching a replay — it has no seat)
 });
 
 // ── #12: photos ──────────────────────────────────────────────────────────────────────────────────────────────────

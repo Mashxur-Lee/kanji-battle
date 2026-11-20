@@ -1143,6 +1143,11 @@ const RU: Record<string, string> = {
   'Deck Duel can’t be watched': 'Дуэль колод нельзя смотреть', 'This game can’t be watched': 'Эту игру нельзя смотреть',
   'You’re playing in this game': 'Вы играете в этой игре', 'This game has as many watchers as it can take': 'У этой игры уже максимум зрителей',
   'The game is over': 'Игра закончилась', 'This replay is gone (they are kept for two weeks)': 'Этого повтора больше нет (повторы хранятся две недели)',
+  // 0.9.9.9.9.1: the replay's timeline, the staffs' colours, the menu's weather
+  'Copy link': 'Скопировать ссылку', 'Play': 'Пуск', 'Speed': 'Скорость', 'Replay position': 'Место в повторе', 'hits': 'попадания', 'misses': 'промахи', 'miss': 'промах',
+  'The dragon': 'Дракон', 'Colours': 'Цвета',
+  'Menu weather': 'Погода в меню', 'Changes by itself': 'Меняется сама', 'Clear sky': 'Ясно', 'Falling leaves': 'Листопад', 'Thunderstorm': 'Гроза',
+  'Rain': 'Дождь', 'Snow': 'Снег', 'Cherry petals': 'Лепестки сакуры', 'Dandelion seeds': 'Семена одуванчика', 'Glowing spores': 'Светящиеся споры',
 };
 
 // names of the monthly seasons and the staffs (staff names in the genitive: «Посох Бури»)
@@ -1286,10 +1291,12 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Write all (\d+) kanji, left to right$/, 'Напишите все кандзи ($1) слева направо'],
   [/^(\d+) active days this month$/, (_, n) => `${n} ${plural(+n, 'активный день', 'активных дня', 'активных дней')} в этом месяце`],
   [/^(.+) - view profile$/, '$1 — профиль'],
-  [/^The staff in your hand \(other players see it too\)\. Classic staffs unlock with your login streak - your best: (.+)\. Seasonal staffs are monthly rewards \(see Progress\)\. Tap a staff to hear its spell\.$/, (_, d) => `Посох в вашей руке (его видят и другие игроки). Классические посохи открываются серией входов — ваш рекорд: ${d.replace(/(\d+) days?/, (_m: string, n: string) => `${n} ${plural(+n, 'день', 'дня', 'дней')}`)}. Сезонные посохи — награды месяца (см. «Прогресс»). Нажмите на посох, чтобы услышать его заклинание.`],
+  [/^The staff in your hand \(other players see it too\)\. Classic staffs unlock with your login streak - your best: (.+)\. Each has seasonal colours, the monthly rewards \(see Progress\): pick one with the buttons on the preview\. Tap a staff to hear its spell\.$/, (_, d) => `Посох в вашей руке (его видят и другие игроки). Классические посохи открываются серией входов — ваш рекорд: ${d.replace(/(\d+) days?/, (_m: string, n: string) => `${n} ${plural(+n, 'день', 'дня', 'дней')}`)}. У каждого есть сезонные цвета — награды месяца (см. «Прогресс»): выберите цвет кнопками на просмотре. Нажмите на посох, чтобы услышать его заклинание.`],
   [/^(\w+) reward: complete that month's goals \(Progress page\)\. Wraps you at 5 in a row and during your Omnipotence\.$/, 'Награда месяца ($1): выполните цели этого месяца (страница «Прогресс»). Окутывает вас при 5 подряд и во время Всемогущества.'],
   [/^Unlocks at a (\d+)-day streak$/, (_, n) => `Откроется при серии ${n} ${plural(+n, 'день', 'дня', 'дней')}`],
   [/^(\w+) Staff$/, (_, x) => (STAFF_RU[x] ? `Посох ${STAFF_RU[x]}` : `Посох ${x}`)],
+  // 0.9.9.9.9.1: a locked staff colour says how to get it (shown under its name now)
+  [/^The (\w+) Staff is the (.+) reward - complete that month's goals \(see Progress\)( - it's on now!)?$/, (_, x, m, now) => `Посох ${STAFF_RU[x] ?? x} — награда месяца (${m}): выполните цели этого месяца (см. «Прогресс»)${now ? ' — он идёт сейчас!' : ''}`],
   [/^(\w+) flames$/, (_, x) => `Пламя «${SEASON_RU[x] ?? x}»`],
   [/^(.+) · (\d+)$/, (_, x, n) => (MASTERY_RU[x] ? `${MASTERY_RU[x]} · ${n}` : `${x} · ${n}`)],
   [/^Locked · (.+)$/, (_, x) => `Закрыто · ${tr(x)}`],
