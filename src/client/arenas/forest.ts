@@ -74,7 +74,7 @@ export function buildForest(time: 'day' | 'sunset' | 'night', lite: boolean): En
   const sky = skyFn(TH, [sph(TH.body_az, TH.body_el)]);
 
   // ground
-  group.add(new THREE.Mesh(ground([0, 4, 8, 10, 12, 13, 14, 16, 18, 21, 24, 28, 33, 40, 48, 57, 65, 72, 90, 110, 140], 64, gh, groundColor), vcMat({ flat: false })));
+  group.add(new THREE.Mesh(ground([0, 4, 8, 10, 12, 13, 14, 16, 18, 21, 24, 28, 33, 40, 48, 57, 65, 72, 90, 110, 140], 64, gh, groundColor), vcMat({ flat: false, surface: 'ground' })));
 
   // the arena: slab floor with light baked into the stone tops under the shafts
   const BEAMS: Array<[P3, P3]> = [[[14, 14, 32], [3, 4, 0.6]], [[20, 8, 32], [4, 0, 0.6]]];
@@ -108,7 +108,7 @@ export function buildForest(time: 'day' | 'sunset' | 'night', lite: boolean): En
       }
       ni.dispose();
     }
-    group.add(new THREE.Mesh(mb.geo(), vcMat()));
+    group.add(new THREE.Mesh(mb.geo(), vcMat({ surface: 'rock' })));
   }
 
   // trees that sway, some with red eyes that blink
@@ -122,7 +122,7 @@ export function buildForest(time: 'day' | 'sunset' | 'night', lite: boolean): En
     }
     return null;
   };
-  const barkMat = vcMat({ morph: true }), eyeMat = glowMat({ gain: 2.2 });
+  const barkMat = vcMat({ morph: true, surface: 'wood' }), eyeMat = glowMat({ gain: 2.2 });
   const trees: Array<{ mesh: THREE.Mesh; eyes: THREE.Mesh | null; P: number; flip: number; blinks: number[] }> = [];
   const nNear = lite ? 12 : 18, nFar = lite ? 6 : 10;
   for (let i = 0; i < nNear + nFar; i++) {
@@ -268,7 +268,7 @@ export function buildForest(time: 'day' | 'sunset' | 'night', lite: boolean): En
         geo.dispose();
       }
     }
-    group.add(new THREE.Mesh(mb.geo(), vcMat()));
+    group.add(new THREE.Mesh(mb.geo(), vcMat({ surface: 'rock' })));
   }
   { // far trunks in the haze
     const mb = new MB();

@@ -61,7 +61,7 @@ export function buildPlains(time: 'day' | 'sunset' | 'night', lite: boolean): En
     return mul3(base, v * (0.9 + 0.25 * noise2(x * 1.7, y * 1.7)));
   };
   const stoneColor = (base: readonly number[], t: number, n: number) => lerp3(mul3(base, (0.6 + 0.4 * clamp01(t) ** 0.7) * (0.88 + 0.24 * n)), T.moss, clamp01(1 - t * 3) * 0.55);
-  group.add(new THREE.Mesh(ground([0, 4, 8, 10, 12, 13, 14, 16, 18, 21, 24, 28, 33, 40, 46, 52], 64, gh, groundColor), vcMat({ flat: false })));
+  group.add(new THREE.Mesh(ground([0, 4, 8, 10, 12, 13, 14, 16, 18, 21, 24, 28, 33, 40, 46, 52], 64, gh, groundColor), vcMat({ flat: false, surface: 'ground' })));
 
   { // 3D ridged mountains with baked light, snow, valley mist and aerial perspective
     const nseg = lite ? 96 : 144, rr = [46, 48, 51, 54, 58, 62, 66, 71, 76, 82, 88, 95, 102, 110, 118, 126, 134];
@@ -206,8 +206,8 @@ export function buildPlains(time: 'day' | 'sunset' | 'night', lite: boolean): En
     }
     geo.dispose();
   }
-  group.add(new THREE.Mesh(stone.geo(), vcMat()));
-  group.add(new THREE.Mesh(plain2.geo(), vcMat({ flat: false })), new THREE.Mesh(plain1.geo(), vcMat()));
+  group.add(new THREE.Mesh(stone.geo(), vcMat({ surface: 'stone' })));
+  group.add(new THREE.Mesh(plain2.geo(), vcMat({ flat: false, surface: 'stone' })), new THREE.Mesh(plain1.geo(), vcMat({ surface: 'stone' })));
   const rings = new THREE.Mesh(ring.geo(), emitMat([1, 0.92, 0.75], 0.75 * Math.min(1.6, E)));
   rings.name = 'centre-pattern';
   group.add(rings, new THREE.Mesh(dots.geo(), emitMat([1, 0.92, 0.75], 0.75 * Math.min(1.6, E))));

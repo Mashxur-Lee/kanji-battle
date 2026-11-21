@@ -136,7 +136,7 @@ export function buildWorldTree(time: 'day' | 'sunset' | 'night', lite: boolean):
     }
     monoTops.push([x0, y0, h - 0.4]);
   }
-  group.add(new THREE.Mesh(stone.geo(), vcMat()), new THREE.Mesh(rune.geo(), emitMat(TH.rune_col, 1.4 * G)));
+  group.add(new THREE.Mesh(stone.geo(), vcMat({ surface: 'stone' })), new THREE.Mesh(rune.geo(), emitMat(TH.rune_col, 1.4 * G)));
 
   // ── bushes on the earth, the hedge along the edge, far crowns out of the clouds ──
   const dome = (mb: MB, c: P3, rx: number, ry: number, rz: number, segs: number, rows: number, col: (t: number, th: number) => readonly number[], sway = true) => {

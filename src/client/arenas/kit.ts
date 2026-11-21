@@ -330,10 +330,75 @@ export class MB {
 }
 
 // ── materials ──────────────────────────────────────────────────────────────────────────────────────────────
-/** vertex-coloured, lit; `emit` adds the vertex colour as glow (the scripts' vc_mat(emit=…)) */
-export function vcMat(o: { emit?: number; flat?: boolean; double?: boolean; morph?: boolean } = {}) {
+// ── 0.9.9.9.9.4: surface detail ─────────────────────────────────────────────────────────────────────────────
+// The arenas are flat-shaded, vertex-coloured shapes (light to draw): every stone, rock and trunk was one smooth colour.
+// On High, their surfaces now carry detail baked in Blender (resources: _claude-work/detail-textures.blend) — one
+// seamless 1024² image, a height map per surface in its channels: R worn, cracked stone; G rough rock; B bark. It is laid
+// on by world position from three sides (no texture coordinates needed), darkens the cracks and hollows a little and
+// bends the light with them (a bump from the height). No geometry is added; Low and the phones' light mode are as before.
+// A second image holds the buildings' patterns: R bricks, G roof tiles, B planks (sized so a wall shows them from afar).
+export type Surface = 'stone' | 'rock' | 'wood' | 'ground' | 'brick' | 'tiles' | 'planks' | 'none';
+let detailOn = false;
+/** buildEnv: High (detail) or Low (as before) for the arenas built next */
+export function setArenaDetail(on: boolean) { detailOn = on; }
+const detailReady = [{ value: 0 }, { value: 0 }];
+const detailTex: Array<THREE.Texture | null> = [null, null];
+function detailTexture(i: 0 | 1) {
+  if (!detailTex[i]) {
+    const t = new THREE.TextureLoader().load(`/textures/kw-detail${i ? '2' : ''}.webp?v=1`, () => { detailReady[i].value = 1; });
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = THREE.NoColorSpace; // (heights, not colours)
+    t.anisotropy = 4;
+    detailTex[i] = t;
+  }
+  return detailTex[i]!;
+}
+/** per surface: the channel, metres per tile, how much the colour and the light follow it */
+const SURF: Record<Exclude<Surface, 'none'>, { tex?: 1; ch: string; scale: number; albedo: number; bump: number }> = {
+  stone: { ch: 'r', scale: 0.24, albedo: 0.42, bump: 1.3 },
+  rock: { ch: 'g', scale: 0.35, albedo: 0.6, bump: 2.2 },
+  wood: { ch: 'b', scale: 0.7, albedo: 0.6, bump: 1.8 },
+  ground: { ch: 'g', scale: 0.12, albedo: 0.35, bump: 0.8 },
+  brick: { tex: 1, ch: 'r', scale: 0.25, albedo: 0.5, bump: 1.4 }, // (4 m a tile: 8 courses of 50 cm)
+  tiles: { tex: 1, ch: 'g', scale: 0.3, albedo: 0.5, bump: 1.6 },
+  planks: { tex: 1, ch: 'b', scale: 0.45, albedo: 0.45, bump: 1.2 },
+};
+function addDetail(m: THREE.MeshLambertMaterial, surface: Exclude<Surface, 'none'>, emit: number) {
+  const s = SURF[surface];
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.kwDetail = { value: detailTexture(s.tex ?? 0) };
+    sh.uniforms.kwReady = detailReady[s.tex ?? 0];
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vKwPos;\nvarying vec3 vKwNrm;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvKwPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvKwNrm = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+uniform sampler2D kwDetail; uniform float kwReady; varying vec3 vKwPos; varying vec3 vKwNrm;
+vec3 kwPerturb(vec3 sp, vec3 sn, vec2 dh, float fd) {
+  vec3 sx = normalize(dFdx(sp)), sy = normalize(dFdy(sp));
+  vec3 r1 = cross(sy, sn), r2 = cross(sn, sx); float det = dot(sx, r1) * fd;
+  return normalize(abs(det) * sn - sign(det) * (dh.x * r1 + dh.y * r2));
+}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+vec3 kwW = pow(abs(normalize(vKwNrm)), vec3(4.0)); kwW /= (kwW.x + kwW.y + kwW.z);
+vec3 kwP = vKwPos * ${s.scale.toFixed(3)};
+float kwH = texture2D(kwDetail, kwP.zy).${s.ch} * kwW.x + texture2D(kwDetail, kwP.xz).${s.ch} * kwW.y + texture2D(kwDetail, kwP.xy).${s.ch} * kwW.z;
+kwH = mix(0.5, kwH, kwReady);
+diffuseColor.rgb *= 1.0 + (kwH - 0.5) * ${(2 * s.albedo).toFixed(3)};`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+normal = kwPerturb(-vViewPosition, normal, vec2(dFdx(kwH), dFdy(kwH)) * ${s.bump.toFixed(3)} * kwReady, faceDirection);`);
+    if (emit > 0) sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n totalEmissiveRadiance += vColor.rgb * ${emit.toFixed(3)};`);
+  };
+  m.customProgramCacheKey = () => `vcdetail-${surface}-${emit}`;
+}
+
+/** vertex-coloured, lit; `emit` adds the vertex colour as glow (the scripts' vc_mat(emit=…)); `surface` (0.9.9.9.9.4): the
+ *  detail it carries on High */
+export function vcMat(o: { emit?: number; flat?: boolean; double?: boolean; morph?: boolean; surface?: Surface } = {}) {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: o.flat ?? true, side: o.double ? THREE.DoubleSide : THREE.FrontSide });
   const emit = o.emit ?? 0;
+  const surface = o.surface ?? 'none';
+  if (detailOn && surface !== 'none') { addDetail(m, surface, emit); return m; }
   if (emit > 0) {
     m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n totalEmissiveRadiance += vColor.rgb * ${emit.toFixed(3)};`); };
     m.customProgramCacheKey = () => `vcemit${emit}`;
@@ -622,7 +687,7 @@ export function slabArena(o: { th: Theme; r: Rand; z0: number; h: number; rimZ0:
     else placeGlyph(runes, i % 3, phi, 8.2, 0.55, ZT + 0.01, 0.09);
   }
   const g = new THREE.Group();
-  g.add(new THREE.Mesh(stone.geo(), vcMat()));
+  g.add(new THREE.Mesh(stone.geo(), vcMat({ surface: 'stone' })));
   g.add(new THREE.Mesh(glow.geo(), emitMat(o.glowCol, o.glow * 1.1)));
   const lineMesh = new THREE.Mesh(lines.geo(), emitMat(o.lineCol, o.glow * 1.3));
   lineMesh.name = 'centre-pattern'; // hidden in the game: the classic rotating kanji circle is drawn there instead
