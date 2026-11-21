@@ -72,7 +72,35 @@ function staffPal(id: string): { shape: string; pal: StaffPal } {
 }
 
 /** The staff's shapes in staff space (0..50 × 0..200), to be placed by the caller. */
+/** 0.9.9.9.9.5: the swords in 2D (blade, edge, guard, grip, the light at the tip) — the same looks as swords3d */
+const SWORD2D: Record<string, { blade: string; edge: string; guard: string; grip: string; gem: string; top: number; curve: number; w: number; katana?: boolean; fang?: boolean; rune?: string }> = {
+  iron: { blade: '#8b929c', edge: '#d4d9e0', guard: '#7a6440', grip: '#4a2f1c', gem: '#dfe8ff', top: 30, curve: 0, w: 8 },
+  longsword: { blade: '#b9c3cf', edge: '#f2f6fb', guard: '#c7ccd6', grip: '#2a3550', gem: '#7cc4ff', top: 14, curve: 0, w: 8.5, rune: '#6fb8ff' },
+  saber: { blade: '#5a4a46', edge: '#ffb070', guard: '#b8862e', grip: '#3a1a12', gem: '#ff8a2a', top: 18, curve: 9, w: 9, rune: '#ff6a1a' },
+  katana: { blade: '#d6e2ec', edge: '#ffffff', guard: '#2a2c34', grip: '#1c2236', gem: '#9ff6ff', top: 8, curve: 11, w: 6, katana: true },
+  dragonfang: { blade: '#2a2236', edge: '#ffcf5a', guard: '#8a5a1a', grip: '#2a0f0f', gem: '#ffd34a', top: 4, curve: 3, w: 10, fang: true, rune: '#c06bff' },
+};
+function swordBody(pic: Pic, id: string) {
+  const d = SWORD2D[id] ?? SWORD2D.iron;
+  const G = 98, L = G - d.top, w = d.w / 2;
+  const x = (t: number) => 25 + d.curve * t * t; // the blade bends to the right as it rises
+  const pts = (side: number) => Array.from({ length: 9 }, (_, i) => { const t = i / 8, half = w * (t < 0.82 ? 1 - 0.15 * t : 0.88 * (1 - (t - 0.82) / 0.18)); return `${(x(t) + side * half * (d.katana ? (side < 0 ? 0.55 : 1.45) : 1)).toFixed(1)} ${(G - t * L).toFixed(1)}`; });
+  const left = pts(-1), right = pts(1).reverse();
+  const glow = pic.radial([[0, '#ffffff', 0.95], [0.35, d.gem, 0.55], [1, d.gem, 0]]);
+  pic.e(x(1), d.top, 12, 12, glow, 'class="orb-glow"');
+  pic.p(`M${left.join(' L')} L${right.join(' L')} Z`, pic.lit(d.blade, 'h', 0.5));
+  pic.s(`M${pts(1).join(' L')}`, d.edge, 1.3, 'opacity=".9"');
+  if (d.rune) pic.s(`M${x(0.06).toFixed(1)} ${G - 6} Q${x(0.35).toFixed(1)} ${G - L * 0.35} ${x(0.62).toFixed(1)} ${(G - L * 0.62).toFixed(1)}`, d.rune, 1.6, 'opacity=".85"');
+  if (d.katana) pic.e(25, G + 1, 7, 2.6, d.guard);
+  else if (d.fang) { pic.p(`M25 ${G + 2} L8 ${G - 12} L12 ${G - 2} Z`, d.guard); pic.p(`M25 ${G + 2} L42 ${G - 12} L38 ${G - 2} Z`, d.guard); pic.p(`M21 ${G - 2} L25 ${G + 5} L29 ${G - 2} L25 ${G - 6} Z`, lt(d.guard, 0.3)); }
+  else { pic.p(`M${id === 'iron' ? 13 : 10} ${G - 2} h${id === 'iron' ? 24 : 30} v4 h-${id === 'iron' ? 24 : 30} Z`, pic.lit(d.guard, 'h', 0.4)); if (id !== 'iron') { pic.e(10, G, 2.6, 2.6, d.guard); pic.e(40, G, 2.6, 2.6, d.guard); } }
+  pic.p(`M22 ${G + 2} L28 ${G + 2} L28 ${G + 30} L22 ${G + 30} Z`, pic.lit(d.grip, 'h', 0.4));
+  for (let k = 0; k < 6; k++) pic.s(`M22 ${G + 5 + k * 4.6} L28 ${G + 7 + k * 4.6}`, lt(d.grip, 0.25), 1, 'opacity=".7"');
+  pic.e(25, G + 34, 4, 4, d.guard);
+  pic.e(x(1), d.top + 2, 3, 3, '#ffffff', 'class="orb"');
+}
 function staffBody(pic: Pic, id: string) {
+  if (SWORD2D[id]) { swordBody(pic, id); return; } // (0.9.9.9.9.5)
   const { shape, pal } = staffPal(id);
   const shaft = pic.lit(pal.wood, 'h', 0.45);
   const glow = pic.radial([[0, pal.glow, 0.95], [0.35, pal.gem, 0.55], [1, pal.gem, 0]]);

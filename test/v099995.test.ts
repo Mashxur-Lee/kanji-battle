@@ -103,3 +103,54 @@ test('0.9.9.9.9.5 the private room: a calm page, one card for the room, cards be
   assert.ok(css.includes('#lobby .col-main { justify-content: flex-start; min-height: 0; }'));
   assert.ok(css.includes('#lobby.split { grid-template-columns: minmax(320px, 500px) minmax(320px, 560px); justify-content: center; align-items: start;'));
 });
+
+test('0.9.9.9.9.5 the arenas by day: colours by what things are (not the sunset greyed), clearer fog, a colour grade on High', () => {
+  const kit = src('src/client/arenas/kit.ts');
+  assert.ok(kit.includes('const recolour = (c: C3, fam: C3): C3 =>'), 'stone, grass, bark, water… each its own daylight colour');
+  assert.ok(!kit.includes("out[k] = Array.isArray(v[0]) ? v.map((c: C3) => neutral(c)) : neutral(v as C3);\n    }\n  }\n  out.emit"), 'no more greying everything by half');
+  assert.ok(src('src/client/arena3d.ts').includes("if (current?.time === 'day') { fog.near *= 1.4; fog.far *= 1.7; }"));
+  const look = src('src/client/arenalook.ts');
+  assert.ok(look.includes('composer.addPass(new ShaderPass(GRADE));'));
+  assert.ok(look.indexOf('new ShaderPass(GRADE)') < look.indexOf('new ShaderPass(VIGNETTE)'));
+});
+
+test('0.9.9.9.9.5 the arenas like their paintings: a wet floor mirroring the sky (High), the kanji circle in the arena\u2019s colour, the World Tree on the horizon, the forest\u2019s canopy', () => {
+  const kit = src('src/client/arenas/kit.ts');
+  assert.ok(kit.includes('export function wetStone(sky: THREE.Texture, flat = true, shine = 0.85) {'));
+  assert.ok(kit.includes("floorMesh.name = 'arena-floor';"));
+  for (const a of ['castle', 'forest', 'plains', 'swamp', 'worldtree']) assert.ok(src(`src/client/arenas/${a}.ts`).includes('sky: () => rig.envMap(), accent: ['), a);
+  const a3 = src('src/client/arena3d.ts');
+  assert.ok(a3.includes('const sky = !lite && env.sky ? env.sky() : null;'), 'High only');
+  assert.ok(a3.includes("(rune.material as THREE.MeshBasicMaterial).color.copy(env.accent ? new THREE.Color(...env.accent) : RUNE_PURPLE);"));
+  assert.ok(src('src/client/arenas/worldtree.ts').includes("crown.name = 'world-tree-crown';"));
+  assert.ok(src('src/client/arenas/forest.ts').includes('// 0.9.9.9.9.5: the canopy'));
+});
+
+test('0.9.9.9.9.5 the swords: five, each better than the last, unlocked by level (the server checks it too)', async () => {
+  const { STAFFS, staffUnlocked, isSwordId, isStaff } = await import('../src/shared/progress');
+  const swords = STAFFS.filter((s) => s.sword);
+  assert.deepEqual(swords.map((s) => s.id), ['iron', 'longsword', 'saber', 'katana', 'dragonfang']);
+  const levels = swords.map((s) => s.level!);
+  assert.deepEqual([...levels].sort((a, b) => a - b), levels, 'each a higher level than the last');
+  assert.equal(new Set(STAFFS.map((s) => s.id)).size, STAFFS.length, 'no id twice (the Ember Staff keeps "ember")');
+  assert.ok(isStaff('katana') && isSwordId('katana') && !isSwordId('ember'));
+  // level 3 needs 3000 xp (each level 1000 more than the last): not at 0, yes with plenty
+  assert.equal(staffUnlocked('iron', 99, [], 0), false, 'a streak does not open a sword');
+  assert.equal(staffUnlocked('dragonfang', 0, [], 10_000_000), true);
+  assert.equal(staffUnlocked('verdant', 0, [], 0), true, 'the staffs as before');
+  assert.ok(src('src/server/study/StudyService.ts').includes('staffUnlocked(s, u.bestStreak ?? 0, u.unlocks, u.xp ?? 0)'));
+});
+
+test('0.9.9.9.9.5 the swords in the arena: their own model, a tremor (no ∞), a slash and its wave, a cut on the target, their own sound, 2D art', () => {
+  assert.ok(src('src/client/staffs3d.ts').includes('if (isSword(id)) return buildSword(id!, glowTex);'));
+  const a3 = src('src/client/arena3d.ts');
+  assert.ok(a3.includes('eightAmp += ((charge > 0.05 && !still && !swordMe ?'), 'no figure-eight with a sword');
+  assert.ok(a3.includes('staffGroup.rotation.z = 0.9 - 2.3 * e;'), 'the slash across');
+  assert.ok(a3.includes("isSword(staffIdOf(from)));"), 'the wave instead of the orb');
+  assert.ok(a3.includes('const inf = key === \'me\' || swordF ? 0 :'));
+  assert.ok(src('src/client/staffhits.ts').includes('if (isSword(kind)) slash(h);'));
+  const sfx = src('src/client/staffsfx.ts');
+  assert.ok(sfx.includes("isSword(staff) ? 'sword' : 'verdant'"));
+  assert.ok(!sfx.includes("from './swords3d'"), 'the sounds stay out of three.js (they are in the main bundle)');
+  assert.ok(src('src/client/art2d.ts').includes("if (SWORD2D[id]) { swordBody(pic, id); return; }"));
+});

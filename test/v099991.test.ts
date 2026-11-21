@@ -23,7 +23,7 @@ test('0.9.9.9.9.1 version, patch notes, Russian for the new words', () => {
 test('0.9.9.9.9.1 Customize lists the five staffs; their colours are buttons on the preview that show and equip (a locked one says how)', () => {
   const study = src('src/client/study.ts');
   assert.match(study, /return STAFFS\.filter\(\(s\) => !s\.base\)\.map\(\(fam\) => \{/, 'the classic staffs only');
-  assert.equal(STAFFS.filter((s) => !s.base).length, 5);
+  assert.equal(STAFFS.filter((s) => !s.base && !s.sword).length, 5); // (0.9.9.9.9.5: and five swords)
   for (const s of STAFFS.filter((x) => x.base)) assert.ok(STAFFS.some((b) => b.id === s.base && !b.base), `${s.id}: a colour of a classic staff`);
   // a colour tapped: shown, its sound, then put on — or, locked, how to get it
   assert.match(study, /staffShade\[sel\.id\] = v\.id;\n\s+audio\.sfx\.cast\(v\.id, 1\);\n\s+if \(it\.locked\) \{ ui\.toast\(it\.lockedToast, 4500\); renderCustomize\(\); return; \}\n\s+if \(it\.equipped\) \{ renderCustomize\(\); return; \}\n\s+void equip\(it\);/);
@@ -53,7 +53,7 @@ function fakeContext() {
 const cast = (staff: string, combo: number, base?: string, spell?: number) => { const f = fakeContext(); const out = f.c.createGain(); staffCast({ c: f.c as never, dry: out as never, wet: out as never }, staff, combo, 0, base, spell); return f.count(); };
 
 test('0.9.9.9.9.1 staff sounds: a staff and its colours sound alike; three spells each, taking turns, never the same twice in a row', () => {
-  assert.deepEqual([...STAFF_FAMILIES].sort(), ['ember', 'storm', 'tide', 'verdant', 'void']);
+  assert.deepEqual([...STAFF_FAMILIES].sort(), ['ember', 'storm', 'sword', 'tide', 'verdant', 'void']); // (0.9.9.9.9.5: the swords' family)
   for (const f of STAFF_FAMILIES) assert.ok(spellsOf(f) >= 2, `${f}: at least two spells`);
   // a colour plays its classic staff's spell (the same spell: the same sound)
   for (const s of STAFFS.filter((x) => x.base)) for (let k = 0; k < spellsOf(s.base!); k++) assert.equal(cast(s.id, 3, s.base, k), cast(s.base!, 3, undefined, k), `${s.id} spell ${k} = ${s.base}'s`);

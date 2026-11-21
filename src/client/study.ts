@@ -482,8 +482,8 @@ const monthName = (m: number) => new Date(2026, m - 1, 15).toLocaleDateString(lo
 // ── 0.9.9.9.9.1: a staff and its colours ───────────────────────────────────────────────────────────────────────
 /** a classic staff and the seasonal colours made from it (the classic one first) */
 const staffColours = (family: string) => STAFFS.filter((s) => s.id === family || s.base === family);
-const staffLock = (s: StaffDef) => (s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : '');
-const staffToast = (s: StaffDef, best: number) => (s.season
+const staffLock = (s: StaffDef) => (s.level ? `Level ${s.level}` : s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : '');
+const staffToast = (s: StaffDef, best: number) => (s.level ? `Reach level ${s.level} to unlock the ${s.name}` : s.season
   ? `The ${s.name} is the ${monthName(s.season)} reward - complete that month's goals (see Progress)${s.season === thisMonth() ? ' - it\'s on now!' : ''}`
   : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`);
 function staffTile(id: string): Node {
@@ -497,7 +497,7 @@ function colourItem(v: StaffDef, profile: Profile, isAdmin: boolean): CustItem {
   const best = Math.max(profile.bestStreak ?? 0, profile.streak ?? 0);
   return {
     id: v.id, name: v.name, blurb: v.blurb,
-    locked: !isAdmin && !staffUnlocked(v.id, best, profile.unlocks), lock: staffLock(v), lockedToast: staffToast(v, best),
+    locked: !isAdmin && !staffUnlocked(v.id, best, profile.unlocks, profile.xp), lock: staffLock(v), lockedToast: staffToast(v, best),
     equipped: staffOf(profile.staff).id === v.id,
     tile: () => staffTile(v.id), equip: () => api.setStaff(v.id),
   };
@@ -526,7 +526,7 @@ function custItems(profile: Profile, isAdmin: boolean, tab: CustTab = custTab): 
       const vars = staffColours(fam.id);
       const on = vars.find((v) => v.id === mine);
       const face = on ?? fam;
-      const open = vars.filter((v) => isAdmin || staffUnlocked(v.id, best, profile.unlocks));
+      const open = vars.filter((v) => isAdmin || staffUnlocked(v.id, best, profile.unlocks, profile.xp));
       return {
         id: fam.id, name: face.name, blurb: face.blurb,
         locked: !open.length, lock: staffLock(fam), lockedToast: staffToast(fam, best),
@@ -634,7 +634,7 @@ function renderCustomize() {
       const its = custItems(profile, isAdmin, slot.tab);
       const on = its.find((i) => i.equipped) ?? its[0];
       // (0.9.9.9.9.1: the staffs count their colours too)
-      const have = slot.tab === 'staff' ? STAFFS.filter((x) => isAdmin || staffUnlocked(x.id, Math.max(profile.bestStreak ?? 0, profile.streak ?? 0), profile.unlocks)).length : its.filter((i) => !i.locked).length;
+      const have = slot.tab === 'staff' ? STAFFS.filter((x) => isAdmin || staffUnlocked(x.id, Math.max(profile.bestStreak ?? 0, profile.streak ?? 0), profile.unlocks, profile.xp)).length : its.filter((i) => !i.locked).length;
       const all = slot.tab === 'staff' ? STAFFS.length : its.length;
       const sel0 = !orbitIdle && slot.tab === custTab;
       const b = el('button', `lk-slot${sel0 ? ' on' : ''}`) as HTMLButtonElement;

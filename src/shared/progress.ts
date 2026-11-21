@@ -189,7 +189,8 @@ export function flameShades(f: string | null | undefined): [string, string, stri
 }
 
 // ── magic staffs: by best login streak, or a month's reward (a recoloured classic staff) ──────────
-export interface StaffDef { id: string; name: string; streak: number; gem: string; blurb: string; season?: number; base?: string; tint?: string }
+/** 0.9.9.9.9.5: `sword` — a blade, unlocked at a `level`: it shakes as you write and casts a slash wave */
+export interface StaffDef { id: string; name: string; streak: number; gem: string; blurb: string; season?: number; base?: string; tint?: string; sword?: boolean; level?: number }
 export const STAFFS: readonly StaffDef[] = [
   { id: 'verdant', name: 'Verdant Staff', streak: 0, gem: '#6dff6a', blurb: 'Carved from an ancient tree. It channels the natural energy of the earth and life.' },
   { id: 'ember', name: 'Ember Staff', streak: 3, gem: '#ff7a1a', blurb: 'Forged from volcanic rock and blessed by fire spirits.' },
@@ -202,16 +203,25 @@ export const STAFFS: readonly StaffDef[] = [
   { id: 'abyss', name: 'Abyss Staff', streak: 0, season: 7, base: 'tide', tint: '#3a5cff', gem: '#2a4dff', blurb: 'July reward. Pulled from the deepest trench of the sea.' },
   { id: 'moon', name: 'Moon Staff', streak: 0, season: 9, base: 'verdant', tint: '#f2f0ff', gem: '#fff6c8', blurb: 'September reward. Silver light of the harvest moon.' },
   { id: 'maple', name: 'Maple Staff', streak: 0, season: 11, base: 'ember', tint: '#ff5a3a', gem: '#ff3a2a', blurb: 'November reward. Burning red like autumn leaves.' },
+  // 0.9.9.9.9.5: swords, each better than the last — by level
+  { id: 'iron', name: 'Iron Blade', streak: 0, sword: true, level: 3, gem: '#dfe8ff', blurb: 'A plain, honest blade. Its slash flies true.' },
+  { id: 'longsword', name: "Knight's Longsword", streak: 0, sword: true, level: 6, gem: '#7cc4ff', blurb: 'Polished steel with a blue rune down the fuller.' },
+  { id: 'saber', name: 'Ember Saber', streak: 0, sword: true, level: 10, gem: '#ff8a2a', blurb: 'A curved blade forged in a dragon\'s hearth. Its edge glows like coals.' },
+  { id: 'katana', name: 'Moonlit Katana', streak: 0, sword: true, level: 15, gem: '#9ff6ff', blurb: 'Folded a thousand times under the full moon. Its slash is silver light.' },
+  { id: 'dragonfang', name: 'Dragonfang', streak: 0, sword: true, level: 20, gem: '#ffd34a', blurb: 'Cut from the Black Dragon\'s own tooth. Gold fire runs along the edge.' },
 ];
 export type StaffId = string;
 export const isStaff = (x: unknown): x is StaffId => STAFFS.some((s) => s.id === x);
 /** Classic staffs unlock by your best login streak (a broken streak never takes one away); seasonal ones by monthly goals. */
-export const staffUnlocked = (s: StaffId, bestStreak: number, unlocks: readonly string[] = []) => {
+export const staffUnlocked = (s: StaffId, bestStreak: number, unlocks: readonly string[] = [], xp = 0) => {
   const d = STAFFS.find((x) => x.id === s);
   if (!d) return false;
   if (beta.open) return true;
+  if (d.level) return levelOf(xp) >= d.level; // (0.9.9.9.9.5: the swords)
   return d.season ? unlocks.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
 };
+/** 0.9.9.9.9.5: a sword, not a staff (no three.js needed to ask) */
+export const isSwordId = (s: string | null | undefined) => !!s && !!STAFFS.find((x) => x.id === s)?.sword;
 export const staffOf = (s: string | null | undefined) => STAFFS.find((x) => x.id === s) ?? STAFFS[0];
 
 // ── gradual unlocks: new players start with Reading and Rapid ──────────────────────────────────

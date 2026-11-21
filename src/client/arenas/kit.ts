@@ -363,7 +363,7 @@ const SURF: Record<Exclude<Surface, 'none'>, { tex?: 1; ch: string; scale: numbe
   tiles: { tex: 1, ch: 'g', scale: 0.3, albedo: 0.5, bump: 1.6 },
   planks: { tex: 1, ch: 'b', scale: 0.45, albedo: 0.45, bump: 1.2 },
 };
-function addDetail(m: THREE.MeshLambertMaterial, surface: Exclude<Surface, 'none'>, emit: number) {
+function addDetail(m: THREE.MeshLambertMaterial | THREE.MeshStandardMaterial, surface: Exclude<Surface, 'none'>, emit: number) {
   const s = SURF[surface];
   m.onBeforeCompile = (sh) => {
     sh.uniforms.kwDetail = { value: detailTexture(s.tex ?? 0) };
@@ -403,6 +403,16 @@ export function vcMat(o: { emit?: number; flat?: boolean; double?: boolean; morp
     m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n totalEmissiveRadiance += vColor.rgb * ${emit.toFixed(3)};`); };
     m.customProgramCacheKey = () => `vcemit${emit}`;
   }
+  return m;
+}
+/**
+ * 0.9.9.9.9.5: the arena floor, wet — like the paintings: polished stone that mirrors the place's own sky (brightest
+ * towards the far side, where you look across it), with the same worn detail. High only; arena3d swaps it in.
+ */
+export function wetStone(sky: THREE.Texture, flat = true, shine = 0.85) {
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: flat, roughness: 0.42, metalness: 0, envMap: sky, envMapIntensity: shine });
+  addDetail(m, 'stone', 0);
+  m.customProgramCacheKey = () => `wetstone-${flat}`;
   return m;
 }
 /** unlit, vertex-coloured: things that glow by themselves (backdrops, flames, windows) */
@@ -687,7 +697,9 @@ export function slabArena(o: { th: Theme; r: Rand; z0: number; h: number; rimZ0:
     else placeGlyph(runes, i % 3, phi, 8.2, 0.55, ZT + 0.01, 0.09);
   }
   const g = new THREE.Group();
-  g.add(new THREE.Mesh(stone.geo(), vcMat({ surface: 'stone' })));
+  const floorMesh = new THREE.Mesh(stone.geo(), vcMat({ surface: 'stone' }));
+  floorMesh.name = 'arena-floor'; // (0.9.9.9.9.5: wet on High)
+  g.add(floorMesh);
   g.add(new THREE.Mesh(glow.geo(), emitMat(o.glowCol, o.glow * 1.1)));
   const lineMesh = new THREE.Mesh(lines.geo(), emitMat(o.lineCol, o.glow * 1.3));
   lineMesh.name = 'centre-pattern'; // hidden in the game: the classic rotating kanji circle is drawn there instead
@@ -857,6 +869,9 @@ export interface Env {
   fog: { color: C3; near: number; far: number };
   /** point lights: braziers, glow over the arena (Blender coords) */
   lights: Array<{ pos: P3; color: C3; intensity: number; dist: number; flicker?: number }>;
+  /** 0.9.9.9.9.5: the place's own sky as a reflection map (the wet floor), and its colour (the kanji circle glows in it, as in the paintings) */
+  sky?: () => THREE.Texture;
+  accent?: C3;
   dispose(): void;
 }
 export function disposeGroup(g: THREE.Object3D) {
@@ -882,14 +897,30 @@ export function dayTheme(s: Theme): Theme {
   out.fog = [0.62, 0.72, 0.86]; out.world = [0.4, 0.5, 0.65];
   out.key_col = [1, 0.96, 0.88]; out.key_e = 2.2; out.fill_col = [0.6, 0.7, 1];
   out.body_tint = [1, 0.98, 0.92]; out.body_halo = [1, 0.95, 0.8]; out.body_rings = [];
+  // 0.9.9.9.9.5: daylight colours by what a thing is, not the sunset's colours greyed by half — stone is stone-grey,
+  // grass and leaves are green, bark is brown, water blue-green — each keeping how light or dark it was (the arenas
+  // were grey and washed out by day; the paintings are full of colour)
+  const family = (k: string): C3 | null =>
+    /^(stone|rim_stone|rock|plat|cs_)/.test(k) ? [0.33, 0.35, 0.41] // (slate: darker and bluer, wet-looking)
+    : /^mtn/.test(k) ? [0.34, 0.4, 0.52]
+    : /^(g_|grass_|moss|bush|hedge|leaf|canopy|lily|reed)/.test(k) ? [0.2, 0.42, 0.11]
+    : /^(bark|trunk|sil)/.test(k) ? [0.3, 0.2, 0.12]
+    : /^(earth|ground|mound)/.test(k) ? [0.3, 0.27, 0.16]
+    : /^(water|mist)/.test(k) ? [0.28, 0.44, 0.48]
+    : /^back_(lit|dark)/.test(k) ? [0.22, 0.32, 0.3]
+    : null;
+  const lum = (c: readonly number[]) => 0.3 * c[0] + 0.55 * c[1] + 0.15 * c[2];
+  const recolour = (c: C3, fam: C3): C3 => { const k = Math.max(0.35, Math.min(1.6, (lum(c) / 0.25) ** 0.6)); return mul3(fam, k); };
   for (const k of Object.keys(s)) {
     const v = s[k];
-    if (/^(g_|stone|rim_stone|moss|bark|bush|grass_|back_lit|back_dark|cs_|sil|ground|earth|trunk|reed|lily|mound|water|mist|mtn|plat|rock|leaf|hedge|canopy)/.test(k) && Array.isArray(v)) {
-      out[k] = Array.isArray(v[0]) ? v.map((c: C3) => neutral(c)) : neutral(v as C3);
-    }
+    if (!Array.isArray(v) || /(_rim|_emit|_k|_e)$/.test(k)) continue;
+    const fam = family(k);
+    if (fam) out[k] = Array.isArray(v[0]) ? v.map((c: C3) => recolour(c, fam)) : recolour(v as C3, fam);
+    else if (/^(ground|earth)/.test(k)) out[k] = Array.isArray(v[0]) ? v.map((c: C3) => neutral(c)) : neutral(v as C3);
   }
+  out.fog = [0.56, 0.72, 0.94]; out.world = [0.42, 0.58, 0.82];
   out.emit = (s.emit ?? 1) * 0.6;
-  out.back_haze = (s.back_haze ?? [0, 0, 0]).map((h: number) => Math.min(0.8, h + 0.3));
+  out.back_haze = (s.back_haze ?? [0, 0, 0]).map((h: number) => Math.min(0.45, h * 0.6 + 0.1));
   out.daylight = true;
   return out;
 }

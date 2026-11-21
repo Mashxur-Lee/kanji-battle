@@ -47,7 +47,9 @@ const THEMES: Record<'SUNSET' | 'NIGHT', Theme> = {
 const TOP = 2.3;
 
 export function buildPlains(time: 'day' | 'sunset' | 'night', lite: boolean): Env {
-  const T = time === 'night' ? THEMES.NIGHT : time === 'day' ? { ...dayTheme(THEMES.SUNSET), light_col: [1, 0.95, 0.85], amb: [0.35, 0.4, 0.5], snow: [0.95, 0.97, 1], embers: 0, flower_emit: 0.3, grass_rim: [1, 0.95, 0.75] } : THEMES.SUNSET;
+  const T = time === 'night' ? THEMES.NIGHT : time === 'day' ? { ...dayTheme(THEMES.SUNSET), light_col: [1, 0.95, 0.85], amb: [0.35, 0.4, 0.5], snow: [0.95, 0.97, 1], embers: 0, flower_emit: 0.3, grass_rim: [1, 0.95, 0.75],
+    // (0.9.9.9.9.5: blue mountains with white snow and green foothills, as in the painting — the haze bleached them)
+    haze_dist: 150, haze_gain: 0.82, veg: [0.16, 0.32, 0.1], rock_lo: [0.2, 0.24, 0.33], rock_hi: [0.44, 0.5, 0.62] } : THEMES.SUNSET;
   const E = T.emit;
   const R = rand(7);
   const group = new THREE.Group();
@@ -207,7 +209,11 @@ export function buildPlains(time: 'day' | 'sunset' | 'night', lite: boolean): En
     geo.dispose();
   }
   group.add(new THREE.Mesh(stone.geo(), vcMat({ surface: 'stone' })));
-  group.add(new THREE.Mesh(plain2.geo(), vcMat({ flat: false, surface: 'stone' })), new THREE.Mesh(plain1.geo(), vcMat({ surface: 'stone' })));
+  { // (0.9.9.9.9.5: the floor — wet on High)
+    const a = new THREE.Mesh(plain2.geo(), vcMat({ flat: false, surface: 'stone' })), b = new THREE.Mesh(plain1.geo(), vcMat({ surface: 'stone' }));
+    a.name = 'arena-floor'; a.userData.smooth = true; b.name = 'arena-floor';
+    group.add(a, b);
+  }
   const rings = new THREE.Mesh(ring.geo(), emitMat([1, 0.92, 0.75], 0.75 * Math.min(1.6, E)));
   rings.name = 'centre-pattern';
   group.add(rings, new THREE.Mesh(dots.geo(), emitMat([1, 0.92, 0.75], 0.75 * Math.min(1.6, E))));
@@ -255,6 +261,7 @@ export function buildPlains(time: 'day' | 'sunset' | 'night', lite: boolean): En
       for (const fl of flames) { const a = fl.keys[k % 450], b = fl.keys[(k + 1) % 450]; fl.m.scale.set(a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e, a[2] + (b[2] - a[2]) * e); }
       embers.update(f);
     },
+    sky: () => rig.envMap(), accent: [1, 0.78, 0.38], // (0.9.9.9.9.5)
     key: { dir: sph(T.body_az, T.body_el), color: T.key_col, intensity: T.key_e },
     ambient: { sky: mul3(T.fill_col, 0.6), ground: T.g_near, intensity: time === 'night' ? 0.45 : time === 'day' ? 0.8 : 0.6 },
     fog: { color: T.fog, near: 60, far: 140 },
