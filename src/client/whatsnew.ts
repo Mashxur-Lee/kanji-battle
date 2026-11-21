@@ -13,12 +13,18 @@ const PATCHES: Patch[] = [
       'You can delete your account yourself now: your card → Delete my account, then your password. Everything in it is removed at once.',
       'A Privacy policy and Terms of service (in English and Russian), linked from the sign-up page and About. Signing up asks you to accept them and to be 13 or older (or have a parent agree).',
       'The Channel pose: every character holds the staff in both hands now (the Goblin’s hands missed it).',
+      'Pages are bigger on laptops: Quizzes, History, Progress and the rest are drawn at the size you chose in Settings instead of shrinking with the window, and they use the room beside the navigation.',
+      'The navigation: a Back button at the top (the step back inside a page, or the page you came from), Home stands out, Settings is a gear, and jumping between pages no longer flashes the menu.',
+      'The private room is tidy: one card for the room - the code, open or closed, the players, a bot, Ready - with your levels, the mode’s guide and the chat beside it.',
     ],
     ru: [
       'Телефоны: вкладки внизу — Главная, Битвы, Учёба, Ежедневное и Прогресс, а «Ещё» открывает всё остальное (Викторины, Кана, Кастомизация, История, Сообщения, Настройки).',
       'Теперь аккаунт можно удалить самому: ваша карточка → Удалить аккаунт, затем пароль. Всё в нём сразу удаляется.',
       'Политика конфиденциальности и Условия использования (на английском и русском) — на странице входа и в «Об игре». При регистрации нужно принять их и подтвердить, что вам 13 лет или больше (или родитель согласен).',
       'Поза «Канал»: теперь все персонажи держат посох обеими руками (руки гоблина проходили мимо).',
+      'На ноутбуках страницы крупнее: Викторины, История, Прогресс и остальные рисуются в размере из настроек, а не уменьшаются вместе с окном, и занимают место рядом с навигацией.',
+      'Навигация: кнопка «Назад» наверху (шаг назад внутри страницы или страница, с которой вы пришли), «Главная» выделена, настройки — шестерёнка, а при переходе между страницами меню больше не мелькает.',
+      'Своя игра стала аккуратнее: одна карточка комнаты — код, открыта или закрыта, игроки, бот, «Готов» — а рядом ваши уровни, правила режима и чат.',
     ],
   },
   {

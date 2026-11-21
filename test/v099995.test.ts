@@ -72,3 +72,34 @@ test('0.9.9.9.9.5 the Channel pose: each hand aimed by where it really is on the
   ]) assert.ok(p.includes(s), s);
   assert.ok(src('src/client/glbchars.ts').includes('const leftHand = leftArm.worldToLocal('));
 });
+
+test('0.9.9.9.9.5 pages are drawn at the size chosen in Settings (not shrunk with a small window); their width limit leaves the navigation out', () => {
+  const z = src('src/client/zoom.ts');
+  assert.ok(z.includes("const z = Math.round(pref * (pageMode() ? Math.max(1, f) : f) * 1000) / 1000;"));
+  assert.ok(z.includes("document.body?.classList.contains('page-zoom')"));
+  const nav = src('src/client/nav.ts');
+  assert.ok(nav.includes("const page = on || s === 'lobby';"), 'the private room too');
+  const css = src('public/style.css');
+  assert.ok(css.includes('body.has-nav #history { max-width: calc(980px + var(--nav-pad)); }'));
+  assert.ok(css.includes('body.has-nav { --nav-pad: calc(60px + 212px + 28px); }'));
+});
+
+test('0.9.9.9.9.5 the navigation: Back (a page\u2019s own step back, the page before, or Home), Home stands out, a gear for Settings, no menu between two pages', () => {
+  const nav = src('src/client/nav.ts');
+  assert.ok(nav.includes("backBtn.type = 'button'; backBtn.className = 'an-back';"));
+  assert.ok(nav.includes('const own = [...document.querySelectorAll<HTMLElement>(`#${s} > .back:not(.to-menu)`)]'));
+  assert.ok(nav.includes("settings: '<path fill=\"currentColor\" stroke=\"none\" fill-rule=\"evenodd\" d=\"M19.78 10.13"), 'the menu\u2019s own gear');
+  assert.ok(nav.includes("document.body.classList.add('nav-jump');"));
+  assert.ok(!nav.includes('b.getClientRects().length && /menu'), '"← Menu" is used even though it is hidden behind the navigation (its clean-up runs)');
+  const css = src('public/style.css');
+  assert.ok(css.includes('body.nav-jump #menu { visibility: hidden !important; }'));
+  assert.ok(css.includes('.app-nav .an-item[data-nav="home"] { color: #fff; background: linear-gradient(135deg, var(--accent), #7d5cf0);'));
+  assert.ok(css.includes('.app-nav .an-item.an-more { display: flex; }'), 'More shows on phones (it was hidden by a more specific rule)');
+});
+
+test('0.9.9.9.9.5 the private room: a calm page, one card for the room, cards beside it, from the top', () => {
+  const css = src('public/style.css');
+  assert.ok(css.includes('body[data-screen="lobby"] #bg::after { opacity: 1 !important;'));
+  assert.ok(css.includes('#lobby .col-main { justify-content: flex-start; min-height: 0; }'));
+  assert.ok(css.includes('#lobby.split { grid-template-columns: minmax(320px, 500px) minmax(320px, 560px); justify-content: center; align-items: start;'));
+});

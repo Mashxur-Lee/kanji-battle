@@ -6,6 +6,7 @@
 // Customize preview stops), then opens the page asked for with the menu's own button.
 import * as ui from './ui';
 import { tr } from './i18n';
+import { applyUiZoom } from './zoom';
 
 const ICON: Record<string, string> = {
   home: '<path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h4.5v-5.5h3V20H18V9.5"/>',
@@ -19,7 +20,9 @@ const ICON: Record<string, string> = {
   history: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   messages: '<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
   more: '<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>',
-  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
+  // 0.9.9.9.9.5: a gear (the rays read as a sun) — the same one as the menu's Settings
+  settings: '<path fill="currentColor" stroke="none" fill-rule="evenodd" d="M19.78 10.13 L22.51 10.59 L22.51 13.41 L19.78 13.87 L18.82 16.18 L20.43 18.43 L18.43 20.43 L16.18 18.82 L13.87 19.78 L13.41 22.51 L10.59 22.51 L10.13 19.78 L7.82 18.82 L5.57 20.43 L3.57 18.43 L5.18 16.18 L4.22 13.87 L1.49 13.41 L1.49 10.59 L4.22 10.13 L5.18 7.82 L3.57 5.57 L5.57 3.57 L7.82 5.18 L10.13 4.22 L10.59 1.49 L13.41 1.49 L13.87 4.22 L16.18 5.18 L18.43 3.57 L20.43 5.57 L18.82 7.82ZM15.60 12a3.6 3.6 0 1 0-7.2 0a3.6 3.6 0 1 0 7.2 0Z"/>',
+  back: '<path d="M14.5 5.5 8 12l6.5 6.5"/>',
 };
 interface Item { id: string; label: string; icon: keyof typeof ICON; btn?: string; screens: string[]; phone?: boolean }
 const ITEMS: Item[] = [
@@ -40,11 +43,19 @@ export const NAV_SCREENS = new Set(['queue', 'private', 'modes', 'kana', 'progre
 
 const svg = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
 
+let jumpT = 0;
+/** where you came from, page by page (for Back) */
+const trail: string[] = [];
 /** leave the page as its own back button would (a "← Menu" kind: it cleans up after itself) */
 function leaveCurrent() {
   const s = ui.currentScreen();
   if (!s || s === 'menu') return;
-  const back = [...document.querySelectorAll<HTMLElement>(`#${s} > .back, #${s} [id$="Back"]`)].find((b) => b.getClientRects().length && /menu|меню/i.test(b.textContent ?? ''));
+  // 0.9.9.9.9.5: the menu doesn't flash up between the two pages (it showed while the next one loaded)
+  document.body.classList.add('nav-jump');
+  clearTimeout(jumpT); jumpT = window.setTimeout(() => document.body.classList.remove('nav-jump'), 1500);
+  // (0.9.9.9.9.5: hidden or not — on these pages "← Menu" is hidden behind the navigation, and was skipped, so its
+  // clean-up (a search in the queue cancelled, the Customize preview stopped) didn't happen)
+  const back = [...document.querySelectorAll<HTMLElement>(`#${s} > .back, #${s} [id$="Back"]`)].find((b) => !b.hidden && !(b as HTMLButtonElement).disabled && /menu|меню/i.test(b.textContent ?? ''));
   if (back) back.click(); else ui.show('menu');
 }
 
@@ -52,6 +63,22 @@ export function initNav() {
   const nav = document.createElement('nav');
   nav.id = 'appNav'; nav.className = 'app-nav'; nav.hidden = true;
   nav.setAttribute('aria-label', tr('Main menu'));
+  // 0.9.9.9.9.5: Back — a page's own step back (Choose a mode → Private game), or the page you came from, or Home
+  const backBtn = document.createElement('button');
+  backBtn.type = 'button'; backBtn.className = 'an-back'; backBtn.title = tr('Back'); backBtn.setAttribute('aria-label', tr('Back'));
+  backBtn.innerHTML = `${svg('back')}<span>${tr('Back')}</span>`;
+  backBtn.onclick = () => {
+    const s = ui.currentScreen() ?? '';
+    const own = [...document.querySelectorAll<HTMLElement>(`#${s} > .back:not(.to-menu)`)].find((b) => !b.hidden && !(b as HTMLButtonElement).disabled);
+    if (own) { own.click(); return; }
+    trail.pop(); // (this page)
+    const prev = trail.pop();
+    const it = prev && ITEMS.find((x) => x.screens[0] === prev);
+    if (it && it.id !== 'home') { leaveCurrent(); if (it.btn) document.getElementById(it.btn)?.click(); return; }
+    trail.length = 0;
+    leaveCurrent();
+  };
+  nav.append(backBtn);
   for (const it of ITEMS) {
     const b = document.createElement('button');
     b.type = 'button'; b.className = `an-item${it.phone ? ' an-phone' : ''}`; b.dataset.nav = it.id;
@@ -91,7 +118,12 @@ export function initNav() {
     const on = NAV_SCREENS.has(s);
     nav.hidden = !on;
     document.body.classList.toggle('has-nav', on);
+    // (0.9.9.9.9.5: the pages — and the private room — are drawn at the size chosen in Settings, not smaller)
+    const page = on || s === 'lobby';
+    if (document.body.classList.contains('page-zoom') !== page) { document.body.classList.toggle('page-zoom', page); applyUiZoom(); }
     setMore(false);
+    if (s !== 'menu') document.body.classList.remove('nav-jump');
+    if (s === 'menu') trail.length = 0; else if (on && trail[trail.length - 1] !== s) { trail.push(s); if (trail.length > 20) trail.shift(); }
     for (const b of nav.querySelectorAll<HTMLElement>('.an-item:not(.an-more)')) b.classList.toggle('on', ITEMS.find((x) => x.id === b.dataset.nav)!.screens.includes(s));
     // (More lights up when the page is one of its own)
     more.classList.toggle('on', ITEMS.some((x) => !x.phone && x.screens.includes(s)));

@@ -38,9 +38,16 @@ export function screenFactor(): number {
 }
 
 let lastPref = 0;
+/**
+ * 0.9.9.9.9.5: the pages with the navigation (Quizzes, History, Study…) scroll — they don't have to fit the window like
+ * the menu or a battle, so they never shrink below the size chosen in Settings. On a laptop (1280×650) everything was
+ * drawn at 58% and the pages sat tiny in the middle of a big empty screen.
+ */
+const pageMode = () => document.body?.classList.contains('page-zoom') ?? false; // (the pages with the navigation, and the private room)
 export function applyUiZoom(pref = uiZoomPref()) {
   lastPref = pref;
-  const z = Math.round(pref * screenFactor() * 1000) / 1000;
+  const f = screenFactor();
+  const z = Math.round(pref * (pageMode() ? Math.max(1, f) : f) * 1000) / 1000;
   const root = document.documentElement;
   root.style.setProperty('--ui-zoom', String(z));
   root.style.setProperty('--vfix', '1');
