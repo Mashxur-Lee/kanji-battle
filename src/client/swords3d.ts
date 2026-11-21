@@ -18,11 +18,13 @@ export const SWORD_LOOKS: Record<string, SwordDef> = {
 };
 export const isSword = (id: string | null | undefined) => !!id && id in SWORD_LOOKS;
 
-const GRIP_Y = -0.24, GUARD_Y = -0.06;
+// (0.9.9.9.9.5: held by the handle — the hand is at y = 0: the handle's middle there, the guard above the fist)
+const LIFT = 0.24, GRIP_Y = -0.24 + LIFT, GUARD_Y = -0.06 + LIFT;
+const tipOf = (d: SwordDef) => d.tip + LIFT;
 
 /** the blade's outline (x across, y along), from the guard to the tip; curved swords bend towards +x */
 function bladeShape(d: SwordDef) {
-  const L = d.tip - GUARD_Y, w = d.width / 2, n = 18;
+  const L = tipOf(d) - GUARD_Y, w = d.width / 2, n = 18;
   const bend = (t: number) => d.curve * L * t * t;
   const half = (t: number) => {
     let h = w * (t < 0.82 ? 1 - 0.18 * t : (1 - 0.18 * 0.82) * (1 - (t - 0.82) / 0.18) ** (d.katana ? 0.6 : 0.9));
@@ -61,7 +63,7 @@ export function buildSword(id: string, glowTex: THREE.Texture): Staff {
   let runeMat: THREE.MeshStandardMaterial | null = null;
   if (d.runes) {
     runeMat = new THREE.MeshStandardMaterial({ color: '#111111', emissive: new THREE.Color(d.runes), emissiveIntensity: 0.6, roughness: 0.5 });
-    const L = d.tip - GUARD_Y;
+    const L = tipOf(d) - GUARD_Y;
     const runeGeo = new THREE.BoxGeometry(d.width * 0.1, L * 0.62, 0.022);
     const r = new THREE.Mesh(runeGeo, runeMat);
     r.position.set(d.curve * L * 0.18, GUARD_Y + 0.06 + L * 0.31, 0);
@@ -97,7 +99,7 @@ export function buildSword(id: string, glowTex: THREE.Texture): Staff {
   const color = new THREE.Color(d.gem);
   const gemMat = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: color, emissiveIntensity: 0.4, transparent: true, opacity: 0.6, depthWrite: false, roughness: 0.1 });
   const gem = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 10), gemMat);
-  gem.position.set(d.curve * (d.tip - GUARD_Y), d.tip, 0);
+  gem.position.set(d.curve * (tipOf(d) - GUARD_Y), tipOf(d), 0);
   gem.renderOrder = 1;
   group.add(gem);
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: color.getHex(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 }));

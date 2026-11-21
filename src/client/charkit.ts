@@ -4,6 +4,7 @@
 // animates. Everything is built Y-up, the character facing +z, in metres.
 
 import * as THREE from 'three';
+import { isSwordId } from '../shared/progress';
 import { buildStaff } from './staffs3d';
 import type { Character } from './models3d';
 
@@ -216,7 +217,7 @@ export function holdStaff(arm: THREE.Group, hand: V3, materials: Character['mate
   lean.rotation.x = 0.3; // the top tips forward, out of the sleeve
   staffPivot.add(lean);
   const staff = buildStaff(skin, glowTex);
-  staff.group.position.set(0, 0.24, 0.02);
+  staff.group.position.set(0, isSwordId(skin) ? 0 : 0.24, 0.02); // (0.9.9.9.9.5: a sword is held by its handle, which sits at the hand)
   staff.group.scale.setScalar(STAFF_SCALE); // 0.9.9.3.3: a staff about as tall as its bearer, not towering over them
   lean.add(staff.group);
   // the hand grips the staff wherever it leans — 0.9.9.6: a bigger fist, so it reads as a hand at a distance

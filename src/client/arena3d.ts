@@ -545,6 +545,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (isSword(id)) staff.group.rotation.y = -1.15; // (0.9.9.9.9.5: your blade shows you its flat, not its edge)
     staffGroup.add(staff.group);
     gemLight.color.copy(staff.color);
+    gemLight.position.y = staff.gem.position.y; // (0.9.9.9.9.5: at a sword's tip)
   }
   {
     // the hand: the back of the hand on the right of the staff, four fingers curled round it (tips towards
