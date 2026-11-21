@@ -79,7 +79,9 @@ writeFileSync(r('public/examples.json'), JSON.stringify(examples));
 // device then — dictui.ts).
 const SHELL = ['/', '/index.html', '/app.js', '/arena3d.js', '/style.css', '/favicon.svg', '/favicon.ico', '/icons/favicon-32.png', '/icons/favicon-64.png', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png',
   // 0.9.9.9.9.3: the game's fonts (Latin, Cyrillic and the logo's kana and kanji) — offline too
-  ...readdirSync(r('public/fonts')).filter((f) => f.endsWith('.woff2')).map((f) => `/fonts/${f}`)];
+  ...readdirSync(r('public/fonts')).filter((f) => f.endsWith('.woff2')).map((f) => `/fonts/${f}`),
+  // 0.9.9.9.9.4: the arenas' surface detail (High)
+  '/textures/kw-detail.webp', '/textures/kw-detail2.webp'];
 const DATA = ['/vocab.json', '/examples.json', '/kanji.json', '/meanings-ru.json'];
 const hashOf = (files) => { const h = createHash('sha256'); for (const f of files) if (f !== '/') { try { h.update(readFileSync(r('public', f))); } catch { /* not built yet */ } } return h.digest('hex').slice(0, 12); };
 const sw = readFileSync(r('src/client/sw.js'), 'utf8')

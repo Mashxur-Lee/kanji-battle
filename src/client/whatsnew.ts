@@ -7,6 +7,15 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.9.4', date: '2026-11',
+    en: [
+      'The 3D arenas on High: stone, rock and wood have real surfaces now - worn, cracked flagstones, rough rock, bark - and the castle has brick walls, tiled roofs and a planked gate. Low graphics stay as light as before.',
+    ],
+    ru: [
+      'Трёхмерные арены на высоком качестве: у камня, скал и дерева теперь настоящая поверхность — стёртые плиты с трещинами, грубый камень, кора, — а у замка кирпичные стены, черепичные крыши и дощатые ворота. Низкое качество такое же лёгкое, как раньше.',
+    ],
+  },
+  {
     v: '0.9.9.9.9.3', date: '2026-11',
     en: [
       'A cleaner look: every page outside the menu has the same navigation - a sidebar on computers, tabs along the bottom on phones - so nothing is more than one tap away.',

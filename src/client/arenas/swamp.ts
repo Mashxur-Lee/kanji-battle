@@ -150,7 +150,7 @@ export function buildSwamp(time: 'day' | 'sunset' | 'night', lite: boolean): Env
     for (let k = 0; k < q.count; k += 3) stone.f(...[0, 1, 2].map((j) => { const v = new THREE.Vector3(q.getX(k + j), q.getY(k + j), q.getZ(k + j)); const lz = v.z; v.applyMatrix4(m); return stone.v([v.x, v.y, v.z], stoneAt(base, (lz + 1) / 2, q.getX(k + j), q.getY(k + j), seed, TH.moss)); }));
     geo.dispose();
   }
-  group.add(new THREE.Mesh(stone.geo(), vcMat()), new THREE.Mesh(rune.geo(), emitMat(TH.rune_col, 1.4 * G)));
+  group.add(new THREE.Mesh(stone.geo(), vcMat({ surface: 'stone' })), new THREE.Mesh(rune.geo(), emitMat(TH.rune_col, 1.4 * G)));
 
   // ── dry trees with hanging moss, on mud mounds ──
   const WIND: P3 = (() => { const v = new THREE.Vector3(0.8, 0.6, 0).normalize(); return [v.x, v.y, 0]; })();
@@ -165,7 +165,7 @@ export function buildSwamp(time: 'day' | 'sunset' | 'night', lite: boolean): Env
     }
     return null;
   };
-  const barkMat = vcMat({ morph: true });
+  const barkMat = vcMat({ morph: true, surface: 'wood' });
   const trees: Array<{ m: THREE.Mesh; P: number; flip: number }> = [];
   const treePts: Array<[number, number]> = [], moundItems: P3[] = [];
   const nNear = lite ? 6 : 9, nFar = lite ? 4 : 7;
@@ -242,7 +242,7 @@ export function buildSwamp(time: 'day' | 'sunset' | 'night', lite: boolean): Env
       for (let k = 0; k < rows.length - 1; k++) for (let s = 0; s < 14; s++) { const s2 = (s + 1) % 14; mb.f(rows[k][s], rows[k][s2], rows[k + 1][s2], rows[k + 1][s]); }
       for (let s = 0; s < 14; s++) mb.f(top, rows[rows.length - 1][s], rows[rows.length - 1][(s + 1) % 14]);
     }
-    group.add(new THREE.Mesh(mb.geo(), vcMat()));
+    group.add(new THREE.Mesh(mb.geo(), vcMat({ surface: 'ground' })));
   }
 
   // ── cattails, lily pads, frogs ──

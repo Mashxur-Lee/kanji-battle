@@ -79,7 +79,7 @@ export function buildCastle(time: 'day' | 'sunset' | 'night', lite: boolean): En
     const t = clamp01((Math.hypot(x, y) - 10) / 70) ** 0.8, n = fbm2(x * 0.06 + 3, y * 0.06 - 7, 3);
     return lerp3(mul3(lerp3(TH.g_near, TH.g_far, t), 0.75 + 0.5 * n), TH.g_road, roadW(x, y) * 0.8);
   };
-  group.add(new THREE.Mesh(ground([0, 4, 8, 10, 12, 13, 14, 16, 18, 21, 24, 28, 33, 40, 48, 57, 65, 72, 90, 110, 140], 64, gh, groundColor), vcMat({ flat: false })));
+  group.add(new THREE.Mesh(ground([0, 4, 8, 10, 12, 13, 14, 16, 18, 21, 24, 28, 33, 40, 48, 57, 65, 72, 90, 110, 140], 64, gh, groundColor), vcMat({ flat: false, surface: 'ground' })));
 
   // ── the arena, braziers, banners ──
   group.add(slabArena({ th: TH, r: R2, z0: -0.4, h: 1, rimZ0: -0.6, rimH: 0.95, glowZ0: -0.3, glowH: 0.75, lineCol: TH.line_col, runeCol: TH.rune_col, glowCol: TH.glow_col, glow: G }));
@@ -124,7 +124,7 @@ export function buildCastle(time: 'day' | 'sunset' | 'night', lite: boolean): En
   }
   const clothMat = vcMat({ double: true, morph: true });
   const banners = new THREE.Mesh(cloth.geo(), clothMat); banners.morphTargetInfluences = [0, 0];
-  group.add(new THREE.Mesh(poles.geo(), vcMat()), banners, new THREE.Mesh(stone.geo(), vcMat()));
+  group.add(new THREE.Mesh(poles.geo(), vcMat({ surface: 'wood' })), banners, new THREE.Mesh(stone.geo(), vcMat({ surface: 'stone' })));
 
   // ── the castles: three towers, crenellated wall, gate, windows, torches, flags ──
   const castleFlags: THREE.Mesh[] = [];
@@ -187,7 +187,7 @@ export function buildCastle(time: 'day' | 'sunset' | 'night', lite: boolean): En
       for (let k = 0; k < 4; k++) flags.f(bot[k], bot[k + 1], top[k + 1], top[k]);
       flags.f(top[4], tt, nt); flags.f(bot[4], nt, tb); flags.f(top[4], nt, bot[4]);
     }
-    group.add(new THREE.Mesh(body.geo(), vcMat()), new THREE.Mesh(roofs.geo(), vcMat()), new THREE.Mesh(gate.geo(), vcMat({ double: true })));
+    group.add(new THREE.Mesh(body.geo(), vcMat({ surface: 'brick' })), new THREE.Mesh(roofs.geo(), vcMat({ surface: 'tiles' })), new THREE.Mesh(gate.geo(), vcMat({ double: true, surface: 'planks' })));
     group.add(new THREE.Mesh(wins.geo(), emitMat(TH.win_col, Math.min(1.6, 0.5 + 0.3 * TH.win_emit * E))), new THREE.Mesh(torches.geo(), emitMat(TH.torch_col, 1.5)));
     const fm = new THREE.Mesh(flags.geo(), vcMat({ double: true, morph: true })); fm.morphTargetInfluences = [0, 0];
     group.add(fm); castleFlags.push(fm);

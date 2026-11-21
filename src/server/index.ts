@@ -240,7 +240,7 @@ const server = createServer(async (req, res) => {
     // the service worker and the page are checked for a new version every time (0.9.9.4)
     // 0.9.9.9.5: + the security headers (the page's inline script allowed by its hash)
     if (url === '/index.html' && pageHashesFor !== data.length) { pageHashes = inlineScriptHashes(data.toString('utf8')); pageHashesFor = data.length; }
-    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : url.startsWith('/bg/') || url.startsWith('/models/') || url.startsWith('/frames/') || url.startsWith('/flames/') || url.startsWith('/fonts/') ? { 'Cache-Control': 'public, max-age=604800' }
+    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : url.startsWith('/bg/') || url.startsWith('/models/') || url.startsWith('/frames/') || url.startsWith('/flames/') || url.startsWith('/fonts/') || url.startsWith('/textures/') ? { 'Cache-Control': 'public, max-age=604800' }
       // 0.9.9.9.6.5: the dictionary is asked for as /dict.json?v=<its version> — the browser may keep it a month
       : url === '/dict.json' && /[?&]v=/.test(req.url ?? '') ? { 'Cache-Control': 'public, max-age=2592000' } : {}) };
     // 0.9.9.9.9.2: the game's code and look are checked every time too (with an ETag: unchanged, only "304"). They had

@@ -1,5 +1,5 @@
 // The five arenas built from the Blender scripts, by background id.
-import type { Env } from './kit';
+import { setArenaDetail, type Env } from './kit';
 import { buildCastle } from './castle';
 import { buildForest } from './forest';
 import { buildPlains } from './plains';
@@ -17,5 +17,6 @@ const BUILDERS: Record<string, (time: ArenaTime, lite: boolean) => Env> = {
 };
 export function buildEnv(id: string, time: ArenaTime, lite: boolean): Env | null {
   const b = BUILDERS[id];
+  setArenaDetail(!lite); // (0.9.9.9.9.4: the surfaces' detail on High)
   return b ? b(time, lite) : null;
 }
