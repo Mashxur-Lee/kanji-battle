@@ -52,7 +52,7 @@ const THEMES: Record<'SUNSET' | 'NIGHT', Theme> = {
 
 export function buildSwamp(time: 'day' | 'sunset' | 'night', lite: boolean): Env {
   const TH = time === 'night' ? THEMES.NIGHT : time === 'day'
-    ? { ...dayTheme(THEMES.SUNSET), water_lo: [0.03, 0.05, 0.05], water_hi: [0.09, 0.12, 0.11], mist_col: [0.5, 0.66, 0.6], mist_a: 0.1, fire_k: 0, orb_k: 0.4, bark_rim: [1, 0.95, 0.8], back_col: [0.17, 0.23, 0.21], wash_col: [1, 0.97, 0.85],
+    ? { ...dayTheme(THEMES.SUNSET), water_lo: [0.03, 0.05, 0.05], water_hi: [0.09, 0.12, 0.11], mist_col: [0.5, 0.66, 0.6], mist_a: 0.1, fire_k: 0, orb_k: 0.4, bark_rim: [1, 0.95, 0.8], back_col: [0.05, 0.075, 0.065], wash_col: [1, 0.97, 0.85],
       // (0.9.9.9.9.5: a teal-green mist over dark water, as in the painting — it was milky white)
       fog: [0.46, 0.6, 0.56] as C3, world: [0.36, 0.5, 0.48] as C3 }
     : THEMES.SUNSET;
@@ -62,7 +62,9 @@ export function buildSwamp(time: 'day' | 'sunset' | 'night', lite: boolean): Env
   const BODIES = [sph(TH.body_az, TH.body_el)];
   const sky = skyFn(TH, BODIES);
   const hz = rad(TH.body_az + 180);
-  const HAZE_C = sky(Math.cos(hz) * Math.cos(0.02), Math.sin(hz) * Math.cos(0.02), Math.sin(0.02)).map((v) => tone(v, TH.exposure)) as C3;
+  const HAZE_SKY = sky(Math.cos(hz) * Math.cos(0.02), Math.sin(hz) * Math.cos(0.02), Math.sin(0.02)).map((v) => tone(v, TH.exposure)) as C3;
+  // (0.9.9.9.9.5: by day the far trees and water fade into the teal mist, not into the white horizon — they were milky)
+  const HAZE_C: C3 = time === 'day' ? lerp3(mul3(HAZE_SKY, 0.3), [0.12, 0.19, 0.17], 0.7) : HAZE_SKY; // (linear: these show much lighter)
   const STONES: C3[] = TH.stone;
   const rig = skyRig({ th: TH, W: lite ? 512 : 1024, bodies: BODIES, ridgeKind: 'trees', ridges: [[0.012, 0.03, 31, 0.45, TH.far1], [0.004, 0.02, 47, 0.25, TH.far2]], body: { kind: TH.body, r: TH.body_r, span: TH.body_span, size: TH.body === 'moon' ? 384 : 256, opts: TH.body === 'moon' ? { tint: TH.body_tint, halo: [0.75, 0.8, 0.58], rings: [[1.75, 0.1], [3.25, 0.06]], moonGain: 1.15 } : { tint: [1, 0.97, 0.88] } }, sparkles: TH.sparkles ?? 0, bigShare: 0.25 });
   group.add(rig.group);
