@@ -32,6 +32,8 @@ export interface Character {
   eyes?: THREE.Group;
   /** 0.9.9.7: the left arm (shoulder pivot) and both legs (left, right) — for the combo poses */
   leftArm?: THREE.Group;
+  /** 0.9.9.9.9.5: where the left hand's palm is inside `leftArm` (the rigged models) — for poses that put it somewhere */
+  leftHand?: THREE.Vector3;
   legs?: Leg[];
   /** 0.9.9.9.5.4: the rigged models breathe (chest, shoulders, neck) — called every frame with the time */
   breathe?: (time: number) => void;

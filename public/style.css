@@ -5858,3 +5858,24 @@ body.has-nav .screen:not(#menu):not(:has(> .back:not(.to-menu))) { padding-top: 
 :root[data-theme="light"] body.has-nav .screen:not(#menu) h2 { color: #1d1838; -webkit-text-stroke: 0; }
 :root[data-theme="light"] body.has-nav .screen:not(#menu) * { text-shadow: none !important; }
 :root[data-theme="light"] body.has-nav .screen:not(#menu) :is(.pill:not(.primary):not(.chip), button.alt, .lobby-btn) { background: rgba(29, 24, 56, .05); color: var(--text); }
+
+/* 0.9.9.9.9.5: phones — a More tab with the rest of the pages, in a sheet above the bar; computers have no need of it */
+.app-nav .an-more, .app-nav .an-sheet { display: none; }
+@media (max-width: 760px) {
+  .app-nav .an-more { display: flex; }
+  .app-nav .an-sheet:not([hidden]) { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; position: absolute; left: 10px; right: 10px; bottom: calc(100% + 8px);
+    padding: 12px; border-radius: 18px; background: var(--nav-bg, #120f2b); border: 2px solid var(--nav-line, #2a2552); box-shadow: 0 -10px 30px rgba(0, 0, 0, .45); }
+  .app-nav .an-sheet .an-item { display: flex !important; flex-direction: column; gap: 6px; padding: 12px 4px; font-size: .66rem; border: 2px solid var(--nav-line, #2a2552); border-radius: 14px; }
+  .app-nav .an-sheet .an-item svg { width: 26px; height: 26px; }
+  .app-nav .an-more.open { color: var(--accent2); }
+}
+
+/* 0.9.9.9.9.5: agreeing on Register; the legal links; Delete my account */
+.consent { display: flex; gap: 10px; align-items: flex-start; font-size: .86rem; line-height: 1.4; color: var(--muted); text-align: left; cursor: pointer; }
+.consent input { width: 20px; height: 20px; flex: none; margin: 1px 0 0; accent-color: var(--accent); }
+.consent a, .legal-line a, .copyright a { color: var(--accent); }
+.legal-line { font-size: .8rem; margin-top: 2px; }
+.pp-actions .acc-delete { flex-basis: 100%; justify-content: center; font-size: .82rem; color: var(--muted); }
+.pp-actions .acc-delete:hover, .pp-actions .acc-delete:focus-visible { color: #ff6b81; }
+/* (the dictionary and friends buttons step aside while More is open) */
+body.nav-more .rail-fab, body.nav-more .dict-fab { visibility: hidden; }

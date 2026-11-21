@@ -7,6 +7,21 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.9.5', date: '2026-11',
+    en: [
+      'Phones: the tabs along the bottom are Home, Battles, Study, Daily and Progress - and More opens everything else (Quizzes, Kana, Customize, History, Messages, Settings).',
+      'You can delete your account yourself now: your card → Delete my account, then your password. Everything in it is removed at once.',
+      'A Privacy policy and Terms of service (in English and Russian), linked from the sign-up page and About. Signing up asks you to accept them and to be 13 or older (or have a parent agree).',
+      'The Channel pose: every character holds the staff in both hands now (the Goblin’s hands missed it).',
+    ],
+    ru: [
+      'Телефоны: вкладки внизу — Главная, Битвы, Учёба, Ежедневное и Прогресс, а «Ещё» открывает всё остальное (Викторины, Кана, Кастомизация, История, Сообщения, Настройки).',
+      'Теперь аккаунт можно удалить самому: ваша карточка → Удалить аккаунт, затем пароль. Всё в нём сразу удаляется.',
+      'Политика конфиденциальности и Условия использования (на английском и русском) — на странице входа и в «Об игре». При регистрации нужно принять их и подтвердить, что вам 13 лет или больше (или родитель согласен).',
+      'Поза «Канал»: теперь все персонажи держат посох обеими руками (руки гоблина проходили мимо).',
+    ],
+  },
+  {
     v: '0.9.9.9.9.4', date: '2026-11',
     en: [
       'The 3D arenas on High: stone, rock and wood have real surfaces now - worn, cracked flagstones, rough rock, bark - and the castle has brick walls, tiled roofs and a planked gate. Low graphics stay as light as before.',

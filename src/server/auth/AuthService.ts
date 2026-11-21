@@ -391,6 +391,17 @@ export class AuthService {
     return { ...toPublic(rec), banned: rec.banned, createdAt: rec.createdAt };
   }
 
+  /**
+   * 0.9.9.9.9.5: delete your own account and everything in it (progress, cards, history, friends, messages, picture) —
+   * with your password (a guest has none). Admin accounts can't (take the role away first); you're signed out everywhere.
+   */
+  async deleteSelf(u: UserRecord, password: unknown): Promise<void> {
+    if (u.role === 'admin') throw new AuthError('An admin account can’t be deleted - take away its admin role first');
+    if (!isGuest(u) && !(await verifyPassword(String(password ?? ''), u.passwordHash))) throw new AuthError('Your password is wrong', 403);
+    for (const l of this.banListeners) l(u.id); // close its open sessions
+    await this.store.deleteUser(u.id);
+  }
+
   /** Delete an account for good (test accounts). Not yourself, not another admin; they are logged out at once. */
   async deleteUser(admin: UserRecord, targetId: string): Promise<void> {
     const target = await this.store.findById(targetId);

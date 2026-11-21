@@ -197,6 +197,9 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side,
   // starts — the models have no finger bones, so the palm is where the hand's own vertices are
   const palm = palmOf(scene, handL);
   const hand = arm.worldToLocal(palm ? handL.localToWorld(palm) : handL.getWorldPosition(new THREE.Vector3()));
+  // 0.9.9.9.9.5: and the free hand's palm (Channel puts it on the staff)
+  const handR = bone('Hand.R'), palmR = palmOf(scene, handR);
+  const leftHand = leftArm.worldToLocal(palmR ? handR.localToWorld(palmR) : handR.getWorldPosition(new THREE.Vector3()));
   arm.rotation.z = ARM_REST;
   leftArm.rotation.set(-0.3, 0, -0.16);
   const { staffPivot, staff, crystal, crystalMat, glow } = holdStaff(arm, [hand.x, hand.y, hand.z + 0.02], materials, glowTex, staffSkin);
@@ -274,7 +277,7 @@ export function buildGlbCharacter(kind: Exclude<GlbKind, 'dragon'>, _side: Side,
     for (const l of legs) low = Math.min(low, (l.knee.getWorldPosition(tv).y - floor) / sc - kneeR);
     if (low < -0.002) { ground.position.y = -low; root.updateMatrixWorld(true); }
   };
-  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, legs, breathe, kneel, flinch, groundFix };
+  return { root, body, head, arm, staffPivot, crystal, crystalMat, glow, staff, height: tpl.height, materials, eyes, leftArm, leftHand, legs, breathe, kneel, flinch, groundFix };
 }
 const lerpN = (a: number, b: number, t: number) => a + (b - a) * t;
 

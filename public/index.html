@@ -73,6 +73,7 @@
         <button id="emailChange" class="pill" type="button">Email</button>
         <button id="pwChange" class="pill" type="button">Change password</button>
         <button id="logout" class="pill danger">⎋ Log out</button>
+        <button id="accDelete" class="link acc-delete" type="button">Delete my account</button>
       </div>
     </div>
   </div>
@@ -224,7 +225,7 @@
   </ul>
   <p class="hint">© Kanji Wizards. All rights reserved. The data and libraries above keep their own licences.</p>
   <h4>Privacy</h4>
-  <p class="hint">We store your player name, a scrambled (hashed) password, your progress, match history, friends, your messages (text, photos, reactions, groups - seen only by the people in that chat) and - if you upload one - your profile picture. The Android app keeps a notification token so invites and messages reach your phone (through Google's Firebase). Bug reports and suggestions you send are kept with your player name; errors include your browser type. If the server has AI stories turned on, only your study words are sent to make a story. Nothing is sold. Ask the admin to delete your account and all of it is removed.</p>
+  <p class="hint">We store your player name, a scrambled (hashed) password, your progress, match history, friends, your messages (text, photos, reactions, groups - seen only by the people in that chat) and - if you upload one - your profile picture. The Android app keeps a notification token so invites and messages reach your phone (through Google's Firebase). Bug reports and suggestions you send are kept with your player name; errors include your browser type. If the server has AI stories turned on, only your study words are sent to make a story. Nothing is sold. Delete your account (your card → Delete my account) and all of it is removed at once. <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a> · <a href="/terms.html" target="_blank" rel="noopener">Terms</a></p>
   <form method="dialog" class="fb-actions"><button class="big">Close</button></form>
 </dialog>
  <dialog id="deckDialog" class="friend-dialog deck-dialog" aria-label="Spells">
@@ -293,6 +294,7 @@
       <div class="guest-start">
         <button id="guestPlay" type="button" class="big guest-play">Play now</button>
         <p class="hint">No account needed - save your progress whenever you like.</p>
+        <p class="hint legal-line">By playing you agree to the <a href="/terms.html" target="_blank" rel="noopener">Terms</a> and the <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a>.</p>
       </div>
       <div class="or-line"><span>or</span></div>
       <div class="tabs" role="tablist">
@@ -304,12 +306,14 @@
         <label class="field"><span>Password</span><input id="authPass" name="password" type="password" autocomplete="current-password" maxlength="72" required></label>
         <!-- 0.9.9.9.6.6: an email for every account (to get back in; nobody else sees it) -->
         <label id="authEmailRow" class="field" hidden><span>Email</span><input id="authEmail" name="email" type="email" autocomplete="email" maxlength="254" inputmode="email"></label>
+        <!-- 0.9.9.9.9.5: on Register — the Terms and Privacy policy, and the age to sign up alone -->
+        <label id="authConsentRow" class="consent" hidden><input id="authConsent" type="checkbox"><span>I am 13 or older (or a parent agrees) and I accept the <a href="/terms.html" target="_blank" rel="noopener">Terms</a> and the <a href="/privacy.html" target="_blank" rel="noopener">Privacy policy</a></span></label>
         <button id="authSubmit" type="submit">Log in</button>
         <button id="authForgot" type="button" class="link auth-forgot">Forgot password?</button>
         <p id="authError" class="error" role="alert"></p>
         <button id="playOffline" type="button" class="big alt" hidden>Play offline</button>
         <p id="authHint" class="hint"></p>
-        <p class="copyright">© 2026 Kanji Wizards. All rights reserved.</p>
+        <p class="copyright">© 2026 Kanji Wizards. All rights reserved. <a href="/terms.html" target="_blank" rel="noopener">Terms</a> · <a href="/privacy.html" target="_blank" rel="noopener">Privacy</a></p>
       </form>
     </div>
   </section>

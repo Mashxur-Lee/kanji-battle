@@ -424,6 +424,7 @@ export function setAuthTab(tab: 'login' | 'register') {
   // 0.9.9.9.6.6: an email on Register; "Forgot password?" on Log in
   $('authEmailRow').hidden = login;
   $<HTMLInputElement>('authEmail').required = !login;
+  $('authConsentRow').hidden = login; $<HTMLInputElement>('authConsent').required = !login; // (0.9.9.9.9.5)
   $('authForgot').hidden = !login;
   $('authError').textContent = '';
 }

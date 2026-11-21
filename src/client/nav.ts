@@ -18,6 +18,7 @@ const ICON: Record<string, string> = {
   customize: '<path d="M12 3.5 8.5 11h7z"/><path d="M7 11h10l1.5 9.5h-13z"/>',
   history: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   messages: '<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
+  more: '<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
 };
 interface Item { id: string; label: string; icon: keyof typeof ICON; btn?: string; screens: string[]; phone?: boolean }
@@ -65,6 +66,24 @@ export function initNav() {
     };
     nav.append(b);
   }
+  // 0.9.9.9.9.5: phones — five tabs fit; More opens the rest (Quizzes, Kana, Customize, History, Messages, Settings)
+  const more = document.createElement('button');
+  more.type = 'button'; more.className = 'an-item an-more'; more.dataset.nav = 'more';
+  more.title = tr('More'); more.setAttribute('aria-label', tr('More')); more.setAttribute('aria-expanded', 'false');
+  more.innerHTML = `${svg('more')}<span>${tr('More')}</span>`;
+  const sheet = document.createElement('div');
+  sheet.className = 'an-sheet'; sheet.hidden = true;
+  for (const b of nav.querySelectorAll<HTMLButtonElement>('.an-item:not(.an-phone)')) {
+    const c = b.cloneNode(true) as HTMLButtonElement;
+    c.classList.add('an-in-sheet');
+    c.onclick = () => { setMore(false); b.click(); };
+    sheet.append(c);
+  }
+  const setMore = (on: boolean) => { sheet.hidden = !on; more.setAttribute('aria-expanded', String(on)); more.classList.toggle('open', on); document.body.classList.toggle('nav-more', on); };
+  more.onclick = (e) => { e.stopPropagation(); setMore(sheet.hidden); };
+  addEventListener('click', (e) => { if (!sheet.hidden && !sheet.contains(e.target as Node)) setMore(false); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sheet.hidden) { setMore(false); more.focus(); } }); // (the keyboard too)
+  nav.append(more, sheet);
   document.body.append(nav);
   // "← Menu" buttons: the nav's Home does that now (where the nav shows)
   for (const b of document.querySelectorAll<HTMLElement>('.screen > .back')) if (/menu|меню/i.test(b.textContent ?? '')) b.classList.add('to-menu');
@@ -72,6 +91,9 @@ export function initNav() {
     const on = NAV_SCREENS.has(s);
     nav.hidden = !on;
     document.body.classList.toggle('has-nav', on);
-    for (const b of nav.querySelectorAll<HTMLElement>('.an-item')) b.classList.toggle('on', ITEMS.find((x) => x.id === b.dataset.nav)!.screens.includes(s));
+    setMore(false);
+    for (const b of nav.querySelectorAll<HTMLElement>('.an-item:not(.an-more)')) b.classList.toggle('on', ITEMS.find((x) => x.id === b.dataset.nav)!.screens.includes(s));
+    // (More lights up when the page is one of its own)
+    more.classList.toggle('on', ITEMS.some((x) => !x.phone && x.screens.includes(s)));
   });
 }

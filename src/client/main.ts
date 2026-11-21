@@ -905,6 +905,33 @@ ui.$('logout').onclick = () => {
   if (user?.guest && !confirm(tr('You are playing as a guest. If you log out now, this progress is gone - save it first (Save progress at the top). Log out anyway?'))) return;
   logout();
 };
+// 0.9.9.9.9.5: delete your own account — everything in it, at once (your password; a guest has none)
+ui.$('accDelete').onclick = () => {
+  const d = document.createElement('dialog');
+  d.className = 'friend-dialog pw-dialog';
+  const f = document.createElement('form');
+  const h3 = document.createElement('h3'); h3.textContent = tr('Delete my account');
+  const note = document.createElement('p'); note.className = 'hint'; note.textContent = tr('Your progress, cards, match history, friends, messages and picture are removed for good. This can’t be undone.');
+  const l = document.createElement('label'); l.className = 'pw-field';
+  const i = document.createElement('input'); i.type = 'password'; i.autocomplete = 'current-password'; i.required = !user?.guest; i.maxLength = 72;
+  l.append(tr('Your password'), i); l.hidden = !!user?.guest;
+  const msg = document.createElement('p'); msg.className = 'hint pw-msg'; msg.setAttribute('role', 'status');
+  const row = document.createElement('div'); row.className = 'fb-actions';
+  const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'pill'; cancel.textContent = tr('Cancel'); cancel.onclick = () => d.close();
+  const ok = document.createElement('button'); ok.type = 'submit'; ok.className = 'big danger'; ok.textContent = tr('Delete for good');
+  row.append(cancel, ok);
+  f.append(h3, note, l, msg, row);
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    ok.disabled = true;
+    try { await api.deleteMe(i.value); d.close(); logout(tr('Your account was deleted.')); }
+    catch (err) { msg.textContent = (err as Error).message; ok.disabled = false; }
+  };
+  d.append(f);
+  d.addEventListener('close', () => d.remove());
+  document.body.append(d);
+  d.showModal();
+};
 // ── 0.9.9.9.6.9: guests — play at once; save the account later ──
 ui.$('guestPlay').onclick = async () => {
   const btn = ui.$<HTMLButtonElement>('guestPlay');
