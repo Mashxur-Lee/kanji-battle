@@ -116,7 +116,7 @@ test('0.9.9.9.9.5 the arenas by day: colours by what things are (not the sunset 
 
 test('0.9.9.9.9.5 the arenas like their paintings: a wet floor mirroring the sky (High), the kanji circle in the arena\u2019s colour, the World Tree on the horizon, the forest\u2019s canopy', () => {
   const kit = src('src/client/arenas/kit.ts');
-  assert.ok(kit.includes('export function wetStone(sky: THREE.Texture, flat = true, shine = 0.85) {'));
+  assert.ok(kit.includes('export function wetStone(sky: THREE.Texture, flat = true, shine = 0.85, rough = 0.42) {'));
   assert.ok(kit.includes("floorMesh.name = 'arena-floor';"));
   for (const a of ['castle', 'forest', 'plains', 'swamp', 'worldtree']) assert.ok(src(`src/client/arenas/${a}.ts`).includes('sky: () => rig.envMap(), accent: ['), a);
   const a3 = src('src/client/arena3d.ts');
