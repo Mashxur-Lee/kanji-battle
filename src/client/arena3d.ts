@@ -542,6 +542,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     staffGroup.remove(staff.group);
     staff.group.traverse((o) => { (o as THREE.Mesh).geometry?.dispose?.(); });
     staff = buildStaff(id, sparkTex);
+    if (isSword(id)) staff.group.rotation.y = -1.15; // (0.9.9.9.9.5: your blade shows you its flat, not its edge)
     staffGroup.add(staff.group);
     gemLight.color.copy(staff.color);
   }

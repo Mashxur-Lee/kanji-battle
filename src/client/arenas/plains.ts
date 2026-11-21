@@ -47,9 +47,9 @@ const THEMES: Record<'SUNSET' | 'NIGHT', Theme> = {
 const TOP = 2.3;
 
 export function buildPlains(time: 'day' | 'sunset' | 'night', lite: boolean): Env {
-  const T = time === 'night' ? THEMES.NIGHT : time === 'day' ? { ...dayTheme(THEMES.SUNSET), light_col: [1, 0.95, 0.85], amb: [0.35, 0.4, 0.5], snow: [0.95, 0.97, 1], embers: 0, flower_emit: 0.3, grass_rim: [1, 0.95, 0.75],
+  const T = time === 'night' ? THEMES.NIGHT : time === 'day' ? { ...dayTheme(THEMES.SUNSET), light_col: [1, 0.95, 0.85], snow: [0.95, 0.97, 1], embers: 0, flower_emit: 0.3, grass_rim: [1, 0.95, 0.75],
     // (0.9.9.9.9.5: blue mountains with white snow and green foothills, as in the painting — the haze bleached them)
-    haze_dist: 150, haze_gain: 0.82, veg: [0.16, 0.32, 0.1], rock_lo: [0.2, 0.24, 0.33], rock_hi: [0.44, 0.5, 0.62] } : THEMES.SUNSET;
+    haze_dist: 220, haze_gain: 0.6, snow_from: 0.74, veg: [0.16, 0.32, 0.1], rock_lo: [0.12, 0.15, 0.22], rock_hi: [0.24, 0.29, 0.4], amb: [0.28, 0.32, 0.4] } : THEMES.SUNSET;
   const E = T.emit;
   const R = rand(7);
   const group = new THREE.Group();
@@ -89,7 +89,7 @@ export function buildPlains(time: 'day' | 'sunset' | 'night', lite: boolean): En
         const zn = p[2] / 45, slope = 1 - n.z, nz1 = fbm2(p[0] * 0.12, p[1] * 0.12, 3);
         let col = mul3(lerp3(T.rock_lo, T.rock_hi, clamp01(clamp01(zn) ** 0.7 + 0.25 * (nz1 - 0.5))), 0.8 + 0.4 * nz1);
         col = lerp3(col, T.veg, clamp01((9 - p[2]) / 9) * clamp01(1 - slope * 2.4) * 0.85);
-        col = lerp3(col, T.snow, sstep(0.55, 0.78, zn + 0.22 * (fbm2(p[0] * 0.07, p[1] * 0.07, 3) - 0.5)) * clamp01(1 - slope * 1.7));
+        col = lerp3(col, T.snow, sstep(T.snow_from ?? 0.55, (T.snow_from ?? 0.55) + 0.23, zn + 0.22 * (fbm2(p[0] * 0.07, p[1] * 0.07, 3) - 0.5)) * clamp01(1 - slope * 1.7));
         let lit = 0;
         for (const L of lightDirs) lit = Math.max(lit, clamp01(n.x * L[0] + n.y * L[1] + n.z * L[2]));
         lit = lit ** 1.2;

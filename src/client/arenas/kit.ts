@@ -919,6 +919,9 @@ export function dayTheme(s: Theme): Theme {
     else if (/^(ground|earth)/.test(k)) out[k] = Array.isArray(v[0]) ? v.map((c: C3) => neutral(c)) : neutral(v as C3);
   }
   out.fog = [0.56, 0.72, 0.94]; out.world = [0.42, 0.58, 0.82];
+  // (the sunset's orange rims and sunlit bark, left over by day, made the far trees peach)
+  out.back_rim = [1, 0.97, 0.9]; out.back_rim_k = (s.back_rim_k ?? 0) * 0.3;
+  if (s.bark_sun) { out.bark_sun = [1, 0.96, 0.86]; out.bark_sun_k = (s.bark_sun_k ?? 0) * 0.5; }
   out.emit = (s.emit ?? 1) * 0.6;
   out.back_haze = (s.back_haze ?? [0, 0, 0]).map((h: number) => Math.min(0.45, h * 0.6 + 0.1));
   out.daylight = true;
