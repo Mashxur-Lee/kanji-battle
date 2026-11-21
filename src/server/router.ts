@@ -540,6 +540,13 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         if (!limiter.allow(`rs:${ip}`)) throw new AuthError('Too many attempts - wait a minute', 429);
         const body = await r.json();
         return res(200, await auth.resetPassword(body.login, body.code, body.password));
+      } else if (r.method === 'DELETE' && url === '/api/me') {
+        // 0.9.9.9.9.5: delete your own account (with your password)
+        const u = await auth.authenticate(r.token);
+        if (!limiter.allow(`del:${u.id}`)) throw new AuthError('Too many attempts - wait a minute', 429);
+        const b = (await r.json().catch(() => ({}))) as { password?: unknown };
+        await auth.deleteSelf(u, b.password);
+        return res(200, { ok: true });
       } else if (r.method === 'POST' && url === '/api/me/signout-others') {
         // 0.9.9.9.8: sign out on all other devices
         const u = await auth.authenticate(r.token);

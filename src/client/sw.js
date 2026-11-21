@@ -24,6 +24,7 @@ async function genuine(u, r) {
   return true;
 }
 const CORE = ['/index.html', '/app.js', '/style.css'];
+const LEGAL = new Set(['/privacy.html', '/terms.html']); // (0.9.9.9.9.5)
 
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
@@ -58,7 +59,8 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/api/avatar/') || url.pathname.startsWith('/api/media/')) { e.respondWith(cacheFirst(req, RUNTIME)); return; }
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/download/')) return; // live data / app downloads: never the cached page
   if (NEVER.has(url.pathname)) return; // the network (and the browser's own cache) — not 8 MB in ours
-  if (req.mode === 'navigate') { e.respondWith(shell('/index.html', req)); return; }
+  // 0.9.9.9.9.5: the Privacy policy and the Terms are pages of their own (not the game)
+  if (req.mode === 'navigate') { e.respondWith(shell(LEGAL.has(url.pathname) ? url.pathname : '/index.html', req)); return; }
   e.respondWith(shell(url.pathname, req));
 });
 
