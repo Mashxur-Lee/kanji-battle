@@ -17,6 +17,8 @@ import { inLocalRoom, initLocalGames, localSend, OFFLINE_MODES } from './offline
 initMenuVeil();
 import { initTips } from './tips';
 initTips(); // 0.9.9.9.9.2: explanations fold behind an (i)
+import { initNav } from './nav';
+initNav(); // 0.9.9.9.9.3: the sidebar / the tab bar
 import { writeTargets, writeTemplate } from '../shared/kana';
 import { initI18n, lang, setLang, tr } from './i18n';
 import { applyUiZoom, centerScreens, setUiZoomPref, UI_ZOOMS, uiZoomPref } from './zoom';

@@ -1149,6 +1149,8 @@ const RU: Record<string, string> = {
   'Menu weather': 'Погода в меню', 'Changes by itself': 'Меняется сама', 'Clear sky': 'Ясно', 'Falling leaves': 'Листопад', 'Thunderstorm': 'Гроза',
   // 0.9.9.9.9.2
   '← Back': '← Назад', 'Whose eyes': 'Чьими глазами',
+  // 0.9.9.9.9.3: the navigation
+  'Home': 'Главная', 'Battles': 'Бои', 'Daily': 'Вызов', 'History': 'История',
   'Rain': 'Дождь', 'Snow': 'Снег', 'Cherry petals': 'Лепестки сакуры', 'Dandelion seeds': 'Семена одуванчика', 'Glowing spores': 'Светящиеся споры',
 };
 

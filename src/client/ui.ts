@@ -31,7 +31,8 @@ const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { 
 
 const SCREENS = ['auth', 'menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict', 'kana', 'kanaplay', 'quizzes', 'inbox'] as const;
 export type Screen = (typeof SCREENS)[number];
-let screenListener: (s: Screen) => void = () => {};
+/** (0.9.9.9.9.3: every listener — there was room for one, and the navigation's was replaced by main's) */
+const screenListeners: Array<(s: Screen) => void> = [];
 /** 0.9.9.7.3: the loading screen in index.html (it covers the page from the first moment) fades out */
 export function hideBootScreen() {
   const b = document.getElementById('bootScreen');
@@ -39,7 +40,7 @@ export function hideBootScreen() {
   b.classList.add('out');
   setTimeout(() => b.remove(), 450);
 }
-export const onScreen = (fn: (s: Screen) => void) => { screenListener = fn; };
+export const onScreen = (fn: (s: Screen) => void) => { screenListeners.push(fn); };
 export const currentScreen = () => SCREENS.find((s) => !$(s).hidden);
 /**
  * 0.9.9.9.6.4: Messages opened from a room's lobby — you're still in the room. Its updates (someone picks a level)
@@ -61,7 +62,7 @@ export const show = (screen: Screen) => {
     scrollTo(0, 0);
     screenIn(screen); // 0.9.9.9.5: fades in, its parts rise one after another
   }
-  screenListener(screen);
+  for (const fn of screenListeners) fn(screen);
 };
 
 // 0.9.9.4.3: a menu error goes away by itself (it used to stay for days)
@@ -1492,12 +1493,13 @@ const ACT_ICON: Record<string, string> = {
   challenge: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4l9 9M20 4l-9 9M7 17l-3 3M17 17l3 3M5 13l6 6M19 13l-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
   remove: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 20c1-3.6 3.6-5.5 7-5.5 1.3 0 2.5.3 3.5.8M16 15l5 5M21 15l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
 };
-/** a button with a drawn icon and its words (the words in a span: they can change) */
+/** a button with a drawn icon; 0.9.9.9.9.3: the icon only, round, its words as the tooltip (and for screen readers) */
 function actBtn(cls: string, icon: keyof typeof ACT_ICON, text: string): HTMLButtonElement {
-  const b = h('button', cls) as HTMLButtonElement;
+  const b = h('button', `${cls} pp-icon`) as HTMLButtonElement;
   b.type = 'button';
   const i = h('i', 'pp-ic'); i.innerHTML = ACT_ICON[icon];
-  b.append(i, h('span', '', tr(text)));
+  b.append(i, h('span', 'sr', tr(text)));
+  b.title = tr(text); b.setAttribute('aria-label', tr(text));
   return b;
 }
 /** Under someone's profile: Add friend (or accept their request), and Challenge a friend to a game. */
@@ -1514,7 +1516,7 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
   // 0.9.9.9.9: in a game: watch it
   if (a.watch) { const w = h('button', 'pill primary pp-watch', tr('Watch their game')) as HTMLButtonElement; w.type = 'button'; w.onclick = () => a.watch!(); box.append(w); }
   // 0.9.9.9.6.2: the buttons in an even grid — two to a row, the same size, each with a drawn icon
-  const grid = h('div', 'pp-grid');
+  const grid = h('div', 'pp-grid pp-icons'); // (0.9.9.9.9.3: one row of icons)
   if (a.view) { const v = actBtn('pill pp-view', 'view', 'View profile'); v.onclick = () => a.view!(); grid.append(v); }
   if (a.message) { const m = actBtn('pill pp-msg-btn', 'message', 'Message'); m.onclick = () => a.message!(); grid.append(m); }
   box.append(grid);
@@ -1528,7 +1530,7 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     box.append(b);
   } else if (a.relation === 'outgoing') box.append(h('button', 'pill', '✓ Request sent', { disabled: '' }));
   if (a.relation === 'friend') {
-    const c = actBtn('pill primary challenge-btn', 'challenge', 'Challenge');
+    const c = actBtn('pill challenge-btn', 'challenge', 'Challenge');
     const modes = h('div', 'pp-modes');
     modes.hidden = true;
     for (const m of ['reading', 'writing', 'rapid', 'boss', 'deck'] as GameMode[]) {
@@ -1541,15 +1543,15 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     if (!a.canChallenge) c.title = 'Finish your game first';
     c.onclick = () => { modes.hidden = !modes.hidden; clampProfileCard(); };
     // 0.9.9.9.5.2: remove a friend — a second tap confirms (no unfriending by a stray tap)
-    const rm = actBtn('pill danger remove-friend-btn', 'remove', 'Remove friend');
+    const rm = actBtn('pill remove-friend-btn', 'remove', 'Remove friend');
     const rmText = rm.querySelector('span')!;
     let sure = 0;
     rm.onclick = async () => {
       if (!a.remove) return;
       if (!sure) {
-        rmText.textContent = tr(`Remove ${p.name}?`);
+        rmText.textContent = tr(`Remove ${p.name}?`); rm.title = rmText.textContent;
         rm.classList.add('sure');
-        sure = window.setTimeout(() => { sure = 0; rmText.textContent = tr('Remove friend'); rm.classList.remove('sure'); }, 3500);
+        sure = window.setTimeout(() => { sure = 0; rmText.textContent = tr('Remove friend'); rm.title = rmText.textContent; rm.classList.remove('sure'); }, 3500);
         return;
       }
       clearTimeout(sure);
@@ -1560,7 +1562,7 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
     grid.append(c, rm);
     box.append(modes);
   }
-  if (a.safety) box.append(a.safety);
+  if (a.safety) grid.append(...a.safety.children); // (Block and Report in the same row)
   box.append(msg);
   return box;
 }

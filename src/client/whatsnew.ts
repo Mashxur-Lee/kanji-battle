@@ -7,6 +7,21 @@ interface Patch { v: string; date: string; en: string[]; ru: string[] }
 
 const PATCHES: Patch[] = [
   {
+    v: '0.9.9.9.9.3', date: '2026-11',
+    en: [
+      'A cleaner look: every page outside the menu has the same navigation - a sidebar on computers, tabs along the bottom on phones - so nothing is more than one tap away.',
+      'Calm pages: the painting stays on the menu; elsewhere the background steps back, cards are solid, buttons are big and pressable, and pages start at the top.',
+      'The game has its own fonts now: a bold one for titles, a round one for everything else.',
+      'Less text: a player’s card is one row of icons (profile, message, challenge, remove, block, report), and each page’s explanation folds behind a small (i).',
+    ],
+    ru: [
+      'Чище: на всех страницах, кроме меню, одна и та же навигация — боковая панель на компьютере, вкладки внизу на телефоне, — всё в одно касание.',
+      'Спокойные страницы: картина остаётся в меню; на остальных фон отступает, карточки сплошные, кнопки большие и нажимаются, страницы начинаются сверху.',
+      'У игры теперь свои шрифты: жирный для заголовков и круглый для всего остального.',
+      'Меньше текста: карточка игрока — один ряд значков (профиль, сообщение, вызов, удалить, заблокировать, пожаловаться), а пояснение каждой страницы спрятано за маленькой (i).',
+    ],
+  },
+  {
     v: '0.9.9.9.9.2', date: '2026-11',
     en: [
       'Replays: Exit is at the top, where Leave is in a game. The eye button shows the match through anyone’s eyes, a bot’s too. Jumping on the timeline no longer plays the fly-in, and nobody stays down when you jump back from the end. Exit no longer leaves the game.',

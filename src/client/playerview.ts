@@ -27,9 +27,9 @@ export function safetyRow(p: PublicProfile): HTMLElement | null {
   const v = viewer();
   if (!v || v.guest || v.id === p.id) return null;
   const row = h('div', 'pv-safety');
-  const blk = h('button', 'pill small pv-btn') as HTMLButtonElement;
+  const blk = h('button', 'pill pv-btn pp-icon') as HTMLButtonElement;
   blk.type = 'button';
-  const paint = () => { blk.innerHTML = `${ICON_BLOCK}<span></span>`; blk.querySelector('span')!.textContent = tr(v.blocked().includes(p.id) ? 'Unblock' : 'Block'); };
+  const paint = () => { const t = tr(v.blocked().includes(p.id) ? 'Unblock' : 'Block'); blk.innerHTML = `<i class="pp-ic">${ICON_BLOCK}</i><span class="sr"></span>`; blk.querySelector('span')!.textContent = t; blk.title = t; blk.setAttribute('aria-label', t); blk.classList.toggle('on', v.blocked().includes(p.id)); };
   paint();
   blk.onclick = async () => {
     const on = !v.blocked().includes(p.id);
@@ -39,9 +39,9 @@ export function safetyRow(p: PublicProfile): HTMLElement | null {
     catch (e) { ui.toast((e as Error).message); }
     finally { blk.disabled = false; }
   };
-  const rep = h('button', 'pill small pv-btn') as HTMLButtonElement;
+  const rep = h('button', 'pill pv-btn pp-icon') as HTMLButtonElement;
   rep.type = 'button';
-  rep.innerHTML = `${ICON_FLAG}<span></span>`; rep.querySelector('span')!.textContent = tr('Report');
+  rep.innerHTML = `<i class="pp-ic">${ICON_FLAG}</i><span class="sr"></span>`; rep.querySelector('span')!.textContent = tr('Report'); rep.title = tr('Report'); rep.setAttribute('aria-label', tr('Report'));
   rep.onclick = () => reportDialog({ id: p.id, name: p.name }, () => ui.toast(tr('Thanks - the team will look at it'), 3000));
   row.append(blk, rep);
   return row;

@@ -50,7 +50,8 @@ async function sentCopy(url: string, file: string): Promise<Buffer | null> {
   } catch { return null; }
 }
 try { setServerBuild(readFileSync(path.join(PUBLIC_DIR, 'build.txt'), 'utf8')); } catch { /* not built (tests, dev) */ }
-const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8' };
+const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.json': 'application/json; charset=utf-8',
+  /* 0.9.9.9.9.3: the game's fonts; robots.txt, llms.txt, the sitemap */ '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8' };
 
 // ── accounts ──────────────────────────────────────────────────────────────────
 /** Neon / any Postgres when DATABASE_URL is set; otherwise a local JSON file (wiped on Render's free disk!). */
@@ -239,7 +240,7 @@ const server = createServer(async (req, res) => {
     // the service worker and the page are checked for a new version every time (0.9.9.4)
     // 0.9.9.9.5: + the security headers (the page's inline script allowed by its hash)
     if (url === '/index.html' && pageHashesFor !== data.length) { pageHashes = inlineScriptHashes(data.toString('utf8')); pageHashesFor = data.length; }
-    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : url.startsWith('/bg/') || url.startsWith('/models/') || url.startsWith('/frames/') || url.startsWith('/flames/') ? { 'Cache-Control': 'public, max-age=604800' }
+    const fresh: Record<string, string> = { ...securityHeaders(pageHashes, viaHttps(req)), ...(url === '/sw.js' || url === '/index.html' ? { 'Cache-Control': 'no-cache' } : url.startsWith('/bg/') || url.startsWith('/models/') || url.startsWith('/frames/') || url.startsWith('/flames/') || url.startsWith('/fonts/') ? { 'Cache-Control': 'public, max-age=604800' }
       // 0.9.9.9.6.5: the dictionary is asked for as /dict.json?v=<its version> — the browser may keep it a month
       : url === '/dict.json' && /[?&]v=/.test(req.url ?? '') ? { 'Cache-Control': 'public, max-age=2592000' } : {}) };
     // 0.9.9.9.9.2: the game's code and look are checked every time too (with an ETag: unchanged, only "304"). They had

@@ -4,7 +4,9 @@ import { tr } from './i18n';
 
 const INFO = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 10.5v6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="7.3" r="1.4" fill="currentColor"/></svg>';
 /** what folds away */
-const FOLDED = ['#custSub', '#struggledBox h3 small', '#volPanel .set-sec > p.hint:not([id])'];
+const FOLDED = ['#custSub', '#struggledBox h3 small', '#volPanel .set-sec > p.hint:not([id])',
+  // 0.9.9.9.9.3: each page's opening paragraph (the title says what the page is; the (i) says how it works)
+  '#queue > p.sub', '#private h2 + p.sub', '#friends > p.sub', '#history > p.sub', '#study > p.sub', '#quizzes .qz-titles > p.sub', '#daily > p.sub', '#progress > p.sub', '#kana > p.sub'];
 
 export function tipify(el: HTMLElement) {
   if (el.dataset.tipped) return;
