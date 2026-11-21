@@ -409,10 +409,10 @@ export function vcMat(o: { emit?: number; flat?: boolean; double?: boolean; morp
  * 0.9.9.9.9.5: the arena floor, wet — like the paintings: polished stone that mirrors the place's own sky (brightest
  * towards the far side, where you look across it), with the same worn detail. High only; arena3d swaps it in.
  */
-export function wetStone(sky: THREE.Texture, flat = true, shine = 0.85) {
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: flat, roughness: 0.42, metalness: 0, envMap: sky, envMapIntensity: shine });
+export function wetStone(sky: THREE.Texture, flat = true, shine = 0.85, rough = 0.42) {
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: flat, roughness: rough, metalness: 0, envMap: sky, envMapIntensity: shine });
   addDetail(m, 'stone', 0);
-  m.customProgramCacheKey = () => `wetstone-${flat}`;
+  m.customProgramCacheKey = () => `wetstone-${flat}`; // (roughness is a uniform: one program serves all)
   return m;
 }
 /** unlit, vertex-coloured: things that glow by themselves (backdrops, flames, windows) */

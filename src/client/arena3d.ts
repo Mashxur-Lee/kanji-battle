@@ -873,7 +873,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (o.name !== 'arena-floor') return;
       const m = o as THREE.Mesh;
       (m.material as THREE.Material).dispose();
-      m.material = wetStone(sky, !m.userData.smooth, time === 'day' ? 0.3 : time === 'sunset' ? 0.5 : 0.9); // (a bright day sky, or a low sun, glared off it)
+      m.material = wetStone(sky, !m.userData.smooth, time === 'day' ? 0.3 : time === 'sunset' ? 0.5 : 0.9, time === 'sunset' ? 0.72 : 0.42); // (a bright day sky, or a low sun, glared off it — at sunset a rougher floor spreads the sun's glint)
     });
     for (const l of lite ? env.lights.slice(0, 2) : env.lights) { // Lite: only the main glow lights
       const p = new THREE.PointLight(new THREE.Color(...l.color), l.intensity * 8, l.dist, 2);
