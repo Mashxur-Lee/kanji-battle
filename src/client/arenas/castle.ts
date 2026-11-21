@@ -49,7 +49,8 @@ const CASTLE_DIST = 78, CASTLE_ANGLES = [90, 270];
 
 export function buildCastle(time: 'day' | 'sunset' | 'night', lite: boolean): Env {
   const TH = time === 'night' ? THEMES.NIGHT : time === 'day'
-    ? { ...dayTheme(THEMES.SUNSET), win_emit: 1, sil_rim: [0.35, 0.35, 0.4], sil: [0.05, 0.05, 0.06], banner: [0.55, 0.05, 0.08], flag_col: [0.6, 0.05, 0.1], glow_col: [0.95, 0.5, 0.2], grass_tip: [0.3, 0.28, 0.15], grass_base: [0.08, 0.07, 0.04], g_near: [0.14, 0.12, 0.08], g_far: [0.1, 0.1, 0.08], g_road: [0.2, 0.16, 0.11], cs_stone: [0.22, 0.2, 0.22], cs_roof: [0.12, 0.08, 0.1] }
+    ? { ...dayTheme(THEMES.SUNSET), win_emit: 1, sil_rim: [0.35, 0.35, 0.4], sil: [0.05, 0.05, 0.06], banner: [0.55, 0.05, 0.08], flag_col: [0.6, 0.05, 0.1], glow_col: [0.95, 0.5, 0.2], // (0.9.9.9.9.5: light grey stone, slate roofs, a green meadow and a dirt road, as in the painting — it was a dark keep on brown grass)
+      grass_tip: [0.36, 0.56, 0.17], grass_base: [0.08, 0.15, 0.05], g_near: [0.17, 0.31, 0.09], g_far: [0.15, 0.27, 0.1], g_road: [0.36, 0.3, 0.21], cs_stone: [0.5, 0.48, 0.46], cs_roof: [0.24, 0.27, 0.34] }
     : THEMES.SUNSET;
   const E = TH.emit, G = E * 0.75;
   const R = rand(13), R2 = rand(41);
@@ -321,6 +322,7 @@ export function buildCastle(time: 'day' | 'sunset' | 'night', lite: boolean): En
       for (const fl of flames) { const a = fl.keys[k % 450], b = fl.keys[(k + 1) % 450]; fl.m.scale.set(a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e, a[2] + (b[2] - a[2]) * e); }
       embers.update(f);
     },
+    sky: () => rig.envMap(), accent: [1, 0.74, 0.32], // (0.9.9.9.9.5)
     key: { dir: BODIES[0], color: TH.key_col, intensity: TH.key_e },
     ambient: { sky: mul3(TH.fill_col, 0.6), ground: TH.g_near, intensity: time === 'night' ? 0.45 : time === 'day' ? 0.8 : 0.55 },
     fog: { color: TH.fog, near: 60, far: 160 },

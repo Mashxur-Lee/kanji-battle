@@ -13,6 +13,7 @@
 // The arena (arena3d.ts) calls impact(); step() runs every frame (a paused game stands still: it isn't called).
 
 import * as THREE from 'three';
+import { isSword } from './swords3d';
 
 export interface HitDeps {
   scene: THREE.Scene;
@@ -154,6 +155,37 @@ export function createHits(d: HitDeps) {
   function shockwave(at: THREE.Vector3, color: THREE.ColorRepresentation, from: number, to: number, dur: number, opacity = 0.9) {
     const s = sprite(tx.ring, color, at, from, THREE.AdditiveBlending, opacity);
     add(dur, (t) => { const k = t / dur; s.scale.setScalar(from + (to - from) * ease(k)); s.material.opacity = opacity * (1 - k) ** 1.5; }, () => kill(s));
+  }
+
+  // ── 0.9.9.9.9.5: a sword's slash — two bright cuts crossing on them (an X), flashing out and fading, sparks of the
+  // blade's colour flying off, a ring of light; at you (first person) only the cut across the screen and the sparks ──
+  let streakTex: THREE.Texture | null = null;
+  const streak = () => streakTex ??= (() => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 32;
+    const g = c.getContext('2d')!;
+    const grd = g.createLinearGradient(0, 0, 256, 0);
+    grd.addColorStop(0, 'rgba(255,255,255,0)'); grd.addColorStop(0.5, 'rgba(255,255,255,1)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd;
+    g.beginPath(); g.moveTo(0, 16); g.quadraticCurveTo(128, 2, 256, 16); g.quadraticCurveTo(128, 30, 0, 16); g.fill();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  function slash(h: HitAt) {
+    const col = h.main.clone();
+    const cuts = h.firstPerson ? [0.55] : [0.7, -0.7];
+    cuts.forEach((ang, i) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.16), additive(streak(), col.clone().lerp(new THREE.Color(0xffffff), 0.45)));
+      m.position.copy(h.chest); m.lookAt(d.camera.position); m.rotateZ(ang);
+      m.renderOrder = 6; scene.add(m);
+      const len = (h.firstPerson ? 1.4 : 1.25) * Math.max(1, h.height / 1.6);
+      add(0.42, (t) => {
+        const k = Math.max(0, t - i * 0.07) / 0.35;
+        m.scale.set(0.1 + len * ease(Math.min(1, k * 2.6)), 1 + 0.6 * k, 1);
+        (m.material as THREE.MeshBasicMaterial).opacity = k <= 0 ? 0 : (1 - Math.min(1, k)) ** 1.2;
+      }, () => kill(m));
+    });
+    if (!h.firstPerson) shockwave(h.chest, col, 0.3, 1.8, 0.4, 0.7);
+    for (let k = 0; k < n(h.firstPerson ? 18 : 30); k++) d.spark(h.chest.clone().add(new THREE.Vector3(rnd(-0.2, 0.2), rnd(-0.2, 0.2), rnd(-0.1, 0.1))), k % 3 ? col : 0xffffff, { size: rnd(0.03, 0.08), vel: new THREE.Vector3(rnd(-2.6, 2.6), rnd(-0.6, 2.2), rnd(-1, 1)), life: rnd(0.25, 0.55), gravity: -6 });
+    d.flash(col, h.chest, 22, 160);
   }
 
   // ── Verdant ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -417,7 +449,8 @@ export function createHits(d: HitDeps) {
 
   return {
     impact(kind: string, h: HitAt, lightning: (to: THREE.Vector3, color: THREE.ColorRepresentation, core: THREE.ColorRepresentation) => void) {
-      if (kind === 'verdant') verdant(h);
+      if (isSword(kind)) slash(h);
+      else if (kind === 'verdant') verdant(h);
       else if (kind === 'ember') ember(h);
       else if (kind === 'tide') tide(h);
       else if (kind === 'storm') storm(h, lightning);

@@ -56,7 +56,9 @@ const THEMES: Record<'SUNSET' | 'NIGHT', Theme> = {
 };
 
 export function buildForest(time: 'day' | 'sunset' | 'night', lite: boolean): Env {
-  const TH = time === 'night' ? THEMES.NIGHT : time === 'day' ? { ...dayTheme(THEMES.SUNSET), beam_col: [1, 0.95, 0.8], firefly_n: 0, flower_emit: 0.3, grass_rim: [1, 0.95, 0.75], grass_emit: 0.05 } : THEMES.SUNSET;
+  const TH = time === 'night' ? THEMES.NIGHT : time === 'day' ? { ...dayTheme(THEMES.SUNSET), beam_col: [1, 0.95, 0.8], firefly_n: 0, flower_emit: 0.3, grass_rim: [1, 0.95, 0.75], grass_emit: 0.05,
+    // (0.9.9.9.9.5: a forest by day, like its painting — the far trunks blue-green in a light mist, not bleached; softer shafts)
+    back_haze: [0.06, 0.08, 0.08], beam_gain: 0.5, fog: [0.42, 0.55, 0.5] as C3, world: [0.36, 0.5, 0.46] as C3 } : THEMES.SUNSET;
   const E = TH.emit, G = E * 0.75;
   const R = rand(11), R2 = rand(99);
   const group = new THREE.Group();
@@ -276,6 +278,29 @@ export function buildForest(time: 'day' | 'sunset' | 'night', lite: boolean): En
     const back = glowMat({ fog: false, gain: time === 'night' ? 0.45 : 0.6 }); back.toneMapped = false;
     group.add(new THREE.Mesh(mb.geo(), back));
   }
+  // 0.9.9.9.9.5: the canopy — leaves closing overhead round the clearing, as in the painting (the sky only through the
+  // gap above the arena)
+  {
+    const LEAF = time === 'day' ? { lo: [0.03, 0.09, 0.03], hi: [0.2, 0.42, 0.11] } : time === 'sunset' ? { lo: [0.02, 0.012, 0.035], hi: [0.3, 0.13, 0.16] } : { lo: [0.004, 0.008, 0.02], hi: [0.03, 0.06, 0.12] };
+    const mb = new MB();
+    const RC = rand(404);
+    for (let i = 0; i < (lite ? 46 : 80); i++) {
+      const a = RC.uniform(0, 2 * Math.PI), r = RC.uniform(15, 44), x = r * Math.cos(a), y = r * Math.sin(a), z = RC.uniform(19, 31) + r * 0.12, s = RC.uniform(5, 9) * (0.8 + r / 60);
+      const geo = new THREE.IcosahedronGeometry(1, 1), q = geo.attributes.position;
+      for (let j = 0; j < q.count; j += 3) {
+        const vs: number[] = [];
+        for (let m = 0; m < 3; m++) {
+          const lx = q.getX(j + m), ly = q.getY(j + m), lz = q.getZ(j + m);
+          const lit = clamp01(0.55 + 0.45 * lz + 0.25 * (lx * SUN_H[0] + ly * SUN_H[1]));
+          vs.push(mb.v([x + lx * s * 1.3, y + ly * s * 1.3, z + lz * s * 0.6], lerp3(LEAF.lo, LEAF.hi, lit * lit)));
+        }
+        mb.f(...vs);
+      }
+      geo.dispose();
+    }
+    const m = new THREE.Mesh(mb.geo(), vcMat());
+    group.add(m);
+  }
   // light: soft shafts and the wash over the arena
   const beams = new MB(true);
   BEAMS.forEach(([top, tgt]) => { for (const [sc, gn] of [[1, 0.45], [0.7, 0.6], [0.4, 0.8]]) beam(beams, top, tgt, sc, gn, TH.beam_col, 0.35 * TH.beam_gain, 2.6); });
@@ -305,6 +330,7 @@ export function buildForest(time: 'day' | 'sunset' | 'night', lite: boolean): En
       beamMesh.rotation.set(0.03 * k * 0.1, 0.02 * k * 0.1, 0);
       flies.update(f);
     },
+    sky: () => rig.envMap(), accent: [0.38, 0.66, 1], // (0.9.9.9.9.5)
     key: { dir: sph(TH.body_az, TH.body_el), color: TH.key_col, intensity: TH.key_e },
     ambient: { sky: mul3(TH.fill_col, 0.5), ground: TH.g_near, intensity: time === 'night' ? 0.25 : time === 'day' ? 0.7 : 0.4 },
     fog: { color: TH.fog, near: 45, far: 140 },

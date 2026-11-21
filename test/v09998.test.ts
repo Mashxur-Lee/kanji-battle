@@ -47,7 +47,7 @@ function fakeContext() {
 
 test('0.9.9.9.8 every staff has a cast sound of its own (a seasonal one at least its classic staff\'s), bigger with the combo', () => {
   // (0.9.9.9.9.1: a seasonal staff sounds like its classic staff — the same staff in another colour — and every staff has spells that take turns)
-  for (const s of STAFFS) assert.ok(spellsOf(s.base ?? s.id) >= 2, `${s.id} has its staff's sounds`);
+  for (const s of STAFFS) assert.ok(spellsOf(s.sword ? 'sword' : s.base ?? s.id) >= 2, `${s.id} has its staff's sounds`); // (0.9.9.9.9.5: the swords share theirs)
   for (const s of STAFFS) {
     const sizes = [1, 5].map((combo) => { const f = fakeContext(); const out = f.c.createGain(); staffCast({ c: f.c as never, dry: out as never, wet: out as never }, s.id, combo, 0, s.base, 0); return f.count(); }); // (0.9.9.9.9.1: the same spell both times — they take turns at random)
     assert.ok(sizes[1] >= sizes[0], `${s.id}: a 5× combo is at least as big as a single cast`);

@@ -20,6 +20,8 @@ import { createPost, createWeather, floorWear, roomLight, shadowsFor, type Post,
 import { staffOf } from '../shared/progress';
 import { createStaffPreview } from './staffpreview';
 import { buildEnv, type Env } from './arenas';
+import { wetStone } from './arenas/kit';
+import { isSword } from './swords3d';
 import { applyPose, isPose, notePose, type PoseId } from './poses3d';
 
 export type Who = 'me' | 'opp' | 'boss' | `ally:${string}`;
@@ -356,7 +358,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const rim = new THREE.Mesh(new THREE.TorusGeometry(9.5, 0.18, 8, 96), new THREE.MeshStandardMaterial({ color: 0x4b4656, roughness: 0.85 }));
   rim.rotation.x = Math.PI / 2; rim.position.y = 0.05;
   classic.add(rim);
-  const rune = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), new THREE.MeshBasicMaterial({ map: ringTexture('#a98bff'), transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false }));
+  // (0.9.9.9.9.5: drawn white, coloured by the arena — blue in the forest, gold at the castle… as in the paintings)
+  const RUNE_PURPLE = new THREE.Color('#a98bff');
+  const rune = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), new THREE.MeshBasicMaterial({ map: ringTexture('#ffffff'), color: RUNE_PURPLE, transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false }));
   rune.rotation.x = -Math.PI / 2; rune.position.y = 0.03; rune.scale.x = -1;
   scene.add(rune); // the rotating kanji circle the fighters stand on — kept in the 3D arenas too
   const wear = floorWear(); // (0.9.9.9.9.1: wear on the floor, every arena)
@@ -538,8 +542,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     staffGroup.remove(staff.group);
     staff.group.traverse((o) => { (o as THREE.Mesh).geometry?.dispose?.(); });
     staff = buildStaff(id, sparkTex);
+    if (isSword(id)) staff.group.rotation.y = -1.15; // (0.9.9.9.9.5: your blade shows you its flat, not its edge)
     staffGroup.add(staff.group);
     gemLight.color.copy(staff.color);
+    gemLight.position.y = staff.gem.position.y; // (0.9.9.9.9.5: at a sword's tip)
   }
   {
     // the hand: the back of the hand on the right of the staff, four fingers curled round it (tips towards
@@ -769,7 +775,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const kick = (amount: number) => { if (!filming) shake = Math.max(shake, amount); };
 
   // spells in flight
-  interface Flight { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; mid: THREE.Vector3; t: number; dur: number; color: THREE.Color; size: number; done: () => void; trailAt: number; gem?: THREE.Mesh; incoming?: boolean; target?: Who }
+  interface Flight { sprite: THREE.Sprite; from: THREE.Vector3; to: THREE.Vector3; mid: THREE.Vector3; t: number; dur: number; color: THREE.Color; size: number; done: () => void; trailAt: number; gem?: THREE.Mesh; incoming?: boolean; target?: Who; wave?: THREE.Mesh; tilt?: number }
   const flights: Flight[] = [];
   const koWait = new Set<Who>(); // knocked out, waiting for the spell that did it to land
   let koGen = 0; // (0.9.9.9.9.2: a new setup — a replay jumping back — drops the knock-outs still waiting)
@@ -789,7 +795,22 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     orbs.set(color, tex);
     return tex;
   }
-  function fly(from: THREE.Vector3, to: THREE.Vector3, kanji: string, color: string, size: number, dur: number, incoming = false): Promise<void> {
+  /** 0.9.9.9.9.5: a sword's slash wave — a glowing crescent (white at the edge, the blade's colour behind), one per colour */
+  const crescents = new Map<string, THREE.Texture>();
+  function crescentTexture(color: string): THREE.Texture {
+    const hit = crescents.get(color);
+    if (hit) return hit;
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    const g = c.getContext('2d')!;
+    g.shadowColor = color; g.shadowBlur = 18;
+    g.beginPath(); g.arc(128, 150, 116, Math.PI * 1.08, Math.PI * 1.92); g.arc(128, 176, 112, Math.PI * 1.86, Math.PI * 1.14, true); g.closePath();
+    const grad = g.createLinearGradient(0, 30, 0, 80); grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.35, color); grad.addColorStop(1, `${color}00`);
+    g.fillStyle = grad; g.fill();
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    crescents.set(color, tex);
+    return tex;
+  }
+  function fly(from: THREE.Vector3, to: THREE.Vector3, kanji: string, color: string, size: number, dur: number, incoming = false, slash = false): Promise<void> {
     // 0.9.9.6: a glowing orb flies, not the kanji (the word is on screen already; the orb is the spell)
     void kanji;
     const tex = orbTexture(color);
@@ -803,6 +824,15 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     const mid = incoming
       ? from.clone().lerp(to, 0.5).add(new THREE.Vector3(screenSpot(0.28, from.clone().lerp(to, 0.5).z) - from.clone().lerp(to, 0.5).x, -0.15, 0))
       : from.clone().lerp(to, 0.5).add(new THREE.Vector3(rnd(-0.6, 0.6), 1.2 + from.distanceTo(to) * 0.08, 0));
+    if (slash) {
+      // a sword: the wave flies almost straight, low, as wide as a person, its arc facing the way it goes
+      s.visible = false;
+      mid.copy(from).lerp(to, 0.5).add(new THREE.Vector3(0, 0.12, 0));
+      const wave = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), new THREE.MeshBasicMaterial({ map: crescentTexture(color), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+      wave.renderOrder = 5; wave.position.copy(from);
+      scene.add(wave);
+      return new Promise((done) => flights.push({ sprite: s, from, to, mid, t: 0, dur: dur * 0.8, color: new THREE.Color(color), size, done, trailAt: 0, incoming, wave, tilt: rnd(-0.7, -0.35) }));
+    }
     return new Promise((done) => flights.push({ sprite: s, from, to, mid, t: 0, dur, color: new THREE.Color(color), size, done, trailAt: 0, incoming }));
   }
 
@@ -835,6 +865,16 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     scene.add(env.group);
     shadowsFor(env.group); // (0.9.9.9.9.1)
     env.group.traverse((o) => { if (o.name === 'centre-pattern') o.visible = false; });
+    // 0.9.9.9.9.5: the kanji circle in the arena's colour; on High the floor is wet stone mirroring the sky
+    (rune.material as THREE.MeshBasicMaterial).color.copy(env.accent ? new THREE.Color(...env.accent) : RUNE_PURPLE);
+    (rune.material as THREE.MeshBasicMaterial).opacity = env.accent ? 0.5 : 0.38;
+    const sky = !lite && env.sky ? env.sky() : null;
+    if (sky) env.group.traverse((o) => {
+      if (o.name !== 'arena-floor') return;
+      const m = o as THREE.Mesh;
+      (m.material as THREE.Material).dispose();
+      m.material = wetStone(sky, !m.userData.smooth, time === 'day' ? 0.3 : time === 'sunset' ? 0.5 : 0.9, time === 'sunset' ? 0.72 : 0.42); // (a bright day sky, or a low sun, glared off it — at sunset a rougher floor spreads the sun's glint)
+    });
     for (const l of lite ? env.lights.slice(0, 2) : env.lights) { // Lite: only the main glow lights
       const p = new THREE.PointLight(new THREE.Color(...l.color), l.intensity * 8, l.dist, 2);
       p.position.copy(fromBlender(l.pos, env.floor));
@@ -851,6 +891,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     stage.intensity *= 0.45; fill.intensity *= 0.5; // still lights the fighters, without flooding the stone
     const fog = scene.fog as THREE.Fog;
     fog.color.setRGB(...e.fog.color); fog.near = e.fog.near; fog.far = e.fog.far;
+    if (current?.time === 'day') { fog.near *= 1.4; fog.far *= 1.7; } // (0.9.9.9.9.5: a clear day — the far hills keep their colour)
     // (0.9.9.9.9.1: the light from all round, softer at night; the key light a little stronger on High, now that it casts shadows)
     scene.environmentIntensity = current?.time === 'night' ? 0.12 : current?.time === 'sunset' ? 0.18 : 0.22;
     if (post) envKey.intensity *= 1.35;
@@ -1219,7 +1260,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const th = Math.max(0, 1 - (now - thrustAt) / 380); // 1 → 0 after a thrust
       const thrust = th > 0 ? Math.sin(th * Math.PI) : 0;
       const charge = Math.min(1, channelShown);
-      eightAmp += ((charge > 0.05 && !still ? Math.min(1, 0.5 + charge * 0.6) : 0) - eightAmp) * Math.min(1, dt * 3);
+      const swordMe = isSword(staffSkin);
+      eightAmp += ((charge > 0.05 && !still && !swordMe ? Math.min(1, 0.5 + charge * 0.6) : 0) - eightAmp) * Math.min(1, dt * 3);
       eightPhase += dt * (2.6 + charge * 1.4);
       const ex = Math.sin(eightPhase), ey = Math.sin(eightPhase * 2) / 2;
       fp.position.set(
@@ -1232,6 +1274,19 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         twitchRot.y * 0.3,
         0.2 - ex * 0.24 * eightAmp + twitchRot.z * 0.3,
       );
+      if (swordMe) {
+        // 0.9.9.9.9.5: a sword trembles as you write (the more it charges, the more), its tip lighting up — no ∞ —
+        // and a cast is a slash: from up on the right down across to the left, the wave leaving the blade
+        const tr = still ? 0 : charge;
+        fp.position.x += Math.sin(time * 57) * 0.007 * tr; fp.position.y += Math.sin(time * 71 + 1) * 0.006 * tr;
+        staffGroup.rotation.z += Math.sin(time * 63) * 0.03 * tr;
+        staffGroup.rotation.x = charge * 0.35 + twitchRot.x * 0.3;
+        if (th > 0) {
+          const s = 1 - th, e = s * s * (3 - 2 * s);
+          fp.position.x += 0.18 - 0.55 * e; fp.position.y += 0.12 - 0.3 * e; fp.position.z = fpBase.z - Math.sin(s * Math.PI) * 0.25;
+          staffGroup.rotation.z = 0.9 - 2.3 * e; staffGroup.rotation.x = -0.5 * Math.sin(s * Math.PI);
+        }
+      }
       // 0.9.9.7: your combo pose, as you see it — floating lifts your view; Duelist points the staff's core
       // straight ahead; Channel and Lotus bring the staff to the middle, upright, in both hands
       myPoseK += ((myFlame && myPose !== 'none' && !meDown ? 1 : 0) - myPoseK) * Math.min(1, realDt * 3);
@@ -1333,13 +1388,15 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         // the staff arm: raised to cast, held forward while writing, with little random moves as you write
         const writing = key === 'me' ? channelShown : (key === 'opp' || key.startsWith('ally:')) && oppChannelOn && (layout === 'deck' || f.typing) ? (layout === 'deck' ? 0.7 : 0.45) : 0;
         // while they type or write, the staff traces a figure-eight (∞) in the air — like yours
-        const inf = key === 'me' ? 0 : writing * (1 - Math.max(0, thrust));
+        const swordF = isSword(key === 'me' ? staffSkin : f.staffId); // (0.9.9.9.9.5: a sword trembles instead of drawing the ∞, and slashes across)
+        const inf = key === 'me' || swordF ? 0 : writing * (1 - Math.max(0, thrust));
         const ax = -0.15 - writing * 0.75 - Math.max(0, thrust) * 0.9 + (key === 'me' ? twitchRot.x : 0) + Math.sin(time * 4.4) * 0.22 * inf;
         // (0.9.9.9.7.4: the arm eases on a value of its own — a hit's offset added to the arm's turn fed back into this
         // easing every frame and ran away with the hand)
         f.armX = (f.armX ?? m.arm.rotation.x) + (ax - (f.armX ?? m.arm.rotation.x)) * Math.min(1, dt * 10);
         m.arm.rotation.x = f.armX;
-        m.arm.rotation.z = ARM_REST + (key === 'me' ? twitchRot.z : 0) + Math.sin(time * 2.2) * 0.32 * inf;
+        m.arm.rotation.z = ARM_REST + (key === 'me' ? twitchRot.z : 0) + Math.sin(time * 2.2) * 0.32 * inf
+          + (swordF ? Math.sin(time * 60 + f.height) * 0.04 * writing + (lunge > 0 ? 0.7 - 1.6 * p * p * (3 - 2 * p) : 0) : 0);
         m.arm.rotation.y = key === 'me' ? twitchRot.y : 0;
         const glowLevel = key === 'me' ? channelShown : writing;
         m.crystalMat.emissiveIntensity = 1.2 + glowLevel * (3 + pulse * 2) + lunge * 3;
@@ -1453,6 +1510,13 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const a = fl.from.clone().lerp(fl.mid, e), b = fl.mid.clone().lerp(fl.to, e);
       fl.sprite.position.copy(a.lerp(b, e));
       if (fl.gem) { fl.gem.position.copy(fl.sprite.position); fl.gem.rotation.y += dt * 12; fl.gem.rotation.x += dt * 7; }
+      if (fl.wave) {
+        // (0.9.9.9.9.5: the slash wave faces the way it flies, tilted like the cut, growing as it goes)
+        fl.wave.position.copy(fl.sprite.position);
+        fl.wave.lookAt(fl.to); fl.wave.rotateZ(fl.tilt ?? -0.5);
+        fl.wave.scale.setScalar(fl.size * (0.6 + 0.7 * e));
+        (fl.wave.material as THREE.MeshBasicMaterial).opacity = fl.incoming ? 1 - 0.7 * Math.max(0, (t - 0.4) / 0.6) : 1;
+      }
       const grow = fl.incoming ? 0.55 + e * 0.25 : 0.55 + e * 0.8;
       const mat = fl.sprite.material as THREE.SpriteMaterial;
       // an incoming spell fades as it gets close (the hit flash and the damage number say what happened)
@@ -1466,6 +1530,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       if (t >= 1) {
         scene.remove(fl.sprite); mat.dispose(); // (the orb texture is shared)
         if (fl.gem) scene.remove(fl.gem);
+        if (fl.wave) { scene.remove(fl.wave); fl.wave.geometry.dispose(); (fl.wave.material as THREE.Material).dispose(); }
         flights.splice(i, 1);
         fl.done();
       }
@@ -1621,7 +1686,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const chest = pointOf(to, 'chest');
       const end = firstPerson ? chest.clone().add(new THREE.Vector3(screenSpot(0.42, chest.z) - chest.x, -0.5, 0)) : chest;
       const size = (o.crit ? 1.5 : 1) * 1.15;
-      const flight = fly(start, end, kanji, color, size, 0.85, firstPerson);
+      const flight = fly(start, end, kanji, color, size, 0.85, firstPerson, layout !== 'deck' && from !== 'boss' && isSword(staffIdOf(from)));
       // 0.9.9.9.6.9: your big ones (a critical, or while you're on fire) — a side shot as it lands, now and then
       if (from === 'me' && (to === 'opp' || to === 'boss') && (o.crit || myFlame) && !cine && performance.now() - lastImpact > 9000) {
         lastImpact = performance.now();

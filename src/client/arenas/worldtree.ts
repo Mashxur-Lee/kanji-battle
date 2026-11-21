@@ -177,6 +177,8 @@ export function buildWorldTree(time: 'day' | 'sunset' | 'night', lite: boolean):
       const k_ = 1 + 0.25 * idx;
       for (let i = 0; i < (lite ? 12 : 20); i++) {
         const a = (2 * Math.PI * (i + R.uniform(-0.4, 0.4))) / 20 + idx * 0.4, r = radius + R.uniform(-6, 6);
+        const ad = ((a * 180) / Math.PI % 360 + 360) % 360;
+        if (ad > 62 && ad < 118) continue; // (0.9.9.9.9.5: the World Tree stands there)
         for (let p = 0; p < 2; p++) {
           const off = p ? R.uniform(-9, 9) : 0, cx = r * Math.cos(a) - off * Math.sin(a), cy = r * Math.sin(a) + off * Math.cos(a);
           const rr = R.uniform(9, 16) * k_ * (p ? 0.7 : 1), rz = R.uniform(28, 46) * k_ * (p ? 0.75 : 1), hz = 0.35 + 0.15 * idx, tint = R.uniform(0.85, 1.15);
@@ -185,6 +187,77 @@ export function buildWorldTree(time: 'day' | 'sunset' | 'night', lite: boolean):
       }
     });
     group.add(new THREE.Mesh(mb.geo(), vcMat({ emit: 0.85, flat: false })));
+  }
+
+  // ── 0.9.9.9.9.5: the World Tree itself, as in the painting — straight ahead on the horizon, rising out of the clouds:
+  // a huge ridged trunk that splits into boughs under a vast round crown (the 3D arena only had the tree under your
+  // feet, so the place didn't look like its picture) ──
+  {
+    const TX = 0, TY = 118, BASE = -30;
+    const LEAF = time === 'day' ? { lo: [0.07, 0.2, 0.05], hi: [0.36, 0.66, 0.17] } : time === 'sunset' ? { lo: [0.035, 0.05, 0.04], hi: [0.55, 0.36, 0.12] } : { lo: [0.006, 0.02, 0.018], hi: [0.04, 0.13, 0.1] };
+    const haze = (c: readonly number[], k: number) => lerp3(c, HAZE_C, k);
+    // the trunk: a ridged column that flares into roots at the bottom and splits into four boughs at the top
+    const bark = new MB();
+    const trunkRad = (z: number) => 9 + 8 * Math.exp(-(z - BASE) / 6) - 2 * sstep(BASE + 26, BASE + 44, z);
+    const TS = lite ? 20 : 32, N = 14, H = 44;
+    const rows = Array.from({ length: N }, (_, k) => {
+      const z = BASE + (H * k) / (N - 1);
+      return Array.from({ length: TS }, (_, s) => {
+        const th = (2 * Math.PI * s) / TS, rid = Math.sin(9 * th + 0.15 * z), r = trunkRad(z) * (1 + 0.06 * rid + 0.03 * Math.sin(4 * th + 0.3 * z));
+        let c = lerp3(TH.bark, TH.bark_hi, clamp01(0.5 + 0.5 * rid) * 0.45 + 0.4 * Math.max(0, Math.cos(th - MA)));
+        c = lerp3(c, TH.moss, clamp01(noise2(th * 2, z * 0.1) - 0.45) * 1.2);
+        return bark.v([TX + r * Math.cos(th), TY + r * Math.sin(th), z], haze(c, 0.18));
+      });
+    });
+    for (let k = 0; k < N - 1; k++) for (let s = 0; s < TS; s++) { const s2 = (s + 1) % TS; bark.f(rows[k][s], rows[k + 1][s], rows[k + 1][s2], rows[k][s2]); }
+    // boughs (0.9.9.9.9.5: grown out of the trunk, not stuck through it — they crossed each other and poked out of it):
+    // each starts deep inside the trunk on its own side and curves up and outwards in its own direction, so no two
+    // cross; the trunk's own ridges and light run along them, so the joins don't show
+    const TOP = BASE + H;
+    const bough = (az: number, reach: number, rise: number, r0: number, r1: number) => {
+      const ca = Math.cos(az), sa = Math.sin(az), tr = trunkRad(TOP - 10);
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(TX + ca * tr * 0.35, TY + sa * tr * 0.35, TOP - 16),
+        new THREE.Vector3(TX + ca * tr * 0.55, TY + sa * tr * 0.55, TOP - 4),
+        new THREE.Vector3(TX + ca * (tr * 0.7 + reach * 0.35), TY + sa * (tr * 0.7 + reach * 0.35) * 0.6, TOP + rise * 0.55),
+        new THREE.Vector3(TX + ca * (tr * 0.6 + reach), TY + sa * (tr * 0.6 + reach) * 0.5, TOP + rise),
+      ]);
+      const SEG = 14, S = lite ? 10 : 14;
+      const frames = curve.computeFrenetFrames(SEG, false);
+      const rings = Array.from({ length: SEG + 1 }, (_, k) => {
+        const t = k / SEG, p = curve.getPointAt(t), rad = r0 + (r1 - r0) * t ** 0.8;
+        return Array.from({ length: S }, (_, j) => {
+          const a = (2 * Math.PI * j) / S, nrm = frames.normals[k].clone().multiplyScalar(Math.cos(a)).addScaledVector(frames.binormals[k], Math.sin(a));
+          const q = p.clone().addScaledVector(nrm, rad);
+          const th = Math.atan2(q.y - TY, q.x - TX), rid = Math.sin(9 * th + 0.15 * q.z);
+          let c = lerp3(TH.bark, TH.bark_hi, clamp01(0.5 + 0.5 * rid) * 0.45 + 0.4 * Math.max(0, Math.cos(th - MA)) * (0.6 + 0.4 * Math.max(0, nrm.z)));
+          c = lerp3(c, TH.moss, clamp01(noise2(th * 2, q.z * 0.1) - 0.45) * 1.2);
+          return bark.v([q.x, q.y, q.z], haze(c, 0.18));
+        });
+      });
+      for (let k = 0; k < SEG; k++) for (let j = 0; j < S; j++) { const j2 = (j + 1) % S; bark.f(rings[k][j], rings[k + 1][j], rings[k + 1][j2], rings[k][j2]); }
+    };
+    // spread round the trunk (azimuths at least 50° apart), the long ones to the sides where the crown is widest
+    for (const [deg, reach, rise, r1] of [[180, 26, 14, 2.2], [0, 25, 15, 2.2], [235, 15, 19, 2.4], [305, 15, 19, 2.4], [125, 17, 12, 2], [55, 17, 12, 2]] as const)
+      bough((deg * Math.PI) / 180, reach, rise, 4.6, r1);
+    const trunkMat = vcMat({ flat: false, surface: 'wood' }); trunkMat.fog = false;
+    group.add(new THREE.Mesh(bark.geo(), trunkMat));
+    // the crown: leafy domes in a big flattened ball, lit from the sun's side, darker underneath
+    const leaves = new MB(false, 1);
+    const RL = rand(77), CZ = TOP + 16;
+    for (let i = 0; i < (lite ? 50 : 90); i++) {
+      const u = RL.uniform(0, 2 * Math.PI), v = RL.uniform(-0.2, 1) * Math.PI / 2, k = Math.sqrt(RL.random());
+      const cx = TX + Math.cos(u) * Math.cos(v) * 42 * k, cy = TY + Math.sin(u) * Math.cos(v) * 20 * k - 8, cz = CZ + Math.sin(v) * 15 * k;
+      const rr = RL.uniform(7, 11) * (1.15 - 0.3 * k), tint = RL.uniform(0.88, 1.12);
+      dome(leaves, [cx, cy, cz - rr * 0.35], rr, rr * 0.9, rr * 0.85, 12, 5, (t, th) => {
+        const lit = clamp01(t * 0.8 + 0.35 * Math.cos(th - MA) + (cz - CZ) / 50);
+        return haze(mul3(lerp3(LEAF.lo, LEAF.hi, lit), tint), 0.12);
+      });
+    }
+    const leafMat = vcMat({ flat: false, morph: true }); leafMat.fog = false; // (round and soft, like the painting's crown)
+    const crown = new THREE.Mesh(leaves.geo(), leafMat); crown.morphTargetInfluences = [0];
+    crown.name = 'world-tree-crown';
+    group.add(crown);
   }
 
   // ── light: orbs over the stones and the earth, fireflies above and below the edge, the veil ──
@@ -210,10 +283,13 @@ export function buildWorldTree(time: 'day' | 'sunset' | 'night', lite: boolean):
       rig.update(f);
       bushM.morphTargetInfluences![0] = pingpong(f, 60, 0.15, 1, 1);
       hedgeM.morphTargetInfluences![0] = pingpong(f, 90, 0.15, 1, 1);
+      const crown = group.getObjectByName('world-tree-crown') as THREE.Mesh | undefined;
+      if (crown?.morphTargetInfluences) crown.morphTargetInfluences[0] = pingpong(f, 140, 0, 0.6, 1); // (the crown breathes in the wind)
       const d = Math.sin(((f % 3600) / 3600) * Math.PI);
       for (const s of seas) s.m.rotation.z = s.s * d;
       wisps.update(f); flies.update(f);
     },
+    sky: () => rig.envMap(), accent: [0.45, 1, 0.62], // (0.9.9.9.9.5)
     key: { dir: BODIES[0], color: TH.key_col, intensity: TH.key_e },
     ambient: { sky: mul3(TH.fill_col, 0.6), ground: TH.earth_b, intensity: time === 'night' ? 0.4 : time === 'day' ? 0.8 : 0.5 },
     fog: { color: TH.fog, near: 50, far: 150 },

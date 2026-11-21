@@ -113,6 +113,13 @@ const RU: Record<string, string> = {
   'Wraps you at 5 correct casts in a row (Reading, Writing, Rapid, Boss) and while your Omnipotence (hero power) is active in Deck Duel. Everyone sees your colour.':
     'Окутывает вас после 5 верных ответов подряд (Чтение, Написание, Блиц, Босс) и пока активно ваше Всемогущество в Дуэли колод. Ваш цвет видят все.',
   '2D arena': '2D-арена', 'No Japanese voice found on this device.': 'На этом устройстве нет японского голоса.', 'This browser has no speech voice.': 'В этом браузере нет синтеза речи.',
+  'Contact:': 'Связь:', // (0.9.9.9.9.5)
+  // 0.9.9.9.9.5: the swords
+  'A plain, honest blade. Its slash flies true.': 'Простой и честный клинок. Его взмах летит точно в цель.',
+  'Polished steel with a blue rune down the fuller.': 'Полированная сталь с синей руной вдоль дола.',
+  "A curved blade forged in a dragon's hearth. Its edge glows like coals.": 'Изогнутый клинок, выкованный в драконьем горне. Лезвие тлеет, как угли.',
+  'Folded a thousand times under the full moon. Its slash is silver light.': 'Сложен тысячу раз под полной луной. Его взмах — серебряный свет.',
+  "Cut from the Black Dragon's own tooth. Gold fire runs along the edge.": 'Вырезан из клыка самого Чёрного дракона. По лезвию бежит золотой огонь.',
   'Carved from an ancient tree. It channels the natural energy of the earth and life.': 'Вырезан из древнего дерева. Проводит природную силу земли и жизни.',
   'Forged from volcanic rock and blessed by fire spirits.': 'Выкован из вулканического камня и благословлён духами огня.',
   'Crafted from crystal and oceanic runes. It flows with the tides.': 'Создан из кристалла и океанских рун. Движется вместе с приливами.',
@@ -1357,6 +1364,7 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Unlocks at (?:a )?(\d+)-day streak$/, (_, n) => `Откроется при серии ${n} ${plural(+n, 'день', 'дня', 'дней')}`],
   [/^Unlocks at (?:a )?(\S+) goals$/, 'Откроется за цели месяца: $1'],
   [/^Log in (\d+) days in a row to unlock the (.+) \(your best: (\d+)\)$/, 'Заходите $1 дней подряд, чтобы открыть $2 (ваш рекорд: $3)'],
+  [/^Reach level (\d+) to unlock the (.+)$/, 'Достигните уровня $1, чтобы открыть: $2'], // (0.9.9.9.9.5: a sword)
   [/^Reach level (\d+) to unlock (.+)$/, 'Достигните уровня $1, чтобы открыть: $2'],
   [/^(.+): (\w+) season$/, (_, m, x) => `${m}: сезон «${SEASON_RU[x] ?? x}»`],
   [/^Unlocked: (.+) - equip it in Customize$/, (_, x) => `Открыто: ${tr(x)} — наденьте в «Кастомизации»`],

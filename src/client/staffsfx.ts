@@ -14,6 +14,8 @@
 // Everything is synthesised (no audio files). The functions take any audio context, so the same sounds can also be
 // rendered offline (to listen to them as files, and to check their loudness).
 
+import { isSwordId as isSword } from '../shared/progress';
+
 /** where a sound goes: the context, the dry bus and the reverb send */
 export interface Out { c: BaseAudioContext; dry: AudioNode; wet: AudioNode }
 type Sig = (o: Out, t: number, step: number) => void;
@@ -150,7 +152,38 @@ function pad(o: Out, at: number, notes: number[], dur: number, peak: number, typ
 }
 const spread = (k: number, n: number) => (n > 1 ? (k / (n - 1)) * 1.2 - 0.6 : 0); // (notes of a chord across the stereo)
 
+/** 0.9.9.9.9.5: a sword's steel: a bright ring with close, beating partials (struck metal, not a bell) */
+const STEEL = [[1, 1, 1.4], [2.76, 0.5, 0.9], [5.4, 0.25, 0.5], [8.93, 0.1, 0.3]] as const;
 const SETS: Record<string, Sig[]> = {
+  // ── 0.9.9.9.9.5: the swords — the air cut, the steel ringing; with the combo the ring climbs and a deep hit joins ──
+  sword: [
+    // cut: a fast whoosh sweeping right to left, the edge's ring
+    (o, t, s) => {
+      const r = 76 + RISE[s];
+      noise(o, t, 0.2, 0.3, { type: 'bandpass', f: 4200, to: 700, q: 2.2 }, (x) => Math.sin(Math.PI * x) ** 1.5, 0.15, { pan: 0.4 });
+      noise(o, t + 0.05, 0.16, 0.14, { type: 'bandpass', f: 2600, to: 500, q: 1.6 }, (x) => Math.sin(Math.PI * x), 0.1, { pan: -0.4 });
+      strike(o, midi(r), t + 0.1, 0.09, STEEL, 0.5, 0.2);
+      if (s >= 2) thump(o, t + 0.12, 140, 55, 0.25, 0.22, 0.3);
+      if (s >= 4) strike(o, midi(r + 7), t + 0.16, 0.05, STEEL, 0.7, -0.3);
+    },
+    // shing: steel drawn along steel, then the slash, a long shimmering ring
+    (o, t, s) => {
+      const r = 79 + RISE[s];
+      noise(o, t, 0.16, 0.12, { type: 'bandpass', f: 1800, to: 7000, q: 6 }, (x) => x * (1 - x) * 4, 0.2);
+      noise(o, t + 0.14, 0.14, 0.26, { type: 'highpass', f: 2500, to: 900 }, (x) => Math.sqrt(x) * (1 - x) ** 2 * 3, 0.15, { pan: -0.2 });
+      strike(o, midi(r), t + 0.16, 0.08, STEEL, 0.7);
+      osc(o, 'sine', midi(r + 12), t + 0.16, 0.9 + s * 0.1, 0.02, { attack: 0.01, wet: 0.6 });
+      if (s >= 2) thump(o, t + 0.18, 160, 60, 0.22, 0.2, 0.25);
+    },
+    // cleave: a heavy two-handed swing — a low rushing whoosh, a deep impact, the blade humming
+    (o, t, s) => {
+      const r = 64 + RISE[s];
+      noise(o, t, 0.3, 0.3, { type: 'bandpass', f: 900, to: 240, q: 1.4 }, (x) => Math.sin(Math.PI * x) ** 1.2, 0.2, { drive: 1.5 });
+      thump(o, t + 0.2, 120, 40, 0.4, 0.3 + s * 0.03, 0.4);
+      strike(o, midi(r + 12), t + 0.21, 0.06, STEEL, 0.6, 0.3);
+      osc(o, 'sawtooth', midi(r - 12), t + 0.2, 0.5 + s * 0.08, 0.025, { lp: 900, wet: 0.4 });
+    },
+  ],
   // ── Verdant (Blossom, Moon) ─────────────────────────────────────────────────────────────────────────────────
   verdant: [
     // bloom: a low wooden knock, the leaves rushing in, then a chord of soft bells opening, warm underneath
@@ -339,7 +372,7 @@ export const STAFF_FAMILIES = Object.keys(SETS);
 export const spellsOf = (family: string) => SETS[family]?.length ?? 0;
 
 /** each spell's level, so they're about as loud as each other (measured: the RMS of a single cast) */
-const TRIM: Record<string, number[]> = { verdant: [1.2, 1.2, 1.4], ember: [0.65, 0.6, 1.12], tide: [1.43, 1.38, 1.25], storm: [1.2, 1.45, 0.9], void: [0.83, 0.89, 0.95] };
+const TRIM: Record<string, number[]> = { sword: [1.3, 1.3, 1.1], verdant: [1.2, 1.2, 1.4], ember: [0.65, 0.6, 1.12], tide: [1.43, 1.38, 1.25], storm: [1.2, 1.45, 0.9], void: [0.83, 0.89, 0.95] };
 
 const lastSpell: Record<string, number> = {};
 /**
@@ -348,7 +381,7 @@ const lastSpell: Record<string, number> = {};
  */
 export function staffCast(o: Out, staff: string, combo: number, t: number, base?: string, spell?: number) {
   const step = Math.min(Math.max(combo, 1), 5) - 1;
-  const family = base && SETS[base] ? base : SETS[staff] ? staff : 'verdant';
+  const family = base && SETS[base] ? base : SETS[staff] ? staff : isSword(staff) ? 'sword' : 'verdant'; // (0.9.9.9.9.5: the swords)
   const set = SETS[family];
   let i = spell ?? Math.floor(Math.random() * set.length);
   if (spell === undefined && set.length > 1 && i === lastSpell[family]) i = (i + 1) % set.length;

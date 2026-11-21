@@ -5862,7 +5862,7 @@ body.has-nav .screen:not(#menu):not(:has(> .back:not(.to-menu))) { padding-top: 
 /* 0.9.9.9.9.5: phones — a More tab with the rest of the pages, in a sheet above the bar; computers have no need of it */
 .app-nav .an-more, .app-nav .an-sheet { display: none; }
 @media (max-width: 760px) {
-  .app-nav .an-more { display: flex; }
+  .app-nav .an-item.an-more { display: flex; } /* (as specific as the rule hiding the tabs that aren't a phone's) */
   .app-nav .an-sheet:not([hidden]) { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; position: absolute; left: 10px; right: 10px; bottom: calc(100% + 8px);
     padding: 12px; border-radius: 18px; background: var(--nav-bg, #120f2b); border: 2px solid var(--nav-line, #2a2552); box-shadow: 0 -10px 30px rgba(0, 0, 0, .45); }
   .app-nav .an-sheet .an-item { display: flex !important; flex-direction: column; gap: 6px; padding: 12px 4px; font-size: .66rem; border: 2px solid var(--nav-line, #2a2552); border-radius: 14px; }
@@ -5879,3 +5879,78 @@ body.has-nav .screen:not(#menu):not(:has(> .back:not(.to-menu))) { padding-top: 
 .pp-actions .acc-delete:hover, .pp-actions .acc-delete:focus-visible { color: #ff6b81; }
 /* (the dictionary and friends buttons step aside while More is open) */
 body.nav-more .rail-fab, body.nav-more .dict-fab { visibility: hidden; }
+
+/* 0.9.9.9.9.5: Back at the top of the navigation (a page's own step back, the page before, or Home); Home stands out;
+   no menu flashing up between two pages; a page's own "← Private game" kind of button is Back's job now */
+.app-nav .an-back { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 0 0 6px; padding: 10px 12px; border-radius: 14px;
+  background: transparent; color: var(--text); border: 2px solid var(--nav-line, #2a2552); box-shadow: 0 3px 0 var(--nav-line, #2a2552); font: 800 .82rem/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; }
+.app-nav .an-back svg { width: 22px; height: 22px; flex: none; stroke-width: 2.6; }
+.app-nav .an-back:hover { border-color: var(--accent); color: var(--accent); }
+.app-nav .an-back:active { transform: translateY(3px); box-shadow: none; }
+.app-nav .an-item[data-nav="home"] { color: #fff; background: linear-gradient(135deg, var(--accent), #7d5cf0); border-color: transparent; box-shadow: 0 3px 0 #5a3fc0; margin-bottom: 6px; }
+.app-nav .an-item[data-nav="home"]:hover { filter: brightness(1.08); color: #fff; }
+:root[data-theme="light"] .app-nav .an-item[data-nav="home"] { box-shadow: 0 3px 0 #4f2bb0; }
+body.has-nav .screen:not(#menu) > .back { display: none; }
+body.nav-jump #menu { visibility: hidden !important; }
+body.nav-jump #menu * { animation: none !important; transition: none !important; }
+@media (max-width: 1280px) and (min-width: 761px) { .app-nav .an-back { padding: 10px 0; } .app-nav .an-back span { display: none; } }
+@media (max-width: 760px) {
+  /* phones: Back as a round button at the top left of the page (the tab bar has Home) */
+  .app-nav .an-back { position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 12px; width: 44px; height: 44px; padding: 0; margin: 0; border-radius: 50%;
+    background: var(--nav-bg, #120f2b); z-index: 23; }
+  .app-nav .an-back span { display: none; }
+  body.has-nav .screen:not(#menu) { padding-top: 112px !important; }
+  .app-nav .an-item[data-nav="home"] { margin-bottom: 0; border-radius: 14px; }
+}
+
+/* 0.9.9.9.9.5: the private room, tidied — a calm background like the other pages, one solid card for the room (the
+   code as a gold ticket, open / closed, the players, a bot, Ready) and the levels, the mode's guide and the chat as cards
+   beside it, all from the top (it floated in the middle with the painting showing through everything) */
+body[data-screen="lobby"] #bg::after { opacity: 1 !important; background: rgba(11, 9, 28, .88) !important; transition: opacity .4s; }
+:root[data-theme="light"] body[data-screen="lobby"] #bg::after { background: rgba(244, 245, 255, .93) !important; }
+:root:not([data-theme="light"]) body[data-screen="lobby"] { --card: #17143a; --line: #2e2a5c; --field: #0f0d27; }
+:root[data-theme="light"] body[data-screen="lobby"] { --card: #ffffff; --line: #dcd8f2; }
+body[data-screen="lobby"] #lobby :is(*) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+#lobby.split { grid-template-columns: minmax(320px, 500px) minmax(320px, 560px); justify-content: center; align-items: start; gap: 22px; width: 100%; max-width: 1120px; margin: 0 auto; padding-top: 124px; }
+#lobby .col-main { background: var(--card); border: 2px solid var(--line); border-radius: 22px; padding: 20px 22px 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+#lobby .col-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+#lobby .col-side > :is(.levels, .mode-guide, .deck-guide) { margin: 0; max-width: none; width: 100%; background: var(--card); border: 2px solid var(--line); border-radius: 22px; padding: 18px 20px; }
+#lobby .col-main > .sub:first-of-type { margin: 0; font: 800 .74rem/1.2 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); text-align: left; }
+#lobby .code-row { gap: 14px; }
+#lobby .code { font-family: var(--brand); font-size: clamp(2.4rem, 4.4vw, 3.4rem); line-height: 1; letter-spacing: .32em; padding: 12px 6px 12px 22px; border-radius: 16px;
+  border: 2px dashed color-mix(in srgb, var(--gold) 55%, transparent); background: color-mix(in srgb, var(--gold) 9%, transparent); }
+#lobby #copyCode { border: 2px solid var(--line); border-radius: 14px; box-shadow: 0 3px 0 var(--line); background: transparent; padding: 10px 16px; font-weight: 800; }
+#lobby #copyCode:active { transform: translateY(3px); box-shadow: none; }
+#lobby .lobby-open { margin: 0; }
+#lobby .players { margin: 0; max-width: none; gap: 10px; }
+#lobby .players li { background: var(--field); border: 2px solid var(--line); border-radius: 16px; padding: 12px 14px; }
+#lobby .players li.empty { justify-content: center; border-style: dashed; background: transparent; min-height: 54px; }
+#lobby .add-bot { margin: 0; border: 2px dashed var(--line); border-radius: 16px; padding: 10px 12px; }
+#lobby :is(#start, #readyBtn) { width: 100%; max-width: none; margin: 4px 0 0; font-size: 1.15rem; padding: 15px 18px; border: 0; border-radius: 16px; background: var(--accent); color: #fff; box-shadow: 0 5px 0 #6a47d1; }
+#lobby :is(#start, #readyBtn):active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
+#lobby :is(#start, #readyBtn):disabled { background: #3a3566; color: #8e89b8; box-shadow: 0 5px 0 #2a2650; }
+#lobby #lobbyStatus { margin: 0; text-align: center; color: var(--muted); font-size: .9rem; }
+#lobby .lobby-chat { margin: 4px 0 0; background: var(--field); border: 2px solid var(--line); border-radius: 16px; }
+#lobby .lobby-invite { margin: 0; background: var(--field); border: 2px solid var(--line); border-radius: 16px; }
+#lobby #leaveLobby { border-width: 2px; border-radius: 14px; box-shadow: 0 3px 0 rgba(110, 231, 255, .35); background: var(--card); }
+:root[data-theme="light"] #lobby :is(#start, #readyBtn) { box-shadow: 0 5px 0 #4f2bb0; }
+@media (max-width: 900px) {
+  #lobby.split { grid-template-columns: 1fr; padding-top: 112px; }
+  #lobby .col-main { padding: 16px; }
+  #lobby .code { font-size: 2.4rem; }
+}
+#lobby .col-main { justify-content: flex-start; min-height: 0; }
+#lobby .levels .chips { flex-wrap: wrap !important; }
+#lobby .levels .chip { writing-mode: horizontal-tb; white-space: nowrap; }
+@media (max-width: 900px) { #lobby .lobby-mode { max-width: 100%; box-sizing: border-box; margin: 0 0 4px; justify-content: center; } }
+/* 0.9.9.9.9.5: a page's own width limit counted the navigation's room inside it (900px for History was 600px of list);
+   the room is added on top now */
+body.has-nav { --nav-pad: calc(60px + 212px + 28px); }
+@media (max-width: 1280px) and (min-width: 761px) { body.has-nav { --nav-pad: calc(60px + 66px + 22px); } }
+@media (max-width: 760px) { body.has-nav { --nav-pad: 0px; } }
+body.has-nav #history { max-width: calc(980px + var(--nav-pad)); }
+body.has-nav #study { max-width: calc(1180px + 2 * var(--gutter) + var(--nav-pad)); }
+body.has-nav #dict { max-width: calc(980px + var(--nav-pad)); }
+body.has-nav #quizzes.quizzes-screen { max-width: calc(1180px + var(--nav-pad)); }
+body.has-nav #customize.locker-screen { max-width: calc(1640px + var(--nav-pad)); }
+body.has-nav .inbox-screen { max-width: calc(1100px + var(--nav-pad)); }

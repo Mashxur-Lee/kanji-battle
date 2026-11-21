@@ -171,7 +171,7 @@ export class StudyService {
   async setStaff(u: UserRecord, s: unknown) {
     if (!isStaff(s)) throw new StudyError('Unknown staff');
     const def = STAFFS.find((x) => x.id === s)!;
-    if (u.role !== 'admin' && !staffUnlocked(s, u.bestStreak ?? 0, u.unlocks)) throw new StudyError(def.season ? 'A monthly reward: complete that month\'s goals' : `Unlocks with a ${def.streak}-day daily streak`, 403);
+    if (u.role !== 'admin' && !staffUnlocked(s, u.bestStreak ?? 0, u.unlocks, u.xp ?? 0)) throw new StudyError(def.level ? `Unlocks at level ${def.level}` : def.season ? 'A monthly reward: complete that month\'s goals' : `Unlocks with a ${def.streak}-day daily streak`, 403);
     await this.store.update(u.id, { staff: s });
   }
 

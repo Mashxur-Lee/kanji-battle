@@ -18,6 +18,7 @@
 
 import * as THREE from 'three';
 import { staffOf } from '../shared/progress';
+import { buildSword, isSword } from './swords3d';
 import { Batch, Tube, crystalGeo, helix, interp, mergeGeos, noiseTex, ringGeo, seeded, sheetGeo, spow, tubeGeo, veinTex, wave, clamp01, type P3, type Rng } from './geokit';
 
 export const GEM_Y = 1.13;
@@ -556,6 +557,7 @@ const GLOW_SOFT: Record<string, number> = { verdant: 0.45, tide: 0.5, ember: 0.8
 const SEEDS: Record<string, number> = { verdant: 7, ember: 8, tide: 9, storm: 10, void: 11 };
 
 export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture): Staff {
+  if (isSword(id)) return buildSword(id!, glowTex); // (0.9.9.9.9.5)
   const skin = staffOf(id);
   const kind = BUILDERS[skin.base ?? skin.id] ? (skin.base ?? skin.id) : 'verdant';
   const group = new THREE.Group();

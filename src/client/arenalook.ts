@@ -28,6 +28,23 @@ const VIGNETTE = {
     }`,
 };
 
+// 0.9.9.9.9.5: colour, like the paintings — the dull colours brighten more than the bright ones (vibrance), a touch more
+// contrast
+const GRADE = {
+  uniforms: { tDiffuse: { value: null as THREE.Texture | null }, uVib: { value: 0.32 }, uCon: { value: 0.07 } },
+  vertexShader: VIGNETTE.vertexShader,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uVib; uniform float uCon; varying vec2 vUv;
+    void main() {
+      vec4 t = texture2D(tDiffuse, vUv);
+      vec3 c = t.rgb;
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+      c = mix(vec3(l), c, 1.0 + uVib * (1.0 - sat));
+      c = (c - 0.5) * (1.0 + uCon) + 0.5;
+      gl_FragColor = vec4(clamp(c, 0.0, 1.0), t.a);
+    }`,
+};
+
 /** the glow and the lens (High only): render() draws the frame through them */
 export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -38,6 +55,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.6, 0.5, 1.0); // (only what is brighter than white glows: lights, gems, spells)
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
+  composer.addPass(new ShaderPass(GRADE));
   composer.addPass(new ShaderPass(VIGNETTE));
   return {
     bloom,
