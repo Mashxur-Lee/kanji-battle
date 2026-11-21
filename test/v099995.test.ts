@@ -7,6 +7,8 @@ import { AuthService, AuthError } from '../src/server/auth/AuthService';
 import { TokenSigner } from '../src/server/auth/tokens';
 import { MemoryStore } from '../src/server/db/Store';
 
+import { VERSION } from '../src/shared/version';
+
 const src = (f: string) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
 
 test('0.9.9.9.9.5 phones: five tabs and More (the rest of the pages in a sheet; Escape closes it)', () => {
@@ -54,4 +56,19 @@ test('0.9.9.9.9.5 the Privacy policy and the Terms: pages of their own, linked f
   // the app's offline copy doesn't swap them for the game
   assert.match(src('src/client/sw.js'), /shell\(LEGAL\.has\(url\.pathname\) \? url\.pathname : '\/index\.html', req\)/);
   assert.match(src('public/sitemap.xml'), /privacy\.html/);
+});
+
+test('0.9.9.9.9.5 version and patch notes', () => {
+  assert.equal(VERSION, '0.9.9.9.9.5');
+  assert.ok(src('src/client/whatsnew.ts').includes("v: '0.9.9.9.9.5'"));
+});
+
+test('0.9.9.9.9.5 the Channel pose: each hand aimed by where it really is on the arm, the grips from the model’s own shoulders', () => {
+  const p = src('src/client/poses3d.ts');
+  for (const s of [
+    'q1.setFromUnitVectors(hand && hand.lengthSq() > 1e-6 ? hand.clone().normalize() : DOWN, dir);',
+    'const gripY = (s: THREE.Vector3, len: number, x: number, z: number) =>',
+    'reach(m.leftArm, m.body, new THREE.Vector3(x, yL + lift, z), k, m.leftHand);',
+  ]) assert.ok(p.includes(s), s);
+  assert.ok(src('src/client/glbchars.ts').includes('const leftHand = leftArm.worldToLocal('));
 });

@@ -12,15 +12,23 @@ const DOWN = new THREE.Vector3(0, -1, 0);
 /** the staff's own axis inside its pivot (holdStaff tips it forward by 0.3) */
 const axisOf = (m: Character) => { const a = m.staffLean ?? 0.3; return new THREE.Vector3(0, Math.cos(a), Math.sin(a)); };
 const q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion();
-/** turn a limb (pivot at the shoulder, hanging along −y) so its hand points at `target` (in `space`'s coordinates) */
-function reach(limb: THREE.Object3D, space: THREE.Object3D, target: THREE.Vector3, k: number) {
+/**
+ * turn a limb (pivot at the shoulder) so its hand points at `target` (in `space`'s coordinates). `hand`: where the hand
+ * is inside the limb (0.9.9.9.9.5: the rigged models hold the forearm bent forward — aiming the upper arm as if it hung
+ * straight put the goblin's hands beside the staff and the staff through its chest); without one, straight down.
+ */
+function reach(limb: THREE.Object3D, space: THREE.Object3D, target: THREE.Vector3, k: number, hand?: THREE.Vector3) {
   const parent = limb.parent!;
   space.updateMatrixWorld(true);
   const t = parent.worldToLocal(space.localToWorld(target.clone()));
   const dir = t.sub(limb.position).normalize();
-  q1.setFromUnitVectors(DOWN, dir);
+  q1.setFromUnitVectors(hand && hand.lengthSq() > 1e-6 ? hand.clone().normalize() : DOWN, dir);
   limb.quaternion.slerp(q1, k);
 }
+/** a limb's shoulder in `space`'s coordinates */
+const shoulderIn = (space: THREE.Object3D, limb: THREE.Object3D) => { space.updateMatrixWorld(true); return space.worldToLocal(limb.getWorldPosition(new THREE.Vector3())); };
+/** the height (below the shoulder `s`) where a hand `len` away from it is at x, z — null when it can't reach */
+const gripY = (s: THREE.Vector3, len: number, x: number, z: number) => { const r = len * len - (x - s.x) ** 2 - (z - s.z) ** 2; return r > 0 ? s.y - Math.sqrt(r) : null; };
 /** turn the staff so it runs along `dir` (in the character's own facing: +y up, +z towards the opponent) */
 function pointStaff(m: Character, dir: THREE.Vector3, k: number) {
   m.root.updateMatrixWorld(true);
@@ -48,8 +56,23 @@ export function applyPose(m: Character, pose: PoseId, kRaw: number, time: number
   const float = (h: number) => { m.root.position.y = (h + bob) * k; };
   const twoHands = (lift = 0) => { // (Channel)
     // the staff upright in the middle of the body: the right fist low, the left hand above it
-    reach(m.arm, m.body, new THREE.Vector3(0.03, 1.02 + lift, 0.3), k);
-    if (m.leftArm) reach(m.leftArm, m.body, new THREE.Vector3(-0.01, 1.24 + lift, 0.32), k);
+    const hR = m.staffPivot.parent === m.arm ? m.staffPivot.position : null;
+    if (hR && m.leftArm && m.leftHand) {
+      // 0.9.9.9.9.5: from each model's own shoulders and arm length (a goblin is shorter than a knight): the staff a
+      // little to the staff arm's side of the middle and in front — the near hand lands lower on it, the far one above
+      const sR = shoulderIn(m.body, m.arm), sL = shoulderIn(m.body, m.leftArm);
+      const lenR = hR.length(), lenL = m.leftHand.length();
+      const x = sR.x * 0.4;
+      let z = sR.z + lenR * 0.55, yR = gripY(sR, lenR, x, z);
+      if (yR === null) { z = sR.z + lenR * 0.25; yR = gripY(sR, lenR, x, z) ?? sR.y - lenR * 0.7; }
+      let yL = gripY(sL, lenL, x, z) ?? sL.y - lenL * 0.2;
+      if (yL < yR + lenR * 0.16) yL = yR + lenR * 0.2; // (never one fist inside the other)
+      reach(m.arm, m.body, new THREE.Vector3(x, yR + lift, z), k, hR);
+      reach(m.leftArm, m.body, new THREE.Vector3(x, yL + lift, z), k, m.leftHand);
+    } else {
+      reach(m.arm, m.body, new THREE.Vector3(0.03, 1.02 + lift, 0.3), k);
+      if (m.leftArm) reach(m.leftArm, m.body, new THREE.Vector3(-0.01, 1.24 + lift, 0.32), k);
+    }
     pointStaff(m, new THREE.Vector3(0, 1, 0.04), k);
   };
   if (pose === 'float') {
