@@ -54,7 +54,7 @@ test('0.9.9.9.9.2 Block and Report on the player\'s card; a report reason lights
   assert.match(pv, /export function safetyRow\(p: PublicProfile\): HTMLElement \| null \{/);
   assert.ok(!/body\.push\(safe\)/.test(pv), 'not in View profile any more');
   assert.match(src('src/client/main.ts'), /safety: safetyRow\(p\), \/\/ \(0\.9\.9\.9\.9\.2: Block and Report on the card\)/);
-  assert.match(src('src/client/ui.ts'), /if \(a\.safety\) box\.append\(a\.safety\);/);
+  assert.match(src('src/client/ui.ts'), /if \(a\.safety\) grid\.append\(\.\.\.a\.safety\.children\);/); // (0.9.9.9.9.3: in the card's icon row)
   assert.match(src('src/client/account.ts'), /list\.onchange = \(\) => \{ for \(const c of list\.querySelectorAll\('label'\)\) c\.classList\.toggle\('on', !!c\.querySelector\('input'\)\?\.checked\); \};/);
 });
 
@@ -90,7 +90,7 @@ test('0.9.9.9.9.2 the time of day crossfades (the new picture over the old, once
 
 test('0.9.9.9.9.2 less text: explanations fold behind an (i)', () => {
   const tips = src('src/client/tips.ts');
-  assert.match(tips, /const FOLDED = \['#custSub', '#struggledBox h3 small', '#volPanel \.set-sec > p\.hint:not\(\[id\]\)'\];/);
+  assert.match(tips, /const FOLDED = \['#custSub', '#struggledBox h3 small', '#volPanel \.set-sec > p\.hint:not\(\[id\]\)',/); // (0.9.9.9.9.3: and each page's opening paragraph)
   assert.match(src('public/style.css'), /\.tip-text:not\(\.open\) \{ display: none !important; \}/);
   assert.match(src('src/client/main.ts'), /initTips\(\);/);
 });

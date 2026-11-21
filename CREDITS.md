@@ -48,6 +48,11 @@ The same list is shown in the game under **About** (main menu).
   reused under the same licence, with attribution as above. The game's own code is not covered by these licences.
 - Stroke-order diagrams in the game are drawn from the same reference patterns.
 
+## Fonts
+
+- **Dela Gothic One** (titles) by artakana, and **M PLUS Rounded 1c** (everything else) by the M+ Fonts Project — both under the
+  SIL Open Font License 1.1 (copies in `public/fonts/`), used unchanged, a few of their character sets only.
+
 ## Privacy (short version)
 
 The game stores a player's name, a hashed password, study progress, match history, friends, messages (text, photos,

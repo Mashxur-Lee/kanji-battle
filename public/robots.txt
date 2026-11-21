@@ -1,0 +1,6 @@
+# Kanji Wizards - everyone is welcome to read the game's pages, AI assistants included
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://kanji-battle-ev0o.onrender.com/sitemap.xml

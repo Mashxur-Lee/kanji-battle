@@ -1,0 +1,17 @@
+# Kanji Wizards
+
+> A free multiplayer game for learning Japanese. Wizards duel by reading and writing kanji, words and kana: study 10 words, then cast them at a friend, a bot or a dragon.
+
+Play: https://kanji-battle-ev0o.onrender.com/ (browser), Android app and Windows app (links in the game: Get the app).
+
+## What it is
+- Battle modes: Kanji Reading (type the reading), Kanji Writing (write the kanji by hand, recognised by shape), Rapid (first to answer wins the round), Boss Elimination (up to 4 players against a dragon), Deck Duel (a card game where each card is a word).
+- Levels: hiragana, katakana and JLPT N5 to N1 (about 6,700 words).
+- Study: spaced repetition flashcards (like Anki), a dictionary, onomatopoeia, JLPT quizzes, reading passages.
+- Daily challenge: 10 words a day with leagues from Kana to N1.
+- Ranked 1v1 ladder (Elo), watching friends' games, shareable replays.
+- Languages: English and Russian.
+- Free to play; accounts are optional at first (guest play).
+
+## Who it is for
+People learning Japanese who want practice that feels like a game: beginners (kana) to advanced (N1).
