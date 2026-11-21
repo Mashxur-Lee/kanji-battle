@@ -17,6 +17,7 @@ const PATCHES: Patch[] = [
       'The navigation: a Back button at the top (the step back inside a page, or the page you came from), Home stands out, Settings is a gear, and jumping between pages no longer flashes the menu.',
       'The private room is tidy: one card for the room - the code, open or closed, the players, a bot, Ready - with your levels, the mode’s guide and the chat beside it.',
       'Five swords, each better than the last - the Iron Blade (level 3), the Knight’s Longsword (6), the Ember Saber (10), the Moonlit Katana (15) and Dragonfang (20). A sword trembles as you write, its tip lighting up, then you slash and the wave flies at your enemy. Customize → Magic staff.',
+      'Smoother characters: the Goblin, Knight, Witch, Wizard and the Dragon are rounder and softer, with crisp edges kept on armour, horns and claws.',
       'The 3D arenas look more like their paintings: real colours by day instead of grey haze, a wet stone floor that mirrors the sky, the kanji circle glowing in each arena’s colour, the World Tree rising on the horizon, leaves closing over the forest.',
     ],
     ru: [
@@ -28,6 +29,7 @@ const PATCHES: Patch[] = [
       'Навигация: кнопка «Назад» наверху (шаг назад внутри страницы или страница, с которой вы пришли), «Главная» выделена, настройки — шестерёнка, а при переходе между страницами меню больше не мелькает.',
       'Своя игра стала аккуратнее: одна карточка комнаты — код, открыта или закрыта, игроки, бот, «Готов» — а рядом ваши уровни, правила режима и чат.',
       'Пять мечей, каждый лучше предыдущего: Железный клинок (уровень 3), Длинный меч рыцаря (6), Тлеющая сабля (10), Лунная катана (15) и Драконий клык (20). Пока вы пишете, меч дрожит и его остриё разгорается, а потом вы рубите — и волна летит во врага. Кастомизация → Магический посох.',
+      'Персонажи стали глаже: Гоблин, Рыцарь, Ведьма, Волшебник и Дракон — более округлые и мягкие, а у доспехов, рогов и когтей остались чёткие края.',
       'Трёхмерные арены стали ближе к своим картинам: днём настоящие цвета вместо серой дымки, мокрый каменный пол отражает небо, круг с кандзи светится цветом арены, на горизонте встаёт Мировое древо, над лесом смыкаются кроны.',
     ],
   },
