@@ -210,19 +210,36 @@ export function buildWorldTree(time: 'day' | 'sunset' | 'night', lite: boolean):
       });
     });
     for (let k = 0; k < N - 1; k++) for (let s = 0; s < TS; s++) { const s2 = (s + 1) % TS; bark.f(rows[k][s], rows[k + 1][s], rows[k + 1][s2], rows[k][s2]); }
-    // boughs: tapered limbs from the top of the trunk up and out into the crown
-    const limb = (from: P3, to: P3, r0: number, r1: number) => {
-      const d = new THREE.Vector3(to[0] - from[0], to[1] - from[1], to[2] - from[2]), len = d.length(); d.normalize();
-      const n = new THREE.Vector3(0, 0, 1).cross(d).normalize(), b = d.clone().cross(n);
-      const S = 10, ring = (t: number, r: number) => Array.from({ length: S }, (_, s) => {
-        const a = (2 * Math.PI * s) / S, p = new THREE.Vector3(...from).addScaledVector(d, len * t).addScaledVector(n, Math.cos(a) * r).addScaledVector(b, Math.sin(a) * r);
-        return bark.v([p.x, p.y, p.z], haze(lerp3(TH.bark, TH.bark_hi, 0.3 + 0.3 * Math.cos(a)), 0.2));
-      });
-      const A = ring(0, r0), B = ring(1, r1);
-      for (let s = 0; s < S; s++) { const s2 = (s + 1) % S; bark.f(A[s], B[s], B[s2], A[s2]); }
-    };
+    // boughs (0.9.9.9.9.5: grown out of the trunk, not stuck through it — they crossed each other and poked out of it):
+    // each starts deep inside the trunk on its own side and curves up and outwards in its own direction, so no two
+    // cross; the trunk's own ridges and light run along them, so the joins don't show
     const TOP = BASE + H;
-    for (const [dx, dy, dz, r1] of [[-24, -4, 14, 2.4], [22, -6, 15, 2.4], [-8, -10, 19, 2.8], [10, 8, 18, 2.6], [-17, 10, 11, 2], [19, 12, 10, 2]] as const) limb([TX, TY, TOP - 6], [TX + dx, TY + dy, TOP + dz], 5, r1);
+    const bough = (az: number, reach: number, rise: number, r0: number, r1: number) => {
+      const ca = Math.cos(az), sa = Math.sin(az), tr = trunkRad(TOP - 10);
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(TX + ca * tr * 0.35, TY + sa * tr * 0.35, TOP - 16),
+        new THREE.Vector3(TX + ca * tr * 0.55, TY + sa * tr * 0.55, TOP - 4),
+        new THREE.Vector3(TX + ca * (tr * 0.7 + reach * 0.35), TY + sa * (tr * 0.7 + reach * 0.35) * 0.6, TOP + rise * 0.55),
+        new THREE.Vector3(TX + ca * (tr * 0.6 + reach), TY + sa * (tr * 0.6 + reach) * 0.5, TOP + rise),
+      ]);
+      const SEG = 14, S = lite ? 10 : 14;
+      const frames = curve.computeFrenetFrames(SEG, false);
+      const rings = Array.from({ length: SEG + 1 }, (_, k) => {
+        const t = k / SEG, p = curve.getPointAt(t), rad = r0 + (r1 - r0) * t ** 0.8;
+        return Array.from({ length: S }, (_, j) => {
+          const a = (2 * Math.PI * j) / S, nrm = frames.normals[k].clone().multiplyScalar(Math.cos(a)).addScaledVector(frames.binormals[k], Math.sin(a));
+          const q = p.clone().addScaledVector(nrm, rad);
+          const th = Math.atan2(q.y - TY, q.x - TX), rid = Math.sin(9 * th + 0.15 * q.z);
+          let c = lerp3(TH.bark, TH.bark_hi, clamp01(0.5 + 0.5 * rid) * 0.45 + 0.4 * Math.max(0, Math.cos(th - MA)) * (0.6 + 0.4 * Math.max(0, nrm.z)));
+          c = lerp3(c, TH.moss, clamp01(noise2(th * 2, q.z * 0.1) - 0.45) * 1.2);
+          return bark.v([q.x, q.y, q.z], haze(c, 0.18));
+        });
+      });
+      for (let k = 0; k < SEG; k++) for (let j = 0; j < S; j++) { const j2 = (j + 1) % S; bark.f(rings[k][j], rings[k + 1][j], rings[k + 1][j2], rings[k][j2]); }
+    };
+    // spread round the trunk (azimuths at least 50° apart), the long ones to the sides where the crown is widest
+    for (const [deg, reach, rise, r1] of [[180, 26, 14, 2.2], [0, 25, 15, 2.2], [235, 15, 19, 2.4], [305, 15, 19, 2.4], [125, 17, 12, 2], [55, 17, 12, 2]] as const)
+      bough((deg * Math.PI) / 180, reach, rise, 4.6, r1);
     const trunkMat = vcMat({ flat: false, surface: 'wood' }); trunkMat.fog = false;
     group.add(new THREE.Mesh(bark.geo(), trunkMat));
     // the crown: leafy domes in a big flattened ball, lit from the sun's side, darker underneath
