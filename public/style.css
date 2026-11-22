@@ -5996,3 +5996,15 @@ body.has-nav .inbox-screen { max-width: calc(1100px + var(--nav-pad)); }
   #lobby .lobby-mode .mode-badge { font-size: 1.1rem !important; }
   #lobby .lobby-mode .lm-change { font-size: .7rem; padding: 2px 7px; }
 }
+/* 0.9.9.9.9.5: watching live — the "Watching …" pill in the bottom-left corner, above the mode's name (at the top it
+   covered the battle's clock and the Exit button) */
+@media (min-width: 761px) { body[data-watch="live"] .watch-bar { top: auto; bottom: 46px; left: 12px; translate: none; } }
+/* 0.9.9.9.9.5: the results' Back — a clear button pinned top-left like "← Leave room" (at the very top edge of the
+   results it was hard to see, after watching a game most of all) */
+#results > #resultBack { position: fixed; top: 62px; left: var(--gutter); z-index: 20; margin: 0; display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px 9px 14px; border-radius: 14px; font-size: 1rem; font-weight: 800; color: #e8f9ff;
+  background: var(--card, rgba(20, 16, 44, .9)); border: 2px solid rgba(110, 231, 255, .6); box-shadow: 0 3px 0 rgba(110, 231, 255, .35), 0 6px 18px rgba(0, 0, 0, .35); }
+#results > #resultBack:hover { background: rgba(110, 231, 255, .18); }
+#results > #resultBack:active { transform: translateY(3px); box-shadow: none; }
+:root[data-theme="light"] #results > #resultBack { color: var(--text); background: #fff; border-color: var(--accent2); }
+@media (max-width: 640px) { #results > #resultBack { position: fixed; top: calc(58px + env(safe-area-inset-top)); left: 12px; margin: 0; } #results { padding-top: 112px !important; } }

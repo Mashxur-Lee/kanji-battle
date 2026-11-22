@@ -161,6 +161,8 @@ export class Room {
     else if (this.phase === 'game' && this.game && !(this.game instanceof DeckGame)) {
       const snap = this.game.snapshot(this.roster.find((p) => !p.bot)?.id ?? this.roster[0]?.id);
       if (snap.battle) client.send({ type: 'battle_start', mode: this.mode, players: this.view(), boss: this.bossView(), durationMs: snap.battle.leftMs, countdownMs: snap.battle.countdownLeftMs });
+      // (0.9.9.9.9.5: still studying — say so; the battle comes to the watcher by itself when it starts. Nothing happened)
+      else if (snap.prep) client.send({ type: 'watch_wait', leftMs: snap.prep.leftMs });
     }
     this.tellWatchers();
     return null;

@@ -484,6 +484,7 @@ function onMessage(msg: ServerMessage) {
       ui.setUser(msg.user);
       void refreshOnline(); // now this player counts too
       registerPush(msg.user.id); // 0.9.9.9.5: friends' invites reach this phone while the app is closed
+      if (watchedFriend && watching() === 'live') socket.send({ type: 'watch', userId: watchedFriend }); // (0.9.9.9.9.5: back from the background)
       inboxUser(msg.user.id, msg.user.role === 'admin'); // 0.9.9.9.6: Messages (unread)
       askEmail(); // 0.9.9.9.6.6: an account from before emails adds one, once
       setRailMe(msg.user.id); // 0.9.9.9.6.3: friends in your room: "Playing with you"
@@ -499,7 +500,10 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'watching': // 0.9.9.9.9: watching a friend's game (or not any more)
       if (msg.on) liveStarted(msg);
-      else { liveEnded(); if (msg.reason) ui.toast(tr(msg.reason)); }
+      else { watchedFriend = ''; liveEnded(); if (msg.reason) ui.toast(tr(msg.reason)); }
+      break;
+    case 'watch_wait': // 0.9.9.9.9.5: they're still studying — the battle opens here when it starts
+      ui.toast(tr('They are studying their spells - the battle opens here when it starts ({s} s)').replace('{s}', String(Math.max(1, Math.round(msg.leftMs / 1000)))), 6000);
       break;
     case 'watchers': // 0.9.9.9.9: how many are watching your game
       ui.setWatchers(msg.count);
@@ -1488,10 +1492,13 @@ initWatch({
   feed: (m) => onMessage(m),
   restore: restoreReplay,
   leave: () => { backToMenu(); if (!user) showAuth(); },
-  unwatch: () => socket.send({ type: 'unwatch' }),
+  unwatch: () => { watchedFriend = ''; socket.send({ type: 'unwatch' }); },
   toast: (s) => ui.toast(s, 3000),
 });
-function watchFriend(id: string) { ui.hideProfileCard(); socket.send({ type: 'watch', userId: id }); }
+// (0.9.9.9.9.5: remembered — back from the background the connection is new, and the watching is asked for again; the
+// battle stood still)
+let watchedFriend = '';
+function watchFriend(id: string) { ui.hideProfileCard(); watchedFriend = id; socket.send({ type: 'watch', userId: id }); }
 addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail === 'queue') void renderRankBox(); });
 
 // ── other players' profiles: click (or Enter on) any name marked with data-profile ──

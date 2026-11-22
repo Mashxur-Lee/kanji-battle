@@ -115,6 +115,7 @@ const RU: Record<string, string> = {
   '2D arena': '2D-арена', 'No Japanese voice found on this device.': 'На этом устройстве нет японского голоса.', 'This browser has no speech voice.': 'В этом браузере нет синтеза речи.',
   'Contact:': 'Связь:', // (0.9.9.9.9.5)
   'Players': 'Игроки',
+  'They are studying their spells - the battle opens here when it starts ({s} s)': 'Игроки учат заклинания — бой откроется здесь, когда начнётся ({s} с)',
   // 0.9.9.9.9.5: the swords
   'A plain, honest blade. Its slash flies true.': 'Простой и честный клинок. Его взмах летит точно в цель.',
   'Polished steel with a blue rune down the fuller.': 'Полированная сталь с синей руной вдоль дола.',
