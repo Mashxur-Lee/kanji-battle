@@ -919,12 +919,17 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     if (opp?.model) opp.group.scale.setScalar(1.3); // across the arena: a little larger than life, so you can see them
     // (0.9.9.9.6.9: in a duel they stand closer — they looked small and far away)
     const oz = s.layout === 'deck' ? -2.2 : -0.9;
-    if (opp) opp.group.position.set(screenSpot(camera.aspect < 1 ? 0.08 : s.layout === 'deck' ? 0.36 : 0.46, oz), 0, oz); // upright phone: near the middle, clear of your hand
+    // 0.9.9.9.9.5: on a computer the kanji is at the bottom now — the opponent straight ahead, in the middle (it stood to
+    // the right of a word in the middle of the screen); an upright phone: near the middle, clear of your hand
+    const wide = camera.aspect >= 1 && s.layout !== 'deck';
+    if (opp) opp.group.position.set(screenSpot(camera.aspect < 1 ? 0.08 : s.layout === 'deck' ? 0.36 : 0, wide ? -1.3 : oz), 0, wide ? -1.3 : oz);
     const boss = fighters.get('boss');
-    if (boss) boss.group.position.set(screenSpot(camera.aspect < 1 ? 0.15 : 0.5, -5.5), 0, -5.5);
+    if (boss) boss.group.position.set(screenSpot(camera.aspect < 1 ? 0.15 : 0, -5.5), 0, -5.5);
     s.allies.forEach((a, i) => {
       const f = fighters.get(`ally:${a.id}`);
-      if (f) f.group.position.set(screenSpot(-0.36 + i * 0.13, -0.6 - i * 1.1), 0, -0.6 - i * 1.1);
+      // (0.9.9.9.9.5: on a computer your teammates stand beside you — left, right, then further left — a step ahead)
+      const spot: [number, number] = wide ? ([[-0.6, -0.8], [0.97, -1.7], [-0.9, -2]] as const)[i % 3].slice() as [number, number] : [-0.36 + i * 0.13, -0.6 - i * 1.1];
+      if (f) f.group.position.set(screenSpot(spot[0], spot[1]), 0, spot[1]);
     });
     // everyone faces their target: you face the opponent / dragon, the opponent faces you
     const foe = (boss ?? opp)?.group.position;
