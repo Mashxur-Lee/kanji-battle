@@ -187,3 +187,16 @@ test('0.9.9.9.9.5 the swords are the league rewards, the characters the level re
   assert.ok(mig.includes("const OLD_CHAR_LEAGUE: Record<string, string> = { knight: 'N5', witch: 'N3', wizard: 'N2' };"));
   assert.ok(mig.includes("const OLD_SWORD_LEVEL: Record<string, number> = { iron: 3, longsword: 6, saber: 10, katana: 15, dragonfang: 20 };"));
 });
+
+test('0.9.9.9.9.5 "Kanji seals": each page\u2019s own kanji stamped by its title, in the display font, sentence-case headings', () => {
+  const nav = src('src/client/nav.ts');
+  assert.ok(nav.includes("const SEALS: Record<string, string> = { queue: '戦',"));
+  assert.ok(nav.includes("const head = document.createElement('div'); head.className = 'seal-head';"));
+  const css = src('public/style.css');
+  assert.ok(css.includes('.seal.stamp { animation: sealIn'));
+  assert.ok(css.includes('body.has-nav .screen:not(#menu) h3 { text-transform: none;'));
+  // every seal kanji is in a self-hosted subset of the display font
+  const faces = [...css.matchAll(/font-family: "KW Display";[^}]*unicode-range: ([^;]+);/g)].map((m) => m[1]);
+  const inR = (cp: number, r: string) => r.split(',').some((x) => { const [a, b] = x.trim().replace('U+', '').split('-'); return cp >= parseInt(a, 16) && cp <= parseInt(b || a, 16); });
+  for (const ch of '戦友術か進日史辞学文問装管') assert.ok(faces.some((f) => inR(ch.codePointAt(0)!, f)), ch);
+});
