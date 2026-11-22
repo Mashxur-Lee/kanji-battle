@@ -100,8 +100,13 @@ test('0.9.9.9.9.5 the navigation: Back (a page\u2019s own step back, the page be
 test('0.9.9.9.9.5 the private room: a calm page, one card for the room, cards beside it, from the top', () => {
   const css = src('public/style.css');
   assert.ok(css.includes('body[data-screen="lobby"] #bg::after { opacity: 1 !important;'));
-  assert.ok(css.includes('#lobby .col-main { justify-content: flex-start; min-height: 0; }'));
-  assert.ok(css.includes('#lobby.split { grid-template-columns: minmax(320px, 500px) minmax(320px, 560px); justify-content: center; align-items: start;'));
+  // (b) four cards across the page: the room and the chat, the party, the levels and the guide
+  assert.ok(css.includes('#lobby.lobby-grid:not([hidden]) { display: grid; grid-template-columns: minmax(250px, 310px) minmax(360px, 1fr) minmax(290px, 370px);'));
+  const html = src('public/index.html');
+  const room = html.slice(html.indexOf('<section id="lobby"'), html.indexOf('</section>', html.indexOf('<section id="lobby"')));
+  for (const c of ['lb-room', 'lb-party', 'lb-talk', 'lb-side']) assert.ok(room.includes(`class="lb-card ${c}"`) || room.includes(`class="${c}"`), c);
+  for (const id of ['code', 'copyCode', 'lobbyOpen', 'lobbyPlayers', 'addBotBtn', 'botLevel', 'lobbyInvite', 'start', 'readyBtn', 'lobbyChat', 'levels', 'modeGuide', 'deckGuide']) assert.ok(room.includes(`id="${id}"`), id);
+  assert.ok(src('src/client/selects.ts').includes("!(wrap.parentElement?.contains(t) && (t as Element).closest?.('button'))"), 'Add bot works while the level list is open');
 });
 
 test('0.9.9.9.9.5 the arenas by day: colours by what things are (not the sunset greyed), clearer fog, a colour grade on High', () => {
@@ -145,7 +150,14 @@ test('0.9.9.9.9.5 the swords in the arena: their own model, a tremor (no ∞), a
   assert.ok(src('src/client/staffs3d.ts').includes('if (isSword(id)) return buildSword(id!, glowTex);'));
   const a3 = src('src/client/arena3d.ts');
   assert.ok(a3.includes('eightAmp += ((charge > 0.05 && !still && !swordMe ?'), 'no figure-eight with a sword');
-  assert.ok(a3.includes('staffGroup.rotation.z = 0.9 - 2.3 * e;'), 'the slash across');
+  assert.ok(a3.includes('const SWINGS = ['), 'three slashes');
+  assert.ok(a3.includes('if (isSword(staffSkin)) swingNo = (swingNo + 1 + Math.floor(Math.random() * 2)) % SWINGS.length;'), 'a different slash each time');
+  assert.ok(a3.includes('else if (u >= 0.66) { A = sw.to; B = [0, 0, 0, 0, 0]; k = sm((u - 0.66) / 0.34); }'), 'a smooth return (it snapped back)');
+  assert.ok(a3.includes('channelShown = 0; channelLevel = 0;'), 'a miss drops the charge: the blade stops shaking and its light goes');
+  assert.ok(src('src/client/main.ts').includes("if (caster === 'me' && !quiet && isSwordId(myStaff())) audio.sfx.cast(myStaff(), lastCombo);"), 'the slash sound with the swing');
+  const sw = src('src/client/swords3d.ts');
+  assert.ok(sw.includes('glow.visible = false; // (no light at the tip: the blade itself glows)'));
+  assert.ok(sw.includes('bladeMat.emissiveIntensity = d.base * (0.85 + 0.3 * pulse) + shown * 1.9;'), 'the blade fills with light as you write');
   assert.ok(a3.includes("isSword(staffIdOf(from)));"), 'the wave instead of the orb');
   assert.ok(a3.includes('const inf = key === \'me\' || swordF ? 0 :'));
   assert.ok(src('src/client/staffhits.ts').includes('if (isSword(kind)) slash(h);'));

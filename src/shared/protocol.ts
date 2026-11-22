@@ -284,6 +284,8 @@ export type ServerMessage =
   /** 0.9.9.9.6.4: a group changed (name, picture, members) — or you're no longer in it */
   | { type: 'dm_group'; group: string; event: 'changed' | 'removed' }
   | { type: 'prep'; pool: StudyItem[]; durationMs: number; readyIds: PlayerId[]; players: PlayerView[] }
+  /** 0.9.9.9.9.5: watching a game whose players are still studying — the battle starts in about leftMs */
+  | { type: 'watch_wait'; leftMs: number }
   | { type: 'prep_ready'; readyIds: PlayerId[] }
   | {
       type: 'battle_start';

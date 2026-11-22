@@ -44,15 +44,24 @@ export const NAV_SCREENS = new Set(['queue', 'private', 'modes', 'kana', 'progre
 const svg = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
 
 let jumpT = 0;
-/** where you came from, page by page (for Back) */
+/** 0.9.9.9.9.5: on the way from one page to another (through the menu, for a moment) */
+let jumping = false;
+/** where you came from, page by page (for Back) — the menu passed through on the way is not a step */
 const trail: string[] = [];
-/** leave the page as its own back button would (a "← Menu" kind: it cleans up after itself) */
-function leaveCurrent() {
+const endJump = () => { jumping = false; document.body.classList.remove('nav-jump'); };
+/**
+ * leave the page as its own back button would (a "← Menu" kind: it cleans up after itself). `onward`: another page
+ * opens next — the menu stays hidden in between (0.9.9.9.9.5: Home is the menu itself, shown at once: it waited 1.5 s)
+ */
+function leaveCurrent(onward = false) {
   const s = ui.currentScreen();
   if (!s || s === 'menu') return;
-  // 0.9.9.9.9.5: the menu doesn't flash up between the two pages (it showed while the next one loaded)
-  document.body.classList.add('nav-jump');
-  clearTimeout(jumpT); jumpT = window.setTimeout(() => document.body.classList.remove('nav-jump'), 1500);
+  if (onward) {
+    jumping = true;
+    document.body.classList.add('nav-jump');
+    // (and if the next page never came — it said no — the menu is shown properly after all)
+    clearTimeout(jumpT); jumpT = window.setTimeout(() => { const was = jumping; endJump(); if (was && ui.currentScreen() === 'menu') ui.show('menu'); }, 1500);
+  }
   // (0.9.9.9.9.5: hidden or not — on these pages "← Menu" is hidden behind the navigation, and was skipped, so its
   // clean-up (a search in the queue cancelled, the Customize preview stopped) didn't happen)
   const back = [...document.querySelectorAll<HTMLElement>(`#${s} > .back, #${s} [id$="Back"]`)].find((b) => !b.hidden && !(b as HTMLButtonElement).disabled && /menu|меню/i.test(b.textContent ?? ''));
@@ -71,10 +80,11 @@ export function initNav() {
     const s = ui.currentScreen() ?? '';
     const own = [...document.querySelectorAll<HTMLElement>(`#${s} > .back:not(.to-menu)`)].find((b) => !b.hidden && !(b as HTMLButtonElement).disabled);
     if (own) { own.click(); return; }
-    trail.pop(); // (this page)
+    // the page before this one (0.9.9.9.9.5: it went Home — the menu passed through on every jump wiped the trail)
+    trail.pop();
     const prev = trail.pop();
-    const it = prev && ITEMS.find((x) => x.screens[0] === prev);
-    if (it && it.id !== 'home') { leaveCurrent(); if (it.btn) document.getElementById(it.btn)?.click(); return; }
+    const it = prev ? ITEMS.find((x) => x.id !== 'home' && x.screens.includes(prev)) : undefined;
+    if (it?.btn) { leaveCurrent(true); document.getElementById(it.btn)?.click(); return; }
     trail.length = 0;
     leaveCurrent();
   };
@@ -88,7 +98,7 @@ export function initNav() {
       if (it.id === 'settings') { document.getElementById('menuSettingsBtn')?.click(); return; }
       const s = ui.currentScreen() ?? '';
       if (it.screens.includes(s) && it.id !== 'play') return; // (already here)
-      leaveCurrent();
+      leaveCurrent(!!it.btn);
       if (it.btn) document.getElementById(it.btn)?.click();
     };
     nav.append(b);
@@ -115,6 +125,8 @@ export function initNav() {
   // "← Menu" buttons: the nav's Home does that now (where the nav shows)
   for (const b of document.querySelectorAll<HTMLElement>('.screen > .back')) if (/menu|меню/i.test(b.textContent ?? '')) b.classList.add('to-menu');
   ui.onScreen((s) => {
+    if (s === 'menu' && jumping) return; // (just passing through: no zoom change, no step in the trail)
+    if (s !== 'menu') endJump();
     const on = NAV_SCREENS.has(s);
     nav.hidden = !on;
     document.body.classList.toggle('has-nav', on);
@@ -122,7 +134,6 @@ export function initNav() {
     const page = on || s === 'lobby';
     if (document.body.classList.contains('page-zoom') !== page) { document.body.classList.toggle('page-zoom', page); applyUiZoom(); }
     setMore(false);
-    if (s !== 'menu') document.body.classList.remove('nav-jump');
     if (s === 'menu') trail.length = 0; else if (on && trail[trail.length - 1] !== s) { trail.push(s); if (trail.length > 20) trail.shift(); }
     for (const b of nav.querySelectorAll<HTMLElement>('.an-item:not(.an-more)')) b.classList.toggle('on', ITEMS.find((x) => x.id === b.dataset.nav)!.screens.includes(s));
     // (More lights up when the page is one of its own)

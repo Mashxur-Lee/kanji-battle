@@ -372,7 +372,7 @@ export const STAFF_FAMILIES = Object.keys(SETS);
 export const spellsOf = (family: string) => SETS[family]?.length ?? 0;
 
 /** each spell's level, so they're about as loud as each other (measured: the RMS of a single cast) */
-const TRIM: Record<string, number[]> = { sword: [1.3, 1.3, 1.1], verdant: [1.2, 1.2, 1.4], ember: [0.65, 0.6, 1.12], tide: [1.43, 1.38, 1.25], storm: [1.2, 1.45, 0.9], void: [0.83, 0.89, 0.95] };
+const TRIM: Record<string, number[]> = { sword: [1.7, 1.7, 1.45], verdant: [1.2, 1.2, 1.4], ember: [0.65, 0.6, 1.12], tide: [1.43, 1.38, 1.25], storm: [1.2, 1.45, 0.9], void: [0.83, 0.89, 0.95] };
 
 const lastSpell: Record<string, number> = {};
 /**

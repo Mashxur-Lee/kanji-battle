@@ -68,7 +68,8 @@ function enhance(sel: HTMLSelectElement) {
     close(); btn.focus();
   };
   // a tap outside the open list only closes it (0.9.9.9.3: in Settings it closed the whole window too)
-  const outside = (e: Event) => { const t = e.target as Node; if (!wrap.contains(t) && !menu?.contains(t)) { close(); if (!(t as Element).closest?.('.csel-btn')) swallowNextClick(); } };
+  // (0.9.9.9.9.5: a button beside it in the same row — "+ Add bot" — works at once: the first tap went nowhere)
+  const outside = (e: Event) => { const t = e.target as Node; if (!wrap.contains(t) && !menu?.contains(t)) { close(); if (!(t as Element).closest?.('.csel-btn') && !(wrap.parentElement?.contains(t) && (t as Element).closest?.('button'))) swallowNextClick(); } };
   const open = () => {
     if (menu || sel.disabled) return;
     openMenu?.close();

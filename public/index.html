@@ -877,21 +877,26 @@
   </section>
 
   <!-- LOBBY -->
-  <section id="lobby" class="screen split" hidden>
-    <div class="col-main">
-      <button id="leaveLobby" class="back">← Leave room</button>
-      <!-- 0.9.9.9.5.5: the mode, big, at the top centre (the "← Leave room" button covered it) -->
-      <h2 id="lobbyMode" class="lobby-mode"></h2>
+  <section id="lobby" class="screen lobby-grid" hidden>
+    <!-- 0.9.9.9.9.5: the room in four cards across the page (it was one narrow column in the middle): the room (code,
+         open / closed, invites) and the chat on the left, the party (players, a bot, Ready) in the middle, the levels and
+         the mode's guide on the right -->
+    <button id="leaveLobby" class="back">← Leave room</button>
+    <h2 id="lobbyMode" class="lobby-mode"></h2>
+    <div class="lb-card lb-room">
       <p class="sub">Room code - share it with your friend</p>
       <div class="code-row">
         <div id="code" class="code"></div>
         <button id="copyCode" class="pill">Copy</button>
       </div>
-      <!-- 0.9.9.9.5.5: open (friends join from your profile) or closed (invite / code only) -->
       <div id="lobbyOpenRow" class="lobby-open" hidden>
         <button id="lobbyOpen" class="open-switch" role="switch" aria-checked="false"><span class="os-text">Closed</span><span class="os-knob"></span></button>
         <span id="lobbyOpenHint" class="hint">Only invited friends or the code can join</span>
       </div>
+      <div id="lobbyInvite" class="lobby-invite" hidden></div>
+    </div>
+    <div class="lb-card lb-party">
+      <h3 class="lb-h">Players</h3>
       <ul id="lobbyPlayers" class="players"></ul>
       <div id="addBot" class="add-bot" hidden>
         <label for="botLevel">Add a bot</label>
@@ -905,11 +910,11 @@
         </select>
         <button id="addBotBtn" class="pill primary">+ Add bot</button>
       </div>
-      <div id="lobbyInvite" class="lobby-invite" hidden></div>
       <button id="start" class="big" hidden>Start battle</button>
       <button id="readyBtn" class="big" hidden>Ready</button>
       <p id="lobbyStatus" class="sub"></p>
-      <!-- 0.9.9.9.4: chat in the private room, the same as in a Deck Duel (and the same messages) -->
+    </div>
+    <div class="lb-card lb-talk">
       <aside id="lobbyChat" class="lobby-chat" hidden>
         <h4>Chat</h4>
         <div id="lobbyChatLog" class="chat-log" aria-live="polite"></div>
@@ -922,7 +927,7 @@
         </form>
       </aside>
     </div>
-    <div class="col-side">
+    <div class="lb-side">
       <div id="deckGuide" class="deck-guide" hidden></div>
       <fieldset id="levels" class="levels">
         <legend>Your levels</legend>

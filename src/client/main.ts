@@ -26,7 +26,7 @@ import * as voice from './voice';
 import { setPlayAi, initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
-import { STUDY_LOCK } from '../shared/progress';
+import { STUDY_LOCK, isSwordId } from '../shared/progress';
 import { arena, arenaLook, arenaTyping, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, primeArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
 import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicProfile, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
@@ -198,7 +198,8 @@ ui.onScreen((s) => {
     if (se && se.scrollTop > Math.max(0, se.scrollHeight - innerHeight)) se.scrollTop = Math.max(0, se.scrollHeight - innerHeight);
     // 0.9.9.9.6.7: on a computer the menu fits the window — if the page is taller anyway, tell the admin what made it
     // so (style.css keeps it from scrolling there now; this finds the cause)
-    if (s === 'menu' && innerWidth >= 901 && se && se.scrollHeight > innerHeight + 40) {
+    // (0.9.9.9.9.5: and still on it — a jump with the navigation passes through the menu on its way to a long page)
+    if (s === 'menu' && ui.currentScreen() === 'menu' && innerWidth >= 901 && se && se.scrollHeight > innerHeight + 40) {
       const tall = [...document.body.querySelectorAll<HTMLElement>('*')].map((e) => ({ e, b: e.getBoundingClientRect().bottom + se.scrollTop })).filter((x) => x.b > innerHeight + 40).sort((a, b) => b.b - a.b).slice(0, 5)
         .map(({ e, b }) => `${e.tagName.toLowerCase()}#${e.id}.${String(e.className).slice(0, 30)} ↓${Math.round(b)} ${getComputedStyle(e).position}${e.hidden ? ' hidden' : ''}`);
       reportLayout('Menu taller than the window after Messages', `page ${se.scrollHeight} > window ${innerHeight}\n${tall.join('\n')}`);
@@ -483,6 +484,7 @@ function onMessage(msg: ServerMessage) {
       ui.setUser(msg.user);
       void refreshOnline(); // now this player counts too
       registerPush(msg.user.id); // 0.9.9.9.5: friends' invites reach this phone while the app is closed
+      if (watchedFriend && watching() === 'live') socket.send({ type: 'watch', userId: watchedFriend }); // (0.9.9.9.9.5: back from the background)
       inboxUser(msg.user.id, msg.user.role === 'admin'); // 0.9.9.9.6: Messages (unread)
       askEmail(); // 0.9.9.9.6.6: an account from before emails adds one, once
       setRailMe(msg.user.id); // 0.9.9.9.6.3: friends in your room: "Playing with you"
@@ -498,7 +500,10 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'watching': // 0.9.9.9.9: watching a friend's game (or not any more)
       if (msg.on) liveStarted(msg);
-      else { liveEnded(); if (msg.reason) ui.toast(tr(msg.reason)); }
+      else { watchedFriend = ''; liveEnded(); if (msg.reason) ui.toast(tr(msg.reason)); }
+      break;
+    case 'watch_wait': // 0.9.9.9.9.5: they're still studying — the battle opens here when it starts
+      ui.toast(tr('They are studying their spells - the battle opens here when it starts ({s} s)').replace('{s}', String(Math.max(1, Math.round(msg.leftMs / 1000)))), 6000);
       break;
     case 'watchers': // 0.9.9.9.9: how many are watching your game
       ui.setWatchers(msg.count);
@@ -637,7 +642,9 @@ function onMessage(msg: ServerMessage) {
         // say the word first (romaji answers at the kana level: say the kana itself), then the success chime
         const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
         // (0.9.9.9.8: the sound of your staff — each has its own; 0.9.9.9.9.1: the enemy's HP decides how fierce)
-        void voice.speak(kana).then(() => audio.sfx.cast(players.find((p) => p.id === you)?.staff ?? profile?.staff, msg.combo));
+        lastCombo = msg.combo;
+        if (!isSwordId(myStaff())) void voice.speak(kana).then(() => audio.sfx.cast(myStaff(), msg.combo));
+        else void voice.speak(kana); // (the sword's slash plays with the swing)
         if (mode !== 'deck') comboMilestone(msg.combo, profile?.unlocks); // "On Fire" / "Inferno" / "Unstoppable" right away
       } else { audio.sfx.wrong(); arena()?.fizzle('me'); }
       break;
@@ -721,6 +728,8 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
       const caster = actorOf(e.playerId);
       const target = actorOf(e.targetId);
       const friendly = caster !== 'opp';
+      // 0.9.9.9.9.5: a sword's slash is heard as it swings (a staff's cast sound follows the word being said)
+      if (caster === 'me' && !quiet && isSwordId(myStaff())) audio.sfx.cast(myStaff(), lastCombo);
       void ui.castSpell(caster, target, e.kanji, e.damage, friendly, !!e.crit).then(() => {
         render(); // HP bars update when the spell lands
         if (target === 'me') audio.sfx.hurt();
@@ -1191,7 +1200,9 @@ initKana({
   },
 });
 ui.$('studyBack').onclick = () => ui.show('menu');
-ui.$('customizeBtn').onclick = async () => { await refreshProfile(); if (profile) openCustomize(profile, user?.role === 'admin', () => applyBackground(true)); };
+// (0.9.9.9.9.5: at once — it waited for the profile from the server first, a second or so on a slow line; the menu
+// refreshes the profile each time it's shown anyway)
+ui.$('customizeBtn').onclick = () => { if (profile) openCustomize(profile, user?.role === 'admin', () => applyBackground(true)); };
 ui.$('customizeBack').onclick = () => ui.show('menu');
 
 // ── admin ────────────────────────────────────────────────────────────────────
@@ -1485,10 +1496,16 @@ initWatch({
   feed: (m) => onMessage(m),
   restore: restoreReplay,
   leave: () => { backToMenu(); if (!user) showAuth(); },
-  unwatch: () => socket.send({ type: 'unwatch' }),
+  unwatch: () => { watchedFriend = ''; socket.send({ type: 'unwatch' }); },
   toast: (s) => ui.toast(s, 3000),
 });
-function watchFriend(id: string) { ui.hideProfileCard(); socket.send({ type: 'watch', userId: id }); }
+// (0.9.9.9.9.5: remembered — back from the background the connection is new, and the watching is asked for again; the
+// battle stood still)
+let watchedFriend = '';
+/** 0.9.9.9.9.5: your weapon in this battle, and your last combo (for the sword's slash sound) */
+const myStaff = () => players.find((p) => p.id === you)?.staff ?? profile?.staff;
+let lastCombo = 1;
+function watchFriend(id: string) { ui.hideProfileCard(); watchedFriend = id; socket.send({ type: 'watch', userId: id }); }
 addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail === 'queue') void renderRankBox(); });
 
 // ── other players' profiles: click (or Enter on) any name marked with data-profile ──

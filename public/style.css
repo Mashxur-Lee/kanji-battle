@@ -5954,3 +5954,59 @@ body.has-nav #dict { max-width: calc(980px + var(--nav-pad)); }
 body.has-nav #quizzes.quizzes-screen { max-width: calc(1180px + var(--nav-pad)); }
 body.has-nav #customize.locker-screen { max-width: calc(1640px + var(--nav-pad)); }
 body.has-nav .inbox-screen { max-width: calc(1100px + var(--nav-pad)); }
+
+/* 0.9.9.9.9.5 (b): the private room across the page — four cards (it was one narrow column in the middle with empty
+   space all round): the room and the chat on the left, the party in the middle, the levels and the guide on the right */
+#lobby.lobby-grid:not([hidden]) { display: grid; grid-template-columns: minmax(250px, 310px) minmax(360px, 1fr) minmax(290px, 370px);
+  grid-template-rows: auto 1fr; gap: 16px; align-items: start; width: 100%; max-width: 1380px; margin: 0 auto; padding-top: 118px; padding-bottom: 28px; box-sizing: border-box; }
+#lobby .lb-card { background: var(--card); border: 2px solid var(--line); border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+#lobby .lb-room { grid-column: 1; grid-row: 1; }
+#lobby .lb-talk { grid-column: 1; grid-row: 2; padding: 12px 14px; }
+#lobby .lb-party { grid-column: 2; grid-row: 1 / 3; }
+#lobby .lb-side { grid-column: 3; grid-row: 1 / 3; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+#lobby .lb-side > :is(.levels, .mode-guide, .deck-guide) { margin: 0; max-width: none; width: 100%; box-sizing: border-box; background: var(--card); border: 2px solid var(--line); border-radius: 20px; padding: 16px 18px; }
+#lobby .lb-side .levels .chips { flex-wrap: wrap !important; }
+#lobby .lb-h { margin: 0; font: 800 .74rem/1.2 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+#lobby .lb-room > .sub { margin: 0; font: 800 .74rem/1.2 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); text-align: left; }
+#lobby .lb-room .code-row { gap: 10px; }
+#lobby .lb-room .code { font-size: clamp(2rem, 3.2vw, 2.7rem); padding: 10px 4px 10px 16px; letter-spacing: .28em; }
+#lobby .lb-room .lobby-open { flex-direction: column; align-items: flex-start; gap: 8px; }
+#lobby .lb-room .lobby-invite, #lobby .lb-talk .lobby-chat { margin: 0; background: transparent; border: 0; padding: 0; }
+#lobby .lb-talk .lobby-chat .chat-log { max-height: 220px; }
+/* the party: the four slots two by two, a bot, Ready along the bottom */
+#lobby .lb-party .players { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; max-width: none; }
+#lobby .lb-party .players li { min-height: 76px; }
+#lobby .lb-party .add-bot { margin: 0; }
+#lobby .lb-party :is(#start, #readyBtn) { margin-top: 2px; }
+/* the mode title on top: smaller on a phone, its Change a small chip */
+.lobby-mode .lm-change { font-size: .62em; padding: 3px 8px; }
+@media (max-width: 1180px) {
+  #lobby.lobby-grid:not([hidden]) { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); grid-template-rows: auto auto 1fr; }
+  #lobby .lb-room { grid-column: 1; grid-row: 1; }
+  #lobby .lb-party { grid-column: 1; grid-row: 2; }
+  #lobby .lb-talk { grid-column: 1; grid-row: 3; }
+  #lobby .lb-side { grid-column: 2; grid-row: 1 / 4; }
+}
+@media (max-width: 860px) {
+  #lobby.lobby-grid:not([hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; padding-top: 104px; gap: 12px; }
+  #lobby :is(.lb-room, .lb-party, .lb-talk, .lb-side) { grid-column: 1; grid-row: auto; }
+  #lobby .lb-party { order: 1; } #lobby .lb-room { order: 0; } #lobby .lb-side { order: 2; } #lobby .lb-talk { order: 3; }
+  #lobby .lb-party .players { grid-template-columns: minmax(0, 1fr); }
+  #lobby .lobby-mode { font-size: .95rem !important; padding: 5px 14px 5px 10px !important; gap: 8px; letter-spacing: .05em; }
+  #lobby .lobby-mode .mode-badge { font-size: 1.1rem !important; }
+  #lobby .lobby-mode .lm-change { font-size: .7rem; padding: 2px 7px; }
+}
+/* 0.9.9.9.9.5: watching live — the "Watching …" pill in the bottom-left corner, above the mode's name (at the top it
+   covered the battle's clock and the Exit button) */
+@media (min-width: 761px) { body[data-watch="live"] .watch-bar { top: auto; bottom: 46px; left: 12px; translate: none; } }
+/* 0.9.9.9.9.5: the results' Back — a clear button pinned top-left like "← Leave room" (at the very top edge of the
+   results it was hard to see, after watching a game most of all) */
+#results > #resultBack { position: fixed; top: 62px; left: var(--gutter); z-index: 20; margin: 0; display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px 9px 14px; border-radius: 14px; font-size: 1rem; font-weight: 800; color: #e8f9ff;
+  background: var(--card, rgba(20, 16, 44, .9)); border: 2px solid rgba(110, 231, 255, .6); box-shadow: 0 3px 0 rgba(110, 231, 255, .35), 0 6px 18px rgba(0, 0, 0, .35); }
+#results > #resultBack:hover { background: rgba(110, 231, 255, .18); }
+#results > #resultBack:active { transform: translateY(3px); box-shadow: none; }
+:root[data-theme="light"] #results > #resultBack { color: var(--text); background: #fff; border-color: var(--accent2); }
+@media (max-width: 640px) { #results > #resultBack { position: fixed; top: calc(58px + env(safe-area-inset-top)); left: 12px; margin: 0; } #results { padding-top: 112px !important; } }
+/* 0.9.9.9.9.5: phones — closing: the open list wipes away as it is (see friendrail.ts) */
+@media (max-width: 900px) { .friend-rail.open.shut { clip-path: inset(0 0 0 100%); pointer-events: none; } }
