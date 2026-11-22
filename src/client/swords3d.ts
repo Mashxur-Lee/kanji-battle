@@ -81,14 +81,16 @@ function halfWidth(d: SwordDef, t: number) {
 /** the blade: a diamond in section (edge, ridge, edge, ridge) — flat-shaded, its facets catch the light like the art */
 function bladeGeo(d: SwordDef) {
   const N = 26, pos: number[] = [], L = d.len - GUARD_Y;
+  // (0.9.9.9.9.5, modelled in Blender first: a diamond with a bevelled edge — edge, bevel, ridge on each face — so the
+  // facets catch the light in bands, like the concept, instead of four flat planes)
   const ring = (t: number) => {
-    const y = GUARD_Y + 0.01 + t * L, w = halfWidth(d, t), th = Math.max(0.004, w * 0.32);
-    return [[-w, y, 0], [0, y, th], [w, y, 0], [0, y, -th]] as const;
+    const y = GUARD_Y + 0.01 + t * L, w = halfWidth(d, t), th = Math.max(0.004, w * 0.3);
+    return [[-w, y, 0], [-w * 0.62, y, th * 0.72], [0, y, th], [w * 0.62, y, th * 0.72], [w, y, 0], [w * 0.62, y, -th * 0.72], [0, y, -th], [-w * 0.62, y, -th * 0.72]] as const;
   };
   for (let i = 0; i < N; i++) {
     const a = ring(i / N), b = ring((i + 1) / N);
-    for (let k = 0; k < 4; k++) {
-      const k2 = (k + 1) % 4;
+    for (let k = 0; k < 8; k++) {
+      const k2 = (k + 1) % 8;
       pos.push(...a[k], ...a[k2], ...b[k2], ...a[k], ...b[k2], ...b[k]);
     }
   }

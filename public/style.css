@@ -6047,3 +6047,5 @@ body.has-nav .screen:not(#menu) h3 { text-transform: none; letter-spacing: 0; fo
 @media (max-width: 760px) { .seal { width: 48px; height: 48px; font-size: 1.7rem; border-width: 2.5px; } .seal-head { gap: 12px; } }
 .seal { font-size: 1.95rem; }
 .study-stats .ss-tile :is(small, span:not(b)) { text-transform: none !important; letter-spacing: 0 !important; }
+/* 0.9.9.9.9.5: the menu's drifting kanji stay inside the screen (the sweep found one a few px past the edge on phones) */
+.menu-veil { overflow: hidden; }
