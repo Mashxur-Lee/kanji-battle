@@ -1,9 +1,9 @@
 // 0.9.9.9.6: moving up a Daily challenge league is a moment — a screen of its own: the new league's crest with
 // rays behind it, and what it brings (that league's border on your picture, and a character at N4, N3 and N2),
 // each with its own Equip button. The daily page also shows what the next league brings.
-import { BORDERS, CHARACTER_DEFS, characterOf, type CharacterId } from '../shared/progress';
+import { BORDERS, STAFFS, type StaffDef } from '../shared/progress';
+import { staffSvg } from './art2d';
 import { api, type Profile } from './api';
-import { avatarSvg } from './wizard';
 import { markRewardsSeen } from './rewards';
 import { tr } from './i18n';
 import * as audio from './audio';
@@ -21,8 +21,9 @@ const LEAGUE_TITLE: Record<string, string> = { KANA: 'Kana', N5: 'N5', N4: 'N4',
 /** what reaching this league brings */
 export function leagueRewards(league: string) {
   const border = BORDERS.find((b) => b.league === league) ?? null;
-  const character = CHARACTER_DEFS.find((c) => c.league === league) ?? null;
-  return { border, character };
+  // 0.9.9.9.9.5: a sword for Kana, N5, N4, N3 and N2 (the characters come with levels now)
+  const sword: StaffDef | null = STAFFS.find((s) => s.sword && s.league === league) ?? null;
+  return { border, sword };
 }
 
 /** a league's crest: a round seal with its name (bigger and grander for the higher leagues) */
@@ -51,8 +52,8 @@ export function leagueCard(current: string, next: string | undefined, promoteAt 
   head.append(leagueCrest(current, 'mid'), t);
   card.append(head);
   // 0.9.9.9.6.4: what passing THIS league brings (its rewards come when you pass it, not when you arrive)
-  const { border, character } = leagueRewards(current);
-  if ((border || character) && !passed.includes(current)) {
+  const { border, sword } = leagueRewards(current);
+  if ((border || sword) && !passed.includes(current)) {
     const pr = h('div', 'lg-pass');
     pr.append(h('span', 'lg-pass-how', tr(`Pass it - ${promoteAt}/10 or better - to get:`)));
     // (0.9.9.9.6.5: each reward big enough to see, with its name — it was a tiny circle in an empty box)
@@ -62,10 +63,10 @@ export function leagueCard(current: string, next: string | undefined, promoteAt 
       const d = h('span', `avatar lg-pass-av${ui.borderCls(border.id)}`, (ui.myName() || '✦').slice(0, 1).toUpperCase());
       it.append(d, h('b', '', tr(`${border.name} border`))); rw.append(it);
     }
-    if (character) {
+    if (sword) {
       const it = h('span', 'lg-pass-it');
-      const c = h('span', 'lg-pass-char'); c.innerHTML = avatarSvg(character.id, 'me', 'verdant');
-      it.append(c, h('b', '', tr(`The ${character.name}`))); rw.append(it);
+      const c = h('span', 'lg-pass-char lg-pass-sword'); c.innerHTML = staffSvg(sword.id);
+      it.append(c, h('b', '', sword.name)); rw.append(it);
     }
     pr.append(rw);
     card.append(pr);
@@ -85,7 +86,7 @@ export function leagueCard(current: string, next: string | undefined, promoteAt 
  * its rewards are the ones on this screen
  */
 export async function showLeagueUp(uid: string, league: string | null, passed: string) {
-  const { border, character } = leagueRewards(passed);
+  const { border, sword } = leagueRewards(passed);
   let p: Profile | null = null;
   try { p = (await api.me()).profile; } catch { /* offline: the initial */ }
   let d = document.getElementById('leagueUpDialog') as HTMLDialogElement | null;
@@ -123,10 +124,10 @@ export async function showLeagueUp(uid: string, league: string | null, passed: s
     keys.push(`border:${border.id}`);
     card(tr(`${border.name} border`), borderPreview(p, border.id), () => api.setBorder(border.id), (p?.border ?? 'none') === border.id);
   }
-  if (character) {
-    keys.push(`char:${character.id}`);
-    const pic = h('div', 'lu-char'); pic.innerHTML = avatarSvg(character.id as CharacterId, 'me', p?.staff ?? 'verdant');
-    card(tr(`The ${character.name}`), pic, () => api.setCharacter(character.id), p ? characterOf(p.unlocks) === character.id : false);
+  if (sword) {
+    keys.push(`staff:${sword.id}`);
+    const pic = h('div', 'lu-char lu-sword'); pic.innerHTML = staffSvg(sword.id);
+    card(sword.name, pic, () => api.setStaff(sword.id), (p?.staff ?? '') === sword.id);
   }
   if (rewards.childElementCount) body.push(h('h4', 'lu-rw-title', tr('Your rewards')), rewards);
   const ok = h('button', 'big', tr('Onward!')) as HTMLButtonElement;

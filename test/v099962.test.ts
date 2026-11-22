@@ -49,8 +49,8 @@ test('0.9.9.9.6.2 the league frames N5–N1 are the player\'s animated pictures,
 });
 
 test('0.9.9.9.6.2 the Knight is the N5 league\'s reward; N4 brings only its border', () => {
-  assert.equal(CHARACTER_DEFS.find((c) => c.id === 'knight')?.league, 'N5');
-  assert.equal(CHARACTER_DEFS.filter((c) => c.league === 'N4').length, 0);
+  // (0.9.9.9.9.5: characters come with levels now; each league's reward is its border and a sword)
+  assert.equal(CHARACTER_DEFS.find((c) => c.id === 'knight')?.level, 5);
   assert.ok(BORDERS.some((b) => b.league === 'N4'));
 });
 

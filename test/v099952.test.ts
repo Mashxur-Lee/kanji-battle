@@ -9,12 +9,12 @@ import { StudyService } from '../src/server/study/StudyService';
 import { Push } from '../src/server/push';
 import { Room, DEFAULT_ROOM_OPTIONS } from '../src/server/Room';
 import type { ServerMessage } from '../src/shared/protocol';
-import { characterOf } from '../src/shared/progress';
+import { characterOf, levelOf } from '../src/shared/progress';
 
 const ask = (route: ReturnType<typeof createApiRouter>, token: string, method: string, url: string, body: unknown = {}) =>
   route({ method, url, query: new URLSearchParams(), token, ip: '1.2.3.4', json: async () => body });
 
-test('0.9.9.9.5.2 character: picked in Customize, unlocked by the Daily challenge league (Knight N4, Witch N3, Wizard N2)', async () => {
+test('0.9.9.9.5.2 character: picked in Customize, unlocked by level (0.9.9.9.9.5: Knight 5, Witch 10, Wizard 15)', async () => {
   const store = new MemoryStore();
   const study = new StudyService(store);
   const auth = new AuthService(store, new TokenSigner('t'));
@@ -23,10 +23,10 @@ test('0.9.9.9.5.2 character: picked in Customize, unlocked by the Daily challeng
   const set = (c: string) => ask(route, token, 'PUT', '/api/me/character', { character: c });
   // a new player: the goblin, nothing else
   assert.equal(characterOf((await store.findById(user.id))!.unlocks), 'goblin');
-  assert.equal((await set('knight'))?.status, 403, 'the Kana league: the knight is locked');
+  assert.equal((await set('knight'))?.status, 403, 'level 0: the knight is locked');
   assert.equal((await set('dragon'))?.status, 400, 'no such character');
-  // the N4 league: the knight
-  await store.update(user.id, { unlocks: [...((await store.findById(user.id))!.unlocks ?? []), 'dleague:N4'] });
+  // level 5: the knight
+  { let x = 0; while (levelOf(x) < 5) x += 250; await store.update(user.id, { xp: x }); }
   const r = await set('knight');
   assert.equal(r?.status, 200);
   assert.equal(characterOf((r!.body as { profile: { unlocks: string[] } }).profile.unlocks), 'knight', 'the profile says so');

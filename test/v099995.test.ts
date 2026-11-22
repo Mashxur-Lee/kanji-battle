@@ -131,17 +131,18 @@ test('0.9.9.9.9.5 the arenas like their paintings: a wet floor mirroring the sky
   assert.ok(src('src/client/arenas/forest.ts').includes('// 0.9.9.9.9.5: the canopy'));
 });
 
-test('0.9.9.9.9.5 the swords: five, each better than the last, unlocked by level (the server checks it too)', async () => {
+test('0.9.9.9.9.5 the swords: five, each grander than the last, the rewards of the Kana, N5, N4, N3 and N2 leagues (the server checks it too)', async () => {
   const { STAFFS, staffUnlocked, isSwordId, isStaff } = await import('../src/shared/progress');
   const swords = STAFFS.filter((s) => s.sword);
   assert.deepEqual(swords.map((s) => s.id), ['iron', 'longsword', 'saber', 'katana', 'dragonfang']);
-  const levels = swords.map((s) => s.level!);
-  assert.deepEqual([...levels].sort((a, b) => a - b), levels, 'each a higher level than the last');
+  assert.deepEqual(swords.map((s) => s.league), ['KANA', 'N5', 'N4', 'N3', 'N2'], 'a league each, low to high');
   assert.equal(new Set(STAFFS.map((s) => s.id)).size, STAFFS.length, 'no id twice (the Ember Staff keeps "ember")');
   assert.ok(isStaff('katana') && isSwordId('katana') && !isSwordId('ember'));
-  // level 3 needs 3000 xp (each level 1000 more than the last): not at 0, yes with plenty
-  assert.equal(staffUnlocked('iron', 99, [], 0), false, 'a streak does not open a sword');
-  assert.equal(staffUnlocked('dragonfang', 0, [], 10_000_000), true);
+  assert.equal(staffUnlocked('iron', 99, [], 10_000_000), false, 'neither a streak nor a level opens a sword');
+  assert.equal(staffUnlocked('iron', 0, ['dleague:N5']), true, 'passing the Kana league (now in N5)');
+  assert.equal(staffUnlocked('longsword', 0, ['dleague:N5']), false);
+  assert.equal(staffUnlocked('dragonfang', 0, ['dleague:N1']), true, 'passing N2');
+  assert.equal(staffUnlocked('saber', 0, ['staff:saber']), true, 'kept from before (the level it had)');
   assert.equal(staffUnlocked('verdant', 0, [], 0), true, 'the staffs as before');
   assert.ok(src('src/server/study/StudyService.ts').includes('staffUnlocked(s, u.bestStreak ?? 0, u.unlocks, u.xp ?? 0)'));
 });

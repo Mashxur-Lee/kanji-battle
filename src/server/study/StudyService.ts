@@ -165,7 +165,7 @@ export class StudyService {
   async setCharacter(u: UserRecord, c: unknown) {
     if (!isCharacter(c)) throw new StudyError('Unknown character');
     const def = CHARACTER_DEFS.find((x) => x.id === c)!;
-    if (u.role !== 'admin' && !characterUnlocked(c, u.unlocks)) throw new StudyError(`Unlocks when you pass the ${def.league} league in the Daily challenge`, 403);
+    if (u.role !== 'admin' && !characterUnlocked(c, u.unlocks, u.xp ?? 0)) throw new StudyError(`Unlocks at level ${def.level}`, 403);
     await this.store.update(u.id, { unlocks: [...(u.unlocks ?? []).filter((x) => !x.startsWith('char:')), ...(c === 'goblin' ? [] : [`char:${c}`])] });
   }
 
@@ -173,7 +173,7 @@ export class StudyService {
   async setStaff(u: UserRecord, s: unknown) {
     if (!isStaff(s)) throw new StudyError('Unknown staff');
     const def = STAFFS.find((x) => x.id === s)!;
-    if (u.role !== 'admin' && !staffUnlocked(s, u.bestStreak ?? 0, u.unlocks, u.xp ?? 0)) throw new StudyError(def.level ? `Unlocks at level ${def.level}` : def.season ? 'A monthly reward: complete that month\'s goals' : `Unlocks with a ${def.streak}-day daily streak`, 403);
+    if (u.role !== 'admin' && !staffUnlocked(s, u.bestStreak ?? 0, u.unlocks, u.xp ?? 0)) throw new StudyError(def.league ? `Unlocks when you pass the ${def.league === 'KANA' ? 'Kana' : def.league} league in the Daily challenge` : def.season ? 'A monthly reward: complete that month\'s goals' : `Unlocks with a ${def.streak}-day daily streak`, 403);
     await this.store.update(u.id, { staff: s });
   }
 

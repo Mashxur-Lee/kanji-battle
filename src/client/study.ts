@@ -3,7 +3,7 @@ import { exampleFor, loadExamples } from './examples';
 import { hideKanji, kanjiTappable, wordsTappable } from './kanjihelp';
 import { locale } from './i18n';
 import { LEVEL_LABEL, LEVELS, ONO_TYPES, type Level } from '../shared/protocol';
-import { BACKGROUNDS, beta, BORDERS, CHARACTER_DEFS, characterOf, characterUnlocked, leagueIn, type CharacterId, borderUnlocked, flameColor, flameUnlocked, levelOf, staffOf, staffUnlocked, type StaffDef, type BackgroundId, FLAMES, STAFFS, POSE_DEFS, poseOf, poseUnlocked } from '../shared/progress';
+import { BACKGROUNDS, beta, BORDERS, CHARACTER_DEFS, characterOf, characterUnlocked, type CharacterId, borderUnlocked, flameColor, flameUnlocked, levelOf, staffOf, staffUnlocked, type StaffDef, type BackgroundId, FLAMES, STAFFS, POSE_DEFS, poseOf, poseUnlocked } from '../shared/progress';
 import { arenaPreview, staffPreview } from './arena';
 import type { ArenaApi } from './arena3d';
 import { artUrl } from './backgrounds';
@@ -482,8 +482,8 @@ const monthName = (m: number) => new Date(2026, m - 1, 15).toLocaleDateString(lo
 // ── 0.9.9.9.9.1: a staff and its colours ───────────────────────────────────────────────────────────────────────
 /** a classic staff and the seasonal colours made from it (the classic one first) */
 const staffColours = (family: string) => STAFFS.filter((s) => s.id === family || s.base === family);
-const staffLock = (s: StaffDef) => (s.level ? `Level ${s.level}` : s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : '');
-const staffToast = (s: StaffDef, best: number) => (s.level ? `Reach level ${s.level} to unlock the ${s.name}` : s.season
+const staffLock = (s: StaffDef) => (s.league ? `${s.league === 'KANA' ? 'Kana' : s.league} league` : s.season ? `${monthName(s.season)} goals` : s.streak ? `${s.streak}-day streak` : '');
+const staffToast = (s: StaffDef, best: number) => (s.league ? `Pass the ${s.league === 'KANA' ? 'Kana' : s.league} league in the Daily challenge to unlock the ${s.name}` : s.season
   ? `The ${s.name} is the ${monthName(s.season)} reward - complete that month's goals (see Progress)${s.season === thisMonth() ? ' - it\'s on now!' : ''}`
   : `Log in ${s.streak} days in a row to unlock the ${s.name} (your best: ${best})`);
 function staffTile(id: string): Node {
@@ -559,11 +559,11 @@ function custItems(profile: Profile, isAdmin: boolean, tab: CustTab = custTab): 
   }
   if (tab === 'character') {
     // 0.9.9.9.5.2: your character — picked here (it came from your levels); the Daily challenge leagues unlock them
-    const mine = characterOf(profile.unlocks), league = leagueIn(profile.unlocks);
+    const mine = characterOf(profile.unlocks); // (0.9.9.9.9.5: they come with levels now)
     return CHARACTER_DEFS.map((d) => ({
       id: d.id, name: d.name, blurb: `${d.blurb} Everyone sees your character in battles.`,
-      locked: !isAdmin && !characterUnlocked(d.id, profile.unlocks), lock: `${d.league} league`,
-      lockedToast: `Pass the ${d.league} league in the Daily challenge to unlock the ${d.name} (you are in the ${league === 'KANA' ? 'Kana' : league} league)`,
+      locked: !isAdmin && !characterUnlocked(d.id, profile.unlocks, profile.xp), lock: `Level ${d.level}`,
+      lockedToast: `Reach level ${d.level} to unlock the ${d.name}`,
       equipped: mine === d.id,
       tile: () => { const t = el('div', 'char-tile'); t.innerHTML = avatarSvg(d.id, 'me', profile.staff); return t; },
       equip: () => api.setCharacter(d.id),
@@ -620,7 +620,7 @@ const CUST_SUB: Record<CustTab, (p: Profile) => string> = {
   staff: (p) => `The staff in your hand (other players see it too). Classic staffs unlock with your login streak - your best: ${days(Math.max(p.bestStreak ?? 0, p.streak ?? 0))}. Each has seasonal colours, the monthly rewards (see Progress): pick one with the buttons on the preview. Tap a staff to hear its spell.`,
   arena: () => 'The background of your battles. Backgrounds unlock as you level up (each level needs 1000 XP more than the last).',
   profile: () => 'Your profile card: a frame round your picture (the Beta one, and one for each Daily challenge league you reach) and up to 3 achievement badges under your name.',
-  character: (p) => `Your character in battles. The Goblin is yours from the start - climb the Daily challenge leagues to unlock the Knight (N5), the Witch (N3) and the Wizard (N2). You are in the ${leagueIn(p.unlocks) === 'KANA' ? 'Kana' : leagueIn(p.unlocks)} league.`,
+  character: (p) => `Your character in battles. The Goblin is yours from the start; the Knight comes at level 5, the Witch at level 10 and the Wizard at level 15. You are level ${levelOf(p.xp)}.`,
   pose: () => 'Combo pose: what your character does while it’s on fire (5 in a row, or Omnipotence) - float, take aim, or hold the staff in both hands. New poses unlock as you learn spells (100, 200, 300).',
   omni: () => 'Omnipotence: the flames of a 5× combo in battle, and of your Omnipotence (hero power) in Deck Duel. More colours unlock as you level up.',
 };

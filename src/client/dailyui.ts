@@ -3,11 +3,11 @@
 // ranks by correct answers, then total time.
 
 import { locale, tr } from './i18n';
+import { staffSvg } from './art2d';
 import { LEVEL_LABEL } from '../shared/protocol';
 import * as offline from './offline';
 import { api, type DailyAnswer, type DailyOverview, type DailyPast, type DailyWord } from './api';
 import { leagueCrest, leagueRewards, leagueCard, showLeagueUp } from './leagueup';
-import { avatarSvg } from './wizard';
 import * as audio from './audio';
 import * as ui from './ui';
 import { tickCards } from './decks';
@@ -119,11 +119,11 @@ function ladder(current: string, next?: string) {
     step.append(name);
     if (state === 'now') step.append(el('span', 'lg-you', tr('You')));
     // (0.9.9.9.6.4: a league's rewards come when you pass it — shown on yours and the ones ahead)
-    const { border, character } = leagueRewards(l);
-    if (state !== 'done' && !passedNow.includes(l) && (border || character)) {
+    const { border, sword } = leagueRewards(l);
+    if (state !== 'done' && !passedNow.includes(l) && (border || sword)) {
       const rw = el('div', 'lg-rw');
       if (border) { const d = el('span', `avatar lg-rw-av${ui.borderCls(border.id)}`, (ui.myName() || '✦').slice(0, 1).toUpperCase()); d.title = tr(`${border.name} border`); rw.append(d); }
-      if (character) { const c = el('span', 'lg-rw-char'); c.innerHTML = avatarSvg(character.id, 'me', 'verdant'); c.title = tr(`The ${character.name}`); rw.append(c); }
+      if (sword) { const c = el('span', 'lg-rw-char lg-rw-sword'); c.innerHTML = staffSvg(sword.id); c.title = sword.name; rw.append(c); } // (0.9.9.9.9.5: the league's sword)
       step.append(rw);
     }
     row.append(step);
