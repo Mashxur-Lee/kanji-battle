@@ -6008,3 +6008,5 @@ body.has-nav .inbox-screen { max-width: calc(1100px + var(--nav-pad)); }
 #results > #resultBack:active { transform: translateY(3px); box-shadow: none; }
 :root[data-theme="light"] #results > #resultBack { color: var(--text); background: #fff; border-color: var(--accent2); }
 @media (max-width: 640px) { #results > #resultBack { position: fixed; top: calc(58px + env(safe-area-inset-top)); left: 12px; margin: 0; } #results { padding-top: 112px !important; } }
+/* 0.9.9.9.9.5: phones — closing: the open list wipes away as it is (see friendrail.ts) */
+@media (max-width: 900px) { .friend-rail.open.shut { clip-path: inset(0 0 0 100%); pointer-events: none; } }

@@ -46,16 +46,25 @@ export function railScreen(screen: string) {
 }
 
 // phones: no hover — a round Friends button (bottom-right) slides the list in and out
+// (0.9.9.9.9.5: closing keeps the open list's layout while it wipes away — it switched to the folded computer layout at
+// once, mid-animation: the panel flickered on phones)
+let shutT = 0;
 function setOpen(on: boolean) {
-  $('friendRail').classList.toggle('open', on);
+  const rail = $('friendRail');
+  clearTimeout(shutT);
+  rail.classList.remove('shut');
+  if (!on && rail.classList.contains('open')) {
+    rail.classList.add('shut');
+    shutT = window.setTimeout(() => rail.classList.remove('open', 'shut'), 260);
+  } else rail.classList.toggle('open', on);
   $('railFab').setAttribute('aria-expanded', String(on));
   $('railFab').classList.toggle('panel-open', on); // 0.9.9.9: the round button hides while its panel is out
 }
-$('railFab').onclick = (e) => { e.stopPropagation(); setOpen(!$('friendRail').classList.contains('open')); };
+$('railFab').onclick = (e) => { e.stopPropagation(); const r = $('friendRail'); setOpen(!r.classList.contains('open') || r.classList.contains('shut')); };
 $('railClose').onclick = (e) => { e.stopPropagation(); setOpen(false); };
 document.addEventListener('pointerdown', (e) => {
   const t = e.target as HTMLElement;
-  if ($('friendRail').classList.contains('open') && !t.closest('#friendRail, #railFab, #friendDialog, #otherPop, .csel-menu')) { setOpen(false); swallowNextClick(); }
+  if ($('friendRail').classList.contains('open') && !$('friendRail').classList.contains('shut') && !t.closest('#friendRail, #railFab, #friendDialog, #otherPop, .csel-menu')) { setOpen(false); swallowNextClick(); }
 });
 
 export async function refreshRail() {
