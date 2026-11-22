@@ -250,6 +250,11 @@ function nextQuestion() {
 
 const INTRO_MS = 2600;
 let introTimer = 0;
+// 0.9.9.9.9.5: away from the practice (Messages opened from it) — a new kana's card waits; it starts again on your return
+ui.onScreen((sc) => {
+  clearTimeout(introTimer);
+  if (sc === 'kanaplay' && practice && question?.intro && !locked) { const q = question; introTimer = window.setTimeout(() => meet(q), INTRO_MS); }
+});
 /** a new kana has been met: on to its first question */
 function meet(q: NonNullable<typeof question>) {
   clearTimeout(introTimer);

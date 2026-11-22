@@ -171,3 +171,19 @@ test('0.9.9.9.9.5 the swords in the arena: their own model, a tremor (no ∞), a
   assert.ok(!sfx.includes("from './swords3d'"), 'the sounds stay out of three.js (they are in the main bundle)');
   assert.ok(src('src/client/art2d.ts').includes("if (SWORD2D[id]) { swordBody(pic, id); return; }"));
 });
+
+test('0.9.9.9.9.5 Messages from a lesson leads back to it, as you left it (it went to the menu); a new kana\u2019s card waits meanwhile', () => {
+  const ib = src('src/client/inbox.ts');
+  assert.ok(ib.includes("const LESSONS = new Set(['study', 'review', 'quiz', 'passage', 'quizzes', 'kana', 'kanaplay', 'daily', 'dict']);"));
+  assert.ok(ib.includes("if (from && from !== 'inbox') returnTo = LESSONS.has(from) ? from : null;"));
+  assert.ok(ib.includes("ui.show(ui.isLobbyAside() ? 'lobby' : (to as ui.Screen | null) ?? 'menu');"));
+  assert.ok(src('src/client/kanaui.ts').includes("if (sc === 'kanaplay' && practice && question?.intro && !locked)"));
+});
+
+test('0.9.9.9.9.5 the swords are the league rewards, the characters the level rewards (earned ones kept)', () => {
+  const lu = src('src/client/leagueup.ts');
+  assert.ok(lu.includes("const sword: StaffDef | null = STAFFS.find((s) => s.sword && s.league === league) ?? null;"));
+  const mig = src('src/server/migrations.ts');
+  assert.ok(mig.includes("const OLD_CHAR_LEAGUE: Record<string, string> = { knight: 'N5', witch: 'N3', wizard: 'N2' };"));
+  assert.ok(mig.includes("const OLD_SWORD_LEVEL: Record<string, number> = { iron: 3, longsword: 6, saber: 10, katana: 15, dragonfang: 20 };"));
+});

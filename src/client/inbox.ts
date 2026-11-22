@@ -714,6 +714,9 @@ export async function openThread(id: string) {
 }
 
 /** the menu's ✉ (or a friend's "Message" button, or a notification): the messenger, maybe at one conversation */
+/** 0.9.9.9.9.5: the lessons Messages returns to, and the one it was opened from */
+const LESSONS = new Set(['study', 'review', 'quiz', 'passage', 'quizzes', 'kana', 'kanaplay', 'daily', 'dict']);
+let returnTo: string | null = null;
 export async function openInbox(with_?: string, asTeam = false, quote = '') {
   side = asTeam && isAdmin ? 'support' : 'me';
   for (const b of document.querySelectorAll<HTMLElement>('#msgSide [data-side]')) b.setAttribute('aria-selected', String(b.dataset.side === side));
@@ -723,9 +726,14 @@ export async function openInbox(with_?: string, asTeam = false, quote = '') {
   const from = ui.currentScreen();
   if (from !== 'inbox') ui.setLobbyAside(from === 'lobby'); // 0.9.9.9.6.4: from a room's lobby — back leads there
   const aside = from === 'lobby' || (from === 'inbox' && ui.isLobbyAside());
+  // 0.9.9.9.9.5: from a lesson (study cards, kana, a quiz, a reading, the daily challenge) — back leads there, as you left
+  // it (it went to the menu: you lost your place)
+  if (from && from !== 'inbox') returnTo = LESSONS.has(from) ? from : null;
   ui.show('inbox');
   ui.setLobbyAside(aside);
-  $('inboxBack').textContent = tr(aside ? '← Back to the room' : '← Menu');
+  const back = $('inboxBack');
+  back.textContent = tr(aside ? '← Back to the room' : returnTo ? '← Back to the lesson' : '← Menu');
+  back.classList.toggle('to-menu', !aside && !returnTo); // (the navigation's Back uses it when it leads somewhere else)
   await loadList();
   setQuote('');
   if (with_) { if (!convs.some((c) => c.id === with_)) openWith = null; await openThread(with_); if (quote) setQuote(quote); }
@@ -900,7 +908,7 @@ function mentionables(): Mentionable[] {
 export function initInbox() {
   swipeToReply($('msgLog'));
   $('inboxBtn').onclick = () => void openInbox();
-  $('inboxBack').onclick = () => ui.show(ui.isLobbyAside() ? 'lobby' : 'menu');
+  $('inboxBack').onclick = () => { const to = returnTo; returnTo = null; ui.show(ui.isLobbyAside() ? 'lobby' : (to as ui.Screen | null) ?? 'menu'); };
   $('msgForm').addEventListener('submit', (e) => { e.preventDefault(); void send(); });
   const input = $<HTMLTextAreaElement>('msgInput');
   input.addEventListener('input', () => { grow(); if (input.value.trim() && !editing) iAmTyping(); else stopTyping(); });
