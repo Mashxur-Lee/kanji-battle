@@ -74,15 +74,17 @@ export class StudyService {
     if ((await this.grantAchievements(u.id)).length) u = (await this.store.findById(u.id)) ?? u;
     // the Beta border: everyone who has finished the tutorial (0.9.9.3.1)
     if ((u.tutorialDone ?? true) && !(u.unlocks ?? []).includes(BETA_BORDER)) u = (await this.store.update(u.id, { unlocks: [...(u.unlocks ?? []), BETA_BORDER] })) ?? u;
-    const learned = await this.store.learnedCount(u.id);
+    // (0.9.9.9.9.5: these four at once — one after another, each a trip to the database, they added up on a slow line)
+    const day = playerDay(u, now);
+    const [learned, strugglingDue, month, tasks] = await Promise.all([this.store.learnedCount(u.id), this.strugglingDue(u.id, now), this.progress.month(u, day), this.progress.tasks(u.id, day)]);
     const learnedToday = now < u.critExpires ? u.critCount : 0;
     return {
       xp: u.xp, level: levelOf(u.xp), crit: dailyCrit(u.critCount, u.critExpires, now), learned, learnedToday, background: u.background,
-      studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u), flame: u.flame ?? 'blue', staff: u.staff ?? 'verdant', strugglingDue: await this.strugglingDue(u.id, now),
+      studyLevels: u.studyLevels, wins: u.wins, losses: u.losses, pic: picUrl(u), flame: u.flame ?? 'blue', staff: u.staff ?? 'verdant', strugglingDue,
       streak: liveStreak(u, playerDay(u, now)), bestStreak: u.bestStreak ?? 0, // (0.9.9.9.5: on the player's date)
-      tutorialDone: u.tutorialDone ?? true, unlocks: u.unlocks ?? [], month: await this.progress.month(u, playerDay(u, now)),
+      tutorialDone: u.tutorialDone ?? true, unlocks: u.unlocks ?? [], month,
       dailyNew: u.dailyNew ?? DAILY_NEW, badges: u.badges ?? [],
-      tasks: await this.progress.tasks(u.id, playerDay(u, now)), streakDay: u.streakDay ?? null, border: borderOf(u.border), starred: u.starred ?? [],
+      tasks, streakDay: u.streakDay ?? null, border: borderOf(u.border), starred: u.starred ?? [],
       kana: cleanKana(u.kana ?? {}), // (0.9.9.9.6.3: old marks judged by the new rule — mastered needs 10 stars)
       quizStats: u.quizStats ?? {}, // 0.9.9.9.5.5
     };
