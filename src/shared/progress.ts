@@ -189,8 +189,8 @@ export function flameShades(f: string | null | undefined): [string, string, stri
 }
 
 // ── magic staffs: by best login streak, or a month's reward (a recoloured classic staff) ──────────
-/** 0.9.9.9.9.5: `sword` — a blade, unlocked at a `level`: it shakes as you write and casts a slash wave */
-export interface StaffDef { id: string; name: string; streak: number; gem: string; blurb: string; season?: number; base?: string; tint?: string; sword?: boolean; level?: number }
+/** 0.9.9.9.9.5: `sword` — a blade, the reward for passing a Daily challenge `league` (it fills with light as you write and casts a slash wave) */
+export interface StaffDef { id: string; name: string; streak: number; gem: string; blurb: string; season?: number; base?: string; tint?: string; sword?: boolean; league?: string }
 export const STAFFS: readonly StaffDef[] = [
   { id: 'verdant', name: 'Verdant Staff', streak: 0, gem: '#6dff6a', blurb: 'Carved from an ancient tree. It channels the natural energy of the earth and life.' },
   { id: 'ember', name: 'Ember Staff', streak: 3, gem: '#ff7a1a', blurb: 'Forged from volcanic rock and blessed by fire spirits.' },
@@ -204,11 +204,11 @@ export const STAFFS: readonly StaffDef[] = [
   { id: 'moon', name: 'Moon Staff', streak: 0, season: 9, base: 'verdant', tint: '#f2f0ff', gem: '#fff6c8', blurb: 'September reward. Silver light of the harvest moon.' },
   { id: 'maple', name: 'Maple Staff', streak: 0, season: 11, base: 'ember', tint: '#ff5a3a', gem: '#ff3a2a', blurb: 'November reward. Burning red like autumn leaves.' },
   // 0.9.9.9.9.5: swords, each better than the last — by level
-  { id: 'iron', name: 'Iron Blade', streak: 0, sword: true, level: 3, gem: '#c9a8ff', blurb: 'A plain steel blade with a violet gem. Its slash flies true.' },
-  { id: 'longsword', name: 'Crystal Longsword', streak: 0, sword: true, level: 6, gem: '#5fe2ff', blurb: 'An ice-blue crystal blade with winged guards. It hums when it fills with light.' },
-  { id: 'saber', name: 'Amethyst Saber', streak: 0, sword: true, level: 10, gem: '#b46cff', blurb: 'A violet blade with a horned guard and a ribbon of light winding up it.' },
-  { id: 'katana', name: 'Halo Blade', streak: 0, sword: true, level: 15, gem: '#7fefff', blurb: 'A pale moonlit blade under a ring of light. Its slash is silver and cyan.' },
-  { id: 'dragonfang', name: 'Celestial Blade', streak: 0, sword: true, level: 20, gem: '#b48cff', blurb: 'A crown of spikes, a halo and two ribbons of starlight. The grandest blade of all.' },
+  { id: 'iron', name: 'Iron Blade', streak: 0, sword: true, league: 'KANA', gem: '#c9a8ff', blurb: 'A plain steel blade with a violet gem. Its slash flies true.' },
+  { id: 'longsword', name: 'Crystal Longsword', streak: 0, sword: true, league: 'N5', gem: '#5fe2ff', blurb: 'An ice-blue crystal blade with winged guards. It hums when it fills with light.' },
+  { id: 'saber', name: 'Amethyst Saber', streak: 0, sword: true, league: 'N4', gem: '#b46cff', blurb: 'A violet blade with a horned guard and a ribbon of light winding up it.' },
+  { id: 'katana', name: 'Halo Blade', streak: 0, sword: true, league: 'N3', gem: '#7fefff', blurb: 'A pale moonlit blade under a ring of light. Its slash is silver and cyan.' },
+  { id: 'dragonfang', name: 'Celestial Blade', streak: 0, sword: true, league: 'N2', gem: '#b48cff', blurb: 'A crown of spikes, a halo and two ribbons of starlight. The grandest blade of all.' },
 ];
 export type StaffId = string;
 export const isStaff = (x: unknown): x is StaffId => STAFFS.some((s) => s.id === x);
@@ -217,7 +217,8 @@ export const staffUnlocked = (s: StaffId, bestStreak: number, unlocks: readonly 
   const d = STAFFS.find((x) => x.id === s);
   if (!d) return false;
   if (beta.open) return true;
-  if (d.level) return levelOf(xp) >= d.level; // (0.9.9.9.9.5: the swords)
+  if (d.league) return leaguePassed(d.league, unlocks) || unlocks.includes(`staff:${d.id}`); // (0.9.9.9.9.5: the swords — passing a league; or kept from before)
+  void xp;
   return d.season ? unlocks.includes(`staff:${d.id}`) : (bestStreak ?? 0) >= d.streak;
 };
 /** 0.9.9.9.9.5: a sword, not a staff (no three.js needed to ask) */
@@ -243,12 +244,13 @@ export type { Avatar };
 export const CHARACTERS = ['goblin', 'knight', 'witch', 'wizard'] as const;
 export type CharacterId = (typeof CHARACTERS)[number];
 export const isCharacter = (x: unknown): x is CharacterId => CHARACTERS.includes(x as CharacterId);
-export interface CharacterDef { id: CharacterId; name: string; league: string | null; blurb: string }
+/** 0.9.9.9.9.5: a character comes with a `level` (it was a Daily challenge league's — the swords are those now) */
+export interface CharacterDef { id: CharacterId; name: string; level: number; blurb: string }
 export const CHARACTER_DEFS: readonly CharacterDef[] = [
-  { id: 'goblin', name: 'Goblin', league: null, blurb: 'Small, quick and up to mischief - every wizard-to-be starts out as a goblin.' },
-  { id: 'knight', name: 'Knight', league: 'N5', blurb: 'Plate armour, a red plume and a steady hand on the staff.' },
-  { id: 'witch', name: 'Witch', league: 'N3', blurb: 'A wide hat, a moon at her belt and a robe the colour of night.' },
-  { id: 'wizard', name: 'Wizard', league: 'N2', blurb: 'The tall hat and the long cloak - a master of the kanji arts.' },
+  { id: 'goblin', name: 'Goblin', level: 0, blurb: 'Small, quick and up to mischief - every wizard-to-be starts out as a goblin.' },
+  { id: 'knight', name: 'Knight', level: 5, blurb: 'Plate armour, a red plume and a steady hand on the staff.' },
+  { id: 'witch', name: 'Witch', level: 10, blurb: 'A wide hat, a moon at her belt and a robe the colour of night.' },
+  { id: 'wizard', name: 'Wizard', level: 15, blurb: 'The tall hat and the long cloak - a master of the kanji arts.' },
 ];
 /** the Daily challenge leagues, low to high (as the server's DailyService) */
 export const DAILY_LEAGUES = ['KANA', 'N5', 'N4', 'N3', 'N2', 'N1'] as const;
@@ -257,9 +259,10 @@ export const leagueIn = (unlocks: readonly string[] | null | undefined): string 
   const l = (unlocks ?? []).find((x) => x.startsWith('dleague:'))?.slice(8);
   return l && (DAILY_LEAGUES as readonly string[]).includes(l) ? l : 'KANA';
 };
-export const characterUnlocked = (id: CharacterId, unlocks: readonly string[] | null | undefined) => {
-  const need = CHARACTER_DEFS.find((d) => d.id === id)?.league;
-  return beta.open || !need || leaguePassed(need, unlocks); // (0.9.9.9.6.4: on passing that league)
+/** 0.9.9.9.9.5: by your level (a character earned in a league before stays yours: "own:char:<id>") */
+export const characterUnlocked = (id: CharacterId, unlocks: readonly string[] | null | undefined, xp = 0) => {
+  const need = CHARACTER_DEFS.find((d) => d.id === id)?.level ?? 0;
+  return beta.open || need <= 0 || levelOf(xp) >= need || (unlocks ?? []).includes(`own:char:${id}`);
 };
 /** the character kept in your unlocks as "char:<id>" (no new column); the Goblin until you pick another */
 export const characterOf = (unlocks: readonly string[] | null | undefined): CharacterId => {

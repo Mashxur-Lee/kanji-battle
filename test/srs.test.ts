@@ -49,16 +49,18 @@ test('progress: XP, levels, crit, backgrounds, characters', () => {
   assert.equal(Math.round(dailyCrit(10, midnight, midnight - 1) * 100), 11);
   assert.equal(dailyCrit(10, midnight, midnight), 0.01, 'resets at midnight');
   assert.ok(unlocked('forest', 0) && !unlocked('swamp', 5_999) && unlocked('swamp', 6_000) && !unlocked('worldtree', xpForLevel(10) - 1) && unlocked('worldtree', xpForLevel(10)));
-  // 0.9.9.9.5.2: the character is picked (Customize), not decided by the levels; the leagues unlock them
+  // 0.9.9.9.5.2: the character is picked (Customize); 0.9.9.9.9.5: by level now (Knight 5, Witch 10, Wizard 15) — the leagues bring the swords
   assert.equal(characterOf([]), 'goblin');
   assert.equal(characterOf(['char:witch']), 'witch');
   assert.equal(characterOf(['char:dragon']), 'goblin', 'nothing unknown');
-  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, [])), [true, false, false, false], 'the Kana league: only the goblin');
-  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N4'])), [true, true, false, false]);
-  // (0.9.9.9.6.4: a league's character comes when you pass that league — the Witch (N3) once you're in N2)
-  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N3'])), [true, true, false, false]);
-  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N2'])), [true, true, true, false]);
-  assert.deepEqual(['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, ['dleague:N1'])), [true, true, true, true]);
+  const all = (un: string[], xp: number) => ['goblin', 'knight', 'witch', 'wizard'].map((c) => characterUnlocked(c as never, un, xp));
+  const xpAt = (lv: number) => { let x = 0; while (levelOf(x) < lv) x += 250; return x; };
+  assert.deepEqual(all([], 0), [true, false, false, false], 'a new player: only the goblin');
+  assert.deepEqual(all(['dleague:N1'], 0), [true, false, false, false], 'a league opens no character now');
+  assert.deepEqual(all([], xpAt(5)), [true, true, false, false]);
+  assert.deepEqual(all([], xpAt(10)), [true, true, true, false]);
+  assert.deepEqual(all([], xpAt(15)), [true, true, true, true]);
+  assert.deepEqual(all(['own:char:witch'], 0), [true, false, true, false], 'one earned in a league before stays');
 });
 
 test('study: each passed card adds +1% crit once a day; Again does not; next day starts at 1%', async () => {

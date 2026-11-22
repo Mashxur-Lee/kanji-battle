@@ -10,7 +10,7 @@ import { DailyService, DAILY_WORDS, dailyWords } from '../src/server/study/Daily
 import { ProgressService } from '../src/server/study/ProgressService';
 import { SocialService } from '../src/server/study/SocialService';
 import { runMigrations } from '../src/server/migrations';
-import { borderUnlocked, characterUnlocked, leaguePassed } from '../src/shared/progress';
+import { borderUnlocked, leaguePassed, staffUnlocked } from '../src/shared/progress';
 
 const ask = (route: ReturnType<typeof createApiRouter>, token: string, method: string, url: string, body: unknown = {}, query = '') =>
   route({ method, url, query: new URLSearchParams(query), token, ip: '1.2.3.4', json: async () => body });
@@ -60,7 +60,7 @@ test('0.9.9.9.6.4 daily leagues: a league\'s rewards come when you PASS it (7/10
   assert.equal(d1.promoted, 'N4');
   assert.equal(d1.passed, 'N5', 'N5 passed: its rewards (border and the Knight) are yours');
   const un = (await store.findById(u.id))!.unlocks;
-  assert.ok(borderUnlocked('lg-n5', 0, un) && characterUnlocked('knight', un) && !borderUnlocked('lg-n4', 0, un));
+  assert.ok(borderUnlocked('lg-n5', 0, un) && staffUnlocked('iron', 0, un) && !borderUnlocked('lg-n4', 0, un));
   // the top league: 7/10 in N1 passes it (once)
   const top = await store.create({ username: 'topper', passwordHash: 'x', role: 'user' } as never);
   await store.update(top.id, { unlocks: ['dleague:N1'] });

@@ -131,17 +131,18 @@ test('0.9.9.9.9.5 the arenas like their paintings: a wet floor mirroring the sky
   assert.ok(src('src/client/arenas/forest.ts').includes('// 0.9.9.9.9.5: the canopy'));
 });
 
-test('0.9.9.9.9.5 the swords: five, each better than the last, unlocked by level (the server checks it too)', async () => {
+test('0.9.9.9.9.5 the swords: five, each grander than the last, the rewards of the Kana, N5, N4, N3 and N2 leagues (the server checks it too)', async () => {
   const { STAFFS, staffUnlocked, isSwordId, isStaff } = await import('../src/shared/progress');
   const swords = STAFFS.filter((s) => s.sword);
   assert.deepEqual(swords.map((s) => s.id), ['iron', 'longsword', 'saber', 'katana', 'dragonfang']);
-  const levels = swords.map((s) => s.level!);
-  assert.deepEqual([...levels].sort((a, b) => a - b), levels, 'each a higher level than the last');
+  assert.deepEqual(swords.map((s) => s.league), ['KANA', 'N5', 'N4', 'N3', 'N2'], 'a league each, low to high');
   assert.equal(new Set(STAFFS.map((s) => s.id)).size, STAFFS.length, 'no id twice (the Ember Staff keeps "ember")');
   assert.ok(isStaff('katana') && isSwordId('katana') && !isSwordId('ember'));
-  // level 3 needs 3000 xp (each level 1000 more than the last): not at 0, yes with plenty
-  assert.equal(staffUnlocked('iron', 99, [], 0), false, 'a streak does not open a sword');
-  assert.equal(staffUnlocked('dragonfang', 0, [], 10_000_000), true);
+  assert.equal(staffUnlocked('iron', 99, [], 10_000_000), false, 'neither a streak nor a level opens a sword');
+  assert.equal(staffUnlocked('iron', 0, ['dleague:N5']), true, 'passing the Kana league (now in N5)');
+  assert.equal(staffUnlocked('longsword', 0, ['dleague:N5']), false);
+  assert.equal(staffUnlocked('dragonfang', 0, ['dleague:N1']), true, 'passing N2');
+  assert.equal(staffUnlocked('saber', 0, ['staff:saber']), true, 'kept from before (the level it had)');
   assert.equal(staffUnlocked('verdant', 0, [], 0), true, 'the staffs as before');
   assert.ok(src('src/server/study/StudyService.ts').includes('staffUnlocked(s, u.bestStreak ?? 0, u.unlocks, u.xp ?? 0)'));
 });
@@ -151,18 +152,51 @@ test('0.9.9.9.9.5 the swords in the arena: their own model, a tremor (no ∞), a
   const a3 = src('src/client/arena3d.ts');
   assert.ok(a3.includes('eightAmp += ((charge > 0.05 && !still && !swordMe ?'), 'no figure-eight with a sword');
   assert.ok(a3.includes('const SWINGS = ['), 'three slashes');
-  assert.ok(a3.includes('if (isSword(staffSkin)) swingNo = (swingNo + 1 + Math.floor(Math.random() * 2)) % SWINGS.length;'), 'a different slash each time');
+  assert.ok(a3.includes("if (from === 'me' && swordCast) swingNo = (swingNo + 1 + Math.floor(Math.random() * 2)) % SWINGS.length;"), 'a different slash each time');
+  assert.ok(a3.includes("from === 'me' && swordCast ? SWINGS[swingNo].tilt : undefined"), 'the wave flies at the angle of the cut');
+  assert.ok(a3.includes('if (before < 0 && fl.launch) { fl.from.copy(fl.launch());'), 'it leaves the blade at the moment of the cut');
+  assert.ok(src('src/client/swords3d.ts').includes('r.geometry.setDrawRange(0, Math.floor((n * grow) / 3) * 3);'), 'the ribbons wind up the blade as it powers up');
+  assert.ok(src('src/client/study.ts').includes('const THUMBS_KEY = `kb:staffThumbs:${VERSION}:${THUMBS_REV}`;'), 'new pictures in Customize when the models change');
   assert.ok(a3.includes('else if (u >= 0.66) { A = sw.to; B = [0, 0, 0, 0, 0]; k = sm((u - 0.66) / 0.34); }'), 'a smooth return (it snapped back)');
   assert.ok(a3.includes('channelShown = 0; channelLevel = 0;'), 'a miss drops the charge: the blade stops shaking and its light goes');
   assert.ok(src('src/client/main.ts').includes("if (caster === 'me' && !quiet && isSwordId(myStaff())) audio.sfx.cast(myStaff(), lastCombo);"), 'the slash sound with the swing');
   const sw = src('src/client/swords3d.ts');
   assert.ok(sw.includes('glow.visible = false; // (no light at the tip: the blade itself glows)'));
   assert.ok(sw.includes('bladeMat.emissiveIntensity = d.base * (0.85 + 0.3 * pulse) + shown * 1.9;'), 'the blade fills with light as you write');
-  assert.ok(a3.includes("isSword(staffIdOf(from)));"), 'the wave instead of the orb');
+  assert.ok(a3.includes("const swordCast = layout !== 'deck' && from !== 'boss' && isSword(staffIdOf(from));"), 'the wave instead of the orb');
   assert.ok(a3.includes('const inf = key === \'me\' || swordF ? 0 :'));
   assert.ok(src('src/client/staffhits.ts').includes('if (isSword(kind)) slash(h);'));
   const sfx = src('src/client/staffsfx.ts');
   assert.ok(sfx.includes("isSword(staff) ? 'sword' : 'verdant'"));
   assert.ok(!sfx.includes("from './swords3d'"), 'the sounds stay out of three.js (they are in the main bundle)');
   assert.ok(src('src/client/art2d.ts').includes("if (SWORD2D[id]) { swordBody(pic, id); return; }"));
+});
+
+test('0.9.9.9.9.5 Messages from a lesson leads back to it, as you left it (it went to the menu); a new kana\u2019s card waits meanwhile', () => {
+  const ib = src('src/client/inbox.ts');
+  assert.ok(ib.includes("const LESSONS = new Set(['study', 'review', 'quiz', 'passage', 'quizzes', 'kana', 'kanaplay', 'daily', 'dict']);"));
+  assert.ok(ib.includes("if (from && from !== 'inbox') returnTo = LESSONS.has(from) ? from : null;"));
+  assert.ok(ib.includes("ui.show(ui.isLobbyAside() ? 'lobby' : (to as ui.Screen | null) ?? 'menu');"));
+  assert.ok(src('src/client/kanaui.ts').includes("if (sc === 'kanaplay' && practice && question?.intro && !locked)"));
+});
+
+test('0.9.9.9.9.5 the swords are the league rewards, the characters the level rewards (earned ones kept)', () => {
+  const lu = src('src/client/leagueup.ts');
+  assert.ok(lu.includes("const sword: StaffDef | null = STAFFS.find((s) => s.sword && s.league === league) ?? null;"));
+  const mig = src('src/server/migrations.ts');
+  assert.ok(mig.includes("const OLD_CHAR_LEAGUE: Record<string, string> = { knight: 'N5', witch: 'N3', wizard: 'N2' };"));
+  assert.ok(mig.includes("const OLD_SWORD_LEVEL: Record<string, number> = { iron: 3, longsword: 6, saber: 10, katana: 15, dragonfang: 20 };"));
+});
+
+test('0.9.9.9.9.5 "Kanji seals": each page\u2019s own kanji stamped by its title, in the display font, sentence-case headings', () => {
+  const nav = src('src/client/nav.ts');
+  assert.ok(nav.includes("const SEALS: Record<string, string> = { queue: '戦',"));
+  assert.ok(nav.includes("const head = document.createElement('div'); head.className = 'seal-head';"));
+  const css = src('public/style.css');
+  assert.ok(css.includes('.seal.stamp { animation: sealIn'));
+  assert.ok(css.includes('body.has-nav .screen:not(#menu) h3 { text-transform: none;'));
+  // every seal kanji is in a self-hosted subset of the display font
+  const faces = [...css.matchAll(/font-family: "KW Display";[^}]*unicode-range: ([^;]+);/g)].map((m) => m[1]);
+  const inR = (cp: number, r: string) => r.split(',').some((x) => { const [a, b] = x.trim().replace('U+', '').split('-'); return cp >= parseInt(a, 16) && cp <= parseInt(b || a, 16); });
+  for (const ch of '戦友術か進日史辞学文問装管') assert.ok(faces.some((f) => inR(ch.codePointAt(0)!, f)), ch);
 });

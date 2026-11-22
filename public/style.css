@@ -6,6 +6,15 @@
 @font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-cyrillic-400-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
 @font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-latin-ext-400-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
 @font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-latin-400-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+/* 0.9.9.9.9.5: the page seals' kanji (学 史 進 日 文 問 友 辞 管…) */
+@font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-110-400-normal.woff2) format("woff2"); unicode-range: U+40,U+4e86,U+4e95,U+4f01,U+4f1d,U+4fbf,U+5099,U+5171,U+5177,U+53cb,U+53ce,U+53f0,U+5668,U+5712,U+5ba4,U+5ca1,U+5f85,U+60f3,U+653e,U+65ad,U+65e9,U+6620,U+6750,U+6761,U+6b62,U+6b74,U+6e08,U+6e80,U+7248,U+7531,U+7533,U+753a,U+77f3,U+798f,U+7f6e,U+8449,U+88fd,U+89b3,U+8a55,U+8ac7,U+8b77,U+8db3,U+8efd,U+8fd4,U+9031-9032,U+9580,U+9589,U+96d1,U+985e; }
+@font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-118-400-normal.woff2) format("woff2"); unicode-range: U+21-22,U+27-2a,U+2c-3b,U+3f,U+41-4d,U+4f-5d,U+61-7b,U+7d,U+ab,U+ae,U+b2-b3,U+b7,U+bb,U+c9,U+cd,U+d6,U+d8,U+dc,U+e0-e5,U+e7-ed,U+ef,U+f1-f4,U+f6,U+f8,U+fa,U+fc-fd,U+103,U+14d,U+1b0,U+300-301,U+1ebf,U+1ec7,U+2013-2014,U+201c-201d,U+2039-203a,U+203c,U+2048-2049,U+2113,U+2122,U+65e5,U+6708,U+70b9; }
+@font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-103-400-normal.woff2) format("woff2"); unicode-range: U+500d,U+5074,U+50cd,U+5175,U+52e2,U+5352,U+5354,U+53f2,U+5409,U+56fa,U+5a18,U+5b88,U+5bdd,U+5ca9,U+5f92,U+5fa9,U+60a9,U+623f,U+6483,U+653f,U+666f,U+66ae,U+66f2,U+6a21,U+6b66,U+6bcd,U+6d5c,U+796d,U+7a4d,U+7aef,U+7b56,U+7b97,U+7c4d,U+7e04,U+7fa9,U+8377,U+83dc,U+83ef,U+8535,U+8863,U+88cf,U+88dc,U+8907,U+8acb,U+90ce,U+91dd,U+ff0b,U+ff0d,U+ff19,U+ff65; }
+@font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-95-400-normal.woff2) format("woff2"); unicode-range: U+2193,U+25b2,U+4e4b,U+516d,U+51c4,U+529f,U+52c9,U+5360,U+5442,U+5857,U+5915,U+59eb,U+5a9b,U+5c3b,U+6012,U+61b6,U+62b1,U+6311,U+6577,U+65e2,U+65ec,U+6613,U+6790,U+6cb9,U+7372,U+76ae,U+7d5e,U+7fcc,U+88ab,U+88d5,U+8caf,U+8ddd,U+8ecd,U+8f38,U+8f9e,U+8feb,U+9063,U+90f5,U+93e1,U+968a,U+968f,U+98fe,U+9ec4,U+ff1d,U+ff27,U+ff2a,U+ff36,U+ff3b,U+ff3d,U+ffe5; }
+@font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-115-400-normal.woff2) format("woff2"); unicode-range: U+7c,U+3080,U+4ee5,U+5148,U+516c,U+521d,U+5225,U+529b,U+52a0,U+53ef,U+56de,U+56fd,U+5909,U+591a,U+5b66,U+5b9f,U+5bb6,U+5bfe,U+5e73,U+5e83,U+5ea6,U+5f53,U+6027,U+610f,U+6210,U+6240,U+660e,U+66f4,U+66f8,U+6709,U+6771,U+697d,U+69d8,U+6a5f,U+6c34,U+6cbb,U+73fe,U+756a,U+7684,U+771f,U+793a,U+7f8e,U+898f,U+8a2d,U+8a71,U+8fd1,U+9078,U+9577,U+96fb,U+ff5e; }
+@font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-116-400-normal.woff2) format("woff2"); unicode-range: U+a9,U+3010-3011,U+30e2,U+4e0b,U+4eca,U+4ed6,U+4ed8,U+4f53,U+4f5c,U+4f7f,U+53d6,U+540d,U+54c1,U+5730,U+5916,U+5b50,U+5c0f,U+5f8c,U+624b,U+6570,U+6587,U+6599,U+691c,U+696d,U+6cd5,U+7269,U+7279,U+7406,U+767a-767b,U+77e5,U+7d04,U+7d22,U+8005,U+80fd,U+81ea,U+8868,U+8981,U+89a7,U+901a,U+9023,U+90e8,U+91d1,U+9332,U+958b,U+96c6,U+9ad8,U+ff1a,U+ff1f; }
+@font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-117-400-normal.woff2) format("woff2"); unicode-range: U+4e,U+a0,U+3000,U+300c-300d,U+4e00,U+4e0a,U+4e2d,U+4e8b,U+4eba,U+4f1a,U+5165,U+5168,U+5185,U+51fa,U+5206,U+5229,U+524d,U+52d5,U+5408,U+554f,U+5831,U+5834,U+5927,U+5b9a,U+5e74,U+5f0f,U+60c5,U+65b0,U+65b9,U+6642,U+6700,U+672c,U+682a,U+6b63,U+6c17,U+7121,U+751f,U+7528,U+753b,U+76ee,U+793e,U+884c,U+898b,U+8a18,U+9593,U+95a2,U+ff01,U+ff08-ff09; }
+@font-face { font-family: "KW Display"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/dela-gothic-one-111-400-normal.woff2) format("woff2"); unicode-range: U+2b,U+d7,U+300e-300f,U+4e07,U+4e8c,U+512a,U+5149,U+518d,U+5236,U+52b9,U+52d9,U+5468,U+578b,U+57fa,U+5b8c,U+5ba2,U+5c02,U+5de5,U+5f37,U+5f62,U+623b,U+63d0,U+652f,U+672a,U+6848,U+6d41,U+7136,U+7537,U+754c,U+76f4,U+79c1,U+7ba1,U+7d44,U+7d4c,U+7dcf,U+7dda,U+7de8,U+82b1,U+897f,U+8ca9,U+8cfc,U+904e,U+9664,U+982d,U+9858,U+98a8,U+9a13,U+ff13,U+ff5c; }
 @font-face { font-family: "KW Rounded"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/m-plus-rounded-1c-cyrillic-400-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
 @font-face { font-family: "KW Rounded"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/m-plus-rounded-1c-latin-ext-400-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
 @font-face { font-family: "KW Rounded"; font-style: normal; font-display: swap; font-weight: 400; src: url(/fonts/m-plus-rounded-1c-latin-400-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
@@ -6010,3 +6019,33 @@ body.has-nav .inbox-screen { max-width: calc(1100px + var(--nav-pad)); }
 @media (max-width: 640px) { #results > #resultBack { position: fixed; top: calc(58px + env(safe-area-inset-top)); left: 12px; margin: 0; } #results { padding-top: 112px !important; } }
 /* 0.9.9.9.9.5: phones — closing: the open list wipes away as it is (see friendrail.ts) */
 @media (max-width: 900px) { .friend-rail.open.shut { clip-path: inset(0 0 0 100%); pointer-events: none; } }
+
+/* ── 0.9.9.9.9.5: "Kanji seals" — the UI rework. Each page opens with its own kanji stamped like a hanko beside its title
+   (the one bold element; the game is about kanji); around it everything is quieter: sentence-case headings (no
+   tracked-out capitals), fewer boxes — lists where the content is a list — one gold for rewards, violet for actions ── */
+body.has-nav { --seal: #f5c451; --page-bg: #15132e; }
+:root[data-theme="light"] body.has-nav { --seal: #a8650a; --page-bg: #f4f4fb; }
+:root:not([data-theme="light"]) body.has-nav { --card: #1f1c42; --line: #2e2a5c; }
+body.has-nav #bg::after { background: color-mix(in srgb, var(--page-bg) 92%, transparent) !important; }
+.seal-head { display: flex; align-items: center; gap: 16px; margin: 2px 0 14px; text-align: left; }
+.seal-head h2 { margin: 0 !important; font-size: clamp(1.5rem, 2.2vw, 2.05rem) !important; line-height: 1.1; text-align: left; }
+.seal { flex: none; display: grid; place-items: center; width: 62px; height: 62px; border-radius: 12px; rotate: -4deg;
+  font: 400 2.2rem/1 var(--brand); color: var(--seal, var(--gold));
+  border: 3px solid var(--seal, var(--gold)); box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--seal, var(--gold)) 22%, transparent);
+  background: color-mix(in srgb, var(--seal, var(--gold)) 9%, transparent); }
+.seal.stamp { animation: sealIn .42s cubic-bezier(.3, 1.5, .5, 1) both; }
+@keyframes sealIn { 0% { transform: scale(1.7); opacity: 0; rotate: -14deg; } 65% { transform: scale(.94); opacity: 1; rotate: -2deg; } 100% { transform: scale(1); rotate: -4deg; } }
+/* sentence case everywhere (the capitals read as a template) */
+body.has-nav .screen:not(#menu) h3 { text-transform: none; letter-spacing: 0; font-size: 1.05rem; color: var(--text); font-weight: 800; }
+.app-nav .an-item, .app-nav .an-back { text-transform: none; letter-spacing: .01em; font-size: .93rem; }
+#lobby .lb-h, #lobby .lb-room > .sub { text-transform: none; letter-spacing: 0; font-size: .95rem; color: var(--text); }
+/* the match history: a list — an outcome bar on the left — not a stack of boxes */
+#history .history-list { gap: 4px; }
+#history .hist-row { background: transparent; border: 0; border-left: 4px solid var(--line); border-radius: 0 12px 12px 0; box-shadow: none; padding: 10px 14px; }
+#history .hist-row:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+#history .hist-row.win { border-left-color: var(--good); } #history .hist-row.loss { border-left-color: var(--bad); }
+@media (max-width: 760px) { .seal { width: 48px; height: 48px; font-size: 1.7rem; border-width: 2.5px; } .seal-head { gap: 12px; } }
+.seal { font-size: 1.95rem; }
+.study-stats .ss-tile :is(small, span:not(b)) { text-transform: none !important; letter-spacing: 0 !important; }
+/* 0.9.9.9.9.5: the menu's drifting kanji stay inside the screen (the sweep found one a few px past the edge on phones) */
+.menu-veil { overflow: hidden; }

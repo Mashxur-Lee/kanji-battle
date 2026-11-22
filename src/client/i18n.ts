@@ -115,6 +115,7 @@ const RU: Record<string, string> = {
   '2D arena': '2D-арена', 'No Japanese voice found on this device.': 'На этом устройстве нет японского голоса.', 'This browser has no speech voice.': 'В этом браузере нет синтеза речи.',
   'Contact:': 'Связь:', // (0.9.9.9.9.5)
   'Players': 'Игроки',
+  '← Back to the lesson': '← Назад к уроку',
   'They are studying their spells - the battle opens here when it starts ({s} s)': 'Игроки учат заклинания — бой откроется здесь, когда начнётся ({s} с)',
   // 0.9.9.9.9.5: the swords
   'A plain steel blade with a violet gem. Its slash flies true.': 'Простой стальной клинок с фиолетовым камнем. Его взмах летит точно в цель.',
@@ -1257,6 +1258,10 @@ const PATTERNS: Array<[RegExp, Rep]> = [
   [/^Too many players for (.+) - it is for (\d+)$/, (_, m, n) => `Слишком много игроков для режима «${mode(m)}» — он на ${n}`],
   // 0.9.9.9.5.2: the push test
   [/^(.+) reached a 30× combo - the arena trembles!$/, '$1 набирает комбо ×30 — арена дрожит!'],
+  // 0.9.9.9.9.5: characters by level, the swords by league
+  [/^Your character in battles\. The Goblin is yours from the start; the Knight comes at level 5, the Witch at level 10 and the Wizard at level 15\. You are level (\d+)\.$/, 'Ваш персонаж в битвах. Гоблин — ваш с самого начала; Рыцарь открывается на 5 уровне, Ведьма — на 10, Волшебник — на 15. Ваш уровень: $1.'],
+  [/^Pass the (\S+) league in the Daily challenge to unlock the (.+)$/, (_, l, s) => `Пройдите лигу ${l === 'Kana' ? 'Кана' : l} в ежедневном вызове, чтобы открыть ${s}`],
+  [/^You reached level (\d+)$/, 'Вы достигли $1 уровня'],
   [/^Your character in battles\. The Goblin is yours from the start - climb the Daily challenge leagues to unlock the Knight \(N5\), the Witch \(N3\) and the Wizard \(N2\)\. You are in the (.+) league\.$/, (_, l) => `Ваш персонаж в битвах. Гоблин — ваш с самого начала; поднимайтесь по лигам ежедневного испытания, чтобы открыть Рыцаря (N4), Ведьму (N3) и Волшебника (N2). Вы в лиге ${l === 'Kana' ? 'Кана' : l}.`],
   [/^Reach the (\S+) league in the Daily challenge to unlock the (\w+) \(you are in the (\S+) league\)$/, (_, a, b, c) => `Дойдите до лиги ${a} в ежедневном испытании, чтобы открыть: ${RU[b] ?? b} (вы в лиге ${c === 'Kana' ? 'Кана' : c})`],
   [/^Unlocks in the (\S+) league$/, 'Откроется в лиге $1'],

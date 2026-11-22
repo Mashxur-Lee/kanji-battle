@@ -38,6 +38,11 @@ const ITEMS: Item[] = [
   { id: 'messages', label: 'Messages', icon: 'messages', btn: 'inboxBtn', screens: ['inbox'] },
   { id: 'settings', label: 'Settings', icon: 'settings', btn: 'menuSettingsBtn', screens: [] },
 ];
+/**
+ * 0.9.9.9.9.5: each page's seal — its own kanji, stamped beside the title like a hanko (the UI's one bold element:
+ * the game is about kanji)
+ */
+const SEALS: Record<string, string> = { queue: '戦', private: '友', modes: '術', kana: 'か', progress: '進', daily: '日', friends: '友', history: '史', dict: '辞', study: '学', inbox: '文', quizzes: '問', customize: '装', admin: '管' };
 /** the pages that show it */
 export const NAV_SCREENS = new Set(['queue', 'private', 'modes', 'kana', 'progress', 'daily', 'friends', 'history', 'dict', 'study', 'inbox', 'quizzes', 'customize', 'admin']);
 
@@ -122,10 +127,20 @@ export function initNav() {
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sheet.hidden) { setMore(false); more.focus(); } }); // (the keyboard too)
   nav.append(more, sheet);
   document.body.append(nav);
+  // the seals: wrapped round each page's title once; stamped in each time the page opens
+  for (const [id, k] of Object.entries(SEALS)) {
+    const t = document.querySelector<HTMLElement>(`#${id} h2`);
+    if (!t || t.closest('.seal-head')) continue;
+    const head = document.createElement('div'); head.className = 'seal-head';
+    const seal = document.createElement('span'); seal.className = 'seal'; seal.lang = 'ja'; seal.setAttribute('aria-hidden', 'true'); seal.textContent = k;
+    t.before(head); head.append(seal, t);
+  }
   // "← Menu" buttons: the nav's Home does that now (where the nav shows)
   for (const b of document.querySelectorAll<HTMLElement>('.screen > .back')) if (/menu|меню/i.test(b.textContent ?? '')) b.classList.add('to-menu');
   ui.onScreen((s) => {
     if (s === 'menu' && jumping) return; // (just passing through: no zoom change, no step in the trail)
+    const seal = document.querySelector<HTMLElement>(`#${s} .seal-head .seal`);
+    if (seal) { seal.classList.remove('stamp'); void seal.offsetWidth; seal.classList.add('stamp'); }
     if (s !== 'menu') endJump();
     const on = NAV_SCREENS.has(s);
     nav.hidden = !on;
