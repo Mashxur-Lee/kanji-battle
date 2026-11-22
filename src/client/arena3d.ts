@@ -595,6 +595,14 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   };
   // the gem: launched with each spell, then gone until you start writing / typing again, when it builds up
   let thrustAt = -1e9;
+  // 0.9.9.9.9.5: a sword's three slashes — from / to: [x, y, roll, pitch(, yaw)] offsets of your hand and blade
+  const SWING_MS = 560;
+  const SWINGS = [
+    { from: [0.16, 0.14, 0.95, -0.15, 0], to: [-0.42, -0.2, -1.5, -0.45, 0.2] }, // a diagonal cut, high right to low left
+    { from: [0.22, 0.02, 1.45, -0.6, 0], to: [-0.46, 0.0, 1.6, -0.6, -0.5] },    // a flat sweep, right to left
+    { from: [-0.2, -0.22, -0.7, -0.2, 0], to: [0.2, 0.22, 0.9, -0.55, 0.3] },   // a rising cut, low left to high right
+  ] as const;
+  let swingNo = 0;
   let gemState: 'ready' | 'gone' | 'growing' = 'ready';
   let growAt = 0;
   const GROW_MS = 900;
@@ -1280,16 +1288,25 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         0.2 - ex * 0.24 * eightAmp + twitchRot.z * 0.3,
       );
       if (swordMe) {
-        // 0.9.9.9.9.5: a sword trembles as you write (the more it charges, the more), its tip lighting up — no ∞ —
-        // and a cast is a slash: from up on the right down across to the left, the wave leaving the blade
+        // 0.9.9.9.9.5: a sword is held still and trembles as you write (more as its blade fills with light) — no ∞ — and
+        // a cast is one of three slashes, taking turns: a wind-up, a fast cut, a held follow-through and a smooth return
+        // to the guard (it snapped back from the end of the cut: the swing looked broken)
         const tr = still ? 0 : charge;
-        fp.position.x += Math.sin(time * 57) * 0.007 * tr; fp.position.y += Math.sin(time * 71 + 1) * 0.006 * tr;
-        staffGroup.rotation.z += Math.sin(time * 63) * 0.03 * tr;
-        staffGroup.rotation.x = charge * 0.35 + twitchRot.x * 0.3;
-        if (th > 0) {
-          const s = 1 - th, e = s * s * (3 - 2 * s);
-          fp.position.x += 0.18 - 0.55 * e; fp.position.y += 0.12 - 0.3 * e; fp.position.z = fpBase.z - Math.sin(s * Math.PI) * 0.25;
-          staffGroup.rotation.z = 0.9 - 2.3 * e; staffGroup.rotation.x = -0.5 * Math.sin(s * Math.PI);
+        fp.position.set(fpBase.x - look.x * 0.04 + Math.sin(time * 57) * 0.006 * tr, fpBase.y + look.y * 0.03 + (still ? 0 : Math.sin(time * 1.6) * 0.008) + Math.sin(time * 71 + 1) * 0.005 * tr, fpBase.z);
+        staffGroup.rotation.set(0.1 + charge * 0.25 + twitchRot.x * 0.3, twitchRot.y * 0.3, 0.2 + Math.sin(time * 63) * 0.028 * tr + twitchRot.z * 0.3);
+        const u = Math.min(1, (now - thrustAt) / SWING_MS);
+        if (u < 1) {
+          const sw = SWINGS[swingNo];
+          const sm = (x: number) => x * x * (3 - 2 * x);
+          // rest → the start of the cut (0.22) → the cut, fast (0.5) → held (0.66) → back to rest (1)
+          let A: readonly number[] = [0, 0, 0, 0, 0], B: readonly number[] = sw.from, k = sm(u / 0.22);
+          if (u >= 0.22 && u < 0.5) { A = sw.from; B = sw.to; k = 1 - (1 - (u - 0.22) / 0.28) ** 3; }
+          else if (u >= 0.5 && u < 0.66) { A = sw.to; B = sw.to; k = 1; }
+          else if (u >= 0.66) { A = sw.to; B = [0, 0, 0, 0, 0]; k = sm((u - 0.66) / 0.34); }
+          const at = (i: number) => A[i] + (B[i] - A[i]) * k;
+          const cut = u >= 0.22 && u < 0.66 ? Math.sin(Math.min(1, (u - 0.22) / 0.44) * Math.PI) : 0;
+          fp.position.x += at(0); fp.position.y += at(1); fp.position.z = fpBase.z - cut * 0.22;
+          staffGroup.rotation.z += at(2); staffGroup.rotation.x += at(3); staffGroup.rotation.y += at(4);
         }
       }
       // 0.9.9.7: your combo pose, as you see it — floating lifts your view; Duelist points the staff's core
@@ -1700,6 +1717,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       flights[flights.length - 1].target = to;
       if (from === 'me') {
         // your staff thrusts and its gem launches forward with the spell; a new one builds up when you next write
+        // (0.9.9.9.9.5: a sword slashes — a different one from last time — and its light leaves as the wave)
+        if (isSword(staffSkin)) swingNo = (swingNo + 1 + Math.floor(Math.random() * 2)) % SWINGS.length;
         thrustAt = performance.now(); gemState = 'gone';
         const g = new THREE.Mesh(staff.gem.geometry, staff.gemMat); g.scale.setScalar(1.5); g.position.copy(start);
         scene.add(g);
@@ -1721,7 +1740,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const at = pointOf(who, who === 'boss' ? 'head' : 'staff');
       if (who !== 'me') for (let i = 0; i < 14; i++) spark(at, 0x9a9aa8, { size: rnd(0.1, 0.25), vel: new THREE.Vector3(rnd(-0.6, 0.6), rnd(0.3, 1), rnd(-0.3, 0.3)), life: 0.8, opacity: 0.6 });
       if (who === 'me') {
-        channelShown = 0;
+        channelShown = 0; channelLevel = 0; // (0.9.9.9.9.5: both — it crept back to the old level, and a sword shook on)
         // a miss shatters your gem: it's gone until you start writing / typing again
         if (gemState !== 'gone' && fp.visible) {
           staff.gem.getWorldPosition(tmp);

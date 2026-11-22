@@ -74,11 +74,11 @@ function staffPal(id: string): { shape: string; pal: StaffPal } {
 /** The staff's shapes in staff space (0..50 × 0..200), to be placed by the caller. */
 /** 0.9.9.9.9.5: the swords in 2D (blade, edge, guard, grip, the light at the tip) — the same looks as swords3d */
 const SWORD2D: Record<string, { blade: string; edge: string; guard: string; grip: string; gem: string; top: number; curve: number; w: number; katana?: boolean; fang?: boolean; rune?: string }> = {
-  iron: { blade: '#8b929c', edge: '#d4d9e0', guard: '#7a6440', grip: '#4a2f1c', gem: '#dfe8ff', top: 30, curve: 0, w: 8 },
-  longsword: { blade: '#b9c3cf', edge: '#f2f6fb', guard: '#c7ccd6', grip: '#2a3550', gem: '#7cc4ff', top: 14, curve: 0, w: 8.5, rune: '#6fb8ff' },
-  saber: { blade: '#5a4a46', edge: '#ffb070', guard: '#b8862e', grip: '#3a1a12', gem: '#ff8a2a', top: 18, curve: 9, w: 9, rune: '#ff6a1a' },
-  katana: { blade: '#d6e2ec', edge: '#ffffff', guard: '#2a2c34', grip: '#1c2236', gem: '#9ff6ff', top: 8, curve: 11, w: 6, katana: true },
-  dragonfang: { blade: '#2a2236', edge: '#ffcf5a', guard: '#8a5a1a', grip: '#2a0f0f', gem: '#ffd34a', top: 4, curve: 3, w: 10, fang: true, rune: '#c06bff' },
+  iron: { blade: '#c3c7d2', edge: '#eef0f6', guard: '#a3a6b6', grip: '#2b2440', gem: '#b07cff', top: 22, curve: 0, w: 10 },
+  longsword: { blade: '#a9dcff', edge: '#e9f8ff', guard: '#aab2c6', grip: '#232848', gem: '#49d6ff', top: 14, curve: 0, w: 11, rune: '#5fe2ff' },
+  saber: { blade: '#b49ae8', edge: '#efe6ff', guard: '#9893ab', grip: '#251b3a', gem: '#c08cff', top: 12, curve: 0, w: 12, rune: '#c58cff' },
+  katana: { blade: '#dce7f8', edge: '#ffffff', guard: '#aab0c6', grip: '#1f2442', gem: '#4fdcff', top: 8, curve: 0, w: 10, rune: '#8ff0ff' },
+  dragonfang: { blade: '#e8e2ff', edge: '#ffffff', guard: '#bcb7d0', grip: '#241d3c', gem: '#a8e2ff', top: 4, curve: 0, w: 13, fang: true, rune: '#b48cff' },
 };
 function swordBody(pic: Pic, id: string) {
   const d = SWORD2D[id] ?? SWORD2D.iron;

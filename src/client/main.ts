@@ -26,7 +26,7 @@ import * as voice from './voice';
 import { setPlayAi, initQueue, onQueue, openQueue, resetQueue } from './queue';
 import { brushCursor } from './cursor';
 import { VERSION } from '../shared/version';
-import { STUDY_LOCK } from '../shared/progress';
+import { STUDY_LOCK, isSwordId } from '../shared/progress';
 import { arena, arenaLook, arenaTyping, arenaQuality, arenaScreen, arenaSupported, hasWebgl, preloadArena, primeArena, setArenaBackground, setArenaQuality, type ArenaQuality } from './arena';
 import { LEVELS, MODE_LABEL, type ClientMessage, type DrawnChar, type GameMode, type Level, type PlayerId, type PlayerView, type PublicProfile, type PublicUser, type ServerMessage } from '../shared/protocol';
 import { api, ApiError, getToken, setToken, type Friend, type Profile } from './api';
@@ -642,7 +642,9 @@ function onMessage(msg: ServerMessage) {
         // say the word first (romaji answers at the kana level: say the kana itself), then the success chime
         const kana = /[a-z]/i.test(msg.reading) ? msg.kanji : msg.reading;
         // (0.9.9.9.8: the sound of your staff — each has its own; 0.9.9.9.9.1: the enemy's HP decides how fierce)
-        void voice.speak(kana).then(() => audio.sfx.cast(players.find((p) => p.id === you)?.staff ?? profile?.staff, msg.combo));
+        lastCombo = msg.combo;
+        if (!isSwordId(myStaff())) void voice.speak(kana).then(() => audio.sfx.cast(myStaff(), msg.combo));
+        else void voice.speak(kana); // (the sword's slash plays with the swing)
         if (mode !== 'deck') comboMilestone(msg.combo, profile?.unlocks); // "On Fire" / "Inferno" / "Unstoppable" right away
       } else { audio.sfx.wrong(); arena()?.fizzle('me'); }
       break;
@@ -726,6 +728,8 @@ function onBattleEvent(msg: Extract<ServerMessage, { type: 'battle_update' }>) {
       const caster = actorOf(e.playerId);
       const target = actorOf(e.targetId);
       const friendly = caster !== 'opp';
+      // 0.9.9.9.9.5: a sword's slash is heard as it swings (a staff's cast sound follows the word being said)
+      if (caster === 'me' && !quiet && isSwordId(myStaff())) audio.sfx.cast(myStaff(), lastCombo);
       void ui.castSpell(caster, target, e.kanji, e.damage, friendly, !!e.crit).then(() => {
         render(); // HP bars update when the spell lands
         if (target === 'me') audio.sfx.hurt();
@@ -1498,6 +1502,9 @@ initWatch({
 // (0.9.9.9.9.5: remembered — back from the background the connection is new, and the watching is asked for again; the
 // battle stood still)
 let watchedFriend = '';
+/** 0.9.9.9.9.5: your weapon in this battle, and your last combo (for the sword's slash sound) */
+const myStaff = () => players.find((p) => p.id === you)?.staff ?? profile?.staff;
+let lastCombo = 1;
 function watchFriend(id: string) { ui.hideProfileCard(); watchedFriend = id; socket.send({ type: 'watch', userId: id }); }
 addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail === 'queue') void renderRankBox(); });
 

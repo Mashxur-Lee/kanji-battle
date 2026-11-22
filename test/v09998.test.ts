@@ -58,7 +58,8 @@ test('0.9.9.9.8 every staff has a cast sound of its own (a seasonal one at least
   assert.ok(f.count() > 5);
   // played on a right answer in a battle, with your staff — and in Customize when you tap one
   // (0.9.9.9.9: the staff of the player whose side you see — yours, or the player you watch)
-  assert.match(src('src/client/main.ts'), /audio\.sfx\.cast\(players\.find\(\(p\) => p\.id === you\)\?\.staff \?\? profile\?\.staff, msg\.combo\)/);
+  assert.match(src('src/client/main.ts'), /audio\.sfx\.cast\(myStaff\(\), msg\.combo\)/); // (0.9.9.9.9.5: myStaff(); a sword's slash plays with the swing)
+  assert.match(src('src/client/main.ts'), /const myStaff = \(\) => players\.find\(\(p\) => p\.id === you\)\?\.staff \?\? profile\?\.staff;/);
   assert.match(src('src/client/study.ts'), /if \(custTab === 'staff'\) audio\.sfx\.cast\(shownColour\(it\.id, profile\)\.id, 1\);/); // (0.9.9.9.9.1: the colour on show)
 });
 

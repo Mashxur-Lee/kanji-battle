@@ -204,11 +204,11 @@ export const STAFFS: readonly StaffDef[] = [
   { id: 'moon', name: 'Moon Staff', streak: 0, season: 9, base: 'verdant', tint: '#f2f0ff', gem: '#fff6c8', blurb: 'September reward. Silver light of the harvest moon.' },
   { id: 'maple', name: 'Maple Staff', streak: 0, season: 11, base: 'ember', tint: '#ff5a3a', gem: '#ff3a2a', blurb: 'November reward. Burning red like autumn leaves.' },
   // 0.9.9.9.9.5: swords, each better than the last — by level
-  { id: 'iron', name: 'Iron Blade', streak: 0, sword: true, level: 3, gem: '#dfe8ff', blurb: 'A plain, honest blade. Its slash flies true.' },
-  { id: 'longsword', name: "Knight's Longsword", streak: 0, sword: true, level: 6, gem: '#7cc4ff', blurb: 'Polished steel with a blue rune down the fuller.' },
-  { id: 'saber', name: 'Ember Saber', streak: 0, sword: true, level: 10, gem: '#ff8a2a', blurb: 'A curved blade forged in a dragon\'s hearth. Its edge glows like coals.' },
-  { id: 'katana', name: 'Moonlit Katana', streak: 0, sword: true, level: 15, gem: '#9ff6ff', blurb: 'Folded a thousand times under the full moon. Its slash is silver light.' },
-  { id: 'dragonfang', name: 'Dragonfang', streak: 0, sword: true, level: 20, gem: '#ffd34a', blurb: 'Cut from the Black Dragon\'s own tooth. Gold fire runs along the edge.' },
+  { id: 'iron', name: 'Iron Blade', streak: 0, sword: true, level: 3, gem: '#c9a8ff', blurb: 'A plain steel blade with a violet gem. Its slash flies true.' },
+  { id: 'longsword', name: 'Crystal Longsword', streak: 0, sword: true, level: 6, gem: '#5fe2ff', blurb: 'An ice-blue crystal blade with winged guards. It hums when it fills with light.' },
+  { id: 'saber', name: 'Amethyst Saber', streak: 0, sword: true, level: 10, gem: '#b46cff', blurb: 'A violet blade with a horned guard and a ribbon of light winding up it.' },
+  { id: 'katana', name: 'Halo Blade', streak: 0, sword: true, level: 15, gem: '#7fefff', blurb: 'A pale moonlit blade under a ring of light. Its slash is silver and cyan.' },
+  { id: 'dragonfang', name: 'Celestial Blade', streak: 0, sword: true, level: 20, gem: '#b48cff', blurb: 'A crown of spikes, a halo and two ribbons of starlight. The grandest blade of all.' },
 ];
 export type StaffId = string;
 export const isStaff = (x: unknown): x is StaffId => STAFFS.some((s) => s.id === x);
