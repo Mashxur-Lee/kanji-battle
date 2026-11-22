@@ -163,13 +163,16 @@ function buildVerdant(k: Kit): Orb {
   const placeLeaf = (p: P3, out: number, s: number) => {
     leaves.push({ p, rx: rng.uniform(0.2, 0.9), ry: rng.uniform(-0.3, 0.3), rz: out - Math.PI / 2 + rng.uniform(-0.5, 0.5), s, ph: rng.uniform(0, 6.28) });
   };
+  // 0.9.9.9.9.5: where the shaft splits, a gnarled knot of bark swells round the branches' feet — they grew out of the
+  // top of the shaft as separate thin tubes, and the joint showed where each went in
+  k.stat(tubeGeo([2.36, 2.46, 2.56, 2.66, 2.74, 2.79].map((z, i) => { const c = C(z), o = [0, 0.004, -0.004, 0.003, 0, 0][i]; return [c[0] + o, c[1] - o, z] as P3; }), [0.074, 0.094, 0.102, 0.092, 0.068, 0.03], { radial: 10, per: 4 }), bark);
   // the twisting branch cradle round the orb
-  // the cradle: rising out of the shaft and curling in over the orb (the tips meet above it rather than poking out)
-  const rr = [0.015, 0.09, 0.2, 0.235, 0.185, 0.06], zz = [2.42, 2.6, 2.8, 3.02, 3.22, 3.33];
+  // the cradle: rising out of the knot and curling in over the orb (the tips meet above it rather than poking out)
+  const rr = [0.03, 0.085, 0.2, 0.235, 0.185, 0.06], zz = [2.5, 2.66, 2.84, 3.04, 3.22, 3.33];
   for (let b = 0; b < 6; b++) {
     const a0 = (2 * Math.PI * b) / 6 + rng.uniform(-0.15, 0.15);
     const pts = rr.map((r, i) => { const a = a0 + 0.22 * i; return [r * Math.cos(a), r * Math.sin(a), zz[i] + rng.uniform(-0.02, 0.02)] as P3; });
-    k.stat(tubeGeo(pts, [0.034, 0.028, 0.022, 0.017, 0.011, 0.004], { radial: 6, per: 6 }), bark);
+    k.stat(tubeGeo(pts, [0.046, 0.034, 0.023, 0.017, 0.011, 0.004], { radial: 6, per: 6 }), bark); // (thicker at the foot: grown, not stuck in)
     for (const i of [2, 4]) placeLeaf(pts[i], Math.atan2(pts[i][1], pts[i][0]), rng.uniform(0.6, 1));
   }
   // the climbing vines
@@ -595,7 +598,8 @@ export function buildStaff(id: string | null | undefined, glowTex: THREE.Texture
   gem.add(core);
   // 0.9.9.9.9.2: the Verdant's and the Tide's cores (green and sky blue: bright colours to the eye) glowed far too much
   // once the arena's light began to glow (0.9.9.9.9.1) — a softer core, orb and halo for those two
-  const soft = GLOW_SOFT[kind] ?? 1;
+  // (0.9.9.9.9.5: every staff a good deal softer — the owner: "too much glow")
+  const soft = (GLOW_SOFT[kind] ?? 1) * 0.6;
   coreMat.emissiveIntensity *= soft;
   gemMat.emissive.multiplyScalar(soft);
   const coreEI = coreMat.emissiveIntensity;

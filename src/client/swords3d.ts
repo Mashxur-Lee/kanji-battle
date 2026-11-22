@@ -162,7 +162,9 @@ export function buildSword(id: string, glowTex: THREE.Texture): Staff {
 
   // ribbons of light winding up the blade, the halo behind the guard, the sparkles round it
   const spinners: THREE.Object3D[] = [];
-  d.ribbons.forEach((c, i) => { const r = add(ribbonGeo(d, i * Math.PI), shine(c, 1.5)); spinners.push(r); });
+  // (0.9.9.9.9.5: the ribbons only while you write — they wind up the blade from the guard as it powers up, and are
+  // gone when its light leaves)
+  const ribbons = d.ribbons.map((c, i) => { const r = add(ribbonGeo(d, i * Math.PI), shine(c, 1.5)); r.visible = false; spinners.push(r); return r; });
   let ring: THREE.Mesh | null = null;
   if (d.ring) {
     ring = add(new THREE.TorusGeometry(0.17, 0.008, 6, 48), shine(d.ring, 1.3), GUARD_Y + 0.05);
@@ -203,6 +205,13 @@ export function buildSword(id: string, glowTex: THREE.Texture): Staff {
       if (core) (core.material as THREE.MeshBasicMaterial).opacity = 0.35 + 0.25 * pulse + shown * 0.6;
       gemMatDeco.emissiveIntensity = 0.9 + 0.4 * pulse + shown * 1.5;
       for (const [i, r] of spinners.entries()) r.rotation.y = clock * (0.9 + 0.5 * i) * (1 + shown * 2) * (i % 2 ? -1 : 1);
+      const up = Math.min(1, shown * 1.6), grow = up * up * (3 - 2 * up);
+      for (const r of ribbons) {
+        r.visible = grow > 0.02;
+        const n = r.geometry.index ? r.geometry.index.count : 0;
+        r.geometry.setDrawRange(0, Math.floor((n * grow) / 3) * 3);
+        (r.material as THREE.MeshBasicMaterial).opacity = 0.4 + 0.5 * grow;
+      }
       if (ring) ring.rotation.z = clock * 0.3;
       for (const s of sparks) {
         const u = s.userData as { x: number; y: number; ph: number };
