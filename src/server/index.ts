@@ -342,7 +342,7 @@ store.init().then(() => auth.seed([
     // 0.9.9.9.7.3: photos nothing uses any more (a deleted message's, one uploaded and never sent) — a day after upload
     const sweepPhotos = () => store.sweepMedia(Date.now() - 86_400_000).then((n) => { if (n) console.log(`Removed ${n} unused photo${n === 1 ? '' : 's'}`); }).catch((e) => console.error('[photos]', e));
     setTimeout(sweepPhotos, 120_000).unref(); setInterval(sweepPhotos, 6 * 3_600_000).unref();
-    // 0.9.9.9.9: replays are kept two weeks
+    // 0.9.9.9.9: replays are kept a week (0.9.9.9.9.5; saved ones for good)
     const sweepReplays = () => ranked.sweep().then((n) => { if (n) console.log(`Removed ${n} old replay${n === 1 ? '' : 's'}`); }).catch((e) => console.error('[replays]', e));
     setTimeout(sweepReplays, 180_000).unref(); setInterval(sweepReplays, 12 * 3_600_000).unref();
     const awake = keepAwake();

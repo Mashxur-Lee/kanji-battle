@@ -66,7 +66,8 @@ export interface ApiExtras {
   /** 0.9.9.9.5.1: whether push to the Android app is set up (FIREBASE_SERVICE_ACCOUNT) — shown to admins */
   pushOn?: () => boolean;
   /** 0.9.9.9.9: the ranked ladder and replays */
-  ranked?: { ladder(me: UserRecord, friendIds: string[]): Promise<unknown>; replay(id: string): Promise<unknown | null> }; // (study/RankedService — kept out of the offline app's bundle)
+  ranked?: { ladder(me: UserRecord, friendIds: string[]): Promise<unknown>; replay(id: string): Promise<unknown | null>;
+    savedList(userId: string): Promise<{ saved: unknown[]; max: number }>; saveFor(userId: string, id: string, label: string): Promise<'ok' | 'gone' | 'full'>; unsaveFor(userId: string, id: string): Promise<boolean> }; // (study/RankedService — kept out of the offline app's bundle)
   /** 0.9.9.9.5: "Decline" on an invite notification (the app was closed — no websocket) */
   inviteDecline?: (userId: string, name: string, fromId: string) => void;
   /** 0.9.9.9.6: the messenger */
@@ -380,7 +381,23 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         // 0.9.9.9.9: a match's replay — anyone with the link (the id can't be guessed); kept two weeks
         if (!limiter.allow(`rp:${ip}`)) throw new AuthError('Too many attempts — wait a minute', 429);
         const rp = await ranked.replay(url.split('/')[3]);
-        return rp ? res(200, { replay: rp }) : res(404, { error: 'This replay is gone (they are kept for two weeks)' });
+        return rp ? res(200, { replay: rp }) : res(404, { error: 'This replay is gone (they are kept for a week unless saved)' });
+      } else if (ranked && r.method === 'GET' && url === '/api/me/replays') {
+        // 0.9.9.9.9.5: the replays you saved to your account (kept for good, SAVED_REPLAYS_MAX at most)
+        const u = await auth.authenticate(r.token);
+        return res(200, await ranked.savedList(u.id));
+      } else if (ranked && r.method === 'PUT' && /^\/api\/me\/replays\/[\w-]{16}$/.test(url)) {
+        const u = await auth.authenticate(r.token);
+        if (!limiter.allow(`rps:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const b = ((await r.json().catch(() => ({}))) ?? {}) as { label?: unknown };
+        const out = await ranked.saveFor(u.id, url.split('/')[4], typeof b.label === 'string' ? b.label : '');
+        if (out === 'gone') return res(404, { error: 'This replay is gone (they are kept for a week unless saved)' });
+        if (out === 'full') { const { max } = await ranked.savedList(u.id); return res(409, { error: `You can keep ${max} saved replays - remove one in Match history → Saved first` }); }
+        return res(200, await ranked.savedList(u.id));
+      } else if (ranked && r.method === 'DELETE' && /^\/api\/me\/replays\/[\w-]{16}$/.test(url)) {
+        const u = await auth.authenticate(r.token);
+        await ranked.unsaveFor(u.id, url.split('/')[4]);
+        return res(200, await ranked.savedList(u.id));
       } else if (r.method === 'GET' && url === '/api/matches') {
         const u = await auth.authenticate(r.token);
         return res(200, { matches: await study.matches(u.id) });

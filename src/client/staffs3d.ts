@@ -148,13 +148,20 @@ const flow = (k: Kit, mat: THREE.MeshStandardMaterial, speed: number) => {
 // ── 1. VERDANT ──────────────────────────────────────────────────────────────────────────────────────────────
 function buildVerdant(k: Kit): Orb {
   const { rng, m } = k;
-  const bark = m.bark(col(0.045, 0.028, 0.014), col(0.3, 0.19, 0.1));
+  // 0.9.9.9.9.5 (round 6): one solid wood for the shaft, the knot, the branches and the roots — the bark's streaks are laid
+  // along each tube on its own, so wherever two met the streaks broke and the joint showed (the owner: "I can still see the
+  // joints — make the colour solid"). Its shading alone still reads as wood.
+  const bark = m.plain(col(0.15, 0.092, 0.048), 0.85);
+  bark.emissive = col(0.02, 0.012, 0.006);
   const vine = m.plain(col(0.1, 0.3, 0.05), 0.55);
   const leaf = m.leaf(col(0.015, 0.14, 0.02), col(0.1, 0.34, 0.045));
   const W = 0.022, C = (z: number) => wave(z, W);
   const zs = [0, 0.14, 0.5, 0.95, 1.4, 1.85, 2.2, 2.42, 2.55], rs = [0.02, 0.052, 0.058, 0.05, 0.056, 0.05, 0.06, 0.072, 0.078];
   // (the shaft ends in a low dome inside the branch bundle — no flat cut and no spike between the branches)
-  k.stat(tubeGeo([...zs, 2.6, 2.63].map((z) => [...C(z), z] as P3), [...rs, 0.06, 0.015], { radial: 8, per: 5 }), bark); // a rounded top, hidden in the branches
+  // (round 6: the shaft and the knot where it splits are one tube — two tubes met in a ring that showed however they were
+  // fitted: the owner could still see the joint. The knot's gnarl is a little sway of the centre-line.)
+  const kz = [2.3, 2.4, 2.5, 2.6, 2.68, 2.75, 2.8], kr = [0.064, 0.074, 0.088, 0.1, 0.092, 0.068, 0.03], ko = [0, 0.002, 0.004, -0.004, 0.003, 0, 0];
+  k.stat(tubeGeo([...zs.slice(0, 7).map((z) => [...C(z), z] as P3), ...kz.map((z, i) => { const c = C(z); return [c[0] + ko[i], c[1] - ko[i], z] as P3; })], [...rs.slice(0, 7), ...kr], { radial: 8, per: 5 }), bark);
   for (let i = 0; i < 5; i++) { // roots at the foot
     const a = (2 * Math.PI * i) / 5 + rng.uniform(-0.3, 0.3), c = Math.cos(a), s = Math.sin(a);
     // (0.9.9.9.9.5: each root starts on the shaft's axis, thin, well inside it — its open end showed as a ring)
@@ -167,7 +174,7 @@ function buildVerdant(k: Kit): Orb {
   // 0.9.9.9.9.5: where the shaft splits, a gnarled knot of bark swells round the branches' feet — they grew out of the
   // top of the shaft as separate thin tubes, and the joint showed where each went in
   // (it starts thinner than the shaft, inside it, and swells out — its first ring was wider than the shaft: a ledge)
-  k.stat(tubeGeo([2.1, 2.26, 2.4, 2.5, 2.6, 2.68, 2.75, 2.8].map((z, i) => { const c = C(z), o = [0, 0, 0.002, 0.004, -0.004, 0.003, 0, 0][i]; return [c[0] + o, c[1] - o, z] as P3; }), [0.035, 0.05, 0.07, 0.088, 0.1, 0.092, 0.068, 0.03], { radial: 10, per: 4 }), bark);
+  // (the knot is the top of the shaft's own tube now — see above)
   // the twisting branch cradle round the orb
   // the cradle: rising out of the knot and curling in over the orb (the tips meet above it rather than poking out)
   const rr = [0.03, 0.085, 0.2, 0.235, 0.185, 0.06], zz = [2.5, 2.66, 2.84, 3.04, 3.22, 3.33];
@@ -178,12 +185,15 @@ function buildVerdant(k: Kit): Orb {
     for (const i of [2, 4]) placeLeaf(pts[i], Math.atan2(pts[i][1], pts[i][0]), rng.uniform(0.6, 1));
   }
   // the climbing vines
-  ([[0.32, 2.42, 5.5, 0.4, 0.013], [0.9, 2.1, 3.0, 3.4, 0.008]] as const).forEach(([z0, z1, turns, ph, r0]) => {
+  // (round 6: they stop under the knot — the top one ran on up the branches as a thin line, and a leaf lay edge-on at the
+  // knot's foot: both read as a seam)
+  ([[0.32, 2.12, 5.0, 0.4, 0.013], [0.9, 2.0, 2.8, 3.4, 0.008]] as const).forEach(([z0, z1, turns, ph, r0]) => {
     const n = P(56);
     const pts = helix((t) => interp(zs, rs, z0 + (z1 - z0) * t) + 0.018, z0, z1, turns, n, ph, 0.004, rng, C);
     k.stat(tubeGeo(pts, pts.map((_, i) => r0 * (1 - (0.55 * i) / (n - 1))), { radial: 5, per: 3 }), vine);
     for (let i = 2; i < n - 2; i += Math.max(1, Math.floor((n - 4) / N(22)))) {
       const p = pts[i], c = C(p[2]);
+      if (p[2] > 1.95) continue;
       placeLeaf(p, Math.atan2(p[1] - c[1], p[0] - c[0]), rng.uniform(0.7, 1.3));
     }
   });

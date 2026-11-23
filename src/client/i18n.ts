@@ -1171,6 +1171,14 @@ const RU: Record<string, string> = {
   // 0.9.9.9.9.3: the navigation
   'Home': 'Главная', 'Battles': 'Бои', 'Daily': 'Вызов', 'History': 'История',
   'Rain': 'Дождь', 'Snow': 'Снег', 'Cherry petals': 'Лепестки сакуры', 'Dandelion seeds': 'Семена одуванчика', 'Glowing spores': 'Светящиеся споры',
+  // 0.9.9.9.9.5 (round 6): replays saved to the account, the friends' "watching", the chat
+  'Watching a replay': 'Смотрит повтор', 'Watching a game': 'Смотрит игру',
+  'Save this replay?': 'Сохранить этот повтор?', 'Save and watch': 'Сохранить и смотреть',
+  'This replay is gone (they are kept for a week unless saved)': 'Этого повтора больше нет (повторы хранятся неделю, если их не сохранить)',
+  'Matches': 'Матчи', 'Saved replays': 'Сохранённые повторы', 'No saved replays yet.': 'Сохранённых повторов пока нет.',
+  'Watch': 'Смотреть', 'Remove this replay?': 'Убрать этот повтор?',
+  'It goes back to being kept for a week from its match, so it may be gone right away.': 'Он снова будет храниться неделю с его матча — так что может сразу исчезнуть.',
+  'Copied!': 'Скопировано!',
 };
 
 // names of the monthly seasons and the staffs (staff names in the genitive: «Посох Бури»)
@@ -1186,6 +1194,10 @@ const plural = (n: number, one: string, few: string, many: string) => {
 };
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
+  // 0.9.9.9.9.5 (round 6): saved replays
+  [/^Replays are kept for a week. Saved to your account, this one stays for good, and you can watch it any time from Match history → Saved ((d+) of (d+)).$/, 'Повторы хранятся неделю. Сохранённый в аккаунт, этот останется навсегда, и его можно смотреть когда угодно: История матчей → Сохранённые ($1 из $2).'],
+  [/^You can keep (d+) saved replays - remove one in Match history → Saved first$/, 'Можно хранить $1 сохранённых повторов — сначала уберите один в Истории матчей → Сохранённые'],
+  [/^Replays are kept for a week. Save one (the Replay button on the results) and it stays here for good - up to (d+).$/, 'Повторы хранятся неделю. Сохраните повтор (кнопка «Повтор» в результатах) — и он останется здесь навсегда, до $1 штук.'],
   [/^Ten kana, the same for everyone in your league today: five hiragana, five katakana\. Type each in romaji and press Enter - (\d+) s each\. Get (\d+)\/10 or better to move up to N5\.$/, 'Десять знаков каны, одинаковых сегодня для всей вашей лиги: пять хираганы, пять катаканы. Вводите каждый ромадзи и нажимайте Enter — $1 с на каждый. Наберите $2/10 или лучше, чтобы подняться в N5.'],
   [/^Ten (N\d) words, the same for everyone in your league today, easiest first\. Type the reading \(kana or romaji\) and press Enter - (\d+) s per word\. Get (\d+)\/10 or better to move up a league\.$/, 'Десять слов $1, одинаковых сегодня для всей вашей лиги, от простых к сложным. Введите чтение (каной или ромадзи) и нажмите Enter — $2 с на слово. Наберите $3/10 или лучше, чтобы подняться в лигу выше.'],
   [/^League: (.+)$/, 'Лига: $1'],

@@ -77,7 +77,7 @@ test('0.9.9.9.9.2 replays: at most REPLAYS_KEPT, the oldest go first', async () 
   assert.ok(await store.replay(`id${String(11).padStart(14, '0')}`), 'the newest stay');
   assert.equal(await store.replay(`id${String(0).padStart(14, '0')}`), null, 'the oldest go');
   assert.ok(REPLAYS_KEPT >= 1000);
-  assert.match(src('src/server/db/PgStore.ts'), /delete from kw_replays where id in \(select id from kw_replays order by at desc offset \$\{Math\.max\(0, keep\)\}\)/);
+  assert.match(src('src/server/db/PgStore.ts'), /delete from kw_replays where id in \(select r\.id from kw_replays r where not exists \(select 1 from kw_saved_replays s where s\.replay_id = r\.id\) order by r\.at desc offset \$\{Math\.max\(0, keep\)\}\)/); // (0.9.9.9.9.5: saved ones stay)
 });
 
 test('0.9.9.9.9.2 the time of day crossfades (the new picture over the old, once it has loaded)', () => {

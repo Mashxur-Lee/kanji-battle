@@ -5,7 +5,7 @@ import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protoc
 import type { BackgroundId, FlameId, StaffId } from '../../shared/progress';
 import { deckOf, type CardState, type CustomWord, type DeckId, type SrsCard } from '../../shared/srs';
 import { createHash, randomUUID } from 'node:crypto';
-import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, EmailTakenError, type AchStats, type ActivityDelta, type GameEventRow, type Report, type DirectMessage, type ConversationRow, type MessagePatch, type ChatGroup, type GroupMember, type GroupRole, type MediaFile, DEFAULT_PERMS, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type Store, type UserPatch, type UserRecord } from './Store';
+import { MATCH_HISTORY_LIMIT, REPORTS_KEPT, UsernameTakenError, EmailTakenError, type AchStats, type ActivityDelta, type GameEventRow, type Report, type DirectMessage, type ConversationRow, type MessagePatch, type ChatGroup, type GroupMember, type GroupRole, type MediaFile, DEFAULT_PERMS, type AvatarImage, type DailyResult, type DayActivity, type DailyPlan, type FriendLink, type NewUser, type SavedReplay, type Store, type UserPatch, type UserRecord } from './Store';
 
 /**
  * Postgres store (Neon, or any Postgres). Set DATABASE_URL. Tables are created on first start.
@@ -176,6 +176,17 @@ export class PgStore implements Store {
     await this.sql`create index if not exists kw_users_ladder on kw_users (rating desc) where rated > 0`;
     await this.sql`create table if not exists kw_replays (id text primary key, at bigint not null, data bytea not null)`;
     await this.sql`create index if not exists kw_replays_at on kw_replays (at)`;
+    // 0.9.9.9.9.5: replays saved to an account are kept for good (the sweep and the trim skip them)
+    await this.sql`create table if not exists kw_saved_replays (
+        user_id text not null references kw_users(id) on delete cascade,
+        replay_id text not null,
+        saved_at bigint not null,
+        at bigint not null,
+        mode text not null,
+        label text not null default '',
+        primary key (user_id, replay_id)
+      )`;
+    await this.sql`create index if not exists kw_saved_replays_id on kw_saved_replays (replay_id)`;
     await this.sql`update kw_users set streak_day = login_day where streak_day is null and login_day is not null`; // a running streak carries on
     await this.sql`
       create table if not exists kw_daily (
@@ -689,8 +700,17 @@ export class PgStore implements Store {
   }
   async saveReplay(id: string, at: number, data: Buffer) { await this.sql`insert into kw_replays (id, at, data) values (${id}, ${at}, ${data}) on conflict (id) do nothing`; }
   async replay(id: string) { const [r] = await this.sql<Array<{ data: Buffer }>>`select data from kw_replays where id = ${id}`; return r ? Buffer.from(r.data) : null; }
-  async sweepReplays(before: number) { return (await this.sql`delete from kw_replays where at < ${before}`).count; }
-  async trimReplays(keep: number) { return (await this.sql`delete from kw_replays where id in (select id from kw_replays order by at desc offset ${Math.max(0, keep)})`).count; }
+  async sweepReplays(before: number) { return (await this.sql`delete from kw_replays r where r.at < ${before} and not exists (select 1 from kw_saved_replays s where s.replay_id = r.id)`).count; }
+  async trimReplays(keep: number) { return (await this.sql`delete from kw_replays where id in (select r.id from kw_replays r where not exists (select 1 from kw_saved_replays s where s.replay_id = r.id) order by r.at desc offset ${Math.max(0, keep)})`).count; }
+  // 0.9.9.9.9.5: replays saved to accounts
+  async savedReplays(userId: string) {
+    const rows = await this.sql<Array<{ replay_id: string; saved_at: string; at: string; mode: string; label: string }>>`select replay_id, saved_at, at, mode, label from kw_saved_replays where user_id = ${userId} order by saved_at desc`;
+    return rows.map((r) => ({ id: r.replay_id, savedAt: Number(r.saved_at), at: Number(r.at), mode: r.mode, label: r.label }));
+  }
+  async addSavedReplay(userId: string, r: SavedReplay) {
+    return (await this.sql`insert into kw_saved_replays (user_id, replay_id, saved_at, at, mode, label) values (${userId}, ${r.id}, ${r.savedAt}, ${r.at}, ${r.mode}, ${r.label}) on conflict do nothing`).count > 0;
+  }
+  async removeSavedReplay(userId: string, replayId: string) { return (await this.sql`delete from kw_saved_replays where user_id = ${userId} and replay_id = ${replayId}`).count > 0; }
   async setReportDone(id: string, done: boolean) { await this.sql`update kw_reports set done = ${done} where id = ${id}`; }
   async deleteReport(id: string) { await this.sql`delete from kw_reports where id = ${id}`; }
   async addEvent(userId: string | null, name: string, at = Date.now()) { await this.sql`insert into kw_events (user_id, name, at) values (${userId}, ${name}, ${at})`; }

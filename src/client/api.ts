@@ -14,6 +14,8 @@ import type { PlayerId, ServerMessage } from '../shared/protocol';
 /** 0.9.9.9.9: the ranked ladder */
 export interface LadderRow extends RankView { id: string; name: string; login: string; pic: string | null; place: number }
 export interface LadderView { top: LadderRow[]; me: RankView & { id: string }; friends: LadderRow[] }
+/** 0.9.9.9.9.5: a replay saved to your account */
+export interface SavedReplay { id: string; savedAt: number; at: number; mode: string; label: string }
 export interface ReplayView { v: 1; mode: string; at: number; tape: Array<[number, PlayerId | null, ServerMessage]> }
 import type { AdminUserRow, Device, Level, MatchDetail, MatchSummary, OnoType, PublicProfile, PublicUser } from '../shared/protocol';
 import type { BackgroundId, DailyTaskState, FlameId, StaffId } from '../shared/progress';
@@ -182,6 +184,10 @@ export const api = {
   matches: () => call<{ matches: MatchSummary[] }>('GET', '/api/matches'),
   ladder: () => call<LadderView>('GET', '/api/ladder'), // 0.9.9.9.9
   replay: (id: string) => call<{ replay: ReplayView }>('GET', `/api/replays/${encodeURIComponent(id)}`),
+  // 0.9.9.9.9.5: replays saved to your account (kept for good; a few at most) — the rest are kept a week
+  savedReplays: () => call<{ saved: SavedReplay[]; max: number }>('GET', '/api/me/replays'),
+  saveReplay: (id: string, label: string) => call<{ saved: SavedReplay[]; max: number }>('PUT', `/api/me/replays/${encodeURIComponent(id)}`, { label }),
+  unsaveReplay: (id: string) => call<{ saved: SavedReplay[]; max: number }>('DELETE', `/api/me/replays/${encodeURIComponent(id)}`),
   match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),
   player: (id: string) => call<{ profile: PublicProfile }>('GET', `/api/users/${encodeURIComponent(id)}`),
   /** 0.9.9.9.6.3: an @mention's login → their profile */

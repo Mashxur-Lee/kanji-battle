@@ -47,7 +47,7 @@ import { openProgress } from './progressui';
 import { dailyPending, openDaily } from './dailyui';
 import { closeRematchAsk, initFriends, onFriendEvent, onFriendPresence, onInvite, onInviteDeclined, onRematchAsk, refreshFriendsBadge, renderLobbyInvites } from './friendsui';
 import { alertsOn, pushSignedOut, registerPush, setAlerts } from './push';
-import { initWatch, LEAVING, liveEnded, liveStarted, mayWhileWatching, playReplay, replayLink, stopWatching, watching, type ReplayState } from './watch';
+import { initWatch, LEAVING, liveEnded, liveStarted, mayWhileWatching, playReplay, stopWatching, watching, type ReplayState } from './watch';
 import { renderRankBox } from './ladder';
 import { canPlay, initTutorial, inTutorialBattle, lockText, setModeAccess, startTutorial, tutorialChallenge, tutorialScreen, tutorialTouring } from './tutorial';
 import { askNotifyPermission } from './notify';
@@ -146,7 +146,9 @@ let netState = '';
 let lastWhere = '';
 function tellWhere() {
   if (inRoom || !user) return;
-  const where = ui.currentScreen() === 'quiz' && quizMode() === 'ono' ? 'onoquiz' : ui.currentScreen() ?? '';
+  // (0.9.9.9.9.5: a replay or a friend's game plays on the battle screen — friends see "Watching a replay")
+  const w = watching();
+  const where = w === 'replay' ? 'replay' : w === 'live' ? 'watching' : ui.currentScreen() === 'quiz' && quizMode() === 'ono' ? 'onoquiz' : ui.currentScreen() ?? '';
   if (where === lastWhere) return;
   lastWhere = where;
   socket.send({ type: 'where', screen: where });
@@ -665,6 +667,7 @@ function onMessage(msg: ServerMessage) {
       break;
     case 'game_over': {
       if (!watching()) noteBattle(); // (0.9.9.9.6.9: Today's battle is done; 0.9.9.9.9: not by watching one)
+      if (!watching()) lastReplay = null; // (0.9.9.9.9.5: this match's replay comes with the 'progress' after this)
       rematchSeen.clear();
       pendingLobby = null; lobbyRequested = false; ui.$('resultLobby').classList.remove('pulse');
       players = msg.players;
@@ -678,6 +681,7 @@ function onMessage(msg: ServerMessage) {
           if (msg.reason !== 'forfeit') for (const p of players) if (p.hp <= 0) ui.knockOut(actorOf(p.id));
         }, 450));
       }
+      if (watching() === 'replay') break; // (0.9.9.9.9.5: a replay stops on the fall — no results screen)
       overTimers.push(window.setTimeout(() => {
         const won = msg.mode === 'boss' ? msg.teamWon : msg.winnerId === you;
         // (0.9.9.9.9.1: a replay jumping past the end shows the results without the fanfare)
@@ -685,6 +689,7 @@ function onMessage(msg: ServerMessage) {
         else if (loud && (msg.mode === 'boss' || msg.winnerId)) audio.sfx.lose();
         resetDeck();
         ui.showResults(msg.mode, msg.players, you, msg.winnerId, msg.teamWon, msg.reason, msg.stats);
+        if (lastReplay) showReplayRow(lastReplay, false); // (0.9.9.9.9.5: it usually came before the screen, which greyed it again)
         if (pendingMissed) { showMissedSave(pendingMissed); pendingMissed = null; } // the words you missed: untick to keep them out of the deck
       }, msg.reason === 'forfeit' ? 400 : 2000));
       break;
@@ -1255,8 +1260,10 @@ ui.$('lobbyPlayers').addEventListener('click', (e) => {
 });
 ui.$('readyBtn').onclick = () => socket.send({ type: 'lobby_ready', ready: !ui.$('readyBtn').dataset.ready });
 ui.$('copyCode').onclick = async () => {
-  try { await navigator.clipboard.writeText(code); ui.$('copyCode').textContent = 'Copied!'; } catch { ui.$('copyCode').textContent = code; }
-  setTimeout(() => (ui.$('copyCode').textContent = 'Copy'), 1500);
+  // (0.9.9.9.9.5: the label only — the button has an icon now)
+  const label = ui.$('copyCode').querySelector('span') ?? ui.$('copyCode');
+  try { await navigator.clipboard.writeText(code); label.textContent = 'Copied!'; } catch { label.textContent = code; }
+  setTimeout(() => (label.textContent = 'Copy'), 1500);
 };
 
 // ── prep / battle ────────────────────────────────────────────────────────────
@@ -1414,10 +1421,35 @@ ui.$('leave').onclick = () => socket.send({ type: 'leave' });
 
 // ── match history ────────────────────────────────────────────────────────────
 async function openHistory() {
+  historyTab('matches');
   ui.showHistory(null, openMatch);
   try { ui.showHistory((await api.matches()).matches, openMatch); }
   catch (err) { ui.toast((err as Error).message); ui.show('menu'); }
+  void loadSaved(false);
 }
+// 0.9.9.9.9.5: match history's two tabs: your last matches, and the replays saved to your account
+function historyTab(tab: 'matches' | 'saved') {
+  for (const b of ui.$('historyTabs').querySelectorAll<HTMLElement>('button')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+  ui.$('historyList').hidden = tab !== 'matches';
+  ui.$('savedList').hidden = tab !== 'saved';
+}
+async function loadSaved(show: boolean) {
+  if (show) ui.showSavedReplays(null, 0, () => {}, () => {});
+  try {
+    const r = await api.savedReplays();
+    savedCache = { ids: new Set(r.saved.map((x) => x.id)), n: r.saved.length, max: r.max };
+    ui.showSavedReplays(r.saved, r.max, (id) => void openReplay(id), (id) => void unsave(id));
+  } catch (err) { if (show) ui.toast((err as Error).message); }
+}
+async function unsave(id: string) {
+  if (!(await ui.confirmBox('Remove this replay?', 'It goes back to being kept for a week from its match, so it may be gone right away.', 'Remove', 'Keep'))) return;
+  try {
+    const r = await api.unsaveReplay(id);
+    savedCache = { ids: new Set(r.saved.map((x) => x.id)), n: r.saved.length, max: r.max };
+    ui.showSavedReplays(r.saved, r.max, (x) => void openReplay(x), (x) => void unsave(x));
+  } catch (err) { ui.toast((err as Error).message); }
+}
+for (const b of ui.$('historyTabs').querySelectorAll<HTMLElement>('button')) b.onclick = () => { const t = b.dataset.tab === 'saved' ? 'saved' : 'matches'; historyTab(t); if (t === 'saved') void loadSaved(true); };
 async function openMatch(id: string) {
   try {
     const m = (await api.match(id)).match;
@@ -1441,16 +1473,36 @@ ui.$('resultBack').onclick = () => {
 
 // ── 0.9.9.9.9: replays and watching ───────────────────────────────────────────
 let lastReplay: string | null = null;
-/** the results' Watch replay / Copy link (a fresh match: once the server says it's kept; history: kept two weeks) */
-function showReplayRow(id: string | null, history: boolean, side?: string) {
-  const row = ui.$('replayRow');
-  row.hidden = !id;
-  if (!id) return;
-  ui.$('replayWatch').onclick = () => void openReplay(id, side ?? you);
-  ui.$('replayCopy').onclick = async () => {
-    try { await navigator.clipboard.writeText(replayLink(id)); ui.toast(tr('Replay link copied - anyone can watch it for two weeks'), 3000); }
-    catch { prompt(tr('Replay link'), replayLink(id)); }
-  };
+/** the results' Replay tile (a fresh match: once the server says it's kept; history: kept a week, or for good if saved).
+ *  0.9.9.9.9.5: the link button went (the replay itself has one — the owner: "no need for it there as well") */
+function showReplayRow(id: string | null, _history: boolean, side?: string) {
+  const w = ui.$<HTMLButtonElement>('replayWatch');
+  if (!id) { w.hidden = true; return; }
+  w.hidden = false; w.disabled = false;
+  w.onclick = () => void watchSaved(id, side ?? you, ui.$('resultMode').textContent?.trim() ?? '');
+}
+// ── 0.9.9.9.9.5: replays are kept a week; one saved to your account stays for good (a few at most). Watching one from
+// the results or history saves it first — the owner: "before you visit a replay it should make you download it (to the
+// account, not the PC), and after that you can watch it". A shared link still plays for anyone. ──
+let savedCache: { ids: Set<string>; n: number; max: number } | null = null;
+async function savedState() {
+  // (asked each time: one small request, and never another account's list after a sign-out)
+  const r = await api.savedReplays(); savedCache = { ids: new Set(r.saved.map((x) => x.id)), n: r.saved.length, max: r.max };
+  return savedCache;
+}
+async function watchSaved(id: string, side?: string, label = '') {
+  if (!user) return openReplay(id, side);
+  try {
+    const st = await savedState();
+    if (!st.ids.has(id)) {
+      if (st.n >= st.max) { ui.toast(tr(`You can keep ${st.max} saved replays - remove one in Match history → Saved first`), 5000); return; }
+      const ok = await ui.confirmBox('Save this replay?', `Replays are kept for a week. Saved to your account, this one stays for good, and you can watch it any time from Match history → Saved (${st.n + 1} of ${st.max}).`, 'Save and watch', 'Cancel', false);
+      if (!ok) return;
+      const r = await api.saveReplay(id, label);
+      savedCache = { ids: new Set(r.saved.map((x) => x.id)), n: r.saved.length, max: r.max };
+    }
+  } catch (e) { ui.toast((e as Error).message, 5000); return; }
+  return openReplay(id, side);
 }
 async function openReplay(id: string, side?: string) {
   try {
