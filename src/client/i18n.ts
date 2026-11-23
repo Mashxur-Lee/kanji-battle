@@ -115,6 +115,7 @@ const RU: Record<string, string> = {
   '2D arena': '2D-арена', 'No Japanese voice found on this device.': 'На этом устройстве нет японского голоса.', 'This browser has no speech voice.': 'В этом браузере нет синтеза речи.',
   'Contact:': 'Связь:', // (0.9.9.9.9.5)
   'Players': 'Игроки',
+  'Lobby': 'Комната', 'Menu': 'Меню', 'Watch the replay': 'Смотреть повтор', 'Play again with the same players': 'Сыграть снова с теми же игроками', 'Back to the room': 'Назад в комнату',
   'Unranked': 'Без ранга', 'All ranks': 'Все ранги', 'Find match': 'Найти бой', 'Levels': 'Уровни',
   'Weapon': 'Оружие',
   '← Back to the lesson': '← Назад к уроку',

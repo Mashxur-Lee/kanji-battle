@@ -1065,28 +1065,32 @@
     <h2 id="resultTitle" class="result-title"></h2>
     <p id="resultReason" class="sub center"></p>
     <div id="xpLine" class="xp-line" hidden></div>
-    <div id="replayRow" class="row replay-row" hidden><button id="replayWatch" class="big replay-watch" type="button"><i class="wb-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z" fill="currentColor"/></svg></i><span>Watch replay</span></button><button id="replayCopy" class="pill wb-icon" type="button" title="Copy replay link" aria-label="Copy replay link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    
+    <!-- 0.9.9.9.9.5: one row of icon tiles right under the result: Replay, Rematch, Lobby, Menu -->
+    <div class="result-bar">
+    <div id="replayRow" class="row replay-row" hidden><button id="replayWatch" class="rb-tile replay-watch" title="Watch the replay" type="button"><i class="wb-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="13" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5z" fill="currentColor"/></svg></i><span>Replay</span></button><button id="replayCopy" class="pill wb-icon" type="button" title="Copy replay link" aria-label="Copy replay link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+    <div id="resultActions">
+      <div class="row result-btns">
+        <button id="rematch" class="rb-tile rb-main" title="Play again with the same players"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg><span>Rematch</span></button>
+        <button id="resultLobby" class="rb-tile" title="Back to the room"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M6 20V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v15"/><circle cx="14" cy="12.5" r="1" fill="currentColor"/></svg><span>Lobby</span></button>
+        <button id="leave" class="rb-tile menu-btn" title="Main menu"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h4.5v-5.5h3V20H18V9.5"/></svg><span>Menu</span></button>
+      </div>
+      <p id="rematchStatus" class="sub center"></p>
+    </div>
+    </div>
     <div id="statCompare" class="compare"></div>
     <div id="struggledBox" class="struggled">
       <h3>Review - you struggled with <small>(ticked words go to your deck · tap a card to untick · 筆 = stroke order)</small></h3>
       <div id="missedSave" class="missed-save" hidden></div>
       <div id="struggled" class="grid small"></div>
     </div>
-    <h3>Vocabulary performance</h3>
+    <h3 class="rs-h"><span aria-hidden="true">語</span> Words</h3>
     <div id="wordTabs" class="word-tabs" role="tablist" aria-label="Whose words" hidden></div>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Word</th><th>Reading</th><th>Meaning</th><th>Result</th><th>Avg time</th></tr></thead>
         <tbody id="wordRows"></tbody>
       </table>
-    </div>
-    <div id="resultActions">
-      <div class="row result-btns">
-        <button id="rematch" class="big">Rematch</button>
-        <button id="resultLobby" class="lobby-btn">Back to lobby</button>
-        <button id="leave" class="lobby-btn menu-btn">Main menu</button>
-      </div>
-      <p id="rematchStatus" class="sub center"></p>
     </div>
     <div id="historyBackRow" class="row" hidden><button id="resultHistoryBack" class="alt">← Back to match history</button></div>
   </section>

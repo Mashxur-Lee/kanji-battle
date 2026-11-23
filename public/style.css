@@ -6100,3 +6100,56 @@ body.has-nav .screen:not(#menu) h3 { text-transform: none; letter-spacing: 0; fo
   .q-tile .mode-badge { font-size: 2rem; }
   #queue .q-start { align-self: stretch; min-width: 0; }
 }
+
+/* 0.9.9.9.9.5: the results' actions — one row of icon tiles right under the result (Replay is a camera now) */
+.result-bar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 12px; margin: 10px auto 18px; }
+.result-bar .replay-row, .result-bar #resultActions, .result-bar .result-btns { display: contents; }
+.result-bar .replay-row[hidden] > * { display: none; }
+.result-bar #rematchStatus { flex-basis: 100%; order: 9; margin: 0; }
+.rb-tile { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 92px; height: 84px; padding: 8px 6px; margin: 0;
+  border-radius: 18px; border: 2px solid var(--line); background: var(--card); color: var(--text); box-shadow: 0 4px 0 var(--line); font: 800 .82rem/1.1 var(--ui); cursor: pointer; }
+.rb-tile svg { width: 30px; height: 30px; }
+.rb-tile .wb-ic { display: contents; }
+.rb-tile:hover { border-color: var(--accent2); }
+.rb-tile:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
+.rb-tile:disabled { opacity: .5; }
+.rb-tile.rb-main, .rb-tile.replay-watch { background: var(--accent); border-color: transparent; color: #fff; box-shadow: 0 4px 0 #6a47d1; }
+.result-bar #replayCopy { align-self: center; }
+.result-bar [hidden] { display: none !important; }
+.rs-h span { color: var(--gold); font-family: var(--brand); margin-right: 4px; }
+@media (max-width: 640px) { .rb-tile { width: 74px; height: 72px; font-size: .74rem; } .rb-tile svg { width: 26px; height: 26px; } }
+.result-bar .result-btns > button { min-width: 0; }
+.result-bar .replay-row > .rb-tile { width: 92px !important; }
+@media (max-width: 640px) { .result-bar .replay-row > .rb-tile { width: 74px !important; } }
+.result-bar .rb-tile { flex: none !important; width: 92px !important; min-width: 0 !important; }
+.result-bar .rb-tile::before, .result-bar .rb-tile::after { content: none !important; display: none !important; }
+@media (max-width: 640px) {
+  .result-bar .rb-tile { width: 72px !important; }
+  /* the words table: the average time goes (it squeezed every row into three lines) */
+  #results .tablewrap :is(th, td):nth-child(5) { display: none; }
+  #results .tablewrap :is(th, td) { padding: 8px 6px; }
+}
+
+/* 0.9.9.9.9.5: light effects (perf.ts: weaker phones) — nothing see-through blurred, no blur filters, no drifting kanji,
+   no big glows, nothing moving behind the pages; and on every phone the background scrolls with the page (a fixed one
+   was repainted on each step of a fast scroll: empty halves for a second) */
+@media (pointer: coarse) { body { background-attachment: scroll; } }
+body.lowfx *, body.lowfx *::before, body.lowfx *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+body.lowfx :is(.fx-mist, .fx-rays, .fx-ring, .fx-rune, .fx-leaf, .fx-petal, .fx-snow, .fx-seed, .fx-part, .menu-veil .mv-glyphs) { display: none !important; }
+body.lowfx :is(h1, h2, .result-title, .mc-title, .code, .q-title) { text-shadow: none !important; }
+body.lowfx :is(.mc-card, .deck-card, .lb-card, .q-tile, .rb-tile, .pill, button.big) { box-shadow: none !important; }
+body.lowfx [style*="blur("], body.lowfx :is(.orb-glow, .glow, .halo) { filter: none !important; }
+body.lowfx::before { display: none; } /* (the star field: a full-screen layer) */
+body.lowfx .seal.stamp { animation: none; }
+/* 0.9.9.9.9.5: phones — a solid strip behind the top bar and Back (a page scrolled up under them and its words showed
+   through, mixed with the buttons); an achievement's tip opens as a card near the bottom (on the top row it opened
+   behind the bar) */
+@media (max-width: 760px) {
+  body.has-nav::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: calc(108px + env(safe-area-inset-top)); z-index: 19; pointer-events: none;
+    background: linear-gradient(180deg, var(--page-bg, #15132e) 0, var(--page-bg, #15132e) 82%, transparent 100%); }
+  body.has-nav .app-nav .an-back { z-index: 31; }
+}
+@media (pointer: coarse) {
+  .ach .ach-tip { display: none !important; }
+  .ach-sheet:not([hidden]) { display: flex !important; position: fixed; top: auto; bottom: calc(100px + env(safe-area-inset-bottom)); left: 12px; right: 12px; width: auto; transform: none; z-index: 120; }
+}

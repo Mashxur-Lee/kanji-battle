@@ -78,7 +78,7 @@ test('0.9.9.9.9.5 pages are drawn at the size chosen in Settings (not shrunk wit
   assert.ok(z.includes("const z = Math.round(pref * (pageMode() ? Math.max(1, f) : f) * 1000) / 1000;"));
   assert.ok(z.includes("document.body?.classList.contains('page-zoom')"));
   const nav = src('src/client/nav.ts');
-  assert.ok(nav.includes("const page = on || s === 'lobby';"), 'the private room too');
+  assert.ok(nav.includes("const page = on || s === 'lobby' || s === 'results';"), 'the private room and the results too');
   const css = src('public/style.css');
   assert.ok(css.includes('body.has-nav #history { max-width: calc(980px + var(--nav-pad)); }'));
   assert.ok(css.includes('body.has-nav { --nav-pad: calc(60px + 212px + 28px); }'));
