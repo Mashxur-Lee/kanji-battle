@@ -202,3 +202,24 @@ test('0.9.9.9.9.5 "Kanji seals": each page\u2019s own kanji stamped by its title
   const inR = (cp: number, r: string) => r.split(',').some((x) => { const [a, b] = x.trim().replace('U+', '').split('-'); return cp >= parseInt(a, 16) && cp <= parseInt(b || a, 16); });
   for (const ch of '戦友術か進日史辞学文問装管') assert.ok(faces.some((f) => inR(ch.codePointAt(0)!, f)), ch);
 });
+
+test('0.9.9.9.9.5 Battles and Results: a rank card with every rank, mode tiles, Find match; result actions as icon tiles', () => {
+  const html = src('public/index.html');
+  assert.ok(html.includes('<div id="qModes" class="q-tiles" role="group" aria-label="What to queue for"></div>'));
+  assert.ok(html.includes('<span>Find match</span>'));
+  const lad = src('src/client/ladder.ts');
+  assert.ok(lad.includes("card.onclick = () => openLadder('ranks');"));
+  assert.ok(lad.includes("['ranks', 'All ranks']"));
+  const res = html.slice(html.indexOf('<section id="results"'), html.indexOf('</section>', html.indexOf('<section id="results"')));
+  assert.ok(res.indexOf('class="result-bar"') < res.indexOf('id="statCompare"'));
+  assert.ok(res.includes('<span>Replay</span>') && res.includes('<span>Rematch</span>') && res.includes('<span>Lobby</span>') && res.includes('<span>Menu</span>'));
+});
+
+test('0.9.9.9.9.5 phones: light effects on weaker phones, the background scrolls, the FABs stay off pages with bottom controls, the chat above the keyboard', () => {
+  assert.ok(src('src/client/perf.ts').includes("if ((nav.hardwareConcurrency ?? 8) <= 6 || (nav.deviceMemory ?? 8) <= 4) { set(true, true); return; }"));
+  const css = src('public/style.css');
+  assert.ok(css.includes('@media (pointer: coarse) { body { background-attachment: scroll; } }'));
+  assert.ok(css.includes('body.kb-up[data-screen="inbox"] .inbox-screen .msgr { height: calc(var(--kbh, 100dvh) - 76px) !important;'));
+  assert.ok(css.includes(':is([data-screen="inbox"], [data-screen="kana"], [data-screen="kanaplay"]'));
+  assert.ok(src('src/client/achievements.ts').includes("sheet.className = 'ach-tip ach-sheet';"));
+});

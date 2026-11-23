@@ -6153,3 +6153,15 @@ body.lowfx .seal.stamp { animation: none; }
   .ach .ach-tip { display: none !important; }
   .ach-sheet:not([hidden]) { display: flex !important; position: fixed; top: auto; bottom: calc(100px + env(safe-area-inset-bottom)); left: 12px; right: 12px; width: auto; transform: none; z-index: 120; }
 }
+.ld-row.ld-tier { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.ld-row.ld-tier .ld-rating { display: block; color: var(--muted); font-variant-numeric: tabular-nums; }
+#queue .q2-pick { margin: 0 auto; align-items: stretch; }
+#queue .q-levels-row { justify-content: center; }
+#queue .q-start { align-self: center; }
+@media (min-width: 1200px) { .q-tile.chip { min-height: 170px; } .q-tile .mode-badge { font-size: 3rem; } .q-tile .q-name { font-size: 1.05rem; } }
+/* 0.9.9.9.9.5: phones — room at the end of every page for the last buttons to scroll clear of the tabs and the round
+   buttons above them (the sweep found Find match, the levels and Customize's slots under them at the end) */
+@media (max-width: 760px) {
+  body.has-nav .screen:not(#menu) { padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important; }
+  body[data-screen="quizzes"] :is(#railFab, #dictFab) { display: none !important; }
+}
