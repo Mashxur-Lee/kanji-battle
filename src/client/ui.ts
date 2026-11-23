@@ -1369,7 +1369,7 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
   showWords(you);
   $('xpLine').hidden = true;
   $<HTMLButtonElement>('rematch').disabled = false;
-  $('rematch').textContent = 'Rematch';
+  setRematchLabel('Rematch');
   $('rematchStatus').textContent = '';
   show('results');
 }
@@ -1404,7 +1404,7 @@ export function setRematchStatus(votes: PlayerId[], you: PlayerId, playerCount: 
   const youVoted = votes.includes(you);
   $<HTMLButtonElement>('rematch').disabled = youVoted;
   if (playerCount < minPlayers) {
-    $('rematch').textContent = 'Back to lobby';
+    setRematchLabel('Lobby');
     $<HTMLButtonElement>('rematch').disabled = false;
     $('rematchStatus').textContent = 'Your opponent left.';
   } else if (votes.length === 0) $('rematchStatus').textContent = '';
@@ -1418,6 +1418,9 @@ export const MODE_ICON: Record<GameMode, string> = { reading: '読', rapid: '速
 export function modeBadge(mode: GameMode): HTMLElement {
   return h('span', `mode-badge ${mode}`, MODE_ICON[mode], { lang: 'ja', title: MODE_LABEL[mode], 'aria-label': MODE_LABEL[mode] });
 }
+
+/** 0.9.9.9.9.5: the Rematch tile keeps its icon when its word changes */
+function setRematchLabel(text: string) { const s = $('rematch').querySelector('span'); if (s) s.textContent = tr(text); else $('rematch').textContent = tr(text); }
 
 /** The character someone played: a Deck Duel hero, otherwise their level's wizard. */
 export function characterEl(character: string, mode: GameMode, side: 'me' | 'opp' = 'me'): HTMLElement {

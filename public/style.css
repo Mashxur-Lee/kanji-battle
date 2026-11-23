@@ -6049,3 +6049,119 @@ body.has-nav .screen:not(#menu) h3 { text-transform: none; letter-spacing: 0; fo
 .study-stats .ss-tile :is(small, span:not(b)) { text-transform: none !important; letter-spacing: 0 !important; }
 /* 0.9.9.9.9.5: the menu's drifting kanji stay inside the screen (the sweep found one a few px past the edge on phones) */
 .menu-veil { overflow: hidden; }
+
+/* 0.9.9.9.9.5: phones — the 辞 and Friends buttons stay out of pages with their own controls at the bottom (they sat on
+   Send, Start, the answers); while the keyboard is up in Messages the tabs and the page's head step aside and the chat
+   fills what is left above the keyboard (it was hidden behind them) */
+@media (max-width: 760px) {
+  body:is([data-screen="inbox"], [data-screen="kana"], [data-screen="kanaplay"], [data-screen="review"], [data-screen="quiz"], [data-screen="passage"], [data-screen="daily"], [data-screen="lobby"]) :is(#railFab, #dictFab) { display: none !important; }
+  body.kb-up .app-nav, body.kb-up :is(#railFab, #dictFab), body.kb-up .watch-bar { display: none !important; }
+  body.kb-up[data-screen="inbox"] #inbox > .seal-head, body.kb-up[data-screen="inbox"] .app-nav .an-back { display: none !important; }
+  body.kb-up[data-screen="inbox"] #inbox { padding-top: 64px !important; padding-bottom: 6px !important; }
+  body.kb-up[data-screen="inbox"] .inbox-screen .msgr { height: calc(var(--kbh, 100dvh) - 76px) !important; min-height: 0 !important; }
+}
+
+/* 0.9.9.9.9.5: the Battles page — a rank card, big mode tiles (a tick on the chosen, a (!) with the rules), one row of
+   levels, Find match */
+#queue .rank-box { display: block; background: none; border: 0; padding: 0; margin: 0 0 14px; }
+.rank-card { --rk: #8d88b8; display: inline-flex; align-items: center; gap: 14px; padding: 10px 18px 10px 12px; border-radius: 18px; cursor: pointer;
+  background: var(--card); border: 2px solid color-mix(in srgb, var(--rk) 55%, var(--line)); box-shadow: 0 4px 0 color-mix(in srgb, var(--rk) 35%, transparent); color: var(--text); text-align: left; }
+.rank-card:active { transform: translateY(4px); box-shadow: none; }
+.rc-crest { flex: none; width: 46px; height: 52px; background: var(--rk, #8d88b8);
+  clip-path: polygon(50% 0, 100% 18%, 100% 62%, 50% 100%, 0 62%, 0 18%); box-shadow: inset 0 0 0 4px rgba(255, 255, 255, .25); }
+.rank-card.rk-unranked .rc-crest { background: repeating-linear-gradient(135deg, #3a3666 0 6px, #2c2852 6px 12px); }
+.rc-txt { display: flex; flex-direction: column; line-height: 1.15; }
+.rc-name { font: 400 1.2rem/1.1 var(--brand); }
+.rc-sub { color: var(--muted); font-size: .85rem; font-weight: 700; }
+.rc-more, .q-info { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-weight: 900; font-size: .8rem;
+  background: color-mix(in srgb, var(--accent2) 20%, transparent); color: var(--accent2); border: 1.5px solid color-mix(in srgb, var(--accent2) 60%, transparent); }
+.ld-tier .rc-crest { width: 26px; height: 30px; }
+.q2-pick { display: flex; flex-direction: column; gap: 16px; max-width: 980px; }
+.q-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.q-tile.chip { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 22px 10px 16px; min-height: 150px;
+  border-radius: 20px; border: 2px solid var(--line); background: var(--card); box-shadow: 0 5px 0 var(--line); cursor: pointer; font-size: 1rem; text-align: center; white-space: normal; }
+.q-tile input { position: absolute; opacity: 0; pointer-events: none; }
+.q-tile .mode-badge { font-size: 2.6rem; width: auto; height: auto; background: none; box-shadow: none; }
+.q-tile .q-name { font-weight: 800; line-height: 1.2; }
+.q-tile .q-info { position: absolute; top: 8px; right: 8px; }
+.q-tile .q-tick { position: absolute; top: 8px; left: 8px; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); }
+.q-tile.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--card)); box-shadow: 0 5px 0 color-mix(in srgb, var(--accent) 70%, #000); }
+.q-tile.on .q-tick { background: var(--accent); border-color: var(--accent); }
+.q-tile.on .q-tick::after { content: ""; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px; border: solid #fff; border-width: 0 3px 3px 0; rotate: 45deg; }
+.q-tile:active { transform: translateY(5px); box-shadow: none; }
+.q-tile.locked { opacity: .45; }
+.q-levels-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.q-lv-label { font-weight: 800; color: var(--muted); }
+.q2-pick.deck-picked .q-levels-row { opacity: .4; pointer-events: none; }
+#queue .q-start { display: inline-flex; align-items: center; justify-content: center; gap: 10px; align-self: flex-start; min-width: 280px; padding: 18px 34px; font-size: 1.25rem; }
+@media (max-width: 760px) {
+  .q-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .q-tile.chip { min-height: 112px; padding: 16px 8px 12px; }
+  .q-tile .mode-badge { font-size: 2rem; }
+  #queue .q-start { align-self: stretch; min-width: 0; }
+}
+
+/* 0.9.9.9.9.5: the results' actions — one row of icon tiles right under the result (Replay is a camera now) */
+.result-bar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 12px; margin: 10px auto 18px; }
+.result-bar .replay-row, .result-bar #resultActions, .result-bar .result-btns { display: contents; }
+.result-bar .replay-row[hidden] > * { display: none; }
+.result-bar #rematchStatus { flex-basis: 100%; order: 9; margin: 0; }
+.rb-tile { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 92px; height: 84px; padding: 8px 6px; margin: 0;
+  border-radius: 18px; border: 2px solid var(--line); background: var(--card); color: var(--text); box-shadow: 0 4px 0 var(--line); font: 800 .82rem/1.1 var(--ui); cursor: pointer; }
+.rb-tile svg { width: 30px; height: 30px; }
+.rb-tile .wb-ic { display: contents; }
+.rb-tile:hover { border-color: var(--accent2); }
+.rb-tile:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
+.rb-tile:disabled { opacity: .5; }
+.rb-tile.rb-main, .rb-tile.replay-watch { background: var(--accent); border-color: transparent; color: #fff; box-shadow: 0 4px 0 #6a47d1; }
+.result-bar #replayCopy { align-self: center; }
+.result-bar [hidden] { display: none !important; }
+.rs-h span { color: var(--gold); font-family: var(--brand); margin-right: 4px; }
+@media (max-width: 640px) { .rb-tile { width: 74px; height: 72px; font-size: .74rem; } .rb-tile svg { width: 26px; height: 26px; } }
+.result-bar .result-btns > button { min-width: 0; }
+.result-bar .replay-row > .rb-tile { width: 92px !important; }
+@media (max-width: 640px) { .result-bar .replay-row > .rb-tile { width: 74px !important; } }
+.result-bar .rb-tile { flex: none !important; width: 92px !important; min-width: 0 !important; }
+.result-bar .rb-tile::before, .result-bar .rb-tile::after { content: none !important; display: none !important; }
+@media (max-width: 640px) {
+  .result-bar .rb-tile { width: 72px !important; }
+  /* the words table: the average time goes (it squeezed every row into three lines) */
+  #results .tablewrap :is(th, td):nth-child(5) { display: none; }
+  #results .tablewrap :is(th, td) { padding: 8px 6px; }
+}
+
+/* 0.9.9.9.9.5: light effects (perf.ts: weaker phones) — nothing see-through blurred, no blur filters, no drifting kanji,
+   no big glows, nothing moving behind the pages; and on every phone the background scrolls with the page (a fixed one
+   was repainted on each step of a fast scroll: empty halves for a second) */
+@media (pointer: coarse) { body { background-attachment: scroll; } }
+body.lowfx *, body.lowfx *::before, body.lowfx *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+body.lowfx :is(.fx-mist, .fx-rays, .fx-ring, .fx-rune, .fx-leaf, .fx-petal, .fx-snow, .fx-seed, .fx-part, .menu-veil .mv-glyphs) { display: none !important; }
+body.lowfx :is(h1, h2, .result-title, .mc-title, .code, .q-title) { text-shadow: none !important; }
+body.lowfx :is(.mc-card, .deck-card, .lb-card, .q-tile, .rb-tile, .pill, button.big) { box-shadow: none !important; }
+body.lowfx [style*="blur("], body.lowfx :is(.orb-glow, .glow, .halo) { filter: none !important; }
+body.lowfx::before { display: none; } /* (the star field: a full-screen layer) */
+body.lowfx .seal.stamp { animation: none; }
+/* 0.9.9.9.9.5: phones — a solid strip behind the top bar and Back (a page scrolled up under them and its words showed
+   through, mixed with the buttons); an achievement's tip opens as a card near the bottom (on the top row it opened
+   behind the bar) */
+@media (max-width: 760px) {
+  body.has-nav::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: calc(108px + env(safe-area-inset-top)); z-index: 19; pointer-events: none;
+    background: linear-gradient(180deg, var(--page-bg, #15132e) 0, var(--page-bg, #15132e) 82%, transparent 100%); }
+  body.has-nav .app-nav .an-back { z-index: 31; }
+}
+@media (pointer: coarse) {
+  .ach .ach-tip { display: none !important; }
+  .ach-sheet:not([hidden]) { display: flex !important; position: fixed; top: auto; bottom: calc(100px + env(safe-area-inset-bottom)); left: 12px; right: 12px; width: auto; transform: none; z-index: 120; }
+}
+.ld-row.ld-tier { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.ld-row.ld-tier .ld-rating { display: block; color: var(--muted); font-variant-numeric: tabular-nums; }
+#queue .q2-pick { margin: 0 auto; align-items: stretch; }
+#queue .q-levels-row { justify-content: center; }
+#queue .q-start { align-self: center; }
+@media (min-width: 1200px) { .q-tile.chip { min-height: 170px; } .q-tile .mode-badge { font-size: 3rem; } .q-tile .q-name { font-size: 1.05rem; } }
+/* 0.9.9.9.9.5: phones — room at the end of every page for the last buttons to scroll clear of the tabs and the round
+   buttons above them (the sweep found Find match, the levels and Customize's slots under them at the end) */
+@media (max-width: 760px) {
+  body.has-nav .screen:not(#menu) { padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important; }
+  body[data-screen="quizzes"] :is(#railFab, #dictFab) { display: none !important; }
+}

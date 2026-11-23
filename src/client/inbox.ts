@@ -714,6 +714,21 @@ export async function openThread(id: string) {
 }
 
 /** the menu's ✉ (or a friend's "Message" button, or a notification): the messenger, maybe at one conversation */
+// 0.9.9.9.9.5: phones — the keyboard up (a text box in use) and how much of the screen is left above it: the chat fits there
+{
+  const coarse = () => matchMedia('(pointer: coarse)').matches;
+  const typing = () => !!document.activeElement?.matches('input:not([type=checkbox]):not([type=range]):not([type=file]), textarea, [contenteditable="true"]');
+  const sync = () => {
+    const vv = window.visualViewport;
+    const up = coarse() && typing() && (!vv || vv.height < innerHeight * 0.85 || innerHeight < screen.height * 0.7);
+    document.body.classList.toggle('kb-up', up);
+    document.documentElement.style.setProperty('--kbh', `${Math.round((vv?.height ?? innerHeight) / (Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1))}px`);
+  };
+  addEventListener('focusin', () => setTimeout(sync, 250));
+  addEventListener('focusout', () => setTimeout(sync, 120));
+  window.visualViewport?.addEventListener('resize', sync);
+  addEventListener('resize', sync);
+}
 /** 0.9.9.9.9.5: the lessons Messages returns to, and the one it was opened from */
 const LESSONS = new Set(['study', 'review', 'quiz', 'passage', 'quizzes', 'kana', 'kanaplay', 'daily', 'dict']);
 let returnTo: string | null = null;

@@ -157,7 +157,8 @@ function buildVerdant(k: Kit): Orb {
   k.stat(tubeGeo([...zs, 2.6, 2.63].map((z) => [...C(z), z] as P3), [...rs, 0.06, 0.015], { radial: 8, per: 5 }), bark); // a rounded top, hidden in the branches
   for (let i = 0; i < 5; i++) { // roots at the foot
     const a = (2 * Math.PI * i) / 5 + rng.uniform(-0.3, 0.3), c = Math.cos(a), s = Math.sin(a);
-    k.stat(tubeGeo([[0.03 * c, 0.03 * s, 0.3], [0.06 * c, 0.06 * s, 0.17], [0.1 * c, 0.1 * s, 0.07], [0.14 * c, 0.14 * s, 0.012]], [0.04, 0.026, 0.016, 0.006], { radial: 6 }), bark);
+    // (0.9.9.9.9.5: each root starts on the shaft's axis, thin, well inside it — its open end showed as a ring)
+    k.stat(tubeGeo([[0, 0, 0.5], [0.012 * c, 0.012 * s, 0.36], [0.05 * c, 0.05 * s, 0.2], [0.1 * c, 0.1 * s, 0.07], [0.14 * c, 0.14 * s, 0.012]], [0.02, 0.032, 0.028, 0.016, 0.006], { radial: 6 }), bark);
   }
   const leaves: Array<{ p: P3; rx: number; ry: number; rz: number; s: number; ph: number }> = [];
   const placeLeaf = (p: P3, out: number, s: number) => {
@@ -165,7 +166,8 @@ function buildVerdant(k: Kit): Orb {
   };
   // 0.9.9.9.9.5: where the shaft splits, a gnarled knot of bark swells round the branches' feet — they grew out of the
   // top of the shaft as separate thin tubes, and the joint showed where each went in
-  k.stat(tubeGeo([2.36, 2.46, 2.56, 2.66, 2.74, 2.79].map((z, i) => { const c = C(z), o = [0, 0.004, -0.004, 0.003, 0, 0][i]; return [c[0] + o, c[1] - o, z] as P3; }), [0.074, 0.094, 0.102, 0.092, 0.068, 0.03], { radial: 10, per: 4 }), bark);
+  // (it starts thinner than the shaft, inside it, and swells out — its first ring was wider than the shaft: a ledge)
+  k.stat(tubeGeo([2.1, 2.26, 2.4, 2.5, 2.6, 2.68, 2.75, 2.8].map((z, i) => { const c = C(z), o = [0, 0, 0.002, 0.004, -0.004, 0.003, 0, 0][i]; return [c[0] + o, c[1] - o, z] as P3; }), [0.035, 0.05, 0.07, 0.088, 0.1, 0.092, 0.068, 0.03], { radial: 10, per: 4 }), bark);
   // the twisting branch cradle round the orb
   // the cradle: rising out of the knot and curling in over the orb (the tips meet above it rather than poking out)
   const rr = [0.03, 0.085, 0.2, 0.235, 0.185, 0.06], zz = [2.5, 2.66, 2.84, 3.04, 3.22, 3.33];

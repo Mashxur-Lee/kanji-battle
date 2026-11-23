@@ -249,3 +249,22 @@ function keepTipOnScreen(e: Event) {
 }
 document.addEventListener('pointerover', keepTipOnScreen);
 document.addEventListener('focusin', keepTipOnScreen);
+
+// 0.9.9.9.9.5: phones — a tapped badge's tip opens as one card near the bottom of the screen (inside the badge it opened
+// above it: on the top row behind the bar, or clipped by the section); a tap anywhere else closes it
+{
+  let sheet: HTMLElement | null = null;
+  const close = () => { if (sheet) sheet.hidden = true; };
+  document.addEventListener('click', (e) => {
+    if (!matchMedia('(pointer: coarse)').matches) return;
+    const ach = (e.target as Element | null)?.closest?.('.ach');
+    const tip = ach?.querySelector<HTMLElement>('.ach-tip');
+    if (!tip) { close(); return; }
+    if (!sheet) { sheet = document.createElement('div'); sheet.className = 'ach-tip ach-sheet'; sheet.setAttribute('role', 'status'); document.body.append(sheet); }
+    sheet.style.cssText = ach!.getAttribute('style') ?? ''; // (the badge's own colour)
+    sheet.replaceChildren(...[...tip.childNodes].map((n) => n.cloneNode(true)));
+    sheet.hidden = false;
+  }, true);
+  addEventListener('kw:screenin', close);
+  addEventListener('scroll', close, { passive: true });
+}

@@ -51,17 +51,15 @@ function chip(value: string, label: string, on: boolean, group: string) {
 }
 const picked = (id: string) => [...document.querySelectorAll<HTMLInputElement>(`#${id} input`)].filter((i) => i.checked).map((i) => i.value);
 let pick: 'battle' | 'deck' = 'battle';
-function remember() { save({ modes: picked('qModes') as GameMode[], levels: picked('qLevels') as Level[], pick }); }
-/** Exactly one box is chosen: battle modes or Deck Duel. */
+function remember() { save({ modes: picked('qModes').filter((m) => m !== 'deck') as GameMode[], levels: picked('qLevels') as Level[], pick }); }
+/** Battle modes or Deck Duel (it's queued on its own: picking it clears the others, and the other way round). */
 function choose(p: 'battle' | 'deck', silent = false) {
   if (p === 'deck' && !canPlay('deck')) { if (!silent) ui.toast(lockText('deck'), 5000); p = 'battle'; }
   pick = p;
-  document.querySelectorAll<HTMLElement>('#queuePick .queue-card').forEach((c) => {
-    const on = c.dataset.q === p;
-    c.classList.toggle('chosen', on);
-    c.setAttribute('aria-checked', String(on));
-  });
-  ui.$('qStart').textContent = p === 'deck' ? 'Start queue - Deck Duel' : 'Start queue';
+  for (const i of document.querySelectorAll<HTMLInputElement>('#qModes input')) {
+    if (p === 'deck' ? i.value !== 'deck' : i.value === 'deck') { i.checked = false; i.closest('label')?.classList.remove('on'); }
+  }
+  ui.$('queuePick').classList.toggle('deck-picked', p === 'deck');
   remember();
 }
 
@@ -77,14 +75,10 @@ export function initQueue(sender: typeof send, myId: () => string) {
   ui.$('qDeckHelp').addEventListener('keydown', (e) => e.stopPropagation());
   ui.$('mfAccept').onclick = () => { if (foundId) send({ type: 'queue_accept', matchId: foundId }); };
   ui.$('queueBack').onclick = () => { if (searching) send({ type: 'queue_cancel' }); stopSearching(); ui.show('menu'); };
-  document.querySelectorAll<HTMLElement>('#queuePick .queue-card').forEach((c) => {
-    c.addEventListener('click', () => choose(c.dataset.q as 'battle' | 'deck'));
-    c.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); choose(c.dataset.q as 'battle' | 'deck'); } });
-  });
   ui.$('qStart').onclick = () => {
     askNotifyPermission(); // so a found match can reach you in another tab
     if (pick === 'deck') return send({ type: 'queue', modes: ['deck'] });
-    const modes = picked('qModes'), levels = picked('qLevels');
+    const modes = picked('qModes').filter((m) => m !== 'deck'), levels = picked('qLevels');
     if (!modes.length) return ui.toast('Tick at least one mode');
     if (!levels.length) return ui.toast('Tick at least one level');
     send({ type: 'queue', modes, levels });
@@ -94,15 +88,23 @@ export function initQueue(sender: typeof send, myId: () => string) {
 
 export function openQueue() {
   const s = load();
-  ui.$('qModes').replaceChildren(...QUEUE_MODES.map((m) => {
-    const open = canPlay(m);
-    const c = chip(m, MODE_LABEL[m] + (open ? '' : ' · locked'), open && s.modes.includes(m), 'qm');
-    if (!open) { c.classList.add('locked'); c.querySelector('input')!.disabled = true; c.title = lockText(m); }
-    guideHover(c, m as Exclude<GameMode, 'deck'>);
+  // 0.9.9.9.9.5: a tile per mode — its seal, its name, a (!) with its rules — Deck Duel among them
+  ui.$('qModes').replaceChildren(...[...QUEUE_MODES, 'deck' as GameMode].map((m) => {
+    const open = canPlay(m), isDeck = m === 'deck';
+    const c = chip(m, '', open && (isDeck ? s.pick === 'deck' : s.pick !== 'deck' && s.modes.includes(m)), 'qm');
+    c.classList.add('q-tile', `q-${m}`);
+    c.lastChild?.remove(); // (the chip's empty label text)
+    const tick = document.createElement('span'); tick.className = 'q-tick'; tick.setAttribute('aria-hidden', 'true');
+    const name = document.createElement('span'); name.className = 'q-name'; name.textContent = tr(MODE_LABEL[m]);
+    const info = document.createElement('span'); info.className = 'q-info'; info.textContent = '!'; info.setAttribute('aria-hidden', 'true');
+    c.append(ui.modeBadge(m), name, info, tick);
+    const box = c.querySelector('input')!;
+    box.addEventListener('change', () => { if (box.checked) choose(isDeck ? 'deck' : 'battle'); });
+    if (!open) { c.classList.add('locked'); box.disabled = true; c.title = lockText(m); }
+    if (isDeck) info.onclick = (e) => { e.preventDefault(); e.stopPropagation(); ui.$('qDeckHelp').click(); };
+    else guideHover(c, m as Exclude<GameMode, 'deck'>);
     return c;
   }));
-  const deckCard = document.querySelector<HTMLElement>('#queuePick .queue-card[data-q="deck"]')!;
-  deckCard.classList.toggle('locked', !canPlay('deck'));
   ui.$('qLevels').replaceChildren(...LEVELS.map((l) => ui.lockLevelChip(chip(l, LEVEL_LABEL[l], s.levels.includes(l) && (!ui.kanaBeginner() || isKanaLevel(l)), 'ql'), l)));
   choose(s.pick ?? 'battle', true);
   if (!searching) { ui.$('queuePick').hidden = false; ui.$('qSearching').hidden = true; }

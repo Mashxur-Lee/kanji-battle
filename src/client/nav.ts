@@ -146,7 +146,7 @@ export function initNav() {
     nav.hidden = !on;
     document.body.classList.toggle('has-nav', on);
     // (0.9.9.9.9.5: the pages — and the private room — are drawn at the size chosen in Settings, not smaller)
-    const page = on || s === 'lobby';
+    const page = on || s === 'lobby' || s === 'results'; // (0.9.9.9.9.5: and the results)
     if (document.body.classList.contains('page-zoom') !== page) { document.body.classList.toggle('page-zoom', page); applyUiZoom(); }
     setMore(false);
     if (s === 'menu') trail.length = 0; else if (on && trail[trail.length - 1] !== s) { trail.push(s); if (trail.length > 20) trail.shift(); }
