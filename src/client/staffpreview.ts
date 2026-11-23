@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { buildStaff, GEM_Y, type Staff } from './staffs3d';
+import { isSword } from './swords3d';
 
 export interface StaffPreview {
   show(id: string): void;
@@ -93,6 +94,9 @@ export function createStaffPreview(canvas: HTMLCanvasElement): StaffPreview | nu
       camera.updateProjectionMatrix();
       holder.rotation.y = 0.6; holder.position.y = 0;
       for (const id of ids) {
+        // (0.9.9.9.9.5: a sword whole, its flat to the camera — the staff's close-up of the gem showed only its tip)
+        if (isSword(id)) { camera.position.set(0.05, 0.5, 3.1); camera.lookAt(0, 0.5, 0); camera.updateProjectionMatrix(); holder.rotation.y = 0.25; }
+        else { camera.position.set(0.35, GEM_Y + 0.12, 1.6); camera.lookAt(0, GEM_Y - 0.02, 0); camera.updateProjectionMatrix(); holder.rotation.y = 0.6; }
         const s = use(id);
         s.update(1.2, 0, 0);
         renderer.render(scene, camera);

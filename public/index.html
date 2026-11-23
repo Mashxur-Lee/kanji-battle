@@ -325,24 +325,13 @@
     <div class="page-head"><h2>Online queue</h2></div>
     <p class="sub">Tick what you'd like to play. You'll be matched with the first player who wants the same, and the game starts straight away. Boss Elimination waits for a full party of 4.</p>
     <div id="rankBox" class="rank-box" hidden></div>
-    <div id="queuePick" class="queue-pick">
-    <div class="queue-grid" role="radiogroup" aria-label="What to queue for">
-      <div class="queue-card" data-q="battle" role="radio" tabindex="0">
-        <span class="q-radio" aria-hidden="true"></span>
-        <h3>Battle modes</h3>
-        <div id="qModes" class="chips"></div>
-        <h4>Your levels</h4>
-        <div id="qLevels" class="chips"></div>
-      </div>
-      <div class="queue-card deck" data-q="deck" role="radio" tabindex="0">
-        <span class="q-radio" aria-hidden="true"></span>
-        <h3>Deck Duel</h3>
-        <p class="sub">Queued on its own. No levels to pick: the cards come from both players' All spells - 2 words of each level (N5–N1) from each of you.</p>
-        <button id="qDeckHelp" class="q-help" type="button" title="How Deck Duel works" aria-label="How Deck Duel works">?</button>
-        <div class="q-deck-pic" aria-hidden="true"><span class="dkc c-red"></span><span class="dkc c-green"></span><span class="dkc c-yellow"></span><span class="dkc c-blue"></span><span class="dkc c-lightblue"></span></div>
-      </div>
-    </div>
-    <button id="qStart" class="big q-start">Start queue</button>
+    <div id="queuePick" class="queue-pick q2-pick">
+      <!-- 0.9.9.9.9.5: tiles for every mode (Deck Duel is queued on its own: picking it clears the others), one row of
+           levels, one big button -->
+      <div id="qModes" class="q-tiles" role="group" aria-label="What to queue for"></div>
+      <div class="q-levels-row"><span class="q-lv-label" title="The levels your words come from">Levels</span><div id="qLevels" class="chips"></div></div>
+      <button id="qDeckHelp" class="q-help" type="button" title="How Deck Duel works" aria-label="How Deck Duel works" hidden>?</button>
+      <button id="qStart" class="big q-start"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 19 19 5M9 5H5v4M15 19h4v-4M5 5l5 5M19 19l-5-5"/></svg><span>Find match</span></button>
     </div>
     <div id="qSearching" class="queue-searching" hidden>
       <div class="q-orbit" aria-hidden="true"><span>漢</span><span>字</span></div>

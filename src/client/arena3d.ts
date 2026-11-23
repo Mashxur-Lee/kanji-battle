@@ -596,14 +596,17 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   // the gem: launched with each spell, then gone until you start writing / typing again, when it builds up
   let thrustAt = -1e9;
   // 0.9.9.9.9.5: a sword's three slashes — from / to: [x, y, roll, pitch(, yaw)] offsets of your hand and blade
-  const SWING_MS = 560;
+  // 0.9.9.9.9.5: a FULL swing — the whole arm, not the wrist: the hand lifts the sword up and back over the shoulder
+  // (wind-up), sweeps across most of the screen as the arm rolls through (the cut), holds, and comes back to the guard.
+  // Each pose: [hand x, hand y (offsets in the hand's space, ~1.6 to the screen's edge), arm roll, blade pitch];
+  // `tilt`: the angle of the cut — the wave it sends flies at that angle
+  const SWING_MS = 900;
   const SWINGS = [
-    // (0.9.9.9.9.5: full swings, right across the view; `tilt`: the angle of the cut — the wave it sends flies at that angle)
-    { from: [0.3, 0.32, 1.25, -0.1, 0], to: [-0.95, -0.42, -2.0, -0.55, 0.35], tilt: -0.62 }, // a diagonal cut, high right to low left
-    { from: [0.36, 0.04, 1.55, -0.7, 0.2], to: [-1.0, 0.0, 1.6, -0.7, -0.85], tilt: 0 },       // a flat sweep, right to left
-    { from: [-0.5, -0.4, -1.0, -0.15, 0], to: [0.3, 0.4, 1.2, -0.6, 0.4], tilt: 0.62 },       // a rising cut, low left to high right
+    { from: [0.12, 0.45, 0.75, 0.55], to: [-1.5, -0.38, -1.05, -1.0], tilt: -0.62 }, // a diagonal cut, high right to low left
+    { from: [0.2, 0.18, 1.45, 0.25], to: [-1.6, 0.12, 1.45, -0.9], tilt: 0 },     // a flat sweep, right to left
+    { from: [-1.15, -0.5, -1.15, 0.2], to: [0.38, 0.6, 0.55, -1.0], tilt: 0.62 },  // a rising cut, low left to high right
   ] as const;
-  let swingNo = 0;
+  let swingNo = 0, swingW = 0; // (how far your arm is into a swing: the forearm reaches back to the shoulder)
   let gemState: 'ready' | 'gone' | 'growing' = 'ready';
   let growAt = 0;
   const GROW_MS = 900;
@@ -1290,6 +1293,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         twitchRot.y * 0.3,
         0.2 - ex * 0.24 * eightAmp + twitchRot.z * 0.3,
       );
+      fp.rotation.z = 0; swingW = 0; // (a sword's swing rolls it; a staff never does)
       if (swordMe) {
         // 0.9.9.9.9.5: a sword is held still and trembles as you write (more as its blade fills with light) — no ∞ — and
         // a cast is one of three slashes, taking turns: a wind-up, a fast cut, a held follow-through and a smooth return
@@ -1298,18 +1302,23 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         fp.position.set(fpBase.x - look.x * 0.04 + Math.sin(time * 57) * 0.006 * tr, fpBase.y + look.y * 0.03 + (still ? 0 : Math.sin(time * 1.6) * 0.008) + Math.sin(time * 71 + 1) * 0.005 * tr, fpBase.z);
         staffGroup.rotation.set(0.1 + charge * 0.25 + twitchRot.x * 0.3, twitchRot.y * 0.3, 0.2 + Math.sin(time * 63) * 0.028 * tr + twitchRot.z * 0.3);
         const u = Math.min(1, (now - thrustAt) / SWING_MS);
+        fp.rotation.z = 0; swingW = 0;
         if (u < 1) {
           const sw = SWINGS[swingNo];
           const sm = (x: number) => x * x * (3 - 2 * x);
-          // rest → the start of the cut (0.22) → the cut, fast (0.5) → held (0.66) → back to rest (1)
-          let A: readonly number[] = [0, 0, 0, 0, 0], B: readonly number[] = sw.from, k = sm(u / 0.22);
-          if (u >= 0.22 && u < 0.5) { A = sw.from; B = sw.to; k = 1 - (1 - (u - 0.22) / 0.28) ** 3; }
-          else if (u >= 0.5 && u < 0.66) { A = sw.to; B = sw.to; k = 1; }
-          else if (u >= 0.66) { A = sw.to; B = [0, 0, 0, 0, 0]; k = sm((u - 0.66) / 0.34); }
+          // rest → wind-up (0.32, eased) → the cut (to 0.56: fast, still easy to follow) → follow-through (to 0.72) → back (1)
+          const rest = [0, 0, 0, 0];
+          let A: readonly number[] = rest, B: readonly number[] = sw.from, k = sm(u / 0.32);
+          if (u >= 0.32 && u < 0.56) { A = sw.from; B = sw.to; const c = (u - 0.32) / 0.24; k = c < 0.5 ? 2 * c * c : 1 - 2 * (1 - c) * (1 - c); }
+          else if (u >= 0.56 && u < 0.72) { A = sw.to; B = sw.to; k = 1; }
+          else if (u >= 0.72) { A = sw.to; B = rest; k = sm((u - 0.72) / 0.28); }
           const at = (i: number) => A[i] + (B[i] - A[i]) * k;
-          const cut = u >= 0.22 && u < 0.66 ? Math.sin(Math.min(1, (u - 0.22) / 0.44) * Math.PI) : 0;
-          fp.position.x += at(0); fp.position.y += at(1); fp.position.z = fpBase.z - cut * 0.22;
-          staffGroup.rotation.z += at(2); staffGroup.rotation.x += at(3); staffGroup.rotation.y += at(4);
+          const cut = u >= 0.32 && u < 0.72 ? Math.sin(Math.min(1, (u - 0.32) / 0.4) * Math.PI) : 0;
+          // the hand travels on an arc (a little closer to you in the middle of it, as an arm swings round the shoulder)
+          fp.position.x += at(0); fp.position.y += at(1) + cut * 0.1; fp.position.z = fpBase.z - cut * 0.08;
+          swingW = Math.min(1, Math.hypot(at(0), at(1)) * 2.5 + Math.abs(at(2)));
+          fp.rotation.z = at(2); // the forearm rolls with it
+          staffGroup.rotation.x += at(3); // raised back on the wind-up, reaching toward the foe on the cut
         }
       }
       // 0.9.9.7: your combo pose, as you see it — floating lifts your view; Duelist points the staff's core
@@ -1318,6 +1327,17 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const pk = myPoseK * myPoseK * (3 - 2 * myPoseK);
       fpLeft.visible = pk > 0.02 && myPose === 'twohand';
       if (myPose !== 'aim' || pk <= 0.001) { fpArm.quaternion.copy(fpArmRest); if (fpSleeve) { fpSleeve.scale.y = 1; fpSleeve.position.y = -0.6; } }
+      if (swingW > 0.001) {
+        // 0.9.9.9.9.5: mid-swing the forearm reaches back to a shoulder off the bottom-right corner, stretching as the hand
+        // goes across (it rolled round with the hand and stuck out sideways like a stick)
+        fp.updateMatrix();
+        const wrist = fp.position.clone().add(fpArm.position.clone().applyQuaternion(fp.quaternion).multiplyScalar(fp.scale.x));
+        const shoulder = new THREE.Vector3(fpBase.x + 0.55, fpBase.y - 0.95, fpBase.z + 0.6);
+        const toShoulder = shoulder.sub(wrist);
+        const dir = toShoulder.clone().normalize().applyQuaternion(fp.quaternion.clone().invert());
+        fpArm.quaternion.copy(fpArmRest).slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir), swingW);
+        if (fpSleeve) { const k = Math.max(1, Math.min(2.6, toShoulder.length() / (0.95 * fp.scale.x))); const kk = 1 + (k - 1) * swingW; fpSleeve.scale.y = kk; fpSleeve.position.y = -0.13 - 0.475 * kk; }
+      }
       if (pk > 0.001) {
         if (myPose === 'float') camera.position.y += 0.2 * pk + Math.sin(time * 1.7) * 0.04 * pk;
         if (myPose === 'aim') {
@@ -1718,7 +1738,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const swordCast = layout !== 'deck' && from !== 'boss' && isSword(staffIdOf(from));
       if (from === 'me' && swordCast) swingNo = (swingNo + 1 + Math.floor(Math.random() * 2)) % SWINGS.length; // (picked here: the wave needs its angle)
       const flight = fly(start, end, kanji, color, size, 0.85, firstPerson, swordCast, from === 'me' && swordCast ? SWINGS[swingNo].tilt : undefined,
-        from === 'me' && swordCast ? () => pointOf('me', 'staff') : undefined, from === 'me' && swordCast ? SWING_MS * 0.0004 : 0);
+        from === 'me' && swordCast ? () => pointOf('me', 'staff') : undefined, from === 'me' && swordCast ? SWING_MS * 0.00044 : 0); // (it leaves the blade in the middle of the cut)
       // 0.9.9.9.6.9: your big ones (a critical, or while you're on fire) — a side shot as it lands, now and then
       if (from === 'me' && (to === 'opp' || to === 'boss') && (o.crit || myFlame) && !cine && performance.now() - lastImpact > 9000) {
         lastImpact = performance.now();
@@ -1943,6 +1963,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   resize();
   // compile every shader now (while you're in the menu), not in the first second of your first battle
   try { renderer.compile(scene, camera); } catch { /* fine — compiled on first draw */ }
+  if (filming) (window as unknown as { __kwArena?: ArenaApi }).__kwArena = api; // (0.9.9.9.9.5: filming / testing: the arena by hand)
   return api;
 }
 

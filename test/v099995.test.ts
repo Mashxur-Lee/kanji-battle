@@ -157,7 +157,9 @@ test('0.9.9.9.9.5 the swords in the arena: their own model, a tremor (no ∞), a
   assert.ok(a3.includes('if (before < 0 && fl.launch) { fl.from.copy(fl.launch());'), 'it leaves the blade at the moment of the cut');
   assert.ok(src('src/client/swords3d.ts').includes('r.geometry.setDrawRange(0, Math.floor((n * grow) / 3) * 3);'), 'the ribbons wind up the blade as it powers up');
   assert.ok(src('src/client/study.ts').includes('const THUMBS_KEY = `kb:staffThumbs:${VERSION}:${THUMBS_REV}`;'), 'new pictures in Customize when the models change');
-  assert.ok(a3.includes('else if (u >= 0.66) { A = sw.to; B = [0, 0, 0, 0, 0]; k = sm((u - 0.66) / 0.34); }'), 'a smooth return (it snapped back)');
+  assert.ok(a3.includes('else if (u >= 0.72) { A = sw.to; B = rest; k = sm((u - 0.72) / 0.28); }'), 'a smooth return (it snapped back)');
+  assert.ok(a3.includes('const SWING_MS = 900;') && a3.includes('fp.rotation.z = at(2); // the forearm rolls with it'), 'a full swing of the arm, not the wrist');
+  assert.ok(a3.includes('const shoulder = new THREE.Vector3(fpBase.x + 0.55, fpBase.y - 0.95, fpBase.z + 0.6);'), 'the forearm reaches back to the shoulder');
   assert.ok(a3.includes('channelShown = 0; channelLevel = 0;'), 'a miss drops the charge: the blade stops shaking and its light goes');
   assert.ok(src('src/client/main.ts').includes("if (caster === 'me' && !quiet && isSwordId(myStaff())) audio.sfx.cast(myStaff(), lastCombo);"), 'the slash sound with the swing');
   const sw = src('src/client/swords3d.ts');
