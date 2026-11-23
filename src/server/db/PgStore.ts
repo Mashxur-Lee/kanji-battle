@@ -178,7 +178,7 @@ export class PgStore implements Store {
     await this.sql`create index if not exists kw_replays_at on kw_replays (at)`;
     // 0.9.9.9.9.5: replays saved to an account are kept for good (the sweep and the trim skip them)
     await this.sql`create table if not exists kw_saved_replays (
-        user_id text not null references kw_users(id) on delete cascade,
+        user_id uuid not null references kw_users(id) on delete cascade,
         replay_id text not null,
         saved_at bigint not null,
         at bigint not null,
