@@ -261,7 +261,7 @@ test('0.9.9.9.9.5 replays: kept a week; one saved to an account stays for good (
   for (const r of ["r.method === 'GET' && url === '/api/me/replays'", "r.method === 'PUT' && /^\\/api\\/me\\/replays\\/[\\w-]{16}$/", "r.method === 'DELETE' && /^\\/api\\/me\\/replays\\/[\\w-]{16}$/"]) assert.ok(router.includes(r), r);
   const pg = src('src/server/db/PgStore.ts');
   assert.ok(pg.includes('create table if not exists kw_saved_replays ('));
-  assert.ok(pg.includes('user_id text not null references kw_users(id) on delete cascade'));
+  assert.ok(pg.includes('user_id uuid not null references kw_users(id) on delete cascade')); // (uuid, as kw_users.id: text failed in Postgres)
   assert.equal((pg.match(/not exists \(select 1 from kw_saved_replays s where s\.replay_id = r\.id\)/g) ?? []).length, 2);
   assert.ok(src('src/server/db/Store.ts').includes('this.saved.delete(id);'));
 });
