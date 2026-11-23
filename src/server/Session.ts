@@ -149,6 +149,8 @@ export const SCREEN_ACTIVITY: Record<string, string> = {
   // 0.9.9.9.5.4: the Kana section (it showed "In the menus"), the Quizzes page, the dictionary
   kana: 'Studying kana', kanaplay: 'Studying kana', quizzes: 'Choosing a quiz', dict: 'In the dictionary',
   inbox: 'Chatting', // 0.9.9.9.6 (0.9.9.9.6.1: "Chatting")
+  // 0.9.9.9.9.5: watching — friends see it (the owner: "if someone from your friend list is watching a replay, it should say so")
+  replay: 'Watching a replay', watching: 'Watching a game',
 };
 export function inviteRefusal(o: { inRoom: boolean; activity?: string; lastAt?: number; declinedAt?: number; now: number }): string | null {
   if (o.inRoom) return 'Your friend is already in this room';
@@ -494,6 +496,7 @@ export class Session implements Client {
       return this.room.stage === 'game' ? `Playing ${mode}` : this.room.stage === 'results' ? `Results · ${mode}` : `Lobby · ${mode}`;
     }
     if (this.user && this.matchmaker?.isQueued(this.user.id)) return 'In the online queue';
+    if (this.watched) return 'Watching a game'; // (0.9.9.9.9.5)
     return SCREEN_ACTIVITY[this.screen] ?? 'In the menus';
   }
 

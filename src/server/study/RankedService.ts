@@ -16,7 +16,10 @@ import { PLACEMENT, rankView, rate, START_RATING, type RankView } from '../../sh
 import { picUrl } from './StudyService';
 
 const zip = promisify(gzip), unzip = promisify(gunzip);
-export const REPLAY_DAYS = 14;
+// 0.9.9.9.9.5: a week (was two) — the owner: "keep the replays for 1 week only"; one a player saves to their account
+// stays for good (SAVED_REPLAYS_MAX each)
+export const REPLAY_DAYS = 7;
+export const SAVED_REPLAYS_MAX = 15;
 /** a replay bigger than this (compressed) isn't kept — a normal match is 10–40 KB */
 export const REPLAY_MAX_BYTES = 600 * 1024;
 /** 0.9.9.9.9.2: the most replays kept (about 25 KB each: some 75 MB, well inside a free 0.5 GB database) */
@@ -83,6 +86,21 @@ export class RankedService {
     if (!bytes) return null;
     try { return JSON.parse((await unzip(bytes)).toString('utf8')) as ReplayData; } catch { return null; }
   }
+
+  // 0.9.9.9.9.5: replays saved to an account
+  async savedList(userId: string) { return { saved: await this.store.savedReplays(userId), max: SAVED_REPLAYS_MAX }; }
+  /** 'gone': the replay was already removed; 'full': SAVED_REPLAYS_MAX saved */
+  async saveFor(userId: string, id: string, label: string): Promise<'ok' | 'gone' | 'full'> {
+    if (!isReplayId(id)) return 'gone';
+    const list = await this.store.savedReplays(userId);
+    if (list.some((r) => r.id === id)) return 'ok';
+    if (list.length >= SAVED_REPLAYS_MAX) return 'full';
+    const rp = await this.replay(id);
+    if (!rp) return 'gone';
+    await this.store.addSavedReplay(userId, { id, savedAt: Date.now(), at: rp.at, mode: String(rp.mode), label: label.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80) });
+    return 'ok';
+  }
+  async unsaveFor(userId: string, id: string) { return this.store.removeSavedReplay(userId, id); }
 
   private saved = 0;
   async sweep(now = Date.now()) { const n = await this.store.sweepReplays(now - REPLAY_DAYS * 86_400_000); return n + (await this.store.trimReplays(REPLAYS_KEPT)); }

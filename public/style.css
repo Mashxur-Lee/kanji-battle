@@ -6165,3 +6165,69 @@ body.lowfx .seal.stamp { animation: none; }
   body.has-nav .screen:not(#menu) { padding-bottom: calc(160px + env(safe-area-inset-bottom)) !important; }
   body[data-screen="quizzes"] :is(#railFab, #dictFab) { display: none !important; }
 }
+
+/* 0.9.9.9.9.5 (round 6): from ×30 the number is gradient text — italic glyphs lean past the box the gradient is painted
+   in, so the end of the last digit was left plain ("×39": half the 9 without the gradient). The box gets room for the
+   slant (padding), and gives it back (negative margin) so nothing moves. */
+.combo-hud.tier-5 b, .combo-banner.tier-5 b { padding: 0 .28em .06em .12em; margin: 0 -.28em -.06em -.12em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+/* 0.9.9.9.9.5 (round 6): the room card — "Копировать" ran out of the card at 1280 in Russian (the owner's screenshot):
+   Copy has an icon and goes under the code when the row is short; the Open/Closed switch grows with its word
+   ("ЗАКРЫТО" ran under the knob); the chat card isn't an empty strip while there's no chat */
+#lobby .code-row { flex-wrap: wrap; min-width: 0; }
+#lobby .code { min-width: 0; }
+#lobby #copyCode { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 100%; white-space: nowrap; }
+#lobby #copyCode svg { width: 18px; height: 18px; flex: none; }
+.open-switch { width: auto; min-width: 132px; letter-spacing: .06em; white-space: nowrap; }
+#lobby .lb-talk:not(:has(> :not([hidden]))) { display: none; }
+
+/* 0.9.9.9.9.5 (round 6): phones — an open chat is a screen of its own, the way chat apps do it: it covers the page's
+   head (the big "Messages", new group, the bell — those belong to the list of chats), the top bar and the tabs (they sat
+   right under the text box), and it is pinned to the part of the screen above the keyboard (--kbt / --kbh, kept by
+   inbox.ts): the browser slid the page up when the keyboard opened, cutting the chat off at the top over an empty band.
+   ← in the chat's head goes back to the list. */
+@media (max-width: 760px) {
+  body[data-screen="inbox"] #inbox.thread-open .msgr-thread {
+    position: fixed; z-index: 35; left: 0; right: 0; top: var(--kbt, 0px); /* (over the top bar, 30; under toasts, 40) */ height: var(--kbh, 100dvh); max-height: none;
+    border-radius: 0; border: 0; background: var(--bg, #0f0c26); padding-top: env(safe-area-inset-top, 0px);
+  }
+  :root[data-theme="light"] body[data-screen="inbox"] #inbox.thread-open .msgr-thread { background: #f6f4ff; }
+  body[data-screen="inbox"] #inbox.thread-open .msgr-head { padding: 8px 10px; }
+  body[data-screen="inbox"] #inbox.thread-open .msgr-form { padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  /* (under the layer: nothing to scroll or tap) */
+  body[data-screen="inbox"]:has(#inbox.thread-open) :is(.app-nav, #railFab, #dictFab, .version, .topbar) { display: none !important; }
+  body[data-screen="inbox"]:has(#inbox.thread-open) { overflow: hidden; }
+  /* (the page's own layer is under the strip behind the top bar, whatever the chat's z-index: the strip goes) */
+  body[data-screen="inbox"]:has(#inbox.thread-open)::after { display: none !important; }
+  /* the old keyboard fit is the layer's now */
+  body.kb-up[data-screen="inbox"] .inbox-screen.thread-open .msgr { height: auto !important; }
+}
+/* (light theme: the chat's name was white on the light head — `all: unset` let it take the page's white) */
+:root[data-theme="light"] .msgr-head .msg-who { color: var(--text); }
+:root[data-theme="light"] .msgr-log .hint { color: var(--muted); }
+
+/* 0.9.9.9.9.5 (round 6): the results' actions — the owner: "the button arrangement is bad". Four equal tiles in one
+   row (two by two on a phone): Rematch (the one lit), Replay, Lobby, Menu; the link button went (the replay has one).
+   An old match from history: Replay alone, in the middle. */
+.result-bar { display: grid; grid-template-columns: repeat(auto-fit, 118px); justify-content: center; gap: 12px; max-width: 540px; margin: 12px auto 18px; }
+.result-bar #rematchStatus { grid-column: 1 / -1; text-align: center; }
+.result-bar .rb-tile { width: 100% !important; height: 92px; font-size: .9rem; gap: 7px; }
+.result-bar .rb-tile svg { width: 30px; height: 30px; }
+.result-bar .rb-tile.replay-watch { background: var(--card); border-color: var(--line); color: var(--text); box-shadow: 0 4px 0 var(--line); }
+.result-bar .rb-tile.replay-watch svg { color: var(--accent2, #8fd3ff); }
+.result-bar .rb-tile.replay-watch:disabled { opacity: .45; cursor: progress; }
+@media (max-width: 640px) {
+  .result-bar { grid-template-columns: repeat(auto-fit, minmax(0, 150px)); gap: 10px; max-width: 330px; }
+  .result-bar .rb-tile { height: 78px; font-size: .85rem; }
+  .result-bar .rb-tile svg { width: 26px; height: 26px; }
+}
+/* match history: the two tabs, and the saved replays */
+.hist-tabs { justify-content: center; margin: 4px 0 12px; }
+.hist-tabs small { opacity: .75; font-weight: 700; margin-left: 4px; }
+.saved-note { text-align: center; margin: 0 0 10px; }
+.saved-row { display: flex; align-items: center; gap: 10px; cursor: default; }
+.saved-row .hist-mode { flex: 1; min-width: 0; }
+.saved-row .saved-watch { margin: 0; padding: 8px 16px; border-radius: 12px; background: var(--accent); color: #fff; border: 0; font-weight: 800; flex: none; }
+.saved-row .saved-del { margin: 0; width: 38px; height: 38px; padding: 0; display: grid; place-items: center; border-radius: 10px; background: transparent; border: 1px solid var(--line); color: var(--muted); flex: none; box-shadow: none; }
+.saved-row .saved-del svg { width: 18px; height: 18px; }
+.saved-row .saved-del:hover { color: #ff6f8a; border-color: #ff6f8a; }

@@ -165,7 +165,7 @@ function tape(): TapeEntry[] {
 test('0.9.9.9.9.1 a replay clip: the pause cut out, only the side\'s own words, both sides\' hits and misses marked', () => {
   const c = clipOf(tape(), 'reading', 'ann');
   assert.equal(c.start, 100);
-  assert.equal(c.end, 71000 - 60000 + 2600, 'the minute\'s pause is cut out; the results come up 2.6 s after the end');
+  assert.equal(c.end, 71000 - 60000 + 1900, 'the minute\'s pause is cut out; it ends 1.9 s after the last blow (0.9.9.9.9.5: on the fall - no results screen)');
   assert.ok(!c.cues.some((q) => q.m.type === 'challenge' && q.m.kanji === '火'), 'Bob\'s word isn\'t on Ann\'s side');
   assert.ok(!c.cues.some((q) => q.m.type === 'paused'), 'the game\'s pause isn\'t played (the replay\'s own play / pause is)');
   assert.deepEqual(c.marks.map((k) => [k.mine, k.hit, k.crit ?? false]), [[true, true, false], [false, false, false], [false, true, true]], 'Ann\'s hit; Bob\'s miss; Bob\'s critical');

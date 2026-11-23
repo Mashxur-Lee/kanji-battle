@@ -18,8 +18,9 @@ export interface ReplayState {
 
 /** a stretch with nothing on the tape is cut to this (someone away from the game a long while) */
 const SILENCE_MS = 15000;
-/** after the last blow, the results come up (main.ts shows them 2 s after game_over) */
-const RESULTS_MS = 2600;
+// 0.9.9.9.9.5: a replay ends on the fall — the defeated one goes down and it stops there (it went on to the results
+// screen: the owner: "the replay should stop at the enemy being defeated moment")
+const RESULTS_MS = 1900;
 interface Cue { vt: number; m: ServerMessage }
 /** a mark on the timeline: one of the watched side's hits or misses (mine), or the other side's */
 export interface Mark { vt: number; mine: boolean; hit: boolean; crit?: boolean; kanji?: string; damage?: number }

@@ -152,12 +152,12 @@ test('0.9.9.9.9.5 the swords in the arena: their own model, a tremor (no ∞), a
   const a3 = src('src/client/arena3d.ts');
   assert.ok(a3.includes('eightAmp += ((charge > 0.05 && !still && !swordMe ?'), 'no figure-eight with a sword');
   assert.ok(a3.includes('const SWINGS = ['), 'three slashes');
-  assert.ok(a3.includes("if (from === 'me' && swordCast) swingNo = (swingNo + 1 + Math.floor(Math.random() * 2)) % SWINGS.length;"), 'a different slash each time');
+  assert.ok(a3.includes(": (swingNo + 1 + Math.floor(Math.random() * 2)) % SWINGS.length;"), 'a different slash each time'); // (round 6: a filming hook may pick one)
   assert.ok(a3.includes("from === 'me' && swordCast ? SWINGS[swingNo].tilt : undefined"), 'the wave flies at the angle of the cut');
   assert.ok(a3.includes('if (before < 0 && fl.launch) { fl.from.copy(fl.launch());'), 'it leaves the blade at the moment of the cut');
   assert.ok(src('src/client/swords3d.ts').includes('r.geometry.setDrawRange(0, Math.floor((n * grow) / 3) * 3);'), 'the ribbons wind up the blade as it powers up');
   assert.ok(src('src/client/study.ts').includes('const THUMBS_KEY = `kb:staffThumbs:${VERSION}:${THUMBS_REV}`;'), 'new pictures in Customize when the models change');
-  assert.ok(a3.includes('else if (u >= 0.72) { A = sw.to; B = rest; k = sm((u - 0.72) / 0.28); }'), 'a smooth return (it snapped back)');
+  assert.ok(a3.includes('else if (u >= SW_BACK) { A = sw.to; B = rest; k = sm((u - SW_BACK) / (1 - SW_BACK)); }'), 'a smooth return (it snapped back)');
   assert.ok(a3.includes('const SWING_MS = 900;') && a3.includes('fp.rotation.z = at(2); // the forearm rolls with it'), 'a full swing of the arm, not the wrist');
   assert.ok(a3.includes('const shoulder = new THREE.Vector3(fpBase.x + 0.55, fpBase.y - 0.95, fpBase.z + 0.6);'), 'the forearm reaches back to the shoulder');
   assert.ok(a3.includes('channelShown = 0; channelLevel = 0;'), 'a miss drops the charge: the blade stops shaking and its light goes');
@@ -222,4 +222,114 @@ test('0.9.9.9.9.5 phones: light effects on weaker phones, the background scrolls
   assert.ok(css.includes('body.kb-up[data-screen="inbox"] .inbox-screen .msgr { height: calc(var(--kbh, 100dvh) - 76px) !important;'));
   assert.ok(css.includes(':is([data-screen="inbox"], [data-screen="kana"], [data-screen="kanaplay"]'));
   assert.ok(src('src/client/achievements.ts').includes("sheet.className = 'ach-tip ach-sheet';"));
+});
+
+// ── round 6 ──────────────────────────────────────────────────────────────────────────────────────────────────────
+import { RankedService, REPLAY_DAYS, SAVED_REPLAYS_MAX } from '../src/server/study/RankedService';
+import { SCREEN_ACTIVITY } from '../src/server/Session';
+import { clipOf, type TapeEntry } from '../src/client/replayclip';
+
+test('0.9.9.9.9.5 replays: kept a week; one saved to an account stays for good (the sweep and the trim skip it), a few at most', async () => {
+  assert.equal(REPLAY_DAYS, 7);
+  assert.ok(SAVED_REPLAYS_MAX >= 5 && SAVED_REPLAYS_MAX <= 30, 'a small limit');
+  const store = new MemoryStore();
+  const ranked = new RankedService(store);
+  const day = 86_400_000, now = Date.now();
+  const old = (await ranked.saveReplay({ v: 1, mode: 'reading', at: now - 9 * day, tape: [] }))!;
+  const kept = (await ranked.saveReplay({ v: 1, mode: 'rapid', at: now - 9 * day, tape: [] }))!;
+  assert.equal(await ranked.saveFor('u1', kept, 'Rapid'), 'ok');
+  assert.equal(await ranked.saveFor('u1', kept, 'Rapid'), 'ok', 'saving twice is fine');
+  assert.equal((await ranked.savedList('u1')).saved.length, 1);
+  await ranked.sweep(now);
+  assert.equal(await ranked.replay(old), null, 'a week on: gone');
+  assert.ok(await ranked.replay(kept), 'saved: still there');
+  assert.equal(await store.trimReplays(0), 0, 'the trim leaves a saved one too');
+  assert.ok(await ranked.replay(kept));
+  assert.equal(await ranked.saveFor('u1', old, ''), 'gone');
+  assert.equal(await ranked.saveFor('u1', 'not-a-replay-id!', ''), 'gone');
+  const [s] = (await ranked.savedList('u1')).saved as Array<{ id: string; mode: string; label: string }>;
+  assert.deepEqual([s.id, s.mode, s.label], [kept, 'rapid', 'Rapid']);
+  // the limit
+  for (let i = 0; i < SAVED_REPLAYS_MAX - 1; i++) assert.equal(await ranked.saveFor('u1', (await ranked.saveReplay({ v: 1, mode: 'reading', at: now, tape: [] }))!, ''), 'ok');
+  assert.equal(await ranked.saveFor('u1', (await ranked.saveReplay({ v: 1, mode: 'reading', at: now, tape: [] }))!, ''), 'full');
+  // removed: back to the week (and with it, gone at the next sweep)
+  assert.equal(await ranked.unsaveFor('u1', kept), true);
+  await ranked.sweep(now);
+  assert.equal(await ranked.replay(kept), null);
+  // the routes and the Postgres table (its sweep and trim skip saved ones; a deleted account's list goes with it)
+  const router = src('src/server/router.ts');
+  for (const r of ["r.method === 'GET' && url === '/api/me/replays'", "r.method === 'PUT' && /^\\/api\\/me\\/replays\\/[\\w-]{16}$/", "r.method === 'DELETE' && /^\\/api\\/me\\/replays\\/[\\w-]{16}$/"]) assert.ok(router.includes(r), r);
+  const pg = src('src/server/db/PgStore.ts');
+  assert.ok(pg.includes('create table if not exists kw_saved_replays ('));
+  assert.ok(pg.includes('user_id text not null references kw_users(id) on delete cascade'));
+  assert.equal((pg.match(/not exists \(select 1 from kw_saved_replays s where s\.replay_id = r\.id\)/g) ?? []).length, 2);
+  assert.ok(src('src/server/db/Store.ts').includes('this.saved.delete(id);'));
+});
+
+test('0.9.9.9.9.5 replays: watched from the results or history only once saved; history has a Saved tab; a shared link still plays', () => {
+  const main = src('src/client/main.ts');
+  assert.ok(main.includes("w.onclick = () => void watchSaved(id, side ?? you, ui.$('resultMode').textContent?.trim() ?? '');"));
+  assert.ok(main.includes("const ok = await ui.confirmBox('Save this replay?'"));
+  assert.ok(main.includes('if (st.n >= st.max) {'), 'the limit is told before asking');
+  assert.ok(/function replayFromLink\(\): boolean \{[\s\S]*?void openReplay\(id\);/.test(main), 'a link plays straight away');
+  const html = src('public/index.html');
+  assert.ok(html.includes('<div id="savedList" class="history-list" hidden></div>'));
+  assert.ok(html.includes('data-tab="saved"'));
+  assert.ok(src('src/client/ui.ts').includes('export function showSavedReplays('));
+});
+
+test('0.9.9.9.9.5 a replay stops on the fall: no results screen, the clip ends soon after the last blow', () => {
+  assert.ok(src('src/client/main.ts').includes("if (watching() === 'replay') break; // (0.9.9.9.9.5: a replay stops on the fall"));
+  const p = { id: 'a', name: 'A', hp: 0, maxHp: 100 } as never;
+  const tape: TapeEntry[] = [
+    [0, null, { type: 'battle_start', players: [p], countdownMs: 0, durationMs: 60000 } as never],
+    [5000, null, { type: 'game_over', mode: 'reading', players: [p], winnerId: 'b', reason: 'ko', stats: {} } as never],
+  ];
+  const c = clipOf(tape, 'reading', 'a');
+  assert.ok(c.end - 5000 >= 1500 && c.end - 5000 <= 2000, `the fall plays, then it stops (${c.end - 5000} ms)`);
+});
+
+test('0.9.9.9.9.5 results: one row of equal tiles (Rematch, Replay, Lobby, Menu), no link button', () => {
+  const html = src('public/index.html');
+  assert.ok(!html.includes('replayCopy') && !html.includes('id="replayRow"'));
+  const start = html.indexOf('<div class="row result-btns">');
+  const row = html.slice(start, html.indexOf('</div>', start));
+  const at = (id: string) => row.indexOf(`id="${id}"`);
+  assert.ok(at('rematch') >= 0 && at('rematch') < at('replayWatch') && at('replayWatch') < at('resultLobby') && at('resultLobby') < at('leave'));
+  assert.ok(src('public/style.css').includes('.result-bar { display: grid; grid-template-columns: repeat(auto-fit, 118px);'));
+  assert.ok(src('src/client/ui.ts').includes("for (const id of ['rematch', 'resultLobby', 'leave', 'rematchStatus']) $(id).hidden = !!opts.history;"));
+});
+
+test('0.9.9.9.9.5 friends see "Watching a replay" / "Watching a game"', () => {
+  assert.equal(SCREEN_ACTIVITY.replay, 'Watching a replay');
+  assert.equal(SCREEN_ACTIVITY.watching, 'Watching a game');
+  assert.ok(src('src/client/main.ts').includes("const where = w === 'replay' ? 'replay' : w === 'live' ? 'watching' :"));
+  assert.ok(src('src/server/Session.ts').includes("if (this.watched) return 'Watching a game';"));
+  assert.ok(src('src/client/i18n.ts').includes("'Watching a replay': 'Смотрит повтор'"));
+});
+
+test('0.9.9.9.9.5 the sword swing: the beats of the owner\'s reference video, the wrist leading, a trail; the wave from the blade during a close-up', () => {
+  const a = src('src/client/arena3d.ts');
+  assert.ok(a.includes('const SW_UP = 0.2, SW_CUT = 0.27, SW_END = 0.4, SW_BACK = 0.6;'));
+  const ms = Number(/const SWING_MS = (\d+);/.exec(a)?.[1]);
+  assert.ok(ms * (0.4 - 0.27) <= 150, 'the cut is fast');
+  assert.ok(a.includes('staffGroup.rotation.x += wristAt(sw.wp);') && a.includes('staffGroup.rotation.z += wristAt(sw.wr);'));
+  assert.ok(a.includes('scene.add(trail);') && a.includes('blending: THREE.AdditiveBlending'));
+  assert.ok(a.includes("if ((part === 'staff' || part === 'head') && cine && cineW > 0.05) return new THREE.Vector3(CAM.x + 0.55, CAM.y - 0.45, CAM.z - 1.2);"));
+  // the dragon's breath: a fan centred on everyone it hits
+  assert.ok(a.includes('const centre = targets.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / targets.length);'));
+});
+
+test('0.9.9.9.9.5 round 6 looks: the x30 number all gradient, Copy inside its card, the chat a screen of its own on phones, the Verdant wood solid', () => {
+  const css = src('public/style.css');
+  assert.ok(css.includes('.combo-hud.tier-5 b, .combo-banner.tier-5 b { padding: 0 .28em .06em .12em; margin: 0 -.28em -.06em -.12em;'));
+  assert.ok(css.includes('#lobby .code-row { flex-wrap: wrap; min-width: 0; }'));
+  assert.ok(css.includes('.open-switch { width: auto; min-width: 132px;'));
+  assert.ok(css.includes('position: fixed; z-index: 35; left: 0; right: 0; top: var(--kbt, 0px);'));
+  assert.ok(css.includes('body[data-screen="inbox"]:has(#inbox.thread-open) :is(.app-nav, #railFab, #dictFab, .version, .topbar) { display: none !important; }'));
+  assert.ok(src('src/client/inbox.ts').includes("document.documentElement.style.setProperty('--kbt',"));
+  const st = src('src/client/staffs3d.ts');
+  const verdant = st.slice(st.indexOf('function buildVerdant'), st.indexOf('function buildEmber'));
+  assert.ok(!verdant.includes('m.bark('), 'one solid wood');
+  assert.ok(!verdant.includes('k.stat(tubeGeo([2.1,') && !verdant.includes('k.stat(tubeGeo([2.2,'), 'the knot is the shaft\'s own tube');
 });

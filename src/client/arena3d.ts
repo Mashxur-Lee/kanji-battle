@@ -602,10 +602,29 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   // `tilt`: the angle of the cut — the wave it sends flies at that angle
   const SWING_MS = 900;
   const SWINGS = [
-    { from: [0.12, 0.45, 0.75, 0.55], to: [-1.5, -0.38, -1.05, -1.0], tilt: -0.62 }, // a diagonal cut, high right to low left
-    { from: [0.2, 0.18, 1.45, 0.25], to: [-1.6, 0.12, 1.45, -0.9], tilt: 0 },     // a flat sweep, right to left
-    { from: [-1.15, -0.5, -1.15, 0.2], to: [0.38, 0.6, 0.55, -1.0], tilt: 0.62 },  // a rising cut, low left to high right
+    // (round two, from the owner's reference video of first-person sword attacks: the cut there is ~0.1 s and huge — the
+    // hand goes up off the top right, then the whole arm crosses the screen and leaves it at the bottom, the wrist leading
+    // with the blade still up and then whipping down past it; the arm stays out of view a moment, then rises back to the
+    // guard. Mine was a slow 0.2 s sweep inside the screen with a fixed wrist: "it just moves the arm, I don't feel it".)
+    // `wp`/`wr`: the wrist's pitch and roll [cocked on the wind-up, whipped at the end of the cut]; `lean`: the view's lean
+    { from: [0.25, 1.15, 0.2, 0.25], to: [-1.3, -1.95, -0.25, -0.7], tilt: -1.25, wp: [0.35, -1.6], wr: [0.15, -0.2], lean: 0.6 },   // an overhead chop, top right to bottom middle
+    { from: [0.5, 1.2, 0.8, 0.2], to: [-2.6, -2.0, -0.95, -0.7], tilt: -0.62, wp: [0.3, -1.1], wr: [0.9, -1.5], lean: 1 },       // a diagonal cut, top right to bottom left
+    { from: [0.55, 0.4, 1.5, 0.15], to: [-3.4, -0.9, 1.45, -0.8], tilt: 0, wp: [0.1, -0.6], wr: [1.1, -1.8], lean: 1 },              // a flat sweep, right to left, out of view
   ] as const;
+  // the swing's beats (fractions of SWING_MS): wind-up ends, the cut starts, the cut ends (the hand off the screen), it
+  // starts coming back
+  const SW_UP = 0.2, SW_CUT = 0.27, SW_END = 0.4, SW_BACK = 0.6;
+  // the light the blade leaves through the air on a cut: a ribbon between its base and tip over the last frames
+  const TRAIL_N = 14;
+  const trailPos = new Float32Array(TRAIL_N * 2 * 3), trailCol = new Float32Array(TRAIL_N * 2 * 4);
+  const trailGeo = new THREE.BufferGeometry();
+  trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+  trailGeo.setAttribute('color', new THREE.BufferAttribute(trailCol, 4));
+  trailGeo.setIndex(Array.from({ length: TRAIL_N - 1 }, (_, i) => [i * 2, i * 2 + 1, i * 2 + 3, i * 2, i * 2 + 3, i * 2 + 2]).flat());
+  const trail = new THREE.Mesh(trailGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }));
+  trail.frustumCulled = false; trail.renderOrder = 6; trail.visible = false;
+  scene.add(trail);
+  const trailPts: Array<[THREE.Vector3, THREE.Vector3]> = [];
   let swingNo = 0, swingW = 0; // (how far your arm is into a swing: the forearm reaches back to the shoulder)
   let gemState: 'ready' | 'gone' | 'growing' = 'ready';
   let growAt = 0;
@@ -669,6 +688,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const tmp = new THREE.Vector3();
   function pointOf(who: Who, part: 'chest' | 'head' | 'staff' | 'mouth' = 'chest'): THREE.Vector3 {
     if (who === 'me') {
+      // (0.9.9.9.9.5: during a cinematic the camera — and your hand on it — is elsewhere: a spell of yours still leaves
+      // from where you stand, bottom-right of your own view; it flew in from the cinematic's side)
+      if ((part === 'staff' || part === 'head') && cine && cineW > 0.05) return new THREE.Vector3(CAM.x + 0.55, CAM.y - 0.45, CAM.z - 1.2);
       if (part === 'staff' || part === 'head') { staff.gem.getWorldPosition(tmp); return tmp.clone(); }
       return camera.localToWorld(new THREE.Vector3(rnd(-0.15, 0.15), -0.1, -1.4)); // spells at you fly at the camera
     }
@@ -942,8 +964,13 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     s.allies.forEach((a, i) => {
       const f = fighters.get(`ally:${a.id}`);
       // (0.9.9.9.9.5: on a computer your teammates stand beside you — left, right, then further left — a step ahead)
-      const spot: [number, number] = wide ? ([[-0.6, -0.8], [0.97, -1.7], [-0.9, -2]] as const)[i % 3].slice() as [number, number] : [-0.36 + i * 0.13, -0.6 - i * 1.1];
-      if (f) f.group.position.set(screenSpot(spot[0], spot[1]), 0, spot[1]);
+      // (0.9.9.9.9.5: fixed spots on the floor near you — left, right, further left — pulled in on a narrow screen so they
+      // stay in view, and never past the arena's edge: placed by the screen's width they stood outside it on wide ones)
+      let x: number, z: number;
+      if (wide) { [x, z] = ([[-2.7, 1.6], [3.1, 1.0], [-4.0, 0.0]] as const)[i % 3]; const lim = Math.abs(screenSpot(0.82, z)); x = Math.max(-lim, Math.min(lim, x)); }
+      else { z = -0.6 - i * 1.1; x = screenSpot(-0.36 + i * 0.13, z); }
+      const rr = Math.hypot(x, z); if (rr > 8) { x *= 8 / rr; z *= 8 / rr; }
+      if (f) f.group.position.set(x, 0, z);
     });
     // everyone faces their target: you face the opponent / dragon, the opponent faces you
     const foe = (boss ?? opp)?.group.position;
@@ -1294,6 +1321,7 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         0.2 - ex * 0.24 * eightAmp + twitchRot.z * 0.3,
       );
       fp.rotation.z = 0; swingW = 0; // (a sword's swing rolls it; a staff never does)
+      if (!swordMe && trail.visible) { trail.visible = false; trailPts.length = 0; }
       if (swordMe) {
         // 0.9.9.9.9.5: a sword is held still and trembles as you write (more as its blade fills with light) — no ∞ — and
         // a cast is one of three slashes, taking turns: a wind-up, a fast cut, a held follow-through and a smooth return
@@ -1306,19 +1334,51 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
         if (u < 1) {
           const sw = SWINGS[swingNo];
           const sm = (x: number) => x * x * (3 - 2 * x);
-          // rest → wind-up (0.32, eased) → the cut (to 0.56: fast, still easy to follow) → follow-through (to 0.72) → back (1)
+          // rest → wind-up → a held beat → the cut (~120 ms, speeding up, off the screen) → out of view → back up to the guard
           const rest = [0, 0, 0, 0];
-          let A: readonly number[] = rest, B: readonly number[] = sw.from, k = sm(u / 0.32);
-          if (u >= 0.32 && u < 0.56) { A = sw.from; B = sw.to; const c = (u - 0.32) / 0.24; k = c < 0.5 ? 2 * c * c : 1 - 2 * (1 - c) * (1 - c); }
-          else if (u >= 0.56 && u < 0.72) { A = sw.to; B = sw.to; k = 1; }
-          else if (u >= 0.72) { A = sw.to; B = rest; k = sm((u - 0.72) / 0.28); }
+          let A: readonly number[] = rest, B: readonly number[] = sw.from, k = sm(Math.min(1, u / SW_UP));
+          const c = Math.max(0, Math.min(1, (u - SW_CUT) / (SW_END - SW_CUT)));
+          if (u >= SW_CUT && u < SW_END) { A = sw.from; B = sw.to; k = c ** 1.6; }
+          else if (u >= SW_END && u < SW_BACK) { A = sw.to; B = sw.to; k = 1; }
+          else if (u >= SW_BACK) { A = sw.to; B = rest; k = sm((u - SW_BACK) / (1 - SW_BACK)); }
           const at = (i: number) => A[i] + (B[i] - A[i]) * k;
-          const cut = u >= 0.32 && u < 0.72 ? Math.sin(Math.min(1, (u - 0.32) / 0.4) * Math.PI) : 0;
+          const cut = u >= SW_CUT && u < SW_BACK ? Math.sin(Math.min(1, (u - SW_CUT) / (SW_BACK - SW_CUT)) * Math.PI) : 0;
           // the hand travels on an arc (a little closer to you in the middle of it, as an arm swings round the shoulder)
           fp.position.x += at(0); fp.position.y += at(1) + cut * 0.1; fp.position.z = fpBase.z - cut * 0.08;
           swingW = Math.min(1, Math.hypot(at(0), at(1)) * 2.5 + Math.abs(at(2)));
           fp.rotation.z = at(2); // the forearm rolls with it
           staffGroup.rotation.x += at(3); // raised back on the wind-up, reaching toward the foe on the cut
+          // the wrist: cocked back with the wind-up; on the cut the blade lags the hand (still up as the hand comes down),
+          // then whips past it
+          const wristAt = (w: readonly [number, number]) => {
+            if (u < SW_CUT) return w[0] * sm(Math.min(1, u / SW_UP));
+            if (u < SW_END) { const lag = c < 0.45 ? 0.08 * (c / 0.45) : 0.08 + 0.92 * sm((c - 0.45) / 0.55); return w[0] + (w[1] - w[0]) * lag; }
+            if (u < SW_BACK) return w[1];
+            return w[1] * (1 - sm((u - SW_BACK) / (1 - SW_BACK)));
+          };
+          staffGroup.rotation.x += wristAt(sw.wp);
+          staffGroup.rotation.z += wristAt(sw.wr);
+          camera.rotation.z += cut * 0.05 * sw.lean; // the view leans into it
+          // the trail: base and tip of the blade, in the world, through the cut and a moment after
+          if (u >= SW_CUT && u < SW_END + 0.06 && trail.parent) {
+            staff.group.updateWorldMatrix(true, false);
+            trailPts.unshift([staff.group.localToWorld(new THREE.Vector3(0, 0.75, 0)), staff.group.localToWorld(new THREE.Vector3(0, 1.2, 0))]);
+            if (trailPts.length > TRAIL_N) trailPts.length = TRAIL_N;
+          }
+        }
+        // the trail fades from its tail; gone soon after the cut
+        if (trail.parent) {
+          if ((u >= SW_END + 0.06 || u >= 1) && trailPts.length) { trailPts.pop(); if (trailPts.length) trailPts.pop(); }
+          trail.visible = trailPts.length > 1;
+          if (trail.visible) {
+            const c = staff.color;
+            for (let i = 0; i < TRAIL_N; i++) {
+              const pt = trailPts[Math.min(i, trailPts.length - 1)], a = i < trailPts.length ? (1 - i / TRAIL_N) ** 1.5 : 0;
+              trailPos.set([pt[0].x, pt[0].y, pt[0].z, pt[1].x, pt[1].y, pt[1].z], i * 6);
+              trailCol.set([c.r, c.g, c.b, a * 0.1, 0.55 + c.r * 0.45, 0.55 + c.g * 0.45, 0.55 + c.b * 0.45, a * 0.35], i * 8);
+            }
+            trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.color.needsUpdate = true;
+          }
         }
       }
       // 0.9.9.7: your combo pose, as you see it — floating lifts your view; Duelist points the staff's core
@@ -1736,9 +1796,9 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       const end = firstPerson ? chest.clone().add(new THREE.Vector3(screenSpot(0.42, chest.z) - chest.x, -0.5, 0)) : chest;
       const size = (o.crit ? 1.5 : 1) * 1.15;
       const swordCast = layout !== 'deck' && from !== 'boss' && isSword(staffIdOf(from));
-      if (from === 'me' && swordCast) swingNo = (swingNo + 1 + Math.floor(Math.random() * 2)) % SWINGS.length; // (picked here: the wave needs its angle)
+      if (from === 'me' && swordCast) swingNo = filming && typeof (window as { __kwSwing?: number }).__kwSwing === 'number' ? (window as unknown as { __kwSwing: number }).__kwSwing : (swingNo + 1 + Math.floor(Math.random() * 2)) % SWINGS.length; // (picked here: the wave needs its angle)
       const flight = fly(start, end, kanji, color, size, 0.85, firstPerson, swordCast, from === 'me' && swordCast ? SWINGS[swingNo].tilt : undefined,
-        from === 'me' && swordCast ? () => pointOf('me', 'staff') : undefined, from === 'me' && swordCast ? SWING_MS * 0.00044 : 0); // (it leaves the blade in the middle of the cut)
+        from === 'me' && swordCast ? () => pointOf('me', 'staff') : undefined, from === 'me' && swordCast ? SWING_MS * SW_END * 0.0009 : 0); // (it leaves the blade near the end of the cut)
       // 0.9.9.9.6.9: your big ones (a critical, or while you're on fire) — a side shot as it lands, now and then
       if (from === 'me' && (to === 'opp' || to === 'boss') && (o.crit || myFlame) && !cine && performance.now() - lastImpact > 9000) {
         lastImpact = performance.now();
@@ -1904,11 +1964,17 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
     breath(victims, damage) {
       inhaling = false;
       dragonBreathUntil = performance.now() + 1300;
+      // 0.9.9.9.9.5: one wide fan over the whole party, centred on it, sweeping from side to side (it went at each victim
+      // in turn — with two teammates on the left, the fire leaned left)
+      const targets = (victims.length ? victims : ['me' as Who]).map((v) => pointOf(v));
+      const centre = targets.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / targets.length);
+      const span = Math.max(3, ...targets.map((p) => Math.abs(p.x - centre.x) * 2 + 1.5));
       for (let i = 0; i < 160; i++) {
         setTimeout(() => {
           const mo = pointOf('boss', 'mouth'); // (from the jaws, wherever the head is now)
-          const target = victims.length ? pointOf(victims[i % victims.length]) : camera.localToWorld(new THREE.Vector3(0, -0.2, -1));
-          const v = target.clone().add(new THREE.Vector3(rnd(-1.5, 1.5), rnd(-0.8, 0.8), 0)).sub(mo).normalize().multiplyScalar(rnd(7, 11));
+          const sweep = Math.sin((i / 160) * Math.PI * 2.5) * 0.5; // (left to right and back)
+          const target = centre.clone().add(new THREE.Vector3(sweep * span + rnd(-0.6, 0.6), rnd(-0.6, 0.6), rnd(-0.4, 0.4)));
+          const v = target.sub(mo).normalize().multiplyScalar(rnd(7, 11));
           spark(mo, Math.random() < 0.4 ? 0xffd25a : 0xff5a1a, { size: rnd(0.3, 0.7), vel: v, life: rnd(0.6, 0.9), grow: 1.2 });
         }, i * 5);
       }

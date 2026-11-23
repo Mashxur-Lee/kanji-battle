@@ -7,6 +7,9 @@ import type { Level, MatchDetail, MatchSummary, Role } from '../../shared/protoc
 import { legacyXpToCurrent, type BackgroundId, type FlameId, type StaffId } from '../../shared/progress';
 import { deckOf, type CustomWord, type DeckId, type SrsCard } from '../../shared/srs';
 
+/** 0.9.9.9.9.5: a replay saved to an account (shown in match history's Saved tab) */
+export interface SavedReplay { id: string; savedAt: number; at: number; mode: string; label: string }
+
 export interface UserRecord {
   id: string;
   username: string; // stored lower-case; unique
@@ -190,6 +193,12 @@ export interface Store {
   sweepReplays(before: number): Promise<number>;
   /** 0.9.9.9.9.2: keep only the newest `keep` replays; how many went */
   trimReplays(keep: number): Promise<number>;
+  /** 0.9.9.9.9.5: replays a player saved to their account — kept for good (sweepReplays / trimReplays leave them), at most a
+   *  few each; newest first */
+  savedReplays(userId: string): Promise<SavedReplay[]>;
+  /** false: already saved */
+  addSavedReplay(userId: string, r: SavedReplay): Promise<boolean>;
+  removeSavedReplay(userId: string, replayId: string): Promise<boolean>;
   close?(): Promise<void>;
 }
 
@@ -281,6 +290,7 @@ export class MemoryStore implements Store {
     for (const m of this.friendLinks.values()) m.delete(id);
     this.members = this.members.filter((m) => m.userId !== id);
     this.dms = this.dms.filter((m) => m.fromId !== id && m.toId !== id);
+    this.saved.delete(id);
     this.persist();
     return true;
   }
@@ -565,11 +575,25 @@ export class MemoryStore implements Store {
   protected replays = new Map<string, { at: number; data: Buffer }>();
   async saveReplay(id: string, at: number, data: Buffer) { this.replays.set(id, { at, data }); }
   async replay(id: string) { return this.replays.get(id)?.data ?? null; }
-  async sweepReplays(before: number) { let n = 0; for (const [id, r] of this.replays) if (r.at < before) { this.replays.delete(id); n++; } return n; }
+  async sweepReplays(before: number) { const kept = this.keptIds(); let n = 0; for (const [id, r] of this.replays) if (r.at < before && !kept.has(id)) { this.replays.delete(id); n++; } return n; }
   async trimReplays(keep: number) {
-    const old = [...this.replays].sort((a, b) => b[1].at - a[1].at).slice(Math.max(0, keep));
+    const kept = this.keptIds();
+    const old = [...this.replays].filter(([id]) => !kept.has(id)).sort((a, b) => b[1].at - a[1].at).slice(Math.max(0, keep));
     for (const [id] of old) this.replays.delete(id);
     return old.length;
+  }
+  // 0.9.9.9.9.5: replays saved to accounts
+  protected saved = new Map<string, SavedReplay[]>();
+  private keptIds() { const s = new Set<string>(); for (const l of this.saved.values()) for (const r of l) s.add(r.id); return s; }
+  async savedReplays(userId: string) { return [...(this.saved.get(userId) ?? [])].sort((a, b) => b.savedAt - a.savedAt).map((r) => ({ ...r })); }
+  async addSavedReplay(userId: string, r: SavedReplay) {
+    const l = this.saved.get(userId) ?? [];
+    if (l.some((x) => x.id === r.id)) return false;
+    l.push({ ...r }); this.saved.set(userId, l); return true;
+  }
+  async removeSavedReplay(userId: string, replayId: string) {
+    const l = this.saved.get(userId) ?? [], left = l.filter((x) => x.id !== replayId);
+    this.saved.set(userId, left); return left.length !== l.length;
   }
 }
 

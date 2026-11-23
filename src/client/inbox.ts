@@ -722,12 +722,18 @@ export async function openThread(id: string) {
     const vv = window.visualViewport;
     const up = coarse() && typing() && (!vv || vv.height < innerHeight * 0.85 || innerHeight < screen.height * 0.7);
     document.body.classList.toggle('kb-up', up);
-    document.documentElement.style.setProperty('--kbh', `${Math.round((vv?.height ?? innerHeight) / (Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1))}px`);
+    const z = Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1;
+    document.documentElement.style.setProperty('--kbh', `${Math.round((vv?.height ?? innerHeight) / z)}px`);
+    // 0.9.9.9.9.5 (round 6): where the part of the page you can see starts — the browser slides the page up under the
+    // keyboard (the owner's phone: the chat cut off at the top, an empty band below); an open chat is pinned to it
+    document.documentElement.style.setProperty('--kbt', `${Math.round((vv?.offsetTop ?? 0) / z)}px`);
   };
   addEventListener('focusin', () => setTimeout(sync, 250));
   addEventListener('focusout', () => setTimeout(sync, 120));
   window.visualViewport?.addEventListener('resize', sync);
+  window.visualViewport?.addEventListener('scroll', sync);
   addEventListener('resize', sync);
+  sync();
 }
 /** 0.9.9.9.9.5: the lessons Messages returns to, and the one it was opened from */
 const LESSONS = new Set(['study', 'review', 'quiz', 'passage', 'quizzes', 'kana', 'kanaplay', 'daily', 'dict']);

@@ -7,6 +7,7 @@ import { viewH, viewW, zrect } from './zoom';
 import { injectBorderStyles } from './borders';
 injectBorderStyles(); // 0.9.9.9.6.1: the league frames (drawn, as a style sheet)
 import { showStrokeOrder } from './strokes';
+import type { SavedReplay } from './api';
 import {
   LEVEL_LABEL, LEVELS, MODE_LABEL, MODES, isKanaLevel, type AdminUserRow, type AnswerMode, type BossView, type GameMode, type GameOverReason,
   type Level, type MatchSummary, type PlayerId, type PlayerStats, type PlayerView, type PublicProfile, type PlayerStatus, type PublicUser, type StudyItem, type Avatar,
@@ -1300,7 +1301,11 @@ export function showResults(mode: GameMode, players: PlayerView[], you: PlayerId
   title.textContent = outcome === 'win' ? 'VICTORY' : outcome === 'loss' ? 'DEFEAT' : 'DRAW';
   if (mode === 'boss') $('resultReason').textContent = reason === 'time' && teamWon ? 'Time up - you held the dragon off!' : teamWon ? REASONS.boss_slain : reason === 'time' ? 'Time up - you held the dragon off!' : REASONS[reason];
   else $('resultReason').textContent = reason === 'time' ? 'Time up - most HP left wins' : REASONS[reason];
-  $('resultActions').hidden = !!opts.history;
+  // 0.9.9.9.9.5: one row of equal tiles — Rematch · Replay · Lobby · Menu (an old match from history: Replay only). The
+  // Replay tile waits, greyed, until the server says the match was kept (Deck Duel isn't recorded).
+  for (const id of ['rematch', 'resultLobby', 'leave', 'rematchStatus']) $(id).hidden = !!opts.history;
+  const rw = $<HTMLButtonElement>('replayWatch');
+  rw.hidden = !!opts.history || mode === 'deck'; rw.disabled = true;
   $('historyBackRow').hidden = !opts.history;
 
   // 0.9.9.9.5: a result can lack your own numbers (a match from history saved under another id, a game you left
@@ -1572,8 +1577,9 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
 }
 
 /** 0.9.9.9.5.5: "Are you sure?" — resolves true for yes (Esc / the backdrop / "Stay" is no) */
-export function confirmBox(title: string, text: string, yes = 'Leave', no = 'Stay'): Promise<boolean> {
+export function confirmBox(title: string, text: string, yes = 'Leave', no = 'Stay', danger = true): Promise<boolean> {
   const d = $<HTMLDialogElement>('confirmDialog');
+  $('confirmYes').classList.toggle('danger', danger); // (0.9.9.9.9.5: "Save and watch" isn't a red button)
   $('confirmTitle').textContent = tr(title);
   $('confirmText').textContent = tr(text);
   $('confirmYes').textContent = tr(yes);
@@ -1613,6 +1619,29 @@ export function showHistory(list: MatchSummary[] | null, onOpen: (id: string) =>
     return row;
   }));
   show('history');
+}
+
+/** 0.9.9.9.9.5: match history → Saved: the replays saved to your account (kept for good, a few at most) */
+export function showSavedReplays(list: SavedReplay[] | null, max: number, onWatch: (id: string) => void, onRemove: (id: string) => void) {
+  const box = $('savedList');
+  $('savedCount').textContent = list ? `${list.length}/${max}` : '';
+  if (!list) { box.replaceChildren(h('p', 'hint center', 'Loading…')); return; }
+  const note = h('p', 'hint saved-note', `Replays are kept for a week. Save one (the Replay button on the results) and it stays here for good - up to ${max}.`);
+  if (!list.length) { box.replaceChildren(note, h('p', 'hint center', 'No saved replays yet.')); return; }
+  box.replaceChildren(note, ...list.map((r) => {
+    const mode = (r.mode in MODE_LABEL ? r.mode : 'reading') as GameMode;
+    const row = h('div', 'hist-row saved-row');
+    const watch = h('button', 'saved-watch', 'Watch', { type: 'button' });
+    watch.onclick = () => onWatch(r.id);
+    const del = h('button', 'saved-del', '', { type: 'button', title: 'Remove', 'aria-label': 'Remove' });
+    del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/></svg>';
+    del.onclick = () => onRemove(r.id);
+    row.append(
+      append(h('span', 'hist-mode'), modeBadge(mode), append(h('span', 'hist-mode-text'), h('span', 'hist-mode-name', MODE_LABEL[mode]), h('span', 'hist-vs-line', dateTime(r.at)))),
+      watch, del,
+    );
+    return row;
+  }));
 }
 
 /** Colour an element's combo / Omnipotence flames (sets --f0..--f3 from the flame's colour). */
