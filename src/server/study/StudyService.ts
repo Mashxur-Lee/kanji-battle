@@ -7,7 +7,7 @@ import { LEVELS, studyLevelOf } from '../../shared/protocol';
 import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achievements';
 import { taskPassed, BETA_BORDER, BORDERS, borderOf, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, BACKGROUNDS, CRIT_BASE, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked, isCharacter, CHARACTER_DEFS, characterUnlocked, characterOf, poseOf, leagueIn } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
-import { isCorrectReading } from '../../shared/kana';
+import { isCorrectReading, toRomaji } from '../../shared/kana';
 import { displayReading } from '../../shared/vocab';
 import { buildQuiz, kanaQuestion, type QuizQuestion } from '../../shared/quiz';
 import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type DailyPlan, type Snapshot, type Store, type UserRecord } from '../db/Store';
@@ -69,7 +69,7 @@ export class StudyService {
   readonly decks: UserDecks;
   constructor(private readonly store: Store, private readonly rng: () => number = Math.random) {
     this.progress = new ProgressService(store);
-    this.decks = new UserDecks(store, (u, b) => this.addCustom(u, b));
+    this.decks = new UserDecks(store, (u, b) => this.addCustom(u, b), (u, ids) => this.removeFromDeck(u, 'custom', ids));
   }
 
   async profile(u: UserRecord, now = clockNow()): Promise<Profile> {
@@ -486,22 +486,27 @@ export class StudyService {
    * Custom spells: add a word. A dictionary word (by its id, or kanji [+ reading]) is used as it is;
    * anything else becomes your own word — then a reading (kana) and a meaning are needed.
    */
-  async addCustom(u: UserRecord, body: { vocabId?: unknown; kanji?: unknown; reading?: unknown; meaning?: unknown; id?: unknown }) {
+  async addCustom(u: UserRecord, body: { vocabId?: unknown; kanji?: unknown; reading?: unknown; meaning?: unknown; id?: unknown; ownKana?: boolean }) {
     if (typeof body.vocabId === 'string' && VOCAB_BY_ID.has(body.vocabId)) return { added: (await this.addToDeck(u, 'custom', [body.vocabId])).length > 0, word: fromVocab(VOCAB_BY_ID.get(body.vocabId)!) };
     const kanji = String(body.kanji ?? '').trim().normalize('NFKC').slice(0, 16);
     const reading = String(body.reading ?? '').trim().normalize('NFKC').slice(0, 32);
     const meaning = String(body.meaning ?? '').trim().slice(0, 120);
     if (!kanji) throw new StudyError('Write the word (kanji or kana)');
-    const known = VOCAB.find((v) => v.kanji === kanji && (!reading || isCorrectReading(reading, [v.reading, ...(v.altReadings ?? [])])));
+    // (round 2: in a deck of your own, a kana — あ — is a card of yours: the Kana section's own never made one, so the
+    // deck said 1 word and had nothing to study)
+    const known = VOCAB.find((v) => v.kanji === kanji && (!reading || isCorrectReading(reading, [v.reading, ...(v.altReadings ?? [])])) && !(body.ownKana && isKanaId(v.id)));
     if (known) return { added: (await this.addToDeck(u, 'custom', [known.id])).length > 0, word: fromVocab(known) };
-    if (!/^[぀-ゟ゠-ヿー]+$/.test(reading)) throw new StudyError('Not in the dictionary - add its reading in kana (e.g. まほう)');
-    if (!meaning) throw new StudyError('Add a meaning');
+    const kanaOnly = /^[぀-ゟ゠-ヿー]+$/.test(kanji);
+    const rd = reading || (kanaOnly ? kanji : '');
+    if (!/^[぀-ゟ゠-ヿー]+$/.test(rd)) throw new StudyError('Not in the dictionary - add its reading in kana (e.g. まほう)');
+    const mn = meaning || (kanaOnly && body.ownKana ? toRomaji(kanji) : '');
+    if (!mn) throw new StudyError('Add a meaning');
     const mine = await this.store.customWords(u.id);
     if (mine.length >= 1000) throw new StudyError('Custom spells are full (1000 words)');
-    const dupe = mine.find((w) => w.kanji === kanji && w.reading === reading);
+    const dupe = mine.find((w) => w.kanji === kanji && w.reading === rd);
     // the app picks the id itself (0.9.9.4), so a word added offline keeps it when the outbox is replayed
     const asked = typeof body.id === 'string' && CUSTOM_ID.test(body.id) && !mine.some((x) => x.id === body.id) ? body.id : null;
-    const w: CustomWord = dupe ?? { id: asked ?? CUSTOM_PREFIX + randomUUID().slice(0, 13), kanji, reading, meaning, createdAt: clockNow() };
+    const w: CustomWord = dupe ?? { id: asked ?? CUSTOM_PREFIX + randomUUID().slice(0, 13), kanji, reading: rd, meaning: mn, createdAt: clockNow() };
     if (!dupe) await this.store.addCustomWord(u.id, w);
     return { added: (await this.addToDeck(u, 'custom', [w.id])).length > 0, word: fromCustom(w) };
   }

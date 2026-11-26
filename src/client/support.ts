@@ -77,9 +77,7 @@ $('aboutBtn').onclick = () => { $('aboutVersion').textContent = `v${VERSION}`; $
 export async function refreshOnline() {
   try {
     const { online } = await api.online();
-    const pill = $('onlineCount');
-    pill.hidden = online < 1;
-    pill.textContent = `${online} online`;
+    for (const id of ['onlineCount', 'gamesOnline']) { const pill = document.getElementById(id); if (!pill) continue; pill.hidden = online < 1; pill.textContent = `${online} online`; } // (0.9.9.9.9.6: and on the Games page)
   } catch { /* offline */ }
 }
-setInterval(() => { if (getToken() && ['menu', 'queue'].includes(ui.currentScreen() ?? '')) void refreshOnline(); }, 30_000);
+setInterval(() => { if (getToken() && ['menu', 'queue', 'games'].includes(ui.currentScreen() ?? '')) void refreshOnline(); }, 30_000);

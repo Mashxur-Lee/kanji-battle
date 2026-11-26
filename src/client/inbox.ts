@@ -336,9 +336,9 @@ function renderRow(m: DmView, prev?: DmView, next?: DmView): HTMLElement {
   // 0.9.9.9.9.6: a GIF — the picture; tapped: add it to your GIFs (or take it out)
   if (m.kind === 'gif' && !m.deleted) {
     const img = document.createElement('img');
-    img.className = 'msg-gif'; img.src = gifSrc(m.text); img.alt = 'GIF'; img.loading = 'lazy'; img.decoding = 'async';
+    img.className = 'msg-gif'; img.src = gifSrc(m.text); img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
     img.onclick = (e) => { e.stopPropagation(); gifMenu(img, m.text); };
-    img.onload = () => { const box = $('msgLog'); if (box.scrollHeight - box.scrollTop - box.clientHeight < 400) box.scrollTop = box.scrollHeight; };
+    img.onload = () => { img.dataset.loaded = '1'; const box = $('msgLog'); if (box.scrollHeight - box.scrollTop - box.clientHeight < 400) box.scrollTop = box.scrollHeight; };
     b.append(img); b.classList.add('has-photo', 'has-gif');
   }
   const { quote, body } = inv || m.kind === 'gif' ? { quote: '', body: '' } : splitQuote(m.text);
@@ -389,8 +389,8 @@ function renderRow(m: DmView, prev?: DmView, next?: DmView): HTMLElement {
   // quote it in your answer (and swipe left on a phone)
   const q = h('button', 'msg-qbtn', '↩') as HTMLButtonElement;
   q.type = 'button'; q.title = tr('Reply'); q.setAttribute('aria-label', tr('Reply'));
-  q.onclick = (e) => { e.stopPropagation(); setQuote(body.replace(/^(🐞 )?Bug report\n|^(💡 )?Suggestion\n/, '') || (m.media ? tr('Photo') : '')); };
-  row.append(b, ...(m.kind && m.kind !== 'invite' ? [] : [quick]), ...(m.kind === 'invite' ? [] : [q]));
+  q.onclick = (e) => { e.stopPropagation(); setQuote(body.replace(/^(🐞 )?Bug report\n|^(💡 )?Suggestion\n/, '') || (m.kind === 'gif' ? 'GIF' : m.media ? tr('Photo') : '')); }; // (0.9.9.9.9.6: a GIF can be answered too)
+  row.append(b, ...(m.kind && m.kind !== 'invite' && m.kind !== 'gif' ? [] : [quick]), ...(m.kind === 'invite' ? [] : [q]));
   return row;
 }
 
@@ -468,7 +468,7 @@ function openMenu(m: DmView, anchor: HTMLElement) {
   if (m.deleted || m.kind === 'sys') return;
   const pop = h('div', 'msg-menu');
   pop.setAttribute('role', 'menu');
-  if (!m.kind || m.kind === 'invite') pop.append(reactRow(m, () => pop.remove()));
+  if (!m.kind || m.kind === 'invite' || m.kind === 'gif') pop.append(reactRow(m, () => pop.remove()));
   const item = (icon: string, label: string, fn: () => void, danger = false) => {
     const b = h('button', `msg-mi${danger ? ' danger' : ''}`) as HTMLButtonElement;
     b.type = 'button'; b.setAttribute('role', 'menuitem');
@@ -477,8 +477,8 @@ function openMenu(m: DmView, anchor: HTMLElement) {
     b.onclick = (e) => { e.stopPropagation(); pop.remove(); fn(); };
     pop.append(b);
   };
-  const { body } = m.kind === 'invite' ? { body: '' } : splitQuote(m.text);
-  if (m.kind !== 'invite') item(ICON.reply, tr('Reply'), () => setQuote(body || (m.media ? tr('Photo') : '')));
+  const { body } = m.kind === 'invite' || m.kind === 'gif' ? { body: '' } : splitQuote(m.text);
+  if (m.kind !== 'invite') item(ICON.reply, tr('Reply'), () => setQuote(body || (m.kind === 'gif' ? 'GIF' : m.media ? tr('Photo') : '')));
   if (body) item(ICON.copy, tr('Copy'), () => { void navigator.clipboard?.writeText(body).then(() => ui.toast(tr('Copied'), 1500)).catch(() => { /* not allowed */ }); });
   if (side === 'me' && m.kind !== 'invite') item(ICON.fwd, tr('Forward'), () => forwardDialog(m));
   if (canEdit(m)) item(ICON.edit, tr('Edit'), () => startEdit(m));
@@ -850,7 +850,7 @@ export function onDm(m: DmView, fromName: string, muted = false) {
   if (muted || (mutedAll && mySide === 'me') || ['battle', 'deck', 'prep'].includes(ui.currentScreen() ?? '')) return;
   audio.sfx.message();
   const where = grp ? ` · ${convs.find((c) => c.id === m.to)?.name ?? tr('group')}` : '';
-  const what = m.media ? (m.text ? `${tr('Photo')} · ${m.text}` : tr('Photo')) : m.text.split('\n').slice(-1)[0].slice(0, 80);
+  const what = m.kind === 'gif' ? 'GIF' : m.media ? (m.text ? `${tr('Photo')} · ${m.text}` : tr('Photo')) : m.text.split('\n').slice(-1)[0].slice(0, 80); // (0.9.9.9.9.6: a GIF, not its long address)
   ui.toast(`${mySide === 'support' ? `${fromName} → ${tr('team')}` : fromName + where}: ${what}`, 4000);
 }
 /** 0.9.9.9.6.4: a message edited, deleted or reacted to */

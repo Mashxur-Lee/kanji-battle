@@ -73,8 +73,11 @@ async function shell(path, req) {
     if (req.mode !== 'navigate' && (await genuine(req.url, res))) (await caches.open(RUNTIME)).put(req, res.clone());
     return res;
   } catch (err) {
-    const old = await caches.match(req);
+    // (0.9.9.9.9.6: no internet — any copy kept of it: another cache, an older build's; for a page, the game's own
+    // page from whichever build is still here. Without one an offline start showed the phone's "Webpage not available")
+    const old = (await caches.match(req)) ?? (await caches.match(path));
     if (old) return old;
+    if (req.mode === 'navigate') { for (const k of await caches.keys()) { if (!k.startsWith('kw-shell-')) continue; const p = await (await caches.open(k)).match('/index.html'); if (p) return p; } }
     throw err;
   }
 }

@@ -19,6 +19,8 @@ export class HandwritingPad {
   private strokes: DrawnChar = [];
   private current: Array<[number, number]> | null = null;
   private readonly ctx: CanvasRenderingContext2D;
+  /** 0.9.9.9.9.6: the ink colour (the dictionary's pad is dark, its ink light) */
+  inkColour = '#1b1530';
 
   /** onDraw: called while a stroke is being drawn (for live spectating) */
   onDraw: () => void = () => {};
@@ -182,7 +184,7 @@ export class HandwritingPad {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.lineWidth = canvas.height / 30;
-    ctx.strokeStyle = '#1b1530';
+    ctx.strokeStyle = this.inkColour;
     for (const s of [...this.strokes, ...(this.current ? [this.current] : [])]) {
       ctx.beginPath();
       s.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));

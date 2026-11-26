@@ -146,7 +146,8 @@ export const api = {
   setStudyLevels: (levels: Level[]) => call<StudySummary>('PUT', '/api/study/levels', { levels, today: today() }),
   queue: (deck: DeckId, set?: string) => call<{ cards: StudyCard[] }>('GET', `/api/study/queue?deck=${deck}${set ? `&set=${encodeURIComponent(set)}` : ''}&today=${today()}`),
   // 0.9.9.9.9.6: decks of your own
-  userDecks: () => call<{ decks: Array<{ id: string; name: string; count: number; due: number; fresh: number }> }>('GET', '/api/decks'),
+  userDecks: () => call<{ decks: Array<{ id: string; name: string; count: number; due: number; fresh: number; learning: number }>; max: number }>('GET', '/api/decks'),
+  userDeckAddRows: (id: string, rows: Array<{ kanji: string; reading: string; meaning: string }>) => call<{ added: number; skipped: Array<{ line: number; word: string; why: string }> }>('POST', `/api/decks/${encodeURIComponent(id)}/words`, { rows }),
   userDeckCreate: (name: string) => call<{ deck: { id: string; name: string } }>('POST', '/api/decks', { name }),
   userDeckRename: (id: string, name: string) => call<{ deck: { id: string; name: string } }>('PUT', `/api/decks/${encodeURIComponent(id)}`, { name }),
   userDeckDelete: (id: string) => call<{ removed: boolean }>('DELETE', `/api/decks/${encodeURIComponent(id)}`),

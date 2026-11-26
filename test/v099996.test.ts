@@ -57,10 +57,10 @@ test('0.9.9.9.9.6 your own decks: make, fill, study only its cards, rename, remo
   assert.ok(!mine.some((c) => c.vocabId === other.word.id));
   assert.equal((await study.decks.rename(u.id, d.id, 'Genki ch. 3')).name, 'Genki ch. 3');
   const w0 = (await study.decks.get(u.id, d.id))!.words[0];
-  assert.equal((await study.decks.removeWords(u.id, d.id, [w0])).words.length, 1);
-  assert.equal(await study.decks.remove(u.id, d.id), true);
+  assert.equal((await study.decks.removeWords(u, d.id, [w0])).words.length, 1);
+  assert.equal(await study.decks.remove(u, d.id), true);
   assert.equal((await study.decks.list(u.id)).length, 0);
-  assert.ok(USER_DECKS_MAX >= 10);
+  assert.equal(USER_DECKS_MAX, 4, 'four decks of your own (round 2)');
   // the account goes: its decks go too
   await study.decks.create(u.id, 'x');
   await store.deleteUser(u.id);
@@ -112,7 +112,8 @@ test('0.9.9.9.9.6 deck routes and the Study page: Dictionary, New deck, Import; 
   assert.ok(!r.includes("from './study/apkg'"), 'router.ts is in the offline bundle: node:sqlite comes in from index.ts');
   assert.ok(src('src/server/index.ts').includes("readApkg: (b64) => readApkg(Buffer.from(b64, 'base64'))"));
   const html = src('public/index.html');
-  for (const id of ['studyDict', 'studyNewDeck', 'studyImport', 'userDecks']) assert.ok(html.includes(`id="${id}"`), id);
+  for (const id of ['studyDict', 'studyNewDeck', 'userDecks']) assert.ok(html.includes(`id="${id}"`), id);
+  assert.ok(!html.includes('id="studyImport"'), 'round 2: one + New deck; each deck imports for itself');
 });
 
 // ── the dictionary ──
@@ -262,4 +263,47 @@ test('0.9.9.9.9.6 GIF pictures come through our server (GIPHY is blocked in some
   assert.equal(asked.length, 1);
   assert.ok(src('src/client/inbox.ts').includes('img.src = gifSrc(m.text);') && src('src/client/gifpicker.ts').includes('img.src = gifSrc(g.preview || g.url);'));
   assert.ok(src('src/server/router.ts').includes("url.startsWith('/api/gif-media/')"));
+});
+
+// ── round 2 ──
+test('0.9.9.9.9.6 round 2 decks: four at most, Custom spells becomes "My words" once, a kana is a card of its own, words no deck holds lose their card', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  const u = await store.create({ username: 'deck2', passwordHash: 'x', role: 'user' });
+  const old = await study.addCustom(u, { kanji: '本', reading: 'ほん', meaning: 'book' });
+  await study.decks.migrate(u.id, [old.word.id]);
+  const first = await study.decks.list(u.id);
+  assert.deepEqual(first.map((d) => [d.name, d.words]), [['My words', [old.word.id]]]);
+  await study.decks.remove(u, first[0].id);
+  await study.decks.migrate(u.id, [old.word.id]);
+  assert.equal((await study.decks.list(u.id)).length, 0, 'once: a deck you deleted doesn\'t come back');
+  assert.ok(!(await study.queue(u, 'custom')).some((c) => c.vocabId === old.word.id), 'its card went with it');
+  const d = await study.decks.create(u.id, 'Kana');
+  const r = await study.decks.addWords(u, d.id, parseList('あ\tA'));
+  assert.equal(r.added, 1);
+  assert.equal((await study.queue(u, 'custom', undefined, undefined, undefined, d.id)).length, 1, 'あ can be studied (it said 1 word with nothing to study)');
+  for (let i = 0; i < 3; i++) await study.decks.create(u.id, `d${i}`);
+  await assert.rejects(study.decks.create(u.id, 'fifth'), /4 decks/);
+});
+
+test('0.9.9.9.9.6 round 2: the Games page, CAST! no longer swings a sword, the phone\'s back in a chat, GIF replies, the dark drawing pad', () => {
+  const html = src('public/index.html');
+  assert.ok(html.includes('id="gamesBtn"') && html.includes('<section id="games" class="screen" hidden>'));
+  assert.ok(src('src/client/nav.ts').includes("btn: 'gamesBtn', screens: ['games', 'queue', 'private', 'modes']"));
+  assert.ok(src('src/client/main.ts').includes('if (!isSwordId(myStaff())) arena()?.thrust();'));
+  assert.ok(src('src/client/appshell.ts').includes("const chatBack = document.querySelector<HTMLElement>('#inbox.thread-open .msg-back');"));
+  const inbox = src('src/client/inbox.ts');
+  assert.ok(inbox.includes("(m.kind === 'gif' ? 'GIF' : m.media ? tr('Photo') : '')"));
+  assert.ok(inbox.includes("const what = m.kind === 'gif' ? 'GIF' :"), 'the notification says GIF, not its address');
+  assert.ok(src('src/server/study/MessageService.ts').includes("...(m.kind === 'gif' ? { gif: m.text } : {})"), 'forwarded as a GIF');
+  assert.ok(src('src/client/dictui.ts').includes("drawPad.inkColour = '#f1effb';"));
+  assert.ok(src('public/style.css').includes('.dd-cands { height: 102px; min-height: 102px;'), 'the pad keeps still when the matches come');
+  assert.ok(src('src/client/dictui.ts').includes("tr(prevWord !== undefined ? 'Back' : 'Results')"), 'back to the word you came from');
+});
+
+test('0.9.9.9.9.6 round 2: offline start keeps a copy of the game; slow internet isn\'t called a sleeping server', () => {
+  const sw = src('src/client/sw.js');
+  assert.ok(sw.includes("const p = await (await caches.open(k)).match('/index.html'); if (p) return p;"));
+  assert.ok(!src('src/client/appshell.ts').includes("if (k.startsWith('kw-shell-')) await caches.delete(k);"), 'an update no longer drops the copy first');
+  assert.ok(src('src/client/main.ts').includes("tr(slow ? 'Slow internet - connecting…' : 'Connecting to the server…')"));
 });

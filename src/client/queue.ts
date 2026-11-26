@@ -83,7 +83,7 @@ export function initQueue(sender: typeof send, myId: () => string) {
   });
   ui.$('qDeckHelp').addEventListener('keydown', (e) => e.stopPropagation());
   ui.$('mfAccept').onclick = () => { if (foundId) send({ type: 'queue_accept', matchId: foundId }); };
-  ui.$('queueBack').onclick = () => { if (searching) send({ type: 'queue_cancel' }); stopSearching(); ui.show('menu'); };
+  ui.$('queueBack').onclick = () => { if (searching) send({ type: 'queue_cancel' }); stopSearching(); ui.show('games'); }; // (0.9.9.9.9.6: back to Games)
   ui.$('qStart').onclick = () => {
     askNotifyPermission(); // so a found match can reach you in another tab
     if (pick === 'deck') return send({ type: 'queue', modes: ['deck'] });
