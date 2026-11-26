@@ -8,6 +8,7 @@ import { ACH_PREFIX, earnedAchievements, type AchFacts } from '../../shared/achi
 import { taskPassed, BETA_BORDER, BORDERS, borderOf, borderUnlocked, isBorder, type DailyTaskState, isKanaBeginner, KANA_BEGINNER, BACKGROUNDS, CRIT_BASE, dailyCrit, FLAMES, flameUnlocked, isBackground, isFlame, isStaff, STAFFS, staffUnlocked, levelOf, nextLocalMidnight, STUDY_LOCK, unlocked, xpFor, type BackgroundId, type FlameId, type MatchOutcome, type StaffId, isPose, POSE_DEFS, poseUnlocked, isCharacter, CHARACTER_DEFS, characterUnlocked, characterOf, poseOf, leagueIn } from '../../shared/progress';
 import { answer, CUSTOM_PREFIX, deckOf, isDeck, isDue, newCard, previewIntervals, RATINGS, type CustomWord, type DeckId, type Rating, type SrsCard } from '../../shared/srs';
 import { isCorrectReading, toRomaji } from '../../shared/kana';
+import { grammarById, passMark } from '../../shared/grammar';
 import { displayReading } from '../../shared/vocab';
 import { buildQuiz, kanaQuestion, type QuizQuestion } from '../../shared/quiz';
 import { MATCH_HISTORY_LIMIT, SNAPSHOT_V, type DailyPlan, type Snapshot, type Store, type UserRecord } from '../db/Store';
@@ -72,6 +73,19 @@ export class StudyService {
   /** 0.9.9.9.9.6 (round 4): your Kanji chess games (the last 40) — Match history → Chess */
   async chessGames(userId: string): Promise<ChessGameRecord[]> {
     try { const v = JSON.parse((await this.store.getValue(`chessgames:${userId}`)) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+  }
+  /** 0.9.9.9.9.6 (round 4): the grammar lessons you have passed (Grammar on the menu) */
+  async grammarPassed(userId: string): Promise<string[]> {
+    try { const v = JSON.parse((await this.store.getValue(`grammar:${userId}`)) ?? '[]'); return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []; } catch { return []; }
+  }
+  /** a lesson's questions answered: passed with all but one right (the lesson must exist) */
+  async passGrammar(userId: string, id: unknown, right: unknown): Promise<{ passed: string[]; ok: boolean }> {
+    const g = typeof id === 'string' ? grammarById(id) : null;
+    if (!g) throw new StudyError('No such lesson');
+    const have = await this.grammarPassed(userId);
+    const ok = Number(right) >= passMark(g);
+    if (ok && !have.includes(g.id)) { have.push(g.id); await this.store.setValue(`grammar:${userId}`, JSON.stringify(have)); }
+    return { passed: have, ok };
   }
   async addChessGame(userId: string, g: ChessGameRecord) {
     const list = [g, ...(await this.chessGames(userId))].slice(0, 40);

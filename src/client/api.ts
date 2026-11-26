@@ -206,6 +206,9 @@ export const api = {
   saveReplay: (id: string, label: string) => call<{ saved: SavedReplay[]; max: number }>('PUT', `/api/me/replays/${encodeURIComponent(id)}`, { label }),
   unsaveReplay: (id: string) => call<{ saved: SavedReplay[]; max: number }>('DELETE', `/api/me/replays/${encodeURIComponent(id)}`),
   // 0.9.9.9.9.6 (round 4): your Kanji chess games; a game against a wizard is sent here when it ends
+  // 0.9.9.9.9.6 (round 4): the grammar lessons passed
+  grammarPassed: () => call<{ passed: string[] }>('GET', '/api/grammar'),
+  passGrammar: (id: string, right: number) => call<{ passed: string[]; ok: boolean }>('POST', '/api/grammar/pass', { id, right }),
   chessGames: () => call<{ games: ChessGame[] }>('GET', '/api/chess/games'),
   saveChessGame: (g: { bot: string; color: 'w' | 'b'; moves: string[]; times: number[]; base: number; inc: number; reason: string; result: string }) => call<{ ok: true }>('POST', '/api/chess/games', g),
   match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),

@@ -526,3 +526,43 @@ test('0.9.9.9.9.6 round 4 tutorial: Master Fumi in 2.5D on every card and tip, a
   assert.ok(css.includes('.tg-stage { position: absolute; inset: 0; transform-style: preserve-3d;'), 'layers at their own depths');
   assert.ok(!/@media[^{]*prefers-reduced-motion\s*:\s*reduce/.test(css), 'animations run even with Windows animation effects off');
 });
+
+// ── round 4: Grammar ──
+test('0.9.9.9.9.6 round 4 grammar: every lesson complete — meaning, rules and examples in both languages, questions with one gap and four different choices, readings in hiragana', async () => {
+  const { GRAMMAR, grammarOf, shuffled, plainJp, passMark } = await import('../src/shared/grammar');
+  const { parseLine } = await import('../src/shared/chesslines');
+  assert.ok(grammarOf('N5').length >= 30, 'N5 in full');
+  assert.ok(grammarOf('N4').length >= 20);
+  assert.equal(new Set(GRAMMAR.map((g) => g.id)).size, GRAMMAR.length, 'ids unique');
+  for (const g of GRAMMAR) {
+    assert.ok(g.pattern && g.meaning.en && g.meaning.ru, g.id);
+    assert.ok(g.rules.length && g.rules.every((r) => r.en && r.ru), `${g.id} rules`);
+    assert.ok(g.examples.length && g.examples.every((e) => e.jp && e.en && e.ru), `${g.id} examples`);
+    assert.ok(g.questions.length >= 3, `${g.id} questions`);
+    for (const line of [...g.examples.map((e) => e.jp), ...g.questions.map((q) => q.jp)]) {
+      assert.ok(parseLine(line).every((x) => !x.reading || /^[\p{Script=Hiragana}ー]+$/u.test(x.reading)), `readings in hiragana: ${line}`);
+      assert.ok(!/[{}|]/.test(plainJp(line)), `markup closed: ${line}`);
+    }
+    for (const q of g.questions) {
+      assert.equal(q.jp.split('＿＿').length, 2, `one gap: ${q.jp}`);
+      assert.equal(new Set(q.options).size, 4, `four different choices: ${q.jp}`);
+      assert.ok(q.en && q.ru, q.jp);
+      const s = shuffled(q, () => 0.3);
+      assert.equal(s.options[s.answer], q.options[0], 'the right one is found after the shuffle');
+    }
+  }
+  assert.equal(passMark(GRAMMAR[0]), GRAMMAR[0].questions.length - 1, 'all but one');
+});
+
+test('0.9.9.9.9.6 round 4 grammar: a lesson is passed with all but one right, kept on the account; the menu card and the page', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  assert.deepEqual(await study.passGrammar('u1', 'n5-ka', 1), { passed: [], ok: false });
+  assert.deepEqual(await study.passGrammar('u1', 'n5-ka', 2), { passed: ['n5-ka'], ok: true });
+  assert.deepEqual(await study.grammarPassed('u1'), ['n5-ka']);
+  await assert.rejects(study.passGrammar('u1', 'nope', 3), /No such lesson/);
+  const html = src('public/index.html');
+  assert.ok(html.includes('<button id="grammarBtn" class="mc-card mc-grammar" type="button">') && html.includes('<section id="grammar" class="screen grammar-screen" hidden>'));
+  assert.ok(src('src/client/nav.ts').includes("{ id: 'grammar', label: 'Grammar', icon: 'grammar', btn: 'grammarBtn', screens: ['grammar'] }"));
+  assert.ok(src('src/server/router.ts').includes("url === '/api/grammar/pass'"));
+});

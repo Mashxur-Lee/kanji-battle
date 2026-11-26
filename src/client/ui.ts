@@ -30,7 +30,7 @@ function h(tag: string, cls = '', text?: string | number, attrs: Record<string, 
 }
 const append = (parent: HTMLElement, ...kids: Array<HTMLElement | string>) => { parent.append(...kids); return parent; };
 
-const SCREENS = ['auth', 'menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict', 'kana', 'kanaplay', 'quizzes', 'inbox', 'games', 'chess'] as const;
+const SCREENS = ['auth', 'menu', 'queue', 'admin', 'private', 'modes', 'lobby', 'prep', 'battle', 'results', 'study', 'review', 'quiz', 'passage', 'customize', 'deck', 'history', 'progress', 'daily', 'friends', 'dict', 'kana', 'kanaplay', 'quizzes', 'inbox', 'games', 'chess', 'grammar'] as const;
 export type Screen = (typeof SCREENS)[number];
 /** (0.9.9.9.9.3: every listener — there was room for one, and the navigation's was replaced by main's) */
 const screenListeners: Array<(s: Screen) => void> = [];

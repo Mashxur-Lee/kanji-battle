@@ -385,6 +385,11 @@
         <span class="mc-glyph" lang="ja" aria-hidden="true">試</span>
         <span class="mc-body"><b class="mc-name">Quizzes</b><span class="mc-info">JLPT quiz, onomatopoeia and reading passages</span></span>
       </button>
+      <!-- 0.9.9.9.9.6 (round 4): Grammar, N5 to N1, lesson by lesson with Master Fumi -->
+      <button id="grammarBtn" class="mc-card mc-grammar" type="button">
+        <span class="mc-glyph" lang="ja" aria-hidden="true">法</span>
+        <span class="mc-body"><b class="mc-name">Grammar <span class="badge">new</span></b><span class="mc-info">JLPT grammar, N5 to N1 - explained, then tested</span></span>
+      </button>
       <!-- 0.9.9.9.5: hiragana and katakana have a section of their own -->
       <button id="kanaBtn" class="mc-card mc-kana" type="button">
         <span class="mc-glyph" lang="ja" aria-hidden="true">あ</span>
@@ -718,6 +723,19 @@
         </form>
       </div>
     </div>
+  </section>
+
+  <!-- 0.9.9.9.9.6 (round 4): GRAMMAR — the lessons, and one lesson at a time -->
+  <section id="grammar" class="screen grammar-screen" hidden>
+    <button id="grammarBack" class="back" type="button">← Menu</button>
+    <div class="page-head"><h2>Grammar</h2></div>
+    <div id="grammarList">
+      <p class="sub">Master Fumi explains each grammar point - what it means, how it is formed, examples - then asks a few questions. Get all but one right and the lesson is passed.</p>
+      <div id="grammarLevels" class="word-tabs gr-levels" role="tablist" aria-label="JLPT level"></div>
+      <div class="gr-progress"><span id="grammarProg"></span><div class="gr-track"><i id="grammarBar"></i></div></div>
+      <div id="grammarItems" class="gr-items"></div>
+    </div>
+    <div id="grammarLesson" class="gr-lesson" hidden></div>
   </section>
 
   <section id="quizzes" class="screen quizzes-screen" hidden>

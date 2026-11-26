@@ -1,4 +1,5 @@
 import { knowPlayer, setMentionSelf } from './mentions';
+import { openGrammar } from './grammarui';
 import { challengeChess, chessReconnected, initChess, onChessError, onChessInvite, onChessRoom, openChess, setChessUser, showChessHistory } from './chess';
 import { setGifUser } from './gifpicker';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
@@ -1223,6 +1224,8 @@ ui.$('studyBtn').onclick = () => {
   void openStudy();
 };
 ui.$('quizzesBtn').onclick = () => ui.show('quizzes');
+ui.$('grammarBtn').onclick = () => openGrammar(); // 0.9.9.9.9.6 (round 4)
+ui.$('grammarBack').onclick = () => ui.show('menu');
 ui.$('quizzesBack').onclick = () => ui.show('menu');
 // 0.9.9.9.5: the Kana section (a kana mastered for the first time gives XP: the level bar follows)
 ui.$('kanaBtn').onclick = () => openKana();

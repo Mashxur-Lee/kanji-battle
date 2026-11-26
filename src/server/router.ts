@@ -503,6 +503,14 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         if (!limiter.allow(`gif:${u.id}`)) throw new AuthError('Too many searches — wait a minute', 429);
         try { return res(200, { gifs: await gifs.search(query.get('q') ?? '', Number(query.get('offset') ?? 0), query.get('lang') ?? 'en') }); }
         catch (e) { return res(502, { error: (e as Error).message }); }
+      } else if (r.method === 'GET' && url === '/api/grammar') {
+        // 0.9.9.9.9.6 (round 4): the grammar lessons you have passed
+        const u = await auth.authenticate(r.token);
+        return res(200, { passed: await study.grammarPassed(u.id) });
+      } else if (r.method === 'POST' && url === '/api/grammar/pass') {
+        const u = await auth.authenticate(r.token);
+        const b = (await r.json()) as Record<string, unknown>;
+        return res(200, await study.passGrammar(u.id, b.id, b.right));
       } else if (r.method === 'GET' && url === '/api/chess/games') {
         // 0.9.9.9.9.6 (round 4): your Kanji chess games (Match history → Chess)
         const u = await auth.authenticate(r.token);

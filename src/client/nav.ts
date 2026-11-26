@@ -18,6 +18,8 @@ const ICON: Record<string, string> = {
   progress: '<path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/>',
   customize: '<path d="M12 3.5 8.5 11h7z"/><path d="M7 11h10l1.5 9.5h-13z"/>',
   history: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  // 0.9.9.9.9.6 (round 4): Grammar — an open book with a bookmark
+  grammar: '<path d="M3.5 5.5c3-1 6-1 8.5 1 2.5-2 5.5-2 8.5-1v13c-3-1-6-1-8.5 1-2.5-2-5.5-2-8.5-1z"/><path d="M12 6.5v13"/><path d="M15.5 4.8v5l1.5-1 1.5 1V4.6"/>',
   messages: '<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
   more: '<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>',
   // 0.9.9.9.9.5: a gear (the rays read as a sun) — the same one as the menu's Settings
@@ -32,6 +34,7 @@ const ITEMS: Item[] = [
   { id: 'daily', label: 'Daily', icon: 'daily', btn: 'dailyBtn', screens: ['daily'], phone: true },
   { id: 'quizzes', label: 'Quizzes', icon: 'quiz', btn: 'quizzesBtn', screens: ['quizzes'] },
   { id: 'kana', label: 'Kana', icon: 'kana', btn: 'kanaBtn', screens: ['kana'] },
+  { id: 'grammar', label: 'Grammar', icon: 'grammar', btn: 'grammarBtn', screens: ['grammar'] }, // 0.9.9.9.9.6 (round 4)
   { id: 'progress', label: 'Progress', icon: 'progress', btn: 'progressBtn', screens: ['progress', 'friends'], phone: true },
   { id: 'customize', label: 'Customize', icon: 'customize', btn: 'customizeBtn', screens: ['customize'] },
   { id: 'history', label: 'History', icon: 'history', btn: 'historyBtn', screens: ['history'] },
@@ -42,9 +45,9 @@ const ITEMS: Item[] = [
  * 0.9.9.9.9.5: each page's seal — its own kanji, stamped beside the title like a hanko (the UI's one bold element:
  * the game is about kanji)
  */
-const SEALS: Record<string, string> = { games: '遊', queue: '戦', private: '友', modes: '術', kana: 'か', progress: '進', daily: '日', friends: '友', history: '史', dict: '辞', study: '学', inbox: '文', quizzes: '問', customize: '装', admin: '管' };
+const SEALS: Record<string, string> = { games: '遊', queue: '戦', private: '友', modes: '術', kana: 'か', progress: '進', daily: '日', friends: '友', history: '史', dict: '辞', study: '学', inbox: '文', quizzes: '問', customize: '装', admin: '管', grammar: '法' };
 /** the pages that show it */
-export const NAV_SCREENS = new Set(['games', 'queue', 'private', 'modes', 'kana', 'progress', 'daily', 'friends', 'history', 'dict', 'study', 'inbox', 'quizzes', 'customize', 'admin']);
+export const NAV_SCREENS = new Set(['games', 'queue', 'private', 'modes', 'kana', 'progress', 'daily', 'friends', 'history', 'dict', 'study', 'inbox', 'quizzes', 'customize', 'admin', 'grammar']);
 
 const svg = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
 

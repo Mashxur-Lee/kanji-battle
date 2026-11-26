@@ -6929,3 +6929,82 @@ button.cm-mv:hover { background: rgba(255, 255, 255, .07); }
   .coach-tip.coach-guided { flex-wrap: wrap; }
   .coach-btns { width: 100%; justify-content: flex-end; }
 }
+
+/* 0.9.9.9.9.6 (round 4): Grammar — its menu card, the lessons, one lesson with Master Fumi, its questions */
+.mc-grammar { --mc: #9be37f; background: linear-gradient(180deg, rgba(34, 78, 40, .9) 0%, rgba(14, 22, 40, .92) 100%); border-color: rgba(155, 227, 127, .45); }
+@media (min-width: 1101px) { .mc-cards { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (max-width: 1100px) {
+  #menu .mc-cards > #grammarBtn { order: 5; grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 16px; }
+}
+.grammar-screen { max-width: 1000px; margin: 0 auto; }
+.gr-levels { justify-content: flex-start; margin: 12px 0; }
+.gr-levels .word-tab:disabled { opacity: .5; }
+.gr-soon { margin-left: 6px; font-size: .68rem; opacity: .8; }
+.gr-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; font-weight: 700; color: var(--muted); }
+.gr-track { flex: 1; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.gr-track i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #6ee7a8, #9be37f); transition: width .5s; }
+.gr-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.gr-item { display: grid; grid-template-columns: 2em 1fr auto; grid-template-rows: auto auto; column-gap: 10px; row-gap: 2px; align-items: center; margin: 0; padding: 12px 14px; border-radius: 16px; text-align: left; background: var(--card); border: 2px solid var(--line); color: var(--text); box-shadow: 0 3px 0 var(--line); cursor: pointer; }
+.gr-item:hover { border-color: rgba(155, 227, 127, .6); }
+.gr-n { grid-row: 1 / 3; color: var(--muted); font-weight: 800; font-variant-numeric: tabular-nums; }
+.gr-pat { font: 800 1.15rem/1.3 var(--jp, serif); }
+.gr-mean { grid-column: 2; color: var(--muted); font-size: .88rem; }
+.gr-state { grid-row: 1 / 3; grid-column: 3; font: 800 .74rem/1 var(--ui, sans-serif); padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .08); }
+.gr-item.passed { border-color: rgba(110, 231, 168, .55); }
+.gr-item.passed .gr-state { background: rgba(110, 231, 168, .2); color: #6ee7a8; }
+/* one lesson */
+.gr-lesson { display: flex; flex-direction: column; gap: 14px; }
+.gr-lesson[hidden] { display: none; }
+.gr-top { display: flex; align-items: center; gap: 16px; }
+.gr-top .tg-big { width: 160px; height: 200px; }
+.gr-talk { flex: 1; min-width: 0; }
+.gr-main { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; border-radius: 20px; background: var(--card); border: 2px solid var(--line); }
+.gr-head { display: flex; flex-direction: column; gap: 4px; }
+.gr-lvl { align-self: flex-start; font: 800 .72rem/1 var(--ui, sans-serif); padding: 5px 9px; border-radius: 999px; background: rgba(155, 227, 127, .18); color: #9be37f; }
+.gr-pattern { margin: 2px 0 0; font: 900 2rem/1.2 var(--jp, serif); }
+.gr-meaning { margin: 0; font-size: 1.1rem; color: var(--muted); }
+.gr-sub { margin: 8px 0 0; font-size: .82rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.gr-rules { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 6px; line-height: 1.55; }
+.gr-examples { display: flex; flex-direction: column; gap: 8px; }
+.gr-ex { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: rgba(0, 0, 0, .18); }
+.gr-ex .gr-jp, .gr-ex .gr-tr { grid-column: 2; margin: 0; }
+.gr-say { grid-row: 1 / 3; width: 38px; height: 38px; margin: 0; padding: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(155, 227, 127, .16); color: #9be37f; border: 1px solid rgba(155, 227, 127, .4); box-shadow: none; }
+.gr-jp, .gr-q { font-size: 1.3rem; line-height: 2.1; }
+.gr-jp rt, .gr-q rt { font-size: .55em; }
+.gr-k { margin: 0; padding: 0; border: 0; background: none; box-shadow: none; color: inherit; font: inherit; cursor: pointer; border-bottom: 1px dotted rgba(185, 160, 255, .6); }
+.gr-tr { color: var(--muted); font-size: .95rem; }
+.gr-foot { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.gr-foot .big, .gr-foot .pill { margin: 0; }
+/* the questions */
+.gr-quiz { display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 20px; background: var(--card); border: 2px solid var(--line); }
+.gr-step { margin: 0; color: var(--muted); font-weight: 800; font-size: .82rem; letter-spacing: .08em; }
+.gr-q { margin: 0; font-size: 1.6rem; }
+.gr-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gr-opt { margin: 0; padding: 14px; border-radius: 14px; font: 800 1.2rem/1.2 var(--jp, serif); background: rgba(255, 255, 255, .06); border: 2px solid var(--line); color: var(--text); box-shadow: 0 3px 0 var(--line); }
+.gr-opt.right { background: rgba(110, 231, 168, .2); border-color: #6ee7a8; color: #b6f5d2; }
+.gr-opt.wrong { background: rgba(255, 90, 110, .18); border-color: #ff6f8a; color: #ffc0cb; animation: grShake .35s; }
+@keyframes grShake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+.gr-next { align-self: flex-end; margin: 0; }
+.gr-result { display: flex; align-items: baseline; gap: 14px; }
+.gr-result b { font: 900 2rem/1 var(--brand, sans-serif); }
+.gr-result.pass b { color: #6ee7a8; } .gr-result.fail b { color: #ffb86b; }
+.gr-result span { font-size: 1.2rem; color: var(--muted); }
+:root[data-theme="light"] .grammar-screen :is(.gr-item, .gr-main, .gr-quiz) { --text: #1d1838; --muted: #5d5880; color: var(--text); }
+:root[data-theme="light"] .gr-ex { background: rgba(40, 30, 90, .05); }
+:root[data-theme="light"] .gr-opt.right { color: #0c6a3c; } :root[data-theme="light"] .gr-opt.wrong { color: #a0182e; }
+:root[data-theme="light"] .gr-lvl, :root[data-theme="light"] .gr-say { color: #2c7a17; }
+:root[data-theme="light"] .mc-grammar { --mc: #2c7a17; }
+@media (max-width: 700px) {
+  .gr-top .tg-big { width: 96px; height: 120px; }
+  .gr-top .tg-big .tg-mote { font-size: .8rem; }
+  .gr-pattern { font-size: 1.6rem; }
+  .gr-main, .gr-quiz { padding: 14px; }
+  .gr-q { font-size: 1.3rem; }
+  .gr-opt { font-size: 1.05rem; padding: 12px 8px; }
+  .gr-items { grid-template-columns: 1fr; }
+}
+.gr-lesson .gr-head .gr-pattern { margin: 2px 0 0; font: 900 2.1rem/1.2 var(--jp, serif); letter-spacing: .02em; }
+.gr-lesson .gr-head .gr-meaning { font-size: 1.12rem; }
+.gr-k { border-bottom: 0; text-decoration: none; border-radius: 4px; }
+.gr-k:hover { background: rgba(185, 160, 255, .2); }
+@media (max-width: 700px) { .gr-lesson .gr-head .gr-pattern { font-size: 1.6rem; } }
