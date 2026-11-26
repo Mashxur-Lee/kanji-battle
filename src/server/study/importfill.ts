@@ -5,7 +5,7 @@
 import type { DictEntry } from '../../shared/dict';
 import { isCorrectReading, katakanaToHiragana } from '../../shared/kana';
 import type { ImportCard } from '../../shared/importlist';
-import { kanjiOn, VOCAB } from '../vocab';
+import { VOCAB } from '../vocab';
 import type { VocabEntry } from '../../shared/protocol';
 
 export type CardSource = 'game' | 'dict' | 'guess' | 'none';
@@ -29,7 +29,7 @@ export function guessReading(word: string, dict: Lookup): string | null {
       const piece = word.slice(i, i + n);
       if (KANA.test(piece)) { out += katakanaToHiragana(piece); took = n; break; }
       // one kanji alone in a longer word: its short reading (電 でん in 電脳); a longer piece: the word's own
-      const one = n === 1 && word.length > 1 ? (kanjiOn(piece) ?? dict.kanjiReading?.(piece)) : null;
+      const one = n === 1 && word.length > 1 ? dict.kanjiReading?.(piece) : null;
       if (one) { out += katakanaToHiragana(one); took = n; break; }
       const e = dict.lookup(piece);
       if (e?.kana[0] && (n > 1 || e.kanji.includes(piece))) { out += katakanaToHiragana(e.kana[0]); took = n; break; }

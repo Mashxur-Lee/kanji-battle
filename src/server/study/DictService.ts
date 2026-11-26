@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Dictionary, type DictEntry } from '../../shared/dict';
-import { VOCAB } from '../vocab';
+import { kanjiOn, VOCAB } from '../vocab';
 
 export type { DictEntry, DictSense } from '../../shared/dict';
 
@@ -24,5 +24,6 @@ export class DictService {
   withKanji(ch: string, limit = 12): DictEntry[] { return this.d().withKanji(ch, limit); }
   /** 0.9.9.9.9.6 (round 4): a word by its exact spelling or reading (an import's preview) */
   lookup(t: string): DictEntry | null { return this.d().lookup(t); }
-  kanjiReading(ch: string): string | null { return this.d().kanjiReading(ch); }
+  /** a kanji inside a compound: its first Chinese reading (KANJIDIC; 電 でん), else its shortest in the dictionary */
+  kanjiReading(ch: string): string | null { return kanjiOn(ch) ?? this.d().kanjiReading(ch); }
 }

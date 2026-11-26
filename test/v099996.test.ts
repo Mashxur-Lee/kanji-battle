@@ -500,13 +500,14 @@ test('0.9.9.9.9.6 round 4 import: Quizlet-style separators, the reading in the t
 
 test('0.9.9.9.9.6 round 4 import preview: the game\'s words, then the dictionary\'s, then a guessed reading — nothing dropped', async () => {
   const { fillCards, guessReading } = await import('../src/server/study/importfill');
-  const dict = { lookup: (t: string) => (t === '薔薇' ? { i: 1, kanji: ['薔薇'], kana: ['ばら'], romaji: 'bara', senses: [[['n'], 'rose', [], '']], ru: ['роза'], common: true } : t === '学校' ? { i: 2, kanji: ['学校'], kana: ['がっこう'], romaji: 'gakkou', senses: [], ru: [], common: true } : null) as never, kanjiReading: () => null };
+  const dict = { lookup: (t: string) => (t === '薔薇' ? { i: 1, kanji: ['薔薇'], kana: ['ばら'], romaji: 'bara', senses: [[['n'], 'rose', [], '']], ru: ['роза'], common: true } : t === '学校' ? { i: 2, kanji: ['学校'], kana: ['がっこう'], romaji: 'gakkou', senses: [], ru: [], common: true } : null) as never, kanjiReading: (c: string) => ({ 魔: 'ま', 法: 'ほう', 電: 'でん', 脳: 'のう' } as Record<string, string>)[c] ?? null };
   const out = fillCards([{ kanji: '先生', reading: '', meaning: '' }, { kanji: '薔薇', reading: '', meaning: '' }, { kanji: '魔法学校', reading: '', meaning: 'magic school' }, { kanji: '謎', reading: '', meaning: 'x' }], dict as never, 'ru');
   assert.equal(out[0].from, 'game'); assert.equal(out[0].reading, 'せんせい');
   assert.deepEqual([out[1].from, out[1].reading, out[1].meaning], ['dict', 'ばら', 'роза']);
   assert.deepEqual([out[2].from, out[2].reading], ['guess', 'まほうがっこう'], 'a reading from its pieces (the longest the dictionary has first, then each kanji), marked to check');
   assert.equal(guessReading('電脳', dict as never), 'でんのう');
   const router = src('src/server/router.ts');
+  assert.ok(!src('src/server/study/importfill.ts').includes("from '../vocab'") || !src('src/server/study/importfill.ts').includes('kanjiOn'), 'kept out of the offline app (its vocab has no kanji readings)');
   assert.ok(router.includes("url === '/api/decks/preview'") && router.includes('body.preview === true ? IMPORT_ROWS_MAX : 50'));
   const ui = src('src/client/userdecks.ts');
   for (const s of ["'Between term and definition'", "'Between cards'", 'api.userDeckPreview(', "'Reading guessed - check it'"]) assert.ok(ui.includes(s), s);
