@@ -1200,6 +1200,7 @@ initTutorial({
     if (!mastered) store.set('kb:levels', JSON.stringify(['KANA']));
   },
   pause: (on) => socket.send({ type: 'pause', on }), // 0.9.9.9.6: the battle screen's tour
+  skipBattle: () => { socket.send({ type: 'leave' }); }, // 0.9.9.9.9.6 (round 4): Skip the battle
 
 });
 ui.$('modesBack').onclick = () => ui.show('private');

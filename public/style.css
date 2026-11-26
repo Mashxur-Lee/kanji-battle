@@ -6862,3 +6862,70 @@ button.cm-mv:hover { background: rgba(255, 255, 255, .07); }
   .ud-radio { font-size: .86rem; }
 }
 @media (min-width: 701px) { .ud-card { grid-template-columns: 2.2em minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr) 11rem auto; } .ud-card .ud-from { justify-self: start; } }
+
+/* 0.9.9.9.9.6 (round 4): the tutorial's guide, Master Fumi — a wizard in 2.5D (layers at their own depths, turning
+   towards your pointer), beside every card, peeking out of the tour's bubbles and the battle tips */
+.tg { --tx: 0; --ty: 0; position: relative; flex: none; perspective: 700px; }
+.tg-big { width: 210px; height: 260px; }
+.tg-small { width: 64px; height: 72px; }
+.tg-stage { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(calc(var(--tx) * 14deg)) rotateX(calc(var(--ty) * -6deg)); transition: transform .35s cubic-bezier(.2, .8, .3, 1); }
+.tg-glow { position: absolute; left: 10%; right: 10%; top: 8%; bottom: 18%; border-radius: 50%; background: radial-gradient(circle at 50% 45%, rgba(164, 139, 255, .55), rgba(110, 231, 255, .18) 45%, transparent 70%); transform: translateZ(-60px) scale(1.15); filter: blur(4px); animation: tgGlow 4s ease-in-out infinite; }
+.tg-floor { position: absolute; left: 22%; right: 22%; bottom: 3%; height: 9%; border-radius: 50%; background: radial-gradient(ellipse, rgba(0, 0, 0, .55), transparent 70%); transform: translateZ(-10px) translateX(calc(var(--tx) * -10px)); animation: tgFloor 3.2s ease-in-out infinite; }
+.tg-body { position: absolute; inset: 0 0 6% 0; display: grid; place-items: end center; transform: translateZ(30px); transform-origin: 50% 100%; animation: tgBreathe 3.2s ease-in-out infinite; }
+.tg-body svg { height: 100%; width: auto; max-width: 100%; filter: drop-shadow(calc(var(--tx) * -8px) 10px 12px rgba(0, 0, 0, .45)); }
+.tg-mote { position: absolute; font: 900 1.25rem/1 var(--jp, serif); color: #d8ccff; pointer-events: none; transform: translateZ(calc(var(--z) * 80px)) translate(calc(var(--tx) * var(--z) * 18px), calc(var(--ty) * var(--z) * 10px)); animation: tgMote var(--s) ease-in-out var(--d) infinite; }
+.tg-mote.back { opacity: .35; filter: blur(1.2px); font-size: 1rem; }
+.tg-mote.front { opacity: .85; text-shadow: 0 0 12px rgba(164, 139, 255, .9); }
+@keyframes tgGlow { 50% { opacity: .7; transform: translateZ(-60px) scale(1.25); } }
+@keyframes tgFloor { 50% { transform: translateZ(-10px) scaleX(.9); opacity: .8; } }
+@keyframes tgBreathe { 50% { transform: translateZ(30px) translateY(-5px) scaleY(1.012); } }
+@keyframes tgMote { 50% { margin-top: -14px; } }
+/* moods */
+.tg.tg-go[data-mood="talk"] .tg-body { animation: tgTalk .5s ease-in-out 3, tgBreathe 3.2s ease-in-out 1.5s infinite; }
+.tg.tg-go[data-mood="cheer"] .tg-body { animation: tgCheer .45s cubic-bezier(.3, 1.6, .5, 1) 3, tgBreathe 3.2s ease-in-out 1.4s infinite; }
+.tg.tg-go[data-mood="cheer"] .tg-glow { animation: tgBurst .9s ease-out 1, tgGlow 4s ease-in-out .9s infinite; }
+.tg.tg-go[data-mood="bow"] .tg-body { animation: tgBow 1.3s ease-in-out 1, tgBreathe 3.2s ease-in-out 1.3s infinite; }
+.tg.tg-go[data-mood="point"] .tg-body { animation: tgPoint .9s ease-in-out 1, tgBreathe 3.2s ease-in-out .9s infinite; }
+@keyframes tgTalk { 50% { transform: translateZ(30px) rotate(-2deg) translateY(-3px); } }
+@keyframes tgCheer { 40% { transform: translateZ(40px) translateY(-22px) scale(1.04); } }
+@keyframes tgBurst { 0% { transform: translateZ(-60px) scale(.8); opacity: 1; } 100% { transform: translateZ(-60px) scale(1.6); opacity: .4; } }
+@keyframes tgBow { 35%, 60% { transform: translateZ(30px) rotate(8deg) scaleY(.94); } }
+@keyframes tgPoint { 30%, 70% { transform: translateZ(30px) rotate(-6deg) translateX(-4px); } }
+
+/* a card with the guide beside it */
+.tut-card.tut-guided { width: min(900px, 100%); display: flex; gap: 22px; align-items: center; }
+.tut-card.tut-guided .tut-main { flex: 1; min-width: 0; }
+.tut-who { display: flex; align-items: baseline; gap: 8px; margin: -4px 0 8px; color: #c7b8ff; font-size: .95rem; }
+.tut-who ruby { font-family: var(--jp); color: var(--muted, #a4a0c8); }
+.tut-who rt { font-size: .6rem; }
+.tut-said { position: relative; margin: 0; padding: 14px 18px; border-radius: 16px; background: rgba(255, 255, 255, .07); border: 1px solid rgba(185, 160, 255, .28); line-height: 1.6; min-height: 3.2em; cursor: default; }
+.tut-said::before { content: ""; position: absolute; left: -9px; top: 22px; width: 16px; height: 16px; background: inherit; border-left: 1px solid rgba(185, 160, 255, .28); border-bottom: 1px solid rgba(185, 160, 255, .28); transform: rotate(45deg); background-color: #221a52; }
+.tut-said.typing { cursor: pointer; }
+.tut-said.typing::after { content: "▍"; margin-left: 2px; color: #c7b8ff; animation: tutCaret .8s steps(2) infinite; }
+@keyframes tutCaret { 50% { opacity: 0; } }
+.tut-guided .tut-try, .tut-guided .tut-chips { margin-top: 12px; }
+.tut-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tut-chip { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; border-radius: 14px; background: rgba(0, 0, 0, .22); border: 1px solid rgba(185, 160, 255, .2); text-align: center; font-size: .88rem; }
+.tut-chip b { font: 900 1.8rem/1 var(--jp, serif); color: #ffd479; }
+/* the tour's bubble and the battle tips: the guide peeking out */
+.tut-bubble.tb-guided { padding-left: 82px; min-height: 92px; }
+.tut-bubble .tg-small { position: absolute; left: 8px; bottom: 8px; }
+.coach-tip.coach-guided { padding-left: 84px; min-height: 76px; }
+.coach-tip .tg-small { position: absolute; left: 10px; bottom: 4px; }
+.coach-btns { display: flex; gap: 8px; flex: none; }
+.coach-btns .pill { margin: 0; }
+:root[data-theme="light"] .tut-said { background: rgba(255, 255, 255, .8); border-color: rgba(107, 63, 214, .25); }
+:root[data-theme="light"] .tut-said::before { background-color: #fff; border-color: rgba(107, 63, 214, .25); }
+:root[data-theme="light"] .tut-who { color: #5a3fc0; }
+:root[data-theme="light"] .tut-chip { background: rgba(255, 255, 255, .7); }
+:root[data-theme="light"] .tut-chip b { color: #a26300; }
+@media (max-width: 700px) {
+  .tut-card.tut-guided { flex-direction: column; align-items: stretch; gap: 6px; padding-top: 14px; }
+  .tut-card.tut-guided > .tg-big { width: 120px; height: 140px; align-self: center; margin-bottom: -4px; }
+  .tut-card.tut-guided > .tg-big .tg-mote { font-size: .9rem; }
+  .tut-said::before { left: 50%; top: -9px; margin-left: -8px; transform: rotate(135deg); }
+  .tut-chips { gap: 6px; }
+  .tut-chip { font-size: .78rem; padding: 10px 4px; }
+  .coach-tip.coach-guided { flex-wrap: wrap; }
+  .coach-btns { width: 100%; justify-content: flex-end; }
+}

@@ -34,6 +34,7 @@ const PATCHES: Patch[] = [
       'Chess: the pieces are shaped like chess pieces, with their kanji large on them; the pieces each side has taken and who is ahead in points; new sounds for a move, a capture, check and checkmate; the wizards speak their lines in their own voices (Voice on / off), with a face and a seal for each moment.',
       'Phones: Kana takes the place beside the Daily challenge.',
       'Importing words works like Quizlet: paste your data, choose what separates a term from its definition (Tab, Comma, Dash or your own) and one card from the next (New line, Semicolon, Empty line or your own), and check every card before it goes in. A word the game doesn\'t have is no longer skipped - its reading and meaning come from the dictionary, or its reading is guessed from its kanji (marked so you check it), and every field can be edited.',
+      'A new tutorial with a guide: Master Fumi, a wizard in 2.5D who turns towards your pointer, talks you through each card, cheers your first spell and points things out on the tour. A new card on how a duel is won, and the first battle can be skipped - on its card or in the middle of it.',
     ],
     ru: [
       'Свои колоды в «Изучении заклинаний»: создайте, назовите и наполните — введите или вставьте список, импортируйте текстовый экспорт Quizlet / Anki или файл колоды Anki (.apkg) прямо из AnkiDroid. Каждая колода изучается отдельно, с тем же интервальным повторением.',
@@ -61,6 +62,7 @@ const PATCHES: Patch[] = [
       'Шахматы: фигуры по форме как настоящие, с крупным кандзи; видно, какие фигуры взяла каждая сторона и кто впереди по очкам; новые звуки хода, взятия, шаха и мата; волшебники произносят свои реплики своими голосами («Голос вкл./выкл.»), с выражением лица и печатью для каждого момента.',
       'Телефоны: «Кана» встала рядом с «Ежедневным испытанием».',
       'Импорт слов как в Quizlet: вставьте данные, выберите, что разделяет термин и определение (табуляция, запятая, тире или свой знак) и карточки (новая строка, точка с запятой, пустая строка или свой знак), и проверьте каждую карточку до добавления. Слова, которого нет в игре, больше не пропускаются: чтение и значение берутся из словаря, а чтение может быть угадано по кандзи (с пометкой «проверьте»); любое поле можно исправить.',
+      'Новое обучение с проводником: Мастер Фуми — волшебник в 2.5D, который поворачивается к курсору, рассказывает о каждой карточке, радуется вашему первому заклинанию и показывает всё на экскурсии. Новая карточка о том, как выиграть дуэль, а первый бой можно пропустить — на его карточке или прямо во время боя.',
     ],
   },
   {

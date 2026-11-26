@@ -1180,6 +1180,18 @@ const RU: Record<string, string> = {
   'It goes back to being kept for a week from its match, so it may be gone right away.': 'Он снова будет храниться неделю с его матча — так что может сразу исчезнуть.',
   'Copied!': 'Скопировано!',
   'The host left the room': 'Хозяин покинул комнату',
+  // 0.9.9.9.9.6 (round 4): the tutorial with Master Fumi
+  "Master Fumi": "Мастер Фуми",
+  "I am Master Fumi, keeper of the written word. Here every spell is a Japanese word: read it right and it strikes your opponent. First tell me - can you read hiragana (あいうえお)? If not, we start with kana, and kanji open later.": "Я Мастер Фуми, хранитель письменного слова. Здесь каждое заклинание — японское слово: прочтите его верно, и оно поразит соперника. Сначала скажите — вы читаете хирагану (あいうえお)? Если нет, начнём с каны, а кандзи откроются позже.",
+  "Watch: a word appears. Type how it is read - in romaji with any keyboard, or in hiragana - and press Enter.": "Смотрите: появляется слово. Напишите, как оно читается — ромадзи на любой клавиатуре или хираганой — и нажмите Enter.",
+  "How a duel is won": "Как выиграть дуэль",
+  "Right answers in a row build a combo - each one hits harder. A wrong one breaks it, and Esc skips a word you don't know. The words you miss are not lost: they wait in Struggling spells, and Study spells brings them back until they stick.": "Верные ответы подряд собирают комбо — каждый бьёт сильнее. Ошибка его обрывает, а Esc пропускает незнакомое слово. Пропущенные слова не теряются: они ждут в «Трудных заклинаниях», а «Изучение заклинаний» возвращает их, пока не запомнятся.",
+  "Fast and right: a combo": "Быстро и верно: комбо",
+  "Wrong: the combo breaks": "Ошибка: комбо обрывается",
+  "Missed: studied later": "Пропущено: выучите позже",
+  "Skip the battle": "Пропустить бой",
+  "A battle waits on the Games page whenever you like.": "Бой ждёт вас на странице «Игры», когда захотите.",
+  "A short duel with a beginner bot. You get 20 seconds to look at the words first - then, in the battle, the answer is written under every word. Or skip it: the Games page is always open.": "Короткая дуэль с ботом-новичком. Сначала 20 секунд, чтобы взглянуть на слова, — а в бою ответ написан под каждым словом. Или пропустите бой: страница «Игры» всегда открыта.",
   // 0.9.9.9.9.6 (round 4): importing words the Quizlet way
   "Copy and paste your data here (from Quizlet, Anki, Word, Excel, Google Docs…). A definition may start with the reading: 猫 → ねこ - cat.": "Скопируйте и вставьте данные сюда (из Quizlet, Anki, Word, Excel, Google Docs…). Определение может начинаться с чтения: 猫 → ねこ - кошка.",
   "Between term and definition": "Между термином и определением",

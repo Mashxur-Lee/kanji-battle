@@ -512,3 +512,17 @@ test('0.9.9.9.9.6 round 4 import preview: the game\'s words, then the dictionary
   const ui = src('src/client/userdecks.ts');
   for (const s of ["'Between term and definition'", "'Between cards'", 'api.userDeckPreview(', "'Reading guessed - check it'"]) assert.ok(ui.includes(s), s);
 });
+
+// ── round 4: the tutorial's guide ──
+test('0.9.9.9.9.6 round 4 tutorial: Master Fumi in 2.5D on every card and tip, a card on how a duel is won, the battle can be skipped', () => {
+  const t = src('src/client/tutorial.ts');
+  assert.ok(t.includes("const guide = guideEl('big');") && t.includes("const peek = guideEl('small');"), 'beside the cards, in the bubbles and the tips');
+  assert.ok(t.includes("title: 'How a duel is won'"));
+  assert.ok(t.includes("el('button', 'pill', 'Skip the battle')") && t.includes('export function skipTutorialBattle()'));
+  assert.ok(src('src/client/main.ts').includes("skipBattle: () => { socket.send({ type: 'leave' }); }"));
+  const g = src('src/client/tutorguide.ts');
+  assert.ok(g.includes('export function typeText(') && g.includes("addEventListener('pointermove'"), 'types its words, turns to the pointer');
+  const css = src('public/style.css');
+  assert.ok(css.includes('.tg-stage { position: absolute; inset: 0; transform-style: preserve-3d;'), 'layers at their own depths');
+  assert.ok(!/@media[^{]*prefers-reduced-motion\s*:\s*reduce/.test(css), 'animations run even with Windows animation effects off');
+});

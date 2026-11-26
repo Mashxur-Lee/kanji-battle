@@ -5,10 +5,11 @@ import { MODE_LABEL, type GameMode } from '../shared/protocol';
 import { MODE_LEVEL, modeUnlocked, xpForLevel } from '../shared/progress';
 import { isCorrectReading } from '../shared/kana';
 import { api } from './api';
-import { lang, useRussianNow } from './i18n';
+import { lang, tr, useRussianNow } from './i18n';
 import * as audio from './audio';
 import * as ui from './ui';
 import { viewH, viewW, zrect } from './zoom';
+import { GUIDE_JP, GUIDE_NAME, GUIDE_READING, guideEl, guideMood, typeText } from './tutorguide';
 
 const $ = ui.$;
 const el = (tag: string, cls = '', text?: string | number) => {
@@ -42,18 +43,32 @@ export const lockText = (mode: GameMode) => beginnerLocked(mode)
 // the battle screen is explained (paused while it is), and the AI casts only once for every two of your spells.
 type Stage = 'off' | 'cards' | 'tour' | 'battle';
 let stage: Stage = 'off';
-let hooks: { firstBattle: () => void; kana: (mastered: boolean) => Promise<void>; pause?: (on: boolean) => void };
+let hooks: { firstBattle: () => void; kana: (mastered: boolean) => Promise<void>; pause?: (on: boolean) => void; /** 0.9.9.9.9.6 (round 4): out of the first battle */ skipBattle?: () => void };
 export function initTutorial(h: typeof hooks) { hooks = h; }
 export const inTutorialBattle = () => stage === 'battle';
 /** the battle screen's tour is on: the game is paused, quietly (no pause screen) */
 export const tutorialTouring = () => touring;
 let touring = false;
 
+// 0.9.9.9.9.6 (round 4): Master Fumi says them (the guide, tutorguide.ts), and one more card — how a battle is won and
+// where the words you miss go
 const CARDS: Array<{ title: string; body: string; extra?: () => HTMLElement; choice?: true; language?: true; tryit?: true }> = [
   { title: 'Language · Язык', body: 'Choose the language for the game and this tutorial. · Выберите язык игры и обучения. (You can change it later in Settings.)', language: true },
-  { title: 'Welcome, apprentice!', body: 'Every spell here is a Japanese word: read it right and it strikes your opponent. First - can you read hiragana (あいうえお)? If not, you start with kana and kanji open later.', choice: true },
-  { title: 'Cast your first spell', body: 'A word appears. Type how it is read - in romaji with any keyboard, or in hiragana - and press Enter.', extra: tryIt, tryit: true },
+  { title: 'Welcome, apprentice!', body: 'I am Master Fumi, keeper of the written word. Here every spell is a Japanese word: read it right and it strikes your opponent. First tell me - can you read hiragana (あいうえお)? If not, we start with kana, and kanji open later.', choice: true },
+  { title: 'Cast your first spell', body: 'Watch: a word appears. Type how it is read - in romaji with any keyboard, or in hiragana - and press Enter.', extra: tryIt, tryit: true },
+  { title: 'How a duel is won', body: 'Right answers in a row build a combo - each one hits harder. A wrong one breaks it, and Esc skips a word you don\'t know. The words you miss are not lost: they wait in Struggling spells, and Study spells brings them back until they stick.', extra: duelChips },
 ];
+/** three chips: what wins a duel */
+function duelChips() {
+  const box = el('div', 'tut-chips');
+  for (const [k, t] of [['速', 'Fast and right: a combo'], ['誤', 'Wrong: the combo breaks'], ['学', 'Missed: studied later']] as const) {
+    const c = el('div', 'tut-chip');
+    const g = el('b', '', k); g.lang = 'ja';
+    c.append(g, el('span', '', t));
+    box.append(c);
+  }
+  return box;
+}
 
 /** The practice box: 山, its answer written out big, and a clear "type this" right above the box. */
 function tryIt() {
@@ -74,6 +89,7 @@ function tryIt() {
     if (isCorrectReading(input.value, ['やま'])) {
       msg.textContent = '✓ やま - your first spell!'; msg.className = 'tut-msg ok'; audio.sfx.correct(1);
       box.classList.add('done');
+      guideMood(document.querySelector<HTMLElement>('#tutorial .tg'), 'cheer'); // (round 4)
       setTimeout(() => (document.querySelector('#tutorial .tut-actions .big:not([hidden])') as HTMLButtonElement | null)?.focus(), 400);
     } else { msg.textContent = 'Almost - type yama (or やま)'; msg.className = 'tut-msg no'; audio.sfx.wrong(); input.select(); }
   };
@@ -101,6 +117,7 @@ function show(i: number) {
   const actions = el('div', 'tut-actions');
   const last = i === CARDS.length - 1;
   const next = el('button', 'big', last ? 'Next: a quick look around' : 'Next') as HTMLButtonElement;
+  const guide = guideEl('big'); // (round 4: Master Fumi)
   const skip = el('button', 'pill', 'Skip tutorial') as HTMLButtonElement;
   if (c.language) {
     // first of all: the language — the rest of the tutorial follows it
@@ -131,8 +148,18 @@ function show(i: number) {
   };
   skip.onclick = () => { void api.event('tutorial_skip'); finish(); };
   actions.append(skip, next);
-  card.append(dots, el('h2', '', c.title), el('p', '', c.body), ...(c.extra ? [c.extra()] : []), actions);
+  const said = el('p', 'tut-said');
+  const who = el('div', 'tut-who');
+  const nm = el('b', '', GUIDE_NAME);
+  const jp = document.createElement('ruby'); jp.lang = 'ja'; jp.append(GUIDE_JP, el('rt', '', GUIDE_READING));
+  who.append(nm, jp);
+  const main = el('div', 'tut-main');
+  main.append(dots, el('h2', '', c.title), who, said, ...(c.extra ? [c.extra()] : []), actions);
+  card.append(guide, main);
+  card.classList.add('tut-guided');
   card.classList.toggle('tut-wide', !!c.tryit);
+  queueMicrotask(() => typeText(said, tr(c.body), guide));
+  if (i === 0) setTimeout(() => guideMood(guide, 'bow'), 200);
   box.replaceChildren(card);
   box.hidden = false;
   if (!c.tryit) next.focus();
@@ -202,7 +229,10 @@ async function spotlight(steps: Step[], opts: { finalLabel: string; onSkip?: () 
       nx.onclick = () => { i++; if (i >= live.length) end('done'); else render(); };
       sk.onclick = () => { opts.onSkip?.(); end('skip'); };
       const acts = el('div', 'tb-acts'); acts.append(sk, nx);
-      bub.replaceChildren(n, el('b', 'tb-title', s.title), el('p', '', s.text), acts);
+      const peek = guideEl('small'); // (round 4: Master Fumi points it out)
+      guideMood(peek, 'point');
+      bub.replaceChildren(peek, n, el('b', 'tb-title', s.title), el('p', '', s.text), acts);
+      bub.classList.add('tb-guided');
       // (a part below the fold — the menu's foot on a phone — is scrolled to first)
       const t = pick(s.sel);
       const tr = t?.getBoundingClientRect();
@@ -229,11 +259,17 @@ async function startTour() {
   const card = el('div', 'tut-card');
   const actions = el('div', 'tut-actions');
   const go = el('button', 'big', 'Start the battle') as HTMLButtonElement;
-  const later = el('button', 'pill', 'Maybe later') as HTMLButtonElement;
+  const later = el('button', 'pill', 'Skip the battle') as HTMLButtonElement;
   go.onclick = () => { stage = 'battle'; box.hidden = true; void api.event('tutorial_battle'); hooks.firstBattle(); };
-  later.onclick = () => { void api.event('tutorial_skip'); finish(); };
+  later.onclick = () => { void api.event('tutorial_skip_battle'); finish(); ui.toast(tr('A battle waits on the Games page whenever you like.'), 4000); };
   actions.append(later, go);
-  card.append(el('h2', '', 'Your first battle'), el('p', '', 'A short duel with a beginner bot. You get 20 seconds to look at the words first - then, in the battle, the answer is written under every word.'), actions);
+  const guide = guideEl('big');
+  const said = el('p', 'tut-said');
+  const main = el('div', 'tut-main');
+  main.append(el('h2', '', 'Your first battle'), said, actions);
+  card.append(guide, main);
+  card.classList.add('tut-guided');
+  queueMicrotask(() => typeText(said, tr('A short duel with a beginner bot. You get 20 seconds to look at the words first - then, in the battle, the answer is written under every word. Or skip it: the Games page is always open.'), guide));
   box.replaceChildren(card);
   box.hidden = false;
   go.focus();
@@ -258,7 +294,8 @@ export function tutorialChallenge() {
   touring = true;
   hooks.pause?.(true);
   setTimeout(() => {
-    void spotlight(BATTLE_TOUR, { finalLabel: 'Fight!' }).then(() => {
+    void spotlight(BATTLE_TOUR, { finalLabel: 'Fight!' }).then((how) => {
+      if (how === 'skip' && stage === 'battle') { touring = false; hooks.pause?.(false); return; }
       touring = false;
       hooks.pause?.(false);
       ($('answer') as HTMLInputElement).focus();
@@ -280,6 +317,24 @@ function coach(text: string | null) {
   if (!text) { c.hidden = true; return; }
   const close = el('button', 'pill', 'Got it') as HTMLButtonElement;
   close.onclick = () => { c.hidden = true; };
-  c.replaceChildren(el('b', '', 'Tip'), el('span', '', text), close);
+  // 0.9.9.9.9.6 (round 4): Master Fumi gives the tip; in the first battle it can be skipped
+  const peek = guideEl('small');
+  const btns = el('div', 'coach-btns');
+  if (stage === 'battle') {
+    const skip = el('button', 'pill', 'Skip the battle') as HTMLButtonElement;
+    skip.onclick = () => skipTutorialBattle();
+    btns.append(skip);
+  }
+  btns.append(close);
+  c.replaceChildren(peek, el('b', '', 'Tip'), el('span', '', text), btns);
+  c.classList.add('coach-guided');
   c.hidden = false;
+}
+/** 0.9.9.9.9.6 (round 4): out of the first battle — straight back to the menu, the tutorial done */
+export function skipTutorialBattle() {
+  if (stage !== 'battle') return;
+  void api.event('tutorial_skip_battle');
+  hooks.skipBattle?.();
+  finish();
+  ui.toast(tr('A battle waits on the Games page whenever you like.'), 4000);
 }
