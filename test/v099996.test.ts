@@ -360,10 +360,13 @@ test('0.9.9.9.9.6 chess with a friend: a room by code, moves checked, the clock 
   const sent: Array<[string, Sent]> = [];
   const hub = new ChessHub((id, m) => sent.push([id, m as unknown as Sent]), () => t, () => 0.1);
   const last = (id: string) => [...sent].reverse().find(([to, m]) => to === id && m.type === 'chess')![1].room!;
+  const readyBoth = (x: string, y: string) => { for (const who of [x, y]) hub.handle({ id: who, name: who }, { type: 'chess_ready', id: last(x).id, on: true }); };
   hub.handle({ id: 'a', name: 'Ann' }, { type: 'chess_new', base: 60_000, inc: 0 });
   const code = last('a').code;
   assert.equal(last('a').status, 'waiting');
   hub.handle({ id: 'b', name: 'Bob' }, { type: 'chess_join', code: code.toLowerCase() });
+  assert.equal(last('b').status, 'lobby', 'round 4: a lobby first');
+  readyBoth('a', 'b');
   const room = last('b');
   assert.equal(room.status, 'playing');
   const white = last('a').you === 'w' ? 'a' : 'b', black = white === 'a' ? 'b' : 'a';
@@ -377,6 +380,7 @@ test('0.9.9.9.9.6 chess with a friend: a room by code, moves checked, the clock 
   // a clock running out
   hub.handle({ id: 'c', name: 'C' }, { type: 'chess_new', base: 60_000, inc: 0 });
   hub.handle({ id: 'd', name: 'D' }, { type: 'chess_join', code: last('c').code });
+  readyBoth('c', 'd');
   const r2 = last('c');
   const w2 = r2.you === 'w' ? 'c' : 'd';
   t += 61_000;
@@ -385,6 +389,7 @@ test('0.9.9.9.9.6 chess with a friend: a room by code, moves checked, the clock 
   // a draw agreed
   hub.handle({ id: 'e', name: 'E' }, { type: 'chess_new', base: 0, inc: 0 });
   hub.handle({ id: 'f', name: 'F' }, { type: 'chess_join', code: last('e').code });
+  readyBoth('e', 'f');
   const r3 = last('e');
   hub.handle({ id: 'e', name: 'E' }, { type: 'chess_draw', id: r3.id, offer: true });
   assert.equal(last('f').drawOffer, last('e').you);
@@ -392,7 +397,7 @@ test('0.9.9.9.9.6 chess with a friend: a room by code, moves checked, the clock 
   assert.deepEqual(last('e').result, { winner: null, reason: 'agreed' });
   assert.deepEqual(cleanTime(10, 99_999), { base: 0, inc: 0 }, 'too short: no clock');
   assert.deepEqual(cleanTime(300_000, 2000), { base: 300_000, inc: 2000 });
-  assert.ok(src('src/server/Session.ts').includes("if (msg.type.startsWith('chess_')) { this.hub.chess?.handle("));
+  assert.ok(src('src/server/Session.ts').includes("if (msg.type.startsWith('chess_')) { void this.hub.chess?.handle("));
 });
 
 test('0.9.9.9.9.6 round 3: Kanji chess on the Games page, one logo per page, richer buttons', () => {
@@ -402,4 +407,77 @@ test('0.9.9.9.9.6 round 3: Kanji chess on the Games page, one logo per page, ric
   assert.ok(css.includes('#quizzes .qz-emblem, #private .pv-head > .pv-emblem'));
   assert.ok(css.includes('box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 2px 0 rgba(0, 0, 0, .35), 0 6px 14px rgba(0, 0, 0, .16);'), 'the buttons have depth');
   assert.ok(css.includes('.chess-board { grid-template-rows: repeat(8, 1fr); }'), 'every square square');
+});
+
+// ── round 4: Kanji chess — the lobby, chat, challenges, history, the pieces' shapes, sounds and voices ──
+test('0.9.9.9.9.6 round 4 chess lobby: Ready on both sides starts it, the host sets the clock, a chat, again → the lobby, games kept for both', async () => {
+  let t = 5_000_000;
+  type Room = { id: string; code: string; status: string; you: string | null; ready: string[]; base: number; inc: number; chat: Array<{ from: string; name: string; text: string }>; times: number[]; result?: { winner: string | null; reason: string } };
+  const sent: Array<[string, { type: string; room?: Room; error?: string; code?: string; from?: { id: string } }]> = [];
+  const kept: Array<[string, { result: string; vs: string; moves: string[]; times: number[] }]> = [];
+  const invites: string[] = [];
+  const hub = new ChessHub((id, m) => sent.push([id, m as never]), () => t, () => 0.3, {
+    invite: (to, _from, code) => { invites.push(`${to}:${code}`); return true; },
+    mayInvite: async (a, b) => a === 'h' && b === 'g',
+    record: (id, g) => kept.push([id, g as never]),
+  });
+  const last = (id: string) => [...sent].reverse().find(([to, m]) => to === id && m.type === 'chess')![1].room!;
+  const err = () => sent.at(-1)![1].error;
+  await hub.handle({ id: 'h', name: 'Hana' }, { type: 'chess_new', base: 0, inc: 0, invite: 'g' });
+  const code = last('h').code;
+  assert.deepEqual(invites, [`g:${code}`], 'the friend is asked');
+  await hub.handle({ id: 'x', name: 'X' }, { type: 'chess_new', base: 0, inc: 0, invite: 'g' });
+  assert.equal(err(), 'You can challenge your friends');
+  await hub.handle({ id: 'g', name: 'Goro' }, { type: 'chess_join', code });
+  const id = last('g').id;
+  assert.equal(last('h').status, 'lobby');
+  assert.deepEqual(last('h').chat.at(-1), { from: '', name: 'Goro', text: 'joined', at: t }, 'a line from the room, its words translatable');
+  await hub.handle({ id: 'g', name: 'Goro' }, { type: 'chess_time', id, base: 300_000, inc: 0 });
+  assert.equal(last('g').base, 0, 'only the host sets the clock');
+  await hub.handle({ id: 'h', name: 'Hana' }, { type: 'chess_time', id, base: 300_000, inc: 0 });
+  assert.equal(last('g').base, 300_000);
+  await hub.handle({ id: 'g', name: 'Goro' }, { type: 'chess_chat', id, text: '  よろしく  ' });
+  assert.equal(last('h').chat.at(-1)!.text, 'よろしく');
+  await hub.handle({ id: 'g', name: 'Goro' }, { type: 'chess_chat', id, text: 'spam' });
+  assert.notEqual(last('h').chat.at(-1)!.text, 'spam', 'not too fast');
+  await hub.handle({ id: 'h', name: 'Hana' }, { type: 'chess_ready', id, on: true });
+  assert.equal(last('h').status, 'lobby', 'one ready is not enough');
+  await hub.handle({ id: 'g', name: 'Goro' }, { type: 'chess_ready', id, on: true });
+  assert.equal(last('h').status, 'playing');
+  const white = last('h').you === 'w' ? 'h' : 'g', black = white === 'h' ? 'g' : 'h';
+  for (const [who, u] of [[white, 'f2f3'], [black, 'e7e5'], [white, 'g2g4'], [black, 'd8h4']] as const) { t += 1500; await hub.handle({ id: who, name: who }, { type: 'chess_move', id, uci: u }); }
+  assert.deepEqual(last('h').result, { winner: 'b', reason: 'checkmate' });
+  assert.deepEqual(last('h').times, [1500, 1500, 1500, 1500], 'how long each move took');
+  assert.deepEqual(kept.map(([who, g]) => [who, g.result]).sort(), [[black, 'win'], [white, 'loss']].sort(), 'kept for both players');
+  await hub.handle({ id: 'h', name: 'Hana' }, { type: 'chess_again', id });
+  assert.equal(last('g').status, 'lobby', 'again: back to the lobby');
+  assert.deepEqual(last('g').ready, []);
+  // the host leaving closes it: the guest is told, the host isn't
+  const before = sent.length;
+  await hub.handle({ id: 'h', name: 'Hana' }, { type: 'chess_leave', id });
+  assert.deepEqual(sent.slice(before).map(([to, m]) => [to, m.error]), [['g', 'The host left the room']]);
+});
+
+test('0.9.9.9.9.6 round 4 chess: games kept (the last 40), a bot game checked from its moves; the client parts are there', async () => {
+  const store = new MemoryStore();
+  const study = new StudyService(store);
+  for (let i = 0; i < 45; i++) await study.addChessGame('u1', { at: i, vs: 'goblin', vsBot: 'goblin', color: 'w', result: 'win', reason: 'checkmate', moves: ['e2e4'], times: [1], base: 0, inc: 0 });
+  const g = await study.chessGames('u1');
+  assert.equal(g.length, 40);
+  assert.equal(g[0].at, 44, 'newest first');
+  const router = src('src/server/router.ts');
+  assert.ok(router.includes("url === '/api/chess/games'") && router.includes('const g = replay(moves);'), 'a bot game is replayed, its result read from the board');
+  const client = src('src/client/chess.ts');
+  for (const s of ["send({ type: 'chess_ready'", "send({ type: 'chess_chat'", "send({ type: 'chess_again'", 'export function challengeChess', 'export function openChessReplay', 'export function material', 'speakAs(', 'setMood(']) assert.ok(client.includes(s), s);
+  const html = src('public/index.html');
+  for (const id of ['chessLobby', 'chessReady', 'chessLobbyChat', 'chessChat', 'chessReplay', 'chessOppMat', 'chessMood', 'chessHistList', 'pcGold']) assert.ok(html.includes(`id="${id}"`), id);
+  assert.ok(src('src/client/audio.ts').includes('chessCapture()') && src('src/client/audio.ts').includes('chessMate()'));
+  assert.ok(src('src/client/main.ts').includes("case 'chess_invite':"));
+});
+
+test('0.9.9.9.9.6 round 4 chess pieces: each piece its own shape, its kanji on it; who is ahead in points', async () => {
+  const { pieceSvg } = await import('../src/client/chesspieces');
+  const shapes = new Set((['k', 'q', 'r', 'b', 'n', 'p'] as const).map((k) => pieceSvg('w', k).replace(/<text[\s\S]*$/, '')));
+  assert.equal(shapes.size, 6, 'six different silhouettes');
+  assert.ok(pieceSvg('b', 'n').includes('>馬</text>') && pieceSvg('b', 'n').includes('pc-b'));
 });

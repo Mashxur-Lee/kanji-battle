@@ -169,13 +169,18 @@ export type ClientMessage =
   | { type: 'watch'; userId: string }
   | { type: 'unwatch' }
   /** 0.9.9.9.9.6: Kanji chess with a friend — a room by code; moves in UCI (e2e4, e7e8q); times in ms */
-  | { type: 'chess_new'; base: number; inc: number }
+  | { type: 'chess_new'; base: number; inc: number; /** round 4: a friend challenged from their profile */ invite?: string }
   | { type: 'chess_join'; code: string }
   | { type: 'chess_sync'; id: string }
   | { type: 'chess_move'; id: string; uci: string }
   | { type: 'chess_resign'; id: string }
   | { type: 'chess_draw'; id: string; offer: boolean }
   | { type: 'chess_leave'; id: string }
+  /** round 4: the lobby — ready, the clock (the host), chat (in the game too), play again */
+  | { type: 'chess_ready'; id: string; on: boolean }
+  | { type: 'chess_time'; id: string; base: number; inc: number }
+  | { type: 'chess_chat'; id: string; text: string }
+  | { type: 'chess_again'; id: string }
   | { type: 'create'; mode: GameMode; levels?: Level[]; /** the tutorial's short first battle */ tutorial?: boolean }
   | { type: 'join'; code: string; levels?: Level[] }
   | { type: 'levels'; levels: Level[] }
@@ -278,6 +283,8 @@ export type ServerMessage =
   /** 0.9.9.9.9.6: Kanji chess with a friend */
   | { type: 'chess'; room: ChessRoomView }
   | { type: 'chess_error'; error: string }
+  /** round 4: a friend challenges you to Kanji chess */
+  | { type: 'chess_invite'; from: { id: string; name: string }; code: string }
   | { type: 'kicked'; message: string }
   | { type: 'joined'; code: string; you: PlayerId; mode: GameMode }
   | { type: 'left' }
@@ -372,7 +379,14 @@ export interface ChessRoomView {
   moves: string[];
   /** time left (ms) when the side to move began its turn, and when that was (server time); base 0 = no clock */
   clocks: { w: number; b: number }; turnSince: number; now: number; base: number; inc: number;
-  status: 'waiting' | 'playing' | 'over';
+  /** waiting: the host alone; lobby: both there, getting ready (round 4) */
+  status: 'waiting' | 'lobby' | 'playing' | 'over';
+  host: { id: string; name: string }; guest: { id: string; name: string } | null;
+  /** who pressed Ready (round 4) */
+  ready: string[];
+  chat: Array<{ from: string; name: string; text: string; at: number }>;
+  /** how long each move took (ms) */
+  times: number[];
   result?: { winner: 'w' | 'b' | null; reason: string };
   drawOffer: 'w' | 'b' | null;
 }

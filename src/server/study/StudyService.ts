@@ -18,6 +18,8 @@ import { MASTERED_DAYS, playerDay, ProgressService, shiftDay, type MonthProgress
 import { now as clockNow } from '../now';
 import { seededRng } from '../../shared/rng';
 import { UserDecks } from './UserDecks';
+/** a finished game of Kanji chess, as kept for one player */
+export interface ChessGameRecord { at: number; vs: string; vsBot?: string; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
 import { addPlay, cleanStats, isQuizKind, mergeStats, type QuizStats } from '../../shared/quizstats';
 
 export const DAILY_NEW = 25; // default new words a day in "All spells"
@@ -67,7 +69,14 @@ export class StudyService {
   private readonly undos = new Map<string, UndoEntry[]>();
   /** 0.9.9.9.9.6: decks of your own */
   readonly decks: UserDecks;
-  constructor(private readonly store: Store, private readonly rng: () => number = Math.random) {
+  /** 0.9.9.9.9.6 (round 4): your Kanji chess games (the last 40) — Match history → Chess */
+  async chessGames(userId: string): Promise<ChessGameRecord[]> {
+    try { const v = JSON.parse((await this.store.getValue(`chessgames:${userId}`)) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+  }
+  async addChessGame(userId: string, g: ChessGameRecord) {
+    const list = [g, ...(await this.chessGames(userId))].slice(0, 40);
+    await this.store.setValue(`chessgames:${userId}`, JSON.stringify(list));
+  }  constructor(private readonly store: Store, private readonly rng: () => number = Math.random) {
     this.progress = new ProgressService(store);
     this.decks = new UserDecks(store, (u, b) => this.addCustom(u, b), (u, ids) => this.removeFromDeck(u, 'custom', ids));
   }

@@ -212,6 +212,48 @@ export const sfx = {
     const t = ctx!.currentTime;
     [72, 76, 79, 84].forEach((n, i) => bell(midi(n), t + i * 0.08, 0.9, 0.1));
   },
+  // 0.9.9.9.9.6 (round 4): Kanji chess's own sounds — a wooden piece set down, a capture, check, checkmate
+  /** a piece set down on the board: a soft wooden tock */
+  chessMove() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    tone(520, t, 0.07, { type: 'sine', gain: 0.22, to: 300, attack: 0.002 });
+    tone(1240, t, 0.03, { type: 'triangle', gain: 0.05, attack: 0.001 });
+    noise(t, 0.05, 0.12, 1800, 'bandpass');
+  },
+  /** a capture: the piece knocked aside, then the taker set down — two tocks and a low knock */
+  chessCapture() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    tone(420, t, 0.06, { gain: 0.18, to: 260, attack: 0.002 });
+    noise(t, 0.06, 0.14, 1400, 'bandpass');
+    tone(600, t + 0.07, 0.08, { gain: 0.24, to: 320, attack: 0.002 });
+    tone(150, t + 0.07, 0.18, { gain: 0.22, to: 80 });
+    noise(t + 0.07, 0.08, 0.16, 2200, 'bandpass');
+  },
+  /** check: two bright notes rising, a warning but a gentle one */
+  chessCheck() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    bell(midi(81), t, 0.5, 0.12);
+    bell(midi(88), t + 0.09, 0.7, 0.13);
+  },
+  /** checkmate: a deep temple gong under a falling chord */
+  chessMate() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    tone(midi(38), t, 2.4, { gain: 0.3, send: 0.5, attack: 0.01 });
+    tone(midi(38) * 2.02, t, 1.6, { gain: 0.1, send: 0.5, attack: 0.01 });
+    tone(midi(38) * 2.98, t, 1.0, { gain: 0.05, send: 0.5, attack: 0.01 });
+    [86, 81, 77, 74].forEach((n, i) => bell(midi(n), t + 0.05 + i * 0.11, 1.4, 0.1));
+  },
+  /** the game begins: a light two-note call */
+  chessStart() {
+    if (!sfxOk()) return;
+    const t = ctx!.currentTime;
+    bell(midi(74), t, 0.6, 0.1);
+    bell(midi(79), t + 0.12, 0.9, 0.11);
+  },
   mana() {
     if (!sfxOk()) return;
     const t = ctx!.currentTime;

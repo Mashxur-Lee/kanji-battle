@@ -1,5 +1,5 @@
 import { knowPlayer, setMentionSelf } from './mentions';
-import { chessReconnected, initChess, onChessError, onChessRoom, openChess } from './chess';
+import { challengeChess, chessReconnected, initChess, onChessError, onChessInvite, onChessRoom, openChess, setChessUser, showChessHistory } from './chess';
 import { setGifUser } from './gifpicker';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
 import './support'; // error reporting first, so early errors are caught too
@@ -474,6 +474,9 @@ function onMessage(msg: ServerMessage) {
     case 'chess_error':
       onChessError(msg.error);
       break;
+    case 'chess_invite': // 0.9.9.9.9.6 (round 4): a friend asks you to a game of Kanji chess
+      void onChessInvite(msg.from, msg.code);
+      break;
     case 'dm': // 0.9.9.9.6: the messenger
       onDm(msg.message, msg.fromName, msg.muted === true);
       break;
@@ -500,6 +503,7 @@ function onMessage(msg: ServerMessage) {
       offline.serverSeen(); // 0.9.9.9.5: the server is there — leave offline mode now
       checkBuild(msg.build); // 0.9.9.9.6.4: an older app updates itself
       user = msg.user;
+      setChessUser(msg.user.id);
       setMentionSelf(msg.user.id, msg.user.username, msg.user.name);
       ui.setUser(msg.user);
       void refreshOnline(); // now this player counts too
@@ -1451,10 +1455,16 @@ async function openHistory() {
   void loadSaved(false);
 }
 // 0.9.9.9.9.5: match history's two tabs: your last matches, and the replays saved to your account
-function historyTab(tab: 'matches' | 'saved') {
+function historyTab(tab: 'matches' | 'saved' | 'chess') {
   for (const b of ui.$('historyTabs').querySelectorAll<HTMLElement>('button')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
   ui.$('historyList').hidden = tab !== 'matches';
   ui.$('savedList').hidden = tab !== 'saved';
+  ui.$('chessHistList').hidden = tab !== 'chess'; // 0.9.9.9.9.6 (round 4): your Kanji chess games
+}
+async function loadChessHistory() {
+  showChessHistory(ui.$('chessHistList'), null);
+  try { showChessHistory(ui.$('chessHistList'), (await api.chessGames()).games); }
+  catch (err) { ui.toast((err as Error).message); showChessHistory(ui.$('chessHistList'), []); }
 }
 async function loadSaved(show: boolean) {
   if (show) ui.showSavedReplays(null, 0, () => {}, () => {});
@@ -1472,7 +1482,7 @@ async function unsave(id: string) {
     ui.showSavedReplays(r.saved, r.max, (x) => void openReplay(x), (x) => void unsave(x));
   } catch (err) { ui.toast((err as Error).message); }
 }
-for (const b of ui.$('historyTabs').querySelectorAll<HTMLElement>('button')) b.onclick = () => { const t = b.dataset.tab === 'saved' ? 'saved' : 'matches'; historyTab(t); if (t === 'saved') void loadSaved(true); };
+for (const b of ui.$('historyTabs').querySelectorAll<HTMLElement>('button')) b.onclick = () => { const t = b.dataset.tab === 'saved' ? 'saved' : b.dataset.tab === 'chess' ? 'chess' : 'matches'; historyTab(t); if (t === 'saved') void loadSaved(true); if (t === 'chess') void loadChessHistory(); };
 async function openMatch(id: string) {
   try {
     const m = (await api.match(id)).match;
@@ -1654,6 +1664,7 @@ addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail =
         addFriend: async () => { const r = await api.addFriend(p.login ?? p.name); if (r.result === 'exists') throw new Error(tr('Already friends, or a request is waiting')); void refreshRail(); },
         accept: async () => { await api.acceptFriend(id); void refreshRail(); },
         challenge: (m) => challengeFriend(id, p.name, m),
+        chess: () => challengeChess(id), // 0.9.9.9.9.6 (round 4): a game of Kanji chess, from their profile
         canChallenge: !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? ''),
         remove: async () => { await api.removeFriend(id); void refreshRail(); },
         view: () => showPlayer(p),

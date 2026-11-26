@@ -1489,7 +1489,7 @@ export function markProfile(el: HTMLElement, p: { id: string; bot?: string | nul
 export const dateTime = (at: number) => new Date(at).toLocaleString(locale(), { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /** A small floating card next to the clicked name. */
-export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean; /** 0.9.9.9.5.2 */ remove?: () => Promise<void>;
+export interface ProfileActions { relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none'; addFriend: () => Promise<void>; accept: () => Promise<void>; challenge: (mode: GameMode) => void; canChallenge: boolean; /** 0.9.9.9.9.6 (round 4): a game of Kanji chess */ chess?: () => void; /** 0.9.9.9.5.2 */ remove?: () => Promise<void>;
   /** 0.9.9.9.5.5: their whole profile (look + achievements) */ view?: () => void; /** 0.9.9.9.6: Messages */ message?: () => void; /** 0.9.9.9.5.5: their lobby is open */ join?: { label: string; mode: string; go: () => void };
   /** 0.9.9.9.9: they're in a game — watch it */ watch?: () => void; /** 0.9.9.9.9.2: Block and Report */ safety?: HTMLElement | null }
 export function showProfileCard(anchor: HTMLElement, p: PublicProfile | { bot: string; name: string } | 'loading' | 'missing', actions?: ProfileActions) {
@@ -1582,6 +1582,13 @@ function profileActions(p: PublicProfile, a: ProfileActions): HTMLElement {
       mb.prepend(modeBadge(m));
       mb.onclick = () => { a.challenge(m); hideProfileCard(); };
       modes.append(mb);
+    }
+    if (a.chess) { // 0.9.9.9.9.6 (round 4): Kanji chess, from a friend's profile
+      const cb = h('button', 'pill pp-mode pp-chess', tr('Kanji chess')) as HTMLButtonElement;
+      const seal = h('span', 'pp-chess-seal', '将'); seal.setAttribute('lang', 'ja'); seal.setAttribute('aria-hidden', 'true');
+      cb.prepend(seal);
+      cb.onclick = () => { a.chess?.(); hideProfileCard(); };
+      modes.append(cb);
     }
     c.disabled = !a.canChallenge;
     if (!a.canChallenge) c.title = 'Finish your game first';

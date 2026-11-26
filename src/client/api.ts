@@ -15,6 +15,8 @@ import type { PlayerId, ServerMessage } from '../shared/protocol';
 export interface LadderRow extends RankView { id: string; name: string; login: string; pic: string | null; place: number }
 export interface LadderView { top: LadderRow[]; me: RankView & { id: string }; friends: LadderRow[] }
 /** 0.9.9.9.9.5: a replay saved to your account */
+/** 0.9.9.9.9.6 (round 4): a game of Kanji chess, as kept in Match history → Chess */
+export interface ChessGame { at: number; vs: string; vsBot?: string; color: 'w' | 'b'; result: 'win' | 'loss' | 'draw'; reason: string; moves: string[]; times: number[]; base: number; inc: number }
 export interface SavedReplay { id: string; savedAt: number; at: number; mode: string; label: string }
 /** 0.9.9.9.9.6: a GIF to send */
 export interface GifItem { id: string; url: string; w: number; h: number; preview: string }
@@ -200,6 +202,9 @@ export const api = {
   savedReplays: () => call<{ saved: SavedReplay[]; max: number }>('GET', '/api/me/replays'),
   saveReplay: (id: string, label: string) => call<{ saved: SavedReplay[]; max: number }>('PUT', `/api/me/replays/${encodeURIComponent(id)}`, { label }),
   unsaveReplay: (id: string) => call<{ saved: SavedReplay[]; max: number }>('DELETE', `/api/me/replays/${encodeURIComponent(id)}`),
+  // 0.9.9.9.9.6 (round 4): your Kanji chess games; a game against a wizard is sent here when it ends
+  chessGames: () => call<{ games: ChessGame[] }>('GET', '/api/chess/games'),
+  saveChessGame: (g: { bot: string; color: 'w' | 'b'; moves: string[]; times: number[]; base: number; inc: number; reason: string; result: string }) => call<{ ok: true }>('POST', '/api/chess/games', g),
   match: (id: string) => call<{ match: MatchDetail }>('GET', `/api/matches/${encodeURIComponent(id)}`),
   player: (id: string) => call<{ profile: PublicProfile }>('GET', `/api/users/${encodeURIComponent(id)}`),
   /** 0.9.9.9.6.3: an @mention's login → their profile */

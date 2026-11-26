@@ -273,7 +273,7 @@ export class Session implements Client {
     if (msg.type === 'dm_typing') { if (typeof msg.to === 'string') this.hub.onDmTyping?.(user.id, msg.to, msg.on === true); return; }
     // 0.9.9.9.9: watch a friend's game — only a friend's, only while you're not playing yourself
     // 0.9.9.9.9.6: Kanji chess with a friend
-    if (msg.type.startsWith('chess_')) { this.hub.chess?.handle({ id: user.id, name: user.name ?? user.username }, msg); return; }
+    if (msg.type.startsWith('chess_')) { void this.hub.chess?.handle({ id: user.id, name: user.name ?? user.username }, msg); return; }
     if (msg.type === 'unwatch') return this.stopWatching();
     if (msg.type === 'watch') {
       const friendId = String(msg.userId ?? '');

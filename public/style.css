@@ -6632,3 +6632,177 @@ body.lowfx .seal.stamp { animation: none; }
 @media (max-width: 1100px) { .chess-boardwrap { --size: min(640px, calc(100 * var(--vw, 1vw) - 32px), calc(62 * var(--vh, 1vh))); } }
 @media (max-width: 640px) { .chess-boardwrap { --size: calc(100 * var(--vw, 1vw) - 24px); } }
 .chess-setup { padding-top: 8px; }
+
+/* ══ 0.9.9.9.9.6 (round 4) ═══════════════════════════════════════════════════════════════════════════════════ */
+/* phones and tablets: Kana takes the place Private game had (beside Daily) — the spot was left empty */
+@media (max-width: 1100px) {
+  #menu .mc-cards > #gamesBtn { order: 0; }
+  #menu .mc-cards > #kanaBtn { order: 1; grid-column: auto; display: flex; }
+  #menu .mc-cards > #dailyBtn { order: 2; }
+  #menu .mc-cards > #studyBtn { order: 3; }
+  #menu .mc-cards > #quizzesBtn { order: 4; }
+  #menu .mc-cards > #kanaBtn { flex-direction: column; justify-content: flex-start; }
+  #menu .mc-cards > #kanaBtn .mc-glyph { font-size: 4.2rem; }
+}
+@media (max-width: 700px) { #menu .mc-cards > #kanaBtn .mc-glyph { font-size: 2.6rem; } }
+
+/* Kanji chess, round 4 ─ pieces shaped like chess pieces (ivory and lacquer, trimmed in gold, the kanji large) */
+.piece { width: 92%; height: 92%; aspect-ratio: auto; border-radius: 0; background: none !important; box-shadow: none !important; text-shadow: none; display: block; }
+.piece .pc-svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .45)); }
+.pc-svg .pc-body { stroke: url(#pcGold); stroke-width: 3; stroke-linejoin: round; }
+.pc-svg.pc-w .pc-body { fill: url(#pcIvory); }
+.pc-svg.pc-b .pc-body { fill: url(#pcLacquer); }
+.pc-svg .pc-gem { fill: url(#pcGold); stroke: #7a5214; stroke-width: 1; }
+.pc-svg .pc-k { font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", serif; font-weight: 900; paint-order: stroke; }
+.pc-svg.pc-w .pc-k { fill: #1d140a; stroke: #fffaf0; stroke-width: 1.5; }
+.pc-svg.pc-b .pc-k { fill: url(#pcGold); stroke: #1a1036; stroke-width: 2; }
+.csq.sel .piece { transform: translateY(-4px) scale(1.06); }
+.cpr-btn { width: 74px; height: 74px; padding: 4px; border-radius: 14px; background: rgba(255, 255, 255, .08) !important; }
+.cpr-btn .pc-svg { width: 100%; height: 100%; }
+.cl-shape { width: 34px; height: 34px; display: inline-block; }
+.cl-shape .pc-svg { width: 100%; height: 100%; }
+.cl-piece { padding: 4px 14px 4px 4px; font-size: .95rem; }
+.cl-piece ruby { width: auto; height: auto; background: none; color: var(--text); font-size: 1.2rem; }
+.cl-piece rt { font-size: .62rem; }
+
+/* the pieces taken, and who is ahead */
+.cp-mat { display: flex; align-items: center; flex-wrap: wrap; gap: 0; min-height: 22px; }
+.cp-mat:empty { display: none; }
+.pc-mini { width: 22px; height: 22px; margin-right: -5px; display: inline-block; }
+.pc-mini .pc-svg { width: 100%; height: 100%; }
+.cp-lead { margin-left: 10px; font: 800 .9rem/1 var(--ui, sans-serif); color: var(--gold); }
+
+/* text big enough to read; the portrait above its name, never over it */
+.chess-player.opp { position: relative; gap: 6px; }
+.cp-pic { width: 150px; height: 150px; overflow: hidden; flex: none; }
+.cp-pic svg { height: 100%; width: auto; max-width: 100%; }
+.cp-name b { font-size: 1.25rem; }
+.cp-name ruby { font-size: 1rem; }
+.cp-name rt { font-size: .62rem; }
+.cp-elo, .cp-side { font-size: .82rem; padding: 4px 9px; }
+.cp-turn { font-size: 1rem; }
+.cp-clock { font-size: 1.3rem; }
+.cb-name b { font-size: 1.12rem; }
+.cb-name ruby { font-size: 1rem; }
+.cb-name rt { font-size: .62rem; }
+.cb-elo { font-size: .82rem; }
+.chess-lbl { font-size: .92rem; }
+.chess-moves { font-size: 1rem; }
+.chess-moves li { grid-template-columns: 2.2em 1fr 1fr; align-items: baseline; }
+.cm-mv { display: flex; align-items: baseline; gap: 6px; min-width: 0; margin: 0; padding: 2px 4px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; box-shadow: none; }
+button.cm-mv { cursor: pointer; }
+button.cm-mv:hover { background: rgba(255, 255, 255, .07); }
+.cm-mv.at { background: rgba(255, 212, 121, .22); }
+.cm-t { font-size: .72rem; color: var(--muted); font-weight: 600; }
+.cbb-jp { font-size: 1.25rem; }
+.cbb-jp rt { font-size: .62rem; }
+.cbb-tr { font-size: .95rem; }
+.crank, .cfile { font-size: .72rem; }
+
+/* the wizard's face: how it takes your move */
+.cp-mood { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; font: 900 1.4rem/1 "Noto Serif JP", "Yu Mincho", serif; color: #fff; background: #c8283c; box-shadow: 0 3px 0 #7a1020, 0 6px 14px rgba(0, 0, 0, .4); transform: rotate(-8deg); }
+.cp-mood[hidden] { display: none; }
+.cp-mood.pop { animation: moodStamp .4s cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes moodStamp { 0% { transform: rotate(-8deg) scale(2.2); opacity: 0; } 100% { transform: rotate(-8deg) scale(1); opacity: 1; } }
+.cp-pic.mood-go[data-mood="happy"] svg { animation: moodHop .5s ease-out 2; }
+.cp-pic.mood-go[data-mood="laugh"] svg { animation: moodHop .32s ease-out 4; }
+.cp-pic.mood-go[data-mood="amazed"] svg { animation: moodJolt .6s cubic-bezier(.3, 1.6, .5, 1) 1; }
+.cp-pic.mood-go[data-mood="fierce"] svg { animation: moodShake .45s linear 2; }
+.cp-pic.mood-go[data-mood="smug"] svg { animation: moodTilt 1.4s ease-in-out 1; }
+.cp-pic.mood-go[data-mood="sad"] svg { animation: moodDroop 1.6s ease-in-out 1 forwards; }
+@keyframes moodHop { 40% { transform: translateY(-12px); } 70% { transform: translateY(0) scaleY(.95); } }
+@keyframes moodJolt { 0% { transform: scale(1); } 30% { transform: scale(1.12) translateY(-6px); } 100% { transform: scale(1); } }
+@keyframes moodShake { 20% { transform: translateX(-5px) rotate(-2deg); } 50% { transform: translateX(5px) rotate(2deg); } 80% { transform: translateX(-3px); } }
+@keyframes moodTilt { 30%, 70% { transform: rotate(-6deg) translateX(-4px); } }
+@keyframes moodDroop { 40%, 100% { transform: translateY(8px) scaleY(.94); filter: saturate(.6) brightness(.85); } }
+.chess-voice[aria-pressed="false"] { opacity: .6; }
+.chess-actions .chess-voice { grid-column: 1 / -1; }
+
+/* the lobby */
+.chess-lobby { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; padding-top: 8px; }
+.chess-lobby[hidden] { display: none; }
+.chess-lobby .chess-head { flex-wrap: wrap; }
+.chess-lobby .chess-head .sub { max-width: 520px; }
+.clb-code { margin-left: auto; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 16px; background: var(--card); border: 2px solid rgba(255, 212, 121, .45); }
+.clb-code .pill { margin: 0; }
+.clb-main { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; align-items: stretch; }
+.chess-seats { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; }
+.cl-vs { font: 900 1.4rem/1 var(--brand, sans-serif); color: var(--gold); }
+.cl-seat { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 10px; border-radius: 18px; border: 2px solid var(--line); background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(0, 0, 0, .15)); text-align: center; min-width: 0; }
+.cl-seat b { font-size: 1.1rem; overflow-wrap: anywhere; }
+.cl-seat.ready { border-color: #4fd18b; box-shadow: 0 0 0 3px rgba(79, 209, 139, .18); }
+.cl-seat.empty { border-style: dashed; opacity: .75; }
+.cl-seat.empty .cl-pic { filter: grayscale(1) brightness(.5); }
+.cl-pic { width: 96px; height: 100px; display: grid; place-items: end center; overflow: hidden; }
+.cl-pic svg { height: 100%; width: auto; }
+.cl-state { font: 800 .8rem/1 var(--ui, sans-serif); padding: 5px 10px; border-radius: 999px; background: rgba(0, 0, 0, .3); color: var(--muted); }
+.cl-seat.ready .cl-state { background: #4fd18b; color: #08311b; }
+.cl-host { position: absolute; top: 8px; left: 8px; font: 800 .7rem/1 var(--ui, sans-serif); padding: 4px 8px; border-radius: 999px; background: rgba(255, 212, 121, .18); color: var(--gold); }
+.clb-btns { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.clb-btns .big { margin: 0; min-width: 200px; }
+#chessReady.on { background: linear-gradient(180deg, #4fd18b, #2c9c5e); color: #06240f; }
+.cs-opt:disabled { opacity: .45; cursor: default; }
+.cs-opt.on:disabled { opacity: 1; }
+
+/* the chat, in the lobby and beside the board */
+.chess-chat { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.chess-chat h3 { margin: 0; }
+.chess-chat[hidden] { display: none; }
+.cc-list { flex: 1; margin: 0; padding: 8px; list-style: none; min-height: 140px; max-height: 300px; overflow-y: auto; border-radius: 12px; background: rgba(0, 0, 0, .2); display: flex; flex-direction: column; gap: 4px; font-size: .98rem; }
+.cc-list li { overflow-wrap: anywhere; }
+.cc-list li b { margin-right: 6px; color: #c7b8ff; }
+.cc-list li.cc-me b { color: var(--gold); }
+.cc-list li.cc-sys { color: var(--muted); font-style: italic; font-size: .88rem; }
+.cc-form { display: flex; gap: 6px; }
+.cc-form input { flex: 1; min-width: 0; margin: 0; }
+.cc-form .pill { margin: 0; }
+.chess-chat.in-game { padding: 10px; border-radius: 16px; background: var(--card); border: 2px solid var(--line); }
+.chess-chat.in-game .cc-list { min-height: 90px; max-height: 180px; }
+
+/* Match history → Chess, and a kept game watched again */
+.chess-hist { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; }
+.ch-pic { width: 52px; height: 56px; flex: none; overflow: hidden; display: grid; place-items: end center; }
+.ch-pic svg { height: 100%; width: auto; }
+.ch-mid { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.ch-res { font: 900 .9rem/1 var(--ui, sans-serif); padding: 6px 10px; border-radius: 999px; background: rgba(0, 0, 0, .3); }
+.ch-res.win { color: #ffd479; } .ch-res.loss { color: #ff8094; } .ch-res.draw { color: #c7b8ff; }
+.chess-replay { width: min(980px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 16px; border-radius: 22px; border: 2px solid var(--line); background: var(--bg2, #15112b); color: var(--text); }
+.chess-replay::backdrop { background: rgba(6, 4, 16, .7); }
+.crp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.crp-head > div { display: flex; flex-direction: column; gap: 2px; }
+.crp-head b { font-size: 1.2rem; }
+.crp-head .pill { margin: 0; }
+.crp-res.win { color: var(--gold); } .crp-res.loss { color: #ff8094; } .crp-res.draw { color: #c7b8ff; }
+.crp-body { display: grid; grid-template-columns: auto minmax(180px, 1fr); gap: 14px; align-items: start; }
+.crp-boardcol { display: flex; flex-direction: column; gap: 6px; }
+.chess-boardwrap.crp-wrap { --size: min(520px, calc(100vw - 80px), calc(100dvh - 260px)); }
+.crp-ctl { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.crp-ctl .pill { margin: 0; min-width: 48px; }
+.chess-replay .chess-moves { max-height: min(60dvh, 520px); }
+.pp-chess-seal { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 6px; border-radius: 6px; font: 900 .9rem/1 "Noto Serif JP", serif; color: #2a1c0e; background: linear-gradient(160deg, #ffe7a3, #e3a93a); }
+
+:root[data-theme="light"] .chess-screen .cl-seat, :root[data-theme="light"] .chess-screen .chess-chat { --text: #1d1838; --muted: #5d5880; color: var(--text); }
+:root[data-theme="light"] .cc-list { background: rgba(40, 30, 90, .06); }
+:root[data-theme="light"] .cc-list li b { color: #5a3fc0; }
+:root[data-theme="light"] .chess-replay { background: #f6f3ff; color: #1d1838; }
+
+@media (max-width: 1100px) {
+  .cp-pic { width: 96px; height: 96px; }
+  .clb-main { grid-template-columns: 1fr; }
+  .crp-body { grid-template-columns: 1fr; }
+  .chess-boardwrap.crp-wrap { --size: min(520px, calc(100vw - 64px)); }
+  .chess-replay .chess-moves { max-height: 160px; }
+}
+@media (max-width: 640px) {
+  .cp-pic { width: 78px; height: 78px; }
+  .cp-mood { width: 32px; height: 32px; font-size: 1.1rem; top: 6px; right: 6px; }
+  .clb-code { margin-left: 0; width: 100%; box-sizing: border-box; justify-content: center; }
+  .cl-pic { width: 70px; height: 74px; }
+  .cl-seat b { font-size: .98rem; }
+  .chess-actions .chess-voice { grid-column: auto; }
+  .pc-mini { width: 18px; height: 18px; }
+  .chess-replay { padding: 10px; }
+}
+.chess-lobby .chess-head > div:not(.clb-code) { flex: 1 1 260px; min-width: 0; }
+@media (max-width: 640px) { .chess-lobby .chess-head { display: grid; grid-template-columns: auto 1fr; } .chess-lobby .clb-code { grid-column: 1 / -1; } }
+.chess-moves:empty { display: none; }

@@ -1,6 +1,7 @@
 // The REST API without the transport (0.9.9.4): the Node server (http.ts) feeds it real requests, and the
 // app's offline engine (client/offline) feeds it the same calls while there is no internet — so offline
 // study, quizzes, passages and the daily challenge run exactly the server's code.
+import { outcome, posKey, replay } from '../shared/chess';
 import { parseList, UserDeckError, USER_DECKS_MAX, type ImportRow } from './study/UserDecks';
 import { achCounts } from '../shared/achievements';
 import { isTransientDbError, retryDelay } from './db/transient';
@@ -501,6 +502,27 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         if (!limiter.allow(`gif:${u.id}`)) throw new AuthError('Too many searches — wait a minute', 429);
         try { return res(200, { gifs: await gifs.search(query.get('q') ?? '', Number(query.get('offset') ?? 0), query.get('lang') ?? 'en') }); }
         catch (e) { return res(502, { error: (e as Error).message }); }
+      } else if (r.method === 'GET' && url === '/api/chess/games') {
+        // 0.9.9.9.9.6 (round 4): your Kanji chess games (Match history → Chess)
+        const u = await auth.authenticate(r.token);
+        return res(200, { games: await study.chessGames(u.id) });
+      } else if (r.method === 'POST' && url === '/api/chess/games') {
+        // a game against a bot wizard (played in the app): its moves are checked, the result read from them where it can be
+        const u = await auth.authenticate(r.token);
+        if (!limiter.allow(`chessrec:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
+        const b = (await r.json(64 * 1024)) as Record<string, unknown>;
+        const moves = Array.isArray(b.moves) ? (b.moves as unknown[]).filter((x): x is string => typeof x === 'string' && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(x)).slice(0, 600) : [];
+        const bots = ['goblin', 'knight', 'witch', 'wizard'];
+        if (!bots.includes(String(b.bot)) || !moves.length) return res(400, { error: 'Not a game' });
+        const g = replay(moves);
+        if (!g.ok) return res(400, { error: 'Not a game' });
+        const color = b.color === 'b' ? 'b' : 'w';
+        const end = outcome(g.positions[g.positions.length - 1], g.positions.slice(0, -1).map(posKey));
+        const reason = end.over ? end.reason : ['resigned', 'time', 'left'].includes(String(b.reason)) ? String(b.reason) : 'left';
+        const result = end.over ? (end.winner === null ? 'draw' : end.winner === color ? 'win' : 'loss') : reason === 'time' && b.result === 'win' ? 'win' : 'loss';
+        const times = Array.isArray(b.times) ? (b.times as unknown[]).map((x) => Math.max(0, Math.min(3_600_000, Math.round(Number(x) || 0)))).slice(0, moves.length) : [];
+        await study.addChessGame(u.id, { at: Date.now(), vs: String(b.bot), vsBot: String(b.bot), color, result, reason, moves, times, base: Number(b.base) || 0, inc: Number(b.inc) || 0 });
+        return res(200, { ok: true });
       } else if (r.method === 'GET' && url === '/api/decks') {
         // 0.9.9.9.9.6: decks of your own — each with its words, how many are due and how many new
         const u = await auth.authenticate(r.token);

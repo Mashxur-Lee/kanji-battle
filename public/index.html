@@ -536,9 +536,11 @@
     <div id="historyTabs" class="word-tabs hist-tabs" role="tablist" aria-label="Match history">
       <button type="button" class="word-tab" role="tab" data-tab="matches" aria-selected="true">Matches</button>
       <button type="button" class="word-tab" role="tab" data-tab="saved" aria-selected="false">Saved replays <small id="savedCount"></small></button>
+      <button type="button" class="word-tab" role="tab" data-tab="chess" aria-selected="false">Chess</button>
     </div>
     <div id="historyList" class="history-list"></div>
     <div id="savedList" class="history-list" hidden></div>
+    <div id="chessHistList" class="history-list" hidden></div>
   </section>
 
   <!-- DICTIONARY (0.9.9.7) -->
@@ -588,22 +590,53 @@
         </div>
       </div>
     </div>
+    <!-- 0.9.9.9.9.6 (round 4): a friend game's lobby, like the private rooms' — both players, Ready, the clock (the host's), a chat -->
+    <div id="chessLobby" class="chess-lobby" hidden>
+      <header class="chess-head"><span class="chess-seal" lang="ja" aria-hidden="true">将</span><div><h2>Kanji chess</h2><p id="chessLobbyHint" class="sub"></p></div>
+        <div class="clb-code"><span class="hint">Game code</span><b id="chessLobbyCode" class="chess-code"></b><button id="chessCopy" class="pill" type="button">Copy</button></div></header>
+      <div class="clb-main">
+        <div class="chess-panel clb-panel">
+          <div id="chessSeats" class="chess-seats"></div>
+          <div class="chess-row"><span class="chess-lbl">Clock</span><div id="chessLobbyTime" class="chess-seg"></div><span id="chessLobbyTimeNote" class="hint"></span></div>
+          <div class="clb-btns"><button id="chessReady" class="big" type="button">Ready</button><button id="chessLeaveLobby" class="pill" type="button">Leave</button></div>
+        </div>
+        <div class="chess-panel chess-chat"><h3>Chat</h3><ol id="chessLobbyChat" class="cc-list" aria-live="polite"></ol>
+          <form id="chessLobbyChatForm" class="cc-form"><input maxlength="200" placeholder="Say something…" autocomplete="off"><button class="pill" type="submit">Send</button></form></div>
+      </div>
+    </div>
     <div id="chessGame" class="chess-game" hidden>
       <div class="chess-side">
-        <div id="chessOpp" class="chess-player opp"><span class="cp-pic"></span><span class="cp-name"></span><span id="chessOppClock" class="cp-clock" hidden></span></div>
+        <div id="chessOpp" class="chess-player opp"><span class="cp-pic"></span><span id="chessMood" class="cp-mood" lang="ja" hidden></span><span class="cp-name"></span><span id="chessOppMat" class="cp-mat"></span><span id="chessOppClock" class="cp-clock" hidden></span></div>
         <div id="chessBubble" class="chess-bubble" hidden aria-live="polite"></div>
         <button id="chessDrawNote" class="pill chess-drawnote" type="button" hidden>They offer a draw - accept</button>
       </div>
       <div class="chess-center">
         <div class="chess-boardwrap"><div id="chessBoard" class="chess-board" role="grid" aria-label="Chess board"></div><div id="chessPromo" class="chess-promo" hidden></div>
           <div id="chessOver" class="chess-over" hidden><b id="chessOverTitle"></b><span id="chessOverWhy"></span><div class="chess-over-btns"><button id="chessAgain" class="big" type="button">Play again</button><button id="chessToSetup" class="pill" type="button">Change the game</button></div></div></div>
-        <div id="chessMe" class="chess-player me"><span class="cp-name"></span><span id="chessTurn" class="cp-turn"></span><span id="chessMeClock" class="cp-clock" hidden></span></div>
+        <div id="chessMe" class="chess-player me"><span class="cp-name"></span><span id="chessMeMat" class="cp-mat"></span><span id="chessTurn" class="cp-turn"></span><span id="chessMeClock" class="cp-clock" hidden></span></div>
       </div>
       <div class="chess-moves-box">
         <ol id="chessMoves" class="chess-moves"></ol>
-        <div class="chess-actions"><button id="chessUndo" class="pill" type="button">Take back</button><button id="chessDraw" class="pill" type="button" hidden>Offer a draw</button><button id="chessFlip" class="pill" type="button">Flip the board</button><button id="chessResign" class="pill chess-resign" type="button">Resign</button></div>
+        <div class="chess-actions"><button id="chessUndo" class="pill" type="button">Take back</button><button id="chessDraw" class="pill" type="button" hidden>Offer a draw</button><button id="chessFlip" class="pill" type="button">Flip the board</button><button id="chessResign" class="pill chess-resign" type="button">Resign</button><button id="chessVoice" class="pill chess-voice" type="button" aria-pressed="true">Voice on</button></div>
+        <div id="chessChatBox" class="chess-chat in-game" hidden><ol id="chessChat" class="cc-list" aria-live="polite"></ol>
+          <form id="chessChatForm" class="cc-form"><input maxlength="200" placeholder="Say something…" autocomplete="off"><button class="pill" type="submit">Send</button></form></div>
       </div>
     </div>
+    <!-- 0.9.9.9.9.6 (round 4): a kept game, watched again -->
+    <dialog id="chessReplay" class="chess-replay chess-screen">
+      <header class="crp-head"><div><b id="chessReplayTitle"></b><span id="chessReplayRes" class="crp-res"></span></div><button id="chessReplayClose" class="pill" type="button">Close</button></header>
+      <div class="crp-body">
+        <div class="crp-boardcol"><span id="chessReplayOpp" class="cp-mat"></span><div class="chess-boardwrap crp-wrap"><div id="chessReplayBoard" class="chess-board" aria-label="Chess board"></div></div><span id="chessReplayMe" class="cp-mat"></span>
+          <div class="crp-ctl"><button id="chessReplayFirst" class="pill" type="button" aria-label="First move">|&lt;</button><button id="chessReplayPrev" class="pill" type="button" aria-label="Back">&lt;</button><button id="chessReplayPlay" class="pill" type="button">Play</button><button id="chessReplayNext" class="pill" type="button" aria-label="Forward">&gt;</button><button id="chessReplayLast" class="pill" type="button" aria-label="Last move">&gt;|</button><span id="chessReplayStep" class="hint"></span></div></div>
+        <ol id="chessReplayMoves" class="chess-moves"></ol>
+      </div>
+    </dialog>
+    <!-- the pieces' colours, defined once -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+      <linearGradient id="pcIvory" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fffdf5"/><stop offset=".55" stop-color="#efe4c8"/><stop offset="1" stop-color="#c9b383"/></linearGradient>
+      <linearGradient id="pcLacquer" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6a55b0"/><stop offset=".5" stop-color="#3a2a78"/><stop offset="1" stop-color="#1c1240"/></linearGradient>
+      <linearGradient id="pcGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset=".45" stop-color="#f2c45a"/><stop offset="1" stop-color="#a8721c"/></linearGradient>
+    </defs></svg>
   </section>
 
   <!-- STUDY: deck choice -->
