@@ -5,7 +5,7 @@
 // Not shown in battles, quizzes or the Daily challenge (0.9.9.8.1: it is in reviews and the reading passage).
 
 import { exactMatch, type DictEntry } from '../shared/dict';
-import { addTo, askOffline, exactFirst, badges, dictionary, headword, openDictWord, ruOf } from './dictui';
+import { addTo, askOffline, exactFirst, badges, dictionary, headword, openDictionary, openDictWord, openDraw, ruOf } from './dictui';
 import { tr } from './i18n';
 import * as ui from './ui';
 import { swallowNextClick } from './taps';
@@ -66,6 +66,10 @@ const toggle = () => setOpen(!$('dictRail').classList.contains('open'));
 $('dictRailTab').onclick = (e) => { e.stopPropagation(); toggle(); };
 $('dictFab').onclick = (e) => { e.stopPropagation(); toggle(); };
 $('dictRailClose').onclick = () => setOpen(false);
+// 0.9.9.9.9.6: full screen — the big dictionary page (with what you typed), and back with its Exit; and look a kanji up
+// by drawing it (not in a room: leaving the room's screen would leave the room)
+$('dictRailFull').onclick = () => { if (ROOM_SCREENS.has(screen)) { ui.toast(tr('Not during a game room - the side panel stays here')); return; } setOpen(false); openDictionary($<HTMLInputElement>('dictRailQ').value); };
+$('dictRailDraw').onclick = () => openDraw((t) => { const q = $<HTMLInputElement>('dictRailQ'); q.value = t; void search(t); }, '');
 document.addEventListener('pointerdown', (e) => {
   const t = e.target as HTMLElement;
   if ($('dictRail').classList.contains('open') && !t.closest('#dictRail, #dictFab, dialog, .toast, .kanji-pop, .csel-menu')) { setOpen(false); swallowNextClick(); }

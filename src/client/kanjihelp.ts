@@ -6,6 +6,7 @@
 
 import { lang, meaningIn, tr } from './i18n';
 import { partsPicture, strokesOf } from './strokes';
+import { api } from './api';
 
 /** [meanings, ru, on, kun, parts [char, en, ru][], story en, story ru, part of each stroke | null] */
 type KanjiInfo = [string, string, string, string, Array<[string, string, string]>, string, string, number[] | null];
@@ -186,10 +187,32 @@ export async function showKanji(ch: string, at?: HTMLElement, back?: () => void)
       const strokes = await strokesOf(ch);
       if (strokes && seq && seq.length === strokes.length) pic.append(partsPicture(strokes, seq, COLOURS));
       else pic.append(h('span', 'kp-big', ch, { lang: 'ja' }));
+      void aiPicture(ch, pic); // 0.9.9.9.9.6
     };
     head.append(btn);
     kids.push(box);
   }
   p.replaceChildren(...kids);
   p.hidden = false;
+}
+
+// ── 0.9.9.9.9.6: the memory picture painted by an AI — kept on the server, one per kanji for everyone; the first person
+// to open a kanji's picture has it painted (a moment), then it is there for all. Not set up: the parts picture stays. ──
+const AI_PIC = (ch: string) => `/api/kanji-pic/${encodeURIComponent(ch)}`;
+async function aiPicture(ch: string, box: HTMLElement) {
+  const show = (src: string) => {
+    const img = document.createElement('img');
+    img.className = 'kp-ai'; img.alt = ''; img.decoding = 'async'; img.src = src;
+    img.onload = () => { box.replaceChildren(img); box.classList.add('has-ai'); };
+  };
+  try {
+    const r = await fetch(AI_PIC(ch));
+    if (r.ok) { show(AI_PIC(ch)); return; }
+    const info = (await r.json().catch(() => ({}))) as { can?: boolean };
+    if (!info.can) return;
+    const note = h('span', 'kp-painting', tr('Painting a picture of this story…'));
+    box.append(note);
+    try { await api.paintKanji(ch); show(AI_PIC(ch)); }
+    catch (e) { note.textContent = (e as Error).message; setTimeout(() => note.remove(), 4000); }
+  } catch { /* offline: the parts picture */ }
 }

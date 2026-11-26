@@ -6,6 +6,7 @@
 // chats with an owner, admins and what members may do (add people, change the name and picture, write); each
 // conversation can notify for everything, only @mentions, or nothing; "typing…"; and a friend's status (online,
 // playing, away, last seen).
+import { GIF_URL } from '../gifs';
 import { randomBytes } from 'node:crypto';
 import type { ChatGroup, DirectMessage, GroupMember, GroupPerms, GroupRole, Store, UserRecord } from '../db/Store';
 import { DEFAULT_PERMS, SUPPORT_ID } from '../db/Store';
@@ -389,10 +390,14 @@ export class MessageService {
     return (await this.store.messagesBetween(me, to, 1)).some((m) => m.fromId === to);
   }
 
-  async send(u: UserRecord, to: unknown, text: unknown, asSupport = false, kind?: 'bug' | 'suggestion', extra: { media?: unknown; fwd?: string | null } = {}): Promise<MessageView> {
+  async send(u: UserRecord, to: unknown, text: unknown, asSupport = false, kind?: 'bug' | 'suggestion', extra: { media?: unknown; fwd?: string | null; gif?: unknown } = {}): Promise<MessageView> {
     const me = this.side(u, asSupport);
     if (typeof to !== 'string' || !to || to.length > 64) throw new MessageError('Who to?');
-    const t = typeof text === 'string' ? text.replace(/\r\n?/g, '\n').trim().slice(0, MESSAGE_MAX) : '';
+    // 0.9.9.9.9.6: a GIF — its GIPHY address is the message (kind "gif")
+    const gif = typeof extra.gif === 'string' && GIF_URL.test(extra.gif) ? extra.gif : null;
+    if (extra.gif !== undefined && !gif) throw new MessageError('That GIF can\'t be sent');
+    const t = gif ?? (typeof text === 'string' ? text.replace(/\r\n?/g, '\n').trim().slice(0, MESSAGE_MAX) : '');
+    const gk = gif ? 'gif' : null;
     const media = await this.mediaFor(u, extra.media);
     if (!t && !media) throw new MessageError('Write something first');
     // 0.9.9.9.6.4: a group
@@ -401,7 +406,7 @@ export class MessageService {
       const { group, members, me: mine } = await this.membership(u, to);
       if (!this.can(group, mine, 'send')) throw new MessageError('Only the group\'s admins can write here', 403);
       this.limit(u);
-      const m = await this.store.addMessage({ fromId: u.id, toId: to, text: t, at: this.now(), kind: null, by: null, media, fwd: extra.fwd ?? null });
+      const m = await this.store.addMessage({ fromId: u.id, toId: to, text: t, at: this.now(), kind: gk, by: null, media, fwd: extra.fwd ?? null });
       await this.store.updateGroupMember(group.id, u.id, { lastRead: m.at });
       const v = view(m, false);
       const recs = await Promise.all(members.map((x) => this.store.findById(x.userId)));
@@ -409,14 +414,14 @@ export class MessageService {
       this.hooks.deliver(members.map((x, i) => ({ id: x.userId, muted: x.userId === u.id || quietFor(recs[i], to, t) })), v, fromName);
       for (const [i, x] of members.entries()) {
         if (x.userId === u.id || this.online(x.userId) || quietFor(recs[i], to, t)) continue;
-        this.hooks.push?.(x.userId, to, `${fromName} · ${group.name}`, t || 'Photo'); // (tapping it opens the group)
+        this.hooks.push?.(x.userId, to, `${fromName} · ${group.name}`, gif ? 'GIF' : t || 'Photo'); // (tapping it opens the group)
       }
       return v;
     }
     if (to !== SUPPORT_ID && !(await this.store.findById(to))) throw new MessageError('No such player', 404);
     if (!(await this.mayWrite(u, me, to))) throw new MessageError('You can write to your friends (and to the team)', 403);
     this.limit(u);
-    const m = await this.store.addMessage({ fromId: me, toId: to, text: t, at: this.now(), kind: kind ?? null, by: asSupport ? u.id : null, media, fwd: extra.fwd ?? null });
+    const m = await this.store.addMessage({ fromId: me, toId: to, text: t, at: this.now(), kind: gk ?? kind ?? null, by: asSupport ? u.id : null, media, fwd: extra.fwd ?? null });
     const v = view(m);
     const fromName = asSupport ? 'Kanji Wizards team' : nameOf(u);
     if (to === SUPPORT_ID) this.hooks.deliver('admins', v, fromName);
@@ -424,7 +429,7 @@ export class MessageService {
       const rec = await this.store.findById(to);
       const quiet = quietFor(rec, me, t);
       this.hooks.deliver([{ id: to, muted: quiet }], v, fromName);
-      if (!this.online(to) && !quiet) this.hooks.push?.(to, me, fromName, t || 'Photo');
+      if (!this.online(to) && !quiet) this.hooks.push?.(to, me, fromName, gif ? 'GIF' : t || 'Photo');
     }
     // the sender's own other screens (and, for the team, the other admins)
     if (asSupport) this.hooks.deliver('admins', v, fromName);
@@ -482,7 +487,7 @@ export class MessageService {
 
   async edit(u: UserRecord, id: unknown, text: unknown) {
     const { m, as } = await this.visible(u, id);
-    if (m.fromId !== as || m.deleted || m.kind === 'sys' || m.kind === 'invite') throw new MessageError('You can edit your own messages', 403);
+    if (m.fromId !== as || m.deleted || m.kind === 'sys' || m.kind === 'invite' || m.kind === 'gif') throw new MessageError('You can edit your own messages', 403);
     if (m.fwd) throw new MessageError('A forwarded message can\'t be edited');
     if (this.now() - m.at > EDIT_WINDOW_MS) throw new MessageError('Messages can be edited for 48 hours');
     const t = typeof text === 'string' ? text.replace(/\r\n?/g, '\n').trim().slice(0, MESSAGE_MAX) : '';

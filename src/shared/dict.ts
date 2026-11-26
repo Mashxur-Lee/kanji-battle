@@ -8,7 +8,8 @@ import type { VocabEntry } from './protocol';
 
 /** [parts of speech, English meanings, field / usage tags, a note] */
 export type DictSense = [string[], string, string[], string];
-export interface DictRaw { k: string[]; r: string[]; s: DictSense[]; ru?: string[]; c?: 1; x?: 1 }
+/** (0.9.9.9.9.6: `a` its antonyms, `y` related words — JMdict's links, by spelling) */
+export interface DictRaw { k: string[]; r: string[]; s: DictSense[]; ru?: string[]; c?: 1; x?: 1; a?: string[]; y?: string[] }
 export interface DictData { tags: Record<string, string>; words: DictRaw[] }
 export interface DictEntry {
   /** index in the dictionary (stable for one build) */
@@ -19,6 +20,8 @@ export interface DictEntry {
   vocabId?: string; level?: Level;
   /** 0.9.9.7.2: an expression / phrase */
   phrase?: boolean;
+  /** 0.9.9.9.9.6: antonyms and related words (JMdict), by spelling */
+  antonyms?: string[]; related?: string[];
   /** found as a form of this word: "negative", "polite past" … (you typed 呼ばない, this is 呼ぶ) */
   form?: string;
   /** found as a near miss: the positions in its first reading that differ from what you typed (shown in red) */
@@ -107,7 +110,7 @@ export class Dictionary {
   entry(i: number): DictEntry {
     const w = this.words[i];
     const mine = this.mineOf(w);
-    return { i, kanji: w.k, kana: w.r, romaji: toRomaji(w.r[0] ?? ''), senses: w.s, ru: w.ru ?? [], common: !!w.c, ...(w.x ? { phrase: true } : {}), ...(mine ? { vocabId: mine.id, level: mine.level } : {}) };
+    return { i, kanji: w.k, kana: w.r, romaji: toRomaji(w.r[0] ?? ''), senses: w.s, ru: w.ru ?? [], common: !!w.c, ...(w.x ? { phrase: true } : {}), ...(w.a ? { antonyms: w.a } : {}), ...(w.y ? { related: w.y } : {}), ...(mine ? { vocabId: mine.id, level: mine.level } : {}) };
   }
   get(i: number): DictEntry | null { return Number.isInteger(i) && i >= 0 && i < this.words.length ? this.entry(i) : null; }
 
@@ -228,4 +231,63 @@ export class Dictionary {
     out.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
     return out.slice(0, limit).map(([, i]) => this.entry(i));
   }
+
+  // ── 0.9.9.9.9.6: synonyms, antonyms and related words ───────────────────────────────────────────────────────────
+  /** a word by its spelling (kanji first, then kana) — JMdict's links name words that way; the common one first */
+  byText(t: string): DictEntry | null {
+    let best = -1, bestScore = -1;
+    for (let i = 0; i < this.words.length; i++) {
+      const w = this.words[i];
+      const hit = w.k.includes(t) ? 2 : w.r.includes(t) ? 1 : 0;
+      if (!hit) continue;
+      const score = hit * 10 + (w.c ? 5 : 0) + (this.mineOf(w) ? 3 : 0);
+      if (score > bestScore) { best = i; bestScore = score; }
+    }
+    return best < 0 ? null : this.entry(best);
+  }
+  /**
+   * Words meaning the same: their first meaning matches one of this word's first meanings word for word (notes
+   * aside, "to " kept: 始める "to begin" ~ 開始する "to begin"). Common words and the game's own first.
+   */
+  synonymsOf(e: DictEntry, limit = 8): DictEntry[] {
+    const key = (g: string) => g.split(';').map((x) => stripNotes(x).toLowerCase().trim()).filter((x) => x.length > 1);
+    const mine = new Set(key(e.senses[0]?.[1] ?? '').slice(0, 3));
+    if (!mine.size) return [];
+    const pos0 = (e.senses[0]?.[0] ?? [])[0]?.slice(0, 2);
+    const out: Array<[number, number]> = [];
+    for (let i = 0; i < this.words.length; i++) {
+      if (i === e.i) continue;
+      const w = this.words[i];
+      const first = key(w.s[0]?.[1] ?? '');
+      if (!first.length || !mine.has(first[0])) continue;
+      if (w.k[0] && e.kanji[0] && w.k[0] === e.kanji[0]) continue;
+      const samePos = pos0 && (w.s[0]?.[0] ?? [])[0]?.slice(0, 2) === pos0 ? 4 : 0;
+      out.push([(w.c ? 10 : 0) + (this.mineOf(w) ? 6 : 0) + samePos - (w.x ? 8 : 0), i]);
+    }
+    out.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+    return out.slice(0, limit).map(([, i]) => this.entry(i));
+  }
+}
+/** 0.9.9.9.9.6: common opposites JMdict doesn't link (it has antonyms for only ~550 words) — both ways */
+const OPPOSITES: ReadonlyArray<[string, string]> = [
+  ['大きい', '小さい'], ['大きな', '小さな'], ['高い', '低い'], ['高い', '安い'], ['長い', '短い'], ['広い', '狭い'], ['多い', '少ない'],
+  ['新しい', '古い'], ['早い', '遅い'], ['速い', '遅い'], ['暑い', '寒い'], ['熱い', '冷たい'], ['暖かい', '涼しい'], ['重い', '軽い'],
+  ['強い', '弱い'], ['明るい', '暗い'], ['易しい', '難しい'], ['優しい', '厳しい'], ['近い', '遠い'], ['太い', '細い'], ['厚い', '薄い'],
+  ['深い', '浅い'], ['良い', '悪い'], ['正しい', '間違い'], ['嬉しい', '悲しい'], ['楽しい', 'つまらない'], ['甘い', '辛い'], ['若い', '年寄り'],
+  ['好き', '嫌い'], ['上手', '下手'], ['静か', '賑やか'], ['安全', '危険'], ['簡単', '複雑'], ['便利', '不便'], ['有名', '無名'], ['元気', '病気'],
+  ['上', '下'], ['右', '左'], ['前', '後ろ'], ['内', '外'], ['中', '外'], ['東', '西'], ['南', '北'], ['表', '裏'], ['朝', '夜'], ['昼', '夜'],
+  ['男', '女'], ['男性', '女性'], ['父', '母'], ['兄', '弟'], ['姉', '妹'], ['夫', '妻'], ['大人', '子供'], ['先生', '生徒'], ['客', '店員'],
+  ['入る', '出る'], ['入口', '出口'], ['開ける', '閉める'], ['開く', '閉まる'], ['始める', '終える'], ['始まる', '終わる'], ['行く', '来る'],
+  ['売る', '買う'], ['貸す', '借りる'], ['教える', '習う'], ['勝つ', '負ける'], ['押す', '引く'], ['上がる', '下がる'], ['上げる', '下げる'],
+  ['増える', '減る'], ['生まれる', '死ぬ'], ['寝る', '起きる'], ['乗る', '降りる'], ['着る', '脱ぐ'], ['覚える', '忘れる'], ['付ける', '消す'],
+  ['出発', '到着'], ['成功', '失敗'], ['勝利', '敗北'], ['賛成', '反対'], ['輸入', '輸出'], ['入学', '卒業'], ['過去', '未来'], ['以上', '以下'],
+  ['最初', '最後'], ['全部', '一部'], ['天国', '地獄'], ['光', '影'], ['白', '黒'], ['天', '地'], ['山', '海'], ['夏', '冬'], ['春', '秋'],
+];
+const OPP = new Map<string, string[]>();
+for (const [a, b] of OPPOSITES) { OPP.set(a, [...(OPP.get(a) ?? []), b]); OPP.set(b, [...(OPP.get(b) ?? []), a]); }
+/** a word's opposites: JMdict's, then the common ones above (by spelling) */
+export function antonymsOf(e: DictEntry): string[] {
+  const out = new Set(e.antonyms ?? []);
+  for (const t of [...e.kanji.slice(0, 2), ...e.kana.slice(0, 1)]) for (const o of OPP.get(t) ?? []) out.add(o);
+  return [...out].slice(0, 6);
 }

@@ -33,11 +33,20 @@ function guideHover(el: HTMLElement, mode: Exclude<GameMode, 'deck'>) {
     const below = r.bottom + 10;
     pop.style.top = `${below + pop.offsetHeight > viewH() - 8 ? Math.max(8, r.top - 10 - pop.offsetHeight) : below}px`;
   };
-  const close = () => { pop.hidden = true; };
-  el.addEventListener('mouseenter', open);
-  el.addEventListener('mouseleave', close);
-  el.addEventListener('focusin', open);
-  el.addEventListener('focusout', close);
+  const close = () => { pop.hidden = true; document.removeEventListener('pointerdown', outside, true); };
+  const outside = (e: Event) => { if (!pop.contains(e.target as Node) && e.target !== info) close(); };
+  // 0.9.9.9.9.6: only the blue (!) opens it — picking a mode (a tap on a phone) opened it too, over the other modes
+  const info = el.querySelector<HTMLElement>('.q-info')!;
+  info.setAttribute('role', 'button'); info.tabIndex = 0; info.removeAttribute('aria-hidden'); info.setAttribute('aria-label', tr('How it works'));
+  const toggle = (e: Event) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!pop.hidden && pop.dataset.mode === mode) { close(); return; }
+    pop.dataset.mode = mode; open();
+    setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
+  };
+  info.addEventListener('click', toggle);
+  info.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') toggle(e); if (e.key === 'Escape') close(); });
+  el.addEventListener('mouseleave', () => { if (matchMedia('(pointer: fine)').matches) close(); });
 }
 
 function chip(value: string, label: string, on: boolean, group: string) {

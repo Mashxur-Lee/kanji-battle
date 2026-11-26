@@ -30,10 +30,12 @@ export function safetyRow(p: PublicProfile): HTMLElement | null {
   const blk = h('button', 'pill pv-btn pp-icon') as HTMLButtonElement;
   blk.type = 'button';
   const paint = () => { const t = tr(v.blocked().includes(p.id) ? 'Unblock' : 'Block'); blk.innerHTML = `<i class="pp-ic">${ICON_BLOCK}</i><span class="sr"></span>`; blk.querySelector('span')!.textContent = t; blk.title = t; blk.setAttribute('aria-label', t); blk.classList.toggle('on', v.blocked().includes(p.id)); };
+  blk.classList.add('pv-block'); // (0.9.9.9.9.6: red)
   paint();
   blk.onclick = async () => {
     const on = !v.blocked().includes(p.id);
-    if (on && !confirm(tr('Block this player? They can’t message you, add you as a friend or invite you, and they stop being your friend. They aren’t told.'))) return;
+    // (0.9.9.9.9.6: the game's own window, not the browser's)
+    if (on && !(await ui.confirmBox('Block this player?', 'They can’t message you, add you as a friend or invite you, and they stop being your friend. They aren’t told.', 'Block', 'Cancel'))) return;
     blk.disabled = true;
     try { const r = await api.block(p.id, on); v.setBlocked(r.blocked); paint(); ui.toast(tr(on ? 'Blocked' : 'Unblocked'), 2000); }
     catch (e) { ui.toast((e as Error).message); }

@@ -3,6 +3,7 @@
 // fetched from /api/strokes and cached.
 
 import { api } from './api';
+import { tr } from './i18n';
 
 type Strokes = number[][][];
 const cache = new Map<string, Strokes | null>();
@@ -141,4 +142,97 @@ export function partsPicture(strokes: Strokes, part: number[], colours: string[]
     svg.append(el('path', { d: pathOf(pts), stroke: c, class: 'kp-stroke', style: `animation-delay:${i * 90}ms` }));
   });
   return svg;
+}
+
+// ── 0.9.9.9.9.6: where a written kanji went wrong (Kanji Writing and Deck Duel) ───────────────────────────────────
+// The owner: "it should show where you made a mistake". Your strokes, in the order you drew them, side by side with
+// the kanji's own (in stroke order): each one that starts and ends where its stroke does is green; one in the wrong
+// place, or drawn the wrong way, is red and numbered; a stroke you left out is a dashed red line on the kanji; a stroke
+// too many is orange on yours. Both are fitted to their own box, so a big or small drawing compares the same.
+type Pt = [number, number];
+/** strokes fitted into 0..100 (proportions kept, centred) */
+function fit100(strokes: number[][][], pad = 12): Pt[][] {
+  const all = strokes.flat();
+  if (!all.length) return [];
+  const xs = all.map((p) => p[0]), ys = all.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const scale = (100 - pad * 2) / Math.max(x1 - x0, y1 - y0, 1);
+  const ox = 50 - ((x0 + x1) / 2) * scale, oy = 50 - ((y0 + y1) / 2) * scale;
+  return strokes.map((s) => s.map(([x, y]) => [+(x * scale + ox).toFixed(1), +(y * scale + oy).toFixed(1)] as Pt));
+}
+const dist = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+export type StrokeVerdict = 'ok' | 'off' | 'backwards' | 'missing' | 'extra';
+/** each stroke of `ref` compared with the stroke drawn in its place (by order): what was wrong with it */
+export function compareStrokes(ref: number[][][], drawn: number[][][]): StrokeVerdict[] {
+  const R = fit100(ref), D = fit100(drawn);
+  const out: StrokeVerdict[] = [];
+  for (let i = 0; i < Math.max(R.length, D.length); i++) {
+    const r = R[i], d = D[i];
+    if (!d) { out.push('missing'); continue; }
+    if (!r) { out.push('extra'); continue; }
+    const rs = r[0], re = r[r.length - 1], ds = d[0], de = d[d.length - 1];
+    const same = dist(ds, rs) + dist(de, re), flipped = dist(ds, re) + dist(de, rs);
+    const long = dist(rs, re) > 14; // (a dot has no direction to get wrong)
+    if (long && flipped + 12 < same && flipped < 50) out.push('backwards');
+    else out.push(Math.max(dist(ds, rs), dist(de, re)) <= 26 ? 'ok' : 'off');
+  }
+  return out;
+}
+const VERDICT_COLOUR: Record<StrokeVerdict, string> = { ok: '#35d68a', off: '#ff5c6c', backwards: '#ff5c6c', missing: '#ff5c6c', extra: '#ffaa3b' };
+function strokeSvg(strokes: Pt[][], verdict: (i: number) => StrokeVerdict | null, label: string, dashed: (i: number) => boolean = () => false): SVGSVGElement {
+  const svg = el('svg', { viewBox: '0 0 100 100', class: 'sc-svg', role: 'img', 'aria-label': label }) as SVGSVGElement;
+  svg.append(gridLines());
+  const nums = el('g', { class: 'sc-nums' });
+  strokes.forEach((pts, i) => {
+    const v = verdict(i);
+    if (!v || !pts.length) return;
+    const c = VERDICT_COLOUR[v];
+    svg.append(el('path', { d: pathOf(pts), class: `sc-s sc-${v}`, stroke: c, ...(dashed(i) ? { 'stroke-dasharray': '4 4' } : {}) }));
+    if (v !== 'ok') {
+      const n = el('text', { x: pts[0][0] - 4, y: pts[0][1] - 3, fill: c });
+      n.textContent = String(i + 1);
+      nums.append(n);
+    }
+  });
+  svg.append(nums);
+  return svg;
+}
+/** your drawing beside each kanji of `word`, the strokes marked; resolves false when it can't (no stroke data) */
+export async function showStrokeCompare(box: HTMLElement, word: string, drawn: number[][][]): Promise<boolean> {
+  const chars = [...word].filter((c) => /[\p{Script=Han}々]/u.test(c));
+  if (!chars.length || !drawn.length) return false;
+  await load(chars);
+  const refs = chars.map((c) => cache.get(c) ?? null);
+  if (refs.some((r) => !r)) return false;
+  const wrap = document.createElement('div');
+  wrap.className = 'sc-wrap';
+  let at = 0;
+  const notes: string[] = [];
+  chars.forEach((ch, k) => {
+    const ref = refs[k]!;
+    // (a word is drawn in one go: your strokes are shared out by each kanji's stroke count, the last takes the rest)
+    const mine = k === chars.length - 1 ? drawn.slice(at) : drawn.slice(at, at + ref.length);
+    at += ref.length;
+    const v = compareStrokes(ref, mine);
+    const R = fit100(ref), D = fit100(mine);
+    const pair = document.createElement('div');
+    pair.className = 'sc-pair';
+    const yours = strokeSvg(D, (i) => (v[i] === 'missing' ? null : v[i]), 'Your strokes');
+    const right = strokeSvg(R, (i) => (v[i] === 'extra' ? null : v[i]), `How ${ch} is written`, (i) => v[i] === 'missing');
+    const cap = (t: string, svg: Element) => { const f = document.createElement('figure'); f.className = 'sc-fig'; const c = document.createElement('figcaption'); c.textContent = t; f.append(svg, c); return f; };
+    pair.append(cap('Yours', yours), cap(ch, right));
+    wrap.append(pair);
+    const off = v.map((x, i) => (x === 'off' ? i + 1 : 0)).filter(Boolean), back = v.map((x, i) => (x === 'backwards' ? i + 1 : 0)).filter(Boolean);
+    const miss = v.filter((x) => x === 'missing').length, extra = v.filter((x) => x === 'extra').length;
+    const pre = chars.length > 1 ? `${ch}: ` : '';
+    if (off.length) notes.push(`${pre}${off.length === 1 ? 'stroke' : 'strokes'} ${off.join(', ')} in the wrong place`);
+    if (back.length) notes.push(`${pre}${back.length === 1 ? 'stroke' : 'strokes'} ${back.join(', ')} drawn the wrong way`);
+    if (miss) notes.push(`${pre}${miss} ${miss === 1 ? 'stroke' : 'strokes'} missing`);
+    if (extra) notes.push(`${pre}${extra} ${extra === 1 ? 'stroke' : 'strokes'} too many`);
+  });
+  const note = document.createElement('div');
+  note.className = 'sc-note';
+  note.textContent = notes.length ? notes.map((n) => tr(n)).join(' · ') : tr('Every stroke is where it should be - the shape as a whole was off');
+  box.append(wrap, note);
+  return true;
 }

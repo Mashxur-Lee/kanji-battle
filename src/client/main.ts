@@ -1,4 +1,5 @@
 import { knowPlayer, setMentionSelf } from './mentions';
+import { setGifUser } from './gifpicker';
 import { initReminders, remindersSignedIn, remindersSignedOut } from './reminders';
 import './support'; // error reporting first, so early errors are caught too
 import { refreshOnline, reportLayout } from './support';
@@ -391,6 +392,7 @@ function signedIn(u: PublicUser) {
   ui.setUser(u);
   setRailUser(true);
   setDictRailUser(true);
+  setGifUser(u.id); // (0.9.9.9.9.6: their own saved GIFs on this device)
   socket.start(getToken());
   if (!inRoom) ui.show('menu');
   if (!profile) void refreshProfile();
@@ -865,6 +867,7 @@ ui.$('padSkip').onclick = () => skip();
 ui.$('padNext').onclick = () => {
   if (pad.strokeCount === 0) return;
   written = [pad.take()]; // the whole word; the server splits it into characters
+  ui.noteInk(written[0]); // (0.9.9.9.9.6: a miss shows where the strokes went wrong)
   submitDrawing();
 };
 // typed kanji with a Japanese IME (the first Enter confirms the conversion, the next one sends)
@@ -1627,7 +1630,8 @@ addEventListener('kw:screenin', (e) => { if ((e as CustomEvent<string>).detail =
       const relation = id === you || id === user?.id ? 'self' : link?.status === 'accepted' ? 'friend' : link?.status ?? 'none';
       if (shownFor === id) ui.showProfileCard(el, p, {
         relation,
-        addFriend: async () => { await api.addFriend(p.name); void refreshRail(); },
+        // (0.9.9.9.9.6: by their login — the card's name is their nickname, which the server didn't find: no request went)
+        addFriend: async () => { const r = await api.addFriend(p.login ?? p.name); if (r.result === 'exists') throw new Error(tr('Already friends, or a request is waiting')); void refreshRail(); },
         accept: async () => { await api.acceptFriend(id); void refreshRail(); },
         challenge: (m) => challengeFriend(id, p.name, m),
         canChallenge: !['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? ''),

@@ -23,7 +23,7 @@ export function securityHeaders(scriptHashes: string[], https: boolean): Record<
     "default-src 'self'",
     `script-src 'self' ${scriptHashes.join(' ')}`.trim(),
     "style-src 'self' 'unsafe-inline'", // (styles set from code — no scripts can run from them)
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://media.giphy.com https://media0.giphy.com https://media1.giphy.com https://media2.giphy.com https://media3.giphy.com https://media4.giphy.com https://i.giphy.com", // (0.9.9.9.9.6: GIFs in Messages)
     "font-src 'self' data:",
     "media-src 'self' data: blob:",
     "connect-src 'self' https://api.github.com",

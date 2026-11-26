@@ -133,7 +133,10 @@ export async function renderLobbyInvites(isLobby: boolean, inRoom: string[] = lo
     b.onclick = () => { hooks.send({ type: 'invite', friendId: f.id }); invitedAt.set(f.id, Date.now()); void renderLobbyInvites(true); };
     // (the app closed: the invite comes as a notification on their phone)
     const where = f.online && !f.away ? f.activity ?? '' : 'Gets a notification on their phone';
-    r.append(el('i', 'dot'), el('span', '', f.name ?? f.username), el('small', 'hint', where), b);
+    // (0.9.9.9.9.6: the name and where they are stacked, cut short with … — a long name pushed Invite out of the card)
+    const who = el('div', 'li-who'); const nm = el('span', 'li-name', f.name ?? f.username); nm.title = f.name ?? f.username;
+    who.append(nm, el('small', 'hint', where));
+    r.append(el('i', 'dot'), who, b);
     return r;
   }));
   // tick the countdown on the buttons

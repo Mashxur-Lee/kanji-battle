@@ -126,7 +126,9 @@ export class Matchmaker {
     try {
       for (const t of group) t.client.send({ type: 'queue', state: 'matched', mode });
       const room = this.rooms.create(mode);
-      room.ranked = mode !== 'boss'; // 0.9.9.9.9: a 1v1 from the queue is ranked (its first game)
+      // 0.9.9.9.9: a 1v1 from the queue is ranked (its first game); 0.9.9.9.9.6: only Rapid and Deck Duel (the owner:
+      // "ranked for Deck Duel and 1v1 Rapid only") — Reading and Writing from the queue are friendly games
+      room.ranked = mode === 'rapid' || mode === 'deck';
       const seated: Ticket[] = [];
       // Rapid: both race on the same words — the levels everyone picked, or (no level in common) all of them
       const common = group[0].levels.filter((l) => group.every((t) => t.levels.includes(l)));

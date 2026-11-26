@@ -1042,6 +1042,8 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
   const myLook = { yaw: 0, pitch: 0, sentYaw: 0, sentPitch: 0, sentAt: 0 };
   const onMove = (e: PointerEvent) => {
     if (e.pointerType !== 'mouse' || e.buttons) return; // not while drawing (or on a phone)
+    // 0.9.9.9.9.6: a replay (or a friend's game) is watched, not played — the view doesn't follow your mouse
+    if (document.body.dataset.watch) { mouse.set(0, 0); return; }
     const t = e.target as Element | null;
     if (t?.closest?.('.pad, canvas:not(#arena3d):not(#arenaPreview), input, textarea, button, select, .dkc, .deck-hand, .challenge, dialog')) return; // (0.9.9.9.5.5: the Customize preview follows the mouse over it too)
     mouse.set((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1);
@@ -1386,6 +1388,10 @@ export function createArena(canvas: HTMLCanvasElement, opts: { lite?: boolean; p
       myPoseK += ((myFlame && myPose !== 'none' && !meDown ? 1 : 0) - myPoseK) * Math.min(1, realDt * 3);
       const pk = myPoseK * myPoseK * (3 - 2 * myPoseK);
       fpLeft.visible = pk > 0.02 && myPose === 'twohand';
+      // 0.9.9.9.9.6: a sword is held by its handle — the left hand under the right one, not up on the blade (where it
+      // sits on a staff's shaft); and a cut is one-handed: the left hand lets go (it floated in front of the swing)
+      fpLeft.position.y = swordMe ? -0.115 : 0.26;
+      if (swordMe && now - thrustAt < SWING_MS) fpLeft.visible = false;
       if (myPose !== 'aim' || pk <= 0.001) { fpArm.quaternion.copy(fpArmRest); if (fpSleeve) { fpSleeve.scale.y = 1; fpSleeve.position.y = -0.6; } }
       if (swingW > 0.001) {
         // 0.9.9.9.9.5: mid-swing the forearm reaches back to a shoulder off the bottom-right corner, stretching as the hand

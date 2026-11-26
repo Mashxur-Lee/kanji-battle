@@ -21,7 +21,12 @@ for (const w of src.words) {
   const phrase = w.sense.some((x) => x.partOfSpeech.includes('exp'));
   if (!common && !mine && !phrase) continue;
   const en = [], ru = [];
+  // 0.9.9.9.9.6: the words JMdict links to — its antonyms, and its "see also" (related words)
+  const ant = new Set(), rel = new Set();
+  const xref = (x) => x.filter((v) => typeof v === 'string').slice(0, 1).join('');
   for (const s of w.sense) {
+    for (const x of s.antonym ?? []) { const t = xref(x); if (t) ant.add(t); }
+    for (const x of s.related ?? []) { const t = xref(x); if (t) rel.add(t); }
     const g = s.gloss.filter((x) => x.lang === 'eng').map((x) => x.text);
     const gr = s.gloss.filter((x) => x.lang === 'rus').map((x) => x.text);
     if (g.length) { en.push([s.partOfSpeech, g.slice(0, 8).join('; '), [...s.field, ...s.misc].slice(0, 3), s.info.slice(0, 1).join('')]); s.partOfSpeech.forEach((p) => POS_KEEP.add(p)); [...s.field, ...s.misc].forEach((p) => POS_KEEP.add(p)); }
@@ -32,6 +37,9 @@ for (const w of src.words) {
   if (!ru.length) { const r = kanji.flatMap((k) => kana.map((x) => ruByWord.get(`${k.text}|${x.text}`))).find(Boolean) ?? kana.map((x) => ruByWord.get(`${x.text}|${x.text}`)).find(Boolean); if (r) ru.push(r); }
   if (ru.length) e.ru = ru.slice(0, 5);
   if (common) e.c = 1;
+  if (ant.size) e.a = [...ant].slice(0, 6);
+  if (rel.size) e.y = [...rel].filter((t) => !ant.has(t)).slice(0, 6);
+  if (e.y && !e.y.length) delete e.y;
   if (phrase) { e.x = 1; e.s = e.s.slice(0, 4); }
   out.push(e);
 }
