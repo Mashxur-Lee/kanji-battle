@@ -191,7 +191,7 @@ test('0.9.9.9.9.5 the swords are the league rewards, the characters the level re
 
 test('0.9.9.9.9.5 "Kanji seals": each page\u2019s own kanji stamped by its title, in the display font, sentence-case headings', () => {
   const nav = src('src/client/nav.ts');
-  assert.ok(nav.includes("const SEALS: Record<string, string> = { queue: '戦',"));
+  assert.ok(nav.includes("const SEALS: Record<string, string> = { games: '遊', queue: '戦',"));
   assert.ok(nav.includes("const head = document.createElement('div'); head.className = 'seal-head';"));
   const css = src('public/style.css');
   assert.ok(css.includes('.seal.stamp { animation: sealIn'));

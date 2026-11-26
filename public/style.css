@@ -2067,7 +2067,7 @@ span.csel { position: relative; display: inline-flex; vertical-align: middle; mi
 .app-opt p { margin: 4px 0 8px; }
 a.btn-link { display: inline-block; text-decoration: none; text-align: center; padding: 10px 16px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #6d4bff); color: #fff; font-weight: 700; }
 .app-btn { border-color: rgba(110, 231, 255, .45) !important; }
-body.offline :is(#queueBtn, #join, #railAdd, #railReq, #railFab) { opacity: .45; filter: grayscale(.6); }
+body.offline :is(#queueBtn, #join, #railAdd, #railReq, #railFab, #games .gt-online) { opacity: .45; filter: grayscale(.6); }
 body.offline .friend-rail .fr-list { opacity: .45; }
 body.offline .net-status { background: #1d2440; color: #9fd8ff; border-color: #3a4f80; }
 button.big kbd, .big kbd { color: rgba(255, 255, 255, .85); border-color: rgba(255, 255, 255, .45); background: rgba(0, 0, 0, .12); }
@@ -6413,3 +6413,64 @@ body.lowfx .seal.stamp { animation: none; }
 #dict { position: relative; }
 #dict > .dict-exit { position: absolute !important; top: 76px; right: var(--gutter, 24px); left: auto !important; z-index: 6; margin: 0; padding: 8px 16px; border-radius: 999px; }
 @media (max-width: 760px) { #dict > .dict-exit { top: 96px; right: 16px; padding: 6px 14px; } }
+
+/* ══ 0.9.9.9.9.6 (round 2) ═══════════════════════════════════════════════════════════════════════════════════ */
+/* the dictionary's drawing pad: dark like the game (it was a white window), and it keeps still — the closest
+   characters have a place of their own from the start (the pad jumped when they came, and spoiled the stroke) */
+.draw-dialog { background: #15122f; color: #f1effb; border: 1px solid rgba(160, 140, 255, .3); }
+.draw-dialog .dd-head h3 { color: #f1effb; }
+.draw-pad { background-color: #0e0c22; box-shadow: inset 0 0 0 2px rgba(160, 140, 255, .28);
+  background-image: linear-gradient(rgba(160, 140, 255, .14) 1px, transparent 1px), linear-gradient(90deg, rgba(160, 140, 255, .14) 1px, transparent 1px); }
+.dd-cands { height: 102px; min-height: 102px; align-content: flex-start; overflow-y: auto; }
+.draw-dialog .dd-cand { background: rgba(255, 255, 255, .06); color: #f1effb; border-color: rgba(160, 140, 255, .3); }
+.draw-dialog .dd-cand:hover { border-color: var(--accent2, #6ee7ff); }
+.draw-dialog .hint { color: #a4a0c8; }
+.draw-dialog .pill { background: rgba(255, 255, 255, .06); color: #f1effb; border: 1px solid rgba(160, 140, 255, .3); }
+:root[data-theme="light"] .draw-dialog { background: #15122f; color: #f1effb; }
+/* a GIF still on its way: a soft shimmering box of its own size, not the words "img GIF" */
+.msg-gif { min-width: 160px; min-height: 120px; background: linear-gradient(100deg, rgba(255, 255, 255, .04) 30%, rgba(255, 255, 255, .12) 50%, rgba(255, 255, 255, .04) 70%) 0 0 / 300% 100%; animation: gifWait 1.2s linear infinite; }
+.msg-gif[data-loaded], .gif-tile img[data-loaded] { animation: none; background: none; min-width: 0; min-height: 0; }
+.gif-tile img { background: linear-gradient(100deg, rgba(255, 255, 255, .04) 30%, rgba(255, 255, 255, .12) 50%, rgba(255, 255, 255, .04) 70%) 0 0 / 300% 100%; animation: gifWait 1.2s linear infinite; }
+@keyframes gifWait { to { background-position: -300% 0; } }
+/* decks of your own, drawn like the other decks (round 2): the name with a rename pencil, the counts, Study / Words /
+   Import, and a bin; their windows dark like the game's (a plain window was white) */
+.deck-card.custom[hidden] { display: none !important; }
+.user-decks { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.user-deck .deck-head { display: flex; align-items: center; gap: 8px; }
+.user-deck .ud-name { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-deck > .hint { margin: 2px 0 6px; }
+.user-deck .deck-btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.user-deck .deck-btns .big { flex: 1 1 120px; margin: 0; }
+.user-deck .deck-btns .deck-open { margin: 0; }
+.ud-ren, .ud-del { flex: none; width: 36px; height: 36px; min-width: 0; padding: 0; display: grid; place-items: center; border-radius: 10px; background: transparent; border: 1px solid var(--line); color: var(--muted); box-shadow: none; }
+.ud-ren:hover { color: var(--accent2); border-color: var(--accent2); }
+.ud-del:hover { color: #ff6f8a; border-color: #ff6f8a; }
+.ud-dialog, .ud-dialog[open] { background: #15122f; color: #f1effb; border: 1px solid rgba(160, 140, 255, .3); }
+.ud-dialog .hint { color: #a4a0c8; }
+.ud-dialog :is(input, textarea) { background: #0e0c22; color: #f1effb; border: 1px solid rgba(160, 140, 255, .3); }
+.ud-dialog .pill { background: rgba(255, 255, 255, .06); color: #f1effb; border: 1px solid rgba(160, 140, 255, .3); }
+:root[data-theme="light"] .ud-dialog { background: #fff; color: #1d1838; }
+:root[data-theme="light"] .ud-dialog :is(input, textarea) { background: #f6f4ff; color: #1d1838; }
+:root[data-theme="light"] .ud-dialog .pill { background: #f1effa; color: #1d1838; }
+:root[data-theme="light"] .ud-dialog .hint { color: #5d5880; }
+/* Games (round 2): one menu card for every way to play; its page — the online battle, private games, what's coming */
+#queueBtn[hidden], #privateBtn[hidden] { display: none !important; }
+#menu.locked #gamesBtn { opacity: .45; pointer-events: none; filter: grayscale(.6); }
+.games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; max-width: 1100px; margin: 10px auto 24px; }
+.game-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 190px; padding: 20px; border-radius: 22px; text-align: left;
+  border: 2px solid var(--line); background: var(--card); color: var(--text); box-shadow: 0 5px 0 var(--line); cursor: pointer; font: inherit; }
+.game-tile b { font-size: 1.2rem; }
+.game-tile > span:not(.gt-glyph):not(.online-pill) { color: var(--muted); font-size: .9rem; line-height: 1.4; }
+.game-tile .gt-glyph { font-family: var(--brand, serif); font-size: 3rem; line-height: 1; margin-bottom: 4px; }
+.gt-online { border-color: rgba(255, 138, 106, .55); background: linear-gradient(160deg, rgba(92, 30, 52, .9), rgba(28, 14, 44, .92)); }
+.gt-online .gt-glyph { color: #ff8a6a; }
+.gt-private { border-color: rgba(180, 155, 255, .55); background: linear-gradient(160deg, rgba(48, 40, 120, .88), rgba(18, 16, 48, .92)); }
+.gt-private .gt-glyph { color: #b49bff; }
+.game-tile:not(.gt-soon):hover { transform: translateY(-2px); border-color: var(--accent2); }
+.game-tile:not(.gt-soon):active { transform: translateY(4px); box-shadow: none; }
+.gt-soon { cursor: default; opacity: .62; border-style: dashed; box-shadow: none; }
+.gt-soon .gt-glyph { color: var(--gold); }
+.gt-badge { position: absolute; top: 14px; right: 14px; font-style: normal; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: rgba(255, 211, 77, .16); color: var(--gold); }
+.game-tile .online-pill { margin-top: auto; }
+:root[data-theme="light"] :is(.gt-online, .gt-private) { color: #fff; --muted: #e4def8; }
+@media (max-width: 640px) { .games-grid { grid-template-columns: 1fr 1fr; gap: 10px; } .game-tile { min-height: 150px; padding: 14px; } .game-tile .gt-glyph { font-size: 2.3rem; } .game-tile b { font-size: 1rem; } .game-tile > span:not(.gt-glyph):not(.online-pill) { font-size: .78rem; } }

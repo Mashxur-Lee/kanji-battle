@@ -35,13 +35,15 @@ export const initDecks = (o: { changed: () => void; back: () => void }) => { onC
 
 // ── a deck's word list ──────────────────────────────────────────────────────
 let open: DeckId = 'all';
+/** 0.9.9.9.9.6: one of your own decks (its words, in My words) */
+let openSet: { id: string; name: string } | null = null;
 let rows: DeckRow[] = [];
 const selected = new Set<string>();
 
-export async function openDeck(deck: DeckId, withAdd = false) {
-  open = deck;
+export async function openDeck(deck: DeckId, withAdd = false, set: { id: string; name: string } | null = null) {
+  open = deck; openSet = set;
   selected.clear();
-  $('deckTitle').textContent = DECK_LABEL[deck];
+  $('deckTitle').textContent = set ? set.name : tr(DECK_LABEL[deck]);
   $('customPanel').hidden = !(deck === 'custom' && withAdd);
   $<HTMLInputElement>('deckFilter').value = '';
   $('customMsg').textContent = '';
@@ -52,7 +54,7 @@ export async function openDeck(deck: DeckId, withAdd = false) {
 }
 
 async function reload() {
-  try { rows = (await api.deckWords(open)).words; } catch (e) { ui.toast((e as Error).message); rows = []; }
+  try { rows = openSet ? (await api.userDeckWords(openSet.id)).words : (await api.deckWords(open)).words; } catch (e) { ui.toast((e as Error).message); rows = []; }
   for (const id of [...selected]) if (!rows.some((r) => r.vocabId === id)) selected.delete(id);
   render();
 }
@@ -114,9 +116,9 @@ function tools() {
 
 async function remove(ids: string[]) {
   if (!ids.length) return;
-  if (ids.length > 1 && !confirm(`Remove ${ids.length} spells from ${DECK_LABEL[open]}? Their study progress in this deck is lost.`)) return;
+  if (ids.length > 1 && !(await ui.confirmBox('Remove these words?', `Remove ${ids.length} spells from ${openSet ? openSet.name : tr(DECK_LABEL[open])}? Their study progress in this deck is lost.`, 'Remove', 'Cancel'))) return;
   try {
-    await api.deckRemove(open, ids);
+    if (openSet) await api.userDeckRemove(openSet.id, ids); else await api.deckRemove(open, ids);
     ids.forEach((i) => selected.delete(i));
     await reload();
     onChanged();
@@ -131,7 +133,7 @@ $('deckAllBox').addEventListener('change', () => {
 $('deckRemove').onclick = () => void remove([...selected]);
 $('deckClose').onclick = () => $<HTMLDialogElement>('deckDialog').close();
 for (const b of document.querySelectorAll<HTMLElement>('.deck-open[data-deck]')) b.onclick = () => void openDeck(b.dataset.deck as DeckId);
-$('customAdd').onclick = () => void openDeck('custom', true);
+document.getElementById('customAdd')?.addEventListener('click', () => void openDeck('custom', true));
 
 // ── adding custom spells: search the dictionary, or type your own ────────────
 let searchSeq = 0;
@@ -157,10 +159,11 @@ function hit(w: WordHit, have: boolean) {
   b.disabled = have;
   b.onclick = async () => {
     try {
-      const r = await api.addCustom({ vocabId: w.id });
+      const where = openSet ? openSet.name : tr('Custom spells');
+      const added = openSet ? (await api.userDeckAddRows(openSet.id, [{ kanji: w.kanji, reading: w.reading, meaning: w.meaning }])).added > 0 : (await api.addCustom({ vocabId: w.id })).added;
       b.classList.add('have'); b.disabled = true; b.querySelector('.add')!.textContent = '✓ added';
-      $('customMsg').textContent = r.added ? `${w.kanji} added to Custom spells.` : `${w.kanji} is already in Custom spells.`;
-      await reload(); onChanged();
+      $('customMsg').textContent = added ? `${w.kanji} → ${where}` : `${w.kanji}: ${tr('already in')} ${where}`;
+      await reload(); onChanged(); if (openSet) setChanged();
     } catch (e) { $('customMsg').textContent = (e as Error).message; }
   };
   return b;
@@ -169,8 +172,14 @@ $('customForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const kanji = $<HTMLInputElement>('cwKanji').value, reading = $<HTMLInputElement>('cwReading').value, meaning = $<HTMLInputElement>('cwMeaning').value;
   try {
-    const r = await api.addCustom({ kanji, reading, meaning });
-    $('customMsg').textContent = r.added ? `${r.word.kanji} (${r.word.reading}) added to Custom spells.` : `${r.word.kanji} is already in Custom spells.`;
+    if (openSet) {
+      const r = await api.userDeckAddRows(openSet.id, [{ kanji, reading, meaning }]);
+      if (!r.added && r.skipped.length) throw new Error(tr(r.skipped[0].why));
+      $('customMsg').textContent = r.added ? `${kanji} → ${openSet.name}` : `${kanji}: ${tr('already in')} ${openSet.name}`;
+    } else {
+      const r = await api.addCustom({ kanji, reading, meaning });
+      $('customMsg').textContent = r.added ? `${r.word.kanji} (${r.word.reading}) added to Custom spells.` : `${r.word.kanji} is already in Custom spells.`;
+    }
     for (const id of ['cwKanji', 'cwReading', 'cwMeaning']) $<HTMLInputElement>(id).value = '';
     await reload(); onChanged();
   } catch (err) { $('customMsg').textContent = (err as Error).message; }
@@ -1026,3 +1035,8 @@ $('passageBtn').onclick = () => {
   storyFrom = `deck:${passageDeck}`;
   void passageFrom(passageDeck);
 };
+
+/** 0.9.9.9.9.6: a deck of your own's words — the same window as Custom spells had (search the dictionary, type a word) */
+let setChanged: () => void = () => {};
+export function openUserDeck(set: { id: string; name: string }, changed: () => void) { setChanged = changed; void openDeck('custom', true, set); }
+$<HTMLDialogElement>('deckDialog').addEventListener('close', () => { if (openSet) { openSet = null; setChanged(); } });

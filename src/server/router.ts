@@ -1,7 +1,7 @@
 // The REST API without the transport (0.9.9.4): the Node server (http.ts) feeds it real requests, and the
 // app's offline engine (client/offline) feeds it the same calls while there is no internet — so offline
 // study, quizzes, passages and the daily challenge run exactly the server's code.
-import { parseList, UserDeckError, type ImportRow } from './study/UserDecks';
+import { parseList, UserDeckError, USER_DECKS_MAX, type ImportRow } from './study/UserDecks';
 import { achCounts } from '../shared/achievements';
 import { isTransientDbError, retryDelay } from './db/transient';
 import { displayName, type UserRecord } from './db/Store';
@@ -504,17 +504,19 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
       } else if (r.method === 'GET' && url === '/api/decks') {
         // 0.9.9.9.9.6: decks of your own — each with its words, how many are due and how many new
         const u = await auth.authenticate(r.token);
-        const decks = await study.decks.list(u.id);
         const rows = await study.deckList(u, 'custom');
+        await study.decks.migrate(u.id, rows.map((w) => w.vocabId)); // (round 2: Custom spells → a deck "My words", once)
+        const decks = await study.decks.list(u.id);
         const now = Date.now();
-        return res(200, { decks: decks.map((d) => { const mine = new Set(d.words); const cards = rows.filter((w) => mine.has(w.vocabId)); return { id: d.id, name: d.name, count: d.words.length, due: cards.filter((c) => c.state !== 'new' && c.due <= now).length, fresh: cards.filter((c) => c.state === 'new').length }; }) });
+        // (round 2: counted by the cards there are — like the other decks: new, learning, to review)
+        return res(200, { decks: decks.map((d) => { const mine = new Set(d.words); const cards = rows.filter((w) => mine.has(w.vocabId)); return { id: d.id, name: d.name, count: cards.length, due: cards.filter((c) => c.state === 'review' && c.due <= now).length, learning: cards.filter((c) => c.state === 'learning' || c.state === 'relearning').length, fresh: cards.filter((c) => c.state === 'new').length }; }), max: USER_DECKS_MAX });
       } else if (r.method === 'POST' && url === '/api/decks') {
         const u = await auth.authenticate(r.token);
         return res(200, { deck: await deckCall(async () => study.decks.create(u.id, (await r.json()).name)) });
       } else if (/^\/api\/decks\/[\w-]{1,24}$/.test(url) && (r.method === 'PUT' || r.method === 'DELETE')) {
         const u = await auth.authenticate(r.token);
         const id = url.split('/')[3];
-        if (r.method === 'DELETE') return res(200, { removed: await study.decks.remove(u.id, id) });
+        if (r.method === 'DELETE') return res(200, { removed: await study.decks.remove(u, id) });
         return res(200, { deck: await deckCall(async () => study.decks.rename(u.id, id, (await r.json()).name)) });
       } else if (r.method === 'GET' && /^\/api\/decks\/[\w-]{1,24}\/words$/.test(url)) {
         const u = await auth.authenticate(r.token);
@@ -527,13 +529,16 @@ export function createApiRouter(auth: AuthService, study: StudyService, extras: 
         const u = await auth.authenticate(r.token);
         const [, , , id, what] = url.split('/');
         if (!limiter.allow(`deck:${u.id}`)) throw new AuthError('Too many attempts — wait a minute', 429);
-        if (what === 'remove') return res(200, { deck: await deckCall(async () => study.decks.removeWords(u.id, id, (await r.json()).words)) });
+        if (what === 'remove') return res(200, { deck: await deckCall(async () => study.decks.removeWords(u, id, (await r.json()).words)) });
         const body = await r.json(what === 'import' ? 28 * 1024 * 1024 : 512 * 1024);
         let rows: ImportRow[];
         if (what === 'import') {
           if (typeof body.data !== 'string') return res(400, { error: 'No file' });
           if (!readApkg) return res(503, { error: 'Anki files need the internet - paste the words instead' });
           try { rows = await readApkg(body.data); } catch (e) { return res(400, { error: (e as Error).message }); }
+        } else if (Array.isArray(body.rows)) {
+          // (round 2: words picked in the deck's own window — from the dictionary, or typed in its form)
+          rows = (body.rows as unknown[]).slice(0, 50).flatMap((x) => { const o = x as Record<string, unknown>; return typeof o?.kanji === 'string' && o.kanji.trim() ? [{ kanji: o.kanji.trim().slice(0, 16), reading: String(o.reading ?? '').trim().slice(0, 32), meaning: String(o.meaning ?? '').trim().slice(0, 120) }] : []; });
         } else rows = typeof body.text === 'string' ? parseList(body.text.slice(0, 400_000)) : [];
         if (!rows.length) return res(400, { error: 'No Japanese words found in it' });
         return res(200, await deckCall(() => study.decks.addWords(u, id, rows)));

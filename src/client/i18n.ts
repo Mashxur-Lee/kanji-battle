@@ -1179,6 +1179,26 @@ const RU: Record<string, string> = {
   'Watch': 'Смотреть', 'Remove this replay?': 'Убрать этот повтор?',
   'It goes back to being kept for a week from its match, so it may be gone right away.': 'Он снова будет храниться неделю с его матча — так что может сразу исчезнуть.',
   'Copied!': 'Скопировано!',
+  // 0.9.9.9.9.6 (round 2)
+  "Games": "Игры",
+  "Import": "Импорт",
+  "Battle players online, friends or bots - and more games to come": "Сражайтесь с игроками онлайн, с друзьями и ботами — и скоро новые игры",
+  "Battle players online, friends or bots - more games are on the way.": "Сражайтесь с игроками онлайн, с друзьями и ботами — новые игры уже в пути.",
+  "Online battle": "Онлайн-бой",
+  "Reading, Writing, Rapid, Boss and Deck Duel against players - Rapid and Deck Duel are ranked": "Чтение, Написание, Блиц, Босс и Дуэль колод против игроков — Блиц и Дуэль колод рейтинговые",
+  "Kanji chess": "Шахматы кандзи",
+  "Chess where every piece is its kanji - 馬 the knight, 王 the king": "Шахматы, где каждая фигура — свой кандзи: 馬 — конь, 王 — король",
+  "Song lyrics": "Слова песен",
+  "A Japanese song plays - type its missing lyrics in time": "Играет японская песня — успевайте вписать пропущенные слова",
+  "Coming soon": "Скоро",
+  "Slow internet - connecting…": "Медленный интернет — подключаемся…",
+  "Connecting to the server…": "Подключаемся к серверу…",
+  "Your connection is slow right now - this can take a while.": "Сейчас медленное соединение — это может занять время.",
+  "If the server was asleep it takes about a minute to start.": "Если сервер спал, он запускается около минуты.",
+  "Import into": "Импорт в",
+  "Anki (.apkg), Quizlet, a list": "Anki (.apkg), Quizlet, список",
+  "Delete the deck": "Удалить колоду",
+  "Remove these words?": "Убрать эти слова?",
   // 0.9.9.9.9.6
   "Remove friend?": "Удалить из друзей?",
   "Block this player?": "Заблокировать игрока?",
@@ -1253,6 +1273,8 @@ const plural = (n: number, one: string, few: string, many: string) => {
 };
 /** Texts with numbers / names in them. */
 const PATTERNS: Array<[RegExp, Rep]> = [
+  // 0.9.9.9.9.6 (round 2)
+  [/^“(.+)” and its words go, with their study progress\.$/, "«$1» удалится вместе со словами и их прогрессом."],
   // 0.9.9.9.9.6
   [/^Remove (.+) from your friends\?$/, "Удалить $1 из друзей?"],
   [/^Day (\d+)$/, "День $1"],

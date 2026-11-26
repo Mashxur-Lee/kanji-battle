@@ -14,15 +14,24 @@ const clean = (u: unknown) => (typeof u === 'string' ? u.split('?')[0] : '');
 
 export class Gifs {
   private cache = new Map<string, { at: number; items: GifItem[] }>();
+  /** (round 2: the pictures fetched lately, kept in memory up to 40 MB — the same GIFs come up again and again) */
+  private pics = new Map<string, { mime: string; data: Uint8Array }>();
+  private picBytes = 0;
   /** a GIPHY picture, fetched for a player who can't reach GIPHY (host: media, media0-4 or i; path checked) */
   async media(host: string, path: string): Promise<{ mime: string; data: Uint8Array } | null> {
     if (!/^(media[0-9]?|i)$/.test(host) || !/^[\w./-]{5,200}$/.test(path) || path.includes('..')) return null;
+    const key = `${host}/${path}`, hit = this.pics.get(key);
+    if (hit) { this.pics.delete(key); this.pics.set(key, hit); return hit; }
     const r = await this.fetcher(`https://${host}.giphy.com/${path}`, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return null;
     const mime = (r.headers.get('content-type') ?? '').split(';')[0];
     if (!/^(image\/(gif|webp|png|jpeg)|video\/mp4)$/.test(mime)) return null;
     const data = new Uint8Array(await r.arrayBuffer());
-    return data.length > 6 * 1024 * 1024 ? null : { mime, data };
+    if (data.length > 6 * 1024 * 1024) return null;
+    const pic = { mime, data };
+    this.pics.set(key, pic); this.picBytes += data.length;
+    for (const [k, v] of this.pics) { if (this.picBytes <= 40 * 1024 * 1024) break; this.pics.delete(k); this.picBytes -= v.data.length; }
+    return pic;
   }
   constructor(private readonly key: string, private readonly fetcher: typeof fetch = fetch) {}
 

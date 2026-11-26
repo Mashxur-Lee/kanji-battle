@@ -27,7 +27,7 @@ const ICON: Record<string, string> = {
 interface Item { id: string; label: string; icon: keyof typeof ICON; btn?: string; screens: string[]; phone?: boolean }
 const ITEMS: Item[] = [
   { id: 'home', label: 'Home', icon: 'home', screens: ['menu'], phone: true },
-  { id: 'play', label: 'Battles', icon: 'play', btn: 'queueBtn', screens: ['queue', 'private', 'modes'], phone: true },
+  { id: 'play', label: 'Games', icon: 'play', btn: 'gamesBtn', screens: ['games', 'queue', 'private', 'modes'], phone: true }, // (0.9.9.9.9.6: the Games page)
   { id: 'study', label: 'Study', icon: 'study', btn: 'studyBtn', screens: ['study', 'dict'], phone: true },
   { id: 'daily', label: 'Daily', icon: 'daily', btn: 'dailyBtn', screens: ['daily'], phone: true },
   { id: 'quizzes', label: 'Quizzes', icon: 'quiz', btn: 'quizzesBtn', screens: ['quizzes'] },
@@ -42,9 +42,9 @@ const ITEMS: Item[] = [
  * 0.9.9.9.9.5: each page's seal — its own kanji, stamped beside the title like a hanko (the UI's one bold element:
  * the game is about kanji)
  */
-const SEALS: Record<string, string> = { queue: '戦', private: '友', modes: '術', kana: 'か', progress: '進', daily: '日', friends: '友', history: '史', dict: '辞', study: '学', inbox: '文', quizzes: '問', customize: '装', admin: '管' };
+const SEALS: Record<string, string> = { games: '遊', queue: '戦', private: '友', modes: '術', kana: 'か', progress: '進', daily: '日', friends: '友', history: '史', dict: '辞', study: '学', inbox: '文', quizzes: '問', customize: '装', admin: '管' };
 /** the pages that show it */
-export const NAV_SCREENS = new Set(['queue', 'private', 'modes', 'kana', 'progress', 'daily', 'friends', 'history', 'dict', 'study', 'inbox', 'quizzes', 'customize', 'admin']);
+export const NAV_SCREENS = new Set(['games', 'queue', 'private', 'modes', 'kana', 'progress', 'daily', 'friends', 'history', 'dict', 'study', 'inbox', 'quizzes', 'customize', 'admin']);
 
 const svg = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
 

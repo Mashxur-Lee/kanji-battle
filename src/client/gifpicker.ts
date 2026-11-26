@@ -39,7 +39,8 @@ export function openGifs(host: HTMLElement, send: (g: GifItem) => void) {
   host.append(p);
   const tile = (g: GifItem) => {
     const b = h('button', 'gif-tile'); b.type = 'button';
-    const img = document.createElement('img'); img.src = gifSrc(g.preview || g.url); img.alt = 'GIF'; img.loading = 'lazy'; img.decoding = 'async';
+    const img = document.createElement('img'); img.src = gifSrc(g.preview || g.url); img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
+    img.onload = () => { img.dataset.loaded = '1'; };
     b.append(img);
     b.onclick = () => { noteSent(g); closeGifs(); send(g); };
     return b;

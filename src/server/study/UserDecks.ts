@@ -6,7 +6,8 @@ import { randomUUID } from 'node:crypto';
 import type { Store, UserRecord } from '../db/Store';
 
 export interface UserDeck { id: string; name: string; words: string[]; createdAt: number }
-export const USER_DECKS_MAX = 30;
+// (round 2: four — the owner)
+export const USER_DECKS_MAX = 4;
 export const USER_DECK_WORDS_MAX = 1000;
 /** one line of an import: the word, its reading, its meaning (the reading may be missing for a dictionary word) */
 export interface ImportRow { kanji: string; reading: string; meaning: string }
@@ -18,7 +19,24 @@ const cleanName = (raw: unknown) => String(raw ?? '').replace(/[\u0000-\u001f]/g
 export class UserDeckError extends Error {}
 
 export class UserDecks {
-  constructor(private readonly store: Store, private readonly addCustom: (u: UserRecord, body: { kanji?: unknown; reading?: unknown; meaning?: unknown; vocabId?: unknown }) => Promise<{ word: { id: string } }>) {}
+  constructor(private readonly store: Store, private readonly addCustom: (u: UserRecord, body: { kanji?: unknown; reading?: unknown; meaning?: unknown; vocabId?: unknown; ownKana?: boolean }) => Promise<{ word: { id: string } }>,
+    /** take cards out of My words (a word no deck of yours holds any more) */
+    private readonly dropCards: (u: UserRecord, ids: string[]) => Promise<unknown> = async () => {}) {}
+
+  /** round 2: Custom spells became decks of your own — the words someone already had there become a deck "My words"
+   *  (once: a player who never had any decks list saved) */
+  async migrate(userId: string, customIds: string[]): Promise<void> {
+    if ((await this.store.getValue(key(userId))) !== null) return;
+    const decks: UserDeck[] = customIds.length ? [{ id: randomUUID().slice(0, 12), name: 'My words', words: [...new Set(customIds)].slice(0, USER_DECK_WORDS_MAX), createdAt: Date.now() }] : [];
+    await this.save(userId, decks);
+  }
+  /** the words no deck holds any more: their cards go too */
+  private async orphans(u: UserRecord, gone: string[]) {
+    if (!gone.length) return;
+    const still = new Set((await this.list(u.id)).flatMap((d) => d.words));
+    const drop = gone.filter((w) => !still.has(w));
+    if (drop.length) await this.dropCards(u, drop);
+  }
 
   async list(userId: string): Promise<UserDeck[]> {
     try {
@@ -49,11 +67,12 @@ export class UserDecks {
     await this.save(userId, decks);
     return d;
   }
-  async remove(userId: string, id: unknown): Promise<boolean> {
-    const decks = await this.list(userId);
+  async remove(u: UserRecord, id: unknown): Promise<boolean> {
+    const decks = await this.list(u.id);
     const left = decks.filter((x) => x.id !== id);
     if (left.length === decks.length) return false;
-    await this.save(userId, left);
+    await this.save(u.id, left);
+    await this.orphans(u, decks.find((x) => x.id === id)?.words ?? []);
     return true;
   }
   /** words into a deck (each one made a card of yours first); how many were new to it, and the lines it couldn't take */
@@ -67,20 +86,21 @@ export class UserDecks {
     for (const [n, row] of rows.slice(0, IMPORT_ROWS_MAX).entries()) {
       if (d.words.length >= USER_DECK_WORDS_MAX) { skipped.push({ line: n + 1, word: row.kanji, why: `the deck is full (${USER_DECK_WORDS_MAX})` }); continue; }
       try {
-        const r = await this.addCustom(u, { kanji: row.kanji, reading: row.reading, meaning: row.meaning });
+        const r = await this.addCustom(u, { kanji: row.kanji, reading: row.reading, meaning: row.meaning, ownKana: true });
         if (!have.has(r.word.id)) { have.add(r.word.id); d.words.push(r.word.id); added++; }
       } catch (e) { skipped.push({ line: n + 1, word: row.kanji, why: (e as Error).message }); }
     }
     await this.save(u.id, decks);
     return { deck: d, added, skipped: skipped.slice(0, 50) };
   }
-  async removeWords(userId: string, id: unknown, words: unknown): Promise<UserDeck> {
-    const decks = await this.list(userId);
+  async removeWords(u: UserRecord, id: unknown, words: unknown): Promise<UserDeck> {
+    const decks = await this.list(u.id);
     const d = decks.find((x) => x.id === id);
     if (!d) throw new UserDeckError('No such deck');
     const out = new Set((Array.isArray(words) ? words : []).filter((x): x is string => typeof x === 'string'));
     d.words = d.words.filter((w) => !out.has(w));
-    await this.save(userId, decks);
+    await this.save(u.id, decks);
+    await this.orphans(u, [...out]);
     return d;
   }
   async forget(userId: string) { await this.store.setValue(key(userId), null); }

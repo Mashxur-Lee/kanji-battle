@@ -350,6 +350,12 @@ async function wakeServer(): Promise<'up' | 'offline' | 'gave-up'> {
   const scr = ui.$('wakeScreen'), bar = ui.$('wakeBar'), sec = ui.$('wakeSec'), off = ui.$<HTMLButtonElement>('wakeOffline');
   let est = 55;
   try { est = Math.max(15, Math.min(120, Number(localStorage.getItem(WAKE_KEY)) || 55)); } catch { /* private mode */ }
+  // 0.9.9.9.9.6: a slow connection looks the same as a sleeping server — and the server is kept awake now, so a slow
+  // phone connection is the likelier reason (the owner: "with a bad internet connection it shows waking up the server")
+  const net = (navigator as Navigator & { connection?: { effectiveType?: string; rtt?: number; downlink?: number } }).connection;
+  const slow = !!net && (/^(slow-2g|2g|3g)$/.test(net.effectiveType ?? '') || (net.rtt ?? 0) > 700 || (net.downlink ?? 10) < 0.6);
+  scr.querySelector('.wake-title')!.textContent = tr(slow ? 'Slow internet - connecting…' : 'Connecting to the server…');
+  scr.querySelector('.wake-why')!.textContent = tr(slow ? 'Your connection is slow right now - this can take a while.' : 'If the server was asleep it takes about a minute to start.');
   scr.hidden = false;
   off.hidden = !(await offline.canGoOffline());
   const t0 = Date.now();
@@ -835,7 +841,7 @@ function castGo() {
   clearTimeout(castGoTimer);
   if (!writing || ui.$('castGo').hidden) return;
   ui.startWritingStep();
-  arena()?.thrust();
+  if (!isSwordId(myStaff())) arena()?.thrust(); // (0.9.9.9.9.6: a sword's thrust is the whole slash — pressing CAST! swung it)
   ui.$<HTMLInputElement>('imeInput').focus();
 }
 ui.$('castGo').onclick = () => castGo();
@@ -1060,7 +1066,11 @@ ui.$('studyLockBtn').onclick = () => void openStudy();
 ui.$('create').onclick = () => { ui.setError(''); ui.show('modes'); };
 // 0.9.9.8.2: Private game is a page of its own; offline, it says what still works (the AI)
 ui.$('privateBtn').onclick = () => { ui.setError(''); ui.$('pvOffline').hidden = !offline.isOffline(); ui.show('private'); };
-ui.$('privateBack').onclick = () => ui.show('menu');
+ui.$('privateBack').onclick = () => ui.show('games'); // (0.9.9.9.9.6: back to Games, where it opens from)
+// 0.9.9.9.9.6 (round 2): the Games page — the online queue, private games, and the games to come
+ui.$('gamesBtn').onclick = () => { ui.setError(''); ui.show('games'); };
+ui.$('gamesBack').onclick = () => ui.show('menu');
+for (const t of document.querySelectorAll<HTMLElement>('#games .game-tile[data-go]')) t.onclick = () => document.getElementById(t.dataset.go!)?.click();
 ui.$('queueBtn').onclick = () => { ui.setError(''); openQueue(); };
 initQueue((m) => socket.send(m), () => user?.id ?? '');
 // 0.9.9.9.6.6: nobody in the queue yet → an AI game while you wait: a room of that mode, the AI in it, Ready

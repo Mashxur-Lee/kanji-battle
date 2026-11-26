@@ -229,7 +229,12 @@ function drawList() {
   body.scrollTop = 0;
 }
 
-async function openWord(i: number) {
+// 0.9.9.9.9.6: the words you went through (a synonym, a phrase, a word with its kanji) — Back goes to the one before
+let wordTrail: number[] = [];
+let shownWord = -1;
+async function openWord(i: number, from = -1) {
+  if (from >= 0) wordTrail.push(from); else if (from === -1) wordTrail = [];
+  shownWord = i;
   const body = $('dictBody');
   body.replaceChildren(h('p', 'hint center', tr('Loading…')));
   const d = await dictionary().catch(() => null);
@@ -238,8 +243,9 @@ async function openWord(i: number) {
   const chars0 = [...new Set([...(w.kanji[0] ?? '')].filter((c) => HAN.test(c)))];
   const r = { withKanji: Object.fromEntries(chars0.map((c) => [c, d.withKanji(c, 8).filter((x) => x.i !== w.i)])) as Record<string, DictEntry[]> };
   const page = h('article', 'dict-word');
-  const back = h('button', 'pill dict-back', `← ${tr('Results')}`, { type: 'button' });
-  back.onclick = () => (lastHits.length ? drawList() : drawHome());
+  const prevWord = wordTrail[wordTrail.length - 1];
+  const back = h('button', 'pill dict-back', `← ${tr(prevWord !== undefined ? 'Back' : 'Results')}`, { type: 'button' });
+  back.onclick = () => { if (prevWord !== undefined) { wordTrail.pop(); void openWord(prevWord, -2); } else if (lastHits.length) drawList(); else drawHome(); };
 
   // the word: big, with its reading, romaji, tags; say it; add it to a deck
   const head = h('div', 'dw-top');
@@ -286,7 +292,7 @@ async function openWord(i: number) {
     const b = h('button', 'dw-chip', undefined, { type: 'button', lang: 'ja' });
     b.append(h('b', '', e.kanji[0] ?? e.kana[0]), h('small', '', e.kanji[0] ? e.kana[0] ?? '' : ''));
     b.title = ruOf(e)?.[0] ?? e.senses[0]?.[1] ?? '';
-    b.onclick = () => void openWord(e.i);
+    b.onclick = () => void openWord(e.i, shownWord);
     return b;
   };
   const words = (list: DictEntry[]) => { const row = h('div', 'dw-with dw-rel'); row.append(...list.map(chipOf)); return row; };
@@ -331,7 +337,7 @@ async function openWord(i: number) {
       jp.append(p.kanji[0] ?? p.kana[0] ?? '');
       if (p.kanji[0]) jp.append(h('small', '', p.kana[0] ?? ''));
       b.append(jp, h('span', 'dwp-m', ruOf(p)?.[0] ?? p.senses[0]?.[1] ?? '', { 'data-no-i18n': '' }));
-      b.onclick = () => void openWord(p.i);
+      b.onclick = () => void openWord(p.i, shownWord);
       box.append(b);
     }
     sec('Phrases').append(box);
@@ -369,7 +375,7 @@ async function openWord(i: number) {
           const b = h('button', 'dw-chip', undefined, { type: 'button', lang: 'ja' });
           b.append(h('b', '', m.kanji[0] ?? m.kana[0]), h('small', '', m.kana[0] ?? ''));
           b.title = ruOf(m)?.[0] ?? m.senses[0]?.[1] ?? '';
-          b.onclick = () => void openWord(m.i);
+          b.onclick = () => void openWord(m.i, shownWord);
           row.append(b);
         }
         card.append(row);
@@ -386,13 +392,24 @@ async function openWord(i: number) {
 export function addTo(w: DictEntry) {
   const sel = h('select', 'pill dw-add', undefined, { 'aria-label': tr('Add to a deck') }) as HTMLSelectElement;
   sel.append(Object.assign(h('option', '', `+ ${tr('Add to…')}`), { value: '' }));
-  for (const d of ['all', 'struggling', 'custom'] as DeckId[]) sel.append(Object.assign(h('option', '', tr(DECK_LABEL[d])), { value: d }));
+  for (const d of ['all', 'struggling'] as DeckId[]) sel.append(Object.assign(h('option', '', tr(DECK_LABEL[d])), { value: d }));
+  // (0.9.9.9.9.6 round 2: your own decks, where Custom spells was)
+  const mine = new Map<string, string>();
+  void api.userDecks().then((r) => { for (const d of r.decks) { mine.set(`set:${d.id}`, d.name); const o = h('option', ''); o.textContent = d.name; o.value = `set:${d.id}`; sel.append(o); } }).catch(() => {});
   sel.onchange = async () => {
     const deck = sel.value as DeckId;
     if (!deck) return;
     sel.disabled = true;
     const word = w.kanji[0] ?? w.kana[0] ?? '';
     try {
+      const setName = mine.get(sel.value);
+      if (setName) {
+        const meaning = (lang() === 'ru' && w.ru[0]) || w.senses.slice(0, 2).map((s) => s[1]).join('; ');
+        const r = await api.userDeckAddRows(sel.value.slice(4), [{ kanji: word, reading: w.kana[0] ?? word, meaning: meaning.slice(0, 120) }]);
+        forgetDeckIndex();
+        ui.toast(r.added ? `${word} → ${setName}` : r.skipped.length ? tr(r.skipped[0].why) : `${word}: ${tr('already in')} ${setName}`);
+        return;
+      }
       let id = w.vocabId;
       if (!id || deck === 'custom') {
         const meaning = (lang() === 'ru' && w.ru[0]) || w.senses.slice(0, 2).map((s) => s[1]).join('; ');
@@ -454,6 +471,7 @@ export function openDraw(onSearch: (text: string) => void, start = '') {
   };
   if (!drawPad) {
     drawPad = new HandwritingPad($<HTMLCanvasElement>('drawPad'), () => { clearTimeout(drawT); drawT = window.setTimeout(() => void guess(), 220); });
+    drawPad.inkColour = '#f1effb'; // (dark like the rest of the game — it was a white sheet)
     $('drawUndo').onclick = () => drawPad!.undo();
     $('drawClear').onclick = () => { drawPad!.clear(); $('drawTyped').textContent = ''; };
     $('drawClose').onclick = () => d.close();

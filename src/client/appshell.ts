@@ -43,8 +43,11 @@ export function checkBuild(server: string | undefined) {
     const go = async () => {
       if (!reloadOk()) { setTimeout(() => void go(), 3000); return; }
       try { sessionStorage.setItem('kw:update-to', server); } catch { /* private mode */ }
-      // whatever the old worker kept is dropped, so the reload can only bring the new version
-      try { for (const k of await caches.keys()) if (k.startsWith('kw-shell-')) await caches.delete(k); } catch { /* no caches */ }
+      // (the new version installing: waited for, up to 20 s — then the reload brings it from its own copy)
+      for (let i = 0; i < 40 && reg && (reg.installing || reg.waiting); i++) await new Promise((r) => setTimeout(r, 500));
+      // (0.9.9.9.9.6: the old copy is no longer dropped here — the new worker replaces it once its own copy is saved;
+      // dropping it first left nothing to start from when the internet went before the new one was in: an offline
+      // start then showed the phone's "Webpage not available")
       ui.toast(tr('Updating to the new version…'), 2500);
       setTimeout(() => location.reload(), 900);
     };
@@ -123,6 +126,9 @@ function goBack(): boolean {
   if (open) { open.close(); return true; }
   const scr = ui.currentScreen();
   if (!scr || scr === 'menu' || scr === 'auth') return false;
+  // (0.9.9.9.9.6 round 2: in an open chat, back to the list of chats — it went to the menu)
+  const chatBack = document.querySelector<HTMLElement>('#inbox.thread-open .msg-back');
+  if (scr === 'inbox' && chatBack) { chatBack.click(); return true; }
   // (0.9.9.9.9.6: on the pages with the navigation, its Back — one step back, not to the menu)
   const navBack = document.querySelector<HTMLElement>('body.has-nav .app-nav:not([hidden]) .an-back');
   if (navBack) { navBack.click(); return true; }

@@ -363,16 +363,14 @@
       <button id="studyLockBtn" class="big">Study struggling spells</button>
     </div>
     <div class="mc-cards">
-      <button id="queueBtn" class="mc-card mc-online" type="button">
-        <span class="mc-glyph" lang="ja" aria-hidden="true">戦</span>
-        <span class="mc-body"><b class="mc-name">Online queue</b><span class="mc-info">Reading, Rapid, Boss and Deck Duel against players</span><span id="onlineCount" class="online-pill" hidden></span><span class="mc-go">Find a match</span></span>
+      <!-- 0.9.9.9.9.6 (round 2): Games — the online queue and private games in one card (more games are coming:
+           Kanji chess, song lyrics). The queue's and private game's own buttons stay (the navigation uses them). -->
+      <button id="gamesBtn" class="mc-card mc-online mc-games" type="button">
+        <span class="mc-glyph" lang="ja" aria-hidden="true">遊</span>
+        <span class="mc-body"><b class="mc-name">Games</b><span class="mc-info">Battle players online, friends or bots - and more games to come</span><span id="onlineCount" class="online-pill" hidden></span><span class="mc-go">Play</span></span>
       </button>
-      <div class="mc-slot">
-        <button id="privateBtn" class="mc-card mc-private" type="button">
-          <span class="mc-glyph" lang="ja" aria-hidden="true">友</span>
-          <span class="mc-body"><b class="mc-name">Private game</b><span class="mc-info">Play friends with a room code, or bots - bots work offline too</span></span>
-        </button>
-      </div>
+      <button id="queueBtn" class="mc-card mc-online" type="button" hidden aria-hidden="true" tabindex="-1"></button>
+      <button id="privateBtn" class="mc-card mc-private" type="button" hidden aria-hidden="true" tabindex="-1"></button>
       <button id="dailyBtn" class="mc-card mc-daily daily-btn" type="button">
         <span class="mc-glyph" lang="ja" aria-hidden="true">日</span>
         <span class="mc-body"><b class="mc-name">Daily challenge <span id="dailyBadge" class="badge" hidden>new</span></b><span class="mc-info">10 words a day - climb the leagues from Kana to N1</span></span>
@@ -555,6 +553,19 @@
     <div id="dictBody" class="dict-body"></div>
   </section>
 
+  <!-- 0.9.9.9.9.6 (round 2): GAMES — every way to play, and what's coming -->
+  <section id="games" class="screen" hidden>
+    <button id="gamesBack" class="back">← Menu</button>
+    <div class="page-head"><h2>Games</h2></div>
+    <p class="sub">Battle players online, friends or bots - more games are on the way.</p>
+    <div class="games-grid">
+      <button class="game-tile gt-online" type="button" data-go="queueBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">戦</span><b>Online battle</b><span>Reading, Writing, Rapid, Boss and Deck Duel against players - Rapid and Deck Duel are ranked</span><span id="gamesOnline" class="online-pill" hidden></span></button>
+      <button class="game-tile gt-private" type="button" data-go="privateBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">友</span><b>Private game</b><span>Play friends with a room code, or bots - bots work offline too</span></button>
+      <div class="game-tile gt-soon" aria-disabled="true"><span class="gt-glyph" lang="ja" aria-hidden="true">将</span><b>Kanji chess</b><span>Chess where every piece is its kanji - 馬 the knight, 王 the king</span><i class="gt-badge">Coming soon</i></div>
+      <div class="game-tile gt-soon" aria-disabled="true"><span class="gt-glyph" lang="ja" aria-hidden="true">歌</span><b>Song lyrics</b><span>A Japanese song plays - type its missing lyrics in time</span><i class="gt-badge">Coming soon</i></div>
+    </div>
+  </section>
+
   <!-- STUDY: deck choice -->
   <section id="study" class="screen" hidden>
     <button id="studyBack" class="back">← Menu</button>
@@ -566,7 +577,7 @@
       </div></div>
     <p class="sub">Spaced repetition like Anki: each card comes back just before you would forget it.</p>
     <!-- 0.9.9.9.9.6: the big dictionary from Study spells, and decks of your own -->
-    <div class="study-tools"><button id="studyDict" class="pill" type="button"><span lang="ja" aria-hidden="true">辞</span> Dictionary</button><button id="studyNewDeck" class="pill primary" type="button">+ New deck</button><button id="studyImport" class="pill" type="button">Import (Anki, Quizlet, a list)</button></div>
+    <div class="study-tools"><button id="studyDict" class="pill" type="button"><span lang="ja" aria-hidden="true">辞</span> Dictionary</button><button id="studyNewDeck" class="pill primary" type="button">+ New deck</button></div>
     <div id="userDecks" class="user-decks"></div>
     <div id="studyNotice" class="notice" hidden></div>
     <div class="study-decks">
@@ -596,7 +607,8 @@
         <div id="countsStruggle" class="counts"></div>
         <div class="deck-btns"><button id="studyStruggle" class="big">Study</button><button class="deck-open" data-deck="struggling"><span aria-hidden="true">☰</span> Words</button></div>
       </div>
-      <div class="deck-card custom">
+      <!-- (0.9.9.9.9.6 round 2: Custom spells became decks of your own — see #userDecks; kept for its counts code) -->
+      <div class="deck-card custom" hidden>
         <h3>Custom spells</h3>
         <p class="hint">Your own words: from the dictionary, or any word you type in.</p>
         <div id="countsCustom" class="counts"></div>
@@ -1162,7 +1174,7 @@
     <h2><span class="jp">漢字</span> Wizards</h2>
     <p class="wake-title">Waking up the server…</p>
     <div class="wake-bar"><i id="wakeBar"></i></div>
-    <p class="hint"><span id="wakeSec">0</span> s · The free server sleeps when nobody has played for a while - it takes about a minute to start.</p>
+    <p class="hint"><span id="wakeSec">0</span> s · <span class="wake-why">If the server was asleep it takes about a minute to start.</span></p>
     <button id="wakeOffline" class="pill" type="button" hidden>Play offline meanwhile</button>
   </div>
 </div>

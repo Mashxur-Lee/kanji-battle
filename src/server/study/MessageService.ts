@@ -536,7 +536,8 @@ export class MessageService {
       else { const a = await this.store.findById(m.fromId); from = a ? nameOf(a) : '?'; }
     }
     const out: MessageView[] = [];
-    for (const to of list) out.push(await this.send(u, to, m.text, false, undefined, { media: m.media ? `keep:${m.media}` : undefined, fwd: from }));
+    // (0.9.9.9.9.6: a GIF stays a GIF — it went on as its address in text)
+    for (const to of list) out.push(await this.send(u, to, m.kind === 'gif' ? '' : m.text, false, undefined, { media: m.media ? `keep:${m.media}` : undefined, fwd: from, ...(m.kind === 'gif' ? { gif: m.text } : {}) }));
     return out;
   }
 

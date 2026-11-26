@@ -108,7 +108,8 @@ function renderKnow(p: ProgressPage) {
   // 1) words you know — learned (in review) or mastered — of every word in the level
   const levels = el('div', 'pk-levels');
   let knownAll = 0, totalAll = 0;
-  for (const l of BASE_LEVELS) {
+  // (0.9.9.9.9.6: and the onomatopoeia)
+  for (const l of [...BASE_LEVELS, 'ONO'] as Level[]) {
     const words = p.mastery[l] ?? [];
     if (!words.length) continue;
     const mastered = words.filter((w) => w[1] === 4).length;
@@ -121,7 +122,7 @@ function renderKnow(p: ProgressPage) {
     const a = el('i', 'pk-m'); a.style.width = `${(mastered / words.length) * 100}%`;
     const b = el('i', 'pk-k'); b.style.width = `${(Math.max(0, knownN - mastered) / words.length) * 100}%`;
     bar.append(a, b);
-    const name = el('span', 'pk-name', LEVEL_LABEL[l]); name.lang = kana ? 'ja' : '';
+    const name = el('span', 'pk-name', LEVEL_LABEL[l]); name.lang = kana || l === 'ONO' ? 'ja' : '';
     row.append(name, bar, el('span', 'pk-n', `${knownN.toLocaleString()} / ${words.length.toLocaleString()}`));
     row.title = tr(kana ? 'Mastered (10 stars in Kana)' : 'Known: learned or mastered (mastered = remembered for 3+ weeks)');
     levels.append(row);
@@ -320,14 +321,13 @@ function renderMastery() {
   $('mgPop').hidden = true;
   const tabs = $('progLevels');
   const allWords = LEVELS.flatMap((l) => (page!.mastery[l] ?? []));
-  const allTab = el('button', 'cust-tab' + (level === 'ALL' ? ' on' : ''), `${tr('All levels')} · ${allWords.filter(([, m]) => m >= 3).length}/${allWords.length}`);
+  // (0.9.9.9.9.6: no known/all on the tabs — What you know above says it)
+  const allTab = el('button', 'cust-tab' + (level === 'ALL' ? ' on' : ''), tr('All levels'));
   allTab.setAttribute('role', 'tab');
   allTab.setAttribute('aria-selected', String(level === 'ALL'));
   allTab.onclick = () => { level = 'ALL'; mShown = PAGE; renderMastery(); };
   tabs.replaceChildren(allTab, ...LEVELS.map((l) => {
-    const words = (page!.mastery[l] ?? []);
-    const known = words.filter(([, m]) => m >= 3).length;
-    const b = el('button', 'cust-tab' + (l === level ? ' on' : ''), `${LEVEL_LABEL[l]} · ${known}/${words.length}`);
+    const b = el('button', 'cust-tab' + (l === level ? ' on' : ''), LEVEL_LABEL[l]);
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(l === level));
     b.onclick = () => { level = l; mShown = PAGE; renderMastery(); };
