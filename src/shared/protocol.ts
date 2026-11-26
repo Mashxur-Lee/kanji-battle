@@ -169,13 +169,30 @@ export type ClientMessage =
   | { type: 'watch'; userId: string }
   | { type: 'unwatch' }
   /** 0.9.9.9.9.6: Kanji chess with a friend — a room by code; moves in UCI (e2e4, e7e8q); times in ms */
-  | { type: 'chess_new'; base: number; inc: number }
+  | { type: 'chess_new'; base: number; inc: number; /** round 4: a friend challenged from their profile */ invite?: string }
   | { type: 'chess_join'; code: string }
   | { type: 'chess_sync'; id: string }
   | { type: 'chess_move'; id: string; uci: string }
   | { type: 'chess_resign'; id: string }
   | { type: 'chess_draw'; id: string; offer: boolean }
   | { type: 'chess_leave'; id: string }
+  /** round 4: the lobby — ready, the clock (the host), chat (in the game too), play again */
+  | { type: 'chess_ready'; id: string; on: boolean }
+  | { type: 'chess_time'; id: string; base: number; inc: number }
+  | { type: 'chess_chat'; id: string; text: string }
+  | { type: 'chess_again'; id: string }
+  // 0.9.9.9.9.6 (round 4): Grammar Clash — the grammar quiz for 2–8 players (GrammarHub)
+  | { type: 'clash_new'; level?: string; count?: number; invite?: string }
+  | { type: 'clash_join'; code: string }
+  | { type: 'clash_queue'; on: boolean; ranked?: boolean }
+  | { type: 'clash_sync' }
+  | { type: 'clash_ready'; on: boolean }
+  | { type: 'clash_settings'; level?: string; count?: number }
+  | { type: 'clash_start' }
+  | { type: 'clash_answer'; i: number; k: number }
+  | { type: 'clash_chat'; text: string }
+  | { type: 'clash_again' }
+  | { type: 'clash_leave' }
   | { type: 'create'; mode: GameMode; levels?: Level[]; /** the tutorial's short first battle */ tutorial?: boolean }
   | { type: 'join'; code: string; levels?: Level[] }
   | { type: 'levels'; levels: Level[] }
@@ -278,6 +295,13 @@ export type ServerMessage =
   /** 0.9.9.9.9.6: Kanji chess with a friend */
   | { type: 'chess'; room: ChessRoomView }
   | { type: 'chess_error'; error: string }
+  /** round 4: a friend challenges you to Kanji chess */
+  | { type: 'chess_invite'; from: { id: string; name: string }; code: string }
+  // 0.9.9.9.9.6 (round 4): Grammar Clash
+  | { type: 'clash'; room: ClashView }
+  | { type: 'clash_error'; error: string }
+  | { type: 'clash_queue'; on: boolean; waiting: number; ranked: boolean }
+  | { type: 'clash_invite'; from: { id: string; name: string }; code: string }
   | { type: 'kicked'; message: string }
   | { type: 'joined'; code: string; you: PlayerId; mode: GameMode }
   | { type: 'left' }
@@ -365,6 +389,23 @@ export const isKanaLevel = (l: string) => l === 'KANA' || l === 'KATA';
 export type Device = 'web' | 'pc' | 'phone';
 
 /** 0.9.9.9.9.6: a game of Kanji chess between two players, as each of them sees it */
+/** 0.9.9.9.9.6 (round 4): a Grammar Clash room, as one player sees it */
+export interface ClashView {
+  id: string; code: string; host: string; status: 'lobby' | 'starting' | 'question' | 'reveal' | 'board' | 'over';
+  quick: boolean; ranked: boolean; level: string; count: number;
+  /** the server's clock, and when this part ends */
+  now: number; endsAt: number; limitMs: number;
+  /** the question's number (from 1) and how many */
+  n: number; total: number;
+  players: Array<{ id: string; name: string; avatar: string; staff: string; ready: boolean; score: number; streak: number; best: number; right: number; left: boolean; answered: boolean;
+    /** the last question: what they picked (null: nothing), right or not, the points */ last?: { k: number | null; right: boolean; points: number } }>;
+  /** the question (its answer and translation once it is revealed; `mine` what you picked) */
+  q?: { jp: string; options: string[]; double: boolean; answer?: number; filled?: string; en?: string; ru?: string; mine?: number };
+  /** the final order, best first */
+  order?: string[];
+  ratings?: Record<string, RatingChange>;
+  chat: Array<{ from: string; name: string; text: string; at: number }>;
+}
 export interface ChessRoomView {
   id: string; code: string; you: 'w' | 'b' | null;
   white: { id: string; name: string } | null; black: { id: string; name: string } | null;
@@ -372,7 +413,14 @@ export interface ChessRoomView {
   moves: string[];
   /** time left (ms) when the side to move began its turn, and when that was (server time); base 0 = no clock */
   clocks: { w: number; b: number }; turnSince: number; now: number; base: number; inc: number;
-  status: 'waiting' | 'playing' | 'over';
+  /** waiting: the host alone; lobby: both there, getting ready (round 4) */
+  status: 'waiting' | 'lobby' | 'playing' | 'over';
+  host: { id: string; name: string }; guest: { id: string; name: string } | null;
+  /** who pressed Ready (round 4) */
+  ready: string[];
+  chat: Array<{ from: string; name: string; text: string; at: number }>;
+  /** how long each move took (ms) */
+  times: number[];
   result?: { winner: 'w' | 'b' | null; reason: string };
   drawOffer: 'w' | 'b' | null;
 }

@@ -2,13 +2,20 @@
 // (the Goblin 200, the Knight 400, the Witch 800, the Wizard 1600): they sit beside the board and talk about your
 // moves in Japanese (furigana over every kanji, each one tappable for its meaning, the translation under it) — like a
 // chess site's coach. Or play a friend by a room code, with clocks kept by the server.
+// Round 4: a friend game has a lobby like the private rooms' (both players, Ready, the host sets the clock, a chat
+// that goes on into the game); a friend can be challenged from their profile; every game is kept in Match history →
+// Chess and can be watched again; the pieces taken and who is ahead; how long each move took; pieces shaped like
+// chess pieces; their own sounds; the wizards speak their lines in their own voices, with a face to go with them.
 import { BOTS, botMove, colorOf, inCheck, judgeMove, kindOf, legalMoves, makeMove, moveSan, moveUci, outcome, parseFen, PIECE_KANJI, PIECE_NAME, PIECE_READING, posKey, replay, sqName, START_FEN, type BotId, type Color, type Kind, type Move, type Position } from '../shared/chess';
 import { lineFor, parseLine, type Moment } from '../shared/chesslines';
 import type { ChessRoomView, ClientMessage } from '../shared/protocol';
+import { api, type ChessGame } from './api';
 import * as audio from './audio';
+import { miniPiece, pieceSvg } from './chesspieces';
 import { lang, tr } from './i18n';
 import { showKanji } from './kanjihelp';
 import * as ui from './ui';
+import { speakAs } from './voice';
 import { heroSvg } from './wizard';
 
 const $ = ui.$;
@@ -28,22 +35,31 @@ let mine: Color = 'w';
 let pos: Position = parseFen(START_FEN);
 let moves: Move[] = [];
 let sans: string[] = [];
+let times: number[] = []; // (round 4) how long each move took, in ms
 let history: string[] = []; // position keys, for repetition
 let selected = -1;
 let over: { winner: Color | null; reason: string } | null = null;
 let thinking = false;
 let clocks = { w: 0, b: 0 }, base = 0, inc = 0, turnSince = 0, clockSkew = 0;
+let moveSince = 0; // (round 4) when the side to move began thinking (a bot game: for the move times)
 let clockTimer = 0;
 let send: (m: ClientMessage) => void = () => {};
 let pendingPromo: Move[] | null = null;
+let saved = false; // (round 4) this bot game is in your history already
 
 // ── setup ──
 const TIMES: Array<[string, number, number]> = [['No clock', 0, 0], ['3 + 2', 180_000, 2000], ['5 + 0', 300_000, 0], ['10 + 0', 600_000, 0], ['15 + 10', 900_000, 10_000]];
 let pickBot: BotId = 'goblin', pickColor: 'w' | 'b' | 'r' = 'r', pickTime = 0;
+const VOICE_KEY = 'kb:chessVoice';
+let voiceOn = (() => { try { return localStorage.getItem(VOICE_KEY) !== 'off'; } catch { return true; } })();
 
 export function initChess(sender: (m: ClientMessage) => void) {
   send = sender;
-  $('chessBack').onclick = () => { if (!$('chessGame').hidden && !over && moves.length) { void leaveGame(); return; } ui.show('games'); };
+  $('chessBack').onclick = () => {
+    if (!$('chessGame').hidden && !over && moves.length) { void leaveGame(); return; }
+    if (!$('chessLobby').hidden) { leaveLobby(); return; }
+    ui.show('games');
+  };
   $('chessStart').onclick = () => startBot();
   $('chessCreate').onclick = () => { const [, b, i] = TIMES[pickTime]; send({ type: 'chess_new', base: b, inc: i }); };
   $('chessJoin').onclick = () => { const c = $<HTMLInputElement>('chessCode').value.trim().toUpperCase(); if (c.length === 4) send({ type: 'chess_join', code: c }); else ui.toast(tr('Type the 4-letter code')); };
@@ -51,30 +67,75 @@ export function initChess(sender: (m: ClientMessage) => void) {
   $('chessResign').onclick = () => void resign();
   $('chessDraw').onclick = () => { if (mode.kind === 'friend') send({ type: 'chess_draw', id: mode.room.id, offer: true }); };
   $('chessUndo').onclick = () => takeBack();
-  $('chessAgain').onclick = () => { $('chessOver').hidden = true; if (mode.kind === 'bot') startBot(); else showSetup('friend'); };
-  $('chessToSetup').onclick = () => { $('chessOver').hidden = true; showSetup(mode.kind === 'friend' ? 'friend' : 'bot'); };
+  $('chessVoice').onclick = () => { voiceOn = !voiceOn; try { localStorage.setItem(VOICE_KEY, voiceOn ? 'on' : 'off'); } catch { /* private mode */ } drawVoice(); };
+  $('chessAgain').onclick = () => { $('chessOver').hidden = true; if (mode.kind === 'bot') startBot(); else send({ type: 'chess_again', id: mode.room.id }); };
+  $('chessToSetup').onclick = () => { $('chessOver').hidden = true; if (mode.kind === 'friend') { send({ type: 'chess_leave', id: mode.room.id }); mode = { kind: 'bot', bot: pickBot }; showSetup('friend'); } else showSetup('bot'); };
   for (const b of document.querySelectorAll<HTMLElement>('#chessTabs [data-tab]')) b.onclick = () => showSetup(b.dataset.tab as 'bot' | 'friend');
+  // the lobby
+  $('chessReady').onclick = () => { if (mode.kind === 'friend') send({ type: 'chess_ready', id: mode.room.id, on: !mode.room.ready.includes(meId()) }); };
+  $('chessLeaveLobby').onclick = () => leaveLobby();
+  $('chessCopy').onclick = () => { if (mode.kind !== 'friend') return; void navigator.clipboard?.writeText(mode.room.code).then(() => ui.toast(tr('Copied!'))).catch(() => ui.toast(mode.kind === 'friend' ? mode.room.code : '')); };
+  for (const id of ['chessLobbyChatForm', 'chessChatForm']) {
+    const f = $<HTMLFormElement>(id);
+    f.onsubmit = (e) => {
+      e.preventDefault();
+      const input = f.querySelector('input')!;
+      const text = input.value.trim();
+      if (!text || mode.kind !== 'friend') return;
+      send({ type: 'chess_chat', id: mode.room.id, text: text.slice(0, 200) });
+      input.value = '';
+    };
+  }
   // the pieces, each tappable: its kanji and what it is
   $('chessLegend').replaceChildren(...(['k', 'q', 'r', 'b', 'n', 'p'] as Kind[]).map((k) => {
     const b = h('button', 'cl-piece', undefined, { type: 'button' });
     const r = h('ruby'); r.append(PIECE_KANJI[k], h('rt', '', PIECE_READING[k]));
-    b.append(r, h('span', '', tr(PIECE_NAME[k])));
+    const pic = h('span', 'cl-shape'); pic.innerHTML = pieceSvg('w', k);
+    b.append(pic, r, h('span', '', tr(PIECE_NAME[k])));
     b.onclick = () => void showKanji(PIECE_KANJI[k], b);
     return b;
   }));
   drawSetup();
+  drawVoice();
 }
+
+let myId = '';
+/** the signed-in player's id (the lobby's Ready button and the chat need it) */
+export function setChessUser(id: string) { myId = id; }
+const meId = () => myId;
 
 export function openChess() {
   ui.show('chess');
-  if ($('chessGame').hidden) showSetup('bot');
+  if ($('chessGame').hidden && $('chessLobby').hidden) showSetup('bot');
+}
+/** (round 4) from a friend's profile: a game for the two of you — the lobby opens, and they're asked to join */
+export function challengeChess(friendId: string) {
+  ui.show('chess');
+  const [, b, i] = TIMES[pickTime];
+  send({ type: 'chess_new', base: b, inc: i, invite: friendId });
+}
+/** (round 4) a friend asks you to a game */
+export async function onChessInvite(from: { id: string; name: string }, code: string) {
+  audio.sfx.yourTurn();
+  const busy = ['prep', 'battle', 'deck'].includes(ui.currentScreen() ?? '');
+  if (busy) { ui.toast(`${from.name}: ${tr('Kanji chess')} - ${tr('Your code')} ${code}`, 6000); return; }
+  if (!$('chessGame').hidden && !over && moves.length) { ui.toast(`${from.name}: ${tr('Kanji chess')} - ${tr('Your code')} ${code}`, 6000); return; }
+  if (!(await ui.confirmBox('A game of Kanji chess', `${from.name} ${tr('asks you to a game of Kanji chess.')}`, 'Join', 'Not now', false))) return;
+  ui.show('chess');
+  send({ type: 'chess_join', code });
 }
 function showSetup(tab: 'bot' | 'friend') {
-  $('chessSetup').hidden = false; $('chessGame').hidden = true;
+  $('chessSetup').hidden = false; $('chessGame').hidden = true; $('chessLobby').hidden = true;
   for (const b of document.querySelectorAll<HTMLElement>('#chessTabs [data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
   $('chessBotSetup').hidden = tab !== 'bot'; $('chessFriendSetup').hidden = tab !== 'friend';
-  $('chessWait').hidden = true;
   drawSetup();
+}
+function seg(box: string, items: Array<[string, string]>, on: string, set: ((v: string) => void) | null) {
+  $(box).replaceChildren(...items.map(([v, label]) => {
+    const b = h('button', `cs-opt${v === on ? ' on' : ''}`, tr(label), { type: 'button', 'aria-pressed': String(v === on) }) as HTMLButtonElement;
+    if (set) b.onclick = () => set(v); else b.disabled = v !== on;
+    return b;
+  }));
 }
 function drawSetup() {
   $('chessBots').replaceChildren(...BOTS.map((b) => {
@@ -87,11 +148,14 @@ function drawSetup() {
     card.onclick = () => { pickBot = b.id; drawSetup(); };
     return card;
   }));
-  const seg = (box: string, items: Array<[string, string]>, on: string, set: (v: string) => void) => {
-    $(box).replaceChildren(...items.map(([v, label]) => { const b = h('button', `cs-opt${v === on ? ' on' : ''}`, tr(label), { type: 'button', 'aria-pressed': String(v === on) }); b.onclick = () => { set(v); drawSetup(); }; return b; }));
-  };
-  seg('chessColor', [['w', 'White'], ['r', 'Random'], ['b', 'Black']], pickColor, (v) => { pickColor = v as 'w' | 'b' | 'r'; });
-  for (const id of ['chessTime', 'chessFriendTime']) seg(id, TIMES.map(([l], i) => [String(i), l] as [string, string]), String(pickTime), (v) => { pickTime = Number(v); });
+  seg('chessColor', [['w', 'White'], ['r', 'Random'], ['b', 'Black']], pickColor, (v) => { pickColor = v as 'w' | 'b' | 'r'; drawSetup(); });
+  seg('chessTime', TIMES.map(([l], i) => [String(i), l] as [string, string]), String(pickTime), (v) => { pickTime = Number(v); drawSetup(); });
+  seg('chessFriendTime', TIMES.map(([l], i) => [String(i), l] as [string, string]), String(pickTime), (v) => { pickTime = Number(v); drawSetup(); });
+}
+function drawVoice() {
+  const b = $('chessVoice');
+  b.textContent = tr(voiceOn ? 'Voice on' : 'Voice off');
+  b.setAttribute('aria-pressed', String(voiceOn));
 }
 
 // ── a game against a bot ──
@@ -101,16 +165,20 @@ function startBot() {
   const [, b, i] = TIMES[pickTime];
   begin(b, i);
   say('hello');
-  audio.sfx.go();
+  audio.sfx.chessStart();
   if (pos.turn !== mine) botTurn();
 }
 function begin(b: number, i: number) {
-  pos = parseFen(START_FEN); moves = []; sans = []; history = []; selected = -1; over = null; thinking = false; pendingPromo = null;
-  base = b; inc = i; clocks = { w: b, b: b }; turnSince = Date.now(); clockSkew = 0;
+  pos = parseFen(START_FEN); moves = []; sans = []; times = []; history = []; selected = -1; over = null; thinking = false; pendingPromo = null; saved = false;
+  base = b; inc = i; clocks = { w: b, b: b }; turnSince = Date.now(); moveSince = Date.now(); clockSkew = 0;
   flipped = mine === 'b';
-  $('chessSetup').hidden = true; $('chessGame').hidden = false; $('chessOver').hidden = true; $('chessPromo').hidden = true;
-  $('chessUndo').hidden = mode.kind !== 'bot'; $('chessDraw').hidden = mode.kind !== 'friend';
+  $('chessSetup').hidden = true; $('chessLobby').hidden = true; $('chessGame').hidden = false; $('chessOver').hidden = true; $('chessPromo').hidden = true;
+  const friend = mode.kind === 'friend';
+  $('chessUndo').hidden = friend; $('chessDraw').hidden = !friend; $('chessVoice').hidden = friend;
+  $('chessChatBox').hidden = !friend;
+  $('chessGame').classList.toggle('vs-friend', friend);
   $('chessBubble').hidden = true;
+  setMood('calm');
   drawPlayers();
   draw();
   startClock();
@@ -126,7 +194,7 @@ function drawPlayers() {
   } else {
     const r = mode.room, them = mine === 'w' ? r.black : r.white;
     opp.querySelector('.cp-pic')!.innerHTML = heroSvg('wizard', 'opp');
-    opp.querySelector('.cp-name')!.replaceChildren(h('b', '', them?.name ?? tr('Waiting…')));
+    opp.querySelector('.cp-name')!.replaceChildren(h('b', '', them?.name ?? tr('Waiting…')), h('span', 'cp-side', tr(mine === 'w' ? 'Black' : 'White')));
   }
   me.querySelector('.cp-name')!.replaceChildren(h('b', '', tr('You')), h('span', 'cp-side', tr(mine === 'w' ? 'White' : 'Black')));
 }
@@ -153,15 +221,23 @@ function botTurn() {
 }
 
 // ── moves ──
+function moveSound(m: Move, after: Position) {
+  const o = outcome(after);
+  if (o.over && o.reason === 'checkmate') audio.sfx.chessMate();
+  else if (inCheck(after)) audio.sfx.chessCheck();
+  else if (m.captured) audio.sfx.chessCapture();
+  else audio.sfx.chessMove();
+}
 function play(m: Move) {
   const before = pos;
   history.push(posKey(pos));
   sans.push(moveSan(pos, m, true));
+  times.push(Date.now() - moveSince); moveSince = Date.now();
   if (base && !over) { clocks[pos.turn] = clocks[pos.turn] - (Date.now() - turnSince) + inc; turnSince = Date.now(); }
   pos = makeMove(pos, m);
   moves.push(m);
   selected = -1;
-  if (m.captured) audio.sfx.impact(); else audio.sfx.flip();
+  moveSound(m, pos);
   draw();
   if (mode.kind === 'bot') {
     const o = outcome(pos, history);
@@ -183,7 +259,8 @@ function comment(before: Position, m: Move) {
   }, 60);
 }
 function markMove(q: string) {
-  const last = $('chessMoves').lastElementChild?.lastElementChild as HTMLElement | null;
+  const all = $('chessMoves').querySelectorAll<HTMLElement>('.cm-mv');
+  const last = all[all.length - 1];
   if (last) last.dataset.q = q;
 }
 function tryMove(from: number, to: number) {
@@ -203,7 +280,8 @@ function askPromo(options: Move[]) {
   pendingPromo = options;
   const box = $('chessPromo');
   box.replaceChildren(h('b', '', tr('Promote to')), ...(['q', 'r', 'b', 'n'] as Kind[]).map((k) => {
-    const b = h('button', `cpr-btn piece ${mine}`, PIECE_KANJI[k], { type: 'button', lang: 'ja', title: tr(PIECE_NAME[k]) });
+    const b = h('button', `cpr-btn piece ${mine}`, undefined, { type: 'button', title: tr(PIECE_NAME[k]) });
+    b.innerHTML = pieceSvg(mine, k);
     b.onclick = () => { box.hidden = true; const m = pendingPromo?.find((x) => x.promo === k); pendingPromo = null; if (m) commit(m); };
     return b;
   }));
@@ -217,6 +295,7 @@ function takeBack() {
   const r = replay(keep);
   pos = r.positions[r.positions.length - 1];
   moves = r.moves; sans = r.moves.map((m, i) => moveSan(r.positions[i], m, true)); history = r.positions.slice(0, -1).map(posKey);
+  times = times.slice(0, moves.length); moveSince = Date.now();
   over = null; selected = -1; $('chessOver').hidden = true;
   draw();
   if (pos.turn !== mine) botTurn();
@@ -231,9 +310,17 @@ async function leaveGame() {
   if (!(await ui.confirmBox('Leave the game?', mode.kind === 'friend' ? 'You lose the game.' : 'This game will be lost.', 'Leave', 'Stay'))) return;
   if (mode.kind === 'friend') send({ type: 'chess_leave', id: mode.room.id });
   over = { winner: mine === 'w' ? 'b' : 'w', reason: 'left' };
+  saveBotGame();
   stopClock();
-  showSetup(mode.kind === 'friend' ? 'friend' : 'bot');
+  const tab = mode.kind === 'friend' ? 'friend' : 'bot';
+  mode = { kind: 'bot', bot: pickBot };
+  showSetup(tab);
   ui.show('games');
+}
+function leaveLobby() {
+  if (mode.kind === 'friend') send({ type: 'chess_leave', id: mode.room.id });
+  mode = { kind: 'bot', bot: pickBot };
+  showSetup('friend');
 }
 const REASON: Record<string, string> = { checkmate: 'by checkmate', stalemate: 'stalemate', fifty: 'by the 50-move rule', repetition: 'by repetition', material: 'too little to mate', time: 'on time', resigned: 'by resignation', agreed: 'by agreement', left: 'they left' };
 function finish(winner: Color | null, reason: string) {
@@ -241,48 +328,93 @@ function finish(winner: Color | null, reason: string) {
   stopClock();
   draw();
   const won = winner === mine, drawn = winner === null;
-  if (mode.kind === 'bot') say(drawn ? 'draw' : won ? 'botLoses' : 'botWins');
-  if (won) audio.sfx.win(); else if (!drawn) audio.sfx.lose();
+  if (mode.kind === 'bot') { say(drawn ? 'draw' : won ? 'botLoses' : 'botWins'); saveBotGame(); }
+  if (reason !== 'checkmate') { if (won) audio.sfx.win(); else if (!drawn) audio.sfx.lose(); }
+  else window.setTimeout(() => { if (won) audio.sfx.win(); else audio.sfx.lose(); }, 900);
   $('chessOverTitle').textContent = tr(drawn ? 'Draw' : won ? 'You won!' : 'You lost');
   $('chessOverTitle').className = drawn ? 'draw' : won ? 'win' : 'loss';
   $('chessOverWhy').textContent = tr(REASON[reason] ?? reason);
   window.setTimeout(() => { if (over) $('chessOver').hidden = false; }, 900);
 }
+/** (round 4) a game against a wizard goes into Match history → Chess (friend games the server keeps itself) */
+function saveBotGame() {
+  if (mode.kind !== 'bot' || saved || moves.length < 2 || !over) return;
+  saved = true;
+  const won = over.winner === mine;
+  void api.saveChessGame({ bot: mode.bot, color: mine, moves: moves.map(moveUci), times, base, inc, reason: over.reason, result: over.winner === null ? 'draw' : won ? 'win' : 'loss' }).catch(() => { /* offline: not kept */ });
+}
 
 // ── the board ──
 let flipped = false;
-function draw() {
-  const board = $('chessBoard');
-  const legal = selected >= 0 ? legalMoves(pos).filter((m) => m.from === selected) : [];
-  const last = moves[moves.length - 1];
-  const checked = inCheck(pos) ? pos.board.indexOf(pos.turn === 'w' ? 'K' : 'k') : -1;
+/** the 64 squares of a position (the game's board, and a replay's) */
+function boardCells(p: Position, o: { flipped: boolean; last?: Move; selected?: number; legal?: Move[]; onTap?: (i: number) => void }) {
+  const checked = inCheck(p) ? p.board.indexOf(p.turn === 'w' ? 'K' : 'k') : -1;
   const cells: HTMLElement[] = [];
   for (let n = 0; n < 64; n++) {
-    const i = flipped ? 63 - n : n;
+    const i = o.flipped ? 63 - n : n;
     const r = Math.floor(i / 8), f = i % 8;
-    const x = pos.board[i];
-    const sq = h('button', `csq ${(r + f) % 2 ? 'dark' : 'light'}`, undefined, { type: 'button', 'data-sq': String(i), 'aria-label': `${sqName(i)}${x ? ` ${tr(colorOf(x) === 'w' ? 'white' : 'black')} ${tr(PIECE_NAME[kindOf(x)])}` : ''}` });
-    if (last && (i === last.from || i === last.to)) sq.classList.add('last');
-    if (i === selected) sq.classList.add('sel');
+    const x = p.board[i];
+    const sq = h(o.onTap ? 'button' : 'span', `csq ${(r + f) % 2 ? 'dark' : 'light'}`, undefined, { 'data-sq': String(i), 'aria-label': `${sqName(i)}${x ? ` ${tr(colorOf(x) === 'w' ? 'white' : 'black')} ${tr(PIECE_NAME[kindOf(x)])}` : ''}` });
+    if (o.onTap) sq.setAttribute('type', 'button');
+    if (o.last && (i === o.last.from || i === o.last.to)) sq.classList.add('last');
+    if (i === o.selected) sq.classList.add('sel');
     if (i === checked) sq.classList.add('check');
-    const target = legal.find((m) => m.to === i);
+    const target = o.legal?.find((m) => m.to === i);
     if (target) sq.classList.add(target.captured ? 'cap' : 'dot');
-    if (x) { const pc = h('span', `piece ${colorOf(x)}`, PIECE_KANJI[kindOf(x)], { lang: 'ja' }); sq.append(pc); }
+    if (x) { const pc = h('span', `piece ${colorOf(x)} k-${kindOf(x)}`, undefined, { lang: 'ja' }); pc.innerHTML = pieceSvg(colorOf(x) as Color, kindOf(x)); sq.append(pc); }
     // the coordinates on the edge
     if (n % 8 === 0) sq.append(h('i', 'crank', String(8 - r)));
     if (n >= 56) sq.append(h('i', 'cfile', 'abcdefgh'[f]));
-    sq.onclick = () => onSquare(i);
+    if (o.onTap) { const tap = o.onTap; sq.onclick = () => tap(i); }
     cells.push(sq);
   }
-  board.replaceChildren(...cells);
-  // the move list: 1. 兵e4 兵e5 …
-  const list = $('chessMoves');
-  list.replaceChildren(...Array.from({ length: Math.ceil(sans.length / 2) }, (_, k) => {
+  return cells;
+}
+const VALUE: Record<Kind, number> = { k: 0, q: 9, r: 5, b: 3, n: 3, p: 1 };
+const START_COUNT: Record<Kind, number> = { k: 1, q: 1, r: 2, b: 2, n: 2, p: 8 };
+/** (round 4) the pieces each side has taken, and who is ahead in points (pawn 1, knight and bishop 3, rook 5, queen 9) */
+export function material(p: Position) {
+  const have = { w: { k: 0, q: 0, r: 0, b: 0, n: 0, p: 0 }, b: { k: 0, q: 0, r: 0, b: 0, n: 0, p: 0 } } as Record<Color, Record<Kind, number>>;
+  let score = 0;
+  for (const x of p.board) if (x) { const c = colorOf(x) as Color; have[c][kindOf(x)]++; score += (c === 'w' ? 1 : -1) * VALUE[kindOf(x)]; }
+  const took = (c: Color): Kind[] => {
+    const them: Color = c === 'w' ? 'b' : 'w';
+    const out: Kind[] = [];
+    for (const k of ['q', 'r', 'b', 'n', 'p'] as Kind[]) for (let i = have[them][k]; i < START_COUNT[k]; i++) out.push(k);
+    return out;
+  };
+  return { w: took('w'), b: took('b'), lead: score };
+}
+function drawMaterial(el: HTMLElement, c: Color, m: ReturnType<typeof material>) {
+  const them: Color = c === 'w' ? 'b' : 'w';
+  el.innerHTML = m[c].map((k) => miniPiece(them, k)).join('');
+  const lead = c === 'w' ? m.lead : -m.lead;
+  if (lead > 0) el.append(h('b', 'cp-lead', `+${lead}`));
+}
+const secs = (ms: number) => (ms < 10_000 ? `${(ms / 1000).toFixed(1)}s` : ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.floor(ms / 60_000)}:${String(Math.round((ms % 60_000) / 1000)).padStart(2, '0')}`);
+/** the move list: 1. 兵e4 (2.1s) 兵e5 (0.8s) … */
+function moveList(list: HTMLElement, s: string[], t: number[], at = -1, onPick?: (i: number) => void) {
+  list.replaceChildren(...Array.from({ length: Math.ceil(s.length / 2) }, (_, k) => {
     const row = h('li');
-    row.append(h('span', 'cm-n', `${k + 1}.`), h('span', 'cm-w', sans[k * 2] ?? ''), h('span', 'cm-b', sans[k * 2 + 1] ?? ''));
+    row.append(h('span', 'cm-n', `${k + 1}.`));
+    for (const j of [k * 2, k * 2 + 1]) {
+      const cell = h(onPick ? 'button' : 'span', `cm-mv cm-${j % 2 ? 'b' : 'w'}${j === at ? ' at' : ''}`);
+      if (onPick) { cell.setAttribute('type', 'button'); cell.onclick = () => onPick(j); }
+      if (s[j]) { cell.append(h('span', 'cm-san', s[j])); if (t[j] !== undefined) cell.append(h('small', 'cm-t', secs(t[j]))); }
+      row.append(cell);
+    }
     return row;
   }));
+}
+function draw() {
+  const legal = selected >= 0 ? legalMoves(pos).filter((m) => m.from === selected) : [];
+  $('chessBoard').replaceChildren(...boardCells(pos, { flipped, last: moves[moves.length - 1], selected, legal, onTap: onSquare }));
+  const list = $('chessMoves');
+  moveList(list, sans, times);
   list.scrollTop = list.scrollHeight;
+  const m = material(pos);
+  drawMaterial($('chessOppMat'), mine === 'w' ? 'b' : 'w', m);
+  drawMaterial($('chessMeMat'), mine, m);
   $('chessTurn').textContent = over ? '' : tr(pos.turn === mine ? 'Your move' : mode.kind === 'bot' ? 'Thinking…' : 'Their move');
   $('chessOpp').classList.toggle('to-move', !over && pos.turn !== mine);
   $('chessMe').classList.toggle('to-move', !over && pos.turn === mine);
@@ -321,14 +453,33 @@ function startClock() {
 }
 function stopClock() { clearInterval(clockTimer); clockTimer = 0; }
 
-// ── what the bot says ──
+// ── what the bot says, how it says it, and its face ──
+/** each wizard's voice: [rate, pitch] — the Goblin quick and squeaky, the Knight slow and deep, the Witch sly, the Wizard old and grave */
+const VOICES: Record<BotId, [number, number]> = { goblin: [1.25, 1.8], knight: [0.88, 0.7], witch: [1.02, 1.35], wizard: [0.82, 0.5] };
+/** the face that goes with a moment, and its kanji (a seal by the portrait) */
+const MOOD: Record<string, [string, string]> = {
+  hello: ['happy', '喜'], best: ['amazed', '驚'], good: ['happy', '良'], inaccuracy: ['smug', '笑'], mistake: ['smug', '笑'], blunder: ['laugh', '笑'],
+  botWins: ['laugh', '勝'], botLoses: ['sad', '負'], draw: ['calm', '和'], check: ['fierce', '攻'], take: ['fierce', '取'], castle: ['calm', '守'], promote: ['amazed', '驚'],
+};
+let moodTimer = 0;
+function setMood(mood: string, mark = '') {
+  const pic = $('chessOpp').querySelector<HTMLElement>('.cp-pic')!;
+  pic.dataset.mood = mood;
+  pic.classList.remove('mood-go'); void pic.offsetWidth; pic.classList.add('mood-go');
+  const seal = $('chessMood');
+  seal.textContent = mark; seal.hidden = !mark;
+  seal.classList.remove('pop'); void seal.offsetWidth; seal.classList.add('pop');
+  clearTimeout(moodTimer);
+  if (mood !== 'calm') moodTimer = window.setTimeout(() => { pic.dataset.mood = 'calm'; seal.hidden = true; }, 3200);
+}
 function say(moment: Moment) {
   if (mode.kind !== 'bot') return;
   const line = lineFor(mode.bot, moment);
   if (!line) return;
   const box = $('chessBubble');
   const jp = h('p', 'cbb-jp', undefined, { lang: 'ja' });
-  for (const part of parseLine(line.jp)) {
+  const parts = parseLine(line.jp);
+  for (const part of parts) {
     if (!part.reading) { jp.append(part.text); continue; }
     // the word with its reading over it; each kanji in it can be tapped for its meaning
     const r = h('ruby');
@@ -342,32 +493,77 @@ function say(moment: Moment) {
   box.replaceChildren(jp, h('p', 'cbb-tr', lang() === 'ru' ? line.ru : line.en));
   box.hidden = false;
   box.classList.remove('pop'); void box.offsetWidth; box.classList.add('pop');
+  const [mood, mark] = MOOD[moment] ?? ['calm', ''];
+  setMood(mood, mark);
+  // said aloud — the readings, so the voice can't misread a kanji
+  if (voiceOn) { const [rate, pitch] = VOICES[mode.bot]; speakAs(parts.map((x) => x.reading ?? x.text).join(''), rate, pitch); }
 }
 
 // ── a game with a friend (the server's room) ──
+function chatList(list: HTMLElement, room: ChessRoomView) {
+  const near = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+  list.replaceChildren(...room.chat.map((c) => {
+    const li = h('li', c.from ? (c.from === meId() ? 'cc-me' : '') : 'cc-sys');
+    if (c.from) li.append(h('b', '', c.name));
+    li.append(h('span', '', c.from ? c.text : `${c.name} ${tr(c.text)}`));
+    return li;
+  }));
+  if (near || list.dataset.n !== String(room.chat.length)) list.scrollTop = list.scrollHeight;
+  list.dataset.n = String(room.chat.length);
+}
+let chatSeen = 0;
+function drawLobby(room: ChessRoomView) {
+  $('chessSetup').hidden = true; $('chessGame').hidden = true; $('chessLobby').hidden = false;
+  $('chessLobbyCode').textContent = room.code;
+  const host = room.host.id === meId();
+  const seat = (p: { id: string; name: string } | null, isHost: boolean) => {
+    const box = h('div', `cl-seat${p ? '' : ' empty'}${p && room.ready.includes(p.id) ? ' ready' : ''}`);
+    const pic = h('span', 'cl-pic'); pic.innerHTML = heroSvg(isHost ? 'wizard' : 'witch', 'opp');
+    box.append(pic, h('b', '', p ? (p.id === meId() ? `${p.name} (${tr('You')})` : p.name) : tr('Waiting for your friend…')));
+    if (p) box.append(h('span', 'cl-state', tr(room.ready.includes(p.id) ? 'Ready' : 'Not ready')));
+    if (isHost) box.append(h('span', 'cl-host', tr('Host')));
+    return box;
+  };
+  $('chessSeats').replaceChildren(seat(room.host, true), h('span', 'cl-vs', 'VS'), seat(room.guest, false));
+  const at = TIMES.findIndex(([, b, i]) => b === room.base && i === room.inc);
+  seg('chessLobbyTime', TIMES.map(([l], i) => [String(i), l] as [string, string]), String(at < 0 ? 0 : at), host ? (v) => { const [, b, i] = TIMES[Number(v)]; send({ type: 'chess_time', id: room.id, base: b, inc: i }); } : null);
+  $('chessLobbyTimeNote').textContent = tr(host ? 'You set the clock.' : 'The host sets the clock.');
+  const ready = room.ready.includes(meId());
+  const rb = $<HTMLButtonElement>('chessReady');
+  rb.textContent = tr(ready ? 'Not ready' : 'Ready');
+  rb.classList.toggle('on', ready);
+  rb.disabled = !room.guest;
+  $('chessLobbyHint').textContent = tr(!room.guest ? 'Send your friend the code - the game starts when you are both ready.' : 'The game starts when you are both ready. Sides are drawn by lot.');
+  chatList($('chessLobbyChat'), room);
+}
 export function onChessRoom(room: ChessRoomView) {
   const fresh = mode.kind !== 'friend' || mode.room.id !== room.id;
+  const prev = mode.kind === 'friend' ? mode.room : null;
   mode = { kind: 'friend', room };
-  if (room.status === 'waiting') {
-    ui.show('chess');
-    showSetup('friend');
-    $('chessWait').hidden = false;
-    $('chessWaitCode').textContent = room.code;
+  // a new chat line from them: a soft tick
+  if (!fresh && room.chat.length > chatSeen && room.chat[room.chat.length - 1].from && room.chat[room.chat.length - 1].from !== meId()) audio.sfx.tick();
+  chatSeen = room.chat.length;
+  if (room.status === 'waiting' || room.status === 'lobby') {
+    if (fresh || prev?.status !== room.status || $('chessLobby').hidden) ui.show('chess');
+    if (prev?.status === 'waiting' && room.status === 'lobby') audio.sfx.yourTurn();
+    drawLobby(room);
     return;
   }
   mine = room.you ?? 'w';
-  if (fresh || $('chessGame').hidden) {
+  if (fresh || $('chessGame').hidden || (room.status === 'playing' && over && room.moves.length === 0)) {
     ui.show('chess');
     begin(room.base, room.inc);
-    audio.sfx.go();
+    audio.sfx.chessStart();
   }
+  chatList($('chessChat'), room);
   // bring the board to the server's moves (ours was played already; theirs comes now)
   const r = replay(room.moves);
   if (!r.ok) { ui.toast(tr('The game got out of step - reloading it')); }
   const had = moves.length;
   pos = r.positions[r.positions.length - 1];
   moves = r.moves; sans = r.moves.map((m, i) => moveSan(r.positions[i], m, true)); history = r.positions.slice(0, -1).map(posKey);
-  if (moves.length > had && moveUci(moves[moves.length - 1]) !== pending) { const m = moves[moves.length - 1]; if (m.captured) audio.sfx.impact(); else audio.sfx.flip(); if (pos.turn === mine) audio.sfx.yourTurn(); }
+  times = room.times.slice(0, moves.length);
+  if (moves.length > had && moveUci(moves[moves.length - 1]) !== pending) { moveSound(moves[moves.length - 1], pos); if (pos.turn === mine && !inCheck(pos)) audio.sfx.yourTurn(); }
   pending = '';
   clocks = { ...room.clocks }; base = room.base; inc = room.inc; turnSince = room.turnSince; clockSkew = room.now - Date.now();
   drawPlayers();
@@ -376,6 +572,68 @@ export function onChessRoom(room: ChessRoomView) {
   if (room.status === 'over' && room.result && !over) finish(room.result.winner, room.result.reason);
   else draw();
 }
-export function onChessError(error: string) { ui.toast(tr(error), 3500); if (mode.kind === 'friend') send({ type: 'chess_sync', id: mode.room.id }); }
+export function onChessError(error: string) {
+  ui.toast(tr(error), 3500);
+  // (round 4) the room is gone (its host left): back to the friend setup
+  if (error === 'The host left the room') { if (mode.kind === 'friend') { const lobby = !$('chessLobby').hidden; mode = { kind: 'bot', bot: pickBot }; if (lobby) showSetup('friend'); } return; }
+  if (mode.kind === 'friend') send({ type: 'chess_sync', id: mode.room.id });
+}
 /** back online: the friend game picks up where it was */
-export function chessReconnected() { if (mode.kind === 'friend' && !over) send({ type: 'chess_sync', id: mode.room.id }); }
+export function chessReconnected() { if (mode.kind === 'friend' && (!over || !$('chessLobby').hidden)) send({ type: 'chess_sync', id: mode.room.id }); }
+
+// ── (round 4) Match history → Chess: your games, each one to watch again ──
+export function showChessHistory(el: HTMLElement, games: ChessGame[] | null) {
+  if (!games) { el.replaceChildren(h('p', 'hint', tr('Loading…'))); return; }
+  if (!games.length) { el.replaceChildren(h('p', 'hint', tr('No chess games yet - play a wizard or a friend on the Games page.'))); return; }
+  el.replaceChildren(...games.map((g) => {
+    const b = h('button', `history-item chess-hist ${g.result}`, undefined, { type: 'button' });
+    const bot = g.vsBot ? BOTS.find((x) => x.id === g.vsBot) : undefined;
+    const pic = h('span', 'ch-pic'); pic.innerHTML = heroSvg(bot?.id ?? 'wizard', 'opp');
+    const mid = h('span', 'ch-mid');
+    mid.append(h('b', '', bot ? `${tr(bot.name)} ${bot.elo}` : g.vs), h('span', 'hint', `${tr(g.color === 'w' ? 'White' : 'Black')} · ${tr(REASON[g.reason] ?? g.reason)} · ${Math.ceil(g.moves.length / 2)} ${tr('moves')} · ${new Date(g.at).toLocaleDateString(lang() === 'ru' ? 'ru-RU' : undefined)}`));
+    b.append(pic, mid, h('span', `ch-res ${g.result}`, tr(g.result === 'win' ? 'Win' : g.result === 'loss' ? 'Loss' : 'Draw')));
+    b.onclick = () => openChessReplay(g);
+    return b;
+  }));
+}
+/** a kept game, move by move: the board, the moves (with their times), and buttons to step or play it through */
+export function openChessReplay(g: ChessGame) {
+  const r = replay(g.moves);
+  const s = r.moves.map((m, i) => moveSan(r.positions[i], m, true));
+  let at = r.moves.length; // the final position first
+  let auto = 0;
+  const d = $<HTMLDialogElement>('chessReplay');
+  const bot = g.vsBot ? BOTS.find((x) => x.id === g.vsBot) : undefined;
+  $('chessReplayTitle').textContent = `${tr('You')} - ${bot ? tr(bot.name) : g.vs}`;
+  $('chessReplayRes').textContent = `${tr(g.result === 'win' ? 'You won!' : g.result === 'loss' ? 'You lost' : 'Draw')} · ${tr(REASON[g.reason] ?? g.reason)}`;
+  $('chessReplayRes').className = `crp-res ${g.result}`;
+  const show = () => {
+    const p = r.positions[at];
+    $('chessReplayBoard').replaceChildren(...boardCells(p, { flipped: g.color === 'b', last: at > 0 ? r.moves[at - 1] : undefined }));
+    const list = $('chessReplayMoves');
+    moveList(list, s, g.times, at - 1, (i) => { stop(); at = i + 1; show(); });
+    list.querySelector('.at')?.scrollIntoView({ block: 'nearest' });
+    $('chessReplayStep').textContent = `${at} / ${r.moves.length}`;
+    const m = material(p);
+    const top = $('chessReplayOpp'), bottom = $('chessReplayMe');
+    drawMaterial(top, g.color === 'w' ? 'b' : 'w', m); drawMaterial(bottom, g.color, m);
+  };
+  const stop = () => { clearInterval(auto); auto = 0; $('chessReplayPlay').textContent = tr('Play'); };
+  const step = (n: number) => { at = Math.max(0, Math.min(r.moves.length, at + n)); show(); if (n !== 0) { const mv = r.moves[at - 1]; if (mv && n === 1) moveSound(mv, r.positions[at]); } };
+  $('chessReplayFirst').onclick = () => { stop(); at = 0; show(); };
+  $('chessReplayPrev').onclick = () => { stop(); step(-1); };
+  $('chessReplayNext').onclick = () => { stop(); step(1); };
+  $('chessReplayLast').onclick = () => { stop(); at = r.moves.length; show(); };
+  $('chessReplayPlay').onclick = () => {
+    if (auto) { stop(); return; }
+    if (at >= r.moves.length) at = 0;
+    $('chessReplayPlay').textContent = tr('Pause');
+    auto = window.setInterval(() => { if (at >= r.moves.length) { stop(); return; } step(1); }, 900);
+  };
+  $('chessReplayClose').onclick = () => { stop(); d.close(); };
+  d.onclose = stop;
+  d.onkeydown = (e) => { if (e.key === 'ArrowLeft') { stop(); step(-1); } else if (e.key === 'ArrowRight') { stop(); step(1); } };
+  show();
+  stop();
+  d.showModal();
+}

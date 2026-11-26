@@ -1,5 +1,6 @@
 import { reportServerError } from './errors';
 import type { ChessHub } from './ChessHub';
+import type { GrammarHub } from './GrammarHub';
 import { CHAT_MAX_LENGTH, LEVELS, MODE_LABEL, MODES, type ClientMessage, type Device, type GameMode, type Level, type PublicUser, type ServerMessage } from '../shared/protocol';
 import type { AuthService } from './auth/AuthService';
 import { AuthError, toSelf } from './auth/AuthService';
@@ -52,6 +53,8 @@ export class SessionHub {
   onDmTyping?: (userId: string, to: string, on: boolean) => void;
   /** 0.9.9.9.9.6: Kanji chess games between friends (index.ts) */
   chess?: ChessHub;
+  /** 0.9.9.9.9.6 (round 4): Grammar Clash */
+  grammar?: GrammarHub;
   /** 0.9.9.9.6.5: an invite or a challenge also goes into your conversation with the friend, as a card with Join */
   onInviteSent?: (fromId: string, friendId: string, mode: GameMode, code: string, challenge: boolean) => void;
   /** Admin → Users: is this player connected right now, and what are they doing? */
@@ -273,7 +276,16 @@ export class Session implements Client {
     if (msg.type === 'dm_typing') { if (typeof msg.to === 'string') this.hub.onDmTyping?.(user.id, msg.to, msg.on === true); return; }
     // 0.9.9.9.9: watch a friend's game — only a friend's, only while you're not playing yourself
     // 0.9.9.9.9.6: Kanji chess with a friend
-    if (msg.type.startsWith('chess_')) { this.hub.chess?.handle({ id: user.id, name: user.name ?? user.username }, msg); return; }
+    if (msg.type.startsWith('chess_')) { void this.hub.chess?.handle({ id: user.id, name: user.name ?? user.username }, msg); return; }
+    // 0.9.9.9.9.6 (round 4): Grammar Clash — joining a room or the queue takes your character and staff along (the avatars)
+    if (msg.type.startsWith('clash_')) {
+      const kind: string = msg.type;
+      void (async () => {
+        const look = ['clash_new', 'clash_join', 'clash_queue'].includes(kind) ? await this.profile().catch(() => null) : null;
+        await this.hub.grammar?.handle({ id: user.id, name: user.name ?? user.username, avatar: look?.character ?? 'wizard', staff: look?.staff ?? 'verdant', guest: !!user.guest }, msg);
+      })();
+      return;
+    }
     if (msg.type === 'unwatch') return this.stopWatching();
     if (msg.type === 'watch') {
       const friendId = String(msg.userId ?? '');
@@ -446,6 +458,7 @@ export class Session implements Client {
     clearInterval(this.pingTimer);
     if (this.user) this.matchmaker?.cancel(this.user.id, false);
     if (this.user && this.room) this.room.disconnect(this.user.id, this);
+    if (this.user) this.hub.grammar?.disconnect(this.user.id); // (0.9.9.9.9.6 round 4: out of the Grammar Clash queue)
     this.stopWatching(false); // (0.9.9.9.9)
     if (this.user) this.hub.release(this.user.id, this);
   }

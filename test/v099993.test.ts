@@ -16,7 +16,7 @@ test('0.9.9.9.9.3 version, patch notes, Russian for the navigation', () => {
 
 test('0.9.9.9.9.3 the navigation: on the pages you browse, not the menu, games or lessons; every listener of a screen change is called', () => {
   const nav = src('src/client/nav.ts');
-  assert.match(nav, /export const NAV_SCREENS = new Set\(\['games', 'queue', 'private', 'modes', 'kana', 'progress', 'daily', 'friends', 'history', 'dict', 'study', 'inbox', 'quizzes', 'customize', 'admin'\]\);/);
+  assert.match(nav, /export const NAV_SCREENS = new Set\(\['games', 'queue', 'private', 'modes', 'kana', 'progress', 'daily', 'friends', 'history', 'dict', 'study', 'inbox', 'quizzes', 'customize', 'admin', 'grammar'\]\);/); // (0.9.9.9.9.6 round 4: and Grammar)
   for (const s of ['menu', 'battle', 'deck', 'prep', 'review', 'quiz', 'passage', 'kanaplay', 'results', 'lobby', 'auth']) assert.ok(!new RegExp(`'${s}'`).test(nav.slice(nav.indexOf('NAV_SCREENS'), nav.indexOf('NAV_SCREENS') + 300)), `${s}: no nav`);
   assert.match(nav, /leaveCurrent\(!!it\.btn\);\n\s+if \(it\.btn\) document\.getElementById\(it\.btn\)\?\.click\(\);/, 'a tab leaves the page as its own back button does');
   const ui = src('src/client/ui.ts');

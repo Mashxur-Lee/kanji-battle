@@ -5,7 +5,8 @@
 // like the other decks (its counts, Study, Words, Import, Rename, Delete), four at most; the words someone had in
 // Custom spells became a deck "My words".
 import { api } from './api';
-import { tr } from './i18n';
+import { lang, tr } from './i18n';
+import { guessTermSep, parseCards, type CardSep, type TermSep } from '../shared/importlist';
 import * as ui from './ui';
 import { deckIndexExtras, forgetDeckIndex, openDictionary } from './dictui';
 import { openUserDeck } from './decks';
@@ -117,44 +118,150 @@ async function deleteDeck(d: UserDeckView) {
   try { await api.userDeckDelete(d.id); forgetDeckIndex(); await renderUserDecks(); changed(); } catch (e) { ui.toast((e as Error).message); }
 }
 
-/** import words: paste them (one a line), or pick a file — Anki .apkg, or a text / CSV export (Quizlet, Anki) */
+/**
+ * import words (0.9.9.9.9.6 round 4: the way Quizlet does it): paste your data, say what separates a term from its
+ * definition and one card from the next, and see every card before it goes in — the reading and meaning filled in
+ * from the game or the dictionary, a guessed reading marked, each one editable; nothing is skipped without your
+ * seeing it. Or pick a file: an Anki deck (.apkg) goes straight in, a text / CSV export lands in the box.
+ */
 async function importInto(deck: UserDeckView) {
-  const { body } = sheet(`${tr('Import into')} “${deck.name}”`);
-  const how = h('p', 'hint', 'One word a line: the word, then its reading and meaning (separated by a tab, ; or ,). Or pick a file: an Anki deck (.apkg from AnkiDroid or Anki - export it without media), or a text / CSV export from Quizlet or Anki.');
-  const area = h('textarea', 'ud-area', undefined, { rows: '7', placeholder: '先生\tせんせい\tteacher\n勉強; べんきょう; study\n猫 ねこ cat', lang: 'ja' }) as HTMLTextAreaElement;
+  const { d, body, close } = sheet(`${tr('Import into')} “${deck.name}”`);
+  d.classList.add('ud-import');
+  const intro = h('p', 'hint', 'Copy and paste your data here (from Quizlet, Anki, Word, Excel, Google Docs…). A definition may start with the reading: 猫 → ねこ - cat.');
+  const area = h('textarea', 'ud-area', undefined, { rows: '6', placeholder: '先生\tせんせい - teacher\n勉強\tstudy\n猫[ねこ]\tcat', lang: 'ja', spellcheck: 'false' }) as HTMLTextAreaElement;
+  // the separators
+  let termSep: TermSep = 'tab', cardSep: CardSep = 'newline';
+  const group = (title: string, name: string, opts: Array<[string, string]>, on: string, set: (v: string, custom: string) => void) => {
+    const box = h('fieldset', 'ud-sep');
+    box.append(h('legend', '', title));
+    const custom = h('input', 'ud-custom', undefined, { type: 'text', maxlength: '8', placeholder: tr('Custom') }) as HTMLInputElement;
+    for (const [v, label] of opts) {
+      const l = h('label', 'ud-radio');
+      const r = h('input', '', undefined, { type: 'radio', name, value: v }) as HTMLInputElement;
+      r.checked = v === on;
+      r.onchange = () => { set(v, custom.value); refresh(); };
+      l.append(r, h('span', '', label));
+      box.append(l);
+    }
+    const l = h('label', 'ud-radio');
+    const r = h('input', '', undefined, { type: 'radio', name, value: 'custom' }) as HTMLInputElement;
+    r.onchange = () => { set('custom', custom.value); refresh(); };
+    custom.oninput = () => { r.checked = true; set('custom', custom.value); refresh(); };
+    l.append(r, custom);
+    box.append(l);
+    return box;
+  };
+  const seps = h('div', 'ud-seps');
+  seps.append(
+    group(tr('Between term and definition'), 'udTerm', [['tab', tr('Tab')], ['comma', tr('Comma')], ['dash', tr('Dash ( - )')]], 'tab', (v, c) => { termSep = v === 'custom' ? { custom: c } : v as TermSep; }),
+    group(tr('Between cards'), 'udCard', [['newline', tr('New line')], ['semicolon', tr('Semicolon')], ['blank', tr('Empty line')]], 'newline', (v, c) => { cardSep = v === 'custom' ? { custom: c } : v as CardSep; }),
+  );
+  const head = h('div', 'ud-prevhead');
+  const count = h('b');
+  const note = h('span', 'hint');
+  head.append(h('h4', '', tr('Preview')), count, note);
+  const list = h('div', 'ud-prev');
+  const out = h('div', 'ud-out');
   const file = h('input', '', undefined, { type: 'file', accept: '.apkg,.colpkg,.txt,.csv,.tsv' }) as HTMLInputElement;
   const pick = h('button', 'pill', 'Choose a file…', { type: 'button' }); pick.onclick = () => file.click();
-  const go = h('button', 'big', 'Add', { type: 'button' }) as HTMLButtonElement;
-  const out = h('div', 'ud-out');
-  const done = async (p: Promise<{ added: number; skipped: Array<{ line: number; word: string; why: string }> }>) => {
+  const cancel = h('button', 'pill', 'Cancel', { type: 'button' }); cancel.onclick = close;
+  const go = h('button', 'big', 'Import', { type: 'button' }) as HTMLButtonElement;
+  type Card = { kanji: string; reading: string; meaning: string; from: 'game' | 'dict' | 'guess' | 'none' };
+  let cards: Card[] = [];
+  let ask = 0, timer = 0;
+  const ready = (c: Card) => !!c.kanji && /^[぀-ゟ゠-ヿー]+$/.test(c.reading) && !!c.meaning.trim();
+  const KANA_ONLY = /^[぀-ゟ゠-ヿー]+$/;
+  const draw = () => {
+    const n = cards.length, ok = cards.filter(ready).length;
+    count.textContent = tr(`${n} ${n === 1 ? 'card' : 'cards'}`);
+    note.textContent = n && ok < n ? tr(`${n - ok} need a reading or a meaning - type it in, or they are left out`) : '';
+    go.textContent = ok ? tr(`Import ${ok}`) : tr('Import');
+    go.disabled = !ok;
+    if (!n) { list.replaceChildren(h('p', 'hint', tr('Nothing to preview yet.'))); return; }
+    list.replaceChildren(...cards.slice(0, 300).map((c, i) => {
+      const row = h('div', `ud-card${ready(c) ? '' : ' bad'}`);
+      const field = (k: 'kanji' | 'reading' | 'meaning', ph: string, lang?: string) => {
+        const x = h('input', `ud-f ud-${k}`, undefined, { type: 'text', placeholder: tr(ph), ...(lang ? { lang } : {}) }) as HTMLInputElement;
+        x.value = c[k];
+        x.oninput = () => { c[k] = x.value.trim(); if (k === 'reading' && c.from === 'guess') c.from = 'none'; row.classList.toggle('bad', !ready(c)); tag(); draw2(); };
+        return x;
+      };
+      const chip = h('span', 'ud-from');
+      const tag = () => {
+        const [cls, label] = !c.reading ? ['need', 'Needs a reading'] : !KANA_ONLY.test(c.reading) ? ['need', 'Reading in kana'] : !c.meaning ? ['need', 'Needs a meaning']
+          : c.from === 'game' ? ['game', 'In the game'] : c.from === 'dict' ? ['dict', 'From the dictionary'] : c.from === 'guess' ? ['guess', 'Reading guessed - check it'] : ['own', 'Your own word'];
+        chip.className = `ud-from ${cls}`; chip.textContent = tr(label);
+      };
+      tag();
+      const x = h('button', 'ud-x', '✕', { type: 'button', 'aria-label': tr('Remove') });
+      x.onclick = () => { cards.splice(i, 1); draw(); };
+      row.append(h('span', 'ud-n', String(i + 1)), field('kanji', 'Word', 'ja'), field('reading', 'Reading (kana)', 'ja'), field('meaning', 'Meaning'), chip, x);
+      return row;
+    }), ...(cards.length > 300 ? [h('p', 'hint', tr(`…and ${cards.length - 300} more`))] : []));
+  };
+  // (typing in a field: the counts change, the rows stay as they are)
+  const draw2 = () => { const n = cards.length, ok = cards.filter(ready).length; note.textContent = n && ok < n ? tr(`${n - ok} need a reading or a meaning - type it in, or they are left out`) : ''; go.textContent = ok ? tr(`Import ${ok}`) : tr('Import'); go.disabled = !ok; };
+  const refresh = () => {
+    clearTimeout(timer);
+    timer = window.setTimeout(async () => {
+      const raw = parseCards(area.value.slice(0, 400_000), termSep, cardSep);
+      const me = ++ask;
+      cards = raw.map((c) => ({ ...c, from: 'none' as const }));
+      draw();
+      if (!raw.length) return;
+      list.classList.add('loading');
+      try { const r = await api.userDeckPreview(raw, lang()); if (me === ask) { cards = r.cards; draw(); } }
+      catch { /* offline: the cards as they are */ }
+      if (me === ask) list.classList.remove('loading');
+    }, 350);
+  };
+  area.oninput = () => {
+    // the first paste: the separator, at a guess
+    if (!area.dataset.seen && area.value.trim()) {
+      area.dataset.seen = '1';
+      termSep = guessTermSep(area.value);
+      const v = typeof termSep === 'string' ? termSep : 'custom';
+      const r = d.querySelector<HTMLInputElement>(`input[name="udTerm"][value="${v}"]`); if (r) r.checked = true;
+    }
+    refresh();
+  };
+  go.onclick = async () => {
+    const rows = cards.filter(ready).map(({ kanji, reading, meaning }) => ({ kanji, reading, meaning }));
+    if (!rows.length) return;
     go.disabled = true; out.textContent = tr('Adding…');
+    await report(api.userDeckAddPreview(deck.id, rows));
+  };
+  const report = async (p: Promise<{ added: number; skipped: Array<{ line: number; word: string; why: string }> }>) => {
     try {
       const r = await p;
       const b = h('b'); b.textContent = tr(`${r.added} ${r.added === 1 ? 'word added' : 'words added'}`); out.replaceChildren(b);
       if (r.skipped.length) {
         const ul = h('ul', 'ud-skip');
-        for (const s of r.skipped.slice(0, 12)) { const li = h('li'); li.textContent = `${s.line}. ${s.word} - ${tr(s.why)}`; ul.append(li); }
-        const note = h('p', 'hint'); note.textContent = tr(`${r.skipped.length} skipped:`); out.append(note, ul);
-      }
-      area.value = '';
+        for (const s of r.skipped.slice(0, 12)) { const li = h('li'); li.textContent = `${s.word} - ${tr(s.why)}`; ul.append(li); }
+        const n = h('p', 'hint'); n.textContent = tr(`${r.skipped.length} skipped:`); out.append(n, ul);
+      } else { area.value = ''; cards = []; draw(); }
       forgetDeckIndex(); await renderUserDecks(); changed();
     } catch (e) { out.textContent = (e as Error).message; }
-    go.disabled = false;
+    draw2();
   };
-  go.onclick = () => { if (area.value.trim()) void done(api.userDeckAdd(deck.id, area.value)); else area.focus(); };
   file.onchange = async () => {
     const f = file.files?.[0];
     file.value = '';
     if (!f) return;
     if (f.size > 20 * 1024 * 1024) { out.textContent = tr('The deck file is too big (20 MB) - export it without media'); return; }
     if (/\.(apkg|colpkg)$/i.test(f.name)) {
+      out.textContent = tr('Adding…');
       const b64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).replace(/^data:[^,]*,/, '')); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
-      void done(api.userDeckImport(deck.id, b64));
+      void report(api.userDeckImport(deck.id, b64));
     } else {
       area.value = (await f.text()).slice(0, 400_000);
-      void done(api.userDeckAdd(deck.id, area.value));
+      area.dataset.seen = '';
+      area.oninput?.(new Event('input'));
     }
   };
-  const row = h('div', 'ud-row'); row.append(pick, go);
-  body.append(how, area, row, out);
+  const foot = h('div', 'ud-row ud-foot'); foot.append(pick, h('span', 'ud-gap'), cancel, go);
+  body.append(intro, area, seps, head, list, out);
+  d.append(foot); // (below the scrolling part: always in reach, never over a card)
+  draw();
+  setTimeout(() => area.focus(), 40);
 }

@@ -90,3 +90,20 @@ export function speak(kana: string): Promise<void> {
     synth.speak(u);
   });
 }
+
+/** 0.9.9.9.9.6 (round 4): a chess wizard says its line in its own voice (its rate and pitch); kana, so the reading is right */
+export function speakAs(kana: string, rate: number, pitch: number) {
+  if (!prefs.on || prefs.vol <= 0 || document.visibilityState !== 'visible') return;
+  if (android) { try { if (android.canSpeak()) android.speak(kana, rate, pitch); } catch { /* no voice */ } return; }
+  if (!synth) return;
+  if (!voice) pick();
+  if (!voice && !synth.getVoices().length) return;
+  const u = new SpeechSynthesisUtterance(kana);
+  u.lang = 'ja-JP';
+  if (voice) u.voice = voice;
+  u.rate = rate;
+  u.pitch = Math.max(0, Math.min(2, pitch * (male ? 1 : 0.85)));
+  u.volume = prefs.vol;
+  synth.cancel();
+  synth.speak(u);
+}

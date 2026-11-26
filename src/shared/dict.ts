@@ -234,6 +234,32 @@ export class Dictionary {
 
   // ── 0.9.9.9.9.6: synonyms, antonyms and related words ───────────────────────────────────────────────────────────
   /** a word by its spelling (kanji first, then kana) — JMdict's links name words that way; the common one first */
+  private shortK: Map<string, string> | null = null;
+  private byK: Map<string, number> | null = null;
+  private byR: Map<string, number> | null = null;
+  /**
+   * 0.9.9.9.9.6 (round 4): a word by its exact spelling (else its reading) — the common entry and the game's own
+   * first. Indexed once, so an import of hundreds of words is quick (byText reads the whole dictionary each time).
+   */
+  lookup(t: string): DictEntry | null {
+    if (!this.byK || !this.byR) {
+      const k = new Map<string, number>(), r = new Map<string, number>();
+      const score = (i: number) => (this.words[i].c ? 5 : 0) + (this.mineOf(this.words[i]) ? 3 : 0);
+      for (let i = 0; i < this.words.length; i++) {
+        const w = this.words[i];
+        for (const [map, list] of [[k, w.k], [r, w.r]] as const) for (const s of list) { const at = map.get(s); if (at === undefined || score(i) > score(at)) map.set(s, i); }
+      }
+      this.byK = k; this.byR = r;
+      // one kanji's shortest reading (in a compound it is mostly the Chinese one: 電 でん, 脳 のう)
+      const sh = new Map<string, string>();
+      for (const w of this.words) for (const s of w.k) if ([...s].length === 1 && HAN.test(s)) for (const rd of w.r) { const at = sh.get(s); if (!at || rd.length < at.length) sh.set(s, rd); }
+      this.shortK = sh;
+    }
+    const i = this.byK.get(t) ?? this.byR.get(t);
+    return i === undefined ? null : this.entry(i);
+  }
+  /** 0.9.9.9.9.6 (round 4): a kanji's reading inside a compound, for a guess (its shortest) */
+  kanjiReading(ch: string): string | null { if (!this.shortK) this.lookup(''); return this.shortK!.get(ch) ?? null; }
   byText(t: string): DictEntry | null {
     let best = -1, bestScore = -1;
     for (let i = 0; i < this.words.length; i++) {

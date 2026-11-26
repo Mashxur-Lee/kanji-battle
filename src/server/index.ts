@@ -39,6 +39,7 @@ import { createMailer, type Mailer } from './mail';
 import type { ResetMail } from './auth/AuthService';
 import { DictService } from './study/DictService';
 import { RankedService } from './study/RankedService';
+import { GrammarHub } from './GrammarHub';
 
 const PUBLIC_DIR = path.resolve(__dirname, '../../public');
 // 0.9.9.9.8: the page and the stylesheet as they are sent (no comments; scripts/build-client.mjs) — when they are at
@@ -68,7 +69,19 @@ const tokens = new TokenSigner();
 const auth = new AuthService(store, tokens);
 const study = new StudyService(store);
 const hub = new SessionHub((userId, at) => { void store.update(userId, { lastSeen: at }).catch(() => { /* not important */ }); });
-hub.chess = new ChessHub((id, m) => { hub.sendTo(id, m); }); // 0.9.9.9.9.6: Kanji chess with friends
+// 0.9.9.9.9.6: Kanji chess with friends (round 4: challenges from a profile, the games kept in match history)
+hub.chess = new ChessHub((id, m) => { hub.sendTo(id, m); }, Date.now, Math.random, {
+  invite: (friendId, from, code) => hub.sendTo(friendId, { type: 'chess_invite', from, code }),
+  mayInvite: async (fromId, toId) => (await social.list(fromId)).some((f) => f.id === toId && f.status === 'accepted'),
+  record: (userId, game) => { void study.addChessGame(userId, game).catch(() => { /* not important */ }); },
+});
+// 0.9.9.9.9.6 (round 4): Grammar Clash, the grammar quiz for 2–8 (ranked through the ladder; the ranked service is made below)
+const grammarHub = new GrammarHub((id, m) => { hub.sendTo(id, m); }, Date.now, Math.random, undefined, {
+  settle: (order) => ranked.settleField(order),
+  invite: (friendId, from, code) => hub.sendTo(friendId, { type: 'clash_invite', from, code }),
+});
+hub.grammar = grammarHub;
+setInterval(() => grammarHub.sweep(), 10 * 60_000).unref();
 // 0.9.9.9.7.1: the Daily challenge's words from a secret (the code is public: without it anyone can work out any
 // day's ten words). At least 16 characters; set it once and keep it (see docs/SETUP.md).
 const DAILY_SECRET = (process.env.DAILY_SECRET ?? '').trim();
