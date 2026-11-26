@@ -147,7 +147,7 @@ export function initNav() {
     nav.hidden = !on;
     document.body.classList.toggle('has-nav', on);
     // (0.9.9.9.9.5: the pages — and the private room — are drawn at the size chosen in Settings, not smaller)
-    const page = on || s === 'lobby' || s === 'results'; // (0.9.9.9.9.5: and the results)
+    const page = on || s === 'lobby' || s === 'results' || s === 'chess'; // (0.9.9.9.9.5: and the results; 0.9.9.9.9.6: Kanji chess)
     if (document.body.classList.contains('page-zoom') !== page) { document.body.classList.toggle('page-zoom', page); applyUiZoom(); }
     setMore(false);
     // (0.9.9.9.9.6: the menu and the results are steps too; a battle or a lobby isn't one to go back to — it starts over)

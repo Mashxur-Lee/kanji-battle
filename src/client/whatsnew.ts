@@ -27,6 +27,8 @@ const PATCHES: Patch[] = [
       'GIFs: a reply quotes them, they take reactions and forward as GIFs, notifications say GIF instead of a long address, and they show a soft placeholder while loading.',
       'Progress: Onomatopoeia in What you know; the level tabs without their counts.',
       'Fixed: CAST! in Kanji Writing swinging a sword; the phone\'s back button in a chat leaving Messages; starting the Android app offline after an update showing \'Webpage not available\'; a slow connection called a sleeping server.',
+      'Kanji chess (Games): chess where every piece is its kanji - 王 king, 后 queen, 城 rook, 僧 bishop, 馬 knight, 兵 pawn. Play the four wizards - the Goblin (200), the Knight (400), the Witch (800) and the Wizard (1600) - who sit beside the board and comment on your moves in Japanese, with furigana over every kanji (tap one for its meaning) and the translation under it. Or play a friend with a 4-letter code, with clocks from 3 + 2 to 15 + 10.',
+      'Buttons look richer: depth, a soft top light, a glow on hover and a press when tapped. Quizzes and Private game show just their seal by the title.',
     ],
     ru: [
       'Свои колоды в «Изучении заклинаний»: создайте, назовите и наполните — введите или вставьте список, импортируйте текстовый экспорт Quizlet / Anki или файл колоды Anki (.apkg) прямо из AnkiDroid. Каждая колода изучается отдельно, с тем же интервальным повторением.',
@@ -47,6 +49,8 @@ const PATCHES: Patch[] = [
       'GIF: на них можно ответить, поставить реакцию и переслать как GIF; уведомления пишут «GIF», а не длинный адрес; пока загружаются — мягкая заглушка.',
       'Прогресс: ономатопея в «Что вы знаете»; вкладки уровней без чисел.',
       'Исправлено: «CAST!» в Написании кандзи взмахивал мечом; кнопка «назад» телефона в чате выходила из сообщений; запуск приложения Android без интернета после обновления показывал «Webpage not available»; медленное соединение называлось спящим сервером.',
+      'Шахматы кандзи («Игры»): шахматы, где каждая фигура — свой кандзи: 王 король, 后 ферзь, 城 ладья, 僧 слон, 馬 конь, 兵 пешка. Играйте с четырьмя волшебниками — Гоблином (200), Рыцарем (400), Ведьмой (800) и Волшебником (1600): они сидят у доски и комментируют ваши ходы по-японски, с фуриганой над каждым кандзи (нажмите — увидите значение) и переводом снизу. Или играйте с другом по коду из 4 букв, с часами от 3 + 2 до 15 + 10.',
+      'Кнопки выглядят богаче: объём, мягкий свет сверху, свечение при наведении и нажатие. В «Тестах» и «Приватной игре» у заголовка только их печать.',
     ],
   },
   {

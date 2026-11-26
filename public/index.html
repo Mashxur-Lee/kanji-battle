@@ -561,8 +561,48 @@
     <div class="games-grid">
       <button class="game-tile gt-online" type="button" data-go="queueBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">戦</span><b>Online battle</b><span>Reading, Writing, Rapid, Boss and Deck Duel against players - Rapid and Deck Duel are ranked</span><span id="gamesOnline" class="online-pill" hidden></span></button>
       <button class="game-tile gt-private" type="button" data-go="privateBtn"><span class="gt-glyph" lang="ja" aria-hidden="true">友</span><b>Private game</b><span>Play friends with a room code, or bots - bots work offline too</span></button>
-      <div class="game-tile gt-soon" aria-disabled="true"><span class="gt-glyph" lang="ja" aria-hidden="true">将</span><b>Kanji chess</b><span>Chess where every piece is its kanji - 馬 the knight, 王 the king</span><i class="gt-badge">Coming soon</i></div>
+      <button class="game-tile gt-chess" type="button" data-go="chessOpen"><span class="gt-glyph" lang="ja" aria-hidden="true">将</span><b>Kanji chess</b><span>Chess where every piece is its kanji - 馬 the knight, 王 the king. Four wizards to beat, or a friend</span><i class="gt-badge gt-new">New</i></button>
       <div class="game-tile gt-soon" aria-disabled="true"><span class="gt-glyph" lang="ja" aria-hidden="true">歌</span><b>Song lyrics</b><span>A Japanese song plays - type its missing lyrics in time</span><i class="gt-badge">Coming soon</i></div>
+    </div>
+  </section>
+
+  <!-- 0.9.9.9.9.6: KANJI CHESS — the bot wizards (or a friend), every piece its kanji -->
+  <section id="chess" class="screen chess-screen" hidden>
+    <button id="chessBack" class="back" type="button">← Games</button>
+    <div id="chessSetup" class="chess-setup">
+      <header class="chess-head"><span class="chess-seal" lang="ja" aria-hidden="true">将</span><div><h2>Kanji chess</h2><p class="sub">Chess where every piece is its kanji. Tap one to learn it.</p></div></header>
+      <div id="chessLegend" class="chess-legend"></div>
+      <div id="chessTabs" class="word-tabs chess-tabs" role="tablist"><button type="button" class="word-tab" role="tab" data-tab="bot" aria-selected="true">Play a wizard</button><button type="button" class="word-tab" role="tab" data-tab="friend" aria-selected="false">Play a friend</button></div>
+      <div id="chessBotSetup" class="chess-panel">
+        <div id="chessBots" class="chess-bots"></div>
+        <div class="chess-row"><span class="chess-lbl">Your side</span><div id="chessColor" class="chess-seg"></div></div>
+        <div class="chess-row"><span class="chess-lbl">Clock</span><div id="chessTime" class="chess-seg"></div></div>
+        <button id="chessStart" class="big chess-go" type="button">Play</button>
+      </div>
+      <div id="chessFriendSetup" class="chess-panel" hidden>
+        <div class="chess-row"><span class="chess-lbl">Clock</span><div id="chessFriendTime" class="chess-seg"></div></div>
+        <div class="chess-friend">
+          <div class="cf-box"><h3>Start a game</h3><p class="hint">You get a 4-letter code - your friend types it in. Sides are drawn by lot.</p><button id="chessCreate" class="big" type="button">Create a game</button>
+            <div id="chessWait" class="chess-wait" hidden><span class="hint">Your code</span><b id="chessWaitCode" class="chess-code"></b><span class="hint">Waiting for your friend…</span></div></div>
+          <div class="cf-box"><h3>Join a friend</h3><p class="hint">Got a code? Type it here.</p><div class="cf-join"><input id="chessCode" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="chessJoin" class="big" type="button">Join</button></div></div>
+        </div>
+      </div>
+    </div>
+    <div id="chessGame" class="chess-game" hidden>
+      <div class="chess-side">
+        <div id="chessOpp" class="chess-player opp"><span class="cp-pic"></span><span class="cp-name"></span><span id="chessOppClock" class="cp-clock" hidden></span></div>
+        <div id="chessBubble" class="chess-bubble" hidden aria-live="polite"></div>
+        <button id="chessDrawNote" class="pill chess-drawnote" type="button" hidden>They offer a draw - accept</button>
+      </div>
+      <div class="chess-center">
+        <div class="chess-boardwrap"><div id="chessBoard" class="chess-board" role="grid" aria-label="Chess board"></div><div id="chessPromo" class="chess-promo" hidden></div>
+          <div id="chessOver" class="chess-over" hidden><b id="chessOverTitle"></b><span id="chessOverWhy"></span><div class="chess-over-btns"><button id="chessAgain" class="big" type="button">Play again</button><button id="chessToSetup" class="pill" type="button">Change the game</button></div></div></div>
+        <div id="chessMe" class="chess-player me"><span class="cp-name"></span><span id="chessTurn" class="cp-turn"></span><span id="chessMeClock" class="cp-clock" hidden></span></div>
+      </div>
+      <div class="chess-moves-box">
+        <ol id="chessMoves" class="chess-moves"></ol>
+        <div class="chess-actions"><button id="chessUndo" class="pill" type="button">Take back</button><button id="chessDraw" class="pill" type="button" hidden>Offer a draw</button><button id="chessFlip" class="pill" type="button">Flip the board</button><button id="chessResign" class="pill chess-resign" type="button">Resign</button></div>
+      </div>
     </div>
   </section>
 
